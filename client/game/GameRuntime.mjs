@@ -6,6 +6,7 @@ import { WorldRenderer } from './WorldRenderer.mjs';
 import { RemotePlayers } from './RemotePlayers.mjs';
 import { WeaponView } from './WeaponView.mjs';
 import { Effects } from './Effects.mjs';
+import { localCombatFeedback } from './combatFeedback.mjs';
 
 export class GameRuntime {
   constructor(container, socket, hud) {
@@ -111,6 +112,11 @@ export class GameRuntime {
   onEvents(events) {
     for (const event of events) {
       this.remotePlayers.onEvent(event);
+      const combatFeedback = localCombatFeedback(event, this.socket.playerId);
+      if (combatFeedback === 'block') this.effects.block();
+      if (combatFeedback === 'parry') this.effects.parry();
+      if (combatFeedback === 'guardBreak') this.effects.guardBreak();
+
       if (event.type === 'swordWorldImpact') {
         if (event.playerId === this.socket.playerId) {
           this.weapon.wallImpact();
@@ -122,11 +128,7 @@ export class GameRuntime {
       if (event.type === 'swordHit') {
         if (event.playerId === this.socket.playerId) { this.hud.hit('hit'); this.effects.swordHit(event.strikeIndex); }
       }
-      if (event.type === 'block') {
-        if (event.attackerId === this.socket.playerId || event.defenderId === this.socket.playerId) this.effects.block();
-      }
       if (event.type === 'parry') {
-        this.effects.parry();
         if (event.defenderId === this.socket.playerId) { this.weapon.parry(); this.hud.flashText('PARRY', 'parry'); this.hud.hit('parry'); }
         if (event.attackerId === this.socket.playerId) this.weapon.parry();
       }
