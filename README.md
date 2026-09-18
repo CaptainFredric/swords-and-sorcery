@@ -80,7 +80,7 @@ scripts/                 Dependency-free development checks
 
 ## Requirements
 
-- Node.js 20 or newer
+- Node.js 22 or newer
 - A modern desktop browser with WebGL and Pointer Lock support
 - Internet access in the browser for the current Three.js CDN import
 
@@ -157,7 +157,7 @@ Recommended host settings:
 
 - Start command: `npm start`
 - Health endpoint: `/health`
-- Runtime: Node 20+
+- Runtime: Node 22+
 - Exposed port: use the platform-provided `PORT`
 - Persistent WebSockets must be supported
 
