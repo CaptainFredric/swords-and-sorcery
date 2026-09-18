@@ -125,8 +125,10 @@ export class WeaponView {
     if (guard) this.attackHeld = false;
   }
 
-  cast() {
-    this.castUntil = performance.now() / 1000 + 0.36;
+  cast(durationSec = 0.36) {
+    const duration = Number.isFinite(durationSec) ? Math.max(0, durationSec) : 0.36;
+    if (duration <= 0) return;
+    this.castUntil = performance.now() / 1000 + duration;
     this.guard = false;
     this.attackHeld = false;
   }
