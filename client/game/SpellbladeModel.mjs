@@ -140,6 +140,7 @@ export function createSpellbladeRig(index = 0) {
     magic,
     magicHalo,
     accentMaterial: materials.accent,
+    castPoseStartAt: -Infinity,
     castPoseUntil: 0,
     lastFireballReadyAt: null,
     lastAlive: true,

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { createSpellbladeRig } from './SpellbladeModel.mjs';
-import { attackMotion, resolveSpellbladeState } from './spellbladePose.mjs';
+import { attackMotion, bufferedServerTime, castPoseWindowFromEvent, resolveSpellbladeState } from './spellbladePose.mjs';
 
 function damp(value, target, amount) {
   return value + (target - value) * amount;
@@ -10,6 +10,14 @@ function dampEuler(object, x, y, z, amount = 0.22) {
   object.rotation.x = damp(object.rotation.x, x, amount);
   object.rotation.y = damp(object.rotation.y, y, amount);
   object.rotation.z = damp(object.rotation.z, z, amount);
+}
+
+function applyCastWindow(rig, window) {
+  if (!window) return;
+  const d = rig.userData;
+  if (window.endAt < (d.castPoseUntil ?? 0)) return;
+  d.castPoseStartAt = window.startAt;
+  d.castPoseUntil = window.endAt;
 }
 
 function animateRig(rig, state, player, serverNow, localTime) {
@@ -159,10 +167,26 @@ export class RemotePlayers {
     this.localId = localId;
     this.rigs = new Map();
     this.samples = new Map();
+    this.pendingCasts = new Map();
     this.nextRigIndex = 0;
   }
 
   setLocalId(id) { this.localId = id; }
+
+  onEvent(event) {
+    if (event?.type !== 'fireballCast' || event.playerId === this.localId) return;
+    const window = castPoseWindowFromEvent(event);
+    if (!window) return;
+
+    const rig = this.rigs.get(event.playerId);
+    if (rig) {
+      applyCastWindow(rig, window);
+      return;
+    }
+
+    const pending = this.pendingCasts.get(event.playerId);
+    if (!pending || window.endAt >= pending.endAt) this.pendingCasts.set(event.playerId, window);
+  }
 
   pushSnapshot(snapshot, receivedAtMs) {
     const seen = new Set();
@@ -171,23 +195,21 @@ export class RemotePlayers {
       seen.add(player.id);
       if (!this.rigs.has(player.id)) {
         const rig = createSpellbladeRig(this.nextRigIndex++);
-        rig.userData.lastFireballReadyAt = player.fireballReadyAt ?? 0;
         rig.userData.lastAlive = player.alive;
+        applyCastWindow(rig, this.pendingCasts.get(player.id));
+        this.pendingCasts.delete(player.id);
         this.rigs.set(player.id, rig);
         this.scene.add(rig);
       }
 
       const rig = this.rigs.get(player.id);
       const d = rig.userData;
-      const readyAt = player.fireballReadyAt ?? 0;
-      if (d.lastFireballReadyAt !== null && readyAt > d.lastFireballReadyAt + 0.5) {
-        d.castPoseUntil = snapshot.serverTime + 0.36;
-      }
-      d.lastFireballReadyAt = readyAt;
 
       if (d.lastAlive && !player.alive) d.deathStartedAt = receivedAtMs;
       if (!d.lastAlive && player.alive) {
         d.deathStartedAt = null;
+        d.castPoseStartAt = -Infinity;
+        d.castPoseUntil = 0;
         d.visual.position.y = 0;
         d.visual.rotation.set(0, 0, 0);
       }
@@ -205,6 +227,10 @@ export class RemotePlayers {
         this.rigs.delete(id);
         this.samples.delete(id);
       }
+    }
+
+    for (const [id, window] of this.pendingCasts) {
+      if (!seen.has(id) && snapshot.serverTime > window.endAt + 1) this.pendingCasts.delete(id);
     }
   }
 
@@ -237,9 +263,8 @@ export class RemotePlayers {
       const yawDelta = Math.atan2(Math.sin(pb.yaw - pa.yaw), Math.cos(pb.yaw - pa.yaw));
       rig.rotation.y = pa.yaw + yawDelta * t;
 
-      const snapshotAge = Math.max(0, Math.min(0.25, (nowMs - b.at) / 1000));
-      const serverNow = b.serverTime + snapshotAge;
-      const state = resolveSpellbladeState(pb, serverNow, rig.userData.castPoseUntil);
+      const serverNow = bufferedServerTime(a, b, renderTime);
+      const state = resolveSpellbladeState(pb, serverNow, rig.userData.castPoseUntil, rig.userData.castPoseStartAt);
 
       if (state === 'dead') {
         if (rig.userData.deathStartedAt === null) rig.userData.deathStartedAt = nowMs;
@@ -259,5 +284,6 @@ export class RemotePlayers {
     for (const rig of this.rigs.values()) this.scene.remove(rig);
     this.rigs.clear();
     this.samples.clear();
+    this.pendingCasts.clear();
   }
 }
