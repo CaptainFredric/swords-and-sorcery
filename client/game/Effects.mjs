@@ -1,4 +1,7 @@
 import * as THREE from 'three';
+import { sampleTrailSegment } from './effectTrail.mjs';
+
+const MAX_TRANSIENTS = 180;
 
 export class Effects {
   constructor(scene, camera) {
@@ -7,6 +10,35 @@ export class Effects {
     this.projectiles = new Map();
     this.transients = [];
     this.audio = null;
+
+    this.emberGeometry = new THREE.BoxGeometry(0.035, 0.035, 0.11);
+    this.emberMaterials = [
+      new THREE.MeshBasicMaterial({ color: 0xffb13b }),
+      new THREE.MeshBasicMaterial({ color: 0xff6328 }),
+    ];
+    this.sparkGeometry = new THREE.BoxGeometry(0.025, 0.025, 0.11);
+    this.dashGeometry = new THREE.PlaneGeometry(0.018, 0.18);
+    this.dashMaterial = new THREE.MeshBasicMaterial({
+      color: 0xb9eaff,
+      transparent: true,
+      opacity: 0.34,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+    this.flashMaterial = new THREE.MeshBasicMaterial({
+      color: 0xffd68a,
+      transparent: true,
+      opacity: 0.65,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+    this.impactRingMaterial = new THREE.MeshBasicMaterial({
+      color: 0xff7a28,
+      transparent: true,
+      opacity: 0.58,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
   }
 
   ensureAudio() {
@@ -24,12 +56,83 @@ export class Effects {
     o.connect(g); g.connect(ctx.destination); o.start(); o.stop(ctx.currentTime + duration);
   }
 
+  #addTransient(mesh, {
+    velocity = new THREE.Vector3(),
+    life = 0.2,
+    expand = 0,
+    shrink = false,
+    gravity = 0,
+    spin = null,
+    parent = this.scene,
+  } = {}) {
+    parent.add(mesh);
+    this.transients.push({ mesh, parent, velocity, life, maxLife: life, expand, shrink, gravity, spin });
+    while (this.transients.length > MAX_TRANSIENTS) {
+      const oldest = this.transients.shift();
+      oldest?.parent?.remove(oldest.mesh);
+    }
+    return mesh;
+  }
+
+  #cameraFlash(color = 0xffd68a, life = 0.1, scale = 1) {
+    const material = this.flashMaterial.clone();
+    material.color.setHex(color);
+    const mesh = new THREE.Mesh(new THREE.OctahedronGeometry(0.055 * scale, 0), material);
+    mesh.position.set(-0.22, -0.18, -0.52);
+    this.#addTransient(mesh, {
+      parent: this.camera,
+      velocity: new THREE.Vector3(0, 0.16, -0.08),
+      life,
+      expand: 3.2,
+      shrink: true,
+      gravity: 0,
+      spin: new THREE.Vector3(5, 7, 3),
+    });
+  }
+
+  #dashStreaks() {
+    for (let i = 0; i < 7; i += 1) {
+      const side = i % 2 === 0 ? -1 : 1;
+      const mesh = new THREE.Mesh(this.dashGeometry, this.dashMaterial);
+      mesh.position.set(side * (0.22 + Math.random() * 0.25), (Math.random() - 0.5) * 0.5, -0.52 - Math.random() * 0.08);
+      mesh.rotation.z = side * (0.08 + Math.random() * 0.28);
+      this.#addTransient(mesh, {
+        parent: this.camera,
+        velocity: new THREE.Vector3(side * 0.9, 0, 0),
+        life: 0.12 + Math.random() * 0.04,
+        shrink: true,
+        gravity: 0,
+      });
+    }
+  }
+
   swordSwing(strike = 0) { this.tone(160 + strike * 25, 0.08, 0.035, 'sawtooth', 95); }
-  swordHit(strike = 0) { this.tone(680 - strike * 80, 0.12 + strike * 0.03, 0.055, 'triangle', 180); }
-  block() { this.tone(980, 0.13, 0.06, 'square', 280); }
-  parry() { this.tone(1550, 0.22, 0.075, 'square', 420); }
-  fireball() { this.tone(180, 0.25, 0.06, 'sawtooth', 70); }
-  dash() { this.tone(420, 0.12, 0.045, 'sine', 880); }
+  swordHit(strike = 0) {
+    this.tone(680 - strike * 80, 0.12 + strike * 0.03, 0.055, 'triangle', 180);
+    this.#cameraFlash(0xffd78f, 0.07, 0.65);
+  }
+  block() {
+    this.tone(980, 0.13, 0.06, 'square', 280);
+    this.#cameraFlash(0xffd38a, 0.09, 0.8);
+  }
+  parry() {
+    this.tone(1550, 0.22, 0.075, 'square', 420);
+    this.tone(760, 0.16, 0.045, 'triangle', 1260);
+    this.#cameraFlash(0xaeefff, 0.12, 1.25);
+  }
+  guardBreak() {
+    this.tone(310, 0.23, 0.08, 'square', 85);
+    this.#cameraFlash(0xff744d, 0.14, 1.15);
+  }
+  fireball() {
+    this.tone(180, 0.25, 0.06, 'sawtooth', 70);
+    this.tone(520, 0.09, 0.035, 'triangle', 260);
+    this.#cameraFlash(0xff8a2b, 0.11, 0.9);
+  }
+  dash() {
+    this.tone(420, 0.12, 0.045, 'sine', 880);
+    this.#dashStreaks();
+  }
 
   wallClang(point) {
     this.tone(1320, 0.24, 0.09, 'square', 240);
@@ -40,53 +143,184 @@ export class Effects {
   sparks(point, color = 0xffbd6b, count = 10) {
     const material = new THREE.MeshBasicMaterial({ color });
     for (let i = 0; i < count; i += 1) {
-      const mesh = new THREE.Mesh(new THREE.BoxGeometry(0.025, 0.025, 0.1), material);
+      const mesh = new THREE.Mesh(this.sparkGeometry, material);
       mesh.position.set(point.x, point.y, point.z);
       const dir = new THREE.Vector3(Math.random() - 0.5, Math.random() * 0.8 + 0.2, Math.random() - 0.5).normalize();
-      this.scene.add(mesh);
-      this.transients.push({ mesh, velocity: dir.multiplyScalar(3 + Math.random() * 3), life: 0.24 + Math.random() * 0.18 });
+      mesh.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
+      this.#addTransient(mesh, {
+        velocity: dir.multiplyScalar(3 + Math.random() * 3),
+        life: 0.24 + Math.random() * 0.18,
+        shrink: true,
+        gravity: 8,
+        spin: new THREE.Vector3(5, 7, 4),
+      });
     }
   }
 
-  impact(point) {
-    const mesh = new THREE.Mesh(
-      new THREE.SphereGeometry(0.35, 10, 8),
-      new THREE.MeshBasicMaterial({ color: 0xff812d, transparent: true, opacity: 0.85 }),
+  #ember(point, projectileVelocity = null) {
+    const material = this.emberMaterials[Math.random() < 0.55 ? 0 : 1];
+    const mesh = new THREE.Mesh(this.emberGeometry, material);
+    mesh.position.set(
+      point.x + (Math.random() - 0.5) * 0.07,
+      point.y + (Math.random() - 0.5) * 0.07,
+      point.z + (Math.random() - 0.5) * 0.07,
     );
-    mesh.position.set(point.x, point.y, point.z);
-    this.scene.add(mesh);
-    this.transients.push({ mesh, velocity: new THREE.Vector3(), life: 0.24, expand: 4.2 });
-    this.sparks(point, 0xff6d2b, 18);
+    mesh.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
+
+    const velocity = new THREE.Vector3((Math.random() - 0.5) * 0.65, Math.random() * 0.45, (Math.random() - 0.5) * 0.65);
+    if (projectileVelocity) {
+      const backwards = new THREE.Vector3(-projectileVelocity.x, -projectileVelocity.y, -projectileVelocity.z);
+      if (backwards.lengthSq() > 1e-6) velocity.add(backwards.normalize().multiplyScalar(0.55 + Math.random() * 0.35));
+    }
+
+    this.#addTransient(mesh, {
+      velocity,
+      life: 0.18 + Math.random() * 0.15,
+      shrink: true,
+      gravity: 1.8,
+      spin: new THREE.Vector3(3, 4, 5),
+    });
+  }
+
+  impact(point) {
+    const flash = new THREE.Mesh(
+      new THREE.OctahedronGeometry(0.22, 0),
+      new THREE.MeshBasicMaterial({ color: 0xffd18a }),
+    );
+    flash.position.set(point.x, point.y, point.z);
+    this.#addTransient(flash, { life: 0.13, expand: 5.4, shrink: true });
+
+    const shell = new THREE.Mesh(
+      new THREE.IcosahedronGeometry(0.38, 1),
+      new THREE.MeshBasicMaterial({
+        color: 0xff6725,
+        wireframe: true,
+        transparent: true,
+        opacity: 0.55,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      }),
+    );
+    shell.position.set(point.x, point.y, point.z);
+    this.#addTransient(shell, { life: 0.22, expand: 4.6, spin: new THREE.Vector3(2.5, 3.5, 1.8) });
+
+    for (let axis = 0; axis < 2; axis += 1) {
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.28, 0.025, 4, 16), this.impactRingMaterial);
+      ring.position.set(point.x, point.y, point.z);
+      ring.rotation.x = axis === 0 ? Math.PI / 2 : 0;
+      ring.rotation.y = axis === 1 ? Math.PI / 2 : 0;
+      this.#addTransient(ring, { life: 0.2, expand: 6.1 });
+    }
+
+    for (let i = 0; i < 18; i += 1) this.#ember(point);
+    this.sparks(point, 0xff8a3c, 12);
     this.tone(95, 0.28, 0.085, 'sawtooth', 45);
+    this.tone(260, 0.16, 0.045, 'triangle', 70);
+  }
+
+  #createProjectile() {
+    const group = new THREE.Group();
+    const coreMaterial = new THREE.MeshStandardMaterial({
+      color: 0xffe0a3,
+      emissive: 0xff641c,
+      emissiveIntensity: 5.2,
+      roughness: 0.18,
+      metalness: 0.05,
+    });
+    const shellMaterial = new THREE.MeshBasicMaterial({
+      color: 0xff6f24,
+      transparent: true,
+      opacity: 0.43,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      wireframe: true,
+    });
+
+    const core = new THREE.Mesh(new THREE.OctahedronGeometry(0.17, 1), coreMaterial);
+    const shell = new THREE.Mesh(new THREE.IcosahedronGeometry(0.31, 1), shellMaterial);
+    shell.rotation.set(0.4, 0.2, 0.1);
+    group.add(core, shell);
+
+    const light = new THREE.PointLight(0xff6b24, 9, 5.5, 2);
+    group.add(light);
+    this.scene.add(group);
+
+    return {
+      group,
+      core,
+      shell,
+      light,
+      phase: Math.random() * Math.PI * 2,
+      lastPosition: null,
+      trailCarry: 0,
+    };
   }
 
   syncProjectiles(projectiles) {
     const seen = new Set();
     for (const p of projectiles) {
       seen.add(p.id);
-      let mesh = this.projectiles.get(p.id);
-      if (!mesh) {
-        const material = new THREE.MeshStandardMaterial({ color: 0xffb347, emissive: 0xff5a16, emissiveIntensity: 3.2, roughness: 0.25 });
-        mesh = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 8), material);
-        const light = new THREE.PointLight(0xff6b24, 8, 5, 2); mesh.add(light);
-        this.projectiles.set(p.id, mesh); this.scene.add(mesh);
+      let effect = this.projectiles.get(p.id);
+      if (!effect) {
+        effect = this.#createProjectile();
+        this.projectiles.set(p.id, effect);
       }
-      mesh.position.set(p.position.x, p.position.y, p.position.z);
+
+      const next = { x: p.position.x, y: p.position.y, z: p.position.z };
+      if (effect.lastPosition) {
+        const trail = sampleTrailSegment(effect.lastPosition, next, {
+          spacing: 0.16,
+          carry: effect.trailCarry,
+          maxSamples: 5,
+        });
+        effect.trailCarry = trail.carry;
+        for (const point of trail.points) this.#ember(point, p.velocity);
+      }
+
+      effect.group.position.set(next.x, next.y, next.z);
+      effect.lastPosition = next;
     }
-    for (const [id, mesh] of this.projectiles) {
-      if (!seen.has(id)) { this.scene.remove(mesh); this.projectiles.delete(id); }
+
+    for (const [id, effect] of this.projectiles) {
+      if (!seen.has(id)) {
+        this.scene.remove(effect.group);
+        this.projectiles.delete(id);
+      }
     }
   }
 
   update(dt) {
+    for (const effect of this.projectiles.values()) {
+      effect.phase += dt * 8;
+      effect.shell.rotation.x += dt * 2.9;
+      effect.shell.rotation.y += dt * 4.1;
+      effect.shell.rotation.z -= dt * 2.2;
+      effect.shell.scale.setScalar(0.96 + Math.sin(effect.phase) * 0.08);
+      effect.core.scale.setScalar(0.98 + Math.sin(effect.phase * 1.7) * 0.05);
+      effect.light.intensity = 8.2 + Math.sin(effect.phase * 1.4) * 1.8;
+    }
+
     for (let i = this.transients.length - 1; i >= 0; i -= 1) {
-      const t = this.transients[i];
-      t.life -= dt;
-      t.mesh.position.addScaledVector(t.velocity, dt);
-      t.velocity.y -= 8 * dt;
-      if (t.expand) t.mesh.scale.multiplyScalar(1 + t.expand * dt);
-      if (t.mesh.material?.opacity !== undefined) t.mesh.material.opacity = Math.max(0, t.life * 3);
-      if (t.life <= 0) { this.scene.remove(t.mesh); this.transients.splice(i, 1); }
+      const transient = this.transients[i];
+      transient.life -= dt;
+      transient.mesh.position.addScaledVector(transient.velocity, dt);
+      transient.velocity.y -= transient.gravity * dt;
+
+      if (transient.expand) transient.mesh.scale.multiplyScalar(1 + transient.expand * dt);
+      if (transient.shrink) {
+        const remaining = Math.max(0.08, transient.life / transient.maxLife);
+        transient.mesh.scale.multiplyScalar(Math.max(0.75, remaining));
+      }
+      if (transient.spin) {
+        transient.mesh.rotation.x += transient.spin.x * dt;
+        transient.mesh.rotation.y += transient.spin.y * dt;
+        transient.mesh.rotation.z += transient.spin.z * dt;
+      }
+
+      if (transient.life <= 0) {
+        transient.parent.remove(transient.mesh);
+        this.transients.splice(i, 1);
+      }
     }
   }
 }
