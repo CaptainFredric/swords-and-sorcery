@@ -37,3 +37,11 @@ export function sampleTrailSegment(from, to, options = {}) {
 
   return { points, carry: nextCarry };
 }
+
+export function transientScale(age, maxLife, expand = 0, shrink = false) {
+  const lifetime = Math.max(0.001, finite(maxLife, 0.2));
+  const elapsed = Math.max(0, Math.min(lifetime, finite(age, 0)));
+  const growth = 1 + Math.max(0, finite(expand, 0)) * elapsed;
+  const remaining = 1 - elapsed / lifetime;
+  return growth * (shrink ? Math.max(0.05, remaining) : 1);
+}
