@@ -1,10 +1,10 @@
-export function resolveSpellbladeState(player, serverNow, castPoseUntil = 0) {
+export function resolveSpellbladeState(player, serverNow, castPoseUntil = 0, castPoseStartAt = -Infinity) {
   if (!player?.alive) return 'dead';
   if ((player.staggerUntil ?? 0) > serverNow) return 'stagger';
   if ((player.dashUntil ?? 0) > serverNow) return 'dash';
   if (player.guarding) return 'guard';
   if (player.attackActive) return 'attack';
-  if (castPoseUntil > serverNow) return 'cast';
+  if (serverNow >= castPoseStartAt && castPoseUntil > serverNow) return 'cast';
 
   const velocity = player.velocity ?? { x: 0, y: 0, z: 0 };
   if (Math.abs(velocity.y ?? 0) > 0.45) return 'air';
@@ -12,12 +12,15 @@ export function resolveSpellbladeState(player, serverNow, castPoseUntil = 0) {
   return 'idle';
 }
 
+export function castPoseWindowFromEvent(event) {
+  if (event?.type !== 'fireballCast' || !Number.isFinite(event.at)) return null;
+  const castEndsAt = Number.isFinite(event.castEndsAt) ? event.castEndsAt : event.at + 0.3;
+  return { startAt: event.at, endAt: castEndsAt + 0.06 };
+}
+
 export function castPoseDeadlineFromEvent(event, currentDeadline = 0) {
-  if (event?.type !== 'fireballCast') return currentDeadline;
-  const castEndsAt = Number.isFinite(event.castEndsAt)
-    ? event.castEndsAt
-    : (Number.isFinite(event.at) ? event.at + 0.3 : 0);
-  return Math.max(currentDeadline, castEndsAt + 0.06);
+  const window = castPoseWindowFromEvent(event);
+  return window ? Math.max(currentDeadline, window.endAt) : currentDeadline;
 }
 
 export function bufferedServerTime(a, b, renderTimeMs) {
