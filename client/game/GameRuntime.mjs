@@ -110,6 +110,7 @@ export class GameRuntime {
 
   onEvents(events) {
     for (const event of events) {
+      this.remotePlayers.onEvent(event);
       if (event.type === 'swordWorldImpact') {
         if (event.playerId === this.socket.playerId) {
           this.weapon.wallImpact();
