@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { resolveWeaponPose } from './weaponPose.mjs';
+import { castVisualDuration, resolveWeaponPose } from './weaponPose.mjs';
 
 const base = {
   timeSec: 10,
@@ -13,6 +13,10 @@ const base = {
   castUntil: 0,
   dashUntil: 0,
 };
+
+function near(actual, expected, epsilon = 1e-9) {
+  assert.ok(Math.abs(actual - expected) <= epsilon, `${actual} was not within ${epsilon} of ${expected}`);
+}
 
 test('guard presents a centered defensive sword silhouette', () => {
   const pose = resolveWeaponPose({ ...base, guard: true });
@@ -48,4 +52,20 @@ test('dash tucks the weapon without pretending to be a sword swing', () => {
   assert.equal(pose.state, 'dash');
   assert.equal(pose.strike, null);
   assert.ok(pose.group.y < -0.5);
+});
+
+test('dash pose outranks held guard, attack, and cast poses', () => {
+  const guarded = resolveWeaponPose({ ...base, guard: true, dashUntil: 10.1 });
+  const attacking = resolveWeaponPose({ ...base, attackHeld: true, attackStartedAt: 9.8, dashUntil: 10.1 });
+  const casting = resolveWeaponPose({ ...base, castUntil: 10.2, dashUntil: 10.1 });
+  assert.equal(guarded.state, 'dash');
+  assert.equal(attacking.state, 'dash');
+  assert.equal(casting.state, 'dash');
+});
+
+test('local cast visual duration comes only from an authoritative local cast event', () => {
+  near(castVisualDuration({ type: 'fireballCast', playerId: 'me', at: 20, castEndsAt: 20.3 }, 'me', 20.05), 0.31);
+  assert.equal(castVisualDuration({ type: 'fireballCast', playerId: 'them', at: 20, castEndsAt: 20.3 }, 'me', 20.05), null);
+  assert.equal(castVisualDuration({ type: 'respawn', playerId: 'me', at: 20 }, 'me', 20.05), null);
+  assert.equal(castVisualDuration({ type: 'fireballCast', playerId: 'me', at: 20, castEndsAt: 20.3 }, 'me', 20.5), null);
 });
