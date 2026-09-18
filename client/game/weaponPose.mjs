@@ -4,6 +4,17 @@ function defaultHand() {
   return { x: 0, y: 0, z: 0, rx: 0, ry: 0, rz: 0 };
 }
 
+export function castVisualDuration(event, localId, serverNow) {
+  if (event?.type !== 'fireballCast' || event.playerId !== localId || !Number.isFinite(serverNow)) return null;
+  const castEndsAt = Number.isFinite(event.castEndsAt)
+    ? event.castEndsAt
+    : (Number.isFinite(event.at) ? event.at + 0.3 : null);
+  if (castEndsAt === null) return null;
+  const remaining = castEndsAt + 0.06 - serverNow;
+  if (remaining <= 0) return null;
+  return Math.min(0.36, remaining);
+}
+
 export function resolveWeaponPose({
   timeSec,
   movingAmount = 0,
@@ -33,7 +44,20 @@ export function resolveWeaponPose({
   let state = 'idle';
   let strike = null;
 
-  if (guard) {
+  if (dashUntil > timeSec) {
+    state = 'dash';
+    group.x = 0.56;
+    group.y = -0.62;
+    group.z = -0.62;
+    group.rx = 0.22;
+    group.ry = -0.3;
+    group.rz = -0.5;
+    leftHand.x = -0.48;
+    leftHand.y = -0.68;
+    leftHand.z = -0.5;
+    leftHand.rx = 0.42;
+    magicScale = 0.48;
+  } else if (guard) {
     state = 'guard';
     group.x = 0.1;
     group.y = -0.18;
@@ -86,19 +110,6 @@ export function resolveWeaponPose({
     leftHand.ry = -0.18;
     leftHand.rz = 0.32;
     magicScale = 1.5 + Math.sin(timeSec * 34) * 0.12;
-  } else if (dashUntil > timeSec) {
-    state = 'dash';
-    group.x = 0.56;
-    group.y = -0.62;
-    group.z = -0.62;
-    group.rx = 0.22;
-    group.ry = -0.3;
-    group.rz = -0.5;
-    leftHand.x = -0.48;
-    leftHand.y = -0.68;
-    leftHand.z = -0.5;
-    leftHand.rx = 0.42;
-    magicScale = 0.48;
   }
 
   if (recoilUntil > timeSec) {
