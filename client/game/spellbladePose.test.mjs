@@ -1,6 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { bufferedServerTime, castPoseDeadlineFromEvent, resolveSpellbladeState } from './spellbladePose.mjs';
+import {
+  bufferedServerTime,
+  castPoseDeadlineFromEvent,
+  castPoseWindowFromEvent,
+  resolveSpellbladeState,
+} from './spellbladePose.mjs';
 
 const base = {
   alive: true,
@@ -25,8 +30,15 @@ test('remote spellblade state prioritizes incapacitating and combat states', () 
 
 test('cast pose outranks locomotion but not active combat states', () => {
   const moving = { ...base, velocity: { x: 5, y: 0, z: 0 } };
-  assert.equal(resolveSpellbladeState(moving, 10, 10.2), 'cast');
-  assert.equal(resolveSpellbladeState({ ...moving, guarding: true }, 10, 10.2), 'guard');
+  assert.equal(resolveSpellbladeState(moving, 10.1, 10.2, 10.0), 'cast');
+  assert.equal(resolveSpellbladeState({ ...moving, guarding: true }, 10.1, 10.2, 10.0), 'guard');
+});
+
+test('cast pose waits for the buffered cast start instead of appearing early', () => {
+  const moving = { ...base, velocity: { x: 5, y: 0, z: 0 } };
+  assert.equal(resolveSpellbladeState(moving, 9.99, 10.36, 10.0), 'run');
+  assert.equal(resolveSpellbladeState(moving, 10.0, 10.36, 10.0), 'cast');
+  assert.equal(resolveSpellbladeState(moving, 10.36, 10.36, 10.0), 'run');
 });
 
 test('locomotion distinguishes air, run and idle', () => {
@@ -38,6 +50,12 @@ test('locomotion distinguishes air, run and idle', () => {
 test('cast pose is driven only by authoritative fireball cast events', () => {
   assert.equal(castPoseDeadlineFromEvent({ type: 'respawn', playerId: 'p1', at: 20 }, 19.5), 19.5);
   assertNear(castPoseDeadlineFromEvent({ type: 'fireballCast', playerId: 'p1', at: 20, castEndsAt: 20.3 }, 19.5), 20.36);
+
+  assert.deepEqual(castPoseWindowFromEvent({ type: 'respawn', playerId: 'p1', at: 20 }), null);
+  assert.deepEqual(
+    castPoseWindowFromEvent({ type: 'fireballCast', playerId: 'p1', at: 20, castEndsAt: 20.3 }),
+    { startAt: 20, endAt: 20.36 },
+  );
 });
 
 test('timed states use the buffered render clock instead of current wall clock', () => {
