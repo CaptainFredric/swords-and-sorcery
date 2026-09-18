@@ -12,6 +12,30 @@ export function resolveSpellbladeState(player, serverNow, castPoseUntil = 0) {
   return 'idle';
 }
 
+export function castPoseDeadlineFromEvent(event, currentDeadline = 0) {
+  if (event?.type !== 'fireballCast') return currentDeadline;
+  const castEndsAt = Number.isFinite(event.castEndsAt)
+    ? event.castEndsAt
+    : (Number.isFinite(event.at) ? event.at + 0.3 : 0);
+  return Math.max(currentDeadline, castEndsAt + 0.06);
+}
+
+export function bufferedServerTime(a, b, renderTimeMs) {
+  const first = a ?? b;
+  const second = b ?? a;
+  if (!first || !second) return 0;
+
+  const clientSpanMs = second.at - first.at;
+  if (clientSpanMs > 0 && renderTimeMs >= first.at && renderTimeMs <= second.at) {
+    const t = (renderTimeMs - first.at) / clientSpanMs;
+    return first.serverTime + (second.serverTime - first.serverTime) * t;
+  }
+
+  const anchor = renderTimeMs >= second.at ? second : first;
+  const extrapolationSec = Math.max(-0.25, Math.min(0.25, (renderTimeMs - anchor.at) / 1000));
+  return anchor.serverTime + extrapolationSec;
+}
+
 export function attackMotion(player, serverNow) {
   const elapsed = Math.max(0, serverNow - (player.attackStartedAt ?? serverNow));
   const cycle = elapsed % 2.08;
