@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0a0d16" />
+  <title>Swords & Sorcery</title>
+  <link rel="stylesheet" href="/client/styles.css" />
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js"
+      }
+    }
+  </script>
+</head>
+<body>
+  <main id="game-shell">
+    <div id="game-canvas"></div>
+
+    <section id="menu" class="screen-panel menu-panel">
+      <div class="crest">⚔</div>
+      <p class="eyebrow">THE SHATTERED KEEP</p>
+      <h1>SWORDS <span>&amp;</span> SORCERY</h1>
+      <p class="subtitle">Fast browser arena combat. Sword. Guard. Fireball. Dash. First to 10.</p>
+      <label class="field-label" for="player-name">SPELLBLADE NAME</label>
+      <input id="player-name" class="game-input" maxlength="18" autocomplete="nickname" placeholder="Enter your name" />
+      <div class="menu-actions">
+        <button id="quick-play" class="primary-button">QUICK PLAY</button>
+        <button id="create-room" class="secondary-button">CREATE PRIVATE ROOM</button>
+      </div>
+      <div class="join-row">
+        <input id="room-code" class="game-input room-input" maxlength="5" placeholder="ROOM CODE" />
+        <button id="join-room" class="secondary-button">JOIN</button>
+      </div>
+      <button id="how-button" class="text-button">HOW TO PLAY</button>
+      <p id="menu-error" class="error-copy" aria-live="polite"></p>
+    </section>
+
+    <section id="how-panel" class="screen-panel compact-panel hidden">
+      <button class="close-button" data-close-how>×</button>
+      <p class="eyebrow">FIELD MANUAL</p>
+      <h2>HOW TO PLAY</h2>
+      <div class="controls-grid">
+        <span>WASD</span><b>Move</b>
+        <span>MOUSE</span><b>Aim</b>
+        <span>LMB</span><b>Hold sword combo</b>
+        <span>RMB</span><b>Guard / Parry</b>
+        <span>Q</span><b>Fireball</b>
+        <span>E</span><b>Arcane Dash</b>
+        <span>SPACE</span><b>Jump</b>
+        <span>TAB</span><b>Scoreboard</b>
+      </div>
+      <p class="rules-copy">First to <strong>10 kills</strong> wins. Guard stops swords. A well-timed Guard parries. Fireball ignores Guard. The abyss does not care about either.</p>
+    </section>
+
+    <section id="lobby" class="screen-panel lobby-panel hidden">
+      <p class="eyebrow">THE SHATTERED KEEP</p>
+      <h2>ROOM <button id="copy-code" class="code-button"><span id="lobby-code">----</span></button></h2>
+      <div id="lobby-state" class="lobby-state">WAITING FOR ANOTHER SPELLBLADE</div>
+      <div id="lobby-players" class="player-list"></div>
+      <button id="copy-link" class="secondary-button">COPY INVITE LINK</button>
+      <p class="small-copy">Two players are enough. New players can join an active match.</p>
+    </section>
+
+    <section id="hud" class="hud hidden" aria-hidden="true">
+      <div id="match-info" class="match-info">FIRST TO 10</div>
+      <div id="kill-feed" class="kill-feed"></div>
+      <div id="crosshair" class="crosshair"><i></i><i></i><i></i><i></i></div>
+      <div id="status-flash" class="status-flash"></div>
+      <div class="bottom-hud">
+        <div class="health-block">
+          <div class="health-label"><span id="health-value">100</span> HP</div>
+          <div class="health-track"><div id="health-trail" class="health-trail"></div><div id="health-fill" class="health-fill"></div></div>
+        </div>
+        <div id="guard-block" class="guard-block faded">
+          <span>GUARD</span><div class="guard-track"><div id="guard-fill" class="guard-fill"></div></div>
+        </div>
+        <div class="abilities">
+          <div id="fireball-ability" class="ability ready"><span class="ability-icon">✦</span><b>Q</b><em>FIREBALL</em><strong>READY</strong></div>
+          <div id="dash-ability" class="ability ready"><span class="ability-icon">➤</span><b>E</b><em>DASH</em><strong>READY</strong></div>
+        </div>
+      </div>
+      <div id="death-card" class="death-card hidden"><small>SLAIN BY</small><strong id="death-killer">THE ABYSS</strong><span id="death-timer">3.0</span></div>
+      <div id="debug" class="debug hidden"></div>
+      <div id="scoreboard" class="scoreboard hidden"></div>
+      <div id="pointer-hint" class="pointer-hint">CLICK TO ENTER THE ARENA</div>
+    </section>
+
+    <section id="end-screen" class="screen-panel end-panel hidden">
+      <p class="eyebrow">MATCH COMPLETE</p>
+      <h2 id="winner-title">VICTORY</h2>
+      <div id="final-scoreboard" class="final-scoreboard"></div>
+      <div class="menu-actions">
+        <button id="rematch" class="primary-button">PLAY AGAIN</button>
+        <button id="leave" class="secondary-button">LEAVE MATCH</button>
+      </div>
+      <p id="rematch-copy" class="small-copy">All remaining players vote to rematch.</p>
+    </section>
+  </main>
+
+  <script type="module" src="/client/main.mjs"></script>
+</body>
+</html>

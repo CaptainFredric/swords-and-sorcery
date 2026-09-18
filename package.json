@@ -1,0 +1,17 @@
+{
+  "name": "swords-and-sorcery",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "test": "node --test shared/src/*.test.mjs server/tests/*.test.mjs",
+    "check": "node scripts/check-syntax.mjs",
+    "start": "node server/src/server.mjs",
+    "dev": "node server/src/server.mjs",
+    "verify": "npm run check && npm test && npm run smoke",
+    "smoke": "node scripts/smoke.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
