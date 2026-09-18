@@ -11,6 +11,10 @@ const base = {
   velocity: { x: 0, y: 0, z: 0 },
 };
 
+function assertNear(actual, expected, epsilon = 1e-9) {
+  assert.ok(Math.abs(actual - expected) <= epsilon, `${actual} was not within ${epsilon} of ${expected}`);
+}
+
 test('remote spellblade state prioritizes incapacitating and combat states', () => {
   assert.equal(resolveSpellbladeState({ ...base, alive: false }, 10), 'dead');
   assert.equal(resolveSpellbladeState({ ...base, staggerUntil: 11, dashUntil: 11, guarding: true, attackActive: true }, 10), 'stagger');
@@ -33,14 +37,14 @@ test('locomotion distinguishes air, run and idle', () => {
 
 test('cast pose is driven only by authoritative fireball cast events', () => {
   assert.equal(castPoseDeadlineFromEvent({ type: 'respawn', playerId: 'p1', at: 20 }, 19.5), 19.5);
-  assert.equal(castPoseDeadlineFromEvent({ type: 'fireballCast', playerId: 'p1', at: 20, castEndsAt: 20.3 }, 19.5), 20.36);
+  assertNear(castPoseDeadlineFromEvent({ type: 'fireballCast', playerId: 'p1', at: 20, castEndsAt: 20.3 }, 19.5), 20.36);
 });
 
 test('timed states use the buffered render clock instead of current wall clock', () => {
   const a = { at: 1000, serverTime: 5.0 };
   const b = { at: 1033, serverTime: 5.033 };
-  assert.equal(bufferedServerTime(a, b, 1016.5), 5.0165);
+  assertNear(bufferedServerTime(a, b, 1016.5), 5.0165);
 
   const latest = { at: 1033, serverTime: 5.033 };
-  assert.equal(bufferedServerTime(latest, latest, 1066), 5.066);
+  assertNear(bufferedServerTime(latest, latest, 1066), 5.066);
 });
