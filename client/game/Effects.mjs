@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { sampleTrailSegment } from './effectTrail.mjs';
+import { sampleTrailSegment, transientScale } from './effectTrail.mjs';
 
 const MAX_TRANSIENTS = 180;
 
@@ -10,6 +10,7 @@ export class Effects {
     this.projectiles = new Map();
     this.transients = [];
     this.audio = null;
+    this.basicMaterials = new Map();
 
     this.emberGeometry = new THREE.BoxGeometry(0.035, 0.035, 0.11);
     this.emberMaterials = [
@@ -17,18 +18,18 @@ export class Effects {
       new THREE.MeshBasicMaterial({ color: 0xff6328 }),
     ];
     this.sparkGeometry = new THREE.BoxGeometry(0.025, 0.025, 0.11);
+    this.flashGeometry = new THREE.OctahedronGeometry(0.055, 0);
+    this.impactFlashGeometry = new THREE.OctahedronGeometry(0.22, 0);
+    this.impactShellGeometry = new THREE.IcosahedronGeometry(0.38, 1);
+    this.impactRingGeometry = new THREE.TorusGeometry(0.28, 0.025, 4, 16);
+    this.projectileCoreGeometry = new THREE.OctahedronGeometry(0.17, 1);
+    this.projectileShellGeometry = new THREE.IcosahedronGeometry(0.31, 1);
     this.dashGeometry = new THREE.PlaneGeometry(0.018, 0.18);
+
     this.dashMaterial = new THREE.MeshBasicMaterial({
       color: 0xb9eaff,
       transparent: true,
       opacity: 0.34,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-    });
-    this.flashMaterial = new THREE.MeshBasicMaterial({
-      color: 0xffd68a,
-      transparent: true,
-      opacity: 0.65,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
     });
@@ -39,6 +40,34 @@ export class Effects {
       blending: THREE.AdditiveBlending,
       depthWrite: false,
     });
+    this.impactShellMaterial = new THREE.MeshBasicMaterial({
+      color: 0xff6725,
+      wireframe: true,
+      transparent: true,
+      opacity: 0.55,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+    this.projectileCoreMaterial = new THREE.MeshStandardMaterial({
+      color: 0xffe0a3,
+      emissive: 0xff641c,
+      emissiveIntensity: 5.2,
+      roughness: 0.18,
+      metalness: 0.05,
+    });
+    this.projectileShellMaterial = new THREE.MeshBasicMaterial({
+      color: 0xff6f24,
+      transparent: true,
+      opacity: 0.43,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      wireframe: true,
+    });
+  }
+
+  #basicMaterial(color) {
+    if (!this.basicMaterials.has(color)) this.basicMaterials.set(color, new THREE.MeshBasicMaterial({ color }));
+    return this.basicMaterials.get(color);
   }
 
   ensureAudio() {
@@ -66,7 +95,19 @@ export class Effects {
     parent = this.scene,
   } = {}) {
     parent.add(mesh);
-    this.transients.push({ mesh, parent, velocity, life, maxLife: life, expand, shrink, gravity, spin });
+    this.transients.push({
+      mesh,
+      parent,
+      velocity,
+      life,
+      maxLife: life,
+      age: 0,
+      expand,
+      shrink,
+      gravity,
+      spin,
+      baseScale: mesh.scale.clone(),
+    });
     while (this.transients.length > MAX_TRANSIENTS) {
       const oldest = this.transients.shift();
       oldest?.parent?.remove(oldest.mesh);
@@ -75,9 +116,8 @@ export class Effects {
   }
 
   #cameraFlash(color = 0xffd68a, life = 0.1, scale = 1) {
-    const material = this.flashMaterial.clone();
-    material.color.setHex(color);
-    const mesh = new THREE.Mesh(new THREE.OctahedronGeometry(0.055 * scale, 0), material);
+    const mesh = new THREE.Mesh(this.flashGeometry, this.#basicMaterial(color));
+    mesh.scale.setScalar(scale);
     mesh.position.set(-0.22, -0.18, -0.52);
     this.#addTransient(mesh, {
       parent: this.camera,
@@ -85,7 +125,6 @@ export class Effects {
       life,
       expand: 3.2,
       shrink: true,
-      gravity: 0,
       spin: new THREE.Vector3(5, 7, 3),
     });
   }
@@ -101,7 +140,6 @@ export class Effects {
         velocity: new THREE.Vector3(side * 0.9, 0, 0),
         life: 0.12 + Math.random() * 0.04,
         shrink: true,
-        gravity: 0,
       });
     }
   }
@@ -141,7 +179,7 @@ export class Effects {
   }
 
   sparks(point, color = 0xffbd6b, count = 10) {
-    const material = new THREE.MeshBasicMaterial({ color });
+    const material = this.#basicMaterial(color);
     for (let i = 0; i < count; i += 1) {
       const mesh = new THREE.Mesh(this.sparkGeometry, material);
       mesh.position.set(point.x, point.y, point.z);
@@ -183,29 +221,16 @@ export class Effects {
   }
 
   impact(point) {
-    const flash = new THREE.Mesh(
-      new THREE.OctahedronGeometry(0.22, 0),
-      new THREE.MeshBasicMaterial({ color: 0xffd18a }),
-    );
+    const flash = new THREE.Mesh(this.impactFlashGeometry, this.#basicMaterial(0xffd18a));
     flash.position.set(point.x, point.y, point.z);
     this.#addTransient(flash, { life: 0.13, expand: 5.4, shrink: true });
 
-    const shell = new THREE.Mesh(
-      new THREE.IcosahedronGeometry(0.38, 1),
-      new THREE.MeshBasicMaterial({
-        color: 0xff6725,
-        wireframe: true,
-        transparent: true,
-        opacity: 0.55,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-      }),
-    );
+    const shell = new THREE.Mesh(this.impactShellGeometry, this.impactShellMaterial);
     shell.position.set(point.x, point.y, point.z);
     this.#addTransient(shell, { life: 0.22, expand: 4.6, spin: new THREE.Vector3(2.5, 3.5, 1.8) });
 
     for (let axis = 0; axis < 2; axis += 1) {
-      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.28, 0.025, 4, 16), this.impactRingMaterial);
+      const ring = new THREE.Mesh(this.impactRingGeometry, this.impactRingMaterial);
       ring.position.set(point.x, point.y, point.z);
       ring.rotation.x = axis === 0 ? Math.PI / 2 : 0;
       ring.rotation.y = axis === 1 ? Math.PI / 2 : 0;
@@ -220,24 +245,8 @@ export class Effects {
 
   #createProjectile() {
     const group = new THREE.Group();
-    const coreMaterial = new THREE.MeshStandardMaterial({
-      color: 0xffe0a3,
-      emissive: 0xff641c,
-      emissiveIntensity: 5.2,
-      roughness: 0.18,
-      metalness: 0.05,
-    });
-    const shellMaterial = new THREE.MeshBasicMaterial({
-      color: 0xff6f24,
-      transparent: true,
-      opacity: 0.43,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-      wireframe: true,
-    });
-
-    const core = new THREE.Mesh(new THREE.OctahedronGeometry(0.17, 1), coreMaterial);
-    const shell = new THREE.Mesh(new THREE.IcosahedronGeometry(0.31, 1), shellMaterial);
+    const core = new THREE.Mesh(this.projectileCoreGeometry, this.projectileCoreMaterial);
+    const shell = new THREE.Mesh(this.projectileShellGeometry, this.projectileShellMaterial);
     shell.rotation.set(0.4, 0.2, 0.1);
     group.add(core, shell);
 
@@ -303,14 +312,13 @@ export class Effects {
     for (let i = this.transients.length - 1; i >= 0; i -= 1) {
       const transient = this.transients[i];
       transient.life -= dt;
+      transient.age += dt;
       transient.mesh.position.addScaledVector(transient.velocity, dt);
       transient.velocity.y -= transient.gravity * dt;
 
-      if (transient.expand) transient.mesh.scale.multiplyScalar(1 + transient.expand * dt);
-      if (transient.shrink) {
-        const remaining = Math.max(0.08, transient.life / transient.maxLife);
-        transient.mesh.scale.multiplyScalar(Math.max(0.75, remaining));
-      }
+      const scale = transientScale(transient.age, transient.maxLife, transient.expand, transient.shrink);
+      transient.mesh.scale.copy(transient.baseScale).multiplyScalar(scale);
+
       if (transient.spin) {
         transient.mesh.rotation.x += transient.spin.x * dt;
         transient.mesh.rotation.y += transient.spin.y * dt;
