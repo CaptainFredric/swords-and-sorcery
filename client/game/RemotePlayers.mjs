@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { createSpellbladeRig } from './SpellbladeModel.mjs';
-import { attackMotion, resolveSpellbladeState } from './spellbladePose.mjs';
+import { attackMotion, bufferedServerTime, castPoseDeadlineFromEvent, resolveSpellbladeState } from './spellbladePose.mjs';
 
 function damp(value, target, amount) {
   return value + (target - value) * amount;
@@ -164,6 +164,13 @@ export class RemotePlayers {
 
   setLocalId(id) { this.localId = id; }
 
+  onEvent(event) {
+    if (event?.type !== 'fireballCast') return;
+    const rig = this.rigs.get(event.playerId);
+    if (!rig) return;
+    rig.userData.castPoseUntil = castPoseDeadlineFromEvent(event, rig.userData.castPoseUntil);
+  }
+
   pushSnapshot(snapshot, receivedAtMs) {
     const seen = new Set();
     for (const player of snapshot.players) {
@@ -171,7 +178,6 @@ export class RemotePlayers {
       seen.add(player.id);
       if (!this.rigs.has(player.id)) {
         const rig = createSpellbladeRig(this.nextRigIndex++);
-        rig.userData.lastFireballReadyAt = player.fireballReadyAt ?? 0;
         rig.userData.lastAlive = player.alive;
         this.rigs.set(player.id, rig);
         this.scene.add(rig);
@@ -179,15 +185,11 @@ export class RemotePlayers {
 
       const rig = this.rigs.get(player.id);
       const d = rig.userData;
-      const readyAt = player.fireballReadyAt ?? 0;
-      if (d.lastFireballReadyAt !== null && readyAt > d.lastFireballReadyAt + 0.5) {
-        d.castPoseUntil = snapshot.serverTime + 0.36;
-      }
-      d.lastFireballReadyAt = readyAt;
 
       if (d.lastAlive && !player.alive) d.deathStartedAt = receivedAtMs;
       if (!d.lastAlive && player.alive) {
         d.deathStartedAt = null;
+        d.castPoseUntil = 0;
         d.visual.position.y = 0;
         d.visual.rotation.set(0, 0, 0);
       }
@@ -237,8 +239,7 @@ export class RemotePlayers {
       const yawDelta = Math.atan2(Math.sin(pb.yaw - pa.yaw), Math.cos(pb.yaw - pa.yaw));
       rig.rotation.y = pa.yaw + yawDelta * t;
 
-      const snapshotAge = Math.max(0, Math.min(0.25, (nowMs - b.at) / 1000));
-      const serverNow = b.serverTime + snapshotAge;
+      const serverNow = bufferedServerTime(a, b, renderTime);
       const state = resolveSpellbladeState(pb, serverNow, rig.userData.castPoseUntil);
 
       if (state === 'dead') {
