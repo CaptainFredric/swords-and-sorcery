@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { sampleTrailSegment } from './effectTrail.mjs';
+import { sampleTrailSegment, transientScale } from './effectTrail.mjs';
 
 function near(actual, expected, epsilon = 1e-9) {
   assert.ok(Math.abs(actual - expected) <= epsilon, `${actual} was not within ${epsilon} of ${expected}`);
@@ -61,4 +61,11 @@ test('stationary projectiles do not create duplicate trail particles', () => {
 
   assert.deepEqual(result.points, []);
   near(result.carry, 0.07);
+});
+
+test('transient scale derives from lifetime instead of compounding every frame', () => {
+  near(transientScale(0, 1, 4, true), 1);
+  near(transientScale(0.5, 1, 4, true), 1.5);
+  near(transientScale(0.9, 1, 4, true), 0.46);
+  near(transientScale(0.5, 1, 4, false), 3);
 });
