@@ -1,0 +1,32 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { resolveSpellbladeState } from './spellbladePose.mjs';
+
+const base = {
+  alive: true,
+  guarding: false,
+  attackActive: false,
+  staggerUntil: 0,
+  dashUntil: 0,
+  velocity: { x: 0, y: 0, z: 0 },
+};
+
+test('remote spellblade state prioritizes incapacitating and combat states', () => {
+  assert.equal(resolveSpellbladeState({ ...base, alive: false }, 10), 'dead');
+  assert.equal(resolveSpellbladeState({ ...base, staggerUntil: 11, dashUntil: 11, guarding: true, attackActive: true }, 10), 'stagger');
+  assert.equal(resolveSpellbladeState({ ...base, dashUntil: 11, guarding: true, attackActive: true }, 10), 'dash');
+  assert.equal(resolveSpellbladeState({ ...base, guarding: true, attackActive: true }, 10), 'guard');
+  assert.equal(resolveSpellbladeState({ ...base, attackActive: true }, 10), 'attack');
+});
+
+test('cast pose outranks locomotion but not active combat states', () => {
+  const moving = { ...base, velocity: { x: 5, y: 0, z: 0 } };
+  assert.equal(resolveSpellbladeState(moving, 10, 10.2), 'cast');
+  assert.equal(resolveSpellbladeState({ ...moving, guarding: true }, 10, 10.2), 'guard');
+});
+
+test('locomotion distinguishes air, run and idle', () => {
+  assert.equal(resolveSpellbladeState({ ...base, velocity: { x: 0, y: 2, z: 0 } }, 10), 'air');
+  assert.equal(resolveSpellbladeState({ ...base, velocity: { x: 2, y: 0, z: 2 } }, 10), 'run');
+  assert.equal(resolveSpellbladeState(base, 10), 'idle');
+});
