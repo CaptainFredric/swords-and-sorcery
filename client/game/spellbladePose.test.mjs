@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { resolveSpellbladeState } from './spellbladePose.mjs';
+import { bufferedServerTime, castPoseDeadlineFromEvent, resolveSpellbladeState } from './spellbladePose.mjs';
 
 const base = {
   alive: true,
@@ -29,4 +29,18 @@ test('locomotion distinguishes air, run and idle', () => {
   assert.equal(resolveSpellbladeState({ ...base, velocity: { x: 0, y: 2, z: 0 } }, 10), 'air');
   assert.equal(resolveSpellbladeState({ ...base, velocity: { x: 2, y: 0, z: 2 } }, 10), 'run');
   assert.equal(resolveSpellbladeState(base, 10), 'idle');
+});
+
+test('cast pose is driven only by authoritative fireball cast events', () => {
+  assert.equal(castPoseDeadlineFromEvent({ type: 'respawn', playerId: 'p1', at: 20 }, 19.5), 19.5);
+  assert.equal(castPoseDeadlineFromEvent({ type: 'fireballCast', playerId: 'p1', at: 20, castEndsAt: 20.3 }, 19.5), 20.36);
+});
+
+test('timed states use the buffered render clock instead of current wall clock', () => {
+  const a = { at: 1000, serverTime: 5.0 };
+  const b = { at: 1033, serverTime: 5.033 };
+  assert.equal(bufferedServerTime(a, b, 1016.5), 5.0165);
+
+  const latest = { at: 1033, serverTime: 5.033 };
+  assert.equal(bufferedServerTime(latest, latest, 1066), 5.066);
 });
