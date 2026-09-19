@@ -16,6 +16,29 @@
     "Stagger",
     "Death"
   ],
+  "firstPersonClips": [
+    "Idle",
+    "Guard",
+    "Slash_1",
+    "Slash_2",
+    "Slash_3",
+    "Cast",
+    "Dash",
+    "Stagger"
+  ],
+  "firstPersonRigNodes": [
+    "root",
+    "upper_arm.L",
+    "forearm.L",
+    "hand.L",
+    "upper_arm.R",
+    "forearm.R",
+    "hand.R",
+    "socket_sword",
+    "socket_sorcery"
+  ],
+  "firstPersonRequiredNodes": ["HeroSword"],
+  "firstPersonMutableMaterials": ["SorceryAccent"],
   "sockets": ["socket_sword", "socket_sorcery"],
   "mutableMaterials": ["VisorGlow", "SorceryAccent"],
   "thirdPerson": {
