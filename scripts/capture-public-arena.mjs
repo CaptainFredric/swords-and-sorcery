@@ -204,6 +204,13 @@ async function snapshotUi() {
   }))()`);
 }
 
+async function waitForMenuScene(timeoutMs = 20000) {
+  await poll(async () => (await snapshotUi()).menuCanvasCount === 1, {
+    timeoutMs,
+    label: 'Spellblade menu WebGL canvas',
+  });
+}
+
 async function resetToFreshMenu() {
   await evaluate(`(() => {
     localStorage.removeItem('ss-session-token');
@@ -214,7 +221,7 @@ async function resetToFreshMenu() {
   await cdp.send('Page.navigate', { url: publicUrl });
   await waitReady();
   await waitVisible('#menu');
-  await sleep(350);
+  await waitForMenuScene();
 }
 
 try {
@@ -256,11 +263,12 @@ try {
     if (response?.status >= 400) httpErrors.push({ status: response.status, url: response.url, resourceType: type });
   });
 
+  // Reload after listeners are attached so startup failures are observable rather than racing CDP attachment.
+  await cdp.send('Page.reload', { ignoreCache: false });
   await waitReady();
   await waitVisible('#menu');
-  await sleep(1000);
+  await waitForMenuScene();
   evidence.menu = await snapshotUi();
-  if (evidence.menu.menuCanvasCount !== 1) throw new Error(`Menu Spellblade canvas missing: ${JSON.stringify(evidence.menu)}`);
   await capture('public-game-menu.png');
 
   await trustedDrag('#menu-spellblade canvas', 360, 0);
