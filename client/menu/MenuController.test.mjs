@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { MenuController } from './MenuController.mjs';
+import { MenuController, shouldRouteSocketError } from './MenuController.mjs';
 
 function harness() {
   const calls = [];
@@ -59,4 +59,11 @@ test('private join normalizes room codes before dispatch', () => {
 
   assert.equal(result.ok, true);
   assert.deepEqual(calls, [['joinRoom', 'ABCD2', 'Aden']]);
+});
+
+test('socket errors during active play stay in the arena instead of routing to a stale menu', () => {
+  assert.equal(shouldRouteSocketError('ABCDE', { roomState: 'PLAYING', mode: 'PRACTICE' }), false);
+  assert.equal(shouldRouteSocketError('ABCDE', { roomState: 'PLAYING', mode: 'FFA' }), false);
+  assert.equal(shouldRouteSocketError(null, null), true);
+  assert.equal(shouldRouteSocketError(null, { roomState: 'WAITING' }), true);
 });
