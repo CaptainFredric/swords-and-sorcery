@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { createSpellbladeSword } from './SpellbladeSword.mjs';
 import { FIRST_PERSON_WEAPON_SCALE, resolveWeaponPose } from './weaponPose.mjs';
 
 function box(parent, size, material, position = [0, 0, 0], rotation = [0, 0, 0]) {
@@ -22,32 +23,6 @@ function dampTransform(group, pose, amount = 0.28) {
   group.rotation.x = damp(group.rotation.x, pose.rx, amount);
   group.rotation.y = damp(group.rotation.y, pose.ry, amount);
   group.rotation.z = damp(group.rotation.z, pose.rz, amount);
-}
-
-function makeSword(materials) {
-  const sword = new THREE.Group();
-
-  box(sword, [0.12, 0.12, 0.42], materials.leather, [0, 0, 0.19]);
-  box(sword, [0.66, 0.09, 0.14], materials.trim, [0, 0, -0.04]);
-  box(sword, [0.18, 0.075, 1.34], materials.blade, [0, 0, -0.78]);
-  box(sword, [0.035, 0.082, 1.12], materials.bladeRidge, [0, -0.002, -0.72]);
-
-  const tip = new THREE.Mesh(new THREE.ConeGeometry(0.115, 0.34, 4), materials.blade);
-  tip.rotation.x = -Math.PI / 2;
-  tip.rotation.z = Math.PI / 4;
-  tip.position.z = -1.61;
-  sword.add(tip);
-
-  const pommel = new THREE.Mesh(new THREE.OctahedronGeometry(0.12, 0), materials.trim);
-  pommel.position.z = 0.48;
-  sword.add(pommel);
-
-  const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.075, 0), materials.cloth);
-  gem.scale.z = 0.7;
-  gem.position.set(0, 0, -0.055);
-  sword.add(gem);
-
-  return sword;
 }
 
 function makeGauntletedArm(parent, materials, side = 1) {
@@ -91,7 +66,7 @@ export class WeaponView {
     this.swordPivot = new THREE.Group();
     this.swordPivot.position.set(0, -0.01, -0.18);
     this.weaponGroup.add(this.swordPivot);
-    this.sword = makeSword(materials);
+    this.sword = createSpellbladeSword(materials, { axis: 'z', scale: 1.08, castShadow: false });
     this.swordPivot.add(this.sword);
 
     this.leftHandGroup = makeGauntletedArm(this.group, materials, -1);
