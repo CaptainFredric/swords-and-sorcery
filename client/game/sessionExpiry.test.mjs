@@ -24,7 +24,16 @@ test('expired resume clears stale room/player identity and snapshot clocks', () 
   assert.deepEqual(removed.sort(), ['ss-room-code', 'ss-session-token']);
 });
 
-test('expired resume is wired to leave stale gameplay and return to the menu', async () => {
+test('expired resume is wired to leave stale gameplay and route back through the front door', async () => {
   const main = await fs.readFile(new URL('../main.mjs', import.meta.url), 'utf8');
-  assert.match(main, /socket\.on\('resumeFailed',[\s\S]*?runtime\?\.setPlaying\(false\)[\s\S]*?hud\.hide\(\)[\s\S]*?showOnly\(menu\)/);
+  const start = main.indexOf("socket.on('resumeFailed'");
+  const end = main.indexOf("socket.on('error'", start);
+  assert.ok(start >= 0 && end > start, 'resumeFailed handler is missing');
+  const handler = main.slice(start, end);
+
+  assert.match(handler, /runtime\?\.setPlaying\(false\)/);
+  assert.match(handler, /runtime\?\.setPlayerId\(null\)/);
+  assert.match(handler, /hud\.hide\(\)/);
+  assert.match(handler, /setPracticeVisible\(false\)/);
+  assert.match(handler, /route\(invitedRoom \? SCREEN_IDS\.PRIVATE_MENU : SCREEN_IDS\.MAIN_MENU\)/);
 });
