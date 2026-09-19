@@ -32,6 +32,8 @@ function mimeFor(file) {
     '.json': 'application/json; charset=utf-8',
     '.svg': 'image/svg+xml',
     '.png': 'image/png',
+    '.glb': 'model/gltf-binary',
+    '.gltf': 'model/gltf+json',
   })[ext] || 'application/octet-stream';
 }
 
