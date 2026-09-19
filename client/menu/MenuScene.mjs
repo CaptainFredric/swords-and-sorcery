@@ -1,0 +1,170 @@
+import * as THREE from 'three';
+import { createSpellbladeRig } from '../game/SpellbladeModel.mjs';
+
+function disposeObject(root) {
+  root.traverse((object) => {
+    object.geometry?.dispose?.();
+    if (Array.isArray(object.material)) for (const material of object.material) material?.dispose?.();
+    else object.material?.dispose?.();
+  });
+}
+
+export class MenuScene {
+  constructor(container) {
+    this.container = container;
+    this.visible = true;
+    this.dragging = false;
+    this.dragStart = { x: 0, y: 0, yaw: 0, pitch: 0 };
+    this.targetYaw = -0.22;
+    this.targetPitch = 0;
+    this.frameHandle = null;
+
+    this.scene = new THREE.Scene();
+    this.camera = new THREE.PerspectiveCamera(33, 1, 0.1, 40);
+    this.camera.position.set(0, 1.28, 5.3);
+    this.camera.lookAt(0, 0.95, 0);
+
+    this.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, powerPreference: 'low-power' });
+    this.renderer.setPixelRatio(Math.min(globalThis.devicePixelRatio || 1, 1.25));
+    this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+    this.renderer.setClearColor(0x000000, 0);
+    this.container.appendChild(this.renderer.domElement);
+
+    const hemi = new THREE.HemisphereLight(0xdce7d2, 0x353127, 2.25);
+    this.scene.add(hemi);
+    const sun = new THREE.DirectionalLight(0xffe8bd, 3.0);
+    sun.position.set(-3.5, 6, 4);
+    this.scene.add(sun);
+    const rim = new THREE.DirectionalLight(0x7cb7c4, 1.65);
+    rim.position.set(4, 3, -3);
+    this.scene.add(rim);
+
+    this.stage = new THREE.Group();
+    this.scene.add(this.stage);
+    this.#buildStage();
+
+    this.spellblade = createSpellbladeRig(0);
+    this.spellblade.scale.setScalar(1.28);
+    this.spellblade.position.set(0, -1.14, 0);
+    this.spellblade.rotation.y = this.targetYaw;
+    this.#setShowcasePose();
+    this.stage.add(this.spellblade);
+
+    this.magicLight = new THREE.PointLight(0x55d9ff, 3.2, 3.2, 2);
+    this.magicLight.position.set(-0.85, 1.15, 0.15);
+    this.stage.add(this.magicLight);
+
+    this.renderer.domElement.addEventListener('pointerdown', this.#pointerDown);
+    globalThis.addEventListener?.('pointermove', this.#pointerMove);
+    globalThis.addEventListener?.('pointerup', this.#pointerUp);
+    this.renderer.domElement.addEventListener('dblclick', this.#resetView);
+
+    this.resizeObserver = new ResizeObserver(() => this.resize());
+    this.resizeObserver.observe(container);
+    this.resize();
+    this.frameHandle = requestAnimationFrame(this.#frame);
+  }
+
+  #buildStage() {
+    const stone = new THREE.MeshStandardMaterial({ color: 0x716d61, roughness: 0.96 });
+    const stoneLight = new THREE.MeshStandardMaterial({ color: 0x96907f, roughness: 0.94 });
+    const earth = new THREE.MeshStandardMaterial({ color: 0x514737, roughness: 1 });
+
+    const plinth = new THREE.Mesh(new THREE.CylinderGeometry(1.3, 1.48, 0.34, 8), stone);
+    plinth.position.y = -1.08;
+    this.stage.add(plinth);
+    const cap = new THREE.Mesh(new THREE.CylinderGeometry(1.38, 1.38, 0.08, 8), stoneLight);
+    cap.position.y = -0.87;
+    this.stage.add(cap);
+
+    const ground = new THREE.Mesh(new THREE.CircleGeometry(2.7, 16), earth);
+    ground.rotation.x = -Math.PI / 2;
+    ground.position.y = -1.25;
+    this.stage.add(ground);
+
+    for (const x of [-2.05, 2.05]) {
+      const pier = new THREE.Mesh(new THREE.BoxGeometry(0.48, 3.9, 0.65), stone);
+      pier.position.set(x, 0.35, -1.15);
+      this.stage.add(pier);
+      const capstone = new THREE.Mesh(new THREE.BoxGeometry(0.68, 0.24, 0.82), stoneLight);
+      capstone.position.set(x, 2.33, -1.15);
+      this.stage.add(capstone);
+    }
+    const lintel = new THREE.Mesh(new THREE.BoxGeometry(4.55, 0.42, 0.72), stone);
+    lintel.position.set(0, 2.58, -1.15);
+    this.stage.add(lintel);
+  }
+
+  #setShowcasePose() {
+    const rig = this.spellblade.userData;
+    rig.rightUpperArm.rotation.z = -0.24;
+    rig.rightUpperArm.rotation.x = -0.18;
+    rig.rightForearm.rotation.x = -0.18;
+    rig.leftUpperArm.rotation.z = 0.34;
+    rig.leftUpperArm.rotation.x = -0.3;
+    rig.leftForearm.rotation.x = -0.55;
+    rig.sword.rotation.z = -2.18;
+    rig.sword.rotation.x = 0.12;
+  }
+
+  #pointerDown = (event) => {
+    this.dragging = true;
+    this.dragStart = { x: event.clientX, y: event.clientY, yaw: this.targetYaw, pitch: this.targetPitch };
+    this.renderer.domElement.setPointerCapture?.(event.pointerId);
+  };
+
+  #pointerMove = (event) => {
+    if (!this.dragging) return;
+    this.targetYaw = this.dragStart.yaw + (event.clientX - this.dragStart.x) * 0.009;
+    this.targetPitch = THREE.MathUtils.clamp(this.dragStart.pitch + (event.clientY - this.dragStart.y) * 0.004, -0.12, 0.12);
+  };
+
+  #pointerUp = () => { this.dragging = false; };
+
+  #resetView = () => {
+    this.targetYaw = -0.22;
+    this.targetPitch = 0;
+  };
+
+  #frame = (nowMs) => {
+    this.frameHandle = requestAnimationFrame(this.#frame);
+    if (!this.visible || document.hidden) return;
+    const t = nowMs / 1000;
+    const rig = this.spellblade.userData;
+    this.spellblade.rotation.y += (this.targetYaw - this.spellblade.rotation.y) * 0.09;
+    this.spellblade.rotation.x += (this.targetPitch - this.spellblade.rotation.x) * 0.09;
+    rig.visual.position.y = Math.sin(t * 1.7) * 0.018;
+    rig.torso.rotation.z = Math.sin(t * 1.3) * 0.008;
+    rig.head.rotation.y = Math.sin(t * 0.72) * 0.035;
+    rig.magic.rotation.y = t * 1.7;
+    rig.magicHalo.rotation.z = t * 0.9;
+    const pulse = 1.0 + Math.sin(t * 3.1) * 0.08;
+    rig.magic.scale.setScalar(pulse);
+    this.magicLight.intensity = 2.7 + Math.sin(t * 3.1) * 0.45;
+    this.renderer.render(this.scene, this.camera);
+  };
+
+  resize() {
+    const width = Math.max(1, this.container.clientWidth);
+    const height = Math.max(1, this.container.clientHeight);
+    this.camera.aspect = width / height;
+    this.camera.updateProjectionMatrix();
+    this.renderer.setSize(width, height, false);
+  }
+
+  setVisible(visible) {
+    this.visible = Boolean(visible);
+  }
+
+  dispose() {
+    cancelAnimationFrame(this.frameHandle);
+    this.resizeObserver?.disconnect();
+    this.renderer.domElement.removeEventListener('pointerdown', this.#pointerDown);
+    globalThis.removeEventListener?.('pointermove', this.#pointerMove);
+    globalThis.removeEventListener?.('pointerup', this.#pointerUp);
+    this.renderer.domElement.removeEventListener('dblclick', this.#resetView);
+    disposeObject(this.stage);
+    this.renderer.dispose();
+    this.renderer.domElement.remove();
+  }
+}
