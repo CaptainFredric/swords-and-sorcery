@@ -27,3 +27,14 @@ test('front-door copy identifies Castleward instead of the retired default Keep 
   const menuSlice = html.slice(html.indexOf('id="menu"'), html.indexOf('id="hud"'));
   assert.doesNotMatch(menuSlice, /THE SHATTERED KEEP/i);
 });
+
+test('Practice tools collapse to a small Esc hint while arena pointer lock is active', async () => {
+  const html = await read('client/index.html');
+  const css = await read('client/styles.css');
+  const hud = await read('client/ui/HUD.mjs');
+  assert.match(html, /class=["'][^"']*practice-compact[^"']*["']/i);
+  assert.match(html, /ESC FOR TOOLS/i);
+  assert.match(css, /\.hud\.pointer-locked\s+\.practice-tools/);
+  assert.match(css, /\.hud\.pointer-locked[\s\S]*\.practice-expanded/);
+  assert.match(hud, /classList\.toggle\(['"]pointer-locked['"],\s*locked\)/);
+});
