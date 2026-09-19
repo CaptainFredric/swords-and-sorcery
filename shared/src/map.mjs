@@ -24,7 +24,7 @@ const BASE_KEEP = {
     { id: 'north-ramp-right', minX: 3.5, maxX: 6.5, minZ: 8.5, maxZ: 11.5, startY: 0, endY: 3, axis: 'z' },
   ],
   solids: [
-    { id: 'arcane-spire-base', center: [0, 1.2, 0], size: [2.2, 2.4, 2.2], material: 'arcane' },
+    { id: 'arcane-spire-base', center: [0, 0.95, 0], size: [1.8, 1.9, 1.8], material: 'arcane' },
     { id: 'pillar-nw', center: [-5, 1.5, 5], size: [1.4, 3, 1.4], material: 'stone' },
     { id: 'pillar-ne', center: [5, 1.5, 5], size: [1.4, 3, 1.4], material: 'stone' },
     { id: 'pillar-sw', center: [-5, 1.5, -5], size: [1.4, 3, 1.4], material: 'stone' },
