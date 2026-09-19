@@ -14,6 +14,14 @@ test('room codes are short readable uppercase codes', () => {
   assert.match(code, /^[A-Z]{4}[2-9]$/);
 });
 
+test('Room stores mode/world identity and marks network players human', () => {
+  const room = new Room('ABCDE', { mode: 'FFA', worldId: 'shattered-keep' });
+  const player = room.addPlayer({ id: 'p1', token: 't1', name: 'A' }, 0);
+  assert.equal(room.mode, 'FFA');
+  assert.equal(room.worldId, 'shattered-keep');
+  assert.equal(player.actorKind, 'human');
+});
+
 test('room caps at eight players and second connected player starts countdown', () => {
   const room = new Room('TEST2');
   add(room, 'a');
