@@ -101,6 +101,15 @@ function makeGauntletedArm(parent, materials, side = 1) {
   return arm;
 }
 
+function addMagicWisp(parent, material, name, position, size, rotation) {
+  const wisp = new THREE.Mesh(new THREE.TetrahedronGeometry(size, 0), material);
+  wisp.name = name;
+  wisp.position.set(...position);
+  wisp.rotation.set(...rotation);
+  parent.add(wisp);
+  return wisp;
+}
+
 export class WeaponView {
   constructor(camera) {
     this.group = new THREE.Group();
@@ -154,6 +163,11 @@ export class WeaponView {
     this.magicHalo.name = 'first-person-magic-halo';
     this.magicHalo.rotation.x = Math.PI / 2;
     this.magicAnchor.add(this.magicHalo);
+    this.magicWisps = [
+      addMagicWisp(this.magicAnchor, materials.magic, 'first-person-magic-wisp-a', [-0.11, 0.055, -0.02], 0.045, [0.2, 0.5, 0.1]),
+      addMagicWisp(this.magicAnchor, materials.magic, 'first-person-magic-wisp-b', [0.1, 0.08, 0.03], 0.04, [-0.3, 0.2, 0.6]),
+      addMagicWisp(this.magicAnchor, materials.magic, 'first-person-magic-wisp-c', [0.025, -0.105, -0.025], 0.043, [0.4, -0.25, 0.35]),
+    ];
     this.magicLight = new THREE.PointLight(SPELLBLADE_PALETTE.magic, 1.0, 2.1, 2);
     this.magicAnchor.add(this.magicLight);
 
@@ -229,6 +243,11 @@ export class WeaponView {
     this.magicAnchor.scale.setScalar(magicScale);
     this.magicHalo.rotation.z = timeSec * 3.2;
     this.magicHalo.rotation.y = Math.sin(timeSec * 2.6) * 0.22;
+    for (let i = 0; i < this.magicWisps.length; i += 1) {
+      const wisp = this.magicWisps[i];
+      wisp.rotation.x += 0.012 + i * 0.003;
+      wisp.rotation.y = timeSec * (1.1 + i * 0.22);
+    }
     this.magicLight.intensity = pose.state === 'cast' ? 3.2 : 0.95 * Math.max(0.4, magicScale);
   }
 }
