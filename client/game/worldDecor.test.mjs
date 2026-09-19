@@ -19,7 +19,8 @@ test('decor plan emphasizes the actual bridge break without filling its floor ga
   assert.ok(plan.bridgeEdges.some((piece) => piece.z > -16));
   assert.ok(plan.bridgeEdges.some((piece) => piece.z < -16));
   for (const piece of plan.bridgeEdges) {
-    assert.ok(piece.y <= -0.08, `bridge decoration should not create a fake walkable floor: ${piece.id}`);
+    const top = piece.y + piece.sy / 2;
+    assert.ok(top <= 0.02, `non-collision bridge decoration must stay below the walkable surface: ${piece.id}`);
   }
 });
 
