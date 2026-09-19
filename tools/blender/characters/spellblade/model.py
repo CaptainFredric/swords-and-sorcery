@@ -57,13 +57,13 @@ def _material(name: str, color: tuple[float, float, float, float], *, metallic: 
 
 def build_materials() -> dict[str, bpy.types.Material]:
     return {
-        "DarkSteel": _material("DarkSteel", (0.105, 0.135, 0.17, 1.0), metallic=0.82, roughness=0.34),
-        "SteelEdge": _material("SteelEdge", (0.34, 0.40, 0.46, 1.0), metallic=0.9, roughness=0.24),
+        "DarkSteel": _material("DarkSteel", (0.095, 0.125, 0.16, 1.0), metallic=0.84, roughness=0.34),
+        "SteelEdge": _material("SteelEdge", (0.34, 0.40, 0.46, 1.0), metallic=0.90, roughness=0.24),
         "Brass": _material("Brass", (0.48, 0.30, 0.10, 1.0), metallic=0.72, roughness=0.31),
-        "CrimsonCloth": _material("CrimsonCloth", (0.30, 0.025, 0.035, 1.0), metallic=0.0, roughness=0.82),
-        "Leather": _material("Leather", (0.075, 0.045, 0.032, 1.0), metallic=0.0, roughness=0.88),
-        "VisorGlow": _material("VisorGlow", (0.04, 0.74, 0.95, 1.0), metallic=0.12, roughness=0.22, emission_strength=5.0),
-        "SorceryAccent": _material("SorceryAccent", (0.05, 0.58, 1.0, 1.0), metallic=0.0, roughness=0.18, emission_strength=7.0),
+        "CrimsonCloth": _material("CrimsonCloth", (0.30, 0.025, 0.035, 1.0), roughness=0.82),
+        "Leather": _material("Leather", (0.075, 0.045, 0.032, 1.0), roughness=0.88),
+        "VisorGlow": _material("VisorGlow", (0.04, 0.74, 0.95, 1.0), metallic=0.12, roughness=0.22, emission_strength=4.0),
+        "SorceryAccent": _material("SorceryAccent", (0.05, 0.58, 1.0, 1.0), roughness=0.18, emission_strength=5.0),
     }
 
 
@@ -93,19 +93,16 @@ def _beveled_box(name: str, location: tuple[float, float, float], dimensions: tu
 def _tapered_prism(name: str, *, center: tuple[float, float, float], height: float,
                     bottom_width: float, top_width: float, depth: float,
                     material: bpy.types.Material) -> bpy.types.Object:
-    z0 = -height / 2.0
-    z1 = height / 2.0
-    y0 = -depth / 2.0
-    y1 = depth / 2.0
-    bw = bottom_width / 2.0
-    tw = top_width / 2.0
+    z0, z1 = -height / 2.0, height / 2.0
+    y0, y1 = -depth / 2.0, depth / 2.0
+    bw, tw = bottom_width / 2.0, top_width / 2.0
     vertices = [
         (-bw, y0, z0), (bw, y0, z0), (bw, y1, z0), (-bw, y1, z0),
         (-tw, y0, z1), (tw, y0, z1), (tw, y1, z1), (-tw, y1, z1),
     ]
     faces = [
-        (0, 1, 2, 3), (4, 7, 6, 5),
-        (0, 4, 5, 1), (1, 5, 6, 2), (2, 6, 7, 3), (3, 7, 4, 0),
+        (0, 1, 2, 3), (4, 7, 6, 5), (0, 4, 5, 1),
+        (1, 5, 6, 2), (2, 6, 7, 3), (3, 7, 4, 0),
     ]
     mesh = bpy.data.meshes.new(f"{name}Mesh")
     mesh.from_pydata(vertices, [], faces)
@@ -115,7 +112,7 @@ def _tapered_prism(name: str, *, center: tuple[float, float, float], height: flo
     obj.location = center
     _apply_transform(obj)
     bevel = obj.modifiers.new("ArmorBevel", "BEVEL")
-    bevel.width = 0.035
+    bevel.width = 0.03
     bevel.segments = 1
     _activate(obj)
     bpy.ops.object.modifier_apply(modifier=bevel.name)
@@ -134,8 +131,8 @@ def _wedge(name: str, *, center: tuple[float, float, float], width: float, depth
         (-x * 0.72, y1, z * 0.55), (x * 0.72, y1, z * 0.55),
     ]
     faces = [
-        (0, 1, 3, 2), (4, 6, 7, 5),
-        (0, 4, 5, 1), (2, 3, 7, 6), (0, 2, 6, 4), (1, 5, 7, 3),
+        (0, 1, 3, 2), (4, 6, 7, 5), (0, 4, 5, 1),
+        (2, 3, 7, 6), (0, 2, 6, 4), (1, 5, 7, 3),
     ]
     mesh = bpy.data.meshes.new(f"{name}Mesh")
     mesh.from_pydata(vertices, [], faces)
@@ -149,14 +146,13 @@ def _wedge(name: str, *, center: tuple[float, float, float], width: float, depth
 
 def _cylinder_between(name: str, start: tuple[float, float, float], end: tuple[float, float, float],
                       radius: float, material: bpy.types.Material, *, vertices: int = 8) -> bpy.types.Object:
-    a = Vector(start)
-    b = Vector(end)
+    a, b = Vector(start), Vector(end)
     direction = b - a
-    length = direction.length
-    if length <= 1e-6:
+    if direction.length <= 1e-6:
         raise ValueError(f"{name} cylinder endpoints must differ")
-    midpoint = (a + b) * 0.5
-    bpy.ops.mesh.primitive_cylinder_add(vertices=vertices, radius=radius, depth=length, location=midpoint)
+    bpy.ops.mesh.primitive_cylinder_add(
+        vertices=vertices, radius=radius, depth=direction.length, location=(a + b) * 0.5,
+    )
     obj = bpy.context.object
     obj.name = name
     obj.rotation_mode = "QUATERNION"
@@ -181,29 +177,37 @@ def _bone_parent_keep_world(obj: bpy.types.Object, armature: bpy.types.Object, b
 
 def _helmet(armature: bpy.types.Object, materials: dict[str, bpy.types.Material]) -> list[bpy.types.Object]:
     parts: list[bpy.types.Object] = []
-    bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=2, radius=1.0, location=(0.0, 0.0, 1.825))
+    bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=2, radius=1.0, location=(0.0, -0.005, 1.815))
     shell = bpy.context.object
     shell.name = "HelmetShell"
-    shell.scale = (0.255, 0.225, 0.215)
+    shell.scale = (0.25, 0.205, 0.175)
     _apply_transform(shell)
     _assign(shell, materials["DarkSteel"])
     parts.append(_rigid(shell, armature, "head"))
 
-    jaw = _wedge("HelmetJaw", center=(0.0, 0.125, 1.705), width=0.43, depth=0.18, height=0.19,
-                 material=materials["DarkSteel"], forward_tip=0.055)
+    crown = _wedge("HelmetCrown", center=(0.0, -0.015, 1.965), width=0.40, depth=0.33, height=0.12,
+                   material=materials["DarkSteel"], forward_tip=0.025)
+    parts.append(_rigid(crown, armature, "head"))
+
+    jaw = _wedge("HelmetJaw", center=(0.0, 0.13, 1.705), width=0.44, depth=0.20, height=0.20,
+                 material=materials["DarkSteel"], forward_tip=0.065)
     parts.append(_rigid(jaw, armature, "head"))
 
-    visor = _beveled_box("Visor", (0.0, 0.218, 1.835), (0.34, 0.035, 0.075), materials["VisorGlow"], bevel=0.012)
+    visor_plate = _beveled_box("VisorPlate", (0.0, 0.205, 1.835), (0.405, 0.07, 0.12),
+                               materials["DarkSteel"], bevel=0.018)
+    parts.append(_rigid(visor_plate, armature, "head"))
+    visor = _beveled_box("Visor", (0.0, 0.247, 1.855), (0.325, 0.025, 0.042),
+                         materials["VisorGlow"], bevel=0.008)
     parts.append(_rigid(visor, armature, "head"))
 
-    brow_l = _beveled_box("HelmetBrow.L", (-0.11, 0.225, 1.895), (0.21, 0.055, 0.05), materials["SteelEdge"],
-                          bevel=0.012, rotation=(0.0, 0.0, radians(-8)))
-    brow_r = _beveled_box("HelmetBrow.R", (0.11, 0.225, 1.895), (0.21, 0.055, 0.05), materials["SteelEdge"],
-                          bevel=0.012, rotation=(0.0, 0.0, radians(8)))
-    parts.extend((_rigid(brow_l, armature, "head"), _rigid(brow_r, armature, "head")))
+    for side, x, angle in (("L", -0.115, -9), ("R", 0.115, 9)):
+        brow = _beveled_box(f"HelmetBrow.{side}", (x, 0.245, 1.905), (0.21, 0.045, 0.045),
+                            materials["SteelEdge"], bevel=0.010,
+                            rotation=(0.0, 0.0, radians(angle)))
+        parts.append(_rigid(brow, armature, "head"))
 
-    crest = _wedge("Crest", center=(0.0, -0.02, 2.005), width=0.075, depth=0.27, height=0.07,
-                   material=materials["Brass"], forward_tip=0.02)
+    crest = _wedge("Crest", center=(0.0, -0.035, 2.015), width=0.085, depth=0.30, height=0.055,
+                   material=materials["Brass"], forward_tip=0.015)
     parts.append(_rigid(crest, armature, "head"))
     return parts
 
@@ -211,43 +215,48 @@ def _helmet(armature: bpy.types.Object, materials: dict[str, bpy.types.Material]
 def _torso(armature: bpy.types.Object, materials: dict[str, bpy.types.Material]) -> list[bpy.types.Object]:
     parts: list[bpy.types.Object] = []
     under = _tapered_prism("UnderArmorTorso", center=(0.0, 0.0, 1.26), height=0.58,
-                           bottom_width=0.48, top_width=0.68, depth=0.30, material=materials["Leather"])
+                           bottom_width=0.46, top_width=0.67, depth=0.30, material=materials["Leather"])
     parts.append(_rigid(under, armature, "spine"))
 
     breast = _tapered_prism("Breastplate", center=(0.0, 0.055, 1.34), height=0.51,
-                            bottom_width=0.53, top_width=0.78, depth=0.30, material=materials["DarkSteel"])
+                            bottom_width=0.50, top_width=0.80, depth=0.30, material=materials["DarkSteel"])
     parts.append(_rigid(breast, armature, "chest"))
-
-    sternum = _beveled_box("BreastplateRidge", (0.0, 0.225, 1.36), (0.09, 0.055, 0.42), materials["SteelEdge"], bevel=0.016)
+    sternum = _beveled_box("BreastplateRidge", (0.0, 0.225, 1.36), (0.075, 0.055, 0.40),
+                           materials["SteelEdge"], bevel=0.014)
     parts.append(_rigid(sternum, armature, "chest"))
 
-    belt = _beveled_box("WarBelt", (0.0, 0.015, 1.02), (0.58, 0.32, 0.10), materials["Brass"], bevel=0.02)
+    belt = _beveled_box("WarBelt", (0.0, 0.015, 1.02), (0.57, 0.32, 0.09), materials["Brass"], bevel=0.02)
     parts.append(_rigid(belt, armature, "pelvis"))
+    for side, sign in (("L", -1.0), ("R", 1.0)):
+        fauld = _wedge(f"Fauld.{side}", center=(0.255 * sign, 0.055, 0.94), width=0.25, depth=0.28, height=0.20,
+                       material=materials["DarkSteel"], forward_tip=0.025)
+        parts.append(_rigid(fauld, armature, "pelvis"))
     return parts
 
 
 def _arm(side: str, armature: bpy.types.Object, materials: dict[str, bpy.types.Material]) -> list[bpy.types.Object]:
     sign = -1.0 if side == "L" else 1.0
-    upper = ((0.42 * sign, 0.0, 1.49), (0.72 * sign, 0.0, 1.23))
-    fore = ((0.72 * sign, 0.0, 1.23), (0.90 * sign, 0.035, 0.94))
     parts: list[bpy.types.Object] = []
-
-    pauldron = _wedge(f"Pauldron.{side}", center=(0.51 * sign, 0.02, 1.50), width=0.34, depth=0.34, height=0.23,
-                      material=materials["DarkSteel"], forward_tip=0.035)
+    pauldron = _wedge(f"Pauldron.{side}", center=(0.53 * sign, 0.02, 1.50), width=0.42, depth=0.36, height=0.22,
+                      material=materials["DarkSteel"], forward_tip=0.045)
     parts.append(_rigid(pauldron, armature, f"clavicle.{side}"))
+    cap = _beveled_box(f"PauldronLayer.{side}", (0.635 * sign, 0.015, 1.43), (0.32, 0.30, 0.11),
+                       materials["SteelEdge"], bevel=0.022,
+                       rotation=(0.0, radians(18 * sign), radians(11 * sign)))
+    parts.append(_rigid(cap, armature, f"upper_arm.{side}"))
+    skirt = _wedge(f"PauldronSkirt.{side}", center=(0.66 * sign, 0.015, 1.36), width=0.30, depth=0.27, height=0.11,
+                   material=materials["DarkSteel"], forward_tip=0.025)
+    parts.append(_rigid(skirt, armature, f"upper_arm.{side}"))
 
-    shoulder_cap = _beveled_box(f"PauldronLayer.{side}", (0.61 * sign, 0.015, 1.43), (0.29, 0.30, 0.12),
-                                materials["SteelEdge"], bevel=0.025,
-                                rotation=(0.0, radians(18 * sign), radians(10 * sign)))
-    parts.append(_rigid(shoulder_cap, armature, f"upper_arm.{side}"))
-
-    upper_arm = _cylinder_between(f"UpperArm.{side}", *upper, 0.105, materials["Leather"])
-    parts.append(_rigid(upper_arm, armature, f"upper_arm.{side}"))
-    vambrace = _cylinder_between(f"Vambrace.{side}", *fore, 0.115, materials["DarkSteel"])
+    upper = _cylinder_between(f"UpperArm.{side}", (0.42 * sign, 0.0, 1.49), (0.72 * sign, 0.0, 1.23),
+                              0.105, materials["Leather"])
+    parts.append(_rigid(upper, armature, f"upper_arm.{side}"))
+    vambrace = _cylinder_between(f"Vambrace.{side}", (0.72 * sign, 0.0, 1.23), (0.90 * sign, 0.035, 0.94),
+                                 0.115, materials["DarkSteel"])
     parts.append(_rigid(vambrace, armature, f"forearm.{side}"))
-
     gauntlet = _beveled_box(f"Gauntlet.{side}", (0.925 * sign, 0.065, 0.86), (0.22, 0.20, 0.20),
-                            materials["DarkSteel"], bevel=0.025, rotation=(radians(-8), 0.0, radians(8 * sign)))
+                            materials["DarkSteel"], bevel=0.025,
+                            rotation=(radians(-8), 0.0, radians(8 * sign)))
     parts.append(_rigid(gauntlet, armature, f"hand.{side}"))
     return parts
 
@@ -258,15 +267,15 @@ def _leg(side: str, armature: bpy.types.Object, materials: dict[str, bpy.types.M
     thigh = _cylinder_between(f"Thigh.{side}", (0.20 * sign, 0.0, 0.82), (0.21 * sign, 0.0, 0.47),
                               0.14, materials["Leather"])
     parts.append(_rigid(thigh, armature, f"thigh.{side}"))
-
+    cuisse = _tapered_prism(f"Cuisse.{side}", center=(0.205 * sign, 0.055, 0.67), height=0.26,
+                            bottom_width=0.24, top_width=0.29, depth=0.23, material=materials["DarkSteel"])
+    parts.append(_rigid(cuisse, armature, f"thigh.{side}"))
     greave = _tapered_prism(f"Greave.{side}", center=(0.21 * sign, 0.045, 0.31), height=0.38,
                             bottom_width=0.23, top_width=0.29, depth=0.25, material=materials["DarkSteel"])
     parts.append(_rigid(greave, armature, f"shin.{side}"))
-
-    kneecap = _wedge(f"KneePlate.{side}", center=(0.21 * sign, 0.12, 0.51), width=0.27, depth=0.16, height=0.16,
-                     material=materials["SteelEdge"], forward_tip=0.045)
-    parts.append(_rigid(kneecap, armature, f"shin.{side}"))
-
+    knee = _wedge(f"KneePlate.{side}", center=(0.21 * sign, 0.12, 0.51), width=0.27, depth=0.16, height=0.16,
+                  material=materials["SteelEdge"], forward_tip=0.045)
+    parts.append(_rigid(knee, armature, f"shin.{side}"))
     boot = _beveled_box(f"Boot.{side}", (0.21 * sign, 0.115, 0.105), (0.36, 0.48, 0.21),
                         materials["DarkSteel"], bevel=0.035)
     parts.append(_rigid(boot, armature, f"foot.{side}"))
@@ -278,21 +287,20 @@ def _leg(side: str, armature: bpy.types.Object, materials: dict[str, bpy.types.M
 
 def _tabard(armature: bpy.types.Object, materials: dict[str, bpy.types.Material]) -> list[bpy.types.Object]:
     parts: list[bpy.types.Object] = []
-    front = _tapered_prism("TabardFront", center=(0.0, 0.205, 0.73), height=0.48,
-                           bottom_width=0.30, top_width=0.43, depth=0.055, material=materials["CrimsonCloth"])
+    front = _tapered_prism("TabardFront", center=(0.0, 0.205, 0.73), height=0.46,
+                           bottom_width=0.24, top_width=0.36, depth=0.052, material=materials["CrimsonCloth"])
     parts.append(_rigid(front, armature, "tabard_front_01"))
-    front_lower = _tapered_prism("TabardFrontLower", center=(0.0, 0.22, 0.37), height=0.30,
-                                 bottom_width=0.22, top_width=0.30, depth=0.05, material=materials["CrimsonCloth"])
+    front_lower = _tapered_prism("TabardFrontLower", center=(0.0, 0.22, 0.39), height=0.26,
+                                 bottom_width=0.18, top_width=0.24, depth=0.048, material=materials["CrimsonCloth"])
     parts.append(_rigid(front_lower, armature, "tabard_front_02"))
-
-    back = _tapered_prism("TabardBack", center=(0.0, -0.19, 0.73), height=0.48,
-                          bottom_width=0.31, top_width=0.43, depth=0.055, material=materials["CrimsonCloth"])
+    back = _tapered_prism("TabardBack", center=(0.0, -0.19, 0.73), height=0.46,
+                          bottom_width=0.25, top_width=0.36, depth=0.052, material=materials["CrimsonCloth"])
     parts.append(_rigid(back, armature, "tabard_back_01"))
-    back_lower = _tapered_prism("TabardBackLower", center=(0.0, -0.20, 0.38), height=0.28,
-                                bottom_width=0.23, top_width=0.31, depth=0.05, material=materials["CrimsonCloth"])
+    back_lower = _tapered_prism("TabardBackLower", center=(0.0, -0.20, 0.40), height=0.25,
+                                bottom_width=0.18, top_width=0.25, depth=0.048, material=materials["CrimsonCloth"])
     parts.append(_rigid(back_lower, armature, "tabard_back_02"))
-
-    scarf = _beveled_box("CrimsonScarf", (0.0, -0.08, 1.61), (0.45, 0.24, 0.105), materials["CrimsonCloth"], bevel=0.035)
+    scarf = _beveled_box("CrimsonScarf", (0.0, -0.08, 1.61), (0.44, 0.24, 0.095),
+                         materials["CrimsonCloth"], bevel=0.03)
     parts.append(_rigid(scarf, armature, "neck"))
     return parts
 
@@ -314,8 +322,7 @@ def _diamond_blade(name: str, base: Vector, tip: Vector, width: float, thickness
     ]
     faces = [
         (0, 4, 6, 2), (2, 6, 5, 1), (1, 5, 7, 3), (3, 7, 4, 0),
-        (4, 8, 6), (6, 8, 5), (5, 8, 7), (7, 8, 4),
-        (0, 2, 1), (0, 3, 2),
+        (4, 8, 6), (6, 8, 5), (5, 8, 7), (7, 8, 4), (0, 2, 1), (0, 3, 2),
     ]
     mesh = bpy.data.meshes.new(f"{name}Mesh")
     mesh.from_pydata(vertices, [], faces)
@@ -326,16 +333,16 @@ def _diamond_blade(name: str, base: Vector, tip: Vector, width: float, thickness
 
 
 def build_hero_sword(armature: bpy.types.Object, materials: dict[str, bpy.types.Material]) -> list[bpy.types.Object]:
-    # Neutral pose keeps the oversized blade inside the 2.25m production height envelope.
-    grip_base = Vector((0.95, 0.08, 0.76))
+    grip_base = Vector((0.95, 0.08, 0.74))
     blade_base = Vector((1.00, 0.10, 0.94))
-    blade_tip = Vector((1.33, 0.14, 1.98))
-    blade = _diamond_blade("HeroSword", blade_base, blade_tip, 0.17, 0.032, materials["SteelEdge"])
-
-    guard = _beveled_box("HeroSword.Guard", (0.98, 0.09, 0.90), (0.42, 0.08, 0.065), materials["Brass"],
-                         bevel=0.018, rotation=(0.0, radians(-17), radians(-3)))
-    grip = _cylinder_between("HeroSword.Grip", tuple(grip_base), (0.98, 0.09, 0.91), 0.045, materials["Leather"], vertices=8)
-    pommel = _beveled_box("HeroSword.Pommel", (0.945, 0.08, 0.735), (0.10, 0.09, 0.10), materials["Brass"], bevel=0.018)
+    blade_tip = Vector((1.40, 0.14, 2.03))
+    blade = _diamond_blade("HeroSword", blade_base, blade_tip, 0.205, 0.034, materials["SteelEdge"])
+    guard = _beveled_box("HeroSword.Guard", (0.985, 0.09, 0.90), (0.50, 0.085, 0.07), materials["Brass"],
+                         bevel=0.018, rotation=(0.0, radians(-18), radians(-3)))
+    grip = _cylinder_between("HeroSword.Grip", tuple(grip_base), (0.98, 0.09, 0.91), 0.047,
+                             materials["Leather"], vertices=8)
+    pommel = _beveled_box("HeroSword.Pommel", (0.945, 0.08, 0.715), (0.11, 0.095, 0.11),
+                          materials["Brass"], bevel=0.018)
     parts = [blade, guard, grip, pommel]
     for obj in parts:
         _bone_parent_keep_world(obj, armature, "socket_sword")
@@ -344,15 +351,19 @@ def build_hero_sword(armature: bpy.types.Object, materials: dict[str, bpy.types.
 
 def _sorcery_accent(armature: bpy.types.Object, materials: dict[str, bpy.types.Material]) -> list[bpy.types.Object]:
     parts: list[bpy.types.Object] = []
-    bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=1, radius=0.095, location=(-0.96, 0.17, 0.84))
+    bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=1, radius=0.085, location=(-0.96, 0.17, 0.84))
     core = bpy.context.object
     core.name = "SorceryCore"
     _apply_transform(core)
     _assign(core, materials["SorceryAccent"])
     parts.append(_bone_parent_keep_world(core, armature, "socket_sorcery"))
-    for index, offset in enumerate(((-0.10, 0.03, 0.08), (0.08, 0.04, 0.10), (-0.04, 0.02, -0.10))):
-        shard = _wedge(f"SorceryShard.{index + 1}", center=(-0.96 + offset[0], 0.17 + offset[1], 0.84 + offset[2]),
-                       width=0.05, depth=0.06, height=0.14, material=materials["SorceryAccent"], forward_tip=0.02)
+    for index, offset in enumerate(((-0.09, 0.03, 0.075), (0.075, 0.04, 0.09), (-0.035, 0.02, -0.09))):
+        shard = _wedge(
+            f"SorceryShard.{index + 1}",
+            center=(-0.96 + offset[0], 0.17 + offset[1], 0.84 + offset[2]),
+            width=0.045, depth=0.055, height=0.12,
+            material=materials["SorceryAccent"], forward_tip=0.018,
+        )
         parts.append(_bone_parent_keep_world(shard, armature, "socket_sorcery"))
     return parts
 
