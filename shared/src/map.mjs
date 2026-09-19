@@ -7,7 +7,8 @@ export const SHATTERED_KEEP = Object.freeze({
     { id: 'north-apron', center: [0, -0.15, 10.5], size: [14, 0.3, 3], y: 0, material: 'stone' },
     { id: 'north-battlement', center: [0, 2.85, 13], size: [14, 0.3, 3.5], y: 3, material: 'stone' },
     { id: 'south-approach', center: [0, -0.15, -10.5], size: [8, 0.3, 3], y: 0, material: 'stone' },
-    { id: 'broken-bridge', center: [0, -0.15, -16], size: [5.5, 0.3, 8], y: 0, material: 'stone' },
+    { id: 'broken-bridge-north', center: [0, -0.15, -13.7], size: [5.5, 0.3, 3.4], y: 0, material: 'stone' },
+    { id: 'broken-bridge-south', center: [0, -0.15, -18.3], size: [5.5, 0.3, 3.4], y: 0, material: 'stone' },
     { id: 'south-tower', center: [0, -0.15, -22.5], size: [10, 0.3, 5], y: 0, material: 'stone' },
   ],
   ramps: [
