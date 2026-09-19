@@ -25,9 +25,7 @@ test('bot chooses melee intent without directly damaging the target', () => {
   const { room, bot, human } = makeBotDuel();
   bot.position = { x: 0, y: 0, z: 0 };
   human.position = { x: 0, y: 0, z: -1.4 };
-
   stepBotControllers(room, 4, room.world, { random: () => 0.5 });
-
   assert.equal(bot.attackHeld, true);
   assert.equal(human.health, 100);
 });
@@ -38,9 +36,7 @@ test('bot Fireball cannot bypass authoritative cooldown', () => {
   human.position = { x: 0, y: 0, z: -8 };
   bot.fireballReadyAt = 10;
   const projectileCount = room.projectiles.size;
-
   stepBotControllers(room, 5, room.world, { random: () => 0.05 });
-
   assert.equal(room.projectiles.size, projectileCount);
   assert.equal(bot.pendingFireball, null);
   assert.equal(bot.fireballReadyAt, 10);
@@ -52,9 +48,7 @@ test('bot defensive decisions have nonzero reaction latency', () => {
   human.position = { x: 0, y: 0, z: -1.8 };
   human.attackActive = true;
   human.attackHeld = true;
-
   stepBotControllers(room, 4, room.world, { random: () => 0.2 });
-
   assert.ok(bot.ai.nextDefensiveDecisionAt > 4);
   assert.equal(bot.guarding, false);
 });
@@ -65,8 +59,26 @@ test('bot targets living humans instead of server-owned actors', () => {
   bot.position = { x: 0, y: 0, z: 0 };
   dummy.position = { x: 0, y: 0, z: -0.8 };
   human.position = { x: 0, y: 0, z: -5 };
-
   stepBotControllers(room, 4, room.world, { random: () => 0.5 });
-
   assert.equal(bot.ai.targetId, human.id);
+});
+
+test('bot recognizes lack of movement progress and performs a lateral escape instead of walking forever into cover', () => {
+  const { room, bot, human } = makeBotDuel();
+  bot.position = { x: 0, y: 0, z: 0 };
+  human.position = { x: 0, y: 0, z: -9 };
+
+  // First decision establishes a progress sample while the bot intends to move.
+  stepBotControllers(room, 4, room.world, { random: () => 0.8 });
+  assert.ok(bot.input.forward > 0.4);
+  const originalStrafe = bot.ai.strafeDirection;
+
+  // Simulate collision pinning the bot at exactly the same position for long enough
+  // to trigger the low-cost stuck detector on a later controller tick.
+  stepBotControllers(room, 4.85, room.world, { random: () => 0.8 });
+
+  assert.ok(bot.ai.escapeUntil > 4.85, 'bot should enter a bounded escape window');
+  assert.notEqual(bot.ai.strafeDirection, originalStrafe, 'escape should change the attempted side around the obstacle');
+  assert.ok(Math.abs(bot.input.right) >= 0.8, 'escape should strongly favor lateral movement');
+  assert.ok(bot.input.forward <= 0.25, 'escape should stop feeding full forward input into the obstacle');
 });
