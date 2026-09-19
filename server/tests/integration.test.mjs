@@ -80,7 +80,8 @@ test('websocket clients support multiplayer combat and one-tab Practice on the a
   const soloJoined = await soloJoinedP;
   const soloPlaying = await soloPlayingP;
   assert.equal(soloJoined.mode, 'PRACTICE');
-  assert.equal(soloJoined.worldId, 'shattered-keep');
+  assert.equal(soloJoined.worldId, 'castleward');
+  assert.equal(soloPlaying.worldId, 'castleward');
   assert.equal(soloPlaying.players.filter((p) => p.actorKind === 'human').length, 1);
   assert.equal(soloPlaying.players.filter((p) => p.actorKind !== 'human').length, 0);
 
