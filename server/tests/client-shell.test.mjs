@@ -78,7 +78,9 @@ test('Bot Duel lobby captures pointer lock before signaling authoritative arena 
   assert.match(main, /BOT_DUEL[\s\S]*ENTER ARENA/i);
   assert.match(main, /requestPointerLock\(\)/);
   assert.match(main, /arenaReady\(locked\)/);
+  assert.match(main, /preservePointerLock[\s\S]*BOT_DUEL|BOT_DUEL[\s\S]*preservePointerLock/);
   assert.match(socket, /arenaReady\(ready\)[\s\S]*type:\s*['"]arenaReady['"]/);
   assert.match(runtime, /requestPointerLock\(\)[\s\S]*input\.requestPointerLock\(\)/);
+  assert.match(runtime, /setPlaying\(playing,[\s\S]*preservePointerLock/);
   assert.match(input, /requestPointerLock\(\)[\s\S]*requestPointerLock/);
 });
