@@ -1,3 +1,9 @@
+function yawTowardKeep(x, z, targetX = 0, targetZ = 0) {
+  // Movement forward is (-sin(yaw), -cos(yaw)), so this is the yaw whose
+  // forward vector points from the spawn toward the requested arena target.
+  return Math.atan2(x - targetX, z - targetZ);
+}
+
 export const SHATTERED_KEEP = Object.freeze({
   name: 'The Shattered Keep',
   floors: [
@@ -36,16 +42,16 @@ export const SHATTERED_KEEP = Object.freeze({
     { id: 'bridge-right-ruin', center: [3, 1.0, -18], size: [0.7, 2.0, 2.5], material: 'stone' },
   ],
   spawnPoints: [
-    { x: -6.5, y: 0, z: -6.5, yaw: 0.7 },
-    { x: 6.5, y: 0, z: -6.5, yaw: -0.7 },
-    { x: -6.5, y: 0, z: 6.5, yaw: 2.4 },
-    { x: 6.5, y: 0, z: 6.5, yaw: -2.4 },
-    { x: -15.5, y: 0, z: 0, yaw: 1.57 },
-    { x: 15.5, y: 0, z: 0, yaw: -1.57 },
-    { x: -5, y: 3, z: 13, yaw: 3.14 },
-    { x: 5, y: 3, z: 13, yaw: 3.14 },
-    { x: -1.7, y: 0, z: -21.5, yaw: 0 },
-    { x: 1.7, y: 0, z: -21.5, yaw: 0 },
+    { x: -6.5, y: 0, z: -6.5, yaw: yawTowardKeep(-6.5, -6.5) },
+    { x: 6.5, y: 0, z: -6.5, yaw: yawTowardKeep(6.5, -6.5) },
+    { x: -6.5, y: 0, z: 6.5, yaw: yawTowardKeep(-6.5, 6.5) },
+    { x: 6.5, y: 0, z: 6.5, yaw: yawTowardKeep(6.5, 6.5) },
+    { x: -15.5, y: 0, z: 0, yaw: yawTowardKeep(-15.5, 0) },
+    { x: 15.5, y: 0, z: 0, yaw: yawTowardKeep(15.5, 0) },
+    { x: -5, y: 3, z: 13, yaw: yawTowardKeep(-5, 13) },
+    { x: 5, y: 3, z: 13, yaw: yawTowardKeep(5, 13) },
+    { x: -1.7, y: 0, z: -21.5, yaw: yawTowardKeep(-1.7, -21.5) },
+    { x: 1.7, y: 0, z: -21.5, yaw: yawTowardKeep(1.7, -21.5) },
   ],
   abyssY: -9,
 });
