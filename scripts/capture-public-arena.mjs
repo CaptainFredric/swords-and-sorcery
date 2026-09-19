@@ -150,6 +150,7 @@ async function connectBot(roomCode) {
 }
 
 const browserErrors = [];
+const httpErrors = [];
 let chrome = null;
 let cdp = null;
 let bot = null;
@@ -183,12 +184,25 @@ try {
   await cdp.send('Page.enable');
   await cdp.send('Runtime.enable');
   await cdp.send('Log.enable');
+  await cdp.send('Network.enable');
 
   cdp.on('Runtime.exceptionThrown', ({ exceptionDetails }) => {
     browserErrors.push({ type: 'exception', text: exceptionDetails?.text || 'Runtime exception' });
   });
   cdp.on('Log.entryAdded', ({ entry }) => {
-    if (entry?.level === 'error') browserErrors.push({ type: 'console', text: entry.text });
+    if (entry?.level === 'error') {
+      browserErrors.push({
+        type: 'console',
+        text: entry.text,
+        url: entry.url || null,
+        lineNumber: entry.lineNumber ?? null,
+      });
+    }
+  });
+  cdp.on('Network.responseReceived', ({ response, type }) => {
+    if (response?.status >= 400) {
+      httpErrors.push({ status: response.status, url: response.url, resourceType: type });
+    }
   });
 
   await poll(
@@ -243,6 +257,7 @@ try {
     roomCode,
     arenaState,
     browserErrors,
+    httpErrors,
     botPlayerId: bot.joined.playerId,
     botSnapshotPlayers: bot.latestSnapshot()?.players?.map((p) => ({ name: p.name, alive: p.alive, position: p.position })) || [],
   };
@@ -252,7 +267,7 @@ try {
     throw new Error(`Browser did not reach a rendered arena: ${JSON.stringify(arenaState)}`);
   }
   if (browserErrors.length) {
-    throw new Error(`Browser reported errors: ${JSON.stringify(browserErrors)}`);
+    throw new Error(`Browser reported errors: ${JSON.stringify({ browserErrors, httpErrors })}`);
   }
 
   const screenshotStat = await fs.stat(screenshotPath);
