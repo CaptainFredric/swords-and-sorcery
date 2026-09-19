@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { sampleTrailSegment, transientScale } from './effectTrail.mjs';
+import { impactWorldPresentation, sampleTrailSegment, transientScale } from './effectTrail.mjs';
 
 function near(actual, expected, epsilon = 1e-9) {
   assert.ok(Math.abs(actual - expected) <= epsilon, `${actual} was not within ${epsilon} of ${expected}`);
@@ -68,4 +68,22 @@ test('transient scale derives from lifetime instead of compounding every frame',
   near(transientScale(0.5, 1, 4, true), 1.5);
   near(transientScale(0.9, 1, 4, true), 0.46);
   near(transientScale(0.5, 1, 4, false), 3);
+});
+
+test('fireball impacts near the camera replace large world rings with a compact camera hit cue', () => {
+  const directHit = impactWorldPresentation(0.55);
+  assert.equal(directHit.showWorldBurst, false);
+  assert.equal(directHit.showRings, false);
+  assert.equal(directHit.cameraFlash, true);
+
+  const nearby = impactWorldPresentation(1.8);
+  assert.equal(nearby.showWorldBurst, true);
+  assert.equal(nearby.showRings, true);
+  assert.ok(nearby.worldScale < 1);
+
+  const distant = impactWorldPresentation(3.2);
+  assert.equal(distant.showWorldBurst, true);
+  assert.equal(distant.showRings, true);
+  near(distant.worldScale, 1);
+  assert.equal(distant.cameraFlash, false);
 });
