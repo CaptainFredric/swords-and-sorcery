@@ -38,6 +38,16 @@ test('front-door copy stays player-facing instead of exposing implementation not
   assert.match(menuSlice, /Create or join a room/i);
 });
 
+test('front door prioritizes title, play choices and the Spellblade over secondary combat annotations', async () => {
+  const html = await read('client/index.html');
+  const frontDoor = html.slice(html.indexOf('id="menu-world"'), html.indexOf('id="solo-menu"'));
+
+  assert.match(frontDoor, /id=["']menu-spellblade["']/);
+  assert.match(frontDoor, /id=["']quick-play["']/);
+  assert.doesNotMatch(frontDoor, /class=["'][^"']*kit-mark/i);
+  assert.doesNotMatch(frontDoor, /class=["'][^"']*world-note/i);
+});
+
 test('Practice controls collapse out of the combat view while pointer lock is active', async () => {
   const html = await read('client/index.html');
   const css = await read('client/playability.css');
