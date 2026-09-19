@@ -68,3 +68,17 @@ test('Practice tool hint describes the current cursor state instead of telling a
   assert.match(css, /\.hud\.pointer-locked\s+\.practice-tools-unlocked-hint\s*\{[^}]*display\s*:\s*none/i);
   assert.match(css, /\.hud\.pointer-locked\s+\.practice-tools-locked-hint\s*\{[^}]*display\s*:\s*block/i);
 });
+
+test('Bot Duel lobby captures pointer lock before signaling authoritative arena readiness', async () => {
+  const main = await read('client/main.mjs');
+  const socket = await read('client/network/GameSocket.mjs');
+  const runtime = await read('client/game/GameRuntime.mjs');
+  const input = await read('client/game/InputController.mjs');
+
+  assert.match(main, /BOT_DUEL[\s\S]*ENTER ARENA/i);
+  assert.match(main, /requestPointerLock\(\)/);
+  assert.match(main, /arenaReady\(locked\)/);
+  assert.match(socket, /arenaReady\(ready\)[\s\S]*type:\s*['"]arenaReady['"]/);
+  assert.match(runtime, /requestPointerLock\(\)[\s\S]*input\.requestPointerLock\(\)/);
+  assert.match(input, /requestPointerLock\(\)[\s\S]*requestPointerLock/);
+});
