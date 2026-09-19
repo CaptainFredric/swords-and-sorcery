@@ -46,7 +46,8 @@ jobs:
                 && grep -qi 'PRACTICE YARD' game.html \
                 && grep -qi 'CASTLEWARD' game.html \
                 && grep -qi 'Find a public match' game.html \
-                && grep -qi 'ESC FOR PRACTICE TOOLS' game.html \
+                && grep -qi 'CLICK ARENA TO RESUME' game.html \
+                && grep -qi 'ESC FOR TOOLS' game.html \
                 && ! grep -qi 'kit-mark' game.html \
                 && ! grep -qi 'world-note' game.html \
                 && grep -Eq 'FIRST_PERSON_WEAPON_SCALE\s*=\s*0\.74' live-weapon-pose.mjs \
@@ -58,7 +59,7 @@ jobs:
               fi
             fi
             if [ "$healthy" = true ] && [ "$current" = true ]; then
-              echo "Render is healthy and serving the current grounded Castleward/front-door revision"
+              echo "Render is healthy and serving the current grounded Castleward/front-door/Practice revision"
               break
             fi
             if [ "$attempt" -eq 24 ]; then

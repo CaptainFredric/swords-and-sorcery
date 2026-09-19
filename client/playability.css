@@ -1,5 +1,9 @@
 /* Foundational playability overrides kept separate from the larger visual skin. */
 
+.practice-tools-locked-hint {
+  display: none;
+}
+
 .hud.pointer-locked .practice-tools {
   width: auto;
   min-width: 152px;
@@ -25,6 +29,14 @@
   font-size: 7px;
   letter-spacing: .08em;
   color: rgba(231, 220, 196, .48);
+}
+
+.hud.pointer-locked .practice-tools-unlocked-hint {
+  display: none;
+}
+
+.hud.pointer-locked .practice-tools-locked-hint {
+  display: block;
 }
 
 .hud.pointer-locked .practice-tools button {
