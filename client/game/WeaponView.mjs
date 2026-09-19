@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { resolveWeaponPose } from './weaponPose.mjs';
+import { FIRST_PERSON_WEAPON_SCALE, resolveWeaponPose } from './weaponPose.mjs';
 
 function box(parent, size, material, position = [0, 0, 0], rotation = [0, 0, 0]) {
   const mesh = new THREE.Mesh(new THREE.BoxGeometry(...size), material);
@@ -65,6 +65,7 @@ function makeGauntletedArm(parent, materials, side = 1) {
 export class WeaponView {
   constructor(camera) {
     this.group = new THREE.Group();
+    this.group.scale.setScalar(FIRST_PERSON_WEAPON_SCALE);
     camera.add(this.group);
 
     const materials = {
