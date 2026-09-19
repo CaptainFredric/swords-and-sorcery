@@ -129,6 +129,20 @@ async function click(selector) {
   if (!clicked) throw new Error(`Missing element ${selector}`);
 }
 
+async function trustedClick(selector) {
+  const point = await evaluate(`(() => {
+    const el = document.querySelector(${JSON.stringify(selector)});
+    if (!el || el.classList.contains('hidden') || el.disabled) return null;
+    el.scrollIntoView({ block: 'center', inline: 'center' });
+    const rect = el.getBoundingClientRect();
+    return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+  })()`);
+  if (!point) throw new Error(`Missing or inactive element ${selector}`);
+  await cdp.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: point.x, y: point.y });
+  await cdp.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: point.x, y: point.y, button: 'left', buttons: 1, clickCount: 1 });
+  await cdp.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: point.x, y: point.y, button: 'left', buttons: 0, clickCount: 1 });
+}
+
 async function capture(file) {
   const result = await cdp.send('Page.captureScreenshot', { format: 'png', fromSurface: true, captureBeyondViewport: false });
   await fs.writeFile(file, Buffer.from(result.data, 'base64'));
@@ -149,10 +163,12 @@ async function snapshotUi() {
     lobbyState: document.querySelector('#lobby-state')?.textContent?.trim() || '',
     lobbyMode: document.querySelector('#lobby-mode')?.textContent?.trim() || '',
     lobbyWorld: document.querySelector('#lobby-world')?.textContent?.trim() || '',
+    lobbyAction: document.querySelector('#copy-link')?.textContent?.trim() || '',
     roomCode: document.querySelector('#lobby-code')?.textContent?.trim() || '',
     canvasCount: document.querySelectorAll('#game-canvas canvas').length,
     menuCanvasCount: document.querySelectorAll('#menu-spellblade canvas').length,
     pointerHint: document.querySelector('#pointer-hint')?.textContent?.trim() || '',
+    pointerLocked: Boolean(document.pointerLockElement),
   }))()`);
 }
 
@@ -232,16 +248,30 @@ try {
   evidence.practiceDummy = await snapshotUi();
   await capture('public-game-practice-dummy.png');
 
-  // Fresh one-browser Bot Duel.
+  // Fresh one-browser Bot Duel. Prove it stays WAITING beyond the retired auto-start window.
   await resetToFreshMenu();
   await setName('Public Duelist');
   await click('#solo-button');
   await waitVisible('#solo-menu');
   await click('#bot-duel');
-  await waitVisible('#hud', 25000);
+  await waitVisible('#lobby', 10000);
+  await poll(async () => {
+    const ui = await snapshotUi();
+    return ui.lobbyMode === 'BOT DUEL' && /ENTER THE ARENA/i.test(ui.lobbyState) && /ENTER ARENA/i.test(ui.lobbyAction);
+  }, { timeoutMs: 10000, label: 'Bot Duel WAITING readiness lobby' });
+  await sleep(3600);
+  evidence.botDuelWaiting = await snapshotUi();
+  if (!evidence.botDuelWaiting.lobbyVisible || evidence.botDuelWaiting.hudVisible || evidence.botDuelWaiting.pointerLocked) {
+    throw new Error(`BOT_DUEL did not remain WAITING before arena focus: ${JSON.stringify(evidence.botDuelWaiting)}`);
+  }
+  await capture('public-game-bot-duel-waiting.png');
+
+  await trustedClick('#copy-link');
+  await poll(async () => (await snapshotUi()).pointerLocked, { timeoutMs: 5000, label: 'Bot Duel pointer lock' });
+  await waitVisible('#hud', 15000);
   await poll(async () => (await snapshotUi()).matchInfo.includes('FIRST TO 10'), { timeoutMs: 10000, label: 'Bot Duel match HUD' });
-  await sleep(1000);
   evidence.botDuel = await snapshotUi();
+  if (!evidence.botDuel.pointerLocked) throw new Error(`Bot Duel became active without pointer lock: ${JSON.stringify(evidence.botDuel)}`);
   await capture('public-game-bot-duel.png');
 
   // Fresh Quick Match: a single public player must wait rather than fake-start.
@@ -262,7 +292,8 @@ try {
     throw new Error(`Public browser reported errors: ${JSON.stringify({ browserErrors, httpErrors })}`);
   }
   if (!evidence.practice.hudVisible || !evidence.practice.practiceVisible) throw new Error('Practice did not render the expected HUD/tools');
-  if (!evidence.botDuel.hudVisible) throw new Error('Bot Duel did not reach active play');
+  if (!evidence.botDuelWaiting.lobbyVisible || evidence.botDuelWaiting.hudVisible || evidence.botDuelWaiting.pointerLocked) throw new Error('Unfocused Bot Duel did not remain in the readiness lobby');
+  if (!evidence.botDuel.hudVisible || !evidence.botDuel.pointerLocked) throw new Error('Bot Duel did not reach active play with arena input captured');
   if (!evidence.ffaWaiting.lobbyVisible || evidence.ffaWaiting.hudVisible) throw new Error('One-human FFA did not remain in the waiting lobby');
 
   console.log('Public structural browser verification OK:', JSON.stringify(report, null, 2));
