@@ -8,6 +8,11 @@ import { WeaponView } from './WeaponView.mjs';
 import { Effects } from './Effects.mjs';
 import { localCombatFeedback, shouldPlayWorldClang } from './combatFeedback.mjs';
 import { castVisualDuration } from './weaponPose.mjs';
+import {
+  canPresentLocalAction,
+  localWeaponReleaseForEvent,
+  localWeaponReleaseForSnapshot,
+} from './localActionPresentation.mjs';
 
 export class GameRuntime {
   constructor(container, socket, hud) {
@@ -37,9 +42,30 @@ export class GameRuntime {
     this.effects = new Effects(this.scene, this.camera);
     this.input = new InputController(this.renderer.domElement, socket);
     this.input.onPointer = (locked) => hud.setPointerLocked(locked);
-    this.input.onAttackLocal = (held) => this.weapon.setAttack(held);
-    this.input.onGuardLocal = (held) => this.weapon.setGuard(held);
-    this.input.onDashLocal = (dir) => { this.weapon.dash(); this.effects.dash(); if (this.localState) tryStartDash(this.localState, dir, this.socket.serverNow()); this.dashFovUntil = performance.now() + 180; };
+    this.input.onAttackLocal = (held) => {
+      if (!held) {
+        this.weapon.setAttack(false);
+        return;
+      }
+      const now = this.socket.serverNow();
+      if (canPresentLocalAction('attack', this.localAuth, this.localState, now)) this.weapon.setAttack(true);
+    };
+    this.input.onGuardLocal = (held) => {
+      if (!held) {
+        this.weapon.setGuard(false);
+        return;
+      }
+      const now = this.socket.serverNow();
+      if (canPresentLocalAction('guard', this.localAuth, this.localState, now)) this.weapon.setGuard(true);
+    };
+    this.input.onDashLocal = (dir) => {
+      const now = this.socket.serverNow();
+      if (!canPresentLocalAction('dash', this.localAuth, this.localState, now)) return;
+      if (!tryStartDash(this.localState, dir, now)) return;
+      this.weapon.dash();
+      this.effects.dash();
+      this.dashFovUntil = performance.now() + 180;
+    };
 
     this.localState = null;
     this.localAuth = null;
@@ -68,12 +94,19 @@ export class GameRuntime {
     this.renderer.setSize(innerWidth, innerHeight);
   };
 
+  #applyWeaponRelease(release) {
+    if (!release) return;
+    if (release.attack) this.weapon.setAttack(false);
+    if (release.guard) this.weapon.setGuard(false);
+  }
+
   setPlayerId(id) {
     this.remotePlayers.setLocalId(id);
   }
 
   setPlaying(playing) {
     this.playing = playing;
+    if (!playing) this.#applyWeaponRelease({ attack: true, guard: true });
     if (!playing && document.pointerLockElement === this.renderer.domElement) document.exitPointerLock?.();
   }
 
@@ -107,11 +140,13 @@ export class GameRuntime {
       this.localState.dashReadyAt = auth.dashReadyAt;
       this.localState.dashUntil = auth.dashUntil ?? this.localState.dashUntil;
     }
+    this.#applyWeaponRelease(localWeaponReleaseForSnapshot(auth, this.socket.serverNow()));
   }
 
   onEvents(events) {
     for (const event of events) {
       this.remotePlayers.onEvent(event);
+      this.#applyWeaponRelease(localWeaponReleaseForEvent(event, this.socket.playerId));
 
       if (event.type === 'fireballCast') {
         const duration = castVisualDuration(event, this.socket.playerId, this.socket.serverNow());
