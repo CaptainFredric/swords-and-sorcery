@@ -74,7 +74,13 @@ function route(screenId) {
 }
 
 function ensureRuntime() {
-  if (!runtime) runtime = new GameRuntime($('#game-canvas'), socket, hud);
+  if (!runtime) {
+    runtime = new GameRuntime($('#game-canvas'), socket, hud);
+    runtime.onPointer = (locked) => {
+      const mode = latestLobby?.mode ?? latestSnapshot?.mode;
+      if (mode === 'BOT_DUEL') socket.arenaReady(locked);
+    };
+  }
   runtime.setPlayerId(socket.playerId);
 }
 
@@ -103,6 +109,7 @@ function modeLabel(mode) {
 function lobbyStateCopy(message) {
   if (message.mode === 'BOT_DUEL') {
     if (message.roomState === 'COUNTDOWN') return 'BOT DUEL STARTING…';
+    if (message.roomState === 'WAITING') return 'ENTER THE ARENA WHEN READY';
     return 'PREPARING BOT DUEL…';
   }
   if (message.roomState === 'REMATCH_COUNTDOWN') return 'REMATCH STARTING…';
@@ -121,15 +128,24 @@ function updateLobby(message) {
       ? 'BOT'
       : player.actorKind === 'dummy'
         ? 'TRAINING DUMMY'
-        : player.connected ? 'READY' : 'RECONNECTING';
+        : message.mode === 'BOT_DUEL'
+          ? player.connected ? (player.arenaReady ? 'READY' : 'FOCUS ARENA') : 'RECONNECTING'
+          : player.connected ? 'READY' : 'RECONNECTING';
     const rune = player.actorKind === 'bot' ? '◇' : '◆';
     return `<div class="lobby-player"><span class="player-rune">${rune}</span><b>${escapeHtml(player.name)}</b><em>${status}</em></div>`;
   }).join('');
   const multiplayer = message.mode === 'FFA';
-  copyLinkButton.classList.toggle('hidden', !multiplayer);
+  const botDuel = message.mode === 'BOT_DUEL';
+  copyLinkButton.classList.toggle('hidden', !(multiplayer || botDuel));
+  copyLinkButton.disabled = botDuel && message.roomState === 'COUNTDOWN';
+  copyLinkButton.textContent = botDuel
+    ? message.roomState === 'COUNTDOWN' ? 'ARENA FOCUSED' : 'ENTER ARENA'
+    : 'COPY INVITE LINK';
   lobbyCopy.textContent = multiplayer
     ? 'Invite friends with the room link, or wait for another player.'
-    : 'Solo session.';
+    : botDuel
+      ? 'Capture the arena; the three-second countdown begins once focus is locked.'
+      : 'Solo session.';
 }
 
 function updateEnd(snapshot) {
@@ -175,6 +191,11 @@ $('#join-room').addEventListener('click', () => runMenuAction(menuController.joi
 roomInput.addEventListener('input', () => { roomInput.value = roomInput.value.toUpperCase().replace(/[^A-Z2-9]/g, '').slice(0, 5); });
 
 copyLinkButton.addEventListener('click', async () => {
+  if (latestLobby?.mode === 'BOT_DUEL') {
+    ensureRuntime();
+    runtime.requestPointerLock();
+    return;
+  }
   const url = new URL(location.href);
   url.search = '';
   url.searchParams.set('room', socket.roomCode);
@@ -223,7 +244,9 @@ socket.on('snapshot', (snapshot) => {
   latestSnapshot = snapshot;
   ensureRuntime();
   if (snapshot.roomState === 'WAITING' || snapshot.roomState === 'COUNTDOWN' || snapshot.roomState === 'REMATCH_COUNTDOWN') {
-    runtime.setPlaying(false);
+    const preservePointerLock = snapshot.mode === 'BOT_DUEL'
+      && (snapshot.roomState === 'WAITING' || snapshot.roomState === 'COUNTDOWN');
+    runtime.setPlaying(false, { preservePointerLock });
     hud.hide();
     setPracticeVisible(false);
     updateLobby(snapshot);
