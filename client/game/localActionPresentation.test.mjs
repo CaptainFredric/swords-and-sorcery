@@ -1,6 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { localWeaponReleaseForEvent, canPresentLocalAction } from './localActionPresentation.mjs';
+import {
+  localWeaponReleaseForEvent,
+  localWeaponReleaseForSnapshot,
+  canPresentLocalAction,
+} from './localActionPresentation.mjs';
 
 test('authoritative local events release weapon poses that the server has cancelled', () => {
   const me = 'me';
@@ -11,6 +15,7 @@ test('authoritative local events release weapon poses that the server has cancel
   assert.deepEqual(localWeaponReleaseForEvent({ type: 'parry', attackerId: me, defenderId: 'them' }, me), { attack: true, guard: false });
   assert.deepEqual(localWeaponReleaseForEvent({ type: 'guardBreak', attackerId: 'them', defenderId: me }, me), { attack: false, guard: true });
   assert.deepEqual(localWeaponReleaseForEvent({ type: 'death', victimId: me }, me), { attack: true, guard: true });
+  assert.deepEqual(localWeaponReleaseForEvent({ type: 'matchEnded' }, me), { attack: true, guard: true });
 });
 
 test('remote combat events do not alter the local first-person pose', () => {
@@ -34,4 +39,12 @@ test('optimistic local presentation obeys authoritative incapacitation and coold
   assert.equal(canPresentLocalAction('guard', exhausted, movementReady, 10), false);
   assert.equal(canPresentLocalAction('dash', ready, movementCooling, 10), false);
   assert.equal(canPresentLocalAction('attack', dead, movementReady, 10), false);
+});
+
+test('snapshots roll back poses that are impossible under authoritative state', () => {
+  const ready = { alive: true, staggerUntil: 0, guardStamina: 100 };
+  assert.equal(localWeaponReleaseForSnapshot(ready, 10), null);
+  assert.deepEqual(localWeaponReleaseForSnapshot({ ...ready, alive: false }, 10), { attack: true, guard: true });
+  assert.deepEqual(localWeaponReleaseForSnapshot({ ...ready, staggerUntil: 11 }, 10), { attack: true, guard: true });
+  assert.deepEqual(localWeaponReleaseForSnapshot({ ...ready, guardStamina: 0 }, 10), { attack: false, guard: true });
 });
