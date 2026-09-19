@@ -81,6 +81,7 @@ export class GameSocket {
 
   createRoom(name) { this.send({ type: 'createRoom', name }); }
   quickPlay(name) { this.send({ type: 'quickPlay', name }); }
+  startSolo(mode, name) { this.send({ type: 'startSolo', mode, name }); }
   joinRoom(code, name) { this.send({ type: 'joinRoom', code: code.trim().toUpperCase(), name }); }
   input(input) { this.send({ type: 'input', ...input }); }
   attack(down) { this.send({ type: 'attack', down, clientTime: this.serverNow() }); }
