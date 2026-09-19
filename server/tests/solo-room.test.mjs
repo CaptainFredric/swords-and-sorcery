@@ -2,8 +2,16 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { RoomManager } from '../src/rooms/RoomManager.mjs';
 
+function sequenceRandom(seed = 0.1) {
+  let value = seed;
+  return () => {
+    value = (value + 0.173) % 1;
+    return value;
+  };
+}
+
 test('Bot Duel needs one connected human, not a second browser', () => {
-  const manager = new RoomManager({ random: () => 0.1 });
+  const manager = new RoomManager({ random: sequenceRandom(0.1) });
   const room = manager.createSoloRoom('BOT_DUEL', 0);
   room.addPlayer({ id: 'human', token: 'token', name: 'Aden' }, 0);
   room.provisionModeActors(0);
@@ -19,7 +27,7 @@ test('Bot Duel needs one connected human, not a second browser', () => {
 });
 
 test('Practice starts for one human and does not time out', () => {
-  const manager = new RoomManager({ random: () => 0.2 });
+  const manager = new RoomManager({ random: sequenceRandom(0.2) });
   const room = manager.createSoloRoom('PRACTICE', 0);
   room.addPlayer({ id: 'human', token: 'token', name: 'Aden' }, 0);
   room.armAutoStart(0);
@@ -30,7 +38,7 @@ test('Practice starts for one human and does not time out', () => {
 });
 
 test('solo reconnect preserves authoritative mode and world identity', () => {
-  const manager = new RoomManager({ random: () => 0.25 });
+  const manager = new RoomManager({ random: sequenceRandom(0.25) });
   const room = manager.createSoloRoom('PRACTICE', 0);
   room.addPlayer({ id: 'human', token: 'token', name: 'Aden' }, 0);
   room.armAutoStart(0);
@@ -44,7 +52,7 @@ test('solo reconnect preserves authoritative mode and world identity', () => {
 });
 
 test('Quick Play never selects a solo room', () => {
-  const manager = new RoomManager({ random: () => 0.3 });
+  const manager = new RoomManager({ random: sequenceRandom(0.3) });
   const solo = manager.createSoloRoom('BOT_DUEL', 0);
   const quick = manager.quickPlay(0);
   assert.notEqual(quick.code, solo.code);
@@ -52,7 +60,7 @@ test('Quick Play never selects a solo room', () => {
 });
 
 test('server actors do not keep an abandoned solo room alive forever', () => {
-  const manager = new RoomManager({ random: () => 0.4 });
+  const manager = new RoomManager({ random: sequenceRandom(0.4) });
   const room = manager.createSoloRoom('BOT_DUEL', 0);
   room.addPlayer({ id: 'human', token: 'token', name: 'Aden' }, 0);
   room.provisionModeActors(0);
