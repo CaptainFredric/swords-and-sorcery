@@ -40,3 +40,19 @@ test('hero armor and cloth pieces have stable names for browser visual debugging
   assert.match(source, /buildLeg\(visual,\s*-0\.22,\s*materials,\s*-1\)/);
   assert.match(source, /buildLeg\(visual,\s*0\.22,\s*materials,\s*1\)/);
 });
+
+test('final sculpting pass gives the concept silhouette layered armor, cloth and irregular magic', async () => {
+  const source = await readModel();
+  for (const name of [
+    'helmet-chin',
+    'front-tabard-left-tail',
+    'front-tabard-right-tail',
+    'magic-wisp-a',
+    'magic-wisp-b',
+    'magic-wisp-c',
+  ]) {
+    assert.match(source, new RegExp(name), `missing concept detail ${name}`);
+  }
+  assert.match(source, /name:\s*`\$\{side\s*<\s*0\s*\?\s*'left'\s*:\s*'right'\}-pauldron-overplate`/);
+  assert.match(source, /name:\s*`\$\{sideName\}-boot-toe`/);
+});
