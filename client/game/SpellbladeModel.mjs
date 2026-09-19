@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { createSpellbladeSword } from './SpellbladeSword.mjs';
 
 const ACCENTS = [0x55d9ff, 0xff6c5f, 0xffd15c, 0xa987ff, 0x63e39a, 0xff8bc8, 0xffa14a, 0x7fa6ff];
 
@@ -44,23 +45,6 @@ function leg(parent, x, materials) {
   return { thigh, shin };
 }
 
-function makeSword(materials) {
-  const sword = new THREE.Group();
-  box(sword, [0.12, 0.34, 0.12], materials.leather, [0, -0.16, 0]);
-  box(sword, [0.58, 0.1, 0.15], materials.trim, [0, 0.03, 0]);
-  box(sword, [0.16, 1.12, 0.085], materials.blade, [0, 0.64, 0]);
-  const tip = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.3, 4), materials.blade);
-  tip.position.y = 1.35;
-  tip.rotation.y = Math.PI / 4;
-  tip.castShadow = true;
-  sword.add(tip);
-  const pommel = new THREE.Mesh(new THREE.OctahedronGeometry(0.12, 0), materials.trim);
-  pommel.position.y = -0.38;
-  pommel.castShadow = true;
-  sword.add(pommel);
-  return sword;
-}
-
 export function createSpellbladeRig(index = 0) {
   const accentColor = ACCENTS[index % ACCENTS.length];
   const materials = {
@@ -71,6 +55,7 @@ export function createSpellbladeRig(index = 0) {
     leather: new THREE.MeshStandardMaterial({ color: 0x4a3529, roughness: 0.9 }),
     trim: new THREE.MeshStandardMaterial({ color: 0x9b7b4a, roughness: 0.48, metalness: 0.62 }),
     blade: new THREE.MeshStandardMaterial({ color: 0xc9d2dc, roughness: 0.22, metalness: 0.92 }),
+    bladeRidge: new THREE.MeshStandardMaterial({ color: 0x8793a2, roughness: 0.28, metalness: 0.86 }),
     accent: new THREE.MeshStandardMaterial({ color: accentColor, emissive: accentColor, emissiveIntensity: 1.4, roughness: 0.28, metalness: 0.15 }),
   };
 
@@ -103,7 +88,7 @@ export function createSpellbladeRig(index = 0) {
   const leftLeg = leg(visual, -0.22, materials);
   const rightLeg = leg(visual, 0.22, materials);
 
-  const sword = makeSword(materials);
+  const sword = createSpellbladeSword(materials, { axis: 'y' });
   sword.position.set(0, -0.44, 0.02);
   sword.rotation.set(0.06, 0, -2.42);
   right.forearm.add(sword);
