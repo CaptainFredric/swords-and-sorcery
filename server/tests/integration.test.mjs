@@ -9,6 +9,10 @@ function waitOpen(ws) {
   });
 }
 
+function waitClose(ws) {
+  return new Promise((resolve) => ws.addEventListener('close', resolve, { once: true }));
+}
+
 function waitFor(ws, predicate, timeoutMs = 3000) {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
@@ -77,6 +81,41 @@ test('two websocket clients can create, join, start and exchange authoritative c
   send(bob, { type: 'ping', sentAt: 123 });
   const pong = await pongP;
   assert.equal(pong.sentAt, 123);
+});
+
+test('one websocket can start Practice immediately and resume the same solo room', async (t) => {
+  const game = createGameServer({ port: 0, host: '127.0.0.1' });
+  await game.start();
+  t.after(async () => game.stop());
+  const { port } = game.address();
+
+  const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`);
+  await waitOpen(ws);
+
+  const joinedP = waitFor(ws, (m) => m.type === 'joined');
+  const playingP = waitFor(ws, (m) => m.type === 'snapshot' && m.roomState === 'PLAYING' && m.mode === 'PRACTICE');
+  send(ws, { type: 'startSolo', mode: 'PRACTICE', name: 'Aden' });
+  const joined = await joinedP;
+  const playing = await playingP;
+
+  assert.equal(joined.mode, 'PRACTICE');
+  assert.equal(joined.worldId, 'shattered-keep');
+  assert.equal(playing.players.filter((p) => p.actorKind === 'human').length, 1);
+
+  const closedP = waitClose(ws);
+  ws.close();
+  await closedP;
+
+  const resumed = new WebSocket(`ws://127.0.0.1:${port}/ws`);
+  t.after(() => resumed.close());
+  await waitOpen(resumed);
+  const resumedJoinedP = waitFor(resumed, (m) => m.type === 'joined');
+  send(resumed, { type: 'resume', token: joined.token });
+  const resumedJoined = await resumedJoinedP;
+
+  assert.equal(resumedJoined.roomCode, joined.roomCode);
+  assert.equal(resumedJoined.mode, 'PRACTICE');
+  assert.equal(resumedJoined.worldId, 'shattered-keep');
 });
 
 test('server closes a websocket that sends an oversized message', async (t) => {
