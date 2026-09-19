@@ -24,3 +24,10 @@ test('first-person rebuild preserves the existing combat presentation API', asyn
   assert.match(text, /resolveWeaponPose/);
   assert.match(text, /FIRST_PERSON_WEAPON_SCALE/);
 });
+
+test('first-person sorcery hand uses irregular energy shards instead of only a core and ring', async () => {
+  const text = await source();
+  for (const name of ['first-person-magic-wisp-a', 'first-person-magic-wisp-b', 'first-person-magic-wisp-c']) {
+    assert.match(text, new RegExp(name), `missing ${name}`);
+  }
+});
