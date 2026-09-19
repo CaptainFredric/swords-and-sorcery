@@ -7,6 +7,13 @@ import { acceptWebSocket } from './websocket.mjs';
 import { RoomManager } from './rooms/RoomManager.mjs';
 import { beginAttack, endAttack, setGuard, stepRoom, tryCastFireball, tryDash } from './game/combat.mjs';
 import { stepBotControllers } from './ai/BotController.mjs';
+import {
+  resetPracticePlayer,
+  spawnPracticeDummy,
+  removePracticeDummy,
+  setPracticeDummyMode,
+  stepPracticeActors,
+} from './game/practice.mjs';
 import { GAME_MODES } from '../../shared/src/modes.mjs';
 import { SHATTERED_KEEP } from '../../shared/src/map.mjs';
 import { compensatedInputTime } from './game/history.mjs';
@@ -62,6 +69,7 @@ function serializeLobby(room) {
       id: p.id,
       name: p.name,
       actorKind: p.actorKind,
+      practiceMode: p.practiceMode ?? null,
       connected: p.connected,
       kills: p.kills,
       deaths: p.deaths,
@@ -86,6 +94,7 @@ function serializeSnapshot(room, nowSec) {
       id: p.id,
       name: p.name,
       actorKind: p.actorKind,
+      practiceMode: p.practiceMode ?? null,
       connected: p.connected,
       position: p.position,
       velocity: p.velocity,
@@ -184,6 +193,10 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
     return room && session.playerId ? room.players.get(session.playerId) : null;
   }
 
+  function rejectPracticeCommand(session) {
+    send(session, { type: 'error', message: 'Practice command unavailable' });
+  }
+
   function handleMessage(session, message) {
     const time = now();
     if (time - session.messageWindowStartedAt >= 1) {
@@ -263,6 +276,27 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
       case 'cast': tryCastFireball(room, player.id, message.direction || { x: 0, y: 0, z: -1 }, time); break;
       case 'dash': tryDash(room, player.id, message.direction || { x: 0, z: -1 }, time); break;
       case 'rematch': room.requestRematch(player.id, time); break;
+      case 'practiceResetPlayer': {
+        if (room.mode !== GAME_MODES.PRACTICE || !resetPracticePlayer(room, player.id, time)) rejectPracticeCommand(session);
+        break;
+      }
+      case 'practiceSpawnDummy': {
+        if (room.mode !== GAME_MODES.PRACTICE) { rejectPracticeCommand(session); break; }
+        const dummy = spawnPracticeDummy(room, message.mode, time);
+        if (!dummy) rejectPracticeCommand(session);
+        else broadcastLobby(room);
+        break;
+      }
+      case 'practiceRemoveDummy': {
+        if (room.mode !== GAME_MODES.PRACTICE || !removePracticeDummy(room)) rejectPracticeCommand(session);
+        else broadcastLobby(room);
+        break;
+      }
+      case 'practiceSetDummyMode': {
+        if (room.mode !== GAME_MODES.PRACTICE || !setPracticeDummyMode(room, message.mode, time)) rejectPracticeCommand(session);
+        else broadcastLobby(room);
+        break;
+      }
       default: break;
     }
   }
@@ -290,6 +324,7 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
     const time = now();
     for (const room of roomManager.rooms.values()) {
       stepBotControllers(room, time, world);
+      stepPracticeActors(room, time, world);
       stepRoom(room, 1 / TICK_RATE, time, world);
       const events = room.events.splice(0);
       if (events.length) broadcastRoom(room, { type: 'events', events });
