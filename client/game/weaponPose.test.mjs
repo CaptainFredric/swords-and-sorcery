@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { castVisualDuration, resolveWeaponPose } from './weaponPose.mjs';
+import { FIRST_PERSON_WEAPON_SCALE, castVisualDuration, resolveWeaponPose } from './weaponPose.mjs';
 
 const base = {
   timeSec: 10,
@@ -17,6 +17,11 @@ const base = {
 function near(actual, expected, epsilon = 1e-9) {
   assert.ok(Math.abs(actual - expected) <= epsilon, `${actual} was not within ${epsilon} of ${expected}`);
 }
+
+test('first-person weapon keeps enough screen clear for arena reads', () => {
+  assert.ok(FIRST_PERSON_WEAPON_SCALE >= 0.76, 'weapon should still feel physically substantial');
+  assert.ok(FIRST_PERSON_WEAPON_SCALE <= 0.86, 'weapon should not dominate the lower-right view');
+});
 
 test('guard presents a centered defensive sword silhouette', () => {
   const pose = resolveWeaponPose({ ...base, guard: true });
