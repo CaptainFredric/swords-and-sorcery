@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { segmentAabbHit } from './collision.mjs';
 import { SHATTERED_KEEP } from './map.mjs';
 
 function normalized(x, z) {
@@ -16,6 +17,24 @@ test('Shattered Keep spawns face inward toward playable space instead of out ove
     assert.ok(
       inwardDot > 0.7,
       `spawn (${spawn.x}, ${spawn.y}, ${spawn.z}) faces outward: dot=${inwardDot.toFixed(3)}, yaw=${spawn.yaw}`,
+    );
+  }
+});
+
+test('courtyard spawns begin with a clear forward lane instead of staring into nearby pillars', () => {
+  for (const spawn of SHATTERED_KEEP.spawnPoints.slice(0, 4)) {
+    const facing = { x: -Math.sin(spawn.yaw), z: -Math.cos(spawn.yaw) };
+    const start = [spawn.x, spawn.y + 1.58, spawn.z];
+    const end = [start[0] + facing.x * 4.5, start[1], start[2] + facing.z * 4.5];
+    const blocking = SHATTERED_KEEP.solids
+      .map((solid) => segmentAabbHit(start, end, solid))
+      .filter(Boolean)
+      .sort((a, b) => a.t - b.t)[0];
+
+    assert.equal(
+      blocking,
+      undefined,
+      `courtyard spawn (${spawn.x}, ${spawn.z}) starts behind ${blocking?.box?.id ?? 'solid cover'}`,
     );
   }
 });
