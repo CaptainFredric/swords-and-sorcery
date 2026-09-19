@@ -15,10 +15,11 @@ test('GitHub Pages front door identifies the game and does not pretend multiplay
   assert.doesNotMatch(html, /actual gameplay screenshot/i);
 });
 
-test('Pages workflow deploys only the dedicated static site directory', async () => {
+test('Pages workflow enables Pages and deploys only the dedicated static site directory', async () => {
   const workflow = await read('.github/workflows/pages.yml');
   assert.match(workflow, /pages:\s*write/);
   assert.match(workflow, /id-token:\s*write/);
+  assert.match(workflow, /actions\/configure-pages@v5[\s\S]*?enablement:\s*true/);
   assert.match(workflow, /actions\/upload-pages-artifact@v3/);
   assert.match(workflow, /path:\s*site/);
   assert.match(workflow, /actions\/deploy-pages@v4/);
