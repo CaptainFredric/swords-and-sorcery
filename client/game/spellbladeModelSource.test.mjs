@@ -28,10 +28,15 @@ test('major Spellblade silhouette is constructed with faceted geometry rather th
 
 test('hero armor and cloth pieces have stable names for browser visual debugging', async () => {
   const source = await readModel();
-  for (const name of [
-    'helmet-shell', 'visor', 'crest', 'left-pauldron', 'right-pauldron',
-    'front-tabard', 'back-tabard', 'left-boot', 'right-boot',
-  ]) {
+  for (const name of ['helmet-shell', 'visor', 'crest', 'front-tabard', 'back-tabard']) {
     assert.match(source, new RegExp(name));
   }
+
+  assert.match(source, /name:\s*`\$\{side\s*<\s*0\s*\?\s*'left'\s*:\s*'right'\}-pauldron`/);
+  assert.match(source, /const\s+sideName\s*=\s*side\s*<\s*0\s*\?\s*'left'\s*:\s*'right'/);
+  assert.match(source, /name:\s*`\$\{sideName\}-boot`/);
+  assert.match(source, /buildArm\(visual,\s*-0\.54,\s*materials,\s*-1\)/);
+  assert.match(source, /buildArm\(visual,\s*0\.54,\s*materials,\s*1\)/);
+  assert.match(source, /buildLeg\(visual,\s*-0\.22,\s*materials,\s*-1\)/);
+  assert.match(source, /buildLeg\(visual,\s*0\.22,\s*materials,\s*1\)/);
 });
