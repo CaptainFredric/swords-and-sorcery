@@ -76,6 +76,7 @@ export class Room {
       name: String(name || 'Spellblade').slice(0, 18),
       actorKind: 'human',
       connected: true,
+      arenaReady: false,
       disconnectedAt: null,
       disconnectExpiresAt: null,
       ...scoreFields(),
@@ -125,6 +126,12 @@ export class Room {
     return count;
   }
 
+  readyHumanCount() {
+    let count = 0;
+    for (const p of this.players.values()) if (p.actorKind === 'human' && p.connected && p.arenaReady) count += 1;
+    return count;
+  }
+
   humanActorCount() {
     let count = 0;
     for (const p of this.players.values()) if (p.actorKind === 'human') count += 1;
@@ -142,10 +149,27 @@ export class Room {
       return true;
     }
     this.provisionModeActors(nowSec);
+    if (this.mode === GAME_MODES.BOT_DUEL && this.readyHumanCount() < this.policy.minHumansToStart) return false;
     const botCount = [...this.players.values()].filter((p) => p.actorKind === 'bot').length;
     if (botCount < this.policy.botCount) return false;
     this.state = 'COUNTDOWN';
     this.countdownEndsAt = nowSec + COUNTDOWN_SEC;
+    return true;
+  }
+
+  setArenaReady(playerId, ready, nowSec) {
+    if (this.mode !== GAME_MODES.BOT_DUEL || ['PLAYING', 'FINISHED'].includes(this.state)) return false;
+    const player = this.players.get(playerId);
+    if (!player || player.actorKind !== 'human' || !player.connected) return false;
+    player.arenaReady = Boolean(ready);
+    if (!player.arenaReady) {
+      if (this.state === 'COUNTDOWN') {
+        this.state = 'WAITING';
+        this.countdownEndsAt = null;
+      }
+      return true;
+    }
+    if (this.state === 'WAITING') this.armAutoStart(nowSec);
     return true;
   }
 
@@ -160,6 +184,7 @@ export class Room {
     const player = this.players.get(id);
     if (!player || player.actorKind !== 'human') return;
     player.connected = false;
+    player.arenaReady = false;
     player.disconnectedAt = nowSec;
     player.disconnectExpiresAt = nowSec + RECONNECT_GRACE_SEC;
     player.input = {
@@ -175,6 +200,10 @@ export class Room {
     player.guarding = false;
     player.pendingFireball = null;
     player.castEndsAt = 0;
+    if (this.mode === GAME_MODES.BOT_DUEL && this.state === 'COUNTDOWN') {
+      this.state = 'WAITING';
+      this.countdownEndsAt = null;
+    }
   }
 
   reconnectPlayer(token, nowSec) {
@@ -184,6 +213,7 @@ export class Room {
         player.connected = true;
         player.disconnectedAt = null;
         player.disconnectExpiresAt = null;
+        if (this.mode === GAME_MODES.BOT_DUEL && this.state !== 'PLAYING') player.arenaReady = false;
         this.emptySince = null;
         if (this.policy.autoStart) this.armAutoStart(nowSec);
         else this.#armMultiplayerStart(nowSec);
@@ -210,7 +240,9 @@ export class Room {
       this.emptySince = null;
     }
 
-    if (this.state === 'COUNTDOWN' && this.humanCount() < this.policy.minHumansToStart) {
+    const countdownNeedsReadyHuman = this.mode === GAME_MODES.BOT_DUEL
+      && this.readyHumanCount() < this.policy.minHumansToStart;
+    if (this.state === 'COUNTDOWN' && (this.humanCount() < this.policy.minHumansToStart || countdownNeedsReadyHuman)) {
       this.state = 'WAITING';
       this.countdownEndsAt = null;
     } else if (this.state === 'COUNTDOWN' && nowSec >= this.countdownEndsAt) {
