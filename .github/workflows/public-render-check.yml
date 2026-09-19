@@ -31,7 +31,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          rm -f health.json game.html live-weapon-pose.mjs live-castleward.mjs live-playability.css
+          rm -f health.json game.html live-weapon-pose.mjs live-castleward.mjs live-castleward-terrain.mjs live-playability.css
           for attempt in $(seq 1 24); do
             healthy=false
             current=false
@@ -40,20 +40,27 @@ jobs:
               curl --fail --silent --show-error --max-time 20 "$PUBLIC_URL/" -o game.html || true
               curl --fail --silent --show-error --max-time 20 "$PUBLIC_URL/client/game/weaponPose.mjs" -o live-weapon-pose.mjs || true
               curl --fail --silent --show-error --max-time 20 "$PUBLIC_URL/shared/worlds/castleward.mjs" -o live-castleward.mjs || true
+              curl --fail --silent --show-error --max-time 20 "$PUBLIC_URL/client/worlds/castlewardTerrain.mjs" -o live-castleward-terrain.mjs || true
               curl --fail --silent --show-error --max-time 20 "$PUBLIC_URL/client/playability.css" -o live-playability.css || true
               if grep -qi 'BOT DUEL' game.html \
                 && grep -qi 'PRACTICE YARD' game.html \
                 && grep -qi 'CASTLEWARD' game.html \
                 && grep -qi 'Find a public match' game.html \
-                && grep -qi 'ESC FOR PRACTICE TOOLS' game.html \
+                && grep -qi 'CLICK ARENA TO RESUME' game.html \
+                && grep -qi 'ESC FOR TOOLS' game.html \
+                && ! grep -qi 'kit-mark' game.html \
+                && ! grep -qi 'world-note' game.html \
                 && grep -Eq 'FIRST_PERSON_WEAPON_SCALE\s*=\s*0\.74' live-weapon-pose.mjs \
                 && grep -qi 'castleward' live-castleward.mjs \
+                && grep -q 'buildCastlewardTerrainSkirts' live-castleward-terrain.mjs \
+                && grep -q 'terrain-skirt:' live-castleward-terrain.mjs \
+                && grep -Fq '.practice-tools .practice-tools-locked-hint' live-playability.css \
                 && grep -q 'hud.pointer-locked .practice-tools' live-playability.css; then
                 current=true
               fi
             fi
             if [ "$healthy" = true ] && [ "$current" = true ]; then
-              echo "Render is healthy and serving the current Castleward/solo/first-person revision"
+              echo "Render is healthy and serving the current grounded Castleward/front-door/Practice revision"
               break
             fi
             if [ "$attempt" -eq 24 ]; then
@@ -143,5 +150,6 @@ jobs:
             game.html
             live-weapon-pose.mjs
             live-castleward.mjs
+            live-castleward-terrain.mjs
             live-playability.css
           retention-days: 7

@@ -35,15 +35,21 @@ test('Pages points at the verified public multiplayer deployment', async () => {
   );
 });
 
-test('manual public verifier fingerprints the current Castleward solo and first-person build', async () => {
+test('manual public verifier fingerprints the current grounded Castleward solo and first-person build', async () => {
   const workflow = await read('.github/workflows/public-render-check.yml');
   const capture = await read('scripts/capture-public-arena.mjs');
 
   assert.match(workflow, /FIRST_PERSON_WEAPON_SCALE/);
   assert.match(workflow, /0\\\.74|0\.74/);
   assert.match(workflow, /Find a public match/i);
-  assert.match(workflow, /ESC FOR PRACTICE TOOLS/i);
+  assert.match(workflow, /CLICK ARENA TO RESUME/i);
+  assert.match(workflow, /ESC FOR TOOLS/i);
+  assert.match(workflow, /castlewardTerrain\.mjs/i);
+  assert.match(workflow, /buildCastlewardTerrainSkirts/);
   assert.match(workflow, /playability\.css/i);
+  assert.match(workflow, /practice-tools \.practice-tools-locked-hint/);
+  assert.match(workflow, /! grep -qi 'kit-mark'/i);
+  assert.match(workflow, /! grep -qi 'world-note'/i);
   assert.doesNotMatch(workflow, /yawTowardKeep/);
 
   assert.match(capture, /public-game-menu\.png/);
