@@ -47,6 +47,7 @@ test('manual public verifier fingerprints the current grounded Castleward solo a
   assert.match(workflow, /castlewardTerrain\.mjs/i);
   assert.match(workflow, /buildCastlewardTerrainSkirts/);
   assert.match(workflow, /playability\.css/i);
+  assert.match(workflow, /practice-tools \.practice-tools-locked-hint/);
   assert.match(workflow, /! grep -qi 'kit-mark'/i);
   assert.match(workflow, /! grep -qi 'world-note'/i);
   assert.doesNotMatch(workflow, /yawTowardKeep/);
