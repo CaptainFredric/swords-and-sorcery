@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { segmentAabbHit, resolvePlayerWorld, findSwordWorldHit } from './collision.mjs';
+import { segmentAabbHit, resolvePlayerWorld, findSwordWorldHit, surfaceHeightAt } from './collision.mjs';
+import { SHATTERED_KEEP } from './map.mjs';
 
 test('segment intersects a wall and returns nearest normalized time', () => {
   const box = { id: 'wall', center: [2, 1, 0], size: [1, 2, 4] };
@@ -27,4 +28,10 @@ test('sword world hit selects a nearer wall before full melee range', () => {
   assert.ok(hit);
   assert.ok(hit.distance < 2);
   assert.equal(hit.box.id, 'wall');
+});
+
+test('Shattered Keep broken bridge has a real traversable floor gap', () => {
+  assert.equal(surfaceHeightAt(0, -14.7, 0.5, SHATTERED_KEEP), 0);
+  assert.equal(surfaceHeightAt(0, -16.0, 0.5, SHATTERED_KEEP), null);
+  assert.equal(surfaceHeightAt(0, -17.3, 0.5, SHATTERED_KEEP), 0);
 });
