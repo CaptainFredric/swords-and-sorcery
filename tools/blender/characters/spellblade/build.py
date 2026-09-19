@@ -15,6 +15,7 @@ if str(ROOT) not in sys.path:
 
 from tools.blender.common.export import export_glb
 from tools.blender.common.render import configure_render, look_at, render_still
+from tools.blender.characters.spellblade.animations import build_actions
 from tools.blender.characters.spellblade.design import BODY_HEIGHT
 from tools.blender.characters.spellblade.model import build_materials, build_third_person_model
 from tools.blender.characters.spellblade.rig import build_armature, rigid_skin, validate_armature_names
@@ -167,6 +168,7 @@ def build_third_person(args: argparse.Namespace) -> None:
     materials = build_materials()
     model = build_third_person_model(armature, materials)
     model_report = validate_production_model(armature, model, contract)
+    actions = build_actions(armature, contract)
 
     glb_path = args.out / "spellblade.glb"
     export_glb(glb_path, objects=(armature, *model.objects))
@@ -177,6 +179,7 @@ def build_third_person(args: argparse.Namespace) -> None:
         )
 
     cameras = _add_review_stage(scene)
+    scene.frame_set(1)
     render_paths: dict[str, Path] = {}
     for label, camera in cameras.items():
         path = args.out / f"spellblade-neutral-{label}.png"
@@ -191,12 +194,13 @@ def build_third_person(args: argparse.Namespace) -> None:
         "schemaVersion": 1,
         "workerReady": True,
         "mode": args.mode,
-        "visualStage": "third-person-model",
+        "visualStage": "third-person-animated",
         "sourceRevision": args.source_revision,
         "blenderVersion": bpy.app.version_string,
         "contractVersion": contract["version"],
         "rig": rig_report,
         "model": model_report,
+        "animations": list(actions.keys()),
         "outputs": {
             "blend": blend_path.name,
             "thirdPersonGlb": glb_path.name,
@@ -211,8 +215,8 @@ def build_third_person(args: argparse.Namespace) -> None:
         },
     })
     print(
-        f"SPELLBLADE_THIRD_PERSON_MODEL_OK report={report_path} glb={glb_path} "
-        f"triangles={model_report['triangles']} bytes={glb_bytes}"
+        f"SPELLBLADE_THIRD_PERSON_ANIMATED_OK report={report_path} glb={glb_path} "
+        f"triangles={model_report['triangles']} bytes={glb_bytes} clips={len(actions)}"
     )
 
 
