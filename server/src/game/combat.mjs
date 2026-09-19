@@ -406,6 +406,7 @@ export function stepRoom(room, dt, nowSec, world = SHATTERED_KEEP) {
       while (player.attackActive && player.attackNextStrike < SWORD_STRIKE_TIMES.length && elapsed + 1e-9 >= SWORD_STRIKE_TIMES[player.attackNextStrike]) {
         const strike = player.attackNextStrike;
         player.attackNextStrike += 1;
+        room.events.push({ type: 'swordSwing', playerId: player.id, strikeIndex: strike, at: nowSec });
         resolveSwordStrike(room, player, strike, nowSec, world);
       }
       if (player.attackActive && player.attackNextStrike >= SWORD_STRIKE_TIMES.length) {

@@ -50,6 +50,22 @@ test('held sword lands 34 damage at 0.40, 1.10 and 1.80 seconds', () => {
   assert.equal(room.players.get('b').alive, false);
 });
 
+test('each committed sword strike emits an authoritative swing cue', () => {
+  const room = playingRoom();
+  beginAttack(room, 'a', 10);
+  room.events.length = 0;
+
+  stepRoom(room, 0.01, 10.39, openWorld);
+  assert.deepEqual(room.events.filter((e) => e.type === 'swordSwing'), []);
+
+  stepRoom(room, 0.01, 10.40, openWorld);
+  stepRoom(room, 0.01, 11.10, openWorld);
+  stepRoom(room, 0.01, 11.80, openWorld);
+
+  const swings = room.events.filter((e) => e.type === 'swordSwing' && e.playerId === 'a');
+  assert.deepEqual(swings.map((e) => e.strikeIndex), [0, 1, 2]);
+});
+
 test('releasing attack prevents later combo strikes', () => {
   const room = playingRoom();
   beginAttack(room, 'a', 10);

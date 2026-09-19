@@ -37,7 +37,7 @@ export class GameRuntime {
     this.effects = new Effects(this.scene, this.camera);
     this.input = new InputController(this.renderer.domElement, socket);
     this.input.onPointer = (locked) => hud.setPointerLocked(locked);
-    this.input.onAttackLocal = (held) => { this.weapon.setAttack(held); if (held) this.effects.swordSwing(0); };
+    this.input.onAttackLocal = (held) => this.weapon.setAttack(held);
     this.input.onGuardLocal = (held) => this.weapon.setGuard(held);
     this.input.onDashLocal = (dir) => { this.weapon.dash(); this.effects.dash(); if (this.localState) tryStartDash(this.localState, dir, this.socket.serverNow()); this.dashFovUntil = performance.now() + 180; };
 
@@ -119,6 +119,10 @@ export class GameRuntime {
           this.weapon.cast(duration);
           this.effects.fireball();
         }
+      }
+
+      if (event.type === 'swordSwing' && event.playerId === this.socket.playerId) {
+        this.effects.swordSwing(event.strikeIndex);
       }
 
       const combatFeedback = localCombatFeedback(event, this.socket.playerId);
