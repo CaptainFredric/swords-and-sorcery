@@ -34,3 +34,22 @@ test('Pages points at the verified public multiplayer deployment', async () => {
     /SWORDS_SORCERY_PLAY_URL\s*=\s*['"]https:\/\/swords-and-sorcery\.onrender\.com['"]/
   );
 });
+
+test('manual public verifier fingerprints the current Castleward solo and first-person build', async () => {
+  const workflow = await read('.github/workflows/public-render-check.yml');
+  const capture = await read('scripts/capture-public-arena.mjs');
+
+  assert.match(workflow, /FIRST_PERSON_WEAPON_SCALE/);
+  assert.match(workflow, /0\\\.74|0\.74/);
+  assert.match(workflow, /Find a public match/i);
+  assert.match(workflow, /ESC FOR PRACTICE TOOLS/i);
+  assert.match(workflow, /playability\.css/i);
+  assert.doesNotMatch(workflow, /yawTowardKeep/);
+
+  assert.match(capture, /public-game-menu\.png/);
+  assert.match(capture, /public-game-practice\.png/);
+  assert.match(capture, /public-game-practice-dummy\.png/);
+  assert.match(capture, /public-game-bot-duel\.png/);
+  assert.match(capture, /public-game-ffa-waiting\.png/);
+  assert.match(capture, /Castleward|CASTLEWARD/);
+});
