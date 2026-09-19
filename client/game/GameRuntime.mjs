@@ -159,10 +159,10 @@ export class GameRuntime {
     this.input.requestPointerLock();
   }
 
-  setPlaying(playing) {
+  setPlaying(playing, { preservePointerLock = false } = {}) {
     this.playing = Boolean(playing) && !this.worldError;
     if (!this.playing) this.#applyWeaponRelease({ attack: true, guard: true });
-    if (!this.playing && document.pointerLockElement === this.renderer.domElement) document.exitPointerLock?.();
+    if (!this.playing && !preservePointerLock && document.pointerLockElement === this.renderer.domElement) document.exitPointerLock?.();
   }
 
   onSnapshot(snapshot) {
