@@ -102,12 +102,12 @@ function modeLabel(mode) {
 
 function lobbyStateCopy(message) {
   if (message.mode === 'BOT_DUEL') {
-    if (message.roomState === 'COUNTDOWN') return 'RIVAL SPELLBLADE ENTERING THE YARD…';
-    return 'PREPARING YOUR RIVAL…';
+    if (message.roomState === 'COUNTDOWN') return 'BOT DUEL STARTING…';
+    return 'PREPARING BOT DUEL…';
   }
-  if (message.roomState === 'REMATCH_COUNTDOWN') return 'REMATCH INCOMING…';
-  if (message.roomState === 'COUNTDOWN') return 'THE GATES ARE OPENING…';
-  return 'WAITING FOR ANOTHER SPELLBLADE';
+  if (message.roomState === 'REMATCH_COUNTDOWN') return 'REMATCH STARTING…';
+  if (message.roomState === 'COUNTDOWN') return 'MATCH STARTING…';
+  return 'WAITING FOR ANOTHER PLAYER';
 }
 
 function updateLobby(message) {
@@ -118,7 +118,7 @@ function updateLobby(message) {
   lobbyState.textContent = lobbyStateCopy(message);
   lobbyPlayers.innerHTML = message.players.map((player) => {
     const status = player.actorKind === 'bot'
-      ? 'RIVAL'
+      ? 'BOT'
       : player.actorKind === 'dummy'
         ? 'TRAINING DUMMY'
         : player.connected ? 'READY' : 'RECONNECTING';
@@ -128,8 +128,8 @@ function updateLobby(message) {
   const multiplayer = message.mode === 'FFA';
   copyLinkButton.classList.toggle('hidden', !multiplayer);
   lobbyCopy.textContent = multiplayer
-    ? 'Two players are enough. New players can join an active match.'
-    : 'This room is private to your solo session.';
+    ? 'Invite friends with the room link, or wait for another player.'
+    : 'Solo session.';
 }
 
 function updateEnd(snapshot) {
@@ -140,7 +140,7 @@ function updateEnd(snapshot) {
 
   if (snapshot.mode === 'BOT_DUEL') {
     rematchButton.textContent = 'FIGHT AGAIN';
-    rematchCopy.textContent = 'Start a fresh duel with a new Rival Spellblade.';
+    rematchCopy.textContent = 'Start another bot duel.';
   } else {
     rematchButton.textContent = 'PLAY AGAIN';
     rematchCopy.textContent = 'All remaining players vote to rematch.';

@@ -1,3 +1,4 @@
+import { findSwordWorldHit } from '../../../shared/src/collision.mjs';
 import { beginAttack, endAttack, setGuard, tryCastFireball, tryDash } from '../game/combat.mjs';
 
 const MELEE_RANGE = 2.25;
@@ -6,6 +7,8 @@ const DEFENSE_THREAT_RANGE = 3.1;
 const THINK_INTERVAL_SEC = 0.18;
 const MIN_REACTION_SEC = 0.22;
 const REACTION_JITTER_SEC = 0.2;
+const AVOID_PROBE_RANGE = 1.65;
+const AVOID_DURATION_SEC = 0.62;
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
@@ -51,7 +54,11 @@ function aimDirection(from, to) {
 }
 
 function ensureAi(actor, nowSec, random) {
-  if (actor.ai) return actor.ai;
+  if (actor.ai) {
+    actor.ai.avoidUntil ??= -Infinity;
+    actor.ai.avoidDirection ??= actor.ai.strafeDirection ?? 1;
+    return actor.ai;
+  }
   actor.ai = {
     targetId: null,
     nextThinkAt: nowSec,
@@ -59,6 +66,8 @@ function ensureAi(actor, nowSec, random) {
     guardUntil: -Infinity,
     attackReleaseAt: -Infinity,
     strafeDirection: random() < 0.5 ? -1 : 1,
+    avoidDirection: random() < 0.5 ? -1 : 1,
+    avoidUntil: -Infinity,
   };
   return actor.ai;
 }
@@ -101,7 +110,14 @@ function chooseCombatIntent(room, actor, target, distance, ai, nowSec, random, a
   }
 }
 
-function updateMovement(actor, target, distance, ai, aggression) {
+function forwardLaneBlocked(actor, yaw, world) {
+  if (!world?.solids?.length) return false;
+  const direction = [-Math.sin(yaw), 0, -Math.cos(yaw)];
+  const origin = [actor.position.x, actor.position.y + 0.9, actor.position.z];
+  return Boolean(findSwordWorldHit(origin, direction, AVOID_PROBE_RANGE, world.solids));
+}
+
+function updateMovement(actor, target, distance, ai, aggression, world, nowSec) {
   const yaw = yawToward(actor, target);
   actor.yaw = yaw;
   actor.pitch = 0;
@@ -110,6 +126,17 @@ function updateMovement(actor, target, distance, ai, aggression) {
   let right = 0;
   if (distance < 7) right = ai.strafeDirection * (distance <= MELEE_RANGE ? 0.55 : 0.32) * aggression;
   if (actor.guarding || actor.attackActive) forward = Math.min(forward, 0.28);
+
+  const blocked = forward > 0 && forwardLaneBlocked(actor, yaw, world);
+  if (blocked && nowSec >= ai.avoidUntil) {
+    ai.avoidDirection = ai.strafeDirection || ai.avoidDirection || 1;
+    ai.avoidUntil = nowSec + AVOID_DURATION_SEC;
+  }
+
+  if (nowSec < ai.avoidUntil) {
+    forward = Math.min(forward, 0.24);
+    right = ai.avoidDirection * 0.88;
+  }
 
   actor.input = {
     forward: clamp(forward, -1, 1),
@@ -126,7 +153,6 @@ export function stepBotControllers(
   world = room.world,
   { random = Math.random, actorKinds = ['bot'], aggression = 1 } = {},
 ) {
-  void world;
   if (room.state !== 'PLAYING') return;
   const allowedKinds = new Set(actorKinds);
   const aggressionScale = clamp(aggression, 0.1, 1);
@@ -150,7 +176,7 @@ export function stepBotControllers(
     }
 
     const distance = distance2d(actor, target);
-    updateMovement(actor, target, distance, ai, aggressionScale);
+    updateMovement(actor, target, distance, ai, aggressionScale, world, nowSec);
     considerDefense(room, actor, target, distance, ai, nowSec, random, aggressionScale);
 
     if (nowSec < ai.nextThinkAt) continue;

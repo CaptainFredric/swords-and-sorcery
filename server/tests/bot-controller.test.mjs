@@ -70,3 +70,31 @@ test('bot targets living humans instead of server-owned actors', () => {
 
   assert.equal(bot.ai.targetId, human.id);
 });
+
+test('bot sidesteps and slows when a solid blocks its forward lane', () => {
+  const { room, bot, human } = makeBotDuel();
+  bot.position = { x: 0, y: 0, z: 0 };
+  human.position = { x: 0, y: 0, z: -9 };
+  const world = {
+    ...room.world,
+    solids: [{ id: 'test-wall', center: [0, 0.9, -1.05], size: [1.4, 1.8, 0.5] }],
+  };
+
+  stepBotControllers(room, 4, world, { random: () => 0.9 });
+
+  assert.ok(Math.abs(bot.input.right) >= 0.7, 'blocked bot should commit to a sidestep');
+  assert.ok(bot.input.forward <= 0.3, 'blocked bot should not keep running directly into the wall');
+  assert.ok(bot.ai.avoidUntil > 4, 'avoidance should persist briefly so the bot can clear the corner');
+});
+
+test('bot keeps a direct approach when the forward lane is clear', () => {
+  const { room, bot, human } = makeBotDuel();
+  bot.position = { x: 0, y: 0, z: 0 };
+  human.position = { x: 0, y: 0, z: -9 };
+  const world = { ...room.world, solids: [] };
+
+  stepBotControllers(room, 4, world, { random: () => 0.9 });
+
+  assert.equal(bot.input.right, 0);
+  assert.ok(bot.input.forward >= 0.9);
+});
