@@ -4,7 +4,9 @@ function yawTowardKeep(x, z, targetX = 0, targetZ = 0) {
   return Math.atan2(x - targetX, z - targetZ);
 }
 
-export const SHATTERED_KEEP = Object.freeze({
+export const KEEP_HORIZONTAL_SCALE = 1.1;
+
+const BASE_KEEP = {
   name: 'The Shattered Keep',
   floors: [
     { id: 'courtyard', center: [0, -0.15, 0], size: [18, 0.3, 18], y: 0, material: 'stone' },
@@ -22,7 +24,7 @@ export const SHATTERED_KEEP = Object.freeze({
     { id: 'north-ramp-right', minX: 3.5, maxX: 6.5, minZ: 8.5, maxZ: 11.5, startY: 0, endY: 3, axis: 'z' },
   ],
   solids: [
-    { id: 'arcane-spire-base', center: [0, 1.2, 0], size: [2.2, 2.4, 2.2], material: 'arcane' },
+    { id: 'arcane-spire-base', center: [0, 0.95, 0], size: [1.8, 1.9, 1.8], material: 'arcane' },
     { id: 'pillar-nw', center: [-5, 1.5, 5], size: [1.4, 3, 1.4], material: 'stone' },
     { id: 'pillar-ne', center: [5, 1.5, 5], size: [1.4, 3, 1.4], material: 'stone' },
     { id: 'pillar-sw', center: [-5, 1.5, -5], size: [1.4, 3, 1.4], material: 'stone' },
@@ -42,18 +44,66 @@ export const SHATTERED_KEEP = Object.freeze({
     { id: 'bridge-right-ruin', center: [3, 1.0, -18], size: [0.7, 2.0, 2.5], material: 'stone' },
   ],
   spawnPoints: [
-    { x: -6.5, y: 0, z: -6.5, yaw: yawTowardKeep(-6.5, -6.5) },
-    { x: 6.5, y: 0, z: -6.5, yaw: yawTowardKeep(6.5, -6.5) },
-    { x: -6.5, y: 0, z: 6.5, yaw: yawTowardKeep(-6.5, 6.5) },
-    { x: 6.5, y: 0, z: 6.5, yaw: yawTowardKeep(6.5, 6.5) },
-    { x: -15.5, y: 0, z: 0, yaw: yawTowardKeep(-15.5, 0) },
-    { x: 15.5, y: 0, z: 0, yaw: yawTowardKeep(15.5, 0) },
-    { x: -5, y: 3, z: 13, yaw: yawTowardKeep(-5, 13) },
-    { x: 5, y: 3, z: 13, yaw: yawTowardKeep(5, 13) },
-    { x: -1.7, y: 0, z: -21.5, yaw: yawTowardKeep(-1.7, -21.5) },
-    { x: 1.7, y: 0, z: -21.5, yaw: yawTowardKeep(1.7, -21.5) },
+    { x: -6.5, y: 0, z: -6.5 },
+    { x: 6.5, y: 0, z: -6.5 },
+    { x: -6.5, y: 0, z: 6.5 },
+    { x: 6.5, y: 0, z: 6.5 },
+    { x: -15.5, y: 0, z: 0 },
+    { x: 15.5, y: 0, z: 0 },
+    { x: -5, y: 3, z: 13 },
+    { x: 5, y: 3, z: 13 },
+    { x: -1.7, y: 0, z: -21.5 },
+    { x: 1.7, y: 0, z: -21.5 },
   ],
   abyssY: -9,
+};
+
+function scaleCenter([x, y, z]) {
+  return [x * KEEP_HORIZONTAL_SCALE, y, z * KEEP_HORIZONTAL_SCALE];
+}
+
+function scaleFloor(floor) {
+  return {
+    ...floor,
+    center: scaleCenter(floor.center),
+    size: [floor.size[0] * KEEP_HORIZONTAL_SCALE, floor.size[1], floor.size[2] * KEEP_HORIZONTAL_SCALE],
+  };
+}
+
+function scaleRamp(ramp) {
+  return {
+    ...ramp,
+    minX: ramp.minX * KEEP_HORIZONTAL_SCALE,
+    maxX: ramp.maxX * KEEP_HORIZONTAL_SCALE,
+    minZ: ramp.minZ * KEEP_HORIZONTAL_SCALE,
+    maxZ: ramp.maxZ * KEEP_HORIZONTAL_SCALE,
+  };
+}
+
+function scaleSolid(solid) {
+  const stretchBoundary = solid.id.includes('wall') || solid.id === 'north-battlement-back';
+  return {
+    ...solid,
+    center: scaleCenter(solid.center),
+    size: stretchBoundary
+      ? [solid.size[0] * KEEP_HORIZONTAL_SCALE, solid.size[1], solid.size[2] * KEEP_HORIZONTAL_SCALE]
+      : [...solid.size],
+  };
+}
+
+function scaleSpawn(spawn) {
+  const x = spawn.x * KEEP_HORIZONTAL_SCALE;
+  const z = spawn.z * KEEP_HORIZONTAL_SCALE;
+  return { ...spawn, x, z, yaw: yawTowardKeep(x, z) };
+}
+
+export const SHATTERED_KEEP = Object.freeze({
+  name: BASE_KEEP.name,
+  floors: BASE_KEEP.floors.map(scaleFloor),
+  ramps: BASE_KEEP.ramps.map(scaleRamp),
+  solids: BASE_KEEP.solids.map(scaleSolid),
+  spawnPoints: BASE_KEEP.spawnPoints.map(scaleSpawn),
+  abyssY: BASE_KEEP.abyssY,
 });
 
 export const SPAWN_POINTS = SHATTERED_KEEP.spawnPoints;

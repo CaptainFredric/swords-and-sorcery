@@ -32,3 +32,10 @@ test('Shattered Keep gives fights a little more breathing room without becoming 
   const farthestSpawn = Math.max(...SHATTERED_KEEP.spawnPoints.map((spawn) => Math.hypot(spawn.x, spawn.z)));
   assert.ok(farthestSpawn <= 25.5, `farthest spawn is too remote at ${farthestSpawn.toFixed(2)}m`);
 });
+
+test('central Arcane Spire remains a landmark instead of a giant courtyard sight blocker', () => {
+  const spire = SHATTERED_KEEP.solids.find((solid) => solid.id === 'arcane-spire-base');
+  assert.ok(spire.size[0] <= 1.9, `spire width is ${spire.size[0]}`);
+  assert.ok(spire.size[2] <= 1.9, `spire depth is ${spire.size[2]}`);
+  assert.ok(spire.size[1] <= 2.1, `spire base height is ${spire.size[1]}`);
+});

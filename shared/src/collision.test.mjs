@@ -31,7 +31,16 @@ test('sword world hit selects a nearer wall before full melee range', () => {
 });
 
 test('Shattered Keep broken bridge has a real traversable floor gap', () => {
-  assert.equal(surfaceHeightAt(0, -14.7, 0.5, SHATTERED_KEEP), 0);
-  assert.equal(surfaceHeightAt(0, -16.0, 0.5, SHATTERED_KEEP), null);
-  assert.equal(surfaceHeightAt(0, -17.3, 0.5, SHATTERED_KEEP), 0);
+  const north = SHATTERED_KEEP.floors.find((floor) => floor.id === 'broken-bridge-north');
+  const south = SHATTERED_KEEP.floors.find((floor) => floor.id === 'broken-bridge-south');
+  assert.ok(north && south);
+
+  const northSouthEdge = north.center[2] - north.size[2] / 2;
+  const southNorthEdge = south.center[2] + south.size[2] / 2;
+  const gapCenterZ = (northSouthEdge + southNorthEdge) / 2;
+
+  assert.ok(northSouthEdge > southNorthEdge, 'bridge floor sections must leave a physical gap between them');
+  assert.equal(surfaceHeightAt(0, north.center[2], 0.5, SHATTERED_KEEP), 0);
+  assert.equal(surfaceHeightAt(0, gapCenterZ, 0.5, SHATTERED_KEEP), null);
+  assert.equal(surfaceHeightAt(0, south.center[2], 0.5, SHATTERED_KEEP), 0);
 });
