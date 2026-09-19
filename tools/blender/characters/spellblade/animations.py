@@ -5,6 +5,10 @@ from math import radians
 import bpy
 
 
+ANIMATION_FPS = 30
+SLASH_DURATIONS_SECONDS = (0.72, 0.72, 0.64)
+SLASH_CONTACT_SECONDS = (0.40, 0.38, 0.36)
+
 # Root and attachment sockets deliberately never receive keyed translation/rotation.
 _ANIMATED_BONES = (
     "pelvis", "spine", "chest", "neck", "head",
@@ -14,6 +18,10 @@ _ANIMATED_BONES = (
     "tabard_root", "tabard_front_01", "tabard_front_02",
     "tabard_back_01", "tabard_back_02",
 )
+
+
+def _seconds_to_frame(seconds: float) -> int:
+    return 1 + int(round(seconds * ANIMATION_FPS))
 
 
 def _pose(**values: tuple[float, float, float]) -> dict[str, tuple[float, float, float]]:
@@ -114,21 +122,21 @@ def _clip_poses() -> dict[str, tuple[tuple[int, dict[str, tuple[float, float, fl
         ),
         "Slash_1": (
             (1, _pose(**{"chest": (0, 0, -18), "upper_arm.R": (-58, -12, 38), "forearm.R": (-50, 8, -28), "hand.R": (0, -12, 24), "upper_arm.L": (8, 0, -10)})),
-            (8, _pose(**{"chest": (4, 0, 20), "upper_arm.R": (52, 12, -35), "forearm.R": (34, -6, 22), "hand.R": (0, 16, -24), "upper_arm.L": (-12, 0, 12), "tabard_front_01": (8, 0, 0)})),
-            (16, _pose(**{"chest": (2, 0, 9), "upper_arm.R": (24, 4, -18), "forearm.R": (16, 0, 10), "upper_arm.L": (-5, 0, 5)})),
-            (24, neutral),
+            (_seconds_to_frame(SLASH_CONTACT_SECONDS[0]), _pose(**{"chest": (4, 0, 20), "upper_arm.R": (52, 12, -35), "forearm.R": (34, -6, 22), "hand.R": (0, 16, -24), "upper_arm.L": (-12, 0, 12), "tabard_front_01": (8, 0, 0)})),
+            (18, _pose(**{"chest": (2, 0, 9), "upper_arm.R": (24, 4, -18), "forearm.R": (16, 0, 10), "upper_arm.L": (-5, 0, 5)})),
+            (_seconds_to_frame(SLASH_DURATIONS_SECONDS[0]), neutral),
         ),
         "Slash_2": (
             (1, _pose(**{"chest": (0, 0, 18), "upper_arm.R": (-28, 22, -42), "forearm.R": (-46, -10, 30), "hand.R": (0, 14, -28), "upper_arm.L": (4, 0, 12)})),
-            (8, _pose(**{"chest": (5, 0, -23), "upper_arm.R": (48, -18, 36), "forearm.R": (36, 8, -24), "hand.R": (0, -12, 22), "upper_arm.L": (-10, 0, -12), "tabard_front_01": (8, 0, 0)})),
-            (17, _pose(**{"chest": (2, 0, -8), "upper_arm.R": (20, -5, 16), "forearm.R": (14, 0, -9)})),
-            (24, neutral),
+            (_seconds_to_frame(SLASH_CONTACT_SECONDS[1]), _pose(**{"chest": (5, 0, -23), "upper_arm.R": (48, -18, 36), "forearm.R": (36, 8, -24), "hand.R": (0, -12, 22), "upper_arm.L": (-10, 0, -12), "tabard_front_01": (8, 0, 0)})),
+            (18, _pose(**{"chest": (2, 0, -8), "upper_arm.R": (20, -5, 16), "forearm.R": (14, 0, -9)})),
+            (_seconds_to_frame(SLASH_DURATIONS_SECONDS[1]), neutral),
         ),
         "Slash_3": (
             (1, _pose(**{"chest": (-8, 0, 0), "upper_arm.R": (-72, -8, 10), "forearm.R": (-65, 0, -8), "hand.R": (0, -12, 5), "upper_arm.L": (-20, 0, -10), "forearm.L": (-28, 0, 14)})),
-            (9, _pose(**{"chest": (17, 0, 0), "upper_arm.R": (58, 5, -4), "forearm.R": (48, 0, 6), "upper_arm.L": (8, 0, 8), "thigh.L": (8, 0, 0), "thigh.R": (8, 0, 0), "tabard_front_01": (12, 0, 0)})),
-            (19, _pose(**{"chest": (6, 0, 0), "upper_arm.R": (24, 0, 0), "forearm.R": (18, 0, 0)})),
-            (28, neutral),
+            (_seconds_to_frame(SLASH_CONTACT_SECONDS[2]), _pose(**{"chest": (17, 0, 0), "upper_arm.R": (58, 5, -4), "forearm.R": (48, 0, 6), "upper_arm.L": (8, 0, 8), "thigh.L": (8, 0, 0), "thigh.R": (8, 0, 0), "tabard_front_01": (12, 0, 0)})),
+            (16, _pose(**{"chest": (6, 0, 0), "upper_arm.R": (24, 0, 0), "forearm.R": (18, 0, 0)})),
+            (_seconds_to_frame(SLASH_DURATIONS_SECONDS[2]), neutral),
         ),
         "Cast": (
             (1, neutral),
