@@ -55,7 +55,12 @@ test('manual public verifier fingerprints the current grounded Castleward solo a
   assert.match(capture, /public-game-menu\.png/);
   assert.match(capture, /public-game-practice\.png/);
   assert.match(capture, /public-game-practice-dummy\.png/);
+  assert.match(capture, /public-game-bot-duel-waiting\.png/);
   assert.match(capture, /public-game-bot-duel\.png/);
   assert.match(capture, /public-game-ffa-waiting\.png/);
+  assert.match(capture, /trustedClick/);
+  assert.match(capture, /pointerLocked/);
+  assert.match(capture, /BOT_DUEL[\s\S]*WAITING|WAITING[\s\S]*BOT_DUEL/i);
   assert.match(capture, /Castleward|CASTLEWARD/);
+  assert.match(workflow, /public-game-bot-duel-waiting\.png/);
 });
