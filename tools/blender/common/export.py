@@ -17,7 +17,7 @@ def validate_export_transforms(objects: Iterable[bpy.types.Object]) -> None:
 
 
 def export_glb(path: Path, *, objects: Iterable[bpy.types.Object]) -> None:
-    """Export selected production objects to one Y-up GLB with independent armature actions."""
+    """Export selected production objects to one Y-up GLB with independent authored actions."""
     selected = list(objects)
     if not selected:
         raise ValueError("export_glb requires at least one object")
@@ -39,7 +39,9 @@ def export_glb(path: Path, *, objects: Iterable[bpy.types.Object]) -> None:
         export_anim_single_armature=True,
         export_reset_pose_bones=True,
         export_frame_range=False,
-        export_force_sampling=True,
+        # Do not force-sample all bone TRS channels. Blender otherwise emits
+        # constant root translation tracks even though gameplay owns movement.
+        export_force_sampling=False,
         export_anim_slide_to_zero=True,
         export_merge_animation="ACTION",
         export_skins=True,
