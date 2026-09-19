@@ -108,6 +108,12 @@ export function buildKeepDecorPlan(seed = 1337) {
       { id: 'north-banner-a', x: -4.3, y: 4.15, z: 14.34, width: 1.25, height: 2.4, color: KEEP_ROUTE_COLORS.north },
       { id: 'north-banner-b', x: 4.3, y: 4.15, z: 14.34, width: 1.25, height: 2.4, color: KEEP_ROUTE_COLORS.north },
     ],
+    wallAccents: [
+      { id: 'west-wall-rib-a', mount: 'westOuterWall', x: -17.63, y: 1.42, z: -4.55, sx: 0.055, sy: 2.2, sz: 0.28 },
+      { id: 'west-wall-rib-b', mount: 'westOuterWall', x: -17.63, y: 1.42, z: -1.55, sx: 0.055, sy: 2.2, sz: 0.28 },
+      { id: 'west-wall-rib-c', mount: 'westOuterWall', x: -17.63, y: 1.42, z: 1.55, sx: 0.055, sy: 2.2, sz: 0.28 },
+      { id: 'west-wall-rib-d', mount: 'westOuterWall', x: -17.63, y: 1.42, z: 4.55, sx: 0.055, sy: 2.2, sz: 0.28 },
+    ],
     routeLights: [
       { id: 'west-warm-a', x: -16.7, y: 1.75, z: 4.4, color: KEEP_ROUTE_COLORS.west, intensity: 5.2, distance: 5.5 },
       { id: 'west-warm-b', x: -16.7, y: 1.75, z: -4.4, color: KEEP_ROUTE_COLORS.west, intensity: 5.2, distance: 5.5 },
