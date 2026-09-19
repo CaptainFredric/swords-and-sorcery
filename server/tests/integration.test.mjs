@@ -112,9 +112,12 @@ test('Bot Duel websocket readiness gates countdown and focus loss rolls it back 
   assert.equal(room.players.get(joined.playerId).arenaReady, false);
 
   const countdownP = waitFor(ws, (m) => m.type === 'lobby' && m.roomState === 'COUNTDOWN');
+  const countdownSnapshotP = waitFor(ws, (m) => m.type === 'snapshot' && m.roomState === 'COUNTDOWN' && m.mode === 'BOT_DUEL');
   send(ws, { type: 'arenaReady', ready: true });
   await countdownP;
+  const countdownSnapshot = await countdownSnapshotP;
   assert.equal(room.players.get(joined.playerId).arenaReady, true);
+  assert.equal(countdownSnapshot.players.find((p) => p.id === joined.playerId)?.arenaReady, true);
 
   const waitingP = waitFor(ws, (m) => m.type === 'lobby' && m.roomState === 'WAITING');
   send(ws, { type: 'arenaReady', ready: false });
