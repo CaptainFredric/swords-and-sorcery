@@ -52,7 +52,7 @@ const ATTACK_POSES = Object.freeze([
     windupGroup: transform(0.44, -0.18, -1.05, -0.16, -0.08, 0.02),
     cutGroup: transform(0.38, -0.40, -1.00, 0.12, -0.12, -0.06),
     windupSword: transform(0, -0.01, -0.18, -0.82, -0.08, 0.04),
-    cutSword: transform(0, -0.01, -0.18, 0.20, -0.14, -0.06),
+    cutSword: transform(0, -0.01, -0.18, 0.36, -0.14, -0.06),
   },
 ]);
 
