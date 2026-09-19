@@ -1,3 +1,5 @@
+import { recordArenaKey, releaseHeldInputs } from './inputRelease.mjs';
+
 export class InputController {
   constructor(element, socket) {
     this.element = element;
@@ -23,12 +25,12 @@ export class InputController {
     document.addEventListener('pointerlockchange', () => {
       this.enabled = document.pointerLockElement === this.element;
       this.onPointer(this.enabled);
-      if (!this.enabled) {
-        this.attackHeld = false;
-        this.guardHeld = false;
-        this.socket.attack(false);
-        this.socket.guard(false);
-      }
+      if (!this.enabled) releaseHeldInputs(this);
+    });
+
+    window.addEventListener('blur', () => releaseHeldInputs(this));
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) releaseHeldInputs(this);
     });
 
     this.element.addEventListener('click', () => {
@@ -43,9 +45,8 @@ export class InputController {
     });
 
     document.addEventListener('keydown', (event) => {
+      if (!recordArenaKey(this.keys, event.code, this.enabled)) return;
       if (['KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space', 'Tab'].includes(event.code)) event.preventDefault();
-      this.keys.add(event.code);
-      if (!this.enabled) return;
       if (event.code === 'KeyQ' && !event.repeat) {
         const direction = this.lookDirection();
         this.socket.cast(direction);
