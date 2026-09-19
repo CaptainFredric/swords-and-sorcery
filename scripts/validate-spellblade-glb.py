@@ -31,11 +31,20 @@ MAX_GROUND_Y = 0.15
 SCALE_EPSILON = 1e-4
 
 
+def _named_string_list(value: dict, key: str) -> list[str]:
+    items = value.get(key)
+    if not isinstance(items, list) or not items or not all(isinstance(name, str) and name for name in items):
+        raise ValueError(f"Spellblade contract {key} must be a non-empty list of names")
+    return items
+
+
 def load_contract(path: Path = CONTRACT_PATH) -> dict:
     value = json.loads(path.read_text(encoding="utf-8"))
-    clips = value.get("clips")
-    if not isinstance(clips, list) or not clips or not all(isinstance(name, str) and name for name in clips):
-        raise ValueError("Spellblade contract clips must be a non-empty list of names")
+    _named_string_list(value, "clips")
+    _named_string_list(value, "firstPersonClips")
+    _named_string_list(value, "firstPersonRigNodes")
+    _named_string_list(value, "firstPersonRequiredNodes")
+    _named_string_list(value, "firstPersonMutableMaterials")
     return value
 
 
@@ -83,6 +92,14 @@ def _node_index_by_name(document: dict) -> dict[str, int]:
     return result
 
 
+def _material_names(document: dict) -> set[str]:
+    return {
+        material["name"]
+        for material in document.get("materials", [])
+        if isinstance(material, dict) and isinstance(material.get("name"), str)
+    }
+
+
 def _position_bounds(document: dict) -> tuple[list[float], list[float]] | None:
     accessors = document.get("accessors", [])
     minimum = [math.inf, math.inf, math.inf]
@@ -118,10 +135,34 @@ def _position_bounds(document: dict) -> tuple[list[float], list[float]] | None:
     return (minimum, maximum) if found else None
 
 
+def _triangle_count(document: dict) -> int:
+    accessors = document.get("accessors", [])
+    total = 0
+    for mesh in document.get("meshes", []):
+        if not isinstance(mesh, dict):
+            continue
+        for primitive in mesh.get("primitives", []):
+            if not isinstance(primitive, dict):
+                continue
+            if primitive.get("mode", 4) != 4:
+                continue
+            accessor_index = primitive.get("indices")
+            if not isinstance(accessor_index, int):
+                attributes = primitive.get("attributes", {})
+                accessor_index = attributes.get("POSITION") if isinstance(attributes, dict) else None
+            if not isinstance(accessor_index, int) or not (0 <= accessor_index < len(accessors)):
+                continue
+            accessor = accessors[accessor_index]
+            count = accessor.get("count") if isinstance(accessor, dict) else None
+            if isinstance(count, int) and count >= 0:
+                total += count // 3
+    return total
+
+
 def _validate_clip_names(document: dict, contract: dict | None, *, first_person: bool) -> list[str]:
     if not isinstance(contract, dict):
         return []
-    key = "firstPersonClips" if first_person and isinstance(contract.get("firstPersonClips"), list) else "clips"
+    key = "firstPersonClips" if first_person else "clips"
     required = contract.get(key)
     if not isinstance(required, list):
         return [f"Spellblade contract is missing {key}"]
@@ -153,6 +194,22 @@ def _validate_root_motion(document: dict, root_index: int | None) -> list[str]:
     return errors
 
 
+def _validate_budget(document: dict, contract: dict | None, *, first_person: bool) -> list[str]:
+    if not isinstance(contract, dict):
+        return []
+    label = "firstPerson" if first_person else "thirdPerson"
+    budget = contract.get(label)
+    if not isinstance(budget, dict):
+        return [f"Spellblade contract is missing {label} budget"]
+    maximum = budget.get("maxTriangles")
+    if not isinstance(maximum, (int, float)) or maximum <= 0:
+        return [f"Spellblade contract {label}.maxTriangles must be positive"]
+    triangles = _triangle_count(document)
+    if triangles > int(maximum):
+        return [f"Spellblade {label} GLB exceeds triangle budget: {triangles} > {int(maximum)}"]
+    return []
+
+
 def validate_document(document: dict, contract: dict | None = None, *, first_person: bool = False) -> list[str]:
     errors: list[str] = []
 
@@ -165,10 +222,24 @@ def validate_document(document: dict, contract: dict | None = None, *, first_per
         errors.append("Spellblade GLB must contain at least one skin")
 
     node_indexes = _node_index_by_name(document)
-    required_nodes = tuple(contract.get("rigNodes", REQUIRED_RIG_NODES)) if isinstance(contract, dict) else REQUIRED_RIG_NODES
+    if first_person and isinstance(contract, dict):
+        required_nodes = tuple(contract.get("firstPersonRigNodes", ()))
+    elif isinstance(contract, dict):
+        required_nodes = tuple(contract.get("rigNodes", REQUIRED_RIG_NODES))
+    else:
+        required_nodes = REQUIRED_RIG_NODES
     for name in required_nodes:
         if name not in node_indexes:
             errors.append(f"Spellblade rig missing node {name}")
+
+    if first_person and isinstance(contract, dict):
+        for name in contract.get("firstPersonRequiredNodes", []):
+            if name not in node_indexes:
+                errors.append(f"Spellblade first-person GLB missing required node {name}")
+        materials = _material_names(document)
+        for name in contract.get("firstPersonMutableMaterials", []):
+            if name not in materials:
+                errors.append(f"Spellblade first-person GLB missing mutable material {name}")
 
     root_index = node_indexes.get("root")
     if root_index is not None:
@@ -189,7 +260,7 @@ def validate_document(document: dict, contract: dict | None = None, *, first_per
     bounds = _position_bounds(document)
     if bounds is None:
         errors.append("Spellblade GLB must expose POSITION accessor min/max bounds")
-    else:
+    elif not first_person:
         minimum, maximum = bounds
         height = maximum[1] - minimum[1]
         if not (MIN_CHARACTER_HEIGHT <= height <= MAX_CHARACTER_HEIGHT):
@@ -203,11 +274,19 @@ def validate_document(document: dict, contract: dict | None = None, *, first_per
 
     errors.extend(_validate_clip_names(document, contract, first_person=first_person))
     errors.extend(_validate_root_motion(document, root_index))
+    errors.extend(_validate_budget(document, contract, first_person=first_person))
     return errors
 
 
 def validate_glb(path: Path, contract: dict | None = None, *, first_person: bool = False) -> list[str]:
-    return validate_document(read_glb_json(path), contract, first_person=first_person)
+    errors = validate_document(read_glb_json(path), contract, first_person=first_person)
+    if isinstance(contract, dict):
+        label = "firstPerson" if first_person else "thirdPerson"
+        budget = contract.get(label)
+        target = budget.get("targetBytes") if isinstance(budget, dict) else None
+        if isinstance(target, (int, float)) and target > 0 and path.stat().st_size > int(target):
+            errors.append(f"Spellblade {label} GLB exceeds byte budget: {path.stat().st_size} > {int(target)}")
+    return errors
 
 
 def _write_synthetic_glb(path: Path, document: dict | None = None) -> None:
@@ -230,6 +309,27 @@ def _valid_synthetic_rig_document() -> dict:
         "meshes": [{"primitives": [{"attributes": {"POSITION": 0}}]}],
         "accessors": [{"type": "VEC3", "componentType": 5126, "count": 8, "min": [-0.55, 0.0, -0.28], "max": [0.55, 2.04, 0.28]}],
         "animations": [],
+    }
+
+
+def _valid_synthetic_first_person_document(contract: dict) -> dict:
+    rig_nodes = list(contract["firstPersonRigNodes"])
+    required_nodes = list(contract["firstPersonRequiredNodes"])
+    nodes = [{"name": name} for name in (*rig_nodes, *required_nodes)]
+    return {
+        "asset": {"version": "2.0"},
+        "nodes": nodes,
+        "skins": [{"joints": list(range(len(rig_nodes)))}],
+        "meshes": [{"primitives": [{"attributes": {"POSITION": 0}, "indices": 1}]}],
+        "accessors": [
+            {"type": "VEC3", "componentType": 5126, "count": 120, "min": [-0.8, -1.0, -1.8], "max": [0.8, 0.6, -0.1]},
+            {"type": "SCALAR", "componentType": 5123, "count": 300},
+        ],
+        "materials": [{"name": name} for name in contract["firstPersonMutableMaterials"]],
+        "animations": [
+            {"name": name, "channels": [], "samplers": []}
+            for name in contract["firstPersonClips"]
+        ],
     }
 
 
@@ -323,12 +423,62 @@ def self_test_animation() -> None:
     print("SPELLBLADE_ANIMATION_VALIDATOR_OK")
 
 
+def self_test_first_person() -> None:
+    contract = load_contract()
+    valid = _valid_synthetic_first_person_document(contract)
+    valid_errors = validate_document(valid, contract, first_person=True)
+    if valid_errors:
+        raise SystemExit("valid first-person fixture rejected: " + "; ".join(valid_errors))
+
+    cases: list[tuple[str, dict, str]] = []
+
+    missing_hand = copy.deepcopy(valid)
+    missing_hand["nodes"] = [node for node in missing_hand["nodes"] if node.get("name") != "hand.L"]
+    cases.append(("missing hand chain", missing_hand, "hand.L"))
+
+    missing_sword = copy.deepcopy(valid)
+    missing_sword["nodes"] = [node for node in missing_sword["nodes"] if node.get("name") != "HeroSword"]
+    cases.append(("missing hero sword", missing_sword, "HeroSword"))
+
+    missing_sorcery = copy.deepcopy(valid)
+    missing_sorcery["materials"] = []
+    cases.append(("missing sorcery material", missing_sorcery, "SorceryAccent"))
+
+    missing_clip = copy.deepcopy(valid)
+    removed_name = contract["firstPersonClips"][-1]
+    missing_clip["animations"] = [animation for animation in missing_clip["animations"] if animation["name"] != removed_name]
+    cases.append(("missing first-person clip", missing_clip, removed_name))
+
+    too_many_triangles = copy.deepcopy(valid)
+    too_many_triangles["accessors"][1]["count"] = (int(contract["firstPerson"]["maxTriangles"]) + 1) * 3
+    cases.append(("first-person triangle budget", too_many_triangles, "triangle budget"))
+
+    for label, document, expected in cases:
+        errors = validate_document(document, contract, first_person=True)
+        joined = "\n".join(errors).lower()
+        if expected.lower() not in joined:
+            raise SystemExit(f"{label} fixture was not rejected correctly: {errors}")
+
+    with tempfile.TemporaryDirectory() as directory:
+        path = Path(directory) / "first-person.glb"
+        _write_synthetic_glb(path, valid)
+        tiny_contract = copy.deepcopy(contract)
+        tiny_contract["firstPerson"]["targetBytes"] = 1
+        errors = validate_glb(path, tiny_contract, first_person=True)
+        if "byte budget" not in "\n".join(errors).lower():
+            raise SystemExit(f"first-person byte budget fixture was not rejected correctly: {errors}")
+
+    print("SPELLBLADE_FIRST_PERSON_VALIDATOR_OK")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Validate Swords & Sorcery Spellblade GLB structure")
     parser.add_argument("path", nargs="?", type=Path)
+    parser.add_argument("--first-person", action="store_true")
     parser.add_argument("--self-test", action="store_true")
     parser.add_argument("--self-test-rig", action="store_true")
     parser.add_argument("--self-test-animation", action="store_true")
+    parser.add_argument("--self-test-first-person", action="store_true")
     args = parser.parse_args()
 
     if args.self_test:
@@ -340,13 +490,18 @@ def main() -> None:
     if args.self_test_animation:
         self_test_animation()
         return
+    if args.self_test_first_person:
+        self_test_first_person()
+        return
     if args.path is None:
         parser.error("path is required unless a self-test flag is used")
 
-    errors = validate_glb(args.path, load_contract())
+    contract = load_contract()
+    errors = validate_glb(args.path, contract, first_person=args.first_person)
     if errors:
         raise SystemExit("\n".join(errors))
-    print(f"SPELLBLADE_GLB_VALID path={args.path}")
+    mode = "first-person" if args.first_person else "third-person"
+    print(f"SPELLBLADE_GLB_VALID mode={mode} path={args.path}")
 
 
 if __name__ == "__main__":
