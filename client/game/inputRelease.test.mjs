@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { releaseHeldInputs } from './inputRelease.mjs';
+import { recordArenaKey, releaseHeldInputs } from './inputRelease.mjs';
 
 test('releasing arena focus clears movement and held combat state on both network and local presentation', () => {
   const network = [];
@@ -26,4 +26,14 @@ test('releasing arena focus clears movement and held combat state on both networ
   assert.equal(controller.scoreboardHeld, false);
   assert.deepEqual(network, [['attack', false], ['guard', false]]);
   assert.deepEqual(local, [['attack', false], ['guard', false]]);
+});
+
+test('gameplay key state is recorded only while arena input is enabled', () => {
+  const keys = new Set();
+
+  assert.equal(recordArenaKey(keys, 'KeyW', false), false);
+  assert.equal(keys.size, 0);
+
+  assert.equal(recordArenaKey(keys, 'KeyW', true), true);
+  assert.deepEqual([...keys], ['KeyW']);
 });
