@@ -9,6 +9,9 @@ const MIN_REACTION_SEC = 0.22;
 const REACTION_JITTER_SEC = 0.2;
 const AVOID_PROBE_RANGE = 1.65;
 const AVOID_DURATION_SEC = 0.62;
+const PROGRESS_SAMPLE_SEC = 0.7;
+const MIN_PROGRESS_METERS = 0.3;
+const ESCAPE_DURATION_SEC = 0.7;
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
@@ -57,6 +60,9 @@ function ensureAi(actor, nowSec, random) {
   if (actor.ai) {
     actor.ai.avoidUntil ??= -Infinity;
     actor.ai.avoidDirection ??= actor.ai.strafeDirection ?? 1;
+    actor.ai.progressSampleAt ??= nowSec;
+    actor.ai.progressSamplePosition ??= { x: actor.position.x, z: actor.position.z };
+    actor.ai.escapeUntil ??= -Infinity;
     return actor.ai;
   }
   actor.ai = {
@@ -68,6 +74,9 @@ function ensureAi(actor, nowSec, random) {
     strafeDirection: random() < 0.5 ? -1 : 1,
     avoidDirection: random() < 0.5 ? -1 : 1,
     avoidUntil: -Infinity,
+    progressSampleAt: nowSec,
+    progressSamplePosition: { x: actor.position.x, z: actor.position.z },
+    escapeUntil: -Infinity,
   };
   return actor.ai;
 }
@@ -117,6 +126,32 @@ function forwardLaneBlocked(actor, yaw, world) {
   return Boolean(findSwordWorldHit(origin, direction, AVOID_PROBE_RANGE, world.solids));
 }
 
+function resetProgressSample(actor, ai, nowSec) {
+  ai.progressSampleAt = nowSec;
+  ai.progressSamplePosition = { x: actor.position.x, z: actor.position.z };
+}
+
+function detectStuckMovement(actor, ai, nowSec, wantsMeaningfulMovement) {
+  if (nowSec < ai.escapeUntil) return;
+  if (!wantsMeaningfulMovement) {
+    resetProgressSample(actor, ai, nowSec);
+    return;
+  }
+  if (nowSec - ai.progressSampleAt < PROGRESS_SAMPLE_SEC) return;
+
+  const progress = Math.hypot(
+    actor.position.x - ai.progressSamplePosition.x,
+    actor.position.z - ai.progressSamplePosition.z,
+  );
+  resetProgressSample(actor, ai, nowSec);
+  if (progress >= MIN_PROGRESS_METERS) return;
+
+  ai.strafeDirection *= -1;
+  ai.avoidDirection = ai.strafeDirection;
+  ai.avoidUntil = -Infinity;
+  ai.escapeUntil = nowSec + ESCAPE_DURATION_SEC;
+}
+
 function updateMovement(actor, target, distance, ai, aggression, world, nowSec) {
   const yaw = yawToward(actor, target);
   actor.yaw = yaw;
@@ -127,15 +162,30 @@ function updateMovement(actor, target, distance, ai, aggression, world, nowSec) 
   if (distance < 7) right = ai.strafeDirection * (distance <= MELEE_RANGE ? 0.55 : 0.32) * aggression;
   if (actor.guarding || actor.attackActive) forward = Math.min(forward, 0.28);
 
-  const blocked = forward > 0 && forwardLaneBlocked(actor, yaw, world);
-  if (blocked && nowSec >= ai.avoidUntil) {
-    ai.avoidDirection = ai.strafeDirection || ai.avoidDirection || 1;
-    ai.avoidUntil = nowSec + AVOID_DURATION_SEC;
+  const escapeExpired = ai.escapeUntil !== -Infinity && nowSec >= ai.escapeUntil;
+  if (escapeExpired) {
+    ai.escapeUntil = -Infinity;
+    resetProgressSample(actor, ai, nowSec);
   }
 
-  if (nowSec < ai.avoidUntil) {
-    forward = Math.min(forward, 0.24);
-    right = ai.avoidDirection * 0.88;
+  const priorInput = actor.input ?? { forward: 0, right: 0 };
+  const wantsMeaningfulMovement = distance > MELEE_RANGE * 0.85
+    && (priorInput.forward > 0.4 || Math.abs(priorInput.right) > 0.4);
+  if (!escapeExpired) detectStuckMovement(actor, ai, nowSec, wantsMeaningfulMovement);
+
+  if (nowSec < ai.escapeUntil) {
+    forward = actor.guarding || actor.attackActive ? 0 : -0.18;
+    right = ai.strafeDirection * 0.92;
+  } else {
+    const blocked = forward > 0 && forwardLaneBlocked(actor, yaw, world);
+    if (blocked && nowSec >= ai.avoidUntil) {
+      ai.avoidDirection = ai.strafeDirection || ai.avoidDirection || 1;
+      ai.avoidUntil = nowSec + AVOID_DURATION_SEC;
+    }
+    if (nowSec < ai.avoidUntil) {
+      forward = Math.min(forward, 0.24);
+      right = ai.avoidDirection * 0.88;
+    }
   }
 
   actor.input = {
@@ -170,6 +220,9 @@ export function stepBotControllers(
 
     if (!target) {
       actor.input = { forward: 0, right: 0, jump: false, yaw: actor.yaw, pitch: actor.pitch };
+      ai.avoidUntil = -Infinity;
+      ai.escapeUntil = -Infinity;
+      resetProgressSample(actor, ai, nowSec);
       if (actor.attackHeld) endAttack(room, actor.id, nowSec);
       if (actor.guarding) setGuard(room, actor.id, false, nowSec);
       continue;

@@ -98,3 +98,39 @@ test('bot keeps a direct approach when the forward lane is clear', () => {
   assert.equal(bot.input.right, 0);
   assert.ok(bot.input.forward >= 0.9);
 });
+
+test('bot falls back to a lateral escape when requested movement makes almost no progress', () => {
+  const { room, bot, human } = makeBotDuel();
+  bot.position = { x: 0, y: 0, z: 0 };
+  human.position = { x: 0, y: 0, z: -9 };
+  const world = { ...room.world, solids: [] };
+
+  stepBotControllers(room, 4, world, { random: () => 0.8 });
+  assert.ok(bot.input.forward > 0.4);
+  const originalStrafe = bot.ai.strafeDirection;
+
+  // Simulate a collision shape or corner case that the short forward probe did not detect.
+  stepBotControllers(room, 4.85, world, { random: () => 0.8 });
+
+  assert.ok(bot.ai.escapeUntil > 4.85, 'bot should enter a bounded escape window');
+  assert.notEqual(bot.ai.strafeDirection, originalStrafe, 'fallback should switch the attempted side around the obstruction');
+  assert.ok(Math.abs(bot.input.right) >= 0.8, 'escape should strongly favor lateral movement');
+  assert.ok(bot.input.forward <= 0.25, 'escape should stop feeding forward input into the obstruction');
+});
+
+test('bot finishes a bounded escape before evaluating another stuck pursuit window', () => {
+  const { room, bot, human } = makeBotDuel();
+  bot.position = { x: 0, y: 0, z: 0 };
+  human.position = { x: 0, y: 0, z: -9 };
+  const world = { ...room.world, solids: [] };
+
+  stepBotControllers(room, 4, world, { random: () => 0.8 });
+  stepBotControllers(room, 4.85, world, { random: () => 0.8 });
+  const escapeUntil = bot.ai.escapeUntil;
+  assert.ok(escapeUntil > 4.85);
+
+  stepBotControllers(room, escapeUntil + 0.01, world, { random: () => 0.8 });
+
+  assert.equal(bot.ai.escapeUntil, -Infinity);
+  assert.ok(bot.input.forward > 0.4, 'bot should resume pursuit after the bounded escape');
+});

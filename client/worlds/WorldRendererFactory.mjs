@@ -1,3 +1,6 @@
+import { CASTLEWARD } from '../../shared/worlds/castleward.mjs';
+import { attachCastlewardTerrainSkirts } from './castlewardTerrain.mjs';
+
 const WORLD_RENDERER_KEYS = Object.freeze({
   'castleward': 'castleward',
   'shattered-keep': 'shattered-keep',
@@ -13,5 +16,7 @@ export function createWorldRenderer(worldId, scene, rendererTypes) {
   const key = rendererKeyForWorld(worldId);
   const Renderer = rendererTypes?.[key];
   if (typeof Renderer !== 'function') throw new Error(`Renderer type unavailable: ${key}`);
-  return new Renderer(scene);
+  const renderer = new Renderer(scene);
+  if (key === 'castleward') attachCastlewardTerrainSkirts(renderer, CASTLEWARD);
+  return renderer;
 }
