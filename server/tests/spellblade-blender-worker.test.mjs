@@ -18,6 +18,7 @@ test('production Spellblade asset worker is pinned, verified, headless and read-
   assert.match(workflow, /sha256sum\s+-c/);
   assert.match(workflow, /libegl1/);
   assert.match(workflow, /--background/);
+  assert.match(workflow, /--python-exit-code\s+1/);
   assert.match(workflow, /tools\/blender\/characters\/spellblade\/build\.py/);
   assert.match(workflow, /scripts\/validate-spellblade-glb\.py/);
   assert.match(workflow, /spellblade-build-report\.json/);
