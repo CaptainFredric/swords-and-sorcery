@@ -33,9 +33,7 @@ export class InputController {
       if (document.hidden) releaseHeldInputs(this);
     });
 
-    this.element.addEventListener('click', () => {
-      if (!this.enabled) this.element.requestPointerLock?.();
-    });
+    this.element.addEventListener('click', () => this.requestPointerLock());
 
     document.addEventListener('mousemove', (event) => {
       if (!this.enabled) return;
@@ -96,6 +94,10 @@ export class InputController {
       }
     });
     document.addEventListener('contextmenu', (event) => event.preventDefault());
+  }
+
+  requestPointerLock() {
+    if (!this.enabled) this.element.requestPointerLock?.();
   }
 
   movement() {
