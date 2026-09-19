@@ -1,3 +1,4 @@
+import { findSwordWorldHit } from '../../../shared/src/collision.mjs';
 import { beginAttack, endAttack, setGuard, tryCastFireball, tryDash } from '../game/combat.mjs';
 
 const MELEE_RANGE = 2.25;
@@ -6,6 +7,8 @@ const DEFENSE_THREAT_RANGE = 3.1;
 const THINK_INTERVAL_SEC = 0.18;
 const MIN_REACTION_SEC = 0.22;
 const REACTION_JITTER_SEC = 0.2;
+const AVOID_PROBE_RANGE = 1.65;
+const AVOID_DURATION_SEC = 0.62;
 const PROGRESS_SAMPLE_SEC = 0.7;
 const MIN_PROGRESS_METERS = 0.3;
 const ESCAPE_DURATION_SEC = 0.7;
@@ -54,26 +57,28 @@ function aimDirection(from, to) {
 }
 
 function ensureAi(actor, nowSec, random) {
-  if (!actor.ai) {
-    actor.ai = {
-      targetId: null,
-      nextThinkAt: nowSec,
-      nextDefensiveDecisionAt: nowSec + MIN_REACTION_SEC + random() * REACTION_JITTER_SEC,
-      guardUntil: -Infinity,
-      attackReleaseAt: -Infinity,
-      strafeDirection: random() < 0.5 ? -1 : 1,
-      progressSampleAt: nowSec,
-      progressSamplePosition: { x: actor.position.x, z: actor.position.z },
-      escapeUntil: -Infinity,
-    };
+  if (actor.ai) {
+    actor.ai.avoidUntil ??= -Infinity;
+    actor.ai.avoidDirection ??= actor.ai.strafeDirection ?? 1;
+    actor.ai.progressSampleAt ??= nowSec;
+    actor.ai.progressSamplePosition ??= { x: actor.position.x, z: actor.position.z };
+    actor.ai.escapeUntil ??= -Infinity;
     return actor.ai;
   }
-
-  const ai = actor.ai;
-  if (!Number.isFinite(ai.progressSampleAt)) ai.progressSampleAt = nowSec;
-  if (!ai.progressSamplePosition) ai.progressSamplePosition = { x: actor.position.x, z: actor.position.z };
-  if (!Number.isFinite(ai.escapeUntil)) ai.escapeUntil = -Infinity;
-  return ai;
+  actor.ai = {
+    targetId: null,
+    nextThinkAt: nowSec,
+    nextDefensiveDecisionAt: nowSec + MIN_REACTION_SEC + random() * REACTION_JITTER_SEC,
+    guardUntil: -Infinity,
+    attackReleaseAt: -Infinity,
+    strafeDirection: random() < 0.5 ? -1 : 1,
+    avoidDirection: random() < 0.5 ? -1 : 1,
+    avoidUntil: -Infinity,
+    progressSampleAt: nowSec,
+    progressSamplePosition: { x: actor.position.x, z: actor.position.z },
+    escapeUntil: -Infinity,
+  };
+  return actor.ai;
 }
 
 function releaseExpiredActions(room, actor, ai, nowSec) {
@@ -114,6 +119,13 @@ function chooseCombatIntent(room, actor, target, distance, ai, nowSec, random, a
   }
 }
 
+function forwardLaneBlocked(actor, yaw, world) {
+  if (!world?.solids?.length) return false;
+  const direction = [-Math.sin(yaw), 0, -Math.cos(yaw)];
+  const origin = [actor.position.x, actor.position.y + 0.9, actor.position.z];
+  return Boolean(findSwordWorldHit(origin, direction, AVOID_PROBE_RANGE, world.solids));
+}
+
 function resetProgressSample(actor, ai, nowSec) {
   ai.progressSampleAt = nowSec;
   ai.progressSamplePosition = { x: actor.position.x, z: actor.position.z };
@@ -121,12 +133,10 @@ function resetProgressSample(actor, ai, nowSec) {
 
 function detectStuckMovement(actor, ai, nowSec, wantsMeaningfulMovement) {
   if (nowSec < ai.escapeUntil) return;
-
   if (!wantsMeaningfulMovement) {
     resetProgressSample(actor, ai, nowSec);
     return;
   }
-
   if (nowSec - ai.progressSampleAt < PROGRESS_SAMPLE_SEC) return;
 
   const progress = Math.hypot(
@@ -134,14 +144,15 @@ function detectStuckMovement(actor, ai, nowSec, wantsMeaningfulMovement) {
     actor.position.z - ai.progressSamplePosition.z,
   );
   resetProgressSample(actor, ai, nowSec);
-
   if (progress >= MIN_PROGRESS_METERS) return;
 
   ai.strafeDirection *= -1;
+  ai.avoidDirection = ai.strafeDirection;
+  ai.avoidUntil = -Infinity;
   ai.escapeUntil = nowSec + ESCAPE_DURATION_SEC;
 }
 
-function updateMovement(actor, target, distance, ai, aggression, nowSec) {
+function updateMovement(actor, target, distance, ai, aggression, world, nowSec) {
   const yaw = yawToward(actor, target);
   actor.yaw = yaw;
   actor.pitch = 0;
@@ -165,6 +176,16 @@ function updateMovement(actor, target, distance, ai, aggression, nowSec) {
   if (nowSec < ai.escapeUntil) {
     forward = actor.guarding || actor.attackActive ? 0 : -0.18;
     right = ai.strafeDirection * 0.92;
+  } else {
+    const blocked = forward > 0 && forwardLaneBlocked(actor, yaw, world);
+    if (blocked && nowSec >= ai.avoidUntil) {
+      ai.avoidDirection = ai.strafeDirection || ai.avoidDirection || 1;
+      ai.avoidUntil = nowSec + AVOID_DURATION_SEC;
+    }
+    if (nowSec < ai.avoidUntil) {
+      forward = Math.min(forward, 0.24);
+      right = ai.avoidDirection * 0.88;
+    }
   }
 
   actor.input = {
@@ -182,7 +203,6 @@ export function stepBotControllers(
   world = room.world,
   { random = Math.random, actorKinds = ['bot'], aggression = 1 } = {},
 ) {
-  void world;
   if (room.state !== 'PLAYING') return;
   const allowedKinds = new Set(actorKinds);
   const aggressionScale = clamp(aggression, 0.1, 1);
@@ -200,15 +220,16 @@ export function stepBotControllers(
 
     if (!target) {
       actor.input = { forward: 0, right: 0, jump: false, yaw: actor.yaw, pitch: actor.pitch };
-      resetProgressSample(actor, ai, nowSec);
+      ai.avoidUntil = -Infinity;
       ai.escapeUntil = -Infinity;
+      resetProgressSample(actor, ai, nowSec);
       if (actor.attackHeld) endAttack(room, actor.id, nowSec);
       if (actor.guarding) setGuard(room, actor.id, false, nowSec);
       continue;
     }
 
     const distance = distance2d(actor, target);
-    updateMovement(actor, target, distance, ai, aggressionScale, nowSec);
+    updateMovement(actor, target, distance, ai, aggressionScale, world, nowSec);
     considerDefense(room, actor, target, distance, ai, nowSec, random, aggressionScale);
 
     if (nowSec < ai.nextThinkAt) continue;

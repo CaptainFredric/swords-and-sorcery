@@ -7,6 +7,7 @@
   <title>Swords & Sorcery</title>
   <link rel="icon" href="data:," />
   <link rel="stylesheet" href="/client/styles.css" />
+  <link rel="stylesheet" href="/client/playability.css" />
   <script type="importmap">
     {
       "imports": {
@@ -34,58 +35,56 @@
 
     <section id="menu" class="menu-screen">
       <header class="game-brand">
-        <p class="eyebrow">CASTLEWARD · THE BORDER MARCH</p>
+        <p class="eyebrow">CASTLEWARD</p>
         <h1>SWORDS <span>&amp;</span> SORCERY</h1>
-        <p class="brand-rule">SWORD. MAGIC. KILL YOUR FRIENDS. FIRST TO 10.</p>
+        <p class="brand-rule">SWORD. MAGIC. FIRST TO 10.</p>
       </header>
 
       <aside class="command-rail">
         <div class="name-block">
-          <label class="field-label" for="player-name">YOUR SPELLBLADE</label>
+          <label class="field-label" for="player-name">SPELLBLADE NAME</label>
           <input id="player-name" class="game-input" maxlength="18" autocomplete="nickname" placeholder="Enter a name" />
         </div>
-        <button id="quick-play" class="menu-command primary-command"><span>QUICK PLAY</span><small>Enter public free-for-all</small></button>
-        <button id="solo-button" class="menu-command"><span>SOLO</span><small>Bot duel or practice yard</small></button>
-        <button id="private-button" class="menu-command"><span>PRIVATE ROOM</span><small>Create or join by code</small></button>
-        <button id="how-button" class="menu-command quiet-command"><span>FIELD MANUAL</span><small>Controls and combat rules</small></button>
+        <button id="quick-play" class="menu-command primary-command"><span>QUICK PLAY</span><small>Find a public match</small></button>
+        <button id="solo-button" class="menu-command"><span>SOLO</span><small>Fight a bot or practice</small></button>
+        <button id="private-button" class="menu-command"><span>PRIVATE MATCH</span><small>Create or join a room</small></button>
+        <button id="how-button" class="menu-command quiet-command"><span>HOW TO PLAY</span><small>Controls and combat basics</small></button>
         <p id="menu-error" class="error-copy" aria-live="polite"></p>
       </aside>
 
       <aside class="world-note">
-        <span class="world-note-kicker">CURRENT GROUND</span>
+        <span class="world-note-kicker">ARENA</span>
         <strong>CASTLEWARD</strong>
-        <p>Market green, village lanes, chapel meadow and the old castle bailey. Every route is reachable on foot.</p>
+        <p>A hill-town arena of open grass, village lanes and the old castle.</p>
         <div class="rule-line"><span>PLAYERS</span><b>2–8</b></div>
-        <div class="rule-line"><span>WIN</span><b>10 KILLS / 6 MIN</b></div>
-        <div class="rule-line"><span>LOADOUT</span><b>BASE SPELLBLADE</b></div>
+        <div class="rule-line"><span>WIN</span><b>FIRST TO 10</b></div>
       </aside>
     </section>
 
     <section id="solo-menu" class="side-screen hidden">
       <div class="side-screen-inner">
-        <button class="back-button" id="solo-back">← RETURN</button>
-        <p class="eyebrow">SOLO PLAY</p>
-        <h2>TRAIN IN CASTLEWARD</h2>
-        <p class="panel-copy">No second tab. No second device. Use the same base Spellblade kit as multiplayer.</p>
+        <button class="back-button" id="solo-back">← BACK</button>
+        <p class="eyebrow">SOLO</p>
+        <h2>PLAY ALONE</h2>
+        <p class="panel-copy">Fight one rival or train at your own pace.</p>
         <button id="bot-duel" class="mode-choice primary-command">
           <span>BOT DUEL</span>
-          <small>One rival Spellblade · first to 10 · normal match rules</small>
+          <small>One Spellblade · first to 10</small>
         </button>
         <button id="practice-mode" class="mode-choice">
           <span>PRACTICE YARD</span>
-          <small>Untimed free training · reset resources · spawn a dummy</small>
+          <small>Untimed training with configurable dummies</small>
         </button>
-        <div class="panel-footnote">Difficulty options come later. The base opponent uses the same authoritative combat rules you do.</div>
       </div>
     </section>
 
     <section id="private-menu" class="side-screen hidden">
       <div class="side-screen-inner">
-        <button class="back-button" id="private-back">← RETURN</button>
+        <button class="back-button" id="private-back">← BACK</button>
         <p class="eyebrow">PRIVATE MATCH</p>
-        <h2>CALL YOUR RIVALS</h2>
-        <p class="panel-copy">Create a room for a fresh code, or enter the five-character code from a friend.</p>
-        <button id="create-room" class="mode-choice primary-command"><span>CREATE ROOM</span><small>Open a private Castleward free-for-all</small></button>
+        <h2>PRIVATE MATCH</h2>
+        <p class="panel-copy">Create a room or join with a five-character code.</p>
+        <button id="create-room" class="mode-choice primary-command"><span>CREATE ROOM</span><small>Start a private Castleward match</small></button>
         <div class="private-divider"><span>OR JOIN</span></div>
         <label class="field-label" for="room-code">ROOM CODE</label>
         <div class="join-row">
@@ -97,9 +96,9 @@
 
     <section id="how-panel" class="side-screen hidden">
       <div class="side-screen-inner manual-inner">
-        <button class="back-button" data-close-how>← RETURN</button>
-        <p class="eyebrow">FIELD MANUAL</p>
-        <h2>THE BASE KIT</h2>
+        <button class="back-button" data-close-how>← BACK</button>
+        <p class="eyebrow">HOW TO PLAY</p>
+        <h2>BASE KIT</h2>
         <div class="controls-grid">
           <span>WASD</span><b>Move</b>
           <span>MOUSE</span><b>Aim</b>
@@ -110,16 +109,16 @@
           <span>SPACE</span><b>Jump</b>
           <span>TAB</span><b>Scoreboard</b>
         </div>
-        <p class="rules-copy">Three clean sword strikes defeat a full-health Spellblade. A perfect Guard staggers the attacker. Fireball punishes passive blocking. Dash repositions; it does not grant invulnerability.</p>
+        <p class="rules-copy">Three sword hits defeat a full-health Spellblade. A well-timed Guard parries and staggers the attacker. Fireball beats passive blocking. Dash repositions; it does not grant invulnerability.</p>
       </div>
     </section>
 
     <section id="lobby" class="lobby-screen hidden">
       <div class="lobby-banner"><span id="lobby-world">CASTLEWARD</span><small id="lobby-mode">FREE-FOR-ALL</small></div>
       <div class="lobby-content">
-        <p class="eyebrow">MUSTERING</p>
+        <p class="eyebrow">LOBBY</p>
         <h2>ROOM <button id="copy-code" class="code-button"><span id="lobby-code">----</span></button></h2>
-        <div id="lobby-state" class="lobby-state">WAITING FOR ANOTHER SPELLBLADE</div>
+        <div id="lobby-state" class="lobby-state">WAITING FOR ANOTHER PLAYER</div>
         <div id="lobby-players" class="player-list"></div>
         <button id="copy-link" class="wide-button">COPY INVITE LINK</button>
         <p id="lobby-copy" class="small-copy">Two players are enough. New players can join an active match.</p>
@@ -145,14 +144,13 @@
         </div>
       </div>
       <aside id="practice-overlay" class="practice-tools hidden">
-        <div class="practice-compact">PRACTICE · ESC FOR TOOLS</div>
-        <div class="practice-expanded"><strong>PRACTICE YARD</strong><small>Esc releases the cursor for these tools.</small></div>
-        <button id="practice-reset" class="practice-expanded">RESET SELF</button>
-        <button id="practice-passive" class="practice-expanded">PASSIVE DUMMY</button>
-        <button id="practice-guarding" class="practice-expanded">GUARDING DUMMY</button>
-        <button id="practice-fight" class="practice-expanded">FIGHTS BACK</button>
-        <button id="practice-remove" class="practice-expanded">REMOVE DUMMY</button>
-        <button id="practice-leave" class="practice-expanded practice-leave">LEAVE PRACTICE</button>
+        <div><strong>PRACTICE YARD</strong><small>ESC FOR PRACTICE TOOLS</small></div>
+        <button id="practice-reset">RESET SELF</button>
+        <button id="practice-passive">PASSIVE DUMMY</button>
+        <button id="practice-guarding">GUARDING DUMMY</button>
+        <button id="practice-fight">FIGHTS BACK</button>
+        <button id="practice-remove">REMOVE DUMMY</button>
+        <button id="practice-leave" class="practice-leave">LEAVE PRACTICE</button>
       </aside>
       <div id="death-card" class="death-card hidden"><small>SLAIN BY</small><strong id="death-killer">THE FALL</strong><span id="death-timer">3.0</span></div>
       <div id="debug" class="debug hidden"></div>

@@ -28,13 +28,21 @@ test('front-door copy identifies Castleward instead of the retired default Keep 
   assert.doesNotMatch(menuSlice, /THE SHATTERED KEEP/i);
 });
 
-test('Practice tools collapse to a small Esc hint while arena pointer lock is active', async () => {
+test('front-door copy stays player-facing instead of exposing implementation notes or forced medieval jargon', async () => {
   const html = await read('client/index.html');
-  const css = await read('client/styles.css');
-  const hud = await read('client/ui/HUD.mjs');
-  assert.match(html, /class=["'][^"']*practice-compact[^"']*["']/i);
-  assert.match(html, /ESC FOR TOOLS/i);
-  assert.match(css, /\.hud\.pointer-locked\s+\.practice-tools/);
-  assert.match(css, /\.hud\.pointer-locked[\s\S]*\.practice-expanded/);
-  assert.match(hud, /classList\.toggle\(['"]pointer-locked['"],\s*locked\)/);
+  const menuSlice = html.slice(html.indexOf('id="menu"'), html.indexOf('id="lobby"'));
+
+  assert.doesNotMatch(menuSlice, /No second tab|No second device|authoritative|CURRENT GROUND|CALL YOUR RIVALS|MUSTERING|Every route is reachable on foot/i);
+  assert.match(menuSlice, /Find a public match/i);
+  assert.match(menuSlice, /Fight a bot or practice/i);
+  assert.match(menuSlice, /Create or join a room/i);
+});
+
+test('Practice controls collapse out of the combat view while pointer lock is active', async () => {
+  const html = await read('client/index.html');
+  const css = await read('client/playability.css');
+  assert.match(html, /href=["']\/client\/playability\.css["']/i);
+  assert.match(css, /\.hud\.pointer-locked\s+\.practice-tools\s*\{/);
+  assert.match(css, /\.hud\.pointer-locked\s+\.practice-tools\s+button\s*\{[^}]*display\s*:\s*none/i);
+  assert.match(css, /\.hud\.pointer-locked\s+\.practice-tools\s+small\s*\{/);
 });

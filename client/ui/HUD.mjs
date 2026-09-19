@@ -39,7 +39,7 @@ export class HUD {
   hide() { this.root.classList.add('hidden'); this.root.setAttribute('aria-hidden', 'true'); }
   setPointerLocked(locked) {
     this.pointerHint.classList.toggle('hidden', locked);
-    this.root.classList.toggle('pointer-locked', locked);
+    this.root.classList.toggle('pointer-locked', Boolean(locked));
   }
 
   update(local, snapshot, serverNow) {
