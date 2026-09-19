@@ -23,6 +23,16 @@ from tools.blender.characters.spellblade.validate import load_contract, validate
 
 
 _REVISION_RE = re.compile(r"^[0-9a-f]{40}$")
+_ACTION_REVIEW_FRAMES = {
+    "action-guard": ("Guard", 8, "front"),
+    "action-slash-1": ("Slash_1", 8, "quarter"),
+    "action-slash-2": ("Slash_2", 8, "quarter"),
+    "action-slash-3": ("Slash_3", 9, "quarter"),
+    "action-cast": ("Cast", 16, "front"),
+    "action-dash": ("Dash", 4, "side"),
+    "action-stagger": ("Stagger", 5, "front"),
+    "action-death": ("Death", 36, "quarter"),
+}
 
 
 def parse_args() -> argparse.Namespace:
@@ -149,6 +159,44 @@ def _add_review_stage(scene: bpy.types.Scene) -> dict[str, bpy.types.Object]:
     return cameras
 
 
+def _render_action_evidence(
+    scene: bpy.types.Scene,
+    armature: bpy.types.Object,
+    actions: dict[str, bpy.types.Action],
+    cameras: dict[str, bpy.types.Object],
+    out: Path,
+) -> dict[str, Path]:
+    animation_data = armature.animation_data
+    if animation_data is None:
+        raise ValueError("Spellblade action evidence requires armature animation data")
+
+    old_resolution = (scene.render.resolution_x, scene.render.resolution_y, scene.render.resolution_percentage)
+    old_samples = None
+    if hasattr(scene, "eevee") and hasattr(scene.eevee, "taa_render_samples"):
+        old_samples = scene.eevee.taa_render_samples
+        scene.eevee.taa_render_samples = min(int(old_samples), 12)
+    scene.render.resolution_x = 288
+    scene.render.resolution_y = 288
+    scene.render.resolution_percentage = 100
+
+    paths: dict[str, Path] = {}
+    try:
+        for label, (action_name, frame, camera_name) in _ACTION_REVIEW_FRAMES.items():
+            action = actions[action_name]
+            animation_data.action = action
+            scene.frame_set(frame)
+            path = out / f"spellblade-{label}.png"
+            render_still(scene, cameras[camera_name], path)
+            paths[label] = path
+    finally:
+        animation_data.action = actions["Idle"]
+        scene.frame_set(1)
+        scene.render.resolution_x, scene.render.resolution_y, scene.render.resolution_percentage = old_resolution
+        if old_samples is not None:
+            scene.eevee.taa_render_samples = old_samples
+    return paths
+
+
 def build_third_person(args: argparse.Namespace) -> None:
     _validate_revision(args.source_revision)
     contract = load_contract()
@@ -156,6 +204,8 @@ def build_third_person(args: argparse.Namespace) -> None:
     bpy.ops.wm.read_factory_settings(use_empty=True)
     scene = bpy.context.scene
     configure_render(scene, args.mode)
+    scene.render.fps = 30
+    scene.render.fps_base = 1.0
     _ensure_world(scene, "SpellbladeBuildWorld")
 
     armature = build_armature()
@@ -185,6 +235,7 @@ def build_third_person(args: argparse.Namespace) -> None:
         path = args.out / f"spellblade-neutral-{label}.png"
         render_still(scene, camera, path)
         render_paths[label] = path
+    action_paths = _render_action_evidence(scene, armature, actions, cameras, args.out)
 
     blend_path = args.out / "spellblade-third-person.blend"
     bpy.ops.wm.save_as_mainfile(filepath=str(blend_path))
@@ -208,6 +259,7 @@ def build_third_person(args: argparse.Namespace) -> None:
             "backRender": render_paths["back"].name,
             "sideRender": render_paths["side"].name,
             "quarterRender": render_paths["quarter"].name,
+            "actionRenders": {label: path.name for label, path in action_paths.items()},
         },
         "sizes": {
             "thirdPersonGlbBytes": glb_bytes,
