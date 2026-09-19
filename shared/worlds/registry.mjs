@@ -1,3 +1,4 @@
+import { CASTLEWARD } from './castleward.mjs';
 import { SHATTERED_KEEP } from './shatteredKeep.mjs';
 
 export const WORLD_IDS = Object.freeze({
@@ -7,6 +8,7 @@ export const WORLD_IDS = Object.freeze({
 
 const WORLDS = new Map([
   [WORLD_IDS.SHATTERED_KEEP, SHATTERED_KEEP],
+  [WORLD_IDS.CASTLEWARD, CASTLEWARD],
 ]);
 
 export function getWorld(id) {
