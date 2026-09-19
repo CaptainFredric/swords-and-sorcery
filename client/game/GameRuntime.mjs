@@ -7,6 +7,7 @@ import { RemotePlayers } from './RemotePlayers.mjs';
 import { WeaponView } from './WeaponView.mjs';
 import { Effects } from './Effects.mjs';
 import { localCombatFeedback } from './combatFeedback.mjs';
+import { castVisualDuration } from './weaponPose.mjs';
 
 export class GameRuntime {
   constructor(container, socket, hud) {
@@ -38,7 +39,6 @@ export class GameRuntime {
     this.input.onPointer = (locked) => hud.setPointerLocked(locked);
     this.input.onAttackLocal = (held) => { this.weapon.setAttack(held); if (held) this.effects.swordSwing(0); };
     this.input.onGuardLocal = (held) => this.weapon.setGuard(held);
-    this.input.onCastLocal = () => { this.weapon.cast(); this.effects.fireball(); };
     this.input.onDashLocal = (dir) => { this.weapon.dash(); this.effects.dash(); if (this.localState) tryStartDash(this.localState, dir, this.socket.serverNow()); this.dashFovUntil = performance.now() + 180; };
 
     this.localState = null;
@@ -112,6 +112,15 @@ export class GameRuntime {
   onEvents(events) {
     for (const event of events) {
       this.remotePlayers.onEvent(event);
+
+      if (event.type === 'fireballCast') {
+        const duration = castVisualDuration(event, this.socket.playerId, this.socket.serverNow());
+        if (duration !== null) {
+          this.weapon.cast(duration);
+          this.effects.fireball();
+        }
+      }
+
       const combatFeedback = localCombatFeedback(event, this.socket.playerId);
       if (combatFeedback === 'block') this.effects.block();
       if (combatFeedback === 'parry') this.effects.parry();
