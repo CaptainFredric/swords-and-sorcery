@@ -63,8 +63,12 @@ export class GameRuntime {
     this.remotePlayers = new RemotePlayers(this.scene, socket.playerId);
     this.weapon = new WeaponView(this.camera);
     this.effects = new Effects(this.scene, this.camera);
+    this.onPointer = () => {};
     this.input = new InputController(this.renderer.domElement, socket);
-    this.input.onPointer = (locked) => hud.setPointerLocked(locked);
+    this.input.onPointer = (locked) => {
+      hud.setPointerLocked(locked);
+      this.onPointer(locked);
+    };
     this.input.onAttackLocal = (held) => {
       if (!held) {
         this.weapon.setAttack(false);
@@ -151,10 +155,14 @@ export class GameRuntime {
     this.remotePlayers.setLocalId(id);
   }
 
-  setPlaying(playing) {
+  requestPointerLock() {
+    this.input.requestPointerLock();
+  }
+
+  setPlaying(playing, { preservePointerLock = false } = {}) {
     this.playing = Boolean(playing) && !this.worldError;
     if (!this.playing) this.#applyWeaponRelease({ attack: true, guard: true });
-    if (!this.playing && document.pointerLockElement === this.renderer.domElement) document.exitPointerLock?.();
+    if (!this.playing && !preservePointerLock && document.pointerLockElement === this.renderer.domElement) document.exitPointerLock?.();
   }
 
   onSnapshot(snapshot) {

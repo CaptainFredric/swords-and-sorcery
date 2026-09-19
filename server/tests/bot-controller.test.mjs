@@ -13,7 +13,7 @@ function makeBotDuel() {
   const room = manager.createSoloRoom('BOT_DUEL', 0);
   const human = room.addPlayer({ id: 'human', token: 'token', name: 'Aden' }, 0);
   room.provisionModeActors(0);
-  room.armAutoStart(0);
+  room.setArenaReady(human.id, true, 0);
   room.tick(3.1);
   const bot = [...room.players.values()].find((p) => p.actorKind === 'bot');
   human.spawnProtectionUntil = 0;

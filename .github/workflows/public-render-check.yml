@@ -31,13 +31,15 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          rm -f health.json game.html live-weapon-pose.mjs live-castleward.mjs live-castleward-terrain.mjs live-playability.css
+          rm -f health.json game.html live-main.mjs live-game-socket.mjs live-weapon-pose.mjs live-castleward.mjs live-castleward-terrain.mjs live-playability.css
           for attempt in $(seq 1 24); do
             healthy=false
             current=false
             if curl --fail --silent --show-error --max-time 20 "$PUBLIC_URL/health" -o health.json; then
               healthy=true
               curl --fail --silent --show-error --max-time 20 "$PUBLIC_URL/" -o game.html || true
+              curl --fail --silent --show-error --max-time 20 "$PUBLIC_URL/client/main.mjs" -o live-main.mjs || true
+              curl --fail --silent --show-error --max-time 20 "$PUBLIC_URL/client/network/GameSocket.mjs" -o live-game-socket.mjs || true
               curl --fail --silent --show-error --max-time 20 "$PUBLIC_URL/client/game/weaponPose.mjs" -o live-weapon-pose.mjs || true
               curl --fail --silent --show-error --max-time 20 "$PUBLIC_URL/shared/worlds/castleward.mjs" -o live-castleward.mjs || true
               curl --fail --silent --show-error --max-time 20 "$PUBLIC_URL/client/worlds/castlewardTerrain.mjs" -o live-castleward-terrain.mjs || true
@@ -50,6 +52,9 @@ jobs:
                 && grep -qi 'ESC FOR TOOLS' game.html \
                 && ! grep -qi 'kit-mark' game.html \
                 && ! grep -qi 'world-note' game.html \
+                && grep -qi 'ENTER ARENA' live-main.mjs \
+                && grep -q 'arenaReady' live-main.mjs \
+                && grep -q 'arenaReady' live-game-socket.mjs \
                 && grep -Eq 'FIRST_PERSON_WEAPON_SCALE\s*=\s*0\.74' live-weapon-pose.mjs \
                 && grep -qi 'castleward' live-castleward.mjs \
                 && grep -q 'buildCastlewardTerrainSkirts' live-castleward-terrain.mjs \
@@ -60,7 +65,7 @@ jobs:
               fi
             fi
             if [ "$healthy" = true ] && [ "$current" = true ]; then
-              echo "Render is healthy and serving the current grounded Castleward/front-door/Practice revision"
+              echo "Render is healthy and serving the current grounded Castleward/front-door/Practice/Bot-Duel-readiness revision"
               break
             fi
             if [ "$attempt" -eq 24 ]; then
@@ -143,11 +148,14 @@ jobs:
             public-game-menu.png
             public-game-practice.png
             public-game-practice-dummy.png
+            public-game-bot-duel-waiting.png
             public-game-bot-duel.png
             public-game-ffa-waiting.png
             public-game-browser-report.json
             health.json
             game.html
+            live-main.mjs
+            live-game-socket.mjs
             live-weapon-pose.mjs
             live-castleward.mjs
             live-castleward-terrain.mjs
