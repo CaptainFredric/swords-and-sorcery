@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#10131b" />
+  <meta name="description" content="Swords & Sorcery! — a fast browser arena game built around sword combat, parries, Fireballs and Dash." />
+  <title>Swords & Sorcery!</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="sky" aria-hidden="true">
+    <div class="moon"></div>
+    <div class="keep-silhouette">
+      <span class="tower tower-left"></span>
+      <span class="wall"></span>
+      <span class="spire"></span>
+      <span class="tower tower-right"></span>
+    </div>
+    <div class="mist mist-a"></div>
+    <div class="mist mist-b"></div>
+  </div>
+
+  <header class="topbar">
+    <a class="brand" href="./" aria-label="Swords & Sorcery home">
+      <span class="brand-mark">S&S</span>
+      <span>SWORDS &amp; SORCERY!</span>
+    </a>
+    <nav aria-label="Primary navigation">
+      <a href="#rules">RULES</a>
+      <a href="#build">BUILD</a>
+      <a href="https://github.com/CaptainFredric/swords-and-sorcery">SOURCE</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero" aria-labelledby="hero-title">
+      <p class="eyebrow">BROWSER ARENA COMBAT · BASE BUILD</p>
+      <h1 id="hero-title">SWORDS.<br><span>MAGIC.</span><br>SETTLE IT.</h1>
+      <p class="lede">A compact first-person fantasy arena game: close the distance with a sword, read the Guard, land the parry, throw a Fireball, Dash the gap. <strong>First to 10</strong> wins.</p>
+
+      <div class="actions">
+        <a id="play-button" class="button primary disabled" href="#build" aria-disabled="true">MULTIPLAYER BUILD IN PROGRESS</a>
+        <a class="button secondary" href="https://github.com/CaptainFredric/swords-and-sorcery">VIEW SOURCE</a>
+      </div>
+
+      <p id="play-note" class="play-note">The authoritative multiplayer server is not hosted on GitHub Pages. This front door will point to the live WebSocket build as soon as that deployment is online.</p>
+    </section>
+
+    <section class="arena-card" aria-label="Stylized Shattered Keep art-direction schematic">
+      <div class="preview-label">SHATTERED KEEP · ART-DIRECTION SCHEMATIC</div>
+      <div class="arena-grid">
+        <div class="route west"><span>WEST HALL</span></div>
+        <div class="route center">
+          <div class="crystal"><i></i><i></i><i></i></div>
+          <span>COURTYARD</span>
+        </div>
+        <div class="route east"><span>EAST HALL</span></div>
+        <div class="route bridge"><span>BROKEN BRIDGE</span><b></b></div>
+      </div>
+      <p>This is a graphic map motif, not a gameplay capture. A real in-game screenshot will replace it after the browser build is deployed and visually inspected.</p>
+    </section>
+
+    <section id="rules" class="rules-section">
+      <div class="section-heading">
+        <p class="eyebrow">NO MANUAL REQUIRED</p>
+        <h2>READ IT. FIGHT.</h2>
+      </div>
+      <div class="rule-grid">
+        <article><span>01</span><h3>SWORD</h3><p>Hold attack for a three-hit chain. Walls stop the blade. Misses still commit the swing.</p></article>
+        <article><span>02</span><h3>GUARD / PARRY</h3><p>Guard drains stamina. Raise it at the last moment for the sharper, louder perfect parry.</p></article>
+        <article><span>03</span><h3>FIREBALL</h3><p>A visible projectile, not hitscan. Dodge it, use cover, or force movement with splash pressure.</p></article>
+        <article><span>04</span><h3>DASH</h3><p>A short directional burst with no invulnerability. Use it for spacing, pursuit and the bridge gap.</p></article>
+      </div>
+    </section>
+
+    <section id="build" class="build-section">
+      <div>
+        <p class="eyebrow">CURRENT PRIORITY</p>
+        <h2>ONE GOOD FIGHTER.<br>ONE GOOD ARENA.</h2>
+      </div>
+      <div class="build-copy">
+        <p>The project is intentionally staying on base systems before classes or ability variants: hybrid voxel / low-poly Spellblade, first-person weapon feel, readable remote animation, combat effects, The Shattered Keep, networking, match flow and deployment.</p>
+        <div class="status"><span class="pulse"></span><strong>BASE MULTIPLAYER BUILD</strong><em>ACTIVE DEVELOPMENT</em></div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <span>SWORDS &amp; SORCERY!</span>
+    <span>FIRST TO 10 · 2–8 PLAYERS</span>
+  </footer>
+
+  <script src="./config.js"></script>
+  <script src="./site.js"></script>
+</body>
+</html>
