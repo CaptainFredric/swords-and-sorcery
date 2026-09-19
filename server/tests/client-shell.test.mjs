@@ -39,7 +39,9 @@ test('front-door copy stays player-facing instead of exposing implementation not
 });
 
 test('Practice controls collapse out of the combat view while pointer lock is active', async () => {
-  const css = await read('client/styles.css');
+  const html = await read('client/index.html');
+  const css = await read('client/playability.css');
+  assert.match(html, /href=["']\/client\/playability\.css["']/i);
   assert.match(css, /\.hud\.pointer-locked\s+\.practice-tools\s*\{/);
   assert.match(css, /\.hud\.pointer-locked\s+\.practice-tools\s+button\s*\{[^}]*display\s*:\s*none/i);
   assert.match(css, /\.hud\.pointer-locked\s+\.practice-tools\s+small\s*\{/);
