@@ -103,7 +103,7 @@ export class MenuScene {
     rig.leftUpperArm.rotation.z = 0.34;
     rig.leftUpperArm.rotation.x = -0.3;
     rig.leftForearm.rotation.x = -0.55;
-    rig.sword.rotation.z = -2.18;
+    rig.sword.rotation.z = -0.72;
     rig.sword.rotation.x = 0.12;
   }
 
