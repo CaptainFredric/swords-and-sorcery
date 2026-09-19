@@ -1,36 +1,55 @@
 import * as THREE from 'three';
 import { SHATTERED_KEEP } from '../../shared/src/map.mjs';
+import { buildKeepDecorPlan, KEEP_ROUTE_COLORS } from './worldDecor.mjs';
+
+function box(parent, size, material, position, rotation = [0, 0, 0], shadows = true) {
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(...size), material);
+  mesh.position.set(...position);
+  mesh.rotation.set(...rotation);
+  mesh.castShadow = shadows;
+  mesh.receiveShadow = shadows;
+  parent.add(mesh);
+  return mesh;
+}
 
 export class WorldRenderer {
   constructor(scene) {
     this.scene = scene;
     this.group = new THREE.Group();
+    this.floatingStones = [];
+    this.decor = buildKeepDecorPlan(1337);
     scene.add(this.group);
     this.#build();
   }
 
   #build() {
-    const stone = new THREE.MeshStandardMaterial({ color: 0x303746, roughness: 0.92, metalness: 0.06 });
-    const stoneTop = new THREE.MeshStandardMaterial({ color: 0x414a5a, roughness: 0.88, metalness: 0.05 });
-    const darkStone = new THREE.MeshStandardMaterial({ color: 0x242a35, roughness: 0.95 });
-    const arcane = new THREE.MeshStandardMaterial({ color: 0x1d4a59, emissive: 0x17b8d8, emissiveIntensity: 1.6, roughness: 0.32 });
+    this.materials = {
+      stone: new THREE.MeshStandardMaterial({ color: 0x303746, roughness: 0.92, metalness: 0.06 }),
+      stoneTop: new THREE.MeshStandardMaterial({ color: 0x414a5a, roughness: 0.88, metalness: 0.05 }),
+      westStone: new THREE.MeshStandardMaterial({ color: 0x403b3c, roughness: 0.9, metalness: 0.04 }),
+      eastStone: new THREE.MeshStandardMaterial({ color: 0x373848, roughness: 0.9, metalness: 0.05 }),
+      darkStone: new THREE.MeshStandardMaterial({ color: 0x242a35, roughness: 0.95 }),
+      rubble: new THREE.MeshStandardMaterial({ color: 0x353c49, roughness: 0.96 }),
+      arcane: new THREE.MeshStandardMaterial({ color: 0x1d4a59, emissive: 0x17b8d8, emissiveIntensity: 1.6, roughness: 0.32 }),
+      cyanGlow: new THREE.MeshBasicMaterial({ color: KEEP_ROUTE_COLORS.courtyard, transparent: true, opacity: 0.72 }),
+      violetGlow: new THREE.MeshBasicMaterial({ color: KEEP_ROUTE_COLORS.east, transparent: true, opacity: 0.68 }),
+      warmGlow: new THREE.MeshBasicMaterial({ color: KEEP_ROUTE_COLORS.west }),
+      banner: new THREE.MeshStandardMaterial({ color: KEEP_ROUTE_COLORS.north, roughness: 0.92, side: THREE.DoubleSide }),
+    };
 
     for (const floor of SHATTERED_KEEP.floors) {
-      const mesh = new THREE.Mesh(new THREE.BoxGeometry(...floor.size), stoneTop);
-      mesh.position.set(...floor.center);
+      let material = this.materials.stoneTop;
+      if (floor.id === 'west-hall') material = this.materials.westStone;
+      if (floor.id === 'east-hall') material = this.materials.eastStone;
+      const mesh = box(this.group, floor.size, material, floor.center, [0, 0, 0], false);
       mesh.receiveShadow = true;
-      mesh.castShadow = false;
-      this.group.add(mesh);
     }
 
     for (const solid of SHATTERED_KEEP.solids) {
-      const mat = solid.material === 'arcane' ? arcane : stone;
-      const mesh = new THREE.Mesh(new THREE.BoxGeometry(...solid.size), mat);
-      mesh.position.set(...solid.center);
-      mesh.castShadow = true;
-      mesh.receiveShadow = true;
-      this.group.add(mesh);
+      const material = solid.material === 'arcane' ? this.materials.arcane : this.materials.stone;
+      const mesh = box(this.group, solid.size, material, solid.center);
       if (solid.material === 'arcane') this.#addSpire(mesh.position);
+      else this.#addStoneCap(solid);
     }
 
     for (const ramp of SHATTERED_KEEP.ramps) {
@@ -38,51 +57,192 @@ export class WorldRenderer {
       const length = ramp.maxZ - ramp.minZ;
       const rise = ramp.endY - ramp.startY;
       const hyp = Math.hypot(length, rise);
-      const mesh = new THREE.Mesh(new THREE.BoxGeometry(width, 0.28, hyp), stoneTop);
-      mesh.position.set((ramp.minX + ramp.maxX) / 2, (ramp.startY + ramp.endY) / 2 - 0.12, (ramp.minZ + ramp.maxZ) / 2);
-      mesh.rotation.x = -Math.atan2(rise, length);
-      mesh.castShadow = true;
+      const mesh = box(
+        this.group,
+        [width, 0.28, hyp],
+        this.materials.stoneTop,
+        [(ramp.minX + ramp.maxX) / 2, (ramp.startY + ramp.endY) / 2 - 0.12, (ramp.minZ + ramp.maxZ) / 2],
+        [-Math.atan2(rise, length), 0, 0],
+      );
       mesh.receiveShadow = true;
-      this.group.add(mesh);
     }
 
-    // Battlement teeth establish an unmistakable castle silhouette without extra collision complexity.
-    for (let x = -6.5; x <= 6.5; x += 2.1) {
-      const tooth = new THREE.Mesh(new THREE.BoxGeometry(1.15, 1.15, 0.75), darkStone);
-      tooth.position.set(x, 3.65, 14.25);
-      tooth.castShadow = true;
-      this.group.add(tooth);
-    }
-
+    this.#addBattlements();
+    this.#addHallLanguage();
+    this.#addDecorPlan();
     this.#addTorches();
     this.#addBackdrop();
   }
 
+  #addStoneCap(solid) {
+    if (solid.size[1] < 2 || solid.id.includes('bridge')) return;
+    const y = solid.center[1] + solid.size[1] / 2 + 0.035;
+    box(
+      this.group,
+      [Math.max(0.18, solid.size[0] * 0.92), 0.07, Math.max(0.18, solid.size[2] * 0.92)],
+      this.materials.stoneTop,
+      [solid.center[0], y, solid.center[2]],
+      [0, 0, 0],
+      false,
+    );
+  }
+
+  #addBattlements() {
+    for (let x = -6.5; x <= 6.5; x += 2.1) {
+      box(this.group, [1.15, 1.15, 0.75], this.materials.darkStone, [x, 3.65, 14.25]);
+    }
+    for (let z = 11.65; z <= 14.1; z += 1.55) {
+      box(this.group, [0.72, 0.9, 0.82], this.materials.darkStone, [-6.65, 3.5, z]);
+      box(this.group, [0.72, 0.9, 0.82], this.materials.darkStone, [6.65, 3.5, z]);
+    }
+  }
+
+  #addHallLanguage() {
+    // West entrance reads like an enclosed, torch-warmed melee hall. The lintel sits above player height
+    // and visually rests on collision walls that already exist on either side of the opening.
+    box(this.group, [0.58, 0.42, 5.6], this.materials.darkStone, [-9.22, 2.52, 0]);
+    box(this.group, [0.66, 0.1, 5.25], this.materials.stoneTop, [-9.2, 2.73, 0], [0, 0, 0], false);
+
+    // East remains open for ranged play. Thin violet sigils sit on the real outer wall rather than implying
+    // fake cover or a passable breach.
+    for (const z of [-3.7, 0, 3.7]) {
+      const sigil = new THREE.Mesh(new THREE.TorusGeometry(0.34, 0.035, 4, 12), this.materials.violetGlow);
+      sigil.position.set(17.62, 1.55, z);
+      sigil.rotation.y = Math.PI / 2;
+      this.group.add(sigil);
+    }
+  }
+
   #addSpire(basePosition) {
-    const crystalMaterial = new THREE.MeshStandardMaterial({ color: 0x5ce7ff, emissive: 0x26c7f2, emissiveIntensity: 2.6, metalness: 0.12, roughness: 0.2 });
+    const crystalMaterial = new THREE.MeshStandardMaterial({
+      color: 0x5ce7ff,
+      emissive: 0x26c7f2,
+      emissiveIntensity: 2.9,
+      metalness: 0.12,
+      roughness: 0.2,
+    });
     const crystal = new THREE.Mesh(new THREE.OctahedronGeometry(0.95, 0), crystalMaterial);
-    crystal.position.set(basePosition.x, 3.5, basePosition.z);
+    crystal.position.set(basePosition.x, 3.55, basePosition.z);
     crystal.rotation.z = 0.27;
     crystal.castShadow = true;
     this.group.add(crystal);
-    const shard1 = crystal.clone(); shard1.scale.setScalar(0.42); shard1.position.set(1.15, 2.8, 0.65); shard1.rotation.set(0.5, 0.3, 0.1); this.group.add(shard1);
-    const shard2 = crystal.clone(); shard2.scale.setScalar(0.3); shard2.position.set(-0.9, 3.1, -0.9); shard2.rotation.set(-0.3, 0.7, 0.2); this.group.add(shard2);
-    const light = new THREE.PointLight(0x40dfff, 18, 12, 2);
-    light.position.set(0, 3.2, 0);
+
+    const shardSpecs = [
+      [1.18, 2.92, 0.72, 0.42, 0.5, 0.3, 0.1],
+      [-0.95, 3.12, -0.92, 0.3, -0.3, 0.7, 0.2],
+      [0.5, 4.25, -0.88, 0.22, 0.8, -0.2, 0.4],
+      [-1.22, 3.72, 0.22, 0.2, -0.4, 0.25, -0.5],
+    ];
+    this.spireShards = shardSpecs.map(([x, y, z, scale, rx, ry, rz], index) => {
+      const shard = new THREE.Mesh(new THREE.OctahedronGeometry(0.95, 0), crystalMaterial);
+      shard.scale.setScalar(scale);
+      shard.position.set(basePosition.x + x, y, basePosition.z + z);
+      shard.rotation.set(rx, ry, rz);
+      shard.userData.phase = index * 1.4;
+      shard.userData.baseY = y;
+      shard.castShadow = true;
+      this.group.add(shard);
+      return shard;
+    });
+
+    const ringMaterial = new THREE.MeshBasicMaterial({
+      color: KEEP_ROUTE_COLORS.courtyard,
+      transparent: true,
+      opacity: 0.28,
+      side: THREE.DoubleSide,
+    });
+    this.spireRing = new THREE.Mesh(new THREE.TorusGeometry(1.55, 0.025, 5, 32), ringMaterial);
+    this.spireRing.position.set(basePosition.x, 3.52, basePosition.z);
+    this.spireRing.rotation.x = Math.PI / 2;
+    this.group.add(this.spireRing);
+
+    const light = new THREE.PointLight(0x40dfff, 17, 12, 2);
+    light.position.set(basePosition.x, 3.25, basePosition.z);
     this.group.add(light);
     this.crystal = crystal;
+    this.crystalBaseY = 3.55;
+  }
+
+  #addDecorPlan() {
+    for (const piece of this.decor.rubble) {
+      box(
+        this.group,
+        [piece.sx, piece.sy, piece.sz],
+        this.materials.rubble,
+        [piece.x, piece.y, piece.z],
+        [0, piece.ry, piece.rz],
+        false,
+      );
+    }
+
+    for (const piece of this.decor.bridgeEdges) {
+      box(
+        this.group,
+        [piece.sx, piece.sy, piece.sz],
+        this.materials.rubble,
+        [piece.x, piece.y, piece.z],
+        [piece.rx ?? 0, piece.ry ?? 0, piece.rz ?? 0],
+      );
+    }
+
+    for (const fissure of this.decor.fissures) {
+      const material = fissure.color === KEEP_ROUTE_COLORS.east ? this.materials.violetGlow : this.materials.cyanGlow;
+      box(
+        this.group,
+        [fissure.sx, 0.018, fissure.sz],
+        material,
+        [fissure.x, fissure.y, fissure.z],
+        [0, fissure.ry, 0],
+        false,
+      );
+    }
+
+    for (const banner of this.decor.banners) {
+      const cloth = new THREE.Mesh(new THREE.PlaneGeometry(banner.width, banner.height, 1, 2), this.materials.banner);
+      cloth.position.set(banner.x, banner.y, banner.z);
+      this.group.add(cloth);
+      box(this.group, [banner.width + 0.28, 0.07, 0.07], this.materials.darkStone, [banner.x, banner.y + banner.height / 2 + 0.03, banner.z], [0, 0, 0], false);
+    }
+
+    for (const routeLight of this.decor.routeLights) {
+      const light = new THREE.PointLight(routeLight.color, routeLight.intensity, routeLight.distance, 2);
+      light.position.set(routeLight.x, routeLight.y, routeLight.z);
+      this.group.add(light);
+      const markerMaterial = routeLight.color === KEEP_ROUTE_COLORS.east ? this.materials.violetGlow : this.materials.warmGlow;
+      const marker = new THREE.Mesh(new THREE.OctahedronGeometry(0.11, 0), markerMaterial);
+      marker.position.copy(light.position);
+      this.group.add(marker);
+    }
+
+    for (const stone of this.decor.floatingMasonry) {
+      const mesh = box(
+        this.group,
+        [stone.sx, stone.sy, stone.sz],
+        this.materials.darkStone,
+        [stone.x, stone.y, stone.z],
+        [stone.rx, stone.ry, stone.rz],
+        false,
+      );
+      this.floatingStones.push({ mesh, baseY: stone.y, phase: stone.phase, drift: stone.drift });
+    }
   }
 
   #addTorches() {
-    const torchLocations = [[-8.6, 1.8, 4], [-8.6, 1.8, -4], [8.6, 1.8, 4], [8.6, 1.8, -4], [0, 1.6, -20.5]];
+    const torchLocations = [
+      [-8.62, 1.8, 4.2],
+      [-8.62, 1.8, -4.2],
+      [-16.9, 1.65, 1.8],
+      [-16.9, 1.65, -1.8],
+      [0, 1.55, -20.6],
+    ];
+    const flameMaterial = new THREE.MeshBasicMaterial({ color: 0xffa534 });
+    const flameGeometry = new THREE.OctahedronGeometry(0.14, 0);
     for (const [x, y, z] of torchLocations) {
-      const flame = new THREE.Mesh(
-        new THREE.SphereGeometry(0.13, 7, 5),
-        new THREE.MeshBasicMaterial({ color: 0xffa534 }),
-      );
+      box(this.group, [0.08, 0.42, 0.08], this.materials.darkStone, [x, y - 0.25, z], [0, 0, 0], false);
+      const flame = new THREE.Mesh(flameGeometry, flameMaterial);
       flame.position.set(x, y, z);
       this.group.add(flame);
-      const light = new THREE.PointLight(0xff8a2b, 7, 6, 2);
+      const light = new THREE.PointLight(0xff8a2b, 5.8, 5.2, 2);
       light.position.copy(flame.position);
       this.group.add(light);
     }
@@ -95,13 +255,18 @@ export class WorldRenderer {
     );
     abyss.position.y = -11;
     this.group.add(abyss);
-    const cloudMat = new THREE.MeshBasicMaterial({ color: 0x343a55, transparent: true, opacity: 0.16, depthWrite: false });
-    for (let i = 0; i < 26; i += 1) {
-      const cloud = new THREE.Mesh(new THREE.SphereGeometry(3 + Math.random() * 4, 8, 5), cloudMat);
-      const angle = Math.random() * Math.PI * 2;
-      const radius = 25 + Math.random() * 35;
-      cloud.position.set(Math.cos(angle) * radius, -4 - Math.random() * 6, Math.sin(angle) * radius);
-      cloud.scale.y = 0.3 + Math.random() * 0.25;
+
+    const cloudMaterial = new THREE.MeshBasicMaterial({
+      color: 0x343a55,
+      transparent: true,
+      opacity: 0.15,
+      depthWrite: false,
+    });
+    const cloudGeometry = new THREE.SphereGeometry(1, 8, 5);
+    for (const cloudSpec of this.decor.clouds) {
+      const cloud = new THREE.Mesh(cloudGeometry, cloudMaterial);
+      cloud.position.set(cloudSpec.x, cloudSpec.y, cloudSpec.z);
+      cloud.scale.set(cloudSpec.scale, cloudSpec.scale * cloudSpec.flatten, cloudSpec.scale);
       this.group.add(cloud);
     }
   }
@@ -109,7 +274,19 @@ export class WorldRenderer {
   update(timeSec) {
     if (this.crystal) {
       this.crystal.rotation.y = timeSec * 0.45;
-      this.crystal.position.y = 3.5 + Math.sin(timeSec * 1.7) * 0.08;
+      this.crystal.position.y = this.crystalBaseY + Math.sin(timeSec * 1.7) * 0.08;
+    }
+    if (this.spireRing) {
+      this.spireRing.rotation.z = timeSec * 0.16;
+      this.spireRing.scale.setScalar(1 + Math.sin(timeSec * 1.15) * 0.03);
+    }
+    for (const shard of this.spireShards ?? []) {
+      shard.rotation.y += 0.0035;
+      shard.position.y = shard.userData.baseY + Math.sin(timeSec * 1.35 + shard.userData.phase) * 0.08;
+    }
+    for (const stone of this.floatingStones) {
+      stone.mesh.position.y = stone.baseY + Math.sin(timeSec * stone.drift + stone.phase) * 0.12;
+      stone.mesh.rotation.y += 0.0007;
     }
   }
 }
