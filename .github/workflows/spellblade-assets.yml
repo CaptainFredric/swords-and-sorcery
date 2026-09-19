@@ -88,8 +88,11 @@ jobs:
           python3 scripts/validate-spellblade-glb.py --self-test
           python3 scripts/validate-spellblade-glb.py --self-test-rig
           python3 scripts/validate-spellblade-glb.py --self-test-animation
+          python3 scripts/validate-spellblade-glb.py --self-test-first-person
           if [[ -s artifacts/spellblade-assets/spellblade.glb ]]; then
             python3 scripts/validate-spellblade-glb.py artifacts/spellblade-assets/spellblade.glb
+            test -s artifacts/spellblade-assets/spellblade-fp.glb
+            python3 scripts/validate-spellblade-glb.py --first-person artifacts/spellblade-assets/spellblade-fp.glb
           fi
 
       - name: Validate worker report
