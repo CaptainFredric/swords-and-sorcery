@@ -29,6 +29,20 @@ test('Practice starts for one human and does not time out', () => {
   assert.equal(room.state, 'PLAYING');
 });
 
+test('solo reconnect preserves authoritative mode and world identity', () => {
+  const manager = new RoomManager({ random: () => 0.25 });
+  const room = manager.createSoloRoom('PRACTICE', 0);
+  room.addPlayer({ id: 'human', token: 'token', name: 'Aden' }, 0);
+  room.armAutoStart(0);
+  room.disconnectPlayer('human', 1);
+
+  const restored = room.reconnectPlayer('token', 2);
+  assert.equal(restored?.id, 'human');
+  assert.equal(room.mode, 'PRACTICE');
+  assert.equal(room.worldId, 'shattered-keep');
+  assert.equal(room.state, 'PLAYING');
+});
+
 test('Quick Play never selects a solo room', () => {
   const manager = new RoomManager({ random: () => 0.3 });
   const solo = manager.createSoloRoom('BOT_DUEL', 0);
