@@ -70,6 +70,7 @@ function serializeLobby(room) {
       actorKind: p.actorKind,
       practiceMode: p.practiceMode ?? null,
       connected: p.connected,
+      arenaReady: Boolean(p.arenaReady),
       kills: p.kills,
       deaths: p.deaths,
     })),
@@ -255,6 +256,10 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
     if (!room || !player) return;
 
     switch (message.type) {
+      case 'arenaReady': {
+        if (room.setArenaReady(player.id, Boolean(message.ready), time)) broadcastLobby(room);
+        break;
+      }
       case 'input': {
         player.lastInputSeq = Number.isFinite(message.seq) ? message.seq : player.lastInputSeq;
         player.input = {
