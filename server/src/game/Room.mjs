@@ -93,6 +93,19 @@ export class Room {
     player.connected = false;
     player.disconnectedAt = nowSec;
     player.disconnectExpiresAt = nowSec + RECONNECT_GRACE_SEC;
+    player.input = {
+      forward: 0,
+      right: 0,
+      jump: false,
+      yaw: player.yaw,
+      pitch: player.pitch,
+    };
+    player.attackHeld = false;
+    player.attackActive = false;
+    player.attackNextStrike = 0;
+    player.guarding = false;
+    player.pendingFireball = null;
+    player.castEndsAt = 0;
   }
 
   reconnectPlayer(token, nowSec) {
