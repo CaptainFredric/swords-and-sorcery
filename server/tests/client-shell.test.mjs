@@ -27,3 +27,20 @@ test('front-door copy identifies Castleward instead of the retired default Keep 
   const menuSlice = html.slice(html.indexOf('id="menu"'), html.indexOf('id="hud"'));
   assert.doesNotMatch(menuSlice, /THE SHATTERED KEEP/i);
 });
+
+test('front-door copy stays player-facing instead of exposing implementation notes or forced medieval jargon', async () => {
+  const html = await read('client/index.html');
+  const menuSlice = html.slice(html.indexOf('id="menu"'), html.indexOf('id="lobby"'));
+
+  assert.doesNotMatch(menuSlice, /No second tab|No second device|authoritative|CURRENT GROUND|CALL YOUR RIVALS|MUSTERING|Every route is reachable on foot/i);
+  assert.match(menuSlice, /Find a public match/i);
+  assert.match(menuSlice, /Fight a bot or practice/i);
+  assert.match(menuSlice, /Create or join a room/i);
+});
+
+test('Practice controls collapse out of the combat view while pointer lock is active', async () => {
+  const css = await read('client/styles.css');
+  assert.match(css, /\.hud\.pointer-locked\s+\.practice-tools\s*\{/);
+  assert.match(css, /\.hud\.pointer-locked\s+\.practice-tools\s+button\s*\{[^}]*display\s*:\s*none/i);
+  assert.match(css, /\.hud\.pointer-locked\s+\.practice-tools\s+small\s*\{/);
+});
