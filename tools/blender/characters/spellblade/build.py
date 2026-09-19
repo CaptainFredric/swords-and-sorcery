@@ -124,6 +124,8 @@ def _add_diagnostic_stage(scene: bpy.types.Scene) -> tuple[bpy.types.Object, bpy
     side.data.lens = 55
     look_at(side, (0.0, 0.0, 1.02))
 
+    if scene.world is None:
+        scene.world = bpy.data.worlds.new("SpellbladeDiagnosticWorld")
     scene.world.color = (0.012, 0.016, 0.024)
     return front, side
 
