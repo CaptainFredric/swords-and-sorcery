@@ -6,6 +6,7 @@ import { WorldRenderer } from './WorldRenderer.mjs';
 import { RemotePlayers } from './RemotePlayers.mjs';
 import { WeaponView } from './WeaponView.mjs';
 import { Effects } from './Effects.mjs';
+import { localCombatFeedback, shouldPlayWorldClang } from './combatFeedback.mjs';
 import { castVisualDuration } from './weaponPose.mjs';
 
 export class GameRuntime {
@@ -111,6 +112,7 @@ export class GameRuntime {
   onEvents(events) {
     for (const event of events) {
       this.remotePlayers.onEvent(event);
+
       if (event.type === 'fireballCast') {
         const duration = castVisualDuration(event, this.socket.playerId, this.socket.serverNow());
         if (duration !== null) {
@@ -118,22 +120,27 @@ export class GameRuntime {
           this.effects.fireball();
         }
       }
+
+      const combatFeedback = localCombatFeedback(event, this.socket.playerId);
+      if (combatFeedback === 'block') this.effects.block();
+      if (combatFeedback === 'parry') this.effects.parry();
+      if (combatFeedback === 'guardBreak') this.effects.guardBreak();
+
       if (event.type === 'swordWorldImpact') {
-        if (event.playerId === this.socket.playerId) {
+        const localImpact = shouldPlayWorldClang(event, this.socket.playerId);
+        if (localImpact) {
           this.weapon.wallImpact();
           this.hud.flashText('CLANG!', 'metal');
           this.cameraKick = Math.max(this.cameraKick, 0.13);
+          this.effects.wallClang(event.point);
+        } else {
+          this.effects.sparks(event.point, 0xffd48a, 8);
         }
-        this.effects.wallClang(event.point);
       }
       if (event.type === 'swordHit') {
         if (event.playerId === this.socket.playerId) { this.hud.hit('hit'); this.effects.swordHit(event.strikeIndex); }
       }
-      if (event.type === 'block') {
-        if (event.attackerId === this.socket.playerId || event.defenderId === this.socket.playerId) this.effects.block();
-      }
       if (event.type === 'parry') {
-        this.effects.parry();
         if (event.defenderId === this.socket.playerId) { this.weapon.parry(); this.hud.flashText('PARRY', 'parry'); this.hud.hit('parry'); }
         if (event.attackerId === this.socket.playerId) this.weapon.parry();
       }
