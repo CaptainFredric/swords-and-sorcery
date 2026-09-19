@@ -1,3 +1,5 @@
+import { clearExpiredSession } from './sessionState.mjs';
+
 export class GameSocket {
   constructor() {
     this.ws = null;
@@ -55,11 +57,7 @@ export class GameSocket {
     if (message.type === 'pong' && Number.isFinite(message.sentAt)) {
       this.pingMs = Math.round(performance.now() - message.sentAt);
     }
-    if (message.type === 'resumeFailed') {
-      localStorage.removeItem('ss-session-token');
-      localStorage.removeItem('ss-room-code');
-      this.token = null;
-    }
+    if (message.type === 'resumeFailed') clearExpiredSession(this, localStorage);
     this.emit(message.type, message);
   }
 
