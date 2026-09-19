@@ -18,17 +18,17 @@ export class RoomManager {
     this.rooms = new Map();
   }
 
-  createPrivateRoom(nowSec = 0) {
-    return this.#createRoom({ isPrivate: true, mode: GAME_MODES.FFA, worldId: WORLD_IDS.SHATTERED_KEEP }, nowSec);
+  createPrivateRoom(nowSec = 0, worldId = WORLD_IDS.CASTLEWARD) {
+    return this.#createRoom({ isPrivate: true, mode: GAME_MODES.FFA, worldId }, nowSec);
   }
 
-  createPublicRoom(nowSec = 0) {
-    return this.#createRoom({ isPrivate: false, mode: GAME_MODES.FFA, worldId: WORLD_IDS.SHATTERED_KEEP }, nowSec);
+  createPublicRoom(nowSec = 0, worldId = WORLD_IDS.CASTLEWARD) {
+    return this.#createRoom({ isPrivate: false, mode: GAME_MODES.FFA, worldId }, nowSec);
   }
 
-  createSoloRoom(mode, nowSec = 0) {
+  createSoloRoom(mode, nowSec = 0, worldId = WORLD_IDS.CASTLEWARD) {
     if (!SOLO_MODES.has(mode)) throw new Error('Unknown solo mode');
-    return this.#createRoom({ isPrivate: true, mode, worldId: WORLD_IDS.SHATTERED_KEEP }, nowSec);
+    return this.#createRoom({ isPrivate: true, mode, worldId }, nowSec);
   }
 
   #createRoom({ isPrivate, mode, worldId }, nowSec) {
@@ -44,6 +44,7 @@ export class RoomManager {
     for (const room of this.rooms.values()) {
       if (!room.isPrivate
         && room.mode === GAME_MODES.FFA
+        && room.worldId === WORLD_IDS.CASTLEWARD
         && ['WAITING', 'COUNTDOWN', 'PLAYING'].includes(room.state)
         && room.players.size < 8) return room;
     }
