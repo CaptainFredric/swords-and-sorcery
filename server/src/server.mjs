@@ -15,7 +15,6 @@ import {
   stepPracticeActors,
 } from './game/practice.mjs';
 import { GAME_MODES } from '../../shared/src/modes.mjs';
-import { SHATTERED_KEEP } from '../../shared/src/map.mjs';
 import { compensatedInputTime } from './game/history.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -123,7 +122,7 @@ function serializeSnapshot(room, nowSec) {
   };
 }
 
-export function createGameServer({ port = Number(process.env.PORT || 3001), host = process.env.HOST || '0.0.0.0', world = SHATTERED_KEEP } = {}) {
+export function createGameServer({ port = Number(process.env.PORT || 3001), host = process.env.HOST || '0.0.0.0' } = {}) {
   const roomManager = new RoomManager();
   const sessions = new Set();
   let tickTimer = null;
@@ -323,9 +322,9 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
   function tick() {
     const time = now();
     for (const room of roomManager.rooms.values()) {
-      stepBotControllers(room, time, world);
-      stepPracticeActors(room, time, world);
-      stepRoom(room, 1 / TICK_RATE, time, world);
+      stepBotControllers(room, time, room.world);
+      stepPracticeActors(room, time, room.world);
+      stepRoom(room, 1 / TICK_RATE, time, room.world);
       const events = room.events.splice(0);
       if (events.length) broadcastRoom(room, { type: 'events', events });
       broadcastRoom(room, serializeSnapshot(room, time));
