@@ -30,7 +30,7 @@ function send(ws, message) {
   ws.send(JSON.stringify(message));
 }
 
-test('two websocket clients can create, join, start and exchange authoritative combat state', async (t) => {
+test('websocket clients support multiplayer combat and one-tab Practice on the authoritative server', async (t) => {
   const game = createGameServer({ port: 0, host: '127.0.0.1' });
   await game.start();
   t.after(async () => game.stop());
@@ -38,8 +38,9 @@ test('two websocket clients can create, join, start and exchange authoritative c
 
   const alice = new WebSocket(`ws://127.0.0.1:${port}/ws`);
   const bob = new WebSocket(`ws://127.0.0.1:${port}/ws`);
-  t.after(() => { alice.close(); bob.close(); });
-  await Promise.all([waitOpen(alice), waitOpen(bob)]);
+  const solo = new WebSocket(`ws://127.0.0.1:${port}/ws`);
+  t.after(() => { alice.close(); bob.close(); solo.close(); });
+  await Promise.all([waitOpen(alice), waitOpen(bob), waitOpen(solo)]);
 
   const aliceJoinedP = waitFor(alice, (m) => m.type === 'joined');
   send(alice, { type: 'createRoom', name: 'Alice' });
@@ -72,6 +73,16 @@ test('two websocket clients can create, join, start and exchange authoritative c
   assert.equal(damage.attackerId, aliceJoined.playerId);
   assert.equal(damage.victimId, bobJoined.playerId);
   assert.equal(damage.amount, 34);
+
+  const soloJoinedP = waitFor(solo, (m) => m.type === 'joined');
+  const soloPlayingP = waitFor(solo, (m) => m.type === 'snapshot' && m.roomState === 'PLAYING' && m.mode === 'PRACTICE');
+  send(solo, { type: 'startSolo', mode: 'PRACTICE', name: 'Aden' });
+  const soloJoined = await soloJoinedP;
+  const soloPlaying = await soloPlayingP;
+  assert.equal(soloJoined.mode, 'PRACTICE');
+  assert.equal(soloJoined.worldId, 'shattered-keep');
+  assert.equal(soloPlaying.players.filter((p) => p.actorKind === 'human').length, 1);
+  assert.equal(soloPlaying.players.filter((p) => p.actorKind !== 'human').length, 0);
 
   const pongP = waitFor(bob, (m) => m.type === 'pong');
   send(bob, { type: 'ping', sentAt: 123 });

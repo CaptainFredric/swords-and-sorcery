@@ -6,12 +6,14 @@ import crypto from 'node:crypto';
 import { acceptWebSocket } from './websocket.mjs';
 import { RoomManager } from './rooms/RoomManager.mjs';
 import { beginAttack, endAttack, setGuard, stepRoom, tryCastFireball, tryDash } from './game/combat.mjs';
+import { GAME_MODES } from '../../shared/src/modes.mjs';
 import { SHATTERED_KEEP } from '../../shared/src/map.mjs';
 import { compensatedInputTime } from './game/history.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '../..');
 const TICK_RATE = 30;
+const SOLO_MODES = new Set([GAME_MODES.BOT_DUEL, GAME_MODES.PRACTICE]);
 
 function mimeFor(file) {
   const ext = path.extname(file).toLowerCase();
@@ -161,10 +163,14 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
     broadcastLobby(room);
   }
 
-  function joinNew(session, room, name) {
+  function createNetworkPlayer(room, name) {
     const id = crypto.randomUUID();
     const token = crypto.randomUUID();
-    const player = room.addPlayer({ id, token, name }, now());
+    return room.addPlayer({ id, token, name }, now());
+  }
+
+  function joinNew(session, room, name) {
+    const player = createNetworkPlayer(room, name);
     attachPlayer(session, room, player);
   }
 
@@ -203,9 +209,22 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
       joinNew(session, room, message.name);
       return;
     }
+    if (message.type === 'startSolo' && !session.roomCode) {
+      if (!SOLO_MODES.has(message.mode)) {
+        send(session, { type: 'error', message: 'Unknown solo mode' });
+        return;
+      }
+      const room = roomManager.createSoloRoom(message.mode, time);
+      const player = createNetworkPlayer(room, message.name);
+      room.provisionModeActors(time);
+      room.armAutoStart(time);
+      attachPlayer(session, room, player);
+      return;
+    }
     if (message.type === 'joinRoom' && !session.roomCode) {
       const room = roomManager.findByCode(message.code);
       if (!room) { send(session, { type: 'error', message: 'Room not found' }); return; }
+      if (room.mode !== GAME_MODES.FFA) { send(session, { type: 'error', message: 'Room is not joinable' }); return; }
       try { joinNew(session, room, message.name); } catch (error) { send(session, { type: 'error', message: error.message }); }
       return;
     }
