@@ -47,7 +47,7 @@ test('solo reconnect preserves authoritative mode and world identity', () => {
   const restored = room.reconnectPlayer('token', 2);
   assert.equal(restored?.id, 'human');
   assert.equal(room.mode, 'PRACTICE');
-  assert.equal(room.worldId, 'shattered-keep');
+  assert.equal(room.worldId, 'castleward');
   assert.equal(room.state, 'PLAYING');
 });
 
