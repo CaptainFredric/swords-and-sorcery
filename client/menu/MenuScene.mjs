@@ -15,13 +15,13 @@ export class MenuScene {
     this.visible = true;
     this.dragging = false;
     this.dragStart = { x: 0, y: 0, yaw: 0, pitch: 0 };
-    this.targetYaw = -0.22;
+    this.targetYaw = Math.PI - 0.22;
     this.targetPitch = 0;
     this.frameHandle = null;
 
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(33, 1, 0.1, 40);
-    this.camera.position.set(0, 1.28, 5.3);
+    this.camera.position.set(0, 1.28, 5.45);
     this.camera.lookAt(0, 0.95, 0);
 
     this.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, powerPreference: 'low-power' });
@@ -44,8 +44,8 @@ export class MenuScene {
     this.#buildStage();
 
     this.spellblade = createSpellbladeRig(0);
-    this.spellblade.scale.setScalar(1.28);
-    this.spellblade.position.set(0, -1.14, 0);
+    this.spellblade.scale.setScalar(1.10);
+    this.spellblade.position.set(0, -1.05, 0);
     this.spellblade.rotation.y = this.targetYaw;
     this.#setShowcasePose();
     this.stage.add(this.spellblade);
@@ -122,7 +122,7 @@ export class MenuScene {
   #pointerUp = () => { this.dragging = false; };
 
   #resetView = () => {
-    this.targetYaw = -0.22;
+    this.targetYaw = Math.PI - 0.22;
     this.targetPitch = 0;
   };
 
