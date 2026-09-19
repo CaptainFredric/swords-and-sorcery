@@ -10,7 +10,7 @@ async function read(path) {
   }
 }
 
-test('Blender production model encodes the concept hero pieces and mutable materials', async () => {
+test('Blender production model encodes the concept hero pieces and animated production stage', async () => {
   const model = await read('tools/blender/characters/spellblade/model.py');
   const build = await read('tools/blender/characters/spellblade/build.py');
 
@@ -24,6 +24,7 @@ test('Blender production model encodes the concept hero pieces and mutable mater
   assert.match(model, /VisorGlow/);
   assert.match(model, /SorceryAccent/);
   assert.match(model, /build_third_person_model/);
-  assert.match(build, /third-person-model/);
+  assert.match(build, /third-person-animated/);
+  assert.match(build, /build_actions/);
   assert.doesNotMatch(build, /visualStage["']\s*:\s*["']rig-proxy["']/);
 });
