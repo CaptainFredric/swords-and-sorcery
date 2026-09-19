@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { createSpellbladeRig } from './SpellbladeModel.mjs';
-import { attackMotion, bufferedServerTime, castPoseWindowFromEvent, resolveSpellbladeState } from './spellbladePose.mjs';
+import { resolveRemoteSpellbladePose } from './remoteSpellbladePose.mjs';
+import { bufferedServerTime, castPoseWindowFromEvent, resolveSpellbladeState } from './spellbladePose.mjs';
 
 function damp(value, target, amount) {
   return value + (target - value) * amount;
@@ -22,142 +23,24 @@ function applyCastWindow(rig, window) {
 
 function animateRig(rig, state, player, serverNow, localTime) {
   const d = rig.userData;
-  const velocity = player.velocity ?? { x: 0, y: 0, z: 0 };
-  const speed = Math.min(1, Math.hypot(velocity.x ?? 0, velocity.z ?? 0) / 7.5);
-  const breath = Math.sin(localTime * 2.4);
+  const pose = resolveRemoteSpellbladePose({ state, player, serverNow, localTime });
 
-  let visualY = breath * 0.008;
-  let visualRX = 0; let visualRY = 0; let visualRZ = 0;
-  let torsoRX = 0; let torsoRY = 0; let torsoRZ = breath * 0.008;
-  let headRX = 0; let headRY = 0; let headRZ = 0;
-  let luaX = 0; let luaY = 0; let luaZ = 0.08;
-  let ruaX = 0; let ruaY = 0; let ruaZ = -0.08;
-  let lfaX = 0; let lfaY = 0; let lfaZ = 0;
-  let rfaX = 0; let rfaY = 0; let rfaZ = 0;
-  let ltX = 0; let ltZ = 0; let rtX = 0; let rtZ = 0;
-  let lsX = 0; let rsX = 0;
-  let swordX = 0.06; let swordY = 0; let swordZ = -2.42;
-  let tabardX = -0.03 - speed * 0.05;
-  let magicScale = 1 + breath * 0.08;
-
-  if (state === 'run') {
-    const phase = localTime * 9.4;
-    const step = Math.sin(phase) * speed;
-    const lift = Math.abs(Math.cos(phase)) * speed;
-    visualY += lift * 0.025;
-    visualRX = 0.06 * speed;
-    torsoRZ = step * 0.045;
-    ltX = step * 0.68;
-    rtX = -step * 0.68;
-    lsX = Math.max(0, -step) * 0.55;
-    rsX = Math.max(0, step) * 0.55;
-    luaX = -step * 0.34;
-    ruaX = step * 0.26;
-    tabardX = -0.14 - speed * 0.08;
-  } else if (state === 'air') {
-    visualRX = 0.04;
-    ltX = 0.28;
-    rtX = 0.16;
-    lsX = -0.55;
-    rsX = -0.42;
-    luaX = 0.18;
-    ruaX = 0.1;
-    tabardX = -0.2;
-  } else if (state === 'guard') {
-    torsoRY = 0.14;
-    headRY = -0.08;
-    ruaX = -0.5;
-    ruaZ = -0.62;
-    rfaX = -1.02;
-    rfaZ = -0.12;
-    luaX = -0.62;
-    luaZ = 0.32;
-    lfaX = -0.38;
-    swordX = -0.38;
-    swordY = -0.18;
-    swordZ = -0.72;
-    tabardX = -0.06;
-  } else if (state === 'attack') {
-    const motion = attackMotion(player, serverNow);
-    const s = motion.swing;
-    if (motion.strike === 0) {
-      torsoRY = -0.22 + s * 0.46;
-      ruaX = -0.34;
-      ruaZ = -0.58 + s * 1.42;
-      rfaX = -0.42;
-      swordZ = -2.12 + s * 1.58;
-    } else if (motion.strike === 1) {
-      torsoRY = 0.24 - s * 0.48;
-      ruaX = -0.26;
-      ruaZ = 0.48 - s * 1.38;
-      rfaX = -0.34;
-      swordZ = -1.72 - s * 1.05;
-    } else {
-      torsoRX = -0.08 + s * 0.18;
-      ruaX = -1.35 + s * 0.78;
-      ruaZ = -0.16;
-      rfaX = -0.7;
-      swordX = -0.65 + s * 1.12;
-      swordZ = -1.12;
-    }
-    luaX = -0.18;
-    tabardX = -0.1 - s * 0.08;
-  } else if (state === 'cast') {
-    torsoRY = -0.18;
-    headRY = -0.12;
-    luaX = -1.28;
-    luaZ = 0.14;
-    lfaX = -0.22;
-    lfaZ = -0.08;
-    ruaX = 0.1;
-    magicScale = 1.65 + Math.sin(localTime * 32) * 0.18;
-    tabardX = -0.1;
-  } else if (state === 'dash') {
-    visualRX = -0.25;
-    torsoRX = -0.12;
-    headRX = 0.12;
-    luaX = 0.7;
-    ruaX = 0.62;
-    ltX = -0.16;
-    rtX = 0.34;
-    lsX = -0.18;
-    rsX = -0.48;
-    tabardX = -0.34;
-  } else if (state === 'stagger') {
-    const jolt = Math.sin((player.staggerUntil - serverNow) * 24);
-    visualRZ = 0.16 * jolt;
-    torsoRX = 0.12;
-    headRZ = -0.12 * jolt;
-    luaZ = 0.72;
-    ruaZ = -0.72;
-    swordZ = -2.7;
-  } else if (state === 'dead') {
-    visualY = -0.32;
-    visualRX = 0.08;
-    visualRZ = 1.34;
-    luaZ = 0.72;
-    ruaZ = -0.55;
-    swordZ = -2.9;
-    tabardX = -0.28;
-    magicScale = 0.55;
-  }
-
-  d.visual.position.y = damp(d.visual.position.y, visualY, state === 'dead' ? 0.12 : 0.24);
-  dampEuler(d.visual, visualRX, visualRY, visualRZ, state === 'dead' ? 0.1 : 0.23);
-  dampEuler(d.torso, torsoRX, torsoRY, torsoRZ);
-  dampEuler(d.head, headRX, headRY, headRZ);
-  dampEuler(d.leftUpperArm, luaX, luaY, luaZ);
-  dampEuler(d.rightUpperArm, ruaX, ruaY, ruaZ);
-  dampEuler(d.leftForearm, lfaX, lfaY, lfaZ);
-  dampEuler(d.rightForearm, rfaX, rfaY, rfaZ);
-  dampEuler(d.leftThigh, ltX, 0, ltZ);
-  dampEuler(d.rightThigh, rtX, 0, rtZ);
-  dampEuler(d.leftShin, lsX, 0, 0);
-  dampEuler(d.rightShin, rsX, 0, 0);
-  dampEuler(d.sword, swordX, swordY, swordZ, 0.28);
-  d.tabardFront.rotation.x = damp(d.tabardFront.rotation.x, tabardX, 0.18);
-  d.tabardBack.rotation.x = damp(d.tabardBack.rotation.x, -tabardX * 0.7, 0.18);
-  d.magicAnchor.scale.setScalar(damp(d.magicAnchor.scale.x, magicScale, 0.28));
+  d.visual.position.y = damp(d.visual.position.y, pose.visual.y, state === 'dead' ? 0.12 : 0.24);
+  dampEuler(d.visual, pose.visual.rx, pose.visual.ry, pose.visual.rz, state === 'dead' ? 0.1 : 0.23);
+  dampEuler(d.torso, pose.torso.rx, pose.torso.ry, pose.torso.rz);
+  dampEuler(d.head, pose.head.rx, pose.head.ry, pose.head.rz);
+  dampEuler(d.leftUpperArm, pose.leftUpperArm.rx, pose.leftUpperArm.ry, pose.leftUpperArm.rz);
+  dampEuler(d.rightUpperArm, pose.rightUpperArm.rx, pose.rightUpperArm.ry, pose.rightUpperArm.rz);
+  dampEuler(d.leftForearm, pose.leftForearm.rx, pose.leftForearm.ry, pose.leftForearm.rz);
+  dampEuler(d.rightForearm, pose.rightForearm.rx, pose.rightForearm.ry, pose.rightForearm.rz);
+  dampEuler(d.leftThigh, pose.leftThigh.rx, pose.leftThigh.ry, pose.leftThigh.rz);
+  dampEuler(d.rightThigh, pose.rightThigh.rx, pose.rightThigh.ry, pose.rightThigh.rz);
+  dampEuler(d.leftShin, pose.leftShin.rx, pose.leftShin.ry, pose.leftShin.rz);
+  dampEuler(d.rightShin, pose.rightShin.rx, pose.rightShin.ry, pose.rightShin.rz);
+  dampEuler(d.sword, pose.sword.rx, pose.sword.ry, pose.sword.rz, 0.28);
+  d.tabardFront.rotation.x = damp(d.tabardFront.rotation.x, pose.tabardX, 0.18);
+  d.tabardBack.rotation.x = damp(d.tabardBack.rotation.x, -pose.tabardX * 0.7, 0.18);
+  d.magicAnchor.scale.setScalar(damp(d.magicAnchor.scale.x, pose.magicScale, 0.28));
   d.magicHalo.rotation.z = localTime * 2.8;
 }
 

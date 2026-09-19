@@ -143,6 +143,38 @@ async function trustedClick(selector) {
   await cdp.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: point.x, y: point.y, button: 'left', buttons: 0, clickCount: 1 });
 }
 
+async function trustedDrag(selector, dx, dy) {
+  const point = await evaluate(`(() => {
+    const el = document.querySelector(${JSON.stringify(selector)});
+    if (!el || el.classList.contains('hidden')) return null;
+    el.scrollIntoView({ block: 'center', inline: 'center' });
+    const rect = el.getBoundingClientRect();
+    return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+  })()`);
+  if (!point) throw new Error(`Missing drag target ${selector}`);
+
+  const steps = 10;
+  await cdp.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: point.x, y: point.y });
+  await cdp.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: point.x, y: point.y, button: 'left', buttons: 1, clickCount: 1 });
+  for (let step = 1; step <= steps; step += 1) {
+    await cdp.send('Input.dispatchMouseEvent', {
+      type: 'mouseMoved',
+      x: point.x + dx * (step / steps),
+      y: point.y + dy * (step / steps),
+      button: 'left',
+      buttons: 1,
+    });
+  }
+  await cdp.send('Input.dispatchMouseEvent', {
+    type: 'mouseReleased',
+    x: point.x + dx,
+    y: point.y + dy,
+    button: 'left',
+    buttons: 0,
+    clickCount: 1,
+  });
+}
+
 async function capture(file) {
   const result = await cdp.send('Page.captureScreenshot', { format: 'png', fromSurface: true, captureBeyondViewport: false });
   await fs.writeFile(file, Buffer.from(result.data, 'base64'));
@@ -172,6 +204,13 @@ async function snapshotUi() {
   }))()`);
 }
 
+async function waitForMenuScene(timeoutMs = 20000) {
+  await poll(async () => (await snapshotUi()).menuCanvasCount === 1, {
+    timeoutMs,
+    label: 'Spellblade menu WebGL canvas',
+  });
+}
+
 async function resetToFreshMenu() {
   await evaluate(`(() => {
     localStorage.removeItem('ss-session-token');
@@ -182,7 +221,7 @@ async function resetToFreshMenu() {
   await cdp.send('Page.navigate', { url: publicUrl });
   await waitReady();
   await waitVisible('#menu');
-  await sleep(350);
+  await waitForMenuScene();
 }
 
 try {
@@ -224,12 +263,18 @@ try {
     if (response?.status >= 400) httpErrors.push({ status: response.status, url: response.url, resourceType: type });
   });
 
+  // Reload after listeners are attached so startup failures are observable rather than racing CDP attachment.
+  await cdp.send('Page.reload', { ignoreCache: false });
   await waitReady();
   await waitVisible('#menu');
-  await sleep(1000);
+  await waitForMenuScene();
   evidence.menu = await snapshotUi();
-  if (evidence.menu.menuCanvasCount !== 1) throw new Error(`Menu Spellblade canvas missing: ${JSON.stringify(evidence.menu)}`);
   await capture('public-game-menu.png');
+
+  await trustedDrag('#menu-spellblade canvas', 360, 0);
+  await sleep(900);
+  evidence.menuBack = await snapshotUi();
+  await capture('public-game-menu-back.png');
 
   // One-browser Practice.
   await setName('Public Tester');

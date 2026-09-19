@@ -1,0 +1,69 @@
+name: Spellblade visual review
+
+on:
+  pull_request:
+    paths:
+      - 'client/game/**'
+      - 'client/menu/**'
+      - 'scripts/capture-public-arena.mjs'
+      - '.github/workflows/visual-review.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  chrome-capture:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Verify repository
+        run: npm run verify
+
+      - name: Start local game server
+        shell: bash
+        run: |
+          set -euo pipefail
+          PORT=3001 HOST=127.0.0.1 node server/src/server.mjs > /tmp/ss-server.log 2>&1 &
+          echo $! > /tmp/ss-server.pid
+          for attempt in $(seq 1 40); do
+            if curl --fail --silent --show-error http://127.0.0.1:3001/health > /dev/null; then
+              exit 0
+            fi
+            sleep 0.25
+          done
+          cat /tmp/ss-server.log
+          exit 1
+
+      - name: Locate Chrome
+        id: chrome
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME="$(command -v google-chrome || command -v chromium-browser || command -v chromium || true)"
+          if [ -z "$CHROME" ]; then
+            echo "No Chrome/Chromium binary found on runner" >&2
+            exit 1
+          fi
+          echo "path=$CHROME" >> "$GITHUB_OUTPUT"
+
+      - name: Capture current branch in Chrome
+        env:
+          PUBLIC_URL: http://127.0.0.1:3001
+          CHROME_BIN: ${{ steps.chrome.outputs.path }}
+        run: node scripts/capture-public-arena.mjs
+
+      - name: Upload Spellblade visual evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: spellblade-visual-review
+          path: |
+            public-game-*.png
+            public-game-browser-report.json
+          retention-days: 7
