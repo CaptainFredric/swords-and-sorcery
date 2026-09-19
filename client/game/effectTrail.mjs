@@ -45,3 +45,33 @@ export function transientScale(age, maxLife, expand = 0, shrink = false) {
   const remaining = 1 - elapsed / lifetime;
   return growth * (shrink ? Math.max(0.05, remaining) : 1);
 }
+
+export function impactWorldPresentation(cameraDistance) {
+  const distance = Math.max(0, finite(cameraDistance, Infinity));
+
+  if (distance < 1.35) {
+    return {
+      showWorldBurst: false,
+      showRings: false,
+      cameraFlash: true,
+      worldScale: 0.24,
+    };
+  }
+
+  if (distance < 2.5) {
+    const t = (distance - 1.35) / (2.5 - 1.35);
+    return {
+      showWorldBurst: true,
+      showRings: true,
+      cameraFlash: false,
+      worldScale: 0.55 + t * 0.45,
+    };
+  }
+
+  return {
+    showWorldBurst: true,
+    showRings: true,
+    cameraFlash: false,
+    worldScale: 1,
+  };
+}
