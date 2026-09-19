@@ -68,3 +68,15 @@ test('manual public verifier fingerprints the current grounded Castleward solo a
   assert.match(capture, /Castleward|CASTLEWARD/);
   assert.match(workflow, /public-game-bot-duel-waiting\.png/);
 });
+
+test('pull requests capture front and rotated Spellblade browser evidence', async () => {
+  const workflow = await read('.github/workflows/visual-review.yml').catch(() => '');
+  const capture = await read('scripts/capture-public-arena.mjs');
+
+  assert.match(workflow, /pull_request/);
+  assert.match(workflow, /client\/game\/\*\*/);
+  assert.match(workflow, /spellblade-visual-review/);
+  assert.match(workflow, /capture-public-arena\.mjs/);
+  assert.match(capture, /trustedDrag/);
+  assert.match(capture, /public-game-menu-back\.png/);
+});
