@@ -118,24 +118,43 @@ function buildTorso(visual, materials) {
 }
 
 function buildTabards(visual, materials) {
-  const tabardFront = piece(visual, taperedPrismData({
-    height: 0.68,
-    topWidth: 0.39,
-    bottomWidth: 0.27,
-    topDepth: 0.055,
-    bottomDepth: 0.045,
-  }), materials.cloth, {
-    position: [0, 0.74, -0.245],
-    rotation: [0.04, 0, 0],
-    name: 'front-tabard',
-  });
+  const tabardFront = pivot(visual, [0, 0.86, -0.245]);
+  tabardFront.name = 'front-tabard';
+  tabardFront.rotation.x = 0.04;
+
   piece(tabardFront, taperedPrismData({
-    height: 0.44,
-    topWidth: 0.075,
-    bottomWidth: 0.055,
+    height: 0.3,
+    topWidth: 0.39,
+    bottomWidth: 0.33,
+    topDepth: 0.055,
+    bottomDepth: 0.05,
+  }), materials.cloth, {
+    position: [0, 0.04, 0],
+    name: 'front-tabard-upper',
+  });
+
+  for (const [side, name] of [[-1, 'front-tabard-left-tail'], [1, 'front-tabard-right-tail']]) {
+    piece(tabardFront, taperedPrismData({
+      height: 0.4,
+      topWidth: 0.155,
+      bottomWidth: 0.115,
+      topDepth: 0.05,
+      bottomDepth: 0.04,
+      topOffsetX: side * 0.012,
+    }), materials.cloth, {
+      position: [side * 0.088, -0.29, 0],
+      rotation: [0, 0, side * -0.035],
+      name,
+    });
+  }
+
+  piece(tabardFront, taperedPrismData({
+    height: 0.31,
+    topWidth: 0.07,
+    bottomWidth: 0.05,
     topDepth: 0.014,
     bottomDepth: 0.012,
-  }), materials.trim, { position: [0, -0.01, -0.04], name: 'front-tabard-trim' });
+  }), materials.trim, { position: [0, 0.025, -0.04], name: 'front-tabard-trim' });
 
   const tabardBack = piece(visual, taperedPrismData({
     height: 0.76,
@@ -182,6 +201,18 @@ function buildHelmet(visual, materials) {
     });
   }
 
+  piece(head, taperedPrismData({
+    height: 0.115,
+    topWidth: 0.3,
+    bottomWidth: 0.21,
+    topDepth: 0.09,
+    bottomDepth: 0.065,
+    topOffsetZ: -0.018,
+  }), materials.armorLight, {
+    position: [0, -0.175, -0.235],
+    name: 'helmet-chin',
+  });
+
   const visor = piece(head, wedgeData({
     width: SPELLBLADE_PROPORTIONS.visorWidth,
     height: 0.076,
@@ -217,6 +248,11 @@ function buildArm(visual, x, materials, side) {
     position: [side * 0.075, -0.015, 0],
     rotation: [0, 0, side * -0.18],
     name: `${side < 0 ? 'left' : 'right'}-pauldron`,
+  });
+  piece(pauldron, wedgeData({ width: 0.34, height: 0.12, depth: 0.36, slope: 0.44 }), materials.armor, {
+    position: [side * 0.025, 0.055, -0.015],
+    rotation: [0, 0, side * -0.055],
+    name: `${side < 0 ? 'left' : 'right'}-pauldron-overplate`,
   });
   piece(pauldron, taperedPrismData({
     height: 0.055,
@@ -298,8 +334,22 @@ function buildLeg(visual, x, materials, side) {
     bottomDepth: 0.48,
     topOffsetZ: 0.045,
   }), materials.darkArmor, { position: [0, -0.41, -0.06], name: `${sideName}-boot` });
+  piece(shin, wedgeData({ width: 0.35, height: 0.12, depth: 0.3, slope: 0.38 }), materials.armorLight, {
+    position: [0, -0.49, -0.19],
+    name: `${sideName}-boot-toe`,
+  });
 
   return { thigh, shin };
+}
+
+function addMagicWisp(parent, material, name, position, size, rotation) {
+  const wisp = new THREE.Mesh(new THREE.TetrahedronGeometry(size, 0), material);
+  wisp.name = name;
+  wisp.position.set(...position);
+  wisp.rotation.set(...rotation);
+  wisp.castShadow = false;
+  parent.add(wisp);
+  return wisp;
 }
 
 export function createSpellbladeRig(index = 0) {
@@ -335,6 +385,9 @@ export function createSpellbladeRig(index = 0) {
   magicHalo.rotation.x = Math.PI / 2;
   magicHalo.castShadow = false;
   magicAnchor.add(magicHalo);
+  addMagicWisp(magicAnchor, materials.magic, 'magic-wisp-a', [-0.14, 0.06, -0.03], 0.055, [0.3, 0.4, 0.1]);
+  addMagicWisp(magicAnchor, materials.magic, 'magic-wisp-b', [0.12, 0.1, 0.035], 0.045, [-0.2, 0.6, 0.5]);
+  addMagicWisp(magicAnchor, materials.magic, 'magic-wisp-c', [0.035, -0.13, -0.04], 0.05, [0.5, -0.2, 0.35]);
 
   root.userData = {
     visual,
