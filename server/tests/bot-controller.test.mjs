@@ -82,3 +82,21 @@ test('bot recognizes lack of movement progress and performs a lateral escape ins
   assert.ok(Math.abs(bot.input.right) >= 0.8, 'escape should strongly favor lateral movement');
   assert.ok(bot.input.forward <= 0.25, 'escape should stop feeding full forward input into the obstacle');
 });
+
+test('bot finishes a bounded escape before evaluating another stuck pursuit window', () => {
+  const { room, bot, human } = makeBotDuel();
+  bot.position = { x: 0, y: 0, z: 0 };
+  human.position = { x: 0, y: 0, z: -9 };
+
+  stepBotControllers(room, 4, room.world, { random: () => 0.8 });
+  stepBotControllers(room, 4.85, room.world, { random: () => 0.8 });
+  const escapeUntil = bot.ai.escapeUntil;
+  assert.ok(escapeUntil > 4.85);
+
+  // Even if geometry still pins the bot, the lateral escape itself is not evidence
+  // for immediately chaining another escape. Resume pursuit and take a fresh sample.
+  stepBotControllers(room, escapeUntil + 0.01, room.world, { random: () => 0.8 });
+
+  assert.equal(bot.ai.escapeUntil, -Infinity);
+  assert.ok(bot.input.forward > 0.4, 'bot should resume pursuit after the bounded escape');
+});
