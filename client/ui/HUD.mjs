@@ -1,3 +1,14 @@
+export function matchInfoText(snapshot, serverNow) {
+  if (snapshot?.mode === 'PRACTICE') return 'PRACTICE YARD  ·  UNTIMED';
+  if (snapshot?.suddenDeath) return 'SUDDEN DEATH';
+  const startedAt = Number.isFinite(snapshot?.matchStartedAt) ? snapshot.matchStartedAt : serverNow;
+  const elapsed = Math.max(0, serverNow - startedAt);
+  const left = Math.max(0, 360 - elapsed);
+  const mins = Math.floor(left / 60);
+  const secs = Math.floor(left % 60).toString().padStart(2, '0');
+  return `FIRST TO 10  ·  ${mins}:${secs}`;
+}
+
 export class HUD {
   constructor() {
     this.root = document.querySelector('#hud');
@@ -42,12 +53,7 @@ export class HUD {
 
     this.#ability(this.fireball, Math.max(0, local.fireballReadyAt - serverNow));
     this.#ability(this.dash, Math.max(0, local.dashReadyAt - serverNow));
-
-    const elapsed = snapshot.matchStartedAt ? Math.max(0, serverNow - snapshot.matchStartedAt) : 0;
-    const left = Math.max(0, 360 - elapsed);
-    const mins = Math.floor(left / 60);
-    const secs = Math.floor(left % 60).toString().padStart(2, '0');
-    this.matchInfo.textContent = snapshot.suddenDeath ? 'SUDDEN DEATH' : `FIRST TO 10  ·  ${mins}:${secs}`;
+    this.matchInfo.textContent = matchInfoText(snapshot, serverNow);
 
     this.deathCard.classList.toggle('hidden', local.alive);
     if (!local.alive) this.deathTimer.textContent = Math.max(0, local.respawnAt - serverNow).toFixed(1);
