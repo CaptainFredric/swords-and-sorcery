@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { localCombatFeedback } from './combatFeedback.mjs';
+import { localCombatFeedback, shouldPlayWorldClang } from './combatFeedback.mjs';
 
 test('parry feedback plays only when the local player is involved', () => {
   assert.equal(localCombatFeedback({ type: 'parry', attackerId: 'me', defenderId: 'them' }, 'me'), 'parry');
@@ -12,6 +12,12 @@ test('block and guard-break feedback route to involved local players', () => {
   assert.equal(localCombatFeedback({ type: 'block', attackerId: 'me', defenderId: 'them' }, 'me'), 'block');
   assert.equal(localCombatFeedback({ type: 'guardBreak', attackerId: 'them', defenderId: 'me' }, 'me'), 'guardBreak');
   assert.equal(localCombatFeedback({ type: 'guardBreak', attackerId: 'a', defenderId: 'b' }, 'me'), null);
+});
+
+test('world-clang audio only plays for the local sword impact', () => {
+  assert.equal(shouldPlayWorldClang({ type: 'swordWorldImpact', playerId: 'me' }, 'me'), true);
+  assert.equal(shouldPlayWorldClang({ type: 'swordWorldImpact', playerId: 'them' }, 'me'), false);
+  assert.equal(shouldPlayWorldClang({ type: 'swordHit', playerId: 'me' }, 'me'), false);
 });
 
 test('unrelated event types do not request generic melee feedback', () => {
