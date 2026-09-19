@@ -23,6 +23,17 @@ test('decor plan emphasizes the actual bridge break without filling its floor ga
   }
 });
 
+test('west-hall architectural accents stay flush to real collision walls instead of making fake overhead solids', () => {
+  const plan = buildKeepDecorPlan(1337);
+  const west = plan.wallAccents.filter((piece) => piece.mount === 'westOuterWall');
+  assert.ok(west.length >= 4);
+  for (const piece of west) {
+    assert.ok(Math.abs(piece.x + 17.63) < 0.08, `${piece.id} should sit on the inner face of the west outer wall`);
+    assert.ok(piece.sx <= 0.08, `${piece.id} must remain a thin wall treatment`);
+    assert.ok(piece.z >= -5.5 && piece.z <= 5.5, `${piece.id} must stay inside the existing west wall span`);
+  }
+});
+
 test('backdrop and floating ruin counts stay bounded for student-laptop rendering', () => {
   const plan = buildKeepDecorPlan(1337);
   assert.ok(plan.clouds.length <= 24);
