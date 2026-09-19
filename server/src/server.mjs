@@ -6,6 +6,7 @@ import crypto from 'node:crypto';
 import { acceptWebSocket } from './websocket.mjs';
 import { RoomManager } from './rooms/RoomManager.mjs';
 import { beginAttack, endAttack, setGuard, stepRoom, tryCastFireball, tryDash } from './game/combat.mjs';
+import { stepBotControllers } from './ai/BotController.mjs';
 import { GAME_MODES } from '../../shared/src/modes.mjs';
 import { SHATTERED_KEEP } from '../../shared/src/map.mjs';
 import { compensatedInputTime } from './game/history.mjs';
@@ -288,6 +289,7 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
   function tick() {
     const time = now();
     for (const room of roomManager.rooms.values()) {
+      stepBotControllers(room, time, world);
       stepRoom(room, 1 / TICK_RATE, time, world);
       const events = room.events.splice(0);
       if (events.length) broadcastRoom(room, { type: 'events', events });
