@@ -1,3 +1,9 @@
+export function recordArenaKey(keys, code, enabled) {
+  if (!enabled) return false;
+  keys?.add?.(code);
+  return true;
+}
+
 export function releaseHeldInputs(controller) {
   if (!controller) return;
 
