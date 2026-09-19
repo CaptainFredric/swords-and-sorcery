@@ -36,3 +36,13 @@ test('Blender production build captures readable combat action poses', async () 
     'action-cast', 'action-dash', 'action-stagger', 'action-death',
   ]) assert.match(build, new RegExp(marker));
 });
+
+test('Blender slash clips encode the authoritative strike timing at 30 fps', async () => {
+  const animations = await read('tools/blender/characters/spellblade/animations.py');
+  assert.match(animations, /ANIMATION_FPS\s*=\s*30/);
+  assert.match(animations, /SLASH_DURATIONS_SECONDS\s*=\s*\(0\.72,\s*0\.72,\s*0\.64\)/);
+  assert.match(animations, /SLASH_CONTACT_SECONDS\s*=\s*\(0\.40,\s*0\.38,\s*0\.36\)/);
+  assert.match(animations, /_seconds_to_frame\(SLASH_CONTACT_SECONDS\[0\]\)/);
+  assert.match(animations, /_seconds_to_frame\(SLASH_CONTACT_SECONDS\[1\]\)/);
+  assert.match(animations, /_seconds_to_frame\(SLASH_CONTACT_SECONDS\[2\]\)/);
+});
