@@ -49,12 +49,12 @@ export function buildKeepDecorPlan(seed = 1337) {
   ];
 
   const bridgeEdges = [
-    { id: 'bridge-break-nl', x: -2.25, y: -0.11, z: -15.28, sx: 1.0, sy: 0.34, sz: 0.38, rx: 0.08, rz: -0.18 },
-    { id: 'bridge-break-nc', x: -0.55, y: -0.16, z: -15.34, sx: 1.4, sy: 0.38, sz: 0.32, rx: -0.06, rz: 0.12 },
-    { id: 'bridge-break-nr', x: 1.65, y: -0.13, z: -15.3, sx: 1.45, sy: 0.32, sz: 0.36, rx: 0.12, rz: 0.2 },
-    { id: 'bridge-break-sl', x: -1.75, y: -0.14, z: -16.7, sx: 1.5, sy: 0.36, sz: 0.36, rx: -0.08, rz: 0.18 },
-    { id: 'bridge-break-sc', x: 0.25, y: -0.18, z: -16.66, sx: 1.2, sy: 0.4, sz: 0.32, rx: 0.07, rz: -0.15 },
-    { id: 'bridge-break-sr', x: 2.15, y: -0.12, z: -16.73, sx: 0.9, sy: 0.3, sz: 0.4, rx: -0.1, rz: -0.22 },
+    { id: 'bridge-break-nl', x: -2.25, y: -0.18, z: -15.28, sx: 1.0, sy: 0.34, sz: 0.38, rx: 0.08, rz: -0.18 },
+    { id: 'bridge-break-nc', x: -0.55, y: -0.21, z: -15.34, sx: 1.4, sy: 0.38, sz: 0.32, rx: -0.06, rz: 0.12 },
+    { id: 'bridge-break-nr', x: 1.65, y: -0.18, z: -15.3, sx: 1.45, sy: 0.32, sz: 0.36, rx: 0.12, rz: 0.2 },
+    { id: 'bridge-break-sl', x: -1.75, y: -0.20, z: -16.7, sx: 1.5, sy: 0.36, sz: 0.36, rx: -0.08, rz: 0.18 },
+    { id: 'bridge-break-sc', x: 0.25, y: -0.22, z: -16.66, sx: 1.2, sy: 0.4, sz: 0.32, rx: 0.07, rz: -0.15 },
+    { id: 'bridge-break-sr', x: 2.15, y: -0.18, z: -16.73, sx: 0.9, sy: 0.3, sz: 0.4, rx: -0.1, rz: -0.22 },
     { id: 'bridge-hanging-left', x: -2.52, y: -0.65, z: -15.95, sx: 0.32, sy: 0.85, sz: 0.5, rx: 0.24, rz: -0.08 },
     { id: 'bridge-hanging-right', x: 2.42, y: -0.72, z: -16.08, sx: 0.38, sy: 0.95, sz: 0.48, rx: -0.2, rz: 0.12 },
   ];
