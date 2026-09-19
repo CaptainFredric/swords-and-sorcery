@@ -10,3 +10,9 @@ test('external GLB validator rejects broken Spellblade rig contracts', () => {
   assert.equal(result.status, 0, result.stderr || result.stdout);
   assert.match(result.stdout, /SPELLBLADE_RIG_VALIDATOR_OK/);
 });
+
+test('external GLB validator requires every named Spellblade clip and rejects root translation', () => {
+  const result = spawnSync('python3', [validator, '--self-test-animation'], { encoding: 'utf8' });
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  assert.match(result.stdout, /SPELLBLADE_ANIMATION_VALIDATOR_OK/);
+});
