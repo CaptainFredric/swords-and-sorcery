@@ -9,10 +9,6 @@ function waitOpen(ws) {
   });
 }
 
-function waitClose(ws) {
-  return new Promise((resolve) => ws.addEventListener('close', resolve, { once: true }));
-}
-
 function waitFor(ws, predicate, timeoutMs = 3000) {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
@@ -27,6 +23,21 @@ function waitFor(ws, predicate, timeoutMs = 3000) {
       resolve(message);
     }
     ws.addEventListener('message', onMessage);
+  });
+}
+
+function waitUntil(predicate, timeoutMs = 1000) {
+  return new Promise((resolve, reject) => {
+    const started = performance.now();
+    const timer = setInterval(() => {
+      if (predicate()) {
+        clearInterval(timer);
+        resolve();
+      } else if (performance.now() - started > timeoutMs) {
+        clearInterval(timer);
+        reject(new Error('Timed out waiting for authoritative state change'));
+      }
+    }, 10);
   });
 }
 
@@ -102,9 +113,9 @@ test('one websocket can start Practice immediately and resume the same solo room
   assert.equal(joined.worldId, 'shattered-keep');
   assert.equal(playing.players.filter((p) => p.actorKind === 'human').length, 1);
 
-  const closedP = waitClose(ws);
+  const room = game.roomManager.findByCode(joined.roomCode);
   ws.close();
-  await closedP;
+  await waitUntil(() => room.players.get(joined.playerId)?.connected === false);
 
   const resumed = new WebSocket(`ws://127.0.0.1:${port}/ws`);
   t.after(() => resumed.close());
