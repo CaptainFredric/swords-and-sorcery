@@ -25,9 +25,9 @@ from tools.blender.characters.spellblade.validate import load_contract, validate
 _REVISION_RE = re.compile(r"^[0-9a-f]{40}$")
 _ACTION_REVIEW_FRAMES = {
     "action-guard": ("Guard", 8, "front"),
-    "action-slash-1": ("Slash_1", 8, "quarter"),
-    "action-slash-2": ("Slash_2", 8, "quarter"),
-    "action-slash-3": ("Slash_3", 9, "quarter"),
+    "action-slash-1": ("Slash_1", 13, "quarter"),
+    "action-slash-2": ("Slash_2", 12, "quarter"),
+    "action-slash-3": ("Slash_3", 12, "quarter"),
     "action-cast": ("Cast", 16, "front"),
     "action-dash": ("Dash", 4, "side"),
     "action-stagger": ("Stagger", 5, "front"),
