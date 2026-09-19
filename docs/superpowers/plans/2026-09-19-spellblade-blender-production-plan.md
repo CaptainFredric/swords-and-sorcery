@@ -777,3 +777,7 @@ This remains one coherent sub-project: producing and integrating the base Spellb
 ### Promotion gate
 
 Preview/review builds are read-only and can never rewrite promoted runtime assets. Promotion occurs only after a human-visible Blender review artifact has been inspected and the exact accepted modeling SHA is written to `promotion.json`. The promotion workflow rebuilds that reviewed source SHA from scratch before committing binaries, so promoted GLBs cannot silently come from an unreviewed newer model state.
+
+## Review status
+
+The plan has completed its internal spec-coverage, placeholder, interface-consistency, failure-mode, and promotion-safety review. Implementation does not begin until this written plan is explicitly approved.
