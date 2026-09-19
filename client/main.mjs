@@ -1,7 +1,7 @@
 import { GameSocket } from './network/GameSocket.mjs';
 import { HUD } from './ui/HUD.mjs';
 import { GameRuntime } from './game/GameRuntime.mjs';
-import { MenuController } from './menu/MenuController.mjs';
+import { MenuController, shouldRouteSocketError } from './menu/MenuController.mjs';
 import { MenuScene } from './menu/MenuScene.mjs';
 import { SCREEN_IDS, ScreenRouter } from './ui/ScreenRouter.mjs';
 
@@ -254,7 +254,12 @@ socket.on('resumeFailed', () => {
 });
 
 socket.on('error', (message) => {
-  menuError.textContent = message.message || 'Could not enter that match.';
+  const errorText = message.message || 'Could not enter that match.';
+  if (!shouldRouteSocketError(socket.roomCode, latestSnapshot)) {
+    hud.flashText(errorText.toUpperCase(), 'danger');
+    return;
+  }
+  menuError.textContent = errorText;
   hud.hide();
   setPracticeVisible(false);
   route(pendingFailureScreen);
