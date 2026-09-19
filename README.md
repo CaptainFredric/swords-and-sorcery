@@ -136,30 +136,23 @@ Then visit `http://localhost:3001`.
 
 This project should be deployed as **one persistent Node service**, not GitHub Pages alone. GitHub Pages cannot run the authoritative WebSocket game server.
 
-A practical early setup is:
+The repository includes a Render Blueprint configured as a **free web service** and set to deploy only after GitHub CI checks pass:
 
-```text
-Public GitHub repository
-        │
-        ▼
-WebSocket-capable Node host
-(Render / Railway / Fly.io / similar)
-        │
-        ▼
-Shareable HTTPS URL
-```
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/CaptainFredric/swords-and-sorcery)
 
-The same server serves the static client and `/ws`, so production does not require a second frontend deployment or cross-origin WebSocket configuration.
+That deployment serves both the game client and `/ws` from the same HTTPS origin, so no cross-origin WebSocket setup is required. After the first successful deploy, use the resulting `https://...onrender.com` URL for browser and two-device testing, then put that verified URL into `site/config.js` so the GitHub Pages front door can enable its live Play button.
 
-A `render.yaml` Blueprint is included for a simple Render deployment.
+Render's free web service can spin down after idle time, so the first request after inactivity may incur a cold start. That is acceptable for pre-alpha testing; it is not the final performance target.
 
-Recommended host settings:
+Blueprint settings are intentionally explicit:
 
-- Start command: `npm start`
+- Docker runtime from the repository `Dockerfile`
+- Free compute plan
 - Health endpoint: `/health`
-- Runtime: Node 22+
-- Exposed port: use the platform-provided `PORT`
-- Persistent WebSockets must be supported
+- `HOST=0.0.0.0`
+- Auto-deploy only after CI checks pass
+- Platform-provided `PORT`
+- Persistent WebSocket support supplied by the web-service host
 
 ## Current status
 
