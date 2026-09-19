@@ -1,5 +1,6 @@
 import { createMovementState } from '../../../shared/src/movement.mjs';
-import { SHATTERED_KEEP } from '../../../shared/src/map.mjs';
+import { GAME_MODES, getModePolicy } from '../../../shared/src/modes.mjs';
+import { WORLD_IDS, getWorld } from '../../../shared/worlds/registry.mjs';
 
 const COUNTDOWN_SEC = 3;
 const MATCH_SEC = 360;
@@ -40,9 +41,13 @@ function freshCombatState(spawn, nowSec = 0) {
 }
 
 export class Room {
-  constructor(code, { isPrivate = true } = {}) {
+  constructor(code, { isPrivate = true, mode = GAME_MODES.FFA, worldId = WORLD_IDS.SHATTERED_KEEP } = {}) {
     this.code = code;
     this.isPrivate = isPrivate;
+    this.mode = mode;
+    this.policy = getModePolicy(mode);
+    this.worldId = worldId;
+    this.world = getWorld(worldId);
     this.state = 'WAITING';
     this.players = new Map();
     this.projectiles = new Map();
@@ -60,11 +65,12 @@ export class Room {
 
   addPlayer({ id, token, name }, nowSec) {
     if (this.players.size >= 8) throw new Error('Room is full');
-    const spawn = SHATTERED_KEEP.spawnPoints[this.players.size % SHATTERED_KEEP.spawnPoints.length];
+    const spawn = this.world.spawnPoints[this.players.size % this.world.spawnPoints.length];
     const player = {
       id,
       token,
       name: String(name || 'Spellblade').slice(0, 18),
+      actorKind: 'human',
       connected: true,
       disconnectedAt: null,
       disconnectExpiresAt: null,
@@ -176,7 +182,7 @@ export class Room {
     this.rematchVotes.clear();
     let i = 0;
     for (const player of this.players.values()) {
-      const spawn = SHATTERED_KEEP.spawnPoints[i % SHATTERED_KEEP.spawnPoints.length];
+      const spawn = this.world.spawnPoints[i % this.world.spawnPoints.length];
       Object.assign(player, freshCombatState(spawn, nowSec));
       i += 1;
     }

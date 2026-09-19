@@ -52,8 +52,17 @@ function serializeLobby(room) {
     type: 'lobby',
     roomCode: room.code,
     roomState: room.state,
+    mode: room.mode,
+    worldId: room.worldId,
     countdownEndsAt: room.countdownEndsAt,
-    players: [...room.players.values()].map((p) => ({ id: p.id, name: p.name, connected: p.connected, kills: p.kills, deaths: p.deaths })),
+    players: [...room.players.values()].map((p) => ({
+      id: p.id,
+      name: p.name,
+      actorKind: p.actorKind,
+      connected: p.connected,
+      kills: p.kills,
+      deaths: p.deaths,
+    })),
   };
 }
 
@@ -64,6 +73,8 @@ function serializeSnapshot(room, nowSec) {
     serverTime: nowSec,
     roomCode: room.code,
     roomState: room.state,
+    mode: room.mode,
+    worldId: room.worldId,
     countdownEndsAt: room.countdownEndsAt,
     matchStartedAt: room.matchStartedAt,
     winnerId: room.winnerId,
@@ -71,6 +82,7 @@ function serializeSnapshot(room, nowSec) {
     players: [...room.players.values()].map((p) => ({
       id: p.id,
       name: p.name,
+      actorKind: p.actorKind,
       connected: p.connected,
       position: p.position,
       velocity: p.velocity,
@@ -137,7 +149,15 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
   function attachPlayer(session, room, player) {
     session.roomCode = room.code;
     session.playerId = player.id;
-    send(session, { type: 'joined', playerId: player.id, token: player.token, roomCode: room.code, roomState: room.state });
+    send(session, {
+      type: 'joined',
+      playerId: player.id,
+      token: player.token,
+      roomCode: room.code,
+      roomState: room.state,
+      mode: room.mode,
+      worldId: room.worldId,
+    });
     broadcastLobby(room);
   }
 
