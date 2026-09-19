@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#0a0d16" />
+  <meta name="theme-color" content="#161b16" />
   <title>Swords & Sorcery</title>
   <link rel="icon" href="data:," />
   <link rel="stylesheet" href="/client/styles.css" />
@@ -19,49 +19,111 @@
   <main id="game-shell">
     <div id="game-canvas"></div>
 
-    <section id="menu" class="screen-panel menu-panel">
-      <div class="crest">⚔</div>
-      <p class="eyebrow">THE SHATTERED KEEP</p>
-      <h1>SWORDS <span>&amp;</span> SORCERY</h1>
-      <p class="subtitle">Fast browser arena combat. Sword. Guard. Fireball. Dash. First to 10.</p>
-      <label class="field-label" for="player-name">SPELLBLADE NAME</label>
-      <input id="player-name" class="game-input" maxlength="18" autocomplete="nickname" placeholder="Enter your name" />
-      <div class="menu-actions">
-        <button id="quick-play" class="primary-button">QUICK PLAY</button>
-        <button id="create-room" class="secondary-button">CREATE PRIVATE ROOM</button>
-      </div>
-      <div class="join-row">
-        <input id="room-code" class="game-input room-input" maxlength="5" placeholder="ROOM CODE" />
-        <button id="join-room" class="secondary-button">JOIN</button>
-      </div>
-      <button id="how-button" class="text-button">HOW TO PLAY</button>
-      <p id="menu-error" class="error-copy" aria-live="polite"></p>
+    <div id="menu-world" class="menu-world">
+      <div class="menu-sky"></div>
+      <div class="menu-hills hill-left"></div>
+      <div class="menu-hills hill-right"></div>
+      <div class="menu-castle-silhouette" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+      <div id="menu-spellblade" class="menu-spellblade" aria-label="Spellblade preview. Drag to turn the character."></div>
+      <div class="kit-mark kit-sword"><b>LMB</b><span>SWORD</span></div>
+      <div class="kit-mark kit-guard"><b>RMB</b><span>GUARD · PARRY</span></div>
+      <div class="kit-mark kit-fire"><b>Q</b><span>FIREBALL</span></div>
+      <div class="kit-mark kit-dash"><b>E</b><span>DASH</span></div>
+      <div class="turn-hint">DRAG TO TURN · DOUBLE-CLICK TO RESET</div>
+    </div>
+
+    <section id="menu" class="menu-screen">
+      <header class="game-brand">
+        <p class="eyebrow">CASTLEWARD · THE BORDER MARCH</p>
+        <h1>SWORDS <span>&amp;</span> SORCERY</h1>
+        <p class="brand-rule">SWORD. MAGIC. KILL YOUR FRIENDS. FIRST TO 10.</p>
+      </header>
+
+      <aside class="command-rail">
+        <div class="name-block">
+          <label class="field-label" for="player-name">YOUR SPELLBLADE</label>
+          <input id="player-name" class="game-input" maxlength="18" autocomplete="nickname" placeholder="Enter a name" />
+        </div>
+        <button id="quick-play" class="menu-command primary-command"><span>QUICK PLAY</span><small>Enter public free-for-all</small></button>
+        <button id="solo-button" class="menu-command"><span>SOLO</span><small>Bot duel or practice yard</small></button>
+        <button id="private-button" class="menu-command"><span>PRIVATE ROOM</span><small>Create or join by code</small></button>
+        <button id="how-button" class="menu-command quiet-command"><span>FIELD MANUAL</span><small>Controls and combat rules</small></button>
+        <p id="menu-error" class="error-copy" aria-live="polite"></p>
+      </aside>
+
+      <aside class="world-note">
+        <span class="world-note-kicker">CURRENT GROUND</span>
+        <strong>CASTLEWARD</strong>
+        <p>Market green, village lanes, chapel meadow and the old castle bailey. Every route is reachable on foot.</p>
+        <div class="rule-line"><span>PLAYERS</span><b>2–8</b></div>
+        <div class="rule-line"><span>WIN</span><b>10 KILLS / 6 MIN</b></div>
+        <div class="rule-line"><span>LOADOUT</span><b>BASE SPELLBLADE</b></div>
+      </aside>
     </section>
 
-    <section id="how-panel" class="screen-panel compact-panel hidden">
-      <button class="close-button" data-close-how>×</button>
-      <p class="eyebrow">FIELD MANUAL</p>
-      <h2>HOW TO PLAY</h2>
-      <div class="controls-grid">
-        <span>WASD</span><b>Move</b>
-        <span>MOUSE</span><b>Aim</b>
-        <span>LMB</span><b>Hold sword combo</b>
-        <span>RMB</span><b>Guard / Parry</b>
-        <span>Q</span><b>Fireball</b>
-        <span>E</span><b>Arcane Dash</b>
-        <span>SPACE</span><b>Jump</b>
-        <span>TAB</span><b>Scoreboard</b>
+    <section id="solo-menu" class="side-screen hidden">
+      <div class="side-screen-inner">
+        <button class="back-button" id="solo-back">← RETURN</button>
+        <p class="eyebrow">SOLO PLAY</p>
+        <h2>TRAIN IN CASTLEWARD</h2>
+        <p class="panel-copy">No second tab. No second device. Use the same base Spellblade kit as multiplayer.</p>
+        <button id="bot-duel" class="mode-choice primary-command">
+          <span>BOT DUEL</span>
+          <small>One rival Spellblade · first to 10 · normal match rules</small>
+        </button>
+        <button id="practice-mode" class="mode-choice">
+          <span>PRACTICE YARD</span>
+          <small>Untimed free training · reset resources · spawn a dummy</small>
+        </button>
+        <div class="panel-footnote">Difficulty options come later. The base opponent uses the same authoritative combat rules you do.</div>
       </div>
-      <p class="rules-copy">First to <strong>10 kills</strong> wins. Guard stops swords. A well-timed Guard parries. Fireball ignores Guard. The abyss does not care about either.</p>
     </section>
 
-    <section id="lobby" class="screen-panel lobby-panel hidden">
-      <p class="eyebrow">THE SHATTERED KEEP</p>
-      <h2>ROOM <button id="copy-code" class="code-button"><span id="lobby-code">----</span></button></h2>
-      <div id="lobby-state" class="lobby-state">WAITING FOR ANOTHER SPELLBLADE</div>
-      <div id="lobby-players" class="player-list"></div>
-      <button id="copy-link" class="secondary-button">COPY INVITE LINK</button>
-      <p class="small-copy">Two players are enough. New players can join an active match.</p>
+    <section id="private-menu" class="side-screen hidden">
+      <div class="side-screen-inner">
+        <button class="back-button" id="private-back">← RETURN</button>
+        <p class="eyebrow">PRIVATE MATCH</p>
+        <h2>CALL YOUR RIVALS</h2>
+        <p class="panel-copy">Create a room for a fresh code, or enter the five-character code from a friend.</p>
+        <button id="create-room" class="mode-choice primary-command"><span>CREATE ROOM</span><small>Open a private Castleward free-for-all</small></button>
+        <div class="private-divider"><span>OR JOIN</span></div>
+        <label class="field-label" for="room-code">ROOM CODE</label>
+        <div class="join-row">
+          <input id="room-code" class="game-input room-input" maxlength="5" autocomplete="off" placeholder="ABCD2" />
+          <button id="join-room" class="join-button">JOIN</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="how-panel" class="side-screen hidden">
+      <div class="side-screen-inner manual-inner">
+        <button class="back-button" data-close-how>← RETURN</button>
+        <p class="eyebrow">FIELD MANUAL</p>
+        <h2>THE BASE KIT</h2>
+        <div class="controls-grid">
+          <span>WASD</span><b>Move</b>
+          <span>MOUSE</span><b>Aim</b>
+          <span>LMB</span><b>Hold sword combo</b>
+          <span>RMB</span><b>Guard · tap into a strike to Parry</b>
+          <span>Q</span><b>Fireball · Guard does not stop it</b>
+          <span>E</span><b>Dash in your movement direction</b>
+          <span>SPACE</span><b>Jump</b>
+          <span>TAB</span><b>Scoreboard</b>
+        </div>
+        <p class="rules-copy">Three clean sword strikes defeat a full-health Spellblade. A perfect Guard staggers the attacker. Fireball punishes passive blocking. Dash repositions; it does not grant invulnerability.</p>
+      </div>
+    </section>
+
+    <section id="lobby" class="lobby-screen hidden">
+      <div class="lobby-banner"><span id="lobby-world">CASTLEWARD</span><small id="lobby-mode">FREE-FOR-ALL</small></div>
+      <div class="lobby-content">
+        <p class="eyebrow">MUSTERING</p>
+        <h2>ROOM <button id="copy-code" class="code-button"><span id="lobby-code">----</span></button></h2>
+        <div id="lobby-state" class="lobby-state">WAITING FOR ANOTHER SPELLBLADE</div>
+        <div id="lobby-players" class="player-list"></div>
+        <button id="copy-link" class="wide-button">COPY INVITE LINK</button>
+        <p id="lobby-copy" class="small-copy">Two players are enough. New players can join an active match.</p>
+      </div>
     </section>
 
     <section id="hud" class="hud hidden" aria-hidden="true">
@@ -82,19 +144,29 @@
           <div id="dash-ability" class="ability ready"><span class="ability-icon">➤</span><b>E</b><em>DASH</em><strong>READY</strong></div>
         </div>
       </div>
-      <div id="death-card" class="death-card hidden"><small>SLAIN BY</small><strong id="death-killer">THE ABYSS</strong><span id="death-timer">3.0</span></div>
+      <aside id="practice-overlay" class="practice-tools hidden">
+        <div><strong>PRACTICE YARD</strong><small>Esc releases the cursor for these tools.</small></div>
+        <button id="practice-reset">RESET SELF</button>
+        <button id="practice-passive">PASSIVE DUMMY</button>
+        <button id="practice-guarding">GUARDING DUMMY</button>
+        <button id="practice-fight">FIGHTS BACK</button>
+        <button id="practice-remove">REMOVE DUMMY</button>
+        <button id="practice-leave" class="practice-leave">LEAVE PRACTICE</button>
+      </aside>
+      <div id="death-card" class="death-card hidden"><small>SLAIN BY</small><strong id="death-killer">THE FALL</strong><span id="death-timer">3.0</span></div>
       <div id="debug" class="debug hidden"></div>
       <div id="scoreboard" class="scoreboard hidden"></div>
       <div id="pointer-hint" class="pointer-hint">CLICK TO ENTER THE ARENA</div>
     </section>
 
-    <section id="end-screen" class="screen-panel end-panel hidden">
+    <section id="end-screen" class="end-screen hidden">
+      <div class="end-medallion">⚔</div>
       <p class="eyebrow">MATCH COMPLETE</p>
       <h2 id="winner-title">VICTORY</h2>
       <div id="final-scoreboard" class="final-scoreboard"></div>
-      <div class="menu-actions">
-        <button id="rematch" class="primary-button">PLAY AGAIN</button>
-        <button id="leave" class="secondary-button">LEAVE MATCH</button>
+      <div class="end-actions">
+        <button id="rematch" class="wide-button primary-command">PLAY AGAIN</button>
+        <button id="leave" class="wide-button">RETURN TO MENU</button>
       </div>
       <p id="rematch-copy" class="small-copy">All remaining players vote to rematch.</p>
     </section>
