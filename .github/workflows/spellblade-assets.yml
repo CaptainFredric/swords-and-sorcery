@@ -101,13 +101,16 @@ jobs:
           from pathlib import Path
           report = json.loads(Path('artifacts/spellblade-assets/spellblade-build-report.json').read_text())
           assert report['workerReady'] is True
-          assert report['visualStage'] in {'worker-bootstrap', 'rig-proxy'}
+          assert report['visualStage'] in {'worker-bootstrap', 'third-person-model'}
           assert len(report['sourceRevision']) == 40
-          if report['visualStage'] == 'rig-proxy':
+          if report['visualStage'] == 'third-person-model':
               assert report['rig']['runtimeAxes'] == {'up': '+Y', 'forward': '-Z'}
               assert report['rig']['authoringAxes'] == {'up': '+Z', 'forward': '+Y'}
-              assert report['rig']['proxyHeightMeters'] >= 1.85
+              assert report['model']['heightMeters'] >= 1.85
+              assert report['model']['groundZ'] >= -0.02
+              assert report['model']['triangles'] <= report['model']['triangleBudget']
               assert report['outputs']['thirdPersonGlb'] == 'spellblade.glb'
+              assert report['sizes']['thirdPersonGlbBytes'] <= report['sizes']['thirdPersonTargetBytes']
           print('SPELLBLADE_WORKER_REPORT_OK', report['visualStage'], report['sourceRevision'])
           PY
 

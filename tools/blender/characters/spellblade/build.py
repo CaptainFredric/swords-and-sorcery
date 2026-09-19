@@ -16,8 +16,9 @@ if str(ROOT) not in sys.path:
 from tools.blender.common.export import export_glb
 from tools.blender.common.render import configure_render, look_at, render_still
 from tools.blender.characters.spellblade.design import BODY_HEIGHT
+from tools.blender.characters.spellblade.model import build_materials, build_third_person_model
 from tools.blender.characters.spellblade.rig import build_armature, rigid_skin, validate_armature_names
-from tools.blender.characters.spellblade.validate import load_contract, validate_rig_scene
+from tools.blender.characters.spellblade.validate import load_contract, validate_production_model, validate_rig_scene
 
 
 _REVISION_RE = re.compile(r"^[0-9a-f]{40}$")
@@ -41,12 +42,19 @@ def _write_report(path: Path, value: dict) -> None:
     path.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
+def _ensure_world(scene: bpy.types.Scene, name: str) -> bpy.types.World:
+    if scene.world is None:
+        scene.world = bpy.data.worlds.new(name)
+    return scene.world
+
+
 def bootstrap(args: argparse.Namespace) -> None:
     _validate_revision(args.source_revision)
     contract = load_contract()
     args.out.mkdir(parents=True, exist_ok=True)
     bpy.ops.wm.read_factory_settings(use_empty=True)
     configure_render(bpy.context.scene, "preview")
+    _ensure_world(bpy.context.scene, "SpellbladeBootstrapWorld")
 
     blend_path = args.out / "spellblade-worker-bootstrap.blend"
     bpy.ops.wm.save_as_mainfile(filepath=str(blend_path))
@@ -77,10 +85,10 @@ def _proxy_material() -> bpy.types.Material:
     return material
 
 
-def _build_proxy(armature: bpy.types.Object) -> bpy.types.Object:
+def _build_validation_proxy(armature: bpy.types.Object) -> bpy.types.Object:
     bpy.ops.mesh.primitive_cube_add(location=(0.0, 0.0, BODY_HEIGHT / 2.0))
     proxy = bpy.context.object
-    proxy.name = "RigProxy"
+    proxy.name = "RigValidationProxy"
     proxy.scale = (0.36, 0.22, BODY_HEIGHT / 2.0)
     bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
     proxy.data.materials.append(_proxy_material())
@@ -88,70 +96,94 @@ def _build_proxy(armature: bpy.types.Object) -> bpy.types.Object:
     return proxy
 
 
-def _add_diagnostic_stage(scene: bpy.types.Scene) -> tuple[bpy.types.Object, bpy.types.Object]:
-    floor_material = bpy.data.materials.new("RigDiagnosticFloor")
-    floor_material.diffuse_color = (0.025, 0.03, 0.04, 1.0)
+def _add_review_stage(scene: bpy.types.Scene) -> dict[str, bpy.types.Object]:
+    world = _ensure_world(scene, "SpellbladeReviewWorld")
+    world.color = (0.012, 0.016, 0.024)
+
+    floor_material = bpy.data.materials.new("SpellbladeReviewFloor")
+    floor_material.diffuse_color = (0.022, 0.026, 0.032, 1.0)
     bpy.ops.mesh.primitive_plane_add(size=8.0, location=(0.0, 0.0, -0.002))
     floor = bpy.context.object
-    floor.name = "RigDiagnosticFloor"
+    floor.name = "SpellbladeReviewFloor"
     floor.data.materials.append(floor_material)
 
-    bpy.ops.object.light_add(type="AREA", location=(3.0, 4.0, 5.0))
+    bpy.ops.object.light_add(type="AREA", location=(3.3, 4.2, 5.1))
     key = bpy.context.object
-    key.name = "RigDiagnosticKey"
-    key.data.energy = 900
+    key.name = "SpellbladeReviewKey"
+    key.data.energy = 1050
     key.data.shape = "DISK"
-    key.data.size = 4.0
+    key.data.size = 4.5
     look_at(key, (0.0, 0.0, 1.05))
 
-    bpy.ops.object.light_add(type="AREA", location=(-3.0, -1.5, 2.8))
+    bpy.ops.object.light_add(type="AREA", location=(-3.2, 1.0, 3.0))
     fill = bpy.context.object
-    fill.name = "RigDiagnosticFill"
-    fill.data.energy = 450
-    fill.data.color = (0.25, 0.55, 1.0)
-    fill.data.size = 3.0
+    fill.name = "SpellbladeReviewFill"
+    fill.data.energy = 520
+    fill.data.color = (0.28, 0.52, 1.0)
+    fill.data.size = 3.5
     look_at(fill, (0.0, 0.0, 1.0))
 
-    bpy.ops.object.camera_add(location=(0.0, 4.8, 1.18))
-    front = bpy.context.object
-    front.name = "RigDiagnosticFrontCamera"
-    front.data.lens = 55
-    look_at(front, (0.0, 0.0, 1.02))
+    bpy.ops.object.light_add(type="AREA", location=(0.0, -3.5, 3.3))
+    rim = bpy.context.object
+    rim.name = "SpellbladeReviewRim"
+    rim.data.energy = 700
+    rim.data.color = (0.75, 0.18, 0.12)
+    rim.data.size = 3.0
+    look_at(rim, (0.0, 0.0, 1.2))
 
-    bpy.ops.object.camera_add(location=(4.8, 0.0, 1.18))
-    side = bpy.context.object
-    side.name = "RigDiagnosticSideCamera"
-    side.data.lens = 55
-    look_at(side, (0.0, 0.0, 1.02))
+    cameras: dict[str, bpy.types.Object] = {}
+    camera_specs = {
+        "front": (0.0, 5.0, 1.25),
+        "back": (0.0, -5.0, 1.25),
+        "side": (5.0, 0.0, 1.25),
+        "quarter": (3.65, 3.65, 1.35),
+    }
+    for label, location in camera_specs.items():
+        bpy.ops.object.camera_add(location=location)
+        camera = bpy.context.object
+        camera.name = f"SpellbladeReviewCamera.{label}"
+        camera.data.lens = 58
+        look_at(camera, (0.0, 0.0, 1.03))
+        cameras[label] = camera
+    return cameras
 
-    if scene.world is None:
-        scene.world = bpy.data.worlds.new("SpellbladeDiagnosticWorld")
-    scene.world.color = (0.012, 0.016, 0.024)
-    return front, side
 
-
-def build_rig_proxy(args: argparse.Namespace) -> None:
+def build_third_person(args: argparse.Namespace) -> None:
     _validate_revision(args.source_revision)
     contract = load_contract()
     args.out.mkdir(parents=True, exist_ok=True)
     bpy.ops.wm.read_factory_settings(use_empty=True)
-    configure_render(bpy.context.scene, args.mode)
+    scene = bpy.context.scene
+    configure_render(scene, args.mode)
+    _ensure_world(scene, "SpellbladeBuildWorld")
 
     armature = build_armature()
     validate_armature_names(armature)
-    proxy = _build_proxy(armature)
-    rig_report = validate_rig_scene(armature, proxy)
+
+    validation_proxy = _build_validation_proxy(armature)
+    rig_report = validate_rig_scene(armature, validation_proxy)
+    bpy.data.objects.remove(validation_proxy, do_unlink=True)
+
+    materials = build_materials()
+    model = build_third_person_model(armature, materials)
+    model_report = validate_production_model(armature, model, contract)
 
     glb_path = args.out / "spellblade.glb"
-    export_glb(glb_path, objects=(armature, proxy))
+    export_glb(glb_path, objects=(armature, *model.objects))
+    glb_bytes = glb_path.stat().st_size
+    if glb_bytes > int(contract["thirdPerson"]["targetBytes"]):
+        raise ValueError(
+            f"Spellblade GLB exceeds target byte budget: {glb_bytes} > {contract['thirdPerson']['targetBytes']}"
+        )
 
-    front_camera, side_camera = _add_diagnostic_stage(bpy.context.scene)
-    front_path = args.out / "spellblade-rig-front.png"
-    side_path = args.out / "spellblade-rig-side.png"
-    render_still(bpy.context.scene, front_camera, front_path)
-    render_still(bpy.context.scene, side_camera, side_path)
+    cameras = _add_review_stage(scene)
+    render_paths: dict[str, Path] = {}
+    for label, camera in cameras.items():
+        path = args.out / f"spellblade-neutral-{label}.png"
+        render_still(scene, camera, path)
+        render_paths[label] = path
 
-    blend_path = args.out / "spellblade-rig-proxy.blend"
+    blend_path = args.out / "spellblade-third-person.blend"
     bpy.ops.wm.save_as_mainfile(filepath=str(blend_path))
 
     report_path = args.out / "spellblade-build-report.json"
@@ -159,20 +191,29 @@ def build_rig_proxy(args: argparse.Namespace) -> None:
         "schemaVersion": 1,
         "workerReady": True,
         "mode": args.mode,
-        "visualStage": "rig-proxy",
+        "visualStage": "third-person-model",
         "sourceRevision": args.source_revision,
         "blenderVersion": bpy.app.version_string,
         "contractVersion": contract["version"],
         "rig": rig_report,
+        "model": model_report,
         "outputs": {
             "blend": blend_path.name,
             "thirdPersonGlb": glb_path.name,
-            "frontRender": front_path.name,
-            "sideRender": side_path.name,
+            "frontRender": render_paths["front"].name,
+            "backRender": render_paths["back"].name,
+            "sideRender": render_paths["side"].name,
+            "quarterRender": render_paths["quarter"].name,
         },
-        "sizes": {"thirdPersonGlbBytes": glb_path.stat().st_size},
+        "sizes": {
+            "thirdPersonGlbBytes": glb_bytes,
+            "thirdPersonTargetBytes": int(contract["thirdPerson"]["targetBytes"]),
+        },
     })
-    print(f"SPELLBLADE_RIG_PROXY_OK report={report_path} glb={glb_path}")
+    print(
+        f"SPELLBLADE_THIRD_PERSON_MODEL_OK report={report_path} glb={glb_path} "
+        f"triangles={model_report['triangles']} bytes={glb_bytes}"
+    )
 
 
 def main() -> None:
@@ -180,7 +221,7 @@ def main() -> None:
     if args.mode == "bootstrap":
         bootstrap(args)
         return
-    build_rig_proxy(args)
+    build_third_person(args)
 
 
 if __name__ == "__main__":

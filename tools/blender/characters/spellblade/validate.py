@@ -6,6 +6,7 @@ from pathlib import Path
 import bpy
 
 from .design import BLENDER_FORWARD, BLENDER_UP, BODY_HEIGHT, REQUIRED_BONES, RUNTIME_FORWARD, RUNTIME_UP
+from .model import ModelParts, REQUIRED_HERO_PIECES
 
 
 CONTRACT_PATH = Path(__file__).with_name("contract.json")
@@ -84,4 +85,62 @@ def validate_rig_scene(armature: bpy.types.Object, proxy: bpy.types.Object) -> d
         "proxyHeightMeters": round(height, 4),
         "authoringAxes": {"up": BLENDER_UP, "forward": BLENDER_FORWARD},
         "runtimeAxes": {"up": RUNTIME_UP, "forward": RUNTIME_FORWARD},
+    }
+
+
+def _triangle_count(obj: bpy.types.Object) -> int:
+    if obj.type != "MESH":
+        return 0
+    obj.data.calc_loop_triangles()
+    return len(obj.data.loop_triangles)
+
+
+def validate_production_model(armature: bpy.types.Object, model: ModelParts, contract: dict | None = None) -> dict:
+    contract = contract or load_contract()
+    names = {obj.name for obj in model.objects}
+    missing = [name for name in REQUIRED_HERO_PIECES if name not in names]
+    if missing:
+        raise ValueError(f"Spellblade production model missing hero pieces: {missing}")
+
+    material_names = {material.name for material in model.materials.values()}
+    missing_materials = sorted(_REQUIRED_MUTABLE_MATERIALS.difference(material_names))
+    if missing_materials:
+        raise ValueError(f"Spellblade production model missing mutable materials: {missing_materials}")
+
+    mesh_objects = [obj for obj in model.objects if obj.type == "MESH"]
+    if not mesh_objects:
+        raise ValueError("Spellblade production model must contain meshes")
+
+    for obj in mesh_objects:
+        scale = tuple(float(value) for value in obj.scale)
+        if any(value <= 0.0 for value in scale) or any(abs(value - 1.0) > 1e-6 for value in scale):
+            raise ValueError(f"{obj.name} must have applied positive unit scale, got {scale}")
+        has_skin = any(modifier.type == "ARMATURE" and modifier.object == armature for modifier in obj.modifiers)
+        has_socket_parent = obj.parent == armature and obj.parent_type == "BONE" and obj.parent_bone in _REQUIRED_SOCKETS
+        if not has_skin and not has_socket_parent:
+            raise ValueError(f"{obj.name} must be skinned or attached through a production socket")
+
+    triangles = sum(_triangle_count(obj) for obj in mesh_objects)
+    budget = int(contract["thirdPerson"]["maxTriangles"])
+    if triangles > budget:
+        raise ValueError(f"Spellblade model exceeds triangle budget: {triangles} > {budget}")
+
+    world_vertices = [obj.matrix_world @ vertex.co for obj in mesh_objects for vertex in obj.data.vertices]
+    min_z = min(vertex.z for vertex in world_vertices)
+    max_z = max(vertex.z for vertex in world_vertices)
+    height = max_z - min_z
+    if min_z < -0.02 or min_z > 0.03:
+        raise ValueError(f"Spellblade production model must meet ground plane, got min Z {min_z:.3f}")
+    if not (1.85 <= height <= 2.25):
+        raise ValueError(f"Spellblade production model height must be 1.85..2.25m, got {height:.3f}m")
+
+    return {
+        "heroPieces": list(REQUIRED_HERO_PIECES),
+        "meshCount": len(mesh_objects),
+        "materialCount": len(material_names),
+        "materials": sorted(material_names),
+        "triangles": triangles,
+        "triangleBudget": budget,
+        "heightMeters": round(height, 4),
+        "groundZ": round(min_z, 4),
     }
