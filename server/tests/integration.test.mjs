@@ -26,6 +26,10 @@ function waitFor(ws, predicate, timeoutMs = 3000) {
   });
 }
 
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 function send(ws, message) {
   ws.send(JSON.stringify(message));
 }
@@ -86,19 +90,22 @@ test('one websocket can start Practice immediately without a second browser', as
   const { port } = game.address();
 
   const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`);
-  t.after(() => ws.close());
   await waitOpen(ws);
+  try {
+    const joinedP = waitFor(ws, (m) => m.type === 'joined');
+    const playingP = waitFor(ws, (m) => m.type === 'snapshot' && m.roomState === 'PLAYING' && m.mode === 'PRACTICE');
+    send(ws, { type: 'startSolo', mode: 'PRACTICE', name: 'Aden' });
+    const joined = await joinedP;
+    const playing = await playingP;
 
-  const joinedP = waitFor(ws, (m) => m.type === 'joined');
-  const playingP = waitFor(ws, (m) => m.type === 'snapshot' && m.roomState === 'PLAYING' && m.mode === 'PRACTICE');
-  send(ws, { type: 'startSolo', mode: 'PRACTICE', name: 'Aden' });
-  const joined = await joinedP;
-  const playing = await playingP;
-
-  assert.equal(joined.mode, 'PRACTICE');
-  assert.equal(joined.worldId, 'shattered-keep');
-  assert.equal(playing.players.filter((p) => p.actorKind === 'human').length, 1);
-  assert.equal(playing.players.filter((p) => p.actorKind !== 'human').length, 0);
+    assert.equal(joined.mode, 'PRACTICE');
+    assert.equal(joined.worldId, 'shattered-keep');
+    assert.equal(playing.players.filter((p) => p.actorKind === 'human').length, 1);
+    assert.equal(playing.players.filter((p) => p.actorKind !== 'human').length, 0);
+  } finally {
+    ws.close();
+    await delay(30);
+  }
 });
 
 test('server closes a websocket that sends an oversized message', async (t) => {
