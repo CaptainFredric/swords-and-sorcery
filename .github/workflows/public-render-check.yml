@@ -4,8 +4,10 @@ on:
   push:
     branches:
       - deploy/verify-public-render
+      - test/public-arena-capture
     paths:
       - '.github/workflows/public-render-check.yml'
+      - 'scripts/capture-public-arena.mjs'
   workflow_dispatch:
 
 permissions:
@@ -92,7 +94,8 @@ jobs:
           });
           NODE
 
-      - name: Capture deployed game menu in Chrome
+      - name: Locate Chrome
+        id: chrome
         shell: bash
         run: |
           set -euo pipefail
@@ -101,7 +104,13 @@ jobs:
             echo "No Chrome/Chromium binary found on runner" >&2
             exit 1
           fi
-          "$CHROME" \
+          echo "path=$CHROME" >> "$GITHUB_OUTPUT"
+
+      - name: Capture deployed game menu in Chrome
+        shell: bash
+        run: |
+          set -euo pipefail
+          "${{ steps.chrome.outputs.path }}" \
             --headless=new \
             --no-sandbox \
             --disable-gpu \
@@ -112,12 +121,19 @@ jobs:
             "$PUBLIC_URL/"
           test -s public-game-menu.png
 
+      - name: Drive two clients into a live arena and capture it
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.path }}
+        run: node scripts/capture-public-arena.mjs
+
       - name: Upload browser evidence
         uses: actions/upload-artifact@v4
         with:
           name: public-render-browser-evidence
           path: |
             public-game-menu.png
+            public-game-arena.png
+            public-game-browser-report.json
             health.json
             game.html
           retention-days: 7
