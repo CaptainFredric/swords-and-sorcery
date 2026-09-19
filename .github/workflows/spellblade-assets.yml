@@ -11,7 +11,7 @@ on:
       mode:
         description: Blender asset worker mode
         required: true
-        default: bootstrap
+        default: preview
         type: choice
         options:
           - bootstrap
@@ -62,15 +62,15 @@ jobs:
           tar -xJf ".cache/${BLENDER_ARCHIVE}" --strip-components=1 -C .blender
           ./.blender/blender --version
 
-      - name: Run production asset worker bootstrap
+      - name: Build Spellblade asset evidence
         shell: bash
         env:
-          REQUESTED_MODE: ${{ github.event.inputs.mode || 'bootstrap' }}
+          REQUESTED_MODE: ${{ github.event.inputs.mode || 'preview' }}
           SOURCE_REVISION: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           set -euo pipefail
           MODE="${REQUESTED_MODE}"
-          if [[ "${{ github.event_name }}" == "pull_request" ]]; then MODE=bootstrap; fi
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then MODE=preview; fi
           ./.blender/blender \
             --background \
             --factory-startup \
@@ -80,8 +80,15 @@ jobs:
             --out artifacts/spellblade-assets \
             --source-revision "${SOURCE_REVISION}"
 
-      - name: Validate external GLB parser
-        run: python3 scripts/validate-spellblade-glb.py --self-test
+      - name: Validate external GLB parser and rig rules
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/validate-spellblade-glb.py --self-test
+          python3 scripts/validate-spellblade-glb.py --self-test-rig
+          if [[ -s artifacts/spellblade-assets/spellblade.glb ]]; then
+            python3 scripts/validate-spellblade-glb.py artifacts/spellblade-assets/spellblade.glb
+          fi
 
       - name: Validate worker report
         shell: bash
@@ -93,15 +100,20 @@ jobs:
           from pathlib import Path
           report = json.loads(Path('artifacts/spellblade-assets/spellblade-build-report.json').read_text())
           assert report['workerReady'] is True
-          assert report['visualStage'] == 'worker-bootstrap'
+          assert report['visualStage'] in {'worker-bootstrap', 'rig-proxy'}
           assert len(report['sourceRevision']) == 40
-          print('SPELLBLADE_WORKER_REPORT_OK', report['sourceRevision'])
+          if report['visualStage'] == 'rig-proxy':
+              assert report['rig']['runtimeAxes'] == {'up': '+Y', 'forward': '-Z'}
+              assert report['rig']['authoringAxes'] == {'up': '+Z', 'forward': '+Y'}
+              assert report['rig']['proxyHeightMeters'] >= 1.85
+              assert report['outputs']['thirdPersonGlb'] == 'spellblade.glb'
+          print('SPELLBLADE_WORKER_REPORT_OK', report['visualStage'], report['sourceRevision'])
           PY
 
       - name: Upload Spellblade worker evidence
         uses: actions/upload-artifact@v4
         with:
-          name: spellblade-asset-worker-bootstrap
+          name: spellblade-asset-worker-evidence
           path: artifacts/spellblade-assets/
           if-no-files-found: error
           retention-days: 7
