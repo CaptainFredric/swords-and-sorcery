@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { SHATTERED_KEEP } from '../../shared/src/map.mjs';
+import { KEEP_HORIZONTAL_SCALE, SHATTERED_KEEP } from '../../shared/src/map.mjs';
 import { buildKeepDecorPlan, KEEP_ROUTE_COLORS } from './worldDecor.mjs';
 import { SCENE_PRESENTATION } from './scenePresentation.mjs';
 
@@ -11,6 +11,10 @@ function box(parent, size, material, position, rotation = [0, 0, 0], shadows = t
   mesh.receiveShadow = shadows;
   parent.add(mesh);
   return mesh;
+}
+
+function h(value) {
+  return value * KEEP_HORIZONTAL_SCALE;
 }
 
 export class WorldRenderer {
@@ -91,12 +95,12 @@ export class WorldRenderer {
   }
 
   #addBattlements() {
-    for (let x = -6.5; x <= 6.5; x += 2.1) {
-      box(this.group, [1.15, 1.15, 0.75], this.materials.darkStone, [x, 3.65, 14.25]);
+    for (let x = h(-6.5); x <= h(6.5) + 0.001; x += h(2.1)) {
+      box(this.group, [1.15, 1.15, 0.75], this.materials.darkStone, [x, 3.65, h(14.25)]);
     }
-    for (let z = 11.65; z <= 14.1; z += 1.55) {
-      box(this.group, [0.72, 0.9, 0.82], this.materials.darkStone, [-6.65, 3.5, z]);
-      box(this.group, [0.72, 0.9, 0.82], this.materials.darkStone, [6.65, 3.5, z]);
+    for (let z = h(11.65); z <= h(14.1) + 0.001; z += h(1.55)) {
+      box(this.group, [0.72, 0.9, 0.82], this.materials.darkStone, [h(-6.65), 3.5, z]);
+      box(this.group, [0.72, 0.9, 0.82], this.materials.darkStone, [h(6.65), 3.5, z]);
     }
   }
 
@@ -112,9 +116,9 @@ export class WorldRenderer {
       );
     }
 
-    for (const z of [-3.7, 0, 3.7]) {
+    for (const z of [-3.7, 0, 3.7].map(h)) {
       const sigil = new THREE.Mesh(new THREE.TorusGeometry(0.34, 0.035, 4, 12), this.materials.violetGlow);
-      sigil.position.set(17.62, 1.55, z);
+      sigil.position.set(h(17.62), 1.55, z);
       sigil.rotation.y = Math.PI / 2;
       this.group.add(sigil);
     }
@@ -129,16 +133,16 @@ export class WorldRenderer {
       roughness: 0.22,
     });
     const crystal = new THREE.Mesh(new THREE.OctahedronGeometry(0.95, 0), crystalMaterial);
-    crystal.position.set(basePosition.x, 3.55, basePosition.z);
+    crystal.position.set(basePosition.x, 3.2, basePosition.z);
     crystal.rotation.z = 0.27;
     crystal.castShadow = true;
     this.group.add(crystal);
 
     const shardSpecs = [
-      [1.18, 2.92, 0.72, 0.42, 0.5, 0.3, 0.1],
-      [-0.95, 3.12, -0.92, 0.3, -0.3, 0.7, 0.2],
-      [0.5, 4.25, -0.88, 0.22, 0.8, -0.2, 0.4],
-      [-1.22, 3.72, 0.22, 0.2, -0.4, 0.25, -0.5],
+      [1.18, 2.72, 0.72, 0.42, 0.5, 0.3, 0.1],
+      [-0.95, 2.92, -0.92, 0.3, -0.3, 0.7, 0.2],
+      [0.5, 3.9, -0.88, 0.22, 0.8, -0.2, 0.4],
+      [-1.22, 3.42, 0.22, 0.2, -0.4, 0.25, -0.5],
     ];
     this.spireShards = shardSpecs.map(([x, y, z, scale, rx, ry, rz], index) => {
       const shard = new THREE.Mesh(new THREE.OctahedronGeometry(0.95, 0), crystalMaterial);
@@ -158,16 +162,16 @@ export class WorldRenderer {
       opacity: 0.26,
       side: THREE.DoubleSide,
     });
-    this.spireRing = new THREE.Mesh(new THREE.TorusGeometry(1.55, 0.025, 5, 32), ringMaterial);
-    this.spireRing.position.set(basePosition.x, 3.52, basePosition.z);
+    this.spireRing = new THREE.Mesh(new THREE.TorusGeometry(1.4, 0.025, 5, 32), ringMaterial);
+    this.spireRing.position.set(basePosition.x, 3.18, basePosition.z);
     this.spireRing.rotation.x = Math.PI / 2;
     this.group.add(this.spireRing);
 
     const light = new THREE.PointLight(0x40dfff, 14, 11, 2);
-    light.position.set(basePosition.x, 3.25, basePosition.z);
+    light.position.set(basePosition.x, 3.0, basePosition.z);
     this.group.add(light);
     this.crystal = crystal;
-    this.crystalBaseY = 3.55;
+    this.crystalBaseY = 3.2;
   }
 
   #addDecorPlan() {
@@ -209,11 +213,11 @@ export class WorldRenderer {
 
   #addTorches() {
     const torchLocations = [
-      [-8.62, 1.8, 4.2],
-      [-8.62, 1.8, -4.2],
-      [-16.9, 1.65, 1.8],
-      [-16.9, 1.65, -1.8],
-      [0, 1.55, -20.6],
+      [h(-8.62), 1.8, h(4.2)],
+      [h(-8.62), 1.8, h(-4.2)],
+      [h(-16.9), 1.65, h(1.8)],
+      [h(-16.9), 1.65, h(-1.8)],
+      [0, 1.55, h(-20.6)],
     ];
     const flameMaterial = new THREE.MeshBasicMaterial({ color: 0xffa534 });
     const flameGeometry = new THREE.OctahedronGeometry(0.14, 0);
@@ -230,7 +234,7 @@ export class WorldRenderer {
 
   #addBackdrop() {
     const abyss = new THREE.Mesh(
-      new THREE.CylinderGeometry(70, 85, 4, 48),
+      new THREE.CylinderGeometry(77, 94, 4, 48),
       new THREE.MeshBasicMaterial({ color: 0x0d0e11, side: THREE.BackSide }),
     );
     abyss.position.y = -11;
