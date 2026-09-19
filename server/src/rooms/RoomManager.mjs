@@ -1,3 +1,5 @@
+import { GAME_MODES } from '../../../shared/src/modes.mjs';
+import { WORLD_IDS } from '../../../shared/worlds/registry.mjs';
 import { Room } from '../game/Room.mjs';
 
 const LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
@@ -16,17 +18,17 @@ export class RoomManager {
   }
 
   createPrivateRoom(nowSec = 0) {
-    return this.#create(true, nowSec);
+    return this.#createRoom({ isPrivate: true, mode: GAME_MODES.FFA, worldId: WORLD_IDS.SHATTERED_KEEP }, nowSec);
   }
 
   createPublicRoom(nowSec = 0) {
-    return this.#create(false, nowSec);
+    return this.#createRoom({ isPrivate: false, mode: GAME_MODES.FFA, worldId: WORLD_IDS.SHATTERED_KEEP }, nowSec);
   }
 
-  #create(isPrivate, nowSec) {
+  #createRoom({ isPrivate, mode, worldId }, nowSec) {
     let code;
     do code = generateRoomCode(this.random); while (this.rooms.has(code));
-    const room = new Room(code, { isPrivate });
+    const room = new Room(code, { isPrivate, mode, worldId });
     room.createdAt = nowSec;
     this.rooms.set(code, room);
     return room;
@@ -34,7 +36,10 @@ export class RoomManager {
 
   quickPlay(nowSec = 0) {
     for (const room of this.rooms.values()) {
-      if (!room.isPrivate && ['WAITING', 'COUNTDOWN', 'PLAYING'].includes(room.state) && room.players.size < 8) return room;
+      if (!room.isPrivate
+        && room.mode === GAME_MODES.FFA
+        && ['WAITING', 'COUNTDOWN', 'PLAYING'].includes(room.state)
+        && room.players.size < 8) return room;
     }
     return this.createPublicRoom(nowSec);
   }
