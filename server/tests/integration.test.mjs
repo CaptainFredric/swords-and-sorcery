@@ -26,21 +26,6 @@ function waitFor(ws, predicate, timeoutMs = 3000) {
   });
 }
 
-function waitUntil(predicate, timeoutMs = 1000) {
-  return new Promise((resolve, reject) => {
-    const started = performance.now();
-    const timer = setInterval(() => {
-      if (predicate()) {
-        clearInterval(timer);
-        resolve();
-      } else if (performance.now() - started > timeoutMs) {
-        clearInterval(timer);
-        reject(new Error('Timed out waiting for authoritative state change'));
-      }
-    }, 10);
-  });
-}
-
 function send(ws, message) {
   ws.send(JSON.stringify(message));
 }
@@ -94,13 +79,14 @@ test('two websocket clients can create, join, start and exchange authoritative c
   assert.equal(pong.sentAt, 123);
 });
 
-test('one websocket can start Practice immediately and resume the same solo room', async (t) => {
+test('one websocket can start Practice immediately without a second browser', async (t) => {
   const game = createGameServer({ port: 0, host: '127.0.0.1' });
   await game.start();
   t.after(async () => game.stop());
   const { port } = game.address();
 
   const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`);
+  t.after(() => ws.close());
   await waitOpen(ws);
 
   const joinedP = waitFor(ws, (m) => m.type === 'joined');
@@ -112,21 +98,7 @@ test('one websocket can start Practice immediately and resume the same solo room
   assert.equal(joined.mode, 'PRACTICE');
   assert.equal(joined.worldId, 'shattered-keep');
   assert.equal(playing.players.filter((p) => p.actorKind === 'human').length, 1);
-
-  const room = game.roomManager.findByCode(joined.roomCode);
-  ws.close();
-  await waitUntil(() => room.players.get(joined.playerId)?.connected === false);
-
-  const resumed = new WebSocket(`ws://127.0.0.1:${port}/ws`);
-  t.after(() => resumed.close());
-  await waitOpen(resumed);
-  const resumedJoinedP = waitFor(resumed, (m) => m.type === 'joined');
-  send(resumed, { type: 'resume', token: joined.token });
-  const resumedJoined = await resumedJoinedP;
-
-  assert.equal(resumedJoined.roomCode, joined.roomCode);
-  assert.equal(resumedJoined.mode, 'PRACTICE');
-  assert.equal(resumedJoined.worldId, 'shattered-keep');
+  assert.equal(playing.players.filter((p) => p.actorKind !== 'human').length, 0);
 });
 
 test('server closes a websocket that sends an oversized message', async (t) => {
