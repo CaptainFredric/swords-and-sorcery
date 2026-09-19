@@ -1,0 +1,73 @@
+name: Headless Blender spike
+
+on:
+  push:
+    branches:
+      - spike/headless-blender-worker
+    paths:
+      - '.github/workflows/headless-blender-spike.yml'
+      - 'tools/blender-spike/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  blender-worker:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      BLENDER_VERSION: '4.5.14'
+      BLENDER_ARCHIVE: 'blender-4.5.14-linux-x64.tar.xz'
+      BLENDER_URL: 'https://download.blender.org/release/Blender4.5/blender-4.5.14-linux-x64.tar.xz'
+      BLENDER_SHA_URL: 'https://download.blender.org/release/Blender4.5/blender-4.5.14.sha256'
+    steps:
+      - name: Checkout spike
+        uses: actions/checkout@v4
+
+      - name: Cache Blender archive
+        id: blender-cache
+        uses: actions/cache@v4
+        with:
+          path: .cache/blender-4.5.14-linux-x64.tar.xz
+          key: blender-4.5.14-linux-x64
+
+      - name: Download verified Blender LTS
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .cache .blender
+          if [[ ! -s ".cache/${BLENDER_ARCHIVE}" ]]; then
+            curl --fail --location --retry 4 --retry-delay 3 \
+              "${BLENDER_URL}" \
+              --output ".cache/${BLENDER_ARCHIVE}"
+          fi
+          curl --fail --location --retry 4 --retry-delay 3 \
+            "${BLENDER_SHA_URL}" \
+            --output .cache/blender.sha256
+          grep " ${BLENDER_ARCHIVE}$" .cache/blender.sha256 | (cd .cache && sha256sum -c -)
+          tar -xJf ".cache/${BLENDER_ARCHIVE}" --strip-components=1 -C .blender
+          ./.blender/blender --version
+
+      - name: Build rigged Blender proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./.blender/blender \
+            --background \
+            --factory-startup \
+            --python tools/blender-spike/build_worker_proof.py
+
+      - name: Validate editable, rigged, animated outputs
+        run: python3 tools/blender-spike/validate_worker_proof.py
+
+      - name: List proof artifact
+        run: ls -lh artifacts/blender-spike
+
+      - name: Upload Blender proof
+        uses: actions/upload-artifact@v4
+        with:
+          name: headless-blender-worker-proof
+          path: artifacts/blender-spike/
+          if-no-files-found: error
+          retention-days: 7
