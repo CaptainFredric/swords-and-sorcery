@@ -3,6 +3,7 @@ import { WORLD_IDS } from '../../../shared/worlds/registry.mjs';
 import { Room } from '../game/Room.mjs';
 
 const LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+const SOLO_MODES = new Set([GAME_MODES.BOT_DUEL, GAME_MODES.PRACTICE]);
 
 export function generateRoomCode(random = Math.random) {
   let code = '';
@@ -23,6 +24,11 @@ export class RoomManager {
 
   createPublicRoom(nowSec = 0) {
     return this.#createRoom({ isPrivate: false, mode: GAME_MODES.FFA, worldId: WORLD_IDS.SHATTERED_KEEP }, nowSec);
+  }
+
+  createSoloRoom(mode, nowSec = 0) {
+    if (!SOLO_MODES.has(mode)) throw new Error('Unknown solo mode');
+    return this.#createRoom({ isPrivate: true, mode, worldId: WORLD_IDS.SHATTERED_KEEP }, nowSec);
   }
 
   #createRoom({ isPrivate, mode, worldId }, nowSec) {
