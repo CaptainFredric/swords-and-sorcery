@@ -79,4 +79,6 @@ test('pull requests capture front and rotated Spellblade browser evidence', asyn
   assert.match(workflow, /capture-public-arena\.mjs/);
   assert.match(capture, /trustedDrag/);
   assert.match(capture, /public-game-menu-back\.png/);
+  assert.match(capture, /waitForMenuScene/);
+  assert.match(capture, /menuCanvasCount\s*===\s*1/);
 });
