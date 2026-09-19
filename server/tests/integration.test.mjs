@@ -91,6 +91,47 @@ test('websocket clients support multiplayer combat and one-tab Practice on the a
   assert.equal(pong.sentAt, 123);
 });
 
+test('Bot Duel websocket readiness gates countdown and focus loss rolls it back before play', async (t) => {
+  const game = createGameServer({ port: 0, host: '127.0.0.1' });
+  await game.start();
+  t.after(async () => game.stop());
+  const { port } = game.address();
+
+  const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`);
+  t.after(() => ws.close());
+  await waitOpen(ws);
+
+  const joinedP = waitFor(ws, (m) => m.type === 'joined');
+  send(ws, { type: 'startSolo', mode: 'BOT_DUEL', name: 'Ready Tester' });
+  const joined = await joinedP;
+  assert.equal(joined.mode, 'BOT_DUEL');
+  assert.equal(joined.roomState, 'WAITING');
+
+  const room = game.roomManager.findByCode(joined.roomCode);
+  assert.equal(room.state, 'WAITING');
+  assert.equal(room.players.get(joined.playerId).arenaReady, false);
+
+  const countdownP = waitFor(ws, (m) => m.type === 'lobby' && m.roomState === 'COUNTDOWN');
+  send(ws, { type: 'arenaReady', ready: true });
+  await countdownP;
+  assert.equal(room.players.get(joined.playerId).arenaReady, true);
+
+  const waitingP = waitFor(ws, (m) => m.type === 'lobby' && m.roomState === 'WAITING');
+  send(ws, { type: 'arenaReady', ready: false });
+  await waitingP;
+  assert.equal(room.countdownEndsAt, null);
+
+  const secondCountdownP = waitFor(ws, (m) => m.type === 'lobby' && m.roomState === 'COUNTDOWN');
+  send(ws, { type: 'arenaReady', ready: true });
+  await secondCountdownP;
+  room.countdownEndsAt = game.now() - 0.001;
+
+  const playingP = waitFor(ws, (m) => m.type === 'snapshot' && m.roomState === 'PLAYING' && m.mode === 'BOT_DUEL');
+  const playing = await playingP;
+  assert.equal(playing.players.filter((p) => p.actorKind === 'bot').length, 1);
+  assert.equal(playing.players.find((p) => p.id === joined.playerId)?.alive, true);
+});
+
 test('server closes a websocket that sends an oversized message', async (t) => {
   const game = createGameServer({ port: 0, host: '127.0.0.1' });
   await game.start();
