@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { sampleTrailSegment, transientScale } from './effectTrail.mjs';
+import { impactWorldPresentation, sampleTrailSegment, transientScale } from './effectTrail.mjs';
 
 const MAX_TRANSIENTS = 180;
 
@@ -221,20 +221,34 @@ export class Effects {
   }
 
   impact(point) {
-    const flash = new THREE.Mesh(this.impactFlashGeometry, this.#basicMaterial(0xffd18a));
-    flash.position.set(point.x, point.y, point.z);
-    this.#addTransient(flash, { life: 0.13, expand: 5.4, shrink: true });
+    const worldPoint = new THREE.Vector3(point.x, point.y, point.z);
+    const cameraPosition = new THREE.Vector3();
+    this.camera.getWorldPosition(cameraPosition);
+    const presentation = impactWorldPresentation(cameraPosition.distanceTo(worldPoint));
 
-    const shell = new THREE.Mesh(this.impactShellGeometry, this.impactShellMaterial);
-    shell.position.set(point.x, point.y, point.z);
-    this.#addTransient(shell, { life: 0.22, expand: 4.6, spin: new THREE.Vector3(2.5, 3.5, 1.8) });
+    if (presentation.cameraFlash) this.#cameraFlash(0xff8a2b, 0.1, 0.78);
 
-    for (let axis = 0; axis < 2; axis += 1) {
-      const ring = new THREE.Mesh(this.impactRingGeometry, this.impactRingMaterial);
-      ring.position.set(point.x, point.y, point.z);
-      ring.rotation.x = axis === 0 ? Math.PI / 2 : 0;
-      ring.rotation.y = axis === 1 ? Math.PI / 2 : 0;
-      this.#addTransient(ring, { life: 0.2, expand: 6.1 });
+    if (presentation.showWorldBurst) {
+      const flash = new THREE.Mesh(this.impactFlashGeometry, this.#basicMaterial(0xffd18a));
+      flash.position.copy(worldPoint);
+      flash.scale.setScalar(presentation.worldScale);
+      this.#addTransient(flash, { life: 0.13, expand: 5.4, shrink: true });
+
+      const shell = new THREE.Mesh(this.impactShellGeometry, this.impactShellMaterial);
+      shell.position.copy(worldPoint);
+      shell.scale.setScalar(presentation.worldScale);
+      this.#addTransient(shell, { life: 0.22, expand: 4.6, spin: new THREE.Vector3(2.5, 3.5, 1.8) });
+
+      if (presentation.showRings) {
+        for (let axis = 0; axis < 2; axis += 1) {
+          const ring = new THREE.Mesh(this.impactRingGeometry, this.impactRingMaterial);
+          ring.position.copy(worldPoint);
+          ring.scale.setScalar(presentation.worldScale);
+          ring.rotation.x = axis === 0 ? Math.PI / 2 : 0;
+          ring.rotation.y = axis === 1 ? Math.PI / 2 : 0;
+          this.#addTransient(ring, { life: 0.2, expand: 6.1 });
+        }
+      }
     }
 
     for (let i = 0; i < 18; i += 1) this.#ember(point);
