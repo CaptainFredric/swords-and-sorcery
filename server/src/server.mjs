@@ -96,6 +96,7 @@ function serializeSnapshot(room, nowSec) {
       actorKind: p.actorKind,
       practiceMode: p.practiceMode ?? null,
       connected: p.connected,
+      arenaReady: Boolean(p.arenaReady),
       position: p.position,
       velocity: p.velocity,
       yaw: p.yaw,
