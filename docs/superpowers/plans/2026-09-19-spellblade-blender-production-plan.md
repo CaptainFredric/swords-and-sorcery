@@ -8,7 +8,7 @@
 
 **Tech Stack:** Blender 4.5 LTS + Python, glTF 2.0/GLB, Three.js 0.169.0 (`GLTFLoader`, `SkeletonUtils`, `AnimationMixer`), Node 22 test runner, GitHub Actions, Chrome/CDP visual verification.
 
-**Spec:** `docs/superpowers/specs/2026-09-19-spellblade-blender-production-pipeline.md`
+**Spec:** `docs/superpowers/specs/2026-09-19-spellblade-blender-production-pipeline.md` (approved)
 
 ## Global Constraints
 
