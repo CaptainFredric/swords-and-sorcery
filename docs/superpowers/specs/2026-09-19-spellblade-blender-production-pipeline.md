@@ -2,6 +2,8 @@
 
 **Status:** Approved design. Implementation plan: `docs/superpowers/plans/2026-09-19-spellblade-blender-production-plan.md`.
 
+The production design has completed its implementation-planning pass. Runtime/modeling implementation starts after explicit approval of that written plan.
+
 ## Purpose
 
 Replace the interim runtime-constructed Spellblade with a real Blender-authored, rigged, animated character asset while preserving the existing authoritative gameplay, networking, interpolation, input, combat timings, and browser-first deployment model.
