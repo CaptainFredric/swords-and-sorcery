@@ -1,6 +1,6 @@
 # Spellblade Blender Production Pipeline
 
-**Status:** Design approved in chat; written specification for review before implementation planning.
+**Status:** Design approved in chat; written specification approved. Implementation plan: `docs/superpowers/plans/2026-09-19-spellblade-blender-production-plan.md`.
 
 ## Purpose
 
@@ -27,7 +27,7 @@ PR #44 already contains useful visual groundwork: concept proportions and palett
 5. Keep movement/root position server-authoritative; character animations never provide gameplay root motion.
 6. Load and clone the GLB assets safely in Three.js, including independent skeletons and mutable per-player emissive materials.
 7. Retain the current procedural Spellblade as a temporary runtime fallback during migration.
-8. Validate required bones, sockets, clips, materials, scale/orientation, file size, and basic render output automatically.
+8. Validate required bones, sockets, clips, materials, file size, and basic render output automatically.
 9. Generate fast preview renders during modeling and higher-quality review renders before acceptance.
 10. Make the asset build executable by GitHub Actions now and by a future Astra/MCP Blender bridge later without creating two separate modeling systems.
 
@@ -61,7 +61,7 @@ The build deterministically creates:
 - a third-person `.glb`;
 - a first-person `.glb`;
 - review PNGs;
-- a machine-readable validation/provenance report.
+- a machine-readable validation report.
 
 The `.blend` is generated and retained as a workflow artifact for inspection/debugging. It is **not** the canonical source during Stage 1, preventing silent divergence between a hand-edited `.blend` and the build scripts.
 
@@ -112,7 +112,6 @@ Avoid duplicating the runtime contract independently in Python and JavaScript. A
 
 ```json
 {
-  "revision": "<source-commit-or-content-id>",
   "thirdPerson": "/client/assets/characters/spellblade/spellblade.glb",
   "firstPerson": "/client/assets/characters/spellblade/spellblade-fp.glb",
   "clips": ["Idle", "Run", "Air", "Guard", "Slash_1", "Slash_2", "Slash_3", "Cast", "Dash", "Stagger", "Death"],
@@ -123,28 +122,7 @@ Avoid duplicating the runtime contract independently in Python and JavaScript. A
 
 The exact schema is implementation-plan work, but required clip/socket/material names should come from one neutral contract consumed by validators and runtime tests rather than duplicated string lists.
 
-The revision/provenance identifier must let the runtime and public verifier distinguish a freshly promoted asset from a browser-cached older GLB. A simple fixed URL may be retained if the loader appends the manifest revision as a cache-busting query parameter; content-hashed filenames are also acceptable if they remain manageable.
-
 Modeling-only dimensions may stay in Blender Python because JavaScript should not need to know pauldron bevel widths or helmet cheek-plate vertices.
-
-## Coordinate, scale, and origin contract
-
-The game already defines yaw-zero forward as world `-Z`. The production asset must make that explicit instead of relying on an accidental Blender/export orientation.
-
-Runtime contract after glTF import into Three.js:
-
-- `+Y` is up;
-- yaw `0` faces `-Z`;
-- `+X` is the character's right;
-- the GLB root origin is centered on the ground between the feet;
-- one Blender meter corresponds to one game world unit after export/import;
-- the normal root transform at runtime is identity scale with no negative scale or hidden correction hierarchy;
-- nominal armored visual height remains approximately the current 2.04-game-unit design target, with small crest/ornament overrun allowed when it improves the concept silhouette;
-- the current sword study remains a proportion reference, including roughly 1.30 units of blade length, unless visual review justifies a measured adjustment.
-
-The Blender builder may use Blender-native Z-up internally, but the exported GLB must satisfy the runtime contract after the official glTF coordinate conversion. Any unavoidable one-time axis correction belongs in one asset-loader/manifest location and must be tested; it must not be repeated independently in menu, remote-player, and first-person code.
-
-All action clips preserve root translation for gameplay purposes. Pelvis/chest/limb bones may animate normally, but animation must not walk the outer world transform away from the authoritative server position.
 
 ## Character modeling strategy
 
@@ -308,14 +286,11 @@ A small cached asset store should:
 - keep one loaded source scene/animation collection per asset;
 - create independent skinned instances using `SkeletonUtils.clone`;
 - clone only runtime-mutable materials per character instance;
-- expose required named clips/sockets/materials through validated handles rather than freeform tree searches scattered across the game;
-- expose which asset revision/source is currently active so automated browser evidence can prove it is rendering the production GLB rather than a fallback.
+- expose required named clips/sockets/materials through validated handles rather than freeform tree searches scattered across the game.
 
 ### Stable wrapper objects
 
 Remote players and menu preview should receive a stable outer `THREE.Group`. The group can initially contain the procedural fallback. When the GLB is ready, its visual child is replaced without changing the network/interpolation object identity.
-
-The replacement must immediately initialize the new animation controller to the fighter's current authoritative state/server-time phase; it must not visibly flash a T-pose or restart a combo merely because the asset finished loading.
 
 This avoids making asynchronous asset loading infect the room/snapshot architecture.
 
@@ -324,20 +299,6 @@ This avoids making asynchronous asset loading infect the room/snapshot architect
 Animation-selection logic should be separated from asset loading. A per-instance controller owns an `AnimationMixer`, clip actions, current visual state, and state transition/crossfade rules.
 
 It consumes the same resolved gameplay state/server timing already used by the extracted pose logic; it does not own gameplay rules.
-
-### Lifecycle and disposal
-
-Remote-player churn must not leak GPU/animation resources.
-
-When an instance is removed:
-
-- stop/uncache its mixer/actions;
-- dispose only per-instance cloned mutable materials or instance-owned resources;
-- do not dispose shared source geometry/base materials while other clones still use them;
-- remove runtime VFX attached to sockets;
-- clear controller references.
-
-The menu preview and first-person view need equivalent deterministic disposal when their owning scene/runtime is torn down.
 
 ### Menu
 
@@ -412,156 +373,162 @@ The canonical invocation should remain ordinary Blender CLI, conceptually:
 blender --background --factory-startup --python tools/blender/characters/spellblade/build.py -- --mode review
 ```
 
-A future Astra/MCP bridge should call these same scripts. It should not require us to maintain a second asset implementation.
+A future Astra/MCP bridge should call this project-owned entry point (or narrowly factored functions behind it) rather than requiring a new asset definition.
 
-## Validation
+## Coordinate, unit, orientation, and transform contract
 
-Validation occurs at multiple levels.
+This contract is mandatory because Blender and Three.js can both use right-handed coordinates while still disagreeing at export time about which local axis should face forward.
 
-### Blender-scene validation
+### Runtime convention
 
-Before export, fail if:
+- One game world unit is one meter.
+- Character origin is at ground level, centered horizontally between the feet in the neutral stance.
+- `+Y` is world up in the runtime.
+- At runtime yaw `0`, gameplay forward is `(0, 0, -1)`; the exported character must therefore visually face `-Z` when its outer Three.js group has identity rotation.
+- The third-person Spellblade neutral head/visor should be approximately `2.0m` above the ground, matching the existing gameplay silhouette rather than redefining collision height.
+- Character and armature object transforms must be applied/normalized before export; do not use negative object scale for mirroring in the exported hierarchy.
+- `root` bone and character visual origin must remain stationary in X/Z across gameplay clips. No animation clip may provide gameplay root motion.
 
-- required bones/sockets are missing or duplicated;
-- required animation actions are missing;
-- mesh bounds are wildly outside expected character scale;
-- exported orientation/origin violates the coordinate contract;
-- unassigned materials exist;
-- nonzero unintended root motion exists in action clips;
-- negative/unapplied transforms would produce mirrored or unexpectedly scaled output;
-- hidden/debug/camera-only geometry would be exported unintentionally.
+### Validator requirements
 
-### GLB structural validation
+The Blender-side/export validator should fail if:
 
-Parse the binary GLB outside Blender and fail if:
+- the production armature/root object has non-unit or negative scale;
+- required bones or sockets are missing;
+- the exported neutral bounds are wildly outside expected human scale;
+- a gameplay clip animates root translation in X/Z;
+- the front review camera sees the character's back because export orientation has inverted;
+- sword or sorcery sockets resolve to missing/degenerate transforms.
 
-- JSON chunk is malformed;
-- no skin exists for the third-person model;
-- required joint/socket node names are absent;
-- required animation names are absent;
-- required material names are absent;
-- triangle/file-size budgets exceed their hard review ceilings;
-- runtime asset file is empty/truncated;
-- provenance/revision data does not match the model-source build being reviewed.
+Browser review remains the final authority for visually confirming facing/orientation after Three.js loading.
 
-### Runtime source tests
+## Asset identity, caching, and provenance
 
-Node tests should verify:
+A correct binary that the browser never refreshes is still a broken deployment.
 
-- correct asset URLs and manifest contract;
-- revision/cache-busting behavior;
-- `.glb` MIME serving;
-- matching Three.js addon version/import path;
-- loader caching rather than fetching one GLB per remote player;
-- instance-local mutable emissive materials;
-- instance disposal does not dispose shared source geometry;
-- fallback path remains available until intentionally removed.
+The promoted runtime manifest must include a build/source revision derived from the reviewed asset source commit, for example:
 
-### Browser verification
+```json
+{
+  "sourceRevision": "<git-sha>",
+  "thirdPerson": {
+    "url": "/client/assets/characters/spellblade/spellblade.glb?v=<git-sha>"
+  }
+}
+```
 
-Automated Chrome review must capture at minimum:
+Exact schema is plan-level work. The important rules are:
 
-- menu front view;
-- menu rotated back view;
-- Practice remote/dummy at combat distance;
-- Bot Duel active first-person view;
-- zero unexpected browser and HTTP errors;
-- a report field proving the production Spellblade GLB revision is active in the relevant captures, not merely the procedural fallback.
+- promoted GLB URLs are revisioned/cache-busted;
+- review artifacts record the source commit that produced them;
+- generated `.blend`, `.glb`, render report and screenshots identify the same source revision;
+- public/browser verification can report which revision actually loaded;
+- deployment fingerprinting must not claim a new character is live merely because JavaScript source changed while an old GLB remained cached.
 
-Where reliable, action-specific screenshots should include Guard and one Slash/Cast pose. Do not make visual CI flaky merely to capture a millisecond-perfect frame; structural action validation and deterministic Blender review renders cover the exact clip poses.
+## Runtime lifecycle and failure semantics
 
-Public/deployed verification should also confirm the promoted manifest/GLB is reachable with the expected revision and `model/gltf-binary` MIME type, so a green screenshot cannot be produced from a stale cached asset by accident.
+Each loaded player instance owns mutable runtime resources such as its animation mixer/actions and cloned emissive materials. Removing a player or disposing a runtime must stop/uncache those actions and dispose instance-owned mutable materials without disposing cached shared geometry/materials still used by other characters.
 
-## Visual acceptance criteria
+The loader should deduplicate concurrent requests for the same source asset. A failed load should not create an unhandled rejection storm; the fallback remains active and the error is surfaced once for browser diagnostics.
 
-Before replacing the procedural character as the normal production path:
+If a player disappears before an asynchronous GLB instance finishes cloning/loading, that late result must be disposed/ignored rather than reattaching a ghost fighter.
 
-1. Front, side, back, and 3/4 Blender review renders visibly belong to the supplied concept's design family.
-2. Helmet/visor, layered pauldrons, tapered torso, red cloth, heavy boots, sword, and sorcery hand are recognizable without labels.
-3. The fighter reads as modeled faceted armor rather than stacked rectangular primitives.
-4. Back view is intentionally designed, not an unfinished reverse side of the front model.
-5. Idle, Guard, Slash, Cast, and Dash are distinguishable from silhouette/action renders.
-6. The sword has a readable blade/guard/pommel silhouette in third- and first-person views.
-7. First-person arms match the same character without blocking the crosshair or excessive central screen area.
-8. The remote character remains readable at ordinary arena combat distance.
-9. No obvious skin-weight collapse, rubber armor, clipping catastrophe, detached sword, or exploding tabard appears in the required clips.
-10. Browser evidence explicitly confirms the production GLB is active rather than fallback.
-11. Browser evidence is reviewed visually; passing structural tests alone does not constitute character acceptance.
+## Testing and validation
 
-The concept image is the primary art-direction reference. Feasibility simplifications are allowed where they preserve silhouette and combat readability; adding detail that does not improve either is not required.
+### Pure/source tests
 
-## Promotion/release flow
+Use Node tests for:
 
-1. Edit repository-owned Blender source scripts.
-2. Push model-source change to the character branch.
-3. GitHub Action builds preview/review artifacts.
-4. Inspect Blender renders and validation report.
-5. Iterate until the model passes visual review.
-6. Promote the reviewed third-person and first-person GLBs into `client/assets/characters/spellblade/` together with a manifest revision tied to their model-source build.
-7. Run Node/runtime/browser verification against those exact promoted binaries.
-8. Only then make the GLB path the normal character path on the branch.
-9. Keep procedural fallback until deployed verification succeeds.
-10. Merge only after source diff, generated asset provenance, full CI, and browser evidence are reviewed.
+- runtime manifest parsing and required contract names;
+- revisioned asset URL construction;
+- state -> clip selection/timing calculations where they can remain Three-free;
+- import-map/addon-version alignment where source assertions are the practical option;
+- `.glb` MIME mapping;
+- fallback availability and disposal/lifecycle source contracts.
 
-Generated binaries must correspond to a known model-source commit; record source commit/hash information in the generated manifest/report so stale artifacts cannot be promoted accidentally.
+### Blender/GLB validation
 
-## PR #44 migration strategy
+The asset worker validates:
 
-PR #44 stays open and becomes the integration branch for this production asset work rather than merging the procedural model first.
+- required bones/sockets;
+- required clip names;
+- material names/roles;
+- skins/animation presence;
+- no gameplay root motion;
+- normalized transforms/scale;
+- bounding dimensions/orientation sanity;
+- triangle/primitive count budgets;
+- file-size budgets;
+- non-empty review images;
+- production source revision/provenance.
 
-Salvage from #44:
+A small Python validator may inspect the GLB JSON chunk outside Blender as an independent export check.
 
-- design/proportion knowledge;
-- palette and sword studies;
-- extracted state/pose timing logic;
-- menu framing/turntable behavior;
-- first-person framing lessons;
-- visual-review workflow and browser capture improvements;
-- source-level tests that remain relevant to state/readability contracts.
+### Browser integration evidence
 
-Replace or retire within #44 before merge:
+The current Chrome capture must be extended so the report records enough data to prove production assets are active, for example:
 
-- the procedural `SpellbladeModel` as the normal third-person renderer;
-- procedural first-person arm construction as the normal renderer;
-- source tests whose only purpose is enforcing interim procedural geometry implementation details.
+- menu character source: `glb` vs `fallback`;
+- active source revision;
+- remote fighter source/clip state;
+- first-person source/clip state;
+- browser/HTTP errors.
 
-The final PR diff should tell a coherent story: a real asset pipeline plus a production character, not two competing character implementations permanently retained.
+The exact debug exposure should be minimally scoped (e.g. non-sensitive `userData` or a dedicated runtime status snapshot), but acceptance may **not** infer success solely from “a character was visible.” The fallback is intentionally visible during failures.
 
-## Failure behavior
+Required screenshots remain:
 
-- Blender build failure: no asset promotion; existing runtime branch remains usable.
-- GLB validation failure: fail CI before browser tests.
-- Browser asset load failure: record browser/HTTP error and use procedural fallback for playability; CI remains failed because the primary production asset path is broken.
-- Missing animation clip at runtime: treat as validation/programming error, not silently substitute a random clip; fallback to a safe pose only to avoid a crash.
-- Aesthetic shortfall: iterate the Blender model even when CI is green. Visual quality is a product requirement, not optional polish.
+- menu front;
+- menu rotated back/side;
+- Practice/Bot Duel remote fighter at combat distance;
+- first-person idle/combat view.
 
-## Explicit “duh check” checklist
+Add action-specific evidence where automation can drive it reliably.
 
-Before spending substantial effort in this phase, continually verify:
+## Visual acceptance
 
-- Are we using Blender for mesh/rig/animation work rather than rebuilding those tools in Three.js?
-- Are we keeping server collision/gameplay separate from visible art geometry?
-- Are we avoiding duplicated source-of-truth between Python, `.blend`, GLB, and JS?
-- Are coordinate system, origin, scale, and facing direction explicit rather than assumed?
-- Are async asset loads hidden behind stable runtime wrappers rather than spreading promises through gameplay code?
-- Are per-player mutable materials actually per-player?
-- Are removed player/menu instances releasing their own animation/material resources without destroying shared assets?
-- Are authoritative attack timings still authoritative after animation blending?
-- Are we producing both third-person and first-person assets instead of forcing one camera model to serve both?
-- Are authoring-object counts being collapsed into reasonable runtime draw calls?
-- Are generated binaries traceable to their source commit and cache-busted by revision?
-- Does browser evidence prove the GLB is active rather than merely showing a fallback?
-- Are we reviewing rendered/in-game evidence rather than congratulating ourselves for successful export?
-- Is there an existing specialist tool or format that solves the next problem better before we write custom infrastructure?
+The production GLB pass is acceptable only if fresh review evidence shows:
 
-## Future extensions deliberately deferred
+1. Front, side and back silhouettes visibly belong to the supplied concept family.
+2. Helmet reads as enclosed faceted armor with cyan visor and jaw structure, not a decorated box.
+3. Pauldrons are layered and broad enough to define the upper silhouette.
+4. Torso visibly tapers from chest toward waist.
+5. Boots/greaves have enough mass to ground the lower silhouette.
+6. Crimson cloth breaks the metal mass from front and back.
+7. Sword silhouette reads clearly at menu and combat distance.
+8. Sorcery hand has an intentional armored receiver/socket and runtime cyan VFX reads from it.
+9. Guard/Slash/Cast/Dash poses are recognizable without relying on HUD labels.
+10. First-person sword/gauntlets belong to the same character while preserving the central play area.
+11. No browser errors, HTTP asset failures, obvious bind-pose flashes, or visible animation snapping under ordinary transitions.
+12. Browser evidence explicitly reports the reviewed production GLB revision as active rather than fallback.
 
-Once this pipeline proves itself with the Spellblade, later independent projects may use the same Blender worker for:
+## Migration sequence
 
-- modular Castleward/Shattered Keep visible environment art while retaining simple server collision;
-- additional character classes sharing a compatible base skeleton where useful;
-- weapon variants;
-- baked texture/normal workflows if geometry/material-only art direction stops being sufficient;
-- an Astra MCP bridge for interactive Blender editing and inspection.
+1. Establish production worker and validators from the proven spike.
+2. Build neutral skeleton and concept-faithful third-person model.
+3. Add named clips and review animation silhouettes.
+4. Build the separate first-person asset.
+5. Add correct static MIME and matching Three.js addon imports.
+6. Implement asset store, skeleton cloning, material isolation and animator.
+7. Upgrade MenuScene to production GLB while retaining fallback.
+8. Upgrade RemotePlayers to production GLB + server-time animation selection while retaining stable outer transform and fallback.
+9. Upgrade WeaponView to first-person GLB while preserving public action methods.
+10. Extend Chrome report to prove GLB source/revision/animation state.
+11. Produce review-quality Blender and browser evidence.
+12. Promote reviewed GLBs into branch/repository with matching source revision.
+13. Run full repository CI + Chrome review.
+14. Merge only after user-visible character review.
+15. Verify deployed public revision and live Chrome evidence.
 
-Those are not part of this implementation unless a dependency becomes unavoidable.
+## Explicit deferred work
+
+After this project, separate approved work may cover:
+
+- removal of the fallback once proven unnecessary;
+- richer character shaders/textures;
+- improved general spell VFX;
+- Blender-built Castleward modular environment art while preserving simple gameplay collision geometry;
+- an Astra/MCP bridge and deliberate Stage-2 source-of-truth transition;
+- additional playable classes/skins.
+
+None of those should expand this character-production implementation unless required to make the approved base Spellblade work correctly.
