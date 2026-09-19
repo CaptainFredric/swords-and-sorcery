@@ -25,6 +25,11 @@ jobs:
       - name: Checkout spike
         uses: actions/checkout@v4
 
+      - name: Install headless render runtime
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes libegl1
+
       - name: Cache Blender archive
         id: blender-cache
         uses: actions/cache@v4
