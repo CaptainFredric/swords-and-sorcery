@@ -22,11 +22,8 @@ function cylinder(parent, radius, height, sides, material, position, shadows = t
 }
 
 function disposeMaterial(material) {
-  if (Array.isArray(material)) {
-    for (const item of material) item?.dispose?.();
-  } else {
-    material?.dispose?.();
-  }
+  if (Array.isArray(material)) for (const item of material) item?.dispose?.();
+  else material?.dispose?.();
 }
 
 export class CastlewardRenderer {
@@ -36,8 +33,6 @@ export class CastlewardRenderer {
     this.group.name = 'Castleward';
     this.decor = buildCastlewardDecorPlan(1337);
     this.flames = [];
-    this.previousBackground = scene.background;
-    this.previousFog = scene.fog;
     scene.background = new THREE.Color(0x9fb8bd);
     scene.fog = new THREE.FogExp2(0xb2beb2, 0.0085);
     scene.add(this.group);
@@ -47,7 +42,6 @@ export class CastlewardRenderer {
   #build() {
     this.materials = {
       grass: new THREE.MeshStandardMaterial({ color: 0x5f783f, roughness: 1 }),
-      grassDark: new THREE.MeshStandardMaterial({ color: 0x465f34, roughness: 1 }),
       earth: new THREE.MeshStandardMaterial({ color: 0x786048, roughness: 1 }),
       limestone: new THREE.MeshStandardMaterial({ color: 0xa39b87, roughness: 0.94 }),
       limestoneTop: new THREE.MeshStandardMaterial({ color: 0xb6ad95, roughness: 0.91 }),
@@ -114,22 +108,18 @@ export class CastlewardRenderer {
       const rise = ramp.endY - ramp.startY;
       const center = [(ramp.minX + ramp.maxX) / 2, (ramp.startY + ramp.endY) / 2 - 0.12, (ramp.minZ + ramp.maxZ) / 2];
       if (ramp.axis === 'z') {
-        const hyp = Math.hypot(zRun, rise);
-        box(this.group, [xRun, 0.28, hyp], this.materials.earth, center, [-Math.atan2(rise, zRun), 0, 0]);
+        box(this.group, [xRun, 0.28, Math.hypot(zRun, rise)], this.materials.earth, center, [-Math.atan2(rise, zRun), 0, 0]);
       } else {
-        const hyp = Math.hypot(xRun, rise);
-        box(this.group, [hyp, 0.28, zRun], this.materials.limestoneTop, center, [0, 0, Math.atan2(rise, xRun)]);
+        box(this.group, [Math.hypot(xRun, rise), 0.28, zRun], this.materials.limestoneTop, center, [0, 0, Math.atan2(rise, xRun)]);
       }
     }
   }
 
   #addVillageDetails() {
     for (const house of this.decor.houses) {
-      const isBackdrop = house.id.includes('backdrop');
-      if (isBackdrop) {
+      if (house.id.includes('backdrop')) {
         box(this.group, [house.sx, house.y, house.sz], this.materials.plaster, [house.x, house.y / 2, house.z], [0, house.yaw, 0]);
       }
-
       const roofMaterial = house.roof === 'thatch' ? this.materials.thatch : this.materials.slate;
       const roof = new THREE.Mesh(new THREE.ConeGeometry(Math.max(house.sx, house.sz) * 0.72, 2.0, 4), roofMaterial);
       roof.position.set(house.x, house.y + 1.0, house.z);
@@ -170,10 +160,11 @@ export class CastlewardRenderer {
       this.group.add(cap);
     }
 
-    const archStone = this.materials.limestoneTop;
-    box(this.group, [2.2, 0.55, 0.55], archStone, [0, 4.0, 15.75]);
-    box(this.group, [0.45, 2.0, 0.55], archStone, [-1.1, 3.0, 15.75]);
-    box(this.group, [0.45, 2.0, 0.55], archStone, [1.1, 3.0, 15.75]);
+    // Decorative gate masonry stays flush with the authoritative gatehouse edges.
+    // The broad central run lane remains visually and physically open.
+    box(this.group, [8.15, 0.55, 0.55], this.materials.limestoneTop, [0, 4.0, 15.75]);
+    box(this.group, [0.28, 3.7, 0.55], this.materials.limestoneTop, [-4.08, 2.05, 15.75]);
+    box(this.group, [0.28, 3.7, 0.55], this.materials.limestoneTop, [4.08, 2.05, 15.75]);
   }
 
   #addMarketDetails() {
@@ -197,19 +188,12 @@ export class CastlewardRenderer {
 
   #addChapelDetails() {
     const pillar = CASTLEWARD.solids.find((item) => item.id === 'chapel-pillar');
-    if (pillar) {
-      const brokenCap = box(this.group, [1.35, 0.26, 1.35], this.materials.limestoneTop, [pillar.center[0], 2.92, pillar.center[2]], [0.08, 0.12, -0.09]);
-      brokenCap.castShadow = true;
-    }
-
-    for (const spec of [
+    if (pillar) box(this.group, [1.35, 0.26, 1.35], this.materials.limestoneTop, [pillar.center[0], 2.92, pillar.center[2]], [0.08, 0.12, -0.09]);
+    for (const [x, y, z, sx, sy, sz, ry] of [
       [18.0, 0.20, 5.2, 2.3, 0.28, 0.8, 0.24],
       [20.3, 0.18, 2.6, 1.7, 0.25, 0.7, -0.18],
       [15.0, 0.16, 9.1, 1.4, 0.22, 0.8, 0.42],
-    ]) {
-      const [x, y, z, sx, sy, sz, ry] = spec;
-      box(this.group, [sx, sy, sz], this.materials.limestone, [x, y, z], [0, ry, 0], false);
-    }
+    ]) box(this.group, [sx, sy, sz], this.materials.limestone, [x, y, z], [0, ry, 0], false);
   }
 
   #addPerimeterNature() {
@@ -231,8 +215,8 @@ export class CastlewardRenderer {
     for (const fence of this.decor.fences) {
       const horizontal = fence.axis === 'x';
       const railSize = horizontal ? [fence.length, 0.09, 0.09] : [0.09, 0.09, fence.length];
-      const z = fence.axis === 'x' ? (fence.z > 0 ? 12.15 : -8.15) : fence.z;
-      const x = fence.axis === 'z' ? -22.25 : fence.x;
+      const z = horizontal ? (fence.z > 0 ? 12.15 : -8.15) : fence.z;
+      const x = horizontal ? fence.x : -22.25;
       box(this.group, railSize, this.materials.timberDark, [x, fence.y, z], [0, 0, 0], false);
       box(this.group, railSize, this.materials.timberDark, [x, fence.y + 0.42, z], [0, 0, 0], false);
       const steps = Math.max(2, Math.floor(fence.length / 2.5));
@@ -273,12 +257,11 @@ export class CastlewardRenderer {
 
   #addDistantGround() {
     const hillMaterial = new THREE.MeshStandardMaterial({ color: 0x526d3c, roughness: 1 });
-    const hillSpecs = [
+    for (const [x, y, z, sx, sy, sz] of [
       [-31, -1.8, -5, 12, 5.0, 18], [31, -2.0, 2, 14, 5.5, 20],
       [-18, -2.2, 32, 18, 6.0, 12], [18, -2.3, 34, 20, 6.5, 13],
       [-19, -2.2, -31, 20, 6.0, 15], [20, -2.5, -32, 22, 6.5, 16],
-    ];
-    for (const [x, y, z, sx, sy, sz] of hillSpecs) {
+    ]) {
       const hill = new THREE.Mesh(new THREE.SphereGeometry(1, 10, 6), hillMaterial);
       hill.position.set(x, y, z);
       hill.scale.set(sx, sy, sz);
@@ -301,7 +284,5 @@ export class CastlewardRenderer {
       object.geometry?.dispose?.();
       disposeMaterial(object.material);
     });
-    this.scene.background = this.previousBackground;
-    this.scene.fog = this.previousFog;
   }
 }
