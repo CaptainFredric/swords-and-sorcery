@@ -74,6 +74,7 @@ jobs:
           ./.blender/blender \
             --background \
             --factory-startup \
+            --python-exit-code 1 \
             --python tools/blender/characters/spellblade/build.py \
             -- \
             --mode "${MODE}" \
