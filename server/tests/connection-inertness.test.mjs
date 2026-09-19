@@ -13,6 +13,7 @@ test('disconnect immediately neutralizes stale combat and movement input during 
   room.tick(3.1);
 
   const player = room.players.get('a');
+  const authoritativeFacing = { yaw: player.yaw, pitch: player.pitch };
   player.input = { forward: 1, right: 1, jump: true, yaw: 1.2, pitch: 0.4 };
   player.attackHeld = true;
   player.attackActive = true;
@@ -22,7 +23,13 @@ test('disconnect immediately neutralizes stale combat and movement input during 
 
   room.disconnectPlayer('a', 4);
 
-  assert.deepEqual(player.input, { forward: 0, right: 0, jump: false, yaw: 1.2, pitch: 0.4 });
+  assert.deepEqual(player.input, {
+    forward: 0,
+    right: 0,
+    jump: false,
+    yaw: authoritativeFacing.yaw,
+    pitch: authoritativeFacing.pitch,
+  });
   assert.equal(player.attackHeld, false);
   assert.equal(player.attackActive, false);
   assert.equal(player.guarding, false);
