@@ -1,3 +1,5 @@
+import { combatStatusDurationMs } from '../game/combatFeedbackTiming.mjs';
+
 export function matchInfoText(snapshot, serverNow) {
   if (snapshot?.mode === 'PRACTICE') return 'PRACTICE YARD  ·  UNTIMED';
   if (snapshot?.suddenDeath) return 'SUDDEN DEATH';
@@ -68,11 +70,12 @@ export class HUD {
     element.style.setProperty('--cooldown', String(Math.min(1, remaining / 5)));
   }
 
-  flashText(text, kind = '') {
+  flashText(text, kind = '', durationMs = null) {
     this.flash.textContent = text;
     this.flash.className = `status-flash show ${kind}`;
     clearTimeout(this.flashTimer);
-    this.flashTimer = setTimeout(() => { this.flash.className = 'status-flash'; }, 650);
+    const duration = Number.isFinite(durationMs) ? Math.max(0, durationMs) : combatStatusDurationMs(text);
+    this.flashTimer = setTimeout(() => { this.flash.className = 'status-flash'; }, duration);
   }
 
   hit(kind = 'hit') {

@@ -81,29 +81,32 @@ export class WeaponView {
     };
 
     this.weaponGroup = new THREE.Group();
-    this.weaponGroup.position.set(0.48, -0.43, -0.78);
+    this.weaponGroup.position.set(0.50, -0.47, -0.94);
+    this.weaponGroup.rotation.set(-0.08, -0.10, -0.10);
     this.group.add(this.weaponGroup);
 
     this.rightArm = makeGauntletedArm(this.weaponGroup, materials, 1);
     this.rightArm.position.set(0.02, -0.03, 0.18);
 
+    this.swordPivot = new THREE.Group();
+    this.swordPivot.position.set(0, -0.01, -0.18);
+    this.weaponGroup.add(this.swordPivot);
     this.sword = makeSword(materials);
-    this.sword.position.set(0, -0.01, -0.18);
-    this.weaponGroup.add(this.sword);
+    this.swordPivot.add(this.sword);
 
     this.leftHandGroup = makeGauntletedArm(this.group, materials, -1);
-    this.leftHandGroup.position.set(-0.42, -0.56, -0.64);
+    this.leftHandGroup.position.set(-0.42, -0.58, -0.82);
     this.leftHandGroup.rotation.set(-0.28, 0.16, 0.18);
 
     this.magicAnchor = new THREE.Group();
     this.magicAnchor.position.set(0, 0, -0.31);
     this.leftHandGroup.add(this.magicAnchor);
-    const magicCore = new THREE.Mesh(new THREE.OctahedronGeometry(0.105, 0), materials.magic);
+    const magicCore = new THREE.Mesh(new THREE.OctahedronGeometry(0.09, 0), materials.magic);
     this.magicAnchor.add(magicCore);
-    this.magicHalo = new THREE.Mesh(new THREE.TorusGeometry(0.155, 0.016, 5, 12), materials.magic);
+    this.magicHalo = new THREE.Mesh(new THREE.TorusGeometry(0.135, 0.014, 5, 12), materials.magic);
     this.magicHalo.rotation.x = Math.PI / 2;
     this.magicAnchor.add(this.magicHalo);
-    this.magicLight = new THREE.PointLight(0x4bd8ff, 1.2, 2.4, 2);
+    this.magicLight = new THREE.PointLight(0x4bd8ff, 1.0, 2.1, 2);
     this.magicAnchor.add(this.magicLight);
 
     this.attackHeld = false;
@@ -111,6 +114,7 @@ export class WeaponView {
     this.guard = false;
     this.recoilUntil = 0;
     this.parryUntil = 0;
+    this.castStartedAt = 0;
     this.castUntil = 0;
     this.dashUntil = 0;
   }
@@ -129,7 +133,9 @@ export class WeaponView {
   cast(durationSec = 0.36) {
     const duration = Number.isFinite(durationSec) ? Math.max(0, durationSec) : 0.36;
     if (duration <= 0) return;
-    this.castUntil = performance.now() / 1000 + duration;
+    const now = performance.now() / 1000;
+    this.castStartedAt = now;
+    this.castUntil = now + duration;
     this.guard = false;
     this.attackHeld = false;
   }
@@ -156,22 +162,25 @@ export class WeaponView {
       guard: this.guard,
       recoilUntil: this.recoilUntil,
       parryUntil: this.parryUntil,
+      castStartedAt: this.castStartedAt,
       castUntil: this.castUntil,
       dashUntil: this.dashUntil,
     });
 
-    const snap = pose.state === 'guard' || pose.state === 'cast' ? 0.32 : 0.27;
-    dampTransform(this.weaponGroup, pose.group, snap);
-    dampTransform(this.leftHandGroup, pose.leftHand, pose.state === 'cast' ? 0.36 : 0.25);
+    const groupSnap = pose.state === 'attack' ? 0.40 : pose.state === 'guard' || pose.state === 'cast' ? 0.34 : 0.27;
+    const swordSnap = pose.state === 'attack' ? 0.58 : pose.state === 'guard' ? 0.42 : 0.32;
+    dampTransform(this.weaponGroup, pose.group, groupSnap);
+    dampTransform(this.swordPivot, pose.sword, swordSnap);
+    dampTransform(this.leftHandGroup, pose.leftHand, pose.state === 'cast' ? 0.42 : 0.27);
 
     this.rightArm.rotation.x = damp(this.rightArm.rotation.x, pose.rightHand.rx, 0.28);
     this.rightArm.rotation.y = damp(this.rightArm.rotation.y, pose.rightHand.ry, 0.28);
     this.rightArm.rotation.z = damp(this.rightArm.rotation.z, pose.rightHand.rz, 0.28);
 
-    const magicScale = damp(this.magicAnchor.scale.x, pose.magicScale, 0.3);
+    const magicScale = damp(this.magicAnchor.scale.x, pose.magicScale, pose.state === 'cast' ? 0.42 : 0.30);
     this.magicAnchor.scale.setScalar(magicScale);
     this.magicHalo.rotation.z = timeSec * 3.2;
-    this.magicHalo.rotation.y = Math.sin(timeSec * 2.6) * 0.28;
-    this.magicLight.intensity = pose.state === 'cast' ? 4.2 : 1.15 * Math.max(0.4, magicScale);
+    this.magicHalo.rotation.y = Math.sin(timeSec * 2.6) * 0.22;
+    this.magicLight.intensity = pose.state === 'cast' ? 3.2 : 0.95 * Math.max(0.4, magicScale);
   }
 }
