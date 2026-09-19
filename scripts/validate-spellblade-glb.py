@@ -13,6 +13,7 @@ from pathlib import Path
 GLB_MAGIC = b"glTF"
 GLB_VERSION = 2
 JSON_CHUNK_TYPE = 0x4E4F534A
+CONTRACT_PATH = Path(__file__).resolve().parents[1] / "tools" / "blender" / "characters" / "spellblade" / "contract.json"
 
 REQUIRED_RIG_NODES = (
     "root", "pelvis", "spine", "chest", "neck", "head",
@@ -28,6 +29,14 @@ MAX_CHARACTER_HEIGHT = 2.25
 MIN_GROUND_Y = -0.10
 MAX_GROUND_Y = 0.15
 SCALE_EPSILON = 1e-4
+
+
+def load_contract(path: Path = CONTRACT_PATH) -> dict:
+    value = json.loads(path.read_text(encoding="utf-8"))
+    clips = value.get("clips")
+    if not isinstance(clips, list) or not clips or not all(isinstance(name, str) and name for name in clips):
+        raise ValueError("Spellblade contract clips must be a non-empty list of names")
+    return value
 
 
 def read_glb_json(path: Path) -> dict:
@@ -109,6 +118,22 @@ def _position_bounds(document: dict) -> tuple[list[float], list[float]] | None:
     return (minimum, maximum) if found else None
 
 
+def _validate_clip_names(document: dict, contract: dict | None, *, first_person: bool) -> list[str]:
+    if not isinstance(contract, dict):
+        return []
+    key = "firstPersonClips" if first_person and isinstance(contract.get("firstPersonClips"), list) else "clips"
+    required = contract.get(key)
+    if not isinstance(required, list):
+        return [f"Spellblade contract is missing {key}"]
+    actual = {
+        animation.get("name")
+        for animation in document.get("animations", [])
+        if isinstance(animation, dict) and isinstance(animation.get("name"), str)
+    }
+    missing = [name for name in required if name not in actual]
+    return [f"Spellblade GLB missing required animation clips: {', '.join(missing)}"] if missing else []
+
+
 def _validate_root_motion(document: dict, root_index: int | None) -> list[str]:
     if root_index is None:
         return []
@@ -129,7 +154,6 @@ def _validate_root_motion(document: dict, root_index: int | None) -> list[str]:
 
 
 def validate_document(document: dict, contract: dict | None = None, *, first_person: bool = False) -> list[str]:
-    del first_person
     errors: list[str] = []
 
     asset = document.get("asset")
@@ -177,6 +201,7 @@ def validate_document(document: dict, contract: dict | None = None, *, first_per
                 f"Spellblade ground origin must keep minimum Y near 0m, got {minimum[1]:.3f}m"
             )
 
+    errors.extend(_validate_clip_names(document, contract, first_person=first_person))
     errors.extend(_validate_root_motion(document, root_index))
     return errors
 
@@ -268,11 +293,42 @@ def self_test_rig() -> None:
     print("SPELLBLADE_RIG_VALIDATOR_OK")
 
 
+def self_test_animation() -> None:
+    contract = load_contract()
+    valid = _valid_synthetic_rig_document()
+    valid["animations"] = [
+        {"name": name, "channels": [], "samplers": []}
+        for name in contract["clips"]
+    ]
+    valid_errors = validate_document(valid, contract)
+    if valid_errors:
+        raise SystemExit("valid animation fixture rejected: " + "; ".join(valid_errors))
+
+    missing_clip = copy.deepcopy(valid)
+    removed_name = contract["clips"][-1]
+    missing_clip["animations"] = [animation for animation in missing_clip["animations"] if animation["name"] != removed_name]
+    errors = validate_document(missing_clip, contract)
+    if removed_name.lower() not in "\n".join(errors).lower():
+        raise SystemExit(f"missing clip fixture was not rejected correctly: {errors}")
+
+    root_motion = copy.deepcopy(valid)
+    root_motion["animations"][0]["channels"] = [
+        {"sampler": 0, "target": {"node": 0, "path": "translation"}}
+    ]
+    root_motion["animations"][0]["samplers"] = [{"input": 1, "output": 2}]
+    errors = validate_document(root_motion, contract)
+    if "root motion" not in "\n".join(errors).lower():
+        raise SystemExit(f"root motion fixture was not rejected correctly: {errors}")
+
+    print("SPELLBLADE_ANIMATION_VALIDATOR_OK")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Validate Swords & Sorcery Spellblade GLB structure")
     parser.add_argument("path", nargs="?", type=Path)
     parser.add_argument("--self-test", action="store_true")
     parser.add_argument("--self-test-rig", action="store_true")
+    parser.add_argument("--self-test-animation", action="store_true")
     args = parser.parse_args()
 
     if args.self_test:
@@ -281,10 +337,13 @@ def main() -> None:
     if args.self_test_rig:
         self_test_rig()
         return
+    if args.self_test_animation:
+        self_test_animation()
+        return
     if args.path is None:
         parser.error("path is required unless a self-test flag is used")
 
-    errors = validate_glb(args.path)
+    errors = validate_glb(args.path, load_contract())
     if errors:
         raise SystemExit("\n".join(errors))
     print(f"SPELLBLADE_GLB_VALID path={args.path}")
