@@ -151,17 +151,20 @@ function updateMovement(actor, target, distance, ai, aggression, nowSec) {
   if (distance < 7) right = ai.strafeDirection * (distance <= MELEE_RANGE ? 0.55 : 0.32) * aggression;
   if (actor.guarding || actor.attackActive) forward = Math.min(forward, 0.28);
 
+  const escapeExpired = ai.escapeUntil !== -Infinity && nowSec >= ai.escapeUntil;
+  if (escapeExpired) {
+    ai.escapeUntil = -Infinity;
+    resetProgressSample(actor, ai, nowSec);
+  }
+
   const priorInput = actor.input ?? { forward: 0, right: 0 };
   const wantsMeaningfulMovement = distance > MELEE_RANGE * 0.85
     && (priorInput.forward > 0.4 || Math.abs(priorInput.right) > 0.4);
-  detectStuckMovement(actor, ai, nowSec, wantsMeaningfulMovement);
+  if (!escapeExpired) detectStuckMovement(actor, ai, nowSec, wantsMeaningfulMovement);
 
   if (nowSec < ai.escapeUntil) {
     forward = actor.guarding || actor.attackActive ? 0 : -0.18;
     right = ai.strafeDirection * 0.92;
-  } else if (ai.escapeUntil !== -Infinity && nowSec >= ai.escapeUntil) {
-    ai.escapeUntil = -Infinity;
-    resetProgressSample(actor, ai, nowSec);
   }
 
   actor.input = {
