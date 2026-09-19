@@ -8,6 +8,10 @@ function normalizeCode(value) {
   return String(value ?? '').trim().toUpperCase().replace(/[^A-Z2-9]/g, '').slice(0, 5);
 }
 
+export function shouldRouteSocketError(roomCode, latestSnapshot) {
+  return !(roomCode && latestSnapshot?.roomState === 'PLAYING');
+}
+
 export class MenuController {
   constructor(socket, storage = globalThis.localStorage) {
     this.socket = socket;
