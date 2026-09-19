@@ -26,3 +26,10 @@ test('production Spellblade asset worker is pinned, verified, headless and read-
   assert.doesNotMatch(workflow, /contents:\s*write/);
   assert.match(workflow, /upload-artifact/);
 });
+
+test('production Spellblade worker requires and validates the separate first-person GLB', async () => {
+  const workflow = await read('.github/workflows/spellblade-assets.yml');
+  assert.match(workflow, /test\s+-s\s+artifacts\/spellblade-assets\/spellblade-fp\.glb/);
+  assert.match(workflow, /--self-test-first-person/);
+  assert.match(workflow, /--first-person\s+artifacts\/spellblade-assets\/spellblade-fp\.glb/);
+});
