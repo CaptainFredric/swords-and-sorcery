@@ -40,6 +40,10 @@ function freshCombatState(spawn, nowSec = 0) {
   };
 }
 
+function scoreFields() {
+  return { kills: 0, deaths: 0, parries: 0, abyssKills: 0 };
+}
+
 export class Room {
   constructor(code, { isPrivate = true, mode = GAME_MODES.FFA, worldId = WORLD_IDS.SHATTERED_KEEP } = {}) {
     this.code = code;
@@ -74,30 +78,87 @@ export class Room {
       connected: true,
       disconnectedAt: null,
       disconnectExpiresAt: null,
-      kills: 0,
-      deaths: 0,
-      parries: 0,
-      abyssKills: 0,
+      ...scoreFields(),
       ...freshCombatState(spawn, nowSec),
     };
     this.players.set(id, player);
     this.emptySince = null;
-    if (this.connectedCount() >= 2 && this.state === 'WAITING') {
-      this.state = 'COUNTDOWN';
-      this.countdownEndsAt = nowSec + COUNTDOWN_SEC;
-    }
+    this.#armMultiplayerStart(nowSec);
     return player;
   }
 
-  connectedCount() {
+  addServerActor({ id, name, actorKind }, nowSec) {
+    if (!['bot', 'dummy'].includes(actorKind)) throw new Error('Server actor must be bot or dummy');
+    if (this.players.size >= 8) throw new Error('Room is full');
+    if (this.players.has(id)) return this.players.get(id);
+    const spawn = this.world.spawnPoints[this.players.size % this.world.spawnPoints.length];
+    const actor = {
+      id,
+      token: null,
+      name: String(name || (actorKind === 'bot' ? 'Rival Spellblade' : 'Training Dummy')).slice(0, 18),
+      actorKind,
+      connected: false,
+      disconnectedAt: null,
+      disconnectExpiresAt: null,
+      ...scoreFields(),
+      ...freshCombatState(spawn, nowSec),
+    };
+    this.players.set(id, actor);
+    return actor;
+  }
+
+  provisionModeActors(nowSec) {
+    if (this.mode !== GAME_MODES.BOT_DUEL) return;
+    const existingBots = [...this.players.values()].filter((p) => p.actorKind === 'bot');
+    for (let i = existingBots.length; i < this.policy.botCount; i += 1) {
+      this.addServerActor({
+        id: `bot-${this.code}-${i + 1}`,
+        name: i === 0 ? 'Rival Spellblade' : `Rival ${i + 1}`,
+        actorKind: 'bot',
+      }, nowSec);
+    }
+  }
+
+  humanCount() {
     let count = 0;
-    for (const p of this.players.values()) if (p.connected) count += 1;
+    for (const p of this.players.values()) if (p.actorKind === 'human' && p.connected) count += 1;
     return count;
+  }
+
+  humanActorCount() {
+    let count = 0;
+    for (const p of this.players.values()) if (p.actorKind === 'human') count += 1;
+    return count;
+  }
+
+  connectedCount() {
+    return this.humanCount();
+  }
+
+  armAutoStart(nowSec) {
+    if (!this.policy.autoStart || this.state !== 'WAITING' || this.humanCount() < this.policy.minHumansToStart) return false;
+    if (this.mode === GAME_MODES.PRACTICE) {
+      this.startMatch(nowSec);
+      return true;
+    }
+    this.provisionModeActors(nowSec);
+    const botCount = [...this.players.values()].filter((p) => p.actorKind === 'bot').length;
+    if (botCount < this.policy.botCount) return false;
+    this.state = 'COUNTDOWN';
+    this.countdownEndsAt = nowSec + COUNTDOWN_SEC;
+    return true;
+  }
+
+  #armMultiplayerStart(nowSec) {
+    if (this.policy.autoStart || this.state !== 'WAITING') return;
+    if (this.humanCount() < this.policy.minHumansToStart) return;
+    this.state = 'COUNTDOWN';
+    this.countdownEndsAt = nowSec + COUNTDOWN_SEC;
   }
 
   disconnectPlayer(id, nowSec) {
     const player = this.players.get(id);
-    if (!player) return;
+    if (!player || player.actorKind !== 'human') return;
     player.connected = false;
     player.disconnectedAt = nowSec;
     player.disconnectExpiresAt = nowSec + RECONNECT_GRACE_SEC;
@@ -118,12 +179,14 @@ export class Room {
 
   reconnectPlayer(token, nowSec) {
     for (const player of this.players.values()) {
-      if (player.token !== token) continue;
+      if (player.actorKind !== 'human' || player.token !== token) continue;
       if (player.disconnectExpiresAt !== null && nowSec <= player.disconnectExpiresAt) {
         player.connected = true;
         player.disconnectedAt = null;
         player.disconnectExpiresAt = null;
         this.emptySince = null;
+        if (this.policy.autoStart) this.armAutoStart(nowSec);
+        else this.#armMultiplayerStart(nowSec);
         return player;
       }
     }
@@ -132,19 +195,22 @@ export class Room {
 
   tick(nowSec) {
     for (const [id, player] of this.players) {
-      if (!player.connected && player.disconnectExpiresAt !== null && nowSec > player.disconnectExpiresAt) {
+      if (player.actorKind === 'human'
+        && !player.connected
+        && player.disconnectExpiresAt !== null
+        && nowSec > player.disconnectExpiresAt) {
         this.players.delete(id);
         this.rematchVotes.delete(id);
       }
     }
 
-    if (this.players.size === 0) {
+    if (this.humanActorCount() === 0) {
       if (this.emptySince === null) this.emptySince = nowSec;
     } else {
       this.emptySince = null;
     }
 
-    if (this.state === 'COUNTDOWN' && this.connectedCount() < 2) {
+    if (this.state === 'COUNTDOWN' && this.humanCount() < this.policy.minHumansToStart) {
       this.state = 'WAITING';
       this.countdownEndsAt = null;
     } else if (this.state === 'COUNTDOWN' && nowSec >= this.countdownEndsAt) {
@@ -153,7 +219,11 @@ export class Room {
       this.startMatch(nowSec);
     }
 
-    if (this.state === 'PLAYING' && !this.suddenDeath && this.matchStartedAt !== null && nowSec >= this.matchStartedAt + MATCH_SEC) {
+    if (this.state === 'PLAYING'
+      && this.policy.timed
+      && !this.suddenDeath
+      && this.matchStartedAt !== null
+      && nowSec >= this.matchStartedAt + this.policy.matchSeconds) {
       let max = -1;
       let leaders = [];
       for (const p of this.players.values()) {
@@ -196,11 +266,11 @@ export class Room {
     if (!killer || !victim || this.state !== 'PLAYING') return;
     killer.kills += 1;
     victim.deaths += 1;
-    if (killer.kills >= SCORE_TO_WIN) {
+    if (this.policy.scored && Number.isFinite(this.policy.scoreToWin) && killer.kills >= this.policy.scoreToWin) {
       this.finish(killerId, nowSec);
       return;
     }
-    if (this.suddenDeath && this.suddenDeathLeaders.includes(killerId)) {
+    if (this.policy.scored && this.suddenDeath && this.suddenDeathLeaders.includes(killerId)) {
       this.finish(killerId, nowSec);
     }
   }
@@ -212,17 +282,14 @@ export class Room {
   }
 
   requestRematch(playerId, nowSec) {
-    if (this.state !== 'FINISHED' || !this.players.has(playerId)) return false;
+    if (!this.policy.allowRematchVote || this.state !== 'FINISHED' || !this.players.has(playerId)) return false;
     this.rematchVotes.add(playerId);
-    const connectedIds = [...this.players.values()].filter((p) => p.connected).map((p) => p.id);
+    const connectedIds = [...this.players.values()]
+      .filter((p) => p.actorKind === 'human' && p.connected)
+      .map((p) => p.id);
     const unanimous = connectedIds.length >= 2 && connectedIds.every((id) => this.rematchVotes.has(id));
     if (!unanimous) return false;
-    for (const p of this.players.values()) {
-      p.kills = 0;
-      p.deaths = 0;
-      p.parries = 0;
-      p.abyssKills = 0;
-    }
+    for (const p of this.players.values()) Object.assign(p, scoreFields());
     this.state = 'REMATCH_COUNTDOWN';
     this.countdownEndsAt = nowSec + COUNTDOWN_SEC;
     this.winnerId = null;
@@ -232,7 +299,7 @@ export class Room {
   }
 
   isCleanupEligible(nowSec) {
-    return this.players.size === 0 && this.emptySince !== null && nowSec - this.emptySince >= CLEANUP_SEC;
+    return this.humanActorCount() === 0 && this.emptySince !== null && nowSec - this.emptySince >= CLEANUP_SEC;
   }
 }
 
