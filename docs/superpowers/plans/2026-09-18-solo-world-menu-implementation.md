@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add authoritative one-tab solo play, server-controlled bot/practice actors, map/mode registries, the Castleward hill-town/castle arena, and a medieval Spellblade-centered main menu without regressing public FFA.
+**Goal:** Add authoritative one-tab solo play, basic server-controlled opponents/training actors, a per-room world system, Castleward as the default medieval hill-town arena, and a Spellblade-centered main menu without regressing public FFA.
 
-**Architecture:** Keep one authoritative `Room`/combat simulation and parameterize it with explicit mode and world definitions. Server-owned actors use the same combat verbs as human players; clients receive authoritative `mode`, `worldId`, and `actorKind`. World presentation is selected by a renderer factory, while the front-end navigation is split out of `client/main.mjs` into menu/router modules.
+**Architecture:** Keep one authoritative `Room` and combat simulation. Give each room an explicit mode policy and world definition; represent bots/dummies as server-owned combat actors, not fake sockets. The client selects world presentation only from authoritative `worldId`, while menu/navigation state moves out of `client/main.mjs` into focused modules.
 
 **Tech Stack:** Node.js 22+, native HTTP/WebSocket server, browser ES modules, Three.js 0.169 via import map, `node:test`, GitHub Actions, Render.
 
@@ -12,27 +12,26 @@
 
 ## Global Constraints
 
-- Preserve the base Spellblade kit: sword combo, Guard/Perfect Parry, Fireball, Dash, jump/movement, existing health/cooldown/respawn rules.
-- Solo play must use the same server-authoritative movement/combat code as PvP.
-- `FFA`, `BOT_DUEL`, and `PRACTICE` are stable protocol-level mode IDs.
-- Initial actor kinds are `human`, `bot`, and `dummy`.
-- Castleward is a compact 45–55 m medieval hill-town/castle arena; normal route loops do not require Dash.
-- Medieval material language comes first; magic remains accent-level.
-- No classes, progression, account economy, cosmetic inventory, bot difficulty selector, campaign, or mobile combat in this phase.
-- Do not repeatedly wake the Render free-tier service. Use CI for intermediate validation and one batched public verification after the structural phase is green.
-- Every behavior change follows red-green TDD where practical; every PR must pass `npm run verify` before merge.
+- Preserve the base Spellblade combat kit and current server-authoritative damage/cooldown/parry rules.
+- Stable mode IDs: `FFA`, `BOT_DUEL`, `PRACTICE`.
+- Actor kinds: `human`, `bot`, `dummy`.
+- Castleward target combat footprint: roughly 45–55 m across; normal route loops do not require Dash.
+- Medieval material language first; magic is an accent, not the ambient color of the entire game.
+- No classes, progression, account economy, cosmetic inventory, difficulty selector, campaign, or touch combat in this phase.
+- Intermediate validation stays in CI. Do one batched Render/browser verification after the structural phase is green.
+- Every behavior-changing task uses red-green TDD where practical and must pass `npm run verify` before merge.
 
 ## Review Focus
 
-1. **Mode spoofing / incompatible room selection:** Quick Play must never return solo rooms, and clients must not mutate a room's mode/world after creation. Pin in Tasks 1–2.
-2. **Server actor/session confusion:** bots/dummies must not count as connected human sessions, reconnect voters, or cleanup blockers. Pin in Tasks 2–4.
-3. **World disagreement:** server collision/spawns and client renderer must use the same authoritative `worldId`; unsupported IDs must fail explicitly. Pin in Tasks 1, 5, and 6.
-4. **Bot authority bypass:** bot Attack/Guard/Cast/Dash must obey the exact existing cooldown/range/LOS/parry pipeline. Pin in Task 3.
-5. **Solo recovery/UI transitions:** reconnect, expired session, leaving Practice, and invite-room URLs must still lead to the correct screen without a ghost lobby. Pin in Tasks 2, 7, and 8.
+1. Quick Play must never select solo rooms; mode/world identity is immutable after room creation.
+2. Bots/dummies must never count as connected humans, reconnect sessions, rematch voters, or cleanup blockers.
+3. Server collision/spawns and client rendering must agree on authoritative `worldId`; unknown IDs fail explicitly.
+4. Bot attacks/spells/dashes/Guard must use existing combat authority rather than mutate HP/cooldowns directly.
+5. Reconnect, expired session, invite links, Practice leave, and solo start must route to the correct UI without a ghost lobby.
 
 ---
 
-### Task 1: Introduce Mode and World Registries Without Changing FFA Behavior
+### Task 1: Add Explicit Mode and World Identity Without Changing Existing FFA
 
 **Files:**
 - Create: `shared/src/modes.mjs`
@@ -47,35 +46,38 @@
 - Test: `server/tests/integration.test.mjs`
 
 **Interfaces:**
-- Produces: `GAME_MODES`, `getModePolicy(modeId)`, `WORLD_IDS`, `getWorld(worldId)`, room properties `mode`, `worldId`, actor property `actorKind`.
-- Preserves: `SHATTERED_KEEP` and `SPAWN_POINTS` exports from `shared/src/map.mjs` as compatibility re-exports during migration.
+- Produces: `GAME_MODES`, `getModePolicy(id)`, `WORLD_IDS`, `getWorld(id)`, `Room.mode`, `Room.worldId`, `Room.world`, `player.actorKind`.
+- Preserves: compatibility exports `SHATTERED_KEEP`, `KEEP_HORIZONTAL_SCALE`, `SPAWN_POINTS` from `shared/src/map.mjs` during migration.
 
-- [ ] **Step 1: Write failing mode/world registry tests**
+- [ ] **Step 1: Write the failing registry tests**
+
+`shared/src/modes.test.mjs`:
 
 ```js
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { GAME_MODES, getModePolicy } from '../../shared/src/modes.mjs';
-import { getWorld, WORLD_IDS } from '../../shared/worlds/registry.mjs';
+import { GAME_MODES, getModePolicy } from './modes.mjs';
+import { WORLD_IDS, getWorld } from '../worlds/registry.mjs';
 
-test('FFA policy preserves the current multiplayer start rules', () => {
-  const ffa = getModePolicy(GAME_MODES.FFA);
-  assert.equal(ffa.minHumansToStart, 2);
-  assert.equal(ffa.scoreToWin, 10);
-  assert.equal(ffa.matchSeconds, 360);
-  assert.equal(ffa.autoStart, false);
+test('FFA preserves current start and win rules', () => {
+  const mode = getModePolicy(GAME_MODES.FFA);
+  assert.equal(mode.minHumansToStart, 2);
+  assert.equal(mode.scoreToWin, 10);
+  assert.equal(mode.matchSeconds, 360);
+  assert.equal(mode.autoStart, false);
 });
 
-test('world registry rejects unknown ids instead of silently choosing a map', () => {
+test('unknown modes and worlds fail explicitly', () => {
+  assert.throws(() => getModePolicy('NOPE'), /Unknown game mode/);
+  assert.throws(() => getWorld('NOPE'), /Unknown world/);
   assert.equal(WORLD_IDS.SHATTERED_KEEP, 'shattered-keep');
-  assert.throws(() => getWorld('not-a-world'), /Unknown world/);
 });
 ```
 
 Add to `server/tests/room.test.mjs`:
 
 ```js
-test('room has immutable mode/world identity and humans are marked human', () => {
+test('Room stores mode/world identity and marks network players human', () => {
   const room = new Room('ABCDE', { mode: 'FFA', worldId: 'shattered-keep' });
   const player = room.addPlayer({ id: 'p1', token: 't1', name: 'A' }, 0);
   assert.equal(room.mode, 'FFA');
@@ -84,24 +86,20 @@ test('room has immutable mode/world identity and humans are marked human', () =>
 });
 ```
 
-- [ ] **Step 2: Run focused tests and verify RED**
+- [ ] **Step 2: Run focused tests and confirm RED**
 
 Run:
 ```bash
 node --test shared/src/modes.test.mjs server/tests/room.test.mjs
 ```
-Expected: FAIL because the mode/world registry and Room constructor options do not exist.
+Expected: FAIL because registries and Room options do not exist.
 
-- [ ] **Step 3: Implement stable registries and compatibility exports**
+- [ ] **Step 3: Implement the mode registry**
 
 `shared/src/modes.mjs`:
 
 ```js
-export const GAME_MODES = Object.freeze({
-  FFA: 'FFA',
-  BOT_DUEL: 'BOT_DUEL',
-  PRACTICE: 'PRACTICE',
-});
+export const GAME_MODES = Object.freeze({ FFA: 'FFA', BOT_DUEL: 'BOT_DUEL', PRACTICE: 'PRACTICE' });
 
 const POLICIES = Object.freeze({
   FFA: Object.freeze({ id: 'FFA', minHumansToStart: 2, botCount: 0, scored: true, timed: true, scoreToWin: 10, matchSeconds: 360, autoStart: false, allowRematchVote: true }),
@@ -116,85 +114,128 @@ export function getModePolicy(id) {
 }
 ```
 
-Move the existing Keep definition into `shared/worlds/shatteredKeep.mjs`, export it as `SHATTERED_KEEP`, and add:
+- [ ] **Step 4: Move Keep data behind a world registry**
+
+Move the existing map definition into `shared/worlds/shatteredKeep.mjs` unchanged except add `id: 'shattered-keep'` and `name`. Implement `shared/worlds/registry.mjs`:
 
 ```js
+import { SHATTERED_KEEP } from './shatteredKeep.mjs';
+
 export const WORLD_IDS = Object.freeze({ SHATTERED_KEEP: 'shattered-keep', CASTLEWARD: 'castleward' });
 const WORLDS = new Map([[WORLD_IDS.SHATTERED_KEEP, SHATTERED_KEEP]]);
+
 export function getWorld(id) {
   const world = WORLDS.get(id);
   if (!world) throw new Error(`Unknown world: ${id}`);
   return world;
 }
-```
 
-`shared/src/map.mjs` becomes a compatibility re-export of Keep plus `KEEP_HORIZONTAL_SCALE`/`SPAWN_POINTS` until Castleward migration is complete.
-
-Update `Room` constructor to resolve policy/world once, store `mode`, `worldId`, `policy`, `world`, and set `actorKind: 'human'` in `addPlayer`. Replace direct Keep spawn reads with `this.world.spawnPoints`.
-
-- [ ] **Step 4: Parameterize `RoomManager` and protocol metadata while keeping existing calls identical**
-
-Implement one internal creator:
-
-```js
-#create({ isPrivate, mode = GAME_MODES.FFA, worldId = WORLD_IDS.SHATTERED_KEEP }, nowSec) {
-  const room = new Room(code, { isPrivate, mode, worldId });
-  ...
+export function registerWorld(world) {
+  if (!world?.id || !Array.isArray(world.spawnPoints)) throw new Error('Invalid world definition');
+  WORLDS.set(world.id, world);
 }
 ```
 
-Ensure `quickPlay()` filters `room.mode === GAME_MODES.FFA`.
+`shared/src/map.mjs` re-exports the legacy names from `shatteredKeep.mjs` so existing tests/callers stay green during migration.
 
-Add `mode` and `worldId` to `joined`, `lobby`, and `snapshot`; add `actorKind` to player snapshot rows.
+- [ ] **Step 5: Parameterize `Room` and `RoomManager` while retaining FFA defaults**
 
-- [ ] **Step 5: Run focused and full verification**
+`Room` constructor resolves and stores policy/world once:
+
+```js
+constructor(code, { isPrivate = true, mode = GAME_MODES.FFA, worldId = WORLD_IDS.SHATTERED_KEEP } = {}) {
+  this.code = code;
+  this.isPrivate = isPrivate;
+  this.mode = mode;
+  this.policy = getModePolicy(mode);
+  this.worldId = worldId;
+  this.world = getWorld(worldId);
+  this.state = 'WAITING';
+  this.players = new Map();
+  this.projectiles = new Map();
+  this.events = [];
+  this.countdownEndsAt = null;
+  this.matchStartedAt = null;
+  this.winnerId = null;
+  this.suddenDeath = false;
+  this.suddenDeathLeaders = [];
+  this.rematchVotes = new Set();
+  this.emptySince = null;
+  this.tickNumber = 0;
+  this.recentSpawnUse = new Map();
+}
+```
+
+Replace Room's direct `SHATTERED_KEEP.spawnPoints` reads with `this.world.spawnPoints`; set `actorKind: 'human'` in `addPlayer`.
+
+In `RoomManager`, centralize creation:
+
+```js
+#createRoom({ isPrivate, mode, worldId }, nowSec) {
+  let code;
+  do code = generateRoomCode(this.random); while (this.rooms.has(code));
+  const room = new Room(code, { isPrivate, mode, worldId });
+  room.createdAt = nowSec;
+  this.rooms.set(code, room);
+  return room;
+}
+```
+
+Existing public/private FFA methods call this with `FFA`/Keep. `quickPlay()` filters `room.mode === GAME_MODES.FFA`.
+
+- [ ] **Step 6: Add protocol metadata and verify GREEN**
+
+Add `mode`/`worldId` to `joined`, `lobby`, and `snapshot`; add `actorKind` to each player snapshot.
 
 Run:
 ```bash
 node --test shared/src/modes.test.mjs server/tests/room.test.mjs server/tests/integration.test.mjs
 npm run verify
 ```
-Expected: all pass; existing two-human FFA behavior remains unchanged.
+Expected: all pass and current two-human FFA behavior remains unchanged.
 
-- [ ] **Step 6: Commit and open PR**
+- [ ] **Step 7: Commit, PR, merge after fresh CI**
 
 ```bash
 git add shared server
 git commit -m "refactor: add explicit mode and world identity"
 ```
 
-PR title: `Add explicit game mode and world registries`.
+PR: `Add explicit game mode and world registries`.
 
 ---
 
-### Task 2: Add Authoritative Solo Room Creation and Server-Owned Actor Plumbing
+### Task 2: Add Authoritative One-Tab Solo Rooms and Server-Owned Actor Plumbing
 
 **Files:**
 - Modify: `server/src/game/Room.mjs`
 - Modify: `server/src/rooms/RoomManager.mjs`
 - Modify: `server/src/server.mjs`
 - Modify: `client/network/GameSocket.mjs`
-- Test: `server/tests/solo-room.test.mjs`
-- Test: `server/tests/integration.test.mjs`
+- Create/Test: `server/tests/solo-room.test.mjs`
+- Modify/Test: `server/tests/integration.test.mjs`
 
 **Interfaces:**
-- Consumes: `GAME_MODES`, `getModePolicy`, room `mode/worldId` from Task 1.
-- Produces: `Room.addServerActor({ id, name, actorKind }, nowSec)`, `RoomManager.createSoloRoom(mode, nowSec)`, `GameSocket.startSolo(mode, name)`.
+- Produces: `Room.addServerActor()`, `Room.humanCount()`, `Room.provisionModeActors()`, `RoomManager.createSoloRoom()`, `GameSocket.startSolo()`.
 
-- [ ] **Step 1: Write failing lifecycle tests**
+- [ ] **Step 1: Write failing solo lifecycle tests**
+
+`server/tests/solo-room.test.mjs` imports `RoomManager` and asserts:
 
 ```js
-test('Bot Duel starts from one network human and one server bot', () => {
+test('Bot Duel needs one connected human, not a second browser', () => {
+  const manager = new RoomManager({ random: () => 0.1 });
   const room = manager.createSoloRoom('BOT_DUEL', 0);
-  const human = room.addPlayer({ id: 'human', token: 'token', name: 'Aden' }, 0);
+  room.addPlayer({ id: 'human', token: 'token', name: 'Aden' }, 0);
   room.provisionModeActors(0);
-  assert.equal(room.connectedCount(), 1);
+  assert.equal(room.humanCount(), 1);
   assert.equal([...room.players.values()].filter((p) => p.actorKind === 'bot').length, 1);
   room.tick(3.1);
   assert.equal(room.state, 'PLAYING');
 });
 
-test('Practice starts with one human and never times out', () => {
+test('Practice starts for one human and does not time out', () => {
+  const manager = new RoomManager({ random: () => 0.2 });
   const room = manager.createSoloRoom('PRACTICE', 0);
   room.addPlayer({ id: 'human', token: 'token', name: 'Aden' }, 0);
   room.armAutoStart(0);
@@ -205,6 +246,7 @@ test('Practice starts with one human and never times out', () => {
 });
 
 test('Quick Play never selects a solo room', () => {
+  const manager = new RoomManager({ random: () => 0.3 });
   const solo = manager.createSoloRoom('BOT_DUEL', 0);
   const quick = manager.quickPlay(0);
   assert.notEqual(quick.code, solo.code);
@@ -212,19 +254,16 @@ test('Quick Play never selects a solo room', () => {
 });
 ```
 
-- [ ] **Step 2: Run and verify RED**
+- [ ] **Step 2: Run RED**
 
-Run:
 ```bash
 node --test server/tests/solo-room.test.mjs
 ```
-Expected: FAIL because solo creation/server actors do not exist.
+Expected: FAIL because solo methods/server actors do not exist.
 
-- [ ] **Step 3: Implement actor/session separation and mode-aware start logic**
+- [ ] **Step 3: Implement server actor/session separation**
 
-Add `addServerActor()` that creates a normal combat state but has `token: null`, `connected: false`, `disconnectExpiresAt: null`, and `actorKind` constrained to `bot|dummy`.
-
-Add:
+`Room.addServerActor({id,name,actorKind}, nowSec)` accepts only `bot`/`dummy`, assigns normal combat state, `token: null`, `connected: false`, and no reconnect deadlines. Add:
 
 ```js
 humanCount() {
@@ -232,11 +271,11 @@ humanCount() {
 }
 ```
 
-Use `humanCount()` for network-start/rematch quorum. Mode population logic may count bots for scoring but never as connected humans.
+Use `humanCount()` for start/rematch quorum. Bots/dummies can score/die but never become network voters or cleanup sessions.
 
-For auto-start policies, set a short `COUNTDOWN` for Bot Duel and direct `PLAYING` start for Practice (or `COUNTDOWN` with zero duration); the implementation must satisfy the tests and never show `WAITING FOR ANOTHER SPELLBLADE` for solo rooms.
+`provisionModeActors()` inserts exactly one bot for `BOT_DUEL` and none for `PRACTICE`. `armAutoStart()` starts Practice immediately and Bot Duel via the normal short countdown.
 
-- [ ] **Step 4: Add `startSolo` protocol handling**
+- [ ] **Step 4: Add `startSolo` protocol**
 
 `GameSocket.mjs`:
 
@@ -244,85 +283,78 @@ For auto-start policies, set a short `COUNTDOWN` for Bot Duel and direct `PLAYIN
 startSolo(mode, name) { this.send({ type: 'startSolo', mode, name }); }
 ```
 
-Server handler accepts only `BOT_DUEL` or `PRACTICE`; rejects other strings with `{type:'error', message:'Unknown solo mode'}`. Create a private non-matchmade room, join the human, provision mode actors, then attach normally.
+Server accepts only `BOT_DUEL`/`PRACTICE`, creates a private non-matchmade room, joins the human, provisions actors, and attaches normally. Unknown/FFA input returns `{ type: 'error', message: 'Unknown solo mode' }` and creates no room.
 
-- [ ] **Step 5: Add integration assertions for reconnect and actor/session separation**
+- [ ] **Step 5: Add real WebSocket integration test**
 
-Use the existing integration WebSocket helper to prove a single socket can send `startSolo(PRACTICE)` and receive `joined` then a `PLAYING` snapshot without a second socket; reconnect token resumes the same mode/world.
+Using the existing integration socket helper, one client sends `startSolo(PRACTICE)` and must receive `joined` followed by a snapshot with `roomState === 'PLAYING'`, `mode === 'PRACTICE'`, without opening another socket. Resume with the issued token must restore the same `mode` and `worldId`.
 
-- [ ] **Step 6: Verify and commit**
+- [ ] **Step 6: Verify and merge**
 
-Run:
 ```bash
 node --test server/tests/solo-room.test.mjs server/tests/integration.test.mjs
 npm run verify
 ```
 Expected: all pass.
 
-Commit:
-```bash
-git commit -am "feat: add authoritative solo rooms"
-```
-
-PR title: `Add one-tab authoritative solo room lifecycle`.
+Commit: `feat: add authoritative solo rooms`.
+PR: `Add one-tab authoritative solo room lifecycle`.
 
 ---
 
-### Task 3: Implement the Basic Bot Controller Through Existing Combat Authority
+### Task 3: Add a Basic Bot Controller That Uses Existing Combat Verbs
 
 **Files:**
 - Create: `server/src/ai/BotController.mjs`
-- Modify: `server/src/game/combat.mjs`
 - Modify: `server/src/server.mjs`
 - Modify: `server/src/game/Room.mjs`
 - Test: `server/tests/bot-controller.test.mjs`
-- Test: `server/tests/combat.test.mjs`
+- Modify/Test: `server/tests/combat.test.mjs`
 
 **Interfaces:**
-- Consumes: `beginAttack`, `endAttack`, `setGuard`, `tryCastFireball`, `tryDash`, server actor states.
-- Produces: `stepBotControllers(room, nowSec, world)`; bot per-actor AI state in `player.ai`.
+- Consumes existing exports `beginAttack`, `endAttack`, `setGuard`, `tryCastFireball`, `tryDash`.
+- Produces `stepBotControllers(room, nowSec, world, { random } = {})` and per-bot `player.ai` state.
 
-- [ ] **Step 1: Write tests proving the bot emits intentions, not damage**
+- [ ] **Step 1: Write failing bot-authority tests**
 
 ```js
-test('bot closes distance and attacks through beginAttack when in range', () => {
-  const { room, bot, human } = botDuelFixture();
+test('bot chooses melee intent without directly damaging the target', () => {
+  const { room, bot, human } = makeBotDuel();
   bot.position = { x: 0, y: 0, z: 0 };
   human.position = { x: 0, y: 0, z: -1.4 };
-  stepBotControllers(room, 1, room.world);
+  stepBotControllers(room, 1, room.world, { random: () => 0.5 });
   assert.equal(bot.attackHeld, true);
-  assert.equal(human.health, 100); // damage still waits for normal combat strike timing
+  assert.equal(human.health, 100);
 });
 
-test('bot Fireball still obeys authoritative cooldown', () => {
-  const { room, bot } = botDuelFixture();
+test('bot Fireball cannot bypass cooldown', () => {
+  const { room, bot } = makeBotDuel();
   bot.fireballReadyAt = 10;
-  const before = room.projectiles.size;
-  stepBotControllers(room, 5, room.world);
-  assert.equal(room.projectiles.size, before);
+  const count = room.projectiles.size;
+  stepBotControllers(room, 5, room.world, { random: () => 0.5 });
+  assert.equal(room.projectiles.size, count);
 });
 
-test('bot does not perfect-parry with zero reaction latency by default', () => {
-  const { room, bot } = botDuelFixture();
-  stepBotControllers(room, 1, room.world);
+test('bot defensive decisions have nonzero reaction latency', () => {
+  const { room, bot } = makeBotDuel();
+  stepBotControllers(room, 1, room.world, { random: () => 0.5 });
   assert.ok(bot.ai.nextDefensiveDecisionAt > 1);
 });
 ```
 
 - [ ] **Step 2: Run RED**
 
-Run:
 ```bash
 node --test server/tests/bot-controller.test.mjs
 ```
 Expected: FAIL because controller does not exist.
 
-- [ ] **Step 3: Implement low-frequency decisions with continuous movement input**
+- [ ] **Step 3: Implement low-frequency decisions**
 
-Controller state:
+Initialize:
 
 ```js
-player.ai = {
+bot.ai = {
   nextDecisionAt: nowSec,
   nextDefensiveDecisionAt: nowSec + 0.2,
   strafeSign: 1,
@@ -330,19 +362,15 @@ player.ai = {
 };
 ```
 
-At 5–10 Hz, acquire nearest alive hostile human, compute target distance/yaw, then update `bot.input.forward/right/yaw/pitch`. Use existing combat functions for actions. Do not mutate target HP, score, cooldown timestamps, or projectile maps directly except through those functions.
+At 5–10 Hz: acquire nearest alive hostile human; compute desired yaw/distance; update `bot.input`; attack at sword range; Fireball at medium range if `tryCastFireball()` accepts; Dash for gap closing if `tryDash()` accepts; call `setGuard()` only after defensive reaction deadline. Never write target HP, cooldown times, kill counts, or successful parry state from AI code.
 
-Use bounded deterministic-ish noise derived from actor id/tick where possible so tests can inject a `random` function.
+- [ ] **Step 4: Run bot intentions before normal room simulation**
 
-- [ ] **Step 4: Call bot decisions before `stepRoom()` movement/combat resolution**
+In server tick, call `stepBotControllers(room, time, room.world)` for active rooms before `stepRoom(room, dt, time, room.world)`.
 
-In the authoritative tick, for every `PLAYING` room call `stepBotControllers(room, time, room.world)` before `stepRoom(...)`.
+- [ ] **Step 5: Add Guard/parry/cooldown regression tests and verify**
 
-- [ ] **Step 5: Add authority regression tests**
-
-Reuse existing combat fixtures to prove bot sword attacks respect Guard/parry and bot casts create the same projectile type/event as humans.
-
-- [ ] **Step 6: Verify and commit**
+Prove a bot sword strike follows existing Guard/parry handling and bot Fireball produces the same projectile/event path as human Fireball.
 
 Run:
 ```bash
@@ -351,17 +379,12 @@ npm run verify
 ```
 Expected: all pass.
 
-Commit:
-```bash
-git add server/src/ai server/src/game server/src/server.mjs server/tests
-git commit -m "feat: add authoritative Spellblade bot controller"
-```
-
-PR title: `Add basic server-authoritative Bot Duel opponent`.
+Commit: `feat: add authoritative Spellblade bot controller`.
+PR: `Add basic server-authoritative Bot Duel opponent`.
 
 ---
 
-### Task 4: Add Practice Yard Utilities and Training Dummy Modes
+### Task 4: Add Practice Yard Utilities and One Training Dummy
 
 **Files:**
 - Create: `server/src/game/practice.mjs`
@@ -370,19 +393,19 @@ PR title: `Add basic server-authoritative Bot Duel opponent`.
 - Test: `server/tests/practice.test.mjs`
 
 **Interfaces:**
-- Produces server functions: `resetPracticePlayer(room, playerId, nowSec)`, `spawnPracticeDummy(room, mode, nowSec)`, `removePracticeDummy(room)`, `setPracticeDummyMode(room, mode)`.
-- Produces client socket helpers matching practice message names.
+- Produces: `resetPracticePlayer`, `spawnPracticeDummy`, `removePracticeDummy`, `setPracticeDummyMode`.
+- Dummy modes: `PASSIVE`, `GUARDING`, `FIGHTS_BACK`.
 
-- [ ] **Step 1: Write mode-gating and bounded-actor tests**
+- [ ] **Step 1: Write failing mode-gating/reset tests**
 
 ```js
-test('practice reset is rejected outside Practice', () => {
+test('practice utilities are rejected in FFA', () => {
   const room = new Room('ABCDE', { mode: 'FFA', worldId: 'shattered-keep' });
   assert.equal(resetPracticePlayer(room, 'p1', 1), false);
 });
 
-test('Practice reset restores health, Guard stamina and cooldowns', () => {
-  const { room, human } = practiceFixture();
+test('practice reset restores base combat resources', () => {
+  const { room, human } = makePracticeRoom();
   human.health = 12;
   human.guardStamina = 9;
   human.fireballReadyAt = 99;
@@ -394,8 +417,8 @@ test('Practice reset restores health, Guard stamina and cooldowns', () => {
   assert.ok(human.dashReadyAt <= 5);
 });
 
-test('Practice keeps at most one training dummy', () => {
-  const { room } = practiceFixture();
+test('practice owns at most one dummy', () => {
+  const { room } = makePracticeRoom();
   spawnPracticeDummy(room, 'PASSIVE', 0);
   spawnPracticeDummy(room, 'GUARDING', 0);
   assert.equal([...room.players.values()].filter((p) => p.actorKind === 'dummy').length, 1);
@@ -404,25 +427,17 @@ test('Practice keeps at most one training dummy', () => {
 
 - [ ] **Step 2: Run RED**
 
-Run:
 ```bash
 node --test server/tests/practice.test.mjs
 ```
-Expected: FAIL because practice utility module does not exist.
 
-- [ ] **Step 3: Implement utilities and dummy behavior**
+- [ ] **Step 3: Implement practice module**
 
-Dummy modes are constants `PASSIVE`, `GUARDING`, `FIGHTS_BACK`.
+Passive dummy has zero input/no Guard. Guarding dummy calls normal `setGuard()` when stamina permits but does not manufacture Perfect Parry timing. Fights Back reuses the bot controller with constrained aggression. Reset uses a safe `room.world.spawnPoints` entry and the same fresh combat-state path used by respawn.
 
-- Passive: zero movement, no Guard/Attack.
-- Guarding: zero movement, `setGuard(room, dummy.id, true, nowSec)` when stamina allows; never manufactures Perfect Parry timestamps.
-- Fights Back: reuse bot controller with a constrained aggression profile.
+- [ ] **Step 4: Add mode-gated socket helpers/messages**
 
-Reset uses a safe spawn from `room.world.spawnPoints`, clears projectiles owned by the player if needed, and uses the same fresh-combat-state helper Room uses for respawns.
-
-- [ ] **Step 4: Wire explicit practice-only messages**
-
-Add `GameSocket` helpers:
+`GameSocket` methods:
 
 ```js
 practiceResetPlayer() { this.send({ type: 'practiceResetPlayer' }); }
@@ -431,97 +446,81 @@ practiceRemoveDummy() { this.send({ type: 'practiceRemoveDummy' }); }
 practiceSetDummyMode(mode) { this.send({ type: 'practiceSetDummyMode', mode }); }
 ```
 
-Server rejects these outside Practice and clamps mode to the three allowed values.
+Server rejects these unless `room.mode === 'PRACTICE'`; accepted dummy modes are exactly the three constants.
 
-- [ ] **Step 5: Verify and commit**
+- [ ] **Step 5: Verify and merge**
 
-Run:
 ```bash
 node --test server/tests/practice.test.mjs
 npm run verify
 ```
 Expected: all pass.
 
-Commit:
-```bash
-git commit -am "feat: add Practice Yard controls and dummies"
-```
-
-PR title: `Add authoritative Practice Yard utilities`.
+Commit: `feat: add Practice Yard controls and dummies`.
+PR: `Add authoritative Practice Yard utilities`.
 
 ---
 
-### Task 5: Create Castleward Gameplay Geometry and Make World Selection Truly Per-Room
+### Task 5: Add Castleward Gameplay Geometry and True Per-Room World Selection
 
 **Files:**
 - Create: `shared/worlds/castleward.mjs`
 - Modify: `shared/worlds/registry.mjs`
 - Modify: `server/src/server.mjs`
-- Modify: `server/src/game/combat.mjs` only where a global world argument remains
+- Modify: `server/src/game/combat.mjs` only where simulation still receives a global world
 - Test: `shared/src/castleward.test.mjs`
 - Test: `server/tests/world-selection.test.mjs`
 
 **Interfaces:**
-- Produces: `CASTLEWARD` world object with `id`, `name`, `floors`, `ramps`, `solids`, `spawnPoints`, `abyssY/worldBounds`, `zones`, and optional `navigationHints`.
-- `stepRoom` receives `room.world` rather than a server-global map.
+- Produces `CASTLEWARD` with `id`, `name`, `floors`, `ramps`, `solids`, `spawnPoints`, boundary/fall data, `zones`, optional `navigationHints`.
 
-- [ ] **Step 1: Write world contract and traversal-envelope tests**
+- [ ] **Step 1: Write failing Castleward contract tests**
 
 ```js
-test('Castleward is a compact 45-55m arena with safe spawns', () => {
+test('Castleward exposes the five intended combat zones', () => {
+  const ids = new Set(CASTLEWARD.zones.map((zone) => zone.id));
+  assert.deepEqual(ids, new Set(['town-green', 'castle-bailey', 'west-village', 'east-meadow', 'south-road']));
+});
+
+test('Castleward stays inside the arena size envelope', () => {
   const xs = CASTLEWARD.floors.flatMap((f) => [f.center[0] - f.size[0] / 2, f.center[0] + f.size[0] / 2]);
   const zs = CASTLEWARD.floors.flatMap((f) => [f.center[2] - f.size[2] / 2, f.center[2] + f.size[2] / 2]);
   assert.ok(Math.max(...xs) - Math.min(...xs) <= 55);
   assert.ok(Math.max(...zs) - Math.min(...zs) <= 55);
   assert.ok(CASTLEWARD.spawnPoints.length >= 10);
-  for (const spawn of CASTLEWARD.spawnPoints) assert.ok(spawn.y >= 0);
-});
-
-test('Castleward exposes required semantic zones', () => {
-  assert.deepEqual(new Set(CASTLEWARD.zones.map((z) => z.id)), new Set(['town-green', 'castle-bailey', 'west-village', 'east-meadow', 'south-road']));
 });
 ```
 
-Add a movement simulation test for at least the Town Green -> Castle Bailey and Town Green -> East Meadow routes using normal movement/jump and no Dash.
+Also write normal-movement simulation tests for Town Green -> Castle Bailey and Town Green -> East Meadow with Dash disabled.
 
 - [ ] **Step 2: Run RED**
 
-Run:
 ```bash
 node --test shared/src/castleward.test.mjs server/tests/world-selection.test.mjs
 ```
-Expected: FAIL because Castleward is not registered and room simulation still has global-world assumptions.
 
-- [ ] **Step 3: Build collision-friendly Castleward topology**
+- [ ] **Step 3: Implement collision-friendly Castleward topology**
 
-Use broad rectangular floors/ramps/solids compatible with existing movement. Establish central Town Green, north castle gate/bailey/wall walk, west lane, east meadow/chapel, south road. Use believable boundary solids rather than abyss on every side.
+Use broad deterministic floors/ramps/solids compatible with current collision: central Town Green/market, uphill north castle gate+bailey+short wall walk, west village lane, east meadow+ruined chapel, south road/outer gate. Use walls/buildings/banks as primary containment; limited kill-falls only where visually legible.
 
-Do not add decorative non-collision overhangs that look solid in gameplay; gameplay-relevant buildings/walls must have corresponding solids.
+- [ ] **Step 4: Remove remaining server-global world coupling**
 
-- [ ] **Step 4: Make server simulation resolve `room.world` each tick**
+Every room tick resolves collision/spawns from `room.world`. `world-selection.test.mjs` creates one Keep room and one Castleward room in the same server and proves spawn/collision differ according to each room's `worldId`.
 
-Remove the default `world = SHATTERED_KEEP` coupling from runtime room stepping. A test with two simultaneously created rooms using different world IDs must prove each player collides/spawns against its own world.
+- [ ] **Step 5: Register Castleward and make it the default for new rooms**
 
-- [ ] **Step 5: Make Castleward the default for newly created FFA/solo rooms while retaining Keep registry access**
+`WORLD_IDS.CASTLEWARD` resolves to `CASTLEWARD`; RoomManager defaults public/private/solo creation to Castleward while explicit Keep creation remains supported for tests/debug.
 
-Change RoomManager default world ID to `castleward`; tests that explicitly need Keep pass `worldId: 'shattered-keep'`.
+- [ ] **Step 6: Verify and merge**
 
-- [ ] **Step 6: Verify and commit**
-
-Run:
 ```bash
 node --test shared/src/castleward.test.mjs server/tests/world-selection.test.mjs
 npm run verify
 ```
 Expected: all pass.
 
-Commit:
-```bash
-git add shared server
-git commit -m "feat: add Castleward gameplay world"
-```
-
-PR title: `Add Castleward as the default authoritative arena`.
+Commit: `feat: add Castleward gameplay world`.
+PR: `Add Castleward as the default authoritative arena`.
 
 ---
 
@@ -532,95 +531,75 @@ PR title: `Add Castleward as the default authoritative arena`.
 - Create: `client/worlds/CastlewardRenderer.mjs`
 - Create: `client/worlds/ShatteredKeepRenderer.mjs`
 - Create: `client/worlds/castlewardDecor.mjs`
-- Modify: `client/game/WorldRenderer.mjs` into compatibility wrapper or remove after callers migrate
+- Modify: `client/game/WorldRenderer.mjs`
 - Modify: `client/game/GameRuntime.mjs`
 - Modify: `package.json`
 - Test: `client/worlds/worldRendererFactory.test.mjs`
 - Test: `client/worlds/castlewardDecor.test.mjs`
 
 **Interfaces:**
-- Produces: `createWorldRenderer(worldId, scene)` and renderer instances exposing `update(timeSec)` and `dispose()`.
-- Consumes authoritative `snapshot.worldId`.
+- Produces `rendererKeyForWorld(worldId)`, `createWorldRenderer(worldId, scene)`, renderer `update(timeSec)` and `dispose()`.
 
-- [ ] **Step 1: Expand test script to include client world/menu tests**
+- [ ] **Step 1: Add only the world-test glob**
 
-Change the test command to include:
+Set:
 
 ```json
-"test": "node --test client/game/*.test.mjs client/worlds/*.test.mjs client/menu/*.test.mjs shared/src/*.test.mjs server/tests/*.test.mjs"
+"test": "node --test client/game/*.test.mjs client/worlds/*.test.mjs shared/src/*.test.mjs server/tests/*.test.mjs"
 ```
 
-Do not create empty directories solely for the glob; create the world tests in this task and menu tests in Task 7 before final verification.
+Do not add `client/menu/*.test.mjs` until Task 7 creates that test directory.
 
-- [ ] **Step 2: Write renderer selection tests**
+- [ ] **Step 2: Write failing renderer/decor tests**
 
 ```js
-test('renderer factory selects Castleward and Keep explicitly', () => {
+test('world renderer selection is explicit', () => {
   assert.equal(rendererKeyForWorld('castleward'), 'castleward');
   assert.equal(rendererKeyForWorld('shattered-keep'), 'shattered-keep');
   assert.throws(() => rendererKeyForWorld('unknown'), /Unsupported world/);
 });
-```
 
-Decor-plan tests assert bounded counts and medieval categories:
-
-```js
-const plan = buildCastlewardDecorPlan(1337);
-assert.ok(plan.houses.length >= 4 && plan.houses.length <= 10);
-assert.ok(plan.trees.length <= 24);
-assert.ok(plan.torches.length <= 20);
-assert.ok(plan.castlePieces.length > 0);
+test('Castleward deterministic decor stays performance bounded', () => {
+  const plan = buildCastlewardDecorPlan(1337);
+  assert.ok(plan.houses.length >= 4 && plan.houses.length <= 10);
+  assert.ok(plan.trees.length <= 24);
+  assert.ok(plan.torches.length <= 20);
+  assert.ok(plan.castlePieces.length > 0);
+});
 ```
 
 - [ ] **Step 3: Run RED**
 
-Run:
 ```bash
 node --test client/worlds/*.test.mjs
 ```
-Expected: FAIL because factory/decor modules do not exist.
 
-- [ ] **Step 4: Extract Keep renderer without behavior changes**
+- [ ] **Step 4: Extract Keep renderer and implement explicit factory**
 
-Move existing `WorldRenderer` logic to `ShatteredKeepRenderer`; preserve its update semantics. Implement factory explicit map lookup; no fallback to Keep for unknown IDs.
+Move existing Keep renderer body to `ShatteredKeepRenderer.mjs`. Factory maps exactly two supported IDs and throws for unknown worlds; there is no silent Keep fallback.
 
-- [ ] **Step 5: Build Castleward renderer from authoritative geometry plus deterministic decor**
+- [ ] **Step 5: Build Castleward renderer**
 
-Use shared/practical geometry:
-- grass/earth floor materials;
-- warm gray castle/chapel stone;
-- oak timber + cream plaster house facades;
-- pitched low-poly roof prisms or rotated box roofs;
-- castle gatehouse and parapet silhouettes;
-- fences, carts/stalls, trees, chapel ruins, banners;
-- restrained sun/hemisphere lighting and limited warm torch/window lights.
+Render authoritative floors/solids, then deterministic medieval decor: natural green grass, packed earth, warm gray limestone, dark oak timber, weathered cream plaster, muted roofs, castle gatehouse/parapets, village facades, fences, market stalls/carts, chapel ruin, trees and faded banners. Keep point lights limited; use daylight/hemisphere lighting for most readability. Decorative solid-looking props cannot block a route unless server collision contains matching geometry.
 
-Decor positions must be seeded/deterministic. Do not place decorative solid-looking props across authoritative walk routes unless collision data includes them.
+- [ ] **Step 6: Make `GameRuntime` choose renderer from authoritative snapshot**
 
-- [ ] **Step 6: Make GameRuntime switch renderer only from authoritative snapshots**
+On first snapshot create the renderer for `snapshot.worldId`. Unknown ID stops match presentation and surfaces an explicit incompatible-world error. Dispose the prior renderer when leaving/switching rooms.
 
-When the first snapshot arrives, create the matching renderer. If a later snapshot changes `worldId` unexpectedly for the same active room, dispose and rebuild only if protocol intentionally supports it; otherwise surface an error. Unknown world should stop presentation and show explicit incompatibility text rather than rendering Keep.
+- [ ] **Step 7: Verify and merge**
 
-- [ ] **Step 7: Verify and commit**
-
-Run:
 ```bash
 node --test client/worlds/*.test.mjs
 npm run verify
 ```
 Expected: all pass.
 
-Commit:
-```bash
-git add client/worlds client/game package.json
-git commit -m "feat: render Castleward medieval arena"
-```
-
-PR title: `Render Castleward and select worlds authoritatively`.
+Commit: `feat: render Castleward medieval arena`.
+PR: `Render Castleward and select worlds authoritatively`.
 
 ---
 
-### Task 7: Rebuild the Main Menu and Wire Solo / Practice UI
+### Task 7: Rebuild the Main Menu Around the Spellblade and Solo Flows
 
 **Files:**
 - Create: `client/menu/MenuController.mjs`
@@ -630,50 +609,55 @@ PR title: `Render Castleward and select worlds authoritatively`.
 - Modify: `client/styles.css`
 - Modify: `client/main.mjs`
 - Modify: `client/network/GameSocket.mjs`
+- Modify: `package.json`
 - Test: `client/menu/MenuController.test.mjs`
-- Test: `server/tests/client-shell.test.mjs`
+- Modify/Test: `server/tests/client-shell.test.mjs`
 
 **Interfaces:**
-- Produces screen IDs: `MAIN_MENU`, `SOLO_MENU`, `PRIVATE_MENU`, `LOBBY`, `PLAYING`, `PRACTICE_OVERLAY`, `END_SCREEN`, `HOW_TO_PLAY`.
-- Menu actions call existing `GameSocket.quickPlay/createRoom/joinRoom` plus `startSolo` and practice helpers.
-- `MenuScene` owns a non-gameplay Three.js preview scene and `dispose()`.
+- Screen IDs: `MAIN_MENU`, `SOLO_MENU`, `PRIVATE_MENU`, `LOBBY`, `PLAYING`, `PRACTICE_OVERLAY`, `END_SCREEN`, `HOW_TO_PLAY`.
+- Menu actions call existing socket methods plus `startSolo`/practice helpers.
 
-- [ ] **Step 1: Write pure controller/router tests before touching DOM-heavy code**
+- [ ] **Step 1: Extend test command now that menu tests exist**
+
+Set:
+
+```json
+"test": "node --test client/game/*.test.mjs client/worlds/*.test.mjs client/menu/*.test.mjs shared/src/*.test.mjs server/tests/*.test.mjs"
+```
+
+- [ ] **Step 2: Write failing pure menu-state tests**
 
 ```js
-test('Solo defaults to Fight Bot and exposes Practice Yard', () => {
+test('Solo opens with Fight Bot selected by default', () => {
   const state = reduceMenuState({ screen: 'MAIN_MENU' }, { type: 'OPEN_SOLO' });
   assert.equal(state.screen, 'SOLO_MENU');
   assert.equal(state.soloSelection, 'BOT_DUEL');
 });
 
-test('joined Practice skips multiplayer waiting lobby', () => {
-  const state = routeJoined({ mode: 'PRACTICE', roomState: 'PLAYING' });
-  assert.equal(state, 'PLAYING');
+test('Practice join skips the multiplayer waiting lobby', () => {
+  assert.equal(routeJoined({ mode: 'PRACTICE', roomState: 'PLAYING' }), 'PLAYING');
 });
 
-test('invite URL emphasizes private join flow', () => {
+test('invite URL opens private join flow', () => {
   const state = initialMenuState({ invitedRoom: 'ABCD2' });
   assert.equal(state.screen, 'PRIVATE_MENU');
   assert.equal(state.roomCode, 'ABCD2');
 });
 ```
 
-- [ ] **Step 2: Run RED**
+- [ ] **Step 3: Run RED**
 
-Run:
 ```bash
 node --test client/menu/*.test.mjs
 ```
-Expected: FAIL because menu modules do not exist.
 
-- [ ] **Step 3: Implement `ScreenRouter` and `MenuController` as pure state + small DOM adapter**
+- [ ] **Step 4: Implement `ScreenRouter`/`MenuController` and slim `main.mjs`**
 
-`main.mjs` remains bootstrap: construct socket/HUD/router/menu scene, subscribe to socket events, and hand authoritative snapshots to runtime/router. It should no longer directly own every button's behavior.
+`main.mjs` becomes bootstrap/orchestration: construct socket/HUD/menu/router/runtime, subscribe to socket messages, hand snapshots to runtime/router. Button state transitions and submenu state live in `MenuController`; screen visibility lives in `ScreenRouter`.
 
-- [ ] **Step 4: Replace centered utility card markup with medieval front-door hierarchy**
+- [ ] **Step 5: Replace centered utility card with the approved hierarchy**
 
-Required visible actions:
+Required main actions:
 
 ```text
 QUICK MATCH
@@ -684,155 +668,92 @@ HOW TO PLAY
 SPELLBLADE: <name> [EDIT]
 ```
 
-Solo submenu contains:
+Solo submenu: `FIGHT BOT` highlighted/default, then `PRACTICE YARD`. Private submenu: Create Private Room + room-code Join. Invite URL pre-fills/emphasizes join.
 
-```text
-FIGHT BOT
-PRACTICE YARD
-```
+- [ ] **Step 6: Implement `MenuScene` using the existing Spellblade rig**
 
-Private submenu contains Create Private Room and room-code Join.
+Render a simplified Castleward hill/town/castle backdrop and one base Spellblade center/right. Reuse `createSpellbladeRig()`. Pointer drag rotates only the character Y axis; idle motion stays restrained. Present three small medieval medallions for Sword/Guard, Q Fireball, E Dash. No currency, rarity, upgrade arrows, pulsing loot cards, or generic cyan crest.
 
-- [ ] **Step 5: Implement `MenuScene` using the existing Spellblade rig**
+- [ ] **Step 7: Rework menu CSS and add Practice overlay**
 
-Render a simplified Castleward hill/castle background and one base Spellblade center/right. Support pointer drag to rotate around Y only; clamp/preserve a tasteful angle. Keep idle motion restrained. Reuse `createSpellbladeRig()` rather than duplicating the character model.
+Use warm off-white text, burgundy/faded red cloth accents, restrained gold, iron/wood/stone separators and only enough dark backing for readability. HUD overhaul is out of scope. Practice overlay exposes Reset Player, Reset Cooldowns, Spawn/Remove Dummy and Passive/Guarding/Fights Back controls only when `snapshot.mode === 'PRACTICE'`.
 
-Ability presentation is three small medieval sigils/medallions: Sword/Guard, Q Fireball, E Dash. No rarity colors/currency/shop affordances.
+- [ ] **Step 8: Verify and merge**
 
-- [ ] **Step 6: Rework CSS toward authored medieval materials**
-
-Replace cyan SaaS-card emphasis with parchment/iron/wood/stone hierarchy: warm off-white copy, muted burgundy/gold accents, dark iron dividers, translucent panels only where text needs contrast. Do not apply heavy textures that hurt readability or performance.
-
-HUD can remain mostly prototype-grade in this task; only menu/lobby/practice overlay must be restructured.
-
-- [ ] **Step 7: Add Practice overlay controls**
-
-When `snapshot.mode === 'PRACTICE'`, show a compact escape/pause-style practice panel with Reset Player, Reset Cooldowns, Spawn/Remove Dummy, and Passive/Guarding/Fights Back state controls. Do not show it during FFA/Bot Duel.
-
-- [ ] **Step 8: Verify client-shell and full repository**
-
-Run:
 ```bash
 node --test client/menu/*.test.mjs server/tests/client-shell.test.mjs
 npm run verify
 ```
 Expected: all pass.
 
-Commit:
-```bash
-git add client package.json server/tests/client-shell.test.mjs
-git commit -m "feat: rebuild medieval main menu and solo flows"
-```
-
-PR title: `Rebuild main menu around Spellblade and solo play`.
+Commit: `feat: rebuild medieval main menu and solo flows`.
+PR: `Rebuild main menu around Spellblade and solo play`.
 
 ---
 
-### Task 8: Harden Integrated Solo/World/Menu Boundaries and Preserve Multiplayer
+### Task 8: Integrated Structural Regression Gate and One Batched Public Verification
 
 **Files:**
-- Modify: `server/tests/integration.test.mjs`
 - Create: `server/tests/structural-phase.test.mjs`
+- Modify: `server/tests/integration.test.mjs`
 - Modify: `scripts/smoke.mjs`
 - Modify: `README.md`
+- Modify/create the existing manual public-verification GitHub Actions workflow only as needed; do not schedule it frequently.
 
 **Interfaces:**
-- Consumes all previous tasks.
-- Produces end-to-end regression coverage and documented player flows.
+- Consumes Tasks 1–7.
+- Produces final regression coverage, documentation, and one browser evidence bundle.
 
-- [ ] **Step 1: Add full structural regression tests**
+- [ ] **Step 1: Add integrated server/protocol regressions**
 
-Cover these scenarios in one test file using actual server instances/WebSockets where appropriate:
+Using actual server/WebSocket fixtures, assert all eight cases:
 
-```js
-// 1. one FFA client stays WAITING
-// 2. second FFA client starts countdown/match
-// 3. one BOT_DUEL client reaches PLAYING with exactly one bot
-// 4. one PRACTICE client reaches PLAYING with no bot until dummy requested
-// 5. Quick Play does not attach to solo rooms
-// 6. snapshots report mode/worldId/actorKind
-// 7. practice messages are rejected in FFA
-// 8. reconnect resumes same solo mode/world
+```text
+1. one FFA human remains WAITING
+2. two FFA humans can start
+3. one BOT_DUEL human reaches PLAYING with exactly one bot
+4. one PRACTICE human reaches PLAYING without a bot until dummy requested
+5. Quick Play never attaches to solo rooms
+6. snapshot contains mode, worldId, actorKind
+7. practice utility messages are rejected in FFA
+8. reconnect resumes the same solo mode/world
 ```
 
-- [ ] **Step 2: Add malformed/unsupported protocol cases**
+Also send malformed `startSolo` mode values, attempted client `worldId` injection and invalid dummy modes; verify no room identity mutation and no server crash.
 
-Send `startSolo` with `FFA`, unknown mode, oversized dummy mode strings, and attempted `worldId` injection. Verify explicit errors/no room mutation and server remains connected.
+- [ ] **Step 2: Update smoke/README and run full CI-equivalent verification**
 
-- [ ] **Step 3: Update smoke test and README**
+Smoke retains HTTP assets/private-path/health/WebSocket handshake and verifies the served shell contains `FIGHT BOT` and `PRACTICE YARD` after the menu ships.
 
-Smoke should continue to verify HTTP/private-path/health/WebSocket handshake and also confirm the served client shell contains `FIGHT BOT` and `PRACTICE YARD` once the menu is final.
-
-README documents:
-- Quick Match;
-- Fight Bot;
-- Practice Yard;
-- private room/join code;
-- Castleward as current default;
-- Keep retained for regression/debug;
-- Render free-tier cold-start note without promising always-on availability.
-
-- [ ] **Step 4: Run the full local/CI-equivalent gate**
+README documents Quick Match, Fight Bot, Practice Yard, private room/join, Castleward default, Keep regression map and Render cold starts.
 
 Run:
 ```bash
 npm run verify
 ```
-Expected: syntax clean, all unit/integration tests pass, HTTP/private-path/health/WebSocket smoke passes.
+Expected: syntax clean, every unit/integration test passes, smoke passes.
 
-- [ ] **Step 5: Commit and merge only after fresh CI**
+- [ ] **Step 3: Merge only after fresh GitHub Actions evidence**
 
-```bash
-git add server/tests scripts README.md
-git commit -m "test: harden solo world and menu integration"
-```
+Commit: `test: harden solo world and menu integration`.
+PR: `Harden solo, Castleward, and menu integration`.
 
-PR title: `Harden solo, Castleward, and menu integration`.
+- [ ] **Step 4: Perform one Render wake/browser batch after `main` is green**
 
----
-
-### Task 9: One Batched Public Render Verification and Screenshot Pass
-
-**Files:**
-- Modify or create only the existing temporary/public-verification GitHub Actions harness under `.github/workflows/` if it already exists; do not add a permanent high-frequency schedule.
-- No production code changes unless the verification exposes a reproducible defect; such fixes receive their own test-first PR.
-
-**Interfaces:**
-- Consumes deployed `main` from Tasks 1–8.
-- Produces one browser evidence artifact bundle and a list of defects found from real rendering/play.
-
-- [ ] **Step 1: Wait for `main` CI to be green before allowing Render deployment**
-
-Use commit status/workflow evidence; do not wake Render from intermediate task branches.
-
-- [ ] **Step 2: Run one public verification job**
-
-The job must:
-- poll `/health` until the free-tier instance is awake;
-- verify client assets and `wss://.../ws` hello/pong;
-- open headless Chrome;
+The manual verification job must, in one run:
+- poll `/health` until awake;
+- verify client assets and public WSS hello/pong;
 - capture the new menu;
-- enter Practice with one browser client and capture Town Green/Castleward;
-- spawn a dummy and capture Guard/combat state;
-- leave, enter Bot Duel with one browser client and capture opponent/combat;
-- create or Quick Play one FFA room and prove it remains waiting for a second human;
-- record browser console errors and fail on non-whitelisted asset failures.
+- enter Practice with one browser client and capture Castleward;
+- spawn a dummy and capture combat/Guard state;
+- leave and enter Bot Duel with one browser client;
+- create/Quick Play FFA and prove one human remains waiting;
+- collect browser console errors and fail on unexpected asset/network errors.
 
-- [ ] **Step 3: Inspect screenshots manually against structural acceptance criteria**
+- [ ] **Step 5: Inspect screenshots and fix only reproducible defects test-first**
 
-Look specifically for:
-- menu still reading as generic AI/SaaS/gacha UI;
-- Spellblade overlapping title/actions;
-- Castle not functioning as dominant landmark;
-- grassy/town routes looking decorative but conflicting with collision;
-- bot/dummy poses unreadable;
-- first-person weapon blocking too much screen;
-- practice overlay obscuring combat.
+Check specifically for generic AI/SaaS/gacha menu language, Spellblade/menu overlap, weak castle landmarking, visual/collision mismatch, unreadable bot/dummy poses, oversized first-person weapon, or Practice overlay obstruction. Each actual defect gets a focused failing regression before a fix. Batch any necessary second public check instead of waking Render after each correction.
 
-- [ ] **Step 4: File/fix only reproducible defects, test-first**
+- [ ] **Step 6: Final verification**
 
-Each discovered production defect receives a focused regression test and normal PR. Do not repeatedly rerun Render after each small fix; batch a second production check only if changes materially affect multiple verified views.
-
-- [ ] **Step 5: Final full verification**
-
-After any screenshot-driven fixes merge, run fresh `main` CI and, if warranted, one final batched public job. Acceptance requires the 14 criteria in the approved spec to be demonstrably satisfied.
+After screenshot-driven fixes, require fresh green `main` CI. The structural phase is complete only when all 14 acceptance criteria in the approved spec are demonstrably satisfied.
