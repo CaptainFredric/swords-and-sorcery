@@ -1,6 +1,6 @@
 # Spellblade Blender Production Pipeline
 
-**Status:** Design approved in chat; written specification approved. Implementation plan: `docs/superpowers/plans/2026-09-19-spellblade-blender-production-plan.md`.
+**Status:** Approved design. Implementation plan: `docs/superpowers/plans/2026-09-19-spellblade-blender-production-plan.md`.
 
 ## Purpose
 
