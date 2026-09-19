@@ -1,6 +1,6 @@
 /* Foundational playability overrides kept separate from the larger visual skin. */
 
-.practice-tools-locked-hint {
+.practice-tools .practice-tools-locked-hint {
   display: none;
 }
 
