@@ -1,19 +1,26 @@
 import * as THREE from 'three';
-import { SHATTERED_KEEP } from '../../shared/src/map.mjs';
+import { getWorld } from '../../shared/worlds/registry.mjs';
 import { createMovementState, movePlayer, tryStartDash } from '../../shared/src/movement.mjs';
 import { InputController } from './InputController.mjs';
-import { WorldRenderer } from './WorldRenderer.mjs';
 import { RemotePlayers } from './RemotePlayers.mjs';
 import { WeaponView } from './WeaponView.mjs';
 import { Effects } from './Effects.mjs';
 import { SCENE_PRESENTATION } from './scenePresentation.mjs';
 import { localCombatFeedback, shouldPlayWorldClang } from './combatFeedback.mjs';
 import { castVisualDuration } from './weaponPose.mjs';
+import { createWorldRenderer, rendererKeyForWorld } from '../worlds/WorldRendererFactory.mjs';
+import { CastlewardRenderer } from '../worlds/CastlewardRenderer.mjs';
+import { ShatteredKeepRenderer } from '../worlds/ShatteredKeepRenderer.mjs';
 import {
   canPresentLocalAction,
   localWeaponReleaseForEvent,
   localWeaponReleaseForSnapshot,
 } from './localActionPresentation.mjs';
+
+const WORLD_RENDERERS = Object.freeze({
+  castleward: CastlewardRenderer,
+  'shattered-keep': ShatteredKeepRenderer,
+});
 
 export class GameRuntime {
   constructor(container, socket, hud) {
@@ -43,13 +50,16 @@ export class GameRuntime {
     moon.position.set(-12, 24, 8);
     moon.castShadow = true;
     moon.shadow.mapSize.set(1024, 1024);
-    moon.shadow.camera.left = -24;
-    moon.shadow.camera.right = 24;
-    moon.shadow.camera.top = 24;
-    moon.shadow.camera.bottom = -24;
+    moon.shadow.camera.left = -30;
+    moon.shadow.camera.right = 30;
+    moon.shadow.camera.top = 30;
+    moon.shadow.camera.bottom = -30;
     this.scene.add(moon);
 
-    this.world = new WorldRenderer(this.scene);
+    this.world = null;
+    this.activeWorld = null;
+    this.worldId = null;
+    this.worldError = null;
     this.remotePlayers = new RemotePlayers(this.scene, socket.playerId);
     this.weapon = new WeaponView(this.camera);
     this.effects = new Effects(this.scene, this.camera);
@@ -113,17 +123,42 @@ export class GameRuntime {
     if (release.guard) this.weapon.setGuard(false);
   }
 
+  #ensureWorld(worldId) {
+    if (this.worldId === worldId && this.world && this.activeWorld) return true;
+    try {
+      rendererKeyForWorld(worldId);
+      const nextWorld = getWorld(worldId);
+      const nextRenderer = createWorldRenderer(worldId, this.scene, WORLD_RENDERERS);
+      this.world?.dispose?.();
+      this.world = nextRenderer;
+      this.activeWorld = nextWorld;
+      this.worldId = worldId;
+      this.worldError = null;
+      this.localState = null;
+      return true;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (this.worldError !== message) this.hud.flashText('INCOMPATIBLE WORLD', 'danger');
+      this.worldError = message;
+      this.activeWorld = null;
+      this.playing = false;
+      this.#applyWeaponRelease({ attack: true, guard: true });
+      return false;
+    }
+  }
+
   setPlayerId(id) {
     this.remotePlayers.setLocalId(id);
   }
 
   setPlaying(playing) {
-    this.playing = playing;
-    if (!playing) this.#applyWeaponRelease({ attack: true, guard: true });
-    if (!playing && document.pointerLockElement === this.renderer.domElement) document.exitPointerLock?.();
+    this.playing = Boolean(playing) && !this.worldError;
+    if (!this.playing) this.#applyWeaponRelease({ attack: true, guard: true });
+    if (!this.playing && document.pointerLockElement === this.renderer.domElement) document.exitPointerLock?.();
   }
 
   onSnapshot(snapshot) {
+    if (!this.#ensureWorld(snapshot.worldId)) return;
     this.latestSnapshot = snapshot;
     this.remotePlayers.pushSnapshot(snapshot, performance.now());
     this.effects.syncProjectiles(snapshot.projectiles ?? []);
@@ -226,9 +261,9 @@ export class GameRuntime {
     this.fps += ((1 / dt) - this.fps) * 0.05;
     const timeSec = nowMs / 1000;
 
-    if (this.localState && this.localAuth?.alive && this.playing) {
+    if (this.localState && this.localAuth?.alive && this.playing && this.activeWorld) {
       const moveInput = this.input.movement();
-      this.localState = movePlayer(this.localState, moveInput, dt, this.socket.serverNow(), SHATTERED_KEEP);
+      this.localState = movePlayer(this.localState, moveInput, dt, this.socket.serverNow(), this.activeWorld);
       if (nowMs - this.lastInputSentAt >= 50) {
         this.lastInputSentAt = nowMs;
         this.socket.input({ seq: ++this.sequence, ...moveInput, clientTime: this.socket.serverNow() });
@@ -250,7 +285,7 @@ export class GameRuntime {
     this.camera.fov += (targetFov - this.camera.fov) * 0.18;
     this.camera.updateProjectionMatrix();
     this.remotePlayers.update(nowMs);
-    this.world.update(timeSec);
+    this.world?.update?.(timeSec);
     this.effects.update(dt);
 
     if (this.latestSnapshot && this.localAuth) {
@@ -277,6 +312,7 @@ export class GameRuntime {
     this.running = false;
     for (const off of this.unsubscribe) off();
     window.removeEventListener('resize', this.#resize);
+    this.world?.dispose?.();
     this.remotePlayers.dispose();
     this.renderer.dispose();
     this.renderer.domElement.remove();
