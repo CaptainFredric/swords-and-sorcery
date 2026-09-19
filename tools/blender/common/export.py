@@ -17,7 +17,7 @@ def validate_export_transforms(objects: Iterable[bpy.types.Object]) -> None:
 
 
 def export_glb(path: Path, *, objects: Iterable[bpy.types.Object]) -> None:
-    """Export selected production objects to one Y-up GLB."""
+    """Export selected production objects to one Y-up GLB with independent armature actions."""
     selected = list(objects)
     if not selected:
         raise ValueError("export_glb requires at least one object")
@@ -34,6 +34,14 @@ def export_glb(path: Path, *, objects: Iterable[bpy.types.Object]) -> None:
         export_format="GLB",
         use_selection=True,
         export_animations=True,
+        export_animation_mode="ACTIONS",
+        export_nla_strips=True,
+        export_anim_single_armature=True,
+        export_reset_pose_bones=True,
+        export_frame_range=False,
+        export_force_sampling=True,
+        export_anim_slide_to_zero=True,
+        export_merge_animation="ACTION",
         export_skins=True,
         export_morph=False,
         export_yup=True,
