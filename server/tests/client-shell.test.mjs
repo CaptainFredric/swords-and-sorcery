@@ -64,7 +64,7 @@ test('Practice tool hint describes the current cursor state instead of telling a
 
   assert.match(practiceSlice, /class=["']practice-tools-unlocked-hint["'][^>]*>CLICK ARENA TO RESUME</i);
   assert.match(practiceSlice, /class=["']practice-tools-locked-hint["'][^>]*>ESC FOR TOOLS</i);
-  assert.match(css, /\.practice-tools-locked-hint\s*\{[^}]*display\s*:\s*none/i);
+  assert.match(css, /\.practice-tools\s+\.practice-tools-locked-hint\s*\{[^}]*display\s*:\s*none/i);
   assert.match(css, /\.hud\.pointer-locked\s+\.practice-tools-unlocked-hint\s*\{[^}]*display\s*:\s*none/i);
   assert.match(css, /\.hud\.pointer-locked\s+\.practice-tools-locked-hint\s*\{[^}]*display\s*:\s*block/i);
 });
