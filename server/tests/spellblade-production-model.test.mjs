@@ -28,3 +28,11 @@ test('Blender production model encodes the concept hero pieces and animated prod
   assert.match(build, /build_actions/);
   assert.doesNotMatch(build, /visualStage["']\s*:\s*["']rig-proxy["']/);
 });
+
+test('Blender production build captures readable combat action poses', async () => {
+  const build = await read('tools/blender/characters/spellblade/build.py');
+  for (const marker of [
+    'action-guard', 'action-slash-1', 'action-slash-2', 'action-slash-3',
+    'action-cast', 'action-dash', 'action-stagger', 'action-death',
+  ]) assert.match(build, new RegExp(marker));
+});
