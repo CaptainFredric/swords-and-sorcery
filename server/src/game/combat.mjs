@@ -63,7 +63,7 @@ function resetAtSpawn(player, spawn, nowSec) {
 
 export function beginAttack(room, playerId, nowSec) {
   const player = room.players.get(playerId);
-  if (!player || !player.alive || nowSec < player.staggerUntil) return false;
+  if (room.state !== 'PLAYING' || !player || !player.alive || nowSec < player.staggerUntil) return false;
   player.attackHeld = true;
   if (!player.attackActive) {
     player.attackActive = true;
@@ -88,6 +88,7 @@ export function endAttack(room, playerId, nowSec) {
 export function setGuard(room, playerId, guarding, nowSec) {
   const player = room.players.get(playerId);
   if (!player || !player.alive) return false;
+  if (guarding && room.state !== 'PLAYING') return false;
   if (guarding && (player.guardStamina <= 0 || nowSec < player.staggerUntil)) return false;
   player.guarding = Boolean(guarding);
   if (guarding) {
@@ -101,7 +102,7 @@ export function setGuard(room, playerId, guarding, nowSec) {
 
 export function tryDash(room, playerId, direction, nowSec) {
   const player = room.players.get(playerId);
-  if (!player || !player.alive || nowSec < player.staggerUntil) return false;
+  if (room.state !== 'PLAYING' || !player || !player.alive || nowSec < player.staggerUntil) return false;
   const ok = tryStartDash(player, direction, nowSec);
   if (ok) room.events.push({ type: 'dash', playerId, direction, at: nowSec });
   return ok;
@@ -109,7 +110,7 @@ export function tryDash(room, playerId, direction, nowSec) {
 
 export function tryCastFireball(room, playerId, direction, nowSec) {
   const player = room.players.get(playerId);
-  if (!player || !player.alive || nowSec < player.staggerUntil || nowSec < player.fireballReadyAt) return false;
+  if (room.state !== 'PLAYING' || !player || !player.alive || nowSec < player.staggerUntil || nowSec < player.fireballReadyAt) return false;
   player.fireballReadyAt = nowSec + GAME.fireballCooldownSec;
   player.castEndsAt = nowSec + 0.3;
   player.pendingFireball = normalize3(direction);
