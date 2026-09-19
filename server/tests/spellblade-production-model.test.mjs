@@ -46,3 +46,10 @@ test('Blender slash clips encode the authoritative strike timing at 30 fps', asy
   assert.match(animations, /_seconds_to_frame\(SLASH_CONTACT_SECONDS\[1\]\)/);
   assert.match(animations, /_seconds_to_frame\(SLASH_CONTACT_SECONDS\[2\]\)/);
 });
+
+test('slash review thumbnails sample the corrected gameplay contact frames', async () => {
+  const build = await read('tools/blender/characters/spellblade/build.py');
+  assert.match(build, /"action-slash-1": \("Slash_1", 13, "quarter"\)/);
+  assert.match(build, /"action-slash-2": \("Slash_2", 12, "quarter"\)/);
+  assert.match(build, /"action-slash-3": \("Slash_3", 12, "quarter"\)/);
+});
