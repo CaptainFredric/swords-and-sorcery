@@ -27,6 +27,7 @@ export class WorldRenderer {
       stone: new THREE.MeshStandardMaterial({ color: 0x303746, roughness: 0.92, metalness: 0.06 }),
       stoneTop: new THREE.MeshStandardMaterial({ color: 0x414a5a, roughness: 0.88, metalness: 0.05 }),
       westStone: new THREE.MeshStandardMaterial({ color: 0x403b3c, roughness: 0.9, metalness: 0.04 }),
+      westTrim: new THREE.MeshStandardMaterial({ color: 0x6f5544, emissive: 0x4a2412, emissiveIntensity: 0.22, roughness: 0.78, metalness: 0.12 }),
       eastStone: new THREE.MeshStandardMaterial({ color: 0x373848, roughness: 0.9, metalness: 0.05 }),
       darkStone: new THREE.MeshStandardMaterial({ color: 0x242a35, roughness: 0.95 }),
       rubble: new THREE.MeshStandardMaterial({ color: 0x353c49, roughness: 0.96 }),
@@ -98,10 +99,18 @@ export class WorldRenderer {
   }
 
   #addHallLanguage() {
-    // West entrance reads like an enclosed, torch-warmed melee hall. The lintel sits above player height
-    // and visually rests on collision walls that already exist on either side of the opening.
-    box(this.group, [0.58, 0.42, 5.6], this.materials.darkStone, [-9.22, 2.52, 0]);
-    box(this.group, [0.66, 0.1, 5.25], this.materials.stoneTop, [-9.2, 2.73, 0], [0, 0, 0], false);
+    // West hall gets warm architectural ribs mounted directly on its existing collision wall. They add
+    // visual rhythm without creating an overhead object the server does not know about.
+    for (const accent of this.decor.wallAccents) {
+      box(
+        this.group,
+        [accent.sx, accent.sy, accent.sz],
+        this.materials.westTrim,
+        [accent.x, accent.y, accent.z],
+        [0, 0, 0],
+        false,
+      );
+    }
 
     // East remains open for ranged play. Thin violet sigils sit on the real outer wall rather than implying
     // fake cover or a passable breach.
