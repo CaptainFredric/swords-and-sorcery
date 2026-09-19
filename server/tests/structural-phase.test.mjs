@@ -92,7 +92,7 @@ test('one FFA human waits, second human can start, and snapshots expose structur
   assert.equal(playing.players.filter((p) => p.actorKind === 'human').length, 2);
 });
 
-test('one Bot Duel human arms the normal countdown with one bot then reaches PLAYING', async (t) => {
+test('one Bot Duel human waits for arena readiness, then arms the normal countdown with one bot', async (t) => {
   const { game, port } = await startServer(t);
   const ws = await connect(port);
   closeLater(t, ws);
@@ -101,9 +101,14 @@ test('one Bot Duel human arms the normal countdown with one bot then reaches PLA
   send(ws, { type: 'startSolo', mode: 'BOT_DUEL', name: 'Duelist' });
   const joined = await joinedP;
   const room = game.roomManager.findByCode(joined.roomCode);
-  assert.equal(room.state, 'COUNTDOWN');
+  assert.equal(room.state, 'WAITING');
   assert.equal([...room.players.values()].filter((p) => p.actorKind === 'human').length, 1);
   assert.equal([...room.players.values()].filter((p) => p.actorKind === 'bot').length, 1);
+
+  const countdownP = waitFor(ws, (m) => m.type === 'lobby' && m.roomState === 'COUNTDOWN');
+  send(ws, { type: 'arenaReady', ready: true });
+  await countdownP;
+  assert.equal(room.state, 'COUNTDOWN');
   room.countdownEndsAt = game.now() - 0.01;
 
   const playing = await waitFor(ws, (m) => m.type === 'snapshot' && m.roomState === 'PLAYING' && m.mode === 'BOT_DUEL');
