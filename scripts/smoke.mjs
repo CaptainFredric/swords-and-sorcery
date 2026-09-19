@@ -33,14 +33,19 @@ try {
 
   const index = await fetch(`${base}/`);
   assert.equal(index.status, 200);
-  assert.match(await index.text(), /SWORDS[\s\S]*SORCERY/i);
+  const shell = await index.text();
+  assert.match(shell, /SWORDS[\s\S]*SORCERY/i);
+  assert.match(shell, /BOT DUEL/i);
+  assert.match(shell, /PRACTICE YARD/i);
+  assert.match(shell, /CASTLEWARD/i);
 
   const clientModule = await fetch(`${base}/client/main.mjs`);
   assert.equal(clientModule.status, 200);
   assert.match(clientModule.headers.get('content-type') ?? '', /javascript/);
 
-  const sharedModule = await fetch(`${base}/shared/src/map.mjs`);
-  assert.equal(sharedModule.status, 200);
+  const castlewardWorld = await fetch(`${base}/shared/worlds/castleward.mjs`);
+  assert.equal(castlewardWorld.status, 200);
+  assert.match(castlewardWorld.headers.get('content-type') ?? '', /javascript/);
 
   const privateFile = await fetch(`${base}/package.json`);
   assert.equal(privateFile.status, 404);
@@ -55,7 +60,7 @@ try {
     ws.close();
   }
 
-  console.log(`Smoke OK: HTTP assets, private-path isolation, health, and WebSocket handshake on port ${port}`);
+  console.log(`Smoke OK: Castleward/solo shell, HTTP assets, private-path isolation, health, and WebSocket handshake on port ${port}`);
 } finally {
   await game.stop();
 }
