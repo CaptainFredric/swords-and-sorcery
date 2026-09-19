@@ -1,0 +1,107 @@
+name: Spellblade assets
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/spellblade-assets.yml'
+      - 'tools/blender/**'
+      - 'scripts/validate-spellblade-glb.py'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Blender asset worker mode
+        required: true
+        default: bootstrap
+        type: choice
+        options:
+          - bootstrap
+          - preview
+          - review
+
+permissions:
+  contents: read
+
+jobs:
+  spellblade-assets:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      BLENDER_VERSION: '4.5.14'
+      BLENDER_ARCHIVE: 'blender-4.5.14-linux-x64.tar.xz'
+      BLENDER_URL: 'https://download.blender.org/release/Blender4.5/blender-4.5.14-linux-x64.tar.xz'
+      BLENDER_SHA_URL: 'https://download.blender.org/release/Blender4.5/blender-4.5.14.sha256'
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install headless render runtime
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes libegl1
+
+      - name: Cache Blender archive
+        uses: actions/cache@v4
+        with:
+          path: .cache/blender-4.5.14-linux-x64.tar.xz
+          key: blender-4.5.14-linux-x64
+
+      - name: Download verified Blender LTS
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .cache .blender
+          if [[ ! -s ".cache/${BLENDER_ARCHIVE}" ]]; then
+            curl --fail --location --retry 4 --retry-delay 3 \
+              "${BLENDER_URL}" \
+              --output ".cache/${BLENDER_ARCHIVE}"
+          fi
+          curl --fail --location --retry 4 --retry-delay 3 \
+            "${BLENDER_SHA_URL}" \
+            --output .cache/blender.sha256
+          grep " ${BLENDER_ARCHIVE}$" .cache/blender.sha256 | (cd .cache && sha256sum -c -)
+          tar -xJf ".cache/${BLENDER_ARCHIVE}" --strip-components=1 -C .blender
+          ./.blender/blender --version
+
+      - name: Run production asset worker bootstrap
+        shell: bash
+        env:
+          REQUESTED_MODE: ${{ github.event.inputs.mode || 'bootstrap' }}
+          SOURCE_REVISION: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          MODE="${REQUESTED_MODE}"
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then MODE=bootstrap; fi
+          ./.blender/blender \
+            --background \
+            --factory-startup \
+            --python tools/blender/characters/spellblade/build.py \
+            -- \
+            --mode "${MODE}" \
+            --out artifacts/spellblade-assets \
+            --source-revision "${SOURCE_REVISION}"
+
+      - name: Validate external GLB parser
+        run: python3 scripts/validate-spellblade-glb.py --self-test
+
+      - name: Validate worker report
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s artifacts/spellblade-assets/spellblade-build-report.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(Path('artifacts/spellblade-assets/spellblade-build-report.json').read_text())
+          assert report['workerReady'] is True
+          assert report['visualStage'] == 'worker-bootstrap'
+          assert len(report['sourceRevision']) == 40
+          print('SPELLBLADE_WORKER_REPORT_OK', report['sourceRevision'])
+          PY
+
+      - name: Upload Spellblade worker evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: spellblade-asset-worker-bootstrap
+          path: artifacts/spellblade-assets/
+          if-no-files-found: error
+          retention-days: 7
