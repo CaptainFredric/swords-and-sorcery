@@ -27,7 +27,10 @@ test('README exposes an explicit one-click Render deploy for this repository', a
   assert.match(readme, /cold start/i);
 });
 
-test('Pages stays honest until a real multiplayer URL is verified', async () => {
+test('Pages points at the verified public multiplayer deployment', async () => {
   const config = await read('site/config.js');
-  assert.match(config, /SWORDS_SORCERY_PLAY_URL\s*=\s*''/);
+  assert.match(
+    config,
+    /SWORDS_SORCERY_PLAY_URL\s*=\s*['"]https:\/\/swords-and-sorcery\.onrender\.com['"]/
+  );
 });

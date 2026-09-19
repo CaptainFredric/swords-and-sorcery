@@ -1,0 +1,123 @@
+name: Verify public Render build
+
+on:
+  push:
+    branches:
+      - deploy/verify-public-render
+    paths:
+      - '.github/workflows/public-render-check.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PUBLIC_URL: https://swords-and-sorcery.onrender.com
+
+jobs:
+  verify-public-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Wake service and verify HTTP
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f health.json game.html
+          for attempt in $(seq 1 18); do
+            if curl --fail --silent --show-error --max-time 20 "$PUBLIC_URL/health" -o health.json; then
+              break
+            fi
+            if [ "$attempt" -eq 18 ]; then
+              echo "Render service did not become healthy in time" >&2
+              exit 1
+            fi
+            sleep 10
+          done
+          node --input-type=module - <<'NODE'
+          import fs from 'node:fs';
+          const health = JSON.parse(fs.readFileSync('health.json', 'utf8'));
+          if (health.ok !== true || !Number.isInteger(health.rooms)) {
+            throw new Error(`Unexpected health response: ${JSON.stringify(health)}`);
+          }
+          console.log('Health OK:', health);
+          NODE
+          curl --fail --silent --show-error --max-time 20 "$PUBLIC_URL/" -o game.html
+          grep -qi 'SWORDS' game.html
+          grep -qi 'game-shell' game.html
+          curl --fail --silent --show-error --max-time 20 "$PUBLIC_URL/client/main.mjs" -o /dev/null
+          curl --fail --silent --show-error --max-time 20 "$PUBLIC_URL/client/styles.css" -o /dev/null
+
+      - name: Verify public WebSocket handshake
+        shell: bash
+        run: |
+          node --input-type=module - <<'NODE'
+          const base = process.env.PUBLIC_URL;
+          const wsUrl = base.replace(/^http:/, 'ws:').replace(/^https:/, 'wss:') + '/ws';
+          const ws = new WebSocket(wsUrl);
+          let gotHello = false;
+          let gotPong = false;
+          const timer = setTimeout(() => {
+            console.error('Timed out waiting for WebSocket hello/pong');
+            ws.close();
+            process.exit(1);
+          }, 15000);
+          ws.addEventListener('open', () => {
+            ws.send(JSON.stringify({ type: 'ping', sentAt: 12345 }));
+          });
+          ws.addEventListener('message', (event) => {
+            const message = JSON.parse(String(event.data));
+            if (message.type === 'hello') gotHello = true;
+            if (message.type === 'pong' && message.sentAt === 12345) gotPong = true;
+            if (gotHello && gotPong) {
+              clearTimeout(timer);
+              console.log('Public WSS hello + pong OK');
+              ws.close();
+            }
+          });
+          ws.addEventListener('error', (event) => {
+            console.error('WebSocket error', event);
+            clearTimeout(timer);
+            process.exit(1);
+          });
+          ws.addEventListener('close', () => {
+            if (!(gotHello && gotPong)) process.exit(1);
+          });
+          NODE
+
+      - name: Capture deployed game menu in Chrome
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME="$(command -v google-chrome || command -v chromium-browser || command -v chromium || true)"
+          if [ -z "$CHROME" ]; then
+            echo "No Chrome/Chromium binary found on runner" >&2
+            exit 1
+          fi
+          "$CHROME" \
+            --headless=new \
+            --no-sandbox \
+            --disable-gpu \
+            --hide-scrollbars \
+            --window-size=1440,900 \
+            --virtual-time-budget=8000 \
+            --screenshot=public-game-menu.png \
+            "$PUBLIC_URL/"
+          test -s public-game-menu.png
+
+      - name: Upload browser evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-render-browser-evidence
+          path: |
+            public-game-menu.png
+            health.json
+            game.html
+          retention-days: 7

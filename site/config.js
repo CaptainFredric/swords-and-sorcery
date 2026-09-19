@@ -1,3 +1,3 @@
-// Set this to the public HTTPS multiplayer deployment when it is ready.
-// Keeping deployment config separate means the Pages front door does not need a redesign.
-window.SWORDS_SORCERY_PLAY_URL = '';
+// Verified public HTTPS multiplayer deployment.
+// Keeping deployment config separate means the Pages front door can switch hosts without a redesign.
+window.SWORDS_SORCERY_PLAY_URL = 'https://swords-and-sorcery.onrender.com';
