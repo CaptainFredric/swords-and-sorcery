@@ -32,7 +32,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          rm -f health.json game.html
+          rm -f health.json game.html live-map.mjs
           for attempt in $(seq 1 18); do
             if curl --fail --silent --show-error --max-time 20 "$PUBLIC_URL/health" -o health.json; then
               break
@@ -56,6 +56,24 @@ jobs:
           grep -qi 'game-shell' game.html
           curl --fail --silent --show-error --max-time 20 "$PUBLIC_URL/client/main.mjs" -o /dev/null
           curl --fail --silent --show-error --max-time 20 "$PUBLIC_URL/client/styles.css" -o /dev/null
+          curl --fail --silent --show-error --max-time 20 "$PUBLIC_URL/shared/src/map.mjs" -o live-map.mjs
+
+      - name: Wait for the inward-facing spawn revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 18); do
+            if grep -q 'yawTowardKeep' live-map.mjs; then
+              echo "Render is serving the inward-facing spawn revision"
+              exit 0
+            fi
+            if [ "$attempt" -eq 18 ]; then
+              echo "Render is still serving a pre-spawn-fix revision" >&2
+              exit 1
+            fi
+            sleep 10
+            curl --fail --silent --show-error --max-time 20 "$PUBLIC_URL/shared/src/map.mjs" -o live-map.mjs
+          done
 
       - name: Verify public WebSocket handshake
         shell: bash
@@ -136,4 +154,5 @@ jobs:
             public-game-browser-report.json
             health.json
             game.html
+            live-map.mjs
           retention-days: 7
