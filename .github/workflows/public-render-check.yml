@@ -54,6 +54,7 @@ jobs:
                 && grep -qi 'castleward' live-castleward.mjs \
                 && grep -q 'buildCastlewardTerrainSkirts' live-castleward-terrain.mjs \
                 && grep -q 'terrain-skirt:' live-castleward-terrain.mjs \
+                && grep -Fq '.practice-tools .practice-tools-locked-hint' live-playability.css \
                 && grep -q 'hud.pointer-locked .practice-tools' live-playability.css; then
                 current=true
               fi
