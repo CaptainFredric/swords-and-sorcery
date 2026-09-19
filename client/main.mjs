@@ -92,6 +92,15 @@ socket.on('snapshot', (snapshot) => {
     runtime.setPlaying(false); hud.hide(); updateEnd(snapshot); showOnly(endScreen);
   }
 });
+socket.on('resumeFailed', () => {
+  latestLobby = null;
+  latestSnapshot = null;
+  runtime?.setPlaying(false);
+  runtime?.setPlayerId(null);
+  hud.hide();
+  menuError.textContent = 'Previous arena session expired. Join or create a room.';
+  showOnly(menu);
+});
 socket.on('error', (message) => { menuError.textContent = message.message || 'Could not join that room.'; showOnly(menu); });
 socket.on('connection', ({ connected }) => { if (!connected && runtime) hud.flashText('RECONNECTING…', 'danger'); });
 
