@@ -6,6 +6,7 @@ import { WorldRenderer } from './WorldRenderer.mjs';
 import { RemotePlayers } from './RemotePlayers.mjs';
 import { WeaponView } from './WeaponView.mjs';
 import { Effects } from './Effects.mjs';
+import { SCENE_PRESENTATION } from './scenePresentation.mjs';
 import { localCombatFeedback, shouldPlayWorldClang } from './combatFeedback.mjs';
 import { castVisualDuration } from './weaponPose.mjs';
 import {
@@ -20,8 +21,8 @@ export class GameRuntime {
     this.socket = socket;
     this.hud = hud;
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0x111625);
-    this.scene.fog = new THREE.FogExp2(0x111625, 0.018);
+    this.scene.background = new THREE.Color(SCENE_PRESENTATION.background);
+    this.scene.fog = new THREE.FogExp2(SCENE_PRESENTATION.fogColor, SCENE_PRESENTATION.fogDensity);
     this.camera = new THREE.PerspectiveCamera(78, innerWidth / innerHeight, 0.05, 180);
     this.scene.add(this.camera);
     this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
@@ -32,9 +33,21 @@ export class GameRuntime {
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     container.appendChild(this.renderer.domElement);
 
-    const hemi = new THREE.HemisphereLight(0x8497cf, 0x17121c, 1.8); this.scene.add(hemi);
-    const moon = new THREE.DirectionalLight(0xc5d3ff, 2.7); moon.position.set(-12, 24, 8); moon.castShadow = true;
-    moon.shadow.mapSize.set(1024, 1024); moon.shadow.camera.left = -24; moon.shadow.camera.right = 24; moon.shadow.camera.top = 24; moon.shadow.camera.bottom = -24; this.scene.add(moon);
+    const hemi = new THREE.HemisphereLight(
+      SCENE_PRESENTATION.hemisphere.skyColor,
+      SCENE_PRESENTATION.hemisphere.groundColor,
+      SCENE_PRESENTATION.hemisphere.intensity,
+    );
+    this.scene.add(hemi);
+    const moon = new THREE.DirectionalLight(SCENE_PRESENTATION.moon.color, SCENE_PRESENTATION.moon.intensity);
+    moon.position.set(-12, 24, 8);
+    moon.castShadow = true;
+    moon.shadow.mapSize.set(1024, 1024);
+    moon.shadow.camera.left = -24;
+    moon.shadow.camera.right = 24;
+    moon.shadow.camera.top = 24;
+    moon.shadow.camera.bottom = -24;
+    this.scene.add(moon);
 
     this.world = new WorldRenderer(this.scene);
     this.remotePlayers = new RemotePlayers(this.scene, socket.playerId);

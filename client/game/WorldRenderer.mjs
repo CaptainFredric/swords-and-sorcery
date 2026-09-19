@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { SHATTERED_KEEP } from '../../shared/src/map.mjs';
 import { buildKeepDecorPlan, KEEP_ROUTE_COLORS } from './worldDecor.mjs';
+import { SCENE_PRESENTATION } from './scenePresentation.mjs';
 
 function box(parent, size, material, position, rotation = [0, 0, 0], shadows = true) {
   const mesh = new THREE.Mesh(new THREE.BoxGeometry(...size), material);
@@ -23,15 +24,16 @@ export class WorldRenderer {
   }
 
   #build() {
+    const palette = SCENE_PRESENTATION.materials;
     this.materials = {
-      stone: new THREE.MeshStandardMaterial({ color: 0x303746, roughness: 0.92, metalness: 0.06 }),
-      stoneTop: new THREE.MeshStandardMaterial({ color: 0x414a5a, roughness: 0.88, metalness: 0.05 }),
-      westStone: new THREE.MeshStandardMaterial({ color: 0x403b3c, roughness: 0.9, metalness: 0.04 }),
-      westTrim: new THREE.MeshStandardMaterial({ color: 0x6f5544, emissive: 0x4a2412, emissiveIntensity: 0.22, roughness: 0.78, metalness: 0.12 }),
-      eastStone: new THREE.MeshStandardMaterial({ color: 0x373848, roughness: 0.9, metalness: 0.05 }),
-      darkStone: new THREE.MeshStandardMaterial({ color: 0x242a35, roughness: 0.95 }),
-      rubble: new THREE.MeshStandardMaterial({ color: 0x353c49, roughness: 0.96 }),
-      arcane: new THREE.MeshStandardMaterial({ color: 0x1d4a59, emissive: 0x17b8d8, emissiveIntensity: 1.6, roughness: 0.32 }),
+      stone: new THREE.MeshStandardMaterial({ color: palette.stone, roughness: 0.92, metalness: 0.04 }),
+      stoneTop: new THREE.MeshStandardMaterial({ color: palette.stoneTop, roughness: 0.9, metalness: 0.035 }),
+      westStone: new THREE.MeshStandardMaterial({ color: palette.westStone, roughness: 0.92, metalness: 0.03 }),
+      westTrim: new THREE.MeshStandardMaterial({ color: 0x785c48, emissive: 0x3b1f12, emissiveIntensity: 0.16, roughness: 0.82, metalness: 0.1 }),
+      eastStone: new THREE.MeshStandardMaterial({ color: palette.eastStone, roughness: 0.92, metalness: 0.035 }),
+      darkStone: new THREE.MeshStandardMaterial({ color: palette.darkStone, roughness: 0.96 }),
+      rubble: new THREE.MeshStandardMaterial({ color: palette.rubble, roughness: 0.97 }),
+      arcane: new THREE.MeshStandardMaterial({ color: 0x28474a, emissive: 0x1497ad, emissiveIntensity: 1.25, roughness: 0.38 }),
       cyanGlow: new THREE.MeshBasicMaterial({ color: KEEP_ROUTE_COLORS.courtyard, transparent: true, opacity: 0.72 }),
       violetGlow: new THREE.MeshBasicMaterial({ color: KEEP_ROUTE_COLORS.east, transparent: true, opacity: 0.68 }),
       warmGlow: new THREE.MeshBasicMaterial({ color: KEEP_ROUTE_COLORS.west }),
@@ -99,8 +101,6 @@ export class WorldRenderer {
   }
 
   #addHallLanguage() {
-    // West hall gets warm architectural ribs mounted directly on its existing collision wall. They add
-    // visual rhythm without creating an overhead object the server does not know about.
     for (const accent of this.decor.wallAccents) {
       box(
         this.group,
@@ -112,8 +112,6 @@ export class WorldRenderer {
       );
     }
 
-    // East remains open for ranged play. Thin violet sigils sit on the real outer wall rather than implying
-    // fake cover or a passable breach.
     for (const z of [-3.7, 0, 3.7]) {
       const sigil = new THREE.Mesh(new THREE.TorusGeometry(0.34, 0.035, 4, 12), this.materials.violetGlow);
       sigil.position.set(17.62, 1.55, z);
@@ -126,9 +124,9 @@ export class WorldRenderer {
     const crystalMaterial = new THREE.MeshStandardMaterial({
       color: 0x5ce7ff,
       emissive: 0x26c7f2,
-      emissiveIntensity: 2.9,
-      metalness: 0.12,
-      roughness: 0.2,
+      emissiveIntensity: 2.7,
+      metalness: 0.1,
+      roughness: 0.22,
     });
     const crystal = new THREE.Mesh(new THREE.OctahedronGeometry(0.95, 0), crystalMaterial);
     crystal.position.set(basePosition.x, 3.55, basePosition.z);
@@ -157,7 +155,7 @@ export class WorldRenderer {
     const ringMaterial = new THREE.MeshBasicMaterial({
       color: KEEP_ROUTE_COLORS.courtyard,
       transparent: true,
-      opacity: 0.28,
+      opacity: 0.26,
       side: THREE.DoubleSide,
     });
     this.spireRing = new THREE.Mesh(new THREE.TorusGeometry(1.55, 0.025, 5, 32), ringMaterial);
@@ -165,7 +163,7 @@ export class WorldRenderer {
     this.spireRing.rotation.x = Math.PI / 2;
     this.group.add(this.spireRing);
 
-    const light = new THREE.PointLight(0x40dfff, 17, 12, 2);
+    const light = new THREE.PointLight(0x40dfff, 14, 11, 2);
     light.position.set(basePosition.x, 3.25, basePosition.z);
     this.group.add(light);
     this.crystal = crystal;
@@ -174,36 +172,16 @@ export class WorldRenderer {
 
   #addDecorPlan() {
     for (const piece of this.decor.rubble) {
-      box(
-        this.group,
-        [piece.sx, piece.sy, piece.sz],
-        this.materials.rubble,
-        [piece.x, piece.y, piece.z],
-        [0, piece.ry, piece.rz],
-        false,
-      );
+      box(this.group, [piece.sx, piece.sy, piece.sz], this.materials.rubble, [piece.x, piece.y, piece.z], [0, piece.ry, piece.rz], false);
     }
 
     for (const piece of this.decor.bridgeEdges) {
-      box(
-        this.group,
-        [piece.sx, piece.sy, piece.sz],
-        this.materials.rubble,
-        [piece.x, piece.y, piece.z],
-        [piece.rx ?? 0, piece.ry ?? 0, piece.rz ?? 0],
-      );
+      box(this.group, [piece.sx, piece.sy, piece.sz], this.materials.rubble, [piece.x, piece.y, piece.z], [piece.rx ?? 0, piece.ry ?? 0, piece.rz ?? 0]);
     }
 
     for (const fissure of this.decor.fissures) {
       const material = fissure.color === KEEP_ROUTE_COLORS.east ? this.materials.violetGlow : this.materials.cyanGlow;
-      box(
-        this.group,
-        [fissure.sx, 0.018, fissure.sz],
-        material,
-        [fissure.x, fissure.y, fissure.z],
-        [0, fissure.ry, 0],
-        false,
-      );
+      box(this.group, [fissure.sx, 0.018, fissure.sz], material, [fissure.x, fissure.y, fissure.z], [0, fissure.ry, 0], false);
     }
 
     for (const banner of this.decor.banners) {
@@ -224,14 +202,7 @@ export class WorldRenderer {
     }
 
     for (const stone of this.decor.floatingMasonry) {
-      const mesh = box(
-        this.group,
-        [stone.sx, stone.sy, stone.sz],
-        this.materials.darkStone,
-        [stone.x, stone.y, stone.z],
-        [stone.rx, stone.ry, stone.rz],
-        false,
-      );
+      const mesh = box(this.group, [stone.sx, stone.sy, stone.sz], this.materials.darkStone, [stone.x, stone.y, stone.z], [stone.rx, stone.ry, stone.rz], false);
       this.floatingStones.push({ mesh, baseY: stone.y, phase: stone.phase, drift: stone.drift });
     }
   }
@@ -251,7 +222,7 @@ export class WorldRenderer {
       const flame = new THREE.Mesh(flameGeometry, flameMaterial);
       flame.position.set(x, y, z);
       this.group.add(flame);
-      const light = new THREE.PointLight(0xff8a2b, 5.8, 5.2, 2);
+      const light = new THREE.PointLight(0xff8a2b, SCENE_PRESENTATION.torches.intensity, SCENE_PRESENTATION.torches.distance, 2);
       light.position.copy(flame.position);
       this.group.add(light);
     }
@@ -260,15 +231,15 @@ export class WorldRenderer {
   #addBackdrop() {
     const abyss = new THREE.Mesh(
       new THREE.CylinderGeometry(70, 85, 4, 48),
-      new THREE.MeshBasicMaterial({ color: 0x0a0c17, side: THREE.BackSide }),
+      new THREE.MeshBasicMaterial({ color: 0x0d0e11, side: THREE.BackSide }),
     );
     abyss.position.y = -11;
     this.group.add(abyss);
 
     const cloudMaterial = new THREE.MeshBasicMaterial({
-      color: 0x343a55,
+      color: 0x4a4b50,
       transparent: true,
-      opacity: 0.15,
+      opacity: 0.12,
       depthWrite: false,
     });
     const cloudGeometry = new THREE.SphereGeometry(1, 8, 5);
