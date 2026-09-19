@@ -83,6 +83,10 @@ export class GameSocket {
   quickPlay(name) { this.send({ type: 'quickPlay', name }); }
   startSolo(mode, name) { this.send({ type: 'startSolo', mode, name }); }
   joinRoom(code, name) { this.send({ type: 'joinRoom', code: code.trim().toUpperCase(), name }); }
+  practiceResetPlayer() { this.send({ type: 'practiceResetPlayer' }); }
+  practiceSpawnDummy(mode = 'PASSIVE') { this.send({ type: 'practiceSpawnDummy', mode }); }
+  practiceRemoveDummy() { this.send({ type: 'practiceRemoveDummy' }); }
+  practiceSetDummyMode(mode) { this.send({ type: 'practiceSetDummyMode', mode }); }
   input(input) { this.send({ type: 'input', ...input }); }
   attack(down) { this.send({ type: 'attack', down, clientTime: this.serverNow() }); }
   guard(down) { this.send({ type: 'guard', down, clientTime: this.serverNow() }); }
