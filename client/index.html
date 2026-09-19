@@ -145,13 +145,14 @@
         </div>
       </div>
       <aside id="practice-overlay" class="practice-tools hidden">
-        <div><strong>PRACTICE YARD</strong><small>Esc releases the cursor for these tools.</small></div>
-        <button id="practice-reset">RESET SELF</button>
-        <button id="practice-passive">PASSIVE DUMMY</button>
-        <button id="practice-guarding">GUARDING DUMMY</button>
-        <button id="practice-fight">FIGHTS BACK</button>
-        <button id="practice-remove">REMOVE DUMMY</button>
-        <button id="practice-leave" class="practice-leave">LEAVE PRACTICE</button>
+        <div class="practice-compact">PRACTICE · ESC FOR TOOLS</div>
+        <div class="practice-expanded"><strong>PRACTICE YARD</strong><small>Esc releases the cursor for these tools.</small></div>
+        <button id="practice-reset" class="practice-expanded">RESET SELF</button>
+        <button id="practice-passive" class="practice-expanded">PASSIVE DUMMY</button>
+        <button id="practice-guarding" class="practice-expanded">GUARDING DUMMY</button>
+        <button id="practice-fight" class="practice-expanded">FIGHTS BACK</button>
+        <button id="practice-remove" class="practice-expanded">REMOVE DUMMY</button>
+        <button id="practice-leave" class="practice-expanded practice-leave">LEAVE PRACTICE</button>
       </aside>
       <div id="death-card" class="death-card hidden"><small>SLAIN BY</small><strong id="death-killer">THE FALL</strong><span id="death-timer">3.0</span></div>
       <div id="debug" class="debug hidden"></div>
