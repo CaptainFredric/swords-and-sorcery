@@ -97,7 +97,7 @@ export function resolveWeaponPose({
     -0.10,
     -0.10 + stride * 0.014 * movingAmount,
   );
-  const baseSword = transform(0, -0.01, -0.18, -0.28, -0.14, 0);
+  const baseSword = transform(0, -0.01, -0.18, 0.34, -0.26, 0.02);
   const baseLeft = transform(-0.42, -0.58 + bob * 0.5, -0.82, -0.28, 0.16, 0.18);
 
   let group = { ...baseGroup };
