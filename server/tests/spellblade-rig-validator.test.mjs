@@ -16,3 +16,9 @@ test('external GLB validator requires every named Spellblade clip and rejects ro
   assert.equal(result.status, 0, result.stderr || result.stdout);
   assert.match(result.stdout, /SPELLBLADE_ANIMATION_VALIDATOR_OK/);
 });
+
+test('external GLB validator enforces the compact first-person rig, hero sword, sorcery material, clips and budgets', () => {
+  const result = spawnSync('python3', [validator, '--self-test-first-person'], { encoding: 'utf8' });
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  assert.match(result.stdout, /SPELLBLADE_FIRST_PERSON_VALIDATOR_OK/);
+});
