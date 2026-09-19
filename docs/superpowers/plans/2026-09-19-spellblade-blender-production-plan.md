@@ -773,3 +773,7 @@ No `TBD`, `TODO`, “similar to Task N”, or unspecified “add validation/erro
 ### Scope check
 
 This remains one coherent sub-project: producing and integrating the base Spellblade production asset. Castleward environment art, broader VFX replacement, fallback deletion, and future Astra interactive-source transition stay separate.
+
+### Promotion gate
+
+Preview/review builds are read-only and can never rewrite promoted runtime assets. Promotion occurs only after a human-visible Blender review artifact has been inspected and the exact accepted modeling SHA is written to `promotion.json`. The promotion workflow rebuilds that reviewed source SHA from scratch before committing binaries, so promoted GLBs cannot silently come from an unreviewed newer model state.
