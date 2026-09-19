@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import json
+import math
 import struct
 import tempfile
 from pathlib import Path
@@ -11,6 +13,21 @@ from pathlib import Path
 GLB_MAGIC = b"glTF"
 GLB_VERSION = 2
 JSON_CHUNK_TYPE = 0x4E4F534A
+
+REQUIRED_RIG_NODES = (
+    "root", "pelvis", "spine", "chest", "neck", "head",
+    "clavicle.L", "upper_arm.L", "forearm.L", "hand.L",
+    "clavicle.R", "upper_arm.R", "forearm.R", "hand.R",
+    "thigh.L", "shin.L", "foot.L", "thigh.R", "shin.R", "foot.R",
+    "tabard_root", "tabard_front_01", "tabard_front_02",
+    "tabard_back_01", "tabard_back_02",
+    "socket_sword", "socket_sorcery",
+)
+MIN_CHARACTER_HEIGHT = 1.85
+MAX_CHARACTER_HEIGHT = 2.25
+MIN_GROUND_Y = -0.10
+MAX_GROUND_Y = 0.15
+SCALE_EPSILON = 1e-4
 
 
 def read_glb_json(path: Path) -> dict:
@@ -49,18 +66,127 @@ def read_glb_json(path: Path) -> dict:
         raise ValueError(f"GLB JSON chunk is invalid: {error}") from error
 
 
-def validate_glb(path: Path, contract: dict | None = None, *, first_person: bool = False) -> list[str]:
-    del contract, first_person
-    document = read_glb_json(path)
-    asset = document.get("asset")
+def _node_index_by_name(document: dict) -> dict[str, int]:
+    result: dict[str, int] = {}
+    for index, node in enumerate(document.get("nodes", [])):
+        if isinstance(node, dict) and isinstance(node.get("name"), str):
+            result[node["name"]] = index
+    return result
+
+
+def _position_bounds(document: dict) -> tuple[list[float], list[float]] | None:
+    accessors = document.get("accessors", [])
+    minimum = [math.inf, math.inf, math.inf]
+    maximum = [-math.inf, -math.inf, -math.inf]
+    found = False
+
+    for mesh in document.get("meshes", []):
+        if not isinstance(mesh, dict):
+            continue
+        for primitive in mesh.get("primitives", []):
+            if not isinstance(primitive, dict):
+                continue
+            attributes = primitive.get("attributes", {})
+            accessor_index = attributes.get("POSITION") if isinstance(attributes, dict) else None
+            if not isinstance(accessor_index, int) or not (0 <= accessor_index < len(accessors)):
+                continue
+            accessor = accessors[accessor_index]
+            if not isinstance(accessor, dict):
+                continue
+            low = accessor.get("min")
+            high = accessor.get("max")
+            if not (
+                isinstance(low, list) and isinstance(high, list)
+                and len(low) == 3 and len(high) == 3
+                and all(isinstance(v, (int, float)) and math.isfinite(v) for v in (*low, *high))
+            ):
+                continue
+            found = True
+            for axis in range(3):
+                minimum[axis] = min(minimum[axis], float(low[axis]))
+                maximum[axis] = max(maximum[axis], float(high[axis]))
+
+    return (minimum, maximum) if found else None
+
+
+def _validate_root_motion(document: dict, root_index: int | None) -> list[str]:
+    if root_index is None:
+        return []
     errors: list[str] = []
-    if not isinstance(asset, dict) or asset.get("version") != "2.0":
-        errors.append("glTF asset.version must be 2.0")
+    for animation in document.get("animations", []):
+        if not isinstance(animation, dict):
+            continue
+        animation_name = animation.get("name", "<unnamed>")
+        for channel in animation.get("channels", []):
+            if not isinstance(channel, dict):
+                continue
+            target = channel.get("target")
+            if not isinstance(target, dict):
+                continue
+            if target.get("node") == root_index and target.get("path") == "translation":
+                errors.append(f"animation {animation_name} translates root; gameplay root motion is forbidden")
     return errors
 
 
-def _write_synthetic_glb(path: Path) -> None:
-    payload = json.dumps({"asset": {"version": "2.0"}}, separators=(",", ":")).encode("utf-8")
+def validate_document(document: dict, contract: dict | None = None, *, first_person: bool = False) -> list[str]:
+    del first_person
+    errors: list[str] = []
+
+    asset = document.get("asset")
+    if not isinstance(asset, dict) or asset.get("version") != "2.0":
+        errors.append("glTF asset.version must be 2.0")
+
+    skins = document.get("skins")
+    if not isinstance(skins, list) or not skins:
+        errors.append("Spellblade GLB must contain at least one skin")
+
+    node_indexes = _node_index_by_name(document)
+    required_nodes = tuple(contract.get("rigNodes", REQUIRED_RIG_NODES)) if isinstance(contract, dict) else REQUIRED_RIG_NODES
+    for name in required_nodes:
+        if name not in node_indexes:
+            errors.append(f"Spellblade rig missing node {name}")
+
+    root_index = node_indexes.get("root")
+    if root_index is not None:
+        root_node = document.get("nodes", [])[root_index]
+        scale = root_node.get("scale", [1.0, 1.0, 1.0]) if isinstance(root_node, dict) else [1.0, 1.0, 1.0]
+        if not (
+            isinstance(scale, list)
+            and len(scale) == 3
+            and all(isinstance(value, (int, float)) and math.isfinite(value) for value in scale)
+        ):
+            errors.append("root scale must be a finite 3-vector")
+        else:
+            if any(value <= 0 for value in scale):
+                errors.append(f"root scale must be positive, got {scale}")
+            if any(abs(float(value) - 1.0) > SCALE_EPSILON for value in scale):
+                errors.append(f"root scale must be unit [1, 1, 1], got {scale}")
+
+    bounds = _position_bounds(document)
+    if bounds is None:
+        errors.append("Spellblade GLB must expose POSITION accessor min/max bounds")
+    else:
+        minimum, maximum = bounds
+        height = maximum[1] - minimum[1]
+        if not (MIN_CHARACTER_HEIGHT <= height <= MAX_CHARACTER_HEIGHT):
+            errors.append(
+                f"Spellblade character height must be {MIN_CHARACTER_HEIGHT:.2f}..{MAX_CHARACTER_HEIGHT:.2f}m, got {height:.3f}m"
+            )
+        if not (MIN_GROUND_Y <= minimum[1] <= MAX_GROUND_Y):
+            errors.append(
+                f"Spellblade ground origin must keep minimum Y near 0m, got {minimum[1]:.3f}m"
+            )
+
+    errors.extend(_validate_root_motion(document, root_index))
+    return errors
+
+
+def validate_glb(path: Path, contract: dict | None = None, *, first_person: bool = False) -> list[str]:
+    return validate_document(read_glb_json(path), contract, first_person=first_person)
+
+
+def _write_synthetic_glb(path: Path, document: dict | None = None) -> None:
+    payload = json.dumps(document or {"asset": {"version": "2.0"}}, separators=(",", ":")).encode("utf-8")
     payload += b" " * ((4 - len(payload) % 4) % 4)
     total_length = 12 + 8 + len(payload)
     data = struct.pack("<4sII", GLB_MAGIC, GLB_VERSION, total_length)
@@ -69,30 +195,94 @@ def _write_synthetic_glb(path: Path) -> None:
     path.write_bytes(data)
 
 
+def _valid_synthetic_rig_document() -> dict:
+    nodes = [{"name": name} for name in REQUIRED_RIG_NODES]
+    joints = list(range(len(nodes)))
+    return {
+        "asset": {"version": "2.0"},
+        "nodes": nodes,
+        "skins": [{"joints": joints}],
+        "meshes": [{"primitives": [{"attributes": {"POSITION": 0}}]}],
+        "accessors": [{"type": "VEC3", "componentType": 5126, "count": 8, "min": [-0.55, 0.0, -0.28], "max": [0.55, 2.04, 0.28]}],
+        "animations": [],
+    }
+
+
 def self_test() -> None:
     with tempfile.TemporaryDirectory() as directory:
         path = Path(directory) / "synthetic.glb"
-        _write_synthetic_glb(path)
-        document = read_glb_json(path)
-        if document != {"asset": {"version": "2.0"}}:
+        document = {"asset": {"version": "2.0"}}
+        _write_synthetic_glb(path, document)
+        if read_glb_json(path) != document:
             raise SystemExit("GLB parser self-test returned unexpected JSON")
-        errors = validate_glb(path)
-        if errors:
-            raise SystemExit("GLB parser self-test failed: " + "; ".join(errors))
     print("SPELLBLADE_GLB_PARSER_OK")
+
+
+def self_test_rig() -> None:
+    valid = _valid_synthetic_rig_document()
+    valid_errors = validate_document(valid)
+    if valid_errors:
+        raise SystemExit("valid rig fixture rejected: " + "; ".join(valid_errors))
+
+    cases: list[tuple[str, dict, str]] = []
+
+    no_skin = copy.deepcopy(valid)
+    no_skin["skins"] = []
+    cases.append(("missing skin", no_skin, "skin"))
+
+    missing_socket = copy.deepcopy(valid)
+    missing_socket["nodes"] = [node for node in missing_socket["nodes"] if node.get("name") != "socket_sword"]
+    cases.append(("missing socket", missing_socket, "socket_sword"))
+
+    negative_scale = copy.deepcopy(valid)
+    negative_scale["nodes"][0]["scale"] = [-1.0, 1.0, 1.0]
+    cases.append(("negative root scale", negative_scale, "positive"))
+
+    non_unit_scale = copy.deepcopy(valid)
+    non_unit_scale["nodes"][0]["scale"] = [1.1, 1.0, 1.0]
+    cases.append(("non-unit root scale", non_unit_scale, "unit"))
+
+    too_tall = copy.deepcopy(valid)
+    too_tall["accessors"][0]["max"][1] = 3.0
+    cases.append(("wrong height", too_tall, "height"))
+
+    floating = copy.deepcopy(valid)
+    floating["accessors"][0]["min"][1] = 0.5
+    floating["accessors"][0]["max"][1] = 2.54
+    cases.append(("floating origin", floating, "ground origin"))
+
+    root_motion = copy.deepcopy(valid)
+    root_motion["animations"] = [{
+        "name": "BadRootMotion",
+        "channels": [{"sampler": 0, "target": {"node": 0, "path": "translation"}}],
+        "samplers": [{"input": 1, "output": 2}],
+    }]
+    cases.append(("root motion", root_motion, "root motion"))
+
+    for label, document, expected in cases:
+        errors = validate_document(document)
+        joined = "\n".join(errors).lower()
+        if expected.lower() not in joined:
+            raise SystemExit(f"{label} fixture was not rejected correctly: {errors}")
+
+    print("SPELLBLADE_RIG_VALIDATOR_OK")
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Validate Swords & Sorcery Spellblade GLB structure")
     parser.add_argument("path", nargs="?", type=Path)
     parser.add_argument("--self-test", action="store_true")
+    parser.add_argument("--self-test-rig", action="store_true")
     args = parser.parse_args()
 
     if args.self_test:
         self_test()
         return
+    if args.self_test_rig:
+        self_test_rig()
+        return
     if args.path is None:
-        parser.error("path is required unless --self-test is used")
+        parser.error("path is required unless a self-test flag is used")
 
     errors = validate_glb(args.path)
     if errors:
