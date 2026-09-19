@@ -27,9 +27,7 @@ function waitFor(ws, predicate, timeoutMs = 2500) {
   });
 }
 
-function send(ws, message) {
-  ws.send(JSON.stringify(message));
-}
+function send(ws, message) { ws.send(JSON.stringify(message)); }
 
 function waitUntil(predicate, timeoutMs = 1500) {
   const started = performance.now();
@@ -94,17 +92,21 @@ test('one FFA human waits, second human can start, and snapshots expose structur
   assert.equal(playing.players.filter((p) => p.actorKind === 'human').length, 2);
 });
 
-test('one Bot Duel human reaches PLAYING with exactly one authoritative bot', async (t) => {
-  const { port } = await startServer(t);
+test('one Bot Duel human arms the normal countdown with one bot then reaches PLAYING', async (t) => {
+  const { game, port } = await startServer(t);
   const ws = await connect(port);
   closeLater(t, ws);
 
   const joinedP = waitFor(ws, (m) => m.type === 'joined');
-  const playingP = waitFor(ws, (m) => m.type === 'snapshot' && m.roomState === 'PLAYING' && m.mode === 'BOT_DUEL');
   send(ws, { type: 'startSolo', mode: 'BOT_DUEL', name: 'Duelist' });
   const joined = await joinedP;
-  const playing = await playingP;
+  const room = game.roomManager.findByCode(joined.roomCode);
+  assert.equal(room.state, 'COUNTDOWN');
+  assert.equal([...room.players.values()].filter((p) => p.actorKind === 'human').length, 1);
+  assert.equal([...room.players.values()].filter((p) => p.actorKind === 'bot').length, 1);
+  room.countdownEndsAt = game.now() - 0.01;
 
+  const playing = await waitFor(ws, (m) => m.type === 'snapshot' && m.roomState === 'PLAYING' && m.mode === 'BOT_DUEL');
   assert.equal(joined.worldId, 'castleward');
   assert.equal(playing.players.filter((p) => p.actorKind === 'human').length, 1);
   assert.equal(playing.players.filter((p) => p.actorKind === 'bot').length, 1);
@@ -135,15 +137,12 @@ test('Quick Play never attaches a human to an existing solo room', async (t) => 
   const solo = await connect(port);
   const publicPlayer = await connect(port);
   closeLater(t, solo, publicPlayer);
-
   const soloJoinedP = waitFor(solo, (m) => m.type === 'joined');
   send(solo, { type: 'startSolo', mode: 'PRACTICE', name: 'Solo' });
   const soloJoined = await soloJoinedP;
-
   const publicJoinedP = waitFor(publicPlayer, (m) => m.type === 'joined');
   send(publicPlayer, { type: 'quickPlay', name: 'Public' });
   const publicJoined = await publicJoinedP;
-
   assert.notEqual(publicJoined.roomCode, soloJoined.roomCode);
   assert.equal(publicJoined.mode, 'FFA');
 });
@@ -152,7 +151,6 @@ test('Practice commands are rejected in FFA without mutating room actors', async
   const { game, port } = await startServer(t);
   const ws = await connect(port);
   closeLater(t, ws);
-
   const joinedP = waitFor(ws, (m) => m.type === 'joined');
   send(ws, { type: 'createRoom', name: 'Alice' });
   const joined = await joinedP;
@@ -168,7 +166,6 @@ test('Practice commands are rejected in FFA without mutating room actors', async
 test('solo reconnect resumes the same room, mode, world and human identity', async (t) => {
   const { game, port } = await startServer(t);
   const first = await connect(port);
-
   const joinedP = waitFor(first, (m) => m.type === 'joined');
   send(first, { type: 'startSolo', mode: 'PRACTICE', name: 'Returner' });
   const joined = await joinedP;
@@ -176,7 +173,6 @@ test('solo reconnect resumes the same room, mode, world and human identity', asy
   const originalId = joined.playerId;
   first.close();
   await waitUntil(() => room.players.get(originalId)?.connected === false);
-
   const resumed = await connect(port);
   closeLater(t, resumed);
   const resumedJoinedP = waitFor(resumed, (m) => m.type === 'joined');
@@ -193,13 +189,11 @@ test('malformed solo mode and attempted client world injection cannot create or 
   const invalid = await connect(port);
   const injected = await connect(port);
   closeLater(t, invalid, injected);
-
   const beforeRooms = game.roomManager.rooms.size;
   const errorP = waitFor(invalid, (m) => m.type === 'error' && /Unknown solo mode/.test(m.message));
   send(invalid, { type: 'startSolo', mode: 'GOD_MODE', worldId: 'shattered-keep', name: 'Nope' });
   await errorP;
   assert.equal(game.roomManager.rooms.size, beforeRooms);
-
   const joinedP = waitFor(injected, (m) => m.type === 'joined');
   send(injected, { type: 'startSolo', mode: 'PRACTICE', worldId: 'shattered-keep', name: 'Injected' });
   const joined = await joinedP;
@@ -212,19 +206,16 @@ test('invalid dummy mode is rejected without replacing or mutating the current P
   const { game, port } = await startServer(t);
   const ws = await connect(port);
   closeLater(t, ws);
-
   const joinedP = waitFor(ws, (m) => m.type === 'joined');
   send(ws, { type: 'startSolo', mode: 'PRACTICE', name: 'Trainer' });
   const joined = await joinedP;
   const room = game.roomManager.findByCode(joined.roomCode);
-
   const passiveP = waitFor(ws, (m) => m.type === 'snapshot' && m.players.some((p) => p.actorKind === 'dummy'));
   send(ws, { type: 'practiceSpawnDummy', mode: 'PASSIVE' });
   await passiveP;
   const dummy = [...room.players.values()].find((p) => p.actorKind === 'dummy');
   assert.ok(dummy);
   assert.equal(dummy.practiceMode, 'PASSIVE');
-
   const errorP = waitFor(ws, (m) => m.type === 'error' && /Practice command unavailable/.test(m.message));
   send(ws, { type: 'practiceSetDummyMode', mode: 'PERFECT_PARRY_BOT' });
   await errorP;
