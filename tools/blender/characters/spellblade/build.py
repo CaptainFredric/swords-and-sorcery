@@ -17,12 +17,14 @@ from tools.blender.common.export import export_glb
 from tools.blender.common.render import configure_render, look_at, render_still
 from tools.blender.characters.spellblade.animations import build_actions
 from tools.blender.characters.spellblade.design import BODY_HEIGHT
+from tools.blender.characters.spellblade.first_person import build_first_person_asset
 from tools.blender.characters.spellblade.model import build_materials, build_third_person_model
 from tools.blender.characters.spellblade.rig import build_armature, rigid_skin, validate_armature_names
 from tools.blender.characters.spellblade.validate import load_contract, validate_production_model, validate_rig_scene
 
 
 _REVISION_RE = re.compile(r"^[0-9a-f]{40}$")
+_FIRST_PERSON_GLB = "spellblade-fp.glb"
 _ACTION_REVIEW_FRAMES = {
     "action-guard": ("Guard", 8, "front"),
     "action-slash-1": ("Slash_1", 13, "quarter"),
@@ -197,10 +199,12 @@ def _render_action_evidence(
     return paths
 
 
-def build_third_person(args: argparse.Namespace) -> None:
+def build_character_assets(args: argparse.Namespace) -> None:
     _validate_revision(args.source_revision)
     contract = load_contract()
     args.out.mkdir(parents=True, exist_ok=True)
+    blender_version = bpy.app.version_string
+
     bpy.ops.wm.read_factory_settings(use_empty=True)
     scene = bpy.context.scene
     configure_render(scene, args.mode)
@@ -219,6 +223,7 @@ def build_third_person(args: argparse.Namespace) -> None:
     model = build_third_person_model(armature, materials)
     model_report = validate_production_model(armature, model, contract)
     actions = build_actions(armature, contract)
+    third_person_animations = list(actions.keys())
 
     glb_path = args.out / "spellblade.glb"
     export_glb(glb_path, objects=(armature, *model.objects))
@@ -240,35 +245,50 @@ def build_third_person(args: argparse.Namespace) -> None:
     blend_path = args.out / "spellblade-third-person.blend"
     bpy.ops.wm.save_as_mainfile(filepath=str(blend_path))
 
+    first_person = build_first_person_asset(args.out, contract, args.mode)
+    if first_person.glb.name != _FIRST_PERSON_GLB:
+        raise ValueError(f"unexpected first-person GLB name: {first_person.glb.name}")
+
     report_path = args.out / "spellblade-build-report.json"
     _write_report(report_path, {
         "schemaVersion": 1,
         "workerReady": True,
         "mode": args.mode,
-        "visualStage": "third-person-animated",
+        "visualStage": "third-person-animated-with-first-person",
         "sourceRevision": args.source_revision,
-        "blenderVersion": bpy.app.version_string,
+        "blenderVersion": blender_version,
         "contractVersion": contract["version"],
         "rig": rig_report,
         "model": model_report,
-        "animations": list(actions.keys()),
+        "animations": third_person_animations,
+        "firstPerson": {
+            "triangles": first_person.triangles,
+            "triangleBudget": first_person.triangle_budget,
+            "animations": list(first_person.animations),
+        },
         "outputs": {
             "blend": blend_path.name,
             "thirdPersonGlb": glb_path.name,
+            "firstPersonBlend": first_person.blend.name,
+            "firstPersonGlb": first_person.glb.name,
             "frontRender": render_paths["front"].name,
             "backRender": render_paths["back"].name,
             "sideRender": render_paths["side"].name,
             "quarterRender": render_paths["quarter"].name,
             "actionRenders": {label: path.name for label, path in action_paths.items()},
+            "firstPersonRenders": {label: path.name for label, path in first_person.renders.items()},
         },
         "sizes": {
             "thirdPersonGlbBytes": glb_bytes,
             "thirdPersonTargetBytes": int(contract["thirdPerson"]["targetBytes"]),
+            "firstPersonGlbBytes": first_person.glb_bytes,
+            "firstPersonTargetBytes": first_person.target_bytes,
         },
     })
     print(
-        f"SPELLBLADE_THIRD_PERSON_ANIMATED_OK report={report_path} glb={glb_path} "
-        f"triangles={model_report['triangles']} bytes={glb_bytes} clips={len(actions)}"
+        f"SPELLBLADE_CHARACTER_ASSETS_OK report={report_path} thirdPerson={glb_path} "
+        f"firstPerson={first_person.glb} tpTriangles={model_report['triangles']} "
+        f"fpTriangles={first_person.triangles} tpBytes={glb_bytes} fpBytes={first_person.glb_bytes}"
     )
 
 
@@ -277,7 +297,7 @@ def main() -> None:
     if args.mode == "bootstrap":
         bootstrap(args)
         return
-    build_third_person(args)
+    build_character_assets(args)
 
 
 if __name__ == "__main__":
