@@ -22,8 +22,8 @@ export class Effects {
     this.impactFlashGeometry = new THREE.OctahedronGeometry(0.22, 0);
     this.impactShellGeometry = new THREE.IcosahedronGeometry(0.38, 1);
     this.impactRingGeometry = new THREE.TorusGeometry(0.28, 0.025, 4, 16);
-    this.projectileCoreGeometry = new THREE.OctahedronGeometry(0.17, 1);
-    this.projectileShellGeometry = new THREE.IcosahedronGeometry(0.31, 1);
+    this.projectileCoreGeometry = new THREE.OctahedronGeometry(0.15, 1);
+    this.projectileShellGeometry = new THREE.IcosahedronGeometry(0.25, 1);
     this.dashGeometry = new THREE.PlaneGeometry(0.018, 0.18);
 
     this.dashMaterial = new THREE.MeshBasicMaterial({
@@ -56,12 +56,11 @@ export class Effects {
       metalness: 0.05,
     });
     this.projectileShellMaterial = new THREE.MeshBasicMaterial({
-      color: 0xff6f24,
+      color: 0xff7a2a,
       transparent: true,
-      opacity: 0.43,
+      opacity: 0.31,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
-      wireframe: true,
     });
   }
 
@@ -165,7 +164,7 @@ export class Effects {
   fireball() {
     this.tone(180, 0.25, 0.06, 'sawtooth', 70);
     this.tone(520, 0.09, 0.035, 'triangle', 260);
-    this.#cameraFlash(0xff8a2b, 0.11, 0.9);
+    this.#cameraFlash(0xff8a2b, 0.08, 0.58);
   }
   dash() {
     this.tone(420, 0.12, 0.045, 'sine', 880);
@@ -264,7 +263,7 @@ export class Effects {
     shell.rotation.set(0.4, 0.2, 0.1);
     group.add(core, shell);
 
-    const light = new THREE.PointLight(0xff6b24, 9, 5.5, 2);
+    const light = new THREE.PointLight(0xff6b24, 7.5, 5, 2);
     group.add(light);
     this.scene.add(group);
 
@@ -318,9 +317,9 @@ export class Effects {
       effect.shell.rotation.x += dt * 2.9;
       effect.shell.rotation.y += dt * 4.1;
       effect.shell.rotation.z -= dt * 2.2;
-      effect.shell.scale.setScalar(0.96 + Math.sin(effect.phase) * 0.08);
+      effect.shell.scale.setScalar(0.92 + Math.sin(effect.phase) * 0.07);
       effect.core.scale.setScalar(0.98 + Math.sin(effect.phase * 1.7) * 0.05);
-      effect.light.intensity = 8.2 + Math.sin(effect.phase * 1.4) * 1.8;
+      effect.light.intensity = 6.8 + Math.sin(effect.phase * 1.4) * 1.2;
     }
 
     for (let i = this.transients.length - 1; i >= 0; i -= 1) {
