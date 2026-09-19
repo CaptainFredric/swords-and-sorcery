@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "test": "node --test client/game/*.test.mjs shared/src/*.test.mjs server/tests/*.test.mjs",
+    "test": "node --test client/game/*.test.mjs client/worlds/*.test.mjs shared/src/*.test.mjs server/tests/*.test.mjs",
     "check": "node scripts/check-syntax.mjs",
     "start": "node server/src/server.mjs",
     "dev": "node server/src/server.mjs",
