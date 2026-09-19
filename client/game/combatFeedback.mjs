@@ -8,3 +8,7 @@ export function localCombatFeedback(event, localId) {
   if (event.type === 'guardBreak') return 'guardBreak';
   return null;
 }
+
+export function shouldPlayWorldClang(event, localId) {
+  return Boolean(event && localId && event.type === 'swordWorldImpact' && event.playerId === localId);
+}
