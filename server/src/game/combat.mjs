@@ -1,7 +1,6 @@
 import { GAME, SWORD_STRIKE_TIMES, fireballSplashDamage, resolveSwordVsGuard } from '../../../shared/src/combat.mjs';
 import { findSwordWorldHit, segmentAabbHit, surfaceHeightAt } from '../../../shared/src/collision.mjs';
 import { movePlayer, tryStartDash } from '../../../shared/src/movement.mjs';
-import { SHATTERED_KEEP } from '../../../shared/src/map.mjs';
 import { chooseSpawn } from './spawns.mjs';
 import { recordTransform, sampleTransform } from './history.mjs';
 
@@ -356,14 +355,17 @@ function stepProjectiles(room, dt, nowSec, world) {
 
 function respawnPlayer(room, player, nowSec, world) {
   const enemies = [...room.players.values()].filter((p) => p.id !== player.id && p.alive);
-  const choice = chooseSpawn(world.spawnPoints ?? SHATTERED_KEEP.spawnPoints, enemies, room.recentSpawnUse, nowSec);
-  const spawn = choice?.spawn ?? SHATTERED_KEEP.spawnPoints[0];
+  const spawnPoints = world?.spawnPoints ?? room.world?.spawnPoints ?? [];
+  if (spawnPoints.length === 0) throw new Error(`World ${room.worldId ?? 'unknown'} has no spawn points`);
+  const choice = chooseSpawn(spawnPoints, enemies, room.recentSpawnUse, nowSec);
+  const spawn = choice?.spawn ?? spawnPoints[0];
   if (choice) room.recentSpawnUse.set(choice.index, nowSec);
   resetAtSpawn(player, spawn, nowSec);
   room.events.push({ type: 'respawn', playerId: player.id, position: { ...player.position }, at: nowSec });
 }
 
-export function stepRoom(room, dt, nowSec, world = SHATTERED_KEEP) {
+export function stepRoom(room, dt, nowSec, world = room.world) {
+  if (!world) throw new Error(`Room ${room.code ?? 'unknown'} has no world`);
   room.tick(nowSec);
   if (room.state !== 'PLAYING') return room.events;
 
