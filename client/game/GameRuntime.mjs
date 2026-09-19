@@ -6,7 +6,7 @@ import { WorldRenderer } from './WorldRenderer.mjs';
 import { RemotePlayers } from './RemotePlayers.mjs';
 import { WeaponView } from './WeaponView.mjs';
 import { Effects } from './Effects.mjs';
-import { localCombatFeedback } from './combatFeedback.mjs';
+import { localCombatFeedback, shouldPlayWorldClang } from './combatFeedback.mjs';
 import { castVisualDuration } from './weaponPose.mjs';
 
 export class GameRuntime {
@@ -127,12 +127,15 @@ export class GameRuntime {
       if (combatFeedback === 'guardBreak') this.effects.guardBreak();
 
       if (event.type === 'swordWorldImpact') {
-        if (event.playerId === this.socket.playerId) {
+        const localImpact = shouldPlayWorldClang(event, this.socket.playerId);
+        if (localImpact) {
           this.weapon.wallImpact();
           this.hud.flashText('CLANG!', 'metal');
           this.cameraKick = Math.max(this.cameraKick, 0.13);
+          this.effects.wallClang(event.point);
+        } else {
+          this.effects.sparks(event.point, 0xffd48a, 8);
         }
-        this.effects.wallClang(event.point);
       }
       if (event.type === 'swordHit') {
         if (event.playerId === this.socket.playerId) { this.hud.hit('hit'); this.effects.swordHit(event.strikeIndex); }
