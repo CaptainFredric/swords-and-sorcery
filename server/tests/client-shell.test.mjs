@@ -56,3 +56,15 @@ test('Practice controls collapse out of the combat view while pointer lock is ac
   assert.match(css, /\.hud\.pointer-locked\s+\.practice-tools\s+button\s*\{[^}]*display\s*:\s*none/i);
   assert.match(css, /\.hud\.pointer-locked\s+\.practice-tools\s+small\s*\{/);
 });
+
+test('Practice tool hint describes the current cursor state instead of telling an already-unlocked player to press Esc', async () => {
+  const html = await read('client/index.html');
+  const css = await read('client/playability.css');
+  const practiceSlice = html.slice(html.indexOf('id="practice-overlay"'), html.indexOf('id="death-card"'));
+
+  assert.match(practiceSlice, /class=["']practice-tools-unlocked-hint["'][^>]*>CLICK ARENA TO RESUME</i);
+  assert.match(practiceSlice, /class=["']practice-tools-locked-hint["'][^>]*>ESC FOR TOOLS</i);
+  assert.match(css, /\.practice-tools-locked-hint\s*\{[^}]*display\s*:\s*none/i);
+  assert.match(css, /\.hud\.pointer-locked\s+\.practice-tools-unlocked-hint\s*\{[^}]*display\s*:\s*none/i);
+  assert.match(css, /\.hud\.pointer-locked\s+\.practice-tools-locked-hint\s*\{[^}]*display\s*:\s*block/i);
+});
