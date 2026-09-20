@@ -3,6 +3,7 @@ import { facetedMesh } from './facetedGeometry.mjs';
 import { taperedPrismData, wedgeData } from './facetedGeometryData.mjs';
 import { SPELLBLADE_PALETTE } from './spellbladeDesign.mjs';
 import { createSpellbladeSword } from './SpellbladeSword.mjs';
+import { createSpellbladeAsset } from './SpellbladeAssets.mjs';
 import { FIRST_PERSON_WEAPON_SCALE, resolveWeaponPose } from './weaponPose.mjs';
 
 function damp(value, target, amount) {
@@ -16,6 +17,14 @@ function dampTransform(group, pose, amount = 0.28) {
   group.rotation.x = damp(group.rotation.x, pose.rx, amount);
   group.rotation.y = damp(group.rotation.y, pose.ry, amount);
   group.rotation.z = damp(group.rotation.z, pose.rz, amount);
+}
+
+function disposeObject(root) {
+  root.traverse((object) => {
+    object.geometry?.dispose?.();
+    if (Array.isArray(object.material)) for (const material of object.material) material?.dispose?.();
+    else object.material?.dispose?.();
+  });
 }
 
 function armPiece(parent, data, material, {
@@ -110,11 +119,48 @@ function addMagicWisp(parent, material, name, position, size, rotation) {
   return wisp;
 }
 
+function productionPlan(pose, view, timeSec) {
+  if (pose.state === 'attack' && Number.isInteger(pose.strike)) {
+    return { clip: `Slash_${pose.strike + 1}`, loop: false, time: Math.max(0, timeSec - view.attackStartedAt) };
+  }
+  if (pose.state === 'guard') return { clip: 'Guard', loop: false, time: 7 / 30 };
+  if (pose.state === 'cast') return { clip: 'Cast', loop: false, time: Math.max(0, timeSec - view.castStartedAt) };
+  if (pose.state === 'dash') return { clip: 'Dash', loop: false, time: Math.max(0, timeSec - (view.dashUntil - 0.18)) };
+  return { clip: 'Idle', loop: true, time: timeSec };
+}
+
+function outerImpactPose(view, timeSec) {
+  const recoil = view.recoilUntil > timeSec ? Math.min(1, (view.recoilUntil - timeSec) / 0.23) : 0;
+  const parry = view.parryUntil > timeSec ? Math.min(1, (view.parryUntil - timeSec) / 0.3) : 0;
+  return {
+    x: recoil * 0.08,
+    y: parry * 0.025,
+    z: recoil * 0.055 + parry * 0.035,
+    rx: recoil * 0.05,
+    ry: -parry * 0.12,
+    rz: recoil * 0.22 + parry * 0.08,
+  };
+}
+
 export class WeaponView {
   constructor(camera) {
+    this.camera = camera;
     this.group = new THREE.Group();
-    this.group.scale.setScalar(FIRST_PERSON_WEAPON_SCALE);
+    this.group.name = 'first-person-spellblade-root';
     camera.add(this.group);
+
+    this.fallbackVisual = new THREE.Group();
+    this.fallbackVisual.name = 'first-person-spellblade-fallback';
+    this.fallbackVisual.scale.setScalar(FIRST_PERSON_WEAPON_SCALE);
+    this.group.add(this.fallbackVisual);
+
+    this.productionOffset = new THREE.Group();
+    this.productionOffset.name = 'first-person-spellblade-production-offset';
+    this.group.add(this.productionOffset);
+    this.productionInstance = null;
+    this.assetGeneration = 0;
+    this.disposed = false;
+    this.visualKind = 'fallback';
 
     const materials = {
       sleeve: new THREE.MeshStandardMaterial({ color: SPELLBLADE_PALETTE.darkArmor, roughness: 0.78, metalness: 0.18 }),
@@ -138,7 +184,7 @@ export class WeaponView {
     this.weaponGroup = new THREE.Group();
     this.weaponGroup.position.set(0.50, -0.47, -0.94);
     this.weaponGroup.rotation.set(-0.08, -0.10, -0.10);
-    this.group.add(this.weaponGroup);
+    this.fallbackVisual.add(this.weaponGroup);
 
     this.rightArm = makeGauntletedArm(this.weaponGroup, materials, 1);
     this.rightArm.position.set(0.02, -0.03, 0.18);
@@ -149,7 +195,7 @@ export class WeaponView {
     this.sword = createSpellbladeSword(materials, { axis: 'z', scale: 1.08, castShadow: false });
     this.swordPivot.add(this.sword);
 
-    this.leftHandGroup = makeGauntletedArm(this.group, materials, -1);
+    this.leftHandGroup = makeGauntletedArm(this.fallbackVisual, materials, -1);
     this.leftHandGroup.position.set(-0.42, -0.58, -0.82);
     this.leftHandGroup.rotation.set(-0.28, 0.16, 0.18);
 
@@ -179,6 +225,34 @@ export class WeaponView {
     this.castStartedAt = 0;
     this.castUntil = 0;
     this.dashUntil = 0;
+
+    this.#upgradeVisual();
+  }
+
+  #upgradeVisual() {
+    const generation = ++this.assetGeneration;
+    createSpellbladeAsset({ kind: 'firstPerson' }).then((instance) => {
+      if (!instance) return;
+      if (this.disposed || generation !== this.assetGeneration) {
+        instance.dispose();
+        return;
+      }
+
+      this.productionInstance = instance;
+      this.visualKind = 'production';
+      this.productionOffset.add(instance.root);
+      instance.animator.apply({ clip: 'Idle', loop: true, time: performance.now() / 1000 });
+
+      if (instance.sockets.sorcery) {
+        instance.sockets.sorcery.add(this.magicLight);
+        this.magicLight.position.set(0, 0, 0);
+      }
+
+      this.group.remove(this.fallbackVisual);
+      disposeObject(this.fallbackVisual);
+    }).catch(() => {
+      if (!this.disposed) this.visualKind = 'fallback';
+    });
   }
 
   setAttack(held) {
@@ -229,6 +303,15 @@ export class WeaponView {
       dashUntil: this.dashUntil,
     });
 
+    if (this.visualKind === 'production' && this.productionInstance) {
+      this.productionInstance.animator.apply(productionPlan(pose, this, timeSec));
+      dampTransform(this.productionOffset, outerImpactPose(this, timeSec), 0.38);
+      const glow = pose.state === 'cast' ? 3.2 : 2.0;
+      for (const material of this.productionInstance.mutableMaterials) material.emissiveIntensity = glow;
+      this.magicLight.intensity = pose.state === 'cast' ? 3.2 : 0.9;
+      return;
+    }
+
     const groupSnap = pose.state === 'attack' ? 0.40 : pose.state === 'guard' || pose.state === 'cast' ? 0.34 : 0.27;
     const swordSnap = pose.state === 'attack' ? 0.58 : pose.state === 'guard' ? 0.42 : 0.32;
     dampTransform(this.weaponGroup, pose.group, groupSnap);
@@ -249,5 +332,19 @@ export class WeaponView {
       wisp.rotation.y = timeSec * (1.1 + i * 0.22);
     }
     this.magicLight.intensity = pose.state === 'cast' ? 3.2 : 0.95 * Math.max(0.4, magicScale);
+  }
+
+  dispose() {
+    this.disposed = true;
+    this.assetGeneration += 1;
+    if (this.productionInstance) {
+      this.productionOffset.remove(this.productionInstance.root);
+      this.productionInstance.dispose();
+      this.productionInstance = null;
+    } else if (this.fallbackVisual.parent) {
+      this.group.remove(this.fallbackVisual);
+      disposeObject(this.fallbackVisual);
+    }
+    this.camera.remove(this.group);
   }
 }
