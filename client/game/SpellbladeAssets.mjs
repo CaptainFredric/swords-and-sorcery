@@ -5,6 +5,8 @@ import { SpellbladeAnimator } from './SpellbladeAnimator.mjs';
 const DEFAULT_MANIFEST_URL = '/client/assets/characters/spellblade/manifest.json';
 const SHA40 = /^[0-9a-f]{40}$/;
 const MUTABLE_MATERIAL_NAMES = new Set(['VisorGlow', 'SorceryAccent']);
+const ASSET_STATUS_KEY = '__SPELLBLADE_ASSET_STATUS__';
+const ASSET_STATUS_SLOTS = new Set(['menu', 'remote', 'firstPerson']);
 
 const loader = new GLTFLoader();
 const gltfPromises = new Map();
@@ -36,6 +38,20 @@ function requireManifest(raw) {
     mutableMaterials: Object.freeze([...(raw.mutableMaterials ?? MUTABLE_MATERIAL_NAMES)]),
     firstPersonMutableMaterials: Object.freeze([...(raw.firstPersonMutableMaterials ?? ['SorceryAccent'])]),
   });
+}
+
+export function reportSpellbladeAssetStatus(slot, instance = null) {
+  if (!ASSET_STATUS_SLOTS.has(slot)) return null;
+
+  const sourceRevision = String(instance?.sourceRevision || '').toLowerCase();
+  const record = Object.freeze({
+    kind: instance && SHA40.test(sourceRevision) ? 'glb' : 'fallback',
+    sourceRevision: instance && SHA40.test(sourceRevision) ? sourceRevision : null,
+  });
+  const previous = globalThis[ASSET_STATUS_KEY];
+  const status = previous && typeof previous === 'object' ? previous : {};
+  globalThis[ASSET_STATUS_KEY] = Object.freeze({ ...status, [slot]: record });
+  return record;
 }
 
 async function loadManifest(url = DEFAULT_MANIFEST_URL) {
