@@ -39,3 +39,14 @@ test('runtime asset layer uses cached GLTF loading, skinned cloning, isolated mu
   assert.match(animator, /uncacheRoot/);
   assert.doesNotMatch(assets, /geometry\.dispose\s*\(/);
 });
+
+test('migration manifest disables production GLB requests until reviewed assets are promoted', async () => {
+  const assets = await read('client/game/SpellbladeAssets.mjs');
+  const manifestText = await read('client/assets/characters/spellblade/manifest.json');
+
+  assert.ok(manifestText, 'migration manifest must exist so browser does not request a missing file');
+  const manifest = JSON.parse(manifestText);
+  assert.equal(manifest.enabled, false);
+  assert.match(assets, /enabled\s*===\s*false/);
+  assert.match(assets, /return\s+null/);
+});
