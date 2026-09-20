@@ -25,6 +25,12 @@ PAULDRON_WIDTH = 0.50
 BREASTPLATE_UPPER_WIDTH = 0.66
 PAULDRON_CENTER_X = 0.67
 
+# Secondary hero-shape anchors added after review of the first production render.
+# They keep the limbs from collapsing back into stick-like blockout proportions.
+BOOT_SILHOUETTE_WIDTH = 0.42
+SWORD_GUARD_WIDTH = 0.66
+GAUNTLET_CUFF_WIDTH = 0.28
+
 # Explicit edit-bone endpoints in meters. Left/right are character-local X.
 BONES = {
     "root": ((0.0, 0.0, 0.0), (0.0, 0.0, 0.14), None, False),
