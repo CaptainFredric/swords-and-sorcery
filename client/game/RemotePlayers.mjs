@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { createSpellbladeAsset } from './SpellbladeAssets.mjs';
+import { createSpellbladeAsset, reportSpellbladeAssetStatus } from './SpellbladeAssets.mjs';
 import { createSpellbladeRig } from './SpellbladeModel.mjs';
 import { resolveSpellbladeAnimationPlan } from './spellbladeAnimationPlan.mjs';
 import { resolveRemoteSpellbladePose } from './remoteSpellbladePose.mjs';
@@ -84,6 +84,7 @@ function createRemoteShell(index, player, pendingCast) {
     fallbackDispose: () => disposeFallbackRig(fallbackRig),
   });
   shell.fallbackRig = fallbackRig;
+  reportSpellbladeAssetStatus('remote');
 
   const d = root.userData;
   d.lastAlive = player.alive;
@@ -96,10 +97,13 @@ function createRemoteShell(index, player, pendingCast) {
   createSpellbladeAsset({ kind: 'thirdPerson' })
     .then((instance) => {
       if (!instance) return;
-      upgradeRemoteVisual(shell, instance, generation);
+      if (upgradeRemoteVisual(shell, instance, generation)) {
+        reportSpellbladeAssetStatus('remote', instance);
+      }
     })
     .catch(() => {
       // The procedural fallback remains authoritative presentation until a valid GLB is available.
+      reportSpellbladeAssetStatus('remote');
     });
 
   return shell;
