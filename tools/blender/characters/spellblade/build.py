@@ -16,6 +16,7 @@ if str(ROOT) not in sys.path:
 from tools.blender.common.export import export_glb
 from tools.blender.common.render import configure_render, look_at, render_still
 from tools.blender.characters.spellblade.animations import build_actions
+from tools.blender.characters.spellblade.blueprint_bounds import enforce_blueprint_export_bounds
 from tools.blender.characters.spellblade.concept_model import build_concept_model
 from tools.blender.characters.spellblade.concept_polish import refine_concept_proportions
 from tools.blender.characters.spellblade.design import BODY_HEIGHT
@@ -234,6 +235,7 @@ def build_character_assets(args: argparse.Namespace) -> None:
     # Final authority: dominant armor masses are replaced from the locked concept
     # blueprint after all legacy/refinement stages, so later scaling cannot erase it.
     model = rebuild_locked_blueprint(model, armature, materials)
+    model = enforce_blueprint_export_bounds(model)
     model_report = validate_production_model(armature, model, contract)
     actions = build_actions(armature, contract)
     third_person_animations = list(actions.keys())
