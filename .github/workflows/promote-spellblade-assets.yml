@@ -1,0 +1,183 @@
+name: Promote Spellblade assets
+
+on:
+  push:
+    paths:
+      - 'tools/blender/characters/spellblade/promotion.json'
+
+permissions:
+  contents: write
+
+jobs:
+  promote-spellblade-assets:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      BLENDER_VERSION: '4.5.14'
+      BLENDER_ARCHIVE: 'blender-4.5.14-linux-x64.tar.xz'
+      BLENDER_URL: 'https://download.blender.org/release/Blender4.5/blender-4.5.14-linux-x64.tar.xz'
+      BLENDER_SHA_URL: 'https://download.blender.org/release/Blender4.5/blender-4.5.14.sha256'
+    steps:
+      - name: Check out promotion branch
+        uses: actions/checkout@v4
+        with:
+          path: current
+          ref: ${{ github.ref_name }}
+          fetch-depth: 1
+
+      - name: Read promotion request
+        id: promotion
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import json
+          import re
+          from pathlib import Path
+
+          request = json.loads(Path('current/tools/blender/characters/spellblade/promotion.json').read_text())
+          revision = str(request.get('sourceRevision', '')).strip().lower()
+          if revision == '':
+              print('requested=false')
+              print('revision=')
+          else:
+              if not re.fullmatch(r'^[0-9a-f]{40}$', revision):
+                  raise SystemExit('promotion sourceRevision must match ^[0-9a-f]{40}$')
+              print('requested=true')
+              print(f'revision={revision}')
+          PY
+
+      - name: No promotion requested
+        if: steps.promotion.outputs.requested != 'true'
+        run: echo 'Spellblade promotion request is empty; nothing to do.'
+
+      - name: Check out reviewed source
+        if: steps.promotion.outputs.requested == 'true'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.promotion.outputs.revision }}
+          path: source
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Install headless render runtime
+        if: steps.promotion.outputs.requested == 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes libegl1
+
+      - name: Cache Blender archive
+        if: steps.promotion.outputs.requested == 'true'
+        uses: actions/cache@v4
+        with:
+          path: .cache/blender-4.5.14-linux-x64.tar.xz
+          key: blender-4.5.14-linux-x64
+
+      - name: Download verified Blender LTS
+        if: steps.promotion.outputs.requested == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .cache .blender
+          if [[ ! -s ".cache/${BLENDER_ARCHIVE}" ]]; then
+            curl --fail --location --retry 4 --retry-delay 3 \
+              "${BLENDER_URL}" \
+              --output ".cache/${BLENDER_ARCHIVE}"
+          fi
+          curl --fail --location --retry 4 --retry-delay 3 \
+            "${BLENDER_SHA_URL}" \
+            --output .cache/blender.sha256
+          grep " ${BLENDER_ARCHIVE}$" .cache/blender.sha256 | (cd .cache && sha256sum -c -)
+          tar -xJf ".cache/${BLENDER_ARCHIVE}" --strip-components=1 -C .blender
+          ./.blender/blender --version
+
+      - name: Build requested reviewed source
+        if: steps.promotion.outputs.requested == 'true'
+        shell: bash
+        env:
+          SOURCE_REVISION: ${{ steps.promotion.outputs.revision }}
+        run: |
+          set -euo pipefail
+          rm -rf promoted-build
+          mkdir -p promoted-build
+          cd source
+          ../.blender/blender \
+            --background \
+            --factory-startup \
+            --python-exit-code 1 \
+            --python tools/blender/characters/spellblade/build.py \
+            -- \
+            --mode review \
+            --out ../promoted-build \
+            --source-revision "${SOURCE_REVISION}"
+
+      - name: Validate both production GLBs
+        if: steps.promotion.outputs.requested == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 source/scripts/validate-spellblade-glb.py promoted-build/spellblade.glb
+          python3 source/scripts/validate-spellblade-glb.py --first-person promoted-build/spellblade-fp.glb
+          python3 source/scripts/validate-spellblade-fp-render.py promoted-build/spellblade-fp-slash.png
+
+      - name: Generate revisioned runtime manifest
+        if: steps.promotion.outputs.requested == 'true'
+        shell: bash
+        env:
+          SOURCE_REVISION: ${{ steps.promotion.outputs.revision }}
+        run: |
+          set -euo pipefail
+          mkdir -p current/client/assets/characters/spellblade
+          cp promoted-build/spellblade.glb current/client/assets/characters/spellblade/spellblade.glb
+          cp promoted-build/spellblade-fp.glb current/client/assets/characters/spellblade/spellblade-fp.glb
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          revision = os.environ['SOURCE_REVISION']
+          contract = json.loads(Path('source/tools/blender/characters/spellblade/contract.json').read_text())
+          base = '/assets/characters/spellblade'
+          manifest = {
+              'version': 1,
+              'sourceRevision': revision,
+              'thirdPerson': {
+                  'url': f'{base}/spellblade.glb?v={revision}',
+                  'clips': contract['clips'],
+              },
+              'firstPerson': {
+                  'url': f'{base}/spellblade-fp.glb?v={revision}',
+                  'clips': contract['firstPersonClips'],
+              },
+              'sockets': contract['sockets'],
+              'mutableMaterials': contract['mutableMaterials'],
+              'firstPersonMutableMaterials': contract['firstPersonMutableMaterials'],
+          }
+          Path('current/client/assets/characters/spellblade/manifest.json').write_text(
+              json.dumps(manifest, indent=2) + '\n'
+          )
+          PY
+
+      - name: Commit only promoted Spellblade runtime assets
+        if: steps.promotion.outputs.requested == 'true'
+        shell: bash
+        env:
+          SOURCE_REVISION: ${{ steps.promotion.outputs.revision }}
+        run: |
+          set -euo pipefail
+          cd current
+          unexpected="$(git status --porcelain | awk '{print $2}' | grep -v '^client/assets/characters/spellblade/' || true)"
+          if [[ -n "${unexpected}" ]]; then
+            echo 'Unexpected working-tree changes during Spellblade promotion:' >&2
+            echo "${unexpected}" >&2
+            exit 1
+          fi
+          git add client/assets/characters/spellblade
+          if git diff --cached --quiet; then
+            echo 'Promoted Spellblade assets already match this reviewed revision.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m "assets: promote Spellblade ${SOURCE_REVISION:0:12}"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
