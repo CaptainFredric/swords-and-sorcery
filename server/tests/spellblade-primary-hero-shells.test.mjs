@@ -27,6 +27,10 @@ test('primary Spellblade armor is rebuilt as deliberate 3D faceted shells', asyn
   assert.match(shells, /Crest/);
   assert.match(shells, /_replace_named\(/,
     'new hero shells should replace, not stack over, the legacy traced pieces');
+  assert.match(shells, /def _restore_required_names\(/,
+    'replacement objects must recover their canonical names after Blender allocates .001 duplicates');
+  assert.match(shells, /suffix\.isdigit\(\)/,
+    'canonical-name restoration must recognize Blender numeric duplicate suffixes');
 
   assert.match(build, /from tools\.blender\.characters\.spellblade\.hero_shells import rebuild_primary_hero_shells/);
   assert.match(build, /model = refine_concept_proportions\(model\)/);
