@@ -289,6 +289,13 @@ def _legs_and_cloth(model: ModelParts) -> None:
             if obj is not None:
                 _scale_about(obj, _bounds_center(obj), scale)
 
+        # Shrinking the boots improves the leg ratio, then this node-level drop
+        # restores exact floor contact without distorting their exported mesh bounds.
+        for name in (f"Boot.{side}", f"BootFacet.{side}"):
+            obj = _named(model, name)
+            if obj is not None:
+                _translate_socket_object(obj, (0.0, 0.0, -0.036))
+
     front = _named(model, "TabardFront")
     if front is not None:
         _scale_about(front, (0.0, 0.260, 0.725), (0.72, 0.96, 1.10))
