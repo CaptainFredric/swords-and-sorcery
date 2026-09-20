@@ -58,12 +58,11 @@ def _scale_about(
     obj.data.update()
 
 
-def _translate(obj: bpy.types.Object, delta: tuple[float, float, float]) -> None:
-    offset = Vector(delta)
-    for vertex in obj.data.vertices:
-        world = _world_point(obj, vertex.co)
-        vertex.co = _local_point(obj, world + offset)
-    obj.data.update()
+def _translate_socket_object(obj: bpy.types.Object, delta: tuple[float, float, float]) -> None:
+    """Move a socket attachment by its node transform, never by rewriting POSITION data."""
+    world = obj.matrix_world.copy()
+    world.translation += Vector(delta)
+    obj.matrix_world = world
 
 
 def _replace_material(obj: bpy.types.Object | None, material: bpy.types.Material) -> None:
@@ -111,7 +110,7 @@ def _helmet(model: ModelParts) -> None:
     materials = model.materials
     shell = _named(model, "HelmetShell")
     if shell is not None:
-        _scale_about(shell, (0.0, 0.0, 1.835), (0.88, 1.02, 1.09))
+        _scale_about(shell, (0.0, 0.0, 1.835), (0.88, 1.02, 1.07))
 
     jaw = _named(model, "HelmetJaw")
     if jaw is not None:
@@ -149,7 +148,7 @@ def _helmet(model: ModelParts) -> None:
         model,
         "Crest",
         pivot=(0.0, -0.020, 2.000),
-        scale=(0.90, 0.95, 1.12),
+        scale=(0.90, 0.95, 1.00),
     )
 
 
@@ -243,25 +242,17 @@ def _legs_and_cloth(model: ModelParts) -> None:
 
 
 def _weapon_and_magic(model: ModelParts) -> None:
-    # Recenter the weapon with the narrower arm rest pose while preserving its
-    # broad concept-sized blade and guard. These pieces are bone-parented, so all
-    # mesh edits stay in world space and are converted back through matrix_world.
+    # Socketed parts retain their authored mesh coordinates. Moving only the node
+    # transform keeps raw GLB POSITION bounds stable for the external validator.
     for name in ("HeroSword", "HeroSword.Guard", "HeroSword.Grip", "HeroSword.Pommel"):
         obj = _named(model, name)
         if obj is not None:
-            _translate(obj, (-0.16, 0.035, 0.0))
+            _translate_socket_object(obj, (-0.16, 0.035, 0.0))
 
-    magic_names = ["SorceryCore", "SorceryShard.1", "SorceryShard.2", "SorceryShard.3"]
-    for name in magic_names:
+    for name in ("SorceryCore", "SorceryShard.1", "SorceryShard.2", "SorceryShard.3"):
         obj = _named(model, name)
         if obj is not None:
-            _translate(obj, (0.16, 0.025, 0.0))
-
-    magic_pivot = (-0.825, 0.210, 0.845)
-    for name in magic_names:
-        obj = _named(model, name)
-        if obj is not None:
-            _scale_about(obj, magic_pivot, (1.35, 1.35, 1.35))
+            _translate_socket_object(obj, (0.16, 0.025, 0.0))
 
 
 def refine_concept_proportions(model: ModelParts) -> ModelParts:
