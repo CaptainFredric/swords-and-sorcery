@@ -22,6 +22,10 @@ test('concept model receives direct proportion polish without the stale depth ov
   assert.match(polish, /HeroSword/);
   assert.match(polish, /SorceryCore/);
   assert.match(polish, /ARM_X_COMPRESSION/);
+  assert.match(polish, /matrix_world/,
+    'proportion edits must operate through world transforms so bone-parented sockets remain stable');
+  assert.doesNotMatch(polish, /def _bake_location/,
+    'bone-parented object.location is not a world-space translation and must not be baked into mesh vertices');
 
   assert.match(build, /from tools\.blender\.characters\.spellblade\.concept_polish import refine_concept_proportions/);
   assert.match(build, /model = build_concept_model\(armature, materials\)/);
