@@ -23,6 +23,7 @@ from tools.blender.characters.spellblade.first_person import build_first_person_
 from tools.blender.characters.spellblade.hero_cloth import rebuild_hero_cloth
 from tools.blender.characters.spellblade.hero_limbs import rebuild_hero_limbs
 from tools.blender.characters.spellblade.hero_shells import rebuild_primary_hero_shells
+from tools.blender.characters.spellblade.locked_blueprint import rebuild_locked_blueprint
 from tools.blender.characters.spellblade.model import build_materials
 from tools.blender.characters.spellblade.rig import build_armature, rigid_skin, validate_armature_names
 from tools.blender.characters.spellblade.validate import load_contract, validate_production_model, validate_rig_scene
@@ -230,6 +231,9 @@ def build_character_assets(args: argparse.Namespace) -> None:
     model = rebuild_hero_limbs(model, armature, materials)
     model = rebuild_hero_cloth(model, armature, materials)
     model = refine_concept_proportions(model)
+    # Final authority: dominant armor masses are replaced from the locked concept
+    # blueprint after all legacy/refinement stages, so later scaling cannot erase it.
+    model = rebuild_locked_blueprint(model, armature, materials)
     model_report = validate_production_model(armature, model, contract)
     actions = build_actions(armature, contract)
     third_person_animations = list(actions.keys())
