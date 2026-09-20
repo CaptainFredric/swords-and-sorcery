@@ -307,7 +307,7 @@ export class WeaponView {
       this.productionInstance.animator.apply(productionPlan(pose, this, timeSec));
       dampTransform(this.productionOffset, outerImpactPose(this, timeSec), 0.38);
       const glow = pose.state === 'cast' ? 3.2 : 2.0;
-      for (const material of this.productionInstance.mutableMaterials) material.emissiveIntensity = glow;
+      for (const material of this.productionInstance.materials.SorceryAccent ?? []) material.emissiveIntensity = glow;
       this.magicLight.intensity = pose.state === 'cast' ? 3.2 : 0.9;
       return;
     }
