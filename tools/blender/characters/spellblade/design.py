@@ -35,11 +35,8 @@ PAULDRON_DROP_HEIGHT = 0.20
 BOOT_ARMOR_CENTER_X = 0.20
 SORCERY_EMISSION_STRENGTH = 2.2
 
-# The rig landmarks below are taken from the approved front-view concept.
-# Relative to the 2.18m crest-to-sole silhouette, the belt sits a little above
-# half height, the knees at ~28% of total height, and the shoulders at ~73%.
-# Keeping those landmarks explicit prevents the character from collapsing back
-# into the short-legged/chibi proportions of the earlier blockout.
+# Concept-sheet landmarks. The stance is intentionally planted and slightly
+# splayed: knees and ankles sit farther from the centerline than the hips.
 BONES = {
     "root": ((0.0, 0.0, 0.0), (0.0, 0.0, 0.14), None, False),
     "pelvis": ((0.0, 0.0, 0.98), (0.0, 0.0, 1.17), "root", True),
@@ -60,12 +57,12 @@ BONES = {
     "hand.R": ((0.68, 0.035, 0.98), (0.74, 0.09, 0.84), "forearm.R", True),
     "socket_sword": ((0.74, 0.09, 0.84), (0.74, 0.25, 0.84), "hand.R", False),
 
-    "thigh.L": ((-0.19, 0.0, 1.02), (-0.20, 0.0, 0.60), "pelvis", True),
-    "shin.L": ((-0.20, 0.0, 0.60), (-0.20, 0.0, 0.14), "thigh.L", True),
-    "foot.L": ((-0.20, 0.0, 0.14), (-0.20, 0.29, 0.08), "shin.L", True),
-    "thigh.R": ((0.19, 0.0, 1.02), (0.20, 0.0, 0.60), "pelvis", True),
-    "shin.R": ((0.20, 0.0, 0.60), (0.20, 0.0, 0.14), "thigh.R", True),
-    "foot.R": ((0.20, 0.0, 0.14), (0.20, 0.29, 0.08), "shin.R", True),
+    "thigh.L": ((-0.19, 0.0, 1.02), (-0.25, 0.0, 0.60), "pelvis", True),
+    "shin.L": ((-0.25, 0.0, 0.60), (-0.28, 0.0, 0.14), "thigh.L", True),
+    "foot.L": ((-0.28, 0.0, 0.14), (-0.28, 0.30, 0.08), "shin.L", True),
+    "thigh.R": ((0.19, 0.0, 1.02), (0.25, 0.0, 0.60), "pelvis", True),
+    "shin.R": ((0.25, 0.0, 0.60), (0.28, 0.0, 0.14), "thigh.R", True),
+    "foot.R": ((0.28, 0.0, 0.14), (0.28, 0.30, 0.08), "shin.R", True),
 
     "tabard_root": ((0.0, 0.015, 1.14), (0.0, 0.04, 0.98), "pelvis", True),
     "tabard_front_01": ((0.0, 0.085, 0.98), (0.0, 0.10, 0.71), "tabard_root", True),
