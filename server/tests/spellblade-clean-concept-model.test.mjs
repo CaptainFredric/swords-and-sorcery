@@ -41,3 +41,16 @@ test('production third-person Spellblade is built from the traced concept model 
   assert.doesNotMatch(build, /model = refine_depth_and_back\(armature, model\)/);
   assert.doesNotMatch(build, /model = refine_traced_concept_geometry\(armature, model\)/);
 });
+
+test('final concept proportion polish runs after hero shell and limb replacement', async () => {
+  const build = await read('tools/blender/characters/spellblade/build.py');
+  const conceptIndex = build.indexOf('model = build_concept_model(armature, materials)');
+  const shellsIndex = build.indexOf('model = rebuild_primary_hero_shells(model, armature, materials)');
+  const limbsIndex = build.indexOf('model = rebuild_hero_limbs(model, armature, materials)');
+  const polishIndex = build.indexOf('model = refine_concept_proportions(model)');
+
+  assert.ok(conceptIndex >= 0, 'concept model build step is present');
+  assert.ok(shellsIndex > conceptIndex, 'hero shells replace traced primary shells after concept build');
+  assert.ok(limbsIndex > shellsIndex, 'hero limbs replace traced limbs after primary shells');
+  assert.ok(polishIndex > limbsIndex, 'concept proportion polish must be the final geometry stage');
+});
