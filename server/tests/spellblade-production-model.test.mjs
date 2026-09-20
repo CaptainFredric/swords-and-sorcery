@@ -99,6 +99,25 @@ test('concept refinement fills the thin mid-limbs and strengthens off-hand sorce
   assert.ok(sorceryRadius >= 0.16, `off-hand sorcery needs a readable gameplay silhouette; got ${sorceryRadius}`);
 });
 
+test('final sculpt layers shoulder bells, separates boots, and preserves cyan magic color', async () => {
+  const refinement = await read('tools/blender/characters/spellblade/concept_refinement.py');
+  const design = await read('tools/blender/characters/spellblade/design.py');
+
+  for (const marker of [
+    'PauldronDrop.L', 'PauldronDrop.R', 'UpperArmPlate.L', 'UpperArmPlate.R',
+  ]) assert.match(refinement, new RegExp(marker.replace('.', '\\.')));
+  assert.match(refinement, /Emission Strength["']\]\.default_value\s*=\s*SORCERY_EMISSION_STRENGTH/);
+
+  const upperArmWidth = Number(design.match(/UPPER_ARM_ARMOR_WIDTH\s*=\s*([0-9.]+)/)?.[1] ?? NaN);
+  const shoulderDrop = Number(design.match(/PAULDRON_DROP_HEIGHT\s*=\s*([0-9.]+)/)?.[1] ?? NaN);
+  const bootCenter = Number(design.match(/BOOT_ARMOR_CENTER_X\s*=\s*([0-9.]+)/)?.[1] ?? NaN);
+  const sorceryEmission = Number(design.match(/SORCERY_EMISSION_STRENGTH\s*=\s*([0-9.]+)/)?.[1] ?? NaN);
+  assert.ok(upperArmWidth >= 0.24, `upper-arm plate must bridge pauldron and vambrace; got ${upperArmWidth}`);
+  assert.ok(shoulderDrop >= 0.18, `pauldron needs a hanging armor layer; got ${shoulderDrop}`);
+  assert.ok(bootCenter >= 0.23, `boots need visible separation in the front silhouette; got ${bootCenter}`);
+  assert.ok(sorceryEmission >= 1.5 && sorceryEmission <= 3.0, `sorcery must stay cyan instead of clipping white; got ${sorceryEmission}`);
+});
+
 test('Blender production build captures readable combat action poses', async () => {
   const build = await read('tools/blender/characters/spellblade/build.py');
   for (const marker of [
