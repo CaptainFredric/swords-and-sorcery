@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import bpy
 
+from .authoritative_detail_pass import refine_authoritative_details
 from .authoritative_model_v4 import build_authoritative_spellblade_v4
 from .model import ModelParts
 
@@ -25,6 +26,7 @@ def enforce_blueprint_export_bounds(model: ModelParts) -> ModelParts:
         bpy.data.objects.remove(obj, do_unlink=True)
 
     rebuilt = build_authoritative_spellblade_v4(armature, materials)
+    rebuilt = refine_authoritative_details(rebuilt, armature, materials)
 
     for obj in rebuilt.objects:
         if obj.name != "Crest" or obj.type != "MESH":
