@@ -90,6 +90,8 @@ test('first-person view upgrades to the dedicated GLB without changing the comba
   assert.match(weapon, /kind:\s*['"]firstPerson['"]/);
   assert.match(weapon, /fallbackVisual/);
   assert.match(weapon, /productionInstance/);
+  assert.match(weapon, /productionInstance\.materials\.SorceryAccent/);
+  assert.doesNotMatch(weapon, /productionInstance\.mutableMaterials/);
   assert.match(weapon, /resolveWeaponPose/);
   for (const method of ['setAttack', 'setGuard', 'cast', 'dash', 'wallImpact', 'parry', 'update', 'dispose']) {
     assert.match(weapon, new RegExp(`\\b${method}\\s*\\(`));
