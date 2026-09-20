@@ -8,72 +8,70 @@ RUNTIME_UP = "+Y"
 RUNTIME_FORWARD = "-Z"
 
 BODY_HEIGHT = 2.04
-SHOULDER_SPAN = 1.08
-CHEST_TOP_WIDTH = 0.82
+SHOULDER_SPAN = 0.96
+CHEST_TOP_WIDTH = 0.74
 WAIST_WIDTH = 0.55
-HELMET_WIDTH = 0.50
-VISOR_WIDTH = 0.34
-BOOT_WIDTH = 0.36
-SHIN_WIDTH = 0.27
+HELMET_WIDTH = 0.42
+VISOR_WIDTH = 0.30
+BOOT_WIDTH = 0.32
+SHIN_WIDTH = 0.25
 
-# Concept-sheet silhouette anchors. These are intentionally explicit rather than
-# inferred from the first production blockout so later model edits cannot quietly
-# collapse the broad sword / tall crest / layered shoulder read.
+# Concept-sheet silhouette anchors.
 SWORD_BLADE_WIDTH = 0.34
-CREST_HEIGHT = 0.22
-PAULDRON_WIDTH = 0.44
-BREASTPLATE_UPPER_WIDTH = 0.66
-PAULDRON_CENTER_X = 0.56
+CREST_HEIGHT = 0.20
+PAULDRON_WIDTH = 0.34
+BREASTPLATE_UPPER_WIDTH = 0.70
+PAULDRON_CENTER_X = 0.49
 
-# Secondary hero-shape anchors added after review of the first production render.
-# They keep the limbs from collapsing back into stick-like blockout proportions.
-BOOT_SILHOUETTE_WIDTH = 0.36
+# Secondary hero-shape anchors.
+BOOT_SILHOUETTE_WIDTH = 0.32
 SWORD_GUARD_WIDTH = 0.66
-GAUNTLET_CUFF_WIDTH = 0.28
-FOREARM_ARMOR_WIDTH = 0.27
-THIGH_ARMOR_WIDTH = 0.33
+GAUNTLET_CUFF_WIDTH = 0.25
+FOREARM_ARMOR_WIDTH = 0.25
+THIGH_ARMOR_WIDTH = 0.30
 SORCERY_ACCENT_RADIUS = 0.18
-UPPER_ARM_ARMOR_WIDTH = 0.27
-PAULDRON_DROP_HEIGHT = 0.22
-BOOT_ARMOR_CENTER_X = 0.215
+UPPER_ARM_ARMOR_WIDTH = 0.25
+PAULDRON_DROP_HEIGHT = 0.20
+BOOT_ARMOR_CENTER_X = 0.20
 SORCERY_EMISSION_STRENGTH = 2.2
 
-# Explicit edit-bone endpoints in meters. Left/right are character-local X.
-# The arm chain intentionally hangs much closer to the torso than the first
-# blockout. That matches the concept's armored ready stance and gives the later
-# shoulder/elbow deformation a less toy-like starting silhouette.
+# The rig landmarks below are taken from the approved front-view concept.
+# Relative to the 2.18m crest-to-sole silhouette, the belt sits a little above
+# half height, the knees at ~28% of total height, and the shoulders at ~73%.
+# Keeping those landmarks explicit prevents the character from collapsing back
+# into the short-legged/chibi proportions of the earlier blockout.
 BONES = {
     "root": ((0.0, 0.0, 0.0), (0.0, 0.0, 0.14), None, False),
-    "pelvis": ((0.0, 0.0, 0.78), (0.0, 0.0, 1.00), "root", True),
-    "spine": ((0.0, 0.0, 0.96), (0.0, 0.0, 1.29), "pelvis", True),
-    "chest": ((0.0, 0.0, 1.25), (0.0, 0.0, 1.56), "spine", True),
-    "neck": ((0.0, 0.0, 1.53), (0.0, 0.0, 1.69), "chest", True),
-    "head": ((0.0, 0.0, 1.66), (0.0, 0.0, 2.02), "neck", True),
+    "pelvis": ((0.0, 0.0, 0.98), (0.0, 0.0, 1.17), "root", True),
+    "spine": ((0.0, 0.0, 1.10), (0.0, 0.0, 1.39), "pelvis", True),
+    "chest": ((0.0, 0.0, 1.34), (0.0, 0.0, 1.58), "spine", True),
+    "neck": ((0.0, 0.0, 1.55), (0.0, 0.0, 1.69), "chest", True),
+    "head": ((0.0, 0.0, 1.66), (0.0, 0.0, 2.03), "neck", True),
 
-    "clavicle.L": ((-0.08, 0.0, 1.49), (-0.40, 0.0, 1.49), "chest", True),
-    "upper_arm.L": ((-0.40, 0.0, 1.49), (-0.60, 0.0, 1.23), "clavicle.L", True),
-    "forearm.L": ((-0.60, 0.0, 1.23), (-0.74, 0.035, 0.94), "upper_arm.L", True),
-    "hand.L": ((-0.74, 0.035, 0.94), (-0.79, 0.09, 0.79), "forearm.L", True),
-    "socket_sorcery": ((-0.79, 0.09, 0.79), (-0.79, 0.25, 0.79), "hand.L", False),
+    "clavicle.L": ((-0.07, 0.0, 1.53), (-0.34, 0.0, 1.53), "chest", True),
+    "upper_arm.L": ((-0.34, 0.0, 1.53), (-0.53, 0.0, 1.27), "clavicle.L", True),
+    "forearm.L": ((-0.53, 0.0, 1.27), (-0.68, 0.035, 0.98), "upper_arm.L", True),
+    "hand.L": ((-0.68, 0.035, 0.98), (-0.74, 0.09, 0.84), "forearm.L", True),
+    "socket_sorcery": ((-0.74, 0.09, 0.84), (-0.74, 0.25, 0.84), "hand.L", False),
 
-    "clavicle.R": ((0.08, 0.0, 1.49), (0.40, 0.0, 1.49), "chest", True),
-    "upper_arm.R": ((0.40, 0.0, 1.49), (0.60, 0.0, 1.23), "clavicle.R", True),
-    "forearm.R": ((0.60, 0.0, 1.23), (0.74, 0.035, 0.94), "upper_arm.R", True),
-    "hand.R": ((0.74, 0.035, 0.94), (0.79, 0.09, 0.79), "forearm.R", True),
-    "socket_sword": ((0.79, 0.09, 0.79), (0.79, 0.25, 0.79), "hand.R", False),
+    "clavicle.R": ((0.07, 0.0, 1.53), (0.34, 0.0, 1.53), "chest", True),
+    "upper_arm.R": ((0.34, 0.0, 1.53), (0.53, 0.0, 1.27), "clavicle.R", True),
+    "forearm.R": ((0.53, 0.0, 1.27), (0.68, 0.035, 0.98), "upper_arm.R", True),
+    "hand.R": ((0.68, 0.035, 0.98), (0.74, 0.09, 0.84), "forearm.R", True),
+    "socket_sword": ((0.74, 0.09, 0.84), (0.74, 0.25, 0.84), "hand.R", False),
 
-    "thigh.L": ((-0.20, 0.0, 0.82), (-0.21, 0.0, 0.46), "pelvis", True),
-    "shin.L": ((-0.21, 0.0, 0.46), (-0.21, 0.0, 0.12), "thigh.L", True),
-    "foot.L": ((-0.21, 0.0, 0.12), (-0.21, 0.27, 0.07), "shin.L", True),
-    "thigh.R": ((0.20, 0.0, 0.82), (0.21, 0.0, 0.46), "pelvis", True),
-    "shin.R": ((0.21, 0.0, 0.46), (0.21, 0.0, 0.12), "thigh.R", True),
-    "foot.R": ((0.21, 0.0, 0.12), (0.21, 0.27, 0.07), "shin.R", True),
+    "thigh.L": ((-0.19, 0.0, 1.02), (-0.20, 0.0, 0.60), "pelvis", True),
+    "shin.L": ((-0.20, 0.0, 0.60), (-0.20, 0.0, 0.14), "thigh.L", True),
+    "foot.L": ((-0.20, 0.0, 0.14), (-0.20, 0.29, 0.08), "shin.L", True),
+    "thigh.R": ((0.19, 0.0, 1.02), (0.20, 0.0, 0.60), "pelvis", True),
+    "shin.R": ((0.20, 0.0, 0.60), (0.20, 0.0, 0.14), "thigh.R", True),
+    "foot.R": ((0.20, 0.0, 0.14), (0.20, 0.29, 0.08), "shin.R", True),
 
-    "tabard_root": ((0.0, 0.015, 1.04), (0.0, 0.04, 0.87), "pelvis", True),
-    "tabard_front_01": ((0.0, 0.085, 0.87), (0.0, 0.10, 0.58), "tabard_root", True),
-    "tabard_front_02": ((0.0, 0.10, 0.58), (0.0, 0.12, 0.29), "tabard_front_01", True),
-    "tabard_back_01": ((0.0, -0.075, 0.87), (0.0, -0.09, 0.58), "tabard_root", True),
-    "tabard_back_02": ((0.0, -0.09, 0.58), (0.0, -0.11, 0.31), "tabard_back_01", True),
+    "tabard_root": ((0.0, 0.015, 1.14), (0.0, 0.04, 0.98), "pelvis", True),
+    "tabard_front_01": ((0.0, 0.085, 0.98), (0.0, 0.10, 0.71), "tabard_root", True),
+    "tabard_front_02": ((0.0, 0.10, 0.71), (0.0, 0.12, 0.44), "tabard_front_01", True),
+    "tabard_back_01": ((0.0, -0.075, 0.99), (0.0, -0.09, 0.72), "tabard_root", True),
+    "tabard_back_02": ((0.0, -0.09, 0.72), (0.0, -0.11, 0.45), "tabard_back_01", True),
 }
 
 REQUIRED_BONES = tuple(BONES.keys())
