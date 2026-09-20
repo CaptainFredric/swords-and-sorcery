@@ -5,6 +5,7 @@ on:
     paths:
       - 'client/game/**'
       - 'client/menu/**'
+      - 'client/assets/characters/spellblade/**'
       - 'scripts/capture-public-arena.mjs'
       - '.github/workflows/visual-review.yml'
 
@@ -57,6 +58,7 @@ jobs:
         env:
           PUBLIC_URL: http://127.0.0.1:3001
           CHROME_BIN: ${{ steps.chrome.outputs.path }}
+          REQUIRE_SPELLBLADE_GLBS: '1'
         run: node scripts/capture-public-arena.mjs
 
       - name: Upload Spellblade visual evidence
