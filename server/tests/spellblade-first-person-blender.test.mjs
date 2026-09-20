@@ -42,11 +42,12 @@ test('combined Blender build exports and reviews the first-person asset', async 
   }
 });
 
-test('first-person Blender review rejects a slash that throws the hero sword entirely off-screen', async () => {
-  const source = await read('tools/blender/characters/spellblade/first_person.py');
+test('asset worker validates rendered first-person sword visibility', async () => {
+  const validator = await read('scripts/validate-spellblade-fp-render.py');
+  const workflow = await read('.github/workflows/spellblade-assets.yml');
 
-  assert.match(source, /validate_first_person_sword_visibility/);
-  assert.match(source, /world_to_camera_view/);
-  assert.match(source, /Slash_1/);
-  assert.match(source, /HeroSword/);
+  assert.match(validator, /spellblade-fp-slash\.png/);
+  assert.match(validator, /sword/i);
+  assert.match(validator, /visibility/i);
+  assert.match(workflow, /validate-spellblade-fp-render\.py/);
 });
