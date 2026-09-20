@@ -37,6 +37,51 @@ def _replace_material(obj: bpy.types.Object, material: bpy.types.Material) -> No
     obj.data.materials.append(material)
 
 
+def _profile_slab(
+    name: str,
+    profile_xz: tuple[tuple[float, float], ...],
+    *,
+    center_y: float,
+    thickness: float,
+    material: bpy.types.Material,
+) -> bpy.types.Object:
+    """Extrude an authored X/Z silhouette into a thin faceted armor or cloth plate."""
+    if len(profile_xz) < 3:
+        raise ValueError(f"{name} profile requires at least three points")
+    if thickness <= 0.0:
+        raise ValueError(f"{name} thickness must be positive")
+
+    # Ensure the +Y/front cap winds outward. The supplied profiles are readable
+    # as ordinary X/Z polygons, so normalize their winding here instead of making
+    # each caller reason about Blender face normals.
+    area2 = sum(
+        x0 * z1 - x1 * z0
+        for (x0, z0), (x1, z1) in zip(profile_xz, (*profile_xz[1:], profile_xz[0]))
+    )
+    ordered = tuple(profile_xz if area2 < 0.0 else reversed(profile_xz))
+    half = thickness * 0.5
+    count = len(ordered)
+    vertices = [
+        *((x, center_y + half, z) for x, z in ordered),
+        *((x, center_y - half, z) for x, z in ordered),
+    ]
+    faces: list[tuple[int, ...]] = [
+        tuple(range(count)),
+        tuple(reversed(range(count, count * 2))),
+    ]
+    for index in range(count):
+        nxt = (index + 1) % count
+        faces.append((index, count + index, count + nxt, nxt))
+
+    mesh = bpy.data.meshes.new(f"{name}Mesh")
+    mesh.from_pydata(vertices, [], faces)
+    mesh.update()
+    obj = bpy.data.objects.new(name, mesh)
+    bpy.context.collection.objects.link(obj)
+    obj.data.materials.append(material)
+    return obj
+
+
 def _set_material_color(material: bpy.types.Material, color: tuple[float, float, float, float]) -> None:
     material.diffuse_color = color
     if not material.use_nodes or material.node_tree is None:
@@ -47,17 +92,18 @@ def _set_material_color(material: bpy.types.Material, color: tuple[float, float,
 
 
 def _retune_concept_palette(model: ModelParts) -> None:
-    # The blockout was intentionally dark. Lift the production steel toward the
-    # supplied concept's readable gunmetal while preserving bright edge plates.
-    _set_material_color(model.materials["DarkSteel"], (0.16, 0.18, 0.22, 1.0))
-    _set_material_color(model.materials["SteelEdge"], (0.42, 0.45, 0.50, 1.0))
+    # The concept is gunmetal rather than blue-black, but its face is framed by
+    # dark armor. Keep steel separation while avoiding the pale rectangular mask
+    # that the earlier refinement produced around the visor.
+    _set_material_color(model.materials["DarkSteel"], (0.13, 0.15, 0.18, 1.0))
+    _set_material_color(model.materials["SteelEdge"], (0.36, 0.39, 0.44, 1.0))
     _set_material_color(model.materials["Brass"], (0.52, 0.31, 0.11, 1.0))
 
     visor = model.materials["VisorGlow"]
     if visor.use_nodes and visor.node_tree is not None:
         bsdf = visor.node_tree.nodes.get("Principled BSDF")
         if bsdf is not None and "Emission Strength" in bsdf.inputs:
-            bsdf.inputs["Emission Strength"].default_value = 2.6
+            bsdf.inputs["Emission Strength"].default_value = 2.2
 
     # Keep the hand unmistakably cyan without letting Eevee clip the authored
     # geometry into a white bloom shape in neutral and cast review frames.
@@ -75,49 +121,105 @@ def _helmet_refinement(
     materials = model.materials
     additions: list[bpy.types.Object] = []
 
-    # The concept face is a luminous T rather than a narrow horizontal slit.
-    crossbar = _beveled_box(
-        "VisorCrossbar",
-        (0.0, 0.255, 1.855),
-        (0.355, 0.030, 0.055),
-        materials["VisorGlow"],
-        bevel=0.009,
-    )
-    additions.append(_rigid(crossbar, armature, "head"))
+    # The base model already owns the horizontal cyan slit. Add only the narrow
+    # stem so the glow reads as a T-shaped opening instead of stacking a second
+    # luminous rectangle over the face.
     stem = _beveled_box(
         "VisorStem",
         (0.0, 0.257, 1.790),
-        (0.060, 0.032, 0.175),
+        (0.052, 0.030, 0.170),
         materials["VisorGlow"],
-        bevel=0.009,
+        bevel=0.007,
     )
     additions.append(_rigid(stem, armature, "head"))
 
-    # Cheek plates frame the visor and turn the face from a stacked block into
-    # the concept's enclosed, angular helmet silhouette.
-    for name, sign in (("HelmetCheek.L", -1.0), ("HelmetCheek.R", 1.0)):
-        cheek = _beveled_box(
-            name,
-            (0.145 * sign, 0.235, 1.755),
-            (0.155, 0.080, 0.185),
-            materials["SteelEdge"],
-            bevel=0.016,
-            rotation=(radians(-5), radians(8 * sign), radians(7 * sign)),
+    # The old cheeks were bright rectangular blocks. These authored silhouettes
+    # wrap around the visor and taper toward the jaw, preserving a narrow cyan
+    # negative space between darker plates.
+    face_sides = (
+        ("L", -1.0, "HelmetCheek.L", "HelmetFaceFrame.L", "HelmetBrowCowl.L"),
+        ("R", 1.0, "HelmetCheek.R", "HelmetFaceFrame.R", "HelmetBrowCowl.R"),
+    )
+    for side, sign, cheek_name, frame_name, brow_name in face_sides:
+        outer = (
+            (0.245 * sign, 1.890),
+            (0.072 * sign, 1.875),
+            (0.060 * sign, 1.805),
+            (0.078 * sign, 1.695),
+            (0.180 * sign, 1.665),
+            (0.255 * sign, 1.745),
+        )
+        cheek = _profile_slab(
+            cheek_name,
+            outer,
+            center_y=0.236,
+            thickness=0.075,
+            material=materials["DarkSteel"],
         )
         additions.append(_rigid(cheek, armature, "head"))
+
+        inner = (
+            (0.190 * sign, 1.873),
+            (0.064 * sign, 1.860),
+            (0.055 * sign, 1.812),
+            (0.068 * sign, 1.714),
+            (0.112 * sign, 1.702),
+            (0.152 * sign, 1.765),
+        )
+        frame = _profile_slab(
+            frame_name,
+            inner,
+            center_y=0.278,
+            thickness=0.028,
+            material=materials["SteelEdge"],
+        )
+        additions.append(_rigid(frame, armature, "head"))
+
+        brow = _profile_slab(
+            brow_name,
+            (
+                (0.226 * sign, 1.923),
+                (0.045 * sign, 1.900),
+                (0.052 * sign, 1.865),
+                (0.194 * sign, 1.874),
+            ),
+            center_y=0.270,
+            thickness=0.040,
+            material=materials["DarkSteel"],
+        )
+        additions.append(_rigid(brow, armature, "head"))
+
+    chin = _profile_slab(
+        "HelmetChin",
+        (
+            (-0.155, 1.705),
+            (0.155, 1.705),
+            (0.112, 1.655),
+            (0.0, 1.628),
+            (-0.112, 1.655),
+        ),
+        center_y=0.255,
+        thickness=0.060,
+        material=materials["DarkSteel"],
+    )
+    additions.append(_rigid(chin, armature, "head"))
 
     # Recolor the original low crest as a crimson base, then add the tall fin
     # that gives the front/side silhouette its unmistakable concept-sheet read.
     crest_base = next((obj for obj in model.objects if obj.name == "Crest"), None)
     if crest_base is not None:
         _replace_material(crest_base, materials["CrimsonCloth"])
-    crest = _beveled_box(
+    crest = _profile_slab(
         "CrestFin",
-        (0.0, -0.055, 2.075),
-        (0.105, 0.205, CREST_HEIGHT),
-        materials["CrimsonCloth"],
-        bevel=0.014,
-        rotation=(radians(-6), 0.0, 0.0),
+        (
+            (-0.058, 1.975),
+            (0.058, 1.975),
+            (0.050, 2.205),
+            (-0.042, 2.225),
+        ),
+        center_y=-0.055,
+        thickness=0.19,
+        material=materials["CrimsonCloth"],
     )
     additions.append(_rigid(crest, armature, "head"))
     return additions
@@ -166,18 +268,174 @@ def _torso_refinement(
         )
         additions.append(_rigid(collar, armature, "chest"))
 
-    # The red scarf is one of the concept's strongest identity breaks between
-    # helmet and steel torso. Give it real front-facing volume instead of relying
-    # on the narrow blockout neck wrap.
-    scarf = _beveled_box(
+    # The scarf should break the helmet from the chest, but its front edge is
+    # intentionally tapered rather than another horizontal board.
+    scarf = _profile_slab(
         "CrimsonScarfFront",
-        (0.0, 0.175, 1.615),
-        (0.54, 0.090, 0.125),
-        materials["CrimsonCloth"],
-        bevel=0.026,
-        rotation=(radians(4), 0.0, 0.0),
+        (
+            (-0.29, 1.665),
+            (0.29, 1.665),
+            (0.245, 1.575),
+            (0.080, 1.545),
+            (-0.205, 1.585),
+        ),
+        center_y=0.180,
+        thickness=0.085,
+        material=materials["CrimsonCloth"],
     )
     additions.append(_rigid(scarf, armature, "neck"))
+    return additions
+
+
+def _waist_refinement(
+    armature: bpy.types.Object,
+    model: ModelParts,
+) -> list[bpy.types.Object]:
+    materials = model.materials
+    additions: list[bpy.types.Object] = []
+
+    # The concept uses a dark leather belt as the structural band and reserves
+    # brass for hardware. A full-width gold bar flattened the waist in the old
+    # render and made the tabard look bolted onto a toy block.
+    war_belt = next((obj for obj in model.objects if obj.name == "WarBelt"), None)
+    if war_belt is not None:
+        _replace_material(war_belt, materials["Leather"])
+
+    buckle = _profile_slab(
+        "BeltBuckle",
+        (
+            (-0.105, 1.075),
+            (0.105, 1.075),
+            (0.118, 0.985),
+            (0.0, 0.958),
+            (-0.118, 0.985),
+        ),
+        center_y=0.196,
+        thickness=0.050,
+        material=materials["Brass"],
+    )
+    additions.append(_rigid(buckle, armature, "pelvis"))
+
+    waist_sides = (
+        ("L", -1.0, "WaistStrap.L", "WaistPouch.L", "WaistPouchFlap.L"),
+        ("R", 1.0, "WaistStrap.R", "WaistPouch.R", "WaistPouchFlap.R"),
+    )
+    for side, sign, strap_name, pouch_name, flap_name in waist_sides:
+        strap = _profile_slab(
+            strap_name,
+            (
+                (0.330 * sign, 1.045),
+                (0.245 * sign, 1.055),
+                (0.245 * sign, 0.790),
+                (0.300 * sign, 0.755),
+                (0.350 * sign, 0.800),
+            ),
+            center_y=0.168,
+            thickness=0.055,
+            material=materials["Leather"],
+        )
+        additions.append(_rigid(strap, armature, "pelvis"))
+
+        pouch = _profile_slab(
+            pouch_name,
+            (
+                (0.425 * sign, 0.990),
+                (0.285 * sign, 0.990),
+                (0.278 * sign, 0.820),
+                (0.355 * sign, 0.790),
+                (0.438 * sign, 0.840),
+            ),
+            center_y=0.205,
+            thickness=0.110,
+            material=materials["Leather"],
+        )
+        additions.append(_rigid(pouch, armature, "pelvis"))
+        flap = _profile_slab(
+            flap_name,
+            (
+                (0.424 * sign, 0.970),
+                (0.292 * sign, 0.970),
+                (0.315 * sign, 0.900),
+                (0.390 * sign, 0.895),
+            ),
+            center_y=0.270,
+            thickness=0.025,
+            material=materials["Brass"],
+        )
+        additions.append(_rigid(flap, armature, "pelvis"))
+
+    # This front-facing cloth shell covers the blockout slab with a deliberate
+    # concept-like contour: broad at the belt, narrowed through the thigh, then
+    # split into an asymmetric pointed termination.
+    tabard = _profile_slab(
+        "TabardHeroPanel",
+        (
+            (-0.205, 0.970),
+            (0.205, 0.970),
+            (0.176, 0.690),
+            (0.142, 0.455),
+            (0.035, 0.305),
+            (0.0, 0.350),
+            (-0.110, 0.300),
+            (-0.165, 0.475),
+        ),
+        center_y=0.265,
+        thickness=0.038,
+        material=materials["CrimsonCloth"],
+    )
+    additions.append(_rigid(tabard, armature, "tabard_front_01"))
+
+    left_trim = _profile_slab(
+        "TabardTrim.L",
+        (
+            (-0.205, 0.970),
+            (-0.170, 0.957),
+            (-0.137, 0.485),
+            (-0.108, 0.343),
+            (-0.137, 0.314),
+            (-0.176, 0.470),
+        ),
+        center_y=0.289,
+        thickness=0.018,
+        material=materials["Brass"],
+    )
+    additions.append(_rigid(left_trim, armature, "tabard_front_01"))
+
+    right_trim = _profile_slab(
+        "TabardTrim.R",
+        (
+            (0.205, 0.970),
+            (0.170, 0.957),
+            (0.149, 0.478),
+            (0.039, 0.322),
+            (0.018, 0.350),
+            (0.119, 0.485),
+        ),
+        center_y=0.289,
+        thickness=0.018,
+        material=materials["Brass"],
+    )
+    additions.append(_rigid(right_trim, armature, "tabard_front_01"))
+
+    sigil = _beveled_box(
+        "TabardSigilStem",
+        (0.0, 0.306, 0.690),
+        (0.034, 0.018, 0.220),
+        materials["Brass"],
+        bevel=0.006,
+    )
+    additions.append(_rigid(sigil, armature, "tabard_front_01"))
+    for side, sign in (("L", -1.0), ("R", 1.0)):
+        arm = _beveled_box(
+            f"TabardSigilArm.{side}",
+            (0.047 * sign, 0.306, 0.735),
+            (0.105, 0.018, 0.026),
+            materials["Brass"],
+            bevel=0.005,
+            rotation=(0.0, 0.0, radians(-48 * sign)),
+        )
+        additions.append(_rigid(arm, armature, "tabard_front_01"))
+
     return additions
 
 
@@ -423,6 +681,7 @@ def refine_concept_silhouette(
     additions: list[bpy.types.Object] = []
     additions.extend(_helmet_refinement(armature, model))
     additions.extend(_torso_refinement(armature, model))
+    additions.extend(_waist_refinement(armature, model))
     additions.extend(_shoulder_refinement(armature, model))
     additions.extend(_limb_refinement(armature, model))
     additions.extend(_sorcery_refinement(armature, model))
