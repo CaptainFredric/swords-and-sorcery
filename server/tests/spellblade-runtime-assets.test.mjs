@@ -50,3 +50,20 @@ test('migration manifest disables production GLB requests until reviewed assets 
   assert.match(assets, /enabled\s*===\s*false/);
   assert.match(assets, /return\s+null/);
 });
+
+test('remote players upgrade fallback visuals to production GLBs without moving network roots', async () => {
+  const source = await read('client/game/RemotePlayers.mjs');
+
+  assert.match(source, /createSpellbladeAsset/);
+  assert.match(source, /resolveSpellbladeAnimationPlan/);
+  assert.match(source, /createRemoteVisualShell/);
+  assert.match(source, /upgradeRemoteVisual/);
+  assert.match(source, /setRemoteVisualPlan/);
+  assert.match(source, /disposeRemoteVisualShell/);
+  assert.match(source, /new\s+THREE\.Group\s*\(/);
+  assert.match(source, /generation/);
+  assert.match(source, /visualKind\s*===\s*['"]fallback['"]/);
+  assert.match(source, /createSpellbladeAsset\(\{\s*kind:\s*['"]thirdPerson['"]\s*\}\)/);
+  assert.match(source, /\.catch\s*\(/);
+  assert.doesNotMatch(source, /scene\.add\(instance\.root\)/);
+});
