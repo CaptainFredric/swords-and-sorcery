@@ -17,9 +17,12 @@ test('Spellblade rest rig uses the concept sheet wide planted stance', async () 
   assert.match(design, /"foot\.R": \(\(0\.28, 0\.0, 0\.14\), \(0\.28, 0\.30, 0\.08\)/);
 });
 
-test('final blueprint uses hard tapered limb cages rather than three-ring sausage segments', async () => {
-  const blueprint = await read('tools/blender/characters/spellblade/locked_blueprint.py');
+test('final limb authority uses two-section hard-surface cages', async () => {
+  const limbs = await read('tools/blender/characters/spellblade/hero_limbs.py');
+  const build = await read('tools/blender/characters/spellblade/build.py');
 
-  assert.match(blueprint, /def _hard_segment\(/);
-  assert.doesNotMatch(blueprint, /from \.hero_limbs import _segment_shell/);
+  assert.match(limbs, /Chamfered rectangular cross-section/);
+  assert.match(limbs, /rings = \(\s*_segment_ring\(a,[\s\S]*?_segment_ring\(b,/);
+  assert.doesNotMatch(limbs, /middle = a\.lerp/);
+  assert.match(build, /rebuild_locked_blueprint\(model, armature, materials\)[\s\S]*rebuild_hero_limbs\(model, armature, materials\)/);
 });
