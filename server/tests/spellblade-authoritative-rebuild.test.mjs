@@ -4,17 +4,16 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const root = path.resolve(import.meta.dirname, '../..');
-const buildPath = path.join(root, 'tools/blender/characters/spellblade/build.py');
+const boundsPath = path.join(root, 'tools/blender/characters/spellblade/blueprint_bounds.py');
 const modelPath = path.join(root, 'tools/blender/characters/spellblade/authoritative_model.py');
 
-test('production build uses one authoritative Spellblade model instead of stacked corrective passes', () => {
-  const build = fs.readFileSync(buildPath, 'utf8');
-  assert.match(build, /from tools\.blender\.characters\.spellblade\.authoritative_model import build_authoritative_spellblade/);
-  assert.match(build, /model = build_authoritative_spellblade\(armature, materials\)/);
-  assert.doesNotMatch(build, /model = rebuild_reference_match/);
-  assert.doesNotMatch(build, /model = rebuild_locked_blueprint/);
-  assert.doesNotMatch(build, /model = rebuild_primary_hero_shells/);
-  assert.doesNotMatch(build, /model = rebuild_hero_limbs/);
+test('final production handoff discards legacy visual meshes and builds one authoritative Spellblade', () => {
+  const bounds = fs.readFileSync(boundsPath, 'utf8');
+  assert.match(bounds, /from \.authoritative_model import build_authoritative_spellblade/);
+  assert.match(bounds, /for obj in tuple\(model\.objects\):/);
+  assert.match(bounds, /bpy\.data\.objects\.remove\(obj, do_unlink=True\)/);
+  assert.match(bounds, /rebuilt = build_authoritative_spellblade\(armature, materials\)/);
+  assert.match(bounds, /return rebuilt/);
 });
 
 test('authoritative model contains the concept-critical primary forms', () => {
