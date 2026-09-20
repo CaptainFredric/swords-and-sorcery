@@ -82,3 +82,19 @@ test('pull requests capture front and rotated Spellblade browser evidence', asyn
   assert.match(capture, /waitForMenuScene/);
   assert.match(capture, /menuCanvasCount\s*===\s*1/);
 });
+
+test('Spellblade promotion is explicit, SHA-pinned, validated, and writes only runtime character assets', async () => {
+  const workflow = await read('.github/workflows/promote-spellblade-assets.yml').catch(() => '');
+
+  assert.match(workflow, /promotion\.json/);
+  assert.match(workflow, /contents:\s*write/);
+  assert.match(workflow, /[0-9a-f]\{40\}|\^\[0-9a-f\]\{40\}\$/i);
+  assert.match(workflow, /checkout[\s\S]*source|source[\s\S]*checkout/i);
+  assert.match(workflow, /build\.py/);
+  assert.match(workflow, /validate-spellblade-glb\.py/);
+  assert.match(workflow, /spellblade\.glb/);
+  assert.match(workflow, /spellblade-fp\.glb/);
+  assert.match(workflow, /manifest\.json/);
+  assert.match(workflow, /git add client\/assets\/characters\/spellblade/i);
+  assert.doesNotMatch(workflow, /git add\s+-A|git add\s+\./i);
+});
