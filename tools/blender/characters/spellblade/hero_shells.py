@@ -33,9 +33,6 @@ def _mesh_object(
 def _ring_points(ring: Ring) -> tuple[tuple[float, float, float], ...]:
     z, center_x, half_width, front_y, back_y, ridge = ring
     side_y = (front_y + back_y) * 0.12
-    # Seven points give a narrow central front ridge, chamfered front corners,
-    # true side planes, and a broad rear plane. That is enough faceting to read
-    # cleanly in the game's low-poly camera without bevel-generated noise.
     return (
         (center_x - half_width * 0.43, front_y, z),
         (center_x, front_y + ridge, z),
@@ -61,12 +58,9 @@ def _ring_shell(
         vertices.extend(_ring_points(ring))
 
     faces: list[tuple[int, ...]] = []
-    # End caps.
     faces.append(tuple(reversed(range(points_per_ring))))
     top_start = (len(rings) - 1) * points_per_ring
     faces.append(tuple(top_start + index for index in range(points_per_ring)))
-
-    # Faceted skin between rings.
     for ring_index in range(len(rings) - 1):
         lower = ring_index * points_per_ring
         upper = (ring_index + 1) * points_per_ring
@@ -128,12 +122,31 @@ def _remove_names(model: ModelParts, names: set[str]) -> list[bpy.types.Object]:
     return kept
 
 
+def _restore_required_names(
+    replacements: Sequence[bpy.types.Object],
+    names: set[str],
+) -> None:
+    """Recover canonical names after Blender creates replacement objects as .001."""
+    for obj in replacements:
+        for desired in names:
+            prefix = f"{desired}."
+            if obj.name == desired:
+                break
+            if obj.name.startswith(prefix):
+                suffix = obj.name[len(prefix):]
+                if suffix.isdigit():
+                    obj.name = desired
+                    obj.data.name = f"{desired}Mesh"
+                    break
+
+
 def _replace_named(
     model: ModelParts,
     replacements: Sequence[bpy.types.Object],
     names: set[str],
 ) -> ModelParts:
     kept = _remove_names(model, names)
+    _restore_required_names(replacements, names)
     kept.extend(replacements)
     return ModelParts(objects=tuple(kept), materials=model.materials)
 
@@ -172,8 +185,6 @@ def _helmet_shells(
     )
     parts.append(_rigid(jaw, armature, "head"))
 
-    # Deep, nearly black face cavity. The required Visor remains a non-emissive
-    # inner mask; only Bar and Stem carry cyan emission.
     recess = _xz_prism(
         "FaceRecess",
         ((-0.148, 1.915), (0.148, 1.915), (0.168, 1.850),
@@ -318,8 +329,6 @@ def _shoulder_shells(
     )
     parts.append(_rigid(shell, armature, f"clavicle.{side}"))
 
-    # A forward-facing plane establishes the concept's large shoulder facet,
-    # while the shell behind it provides the wrap visible in side/quarter views.
     x_inner = 0.405 * sign
     x_outer = 0.675 * sign
     facet = _xz_prism(
