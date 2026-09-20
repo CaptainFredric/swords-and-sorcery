@@ -8,7 +8,7 @@ RUNTIME_UP = "+Y"
 RUNTIME_FORWARD = "-Z"
 
 BODY_HEIGHT = 2.04
-SHOULDER_SPAN = 1.18
+SHOULDER_SPAN = 1.08
 CHEST_TOP_WIDTH = 0.82
 WAIST_WIDTH = 0.55
 HELMET_WIDTH = 0.50
@@ -21,13 +21,13 @@ SHIN_WIDTH = 0.27
 # collapse the broad sword / tall crest / layered shoulder read.
 SWORD_BLADE_WIDTH = 0.34
 CREST_HEIGHT = 0.22
-PAULDRON_WIDTH = 0.50
+PAULDRON_WIDTH = 0.44
 BREASTPLATE_UPPER_WIDTH = 0.66
-PAULDRON_CENTER_X = 0.67
+PAULDRON_CENTER_X = 0.56
 
 # Secondary hero-shape anchors added after review of the first production render.
 # They keep the limbs from collapsing back into stick-like blockout proportions.
-BOOT_SILHOUETTE_WIDTH = 0.42
+BOOT_SILHOUETTE_WIDTH = 0.36
 SWORD_GUARD_WIDTH = 0.66
 GAUNTLET_CUFF_WIDTH = 0.28
 FOREARM_ARMOR_WIDTH = 0.27
@@ -35,10 +35,13 @@ THIGH_ARMOR_WIDTH = 0.33
 SORCERY_ACCENT_RADIUS = 0.18
 UPPER_ARM_ARMOR_WIDTH = 0.27
 PAULDRON_DROP_HEIGHT = 0.22
-BOOT_ARMOR_CENTER_X = 0.235
+BOOT_ARMOR_CENTER_X = 0.215
 SORCERY_EMISSION_STRENGTH = 2.2
 
 # Explicit edit-bone endpoints in meters. Left/right are character-local X.
+# The arm chain intentionally hangs much closer to the torso than the first
+# blockout. That matches the concept's armored ready stance and gives the later
+# shoulder/elbow deformation a less toy-like starting silhouette.
 BONES = {
     "root": ((0.0, 0.0, 0.0), (0.0, 0.0, 0.14), None, False),
     "pelvis": ((0.0, 0.0, 0.78), (0.0, 0.0, 1.00), "root", True),
@@ -47,17 +50,17 @@ BONES = {
     "neck": ((0.0, 0.0, 1.53), (0.0, 0.0, 1.69), "chest", True),
     "head": ((0.0, 0.0, 1.66), (0.0, 0.0, 2.02), "neck", True),
 
-    "clavicle.L": ((-0.08, 0.0, 1.49), (-0.42, 0.0, 1.49), "chest", True),
-    "upper_arm.L": ((-0.42, 0.0, 1.49), (-0.72, 0.0, 1.23), "clavicle.L", True),
-    "forearm.L": ((-0.72, 0.0, 1.23), (-0.90, 0.035, 0.94), "upper_arm.L", True),
-    "hand.L": ((-0.90, 0.035, 0.94), (-0.96, 0.09, 0.79), "forearm.L", True),
-    "socket_sorcery": ((-0.96, 0.09, 0.79), (-0.96, 0.25, 0.79), "hand.L", False),
+    "clavicle.L": ((-0.08, 0.0, 1.49), (-0.40, 0.0, 1.49), "chest", True),
+    "upper_arm.L": ((-0.40, 0.0, 1.49), (-0.60, 0.0, 1.23), "clavicle.L", True),
+    "forearm.L": ((-0.60, 0.0, 1.23), (-0.74, 0.035, 0.94), "upper_arm.L", True),
+    "hand.L": ((-0.74, 0.035, 0.94), (-0.79, 0.09, 0.79), "forearm.L", True),
+    "socket_sorcery": ((-0.79, 0.09, 0.79), (-0.79, 0.25, 0.79), "hand.L", False),
 
-    "clavicle.R": ((0.08, 0.0, 1.49), (0.42, 0.0, 1.49), "chest", True),
-    "upper_arm.R": ((0.42, 0.0, 1.49), (0.72, 0.0, 1.23), "clavicle.R", True),
-    "forearm.R": ((0.72, 0.0, 1.23), (0.90, 0.035, 0.94), "upper_arm.R", True),
-    "hand.R": ((0.90, 0.035, 0.94), (0.96, 0.09, 0.79), "forearm.R", True),
-    "socket_sword": ((0.96, 0.09, 0.79), (0.96, 0.25, 0.79), "hand.R", False),
+    "clavicle.R": ((0.08, 0.0, 1.49), (0.40, 0.0, 1.49), "chest", True),
+    "upper_arm.R": ((0.40, 0.0, 1.49), (0.60, 0.0, 1.23), "clavicle.R", True),
+    "forearm.R": ((0.60, 0.0, 1.23), (0.74, 0.035, 0.94), "upper_arm.R", True),
+    "hand.R": ((0.74, 0.035, 0.94), (0.79, 0.09, 0.79), "forearm.R", True),
+    "socket_sword": ((0.79, 0.09, 0.79), (0.79, 0.25, 0.79), "hand.R", False),
 
     "thigh.L": ((-0.20, 0.0, 0.82), (-0.21, 0.0, 0.46), "pelvis", True),
     "shin.L": ((-0.21, 0.0, 0.46), (-0.21, 0.0, 0.12), "thigh.L", True),
