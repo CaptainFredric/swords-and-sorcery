@@ -98,3 +98,28 @@ test('Spellblade promotion is explicit, SHA-pinned, validated, and writes only r
   assert.match(workflow, /git add client\/assets\/characters\/spellblade/i);
   assert.doesNotMatch(workflow, /git add\s+-A|git add\s+\./i);
 });
+
+test('browser and deployed verification prove the promoted Spellblade GLBs and exact source revision', async () => {
+  const capture = await read('scripts/capture-public-arena.mjs');
+  const visualReview = await read('.github/workflows/visual-review.yml');
+  const publicCheck = await read('.github/workflows/public-render-check.yml');
+
+  assert.match(capture, /__SPELLBLADE_ASSET_STATUS__/);
+  assert.match(capture, /spellbladeAsset/);
+  assert.match(capture, /menuSpellblade/);
+  assert.match(capture, /remoteSpellblade/);
+  assert.match(capture, /firstPersonSpellblade/);
+  assert.match(capture, /kind\s*===\s*['"]glb['"]/);
+  assert.match(capture, /[0-9a-f]\{40\}|SHA40|40-hex/i);
+  assert.match(capture, /thirdPersonLoaded/);
+  assert.match(capture, /firstPersonLoaded/);
+
+  assert.match(visualReview, /REQUIRE_SPELLBLADE_GLBS/);
+
+  assert.match(publicCheck, /live-spellblade-manifest\.json/);
+  assert.match(publicCheck, /EXPECTED_SPELLBLADE_REVISION/);
+  assert.match(publicCheck, /sourceRevision/);
+  assert.match(publicCheck, /client\/assets\/characters\/spellblade\/spellblade\.glb/);
+  assert.match(publicCheck, /client\/assets\/characters\/spellblade\/spellblade-fp\.glb/);
+  assert.match(publicCheck, /REQUIRE_SPELLBLADE_GLBS/);
+});
