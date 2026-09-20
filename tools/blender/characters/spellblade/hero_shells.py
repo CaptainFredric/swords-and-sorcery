@@ -8,8 +8,8 @@ from .model import ModelParts, _beveled_box, _rigid
 
 
 # A ring is (z, x_center, half_width, front_y, back_y, front_ridge).
-# Connecting several deliberately different rings gives the major armor masses
-# real front/side/back volume instead of extruding one front silhouette.
+# These authored rings are the actual low-poly blueprint: silhouette in X/Z,
+# deliberate armor depth in Y, and a small front ridge for readable facets.
 Ring = tuple[float, float, float, float, float, float]
 
 
@@ -162,14 +162,17 @@ def _helmet_shells(
     }
     parts: list[bpy.types.Object] = []
 
+    # Compact faceted bucket with a real rear skull and forward brow. The middle
+    # rings deliberately keep the concept's broad helmet while the jaw tapers.
     shell = _ring_shell(
         "HelmetShell",
         (
-            (1.635, 0.0, 0.105, 0.180, -0.115, 0.010),
-            (1.700, 0.0, 0.180, 0.225, -0.155, 0.020),
-            (1.835, 0.0, 0.205, 0.252, -0.175, 0.024),
-            (1.965, 0.0, 0.185, 0.205, -0.170, 0.014),
-            (2.045, 0.0, 0.115, 0.105, -0.125, 0.000),
+            (1.625, 0.0, 0.120, 0.185, -0.125, 0.006),
+            (1.690, 0.0, 0.195, 0.235, -0.170, 0.018),
+            (1.815, 0.0, 0.230, 0.270, -0.195, 0.030),
+            (1.935, 0.0, 0.220, 0.245, -0.200, 0.022),
+            (2.020, 0.0, 0.170, 0.170, -0.165, 0.010),
+            (2.060, 0.0, 0.105, 0.095, -0.115, 0.000),
         ),
         materials["DarkSteel"],
     )
@@ -177,9 +180,10 @@ def _helmet_shells(
 
     jaw = _xz_prism(
         "HelmetJaw",
-        ((-0.155, 1.805), (0.155, 1.805), (0.175, 1.745),
-         (0.105, 1.650), (0.0, 1.620), (-0.105, 1.650), (-0.175, 1.745)),
-        front_y=0.273,
+        ((-0.190, 1.820), (0.190, 1.820), (0.205, 1.750),
+         (0.135, 1.645), (0.060, 1.610), (-0.060, 1.610),
+         (-0.135, 1.645), (-0.205, 1.750)),
+        front_y=0.292,
         back_y=0.205,
         material=materials["DarkSteel"],
     )
@@ -187,30 +191,32 @@ def _helmet_shells(
 
     recess = _xz_prism(
         "FaceRecess",
-        ((-0.148, 1.915), (0.148, 1.915), (0.168, 1.850),
-         (0.118, 1.715), (0.0, 1.675), (-0.118, 1.715), (-0.168, 1.850)),
-        front_y=0.281,
-        back_y=0.242,
+        ((-0.160, 1.920), (0.160, 1.920), (0.182, 1.865),
+         (0.150, 1.760), (0.075, 1.685), (0.0, 1.660),
+         (-0.075, 1.685), (-0.150, 1.760), (-0.182, 1.865)),
+        front_y=0.302,
+        back_y=0.254,
         material=materials["Leather"],
     )
     parts.append(_rigid(recess, armature, "head"))
 
     visor = _xz_prism(
         "Visor",
-        ((-0.128, 1.886), (0.128, 1.886), (0.140, 1.842),
-         (0.090, 1.730), (0.0, 1.700), (-0.090, 1.730), (-0.140, 1.842)),
-        front_y=0.286,
-        back_y=0.279,
+        ((-0.142, 1.895), (0.142, 1.895), (0.150, 1.850),
+         (0.112, 1.750), (0.055, 1.700), (0.0, 1.685),
+         (-0.055, 1.700), (-0.112, 1.750), (-0.150, 1.850)),
+        front_y=0.309,
+        back_y=0.300,
         material=materials["DarkSteel"],
     )
     parts.append(_rigid(visor, armature, "head"))
 
     bar = _beveled_box(
-        "VisorGlow.Bar", (0.0, 0.294, 1.850), (0.228, 0.012, 0.019),
+        "VisorGlow.Bar", (0.0, 0.320, 1.855), (0.245, 0.012, 0.020),
         materials["VisorGlow"], bevel=0.003,
     )
     stem = _beveled_box(
-        "VisorGlow.Stem", (0.0, 0.295, 1.795), (0.030, 0.012, 0.118),
+        "VisorGlow.Stem", (0.0, 0.321, 1.790), (0.032, 0.012, 0.142),
         materials["VisorGlow"], bevel=0.003,
     )
     parts.extend((_rigid(bar, armature, "head"), _rigid(stem, armature, "head")))
@@ -218,30 +224,42 @@ def _helmet_shells(
     for side, sign in (("L", -1.0), ("R", 1.0)):
         cheek = _xz_prism(
             f"HelmetCheek.{side}",
-            ((0.045 * sign, 1.875), (0.165 * sign, 1.900),
-             (0.178 * sign, 1.815), (0.120 * sign, 1.690),
-             (0.072 * sign, 1.710)),
-            front_y=0.296,
-            back_y=0.276,
+            ((0.055 * sign, 1.900), (0.195 * sign, 1.925),
+             (0.207 * sign, 1.835), (0.155 * sign, 1.700),
+             (0.085 * sign, 1.665)),
+            front_y=0.323,
+            back_y=0.290,
             material=materials["SteelEdge"],
         )
         parts.append(_rigid(cheek, armature, "head"))
 
         brow = _xz_prism(
             f"HelmetCrownTrim.{side}",
-            ((0.020 * sign, 1.925), (0.170 * sign, 1.960),
-             (0.188 * sign, 1.925), (0.055 * sign, 1.895)),
-            front_y=0.292,
-            back_y=0.270,
+            ((0.018 * sign, 1.955), (0.185 * sign, 1.995),
+             (0.215 * sign, 1.955), (0.178 * sign, 1.905),
+             (0.060 * sign, 1.900)),
+            front_y=0.326,
+            back_y=0.295,
             material=materials["Brass"],
         )
         parts.append(_rigid(brow, armature, "head"))
 
+        vertical = _xz_prism(
+            f"HelmetBrowFrame.{side}",
+            ((0.150 * sign, 1.905), (0.205 * sign, 1.930),
+             (0.190 * sign, 1.790), (0.145 * sign, 1.720),
+             (0.120 * sign, 1.760)),
+            front_y=0.327,
+            back_y=0.305,
+            material=materials["Brass"],
+        )
+        parts.append(_rigid(vertical, armature, "head"))
+
     crest = _yz_prism(
         "Crest",
-        ((-0.138, 2.035), (-0.066, 2.135), (0.012, 2.170),
-         (0.070, 2.142), (0.058, 2.040)),
-        half_width=0.032,
+        ((-0.135, 2.015), (-0.085, 2.105), (-0.020, 2.175),
+         (0.055, 2.185), (0.085, 2.125), (0.070, 2.030)),
+        half_width=0.044,
         material=materials["CrimsonCloth"],
     )
     parts.append(_rigid(crest, armature, "head"))
@@ -249,13 +267,23 @@ def _helmet_shells(
     scarf = _ring_shell(
         "CrimsonScarf",
         (
-            (1.535, 0.0, 0.235, 0.145, -0.120, 0.010),
-            (1.610, 0.0, 0.275, 0.175, -0.145, 0.018),
-            (1.675, 0.0, 0.245, 0.150, -0.130, 0.010),
+            (1.520, 0.0, 0.260, 0.155, -0.130, 0.012),
+            (1.595, 0.0, 0.315, 0.200, -0.155, 0.022),
+            (1.675, 0.0, 0.285, 0.175, -0.140, 0.015),
         ),
         materials["CrimsonCloth"],
     )
     parts.append(_rigid(scarf, armature, "neck"))
+
+    scarf_front = _xz_prism(
+        "CrimsonScarfFront",
+        ((-0.315, 1.625), (0.315, 1.625), (0.265, 1.555),
+         (0.150, 1.500), (0.0, 1.475), (-0.150, 1.500), (-0.265, 1.555)),
+        front_y=0.255,
+        back_y=0.205,
+        material=materials["CrimsonCloth"],
+    )
+    parts.append(_rigid(scarf_front, armature, "chest"))
     return parts, names
 
 
@@ -266,14 +294,17 @@ def _torso_shells(
     names = {"Breastplate", "ChestFacet.L", "ChestFacet.R", "BackArmor"}
     parts: list[bpy.types.Object] = []
 
+    # Strong V: broad upper chest, narrow armored waist, deep enough in profile
+    # to keep the quarter/side views from reading as a traced slab.
     breast = _ring_shell(
         "Breastplate",
         (
-            (1.090, 0.0, 0.235, 0.135, -0.115, 0.020),
-            (1.185, 0.0, 0.285, 0.175, -0.145, 0.032),
-            (1.360, 0.0, 0.345, 0.218, -0.175, 0.045),
-            (1.500, 0.0, 0.320, 0.190, -0.165, 0.032),
-            (1.545, 0.0, 0.270, 0.155, -0.145, 0.020),
+            (1.070, 0.0, 0.235, 0.145, -0.120, 0.018),
+            (1.155, 0.0, 0.285, 0.185, -0.150, 0.030),
+            (1.300, 0.0, 0.355, 0.235, -0.185, 0.050),
+            (1.430, 0.0, 0.365, 0.245, -0.190, 0.055),
+            (1.535, 0.0, 0.330, 0.205, -0.170, 0.036),
+            (1.575, 0.0, 0.280, 0.165, -0.150, 0.020),
         ),
         materials["DarkSteel"],
     )
@@ -282,23 +313,46 @@ def _torso_shells(
     for side, sign in (("L", -1.0), ("R", 1.0)):
         facet = _xz_prism(
             f"ChestFacet.{side}",
-            ((0.020 * sign, 1.500), (0.270 * sign, 1.470),
-             (0.285 * sign, 1.340), (0.205 * sign, 1.165),
-             (0.045 * sign, 1.125)),
-            front_y=0.260,
-            back_y=0.238,
+            ((0.025 * sign, 1.525), (0.285 * sign, 1.500),
+             (0.325 * sign, 1.395), (0.295 * sign, 1.280),
+             (0.205 * sign, 1.135), (0.050 * sign, 1.105)),
+            front_y=0.287,
+            back_y=0.255,
             material=materials["SteelEdge"],
         )
         parts.append(_rigid(facet, armature, "chest"))
 
-    back = _xz_prism(
+        trim = _xz_prism(
+            f"BreastplateTrim.{side}",
+            ((0.270 * sign, 1.535), (0.340 * sign, 1.505),
+             (0.355 * sign, 1.405), (0.300 * sign, 1.390),
+             (0.275 * sign, 1.470)),
+            front_y=0.300,
+            back_y=0.278,
+            material=materials["Brass"],
+        )
+        parts.append(_rigid(trim, armature, "chest"))
+
+    collar = _xz_prism(
+        "BreastplateCollar",
+        ((-0.245, 1.545), (-0.100, 1.575), (0.100, 1.575),
+         (0.245, 1.545), (0.210, 1.510), (0.0, 1.535), (-0.210, 1.510)),
+        front_y=0.292,
+        back_y=0.268,
+        material=materials["SteelEdge"],
+    )
+    parts.append(_rigid(collar, armature, "chest"))
+
+    back = _ring_shell(
         "BackArmor",
-        ((-0.285, 1.500), (0.285, 1.500), (0.320, 1.365),
-         (0.275, 1.160), (0.180, 1.085), (-0.180, 1.085),
-         (-0.275, 1.160), (-0.320, 1.365)),
-        front_y=-0.170,
-        back_y=-0.225,
-        material=materials["DarkSteel"],
+        (
+            (1.075, 0.0, 0.220, -0.105, -0.180, 0.0),
+            (1.180, 0.0, 0.280, -0.120, -0.220, 0.0),
+            (1.350, 0.0, 0.345, -0.135, -0.245, 0.0),
+            (1.505, 0.0, 0.320, -0.125, -0.230, 0.0),
+            (1.565, 0.0, 0.260, -0.105, -0.195, 0.0),
+        ),
+        materials["DarkSteel"],
     )
     parts.append(_rigid(back, armature, "chest"))
     return parts, names
@@ -319,35 +373,35 @@ def _shoulder_shells(
     shell = _ring_shell(
         f"Pauldron.{side}",
         (
-            (1.320, 0.515 * sign, 0.105, 0.110, -0.100, 0.008),
-            (1.410, 0.535 * sign, 0.155, 0.155, -0.135, 0.012),
-            (1.515, 0.525 * sign, 0.185, 0.185, -0.155, 0.016),
-            (1.590, 0.500 * sign, 0.150, 0.145, -0.130, 0.010),
-            (1.625, 0.475 * sign, 0.095, 0.090, -0.090, 0.004),
+            (1.300, 0.535 * sign, 0.105, 0.105, -0.095, 0.006),
+            (1.390, 0.555 * sign, 0.170, 0.165, -0.140, 0.014),
+            (1.505, 0.550 * sign, 0.205, 0.205, -0.165, 0.020),
+            (1.605, 0.520 * sign, 0.180, 0.175, -0.150, 0.016),
+            (1.660, 0.490 * sign, 0.120, 0.115, -0.105, 0.008),
         ),
         materials["DarkSteel"],
     )
     parts.append(_rigid(shell, armature, f"clavicle.{side}"))
 
     x_inner = 0.405 * sign
-    x_outer = 0.675 * sign
+    x_outer = 0.725 * sign
     facet = _xz_prism(
         f"PauldronFacet.{side}",
-        ((x_inner, 1.565), (x_outer, 1.535), (0.690 * sign, 1.445),
-         (0.620 * sign, 1.355), (0.460 * sign, 1.390)),
-        front_y=0.205,
-        back_y=0.178,
+        ((x_inner, 1.585), (x_outer, 1.550), (0.735 * sign, 1.455),
+         (0.665 * sign, 1.350), (0.475 * sign, 1.385)),
+        front_y=0.225,
+        back_y=0.185,
         material=materials["SteelEdge"],
     )
     parts.append(_rigid(facet, armature, f"clavicle.{side}"))
 
     trim = _xz_prism(
         f"PauldronTrim.{side}",
-        ((0.410 * sign, 1.585), (0.510 * sign, 1.625),
-         (0.650 * sign, 1.575), (0.675 * sign, 1.535),
-         (0.520 * sign, 1.575)),
-        front_y=0.221,
-        back_y=0.197,
+        ((0.405 * sign, 1.610), (0.515 * sign, 1.665),
+         (0.675 * sign, 1.610), (0.725 * sign, 1.555),
+         (0.655 * sign, 1.530), (0.515 * sign, 1.590)),
+        front_y=0.244,
+        back_y=0.214,
         material=materials["Brass"],
     )
     parts.append(_rigid(trim, armature, f"clavicle.{side}"))
@@ -355,9 +409,9 @@ def _shoulder_shells(
     lower = _ring_shell(
         f"PauldronLower.{side}",
         (
-            (1.265, 0.565 * sign, 0.090, 0.090, -0.080, 0.004),
-            (1.330, 0.575 * sign, 0.125, 0.120, -0.105, 0.007),
-            (1.405, 0.555 * sign, 0.115, 0.105, -0.095, 0.006),
+            (1.245, 0.585 * sign, 0.095, 0.100, -0.085, 0.006),
+            (1.325, 0.600 * sign, 0.140, 0.140, -0.115, 0.010),
+            (1.420, 0.580 * sign, 0.135, 0.125, -0.110, 0.008),
         ),
         materials["DarkSteel"],
     )
@@ -365,10 +419,10 @@ def _shoulder_shells(
 
     badge = _xz_prism(
         f"ShoulderBadge.{side}",
-        ((0.525 * sign, 1.515), (0.565 * sign, 1.555),
-         (0.605 * sign, 1.515), (0.565 * sign, 1.475)),
-        front_y=0.231,
-        back_y=0.218,
+        ((0.540 * sign, 1.530), (0.585 * sign, 1.575),
+         (0.630 * sign, 1.530), (0.585 * sign, 1.485)),
+        front_y=0.255,
+        back_y=0.238,
         material=materials["Brass"],
     )
     parts.append(_rigid(badge, armature, f"clavicle.{side}"))
@@ -380,7 +434,7 @@ def rebuild_primary_hero_shells(
     armature: bpy.types.Object,
     materials: dict[str, bpy.types.Material],
 ) -> ModelParts:
-    """Replace flat primary traced armor with authored three-dimensional shells."""
+    """Replace flat traced armor with the locked concept-faithful hero blueprint."""
     helmet_parts, helmet_names = _helmet_shells(armature, materials)
     model = _replace_named(model, helmet_parts, helmet_names)
 
