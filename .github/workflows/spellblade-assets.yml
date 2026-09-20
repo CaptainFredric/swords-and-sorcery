@@ -107,9 +107,13 @@ jobs:
           from pathlib import Path
           report = json.loads(Path('artifacts/spellblade-assets/spellblade-build-report.json').read_text())
           assert report['workerReady'] is True
-          assert report['visualStage'] in {'worker-bootstrap', 'third-person-animated-with-first-person'}
+          production_stages = {
+              'third-person-animated-with-first-person',
+              'traced-third-person-animated-with-first-person',
+          }
+          assert report['visualStage'] in {'worker-bootstrap', *production_stages}
           assert len(report['sourceRevision']) == 40
-          if report['visualStage'] == 'third-person-animated-with-first-person':
+          if report['visualStage'] in production_stages:
               assert report['rig']['runtimeAxes'] == {'up': '+Y', 'forward': '-Z'}
               assert report['rig']['authoringAxes'] == {'up': '+Z', 'forward': '+Y'}
               assert report['model']['heightMeters'] >= 1.85
