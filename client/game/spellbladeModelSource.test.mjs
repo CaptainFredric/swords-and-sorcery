@@ -3,14 +3,14 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { REQUIRED_SPELLBLADE_RIG_KEYS } from './spellbladeDesign.mjs';
 
-async function readModel() {
-  return readFile(new URL('./SpellbladeModel.mjs', import.meta.url), 'utf8');
+async function readFallback() {
+  return readFile(new URL('./SpellbladeFallback.mjs', import.meta.url), 'utf8');
 }
 
-test('faceted Spellblade preserves every animation and menu rig key', async () => {
-  const source = await readModel();
+test('faceted fallback preserves every animation and menu rig key during GLB migration', async () => {
+  const source = await readFallback();
   const userDataStart = source.indexOf('root.userData');
-  assert.ok(userDataStart >= 0, 'SpellbladeModel must assign root.userData');
+  assert.ok(userDataStart >= 0, 'SpellbladeFallback must assign root.userData');
   const userData = source.slice(userDataStart);
 
   for (const key of REQUIRED_SPELLBLADE_RIG_KEYS) {
@@ -18,16 +18,16 @@ test('faceted Spellblade preserves every animation and menu rig key', async () =
   }
 });
 
-test('major Spellblade silhouette is constructed with faceted geometry rather than a local box helper', async () => {
-  const source = await readModel();
+test('procedural fallback silhouette is constructed with faceted geometry rather than a local box helper', async () => {
+  const source = await readFallback();
   assert.match(source, /facetedMesh/);
   assert.match(source, /taperedPrismData/);
   assert.match(source, /wedgeData/);
   assert.doesNotMatch(source, /function\s+box\s*\(/);
 });
 
-test('hero armor and cloth pieces have stable names for browser visual debugging', async () => {
-  const source = await readModel();
+test('fallback hero armor and cloth pieces keep stable names for browser visual debugging', async () => {
+  const source = await readFallback();
   for (const name of ['helmet-shell', 'visor', 'crest', 'front-tabard', 'back-tabard']) {
     assert.match(source, new RegExp(name));
   }
@@ -41,8 +41,8 @@ test('hero armor and cloth pieces have stable names for browser visual debugging
   assert.match(source, /buildLeg\(visual,\s*0\.22,\s*materials,\s*1\)/);
 });
 
-test('final sculpting pass gives the concept silhouette layered armor, cloth and irregular magic', async () => {
-  const source = await readModel();
+test('fallback retains the final concept sculpting details while production GLB migrates in', async () => {
+  const source = await readFallback();
   for (const name of [
     'helmet-chin',
     'front-tabard-left-tail',
