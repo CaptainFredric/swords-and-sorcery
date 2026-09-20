@@ -22,16 +22,20 @@ test('browser import map pins Spellblade GLTF addons to the exact Three.js runti
 });
 
 test('runtime asset layer uses cached GLTF loading, skinned cloning, isolated mutable materials, and explicit disposal', async () => {
-  const source = await read('client/game/SpellbladeAssets.mjs');
+  const assets = await read('client/game/SpellbladeAssets.mjs');
+  const animator = await read('client/game/SpellbladeAnimator.mjs');
+  const source = `${assets}\n${animator}`;
 
-  assert.match(source, /GLTFLoader/);
-  assert.match(source, /SkeletonUtils/);
-  assert.match(source, /clone\s*\(/);
-  assert.match(source, /sourceRevision/);
-  assert.match(source, /VisorGlow/);
-  assert.match(source, /SorceryAccent/);
-  assert.match(source, /material\.clone\s*\(/);
+  assert.match(assets, /GLTFLoader/);
+  assert.match(assets, /SkeletonUtils/);
+  assert.match(assets, /clone\s*\(/);
+  assert.match(assets, /sourceRevision/);
+  assert.match(assets, /VisorGlow/);
+  assert.match(assets, /SorceryAccent/);
+  assert.match(assets, /material\.clone\s*\(/);
   assert.match(source, /dispose\s*\(/);
-  assert.match(source, /uncache|stopAllAction|AnimationMixer/);
-  assert.doesNotMatch(source, /geometry\.dispose\s*\(/);
+  assert.match(animator, /AnimationMixer/);
+  assert.match(animator, /stopAllAction/);
+  assert.match(animator, /uncacheRoot/);
+  assert.doesNotMatch(assets, /geometry\.dispose\s*\(/);
 });
