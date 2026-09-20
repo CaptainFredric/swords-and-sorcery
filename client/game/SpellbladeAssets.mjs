@@ -2,7 +2,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import { SpellbladeAnimator } from './SpellbladeAnimator.mjs';
 
-const DEFAULT_MANIFEST_URL = '/assets/characters/spellblade/manifest.json';
+const DEFAULT_MANIFEST_URL = '/client/assets/characters/spellblade/manifest.json';
 const SHA40 = /^[0-9a-f]{40}$/;
 const MUTABLE_MATERIAL_NAMES = new Set(['VisorGlow', 'SorceryAccent']);
 
