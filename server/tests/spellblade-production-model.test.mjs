@@ -29,6 +29,23 @@ test('Blender production model encodes the concept hero pieces and animated prod
   assert.doesNotMatch(build, /visualStage["']\s*:\s*["']rig-proxy["']/);
 });
 
+test('production Spellblade preserves the concept silhouette anchors before promotion', async () => {
+  const model = await read('tools/blender/characters/spellblade/model.py');
+  const design = await read('tools/blender/characters/spellblade/design.py');
+
+  assert.match(model, /VisorStem/);
+  assert.match(model, /BreastplateUpper/);
+  assert.match(model, /PauldronOuter/);
+  assert.match(model, /Crest[\s\S]{0,500}CrimsonCloth/);
+
+  const bladeWidth = Number(design.match(/SWORD_BLADE_WIDTH\s*=\s*([0-9.]+)/)?.[1] ?? NaN);
+  const crestHeight = Number(design.match(/CREST_HEIGHT\s*=\s*([0-9.]+)/)?.[1] ?? NaN);
+  const pauldronWidth = Number(design.match(/PAULDRON_WIDTH\s*=\s*([0-9.]+)/)?.[1] ?? NaN);
+  assert.ok(bladeWidth >= 0.30, `hero sword blade must stay broad; got ${bladeWidth}`);
+  assert.ok(crestHeight >= 0.18, `helmet crest must remain a strong vertical read; got ${crestHeight}`);
+  assert.ok(pauldronWidth >= 0.44, `pauldrons must preserve the broad shoulder silhouette; got ${pauldronWidth}`);
+});
+
 test('Blender production build captures readable combat action poses', async () => {
   const build = await read('tools/blender/characters/spellblade/build.py');
   for (const marker of [
