@@ -16,13 +16,12 @@ test('hero silhouette replaces box-overlay read with authored faceted shells', a
 
   for (const marker of [
     'VisorMask', 'VisorHeroBar', 'VisorHeroStem', 'ChestHeroShell',
-    'PauldronHeroShell.L', 'PauldronHeroShell.R',
-    'ForearmHeroShell.L', 'ForearmHeroShell.R',
-    'CuisseHeroShell.L', 'CuisseHeroShell.R',
-    'GreaveHeroShell.L', 'GreaveHeroShell.R',
-    'BootHeroShell.L', 'BootHeroShell.R',
-  ]) assert.match(hero, new RegExp(marker.replace('.', '\\.')));
+    'PauldronHeroShell.{side}', 'ForearmHeroShell.{side}',
+    'CuisseHeroShell.{side}', 'GreaveHeroShell.{side}', 'BootHeroShell.{side}',
+  ]) assert.match(hero, new RegExp(marker.replaceAll('.', '\\.').replaceAll('{', '\\{').replaceAll('}', '\\}')));
 
+  assert.match(hero, /for side, sign in \(\("L", -1\.0\), \("R", 1\.0\)\)/,
+    'hero shell families must be emitted for both left and right sides');
   assert.match(hero, /def refine_hero_silhouette\(/);
   assert.match(build, /from tools\.blender\.characters\.spellblade\.hero_silhouette import refine_hero_silhouette/);
   assert.match(build, /model = refine_hero_silhouette\(armature, model\)/);
