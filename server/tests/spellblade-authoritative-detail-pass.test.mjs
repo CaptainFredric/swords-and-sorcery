@@ -4,15 +4,14 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const root = path.resolve(import.meta.dirname, '../..');
-const buildPath = path.join(root, 'tools/blender/characters/spellblade/build.py');
+const boundsPath = path.join(root, 'tools/blender/characters/spellblade/blueprint_bounds.py');
 const detailPath = path.join(root, 'tools/blender/characters/spellblade/authoritative_detail_pass.py');
 
-test('production build refines the authoritative Spellblade before validation', () => {
-  const build = fs.readFileSync(buildPath, 'utf8');
-  assert.match(build, /from tools\.blender\.characters\.spellblade\.authoritative_model import build_authoritative_spellblade/);
-  assert.match(build, /from tools\.blender\.characters\.spellblade\.authoritative_detail_pass import refine_authoritative_details/);
-  assert.match(build, /model = build_authoritative_spellblade\(armature, materials\)/);
-  assert.match(build, /model = refine_authoritative_details\(model, armature, materials\)/);
+test('final production handoff refines the authoritative Spellblade before validation', () => {
+  const bounds = fs.readFileSync(boundsPath, 'utf8');
+  assert.match(bounds, /from \.authoritative_detail_pass import refine_authoritative_details/);
+  assert.match(bounds, /rebuilt = build_authoritative_spellblade_v4\(armature, materials\)/);
+  assert.match(bounds, /rebuilt = refine_authoritative_details\(rebuilt, armature, materials\)/);
 });
 
 test('detail pass explicitly rebuilds the concept-critical equipment areas', () => {
