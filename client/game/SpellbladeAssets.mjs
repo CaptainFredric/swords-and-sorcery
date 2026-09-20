@@ -56,6 +56,7 @@ function loadGltf(url) {
 function cloneMutableMaterials(root, names) {
   const wanted = new Set(names);
   const owned = new Set();
+  const byName = new Map();
 
   root.traverse((object) => {
     if (!object.isMesh || !object.material) return;
@@ -67,12 +68,20 @@ function cloneMutableMaterials(root, names) {
       const isolated = material.clone();
       isolated.name = material.name;
       owned.add(isolated);
+      const list = byName.get(material.name) ?? [];
+      list.push(isolated);
+      byName.set(material.name, list);
       return isolated;
     });
     if (changed) object.material = Array.isArray(object.material) ? nextMaterials : nextMaterials[0];
   });
 
-  return owned;
+  return {
+    owned,
+    byName: Object.freeze(Object.fromEntries(
+      [...byName.entries()].map(([name, materials]) => [name, Object.freeze(materials)]),
+    )),
+  };
 }
 
 export async function createSpellbladeAsset({ kind = 'thirdPerson', manifestUrl = DEFAULT_MANIFEST_URL } = {}) {
@@ -91,7 +100,7 @@ export async function createSpellbladeAsset({ kind = 'thirdPerson', manifestUrl 
   const mutableNames = kind === 'firstPerson'
     ? manifest.firstPersonMutableMaterials
     : manifest.mutableMaterials;
-  const ownedMaterials = cloneMutableMaterials(root, mutableNames);
+  const mutableMaterials = cloneMutableMaterials(root, mutableNames);
   const animator = new SpellbladeAnimator(root, gltf.animations);
   const sockets = Object.freeze({
     sword: root.getObjectByName('socket_sword') ?? null,
@@ -103,12 +112,13 @@ export async function createSpellbladeAsset({ kind = 'thirdPerson', manifestUrl 
     root,
     animator,
     sockets,
+    materials: mutableMaterials.byName,
     sourceRevision: manifest.sourceRevision,
     dispose() {
       if (disposed) return;
       disposed = true;
       animator.dispose();
-      for (const material of ownedMaterials) material.dispose();
+      for (const material of mutableMaterials.owned) material.dispose();
     },
   };
 }
