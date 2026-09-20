@@ -137,7 +137,7 @@ jobs:
 
           revision = os.environ['SOURCE_REVISION']
           contract = json.loads(Path('source/tools/blender/characters/spellblade/contract.json').read_text())
-          base = '/assets/characters/spellblade'
+          base = '/client/assets/characters/spellblade'
           manifest = {
               'version': 1,
               'sourceRevision': revision,
