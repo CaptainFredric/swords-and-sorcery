@@ -81,6 +81,24 @@ test('concept refinement restores armored mass and authored hero details', async
   assert.ok(gauntletWidth >= 0.24, `gauntlet cuffs must read as armor rather than stick limbs; got ${gauntletWidth}`);
 });
 
+test('concept refinement fills the thin mid-limbs and strengthens off-hand sorcery', async () => {
+  const refinement = await read('tools/blender/characters/spellblade/concept_refinement.py');
+  const design = await read('tools/blender/characters/spellblade/design.py');
+
+  for (const marker of [
+    'VambracePlate.L', 'VambracePlate.R',
+    'CuisseOuter.L', 'CuisseOuter.R', 'KneeCap.L', 'KneeCap.R',
+    'SorceryHeroShard.1', 'SorceryHeroShard.2', 'SorceryHeroShard.3',
+  ]) assert.match(refinement, new RegExp(marker.replace('.', '\\.')));
+
+  const forearmWidth = Number(design.match(/FOREARM_ARMOR_WIDTH\s*=\s*([0-9.]+)/)?.[1] ?? NaN);
+  const thighWidth = Number(design.match(/THIGH_ARMOR_WIDTH\s*=\s*([0-9.]+)/)?.[1] ?? NaN);
+  const sorceryRadius = Number(design.match(/SORCERY_ACCENT_RADIUS\s*=\s*([0-9.]+)/)?.[1] ?? NaN);
+  assert.ok(forearmWidth >= 0.24, `forearm armor must bridge shoulder and gauntlet mass; got ${forearmWidth}`);
+  assert.ok(thighWidth >= 0.30, `thigh armor must carry the concept's planted lower-body silhouette; got ${thighWidth}`);
+  assert.ok(sorceryRadius >= 0.16, `off-hand sorcery needs a readable gameplay silhouette; got ${sorceryRadius}`);
+});
+
 test('Blender production build captures readable combat action poses', async () => {
   const build = await read('tools/blender/characters/spellblade/build.py');
   for (const marker of [
