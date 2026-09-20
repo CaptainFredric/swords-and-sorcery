@@ -67,3 +67,34 @@ test('remote players upgrade fallback visuals to production GLBs without moving 
   assert.match(source, /\.catch\s*\(/);
   assert.doesNotMatch(source, /scene\.add\(instance\.root\)/);
 });
+
+test('menu keeps a stable showcase wrapper while upgrading its fallback to the third-person GLB', async () => {
+  const source = await read('client/menu/MenuScene.mjs');
+
+  assert.match(source, /createSpellbladeAsset/);
+  assert.match(source, /kind:\s*['"]thirdPerson['"]/);
+  assert.match(source, /characterRoot\s*=\s*new\s+THREE\.Group/);
+  assert.match(source, /visualKind/);
+  assert.match(source, /clip:\s*['"]Idle['"]/);
+  assert.match(source, /targetYaw/);
+  assert.match(source, /targetPitch/);
+  assert.match(source, /dispose\s*\(\)/);
+  assert.match(source, /assetInstance\?\.dispose|assetInstance\.dispose/);
+});
+
+test('first-person view upgrades to the dedicated GLB without changing the combat presentation API', async () => {
+  const weapon = await read('client/game/WeaponView.mjs');
+  const runtime = await read('client/game/GameRuntime.mjs');
+
+  assert.match(weapon, /createSpellbladeAsset/);
+  assert.match(weapon, /kind:\s*['"]firstPerson['"]/);
+  assert.match(weapon, /fallbackVisual/);
+  assert.match(weapon, /productionInstance/);
+  assert.match(weapon, /resolveWeaponPose/);
+  for (const method of ['setAttack', 'setGuard', 'cast', 'dash', 'wallImpact', 'parry', 'update', 'dispose']) {
+    assert.match(weapon, new RegExp(`\\b${method}\\s*\\(`));
+  }
+  assert.match(weapon, /WallImpact|recoilUntil/);
+  assert.match(weapon, /Parry|parryUntil/);
+  assert.match(runtime, /this\.weapon\.dispose\s*\(\)/);
+});
