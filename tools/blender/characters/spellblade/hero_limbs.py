@@ -84,56 +84,86 @@ def _arm_shells(
 ) -> tuple[list[bpy.types.Object], set[str]]:
     sign = -1.0 if side == "L" else 1.0
     names = {
+        f"UnderUpperArm.{side}", f"UnderForearm.{side}",
         f"UpperArmPlate.{side}", f"Vambrace.{side}", f"VambraceFacet.{side}",
         f"Gauntlet.{side}", f"GauntletCuff.{side}",
     }
     parts: list[bpy.types.Object] = []
 
+    # These coordinates intentionally match design.py's edit-bone endpoints.
+    # The previous hero geometry still used the older, much wider arm chain, so
+    # the visible armor pivoted around a different skeleton than the one exported.
+    upper_under = _segment_shell(
+        f"UnderUpperArm.{side}",
+        (0.405 * sign, 0.0, 1.485),
+        (0.600 * sign, 0.0, 1.235),
+        start_width=0.090,
+        end_width=0.080,
+        start_depth=0.100,
+        end_depth=0.090,
+        material=materials["Leather"],
+        bulge=1.03,
+    )
+    parts.append(_rigid(upper_under, armature, f"upper_arm.{side}"))
+
+    fore_under = _segment_shell(
+        f"UnderForearm.{side}",
+        (0.600 * sign, 0.0, 1.225),
+        (0.740 * sign, 0.035, 0.945),
+        start_width=0.080,
+        end_width=0.070,
+        start_depth=0.090,
+        end_depth=0.080,
+        material=materials["Leather"],
+        bulge=1.02,
+    )
+    parts.append(_rigid(fore_under, armature, f"forearm.{side}"))
+
     upper = _segment_shell(
         f"UpperArmPlate.{side}",
-        (0.485 * sign, 0.0, 1.405),
-        (0.705 * sign, 0.0, 1.165),
-        start_width=0.145,
-        end_width=0.115,
-        start_depth=0.155,
-        end_depth=0.120,
+        (0.405 * sign, 0.0, 1.470),
+        (0.600 * sign, 0.0, 1.235),
+        start_width=0.150,
+        end_width=0.118,
+        start_depth=0.165,
+        end_depth=0.125,
         material=materials["DarkSteel"],
-        bulge=1.08,
+        bulge=1.07,
     )
     parts.append(_rigid(upper, armature, f"upper_arm.{side}"))
 
     forearm = _segment_shell(
         f"Vambrace.{side}",
-        (0.700 * sign, 0.010, 1.145),
-        (0.885 * sign, 0.035, 0.900),
-        start_width=0.145,
-        end_width=0.105,
-        start_depth=0.155,
-        end_depth=0.115,
+        (0.600 * sign, 0.010, 1.220),
+        (0.740 * sign, 0.035, 0.945),
+        start_width=0.150,
+        end_width=0.108,
+        start_depth=0.160,
+        end_depth=0.118,
         material=materials["DarkSteel"],
-        bulge=1.07,
+        bulge=1.06,
     )
     parts.append(_rigid(forearm, armature, f"forearm.{side}"))
 
     ridge = _xz_prism(
         f"VambraceFacet.{side}",
-        ((0.705 * sign, 1.135), (0.780 * sign, 1.125),
-         (0.900 * sign, 0.930), (0.865 * sign, 0.900),
-         (0.790 * sign, 0.985)),
-        front_y=0.175,
-        back_y=0.145,
+        ((0.605 * sign, 1.205), (0.660 * sign, 1.185),
+         (0.750 * sign, 0.985), (0.735 * sign, 0.945),
+         (0.675 * sign, 1.035)),
+        front_y=0.180,
+        back_y=0.148,
         material=materials["SteelEdge"],
     )
     parts.append(_rigid(ridge, armature, f"forearm.{side}"))
 
     cuff = _segment_shell(
         f"GauntletCuff.{side}",
-        (0.842 * sign, 0.028, 0.970),
-        (0.885 * sign, 0.036, 0.910),
-        start_width=0.132,
-        end_width=0.125,
-        start_depth=0.140,
-        end_depth=0.132,
+        (0.700 * sign, 0.030, 1.010),
+        (0.742 * sign, 0.036, 0.945),
+        start_width=0.136,
+        end_width=0.128,
+        start_depth=0.145,
+        end_depth=0.135,
         material=materials["Brass"],
         bulge=1.0,
     )
@@ -141,12 +171,12 @@ def _arm_shells(
 
     hand = _segment_shell(
         f"Gauntlet.{side}",
-        (0.885 * sign, 0.036, 0.900),
-        (0.970 * sign, 0.055, 0.785),
-        start_width=0.115,
-        end_width=0.100,
-        start_depth=0.125,
-        end_depth=0.112,
+        (0.742 * sign, 0.036, 0.940),
+        (0.792 * sign, 0.085, 0.805),
+        start_width=0.120,
+        end_width=0.105,
+        start_depth=0.130,
+        end_depth=0.115,
         material=materials["DarkSteel"],
         bulge=1.04,
     )
@@ -171,10 +201,10 @@ def _leg_shells(
     cuisse = _ring_shell(
         f"Cuisse.{side}",
         (
-            (0.525, center_x, 0.125, 0.130, -0.105, 0.012),
-            (0.690, center_x, 0.160, 0.175, -0.135, 0.022),
-            (0.845, center_x, 0.170, 0.165, -0.130, 0.020),
-            (0.895, center_x, 0.145, 0.140, -0.115, 0.012),
+            (0.515, center_x, 0.135, 0.140, -0.110, 0.012),
+            (0.680, center_x, 0.175, 0.185, -0.140, 0.024),
+            (0.835, center_x, 0.185, 0.180, -0.138, 0.024),
+            (0.895, center_x, 0.155, 0.150, -0.120, 0.014),
         ),
         materials["DarkSteel"],
     )
@@ -182,21 +212,21 @@ def _leg_shells(
 
     cuisse_facet = _xz_prism(
         f"CuisseFacet.{side}",
-        ((0.125 * sign, 0.835), (0.305 * sign, 0.820),
-         (0.325 * sign, 0.700), (0.275 * sign, 0.565),
-         (0.150 * sign, 0.575)),
-        front_y=0.205,
-        back_y=0.175,
+        ((0.115 * sign, 0.840), (0.315 * sign, 0.825),
+         (0.340 * sign, 0.700), (0.285 * sign, 0.555),
+         (0.140 * sign, 0.570)),
+        front_y=0.215,
+        back_y=0.180,
         material=materials["SteelEdge"],
     )
     parts.append(_rigid(cuisse_facet, armature, f"thigh.{side}"))
 
     knee = _xz_prism(
         f"KneePlate.{side}",
-        ((0.105 * sign, 0.565), (0.325 * sign, 0.560),
-         (0.350 * sign, 0.500), (0.310 * sign, 0.430),
-         (0.120 * sign, 0.435)),
-        front_y=0.220,
+        ((0.095 * sign, 0.570), (0.335 * sign, 0.565),
+         (0.365 * sign, 0.500), (0.320 * sign, 0.425),
+         (0.110 * sign, 0.430)),
+        front_y=0.230,
         back_y=0.095,
         material=materials["SteelEdge"],
     )
@@ -205,10 +235,10 @@ def _leg_shells(
     greave = _ring_shell(
         f"Greave.{side}",
         (
-            (0.115, center_x, 0.102, 0.135, -0.085, 0.012),
-            (0.265, center_x, 0.132, 0.160, -0.100, 0.020),
-            (0.425, center_x, 0.145, 0.170, -0.110, 0.024),
-            (0.495, center_x, 0.132, 0.145, -0.100, 0.016),
+            (0.110, center_x, 0.112, 0.145, -0.090, 0.012),
+            (0.255, center_x, 0.145, 0.170, -0.105, 0.020),
+            (0.410, center_x, 0.158, 0.182, -0.115, 0.026),
+            (0.495, center_x, 0.145, 0.155, -0.105, 0.018),
         ),
         materials["DarkSteel"],
     )
@@ -216,11 +246,11 @@ def _leg_shells(
 
     greave_facet = _xz_prism(
         f"GreaveFacet.{side}",
-        ((0.145 * sign, 0.455), (0.285 * sign, 0.440),
-         (0.300 * sign, 0.325), (0.255 * sign, 0.165),
-         (0.165 * sign, 0.165)),
-        front_y=0.205,
-        back_y=0.180,
+        ((0.135 * sign, 0.460), (0.295 * sign, 0.445),
+         (0.315 * sign, 0.325), (0.265 * sign, 0.155),
+         (0.155 * sign, 0.155)),
+        front_y=0.215,
+        back_y=0.185,
         material=materials["SteelEdge"],
     )
     parts.append(_rigid(greave_facet, armature, f"shin.{side}"))
@@ -228,11 +258,11 @@ def _leg_shells(
     boot = _ring_shell(
         f"Boot.{side}",
         (
-            (0.005, center_x, 0.155, 0.355, -0.090, 0.012),
-            (0.105, center_x, 0.170, 0.390, -0.105, 0.020),
-            (0.175, center_x, 0.158, 0.325, -0.105, 0.018),
-            (0.245, center_x, 0.132, 0.220, -0.100, 0.012),
-            (0.290, center_x, 0.112, 0.165, -0.092, 0.006),
+            (0.005, center_x, 0.170, 0.360, -0.095, 0.012),
+            (0.095, center_x, 0.185, 0.405, -0.110, 0.022),
+            (0.165, center_x, 0.175, 0.350, -0.110, 0.020),
+            (0.235, center_x, 0.145, 0.235, -0.105, 0.014),
+            (0.285, center_x, 0.120, 0.175, -0.095, 0.008),
         ),
         materials["DarkSteel"],
     )
@@ -241,9 +271,9 @@ def _leg_shells(
     toe = _ring_shell(
         f"BootFacet.{side}",
         (
-            (0.070, center_x, 0.148, 0.397, 0.295, 0.006),
-            (0.125, center_x, 0.158, 0.405, 0.290, 0.008),
-            (0.172, center_x, 0.140, 0.340, 0.255, 0.004),
+            (0.060, center_x, 0.160, 0.412, 0.300, 0.006),
+            (0.115, center_x, 0.172, 0.420, 0.295, 0.008),
+            (0.165, center_x, 0.152, 0.355, 0.260, 0.004),
         ),
         materials["SteelEdge"],
     )
@@ -252,8 +282,8 @@ def _leg_shells(
     ankle = _ring_shell(
         f"BootAnkleTrim.{side}",
         (
-            (0.235, center_x, 0.145, 0.205, -0.108, 0.006),
-            (0.285, center_x, 0.132, 0.185, -0.100, 0.004),
+            (0.225, center_x, 0.155, 0.220, -0.112, 0.006),
+            (0.282, center_x, 0.140, 0.190, -0.102, 0.004),
         ),
         materials["Brass"],
     )
@@ -266,7 +296,7 @@ def rebuild_hero_limbs(
     armature: bpy.types.Object,
     materials: dict[str, bpy.types.Material],
 ) -> ModelParts:
-    """Replace traced limb slabs with faceted armor volumes aligned to the rig."""
+    """Replace legacy limb slabs with armor volumes that match the exported rig."""
     for side in ("L", "R"):
         arm_parts, arm_names = _arm_shells(side, armature, materials)
         model = _replace_named(model, arm_parts, arm_names)
