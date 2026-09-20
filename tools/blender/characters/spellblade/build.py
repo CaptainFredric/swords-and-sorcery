@@ -16,13 +16,10 @@ if str(ROOT) not in sys.path:
 from tools.blender.common.export import export_glb
 from tools.blender.common.render import configure_render, look_at, render_still
 from tools.blender.characters.spellblade.animations import build_actions
-from tools.blender.characters.spellblade.concept_refinement import refine_concept_silhouette
-from tools.blender.characters.spellblade.concept_trace import refine_traced_concept_geometry
-from tools.blender.characters.spellblade.depth_polish import refine_depth_and_back
+from tools.blender.characters.spellblade.concept_model import build_concept_model
 from tools.blender.characters.spellblade.design import BODY_HEIGHT
 from tools.blender.characters.spellblade.first_person import build_first_person_asset
-from tools.blender.characters.spellblade.hero_silhouette import refine_hero_silhouette
-from tools.blender.characters.spellblade.model import build_materials, build_third_person_model
+from tools.blender.characters.spellblade.model import build_materials
 from tools.blender.characters.spellblade.rig import build_armature, rigid_skin, validate_armature_names
 from tools.blender.characters.spellblade.validate import load_contract, validate_production_model, validate_rig_scene
 
@@ -224,11 +221,7 @@ def build_character_assets(args: argparse.Namespace) -> None:
     bpy.data.objects.remove(validation_proxy, do_unlink=True)
 
     materials = build_materials()
-    model = build_third_person_model(armature, materials)
-    model = refine_concept_silhouette(armature, model)
-    model = refine_hero_silhouette(armature, model)
-    model = refine_depth_and_back(armature, model)
-    model = refine_traced_concept_geometry(armature, model)
+    model = build_concept_model(armature, materials)
     model_report = validate_production_model(armature, model, contract)
     actions = build_actions(armature, contract)
     third_person_animations = list(actions.keys())
@@ -262,7 +255,7 @@ def build_character_assets(args: argparse.Namespace) -> None:
         "schemaVersion": 1,
         "workerReady": True,
         "mode": args.mode,
-        "visualStage": "third-person-animated-with-first-person",
+        "visualStage": "traced-third-person-animated-with-first-person",
         "sourceRevision": args.source_revision,
         "blenderVersion": blender_version,
         "contractVersion": contract["version"],
