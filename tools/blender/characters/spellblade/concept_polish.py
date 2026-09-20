@@ -109,8 +109,6 @@ def _recenter_side_piece(
 def _helmet(model: ModelParts) -> None:
     materials = model.materials
 
-    # Preserve the authored helmet mass. The identity comes from the broad brow,
-    # tapered jaw, dark recess, cyan T, and brass framing—not from shrinking it.
     shell = _named(model, "HelmetShell")
     if shell is not None:
         _scale_about(shell, _bounds_center(shell), (0.98, 1.02, 0.98))
@@ -138,22 +136,18 @@ def _helmet(model: ModelParts) -> None:
 
     _reshape_named(model, "VisorGlow.Bar", scale=(0.92, 1.0, 0.88))
     _reshape_named(model, "VisorGlow.Stem", scale=(0.86, 1.0, 0.96))
-    _reshape_named(model, "Crest", scale=(0.98, 0.96, 1.00))
+    _reshape_named(model, "Crest", scale=(0.98, 0.96, 0.94))
     _reshape_named(model, "CrimsonScarf", scale=(1.03, 1.05, 1.00))
     _reshape_named(model, "CrimsonScarfFront", scale=(1.00, 1.02, 1.00))
 
 
 def _torso(model: ModelParts) -> None:
-    # Keep the concept's broad chest and narrow waist. The previous pass compressed
-    # the chest too far and created the stick-figure read.
     _reshape_named(model, "Breastplate", scale=(1.03, 1.02, 1.02))
     for side in ("L", "R"):
         _reshape_named(model, f"ChestFacet.{side}", scale=(1.02, 1.00, 1.01))
         _reshape_named(model, f"BreastplateTrim.{side}", scale=(1.00, 1.00, 1.00))
     _reshape_named(model, "BreastplateCollar", scale=(1.00, 1.00, 1.00))
     _reshape_named(model, "BackArmor", scale=(1.01, 1.02, 1.01))
-
-    # Belt stays narrower than the breastplate to preserve the V silhouette.
     _reshape_named(model, "WarBelt", scale=(0.95, 0.98, 0.94))
 
 
@@ -180,7 +174,6 @@ def _shoulders_and_arms(model: ModelParts) -> None:
                 center_compression=SHOULDER_X_COMPRESSION,
                 width_scale=1.02,
             )
-            # Keep vertical and depth mass: layered armor, not pancake shoulders.
             _scale_about(obj, _bounds_center(obj), (1.02, 1.00, 0.96))
 
         for prefix in arm_prefixes:
@@ -195,7 +188,6 @@ def _shoulders_and_arms(model: ModelParts) -> None:
                 center_compression=ARM_X_COMPRESSION,
                 width_scale=0.98,
             )
-            # Concept arms are chunky articulated armor, not thin rods.
             _scale_about(obj, _bounds_center(obj), (0.98, 0.98, 1.02))
 
 
@@ -237,13 +229,11 @@ def _legs_and_cloth(model: ModelParts) -> None:
 
 
 def _weapon_and_magic(model: ModelParts) -> None:
-    # Keep the sword close enough to feel held, but clear of the belt/tabard.
     for name in ("HeroSword", "HeroSword.Guard", "HeroSword.Grip", "HeroSword.Pommel"):
         obj = _named(model, name)
         if obj is not None:
             _translate_socket_object(obj, (-0.07, 0.035, -0.015))
 
-    # Spell cluster remains clearly separated from the gauntlet.
     for name in ("SorceryCore", "SorceryShard.1", "SorceryShard.2", "SorceryShard.3"):
         obj = _named(model, name)
         if obj is not None:
