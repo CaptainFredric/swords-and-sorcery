@@ -30,13 +30,16 @@ test('Blender production model encodes the concept hero pieces and animated prod
 });
 
 test('production Spellblade preserves the concept silhouette anchors before promotion', async () => {
-  const model = await read('tools/blender/characters/spellblade/model.py');
+  const refinement = await read('tools/blender/characters/spellblade/concept_refinement.py');
   const design = await read('tools/blender/characters/spellblade/design.py');
+  const build = await read('tools/blender/characters/spellblade/build.py');
 
-  assert.match(model, /VisorStem/);
-  assert.match(model, /BreastplateUpper/);
-  assert.match(model, /PauldronOuter/);
-  assert.match(model, /Crest[\s\S]{0,500}CrimsonCloth/);
+  assert.match(refinement, /VisorStem/);
+  assert.match(refinement, /BreastplateUpper/);
+  assert.match(refinement, /PauldronOuter/);
+  assert.match(refinement, /Crest[\s\S]{0,700}CrimsonCloth/);
+  assert.match(refinement, /HeroSwordBroadBlade/);
+  assert.match(build, /refine_concept_silhouette/);
 
   const bladeWidth = Number(design.match(/SWORD_BLADE_WIDTH\s*=\s*([0-9.]+)/)?.[1] ?? NaN);
   const crestHeight = Number(design.match(/CREST_HEIGHT\s*=\s*([0-9.]+)/)?.[1] ?? NaN);
