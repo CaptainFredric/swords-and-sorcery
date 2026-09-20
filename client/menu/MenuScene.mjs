@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { createSpellbladeRig } from '../game/SpellbladeFallback.mjs';
-import { createSpellbladeAsset } from '../game/SpellbladeAssets.mjs';
+import { createSpellbladeAsset, reportSpellbladeAssetStatus } from '../game/SpellbladeAssets.mjs';
 
 function disposeObject(root) {
   root.traverse((object) => {
@@ -58,6 +58,7 @@ export class MenuScene {
     this.fallbackVisual = createSpellbladeRig(0);
     this.characterRoot.add(this.fallbackVisual);
     this.#setShowcasePose();
+    reportSpellbladeAssetStatus('menu');
 
     this.magicLight = new THREE.PointLight(0x55d9ff, 3.2, 3.2, 2);
     this.magicLight.position.set(-0.85, 1.15, 0.15);
@@ -89,6 +90,7 @@ export class MenuScene {
       this.visualKind = 'production';
       this.characterRoot.add(instance.root);
       instance.animator.apply({ clip: 'Idle', loop: true, time: 0 });
+      reportSpellbladeAssetStatus('menu', instance);
 
       if (instance.sockets.sorcery) {
         instance.sockets.sorcery.add(this.magicLight);
@@ -101,7 +103,10 @@ export class MenuScene {
         this.fallbackVisual = null;
       }
     }).catch(() => {
-      if (!this.disposed) this.visualKind = 'fallback';
+      if (!this.disposed) {
+        this.visualKind = 'fallback';
+        reportSpellbladeAssetStatus('menu');
+      }
     });
   }
 
