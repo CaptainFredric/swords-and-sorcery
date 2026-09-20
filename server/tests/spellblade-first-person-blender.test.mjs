@@ -41,3 +41,12 @@ test('combined Blender build exports and reviews the first-person asset', async 
     assert.match(source + build, new RegExp(marker));
   }
 });
+
+test('first-person Blender review rejects a slash that throws the hero sword entirely off-screen', async () => {
+  const source = await read('tools/blender/characters/spellblade/first_person.py');
+
+  assert.match(source, /validate_first_person_sword_visibility/);
+  assert.match(source, /world_to_camera_view/);
+  assert.match(source, /Slash_1/);
+  assert.match(source, /HeroSword/);
+});
