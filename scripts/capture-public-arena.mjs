@@ -6,6 +6,8 @@ import { spawn } from 'node:child_process';
 const publicUrl = String(process.env.PUBLIC_URL || '').replace(/\/$/, '');
 const chromeBin = String(process.env.CHROME_BIN || '');
 const debugPort = Number(process.env.CHROME_DEBUG_PORT || 9222);
+const requireSpellbladeGlbs = process.env.REQUIRE_SPELLBLADE_GLBS === '1';
+const SHA40 = /^[0-9a-f]{40}$/;
 if (!publicUrl) throw new Error('PUBLIC_URL is required');
 if (!chromeBin) throw new Error('CHROME_BIN is required');
 
@@ -108,6 +110,22 @@ async function visible(selector) {
 
 async function waitVisible(selector, timeoutMs = 20000) {
   await poll(() => visible(selector), { timeoutMs, label: `${selector} visible` });
+}
+
+async function readSpellbladeAssetStatus(slot) {
+  return evaluate(`(() => {
+    const status = globalThis.__SPELLBLADE_ASSET_STATUS__?.[${JSON.stringify(slot)}];
+    return status ? { kind: status.kind, sourceRevision: status.sourceRevision ?? null } : null;
+  })()`);
+}
+
+async function waitForSpellbladeAsset(slot, timeoutMs = 20000) {
+  return poll(async () => {
+    const status = await readSpellbladeAssetStatus(slot);
+    if (!status) return null;
+    if (!requireSpellbladeGlbs) return status;
+    return status.kind === 'glb' && SHA40.test(String(status.sourceRevision || '')) ? status : null;
+  }, { timeoutMs, label: `${slot} Spellblade ${requireSpellbladeGlbs ? 'production GLB' : 'asset status'}` });
 }
 
 async function setName(name) {
@@ -224,6 +242,23 @@ async function resetToFreshMenu() {
   await waitForMenuScene();
 }
 
+function buildSpellbladeAssetProof() {
+  const menu = evidence.menuSpellblade;
+  const remote = evidence.remoteSpellblade;
+  const firstPerson = evidence.firstPersonSpellblade;
+  const proofs = [menu, remote, firstPerson];
+  const allGlb = proofs.every((proof) => proof?.kind === 'glb' && SHA40.test(String(proof.sourceRevision || '')));
+  const revisions = proofs.map((proof) => proof?.sourceRevision ?? null);
+  const sameRevision = allGlb && revisions.every((revision) => revision === revisions[0]);
+
+  return {
+    kind: allGlb && sameRevision ? 'glb' : 'fallback',
+    sourceRevision: allGlb && sameRevision ? revisions[0] : null,
+    thirdPersonLoaded: menu?.kind === 'glb' && remote?.kind === 'glb',
+    firstPersonLoaded: firstPerson?.kind === 'glb',
+  };
+}
+
 try {
   chrome = spawn(chromeBin, [
     '--headless=new',
@@ -268,6 +303,7 @@ try {
   await waitReady();
   await waitVisible('#menu');
   await waitForMenuScene();
+  evidence.menuSpellblade = await waitForSpellbladeAsset('menu');
   evidence.menu = await snapshotUi();
   await capture('public-game-menu.png');
 
@@ -284,11 +320,13 @@ try {
   await waitVisible('#hud');
   await waitVisible('#practice-overlay');
   await poll(async () => (await snapshotUi()).matchInfo.includes('UNTIMED'), { timeoutMs: 10000, label: 'untimed Practice HUD' });
+  evidence.firstPersonSpellblade = await waitForSpellbladeAsset('firstPerson');
   await sleep(1000);
   evidence.practice = await snapshotUi();
   await capture('public-game-practice.png');
 
   await click('#practice-guarding');
+  evidence.remoteSpellblade = await waitForSpellbladeAsset('remote');
   await sleep(1200);
   evidence.practiceDummy = await snapshotUi();
   await capture('public-game-practice-dummy.png');
@@ -330,9 +368,15 @@ try {
   if (evidence.ffaWaiting.lobbyWorld !== 'CASTLEWARD') throw new Error(`Quick Match was not Castleward: ${JSON.stringify(evidence.ffaWaiting)}`);
   await capture('public-game-ffa-waiting.png');
 
-  const report = { publicUrl, evidence, browserErrors, httpErrors };
+  const spellbladeAsset = buildSpellbladeAssetProof();
+  const report = { publicUrl, spellbladeAsset, evidence, browserErrors, httpErrors };
   await fs.writeFile('public-game-browser-report.json', `${JSON.stringify(report, null, 2)}\n`);
 
+  if (requireSpellbladeGlbs) {
+    if (spellbladeAsset.kind !== 'glb') throw new Error(`Production Spellblade GLBs were not active: ${JSON.stringify(spellbladeAsset)}`);
+    if (!SHA40.test(String(spellbladeAsset.sourceRevision || ''))) throw new Error(`Production Spellblade revision is not a 40-hex SHA: ${JSON.stringify(spellbladeAsset)}`);
+    if (!spellbladeAsset.thirdPersonLoaded || !spellbladeAsset.firstPersonLoaded) throw new Error(`Production Spellblade consumers were incomplete: ${JSON.stringify(spellbladeAsset)}`);
+  }
   if (browserErrors.length || httpErrors.length) {
     throw new Error(`Public browser reported errors: ${JSON.stringify({ browserErrors, httpErrors })}`);
   }
