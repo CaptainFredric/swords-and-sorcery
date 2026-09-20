@@ -49,6 +49,19 @@ test('production Spellblade preserves the concept silhouette anchors before prom
   assert.ok(pauldronWidth >= 0.44, `pauldrons must preserve the broad shoulder silhouette; got ${pauldronWidth}`);
 });
 
+test('refined upper body keeps pauldrons distinct from the compact breastplate', async () => {
+  const refinement = await read('tools/blender/characters/spellblade/concept_refinement.py');
+  const design = await read('tools/blender/characters/spellblade/design.py');
+
+  assert.match(refinement, /BreastplateFacet/);
+  assert.match(refinement, /PauldronRim/);
+
+  const chestWidth = Number(design.match(/BREASTPLATE_UPPER_WIDTH\s*=\s*([0-9.]+)/)?.[1] ?? NaN);
+  const shoulderCenter = Number(design.match(/PAULDRON_CENTER_X\s*=\s*([0-9.]+)/)?.[1] ?? NaN);
+  assert.ok(chestWidth >= 0.58 && chestWidth <= 0.70, `upper chest should stay compact; got ${chestWidth}`);
+  assert.ok(shoulderCenter >= 0.64, `pauldrons should remain visually separated from chest; got ${shoulderCenter}`);
+});
+
 test('Blender production build captures readable combat action poses', async () => {
   const build = await read('tools/blender/characters/spellblade/build.py');
   for (const marker of [
