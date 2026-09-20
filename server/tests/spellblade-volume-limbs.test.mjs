@@ -26,6 +26,8 @@ test('Spellblade arms and legs are replaced by true faceted volumes', async () =
   assert.match(limbs, /KneePlate\.\{side\}/);
   assert.match(limbs, /Greave\.\{side\}/);
   assert.match(limbs, /Boot\.\{side\}/);
+  assert.match(limbs, /\(0\.005, center_x, 0\.155, 0\.355, -0\.090, 0\.012\)/,
+    'the rebuilt boot sole must meet the ground plane without burying the foot');
   assert.match(limbs, /_replace_named\(/,
     'limb shells must replace the old traced plates rather than stack over them');
 
