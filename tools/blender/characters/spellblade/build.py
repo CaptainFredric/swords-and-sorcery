@@ -25,6 +25,7 @@ from tools.blender.characters.spellblade.hero_cloth import rebuild_hero_cloth
 from tools.blender.characters.spellblade.hero_limbs import rebuild_hero_limbs
 from tools.blender.characters.spellblade.hero_shells import rebuild_primary_hero_shells
 from tools.blender.characters.spellblade.locked_blueprint import rebuild_locked_blueprint
+from tools.blender.characters.spellblade.reference_match import rebuild_reference_match
 from tools.blender.characters.spellblade.model import build_materials
 from tools.blender.characters.spellblade.rig import build_armature, rigid_skin, validate_armature_names
 from tools.blender.characters.spellblade.validate import load_contract, validate_production_model, validate_rig_scene
@@ -233,10 +234,10 @@ def build_character_assets(args: argparse.Namespace) -> None:
     model = rebuild_hero_cloth(model, armature, materials)
     model = refine_concept_proportions(model)
     model = rebuild_locked_blueprint(model, armature, materials)
-    # The limb pass deliberately runs again after the locked torso/helmet pass.
-    # It is the final authority for stance and joint armor, so the concept's
-    # planted legs and hard tapered cages cannot be replaced by older ring shells.
     model = rebuild_hero_limbs(model, armature, materials)
+    # Last visual authority uses traced concept silhouettes with one-segment
+    # hard-surface chamfers; this is deliberately after all generic builders.
+    model = rebuild_reference_match(model, armature)
     model = enforce_blueprint_export_bounds(model)
     model_report = validate_production_model(armature, model, contract)
     actions = build_actions(armature, contract)
