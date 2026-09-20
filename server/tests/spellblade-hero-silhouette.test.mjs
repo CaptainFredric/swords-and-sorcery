@@ -11,8 +11,8 @@ async function read(path) {
 }
 
 test('hero silhouette replaces box-overlay read with authored faceted shells', async () => {
-  const refinement = await read('tools/blender/characters/spellblade/concept_refinement.py');
   const hero = await read('tools/blender/characters/spellblade/hero_silhouette.py');
+  const build = await read('tools/blender/characters/spellblade/build.py');
 
   for (const marker of [
     'VisorMask', 'VisorHeroBar', 'VisorHeroStem', 'ChestHeroShell',
@@ -24,6 +24,6 @@ test('hero silhouette replaces box-overlay read with authored faceted shells', a
   ]) assert.match(hero, new RegExp(marker.replace('.', '\\.')));
 
   assert.match(hero, /def refine_hero_silhouette\(/);
-  assert.match(refinement, /from \.hero_silhouette import refine_hero_silhouette/);
-  assert.match(refinement, /additions\.extend\(refine_hero_silhouette\(armature, model, _profile_slab\)\)/);
+  assert.match(build, /from tools\.blender\.characters\.spellblade\.hero_silhouette import refine_hero_silhouette/);
+  assert.match(build, /model = refine_hero_silhouette\(armature, model\)/);
 });
