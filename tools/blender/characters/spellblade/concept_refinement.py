@@ -9,11 +9,14 @@ from .design import (
     BOOT_SILHOUETTE_WIDTH,
     BREASTPLATE_UPPER_WIDTH,
     CREST_HEIGHT,
+    FOREARM_ARMOR_WIDTH,
     GAUNTLET_CUFF_WIDTH,
     PAULDRON_CENTER_X,
     PAULDRON_WIDTH,
+    SORCERY_ACCENT_RADIUS,
     SWORD_BLADE_WIDTH,
     SWORD_GUARD_WIDTH,
+    THIGH_ARMOR_WIDTH,
 )
 from .model import (
     ModelParts,
@@ -204,10 +207,30 @@ def _limb_refinement(
     additions: list[bpy.types.Object] = []
 
     sides = (
-        ("L", -1.0, "GauntletCuff.L", "GauntletKnuckle.L", "GreaveRidge.L", "BootToeArmor.L"),
-        ("R", 1.0, "GauntletCuff.R", "GauntletKnuckle.R", "GreaveRidge.R", "BootToeArmor.R"),
+        (
+            "L", -1.0, "VambracePlate.L", "GauntletCuff.L", "GauntletKnuckle.L",
+            "CuisseOuter.L", "KneeCap.L", "GreaveRidge.L", "BootToeArmor.L",
+        ),
+        (
+            "R", 1.0, "VambracePlate.R", "GauntletCuff.R", "GauntletKnuckle.R",
+            "CuisseOuter.R", "KneeCap.R", "GreaveRidge.R", "BootToeArmor.R",
+        ),
     )
-    for side, sign, cuff_name, knuckle_name, greave_name, boot_name in sides:
+    for (
+        side, sign, vambrace_name, cuff_name, knuckle_name,
+        cuisse_name, knee_name, greave_name, boot_name,
+    ) in sides:
+        # Bridge the large shoulder and hand masses with a proper plated forearm.
+        vambrace = _beveled_box(
+            vambrace_name,
+            (0.795 * sign, 0.075, 1.095),
+            (FOREARM_ARMOR_WIDTH, 0.25, 0.29),
+            materials["DarkSteel"],
+            bevel=0.026,
+            rotation=(radians(-5), radians(27 * sign), radians(5 * sign)),
+        )
+        additions.append(_rigid(vambrace, armature, f"forearm.{side}"))
+
         cuff = _beveled_box(
             cuff_name,
             (0.84 * sign, 0.045, 1.015),
@@ -228,6 +251,29 @@ def _limb_refinement(
         )
         additions.append(_rigid(knuckle, armature, f"hand.{side}"))
 
+        # Carry armor mass continuously from the fauld through the knee instead
+        # of leaving a narrow leather cylinder between torso and greave.
+        cuisse = _beveled_box(
+            cuisse_name,
+            (0.205 * sign, 0.085, 0.675),
+            (THIGH_ARMOR_WIDTH, 0.255, 0.30),
+            materials["DarkSteel"],
+            bevel=0.030,
+            rotation=(0.0, radians(3 * sign), 0.0),
+        )
+        additions.append(_rigid(cuisse, armature, f"thigh.{side}"))
+
+        knee = _wedge(
+            knee_name,
+            center=(0.21 * sign, 0.165, 0.505),
+            width=0.31,
+            depth=0.18,
+            height=0.15,
+            material=materials["SteelEdge"],
+            forward_tip=0.055,
+        )
+        additions.append(_rigid(knee, armature, f"shin.{side}"))
+
         greave = _beveled_box(
             greave_name,
             (0.21 * sign, 0.185, 0.315),
@@ -245,6 +291,34 @@ def _limb_refinement(
             bevel=0.030,
         )
         additions.append(_rigid(boot, armature, f"foot.{side}"))
+    return additions
+
+
+def _sorcery_refinement(
+    armature: bpy.types.Object,
+    model: ModelParts,
+) -> list[bpy.types.Object]:
+    materials = model.materials
+    additions: list[bpy.types.Object] = []
+
+    # Keep the runtime socket free for particles/lights, but give the authored
+    # silhouette enough irregular cyan volume to read clearly in neutral/cast poses.
+    shard_specs = (
+        ("SorceryHeroShard.1", (-1.08, 0.20, 0.90), 0.15, 0.09, 0.23, 0.045),
+        ("SorceryHeroShard.2", (-0.88, 0.21, 0.91), 0.13, 0.10, 0.20, 0.035),
+        ("SorceryHeroShard.3", (-0.98, 0.24, 0.73), 0.12, 0.09, 0.18, 0.030),
+    )
+    for name, center, width, depth, height, tip in shard_specs:
+        shard = _wedge(
+            name,
+            center=center,
+            width=width + SORCERY_ACCENT_RADIUS * 0.10,
+            depth=depth,
+            height=height,
+            material=materials["SorceryAccent"],
+            forward_tip=tip,
+        )
+        additions.append(_bone_parent_keep_world(shard, armature, "socket_sorcery"))
     return additions
 
 
@@ -311,5 +385,6 @@ def refine_concept_silhouette(
     additions.extend(_torso_refinement(armature, model))
     additions.extend(_shoulder_refinement(armature, model))
     additions.extend(_limb_refinement(armature, model))
+    additions.extend(_sorcery_refinement(armature, model))
     additions.extend(_sword_refinement(armature, model))
     return ModelParts(objects=(*model.objects, *additions), materials=model.materials)
