@@ -14,6 +14,7 @@ const REQUIRED_CLIPS = Object.freeze([
 
 const REQUIRED_SOCKETS = Object.freeze(['socket_sword', 'socket_sorcery']);
 const REQUIRED_MUTABLE_MATERIALS = Object.freeze(['VisorGlow', 'SorceryAccent']);
+const SHA40 = /^[0-9a-f]{40}$/;
 
 function requireObject(value, label) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(`${label} must be an object`);
@@ -56,5 +57,28 @@ export function loadSpellbladeContract(raw) {
     mutableMaterials: requireStringList(value.mutableMaterials, REQUIRED_MUTABLE_MATERIALS, 'mutableMaterials'),
     thirdPerson: freezeBudget(value.thirdPerson, 'thirdPerson'),
     firstPerson: freezeBudget(value.firstPerson, 'firstPerson'),
+  });
+}
+
+export function runtimeSpellbladeManifest(contract, raw) {
+  const value = requireObject(raw, 'Spellblade runtime manifest');
+  const sourceRevision = String(value.sourceRevision || '').toLowerCase();
+  if (!SHA40.test(sourceRevision)) {
+    throw new Error('Spellblade source revision must be a 40-character lowercase hexadecimal SHA');
+  }
+
+  const base = '/assets/characters/spellblade';
+  return Object.freeze({
+    version: 1,
+    sourceRevision,
+    thirdPerson: Object.freeze({
+      url: `${base}/spellblade.glb?v=${sourceRevision}`,
+      clips: contract.clips,
+    }),
+    firstPerson: Object.freeze({
+      url: `${base}/spellblade-fp.glb?v=${sourceRevision}`,
+    }),
+    sockets: contract.sockets,
+    mutableMaterials: contract.mutableMaterials,
   });
 }
