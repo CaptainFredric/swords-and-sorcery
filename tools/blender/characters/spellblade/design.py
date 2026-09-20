@@ -22,6 +22,8 @@ SHIN_WIDTH = 0.27
 SWORD_BLADE_WIDTH = 0.34
 CREST_HEIGHT = 0.22
 PAULDRON_WIDTH = 0.50
+BREASTPLATE_UPPER_WIDTH = 0.66
+PAULDRON_CENTER_X = 0.67
 
 # Explicit edit-bone endpoints in meters. Left/right are character-local X.
 BONES = {
