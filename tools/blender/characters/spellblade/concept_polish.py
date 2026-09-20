@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import bpy
+from mathutils import Vector
 
 from .model import ModelParts
 
@@ -19,24 +20,19 @@ def _named(model: ModelParts, name: str) -> bpy.types.Object | None:
     return None
 
 
-def _bake_location(obj: bpy.types.Object) -> None:
-    if obj.type != "MESH":
-        return
-    lx, ly, lz = obj.location
-    if abs(lx) + abs(ly) + abs(lz) <= 1e-8:
-        return
-    for vertex in obj.data.vertices:
-        vertex.co.x += lx
-        vertex.co.y += ly
-        vertex.co.z += lz
-    obj.location = (0.0, 0.0, 0.0)
+def _world_point(obj: bpy.types.Object, local: Vector) -> Vector:
+    return obj.matrix_world @ local
+
+
+def _local_point(obj: bpy.types.Object, world: Vector) -> Vector:
+    return obj.matrix_world.inverted_safe() @ world
 
 
 def _bounds_center(obj: bpy.types.Object) -> tuple[float, float, float]:
-    _bake_location(obj)
-    xs = [vertex.co.x for vertex in obj.data.vertices]
-    ys = [vertex.co.y for vertex in obj.data.vertices]
-    zs = [vertex.co.z for vertex in obj.data.vertices]
+    points = [_world_point(obj, vertex.co) for vertex in obj.data.vertices]
+    xs = [point.x for point in points]
+    ys = [point.y for point in points]
+    zs = [point.z for point in points]
     return (
         (min(xs) + max(xs)) * 0.5,
         (min(ys) + max(ys)) * 0.5,
@@ -49,23 +45,24 @@ def _scale_about(
     pivot: tuple[float, float, float],
     scale: tuple[float, float, float],
 ) -> None:
-    _bake_location(obj)
     px, py, pz = pivot
     sx, sy, sz = scale
     for vertex in obj.data.vertices:
-        vertex.co.x = px + (vertex.co.x - px) * sx
-        vertex.co.y = py + (vertex.co.y - py) * sy
-        vertex.co.z = pz + (vertex.co.z - pz) * sz
+        world = _world_point(obj, vertex.co)
+        reshaped = Vector((
+            px + (world.x - px) * sx,
+            py + (world.y - py) * sy,
+            pz + (world.z - pz) * sz,
+        ))
+        vertex.co = _local_point(obj, reshaped)
     obj.data.update()
 
 
 def _translate(obj: bpy.types.Object, delta: tuple[float, float, float]) -> None:
-    _bake_location(obj)
-    dx, dy, dz = delta
+    offset = Vector(delta)
     for vertex in obj.data.vertices:
-        vertex.co.x += dx
-        vertex.co.y += dy
-        vertex.co.z += dz
+        world = _world_point(obj, vertex.co)
+        vertex.co = _local_point(obj, world + offset)
     obj.data.update()
 
 
@@ -98,14 +95,15 @@ def _recenter_side_piece(
     center_compression: float,
     width_scale: float,
 ) -> None:
-    _bake_location(obj)
     sign = -1.0 if side == "L" else 1.0
     center_x, _, _ = _bounds_center(obj)
     old_abs = abs(center_x)
     target_abs = anchor_new + (old_abs - anchor_old) * center_compression
     target_x = sign * target_abs
     for vertex in obj.data.vertices:
-        vertex.co.x = target_x + (vertex.co.x - center_x) * width_scale
+        world = _world_point(obj, vertex.co)
+        world.x = target_x + (world.x - center_x) * width_scale
+        vertex.co = _local_point(obj, world)
     obj.data.update()
 
 
@@ -246,7 +244,8 @@ def _legs_and_cloth(model: ModelParts) -> None:
 
 def _weapon_and_magic(model: ModelParts) -> None:
     # Recenter the weapon with the narrower arm rest pose while preserving its
-    # broad concept-sized blade and guard.
+    # broad concept-sized blade and guard. These pieces are bone-parented, so all
+    # mesh edits stay in world space and are converted back through matrix_world.
     for name in ("HeroSword", "HeroSword.Guard", "HeroSword.Grip", "HeroSword.Pommel"):
         obj = _named(model, name)
         if obj is not None:
