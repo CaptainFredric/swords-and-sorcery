@@ -7,6 +7,7 @@ on:
     paths:
       - '.github/workflows/public-render-check.yml'
       - 'scripts/capture-public-arena.mjs'
+      - 'client/assets/characters/spellblade/**'
   workflow_dispatch:
 
 permissions:
@@ -27,14 +28,32 @@ jobs:
         with:
           node-version: 22
 
+      - name: Read expected promoted Spellblade revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_SPELLBLADE_REVISION="$(node --input-type=module - <<'NODE'
+          import fs from 'node:fs';
+          const manifest = JSON.parse(fs.readFileSync('client/assets/characters/spellblade/manifest.json', 'utf8'));
+          const revision = String(manifest.sourceRevision || '').toLowerCase();
+          if (!/^[0-9a-f]{40}$/.test(revision)) {
+            throw new Error(`Checked-in Spellblade manifest is not promoted: ${JSON.stringify(manifest)}`);
+          }
+          process.stdout.write(revision);
+          NODE
+          )"
+          echo "EXPECTED_SPELLBLADE_REVISION=$EXPECTED_SPELLBLADE_REVISION" >> "$GITHUB_ENV"
+          echo "Expected promoted Spellblade revision: $EXPECTED_SPELLBLADE_REVISION"
+
       - name: Wake service and wait for current revision
         shell: bash
         run: |
           set -euo pipefail
-          rm -f health.json game.html live-main.mjs live-game-socket.mjs live-weapon-pose.mjs live-castleward.mjs live-castleward-terrain.mjs live-playability.css
+          rm -f health.json game.html live-main.mjs live-game-socket.mjs live-weapon-pose.mjs live-castleward.mjs live-castleward-terrain.mjs live-playability.css live-spellblade-manifest.json live-spellblade.glb live-spellblade-fp.glb
           for attempt in $(seq 1 24); do
             healthy=false
             current=false
+            manifest_current=false
             if curl --fail --silent --show-error --max-time 20 "$PUBLIC_URL/health" -o health.json; then
               healthy=true
               curl --fail --silent --show-error --max-time 20 "$PUBLIC_URL/" -o game.html || true
@@ -44,6 +63,17 @@ jobs:
               curl --fail --silent --show-error --max-time 20 "$PUBLIC_URL/shared/worlds/castleward.mjs" -o live-castleward.mjs || true
               curl --fail --silent --show-error --max-time 20 "$PUBLIC_URL/client/worlds/castlewardTerrain.mjs" -o live-castleward-terrain.mjs || true
               curl --fail --silent --show-error --max-time 20 "$PUBLIC_URL/client/playability.css" -o live-playability.css || true
+              curl --fail --silent --show-error --max-time 20 "$PUBLIC_URL/client/assets/characters/spellblade/manifest.json" -o live-spellblade-manifest.json || true
+              if node --input-type=module - <<'NODE'
+              import fs from 'node:fs';
+              const live = JSON.parse(fs.readFileSync('live-spellblade-manifest.json', 'utf8'));
+              const revision = String(live.sourceRevision || '').toLowerCase();
+              if (revision !== process.env.EXPECTED_SPELLBLADE_REVISION) process.exit(1);
+              if (!/^[0-9a-f]{40}$/.test(revision)) process.exit(1);
+              NODE
+              then
+                manifest_current=true
+              fi
               if grep -qi 'BOT DUEL' game.html \
                 && grep -qi 'PRACTICE YARD' game.html \
                 && grep -qi 'CASTLEWARD' game.html \
@@ -60,17 +90,18 @@ jobs:
                 && grep -q 'buildCastlewardTerrainSkirts' live-castleward-terrain.mjs \
                 && grep -q 'terrain-skirt:' live-castleward-terrain.mjs \
                 && grep -Fq '.practice-tools .practice-tools-locked-hint' live-playability.css \
-                && grep -q 'hud.pointer-locked .practice-tools' live-playability.css; then
+                && grep -q 'hud.pointer-locked .practice-tools' live-playability.css \
+                && [ "$manifest_current" = true ]; then
                 current=true
               fi
             fi
             if [ "$healthy" = true ] && [ "$current" = true ]; then
-              echo "Render is healthy and serving the current grounded Castleward/front-door/Practice/Bot-Duel-readiness revision"
+              echo "Render is healthy and serving the current gameplay plus promoted Spellblade revision"
               break
             fi
             if [ "$attempt" -eq 24 ]; then
               echo "Render did not serve the current main revision in time." >&2
-              echo "health=$healthy current=$current" >&2
+              echo "health=$healthy current=$current manifest_current=$manifest_current" >&2
               echo "This distinguishes a stale/failed deploy from a browser test failure." >&2
               exit 1
             fi
@@ -83,8 +114,26 @@ jobs:
           if (health.ok !== true || !Number.isInteger(health.rooms)) {
             throw new Error(`Unexpected health response: ${JSON.stringify(health)}`);
           }
-          console.log('Health OK:', health);
+
+          const manifest = JSON.parse(fs.readFileSync('live-spellblade-manifest.json', 'utf8'));
+          const revision = String(manifest.sourceRevision || '').toLowerCase();
+          if (revision !== process.env.EXPECTED_SPELLBLADE_REVISION || !/^[0-9a-f]{40}$/.test(revision)) {
+            throw new Error(`Live Spellblade revision mismatch: ${JSON.stringify(manifest)}`);
+          }
+          const expectedBase = '/client/assets/characters/spellblade';
+          if (manifest.thirdPerson?.url !== `${expectedBase}/spellblade.glb?v=${revision}`) {
+            throw new Error(`Unexpected third-person Spellblade URL: ${manifest.thirdPerson?.url}`);
+          }
+          if (manifest.firstPerson?.url !== `${expectedBase}/spellblade-fp.glb?v=${revision}`) {
+            throw new Error(`Unexpected first-person Spellblade URL: ${manifest.firstPerson?.url}`);
+          }
+          console.log('Health + live Spellblade manifest OK:', { health, revision });
           NODE
+
+          curl --fail --silent --show-error --max-time 30 "$PUBLIC_URL/client/assets/characters/spellblade/spellblade.glb?v=$EXPECTED_SPELLBLADE_REVISION" -o live-spellblade.glb
+          curl --fail --silent --show-error --max-time 30 "$PUBLIC_URL/client/assets/characters/spellblade/spellblade-fp.glb?v=$EXPECTED_SPELLBLADE_REVISION" -o live-spellblade-fp.glb
+          test "$(stat -c%s live-spellblade.glb)" -gt 10000
+          test "$(stat -c%s live-spellblade-fp.glb)" -gt 10000
 
           curl --fail --silent --show-error --max-time 20 "$PUBLIC_URL/client/main.mjs" -o /dev/null
           curl --fail --silent --show-error --max-time 20 "$PUBLIC_URL/client/styles.css" -o /dev/null
@@ -138,6 +187,7 @@ jobs:
       - name: Drive current public modes and capture browser evidence
         env:
           CHROME_BIN: ${{ steps.chrome.outputs.path }}
+          REQUIRE_SPELLBLADE_GLBS: '1'
         run: node scripts/capture-public-arena.mjs
 
       - name: Upload browser evidence
@@ -160,4 +210,5 @@ jobs:
             live-castleward.mjs
             live-castleward-terrain.mjs
             live-playability.css
+            live-spellblade-manifest.json
           retention-days: 7
