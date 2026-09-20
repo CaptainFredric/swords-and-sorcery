@@ -17,7 +17,7 @@ from tools.blender.common.export import export_glb
 from tools.blender.common.render import configure_render, look_at, render_still
 from tools.blender.characters.spellblade.animations import build_actions
 from tools.blender.characters.spellblade.concept_model import build_concept_model
-from tools.blender.characters.spellblade.depth_polish import refine_depth_and_back
+from tools.blender.characters.spellblade.concept_polish import refine_concept_proportions
 from tools.blender.characters.spellblade.design import BODY_HEIGHT
 from tools.blender.characters.spellblade.first_person import build_first_person_asset
 from tools.blender.characters.spellblade.model import build_materials
@@ -148,10 +148,10 @@ def _add_review_stage(scene: bpy.types.Scene) -> dict[str, bpy.types.Object]:
 
     cameras: dict[str, bpy.types.Object] = {}
     camera_specs = {
-        "front": (0.0, 5.0, 1.25),
-        "back": (0.0, -5.0, 1.25),
-        "side": (5.0, 0.0, 1.25),
-        "quarter": (3.65, 3.65, 1.35),
+        "front": (0.0, 5.8, 1.25),
+        "back": (0.0, -5.8, 1.25),
+        "side": (5.8, 0.0, 1.25),
+        "quarter": (4.25, 4.25, 1.35),
     }
     for label, location in camera_specs.items():
         bpy.ops.object.camera_add(location=location)
@@ -222,7 +222,8 @@ def build_character_assets(args: argparse.Namespace) -> None:
     bpy.data.objects.remove(validation_proxy, do_unlink=True)
 
     materials = build_materials()
-    model = refine_depth_and_back(armature, build_concept_model(armature, materials))
+    model = build_concept_model(armature, materials)
+    model = refine_concept_proportions(model)
     model_report = validate_production_model(armature, model, contract)
     actions = build_actions(armature, contract)
     third_person_animations = list(actions.keys())
