@@ -153,7 +153,7 @@ def _helmet(model: ModelParts) -> None:
         model,
         "Crest",
         pivot=(0.0, 0.0, 2.035),
-        scale=(0.88, 0.90, 1.18),
+        scale=(0.88, 0.90, 1.04),
     )
     _reshape_named(model, "CrimsonScarf", scale=(0.92, 1.02, 0.88))
 
