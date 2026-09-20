@@ -6,6 +6,7 @@ on:
       - '.github/workflows/spellblade-assets.yml'
       - 'tools/blender/**'
       - 'scripts/validate-spellblade-glb.py'
+      - 'scripts/validate-spellblade-fp-render.py'
   workflow_dispatch:
     inputs:
       mode:
@@ -93,6 +94,7 @@ jobs:
             python3 scripts/validate-spellblade-glb.py artifacts/spellblade-assets/spellblade.glb
             test -s artifacts/spellblade-assets/spellblade-fp.glb
             python3 scripts/validate-spellblade-glb.py --first-person artifacts/spellblade-assets/spellblade-fp.glb
+            python3 scripts/validate-spellblade-fp-render.py artifacts/spellblade-assets/spellblade-fp-slash.png
           fi
 
       - name: Validate worker report
