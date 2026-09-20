@@ -225,9 +225,9 @@ def build_character_assets(args: argparse.Namespace) -> None:
 
     materials = build_materials()
     model = build_concept_model(armature, materials)
-    model = refine_concept_proportions(model)
     model = rebuild_primary_hero_shells(model, armature, materials)
     model = rebuild_hero_limbs(model, armature, materials)
+    model = refine_concept_proportions(model)
     model_report = validate_production_model(armature, model, contract)
     actions = build_actions(armature, contract)
     third_person_animations = list(actions.keys())
