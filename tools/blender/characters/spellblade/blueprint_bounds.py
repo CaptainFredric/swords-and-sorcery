@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import bpy
 
-from .authoritative_model_v2 import build_authoritative_spellblade_v2
+from .authoritative_model_v3 import build_authoritative_spellblade_v3
 from .model import ModelParts
 
 
@@ -17,14 +17,14 @@ def _find_armature(model: ModelParts) -> bpy.types.Object:
 
 
 def enforce_blueprint_export_bounds(model: ModelParts) -> ModelParts:
-    """Replace legacy visual geometry with the measured authoritative concept build."""
+    """Replace legacy visual geometry with the current authoritative concept build."""
     armature = _find_armature(model)
     materials = model.materials
 
     for obj in tuple(model.objects):
         bpy.data.objects.remove(obj, do_unlink=True)
 
-    rebuilt = build_authoritative_spellblade_v2(armature, materials)
+    rebuilt = build_authoritative_spellblade_v3(armature, materials)
 
     for obj in rebuilt.objects:
         if obj.name != "Crest" or obj.type != "MESH":
