@@ -1,0 +1,91 @@
+name: Spellblade exact review
+
+on:
+  push:
+    branches:
+      - test/spellblade-review-663f1b
+    paths:
+      - '.github/workflows/spellblade-exact-review.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  exact-review:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      SOURCE_REVISION: '663f1b57f9979b41badfe5f91713f78e1076561d'
+      BLENDER_VERSION: '4.5.14'
+      BLENDER_ARCHIVE: 'blender-4.5.14-linux-x64.tar.xz'
+      BLENDER_URL: 'https://download.blender.org/release/Blender4.5/blender-4.5.14-linux-x64.tar.xz'
+      BLENDER_SHA_URL: 'https://download.blender.org/release/Blender4.5/blender-4.5.14.sha256'
+    steps:
+      - name: Check out exact reviewed source
+        uses: actions/checkout@v4
+        with:
+          ref: 663f1b57f9979b41badfe5f91713f78e1076561d
+          fetch-depth: 1
+
+      - name: Install headless render runtime
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes libegl1
+
+      - name: Cache Blender archive
+        uses: actions/cache@v4
+        with:
+          path: .cache/blender-4.5.14-linux-x64.tar.xz
+          key: blender-4.5.14-linux-x64
+
+      - name: Download verified Blender LTS
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .cache .blender
+          if [[ ! -s ".cache/${BLENDER_ARCHIVE}" ]]; then
+            curl --fail --location --retry 4 --retry-delay 3 "${BLENDER_URL}" --output ".cache/${BLENDER_ARCHIVE}"
+          fi
+          curl --fail --location --retry 4 --retry-delay 3 "${BLENDER_SHA_URL}" --output .cache/blender.sha256
+          grep " ${BLENDER_ARCHIVE}$" .cache/blender.sha256 | (cd .cache && sha256sum -c -)
+          tar -xJf ".cache/${BLENDER_ARCHIVE}" --strip-components=1 -C .blender
+          ./.blender/blender --version
+
+      - name: Build exact review evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./.blender/blender \
+            --background \
+            --factory-startup \
+            --python-exit-code 1 \
+            --python tools/blender/characters/spellblade/build.py \
+            -- \
+            --mode review \
+            --out artifacts/spellblade-review \
+            --source-revision "${SOURCE_REVISION}"
+
+      - name: Validate exact review outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/validate-spellblade-glb.py artifacts/spellblade-review/spellblade.glb
+          python3 scripts/validate-spellblade-glb.py --first-person artifacts/spellblade-review/spellblade-fp.glb
+          python3 scripts/validate-spellblade-fp-render.py artifacts/spellblade-review/spellblade-fp-slash.png
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(Path('artifacts/spellblade-review/spellblade-build-report.json').read_text())
+          assert report['mode'] == 'review', report
+          assert report['sourceRevision'] == '663f1b57f9979b41badfe5f91713f78e1076561d', report
+          assert report['workerReady'] is True, report
+          print('SPELLBLADE_EXACT_REVIEW_OK', report['sourceRevision'])
+          PY
+
+      - name: Upload exact review evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: spellblade-exact-review-663f1b
+          path: artifacts/spellblade-review/
+          if-no-files-found: error
+          retention-days: 7
