@@ -16,6 +16,13 @@ VISOR_WIDTH = 0.34
 BOOT_WIDTH = 0.36
 SHIN_WIDTH = 0.27
 
+# Concept-sheet silhouette anchors. These are intentionally explicit rather than
+# inferred from the first production blockout so later model edits cannot quietly
+# collapse the broad sword / tall crest / layered shoulder read.
+SWORD_BLADE_WIDTH = 0.34
+CREST_HEIGHT = 0.22
+PAULDRON_WIDTH = 0.50
+
 # Explicit edit-bone endpoints in meters. Left/right are character-local X.
 BONES = {
     "root": ((0.0, 0.0, 0.0), (0.0, 0.0, 0.14), None, False),
