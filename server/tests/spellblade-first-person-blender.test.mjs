@@ -42,12 +42,15 @@ test('combined Blender build exports and reviews the first-person asset', async 
   }
 });
 
-test('asset worker validates rendered first-person sword visibility', async () => {
+test('asset worker validates a substantial rendered first-person slash blade', async () => {
   const validator = await read('scripts/validate-spellblade-fp-render.py');
   const workflow = await read('.github/workflows/spellblade-assets.yml');
 
   assert.match(validator, /spellblade-fp-slash\.png/);
   assert.match(validator, /sword/i);
   assert.match(validator, /visibility/i);
+  const threshold = validator.match(/MIN_SWORD_VISIBILITY_PIXELS\s*=\s*(\d+)/);
+  assert.ok(threshold, 'render validator must declare a sword visibility threshold');
+  assert.ok(Number(threshold[1]) >= 1200, 'slash blade must occupy a substantial readable region, not a tiny edge fragment');
   assert.match(workflow, /validate-spellblade-fp-render\.py/);
 });
