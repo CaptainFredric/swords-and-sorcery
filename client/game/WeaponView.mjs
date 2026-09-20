@@ -3,7 +3,7 @@ import { facetedMesh } from './facetedGeometry.mjs';
 import { taperedPrismData, wedgeData } from './facetedGeometryData.mjs';
 import { SPELLBLADE_PALETTE } from './spellbladeDesign.mjs';
 import { createSpellbladeSword } from './SpellbladeSword.mjs';
-import { createSpellbladeAsset } from './SpellbladeAssets.mjs';
+import { createSpellbladeAsset, reportSpellbladeAssetStatus } from './SpellbladeAssets.mjs';
 import { FIRST_PERSON_WEAPON_SCALE, resolveWeaponPose } from './weaponPose.mjs';
 
 function damp(value, target, amount) {
@@ -161,6 +161,7 @@ export class WeaponView {
     this.assetGeneration = 0;
     this.disposed = false;
     this.visualKind = 'fallback';
+    reportSpellbladeAssetStatus('firstPerson');
 
     const materials = {
       sleeve: new THREE.MeshStandardMaterial({ color: SPELLBLADE_PALETTE.darkArmor, roughness: 0.78, metalness: 0.18 }),
@@ -242,6 +243,7 @@ export class WeaponView {
       this.visualKind = 'production';
       this.productionOffset.add(instance.root);
       instance.animator.apply({ clip: 'Idle', loop: true, time: performance.now() / 1000 });
+      reportSpellbladeAssetStatus('firstPerson', instance);
 
       if (instance.sockets.sorcery) {
         instance.sockets.sorcery.add(this.magicLight);
@@ -251,7 +253,10 @@ export class WeaponView {
       this.group.remove(this.fallbackVisual);
       disposeObject(this.fallbackVisual);
     }).catch(() => {
-      if (!this.disposed) this.visualKind = 'fallback';
+      if (!this.disposed) {
+        this.visualKind = 'fallback';
+        reportSpellbladeAssetStatus('firstPerson');
+      }
     });
   }
 
