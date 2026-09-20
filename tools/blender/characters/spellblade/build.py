@@ -232,9 +232,11 @@ def build_character_assets(args: argparse.Namespace) -> None:
     model = rebuild_hero_limbs(model, armature, materials)
     model = rebuild_hero_cloth(model, armature, materials)
     model = refine_concept_proportions(model)
-    # Final authority: dominant armor masses are replaced from the locked concept
-    # blueprint after all legacy/refinement stages, so later scaling cannot erase it.
     model = rebuild_locked_blueprint(model, armature, materials)
+    # The limb pass deliberately runs again after the locked torso/helmet pass.
+    # It is the final authority for stance and joint armor, so the concept's
+    # planted legs and hard tapered cages cannot be replaced by older ring shells.
+    model = rebuild_hero_limbs(model, armature, materials)
     model = enforce_blueprint_export_bounds(model)
     model_report = validate_production_model(armature, model, contract)
     actions = build_actions(armature, contract)
