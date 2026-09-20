@@ -62,6 +62,25 @@ test('refined upper body keeps pauldrons distinct from the compact breastplate',
   assert.ok(shoulderCenter >= 0.64, `pauldrons should remain visually separated from chest; got ${shoulderCenter}`);
 });
 
+test('concept refinement restores armored mass and authored hero details', async () => {
+  const refinement = await read('tools/blender/characters/spellblade/concept_refinement.py');
+  const design = await read('tools/blender/characters/spellblade/design.py');
+
+  for (const marker of [
+    'HelmetCheek.L', 'HelmetCheek.R', 'CrimsonScarfFront',
+    'GauntletCuff.L', 'GauntletCuff.R', 'GauntletKnuckle.L', 'GauntletKnuckle.R',
+    'GreaveRidge.L', 'GreaveRidge.R', 'BootToeArmor.L', 'BootToeArmor.R',
+    'HeroSwordGuardWing.L', 'HeroSwordGuardWing.R', 'HeroSwordGem',
+  ]) assert.match(refinement, new RegExp(marker.replace('.', '\\.')));
+
+  const bootWidth = Number(design.match(/BOOT_SILHOUETTE_WIDTH\s*=\s*([0-9.]+)/)?.[1] ?? NaN);
+  const guardWidth = Number(design.match(/SWORD_GUARD_WIDTH\s*=\s*([0-9.]+)/)?.[1] ?? NaN);
+  const gauntletWidth = Number(design.match(/GAUNTLET_CUFF_WIDTH\s*=\s*([0-9.]+)/)?.[1] ?? NaN);
+  assert.ok(bootWidth >= 0.40, `boots must carry lower-body mass; got ${bootWidth}`);
+  assert.ok(guardWidth >= 0.62, `hero sword guard must read at gameplay distance; got ${guardWidth}`);
+  assert.ok(gauntletWidth >= 0.24, `gauntlet cuffs must read as armor rather than stick limbs; got ${gauntletWidth}`);
+});
+
 test('Blender production build captures readable combat action poses', async () => {
   const build = await read('tools/blender/characters/spellblade/build.py');
   for (const marker of [
