@@ -20,6 +20,7 @@ from tools.blender.characters.spellblade.concept_model import build_concept_mode
 from tools.blender.characters.spellblade.concept_polish import refine_concept_proportions
 from tools.blender.characters.spellblade.design import BODY_HEIGHT
 from tools.blender.characters.spellblade.first_person import build_first_person_asset
+from tools.blender.characters.spellblade.hero_shells import rebuild_primary_hero_shells
 from tools.blender.characters.spellblade.model import build_materials
 from tools.blender.characters.spellblade.rig import build_armature, rigid_skin, validate_armature_names
 from tools.blender.characters.spellblade.validate import load_contract, validate_production_model, validate_rig_scene
@@ -224,6 +225,7 @@ def build_character_assets(args: argparse.Namespace) -> None:
     materials = build_materials()
     model = build_concept_model(armature, materials)
     model = refine_concept_proportions(model)
+    model = rebuild_primary_hero_shells(model, armature, materials)
     model_report = validate_production_model(armature, model, contract)
     actions = build_actions(armature, contract)
     third_person_animations = list(actions.keys())
