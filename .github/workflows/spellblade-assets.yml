@@ -105,9 +105,9 @@ jobs:
           from pathlib import Path
           report = json.loads(Path('artifacts/spellblade-assets/spellblade-build-report.json').read_text())
           assert report['workerReady'] is True
-          assert report['visualStage'] in {'worker-bootstrap', 'third-person-animated'}
+          assert report['visualStage'] in {'worker-bootstrap', 'third-person-animated-with-first-person'}
           assert len(report['sourceRevision']) == 40
-          if report['visualStage'] == 'third-person-animated':
+          if report['visualStage'] == 'third-person-animated-with-first-person':
               assert report['rig']['runtimeAxes'] == {'up': '+Y', 'forward': '-Z'}
               assert report['rig']['authoringAxes'] == {'up': '+Z', 'forward': '+Y'}
               assert report['model']['heightMeters'] >= 1.85
@@ -115,11 +115,22 @@ jobs:
               assert report['model']['triangles'] <= report['model']['triangleBudget']
               assert report['outputs']['thirdPersonGlb'] == 'spellblade.glb'
               assert report['sizes']['thirdPersonGlbBytes'] <= report['sizes']['thirdPersonTargetBytes']
-              required = {
+              required_tp = {
                   'Idle', 'Run', 'Air', 'Guard', 'Slash_1', 'Slash_2', 'Slash_3',
                   'Cast', 'Dash', 'Stagger', 'Death',
               }
-              assert set(report['animations']) == required
+              assert set(report['animations']) == required_tp
+
+              assert report['outputs']['firstPersonGlb'] == 'spellblade-fp.glb'
+              assert report['sizes']['firstPersonGlbBytes'] <= report['sizes']['firstPersonTargetBytes']
+              assert report['firstPerson']['triangles'] <= report['firstPerson']['triangleBudget']
+              required_fp = {
+                  'Idle', 'Guard', 'Slash_1', 'Slash_2', 'Slash_3', 'Cast', 'Dash', 'Stagger',
+              }
+              assert set(report['firstPerson']['animations']) == required_fp
+              assert set(report['outputs']['firstPersonRenders']) == {
+                  'fp-neutral', 'fp-guard', 'fp-slash', 'fp-cast',
+              }
           print('SPELLBLADE_WORKER_REPORT_OK', report['visualStage'], report['sourceRevision'])
           PY
 
