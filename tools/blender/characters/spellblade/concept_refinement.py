@@ -6,17 +6,21 @@ import bpy
 from mathutils import Vector
 
 from .design import (
+    BOOT_ARMOR_CENTER_X,
     BOOT_SILHOUETTE_WIDTH,
     BREASTPLATE_UPPER_WIDTH,
     CREST_HEIGHT,
     FOREARM_ARMOR_WIDTH,
     GAUNTLET_CUFF_WIDTH,
     PAULDRON_CENTER_X,
+    PAULDRON_DROP_HEIGHT,
     PAULDRON_WIDTH,
     SORCERY_ACCENT_RADIUS,
+    SORCERY_EMISSION_STRENGTH,
     SWORD_BLADE_WIDTH,
     SWORD_GUARD_WIDTH,
     THIGH_ARMOR_WIDTH,
+    UPPER_ARM_ARMOR_WIDTH,
 )
 from .model import (
     ModelParts,
@@ -54,6 +58,14 @@ def _retune_concept_palette(model: ModelParts) -> None:
         bsdf = visor.node_tree.nodes.get("Principled BSDF")
         if bsdf is not None and "Emission Strength" in bsdf.inputs:
             bsdf.inputs["Emission Strength"].default_value = 2.6
+
+    # Keep the hand unmistakably cyan without letting Eevee clip the authored
+    # geometry into a white bloom shape in neutral and cast review frames.
+    sorcery = model.materials["SorceryAccent"]
+    if sorcery.use_nodes and sorcery.node_tree is not None:
+        bsdf = sorcery.node_tree.nodes.get("Principled BSDF")
+        if bsdf is not None and "Emission Strength" in bsdf.inputs:
+            bsdf.inputs["Emission Strength"].default_value = SORCERY_EMISSION_STRENGTH
 
 
 def _helmet_refinement(
@@ -176,7 +188,11 @@ def _shoulder_refinement(
     materials = model.materials
     additions: list[bpy.types.Object] = []
 
-    for side, sign in (("L", -1.0), ("R", 1.0)):
+    sides = (
+        ("L", -1.0, "PauldronDrop.L", "UpperArmPlate.L"),
+        ("R", 1.0, "PauldronDrop.R", "UpperArmPlate.R"),
+    )
+    for side, sign, drop_name, upper_arm_name in sides:
         outer = _beveled_box(
             f"PauldronOuter.{side}",
             (PAULDRON_CENTER_X * sign, 0.005, 1.455),
@@ -196,6 +212,30 @@ def _shoulder_refinement(
             rotation=(0.0, radians(15 * sign), radians(14 * sign)),
         )
         additions.append(_rigid(rim, armature, f"clavicle.{side}"))
+
+        # A lower bell layer turns the broad top plate into a shoulder shell
+        # instead of a horizontal bar and follows the arm through combat poses.
+        drop = _beveled_box(
+            drop_name,
+            (0.69 * sign, 0.035, 1.365),
+            (0.34, 0.30, PAULDRON_DROP_HEIGHT),
+            materials["DarkSteel"],
+            bevel=0.028,
+            rotation=(0.0, radians(24 * sign), radians(12 * sign)),
+        )
+        additions.append(_rigid(drop, armature, f"upper_arm.{side}"))
+
+        # Fill the remaining shoulder-to-elbow gap so the upper limb reads as
+        # articulated plate armor rather than an exposed rig cylinder.
+        upper_arm = _beveled_box(
+            upper_arm_name,
+            (0.59 * sign, 0.055, 1.335),
+            (UPPER_ARM_ARMOR_WIDTH, 0.235, 0.29),
+            materials["SteelEdge"],
+            bevel=0.024,
+            rotation=(0.0, radians(38 * sign), radians(6 * sign)),
+        )
+        additions.append(_rigid(upper_arm, armature, f"upper_arm.{side}"))
     return additions
 
 
@@ -285,7 +325,7 @@ def _limb_refinement(
 
         boot = _beveled_box(
             boot_name,
-            (0.21 * sign, 0.345, 0.125),
+            (BOOT_ARMOR_CENTER_X * sign, 0.345, 0.125),
             (BOOT_SILHOUETTE_WIDTH, 0.24, 0.14),
             materials["DarkSteel"],
             bevel=0.030,
@@ -301,18 +341,18 @@ def _sorcery_refinement(
     materials = model.materials
     additions: list[bpy.types.Object] = []
 
-    # Keep the runtime socket free for particles/lights, but give the authored
-    # silhouette enough irregular cyan volume to read clearly in neutral/cast poses.
+    # Keep the authored magic asymmetrical and separated so the individual cyan
+    # shards read as energy around the hand rather than merging into a white cross.
     shard_specs = (
-        ("SorceryHeroShard.1", (-1.08, 0.20, 0.90), 0.15, 0.09, 0.23, 0.045),
-        ("SorceryHeroShard.2", (-0.88, 0.21, 0.91), 0.13, 0.10, 0.20, 0.035),
-        ("SorceryHeroShard.3", (-0.98, 0.24, 0.73), 0.12, 0.09, 0.18, 0.030),
+        ("SorceryHeroShard.1", (-1.065, 0.205, 0.885), 0.070, 0.060, 0.130, 0.025),
+        ("SorceryHeroShard.2", (-0.885, 0.220, 0.860), 0.060, 0.055, 0.110, 0.020),
+        ("SorceryHeroShard.3", (-0.985, 0.235, 0.745), 0.055, 0.050, 0.105, 0.018),
     )
     for name, center, width, depth, height, tip in shard_specs:
         shard = _wedge(
             name,
             center=center,
-            width=width + SORCERY_ACCENT_RADIUS * 0.10,
+            width=width + SORCERY_ACCENT_RADIUS * 0.05,
             depth=depth,
             height=height,
             material=materials["SorceryAccent"],
