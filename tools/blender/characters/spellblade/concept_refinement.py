@@ -6,11 +6,14 @@ import bpy
 from mathutils import Vector
 
 from .design import (
+    BOOT_SILHOUETTE_WIDTH,
     BREASTPLATE_UPPER_WIDTH,
     CREST_HEIGHT,
+    GAUNTLET_CUFF_WIDTH,
     PAULDRON_CENTER_X,
     PAULDRON_WIDTH,
     SWORD_BLADE_WIDTH,
+    SWORD_GUARD_WIDTH,
 )
 from .model import (
     ModelParts,
@@ -75,6 +78,19 @@ def _helmet_refinement(
     )
     additions.append(_rigid(stem, armature, "head"))
 
+    # Cheek plates frame the visor and turn the face from a stacked block into
+    # the concept's enclosed, angular helmet silhouette.
+    for name, sign in (("HelmetCheek.L", -1.0), ("HelmetCheek.R", 1.0)):
+        cheek = _beveled_box(
+            name,
+            (0.145 * sign, 0.235, 1.755),
+            (0.155, 0.080, 0.185),
+            materials["SteelEdge"],
+            bevel=0.016,
+            rotation=(radians(-5), radians(8 * sign), radians(7 * sign)),
+        )
+        additions.append(_rigid(cheek, armature, "head"))
+
     # Recolor the original low crest as a crimson base, then add the tall fin
     # that gives the front/side silhouette its unmistakable concept-sheet read.
     crest_base = next((obj for obj in model.objects if obj.name == "Crest"), None)
@@ -134,6 +150,19 @@ def _torso_refinement(
             forward_tip=0.015,
         )
         additions.append(_rigid(collar, armature, "chest"))
+
+    # The red scarf is one of the concept's strongest identity breaks between
+    # helmet and steel torso. Give it real front-facing volume instead of relying
+    # on the narrow blockout neck wrap.
+    scarf = _beveled_box(
+        "CrimsonScarfFront",
+        (0.0, 0.175, 1.615),
+        (0.54, 0.090, 0.125),
+        materials["CrimsonCloth"],
+        bevel=0.026,
+        rotation=(radians(4), 0.0, 0.0),
+    )
+    additions.append(_rigid(scarf, armature, "neck"))
     return additions
 
 
@@ -167,6 +196,58 @@ def _shoulder_refinement(
     return additions
 
 
+def _limb_refinement(
+    armature: bpy.types.Object,
+    model: ModelParts,
+) -> list[bpy.types.Object]:
+    materials = model.materials
+    additions: list[bpy.types.Object] = []
+
+    sides = (
+        ("L", -1.0, "GauntletCuff.L", "GauntletKnuckle.L", "GreaveRidge.L", "BootToeArmor.L"),
+        ("R", 1.0, "GauntletCuff.R", "GauntletKnuckle.R", "GreaveRidge.R", "BootToeArmor.R"),
+    )
+    for side, sign, cuff_name, knuckle_name, greave_name, boot_name in sides:
+        cuff = _beveled_box(
+            cuff_name,
+            (0.84 * sign, 0.045, 1.015),
+            (GAUNTLET_CUFF_WIDTH, 0.25, 0.16),
+            materials["DarkSteel"],
+            bevel=0.025,
+            rotation=(radians(-7), radians(5 * sign), radians(9 * sign)),
+        )
+        additions.append(_rigid(cuff, armature, f"forearm.{side}"))
+
+        knuckle = _beveled_box(
+            knuckle_name,
+            (0.945 * sign, 0.165, 0.86),
+            (0.22, 0.090, 0.105),
+            materials["SteelEdge"],
+            bevel=0.018,
+            rotation=(radians(-8), 0.0, radians(8 * sign)),
+        )
+        additions.append(_rigid(knuckle, armature, f"hand.{side}"))
+
+        greave = _beveled_box(
+            greave_name,
+            (0.21 * sign, 0.185, 0.315),
+            (0.16, 0.070, 0.29),
+            materials["SteelEdge"],
+            bevel=0.018,
+        )
+        additions.append(_rigid(greave, armature, f"shin.{side}"))
+
+        boot = _beveled_box(
+            boot_name,
+            (0.21 * sign, 0.345, 0.125),
+            (BOOT_SILHOUETTE_WIDTH, 0.24, 0.14),
+            materials["DarkSteel"],
+            bevel=0.030,
+        )
+        additions.append(_rigid(boot, armature, f"foot.{side}"))
+    return additions
+
+
 def _sword_refinement(
     armature: bpy.types.Object,
     model: ModelParts,
@@ -190,12 +271,32 @@ def _sword_refinement(
     guard = _beveled_box(
         "HeroSwordBroadGuard",
         (0.985, 0.09, 0.90),
-        (0.59, 0.105, 0.095),
+        (SWORD_GUARD_WIDTH, 0.105, 0.095),
         materials["Brass"],
         bevel=0.022,
         rotation=(0.0, radians(-18), radians(-3)),
     )
     additions.append(_bone_parent_keep_world(guard, armature, "socket_sword"))
+
+    for name, x, angle in (
+        ("HeroSwordGuardWing.L", 0.72, -18),
+        ("HeroSwordGuardWing.R", 1.25, 18),
+    ):
+        wing = _beveled_box(
+            name,
+            (x, 0.09, 0.91),
+            (0.18, 0.12, 0.17),
+            materials["Brass"],
+            bevel=0.020,
+            rotation=(0.0, radians(-18), radians(angle)),
+        )
+        additions.append(_bone_parent_keep_world(wing, armature, "socket_sword"))
+
+    bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=1, radius=0.055, location=(0.985, 0.165, 0.905))
+    gem = bpy.context.object
+    gem.name = "HeroSwordGem"
+    gem.data.materials.append(materials["CrimsonCloth"])
+    additions.append(_bone_parent_keep_world(gem, armature, "socket_sword"))
     return additions
 
 
@@ -209,5 +310,6 @@ def refine_concept_silhouette(
     additions.extend(_helmet_refinement(armature, model))
     additions.extend(_torso_refinement(armature, model))
     additions.extend(_shoulder_refinement(armature, model))
+    additions.extend(_limb_refinement(armature, model))
     additions.extend(_sword_refinement(armature, model))
     return ModelParts(objects=(*model.objects, *additions), materials=model.materials)
