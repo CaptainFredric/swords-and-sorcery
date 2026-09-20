@@ -261,7 +261,7 @@ def _build_actions(armature: bpy.types.Object, contract: dict) -> dict[str, bpy.
         "Slash_1": (
             (1, {"upper_arm.R": (-48, -12, 28), "forearm.R": (-36, 8, -24), "hand.R": (-10, -12, 18),
                  "upper_arm.L": (-5, 0, 6), "forearm.L": (-4, 0, -3)}),
-            (slash_contact[0], {"upper_arm.R": (22, 8, -20), "forearm.R": (14, -5, 12), "hand.R": (7, 9, -11),
+            (slash_contact[0], {"upper_arm.R": (-8, 8, -12), "forearm.R": (-6, -4, 8), "hand.R": (4, 8, -8),
                                 "upper_arm.L": (-8, 0, -6), "forearm.L": (-2, 0, 4)}),
             (slash_end[0], neutral),
         ),
