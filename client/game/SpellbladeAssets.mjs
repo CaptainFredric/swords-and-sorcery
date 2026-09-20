@@ -12,6 +12,14 @@ const manifestPromises = new Map();
 
 function requireManifest(raw) {
   if (!raw || typeof raw !== 'object') throw new Error('Spellblade manifest must be an object');
+  if (raw.enabled === false) {
+    return Object.freeze({
+      version: raw.version ?? 1,
+      enabled: false,
+      sourceRevision: null,
+    });
+  }
+
   const sourceRevision = String(raw.sourceRevision || '').toLowerCase();
   if (!SHA40.test(sourceRevision)) throw new Error('Spellblade manifest sourceRevision must be a 40-hex SHA');
 
@@ -23,6 +31,7 @@ function requireManifest(raw) {
 
   return Object.freeze({
     ...raw,
+    enabled: true,
     sourceRevision,
     mutableMaterials: Object.freeze([...(raw.mutableMaterials ?? MUTABLE_MATERIAL_NAMES)]),
     firstPersonMutableMaterials: Object.freeze([...(raw.firstPersonMutableMaterials ?? ['SorceryAccent'])]),
@@ -68,6 +77,8 @@ function cloneMutableMaterials(root, names) {
 
 export async function createSpellbladeAsset({ kind = 'thirdPerson', manifestUrl = DEFAULT_MANIFEST_URL } = {}) {
   const manifest = await loadManifest(manifestUrl);
+  if (manifest.enabled === false) return null;
+
   const entry = kind === 'firstPerson' ? manifest.firstPerson : manifest.thirdPerson;
   if (!entry) throw new Error(`Spellblade manifest has no ${kind} asset`);
 
@@ -104,6 +115,7 @@ export async function createSpellbladeAsset({ kind = 'thirdPerson', manifestUrl 
 
 export async function preloadSpellbladeAssets(manifestUrl = DEFAULT_MANIFEST_URL) {
   const manifest = await loadManifest(manifestUrl);
+  if (manifest.enabled === false) return null;
   await Promise.all([loadGltf(manifest.thirdPerson.url), loadGltf(manifest.firstPerson.url)]);
   return manifest.sourceRevision;
 }
