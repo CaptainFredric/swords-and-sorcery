@@ -85,12 +85,16 @@ test('Bot Duel lobby captures pointer lock before signaling authoritative arena 
   assert.match(input, /requestPointerLock\(\)[\s\S]*requestPointerLock/);
 });
 
-test('remote and first-person Spellblade use the same hero sword builder', async () => {
-  const model = await read('client/game/SpellbladeModel.mjs');
+test('procedural Spellblade is explicitly migration fallback while preserving the shared hero sword', async () => {
+  const fallback = await read('client/game/SpellbladeFallback.mjs').catch(() => '');
+  const compatibility = await read('client/game/SpellbladeModel.mjs');
   const weapon = await read('client/game/WeaponView.mjs');
   const sword = await read('client/game/SpellbladeSword.mjs').catch(() => '');
 
-  assert.match(model, /createSpellbladeSword/);
+  assert.match(fallback, /createSpellbladeSword/);
+  assert.match(fallback, /export function createSpellbladeRig/);
+  assert.match(compatibility, /SpellbladeFallback\.mjs/);
+  assert.doesNotMatch(compatibility, /taperedPrismData|wedgeData|createSpellbladeSword/);
   assert.match(weapon, /createSpellbladeSword/);
   assert.match(sword, /bladeData/);
   assert.match(sword, /gem/);
