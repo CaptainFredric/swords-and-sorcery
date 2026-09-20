@@ -12,7 +12,7 @@ from pathlib import Path
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 DEFAULT_SLASH = Path("artifacts/spellblade-assets/spellblade-fp-slash.png")
-MIN_SWORD_VISIBILITY_PIXELS = 100
+MIN_SWORD_VISIBILITY_PIXELS = 1200
 
 
 def _paeth(a: int, b: int, c: int) -> int:
