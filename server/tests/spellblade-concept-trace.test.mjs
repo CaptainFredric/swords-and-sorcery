@@ -18,9 +18,9 @@ test('Spellblade reconstruction is driven by calibrated concept pixels instead o
   assert.match(trace, /FRONT_VIEW_CROP_PX\s*=\s*\(10,\s*20,\s*540,\s*720\)/);
   assert.match(trace, /SIDE_VIEW_CROP_PX\s*=\s*\(560,\s*10,\s*835,\s*370\)/);
   assert.match(trace, /BACK_VIEW_CROP_PX\s*=\s*\(560,\s*365,\s*835,\s*715\)/);
-  assert.match(trace, /FRONT_TRACE_PX\s*=/);
-  assert.match(trace, /SIDE_TRACE_PX\s*=/);
-  assert.match(trace, /BACK_TRACE_PX\s*=/);
+  assert.match(trace, /FRONT_TRACE_PX(?:\s*:\s*[^=]+)?\s*=/);
+  assert.match(trace, /SIDE_TRACE_PX(?:\s*:\s*[^=]+)?\s*=/);
+  assert.match(trace, /BACK_TRACE_PX(?:\s*:\s*[^=]+)?\s*=/);
   assert.match(trace, /def _front_px_to_world\(/);
   assert.match(trace, /def _side_px_to_world\(/);
 
