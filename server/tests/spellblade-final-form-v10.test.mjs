@@ -13,11 +13,12 @@ test('final Spellblade form pass owns the remaining concept-critical silhouette'
   assert.match(pass, /PauldronShell\./);
   assert.match(pass, /SwordGuardOuter/);
   assert.match(pass, /def _rebuild_final_helmet/);
+  assert.match(pass, /def _compact_head_group/);
   assert.match(pass, /def _rebuild_final_shoulders/);
   assert.match(pass, /def _restore_armored_anatomy/);
+  assert.match(pass, /def _remove_hip_blocks/);
   assert.match(pass, /def _rebuild_rear_cloth/);
   assert.match(pass, /def _restore_ground_contact/);
-  assert.match(pass, /Fauld\./);
   assert.match(pass, /def apply_authoritative_final_form/);
   assert.match(bounds, /apply_authoritative_final_form/);
 });
