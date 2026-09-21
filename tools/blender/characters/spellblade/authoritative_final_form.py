@@ -3,12 +3,11 @@ from __future__ import annotations
 import bpy
 
 from .authoritative_accuracy_pass import _scale_about_center
-from .authoritative_model import _add_rigid, _diamond, _loft, _prism_xz
+from .authoritative_model import _add_rigid, _diamond, _folded_panel, _loft, _prism_xz
 from .model import ModelParts
 
 
 def _remove_superseded_overlays(model: ModelParts) -> ModelParts:
-    """Delete geometry from earlier passes that is intentionally superseded."""
     exact = {
         "BreastplateFace",
         "BreastplateRidge",
@@ -30,7 +29,6 @@ def _rebuild_final_helmet(
     armature: bpy.types.Object,
     materials: dict[str, bpy.types.Material],
 ) -> ModelParts:
-    """Replace the rounded side shell with a compact faceted bucket volume."""
     kept: list[bpy.types.Object] = []
     for obj in model.objects:
         if obj.name in {"HelmetShell", "HelmetJaw", "HelmetRearPlate"}:
@@ -104,9 +102,6 @@ def _rebuild_final_shoulders(
 
     parts: list[bpy.types.Object] = []
     for side, sign in (("L", -1.0), ("R", 1.0)):
-        # Front shield plate follows the concept: high inner corner, broad outer
-        # plane, tapered lower point.  Real Y depth keeps the same plate readable
-        # from front, quarter and side.
         shell = _prism_xz(
             f"Pauldron.{side}",
             (
@@ -188,7 +183,6 @@ def _rebuild_final_shoulders(
 
 
 def _restore_armored_anatomy(model: ModelParts) -> None:
-    """Restore the concept's substantial arms, legs and boots in final space."""
     for obj in model.objects:
         name = obj.name
         if name == "Breastplate":
@@ -212,27 +206,40 @@ def _restore_armored_anatomy(model: ModelParts) -> None:
         elif name.startswith("Boot"):
             _scale_about_center(obj, 1.12, 1.07, 1.08)
         elif name.startswith("Fauld."):
-            # Intermediate faulds became large hip boxes; the concept uses much
-            # slimmer hanging armor/leather around the tabard.
             _scale_about_center(obj, 0.78, 0.92, 0.86)
         elif name.startswith("FauldTrim."):
             _scale_about_center(obj, 0.82, 0.94, 0.90)
 
 
-def _shape_rear_cloth_side(model: ModelParts) -> None:
+def _rebuild_rear_cloth(
+    model: ModelParts,
+    armature: bpy.types.Object,
+    materials: dict[str, bpy.types.Material],
+) -> ModelParts:
+    kept: list[bpy.types.Object] = []
     for obj in model.objects:
-        if obj.name != "TabardBack" or obj.type != "MESH":
-            continue
-        for vertex in obj.data.vertices:
-            if vertex.co.z < 0.70:
-                vertex.co.y -= 0.070
-            elif vertex.co.z < 1.00:
-                vertex.co.y -= 0.050
-            elif vertex.co.z < 1.20:
-                vertex.co.y -= 0.030
-            else:
-                vertex.co.y -= 0.015
-        obj.data.update()
+        if obj.name == "TabardBack":
+            bpy.data.objects.remove(obj, do_unlink=True)
+        else:
+            kept.append(obj)
+
+    parts: list[bpy.types.Object] = []
+    back = _folded_panel(
+        "TabardBack",
+        (
+            (0.500, 0.135, -0.390),
+            (0.720, 0.155, -0.375),
+            (0.950, 0.175, -0.350),
+            (1.180, 0.205, -0.320),
+            (1.420, 0.245, -0.285),
+            (1.650, 0.275, -0.245),
+        ),
+        thickness=0.040,
+        fold=-0.045,
+        material=materials["CrimsonCloth"],
+    )
+    _add_rigid(parts, back, armature, "tabard_back_01")
+    return ModelParts(objects=tuple((*kept, *parts)), materials=model.materials)
 
 
 def apply_authoritative_final_form(
@@ -244,5 +251,5 @@ def apply_authoritative_final_form(
     model = _rebuild_final_helmet(model, armature, materials)
     model = _rebuild_final_shoulders(model, armature, materials)
     _restore_armored_anatomy(model)
-    _shape_rear_cloth_side(model)
+    model = _rebuild_rear_cloth(model, armature, materials)
     return model
