@@ -3,17 +3,12 @@ from __future__ import annotations
 import bpy
 
 from .authoritative_accuracy_pass import _scale_about_center
-from .authoritative_model import _add_rigid, _loft
+from .authoritative_model import _add_rigid, _diamond, _loft, _prism_xz
 from .model import ModelParts
 
 
 def _remove_superseded_overlays(model: ModelParts) -> ModelParts:
-    """Delete geometry from earlier passes that is intentionally superseded.
-
-    The final pipeline is additive during iteration, so this pass explicitly
-    removes old overlay names that would otherwise survive later authoritative
-    rebuilds and create doubled armor/sword fittings.
-    """
+    """Delete geometry from earlier passes that is intentionally superseded."""
     exact = {
         "BreastplateFace",
         "BreastplateRidge",
@@ -48,7 +43,6 @@ def _rebuild_final_helmet(
     shell = _loft(
         "HelmetShell",
         (
-            # z, x center, half width, front y, back y
             (1.748, 0.0, 0.105, 0.045, -0.085),
             (1.790, 0.0, 0.155, 0.150, -0.155),
             (1.875, 0.0, 0.192, 0.245, -0.180),
@@ -74,9 +68,6 @@ def _rebuild_final_helmet(
     )
     _add_rigid(parts, jaw, armature, "head")
 
-    # Small rear plate breaks the shell into the same helmet/back-panel language
-    # as the concept without creating the giant rectangular rear wall seen in
-    # the previous side render.
     rear = _loft(
         "HelmetRearPlate",
         (
@@ -92,30 +83,147 @@ def _rebuild_final_helmet(
     return ModelParts(objects=tuple((*kept, *parts)), materials=model.materials)
 
 
-def _restore_side_mass(model: ModelParts) -> None:
-    """Increase front/back armor depth without widening the front silhouette."""
+def _rebuild_final_shoulders(
+    model: ModelParts,
+    armature: bpy.types.Object,
+    materials: dict[str, bpy.types.Material],
+) -> ModelParts:
+    names: set[str] = set()
+    for side in ("L", "R"):
+        names.update({
+            f"Pauldron.{side}", f"PauldronFacet.{side}", f"PauldronTrim.{side}",
+            f"PauldronLower.{side}", f"ShoulderBadge.{side}", f"PauldronShell.{side}",
+        })
+
+    kept: list[bpy.types.Object] = []
+    for obj in model.objects:
+        if obj.name in names:
+            bpy.data.objects.remove(obj, do_unlink=True)
+        else:
+            kept.append(obj)
+
+    parts: list[bpy.types.Object] = []
+    for side, sign in (("L", -1.0), ("R", 1.0)):
+        # Front shield plate follows the concept: high inner corner, broad outer
+        # plane, tapered lower point.  Real Y depth keeps the same plate readable
+        # from front, quarter and side.
+        shell = _prism_xz(
+            f"Pauldron.{side}",
+            (
+                (0.305 * sign, 1.655),
+                (0.385 * sign, 1.725),
+                (0.500 * sign, 1.730),
+                (0.595 * sign, 1.665),
+                (0.605 * sign, 1.585),
+                (0.550 * sign, 1.505),
+                (0.445 * sign, 1.485),
+                (0.350 * sign, 1.535),
+            ),
+            front_y=0.205,
+            back_y=-0.135,
+            material=materials["SteelEdge"],
+        )
+        _add_rigid(parts, shell, armature, f"clavicle.{side}")
+
+        facet = _prism_xz(
+            f"PauldronFacet.{side}",
+            (
+                (0.350 * sign, 1.660),
+                (0.420 * sign, 1.695),
+                (0.510 * sign, 1.690),
+                (0.565 * sign, 1.640),
+                (0.550 * sign, 1.565),
+                (0.475 * sign, 1.530),
+                (0.390 * sign, 1.555),
+            ),
+            front_y=0.232,
+            back_y=0.202,
+            material=materials["DarkSteel"],
+        )
+        _add_rigid(parts, facet, armature, f"clavicle.{side}")
+
+        trim = _prism_xz(
+            f"PauldronTrim.{side}",
+            (
+                (0.315 * sign, 1.673),
+                (0.385 * sign, 1.742),
+                (0.505 * sign, 1.747),
+                (0.615 * sign, 1.675),
+                (0.596 * sign, 1.642),
+                (0.500 * sign, 1.700),
+                (0.400 * sign, 1.710),
+                (0.335 * sign, 1.650),
+            ),
+            front_y=0.250,
+            back_y=0.226,
+            material=materials["Brass"],
+        )
+        _add_rigid(parts, trim, armature, f"clavicle.{side}")
+
+        lower = _prism_xz(
+            f"PauldronLower.{side}",
+            (
+                (0.365 * sign, 1.545),
+                (0.545 * sign, 1.555),
+                (0.565 * sign, 1.510),
+                (0.515 * sign, 1.435),
+                (0.425 * sign, 1.430),
+                (0.375 * sign, 1.480),
+            ),
+            front_y=0.150,
+            back_y=-0.110,
+            material=materials["DarkSteel"],
+        )
+        _add_rigid(parts, lower, armature, f"upper_arm.{side}")
+
+        badge = _diamond(
+            f"ShoulderBadge.{side}",
+            (0.510 * sign, 0.267, 1.620),
+            (0.040, 0.022, 0.040),
+            materials["Brass"],
+        )
+        _add_rigid(parts, badge, armature, f"clavicle.{side}")
+
+    return ModelParts(objects=tuple((*kept, *parts)), materials=model.materials)
+
+
+def _restore_armored_anatomy(model: ModelParts) -> None:
+    """Restore the concept's substantial arms, legs and boots in final space."""
     for obj in model.objects:
         name = obj.name
         if name == "Breastplate":
-            _scale_about_center(obj, 1.00, 1.14, 1.00)
+            _scale_about_center(obj, 1.02, 1.14, 1.02)
         elif name in {"BackArmor", "TorsoUnder"}:
             _scale_about_center(obj, 1.00, 1.10, 1.00)
-        elif name.startswith(("UpperArmPlate.", "Vambrace.", "Gauntlet.")):
-            _scale_about_center(obj, 1.00, 1.08, 1.00)
-        elif name.startswith(("Cuisse.", "KneePlate.", "Greave.")):
-            _scale_about_center(obj, 1.00, 1.08, 1.00)
+        elif name.startswith(("ArmUnder.", "ForearmUnder.")):
+            _scale_about_center(obj, 1.10, 1.10, 1.02)
+        elif name.startswith(("UpperArmPlate.", "Vambrace.")):
+            _scale_about_center(obj, 1.14, 1.10, 1.04)
+        elif name.startswith(("Gauntlet.", "GauntletCuff.", "GauntletKnuckle", "GauntletFinger")):
+            _scale_about_center(obj, 1.14, 1.10, 1.06)
+        elif name.startswith(("ThighUnder.", "ShinUnder.")):
+            _scale_about_center(obj, 1.08, 1.08, 1.01)
+        elif name.startswith(("Cuisse.", "CuisseFacet.", "CuisseOuter.")):
+            _scale_about_center(obj, 1.12, 1.10, 1.03)
+        elif name.startswith(("KneePlate.", "KneeTrim.")):
+            _scale_about_center(obj, 1.12, 1.08, 1.05)
+        elif name.startswith(("Greave.", "GreaveFacet.", "GreaveFace.")):
+            _scale_about_center(obj, 1.12, 1.10, 1.03)
         elif name.startswith("Boot"):
-            _scale_about_center(obj, 1.00, 1.05, 1.00)
+            _scale_about_center(obj, 1.12, 1.07, 1.08)
+        elif name.startswith("Fauld."):
+            # Intermediate faulds became large hip boxes; the concept uses much
+            # slimmer hanging armor/leather around the tabard.
+            _scale_about_center(obj, 0.78, 0.92, 0.86)
+        elif name.startswith("FauldTrim."):
+            _scale_about_center(obj, 0.82, 0.94, 0.90)
 
 
 def _shape_rear_cloth_side(model: ModelParts) -> None:
-    """Give the rear cloth a visible rearward fall in side view."""
     for obj in model.objects:
         if obj.name != "TabardBack" or obj.type != "MESH":
             continue
         for vertex in obj.data.vertices:
-            # Push lower cloth farther rearward, while leaving its belt root close
-            # to the body.  This creates a cape/tabard fall rather than a red line.
             if vertex.co.z < 0.70:
                 vertex.co.y -= 0.070
             elif vertex.co.z < 1.00:
@@ -134,6 +242,7 @@ def apply_authoritative_final_form(
 ) -> ModelParts:
     model = _remove_superseded_overlays(model)
     model = _rebuild_final_helmet(model, armature, materials)
-    _restore_side_mass(model)
+    model = _rebuild_final_shoulders(model, armature, materials)
+    _restore_armored_anatomy(model)
     _shape_rear_cloth_side(model)
     return model
