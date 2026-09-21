@@ -242,6 +242,27 @@ def _rebuild_rear_cloth(
     return ModelParts(objects=tuple((*kept, *parts)), materials=model.materials)
 
 
+def _restore_ground_contact(model: ModelParts) -> None:
+    """Keep the enlarged boot assembly on, not below, the ground plane."""
+    boot_objects = [
+        obj for obj in model.objects
+        if obj.type == "MESH" and obj.name.startswith("Boot") and obj.data.vertices
+    ]
+    if not boot_objects:
+        return
+
+    min_z = min(vertex.co.z for obj in boot_objects for vertex in obj.data.vertices)
+    target = 0.006
+    if min_z >= target:
+        return
+
+    lift = target - min_z
+    for obj in boot_objects:
+        for vertex in obj.data.vertices:
+            vertex.co.z += lift
+        obj.data.update()
+
+
 def apply_authoritative_final_form(
     model: ModelParts,
     armature: bpy.types.Object,
@@ -252,4 +273,5 @@ def apply_authoritative_final_form(
     model = _rebuild_final_shoulders(model, armature, materials)
     _restore_armored_anatomy(model)
     model = _rebuild_rear_cloth(model, armature, materials)
+    _restore_ground_contact(model)
     return model
