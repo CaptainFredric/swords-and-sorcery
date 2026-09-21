@@ -5,7 +5,7 @@ import { readFile } from 'node:fs/promises';
 const passPath = new URL('../../tools/blender/characters/spellblade/authoritative_final_form.py', import.meta.url);
 const boundsPath = new URL('../../tools/blender/characters/spellblade/blueprint_bounds.py', import.meta.url);
 
-test('final Spellblade form pass removes superseded overlays and owns the final helmet side volume', async () => {
+test('final Spellblade form pass owns the remaining concept-critical silhouette', async () => {
   const pass = await readFile(passPath, 'utf8');
   const bounds = await readFile(boundsPath, 'utf8');
 
@@ -13,6 +13,9 @@ test('final Spellblade form pass removes superseded overlays and owns the final 
   assert.match(pass, /PauldronShell\./);
   assert.match(pass, /SwordGuardOuter/);
   assert.match(pass, /def _rebuild_final_helmet/);
+  assert.match(pass, /def _rebuild_final_shoulders/);
+  assert.match(pass, /def _restore_armored_anatomy/);
+  assert.match(pass, /Fauld\./);
   assert.match(pass, /def apply_authoritative_final_form/);
   assert.match(bounds, /apply_authoritative_final_form/);
 });
