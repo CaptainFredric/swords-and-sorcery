@@ -35,43 +35,42 @@ PAULDRON_DROP_HEIGHT = 0.20
 BOOT_ARMOR_CENTER_X = 0.28
 SORCERY_EMISSION_STRENGTH = 2.2
 
-# Concept-sheet landmarks.  The belt/pelvis is deliberately higher than the
-# first procedural pass: longer legs and a slightly compressed upper body match
-# the supplied hero front view and keep the armored silhouette out of chibi
-# proportions.  Upper limbs stay close to the torso while the lower stance
-# splays outward.
+# Final-space concept landmarks.  These match the two-stage geometry remap used
+# by the authoritative model: high belt, long planted legs, compact upper body.
+# Keeping the rig in the same final coordinate space prevents armor from looking
+# correct in neutral but pivoting around obsolete blockout joints in actions.
 BONES = {
-    "root": ((0.0, 0.0, 0.0), (0.0, 0.0, 0.1569), None, False),
-    "pelvis": ((0.0, 0.0, 1.0985), (0.0, 0.0, 1.2894), "root", True),
-    "spine": ((0.0, 0.0, 1.2272), (0.0, 0.0, 1.4847), "pelvis", True),
-    "chest": ((0.0, 0.0, 1.4403), (0.0, 0.0, 1.6534), "spine", True),
-    "neck": ((0.0, 0.0, 1.6268), (0.0, 0.0, 1.7511), "chest", True),
-    "head": ((0.0, 0.0, 1.7244), (0.0, 0.0, 2.0530), "neck", True),
+    "root": ((0.0, 0.0, 0.0), (0.0, 0.0, 0.1706), None, False),
+    "pelvis": ((0.0, 0.0, 1.1942), (0.0, 0.0, 1.3783), "root", True),
+    "spine": ((0.0, 0.0, 1.3280), (0.0, 0.0, 1.5363), "pelvis", True),
+    "chest": ((0.0, 0.0, 1.5004), (0.0, 0.0, 1.6733), "spine", True),
+    "neck": ((0.0, 0.0, 1.6512), (0.0, 0.0, 1.7676), "chest", True),
+    "head": ((0.0, 0.0, 1.7419), (0.0, 0.0, 2.0592), "neck", True),
 
-    "clavicle.L": ((-0.07, 0.0, 1.6090), (-0.30, 0.0, 1.6090), "chest", True),
-    "upper_arm.L": ((-0.30, 0.0, 1.6090), (-0.43, 0.0, 1.3781), "clavicle.L", True),
-    "forearm.L": ((-0.43, 0.0, 1.3781), (-0.53, 0.035, 1.0985), "upper_arm.L", True),
-    "hand.L": ((-0.53, 0.035, 1.0985), (-0.59, 0.09, 0.9416), "forearm.L", True),
-    "socket_sorcery": ((-0.59, 0.09, 0.9416), (-0.59, 0.25, 0.9416), "hand.L", False),
+    "clavicle.L": ((-0.07, 0.0, 1.6368), (-0.30, 0.0, 1.6368), "chest", True),
+    "upper_arm.L": ((-0.30, 0.0, 1.6368), (-0.43, 0.0, 1.4500), "clavicle.L", True),
+    "forearm.L": ((-0.43, 0.0, 1.4500), (-0.53, 0.035, 1.1942), "upper_arm.L", True),
+    "hand.L": ((-0.53, 0.035, 1.1942), (-0.59, 0.09, 1.0236), "forearm.L", True),
+    "socket_sorcery": ((-0.59, 0.09, 1.0236), (-0.59, 0.25, 1.0236), "hand.L", False),
 
-    "clavicle.R": ((0.07, 0.0, 1.6090), (0.30, 0.0, 1.6090), "chest", True),
-    "upper_arm.R": ((0.30, 0.0, 1.6090), (0.43, 0.0, 1.3781), "clavicle.R", True),
-    "forearm.R": ((0.43, 0.0, 1.3781), (0.53, 0.035, 1.0985), "upper_arm.R", True),
-    "hand.R": ((0.53, 0.035, 1.0985), (0.59, 0.09, 0.9416), "forearm.R", True),
-    "socket_sword": ((0.59, 0.09, 0.9416), (0.59, 0.25, 0.9416), "hand.R", False),
+    "clavicle.R": ((0.07, 0.0, 1.6368), (0.30, 0.0, 1.6368), "chest", True),
+    "upper_arm.R": ((0.30, 0.0, 1.6368), (0.43, 0.0, 1.4500), "clavicle.R", True),
+    "forearm.R": ((0.43, 0.0, 1.4500), (0.53, 0.035, 1.1942), "upper_arm.R", True),
+    "hand.R": ((0.53, 0.035, 1.1942), (0.59, 0.09, 1.0236), "forearm.R", True),
+    "socket_sword": ((0.59, 0.09, 1.0236), (0.59, 0.25, 1.0236), "hand.R", False),
 
-    "thigh.L": ((-0.19, 0.0, 1.1433), (-0.25, 0.0, 0.7174), "pelvis", True),
-    "shin.L": ((-0.25, 0.0, 0.7174), (-0.28, 0.0, 0.1569), "thigh.L", True),
-    "foot.L": ((-0.28, 0.0, 0.1569), (-0.28, 0.30, 0.0897), "shin.L", True),
-    "thigh.R": ((0.19, 0.0, 1.1433), (0.25, 0.0, 0.7174), "pelvis", True),
-    "shin.R": ((0.25, 0.0, 0.7174), (0.28, 0.0, 0.1569), "thigh.R", True),
-    "foot.R": ((0.28, 0.0, 0.1569), (0.28, 0.30, 0.0897), "shin.R", True),
+    "thigh.L": ((-0.19, 0.0, 1.2429), (-0.25, 0.0, 0.7799), "pelvis", True),
+    "shin.L": ((-0.25, 0.0, 0.7799), (-0.28, 0.0, 0.1706), "thigh.L", True),
+    "foot.L": ((-0.28, 0.0, 0.1706), (-0.28, 0.30, 0.0975), "shin.L", True),
+    "thigh.R": ((0.19, 0.0, 1.2429), (0.25, 0.0, 0.7799), "pelvis", True),
+    "shin.R": ((0.25, 0.0, 0.7799), (0.28, 0.0, 0.1706), "thigh.R", True),
+    "foot.R": ((0.28, 0.0, 0.1706), (0.28, 0.30, 0.0975), "shin.R", True),
 
-    "tabard_root": ((0.0, 0.015, 1.2627), (0.0, 0.04, 1.0985), "pelvis", True),
-    "tabard_front_01": ((0.0, 0.085, 1.0985), (0.0, 0.10, 0.7959), "tabard_root", True),
-    "tabard_front_02": ((0.0, 0.10, 0.7959), (0.0, 0.12, 0.4932), "tabard_front_01", True),
-    "tabard_back_01": ((0.0, -0.075, 1.1097), (0.0, -0.09, 0.8071), "tabard_root", True),
-    "tabard_back_02": ((0.0, -0.09, 0.8071), (0.0, -0.11, 0.5044), "tabard_back_01", True),
+    "tabard_root": ((0.0, 0.015, 1.3567), (0.0, 0.04, 1.1942), "pelvis", True),
+    "tabard_front_01": ((0.0, 0.085, 1.1942), (0.0, 0.10, 0.8653), "tabard_root", True),
+    "tabard_front_02": ((0.0, 0.10, 0.8653), (0.0, 0.12, 0.5362), "tabard_front_01", True),
+    "tabard_back_01": ((0.0, -0.075, 1.2064), (0.0, -0.09, 0.8774), "tabard_root", True),
+    "tabard_back_02": ((0.0, -0.09, 0.8774), (0.0, -0.11, 0.5484), "tabard_back_01", True),
 }
 
 REQUIRED_BONES = tuple(BONES.keys())
