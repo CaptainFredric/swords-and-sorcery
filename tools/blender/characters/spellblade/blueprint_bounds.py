@@ -8,6 +8,7 @@ from .authoritative_accuracy_pass_v3 import apply_concept_accuracy_pass_v3
 from .authoritative_accuracy_pass_v4 import apply_concept_accuracy_pass_v4
 from .authoritative_accuracy_pass_v5 import apply_concept_accuracy_pass_v5
 from .authoritative_accuracy_pass_v6 import apply_concept_accuracy_pass_v6
+from .authoritative_accuracy_pass_v7 import apply_concept_accuracy_pass_v7
 from .authoritative_detail_pass import refine_authoritative_details
 from .authoritative_model_v4 import build_authoritative_spellblade_v4
 from .model import ModelParts
@@ -50,6 +51,7 @@ def enforce_blueprint_export_bounds(model: ModelParts) -> ModelParts:
     rebuilt = apply_concept_accuracy_pass_v4(rebuilt, armature, materials)
     rebuilt = apply_concept_accuracy_pass_v5(rebuilt, armature, materials)
     rebuilt = apply_concept_accuracy_pass_v6(rebuilt, armature, materials)
+    rebuilt = apply_concept_accuracy_pass_v7(rebuilt, armature, materials)
     rebuilt = _remove_modeled_sorcery(rebuilt)
 
     for obj in rebuilt.objects:
