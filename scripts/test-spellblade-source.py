@@ -2,6 +2,8 @@
 Run with blender --background --factory-startup --python-exit-code 1 --python this-file.
 """
 import hashlib
+import json
+import struct
 import sys
 import tempfile
 import shutil
@@ -26,6 +28,9 @@ with tempfile.TemporaryDirectory() as tmp:
     ]:
         rig, model, actions = load_authored_source(SOURCE / filename, collection)
         assert set(actions) == set(contract[clip_key]), actions.keys()
+        reference = bpy.data.images.get('CANONICAL_SPELLBLADE_KEEP')
+        assert reference and reference.packed_file and reference.use_fake_user, 'Canonical reference must remain packed'
+        assert bpy.data.collections['CanonicalReferences'].hide_select, 'Reference collection must retain its selection lock'
         assert {'socket_sword', 'socket_sorcery'} <= set(rig.data.bones.keys())
         if clip_key == 'clips':
             validate_production_model(rig, model, contract)
@@ -48,6 +53,15 @@ with tempfile.TemporaryDirectory() as tmp:
         assert len(model.objects) == count
         ob = bpy.data.objects['HeroSword']
         assert [tuple(v.co) for v in ob.data.vertices] == expected, 'Saved vertex edit was reconstructed'
+        # Modifier geometry must survive export, including editable armor bevels.
+        expected_triangles = 0
+        depsgraph = bpy.context.evaluated_depsgraph_get()
+        for source_object in model.objects:
+            evaluated = source_object.evaluated_get(depsgraph)
+            mesh = evaluated.to_mesh()
+            mesh.calc_loop_triangles()
+            expected_triangles += len(mesh.loop_triangles)
+            evaluated.to_mesh_clear()
         out = Path(tmp) / (filename + '.glb')
         export_glb(out, objects=(rig, *model.objects))
         assert [tuple(v.co) for v in ob.data.vertices] == expected, 'Export mutated geometry'
@@ -55,6 +69,16 @@ with tempfile.TemporaryDirectory() as tmp:
         # Re-import and confirm the edited mesh position data really reached GLB.
         bpy.ops.wm.read_factory_settings(use_empty=True)
         bpy.ops.import_scene.gltf(filepath=str(out))
+        # Read GLB primitives directly: Blender import also creates an 80-triangle bone widget.
+        payload = out.read_bytes()
+        json_length = struct.unpack_from('<I', payload, 12)[0]
+        document = json.loads(payload[20:20 + json_length])
+        exported_triangles = sum(
+            document['accessors'][primitive['indices']]['count'] // 3
+            for mesh in document['meshes'] for primitive in mesh['primitives']
+            if primitive.get('mode', 4) == 4
+        )
+        assert exported_triangles == expected_triangles, f'Modifier geometry lost: {exported_triangles} exported, {expected_triangles} evaluated'
         candidates = [o for o in bpy.data.objects if o.type == 'MESH' and o.name.startswith('HeroSword')]
         assert candidates, 'HeroSword missing after GLB roundtrip'
         # Export splits vertices by material and hard normal. Compare coordinate sets.

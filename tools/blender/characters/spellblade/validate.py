@@ -91,8 +91,13 @@ def validate_rig_scene(armature: bpy.types.Object, proxy: bpy.types.Object) -> d
 def _triangle_count(obj: bpy.types.Object) -> int:
     if obj.type != "MESH":
         return 0
-    obj.data.calc_loop_triangles()
-    return len(obj.data.loop_triangles)
+    evaluated = obj.evaluated_get(bpy.context.evaluated_depsgraph_get())
+    mesh = evaluated.to_mesh()
+    try:
+        mesh.calc_loop_triangles()
+        return len(mesh.loop_triangles)
+    finally:
+        evaluated.to_mesh_clear()
 
 
 def validate_production_model(armature: bpy.types.Object, model: ModelParts, contract: dict | None = None) -> dict:

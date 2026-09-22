@@ -36,3 +36,9 @@ python3 scripts/validate-spellblade-glb.py --first-person artifacts/spellblade-a
 Inspect four neutral views, the action poses and actual browser composition. Technical validation does not establish artistic acceptance.
 
 Historical `authoritative_*`, `concept_*`, `hero_*`, `reference_match.py`, `locked_blueprint.py` and `blueprint_bounds.py` modules remain as archived modeling history. Production export does not import or execute them. Their obsolete source text assertions were replaced by source preservation and artifact contract checks. Existing runtime, protocol, socket, clip and external GLB validator tests remain active.
+
+## Persistent canonical reference
+
+Both sources include the full canonical PNG as packed image `CANONICAL_SPELLBLADE_KEEP`, retained with a fake user. The `Spellblade Reference` workspace places it beside the model. `CanonicalReferences` is locked against accidental selection and excluded from production export. Keep the reference collection and packed images when editing. The original PNG also lives in `references/canonical-spellblade.png` under version control. The Blender integration check verifies that the packed image and selection lock survive.
+
+Armor bevel and cloth thickness modifiers precede the armature. Export applies non-armature modifiers and checks the resulting topology through a GLB roundtrip, so the runtime retains their geometry.

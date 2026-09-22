@@ -45,6 +45,8 @@ def export_glb(path: Path, *, objects: Iterable[bpy.types.Object]) -> None:
         export_anim_slide_to_zero=True,
         export_merge_animation="ACTION",
         export_skins=True,
+        # Preserve authored non-armature modifiers, including bevels and cloth thickness.
+        export_apply=True,
         export_morph=False,
         export_yup=True,
         export_def_bones=False,
