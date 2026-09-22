@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import sys
@@ -14,20 +15,11 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from tools.blender.common.export import export_glb
+from tools.blender.characters.spellblade.authored_source import load_authored_source, validate_output_paths
 from tools.blender.common.render import configure_render, look_at, render_still
-from tools.blender.characters.spellblade.animations import build_actions
-from tools.blender.characters.spellblade.blueprint_bounds import enforce_blueprint_export_bounds
-from tools.blender.characters.spellblade.concept_model import build_concept_model
-from tools.blender.characters.spellblade.concept_polish import refine_concept_proportions
 from tools.blender.characters.spellblade.design import BODY_HEIGHT
 from tools.blender.characters.spellblade.first_person import build_first_person_asset
-from tools.blender.characters.spellblade.hero_cloth import rebuild_hero_cloth
-from tools.blender.characters.spellblade.hero_limbs import rebuild_hero_limbs
-from tools.blender.characters.spellblade.hero_shells import rebuild_primary_hero_shells
-from tools.blender.characters.spellblade.locked_blueprint import rebuild_locked_blueprint
-from tools.blender.characters.spellblade.reference_match import rebuild_reference_match
-from tools.blender.characters.spellblade.model import build_materials
-from tools.blender.characters.spellblade.rig import build_armature, rigid_skin, validate_armature_names
+from tools.blender.characters.spellblade.rig import rigid_skin, validate_armature_names
 from tools.blender.characters.spellblade.validate import load_contract, validate_production_model, validate_rig_scene
 
 
@@ -51,6 +43,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--mode", choices=("bootstrap", "preview", "review"), default="bootstrap")
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--source-revision", required=True)
+    parser.add_argument("--source", type=Path, default=Path(__file__).with_name("source") / "spellblade-third-person.blend")
     return parser.parse_args(argv)
 
 
@@ -210,37 +203,26 @@ def _render_action_evidence(
 def build_character_assets(args: argparse.Namespace) -> None:
     _validate_revision(args.source_revision)
     contract = load_contract()
+    first_person_source = Path(__file__).with_name("source") / "spellblade-first-person.blend"
+    validate_output_paths((args.source, first_person_source), args.out)
     args.out.mkdir(parents=True, exist_ok=True)
     blender_version = bpy.app.version_string
 
-    bpy.ops.wm.read_factory_settings(use_empty=True)
+    source_hash = hashlib.sha256(args.source.read_bytes()).hexdigest()
+    armature, model, actions = load_authored_source(args.source, "SpellbladeExport")
     scene = bpy.context.scene
     configure_render(scene, args.mode)
     scene.render.fps = 30
     scene.render.fps_base = 1.0
-    _ensure_world(scene, "SpellbladeBuildWorld")
-
-    armature = build_armature()
     validate_armature_names(armature)
-
+    if set(actions) != set(contract["clips"]):
+        raise ValueError("Authored third person actions must match the runtime contract")
+    armature.animation_data.action = actions["Idle"]
+    scene.frame_set(1)
     validation_proxy = _build_validation_proxy(armature)
     rig_report = validate_rig_scene(armature, validation_proxy)
     bpy.data.objects.remove(validation_proxy, do_unlink=True)
-
-    materials = build_materials()
-    model = build_concept_model(armature, materials)
-    model = rebuild_primary_hero_shells(model, armature, materials)
-    model = rebuild_hero_limbs(model, armature, materials)
-    model = rebuild_hero_cloth(model, armature, materials)
-    model = refine_concept_proportions(model)
-    model = rebuild_locked_blueprint(model, armature, materials)
-    model = rebuild_hero_limbs(model, armature, materials)
-    # Last visual authority uses traced concept silhouettes with one-segment
-    # hard-surface chamfers; this is deliberately after all generic builders.
-    model = rebuild_reference_match(model, armature)
-    model = enforce_blueprint_export_bounds(model)
     model_report = validate_production_model(armature, model, contract)
-    actions = build_actions(armature, contract)
     third_person_animations = list(actions.keys())
 
     glb_path = args.out / "spellblade.glb"
@@ -251,7 +233,9 @@ def build_character_assets(args: argparse.Namespace) -> None:
             f"Spellblade GLB exceeds target byte budget: {glb_bytes} > {contract['thirdPerson']['targetBytes']}"
         )
 
-    cameras = _add_review_stage(scene)
+    cameras = {label: bpy.data.objects.get(f"SpellbladeReviewCamera.{label}") for label in ("front", "back", "side", "quarter")}
+    if not all(cameras.values()):
+        raise ValueError("Authored source requires fixed front, back, side and quarter review cameras")
     scene.frame_set(1)
     render_paths: dict[str, Path] = {}
     for label, camera in cameras.items():
@@ -272,8 +256,10 @@ def build_character_assets(args: argparse.Namespace) -> None:
         "schemaVersion": 1,
         "workerReady": True,
         "mode": args.mode,
-        "visualStage": "traced-third-person-animated-with-first-person",
+        "visualStage": "authored-third-person-animated-with-first-person",
         "sourceRevision": args.source_revision,
+        "authoredSource": {"file": args.source.name, "sha256": source_hash},
+        "firstPersonSource": {"file": "spellblade-first-person.blend", "sha256": hashlib.sha256((Path(__file__).with_name("source") / "spellblade-first-person.blend").read_bytes()).hexdigest()},
         "blenderVersion": blender_version,
         "contractVersion": contract["version"],
         "rig": rig_report,

@@ -7,7 +7,8 @@ function clampActionTime(action, time, loop) {
 }
 
 export class SpellbladeAnimator {
-  constructor(root, clips = []) {
+  constructor(root, clips = [], onPose = null) {
+    this.onPose = onPose;
     this.root = root;
     this.mixer = new THREE.AnimationMixer(root);
     this.actions = new Map();
@@ -42,6 +43,7 @@ export class SpellbladeAnimator {
     action.paused = true;
     action.time = clampActionTime(action, Number.isFinite(plan.time) ? plan.time : 0, loop);
     this.mixer.update(0);
+    this.onPose?.(plan);
     return true;
   }
 
