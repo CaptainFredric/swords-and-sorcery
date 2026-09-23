@@ -58,3 +58,7 @@ The hero reference is packed as `CANONICAL_HERO_KEEP` and shown beside the fixed
 ## Shoulder and belt structure pass
 
 The near shoulder is a larger overhanging shield with a lowered outer edge; the far shoulder stays compact. The cuirass and recessed waist widen to carry a substantial leather belt. A larger offset buckle and one diamond closure match the concept's main belt landmarks. Broad leather hangers occupy the spaces beside the tabard and remain parented to the pelvis. The world rig, action names, socket names and first person source are unchanged. This is an authored mesh revision, not a procedural runtime rebuild.
+
+## Helmet, cloth and hand rework
+
+The crown has a lower, broader profile. The scarf uses compressed planar folds, the shoulder lames taper beneath a continuous rim, and the near shoulder carries the reference fastening diamond. The front tabard narrows into a shorter asymmetric hem. Finger armor and cuffs use darker steel; the spell fingers curl more tightly in both sources. The world idle hand presents an upright cup, with matching action entry and return keys. The rigid cuffs follow the forearms, while palms and fingers follow the hands. Contact frames and gameplay displacement remain intact.
