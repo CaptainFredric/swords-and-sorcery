@@ -42,3 +42,7 @@ Historical `authoritative_*`, `concept_*`, `hero_*`, `reference_match.py`, `lock
 Both sources include the full canonical PNG as packed image `CANONICAL_SPELLBLADE_KEEP`, retained with a fake user. The `Spellblade Reference` workspace places it beside the model. `CanonicalReferences` is locked against accidental selection and excluded from production export. Keep the reference collection and packed images when editing. The original PNG also lives in `references/canonical-spellblade.png` under version control. The Blender integration check verifies that the packed image and selection lock survive.
 
 Armor bevel and cloth thickness modifiers precede the armature. Export applies non-armature modifiers and checks the resulting topology through a GLB roundtrip, so the runtime retains their geometry.
+
+## September 23 form revision
+
+The saved sources use a fitted convex cuirass, continuous shoulder planes, narrower helmet and boots, shorter crest and blade, and a fuller hanging tabard. The spell hand has three curling finger segments, synchronized to the independent first person rest rig. The relaxed casting arm sits closer to the torso. Neutral action returns match that pose; slash contacts and the gameplay root contract are preserved.
