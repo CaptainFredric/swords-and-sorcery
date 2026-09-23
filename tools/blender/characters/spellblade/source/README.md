@@ -54,3 +54,7 @@ Both rigs now share tapered glove palms, separate dorsal plates, open flared cuf
 ## Fixed reference comparison
 
 The hero reference is packed as `CANONICAL_HERO_KEEP` and shown beside the fixed local hero camera in the Spellblade Reference workspace. The full canonical sheet and hand reference remain packed. This reference pass raises the waist, brings the shoulder assemblies inward, reshapes the crown and shoulder shells, narrows the fitted chest, lowers the relaxed spell hand, and reconstructs the knee and ankle overlaps. The existing rig names, contacts and unkeyed root remain intact. Restrained `ArmorColor` corner colors supply steel variation without extra materials or external textures.
+
+## Shoulder and belt structure pass
+
+The near shoulder is a larger overhanging shield with a lowered outer edge; the far shoulder stays compact. The cuirass and recessed waist widen to carry a substantial leather belt. A larger offset buckle and one diamond closure match the concept's main belt landmarks. Broad leather hangers occupy the spaces beside the tabard and remain parented to the pelvis. The world rig, action names, socket names and first person source are unchanged. This is an authored mesh revision, not a procedural runtime rebuild.
