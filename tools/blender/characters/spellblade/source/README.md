@@ -50,3 +50,7 @@ The saved sources use a fitted convex cuirass, continuous shoulder planes, narro
 ## Hand construction
 
 Both rigs now share tapered glove palms, separate dorsal plates, open flared cuffs and beveled rectangular finger segments. The sword fingers wrap the actual grip axis. Obsolete wrist trim was removed. The Hand Reference workspace retains a packed crop of the canonical weapon and hand detail beside a local review camera; the full reference workspace remains available.
+
+## Fixed reference comparison
+
+The hero reference is packed as `CANONICAL_HERO_KEEP` and shown beside the fixed local hero camera in the Spellblade Reference workspace. The full canonical sheet and hand reference remain packed. This reference pass raises the waist, brings the shoulder assemblies inward, reshapes the crown and shoulder shells, narrows the fitted chest, lowers the relaxed spell hand, and reconstructs the knee and ankle overlaps. The existing rig names, contacts and unkeyed root remain intact. Restrained `ArmorColor` corner colors supply steel variation without extra materials or external textures.
