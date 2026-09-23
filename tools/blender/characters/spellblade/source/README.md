@@ -46,3 +46,7 @@ Armor bevel and cloth thickness modifiers precede the armature. Export applies n
 ## September 23 form revision
 
 The saved sources use a fitted convex cuirass, continuous shoulder planes, narrower helmet and boots, shorter crest and blade, and a fuller hanging tabard. The spell hand has three curling finger segments, synchronized to the independent first person rest rig. The relaxed casting arm sits closer to the torso. Neutral action returns match that pose; slash contacts and the gameplay root contract are preserved.
+
+## Hand construction
+
+Both rigs now share tapered glove palms, separate dorsal plates, open flared cuffs and beveled rectangular finger segments. The sword fingers wrap the actual grip axis. Obsolete wrist trim was removed. The Hand Reference workspace retains a packed crop of the canonical weapon and hand detail beside a local review camera; the full reference workspace remains available.
