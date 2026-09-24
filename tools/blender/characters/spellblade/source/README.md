@@ -82,3 +82,7 @@ The back tabard is regenerated as the concept's straight-sided banner: a slightl
 ## September 24 front tabard and scarf
 
 The front tabard is regenerated with the same banner construction as the back: straight sides, light border strips, and a stepped hem. It is shorter and narrower than before, on the concept's measurements (hem 0.26 of height against about 0.28; width 0.15 against 0.14), with the sigil re-centred. The scarf roll is pushed outward into a bulkier cowl and its front lowered so it sits under the helmet rim, leaving the full visor visible; its lower ring deepens and the chest drape lengthens into a tail on the far side. Weights follow the previous height keys on the front tabard bones; the scarf stays on the neck. Scope: TabardFront, both front border strips, TabardSigil, CrimsonScarf and ScarfFold. Review sheet: `docs/art/helmet-study/front-pass.png`.
+
+## September 24 crown correction
+
+The earlier squaring overshot into a flat lid. The upper crown rings now pull in (top ring to 74% width), so the crown reads as the concept's pentagon: short walls, broad chamfers and a narrow top. The brass band widens and ends in a beak between the visor brackets, reseated flush on the new surface. The crest is 55% taller above the crown and slightly wider. Scope: HelmetShell, HelmetCrownBand, Crest and CrestMount. Review sheet: `docs/art/helmet-study/crown-v3.png`.
