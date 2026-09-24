@@ -58,3 +58,11 @@ export function resolveSpellbladeAnimationPlan({ state, player = {}, serverNow =
   if (state === 'run') return fixed('Run', localTime, true);
   return fixed('Idle', localTime, true);
 }
+
+export function resolveFirstPersonAnimationPlan(pose, view, timeSec) {
+  if (pose.state === 'attack') return attackPlan(view, timeSec);
+  if (pose.state === 'guard') return { clip: 'Guard', loop: false, time: 7 / 30 };
+  if (pose.state === 'cast') return { clip: 'Cast', loop: false, time: Math.max(0, timeSec - view.castStartedAt) };
+  if (pose.state === 'dash') return { clip: 'Dash', loop: false, time: Math.max(0, timeSec - (view.dashUntil - 0.18)) };
+  return { clip: 'Idle', loop: true, time: timeSec };
+}

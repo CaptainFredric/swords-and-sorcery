@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { resolveSpellbladeAnimationPlan } from './spellbladeAnimationPlan.mjs';
+import { resolveSpellbladeAnimationPlan, resolveFirstPersonAnimationPlan } from './spellbladeAnimationPlan.mjs';
 
 function close(actual, expected, epsilon = 1e-6) {
   assert.ok(Math.abs(actual - expected) <= epsilon, `${actual} != ${expected}`);
@@ -81,4 +81,22 @@ test('guard and air select fixed non-looping poses while locomotion loops locall
   assert.equal(idle.clip, 'Idle');
   assert.equal(idle.loop, true);
   close(idle.time, 7.5);
+});
+
+
+test('first person held combos restart each slash timeline across repeated cycles', () => {
+  const view = { attackStartedAt: 10 };
+  for (const [elapsed, clip, time] of [[0.4, 'Slash_1', 0.4], [0.9, 'Slash_2', 0.18], [1.7, 'Slash_3', 0.26], [2.48, 'Slash_1', 0.4], [3.78, 'Slash_3', 0.26]]) {
+    const plan = resolveFirstPersonAnimationPlan({ state: 'attack', strike: Number(clip.slice(-1)) - 1 }, view, 10 + elapsed);
+    assert.equal(plan.clip, clip);
+    close(plan.time, time);
+    assert.equal(plan.loop, false);
+  }
+});
+
+test('first person guard, cast and dash retain their own animation clocks', () => {
+  const view = { castStartedAt: 20, dashUntil: 30.18 };
+  close(resolveFirstPersonAnimationPlan({ state: 'guard' }, view, 99).time, 7 / 30);
+  close(resolveFirstPersonAnimationPlan({ state: 'cast' }, view, 20.2).time, 0.2);
+  close(resolveFirstPersonAnimationPlan({ state: 'dash' }, view, 30.1).time, 0.1);
 });
