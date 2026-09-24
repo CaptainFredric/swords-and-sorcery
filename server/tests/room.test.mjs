@@ -22,11 +22,14 @@ test('Room stores mode/world identity and marks network players human', () => {
   assert.equal(player.actorKind, 'human');
 });
 
-test('room caps at eight players and second connected player starts countdown', () => {
+test('room caps at eight players and second player waits for the host start button', () => {
   const room = new Room('TEST2');
   add(room, 'a');
   assert.equal(room.state, 'WAITING');
   add(room, 'b');
+  assert.equal(room.state, 'WAITING');
+  assert.equal(room.requestStart('b', 1), false);
+  assert.equal(room.requestStart('a', 1), true);
   assert.equal(room.state, 'COUNTDOWN');
   for (const id of ['c', 'd', 'e', 'f', 'g', 'h']) add(room, id);
   assert.equal(room.players.size, 8);
@@ -37,7 +40,7 @@ test('room caps at eight players and second connected player starts countdown', 
 test('players receive one second of spawn protection when a match begins', () => {
   const room = new Room('TEST2');
   add(room, 'a'); add(room, 'b');
-  room.tick(3.1);
+  room.requestStart('a', 0); room.tick(3.1);
   assert.equal(room.state, 'PLAYING');
   assert.ok(room.players.get('a').spawnProtectionUntil >= 4.1);
   assert.ok(room.players.get('b').spawnProtectionUntil >= 4.1);
@@ -46,7 +49,7 @@ test('players receive one second of spawn protection when a match begins', () =>
 test('first to ten kills finishes the match', () => {
   const room = new Room('TEST2');
   add(room, 'a'); add(room, 'b');
-  room.tick(3.1);
+  room.requestStart('a', 0); room.tick(3.1);
   assert.equal(room.state, 'PLAYING');
   for (let i = 0; i < 10; i += 1) room.recordKill('a', 'b', 4 + i);
   assert.equal(room.state, 'FINISHED');
@@ -56,7 +59,7 @@ test('first to ten kills finishes the match', () => {
 test('timer tie enters sudden death and next tied-leader kill wins', () => {
   const room = new Room('TEST2');
   add(room, 'a'); add(room, 'b'); add(room, 'c');
-  room.tick(3.1);
+  room.requestStart('a', 0); room.tick(3.1);
   room.players.get('a').kills = 4;
   room.players.get('b').kills = 4;
   room.players.get('c').kills = 2;
@@ -71,7 +74,7 @@ test('timer tie enters sudden death and next tied-leader kill wins', () => {
 
 test('rematch votes reset scores and start a short rematch countdown', () => {
   const room = new Room('TEST2');
-  add(room, 'a'); add(room, 'b'); room.tick(3.1);
+  add(room, 'a'); add(room, 'b'); room.requestStart('a', 0); room.tick(3.1);
   room.players.get('a').kills = 10;
   room.finish('a', 10);
   assert.equal(room.requestRematch('a', 11), false);
@@ -115,4 +118,16 @@ test('room manager creates and finds rooms', () => {
   const manager = new RoomManager({ random: () => 0.321 });
   const room = manager.createPrivateRoom(0);
   assert.equal(manager.findByCode(room.code), room);
+});
+
+
+test('start requires enough connected humans and transfers to a connected host', () => {
+  const room = new Room('TEST2'); add(room, 'a');
+  assert.equal(room.requestStart('a', 0), false);
+  add(room, 'b'); add(room, 'c');room.disconnectPlayer('a', 1);
+  assert.equal(room.hostId(), 'b');
+  assert.equal(room.requestStart('a', 1), false);
+  assert.equal(room.requestStart('c', 1), false);
+  assert.equal(room.requestStart('b', 1), true);
+  assert.equal(room.requestStart('b', 1), false);
 });

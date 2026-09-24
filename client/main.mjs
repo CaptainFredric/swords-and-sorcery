@@ -17,7 +17,12 @@ const endScreen = $('#end-screen');
 const practiceOverlay = $('#practice-overlay');
 const nameInput = $('#player-name');
 const roomInput = $('#room-code');
-const menuError = $('#menu-error');
+const menuErrors = [...document.querySelectorAll('[data-menu-error]')];
+const nameFields = [nameInput, ...document.querySelectorAll('[data-name-copy]')];
+const pauseMenu = $('#pause-menu');
+const startMatchButton = $('#start-match');
+let paused = false;
+function showMenuError(text) { for (const element of menuErrors) element.textContent = text; }
 const lobbyCode = $('#lobby-code');
 const lobbyState = $('#lobby-state');
 const lobbyPlayers = $('#lobby-players');
@@ -59,7 +64,16 @@ const params = new URLSearchParams(location.search);
 const invitedRoom = params.get('room');
 const autoSolo = params.get('solo');
 nameInput.value = menuController.savedName();
+for (const field of nameFields) {
+  field.value = nameInput.value;
+  field.addEventListener('input', () => { for (const other of nameFields) if (other !== field) other.value = field.value; });
+}
 if (invitedRoom) roomInput.value = invitedRoom.toUpperCase().replace(/[^A-Z2-9]/g, '').slice(0, 5);
+if (invitedRoom && localStorage.getItem('ss-room-code') !== roomInput.value) {
+  socket.token = null;
+  localStorage.removeItem('ss-session-token');
+  localStorage.removeItem('ss-room-code');
+}
 
 function isMenuBackedScreen(screenId) {
   return [SCREEN_IDS.MAIN_MENU, SCREEN_IDS.SOLO_MENU, SCREEN_IDS.PRIVATE_MENU, SCREEN_IDS.HOW_TO_PLAY].includes(screenId);
@@ -79,6 +93,8 @@ function ensureRuntime() {
     runtime.onPointer = (locked) => {
       const mode = latestLobby?.mode ?? latestSnapshot?.mode;
       if (mode === 'BOT_DUEL') socket.arenaReady(locked);
+      if (locked) { paused = false; pauseMenu.classList.add('hidden'); }
+      else if (latestSnapshot?.roomState === 'PLAYING' && mode !== 'PRACTICE') openPause();
     };
   }
   runtime.setPlayerId(socket.playerId);
@@ -87,12 +103,12 @@ function ensureRuntime() {
 function runMenuAction(result, failureScreen) {
   pendingFailureScreen = failureScreen;
   if (result.ok) {
-    menuError.textContent = '';
+    showMenuError('');
     return true;
   }
-  menuError.textContent = result.error;
+  showMenuError(result.error);
   route(failureScreen);
-  if (/name/i.test(result.error)) nameInput.focus();
+  if (/name/i.test(result.error)) nameFields.find(field => field.offsetParent !== null)?.focus();
   return false;
 }
 
@@ -114,7 +130,7 @@ function lobbyStateCopy(message) {
   }
   if (message.roomState === 'REMATCH_COUNTDOWN') return 'REMATCH STARTING…';
   if (message.roomState === 'COUNTDOWN') return 'MATCH STARTING…';
-  return 'WAITING FOR ANOTHER PLAYER';
+  return message.players?.filter(p => p.actorKind === 'human' && p.connected).length >= 2 ? 'WAITING FOR HOST TO START' : 'WAITING FOR ANOTHER PLAYER';
 }
 
 function updateLobby(message) {
@@ -135,16 +151,20 @@ function updateLobby(message) {
     return `<div class="lobby-player"><span class="player-rune">${rune}</span><b>${escapeHtml(player.name)}</b><em>${status}</em></div>`;
   }).join('');
   const multiplayer = message.mode === 'FFA';
+  const humans = message.players.filter(p => p.actorKind === 'human' && p.connected).length;
+  startMatchButton.classList.toggle('hidden', !multiplayer);
+  startMatchButton.disabled = message.roomState !== 'WAITING' || humans < 2 || message.hostId !== socket.playerId;
+  startMatchButton.textContent = message.hostId === socket.playerId ? 'START MATCH' : 'WAITING FOR HOST';
   const botDuel = message.mode === 'BOT_DUEL';
   copyLinkButton.classList.toggle('hidden', !(multiplayer || botDuel));
   copyLinkButton.disabled = botDuel && message.roomState === 'COUNTDOWN';
   copyLinkButton.textContent = botDuel
-    ? message.roomState === 'COUNTDOWN' ? 'ARENA FOCUSED' : 'ENTER ARENA'
+    ? message.roomState === 'COUNTDOWN' ? 'ARENA FOCUSED' : 'START BOT DUEL'
     : 'COPY INVITE LINK';
   lobbyCopy.textContent = multiplayer
-    ? 'Invite friends with the room link, or wait for another player.'
+    ? 'Share the room code. The host starts when everyone has joined.'
     : botDuel
-      ? 'Capture the arena; the three-second countdown begins once focus is locked.'
+      ? 'Press Start Bot Duel when ready. A short countdown follows.'
       : 'Solo session.';
 }
 
@@ -178,8 +198,8 @@ function setPracticeVisible(visible) {
 }
 
 $('#quick-play').addEventListener('click', () => runMenuAction(menuController.quickPlay(nameInput.value), SCREEN_IDS.MAIN_MENU));
-$('#solo-button').addEventListener('click', () => { menuError.textContent = ''; route(SCREEN_IDS.SOLO_MENU); });
-$('#private-button').addEventListener('click', () => { menuError.textContent = ''; route(SCREEN_IDS.PRIVATE_MENU); });
+$('#solo-button').addEventListener('click', () => { showMenuError(''); route(SCREEN_IDS.SOLO_MENU); });
+$('#private-button').addEventListener('click', () => { showMenuError(''); route(SCREEN_IDS.PRIVATE_MENU); });
 $('#how-button').addEventListener('click', () => route(SCREEN_IDS.HOW_TO_PLAY));
 $('#solo-back').addEventListener('click', () => route(SCREEN_IDS.MAIN_MENU));
 $('#private-back').addEventListener('click', () => route(SCREEN_IDS.MAIN_MENU));
@@ -188,6 +208,7 @@ $('#bot-duel').addEventListener('click', () => runMenuAction(menuController.botD
 $('#practice-mode').addEventListener('click', () => runMenuAction(menuController.practice(nameInput.value), SCREEN_IDS.SOLO_MENU));
 $('#create-room').addEventListener('click', () => runMenuAction(menuController.createPrivate(nameInput.value), SCREEN_IDS.PRIVATE_MENU));
 $('#join-room').addEventListener('click', () => runMenuAction(menuController.joinPrivate(roomInput.value, nameInput.value), SCREEN_IDS.PRIVATE_MENU));
+roomInput.addEventListener('keydown', event => { if (event.key === 'Enter') $('#join-room').click(); });
 roomInput.addEventListener('input', () => { roomInput.value = roomInput.value.toUpperCase().replace(/[^A-Z2-9]/g, '').slice(0, 5); });
 
 copyLinkButton.addEventListener('click', async () => {
@@ -199,11 +220,39 @@ copyLinkButton.addEventListener('click', async () => {
   const url = new URL(location.href);
   url.search = '';
   url.searchParams.set('room', socket.roomCode);
-  await navigator.clipboard.writeText(url.toString());
+  await copyText(url.toString(), 'Copy invite link');
   copyLinkButton.textContent = 'INVITE LINK COPIED';
   setTimeout(() => { copyLinkButton.textContent = 'COPY INVITE LINK'; }, 1200);
 });
-$('#copy-code').addEventListener('click', async () => { await navigator.clipboard.writeText(socket.roomCode || ''); });
+$('#copy-code').addEventListener('click', () => copyText(socket.roomCode || '', 'Copy room code'));
+
+async function copyText(text, title) {
+  try { await navigator.clipboard.writeText(text); }
+  catch { window.prompt(title, text); }
+}
+function openPause() {
+  if (latestSnapshot?.roomState !== 'PLAYING') return;
+  paused = true;
+  document.exitPointerLock?.();
+  pauseMenu.classList.remove('hidden');
+  $('#resume-game').focus();
+}
+$('#resume-game').addEventListener('click', () => { paused = false; pauseMenu.classList.add('hidden'); runtime?.requestPointerLock(); });
+$('#pause-leave').addEventListener('click', () => clearSessionAndNavigate());
+$('#lobby-leave').addEventListener('click', () => clearSessionAndNavigate());
+startMatchButton.addEventListener('click', () => socket.startMatch());
+document.addEventListener('keydown', event => {
+  if (event.key !== 'Escape' || event.repeat) return;
+  if ([SCREEN_IDS.SOLO_MENU, SCREEN_IDS.PRIVATE_MENU, SCREEN_IDS.HOW_TO_PLAY].includes(router.current)) {
+    route(SCREEN_IDS.MAIN_MENU);
+  } else if (router.current === SCREEN_IDS.LOBBY || router.current === SCREEN_IDS.END_SCREEN) {
+    clearSessionAndNavigate();
+  } else if (latestSnapshot?.roomState === 'PLAYING') {
+    if (document.pointerLockElement) document.exitPointerLock();
+    else if (paused) { paused = false; pauseMenu.classList.add('hidden'); }
+    else openPause();
+  }
+});
 
 rematchButton.addEventListener('click', () => {
   if (latestSnapshot?.mode === 'BOT_DUEL') {
@@ -223,7 +272,7 @@ $('#practice-remove').addEventListener('click', () => socket.practiceRemoveDummy
 $('#practice-leave').addEventListener('click', () => clearSessionAndNavigate());
 
 socket.on('joined', (message) => {
-  menuError.textContent = '';
+  showMenuError('');
   ensureRuntime();
   if (message.roomState === 'PLAYING') {
     route(SCREEN_IDS.PLAYING);
@@ -246,6 +295,7 @@ socket.on('snapshot', (snapshot) => {
   if (snapshot.roomState === 'WAITING' || snapshot.roomState === 'COUNTDOWN' || snapshot.roomState === 'REMATCH_COUNTDOWN') {
     const preservePointerLock = snapshot.mode === 'BOT_DUEL'
       && (snapshot.roomState === 'WAITING' || snapshot.roomState === 'COUNTDOWN');
+    paused = false; pauseMenu.classList.add('hidden');
     runtime.setPlaying(false, { preservePointerLock });
     hud.hide();
     setPracticeVisible(false);
@@ -257,6 +307,7 @@ socket.on('snapshot', (snapshot) => {
     hud.show();
     setPracticeVisible(snapshot.mode === 'PRACTICE');
   } else if (snapshot.roomState === 'FINISHED') {
+    paused = false; pauseMenu.classList.add('hidden');
     runtime.setPlaying(false);
     hud.hide();
     setPracticeVisible(false);
@@ -272,7 +323,7 @@ socket.on('resumeFailed', () => {
   runtime?.setPlayerId(null);
   hud.hide();
   setPracticeVisible(false);
-  menuError.textContent = 'Previous arena session expired. Choose a new match.';
+  showMenuError('Previous arena session expired. Choose a new match.');
   route(invitedRoom ? SCREEN_IDS.PRIVATE_MENU : SCREEN_IDS.MAIN_MENU);
 });
 
@@ -282,7 +333,7 @@ socket.on('error', (message) => {
     hud.flashText(errorText.toUpperCase(), 'danger');
     return;
   }
-  menuError.textContent = errorText;
+  showMenuError(errorText);
   hud.hide();
   setPracticeVisible(false);
   route(pendingFailureScreen);
@@ -308,7 +359,7 @@ try {
     }, 500);
   }
 } catch {
-  menuError.textContent = 'Could not reach the arena server. Retry in a moment.';
+  showMenuError('Could not reach the arena server. Retry in a moment.');
   route(SCREEN_IDS.MAIN_MENU);
 }
 

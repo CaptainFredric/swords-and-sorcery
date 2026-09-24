@@ -64,6 +64,7 @@ function serializeLobby(room) {
   return {
     type: 'lobby',
     roomCode: room.code,
+    hostId: room.hostId(),
     roomState: room.state,
     mode: room.mode,
     worldId: room.worldId,
@@ -87,6 +88,7 @@ function serializeSnapshot(room, nowSec) {
     tick: room.tickNumber,
     serverTime: nowSec,
     roomCode: room.code,
+    hostId: room.hostId(),
     roomState: room.state,
     mode: room.mode,
     worldId: room.worldId,
@@ -171,6 +173,7 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
       playerId: player.id,
       token: player.token,
       roomCode: room.code,
+    hostId: room.hostId(),
       roomState: room.state,
       mode: room.mode,
       worldId: room.worldId,
@@ -261,6 +264,11 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
     if (!room || !player) return;
 
     switch (message.type) {
+      case 'startMatch': {
+        if (room.requestStart(player.id, time)) broadcastLobby(room);
+        else send(session, { type: 'error', message: 'The host can start once two players have joined.' });
+        break;
+      }
       case 'arenaReady': {
         if (room.setArenaReady(player.id, Boolean(message.ready), time)) broadcastLobby(room);
         break;

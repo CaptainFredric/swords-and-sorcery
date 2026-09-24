@@ -75,7 +75,7 @@ test('Bot Duel lobby captures pointer lock before signaling authoritative arena 
   const runtime = await read('client/game/GameRuntime.mjs');
   const input = await read('client/game/InputController.mjs');
 
-  assert.match(main, /BOT_DUEL[\s\S]*ENTER ARENA/i);
+  assert.match(main, /BOT_DUEL[\s\S]*START BOT DUEL/i);
   assert.match(main, /requestPointerLock\(\)/);
   assert.match(main, /arenaReady\(locked\)/);
   assert.match(main, /preservePointerLock[\s\S]*BOT_DUEL|BOT_DUEL[\s\S]*preservePointerLock/);

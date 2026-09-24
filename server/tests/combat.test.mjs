@@ -25,6 +25,7 @@ function playingRoom() {
   const room = new Room('TEST2');
   room.addPlayer({ id: 'a', token: 'ta', name: 'A' }, 0);
   room.addPlayer({ id: 'b', token: 'tb', name: 'B' }, 0);
+  room.requestStart('a', 0);
   room.tick(3.1);
   const a = room.players.get('a');
   const b = room.players.get('b');

@@ -83,6 +83,7 @@ export class GameSocket {
   quickPlay(name) { this.send({ type: 'quickPlay', name }); }
   startSolo(mode, name) { this.send({ type: 'startSolo', mode, name }); }
   joinRoom(code, name) { this.send({ type: 'joinRoom', code: code.trim().toUpperCase(), name }); }
+  startMatch() { this.send({ type: 'startMatch' }); }
   arenaReady(ready) { this.send({ type: 'arenaReady', ready: Boolean(ready) }); }
   practiceResetPlayer() { this.send({ type: 'practiceResetPlayer' }); }
   practiceSpawnDummy(mode = 'PASSIVE') { this.send({ type: 'practiceSpawnDummy', mode }); }

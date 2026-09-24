@@ -84,7 +84,6 @@ export class Room {
     };
     this.players.set(id, player);
     this.emptySince = null;
-    this.#armMultiplayerStart(nowSec);
     return player;
   }
 
@@ -173,11 +172,16 @@ export class Room {
     return true;
   }
 
-  #armMultiplayerStart(nowSec) {
-    if (this.policy.autoStart || this.state !== 'WAITING') return;
-    if (this.humanCount() < this.policy.minHumansToStart) return;
+  hostId() {
+    return [...this.players.values()].find(p => p.actorKind === 'human' && p.connected)?.id ?? null;
+  }
+
+  requestStart(playerId, nowSec) {
+    if (this.mode !== GAME_MODES.FFA || this.state !== 'WAITING') return false;
+    if (playerId !== this.hostId() || this.humanCount() < this.policy.minHumansToStart) return false;
     this.state = 'COUNTDOWN';
     this.countdownEndsAt = nowSec + COUNTDOWN_SEC;
+    return true;
   }
 
   disconnectPlayer(id, nowSec) {
@@ -216,7 +220,6 @@ export class Room {
         if (this.mode === GAME_MODES.BOT_DUEL && this.state !== 'PLAYING') player.arenaReady = false;
         this.emptySince = null;
         if (this.policy.autoStart) this.armAutoStart(nowSec);
-        else this.#armMultiplayerStart(nowSec);
         return player;
       }
     }

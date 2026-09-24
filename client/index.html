@@ -47,7 +47,7 @@
         <button id="solo-button" class="menu-command"><span>SOLO</span><small>Fight a bot or practice</small></button>
         <button id="private-button" class="menu-command"><span>PRIVATE MATCH</span><small>Create or join a room</small></button>
         <button id="how-button" class="menu-command quiet-command"><span>HOW TO PLAY</span><small>Controls and combat basics</small></button>
-        <p id="menu-error" class="error-copy" aria-live="polite"></p>
+        <p id="menu-error" data-menu-error class="error-copy" aria-live="polite"></p>
       </aside>
     </section>
 
@@ -56,6 +56,9 @@
         <button class="back-button" id="solo-back">← BACK</button>
         <p class="eyebrow">SOLO</p>
         <h2>PLAY ALONE</h2>
+        <label class="field-label" for="solo-name">SPELLBLADE NAME</label>
+        <input id="solo-name" class="game-input" data-name-copy maxlength="18" autocomplete="nickname" placeholder="Enter a name" />
+        <p class="error-copy" data-menu-error aria-live="polite"></p>
         <p class="panel-copy">Fight one rival or train at your own pace.</p>
         <button id="bot-duel" class="mode-choice primary-command">
           <span>BOT DUEL</span>
@@ -73,6 +76,9 @@
         <button class="back-button" id="private-back">← BACK</button>
         <p class="eyebrow">PRIVATE MATCH</p>
         <h2>PRIVATE MATCH</h2>
+        <label class="field-label" for="private-name">SPELLBLADE NAME</label>
+        <input id="private-name" class="game-input" data-name-copy maxlength="18" autocomplete="nickname" placeholder="Enter a name" />
+        <p class="error-copy" data-menu-error aria-live="polite"></p>
         <p class="panel-copy">Create a room or join with a five-character code.</p>
         <button id="create-room" class="mode-choice primary-command"><span>CREATE ROOM</span><small>Start a private Castleward match</small></button>
         <div class="private-divider"><span>OR JOIN</span></div>
@@ -98,6 +104,7 @@
           <span>E</span><b>Dash in your movement direction</b>
           <span>SPACE</span><b>Jump</b>
           <span>TAB</span><b>Scoreboard</b>
+          <span>ESC</span><b>Arena menu / Back</b>
         </div>
         <p class="rules-copy">Three sword hits defeat a full-health Spellblade. A well-timed Guard parries and staggers the attacker. Fireball beats passive blocking. Dash repositions; it does not grant invulnerability.</p>
       </div>
@@ -110,8 +117,19 @@
         <h2>ROOM <button id="copy-code" class="code-button"><span id="lobby-code">----</span></button></h2>
         <div id="lobby-state" class="lobby-state">WAITING FOR ANOTHER PLAYER</div>
         <div id="lobby-players" class="player-list"></div>
+        <button id="start-match" class="wide-button primary-command hidden">START MATCH</button>
+        <button id="lobby-leave" class="wide-button">RETURN TO MENU</button>
         <button id="copy-link" class="wide-button">COPY INVITE LINK</button>
         <p id="lobby-copy" class="small-copy">Two players are enough. New players can join an active match.</p>
+      </div>
+    </section>
+
+    <section id="pause-menu" class="pause-menu hidden" role="dialog" aria-label="Arena menu">
+      <div class="pause-card">
+        <h2>ARENA MENU</h2>
+        <p>The match continues while this menu is open.</p>
+        <button id="resume-game" class="wide-button primary-command">RESUME</button>
+        <button id="pause-leave" class="wide-button">RETURN TO MENU</button>
       </div>
     </section>
 
