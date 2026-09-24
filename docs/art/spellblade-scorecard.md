@@ -22,7 +22,8 @@ Cameras and landmark annotations live in `review/concept_views.json`. Ratios are
 | Head scale | Front, side, back | In review | 5.6 to 6.2 heads (head scaled 0.88). Concept 6.5 to 7.5; the remainder is kept for readability at distance. |
 | Shoulder span | Front, back | Flagged | Model 0.48 of height; concept about 0.37. An earlier pass enlarged the near shoulder on request, so this waits for a decision. |
 | Scarf | Front, helmet detail | Open | Concept is a thick cowl wrapping the chin and draping to the chest. |
-| Torso depth and back banner | Side | Open | Concept banner stands off the back and gives the side view mass; ours hugs the back. Length and width already match (hem 0.20 vs 0.20; width 0.19 vs 0.17). |
+| Back banner | Back, side | In review | Straight sides, stepped hem, light border; stands off the back toward the hem for side mass. Length and width unchanged against the concept. |
+| Torso depth | Side | Open | Breastplate and backplate depth untouched so far; judge again after the banner change. |
 | Front tabard | Front | Open | Length and width close. Shape differs: concept is straight-sided with a stepped border and stepped hem; ours tapers. |
 | Belt and hangers | Front | Close | Buckle, diamond and hangers present. |
 | Arms and gauntlets | Front, side | Close | Hand construction pass done earlier. |
