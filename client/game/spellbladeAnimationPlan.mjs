@@ -52,7 +52,8 @@ export function resolveSpellbladeAnimationPlan({ state, player = {}, serverNow =
     return fixed('Death', serverNow - deathAt);
   }
 
-  if (state === 'guard') return fixed('Guard');
+  // Frame 8 holds the raised guard; frame 1 is the neutral entry pose.
+  if (state === 'guard') return fixed('Guard', 7 / 30);
   if (state === 'air') return fixed('Air');
   if (state === 'run') return fixed('Run', localTime, true);
   return fixed('Idle', localTime, true);

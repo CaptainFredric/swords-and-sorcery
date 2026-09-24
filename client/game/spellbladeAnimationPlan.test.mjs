@@ -67,7 +67,7 @@ test('death derives clip progress from the authoritative respawn deadline', () =
 
 test('guard and air select fixed non-looping poses while locomotion loops locally', () => {
   const guard = resolveSpellbladeAnimationPlan({ state: 'guard', player: {}, serverNow: 1, localTime: 4.25 });
-  assert.deepEqual(guard, { clip: 'Guard', time: 0, loop: false, weight: 1 });
+  assert.deepEqual(guard, { clip: 'Guard', time: 7 / 30, loop: false, weight: 1 });
 
   const air = resolveSpellbladeAnimationPlan({ state: 'air', player: {}, serverNow: 1, localTime: 4.25 });
   assert.deepEqual(air, { clip: 'Air', time: 0, loop: false, weight: 1 });
