@@ -340,7 +340,7 @@ try {
   await waitVisible('#lobby', 10000);
   await poll(async () => {
     const ui = await snapshotUi();
-    return ui.lobbyMode === 'BOT DUEL' && /ENTER THE ARENA/i.test(ui.lobbyState) && /ENTER ARENA/i.test(ui.lobbyAction);
+    return ui.lobbyMode === 'BOT DUEL' && /ENTER THE ARENA/i.test(ui.lobbyState) && /START BOT DUEL/i.test(ui.lobbyAction);
   }, { timeoutMs: 10000, label: 'Bot Duel WAITING readiness lobby' });
   await sleep(3600);
   evidence.botDuelWaiting = await snapshotUi();
