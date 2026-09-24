@@ -53,7 +53,10 @@ test('websocket clients support multiplayer combat and one-tab Practice on the a
   assert.equal(bobJoined.roomCode, aliceJoined.roomCode);
 
   const room = game.roomManager.findByCode(aliceJoined.roomCode);
-  assert.equal(room.state, 'COUNTDOWN');
+  assert.equal(room.state, 'WAITING');
+  const startedP = waitFor(alice, m => m.type === 'lobby' && m.roomState === 'COUNTDOWN');
+  send(alice, { type: 'startMatch' });
+  await startedP;
   room.countdownEndsAt = game.now() - 0.001;
   const playingP = waitFor(alice, (m) => m.type === 'snapshot' && m.roomState === 'PLAYING');
   const playing = await playingP;
