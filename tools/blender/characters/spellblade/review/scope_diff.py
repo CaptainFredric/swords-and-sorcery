@@ -9,7 +9,7 @@ Run from the repository root, comparing the working source with a committed one:
       [--expect HelmetShell,HelmetCrownBand]
 
 Each object is fingerprinted by transform, parent, modifiers, vertex groups,
-vertex positions, weights, topology and materials; each action by its curves
+vertex positions, weights, topology, materials and corner colors; each action by its curves
 and keys; each image by its packed bytes; bones by rest head, tail and parent.
 With --expect, the run fails when anything outside the named objects changed,
 so a focused art pass proves it left rig, animation and other armor untouched.
@@ -43,6 +43,8 @@ def fingerprint(path: str) -> dict:
             entry["weights"] = _digest([[(g.group, round(g.weight, 6)) for g in v.groups] for v in mesh.vertices])
             entry["topology"] = _digest([tuple(p.vertices) for p in mesh.polygons])
             entry["materials"] = _digest(([m.name if m else None for m in mesh.materials], [p.material_index for p in mesh.polygons]))
+            entry["colors"] = _digest([(layer.name, [tuple(round(c, 4) for c in d.color) for d in layer.data])
+                                       for layer in mesh.color_attributes])
         if obj.type == "ARMATURE":
             entry["bones"] = _digest([(b.name, b.parent.name if b.parent else None,
                                        [round(x, 6) for x in b.head_local], [round(x, 6) for x in b.tail_local])
