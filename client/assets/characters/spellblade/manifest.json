@@ -1,5 +1,44 @@
 {
   "version": 1,
-  "enabled": false,
-  "note": "Migration placeholder. The reviewed asset promotion workflow replaces this file with a revisioned production manifest."
+  "sourceRevision": "aa7c8ab48a3b601395999b95607259e3d12481cc",
+  "thirdPerson": {
+    "url": "/client/assets/characters/spellblade/spellblade.glb?v=aa7c8ab48a3b601395999b95607259e3d12481cc",
+    "clips": [
+      "Idle",
+      "Run",
+      "Air",
+      "Guard",
+      "Slash_1",
+      "Slash_2",
+      "Slash_3",
+      "Cast",
+      "Dash",
+      "Stagger",
+      "Death"
+    ]
+  },
+  "firstPerson": {
+    "url": "/client/assets/characters/spellblade/spellblade-fp.glb?v=aa7c8ab48a3b601395999b95607259e3d12481cc",
+    "clips": [
+      "Idle",
+      "Guard",
+      "Slash_1",
+      "Slash_2",
+      "Slash_3",
+      "Cast",
+      "Dash",
+      "Stagger"
+    ]
+  },
+  "sockets": [
+    "socket_sword",
+    "socket_sorcery"
+  ],
+  "mutableMaterials": [
+    "VisorGlow",
+    "SorceryAccent"
+  ],
+  "firstPersonMutableMaterials": [
+    "SorceryAccent"
+  ]
 }
