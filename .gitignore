@@ -2,3 +2,7 @@
 node_modules/
 dist/
 .env
+
+# Local Blender backups and bytecode
+*.blend1
+__pycache__/

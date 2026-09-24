@@ -7,6 +7,7 @@ on:
       - 'tools/blender/**'
       - 'scripts/validate-spellblade-glb.py'
       - 'scripts/validate-spellblade-fp-render.py'
+      - 'scripts/test-spellblade-source.py'
   workflow_dispatch:
     inputs:
       mode:
@@ -63,6 +64,9 @@ jobs:
           tar -xJf ".cache/${BLENDER_ARCHIVE}" --strip-components=1 -C .blender
           ./.blender/blender --version
 
+      - name: Verify authored source survives export
+        run: ./.blender/blender --background --factory-startup --python-exit-code 1 --python scripts/test-spellblade-source.py
+
       - name: Build Spellblade asset evidence
         shell: bash
         env:
@@ -110,6 +114,7 @@ jobs:
           production_stages = {
               'third-person-animated-with-first-person',
               'traced-third-person-animated-with-first-person',
+              'authored-third-person-animated-with-first-person',
           }
           assert report['visualStage'] in {'worker-bootstrap', *production_stages}
           assert len(report['sourceRevision']) == 40

@@ -283,16 +283,16 @@ export class GameRuntime {
       this.camera.rotation.z = 0;
       this.cameraKick *= 0.78;
       const speed = Math.min(1, Math.hypot(this.localState.velocity.x, this.localState.velocity.z) / 7.5);
-      this.weapon.update(timeSec, speed);
+      this.weapon.update(timeSec, speed, dt);
     } else if (this.localAuth && this.localState) {
       this.camera.position.set(this.localState.position.x, this.localState.position.y + 1.58, this.localState.position.z);
-      this.weapon.update(timeSec, 0);
+      this.weapon.update(timeSec, 0, dt);
     }
 
     const targetFov = nowMs < this.dashFovUntil ? 88 : 78;
     this.camera.fov += (targetFov - this.camera.fov) * 0.18;
     this.camera.updateProjectionMatrix();
-    this.remotePlayers.update(nowMs);
+    this.remotePlayers.update(nowMs, dt);
     this.world?.update?.(timeSec);
     this.effects.update(dt);
 

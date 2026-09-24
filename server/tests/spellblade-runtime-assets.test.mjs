@@ -40,15 +40,25 @@ test('runtime asset layer uses cached GLTF loading, skinned cloning, isolated mu
   assert.doesNotMatch(assets, /geometry\.dispose\s*\(/);
 });
 
-test('migration manifest disables production GLB requests until reviewed assets are promoted', async () => {
-  const assets = await read('client/game/SpellbladeAssets.mjs');
-  const manifestText = await read('client/assets/characters/spellblade/manifest.json');
-
-  assert.ok(manifestText, 'migration manifest must exist so browser does not request a missing file');
-  const manifest = JSON.parse(manifestText);
-  assert.equal(manifest.enabled, false);
-  assert.match(assets, /enabled\s*===\s*false/);
-  assert.match(assets, /return\s+null/);
+test('enabled Spellblade manifest serves revisioned GLBs with all required animations', async () => {
+  const manifest = JSON.parse(await read('client/assets/characters/spellblade/manifest.json'));
+  const contract = JSON.parse(await read('tools/blender/characters/spellblade/contract.json'));
+  assert.notEqual(manifest.enabled, false);
+  assert.match(manifest.sourceRevision, /^[0-9a-f]{40}$/);
+  for (const [kind, file, clips] of [
+    ['thirdPerson', 'spellblade.glb', contract.clips],
+    ['firstPerson', 'spellblade-fp.glb', contract.firstPersonClips],
+  ]) {
+    const path = `client/assets/characters/spellblade/${file}`;
+    assert.equal(manifest[kind].url, `/${path}?v=${manifest.sourceRevision}`);
+    const bytes = await readFile(new URL(`../../${path}`, import.meta.url));
+    assert.equal(bytes.toString('ascii', 0, 4), 'glTF');
+    assert.equal(bytes.readUInt32LE(4), 2);
+    assert.equal(bytes.readUInt32LE(8), bytes.length);
+    const document = JSON.parse(bytes.toString('utf8', 20, 20 + bytes.readUInt32LE(12)));
+    assert.deepEqual(document.animations.map(a => a.name).sort(), [...clips].sort());
+    assert.ok(document.animations.every(a => a.channels.length > 0));
+  }
 });
 
 test('remote players upgrade fallback visuals to production GLBs without moving network roots', async () => {

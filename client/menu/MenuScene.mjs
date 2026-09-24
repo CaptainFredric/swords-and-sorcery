@@ -26,8 +26,8 @@ export class MenuScene {
 
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(33, 1, 0.1, 40);
-    this.camera.position.set(0, 1.28, 5.45);
-    this.camera.lookAt(0, 0.95, 0);
+    this.camera.position.set(0, 0.65, 5.45);
+    this.camera.lookAt(0, 0.15, 0);
 
     this.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, powerPreference: 'low-power' });
     this.renderer.setPixelRatio(Math.min(globalThis.devicePixelRatio || 1, 1.25));
@@ -51,7 +51,7 @@ export class MenuScene {
     this.characterRoot = new THREE.Group();
     this.characterRoot.name = 'menu-spellblade-root';
     this.characterRoot.scale.setScalar(1.10);
-    this.characterRoot.position.set(0, -1.05, 0);
+    this.characterRoot.position.set(0, -0.825, 0);
     this.characterRoot.rotation.y = this.targetYaw;
     this.stage.add(this.characterRoot);
 
@@ -191,7 +191,7 @@ export class MenuScene {
       rig.magic.scale.setScalar(pulse);
     }
 
-    this.magicLight.intensity = 2.7 + Math.sin(t * 3.1) * 0.45;
+    this.magicLight.intensity = 0.85 + Math.sin(t * 3.1) * 0.15;
     this.renderer.render(this.scene, this.camera);
   };
 

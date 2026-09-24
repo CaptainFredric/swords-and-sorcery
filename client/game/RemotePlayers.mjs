@@ -188,7 +188,7 @@ export class RemotePlayers {
     }
   }
 
-  update(nowMs) {
+  update(nowMs, dt = 0) {
     const renderTime = nowMs - 100;
     const localTime = nowMs / 1000;
     for (const [id, shell] of this.rigs) {
@@ -231,7 +231,7 @@ export class RemotePlayers {
 
       const animationPlayer = { ...pb, castPoseStartAt: d.castPoseStartAt };
       const plan = resolveSpellbladeAnimationPlan({ state, player: animationPlayer, serverNow, localTime });
-      setRemoteVisualPlan(shell, plan);
+      setRemoteVisualPlan(shell, plan, dt);
 
       const protectedNow = (pb.spawnProtectionUntil ?? 0) > serverNow;
       const accentIntensity = protectedNow ? 2.8 : state === 'cast' ? 2.3 : 1.4;

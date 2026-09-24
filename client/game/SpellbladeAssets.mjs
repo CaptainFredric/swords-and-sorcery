@@ -1,5 +1,6 @@
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
+import { createSorceryVolume } from './SorceryVolume.mjs';
 import { SpellbladeAnimator } from './SpellbladeAnimator.mjs';
 
 const DEFAULT_MANIFEST_URL = '/client/assets/characters/spellblade/manifest.json';
@@ -117,10 +118,14 @@ export async function createSpellbladeAsset({ kind = 'thirdPerson', manifestUrl 
     ? manifest.firstPersonMutableMaterials
     : manifest.mutableMaterials;
   const mutableMaterials = cloneMutableMaterials(root, mutableNames);
-  const animator = new SpellbladeAnimator(root, gltf.animations);
   const sockets = Object.freeze({
     sword: root.getObjectByName('socket_sword') ?? null,
     sorcery: root.getObjectByName('socket_sorcery') ?? null,
+  });
+
+  const sorcery = createSorceryVolume(sockets.sorcery);
+  const animator = new SpellbladeAnimator(root, gltf.animations, (plan) => {
+    sorcery.update(plan.time, plan.clip === 'Cast');
   });
 
   let disposed = false;
@@ -134,6 +139,7 @@ export async function createSpellbladeAsset({ kind = 'thirdPerson', manifestUrl 
       if (disposed) return;
       disposed = true;
       animator.dispose();
+      sorcery.dispose();
       for (const material of mutableMaterials.owned) material.dispose();
     },
   };

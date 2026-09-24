@@ -36,10 +36,10 @@ export function createRemoteVisualShell({ root, fallback, fallbackDispose = null
   };
 }
 
-export function setRemoteVisualPlan(shell, plan) {
+export function setRemoteVisualPlan(shell, plan, dt = 0) {
   if (!shell?.active) return;
   shell.latestPlan = plan;
-  shell.visualInstance?.animator?.apply?.(plan, 0);
+  shell.visualInstance?.animator?.apply?.(plan, dt);
 }
 
 export function upgradeRemoteVisual(shell, instance, generation) {

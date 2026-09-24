@@ -4,6 +4,7 @@ import { taperedPrismData, wedgeData } from './facetedGeometryData.mjs';
 import { SPELLBLADE_PALETTE } from './spellbladeDesign.mjs';
 import { createSpellbladeSword } from './SpellbladeSword.mjs';
 import { createSpellbladeAsset, reportSpellbladeAssetStatus } from './SpellbladeAssets.mjs';
+import { resolveFirstPersonAnimationPlan } from './spellbladeAnimationPlan.mjs';
 import { FIRST_PERSON_WEAPON_SCALE, resolveWeaponPose } from './weaponPose.mjs';
 
 function damp(value, target, amount) {
@@ -119,15 +120,6 @@ function addMagicWisp(parent, material, name, position, size, rotation) {
   return wisp;
 }
 
-function productionPlan(pose, view, timeSec) {
-  if (pose.state === 'attack' && Number.isInteger(pose.strike)) {
-    return { clip: `Slash_${pose.strike + 1}`, loop: false, time: Math.max(0, timeSec - view.attackStartedAt) };
-  }
-  if (pose.state === 'guard') return { clip: 'Guard', loop: false, time: 7 / 30 };
-  if (pose.state === 'cast') return { clip: 'Cast', loop: false, time: Math.max(0, timeSec - view.castStartedAt) };
-  if (pose.state === 'dash') return { clip: 'Dash', loop: false, time: Math.max(0, timeSec - (view.dashUntil - 0.18)) };
-  return { clip: 'Idle', loop: true, time: timeSec };
-}
 
 function outerImpactPose(view, timeSec) {
   const recoil = view.recoilUntil > timeSec ? Math.min(1, (view.recoilUntil - timeSec) / 0.23) : 0;
@@ -294,7 +286,7 @@ export class WeaponView {
     this.parryUntil = performance.now() / 1000 + 0.3;
   }
 
-  update(timeSec, movingAmount = 0) {
+  update(timeSec, movingAmount = 0, dt = 0) {
     const pose = resolveWeaponPose({
       timeSec,
       movingAmount,
@@ -309,7 +301,7 @@ export class WeaponView {
     });
 
     if (this.visualKind === 'production' && this.productionInstance) {
-      this.productionInstance.animator.apply(productionPlan(pose, this, timeSec));
+      this.productionInstance.animator.apply(resolveFirstPersonAnimationPlan(pose, this, timeSec), dt);
       dampTransform(this.productionOffset, outerImpactPose(this, timeSec), 0.38);
       const glow = pose.state === 'cast' ? 3.2 : 2.0;
       for (const material of this.productionInstance.materials.SorceryAccent ?? []) material.emissiveIntensity = glow;
