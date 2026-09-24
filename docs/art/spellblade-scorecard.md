@@ -17,7 +17,7 @@ Cameras and landmark annotations live in `review/concept_views.json`. Ratios are
 
 | Region | Deciding view | Status | Notes |
 | --- | --- | --- | --- |
-| Helmet crown | Helmet detail, front | In review | Squared crown and flush band (September 24). User: "materially closer". |
+| Helmet crown | Helmet detail, front | In review | First squaring overshot into a lid; corrected to the concept pentagon with a wide brass beak and taller crest. |
 | Helmet face and cheeks | Helmet detail | In review | Block cheeks flush with the crown, outer-stroke brackets, brass nose tip, straight rear. |
 | Head scale | Front, side, back | In review | 5.6 to 6.2 heads (head scaled 0.88). Concept 6.5 to 7.5; the remainder is kept for readability at distance. |
 | Shoulder span | Front, back | Flagged | Model 0.48 of height; concept about 0.37. An earlier pass enlarged the near shoulder on request, so this waits for a decision. |
@@ -27,7 +27,7 @@ Cameras and landmark annotations live in `review/concept_views.json`. Ratios are
 | Front tabard | Front | In review | Straight sides, stepped hem and border; shortened and narrowed to the concept (hem 0.26 vs 0.28, width 0.15 vs 0.14). |
 | Belt and hangers | Front | Close | Buckle, diamond and hangers present. |
 | Arms and gauntlets | Front, side | Close | Hand construction pass done earlier. |
-| Legs and boots | Front, back | Open | Concept layers knee cops, stacked greave plates and brass straps; feet read small. |
-| Sword | Weapon detail | Close | Concept blade longer and slimmer. |
-| Materials and values | All | Open | Concept steel is a darker slate with more dark undersuit, which makes the brass read. |
+| Legs and boots | Front, back | In review | Thickened to the concept outline (thigh 1.15, shin 1.2, boots 1.15 wide). Layered knee cops and brass straps still missing. |
+| Sword | Weapon detail | In review | Blade 12% longer and slimmer. Crossguard shape still differs. |
+| Materials and values | In game | Open | Base colors are already dark; the pale look is the bright review lighting. Judge under the game's own lighting before changing materials. |
 | Spell hand VFX | Front | Runtime | Glow orb and pixel particles belong to the game effects, not the mesh. |

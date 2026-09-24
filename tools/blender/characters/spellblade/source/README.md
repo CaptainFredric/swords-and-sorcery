@@ -86,3 +86,7 @@ The front tabard is regenerated with the same banner construction as the back: s
 ## September 24 crown correction
 
 The earlier squaring overshot into a flat lid. The upper crown rings now pull in (top ring to 74% width), so the crown reads as the concept's pentagon: short walls, broad chamfers and a narrow top. The brass band widens and ends in a beak between the visor brackets, reseated flush on the new surface. The crest is 55% taller above the crown and slightly wider. Scope: HelmetShell, HelmetCrownBand, Crest and CrestMount. Review sheet: `docs/art/helmet-study/crown-v3.png`.
+
+## September 24 limb mass
+
+Silhouette traces showed the model sitting inside the concept outline at every limb. Each limb piece is thickened around its own bone axis, leaving bone lengths, joints and weights untouched: thighs 1.15, shins and knees 1.2, forearms 1.15, upper arms 1.08. Boots widen 1.15 and lengthen 1.06 about the ankle, soles still on the ground. The blade is 12% longer along its own axis and 12% slimmer across it. Hands and shoulders are unchanged. The first-person source is not yet synchronized with the thicker forearms. Scope: 45 limb meshes and HeroSword, positions only. Review sheet: `docs/art/helmet-study/limbs-pass.png`.
