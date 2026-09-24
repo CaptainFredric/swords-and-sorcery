@@ -66,3 +66,7 @@ The crown has a lower, broader profile. The scarf uses compressed planar folds, 
 ## September 24 helmet study
 
 The helmet uses a broad faceted crown, cutback cheek plates, recessed angular cyan visor lines, a continuous beveled brass crown band and a swept red crest. The packed helmet crop opens beside the model for comparison. Body geometry, skin weights, rest bones and animation curves were compared against the prior source and preserved. This source revision is a candidate for visual review; asset promotion remains a separate step.
+
+## September 24 crown squaring
+
+The two largest remaining helmet discrepancies were the domed crown and the thin cheek and rear mass. This pass corrects only the crown. The upper shell rings were broadened and raised slightly, so the sides stay near vertical into a broad chamfered top instead of tapering into a dome. The front brow keeps a readable slope. The brass crown band was reseated on the new surface at half its solidify thickness, which also closes a pre-existing gap between band and brow. Crest and crest mount follow the new crown height. Only vertex positions of `HelmetShell`, `HelmetCrownBand`, `Crest` and `CrestMount` changed; weights, topology, bones, actions and packed references were compared and are identical. Review sheet: `docs/art/helmet-study/crown-pass.png`. The cheek plates, rear block overhang and visor recess remain for the next pass.
