@@ -18,13 +18,13 @@ Cameras and landmark annotations live in `review/concept_views.json`. Ratios are
 | Region | Deciding view | Status | Notes |
 | --- | --- | --- | --- |
 | Helmet crown | Helmet detail, front | In review | Squared crown and flush band (September 24). User: "materially closer". |
-| Helmet face and cheeks | Helmet detail | In review | Block cheeks flush with the crown, outer-stroke brackets, brass nose tip, straight rear. The scarf still covers the lower face. |
+| Helmet face and cheeks | Helmet detail | In review | Block cheeks flush with the crown, outer-stroke brackets, brass nose tip, straight rear. |
 | Head scale | Front, side, back | In review | 5.6 to 6.2 heads (head scaled 0.88). Concept 6.5 to 7.5; the remainder is kept for readability at distance. |
 | Shoulder span | Front, back | Flagged | Model 0.48 of height; concept about 0.37. An earlier pass enlarged the near shoulder on request, so this waits for a decision. |
-| Scarf | Front, helmet detail | Open | Concept is a thick cowl wrapping the chin and draping to the chest. |
+| Scarf | Front, helmet detail | In review | Bulkier cowl under the helmet rim with a longer chest drape; the visor is fully visible again. |
 | Back banner | Back, side | In review | Straight sides, stepped hem, light border; stands off the back toward the hem for side mass. Length and width unchanged against the concept. |
 | Torso depth | Side | Open | Breastplate and backplate depth untouched so far; judge again after the banner change. |
-| Front tabard | Front | Open | Length and width close. Shape differs: concept is straight-sided with a stepped border and stepped hem; ours tapers. |
+| Front tabard | Front | In review | Straight sides, stepped hem and border; shortened and narrowed to the concept (hem 0.26 vs 0.28, width 0.15 vs 0.14). |
 | Belt and hangers | Front | Close | Buckle, diamond and hangers present. |
 | Arms and gauntlets | Front, side | Close | Hand construction pass done earlier. |
 | Legs and boots | Front, back | Open | Concept layers knee cops, stacked greave plates and brass straps; feet read small. |
