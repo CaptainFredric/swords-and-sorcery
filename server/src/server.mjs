@@ -21,6 +21,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '../..');
 const TICK_RATE = 30;
 const SOLO_MODES = new Set([GAME_MODES.BOT_DUEL, GAME_MODES.PRACTICE]);
+const IS_DIRECT_EXECUTION = typeof process.argv[1] === 'string'
+  && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 
 function mimeFor(file) {
   const ext = path.extname(file).toLowerCase();
@@ -32,6 +34,8 @@ function mimeFor(file) {
     '.json': 'application/json; charset=utf-8',
     '.svg': 'image/svg+xml',
     '.png': 'image/png',
+    '.glb': 'model/gltf-binary',
+    '.gltf': 'model/gltf+json',
   })[ext] || 'application/octet-stream';
 }
 
@@ -364,7 +368,7 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
   };
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+if (IS_DIRECT_EXECUTION) {
   const game = createGameServer();
   game.start().then(() => {
     const address = game.address();
