@@ -62,3 +62,7 @@ The near shoulder is a larger overhanging shield with a lowered outer edge; the 
 ## Helmet, cloth and hand rework
 
 The crown has a lower, broader profile. The scarf uses compressed planar folds, the shoulder lames taper beneath a continuous rim, and the near shoulder carries the reference fastening diamond. The front tabard narrows into a shorter asymmetric hem. Finger armor and cuffs use darker steel; the spell fingers curl more tightly in both sources. The world idle hand presents an upright cup, with matching action entry and return keys. The rigid cuffs follow the forearms, while palms and fingers follow the hands. Contact frames and gameplay displacement remain intact.
+
+## September 24 helmet study
+
+The helmet uses a broad faceted crown, cutback cheek plates, recessed angular cyan visor lines, a continuous beveled brass crown band and a swept red crest. The packed helmet crop opens beside the model for comparison. Body geometry, skin weights, rest bones and animation curves were compared against the prior source and preserved. This source revision is a candidate for visual review; asset promotion remains a separate step.
