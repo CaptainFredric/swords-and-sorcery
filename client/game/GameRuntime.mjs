@@ -322,6 +322,7 @@ export class GameRuntime {
     window.removeEventListener('resize', this.#resize);
     this.world?.dispose?.();
     this.remotePlayers.dispose();
+    this.weapon.dispose();
     this.renderer.dispose();
     this.renderer.domElement.remove();
   }

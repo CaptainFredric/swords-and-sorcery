@@ -1,0 +1,52 @@
+{
+  "version": 1,
+  "facing": "-Z",
+  "up": "+Y",
+  "unitMeters": 1,
+  "clips": [
+    "Idle",
+    "Run",
+    "Air",
+    "Guard",
+    "Slash_1",
+    "Slash_2",
+    "Slash_3",
+    "Cast",
+    "Dash",
+    "Stagger",
+    "Death"
+  ],
+  "firstPersonClips": [
+    "Idle",
+    "Guard",
+    "Slash_1",
+    "Slash_2",
+    "Slash_3",
+    "Cast",
+    "Dash",
+    "Stagger"
+  ],
+  "firstPersonRigNodes": [
+    "root",
+    "upper_arm.L",
+    "forearm.L",
+    "hand.L",
+    "upper_arm.R",
+    "forearm.R",
+    "hand.R",
+    "socket_sword",
+    "socket_sorcery"
+  ],
+  "firstPersonRequiredNodes": ["HeroSword"],
+  "firstPersonMutableMaterials": ["SorceryAccent"],
+  "sockets": ["socket_sword", "socket_sorcery"],
+  "mutableMaterials": ["VisorGlow", "SorceryAccent"],
+  "thirdPerson": {
+    "maxTriangles": 35000,
+    "targetBytes": 2000000
+  },
+  "firstPerson": {
+    "maxTriangles": 16000,
+    "targetBytes": 1000000
+  }
+}

@@ -68,3 +68,58 @@ test('manual public verifier fingerprints the current grounded Castleward solo a
   assert.match(capture, /Castleward|CASTLEWARD/);
   assert.match(workflow, /public-game-bot-duel-waiting\.png/);
 });
+
+test('pull requests capture front and rotated Spellblade browser evidence', async () => {
+  const workflow = await read('.github/workflows/visual-review.yml').catch(() => '');
+  const capture = await read('scripts/capture-public-arena.mjs');
+
+  assert.match(workflow, /pull_request/);
+  assert.match(workflow, /client\/game\/\*\*/);
+  assert.match(workflow, /spellblade-visual-review/);
+  assert.match(workflow, /capture-public-arena\.mjs/);
+  assert.match(capture, /trustedDrag/);
+  assert.match(capture, /public-game-menu-back\.png/);
+  assert.match(capture, /waitForMenuScene/);
+  assert.match(capture, /menuCanvasCount\s*===\s*1/);
+});
+
+test('Spellblade promotion is explicit, SHA-pinned, validated, and writes only runtime character assets', async () => {
+  const workflow = await read('.github/workflows/promote-spellblade-assets.yml').catch(() => '');
+
+  assert.match(workflow, /promotion\.json/);
+  assert.match(workflow, /contents:\s*write/);
+  assert.match(workflow, /[0-9a-f]\{40\}|\^\[0-9a-f\]\{40\}\$/i);
+  assert.match(workflow, /checkout[\s\S]*source|source[\s\S]*checkout/i);
+  assert.match(workflow, /build\.py/);
+  assert.match(workflow, /validate-spellblade-glb\.py/);
+  assert.match(workflow, /spellblade\.glb/);
+  assert.match(workflow, /spellblade-fp\.glb/);
+  assert.match(workflow, /manifest\.json/);
+  assert.match(workflow, /git add client\/assets\/characters\/spellblade/i);
+  assert.doesNotMatch(workflow, /git add\s+-A|git add\s+\./i);
+});
+
+test('browser and deployed verification prove the promoted Spellblade GLBs and exact source revision', async () => {
+  const capture = await read('scripts/capture-public-arena.mjs');
+  const visualReview = await read('.github/workflows/visual-review.yml');
+  const publicCheck = await read('.github/workflows/public-render-check.yml');
+
+  assert.match(capture, /__SPELLBLADE_ASSET_STATUS__/);
+  assert.match(capture, /spellbladeAsset/);
+  assert.match(capture, /menuSpellblade/);
+  assert.match(capture, /remoteSpellblade/);
+  assert.match(capture, /firstPersonSpellblade/);
+  assert.match(capture, /kind\s*===\s*['"]glb['"]/);
+  assert.match(capture, /[0-9a-f]\{40\}|SHA40|40-hex/i);
+  assert.match(capture, /thirdPersonLoaded/);
+  assert.match(capture, /firstPersonLoaded/);
+
+  assert.match(visualReview, /REQUIRE_SPELLBLADE_GLBS/);
+
+  assert.match(publicCheck, /live-spellblade-manifest\.json/);
+  assert.match(publicCheck, /EXPECTED_SPELLBLADE_REVISION/);
+  assert.match(publicCheck, /sourceRevision/);
+  assert.match(publicCheck, /client\/assets\/characters\/spellblade\/spellblade\.glb/);
+  assert.match(publicCheck, /client\/assets\/characters\/spellblade\/spellblade-fp\.glb/);
+  assert.match(publicCheck, /REQUIRE_SPELLBLADE_GLBS/);
+});

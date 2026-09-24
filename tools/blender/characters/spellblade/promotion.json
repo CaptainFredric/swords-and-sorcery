@@ -1,0 +1,4 @@
+{
+  "sourceRevision": "",
+  "note": "Set sourceRevision to the exact reviewed 40-hex modeling commit only after visual acceptance. Empty means no promotion requested."
+}

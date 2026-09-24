@@ -6,6 +6,8 @@ import { spawn } from 'node:child_process';
 const publicUrl = String(process.env.PUBLIC_URL || '').replace(/\/$/, '');
 const chromeBin = String(process.env.CHROME_BIN || '');
 const debugPort = Number(process.env.CHROME_DEBUG_PORT || 9222);
+const requireSpellbladeGlbs = process.env.REQUIRE_SPELLBLADE_GLBS === '1';
+const SHA40 = /^[0-9a-f]{40}$/;
 if (!publicUrl) throw new Error('PUBLIC_URL is required');
 if (!chromeBin) throw new Error('CHROME_BIN is required');
 
@@ -110,6 +112,22 @@ async function waitVisible(selector, timeoutMs = 20000) {
   await poll(() => visible(selector), { timeoutMs, label: `${selector} visible` });
 }
 
+async function readSpellbladeAssetStatus(slot) {
+  return evaluate(`(() => {
+    const status = globalThis.__SPELLBLADE_ASSET_STATUS__?.[${JSON.stringify(slot)}];
+    return status ? { kind: status.kind, sourceRevision: status.sourceRevision ?? null } : null;
+  })()`);
+}
+
+async function waitForSpellbladeAsset(slot, timeoutMs = 20000) {
+  return poll(async () => {
+    const status = await readSpellbladeAssetStatus(slot);
+    if (!status) return null;
+    if (!requireSpellbladeGlbs) return status;
+    return status.kind === 'glb' && SHA40.test(String(status.sourceRevision || '')) ? status : null;
+  }, { timeoutMs, label: `${slot} Spellblade ${requireSpellbladeGlbs ? 'production GLB' : 'asset status'}` });
+}
+
 async function setName(name) {
   await evaluate(`(() => {
     const input = document.querySelector('#player-name');
@@ -143,6 +161,38 @@ async function trustedClick(selector) {
   await cdp.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: point.x, y: point.y, button: 'left', buttons: 0, clickCount: 1 });
 }
 
+async function trustedDrag(selector, dx, dy) {
+  const point = await evaluate(`(() => {
+    const el = document.querySelector(${JSON.stringify(selector)});
+    if (!el || el.classList.contains('hidden')) return null;
+    el.scrollIntoView({ block: 'center', inline: 'center' });
+    const rect = el.getBoundingClientRect();
+    return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+  })()`);
+  if (!point) throw new Error(`Missing drag target ${selector}`);
+
+  const steps = 10;
+  await cdp.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: point.x, y: point.y });
+  await cdp.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: point.x, y: point.y, button: 'left', buttons: 1, clickCount: 1 });
+  for (let step = 1; step <= steps; step += 1) {
+    await cdp.send('Input.dispatchMouseEvent', {
+      type: 'mouseMoved',
+      x: point.x + dx * (step / steps),
+      y: point.y + dy * (step / steps),
+      button: 'left',
+      buttons: 1,
+    });
+  }
+  await cdp.send('Input.dispatchMouseEvent', {
+    type: 'mouseReleased',
+    x: point.x + dx,
+    y: point.y + dy,
+    button: 'left',
+    buttons: 0,
+    clickCount: 1,
+  });
+}
+
 async function capture(file) {
   const result = await cdp.send('Page.captureScreenshot', { format: 'png', fromSurface: true, captureBeyondViewport: false });
   await fs.writeFile(file, Buffer.from(result.data, 'base64'));
@@ -172,6 +222,13 @@ async function snapshotUi() {
   }))()`);
 }
 
+async function waitForMenuScene(timeoutMs = 20000) {
+  await poll(async () => (await snapshotUi()).menuCanvasCount === 1, {
+    timeoutMs,
+    label: 'Spellblade menu WebGL canvas',
+  });
+}
+
 async function resetToFreshMenu() {
   await evaluate(`(() => {
     localStorage.removeItem('ss-session-token');
@@ -182,7 +239,24 @@ async function resetToFreshMenu() {
   await cdp.send('Page.navigate', { url: publicUrl });
   await waitReady();
   await waitVisible('#menu');
-  await sleep(350);
+  await waitForMenuScene();
+}
+
+function buildSpellbladeAssetProof() {
+  const menu = evidence.menuSpellblade;
+  const remote = evidence.remoteSpellblade;
+  const firstPerson = evidence.firstPersonSpellblade;
+  const proofs = [menu, remote, firstPerson];
+  const allGlb = proofs.every((proof) => proof?.kind === 'glb' && SHA40.test(String(proof.sourceRevision || '')));
+  const revisions = proofs.map((proof) => proof?.sourceRevision ?? null);
+  const sameRevision = allGlb && revisions.every((revision) => revision === revisions[0]);
+
+  return {
+    kind: allGlb && sameRevision ? 'glb' : 'fallback',
+    sourceRevision: allGlb && sameRevision ? revisions[0] : null,
+    thirdPersonLoaded: menu?.kind === 'glb' && remote?.kind === 'glb',
+    firstPersonLoaded: firstPerson?.kind === 'glb',
+  };
 }
 
 try {
@@ -224,12 +298,19 @@ try {
     if (response?.status >= 400) httpErrors.push({ status: response.status, url: response.url, resourceType: type });
   });
 
+  // Reload after listeners are attached so startup failures are observable rather than racing CDP attachment.
+  await cdp.send('Page.reload', { ignoreCache: false });
   await waitReady();
   await waitVisible('#menu');
-  await sleep(1000);
+  await waitForMenuScene();
+  evidence.menuSpellblade = await waitForSpellbladeAsset('menu');
   evidence.menu = await snapshotUi();
-  if (evidence.menu.menuCanvasCount !== 1) throw new Error(`Menu Spellblade canvas missing: ${JSON.stringify(evidence.menu)}`);
   await capture('public-game-menu.png');
+
+  await trustedDrag('#menu-spellblade canvas', 360, 0);
+  await sleep(900);
+  evidence.menuBack = await snapshotUi();
+  await capture('public-game-menu-back.png');
 
   // One-browser Practice.
   await setName('Public Tester');
@@ -239,11 +320,13 @@ try {
   await waitVisible('#hud');
   await waitVisible('#practice-overlay');
   await poll(async () => (await snapshotUi()).matchInfo.includes('UNTIMED'), { timeoutMs: 10000, label: 'untimed Practice HUD' });
+  evidence.firstPersonSpellblade = await waitForSpellbladeAsset('firstPerson');
   await sleep(1000);
   evidence.practice = await snapshotUi();
   await capture('public-game-practice.png');
 
   await click('#practice-guarding');
+  evidence.remoteSpellblade = await waitForSpellbladeAsset('remote');
   await sleep(1200);
   evidence.practiceDummy = await snapshotUi();
   await capture('public-game-practice-dummy.png');
@@ -285,9 +368,15 @@ try {
   if (evidence.ffaWaiting.lobbyWorld !== 'CASTLEWARD') throw new Error(`Quick Match was not Castleward: ${JSON.stringify(evidence.ffaWaiting)}`);
   await capture('public-game-ffa-waiting.png');
 
-  const report = { publicUrl, evidence, browserErrors, httpErrors };
+  const spellbladeAsset = buildSpellbladeAssetProof();
+  const report = { publicUrl, spellbladeAsset, evidence, browserErrors, httpErrors };
   await fs.writeFile('public-game-browser-report.json', `${JSON.stringify(report, null, 2)}\n`);
 
+  if (requireSpellbladeGlbs) {
+    if (spellbladeAsset.kind !== 'glb') throw new Error(`Production Spellblade GLBs were not active: ${JSON.stringify(spellbladeAsset)}`);
+    if (!SHA40.test(String(spellbladeAsset.sourceRevision || ''))) throw new Error(`Production Spellblade revision is not a 40-hex SHA: ${JSON.stringify(spellbladeAsset)}`);
+    if (!spellbladeAsset.thirdPersonLoaded || !spellbladeAsset.firstPersonLoaded) throw new Error(`Production Spellblade consumers were incomplete: ${JSON.stringify(spellbladeAsset)}`);
+  }
   if (browserErrors.length || httpErrors.length) {
     throw new Error(`Public browser reported errors: ${JSON.stringify({ browserErrors, httpErrors })}`);
   }
