@@ -1,0 +1,107 @@
+{
+  "concept": "tools/blender/characters/spellblade/source/references/canonical-spellblade.png",
+  "notes": "Pixel landmarks are hand-annotated on the 1536x1152 canonical sheet. The concept is the ideal look, painted in perspective, and its views disagree slightly with each other, so treat every ratio as a direction rather than a tolerance.",
+  "views": {
+    "front": {
+      "crop": [
+        11,
+        11,
+        578,
+        780
+      ],
+      "camera": {
+        "azimuth": 18,
+        "distance": 5.2,
+        "height": 0.95,
+        "target": 1.08,
+        "lens": 50
+      },
+      "landmarks": {
+        "top": 69,
+        "chin": 169,
+        "belt": 340,
+        "knee": 544,
+        "ground": 744,
+        "headX": 386,
+        "shoulders": [
+          207,
+          465
+        ],
+        "tabard": [
+          365,
+          461
+        ],
+        "tabardHem": 553
+      }
+    },
+    "side": {
+      "crop": [
+        594,
+        11,
+        902,
+        403
+      ],
+      "camera": {
+        "azimuth": 88,
+        "distance": 5.6,
+        "height": 1.35,
+        "target": 1.05,
+        "lens": 50
+      },
+      "landmarks": {
+        "top": 42,
+        "chin": 90,
+        "ground": 355,
+        "headX": 760
+      }
+    },
+    "back": {
+      "crop": [
+        594,
+        403,
+        902,
+        780
+      ],
+      "camera": {
+        "azimuth": 180,
+        "distance": 5.6,
+        "height": 1.2,
+        "target": 1.05,
+        "lens": 50
+      },
+      "landmarks": {
+        "top": 421,
+        "chin": 463,
+        "belt": 560,
+        "knee": 652,
+        "ground": 735,
+        "headX": 752,
+        "shoulders": [
+          697,
+          812
+        ],
+        "banner": [
+          737,
+          790
+        ],
+        "bannerHem": 673
+      }
+    },
+    "helmet": {
+      "crop": [
+        930,
+        504,
+        1064,
+        735
+      ],
+      "camera": {
+        "azimuth": 18,
+        "distance": 1.45,
+        "height": 2.35,
+        "target": 1.88,
+        "lens": 85
+      },
+      "landmarks": {}
+    }
+  }
+}

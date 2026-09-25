@@ -62,3 +62,55 @@ The near shoulder is a larger overhanging shield with a lowered outer edge; the 
 ## Helmet, cloth and hand rework
 
 The crown has a lower, broader profile. The scarf uses compressed planar folds, the shoulder lames taper beneath a continuous rim, and the near shoulder carries the reference fastening diamond. The front tabard narrows into a shorter asymmetric hem. Finger armor and cuffs use darker steel; the spell fingers curl more tightly in both sources. The world idle hand presents an upright cup, with matching action entry and return keys. The rigid cuffs follow the forearms, while palms and fingers follow the hands. Contact frames and gameplay displacement remain intact.
+
+## September 24 helmet study
+
+The helmet uses a broad faceted crown, cutback cheek plates, recessed angular cyan visor lines, a continuous beveled brass crown band and a swept red crest. The packed helmet crop opens beside the model for comparison. Body geometry, skin weights, rest bones and animation curves were compared against the prior source and preserved. This source revision is a candidate for visual review; asset promotion remains a separate step.
+
+## September 24 crown squaring
+
+The two largest remaining helmet discrepancies were the domed crown and the thin cheek and rear mass. This pass corrects only the crown. The upper shell rings were broadened and raised slightly, so the sides stay near vertical into a broad chamfered top instead of tapering into a dome. The front brow keeps a readable slope. The brass crown band was reseated on the new surface at half its solidify thickness, which also closes a pre-existing gap between band and brow. Crest and crest mount follow the new crown height. Only vertex positions of `HelmetShell`, `HelmetCrownBand`, `Crest` and `CrestMount` changed; weights, topology, bones, actions and packed references were compared and are identical. Review sheet: `docs/art/helmet-study/crown-pass.png`. The cheek plates, rear block overhang and visor recess remain for the next pass.
+
+## September 24 helmet face and head scale
+
+Cheek plates are rebuilt as blocks flush with the crown, with a lit front-outer chamfer. Following the concept, the long stroke of each cyan bracket now runs down the outer edge beside the cheek, and the strokes end above the jaw. The brass band narrows into a nose tip between them. The rear block drops straight to the scarf in crown steel, which removes the shelf under the crown. Every head-only mesh is scaled by 0.88 about the neck, moving the figure from 5.6 to 6.2 head-heights (the concept reads 6.5 to 7.5); the rest was kept for readability at gameplay distance. Scope: only the thirteen head-weighted meshes changed. Review sheet: `docs/art/helmet-study/face-pass.png`.
+
+## September 24 back banner
+
+The back tabard is regenerated as the concept's straight-sided banner: a slightly wider collar at the shoulders, parallel sides, and a stepped pixel hem in three drops to a centre tip. It hangs progressively further off the back toward the hem, which gives the side and three-quarter views the mass the concept's cape reads with. Cloth thickness comes from a solidify modifier ahead of the armature. The light border strips trace both sides and the steps, and the sigil rides the new surface. Weights follow the same height keys as before across chest, spine and the two back tabard bones, so every action animates the banner as it did. Length and width stay on the concept measurements (hem 0.20 of height, width about 0.19). Scope: TabardBack, both BackBorder strips and BackSigil. Review sheet: `docs/art/helmet-study/banner-pass.png`.
+
+## September 24 front tabard and scarf
+
+The front tabard is regenerated with the same banner construction as the back: straight sides, light border strips, and a stepped hem. It is shorter and narrower than before, on the concept's measurements (hem 0.26 of height against about 0.28; width 0.15 against 0.14), with the sigil re-centred. The scarf roll is pushed outward into a bulkier cowl and its front lowered so it sits under the helmet rim, leaving the full visor visible; its lower ring deepens and the chest drape lengthens into a tail on the far side. Weights follow the previous height keys on the front tabard bones; the scarf stays on the neck. Scope: TabardFront, both front border strips, TabardSigil, CrimsonScarf and ScarfFold. Review sheet: `docs/art/helmet-study/front-pass.png`.
+
+## September 24 crown correction
+
+The earlier squaring overshot into a flat lid. The upper crown rings now pull in (top ring to 74% width), so the crown reads as the concept's pentagon: short walls, broad chamfers and a narrow top. The brass band widens and ends in a beak between the visor brackets, reseated flush on the new surface. The crest is 55% taller above the crown and slightly wider. Scope: HelmetShell, HelmetCrownBand, Crest and CrestMount. Review sheet: `docs/art/helmet-study/crown-v3.png`.
+
+## September 24 limb mass
+
+Silhouette traces showed the model sitting inside the concept outline at every limb. Each limb piece is thickened around its own bone axis, leaving bone lengths, joints and weights untouched: thighs 1.15, shins and knees 1.2, forearms 1.15, upper arms 1.08. Boots widen 1.15 and lengthen 1.06 about the ankle, soles still on the ground. The blade is 12% longer along its own axis and 12% slimmer across it. Hands and shoulders are unchanged. The first-person source is not yet synchronized with the thicker forearms. Scope: 45 limb meshes and HeroSword, positions only. Review sheet: `docs/art/helmet-study/limbs-pass.png`.
+
+## September 24 local concept pass (helmet, proportions, knees and boots)
+
+Worked locally with EEVEE and the game preview. Every dimension was read off the canonical sheet on a pixel grid across the front, side, back, helmet and boots panels, and checked with the registered silhouette trace at the concept's own camera angles.
+
+- Proportions: the shoulders come in 6 cm per side (span 0.49 to 0.42 of height), the legs straighten under the hips, the waist tapers to the belt (buckle, loops and hangers follow), and the head scales by 0.93. Skinned vertices moved with their bone weights and the rest bones moved with them, so actions play unchanged. The soles still meet the ground.
+- Helmet: rebuilt as the concept's T-visor great helm. The crown is shallower than it is wide, with a crisp front edge and a V crease. The cheek blocks stand proud. The glowing glyphs run down the inner edges with bars outward and ticks at the ends, and the lit panels are recessed beside the cheeks. The jaw sides and chin rim leave the face open. The brass plate is wide and ends in a point, and the stepped crest meets the concept's crest height. The scarf is pulled in and lowered so it stops covering the visor.
+- Knees and boots: rebuilt. The knee plate has brass rims and side lugs, a brass strap under the knee dips into a V at the front, the shin plate is narrow with a front ridge, a brass V guard sits over the instep with a buckle on each side, and the boot slopes down to a squared toe. Widths relative to knee height are within 0.02 of the concept's front view.
+- Review cameras: the side view now looks at the front side (azimuth 70, not 112) and the helmet view matches the concept's 18-degree turn from 16 degrees above.
+
+Scope: mesh data of the helmet, scarf, torso, waist, limb and boot pieces, plus the rest positions of the clavicle and leg bones. Bone names, weight groups, sockets, action curves, the unkeyed root and the packed references are unchanged. Contact frames are unaffected. 9,664 third-person triangles.
+
+## September 24 concept fidelity pass 2 (helmet, scarf, sword, boots, gauntlets, clipping)
+
+Measured on the canonical sheet's front, side and detail panels (the weapon and boots close-ups are painted in perspective, so proportions come from the front view and the registered trace).
+
+- Helmet: the crown is short vertical walls with sloped front, side and back planes rising to a smaller flat top, plus a proud brow band. The brass plate is centred, runs from the crest's front face over the top and down the sloped front, and ends in a point between the glyph bars. The glyphs follow row scans of the concept: the inner strokes sit 5 cm apart, the outer ticks rise nearly to the brow, the lit panels are in the lightest steel, and the face is open at the bottom. The crest sits at the back of the crown and steps down the back. The face lengthens 2 cm, giving 6.64 head-heights (concept front 6.75, side 6.52).
+- Scarf: a snug upper collar on the neck and a thicker lower roll on the chest that dips into a V at the front. The shoulder plates overlap the roll's sides, and one continuous end hangs down the character's left chest. Every piece is fitted by ray casts against the real breastplate, back and helmet.
+- Sword (both sources): 0.85 m from the guard to the tip. The blade is 0.22 m wide with parallel edges, a hexagonal bevelled section and a chisel tip on the outer edge. The brass crossguard runs 0.41 m end to end with cube blocks and pyramid caps, a centre block carries the diamond frame and red pyramid gem on both faces, a collar sits where the blade meets the guard, and the brass pommel is faceted. The grip is unchanged, so the fingers still wrap it. First person uses the same builder scaled to its grip.
+- Boots: a taller, forward-projecting toe box and an armoured heel plate behind the ankle.
+- Gauntlets: the spell-hand fingers open about their knuckles, from a fist to the concept's cupped hand, and both vambraces gain the brass rim at the wrist end.
+- Clipping: the sword arm is held 12 degrees further out in Run (all keys) and in Cast (interior keys only, so its start and end still match Idle). Blade-into-thigh frames fall from 10 to 0 in Run and from 8 to 3 in Cast. Every other action curve is identical to the previous revision, and all contact and final frames are unchanged.
+
+Known remaining: the Slash_1 and Slash_3 follow-through (after contact) sweeps the blade through the right thigh for 4 and 7 frames. The pommel sits inside the wrist cuff because the grip runs parallel to the forearm, which is hidden.

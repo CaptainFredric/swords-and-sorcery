@@ -6,3 +6,6 @@ dist/
 # Local Blender backups and bytecode
 *.blend1
 __pycache__/
+
+# Local Blender review and build output
+artifacts/
