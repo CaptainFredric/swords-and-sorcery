@@ -126,7 +126,7 @@ export async function createSpellbladeAsset({ kind = 'thirdPerson', manifestUrl 
   const sorcery = createSorceryVolume(sockets.sorcery);
   const animator = new SpellbladeAnimator(root, gltf.animations, (plan) => {
     sorcery.update(plan.time, plan.clip === 'Cast');
-  });
+  }, { cloth: kind !== 'firstPerson' });
 
   let disposed = false;
   return {

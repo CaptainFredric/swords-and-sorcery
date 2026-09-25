@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { SpellbladeClothRig } from './SpellbladeClothRig.mjs';
 
 function clampActionTime(action, time, loop) {
   const duration = Math.max(0.0001, action.getClip().duration || 0.0001);
@@ -7,10 +8,11 @@ function clampActionTime(action, time, loop) {
 }
 
 export class SpellbladeAnimator {
-  constructor(root, clips = [], onPose = null) {
+  constructor(root, clips = [], onPose = null, { cloth = false } = {}) {
     this.onPose = onPose;
     this.root = root;
     this.mixer = new THREE.AnimationMixer(root);
+    this.cloth = cloth ? new SpellbladeClothRig(root) : null;
     this.actions = new Map();
     this.activeAction = null;
     this.activeClip = null;
@@ -59,6 +61,7 @@ export class SpellbladeAnimator {
     action.paused = true;
     action.time = clampActionTime(action, Number.isFinite(plan.time) ? plan.time : 0, loop);
     this.mixer.update(0);
+    this.cloth?.apply(step);
     this.onPose?.(plan);
     return true;
   }
