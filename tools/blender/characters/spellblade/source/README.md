@@ -101,3 +101,16 @@ Worked locally with EEVEE and the game preview. Every dimension was read off the
 - Review cameras: the side view now looks at the front side (azimuth 70, not 112) and the helmet view matches the concept's 18-degree turn from 16 degrees above.
 
 Scope: mesh data of the helmet, scarf, torso, waist, limb and boot pieces, plus the rest positions of the clavicle and leg bones. Bone names, weight groups, sockets, action curves, the unkeyed root and the packed references are unchanged. Contact frames are unaffected. 9,664 third-person triangles.
+
+## September 24 concept fidelity pass 2 (helmet, scarf, sword, boots, gauntlets, clipping)
+
+Measured on the canonical sheet's front, side and detail panels (the weapon and boots close-ups are painted in perspective, so proportions come from the front view and the registered trace).
+
+- Helmet: the crown is short vertical walls with sloped front, side and back planes rising to a smaller flat top, plus a proud brow band. The brass plate is centred, runs from the crest's front face over the top and down the sloped front, and ends in a point between the glyph bars. The glyphs follow row scans of the concept: the inner strokes sit 5 cm apart, the outer ticks rise nearly to the brow, the lit panels are in the lightest steel, and the face is open at the bottom. The crest sits at the back of the crown and steps down the back. The face lengthens 2 cm, giving 6.64 head-heights (concept front 6.75, side 6.52).
+- Scarf: a snug upper collar on the neck and a thicker lower roll on the chest that dips into a V at the front. The shoulder plates overlap the roll's sides, and one continuous end hangs down the character's left chest. Every piece is fitted by ray casts against the real breastplate, back and helmet.
+- Sword (both sources): 0.85 m from the guard to the tip. The blade is 0.22 m wide with parallel edges, a hexagonal bevelled section and a chisel tip on the outer edge. The brass crossguard runs 0.41 m end to end with cube blocks and pyramid caps, a centre block carries the diamond frame and red pyramid gem on both faces, a collar sits where the blade meets the guard, and the brass pommel is faceted. The grip is unchanged, so the fingers still wrap it. First person uses the same builder scaled to its grip.
+- Boots: a taller, forward-projecting toe box and an armoured heel plate behind the ankle.
+- Gauntlets: the spell-hand fingers open about their knuckles, from a fist to the concept's cupped hand, and both vambraces gain the brass rim at the wrist end.
+- Clipping: the sword arm is held 12 degrees further out in Run (all keys) and in Cast (interior keys only, so its start and end still match Idle). Blade-into-thigh frames fall from 10 to 0 in Run and from 8 to 3 in Cast. Every other action curve is identical to the previous revision, and all contact and final frames are unchanged.
+
+Known remaining: the Slash_1 and Slash_3 follow-through (after contact) sweeps the blade through the right thigh for 4 and 7 frames. The pommel sits inside the wrist cuff because the grip runs parallel to the forearm, which is hidden.
