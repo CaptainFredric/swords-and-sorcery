@@ -28,12 +28,23 @@ The raw meshes (8–25 MB) are not committed. Rerun with these settings to regen
 
 ## 5. Rig fit and animation compensation
 - `fit_joints.py` and `fit_legs.py` place the joints inside the generated body (`data/joints_fit_v2.json`), from grid readings refined by limb cross-section centroids.
-- `rebuild.py` moves the rest joints into the new body and adjusts each limb's roll by the minimal swing. It then pre-multiplies every quaternion key by `inverse(new local rest) @ old local rest`, including handles. Every action therefore reproduces the previous world-space bone orientations: same poses, same contact frames, same end frames. Only the pelvis has location keys, and its rest orientation is unchanged.
+- `rebuild.py` moves the rest joints into the new body and adjusts each limb's roll by the minimal swing. It then pre-multiplies every quaternion key by `inverse(new local rest) @ old local rest`, including handles. Every non-cloth action therefore reproduces the previous world-space bone orientations: same poses, same contact frames, same end frames.
+- The cloth bones keep their own local swing on the new rest, so the new banner hangs as sculpted.
 - The sockets and the kept sword and palm rune move with their hands.
-- The body is skinned by bone heat. Cloth weights are then set explicitly down the tabard and banner chains, and nothing below the shoulder zone follows a collarbone.
-- `split.py` splits by dominant bone into the validator's named regions. Normals are locked first so no seams appear.
+
+## 6. Skinning (why each step exists)
+The generated body is one fused shell. The right fist touches the thigh, the arms touch the torso sides and the cloth touches the legs, so any weighting on one continuous surface tears when a limb moves. Automatic bone heat measured up to 1.2 m of edge growth.
+- **Weights** (`rebuild.py`): each body vertex copies the bone weights of the nearest point on the old hand-built pieces. Each piece is rigid to one bone and carried onto the new rest first. The weights are then smoothed 8 passes (`smoothw.py`).
+- **Cloth:** explicit chain weights by height, blended into the body over a smoothed mask so there is no hard edge.
+- **Separation** (`separate.py`): every face is labelled by limb chain (torso, arms, legs, front cloth, back cloth), and the labels are denoised. The surface is cut along every chain boundary except the real joints (shoulder, hip, and where the cloth hangs from the body). Each side keeps only its own chain's bones plus those joint bones, and the small loose pieces the cut leaves (fist fragments fused at the hip) are removed.
+- **Naming** (`split.py`): splits by dominant bone into the validator's named regions, without changing weights, so no new seams appear.
+
+Motion checks, run on the saved source:
+- `stretch.py`: the worst edge growth over every frame of every action is 13.7 cm, at elbows and shoulders during big swings.
+- `clothswing.py`: swinging the cloth to the runtime spring limits adds 0 cm.
+- `clipcheck.py`: the sword is inside the body in 9 frames, all in the Slash_1 and Slash_3 follow-through.
 
 ## Budget
-- 24,014 third-person triangles (limit 35,000).
-- 1.97 MB GLB (limit 2 MB).
+- 23,658 third-person triangles (limit 35,000).
+- 1.94 MB GLB (limit 2 MB).
 - Painted materials: `SpellbladeBodyPaint` and `SpellbladeHelmetPaint`, lit with a 0.55 emissive share so the concept's painted light reads under game lighting. `VisorGlow` and `SorceryAccent` remain the mutable accent materials.

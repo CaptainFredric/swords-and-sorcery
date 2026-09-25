@@ -125,3 +125,20 @@ The procedural armour pieces are replaced by a body and helmet generated from th
 - Kept: the measured sword, its grip wrap and the palm rune, carried with their hands.
 - Sword through body: 9 frames over all actions, all in the Slash_1 and Slash_3 follow-through.
 - 24,014 triangles, 1.97 MB GLB.
+
+## September 25 skinning rebuild
+
+The first concept-generated build tore in motion: automatic weights on the fused generated shell reached 1.2 m of edge growth in the slash and guard animations, and its runtime assets were withdrawn (#53).
+
+This revision reskins the same body:
+- **Weights:** copied from the old rigid pieces carried onto the new rest, then smoothed.
+- **Cuts:** the shell is cut along limb-to-limb contacts that are not real joints, and each side keeps only its own chain's bones.
+- **Cloth:** chain weights blend into the body, and the cloth bones keep their own local swing.
+
+Results:
+- Worst edge growth over all actions: 13.7 cm.
+- The cloth at the runtime spring limits adds nothing.
+- The sword is inside the body in 9 frames, all in slash follow-through.
+- 23,658 triangles, 1.94 MB.
+
+See `concept3d/README.md`, section 6.

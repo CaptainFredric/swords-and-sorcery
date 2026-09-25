@@ -137,7 +137,9 @@ def local_rot(rest, b):
 
 D = {}
 for b in arm.bones:
-    D[b.name] = local_rot(new_rest, b).inverted() @ local_rot(old_rest, b)
+    # cloth bones keep their own local swing on the new rest (the new banner hangs as sculpted);
+    # every other bone reproduces its previous world orientation
+    D[b.name] = Quaternion() if b.name.startswith("tabard_") else local_rot(new_rest, b).inverted() @ local_rot(old_rest, b)
 changed = {k: round(math.degrees(q.angle), 2) for k, q in D.items() if q.angle > 1e-5}
 print("REST_ROT_CHANGE_DEG", changed)
 for act in bpy.data.actions:
@@ -166,6 +168,25 @@ for act in bpy.data.actions:
                     for f in fcs: f.update()
 print("ACTIONS_COMPENSATED")
 
+# ---------------------------------------------------------------- weight source: old clean pieces carried onto the new rest
+from mathutils.bvhtree import BVHTree
+SKIP_SRC = {"HeroSword", "SwordGuard", "SwordGemSetting", "SwordGem", "SwordGrip", "SwordPommel", "PalmRune"} | {f"GripWrap.{i}" for i in range(5)}
+src_verts, src_polys, src_w = [], [], []
+for ob in exp.all_objects:
+    if ob.type != "MESH" or ob in (body, helm) or ob.name in SKIP_SRC: continue
+    gn = {g.index: g.name for g in ob.vertex_groups}
+    base = len(src_verts)
+    for v in ob.data.vertices:
+        ws = {gn[g.group]: g.weight for g in v.groups if g.weight > 0 and gn[g.group] in new_rest}
+        tot = sum(ws.values()) or 1.0
+        p = ob.matrix_world @ v.co
+        q = Vector((0, 0, 0))
+        for b, w in ws.items(): q += (w / tot) * (new_rest[b] @ old_rest[b].inverted() @ p)
+        src_verts.append(q if ws else p); src_w.append({b: w / tot for b, w in ws.items()})
+    src_polys += [[base + i for i in poly.vertices] for poly in ob.data.polygons]
+SRC_BVH = BVHTree.FromPolygons(src_verts, src_polys)
+print("WEIGHT_SOURCE verts", len(src_verts), "faces", len(src_polys))
+
 # ---------------------------------------------------------------- 3. carry kept pieces with their bones
 KEEP = {"HeroSword", "SwordGuard", "SwordGemSetting", "SwordGem", "SwordGrip", "SwordPommel", "PalmRune"} | {f"GripWrap.{i}" for i in range(5)}
 for ob in list(exp.all_objects):
@@ -178,77 +199,73 @@ for ob in list(exp.all_objects):
     ob.data.transform(ob.matrix_world.inverted() @ M @ ob.matrix_world)
     print("CARRIED", ob.name, "with", bone)
 
-# ---------------------------------------------------------------- 4. skin
-bpy.ops.object.select_all(action="DESELECT")
-body.select_set(True); rig.select_set(True); bpy.context.view_layer.objects.active = rig
-bpy.ops.object.parent_set(type="ARMATURE_AUTO")
-unweighted = sum(1 for v in body.data.vertices if not v.groups)
-print("HEAT unweighted verts", unweighted, "of", len(body.data.vertices))
+# ---------------------------------------------------------------- 4. skin: transfer from the carried clean pieces
+body.parent = rig
+m = body.modifiers.new("Armature", "ARMATURE"); m.object = rig
+for g in list(body.vertex_groups): body.vertex_groups.remove(g)
+VG = {}
+def vgroup(name):
+    if name not in VG: VG[name] = body.vertex_groups.get(name) or body.vertex_groups.new(name=name)
+    return VG[name]
+W = []
+for v in body.data.vertices:
+    loc, nrm, fi, dist = SRC_BVH.find_nearest(v.co)
+    poly = src_polys[fi]
+    acc = {}
+    ds = [max(1e-5, (src_verts[i] - loc).length) for i in poly]
+    for i, d in zip(poly, ds):
+        for bn, w in src_w[i].items(): acc[bn] = acc.get(bn, 0.0) + w / d
+    tot = sum(acc.values()) or 1.0
+    W.append({bn: w / tot for bn, w in acc.items()})
+# cloth: explicit chain weights, blended into the body over a smoothed mask
+fz = lambda z, a, b: max(0.0, min(1.0, (z - a) / (b - a)))
+def cloth_weights(z, front):
+    if front:
+        t = fz(z, 0.48, 1.12)
+        if t > 0.55: u = (t - 0.55) / 0.45; return {"pelvis": u, "tabard_front_01": 1 - u}
+        u = t / 0.55; return {"tabard_front_01": u, "tabard_front_02": 1 - u}
+    if z > 1.10: u = fz(z, 1.10, 1.30); return {"chest": u, "tabard_back_01": 1 - u}
+    if z > 0.84: return {"tabard_back_01": 1.0}
+    u = fz(z, 0.40, 0.84); return {"tabard_back_01": u, "tabard_back_02": 1 - u}
+V = len(body.data.vertices)
+maskF = np.zeros(V); maskB = np.zeros(V)
+for v in body.data.vertices:
+    x, y, z = v.co
+    fs = fy_lo + (fy_hi - fy_lo) * fz(z, 0.60, 1.00)
+    bs = (by_lo + (by_mid - by_lo) * fz(z, 0.50, 0.85)) if z < 0.85 else (by_mid + (by_hi - by_mid) * fz(z, 0.85, 1.20))
+    if abs(x - x0) < 0.16 and y > fs - 0.045 and 0.36 < z < 1.10: maskF[v.index] = 1.0
+    if abs(x - x0) < 0.18 and y < bs + 0.045 and 0.28 < z < 1.28: maskB[v.index] = 1.0
+E = np.array([tuple(e.vertices) for e in body.data.edges])
+deg = np.bincount(E.ravel(), minlength=V).astype(float)
+def smooth_mask(mk, it=3):
+    for _ in range(it):
+        acc = np.zeros(V); np.add.at(acc, E[:, 0], mk[E[:, 1]]); np.add.at(acc, E[:, 1], mk[E[:, 0]])
+        mk = 0.5 * mk + 0.5 * acc / np.maximum(deg, 1)
+    return mk
+maskF, maskB = smooth_mask(maskF), smooth_mask(maskB)
+nF = nB = 0
+for v in body.data.vertices:
+    cf, cb = float(maskF[v.index]), float(maskB[v.index])
+    base = {bn: w for bn, w in W[v.index].items() if not bn.startswith("tabard_")}
+    tot = sum(base.values()) or 1.0
+    base = {bn: w / tot for bn, w in base.items()}
+    c = max(cf, cb)
+    if c > 0.02:
+        cw = cloth_weights(v.co.z, cf >= cb)
+        mixed = {bn: w * (1 - c) for bn, w in base.items()}
+        for bn, w in cw.items(): mixed[bn] = mixed.get(bn, 0.0) + w * c
+        base = mixed; nF += cf >= cb; nB += cf < cb
+    for bn, w in base.items():
+        if w > 1e-4: vgroup(bn).add([v.index], w, "REPLACE")
+print("TRANSFER done; cloth-blended verts front", nF, "back", nB)
 helm.parent = rig
 for g in list(helm.vertex_groups): helm.vertex_groups.remove(g)
 helm.vertex_groups.new(name="head").add(range(len(helm.data.vertices)), 1.0, "REPLACE")
 m = helm.modifiers.new("Armature", "ARMATURE"); m.object = rig
-
-# cloth regions: explicit chain weights; elsewhere no tabard influence
-vg = {g.name: g for g in body.vertex_groups}
-for n in ("tabard_front_01", "tabard_front_02", "tabard_back_01", "tabard_back_02", "pelvis", "chest", "spine"):
-    if n not in vg: vg[n] = body.vertex_groups.new(name=n)
-names = {g.index: g.name for g in body.vertex_groups}
-fz = lambda z, a, b: max(0.0, min(1.0, (z - a) / (b - a)))
-cloth_front = cloth_back = 0
-for v in body.data.vertices:
-    x, y, z = v.co
-    front = abs(x - x0) < 0.19 and y > fy_hi - 0.10 and 0.36 < z < 1.13
-    back = abs(x - x0) < 0.26 and y < by_mid + 0.06 and 0.36 < z < 1.70
-    if front or back:
-        for gi in [g.group for g in v.groups]: body.vertex_groups[gi].remove([v.index])
-        if front:
-            cloth_front += 1
-            t = fz(z, 0.48, 1.12)                    # 1 at the belt, 0 at the hem
-            if t > 0.55:
-                vg["pelvis"].add([v.index], (t - 0.55) / 0.45, "REPLACE"); vg["tabard_front_01"].add([v.index], 1 - (t - 0.55) / 0.45, "REPLACE")
-            else:
-                vg["tabard_front_01"].add([v.index], t / 0.55, "REPLACE"); vg["tabard_front_02"].add([v.index], 1 - t / 0.55, "REPLACE")
-        else:
-            cloth_back += 1
-            if z > 1.30: vg["chest"].add([v.index], 1.0, "REPLACE")
-            elif z > 1.10:
-                t = (z - 1.10) / 0.20; vg["chest"].add([v.index], t, "REPLACE"); vg["tabard_back_01"].add([v.index], 1 - t, "REPLACE")
-            elif z > 0.84:
-                vg["tabard_back_01"].add([v.index], 1.0, "REPLACE")
-            else:
-                t = fz(z, 0.44, 0.84); vg["tabard_back_01"].add([v.index], t, "REPLACE"); vg["tabard_back_02"].add([v.index], 1 - t, "REPLACE")
-    else:
-        for gi in [g.group for g in v.groups if names[g.group].startswith("tabard_")]:
-            body.vertex_groups[gi].remove([v.index])
-print("CLOTH front", cloth_front, "back", cloth_back)
-
-# collarbones only drive the shoulder zone; lower geometry follows the upper arm instead
-for side in "RL":
-    cz = new[f"upper_arm.{side}"][0].z - 0.30
-    cg, ug = body.vertex_groups.get(f"clavicle.{side}"), body.vertex_groups.get(f"upper_arm.{side}")
-    moved = 0
-    for v in body.data.vertices:
-        if v.co.z >= cz: continue
-        w = next((g.weight for g in v.groups if g.group == cg.index), 0.0)
-        if w <= 0: continue
-        cur = next((g.weight for g in v.groups if g.group == ug.index), 0.0)
-        ug.add([v.index], cur + w, "REPLACE"); cg.remove([v.index]); moved += 1
-    print("CLAVICLE_FIX", side, moved)
-# drop specks (< 50 verts) left by the head cut
-bm = bmesh.new(); bm.from_mesh(body.data); seen, isl_all = set(), []
-for v in bm.verts:
-    if v.index in seen: continue
-    st, isl = [v], []; seen.add(v.index)
-    while st:
-        x = st.pop(); isl.append(x)
-        for e in x.link_edges:
-            y = e.other_vert(x)
-            if y.index not in seen: seen.add(y.index); st.append(y)
-    isl_all.append(isl)
-bmesh.ops.delete(bm, geom=[v for isl in isl_all if len(isl) < 50 for v in isl], context="VERTS")
-bm.to_mesh(body.data); bm.free()
-print("SPECKS_REMOVED", sum(1 for isl in isl_all if len(isl) < 50))
+sys.path.insert(0, SCR)
+from smoothw import smooth_weights
+smooth_weights(body, iterations=8, factor=0.5, deform_names={b.name for b in arm.bones if b.use_deform})
+print("WEIGHTS_SMOOTHED")
 # normalise, limit to 4 influences
 with bpy.context.temp_override(object=body, active_object=body):
     bpy.ops.object.vertex_group_limit_total(group_select_mode="ALL", limit=4)
