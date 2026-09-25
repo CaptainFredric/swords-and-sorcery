@@ -17,17 +17,17 @@ Cameras and landmark annotations live in `review/concept_views.json`. Ratios are
 
 | Region | Deciding view | Status | Notes |
 | --- | --- | --- | --- |
-| Helmet crown | Helmet detail, front | In review | First squaring overshot into a lid; corrected to the concept pentagon with a wide brass beak and taller crest. |
-| Helmet face and cheeks | Helmet detail | In review | Block cheeks flush with the crown, outer-stroke brackets, brass nose tip, straight rear. |
+| Helmet crown | Helmet detail, front | In review | Rebuilt: shallow boxy crown, crisp V-creased front, stepped crest at concept height. Brass strip centring and a brow band pending. |
+| Helmet face and cheeks | Helmet detail | In review | Rebuilt T-visor: inner glow strokes with outward bars and ticks, recessed lit panels, proud cheek blocks, open jaw. |
 | Head scale | Front, side, back | In review | 5.6 to 6.2 heads (head scaled 0.88). Concept 6.5 to 7.5; the remainder is kept for readability at distance. |
-| Shoulder span | Front, back | Flagged | Model 0.48 of height; concept about 0.37. An earlier pass enlarged the near shoulder on request, so this waits for a decision. |
-| Scarf | Front, helmet detail | In review | Bulkier cowl under the helmet rim with a longer chest drape; the visor is fully visible again. |
+| Shoulder span | Front, back | In review | 0.49 to 0.42 of height (concept about 0.37 to 0.38); arms moved in with their bones. |
+| Scarf | Front, helmet detail | Open | Pulled in and lowered off the visor; still a flat ring where the concept has a thick rolled wrap. |
 | Back banner | Back, side | In review | Straight sides, stepped hem, light border; stands off the back toward the hem for side mass. Length and width unchanged against the concept. |
 | Torso depth | Side | Open | Breastplate and backplate depth untouched so far; judge again after the banner change. |
 | Front tabard | Front | In review | Straight sides, stepped hem and border; shortened and narrowed to the concept (hem 0.26 vs 0.28, width 0.15 vs 0.14). |
 | Belt and hangers | Front | Close | Buckle, diamond and hangers present. |
 | Arms and gauntlets | Front, side | Close | Hand construction pass done earlier. |
-| Legs and boots | Front, back | In review | Thickened to the concept outline (thigh 1.15, shin 1.2, boots 1.15 wide). Layered knee cops and brass straps still missing. |
+| Legs and boots | Front, boots detail | In review | Knees and boots rebuilt to the grid measurements: rimmed knee plate with lugs, brass V strap, ridged shin plate, brass V ankle guard with buckles, sloped sabaton. |
 | Sword | Weapon detail | In review | Blade 12% longer and slimmer. Crossguard shape still differs. |
 | Materials and values | In game | Open | Base colors are already dark; the pale look is the bright review lighting. Judge under the game's own lighting before changing materials. |
 | Spell hand VFX | Front | Runtime | Glow orb and pixel particles belong to the game effects, not the mesh. |

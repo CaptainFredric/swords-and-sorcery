@@ -90,3 +90,14 @@ The earlier squaring overshot into a flat lid. The upper crown rings now pull in
 ## September 24 limb mass
 
 Silhouette traces showed the model sitting inside the concept outline at every limb. Each limb piece is thickened around its own bone axis, leaving bone lengths, joints and weights untouched: thighs 1.15, shins and knees 1.2, forearms 1.15, upper arms 1.08. Boots widen 1.15 and lengthen 1.06 about the ankle, soles still on the ground. The blade is 12% longer along its own axis and 12% slimmer across it. Hands and shoulders are unchanged. The first-person source is not yet synchronized with the thicker forearms. Scope: 45 limb meshes and HeroSword, positions only. Review sheet: `docs/art/helmet-study/limbs-pass.png`.
+
+## September 24 local concept pass (helmet, proportions, knees and boots)
+
+Worked locally with EEVEE and the game preview. Every dimension was read off the canonical sheet on a pixel grid across the front, side, back, helmet and boots panels, and checked with the registered silhouette trace at the concept's own camera angles.
+
+- Proportions: the shoulders come in 6 cm per side (span 0.49 to 0.42 of height), the legs straighten under the hips, the waist tapers to the belt (buckle, loops and hangers follow), and the head scales by 0.93. Skinned vertices moved with their bone weights and the rest bones moved with them, so actions play unchanged. The soles still meet the ground.
+- Helmet: rebuilt as the concept's T-visor great helm. The crown is shallower than it is wide, with a crisp front edge and a V crease. The cheek blocks stand proud. The glowing glyphs run down the inner edges with bars outward and ticks at the ends, and the lit panels are recessed beside the cheeks. The jaw sides and chin rim leave the face open. The brass plate is wide and ends in a point, and the stepped crest meets the concept's crest height. The scarf is pulled in and lowered so it stops covering the visor.
+- Knees and boots: rebuilt. The knee plate has brass rims and side lugs, a brass strap under the knee dips into a V at the front, the shin plate is narrow with a front ridge, a brass V guard sits over the instep with a buckle on each side, and the boot slopes down to a squared toe. Widths relative to knee height are within 0.02 of the concept's front view.
+- Review cameras: the side view now looks at the front side (azimuth 70, not 112) and the helmet view matches the concept's 18-degree turn from 16 degrees above.
+
+Scope: mesh data of the helmet, scarf, torso, waist, limb and boot pieces, plus the rest positions of the clavicle and leg bones. Bone names, weight groups, sockets, action curves, the unkeyed root and the packed references are unchanged. Contact frames are unaffected. 9,664 third-person triangles.
