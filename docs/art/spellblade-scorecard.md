@@ -1,5 +1,7 @@
 # Spellblade concept scorecard
 
+September 25: the body and helmet are now generated from the concept sheet and painted with its colours (`tools/blender/characters/spellblade/concept3d/`). Rows below describe the earlier hand-modelled passes; judge the new model against the concept as a whole.
+
 The canonical sheet (`tools/blender/characters/spellblade/source/references/canonical-spellblade.png`) is the ideal look, not a blueprint. It is painted in perspective and its views disagree slightly (the back view reads about 7.5 heads tall, the front about 6.75), so each region names the view that decides it. Gameplay readability wins a conflict: opponents see the Spellblade at 5 to 20 m, usually moving, and the owner sees only first-person arms.
 
 ## Review loop for every pass
