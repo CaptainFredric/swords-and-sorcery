@@ -186,7 +186,7 @@ def model_ratios() -> dict:
     ground = min((o.matrix_world @ v.co).z for o in mesh_objects() for v in o.data.vertices)
     top = rest_bounds(["HelmetShell"])[1].z
     height = top - ground
-    chin = rest_bounds(["HelmetJaw", "HelmetCheek.L", "HelmetCheek.R"])[0].z
+    chin = rest_bounds([n for n in ("HelmetJaw", "HelmetCheek.L", "HelmetCheek.R") if n in bpy.data.objects])[0].z
     belt = sum(rest_bounds(["Belt"])[i].z for i in range(2)) / 2
     knee = (rig.matrix_world @ rig.data.bones["shin.L"].head_local).z
     shoulders = rest_bounds(["Pauldron.L", "Pauldron.R"])

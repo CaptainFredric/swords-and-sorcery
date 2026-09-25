@@ -114,3 +114,14 @@ Measured on the canonical sheet's front, side and detail panels (the weapon and 
 - Clipping: the sword arm is held 12 degrees further out in Run (all keys) and in Cast (interior keys only, so its start and end still match Idle). Blade-into-thigh frames fall from 10 to 0 in Run and from 8 to 3 in Cast. Every other action curve is identical to the previous revision, and all contact and final frames are unchanged.
 
 Known remaining: the Slash_1 and Slash_3 follow-through (after contact) sweeps the blade through the right thigh for 4 and 7 frames. The pommel sits inside the wrist cuff because the grip runs parallel to the forearm, which is hidden.
+
+## September 25 concept-generated body and helmet
+
+The procedural armour pieces are replaced by a body and helmet generated from the canonical sheet, painted with the sheet's own colours and fitted to the existing rig. `concept3d/README.md` documents the pipeline, inputs, registration and joint data.
+
+- Shape: Hunyuan3D-2mv from the sheet's front, back and side panels. The helmet was generated separately from the helmet detail panel, symmetric, with the brass plate centred.
+- Paint: each concept view is projected onto the surfaces that face and see it, then baked into JPEG textures (body 1536², helmet 1024²). The visor glyphs are split onto `VisorGlow`.
+- Rig: the rest joints moved into the new body. Every quaternion key was compensated so each action reproduces the previous world-space poses. Timing, contact frames, end frames, bone names, sockets and the unkeyed root are unchanged.
+- Kept: the measured sword, its grip wrap and the palm rune, carried with their hands.
+- Sword through body: 9 frames over all actions, all in the Slash_1 and Slash_3 follow-through.
+- 24,014 triangles, 1.97 MB GLB.
