@@ -157,3 +157,16 @@ The concept-generated body is replaced by a crisp low-poly armour kit, built by 
   - The cloth at the runtime spring limits adds 0.4 cm.
   - The sword is inside the body in 10 frames, all in the Slash_1 and Slash_3 follow-through.
 - **Budget:** 10,308 triangles, 1.73 MB GLB, 17 meshes.
+
+## September 25 scarf cowl
+
+The two stacked scarf rolls are replaced by one draped cowl, matching the concept's front panel:
+- a thick rolled top around the helmet base
+- a lower edge that flares over the shoulders and drops to a V over the chest top
+- soft folds across the front, and one tail hanging down the left chest
+
+Only the scarf geometry changed. Motion checks are unchanged:
+- worst edge growth 0.56 cm
+- the sword is inside the body in 10 frames, all in slash follow-through
+
+10,024 triangles, 1.69 MB GLB.
