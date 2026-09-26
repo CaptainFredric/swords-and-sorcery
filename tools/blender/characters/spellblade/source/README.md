@@ -217,3 +217,25 @@ Checks:
 - **Unchanged:** contact frames, end frames, every other bone and every other action.
 - **Clipping:** the sword never enters the body in any frame of any action.
 - **Stretch:** worst stretch is still 0.56 cm.
+
+## September 26 proportion audit against the concept
+
+The whole model was overlaid on the registered front, side and back panels, and each mismatch was measured with the ruler. Sizes follow the measurements, rounded so the model also reads well from angles the concept doesn't show:
+
+| Part | Before | Now |
+| --- | --- | --- |
+| Greaves | 0.16 m wide | 0.21 m |
+| Knee cops | 0.22 m | 0.25 m |
+| Brass knee band | 0.20 m | 0.25 m |
+| Thighs | 0.18–0.24 m | about 0.26 m |
+| Boots | 0.22 m | 0.26 m |
+| Pauldrons | 0.31 m wide, outer edge at x 0.52 | 0.27 m, outer edge at 0.46; the brass frame's top slopes from the neck down to the outside |
+| Front tabard | 0.25 m wide | 0.29 m |
+| Back banner | 0.29 m wide, flat against the back | 0.36 m wide, to z 0.45; stands 6–13 cm off the back, flaring toward the hem, with its edges curled forward |
+
+The scarf was a thick tube; it is now draped cloth. A rolled collar sits round the helmet base. The drape's edge is high on the right shoulder and drops across the chest to a creased loose end on the left. Seven folds have dark valleys, and a back collar drops into the banner.
+
+Checks:
+- **Clipping:** the sword never enters the body. The helmet and pauldrons never touch.
+- **Stretch:** 0.56 cm. The cloth at the spring limits stretches up to 0.4 cm.
+- **Budget:** 10,959 triangles, 1.82 MB.

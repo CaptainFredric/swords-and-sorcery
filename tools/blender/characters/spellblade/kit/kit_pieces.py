@@ -17,19 +17,20 @@ if want("legs"):
         pc = Piece(f"Boot.{s}")
         heel = Vector((ank.x, ank.y - 0.13, 0.0))
         fr = Frame(heel, heel + Vector((0, 1, 0)), Vector((0, 0, 1)), m)
-        secs = [(0.00, 0.086, 0.150, 0.040), (0.03, 0.104, 0.170, 0.050), (0.16, 0.110, 0.165, 0.055),
-                (0.27, 0.112, 0.122, 0.050), (0.36, 0.104, 0.086, 0.038), (0.41, 0.084, 0.060, 0.028)]
+        # sizes from the concept's front and back views: the boot is about 0.26 m wide
+        secs = [(0.00, 0.101, 0.150, 0.044), (0.03, 0.122, 0.172, 0.056), (0.16, 0.130, 0.168, 0.060),
+                (0.27, 0.132, 0.124, 0.054), (0.36, 0.122, 0.088, 0.042), (0.41, 0.099, 0.062, 0.030)]
         pc.loft(fr, [(t, boot_sec(hw, h, c), "steel") for t, hw, h, c in secs])
         # sole: a slightly wider dark slab
         pc.loft(fr, [(t - (0.006 if i == 0 else -0.006 if i == len(secs) - 1 else 0), boot_sec(hw + 0.008, 0.026, 0.006, 0.004), "steel_dark")
                      for i, (t, hw, h, c) in enumerate(secs)])
         # instep strap with an outer buckle
-        strap = [(t, boot_sec(hw + 0.007, h + 0.006, c), "leather_dark") for t, hw, h, c in ((0.200, 0.1115, 0.150, 0.053), (0.245, 0.1118, 0.139, 0.052))]
+        strap = [(t, boot_sec(hw + 0.007, h + 0.006, c), "leather_dark") for t, hw, h, c in ((0.200, 0.1315, 0.152, 0.059), (0.245, 0.1318, 0.141, 0.058))]
         pc.loft(fr, strap)
-        pc.box(fr, 0.195, 0.250, 0.112, 0.128, 0.060, 0.118, "buckle")
+        pc.box(fr, 0.195, 0.250, 0.132, 0.150, 0.060, 0.120, "buckle")
         # ankle band (brass), world-vertical ring around the ankle
         wf = World((ank.x, ank.y + 0.005, 0.0), m)
-        band = octa(0.104, 0.100, 0.036)
+        band = octa(0.126, 0.120, 0.044)
         pc.loft(wf, [(0.155, band, "brass"), (0.232, band, "brass")])
         pc.build(bone=f"foot.{s}")
 
@@ -37,11 +38,11 @@ if want("legs"):
         pc = Piece(f"Greave.{s}")
         fr = bone_frame(f"shin.{s}", m)
         L = fr.L
-        pc.loft(fr, [(0.07, octa(0.080, 0.080, 0.030), "steel"), (L - 0.02, octa(0.070, 0.070, 0.027), "steel")])
-        pc.loft(fr, [(0.068, octa(0.100, 0.098, 0.040), "brass"), (0.138, octa(0.098, 0.096, 0.040), "brass")])
-        kr = [(-0.130, 0.068, 0.062, 0.028, 0.020, "steel"), (-0.104, 0.100, 0.094, 0.040, 0.030, "brass"),
-              (-0.084, 0.104, 0.098, 0.041, 0.034, "steel"), (0.000, 0.112, 0.106, 0.046, 0.046, "steel"),
-              (0.075, 0.090, 0.086, 0.038, 0.034, "steel")]
+        pc.loft(fr, [(0.07, octa(0.106, 0.102, 0.040), "steel"), (L - 0.02, octa(0.096, 0.092, 0.036), "steel")])
+        pc.loft(fr, [(0.068, octa(0.124, 0.120, 0.046), "brass"), (0.138, octa(0.122, 0.118, 0.045), "brass")])
+        kr = [(-0.130, 0.076, 0.070, 0.031, 0.026, "steel"), (-0.104, 0.110, 0.104, 0.044, 0.036, "brass"),
+              (-0.084, 0.114, 0.108, 0.045, 0.040, "steel"), (0.000, 0.124, 0.117, 0.051, 0.054, "steel"),
+              (0.075, 0.100, 0.095, 0.042, 0.042, "steel")]
         vs = [[pc.bm.verts.new(fr.pt(t, x, y + yo)) for x, y in octa(hw, hd, c)] for t, hw, hd, c, yo, _ in kr]
         for k in range(len(kr) - 1):
             for i in range(8):
@@ -54,19 +55,19 @@ if want("legs"):
         pc = Piece(f"Thigh.{s}")
         fr = bone_frame(f"thigh.{s}", m)
         L = fr.L
-        pc.loft(fr, [(-0.03, octa(0.118, 0.122, 0.045), "under"), (0.20, octa(0.116, 0.116, 0.045), "under"),
-                     (L - 0.08, octa(0.092, 0.096, 0.036), "under"), (L + 0.02, octa(0.080, 0.084, 0.030), "under")])
+        pc.loft(fr, [(-0.03, octa(0.128, 0.130, 0.048), "under"), (0.20, octa(0.126, 0.124, 0.048), "under"),
+                     (L - 0.08, octa(0.108, 0.108, 0.040), "under"), (L + 0.02, octa(0.098, 0.098, 0.036), "under")])
         for t0, t1 in ((0.13, 0.23), (0.23, 0.33)):
-            wa = 0.128 - 0.010 * (t0 - 0.13) / 0.1
+            wa = 0.140 - 0.010 * (t0 - 0.13) / 0.1
             pc.loft(fr, [(t0, octa(wa, wa + 0.004, 0.045), "steel_dark"), (t1, octa(wa - 0.010, wa - 0.006, 0.040), "steel_dark")])
-        for x0, x1 in ((0.010, 0.064), (0.074, 0.128)):
-            ring = [(x1, 0.142), (x0, 0.142), (x0, 0.127), (x1, 0.127)]
+        for x0, x1 in ((0.012, 0.070), (0.080, 0.138)):
+            ring = [(x1, 0.152), (x0, 0.152), (x0, 0.137), (x1, 0.137)]
             pc.loft(fr, [(-0.15, ring, "leather"), (0.30, ring, "leather")])
-            pc.box(fr, 0.00, 0.048, x0 - 0.007, x1 + 0.007, 0.124, 0.152, "buckle")
+            pc.box(fr, 0.00, 0.048, x0 - 0.007, x1 + 0.007, 0.134, 0.162, "buckle")
         # outer hip tasset: dark steel plate hanging from the belt with a brass rim at the bottom
-        pc.loft(fr, [(-0.13, [(0.150, 0.110), (0.118, 0.110), (0.118, -0.090), (0.150, -0.090)], "steel_dark"),
-                     (0.12, [(0.162, 0.118), (0.128, 0.118), (0.128, -0.096), (0.162, -0.096)], "brass"),
-                     (0.15, [(0.162, 0.118), (0.128, 0.118), (0.128, -0.096), (0.162, -0.096)], "brass")])
+        pc.loft(fr, [(-0.14, [(0.162, 0.118), (0.128, 0.118), (0.128, -0.098), (0.162, -0.098)], "steel_dark"),
+                     (0.15, [(0.176, 0.128), (0.140, 0.128), (0.140, -0.106), (0.176, -0.106)], "brass"),
+                     (0.19, [(0.176, 0.128), (0.140, 0.128), (0.140, -0.106), (0.176, -0.106)], "brass")])
         pc.build(bone=f"thigh.{s}")
 
 
@@ -184,38 +185,51 @@ if want("torso"):
     yb = lambda x, z: -(0.206 - 1.1 * x * x)
     back = [(0.20, 1.625), (0.215, 1.47), (0.19, 1.38), (-0.19, 1.38), (-0.215, 1.47), (-0.20, 1.625)]
     curved_plate(pc, [(x, z) for x, z in back], [1.38, 1.47, 1.55, 1.625], lambda x, z: yb(x, z) + 0.022, 0.022, "steel_dark")
-    # scarf as a draped cowl: thick rolled top around the helmet base, lower edge flaring over the shoulders and
-    # dropping to a V over the chest (concept front), soft folds across the front, one tail hanging on the left chest
-    N = 32; cxy = Vector((0.0, 0.052))
-    def vdip(th, centre=math.radians(98), half=math.radians(72)):
+    # scarf (concept front, side, back): a rolled collar round the helmet base and a draped cloth below it. The
+    # drape's lower edge sits high on the right shoulder and drops across the chest to the left, where the loose end
+    # hangs; its surface breaks into angular fold ridges (a triangle wave around the neck) so it reads as cloth
+    N = 28; cxy = Vector((0.0, 0.052)); FOLDS = 7
+
+    def dip(th, centre, half):
         d = abs((th - centre + math.pi) % (2 * math.pi) - math.pi)
-        return max(0.0, 1.0 - d / half) ** 1.4
-    sec_rows = []
+        return max(0.0, 1.0 - d / half)
+
+    def tri(u):                      # triangle wave in [0, 1]
+        u = u % 1.0; return 1.0 - abs(2.0 * u - 1.0)
+
+    sec_rows, valley = [], []
     for i in range(N):
         th = 2 * math.pi * i / N
-        v = vdip(th); fold = 0.011 * math.sin(6 * th) * max(0.0, math.sin(th))
-        zt = 1.800 - 0.016 * math.sin(th)          # the rolled top wraps the raised helmet's base
-        zb = 1.632 - 0.100 * v
-        zm = (zt - 0.026 + zb) / 2 + 0.012
-        rows = [(0.156, zt), (0.214, zt - 0.026), (0.228 + fold + 0.010 * v, zm), (0.236 + fold + 0.044 * v, zb)]
-        inner = [(r - 0.032, z) for r, z in rows[1:]][::-1]
+        v = dip(th, math.radians(112), math.radians(82)) ** 1.2          # front drop, lowest front-left
+        vb = dip(th, math.radians(270), math.radians(55))               # back collar drops into the banner
+        front = max(0.0, math.sin(th) + 0.35) / 1.35
+        w = tri(th * FOLDS / (2 * math.pi))
+        fold = 0.028 * front * (w - 0.5)
+        valley.append(w < 0.38 and front > 0.2)
+        zt = 1.800 - 0.016 * math.sin(th)                          # the roll wraps the helmet's base
+        zb = 1.664 - 0.090 * v - 0.075 * vb + 0.012 * front * (w - 0.5)
+        zm = zt - 0.050
+        rows = [(0.156, zt), (0.222, zt - 0.024), (0.232 + 0.4 * fold, zm), (0.244 + fold + 0.040 * v + 0.020 * vb, zb)]
+        inner = [(r - 0.030, z) for r, z in rows[1:]][::-1]
         sec = rows + inner
         dirv = Vector((math.cos(th), math.sin(th)))
         sec_rows.append([pc.bm.verts.new((cxy.x + dirv.x * r, cxy.y + dirv.y * r * 0.98, z)) for r, z in sec])
-    tags = ["cloth", "cloth", "cloth", "cloth_dark", "cloth_dark", "cloth_dark", "cloth_dark"]
     for i in range(N):
         j = (i + 1) % N
         for k in range(7):
             l = (k + 1) % 7
-            pc.face((sec_rows[i][k], sec_rows[j][k], sec_rows[j][l], sec_rows[i][l]), tags[k])
-    # hanging tail on the character's left chest, from under the V
-    tl = [((-0.045, 0.296, 1.600), (-0.170, 0.284, 1.618)), ((-0.075, 0.304, 1.445), (-0.165, 0.296, 1.470))]
-    th_ = 0.030
-    q = [pc.bm.verts.new(p_) for p_ in (tl[0][0], tl[0][1], tl[1][1], tl[1][0])]
-    qb = [pc.bm.verts.new((v_.co.x, v_.co.y - th_, v_.co.z)) for v_ in q]
-    pc.face(q, "cloth"); pc.face(list(reversed(qb)), "cloth_dark")
-    for k in range(4):
-        l = (k + 1) % 4; pc.face((q[k], qb[k], qb[l], q[l]), "cloth_dark" if k == 2 else "cloth")
+            tg = "cloth" if k < 2 else ("cloth_dark" if (k > 2 or valley[i] or valley[j]) else "cloth")
+            pc.face((sec_rows[i][k], sec_rows[j][k], sec_rows[j][l], sec_rows[i][l]), tg)
+    # the loose end hanging over the left chest: a creased, slightly twisted panel from under the drape
+    top = [Vector((-0.040, 0.300, 1.612)), Vector((-0.115, 0.312, 1.626)), Vector((-0.196, 0.290, 1.640))]
+    bot = [Vector((-0.078, 0.310, 1.418)), Vector((-0.140, 0.322, 1.405)), Vector((-0.192, 0.302, 1.440))]
+    th_ = 0.032
+    F = [pc.bm.verts.new(v_) for v_ in top + bot[::-1]]
+    Bk = [pc.bm.verts.new(v_ - Vector((0, th_, 0))) for v_ in top + bot[::-1]]
+    pc.face((F[0], F[1], F[4], F[5]), "cloth"); pc.face((F[1], F[2], F[3], F[4]), "cloth_dark")   # the crease
+    pc.face((Bk[5], Bk[4], Bk[1], Bk[0]), "cloth_dark"); pc.face((Bk[4], Bk[3], Bk[2], Bk[1]), "cloth_dark")
+    for k in range(6):
+        l = (k + 1) % 6; pc.face((F[k], Bk[k], Bk[l], F[l]), "cloth_dark" if k in (3, 4) else "cloth")
     pc.build(bone="chest")
 
     # ---------------- belt, diamond stud, buckle: pelvis
@@ -264,7 +278,7 @@ if want("arms"):
         # ---------------- pauldron (clavicle): faceted dome tilted down to the outside, a brass frame round its front
         # face, the stud on the frame's lower inner corner (concept shoulder detail)
         pc = Piece(f"Pauldron.{s}")
-        cxp = 0.362
+        cxp = 0.340
 
         STRIP = 0.040                      # width of the brass strip on the inner side of the front face
 
@@ -279,11 +293,11 @@ if want("arms"):
         rings = [(1.488, 0.000, 0.174, 0.152, 0.204, 0.184, 0.080, 0.050, 0.00),   # 0 border bottom
                  (1.552, 0.000, 0.177, 0.155, 0.207, 0.187, 0.082, 0.052, 0.00),   # 1 border top
                  (1.558, 0.000, 0.166, 0.146, 0.194, 0.175, 0.078, 0.050, 0.00),   # 2 step in
-                 (1.690, -0.006, 0.140, 0.134, 0.152, 0.152, 0.064, 0.048, 0.10),  # 3 front face top (leans back ~19 deg)
-                 (1.712, -0.008, 0.134, 0.130, 0.144, 0.146, 0.062, 0.046, 0.12),  # 4 top brass strip
+                 (1.690, -0.006, 0.140, 0.134, 0.152, 0.152, 0.064, 0.048, 0.20),  # 3 front face top: high inside, low outside
+                 (1.712, -0.008, 0.134, 0.130, 0.144, 0.146, 0.062, 0.046, 0.22),  # 4 top brass strip, sloping with it
                  (1.762, -0.018, 0.112, 0.106, 0.100, 0.108, 0.046, 0.038, 0.22),  # 5 roof
                  (1.790, -0.028, 0.098, 0.084, 0.034, 0.030, 0.012, 0.012, 0.26)]  # 6 ridge
-        P_RAISE, P_NARROW = 0.050, 0.020
+        P_RAISE, P_NARROW = 0.050, 0.050
         rings = [(z + P_RAISE, dx, ho - P_NARROW, hi, hf, hb, cfi, c, tilt) for z, dx, ho, hi, hf, hb, cfi, c, tilt in rings]
         vs = []
         for ri, (z, dx, ho, hi, hf, hb, cfi, c, tilt) in enumerate(rings):
@@ -421,21 +435,22 @@ def back_w(co):
 
 
 if want("cloth"):
-    fh = [(0.125, 0.675), (0.083, 0.720), (0.042, 0.765)]
+    fh = [(0.145, 0.675), (0.097, 0.720), (0.048, 0.765)]
     def hemf(ax, H=fh):
         for hw, d in H:
             if ax > (H[H.index((hw, d)) + 1][0] if H.index((hw, d)) + 1 < len(H) else -1): return d
         return H[-1][1]
     ypf = lambda z: lerp_path(z, [(1.26, 0.196), (1.12, 0.236), (0.80, 0.252), (0.48, 0.268)])
-    xsF = [-0.125, -0.083, -0.042, 0.0, 0.042, 0.083, 0.125]
+    xsF = [-0.145, -0.097, -0.048, 0.0, 0.048, 0.097, 0.145]
     dF = [0.0, 0.06, 0.14, 0.24, 0.34, 0.44, 0.54, 0.62, 0.675, 0.72, 0.765]
     pc = cloth_panel("TabardFront", xsF, lambda ax: hemf(ax), 1.26, dF, ypf, -0.35, 0.0, 0.5, True, front_w)
     pc.build(weights=front_w, bevel=0, grad=False)
-    bh = [(0.145, 1.02), (0.097, 1.07), (0.048, 1.12)]
-    ypb = lambda z: lerp_path(z, [(1.62, -0.214), (1.40, -0.228), (1.22, -0.236), (0.84, -0.262), (0.46, -0.345)])
-    xsB = [-0.145, -0.097, -0.048, 0.0, 0.048, 0.097, 0.145]
-    dB = [0.0, 0.12, 0.26, 0.40, 0.54, 0.68, 0.82, 0.94, 1.02, 1.07, 1.12]
-    pc = cloth_panel("TabardBack", xsB, lambda ax: hemf(ax, bh), 1.62, dB, ypb, 1.1, 0.5, 1.0, False, back_w, back=True)
+    bh = [(0.180, 0.98), (0.120, 1.06), (0.060, 1.17)]
+    ypb = lambda z: lerp_path(z, [(1.62, -0.250), (1.45, -0.310), (1.22, -0.340), (0.84, -0.380), (0.45, -0.430)])
+    xsB = [-0.180, -0.120, -0.060, 0.0, 0.060, 0.120, 0.180]
+    dB = [0.0, 0.12, 0.26, 0.40, 0.54, 0.68, 0.82, 0.94, 0.98, 1.06, 1.17]
+    # the banner's edges wrap forward round the body (x^2 curl) so it reads as a cape from the side (concept side view)
+    pc = cloth_panel("TabardBack", xsB, lambda ax: hemf(ax, bh), 1.62, dB, ypb, 3.0, 0.5, 1.0, False, back_w, back=True)
     pc.build(weights=back_w, bevel=0, grad=False)
 
 # ================================================================ helmet (helmet3 parts, generation space -> rig) and sword recolour

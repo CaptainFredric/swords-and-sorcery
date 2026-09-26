@@ -76,10 +76,10 @@ def panel(W, H, hem, trident, seed):
     return Image.fromarray(arr.astype(np.uint8)), outline
 
 
-front_hem = [(0.125, 0.675), (0.083, 0.720), (0.042, 0.765)]
-back_hem = [(0.145, 1.02), (0.097, 1.07), (0.048, 1.12)]
-fr, _ = panel(0.25, 0.765, front_hem, dict(tip=0.30, branch=0.455, prong=0.395, span=0.048, foot=0.545), 1)
-bk, _ = panel(0.29, 1.12, back_hem, dict(tip=0.30, branch=0.50, prong=0.43, span=0.056, foot=0.62), 2)
+front_hem = [(0.145, 0.675), (0.097, 0.720), (0.048, 0.765)]
+back_hem = [(0.180, 0.98), (0.120, 1.06), (0.060, 1.17)]
+fr, _ = panel(0.29, 0.765, front_hem, dict(tip=0.30, branch=0.455, prong=0.395, span=0.054, foot=0.545), 1)
+bk, _ = panel(0.36, 1.17, back_hem, dict(tip=0.30, branch=0.50, prong=0.43, span=0.068, foot=0.62), 2)
 atlas = Image.new("RGB", (1024, 1024))
 atlas.paste(fr.resize((512, 1024), Image.LANCZOS), (0, 0))
 atlas.paste(bk.resize((512, 1024), Image.LANCZOS), (512, 0))
