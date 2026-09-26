@@ -12,7 +12,7 @@ From the repository root:
 KIT_PYTHON=/path/to/python-with-numpy-and-pillow tools/blender/characters/spellblade/kit/build_kit.sh
 ```
 
-It rewrites `source/spellblade-third-person.blend` and works in `artifacts/kit/` (git-ignored). The steps are:
+It rewrites both sources (`source/spellblade-third-person.blend` and `source/spellblade-first-person.blend`) and works in `artifacts/kit/` (git-ignored). The steps are:
 
 1. **Base:** it extracts the last hand-built source from git (`bcc16ef`), which supplies the rig, the eleven actions, the sword, the palm rune, the accent materials and the packed references.
 2. **Joints** (`joints_concept.py`):
@@ -25,6 +25,14 @@ It rewrites `source/spellblade-third-person.blend` and works in `artifacts/kit/`
    - `banner_tex.py` draws the front tabard and back banner: red field, cream border, stepped hem and trident, at physical scale.
    - `wear_tex.py` draws two small tileable wear textures (scratches, chips, mottling).
 6. **Kit** (`kit.py`, `kit_pieces.py`, `kit_finish.py`): builds every piece, then merges pieces into the validator's named parts.
+7. **First person** (`KIT_MODE=fp`, `fp_pieces.py`): on the authored first-person source it replaces the old arm pieces with the same builders (`arms.py`), materials and wear textures. The hands are drawn 15% larger and the vambraces 8% slimmer, so the gauntlets read at arm's length.
+
+## First person and third person
+
+The two views share their look, not their rig:
+
+- **Shared:** the first-person arms come from the same builders, materials and wear textures as the third-person arms. Changing a gauntlet in `arms.py` changes both views.
+- **Separate:** first person keeps its own arm rig, camera and camera-tuned actions. Seen from the eye, the full third-person body would drift out of frame and clip into the camera, and every swing would have to be retuned.
 
 ## Pieces
 
@@ -35,10 +43,10 @@ Each piece is rigid to one bone, except the torso undersuit (pelvis–spine–ch
 | Boots | foot | Heel-to-toe loft with sole, instep strap and buckle, brass ankle band |
 | Greaves | shin | Octagonal shin plate, brass band under the knee, faceted knee cop with brass rim; thigh undersuit, dark cuisse lames, leather straps and hip tasset merged in (thigh) |
 | Breastplate | chest / pelvis | Shield plate with brass side trims, dark back plate, draped scarf cowl that drops to a V over the chest with a hanging tail, abdomen lame, undersuit; belt with brass diamond and steel buckle (pelvis) |
-| Pauldrons | clavicle | Octagonal walls under a gabled roof: a pentagon from the front, a peaked hexagon from the side. Proud brass rim, brass inner edge strip, brass stud |
-| Gauntlets | upper arm, forearm, hand | Lame with brass rim, undersuit and dark band; vambrace with brass rims; flared cuff, back plate, knuckles and thumb |
+| Pauldrons | clavicle | Faceted dome tilted down to the outside; a thick brass border along the bottom, tallest across the front, running up the inner front edge; the pyramid stud on the border's corner (concept shoulder detail) |
+| Gauntlets | upper arm, forearm, hand | Two dark lames, undersuit and dark band; vambrace flaring to a brass-banded cuff; sword fist (glove, raised back-of-hand plate with a brass band, four finger caps side by side, thumb) and the spell hand palm up (dark palm, steel back plate, four two-segment fingers curling up round the rune) — `arms.py`, concept weapon & hand detail |
 | Tabards | tabard chains | Double-sided stepped panels with the banner texture |
-| Helmet, visor, crest | head | `helmet3.py` |
+| Helmet, visor, crest | head | `helmet3.py`: faceted crown sloping back to a smaller top over a proud brow band, recessed face between raised lit side plates, wide brass plate to a point (concept helmet detail) |
 | Sword | hand.R | The measured sword from the base source, recoloured |
 
 ## Colour
@@ -82,5 +90,6 @@ These use `../concept3d/data/register.json` and `../concept3d/inputs/clean_*.png
 
 - Worst edge growth over every frame of every action: 0.56 cm. The rigid pieces don't stretch; the concept-generated body reached 13.7 cm.
 - The cloth panels at the runtime spring limits: 0.4 cm.
-- The sword is inside the body in 10 frames, all in the Slash_1 and Slash_3 follow-through. The previous body had 9.
-- 10,024 third-person triangles (limit 35,000); 1.69 MB GLB (limit 2 MB).
+- The sword is inside the body in 11 frames: 10 in the Slash_1 and Slash_3 follow-through through the legs, and 1 where the Slash_2 windup brushes the new brow band.
+- Third person: 10,666 triangles (limit 35,000), 1.79 MB GLB (limit 2 MB).
+- First person: 2,504 triangles (limit 16,000), 0.40 MB GLB (limit 1 MB), 4 meshes (was 56).

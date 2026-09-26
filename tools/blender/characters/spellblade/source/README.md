@@ -170,3 +170,17 @@ Only the scarf geometry changed. Motion checks are unchanged:
 - the sword is inside the body in 10 frames, all in slash follow-through
 
 10,024 triangles, 1.69 MB GLB.
+
+## September 26 hands, helmet, shoulders and first-person arms
+
+Measured against the sheet's weapon-and-hand, helmet and shoulder detail panels:
+
+- **Gauntlets:**
+  - The sword fist has a raised steel back-of-hand plate with a brass band, four finger caps side by side, and a thumb.
+  - The spell hand is palm up, with four steel fingers curling up around the rune.
+  - The cuff flares to a brass band at the wrist.
+- **Helmet:** the crown slopes back in broad planes to a smaller top over a proud brow band. The face is recessed between raised lit side plates, and the brass plate is wider.
+- **Shoulders:** each pauldron is a faceted dome tilted down to the outside. A thick brass border runs along the bottom, tallest across the front, and up the inner front edge, with the stud on the border's corner. Two dark lames hang below.
+- **First person:** the arms use the same builders, materials and wear as the third-person arms, on the authored first-person rig and actions. It has 4 meshes instead of 56 and 2,504 triangles.
+- **Motion:** worst stretch is still 0.56 cm. The sword clips in 11 frames: 10 in the slash follow-through, plus 1 where the Slash_2 windup brushes the brow band.
+- **Budget:** third person is 10,666 triangles and 1.79 MB.

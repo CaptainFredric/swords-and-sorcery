@@ -1,5 +1,6 @@
 #!/bin/zsh
-# build_kit.sh -- regenerate the third-person Spellblade source (source/spellblade-third-person.blend) from the kit.
+# build_kit.sh -- regenerate both Spellblade sources (source/spellblade-third-person.blend and
+# source/spellblade-first-person.blend) from the kit.
 # Env: BLENDER (Blender 4.5 binary), KIT_PYTHON (python with numpy + pillow), SPELLBLADE_KIT_WORK (work folder).
 set -euo pipefail
 KIT=${0:A:h}
@@ -19,4 +20,8 @@ run --python-exit-code 1 --python $KIT/helmet3.py -- $WORK/helmet.blend
 run $WORK/source_bcc16ef.blend --python-exit-code 1 --python $KIT/rig2.py -- $WORK/rig2.blend
 run $WORK/rig2.blend --python-exit-code 1 --python $KIT/kit.py -- $WORK/kit.blend
 cp $WORK/kit.blend $ROOT/tools/blender/characters/spellblade/source/spellblade-third-person.blend
+# first person: the same arm builders on the authored first-person rig, camera and actions
+git -C $ROOT show bcc16ef:tools/blender/characters/spellblade/source/spellblade-first-person.blend > $WORK/fp_base.blend
+KIT_MODE=fp run $WORK/fp_base.blend --python-exit-code 1 --python $KIT/kit.py -- $WORK/fp_kit.blend
+cp $WORK/fp_kit.blend $ROOT/tools/blender/characters/spellblade/source/spellblade-first-person.blend
 echo "SPELLBLADE_KIT_SOURCE_WRITTEN"
