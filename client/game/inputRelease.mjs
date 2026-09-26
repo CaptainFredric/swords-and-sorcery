@@ -14,6 +14,7 @@ export function releaseHeldInputs(controller) {
   controller.attackHeld = false;
   controller.guardHeld = false;
   controller.scoreboardHeld = false;
+  controller.touch?.reset?.();
 
   if (releaseAttack) {
     controller.socket?.attack?.(false);

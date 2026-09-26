@@ -14,10 +14,10 @@ mkdir -p $WORK
 run() {
   local log
   log=$("$B" --background --factory-startup "$@" 2>&1) || { print -r -- "$log" | tail -25; echo "build_kit: Blender step failed: $*" >&2; return 1; }
-  print -r -- "$log" | grep -E "^(RIG2|HELMET3|KIT|BANNER|WEAR|FT |FOLLOWTHROUGH|STANCE|IDLE_LOOP|GUARD_LOOP|FP_GUARD_LOOP)" || true
+  print -r -- "$log" | grep -E "^(RIG2|HELMET3|KIT|BANNER|WEAR|FT |FOLLOWTHROUGH|STANCE|IDLE_LOOP|GUARD_LOOP|FP_GUARD_LOOP|SPRINT)" || true
 }
 # never copy a stale file from an earlier run
-rm -f $WORK/helmet.blend $WORK/rig2.blend $WORK/kit.blend $WORK/kit_st.blend $WORK/kit_ft.blend $WORK/fp_kit.blend $WORK/fp_st.blend
+rm -f $WORK/helmet.blend $WORK/rig2.blend $WORK/kit.blend $WORK/kit_st.blend $WORK/kit_sp.blend $WORK/kit_ft.blend $WORK/fp_kit.blend $WORK/fp_st.blend
 # the last hand-built source: its rig, actions, sword, palm rune and accent materials are the starting point
 git -C $ROOT show bcc16ef:tools/blender/characters/spellblade/source/spellblade-third-person.blend > $WORK/source_bcc16ef.blend
 python3 $KIT/joints_concept.py > /dev/null
@@ -29,7 +29,9 @@ run $WORK/rig2.blend --python-exit-code 1 --python $KIT/kit.py -- $WORK/kit.blen
 # slash follow-through: bend the sword's path around the legs with one smooth arm key per slash
 # ready stance on the standing actions, a breathing Idle loop and a living Guard hold
 run $WORK/kit.blend --python-exit-code 1 --python $KIT/stance.py -- $WORK/kit_st.blend
-run $WORK/kit_st.blend --python-exit-code 1 --python $KIT/followthrough.py -- $WORK/kit_ft.blend
+# the Sprint clip, derived from Run: quicker cadence, longer strides, a lean and the blade carried back
+run $WORK/kit_st.blend --python-exit-code 1 --python $KIT/sprint.py -- $WORK/kit_sp.blend
+run $WORK/kit_sp.blend --python-exit-code 1 --python $KIT/followthrough.py -- $WORK/kit_ft.blend
 cp $WORK/kit_ft.blend $ROOT/tools/blender/characters/spellblade/source/spellblade-third-person.blend
 # first person: the same arm builders on the authored first-person rig, camera and actions
 git -C $ROOT show bcc16ef:tools/blender/characters/spellblade/source/spellblade-first-person.blend > $WORK/fp_base.blend

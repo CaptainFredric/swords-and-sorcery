@@ -11,7 +11,7 @@ from .model import ModelParts, REQUIRED_HERO_PIECES
 
 CONTRACT_PATH = Path(__file__).with_name("contract.json")
 _REQUIRED_CLIPS = {
-    "Idle", "Run", "Air", "Guard", "Slash_1", "Slash_2", "Slash_3",
+    "Idle", "Run", "Sprint", "Air", "Guard", "Slash_1", "Slash_2", "Slash_3",
     "Cast", "Dash", "Stagger", "Death",
 }
 _REQUIRED_SOCKETS = {"socket_sword", "socket_sorcery"}

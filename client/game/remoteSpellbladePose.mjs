@@ -31,12 +31,14 @@ export function resolveRemoteSpellbladePose({
     magicScale: 1 + breath * 0.08,
   };
 
-  if (state === 'run') {
-    const phase = localTime * 9.4;
-    const step = Math.sin(phase) * speed;
+  if (state === 'run' || state === 'sprint') {
+    // the fallback rig sprints as a longer, faster, more leaned-in run
+    const sprint = state === 'sprint' ? 1 : 0;
+    const phase = localTime * (9.4 + 2.4 * sprint);
+    const step = Math.sin(phase) * speed * (1 + 0.25 * sprint);
     const lift = Math.abs(Math.cos(phase)) * speed;
-    pose.visual.y += lift * 0.025;
-    pose.visual.rx = 0.06 * speed;
+    pose.visual.y += lift * (0.025 + 0.012 * sprint);
+    pose.visual.rx = 0.06 * speed + 0.12 * sprint;
     pose.torso.rz = step * 0.045;
     pose.leftThigh.rx = step * 0.68;
     pose.rightThigh.rx = -step * 0.68;

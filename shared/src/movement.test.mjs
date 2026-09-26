@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createMovementState, movePlayer, tryStartDash } from './movement.mjs';
+import { MOVEMENT, SPRINT, createMovementState, movePlayer, resolveSprint, tryStartDash } from './movement.mjs';
 import { SHATTERED_KEEP } from './map.mjs';
 
 const flatWorld = {
@@ -56,4 +56,31 @@ test('a normal running jump clears the Shattered Keep bridge gap', () => {
   assert.ok(state.position.z < -20, `player did not clear the bridge: ${state.position.z}`);
   assert.equal(state.grounded, true);
   assert.ok(Math.abs(state.position.y) < 0.001);
+});
+
+test('sprint is its own faster locomotion state with a speed hook for modifiers', () => {
+  let state = createMovementState({ x: 0, y: 0, z: 0 });
+  state.sprinting = true;
+  state = movePlayer(state, { forward: 1, right: 0, jump: false, yaw: 0 }, 0.1, 0.1, flatWorld);
+  assert.ok(Math.abs(Math.hypot(state.velocity.x, state.velocity.z) - SPRINT.speed) < 0.001);
+  state.speedScale = 0.5;
+  state = movePlayer(state, { forward: 1, right: 0, jump: false, yaw: 0 }, 0.1, 0.2, flatWorld);
+  assert.ok(Math.abs(Math.hypot(state.velocity.x, state.velocity.z) - SPRINT.speed * 0.5) < 0.001);
+  assert.ok(SPRINT.speed > MOVEMENT.runSpeed);
+});
+
+test('sprint starts only heading forward on the ground with enough stamina, and keeps going until empty', () => {
+  const base = { wantsSprint: true, forward: 1, right: 0, grounded: true, stamina: 100, sprinting: false, blocked: false };
+  assert.equal(resolveSprint(base), true);
+  assert.equal(resolveSprint({ ...base, wantsSprint: false }), false);
+  assert.equal(resolveSprint({ ...base, blocked: true }), false, 'guarding, attacking, casting or stagger stop it');
+  assert.equal(resolveSprint({ ...base, forward: -1 }), false, 'no backpedal sprint');
+  assert.equal(resolveSprint({ ...base, forward: 0, right: 1 }), false, 'no pure strafe sprint');
+  assert.equal(resolveSprint({ ...base, forward: 1, right: 1 }), true, 'forward diagonals sprint');
+  assert.equal(resolveSprint({ ...base, forward: 0, right: 0 }), false, 'standing still is not sprinting');
+  assert.equal(resolveSprint({ ...base, grounded: false }), false, 'cannot start in the air');
+  assert.equal(resolveSprint({ ...base, grounded: false, sprinting: true }), true, 'a sprint carries through a jump');
+  assert.equal(resolveSprint({ ...base, stamina: SPRINT.restartStamina - 1 }), false, 'winded: must recover first');
+  assert.equal(resolveSprint({ ...base, stamina: 5, sprinting: true }), true, 'an ongoing sprint uses the bar down');
+  assert.equal(resolveSprint({ ...base, stamina: 0, sprinting: true }), false, 'empty bar ends it');
 });

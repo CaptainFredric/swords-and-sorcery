@@ -58,6 +58,7 @@ export function resolveSpellbladeAnimationPlan({ state, player = {}, serverNow =
   // The guard stays raised but breathes: loop the hold section on the local clock.
   if (state === 'guard') return fixed('Guard', guardHoldTime(localTime));
   if (state === 'air') return fixed('Air');
+  if (state === 'sprint') return { ...fixed('Sprint', localTime, true), fallback: 'Run' };
   if (state === 'run') return fixed('Run', localTime, true);
   return fixed('Idle', localTime, true);
 }

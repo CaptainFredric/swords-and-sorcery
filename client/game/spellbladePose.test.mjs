@@ -66,3 +66,10 @@ test('timed states use the buffered render clock instead of current wall clock',
   const latest = { at: 1033, serverTime: 5.033 };
   assertNear(bufferedServerTime(latest, latest, 1066), 5.066);
 });
+
+test('a sprinting Spellblade on the move is in the sprint state; airborne or stopped it is not', () => {
+  assert.equal(resolveSpellbladeState({ ...base, sprinting: true, velocity: { x: 0, y: 0, z: -11 } }, 10), 'sprint');
+  assert.equal(resolveSpellbladeState({ ...base, sprinting: true, velocity: { x: 0, y: 3, z: -11 } }, 10), 'air');
+  assert.equal(resolveSpellbladeState({ ...base, sprinting: true, velocity: { x: 0, y: 0, z: 0 } }, 10), 'idle');
+  assert.equal(resolveSpellbladeState({ ...base, sprinting: true, guarding: true, velocity: { x: 0, y: 0, z: -3 } }, 10), 'guard');
+});

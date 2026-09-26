@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { getWorld } from '../../shared/worlds/registry.mjs';
-import { createMovementState, movePlayer, tryStartDash } from '../../shared/src/movement.mjs';
+import { createMovementState, movePlayer, resolveSprint, tryStartDash } from '../../shared/src/movement.mjs';
 import { InputController } from './InputController.mjs';
+import { TouchControls } from './TouchControls.mjs';
 import { RemotePlayers } from './RemotePlayers.mjs';
 import { WeaponView } from './WeaponView.mjs';
 import { Effects } from './Effects.mjs';
@@ -159,10 +160,22 @@ export class GameRuntime {
     this.input.requestPointerLock();
   }
 
+  releasePointer() {
+    this.input.releaseFocus();
+  }
+
+  // phones and tablets: on-screen controls replace the mouse and keyboard
+  enableTouch() {
+    if (this.touch) return;
+    this.touch = new TouchControls(this.hud.root, this.input);
+    this.input.touch = this.touch;
+    this.touch.setActive(this.input.touchFocus);
+  }
+
   setPlaying(playing, { preservePointerLock = false } = {}) {
     this.playing = Boolean(playing) && !this.worldError;
     if (!this.playing) this.#applyWeaponRelease({ attack: true, guard: true });
-    if (!this.playing && !preservePointerLock && document.pointerLockElement === this.renderer.domElement) document.exitPointerLock?.();
+    if (!this.playing && !preservePointerLock) this.input.releaseFocus();
   }
 
   onSnapshot(snapshot) {
@@ -271,7 +284,18 @@ export class GameRuntime {
 
     if (this.localState && this.localAuth?.alive && this.playing && this.activeWorld) {
       const moveInput = this.input.movement();
-      this.localState = movePlayer(this.localState, moveInput, dt, this.socket.serverNow(), this.activeWorld);
+      const serverNow = this.socket.serverNow();
+      // predict the sprint with the same rule the server uses, from the last authoritative stamina
+      this.localState.sprinting = resolveSprint({
+        wantsSprint: moveInput.sprint,
+        forward: moveInput.forward,
+        right: moveInput.right,
+        grounded: this.localState.grounded,
+        stamina: this.localAuth.guardStamina,
+        sprinting: this.localState.sprinting,
+        blocked: this.input.guardHeld || this.input.attackHeld || (this.localAuth.staggerUntil ?? 0) > serverNow,
+      });
+      this.localState = movePlayer(this.localState, moveInput, dt, serverNow, this.activeWorld);
       if (nowMs - this.lastInputSentAt >= 50) {
         this.lastInputSentAt = nowMs;
         this.socket.input({ seq: ++this.sequence, ...moveInput, clientTime: this.socket.serverNow() });
@@ -283,13 +307,14 @@ export class GameRuntime {
       this.camera.rotation.z = 0;
       this.cameraKick *= 0.78;
       const speed = Math.min(1, Math.hypot(this.localState.velocity.x, this.localState.velocity.z) / 7.5);
-      this.weapon.update(timeSec, speed, dt);
+      this.weapon.update(timeSec, speed, dt, { sprinting: this.localState.sprinting && speed > 0.1 });
     } else if (this.localAuth && this.localState) {
       this.camera.position.set(this.localState.position.x, this.localState.position.y + 1.58, this.localState.position.z);
       this.weapon.update(timeSec, 0, dt);
     }
 
-    const targetFov = nowMs < this.dashFovUntil ? 88 : 78;
+    const sprintFov = this.localState?.sprinting && this.playing ? 84 : 78;
+    const targetFov = nowMs < this.dashFovUntil ? 88 : sprintFov;
     this.camera.fov += (targetFov - this.camera.fov) * 0.18;
     this.camera.updateProjectionMatrix();
     this.remotePlayers.update(nowMs, dt);
@@ -298,6 +323,7 @@ export class GameRuntime {
 
     if (this.latestSnapshot && this.localAuth) {
       this.hud.update(this.localAuth, this.latestSnapshot, this.socket.serverNow());
+      this.touch?.update(this.localAuth, this.socket.serverNow());
       this.hud.setScoreboard(this.latestSnapshot, this.input.scoreboardHeld);
       this.hud.setDebug({
         fps: this.fps,
@@ -320,6 +346,7 @@ export class GameRuntime {
     this.running = false;
     for (const off of this.unsubscribe) off();
     window.removeEventListener('resize', this.#resize);
+    this.touch?.dispose();
     this.world?.dispose?.();
     this.remotePlayers.dispose();
     this.weapon.dispose();

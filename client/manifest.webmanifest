@@ -1,0 +1,11 @@
+{
+  "name": "Swords & Sorcery",
+  "short_name": "Swords & Sorcery",
+  "description": "First-person Spellblade duels: sword, guard, fireball and dash.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#11130f",
+  "theme_color": "#161b16"
+}

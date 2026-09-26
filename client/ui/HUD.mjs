@@ -1,3 +1,4 @@
+import { SPRINT } from '../../shared/src/movement.mjs';
 import { combatStatusDurationMs } from '../game/combatFeedbackTiming.mjs';
 
 export function matchInfoText(snapshot, serverNow) {
@@ -54,7 +55,9 @@ export class HUD {
 
     const guard = Math.max(0, Math.min(100, local.guardStamina));
     this.guardFill.style.width = `${guard}%`;
-    this.guardBlock.classList.toggle('faded', !local.guarding && guard >= 99.5);
+    this.guardBlock.classList.toggle('faded', !local.guarding && !local.sprinting && guard >= 99.5);
+    this.guardBlock.classList.toggle('sprinting', Boolean(local.sprinting));
+    this.guardBlock.classList.toggle('winded', !local.sprinting && guard < SPRINT.restartStamina);
 
     this.#ability(this.fireball, Math.max(0, local.fireballReadyAt - serverNow));
     this.#ability(this.dash, Math.max(0, local.dashReadyAt - serverNow));

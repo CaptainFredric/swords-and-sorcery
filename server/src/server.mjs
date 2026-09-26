@@ -24,7 +24,7 @@ const SOLO_MODES = new Set([GAME_MODES.BOT_DUEL, GAME_MODES.PRACTICE]);
 const IS_DIRECT_EXECUTION = typeof process.argv[1] === 'string'
   && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 
-function mimeFor(file) {
+export function mimeFor(file) {
   const ext = path.extname(file).toLowerCase();
   return ({
     '.html': 'text/html; charset=utf-8',
@@ -32,6 +32,7 @@ function mimeFor(file) {
     '.js': 'text/javascript; charset=utf-8',
     '.mjs': 'text/javascript; charset=utf-8',
     '.json': 'application/json; charset=utf-8',
+    '.webmanifest': 'application/manifest+json; charset=utf-8',
     '.svg': 'image/svg+xml',
     '.png': 'image/png',
     '.glb': 'model/gltf-binary',
@@ -110,6 +111,7 @@ function serializeSnapshot(room, nowSec) {
       health: p.health,
       guardStamina: p.guardStamina,
       guarding: p.guarding,
+      sprinting: Boolean(p.sprinting),
       attackActive: p.attackActive,
       attackStartedAt: p.attackStartedAt,
       attackNextStrike: p.attackNextStrike,
@@ -279,6 +281,7 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
           forward: Math.max(-1, Math.min(1, Number(message.forward) || 0)),
           right: Math.max(-1, Math.min(1, Number(message.right) || 0)),
           jump: Boolean(message.jump),
+          sprint: Boolean(message.sprint),
           yaw: Number.isFinite(message.yaw) ? message.yaw : player.yaw,
           pitch: Number.isFinite(message.pitch) ? Math.max(-1.45, Math.min(1.45, message.pitch)) : player.pitch,
         };

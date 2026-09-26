@@ -36,7 +36,7 @@ function freshCombatState(spawn, nowSec = 0) {
     lastKnockbackAt: -Infinity,
     lastInputSeq: 0,
     history: [],
-    input: { forward: 0, right: 0, jump: false, yaw: spawn.yaw ?? 0, pitch: 0 },
+    input: { forward: 0, right: 0, jump: false, sprint: false, yaw: spawn.yaw ?? 0, pitch: 0 },
   };
 }
 
@@ -195,9 +195,11 @@ export class Room {
       forward: 0,
       right: 0,
       jump: false,
+      sprint: false,
       yaw: player.yaw,
       pitch: player.pitch,
     };
+    player.sprinting = false;
     player.attackHeld = false;
     player.attackActive = false;
     player.attackNextStrike = 0;

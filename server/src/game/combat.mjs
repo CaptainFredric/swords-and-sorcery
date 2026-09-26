@@ -1,6 +1,6 @@
 import { GAME, SWORD_STRIKE_TIMES, fireballSplashDamage, resolveSwordVsGuard } from '../../../shared/src/combat.mjs';
 import { findSwordWorldHit, segmentAabbHit, surfaceHeightAt } from '../../../shared/src/collision.mjs';
-import { movePlayer, tryStartDash } from '../../../shared/src/movement.mjs';
+import { SPRINT, movePlayer, resolveSprint, tryStartDash } from '../../../shared/src/movement.mjs';
 import { chooseSpawn } from './spawns.mjs';
 import { recordTransform, sampleTransform } from './history.mjs';
 
@@ -39,6 +39,7 @@ function resetAtSpawn(player, spawn, nowSec) {
   player.health = 100;
   player.guardStamina = 100;
   player.guarding = false;
+  player.sprinting = false;
   player.guardStartedAt = -Infinity;
   player.lastGuardDrainAt = -Infinity;
   player.attackActive = false;
@@ -384,7 +385,23 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
       player.health = Math.min(GAME.maxHealth, player.health + HEALTH_REGEN_PER_SEC * dt);
     }
 
-    const input = nowSec < player.staggerUntil
+    const staggered = nowSec < player.staggerUntil;
+    // sprint: its own state, decided from the real stamina; it spends the guard's bar slowly and holds off regen
+    player.sprinting = resolveSprint({
+      wantsSprint: Boolean(player.input?.sprint),
+      forward: player.input?.forward,
+      right: player.input?.right,
+      grounded: player.grounded,
+      stamina: player.guardStamina,
+      sprinting: player.sprinting,
+      blocked: staggered || player.guarding || player.attackActive || Boolean(player.pendingFireball),
+    });
+    if (player.sprinting) {
+      player.guardStamina = Math.max(0, player.guardStamina - SPRINT.staminaPerSec * dt);
+      player.lastGuardDrainAt = nowSec;
+    }
+
+    const input = staggered
       ? { forward: 0, right: 0, jump: false, yaw: player.yaw, pitch: player.pitch }
       : player.input;
     const moved = movePlayer(player, input, dt, nowSec, world);

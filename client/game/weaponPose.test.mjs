@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { FIRST_PERSON_WEAPON_SCALE, castVisualDuration, resolveWeaponPose } from './weaponPose.mjs';
+import { FIRST_PERSON_WEAPON_SCALE, castVisualDuration, locomotionSway, resolveWeaponPose } from './weaponPose.mjs';
 
 const base = {
   timeSec: 10,
@@ -105,4 +105,13 @@ test('local cast visual duration comes only from an authoritative local cast eve
   assert.equal(castVisualDuration({ type: 'fireballCast', playerId: 'them', at: 20, castEndsAt: 20.3 }, 'me', 20.05), null);
   assert.equal(castVisualDuration({ type: 'respawn', playerId: 'me', at: 20 }, 'me', 20.05), null);
   assert.equal(castVisualDuration({ type: 'fireballCast', playerId: 'me', at: 20, castEndsAt: 20.3 }, 'me', 20.5), null);
+});
+
+test('sprinting lowers the first-person arms and bobs harder than running', () => {
+  const run = locomotionSway({ timeSec: 0.4, movingAmount: 1, sprinting: false });
+  const sprint = locomotionSway({ timeSec: 0.4, movingAmount: 1, sprinting: true });
+  const still = locomotionSway({ timeSec: 0.4, movingAmount: 0, sprinting: false });
+  assert.ok(sprint.y < run.y - 0.05, 'arms drop while sprinting');
+  assert.ok(sprint.rx < run.rx, 'arms tip down while sprinting');
+  assert.ok(Math.abs(still.x) < 1e-12 && Math.abs(still.y) < 1e-12, 'no sway standing still');
 });
