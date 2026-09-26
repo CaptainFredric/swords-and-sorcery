@@ -25,10 +25,10 @@ args = sys.argv[sys.argv.index("--") + 1:]
 OUT = args[0]
 SRC = os.environ.get("SPELLBLADE_KIT_BASE", str(WORK / "source_bcc16ef.blend"))
 D = dict(yc=0.201, wx=0.1355, dy=0.160, cf=0.19, cb=0.24, zb=1.745, face_frac=0.55, ztop=2.080, wall=0.10,
-         ledge=1.08, top_scale=0.64, crown_back=0.050, ledge_fwd=0.016, panel_lift=0.012, prow=0.018, crest_hw=0.030, crest_top=2.185, crest_front=0.035, crest_step_y=-0.035,
-         crest_step=2.14, crest_tail=1.995, vent_z=0.78, vent_h=0.10, vent_y0=0.20, vent_y1=0.46,
+         ledge=1.08, top_scale=0.58, chin_scale=0.86, crown_back=0.085, ledge_fwd=0.016, panel_lift=0.012, prow=0.018, crest_hw=0.036, crest_top=2.205, crest_front=0.060, crest_step_y=-0.030,
+         crest_step=2.165, crest_tail=1.985, vent_z=0.78, vent_h=0.10, vent_y0=0.20, vent_y1=0.46,
          s_in=0.27, s_out=0.445, bar_lo=0.74, bar_hi=0.83, bar_out=0.80, tick_in=0.66, tick_hi=0.95, s_bot=0.05,
-         brass_w=0.42, panel_bright=1.55, grad_lo=0.80, grad_hi=0.96, bevel=0.0035)
+         brass_w=0.40, panel_bright=1.55, grad_lo=0.80, grad_hi=0.96, bevel=0.0035)
 for a in args[1:]:
     k, v = a.split("="); D[k] = float(v)
 D["zbrow"] = D["zb"] + D["face_frac"] * (D["ztop"] - D["zb"])
@@ -111,7 +111,8 @@ def jaw_mat(k, i):
     if n.startswith("front_chamfer"): return "SteelFacet"
     if n.startswith("back"): return "SteelShade"
     return "SteelFacet"
-mats = loft(bm, [(D["zb"], 0.985), (D["zbrow"], 1.0)], jaw_mat, cap_bottom="DarkSteel")
+# the cheeks angle in toward the chin (concept helmet detail and side view)
+mats = loft(bm, [(D["zb"], D["chin_scale"]), (D["zb"] + 0.45 * (D["zbrow"] - D["zb"]), 0.97), (D["zbrow"], 1.0)], jaw_mat, cap_bottom="DarkSteel")
 # vents on both side planes
 vz0 = D["zb"] + D["vent_z"] * (D["zbrow"] - D["zb"]) - D["vent_h"] * (D["zbrow"] - D["zb"]) / 2
 vz1 = vz0 + D["vent_h"] * (D["zbrow"] - D["zb"])
@@ -132,16 +133,19 @@ L = D["ledge"]; Hc = D["ztop"] - D["zbrow"]; fw, cbk = D["ledge_fwd"], D["crown_
 # the front sloping back the most (concept helmet detail)
 pr = D["prow"]
 # the ridge starts above the brow band: the Slash_2 windup passes the blade just in front of the brow
+# brow ledge, a short wall, then broad planes sloping in to a smaller top -- the front slopes back the most
+# (concept helmet detail: a faceted dome, not a box with a lid)
 rings = [(D["zbrow"] - 0.002, 1.0, 0.0, 0.0), (D["zbrow"] - 0.002, L, fw, 0.0), (D["zbrow"] + 0.028, L, fw, 0.0),
-         (D["zbrow"] + 0.034, L * 0.985, fw * 0.6, pr * 0.15), (D["zwall"] + 0.034, L * 0.975, fw * 0.4, pr * 0.55),
-         (D["zbrow"] + 0.60 * Hc, (L + D["top_scale"]) / 2 + 0.035, -cbk * 0.40, pr * 0.8), (D["ztop"] - 0.010, D["top_scale"] * 1.03, -cbk, pr * 0.4),
-         (D["ztop"], D["top_scale"], -cbk, pr * 0.4)]
+         (D["zbrow"] + 0.034, L * 0.97, fw * 0.5, pr * 0.2), (D["zbrow"] + 0.052, L * 0.965, fw * 0.3, pr * 0.5),
+         (D["zbrow"] + 0.45 * Hc, 0.84, -cbk * 0.40, pr * 0.8), (D["ztop"] - 0.008, D["top_scale"] * 1.02, -cbk, pr * 0.3),
+         (D["ztop"], D["top_scale"], -cbk, pr * 0.3)]
 def crown_mat(k, i):
     n = SIDE_NAMES[i]
     if k == 0: return "DarkSteel"          # underside of the ledge
     if k == 1: return "SteelEdge"          # ledge band
     if k == 2: return "SteelShade"         # step in above the band
     if k == 6: return "SteelEdge"          # bevel to the top
+    if k == 5 and not n.startswith("back"): return "SteelEdge"   # the upper slope planes catch the light (concept)
     return "SteelShade" if n.startswith("back") else "SteelFacet"
 mats = loft(bm, rings, crown_mat, cap_top="SteelFacet")
 shell = make_object("GenHelmShell", bm, mats)
@@ -217,21 +221,21 @@ bm = bmesh.new(); cnt = 0
 for s in (1, -1):
     X = lambda t: s * t * W
     # raised lit side plates: the dark face sits recessed between them (concept)
-    cnt += slab(bm, min(X(D["s_out"] + 0.025), X(0.955)), max(X(D["s_out"] + 0.025), X(0.955)), zf(D["s_bot"]), zf(D["bar_lo"] - 0.025), D["panel_lift"], D["panel_lift"] + 0.004, 0.05)
+    cnt += slab(bm, min(X(D["s_out"] + 0.025), X(0.90)), max(X(D["s_out"] + 0.025), X(0.90)), zf(D["s_bot"]), zf(D["bar_lo"] - 0.025), D["panel_lift"], D["panel_lift"] + 0.004, 0.05)
 panels = make_object("GenHelmPanels", bm, ["SteelEdge"] * cnt, gradient=False, bright=D["panel_bright"])
 # brass beak: strip on the crown front (vertical wall and top bevel) narrowing to a point between the glyph bars
 bm = bmesh.new(); cnt = 0
 bw = D["brass_w"] * W
-cnt += slab(bm, -bw, bw, zw + 0.002, D["ztop"] - 0.004, 0.005, 0.006, 0.012)
+cnt += slab(bm, -bw, bw, zw + 0.002, D["ztop"] - 0.004, 0.011, 0.012, 0.012)     # raised 11 mm (concept)
 rows = []
 steps = 3
 for k in range(steps + 1):
     t = k / steps
     z = zw + 0.002 - t * (zw + 0.002 - zf(D["bar_lo"]))
     wk = bw * (1 - t) + 0.003 * t
-    pl, pr = front_point(-wk, z, 0.006), front_point(wk, z, 0.006)
+    pl, pr = front_point(-wk, z, 0.012), front_point(wk, z, 0.012)
     if pl is None or pr is None: continue
-    rows.append((bm.verts.new(pl), bm.verts.new(pr), bm.verts.new(pl - Vector((0, 0.006, 0))), bm.verts.new(pr - Vector((0, 0.006, 0)))))
+    rows.append((bm.verts.new(pl), bm.verts.new(pr), bm.verts.new(pl - Vector((0, 0.013, 0))), bm.verts.new(pr - Vector((0, 0.013, 0)))))
 for (a, b, a2, b2), (c, d, c2, d2) in zip(rows, rows[1:]):
     for q in ((a, b, d, c), (a2, c2, d2, b2), (a, c, c2, a2), (b, b2, d2, d)):
         bm.faces.new(q); cnt += 1

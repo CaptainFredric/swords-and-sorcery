@@ -1,6 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { resolveSpellbladeAnimationPlan, resolveFirstPersonAnimationPlan } from './spellbladeAnimationPlan.mjs';
+import {
+  GUARD_HOLD_SECONDS,
+  GUARD_HOLD_START,
+  resolveFirstPersonAnimationPlan,
+  resolveSpellbladeAnimationPlan,
+} from './spellbladeAnimationPlan.mjs';
 
 function close(actual, expected, epsilon = 1e-6) {
   assert.ok(Math.abs(actual - expected) <= epsilon, `${actual} != ${expected}`);
@@ -65,9 +70,25 @@ test('death derives clip progress from the authoritative respawn deadline', () =
   assert.equal(plan.loop, false);
 });
 
-test('guard and air select fixed non-looping poses while locomotion loops locally', () => {
-  const guard = resolveSpellbladeAnimationPlan({ state: 'guard', player: {}, serverNow: 1, localTime: 4.25 });
-  assert.deepEqual(guard, { clip: 'Guard', time: 7 / 30, loop: false, weight: 1 });
+test('guard loops its breathing hold section on the local clock', () => {
+  const at = (localTime) => resolveSpellbladeAnimationPlan({ state: 'guard', player: {}, serverNow: 1, localTime });
+  const guard = at(4.25);
+  assert.equal(guard.clip, 'Guard');
+  assert.equal(guard.loop, false);
+  close(guard.time, GUARD_HOLD_START + (4.25 % GUARD_HOLD_SECONDS));
+  for (const clock of [0, 0.3, 1.1, 1.59, 1.6, 7.77, -2.5]) {
+    const time = at(clock).time;
+    assert.ok(time >= GUARD_HOLD_START && time < GUARD_HOLD_START + GUARD_HOLD_SECONDS, `guard time ${time} leaves the hold`);
+  }
+  assert.notEqual(at(0.2).time, at(0.9).time, 'the guard hold must move over time');
+  close(at(0).time, at(GUARD_HOLD_SECONDS).time);
+
+  const fp = resolveFirstPersonAnimationPlan({ state: 'guard' }, {}, 2.0);
+  assert.equal(fp.clip, 'Guard');
+  close(fp.time, GUARD_HOLD_START + (2.0 % GUARD_HOLD_SECONDS));
+});
+
+test('air selects a fixed pose while locomotion loops locally', () => {
 
   const air = resolveSpellbladeAnimationPlan({ state: 'air', player: {}, serverNow: 1, localTime: 4.25 });
   assert.deepEqual(air, { clip: 'Air', time: 0, loop: false, weight: 1 });
@@ -96,7 +117,7 @@ test('first person held combos restart each slash timeline across repeated cycle
 
 test('first person guard, cast and dash retain their own animation clocks', () => {
   const view = { castStartedAt: 20, dashUntil: 30.18 };
-  close(resolveFirstPersonAnimationPlan({ state: 'guard' }, view, 99).time, 7 / 30);
+  close(resolveFirstPersonAnimationPlan({ state: 'guard' }, view, 99).time, GUARD_HOLD_START + (99 % GUARD_HOLD_SECONDS));
   close(resolveFirstPersonAnimationPlan({ state: 'cast' }, view, 20.2).time, 0.2);
   close(resolveFirstPersonAnimationPlan({ state: 'dash' }, view, 30.1).time, 0.1);
 });

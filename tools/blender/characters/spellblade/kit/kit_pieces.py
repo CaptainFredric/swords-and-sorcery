@@ -177,11 +177,14 @@ if want("torso"):
 
     # ---------------- breastplate (shield), brass side trims, back plate, scarf roll + front flap: chest
     pc = Piece("Breastplate")
-    y0 = [(1.625, 0.214), (1.56, 0.230), (1.50, 0.234), (1.42, 0.230), (1.305, 0.208)]
-    yf = lambda x, z: lerp_path(z, y0) - 1.35 * x * x
-    shield = [(0.185, 1.625), (0.205, 1.50), (0.030, 1.305), (-0.030, 1.305), (-0.205, 1.50), (-0.185, 1.625)]
-    curved_plate(pc, shield, [1.305, 1.36, 1.43, 1.50, 1.565, 1.625], yf, 0.028, "steel")
-    trim(pc, shield, [0, 1, 2, 3, 4, 5], 0.030, yf, 0.006, 0.010, "brass")
+    # concept front/side: a broad plate from under the scarf down to the belt, two planes meeting at a central
+    # ridge, thick brass trims down both sides converging toward the belt
+    y0 = [(1.645, 0.226), (1.56, 0.250), (1.48, 0.256), (1.40, 0.250), (1.300, 0.226)]
+    yf = lambda x, z: lerp_path(z, y0) - 0.20 * abs(x) - 1.6 * max(0.0, abs(x) - 0.13) ** 2
+    shield = [(0.215, 1.645), (0.235, 1.52), (0.215, 1.42), (0.135, 1.300), (-0.135, 1.300), (-0.215, 1.42), (-0.235, 1.52), (-0.215, 1.645)]
+    curved_plate(pc, shield, [1.300, 1.36, 1.42, 1.48, 1.52, 1.585, 1.645], yf, 0.030, "steel")
+    trim(pc, shield, [0, 1, 2, 3], 0.034, yf, 0.008, 0.012, "brass")
+    trim(pc, shield, [4, 5, 6, 7], 0.034, yf, 0.008, 0.012, "brass")
     yb = lambda x, z: -(0.206 - 1.1 * x * x)
     back = [(0.20, 1.625), (0.215, 1.47), (0.19, 1.38), (-0.19, 1.38), (-0.215, 1.47), (-0.20, 1.625)]
     curved_plate(pc, [(x, z) for x, z in back], [1.38, 1.47, 1.55, 1.625], lambda x, z: yb(x, z) + 0.022, 0.022, "steel_dark")
@@ -291,7 +294,7 @@ if want("arms"):
         # (z, dx, ho, hi, hf, hb, cfi, c, outward tilt). The front face is one broad plane leaning back; a brass frame
         # runs round it -- the bottom border, a strip up the inner edge and a strip along its top (concept shoulder detail)
         rings = [(1.488, 0.000, 0.174, 0.152, 0.204, 0.184, 0.080, 0.050, 0.00),   # 0 border bottom
-                 (1.552, 0.000, 0.177, 0.155, 0.207, 0.187, 0.082, 0.052, 0.00),   # 1 border top
+                 (1.530, 0.000, 0.177, 0.155, 0.207, 0.187, 0.082, 0.052, 0.00),   # 1 border top (a 4 cm band)
                  (1.558, 0.000, 0.166, 0.146, 0.194, 0.175, 0.078, 0.050, 0.00),   # 2 step in
                  (1.690, -0.006, 0.140, 0.134, 0.152, 0.152, 0.064, 0.048, 0.20),  # 3 front face top: high inside, low outside
                  (1.712, -0.008, 0.134, 0.130, 0.144, 0.146, 0.062, 0.046, 0.22),  # 4 top brass strip, sloping with it
@@ -302,16 +305,18 @@ if want("arms"):
         vs = []
         for ri, (z, dx, ho, hi, hf, hb, cfi, c, tilt) in enumerate(rings):
             # the bottom border is tallest across the front face: lift its top edge toward the front
-            lift = (lambda y: 0.030 * max(0.0, y / hf)) if ri in (1, 2) else (lambda y: 0.0)
+            lift = (lambda y: 0.012 * max(0.0, y / hf)) if ri in (1, 2) else (lambda y: 0.0)
             vs.append([pc.bm.verts.new(((cxp + dx + x) * m, y, z - tilt * (x + 0.02) + lift(y))) for x, y in psec(ho, hi, hf, hb, cfi, c)])
         n_ = len(vs[0])
         for k in range(len(rings) - 1):
             for i in range(n_):
                 j = (i + 1) % n_
-                if k == 0: tg = "brass"                                   # bottom border, proud of the dome
+                # the concept frames only the front face in brass: its bottom edge and its inner edge. The border
+                # ring stays steel round the outer side and the back, so it doesn't read as a gold belt
+                front = i in (0, 1, 2, 3)
+                if k == 0: tg = "brass" if front else "steel"             # bottom border, proud of the dome
                 elif k == 1: tg = "steel_dark"                            # step in from the border
-                elif k == 2 and i in (2, 3): tg = "brass"                 # strip up the inner side of the front face
-                elif k == 3 and i in (0, 1, 2, 3): tg = "brass"           # strip along the front face's top
+                elif k in (2, 3) and i in (2, 3): tg = "brass"            # strip up the inner side of the front face
                 else: tg = "steel"
                 pc.face((vs[k][i], vs[k][j], vs[k + 1][j], vs[k + 1][i]), tg)
         pc.face(list(reversed(vs[0])), "steel_dark"); pc.face(vs[-1], "steel")
