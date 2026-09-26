@@ -34,7 +34,7 @@ Each piece is rigid to one bone, except the torso undersuit (pelvis–spine–ch
 | --- | --- | --- |
 | Boots | foot | Heel-to-toe loft with sole, instep strap and buckle, brass ankle band |
 | Greaves | shin | Octagonal shin plate, brass band under the knee, faceted knee cop with brass rim; thigh undersuit, dark cuisse lames, leather straps and hip tasset merged in (thigh) |
-| Breastplate | chest / pelvis | Shield plate with brass side trims, dark back plate, two-roll scarf with a hanging end, abdomen lame, undersuit; belt with brass diamond and steel buckle (pelvis) |
+| Breastplate | chest / pelvis | Shield plate with brass side trims, dark back plate, draped scarf cowl that drops to a V over the chest with a hanging tail, abdomen lame, undersuit; belt with brass diamond and steel buckle (pelvis) |
 | Pauldrons | clavicle | Octagonal walls under a gabled roof: a pentagon from the front, a peaked hexagon from the side. Proud brass rim, brass inner edge strip, brass stud |
 | Gauntlets | upper arm, forearm, hand | Lame with brass rim, undersuit and dark band; vambrace with brass rims; flared cuff, back plate, knuckles and thumb |
 | Tabards | tabard chains | Double-sided stepped panels with the banner texture |
@@ -83,4 +83,4 @@ These use `../concept3d/data/register.json` and `../concept3d/inputs/clean_*.png
 - Worst edge growth over every frame of every action: 0.56 cm. The rigid pieces don't stretch; the concept-generated body reached 13.7 cm.
 - The cloth panels at the runtime spring limits: 0.4 cm.
 - The sword is inside the body in 10 frames, all in the Slash_1 and Slash_3 follow-through. The previous body had 9.
-- 10,308 third-person triangles (limit 35,000); 1.73 MB GLB (limit 2 MB).
+- 10,024 third-person triangles (limit 35,000); 1.69 MB GLB (limit 2 MB).

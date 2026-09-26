@@ -184,27 +184,35 @@ if want("torso"):
     yb = lambda x, z: -(0.206 - 1.1 * x * x)
     back = [(0.20, 1.625), (0.215, 1.47), (0.19, 1.38), (-0.19, 1.38), (-0.215, 1.47), (-0.20, 1.625)]
     curved_plate(pc, [(x, z) for x, z in back], [1.38, 1.47, 1.55, 1.625], lambda x, z: yb(x, z) + 0.022, 0.022, "steel_dark")
-    # scarf: two bulky stacked rolls around the neck (front lower than back) and a flap over the chest
-    N = 16
-    def roll(cy, rx, ry, zc, dip, rw, rh):
-        sec = [(rw, rh * 0.62), (rw * 0.62, rh), (-rw * 0.62, rh), (-rw, rh * 0.62), (-rw, -rh * 0.62), (-rw * 0.62, -rh), (rw * 0.62, -rh), (rw, -rh * 0.62)]
-        ringv = []
-        for i in range(N):
-            th = 2 * math.pi * i / N
-            c = Vector((rx * math.cos(th), cy + ry * math.sin(th), zc - dip * math.sin(th) + 0.022 * math.cos(th)))
-            rad = Vector((math.cos(th) / rx, math.sin(th) / ry, 0)).normalized()
-            ringv.append([pc.bm.verts.new(c + rad * r + Vector((0, 0, zz))) for r, zz in sec])
-        for i in range(N):
-            j = (i + 1) % N
-            for k in range(8):
-                l = (k + 1) % 8
-                pc.face((ringv[i][k], ringv[j][k], ringv[j][l], ringv[i][l]), "cloth" if k in (0, 1, 2, 7) else "cloth_dark")
-    roll(0.050, 0.200, 0.196, 1.646, 0.052, 0.058, 0.052)       # lower, wider roll resting on the shoulders
-    roll(0.060, 0.170, 0.168, 1.716, 0.040, 0.046, 0.044)       # upper roll wrapping the helmet base
-    fl = [((-0.020, 0.294, 1.615), (-0.178, 0.284, 1.632)), ((-0.052, 0.302, 1.468), (-0.192, 0.292, 1.495))]
-    th_ = 0.036
-    q = [pc.bm.verts.new(p) for p in (fl[0][0], fl[0][1], fl[1][1], fl[1][0])]
-    qb = [pc.bm.verts.new((v.co.x, v.co.y - th_, v.co.z)) for v in q]
+    # scarf as a draped cowl: thick rolled top around the helmet base, lower edge flaring over the shoulders and
+    # dropping to a V over the chest (concept front), soft folds across the front, one tail hanging on the left chest
+    N = 32; cxy = Vector((0.0, 0.052))
+    def vdip(th, centre=math.radians(98), half=math.radians(72)):
+        d = abs((th - centre + math.pi) % (2 * math.pi) - math.pi)
+        return max(0.0, 1.0 - d / half) ** 1.4
+    sec_rows = []
+    for i in range(N):
+        th = 2 * math.pi * i / N
+        v = vdip(th); fold = 0.011 * math.sin(6 * th) * max(0.0, math.sin(th))
+        zt = 1.760 - 0.016 * math.sin(th)
+        zb = 1.632 - 0.100 * v
+        zm = (zt - 0.026 + zb) / 2 + 0.012
+        rows = [(0.156, zt), (0.214, zt - 0.026), (0.228 + fold + 0.010 * v, zm), (0.236 + fold + 0.044 * v, zb)]
+        inner = [(r - 0.032, z) for r, z in rows[1:]][::-1]
+        sec = rows + inner
+        dirv = Vector((math.cos(th), math.sin(th)))
+        sec_rows.append([pc.bm.verts.new((cxy.x + dirv.x * r, cxy.y + dirv.y * r * 0.98, z)) for r, z in sec])
+    tags = ["cloth", "cloth", "cloth", "cloth_dark", "cloth_dark", "cloth_dark", "cloth_dark"]
+    for i in range(N):
+        j = (i + 1) % N
+        for k in range(7):
+            l = (k + 1) % 7
+            pc.face((sec_rows[i][k], sec_rows[j][k], sec_rows[j][l], sec_rows[i][l]), tags[k])
+    # hanging tail on the character's left chest, from under the V
+    tl = [((-0.045, 0.296, 1.600), (-0.170, 0.284, 1.618)), ((-0.075, 0.304, 1.445), (-0.165, 0.296, 1.470))]
+    th_ = 0.030
+    q = [pc.bm.verts.new(p_) for p_ in (tl[0][0], tl[0][1], tl[1][1], tl[1][0])]
+    qb = [pc.bm.verts.new((v_.co.x, v_.co.y - th_, v_.co.z)) for v_ in q]
     pc.face(q, "cloth"); pc.face(list(reversed(qb)), "cloth_dark")
     for k in range(4):
         l = (k + 1) % 4; pc.face((q[k], qb[k], qb[l], q[l]), "cloth_dark" if k == 2 else "cloth")
