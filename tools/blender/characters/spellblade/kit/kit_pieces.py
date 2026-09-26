@@ -194,7 +194,7 @@ if want("torso"):
     for i in range(N):
         th = 2 * math.pi * i / N
         v = vdip(th); fold = 0.011 * math.sin(6 * th) * max(0.0, math.sin(th))
-        zt = 1.760 - 0.016 * math.sin(th)
+        zt = 1.800 - 0.016 * math.sin(th)          # the rolled top wraps the raised helmet's base
         zb = 1.632 - 0.100 * v
         zm = (zt - 0.026 + zb) / 2 + 0.012
         rows = [(0.156, zt), (0.214, zt - 0.026), (0.228 + fold + 0.010 * v, zm), (0.236 + fold + 0.044 * v, zb)]
@@ -261,37 +261,51 @@ def octa2(hw, hd, ct, cb):
 exec(open(KITDIR + "arms.py").read())
 if want("arms"):
     for s, m in (("R", 1), ("L", -1)):
-        # ---------------- pauldron (clavicle): faceted dome tilted down to the outside, a thick brass border along
-        # the bottom and up the inner front edge, the stud on the border's corner (concept shoulder detail)
+        # ---------------- pauldron (clavicle): faceted dome tilted down to the outside, a brass frame round its front
+        # face, the stud on the frame's lower inner corner (concept shoulder detail)
         pc = Piece(f"Pauldron.{s}")
         cxp = 0.362
 
+        STRIP = 0.040                      # width of the brass strip on the inner side of the front face
+
         def psec(ho, hi, hf, hb, cfi, c):
-            # x outward, y front; the front-inner corner (x-, y+) carries a wide chamfer for the brass border
-            return [(ho, hf - c), (ho - c, hf), (-(hi - cfi), hf), (-hi, hf - cfi), (-hi, -(hb - c)), (-(hi - c), -hb), (ho - c, -hb), (ho, -(hb - c))]
-        # (z, dx, ho, hi, hf, hb, cfi, c, outward tilt)
-        rings = [(1.488, 0.000, 0.174, 0.152, 0.204, 0.184, 0.080, 0.050, 0.00), (1.552, 0.000, 0.177, 0.155, 0.207, 0.187, 0.082, 0.052, 0.00),
-                 (1.558, 0.000, 0.166, 0.146, 0.194, 0.175, 0.078, 0.050, 0.00), (1.662, -0.004, 0.160, 0.140, 0.186, 0.168, 0.075, 0.055, 0.12),
-                 (1.736, -0.014, 0.126, 0.110, 0.142, 0.128, 0.060, 0.048, 0.22), (1.776, -0.026, 0.074, 0.066, 0.082, 0.074, 0.032, 0.026, 0.26)]
+            # x outward, y front. Sides: 0 front-outer chamfer, 1 front face, 2 its inner brass strip, 3 front-inner
+            # chamfer, 4 inner side, 5 inner-back chamfer, 6 back, 7 back-outer chamfer, 8 outer side
+            xi = -(hi - cfi)
+            return [(ho, hf - c), (ho - c, hf), (xi + STRIP, hf), (xi, hf), (-hi, hf - cfi), (-hi, -(hb - c)), (-(hi - c), -hb),
+                    (ho - c, -hb), (ho, -(hb - c))]
+        # (z, dx, ho, hi, hf, hb, cfi, c, outward tilt). The front face is one broad plane leaning back; a brass frame
+        # runs round it -- the bottom border, a strip up the inner edge and a strip along its top (concept shoulder detail)
+        rings = [(1.488, 0.000, 0.174, 0.152, 0.204, 0.184, 0.080, 0.050, 0.00),   # 0 border bottom
+                 (1.552, 0.000, 0.177, 0.155, 0.207, 0.187, 0.082, 0.052, 0.00),   # 1 border top
+                 (1.558, 0.000, 0.166, 0.146, 0.194, 0.175, 0.078, 0.050, 0.00),   # 2 step in
+                 (1.690, -0.006, 0.140, 0.134, 0.152, 0.152, 0.064, 0.048, 0.10),  # 3 front face top (leans back ~19 deg)
+                 (1.712, -0.008, 0.134, 0.130, 0.144, 0.146, 0.062, 0.046, 0.12),  # 4 top brass strip
+                 (1.762, -0.018, 0.112, 0.106, 0.100, 0.108, 0.046, 0.038, 0.22),  # 5 roof
+                 (1.790, -0.028, 0.098, 0.084, 0.034, 0.030, 0.012, 0.012, 0.26)]  # 6 ridge
+        P_RAISE, P_NARROW = 0.050, 0.020
+        rings = [(z + P_RAISE, dx, ho - P_NARROW, hi, hf, hb, cfi, c, tilt) for z, dx, ho, hi, hf, hb, cfi, c, tilt in rings]
         vs = []
         for ri, (z, dx, ho, hi, hf, hb, cfi, c, tilt) in enumerate(rings):
-            # the brass border is tallest across the front face (concept): lift its top edge toward the front
+            # the bottom border is tallest across the front face: lift its top edge toward the front
             lift = (lambda y: 0.030 * max(0.0, y / hf)) if ri in (1, 2) else (lambda y: 0.0)
             vs.append([pc.bm.verts.new(((cxp + dx + x) * m, y, z - tilt * (x + 0.02) + lift(y))) for x, y in psec(ho, hi, hf, hb, cfi, c)])
+        n_ = len(vs[0])
         for k in range(len(rings) - 1):
-            for i in range(8):
-                j = (i + 1) % 8
-                if k == 0: tg = "brass"                       # thick bottom border, proud of the dome
-                elif k == 1: tg = "steel_dark"                # step in from the border to the dome
-                elif i == 2 and k in (2, 3): tg = "brass"     # border up the inner front edge
+            for i in range(n_):
+                j = (i + 1) % n_
+                if k == 0: tg = "brass"                                   # bottom border, proud of the dome
+                elif k == 1: tg = "steel_dark"                            # step in from the border
+                elif k == 2 and i in (2, 3): tg = "brass"                 # strip up the inner side of the front face
+                elif k == 3 and i in (0, 1, 2, 3): tg = "brass"           # strip along the front face's top
                 else: tg = "steel"
                 pc.face((vs[k][i], vs[k][j], vs[k + 1][j], vs[k + 1][i]), tg)
         pc.face(list(reversed(vs[0])), "steel_dark"); pc.face(vs[-1], "steel")
-        # stud on the border's lower corner, facing out along the front-inner chamfer
+        # stud on the frame's lower inner corner: on the inner strip just above the bottom border, facing forward
         p2, p3 = vs[2][2].co, vs[2][3].co
         q2, q3 = vs[3][2].co, vs[3][3].co
-        sc_ = (p2 + p3) / 2 * 0.75 + (q2 + q3) / 2 * 0.25
-        nrm_ = Vector((-m, 1.0, 0.0)).normalized(); up_ = Vector((0, 0, 1)); side_ = up_.cross(nrm_).normalized()
+        sc_ = (p2 + p3) / 2 * 0.78 + (q2 + q3) / 2 * 0.22
+        up_ = ((q2 + q3) / 2 - (p2 + p3) / 2).normalized(); nrm_ = orth(Vector((0.0, 1.0, 0.0)), up_); side_ = up_.cross(nrm_).normalized()
         obox(pc, sc_ + nrm_ * 0.006, (side_, up_, nrm_), (0.030, 0.030, 0.008), "brass")
         apx = pc.bm.verts.new(sc_ + nrm_ * 0.040)
         cs = [sc_ + nrm_ * 0.014 + side_ * (0.024 * a_) + up_ * (0.024 * b_) for a_, b_ in ((1, 1), (-1, 1), (-1, -1), (1, -1))]
@@ -316,8 +330,9 @@ if want("arms"):
         pc = Piece(f"Gauntlet.{s}")
         hh, ht = BONE[f"hand.{s}"]
         if s == "R":
-            # back of the fist faces front and a little outward in the idle pose (concept front view)
-            arm_fist(pc, hh, ht, rest_dir(rig, "hand.R", Vector((0.45, 1.0, 0.15))), -1.0)
+            # fingers wrap the sword's real grip; the back of the fist faces front and a little outward in the idle pose
+            arm_fist_on_grip(pc, rig, bpy.data.objects["SwordGrip"], bpy.data.objects["SwordGuard"], "hand.R", "forearm.R",
+                             Vector((0.45, 1.0, 0.15)))
         else:
             rune = bpy.data.objects["PalmRune"]
             rc = sum((rune.matrix_world @ v.co for v in rune.data.vertices), Vector()) / len(rune.data.vertices)
@@ -433,7 +448,10 @@ if want("helmet"):
         dst.objects = [n for n in src.objects if n.startswith(("GenHelm", "GenVisor"))]
     RENAME = {"GenHelmShell": "HelmetShell", "GenHelmJaw": "HelmetJaw", "GenHelmCrest": "Crest", "GenVisor": "Visor",
               "GenHelmBrass": "HelmetBrass", "GenHelmPanels": "HelmetPanels"}
-    SHIFT = Matrix.Translation(Vector((-0.03, -0.12, 0.0)))
+    # helmet3 builds centred on x = 0 (unlike the generated body, which sat 3 cm off): only y moves. Raised 3.5 cm
+    # because the idle pose tilts the head down 7.8 degrees; this puts the idle helmet where the concept shows it.
+    HELM_RAISE = 0.035
+    SHIFT = Matrix.Translation(Vector((0.0, -0.12, HELM_RAISE)))
     for ob in dst.objects:
         exp.objects.link(ob)
         ob.data.transform(SHIFT); ob.matrix_world = Matrix.Identity(4)

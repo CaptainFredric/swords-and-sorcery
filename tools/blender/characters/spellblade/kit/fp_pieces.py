@@ -1,7 +1,8 @@
 # fp_pieces.py -- executed inside kit.py with KIT_MODE=fp on the first-person source. The first-person arms are built
 # by the same builders as the third-person arms (arms.py) with the same materials, so both views share one look;
-# the first-person rig, camera and actions are kept as authored. The hands are drawn 15% larger and the vambraces 8%
-# slimmer than in third person so the gauntlets read at arm's length.
+# the first-person rig, camera and actions are kept as authored. As usual for view models, the hands are drawn 15%
+# larger and the forearms 20% slimmer than in third person: at arm's length from the eye the arms otherwise fill the
+# frame and hide the hands.
 ONLY = set()
 exec(open(KITDIR + "arms.py").read())
 exec(open(KITDIR + "recolor.py").read())
@@ -20,13 +21,14 @@ for s, m in (("R", 1), ("L", -1)):
     pc.build(bone=f"upper_arm.{s}", grad=False)
     pc = Piece(f"Vambrace.{s}")
     fr = bone_frame(f"forearm.{s}", m, UP)
-    arm_vambrace(pc, fr, fr.L, scale=0.92)
+    arm_vambrace(pc, fr, fr.L, scale=0.80, panels=("front",))       # the view model's top face carries the panel
     pc.build(bone=f"forearm.{s}", grad=False)
     pc = Piece(f"Gauntlet.{s}")
     hh, ht = BONE[f"hand.{s}"]
     if s == "R":
         # the back of the sword fist faces up and back toward the eye in the idle pose
-        arm_fist(pc, hh, ht, rest_dir(rig, "hand.R", Vector((-0.2, -0.3, 0.93))), -1.0, k=1.5)
+        arm_fist_on_grip(pc, rig, bpy.data.objects["SwordGrip"], bpy.data.objects["SwordGuard"], "hand.R", "forearm.R",
+                         Vector((-0.2, -0.3, 0.93)), k=1.5)
     else:
         rune = bpy.data.objects["PalmRune"]
         rc = sum((rune.matrix_world @ v.co for v in rune.data.vertices), Vector()) / len(rune.data.vertices)

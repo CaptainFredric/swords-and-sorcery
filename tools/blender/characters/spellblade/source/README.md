@@ -184,3 +184,23 @@ Measured against the sheet's weapon-and-hand, helmet and shoulder detail panels:
 - **First person:** the arms use the same builders, materials and wear as the third-person arms, on the authored first-person rig and actions. It has 4 meshes instead of 56 and 2,504 triangles.
 - **Motion:** worst stretch is still 0.56 cm. The sword clips in 11 frames: 10 in the slash follow-through, plus 1 where the Slash_2 windup brushes the brow band.
 - **Budget:** third person is 10,666 triangles and 1.79 MB.
+
+## September 26 helmet, pauldron, gauntlet and first-person refinement
+
+Registered overlays on the concept's front, side and back panels showed two problems:
+- **Idle pose:** it lowers the head 4.4 cm and the shoulders 5.7 cm from where they were modelled.
+- **Off-centre helmet:** the helmet sat 3 cm off-centre. It was built centred in generation space but shifted like the off-centre generated body.
+
+Changes:
+- **Helmet:** centred on the head bone and raised 3.5 cm, with a shallow ridge up the crown front. The scarf's rolled top now wraps up to meet it, so the helmet rises clear of the shoulders as in the concept.
+- **Pauldrons:** raised 5 cm and 2 cm narrower on the outside. The front face now leans back as one broad plane, framed in brass along its bottom, up its inner side and along its top, with the stud in the frame's lower inner corner.
+- **Gauntlets:**
+  - Each finger is now three segments with steel scales, below overlapping back plates and a knuckle guard.
+  - The sword fist is posed around the sword's real grip.
+  - The vambrace flares to the wrist, with a chevron rim at the elbow and raised panels that follow the flare.
+- **First person:** the same builders, with forearms 20% slimmer (the usual view-model scale) and the raised panel on the face the eye sees.
+
+Checks:
+- **Motion:** worst stretch is still 0.56 cm. The sword clips in 10 frames, all in the known follow-through; the Slash_2 brow graze is gone. The helmet and pauldrons never touch.
+- **Cloth:** verified in motion with the runtime cloth code.
+- **Budget:** third person is 11,033 triangles and 1.84 MB; first person is 2,604 triangles and 0.41 MB.
