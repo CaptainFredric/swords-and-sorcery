@@ -21,8 +21,12 @@ P = dict(bevel=0.006, grad_lo=0.62, grad_z0=0.10, grad_z1=1.45, edge_gain=1.55, 
 for a in args[1:]:
     k, v = a.split("="); P[k] = float(v)
 
-rig = bpy.data.objects["SpellbladeRig"]; arm = rig.data
-exp = bpy.data.collections["SpellbladeExport"]
+MODE = os.environ.get("KIT_MODE", "tp")          # tp: third-person source; fp: first-person arms
+if MODE == "fp":
+    rig = bpy.data.objects["SpellbladeFirstPersonRig"]; exp = bpy.data.collections["SpellbladeFirstPersonExport"]
+else:
+    rig = bpy.data.objects["SpellbladeRig"]; exp = bpy.data.collections["SpellbladeExport"]
+arm = rig.data
 BONE = {b.name: (b.head_local.copy(), b.tail_local.copy()) for b in arm.bones}
 
 # ---------------------------------------------------------------- colours
@@ -148,7 +152,7 @@ class Piece:
             tg = TAGL[f[self.tag]]
             c = np.array(albedo(TAGS[tg][1]))
             z = f.calc_center_median().z
-            if grad:
+            if grad and MODE == "tp":
                 u = min(1.0, max(0.0, (z - P["grad_z0"]) / (P["grad_z1"] - P["grad_z0"])))
                 g = P["grad_lo"] + (1 - P["grad_lo"]) * (u * u * (3 - 2 * u))
                 c = c * (1 - GRAD.get(tg, 0.5) * (1 - g))
@@ -179,7 +183,7 @@ class Piece:
 
 
 BUILT = {}
-exec(open(KITDIR + "kit_pieces.py").read())
+exec(open(KITDIR + ("fp_pieces.py" if MODE == "fp" else "kit_pieces.py")).read())
 for m in bpy.data.materials: m.use_fake_user = True
 bpy.ops.wm.save_as_mainfile(filepath=OUT, copy=True)
 tris = 0

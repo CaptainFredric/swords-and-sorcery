@@ -24,11 +24,11 @@ from mathutils.bvhtree import BVHTree
 args = sys.argv[sys.argv.index("--") + 1:]
 OUT = args[0]
 SRC = os.environ.get("SPELLBLADE_KIT_BASE", str(WORK / "source_bcc16ef.blend"))
-D = dict(yc=0.201, wx=0.1355, dy=0.160, cf=0.30, cb=0.30, zb=1.745, face_frac=0.62, ztop=2.075, wall=0.65,
-         ledge=1.045, top_scale=0.80, crest_hw=0.030, crest_top=2.185, crest_front=0.035, crest_step_y=-0.035,
+D = dict(yc=0.201, wx=0.1355, dy=0.160, cf=0.19, cb=0.24, zb=1.745, face_frac=0.57, ztop=2.080, wall=0.10,
+         ledge=1.08, top_scale=0.64, crown_back=0.050, ledge_fwd=0.016, panel_lift=0.012, crest_hw=0.030, crest_top=2.185, crest_front=0.035, crest_step_y=-0.035,
          crest_step=2.14, crest_tail=1.995, vent_z=0.78, vent_h=0.10, vent_y0=0.20, vent_y1=0.46,
          s_in=0.27, s_out=0.47, bar_lo=0.74, bar_hi=0.83, bar_out=0.80, tick_in=0.66, tick_hi=0.95, s_bot=0.05,
-         brass_w=0.36, panel_bright=1.55, grad_lo=0.80, grad_hi=0.96, bevel=0.0035)
+         brass_w=0.42, panel_bright=1.55, grad_lo=0.80, grad_hi=0.96, bevel=0.0035)
 for a in args[1:]:
     k, v = a.split("="); D[k] = float(v)
 D["zbrow"] = D["zb"] + D["face_frac"] * (D["ztop"] - D["zb"])
@@ -75,8 +75,8 @@ def add_bevel(ob, edge_mat):
     b.limit_method = "ANGLE"; b.angle_limit = math.radians(30); b.material = names.index(edge_mat); b.harden_normals = False
 
 
-def octagon(s=1.0, dz=0.0):
-    wx, dy, yc = D["wx"] * s, D["dy"] * s, D["yc"]
+def octagon(s=1.0, yoff=0.0):
+    wx, dy, yc = D["wx"] * s, D["dy"] * s, D["yc"] + yoff
     cf, cb = D["cf"] * D["wx"] * s, D["cb"] * D["wx"] * s
     # counter-clockwise from above, starting at the front-right chamfer
     return [(wx, yc + dy - cf), (wx - cf, yc + dy), (-(wx - cf), yc + dy), (-wx, yc + dy - cf),
@@ -87,9 +87,10 @@ SIDE_NAMES = ["front_chamfer_R", "front", "front_chamfer_L", "side_L", "back_cha
 
 
 def loft(bm, rings, side_mat, cap_top=None, cap_bottom=None):
-    """rings: list of (z, scale). Returns face-material list for faces added (in creation order)."""
+    """rings: list of (z, scale[, y offset]). Returns face-material list for faces added (in creation order)."""
     mats = []
-    vs = [[bm.verts.new((x, y, z)) for x, y in octagon(s)] for z, s in rings]
+    vs = [[bm.verts.new((x, y, r[0])) for x, y in octagon(r[1], r[2] if len(r) > 2 else 0.0)] for r in rings]
+    rings = [r[:2] for r in rings]
     for k in range(len(rings) - 1):
         for i in range(8):
             j = (i + 1) % 8
@@ -123,13 +124,19 @@ add_bevel(jaw, "SteelEdge")
 
 # ---------------------------------------------------------------- crown with overhanging brow ledge
 bm = bmesh.new()
-L = D["ledge"]
-rings = [(D["zbrow"] - 0.002, 1.0), (D["zbrow"] - 0.002, L), (D["zbrow"] + 0.012, L), (D["zwall"], L), (D["ztop"], D["top_scale"])]
+L = D["ledge"]; Hc = D["ztop"] - D["zbrow"]; fw, cbk = D["ledge_fwd"], D["crown_back"]
+# overhanging brow band pushed forward over the recessed face, then crown planes sloping in to a smaller flat top,
+# the front sloping back the most (concept helmet detail)
+rings = [(D["zbrow"] - 0.002, 1.0, 0.0), (D["zbrow"] - 0.002, L, fw), (D["zbrow"] + 0.028, L, fw),
+         (D["zbrow"] + 0.034, L * 0.985, fw * 0.6), (D["zwall"] + 0.034, L * 0.975, fw * 0.4),
+         (D["zbrow"] + 0.60 * Hc, (L + D["top_scale"]) / 2 + 0.035, -cbk * 0.40), (D["ztop"] - 0.010, D["top_scale"] * 1.03, -cbk),
+         (D["ztop"], D["top_scale"], -cbk)]
 def crown_mat(k, i):
     n = SIDE_NAMES[i]
     if k == 0: return "DarkSteel"          # underside of the ledge
     if k == 1: return "SteelEdge"          # ledge band
-    if k == 3: return "SteelFacet"   # bevel to the top
+    if k == 2: return "SteelShade"         # step in above the band
+    if k == 6: return "SteelEdge"          # bevel to the top
     return "SteelShade" if n.startswith("back") else "SteelFacet"
 mats = loft(bm, rings, crown_mat, cap_top="SteelFacet")
 shell = make_object("GenHelmShell", bm, mats)
@@ -141,9 +148,9 @@ yc, dy = D["yc"], D["dy"]
 back_top = yc - dy * D["top_scale"]
 prof = [(yc + D["crest_front"], D["ztop"] - 0.002), (yc + D["crest_front"], D["crest_top"]),
         (yc + D["crest_step_y"], D["crest_top"]), (yc + D["crest_step_y"], D["crest_step"]),
-        (back_top - 0.004, D["crest_step"]), (yc - dy * L - 0.006, D["zwall"] + 0.012),
+        (back_top - cbk - 0.004, D["crest_step"]), (yc - dy * L - 0.006, D["zwall"] + 0.012),
         (yc - dy * L - 0.006, D["crest_tail"]), (yc - dy * L + 0.004, D["crest_tail"]),
-        (yc - dy * L + 0.004, D["zwall"]), (back_top + 0.004, D["ztop"] - 0.002)]
+        (yc - dy * L + 0.004, D["zwall"]), (back_top - cbk + 0.004, D["ztop"] - 0.002)]
 n = len(prof); hw = D["crest_hw"]
 R = [bm.verts.new((hw, y, z)) for y, z in prof]; Lf = [bm.verts.new((-hw, y, z)) for y, z in prof]
 mats = []
@@ -204,7 +211,8 @@ visor = make_object("GenVisor", bm, ["VisorGlow"] * cnt, gradient=False)
 bm = bmesh.new(); cnt = 0
 for s in (1, -1):
     X = lambda t: s * t * W
-    cnt += slab(bm, min(X(D["s_out"] + 0.03), X(D["bar_out"])), max(X(D["s_out"] + 0.03), X(D["bar_out"])), zf(D["s_bot"] + 0.02), zf(D["bar_lo"] - 0.03), 0.003, 0.004, 0.05)
+    # raised lit side plates: the dark face sits recessed between them (concept)
+    cnt += slab(bm, min(X(D["s_out"] + 0.025), X(0.955)), max(X(D["s_out"] + 0.025), X(0.955)), zf(D["s_bot"]), zf(D["bar_lo"] - 0.025), D["panel_lift"], D["panel_lift"] + 0.004, 0.05)
 panels = make_object("GenHelmPanels", bm, ["SteelEdge"] * cnt, gradient=False, bright=D["panel_bright"])
 # brass beak: strip on the crown front (vertical wall and top bevel) narrowing to a point between the glyph bars
 bm = bmesh.new(); cnt = 0

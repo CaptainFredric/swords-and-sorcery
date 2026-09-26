@@ -258,74 +258,70 @@ def octa2(hw, hd, ct, cb):
     return [(hw - ct, hd), (-(hw - cb), hd), (-hw, hd - cb), (-hw, -(hd - cb)), (-(hw - cb), -hd), (hw - ct, -hd), (hw, -(hd - ct)), (hw, hd - ct)]
 
 
+exec(open(KITDIR + "arms.py").read())
 if want("arms"):
     for s, m in (("R", 1), ("L", -1)):
-        # ---------------- pauldron: vertical dome, brass rim, brass inner-front edge, stud (clavicle)
+        # ---------------- pauldron (clavicle): faceted dome tilted down to the outside, a thick brass border along
+        # the bottom and up the inner front edge, the stud on the border's corner (concept shoulder detail)
         pc = Piece(f"Pauldron.{s}")
-        # octagonal base walls with a brass rim, then a gabled roof: a pentagon seen from the front, a peaked
-        # hexagon seen from the side (concept), the roof sloping down toward the outer edge
-        # (z, dx, hw, hd, c, outward tilt, gable, tag)
-        rings = [(1.545, 0.000, 0.150, 0.178, 0.042, 0.00, 0.00, "steel"), (1.705, 0.000, 0.150, 0.178, 0.042, 0.22, 0.00, "steel"),
-                 (1.752, -0.012, 0.134, 0.114, 0.038, 0.30, 0.30, "steel"), (1.790, -0.028, 0.092, 0.030, 0.012, 0.34, 0.00, "steel")]
         cxp = 0.362
+
+        def psec(ho, hi, hf, hb, cfi, c):
+            # x outward, y front; the front-inner corner (x-, y+) carries a wide chamfer for the brass border
+            return [(ho, hf - c), (ho - c, hf), (-(hi - cfi), hf), (-hi, hf - cfi), (-hi, -(hb - c)), (-(hi - c), -hb), (ho - c, -hb), (ho, -(hb - c))]
+        # (z, dx, ho, hi, hf, hb, cfi, c, outward tilt)
+        rings = [(1.488, 0.000, 0.174, 0.152, 0.204, 0.184, 0.080, 0.050, 0.00), (1.552, 0.000, 0.177, 0.155, 0.207, 0.187, 0.082, 0.052, 0.00),
+                 (1.558, 0.000, 0.166, 0.146, 0.194, 0.175, 0.078, 0.050, 0.00), (1.662, -0.004, 0.160, 0.140, 0.186, 0.168, 0.075, 0.055, 0.12),
+                 (1.736, -0.014, 0.126, 0.110, 0.142, 0.128, 0.060, 0.048, 0.22), (1.776, -0.026, 0.074, 0.066, 0.082, 0.074, 0.032, 0.026, 0.26)]
         vs = []
-        for z, dx, hw, hd, c, tilt, gab, _ in rings:
-            vs.append([pc.bm.verts.new(((cxp + dx + x) * m, y, z - tilt * (x + 0.02) - gab * abs(y))) for x, y in octa(hw, hd, c)])
+        for ri, (z, dx, ho, hi, hf, hb, cfi, c, tilt) in enumerate(rings):
+            # the brass border is tallest across the front face (concept): lift its top edge toward the front
+            lift = (lambda y: 0.030 * max(0.0, y / hf)) if ri in (1, 2) else (lambda y: 0.0)
+            vs.append([pc.bm.verts.new(((cxp + dx + x) * m, y, z - tilt * (x + 0.02) + lift(y))) for x, y in psec(ho, hi, hf, hb, cfi, c)])
         for k in range(len(rings) - 1):
             for i in range(8):
                 j = (i + 1) % 8
-                tg = rings[k][7]
-                if tg == "steel" and i == 2 and k < 1: tg = "brass"        # brass strip up the inner front edge
-                f = pc.face((vs[k][i], vs[k][j], vs[k + 1][j], vs[k + 1][i]), tg)
-        # protruding brass trim band around the bottom edge
-        rim = []
-        for z in (1.488, 1.552):
-            rim.append([pc.bm.verts.new(((cxp + x) * m, y, z)) for x, y in octa(0.164, 0.192, 0.046)])
-        for i in range(8):
-            j = (i + 1) % 8; pc.face((rim[0][i], rim[0][j], rim[1][j], rim[1][i]), "brass")
-        pc.face(list(reversed(rim[0])), "brass"); pc.face(rim[1], "brass")
+                if k == 0: tg = "brass"                       # thick bottom border, proud of the dome
+                elif k == 1: tg = "steel_dark"                # step in from the border to the dome
+                elif i == 2 and k in (2, 3): tg = "brass"     # border up the inner front edge
+                else: tg = "steel"
+                pc.face((vs[k][i], vs[k][j], vs[k + 1][j], vs[k + 1][i]), tg)
         pc.face(list(reversed(vs[0])), "steel_dark"); pc.face(vs[-1], "steel")
-        # stud: brass square + steel-lit pyramid at the lower inner front
-        sx, sz, hs = (cxp - 0.092) * m, 1.598, 0.034
-        yfr = 0.178 - 0.002
-        sq = [(sx + hs, sz + hs), (sx - hs, sz + hs), (sx - hs, sz - hs), (sx + hs, sz - hs)]
-        T = [pc.bm.verts.new((x, yfr + 0.016, z)) for x, z in sq]; Bq = [pc.bm.verts.new((x, yfr - 0.004, z)) for x, z in sq]
+        # stud on the border's lower corner, facing out along the front-inner chamfer
+        p2, p3 = vs[2][2].co, vs[2][3].co
+        q2, q3 = vs[3][2].co, vs[3][3].co
+        sc_ = (p2 + p3) / 2 * 0.75 + (q2 + q3) / 2 * 0.25
+        nrm_ = Vector((-m, 1.0, 0.0)).normalized(); up_ = Vector((0, 0, 1)); side_ = up_.cross(nrm_).normalized()
+        obox(pc, sc_ + nrm_ * 0.006, (side_, up_, nrm_), (0.030, 0.030, 0.008), "brass")
+        apx = pc.bm.verts.new(sc_ + nrm_ * 0.040)
+        cs = [sc_ + nrm_ * 0.014 + side_ * (0.024 * a_) + up_ * (0.024 * b_) for a_, b_ in ((1, 1), (-1, 1), (-1, -1), (1, -1))]
+        cv = [pc.bm.verts.new(c_) for c_ in cs]
         for k in range(4):
-            l = (k + 1) % 4; pc.face((Bq[k], Bq[l], T[l], T[k]), "brass")
-        ap = pc.bm.verts.new((sx, yfr + 0.046, sz))
-        for k in range(4):
-            l = (k + 1) % 4; pc.face((T[k], T[l], ap), "brass")
-        pc.face(list(reversed(Bq)), "brass")
+            pc.face((cv[k], cv[(k + 1) % 4], apx), "brass")
         pc.build(bone=f"clavicle.{s}")
 
-        # ---------------- lame under the pauldron + upper arm undersuit and dark band (upper_arm)
+        # ---------------- two dark lames under the pauldron, upper arm undersuit and dark band (upper_arm)
         pc = Piece(f"UpperArm.{s}")
         fr = bone_frame(f"upper_arm.{s}", m)
-        L = fr.L
-        pc.loft(fr, [(0.035, octa(0.118, 0.128, 0.046), "steel"), (0.110, octa(0.122, 0.132, 0.048), "brass"),
-                     (0.135, octa(0.122, 0.132, 0.048), "brass")])
-        pc.loft(fr, [(-0.02, octa(0.090, 0.090, 0.032), "under"), (L + 0.03, octa(0.080, 0.080, 0.029), "under")])
-        pc.loft(fr, [(0.165, octa(0.100, 0.100, 0.036), "steel_dark"), (0.240, octa(0.097, 0.097, 0.035), "steel_dark")])
+        arm_upper(pc, fr, fr.L)
         pc.build(bone=f"upper_arm.{s}")
 
-        # ---------------- vambrace with brass rims (forearm)
+        # ---------------- vambrace with brass rims and the flared cuff (forearm)
         pc = Piece(f"Vambrace.{s}")
         fr = bone_frame(f"forearm.{s}", m)
-        L = fr.L
-        pc.loft(fr, [(0.03, octa(0.094, 0.090, 0.034), "steel"), (L - 0.06, octa(0.086, 0.082, 0.031), "steel")])
-        pc.loft(fr, [(-0.035, octa(0.104, 0.100, 0.038), "brass"), (0.050, octa(0.102, 0.098, 0.037), "brass")])
-        pc.loft(fr, [(L - 0.075, octa(0.096, 0.092, 0.035), "brass"), (L - 0.008, octa(0.094, 0.090, 0.034), "brass")])
+        arm_vambrace(pc, fr, fr.L)
         pc.build(bone=f"forearm.{s}")
 
-        # ---------------- gauntlet: dark glove, steel back plate and knuckles, finger block (hand)
+        # ---------------- gauntlet (hand): sword fist wrapped round the actual grip, open spell hand palm up
         pc = Piece(f"Gauntlet.{s}")
-        fr = bone_frame(f"hand.{s}", m)
-        pc.loft(fr, [(-0.03, octa(0.064, 0.050, 0.018), "under"), (0.16, octa(0.058, 0.042, 0.016), "under")])
-        pc.loft(fr, [(-0.035, octa(0.078, 0.066, 0.026), "steel"), (0.020, octa(0.070, 0.058, 0.022), "steel")])   # flared cuff
-        pc.box(fr, 0.010, 0.095, 0.034, 0.078, -0.056, 0.056, "steel")                                      # back plate
-        pc.box(fr, 0.092, 0.165, 0.028, 0.070, -0.052, 0.052, "steel_dark")                                 # knuckles/fingers
-        pc.box(fr, 0.100, 0.118, 0.066, 0.074, -0.050, 0.050, "brass")                                      # knuckle rim
-        pc.box(fr, 0.025, 0.090, -0.024, 0.034, 0.040, 0.070, "steel_dark")                                 # thumb
+        hh, ht = BONE[f"hand.{s}"]
+        if s == "R":
+            # back of the fist faces front and a little outward in the idle pose (concept front view)
+            arm_fist(pc, hh, ht, rest_dir(rig, "hand.R", Vector((0.45, 1.0, 0.15))), -1.0)
+        else:
+            rune = bpy.data.objects["PalmRune"]
+            rc = sum((rune.matrix_world @ v.co for v in rune.data.vertices), Vector()) / len(rune.data.vertices)
+            arm_open(pc, hh, ht, rc, -1.0)
         pc.build(bone=f"hand.{s}")
 
 # ================================================================ cloth panels (textured)
@@ -428,44 +424,7 @@ if want("cloth"):
     pc.build(weights=back_w, bevel=0, grad=False)
 
 # ================================================================ helmet (helmet3 parts, generation space -> rig) and sword recolour
-MATMAP = {  # old material -> (tag, gain, edge)
-    "DarkSteel": ("steel", 0.62, 0), "SteelFacet": ("steel", 1.0, 0), "SteelEdge": ("steel", 1.0, 1), "SteelShade": ("steel", 0.55, 0),
-    "Brass": ("brass", 1.0, 0), "BrassEdge": ("brass", 1.0, 1), "CrimsonCloth": ("cloth", 1.0, 0), "ClothLight": ("cloth", 1.3, 0),
-    "ClothShade": ("cloth_dark", 1.0, 0), "FaceDark": ("face", 1.0, 0), "Leather": ("leather_dark", 1.0, 0),
-}
-KEEPMAT = {"VisorGlow", "SorceryAccent"}
-
-
-def recolor(ob, over=None, gain_all=1.0, grad_band=None):
-    """re-express an existing piece in the kit's colour scheme: per-face ArmorColor from its old material."""
-    over = over or {}
-    me = ob.data
-    names = [m.name.rsplit(".", 1)[0] if m and m.name[-4:-3] == "." and m.name[-3:].isdigit() else (m.name if m else "") for m in me.materials]
-    new_slots = []
-    def slot(mat):
-        if mat not in new_slots: new_slots.append(mat)
-        return new_slots.index(mat)
-    idx, cols = [], []
-    zs = [p.center.z for p in me.polygons]
-    zlo, zhi = (min(zs), max(zs)) if zs else (0, 1)
-    for p in me.polygons:
-        nm = names[p.material_index] if p.material_index < len(names) else ""
-        if nm in KEEPMAT:
-            idx.append(slot(bpy.data.materials[nm])); cols.append((1, 1, 1)); continue
-        tag, g, edge = over.get(nm, MATMAP.get(nm, ("steel", 1.0, 0)))
-        c = np.array(albedo(TAGS[tag][1])) * g * gain_all
-        if edge: c = c * EDGE_GAIN.get(tag, 1.15)
-        if grad_band:
-            u = (p.center.z - zlo) / max(1e-6, zhi - zlo); c = c * (grad_band[0] + (grad_band[1] - grad_band[0]) * u)
-        idx.append(slot(MATS[TAGS[tag][0]])); cols.append(tuple(np.clip(c, 0, 1)))
-    me.materials.clear()
-    for mat in new_slots: me.materials.append(mat)
-    for p, i in zip(me.polygons, idx): p.material_index = i
-    for a in [a for a in me.color_attributes]: me.color_attributes.remove(a)
-    attr = me.color_attributes.new("ArmorColor", "FLOAT_COLOR", "CORNER")
-    for p, c in zip(me.polygons, cols):
-        for li in p.loop_indices: attr.data[li].color = (float(c[0]), float(c[1]), float(c[2]), 1.0)
-    me.color_attributes.active_color = attr
+exec(open(KITDIR + "recolor.py").read())
 
 
 if want("helmet"):

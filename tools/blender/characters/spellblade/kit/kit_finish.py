@@ -26,12 +26,12 @@ def wear_material(m, fn):
 
 if not ONLY:
     for mname, (fn, comp) in WEAR.items(): wear_material(MATS[mname], fn)
-    wear_material(MATS["KitBanner"], None)
+    if "KitBanner" in MATS: wear_material(MATS["KitBanner"], None)
 
-    GROUP = {"HelmetShell": "head", "HelmetJaw": "head", "Crest": "head", "Breastplate": "torso", "TabardFront": "cloth",
+    GROUP = globals().get("FIN_GROUP") or {"HelmetShell": "head", "HelmetJaw": "head", "Crest": "head", "Breastplate": "torso", "TabardFront": "cloth",
              "TabardBack": "cloth", "Pauldron.R": "shR", "Pauldron.L": "shL", "Gauntlet.R": "armR", "Gauntlet.L": "armL",
              "Greave.R": "legR", "Boot.R": "legR", "Greave.L": "legL", "Boot.L": "legL"}
-    OCC = {"head": ("head", "torso"), "torso": ("torso", "cloth", "head", "shR", "shL"), "cloth": ("torso", "cloth"),
+    OCC = globals().get("FIN_OCC") or {"head": ("head", "torso"), "torso": ("torso", "cloth", "head", "shR", "shL"), "cloth": ("torso", "cloth"),
            "shR": ("shR", "torso", "armR"), "shL": ("shL", "torso", "armL"), "armR": ("armR", "shR"), "armL": ("armL", "shL"),
            "legR": ("legR", "torso", "cloth"), "legL": ("legL", "torso", "cloth")}
     objs = {n: bpy.data.objects[n] for n in GROUP if n in bpy.data.objects}
