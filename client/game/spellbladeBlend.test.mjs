@@ -53,3 +53,9 @@ test('a switch keeps the on-screen mix: fading clips start from their current we
   close(weights.fading[0], 0.35);
   close(weights.fading[1], 0.65);
 });
+
+test('run and sprint shift gait quickly; settling into a sprint from rest eases in', () => {
+  assert.equal(blendSeconds('Run', 'Sprint'), 0.16);
+  assert.equal(blendSeconds('Sprint', 'Run'), 0.16);
+  assert.ok(blendSeconds('Idle', 'Sprint') >= 0.18);
+});

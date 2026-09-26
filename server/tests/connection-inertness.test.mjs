@@ -28,9 +28,11 @@ test('disconnect immediately neutralizes stale combat and movement input during 
     forward: 0,
     right: 0,
     jump: false,
+    sprint: false,
     yaw: authoritativeFacing.yaw,
     pitch: authoritativeFacing.pitch,
   });
+  assert.equal(player.sprinting, false, 'a disconnected Spellblade stops sprinting');
   assert.equal(player.attackHeld, false);
   assert.equal(player.attackActive, false);
   assert.equal(player.guarding, false);

@@ -208,3 +208,23 @@ export function resolveWeaponPose({
     magicScale,
   };
 }
+
+/**
+ * First-person arm sway from locomotion: a light bob while running; while sprinting the arms drop and swing
+ * back so the view opens up, with a stronger stride bob. Offsets for the arm root (metres, radians).
+ */
+export function locomotionSway({ timeSec = 0, movingAmount = 0, sprinting = false }) {
+  const moving = Math.max(0, Math.min(1, movingAmount));
+  const sprint = sprinting ? 1 : 0;
+  const stride = timeSec * (sprint ? 11.5 : 9.2);
+  const bob = Math.abs(Math.cos(stride)) * (0.010 + 0.016 * sprint) * moving;
+  const sway = Math.sin(stride) * (0.006 + 0.010 * sprint) * moving;
+  return {
+    x: sway,
+    y: -bob - 0.07 * sprint,
+    z: 0.05 * sprint,
+    rx: -0.22 * sprint - bob * 0.8,
+    ry: sway * 1.5,
+    rz: sway * 2.0,
+  };
+}

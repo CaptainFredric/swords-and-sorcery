@@ -30,8 +30,10 @@ export class SpellbladeAnimator {
 
   apply(plan, dt = 0) {
     const step = Number.isFinite(dt) ? Math.max(0, Math.min(0.1, dt)) : 0;
-    const action = this.actions.get(plan?.clip);
+    const clip = this.actions.has(plan?.clip) ? plan.clip : plan?.fallback;
+    const action = this.actions.get(clip);
     if (!action) return false;
+    if (clip !== plan.clip) plan = { ...plan, clip };
 
     if (this.activeAction !== action) {
       const duration = step > 0 && this.activeAction ? blendSeconds(this.activeClip, plan.clip) : 0;

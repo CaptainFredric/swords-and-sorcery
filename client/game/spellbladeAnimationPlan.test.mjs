@@ -121,3 +121,11 @@ test('first person guard, cast and dash retain their own animation clocks', () =
   close(resolveFirstPersonAnimationPlan({ state: 'cast' }, view, 20.2).time, 0.2);
   close(resolveFirstPersonAnimationPlan({ state: 'dash' }, view, 30.1).time, 0.1);
 });
+
+test('sprint is its own looping clip that falls back to Run on an asset without it', () => {
+  const plan = resolveSpellbladeAnimationPlan({ state: 'sprint', player: {}, serverNow: 1, localTime: 2.5 });
+  assert.equal(plan.clip, 'Sprint');
+  assert.equal(plan.fallback, 'Run');
+  assert.equal(plan.loop, true);
+  close(plan.time, 2.5);
+});

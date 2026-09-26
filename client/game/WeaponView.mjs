@@ -5,7 +5,7 @@ import { SPELLBLADE_PALETTE } from './spellbladeDesign.mjs';
 import { createSpellbladeSword } from './SpellbladeSword.mjs';
 import { createSpellbladeAsset, reportSpellbladeAssetStatus } from './SpellbladeAssets.mjs';
 import { resolveFirstPersonAnimationPlan } from './spellbladeAnimationPlan.mjs';
-import { FIRST_PERSON_WEAPON_SCALE, resolveWeaponPose } from './weaponPose.mjs';
+import { FIRST_PERSON_WEAPON_SCALE, locomotionSway, resolveWeaponPose } from './weaponPose.mjs';
 
 function damp(value, target, amount) {
   return value + (target - value) * amount;
@@ -286,7 +286,7 @@ export class WeaponView {
     this.parryUntil = performance.now() / 1000 + 0.3;
   }
 
-  update(timeSec, movingAmount = 0, dt = 0) {
+  update(timeSec, movingAmount = 0, dt = 0, { sprinting = false } = {}) {
     const pose = resolveWeaponPose({
       timeSec,
       movingAmount,
@@ -302,7 +302,14 @@ export class WeaponView {
 
     if (this.visualKind === 'production' && this.productionInstance) {
       this.productionInstance.animator.apply(resolveFirstPersonAnimationPlan(pose, this, timeSec), dt);
-      dampTransform(this.productionOffset, outerImpactPose(this, timeSec), 0.38);
+      const impact = outerImpactPose(this, timeSec);
+      // the sprint sway only applies while the hands are free (not mid-swing, guard or cast)
+      const free = !['attack', 'guard', 'cast'].includes(pose.state);
+      const sway = locomotionSway({ timeSec, movingAmount, sprinting: sprinting && free });
+      dampTransform(this.productionOffset, {
+        x: impact.x + sway.x, y: impact.y + sway.y, z: impact.z + sway.z,
+        rx: impact.rx + sway.rx, ry: impact.ry + sway.ry, rz: impact.rz + sway.rz,
+      }, sprinting ? 0.2 : 0.38);
       const glow = pose.state === 'cast' ? 3.2 : 2.0;
       for (const material of this.productionInstance.materials.SorceryAccent ?? []) material.emissiveIntensity = glow;
       this.magicLight.intensity = pose.state === 'cast' ? 3.2 : 0.9;

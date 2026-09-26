@@ -13,6 +13,9 @@ const PROGRESS_SAMPLE_SEC = 0.7;
 const MIN_PROGRESS_METERS = 0.3;
 const ESCAPE_DURATION_SEC = 0.7;
 
+const BOT_SPRINT_DISTANCE = 9;
+const BOT_SPRINT_STAMINA_RESERVE = 45;
+
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
@@ -188,10 +191,18 @@ function updateMovement(actor, target, distance, ai, aggression, world, nowSec) 
     }
   }
 
+  // close long gaps at a sprint, but keep enough stamina in reserve to block when the fight starts
+  const sprint = forward > 0.4
+    && distance > BOT_SPRINT_DISTANCE
+    && (actor.guardStamina ?? 0) > BOT_SPRINT_STAMINA_RESERVE
+    && nowSec >= ai.escapeUntil
+    && nowSec >= ai.avoidUntil;
+
   actor.input = {
     forward: clamp(forward, -1, 1),
     right: clamp(right, -1, 1),
     jump: false,
+    sprint,
     yaw,
     pitch: 0,
   };

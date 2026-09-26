@@ -10,6 +10,18 @@ export const MOVEMENT = Object.freeze({
   dashCooldown: 5,
 });
 
+// Sprint is a locomotion state of its own (not just a faster run) so later modifiers, debuffs and animation can
+// key off it. It spends the same stamina pool the guard uses, slowly, so sprinting in costs blocking power.
+export const SPRINT = Object.freeze({
+  speed: 11,
+  // stamina per second while sprinting: a full bar lasts 10 s of sprint (a block costs 35)
+  staminaPerSec: 10,
+  // a winded Spellblade can sprint again once the bar has recovered this far
+  restartStamina: 25,
+  // sprinting means heading forward: at least this share of the stick pointing ahead (diagonals allowed)
+  forwardShare: 0.3,
+});
+
 export function createMovementState(position = { x: 0, y: 0, z: 0 }) {
   return {
     position: { ...position },
@@ -19,7 +31,33 @@ export function createMovementState(position = { x: 0, y: 0, z: 0 }) {
     dashUntil: -Infinity,
     dashReadyAt: 0,
     dashDir: { x: 0, z: -1 },
+    sprinting: false,
+    // multiplier for future slows and hastes; 1 = unmodified
+    speedScale: 1,
   };
+}
+
+/**
+ * Whether the Spellblade sprints this tick. Pure, so the server (authoritative, real stamina) and the client
+ * (prediction, last known stamina) decide the same way.
+ * @param {{wantsSprint:boolean, forward:number, right:number, grounded:boolean, stamina:number,
+ *          sprinting:boolean, blocked:boolean}} args  blocked: guarding, attacking, casting or staggered
+ */
+export function resolveSprint({ wantsSprint, forward = 0, right = 0, grounded = true, stamina = 0, sprinting = false, blocked = false }) {
+  if (!wantsSprint || blocked || !(stamina > 0)) return false;
+  const f = Math.max(-1, Math.min(1, forward));
+  const r = Math.max(-1, Math.min(1, right));
+  const magnitude = Math.hypot(f, r);
+  if (magnitude < 0.2 || f < SPRINT.forwardShare * magnitude) return false;
+  // already sprinting: keep going (even through a jump) until the bar is empty
+  if (sprinting) return true;
+  return grounded && stamina >= SPRINT.restartStamina;
+}
+
+export function locomotionSpeed(state) {
+  const base = state.sprinting ? SPRINT.speed : MOVEMENT.runSpeed;
+  const scale = Number.isFinite(state.speedScale) ? Math.max(0, state.speedScale) : 1;
+  return base * scale;
 }
 
 export function tryStartDash(state, direction, nowSec) {
@@ -56,8 +94,9 @@ export function movePlayer(previous, input, dt, nowSec, world) {
     const fz = -cos;
     const rx = cos;
     const rz = -sin;
-    state.velocity.x = (fx * nf + rx * nr) * MOVEMENT.runSpeed;
-    state.velocity.z = (fz * nf + rz * nr) * MOVEMENT.runSpeed;
+    const speed = locomotionSpeed(state);
+    state.velocity.x = (fx * nf + rx * nr) * speed;
+    state.velocity.z = (fz * nf + rz * nr) * speed;
   }
 
   const jumpPressed = Boolean(input.jump) && !state.jumpHeld;

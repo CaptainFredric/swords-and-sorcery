@@ -8,7 +8,9 @@ export function resolveSpellbladeState(player, serverNow, castPoseUntil = 0, cas
 
   const velocity = player.velocity ?? { x: 0, y: 0, z: 0 };
   if (Math.abs(velocity.y ?? 0) > 0.45) return 'air';
-  if (Math.hypot(velocity.x ?? 0, velocity.z ?? 0) > 0.8) return 'run';
+  const horizontal = Math.hypot(velocity.x ?? 0, velocity.z ?? 0);
+  if (player.sprinting && horizontal > 0.8) return 'sprint';
+  if (horizontal > 0.8) return 'run';
   return 'idle';
 }
 

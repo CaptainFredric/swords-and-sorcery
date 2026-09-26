@@ -2,12 +2,18 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#161b16" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Swords &amp; Sorcery" />
+  <link rel="manifest" href="/client/manifest.webmanifest" />
   <title>Swords & Sorcery</title>
   <link rel="icon" href="data:," />
   <link rel="stylesheet" href="/client/styles.css" />
   <link rel="stylesheet" href="/client/playability.css" />
+  <link rel="stylesheet" href="/client/mobile.css" />
   <script type="importmap">
     {
       "imports": {
@@ -95,8 +101,9 @@
         <button class="back-button" data-close-how>← BACK</button>
         <p class="eyebrow">HOW TO PLAY</p>
         <h2>BASE KIT</h2>
-        <div class="controls-grid">
+        <div class="controls-grid key-controls-grid">
           <span>WASD</span><b>Move</b>
+          <span>SHIFT</span><b>Hold to Sprint · uses stamina</b>
           <span>MOUSE</span><b>Aim</b>
           <span>LMB</span><b>Hold sword combo</b>
           <span>RMB</span><b>Guard · tap into a strike to Parry</b>
@@ -106,7 +113,17 @@
           <span>TAB</span><b>Scoreboard</b>
           <span>ESC</span><b>Arena menu / Back</b>
         </div>
-        <p class="rules-copy">Three sword hits defeat a full-health Spellblade. A well-timed Guard parries and staggers the attacker. Fireball beats passive blocking. Dash repositions; it does not grant invulnerability.</p>
+        <div class="controls-grid touch-controls-grid">
+          <span>LEFT THUMB</span><b>Move · push fully forward to Sprint</b>
+          <span>RIGHT THUMB</span><b>Drag to aim</b>
+          <span>ATTACK</span><b>Hold sword combo · drag to aim mid-swing</b>
+          <span>GUARD</span><b>Hold to block · tap into a strike to Parry</b>
+          <span>FIREBALL</span><b>Cast where you aim</b>
+          <span>DASH</span><b>Dash in your movement direction</b>
+          <span>SPRINT</span><b>Tap to sprint until you let go of the stick</b>
+          <span>MENU</span><b>Arena menu · practice tools</b>
+        </div>
+        <p class="rules-copy">Three sword hits defeat a full-health Spellblade. A well-timed Guard parries and staggers the attacker. Fireball beats passive blocking. Dash repositions; it does not grant invulnerability. Guard and Sprint share one stamina bar: sprinting drains it slowly, every block costs a chunk, and it refills a moment after you stop.</p>
       </div>
     </section>
 
@@ -144,7 +161,7 @@
           <div class="health-track"><div id="health-trail" class="health-trail"></div><div id="health-fill" class="health-fill"></div></div>
         </div>
         <div id="guard-block" class="guard-block faded">
-          <span>GUARD</span><div class="guard-track"><div id="guard-fill" class="guard-fill"></div></div>
+          <span>STAMINA</span><div class="guard-track"><div id="guard-fill" class="guard-fill"></div></div>
         </div>
         <div class="abilities">
           <div id="fireball-ability" class="ability ready"><span class="ability-icon">✦</span><b>Q</b><em>FIREBALL</em><strong>READY</strong></div>
@@ -176,6 +193,14 @@
         <button id="leave" class="wide-button">RETURN TO MENU</button>
       </div>
       <p id="rematch-copy" class="small-copy">All remaining players vote to rematch.</p>
+    </section>
+    <section id="rotate-prompt" class="rotate-prompt" role="dialog" aria-label="Rotate your device">
+      <div class="rotate-card">
+        <div class="rotate-phone" aria-hidden="true"><i></i></div>
+        <h2>TURN TO LANDSCAPE</h2>
+        <p>Swords &amp; Sorcery is played sideways: move with your left thumb, fight with your right.</p>
+        <button id="rotate-dismiss" class="back-button">CONTINUE IN PORTRAIT</button>
+      </div>
     </section>
   </main>
 

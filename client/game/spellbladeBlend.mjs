@@ -16,6 +16,7 @@ const BLEND_IN_SECONDS = Object.freeze({
   Guard: 0.16,
   Air: 0.18,
   Run: 0.22,
+  Sprint: 0.2,
   Idle: 0.24,
 });
 
@@ -25,6 +26,8 @@ export function blendSeconds(fromClip, toClip) {
   if (fromClip === 'Death') return 0;
   // slashes chained inside one attack already meet at matching poses
   if (COMBO_CLIPS.has(fromClip) && COMBO_CLIPS.has(toClip)) return 0.06;
+  // run <-> sprint shifts gait mid-stride
+  if ((fromClip === 'Run' && toClip === 'Sprint') || (fromClip === 'Sprint' && toClip === 'Run')) return 0.16;
   return BLEND_IN_SECONDS[toClip] ?? 0.15;
 }
 

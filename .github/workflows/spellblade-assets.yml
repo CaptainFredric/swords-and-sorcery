@@ -127,7 +127,7 @@ jobs:
               assert report['outputs']['thirdPersonGlb'] == 'spellblade.glb'
               assert report['sizes']['thirdPersonGlbBytes'] <= report['sizes']['thirdPersonTargetBytes']
               required_tp = {
-                  'Idle', 'Run', 'Air', 'Guard', 'Slash_1', 'Slash_2', 'Slash_3',
+                  'Idle', 'Run', 'Sprint', 'Air', 'Guard', 'Slash_1', 'Slash_2', 'Slash_3',
                   'Cast', 'Dash', 'Stagger', 'Death',
               }
               assert set(report['animations']) == required_tp

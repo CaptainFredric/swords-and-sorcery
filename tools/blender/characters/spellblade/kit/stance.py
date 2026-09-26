@@ -88,19 +88,31 @@ def pose_loop(act, base_frame, frames, offsets, plant=True):
     offsets(phase) -> {bone: [(world_axis, degrees), ...]}; the pelvis is re-planted to the base ankle height."""
     assign(act)
     sc.frame_set(base_frame); bpy.context.view_layer.update()
-    base = {pb.name: (pb.rotation_quaternion.copy(), pb.location.copy()) for pb in rig.pose.bones}
+    # bones may animate in quaternion (third person) or Euler (first person) mode: work in quaternions, write back
+    # to whichever channel the bone actually uses
+    def get_rot(pb):
+        return pb.rotation_quaternion.copy() if pb.rotation_mode == "QUATERNION" else pb.rotation_euler.to_quaternion()
+
+    def set_rot(pb, q):
+        if pb.rotation_mode == "QUATERNION": pb.rotation_quaternion = q
+        else: pb.rotation_euler = q.to_euler(pb.rotation_mode, pb.rotation_euler)
+
+    def rot_path(pb):
+        return "rotation_quaternion" if pb.rotation_mode == "QUATERNION" else "rotation_euler"
+
+    base = {pb.name: (get_rot(pb), pb.location.copy()) for pb in rig.pose.bones}
     z0 = ankle_z(base_frame) if plant else 0.0
     span = frames[-1] - frames[0]
     touched = set()
     for f in frames:
         ph = (f - frames[0]) / span
         for b, (q, l) in base.items():
-            pb = rig.pose.bones[b]; pb.rotation_quaternion = q.copy(); pb.location = l.copy()
+            pb = rig.pose.bones[b]; set_rot(pb, q.copy()); pb.location = l.copy()
         for b, rots in offsets(ph).items():
             pb = rig.pose.bones[b]; d = Quaternion()
             for axis, deg in rots:
                 d = Quaternion(local_axis(b, axis), math.radians(deg)) @ d
-            pb.rotation_quaternion = d @ pb.rotation_quaternion
+            set_rot(pb, d @ base[b][0])
             touched.add(b)
         bpy.context.view_layer.update()
         if plant and "pelvis" in rig.pose.bones:
@@ -110,7 +122,7 @@ def pose_loop(act, base_frame, frames, offsets, plant=True):
             bpy.context.view_layer.update()
         for b in touched | ({"pelvis"} if plant else set()):
             pb = rig.pose.bones[b]
-            pb.keyframe_insert("rotation_quaternion", frame=f, group=b)
+            pb.keyframe_insert(rot_path(pb), frame=f, group=b)
             if b == "pelvis": pb.keyframe_insert("location", frame=f, group=b)
 
 

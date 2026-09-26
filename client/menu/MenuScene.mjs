@@ -153,6 +153,16 @@ export class MenuScene {
   }
 
   #pointerDown = (event) => {
+    // touch browsers do not reliably turn a double tap into dblclick
+    if (event.pointerType === 'touch') {
+      const now = performance.now();
+      if (now - (this.lastTapAt ?? -Infinity) < 320) {
+        this.#resetView();
+        this.lastTapAt = -Infinity;
+      } else {
+        this.lastTapAt = now;
+      }
+    }
     this.dragging = true;
     this.dragStart = { x: event.clientX, y: event.clientY, yaw: this.targetYaw, pitch: this.targetPitch };
     this.renderer.domElement.setPointerCapture?.(event.pointerId);

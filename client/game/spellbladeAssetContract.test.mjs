@@ -6,7 +6,7 @@ const VALID = {
   facing: '-Z',
   up: '+Y',
   unitMeters: 1,
-  clips: ['Idle', 'Run', 'Air', 'Guard', 'Slash_1', 'Slash_2', 'Slash_3', 'Cast', 'Dash', 'Stagger', 'Death'],
+  clips: ['Idle', 'Run', 'Sprint', 'Air', 'Guard', 'Slash_1', 'Slash_2', 'Slash_3', 'Cast', 'Dash', 'Stagger', 'Death'],
   sockets: ['socket_sword', 'socket_sorcery'],
   mutableMaterials: ['VisorGlow', 'SorceryAccent'],
   thirdPerson: { maxTriangles: 35000, targetBytes: 2000000 },

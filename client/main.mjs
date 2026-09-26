@@ -4,6 +4,7 @@ import { GameRuntime } from './game/GameRuntime.mjs';
 import { MenuController, shouldRouteSocketError } from './menu/MenuController.mjs';
 import { MenuScene } from './menu/MenuScene.mjs';
 import { SCREEN_IDS, ScreenRouter } from './ui/ScreenRouter.mjs';
+import { isTouchPrimary } from './game/touchControlsModel.mjs';
 
 const $ = (selector) => document.querySelector(selector);
 const menuWorld = $('#menu-world');
@@ -56,6 +57,7 @@ try {
 }
 
 let runtime = null;
+let touchUi = false;
 let latestLobby = null;
 let latestSnapshot = null;
 let pendingFailureScreen = SCREEN_IDS.MAIN_MENU;
@@ -87,9 +89,23 @@ function route(screenId) {
   menuScene?.setVisible(menuBacked);
 }
 
+// phones and tablets get on-screen controls and touch wording; a touchscreen laptop switches on its first tap
+function useTouchUi() {
+  if (touchUi) return;
+  touchUi = true;
+  document.body.classList.add('touch-ui');
+  const turnHint = $('.turn-hint');
+  if (turnHint) turnHint.textContent = 'DRAG TO TURN · DOUBLE-TAP TO RESET';
+  runtime?.enableTouch();
+}
+if (isTouchPrimary()) useTouchUi();
+addEventListener('pointerdown', (event) => { if (event.pointerType === 'touch') useTouchUi(); }, { capture: true, passive: true });
+$('#rotate-dismiss').addEventListener('click', () => document.body.classList.add('portrait-ok'));
+
 function ensureRuntime() {
   if (!runtime) {
     runtime = new GameRuntime($('#game-canvas'), socket, hud);
+    if (touchUi) runtime.enableTouch();
     runtime.onPointer = (locked) => {
       const mode = latestLobby?.mode ?? latestSnapshot?.mode;
       if (mode === 'BOT_DUEL') socket.arenaReady(locked);
@@ -233,7 +249,7 @@ async function copyText(text, title) {
 function openPause() {
   if (latestSnapshot?.roomState !== 'PLAYING') return;
   paused = true;
-  document.exitPointerLock?.();
+  runtime?.releasePointer();
   pauseMenu.classList.remove('hidden');
   $('#resume-game').focus();
 }

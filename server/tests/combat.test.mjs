@@ -9,6 +9,7 @@ import {
   tryCastFireball,
   tryDash,
 } from '../src/game/combat.mjs';
+import { SPRINT } from '../../shared/src/movement.mjs';
 
 const openWorld = {
   floors: [{ id: 'floor', center: [0, -0.1, 0], size: [50, 0.2, 50], y: 0 }],
@@ -177,4 +178,64 @@ test('sword resolution can use recent transform history for latency compensation
   beginAttack(room, 'a', 10);
   stepRoom(room, 0.01, 10.50, openWorld);
   assert.equal(b.health, 66);
+});
+
+function sprintInput(player, overrides = {}) {
+  player.input = { forward: 1, right: 0, jump: false, sprint: true, yaw: player.yaw, pitch: 0, ...overrides };
+}
+
+test('sprint is an authoritative state that runs faster and spends the shared stamina bar slowly', () => {
+  const room = playingRoom();
+  const a = room.players.get('a');
+  a.yaw = Math.PI; sprintInput(a);                           // head away from b
+  stepRoom(room, 0.05, 10, openWorld);
+  assert.equal(a.sprinting, true);
+  assert.ok(Math.abs(Math.hypot(a.velocity.x, a.velocity.z) - SPRINT.speed) < 1e-6);
+  let t = 10;
+  for (let i = 0; i < 20; i += 1) { t += 0.05; stepRoom(room, 0.05, t, openWorld); }
+  // 1.05 s of sprint at 10/s, still far from a block's worth of cost per second
+  assert.ok(Math.abs(a.guardStamina - (100 - SPRINT.staminaPerSec * 1.05)) < 1e-6, `stamina ${a.guardStamina}`);
+  // stamina does not recover while sprinting, and resumes after the usual delay once the sprint ends
+  sprintInput(a, { sprint: false });
+  const after = a.guardStamina;
+  t += 0.5; stepRoom(room, 0.05, t, openWorld);
+  assert.equal(a.sprinting, false);
+  assert.equal(a.guardStamina, after, 'regen waits after the last drain');
+  t += 1.0; stepRoom(room, 0.05, t, openWorld);
+  assert.ok(a.guardStamina > after, 'regen resumes');
+});
+
+test('guarding or attacking ends a sprint; blocks and sprint share one bar', () => {
+  const room = playingRoom();
+  const a = room.players.get('a');
+  sprintInput(a, { forward: 1 });
+  stepRoom(room, 0.05, 10, openWorld);
+  assert.equal(a.sprinting, true);
+  setGuard(room, 'a', true, 10.05);
+  stepRoom(room, 0.05, 10.1, openWorld);
+  assert.equal(a.sprinting, false, 'guard cancels sprint');
+  setGuard(room, 'a', false, 10.15);
+  stepRoom(room, 0.05, 10.2, openWorld);
+  assert.equal(a.sprinting, true);
+  beginAttack(room, 'a', 10.25);
+  stepRoom(room, 0.05, 10.3, openWorld);
+  assert.equal(a.sprinting, false, 'attacking cancels sprint');
+});
+
+test('an emptied bar winds the Spellblade: no sprint until it recovers', () => {
+  const room = playingRoom();
+  const a = room.players.get('a');
+  a.yaw = Math.PI; a.guardStamina = 0.3; a.sprinting = true; a.lastGuardDrainAt = 9.99;   // mid-sprint
+  sprintInput(a);
+  stepRoom(room, 0.05, 10, openWorld);
+  assert.equal(a.guardStamina, 0);
+  stepRoom(room, 0.05, 10.05, openWorld);
+  assert.equal(a.sprinting, false, 'empty bar ends the sprint');
+  a.guardStamina = SPRINT.restartStamina - 1;
+  a.lastGuardDrainAt = -Infinity;
+  stepRoom(room, 0.001, 10.1, openWorld);
+  assert.equal(a.sprinting, false, 'still winded below the restart mark');
+  a.guardStamina = SPRINT.restartStamina + 1;
+  stepRoom(room, 0.05, 10.2, openWorld);
+  assert.equal(a.sprinting, true, 'recovered: sprint again');
 });

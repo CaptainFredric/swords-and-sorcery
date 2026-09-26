@@ -1,6 +1,7 @@
 const REQUIRED_CLIPS = Object.freeze([
   'Idle',
   'Run',
+  'Sprint',
   'Air',
   'Guard',
   'Slash_1',
