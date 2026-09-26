@@ -204,3 +204,16 @@ Checks:
 - **Motion:** worst stretch is still 0.56 cm. The sword clips in 10 frames, all in the known follow-through; the Slash_2 brow graze is gone. The helmet and pauldrons never touch.
 - **Cloth:** verified in motion with the runtime cloth code.
 - **Budget:** third person is 11,033 triangles and 1.84 MB; first person is 2,604 triangles and 0.41 MB.
+
+## September 26 slash follow-through
+
+In the Slash_1 and Slash_3 follow-through, the interpolation from the follow-through key to the end pose swung the blade low across the front of the legs and below the floor, for 10 frames.
+
+`kit/followthrough.py` now adds one arm key inside each follow-through: the upper arm raised forward 18° at Slash_1 frame 21 and 42° at Slash_3 frame 15. The action's own curves carry the blade in front of the legs.
+
+It is the smallest correction the search found that clears the body and floor without moving the blade tip faster than the original motion. A per-frame fix was tried and rejected, because it moved the tip up to 1.7 m in one frame.
+
+Checks:
+- **Unchanged:** contact frames, end frames, every other bone and every other action.
+- **Clipping:** the sword never enters the body in any frame of any action.
+- **Stretch:** worst stretch is still 0.56 cm.
