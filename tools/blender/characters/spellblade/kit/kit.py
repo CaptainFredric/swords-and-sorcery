@@ -97,6 +97,7 @@ class Piece:
     def __init__(self, name):
         self.name = name; self.bm = bmesh.new()
         self.tag = self.bm.faces.layers.int.new("tag"); self.edge = self.bm.faces.layers.int.new("edge")
+        self.nobev = self.bm.faces.layers.int.new("nobev")      # small parts (finger segments) stay unbevelled
 
     def face(self, verts, tag):
         f = self.bm.faces.new(verts); f[self.tag] = TAGL.index(tag); return f
@@ -131,7 +132,8 @@ class Piece:
         bm = self.bm
         bm.normal_update()
         bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
-        edges = [e for e in bm.edges if len(e.link_faces) == 2 and e.calc_face_angle(0.0) > math.radians(angle)]
+        edges = [e for e in bm.edges if len(e.link_faces) == 2 and e.calc_face_angle(0.0) > math.radians(angle)
+                 and not all(f[self.nobev] for f in e.link_faces)]
         if not edges: return
         res = bmesh.ops.bevel(bm, geom=edges, offset=width, offset_type="OFFSET", segments=1, profile=0.5,
                               affect="EDGES", clamp_overlap=True)

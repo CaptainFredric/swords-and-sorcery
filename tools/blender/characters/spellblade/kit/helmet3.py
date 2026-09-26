@@ -24,10 +24,10 @@ from mathutils.bvhtree import BVHTree
 args = sys.argv[sys.argv.index("--") + 1:]
 OUT = args[0]
 SRC = os.environ.get("SPELLBLADE_KIT_BASE", str(WORK / "source_bcc16ef.blend"))
-D = dict(yc=0.201, wx=0.1355, dy=0.160, cf=0.19, cb=0.24, zb=1.745, face_frac=0.57, ztop=2.080, wall=0.10,
-         ledge=1.08, top_scale=0.64, crown_back=0.050, ledge_fwd=0.016, panel_lift=0.012, crest_hw=0.030, crest_top=2.185, crest_front=0.035, crest_step_y=-0.035,
+D = dict(yc=0.201, wx=0.1355, dy=0.160, cf=0.19, cb=0.24, zb=1.745, face_frac=0.55, ztop=2.080, wall=0.10,
+         ledge=1.08, top_scale=0.64, crown_back=0.050, ledge_fwd=0.016, panel_lift=0.012, prow=0.018, crest_hw=0.030, crest_top=2.185, crest_front=0.035, crest_step_y=-0.035,
          crest_step=2.14, crest_tail=1.995, vent_z=0.78, vent_h=0.10, vent_y0=0.20, vent_y1=0.46,
-         s_in=0.27, s_out=0.47, bar_lo=0.74, bar_hi=0.83, bar_out=0.80, tick_in=0.66, tick_hi=0.95, s_bot=0.05,
+         s_in=0.27, s_out=0.445, bar_lo=0.74, bar_hi=0.83, bar_out=0.80, tick_in=0.66, tick_hi=0.95, s_bot=0.05,
          brass_w=0.42, panel_bright=1.55, grad_lo=0.80, grad_hi=0.96, bevel=0.0035)
 for a in args[1:]:
     k, v = a.split("="); D[k] = float(v)
@@ -75,12 +75,13 @@ def add_bevel(ob, edge_mat):
     b.limit_method = "ANGLE"; b.angle_limit = math.radians(30); b.material = names.index(edge_mat); b.harden_normals = False
 
 
-def octagon(s=1.0, yoff=0.0):
+def octagon(s=1.0, yoff=0.0, prow=None):
     wx, dy, yc = D["wx"] * s, D["dy"] * s, D["yc"] + yoff
     cf, cb = D["cf"] * D["wx"] * s, D["cb"] * D["wx"] * s
-    # counter-clockwise from above, starting at the front-right chamfer
-    return [(wx, yc + dy - cf), (wx - cf, yc + dy), (-(wx - cf), yc + dy), (-wx, yc + dy - cf),
-            (-wx, yc - dy + cb), (-(wx - cb), yc - dy), (wx - cb, yc - dy), (wx, yc - dy + cb)]
+    # counter-clockwise from above, starting at the front-right chamfer; prow (crown rings) adds a front centre point
+    # pushed forward by prow, so every crown ring has the same vertex count
+    front = [(wx, yc + dy - cf), (wx - cf, yc + dy)] + ([(0.0, yc + dy + prow)] if prow is not None else []) + [(-(wx - cf), yc + dy)]
+    return front + [(-wx, yc + dy - cf), (-wx, yc - dy + cb), (-(wx - cb), yc - dy), (wx - cb, yc - dy), (wx, yc - dy + cb)]
 
 
 SIDE_NAMES = ["front_chamfer_R", "front", "front_chamfer_L", "side_L", "back_chamfer_L", "back", "back_chamfer_R", "side_R"]
@@ -89,12 +90,14 @@ SIDE_NAMES = ["front_chamfer_R", "front", "front_chamfer_L", "side_L", "back_cha
 def loft(bm, rings, side_mat, cap_top=None, cap_bottom=None):
     """rings: list of (z, scale[, y offset]). Returns face-material list for faces added (in creation order)."""
     mats = []
-    vs = [[bm.verts.new((x, y, r[0])) for x, y in octagon(r[1], r[2] if len(r) > 2 else 0.0)] for r in rings]
+    vs = [[bm.verts.new((x, y, r[0])) for x, y in octagon(r[1], r[2] if len(r) > 2 else 0.0, r[3] if len(r) > 3 else None)] for r in rings]
     rings = [r[:2] for r in rings]
+    n = len(vs[0])
     for k in range(len(rings) - 1):
-        for i in range(8):
-            j = (i + 1) % 8
-            bm.faces.new((vs[k][i], vs[k][j], vs[k + 1][j], vs[k + 1][i])); mats.append(side_mat(k, i))
+        for i in range(n):
+            j = (i + 1) % n
+            side = i if n == 8 else (i if i < 2 else 1 if i == 2 else i - 1)    # the prow's two front faces map to "front"
+            bm.faces.new((vs[k][i], vs[k][j], vs[k + 1][j], vs[k + 1][i])); mats.append(side_mat(k, side))
     if cap_top: bm.faces.new(vs[-1]); mats.append(cap_top)
     if cap_bottom: bm.faces.new(list(reversed(vs[0]))); mats.append(cap_bottom)
     return mats
@@ -127,10 +130,12 @@ bm = bmesh.new()
 L = D["ledge"]; Hc = D["ztop"] - D["zbrow"]; fw, cbk = D["ledge_fwd"], D["crown_back"]
 # overhanging brow band pushed forward over the recessed face, then crown planes sloping in to a smaller flat top,
 # the front sloping back the most (concept helmet detail)
-rings = [(D["zbrow"] - 0.002, 1.0, 0.0), (D["zbrow"] - 0.002, L, fw), (D["zbrow"] + 0.028, L, fw),
-         (D["zbrow"] + 0.034, L * 0.985, fw * 0.6), (D["zwall"] + 0.034, L * 0.975, fw * 0.4),
-         (D["zbrow"] + 0.60 * Hc, (L + D["top_scale"]) / 2 + 0.035, -cbk * 0.40), (D["ztop"] - 0.010, D["top_scale"] * 1.03, -cbk),
-         (D["ztop"], D["top_scale"], -cbk)]
+pr = D["prow"]
+# the ridge starts above the brow band: the Slash_2 windup passes the blade just in front of the brow
+rings = [(D["zbrow"] - 0.002, 1.0, 0.0, 0.0), (D["zbrow"] - 0.002, L, fw, 0.0), (D["zbrow"] + 0.028, L, fw, 0.0),
+         (D["zbrow"] + 0.034, L * 0.985, fw * 0.6, pr * 0.15), (D["zwall"] + 0.034, L * 0.975, fw * 0.4, pr * 0.55),
+         (D["zbrow"] + 0.60 * Hc, (L + D["top_scale"]) / 2 + 0.035, -cbk * 0.40, pr * 0.8), (D["ztop"] - 0.010, D["top_scale"] * 1.03, -cbk, pr * 0.4),
+         (D["ztop"], D["top_scale"], -cbk, pr * 0.4)]
 def crown_mat(k, i):
     n = SIDE_NAMES[i]
     if k == 0: return "DarkSteel"          # underside of the ledge

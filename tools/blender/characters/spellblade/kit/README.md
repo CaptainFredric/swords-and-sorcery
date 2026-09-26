@@ -25,7 +25,7 @@ It rewrites both sources (`source/spellblade-third-person.blend` and `source/spe
    - `banner_tex.py` draws the front tabard and back banner: red field, cream border, stepped hem and trident, at physical scale.
    - `wear_tex.py` draws two small tileable wear textures (scratches, chips, mottling).
 6. **Kit** (`kit.py`, `kit_pieces.py`, `kit_finish.py`): builds every piece, then merges pieces into the validator's named parts.
-7. **First person** (`KIT_MODE=fp`, `fp_pieces.py`): on the authored first-person source it replaces the old arm pieces with the same builders (`arms.py`), materials and wear textures. The hands are drawn 15% larger and the vambraces 8% slimmer, so the gauntlets read at arm's length.
+7. **First person** (`KIT_MODE=fp`, `fp_pieces.py`): on the authored first-person source it replaces the old arm pieces with the same builders (`arms.py`), materials and wear textures. As is usual for view models, the hands are drawn 15% larger and the forearms 20% slimmer than in third person. At arm's length from the eye the arms otherwise fill the frame and hide the hands. The forearms carry their raised panel on the top face, the one the eye sees.
 
 ## First person and third person
 
@@ -43,10 +43,10 @@ Each piece is rigid to one bone, except the torso undersuit (pelvis–spine–ch
 | Boots | foot | Heel-to-toe loft with sole, instep strap and buckle, brass ankle band |
 | Greaves | shin | Octagonal shin plate, brass band under the knee, faceted knee cop with brass rim; thigh undersuit, dark cuisse lames, leather straps and hip tasset merged in (thigh) |
 | Breastplate | chest / pelvis | Shield plate with brass side trims, dark back plate, draped scarf cowl that drops to a V over the chest with a hanging tail, abdomen lame, undersuit; belt with brass diamond and steel buckle (pelvis) |
-| Pauldrons | clavicle | Faceted dome tilted down to the outside; a thick brass border along the bottom, tallest across the front, running up the inner front edge; the pyramid stud on the border's corner (concept shoulder detail) |
-| Gauntlets | upper arm, forearm, hand | Two dark lames, undersuit and dark band; vambrace flaring to a brass-banded cuff; sword fist (glove, raised back-of-hand plate with a brass band, four finger caps side by side, thumb) and the spell hand palm up (dark palm, steel back plate, four two-segment fingers curling up round the rune) — `arms.py`, concept weapon & hand detail |
+| Pauldrons | clavicle | Faceted dome tilted down to the outside, its front face one broad plane leaning back about 19°. A brass frame runs around that face: the bottom border (tallest at the front), a broad strip up its inner side and a strip along its top, with the pyramid stud in the frame's lower inner corner (concept shoulder detail). Built 5 cm above the clavicle, because the idle pose lowers the shoulders 5.7 cm. |
+| Gauntlets | upper arm, forearm, hand | `arms.py`, from the concept's weapon-and-hand detail. Upper arm: two dark lames, undersuit and a dark band. Vambrace: flares from the elbow to the wrist, with a brass chevron rim that rises over the outer elbow, a brass cuff band, and raised panels that follow the flare. Hands are articulated plate gauntlets: overlapping back plates, a knuckle guard, and fingers of three segments, each a glove core with a steel scale on its back. The sword fist is posed around the sword's real grip, so the fingers wrap it. The spell hand is palm up, with its fingers curling around the rune. |
 | Tabards | tabard chains | Double-sided stepped panels with the banner texture |
-| Helmet, visor, crest | head | `helmet3.py`: faceted crown sloping back to a smaller top over a proud brow band, recessed face between raised lit side plates, wide brass plate to a point (concept helmet detail) |
+| Helmet, visor, crest | head | `helmet3.py`, from the concept's helmet detail. The faceted crown slopes back to a smaller top over a proud brow band, with a shallow central ridge above the band. The face is recessed between raised lit side plates, and a wide brass plate runs to a point. The helmet is centred on the head bone and built 3.5 cm high, because the idle pose tilts the head 7.8° down; in idle it then lands where the concept shows it. |
 | Sword | hand.R | The measured sword from the base source, recoloured |
 
 ## Colour
@@ -88,8 +88,12 @@ These use `../concept3d/data/register.json` and `../concept3d/inputs/clean_*.png
 
 ## Checks on this source
 
-- Worst edge growth over every frame of every action: 0.56 cm. The rigid pieces don't stretch; the concept-generated body reached 13.7 cm.
-- The cloth panels at the runtime spring limits: 0.4 cm.
-- The sword is inside the body in 11 frames: 10 in the Slash_1 and Slash_3 follow-through through the legs, and 1 where the Slash_2 windup brushes the new brow band.
-- Third person: 10,666 triangles (limit 35,000), 1.79 MB GLB (limit 2 MB).
-- First person: 2,504 triangles (limit 16,000), 0.40 MB GLB (limit 1 MB), 4 meshes (was 56).
+- **Stretch:** worst edge growth over every frame of every action is 0.56 cm. The rigid pieces don't stretch; the concept-generated body reached 13.7 cm.
+- **Cloth:** the cloth panels at the runtime spring limits stretch 0.4 cm. In motion, measured with the game's own cloth code, the back banner trails 24 cm further back at a 6 m/s run, and the tabard swings 18 cm forward on a sudden stop.
+- **Clipping:**
+  - The sword is inside the body in 10 frames, all in the Slash_1 and Slash_3 follow-through through the legs.
+  - The helmet and pauldrons never touch in any frame of any action.
+- **Third person:** 11,033 triangles (limit 35,000), 1.84 MB GLB (limit 2 MB).
+- **First person:** 2,604 triangles (limit 16,000), 0.41 MB GLB (limit 1 MB), 4 meshes.
+
+Small parts, such as finger segments, skip the edge bevel, which keeps the GLB inside its byte budget.
