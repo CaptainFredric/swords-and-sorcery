@@ -1,5 +1,7 @@
 # Spellblade from the concept sheet
 
+Superseded by `../kit` (September 25), which builds crisp measured armour pieces instead of painting a generated body. The kit's review tools still use this folder's registration data (`data/register.json`) and cleaned views (`inputs/clean_*.png`).
+
 This pipeline generated the third-person Spellblade body and helmet from `source/references/canonical-spellblade.png`. It replaced the procedural pieces, whose shapes had been tuned by hand from 2D measurements. The saved `.blend` source stays authoritative. These scripts document how it was made and can regenerate it.
 
 Scripts expect a work folder at `artifacts/concept3d/` (git-ignored) with `mv/` and `gen/` inside. Copy `inputs/*` into `artifacts/concept3d/mv/` and `data/*` into `artifacts/concept3d/gen/`. Python tools need a venv with `gradio_client`, `pillow`, `numpy` and `rembg[cpu]`. Blender scripts run in Blender 4.5.14.

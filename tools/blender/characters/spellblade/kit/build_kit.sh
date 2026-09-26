@@ -1,0 +1,22 @@
+#!/bin/zsh
+# build_kit.sh -- regenerate the third-person Spellblade source (source/spellblade-third-person.blend) from the kit.
+# Env: BLENDER (Blender 4.5 binary), KIT_PYTHON (python with numpy + pillow), SPELLBLADE_KIT_WORK (work folder).
+set -euo pipefail
+KIT=${0:A:h}
+ROOT=${KIT:h:h:h:h:h}
+B=${BLENDER:-/Applications/Blender.app/Contents/MacOS/Blender}
+PY=${KIT_PYTHON:-python3}
+export SPELLBLADE_KIT_WORK=${SPELLBLADE_KIT_WORK:-$ROOT/artifacts/kit}
+WORK=$SPELLBLADE_KIT_WORK
+mkdir -p $WORK
+run() { "$B" --background --factory-startup "$@" 2>&1 | grep -E "^(RIG2|HELMET3|KIT|BANNER|WEAR)|Error|Traceback" || true; }
+# the last hand-built source: its rig, actions, sword, palm rune and accent materials are the starting point
+git -C $ROOT show bcc16ef:tools/blender/characters/spellblade/source/spellblade-third-person.blend > $WORK/source_bcc16ef.blend
+python3 $KIT/joints_concept.py > /dev/null
+$PY $KIT/banner_tex.py $WORK/banner.jpg
+$PY $KIT/wear_tex.py $WORK
+run --python-exit-code 1 --python $KIT/helmet3.py -- $WORK/helmet.blend
+run $WORK/source_bcc16ef.blend --python-exit-code 1 --python $KIT/rig2.py -- $WORK/rig2.blend
+run $WORK/rig2.blend --python-exit-code 1 --python $KIT/kit.py -- $WORK/kit.blend
+cp $WORK/kit.blend $ROOT/tools/blender/characters/spellblade/source/spellblade-third-person.blend
+echo "SPELLBLADE_KIT_SOURCE_WRITTEN"
