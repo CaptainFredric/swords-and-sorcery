@@ -239,3 +239,29 @@ Checks:
 - **Clipping:** the sword never enters the body. The helmet and pauldrons never touch.
 - **Stretch:** 0.56 cm. The cloth at the spring limits stretches up to 0.4 cm.
 - **Budget:** 10,959 triangles, 1.82 MB.
+
+## September 26 stance, motion and armour
+
+**Model:**
+- **Helmet:** the crown rises in broad planes to a smaller top instead of a box with a lid. The cheeks taper to the chin, the brass plate is raised 11 mm, and the crest is taller.
+- **Chest:** the breastplate is a broad plate down to the belt, with a central ridge and brass trims down both sides; before, it was a small pointed shield.
+- **Pauldrons:** the brass frames only the front face, with a thinner bottom band. The gold belt that ran round the whole piece is gone.
+
+**Stance:**
+- A ready stance on every standing action: knees bent and slightly out, with the feet re-planted on the ground.
+- The sword is held forward-down in front of the feet, as in the concept's side view.
+- Actions start and end in that same hold.
+
+**Motion:**
+- **Idle:** breathes on a 2 s loop.
+- **Guard:** breathes on a 1.6 s loop instead of freezing one frame, in both views.
+- **Blending:**
+  - The runtime blends between clips with an eased curve.
+  - Durations are per clip: fast into attacks, dashes and hit reactions (0.06–0.12 s), slow into idle, run and guard (0.16–0.24 s).
+  - Several outgoing clips can fade at once, so rapid state changes never pop.
+
+**Export:** the glTF exporter wrote some rotation keys with a flipped sign but unflipped tangents. The runtime then snapped the thighs about 1.6 m for a frame, twice per run cycle and once per dash. This was also in earlier builds. `tools/blender/common/gltf_rotation.py` now keeps every exported rotation curve continuous, and the GLB validator rejects a file that isn't.
+
+**Checks:**
+- The sword never enters the body, and the helmet and pauldrons never touch.
+- Worst stretch is 0.56 cm.

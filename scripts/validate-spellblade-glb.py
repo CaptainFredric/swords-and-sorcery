@@ -286,7 +286,22 @@ def validate_glb(path: Path, contract: dict | None = None, *, first_person: bool
         target = budget.get("targetBytes") if isinstance(budget, dict) else None
         if isinstance(target, (int, float)) and target > 0 and path.stat().st_size > int(target):
             errors.append(f"Spellblade {label} GLB exceeds byte budget: {path.stat().st_size} > {int(target)}")
+    errors += _validate_rotation_continuity(path)
     return errors
+
+
+def _validate_rotation_continuity(path: Path) -> list[str]:
+    """Neighbouring rotation keys in opposite hemispheres play as a one-frame snap in the runtime."""
+    import sys
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools" / "blender" / "common"))
+    try:
+        from gltf_rotation import discontinuities
+        found = discontinuities(path)
+    except (ValueError, KeyError, IndexError, struct.error):
+        return []                      # synthetic fixtures without animation data
+    finally:
+        sys.path.pop(0)
+    return [f"animation {name} flips rotation hemisphere on node {node} at key {key}" for name, node, key in found[:5]]
 
 
 def _write_synthetic_glb(path: Path, document: dict | None = None) -> None:

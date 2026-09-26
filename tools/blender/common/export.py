@@ -5,6 +5,8 @@ from pathlib import Path
 
 import bpy
 
+from .gltf_rotation import fix_rotation_continuity
+
 
 def validate_export_transforms(objects: Iterable[bpy.types.Object]) -> None:
     """Reject mirrored/zero-scale or non-unit export roots before glTF export."""
@@ -53,3 +55,6 @@ def export_glb(path: Path, *, objects: Iterable[bpy.types.Object]) -> None:
         export_cameras=False,
         export_lights=False,
     )
+    # the exporter can leave neighbouring rotation keys in opposite hemispheres with unflipped tangents, which the
+    # runtime plays as a one-frame snap (the Spellblade's thighs in Run and Dash); keep every curve continuous
+    fix_rotation_continuity(path)

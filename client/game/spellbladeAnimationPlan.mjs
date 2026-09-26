@@ -4,6 +4,9 @@ import { GAME } from '../../shared/src/combat.mjs';
 const SLASH_DURATIONS = Object.freeze([0.72, 0.72, 0.64]);
 const ATTACK_CYCLE = SLASH_DURATIONS.reduce((sum, value) => sum + value, 0);
 const RESPAWN_SEC = 3;
+// Guard: frames 1-8 raise the guard, frames 8-56 are a breathing hold that loops (30 fps)
+export const GUARD_HOLD_START = 7 / 30;
+export const GUARD_HOLD_SECONDS = 48 / 30;
 const MAX_STAGGER_SEC = Math.max(GAME.parryStaggerMs, GAME.guardBreakStaggerMs) / 1000;
 
 function finite(value, fallback = 0) {
@@ -52,16 +55,21 @@ export function resolveSpellbladeAnimationPlan({ state, player = {}, serverNow =
     return fixed('Death', serverNow - deathAt);
   }
 
-  // Frame 8 holds the raised guard; frame 1 is the neutral entry pose.
-  if (state === 'guard') return fixed('Guard', 7 / 30);
+  // The guard stays raised but breathes: loop the hold section on the local clock.
+  if (state === 'guard') return fixed('Guard', guardHoldTime(localTime));
   if (state === 'air') return fixed('Air');
   if (state === 'run') return fixed('Run', localTime, true);
   return fixed('Idle', localTime, true);
 }
 
+function guardHoldTime(clock) {
+  const t = finite(clock);
+  return GUARD_HOLD_START + (((t % GUARD_HOLD_SECONDS) + GUARD_HOLD_SECONDS) % GUARD_HOLD_SECONDS);
+}
+
 export function resolveFirstPersonAnimationPlan(pose, view, timeSec) {
   if (pose.state === 'attack') return attackPlan(view, timeSec);
-  if (pose.state === 'guard') return { clip: 'Guard', loop: false, time: 7 / 30 };
+  if (pose.state === 'guard') return { clip: 'Guard', loop: false, time: guardHoldTime(timeSec) };
   if (pose.state === 'cast') return { clip: 'Cast', loop: false, time: Math.max(0, timeSec - view.castStartedAt) };
   if (pose.state === 'dash') return { clip: 'Dash', loop: false, time: Math.max(0, timeSec - (view.dashUntil - 0.18)) };
   return { clip: 'Idle', loop: true, time: timeSec };

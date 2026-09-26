@@ -17,7 +17,7 @@ from mathutils.bvhtree import BVHTree
 
 OUT = sys.argv[sys.argv.index("--") + 1]
 WINDOWS = {"Slash_1": (13, 23), "Slash_2": (12, 23), "Slash_3": (12, 20)}     # (contact, end) frames
-FLOOR = 0.03
+FLOOR = 0.0          # the blade may touch the floor, not pass through it
 SPEED_SLACK = 1.15
 rig = bpy.data.objects["SpellbladeRig"]
 col = bpy.data.collections["SpellbladeExport"]
@@ -84,15 +84,19 @@ def key_offset(action, bone, axis_world, sign, frame, deg):
 
 
 report = {}
-for name, (contact, end) in WINDOWS.items():
+JOBS = [(name, contact, end, "follow-through") for name, (contact, end) in WINDOWS.items()] + \
+       [(name, 1, contact, "windup") for name, (contact, end) in WINDOWS.items()]
+for name, contact, end, phase in JOBS:
     orig = bpy.data.actions[name]; assign(orig)
     frames = list(range(contact, end + 1))
     ev0 = evaluate(frames); hits0 = sum(h for h, _ in ev0.values()); step0 = max_step(ev0, frames)
-    print("FT", name, "original contacts", hits0, "max tip step %.2f m" % step0)
+    print("FT", name, phase, "original contacts", hits0, "max tip step %.2f m" % step0)
     if hits0 == 0:
-        report[name] = "clear"; continue
+        report[(name, phase)] = "clear"; continue
     inner = frames[1:-1]
     bad_frames = [f for f in inner if ev0[f][0]]
+    if not bad_frames:                     # only the contact/end frames touch: those poses are not edited here
+        print("FT", name, phase, "contacts only on fixed frames; left as authored"); report[(name, phase)] = "fixed-frames"; continue
     mid = int(round(0.5 * (min(bad_frames) + max(bad_frames))))
     key_sets = sorted({(mid,), (mid - 1,), (mid + 1,), (min(bad_frames), max(bad_frames)), (mid - 1, mid + 1)}, key=len)
     key_sets = [ks for ks in key_sets if all(contact < k < end for k in ks)]
@@ -112,16 +116,16 @@ for name, (contact, end) in WINDOWS.items():
                 if hits == 0 and ok_speed: break          # smallest angle for this bone/keys found
     assign(orig)
     if best is None or best[0][0] >= hits0:
-        print("FT", name, "no smooth improvement; left as authored"); report[name] = "unchanged"; continue
+        print("FT", name, phase, "no smooth improvement; left as authored"); report[(name, phase)] = "unchanged"; continue
     (hits, _, _), label, ks, deg, step = best
     for k in ks:
         bone, axis_world, sign = AXES[label]
         key_offset(orig, bone, axis_world, sign, k, deg)
     assign(orig)
     left = [f for f, (h, _) in evaluate(frames).items() if h]
-    print("FT", name, "->", label, "keys", ks, "%d deg" % deg, "contacts %d -> %d" % (hits0, hits), "max tip step %.2f -> %.2f m" % (step0, step),
+    print("FT", name, phase, "->", label, "keys", ks, "%d deg" % deg, "contacts %d -> %d" % (hits0, hits), "max tip step %.2f -> %.2f m" % (step0, step),
           "remaining", left)
-    report[name] = (label, ks, deg, hits0, hits)
+    report[(name, phase)] = (label, ks, deg, hits0, hits)
 
 assign(bpy.data.actions["Idle"]); sc.frame_set(1)
 for m in bpy.data.materials: m.use_fake_user = True
