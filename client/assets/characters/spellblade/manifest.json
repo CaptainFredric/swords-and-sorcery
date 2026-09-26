@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "sourceRevision": "308bc202c71e305ec66292689bc7c30649b9b441",
+  "sourceRevision": "2bf65170126e365cc3669dbfb668c2a53965a318",
   "thirdPerson": {
-    "url": "/client/assets/characters/spellblade/spellblade.glb?v=308bc202c71e305ec66292689bc7c30649b9b441",
+    "url": "/client/assets/characters/spellblade/spellblade.glb?v=2bf65170126e365cc3669dbfb668c2a53965a318",
     "clips": [
       "Idle",
       "Run",
@@ -18,7 +18,7 @@
     ]
   },
   "firstPerson": {
-    "url": "/client/assets/characters/spellblade/spellblade-fp.glb?v=308bc202c71e305ec66292689bc7c30649b9b441",
+    "url": "/client/assets/characters/spellblade/spellblade-fp.glb?v=2bf65170126e365cc3669dbfb668c2a53965a318",
     "clips": [
       "Idle",
       "Guard",

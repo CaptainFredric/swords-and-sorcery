@@ -25,7 +25,8 @@ It rewrites both sources (`source/spellblade-third-person.blend` and `source/spe
    - `banner_tex.py` draws the front tabard and back banner: red field, cream border, stepped hem and trident, at physical scale.
    - `wear_tex.py` draws two small tileable wear textures (scratches, chips, mottling).
 6. **Kit** (`kit.py`, `kit_pieces.py`, `kit_finish.py`): builds every piece, then merges pieces into the validator's named parts.
-7. **First person** (`KIT_MODE=fp`, `fp_pieces.py`): on the authored first-person source it replaces the old arm pieces with the same builders (`arms.py`), materials and wear textures. As is usual for view models, the hands are drawn 15% larger and the forearms 20% slimmer than in third person. At arm's length from the eye the arms otherwise fill the frame and hide the hands. The forearms carry their raised panel on the top face, the one the eye sees.
+7. **Slash follow-through** (`followthrough.py`): interpolating from a slash's follow-through key to its end pose swung the blade low across the front of the legs and below the floor. For each slash this adds one arm key inside the follow-through and lets the action's own curves interpolate it, so the blade's path bends around the legs. The search tries swinging the arm out, raising it forward, swinging it back, turning it outward and tipping the blade forward, over one or two key frames and increasing angles. It keeps the smallest correction that clears the body and floor without moving the blade tip faster than the original motion. The result is the upper arm raised forward 18° at Slash_1 frame 21 and 42° at Slash_3 frame 15. Contact frames, end frames and every other bone are unchanged.
+8. **First person** (`KIT_MODE=fp`, `fp_pieces.py`): on the authored first-person source it replaces the old arm pieces with the same builders (`arms.py`), materials and wear textures. As is usual for view models, the hands are drawn 15% larger and the forearms 20% slimmer than in third person. At arm's length from the eye the arms otherwise fill the frame and hide the hands. The forearms carry their raised panel on the top face, the one the eye sees.
 
 ## First person and third person
 
@@ -90,9 +91,7 @@ These use `../concept3d/data/register.json` and `../concept3d/inputs/clean_*.png
 
 - **Stretch:** worst edge growth over every frame of every action is 0.56 cm. The rigid pieces don't stretch; the concept-generated body reached 13.7 cm.
 - **Cloth:** the cloth panels at the runtime spring limits stretch 0.4 cm. In motion, measured with the game's own cloth code, the back banner trails 24 cm further back at a 6 m/s run, and the tabard swings 18 cm forward on a sudden stop.
-- **Clipping:**
-  - The sword is inside the body in 10 frames, all in the Slash_1 and Slash_3 follow-through through the legs.
-  - The helmet and pauldrons never touch in any frame of any action.
+- **Clipping:** the sword never enters the body in any frame of any action; it had been 9 to 12 frames of slash follow-through since the first procedural model. The helmet and pauldrons never touch.
 - **Third person:** 11,033 triangles (limit 35,000), 1.84 MB GLB (limit 2 MB).
 - **First person:** 2,604 triangles (limit 16,000), 0.41 MB GLB (limit 1 MB), 4 meshes.
 
