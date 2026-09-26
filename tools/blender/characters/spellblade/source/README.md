@@ -142,3 +142,18 @@ Results:
 - 23,658 triangles, 1.94 MB.
 
 See `concept3d/README.md`, section 6.
+
+## September 25 armour kit
+
+The concept-generated body is replaced by a crisp low-poly armour kit, built by `kit/build_kit.sh`. It is measured from the sheet's registered front, side and back panels and coloured to match the sheet under the game's menu lighting. `kit/README.md` documents the pieces, the colour calibration and the review tools.
+
+- **Rig:** the arms are symmetric at the concept's proportions (upper arm 0.30 m, forearm 0.28 m, hand 0.15 m). Every quaternion key was compensated, so each action keeps its world-space bone orientations. Timing, contact frames, end frames, bone names, sockets and the unkeyed root are unchanged.
+- **Helmet:** the measured helmet, raised 5 cm and enlarged 8% to the front and side panels. The scarf wraps its base in two rolls, with one end hanging down the left chest.
+- **Pieces:** gabled pauldrons with proud brass rims and studs, a shield breastplate with brass trims, a belt with a brass diamond and steel buckle, knee cops, greaves, boots, vambraces and gauntlets. Every piece is rigid to its bone.
+- **Cloth:** the front tabard and back banner carry a painted border, stepped hem and trident.
+- **Surface:** tiling wear textures (scratches, chips, mottling) and baked occlusion.
+- **Motion:**
+  - Worst edge growth over all actions: 0.56 cm.
+  - The cloth at the runtime spring limits adds 0.4 cm.
+  - The sword is inside the body in 10 frames, all in the Slash_1 and Slash_3 follow-through.
+- **Budget:** 10,308 triangles, 1.73 MB GLB, 17 meshes.
