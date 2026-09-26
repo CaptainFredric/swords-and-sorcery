@@ -265,3 +265,9 @@ Checks:
 **Checks:**
 - The sword never enters the body, and the helmet and pauldrons never touch.
 - Worst stretch is 0.56 cm.
+
+## September 26 focused canonical helmet fit
+
+Only HelmetShell, HelmetJaw, Crest and Visor geometry changed from the accepted 5af5502 source. The crown has a continuous broad brow and compact tapered profile, the gold forehead reinforcement has physical beveled thickness, the cheeks frame recessed cyan strokes, and the lower jaw exposes a dark chin band. The crest is narrower and stepped. The Layout workspace contains a packed enlarged helmet reference.
+
+The exact preservation comparison covers all 13 other export meshes including UVs, colors, weights and transforms, all 30 saved material definitions and packed textures, rest bones and all 12 action curves. The first person source is byte unchanged. Run `scripts/verify-helmet-preservation.py` in Blender with `-- BASELINE.blend CANDIDATE.blend` to reproduce the comparison. Avoid running the historical whole kit builder over this saved revision.
