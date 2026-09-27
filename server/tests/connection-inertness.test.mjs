@@ -10,7 +10,8 @@ test('disconnect immediately neutralizes stale combat and movement input during 
   const room = new Room('TEST2');
   add(room, 'a');
   add(room, 'b');
-  room.requestStart(room.hostId(), 0);
+  room.setReady('a', true, 0);
+  room.setReady('b', true, 0);
   room.tick(3.1);
 
   const player = room.players.get('a');

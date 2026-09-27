@@ -1,5 +1,5 @@
 import { createMovementState } from '../../../shared/src/movement.mjs';
-import { GAME_MODES, getModePolicy } from '../../../shared/src/modes.mjs';
+import { GAME_MODES, VOTE_OPTIONS, getModePolicy } from '../../../shared/src/modes.mjs';
 import { WORLD_IDS, getWorld } from '../../../shared/worlds/registry.mjs';
 
 const COUNTDOWN_SEC = 3;
@@ -7,6 +7,9 @@ const MATCH_SEC = 360;
 const RECONNECT_GRACE_SEC = 15;
 const CLEANUP_SEC = 60;
 const SCORE_TO_WIN = 10;
+// a room with two or more Spellblades starts on its own after this long, even if not everyone pressed Ready
+const AUTO_START_PUBLIC_SEC = 10;
+const AUTO_START_PRIVATE_SEC = 20;
 
 function freshCombatState(spawn, nowSec = 0) {
   const movement = createMovementState({ x: spawn.x, y: spawn.y, z: spawn.z });
@@ -65,6 +68,9 @@ export class Room {
     this.emptySince = null;
     this.tickNumber = 0;
     this.recentSpawnUse = new Map();
+    this.scoreToWin = this.policy.scoreToWin;
+    this.autoStartAt = null;
+    this.autoStartAfterSec = isPrivate ? AUTO_START_PRIVATE_SEC : AUTO_START_PUBLIC_SEC;
   }
 
   addPlayer({ id, token, name }, nowSec) {
@@ -77,6 +83,8 @@ export class Room {
       actorKind: 'human',
       connected: true,
       arenaReady: false,
+      lobbyReady: false,
+      votes: {},
       disconnectedAt: null,
       disconnectExpiresAt: null,
       ...scoreFields(),
@@ -151,8 +159,7 @@ export class Room {
     if (this.mode === GAME_MODES.BOT_DUEL && this.readyHumanCount() < this.policy.minHumansToStart) return false;
     const botCount = [...this.players.values()].filter((p) => p.actorKind === 'bot').length;
     if (botCount < this.policy.botCount) return false;
-    this.state = 'COUNTDOWN';
-    this.countdownEndsAt = nowSec + COUNTDOWN_SEC;
+    this.#beginCountdown(nowSec);
     return true;
   }
 
@@ -172,15 +179,84 @@ export class Room {
     return true;
   }
 
+  // the longest-standing connected Spellblade (shown in the lobby; it grants no powers)
   hostId() {
     return [...this.players.values()].find(p => p.actorKind === 'human' && p.connected)?.id ?? null;
   }
 
-  requestStart(playerId, nowSec) {
-    if (this.mode !== GAME_MODES.FFA || this.state !== 'WAITING') return false;
-    if (playerId !== this.hostId() || this.humanCount() < this.policy.minHumansToStart) return false;
+  #beginCountdown(nowSec) {
     this.state = 'COUNTDOWN';
-    this.countdownEndsAt = nowSec + COUNTDOWN_SEC;
+    this.countdownEndsAt = nowSec + (this.policy.countdownSec ?? COUNTDOWN_SEC);
+    this.autoStartAt = null;
+  }
+
+  /** Ready check: when every connected Spellblade (at least two) is ready, the countdown begins. */
+  setReady(playerId, ready, nowSec) {
+    if (!this.policy.readyCheck || this.state !== 'WAITING') return false;
+    const player = this.players.get(playerId);
+    if (!player || player.actorKind !== 'human' || !player.connected) return false;
+    player.lobbyReady = Boolean(ready);
+    const humans = [...this.players.values()].filter((p) => p.actorKind === 'human' && p.connected);
+    if (humans.length >= this.policy.minHumansToStart && humans.every((p) => p.lobbyReady)) this.#beginCountdown(nowSec);
+    return true;
+  }
+
+  // older clients sent startMatch: it now just marks the sender ready
+  requestStart(playerId, nowSec) {
+    return this.setReady(playerId, true, nowSec);
+  }
+
+  /** A vote on the next match's arena or score (majority of connected Spellblades decides at the start). */
+  vote(playerId, key, value) {
+    if (!this.policy.votes || ['PLAYING', 'COUNTDOWN', 'REMATCH_COUNTDOWN'].includes(this.state)) return false;
+    const player = this.players.get(playerId);
+    const options = VOTE_OPTIONS[key];
+    if (!player || player.actorKind !== 'human' || !options) return false;
+    const choice = key === 'score' ? Number(value) : String(value);
+    if (!options.includes(choice)) return false;
+    player.votes = { ...(player.votes ?? {}), [key]: choice };
+    return true;
+  }
+
+  /** Counts per option and the choice that would apply now. */
+  tallyVotes() {
+    const result = {};
+    const current = { world: this.worldId, score: this.scoreToWin };
+    for (const [key, options] of Object.entries(VOTE_OPTIONS)) {
+      const counts = Object.fromEntries(options.map((option) => [option, 0]));
+      for (const p of this.players.values()) {
+        if (p.actorKind !== 'human' || !p.connected) continue;
+        const choice = p.votes?.[key];
+        if (choice !== undefined && choice in counts) counts[choice] += 1;
+      }
+      const best = Math.max(0, ...Object.values(counts));
+      const leaders = Object.keys(counts).filter((option) => counts[option] === best && best > 0);
+      // a tie (or no votes) keeps what the room has now
+      const chosen = leaders.length === 1 ? leaders[0] : String(current[key]);
+      result[key] = { counts, chosen: key === 'score' ? Number(chosen) : chosen };
+    }
+    return result;
+  }
+
+  #applyVotes() {
+    if (!this.policy.votes) return;
+    const tally = this.tallyVotes();
+    if (tally.world.chosen !== this.worldId) {
+      try {
+        this.world = getWorld(tally.world.chosen);
+        this.worldId = tally.world.chosen;
+      } catch { /* unknown world: keep the current one */ }
+    }
+    if (Number.isFinite(tally.score.chosen)) this.scoreToWin = tally.score.chosen;
+  }
+
+  /** A Spellblade leaves for good (to seek a duel, for instance): their slot is freed at once. */
+  removePlayer(id, nowSec) {
+    const player = this.players.get(id);
+    if (!player || player.actorKind !== 'human') return false;
+    this.players.delete(id);
+    this.rematchVotes.delete(id);
+    if (this.humanActorCount() === 0 && this.emptySince === null) this.emptySince = nowSec;
     return true;
   }
 
@@ -245,9 +321,28 @@ export class Room {
       this.emptySince = null;
     }
 
+    // ready check rooms start on their own a little after a second Spellblade arrives
+    if (this.policy.readyCheck && this.state === 'WAITING') {
+      if (this.humanCount() >= this.policy.minHumansToStart) {
+        if (this.autoStartAt === null) this.autoStartAt = nowSec + this.autoStartAfterSec;
+        else if (nowSec >= this.autoStartAt) this.#beginCountdown(nowSec);
+      } else {
+        this.autoStartAt = null;
+      }
+    }
+
+    // a duellist who is gone for good forfeits
+    if (this.policy.forfeit && this.state === 'PLAYING' && this.humanActorCount() < this.policy.minHumansToStart) {
+      const remaining = [...this.players.values()].find((p) => p.actorKind === 'human');
+      this.finish(remaining?.id ?? null, nowSec, 'forfeit');
+    }
+
     const countdownNeedsReadyHuman = this.mode === GAME_MODES.BOT_DUEL
       && this.readyHumanCount() < this.policy.minHumansToStart;
     if (this.state === 'COUNTDOWN' && (this.humanCount() < this.policy.minHumansToStart || countdownNeedsReadyHuman)) {
+      this.state = 'WAITING';
+      this.countdownEndsAt = null;
+    } else if (this.state === 'COUNTDOWN' && this.policy.readyCheck && this.humanCount() < this.policy.minHumansToStart) {
       this.state = 'WAITING';
       this.countdownEndsAt = null;
     } else if (this.state === 'COUNTDOWN' && nowSec >= this.countdownEndsAt) {
@@ -280,6 +375,7 @@ export class Room {
   }
 
   startMatch(nowSec) {
+    this.#applyVotes();
     this.state = 'PLAYING';
     this.matchStartedAt = nowSec;
     this.countdownEndsAt = null;
@@ -294,6 +390,7 @@ export class Room {
       i += 1;
     }
     this.projectiles.clear();
+    for (const player of this.players.values()) player.lobbyReady = false;
     this.events.push({ type: 'matchStarted', at: nowSec });
   }
 
@@ -303,7 +400,7 @@ export class Room {
     if (!killer || !victim || this.state !== 'PLAYING') return;
     killer.kills += 1;
     victim.deaths += 1;
-    if (this.policy.scored && Number.isFinite(this.policy.scoreToWin) && killer.kills >= this.policy.scoreToWin) {
+    if (this.policy.scored && Number.isFinite(this.scoreToWin) && killer.kills >= this.scoreToWin) {
       this.finish(killerId, nowSec);
       return;
     }
@@ -312,10 +409,11 @@ export class Room {
     }
   }
 
-  finish(winnerId, nowSec) {
+  finish(winnerId, nowSec, reason = 'score') {
     this.state = 'FINISHED';
     this.winnerId = winnerId;
-    this.events.push({ type: 'matchEnded', winnerId, at: nowSec });
+    this.finishReason = reason;
+    this.events.push({ type: 'matchEnded', winnerId, reason, at: nowSec });
   }
 
   requestRematch(playerId, nowSec) {
@@ -328,7 +426,7 @@ export class Room {
     if (!unanimous) return false;
     for (const p of this.players.values()) Object.assign(p, scoreFields());
     this.state = 'REMATCH_COUNTDOWN';
-    this.countdownEndsAt = nowSec + COUNTDOWN_SEC;
+    this.countdownEndsAt = nowSec + (this.policy.countdownSec ?? COUNTDOWN_SEC);
     this.winnerId = null;
     this.suddenDeath = false;
     this.suddenDeathLeaders = [];
@@ -340,4 +438,6 @@ export class Room {
   }
 }
 
-export const ROOM_RULES = Object.freeze({ COUNTDOWN_SEC, MATCH_SEC, RECONNECT_GRACE_SEC, CLEANUP_SEC, SCORE_TO_WIN });
+export const ROOM_RULES = Object.freeze({
+  COUNTDOWN_SEC, MATCH_SEC, RECONNECT_GRACE_SEC, CLEANUP_SEC, SCORE_TO_WIN, AUTO_START_PUBLIC_SEC, AUTO_START_PRIVATE_SEC,
+});

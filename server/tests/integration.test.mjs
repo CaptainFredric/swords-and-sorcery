@@ -54,8 +54,10 @@ test('websocket clients support multiplayer combat and one-tab Practice on the a
 
   const room = game.roomManager.findByCode(aliceJoined.roomCode);
   assert.equal(room.state, 'WAITING');
+  // no host gate: both Spellblades say they are ready
   const startedP = waitFor(alice, m => m.type === 'lobby' && m.roomState === 'COUNTDOWN');
-  send(alice, { type: 'startMatch' });
+  send(alice, { type: 'ready', ready: true });
+  send(bob, { type: 'ready', ready: true });
   await startedP;
   room.countdownEndsAt = game.now() - 0.001;
   const playingP = waitFor(alice, (m) => m.type === 'snapshot' && m.roomState === 'PLAYING');

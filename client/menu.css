@@ -234,3 +234,69 @@
   .banner-panel, .banner-panel > *, .challenge-card, .challenge-inner, .arena-gate, .arena-gate p, .arena-gate small, .loading-inner .crest { animation: none !important; }
   .arena-gate { display: none; }
 }
+
+/* --- open rooms ------------------------------------------------------------------------------------------------ */
+.rooms-inner { --banner-width: min(420px, 38vw); width: var(--banner-width); }
+.room-list { display: flex; flex-direction: column; gap: 6px; margin: 4px 0 12px; max-height: 38vh; overflow: auto; scrollbar-width: thin; }
+.room-row {
+  display: grid; grid-template-columns: 1fr auto; grid-template-areas: 'world count' 'status first'; gap: 2px 10px; align-items: baseline;
+  width: 100%; padding: 8px 12px; border: 1px solid rgba(201, 156, 82, .45); border-radius: 2px; cursor: pointer; text-align: left;
+  background: linear-gradient(180deg, rgba(58, 50, 43, .92), rgba(34, 29, 25, .92)); color: var(--heraldry-cream);
+  transition: border-color .14s ease, transform .14s ease;
+}
+.room-row:hover, .room-row:focus-visible { border-color: var(--heraldry-brass-light); transform: translateX(3px); outline: none; }
+.room-row b { grid-area: world; font: 17px/1.1 var(--font-inscription); letter-spacing: .03em; }
+.room-row span { grid-area: count; font: 800 12px/1 var(--font-script); color: var(--heraldry-brass-light); font-variant-numeric: tabular-nums; }
+.room-row em { grid-area: status; font: 800 9px/1.3 var(--font-script); font-style: normal; letter-spacing: .14em; color: #b9dca8; }
+.room-row i { grid-area: first; font: 700 9px/1.3 var(--font-script); font-style: normal; letter-spacing: .12em; color: rgba(234, 220, 182, .6); }
+.room-empty { margin: 4px 0; color: rgba(234, 220, 182, .75); font: 500 12.5px/1.5 var(--font-script); }
+
+/* --- lobby: readiness and votes -------------------------------------------------------------------------------- */
+.lobby-player.ready em { color: #b9dca8; }
+.lobby-player:not(.ready) em { color: rgba(234, 220, 182, .6); }
+.lobby-player.you b::after { content: ' · YOU'; font: 800 9px/1 var(--font-script); letter-spacing: .14em; color: var(--heraldry-brass-light); }
+#start-match.pressed { background: linear-gradient(180deg, #4d5b3c, #2f3a26); border-color: #b9dca8; color: #e8f4dc; }
+#start-match.pressed::before { background: #b9dca8; }
+.lobby-votes { display: flex; flex-direction: column; gap: 6px; margin: 0 0 12px; }
+.lobby-votes:empty { display: none; }
+.vote-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.vote-row > span { min-width: 70px; color: rgba(234, 220, 182, .75); font: 800 9px/1 var(--font-script); letter-spacing: .18em; }
+.vote-chip {
+  display: inline-flex; align-items: baseline; gap: 6px; padding: 5px 9px; border: 1px solid rgba(201, 156, 82, .4); border-radius: 2px;
+  background: rgba(34, 29, 25, .7); color: var(--heraldry-cream); font: 14px/1 var(--font-inscription); cursor: pointer;
+}
+/* the number of votes: a brass pip, only once someone has voted for it */
+.vote-chip .tally {
+  display: inline-grid; place-items: center; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; align-self: center;
+  background: var(--heraldry-brass-light); color: #2a1c10; font: 800 10px/1 var(--font-script); font-variant-numeric: tabular-nums;
+}
+.vote-chip .tally[data-count="0"] { display: none; }
+.vote-chip.chosen { border-color: var(--heraldry-brass-light); box-shadow: 0 0 0 1px rgba(236, 201, 127, .3); }
+.vote-chip.mine { background: linear-gradient(180deg, #e7c47c, #b8893f); color: #2a1c10; }
+.vote-chip.mine .tally { background: #2a1c10; color: #f1dfae; }
+.vote-chip:hover { border-color: var(--heraldry-brass-light); }
+
+/* --- seeking a duel: a banner in the practice yard --------------------------------------------------------------- */
+.seek-banner {
+  position: absolute; z-index: 14; left: 50%; top: 56px; transform: translateX(-50%); display: flex; align-items: center; gap: 12px;
+  padding: 9px 12px 9px 16px; border: 1px solid rgba(201, 156, 82, .6); border-radius: 2px; pointer-events: auto;
+  background: linear-gradient(180deg, rgba(116, 33, 27, .94), rgba(84, 25, 21, .94)); color: var(--heraldry-cream);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .4); animation: banner-content .4s ease-out both;
+}
+.seek-copy { display: grid; gap: 3px; }
+.seek-copy strong { font: 16px/1 var(--font-inscription); letter-spacing: .06em; color: #f1dfae; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.seek-copy small { font: 700 10px/1 var(--font-script); letter-spacing: .14em; color: rgba(234, 220, 182, .75); text-transform: uppercase; }
+.seek-action {
+  padding: 7px 10px; border: 1px solid rgba(201, 156, 82, .6); border-radius: 2px; cursor: pointer; white-space: nowrap;
+  background: linear-gradient(180deg, #e7c47c, #b8893f); color: #2a1c10; font: 13px/1 var(--font-inscription); letter-spacing: .06em;
+}
+.seek-action.quiet { background: rgba(34, 29, 25, .7); color: var(--heraldry-cream); }
+.seek-action:hover { border-color: var(--heraldry-brass-light); }
+.seek-hint { display: none; font: 800 9px/1 var(--font-script); letter-spacing: .16em; color: rgba(234, 220, 182, .7); }
+/* while the arena has the mouse, the buttons cannot be clicked: say how to reach them instead */
+.hud.pointer-locked .seek-banner .seek-action { display: none; }
+.hud.pointer-locked .seek-banner .seek-hint { display: block; }
+.touch-ui .hud.pointer-locked .seek-banner .seek-action:not(.hidden) { display: inline-block; }
+.touch-ui .hud.pointer-locked .seek-banner .seek-hint { display: none; }
+
+.end-actions { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }

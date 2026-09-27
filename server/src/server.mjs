@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import crypto from 'node:crypto';
 import { acceptWebSocket } from './websocket.mjs';
 import { RoomManager } from './rooms/RoomManager.mjs';
+import { Matchmaker } from './rooms/Matchmaker.mjs';
 import { beginAttack, endAttack, setGuard, stepRoom, tryCastFireball, tryDash } from './game/combat.mjs';
 import { stepBotControllers } from './ai/BotController.mjs';
 import {
@@ -77,7 +78,11 @@ function serializeLobby(room) {
     roomState: room.state,
     mode: room.mode,
     worldId: room.worldId,
+    isPrivate: room.isPrivate,
     countdownEndsAt: room.countdownEndsAt,
+    autoStartAt: room.autoStartAt,
+    scoreToWin: room.scoreToWin,
+    votes: room.policy.votes ? room.tallyVotes() : null,
     players: [...room.players.values()].map((p) => ({
       id: p.id,
       name: p.name,
@@ -85,6 +90,7 @@ function serializeLobby(room) {
       practiceMode: p.practiceMode ?? null,
       connected: p.connected,
       arenaReady: Boolean(p.arenaReady),
+      lobbyReady: Boolean(p.lobbyReady),
       kills: p.kills,
       deaths: p.deaths,
     })),
@@ -103,6 +109,9 @@ function serializeSnapshot(room, nowSec) {
     worldId: room.worldId,
     countdownEndsAt: room.countdownEndsAt,
     matchStartedAt: room.matchStartedAt,
+    scoreToWin: room.scoreToWin,
+    matchSeconds: room.policy.matchSeconds,
+    finishReason: room.finishReason ?? null,
     winnerId: room.winnerId,
     suddenDeath: room.suddenDeath,
     players: [...room.players.values()].map((p) => ({
@@ -142,7 +151,10 @@ function serializeSnapshot(room, nowSec) {
 
 export function createGameServer({ port = Number(process.env.PORT || 3001), host = process.env.HOST || '0.0.0.0' } = {}) {
   const roomManager = new RoomManager();
+  const matchmaker = new Matchmaker();
   const sessions = new Set();
+  const sessionsById = new Map();
+  let lastSeekBroadcastAt = 0;
   let tickTimer = null;
   const now = () => performance.now() / 1000;
 
@@ -215,6 +227,70 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
     attachPlayer(session, room, player);
   }
 
+  // a Spellblade leaves their room for good (to seek a duel, change rooms or return to the menu)
+  function leaveRoom(session, time) {
+    const room = sessionRoom(session);
+    if (room && session.playerId) {
+      room.removePlayer(session.playerId, time);
+      // a solo room (practice yard or bot duel) has no reason to outlive its only Spellblade
+      if (SOLO_MODES.has(room.mode) && room.humanActorCount() === 0) roomManager.rooms.delete(room.code);
+      else broadcastLobby(room);
+    }
+    session.roomCode = null;
+    session.playerId = null;
+  }
+
+  // the practice yard a seeker waits in: a training dummy to hit while the queue works
+  function enterPracticeYard(session, name, time) {
+    const room = roomManager.createSoloRoom(GAME_MODES.PRACTICE, time);
+    const player = createNetworkPlayer(room, name);
+    room.armAutoStart(time);
+    spawnPracticeDummy(room, 'PASSIVE', time);
+    attachPlayer(session, room, player);
+  }
+
+  function sendSeeking(session, time) {
+    const entry = matchmaker.entry(session.id);
+    send(session, {
+      type: 'seeking',
+      active: Boolean(entry),
+      since: entry?.since ?? null,
+      others: Math.max(0, matchmaker.size - (entry ? 1 : 0)),
+      botOffer: Boolean(entry?.botOffered),
+      serverTime: time,
+    });
+  }
+
+  // pair seekers into fresh duel rooms; offer a bot to anyone who has waited long
+  function runMatchmaking(time) {
+    for (const [a, b] of matchmaker.takePairs()) {
+      const first = sessionsById.get(a.key);
+      const second = sessionsById.get(b.key);
+      if (!first || first.peer.closed) { if (second && !second.peer.closed) matchmaker.requeueFront(b); continue; }
+      if (!second || second.peer.closed) { matchmaker.requeueFront(a); continue; }
+      const room = roomManager.createDuelRoom(time);
+      for (const [session, entry, opponent] of [[first, a, b], [second, b, a]]) {
+        leaveRoom(session, time);
+        joinNew(session, room, entry.name);
+        send(session, { type: 'duelFound', opponent: opponent.name, roomCode: room.code });
+        sendSeeking(session, time);
+      }
+      room.armAutoStart(time);
+      broadcastLobby(room);
+    }
+    for (const entry of matchmaker.dueBotOffers(time)) {
+      const session = sessionsById.get(entry.key);
+      if (session) sendSeeking(session, time);
+    }
+    if (time - lastSeekBroadcastAt >= 2) {
+      lastSeekBroadcastAt = time;
+      for (const entry of matchmaker.queue) {
+        const session = sessionsById.get(entry.key);
+        if (session) sendSeeking(session, time);
+      }
+    }
+  }
+
   function sessionRoom(session) {
     return session.roomCode ? roomManager.findByCode(session.roomCode) : null;
   }
@@ -242,6 +318,51 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
     if (!message || typeof message.type !== 'string') return;
     if (message.type === 'ping') {
       send(session, { type: 'pong', sentAt: message.sentAt, serverTime: time });
+      return;
+    }
+    if (message.type === 'seekDuel') {
+      // wait in a practice yard while the server-wide queue finds a challenger
+      const name = String(message.name || 'Spellblade').trim().slice(0, 18) || 'Spellblade';
+      const room = sessionRoom(session);
+      if (!room || room.mode !== GAME_MODES.PRACTICE) {
+        if (room) leaveRoom(session, time);
+        enterPracticeYard(session, name, time);
+      }
+      matchmaker.enqueue(session.id, name, time);
+      sendSeeking(session, time);
+      return;
+    }
+    if (message.type === 'cancelSeek') {
+      matchmaker.cancel(session.id);
+      sendSeeking(session, time);
+      return;
+    }
+    if (message.type === 'seekBotDuel') {
+      // fight a bot while still in the queue
+      const entry = matchmaker.entry(session.id);
+      if (!entry) return;
+      leaveRoom(session, time);
+      const room = roomManager.createSoloRoom(GAME_MODES.BOT_DUEL, time);
+      const player = createNetworkPlayer(room, entry.name);
+      room.provisionModeActors(time);
+      room.armAutoStart(time);
+      attachPlayer(session, room, player);
+      sendSeeking(session, time);
+      return;
+    }
+    if (message.type === 'leaveRoom') {
+      matchmaker.cancel(session.id);
+      leaveRoom(session, time);
+      send(session, { type: 'left' });
+      return;
+    }
+    if (message.type === 'listRooms') {
+      send(session, { type: 'roomList', rooms: roomManager.listPublicRooms(time), serverTime: time });
+      return;
+    }
+    if (message.type === 'createPublicRoom' && !session.roomCode) {
+      const room = roomManager.createPublicRoom(time);
+      joinNew(session, room, message.name);
       return;
     }
     if (message.type === 'createRoom' && !session.roomCode) {
@@ -287,9 +408,14 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
     if (!room || !player) return;
 
     switch (message.type) {
-      case 'startMatch': {
-        if (room.requestStart(player.id, time)) broadcastLobby(room);
-        else send(session, { type: 'error', message: 'The host can start once two players have joined.' });
+      case 'startMatch':
+      case 'ready': {
+        const ready = message.type === 'startMatch' ? true : Boolean(message.ready);
+        if (room.setReady(player.id, ready, time)) broadcastLobby(room);
+        break;
+      }
+      case 'vote': {
+        if (room.vote(player.id, message.key, message.value)) broadcastLobby(room);
         break;
       }
       case 'arenaReady': {
@@ -347,11 +473,14 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
     if (url.pathname !== '/ws') { socket.destroy(); return; }
     const peer = acceptWebSocket(req, socket);
     if (!peer) return;
-    const session = { peer, roomCode: null, playerId: null, messageWindowStartedAt: now(), messageCount: 0 };
+    const session = { id: crypto.randomUUID(), peer, roomCode: null, playerId: null, messageWindowStartedAt: now(), messageCount: 0 };
     sessions.add(session);
+    sessionsById.set(session.id, session);
     peer.onMessage = (message) => handleMessage(session, message);
     peer.onClose = () => {
       sessions.delete(session);
+      sessionsById.delete(session.id);
+      matchmaker.cancel(session.id);
       const room = sessionRoom(session);
       if (room && session.playerId) {
         room.disconnectPlayer(session.playerId, now());
@@ -371,11 +500,13 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
       if (events.length) broadcastRoom(room, { type: 'events', events });
       broadcastRoom(room, serializeSnapshot(room, time));
     }
+    runMatchmaking(time);
     roomManager.cleanup(time);
   }
 
   return {
     roomManager,
+    matchmaker,
     now,
     start() {
       return new Promise((resolve, reject) => {
