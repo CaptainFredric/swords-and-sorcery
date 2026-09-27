@@ -121,6 +121,16 @@ export class FirstPersonMotion {
     this.camera.roll.impulse(0.25);
   }
 
+  /** My blade bit into someone: the arms jolt against the resistance and the view punches (strength 0..1). */
+  hitConfirm(strength = 0.5) {
+    const k = Math.max(0, Math.min(1, strength));
+    this.impact.z.impulse(0.9 * k);
+    this.impact.rx.impulse(-1.4 * k);
+    this.impact.rz.impulse((Math.random() < 0.5 ? -1 : 1) * 1.2 * k);
+    this.camera.pitch.impulse(0.45 * k);
+    this.camera.roll.impulse((Math.random() - 0.5) * 0.5 * k);
+  }
+
   /** My swing met someone's guard: a smaller rebound than a wall. */
   rebound() {
     this.impact.z.impulse(0.8);

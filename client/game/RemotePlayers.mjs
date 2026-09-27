@@ -33,6 +33,24 @@ function dampEuler(object, x, y, z, amount = 0.22) {
 
 // how long an opponent may stay hidden while its production model loads before the fallback stands in
 const FALLBACK_GRACE_MS = 4000;
+// a struck body flashes hot for a few frames
+const HIT_FLASH_MATERIAL = new THREE.MeshBasicMaterial({ color: 0xfff0dc });
+
+function setHitFlash(shell, on) {
+  const root = shell.visual;
+  if (!root || shell.hitFlashing === on) return;
+  shell.hitFlashing = on;
+  root.traverse((object) => {
+    if (!object.isMesh) return;
+    if (on) {
+      object.userData.hitRestore = object.material;
+      object.material = HIT_FLASH_MATERIAL;
+    } else if (object.userData.hitRestore) {
+      object.material = object.userData.hitRestore;
+      delete object.userData.hitRestore;
+    }
+  });
+}
 
 function applyCastWindow(shell, window) {
   if (!window) return;
@@ -228,6 +246,20 @@ export class RemotePlayers {
     }
   }
 
+  // flash a struck opponent (the game runtime calls this when a blow lands)
+  flashHit(id, seconds = 0.07) {
+    const shell = this.rigs.get(id);
+    if (shell) shell.hitFlashUntil = performance.now() + seconds * 1000;
+  }
+
+  // where an opponent is drawn right now
+  bodyPosition(id) {
+    const shell = this.rigs.get(id);
+    if (!shell) return null;
+    const { x, y, z } = shell.root.position;
+    return { x, y, z };
+  }
+
   // where the other living Spellblades are drawn right now (for the local body's separation prediction)
   bodies() {
     const list = [];
@@ -303,6 +335,8 @@ export class RemotePlayers {
       };
       setRemoteVisualPlan(shell, plan, dt);
 
+      setHitFlash(shell, nowMs < (shell.hitFlashUntil ?? 0));
+
       const protectedNow = (pb.spawnProtectionUntil ?? 0) > serverNow;
       const accentIntensity = protectedNow ? 2.8 : state === 'cast' ? 2.3 : 1.4;
       if (shell.visualKind === 'fallback') {
@@ -319,6 +353,7 @@ export class RemotePlayers {
 
   dispose() {
     for (const shell of this.rigs.values()) {
+      setHitFlash(shell, false);
       this.scene.remove(shell.root);
       disposeRemoteVisualShell(shell);
     }

@@ -11,6 +11,11 @@ import { SCENE_PRESENTATION } from './scenePresentation.mjs';
 import { localCombatFeedback, shouldPlayWorldClang } from './combatFeedback.mjs';
 import { castVisualDuration } from './weaponPose.mjs';
 import { localPushDirection } from './spellbladeMotion.mjs';
+import { blowDirection, hitKick, hitstopSeconds, impactPoint } from './hitFeel.mjs';
+import {
+  blockRecipe, castRecipe, dashRecipe, fireballImpactRecipe, hurtRecipe, killRecipe, parryRecipe, spatialize,
+  swingRecipe, swordHitRecipe, wallClangRecipe,
+} from './sound/soundRecipes.mjs';
 import { createWorldRenderer, rendererKeyForWorld } from '../worlds/WorldRendererFactory.mjs';
 import { CastlewardRenderer } from '../worlds/CastlewardRenderer.mjs';
 import { ShatteredKeepRenderer } from '../worlds/ShatteredKeepRenderer.mjs';
@@ -26,10 +31,11 @@ const WORLD_RENDERERS = Object.freeze({
 });
 
 export class GameRuntime {
-  constructor(container, socket, hud) {
+  constructor(container, socket, hud, { sound = null } = {}) {
     this.container = container;
     this.socket = socket;
     this.hud = hud;
+    this.sound = sound;
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(SCENE_PRESENTATION.background);
     this.scene.fog = new THREE.FogExp2(SCENE_PRESENTATION.fogColor, SCENE_PRESENTATION.fogDensity);
@@ -67,6 +73,7 @@ export class GameRuntime {
     this.worldError = null;
     this.remotePlayers = new RemotePlayers(this.scene, socket.playerId);
     this.weapon = new WeaponView(this.camera);
+    this.weapon.onSwing = (strike) => this.#play(swingRecipe(Math.random, { strike }), null, 0.85);
     this.effects = new Effects(this.scene, this.camera);
     this.onPointer = () => {};
     this.input = new InputController(this.renderer.domElement, socket);
@@ -96,6 +103,7 @@ export class GameRuntime {
       if (!tryStartDash(this.localState, dir, now)) return;
       this.weapon.dash();
       this.effects.dash();
+      this.#play(dashRecipe(), null, 0.8);
     };
 
     this.localState = null;
@@ -234,16 +242,19 @@ export class GameRuntime {
       this.remotePlayers.onEvent(event, this.latestSnapshot);
       this.#applyWeaponRelease(localWeaponReleaseForEvent(event, this.socket.playerId));
 
+      const me = this.socket.playerId;
       if (event.type === 'fireballCast') {
-        const duration = castVisualDuration(event, this.socket.playerId, this.socket.serverNow());
+        const duration = castVisualDuration(event, me, this.socket.serverNow());
         if (duration !== null) {
           this.weapon.cast(duration);
           this.effects.fireball();
         }
+        this.#play(castRecipe(), event.playerId === me ? null : this.#bodyPosition(event.playerId), event.playerId === me ? 0.9 : 0.6);
       }
 
-      if (event.type === 'swordSwing' && event.playerId === this.socket.playerId) {
-        this.effects.swordSwing(event.strikeIndex);
+      // my own swings whoosh from the local swing (no network delay); others' from the server's strike
+      if (event.type === 'swordSwing' && event.playerId !== me) {
+        this.#play(swingRecipe(Math.random, { strike: event.strikeIndex }), this.#bodyPosition(event.playerId), 0.55);
       }
 
       const combatFeedback = localCombatFeedback(event, this.socket.playerId);
@@ -258,28 +269,39 @@ export class GameRuntime {
           this.hud.flashText('CLANG!', 'metal');
           this.cameraKick = Math.max(this.cameraKick, 0.13);
           this.effects.wallClang(event.point);
+          this.#play(wallClangRecipe(), null, 0.9);
         } else {
           this.effects.sparks(event.point, 0xffd48a, 8);
+          this.#play(wallClangRecipe(), event.point, 0.5);
         }
       }
-      if (event.type === 'swordHit') {
-        if (event.playerId === this.socket.playerId) { this.hud.hit('hit'); this.effects.swordHit(event.strikeIndex); }
-      }
+      if (event.type === 'swordHit') this.#swordHit(event);
+      if (event.type === 'parry' || event.type === 'block' || event.type === 'guardBreak') this.#guardContact(event);
       if (event.type === 'parry') {
-        if (event.defenderId === this.socket.playerId) { this.weapon.parry(); this.hud.flashText('PARRY', 'parry'); this.hud.hit('parry'); }
-        if (event.attackerId === this.socket.playerId) this.weapon.rebound();
+        if (event.defenderId === me) { this.weapon.parry(); this.hud.flashText('PARRY', 'parry'); this.hud.hit('parry'); }
+        if (event.attackerId === me) this.weapon.rebound();
       }
       if (event.type === 'block') {
-        if (event.defenderId === this.socket.playerId) this.weapon.block(false);
-        if (event.attackerId === this.socket.playerId) this.weapon.rebound();
+        if (event.defenderId === me) this.weapon.block(false);
+        if (event.attackerId === me) this.weapon.rebound();
       }
-      if (event.type === 'guardBreak' && event.defenderId === this.socket.playerId) {
+      if (event.type === 'guardBreak' && event.defenderId === me) {
         this.hud.flashText('GUARD BROKEN', 'danger');
         this.weapon.block(true);
       }
-      if (event.type === 'projectileImpact') this.effects.impact(event.point);
+      if (event.type === 'projectileImpact') {
+        this.effects.impact(event.point);
+        this.#play(fireballImpactRecipe(), event.point, 1);
+      }
       if (event.type === 'damage') {
-        if (event.attackerId === this.socket.playerId) this.hud.hit('hit');
+        if (event.attackerId === me) {
+          this.hud.hit('hit');
+          // my numbers only: the blow's weight, rising off the body
+          const victim = this.#bodyPosition(event.victimId);
+          if (victim && event.amount > 0 && event.victimId !== me) {
+            this.effects.damageNumber({ x: victim.x, y: victim.y + 1.85, z: victim.z }, event.amount, { heavy: event.amount >= 40 });
+          }
+        }
         if (event.victimId === this.socket.playerId && event.source !== 'abyss' && event.amount > 0) {
           this.weapon.damage(this.#pushTowardMe(event.attackerId), event.amount);
         }
@@ -289,6 +311,58 @@ export class GameRuntime {
       if (event.type === 'death') this.#deathEvent(event);
       if (event.type === 'respawn' && event.playerId === this.socket.playerId) this.hud.flashText('FIGHT!', 'ready');
     }
+  }
+
+  // where a Spellblade is drawn right now (me: my predicted body; others: their interpolated body)
+  #bodyPosition(id) {
+    if (id === this.socket.playerId) return this.localState?.position ?? this.localAuth?.position ?? null;
+    return this.remotePlayers.bodyPosition(id) ?? this.latestSnapshot?.players.find((p) => p.id === id)?.position ?? null;
+  }
+
+  // play a sound at a world position (null: mine, centred) with extra gain
+  #play(recipe, source = null, gain = 1) {
+    if (!this.sound) return;
+    const listener = this.localState?.position ?? this.localAuth?.position;
+    const place = source ? spatialize(listener, this.input.yaw, source) : { pan: 0, gain: 1 };
+    this.sound.play(recipe, { pan: place.pan, gain: place.gain * gain });
+  }
+
+  // a sword biting into a body: burst, flash, sound and (for the attacker) hit-stop and kick
+  #swordHit(event) {
+    const me = this.socket.playerId;
+    const strike = event.strikeIndex ?? 0;
+    const attacker = this.#bodyPosition(event.playerId);
+    const victim = this.#bodyPosition(event.targetId);
+    const point = impactPoint(victim, attacker);
+    if (event.targetId !== me) {
+      if (point) this.effects.hitBurst(point, blowDirection(victim, attacker), { strike });
+      this.remotePlayers.flashHit(event.targetId, 0.07);
+    }
+    if (event.playerId === me) {
+      this.hud.hit('hit');
+      this.weapon.hitstop(hitstopSeconds({ strike }), hitKick({ strike }));
+      this.#play(swordHitRecipe(Math.random, { strike }), null, 1);
+    } else if (event.targetId === me) {
+      this.#play(hurtRecipe(Math.random, { heavy: strike >= 2 }), null, 1);
+    } else {
+      this.#play(swordHitRecipe(Math.random, { strike }), point, 0.8);
+    }
+  }
+
+  // a blow meeting a guard: sparks where the blades met and the ring of steel
+  #guardContact(event) {
+    const me = this.socket.playerId;
+    const attacker = this.#bodyPosition(event.attackerId);
+    const defender = this.#bodyPosition(event.defenderId);
+    const point = impactPoint(defender, attacker);
+    const parry = event.type === 'parry';
+    const heavy = event.type === 'guardBreak';
+    if (point && event.defenderId !== me) {
+      this.effects.blockBurst({ ...point, y: point.y + 0.15 }, blowDirection(defender, attacker), { heavy, parry });
+    }
+    const recipe = parry ? parryRecipe() : blockRecipe(Math.random, { heavy });
+    const involved = event.attackerId === me || event.defenderId === me;
+    this.#play(recipe, involved ? null : point, involved ? 1 : 0.8);
   }
 
   // direction a blow drove me, in view space (+x right, +z backward); straight back if the source is unknown
@@ -303,7 +377,15 @@ export class GameRuntime {
     const killer = this.latestSnapshot?.players.find((p) => p.id === event.killerId);
     const victim = this.latestSnapshot?.players.find((p) => p.id === event.victimId);
     if (event.victimId === this.socket.playerId) this.hud.setDeathKiller(killer?.name ?? (event.source === 'abyss' ? 'THE ABYSS' : 'UNKNOWN'));
-    if (event.killerId === this.socket.playerId) { this.hud.flashText('SLAIN  +1', 'kill'); this.hud.hit('kill'); }
+    if (event.killerId === this.socket.playerId) {
+      this.hud.flashText('SLAIN  +1', 'kill');
+      this.hud.hit('kill');
+      // the killing blow lands harder: a longer hit-stop, a toll in the courtyard, a shockwave at their feet
+      this.weapon.hitstop(hitstopSeconds({ kill: true }), hitKick({ kill: true }));
+      this.#play(killRecipe(), null, 1);
+      const body = this.#bodyPosition(event.victimId);
+      if (body && event.source !== 'abyss') this.effects.killBurst({ x: body.x, y: body.y + 1.1, z: body.z });
+    }
     if (event.source === 'abyss' && killer) this.hud.addFeed(`${killer.name} sent ${victim?.name ?? 'someone'} into the abyss`, 'abyss');
     else if (event.source?.startsWith('fireball') && killer) this.hud.addFeed(`${killer.name} incinerated ${victim?.name ?? 'someone'}`, 'fire');
     else if (killer) this.hud.addFeed(`${killer.name} slew ${victim?.name ?? 'someone'}`, 'sword');

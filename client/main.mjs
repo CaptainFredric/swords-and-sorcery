@@ -2,6 +2,7 @@ import { GameSocket } from './network/GameSocket.mjs';
 import { HUD } from './ui/HUD.mjs';
 import { GameRuntime } from './game/GameRuntime.mjs';
 import { preloadSpellbladeAssets, watchSpellbladeLoading } from './game/SpellbladeAssets.mjs';
+import { SoundEngine } from './game/sound/SoundEngine.mjs';
 import { arenaGateCopy, challengeCopy, countdownSeconds, romanCount } from './menu/challengeCard.mjs';
 import { MenuController, shouldRouteSocketError } from './menu/MenuController.mjs';
 import { MenuScene } from './menu/MenuScene.mjs';
@@ -39,6 +40,8 @@ const rematchButton = $('#rematch');
 const rematchCopy = $('#rematch-copy');
 
 const hud = new HUD();
+// one sound engine for the whole page; it unlocks on the first click or key press
+const sound = new SoundEngine();
 const socket = new GameSocket();
 const menuController = new MenuController(socket, localStorage);
 const router = new ScreenRouter({
@@ -192,7 +195,7 @@ $('#rotate-dismiss').addEventListener('click', () => document.body.classList.add
 
 function ensureRuntime() {
   if (!runtime) {
-    runtime = new GameRuntime($('#game-canvas'), socket, hud);
+    runtime = new GameRuntime($('#game-canvas'), socket, hud, { sound });
     if (touchUi) runtime.enableTouch();
     runtime.onPointer = (locked) => {
       const mode = latestLobby?.mode ?? latestSnapshot?.mode;
@@ -346,6 +349,12 @@ $('#resume-game').addEventListener('click', () => { paused = false; pauseMenu.cl
 $('#pause-leave').addEventListener('click', () => clearSessionAndNavigate());
 $('#lobby-leave').addEventListener('click', () => clearSessionAndNavigate());
 startMatchButton.addEventListener('click', () => socket.startMatch());
+// M: sound on/off (not while typing a name or room code)
+document.addEventListener('keydown', (event) => {
+  if (event.code !== 'KeyM' || event.repeat || event.target?.tagName === 'INPUT') return;
+  const muted = sound.toggleMute();
+  hud.flashText(muted ? 'SOUND OFF' : 'SOUND ON', 'ready', 900);
+});
 document.addEventListener('keydown', event => {
   if (event.key !== 'Escape' || event.repeat) return;
   if ([SCREEN_IDS.SOLO_MENU, SCREEN_IDS.PRIVATE_MENU, SCREEN_IDS.HOW_TO_PLAY].includes(router.current)) {
