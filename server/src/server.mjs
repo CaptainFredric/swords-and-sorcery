@@ -162,10 +162,12 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
     const stat = fs.statSync(filePath);
     const lastModified = new Date(Math.floor(stat.mtimeMs / 1000) * 1000).toUTCString();
     const etag = `W/"${stat.size.toString(16)}-${Math.floor(stat.mtimeMs).toString(16)}"`;
-    const headers = { 'content-type': mimeFor(filePath), 'cache-control': cacheControlFor(filePath, url.searchParams) };
+    // content-length lets the page show real download progress for the character models
+    const headers = { 'content-type': mimeFor(filePath), 'cache-control': cacheControlFor(filePath, url.searchParams), 'content-length': stat.size };
     if (!filePath.endsWith('.html')) Object.assign(headers, { 'last-modified': lastModified, etag });
     if (!filePath.endsWith('.html') && (req.headers['if-none-match'] === etag
       || (!req.headers['if-none-match'] && req.headers['if-modified-since'] === lastModified))) {
+      delete headers['content-length'];
       res.writeHead(304, headers);
       res.end();
       return;

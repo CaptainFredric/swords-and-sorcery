@@ -1,0 +1,236 @@
+/* The front door: heraldic banners hung over a live, slow shot of Castleward. Crimson cloth with a cream border
+   and the Spellblade's stepped hem, brass fittings, iron plaques, parchment fields. */
+
+:root {
+  --heraldry-crimson: #8a2922;
+  --heraldry-crimson-deep: #5b1a16;
+  --heraldry-cream: #eadcb6;
+  --heraldry-brass: #c99c52;
+  --heraldry-brass-light: #ecc97f;
+  --heraldry-iron: #221d19;
+  --heraldry-iron-light: #3a322b;
+  --heraldry-parchment: #e3d4ac;
+  --heraldry-ink: #2a1f17;
+  --heraldry-magic: #68cee1;
+  --font-inscription: "IM Fell English SC", Georgia, "Times New Roman", serif;
+  --font-script: "Alegreya Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --banner-left: clamp(18px, 4vw, 64px);
+  --banner-width: min(372px, 34vw);
+  --hem: 38px;
+}
+
+/* --- the living backdrop ------------------------------------------------------------------------------------ */
+.menu-world { position: absolute; inset: 0; z-index: 1; overflow: hidden; background: #1a1511; }
+.menu-sky { position: absolute; inset: 0; background: linear-gradient(#7f97aa 0%, #e9d3aa 55%, #7d7a55 56%, #4b5234 100%); }
+.menu-hills { position: absolute; bottom: -17vh; width: 68vw; height: 45vh; border-radius: 50% 50% 0 0; background: #435535; }
+.hill-left { left: -15vw; transform: rotate(4deg); }
+.hill-right { right: -20vw; bottom: -13vh; background: #52613b; transform: rotate(-5deg); }
+.menu-castle-silhouette { position: absolute; left: 58%; top: 16vh; width: min(46vw, 690px); height: 260px; transform: translateX(-50%); opacity: .35; pointer-events: none; }
+.menu-castle-silhouette i { position: absolute; bottom: 0; display: block; background: #6d6c5d; border-top: 5px solid #83806e; }
+.menu-castle-silhouette i:nth-child(1) { left: 13%; width: 16%; height: 55%; }
+.menu-castle-silhouette i:nth-child(2) { left: 28%; width: 44%; height: 38%; }
+.menu-castle-silhouette i:nth-child(3) { right: 13%; width: 16%; height: 55%; }
+.menu-castle-silhouette i:nth-child(4) { left: 21%; width: 8%; height: 68%; }
+.menu-castle-silhouette i:nth-child(5) { right: 21%; width: 8%; height: 68%; }
+/* the Spellblade and Castleward fill the whole screen, so turning him never crops his blade */
+.menu-spellblade { position: absolute; inset: 0; z-index: 2; cursor: grab; touch-action: none; }
+.menu-spellblade:active { cursor: grabbing; }
+.menu-spellblade canvas { width: 100% !important; height: 100% !important; display: block; opacity: 0; transition: opacity .9s ease; }
+.menu-spellblade.menu-spellblade-ready canvas { opacity: 1; }
+.menu-vignette { position: absolute; inset: 0; z-index: 3; pointer-events: none; background:
+  linear-gradient(90deg, rgba(20, 14, 10, .55) 0%, rgba(20, 14, 10, .18) 32%, transparent 55%),
+  radial-gradient(ellipse at 62% 48%, transparent 38%, rgba(18, 12, 8, .45) 100%); }
+.turn-hint { position: absolute; z-index: 5; right: clamp(18px, 3vw, 44px); bottom: 20px; color: rgba(245, 232, 200, .72); font: 13px/1 var(--font-inscription); letter-spacing: .12em; text-shadow: 0 1px 3px rgba(0, 0, 0, .8); pointer-events: none; white-space: nowrap; }
+
+/* --- banners ------------------------------------------------------------------------------------------------ */
+.menu-screen, .side-screen, .lobby-screen { position: absolute; inset: 0; z-index: 8; pointer-events: none; }
+/* the brass rod every banner hangs from */
+.menu-screen::after, .side-screen::after, .lobby-screen::after {
+  content: ""; position: absolute; z-index: 2; top: 12px; left: calc(var(--banner-left) - 22px); width: calc(var(--banner-width) + 44px); height: 9px;
+  border-radius: 5px; background: linear-gradient(#f2d692, #b98a3e 55%, #6f5122); box-shadow: 0 3px 6px rgba(0, 0, 0, .45);
+}
+.banner-panel {
+  position: absolute; top: 16px; left: var(--banner-left); width: var(--banner-width); max-height: calc(100% - 16px);
+  display: flex; flex-direction: column; gap: 0; overflow: auto; overscroll-behavior: contain; scrollbar-width: none;
+  padding: 34px 30px calc(var(--hem) + 26px); pointer-events: auto; color: var(--heraldry-cream);
+  background:
+    linear-gradient(90deg, rgba(0, 0, 0, .28), transparent 9%, transparent 91%, rgba(0, 0, 0, .3)),
+    repeating-linear-gradient(0deg, rgba(0, 0, 0, .05) 0 1px, transparent 1px 4px),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, .025) 0 1px, transparent 1px 5px),
+    linear-gradient(180deg, #74211b 0%, var(--heraldry-crimson) 38%, #7a241d 100%);
+  /* the Spellblade's stepped hem */
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - var(--hem)), 80% calc(100% - var(--hem)), 80% calc(100% - var(--hem) / 2), 60% calc(100% - var(--hem) / 2), 60% 100%, 40% 100%, 40% calc(100% - var(--hem) / 2), 20% calc(100% - var(--hem) / 2), 20% calc(100% - var(--hem)), 0 calc(100% - var(--hem)));
+  animation: banner-unfurl .62s cubic-bezier(.2, .8, .2, 1) both;
+}
+.banner-panel::-webkit-scrollbar { display: none; }
+/* cream border stitched inside the cloth, following the hem */
+.banner-panel::before {
+  content: ""; position: absolute; inset: 9px 9px calc(var(--hem) + 9px); border: 2px solid rgba(234, 220, 182, .82);
+  box-shadow: inset 0 0 0 4px rgba(91, 26, 22, .6), inset 0 0 0 5px rgba(234, 220, 182, .28); pointer-events: none;
+}
+.banner-panel > * { position: relative; animation: banner-content .5s ease-out both; }
+.banner-panel > *:nth-child(2) { animation-delay: .06s; }
+.banner-panel > *:nth-child(3) { animation-delay: .12s; }
+.banner-panel > *:nth-child(n + 4) { animation-delay: .16s; }
+@keyframes banner-unfurl {
+  from { clip-path: polygon(0 0, 100% 0, 100% 0, 80% 0, 80% 0, 60% 0, 60% 0, 40% 0, 40% 0, 20% 0, 20% 0, 0 0); }
+}
+@keyframes banner-content { from { opacity: 0; transform: translateY(-6px); } }
+
+.crest { display: block; width: 52px; height: 62px; margin: 0 auto 10px; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .5)); }
+.crest-field { fill: var(--heraldry-crimson-deep); }
+.crest-border { fill: none; stroke: var(--heraldry-brass); stroke-width: 3; }
+.crest-charge { fill: none; stroke: var(--heraldry-brass-light); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+
+.game-brand { text-align: center; margin: 0 0 18px; }
+.banner-panel .eyebrow { margin: 0 0 6px; color: var(--heraldry-brass-light); font: 13px/1 var(--font-inscription); letter-spacing: .28em; }
+.game-brand h1 {
+  margin: 0; font: 400 clamp(34px, 3.4vw, 46px)/.95 var(--font-inscription); letter-spacing: .04em; text-transform: none; text-wrap: balance;
+  color: #f1dfae; text-shadow: 0 2px 0 rgba(58, 18, 14, .9), 0 3px 10px rgba(0, 0, 0, .5);
+}
+.game-brand h1 span { color: var(--heraldry-brass-light); font-size: .8em; }
+.brand-rule { display: flex; align-items: center; gap: 10px; margin: 12px 0 0; color: rgba(234, 220, 182, .78); font: 700 10px/1 var(--font-script); letter-spacing: .24em; }
+.brand-rule::before, .brand-rule::after { content: ""; flex: 1; border-top: 1px solid rgba(201, 156, 82, .6); }
+
+.command-rail { display: flex; flex-direction: column; gap: 7px; }
+.name-block { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+.banner-panel .field-label { margin: 0; color: rgba(234, 220, 182, .82); font: 800 10px/1 var(--font-script); letter-spacing: .2em; }
+.banner-panel .game-input {
+  height: 42px; padding: 9px 12px; border: 1px solid rgba(99, 70, 38, .9); border-radius: 2px;
+  background: linear-gradient(#e9dbb4, var(--heraldry-parchment)); color: var(--heraldry-ink); font: 600 16px/1 var(--font-script);
+  box-shadow: inset 0 2px 5px rgba(80, 52, 24, .35), 0 1px 0 rgba(255, 240, 200, .2);
+}
+.banner-panel .game-input::placeholder { color: rgba(60, 42, 26, .5); }
+.banner-panel .game-input:focus { outline: 2px solid var(--heraldry-brass-light); outline-offset: 1px; }
+
+/* commands are iron plaques with brass rims */
+.menu-command, .mode-choice, .wide-button, .join-button {
+  position: relative; width: 100%; min-height: 54px; padding: 9px 14px 10px 30px; border: 1px solid rgba(201, 156, 82, .5); border-radius: 2px;
+  background: linear-gradient(180deg, var(--heraldry-iron-light), var(--heraldry-iron)); color: var(--heraldry-cream); text-align: left; cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255, 230, 180, .1), 0 2px 4px rgba(0, 0, 0, .35);
+  transition: transform .14s ease, border-color .14s ease, box-shadow .14s ease, background .14s ease;
+}
+.menu-command::before, .mode-choice::before, .wide-button::before, .join-button::before {
+  content: ""; position: absolute; left: 11px; top: 50%; width: 7px; height: 7px; margin-top: -4px; transform: rotate(45deg);
+  background: rgba(201, 156, 82, .55); transition: background .14s ease, box-shadow .14s ease;
+}
+.menu-command:hover, .mode-choice:hover, .wide-button:hover:not(:disabled), .join-button:hover {
+  transform: translateX(3px); border-color: var(--heraldry-brass-light);
+  box-shadow: inset 0 1px 0 rgba(255, 230, 180, .16), 0 0 0 1px rgba(236, 201, 127, .35), 0 4px 12px rgba(0, 0, 0, .4);
+}
+.menu-command:hover::before, .mode-choice:hover::before, .wide-button:hover::before, .join-button:hover::before { background: var(--heraldry-brass-light); box-shadow: 0 0 8px rgba(236, 201, 127, .8); }
+.menu-command:focus-visible, .mode-choice:focus-visible, .wide-button:focus-visible, .join-button:focus-visible, .back-button:focus-visible { outline: 2px solid var(--heraldry-brass-light); outline-offset: 2px; }
+.menu-command span, .mode-choice span { display: block; font: 400 18px/1.05 var(--font-inscription); letter-spacing: .05em; }
+.menu-command small, .mode-choice small { display: block; margin-top: 3px; color: rgba(234, 220, 182, .66); font: 500 11px/1.3 var(--font-script); letter-spacing: .02em; }
+/* the primary command is gilded */
+.primary-command { background: linear-gradient(180deg, #e7c47c, #b8893f 60%, #97702f); border-color: #f4dc9f; color: #2a1c10; }
+.primary-command::before { background: rgba(58, 36, 14, .6); }
+.primary-command small { color: rgba(42, 28, 16, .72); }
+.primary-command:hover { background: linear-gradient(180deg, #f0d08a, #c4954a 60%, #a07833); }
+.primary-command:hover::before { background: #3a2410; box-shadow: none; }
+.quiet-command { min-height: 44px; }
+.banner-panel .error-copy { min-height: 16px; margin: 4px 0 0; color: #ffd1c2; font: 600 12px/1.35 var(--font-script); text-shadow: 0 1px 2px #000; }
+
+/* --- side banners (Solo, Private, How to Play) ---------------------------------------------------------------- */
+.side-screen::before { display: none; }
+.side-screen-inner { transform: none; }
+.side-screen .banner-panel h2, .lobby-screen h2 { margin: 2px 0 12px; font: 400 30px/1 var(--font-inscription); letter-spacing: .03em; color: #f1dfae; text-shadow: 0 2px 0 rgba(58, 18, 14, .9); }
+.back-button {
+  align-self: flex-start; margin: 0 0 14px; padding: 5px 10px 5px 8px; border: 1px solid rgba(201, 156, 82, .5); border-radius: 2px;
+  background: rgba(34, 29, 25, .55); color: var(--heraldry-cream); font: 13px/1 var(--font-inscription); letter-spacing: .12em; cursor: pointer;
+}
+.back-button:hover { border-color: var(--heraldry-brass-light); color: #fff3d0; }
+.banner-panel .panel-copy { margin: 0 0 14px; color: rgba(234, 220, 182, .82); font: 500 13px/1.5 var(--font-script); }
+.banner-panel .mode-choice { min-height: 62px; margin: 0 0 8px; }
+.banner-panel .private-divider { display: flex; align-items: center; gap: 10px; margin: 14px 0 10px; color: rgba(234, 220, 182, .6); font: 12px/1 var(--font-inscription); letter-spacing: .2em; }
+.banner-panel .private-divider::before, .banner-panel .private-divider::after { content: ""; flex: 1; border-top: 1px solid rgba(201, 156, 82, .45); }
+.banner-panel .join-row { display: grid; grid-template-columns: 1fr 96px; gap: 8px; }
+.banner-panel .room-input { text-transform: uppercase; letter-spacing: .2em; font-weight: 800; }
+.banner-panel .join-button { min-height: 42px; padding: 8px 10px 8px 24px; font: 15px/1 var(--font-inscription); letter-spacing: .1em; }
+.banner-panel .join-button::before { left: 9px; }
+#solo-name, #private-name { margin: 6px 0 10px; width: 100%; }
+.manual-inner { --banner-width: min(440px, 40vw); width: var(--banner-width); }
+.key-controls-grid { display: grid; }
+.banner-panel .controls-grid { grid-template-columns: 96px 1fr; align-items: baseline; gap: 7px 14px; padding: 12px 0; border-top: 1px solid rgba(201, 156, 82, .45); border-bottom: 1px solid rgba(201, 156, 82, .45); }
+.banner-panel .controls-grid span { color: var(--heraldry-brass-light); font: 12px/1.2 var(--font-inscription); letter-spacing: .1em; }
+.banner-panel .controls-grid b { color: var(--heraldry-cream); font: 500 13px/1.3 var(--font-script); }
+.banner-panel .rules-copy { margin: 12px 0 0; color: rgba(234, 220, 182, .82); font: 500 12.5px/1.55 var(--font-script); }
+
+/* --- lobby: the same banner, listing who stands in the room ---------------------------------------------------- */
+.lobby-screen { display: block; background: none; }
+.lobby-screen::before { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(16, 11, 8, .5), rgba(16, 11, 8, .1) 55%); pointer-events: none; }
+.lobby-content { text-align: left; }
+.lobby-banner { position: static; display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin: 0 0 10px; padding-bottom: 8px; border-bottom: 1px solid rgba(201, 156, 82, .45); }
+.lobby-banner span { font: 18px/1 var(--font-inscription); letter-spacing: .1em; color: var(--heraldry-brass-light); }
+.lobby-banner small { color: rgba(234, 220, 182, .7); font: 800 10px/1 var(--font-script); letter-spacing: .18em; }
+.lobby-content .eyebrow { display: none; }
+.code-button { border: 0; padding: 0 2px; background: transparent; color: var(--heraldry-brass-light); font: inherit; letter-spacing: .08em; cursor: pointer; border-bottom: 1px dashed rgba(236, 201, 127, .5); }
+.lobby-state { margin: -4px 0 10px; color: rgba(234, 220, 182, .8); font: 800 10px/1.3 var(--font-script); letter-spacing: .16em; }
+.player-list { margin: 0 0 12px; border-top: 1px solid rgba(201, 156, 82, .35); }
+.lobby-player { display: grid; grid-template-columns: 20px 1fr auto; align-items: center; gap: 10px; min-height: 40px; padding: 0 4px; border-bottom: 1px solid rgba(201, 156, 82, .25); }
+.lobby-player b { font: 17px/1 var(--font-inscription); letter-spacing: .03em; }
+.player-rune { color: var(--heraldry-brass-light); }
+.lobby-player em { color: #b9dca8; font: 800 9px/1 var(--font-script); font-style: normal; letter-spacing: .14em; }
+.wide-button { min-height: 46px; font: 16px/1 var(--font-inscription); letter-spacing: .08em; text-align: left; }
+.wide-button:disabled { opacity: .55; cursor: default; }
+#start-match, #lobby-leave, #copy-link { margin: 0 0 8px; }
+.banner-panel .small-copy { margin: 4px 0 0; color: rgba(234, 220, 182, .7); font: 500 12px/1.45 var(--font-script); }
+
+/* --- a worthy challenger: the countdown card between the lobby and the arena ------------------------------------ */
+.challenge-card { position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; pointer-events: none; background: radial-gradient(ellipse at center, rgba(20, 12, 8, .55), rgba(10, 6, 4, .88) 70%); animation: veil-in .35s ease-out both; }
+.challenge-inner { text-align: center; color: var(--heraldry-cream); animation: challenge-rise .6s cubic-bezier(.2, .8, .2, 1) both; }
+.challenge-inner .eyebrow { margin: 0 0 14px; color: var(--heraldry-brass-light); font: 16px/1 var(--font-inscription); letter-spacing: .32em; }
+.challenge-names { display: flex; align-items: center; justify-content: center; gap: clamp(14px, 3vw, 34px); }
+.challenge-names b { min-width: 7ch; font: 400 clamp(26px, 4vw, 48px)/1 var(--font-inscription); letter-spacing: .04em; color: #f4e3b4; text-shadow: 0 3px 12px rgba(0, 0, 0, .7); }
+.challenge-names b:first-child { text-align: right; }
+.challenge-names b:last-child { text-align: left; color: #f1b8a6; }
+.challenge-swords { width: clamp(38px, 5vw, 58px); height: clamp(38px, 5vw, 58px); fill: none; stroke: var(--heraldry-brass-light); stroke-width: 3; stroke-linecap: round; filter: drop-shadow(0 0 10px rgba(236, 201, 127, .45)); }
+.challenge-count { margin: 18px 0 6px; font: 400 clamp(54px, 8vw, 96px)/1 var(--font-inscription); color: var(--heraldry-brass-light); font-variant-numeric: tabular-nums; text-shadow: 0 0 24px rgba(236, 201, 127, .35); }
+.challenge-count.tick { animation: count-tick .5s ease-out; }
+.challenge-copy { margin: 0; color: rgba(234, 220, 182, .75); font: 700 12px/1 var(--font-script); letter-spacing: .24em; text-transform: uppercase; }
+@keyframes challenge-rise { from { opacity: 0; transform: translateY(18px) scale(.97); } }
+@keyframes count-tick { from { transform: scale(1.35); opacity: .4; } }
+@keyframes veil-in { from { opacity: 0; } }
+
+/* --- the arena gate: black opens onto the arena with its name ------------------------------------------------- */
+.arena-gate { position: fixed; inset: 0; z-index: 45; display: grid; place-content: center; gap: 8px; text-align: center; pointer-events: none; background: #0c0806; color: var(--heraldry-cream); animation: gate-open 1.25s ease-in both; }
+.arena-gate p { margin: 0; font: 400 clamp(30px, 5vw, 58px)/1 var(--font-inscription); letter-spacing: .12em; color: #f1dfae; animation: gate-title 1.25s ease-out both; }
+.arena-gate small { color: var(--heraldry-brass-light); font: 800 11px/1 var(--font-script); letter-spacing: .3em; animation: gate-title 1.25s ease-out both; }
+@keyframes gate-open { 0%, 35% { background: rgba(12, 8, 6, 1); } 100% { background: rgba(12, 8, 6, 0); } }
+@keyframes gate-title { 0% { opacity: 0; transform: translateY(6px); } 25%, 60% { opacity: 1; transform: none; } 100% { opacity: 0; } }
+
+/* --- loading: crest, name and a brass thread of progress -------------------------------------------------------- */
+.loading-veil { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; background: radial-gradient(ellipse at 50% 45%, #2a1d15, #120c09 70%); color: var(--heraldry-cream); transition: opacity .7s ease, visibility 0s linear .7s; }
+.loading-veil.done { opacity: 0; visibility: hidden; }
+.loading-inner { display: grid; justify-items: center; gap: 12px; }
+.loading-inner .crest { width: 64px; height: 76px; margin: 0; animation: crest-glow 2.4s ease-in-out infinite; }
+.loading-title { margin: 0; font: 400 clamp(26px, 3.2vw, 38px)/1 var(--font-inscription); letter-spacing: .06em; color: #f1dfae; }
+.loading-title span { color: var(--heraldry-brass-light); }
+.loading-bar { width: min(260px, 60vw); height: 3px; background: rgba(201, 156, 82, .2); overflow: hidden; }
+.loading-bar i { display: block; height: 100%; width: 100%; transform-origin: left; transform: scaleX(0); background: linear-gradient(90deg, #9a7336, var(--heraldry-brass-light)); transition: transform .25s ease-out; }
+.loading-copy { margin: 0; color: rgba(234, 220, 182, .7); font: 500 13px/1 var(--font-script); letter-spacing: .08em; }
+@keyframes crest-glow { 50% { filter: drop-shadow(0 0 10px rgba(236, 201, 127, .45)); } }
+
+/* --- arena menu and match end share the heraldry --------------------------------------------------------------- */
+.pause-card { border: 1px solid rgba(201, 156, 82, .6); background: linear-gradient(180deg, #2b231d, #1b1612); box-shadow: 0 14px 40px rgba(0, 0, 0, .5); }
+.pause-card h2 { font: 400 30px/1 var(--font-inscription); color: #f1dfae; }
+.pause-card p { font: 500 13px/1.5 var(--font-script); color: rgba(234, 220, 182, .8); }
+.end-screen h2 { font-family: var(--font-inscription); font-weight: 400; color: #f1dfae; }
+.end-screen .eyebrow { color: var(--heraldry-brass-light); font-family: var(--font-inscription); font-size: 14px; letter-spacing: .3em; }
+.end-medallion { border-color: rgba(236, 201, 127, .6); color: var(--heraldry-brass-light); }
+.final-row b { font: 17px/1 var(--font-inscription); }
+
+@media (max-width: 900px) {
+  :root { --banner-width: min(330px, 44vw); }
+  .manual-inner { --banner-width: min(420px, 52vw); }
+}
+@media (max-width: 640px) {
+  :root { --banner-left: 12px; --banner-width: calc(100vw - 24px); }
+  .manual-inner { --banner-width: calc(100vw - 24px); }
+  .banner-panel { max-height: 72%; }
+  .turn-hint { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .banner-panel, .banner-panel > *, .challenge-card, .challenge-inner, .arena-gate, .arena-gate p, .arena-gate small, .loading-inner .crest { animation: none !important; }
+  .arena-gate { display: none; }
+}

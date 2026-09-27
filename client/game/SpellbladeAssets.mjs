@@ -13,6 +13,22 @@ const ASSET_STATUS_SLOTS = new Set(['menu', 'remote', 'firstPerson']);
 const loader = new GLTFLoader();
 const gltfPromises = new Map();
 const manifestPromises = new Map();
+// download progress per GLB url, for the loading screen
+const progress = new Map();
+const progressListeners = new Set();
+
+function reportProgress(url, loaded, total) {
+  progress.set(url, { loaded, total: Math.max(total, loaded) });
+  const all = [...progress.values()];
+  const sum = all.reduce((acc, item) => ({ loaded: acc.loaded + item.loaded, total: acc.total + item.total }), { loaded: 0, total: 0 });
+  for (const listener of progressListeners) listener(sum.total > 0 ? Math.min(1, sum.loaded / sum.total) : 0);
+}
+
+/** Listen for the combined download progress of the character models (0..1). Returns an unsubscribe. */
+export function watchSpellbladeLoading(listener) {
+  progressListeners.add(listener);
+  return () => progressListeners.delete(listener);
+}
 
 function requireManifest(raw) {
   if (!raw || typeof raw !== 'object') throw new Error('Spellblade manifest must be an object');
@@ -67,7 +83,16 @@ async function loadManifest(url = DEFAULT_MANIFEST_URL) {
 }
 
 function loadGltf(url) {
-  if (!gltfPromises.has(url)) gltfPromises.set(url, loader.loadAsync(url));
+  if (!gltfPromises.has(url)) {
+    reportProgress(url, 0, 0);
+    gltfPromises.set(url, loader.loadAsync(url, (event) => {
+      if (event.lengthComputable) reportProgress(url, event.loaded, event.total);
+    }).then((gltf) => {
+      const done = progress.get(url);
+      reportProgress(url, done?.total || 1, done?.total || 1);
+      return gltf;
+    }));
+  }
   return gltfPromises.get(url);
 }
 
