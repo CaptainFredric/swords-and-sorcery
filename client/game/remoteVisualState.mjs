@@ -15,11 +15,12 @@ function disposeFallback(shell) {
   shell.fallbackDispose?.();
 }
 
-export function createRemoteVisualShell({ root, fallback, fallbackDispose = null }) {
+export function createRemoteVisualShell({ root, fallback, fallbackDispose = null, hideFallbackWhileLoading = false }) {
   if (!root?.add || !root?.remove) throw new Error('Remote visual shell requires a stable root');
   const visual = visualRoot(fallback);
   if (!visual) throw new Error('Remote visual shell requires a fallback visual');
 
+  if (hideFallbackWhileLoading) visual.visible = false;
   root.add(visual);
   return {
     root,
@@ -64,6 +65,13 @@ export function upgradeRemoteVisual(shell, instance, generation) {
   shell.visualInstance = instance;
   shell.visualKind = 'glb';
   if (shell.latestPlan) instance.animator?.apply?.(shell.latestPlan, 0);
+  return true;
+}
+
+// the production visual could not be shown (it failed, or is taking too long mid-match): reveal the fallback
+export function revealRemoteFallback(shell) {
+  if (!shell?.active || shell.visualKind !== 'fallback' || !shell.visual) return false;
+  shell.visual.visible = true;
   return true;
 }
 

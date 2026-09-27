@@ -26,8 +26,12 @@ export function blendSeconds(fromClip, toClip) {
   if (fromClip === 'Death') return 0;
   // slashes chained inside one attack already meet at matching poses
   if (COMBO_CLIPS.has(fromClip) && COMBO_CLIPS.has(toClip)) return 0.06;
-  // run <-> sprint shifts gait mid-stride
+  // run <-> sprint shifts gait mid-stride (both stride on one shared phase)
   if ((fromClip === 'Run' && toClip === 'Sprint') || (fromClip === 'Sprint' && toClip === 'Run')) return 0.16;
+  // the body moves at full speed at once, so a long fade from Idle would skate the feet
+  if (fromClip === 'Idle' && (toClip === 'Run' || toClip === 'Sprint')) return 0.15;
+  // touch-down hands over quickly; the landing absorption layer carries the impact
+  if (fromClip === 'Air' && toClip !== 'Death') return 0.12;
   return BLEND_IN_SECONDS[toClip] ?? 0.15;
 }
 

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { getWorld } from '../../shared/worlds/registry.mjs';
 import { createMovementState, movePlayer, resolveSprint, tryStartDash } from '../../shared/src/movement.mjs';
+import { separateLocal } from '../../shared/src/separation.mjs';
 import { InputController } from './InputController.mjs';
 import { TouchControls } from './TouchControls.mjs';
 import { RemotePlayers } from './RemotePlayers.mjs';
@@ -9,6 +10,7 @@ import { Effects } from './Effects.mjs';
 import { SCENE_PRESENTATION } from './scenePresentation.mjs';
 import { localCombatFeedback, shouldPlayWorldClang } from './combatFeedback.mjs';
 import { castVisualDuration } from './weaponPose.mjs';
+import { localPushDirection } from './spellbladeMotion.mjs';
 import { createWorldRenderer, rendererKeyForWorld } from '../worlds/WorldRendererFactory.mjs';
 import { CastlewardRenderer } from '../worlds/CastlewardRenderer.mjs';
 import { ShatteredKeepRenderer } from '../worlds/ShatteredKeepRenderer.mjs';
@@ -47,8 +49,10 @@ export class GameRuntime {
       SCENE_PRESENTATION.hemisphere.intensity,
     );
     this.scene.add(hemi);
+    this.hemi = hemi;
     const moon = new THREE.DirectionalLight(SCENE_PRESENTATION.moon.color, SCENE_PRESENTATION.moon.intensity);
     moon.position.set(-12, 24, 8);
+    this.sun = moon;
     moon.castShadow = true;
     moon.shadow.mapSize.set(1024, 1024);
     moon.shadow.camera.left = -30;
@@ -92,7 +96,6 @@ export class GameRuntime {
       if (!tryStartDash(this.localState, dir, now)) return;
       this.weapon.dash();
       this.effects.dash();
-      this.dashFovUntil = performance.now() + 180;
     };
 
     this.localState = null;
@@ -105,7 +108,6 @@ export class GameRuntime {
     this.playing = false;
     this.predictionError = 0;
     this.cameraKick = 0;
-    this.dashFovUntil = 0;
     this.fps = 60;
     this.lastPingAt = 0;
     this.unsubscribe = [
@@ -113,6 +115,8 @@ export class GameRuntime {
       socket.on('events', (batch) => this.onEvents(batch.events)),
     ];
     window.addEventListener('resize', this.#resize);
+    // local inspection only: /?debug exposes the runtime to the console
+    if (new URLSearchParams(location.search).has('debug')) globalThis.__ssRuntime = this;
     requestAnimationFrame((t) => this.#frame(t));
   }
 
@@ -136,6 +140,7 @@ export class GameRuntime {
       const nextRenderer = createWorldRenderer(worldId, this.scene, WORLD_RENDERERS);
       this.world?.dispose?.();
       this.world = nextRenderer;
+      this.#applyLighting(nextRenderer.lighting);
       this.activeWorld = nextWorld;
       this.worldId = worldId;
       this.worldError = null;
@@ -150,6 +155,18 @@ export class GameRuntime {
       this.#applyWeaponRelease({ attack: true, guard: true });
       return false;
     }
+  }
+
+  // a world may bring its own time of day; otherwise the default moonlit presentation applies
+  #applyLighting(lighting) {
+    const hemisphere = lighting?.hemisphere ?? SCENE_PRESENTATION.hemisphere;
+    this.hemi.color.set(hemisphere.skyColor);
+    this.hemi.groundColor.set(hemisphere.groundColor);
+    this.hemi.intensity = hemisphere.intensity;
+    const sun = lighting?.sun ?? { ...SCENE_PRESENTATION.moon, position: [-12, 24, 8] };
+    this.sun.color.set(sun.color);
+    this.sun.intensity = sun.intensity;
+    this.sun.position.set(...sun.position);
   }
 
   setPlayerId(id) {
@@ -214,7 +231,7 @@ export class GameRuntime {
 
   onEvents(events) {
     for (const event of events) {
-      this.remotePlayers.onEvent(event);
+      this.remotePlayers.onEvent(event, this.latestSnapshot);
       this.#applyWeaponRelease(localWeaponReleaseForEvent(event, this.socket.playerId));
 
       if (event.type === 'fireballCast') {
@@ -250,18 +267,36 @@ export class GameRuntime {
       }
       if (event.type === 'parry') {
         if (event.defenderId === this.socket.playerId) { this.weapon.parry(); this.hud.flashText('PARRY', 'parry'); this.hud.hit('parry'); }
-        if (event.attackerId === this.socket.playerId) this.weapon.parry();
+        if (event.attackerId === this.socket.playerId) this.weapon.rebound();
       }
-      if (event.type === 'guardBreak' && event.defenderId === this.socket.playerId) this.hud.flashText('GUARD BROKEN', 'danger');
+      if (event.type === 'block') {
+        if (event.defenderId === this.socket.playerId) this.weapon.block(false);
+        if (event.attackerId === this.socket.playerId) this.weapon.rebound();
+      }
+      if (event.type === 'guardBreak' && event.defenderId === this.socket.playerId) {
+        this.hud.flashText('GUARD BROKEN', 'danger');
+        this.weapon.block(true);
+      }
       if (event.type === 'projectileImpact') this.effects.impact(event.point);
       if (event.type === 'damage') {
         if (event.attackerId === this.socket.playerId) this.hud.hit('hit');
+        if (event.victimId === this.socket.playerId && event.source !== 'abyss' && event.amount > 0) {
+          this.weapon.damage(this.#pushTowardMe(event.attackerId), event.amount);
+        }
         if (event.victimId === this.socket.playerId) document.body.classList.add('took-damage');
         setTimeout(() => document.body.classList.remove('took-damage'), 120);
       }
       if (event.type === 'death') this.#deathEvent(event);
       if (event.type === 'respawn' && event.playerId === this.socket.playerId) this.hud.flashText('FIGHT!', 'ready');
     }
+  }
+
+  // direction a blow drove me, in view space (+x right, +z backward); straight back if the source is unknown
+  #pushTowardMe(sourceId) {
+    const me = this.localState?.position ?? this.localAuth?.position;
+    const source = this.latestSnapshot?.players.find((p) => p.id === sourceId)?.position;
+    if (!me || !source) return { x: 0, z: 1 };
+    return localPushDirection({ x: me.x - source.x, z: me.z - source.z }, this.input.yaw);
   }
 
   #deathEvent(event) {
@@ -295,30 +330,37 @@ export class GameRuntime {
         sprinting: this.localState.sprinting,
         blocked: this.input.guardHeld || this.input.attackHeld || (this.localAuth.staggerUntil ?? 0) > serverNow,
       });
+      const wasGrounded = this.localState.grounded;
+      const fallSpeed = -this.localState.velocity.y;
       this.localState = movePlayer(this.localState, moveInput, dt, serverNow, this.activeWorld);
+      // predict the server's body separation so pressing into an opponent does not rubber-band
+      separateLocal(this.localState.position, this.remotePlayers.bodies(), this.activeWorld);
+      if (!wasGrounded && this.localState.grounded) this.weapon.land(fallSpeed);
       if (nowMs - this.lastInputSentAt >= 50) {
         this.lastInputSentAt = nowMs;
         this.socket.input({ seq: ++this.sequence, ...moveInput, clientTime: this.socket.serverNow() });
       }
-      this.camera.position.set(this.localState.position.x, this.localState.position.y + 1.58, this.localState.position.z);
+      // the weapon's procedural motion also returns small camera offsets (purely visual: aim uses input yaw/pitch)
+      const view = this.weapon.update(timeSec, dt, {
+        speed: Math.hypot(this.localState.velocity.x, this.localState.velocity.z),
+        grounded: this.localState.grounded,
+        yaw: this.input.yaw,
+        pitch: this.input.pitch,
+      });
+      this.camera.position.set(this.localState.position.x, this.localState.position.y + 1.58 + view.camera.y, this.localState.position.z);
       this.camera.rotation.order = 'YXZ';
       this.camera.rotation.y = this.input.yaw;
-      this.camera.rotation.x = this.input.pitch + this.cameraKick;
-      this.camera.rotation.z = 0;
-      this.cameraKick *= 0.78;
-      const speed = Math.min(1, Math.hypot(this.localState.velocity.x, this.localState.velocity.z) / 7.5);
-      this.weapon.update(timeSec, speed, dt, { sprinting: this.localState.sprinting && speed > 0.1 });
+      this.camera.rotation.x = this.input.pitch + this.cameraKick + view.camera.pitch;
+      this.camera.rotation.z = view.camera.roll;
+      this.cameraKick *= Math.exp(-dt * 15);
+      this.#setFov(view.fov);
     } else if (this.localAuth && this.localState) {
       this.camera.position.set(this.localState.position.x, this.localState.position.y + 1.58, this.localState.position.z);
-      this.weapon.update(timeSec, 0, dt);
+      this.camera.rotation.z = 0;
+      this.#setFov(this.weapon.update(timeSec, dt).fov);
     }
-
-    const sprintFov = this.localState?.sprinting && this.playing ? 84 : 78;
-    const targetFov = nowMs < this.dashFovUntil ? 88 : sprintFov;
-    this.camera.fov += (targetFov - this.camera.fov) * 0.18;
-    this.camera.updateProjectionMatrix();
     this.remotePlayers.update(nowMs, dt);
-    this.world?.update?.(timeSec);
+    this.world?.update?.(timeSec, this.camera);
     this.effects.update(dt);
 
     if (this.latestSnapshot && this.localAuth) {
@@ -334,12 +376,20 @@ export class GameRuntime {
         players: this.latestSnapshot.players.length,
         state: this.latestSnapshot.roomState,
         predictionError: this.predictionError,
+        drawCalls: this.renderer.info.render.calls,
+        triangles: this.renderer.info.render.triangles,
       }, this.input.debugVisible);
     }
 
     if (nowMs - this.lastPingAt > 2000) { this.lastPingAt = nowMs; this.socket.ping(); }
     this.renderer.render(this.scene, this.camera);
     requestAnimationFrame((t) => this.#frame(t));
+  }
+
+  #setFov(fov) {
+    if (Math.abs(this.camera.fov - fov) < 1e-3) return;
+    this.camera.fov = fov;
+    this.camera.updateProjectionMatrix();
   }
 
   dispose() {

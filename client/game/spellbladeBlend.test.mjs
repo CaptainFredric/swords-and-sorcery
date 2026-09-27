@@ -11,7 +11,7 @@ test('attacks and hit reactions blend in fast, settling poses blend in slowly', 
   assert.ok(blendSeconds('Run', 'Dash') <= 0.08);
   assert.ok(blendSeconds('Guard', 'Stagger') <= 0.08);
   assert.ok(blendSeconds('Slash_3', 'Idle') >= 0.2);
-  assert.ok(blendSeconds('Idle', 'Run') >= 0.2);
+  assert.ok(blendSeconds('Run', 'Idle') >= 0.2);
   assert.ok(blendSeconds('Idle', 'Guard') > blendSeconds('Idle', 'Slash_1'));
   assert.equal(blendSeconds('Slash_1', 'Slash_2'), 0.06, 'combo slashes meet at matching poses');
   assert.equal(blendSeconds('Death', 'Idle'), 0, 'respawn snaps out of the death pose');
@@ -54,8 +54,15 @@ test('a switch keeps the on-screen mix: fading clips start from their current we
   close(weights.fading[1], 0.65);
 });
 
-test('run and sprint shift gait quickly; settling into a sprint from rest eases in', () => {
+test('run and sprint shift gait quickly', () => {
   assert.equal(blendSeconds('Run', 'Sprint'), 0.16);
   assert.equal(blendSeconds('Sprint', 'Run'), 0.16);
-  assert.ok(blendSeconds('Idle', 'Sprint') >= 0.18);
+});
+
+test('starting to move and touching down hand over quickly so feet do not skate', () => {
+  assert.equal(blendSeconds('Idle', 'Run'), 0.15);
+  assert.equal(blendSeconds('Idle', 'Sprint'), 0.15);
+  assert.equal(blendSeconds('Air', 'Run'), 0.12);
+  assert.equal(blendSeconds('Air', 'Idle'), 0.12);
+  assert.ok(blendSeconds('Run', 'Idle') > blendSeconds('Idle', 'Run'), 'settling into idle stays gentle');
 });

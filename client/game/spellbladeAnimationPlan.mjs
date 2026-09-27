@@ -1,4 +1,4 @@
-import { MOVEMENT } from '../../shared/src/movement.mjs';
+import { MOVEMENT, SPRINT } from '../../shared/src/movement.mjs';
 import { GAME } from '../../shared/src/combat.mjs';
 
 const SLASH_DURATIONS = Object.freeze([0.72, 0.72, 0.64]);
@@ -57,10 +57,24 @@ export function resolveSpellbladeAnimationPlan({ state, player = {}, serverNow =
 
   // The guard stays raised but breathes: loop the hold section on the local clock.
   if (state === 'guard') return fixed('Guard', guardHoldTime(localTime));
-  if (state === 'air') return fixed('Air');
-  if (state === 'sprint') return { ...fixed('Sprint', localTime, true), fallback: 'Run' };
-  if (state === 'run') return fixed('Run', localTime, true);
+  // the air pose follows the jump: take-off at the start of the clip, falling toward its end
+  if (state === 'air') return { ...fixed('Air', airPhase(player.velocity?.y)), normalized: true };
+  if (state === 'sprint') return { ...fixed('Sprint', localTime, true), fallback: 'Run', rate: strideRate(player, SPRINT.speed) };
+  if (state === 'run') return { ...fixed('Run', localTime, true), rate: strideRate(player, MOVEMENT.runSpeed) };
   return fixed('Idle', localTime, true);
+}
+
+// stride cadence follows ground speed (the sprint builds up), so feet do not skate
+function strideRate(player, clipSpeed) {
+  const velocity = player?.velocity;
+  if (!velocity) return 1;
+  const speed = Math.hypot(finite(velocity.x), finite(velocity.z));
+  return Math.max(0.75, Math.min(1.2, speed / clipSpeed));
+}
+
+function airPhase(verticalVelocity) {
+  const v = finite(verticalVelocity);
+  return Math.max(0, Math.min(1, (MOVEMENT.jumpImpulse - v) / (2 * MOVEMENT.jumpImpulse)));
 }
 
 function guardHoldTime(clock) {

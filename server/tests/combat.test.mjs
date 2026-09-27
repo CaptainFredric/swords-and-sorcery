@@ -190,9 +190,9 @@ test('sprint is an authoritative state that runs faster and spends the shared st
   a.yaw = Math.PI; sprintInput(a);                           // head away from b
   stepRoom(room, 0.05, 10, openWorld);
   assert.equal(a.sprinting, true);
-  assert.ok(Math.abs(Math.hypot(a.velocity.x, a.velocity.z) - SPRINT.speed) < 1e-6);
   let t = 10;
   for (let i = 0; i < 20; i += 1) { t += 0.05; stepRoom(room, 0.05, t, openWorld); }
+  assert.ok(Math.abs(Math.hypot(a.velocity.x, a.velocity.z) - SPRINT.speed) < 1e-6, 'at full sprint speed once built up');
   // 1.05 s of sprint at 10/s, still far from a block's worth of cost per second
   assert.ok(Math.abs(a.guardStamina - (100 - SPRINT.staminaPerSec * 1.05)) < 1e-6, `stamina ${a.guardStamina}`);
   // stamina does not recover while sprinting, and resumes after the usual delay once the sprint ends

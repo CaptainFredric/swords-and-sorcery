@@ -5,7 +5,8 @@ import { SPELLBLADE_PALETTE } from './spellbladeDesign.mjs';
 import { createSpellbladeSword } from './SpellbladeSword.mjs';
 import { createSpellbladeAsset, reportSpellbladeAssetStatus } from './SpellbladeAssets.mjs';
 import { resolveFirstPersonAnimationPlan } from './spellbladeAnimationPlan.mjs';
-import { FIRST_PERSON_WEAPON_SCALE, locomotionSway, resolveWeaponPose } from './weaponPose.mjs';
+import { FIRST_PERSON_WEAPON_SCALE, resolveWeaponPose } from './weaponPose.mjs';
+import { FP_MOTION, FirstPersonMotion } from './firstPersonMotion.mjs';
 
 function damp(value, target, amount) {
   return value + (target - value) * amount;
@@ -121,19 +122,6 @@ function addMagicWisp(parent, material, name, position, size, rotation) {
 }
 
 
-function outerImpactPose(view, timeSec) {
-  const recoil = view.recoilUntil > timeSec ? Math.min(1, (view.recoilUntil - timeSec) / 0.23) : 0;
-  const parry = view.parryUntil > timeSec ? Math.min(1, (view.parryUntil - timeSec) / 0.3) : 0;
-  return {
-    x: recoil * 0.08,
-    y: parry * 0.025,
-    z: recoil * 0.055 + parry * 0.035,
-    rx: recoil * 0.05,
-    ry: -parry * 0.12,
-    rz: recoil * 0.22 + parry * 0.08,
-  };
-}
-
 export class WeaponView {
   constructor(camera) {
     this.camera = camera;
@@ -144,6 +132,8 @@ export class WeaponView {
     this.fallbackVisual = new THREE.Group();
     this.fallbackVisual.name = 'first-person-spellblade-fallback';
     this.fallbackVisual.scale.setScalar(FIRST_PERSON_WEAPON_SCALE);
+    // shown only if the production arms fail to load (never during a normal load)
+    this.fallbackVisual.visible = false;
     this.group.add(this.fallbackVisual);
 
     this.productionOffset = new THREE.Group();
@@ -218,6 +208,8 @@ export class WeaponView {
     this.castStartedAt = 0;
     this.castUntil = 0;
     this.dashUntil = 0;
+    // procedural stride, inertia, sway and impact motion over the authored first-person clips
+    this.motion = new FirstPersonMotion();
 
     this.#upgradeVisual();
   }
@@ -225,7 +217,10 @@ export class WeaponView {
   #upgradeVisual() {
     const generation = ++this.assetGeneration;
     createSpellbladeAsset({ kind: 'firstPerson' }).then((instance) => {
-      if (!instance) return;
+      if (!instance) {
+        this.fallbackVisual.visible = true;
+        return;
+      }
       if (this.disposed || generation !== this.assetGeneration) {
         instance.dispose();
         return;
@@ -247,6 +242,7 @@ export class WeaponView {
     }).catch(() => {
       if (!this.disposed) {
         this.visualKind = 'fallback';
+        this.fallbackVisual.visible = true;
         reportSpellbladeAssetStatus('firstPerson');
       }
     });
@@ -280,13 +276,39 @@ export class WeaponView {
   wallImpact() {
     this.recoilUntil = performance.now() / 1000 + 0.23;
     this.attackHeld = false;
+    this.motion.clang();
   }
 
   parry() {
     this.parryUntil = performance.now() / 1000 + 0.3;
+    this.motion.parry();
   }
 
-  update(timeSec, movingAmount = 0, dt = 0, { sprinting = false } = {}) {
+  // a blow caught on my guard (heavy: it broke the guard)
+  block(heavy = false) {
+    this.motion.block(heavy);
+  }
+
+  // my swing was caught on someone's guard
+  rebound() {
+    this.motion.rebound();
+  }
+
+  // push: from the attacker toward me in view space (+x right, +z backward)
+  damage(push, amount) {
+    this.motion.damage(push, amount);
+  }
+
+  land(impactSpeed) {
+    this.motion.land(impactSpeed);
+  }
+
+  /**
+   * @param {{speed?:number, grounded?:boolean, yaw?:number, pitch?:number}} body  the local Spellblade's motion
+   * @returns {{camera:{y:number,pitch:number,roll:number}, fov:number}} view offsets for the camera
+   */
+  update(timeSec, dt = 0, { speed = 0, grounded = true, yaw = 0, pitch = 0 } = {}) {
+    const movingAmount = Math.min(1, speed / 7.5);
     const pose = resolveWeaponPose({
       timeSec,
       movingAmount,
@@ -300,20 +322,29 @@ export class WeaponView {
       dashUntil: this.dashUntil,
     });
 
+    const motion = this.motion.step({ dt, speed, grounded, yaw, pitch, state: pose.state, dashing: pose.state === 'dash' });
+
     if (this.visualKind === 'production' && this.productionInstance) {
-      this.productionInstance.animator.apply(resolveFirstPersonAnimationPlan(pose, this, timeSec), dt);
-      const impact = outerImpactPose(this, timeSec);
-      // the sprint sway only applies while the hands are free (not mid-swing, guard or cast)
-      const free = !['attack', 'guard', 'cast'].includes(pose.state);
-      const sway = locomotionSway({ timeSec, movingAmount, sprinting: sprinting && free });
-      dampTransform(this.productionOffset, {
-        x: impact.x + sway.x, y: impact.y + sway.y, z: impact.z + sway.z,
-        rx: impact.rx + sway.rx, ry: impact.ry + sway.ry, rz: impact.rz + sway.rz,
-      }, sprinting ? 0.2 : 0.38);
-      const glow = pose.state === 'cast' ? 3.2 : 2.0;
-      for (const material of this.productionInstance.materials.SorceryAccent ?? []) material.emissiveIntensity = glow;
-      this.magicLight.intensity = pose.state === 'cast' ? 3.2 : 0.9;
-      return;
+      const plan = resolveFirstPersonAnimationPlan(pose, this, timeSec);
+      // neutral hands sit a little wider apart (clear sightline); in the sprint the arms pump with the stride
+      const spread = FP_MOTION.neutralSpread * motion.neutral;
+      plan.motion = {
+        extra: [
+          { bone: 'upper_arm.R', axis: [0, 1, 0], angle: -spread },
+          { bone: 'upper_arm.L', axis: [0, 1, 0], angle: spread },
+          { bone: 'upper_arm.R', axis: [1, 0, 0], angle: 0.1 * motion.pump },
+          { bone: 'upper_arm.L', axis: [1, 0, 0], angle: -0.1 * motion.pump },
+        ],
+      };
+      this.productionInstance.animator.apply(plan, dt);
+      const w = motion.weapon;
+      this.productionOffset.position.set(w.x, w.y, w.z);
+      this.productionOffset.rotation.set(w.rx, w.ry, w.rz);
+      // gauntlet runes and palm light follow the palm sorcery: dim at rest, bright only while a cast gathers
+      const level = this.productionInstance.sorceryLevel?.() ?? 0;
+      for (const material of this.productionInstance.materials.SorceryAccent ?? []) material.emissiveIntensity = 0.7 + 2.1 * level;
+      this.magicLight.intensity = 0.12 + 2.6 * level;
+      return motion;
     }
 
     const groupSnap = pose.state === 'attack' ? 0.40 : pose.state === 'guard' || pose.state === 'cast' ? 0.34 : 0.27;
@@ -336,6 +367,7 @@ export class WeaponView {
       wisp.rotation.y = timeSec * (1.1 + i * 0.22);
     }
     this.magicLight.intensity = pose.state === 'cast' ? 3.2 : 0.95 * Math.max(0.4, magicScale);
+    return motion;
   }
 
   dispose() {

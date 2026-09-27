@@ -1,6 +1,7 @@
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import { createSorceryVolume } from './SorceryVolume.mjs';
+import { sorceryLevel } from './spellbladeMotion.mjs';
 import { SpellbladeAnimator } from './SpellbladeAnimator.mjs';
 
 const DEFAULT_MANIFEST_URL = '/client/assets/characters/spellblade/manifest.json';
@@ -124,8 +125,10 @@ export async function createSpellbladeAsset({ kind = 'thirdPerson', manifestUrl 
   });
 
   const sorcery = createSorceryVolume(sockets.sorcery);
+  const castDuration = gltf.animations.find((clip) => clip.name === 'Cast')?.duration ?? 1;
   const animator = new SpellbladeAnimator(root, gltf.animations, (plan) => {
-    sorcery.update(plan.time, plan.clip === 'Cast');
+    // the palm glow stays a small ember except while a cast gathers and releases
+    sorcery.update(performance.now() / 1000, sorceryLevel(plan.clip, plan.time, castDuration));
   }, { cloth: kind !== 'firstPerson' });
 
   let disposed = false;
@@ -133,6 +136,7 @@ export async function createSpellbladeAsset({ kind = 'thirdPerson', manifestUrl 
     root,
     animator,
     sockets,
+    sorceryLevel: () => sorcery.level(),
     materials: mutableMaterials.byName,
     sourceRevision: manifest.sourceRevision,
     dispose() {

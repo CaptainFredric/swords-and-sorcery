@@ -20,7 +20,13 @@ export const SPRINT = Object.freeze({
   restartStamina: 25,
   // sprinting means heading forward: at least this share of the stick pointing ahead (diagonals allowed)
   forwardShare: 0.3,
+  // an armoured body builds up to sprint speed and runs off the extra speed when the sprint ends
+  accelSec: 0.5,
+  decelSec: 0.3,
 });
+
+// longest horizontal move resolved against walls in one go (well under the thinnest wall plus a body radius)
+export const MAX_COLLISION_STEP = 0.3;
 
 export function createMovementState(position = { x: 0, y: 0, z: 0 }) {
   return {
@@ -32,6 +38,8 @@ export function createMovementState(position = { x: 0, y: 0, z: 0 }) {
     dashReadyAt: 0,
     dashDir: { x: 0, z: -1 },
     sprinting: false,
+    // 0 = run speed, 1 = full sprint speed; rises while sprinting, falls after
+    sprintBlend: 0,
     // multiplier for future slows and hastes; 1 = unmodified
     speedScale: 1,
   };
@@ -55,9 +63,20 @@ export function resolveSprint({ wantsSprint, forward = 0, right = 0, grounded = 
 }
 
 export function locomotionSpeed(state) {
-  const base = state.sprinting ? SPRINT.speed : MOVEMENT.runSpeed;
+  const blend = Math.max(0, Math.min(1, Number(state.sprintBlend) || 0));
+  // eased out: quick to get going, slower to reach the top end
+  const eased = 1 - (1 - blend) * (1 - blend);
+  const base = MOVEMENT.runSpeed + (SPRINT.speed - MOVEMENT.runSpeed) * eased;
   const scale = Number.isFinite(state.speedScale) ? Math.max(0, state.speedScale) : 1;
   return base * scale;
+}
+
+/** Advance the sprint build-up: toward 1 while sprinting and moving, back toward 0 otherwise. */
+export function stepSprintBlend(blend, sprinting, moving, dt) {
+  const current = Math.max(0, Math.min(1, Number(blend) || 0));
+  if (!moving) return 0;
+  if (sprinting) return Math.min(1, current + dt / SPRINT.accelSec);
+  return Math.max(0, current - dt / SPRINT.decelSec);
 }
 
 export function tryStartDash(state, direction, nowSec) {
@@ -85,6 +104,7 @@ export function movePlayer(previous, input, dt, nowSec, world) {
   } else {
     const f = Math.max(-1, Math.min(1, input.forward ?? 0));
     const r = Math.max(-1, Math.min(1, input.right ?? 0));
+    state.sprintBlend = stepSprintBlend(state.sprintBlend, state.sprinting, Math.hypot(f, r) > 0.01, dt);
     const length = Math.hypot(f, r) || 1;
     const nf = f / length;
     const nr = r / length;
@@ -108,9 +128,16 @@ export function movePlayer(previous, input, dt, nowSec, world) {
   if (!state.grounded) state.velocity.y -= MOVEMENT.gravity * dt;
 
   const beforeY = state.position.y;
-  state.position.x += state.velocity.x * dt;
-  state.position.z += state.velocity.z * dt;
-  state.position = resolvePlayerWorld(state.position, MOVEMENT.playerRadius, world.solids ?? []);
+  // Sub-step horizontal travel so no single step can carry the body through a thin wall (a dash covers about
+  // 0.9 m per 30 Hz server tick; walls and lips are 0.3-0.5 m thick).
+  const travelX = state.velocity.x * dt;
+  const travelZ = state.velocity.z * dt;
+  const substeps = Math.max(1, Math.ceil(Math.hypot(travelX, travelZ) / MAX_COLLISION_STEP));
+  for (let i = 0; i < substeps; i += 1) {
+    state.position.x += travelX / substeps;
+    state.position.z += travelZ / substeps;
+    state.position = resolvePlayerWorld(state.position, MOVEMENT.playerRadius, world.solids ?? []);
+  }
   state.position.y += state.velocity.y * dt;
 
   const ground = surfaceHeightAt(state.position.x, state.position.z, Math.max(beforeY, state.position.y), world);

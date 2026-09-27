@@ -58,15 +58,43 @@ test('a normal running jump clears the Shattered Keep bridge gap', () => {
   assert.ok(Math.abs(state.position.y) < 0.001);
 });
 
+function speedOf(state) {
+  return Math.hypot(state.velocity.x, state.velocity.z);
+}
+
 test('sprint is its own faster locomotion state with a speed hook for modifiers', () => {
   let state = createMovementState({ x: 0, y: 0, z: 0 });
   state.sprinting = true;
-  state = movePlayer(state, { forward: 1, right: 0, jump: false, yaw: 0 }, 0.1, 0.1, flatWorld);
-  assert.ok(Math.abs(Math.hypot(state.velocity.x, state.velocity.z) - SPRINT.speed) < 0.001);
+  for (let i = 1; i <= 6; i += 1) state = movePlayer(state, { forward: 1, right: 0, jump: false, yaw: 0 }, 0.1, i * 0.1, flatWorld);
+  assert.ok(Math.abs(speedOf(state) - SPRINT.speed) < 0.001);
   state.speedScale = 0.5;
-  state = movePlayer(state, { forward: 1, right: 0, jump: false, yaw: 0 }, 0.1, 0.2, flatWorld);
-  assert.ok(Math.abs(Math.hypot(state.velocity.x, state.velocity.z) - SPRINT.speed * 0.5) < 0.001);
+  state = movePlayer(state, { forward: 1, right: 0, jump: false, yaw: 0 }, 0.1, 0.7, flatWorld);
+  assert.ok(Math.abs(speedOf(state) - SPRINT.speed * 0.5) < 0.001);
   assert.ok(SPRINT.speed > MOVEMENT.runSpeed);
+});
+
+test('an armoured body builds up to sprint speed and runs the extra speed off after', () => {
+  let state = createMovementState({ x: 0, y: 0, z: 0 });
+  state.sprinting = true;
+  const input = { forward: 1, right: 0, jump: false, yaw: 0 };
+  const speeds = [];
+  for (let i = 1; i <= 6; i += 1) {
+    state = movePlayer(state, input, 0.1, i * 0.1, flatWorld);
+    speeds.push(speedOf(state));
+  }
+  assert.ok(speeds[0] > MOVEMENT.runSpeed && speeds[0] < SPRINT.speed, `first step ${speeds[0]}`);
+  for (let i = 1; i < speeds.length; i += 1) assert.ok(speeds[i] >= speeds[i - 1], 'accelerates');
+  assert.ok(Math.abs(speeds[4] - SPRINT.speed) < 0.001, `reaches full speed by ${SPRINT.accelSec}s`);
+  // gains most of it early (eased out)
+  assert.ok(speeds[1] - MOVEMENT.runSpeed > (SPRINT.speed - MOVEMENT.runSpeed) * 0.6);
+  state.sprinting = false;
+  state = movePlayer(state, input, 0.1, 0.7, flatWorld);
+  assert.ok(speedOf(state) > MOVEMENT.runSpeed && speedOf(state) < SPRINT.speed, 'slows over a moment');
+  for (let i = 0; i < 3; i += 1) state = movePlayer(state, input, 0.1, 0.8 + i * 0.1, flatWorld);
+  assert.ok(Math.abs(speedOf(state) - MOVEMENT.runSpeed) < 0.001);
+  // stopping drops the build-up; a dash does not touch it
+  state = movePlayer(state, { ...input, forward: 0 }, 0.1, 1.2, flatWorld);
+  assert.equal(state.sprintBlend, 0);
 });
 
 test('sprint starts only heading forward on the ground with enough stamina, and keeps going until empty', () => {
@@ -83,4 +111,12 @@ test('sprint starts only heading forward on the ground with enough stamina, and 
   assert.equal(resolveSprint({ ...base, stamina: SPRINT.restartStamina - 1 }), false, 'winded: must recover first');
   assert.equal(resolveSprint({ ...base, stamina: 5, sprinting: true }), true, 'an ongoing sprint uses the bar down');
   assert.equal(resolveSprint({ ...base, stamina: 0, sprinting: true }), false, 'empty bar ends it');
+});
+
+test('a dash cannot tunnel through a thin wall at the server tick rate', () => {
+  const walled = { ...flatWorld, solids: [{ id: 'wall', center: [0, 1, -2], size: [6, 2, 0.3] }] };
+  let state = createMovementState({ x: 0, y: 0, z: 0 });
+  tryStartDash(state, { x: 0, z: -1 }, 0);
+  for (let i = 1; i <= 8; i += 1) state = movePlayer(state, { forward: 0, right: 0, jump: false, yaw: 0 }, 1 / 30, i / 30, walled);
+  assert.ok(state.position.z > -2, `dashed through the wall to z=${state.position.z}`);
 });

@@ -91,7 +91,11 @@ test('guard loops its breathing hold section on the local clock', () => {
 test('air selects a fixed pose while locomotion loops locally', () => {
 
   const air = resolveSpellbladeAnimationPlan({ state: 'air', player: {}, serverNow: 1, localTime: 4.25 });
-  assert.deepEqual(air, { clip: 'Air', time: 0, loop: false, weight: 1 });
+  assert.deepEqual(air, { clip: 'Air', time: 0.5, loop: false, weight: 1, normalized: true });
+  const takeOff = resolveSpellbladeAnimationPlan({ state: 'air', player: { velocity: { y: 7.2 } }, serverNow: 1, localTime: 4.25 });
+  const falling = resolveSpellbladeAnimationPlan({ state: 'air', player: { velocity: { y: -7.2 } }, serverNow: 1, localTime: 4.25 });
+  assert.equal(takeOff.time, 0, 'take-off starts the air clip');
+  assert.equal(falling.time, 1, 'a full-speed fall reaches its end');
 
   const run = resolveSpellbladeAnimationPlan({ state: 'run', player: {}, serverNow: 1, localTime: 4.25 });
   assert.equal(run.clip, 'Run');

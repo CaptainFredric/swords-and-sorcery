@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   createRemoteVisualShell,
   disposeRemoteVisualShell,
+  revealRemoteFallback,
   setRemoteVisualPlan,
   upgradeRemoteVisual,
 } from './remoteVisualState.mjs';
@@ -96,4 +97,16 @@ test('disposing an upgraded shell disposes its owned GLB instance once', () => {
   disposeRemoteVisualShell(shell);
   assert.equal(instance.calls.dispose, 1);
   assert.equal(shell.root.children.length, 0);
+});
+
+test('a loading opponent stays hidden instead of showing the obsolete fallback, until the fallback is really needed', () => {
+  const fallback = fallbackStub();
+  const shell = createRemoteVisualShell({ root: rootStub(), fallback, hideFallbackWhileLoading: true });
+  assert.equal(fallback.visible, false);
+  assert.equal(revealRemoteFallback(shell), true);
+  assert.equal(fallback.visible, true);
+
+  const loaded = createRemoteVisualShell({ root: rootStub(), fallback: fallbackStub(), hideFallbackWhileLoading: true });
+  upgradeRemoteVisual(loaded, { root: fallbackStub('glb'), dispose() {} }, loaded.generation);
+  assert.equal(revealRemoteFallback(loaded), false, 'nothing to reveal once the production model is in');
 });

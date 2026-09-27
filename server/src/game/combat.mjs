@@ -1,6 +1,7 @@
 import { GAME, SWORD_STRIKE_TIMES, fireballSplashDamage, resolveSwordVsGuard } from '../../../shared/src/combat.mjs';
 import { findSwordWorldHit, segmentAabbHit, surfaceHeightAt } from '../../../shared/src/collision.mjs';
 import { SPRINT, movePlayer, resolveSprint, tryStartDash } from '../../../shared/src/movement.mjs';
+import { separatePlayers } from '../../../shared/src/separation.mjs';
 import { chooseSpawn } from './spawns.mjs';
 import { recordTransform, sampleTransform } from './history.mjs';
 
@@ -40,6 +41,7 @@ function resetAtSpawn(player, spawn, nowSec) {
   player.guardStamina = 100;
   player.guarding = false;
   player.sprinting = false;
+  player.sprintBlend = 0;
   player.guardStartedAt = -Infinity;
   player.lastGuardDrainAt = -Infinity;
   player.attackActive = false;
@@ -412,6 +414,7 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
     player.dashUntil = moved.dashUntil;
     player.dashReadyAt = moved.dashReadyAt;
     player.dashDir = moved.dashDir;
+    player.sprintBlend = moved.sprintBlend;
     player.yaw = input.yaw ?? player.yaw;
     player.pitch = input.pitch ?? player.pitch;
     recordTransform(player, nowSec);
@@ -440,6 +443,8 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
     }
   }
 
+  // bodies do not share space: overlapping Spellblades are eased apart (never off a ledge or into a wall)
+  separatePlayers([...room.players.values()], world);
   stepProjectiles(room, dt, nowSec, world);
   room.tickNumber += 1;
   return room.events;

@@ -119,6 +119,7 @@ export class HUD {
       `ROOM ${data.room}`,
       `${data.players} PLAYERS · ${data.state}`,
       `PRED ERR ${data.predictionError.toFixed(2)}m`,
+      `DRAW ${data.drawCalls ?? '-'} · TRIS ${Number.isFinite(data.triangles) ? `${(data.triangles / 1000).toFixed(1)}k` : '-'}`,
     ].join('\n');
   }
 }
