@@ -14,18 +14,18 @@
   --heraldry-magic: #68cee1;
   --font-inscription: "IM Fell English SC", Georgia, "Times New Roman", serif;
   --font-script: "Alegreya Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  --banner-left: clamp(18px, 4vw, 64px);
-  --banner-width: min(372px, 34vw);
+  --banner-left: clamp(18px, 4cqw, 64px);
+  --banner-width: min(372px, 34cqw);
   --hem: 38px;
 }
 
 /* --- the living backdrop ------------------------------------------------------------------------------------ */
 .menu-world { position: absolute; inset: 0; z-index: 1; overflow: hidden; background: #1a1511; }
 .menu-sky { position: absolute; inset: 0; background: linear-gradient(#7f97aa 0%, #e9d3aa 55%, #7d7a55 56%, #4b5234 100%); }
-.menu-hills { position: absolute; bottom: -17vh; width: 68vw; height: 45vh; border-radius: 50% 50% 0 0; background: #435535; }
-.hill-left { left: -15vw; transform: rotate(4deg); }
-.hill-right { right: -20vw; bottom: -13vh; background: #52613b; transform: rotate(-5deg); }
-.menu-castle-silhouette { position: absolute; left: 58%; top: 16vh; width: min(46vw, 690px); height: 260px; transform: translateX(-50%); opacity: .35; pointer-events: none; }
+.menu-hills { position: absolute; bottom: -17cqh; width: 68cqw; height: 45cqh; border-radius: 50% 50% 0 0; background: #435535; }
+.hill-left { left: -15cqw; transform: rotate(4deg); }
+.hill-right { right: -20cqw; bottom: -13cqh; background: #52613b; transform: rotate(-5deg); }
+.menu-castle-silhouette { position: absolute; left: 58%; top: 16cqh; width: min(46cqw, 690px); height: 260px; transform: translateX(-50%); opacity: .35; pointer-events: none; }
 .menu-castle-silhouette i { position: absolute; bottom: 0; display: block; background: #6d6c5d; border-top: 5px solid #83806e; }
 .menu-castle-silhouette i:nth-child(1) { left: 13%; width: 16%; height: 55%; }
 .menu-castle-silhouette i:nth-child(2) { left: 28%; width: 44%; height: 38%; }
@@ -40,7 +40,7 @@
 .menu-vignette { position: absolute; inset: 0; z-index: 3; pointer-events: none; background:
   linear-gradient(90deg, rgba(20, 14, 10, .55) 0%, rgba(20, 14, 10, .18) 32%, transparent 55%),
   radial-gradient(ellipse at 62% 48%, transparent 38%, rgba(18, 12, 8, .45) 100%); }
-.turn-hint { position: absolute; z-index: 5; right: clamp(18px, 3vw, 44px); bottom: 20px; color: rgba(245, 232, 200, .72); font: 13px/1 var(--font-inscription); letter-spacing: .12em; text-shadow: 0 1px 3px rgba(0, 0, 0, .8); pointer-events: none; white-space: nowrap; }
+.turn-hint { position: absolute; z-index: 5; right: clamp(18px, 3cqw, 44px); bottom: 20px; color: rgba(245, 232, 200, .72); font: 13px/1 var(--font-inscription); letter-spacing: .12em; text-shadow: 0 1px 3px rgba(0, 0, 0, .8); pointer-events: none; white-space: nowrap; }
 
 /* --- banners ------------------------------------------------------------------------------------------------ */
 .menu-screen, .side-screen, .lobby-screen { position: absolute; inset: 0; z-index: 8; pointer-events: none; }
@@ -85,7 +85,7 @@
 .game-brand { text-align: center; margin: 0 0 18px; }
 .banner-panel .eyebrow { margin: 0 0 6px; color: var(--heraldry-brass-light); font: 13px/1 var(--font-inscription); letter-spacing: .28em; }
 .game-brand h1 {
-  margin: 0; font: 400 clamp(34px, 3.4vw, 46px)/.95 var(--font-inscription); letter-spacing: .04em; text-transform: none; text-wrap: balance;
+  margin: 0; font: 400 clamp(34px, 3.4cqw, 46px)/.95 var(--font-inscription); letter-spacing: .04em; text-transform: none; text-wrap: balance;
   color: #f1dfae; text-shadow: 0 2px 0 rgba(58, 18, 14, .9), 0 3px 10px rgba(0, 0, 0, .5);
 }
 .game-brand h1 span { color: var(--heraldry-brass-light); font-size: .8em; }
@@ -149,7 +149,7 @@
 .banner-panel .join-button { min-height: 42px; padding: 8px 10px 8px 24px; font: 15px/1 var(--font-inscription); letter-spacing: .1em; }
 .banner-panel .join-button::before { left: 9px; }
 #solo-name, #private-name { margin: 6px 0 10px; width: 100%; }
-.manual-inner { --banner-width: min(440px, 40vw); width: var(--banner-width); }
+.manual-inner { --banner-width: min(440px, 40cqw); width: var(--banner-width); }
 .key-controls-grid { display: grid; }
 .banner-panel .controls-grid { grid-template-columns: 96px 1fr; align-items: baseline; gap: 7px 14px; padding: 12px 0; border-top: 1px solid rgba(201, 156, 82, .45); border-bottom: 1px solid rgba(201, 156, 82, .45); }
 .banner-panel .controls-grid span { color: var(--heraldry-brass-light); font: 12px/1.2 var(--font-inscription); letter-spacing: .1em; }
@@ -180,12 +180,12 @@
 .challenge-card { position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; pointer-events: none; background: radial-gradient(ellipse at center, rgba(20, 12, 8, .55), rgba(10, 6, 4, .88) 70%); animation: veil-in .35s ease-out both; }
 .challenge-inner { text-align: center; color: var(--heraldry-cream); animation: challenge-rise .6s cubic-bezier(.2, .8, .2, 1) both; }
 .challenge-inner .eyebrow { margin: 0 0 14px; color: var(--heraldry-brass-light); font: 16px/1 var(--font-inscription); letter-spacing: .32em; }
-.challenge-names { display: flex; align-items: center; justify-content: center; gap: clamp(14px, 3vw, 34px); }
-.challenge-names b { min-width: 7ch; font: 400 clamp(26px, 4vw, 48px)/1 var(--font-inscription); letter-spacing: .04em; color: #f4e3b4; text-shadow: 0 3px 12px rgba(0, 0, 0, .7); }
+.challenge-names { display: flex; align-items: center; justify-content: center; gap: clamp(14px, 3cqw, 34px); }
+.challenge-names b { min-width: 7ch; font: 400 clamp(26px, 4cqw, 48px)/1 var(--font-inscription); letter-spacing: .04em; color: #f4e3b4; text-shadow: 0 3px 12px rgba(0, 0, 0, .7); }
 .challenge-names b:first-child { text-align: right; }
 .challenge-names b:last-child { text-align: left; color: #f1b8a6; }
-.challenge-swords { width: clamp(38px, 5vw, 58px); height: clamp(38px, 5vw, 58px); fill: none; stroke: var(--heraldry-brass-light); stroke-width: 3; stroke-linecap: round; filter: drop-shadow(0 0 10px rgba(236, 201, 127, .45)); }
-.challenge-count { margin: 18px 0 6px; font: 400 clamp(54px, 8vw, 96px)/1 var(--font-inscription); color: var(--heraldry-brass-light); font-variant-numeric: tabular-nums; text-shadow: 0 0 24px rgba(236, 201, 127, .35); }
+.challenge-swords { width: clamp(38px, 5cqw, 58px); height: clamp(38px, 5cqw, 58px); fill: none; stroke: var(--heraldry-brass-light); stroke-width: 3; stroke-linecap: round; filter: drop-shadow(0 0 10px rgba(236, 201, 127, .45)); }
+.challenge-count { margin: 18px 0 6px; font: 400 clamp(54px, 8cqw, 96px)/1 var(--font-inscription); color: var(--heraldry-brass-light); font-variant-numeric: tabular-nums; text-shadow: 0 0 24px rgba(236, 201, 127, .35); }
 .challenge-count.tick { animation: count-tick .5s ease-out; }
 .challenge-copy { margin: 0; color: rgba(234, 220, 182, .75); font: 700 12px/1 var(--font-script); letter-spacing: .24em; text-transform: uppercase; }
 @keyframes challenge-rise { from { opacity: 0; transform: translateY(18px) scale(.97); } }
@@ -194,7 +194,7 @@
 
 /* --- the arena gate: black opens onto the arena with its name ------------------------------------------------- */
 .arena-gate { position: fixed; inset: 0; z-index: 45; display: grid; place-content: center; gap: 8px; text-align: center; pointer-events: none; background: #0c0806; color: var(--heraldry-cream); animation: gate-open 1.25s ease-in both; }
-.arena-gate p { margin: 0; font: 400 clamp(30px, 5vw, 58px)/1 var(--font-inscription); letter-spacing: .12em; color: #f1dfae; animation: gate-title 1.25s ease-out both; }
+.arena-gate p { margin: 0; font: 400 clamp(30px, 5cqw, 58px)/1 var(--font-inscription); letter-spacing: .12em; color: #f1dfae; animation: gate-title 1.25s ease-out both; }
 .arena-gate small { color: var(--heraldry-brass-light); font: 800 11px/1 var(--font-script); letter-spacing: .3em; animation: gate-title 1.25s ease-out both; }
 @keyframes gate-open { 0%, 35% { background: rgba(12, 8, 6, 1); } 100% { background: rgba(12, 8, 6, 0); } }
 @keyframes gate-title { 0% { opacity: 0; transform: translateY(6px); } 25%, 60% { opacity: 1; transform: none; } 100% { opacity: 0; } }
@@ -204,9 +204,9 @@
 .loading-veil.done { opacity: 0; visibility: hidden; }
 .loading-inner { display: grid; justify-items: center; gap: 12px; }
 .loading-inner .crest { width: 64px; height: 76px; margin: 0; animation: crest-glow 2.4s ease-in-out infinite; }
-.loading-title { margin: 0; font: 400 clamp(26px, 3.2vw, 38px)/1 var(--font-inscription); letter-spacing: .06em; color: #f1dfae; }
+.loading-title { margin: 0; font: 400 clamp(26px, 3.2cqw, 38px)/1 var(--font-inscription); letter-spacing: .06em; color: #f1dfae; }
 .loading-title span { color: var(--heraldry-brass-light); }
-.loading-bar { width: min(260px, 60vw); height: 3px; background: rgba(201, 156, 82, .2); overflow: hidden; }
+.loading-bar { width: min(260px, 60cqw); height: 3px; background: rgba(201, 156, 82, .2); overflow: hidden; }
 .loading-bar i { display: block; height: 100%; width: 100%; transform-origin: left; transform: scaleX(0); background: linear-gradient(90deg, #9a7336, var(--heraldry-brass-light)); transition: transform .25s ease-out; }
 .loading-copy { margin: 0; color: rgba(234, 220, 182, .7); font: 500 13px/1 var(--font-script); letter-spacing: .08em; }
 @keyframes crest-glow { 50% { filter: drop-shadow(0 0 10px rgba(236, 201, 127, .45)); } }
@@ -220,13 +220,13 @@
 .end-medallion { border-color: rgba(236, 201, 127, .6); color: var(--heraldry-brass-light); }
 .final-row b { font: 17px/1 var(--font-inscription); }
 
-@media (max-width: 900px) {
-  :root { --banner-width: min(330px, 44vw); }
-  .manual-inner { --banner-width: min(420px, 52vw); }
+@container app (max-width: 900px) {
+  :where(#game-shell) > * { --banner-width: min(330px, 44cqw); }
+  .manual-inner { --banner-width: min(420px, 52cqw); }
 }
-@media (max-width: 640px) {
-  :root { --banner-left: 12px; --banner-width: calc(100vw - 24px); }
-  .manual-inner { --banner-width: calc(100vw - 24px); }
+@container app (max-width: 640px) {
+  :where(#game-shell) > * { --banner-left: 12px; --banner-width: calc(100cqw - 24px); }
+  .manual-inner { --banner-width: calc(100cqw - 24px); }
   .banner-panel { max-height: 72%; }
   .turn-hint { display: none; }
 }
@@ -236,8 +236,8 @@
 }
 
 /* --- open rooms ------------------------------------------------------------------------------------------------ */
-.rooms-inner { --banner-width: min(420px, 38vw); width: var(--banner-width); }
-.room-list { display: flex; flex-direction: column; gap: 6px; margin: 4px 0 12px; max-height: 38vh; overflow: auto; scrollbar-width: thin; }
+.rooms-inner { --banner-width: min(420px, 38cqw); width: var(--banner-width); }
+.room-list { display: flex; flex-direction: column; gap: 6px; margin: 4px 0 12px; max-height: 38cqh; overflow: auto; scrollbar-width: thin; }
 .room-row {
   display: grid; grid-template-columns: 1fr auto; grid-template-areas: 'world count' 'status first'; gap: 2px 10px; align-items: baseline;
   width: 100%; padding: 8px 12px; border: 1px solid rgba(201, 156, 82, .45); border-radius: 2px; cursor: pointer; text-align: left;
@@ -305,3 +305,73 @@
 .sound-toggles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 10px 0 0; }
 .sound-toggles .wide-button { margin: 0; font-size: 13px; }
 .sound-toggles .wide-button[aria-pressed="false"] { opacity: .7; }
+
+/* --- Settings: an iron-bound ledger over whatever is behind it (the menu, or a match that keeps going) ----------- */
+.command-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+.command-pair .menu-command { padding-left: 26px; }
+.command-pair .menu-command::before { left: 9px; }
+.command-pair .menu-command span { font-size: 16px; white-space: nowrap; }
+.how-settings { margin: 10px 0 4px; }
+.turn-only { display: none !important; }
+html[data-turn] .turn-only { display: block !important; }
+
+.settings-screen { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; padding: 12px calc(var(--safe-r, 0px) + 12px) 12px calc(var(--safe-l, 0px) + 12px); background: rgba(12, 10, 8, .62); pointer-events: auto; }
+.settings-card {
+  display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto; width: min(620px, 100%); max-height: min(680px, calc(100cqh - 24px));
+  border: 1px solid rgba(201, 156, 82, .6); background: linear-gradient(180deg, #2b241e, #1b1714); color: var(--heraldry-cream);
+  box-shadow: 0 0 0 4px rgba(20, 16, 12, .75), 0 18px 48px rgba(0, 0, 0, .55);
+}
+.settings-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 18px 10px; border-bottom: 1px solid rgba(201, 156, 82, .25); }
+.settings-head h2 { margin: 0; font: 400 26px/1 var(--font-inscription); letter-spacing: .08em; color: #f1dfae; }
+.settings-done, .settings-reset, .setting-reset-keys {
+  padding: 9px 14px; border: 1px solid rgba(201, 156, 82, .6); border-radius: 2px; background: linear-gradient(180deg, #e7c47c, #b8893f 60%, #97702f);
+  color: #2a1c10; font: 800 12px/1 var(--font-script); letter-spacing: .14em; cursor: pointer;
+}
+.settings-reset, .setting-reset-keys { background: rgba(34, 29, 25, .8); color: var(--heraldry-cream); }
+.settings-tabs { display: flex; gap: 6px; padding: 10px 18px 0; overflow-x: auto; scrollbar-width: none; }
+.settings-tabs button {
+  flex: none; padding: 9px 14px 8px; border: 1px solid rgba(201, 156, 82, .35); border-bottom: 0; border-radius: 2px 2px 0 0; background: rgba(34, 29, 25, .7);
+  color: rgba(234, 220, 182, .75); font: 400 15px/1 var(--font-inscription); letter-spacing: .08em; cursor: pointer;
+}
+.settings-tabs button[aria-selected="true"] { background: linear-gradient(180deg, var(--heraldry-crimson), var(--heraldry-crimson-deep)); border-color: var(--heraldry-brass); color: #f6e7c0; }
+.settings-body { overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; padding: 8px 18px 14px; border-top: 1px solid rgba(201, 156, 82, .35); }
+.settings-foot { display: flex; justify-content: flex-end; padding: 10px 18px 14px; border-top: 1px solid rgba(201, 156, 82, .2); }
+
+.setting-group { margin: 16px 0 4px; color: var(--heraldry-brass-light); font: 800 10px/1 var(--font-script); letter-spacing: .22em; text-transform: uppercase; }
+.setting-note, .setting-empty { margin: 4px 0 8px; color: rgba(234, 220, 182, .6); font: 500 12px/1.4 var(--font-script); }
+.setting-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 14px; min-height: 48px; padding: 7px 0; border-bottom: 1px solid rgba(201, 156, 82, .12); }
+.setting-text b { display: block; font: 600 15px/1.2 var(--font-script); color: #f1e4c2; }
+.setting-text small { display: block; margin-top: 2px; color: rgba(234, 220, 182, .58); font: 500 11.5px/1.35 var(--font-script); }
+.setting-control { display: flex; align-items: center; gap: 10px; }
+.setting-control input[type="range"] { width: min(210px, 34cqw); accent-color: var(--heraldry-brass); }
+.setting-control output { min-width: 46px; text-align: right; color: #f1dfae; font: 700 13px/1 var(--font-script); font-variant-numeric: tabular-nums; }
+.setting-switch { min-width: 64px; padding: 9px 12px; border: 1px solid rgba(201, 156, 82, .5); border-radius: 2px; background: rgba(34, 29, 25, .8); color: rgba(234, 220, 182, .7); font: 800 12px/1 var(--font-script); letter-spacing: .14em; cursor: pointer; }
+.setting-switch[aria-checked="true"] { background: linear-gradient(180deg, #4d5b3c, #2f3a26); border-color: #b9dca8; color: #e8f4dc; }
+.setting-choices { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 5px; }
+.setting-choices button { padding: 8px 10px; border: 1px solid rgba(201, 156, 82, .4); border-radius: 2px; background: rgba(34, 29, 25, .8); color: rgba(234, 220, 182, .8); font: 700 12px/1 var(--font-script); letter-spacing: .06em; cursor: pointer; }
+.setting-choices button[aria-checked="true"] { background: linear-gradient(180deg, #e7c47c, #b8893f); border-color: #f4dc9f; color: #2a1c10; }
+.key-slots { display: flex; gap: 6px; }
+.key-chip { min-width: 64px; padding: 8px 8px 7px; border: 1px solid rgba(201, 156, 82, .5); border-bottom-width: 3px; border-radius: 3px; background: #2e2721; color: #f1e4c2; font: 800 12px/1 var(--font-script); letter-spacing: .08em; cursor: pointer; }
+.key-chip.empty { color: rgba(234, 220, 182, .35); }
+.key-chip.listening { border-color: var(--heraldry-brass-light); background: #4a3a22; color: #fff1c9; animation: key-listen 1s ease-in-out infinite; }
+@keyframes key-listen { 50% { box-shadow: 0 0 0 3px rgba(236, 201, 127, .35); } }
+.binding-row.flash { animation: binding-flash 1.2s ease-out; }
+@keyframes binding-flash { 0% { background: rgba(138, 41, 34, .55); } 100% { background: transparent; } }
+.setting-reset-keys { margin: 12px 0 2px; }
+.setting-row button:focus-visible, .settings-tabs button:focus-visible, .settings-done:focus-visible, .settings-reset:focus-visible { outline: 2px solid var(--heraldry-brass-light); outline-offset: 2px; }
+
+@container app (max-width: 560px) {
+  .setting-row { grid-template-columns: 1fr; gap: 8px; }
+  .setting-choices { justify-content: flex-start; }
+  .setting-control input[type="range"] { width: 100%; flex: 1; }
+}
+@container app (max-height: 500px) {
+  .settings-head { padding: 10px 14px 6px; }
+  .settings-head h2 { font-size: 20px; }
+  .settings-tabs { padding: 6px 14px 0; }
+  .settings-tabs button { padding: 7px 10px 6px; font-size: 13px; }
+  .settings-body { padding: 4px 14px 10px; }
+  .settings-foot { padding: 6px 14px 8px; }
+  .setting-row { min-height: 42px; padding: 5px 0; }
+  .setting-text small { display: none; }
+}

@@ -18,6 +18,7 @@ import {
 } from './sound/soundRecipes.mjs';
 import { voiceRate } from './sound/voiceRules.mjs';
 import { CombatHeat, matchClosing, nearestFoe } from './sound/combatHeat.mjs';
+import { FP_MOTION } from './firstPersonMotion.mjs';
 import { createWorldRenderer, rendererKeyForWorld } from '../worlds/WorldRendererFactory.mjs';
 import { CastlewardRenderer } from '../worlds/CastlewardRenderer.mjs';
 import { ShatteredKeepRenderer } from '../worlds/ShatteredKeepRenderer.mjs';
@@ -40,14 +41,18 @@ export class GameRuntime {
     this.sound = sound;
     this.voice = voice;
     this.heat = new CombatHeat();
+    // the player's view settings (see configure)
+    this.view = { fov: FP_MOTION.baseFov, pixelRatioCap: 1.6, cameraMotion: 1, damageNumbers: true, damageFlash: true };
+    this.touchScale = 1;
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(SCENE_PRESENTATION.background);
     this.scene.fog = new THREE.FogExp2(SCENE_PRESENTATION.fogColor, SCENE_PRESENTATION.fogDensity);
-    this.camera = new THREE.PerspectiveCamera(78, innerWidth / innerHeight, 0.05, 180);
+    const view = this.#viewSize();
+    this.camera = new THREE.PerspectiveCamera(78, view.width / view.height, 0.05, 180);
     this.scene.add(this.camera);
     this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-    this.renderer.setPixelRatio(Math.min(devicePixelRatio, 1.6));
-    this.renderer.setSize(innerWidth, innerHeight);
+    this.renderer.setPixelRatio(Math.min(devicePixelRatio, this.view.pixelRatioCap));
+    this.renderer.setSize(view.width, view.height);
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -132,15 +137,27 @@ export class GameRuntime {
       socket.on('events', (batch) => this.onEvents(batch.events)),
     ];
     window.addEventListener('resize', this.#resize);
+    // the shell can change shape without the window changing (lying sideways on an upright phone app)
+    this.resizeObserver = typeof ResizeObserver === 'function' ? new ResizeObserver(this.#resize) : null;
+    this.resizeObserver?.observe(container);
     // local inspection only: /?debug exposes the runtime to the console
     if (new URLSearchParams(location.search).has('debug')) globalThis.__ssRuntime = this;
     requestAnimationFrame((t) => this.#frame(t));
   }
 
+  // the size of the arena's own frame (its container), not the window: the game may lie sideways on the screen
+  #viewSize() {
+    return {
+      width: Math.max(1, this.container?.clientWidth || innerWidth),
+      height: Math.max(1, this.container?.clientHeight || innerHeight),
+    };
+  }
+
   #resize = () => {
-    this.camera.aspect = innerWidth / innerHeight;
+    const view = this.#viewSize();
+    this.camera.aspect = view.width / view.height;
     this.camera.updateProjectionMatrix();
-    this.renderer.setSize(innerWidth, innerHeight);
+    this.renderer.setSize(view.width, view.height);
   };
 
   #applyWeaponRelease(release) {
@@ -198,10 +215,31 @@ export class GameRuntime {
     this.input.releaseFocus();
   }
 
+  /**
+   * The player's settings: view { fov, pixelRatioCap, cameraMotion 0..1, damageNumbers, damageFlash } and input
+   * { mouse, touch, invertY, touchScale, bindings }.
+   */
+  configure({ view = null, input = null } = {}) {
+    if (view) {
+      const sharper = view.pixelRatioCap !== this.view.pixelRatioCap;
+      this.view = { ...this.view, ...view };
+      if (sharper) {
+        this.renderer.setPixelRatio(Math.min(devicePixelRatio, this.view.pixelRatioCap));
+        this.#resize();
+      }
+    }
+    if (input) {
+      this.input.configure(input);
+      this.touchScale = input.touchScale ?? this.touchScale;
+      this.touch?.setScale(this.touchScale);
+    }
+  }
+
   // phones and tablets: on-screen controls replace the mouse and keyboard
   enableTouch() {
     if (this.touch) return;
     this.touch = new TouchControls(this.hud.root, this.input);
+    this.touch.setScale(this.touchScale);
     this.input.touch = this.touch;
     this.touch.setActive(this.input.touchFocus);
   }
@@ -310,7 +348,7 @@ export class GameRuntime {
           this.hud.hit('hit');
           // my numbers only: the blow's weight, rising off the body
           const victim = this.#bodyPosition(event.victimId);
-          if (victim && event.amount > 0 && event.victimId !== me) {
+          if (victim && event.amount > 0 && event.victimId !== me && this.view.damageNumbers) {
             this.effects.damageNumber({ x: victim.x, y: victim.y + 1.85, z: victim.z }, event.amount, { heavy: event.amount >= 40 });
           }
         }
@@ -319,7 +357,7 @@ export class GameRuntime {
         }
         // a blow that kills gets the death cry instead
         if (event.amount >= 8 && event.health > 0 && event.source !== 'abyss') this.#say('hurt', event.victimId);
-        if (event.victimId === this.socket.playerId) document.body.classList.add('took-damage');
+        if (event.victimId === this.socket.playerId && this.view.damageFlash) document.body.classList.add('took-damage');
         setTimeout(() => document.body.classList.remove('took-damage'), 120);
       }
       if (event.type === 'death') {
@@ -484,14 +522,17 @@ export class GameRuntime {
       this.camera.position.set(this.localState.position.x, this.localState.position.y + 1.58 + view.camera.y, this.localState.position.z);
       this.camera.rotation.order = 'YXZ';
       this.camera.rotation.y = this.input.yaw;
-      this.camera.rotation.x = this.input.pitch + this.cameraKick + view.camera.pitch;
-      this.camera.rotation.z = view.camera.roll;
+      // camera motion (a comfort setting) scales the sway, bob, kicks and the widening of the view when sprinting
+      const motion = this.view.cameraMotion;
+      this.camera.position.y -= view.camera.y * (1 - motion);
+      this.camera.rotation.x = this.input.pitch + (this.cameraKick + view.camera.pitch) * motion;
+      this.camera.rotation.z = view.camera.roll * motion;
       this.cameraKick *= Math.exp(-dt * 15);
-      this.#setFov(view.fov);
+      this.#setFov(this.view.fov + (view.fov - FP_MOTION.baseFov) * motion);
     } else if (this.localAuth && this.localState) {
       this.camera.position.set(this.localState.position.x, this.localState.position.y + 1.58, this.localState.position.z);
       this.camera.rotation.z = 0;
-      this.#setFov(this.weapon.update(timeSec, dt).fov);
+      this.#setFov(this.view.fov + (this.weapon.update(timeSec, dt).fov - FP_MOTION.baseFov) * this.view.cameraMotion);
     }
     this.remotePlayers.update(nowMs, dt);
     this.world?.update?.(timeSec, this.camera);
@@ -530,6 +571,7 @@ export class GameRuntime {
     this.running = false;
     for (const off of this.unsubscribe) off();
     window.removeEventListener('resize', this.#resize);
+    this.resizeObserver?.disconnect();
     this.touch?.dispose();
     this.world?.dispose?.();
     this.remotePlayers.dispose();

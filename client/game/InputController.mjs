@@ -1,4 +1,23 @@
 import { recordArenaKey, releaseHeldInputs } from './inputRelease.mjs';
+import { registry } from '../settings/settingsRegistry.mjs';
+
+// what pressing and letting go of each action does (held movement keys are read by movement() instead); any other
+// action, such as an ability added later, reaches onAction(action, pressed)
+const PRESS = {
+  attack: (input) => input.setAttack(true),
+  guard: (input) => input.setGuard(true),
+  fireball: (input) => input.cast(),
+  dash: (input) => input.dash(),
+  scoreboard: (input) => { input.scoreboardHeld = true; },
+};
+const RELEASE = {
+  attack: (input) => input.setAttack(false),
+  guard: (input) => input.setGuard(false),
+  scoreboard: (input) => { input.scoreboardHeld = false; },
+};
+const HELD = new Set(['forward', 'back', 'left', 'right', 'jump', 'sprint']);
+// the menus handle these themselves (they work outside the arena too)
+const MENU_ACTIONS = new Set(['toggleSound', 'toggleMusic']);
 
 export class InputController {
   constructor(element, socket) {
@@ -21,8 +40,45 @@ export class InputController {
     this.onCastLocal = () => {};
     this.onDashLocal = () => {};
     this.onPointer = () => {};
+    this.onAction = () => {};
+    // look speed (multipliers) and the key bindings, from the settings
+    this.look = { mouse: 1, touch: 1, invertY: false };
+    this.bindings = registry.defaultBindings();
+    this.#index();
 
     this.#bind();
+  }
+
+  /** Settings: { mouse, touch, invertY, bindings: { action: [codes] } }. */
+  configure({ mouse = this.look.mouse, touch = this.look.touch, invertY = this.look.invertY, bindings = this.bindings } = {}) {
+    this.look = { mouse, touch, invertY: Boolean(invertY) };
+    this.bindings = bindings;
+    this.#index();
+  }
+
+  #index() {
+    this.actionOf = new Map();
+    for (const [action, codes] of Object.entries(this.bindings)) for (const code of codes ?? []) this.actionOf.set(code, action);
+  }
+
+  /** Whether any key bound to an action is held. */
+  held(action) {
+    for (const code of this.bindings[action] ?? []) if (this.keys.has(code)) return true;
+    return false;
+  }
+
+  #press(code, repeat = false) {
+    const action = this.actionOf.get(code);
+    if (!action || repeat || HELD.has(action) || MENU_ACTIONS.has(action)) return;
+    if (PRESS[action]) PRESS[action](this);
+    else if (!RELEASE[action]) this.onAction(action, true);
+  }
+
+  #release(code) {
+    const action = this.actionOf.get(code);
+    if (!action || HELD.has(action) || MENU_ACTIONS.has(action)) return;
+    if (RELEASE[action]) RELEASE[action](this);
+    else if (!PRESS[action]) this.onAction(action, false);
   }
 
   #bind() {
@@ -44,15 +100,15 @@ export class InputController {
 
     document.addEventListener('mousemove', (event) => {
       if (!this.pointerLocked) return;
-      this.turn(-event.movementX * 0.00235, -event.movementY * 0.0021);
+      const invert = this.look.invertY ? -1 : 1;
+      this.turn(-event.movementX * 0.00235 * this.look.mouse, -event.movementY * 0.0021 * this.look.mouse * invert);
     });
 
     document.addEventListener('keydown', (event) => {
       if (!recordArenaKey(this.keys, event.code, this.enabled)) return;
-      if (['KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space', 'Tab', 'ShiftLeft', 'ShiftRight'].includes(event.code)) event.preventDefault();
-      if (event.code === 'KeyQ' && !event.repeat) this.cast();
-      if (event.code === 'KeyE' && !event.repeat) this.dash();
-      if (event.code === 'Tab') this.scoreboardHeld = true;
+      // a bound key belongs to the game while in the arena (Space would scroll, Tab would move focus)
+      if (this.actionOf.has(event.code)) event.preventDefault();
+      this.#press(event.code, event.repeat);
       if (event.code === 'F3' && !event.repeat) {
         event.preventDefault();
         this.debugVisible = !this.debugVisible;
@@ -61,19 +117,22 @@ export class InputController {
 
     document.addEventListener('keyup', (event) => {
       this.keys.delete(event.code);
-      if (event.code === 'Tab') this.scoreboardHeld = false;
+      this.#release(event.code);
     });
 
+    // mouse buttons are bindings like keys: Mouse0 is the left button, Mouse2 the right
     document.addEventListener('mousedown', (event) => {
       if (!this.pointerLocked) return;
-      if (event.button === 0) this.setAttack(true);
-      if (event.button === 2) this.setGuard(true);
+      const code = `Mouse${event.button}`;
+      this.keys.add(code);
+      this.#press(code);
     });
 
     document.addEventListener('mouseup', (event) => {
       if (this.touchFocus) return;
-      if (event.button === 0) this.setAttack(false);
-      if (event.button === 2) this.setGuard(false);
+      const code = `Mouse${event.button}`;
+      this.keys.delete(code);
+      this.#release(code);
     });
     document.addEventListener('contextmenu', (event) => event.preventDefault());
   }
@@ -140,11 +199,11 @@ export class InputController {
   movement() {
     const touch = this.touch?.movement?.() ?? null;
     return {
-      forward: (this.keys.has('KeyW') ? 1 : 0) - (this.keys.has('KeyS') ? 1 : 0) + (touch?.forward ?? 0),
-      right: (this.keys.has('KeyD') ? 1 : 0) - (this.keys.has('KeyA') ? 1 : 0) + (touch?.right ?? 0),
-      jump: this.keys.has('Space') || Boolean(touch?.jump),
-      // hold Shift (or push the touch stick all the way forward, or latch the touch Sprint button) to sprint
-      sprint: this.keys.has('ShiftLeft') || this.keys.has('ShiftRight') || Boolean(touch?.sprint),
+      forward: (this.held('forward') ? 1 : 0) - (this.held('back') ? 1 : 0) + (touch?.forward ?? 0),
+      right: (this.held('right') ? 1 : 0) - (this.held('left') ? 1 : 0) + (touch?.right ?? 0),
+      jump: this.held('jump') || Boolean(touch?.jump),
+      // hold Sprint (Shift unless rebound; or push the touch stick all the way forward, or latch the touch button)
+      sprint: this.held('sprint') || Boolean(touch?.sprint),
       yaw: this.yaw,
       pitch: this.pitch,
     };

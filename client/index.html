@@ -60,7 +60,10 @@
         <button id="quick-play" class="menu-command"><span>OPEN ROOMS</span><small>Find a public match</small></button>
         <button id="solo-button" class="menu-command"><span>SOLO</span><small>Fight a bot or practice</small></button>
         <button id="private-button" class="menu-command"><span>PRIVATE MATCH</span><small>Create or join a room</small></button>
-        <button id="how-button" class="menu-command quiet-command"><span>HOW TO PLAY</span><small>Controls and combat basics</small></button>
+        <div class="command-pair">
+          <button id="how-button" class="menu-command quiet-command"><span>HOW TO PLAY</span><small>Controls and combat</small></button>
+          <button id="settings-button" class="menu-command quiet-command" data-open-settings><span>SETTINGS</span><small>Sound, controls, display</small></button>
+        </div>
         <p id="menu-error" data-menu-error class="error-copy" aria-live="polite"></p>
       </aside>
       </div>
@@ -148,10 +151,7 @@
           <span>SPRINT</span><b>Tap to sprint until you let go of the stick</b>
           <span>MENU</span><b>Arena menu · practice tools</b>
         </div>
-        <div class="sound-toggles" role="group" aria-label="Sound">
-          <button class="wide-button" data-toggle-sound aria-pressed="true">SOUND · ON</button>
-          <button class="wide-button" data-toggle-music aria-pressed="true">MUSIC · ON</button>
-        </div>
+        <button class="wide-button how-settings" data-open-settings="controls">SETTINGS · CONTROLS AND KEYS</button>
         <p class="rules-copy">Three sword hits defeat a full-health Spellblade. A well-timed Guard parries and staggers the attacker. Fireball beats passive blocking. Dash repositions; it does not grant invulnerability. Guard and Sprint share one stamina bar: sprinting drains it slowly, every block costs a chunk, and it refills a moment after you stop.</p>
       </div>
     </section>
@@ -204,6 +204,8 @@
         <p>The match continues while this menu is open.</p>
         <button id="resume-game" class="wide-button primary-command">RESUME</button>
         <button id="pause-leave" class="wide-button">RETURN TO MENU</button>
+        <button class="wide-button" data-open-settings>SETTINGS</button>
+        <button class="wide-button turn-only" data-turn-flip>FLIP SCREEN ⟲</button>
         <div class="sound-toggles" role="group" aria-label="Sound">
           <button class="wide-button" data-toggle-sound aria-pressed="true">SOUND · ON</button>
           <button class="wide-button" data-toggle-music aria-pressed="true">MUSIC · ON</button>
@@ -236,6 +238,7 @@
         <button id="practice-guarding">GUARDING DUMMY</button>
         <button id="practice-fight">FIGHTS BACK</button>
         <button id="practice-remove">REMOVE DUMMY</button>
+        <button type="button" data-open-settings>SETTINGS</button>
         <button id="practice-leave" class="practice-leave">LEAVE PRACTICE</button>
       </aside>
       <div id="death-card" class="death-card hidden"><small>SLAIN BY</small><strong id="death-killer">THE FALL</strong><span id="death-timer">3.0</span></div>
@@ -267,9 +270,28 @@
         <div class="rotate-phone" aria-hidden="true"><i></i></div>
         <h2>TURN TO LANDSCAPE</h2>
         <p>Swords &amp; Sorcery is played sideways: move with your left thumb, fight with your right.</p>
+        <button id="rotate-sideways" class="wide-button primary-command rotate-sideways">PLAY SIDEWAYS</button>
+        <p class="rotate-note">Screen won't turn inside this app? This lays the game on its side; turn your phone to match.</p>
         <button id="rotate-dismiss" class="back-button">CONTINUE IN PORTRAIT</button>
       </div>
     </section>
+    <section id="settings" class="settings-screen hidden" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+      <div class="settings-card">
+        <header class="settings-head">
+          <h2 id="settings-title">SETTINGS</h2>
+          <button type="button" class="settings-done" data-settings-done>DONE</button>
+        </header>
+        <nav class="settings-tabs" role="tablist" aria-label="Settings sections" data-settings-tabs></nav>
+        <div class="settings-body" role="tabpanel" data-settings-body></div>
+        <footer class="settings-foot">
+          <button type="button" class="settings-reset" data-settings-reset>RESET</button>
+        </footer>
+      </div>
+    </section>
+    <div id="turn-toast" class="turn-toast hidden" role="status">
+      <span id="turn-toast-copy">Turn your phone sideways to match the game.</span>
+      <button id="turn-flip" type="button">FLIP ⟲</button>
+    </div>
   </main>
 
   <script type="module" src="/client/main.mjs"></script>

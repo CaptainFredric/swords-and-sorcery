@@ -4,26 +4,18 @@
 // Chain: every sound -> its own panner -> a bus (sfx, ui, ambience, music, voice) -> master gain -> compressor ->
 // speakers. Sounds can also send to two generated rooms: a stone courtyard (combat, voice) and a long hall (music, the
 // bell), and the voice has an echo off the castle walls. Browsers only let audio start after a user gesture, so the
-// context is created and resumed on the first click, tap or key press.
+// context is created and resumed on the first click, tap or key press. The levels come from the player's settings
+// (setLevels); until then the defaults below.
 
-const STORAGE_KEY = 'ss-sound';
-const DEFAULT_SETTING = Object.freeze({ muted: false, volume: 0.8, music: true, musicVolume: 0.55 });
+// each bus's own level, before the player's volume for it
 export const BUS_LEVELS = Object.freeze({ sfx: 1, ui: 0.5, ambience: 0.55, music: 1, voice: 0.9 });
-
-function readSetting() {
-  try { return { ...DEFAULT_SETTING, ...(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null') ?? {}) }; }
-  catch { return { ...DEFAULT_SETTING }; }
-}
-
-function writeSetting(setting) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(setting)); } catch { /* private mode: keep it for the session */ }
-}
+export const DEFAULT_LEVELS = Object.freeze({ muted: false, master: 0.8, effects: 1, voice: 1, ambience: 1, music: 0.55, musicMuted: false });
 
 export class SoundEngine {
   constructor({ listen = true } = {}) {
     this.ctx = null;
     this.offline = false;
-    this.setting = readSetting();
+    this.levels = { ...DEFAULT_LEVELS };
     this.noise = null;
     this.buses = {};
     this.readyCallbacks = [];
@@ -40,8 +32,8 @@ export class SoundEngine {
     });
   }
 
-  get muted() { return Boolean(this.setting.muted); }
-  get musicOn() { return Boolean(this.setting.music) && !this.setting.muted; }
+  get muted() { return Boolean(this.levels.muted); }
+  get musicOn() { return !this.levels.muted && !this.levels.musicMuted && this.levels.music > 0; }
   get running() { return Boolean(this.ctx) && (this.offline || this.ctx.state === 'running'); }
   get now() { return this.ctx?.currentTime ?? 0; }
 
@@ -51,32 +43,27 @@ export class SoundEngine {
     else this.readyCallbacks.push(fn);
   }
 
-  /** Called with the setting whenever sound or music is switched on or off. */
+  /** Called with the levels whenever they change (the music starts or stops with them). */
   onChange(fn) { this.changeCallbacks.push(fn); }
 
-  toggleMute() {
-    this.#updateSetting({ muted: !this.setting.muted });
-    return this.setting.muted;
-  }
-
-  toggleMusic() {
-    this.#updateSetting({ music: !this.setting.music });
-    return this.setting.music;
-  }
-
-  #updateSetting(patch) {
-    this.setting = { ...this.setting, ...patch };
-    writeSetting(this.setting);
+  /** The player's levels: { muted, master, effects, voice, ambience, music, musicMuted } (volumes 0..1). */
+  setLevels(levels) {
+    this.levels = { ...this.levels, ...levels };
     this.#applyLevels(0.08);
-    for (const fn of this.changeCallbacks) fn(this.setting);
+    for (const fn of this.changeCallbacks) fn(this.levels);
   }
 
   #applyLevels(glide = 0) {
     if (!this.master) return;
     const at = this.ctx.currentTime;
     const set = (param, value) => (glide ? param.setTargetAtTime(value, at, glide / 3) : param.setValueAtTime(value, at));
-    set(this.master.gain, this.setting.muted ? 0 : this.setting.volume);
-    set(this.buses.music.gain, this.setting.music ? BUS_LEVELS.music * this.setting.musicVolume : 0);
+    const levels = this.levels;
+    set(this.master.gain, levels.muted ? 0 : levels.master);
+    set(this.buses.sfx.gain, BUS_LEVELS.sfx * levels.effects);
+    set(this.buses.ui.gain, BUS_LEVELS.ui * levels.effects);
+    set(this.buses.ambience.gain, BUS_LEVELS.ambience * levels.ambience);
+    set(this.buses.voice.gain, BUS_LEVELS.voice * levels.voice);
+    set(this.buses.music.gain, levels.musicMuted ? 0 : BUS_LEVELS.music * levels.music);
   }
 
   /** Render into a given context instead of the speakers (an OfflineAudioContext, for checking the mix). */
@@ -258,7 +245,7 @@ export class SoundEngine {
    */
   play(recipe, { pan = 0, gain = 1, delay = 0, bus = 'sfx', at = null } = {}) {
     const ctx = this.ctx;
-    if (!ctx || this.setting.muted || !recipe) return;
+    if (!ctx || this.levels.muted || !recipe) return;
     if (!this.running) {
       // the first click wakes the context: its own clank plays as soon as it can
       if (ctx.state === 'suspended' && bus === 'ui' && this.pending.length < 4) this.pending.push(() => this.play(recipe, { pan, gain, bus }));
@@ -284,7 +271,7 @@ export class SoundEngine {
     attack = 0, duration = null, release = 0.05,
   } = {}) {
     const ctx = this.ctx;
-    if (!ctx || !buffer || this.setting.muted || !this.running) return null;
+    if (!ctx || !buffer || this.levels.muted || !this.running) return null;
     const start = at ?? ctx.currentTime + Math.max(0, delay) + 0.005;
     const { out, panner } = this.#route(bus, pan);
     const source = ctx.createBufferSource();
