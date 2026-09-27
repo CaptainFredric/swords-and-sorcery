@@ -14,6 +14,11 @@ import { MenuController, shouldRouteSocketError } from './menu/MenuController.mj
 import { MenuScene } from './menu/MenuScene.mjs';
 import { SCREEN_IDS, ScreenRouter } from './ui/ScreenRouter.mjs';
 import { isTouchPrimary } from './game/touchControlsModel.mjs';
+import { registry } from './settings/settingsRegistry.mjs';
+import { SettingsStore } from './settings/SettingsStore.mjs';
+import { SettingsPanel } from './settings/SettingsPanel.mjs';
+import { inputOptions, soundLevels, turnOptions, viewOptions } from './settings/applySettings.mjs';
+import { screenTurn } from './ui/screenTurn.mjs';
 
 const $ = (selector) => document.querySelector(selector);
 const menuWorld = $('#menu-world');
@@ -54,11 +59,17 @@ const hud = new HUD();
 // one sound engine for the whole page; it unlocks on the first click or key press. Around it: the wind and bell of
 // the courtyard, the music, and the Spellblade's voice.
 const sound = new SoundEngine();
+// the player's settings, saved in this browser (see settings/settingsRegistry.mjs for what exists and how to add more)
+const settings = new SettingsStore({ registry });
+sound.setLevels(soundLevels(settings));
+// a phone app that holds its screen upright: the game can lie sideways on it (Settings › Display › Screen)
+screenTurn?.configure(turnOptions(settings));
 const ambience = new Ambience(sound);
 const music = new MusicPlayer(sound);
 const voice = new VoiceBank(sound);
 if (new URLSearchParams(location.search).has('debug')) {
   globalThis.__ssSound = { sound, ambience, music, voice };
+  globalThis.__ssSettings = { settings, registry, screenTurn };
   import('./game/sound/soundDemo.mjs').then((demo) => { globalThis.__ssSoundDemo = demo; });
 }
 const socket = new GameSocket();
@@ -106,6 +117,7 @@ try {
   liftVeil();
 }
 if (new URLSearchParams(location.search).has('debug')) globalThis.__ssMenu = menuScene;
+menuScene?.setPixelRatioCap(viewOptions(settings).pixelRatioCap);
 
 let runtime = null;
 let touchUi = false;
@@ -256,6 +268,7 @@ $('#rotate-dismiss').addEventListener('click', () => document.body.classList.add
 function ensureRuntime() {
   if (!runtime) {
     runtime = new GameRuntime($('#game-canvas'), socket, hud, { sound, voice });
+    runtime.configure({ view: viewOptions(settings), input: inputOptions(settings) });
     if (touchUi) runtime.enableTouch();
     runtime.onPointer = (locked) => {
       const mode = latestLobby?.mode ?? latestSnapshot?.mode;
@@ -481,28 +494,86 @@ $('#pause-leave').addEventListener('click', () => clearSessionAndNavigate());
 $('#lobby-leave').addEventListener('click', () => clearSessionAndNavigate());
 // the ready check: each Spellblade says they are ready (press again to take it back)
 startMatchButton.addEventListener('click', () => socket.ready(!startMatchButton.classList.contains('pressed')));
-// M: sound on/off, N: music on/off (not while typing a name or room code); the same switches sit in the arena menu
-// and How to Play for touch screens
+// --- settings: every change reaches what it belongs to, at once ---
+function applySettings() {
+  sound.setLevels(soundLevels(settings));
+  const view = viewOptions(settings);
+  menuScene?.setPixelRatioCap(view.pixelRatioCap);
+  runtime?.configure({ view, input: inputOptions(settings) });
+  screenTurn?.configure(turnOptions(settings));
+  renderSoundToggles();
+}
+const settingsPanel = new SettingsPanel({
+  root: $('#settings'),
+  store: settings,
+  registry,
+  device: () => (touchUi ? 'touch' : 'desktop'),
+});
+settings.onChange((change) => {
+  applySettings();
+  // choosing to lie sideways (a tap, so motion access can be asked for): say which way to turn the phone
+  if (change.id === 'display.orientation' && change.value === 'sideways') {
+    screenTurn?.listenToMotion();
+    showTurnToast();
+  }
+});
+for (const button of document.querySelectorAll('[data-open-settings]')) {
+  button.addEventListener('click', () => settingsPanel.open(button.dataset.openSettings || undefined));
+}
+
+// the sound and music switches (M and N unless rebound; the same switches sit in the arena menu for touch screens)
 function renderSoundToggles() {
+  const muted = settings.get('audio.muted');
+  const musicOff = settings.get('audio.musicMuted');
   for (const button of document.querySelectorAll('[data-toggle-sound]')) {
-    button.textContent = sound.muted ? 'SOUND · OFF' : 'SOUND · ON';
-    button.setAttribute('aria-pressed', String(!sound.muted));
+    button.textContent = muted ? 'SOUND · OFF' : 'SOUND · ON';
+    button.setAttribute('aria-pressed', String(!muted));
   }
   for (const button of document.querySelectorAll('[data-toggle-music]')) {
-    button.textContent = sound.setting.music ? 'MUSIC · ON' : 'MUSIC · OFF';
-    button.setAttribute('aria-pressed', String(Boolean(sound.setting.music)));
-    button.disabled = sound.muted;
+    button.textContent = musicOff ? 'MUSIC · OFF' : 'MUSIC · ON';
+    button.setAttribute('aria-pressed', String(!musicOff));
+    button.disabled = muted;
   }
 }
-sound.onChange(renderSoundToggles);
 renderSoundToggles();
 document.addEventListener('keydown', (event) => {
   if (event.repeat || event.target?.tagName === 'INPUT') return;
-  if (event.code === 'KeyM') hud.flashText(sound.toggleMute() ? 'SOUND OFF' : 'SOUND ON', 'ready', 900);
-  if (event.code === 'KeyN') hud.flashText(sound.toggleMusic() ? 'MUSIC ON' : 'MUSIC OFF', 'ready', 900);
+  const action = settings.actionFor(event.code);
+  if (action === 'toggleSound') hud.flashText(settings.toggle('audio.muted') ? 'SOUND OFF' : 'SOUND ON', 'ready', 900);
+  if (action === 'toggleMusic') hud.flashText(settings.toggle('audio.musicMuted') ? 'MUSIC OFF' : 'MUSIC ON', 'ready', 900);
 });
-for (const button of document.querySelectorAll('[data-toggle-sound]')) button.addEventListener('click', () => sound.toggleMute());
-for (const button of document.querySelectorAll('[data-toggle-music]')) button.addEventListener('click', () => sound.toggleMusic());
+for (const button of document.querySelectorAll('[data-toggle-sound]')) button.addEventListener('click', () => settings.toggle('audio.muted'));
+for (const button of document.querySelectorAll('[data-toggle-music]')) button.addEventListener('click', () => settings.toggle('audio.musicMuted'));
+
+// --- lying sideways on a phone app that will not turn ---
+const turnToast = $('#turn-toast');
+let turnToastTimer = null;
+function showTurnToast() {
+  if (!screenTurn?.turned) return;
+  turnToast.classList.remove('hidden');
+  clearTimeout(turnToastTimer);
+  turnToastTimer = setTimeout(() => turnToast.classList.add('hidden'), 8000);
+}
+// the side the phone was turned to (by its motion sensors, or the flip) is remembered like any setting
+screenTurn?.onChange(({ side }) => {
+  if (settings.get('display.turnSide') !== side) settings.set('display.turnSide', side);
+});
+$('#rotate-sideways').addEventListener('click', () => {
+  // the game lies down at once; if the app turns for real after all, it stands back up
+  settings.set('display.orientation', 'sideways');
+  screenTurn?.goSideways().then((how) => { if (how === 'locked') settings.set('display.orientation', 'auto'); });
+});
+$('#turn-flip').addEventListener('click', () => {
+  screenTurn?.flip();
+  screenTurn?.listenToMotion();
+  showTurnToast();
+});
+for (const button of document.querySelectorAll('[data-turn-flip]')) {
+  button.addEventListener('click', () => {
+    screenTurn?.flip();
+    screenTurn?.listenToMotion();
+  });
+}
 // every button lands with a little brass (not the on-screen fighting controls)
 document.addEventListener('click', (event) => {
   const button = event.target.closest?.('button');
@@ -513,6 +584,10 @@ document.addEventListener('click', (event) => {
 }, { capture: true });
 document.addEventListener('keydown', event => {
   if (event.key !== 'Escape' || event.repeat) return;
+  if (settingsPanel.isOpen) {
+    settingsPanel.close();
+    return;
+  }
   if ([SCREEN_IDS.SOLO_MENU, SCREEN_IDS.PRIVATE_MENU, SCREEN_IDS.ROOMS_MENU, SCREEN_IDS.HOW_TO_PLAY].includes(router.current)) {
     route(SCREEN_IDS.MAIN_MENU);
   } else if (router.current === SCREEN_IDS.LOBBY || router.current === SCREEN_IDS.END_SCREEN) {

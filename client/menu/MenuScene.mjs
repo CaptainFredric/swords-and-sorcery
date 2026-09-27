@@ -4,6 +4,10 @@ import { createSpellbladeAsset, reportSpellbladeAssetStatus } from '../game/Spel
 import { CASTLEWARD_LIGHTING, CastlewardRenderer } from '../worlds/CastlewardRenderer.mjs';
 import { MENU_SHOTS, easeShot, lerpShot, menuShotFor } from './menuShots.mjs';
 import { idleMoment, idlePose } from './menuIdle.mjs';
+import { screenTurn } from '../ui/screenTurn.mjs';
+
+// a drag in the game's own frame (the game may be lying sideways on a screen that stays upright)
+const gamePoint = (event) => (screenTurn ? screenTurn.point(event.clientX, event.clientY) : { x: event.clientX, y: event.clientY });
 
 function disposeObject(root) {
   root.traverse((object) => {
@@ -189,14 +193,15 @@ export class MenuScene {
       }
     }
     this.dragging = true;
-    this.dragStart = { x: event.clientX, y: event.clientY, yaw: this.targetYaw, pitch: this.targetPitch };
+    this.dragStart = { ...gamePoint(event), yaw: this.targetYaw, pitch: this.targetPitch };
     this.renderer.domElement.setPointerCapture?.(event.pointerId);
   };
 
   #pointerMove = (event) => {
     if (!this.dragging) return;
-    this.targetYaw = this.dragStart.yaw + (event.clientX - this.dragStart.x) * 0.009;
-    this.targetPitch = THREE.MathUtils.clamp(this.dragStart.pitch + (event.clientY - this.dragStart.y) * 0.004, -0.12, 0.12);
+    const point = gamePoint(event);
+    this.targetYaw = this.dragStart.yaw + (point.x - this.dragStart.x) * 0.009;
+    this.targetPitch = THREE.MathUtils.clamp(this.dragStart.pitch + (point.y - this.dragStart.y) * 0.004, -0.12, 0.12);
   };
 
   #pointerUp = () => { this.dragging = false; };
@@ -267,6 +272,15 @@ export class MenuScene {
     cancelAnimationFrame(this.frameHandle);
     this.lastFrameAt = null;
     this.frameHandle = requestAnimationFrame(this.#frame);
+  }
+
+  /** Render quality (a setting): the menu never draws sharper than 1.25x, and Smooth draws at 1x. */
+  setPixelRatioCap(cap) {
+    // resizing clears the canvas, so only when the quality really changes (settings apply on every change)
+    if (cap === this.pixelRatioCap) return;
+    this.pixelRatioCap = cap;
+    this.renderer.setPixelRatio(Math.min(globalThis.devicePixelRatio || 1, 1.25, cap));
+    this.resize();
   }
 
   resize() {

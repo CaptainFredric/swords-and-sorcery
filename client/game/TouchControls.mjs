@@ -1,6 +1,7 @@
 import { GAME } from '../../shared/src/combat.mjs';
 import { MOVEMENT } from '../../shared/src/movement.mjs';
 import { lookDelta, stickVector, TOUCH } from './touchControlsModel.mjs';
+import { screenTurn } from '../ui/screenTurn.mjs';
 
 // On-screen controls for phones and tablets. They drive the same InputController actions as the mouse and
 // keyboard, so the server, prediction and animation see no difference between the two.
@@ -36,6 +37,11 @@ const BUTTONS = [
 
 function svg(action) {
   return `<svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[action]}</svg>`;
+}
+
+// where a finger is in the game's own frame (the game may be lying sideways on a screen that stays upright)
+function gamePoint(event) {
+  return screenTurn ? screenTurn.point(event.clientX, event.clientY) : { x: event.clientX, y: event.clientY };
 }
 
 export class TouchControls {
@@ -85,6 +91,11 @@ export class TouchControls {
       const element = document.querySelector(selector);
       if (element) element.textContent = text;
     }
+  }
+
+  /** The buttons' size as a share of their natural size (a setting). */
+  setScale(scale) {
+    this.layer.style.setProperty('--ts', String(scale));
   }
 
   // shown and listening only while the player is in the arena (the touch version of pointer lock)
@@ -155,11 +166,11 @@ export class TouchControls {
       this.#press(button.dataset.action, event);
       return;
     }
-    const rect = this.layer.getBoundingClientRect();
-    if (event.clientX - rect.left < rect.width * STICK_ZONE) {
-      if (!this.stick) this.#startStick(event, rect);
+    const point = gamePoint(event);
+    if (point.x < this.layer.clientWidth * STICK_ZONE) {
+      if (!this.stick) this.#startStick(event, point);
     } else if (!this.look) {
-      this.look = { id: event.pointerId, x: event.clientX, y: event.clientY };
+      this.look = { id: event.pointerId, x: point.x, y: point.y };
     }
   };
 
@@ -173,10 +184,12 @@ export class TouchControls {
     const aiming = held === 'attack' || held === 'guard' ? this.aim?.get(event.pointerId) : null;
     const tracker = looking ?? aiming;
     if (!tracker) return;
-    const { yaw, pitch } = lookDelta(event.clientX - tracker.x, event.clientY - tracker.y);
-    tracker.x = event.clientX;
-    tracker.y = event.clientY;
-    this.input.turn(yaw, pitch);
+    const point = gamePoint(event);
+    const { yaw, pitch } = lookDelta(point.x - tracker.x, point.y - tracker.y);
+    tracker.x = point.x;
+    tracker.y = point.y;
+    const look = this.input.look ?? { touch: 1, invertY: false };
+    this.input.turn(yaw * look.touch, pitch * look.touch * (look.invertY ? -1 : 1));
   };
 
   #up = (event) => {
@@ -200,7 +213,7 @@ export class TouchControls {
     if (action === 'guard') this.input.setGuard(true);
     if (action === 'attack' || action === 'guard') {
       this.aim ??= new Map();
-      this.aim.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      this.aim.set(event.pointerId, gamePoint(event));
     }
     if (action === 'fireball') this.input.cast();
     if (action === 'dash') this.input.dash();
@@ -222,12 +235,12 @@ export class TouchControls {
     if (action === 'jump') this.jumpHeld = false;
   }
 
-  #startStick(event, rect) {
+  #startStick(event, point) {
     // plant the stick under the thumb, far enough from the edges for the whole ring to show
     const margin = TOUCH.stickRadius + 10;
-    const x = Math.max(margin, Math.min(rect.width - margin, event.clientX - rect.left));
-    const y = Math.max(margin, Math.min(rect.height - margin, event.clientY - rect.top));
-    this.stick = { id: event.pointerId, x: x + rect.left, y: y + rect.top };
+    const x = Math.max(margin, Math.min(this.layer.clientWidth - margin, point.x));
+    const y = Math.max(margin, Math.min(this.layer.clientHeight - margin, point.y));
+    this.stick = { id: event.pointerId, x, y };
     this.stickBase.style.left = `${x}px`;
     this.stickBase.style.top = `${y}px`;
     this.stickBase.classList.add('held');
@@ -235,7 +248,8 @@ export class TouchControls {
   }
 
   #moveStick(event) {
-    const vector = stickVector(event.clientX - this.stick.x, event.clientY - this.stick.y);
+    const point = gamePoint(event);
+    const vector = stickVector(point.x - this.stick.x, point.y - this.stick.y);
     this.stickState = { forward: vector.forward, right: vector.right, sprint: vector.sprint };
     this.stickKnob.style.transform = `translate(${vector.knob.x}px, ${vector.knob.y}px)`;
     this.stickBase.classList.toggle('sprint', vector.sprint);

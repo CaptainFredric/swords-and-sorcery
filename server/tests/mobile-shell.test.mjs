@@ -26,13 +26,19 @@ test('the server hands the manifest out with its own content type', () => {
   assert.match(serverModule.mimeFor('client/manifest.webmanifest'), /^application\/manifest\+json/);
 });
 
-test('portrait phones are asked to turn to landscape, with a way to carry on', async () => {
+test('portrait phones are asked to turn to landscape, can lie the game sideways, or carry on', async () => {
   const html = await read('client/index.html');
   const css = await read('client/mobile.css');
+  const styles = await read('client/styles.css');
   assert.match(html, /id=["']rotate-prompt["']/);
+  assert.match(html, /id=["']rotate-sideways["']/);
   assert.match(html, /id=["']rotate-dismiss["']/);
-  assert.match(css, /@media \(orientation: portrait\) and \(hover: none\) and \(pointer: coarse\)/);
+  // the shell's own shape decides (it can lie sideways on a portrait screen), on touch screens only
+  assert.match(styles, /#game-shell \{ container: app \/ size; \}/);
+  assert.match(css, /@media \(hover: none\) and \(pointer: coarse\) \{\s*@container app \(orientation: portrait\)/);
   assert.match(css, /body:not\(\.portrait-ok\) \.rotate-prompt/);
+  assert.match(css, /html\[data-turn="90"\] #game-shell \{ transform: translateX\(var\(--turn-h\)\) rotate\(90deg\); \}/);
+  assert.match(css, /html\[data-turn="-90"\] #game-shell \{ transform: translateY\(var\(--turn-w\)\) rotate\(-90deg\); \}/);
 });
 
 test('How to Play lists touch controls on touch devices and Sprint on the keyboard', async () => {

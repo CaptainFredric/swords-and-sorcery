@@ -6,6 +6,17 @@
   --safe-b: env(safe-area-inset-bottom, 0px);
 }
 
+/* --- Lying sideways on a screen that stays upright (screenTurn.mjs) ------------------------------------------------
+   Some apps open the game in a browser locked to portrait. The shell is then rotated a quarter turn to fill the
+   portrait screen as a landscape one (the player turns the phone to meet it). --turn-w/--turn-h are the screen's
+   height and width in px. Everything inside measures the shell, so the landscape layouts apply as usual. */
+html[data-turn] #game-shell { position: fixed; left: 0; top: 0; width: var(--turn-w); height: var(--turn-h); transform-origin: 0 0; }
+html[data-turn="90"] #game-shell { transform: translateX(var(--turn-h)) rotate(90deg); }
+html[data-turn="-90"] #game-shell { transform: translateY(var(--turn-w)) rotate(-90deg); }
+/* the notch and the home bar are on the ends of the phone, which are now the game's left and right */
+html[data-turn="90"] { --safe-l: env(safe-area-inset-top, 0px); --safe-r: env(safe-area-inset-bottom, 0px); --safe-b: env(safe-area-inset-left, 0px); }
+html[data-turn="-90"] { --safe-l: env(safe-area-inset-bottom, 0px); --safe-r: env(safe-area-inset-top, 0px); --safe-b: env(safe-area-inset-right, 0px); }
+
 html, body { overscroll-behavior: none; -webkit-tap-highlight-color: transparent; }
 body { -webkit-user-select: none; -webkit-touch-callout: none; }
 input { -webkit-user-select: text; user-select: text; }
@@ -13,8 +24,8 @@ button, input { touch-action: manipulation; }
 
 /* --- On-screen controls (created by TouchControls, visible only in the arena) --- */
 .touch-controls { display: none; }
-.touch-controls.active { display: block; position: absolute; inset: 0; z-index: 12; pointer-events: auto; touch-action: none; -webkit-user-select: none; user-select: none; --s: 1; }
-@media (min-height: 560px) { .touch-controls.active { --s: 1.18; } }
+.touch-controls.active { display: block; position: absolute; inset: 0; z-index: 12; pointer-events: auto; touch-action: none; -webkit-user-select: none; user-select: none; --s: var(--ts, 1); }
+@container app (min-height: 560px) { .touch-controls.active { --s: calc(1.18 * var(--ts, 1)); } }
 
 .touch-btn { position: absolute; display: grid; place-items: center; align-content: center; gap: 1px; width: calc(var(--size) * var(--s)); height: calc(var(--size) * var(--s)); border-radius: 50%; border: 1.5px solid rgba(222, 204, 160, .5); background: radial-gradient(circle at 50% 36%, rgba(52, 49, 40, .6), rgba(15, 16, 12, .68)); color: #f1e8d0; box-shadow: 0 2px 10px rgba(0, 0, 0, .35), inset 0 1px rgba(255, 255, 255, .08); overflow: hidden; transition: transform .06s ease, background .06s ease; }
 .touch-btn svg { width: calc(var(--size) * var(--s) * .42); height: calc(var(--size) * var(--s) * .42); fill: none; stroke: currentColor; stroke-width: 2.1; stroke-linecap: round; stroke-linejoin: round; }
@@ -60,7 +71,7 @@ button, input { touch-action: manipulation; }
 .touch-ui .guard-block span { font-size: 8px; }
 .touch-ui .abilities { display: none; }
 .touch-ui .match-info { top: 10px; }
-.touch-ui .kill-feed { top: 10px; right: calc(var(--safe-r) + 14px); width: min(260px, 34vw); font-size: 10px; }
+.touch-ui .kill-feed { top: 10px; right: calc(var(--safe-r) + 14px); width: min(260px, 34cqw); font-size: 10px; }
 .touch-ui .hud.pointer-locked .practice-tools { display: none; }
 .touch-ui .pointer-hint { top: 62%; padding: 12px 16px; font-size: 11px; }
 
@@ -70,9 +81,9 @@ button, input { touch-action: manipulation; }
 .touch-ui .key-controls-grid { display: none; }
 
 /* --- Short landscape screens (phones on their side) ------------------------------------------------------ */
-@media (max-height: 500px) {
-  :root { --banner-width: min(290px, 42vw); --hem: 24px; }
-  .manual-inner { --banner-width: min(360px, 50vw); }
+@container app (max-height: 500px) {
+  :where(#game-shell) > * { --banner-width: min(290px, 42cqw); --hem: 24px; }
+  .manual-inner { --banner-width: min(360px, 50cqw); }
   .menu-screen::after, .side-screen::after, .lobby-screen::after { top: 5px; height: 7px; }
   .banner-panel { top: 8px; max-height: calc(100% - 8px); padding: 18px 18px calc(var(--hem) + 14px); }
   .banner-panel::before { inset: 6px 6px calc(var(--hem) + 6px); }
@@ -87,6 +98,9 @@ button, input { touch-action: manipulation; }
   .menu-command small { display: none; }
   .menu-command span { font-size: 16px; }
   .quiet-command { min-height: 36px; }
+  .command-pair .menu-command { min-height: 36px; padding: 6px 8px 7px 22px; }
+  .command-pair .menu-command::before { left: 8px; }
+  .command-pair .menu-command span { font-size: 14px; white-space: nowrap; }
   .banner-panel .error-copy { min-height: 0; }
   .side-screen .banner-panel h2, .lobby-screen h2 { font-size: 22px; margin-bottom: 6px; }
   .back-button { margin-bottom: 8px; }
@@ -97,8 +111,8 @@ button, input { touch-action: manipulation; }
   .banner-panel .controls-grid { gap: 4px 12px; padding: 8px 0; }
   .banner-panel .rules-copy { font-size: 11.5px; }
   .lobby-player { min-height: 32px; }
-  .rooms-inner { --banner-width: min(340px, 48vw); }
-  .room-list { max-height: 30vh; }
+  .rooms-inner { --banner-width: min(340px, 48cqw); }
+  .room-list { max-height: 30cqh; }
   .room-row { padding: 6px 10px; }
   .seek-banner { top: 50px; padding: 6px 8px 6px 12px; gap: 8px; }
   .seek-copy strong { font-size: 13px; }
@@ -116,15 +130,26 @@ button, input { touch-action: manipulation; }
   .pause-card p { margin: 6px 0 12px; }
 }
 
-/* --- Portrait on a phone or tablet: ask for landscape (and let the player carry on anyway) --- */
+/* --- Portrait on a phone or tablet: ask for landscape, offer to lie the game sideways when the app will not turn,
+   and let the player carry on upright anyway. The shell's own shape decides, so a sideways game never asks. --- */
 .rotate-prompt { display: none; }
-@media (orientation: portrait) and (hover: none) and (pointer: coarse) {
-  body:not(.portrait-ok) .rotate-prompt { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 28px; text-align: center; background: radial-gradient(circle at 50% 38%, rgba(104, 87, 56, .3), rgba(14, 15, 12, .97) 65%), #11130f; }
+@media (hover: none) and (pointer: coarse) {
+  @container app (orientation: portrait) {
+    body:not(.portrait-ok) .rotate-prompt { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 28px; text-align: center; background: radial-gradient(circle at 50% 38%, rgba(104, 87, 56, .3), rgba(14, 15, 12, .97) 65%), #11130f; }
+  }
 }
+/* standing upright for a moment to type a name: no prompt over the keyboard */
+html.turn-typing .rotate-prompt { display: none !important; }
 .rotate-card { max-width: 320px; }
 .rotate-card h2 { margin: 18px 0 10px; font-size: 26px; }
 .rotate-card p { margin: 0 0 22px; color: rgba(235, 228, 212, .7); font-size: 13px; line-height: 1.55; }
 .rotate-card .back-button { margin: 0; padding: 10px 14px; border: 1px solid rgba(218, 201, 163, .3); }
+.rotate-card .rotate-sideways { display: block; width: 100%; margin: 0 0 12px; text-align: center; }
+.rotate-card .rotate-note { margin: -4px 0 18px; font-size: 11.5px; }
+
+/* after lying the game down: which way to turn the phone, and a flip for when it is the other way round */
+.turn-toast { position: fixed; left: 50%; bottom: calc(var(--safe-b) + 18px); z-index: 90; display: flex; align-items: center; gap: 12px; max-width: min(520px, calc(100cqw - 32px)); padding: 10px 12px 10px 16px; transform: translateX(-50%); border: 1px solid rgba(201, 156, 82, .55); background: rgba(20, 17, 14, .92); color: var(--heraldry-cream, #eadcb6); font: 700 11px/1.35 var(--font-script, system-ui); letter-spacing: .08em; pointer-events: auto; }
+.turn-toast button { flex: none; padding: 8px 12px; border: 1px solid rgba(201, 156, 82, .6); background: rgba(52, 42, 30, .9); color: inherit; font: inherit; letter-spacing: .12em; }
 .rotate-phone { width: 40px; height: 66px; margin: 0 auto; border: 2px solid var(--gold); border-radius: 7px; position: relative; animation: rotate-phone 2.4s ease-in-out infinite; }
 .rotate-phone i { position: absolute; left: 50%; bottom: 5px; width: 8px; height: 2px; margin-left: -4px; background: var(--gold); border-radius: 1px; }
 @keyframes rotate-phone {
