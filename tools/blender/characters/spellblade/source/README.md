@@ -281,3 +281,9 @@ An exact comparison against aebfe55 confirms that only the gold reinforcement co
 ## September 26 quick shoulder fit
 
 Both pauldrons have a slightly flatter roof, 10 percent less front/back depth, and a shallow angular lower rim that overlaps the upper arm plates. Only their vertex positions changed; topology, colors, UVs, weights, all other meshes, 30 materials, the rig and 12 actions are exactly preserved against 0db5212. Maximum vertex displacement is 22.5 mm. Sword/body and helmet/shoulder intersections remain zero at every integer frame of every clip.
+
+## September 26 scarf silhouette refinement
+
+The front collar is shallower and follows a subtle diagonal. Its former rectangular hanging end is a shorter, thinner tapered fold, tucked into the wrap and resting closer to the breastplate. The rear collar and helmet opening remain in place.
+
+An exact comparison against b683b14 permits only coordinates on the scarf's two disconnected components inside Breastplate. All remaining geometry, topology, UVs, colors, weights, 30 materials, rig and 12 action curves are preserved. Sword/body and helmet/shoulder intersections remain zero at every integer animation frame. The set of existing helmet/collar contact frames is identical to the baseline.
