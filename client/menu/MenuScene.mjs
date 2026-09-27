@@ -276,6 +276,9 @@ export class MenuScene {
 
   /** Render quality (a setting): the menu never draws sharper than 1.25x, and Smooth draws at 1x. */
   setPixelRatioCap(cap) {
+    // resizing clears the canvas, so only when the quality really changes (settings apply on every change)
+    if (cap === this.pixelRatioCap) return;
+    this.pixelRatioCap = cap;
     this.renderer.setPixelRatio(Math.min(globalThis.devicePixelRatio || 1, 1.25, cap));
     this.resize();
   }
