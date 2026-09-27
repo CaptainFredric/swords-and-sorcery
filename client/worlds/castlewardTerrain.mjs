@@ -40,6 +40,8 @@ function meshMatchesFloor(mesh, floor) {
 
 export function attachCastlewardTerrainSkirts(renderer, world) {
   if (!renderer?.group || !world?.floors?.length) return [];
+  // the kit renderer builds its own rock cliffs from the same skirt data
+  if (renderer.ownsTerrainSkirts) return [];
   const skirts = buildCastlewardTerrainSkirts(world);
   const added = [];
 
