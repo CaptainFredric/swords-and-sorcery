@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "lines": {
+    "sorcery": [
+      {
+        "file": "sorcery-1",
+        "seconds": 1.31,
+        "placeholder": true
+      },
+      {
+        "file": "sorcery-2",
+        "seconds": 1.44,
+        "placeholder": true
+      }
+    ]
+  }
+}

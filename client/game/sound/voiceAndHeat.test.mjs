@@ -1,0 +1,74 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import { CombatHeat, HEAT, matchClosing, nearestFoe } from './combatHeat.mjs';
+import { MOUTH_BUSY_SEC, VOICE_LINES, VoiceDirector, voiceRate } from './voiceRules.mjs';
+
+test('SORCERY! is rare: it needs the dice, then waits out its cooldown', () => {
+  let roll = 0.05;
+  const director = new VoiceDirector({ rand: () => roll });
+  assert.ok(director.allow('sorcery', 'me', 10), 'a lucky cast shouts');
+  assert.ok(!director.allow('sorcery', 'me', 30), 'not again within 45 s, however lucky');
+  assert.ok(director.allow('sorcery', 'me', 10 + VOICE_LINES.sorcery.cooldown + 0.1));
+  roll = 0.1;
+  assert.ok(!director.allow('sorcery', 'me', 200), 'most casts are silent');
+  assert.ok(VOICE_LINES.sorcery.chance <= 0.1);
+});
+
+test('one line at a time per Spellblade, but a death cry cuts through, and speakers are independent', () => {
+  const director = new VoiceDirector({ rand: () => 0 });
+  assert.ok(director.allow('hurt', 'a', 5));
+  assert.ok(!director.allow('effort', 'a', 5 + MOUTH_BUSY_SEC / 2), 'still grunting from the last blow');
+  assert.ok(director.allow('effort', 'b', 5.1), 'someone else can speak');
+  assert.ok(director.allow('death', 'a', 5.2), 'death interrupts');
+  assert.ok(director.allow('effort', 'a', 7));
+});
+
+test('lighter moments can be made rarer with chanceScale', () => {
+  const director = new VoiceDirector({ rand: () => 0.2 });
+  assert.ok(!director.allow('effort', 'me', 1, { chanceScale: 0.3 }), '0.2 is above 0.4 x 0.3');
+  assert.ok(director.allow('effort', 'me', 1));
+});
+
+test('every Spellblade keeps their own pitch, within a narrow band', () => {
+  const rates = ['alpha', 'beta', 'gamma', 'x'].map(voiceRate);
+  for (const rate of rates) assert.ok(rate >= 0.94 && rate <= 1.06);
+  assert.equal(voiceRate('alpha'), voiceRate('alpha'));
+  assert.ok(new Set(rates).size > 1);
+});
+
+test('the music heats up with steel nearby, and runs hot while you trade blows or the match is closing', () => {
+  const heat = new CombatHeat();
+  assert.equal(heat.level({ now: 100 }), 0);
+  assert.equal(heat.level({ now: 100, nearestFoe: HEAT.nearDistance - 1 }), 1);
+  heat.stir(100);
+  assert.equal(heat.level({ now: 105 }), 1);
+  assert.equal(heat.level({ now: 100 + HEAT.stirHold + 0.1 }), 0);
+  heat.fight(120);
+  assert.equal(heat.level({ now: 124 }), 2);
+  assert.equal(heat.level({ now: 124, cap: 1 }), 1, 'the practice yard never goes past 1');
+  assert.equal(heat.level({ now: 120 + HEAT.fightHold + 0.1 }), 0);
+  assert.equal(heat.level({ now: 300, closing: true }), 2);
+});
+
+test('a match is closing when someone is one blow from winning or the clock runs low', () => {
+  const players = [{ id: 'a', kills: 3 }, { id: 'b', kills: 1 }];
+  const base = { roomState: 'PLAYING', mode: 'DUEL', scoreToWin: 5, matchStartedAt: 0, matchSeconds: 240, players };
+  assert.equal(matchClosing(base, 60), false);
+  assert.equal(matchClosing({ ...base, players: [{ id: 'a', kills: 4 }] }, 60), true);
+  assert.equal(matchClosing(base, 240 - HEAT.closingSeconds + 1), true);
+  assert.equal(matchClosing({ ...base, suddenDeath: true }, 10), true);
+  assert.equal(matchClosing({ ...base, mode: 'PRACTICE', players: [{ id: 'a', kills: 9 }] }, 10), false);
+  assert.equal(matchClosing({ ...base, roomState: 'WAITING' }, 239), false);
+});
+
+test('only foes who can fight back count as near: not dummies, not the fallen', () => {
+  const me = { id: 'me', position: { x: 0, z: 0 } };
+  const players = [
+    me,
+    { id: 'dummy', actorKind: 'dummy', position: { x: 1, z: 0 } },
+    { id: 'dead', alive: false, position: { x: 2, z: 0 } },
+    { id: 'bot', actorKind: 'bot', position: { x: 6, z: 8 } },
+  ];
+  assert.equal(nearestFoe(me, players), 10);
+  assert.equal(nearestFoe(null, players), Infinity);
+});

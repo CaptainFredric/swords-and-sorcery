@@ -4,17 +4,17 @@
 // A recipe is a list of layers the SoundEngine plays at once:
 //   noise:  filtered noise burst   { type: 'noise', filter, freq, q, sweepTo?, attack, decay, gain }
 //   tone:   pitched oscillator     { type: 'tone', wave, freq, slideTo?, attack, decay, gain }
-//   ring:   metallic partials      { type: 'ring', partials: [{ freq, gain, decay }] }
-// plus `reverb` (0..1 send to the courtyard reverb).
+//   ring:   metallic partials      { type: 'ring', partials: [{ freq, gain, decay, attack? }] }
+// any layer may start late by `at` seconds; plus `reverb` (0..1 send to the courtyard) and `hall` (to the long hall).
 
-function jitter(rand, amount) {
+export function jitter(rand, amount) {
   return 1 + (rand() - 0.5) * 2 * amount;
 }
 
 // inharmonic ratios of a struck steel plate (a bell-ish, clangy spectrum)
 const PLATE = Object.freeze([1, 1.47, 2.09, 2.76, 3.93, 5.4]);
 
-function ring(rand, base, { decay = 0.45, gain = 0.2, partials = PLATE.length, bright = 1 } = {}) {
+export function ring(rand, base, { decay = 0.45, gain = 0.2, partials = PLATE.length, bright = 1 } = {}) {
   return {
     type: 'ring',
     partials: PLATE.slice(0, partials).map((ratio, i) => ({

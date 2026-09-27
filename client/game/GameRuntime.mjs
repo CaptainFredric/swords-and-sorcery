@@ -16,6 +16,8 @@ import {
   blockRecipe, castRecipe, dashRecipe, fireballImpactRecipe, hurtRecipe, killRecipe, parryRecipe, spatialize,
   swingRecipe, swordHitRecipe, wallClangRecipe,
 } from './sound/soundRecipes.mjs';
+import { voiceRate } from './sound/voiceRules.mjs';
+import { CombatHeat, matchClosing, nearestFoe } from './sound/combatHeat.mjs';
 import { createWorldRenderer, rendererKeyForWorld } from '../worlds/WorldRendererFactory.mjs';
 import { CastlewardRenderer } from '../worlds/CastlewardRenderer.mjs';
 import { ShatteredKeepRenderer } from '../worlds/ShatteredKeepRenderer.mjs';
@@ -31,11 +33,13 @@ const WORLD_RENDERERS = Object.freeze({
 });
 
 export class GameRuntime {
-  constructor(container, socket, hud, { sound = null } = {}) {
+  constructor(container, socket, hud, { sound = null, voice = null } = {}) {
     this.container = container;
     this.socket = socket;
     this.hud = hud;
     this.sound = sound;
+    this.voice = voice;
+    this.heat = new CombatHeat();
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(SCENE_PRESENTATION.background);
     this.scene.fog = new THREE.FogExp2(SCENE_PRESENTATION.fogColor, SCENE_PRESENTATION.fogDensity);
@@ -73,7 +77,11 @@ export class GameRuntime {
     this.worldError = null;
     this.remotePlayers = new RemotePlayers(this.scene, socket.playerId);
     this.weapon = new WeaponView(this.camera);
-    this.weapon.onSwing = (strike) => this.#play(swingRecipe(Math.random, { strike }), null, 0.85);
+    this.weapon.onSwing = (strike) => {
+      this.#play(swingRecipe(Math.random, { strike }), null, 0.85);
+      // the heavy third strike gets his breath behind it; the lighter ones only now and then
+      this.#say('effort', this.socket.playerId, { chanceScale: strike >= 2 ? 1 : 0.3 });
+    };
     this.effects = new Effects(this.scene, this.camera);
     this.onPointer = () => {};
     this.input = new InputController(this.renderer.domElement, socket);
@@ -104,6 +112,7 @@ export class GameRuntime {
       this.weapon.dash();
       this.effects.dash();
       this.#play(dashRecipe(), null, 0.8);
+      this.#say('dash', this.socket.playerId);
     };
 
     this.localState = null;
@@ -250,12 +259,15 @@ export class GameRuntime {
           this.effects.fireball();
         }
         this.#play(castRecipe(), event.playerId === me ? null : this.#bodyPosition(event.playerId), event.playerId === me ? 0.9 : 0.6);
+        this.#say('sorcery', event.playerId);
       }
 
       // my own swings whoosh from the local swing (no network delay); others' from the server's strike
       if (event.type === 'swordSwing' && event.playerId !== me) {
         this.#play(swingRecipe(Math.random, { strike: event.strikeIndex }), this.#bodyPosition(event.playerId), 0.55);
+        this.#say('effort', event.playerId, { chanceScale: event.strikeIndex >= 2 ? 1 : 0.3 });
       }
+      this.#warm(event, me);
 
       const combatFeedback = localCombatFeedback(event, this.socket.playerId);
       if (combatFeedback === 'block') this.effects.block();
@@ -305,10 +317,15 @@ export class GameRuntime {
         if (event.victimId === this.socket.playerId && event.source !== 'abyss' && event.amount > 0) {
           this.weapon.damage(this.#pushTowardMe(event.attackerId), event.amount);
         }
+        // a blow that kills gets the death cry instead
+        if (event.amount >= 8 && event.health > 0 && event.source !== 'abyss') this.#say('hurt', event.victimId);
         if (event.victimId === this.socket.playerId) document.body.classList.add('took-damage');
         setTimeout(() => document.body.classList.remove('took-damage'), 120);
       }
-      if (event.type === 'death') this.#deathEvent(event);
+      if (event.type === 'death') {
+        this.#deathEvent(event);
+        this.#say('death', event.victimId);
+      }
       if (event.type === 'respawn' && event.playerId === this.socket.playerId) this.hud.flashText('FIGHT!', 'ready');
     }
   }
@@ -317,6 +334,41 @@ export class GameRuntime {
   #bodyPosition(id) {
     if (id === this.socket.playerId) return this.localState?.position ?? this.localAuth?.position ?? null;
     return this.remotePlayers.bodyPosition(id) ?? this.latestSnapshot?.players.find((p) => p.id === id)?.position ?? null;
+  }
+
+  // a Spellblade speaks: mine from inside my own helm, others from where they stand, each with their own pitch
+  #say(line, playerId, { chanceScale = 1 } = {}) {
+    if (!this.voice || !playerId) return;
+    if (playerId === this.socket.playerId) {
+      this.voice.say(line, { speaker: playerId, gain: 0.8, chanceScale });
+      return;
+    }
+    const body = this.#bodyPosition(playerId);
+    const snapshotPlayer = this.latestSnapshot?.players.find((p) => p.id === playerId);
+    if (!body || snapshotPlayer?.actorKind === 'dummy') return;
+    const listener = this.localState?.position ?? this.localAuth?.position;
+    const place = spatialize(listener, this.input.yaw, body);
+    this.voice.say(line, { speaker: playerId, pan: place.pan, gain: place.gain * 0.9, rate: voiceRate(playerId), chanceScale });
+  }
+
+  // steel anywhere stirs the music; blows that involve me put it on the fight
+  #warm(event, me) {
+    const now = performance.now() / 1000;
+    if (['swordSwing', 'swordHit', 'projectileImpact', 'parry', 'block', 'guardBreak', 'fireballCast'].includes(event.type)) this.heat.stir(now);
+    const involved = [event.playerId, event.targetId, event.attackerId, event.defenderId, event.victimId].includes(me);
+    if (involved && ['swordHit', 'parry', 'block', 'guardBreak', 'damage'].includes(event.type)) this.heat.fight(now);
+  }
+
+  /** How hot the fight is for the music: 0 calm, 1 blades out nearby, 2 the fight is on. */
+  musicHeat({ cap = 2 } = {}) {
+    const snapshot = this.latestSnapshot;
+    const me = snapshot?.players.find((p) => p.id === this.socket.playerId);
+    return this.heat.level({
+      now: performance.now() / 1000,
+      nearestFoe: nearestFoe(me, snapshot?.players),
+      closing: matchClosing(snapshot, this.socket.serverNow()),
+      cap,
+    });
   }
 
   // play a sound at a world position (null: mine, centred) with extra gain
