@@ -1,7 +1,37 @@
 import * as THREE from 'three';
 import { impactWorldPresentation, sampleTrailSegment, transientScale } from './effectTrail.mjs';
 
-const MAX_TRANSIENTS = 180;
+const MAX_TRANSIENTS = 220;
+
+// A crescent ribbon in the XY plane, centred on the origin: width swells to its middle and tapers to both points;
+// vertex brightness is hottest on the outer (cutting) edge and fades toward the tips.
+function crescentGeometry({ radius, width, arc, segments }) {
+  const positions = [];
+  const colors = [];
+  const indices = [];
+  for (let i = 0; i <= segments; i += 1) {
+    const t = i / segments;
+    const angle = -arc / 2 + arc * t;
+    const swell = Math.sin(Math.PI * t);
+    const inner = radius - width * swell;
+    const tip = Math.pow(swell, 0.6);
+    positions.push(Math.cos(angle) * radius, Math.sin(angle) * radius, 0);
+    colors.push(tip, tip * 0.96, tip * 0.86);
+    positions.push(Math.cos(angle) * inner, Math.sin(angle) * inner, 0);
+    colors.push(tip * 0.55, tip * 0.4, tip * 0.18);
+    if (i < segments) {
+      const k = i * 2;
+      indices.push(k, k + 1, k + 2, k + 1, k + 3, k + 2);
+    }
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  geometry.setIndex(indices);
+  // the middle of the cutting edge sits on the origin, so the slash passes through the point of impact
+  geometry.translate(-radius, 0, 0);
+  return geometry;
+}
 
 export class Effects {
   constructor(scene, camera) {
@@ -9,7 +39,6 @@ export class Effects {
     this.camera = camera;
     this.projectiles = new Map();
     this.transients = [];
-    this.audio = null;
     this.basicMaterials = new Map();
 
     this.emberGeometry = new THREE.BoxGeometry(0.035, 0.035, 0.11);
@@ -25,6 +54,19 @@ export class Effects {
     this.projectileCoreGeometry = new THREE.OctahedronGeometry(0.15, 1);
     this.projectileShellGeometry = new THREE.IcosahedronGeometry(0.25, 1);
     this.dashGeometry = new THREE.PlaneGeometry(0.018, 0.18);
+    this.chipGeometry = new THREE.BoxGeometry(0.05, 0.02, 0.04);
+    // the slash: a crescent of light, thick in the middle and tapering to points, hottest along its edge
+    this.slashGeometry = crescentGeometry({ radius: 0.62, width: 0.16, arc: 2.3, segments: 28 });
+    this.slashMaterial = new THREE.MeshBasicMaterial({
+      color: 0xffffff,
+      vertexColors: true,
+      transparent: true,
+      opacity: 1,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    });
+    this.hotSparkGeometry = new THREE.BoxGeometry(0.035, 0.035, 0.17);
 
     this.dashMaterial = new THREE.MeshBasicMaterial({
       color: 0xb9eaff,
@@ -69,21 +111,6 @@ export class Effects {
     return this.basicMaterials.get(color);
   }
 
-  ensureAudio() {
-    if (!this.audio) this.audio = new (window.AudioContext || window.webkitAudioContext)();
-    if (this.audio.state === 'suspended') this.audio.resume();
-    return this.audio;
-  }
-
-  tone(freq, duration = 0.1, gain = 0.05, type = 'sine', slideTo = null) {
-    const ctx = this.ensureAudio();
-    const o = ctx.createOscillator(); const g = ctx.createGain();
-    o.type = type; o.frequency.setValueAtTime(freq, ctx.currentTime);
-    if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, ctx.currentTime + duration);
-    g.gain.setValueAtTime(gain, ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
-    o.connect(g); g.connect(ctx.destination); o.start(); o.stop(ctx.currentTime + duration);
-  }
-
   #addTransient(mesh, {
     velocity = new THREE.Vector3(),
     life = 0.2,
@@ -92,8 +119,14 @@ export class Effects {
     gravity = 0,
     spin = null,
     parent = this.scene,
+    fade = false,
+    drag = 0,
   } = {}) {
     parent.add(mesh);
+    if (fade) {
+      mesh.material = mesh.material.clone();
+      mesh.userData.baseOpacity = mesh.material.opacity ?? 1;
+    }
     this.transients.push({
       mesh,
       parent,
@@ -105,13 +138,19 @@ export class Effects {
       shrink,
       gravity,
       spin,
+      fade,
+      drag,
       baseScale: mesh.scale.clone(),
     });
-    while (this.transients.length > MAX_TRANSIENTS) {
-      const oldest = this.transients.shift();
-      oldest?.parent?.remove(oldest.mesh);
-    }
+    while (this.transients.length > MAX_TRANSIENTS) this.#removeTransient(this.transients.shift());
     return mesh;
+  }
+
+  #removeTransient(transient) {
+    if (!transient) return;
+    transient.parent?.remove(transient.mesh);
+    // fading transients own their material (cloned); textures such as damage numbers are cached and shared
+    if (transient.fade) transient.mesh.material.dispose();
   }
 
   #cameraFlash(color = 0xffd68a, life = 0.1, scale = 1) {
@@ -143,38 +182,140 @@ export class Effects {
     }
   }
 
-  swordSwing(strike = 0) { this.tone(160 + strike * 25, 0.08, 0.035, 'sawtooth', 95); }
-  swordHit(strike = 0) {
-    this.tone(680 - strike * 80, 0.12 + strike * 0.03, 0.055, 'triangle', 180);
-    this.#cameraFlash(0xffd78f, 0.07, 0.65);
-  }
-  block() {
-    this.tone(980, 0.13, 0.06, 'square', 280);
-    this.#cameraFlash(0xffd38a, 0.09, 0.8);
-  }
-  parry() {
-    this.tone(1550, 0.22, 0.075, 'square', 420);
-    this.tone(760, 0.16, 0.045, 'triangle', 1260);
-    this.#cameraFlash(0xaeefff, 0.12, 1.25);
-  }
-  guardBreak() {
-    this.tone(310, 0.23, 0.08, 'square', 85);
-    this.#cameraFlash(0xff744d, 0.14, 1.15);
-  }
-  fireball() {
-    this.tone(180, 0.25, 0.06, 'sawtooth', 70);
-    this.tone(520, 0.09, 0.035, 'triangle', 260);
-    this.#cameraFlash(0xff8a2b, 0.08, 0.58);
-  }
-  dash() {
-    this.tone(420, 0.12, 0.045, 'sine', 880);
-    this.#dashStreaks();
-  }
+  // (sounds are played by the SoundEngine; these are the first-person flashes)
+  swordSwing() {}
+  swordHit() {}
+  block() { this.#cameraFlash(0xffd38a, 0.09, 0.8); }
+  parry() { this.#cameraFlash(0xaeefff, 0.12, 1.25); }
+  guardBreak() { this.#cameraFlash(0xff744d, 0.14, 1.15); }
+  fireball() { this.#cameraFlash(0xff8a2b, 0.08, 0.58); }
+  dash() { this.#dashStreaks(); }
 
   wallClang(point) {
-    this.tone(1320, 0.24, 0.09, 'square', 240);
-    this.tone(470, 0.31, 0.055, 'triangle', 110);
     this.sparks(point, 0xffd48a, 14);
+  }
+
+  /**
+   * A sword landing on a body: a slash arc along the stroke, a white-hot flash, hot sparks thrown along the blow and
+   * a few chips of armour. strike: combo index (2 = the heavy finisher); dir: the blow's direction (attacker to victim).
+   */
+  hitBurst(point, dir, { strike = 0, heavy = false } = {}) {
+    const at = new THREE.Vector3(point.x, point.y, point.z);
+    const push = new THREE.Vector3(dir?.x ?? 0, 0, dir?.z ?? 0);
+    if (push.lengthSq() < 1e-6) push.set(0, 0, 1);
+    push.normalize();
+    const big = heavy || strike >= 2;
+
+    // the slash: an arc facing the camera, rolled to match the stroke (right-to-left, left-to-right, overhead)
+    const arc = new THREE.Mesh(this.slashGeometry, this.slashMaterial);
+    arc.position.copy(at);
+    arc.lookAt(this.camera.getWorldPosition(new THREE.Vector3()));
+    arc.rotateZ([-0.75, 0.75 + Math.PI, -Math.PI / 2][strike % 3]);
+    arc.scale.setScalar(big ? 1.25 : 1);
+    this.#addTransient(arc, { life: big ? 0.2 : 0.15, expand: 2.6, fade: true });
+
+    const core = new THREE.Mesh(this.impactFlashGeometry, this.#basicMaterial(0xfff4dc));
+    core.position.copy(at);
+    core.scale.setScalar(big ? 0.75 : 0.5);
+    this.#addTransient(core, { life: 0.09, expand: 3.2, shrink: true, spin: new THREE.Vector3(4, 6, 3) });
+
+    // sparks fly out of the cut to both sides and up (across the view, where they read), a few along the blow
+    const side = new THREE.Vector3(-push.z, 0, push.x);
+    for (let i = 0; i < (big ? 28 : 18); i += 1) {
+      const spark = new THREE.Mesh(this.hotSparkGeometry, this.#basicMaterial(i % 3 ? 0xffcf6a : 0xfff3c4));
+      spark.position.copy(at);
+      const velocity = side.clone().multiplyScalar((Math.random() < 0.5 ? -1 : 1) * (2 + Math.random() * 3.5))
+        .add(push.clone().multiplyScalar(0.5 + Math.random() * 2.5))
+        .add(new THREE.Vector3(0, 0.8 + Math.random() * 3.4, 0));
+      spark.lookAt(at.clone().add(velocity));
+      this.#addTransient(spark, { velocity, life: 0.22 + Math.random() * 0.22, shrink: true, gravity: 9, drag: 2.2 });
+    }
+    for (let i = 0; i < (big ? 7 : 4); i += 1) {
+      const chip = new THREE.Mesh(this.chipGeometry, this.#basicMaterial(i % 2 ? 0x55585c : 0x8a8f94));
+      chip.position.copy(at);
+      const velocity = push.clone().multiplyScalar(1.2 + Math.random() * 1.8)
+        .add(new THREE.Vector3((Math.random() - 0.5) * 2.4, 1.2 + Math.random() * 2, (Math.random() - 0.5) * 2.4));
+      this.#addTransient(chip, { velocity, life: 0.5 + Math.random() * 0.3, gravity: 14, spin: new THREE.Vector3(9, 11, 7), shrink: true });
+    }
+    if (big) this.#groundRing(at, 0xffc47a);
+  }
+
+  /** The killing blow: a shockwave at the feet and embers rising off the body. */
+  killBurst(point) {
+    const at = new THREE.Vector3(point.x, point.y, point.z);
+    this.#groundRing(at, 0xff9a4a, 1.6);
+    for (let i = 0; i < 24; i += 1) {
+      const ember = new THREE.Mesh(this.emberGeometry, this.emberMaterials[i % 2]);
+      ember.position.set(at.x + (Math.random() - 0.5) * 0.6, at.y - 0.4 + Math.random() * 0.8, at.z + (Math.random() - 0.5) * 0.6);
+      this.#addTransient(ember, { velocity: new THREE.Vector3((Math.random() - 0.5) * 0.8, 1.2 + Math.random() * 1.6, (Math.random() - 0.5) * 0.8), life: 0.6 + Math.random() * 0.5, shrink: true, spin: new THREE.Vector3(3, 4, 5) });
+    }
+  }
+
+  /** Steel meeting steel on a guard: bright blue-white sparks and a flat flash where the blades met. */
+  blockBurst(point, dir, { heavy = false, parry = false } = {}) {
+    const at = new THREE.Vector3(point.x, point.y, point.z);
+    const push = new THREE.Vector3(dir?.x ?? 0, 0, dir?.z ?? 0).normalize();
+    const color = parry ? 0xbff4ff : 0xfff0c8;
+    const flash = new THREE.Mesh(this.impactFlashGeometry, this.#basicMaterial(color));
+    flash.position.copy(at);
+    flash.scale.setScalar(parry ? 0.7 : 0.45);
+    this.#addTransient(flash, { life: parry ? 0.14 : 0.08, expand: parry ? 4.5 : 3, shrink: true, spin: new THREE.Vector3(5, 3, 6) });
+    for (let i = 0; i < (heavy || parry ? 24 : 14); i += 1) {
+      const spark = new THREE.Mesh(this.sparkGeometry, this.#basicMaterial(i % 2 ? color : 0xffd27a));
+      spark.position.copy(at);
+      // sparks fly back toward the attacker off the guard
+      const velocity = push.clone().multiplyScalar(-(1.5 + Math.random() * 3))
+        .add(new THREE.Vector3((Math.random() - 0.5) * 5, Math.random() * 3.5, (Math.random() - 0.5) * 5));
+      spark.lookAt(at.clone().add(velocity));
+      this.#addTransient(spark, { velocity, life: 0.2 + Math.random() * 0.2, shrink: true, gravity: 9, drag: 2 });
+    }
+    if (parry) this.#groundRing(at.clone().setY(at.y + 0.2), 0x9fe8ff, 0.8, true);
+  }
+
+  // a flat ring of light expanding from a point (at the feet unless upright)
+  #groundRing(at, color, scale = 1, upright = false) {
+    const ring = new THREE.Mesh(this.impactRingGeometry, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false }));
+    ring.position.set(at.x, upright ? at.y : at.y - 1.15, at.z);
+    ring.rotation.x = upright ? 0 : Math.PI / 2;
+    if (upright) ring.lookAt(this.camera.getWorldPosition(new THREE.Vector3()));
+    ring.scale.setScalar(scale);
+    this.#addTransient(ring, { life: 0.32, expand: 7, fade: true });
+    ring.material.dispose();
+  }
+
+  /** A damage number that pops and rises off the body. */
+  damageNumber(point, amount, { heavy = false } = {}) {
+    const value = Math.round(amount);
+    if (!(value > 0)) return;
+    const material = new THREE.SpriteMaterial({ map: this.#numberTexture(value, heavy), transparent: true, depthTest: false, depthWrite: false });
+    const sprite = new THREE.Sprite(material);
+    sprite.position.set(point.x + (Math.random() - 0.5) * 0.3, point.y + 0.35, point.z + (Math.random() - 0.5) * 0.3);
+    sprite.scale.set(heavy ? 0.86 : 0.66, heavy ? 0.43 : 0.33, 1);
+    sprite.renderOrder = 10;
+    this.#addTransient(sprite, { velocity: new THREE.Vector3(0, 0.9, 0), life: 0.75, drag: 1.2, fade: true, expand: 0.25 });
+    material.dispose();
+  }
+
+  #numberTexture(value, heavy) {
+    const key = `${value}:${heavy}`;
+    this.numberTextures ??= new Map();
+    if (this.numberTextures.has(key)) return this.numberTextures.get(key);
+    const canvas = document.createElement('canvas');
+    canvas.width = 128;
+    canvas.height = 64;
+    const g = canvas.getContext('2d');
+    g.font = `${heavy ? 52 : 44}px "IM Fell English SC", Georgia, serif`;
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.lineWidth = 7;
+    g.strokeStyle = 'rgba(40, 14, 8, 0.9)';
+    g.strokeText(String(value), 64, 34);
+    g.fillStyle = heavy ? '#ffe39a' : '#f6e2b4';
+    g.fillText(String(value), 64, 34);
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    this.numberTextures.set(key, texture);
+    return texture;
   }
 
   sparks(point, color = 0xffbd6b, count = 10) {
@@ -252,8 +393,6 @@ export class Effects {
 
     for (let i = 0; i < 18; i += 1) this.#ember(point);
     this.sparks(point, 0xff8a3c, 12);
-    this.tone(95, 0.28, 0.085, 'sawtooth', 45);
-    this.tone(260, 0.16, 0.045, 'triangle', 70);
   }
 
   #createProjectile() {
@@ -328,6 +467,8 @@ export class Effects {
       transient.age += dt;
       transient.mesh.position.addScaledVector(transient.velocity, dt);
       transient.velocity.y -= transient.gravity * dt;
+      if (transient.drag) transient.velocity.multiplyScalar(Math.exp(-transient.drag * dt));
+      if (transient.fade) transient.mesh.material.opacity = transient.mesh.userData.baseOpacity * Math.max(0, transient.life / transient.maxLife);
 
       const scale = transientScale(transient.age, transient.maxLife, transient.expand, transient.shrink);
       transient.mesh.scale.copy(transient.baseScale).multiplyScalar(scale);
@@ -339,7 +480,7 @@ export class Effects {
       }
 
       if (transient.life <= 0) {
-        transient.parent.remove(transient.mesh);
+        this.#removeTransient(transient);
         this.transients.splice(i, 1);
       }
     }

@@ -210,6 +210,12 @@ export class WeaponView {
     this.dashUntil = 0;
     // procedural stride, inertia, sway and impact motion over the authored first-person clips
     this.motion = new FirstPersonMotion();
+    // hit-stop: while frozen the arms hold their pose (the procedural kick keeps playing)
+    this.frozenUntil = 0;
+    this.lastPlan = null;
+    // told when each stroke of the combo begins its cut (the swing sound plays from here, without network delay)
+    this.onSwing = () => {};
+    this.lastSwingKey = null;
 
     this.#upgradeVisual();
   }
@@ -303,6 +309,12 @@ export class WeaponView {
     this.motion.land(impactSpeed);
   }
 
+  // the blow connected: freeze the swing for a beat and jolt the arms and view
+  hitstop(seconds, kick = 0.5) {
+    this.frozenUntil = Math.max(this.frozenUntil, performance.now() / 1000 + Math.max(0, seconds));
+    this.motion.hitConfirm(kick);
+  }
+
   /**
    * @param {{speed?:number, grounded?:boolean, yaw?:number, pitch?:number}} body  the local Spellblade's motion
    * @returns {{camera:{y:number,pitch:number,roll:number}, fov:number}} view offsets for the camera
@@ -323,6 +335,14 @@ export class WeaponView {
     });
 
     const motion = this.motion.step({ dt, speed, grounded, yaw, pitch, state: pose.state, dashing: pose.state === 'dash' });
+    if (pose.state === 'attack' && pose.attackPhase === 'cut') {
+      const key = `${this.attackStartedAt}:${pose.strike}`;
+      if (key !== this.lastSwingKey) {
+        this.lastSwingKey = key;
+        this.onSwing(pose.strike);
+      }
+    }
+    const frozen = timeSec < this.frozenUntil;
 
     if (this.visualKind === 'production' && this.productionInstance) {
       const plan = resolveFirstPersonAnimationPlan(pose, this, timeSec);
@@ -336,7 +356,9 @@ export class WeaponView {
           { bone: 'upper_arm.L', axis: [1, 0, 0], angle: -0.1 * motion.pump },
         ],
       };
-      this.productionInstance.animator.apply(plan, dt);
+      const shown = frozen && this.lastPlan ? this.lastPlan : plan;
+      this.productionInstance.animator.apply(shown, frozen ? 0 : dt);
+      this.lastPlan = shown;
       const w = motion.weapon;
       this.productionOffset.position.set(w.x, w.y, w.z);
       this.productionOffset.rotation.set(w.rx, w.ry, w.rz);
