@@ -56,7 +56,8 @@
           <label class="field-label" for="player-name">SPELLBLADE NAME</label>
           <input id="player-name" class="game-input" maxlength="18" autocomplete="nickname" placeholder="Enter a name" />
         </div>
-        <button id="quick-play" class="menu-command primary-command"><span>QUICK PLAY</span><small>Find a public match</small></button>
+        <button id="seek-duel" class="menu-command primary-command"><span>SEEK A DUEL</span><small>Face a worthy challenger, one on one</small></button>
+        <button id="quick-play" class="menu-command"><span>OPEN ROOMS</span><small>Find a public match</small></button>
         <button id="solo-button" class="menu-command"><span>SOLO</span><small>Fight a bot or practice</small></button>
         <button id="private-button" class="menu-command"><span>PRIVATE MATCH</span><small>Create or join a room</small></button>
         <button id="how-button" class="menu-command quiet-command"><span>HOW TO PLAY</span><small>Controls and combat basics</small></button>
@@ -82,6 +83,20 @@
           <span>PRACTICE YARD</span>
           <small>Untimed training with configurable dummies</small>
         </button>
+      </div>
+    </section>
+
+    <section id="rooms-menu" class="side-screen hidden">
+      <div class="side-screen-inner banner-panel rooms-inner">
+        <button class="back-button" id="rooms-back">← BACK</button>
+        <p class="eyebrow">OPEN ROOMS</p>
+        <h2>THE MELEE</h2>
+        <label class="field-label" for="rooms-name">SPELLBLADE NAME</label>
+        <input id="rooms-name" class="game-input" data-name-copy maxlength="18" autocomplete="nickname" placeholder="Enter a name" />
+        <p class="error-copy" data-menu-error aria-live="polite"></p>
+        <div id="room-list" class="room-list" aria-live="polite"><p class="room-empty">Looking for open rooms…</p></div>
+        <button id="quick-join" class="mode-choice"><span>QUICK JOIN</span><small>Walk into the busiest room, or raise one</small></button>
+        <button id="raise-room" class="mode-choice primary-command"><span>RAISE A PUBLIC ROOM</span><small>Anyone can walk in, even mid-match</small></button>
       </div>
     </section>
 
@@ -143,6 +158,7 @@
         <h2>ROOM <button id="copy-code" class="code-button"><span id="lobby-code">----</span></button></h2>
         <div id="lobby-state" class="lobby-state">WAITING FOR ANOTHER PLAYER</div>
         <div id="lobby-players" class="player-list"></div>
+        <div id="lobby-votes" class="lobby-votes"></div>
         <button id="start-match" class="wide-button primary-command hidden">START MATCH</button>
         <button id="copy-link" class="wide-button">COPY INVITE LINK</button>
         <button id="lobby-leave" class="wide-button">RETURN TO MENU</button>
@@ -217,6 +233,12 @@
       <div id="debug" class="debug hidden"></div>
       <div id="scoreboard" class="scoreboard hidden"></div>
       <div id="pointer-hint" class="pointer-hint">CLICK TO ENTER THE ARENA</div>
+      <div id="seek-banner" class="seek-banner hidden" role="status" aria-live="polite">
+        <div class="seek-copy"><strong id="seek-title">SEEKING A WORTHY CHALLENGER · 0:00</strong><small id="seek-detail">No one else is seeking yet</small></div>
+        <button id="seek-bot" class="seek-action hidden">FIGHT A BOT WHILE YOU WAIT</button>
+        <button id="seek-cancel" class="seek-action quiet">CANCEL</button>
+        <small class="seek-hint">ESC FOR OPTIONS</small>
+      </div>
     </section>
 
     <section id="end-screen" class="end-screen hidden">
@@ -225,6 +247,7 @@
       <h2 id="winner-title">VICTORY</h2>
       <div id="final-scoreboard" class="final-scoreboard"></div>
       <div class="end-actions">
+        <button id="seek-another" class="wide-button primary-command hidden">SEEK ANOTHER</button>
         <button id="rematch" class="wide-button primary-command">PLAY AGAIN</button>
         <button id="leave" class="wide-button">RETURN TO MENU</button>
       </div>

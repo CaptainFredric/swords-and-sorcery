@@ -95,6 +95,14 @@ export class GameSocket {
   cast(direction) { this.send({ type: 'cast', direction }); }
   dash(direction) { this.send({ type: 'dash', direction }); }
   rematch() { this.send({ type: 'rematch' }); }
+  seekDuel(name) { this.send({ type: 'seekDuel', name }); }
+  cancelSeek() { this.send({ type: 'cancelSeek' }); }
+  seekBotDuel() { this.send({ type: 'seekBotDuel' }); }
+  listRooms() { this.send({ type: 'listRooms' }); }
+  createPublicRoom(name) { this.send({ type: 'createPublicRoom', name }); }
+  ready(ready) { this.send({ type: 'ready', ready: Boolean(ready) }); }
+  vote(key, value) { this.send({ type: 'vote', key, value }); }
+  leaveRoom() { this.send({ type: 'leaveRoom' }); }
   ping() { this.send({ type: 'ping', sentAt: performance.now() }); }
 
   serverNow() {

@@ -357,10 +357,12 @@ try {
   if (!evidence.botDuel.pointerLocked) throw new Error(`Bot Duel became active without pointer lock: ${JSON.stringify(evidence.botDuel)}`);
   await capture('public-game-bot-duel.png');
 
-  // Fresh Quick Match: a single public player must wait rather than fake-start.
+  // Fresh Quick Join from Open Rooms: a single public player must wait rather than fake-start.
   await resetToFreshMenu();
   await setName('Public FFA');
   await click('#quick-play');
+  await waitVisible('#rooms-menu');
+  await click('#quick-join');
   await waitVisible('#lobby');
   await poll(async () => /WAITING/i.test((await snapshotUi()).lobbyState), { timeoutMs: 10000, label: 'single-player FFA waiting state' });
   evidence.ffaWaiting = await snapshotUi();

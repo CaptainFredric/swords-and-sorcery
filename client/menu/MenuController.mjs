@@ -34,6 +34,14 @@ export class MenuController {
     return this.#withName(rawName, (name) => this.socket.quickPlay(name));
   }
 
+  seekDuel(rawName) {
+    return this.#withName(rawName, (name) => this.socket.seekDuel(name));
+  }
+
+  createPublic(rawName) {
+    return this.#withName(rawName, (name) => this.socket.createPublicRoom(name));
+  }
+
   botDuel(rawName) {
     return this.#withName(rawName, (name) => this.socket.startSolo('BOT_DUEL', name));
   }

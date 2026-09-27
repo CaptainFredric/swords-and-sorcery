@@ -87,7 +87,9 @@ test('one FFA human waits, second human can start, and snapshots expose structur
   send(bob, { type: 'joinRoom', code: aliceJoined.roomCode, name: 'Bob' });
   await bobJoinedP;
   assert.equal(room.state, 'WAITING');
-  assert.equal(room.requestStart(aliceJoined.playerId, game.now()), true);
+  // no host button: the countdown starts once everyone is ready
+  for (const player of room.players.values()) assert.equal(room.setReady(player.id, true, game.now()), true);
+  assert.equal(room.state, 'COUNTDOWN');
   room.countdownEndsAt = game.now() - 0.01;
   const playing = await waitFor(alice, (m) => m.type === 'snapshot' && m.roomState === 'PLAYING');
   assert.equal(playing.players.filter((p) => p.actorKind === 'human').length, 2);

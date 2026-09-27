@@ -20,6 +20,7 @@ export const MENU_SHOTS = Object.freeze({
 const SCREEN_SHOTS = Object.freeze({
   MAIN_MENU: 'main',
   SOLO_MENU: 'solo',
+  ROOMS_MENU: 'lobby',
   PRIVATE_MENU: 'private',
   HOW_TO_PLAY: 'how',
   LOBBY: 'lobby',

@@ -6,10 +6,10 @@ function worldName(worldId) {
 }
 
 /** What the challenge card says while a match counts down. */
-export function challengeCopy({ mode, players = [], localId = null, worldId = 'castleward' }) {
+export function challengeCopy({ mode, players = [], localId = null, worldId = 'castleward', scoreToWin = 10 }) {
   const me = players.find((player) => player.id === localId);
   const others = players.filter((player) => player.id !== localId && player.actorKind !== 'dummy');
-  const place = `${worldName(worldId)} · first to 10`;
+  const place = `${worldName(worldId)} · first to ${scoreToWin ?? 10}`;
   if (mode === 'BOT_DUEL' || others.length === 1) {
     return {
       kicker: 'A WORTHY CHALLENGER',
@@ -40,9 +40,10 @@ export function countdownSeconds(countdownEndsAt, serverNow) {
 }
 
 /** The arena gate's title and subtitle as a match opens. */
-export function arenaGateCopy({ mode, worldId = 'castleward' }) {
+export function arenaGateCopy({ mode, worldId = 'castleward', scoreToWin = 10 }) {
   const title = worldName(worldId).toUpperCase();
+  const first = `FIRST TO ${scoreToWin ?? 10}`;
   if (mode === 'PRACTICE') return { title, sub: 'PRACTICE YARD · UNTIMED' };
-  if (mode === 'BOT_DUEL') return { title, sub: 'DUEL · FIRST TO 10' };
-  return { title, sub: 'FREE-FOR-ALL · FIRST TO 10' };
+  if (mode === 'BOT_DUEL' || mode === 'DUEL') return { title, sub: `DUEL · ${first}` };
+  return { title, sub: `FREE-FOR-ALL · ${first}` };
 }

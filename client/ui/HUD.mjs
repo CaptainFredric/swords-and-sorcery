@@ -6,10 +6,11 @@ export function matchInfoText(snapshot, serverNow) {
   if (snapshot?.suddenDeath) return 'SUDDEN DEATH';
   const startedAt = Number.isFinite(snapshot?.matchStartedAt) ? snapshot.matchStartedAt : serverNow;
   const elapsed = Math.max(0, serverNow - startedAt);
-  const left = Math.max(0, 360 - elapsed);
+  const length = Number.isFinite(snapshot?.matchSeconds) ? snapshot.matchSeconds : 360;
+  const left = Math.max(0, length - elapsed);
   const mins = Math.floor(left / 60);
   const secs = Math.floor(left % 60).toString().padStart(2, '0');
-  return `FIRST TO 10  ·  ${mins}:${secs}`;
+  return `FIRST TO ${snapshot?.scoreToWin ?? 10}  ·  ${mins}:${secs}`;
 }
 
 export class HUD {
