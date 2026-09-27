@@ -277,3 +277,7 @@ The exact preservation comparison covers all 13 other export meshes including UV
 The accepted helmet receives 5 mm additional relief on its gold reinforcement. The crest's two broad side faces have a shallow inset with a beveled rim. Each knee cop sits 28 mm closer at its foremost surface, narrows 5 percent, and extends its lower taper by about 25 mm to overlap the shin more naturally.
 
 An exact comparison against aebfe55 confirms that only the gold reinforcement coordinates, crest geometry and knee cop coordinates changed. The steel crown, cheek plates, visor, other body geometry, all 30 materials, rig and all 12 animation curves are preserved. The first person source is unchanged.
+
+## September 26 quick shoulder fit
+
+Both pauldrons have a slightly flatter roof, 10 percent less front/back depth, and a shallow angular lower rim that overlaps the upper arm plates. Only their vertex positions changed; topology, colors, UVs, weights, all other meshes, 30 materials, the rig and 12 actions are exactly preserved against 0db5212. Maximum vertex displacement is 22.5 mm. Sword/body and helmet/shoulder intersections remain zero at every integer frame of every clip.
