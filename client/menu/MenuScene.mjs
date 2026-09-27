@@ -55,13 +55,17 @@ export class MenuScene {
     this.characterRoot.rotation.y = this.targetYaw;
     this.stage.add(this.characterRoot);
 
+    // The procedural fallback only appears if the production GLB fails to load; during a normal load the plinth
+    // stands empty for a moment rather than advertising the obsolete model.
     this.fallbackVisual = createSpellbladeRig(0);
+    this.fallbackVisual.visible = false;
     this.characterRoot.add(this.fallbackVisual);
     this.#setShowcasePose();
     reportSpellbladeAssetStatus('menu');
 
-    this.magicLight = new THREE.PointLight(0x55d9ff, 3.2, 3.2, 2);
+    this.magicLight = new THREE.PointLight(0x55d9ff, 1.1, 1.6, 2);
     this.magicLight.position.set(-0.85, 1.15, 0.15);
+    this.magicLight.visible = false;
     this.stage.add(this.magicLight);
 
     this.#upgradeVisual();
@@ -80,7 +84,10 @@ export class MenuScene {
   #upgradeVisual() {
     const generation = ++this.assetGeneration;
     createSpellbladeAsset({ kind: 'thirdPerson' }).then((instance) => {
-      if (!instance) return;
+      if (!instance) {
+        this.#showFallback();
+        return;
+      }
       if (this.disposed || generation !== this.assetGeneration) {
         instance.dispose();
         return;
@@ -91,6 +98,8 @@ export class MenuScene {
       this.characterRoot.add(instance.root);
       instance.animator.apply({ clip: 'Idle', loop: true, time: 0 });
       reportSpellbladeAssetStatus('menu', instance);
+      this.magicLight.visible = true;
+      this.container.classList.add('menu-spellblade-ready');
 
       if (instance.sockets.sorcery) {
         instance.sockets.sorcery.add(this.magicLight);
@@ -106,8 +115,16 @@ export class MenuScene {
       if (!this.disposed) {
         this.visualKind = 'fallback';
         reportSpellbladeAssetStatus('menu');
+        this.#showFallback();
       }
     });
+  }
+
+  #showFallback() {
+    if (this.disposed || !this.fallbackVisual) return;
+    this.fallbackVisual.visible = true;
+    this.magicLight.visible = true;
+    this.container.classList.add('menu-spellblade-ready');
   }
 
   #buildStage() {

@@ -1,6 +1,7 @@
 import { GameSocket } from './network/GameSocket.mjs';
 import { HUD } from './ui/HUD.mjs';
 import { GameRuntime } from './game/GameRuntime.mjs';
+import { preloadSpellbladeAssets } from './game/SpellbladeAssets.mjs';
 import { MenuController, shouldRouteSocketError } from './menu/MenuController.mjs';
 import { MenuScene } from './menu/MenuScene.mjs';
 import { SCREEN_IDS, ScreenRouter } from './ui/ScreenRouter.mjs';
@@ -47,6 +48,9 @@ const router = new ScreenRouter({
   [SCREEN_IDS.END_SCREEN]: endScreen,
   [SCREEN_IDS.HOW_TO_PLAY]: howPanel,
 });
+
+// start both character downloads at once; the menu, the first-person arms and opponents then share them
+preloadSpellbladeAssets().catch(() => {});
 
 let menuScene = null;
 try {

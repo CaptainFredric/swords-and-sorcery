@@ -6,10 +6,20 @@ import { resolveRemoteSpellbladePose } from './remoteSpellbladePose.mjs';
 import {
   createRemoteVisualShell,
   disposeRemoteVisualShell,
+  revealRemoteFallback,
   setRemoteVisualPlan,
   upgradeRemoteVisual,
 } from './remoteVisualState.mjs';
 import { bufferedServerTime, castPoseWindowFromEvent, resolveSpellbladeState } from './spellbladePose.mjs';
+import { airborneLegFlex, landingStrength, pruneReactions } from './spellbladeMotion.mjs';
+
+// which body reacts to which combat event, and how
+const REACTION_EVENTS = Object.freeze({
+  damage: { kind: 'hit', target: 'victimId', from: 'attackerId' },
+  block: { kind: 'block', target: 'defenderId', from: 'attackerId' },
+  guardBreak: { kind: 'guardBreak', target: 'defenderId', from: 'attackerId' },
+  parry: { kind: 'parry', target: 'defenderId', from: 'attackerId' },
+});
 
 function damp(value, target, amount) {
   return value + (target - value) * amount;
@@ -20,6 +30,9 @@ function dampEuler(object, x, y, z, amount = 0.22) {
   object.rotation.y = damp(object.rotation.y, y, amount);
   object.rotation.z = damp(object.rotation.z, z, amount);
 }
+
+// how long an opponent may stay hidden while its production model loads before the fallback stands in
+const FALLBACK_GRACE_MS = 4000;
 
 function applyCastWindow(shell, window) {
   if (!window) return;
@@ -64,9 +77,9 @@ function disposeFallbackRig(rig) {
   for (const material of materials) material.dispose?.();
 }
 
-function setGlbAccent(instance, intensity) {
+function setGlbAccent(instance, visor, sorcery) {
   if (!instance?.materials) return;
-  for (const name of ['VisorGlow', 'SorceryAccent']) {
+  for (const [name, intensity] of [['VisorGlow', visor], ['SorceryAccent', sorcery]]) {
     for (const material of instance.materials[name] ?? []) {
       if ('emissiveIntensity' in material) material.emissiveIntensity = intensity;
     }
@@ -82,11 +95,16 @@ function createRemoteShell(index, player, pendingCast) {
     root,
     fallback: fallbackRig,
     fallbackDispose: () => disposeFallbackRig(fallbackRig),
+    hideFallbackWhileLoading: true,
   });
+  shell.createdAtMs = performance.now();
   shell.fallbackRig = fallbackRig;
   reportSpellbladeAssetStatus('remote');
 
   const d = root.userData;
+  d.reactions = [];
+  d.airborne = false;
+  d.fastestFall = 0;
   d.lastAlive = player.alive;
   d.deathStartedAt = null;
   d.castPoseStartAt = -Infinity;
@@ -96,13 +114,17 @@ function createRemoteShell(index, player, pendingCast) {
   const generation = shell.generation;
   createSpellbladeAsset({ kind: 'thirdPerson' })
     .then((instance) => {
-      if (!instance) return;
+      if (!instance) {
+        revealRemoteFallback(shell);
+        return;
+      }
       if (upgradeRemoteVisual(shell, instance, generation)) {
         reportSpellbladeAssetStatus('remote', instance);
       }
     })
     .catch(() => {
       // The procedural fallback remains authoritative presentation until a valid GLB is available.
+      revealRemoteFallback(shell);
       reportSpellbladeAssetStatus('remote');
     });
 
@@ -121,7 +143,8 @@ export class RemotePlayers {
 
   setLocalId(id) { this.localId = id; }
 
-  onEvent(event) {
+  onEvent(event, snapshot = null) {
+    this.#react(event, snapshot);
     if (event?.type !== 'fireballCast' || event.playerId === this.localId) return;
     const window = castPoseWindowFromEvent(event);
     if (!window) return;
@@ -134,6 +157,23 @@ export class RemotePlayers {
 
     const pending = this.pendingCasts.get(event.playerId);
     if (!pending || window.endAt >= pending.endAt) this.pendingCasts.set(event.playerId, window);
+  }
+
+  // queue a short procedural reaction on the body that took the blow, played on the interpolated clock
+  #react(event, snapshot) {
+    const spec = REACTION_EVENTS[event?.type];
+    if (!spec || !Number.isFinite(event.at)) return;
+    if (event.type === 'damage' && (event.source === 'abyss' || !(event.amount > 0))) return;
+    const targetId = event[spec.target];
+    const shell = this.rigs.get(targetId);
+    if (!shell) return;
+    const players = snapshot?.players ?? [];
+    const victim = players.find((p) => p.id === targetId)?.position ?? shell.root.position;
+    const source = players.find((p) => p.id === event[spec.from])?.position ?? null;
+    const push = source ? { x: victim.x - source.x, z: victim.z - source.z } : null;
+    const strength = event.type === 'damage' ? Math.min(1.2, 0.6 + (event.amount ?? 0) / 60) : 1;
+    const d = shell.root.userData;
+    d.reactions = [...pruneReactions(d.reactions, event.at), { kind: spec.kind, at: event.at, push, strength }];
   }
 
   pushSnapshot(snapshot, receivedAtMs) {
@@ -188,6 +228,17 @@ export class RemotePlayers {
     }
   }
 
+  // where the other living Spellblades are drawn right now (for the local body's separation prediction)
+  bodies() {
+    const list = [];
+    for (const [id, shell] of this.rigs) {
+      if (!shell.root.visible || shell.root.userData.lastAlive === false) continue;
+      const { x, y, z } = shell.root.position;
+      list.push({ id, x, y, z });
+    }
+    return list;
+  }
+
   update(nowMs, dt = 0) {
     const renderTime = nowMs - 100;
     const localTime = nowMs / 1000;
@@ -229,17 +280,39 @@ export class RemotePlayers {
         d.deathStartedAt = null;
       }
 
+      // landing: remember the fastest fall while airborne and absorb it on touch-down
+      const verticalVelocity = pb.velocity?.y ?? 0;
+      if (state === 'air') {
+        d.airborne = true;
+        d.fastestFall = Math.max(d.fastestFall, -verticalVelocity);
+      } else if (d.airborne) {
+        d.airborne = false;
+        const strength = landingStrength(d.fastestFall);
+        if (strength > 0.05 && state !== 'dead') d.reactions = [...d.reactions, { kind: 'land', at: serverNow, strength }];
+        d.fastestFall = 0;
+      }
+      d.reactions = pruneReactions(d.reactions, serverNow);
+
       const animationPlayer = { ...pb, castPoseStartAt: d.castPoseStartAt };
       const plan = resolveSpellbladeAnimationPlan({ state, player: animationPlayer, serverNow, localTime });
+      plan.motion = {
+        reactions: state === 'dead' ? [] : d.reactions,
+        now: serverNow,
+        yaw: shell.root.rotation.y,
+        airFlex: state === 'air' ? airborneLegFlex(verticalVelocity) : 0,
+      };
       setRemoteVisualPlan(shell, plan, dt);
 
       const protectedNow = (pb.spawnProtectionUntil ?? 0) > serverNow;
       const accentIntensity = protectedNow ? 2.8 : state === 'cast' ? 2.3 : 1.4;
       if (shell.visualKind === 'fallback') {
+        if (!shell.visual?.visible && nowMs - (shell.createdAtMs ?? nowMs) > FALLBACK_GRACE_MS) revealRemoteFallback(shell);
         animateFallbackRig(shell.fallbackRig, state, pb, serverNow, localTime);
         shell.fallbackRig.userData.accentMaterial.emissiveIntensity = accentIntensity;
       } else {
-        setGlbAccent(shell.visualInstance, accentIntensity);
+        // the visor keeps its read (and flares for spawn protection); the gauntlet runes follow the palm sorcery
+        const sorcery = shell.visualInstance?.sorceryLevel?.() ?? 0;
+        setGlbAccent(shell.visualInstance, accentIntensity, (protectedNow ? 1.6 : 0.6) + 1.8 * sorcery);
       }
     }
   }

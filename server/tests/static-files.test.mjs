@@ -20,3 +20,11 @@ test('static resolver rejects encoded traversal and malformed URL encoding', () 
   assert.equal(serverModule.resolveStaticFile(ROOT, '/client/%2e%2e/.env'), null);
   assert.equal(serverModule.resolveStaticFile(ROOT, '/client/%'), null);
 });
+
+test('revisioned character assets are cached for good; other files revalidate; the page is never cached', () => {
+  const glb = path.join(ROOT, 'client', 'assets', 'characters', 'spellblade', 'spellblade.glb');
+  assert.match(serverModule.cacheControlFor(glb, new URLSearchParams('v=0123abcd')), /immutable/);
+  assert.equal(serverModule.cacheControlFor(glb, new URLSearchParams('')), 'public, max-age=60');
+  assert.equal(serverModule.cacheControlFor(path.join(ROOT, 'client', 'main.mjs'), new URLSearchParams('v=1')), 'public, max-age=60');
+  assert.equal(serverModule.cacheControlFor(path.join(ROOT, 'client', 'index.html'), new URLSearchParams('')), 'no-store');
+});

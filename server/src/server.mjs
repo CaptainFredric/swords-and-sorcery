@@ -40,6 +40,14 @@ export function mimeFor(file) {
   })[ext] || 'application/octet-stream';
 }
 
+// Revisioned assets (the character GLBs are requested as ?v=<source sha>) never change under the same URL, so the
+// browser keeps them; everything else revalidates cheaply against its modification time.
+export function cacheControlFor(filePath, searchParams) {
+  if (filePath.endsWith('.html')) return 'no-store';
+  if (searchParams?.has?.('v') && /\.(glb|gltf|png|jpg|webp)$/i.test(filePath)) return 'public, max-age=31536000, immutable';
+  return 'public, max-age=60';
+}
+
 export function resolveStaticFile(root, urlPath) {
   const rawPath = String(urlPath || '/').split('?')[0];
   if (rawPath === '/' || rawPath === '/index.html') return path.join(root, 'client', 'index.html');
@@ -151,7 +159,18 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
       res.end('Not found');
       return;
     }
-    res.writeHead(200, { 'content-type': mimeFor(filePath), 'cache-control': filePath.endsWith('.html') ? 'no-store' : 'public, max-age=60' });
+    const stat = fs.statSync(filePath);
+    const lastModified = new Date(Math.floor(stat.mtimeMs / 1000) * 1000).toUTCString();
+    const etag = `W/"${stat.size.toString(16)}-${Math.floor(stat.mtimeMs).toString(16)}"`;
+    const headers = { 'content-type': mimeFor(filePath), 'cache-control': cacheControlFor(filePath, url.searchParams) };
+    if (!filePath.endsWith('.html')) Object.assign(headers, { 'last-modified': lastModified, etag });
+    if (!filePath.endsWith('.html') && (req.headers['if-none-match'] === etag
+      || (!req.headers['if-none-match'] && req.headers['if-modified-since'] === lastModified))) {
+      res.writeHead(304, headers);
+      res.end();
+      return;
+    }
+    res.writeHead(200, headers);
     fs.createReadStream(filePath).pipe(res);
   });
 
