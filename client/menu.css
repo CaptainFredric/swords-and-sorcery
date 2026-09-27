@@ -300,3 +300,8 @@
 .touch-ui .hud.pointer-locked .seek-banner .seek-hint { display: none; }
 
 .end-actions { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+
+/* --- sound and music switches (arena menu, How to Play) ---------------------------------------------------------- */
+.sound-toggles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 10px 0 0; }
+.sound-toggles .wide-button { margin: 0; font-size: 13px; }
+.sound-toggles .wide-button[aria-pressed="false"] { opacity: .7; }

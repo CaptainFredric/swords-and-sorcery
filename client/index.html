@@ -135,6 +135,7 @@
           <span>SPACE</span><b>Jump</b>
           <span>TAB</span><b>Scoreboard</b>
           <span>M</span><b>Sound on / off</b>
+          <span>N</span><b>Music on / off</b>
           <span>ESC</span><b>Arena menu / Back</b>
         </div>
         <div class="controls-grid touch-controls-grid">
@@ -146,6 +147,10 @@
           <span>DASH</span><b>Dash in your movement direction</b>
           <span>SPRINT</span><b>Tap to sprint until you let go of the stick</b>
           <span>MENU</span><b>Arena menu · practice tools</b>
+        </div>
+        <div class="sound-toggles" role="group" aria-label="Sound">
+          <button class="wide-button" data-toggle-sound aria-pressed="true">SOUND · ON</button>
+          <button class="wide-button" data-toggle-music aria-pressed="true">MUSIC · ON</button>
         </div>
         <p class="rules-copy">Three sword hits defeat a full-health Spellblade. A well-timed Guard parries and staggers the attacker. Fireball beats passive blocking. Dash repositions; it does not grant invulnerability. Guard and Sprint share one stamina bar: sprinting drains it slowly, every block costs a chunk, and it refills a moment after you stop.</p>
       </div>
@@ -199,6 +204,10 @@
         <p>The match continues while this menu is open.</p>
         <button id="resume-game" class="wide-button primary-command">RESUME</button>
         <button id="pause-leave" class="wide-button">RETURN TO MENU</button>
+        <div class="sound-toggles" role="group" aria-label="Sound">
+          <button class="wide-button" data-toggle-sound aria-pressed="true">SOUND · ON</button>
+          <button class="wide-button" data-toggle-music aria-pressed="true">MUSIC · ON</button>
+        </div>
       </div>
     </section>
 

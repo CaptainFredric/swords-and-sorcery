@@ -3,6 +3,10 @@ import { HUD } from './ui/HUD.mjs';
 import { GameRuntime } from './game/GameRuntime.mjs';
 import { preloadSpellbladeAssets, watchSpellbladeLoading } from './game/SpellbladeAssets.mjs';
 import { SoundEngine } from './game/sound/SoundEngine.mjs';
+import { Ambience } from './game/sound/Ambience.mjs';
+import { MusicPlayer } from './game/sound/music/MusicPlayer.mjs';
+import { VoiceBank } from './game/sound/VoiceBank.mjs';
+import { gateRecipe, uiClankRecipe, warDrumRecipe } from './game/sound/atmosphereRecipes.mjs';
 import { arenaGateCopy, challengeCopy, countdownSeconds, romanCount } from './menu/challengeCard.mjs';
 import { lobbyView, roomRows } from './menu/lobbyView.mjs';
 import { seekView } from './menu/seekView.mjs';
@@ -47,8 +51,16 @@ const rematchButton = $('#rematch');
 const rematchCopy = $('#rematch-copy');
 
 const hud = new HUD();
-// one sound engine for the whole page; it unlocks on the first click or key press
+// one sound engine for the whole page; it unlocks on the first click or key press. Around it: the wind and bell of
+// the courtyard, the music, and the Spellblade's voice.
 const sound = new SoundEngine();
+const ambience = new Ambience(sound);
+const music = new MusicPlayer(sound);
+const voice = new VoiceBank(sound);
+if (new URLSearchParams(location.search).has('debug')) {
+  globalThis.__ssSound = { sound, ambience, music, voice };
+  import('./game/sound/soundDemo.mjs').then((demo) => { globalThis.__ssSoundDemo = demo; });
+}
 const socket = new GameSocket();
 const menuController = new MenuController(socket, localStorage);
 const router = new ScreenRouter({
@@ -132,7 +144,31 @@ function route(screenId) {
   // leaving any menu screen for a match in progress opens the gate (a duel's countdown opens it at the start)
   if (screenId === SCREEN_IDS.PLAYING && previous !== null && currentRoomState === 'PLAYING') openArenaGate(latestSnapshot ?? latestLobby ?? {});
   renderSeek();
+  syncSoundscape();
 }
+
+// what you hear follows where you are: the courtyard and the hall theme in the menus, the battle theme in a match
+// (hotter as the fighting gets closer), silence for the stingers of a challenge and a match's end
+function syncSoundscape() {
+  const screen = router.current;
+  const inArena = screen === null;
+  if (!challengeCard.classList.contains('hidden')) {
+    music.play(null);
+    ambience.setScene(inArena ? 'arena' : 'menu');
+  } else if (inArena) {
+    ambience.setScene('arena');
+    const fighting = latestSnapshot?.roomState === 'PLAYING';
+    music.play(fighting ? 'battle' : null);
+    if (fighting && runtime) music.setIntensity(runtime.musicHeat({ cap: latestSnapshot.mode === 'PRACTICE' ? 1 : 2 }));
+  } else if (screen === SCREEN_IDS.END_SCREEN) {
+    ambience.setScene('arena');
+    music.play(null);
+  } else if (isMenuBackedScreen(screen)) {
+    ambience.setScene('menu');
+    music.play('hall');
+  }
+}
+setInterval(syncSoundscape, 500);
 
 // --- the countdown card: a worthy challenger, and the arena gate that opens onto the match ---
 const challengeCard = $('#challenge-card');
@@ -144,17 +180,25 @@ let gateOpenedAt = -Infinity;
 let currentRoomState = null;
 
 function showChallenge(message) {
+  const appearing = challengeCard.classList.contains('hidden');
   const copy = challengeCopy({ mode: message.mode, players: message.players ?? [], localId: socket.playerId, worldId: message.worldId, scoreToWin: message.scoreToWin });
   $('#challenge-kicker').textContent = copy.kicker;
   $('#challenge-you').textContent = copy.you;
   $('#challenge-foe').textContent = copy.foe;
   $('#challenge-copy').textContent = copy.copy;
   challengeCard.classList.remove('hidden');
+  // a worthy challenger: the drum, the low choir and the horn (the menu music gives way to it)
+  if (appearing) {
+    syncSoundscape();
+    music.stinger('challenge');
+  }
   clearInterval(countdownTimer);
   const count = $('#challenge-count');
   const tick = () => {
     const seconds = countdownSeconds(message.countdownEndsAt, socket.serverNow());
     if (seconds === null || seconds === lastCountdownValue) return;
+    // each numeral lands on the war drum, heavier as the gate nears (the first is the stinger's own drum)
+    if (lastCountdownValue !== null && seconds > 0) sound.play(warDrumRecipe(Math.random, { weight: 0.5 + (3 - Math.min(3, seconds)) * 0.25 }), { gain: 0.8 });
     lastCountdownValue = seconds;
     count.textContent = romanCount(seconds);
     count.classList.remove('tick');
@@ -187,6 +231,8 @@ function openArenaGate(info) {
   $('#arena-gate-title').textContent = copy.title;
   $('#arena-gate-sub').textContent = copy.sub;
   arenaGate.classList.remove('hidden');
+  sound.play(warDrumRecipe(Math.random, { weight: 1.3 }), { gain: 0.9 });
+  sound.play(gateRecipe(), { gain: 0.85 });
   arenaGate.style.animation = 'none';
   void arenaGate.offsetWidth;
   arenaGate.style.animation = '';
@@ -209,7 +255,7 @@ $('#rotate-dismiss').addEventListener('click', () => document.body.classList.add
 
 function ensureRuntime() {
   if (!runtime) {
-    runtime = new GameRuntime($('#game-canvas'), socket, hud, { sound });
+    runtime = new GameRuntime($('#game-canvas'), socket, hud, { sound, voice });
     if (touchUi) runtime.enableTouch();
     runtime.onPointer = (locked) => {
       const mode = latestLobby?.mode ?? latestSnapshot?.mode;
@@ -331,7 +377,19 @@ roomList.addEventListener('click', (event) => {
   if (row) runMenuAction(menuController.joinPrivate(row.dataset.code, nameInput.value), SCREEN_IDS.ROOMS_MENU);
 });
 
+// the end of a match: a stinger for the winner or the fallen (once per match), and the victor's shout
+let endHeardFor = null;
+function soundTheEnd(snapshot) {
+  const key = `${snapshot.roomCode}:${snapshot.matchStartedAt}`;
+  if (endHeardFor === key) return;
+  endHeardFor = key;
+  const won = snapshot.winnerId === socket.playerId;
+  music.stinger(won ? 'victory' : 'defeat');
+  if (won) voice.say('victory', { speaker: socket.playerId, gain: 0.85 });
+}
+
 function updateEnd(snapshot) {
+  soundTheEnd(snapshot);
   const winner = snapshot.players.find((player) => player.id === snapshot.winnerId);
   winnerTitle.textContent = winner?.id === socket.playerId ? 'VICTORY' : `${winner?.name ?? 'A SPELLBLADE'} WINS`;
   const sorted = [...snapshot.players].sort((a, b) => b.kills - a.kills || a.deaths - b.deaths);
@@ -423,12 +481,36 @@ $('#pause-leave').addEventListener('click', () => clearSessionAndNavigate());
 $('#lobby-leave').addEventListener('click', () => clearSessionAndNavigate());
 // the ready check: each Spellblade says they are ready (press again to take it back)
 startMatchButton.addEventListener('click', () => socket.ready(!startMatchButton.classList.contains('pressed')));
-// M: sound on/off (not while typing a name or room code)
+// M: sound on/off, N: music on/off (not while typing a name or room code); the same switches sit in the arena menu
+// and How to Play for touch screens
+function renderSoundToggles() {
+  for (const button of document.querySelectorAll('[data-toggle-sound]')) {
+    button.textContent = sound.muted ? 'SOUND · OFF' : 'SOUND · ON';
+    button.setAttribute('aria-pressed', String(!sound.muted));
+  }
+  for (const button of document.querySelectorAll('[data-toggle-music]')) {
+    button.textContent = sound.setting.music ? 'MUSIC · ON' : 'MUSIC · OFF';
+    button.setAttribute('aria-pressed', String(Boolean(sound.setting.music)));
+    button.disabled = sound.muted;
+  }
+}
+sound.onChange(renderSoundToggles);
+renderSoundToggles();
 document.addEventListener('keydown', (event) => {
-  if (event.code !== 'KeyM' || event.repeat || event.target?.tagName === 'INPUT') return;
-  const muted = sound.toggleMute();
-  hud.flashText(muted ? 'SOUND OFF' : 'SOUND ON', 'ready', 900);
+  if (event.repeat || event.target?.tagName === 'INPUT') return;
+  if (event.code === 'KeyM') hud.flashText(sound.toggleMute() ? 'SOUND OFF' : 'SOUND ON', 'ready', 900);
+  if (event.code === 'KeyN') hud.flashText(sound.toggleMusic() ? 'MUSIC ON' : 'MUSIC OFF', 'ready', 900);
 });
+for (const button of document.querySelectorAll('[data-toggle-sound]')) button.addEventListener('click', () => sound.toggleMute());
+for (const button of document.querySelectorAll('[data-toggle-music]')) button.addEventListener('click', () => sound.toggleMusic());
+// every button lands with a little brass (not the on-screen fighting controls)
+document.addEventListener('click', (event) => {
+  const button = event.target.closest?.('button');
+  if (!button || button.disabled || button.closest('.touch-controls')) return;
+  const back = button.classList.contains('back-button') || /leave|cancel|back/.test(button.id);
+  const variant = back ? 'back' : button.classList.contains('primary-command') ? 'confirm' : 'press';
+  sound.play(uiClankRecipe(Math.random, { variant }), { bus: 'ui' });
+}, { capture: true });
 document.addEventListener('keydown', event => {
   if (event.key !== 'Escape' || event.repeat) return;
   if ([SCREEN_IDS.SOLO_MENU, SCREEN_IDS.PRIVATE_MENU, SCREEN_IDS.ROOMS_MENU, SCREEN_IDS.HOW_TO_PLAY].includes(router.current)) {

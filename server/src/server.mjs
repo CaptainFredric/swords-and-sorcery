@@ -38,6 +38,9 @@ export function mimeFor(file) {
     '.png': 'image/png',
     '.glb': 'model/gltf-binary',
     '.gltf': 'model/gltf+json',
+    '.m4a': 'audio/mp4',
+    '.wav': 'audio/wav',
+    '.mp3': 'audio/mpeg',
   })[ext] || 'application/octet-stream';
 }
 
