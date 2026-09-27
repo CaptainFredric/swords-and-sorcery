@@ -265,3 +265,25 @@ Checks:
 **Checks:**
 - The sword never enters the body, and the helmet and pauldrons never touch.
 - Worst stretch is 0.56 cm.
+
+## September 26 focused canonical helmet fit
+
+Only HelmetShell, HelmetJaw, Crest and Visor geometry changed from the accepted 5af5502 source. The crown has a continuous broad brow and compact tapered profile, the gold forehead reinforcement has physical beveled thickness, the cheeks frame recessed cyan strokes, and the lower jaw exposes a dark chin band. The crest is narrower and stepped. The Layout workspace contains a packed enlarged helmet reference.
+
+The exact preservation comparison covers all 13 other export meshes including UVs, colors, weights and transforms, all 30 saved material definitions and packed textures, rest bones and all 12 action curves. The first person source is byte unchanged. Run `scripts/verify-helmet-preservation.py` in Blender with `-- BASELINE.blend CANDIDATE.blend` to reproduce the comparison. Avoid running the historical whole kit builder over this saved revision.
+
+## September 26 ridge, crest and knee refinement
+
+The accepted helmet receives 5 mm additional relief on its gold reinforcement. The crest's two broad side faces have a shallow inset with a beveled rim. Each knee cop sits 28 mm closer at its foremost surface, narrows 5 percent, and extends its lower taper by about 25 mm to overlap the shin more naturally.
+
+An exact comparison against aebfe55 confirms that only the gold reinforcement coordinates, crest geometry and knee cop coordinates changed. The steel crown, cheek plates, visor, other body geometry, all 30 materials, rig and all 12 animation curves are preserved. The first person source is unchanged.
+
+## September 26 quick shoulder fit
+
+Both pauldrons have a slightly flatter roof, 10 percent less front/back depth, and a shallow angular lower rim that overlaps the upper arm plates. Only their vertex positions changed; topology, colors, UVs, weights, all other meshes, 30 materials, the rig and 12 actions are exactly preserved against 0db5212. Maximum vertex displacement is 22.5 mm. Sword/body and helmet/shoulder intersections remain zero at every integer frame of every clip.
+
+## September 26 scarf silhouette refinement
+
+The front collar is shallower and follows a subtle diagonal. Its former rectangular hanging end is a shorter, thinner tapered fold, tucked into the wrap and resting closer to the breastplate. The rear collar and helmet opening remain in place.
+
+An exact comparison against b683b14 permits only coordinates on the scarf's two disconnected components inside Breastplate. All remaining geometry, topology, UVs, colors, weights, 30 materials, rig and 12 action curves are preserved. Sword/body and helmet/shoulder intersections remain zero at every integer animation frame. The set of existing helmet/collar contact frames is identical to the baseline.
