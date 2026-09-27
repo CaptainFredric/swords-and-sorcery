@@ -11,8 +11,12 @@
   <link rel="manifest" href="/client/manifest.webmanifest" />
   <title>Swords & Sorcery</title>
   <link rel="icon" href="data:," />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IM+Fell+English+SC&amp;family=Alegreya+Sans:wght@400;500;700;800&amp;display=swap" />
   <link rel="stylesheet" href="/client/styles.css" />
   <link rel="stylesheet" href="/client/playability.css" />
+  <link rel="stylesheet" href="/client/menu.css" />
   <link rel="stylesheet" href="/client/mobile.css" />
   <script type="importmap">
     {
@@ -34,11 +38,14 @@
       <div class="menu-hills hill-right"></div>
       <div class="menu-castle-silhouette" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
       <div id="menu-spellblade" class="menu-spellblade" aria-label="Spellblade preview. Drag to turn the character."></div>
+      <div class="menu-vignette" aria-hidden="true"></div>
       <div class="turn-hint">DRAG TO TURN · DOUBLE-CLICK TO RESET</div>
     </div>
 
     <section id="menu" class="menu-screen">
+      <div class="banner-panel">
       <header class="game-brand">
+        <svg class="crest" viewBox="0 0 64 76" aria-hidden="true"><path class="crest-field" d="M4 4h56v30c0 20-13 32-28 38C17 66 4 54 4 34z"/><path class="crest-border" d="M4 4h56v30c0 20-13 32-28 38C17 66 4 54 4 34z"/><path class="crest-charge" d="M32 16v42M22 26v10q0 5 10 5t10-5V26M22 26l-3 5M22 26l3 5M32 16l-3 5M32 16l3 5M42 26l-3 5M42 26l3 5M28 58h8"/></svg>
         <p class="eyebrow">CASTLEWARD</p>
         <h1>SWORDS <span>&amp;</span> SORCERY</h1>
         <p class="brand-rule">SWORD. MAGIC. FIRST TO 10.</p>
@@ -55,10 +62,11 @@
         <button id="how-button" class="menu-command quiet-command"><span>HOW TO PLAY</span><small>Controls and combat basics</small></button>
         <p id="menu-error" data-menu-error class="error-copy" aria-live="polite"></p>
       </aside>
+      </div>
     </section>
 
     <section id="solo-menu" class="side-screen hidden">
-      <div class="side-screen-inner">
+      <div class="side-screen-inner banner-panel">
         <button class="back-button" id="solo-back">← BACK</button>
         <p class="eyebrow">SOLO</p>
         <h2>PLAY ALONE</h2>
@@ -78,7 +86,7 @@
     </section>
 
     <section id="private-menu" class="side-screen hidden">
-      <div class="side-screen-inner">
+      <div class="side-screen-inner banner-panel">
         <button class="back-button" id="private-back">← BACK</button>
         <p class="eyebrow">PRIVATE MATCH</p>
         <h2>PRIVATE MATCH</h2>
@@ -97,7 +105,7 @@
     </section>
 
     <section id="how-panel" class="side-screen hidden">
-      <div class="side-screen-inner manual-inner">
+      <div class="side-screen-inner banner-panel manual-inner">
         <button class="back-button" data-close-how>← BACK</button>
         <p class="eyebrow">HOW TO PLAY</p>
         <h2>BASE KIT</h2>
@@ -128,18 +136,45 @@
     </section>
 
     <section id="lobby" class="lobby-screen hidden">
-      <div class="lobby-banner"><span id="lobby-world">CASTLEWARD</span><small id="lobby-mode">FREE-FOR-ALL</small></div>
-      <div class="lobby-content">
+      <div class="lobby-content banner-panel">
+        <div class="lobby-banner"><span id="lobby-world">CASTLEWARD</span><small id="lobby-mode">FREE-FOR-ALL</small></div>
         <p class="eyebrow">LOBBY</p>
         <h2>ROOM <button id="copy-code" class="code-button"><span id="lobby-code">----</span></button></h2>
         <div id="lobby-state" class="lobby-state">WAITING FOR ANOTHER PLAYER</div>
         <div id="lobby-players" class="player-list"></div>
         <button id="start-match" class="wide-button primary-command hidden">START MATCH</button>
-        <button id="lobby-leave" class="wide-button">RETURN TO MENU</button>
         <button id="copy-link" class="wide-button">COPY INVITE LINK</button>
+        <button id="lobby-leave" class="wide-button">RETURN TO MENU</button>
         <p id="lobby-copy" class="small-copy">Two players are enough. New players can join an active match.</p>
       </div>
     </section>
+
+    <section id="challenge-card" class="challenge-card hidden" aria-live="polite">
+      <div class="challenge-inner">
+        <p id="challenge-kicker" class="eyebrow">A WORTHY CHALLENGER</p>
+        <div class="challenge-names">
+          <b id="challenge-you">YOU</b>
+          <svg class="challenge-swords" viewBox="0 0 48 48" aria-hidden="true"><path d="M8 8l24 24M40 8L16 32M28 36l8-8M12 28l8 8M33 33l7 7M15 33l-7 7"/></svg>
+          <b id="challenge-foe">RIVAL</b>
+        </div>
+        <p id="challenge-count" class="challenge-count">III</p>
+        <p id="challenge-copy" class="challenge-copy">Castleward · first to 10</p>
+      </div>
+    </section>
+
+    <div id="arena-gate" class="arena-gate hidden" aria-hidden="true">
+      <p id="arena-gate-title">CASTLEWARD</p>
+      <small id="arena-gate-sub">FIRST TO 10</small>
+    </div>
+
+    <div id="loading-veil" class="loading-veil" role="status" aria-live="polite">
+      <div class="loading-inner">
+        <svg class="crest" viewBox="0 0 64 76" aria-hidden="true"><path class="crest-field" d="M4 4h56v30c0 20-13 32-28 38C17 66 4 54 4 34z"/><path class="crest-border" d="M4 4h56v30c0 20-13 32-28 38C17 66 4 54 4 34z"/><path class="crest-charge" d="M32 16v42M22 26v10q0 5 10 5t10-5V26M22 26l-3 5M22 26l3 5M32 16l-3 5M32 16l3 5M42 26l-3 5M42 26l3 5M28 58h8"/></svg>
+        <p class="loading-title">SWORDS <span>&amp;</span> SORCERY</p>
+        <div class="loading-bar"><i id="loading-fill"></i></div>
+        <p id="loading-copy" class="loading-copy">Forging the Spellblade…</p>
+      </div>
+    </div>
 
     <section id="pause-menu" class="pause-menu hidden" role="dialog" aria-label="Arena menu">
       <div class="pause-card">

@@ -1,7 +1,8 @@
 import { GameSocket } from './network/GameSocket.mjs';
 import { HUD } from './ui/HUD.mjs';
 import { GameRuntime } from './game/GameRuntime.mjs';
-import { preloadSpellbladeAssets } from './game/SpellbladeAssets.mjs';
+import { preloadSpellbladeAssets, watchSpellbladeLoading } from './game/SpellbladeAssets.mjs';
+import { arenaGateCopy, challengeCopy, countdownSeconds, romanCount } from './menu/challengeCard.mjs';
 import { MenuController, shouldRouteSocketError } from './menu/MenuController.mjs';
 import { MenuScene } from './menu/MenuScene.mjs';
 import { SCREEN_IDS, ScreenRouter } from './ui/ScreenRouter.mjs';
@@ -49,16 +50,39 @@ const router = new ScreenRouter({
   [SCREEN_IDS.HOW_TO_PLAY]: howPanel,
 });
 
+// --- loading: the veil shows real download progress and lifts once the Spellblade stands in the forecourt ---
+const loadingVeil = $('#loading-veil');
+const loadingFill = $('#loading-fill');
+const loadingCopy = $('#loading-copy');
+let veilLifted = false;
+const stopWatchingLoad = watchSpellbladeLoading((fraction) => {
+  loadingFill.style.transform = `scaleX(${Math.max(0.04, fraction).toFixed(3)})`;
+  if (fraction >= 1) loadingCopy.textContent = 'Raising the banners…';
+});
+function liftVeil() {
+  if (veilLifted) return;
+  veilLifted = true;
+  stopWatchingLoad();
+  loadingFill.style.transform = 'scaleX(1)';
+  loadingVeil.classList.add('done');
+  // the establishing shot settles on the Spellblade as the veil lifts
+  menuScene?.setShot(router.current ?? SCREEN_IDS.MAIN_MENU, 2.8);
+}
+// never keep the menu hostage: lift after a while even on a very slow connection
+setTimeout(liftVeil, 12000);
+
 // start both character downloads at once; the menu, the first-person arms and opponents then share them
 preloadSpellbladeAssets().catch(() => {});
 
 let menuScene = null;
 try {
-  menuScene = new MenuScene(menuSpellblade);
+  menuScene = new MenuScene(menuSpellblade, { onReady: () => setTimeout(liftVeil, 250) });
 } catch (error) {
   console.warn('Spellblade menu preview unavailable:', error);
   menuSpellblade.classList.add('menu-scene-unavailable');
+  liftVeil();
 }
+if (new URLSearchParams(location.search).has('debug')) globalThis.__ssMenu = menuScene;
 
 let runtime = null;
 let touchUi = false;
@@ -82,15 +106,75 @@ if (invitedRoom && localStorage.getItem('ss-room-code') !== roomInput.value) {
 }
 
 function isMenuBackedScreen(screenId) {
-  return [SCREEN_IDS.MAIN_MENU, SCREEN_IDS.SOLO_MENU, SCREEN_IDS.PRIVATE_MENU, SCREEN_IDS.HOW_TO_PLAY].includes(screenId);
+  return [SCREEN_IDS.MAIN_MENU, SCREEN_IDS.SOLO_MENU, SCREEN_IDS.PRIVATE_MENU, SCREEN_IDS.HOW_TO_PLAY, SCREEN_IDS.LOBBY].includes(screenId);
 }
 
 function route(screenId) {
+  const previous = router.current;
   if (screenId === SCREEN_IDS.PLAYING) router.hideAll();
   else router.show(screenId);
   const menuBacked = isMenuBackedScreen(screenId);
   menuWorld.classList.toggle('hidden', !menuBacked);
   menuScene?.setVisible(menuBacked);
+  // the camera glides to each screen's shot (the veil's establishing shot is started when it lifts)
+  if (menuBacked && veilLifted && previous !== screenId) menuScene?.setShot(screenId);
+  // leaving any menu screen for the arena opens the gate
+  if (screenId === SCREEN_IDS.PLAYING && previous !== null) openArenaGate(latestSnapshot ?? latestLobby ?? {});
+}
+
+// --- the countdown card: a worthy challenger, and the arena gate that opens onto the match ---
+const challengeCard = $('#challenge-card');
+const arenaGate = $('#arena-gate');
+let countdownTimer = null;
+let lastCountdownValue = null;
+let gateTimer = null;
+
+function showChallenge(message) {
+  const copy = challengeCopy({ mode: message.mode, players: message.players ?? [], localId: socket.playerId, worldId: message.worldId });
+  $('#challenge-kicker').textContent = copy.kicker;
+  $('#challenge-you').textContent = copy.you;
+  $('#challenge-foe').textContent = copy.foe;
+  $('#challenge-copy').textContent = copy.copy;
+  challengeCard.classList.remove('hidden');
+  clearInterval(countdownTimer);
+  const count = $('#challenge-count');
+  const tick = () => {
+    const seconds = countdownSeconds(message.countdownEndsAt, socket.serverNow());
+    if (seconds === null || seconds === lastCountdownValue) return;
+    lastCountdownValue = seconds;
+    count.textContent = romanCount(seconds);
+    count.classList.remove('tick');
+    void count.offsetWidth;
+    count.classList.add('tick');
+  };
+  tick();
+  countdownTimer = setInterval(tick, 100);
+}
+
+function hideChallenge() {
+  clearInterval(countdownTimer);
+  countdownTimer = null;
+  lastCountdownValue = null;
+  challengeCard.classList.add('hidden');
+}
+
+function syncChallenge(message) {
+  const counting = (message.roomState === 'COUNTDOWN' || message.roomState === 'REMATCH_COUNTDOWN') && message.mode !== 'PRACTICE';
+  if (counting && Number.isFinite(message.countdownEndsAt)) showChallenge(message);
+  else hideChallenge();
+}
+
+// black opens onto the arena with its name
+function openArenaGate(info) {
+  const copy = arenaGateCopy({ mode: info.mode, worldId: info.worldId });
+  $('#arena-gate-title').textContent = copy.title;
+  $('#arena-gate-sub').textContent = copy.sub;
+  arenaGate.classList.remove('hidden');
+  arenaGate.style.animation = 'none';
+  void arenaGate.offsetWidth;
+  arenaGate.style.animation = '';
+  clearTimeout(gateTimer);
+  gateTimer = setTimeout(() => arenaGate.classList.add('hidden'), 1300);
 }
 
 // phones and tablets get on-screen controls and touch wording; a touchscreen laptop switches on its first tap
@@ -177,6 +261,7 @@ function updateLobby(message) {
   startMatchButton.textContent = message.hostId === socket.playerId ? 'START MATCH' : 'WAITING FOR HOST';
   const botDuel = message.mode === 'BOT_DUEL';
   copyLinkButton.classList.toggle('hidden', !(multiplayer || botDuel));
+  copyLinkButton.classList.toggle('primary-command', botDuel);
   copyLinkButton.disabled = botDuel && message.roomState === 'COUNTDOWN';
   copyLinkButton.textContent = botDuel
     ? message.roomState === 'COUNTDOWN' ? 'ARENA FOCUSED' : 'START BOT DUEL'
@@ -294,6 +379,7 @@ $('#practice-leave').addEventListener('click', () => clearSessionAndNavigate());
 socket.on('joined', (message) => {
   showMenuError('');
   ensureRuntime();
+  latestLobby = { ...(latestLobby ?? {}), mode: message.mode, worldId: message.worldId, roomCode: message.roomCode };
   if (message.roomState === 'PLAYING') {
     route(SCREEN_IDS.PLAYING);
     hud.hide();
@@ -306,6 +392,7 @@ socket.on('joined', (message) => {
 
 socket.on('lobby', (message) => {
   updateLobby(message);
+  syncChallenge(message);
   if (message.roomState !== 'PLAYING' && message.roomState !== 'FINISHED') route(SCREEN_IDS.LOBBY);
 });
 
@@ -320,13 +407,16 @@ socket.on('snapshot', (snapshot) => {
     hud.hide();
     setPracticeVisible(false);
     updateLobby(snapshot);
+    syncChallenge(snapshot);
     route(SCREEN_IDS.LOBBY);
   } else if (snapshot.roomState === 'PLAYING') {
     runtime.setPlaying(true);
+    hideChallenge();
     route(SCREEN_IDS.PLAYING);
     hud.show();
     setPracticeVisible(snapshot.mode === 'PRACTICE');
   } else if (snapshot.roomState === 'FINISHED') {
+    hideChallenge();
     paused = false; pauseMenu.classList.add('hidden');
     runtime.setPlaying(false);
     hud.hide();

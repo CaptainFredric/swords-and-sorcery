@@ -99,3 +99,15 @@ test('procedural Spellblade is explicitly migration fallback while preserving th
   assert.match(sword, /bladeData/);
   assert.match(sword, /gem/);
 });
+
+test('the front door has a loading veil, heraldic banners, a challenger card and an arena gate', async () => {
+  const html = await read('client/index.html');
+  const css = await read('client/menu.css');
+  assert.match(html, /href=["']\/client\/menu\.css["']/);
+  assert.match(html, /id=["']loading-veil["'][\s\S]*id=["']loading-fill["']/);
+  assert.match(html, /id=["']challenge-card["'][\s\S]*id=["']challenge-count["']/);
+  assert.match(html, /id=["']arena-gate["']/);
+  const menuSlice = html.slice(html.indexOf('id="menu"'), html.indexOf('id="solo-menu"'));
+  assert.match(menuSlice, /class=["']banner-panel["']/);
+  assert.match(css, /prefers-reduced-motion: reduce/);
+});
