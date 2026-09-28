@@ -8,6 +8,9 @@ import { createSpellbladeAsset, reportSpellbladeAssetStatus } from './Spellblade
 import { resolveFirstPersonAnimationPlan } from './spellbladeAnimationPlan.mjs';
 import { FIRST_PERSON_WEAPON_SCALE, resolveWeaponPose } from './weaponPose.mjs';
 import { FP_MOTION, FirstPersonMotion } from './firstPersonMotion.mjs';
+import { OFF_HAND_CLEAR, slashPose } from './fpSlash.mjs';
+import { solveSwordArm } from './swordArmIK.mjs';
+import { attackMotion } from './spellbladePose.mjs';
 
 function damp(value, target, amount) {
   return value + (target - value) * amount;
@@ -242,6 +245,8 @@ export class WeaponView {
       this.productionInstance = instance;
       this.visualKind = 'production';
       this.productionOffset.add(instance.root);
+      // the arms are always in view, and a swung blade leaves the bounds the skinned meshes were measured at rest
+      instance.root.traverse((object) => { if (object.isMesh) object.frustumCulled = false; });
       instance.animator.apply({ clip: 'Idle', loop: true, time: performance.now() / 1000 });
       reportSpellbladeAssetStatus('firstPerson', instance);
 
@@ -369,7 +374,11 @@ export class WeaponView {
     const frozen = timeSec < this.frozenUntil;
 
     if (this.visualKind === 'production' && this.productionInstance) {
-      const plan = resolveFirstPersonAnimationPlan(pose, this, timeSec);
+      let plan = resolveFirstPersonAnimationPlan(pose, this, timeSec);
+      // the combo is drawn by the sword hand's path (fpSlash.mjs): right to left, left to right, then down
+      const slash = pose.state === 'attack' ? attackMotion({ attackStartedAt: this.attackStartedAt }, timeSec) : null;
+      const swordArm = slash ? slashPose(slash.strike, slash.local) : null;
+      if (swordArm) plan = { clip: 'Idle', loop: true, time: timeSec };
       // neutral hands sit a little wider apart (clear sightline); in the sprint the arms pump with the stride
       const spread = FP_MOTION.neutralSpread * motion.neutral;
       // the magic arm draws the spell in close, then throws it (see castGesture.mjs)
@@ -387,9 +396,14 @@ export class WeaponView {
           // at rest only (actions keep their authored arms): a clean grip on the sword, the magic hand lower
           { bone: 'hand.R', axis: [1, 0, 0], angle: FP_MOTION.swordWristFlex * motion.neutral, space: 'local' },
           { bone: 'forearm.R', axis: [0, 1, 0], angle: FP_MOTION.swordForearmTurn * motion.neutral, space: 'local' },
+          { bone: 'hand.R', axis: [0, 0, 1], angle: FP_MOTION.swordWristLean * motion.neutral, space: 'local' },
+          { bone: 'forearm.L', axis: [0, 1, 0], angle: FP_MOTION.magicForearmTwist * motion.neutral, space: 'local' },
           { bone: 'upper_arm.L', axis: [1, 0, 0], angle: -FP_MOTION.magicArmDrop * motion.neutral, space: 'local' },
           ...castGestureRotations(gesture),
+          // the magic arm drops out of the blade's way while it works
+          ...(swordArm ? OFF_HAND_CLEAR.map((turn) => ({ ...turn, angle: turn.angle * swordArm.weight })) : []),
         ],
+        solve: swordArm ? (bones) => solveSwordArm(bones, swordArm, swordArm.weight) : undefined,
       };
       const shown = frozen && this.lastPlan ? this.lastPlan : plan;
       this.productionInstance.animator.apply(shown, frozen ? 0 : dt);

@@ -29,6 +29,8 @@ export function buildCastlewardDecorPlan(seed = 1337) {
     [[16, 1], [17.5, 3.6]],
     [[0, -7], [0, -24]],
     [[-2.8, -1], [-1, -0.2]],
+    // through the gateway and out onto the Tourney Field
+    [[14.5, -1], [13.8, -7.8], [13.4, -12], [12.2, -16.5]],
   ];
 
   // cottages seen over the walls
@@ -36,7 +38,7 @@ export function buildCastlewardDecorPlan(seed = 1337) {
     { id: 'west-backdrop-a', x: -27.0, z: 8.5, sx: 5.2, sy: 3.2, sz: 4.8, roof: 'slate', yaw: -0.08 },
     { id: 'west-backdrop-b', x: -27.4, z: -4.5, sx: 4.6, sy: 2.9, sz: 4.3, roof: 'thatch', yaw: 0.07 },
     { id: 'north-backdrop', x: -16.5, z: 14.6, sx: 4.4, sy: 3.0, sz: 4.0, roof: 'thatch', yaw: 0.05 },
-    { id: 'south-backdrop-a', x: 10.8, z: -13.4, sx: 4.8, sy: 3.0, sz: 4.2, roof: 'slate', yaw: -0.12 },
+    { id: 'south-backdrop-a', x: 30.5, z: -14.5, sx: 4.8, sy: 3.0, sz: 4.2, roof: 'slate', yaw: -0.12 },
     { id: 'south-backdrop-b', x: -12.5, z: -14.0, sx: 5.0, sy: 3.1, sz: 4.4, roof: 'thatch', yaw: 0.1 },
     { id: 'east-backdrop', x: 29.5, z: 4.0, sx: 4.4, sy: 3.0, sz: 5.0, roof: 'slate', yaw: 0.04 },
   ];
@@ -45,9 +47,9 @@ export function buildCastlewardDecorPlan(seed = 1337) {
   const trees = [
     [-21.0, 12.4, 'oak'], [-12.6, 12.8, 'oak'], [-24.6, 3.0, 'pine'], [-24.8, -6.4, 'oak'],
     [11.5, 14.4, 'oak'], [16.0, 13.6, 'pine'], [21.0, 14.0, 'oak'], [26.2, 10.5, 'pine'],
-    [26.6, 0.5, 'oak'], [26.4, -6.5, 'pine'], [14.0, -10.2, 'oak'], [20.5, -10.6, 'pine'],
-    [-8.5, -10.8, 'oak'], [-17.5, -10.4, 'pine'], [7.8, -11.5, 'pine'], [-11.8, 20.5, 'pine'],
-    [12.5, 21.5, 'pine'],
+    [26.6, 0.5, 'oak'], [26.4, -6.5, 'pine'], [27.2, -12.5, 'oak'], [27.0, -19.5, 'pine'],
+    [-8.5, -10.8, 'oak'], [-17.5, -10.4, 'pine'], [9.5, -24.0, 'pine'], [-11.8, 20.5, 'pine'],
+    [12.5, 21.5, 'pine'], [18.5, -24.0, 'oak'],
   ].map(([x, z, kind], index) => ({
     id: `tree-${index}`,
     x: x + jitter(random, 0.6),
@@ -110,5 +112,22 @@ export function buildCastlewardDecorPlan(seed = 1337) {
     { id: 'village-rune', facing: 0 },
   ];
 
-  return { paths, houses, trees, forest, torches, braziers, banners, runeStones };
+  // the little things of a lived-in town, each set against a wall or post so nobody runs through one:
+  // barrels, crates and a woodpile by the village houses; lanterns along the South Road; flowers at the walls' feet;
+  // and on the Tourney Field, archery butts against the hedge, a rack of practice blades and pennants on the gateway
+  const props = [
+    { kind: 'barrel', x: -10.42, z: 6.55 }, { kind: 'barrel', x: -10.45, z: 5.9, tilt: 0.1 }, { kind: 'crate', x: -10.5, z: 4.4, turn: 0.2 },
+    { kind: 'crate', x: -17.8, z: 9.28, turn: 0.1 }, { kind: 'crate', x: -17.1, z: 9.3, turn: -0.15, stack: true }, { kind: 'barrel', x: -16.2, z: 9.3 },
+    { kind: 'woodpile', x: -15.3, z: -4.8, length: 2.4, facing: Math.PI / 2 },
+    { kind: 'sacks', x: 6.45, z: 4.9 },
+    { kind: 'lantern', x: -4.62, z: -11.5 }, { kind: 'lantern', x: 4.62, z: -11.5 }, { kind: 'lantern', x: -4.62, z: -18 }, { kind: 'lantern', x: 4.62, z: -18 },
+    { kind: 'flowers', x: -13.5, z: 9.35 }, { kind: 'flowers', x: 12.2, z: 11.35 }, { kind: 'flowers', x: 19.5, z: 11.3 },
+    { kind: 'flowers', x: -20.9, z: -7.35 }, { kind: 'flowers', x: 7.2, z: -7.35 }, { kind: 'flowers', x: 22.2, z: -8.25 },
+    { kind: 'target', x: 23.05, z: -11.2, facing: -Math.PI / 2 }, { kind: 'target', x: 23.05, z: -14.6, facing: -Math.PI / 2 },
+    { kind: 'target', x: 23.05, z: -17.2, facing: -Math.PI / 2 },
+    { kind: 'rack', x: 12.5, z: -22.0, facing: 0 },
+    { kind: 'pennant', x: 11.0, z: -7.8, height: 3.4 }, { kind: 'pennant', x: 16.6, z: -7.8, height: 3.4 },
+  ].map((prop, index) => ({ id: `prop-${index}`, ...prop }));
+
+  return { paths, houses, trees, forest, torches, braziers, banners, runeStones, props };
 }

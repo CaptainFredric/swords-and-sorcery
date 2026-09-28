@@ -16,6 +16,8 @@ export const CASTLEWARD = Object.freeze({
     { id: 'west-village', name: 'West Village', center: [-15, 0, 1], radius: 8 },
     { id: 'east-meadow', name: 'East Meadow', center: [16, 0, 2], radius: 9 },
     { id: 'south-road', name: 'South Road', center: [0, 0, -15.5], radius: 8 },
+    // open ground for a straight fight: through the gateway in the meadow's south wall
+    { id: 'tourney-field', name: 'Tourney Field', center: [14.5, 0, -15.2], radius: 8 },
   ]),
   // Traversal rules. Ordinary running, sprinting or dashing never carries anyone into the abyss:
   //  * every ground-level edge of the map is closed by a visible boundary at least 1.5 m tall (a jump peaks at
@@ -38,6 +40,9 @@ export const CASTLEWARD = Object.freeze({
     { id: 'east-wall-walk', center: [7.4, 3.85, 23.15], size: [3, 0.3, 5.3], y: 4, material: 'stone' },
     // beyond the South Gate the road runs out onto a bridge that ends in a broken span
     { id: 'broken-bridge', center: [0, -0.15, -26], size: [6, 0.3, 4], y: 0, material: 'stone' },
+    // the Tourney Field: open grass south of the meadow, reached through the gateway in the field wall. It runs under
+    // the road's east bank and the meadow's wall, so no strip of it is left without ground
+    { id: 'tourney-field', center: [14.55, -0.15, -15.2], size: [19.3, 0.3, 14.8], y: 0, material: 'grass' },
   ],
   ramps: [
     // Wide central castle climb: no Dash/jump is required.
@@ -95,7 +100,19 @@ export const CASTLEWARD = Object.freeze({
 
     // field walls close the south edge of the village, the green and the meadow
     { id: 'south-field-wall-west', center: [-13.85, 0.8, -7.8], size: [17, 1.6, 0.4], material: 'stone', kind: 'field-wall' },
-    { id: 'south-field-wall-east', center: [14.775, 0.8, -7.8], size: [18.85, 1.6, 0.4], material: 'stone', kind: 'field-wall' },
+    // (east of the road it opens in a 5 m gateway onto the Tourney Field, between two posts)
+    { id: 'south-field-wall-east', center: [8.325, 0.8, -7.8], size: [5.95, 1.6, 0.4], material: 'stone', kind: 'field-wall' },
+    { id: 'south-field-wall-far-east', center: [20.25, 0.8, -7.8], size: [7.9, 1.6, 0.4], material: 'stone', kind: 'field-wall' },
+    { id: 'tourney-gatepost-west', center: [11.0, 1.15, -7.8], size: [0.7, 2.3, 0.7], material: 'stone', kind: 'gatepost' },
+    { id: 'tourney-gatepost-east', center: [16.6, 1.15, -7.8], size: [0.7, 2.3, 0.7], material: 'stone', kind: 'gatepost' },
+
+    // the Tourney Field's own bounds: the hedgerow carries on down its east side, a field wall along the ravine
+    { id: 'tourney-east-hedge', center: [23.75, 0.8, -15.2], size: [0.5, 1.6, 14.8], material: 'hedge', kind: 'hedge' },
+    { id: 'tourney-south-wall', center: [14.6, 0.8, -22.5], size: [19.2, 1.6, 0.4], material: 'stone', kind: 'field-wall' },
+    // and very little in it: a pavilion in the far corner, two stacks of straw to break a line of sight
+    { id: 'tourney-pavilion', center: [20.6, 1.2, -19.6], size: [3.4, 2.4, 3.4], material: 'cloth', kind: 'pavilion' },
+    { id: 'tourney-bales-west', center: [9.6, 0.5, -17.6], size: [1.8, 1.0, 1.1], material: 'straw', kind: 'bales' },
+    { id: 'tourney-bales-east', center: [18.4, 0.5, -12.4], size: [1.1, 1.0, 1.8], material: 'straw', kind: 'bales' },
 
     // braziers flank the ramp foot (clear of its 8 m lane) and light the meadow; old rune stones stand by the chapel
     { id: 'forecourt-brazier-west', center: [-5.2, 0.65, 13.3], size: [0.62, 1.3, 0.62], material: 'stone', kind: 'brazier' },
@@ -124,12 +141,15 @@ export const CASTLEWARD = Object.freeze({
     spawn(2.5, 0, -18.5),
     spawn(-4.4, 2.5, 22.5),
     spawn(4.4, 2.5, 22.5),
+    spawn(8.5, 0, -12.5, 14.5, -15),
+    spawn(20.5, 0, -15.5, 14.5, -15),
   ],
   navigationHints: Object.freeze([
     { id: 'green-to-bailey', from: [0, 0, 5], to: [0, 2.5, 22], kind: 'run-ramp' },
     { id: 'green-to-west', from: [-7, 0, 1], to: [-17, 0, 1], kind: 'run' },
     { id: 'green-to-east', from: [7, 0, 0], to: [20, 0, 0], kind: 'run' },
     { id: 'green-to-south', from: [0, 0, -7], to: [0, 0, -20], kind: 'run' },
+    { id: 'meadow-to-tourney', from: [13.8, 0, -3], to: [13.8, 0, -15], kind: 'run' },
   ]),
   abyssY: -9,
 });

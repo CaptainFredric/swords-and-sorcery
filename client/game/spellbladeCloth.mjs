@@ -7,6 +7,11 @@
 // Each chain relaxes toward the animated pose (angle 0) and reacts to the anchor's motion:
 // air drag trails the cloth behind the velocity, and like a pendulum of the given length it lags
 // on acceleration (angular kick = acceleration / length).
+//
+// It also answers the body turning and tilting (the cloth is not bolted to it):
+//   hang: when the body leans, the cloth keeps hanging toward the ground instead of leaning with it;
+//   tiltLag: while the body tips, the cloth trails the motion for a moment (seconds of lag per rad/s);
+//   turnLag: a spinning body leaves the cloth swinging out behind the turn; flare: and flung outward.
 
 export const CLOTH_CHAINS = Object.freeze({
   back: Object.freeze({
@@ -18,6 +23,10 @@ export const CLOTH_CHAINS = Object.freeze({
     length: 0.55,
     stiffness: 34,
     damping: 6.5,
+    hang: 0.85,
+    tiltLag: 0.14,
+    turnLag: 0.11,
+    flare: 0.05,
   }),
   front: Object.freeze({
     bones: Object.freeze(['tabard_front_01', 'tabard_front_02']),
@@ -29,6 +38,11 @@ export const CLOTH_CHAINS = Object.freeze({
     length: 0.45,
     stiffness: 40,
     damping: 7.5,
+    hang: 0.7,
+    tiltLag: 0.1,
+    // in front of the body, a turn swings it the other way, and the flare throws it forward
+    turnLag: -0.08,
+    flare: -0.035,
   }),
 });
 
@@ -38,6 +52,10 @@ const TELEPORT_DISTANCE = 3;
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
+}
+
+function finite(value) {
+  return Number.isFinite(value) ? value : 0;
 }
 
 export function createClothState() {
@@ -67,8 +85,11 @@ function springAxis(angle, velocity, target, drive, spec, limits, dt) {
  * @param {ReturnType<typeof createClothState>} state
  * @param {number} dt seconds since the previous step
  * @param {{forward:number,right:number}} velocity anchor velocity in the character frame (m/s)
+ * @param {{turn?:number, tilt?:{forward:number,right:number}, tiltRate?:{forward:number,right:number}}} body
+ *   turn: how fast the body turns (rad/s, + to its right); tilt: how far it leans from upright (rad, + forward and
+ *   + to its right); tiltRate: how fast that lean is changing (rad/s)
  */
-export function stepCloth(state, dt, velocity) {
+export function stepCloth(state, dt, velocity, { turn = 0, tilt = null, tiltRate = null } = {}) {
   if (!(dt > 0) || !velocity || !Number.isFinite(velocity.forward) || !Number.isFinite(velocity.right)) return state;
   const step = Math.min(dt, 0.1);
   if (!state.primed || !state.velocity) {
@@ -84,10 +105,22 @@ export function stepCloth(state, dt, velocity) {
   state.accel.right += (rawRight - state.accel.right) * blend;
   state.velocity = { forward: velocity.forward, right: velocity.right };
 
+  const spin = Number.isFinite(turn) ? clamp(turn, -12, 12) : 0;
+  const lean = { forward: finite(tilt?.forward), right: finite(tilt?.right) };
+  const tipping = { forward: clamp(finite(tiltRate?.forward), -8, 8), right: clamp(finite(tiltRate?.right), -8, 8) };
   for (const [name, spec] of Object.entries(CLOTH_CHAINS)) {
     const chain = state.chains[name];
-    const swingTarget = clamp(spec.drag * velocity.forward, spec.swingLimits[0], spec.swingLimits[1]);
-    const sideTarget = clamp(-spec.drag * velocity.right, -spec.sideLimit, spec.sideLimit);
+    // leaning forward (or tipping forward) leaves the hanging cloth forward of where the body carries it: swing < 0
+    const swing = spec.drag * velocity.forward
+      - (spec.hang ?? 0) * lean.forward
+      + (spec.tiltLag ?? 0) * tipping.forward
+      + (spec.flare ?? 0) * spin * spin;
+    const side = -spec.drag * velocity.right
+      + (spec.hang ?? 0) * lean.right
+      - (spec.tiltLag ?? 0) * tipping.right
+      + (spec.turnLag ?? 0) * spin;
+    const swingTarget = clamp(swing, spec.swingLimits[0], spec.swingLimits[1]);
+    const sideTarget = clamp(side, -spec.sideLimit, spec.sideLimit);
     [chain.swing, chain.swingVel] = springAxis(
       chain.swing, chain.swingVel, swingTarget, state.accel.forward / spec.length, spec, spec.swingLimits, step,
     );

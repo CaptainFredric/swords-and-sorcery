@@ -5,8 +5,10 @@ import { preloadSpellbladeAssets, watchSpellbladeLoading } from './game/Spellbla
 import { SoundEngine } from './game/sound/SoundEngine.mjs';
 import { Ambience } from './game/sound/Ambience.mjs';
 import { MusicPlayer } from './game/sound/music/MusicPlayer.mjs';
+import { fightPieceFor } from './game/sound/music/score.mjs';
 import { VoiceBank } from './game/sound/VoiceBank.mjs';
 import { gateRecipe, uiClankRecipe, warDrumRecipe } from './game/sound/atmosphereRecipes.mjs';
+import { unsheatheRecipe } from './game/sound/soundRecipes.mjs';
 import { arenaGateCopy, challengeCopy, countdownSeconds, romanCount } from './menu/challengeCard.mjs';
 import { lobbyView, roomRows } from './menu/lobbyView.mjs';
 import { armoryView } from './menu/armoryView.mjs';
@@ -176,7 +178,7 @@ function syncSoundscape() {
   } else if (inArena) {
     ambience.setScene('arena');
     const fighting = latestSnapshot?.roomState === 'PLAYING';
-    music.play(fighting ? 'battle' : null);
+    music.play(fighting ? fightPieceFor(latestSnapshot) : null);
     if (fighting && runtime) music.setIntensity(runtime.musicHeat({ cap: latestSnapshot.mode === 'PRACTICE' ? 1 : 2 }));
   } else if (screen === SCREEN_IDS.END_SCREEN) {
     ambience.setScene('arena');
@@ -405,7 +407,8 @@ function soundTheEnd(snapshot) {
   endHeardFor = key;
   const won = snapshot.winnerId === socket.playerId;
   music.stinger(won ? 'victory' : 'defeat');
-  if (won) voice.say('victory', { speaker: socket.playerId, gain: 0.85 });
+  // MIGHT MAKES... KNIGHT! or, having lost, the protest that he is a knight (unless he just said so as he fell)
+  voice.say(won ? 'victory' : 'defeat', { speaker: socket.playerId, gain: 0.85, delay: 0.4 });
 }
 
 function updateEnd(snapshot) {
@@ -459,6 +462,10 @@ seekAnotherButton.addEventListener('click', () => runMenuAction(menuController.s
 $('#solo-button').addEventListener('click', () => { showMenuError(''); route(SCREEN_IDS.SOLO_MENU); });
 $('#private-button').addEventListener('click', () => { showMenuError(''); route(SCREEN_IDS.PRIVATE_MENU); });
 $('#how-button').addEventListener('click', () => route(SCREEN_IDS.HOW_TO_PLAY));
+// the Spellblade answers a choice on the front door: a salute before going it alone, his blade raised high when
+// calling for others, the blade presented on the way to the Armory
+const MENU_REACTIONS = { 'solo-button': 'salute', 'seek-duel': 'rally', 'quick-play': 'rally', 'private-button': 'rally', 'armory-button': 'present', 'how-button': 'look' };
+for (const [id, reaction] of Object.entries(MENU_REACTIONS)) $(`#${id}`)?.addEventListener('click', () => menuScene?.react(reaction));
 $('#solo-back').addEventListener('click', () => route(SCREEN_IDS.MAIN_MENU));
 $('#private-back').addEventListener('click', () => route(SCREEN_IDS.MAIN_MENU));
 $('[data-close-how]').addEventListener('click', () => route(SCREEN_IDS.MAIN_MENU));
@@ -504,6 +511,7 @@ startMatchButton.addEventListener('click', () => socket.ready(!startMatchButton.
 // --- settings: every change reaches what it belongs to, at once ---
 function applySettings() {
   sound.setLevels(soundLevels(settings));
+  voice.effectsOn = settings.get('audio.voicedGuard');
   const view = viewOptions(settings);
   menuScene?.setPixelRatioCap(view.pixelRatioCap);
   runtime?.configure({ view, input: inputOptions(settings) });
@@ -647,9 +655,15 @@ $('#practice-fight').addEventListener('click', () => socket.practiceSpawnDummy('
 $('#practice-remove').addEventListener('click', () => socket.practiceRemoveDummy());
 $('#practice-leave').addEventListener('click', () => clearSessionAndNavigate());
 
+// into a fight: the blade comes out of its scabbard (once per room: not again on a reconnect to the same one)
+let drawnFor = null;
 socket.on('joined', (message) => {
   showMenuError('');
   ensureRuntime();
+  if (drawnFor !== message.roomCode) {
+    drawnFor = message.roomCode;
+    sound.play(unsheatheRecipe(), { gain: 0.95 });
+  }
   latestLobby = { ...(latestLobby ?? {}), mode: message.mode, worldId: message.worldId, roomCode: message.roomCode };
   currentRoomState = message.roomState;
   // a seeker moved into a bot duel while already in the arena is ready at once (no second click)

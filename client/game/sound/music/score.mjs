@@ -1,9 +1,12 @@
-// The music of Castleward, written out. Two pieces and three stingers, all in D so they sit with the bell of the keep:
+// The music of Castleward, written out. Three pieces and three stingers, all in D so they sit with the bell of the keep:
 //
 //   The Castleward Hall (menus): D dorian, 3/4, slow. A lute and a drone; the melody passes between harp and flute;
 //     a choir and a frame drum join in the second strain, and a quiet strain lets it breathe before it comes round.
 //   Steel at the Gate (fights): D minor, 6/8 at a gallop over the old i-VII-VI-V descent. A drone and the lute always;
 //     the drums join once blades are out (intensity 1), the horn melody and choir when the fight is on (intensity 2).
+//   The Keep Holds (fights, the other half of the time): D minor, 4/4, a march. The lute drives eighths under a drone;
+//     march drums and the flute's tune come in once blades are out, the horn doubling it below and the choir on the
+//     second strain when the fight is on; a breath of drums alone before it comes round.
 //
 // Plain data and generators, so tests can check every note; the MusicPlayer turns bars into sound. An event is
 //   { inst, midi (or a list for chords), beat (from the bar's start), beats (length), vel 0..1, layer (0-2), pan }.
@@ -74,6 +77,24 @@ export const BATTLE = Object.freeze({
   melody: {
     A: parseLine('D5:3 E5:2 F5:1 | E5:3 D5:2 C5:1 | D5:3 Bb4:3 | A4:6 | F5:3 G5:2 A5:1 | G5:3 F5:2 E5:1 | F5:2 E5:1 D5:3 | E5:3 C#5:3'),
     call: parseLine('D4:1 r:1 D4:1 G4:3 | A4:6 | r:6 | r:6 | D4:1 r:1 D4:1 G4:3 | F4:3 A4:3 | A4:6 | r:6'),
+  },
+});
+
+export const MARCH = Object.freeze({
+  name: 'march',
+  bpm: 108,
+  beatsPerBar: 4,
+  hall: 0.4,
+  scale: 'D minor',
+  chords: {
+    intro: ['Dm', 'Dm', 'Bb', 'A'],
+    A: ['Dm', 'Dm', 'Bb', 'C', 'Dm', 'F', 'Gm', 'A'],
+    B: ['F', 'C', 'Dm', 'Bb', 'F', 'C', 'Gm', 'A'],
+    breath: ['Dm', 'Bb', 'C', 'A'],
+  },
+  melody: {
+    A: parseLine('D5:1.5 E5:.5 F5:1 D5:1 | A5:2 G5:1 F5:1 | F5:1.5 E5:.5 D5:1 F5:1 | E5:2 C5:2 | D5:1.5 E5:.5 F5:1 A5:1 | C6:2 A5:1 F5:1 | Bb5:1.5 A5:.5 G5:1 D5:1 | E5:1 C#5:1 A4:2'),
+    B: parseLine('A5:1 G5:.5 F5:.5 C5:2 | G5:1 E5:1 C5:1 E5:1 | F5:1.5 E5:.5 D5:2 | D5:1 F5:1 Bb5:2 | A5:1.5 G5:.5 F5:1 A5:1 | G5:2 E5:1 G5:1 | D6:1 Bb5:1 G5:1 Bb5:1 | A5:1 E5:1 C#5:1 A4:1'),
   },
 });
 
@@ -194,7 +215,75 @@ export function* battleBars(rand = Math.random) {
   }
 }
 
-export const PIECES = Object.freeze({ hall: { ...HALL, bars: hallBars }, battle: { ...BATTLE, bars: battleBars } });
+function* marchSection(section, rand, { melody = null, horn = false, choir = false, drums = true }) {
+  const chords = MARCH.chords[section];
+  const line = melody ? MARCH.melody[melody] : null;
+  for (let i = 0; i < chords.length; i += 1) {
+    const chord = chords[i];
+    const events = [];
+    if (i === 0) {
+      const beats = chords.length * MARCH.beatsPerBar + 2;
+      events.push({ inst: 'drone', midi: noteToMidi('D2'), beat: 0, beats, vel: 1, layer: 0, pan: 0 });
+      if (section !== 'breath') events.push({ inst: 'drone', midi: noteToMidi('A2'), beat: 0, beats, vel: 0.75, layer: 0, pan: 0.1 });
+    }
+    // the lute drives eighths: bass, fifth, octave, fifth, third, fifth, octave, fifth (sparser while it breathes)
+    if (section === 'breath') events.push({ inst: 'lute', midi: CHORDS[chord].lute[0], beat: 0, beats: 4, vel: 0.6, layer: 0, pan: -0.25 });
+    else events.push(...arpeggio(chord, [0, 1, 2, 1, 3, 1, 2, 1], 0.5, { vel: 0.5, accent: 0.18 }));
+    if (drums) {
+      // the march: the great drum on one and three, the frame drum walking the beat, a roll into every fourth bar
+      events.push({ inst: 'war', beat: 0, beats: 2, vel: 0.9, layer: 1, pan: 0 });
+      events.push({ inst: 'war', beat: 2, beats: 2, vel: 0.65, layer: 1, pan: 0 });
+      for (const [beat, inst, vel] of [[0, 'dum', 0.6], [1, 'tek', 0.5], [2, 'dum', 0.45], [3, 'tek', 0.5]]) {
+        events.push({ inst, beat, beats: 1, vel, layer: 1, pan: 0.2 });
+      }
+      for (const beat of [0.5, 1.5, 2.5]) events.push({ inst: 'ghost', beat, beats: 0.5, vel: 0.3, layer: 1, pan: 0.2 });
+      if (i % 4 === 3) {
+        for (const [k, beat] of [3, 3.25, 3.5, 3.75].entries()) events.push({ inst: 'tek', beat, beats: 0.25, vel: 0.3 + k * 0.08, layer: 1, pan: 0.2 });
+      } else {
+        events.push({ inst: 'ghost', beat: 3.5, beats: 0.5, vel: 0.3, layer: 1, pan: 0.2 });
+      }
+      events.push({ inst: 'jingle', beat: 1, beats: 1, vel: 0.4, layer: 2, pan: -0.3 });
+      events.push({ inst: 'jingle', beat: 3, beats: 1, vel: 0.45, layer: 2, pan: -0.3 });
+    }
+    if (line) {
+      events.push(...lineEvents(line[i], 'flute', { vel: 0.85, layer: 1, pan: 0.2 }));
+      if (horn) events.push(...lineEvents(line[i], 'horn', { vel: 0.7, layer: 2, octave: -1, pan: -0.15 }));
+    }
+    if (choir) events.push({ inst: 'choir', midi: CHORDS[chord].choir, beat: 0, beats: MARCH.beatsPerBar + 0.5, vel: 1, layer: 2, pan: 0 });
+    yield { piece: 'march', section, index: i, chord, events };
+  }
+}
+
+/** The march, forever: the lute alone to begin, then the tune, the tune with the horn, the second strain, a breath. */
+export function* marchBars(rand = Math.random) {
+  yield* marchSection('intro', rand, { drums: false });
+  for (;;) {
+    yield* marchSection('A', rand, { melody: 'A' });
+    yield* marchSection('A', rand, { melody: 'A', horn: true });
+    yield* marchSection('B', rand, { melody: 'B', horn: true, choir: true });
+    yield* marchSection('breath', rand, {});
+  }
+}
+
+export const PIECES = Object.freeze({
+  hall: { ...HALL, bars: hallBars },
+  battle: { ...BATTLE, bars: battleBars },
+  march: { ...MARCH, bars: marchBars },
+});
+
+// what each arena fights to: one of its pieces per match, the same for everyone in it (more maps, more music)
+export const FIGHT_MUSIC = Object.freeze({
+  castleward: Object.freeze(['battle', 'march']),
+});
+
+/** The fight piece for a match: chosen by the match itself (its room and start), so a rematch may bring the other. */
+export function fightPieceFor(snapshot) {
+  const pieces = FIGHT_MUSIC[snapshot?.worldId] ?? FIGHT_MUSIC.castleward;
+  const key = `${snapshot?.roomCode ?? ''}:${snapshot?.matchStartedAt ?? 0}`;
+  let hash = 0;
+  for (const char of key) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+  return pieces[hash % pieces.length];
+}
 
 const n = noteToMidi;
 

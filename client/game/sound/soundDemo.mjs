@@ -46,14 +46,29 @@ export const DEMOS = {
       music.scheduleUntil(70);
     },
   },
-  // the Spellblade's cry, through the helm and off the walls, over a little wind (the placeholder until recorded)
+  march: {
+    seconds: 72,
+    script(engine, { levels } = {}) {
+      const music = new MusicPlayer(engine, { levels });
+      // the lute alone, then the drums and the flute's tune, then the horn below it and the choir
+      music.setIntensity(0);
+      music.play('march');
+      music.scheduleUntil(8.5);
+      music.setIntensity(1);
+      music.scheduleUntil(26);
+      music.setIntensity(2);
+      music.scheduleUntil(70);
+    },
+  },
+  // the Spellblade's recorded lines, through the helm and off the walls, over a little wind
   voice: {
-    seconds: 9,
+    seconds: 22,
     async script(engine) {
       const ambience = new Ambience(engine);
       ambience.setScene('arena');
-      for (let t = 0; t < 9; t += 0.25) ambience.update(t);
-      for (const [file, at] of [['sorcery-1', 0.4], ['sorcery-2', 4.6]]) {
+      for (let t = 0; t < 22; t += 0.25) ambience.update(t);
+      const lines = [['sorcery-1', 0.4], ['magic-defeat-1', 2.6], ['defeat-2', 5.4], ['kill-taunt-1', 8.6], ['break-taunt-1', 12.2], ['victory-1', 15.8], ['kill-taunt-2', 19]];
+      for (const [file, at] of lines) {
         const data = await (await fetch(appUrl(`/client/assets/voice/${file}.m4a`))).arrayBuffer();
         const buffer = await engine.ctx.decodeAudioData(data);
         engine.playBuffer(buffer, { bus: 'voice', at, gain: 0.95, reverb: 0.2, echo: 'shout', echoLevel: 0.6 });

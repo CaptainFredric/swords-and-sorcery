@@ -3,7 +3,7 @@ import { createSpellbladeRig } from '../game/SpellbladeFallback.mjs';
 import { createSpellbladeAsset, reportSpellbladeAssetStatus } from '../game/SpellbladeAssets.mjs';
 import { CASTLEWARD_LIGHTING, CastlewardRenderer } from '../worlds/CastlewardRenderer.mjs';
 import { MENU_SHOTS, easeShot, lerpShot, menuShotFor } from './menuShots.mjs';
-import { idleMoment, idlePose } from './menuIdle.mjs';
+import { idleMoment, idlePose, reactionMoment } from './menuIdle.mjs';
 import { screenTurn } from '../ui/screenTurn.mjs';
 
 // a drag in the game's own frame (the game may be lying sideways on a screen that stays upright)
@@ -237,7 +237,8 @@ export class MenuScene {
 
     if (this.visualKind === 'production' && this.assetInstance) {
       // between stretches of breathing he looks around, shifts, presents the blade, guards or kindles sorcery
-      const moment = this.ready ? idleMoment(this.clock) : null;
+      // a reaction to a choice on the front door takes over from the idle life while it lasts
+      const moment = this.ready ? (reactionMoment(this.reaction, this.clock) ?? idleMoment(this.clock)) : null;
       const pose = idlePose(moment);
       let plan = { clip: 'Idle', loop: true, time: t };
       // raise the guard, then breathe in its hold
@@ -276,6 +277,11 @@ export class MenuScene {
       this.camera.fov = shot.fov;
       this.camera.updateProjectionMatrix();
     }
+  }
+
+  /** A choice was made on the front door: he answers it (salute, rally, present, look; see menuIdle.mjs). */
+  react(kind) {
+    this.reaction = { kind, startedAt: this.clock };
   }
 
   // restart the render loop (after it was starved by a hidden page, for instance)

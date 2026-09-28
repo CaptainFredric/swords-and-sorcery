@@ -1,4 +1,111 @@
 {
   "version": 1,
-  "lines": {}
+  "lines": {
+    "sorcery": [
+      {
+        "file": "sorcery-1",
+        "seconds": 1.45
+      },
+      {
+        "file": "sorcery-2",
+        "seconds": 1.4
+      }
+    ],
+    "magicDefeat": [
+      {
+        "file": "magic-defeat-1",
+        "seconds": 2.1
+      }
+    ],
+    "defeat": [
+      {
+        "file": "defeat-1",
+        "seconds": 1.81
+      },
+      {
+        "file": "defeat-2",
+        "seconds": 2.41
+      }
+    ],
+    "killTaunt": [
+      {
+        "file": "kill-taunt-1",
+        "seconds": 2.68
+      },
+      {
+        "file": "kill-taunt-2",
+        "seconds": 2.04
+      }
+    ],
+    "breakTaunt": [
+      {
+        "file": "break-taunt-1",
+        "seconds": 2.7
+      }
+    ],
+    "victory": [
+      {
+        "file": "victory-1",
+        "seconds": 2.57
+      }
+    ]
+  },
+  "effects": {
+    "guardHit": [
+      {
+        "file": "guard-hit-1",
+        "seconds": 0.78
+      },
+      {
+        "file": "guard-hit-2",
+        "seconds": 0.76
+      },
+      {
+        "file": "guard-hit-3",
+        "seconds": 0.78
+      },
+      {
+        "file": "guard-hit-4",
+        "seconds": 0.5
+      },
+      {
+        "file": "guard-hit-5",
+        "seconds": 0.64
+      },
+      {
+        "file": "guard-hit-6",
+        "seconds": 0.78
+      },
+      {
+        "file": "guard-hit-7",
+        "seconds": 0.76
+      },
+      {
+        "file": "guard-hit-8",
+        "seconds": 0.82
+      },
+      {
+        "file": "guard-hit-9",
+        "seconds": 0.46
+      }
+    ],
+    "guardBreak": [
+      {
+        "file": "guard-break-1",
+        "seconds": 0.86
+      },
+      {
+        "file": "guard-break-2",
+        "seconds": 0.94
+      },
+      {
+        "file": "guard-break-3",
+        "seconds": 0.78
+      },
+      {
+        "file": "guard-break-4",
+        "seconds": 0.8
+      }
+    ]
+  }
 }

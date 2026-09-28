@@ -20,8 +20,12 @@ export const FP_MOTION = Object.freeze({
   // the resting sword hand: the wrist flexed and the forearm turned so the fist closes on the grip under the guard
   // (the authored pose kinks the wrist into the cuff); the magic hand rests a little lower, clear of the sightline
   swordWristFlex: 0.3,
-  swordForearmTurn: -0.25,
+  swordForearmTurn: -0.45,
+  // the blade leans across to the left, its flat to the eye: the grip reads as held, not stacked
+  swordWristLean: 0.3,
   magicArmDrop: 0.12,
+  // the magic hand turned a little outward, open and ready, instead of a clawed fist seen from above
+  magicForearmTwist: 0.4,
 });
 
 // A damped spring toward a target. Impulses add velocity. Stable for any frame time (sub-stepped).

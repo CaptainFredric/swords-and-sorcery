@@ -6,9 +6,9 @@ import { bellTollRecipe, clothFlapRecipe } from './atmosphereRecipes.mjs';
 
 export const AMBIENCE_SCENES = Object.freeze({
   // the menu: the courtyard at dusk, the bell soon after you arrive
-  menu: { wind: 1, flaps: 1, bell: { first: [6, 12], every: [70, 130], strikes: [2, 3], gain: 0.2 } },
+  menu: { wind: 0.72, flaps: 0.8, bell: { first: [6, 12], every: [70, 130], strikes: [2, 3], gain: 0.2 } },
   // a match: quieter, so blows and footsteps stay clear
-  arena: { wind: 0.62, flaps: 0.7, bell: { first: [35, 70], every: [110, 180], strikes: [1, 3], gain: 0.12 } },
+  arena: { wind: 0.45, flaps: 0.55, bell: { first: [35, 70], every: [110, 180], strikes: [1, 3], gain: 0.12 } },
   silent: { wind: 0, flaps: 0, bell: null },
 });
 

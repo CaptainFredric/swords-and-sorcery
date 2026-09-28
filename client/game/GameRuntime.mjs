@@ -17,7 +17,7 @@ import {
   parryRecipe, spatialize, swingRecipe, swordHitRecipe, wallClangRecipe,
 } from './sound/soundRecipes.mjs';
 import { chillScale, spellFor } from '../../shared/src/spells.mjs';
-import { voiceRate } from './sound/voiceRules.mjs';
+import { deathLines, voiceRate } from './sound/voiceRules.mjs';
 import { CombatHeat, matchClosing, nearestFoe } from './sound/combatHeat.mjs';
 import { FP_MOTION } from './firstPersonMotion.mjs';
 import { createWorldRenderer, rendererKeyForWorld } from '../worlds/WorldRendererFactory.mjs';
@@ -28,6 +28,14 @@ import {
   localWeaponReleaseForEvent,
   localWeaponReleaseForSnapshot,
 } from './localActionPresentation.mjs';
+
+// the sun's shadows cover this far around you (a box this many metres from the middle to each side), and follow you:
+// crisp where you fight instead of soft over the whole arena
+const SHADOW_REACH = 16;
+const _sunLook = new THREE.Matrix4();
+const _sunFocus = new THREE.Vector3();
+const _sunOrigin = new THREE.Vector3(0, 0, 0);
+const _sunUp = new THREE.Vector3(0, 1, 0);
 
 const WORLD_RENDERERS = Object.freeze({
   castleward: CastlewardRenderer,
@@ -71,11 +79,16 @@ export class GameRuntime {
     this.sun = moon;
     moon.castShadow = true;
     moon.shadow.mapSize.set(1024, 1024);
-    moon.shadow.camera.left = -30;
-    moon.shadow.camera.right = 30;
-    moon.shadow.camera.top = 30;
-    moon.shadow.camera.bottom = -30;
-    this.scene.add(moon);
+    moon.shadow.camera.left = -SHADOW_REACH;
+    moon.shadow.camera.right = SHADOW_REACH;
+    moon.shadow.camera.top = SHADOW_REACH;
+    moon.shadow.camera.bottom = -SHADOW_REACH;
+    moon.shadow.camera.near = 1;
+    moon.shadow.camera.far = 90;
+    moon.shadow.bias = -0.0004;
+    moon.shadow.normalBias = 0.03;
+    this.sunOffset = new THREE.Vector3(-12, 24, 8);
+    this.scene.add(moon, moon.target);
 
     this.world = null;
     this.activeWorld = null;
@@ -208,7 +221,33 @@ export class GameRuntime {
     const sun = lighting?.sun ?? { ...SCENE_PRESENTATION.moon, position: [-12, 24, 8] };
     this.sun.color.set(sun.color);
     this.sun.intensity = sun.intensity;
-    this.sun.position.set(...sun.position);
+    // the sun keeps its direction but rides along with you, so its shadow box is always where you are
+    this.sunOffset.set(...sun.position).setLength(40);
+    this.sun.position.copy(this.sunOffset);
+  }
+
+  // High quality on a computer draws the sun's shadows at twice the detail (phones keep the lighter map)
+  #shadowDetail() {
+    const size = this.view.pixelRatioCap >= 1.6 && !this.touch ? 2048 : 1024;
+    if (this.sun.shadow.mapSize.x === size) return;
+    this.sun.shadow.mapSize.set(size, size);
+    this.sun.shadow.map?.dispose();
+    this.sun.shadow.map = null;
+  }
+
+  // move the sun (and its shadow box) to follow `focus`, in whole shadow texels as the sun sees them, so the
+  // shadows never crawl as you walk
+  #followSun(focus) {
+    if (!focus) return;
+    const texel = (2 * SHADOW_REACH) / this.sun.shadow.mapSize.x;
+    _sunLook.lookAt(this.sunOffset, _sunOrigin, _sunUp);
+    _sunFocus.set(focus.x, focus.y, focus.z).applyMatrix4(_sunLook.clone().transpose());
+    _sunFocus.x = Math.round(_sunFocus.x / texel) * texel;
+    _sunFocus.y = Math.round(_sunFocus.y / texel) * texel;
+    _sunFocus.applyMatrix4(_sunLook);
+    this.sun.target.position.copy(_sunFocus);
+    this.sun.position.copy(_sunFocus).add(this.sunOffset);
+    this.sun.target.updateMatrixWorld();
   }
 
   setPlayerId(id) {
@@ -235,6 +274,7 @@ export class GameRuntime {
         this.renderer.setPixelRatio(Math.min(devicePixelRatio, this.view.pixelRatioCap));
         this.#resize();
       }
+      this.#shadowDetail();
     }
     if (input) {
       this.input.configure(input);
@@ -250,6 +290,7 @@ export class GameRuntime {
     this.touch.setScale(this.touchScale);
     this.input.touch = this.touch;
     this.touch.setActive(this.input.touchFocus);
+    this.#shadowDetail();
   }
 
   setPlaying(playing, { preservePointerLock = false } = {}) {
@@ -374,7 +415,7 @@ export class GameRuntime {
       }
       if (event.type === 'death') {
         this.#deathEvent(event);
-        this.#say('death', event.victimId);
+        this.#deathVoice(event);
       }
       if (event.type === 'respawn' && event.playerId === this.socket.playerId) this.hud.flashText('FIGHT!', 'ready');
     }
@@ -402,19 +443,39 @@ export class GameRuntime {
     }
   }
 
-  // a Spellblade speaks: mine from inside my own helm, others from where they stand, each with their own pitch
-  #say(line, playerId, { chanceScale = 1 } = {}) {
-    if (!this.voice || !playerId) return;
-    if (playerId === this.socket.playerId) {
-      this.voice.say(line, { speaker: playerId, gain: 0.8, chanceScale });
-      return;
-    }
+  // a Spellblade speaks: mine from inside my own helm, others from where they stand, each with their own pitch.
+  // Returns whether anything was said.
+  #say(line, playerId, { chanceScale = 1, delay = 0 } = {}) {
+    if (!this.voice || !playerId) return false;
+    if (playerId === this.socket.playerId) return this.voice.say(line, { speaker: playerId, gain: 0.8, chanceScale, delay });
     const body = this.#bodyPosition(playerId);
     const snapshotPlayer = this.latestSnapshot?.players.find((p) => p.id === playerId);
-    if (!body || snapshotPlayer?.actorKind === 'dummy') return;
+    if (!body || snapshotPlayer?.actorKind === 'dummy') return false;
     const listener = this.localState?.position ?? this.localAuth?.position;
     const place = spatialize(listener, this.input.yaw, body);
-    this.voice.say(line, { speaker: playerId, pan: place.pan, gain: place.gain * 0.9, rate: voiceRate(playerId), chanceScale });
+    return this.voice.say(line, { speaker: playerId, pan: place.pan, gain: place.gain * 0.9, rate: voiceRate(playerId), chanceScale, delay });
+  }
+
+  // the fallen may protest (magic they do not believe in, or that they are a knight); if they keep quiet, whoever
+  // felled them may have a word over the body
+  #deathVoice(event) {
+    const { fallen, victor } = deathLines(event);
+    if (fallen.some((say) => this.#say(say.line, say.speaker, say))) return;
+    for (const say of victor) this.#say(say.line, say.speaker, say);
+  }
+
+  // the voiced ring of a blow on a guard (or the PERCUNK of one breaking), where the blades met
+  #voicedContact(event, point, involved) {
+    if (!this.voice) return;
+    const name = event.type === 'guardBreak' ? 'guardBreak' : 'guardHit';
+    const gain = event.type === 'parry' ? 0.7 : 0.85;
+    if (involved || !point) {
+      this.voice.effect(name, { gain });
+      return;
+    }
+    const listener = this.localState?.position ?? this.localAuth?.position;
+    const place = spatialize(listener, this.input.yaw, point);
+    this.voice.effect(name, { pan: place.pan, gain: gain * place.gain });
   }
 
   // steel anywhere stirs the music; blows that involve me put it on the fight
@@ -481,6 +542,9 @@ export class GameRuntime {
     const recipe = parry ? parryRecipe() : blockRecipe(Math.random, { heavy });
     const involved = event.attackerId === me || event.defenderId === me;
     this.#play(recipe, involved ? null : point, involved ? 1 : 0.8);
+    this.#voicedContact(event, point, involved);
+    // the one who broke it may gloat, once the crunch has landed
+    if (heavy) this.#say('breakTaunt', event.attackerId, { delay: 0.7 });
   }
 
   // direction a blow drove me, in view space (+x right, +z backward); straight back if the source is unknown
@@ -590,6 +654,7 @@ export class GameRuntime {
     }
 
     if (nowMs - this.lastPingAt > 2000) { this.lastPingAt = nowMs; this.socket.ping(); }
+    this.#followSun(this.localState?.position ?? this.camera.position);
     this.renderer.render(this.scene, this.camera);
     requestAnimationFrame((t) => this.#frame(t));
   }

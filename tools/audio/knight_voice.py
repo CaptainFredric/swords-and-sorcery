@@ -265,17 +265,24 @@ def line_for(path):
 
 
 def write_manifest():
+    path = os.path.join(OUT_DIR, 'manifest.json')
+    existing = json.load(open(path)) if os.path.exists(path) else {}
+    # lines this tool does not make (imported already processed, like the taunts) and the contact effects stay as they are
+    kept = {line: takes for line, takes in existing.get('lines', {}).items() if line not in LINES}
     lines = {}
     for name in sorted(os.listdir(OUT_DIR)):
         match = re.fullmatch(r'([a-z]+)-(\d+)\.m4a', name)
-        if not match:
+        if not match or match.group(1) not in LINES:
             continue
         line, number = match.group(1), int(match.group(2))
         meta_path = os.path.join(OUT_DIR, f'{line}-{number}.json')
         meta = json.load(open(meta_path)) if os.path.exists(meta_path) else {}
         lines.setdefault(line, []).append({'file': f'{line}-{number}', **meta})
-    manifest = {'version': 1, 'lines': {line: sorted(takes, key=lambda t: t['file']) for line, takes in lines.items()}}
-    with open(os.path.join(OUT_DIR, 'manifest.json'), 'w') as f:
+    lines = {line: sorted(takes, key=lambda t: t['file']) for line, takes in lines.items()}
+    manifest = {'version': 1, 'lines': {**kept, **lines}}
+    if 'effects' in existing:
+        manifest['effects'] = existing['effects']
+    with open(path, 'w') as f:
         json.dump(manifest, f, indent=2)
         f.write('\n')
     return manifest

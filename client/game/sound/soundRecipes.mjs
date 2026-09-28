@@ -71,6 +71,30 @@ export function blockRecipe(rand = Math.random, { heavy = false } = {}) {
   return { layers, reverb: heavy ? 0.5 : 0.42, hall: 0.18 };
 }
 
+/**
+ * A sword drawn from its scabbard, for the moment a fight is joined: steel hissing along the throat of the sheath,
+ * quicker as it comes, then the point clears it and the blade sings.
+ */
+export function unsheatheRecipe(rand = Math.random) {
+  const clear = 0.36 + rand() * 0.05;
+  const base = 1480 * jitter(rand, 0.04);
+  return {
+    layers: [
+      // the draw: steel on the scabbard's throat, rising as the blade speeds up
+      { type: 'noise', filter: 'bandpass', freq: 1900 * jitter(rand, 0.08), q: 2.2, sweepTo: 6200, attack: clear * 0.85, decay: 0.12, gain: 0.34 },
+      { type: 'noise', filter: 'highpass', freq: 5200, q: 0.8, attack: clear * 0.9, decay: 0.08, gain: 0.12 },
+      // the leather and wood of the sheath, low beneath it
+      { type: 'noise', filter: 'lowpass', freq: 520, q: 0.7, attack: 0.05, decay: clear * 0.7, gain: 0.16 },
+      // the point clears: a click, then the SHING
+      { type: 'noise', filter: 'highpass', freq: 3800, q: 0.9, attack: 0.0008, decay: 0.02, gain: 0.4, at: clear },
+      { ...ring(rand, base, { decay: 1.3, gain: 0.16, bright: 1.3 }), at: clear },
+      { type: 'tone', wave: 'sine', freq: base * 2.02, slideTo: base * 2.06, attack: 0.004, decay: 0.9, gain: 0.05, at: clear },
+    ],
+    reverb: 0.4,
+    hall: 0.15,
+  };
+}
+
 /** A clean parry: a high, singing ring that hangs in the air. */
 export function parryRecipe(rand = Math.random) {
   return {

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { MENU_SHOTS, easeShot, lerpShot, menuShotFor } from './menuShots.mjs';
-import { MOMENTS, MOMENT_EVERY, idleMoment, idlePose } from './menuIdle.mjs';
+import { MOMENTS, MOMENT_EVERY, REACTIONS, idleMoment, idlePose, reactionMoment } from './menuIdle.mjs';
 
 const STAGE = { x: -1.0, z: 5.5 };
 
@@ -57,6 +57,23 @@ test('idle moments come between stretches of breathing, ease in and out, and var
   assert.equal(idlePose({ kind: 'guard', t: 0.5, weight: 1 }).clip, 'Guard');
   assert.equal(idlePose({ kind: 'kindle', t: 0.5, weight: 1 }).clip, 'Cast');
   assert.deepEqual(idlePose(null), { clip: null, rotations: [] });
+});
+
+test('a choice on the front door gets a brief reaction: in quickly, held, eased out, then back to idle', () => {
+  const salute = { kind: 'salute', startedAt: 10 };
+  assert.equal(reactionMoment(salute, 9.9), null, 'not before the click');
+  assert.ok(reactionMoment(salute, 10.2).weight > 0.5, 'up almost at once');
+  assert.ok(Math.abs(reactionMoment(salute, 10 + REACTIONS.salute / 2).weight - 1) < 1e-9, 'held');
+  assert.ok(reactionMoment(salute, 10 + REACTIONS.salute - 0.05).weight < 0.1, 'eased back down');
+  assert.equal(reactionMoment(salute, 10 + REACTIONS.salute + 0.01), null);
+  assert.equal(reactionMoment(null, 10), null);
+  assert.equal(reactionMoment({ kind: 'nonsense', startedAt: 0 }, 1), null);
+  // each reaction moves the sword arm; the rally raises it high, the salute brings it across the chest
+  for (const kind of ['salute', 'rally']) {
+    const pose = idlePose(reactionMoment({ kind, startedAt: 0 }, REACTIONS[kind] / 2));
+    assert.ok(pose.rotations.some((turn) => turn.bone === 'upper_arm.R' && Math.abs(turn.angle) > 1), kind);
+  }
+  assert.ok(idlePose(reactionMoment({ kind: 'present', startedAt: 0 }, 1)).rotations.length > 0, 'presenting reuses the idle moment');
 });
 
 test('the challenge card names the duel, the melee and the arena', async () => {
