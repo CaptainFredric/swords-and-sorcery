@@ -5,6 +5,7 @@ import { Ambience } from './Ambience.mjs';
 import { bellTollRecipe, gateRecipe, uiClankRecipe, warDrumRecipe } from './atmosphereRecipes.mjs';
 import { MusicPlayer } from './music/MusicPlayer.mjs';
 import { SoundEngine } from './SoundEngine.mjs';
+import { CLOSE_ROOM } from './VoiceBank.mjs';
 import { appUrl } from '../../appUrl.mjs';
 
 export const DEMOS = {
@@ -60,7 +61,7 @@ export const DEMOS = {
       music.scheduleUntil(70);
     },
   },
-  // the Spellblade's recorded lines, through the helm and off the walls, over a little wind
+  // the Spellblade's recorded lines as my own knight says them (close, from inside the helm), over a little wind
   voice: {
     seconds: 22,
     async script(engine) {
@@ -71,7 +72,7 @@ export const DEMOS = {
       for (const [file, at] of lines) {
         const data = await (await fetch(appUrl(`/client/assets/voice/${file}.m4a`))).arrayBuffer();
         const buffer = await engine.ctx.decodeAudioData(data);
-        engine.playBuffer(buffer, { bus: 'voice', at, gain: 0.95, reverb: 0.2, echo: 'shout', echoLevel: 0.6 });
+        engine.playBuffer(buffer, { bus: 'voice', at, gain: 0.95, reverb: 0.2 * CLOSE_ROOM });
       }
     },
   },

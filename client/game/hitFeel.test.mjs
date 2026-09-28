@@ -1,7 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { blowDirection, hitKick, hitstopSeconds, impactPoint } from './hitFeel.mjs';
-import { blockRecipe, castRecipe, dashRecipe, killRecipe, parryRecipe, spatialize, swingRecipe, swordHitRecipe, unsheatheRecipe } from './sound/soundRecipes.mjs';
+import {
+  blockRecipe, castRecipe, dashRecipe, guardBreakRecipe, killRecipe, parryRecipe, spatialize, swingRecipe, swordHitRecipe, unsheatheRecipe,
+} from './sound/soundRecipes.mjs';
 
 function seeded(seed) {
   let state = seed >>> 0;
@@ -36,12 +38,27 @@ test('hit sounds layer a crack, a crunch, a body thump and a steel ring; the fin
   assert.ok(heavy.layers.length > light.layers.length);
   assert.ok(kill.layers.length > heavy.layers.length && kill.reverb > heavy.reverb);
   assert.ok(killRecipe(seeded(5)).reverb >= 0.5, 'the killing blow rings out in the courtyard');
-  for (const recipe of [light, heavy, kill, blockRecipe(seeded(2)), parryRecipe(seeded(3)), swingRecipe(seeded(4)), killRecipe(seeded(5)), castRecipe(seeded(6)), dashRecipe(seeded(8))]) {
+  for (const recipe of [light, heavy, kill, blockRecipe(seeded(2)), guardBreakRecipe(seeded(2)), parryRecipe(seeded(3)), swingRecipe(seeded(4)), killRecipe(seeded(5)), castRecipe(seeded(6)), dashRecipe(seeded(8))]) {
     for (const layer of recipe.layers) {
       const freqs = layer.type === 'ring' ? layer.partials.map((p) => p.freq) : [layer.freq];
       for (const f of freqs) assert.ok(f > 20 && f < 16000, `audible frequency ${f}`);
     }
   }
+});
+
+test('a blow on a guard rings, scrapes and lands with weight; a guard breaking is its own PER-CUNK', () => {
+  const block = blockRecipe(seeded(9));
+  assert.ok(block.layers.some((layer) => layer.type === 'noise' && layer.filter === 'bandpass' && layer.sweepTo < layer.freq), 'the edges scrape');
+  assert.ok(block.layers.some((layer) => layer.type === 'tone' && layer.freq < 200 && layer.slideTo < layer.freq), 'the braced arm takes the weight');
+  const crunch = guardBreakRecipe(seeded(9));
+  assert.ok(crunch.layers.some((layer) => !layer.at && layer.type === 'noise' && layer.filter === 'highpass'), 'PER: the blow lands at once');
+  const late = crunch.layers.filter((layer) => (layer.at ?? 0) > 0);
+  const give = Math.min(...late.map((layer) => layer.at));
+  assert.ok(give >= 0.02 && give <= 0.05, 'CUNK: the guard caves a beat later');
+  assert.ok(late.some((layer) => layer.type === 'tone' && layer.freq < 120 && layer.slideTo < layer.freq), 'a thud that drops');
+  assert.ok(late.some((layer) => layer.type === 'noise' && layer.sweepTo < layer.freq), 'a crunch that caves in');
+  assert.ok(late.filter((layer) => layer.type === 'ring' && layer.at > give + 0.05).length >= 3, 'then mail and buckles rattle');
+  assert.ok(crunch.reverb > block.reverb, 'and it rings out further than a blow on a guard');
 });
 
 test('no two hits sound identical', () => {

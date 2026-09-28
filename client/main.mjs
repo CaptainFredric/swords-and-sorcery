@@ -521,7 +521,6 @@ startMatchButton.addEventListener('click', () => socket.ready(!startMatchButton.
 // --- settings: every change reaches what it belongs to, at once ---
 function applySettings() {
   sound.setLevels(soundLevels(settings));
-  voice.effectsOn = settings.get('audio.voicedGuard');
   const view = viewOptions(settings);
   menuScene?.setPixelRatioCap(view.pixelRatioCap);
   menuScene?.setTourAllowed(tourAllowed());
