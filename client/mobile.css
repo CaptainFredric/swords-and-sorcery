@@ -95,7 +95,7 @@ button, input { touch-action: manipulation; }
   .menu-screen::after, .side-screen::after, .lobby-screen::after { top: 5px; height: 7px; }
   .banner-panel { top: 8px; max-height: calc(100% - 8px); padding: 18px 18px calc(var(--hem) + 14px); }
   .banner-panel::before { inset: 6px 6px calc(var(--hem) + 6px); }
-  .game-brand .crest, .brand-rule { display: none; }
+  .game-brand .crest { display: none; }
   .game-brand { margin-bottom: 10px; }
   .game-brand h1 { font-size: 25px; }
   .banner-panel .eyebrow { margin-bottom: 3px; font-size: 11px; }

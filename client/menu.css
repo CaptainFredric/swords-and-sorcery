@@ -89,8 +89,6 @@
   color: #f1dfae; text-shadow: 0 2px 0 rgba(58, 18, 14, .9), 0 3px 10px rgba(0, 0, 0, .5);
 }
 .game-brand h1 span { color: var(--heraldry-brass-light); font-size: .8em; }
-.brand-rule { display: flex; align-items: center; gap: 10px; margin: 12px 0 0; color: rgba(234, 220, 182, .78); font: 700 10px/1 var(--font-script); letter-spacing: .24em; }
-.brand-rule::before, .brand-rule::after { content: ""; flex: 1; border-top: 1px solid rgba(201, 156, 82, .6); }
 
 .command-rail { display: flex; flex-direction: column; gap: 7px; }
 .name-block { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
@@ -156,7 +154,7 @@
 .primary-command small { color: rgba(42, 28, 16, .72); }
 .primary-command:hover { background: linear-gradient(180deg, #f0d08a, #c4954a 60%, #a07833); }
 .primary-command:hover::before { background: #3a2410; box-shadow: none; }
-.quiet-command { min-height: 44px; }
+.quiet-command { min-height: 38px; }
 .banner-panel .error-copy { min-height: 16px; margin: 4px 0 0; color: #ffd1c2; font: 600 12px/1.35 var(--font-script); text-shadow: 0 1px 2px #000; }
 
 /* --- side banners (Solo, Private, How to Play) ---------------------------------------------------------------- */
@@ -404,17 +402,10 @@ html[data-turn] .turn-only { display: block !important; }
   .setting-text small { display: none; }
 }
 
-/* --- the Armory: a brass plaque at the knight's feet, and his kit on a banner ------------------------------------ */
-.armory-plaque {
-  position: absolute; z-index: 6; right: clamp(24px, 14cqw, 240px); bottom: 54px; display: grid; justify-items: center; gap: 3px;
-  padding: 10px 22px 9px; border: 1px solid #f4dc9f; border-radius: 2px; background: linear-gradient(180deg, #e7c47c, #b8893f 60%, #97702f);
-  color: #2a1c10; cursor: pointer; pointer-events: auto; box-shadow: 0 4px 14px rgba(0, 0, 0, .45), inset 0 1px 0 rgba(255, 240, 200, .5);
-  transition: transform .14s ease, box-shadow .14s ease;
-}
-.armory-plaque span { font: 400 19px/1 var(--font-inscription); letter-spacing: .14em; }
-.armory-plaque small { font: 700 10px/1 var(--font-script); letter-spacing: .14em; text-transform: uppercase; opacity: .75; }
-.armory-plaque:hover { transform: translateY(-2px); box-shadow: 0 8px 18px rgba(0, 0, 0, .5), 0 0 0 1px rgba(255, 230, 170, .5); }
-.armory-plaque:focus-visible { outline: 2px solid var(--heraldry-brass-light); outline-offset: 3px; }
+/* --- the Armory: a brass-edged command on the front door's banner, and his kit on a banner of its own ------------ */
+.armory-command { display: flex; align-items: baseline; gap: 10px; min-height: 42px; border-color: rgba(236, 201, 127, .72); background: linear-gradient(180deg, #4a3a26, #2f2518); }
+.armory-command span { color: #f3dfa6; }
+.armory-command small { margin-top: 0; }
 
 .armory-inner { --banner-width: min(400px, 40cqw); }
 .armory-slot { margin: 14px 0 6px; color: var(--heraldry-brass-light); font: 800 10px/1 var(--font-script); letter-spacing: .22em; }
@@ -438,13 +429,7 @@ html[data-turn] .turn-only { display: block !important; }
 .spell-card[data-spell="frostfire"].equipped { box-shadow: 0 0 0 1px rgba(143, 220, 255, .4), 0 0 18px rgba(143, 220, 255, .12) inset; }
 .armory-note { margin-top: 12px; }
 
-@container app (max-width: 640px) {
-  .armory-plaque { right: 12px; bottom: 12px; padding: 8px 14px 7px; }
-}
 @container app (max-height: 500px) {
-  .armory-plaque { bottom: 14px; padding: 7px 16px 6px; }
-  .armory-plaque span { font-size: 16px; }
-  .armory-plaque small { display: none; }
   .armory-inner { --banner-width: min(380px, 50cqw); }
   .armory-slot { margin: 8px 0 4px; }
   .spell-card { padding: 7px 10px; }

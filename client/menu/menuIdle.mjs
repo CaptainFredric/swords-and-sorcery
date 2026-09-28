@@ -44,8 +44,8 @@ export function idleMoment(time) {
 // high toward the sky when calling for others, presents it on the way to the Armory. Each is a brief reaction
 // (in quickly, held, eased out), taking over from whatever idle moment was playing.
 export const REACTIONS = Object.freeze({
-  salute: 2.6,
-  rally: 2.8,
+  salute: 2.7,
+  rally: 2.9,
   present: 2.6,
   look: 2.2,
 });

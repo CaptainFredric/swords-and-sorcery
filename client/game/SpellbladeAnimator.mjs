@@ -198,7 +198,8 @@ export class SpellbladeAnimator {
     const pose = reactionPose(motion.reactions, motion.now ?? 0, motion.yaw ?? 0);
     // extra: caller-supplied rotations (first person uses them for the neutral spread and the sprint arm pump)
     if (Array.isArray(motion.extra)) pose.rotations.push(...motion.extra);
-    const landFlex = pose.legFlex;
+    // a landing's flex, plus any crouch asked for (a flourish gathering itself): the feet stay planted either way
+    const landFlex = pose.legFlex + (Number.isFinite(motion.crouch) ? Math.max(0, motion.crouch) : 0);
     const airFlex = Number.isFinite(motion.airFlex) ? Math.max(0, motion.airFlex) : 0;
     const solve = typeof motion.solve === 'function' ? motion.solve : null;
     if (!pose.rotations.length && landFlex + airFlex < 1e-4 && Math.hypot(...pose.pelvis) < 1e-5 && !solve) return;
