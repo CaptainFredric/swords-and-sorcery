@@ -350,12 +350,13 @@ if want("arms"):
         hh, ht = BONE[f"hand.{s}"]
         if s == "R":
             # fingers wrap the sword's real grip; the back of the fist faces front and a little outward in the idle pose
+            # (a little larger than life, like the first-person hands: at 1.3 the brass cuff swallowed the fist)
             arm_fist_on_grip(pc, rig, bpy.data.objects["SwordGrip"], bpy.data.objects["SwordGuard"], "hand.R", "forearm.R",
-                             Vector((0.45, 1.0, 0.15)))
+                             Vector((0.45, 1.0, 0.15)), k=1.45)
         else:
             rune = bpy.data.objects["PalmRune"]
             rc = sum((rune.matrix_world @ v.co for v in rune.data.vertices), Vector()) / len(rune.data.vertices)
-            arm_open(pc, hh, ht, rc, -1.0)
+            arm_open(pc, hh, ht, rc, -1.0, k=1.45)
         pc.build(bone=f"hand.{s}")
 
 # ================================================================ cloth panels (textured)

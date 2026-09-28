@@ -44,7 +44,7 @@
   "mutableMaterials": ["VisorGlow", "SorceryAccent"],
   "thirdPerson": {
     "maxTriangles": 35000,
-    "targetBytes": 2000000
+    "targetBytes": 2400000
   },
   "firstPerson": {
     "maxTriangles": 16000,
