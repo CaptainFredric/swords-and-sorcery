@@ -12,7 +12,11 @@ From the repository root:
 KIT_PYTHON=/path/to/python-with-numpy-and-pillow tools/blender/characters/spellblade/kit/build_kit.sh
 ```
 
-It rewrites both sources (`source/spellblade-third-person.blend` and `source/spellblade-first-person.blend`) and works in `artifacts/kit/` (git-ignored). The steps are:
+It rewrites the first-person source (`source/spellblade-first-person.blend`) and builds the third person to `artifacts/kit/kit_ft.blend`, working in `artifacts/kit/` (git-ignored).
+
+**The third-person source is hand-edited now.** Since 26 September its helmet, crest, gold ridge, knees, shoulders and scarf have been refined directly in Blender, so a kit build no longer matches it. The build only replaces it with `KIT_REPLACE_THIRD_PERSON=1`, which would throw that work away (it happened once, on 28 September, and had to be undone). To change one part with the kit, build it, then graft only that part's objects onto the source. Append the rebuilt objects from `kit_ft.blend`, point their armature modifier and parent at the source's `SpellbladeRig`, reuse the source's materials, delete the old objects and the appended duplicate rig and actions, then check that every other mesh is unchanged. The gauntlets (`Gauntlet.L`, `Gauntlet.R`) were grafted this way.
+
+The steps are:
 
 1. **Base:** it extracts the last hand-built source from git (`bcc16ef`), which supplies the rig, the eleven actions, the sword, the palm rune, the accent materials and the packed references.
 2. **Joints** (`joints_concept.py`):
