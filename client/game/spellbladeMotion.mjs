@@ -6,8 +6,10 @@
 // None of this changes state or control: a flinch is not a stagger, and server timings are untouched.
 
 export const REACTIONS = Object.freeze({
-  // a hit that lands: the torso folds away from the blow, the head snaps a beat later
-  hit: Object.freeze({ rise: 0.05, hold: 0.03, fall: 0.3, spine: 0.13, chest: 0.11, head: 0.16, twist: 0.12, pelvis: 0.035 }),
+  // a hit that lands: the torso is knocked away from the blow and turned with the blade's travel, the head snaps a
+  // beat later, the sword arm is flung wide, the weight shifts and the knees give a little; then it settles, swinging
+  // a touch past upright before it steadies (a flinch, not a stagger: nothing about control changes)
+  hit: Object.freeze({ rise: 0.045, hold: 0.035, fall: 0.32, spine: 0.2, chest: 0.17, head: 0.28, twist: 0.22, pelvis: 0.06, arm: 0.34, knees: 0.1, settle: 0.18 }),
   // a blow caught on the guard: the upper body is driven back and the sword arm shudders
   block: Object.freeze({ rise: 0.04, hold: 0.02, fall: 0.26, spine: 0.06, chest: 0.09, head: 0.06, pelvis: 0.05, shudder: 0.16 }),
   // a guard broken open: a heavier version of the block that the stagger clip takes over from
@@ -29,13 +31,24 @@ function smoothstep(value) {
   return t * t * (3 - 2 * t);
 }
 
-// 0 -> 1 quickly (rise), holds, then eases back to 0 (fall); zero outside
-export function reactionEnvelope(age, { rise, hold = 0, fall }) {
+// 0 -> 1 quickly (rise), holds, then eases back to 0 (fall); zero outside. With `settle`, the way back swings that far
+// past rest before it steadies (the body's weight carrying it through)
+export function reactionEnvelope(age, { rise, hold = 0, fall, settle = 0 }) {
   if (!(age >= 0)) return 0;
   if (age < rise) return smoothstep(age / rise);
   if (age < rise + hold) return 1;
   const t = (age - rise - hold) / fall;
-  return t >= 1 ? 0 : 1 - smoothstep(t);
+  if (t >= 1) return 0;
+  if (!settle) return 1 - smoothstep(t);
+  return t < 0.62 ? 1 - smoothstep(t / 0.62) : -settle * Math.sin((Math.PI * (t - 0.62)) / 0.38);
+}
+
+// which way a sword blow's blade travels across the one it hits, in their own frame (+1 toward their right): the
+// forehand and the finisher come from the attacker's right (the victim's left), the backhand the other way
+export function bladeTravel(strike) {
+  if (strike === 1) return -1;
+  if (strike === 0 || strike === 2) return 1;
+  return null;
 }
 
 /** World-space horizontal push (from attacker toward victim) -> unit vector in the victim's root space. */
@@ -58,12 +71,13 @@ function tiltAxis(d) {
 }
 
 /**
- * Bone rotations (root-space axis, radians) and a pelvis offset (metres) for every live reaction.
+ * Bone rotations (root-space axis, radians) and a pelvis offset (metres) for every live reaction. slack: the body is
+ * dying (its arms and knees are the death's, not the blow's).
  * @param {Array<{kind:string, at:number, push?:{x:number,z:number}, strength?:number}>} reactions
  * @param {number} now   same clock as reaction.at
  * @param {number} yaw   the body's facing
  */
-export function reactionPose(reactions, now, yaw = 0) {
+export function reactionPose(reactions, now, yaw = 0, { slack = false } = {}) {
   const rotations = [];
   const pelvis = [0, 0, 0];
   let legFlex = 0;
@@ -72,7 +86,8 @@ export function reactionPose(reactions, now, yaw = 0) {
     if (!spec) continue;
     const age = now - reaction.at;
     const weight = reactionEnvelope(age, spec) * (Number.isFinite(reaction.strength) ? reaction.strength : 1);
-    if (weight <= 1e-4) continue;
+    // (a reaction settling swings back past rest: its weight goes briefly negative)
+    if (Math.abs(weight) <= 1e-4) continue;
     const d = localPushDirection(reaction.push, yaw);
     const tilt = tiltAxis(d);
 
@@ -90,15 +105,26 @@ export function reactionPose(reactions, now, yaw = 0) {
       continue;
     }
 
-    rotations.push({ bone: 'spine', axis: tilt, angle: spec.spine * weight });
+    // the finisher comes down from above: more fold, deeper knees
+    const heavy = reaction.strike === 2 ? 1.3 : 1;
+    rotations.push({ bone: 'spine', axis: tilt, angle: spec.spine * heavy * weight });
     rotations.push({ bone: 'chest', axis: tilt, angle: spec.chest * weight });
     // the head lags the torso slightly, then snaps
     const headWeight = reactionEnvelope(age - 0.03, spec) * (reaction.strength ?? 1);
     rotations.push({ bone: 'head', axis: tilt, angle: spec.head * headWeight });
     if (spec.twist) {
-      // a blow from the side also turns the shoulders away from it
-      rotations.push({ bone: 'chest', axis: [0, 1, 0], angle: -spec.twist * d.x * weight });
+      // the shoulders turn with the blade's travel across the body (or away from a blow from the side)
+      const across = bladeTravel(reaction.strike) ?? d.x;
+      rotations.push({ bone: 'chest', axis: [0, 1, 0], angle: -spec.twist * across * weight });
+      rotations.push({ bone: 'head', axis: [0, 1, 0], angle: -spec.twist * 0.5 * across * headWeight });
+      if (spec.arm && !slack) {
+        // the sword arm is flung wide, a beat behind the shoulders, the elbow jerked
+        rotations.push({ bone: 'upper_arm.R', axis: [0, 1, 0], angle: -spec.arm * across * headWeight });
+        rotations.push({ bone: 'upper_arm.R', axis: tilt, angle: spec.arm * 0.5 * headWeight });
+        rotations.push({ bone: 'forearm.R', axis: [1, 0, 0], angle: spec.arm * 0.6 * headWeight, space: 'local' });
+      }
     }
+    if (spec.knees && !slack) legFlex = Math.max(legFlex, spec.knees * heavy * Math.max(0, weight));
     if (spec.shudder) {
       // the blade rings: a fast damped oscillation of the sword wrist
       const ring = Math.sin(Math.max(0, age) * 70) * Math.exp(-Math.max(0, age) * 12);
@@ -109,6 +135,54 @@ export function reactionPose(reactions, now, yaw = 0) {
     pelvis[2] += d.z * spec.pelvis * weight;
   }
   return { rotations, pelvis, legFlex };
+}
+
+/**
+ * A death, layered over the Death clip (which stands a beat with its sword arm flung out, then topples back in one
+ * piece, legs locked): the knees and hips give at once, the body sags after the killing blow's push, the sword arm
+ * goes slack along the body and the head drops; as the fall takes over, the knees stay bent, so it crumples rather
+ * than falling like a plank. age: seconds since the death; push: the killing blow's direction (world, attacker toward
+ * victim).
+ */
+export function deathSlump(age, push = null, yaw = 0) {
+  const none = { rotations: [], pelvis: [0, 0, 0], legFlex: 0 };
+  if (!(age >= 0)) return none;
+  // the legs go almost at once, and the clip's fall takes the upper body back from there
+  const w = age >= 0.75 ? 0 : smoothstep(age / 0.16) * (1 - smoothstep((age - 0.42) / 0.3));
+  // the arms stay slack longer, trailing the fall instead of flinging up with it
+  const limp = age >= 0.95 ? 0 : smoothstep(age / 0.16) * (1 - smoothstep((age - 0.65) / 0.3));
+  const fall = smoothstep((age - 0.3) / 0.3);
+  const rotations = [];
+  if (w > 1e-4) {
+    const d = localPushDirection(push, yaw);
+    const tilt = tiltAxis(d);
+    rotations.push(
+      // the body sags after the blow
+      { bone: 'spine', axis: tilt, angle: 0.2 * w },
+      { bone: 'chest', axis: tilt, angle: 0.12 * w },
+      // the head drops, chin toward the chest
+      { bone: 'head', axis: [-1, 0, 0], angle: 0.32 * w },
+    );
+  }
+  if (limp > 1e-4) {
+    rotations.push(
+      // both arms lose their tension: back in along the body, the elbows sagging
+      { bone: 'upper_arm.R', axis: [0, 0, 1], angle: -0.55 * limp },
+      { bone: 'forearm.R', axis: [1, 0, 0], angle: 0.45 * limp, space: 'local' },
+      { bone: 'upper_arm.L', axis: [0, 0, 1], angle: 0.35 * limp },
+      { bone: 'forearm.L', axis: [1, 0, 0], angle: 0.35 * limp, space: 'local' },
+    );
+  }
+  if (fall > 1e-4) {
+    // going over with the knees still bent (the joints' own bend: hip and knee)
+    for (const side of ['L', 'R']) {
+      rotations.push({ bone: `thigh.${side}`, axis: [1, 0, 0], angle: 0.35 * fall, space: 'local' });
+      rotations.push({ bone: `shin.${side}`, axis: [1, 0, 0], angle: 0.7 * fall, space: 'local' });
+    }
+  }
+  if (!rotations.length) return none;
+  const d = localPushDirection(push, yaw);
+  return { rotations, pelvis: [d.x * 0.08 * w, 0, d.z * 0.08 * w], legFlex: 0.42 * w };
 }
 
 /** Drop reactions that have finished (keeps the per-character list short). */

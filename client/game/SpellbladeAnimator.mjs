@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { SpellbladeClothRig } from './SpellbladeClothRig.mjs';
 import { blendProgressFor, blendSeconds, blendWeights } from './spellbladeBlend.mjs';
-import { GAIT_CLIPS, gaitTime, reactionPose } from './spellbladeMotion.mjs';
+import { GAIT_CLIPS, deathSlump, gaitTime, reactionPose } from './spellbladeMotion.mjs';
 
 // three.js strips '.', ':', '/' and brackets from glTF node names ("thigh.L" loads as "thighL")
 function sanitize(name) {
@@ -195,7 +195,14 @@ export class SpellbladeAnimator {
 
   #applyProcedural(motion) {
     if (!motion) return;
-    const pose = reactionPose(motion.reactions, motion.now ?? 0, motion.yaw ?? 0);
+    const pose = reactionPose(motion.reactions, motion.now ?? 0, motion.yaw ?? 0, { slack: Boolean(motion.death) });
+    // a death's first moments: the body loses its structure before the clip's fall takes over
+    if (motion.death) {
+      const slump = deathSlump(motion.death.age, motion.death.push, motion.yaw ?? 0);
+      pose.rotations.push(...slump.rotations);
+      pose.pelvis = pose.pelvis.map((v, i) => v + slump.pelvis[i]);
+      pose.legFlex = Math.max(pose.legFlex, slump.legFlex);
+    }
     // extra: caller-supplied rotations (first person uses them for the neutral spread and the sprint arm pump)
     if (Array.isArray(motion.extra)) pose.rotations.push(...motion.extra);
     // a landing's flex, plus any crouch asked for (a flourish gathering itself): the feet stay planted either way

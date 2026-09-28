@@ -16,6 +16,14 @@ export const FIRST_PERSON_SWORD_ARM = Object.freeze({
   pole: Object.freeze([0.55, -0.8, 0.1]),
 });
 
+// the first-person magic arm when it joins the sword's grip (the combo's finisher): it aims the hand's fingers (its own
+// y) and lies its palm (its own z); the elbow hangs down and out to the left
+export const FIRST_PERSON_OFF_ARM = Object.freeze({
+  shoulder: 'upper_arm.L', elbow: 'forearm.L', wrist: 'hand.L', grip: 'hand.L',
+  aim: Object.freeze([0, 1, 0]), roll: Object.freeze([0, 0, 1]),
+  pole: Object.freeze([-0.55, -0.8, 0.1]),
+});
+
 // the third-person Spellblade (menu flourishes): its blade (0.94 m) in the grip socket, the elbows out and down
 export const THIRD_PERSON_SWORD_ARM = Object.freeze({
   shoulder: 'upper_arm.R', elbow: 'forearm.R', wrist: 'hand.R', grip: 'socket_sword',

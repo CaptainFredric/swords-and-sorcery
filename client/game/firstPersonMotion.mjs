@@ -71,8 +71,8 @@ function springSet(stiffness, damping) {
 
 export class FirstPersonMotion {
   constructor() {
-    // lagging response to turning and acceleration (soft) and hard impacts (stiffer, settles fast)
-    this.lag = springSet(90, 16);
+    // lagging response to turning and acceleration (soft: the arms have mass) and hard impacts (stiffer, settles fast)
+    this.lag = springSet(75, 15);
     this.impact = springSet(260, 24);
     this.camera = { y: new Spring(200, 24), pitch: new Spring(170, 20), roll: new Spring(170, 20) };
     this.stride = 0;            // footfalls travelled
@@ -165,7 +165,7 @@ export class FirstPersonMotion {
   /**
    * @param {{dt:number, speed:number, grounded:boolean, yaw:number, pitch:number, state:string, dashing?:boolean}} frame
    *   state: the first-person pose state ('idle', 'attack', 'guard', 'cast', 'dash')
-   * @returns {{weapon:{x,y,z,rx,ry,rz}, camera:{y,pitch,roll}, fov:number, pump:number, neutral:number}}
+   * @returns {{weapon:{x,y,z,rx,ry,rz}, camera:{y,pitch,roll,yaw}, fov:number, pump:number, neutral:number}}
    */
   step({ dt, speed: rawSpeed = 0, grounded = true, yaw = 0, pitch = 0, state = 'idle', dashing = false }) {
     const h = Math.max(0, Math.min(0.1, Number.isFinite(dt) ? dt : 0));
@@ -194,10 +194,11 @@ export class FirstPersonMotion {
     const pitchRate = this.lastPitch === null || h <= 0 ? 0 : (pitch - this.lastPitch) / h;
     this.lastYaw = yaw;
     this.lastPitch = pitch;
-    this.lag.ry.target = clamp(yawRate * 0.018, -0.1, 0.1);
-    this.lag.rz.target = clamp(yawRate * 0.012, -0.07, 0.07);
-    this.lag.x.target = clamp(-yawRate * 0.004, -0.025, 0.025);
-    this.lag.y.target = clamp(-pitchRate * 0.004, -0.02, 0.02);
+    this.lag.ry.target = clamp(yawRate * 0.024, -0.13, 0.13);
+    this.lag.rz.target = clamp(yawRate * 0.016, -0.09, 0.09);
+    this.lag.x.target = clamp(-yawRate * 0.006, -0.035, 0.035);
+    this.lag.y.target = clamp(-pitchRate * 0.005, -0.025, 0.025);
+    this.lag.rx.target += clamp(-pitchRate * 0.01, -0.05, 0.05);
 
     for (const axis of AXES) { this.lag[axis].step(h); this.impact[axis].step(h); }
     this.camera.y.step(h);
@@ -224,11 +225,13 @@ export class FirstPersonMotion {
       ry: this.lag.ry.value + this.impact.ry.value + 0.08 * s * free,
       rz: this.lag.rz.value + this.impact.rz.value + swayX * 1.6,
     };
-    // the camera moves far less than the arms: a small footfall dip, a slight lean into the sprint
+    // the camera moves far less than the arms: a small footfall dip, a slight lean into the sprint (yaw: a sword
+    // cut may turn the view a degree or two with the body; see WeaponView)
     const camera = {
       y: this.camera.y.value - (0.006 + 0.008 * s) * dip * m,
       pitch: this.camera.pitch.value - 0.02 * s * m,
       roll: this.camera.roll.value + 0.003 * Math.sin(phase) * m,
+      yaw: 0,
     };
 
     const targetFov = FP_MOTION.baseFov + FP_MOTION.sprintFov * s * m + (dashing ? FP_MOTION.dashFov : 0);

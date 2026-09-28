@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { getWorld } from '../../shared/worlds/registry.mjs';
 import { createMovementState, movePlayer, resolveSprint, tryStartDash } from '../../shared/src/movement.mjs';
 import { separateLocal } from '../../shared/src/separation.mjs';
+import { surfaceHeightAt } from '../../shared/src/collision.mjs';
 import { InputController } from './InputController.mjs';
 import { TouchControls } from './TouchControls.mjs';
 import { RemotePlayers } from './RemotePlayers.mjs';
@@ -392,7 +393,9 @@ export class GameRuntime {
       }
       if (event.type === 'projectileImpact') {
         const spell = spellFor(event.spell);
-        this.effects.impact(event.point, { spell: spell.id, radius: event.radius ?? spell.radius });
+        // the ground under it, for the wave and the mark the blast leaves
+        const ground = this.activeWorld ? surfaceHeightAt(event.point.x, event.point.z, event.point.y, this.activeWorld) : null;
+        this.effects.impact(event.point, { spell: spell.id, radius: event.radius ?? spell.radius, ground });
         this.#play(spell.chill ? frostImpactRecipe() : fireballImpactRecipe(), event.point, 1);
       }
       if (event.type === 'damage' && event.source === 'burn') this.#play(burnLickRecipe(), event.victimId === me ? null : this.#bodyPosition(event.victimId), 0.7);
@@ -501,7 +504,7 @@ export class GameRuntime {
     const point = impactPoint(victim, attacker);
     if (event.targetId !== me) {
       if (point) this.effects.hitBurst(point, blowDirection(victim, attacker), { strike });
-      this.remotePlayers.flashHit(event.targetId, 0.07);
+      this.remotePlayers.flashHit(event.targetId);
     }
     if (event.playerId === me) {
       this.hud.hit('hit');
@@ -602,9 +605,9 @@ export class GameRuntime {
       });
       this.camera.position.set(this.localState.position.x, this.localState.position.y + 1.58 + view.camera.y, this.localState.position.z);
       this.camera.rotation.order = 'YXZ';
-      this.camera.rotation.y = this.input.yaw;
       // camera motion (a comfort setting) scales the sway, bob, kicks and the widening of the view when sprinting
       const motion = this.view.cameraMotion;
+      this.camera.rotation.y = this.input.yaw + view.camera.yaw * motion;
       this.camera.position.y -= view.camera.y * (1 - motion);
       this.camera.rotation.x = this.input.pitch + (this.cameraKick + view.camera.pitch) * motion;
       this.camera.rotation.z = view.camera.roll * motion;
