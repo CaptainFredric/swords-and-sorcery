@@ -3,7 +3,6 @@
 
     python3 tools/audio/knight_voice.py ~/Desktop/knight-takes            # every take in a folder
     python3 tools/audio/knight_voice.py effort-1.m4a hurt-2.m4a --semitones -2
-    python3 tools/audio/knight_voice.py --placeholder-sorcery             # the robot stand-in for SORCERY!
 
 Name each take after its line (effort, hurt, death, sorcery, dash, victory; a number or anything after a dash or
 space is ignored, and a few aliases work: grunt, pain, die, spell, breath, laugh...). Any format macOS can read works
@@ -15,7 +14,7 @@ client/assets/voice as AAC (.m4a) with a small WAV fallback; manifest.json lists
 walls is added live in the game (it follows where you stand), so --preview also writes a version with that echo to
 listen to here.
 
-Processing a line replaces all of its earlier takes (including a placeholder).
+Processing a line replaces all of its earlier takes.
 """
 
 import argparse
@@ -288,7 +287,7 @@ def clear_line(line):
             os.remove(os.path.join(OUT_DIR, name))
 
 
-def publish(line, takes, placeholder=False, preview_dir=None, echo='wall'):
+def publish(line, takes, preview_dir=None, echo='wall'):
     """Write processed takes of one line (replacing its earlier ones)."""
     clear_line(line)
     for number, x in enumerate(takes, start=1):
@@ -300,45 +299,10 @@ def publish(line, takes, placeholder=False, preview_dir=None, echo='wall'):
         save_wav(base + '.wav', resample(x, int(len(x) * 22050 / SR)), sr=22050)
         os.remove(full_wav)
         with open(base + '.json', 'w') as f:
-            json.dump({'seconds': round(len(x) / SR, 2), **({'placeholder': True} if placeholder else {})}, f)
+            json.dump({'seconds': round(len(x) / SR, 2)}, f)
         if preview_dir:
             save_wav(os.path.join(preview_dir, f'{line}-{number}-with-echo.wav'), with_echo(x, SR, echo))
         print(f'  {line}-{number}: {len(x) / SR:.2f}s, peak {db(np.max(np.abs(x))):.1f} dBFS')
-
-
-# --- the placeholder SORCERY! -------------------------------------------------------------------------------------
-
-def say(text, voice='Daniel', rate=150):
-    with tempfile.TemporaryDirectory() as tmp:
-        path = os.path.join(tmp, 'say.aiff')
-        subprocess.run(['say', '-v', voice, '-r', str(rate), '-o', path, text], check=True)
-        return load_any(path)
-
-
-def draw_out_ending(x, sr, start_frac=0.7, factor=3.6, lift=1.5):
-    """SOURCE-CERYYYY: hold the last vowel of the word, a little higher (a shout climbs), and let it fall away."""
-    x = trim(x, sr, pre=0.01, post=0.02)
-    cut = int(len(x) * start_frac)
-    head, tail = x[:cut], x[cut:]
-    ratio = 2 ** (lift / 12)
-    # one pass: stretch a little further than wanted, then resample back, which raises the pitch by `lift`
-    held = stretch(tail, factor * ratio, n_fft=4096, hop=512)
-    long_tail = resample(held, int(len(held) / ratio))
-    fade = int(0.03 * sr)
-    joined = np.concatenate([head[:-fade], head[-fade:] * np.linspace(1, 0, fade) + long_tail[:fade] * np.linspace(0, 1, fade), long_tail[fade:]])
-    # the cry swells a little into the long vowel, then trails off
-    envelope = np.ones(len(joined))
-    rest = len(joined) - cut
-    envelope[cut:] = np.interp(np.arange(rest), [0, rest * 0.25, rest], [1.0, 1.15, 0.0])
-    return joined * envelope
-
-
-def placeholder_sorcery(preview_dir=None):
-    takes = []
-    for voice, rate in (('Daniel', 150), ('Daniel', 135)):
-        raw = say('Sorcery!', voice, rate)
-        takes.append(knight(draw_out_ending(raw, SR), SR, {**PRESETS['sorcery'], 'semitones': -4.0}))
-    publish('sorcery', takes, placeholder=True, preview_dir=preview_dir, echo='shout')
 
 
 def main():
@@ -347,16 +311,11 @@ def main():
     parser.add_argument('--semitones', type=float, help='pitch change (default per line, about -2.5)')
     parser.add_argument('--drive', type=float, help='distortion drive (default per line, about 2.2)')
     parser.add_argument('--preview', action='store_true', help='also write versions with the in-game echo to artifacts/voice-preview')
-    parser.add_argument('--placeholder-sorcery', action='store_true', help='make the stand-in SORCERY! with the Daniel system voice')
     args = parser.parse_args()
     os.makedirs(OUT_DIR, exist_ok=True)
     preview_dir = os.path.join(ROOT, 'artifacts', 'voice-preview') if args.preview else None
     if preview_dir:
         os.makedirs(preview_dir, exist_ok=True)
-
-    if args.placeholder_sorcery:
-        print('placeholder SORCERY!')
-        placeholder_sorcery(preview_dir)
 
     files = []
     for item in args.inputs:

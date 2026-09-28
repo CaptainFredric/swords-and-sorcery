@@ -101,8 +101,8 @@ test('dash pose outranks held guard, attack, and cast poses', () => {
 });
 
 test('local cast visual duration comes only from an authoritative local cast event', () => {
-  near(castVisualDuration({ type: 'fireballCast', playerId: 'me', at: 20, castEndsAt: 20.3 }, 'me', 20.05), 0.31);
-  assert.equal(castVisualDuration({ type: 'fireballCast', playerId: 'them', at: 20, castEndsAt: 20.3 }, 'me', 20.05), null);
+  near(castVisualDuration({ type: 'spellCast', playerId: 'me', at: 20, castEndsAt: 20.3 }, 'me', 20.05), 0.31);
+  assert.equal(castVisualDuration({ type: 'spellCast', playerId: 'them', at: 20, castEndsAt: 20.3 }, 'me', 20.05), null);
   assert.equal(castVisualDuration({ type: 'respawn', playerId: 'me', at: 20 }, 'me', 20.05), null);
-  assert.equal(castVisualDuration({ type: 'fireballCast', playerId: 'me', at: 20, castEndsAt: 20.3 }, 'me', 20.5), null);
+  assert.equal(castVisualDuration({ type: 'spellCast', playerId: 'me', at: 20, castEndsAt: 20.3 }, 'me', 20.5), null);
 });

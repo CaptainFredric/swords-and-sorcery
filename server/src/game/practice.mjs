@@ -48,9 +48,12 @@ function resetActorAtSpawn(player, spawn, nowSec) {
   player.attackNextStrike = 0;
   player.attackRestartAt = -Infinity;
   player.staggerUntil = -Infinity;
-  player.fireballReadyAt = nowSec;
+  player.spellReadyAt = nowSec;
   player.castEndsAt = 0;
-  player.pendingFireball = null;
+  player.pendingSpell = null;
+  player.burn = null;
+  player.chill = null;
+  player.speedScale = 1;
   player.dashReadyAt = nowSec;
   player.dashUntil = 0;
   player.dashDir = { x: 0, z: 0 };

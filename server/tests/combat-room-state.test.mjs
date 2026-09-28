@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Room } from '../src/game/Room.mjs';
-import { beginAttack, endAttack, setGuard, tryCastFireball, tryDash } from '../src/game/combat.mjs';
+import { beginAttack, endAttack, setGuard, tryCastSpell, tryDash } from '../src/game/combat.mjs';
 
 function roomWithPlayer(state) {
   const room = new Room('STATE');
@@ -18,14 +18,14 @@ for (const state of ['WAITING', 'COUNTDOWN', 'FINISHED', 'REMATCH_COUNTDOWN']) {
 
     assert.equal(beginAttack(room, player.id, 10), false);
     assert.equal(setGuard(room, player.id, true, 10), false);
-    assert.equal(tryCastFireball(room, player.id, { x: 1, y: 0, z: 0 }, 10), false);
+    assert.equal(tryCastSpell(room, player.id, { x: 1, y: 0, z: 0 }, 10), false);
     assert.equal(tryDash(room, player.id, { x: 1, z: 0 }, 10), false);
 
     assert.equal(player.attackActive, false);
     assert.equal(player.attackHeld, false);
     assert.equal(player.guarding, false);
-    assert.equal(player.pendingFireball, null);
-    assert.equal(player.fireballReadyAt, 0);
+    assert.equal(player.pendingSpell, null);
+    assert.equal(player.spellReadyAt, 0);
     assert.equal(player.dashReadyAt, 0);
     assert.deepEqual(room.events, []);
   });

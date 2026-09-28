@@ -9,6 +9,7 @@ import { VoiceBank } from './game/sound/VoiceBank.mjs';
 import { gateRecipe, uiClankRecipe, warDrumRecipe } from './game/sound/atmosphereRecipes.mjs';
 import { arenaGateCopy, challengeCopy, countdownSeconds, romanCount } from './menu/challengeCard.mjs';
 import { lobbyView, roomRows } from './menu/lobbyView.mjs';
+import { armoryView } from './menu/armoryView.mjs';
 import { seekView } from './menu/seekView.mjs';
 import { MenuController, shouldRouteSocketError } from './menu/MenuController.mjs';
 import { MenuScene } from './menu/MenuScene.mjs';
@@ -19,12 +20,14 @@ import { SettingsStore } from './settings/SettingsStore.mjs';
 import { SettingsPanel } from './settings/SettingsPanel.mjs';
 import { inputOptions, soundLevels, turnOptions, viewOptions } from './settings/applySettings.mjs';
 import { screenTurn } from './ui/screenTurn.mjs';
+import { guardPullToRefresh } from './ui/pullGuard.mjs';
 
 const $ = (selector) => document.querySelector(selector);
 const menuWorld = $('#menu-world');
 const menuSpellblade = $('#menu-spellblade');
 const menu = $('#menu');
 const soloMenu = $('#solo-menu');
+const armoryMenu = $('#armory-menu');
 const privateMenu = $('#private-menu');
 const roomsMenu = $('#rooms-menu');
 const roomList = $('#room-list');
@@ -82,6 +85,7 @@ const router = new ScreenRouter({
   [SCREEN_IDS.LOBBY]: lobby,
   [SCREEN_IDS.END_SCREEN]: endScreen,
   [SCREEN_IDS.HOW_TO_PLAY]: howPanel,
+  [SCREEN_IDS.ARMORY]: armoryMenu,
 });
 
 // --- loading: the veil shows real download progress and lifts once the Spellblade stands in the forecourt ---
@@ -141,7 +145,7 @@ if (invitedRoom && localStorage.getItem('ss-room-code') !== roomInput.value) {
 }
 
 function isMenuBackedScreen(screenId) {
-  return [SCREEN_IDS.MAIN_MENU, SCREEN_IDS.SOLO_MENU, SCREEN_IDS.PRIVATE_MENU, SCREEN_IDS.ROOMS_MENU, SCREEN_IDS.HOW_TO_PLAY, SCREEN_IDS.LOBBY].includes(screenId);
+  return [SCREEN_IDS.MAIN_MENU, SCREEN_IDS.SOLO_MENU, SCREEN_IDS.PRIVATE_MENU, SCREEN_IDS.ROOMS_MENU, SCREEN_IDS.HOW_TO_PLAY, SCREEN_IDS.LOBBY, SCREEN_IDS.ARMORY].includes(screenId);
 }
 
 function route(screenId) {
@@ -157,6 +161,8 @@ function route(screenId) {
   if (screenId === SCREEN_IDS.PLAYING && previous !== null && currentRoomState === 'PLAYING') openArenaGate(latestSnapshot ?? latestLobby ?? {});
   renderSeek();
   syncSoundscape();
+  // in the Armory he holds the chosen spell up in his palm
+  menuScene?.showSpell(screenId === SCREEN_IDS.ARMORY ? settings.get('loadout.spell') : null);
 }
 
 // what you hear follows where you are: the courtyard and the hall theme in the menus, the battle theme in a match
@@ -257,6 +263,7 @@ function useTouchUi() {
   if (touchUi) return;
   touchUi = true;
   document.body.classList.add('touch-ui');
+  guardPullToRefresh();
   const turnHint = $('.turn-hint');
   if (turnHint) turnHint.textContent = 'DRAG TO TURN · DOUBLE-TAP TO RESET';
   runtime?.enableTouch();
@@ -511,6 +518,11 @@ const settingsPanel = new SettingsPanel({
 });
 settings.onChange((change) => {
   applySettings();
+  if (change.id === 'loadout.spell') {
+    socket.loadout(change.value);
+    renderArmory();
+    if (router.current === SCREEN_IDS.ARMORY) menuScene?.showSpell(change.value);
+  }
   // choosing to lie sideways (a tap, so motion access can be asked for): say which way to turn the phone
   if (change.id === 'display.orientation' && change.value === 'sideways') {
     screenTurn?.listenToMotion();
@@ -520,6 +532,25 @@ settings.onChange((change) => {
 for (const button of document.querySelectorAll('[data-open-settings]')) {
   button.addEventListener('click', () => settingsPanel.open(button.dataset.openSettings || undefined));
 }
+
+// --- the Armory: the Spellblade's kit (for now the blade, and the spell carried into a fight) ---
+function renderArmory() {
+  const view = armoryView(settings.get('loadout.spell'));
+  $('#armory-blade-name').textContent = view.blade.name;
+  $('#armory-blade-facts').textContent = view.blade.facts;
+  $('#armory-spells').innerHTML = view.spells.map((spell) => `<button type="button" class="spell-card${spell.equipped ? ' equipped' : ''}" role="radio" aria-checked="${spell.equipped}" data-spell="${spell.id}">
+    <span class="spell-mark">${spell.mark}</span><span class="spell-name">${escapeHtml(spell.name)}</span>${spell.equipped ? '<i>EQUIPPED</i>' : ''}
+    <small>${escapeHtml(spell.line)}</small><em>${escapeHtml(spell.facts)}</em></button>`).join('');
+}
+$('#armory-button').addEventListener('click', () => {
+  renderArmory();
+  route(SCREEN_IDS.ARMORY);
+});
+$('#armory-back').addEventListener('click', () => route(SCREEN_IDS.MAIN_MENU));
+$('#armory-spells').addEventListener('click', (event) => {
+  const card = event.target.closest('[data-spell]');
+  if (card) settings.set('loadout.spell', card.dataset.spell);
+});
 
 // the sound and music switches (M and N unless rebound; the same switches sit in the arena menu for touch screens)
 function renderSoundToggles() {
@@ -588,7 +619,7 @@ document.addEventListener('keydown', event => {
     settingsPanel.close();
     return;
   }
-  if ([SCREEN_IDS.SOLO_MENU, SCREEN_IDS.PRIVATE_MENU, SCREEN_IDS.ROOMS_MENU, SCREEN_IDS.HOW_TO_PLAY].includes(router.current)) {
+  if ([SCREEN_IDS.SOLO_MENU, SCREEN_IDS.PRIVATE_MENU, SCREEN_IDS.ROOMS_MENU, SCREEN_IDS.HOW_TO_PLAY, SCREEN_IDS.ARMORY].includes(router.current)) {
     route(SCREEN_IDS.MAIN_MENU);
   } else if (router.current === SCREEN_IDS.LOBBY || router.current === SCREEN_IDS.END_SCREEN) {
     clearSessionAndNavigate();
@@ -707,6 +738,8 @@ socket.on('error', (message) => {
 });
 
 socket.on('connection', ({ connected }) => {
+  // every connection carries the Armory's spell (the server keeps it for the rooms this connection joins)
+  if (connected) socket.loadout(settings.get('loadout.spell'));
   if (!connected && runtime) hud.flashText('RECONNECTING…', 'danger');
 });
 

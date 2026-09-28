@@ -1,9 +1,15 @@
 name: Deploy GitHub Pages
 
+# The game on GitHub Pages: the same client the Render server serves, as static files, pointed at the Render server
+# for play (Pages cannot run the game server itself: rooms, matchmaking and every match live there). The old landing
+# page lives on at /about/.
+
 on:
   push:
     branches: [main]
     paths:
+      - 'client/**'
+      - 'shared/**'
       - 'site/**'
       - '.github/workflows/pages.yml'
   workflow_dispatch:
@@ -23,6 +29,8 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
+    env:
+      GAME_SERVER: wss://swords-and-sorcery.onrender.com/ws
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -30,10 +38,19 @@ jobs:
         uses: actions/configure-pages@v5
         with:
           enablement: true
+      - name: Build the static client
+        run: |
+          mkdir -p _site/about
+          cp -R client shared _site/
+          # the page names the game server it plays on
+          sed "s#<meta charset=\"UTF-8\" />#<meta charset=\"UTF-8\" />\n  <meta name=\"ss-game-server\" content=\"${GAME_SERVER}\" />#" client/index.html > _site/index.html
+          grep -q 'name="ss-game-server"' _site/index.html
+          cp -R site/. _site/about/
+          touch _site/.nojekyll
       - name: Upload static site
         uses: actions/upload-pages-artifact@v3
         with:
-          path: site
+          path: _site
       - name: Deploy
         id: deployment
         uses: actions/deploy-pages@v4

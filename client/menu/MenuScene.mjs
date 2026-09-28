@@ -22,6 +22,12 @@ function disposeObject(root) {
 const STAGE = Object.freeze({ x: -1.0, z: 5.5 });
 const CAMERA_FROM = Object.freeze({ x: MENU_SHOTS.main.camera[0], z: MENU_SHOTS.main.camera[2] });
 
+// a spell held up in the Armory
+const SPELL_PREVIEW = Object.freeze({
+  fireball: { core: 0xfff0c8, glow: 0xff7a2a },
+  frostfire: { core: 0xeafcff, glow: 0x7fd6ff },
+});
+
 export class MenuScene {
   constructor(container, { onReady = () => {} } = {}) {
     this.container = container;
@@ -223,6 +229,11 @@ export class MenuScene {
     const t = nowMs / 1000;
     this.characterRoot.rotation.y += (this.targetYaw - this.characterRoot.rotation.y) * 0.09;
     this.characterRoot.rotation.x += (this.targetPitch - this.characterRoot.rotation.x) * 0.09;
+    // the spell held up in the Armory breathes and turns
+    if (this.spellOrb?.visible) {
+      this.spellOrb.scale.setScalar(1 + Math.sin(t * 3.1) * 0.08);
+      this.spellOrbGlow.rotation.y = t * 1.7;
+    }
 
     if (this.visualKind === 'production' && this.assetInstance) {
       // between stretches of breathing he looks around, shifts, presents the blade, guards or kindles sorcery
@@ -272,6 +283,37 @@ export class MenuScene {
     cancelAnimationFrame(this.frameHandle);
     this.lastFrameAt = null;
     this.frameHandle = requestAnimationFrame(this.#frame);
+  }
+
+  /**
+   * The Armory holds the chosen spell up in his palm (null puts it away): a small orb and the palm light in its
+   * colour; the rest of the menu keeps his usual cyan glow.
+   */
+  showSpell(spell) {
+    this.shownSpell = spell;
+    const look = SPELL_PREVIEW[spell];
+    if (!look) {
+      if (this.spellOrb) this.spellOrb.visible = false;
+      this.magicLight.color.setHex(0x55d9ff);
+      this.magicLight.intensity = 1.1;
+      return;
+    }
+    const socket = this.assetInstance?.sockets?.sorcery;
+    if (!this.spellOrb && socket) {
+      this.spellOrb = new THREE.Group();
+      this.spellOrbCore = new THREE.Mesh(new THREE.IcosahedronGeometry(0.06, 1), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+      this.spellOrbGlow = new THREE.Mesh(new THREE.IcosahedronGeometry(0.12, 1), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.45, blending: THREE.AdditiveBlending, depthWrite: false }));
+      this.spellOrb.add(this.spellOrbCore, this.spellOrbGlow);
+      this.spellOrb.position.set(0, 0.06, 0);
+      socket.add(this.spellOrb);
+    }
+    if (this.spellOrb) {
+      this.spellOrb.visible = true;
+      this.spellOrbCore.material.color.setHex(look.core);
+      this.spellOrbGlow.material.color.setHex(look.glow);
+    }
+    this.magicLight.color.setHex(look.glow);
+    this.magicLight.intensity = 2.4;
   }
 
   /** Render quality (a setting): the menu never draws sharper than 1.25x, and Smooth draws at 1x. */

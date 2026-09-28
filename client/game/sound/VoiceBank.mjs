@@ -3,6 +3,7 @@
 // and it is sent into the echo off the castle walls. voiceRules.mjs decides when a line is spoken at all.
 
 import { VOICE_LINES, VoiceDirector } from './voiceRules.mjs';
+import { appUrl } from '../../appUrl.mjs';
 
 const BASE = '/client/assets/voice/';
 
@@ -19,7 +20,7 @@ export class VoiceBank {
   async #load() {
     let manifest;
     try {
-      manifest = await (await fetch(`${this.base}manifest.json`, { cache: 'no-cache' })).json();
+      manifest = await (await fetch(appUrl(`${this.base}manifest.json`), { cache: 'no-cache' })).json();
     } catch {
       return; // no voice recorded yet: the knight fights in silence
     }
@@ -37,7 +38,7 @@ export class VoiceBank {
     // AAC first (small); the WAV is there for a browser that cannot decode it
     for (const extension of ['m4a', 'wav']) {
       try {
-        const response = await fetch(`${this.base}${file}.${extension}`);
+        const response = await fetch(appUrl(`${this.base}${file}.${extension}`));
         if (!response.ok) continue;
         return await this.engine.ctx.decodeAudioData(await response.arrayBuffer());
       } catch { /* try the next */ }

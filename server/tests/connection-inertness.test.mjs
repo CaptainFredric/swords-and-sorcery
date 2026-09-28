@@ -20,7 +20,7 @@ test('disconnect immediately neutralizes stale combat and movement input during 
   player.attackHeld = true;
   player.attackActive = true;
   player.guarding = true;
-  player.pendingFireball = { x: 1, y: 0, z: 0 };
+  player.pendingSpell = { spell: 'fireball', direction: { x: 1, y: 0, z: 0 } };
   player.castEndsAt = 5;
 
   room.disconnectPlayer('a', 4);
@@ -37,7 +37,7 @@ test('disconnect immediately neutralizes stale combat and movement input during 
   assert.equal(player.attackHeld, false);
   assert.equal(player.attackActive, false);
   assert.equal(player.guarding, false);
-  assert.equal(player.pendingFireball, null);
+  assert.equal(player.pendingSpell, null);
   assert.equal(player.castEndsAt, 0);
   assert.equal(player.connected, false);
   assert.equal(player.disconnectExpiresAt, 19);

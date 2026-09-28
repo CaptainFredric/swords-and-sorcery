@@ -83,13 +83,13 @@ test('the old sound switches carry over the first time', () => {
 
 test('a key belongs to one action: rebinding takes it from the other, and a slot can be cleared', () => {
   const store = new SettingsStore({ registry, storage: memoryStorage() });
-  assert.deepEqual(store.keysFor('fireball'), ['KeyQ']);
+  assert.deepEqual(store.keysFor('spell'), ['KeyQ']);
   const changes = [];
   store.onChange((change) => changes.push(change));
-  assert.equal(store.bind('fireball', 0, 'KeyE'), 'dash', 'dash loses E');
-  assert.deepEqual(store.keysFor('fireball'), ['KeyE']);
+  assert.equal(store.bind('spell', 0, 'KeyE'), 'dash', 'dash loses E');
+  assert.deepEqual(store.keysFor('spell'), ['KeyE']);
   assert.deepEqual(store.keysFor('dash'), []);
-  assert.equal(store.actionFor('KeyE'), 'fireball');
+  assert.equal(store.actionFor('KeyE'), 'spell');
   assert.equal(changes.at(-1).displaced, 'dash');
   store.bind('dash', 1, 'Mouse4');
   assert.deepEqual(store.keysFor('dash'), ['Mouse4']);
@@ -98,7 +98,7 @@ test('a key belongs to one action: rebinding takes it from the other, and a slot
   assert.equal(store.bind('jump', 0, 'Escape'), null);
   assert.deepEqual(store.keysFor('jump'), ['Space'], 'Escape stays the menu key');
   store.reset('bindings');
-  assert.deepEqual(store.keysFor('fireball'), ['KeyQ']);
+  assert.deepEqual(store.keysFor('spell'), ['KeyQ']);
   assert.deepEqual(store.keysFor('dash'), ['KeyE']);
 });
 
@@ -141,4 +141,16 @@ test('each part of the game gets what it needs from the settings', () => {
   assert.equal(inputOptions(store).touchScale, 1.2);
   assert.deepEqual(inputOptions(store).bindings.attack, ['Mouse0']);
   assert.deepEqual(turnOptions(store), { mode: 'sideways', side: 'left' });
+});
+
+test('the Armory keeps its choice here without becoming a Settings tab, and old key bindings follow a renamed action', () => {
+  assert.ok(!registry.sectionList('desktop').some((section) => section.id === 'loadout'));
+  assert.ok(!registry.sectionList('touch').some((section) => section.id === 'loadout'));
+  const storage = memoryStorage({ [STORAGE_KEY]: JSON.stringify({ version: 1, values: { 'loadout.spell': 'frostfire' }, bindings: { fireball: ['KeyR'] } }) });
+  const store = new SettingsStore({ registry, storage });
+  assert.equal(store.get('loadout.spell'), 'frostfire');
+  assert.deepEqual(store.keysFor('spell'), ['KeyR'], 'bound as "fireball" before the rename');
+  assert.equal(store.actionFor('KeyR'), 'spell');
+  store.set('loadout.spell', 'lightning');
+  assert.equal(store.get('loadout.spell'), 'fireball', 'an unknown spell falls back to the default');
 });

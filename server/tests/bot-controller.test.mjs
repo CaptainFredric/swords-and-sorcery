@@ -32,18 +32,18 @@ test('bot chooses melee intent without directly damaging the target', () => {
   assert.equal(human.health, 100);
 });
 
-test('bot Fireball cannot bypass authoritative cooldown', () => {
+test('a bot spell cannot bypass the authoritative cooldown', () => {
   const { room, bot, human } = makeBotDuel();
   bot.position = { x: 0, y: 0, z: 0 };
   human.position = { x: 0, y: 0, z: -8 };
-  bot.fireballReadyAt = 10;
+  bot.spellReadyAt = 10;
   const projectileCount = room.projectiles.size;
 
   stepBotControllers(room, 5, room.world, { random: () => 0.05 });
 
   assert.equal(room.projectiles.size, projectileCount);
-  assert.equal(bot.pendingFireball, null);
-  assert.equal(bot.fireballReadyAt, 10);
+  assert.equal(bot.pendingSpell, null);
+  assert.equal(bot.spellReadyAt, 10);
 });
 
 test('bot defensive decisions have nonzero reaction latency', () => {

@@ -18,6 +18,9 @@ const LEGACY = {
   }),
 };
 
+// actions that were renamed: a key bound under the old name keeps working under the new one
+const RENAMED_ACTIONS = { fireball: 'spell' };
+
 function readJson(storage, key) {
   try { return JSON.parse(storage?.getItem(key) ?? 'null'); } catch { return null; }
 }
@@ -121,7 +124,7 @@ export class SettingsStore {
       this.values = saved.values && typeof saved.values === 'object' ? { ...saved.values } : {};
       if (saved.bindings && typeof saved.bindings === 'object') {
         for (const [action, keys] of Object.entries(saved.bindings)) {
-          if (Array.isArray(keys)) this.bindings[action] = keys.filter(isBindableCode).slice(0, 2);
+          if (Array.isArray(keys)) this.bindings[RENAMED_ACTIONS[action] ?? action] = keys.filter(isBindableCode).slice(0, 2);
         }
       }
       return;

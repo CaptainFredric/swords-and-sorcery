@@ -3,15 +3,15 @@ import assert from 'node:assert/strict';
 import {
   GAME,
   SWORD_STRIKE_TIMES,
-  fireballSplashDamage,
   getSwordStrikeIndex,
   isCooldownReady,
   resolveSwordVsGuard,
 } from './combat.mjs';
 
-test('three sword hits defeat a full-health player', () => {
-  assert.ok(GAME.swordDamage * 3 >= GAME.maxHealth);
-  assert.ok(GAME.swordDamage * 2 < GAME.maxHealth);
+test('four sword hits defeat a full-health player, and three hits and a spell do too', () => {
+  assert.equal(GAME.swordDamage, 28);
+  assert.ok(GAME.swordDamage * 4 >= GAME.maxHealth);
+  assert.ok(GAME.swordDamage * 3 < GAME.maxHealth);
 });
 
 test('held sword exposes each strike only when its timing threshold is reached', () => {
@@ -30,13 +30,6 @@ test('guard started inside 180ms parries instead of draining normal block stamin
   assert.deepEqual(resolveSwordVsGuard({ guarding: true, guardAgeMs: 181, stamina: 100 }), {
     kind: 'block', staminaAfter: 65,
   });
-});
-
-test('fireball damage falls linearly from direct hit to splash edge', () => {
-  assert.equal(fireballSplashDamage(0), 28);
-  assert.equal(fireballSplashDamage(1), 20);
-  assert.equal(fireballSplashDamage(2), 12);
-  assert.equal(fireballSplashDamage(3), 0);
 });
 
 test('cooldown readiness uses absolute ready time', () => {

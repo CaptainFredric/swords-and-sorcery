@@ -6,7 +6,7 @@ import { registry } from '../settings/settingsRegistry.mjs';
 const PRESS = {
   attack: (input) => input.setAttack(true),
   guard: (input) => input.setGuard(true),
-  fireball: (input) => input.cast(),
+  spell: (input) => input.cast(),
   dash: (input) => input.dash(),
   scoreboard: (input) => { input.scoreboardHeld = true; },
 };

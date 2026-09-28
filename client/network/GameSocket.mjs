@@ -1,5 +1,14 @@
 import { clearExpiredSession } from './sessionState.mjs';
 
+// The game server: the page's own host (the Render server serves the client and runs the game), unless the page
+// names another. A static copy of the client (GitHub Pages) names the game server with <meta name="ss-game-server">.
+export function gameServerUrl(doc = globalThis.document, loc = globalThis.location) {
+  const named = doc?.querySelector?.('meta[name="ss-game-server"]')?.content?.trim();
+  if (named) return named;
+  const scheme = loc.protocol === 'https:' ? 'wss:' : 'ws:';
+  return `${scheme}//${loc.host}/ws`;
+}
+
 export class GameSocket {
   constructor() {
     this.ws = null;
@@ -28,8 +37,7 @@ export class GameSocket {
   async connect({ resume = true } = {}) {
     if (this.ws?.readyState === WebSocket.OPEN) return;
     this.intentionalClose = false;
-    const scheme = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const ws = new WebSocket(`${scheme}//${location.host}/ws`);
+    const ws = new WebSocket(gameServerUrl());
     this.ws = ws;
     await new Promise((resolve, reject) => {
       ws.addEventListener('open', resolve, { once: true });
@@ -103,6 +111,8 @@ export class GameSocket {
   ready(ready) { this.send({ type: 'ready', ready: Boolean(ready) }); }
   vote(key, value) { this.send({ type: 'vote', key, value }); }
   leaveRoom() { this.send({ type: 'leaveRoom' }); }
+  // the spell carried from the Armory (kept by the server for every room this connection joins)
+  loadout(spell) { this.send({ type: 'loadout', spell }); }
   ping() { this.send({ type: 'ping', sentAt: performance.now() }); }
 
   serverNow() {

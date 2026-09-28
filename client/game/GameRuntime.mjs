@@ -13,9 +13,10 @@ import { castVisualDuration } from './weaponPose.mjs';
 import { localPushDirection } from './spellbladeMotion.mjs';
 import { blowDirection, hitKick, hitstopSeconds, impactPoint } from './hitFeel.mjs';
 import {
-  blockRecipe, castRecipe, dashRecipe, fireballImpactRecipe, hurtRecipe, killRecipe, parryRecipe, spatialize,
-  swingRecipe, swordHitRecipe, wallClangRecipe,
+  blockRecipe, burnLickRecipe, castRecipe, dashRecipe, fireballImpactRecipe, frostImpactRecipe, hurtRecipe, killRecipe,
+  parryRecipe, spatialize, swingRecipe, swordHitRecipe, wallClangRecipe,
 } from './sound/soundRecipes.mjs';
+import { chillScale, spellFor } from '../../shared/src/spells.mjs';
 import { voiceRate } from './sound/voiceRules.mjs';
 import { CombatHeat, matchClosing, nearestFoe } from './sound/combatHeat.mjs';
 import { FP_MOTION } from './firstPersonMotion.mjs';
@@ -109,6 +110,13 @@ export class GameRuntime {
       }
       const now = this.socket.serverNow();
       if (canPresentLocalAction('guard', this.localAuth, this.localState, now)) this.weapon.setGuard(true);
+    };
+    // the palm starts gathering the moment the spell is called (the server's word follows and confirms it)
+    this.input.onCastLocal = () => {
+      const now = this.socket.serverNow();
+      if (!canPresentLocalAction('cast', this.localAuth, this.localState, now)) return;
+      const spell = spellFor(this.localAuth?.spell);
+      this.weapon.cast({ gatherSec: spell.gatherSec, spell: spell.id });
     };
     this.input.onDashLocal = (dir) => {
       const now = this.socket.serverNow();
@@ -290,13 +298,15 @@ export class GameRuntime {
       this.#applyWeaponRelease(localWeaponReleaseForEvent(event, this.socket.playerId));
 
       const me = this.socket.playerId;
-      if (event.type === 'fireballCast') {
+      if (event.type === 'spellCast') {
+        const spell = spellFor(event.spell);
         const duration = castVisualDuration(event, me, this.socket.serverNow());
         if (duration !== null) {
-          this.weapon.cast(duration);
-          this.effects.fireball();
+          this.weapon.cast({ gatherSec: Math.max(0, duration - 0.06), spell: spell.id });
+          this.effects.castFlash(spell.id);
         }
-        this.#play(castRecipe(), event.playerId === me ? null : this.#bodyPosition(event.playerId), event.playerId === me ? 0.9 : 0.6);
+        const release = Math.max(0, (event.castEndsAt ?? event.at + spell.gatherSec) - this.socket.serverNow());
+        this.#play(castRecipe(Math.random, { spell: spell.id, release }), event.playerId === me ? null : this.#bodyPosition(event.playerId), event.playerId === me ? 0.9 : 0.6);
         this.#say('sorcery', event.playerId);
       }
 
@@ -340,9 +350,11 @@ export class GameRuntime {
         this.weapon.block(true);
       }
       if (event.type === 'projectileImpact') {
-        this.effects.impact(event.point);
-        this.#play(fireballImpactRecipe(), event.point, 1);
+        const spell = spellFor(event.spell);
+        this.effects.impact(event.point, { spell: spell.id, radius: event.radius ?? spell.radius });
+        this.#play(spell.chill ? frostImpactRecipe() : fireballImpactRecipe(), event.point, 1);
       }
+      if (event.type === 'damage' && event.source === 'burn') this.#play(burnLickRecipe(), event.victimId === me ? null : this.#bodyPosition(event.victimId), 0.7);
       if (event.type === 'damage') {
         if (event.attackerId === me) {
           this.hud.hit('hit');
@@ -374,6 +386,22 @@ export class GameRuntime {
     return this.remotePlayers.bodyPosition(id) ?? this.latestSnapshot?.players.find((p) => p.id === id)?.position ?? null;
   }
 
+  // burning and chilled bodies show it (flames licking up, frost drifting off); my own show at the edges of my view
+  #showAfflictions(dt) {
+    const snapshot = this.latestSnapshot;
+    if (!snapshot) return;
+    const serverNow = this.socket.serverNow();
+    for (const player of snapshot.players) {
+      const burning = player.alive !== false && (player.burningUntil ?? 0) > serverNow;
+      const chill = player.alive !== false ? 1 - chillScale(player.chill, serverNow) : 0;
+      if (player.id === this.socket.playerId) {
+        this.hud.setAfflictions({ burning, chill: chill / 0.55 });
+        continue;
+      }
+      this.effects.afflict(player.id, burning || chill > 0.01 ? this.#bodyPosition(player.id) : null, { burning, chill: chill / 0.55 }, dt);
+    }
+  }
+
   // a Spellblade speaks: mine from inside my own helm, others from where they stand, each with their own pitch
   #say(line, playerId, { chanceScale = 1 } = {}) {
     if (!this.voice || !playerId) return;
@@ -392,7 +420,7 @@ export class GameRuntime {
   // steel anywhere stirs the music; blows that involve me put it on the fight
   #warm(event, me) {
     const now = performance.now() / 1000;
-    if (['swordSwing', 'swordHit', 'projectileImpact', 'parry', 'block', 'guardBreak', 'fireballCast'].includes(event.type)) this.heat.stir(now);
+    if (['swordSwing', 'swordHit', 'projectileImpact', 'parry', 'block', 'guardBreak', 'spellCast'].includes(event.type)) this.heat.stir(now);
     const involved = [event.playerId, event.targetId, event.attackerId, event.defenderId, event.victimId].includes(me);
     if (involved && ['swordHit', 'parry', 'block', 'guardBreak', 'damage'].includes(event.type)) this.heat.fight(now);
   }
@@ -477,7 +505,9 @@ export class GameRuntime {
       if (body && event.source !== 'abyss') this.effects.killBurst({ x: body.x, y: body.y + 1.1, z: body.z });
     }
     if (event.source === 'abyss' && killer) this.hud.addFeed(`${killer.name} sent ${victim?.name ?? 'someone'} into the abyss`, 'abyss');
-    else if (event.source?.startsWith('fireball') && killer) this.hud.addFeed(`${killer.name} incinerated ${victim?.name ?? 'someone'}`, 'fire');
+    else if (event.source === 'fireball' && killer) this.hud.addFeed(`${killer.name} incinerated ${victim?.name ?? 'someone'}`, 'fire');
+    else if (event.source === 'burn' && killer) this.hud.addFeed(`${killer.name} burned ${victim?.name ?? 'someone'} down`, 'fire');
+    else if (event.source === 'frostfire' && killer) this.hud.addFeed(`${killer.name} shattered ${victim?.name ?? 'someone'}`, 'frost');
     else if (killer) this.hud.addFeed(`${killer.name} slew ${victim?.name ?? 'someone'}`, 'sword');
     else this.hud.addFeed(`${victim?.name ?? 'A spellblade'} fell into the abyss`, 'abyss');
   }
@@ -504,6 +534,8 @@ export class GameRuntime {
       });
       const wasGrounded = this.localState.grounded;
       const fallSpeed = -this.localState.velocity.y;
+      // a chill slows my own steps exactly as the server slows them (it thaws on the same clock)
+      this.localState.speedScale = chillScale(this.localAuth.chill, serverNow);
       this.localState = movePlayer(this.localState, moveInput, dt, serverNow, this.activeWorld);
       // predict the server's body separation so pressing into an opponent does not rubber-band
       separateLocal(this.localState.position, this.remotePlayers.bodies(), this.activeWorld);
@@ -535,6 +567,7 @@ export class GameRuntime {
       this.#setFov(this.view.fov + (this.weapon.update(timeSec, dt).fov - FP_MOTION.baseFov) * this.view.cameraMotion);
     }
     this.remotePlayers.update(nowMs, dt);
+    this.#showAfflictions(dt);
     this.world?.update?.(timeSec, this.camera);
     this.effects.update(dt);
 

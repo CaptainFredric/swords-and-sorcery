@@ -8,6 +8,7 @@ export const SCREEN_IDS = Object.freeze({
   PRACTICE_OVERLAY: 'PRACTICE_OVERLAY',
   END_SCREEN: 'END_SCREEN',
   HOW_TO_PLAY: 'HOW_TO_PLAY',
+  ARMORY: 'ARMORY',
 });
 
 export class ScreenRouter {

@@ -32,7 +32,7 @@ Two to six takes of a line keep it from repeating.
 python3 tools/audio/knight_voice.py ~/Desktop/knight-takes --preview
 ```
 
-- Every line you process replaces that line's earlier takes, including the placeholder SORCERY.
+- Every line you process replaces that line's earlier takes.
 - `--preview` also writes each take with the in-game echo to `artifacts/voice-preview/` so you can listen first.
 - `--semitones -1.5` goes less deep and `--semitones -4` goes deeper (the default is about -2.5).
 - `--drive 1.5` gives less grit and `--drive 3` gives more.

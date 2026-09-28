@@ -6,9 +6,12 @@ async function read(path) {
   return readFile(new URL(`../../${path}`, import.meta.url), 'utf8');
 }
 
-test('client shell suppresses the browser default favicon request until branded medieval icon exists', async () => {
+test('the client wears its own icon: a sword and a fireball crossed behind a knight\'s great helm', async () => {
   const html = await read('client/index.html');
-  assert.match(html, /<link\s+rel=["']icon["']\s+href=["']data:,["']\s*\/?>/i);
+  assert.match(html, /<link\s+rel=["']icon["']\s+href=["']client\/assets\/icons\/icon\.svg["']\s+type=["']image\/svg\+xml["']/i);
+  assert.match(html, /<link\s+rel=["']icon["']\s+href=["']client\/assets\/icons\/icon-32\.png["']/i);
+  const svg = await read('client/assets/icons/icon.svg');
+  assert.match(svg, /the sword[\s\S]*the fireball[\s\S]*the great helm/);
 });
 
 test('main menu exposes multiplayer, solo and private flows without presenting a web-dashboard card stack', async () => {
@@ -51,7 +54,7 @@ test('front door prioritizes title, play choices and the Spellblade over seconda
 test('Practice controls collapse out of the combat view while pointer lock is active', async () => {
   const html = await read('client/index.html');
   const css = await read('client/playability.css');
-  assert.match(html, /href=["']\/client\/playability\.css["']/i);
+  assert.match(html, /href=["']client\/playability\.css["']/i);
   assert.match(css, /\.hud\.pointer-locked\s+\.practice-tools\s*\{/);
   assert.match(css, /\.hud\.pointer-locked\s+\.practice-tools\s+button\s*\{[^}]*display\s*:\s*none/i);
   assert.match(css, /\.hud\.pointer-locked\s+\.practice-tools\s+small\s*\{/);
@@ -104,7 +107,7 @@ test('procedural Spellblade is explicitly migration fallback while preserving th
 test('the front door has a loading veil, heraldic banners, a challenger card and an arena gate', async () => {
   const html = await read('client/index.html');
   const css = await read('client/menu.css');
-  assert.match(html, /href=["']\/client\/menu\.css["']/);
+  assert.match(html, /href=["']client\/menu\.css["']/);
   assert.match(html, /id=["']loading-veil["'][\s\S]*id=["']loading-fill["']/);
   assert.match(html, /id=["']challenge-card["'][\s\S]*id=["']challenge-count["']/);
   assert.match(html, /id=["']arena-gate["']/);

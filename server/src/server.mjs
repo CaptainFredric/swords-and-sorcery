@@ -6,7 +6,8 @@ import crypto from 'node:crypto';
 import { acceptWebSocket } from './websocket.mjs';
 import { RoomManager } from './rooms/RoomManager.mjs';
 import { Matchmaker } from './rooms/Matchmaker.mjs';
-import { beginAttack, endAttack, setGuard, stepRoom, tryCastFireball, tryDash } from './game/combat.mjs';
+import { beginAttack, endAttack, setGuard, stepRoom, tryCastSpell, tryDash } from './game/combat.mjs';
+import { DEFAULT_SPELL, isSpell } from '../../shared/src/spells.mjs';
 import { stepBotControllers } from './ai/BotController.mjs';
 import {
   resetPracticePlayer,
@@ -140,7 +141,11 @@ function serializeSnapshot(room, nowSec) {
       deaths: p.deaths,
       parries: p.parries,
       abyssKills: p.abyssKills,
-      fireballReadyAt: p.fireballReadyAt,
+      spell: p.spell,
+      spellReadyAt: p.spellReadyAt,
+      // afflictions, for your own prediction (the chill slows you) and everyone's effects
+      chill: p.chill ? { slow: p.chill.slow, startedAt: p.chill.startedAt, until: p.chill.until } : null,
+      burningUntil: p.burn?.until ?? 0,
       dashReadyAt: p.dashReadyAt,
       dashUntil: p.dashUntil,
       staggerUntil: p.staggerUntil,
@@ -148,7 +153,7 @@ function serializeSnapshot(room, nowSec) {
       respawnAt: p.respawnAt,
       lastInputSeq: p.lastInputSeq,
     })),
-    projectiles: [...room.projectiles.values()].map((p) => ({ id: p.id, ownerId: p.ownerId, position: p.position, velocity: p.velocity })),
+    projectiles: [...room.projectiles.values()].map((p) => ({ id: p.id, ownerId: p.ownerId, spell: p.spell, position: p.position, velocity: p.velocity })),
   };
 }
 
@@ -219,14 +224,15 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
     broadcastLobby(room);
   }
 
-  function createNetworkPlayer(room, name) {
+  // a new Spellblade in a room, carrying the spell its player chose in the Armory
+  function createNetworkPlayer(session, room, name) {
     const id = crypto.randomUUID();
     const token = crypto.randomUUID();
-    return room.addPlayer({ id, token, name }, now());
+    return room.addPlayer({ id, token, name, spell: session.spell }, now());
   }
 
   function joinNew(session, room, name) {
-    const player = createNetworkPlayer(room, name);
+    const player = createNetworkPlayer(session, room, name);
     attachPlayer(session, room, player);
   }
 
@@ -246,7 +252,7 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
   // the practice yard a seeker waits in: a training dummy to hit while the queue works
   function enterPracticeYard(session, name, time) {
     const room = roomManager.createSoloRoom(GAME_MODES.PRACTICE, time);
-    const player = createNetworkPlayer(room, name);
+    const player = createNetworkPlayer(session, room, name);
     room.armAutoStart(time);
     spawnPracticeDummy(room, 'PASSIVE', time);
     attachPlayer(session, room, player);
@@ -323,6 +329,13 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
       send(session, { type: 'pong', sentAt: message.sentAt, serverTime: time });
       return;
     }
+    if (message.type === 'loadout') {
+      // the Armory's choice: kept for every room this connection joins, and taken up at once if already in one
+      session.spell = isSpell(message.spell) ? message.spell : DEFAULT_SPELL;
+      const player = sessionRoom(session)?.players.get(session.playerId);
+      if (player && !player.pendingSpell) player.spell = session.spell;
+      return;
+    }
     if (message.type === 'seekDuel') {
       // wait in a practice yard while the server-wide queue finds a challenger
       const name = String(message.name || 'Spellblade').trim().slice(0, 18) || 'Spellblade';
@@ -346,7 +359,7 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
       if (!entry) return;
       leaveRoom(session, time);
       const room = roomManager.createSoloRoom(GAME_MODES.BOT_DUEL, time);
-      const player = createNetworkPlayer(room, entry.name);
+      const player = createNetworkPlayer(session, room, entry.name);
       room.provisionModeActors(time);
       room.armAutoStart(time);
       attachPlayer(session, room, player);
@@ -384,7 +397,7 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
         return;
       }
       const room = roomManager.createSoloRoom(message.mode, time);
-      const player = createNetworkPlayer(room, message.name);
+      const player = createNetworkPlayer(session, room, message.name);
       room.provisionModeActors(time);
       room.armAutoStart(time);
       attachPlayer(session, room, player);
@@ -443,7 +456,7 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
         break;
       }
       case 'guard': setGuard(room, player.id, Boolean(message.down), compensatedInputTime(message.clientTime, time)); break;
-      case 'cast': tryCastFireball(room, player.id, message.direction || { x: 0, y: 0, z: -1 }, time); break;
+      case 'cast': tryCastSpell(room, player.id, message.direction || { x: 0, y: 0, z: -1 }, time); break;
       case 'dash': tryDash(room, player.id, message.direction || { x: 0, z: -1 }, time); break;
       case 'rematch': room.requestRematch(player.id, time); break;
       case 'practiceResetPlayer': {
@@ -476,7 +489,7 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
     if (url.pathname !== '/ws') { socket.destroy(); return; }
     const peer = acceptWebSocket(req, socket);
     if (!peer) return;
-    const session = { id: crypto.randomUUID(), peer, roomCode: null, playerId: null, messageWindowStartedAt: now(), messageCount: 0 };
+    const session = { id: crypto.randomUUID(), peer, roomCode: null, playerId: null, spell: DEFAULT_SPELL, messageWindowStartedAt: now(), messageCount: 0 };
     sessions.add(session);
     sessionsById.set(session.id, session);
     peer.onMessage = (message) => handleMessage(session, message);

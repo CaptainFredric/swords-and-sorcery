@@ -15,7 +15,7 @@ export function resolveSpellbladeState(player, serverNow, castPoseUntil = 0, cas
 }
 
 export function castPoseWindowFromEvent(event) {
-  if (event?.type !== 'fireballCast' || !Number.isFinite(event.at)) return null;
+  if (event?.type !== 'spellCast' || !Number.isFinite(event.at)) return null;
   const castEndsAt = Number.isFinite(event.castEndsAt) ? event.castEndsAt : event.at + 0.3;
   return { startAt: event.at, endAt: castEndsAt + 0.06 };
 }

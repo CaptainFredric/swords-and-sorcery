@@ -3,6 +3,7 @@ import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import { createSorceryVolume } from './SorceryVolume.mjs';
 import { sorceryLevel } from './spellbladeMotion.mjs';
 import { SpellbladeAnimator } from './SpellbladeAnimator.mjs';
+import { appUrl } from '../appUrl.mjs';
 
 const DEFAULT_MANIFEST_URL = '/client/assets/characters/spellblade/manifest.json';
 const SHA40 = /^[0-9a-f]{40}$/;
@@ -74,7 +75,7 @@ export function reportSpellbladeAssetStatus(slot, instance = null) {
 
 async function loadManifest(url = DEFAULT_MANIFEST_URL) {
   if (!manifestPromises.has(url)) {
-    manifestPromises.set(url, fetch(url, { cache: 'no-store' }).then(async (response) => {
+    manifestPromises.set(url, fetch(appUrl(url), { cache: 'no-store' }).then(async (response) => {
       if (!response.ok) throw new Error(`Spellblade manifest HTTP ${response.status}`);
       return requireManifest(await response.json());
     }));
@@ -85,7 +86,8 @@ async function loadManifest(url = DEFAULT_MANIFEST_URL) {
 function loadGltf(url) {
   if (!gltfPromises.has(url)) {
     reportProgress(url, 0, 0);
-    gltfPromises.set(url, loader.loadAsync(url, (event) => {
+    // the manifest names models from the app's root: resolve them against the page (it may be served from a sub-path)
+    gltfPromises.set(url, loader.loadAsync(appUrl(url), (event) => {
       if (event.lengthComputable) reportProgress(url, event.loaded, event.total);
     }).then((gltf) => {
       const done = progress.get(url);

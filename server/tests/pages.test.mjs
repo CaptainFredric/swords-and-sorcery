@@ -15,12 +15,17 @@ test('GitHub Pages front door identifies the game and does not pretend multiplay
   assert.doesNotMatch(html, /actual gameplay screenshot/i);
 });
 
-test('Pages workflow enables Pages and deploys only the dedicated static site directory', async () => {
+test('Pages workflow publishes the game client (and the landing page at /about/), pointed at the game server', async () => {
   const workflow = await read('.github/workflows/pages.yml');
   assert.match(workflow, /pages:\s*write/);
   assert.match(workflow, /id-token:\s*write/);
   assert.match(workflow, /actions\/configure-pages@v5[\s\S]*?enablement:\s*true/);
-  assert.match(workflow, /actions\/upload-pages-artifact@v3/);
-  assert.match(workflow, /path:\s*site/);
+  assert.match(workflow, /cp -R client shared _site\//);
+  assert.match(workflow, /name=\\"ss-game-server\\"/);
+  assert.match(workflow, /cp -R site\/\. _site\/about\//);
+  assert.match(workflow, /actions\/upload-pages-artifact@v3[\s\S]*?path:\s*_site/);
   assert.match(workflow, /actions\/deploy-pages@v4/);
+  // a page served from a sub-path finds its own files: nothing in it points at the site's root
+  const html = await read('client/index.html');
+  assert.doesNotMatch(html, /(href|src)=["']\/client\//);
 });
