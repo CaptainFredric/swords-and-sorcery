@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Room } from '../src/game/Room.mjs';
+import { Room } from '../../shared/sim/Room.mjs';
 
 function add(room, id, now = 0) {
   return room.addPlayer({ id, token: `token-${id}`, name: id }, now);

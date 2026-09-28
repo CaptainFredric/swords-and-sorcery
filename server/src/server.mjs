@@ -4,20 +4,14 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import crypto from 'node:crypto';
 import { acceptWebSocket } from './websocket.mjs';
-import { RoomManager } from './rooms/RoomManager.mjs';
+import { RoomManager } from '../../shared/sim/RoomManager.mjs';
 import { Matchmaker } from './rooms/Matchmaker.mjs';
-import { beginAttack, endAttack, setGuard, stepRoom, tryCastSpell, tryDash } from './game/combat.mjs';
+import { stepRoom } from '../../shared/sim/combat.mjs';
+import { applyRoomCommand, serializeLobby, serializeSnapshot } from '../../shared/sim/wire.mjs';
 import { DEFAULT_SPELL, isSpell } from '../../shared/src/spells.mjs';
-import { stepBotControllers } from './ai/BotController.mjs';
-import {
-  resetPracticePlayer,
-  spawnPracticeDummy,
-  removePracticeDummy,
-  setPracticeDummyMode,
-  stepPracticeActors,
-} from './game/practice.mjs';
+import { stepBotControllers } from '../../shared/sim/BotController.mjs';
+import { spawnPracticeDummy, stepPracticeActors } from '../../shared/sim/practice.mjs';
 import { GAME_MODES } from '../../shared/src/modes.mjs';
-import { compensatedInputTime } from './game/history.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '../..');
@@ -72,89 +66,6 @@ export function resolveStaticFile(root, urlPath) {
   const candidate = path.resolve(base, relative);
   if (candidate !== base && !candidate.startsWith(`${base}${path.sep}`)) return null;
   return candidate;
-}
-
-function serializeLobby(room) {
-  return {
-    type: 'lobby',
-    roomCode: room.code,
-    hostId: room.hostId(),
-    roomState: room.state,
-    mode: room.mode,
-    worldId: room.worldId,
-    isPrivate: room.isPrivate,
-    countdownEndsAt: room.countdownEndsAt,
-    autoStartAt: room.autoStartAt,
-    scoreToWin: room.scoreToWin,
-    votes: room.policy.votes ? room.tallyVotes() : null,
-    players: [...room.players.values()].map((p) => ({
-      id: p.id,
-      name: p.name,
-      actorKind: p.actorKind,
-      practiceMode: p.practiceMode ?? null,
-      connected: p.connected,
-      arenaReady: Boolean(p.arenaReady),
-      lobbyReady: Boolean(p.lobbyReady),
-      kills: p.kills,
-      deaths: p.deaths,
-    })),
-  };
-}
-
-function serializeSnapshot(room, nowSec) {
-  return {
-    type: 'snapshot',
-    tick: room.tickNumber,
-    serverTime: nowSec,
-    roomCode: room.code,
-    hostId: room.hostId(),
-    roomState: room.state,
-    mode: room.mode,
-    worldId: room.worldId,
-    countdownEndsAt: room.countdownEndsAt,
-    matchStartedAt: room.matchStartedAt,
-    scoreToWin: room.scoreToWin,
-    matchSeconds: room.policy.matchSeconds,
-    finishReason: room.finishReason ?? null,
-    winnerId: room.winnerId,
-    suddenDeath: room.suddenDeath,
-    players: [...room.players.values()].map((p) => ({
-      id: p.id,
-      name: p.name,
-      actorKind: p.actorKind,
-      practiceMode: p.practiceMode ?? null,
-      connected: p.connected,
-      arenaReady: Boolean(p.arenaReady),
-      position: p.position,
-      velocity: p.velocity,
-      yaw: p.yaw,
-      pitch: p.pitch,
-      health: p.health,
-      guardStamina: p.guardStamina,
-      guarding: p.guarding,
-      sprinting: Boolean(p.sprinting),
-      attackActive: p.attackActive,
-      attackStartedAt: p.attackStartedAt,
-      attackNextStrike: p.attackNextStrike,
-      alive: p.alive,
-      kills: p.kills,
-      deaths: p.deaths,
-      parries: p.parries,
-      abyssKills: p.abyssKills,
-      spell: p.spell,
-      spellReadyAt: p.spellReadyAt,
-      // afflictions, for your own prediction (the chill slows you) and everyone's effects
-      chill: p.chill ? { slow: p.chill.slow, startedAt: p.chill.startedAt, until: p.chill.until } : null,
-      burningUntil: p.burn?.until ?? 0,
-      dashReadyAt: p.dashReadyAt,
-      dashUntil: p.dashUntil,
-      staggerUntil: p.staggerUntil,
-      spawnProtectionUntil: p.spawnProtectionUntil,
-      respawnAt: p.respawnAt,
-      lastInputSeq: p.lastInputSeq,
-    })),
-    projectiles: [...room.projectiles.values()].map((p) => ({ id: p.id, ownerId: p.ownerId, spell: p.spell, position: p.position, velocity: p.velocity })),
-  };
 }
 
 export function createGameServer({ port = Number(process.env.PORT || 3001), host = process.env.HOST || '0.0.0.0' } = {}) {
@@ -309,10 +220,6 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
     return room && session.playerId ? room.players.get(session.playerId) : null;
   }
 
-  function rejectPracticeCommand(session) {
-    send(session, { type: 'error', message: 'Practice command unavailable' });
-  }
-
   function handleMessage(session, message) {
     const time = now();
     if (time - session.messageWindowStartedAt >= 1) {
@@ -423,65 +330,9 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
     const player = sessionPlayer(session);
     if (!room || !player) return;
 
-    switch (message.type) {
-      case 'startMatch':
-      case 'ready': {
-        const ready = message.type === 'startMatch' ? true : Boolean(message.ready);
-        if (room.setReady(player.id, ready, time)) broadcastLobby(room);
-        break;
-      }
-      case 'vote': {
-        if (room.vote(player.id, message.key, message.value)) broadcastLobby(room);
-        break;
-      }
-      case 'arenaReady': {
-        if (room.setArenaReady(player.id, Boolean(message.ready), time)) broadcastLobby(room);
-        break;
-      }
-      case 'input': {
-        player.lastInputSeq = Number.isFinite(message.seq) ? message.seq : player.lastInputSeq;
-        player.input = {
-          forward: Math.max(-1, Math.min(1, Number(message.forward) || 0)),
-          right: Math.max(-1, Math.min(1, Number(message.right) || 0)),
-          jump: Boolean(message.jump),
-          sprint: Boolean(message.sprint),
-          yaw: Number.isFinite(message.yaw) ? message.yaw : player.yaw,
-          pitch: Number.isFinite(message.pitch) ? Math.max(-1.45, Math.min(1.45, message.pitch)) : player.pitch,
-        };
-        break;
-      }
-      case 'attack': {
-        const inputTime = compensatedInputTime(message.clientTime, time);
-        message.down ? beginAttack(room, player.id, inputTime) : endAttack(room, player.id, time);
-        break;
-      }
-      case 'guard': setGuard(room, player.id, Boolean(message.down), compensatedInputTime(message.clientTime, time)); break;
-      case 'cast': tryCastSpell(room, player.id, message.direction || { x: 0, y: 0, z: -1 }, time); break;
-      case 'dash': tryDash(room, player.id, message.direction || { x: 0, z: -1 }, time); break;
-      case 'rematch': room.requestRematch(player.id, time); break;
-      case 'practiceResetPlayer': {
-        if (room.mode !== GAME_MODES.PRACTICE || !resetPracticePlayer(room, player.id, time)) rejectPracticeCommand(session);
-        break;
-      }
-      case 'practiceSpawnDummy': {
-        if (room.mode !== GAME_MODES.PRACTICE) { rejectPracticeCommand(session); break; }
-        const dummy = spawnPracticeDummy(room, message.mode, time);
-        if (!dummy) rejectPracticeCommand(session);
-        else broadcastLobby(room);
-        break;
-      }
-      case 'practiceRemoveDummy': {
-        if (room.mode !== GAME_MODES.PRACTICE || !removePracticeDummy(room)) rejectPracticeCommand(session);
-        else broadcastLobby(room);
-        break;
-      }
-      case 'practiceSetDummyMode': {
-        if (room.mode !== GAME_MODES.PRACTICE || !setPracticeDummyMode(room, message.mode, time)) rejectPracticeCommand(session);
-        else broadcastLobby(room);
-        break;
-      }
-      default: break;
-    }
+    const result = applyRoomCommand(room, player, message, time);
+    if (result.rejected) send(session, { type: 'error', message: result.rejected });
+    else if (result.lobby) broadcastLobby(room);
   }
 
   server.on('upgrade', (req, socket) => {

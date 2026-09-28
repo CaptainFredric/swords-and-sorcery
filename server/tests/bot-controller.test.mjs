@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { RoomManager } from '../src/rooms/RoomManager.mjs';
-import { stepBotControllers } from '../src/ai/BotController.mjs';
+import { RoomManager } from '../../shared/sim/RoomManager.mjs';
+import { stepBotControllers } from '../../shared/sim/BotController.mjs';
 
 function sequenceRandom(values = [0.5]) {
   let i = 0;

@@ -1,5 +1,5 @@
-import { findSwordWorldHit } from '../../../shared/src/collision.mjs';
-import { beginAttack, endAttack, setGuard, tryCastSpell, tryDash } from '../game/combat.mjs';
+import { findSwordWorldHit } from '../src/collision.mjs';
+import { beginAttack, endAttack, setGuard, tryCastSpell, tryDash } from './combat.mjs';
 
 const MELEE_RANGE = 2.25;
 const FIREBALL_RANGE = 11;

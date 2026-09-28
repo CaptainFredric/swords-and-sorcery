@@ -1,6 +1,6 @@
-import { GAME_MODES } from '../../../shared/src/modes.mjs';
-import { WORLD_IDS } from '../../../shared/worlds/registry.mjs';
-import { Room } from '../game/Room.mjs';
+import { GAME_MODES } from '../src/modes.mjs';
+import { WORLD_IDS } from '../worlds/registry.mjs';
+import { Room } from './Room.mjs';
 
 const LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
 const SOLO_MODES = new Set([GAME_MODES.BOT_DUEL, GAME_MODES.PRACTICE]);

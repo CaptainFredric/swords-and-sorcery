@@ -1,4 +1,4 @@
-import { GameSocket } from './network/GameSocket.mjs';
+import { GameLink, linkStatusView } from './network/GameLink.mjs';
 import { HUD } from './ui/HUD.mjs';
 import { GameRuntime } from './game/GameRuntime.mjs';
 import { preloadSpellbladeAssets, watchSpellbladeLoading } from './game/SpellbladeAssets.mjs';
@@ -77,7 +77,8 @@ if (new URLSearchParams(location.search).has('debug')) {
   globalThis.__ssSettings = { settings, registry, screenTurn };
   import('./game/sound/soundDemo.mjs').then((demo) => { globalThis.__ssSoundDemo = demo; });
 }
-const socket = new GameSocket();
+// the game server when it answers, the browser itself when it does not (see GameLink)
+const socket = new GameLink();
 const menuController = new MenuController(socket, localStorage);
 const router = new ScreenRouter({
   [SCREEN_IDS.MAIN_MENU]: menu,
@@ -751,6 +752,40 @@ socket.on('error', (message) => {
   route(pendingFailureScreen);
 });
 
+// --- the multiplayer server's state, on the front door: online play waits for it, solo play never does ---
+const linkStatus = $('#link-status');
+const ONLINE_COMMANDS = ['#quick-play', '#private-button'];
+const seekDuelCopy = $('#seek-duel small');
+const SEEK_COPY = seekDuelCopy?.textContent ?? '';
+function renderLinkStatus(status, was = null) {
+  const view = linkStatusView(status);
+  const restored = status === 'online' && (was === 'offline' || was === 'waking');
+  linkStatus.classList.toggle('hidden', !view.text && !restored);
+  linkStatus.classList.toggle('offline', view.tone === 'offline');
+  linkStatus.classList.toggle('restored', restored);
+  linkStatus.querySelector('span').textContent = restored ? 'Multiplayer is back online.' : view.text;
+  linkStatus.title = restored ? '' : view.detail;
+  for (const selector of ONLINE_COMMANDS) $(selector)?.classList.toggle('needs-server', !view.online);
+  if (seekDuelCopy) seekDuelCopy.textContent = view.online ? SEEK_COPY : 'While multiplayer is away, a bot steps in';
+  if (restored) setTimeout(() => { if (socket.status === 'online') linkStatus.classList.add('hidden'); }, 6000);
+}
+socket.on('status', ({ status, was }) => {
+  renderLinkStatus(status, was);
+  // back mid-match: nobody is pulled out; the next choice simply goes online
+  if (status === 'online' && runtime && socket.playingLocally) hud.flashText('MULTIPLAYER IS BACK ONLINE', 'ready', 1800);
+});
+socket.on('notice', ({ text }) => hud.flashText(text.toUpperCase(), 'danger', 2600));
+renderLinkStatus(socket.status);
+$('#link-retry').addEventListener('click', () => socket.retryNow());
+for (const selector of ONLINE_COMMANDS) {
+  // these need other people, and so the server: held back (before their own handlers) until it answers
+  $(selector)?.addEventListener('click', (event) => {
+    if (socket.status === 'online') return;
+    event.stopImmediatePropagation();
+    showMenuError('That needs the multiplayer server. Solo play works now.');
+  }, { capture: true });
+}
+
 socket.on('connection', ({ connected }) => {
   // every connection carries the Armory's spell (the server keeps it for the rooms this connection joins)
   if (connected) socket.loadout(settings.get('loadout.spell'));
@@ -759,22 +794,27 @@ socket.on('connection', ({ connected }) => {
 
 route(invitedRoom ? SCREEN_IDS.PRIVATE_MENU : SCREEN_IDS.MAIN_MENU);
 
-try {
-  const hadSession = Boolean(socket.token);
-  await socket.connect({ resume: true });
-
-  if (!hadSession && autoSolo === 'BOT_DUEL' && nameInput.value) {
-    runMenuAction(menuController.botDuel(nameInput.value), SCREEN_IDS.SOLO_MENU);
-  } else if (!hadSession && autoSolo === 'PRACTICE' && nameInput.value) {
-    runMenuAction(menuController.practice(nameInput.value), SCREEN_IDS.SOLO_MENU);
-  } else if (hadSession) {
-    setTimeout(() => {
-      if (!socket.playerId) route(invitedRoom ? SCREEN_IDS.PRIVATE_MENU : SCREEN_IDS.MAIN_MENU);
-    }, 500);
-  }
-} catch {
-  showMenuError('Could not reach the arena server. Retry in a moment.');
-  route(SCREEN_IDS.MAIN_MENU);
+// reach for the server (resuming a session if there was one); solo play is open whether or not it answers, and a
+// solo mode asked for in the address starts as soon as it is clear the server is there, napping or gone
+const hadSession = Boolean(socket.token);
+const reached = await Promise.race([
+  socket.connect(),
+  new Promise((resolve) => {
+    const off = socket.on('status', ({ status }) => {
+      if (status === 'connecting') return;
+      off();
+      resolve(status === 'online');
+    });
+  }),
+]);
+if (!(reached && hadSession) && autoSolo === 'BOT_DUEL' && nameInput.value) {
+  runMenuAction(menuController.botDuel(nameInput.value), SCREEN_IDS.SOLO_MENU);
+} else if (!(reached && hadSession) && autoSolo === 'PRACTICE' && nameInput.value) {
+  runMenuAction(menuController.practice(nameInput.value), SCREEN_IDS.SOLO_MENU);
+} else if (reached && hadSession) {
+  setTimeout(() => {
+    if (!socket.playerId) route(invitedRoom ? SCREEN_IDS.PRIVATE_MENU : SCREEN_IDS.MAIN_MENU);
+  }, 500);
 }
 
 function escapeHtml(value) {

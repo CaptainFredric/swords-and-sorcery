@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { RoomManager } from '../src/rooms/RoomManager.mjs';
+import { RoomManager } from '../../shared/sim/RoomManager.mjs';
 
 function sequenceRandom(seed = 0.1) {
   let value = seed;

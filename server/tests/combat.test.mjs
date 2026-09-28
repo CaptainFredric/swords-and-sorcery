@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Room } from '../src/game/Room.mjs';
+import { Room } from '../../shared/sim/Room.mjs';
 import {
   beginAttack,
   endAttack,
@@ -8,7 +8,7 @@ import {
   stepRoom,
   tryCastSpell,
   tryDash,
-} from '../src/game/combat.mjs';
+} from '../../shared/sim/combat.mjs';
 import { SPRINT } from '../../shared/src/movement.mjs';
 import { SPELLS } from '../../shared/src/spells.mjs';
 
