@@ -3,7 +3,10 @@ import { createSpellbladeRig } from '../game/SpellbladeFallback.mjs';
 import { createSpellbladeAsset, reportSpellbladeAssetStatus } from '../game/SpellbladeAssets.mjs';
 import { CASTLEWARD_LIGHTING, CastlewardRenderer } from '../worlds/CastlewardRenderer.mjs';
 import { MENU_SHOTS, easeShot, lerpShot, menuShotFor } from './menuShots.mjs';
-import { idleMoment, idlePose, reactionMoment } from './menuIdle.mjs';
+import { REACTIONS, idleMoment, idlePose, reactionMoment } from './menuIdle.mjs';
+import { TourDirector } from './tour/TourDirector.mjs';
+import { performanceAt } from './menuReactions.mjs';
+import { THIRD_PERSON_SPELL_ARM, THIRD_PERSON_SWORD_ARM, solveArm } from '../game/swordArmIK.mjs';
 import { screenTurn } from '../ui/screenTurn.mjs';
 
 // a drag in the game's own frame (the game may be lying sideways on a screen that stays upright)
@@ -29,9 +32,18 @@ const SPELL_PREVIEW = Object.freeze({
 });
 
 export class MenuScene {
-  constructor(container, { onReady = () => {} } = {}) {
+  constructor(container, { onReady = () => {}, sound = null, voice = null, banner = null } = {}) {
     this.container = container;
     this.onReady = onReady;
+    this.sound = sound;
+    this.voice = voice;
+    // the front door's banner, which the round's fights are framed to the right of
+    this.banner = banner;
+    // the Spellblade's round (the main menu): wanted by the front door, running once his model is in
+    this.tour = null;
+    this.touringWanted = false;
+    this.touring = false;
+    this.tourBlend = 0;
     this.ready = false;
     this.visible = true;
     this.dragging = false;
@@ -72,6 +84,7 @@ export class MenuScene {
     sun.shadow.mapSize.set(1024, 1024);
     Object.assign(sun.shadow.camera, { left: -16, right: 16, top: 16, bottom: -16, near: 1, far: 80 });
     this.scene.add(sun, sun.target);
+    this.sun = sun;
 
     // the stage faces the camera's side of the forecourt, so the showcase yaw below reads as before: pi faces us
     this.stage = new THREE.Group();
@@ -141,6 +154,10 @@ export class MenuScene {
         disposeObject(this.fallbackVisual);
         this.fallbackVisual = null;
       }
+      // his rivals and his round (not on the Smooth quality, nor for anyone who asked the web for less motion)
+      if (this.tourAllowed !== false) {
+        this.tour = new TourDirector({ scene: this.scene, camera: this.camera, hero: { root: this.characterRoot, instance }, sound: this.sound, voice: this.voice });
+      }
       this.#markReady();
     }).catch(() => {
       if (!this.disposed) {
@@ -204,7 +221,7 @@ export class MenuScene {
   };
 
   #pointerMove = (event) => {
-    if (!this.dragging) return;
+    if (!this.dragging || this.touring) return;
     const point = gamePoint(event);
     this.targetYaw = this.dragStart.yaw + (point.x - this.dragStart.x) * 0.009;
     this.targetPitch = THREE.MathUtils.clamp(this.dragStart.pitch + (point.y - this.dragStart.y) * 0.004, -0.12, 0.12);
@@ -227,24 +244,49 @@ export class MenuScene {
     this.lastFrameAt = nowMs;
     this.clock += dt;
     const t = nowMs / 1000;
-    this.characterRoot.rotation.y += (this.targetYaw - this.characterRoot.rotation.y) * 0.09;
-    this.characterRoot.rotation.x += (this.targetPitch - this.characterRoot.rotation.x) * 0.09;
+    // the round begins once the camera has settled on him at the front door
+    const settled = this.shotDuration === 0 || this.shotElapsed >= this.shotDuration;
+    if (this.touringWanted && !this.touring && this.tour?.ready && settled) this.#startTouring();
+    if (!this.touring) {
+      this.characterRoot.rotation.y += (this.targetYaw - this.characterRoot.rotation.y) * 0.09;
+      this.characterRoot.rotation.x += (this.targetPitch - this.characterRoot.rotation.x) * 0.09;
+    }
     // the spell held up in the Armory breathes and turns
     if (this.spellOrb?.visible) {
       this.spellOrb.scale.setScalar(1 + Math.sin(t * 3.1) * 0.08);
       this.spellOrbGlow.rotation.y = t * 1.7;
     }
 
-    if (this.visualKind === 'production' && this.assetInstance) {
+    const round = this.touring ? this.tour.update(dt) : null;
+    if (this.touring) {
+      // the round moves him (and the sun, so the shadows around him stay crisp)
+      const at = this.characterRoot.position;
+      this.sun.position.set(at.x + CASTLEWARD_LIGHTING.sun.position[0], CASTLEWARD_LIGHTING.sun.position[1], at.z + CASTLEWARD_LIGHTING.sun.position[2]);
+      this.sun.target.position.set(at.x, 0, at.z);
+    } else if (this.visualKind === 'production' && this.assetInstance) {
       // between stretches of breathing he looks around, shifts, presents the blade, guards or kindles sorcery
       // a reaction to a choice on the front door takes over from the idle life while it lasts
-      const moment = this.ready ? (reactionMoment(this.reaction, this.clock) ?? idleMoment(this.clock)) : null;
-      const pose = idlePose(moment);
+      const reaction = this.ready ? reactionMoment(this.reaction, this.clock) : null;
+      const performance = reaction ? performanceAt(reaction.kind, reaction.elapsed) : null;
+      const moment = reaction ?? (this.ready ? idleMoment(this.clock) : null);
       let plan = { clip: 'Idle', loop: true, time: t };
-      // raise the guard, then breathe in its hold
-      if (pose.clip === 'Guard') plan = { clip: 'Guard', loop: false, time: Math.min(moment.elapsed, 1.8) };
-      if (pose.clip === 'Cast') plan = { clip: 'Cast', loop: false, time: moment.elapsed };
-      plan.motion = { extra: pose.rotations };
+      if (performance) {
+        // a performed flourish: the body bends as keyed, and the arm solver puts each hand where it belongs
+        plan.motion = {
+          extra: performance.rotations,
+          crouch: performance.crouch,
+          solve: (bones) => {
+            if (performance.sword) solveArm(bones, THIRD_PERSON_SWORD_ARM, performance.sword.target, performance.sword.weight);
+            if (performance.spell) solveArm(bones, THIRD_PERSON_SPELL_ARM, performance.spell.target, performance.spell.weight);
+          },
+        };
+      } else {
+        const pose = idlePose(moment);
+        // raise the guard, then breathe in its hold
+        if (pose.clip === 'Guard') plan = { clip: 'Guard', loop: false, time: Math.min(moment.elapsed, 1.8) };
+        if (pose.clip === 'Cast') plan = { clip: 'Cast', loop: false, time: moment.elapsed };
+        plan.motion = { extra: pose.rotations };
+      }
       this.assetInstance.animator.apply(plan, dt);
     } else if (this.fallbackVisual) {
       const rig = this.fallbackVisual.userData;
@@ -264,7 +306,14 @@ export class MenuScene {
       this.shot = { ...this.shotTo };
     }
     const drift = [Math.sin(t * 0.21) * 0.12, Math.sin(t * 0.17) * 0.05, Math.cos(t * 0.13) * 0.1];
-    this.#placeCamera(this.shot, drift);
+    if (round) {
+      // eased from the front door's shot into the round's own camera
+      this.tourBlend = Math.min(1, this.tourBlend + dt / 1.6);
+      const k = easeShot(this.tourBlend);
+      this.#placeCamera(lerpShot(this.shot, { camera: round.position.toArray(), target: round.target.toArray(), fov: round.fov }, k), drift.map((d) => d * (1 - k)));
+    } else {
+      this.#placeCamera(this.shot, drift);
+    }
 
     this.world.update(t, this.camera);
     this.renderer.render(this.scene, this.camera);
@@ -281,7 +330,67 @@ export class MenuScene {
 
   /** A choice was made on the front door: he answers it (salute, rally, present, look; see menuIdle.mjs). */
   react(kind) {
+    // out on his round, he stops where he is to answer, and the round waits for him
+    if (this.touring) {
+      this.tour.perform(kind, REACTIONS[kind] ?? 2.5);
+      return;
+    }
     this.reaction = { kind, startedAt: this.clock };
+  }
+
+  /** Whether the front door wants his round (the main menu), or him at his place (every other screen). */
+  setTouring(wanted) {
+    this.touringWanted = Boolean(wanted) && this.tourAllowed !== false;
+    if (!this.touringWanted) this.#stopTouring();
+  }
+
+  /** The round is for capable settings only: off on Smooth quality and for reduced motion. */
+  setTourAllowed(allowed) {
+    this.tourAllowed = Boolean(allowed);
+    if (!this.tourAllowed) this.setTouring(false);
+  }
+
+  #startTouring() {
+    // he steps off his stage into the world, exactly where he stands, and the round starts from there
+    this.characterRoot.rotation.x = 0;
+    this.scene.attach(this.characterRoot);
+    this.characterRoot.rotation.set(0, this.characterRoot.rotation.y, 0);
+    this.tour.restYaw = this.characterRoot.rotation.y;
+    this.tour.heroYaw = this.characterRoot.rotation.y;
+    this.tour.home = { position: new THREE.Vector3(...this.shot.camera), target: new THREE.Vector3(...this.shot.target), fov: this.shot.fov };
+    this.#measureBanner();
+    this.tour.restart();
+    this.tour.setVisible(true);
+    this.tourBlend = 0;
+    this.touring = true;
+  }
+
+  #stopTouring() {
+    if (!this.touring) return;
+    this.touring = false;
+    // a reaction he was in the middle of out on the round, he finishes at his place
+    const performance = this.tour.pause > 0 ? this.tour.performance : null;
+    if (performance) this.reaction = { kind: performance.kind, startedAt: this.clock - performance.elapsed };
+    this.tour.performance = null;
+    this.tour.pause = 0;
+    // back on his stage (the other screens' shots are framed on it), rivals and their remains out of sight
+    this.stage.add(this.characterRoot);
+    this.characterRoot.position.set(0, 0, 0);
+    this.characterRoot.rotation.set(0, this.targetYaw, 0);
+    this.tour.setVisible(false);
+    this.assetInstance?.animator.cloth?.reset();
+    this.sun.position.set(STAGE.x + CASTLEWARD_LIGHTING.sun.position[0], CASTLEWARD_LIGHTING.sun.position[1], STAGE.z + CASTLEWARD_LIGHTING.sun.position[2]);
+    this.sun.target.position.set(STAGE.x, 0, STAGE.z);
+  }
+
+  // the part of the screen right of the banner, as shares of its width: the round frames its fights in it
+  #measureBanner() {
+    const banner = this.banner?.getBoundingClientRect();
+    const view = this.renderer.domElement.getBoundingClientRect();
+    if (!this.tour || !banner?.width || view.width < 1) return;
+    const edge = (banner.right - view.left) / view.width;
+    // a banner across most of a narrow screen leaves nothing clear of it: the fights take the middle
+    this.tour.clear = edge > 0.62 ? [0.1, 0.9] : [Math.max(0.1, edge + 0.03), 0.96];
   }
 
   // restart the render loop (after it was starved by a hidden page, for instance)
@@ -337,6 +446,7 @@ export class MenuScene {
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(width, height, false);
+    if (this.touring) this.#measureBanner();
   }
 
   setVisible(visible) {

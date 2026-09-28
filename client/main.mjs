@@ -117,7 +117,8 @@ preloadSpellbladeAssets().catch(() => {});
 
 let menuScene = null;
 try {
-  menuScene = new MenuScene(menuSpellblade, { onReady: () => setTimeout(liftVeil, 250) });
+  menuScene = new MenuScene(menuSpellblade, { onReady: () => setTimeout(liftVeil, 250), sound, voice, banner: $('#menu .banner-panel') });
+  menuScene.setTourAllowed(tourAllowed());
 } catch (error) {
   console.warn('Spellblade menu preview unavailable:', error);
   menuSpellblade.classList.add('menu-scene-unavailable');
@@ -151,6 +152,11 @@ function isMenuBackedScreen(screenId) {
   return [SCREEN_IDS.MAIN_MENU, SCREEN_IDS.SOLO_MENU, SCREEN_IDS.PRIVATE_MENU, SCREEN_IDS.ROOMS_MENU, SCREEN_IDS.HOW_TO_PLAY, SCREEN_IDS.LOBBY, SCREEN_IDS.ARMORY].includes(screenId);
 }
 
+// the Spellblade's round behind the front door: for capable settings, and not for anyone who asked for less motion
+function tourAllowed() {
+  return viewOptions(settings).pixelRatioCap > 1.1 && !globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+}
+
 function route(screenId) {
   const previous = router.current;
   if (screenId === SCREEN_IDS.PLAYING) router.hideAll();
@@ -166,6 +172,9 @@ function route(screenId) {
   syncSoundscape();
   // in the Armory he holds the chosen spell up in his palm
   menuScene?.showSpell(screenId === SCREEN_IDS.ARMORY ? settings.get('loadout.spell') : null);
+  // on the front door he is out on his round; every other screen finds him at his place
+  menuScene?.setTouring(screenId === SCREEN_IDS.MAIN_MENU);
+  $('.turn-hint')?.classList.toggle('hidden', screenId === SCREEN_IDS.MAIN_MENU && tourAllowed());
 }
 
 // what you hear follows where you are: the courtyard and the hall theme in the menus, the battle theme in a match
@@ -515,6 +524,8 @@ function applySettings() {
   voice.effectsOn = settings.get('audio.voicedGuard');
   const view = viewOptions(settings);
   menuScene?.setPixelRatioCap(view.pixelRatioCap);
+  menuScene?.setTourAllowed(tourAllowed());
+  if (router.current === SCREEN_IDS.MAIN_MENU) menuScene?.setTouring(true);
   runtime?.configure({ view, input: inputOptions(settings) });
   screenTurn?.configure(turnOptions(settings));
   renderSoundToggles();
@@ -765,7 +776,7 @@ function renderLinkStatus(status) {
   linkStatus.querySelector('.link-note').textContent = view.note;
   linkStatus.title = view.detail;
   for (const selector of ONLINE_COMMANDS) $(selector)?.classList.toggle('needs-server', !view.online);
-  if (seekDuelCopy) seekDuelCopy.textContent = view.online ? SEEK_COPY : 'Until challengers arrive, a bot steps in';
+  if (seekDuelCopy) seekDuelCopy.textContent = view.online ? SEEK_COPY : 'Fight a Reanimated Armor instead (bot)';
 }
 // the herald's banner, when the server answers after keeping everyone waiting
 const heraldToast = $('#herald-toast');

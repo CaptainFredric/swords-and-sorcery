@@ -26,7 +26,7 @@ export function linkStatusView(status) {
     case 'online': return { online: true, title: '', note: '', detail: '', tone: 'online' };
     case 'waking': return {
       online: false, tone: 'waking',
-      title: 'Heralds ride out to rally challengers…',
+      title: 'Heralds ride out to rally worthy Spellblades…',
       note: 'multiplayer waking · solo is ready',
       detail: 'The multiplayer server naps when nobody plays and takes up to a minute to wake. Practice and Bot Duel run in your browser meanwhile.',
     };
@@ -177,7 +177,7 @@ export class GameLink {
     }
     if (method === 'cancelSeek') return;
     if (method === 'seekDuel') {
-      this.#emit('notice', { text: 'No challengers yet: a bot steps in (multiplayer offline)' });
+      this.#emit('notice', { text: 'No challengers yet: a Reanimated Armor steps in (multiplayer offline)' });
       this.hosting = 'local';
       this.local.startSolo('BOT_DUEL', args[0]);
       return;
