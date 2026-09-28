@@ -110,3 +110,35 @@ test('stingers are short and use known instruments', () => {
     for (const event of stinger.events) assert.ok(INSTRUMENT_LEVELS[event.inst] > 0, `${name}: ${event.inst}`);
   }
 });
+
+test('the march fills its bars, keeps to D minor, and builds in layers like the gallop', async () => {
+  const { MARCH, marchBars, fightPieceFor, FIGHT_MUSIC, PIECES } = await import('./score.mjs');
+  for (const [name, line] of Object.entries(MARCH.melody)) {
+    line.forEach((bar, i) => assert.equal(bar.reduce((sum, note) => sum + note.beats, 0), MARCH.beatsPerBar, `march ${name} bar ${i + 1}`));
+    assert.equal(line.length, MARCH.chords[name].length, `march ${name} has a bar for every chord`);
+    for (const note of line.flat()) if (note.midi !== null) assert.ok(D_MINOR.has(pitchClass(note.midi)), `march note ${note.midi}`);
+    // the tune's downbeats sit on their chord
+    line.forEach((bar, i) => {
+      const chord = CHORDS[MARCH.chords[name][i]].lute.map(pitchClass);
+      assert.ok(chord.includes(pitchClass(bar[0].midi)), `march ${name} bar ${i + 1} lands on its chord`);
+    });
+  }
+  const bars = take(marchBars(() => 0.5), 4 + 8 + 8 + 8 + 4);
+  const intro = bars.slice(0, 4).flatMap((bar) => bar.events);
+  assert.ok(intro.every((event) => event.layer === 0), 'it opens on the lute and the drone alone');
+  const tune = bars.slice(4, 12).flatMap((bar) => bar.events);
+  assert.ok(tune.some((event) => event.inst === 'flute' && event.layer === 1), 'the flute comes in with the drums');
+  assert.ok(tune.some((event) => event.inst === 'war' && event.layer === 1));
+  const second = bars.slice(20, 28).flatMap((bar) => bar.events);
+  assert.ok(second.some((event) => event.inst === 'choir' && event.layer === 2), 'the choir on the second strain, when the fight is on');
+  assert.ok(second.some((event) => event.inst === 'horn' && event.layer === 2));
+  for (const bar of bars) for (const event of bar.events) assert.ok(event.beat < MARCH.beatsPerBar, 'every note starts inside its bar');
+  // each match fights to one of its arena's pieces, the same for everyone in it
+  assert.ok(PIECES.march && FIGHT_MUSIC.castleward.includes('march') && FIGHT_MUSIC.castleward.includes('battle'));
+  const picks = new Set();
+  for (let start = 0; start < 40; start += 1) picks.add(fightPieceFor({ worldId: 'castleward', roomCode: 'ABCD', matchStartedAt: 1000 + start * 7.3 }));
+  assert.deepEqual([...picks].sort(), ['battle', 'march'], 'both are heard across matches');
+  const match = { worldId: 'castleward', roomCode: 'ROOM', matchStartedAt: 55.5 };
+  assert.equal(fightPieceFor(match), fightPieceFor({ ...match }));
+  assert.ok(FIGHT_MUSIC.castleward.includes(fightPieceFor({ worldId: 'nowhere' })));
+});

@@ -1,6 +1,9 @@
 // The Spellblade's voice. Takes are recorded by a person and shaped offline (tools/audio/knight_voice.py) into a
 // hardened battlemage heard through his helm; here they are loaded, one is picked (never the same twice running),
 // and it is sent into the echo off the castle walls. voiceRules.mjs decides when a line is spoken at all.
+//
+// The same recordings hold a few voiced contact effects (the ring of a blow on a guard, the PERCUNK of a guard
+// breaking). Those are not lines: they sound every time their moment comes, as effects.
 
 import { VOICE_LINES, VoiceDirector } from './voiceRules.mjs';
 import { appUrl } from '../../appUrl.mjs';
@@ -13,7 +16,10 @@ export class VoiceBank {
     this.base = base;
     this.director = director;
     this.takes = new Map();
+    this.effects = new Map();
     this.lastTake = new Map();
+    // the voiced contact effects can be switched off (Settings: Voiced guard hits), leaving the steel alone
+    this.effectsOn = true;
     engine.onReady(() => this.#load());
   }
 
@@ -24,14 +30,25 @@ export class VoiceBank {
     } catch {
       return; // no voice recorded yet: the knight fights in silence
     }
-    for (const [line, takes] of Object.entries(manifest.lines ?? {})) {
-      for (const take of takes) {
-        const buffer = await this.#decode(take.file);
-        if (!buffer) continue;
-        if (!this.takes.has(line)) this.takes.set(line, []);
-        this.takes.get(line).push(buffer);
+    const load = async (groups, into) => {
+      for (const [name, takes] of Object.entries(groups ?? {})) {
+        for (const take of takes) {
+          const buffer = await this.#decode(take.file);
+          if (!buffer) continue;
+          if (!into.has(name)) into.set(name, []);
+          into.get(name).push(buffer);
+        }
       }
-    }
+    };
+    await load(manifest.lines, this.takes);
+    await load(manifest.effects, this.effects);
+  }
+
+  #pick(key, takes) {
+    let index = Math.floor(Math.random() * takes.length);
+    if (takes.length > 1 && index === this.lastTake.get(key)) index = (index + 1) % takes.length;
+    this.lastTake.set(key, index);
+    return takes[index];
   }
 
   async #decode(file) {
@@ -54,17 +71,23 @@ export class VoiceBank {
    * Speak `line` for `speaker` if the rules allow it now. pan/gain place a remote Spellblade; rate is their pitch.
    * Returns whether anything was said.
    */
-  say(line, { speaker = 'me', pan = 0, gain = 1, rate = 1, chanceScale = 1 } = {}) {
+  say(line, { speaker = 'me', pan = 0, gain = 1, rate = 1, chanceScale = 1, delay = 0 } = {}) {
     if (!this.has(line) || !this.engine.running) return false;
     if (!this.director.allow(line, speaker, this.engine.now, { chanceScale })) return false;
-    const takes = this.takes.get(line);
-    let index = Math.floor(Math.random() * takes.length);
-    if (takes.length > 1 && index === this.lastTake.get(line)) index = (index + 1) % takes.length;
-    this.lastTake.set(line, index);
     const rule = VOICE_LINES[line];
-    this.engine.playBuffer(takes[index], {
-      bus: 'voice', pan, gain: gain * rule.gain, rate: rate * (0.98 + Math.random() * 0.04),
+    this.engine.playBuffer(this.#pick(`line:${line}`, this.takes.get(line)), {
+      bus: 'voice', pan, gain: gain * rule.gain, rate: rate * (0.98 + Math.random() * 0.04), delay,
       reverb: rule.reverb, echo: rule.echo, echoLevel: rule.echoLevel,
+    });
+    return true;
+  }
+
+  /** A voiced contact effect (guardHit, guardBreak): every time, a different take each time. */
+  effect(name, { pan = 0, gain = 1, rate = 1 } = {}) {
+    const takes = this.effects.get(name);
+    if (!this.effectsOn || !takes?.length || !this.engine.running) return false;
+    this.engine.playBuffer(this.#pick(`effect:${name}`, takes), {
+      bus: 'sfx', pan, gain, rate: rate * (0.97 + Math.random() * 0.06), reverb: 0.12, echo: 'wall', echoLevel: 0.25,
     });
     return true;
   }

@@ -38,3 +38,18 @@ test('braziers and rune stones the decor dresses are real solids in the world', 
   const ids = new Set(CASTLEWARD.solids.map((solid) => solid.id));
   for (const item of [...plan.braziers, ...plan.runeStones]) assert.ok(ids.has(item.id), `${item.id} has no collision`);
 });
+
+test('every small prop inside the arena stands against a wall or post, so nobody runs through one', () => {
+  const plan = buildCastlewardDecorPlan(1337);
+  const gap = (prop, solid) => {
+    const dx = Math.max(0, Math.abs(prop.x - solid.center[0]) - solid.size[0] / 2);
+    const dz = Math.max(0, Math.abs(prop.z - solid.center[2]) - solid.size[2] / 2);
+    return Math.hypot(dx, dz);
+  };
+  assert.ok(plan.props.length >= 12, 'a lived-in town');
+  for (const prop of plan.props) {
+    if (!insideCastlewardFootprint(prop.x, prop.z, -0.6)) continue;
+    const nearest = Math.min(...CASTLEWARD.solids.map((solid) => gap(prop, solid)));
+    assert.ok(nearest < 0.75, `${prop.kind} ${prop.id} stands ${nearest.toFixed(2)} m out in the open`);
+  }
+});

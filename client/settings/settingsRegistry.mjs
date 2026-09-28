@@ -133,6 +133,7 @@ registry
   .defineSetting({ id: 'audio.master', section: 'audio', label: 'Master volume', type: 'range', min: 0, max: 100, step: 5, unit: '%', default: 80 })
   .defineSetting({ id: 'audio.effects', section: 'audio', label: 'Blows and spells', type: 'range', min: 0, max: 100, step: 5, unit: '%', default: 100 })
   .defineSetting({ id: 'audio.voice', section: 'audio', label: 'Spellblade voices', type: 'range', min: 0, max: 100, step: 5, unit: '%', default: 100 })
+  .defineSetting({ id: 'audio.voicedGuard', section: 'audio', label: 'Voiced guard hits', type: 'toggle', default: true, hint: 'The recorded TING and PERCUNK over the steel' })
   .defineSetting({ id: 'audio.ambience', section: 'audio', label: 'Wind and bells', type: 'range', min: 0, max: 100, step: 5, unit: '%', default: 100 })
   .defineSetting({ id: 'audio.musicMuted', section: 'audio', group: 'Music', label: 'Music', type: 'toggle', default: false, invert: true, hint: 'N turns it on and off' })
   .defineSetting({ id: 'audio.music', section: 'audio', group: 'Music', label: 'Music volume', type: 'range', min: 0, max: 100, step: 5, unit: '%', default: 55 });

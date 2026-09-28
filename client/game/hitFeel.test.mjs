@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { blowDirection, hitKick, hitstopSeconds, impactPoint } from './hitFeel.mjs';
-import { blockRecipe, castRecipe, dashRecipe, killRecipe, parryRecipe, spatialize, swingRecipe, swordHitRecipe } from './sound/soundRecipes.mjs';
+import { blockRecipe, castRecipe, dashRecipe, killRecipe, parryRecipe, spatialize, swingRecipe, swordHitRecipe, unsheatheRecipe } from './sound/soundRecipes.mjs';
 
 function seeded(seed) {
   let state = seed >>> 0;
@@ -61,4 +61,13 @@ test('sounds are panned toward their side and quieter far away', () => {
   const near = spatialize({ x: 0, z: 0 }, 0, { x: 0, z: -2 });
   const far = spatialize({ x: 0, z: 0 }, 0, { x: 0, z: -30 });
   assert.ok(near.gain > far.gain && far.gain >= 0.12);
+});
+
+test('drawing the sword: steel hisses along the scabbard, rising, then the blade clears it and sings', () => {
+  const draw = unsheatheRecipe(() => 0.5);
+  const hiss = draw.layers.find((layer) => layer.type === 'noise' && layer.sweepTo);
+  assert.ok(hiss.sweepTo > hiss.freq, 'the hiss climbs as the blade speeds up');
+  const song = draw.layers.find((layer) => layer.type === 'ring');
+  assert.ok(song.at >= hiss.attack, 'the ring comes as the point clears, not before');
+  assert.ok(song.partials[0].decay > 1, 'and hangs in the air');
 });

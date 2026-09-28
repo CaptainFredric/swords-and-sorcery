@@ -18,9 +18,20 @@ function runForward(start, yaw, frames) {
   return state;
 }
 
-test('Castleward exposes the five intended combat zones', () => {
+test('Castleward exposes the six intended combat zones', () => {
   const ids = new Set(CASTLEWARD.zones.map((zone) => zone.id));
-  assert.deepEqual(ids, new Set(['town-green', 'castle-bailey', 'west-village', 'east-meadow', 'south-road']));
+  assert.deepEqual(ids, new Set(['town-green', 'castle-bailey', 'west-village', 'east-meadow', 'south-road', 'tourney-field']));
+});
+
+test('East Meadow runs through the gateway onto the open Tourney Field, and it stays open', () => {
+  const state = runForward({ x: 13.8, y: 0, z: -2 }, 0, 120);
+  assert.ok(state.position.z < -16, `did not reach the Tourney Field: z=${state.position.z}`);
+  assert.ok(Math.abs(state.position.y) < 0.01);
+  assert.equal(state.grounded, true);
+  const field = CASTLEWARD.floors.find((floor) => floor.id === 'tourney-field');
+  const cover = CASTLEWARD.solids.filter((solid) => solid.id.startsWith('tourney-') && !['hedge', 'field-wall', 'gatepost'].includes(solid.kind));
+  const covered = cover.reduce((sum, solid) => sum + solid.size[0] * solid.size[2], 0);
+  assert.ok(covered / (field.size[0] * field.size[2]) < 0.08, 'open ground: almost nothing stands in it');
 });
 
 test('Castleward stays inside the arena size envelope', () => {

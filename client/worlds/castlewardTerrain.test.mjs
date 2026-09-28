@@ -28,3 +28,24 @@ test('terrain skirts do not expand horizontally into non-authoritative walkable-
     assert.equal(skirt.center[2], floor.center[2]);
   }
 });
+
+test('overlapping floors never draw the same ground twice: the later one leaves the shared strip out', async () => {
+  const { subtractRects } = await import('./kit/rects.mjs');
+  const area = (rects) => rects.reduce((sum, r) => sum + (r.xb - r.xa) * (r.zb - r.za), 0);
+  // a cover across one side, one in a corner, one through the middle, and none at all
+  assert.equal(area(subtractRects({ xa: 0, xb: 2, za: 0, zb: 2 }, [{ minX: 1, maxX: 5, minZ: -1, maxZ: 5 }])), 2);
+  assert.equal(area(subtractRects({ xa: 0, xb: 2, za: 0, zb: 2 }, [{ minX: 1, maxX: 5, minZ: 1, maxZ: 5 }])), 3);
+  const holed = subtractRects({ xa: 0, xb: 3, za: 0, zb: 3 }, [{ minX: 1, maxX: 2, minZ: 1, maxZ: 2 }]);
+  assert.equal(area(holed), 8);
+  assert.equal(holed.length, 4);
+  assert.deepEqual(subtractRects({ xa: 0, xb: 1, za: 0, zb: 1 }, [{ minX: 5, maxX: 6, minZ: 5, maxZ: 6 }]), [{ xa: 0, xb: 1, za: 0, zb: 1 }]);
+  assert.deepEqual(subtractRects({ xa: 0, xb: 1, za: 0, zb: 1 }, [{ minX: -1, maxX: 2, minZ: -1, maxZ: 2 }]), []);
+  // Castleward's own floors do overlap at the same height (so the routes run straight), which is why this matters
+  const level = CASTLEWARD.floors.filter((floor) => floor.y === 0);
+  const rect = (f) => ({ minX: f.center[0] - f.size[0] / 2, maxX: f.center[0] + f.size[0] / 2, minZ: f.center[2] - f.size[2] / 2, maxZ: f.center[2] + f.size[2] / 2 });
+  const overlapping = level.some((a, i) => level.slice(i + 1).some((b) => {
+    const [ra, rb] = [rect(a), rect(b)];
+    return Math.min(ra.maxX, rb.maxX) > Math.max(ra.minX, rb.minX) && Math.min(ra.maxZ, rb.maxZ) > Math.max(ra.minZ, rb.minZ);
+  }));
+  assert.ok(overlapping);
+});

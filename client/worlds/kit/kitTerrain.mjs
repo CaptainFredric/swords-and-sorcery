@@ -1,4 +1,5 @@
 import { KIT_PALETTE as P, shadeColor, valueNoise } from './facetKit.mjs';
+import { subtractRects } from './rects.mjs';
 
 // Ground for the environment kit: playable floors stay perfectly flat at their authoritative height (only their
 // colour varies), while the land beyond the boundaries is faceted, hilly and clearly out of reach.
@@ -38,8 +39,12 @@ export function floorColor(material, x, z, paths, rand) {
   return color.lerp(shadeColor(P.earth, 1), earthy);
 }
 
-/** Flat, coloured top surface of a floor, in cells of about one metre, plus its visible slab edges. */
-export function floorTile(batch, floor, paths, rand) {
+/**
+ * Flat, coloured top surface of a floor, in cells of about one metre, plus its visible slab edges. `covers`: parts
+ * already drawn by other floors at the same height (the floors overlap a little so routes run straight across);
+ * they are left out here, so two surfaces never share a plane and flicker against each other.
+ */
+export function floorTile(batch, floor, paths, rand, covers = []) {
   const [cx, , cz] = floor.center;
   const [sx, sy, sz] = floor.size;
   const y = floor.y;
@@ -61,6 +66,17 @@ export function floorTile(batch, floor, paths, rand) {
       const xb = x0 + ((i + 1) / nx) * sx;
       const za = z0 + (j / nz) * sz;
       const zb = z0 + ((j + 1) / nz) * sz;
+      const pieces = covers.length ? subtractRects({ xa, xb, za, zb }, covers) : null;
+      if (pieces && !(pieces.length === 1 && pieces[0].xa === xa && pieces[0].xb === xb && pieces[0].za === za && pieces[0].zb === zb)) {
+        // a cell cut by another floor: draw only what is left, coloured at its own corners
+        for (const piece of pieces) {
+          const at = (x, z) => floorColor(floor.material, x, z, paths, rand);
+          const [a, b, c, d] = [at(piece.xa, piece.za), at(piece.xa, piece.zb), at(piece.xb, piece.zb), at(piece.xb, piece.za)];
+          builder.triBlend([piece.xa, y, piece.za], [piece.xa, y, piece.zb], [piece.xb, y, piece.zb], a, b, c);
+          builder.triBlend([piece.xa, y, piece.za], [piece.xb, y, piece.zb], [piece.xb, y, piece.za], a, c, d);
+        }
+        continue;
+      }
       if (soft) {
         builder.triBlend([xa, y, za], [xa, y, zb], [xb, y, zb], corner[i][j], corner[i][j + 1], corner[i + 1][j + 1]);
         builder.triBlend([xa, y, za], [xb, y, zb], [xb, y, za], corner[i][j], corner[i + 1][j + 1], corner[i + 1][j]);

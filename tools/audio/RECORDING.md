@@ -19,6 +19,27 @@ Two to six takes of a line keep it from repeating.
 | `dash` | 2–3 | A quick exhale as he lunges: "hff!". |
 | `victory` | 2 | A low, satisfied "Hah!" or a short laugh. |
 
+## Lines already in the game
+
+These came from your two recorded clips, already helm-treated (the "veteran" profile, 4.5 semitones down), so they
+are not run through the tool again. Each one plays only at its moment and only now and then. The rules are in
+`client/game/sound/voiceRules.mjs`.
+
+| Line | Take | When |
+| --- | --- | --- |
+| `sorcery` | "SORCERY!" ×2 | A spell is cast (1 in 12, not again within 45 s). |
+| `magicDefeat` | "I don't believe in magic." | Killed by a spell or its burn (about 1 in 3, 90 s apart). |
+| `defeat` | "What? But I am a knight!" ×2 | Every lost match; now and then when felled. |
+| `killTaunt` | "Good knight? That will not be you." and a laugh | Over someone you felled, if they said nothing. |
+| `breakTaunt` | "You should have hired a REAL guard!" | After breaking a guard, now and then. |
+| `victory` | "Might makes… KNIGHT!" | Winning a match. |
+
+The voiced contact effects (your TING on a blocked blow, PERCUNK when a guard breaks) sound every time over the steel.
+Settings › Sound › Voiced guard hits turns them off.
+
+Processing any of the tool's own lines (`sorcery`, `victory`, …) replaces that line's takes; the other lines and the
+effects are kept.
+
 ## How to record
 
 - Voice Memos or QuickTime (File › New Audio Recording) is fine. Use a quiet room with soft furnishings.

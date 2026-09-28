@@ -8,7 +8,7 @@ import { SPELLS } from '../../shared/src/spells.mjs';
 const SPELL_WORDS = Object.freeze({
   fireball: {
     mark: '✦',
-    line: 'A roaring blast that catches everyone near it, and keeps burning.',
+    line: 'A roaring blast that catches everyone near it; whoever it lands close to keeps burning.',
     facts: (s) => `Hits for ${s.directDamage}, burns for ${s.burn.damage} more · ${s.cooldownSec} s`,
   },
   frostfire: {

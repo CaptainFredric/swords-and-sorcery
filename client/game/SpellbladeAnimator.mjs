@@ -18,6 +18,8 @@ const _s = new THREE.Vector3();
 const _origin = new THREE.Vector3();
 const _m = new THREE.Matrix4();
 const _rootInv = new THREE.Matrix4();
+const _rootQuatInv = new THREE.Quaternion();
+const _bq = new THREE.Quaternion();
 
 function clampActionTime(action, time, loop) {
   const duration = Math.max(0.0001, action.getClip().duration || 0.0001);
@@ -45,6 +47,21 @@ export class SpellbladeAnimator {
     root.traverse((object) => { if (object.isBone) this.bones.set(object.name, object); });
     // bone transforms the procedural layer changed last frame (restored before the next pose)
     this.touched = new Map();
+    // what a procedural solver (motion.solve, e.g. the first-person sword arm) may read and turn, in root space
+    this.boneApi = {
+      position: (name) => {
+        const bone = this.bone(name);
+        return bone ? _v.setFromMatrixPosition(bone.matrixWorld).applyMatrix4(_rootInv).toArray() : [0, 0, 0];
+      },
+      direction: (name, axis) => {
+        const bone = this.bone(name);
+        if (!bone) return [0, 0, 0];
+        bone.getWorldQuaternion(_bq).premultiply(_rootQuatInv);
+        return _v.set(axis[0], axis[1], axis[2]).applyQuaternion(_bq).normalize().toArray();
+      },
+      rotate: (name, axis, angle) => this.#rotateInRootSpace(this.bone(name), axis, angle),
+      shift: (name, offset) => this.#offsetInRootSpace(this.bone(name), offset),
+    };
   }
 
   bone(name) {
@@ -183,10 +200,12 @@ export class SpellbladeAnimator {
     if (Array.isArray(motion.extra)) pose.rotations.push(...motion.extra);
     const landFlex = pose.legFlex;
     const airFlex = Number.isFinite(motion.airFlex) ? Math.max(0, motion.airFlex) : 0;
-    if (!pose.rotations.length && landFlex + airFlex < 1e-4 && Math.hypot(...pose.pelvis) < 1e-5) return;
+    const solve = typeof motion.solve === 'function' ? motion.solve : null;
+    if (!pose.rotations.length && landFlex + airFlex < 1e-4 && Math.hypot(...pose.pelvis) < 1e-5 && !solve) return;
 
     this.root.updateMatrixWorld(true);
     _rootInv.copy(this.root.matrixWorld).invert();
+    this.root.getWorldQuaternion(_rootQuatInv).invert();
     const pelvisBone = this.bone('pelvis');
 
     // Legs first. A landing lowers the pelvis by exactly what the bend lifted the feet, so they stay planted;
@@ -210,6 +229,8 @@ export class SpellbladeAnimator {
       else this.#rotateInRootSpace(this.bone(bone), axis, angle);
     }
     if (pelvisBone && Math.hypot(...pose.pelvis) > 1e-5) this.#offsetInRootSpace(pelvisBone, pose.pelvis);
+    // last, a solver that places bones by where they should end up (reads the pose everything above has made)
+    solve?.(this.boneApi);
   }
 
   #rootY(bone) {

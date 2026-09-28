@@ -5,6 +5,7 @@ import { buildCastlewardTerrainSkirts } from './castlewardTerrain.mjs';
 import { FacetBuilder, KIT_PALETTE as P, facetMesh, kitMaterials, seededRandom, shadeColor, valueNoise } from './kit/facetKit.mjs';
 import { banner, brazier, cottage, createBatch, hedgerow, masonry, palisade, runeStone, sconce, tree } from './kit/kitPieces.mjs';
 import { floorTile, outerTerrain } from './kit/kitTerrain.mjs';
+import { archeryTarget, barrel, crate, flowers, lanternPost, pavilion, pennant, sacks, strawBales, weaponRack, woodpile } from './kit/kitProps.mjs';
 
 // Late afternoon over Castleward: a warm low sun, a neutral sky fill and a honey haze. The game runtime applies the
 // hemisphere and sun from here (the other worlds keep the default moonlit presentation).
@@ -48,7 +49,14 @@ export class CastlewardRenderer {
     const batch = createBatch();
     this.solidsById = new Map(CASTLEWARD.solids.map((solid) => [solid.id, solid]));
 
-    for (const floor of CASTLEWARD.floors) floorTile(batch, floor, this.decor.paths, rand);
+    // each floor leaves out what an earlier one at the same height already covers (no shared, flickering planes)
+    CASTLEWARD.floors.forEach((floor, index) => {
+      const covers = CASTLEWARD.floors.slice(0, index).filter((other) => Math.abs(other.y - floor.y) < 1e-6).map((other) => ({
+        minX: other.center[0] - other.size[0] / 2, maxX: other.center[0] + other.size[0] / 2,
+        minZ: other.center[2] - other.size[2] / 2, maxZ: other.center[2] + other.size[2] / 2,
+      }));
+      floorTile(batch, floor, this.decor.paths, rand, covers);
+    });
     for (const ramp of CASTLEWARD.ramps) this.#ramp(batch, rand, ramp);
     for (const solid of CASTLEWARD.solids) this.#solid(batch, rand, solid);
     this.#castle(batch, rand);
@@ -57,6 +65,7 @@ export class CastlewardRenderer {
     this.#landscape(batch, rand);
     this.#scenery(batch, rand);
     this.#fire(batch, rand);
+    this.#props(batch, rand);
     for (const spec of this.decor.banners) {
       const mesh = banner(batch, rand, spec);
       this.group.add(mesh);
@@ -130,6 +139,16 @@ export class CastlewardRenderer {
       return;
     }
     if (kind === 'balustrade') return masonry(batch, rand, solid, { merlons: true, merlonHeight: 0.4, color: P.stoneLight });
+    if (kind === 'bales') return strawBales(batch, rand, solid);
+    // the pavilion's door looks out over the Tourney Field
+    if (kind === 'pavilion') return pavilion(batch, rand, solid, { door: Math.atan2(14.5 - solid.center[0], -15.2 - solid.center[2]) });
+    if (kind === 'gatepost') {
+      masonry(batch, rand, solid, { coping: false, color: P.stoneLight });
+      const [x, y, z] = solid.center;
+      batch.stone.block({ cx: x, cy: y + solid.size[1] / 2, cz: z, sx: solid.size[0] + 0.14, sy: 0.16, sz: solid.size[2] + 0.14, chamfer: 0.04, jitter: 0, color: P.stoneLight, rand });
+      batch.stone.prism({ cx: x, cy: y + solid.size[1] / 2 + 0.16, cz: z, radiusBottom: 0.24, radiusTop: 0.05, height: 0.3, sides: 4, color: P.stone, rand, rotY: Math.PI / 4 });
+      return;
+    }
     if (kind === 'curtain') return masonry(batch, rand, solid, { merlons: solid.size[1] > 3, color: P.stone });
     if (id.startsWith('bailey-') && id.endsWith('-wall')) return masonry(batch, rand, solid, { merlons: true, color: P.stone });
     if (id.startsWith('castle-gate-')) return this.#gateTower(batch, rand, solid, 6.6);
@@ -325,35 +344,58 @@ export class CastlewardRenderer {
   }
 
   #fire(batch, rand) {
-    const flameGeometry = new THREE.OctahedronGeometry(0.13, 0);
-    const glowGeometry = new THREE.SphereGeometry(0.4, 12, 8);
-    const addFlame = (position, light, scale = 1) => {
-      const flame = new THREE.Mesh(flameGeometry, this.materials.flame);
-      flame.position.set(...position);
-      flame.scale.setScalar(scale);
-      flame.userData.baseY = position[1];
-      flame.userData.scale = scale;
-      flame.userData.phase = this.flames.length * 1.27;
-      this.group.add(flame);
-      this.flames.push(flame);
-      const glow = new THREE.Mesh(glowGeometry, this.materials.glow);
-      glow.position.set(...position);
-      glow.scale.setScalar(scale);
-      this.group.add(glow);
-      if (light) {
-        const point = new THREE.PointLight(0xffa24c, 3.2, 7.5, 2);
-        point.position.set(position[0], position[1] + 0.2, position[2]);
-        point.userData.phase = flame.userData.phase;
-        this.group.add(point);
-        this.torchLights.push(point);
-      }
-    };
+    const addFlame = (position, light, scale = 1) => this.#flame(position, light, scale);
     for (const torch of this.decor.torches) addFlame(sconce(batch, rand, torch), torch.light);
     for (const spec of this.decor.braziers) {
       const solid = this.solidsById.get(spec.id);
       if (!solid) continue;
       const [x, y, z] = solid.center;
       addFlame(brazier(batch, rand, { x, y: y - solid.size[1] / 2, z }), spec.light, 1.8);
+    }
+  }
+
+  // a flame with its glow (and, for a few, a real light: they are dear on phones)
+  #flame(position, light, scale = 1) {
+    this.flameGeometry ??= new THREE.OctahedronGeometry(0.13, 0);
+    this.glowGeometry ??= new THREE.SphereGeometry(0.4, 12, 8);
+    const flame = new THREE.Mesh(this.flameGeometry, this.materials.flame);
+    flame.position.set(...position);
+    flame.scale.setScalar(scale);
+    flame.userData.baseY = position[1];
+    flame.userData.scale = scale;
+    flame.userData.phase = this.flames.length * 1.27;
+    this.group.add(flame);
+    this.flames.push(flame);
+    const glow = new THREE.Mesh(this.glowGeometry, this.materials.glow);
+    glow.position.set(...position);
+    glow.scale.setScalar(scale);
+    this.group.add(glow);
+    if (light) {
+      const point = new THREE.PointLight(0xffa24c, 3.2, 7.5, 2);
+      point.position.set(position[0], position[1] + 0.2, position[2]);
+      point.userData.phase = flame.userData.phase;
+      this.group.add(point);
+      this.torchLights.push(point);
+    }
+  }
+
+  // the lived-in things (see castlewardDecor props): each against a wall, a post or a hedge
+  #props(batch, rand) {
+    for (const prop of this.decor.props) {
+      if (prop.kind === 'barrel') barrel(batch, rand, prop);
+      else if (prop.kind === 'crate') crate(batch, rand, prop);
+      else if (prop.kind === 'woodpile') woodpile(batch, rand, prop);
+      else if (prop.kind === 'sacks') sacks(batch, rand, prop);
+      else if (prop.kind === 'flowers') flowers(batch, rand, prop);
+      else if (prop.kind === 'target') archeryTarget(batch, rand, prop);
+      else if (prop.kind === 'rack') weaponRack(batch, rand, prop);
+      else if (prop.kind === 'lantern') this.#flame(lanternPost(batch, rand, prop), false, 0.55);
+      else if (prop.kind === 'pennant') {
+        // raised from the top of the gatepost it stands on
+        const post = CASTLEWARD.solids.find((solid) => Math.abs(solid.center[0] - prop.x) < 0.1 && Math.abs(solid.center[2] - prop.z) < 0.1);
+        const base = post ? post.center[1] + post.size[1] / 2 + 0.3 : 0;
+        pennant(batch, rand, { x: prop.x, y: base, z: prop.z, height: prop.height - base, facing: Math.PI / 2 });
+      }
     }
   }
 

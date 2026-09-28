@@ -1,5 +1,5 @@
 import { GAME, SWORD_STRIKE_TIMES, resolveSwordVsGuard } from '../../../shared/src/combat.mjs';
-import { blastDamage, burnFrom, chillScale, spellFor, strongerChill } from '../../../shared/src/spells.mjs';
+import { blastDamage, blastDistance, burnFrom, chillScale, spellFor, strongerChill } from '../../../shared/src/spells.mjs';
 import { findSwordWorldHit, segmentAabbHit, surfaceHeightAt } from '../../../shared/src/collision.mjs';
 import { SPRINT, movePlayer, resolveSprint, tryStartDash } from '../../../shared/src/movement.mjs';
 import { separatePlayers } from '../../../shared/src/separation.mjs';
@@ -322,16 +322,18 @@ function explodeSpell(room, projectile, point, nowSec, worldHit = false, directV
   for (const player of room.players.values()) {
     if (!player.alive || player.id === projectile.ownerId) continue;
     const center = playerCenter(player);
-    const distance = Math.hypot(center.x - point.x, center.y - point.y, center.z - point.z);
     const direct = player.id === directVictimId;
-    if (!direct && distance > spell.radius) continue;
-    const amount = direct ? spell.directDamage : blastDamage(spell, distance);
+    const distance = direct ? 0 : blastDistance(point, player.position);
+    if (distance > spell.radius) continue;
+    const amount = blastDamage(spell, distance);
     const away = normalize3({ x: center.x - point.x, y: Math.max(0.15, center.y - point.y), z: center.z - point.z });
     const hit = applyDamage(room, projectile.ownerId, player.id, amount, spell.id, nowSec, {
       x: away.x * 4.3 * shove, y: away.y * 2.3 * shove, z: away.z * 4.3 * shove,
     });
     if (!hit || !player.alive) continue;
-    if (spell.burn) player.burn = burnFrom(spell, amount, projectile.ownerId, nowSec);
+    // a fresh burn replaces one already licking (it never stacks); a blast too far out to catch leaves any burn be
+    const burn = burnFrom(spell, distance, projectile.ownerId, nowSec);
+    if (burn) player.burn = burn;
     if (spell.chill) {
       player.chill = strongerChill(player.chill, { slow: spell.chill.slow, startedAt: nowSec, until: nowSec + spell.chill.seconds }, nowSec);
     }
