@@ -1,10 +1,10 @@
 # arms.py -- shared arm builders for the third-person kit and the first-person arms (exec'd by kit_pieces.py and
 # fp_kit.py after kit.py's helpers exist). Built from the concept's "weapon & hand detail" panel:
 #   cuff    octagonal steel cuff flaring to the wrist with a thick brass band
-#   fist    dark glove wrapped round the grip, a raised steel plate over the back of the hand with a brass lower
-#           band, four separate steel finger caps stacked along the grip, a dark thumb
-#   open    the spell hand palm up: dark palm, steel back plate underneath, four two-segment fingers curling up
-#           around the palm (steel caps on the first segments), thumb on the outer side
+#   fist    glove wrapped round the grip, raised steel plates over the back of the hand with a brass lower band,
+#           a studded knuckle guard, four rounded fingers closed side by side round the grip, a steel-capped thumb
+#   open    the spell hand palm up: leather palm, steel back plate underneath, four rounded fingers fanned and
+#           curling up around the palm with steel scales on their backs, thumb on the outer side
 
 
 def obox(pc, c, ax, h, tag, bevel=True):
@@ -72,65 +72,81 @@ def hand_frame(head, tail, back_hint):
     return a, b, s
 
 
-def finger(pc, base, a, b, s, lens, bends, w, th, tag="under", scale_tag="steel", tip_tag=None):
-    """a finger as a chain of segments bending about s (positive bends curl toward -b): each segment a leather core
-    with a steel scale on its back (the articulated gauntlet finger)."""
+def finger(pc, base, a, b, s, lens, bends, w, th, tag="under", scale_tag="steel", tip_tag=None, bevel=False):
+    """a finger as a chain of segments bending about s (positive bends curl toward -b): each segment a glove core
+    with a steel scale on its back (the articulated gauntlet finger). bevel rounds the segments (the kit bevel)."""
     P = base.copy(); ang = 0.0
     for i, (ln, bd) in enumerate(zip(lens, bends)):
         ang += bd
         d = (a * math.cos(ang) - b * math.sin(ang)).normalized(); n = (a * math.sin(ang) + b * math.cos(ang)).normalized()
         c = P + d * (ln / 2)
-        obox(pc, c, (d, s, n), (ln / 2, w / 2, th / 2), tag, bevel=False)
+        obox(pc, c, (d, s, n), (ln / 2, w / 2, th / 2), tag, bevel=bevel)
         st = tip_tag if (tip_tag and i == len(lens) - 1) else scale_tag
-        obox(pc, c + n * (th / 2 + 0.0035), (d, s, n), (ln / 2 - 0.002, w / 2 + 0.0012, 0.0045), st, bevel=False)
+        # the scale: as long as the segment, a touch wider than it and clearly proud, so it reads from any side
+        obox(pc, c + n * (th / 2 + 0.004), (d, s, n), (ln / 2 - 0.001, w / 2 + 0.0018, 0.0058), st, bevel=bevel)
         P = P + d * ln
     return P
 
 
+def fan(a, p, degrees):
+    """a turned about the palm normal p (fingers spreading)."""
+    t = math.radians(degrees)
+    return (a * math.cos(t) + p.cross(a) * math.sin(t)).normalized()
+
+
 def arm_fist(pc, head, tail, back_hint, thumb_sign, k=1.3):
     """armoured fist in the hand's own frame (a toward the knuckles, b out of the back of the hand, s across):
-    two overlapping back plates, a knuckle guard, four three-segment fingers curled into the palm, the thumb
-    wrapping across them (concept weapon & hand detail)."""
+    two overlapping back plates, a knuckle guard with four studs, four rounded three-segment fingers closed round the
+    grip side by side (no gaps for the dark grip to show through, steel on every face the eye meets), and a
+    steel-capped thumb wrapping across them (concept weapon & hand detail)."""
     a, b, s = hand_frame(head, tail, back_hint)
     ax = (a, s, b)
     c = head + a * (0.050 * k)
-    obox(pc, c - b * (0.004 * k), ax, (0.052 * k, 0.044 * k, 0.022 * k), "under")                          # palm and glove
-    obox(pc, head + a * (0.036 * k) + b * (0.022 * k), ax, (0.024 * k, 0.045 * k, 0.007 * k), "steel")     # back plate 1
-    obox(pc, head + a * (0.070 * k) + b * (0.025 * k), ax, (0.020 * k, 0.046 * k, 0.007 * k), "steel")     # back plate 2 (over 1)
-    obox(pc, head + a * (0.088 * k) + b * (0.025 * k), ax, (0.005 * k, 0.046 * k, 0.0075 * k), "brass")   # its brass edge
-    obox(pc, head + a * (0.103 * k) + b * (0.014 * k), ax, (0.011 * k, 0.047 * k, 0.014 * k), "steel")    # knuckle guard
-    lens_mid = [0.034 * k, 0.026 * k, 0.020 * k]; lens_out = [0.030 * k, 0.023 * k, 0.018 * k]
+    obox(pc, c - b * (0.004 * k), ax, (0.054 * k, 0.047 * k, 0.024 * k), "leather_dark")                   # palm and glove
+    obox(pc, head + a * (0.034 * k) + b * (0.024 * k), ax, (0.026 * k, 0.048 * k, 0.008 * k), "steel")     # back plate 1
+    obox(pc, head + a * (0.068 * k) + b * (0.027 * k), ax, (0.022 * k, 0.049 * k, 0.008 * k), "steel")    # back plate 2 (over 1)
+    obox(pc, head + a * (0.088 * k) + b * (0.027 * k), ax, (0.005 * k, 0.049 * k, 0.0085 * k), "brass")   # its brass edge
+    obox(pc, head + a * (0.104 * k) + b * (0.016 * k), ax, (0.012 * k, 0.050 * k, 0.016 * k), "steel")    # knuckle guard
+    lens_mid = [0.036 * k, 0.027 * k, 0.021 * k]; lens_out = [0.032 * k, 0.024 * k, 0.019 * k]
     for i, off in enumerate((-0.0345, -0.0115, 0.0115, 0.0345)):
         lens = lens_mid if i in (1, 2) else lens_out
-        finger(pc, head + a * (0.108 * k) + s * (off * k) + b * (0.002 * k), a, b, s, lens,
-               [math.radians(75), math.radians(95), math.radians(70)], 0.0215 * k, 0.020 * k)
-    tb = head + a * (0.040 * k) + s * (0.046 * k * thumb_sign) - b * (0.012 * k)
+        knuckle = head + a * (0.108 * k) + s * (off * k)
+        obox(pc, knuckle + b * (0.033 * k) - a * (0.004 * k), ax, (0.007 * k, 0.0085 * k, 0.005 * k), "steel")   # stud
+        finger(pc, knuckle + b * (0.002 * k), a, b, s, lens,
+               [math.radians(75), math.radians(95), math.radians(70)], 0.0232 * k, 0.022 * k,
+               tag="steel_dark", scale_tag="steel", bevel=True)
+    tb = head + a * (0.040 * k) + s * (0.048 * k * thumb_sign) - b * (0.012 * k)
     td = (a * 0.55 - b * 0.30 - s * (0.78 * thumb_sign)).normalized(); tn = orth(b, td); tsd = td.cross(tn)
-    finger(pc, tb, td, tn, tsd, [0.030 * k, 0.024 * k], [0.0, math.radians(30)], 0.022 * k, 0.020 * k)
+    finger(pc, tb, td, tn, tsd, [0.032 * k, 0.026 * k], [0.0, math.radians(30)], 0.024 * k, 0.022 * k,
+           tag="steel_dark", scale_tag="steel", bevel=True)
 
 
 def arm_open(pc, head, tail, palm_pt, thumb_sign, k=1.3):
-    """palm-up spell hand cupping the rune: dark palm, steel back plate underneath, four dark three-segment fingers
-    curling up round the rune (steel scales on their backs), thumb on the outer side (concept front view)."""
+    """palm-up spell hand cupping the rune: a leather palm (a glove, not a hole), steel back plate underneath, four
+    rounded fingers fanned a little and curling up round the rune with steel scales on their backs, and a thumb out
+    to the side (concept front view)."""
     a = (tail - head).normalized()
     closest = head + a * (palm_pt - head).dot(a)
     p = orth(palm_pt - closest, a)          # palm normal
     s = a.cross(p)
     ps = (palm_pt - closest).length - 0.010
     c0 = head + a * (0.048 * k)
-    obox(pc, c0 + p * (ps - 0.022 * k), (a, s, p), (0.056 * k, 0.046 * k, 0.022 * k), "under")               # palm and glove
-    obox(pc, c0 + p * (ps - 0.049 * k), (a, s, p), (0.050 * k, 0.043 * k, 0.008 * k), "steel")              # back plate (underneath)
-    obox(pc, c0 + p * (ps - 0.049 * k) - a * (0.050 * k), (a, s, p), (0.007 * k, 0.044 * k, 0.009 * k), "brass")
-    obox(pc, head + a * (0.100 * k) + p * (ps - 0.034 * k), (a, s, p), (0.010 * k, 0.046 * k, 0.012 * k), "steel_dark")   # knuckle guard
+    obox(pc, c0 + p * (ps - 0.022 * k), (a, s, p), (0.056 * k, 0.047 * k, 0.022 * k), "leather")              # palm and glove
+    obox(pc, c0 + p * (ps - 0.049 * k), (a, s, p), (0.052 * k, 0.045 * k, 0.009 * k), "steel")              # back plate (underneath)
+    obox(pc, c0 + p * (ps - 0.049 * k) - a * (0.051 * k), (a, s, p), (0.007 * k, 0.046 * k, 0.010 * k), "brass")
+    obox(pc, head + a * (0.100 * k) + p * (ps - 0.036 * k), (a, s, p), (0.011 * k, 0.047 * k, 0.013 * k), "steel")   # knuckle guard
     # fingers curl up toward the palm normal: in finger()'s terms b = -p (the back of the hand), bends toward +p
     lens_mid = [0.036 * k, 0.028 * k, 0.022 * k]; lens_out = [0.032 * k, 0.025 * k, 0.020 * k]
-    for i, off in enumerate((-0.0345, -0.0115, 0.0115, 0.0345)):
+    for i, (off, spread) in enumerate(zip((-0.0345, -0.0115, 0.0115, 0.0345), (-9.0, -3.0, 3.0, 9.0))):
         lens = lens_mid if i in (1, 2) else lens_out
-        finger(pc, head + a * (0.104 * k) + s * (off * k) + p * (ps - 0.024 * k), a, -p, -s, lens,
-               [math.radians(18), math.radians(48), math.radians(40)], 0.0215 * k, 0.020 * k, tag="steel_dark", scale_tag="steel_dark")
-    tb = c0 + s * (0.048 * k * thumb_sign) + p * (ps - 0.020 * k)
-    td = (a * 0.40 + p * 0.45 + s * (0.80 * thumb_sign)).normalized(); tn = orth(-p, td); tsd = td.cross(tn)
-    finger(pc, tb, td, tn, tsd, [0.030 * k, 0.024 * k], [0.0, math.radians(35)], 0.022 * k, 0.020 * k, tag="steel_dark", scale_tag="steel_dark")
+        d = fan(a, p, spread * thumb_sign)
+        finger(pc, head + a * (0.104 * k) + s * (off * k) + p * (ps - 0.024 * k), d, -p, -d.cross(p), lens,
+               [math.radians(16), math.radians(40), math.radians(34)], 0.0226 * k, 0.020 * k,
+               tag="leather_dark", scale_tag="steel", bevel=True)
+    tb = c0 + s * (0.050 * k * thumb_sign) + p * (ps - 0.020 * k)
+    td = (a * 0.40 + p * 0.40 + s * (0.82 * thumb_sign)).normalized(); tn = orth(-p, td); tsd = td.cross(tn)
+    finger(pc, tb, td, tn, tsd, [0.032 * k, 0.025 * k], [0.0, math.radians(30)], 0.024 * k, 0.021 * k,
+           tag="leather_dark", scale_tag="steel", bevel=True)
 
 
 def arm_fist_on_grip(pc, rig, grip_obj, guard_obj, hand_bone, forearm_bone, face_hint, k=1.3):
