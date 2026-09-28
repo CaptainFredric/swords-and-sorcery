@@ -1,7 +1,7 @@
-import { createMovementState } from '../../../shared/src/movement.mjs';
-import { GAME_MODES, VOTE_OPTIONS, getModePolicy } from '../../../shared/src/modes.mjs';
-import { WORLD_IDS, getWorld } from '../../../shared/worlds/registry.mjs';
-import { DEFAULT_SPELL, SPELLS, isSpell } from '../../../shared/src/spells.mjs';
+import { createMovementState } from '../src/movement.mjs';
+import { GAME_MODES, VOTE_OPTIONS, getModePolicy } from '../src/modes.mjs';
+import { WORLD_IDS, getWorld } from '../worlds/registry.mjs';
+import { DEFAULT_SPELL, SPELLS, isSpell } from '../src/spells.mjs';
 
 const COUNTDOWN_SEC = 3;
 const MATCH_SEC = 360;

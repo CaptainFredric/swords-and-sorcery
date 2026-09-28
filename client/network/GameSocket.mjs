@@ -34,14 +34,19 @@ export class GameSocket {
     for (const handler of this.handlers.get('*') ?? []) handler({ type, payload });
   }
 
-  async connect({ resume = true } = {}) {
+  /** Open the connection; `timeoutMs` gives up on a server that never answers (the attempt is closed). */
+  async connect({ resume = true, timeoutMs = 0 } = {}) {
     if (this.ws?.readyState === WebSocket.OPEN) return;
     this.intentionalClose = false;
     const ws = new WebSocket(gameServerUrl());
     this.ws = ws;
     await new Promise((resolve, reject) => {
-      ws.addEventListener('open', resolve, { once: true });
-      ws.addEventListener('error', reject, { once: true });
+      const timer = timeoutMs > 0 ? setTimeout(() => {
+        reject(new Error('The game server did not answer'));
+        try { ws.close(); } catch { /* never opened */ }
+      }, timeoutMs) : null;
+      ws.addEventListener('open', () => { clearTimeout(timer); resolve(); }, { once: true });
+      ws.addEventListener('error', (error) => { clearTimeout(timer); reject(error); }, { once: true });
     });
     ws.addEventListener('message', (event) => this.#message(event));
     ws.addEventListener('close', () => this.#closed());

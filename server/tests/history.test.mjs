@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { compensatedInputTime, recordTransform, sampleTransform } from '../src/game/history.mjs';
+import { compensatedInputTime, recordTransform, sampleTransform } from '../../shared/sim/history.mjs';
 
 test('transform history keeps only the latest half second and interpolates position/yaw', () => {
   const player = { position: { x: 0, y: 0, z: 0 }, yaw: 3.10, pitch: 0, history: [] };

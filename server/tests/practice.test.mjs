@@ -1,14 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Room } from '../src/game/Room.mjs';
-import { RoomManager } from '../src/rooms/RoomManager.mjs';
+import { Room } from '../../shared/sim/Room.mjs';
+import { RoomManager } from '../../shared/sim/RoomManager.mjs';
 import {
   PRACTICE_DUMMY_MODES,
   resetPracticePlayer,
   spawnPracticeDummy,
   removePracticeDummy,
   setPracticeDummyMode,
-} from '../src/game/practice.mjs';
+} from '../../shared/sim/practice.mjs';
 
 function sequenceRandom(values = [0.5]) {
   let i = 0;

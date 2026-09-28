@@ -1,7 +1,7 @@
-import { GAME_MODES } from '../../../shared/src/modes.mjs';
+import { GAME_MODES } from '../src/modes.mjs';
 import { endAttack, setGuard } from './combat.mjs';
 import { recordTransform } from './history.mjs';
-import { stepBotControllers } from '../ai/BotController.mjs';
+import { stepBotControllers } from './BotController.mjs';
 
 export const PRACTICE_DUMMY_MODES = Object.freeze({
   PASSIVE: 'PASSIVE',

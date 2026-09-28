@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Room } from '../src/game/Room.mjs';
-import { beginAttack, endAttack, setGuard, tryCastSpell, tryDash } from '../src/game/combat.mjs';
+import { Room } from '../../shared/sim/Room.mjs';
+import { beginAttack, endAttack, setGuard, tryCastSpell, tryDash } from '../../shared/sim/combat.mjs';
 
 function roomWithPlayer(state) {
   const room = new Room('STATE');

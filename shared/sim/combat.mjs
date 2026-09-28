@@ -1,8 +1,8 @@
-import { GAME, SWORD_STRIKE_TIMES, resolveSwordVsGuard } from '../../../shared/src/combat.mjs';
-import { blastDamage, blastDistance, burnFrom, chillScale, spellFor, strongerChill } from '../../../shared/src/spells.mjs';
-import { findSwordWorldHit, segmentAabbHit, surfaceHeightAt } from '../../../shared/src/collision.mjs';
-import { SPRINT, movePlayer, resolveSprint, tryStartDash } from '../../../shared/src/movement.mjs';
-import { separatePlayers } from '../../../shared/src/separation.mjs';
+import { GAME, SWORD_STRIKE_TIMES, resolveSwordVsGuard } from '../src/combat.mjs';
+import { blastDamage, blastDistance, burnFrom, chillScale, spellFor, strongerChill } from '../src/spells.mjs';
+import { findSwordWorldHit, segmentAabbHit, surfaceHeightAt } from '../src/collision.mjs';
+import { SPRINT, movePlayer, resolveSprint, tryStartDash } from '../src/movement.mjs';
+import { separatePlayers } from '../src/separation.mjs';
 import { chooseSpawn } from './spawns.mjs';
 import { recordTransform, sampleTransform } from './history.mjs';
 

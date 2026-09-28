@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { RoomManager } from '../src/rooms/RoomManager.mjs';
-import { stepRoom } from '../src/game/combat.mjs';
+import { RoomManager } from '../../shared/sim/RoomManager.mjs';
+import { stepRoom } from '../../shared/sim/combat.mjs';
 import { WORLD_IDS } from '../../shared/worlds/registry.mjs';
 
 function sequenceRandom(values = [0.1, 0.2, 0.3, 0.4, 0.5]) {

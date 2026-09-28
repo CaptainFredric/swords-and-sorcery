@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { ROOM_RULES, Room } from '../src/game/Room.mjs';
-import { RoomManager, generateRoomCode } from '../src/rooms/RoomManager.mjs';
-import { chooseSpawn } from '../src/game/spawns.mjs';
+import { ROOM_RULES, Room } from '../../shared/sim/Room.mjs';
+import { RoomManager, generateRoomCode } from '../../shared/sim/RoomManager.mjs';
+import { chooseSpawn } from '../../shared/sim/spawns.mjs';
 import { SHATTERED_KEEP } from '../../shared/src/map.mjs';
 
 function add(room, id, now = 0) {

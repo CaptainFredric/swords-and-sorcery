@@ -122,6 +122,20 @@
 .menu-command:focus-visible, .mode-choice:focus-visible, .wide-button:focus-visible, .join-button:focus-visible, .back-button:focus-visible { outline: 2px solid var(--heraldry-brass-light); outline-offset: 2px; }
 .menu-command span, .mode-choice span { display: block; font: 400 18px/1.05 var(--font-inscription); letter-spacing: .05em; }
 .menu-command small, .mode-choice small { display: block; margin-top: 3px; color: rgba(234, 220, 182, .66); font: 500 11px/1.3 var(--font-script); letter-spacing: .02em; }
+/* online commands wait for the game server: dimmed, still readable, saying why */
+.menu-command.needs-server { opacity: .55; cursor: not-allowed; filter: saturate(.6); }
+.menu-command.needs-server:hover { transform: none; }
+.link-status { display: flex; align-items: center; gap: 8px; margin: 4px 0 0; padding: 5px 8px; border: 1px solid rgba(201, 156, 82, .35); background: rgba(20, 16, 12, .55); color: #e8d6a8; font: 600 11px/1.25 var(--font-script); white-space: nowrap; }
+.link-status span { overflow: hidden; text-overflow: ellipsis; }
+.link-status.hidden { display: none; }
+.link-status span { flex: 1; }
+.link-status::before { content: ""; flex: none; width: 8px; height: 8px; border-radius: 50%; background: #d9a441; box-shadow: 0 0 6px rgba(217, 164, 65, .8); animation: link-pulse 1.4s ease-in-out infinite; }
+.link-status.offline::before { background: #c9564a; box-shadow: 0 0 6px rgba(201, 86, 74, .8); }
+.link-status.restored::before { background: #7fc26b; box-shadow: 0 0 6px rgba(127, 194, 107, .8); animation: none; }
+.link-status button { flex: none; padding: 3px 7px; border: 1px solid rgba(201, 156, 82, .6); background: rgba(52, 42, 30, .9); color: inherit; font: inherit; letter-spacing: .12em; cursor: pointer; }
+.link-status:not(.offline) button { display: none; }
+@keyframes link-pulse { 50% { opacity: .35; } }
+
 /* the primary command is gilded */
 .primary-command { background: linear-gradient(180deg, #e7c47c, #b8893f 60%, #97702f); border-color: #f4dc9f; color: #2a1c10; }
 .primary-command::before { background: rgba(58, 36, 14, .6); }
