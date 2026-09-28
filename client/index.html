@@ -68,7 +68,7 @@
         </div>
         <p id="menu-error" data-menu-error class="error-copy" aria-live="polite"></p>
         <!-- whether the multiplayer server answers (the game itself never waits for it) -->
-        <div id="link-status" class="link-status hidden" aria-live="polite"><span></span><button id="link-retry" type="button">RETRY</button></div>
+        <div id="link-status" class="link-status hidden" aria-live="polite"><p><span class="link-title"></span><small class="link-note"></small></p><button id="link-retry" type="button">SEND ANOTHER</button></div>
       </aside>
       </div>
       <!-- the knight's kit: a plaque at his feet -->
@@ -310,6 +310,8 @@
         </footer>
       </div>
     </section>
+    <!-- the multiplayer server has answered: challengers await -->
+    <div id="herald-toast" class="herald-toast hidden" role="status"><b></b><small></small></div>
     <div id="turn-toast" class="turn-toast hidden" role="status">
       <span id="turn-toast-copy">Turn your phone sideways to match the game.</span>
       <button id="turn-flip" type="button">FLIP ⟲</button>

@@ -126,15 +126,29 @@
 .menu-command.needs-server { opacity: .55; cursor: not-allowed; filter: saturate(.6); }
 .menu-command.needs-server:hover { transform: none; }
 .link-status { display: flex; align-items: center; gap: 8px; margin: 4px 0 0; padding: 5px 8px; border: 1px solid rgba(201, 156, 82, .35); background: rgba(20, 16, 12, .55); color: #e8d6a8; font: 600 11px/1.25 var(--font-script); white-space: nowrap; }
-.link-status span { overflow: hidden; text-overflow: ellipsis; }
+.link-status p { flex: 1; min-width: 0; margin: 0; display: grid; gap: 1px; }
+.link-status .link-title { overflow: hidden; text-overflow: ellipsis; font-style: italic; }
+.link-status .link-note { overflow: hidden; text-overflow: ellipsis; color: rgba(232, 214, 168, .62); font: 600 9.5px/1.2 var(--font-script); letter-spacing: .04em; }
+.link-status .link-note:empty { display: none; }
+/* the empty error line gives its room to the status while there is nothing to say */
+.banner-panel #menu-error:empty { min-height: 0; margin: 0; }
 .link-status.hidden { display: none; }
-.link-status span { flex: 1; }
 .link-status::before { content: ""; flex: none; width: 8px; height: 8px; border-radius: 50%; background: #d9a441; box-shadow: 0 0 6px rgba(217, 164, 65, .8); animation: link-pulse 1.4s ease-in-out infinite; }
 .link-status.offline::before { background: #c9564a; box-shadow: 0 0 6px rgba(201, 86, 74, .8); }
 .link-status.restored::before { background: #7fc26b; box-shadow: 0 0 6px rgba(127, 194, 107, .8); animation: none; }
 .link-status button { flex: none; padding: 3px 7px; border: 1px solid rgba(201, 156, 82, .6); background: rgba(52, 42, 30, .9); color: inherit; font: inherit; letter-spacing: .12em; cursor: pointer; }
 .link-status:not(.offline) button { display: none; }
 @keyframes link-pulse { 50% { opacity: .35; } }
+
+/* WORTHY CHALLENGERS AWAIT YOU: a herald's banner dropped over the front door */
+/* centred over the scene, right of the menu banner (about 300 px wide on the left) */
+.herald-toast { position: fixed; left: calc(50cqw + 170px); top: calc(env(safe-area-inset-top, 0px) + 18px); z-index: 95; display: grid; justify-items: center; gap: 4px; max-width: calc(100cqw - 380px); padding: 12px 26px 13px; transform: translateX(-50%); border: 1px solid rgba(232, 196, 124, .8); background: linear-gradient(180deg, #8c2a23, #5c1b17); color: #f5e6bd; text-align: center; box-shadow: 0 0 0 4px rgba(20, 16, 12, .7), 0 14px 38px rgba(0, 0, 0, .55); pointer-events: none; animation: herald-in .5s cubic-bezier(.2, .8, .2, 1.1) both; }
+.herald-toast.hidden { display: none; }
+.herald-toast.leaving { animation: herald-out .45s ease-in both; }
+.herald-toast b { white-space: nowrap; font: 400 clamp(14px, 2.3cqw, 24px)/1.1 var(--font-inscription); letter-spacing: .08em; color: #f7dd98; text-shadow: 0 2px 0 rgba(40, 10, 8, .6); }
+.herald-toast small { font: 600 11px/1.2 var(--font-script); letter-spacing: .12em; color: rgba(245, 230, 189, .78); }
+@keyframes herald-in { from { opacity: 0; transform: translate(-50%, -24px); } }
+@keyframes herald-out { to { opacity: 0; transform: translate(-50%, -18px); } }
 
 /* the primary command is gilded */
 .primary-command { background: linear-gradient(180deg, #e7c47c, #b8893f 60%, #97702f); border-color: #f4dc9f; color: #2a1c10; }

@@ -1,4 +1,4 @@
-import { GameLink, linkStatusView } from './network/GameLink.mjs';
+import { GameLink, LINK_RESTORED, linkStatusView } from './network/GameLink.mjs';
 import { HUD } from './ui/HUD.mjs';
 import { GameRuntime } from './game/GameRuntime.mjs';
 import { preloadSpellbladeAssets, watchSpellbladeLoading } from './game/SpellbladeAssets.mjs';
@@ -757,22 +757,37 @@ const linkStatus = $('#link-status');
 const ONLINE_COMMANDS = ['#quick-play', '#private-button'];
 const seekDuelCopy = $('#seek-duel small');
 const SEEK_COPY = seekDuelCopy?.textContent ?? '';
-function renderLinkStatus(status, was = null) {
+function renderLinkStatus(status) {
   const view = linkStatusView(status);
-  const restored = status === 'online' && (was === 'offline' || was === 'waking');
-  linkStatus.classList.toggle('hidden', !view.text && !restored);
+  linkStatus.classList.toggle('hidden', !view.title);
   linkStatus.classList.toggle('offline', view.tone === 'offline');
-  linkStatus.classList.toggle('restored', restored);
-  linkStatus.querySelector('span').textContent = restored ? 'Multiplayer is back online.' : view.text;
-  linkStatus.title = restored ? '' : view.detail;
+  linkStatus.querySelector('.link-title').textContent = view.title;
+  linkStatus.querySelector('.link-note').textContent = view.note;
+  linkStatus.title = view.detail;
   for (const selector of ONLINE_COMMANDS) $(selector)?.classList.toggle('needs-server', !view.online);
-  if (seekDuelCopy) seekDuelCopy.textContent = view.online ? SEEK_COPY : 'While multiplayer is away, a bot steps in';
-  if (restored) setTimeout(() => { if (socket.status === 'online') linkStatus.classList.add('hidden'); }, 6000);
+  if (seekDuelCopy) seekDuelCopy.textContent = view.online ? SEEK_COPY : 'Until challengers arrive, a bot steps in';
+}
+// the herald's banner, when the server answers after keeping everyone waiting
+const heraldToast = $('#herald-toast');
+let heraldTimer = null;
+function announceChallengers() {
+  heraldToast.querySelector('b').textContent = LINK_RESTORED.title;
+  heraldToast.querySelector('small').textContent = LINK_RESTORED.note;
+  heraldToast.classList.remove('hidden', 'leaving');
+  // the challenger's call: drum, choir and the horn's D-A-D
+  music.stinger('challenge', { gain: 0.75 });
+  clearTimeout(heraldTimer);
+  heraldTimer = setTimeout(() => {
+    heraldToast.classList.add('leaving');
+    heraldTimer = setTimeout(() => heraldToast.classList.add('hidden'), 500);
+  }, 5200);
 }
 socket.on('status', ({ status, was }) => {
-  renderLinkStatus(status, was);
-  // back mid-match: nobody is pulled out; the next choice simply goes online
-  if (status === 'online' && runtime && socket.playingLocally) hud.flashText('MULTIPLAYER IS BACK ONLINE', 'ready', 1800);
+  renderLinkStatus(status);
+  if (status !== 'online' || !(was === 'offline' || was === 'waking')) return;
+  // back mid-match: nobody is pulled out, the word comes over the fight; the next choice simply goes online
+  if (runtime && router.current === null) hud.flashText(LINK_RESTORED.title, 'ready', 2400);
+  else announceChallengers();
 });
 socket.on('notice', ({ text }) => hud.flashText(text.toUpperCase(), 'danger', 2600));
 renderLinkStatus(socket.status);

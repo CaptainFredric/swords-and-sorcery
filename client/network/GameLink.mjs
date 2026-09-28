@@ -18,15 +18,30 @@ export const LINK_TIMING = Object.freeze({
   retryMs: Object.freeze([5000, 10000, 20000, 30000]),
 });
 
-// what the menu makes of each state: whether online play is open, a short line for the banner and the longer word
+// What the front door makes of each state: whether online play is open, a line in the realm's own words (a free
+// server naps when nobody plays, so the heralds must ride out and rouse it), a plain note under it, and the longer
+// explanation for anyone who hovers.
 export function linkStatusView(status) {
   switch (status) {
-    case 'online': return { online: true, text: '', detail: '', tone: 'online' };
-    case 'waking': return { online: false, text: 'Waking the server… Solo is ready.', detail: 'The multiplayer server naps when nobody plays and takes up to a minute to wake. Practice and Bot Duel run in your browser meanwhile.', tone: 'waking' };
-    case 'offline': return { online: false, text: 'Server offline. Solo still works.', detail: 'The multiplayer server cannot be reached; it is tried again in the background. Practice and Bot Duel run in your browser.', tone: 'offline' };
-    default: return { online: false, text: 'Reaching the server…', detail: '', tone: 'connecting' };
+    case 'online': return { online: true, title: '', note: '', detail: '', tone: 'online' };
+    case 'waking': return {
+      online: false, tone: 'waking',
+      title: 'Heralds ride out to rally challengers…',
+      note: 'multiplayer waking · solo is ready',
+      detail: 'The multiplayer server naps when nobody plays and takes up to a minute to wake. Practice and Bot Duel run in your browser meanwhile.',
+    };
+    case 'offline': return {
+      online: false, tone: 'offline',
+      title: 'No herald has returned yet.',
+      note: 'multiplayer offline · solo still works',
+      detail: 'The multiplayer server cannot be reached; it is tried again in the background. Practice and Bot Duel run in your browser.',
+    };
+    default: return { online: false, title: 'Sounding the horn…', note: 'reaching multiplayer', detail: '', tone: 'connecting' };
   }
 }
+
+// and when the server answers after all
+export const LINK_RESTORED = Object.freeze({ title: 'WORTHY CHALLENGERS AWAIT YOU!', note: '(multiplayer now online)' });
 
 const FORWARDED = ['playerId', 'token', 'roomCode', 'latestSnapshot', 'snapshotReceivedAt', 'pingMs'];
 const PLAY = ['startMatch', 'ready', 'arenaReady', 'practiceResetPlayer', 'practiceSpawnDummy', 'practiceRemoveDummy',
@@ -162,7 +177,7 @@ export class GameLink {
     }
     if (method === 'cancelSeek') return;
     if (method === 'seekDuel') {
-      this.#emit('notice', { text: 'Multiplayer is offline right now. A bot steps in for your duel.' });
+      this.#emit('notice', { text: 'No challengers yet: a bot steps in (multiplayer offline)' });
       this.hosting = 'local';
       this.local.startSolo('BOT_DUEL', args[0]);
       return;
