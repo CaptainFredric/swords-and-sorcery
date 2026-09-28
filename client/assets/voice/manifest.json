@@ -1,36 +1,36 @@
 {
   "version": 1,
   "lines": {
-    "magicDefeat": [
+    "breakTaunt": [
       {
-        "file": "magic-defeat-1",
-        "seconds": 2.1
+        "file": "break-taunt-1",
+        "seconds": 2.04
       }
     ],
     "defeat": [
       {
         "file": "defeat-1",
-        "seconds": 1.81
+        "seconds": 1.63
       },
       {
         "file": "defeat-2",
-        "seconds": 2.41
+        "seconds": 1.85
       }
     ],
     "killTaunt": [
       {
         "file": "kill-taunt-1",
-        "seconds": 2.68
+        "seconds": 2.01
       },
       {
         "file": "kill-taunt-2",
-        "seconds": 2.04
+        "seconds": 1.81
       }
     ],
-    "breakTaunt": [
+    "magicDefeat": [
       {
-        "file": "break-taunt-1",
-        "seconds": 2.7
+        "file": "magic-defeat-1",
+        "seconds": 1.92
       }
     ],
     "sorcery": [
@@ -45,7 +45,8 @@
     ],
     "victory": [
       {
-        "file": "victory-1"
+        "file": "victory-1",
+        "seconds": 2.22
       }
     ]
   }

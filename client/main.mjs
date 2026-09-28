@@ -419,7 +419,7 @@ function soundTheEnd(snapshot) {
   const won = snapshot.winnerId === socket.playerId;
   music.stinger(won ? 'victory' : 'defeat');
   // MIGHT MAKES... KNIGHT! or, having lost, the protest that he is a knight (unless he just said so as he fell)
-  voice.say(won ? 'victory' : 'defeat', { speaker: socket.playerId, gain: 0.85, delay: 0.4 });
+  voice.say(won ? 'victory' : 'defeat', { speaker: socket.playerId, gain: 0.85, delay: 0.4, close: true });
 }
 
 function updateEnd(snapshot) {
