@@ -408,7 +408,8 @@ export class WeaponView {
           { bone: 'upper_arm.L', axis: [1, 0, 0], angle: -FP_MOTION.magicArmDrop * motion.neutral, space: 'local' },
           ...castGestureRotations(gesture),
           // the magic arm drops out of the blade's way while it works (unless it is on the grip)
-          ...(combo ? OFF_HAND_CLEAR.map((turn) => ({ ...turn, angle: turn.angle * combo.weight })) : []),
+          // (fading as it reaches for the grip, so the two never pull against each other)
+          ...(combo ? OFF_HAND_CLEAR.map((turn) => ({ ...turn, angle: turn.angle * combo.weight * (1 - (combo.offHand?.weight ?? 0)) })) : []),
         ],
         solve: combo ? (bones) => {
           solveSwordArm(bones, combo.arm, combo.weight);

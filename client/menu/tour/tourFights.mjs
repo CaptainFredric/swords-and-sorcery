@@ -1,4 +1,4 @@
-// Three rivals on the Spellblade's round, and how each of them loses. Written like a fight choreographer's sheet:
+// The rivals on the Spellblade's round, and how each of them loses. Written like a fight choreographer's sheet:
 // for every moment, where each knight stands, which way he faces, what he is doing, and what happens (a clash, a
 // fireball, armour falling apart). Pure: time in, poses and cues out. TourDirector.mjs makes them real.
 //
@@ -110,165 +110,213 @@ const FIREBALL = {
 };
 
 // ---------------------------------------------------------------------------------------------------------------
-// 2. The Whirlwind: a blow each way, then he spins, and spins, and spins; strolls once round his frozen rival, sword on
-// his shoulder; and the rival falls apart into his armour.
-const WHIRLWIND = {
-  id: 'whirlwind',
-  reach: 1.9,
-  duration: 9.8,
-  side: -1,
-  hero(t) {
-    // the spin: three full turns, gathering speed and slowing to face him again
-    const spin = t >= 2.0 && t <= 3.8 ? smooth(between(t, 2.0, 3.8)) * Math.PI * 6 : 0;
-    // the stroll: once round the rival at his reach, walking the circle and watching him over his shoulder
-    const around = between(t, 4.4, 8.4);
-    const angle = Math.PI + smooth(around) * Math.PI * 2;
-    const strolling = t > 4.4 && t < 8.4;
-    const u = strolling ? 1.9 + Math.cos(angle) * 1.9 : 0;
-    const v = strolling ? Math.sin(angle) * 1.9 : 0;
-    const walkHeading = angle - Math.PI / 2;
-    let heading = faceRival(t, 9.8) - spin;
-    if (strolling) heading = keyed([[4.4, 0], [4.8, walkHeading], [8.0, walkHeading], [8.4, Math.PI * 2]], t) % (Math.PI * 2);
-    if (strolling && t > 4.8 && t < 8.0) heading = walkHeading;
-    const clip = clipAt([
-      [-1, 'Idle', { loop: true }],
-      [0.3, 'Guard'],
-      [1.15, 'Slash_2'],
-      [1.95, 'Idle', { loop: true }],
-      [4.5, 'Run', { loop: true, rate: 0.42 }],
-      [8.3, 'Idle', { loop: true }],
-    ], t);
-    const spinning = between(t, 1.95, 2.15) * (1 - between(t, 3.7, 3.95));
-    const shouldering = between(t, 4.2, 4.6) * (1 - between(t, 8.3, 8.7));
-    let sword = null;
-    let spell = null;
-    if (spinning > 1e-3) {
-      // the blade held straight out at the shoulder, the other arm out for balance
-      sword = arm(blade([0.7, 1.35, -0.2], [1, 0.02, -0.12], [0, 1, 0]), spinning);
-      spell = arm(blade([-0.62, 1.32, -0.06], [0, -1, 0]), spinning);
-    } else if (shouldering > 1e-3) {
-      // the blade rested on his shoulder, pointing back: in no hurry at all
-      sword = arm(blade([0.2, 1.52, -0.12], [0.15, 0.45, 0.88], [1, 0, 0]), shouldering);
-    }
-    const crouch = spinning * 0.22;
-    const rotations = strolling ? [{ bone: 'head', axis: [0, 1, 0], angle: 0.9 * between(t, 4.6, 5.0) * (1 - between(t, 8.0, 8.4)) }] : [];
-    return { u, v, lift: 0, heading, ...clip, crouch, rotations, sword, spell };
-  },
-  rival(t) {
-    if (t >= 8.25) return { gone: true, u: 1.9, v: 0 };
-    const clip = clipAt([
-      [-99, 'Idle', { loop: true }],
-      [-0.9, 'Guard'],
-      [0.35, 'Slash_1'],
-      [1.1, 'Guard'],
-      // caught in the whirlwind: he stands exactly as he was, and never moves again
-      [2.0, 'Guard', { hold: 1.0 }],
-    ], t);
-    // the blows of the spin land as small shudders, then nothing
-    const shudder = t > 2.2 && t < 3.9 ? Math.sin(t * 60) * 0.04 * (1 - between(t, 3.6, 3.9)) : 0;
-    return { u: 1.9, v: 0, lift: 0, heading: Math.PI, ...clip, crouch: 0, rotations: shudder ? [{ bone: 'chest', axis: [0, 1, 0], angle: shudder }] : [] };
-  },
-  cues: [
-    { at: 0.35, type: 'swing', by: 'rival' },
-    { at: 0.76, type: 'clash' },
-    { at: 1.15, type: 'swing', by: 'hero' },
-    { at: 1.56, type: 'clash' },
-    { at: 2.0, type: 'spin', by: 'hero', seconds: 1.8 },
-    { at: 2.4, type: 'hit', on: 'rival' },
-    { at: 2.95, type: 'hit', on: 'rival' },
-    { at: 3.45, type: 'hit', on: 'rival' },
-    { at: 8.25, type: 'shatter', on: 'rival' },
-    { at: 8.8, type: 'voice', line: 'killTaunt', chance: 0.5 },
-  ],
-};
+// 2. The Whirlwind: a blow each way; then he spins, fast, round and round, slowing to a stop, and stands there dizzy.
+// He shakes it off, turns his back and walks away down the path; behind him the rival, who has not moved since the
+// spin, falls apart into his armour. `turns`: how many times round (it varies from round to round).
+export function makeWhirlwind({ turns = 4 } = {}) {
+  const SPIN = [2.0, 4.3];          // from a standstill to fast, then slowing to nothing
+  const DIZZY = 5.9;                // swaying until then
+  const WALK = [6.25, 8.85];        // then away down the path
+  const AWAY = 2.6;                 // metres he walks before he runs on
+  const walked = (t) => {
+    const q = between(t, WALK[0], WALK[1]);
+    // eases into the walk, then keeps its pace (he is still walking when he runs on)
+    return (AWAY * (q < 0.15 ? (q * q) / 0.3 : q - 0.075)) / 0.925;
+  };
+  const turned = (t) => (t <= SPIN[0] ? 0 : turns * 2 * Math.PI * (1 - (1 - between(t, SPIN[0], SPIN[1])) ** 2.4));
+  // the dizzy spell: strongest as the spin runs out, gone as he steadies
+  const dizzy = (t) => between(t, SPIN[1] - 0.5, SPIN[1] + 0.1) * (1 - between(t, DIZZY - 0.4, DIZZY + 0.15));
+  const sway = (t) => 4.4 * Math.max(0, t - SPIN[1] + 0.5);
+  return {
+    id: 'whirlwind',
+    key: `whirlwind:${turns}`,
+    reach: 1.9,
+    duration: WALK[1],
+    side: -1,
+    // he leaves the fight walking, this far down the path at this pace
+    exit: AWAY,
+    exitSpeed: AWAY / ((WALK[1] - WALK[0]) * 0.925),
+    hero(t) {
+      const d = dizzy(t);
+      const phase = sway(t);
+      let heading;
+      if (t < SPIN[0]) heading = keyed([[0, Math.PI / 2], [0.35, 0]], t);
+      else if (t <= SPIN[1]) heading = -turned(t);
+      else if (t < DIZZY) heading = 0.32 * Math.sin(phase * 0.8) * d;
+      else heading = keyed([[DIZZY, 0.32 * Math.sin(sway(DIZZY) * 0.8) * dizzy(DIZZY)], [WALK[0], Math.PI / 2]], t);
+      const clip = clipAt([
+        [-1, 'Idle', { loop: true }],
+        [0.3, 'Guard'],
+        [1.15, 'Slash_2'],
+        [1.95, 'Idle', { loop: true }],
+        [WALK[0], 'Run', { loop: true, rate: 0.28 }],
+      ], t);
+      // the blade held straight out through the fast turns, the arms coming in as it slows
+      const out = between(t, 1.95, 2.15) * (1 - between(t, SPIN[1] - 0.9, SPIN[1] - 0.2));
+      const sword = arm(blade([0.7, 1.35, -0.2], [1, 0.02, -0.12], [0, 1, 0]), out);
+      const spell = arm(blade([-0.62, 1.32, -0.06], [0, -1, 0]), out);
+      const rotations = [];
+      if (d > 1e-3) {
+        // the world going round: body and head circling out of step, the knees soft
+        rotations.push(
+          { bone: 'spine', axis: [1, 0, 0], angle: 0.13 * Math.cos(phase) * d },
+          { bone: 'spine', axis: [0, 0, 1], angle: 0.13 * Math.sin(phase) * d },
+          { bone: 'head', axis: [1, 0, 0], angle: -0.22 * Math.cos(phase - 0.7) * d },
+          { bone: 'head', axis: [0, 0, 1], angle: -0.22 * Math.sin(phase - 0.7) * d },
+          { bone: 'upper_arm.R', axis: [0, 0, 1], angle: -0.25 * d },
+          { bone: 'upper_arm.L', axis: [0, 0, 1], angle: 0.25 * d },
+        );
+      }
+      // steadying: a quick shake of the head
+      const shake = between(t, DIZZY - 0.1, DIZZY) * (1 - between(t, DIZZY + 0.2, WALK[0]));
+      if (shake > 1e-3) rotations.push({ bone: 'head', axis: [0, 1, 0], angle: 0.35 * Math.sin((t - DIZZY) * 38) * shake });
+      // a stumble to one side and back as he sways
+      const u = 0.16 * Math.sin(phase * 0.5) * d;
+      const crouch = out * 0.22 + d * (0.14 + 0.08 * Math.abs(Math.sin(phase)));
+      const pose = { u, v: 0, lift: 0, heading, ...clip, crouch, rotations, sword, spell, snap: t > SPIN[0] && t < SPIN[1] };
+      if (t >= WALK[0]) pose.path = walked(t);
+      return pose;
+    },
+    rival(t) {
+      if (t >= 7.25) return { gone: true, u: 1.9, v: 0 };
+      const clip = clipAt([
+        [-99, 'Idle', { loop: true }],
+        [-0.9, 'Guard'],
+        [0.35, 'Slash_1'],
+        [1.1, 'Guard'],
+        // caught in the whirlwind: he stands exactly as he was, and never moves again
+        [2.0, 'Guard', { hold: 1.0 }],
+      ], t);
+      // the blows of the spin land as small shudders, then nothing
+      const shudder = t > 2.2 && t < 3.3 ? Math.sin(t * 60) * 0.04 * (1 - between(t, 3.0, 3.3)) : 0;
+      return { u: 1.9, v: 0, lift: 0, heading: Math.PI, ...clip, crouch: 0, rotations: shudder ? [{ bone: 'chest', axis: [0, 1, 0], angle: shudder }] : [] };
+    },
+    cues: [
+      { at: 0.35, type: 'swing', by: 'rival' },
+      { at: 0.76, type: 'clash' },
+      { at: 1.15, type: 'swing', by: 'hero' },
+      { at: 1.56, type: 'clash' },
+      { at: 2.0, type: 'spin', by: 'hero', seconds: 1.4 },
+      { at: 2.25, type: 'hit', on: 'rival' },
+      { at: 2.55, type: 'hit', on: 'rival' },
+      { at: 2.9, type: 'hit', on: 'rival' },
+      { at: 4.1, type: 'dizzy', by: 'hero', seconds: 1.9 },
+      { at: 7.25, type: 'shatter', on: 'rival' },
+      { at: 7.9, type: 'voice', line: 'killTaunt', chance: 0.5 },
+    ],
+  };
+}
+const WHIRLWIND = makeWhirlwind();
 
 // ---------------------------------------------------------------------------------------------------------------
 // 3. The White Flag: the rival throws a fireball; the Spellblade ducks it, cuts the rival's sword in half as he lunges,
 // turns what is left into a white flag with a flick of sorcery, and the rival, after a long look at it, runs.
-const WHITE_FLAG = {
-  id: 'whiteFlag',
-  reach: 1.9,
-  duration: 11.8,
-  // the rival stands on the South Road's side of the path, and runs off down it
-  side: -1,
-  shot: { swing: 0.4 },
-  hero(t) {
-    const heading = faceRival(t, 11.8);
-    const clip = clipAt([
-      [-1, 'Idle', { loop: true }],
-      [0.3, 'Slash_1'],
-      [1.1, 'Guard'],
-      [1.9, 'Idle', { loop: true }],
-      [3.5, 'Slash_2'],
-      [4.3, 'Idle', { loop: true }],
-      [4.6, 'Run', { loop: true, rate: 0.35 }],
-      [5.1, 'Idle', { loop: true }],
-      [6.0, 'Run', { loop: true, rate: 0.35 }],
-      [6.5, 'Idle', { loop: true }],
-    ], t);
-    // the duck: down low, head tucked, as the fireball passes where his head was
-    const duck = between(t, 2.55, 2.75) * (1 - between(t, 3.2, 3.5));
-    const crouch = duck * 0.95;
-    const rotations = duck > 1e-3 ? [
-      { bone: 'spine', axis: [-1, 0, 0], angle: 0.45 * duck },
-      { bone: 'chest', axis: [-1, 0, 0], angle: 0.25 * duck },
-      { bone: 'head', axis: [-1, 0, 0], angle: 0.35 * duck },
-    ] : [];
-    // a step in to work the change, a step back to admire it
-    const u = keyed([[4.6, 0], [5.1, 0.55], [6.0, 0.55], [6.5, 0]], t);
-    // the flick of sorcery: the spell hand thrust toward the rival's sword
-    const flick = between(t, 5.05, 5.3) * (1 - between(t, 5.7, 6.0));
-    const spell = flick > 1e-3 ? arm(blade([-0.12, 1.36, -0.62], [0, 0, -1]), flick) : null;
-    // he watches him go, then raises his sword to the sky
-    return { u, v: 0, lift: 0, heading, ...clip, crouch, rotations, spell, sword: null, rally: t >= 8.3 && t < 11.2 ? t - 8.3 : null };
-  },
-  rival(t) {
-    if (t >= 9.9) return { gone: true, u: 12.5, v: 1.0, framed: 0 };
-    const clip = clipAt([
-      [-99, 'Idle', { loop: true }],
-      [-0.9, 'Guard'],
-      [1.15, 'Slash_2'],
-      [1.9, 'Dash'],
-      [2.3, 'Cast'],
-      [3.3, 'Dash'],
-      // the lunge, and there he stays: stuck in the stab
-      [3.55, 'Slash_3', { hold: 0.34 }],
-      [7.35, 'Run', { loop: true, rate: 1.1 }],
-    ], t);
-    // hops back to throw, lunges in, then (after the long look) turns and runs for it
-    const u = keyed([[1.9, 1.9], [2.2, 3.0], [3.3, 3.0], [3.6, 1.35], [7.35, 1.35], [9.9, 12.5]], t);
-    const v = keyed([[7.35, 0], [9.9, 1.0]], t);
-    // he turns tail (through facing the camera) and runs the way his feet are going
-    const heading = keyed([[7.0, Math.PI], [7.4, Math.PI * 2 + 0.09], [9.9, Math.PI * 2 + 0.09]], t);
-    // the long look down at the flag, then off he goes, flag held high
-    const look = between(t, 5.6, 6.1) * (1 - between(t, 7.0, 7.3));
-    const rotations = look > 1e-3 ? [
-      { bone: 'head', axis: [-1, 0, 0], angle: 0.75 * look },
-      { bone: 'neck', axis: [-1, 0, 0], angle: 0.2 * look },
-      { bone: 'chest', axis: [-1, 0, 0], angle: 0.1 * look },
-    ] : [];
-    // with the flag in his hand he brings it up before his face to look at it; running, he holds it high
-    const holding = between(t, 5.35, 5.8);
-    const fleeing = between(t, 7.35, 7.6);
-    let sword = null;
-    if (fleeing > 1e-3) sword = arm(blade([0.32, 1.95, -0.08], [0.1, 1, 0.1]), 1);
-    else if (holding > 1e-3) sword = arm(blade([0.2, 1.22, -0.36], [0, 1, 0.12]), holding);
-    // the camera follows him a moment as he bolts, then lets him go and stays with the Spellblade
-    return { u, v, lift: 0, heading, ...clip, crouch: 0, rotations, sword, framed: 1 - between(t, 8.4, 9.2) };
-  },
-  cues: [
-    { at: 0.3, type: 'swing', by: 'hero' },
-    { at: 0.72, type: 'clash' },
-    { at: 1.15, type: 'swing', by: 'rival' },
-    { at: 1.55, type: 'clash' },
-    { at: 2.3, type: 'gather', by: 'rival', spell: 'fireball' },
-    { at: 2.62, type: 'cast', by: 'rival', spell: 'fireball', flight: 0.55, over: true },
-    { at: 3.17, type: 'impact', on: 'behind', spell: 'fireball' },
-    { at: 3.5, type: 'swing', by: 'hero' },
-    { at: 3.9, type: 'cut', on: 'rival' },
-    { at: 5.25, type: 'flag', on: 'rival' },
-    { at: 8.6, type: 'voice', line: 'victory', chance: 0.6 },
-  ],
-};
+// `flee`: where the rival runs to, [u, v] in the fight's frame (each stop on the round has its own way out)
+export function makeWhiteFlag({ flee = [12.5, 1] } = {}) {
+  const [fleeU, fleeV] = flee;
+  // he turns tail the short way round to face the way his feet are going
+  const away = Math.atan2(fleeV, fleeU - 1.35);
+  const turnTo = Math.PI + Math.atan2(Math.sin(away - Math.PI), Math.cos(away - Math.PI));
+  return {
+    key: `whiteFlag:${fleeU},${fleeV}`,
+    id: 'whiteFlag',
+    reach: 1.9,
+    duration: 11.8,
+    // the rival stands on the South Road's side of the path, and runs off down it
+    side: -1,
+    shot: { swing: 0.4 },
+    hero(t) {
+      const heading = faceRival(t, 11.8);
+      const clip = clipAt([
+        [-1, 'Idle', { loop: true }],
+        [0.3, 'Slash_1'],
+        [1.1, 'Guard'],
+        [1.9, 'Idle', { loop: true }],
+        [3.5, 'Slash_2'],
+        [4.3, 'Idle', { loop: true }],
+        [4.6, 'Run', { loop: true, rate: 0.35 }],
+        [5.1, 'Idle', { loop: true }],
+        [6.0, 'Run', { loop: true, rate: 0.35 }],
+        [6.5, 'Idle', { loop: true }],
+      ], t);
+      // the duck: down low, head tucked, as the fireball passes where his head was
+      const duck = between(t, 2.55, 2.75) * (1 - between(t, 3.2, 3.5));
+      const crouch = duck * 0.95;
+      const rotations = duck > 1e-3 ? [
+        { bone: 'spine', axis: [-1, 0, 0], angle: 0.45 * duck },
+        { bone: 'chest', axis: [-1, 0, 0], angle: 0.25 * duck },
+        { bone: 'head', axis: [-1, 0, 0], angle: 0.35 * duck },
+      ] : [];
+      // a step in to work the change, a step back to admire it
+      const u = keyed([[4.6, 0], [5.1, 0.55], [6.0, 0.55], [6.5, 0]], t);
+      // the flick of sorcery: the spell hand thrust toward the rival's sword
+      const flick = between(t, 5.05, 5.3) * (1 - between(t, 5.7, 6.0));
+      const spell = flick > 1e-3 ? arm(blade([-0.12, 1.36, -0.62], [0, 0, -1]), flick) : null;
+      // he watches him go, then raises his sword to the sky
+      return { u, v: 0, lift: 0, heading, ...clip, crouch, rotations, spell, sword: null, rally: t >= 8.3 && t < 11.2 ? t - 8.3 : null };
+    },
+    rival(t) {
+      if (t >= 9.9) return { gone: true, u: fleeU, v: fleeV, framed: 0 };
+      const clip = clipAt([
+        [-99, 'Idle', { loop: true }],
+        [-0.9, 'Guard'],
+        [1.15, 'Slash_2'],
+        [1.9, 'Dash'],
+        [2.3, 'Cast'],
+        [3.3, 'Dash'],
+        // the lunge, and there he stays: stuck in the stab
+        [3.55, 'Slash_3', { hold: 0.34 }],
+        [7.35, 'Run', { loop: true, rate: 1.1 }],
+      ], t);
+      // hops back to throw, lunges in, then (after the long look) turns and runs for it
+      const u = keyed([[1.9, 1.9], [2.2, 3.0], [3.3, 3.0], [3.6, 1.35], [7.35, 1.35], [9.9, fleeU]], t);
+      const v = keyed([[7.35, 0], [9.9, fleeV]], t);
+      // he turns tail and runs the way his feet are going
+      const heading = keyed([[7.0, Math.PI], [7.4, turnTo], [9.9, turnTo]], t);
+      // the long look down at the flag, then off he goes, flag held high
+      const look = between(t, 5.6, 6.1) * (1 - between(t, 7.0, 7.3));
+      const rotations = look > 1e-3 ? [
+        { bone: 'head', axis: [-1, 0, 0], angle: 0.75 * look },
+        { bone: 'neck', axis: [-1, 0, 0], angle: 0.2 * look },
+        { bone: 'chest', axis: [-1, 0, 0], angle: 0.1 * look },
+      ] : [];
+      // with the flag in his hand he brings it up before his face to look at it; running, he holds it high
+      const holding = between(t, 5.35, 5.8);
+      const fleeing = between(t, 7.35, 7.6);
+      let sword = null;
+      if (fleeing > 1e-3) sword = arm(blade([0.32, 1.95, -0.08], [0.1, 1, 0.1]), 1);
+      else if (holding > 1e-3) sword = arm(blade([0.2, 1.22, -0.36], [0, 1, 0.12]), holding);
+      // the camera follows him a moment as he bolts, then lets him go and stays with the Spellblade
+      return { u, v, lift: 0, heading, ...clip, crouch: 0, rotations, sword, framed: 1 - between(t, 8.4, 9.2) };
+    },
+    cues: [
+      { at: 0.3, type: 'swing', by: 'hero' },
+      { at: 0.72, type: 'clash' },
+      { at: 1.15, type: 'swing', by: 'rival' },
+      { at: 1.55, type: 'clash' },
+      { at: 2.3, type: 'gather', by: 'rival', spell: 'fireball' },
+      { at: 2.62, type: 'cast', by: 'rival', spell: 'fireball', flight: 0.55, over: true },
+      { at: 3.17, type: 'impact', on: 'behind', spell: 'fireball' },
+      { at: 3.5, type: 'swing', by: 'hero' },
+      { at: 3.9, type: 'cut', on: 'rival' },
+      { at: 5.25, type: 'flag', on: 'rival' },
+      { at: 8.6, type: 'voice', line: 'victory', chance: 0.6 },
+    ],
+  };
+}
+const WHITE_FLAG = makeWhiteFlag();
 
 export const FIGHTS = Object.freeze([FIREBALL, WHIRLWIND, WHITE_FLAG]);
+
+// the ways the White Flag's rival can run for it, longest first (a stop on the round takes the first that clears)
+export const FLEE_ROUTES = Object.freeze([[12.5, 1], [10, 4], [10, -3], [5, -8], [2, -9], [3, 9], [6, 8]]);
+
+/**
+ * The fights the round can stage, by name: each gives the versions of itself to try at a stop, in order of
+ * preference (random: this round's dice, for what varies from round to round). A new fight joins by adding a line.
+ */
+export const FIGHT_POOL = Object.freeze({
+  fireball: () => [FIREBALL],
+  whirlwind: (random = Math.random) => [makeWhirlwind({ turns: 3 + Math.floor(random() * 3) })],
+  whiteFlag: () => FLEE_ROUTES.map((flee) => makeWhiteFlag({ flee })),
+});
