@@ -172,10 +172,11 @@ test('a server that is slow to answer is waking; one that never answers is given
   assert.equal(link.status, 'connecting');
   await timers.run(2500);
   assert.equal(link.status, 'waking');
-  assert.match(linkStatusView('waking').text, /Waking/);
+  assert.match(linkStatusView('waking').title, /Heralds ride out/);
+  assert.match(linkStatusView('waking').note, /multiplayer waking/);
   remote.pending.reject(new Error('gave up'));
   assert.equal(await reaching, false);
   assert.equal(link.status, 'offline');
-  assert.match(linkStatusView('offline').text, /Solo still works/);
+  assert.match(linkStatusView('offline').note, /solo still works/);
   assert.match(linkStatusView('offline').detail, /browser/);
 });
