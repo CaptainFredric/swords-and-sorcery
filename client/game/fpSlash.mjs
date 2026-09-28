@@ -69,7 +69,7 @@ export const COMBO = Object.freeze([
   key(1.1, [0.19, -0.2, -0.65], [0.45, 0.45, -0.77], [0.8, 0.4, 0.45], { shoulder: [-0.1, 0.03, -0.11], look: [-0.3, 1, 0.9] }),
   key(1.22, [0.32, -0.1, -0.58], [0.72, 0.6, -0.35], [0.6, 0.3, 0.75], { shoulder: [-0.02, 0.06, -0.06], look: [0, 1.3, 1.3] }),
   // it stays high on the right; the magic hand comes across to the grip
-  key(1.36, [0.3, -0.06, -0.55], [0.55, 0.78, -0.3], [-0.3, 0.1, -0.95], { shoulder: [-0.02, 0.07, -0.05], grip: 0.6, look: [0.4, 1.2, 1.2] }),
+  key(1.36, [0.3, -0.06, -0.55], [0.55, 0.78, -0.3], [-0.3, 0.1, -0.95], { shoulder: [-0.02, 0.07, -0.05], grip: 0.5, look: [0.4, 1.2, 1.2] }),
   // 3. the finisher: chambered over the right shoulder in both hands...
   key(1.58, [0.22, -0.06, -0.54], [0.45, 0.85, 0.2], [-0.35, 0.1, -0.93], { shoulder: [-0.06, 0.1, -0.06], grip: 1, look: [1.2, 1.6, 1.3] }),
   // ...and driven down through the middle, the whole body behind it
@@ -113,6 +113,11 @@ function gripPoint(wrist, blade, edge) {
   return add(add(add(wrist, scale(blade, 0.076)), scale(edge, -0.053)), scale(flat, 0.018));
 }
 
+// the kinetic chain's delays (seconds): the body ahead of the hand, the blade behind it
+export const CHAIN = Object.freeze({ body: 0.03, blade: 0.035 });
+// where the magic hand comes up from to take the grip (and falls back to), relative to the grip: below, left, nearer
+const REACH_FROM = Object.freeze([-0.1, -0.17, 0.07]);
+
 // how far the magic arm's shoulder comes forward and in when both hands are on the sword
 const OFF_SHOULDER = Object.freeze([0.24, 0.06, -0.2]);
 
@@ -140,24 +145,29 @@ export function offHandOnGrip({ wrist, blade, edge }) {
  */
 export function comboPose(time) {
   if (!Number.isFinite(time)) return null;
-  const t = ((time % COMBO_CYCLE) + COMBO_CYCLE) % COMBO_CYCLE;
+  const at = (offset) => ((((time + offset) % COMBO_CYCLE) + COMBO_CYCLE) % COMBO_CYCLE);
+  const t = at(0);
+  // a whip, not a lever: the body leads the cut by a beat, the hand follows, and the blade trails the hand
+  const lead = at(CHAIN.body);
+  const trail = at(-CHAIN.blade);
   const wrist = hermite(COMBO, t, (k) => k.wrist);
-  const blade = normalize(hermite(COMBO, t, (k) => k.blade));
-  const edge = leading(hermite(COMBO, t, (k) => k.edge), blade);
-  const shoulder = hermite(COMBO, t, (k) => k.shoulder);
-  const [pitch, roll, yaw] = hermite(COMBO, t, (k) => k.look).map((d) => d * DEG);
+  const blade = normalize(hermite(COMBO, trail, (k) => k.blade));
+  const edge = leading(hermite(COMBO, trail, (k) => k.edge), blade);
+  const shoulder = hermite(COMBO, lead, (k) => k.shoulder);
+  const [pitch, roll, yaw] = hermite(COMBO, lead, (k) => k.look).map((d) => d * DEG);
   // the magic hand's hold eases on and off (never overshooting)
   const hold = Math.max(0, Math.min(1, hermite(COMBO, t, (k) => [k.grip])[0]));
   const grip = hold * hold * (3 - 2 * hold);
   const strike = t >= COMBO_STRIKES[2] ? 2 : t >= COMBO_STRIKES[1] ? 1 : 0;
   const arm = { wrist, blade, edge, shoulder };
-  return {
-    arm,
-    offHand: grip > 1e-3 ? { ...offHandOnGrip(arm), weight: grip } : null,
-    look: { pitch, roll, yaw },
-    strike,
-    time: t,
-  };
+  let offHand = null;
+  if (grip > 1e-3) {
+    const onGrip = offHandOnGrip(arm);
+    // it swoops up into the grip from below (and drops away the same way when it lets go), never sliding in flat
+    const swoop = (1 - grip) ** 2;
+    offHand = { ...onGrip, wrist: add(onGrip.wrist, scale(REACH_FROM, swoop)), weight: grip };
+  }
+  return { arm, offHand, look: { pitch, roll, yaw }, strike, time: t };
 }
 
 // the magic arm drops and draws aside while the sword works, so the follow-through is not hidden behind it

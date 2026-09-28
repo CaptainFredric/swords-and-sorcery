@@ -26,7 +26,10 @@ export const FIGHT_SHOT = Object.freeze({
   swings: Object.freeze([0, 0.2, -0.2, 0.4, -0.4, 0.6, -0.6, 0.8, -0.8]),
 });
 
-/** A fight's frame on the path: its origin, u toward the rival's side and v along the path (unit [x, z]). */
+/**
+ * A fight's frame on the path: its origin, u toward the rival's side and v along the path (unit [x, z]), and `along`,
+ * the path itself from there (a pose with `path` stands that far down it: a knight walking away down the road).
+ */
 export function fightFrame(path, fight, distance) {
   const anchor = path.at(distance);
   const side = fight.side ?? 1;
@@ -34,11 +37,17 @@ export function fightFrame(path, fight, distance) {
     origin: [anchor.x, anchor.z],
     u: [anchor.dir[1] * side, -anchor.dir[0] * side],
     v: [anchor.dir[0], anchor.dir[1]],
+    distance,
+    along: (d) => path.at(distance + d),
   };
 }
 
 /** Where a fight pose stands in the world: [x, z]. */
 export function placeOnFrame(frame, pose) {
+  if (Number.isFinite(pose.path) && frame.along) {
+    const here = frame.along(pose.path);
+    return [here.x, here.z];
+  }
   const u = pose.u ?? 0;
   const v = pose.v ?? 0;
   return [frame.origin[0] + frame.u[0] * u + frame.v[0] * v, frame.origin[1] + frame.u[1] * u + frame.v[1] * v];
@@ -291,4 +300,45 @@ export function chooseSwing(fight, frame, blockers, shot = FIGHT_SHOT) {
     if (count < best.count) best = { swing, count };
   }
   return best.swing;
+}
+
+// how far a solid's footprint is from a point (0 inside)
+function footGap(x, z, solid) {
+  return Math.hypot(
+    Math.max(0, Math.abs(x - solid.center[0]) - solid.size[0] / 2),
+    Math.max(0, Math.abs(z - solid.center[2]) - solid.size[2] / 2),
+  );
+}
+
+/**
+ * Whether a fight has room where its frame puts it: the rival's place clear by a sword's swing, and wherever the
+ * fight takes either knight (a leap back, a walk away, a run for it), on open ground and clear of anything standing.
+ */
+export function fightFits(fight, frame, world = CASTLEWARD) {
+  const low = world.solids.filter((solid) => solid.center[1] - solid.size[1] / 2 <= 1.8);
+  const clear = ([x, z], room) => low.every((solid) => footGap(x, z, solid) > room) && insideCastlewardFootprint(x, z, -0.6);
+  if (!clear(placeOnFrame(frame, { u: fight.reach }), 1.1)) return false;
+  for (let t = -1; t <= fight.duration; t += 0.1) {
+    const { hero, rival, rivalHere } = fightPair(fight, frame, t);
+    if (!clear(hero, 0.45) || (rivalHere && !clear(rival, 0.45))) return false;
+  }
+  return true;
+}
+
+/**
+ * Where on the round a fight can happen at the path `distance`: the side of the path its rival stands (its own
+ * preference first) and the turn of its camera, as { fight (placed on that side), frame, swing }; null if neither
+ * side has room or a clear view. Fights are interchangeable between the round's stops as long as this finds one.
+ */
+export function placeFight(path, fight, distance, blockers, world = CASTLEWARD) {
+  const preferred = fight.side ?? 1;
+  for (const side of [preferred, -preferred]) {
+    const placed = { ...fight, side };
+    const frame = fightFrame(path, placed, distance);
+    if (!fightFits(placed, frame, world)) continue;
+    const swing = chooseSwing(placed, frame, blockers);
+    if (blockedMoments(placed, frame, swing, blockers) > 0) continue;
+    return { fight: placed, frame, swing };
+  }
+  return null;
 }

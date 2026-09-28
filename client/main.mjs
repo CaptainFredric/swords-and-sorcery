@@ -287,6 +287,7 @@ $('#rotate-dismiss').addEventListener('click', () => document.body.classList.add
 function ensureRuntime() {
   if (!runtime) {
     runtime = new GameRuntime($('#game-canvas'), socket, hud, { sound, voice });
+    if (new URLSearchParams(location.search).has('debug')) globalThis.__ssRuntime = runtime;
     runtime.configure({ view: viewOptions(settings), input: inputOptions(settings) });
     if (touchUi) runtime.enableTouch();
     runtime.onPointer = (locked) => {

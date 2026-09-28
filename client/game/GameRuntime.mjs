@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { getWorld } from '../../shared/worlds/registry.mjs';
 import { createMovementState, movePlayer, resolveSprint, tryStartDash } from '../../shared/src/movement.mjs';
 import { separateLocal } from '../../shared/src/separation.mjs';
-import { surfaceHeightAt } from '../../shared/src/collision.mjs';
+import { segmentAabbHit, surfaceHeightAt } from '../../shared/src/collision.mjs';
 import { InputController } from './InputController.mjs';
 import { TouchControls } from './TouchControls.mjs';
 import { RemotePlayers } from './RemotePlayers.mjs';
@@ -21,6 +21,7 @@ import { chillScale, spellFor } from '../../shared/src/spells.mjs';
 import { deathLines, voiceRate } from './sound/voiceRules.mjs';
 import { CombatHeat, matchClosing, nearestFoe } from './sound/combatHeat.mjs';
 import { FP_MOTION } from './firstPersonMotion.mjs';
+import { DEATH_CAM, deathCamera, deathCardText, killerCamPolicy } from './deathCam.mjs';
 import { createWorldRenderer, rendererKeyForWorld } from '../worlds/WorldRendererFactory.mjs';
 import { CastlewardRenderer } from '../worlds/CastlewardRenderer.mjs';
 import { ShatteredKeepRenderer } from '../worlds/ShatteredKeepRenderer.mjs';
@@ -546,7 +547,7 @@ export class GameRuntime {
   #deathEvent(event) {
     const killer = this.latestSnapshot?.players.find((p) => p.id === event.killerId);
     const victim = this.latestSnapshot?.players.find((p) => p.id === event.victimId);
-    if (event.victimId === this.socket.playerId) this.hud.setDeathKiller(killer?.name ?? (event.source === 'abyss' ? 'THE ABYSS' : 'UNKNOWN'));
+    if (event.victimId === this.socket.playerId) this.#dying(event, killer);
     if (event.killerId === this.socket.playerId) {
       this.hud.flashText('SLAIN  +1', 'kill');
       this.hud.hit('kill');
@@ -564,6 +565,56 @@ export class GameRuntime {
     else this.hud.addFeed(`${victim?.name ?? 'A spellblade'} fell into the abyss`, 'abyss');
   }
 
+  // I fell: the card says who and how close it was, and the view plays out the death (deathCam.mjs)
+  #dying(event, killer) {
+    const me = this.socket.playerId;
+    const felledBy = killer && killer.id !== me ? killer : null;
+    this.hud.setDeath(deathCardText({ killerName: felledBy?.name ?? null, source: event.source, killerHealth: felledBy?.health }));
+    const body = this.localState?.position ?? this.localAuth?.position;
+    if (!body) return;
+    const from = felledBy ? this.#bodyPosition(felledBy.id) : null;
+    this.deathCam = {
+      at: performance.now() / 1000,
+      killerId: felledBy?.id ?? null,
+      seen: null,
+      death: {
+        eye: [this.camera.position.x, this.camera.position.y, this.camera.position.z],
+        yaw: this.input.yaw,
+        pitch: this.input.pitch,
+        push: from ? [body.x - from.x, body.z - from.z] : null,
+        ground: body.y,
+      },
+    };
+  }
+
+  // how much of the segment from→to is clear of the arena's walls (the death camera stays out of them)
+  #reach = (from, to) => {
+    let free = 1;
+    for (const box of this.activeWorld?.solids ?? []) {
+      const hit = segmentAabbHit(from, to, box);
+      if (hit && hit.t < free) free = hit.t;
+    }
+    return free;
+  };
+
+  // the camera while I am down, and my arms falling out of view
+  #deathView(timeSec) {
+    const dying = this.deathCam;
+    dying.down = true;
+    const age = timeSec - dying.at;
+    const policy = killerCamPolicy(this.latestSnapshot?.mode);
+    const body = dying.killerId ? this.#bodyPosition(dying.killerId) : null;
+    const killer = body ? [body.x, body.y, body.z] : null;
+    const glimpsed = DEATH_CAM.react * 0.5 + DEATH_CAM.fall + DEATH_CAM.hold + DEATH_CAM.lift + (policy.seconds ?? 0.8);
+    if (policy.look === 'glimpse' && killer && !dying.seen && age >= glimpsed) dying.seen = killer;
+    const view = deathCamera(age, dying.death, killer, { policy, motion: this.view.cameraMotion, seen: dying.seen, reach: this.#reach });
+    this.camera.position.set(...view.position);
+    this.camera.rotation.order = 'YXZ';
+    this.camera.rotation.set(view.pitch, view.yaw, view.roll);
+    this.weapon.group.visible = view.arms > 0.02;
+    this.weapon.group.position.y = -0.35 * (1 - view.arms);
+  }
+
   #frame(nowMs) {
     if (!this.running) return;
     const dt = Math.min(0.05, Math.max(0.001, (nowMs - this.lastFrameAt) / 1000));
@@ -572,6 +623,12 @@ export class GameRuntime {
     const timeSec = nowMs / 1000;
 
     if (this.localState && this.localAuth?.alive && this.playing && this.activeWorld) {
+      // back on my feet: my own eyes and arms again (once I was seen down; the death event can beat its snapshot here)
+      if (this.deathCam && (this.deathCam.down || timeSec - this.deathCam.at > 1)) {
+        this.deathCam = null;
+        this.weapon.group.visible = true;
+        this.weapon.group.position.y = 0;
+      }
       const moveInput = this.input.movement();
       const serverNow = this.socket.serverNow();
       // predict the sprint with the same rule the server uses, from the last authoritative stamina
@@ -613,6 +670,9 @@ export class GameRuntime {
       this.camera.rotation.z = view.camera.roll * motion;
       this.cameraKick *= Math.exp(-dt * 15);
       this.#setFov(this.view.fov + (view.fov - FP_MOTION.baseFov) * motion);
+    } else if (this.localAuth && this.localState && this.deathCam && this.localAuth.alive === false) {
+      this.#deathView(timeSec);
+      this.#setFov(this.view.fov + (this.weapon.update(timeSec, dt).fov - FP_MOTION.baseFov) * this.view.cameraMotion);
     } else if (this.localAuth && this.localState) {
       this.camera.position.set(this.localState.position.x, this.localState.position.y + 1.58, this.localState.position.z);
       this.camera.rotation.z = 0;

@@ -350,3 +350,47 @@ export function whiteFlag(instance, { aim }) {
     },
   };
 }
+
+/**
+ * Little stars circling a dizzy knight's head (the round is a cartoon, and so is he for a moment). Returns
+ * { update(time, strength), dispose() }; they follow his head wherever it goes.
+ */
+export function dizzyStars(scene, instance) {
+  const head = instance.animator.bone('head');
+  const shape = new THREE.Shape();
+  for (let i = 0; i < 10; i += 1) {
+    const r = i % 2 ? 0.024 : 0.06;
+    const a = (i / 10) * Math.PI * 2 + Math.PI / 2;
+    if (i === 0) shape.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+    else shape.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+  }
+  const geometry = new THREE.ExtrudeGeometry(shape, { depth: 0.014, bevelEnabled: false });
+  geometry.center();
+  const material = new THREE.MeshBasicMaterial({ color: 0xffe27a, transparent: true, opacity: 0, depthWrite: false });
+  const group = new THREE.Group();
+  group.name = 'tour-dizzy-stars';
+  const stars = [0, 1, 2, 3].map((i) => {
+    const star = new THREE.Mesh(geometry, material);
+    star.userData.phase = (i / 4) * Math.PI * 2;
+    group.add(star);
+    return star;
+  });
+  scene.add(group);
+  return {
+    update(time, strength = 1) {
+      if (head) head.getWorldPosition(group.position);
+      group.position.y += 0.34;
+      material.opacity = 0.95 * Math.max(0, Math.min(1, strength));
+      for (const star of stars) {
+        const a = star.userData.phase + time * 5.2;
+        star.position.set(Math.cos(a) * 0.26, Math.sin(a * 2) * 0.03, Math.sin(a) * 0.26);
+        star.rotation.set(0.3, a * 1.7, 0);
+      }
+    },
+    dispose() {
+      scene.remove(group);
+      geometry.dispose();
+      material.dispose();
+    },
+  };
+}
