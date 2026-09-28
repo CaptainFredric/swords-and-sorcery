@@ -237,7 +237,7 @@
 
 /* --- open rooms ------------------------------------------------------------------------------------------------ */
 .rooms-inner { --banner-width: min(420px, 38cqw); width: var(--banner-width); }
-.room-list { display: flex; flex-direction: column; gap: 6px; margin: 4px 0 12px; max-height: 38cqh; overflow: auto; scrollbar-width: thin; }
+.room-list { display: flex; flex-direction: column; gap: 6px; margin: 4px 0 12px; max-height: 38cqh; overflow: auto; overscroll-behavior: contain; scrollbar-width: thin; }
 .room-row {
   display: grid; grid-template-columns: 1fr auto; grid-template-areas: 'world count' 'status first'; gap: 2px 10px; align-items: baseline;
   width: 100%; padding: 8px 12px; border: 1px solid rgba(201, 156, 82, .45); border-radius: 2px; cursor: pointer; text-align: left;
@@ -374,4 +374,51 @@ html[data-turn] .turn-only { display: block !important; }
   .settings-foot { padding: 6px 14px 8px; }
   .setting-row { min-height: 42px; padding: 5px 0; }
   .setting-text small { display: none; }
+}
+
+/* --- the Armory: a brass plaque at the knight's feet, and his kit on a banner ------------------------------------ */
+.armory-plaque {
+  position: absolute; z-index: 6; right: clamp(24px, 14cqw, 240px); bottom: 54px; display: grid; justify-items: center; gap: 3px;
+  padding: 10px 22px 9px; border: 1px solid #f4dc9f; border-radius: 2px; background: linear-gradient(180deg, #e7c47c, #b8893f 60%, #97702f);
+  color: #2a1c10; cursor: pointer; pointer-events: auto; box-shadow: 0 4px 14px rgba(0, 0, 0, .45), inset 0 1px 0 rgba(255, 240, 200, .5);
+  transition: transform .14s ease, box-shadow .14s ease;
+}
+.armory-plaque span { font: 400 19px/1 var(--font-inscription); letter-spacing: .14em; }
+.armory-plaque small { font: 700 10px/1 var(--font-script); letter-spacing: .14em; text-transform: uppercase; opacity: .75; }
+.armory-plaque:hover { transform: translateY(-2px); box-shadow: 0 8px 18px rgba(0, 0, 0, .5), 0 0 0 1px rgba(255, 230, 170, .5); }
+.armory-plaque:focus-visible { outline: 2px solid var(--heraldry-brass-light); outline-offset: 3px; }
+
+.armory-inner { --banner-width: min(400px, 40cqw); }
+.armory-slot { margin: 14px 0 6px; color: var(--heraldry-brass-light); font: 800 10px/1 var(--font-script); letter-spacing: .22em; }
+.armory-blade { display: grid; gap: 3px; padding: 10px 12px; border: 1px solid rgba(201, 156, 82, .35); background: rgba(34, 29, 25, .55); }
+.armory-blade b { font: 400 17px/1.1 var(--font-inscription); color: #f1e4c2; }
+.armory-blade small { color: rgba(234, 220, 182, .7); font: 500 12px/1.35 var(--font-script); }
+.armory-spells { display: grid; gap: 8px; }
+.spell-card {
+  position: relative; display: grid; grid-template-columns: 30px 1fr auto; column-gap: 8px; row-gap: 3px; align-items: center; width: 100%;
+  padding: 10px 12px; border: 1px solid rgba(201, 156, 82, .4); border-radius: 2px; background: linear-gradient(180deg, var(--heraldry-iron-light), var(--heraldry-iron));
+  color: var(--heraldry-cream); text-align: left; cursor: pointer; transition: border-color .14s ease, transform .14s ease;
+}
+.spell-card:hover { border-color: var(--heraldry-brass-light); transform: translateX(3px); }
+.spell-card .spell-mark { grid-row: 1 / span 3; font-size: 22px; color: #ffa35a; text-align: center; }
+.spell-card[data-spell="frostfire"] .spell-mark { color: #8fdcff; }
+.spell-card .spell-name { font: 400 18px/1 var(--font-inscription); letter-spacing: .06em; }
+.spell-card i { font: 800 9px/1 var(--font-script); letter-spacing: .18em; font-style: normal; color: #b9dca8; }
+.spell-card small { grid-column: 2 / 4; color: rgba(234, 220, 182, .78); font: 500 12px/1.35 var(--font-script); }
+.spell-card em { grid-column: 2 / 4; color: rgba(236, 201, 127, .85); font: 700 11px/1.3 var(--font-script); font-style: normal; letter-spacing: .03em; }
+.spell-card.equipped { border-color: var(--heraldry-brass-light); box-shadow: 0 0 0 1px rgba(236, 201, 127, .35), 0 0 18px rgba(236, 201, 127, .12) inset; }
+.spell-card[data-spell="frostfire"].equipped { box-shadow: 0 0 0 1px rgba(143, 220, 255, .4), 0 0 18px rgba(143, 220, 255, .12) inset; }
+.armory-note { margin-top: 12px; }
+
+@container app (max-width: 640px) {
+  .armory-plaque { right: 12px; bottom: 12px; padding: 8px 14px 7px; }
+}
+@container app (max-height: 500px) {
+  .armory-plaque { bottom: 14px; padding: 7px 16px 6px; }
+  .armory-plaque span { font-size: 16px; }
+  .armory-plaque small { display: none; }
+  .armory-inner { --banner-width: min(380px, 50cqw); }
+  .armory-slot { margin: 8px 0 4px; }
+  .spell-card { padding: 7px 10px; }
+  .spell-card small { display: none; }
 }

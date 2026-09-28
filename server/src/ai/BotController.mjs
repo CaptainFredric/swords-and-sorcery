@@ -1,5 +1,5 @@
 import { findSwordWorldHit } from '../../../shared/src/collision.mjs';
-import { beginAttack, endAttack, setGuard, tryCastFireball, tryDash } from '../game/combat.mjs';
+import { beginAttack, endAttack, setGuard, tryCastSpell, tryDash } from '../game/combat.mjs';
 
 const MELEE_RANGE = 2.25;
 const FIREBALL_RANGE = 11;
@@ -102,7 +102,7 @@ function considerDefense(room, actor, target, distance, ai, nowSec, random, aggr
 }
 
 function chooseCombatIntent(room, actor, target, distance, ai, nowSec, random, aggression) {
-  if (actor.guarding || actor.attackActive || actor.attackHeld || actor.pendingFireball) return;
+  if (actor.guarding || actor.attackActive || actor.attackHeld || actor.pendingSpell) return;
 
   if (distance <= MELEE_RANGE) {
     if (beginAttack(room, actor.id, nowSec)) {
@@ -112,7 +112,7 @@ function chooseCombatIntent(room, actor, target, distance, ai, nowSec, random, a
   }
 
   if (distance <= FIREBALL_RANGE && random() < 0.42 * aggression) {
-    tryCastFireball(room, actor.id, aimDirection(actor, target), nowSec);
+    tryCastSpell(room, actor.id, aimDirection(actor, target), nowSec);
     return;
   }
 

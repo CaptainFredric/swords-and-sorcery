@@ -17,6 +17,11 @@ export const FP_MOTION = Object.freeze({
   // neutral hands sit a little lower and wider than the authored pose, keeping the sightline clear
   neutralDrop: 0.045,
   neutralSpread: 0.12,
+  // the resting sword hand: the wrist flexed and the forearm turned so the fist closes on the grip under the guard
+  // (the authored pose kinks the wrist into the cuff); the magic hand rests a little lower, clear of the sightline
+  swordWristFlex: 0.3,
+  swordForearmTurn: -0.25,
+  magicArmDrop: 0.12,
 });
 
 // A damped spring toward a target. Impulses add velocity. Stable for any frame time (sub-stepped).
@@ -136,6 +141,13 @@ export class FirstPersonMotion {
     this.impact.z.impulse(0.8);
     this.impact.rz.impulse(1.4);
     this.impact.rx.impulse(1.2);
+  }
+
+  /** A spell leaves the palm: the arms push out after it and the view nods with the throw. */
+  release() {
+    this.impact.z.impulse(-1.1);
+    this.impact.rx.impulse(-0.8);
+    this.camera.pitch.impulse(-0.2);
   }
 
   /** A swing that hits a wall: jarred back and to the side. */

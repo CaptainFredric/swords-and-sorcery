@@ -21,6 +21,6 @@ test('world-clang audio only plays for the local sword impact', () => {
 });
 
 test('unrelated event types do not request generic melee feedback', () => {
-  assert.equal(localCombatFeedback({ type: 'fireballCast', playerId: 'me' }, 'me'), null);
+  assert.equal(localCombatFeedback({ type: 'spellCast', playerId: 'me' }, 'me'), null);
   assert.equal(localCombatFeedback(null, 'me'), null);
 });

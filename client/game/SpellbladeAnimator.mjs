@@ -165,6 +165,17 @@ export class SpellbladeAnimator {
     bone.updateMatrixWorld(true);
   }
 
+  // rotate a bone about one of its own axes (a joint's own bend or twist, whatever the pose around it)
+  #rotateLocal(bone, axis, angle) {
+    if (!bone || Math.abs(angle) < 1e-5) return;
+    _axis.set(axis[0], axis[1], axis[2]);
+    if (_axis.lengthSq() < 1e-10) return;
+    this.#touch(bone);
+    _q.setFromAxisAngle(_axis.normalize(), angle);
+    bone.quaternion.multiply(_q);
+    bone.updateMatrixWorld(true);
+  }
+
   #applyProcedural(motion) {
     if (!motion) return;
     const pose = reactionPose(motion.reactions, motion.now ?? 0, motion.yaw ?? 0);
@@ -194,7 +205,10 @@ export class SpellbladeAnimator {
       if (Number.isFinite(lift) && landFlex > 1e-4) this.#offsetInRootSpace(pelvisBone, [0, -lift * (landFlex / flex), 0]);
     }
 
-    for (const { bone, axis, angle } of pose.rotations) this.#rotateInRootSpace(this.bone(bone), axis, angle);
+    for (const { bone, axis, angle, space } of pose.rotations) {
+      if (space === 'local') this.#rotateLocal(this.bone(bone), axis, angle);
+      else this.#rotateInRootSpace(this.bone(bone), axis, angle);
+    }
     if (pelvisBone && Math.hypot(...pose.pelvis) > 1e-5) this.#offsetInRootSpace(pelvisBone, pose.pelvis);
   }
 

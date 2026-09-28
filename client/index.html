@@ -8,16 +8,18 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Swords &amp; Sorcery" />
-  <link rel="manifest" href="/client/manifest.webmanifest" />
+  <link rel="manifest" href="client/manifest.webmanifest" />
   <title>Swords & Sorcery</title>
-  <link rel="icon" href="data:," />
+  <link rel="icon" href="client/assets/icons/icon.svg" type="image/svg+xml" />
+  <link rel="icon" href="client/assets/icons/icon-32.png" sizes="32x32" type="image/png" />
+  <link rel="apple-touch-icon" href="client/assets/icons/icon-180.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IM+Fell+English+SC&amp;family=Alegreya+Sans:wght@400;500;700;800&amp;display=swap" />
-  <link rel="stylesheet" href="/client/styles.css" />
-  <link rel="stylesheet" href="/client/playability.css" />
-  <link rel="stylesheet" href="/client/menu.css" />
-  <link rel="stylesheet" href="/client/mobile.css" />
+  <link rel="stylesheet" href="client/styles.css" />
+  <link rel="stylesheet" href="client/playability.css" />
+  <link rel="stylesheet" href="client/menu.css" />
+  <link rel="stylesheet" href="client/mobile.css" />
   <script type="importmap">
     {
       "imports": {
@@ -66,6 +68,21 @@
         </div>
         <p id="menu-error" data-menu-error class="error-copy" aria-live="polite"></p>
       </aside>
+      </div>
+      <!-- the knight's kit: a plaque at his feet -->
+      <button id="armory-button" class="armory-plaque" type="button"><span>ARMORY</span><small>Blade and spell</small></button>
+    </section>
+
+    <section id="armory-menu" class="side-screen hidden">
+      <div class="side-screen-inner banner-panel armory-inner">
+        <button class="back-button" id="armory-back">← BACK</button>
+        <p class="eyebrow">THE SPELLBLADE'S KIT</p>
+        <h2>ARMORY</h2>
+        <p class="armory-slot">BLADE</p>
+        <div class="armory-blade"><b id="armory-blade-name">Castleward longsword</b><small id="armory-blade-facts"></small></div>
+        <p class="armory-slot">SPELL · Q</p>
+        <div id="armory-spells" class="armory-spells" role="radiogroup" aria-label="Spell"></div>
+        <p class="panel-copy armory-note">Carried into your next match. More arms and arcana will hang here.</p>
       </div>
     </section>
 
@@ -133,7 +150,7 @@
           <span>MOUSE</span><b>Aim</b>
           <span>LMB</span><b>Hold sword combo</b>
           <span>RMB</span><b>Guard · tap into a strike to Parry</b>
-          <span>Q</span><b>Fireball · Guard does not stop it</b>
+          <span>Q</span><b>Your spell (Fireball or Frostfire, chosen in the Armory) · guard does not stop it</b>
           <span>E</span><b>Dash in your movement direction</b>
           <span>SPACE</span><b>Jump</b>
           <span>TAB</span><b>Scoreboard</b>
@@ -146,13 +163,13 @@
           <span>RIGHT THUMB</span><b>Drag to aim</b>
           <span>ATTACK</span><b>Hold sword combo · drag to aim mid-swing</b>
           <span>GUARD</span><b>Hold to block · tap into a strike to Parry</b>
-          <span>FIREBALL</span><b>Cast where you aim</b>
+          <span>SPELL</span><b>Cast where you aim (choose it in the Armory)</b>
           <span>DASH</span><b>Dash in your movement direction</b>
           <span>SPRINT</span><b>Tap to sprint until you let go of the stick</b>
           <span>MENU</span><b>Arena menu · practice tools</b>
         </div>
         <button class="wide-button how-settings" data-open-settings="controls">SETTINGS · CONTROLS AND KEYS</button>
-        <p class="rules-copy">Three sword hits defeat a full-health Spellblade. A well-timed Guard parries and staggers the attacker. Fireball beats passive blocking. Dash repositions; it does not grant invulnerability. Guard and Sprint share one stamina bar: sprinting drains it slowly, every block costs a chunk, and it refills a moment after you stop.</p>
+        <p class="rules-copy">Four sword hits defeat a full-health Spellblade (or three and a spell). Fireball keeps burning after it lands; Frostfire slows whoever it strikes until they thaw. A well-timed Guard parries and staggers the attacker. Spells beat passive blocking. Dash repositions; it does not grant invulnerability. Guard and Sprint share one stamina bar: sprinting drains it slowly, every block costs a chunk, and it refills a moment after you stop.</p>
       </div>
     </section>
 
@@ -214,6 +231,9 @@
     </section>
 
     <section id="hud" class="hud hidden" aria-hidden="true">
+      <!-- a burn warms the edges of the view; a chill frosts them over, thawing as it fades -->
+      <div id="afflict-burn" class="afflict afflict-burn"></div>
+      <div id="afflict-chill" class="afflict afflict-chill"></div>
       <div id="match-info" class="match-info">FIRST TO 10</div>
       <div id="kill-feed" class="kill-feed"></div>
       <div id="crosshair" class="crosshair"><i></i><i></i><i></i><i></i></div>
@@ -227,7 +247,7 @@
           <span>STAMINA</span><div class="guard-track"><div id="guard-fill" class="guard-fill"></div></div>
         </div>
         <div class="abilities">
-          <div id="fireball-ability" class="ability ready"><span class="ability-icon">✦</span><b>Q</b><em>FIREBALL</em><strong>READY</strong></div>
+          <div id="spell-ability" class="ability ready" data-spell="fireball"><span class="ability-icon">✦</span><b>Q</b><em>FIREBALL</em><strong>READY</strong></div>
           <div id="dash-ability" class="ability ready"><span class="ability-icon">➤</span><b>E</b><em>DASH</em><strong>READY</strong></div>
         </div>
       </div>
@@ -294,6 +314,6 @@
     </div>
   </main>
 
-  <script type="module" src="/client/main.mjs"></script>
+  <script type="module" src="client/main.mjs"></script>
 </body>
 </html>

@@ -27,12 +27,12 @@ test('README exposes an explicit one-click Render deploy for this repository', a
   assert.match(readme, /cold start/i);
 });
 
-test('Pages points at the verified public multiplayer deployment', async () => {
+test('Pages serves the game itself, playing on the verified public multiplayer deployment', async () => {
+  const workflow = await read('.github/workflows/pages.yml');
+  assert.match(workflow, /GAME_SERVER:\s*wss:\/\/swords-and-sorcery\.onrender\.com\/ws/);
+  // the old landing page (now at /about/) sends its Play button to the game beside it
   const config = await read('site/config.js');
-  assert.match(
-    config,
-    /SWORDS_SORCERY_PLAY_URL\s*=\s*['"]https:\/\/swords-and-sorcery\.onrender\.com['"]/
-  );
+  assert.match(config, /SWORDS_SORCERY_PLAY_URL\s*=\s*['"]\.\.\/['"]/);
 });
 
 test('manual public verifier fingerprints the current grounded Castleward solo and first-person build', async () => {

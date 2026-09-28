@@ -163,7 +163,7 @@ export class RemotePlayers {
 
   onEvent(event, snapshot = null) {
     this.#react(event, snapshot);
-    if (event?.type !== 'fireballCast' || event.playerId === this.localId) return;
+    if (event?.type !== 'spellCast' || event.playerId === this.localId) return;
     const window = castPoseWindowFromEvent(event);
     if (!window) return;
 

@@ -5,13 +5,15 @@ export function canPresentLocalAction(action, auth, localState, nowSec) {
   if (action === 'guard') return (auth.guardStamina ?? 0) > 0;
   if (action === 'dash') return Boolean(localState) && nowSec >= (localState.dashReadyAt ?? Infinity);
   if (action === 'attack') return true;
+  // the spell answers the moment it is ready again (the server keeps the true cooldown)
+  if (action === 'cast') return nowSec >= (auth.spellReadyAt ?? 0);
   return false;
 }
 
 export function localWeaponReleaseForEvent(event, localId) {
   if (!event || !localId) return null;
 
-  if (event.type === 'fireballCast' && event.playerId === localId) return { attack: true, guard: true };
+  if (event.type === 'spellCast' && event.playerId === localId) return { attack: true, guard: true };
   if (event.type === 'attackStarted' && event.playerId === localId) return { attack: false, guard: true };
   if (event.type === 'attackEnded' && event.playerId === localId) return { attack: true, guard: false };
   if (event.type === 'guardStarted' && event.playerId === localId) return { attack: true, guard: false };

@@ -5,6 +5,7 @@ import { Ambience } from './Ambience.mjs';
 import { bellTollRecipe, gateRecipe, uiClankRecipe, warDrumRecipe } from './atmosphereRecipes.mjs';
 import { MusicPlayer } from './music/MusicPlayer.mjs';
 import { SoundEngine } from './SoundEngine.mjs';
+import { appUrl } from '../../appUrl.mjs';
 
 export const DEMOS = {
   // the menu at dusk: wind, banners, the bell; a few button presses; a duel found (drum count, gate)
@@ -53,7 +54,7 @@ export const DEMOS = {
       ambience.setScene('arena');
       for (let t = 0; t < 9; t += 0.25) ambience.update(t);
       for (const [file, at] of [['sorcery-1', 0.4], ['sorcery-2', 4.6]]) {
-        const data = await (await fetch(`/client/assets/voice/${file}.m4a`)).arrayBuffer();
+        const data = await (await fetch(appUrl(`/client/assets/voice/${file}.m4a`))).arrayBuffer();
         const buffer = await engine.ctx.decodeAudioData(data);
         engine.playBuffer(buffer, { bus: 'voice', at, gain: 0.95, reverb: 0.2, echo: 'shout', echoLevel: 0.6 });
       }

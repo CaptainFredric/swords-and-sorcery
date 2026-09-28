@@ -8,7 +8,8 @@
 //
 // and the new tab, row or key binding appears on the Settings screen, with its value saved and validated. Setting
 // types: 'range' { min, max, step, unit }, 'toggle', 'choice' { options: [{ value, label }] }. `devices: 'touch'` or
-// 'desktop' shows a row only on that kind of device; `group` puts rows under a heading within their section.
+// 'desktop' shows a row only on that kind of device; `group` puts rows under a heading within their section. A section
+// with `screen: 'armory'` (or any other screen of its own) keeps its values here but is shown elsewhere, not as a tab.
 // Actions are key (or mouse button) bindings, shown on the Controls tab; InputController fires them by id.
 
 const SETTING_TYPES = new Set(['range', 'toggle', 'choice']);
@@ -20,9 +21,9 @@ export class SettingsRegistry {
     this.actions = new Map();
   }
 
-  defineSection({ id, label, order = 100 }) {
+  defineSection({ id, label, order = 100, screen = null }) {
     if (!id || !label) throw new Error('A section needs an id and a label');
-    this.sections.set(id, { id, label, order });
+    this.sections.set(id, { id, label, order, screen });
     return this;
   }
 
@@ -49,6 +50,7 @@ export class SettingsRegistry {
   /** The sections that have something to show on this device, in order. */
   sectionList(device = 'desktop') {
     return [...this.sections.values()]
+      .filter((section) => !section.screen)
       .filter((section) => this.settingsIn(section.id, device).length || (section.id === 'controls' && device === 'desktop' && this.actions.size))
       .sort((a, b) => a.order - b.order);
   }
@@ -122,7 +124,9 @@ export const registry = new SettingsRegistry();
 registry
   .defineSection({ id: 'audio', label: 'SOUND', order: 10 })
   .defineSection({ id: 'controls', label: 'CONTROLS', order: 20 })
-  .defineSection({ id: 'display', label: 'DISPLAY', order: 30 });
+  .defineSection({ id: 'display', label: 'DISPLAY', order: 30 })
+  // what the Spellblade carries into a fight: chosen in the Armory, its own screen
+  .defineSection({ id: 'loadout', label: 'ARMORY', order: 40, screen: 'armory' });
 
 registry
   .defineSetting({ id: 'audio.muted', section: 'audio', label: 'Sound', type: 'toggle', default: false, invert: true, hint: 'M turns it on and off' })
@@ -161,6 +165,12 @@ registry
   .defineSetting({ id: 'display.damageFlash', section: 'display', group: 'Comfort', label: 'Red flash when hit', type: 'toggle', default: true });
 
 registry
+  .defineSetting({
+    id: 'loadout.spell', section: 'loadout', label: 'Spell', type: 'choice', default: 'fireball',
+    options: [{ value: 'fireball', label: 'Fireball' }, { value: 'frostfire', label: 'Frostfire' }],
+  });
+
+registry
   .defineAction({ id: 'forward', label: 'Move forward', group: 'Movement', keys: ['KeyW', 'ArrowUp'] })
   .defineAction({ id: 'back', label: 'Move back', group: 'Movement', keys: ['KeyS', 'ArrowDown'] })
   .defineAction({ id: 'left', label: 'Move left', group: 'Movement', keys: ['KeyA', 'ArrowLeft'] })
@@ -169,7 +179,7 @@ registry
   .defineAction({ id: 'sprint', label: 'Sprint (hold)', group: 'Movement', keys: ['ShiftLeft', 'ShiftRight'] })
   .defineAction({ id: 'attack', label: 'Sword combo (hold)', group: 'Combat', keys: ['Mouse0'] })
   .defineAction({ id: 'guard', label: 'Guard (hold)', group: 'Combat', keys: ['Mouse2'] })
-  .defineAction({ id: 'fireball', label: 'Fireball', group: 'Abilities', keys: ['KeyQ'] })
+  .defineAction({ id: 'spell', label: 'Cast spell', group: 'Abilities', keys: ['KeyQ'] })
   .defineAction({ id: 'dash', label: 'Dash', group: 'Abilities', keys: ['KeyE'] })
   .defineAction({ id: 'scoreboard', label: 'Scoreboard (hold)', group: 'Interface', keys: ['Tab'] })
   .defineAction({ id: 'toggleSound', label: 'Sound on / off', group: 'Interface', keys: ['KeyM'] })

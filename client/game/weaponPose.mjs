@@ -63,7 +63,7 @@ function attackPhase(local) {
 }
 
 export function castVisualDuration(event, localId, serverNow) {
-  if (event?.type !== 'fireballCast' || event.playerId !== localId || !Number.isFinite(serverNow)) return null;
+  if (event?.type !== 'spellCast' || event.playerId !== localId || !Number.isFinite(serverNow)) return null;
   const castEndsAt = Number.isFinite(event.castEndsAt)
     ? event.castEndsAt
     : (Number.isFinite(event.at) ? event.at + 0.3 : null);

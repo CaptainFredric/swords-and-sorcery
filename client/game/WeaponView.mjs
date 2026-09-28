@@ -3,6 +3,7 @@ import { facetedMesh } from './facetedGeometry.mjs';
 import { taperedPrismData, wedgeData } from './facetedGeometryData.mjs';
 import { SPELLBLADE_PALETTE } from './spellbladeDesign.mjs';
 import { createSpellbladeSword } from './SpellbladeSword.mjs';
+import { castGesture, castGestureRotations } from './castGesture.mjs';
 import { createSpellbladeAsset, reportSpellbladeAssetStatus } from './SpellbladeAssets.mjs';
 import { resolveFirstPersonAnimationPlan } from './spellbladeAnimationPlan.mjs';
 import { FIRST_PERSON_WEAPON_SCALE, resolveWeaponPose } from './weaponPose.mjs';
@@ -122,6 +123,9 @@ function addMagicWisp(parent, material, name, position, size, rotation) {
 }
 
 
+// what a spell looks like gathering in the palm
+const SPELL_GLOW = Object.freeze({ fireball: 0xff7a2a, frostfire: 0x7fd6ff });
+
 export class WeaponView {
   constructor(camera) {
     this.camera = camera;
@@ -207,6 +211,9 @@ export class WeaponView {
     this.parryUntil = 0;
     this.castStartedAt = 0;
     this.castUntil = 0;
+    this.castGather = 0.3;
+    this.castSpell = 'fireball';
+    this.castReleased = true;
     this.dashUntil = 0;
     // procedural stride, inertia, sway and impact motion over the authored first-person clips
     this.motion = new FirstPersonMotion();
@@ -241,6 +248,13 @@ export class WeaponView {
       if (instance.sockets.sorcery) {
         instance.sockets.sorcery.add(this.magicLight);
         this.magicLight.position.set(0, 0, 0);
+        // the spell gathering in the palm: a hot core and a softer glow, in the spell's colour
+        this.chargeOrb = new THREE.Group();
+        this.chargeCore = new THREE.Mesh(new THREE.IcosahedronGeometry(0.035, 1), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+        this.chargeGlow = new THREE.Mesh(new THREE.IcosahedronGeometry(0.068, 1), new THREE.MeshBasicMaterial({ color: 0xff7a2a, transparent: true, opacity: 0.45, blending: THREE.AdditiveBlending, depthWrite: false }));
+        this.chargeOrb.add(this.chargeCore, this.chargeGlow);
+        this.chargeOrb.visible = false;
+        instance.sockets.sorcery.add(this.chargeOrb);
       }
 
       this.group.remove(this.fallbackVisual);
@@ -265,12 +279,22 @@ export class WeaponView {
     if (guard) this.attackHeld = false;
   }
 
-  cast(durationSec = 0.36) {
-    const duration = Number.isFinite(durationSec) ? Math.max(0, durationSec) : 0.36;
-    if (duration <= 0) return;
+  /**
+   * Gather a spell in the palm and throw it: gatherSec until it flies (the rest of the server's gather), glowing in
+   * the spell's colour. A cast already gathering (started on the key press) is not restarted by the server's word.
+   */
+  cast({ gatherSec = 0.3, spell = 'fireball' } = {}) {
     const now = performance.now() / 1000;
+    const gather = Number.isFinite(gatherSec) ? Math.max(0, gatherSec) : 0.3;
+    if (!this.castReleased && now < this.castStartedAt + this.castGather + 0.05) {
+      this.castSpell = spell;
+      return;
+    }
     this.castStartedAt = now;
-    this.castUntil = now + duration;
+    this.castGather = gather;
+    this.castUntil = now + gather + 0.06;
+    this.castSpell = spell;
+    this.castReleased = false;
     this.guard = false;
     this.attackHeld = false;
   }
@@ -348,12 +372,23 @@ export class WeaponView {
       const plan = resolveFirstPersonAnimationPlan(pose, this, timeSec);
       // neutral hands sit a little wider apart (clear sightline); in the sprint the arms pump with the stride
       const spread = FP_MOTION.neutralSpread * motion.neutral;
+      // the magic arm draws the spell in close, then throws it (see castGesture.mjs)
+      const gesture = castGesture(timeSec - this.castStartedAt, this.castGather);
+      if (!this.castReleased && timeSec >= this.castStartedAt + this.castGather) {
+        this.castReleased = true;
+        this.motion.release();
+      }
       plan.motion = {
         extra: [
           { bone: 'upper_arm.R', axis: [0, 1, 0], angle: -spread },
           { bone: 'upper_arm.L', axis: [0, 1, 0], angle: spread },
           { bone: 'upper_arm.R', axis: [1, 0, 0], angle: 0.1 * motion.pump },
           { bone: 'upper_arm.L', axis: [1, 0, 0], angle: -0.1 * motion.pump },
+          // at rest only (actions keep their authored arms): a clean grip on the sword, the magic hand lower
+          { bone: 'hand.R', axis: [1, 0, 0], angle: FP_MOTION.swordWristFlex * motion.neutral, space: 'local' },
+          { bone: 'forearm.R', axis: [0, 1, 0], angle: FP_MOTION.swordForearmTurn * motion.neutral, space: 'local' },
+          { bone: 'upper_arm.L', axis: [1, 0, 0], angle: -FP_MOTION.magicArmDrop * motion.neutral, space: 'local' },
+          ...castGestureRotations(gesture),
         ],
       };
       const shown = frozen && this.lastPlan ? this.lastPlan : plan;
@@ -363,9 +398,10 @@ export class WeaponView {
       this.productionOffset.position.set(w.x, w.y, w.z);
       this.productionOffset.rotation.set(w.rx, w.ry, w.rz);
       // gauntlet runes and palm light follow the palm sorcery: dim at rest, bright only while a cast gathers
-      const level = this.productionInstance.sorceryLevel?.() ?? 0;
+      const level = Math.max(this.productionInstance.sorceryLevel?.() ?? 0, gesture.draw);
       for (const material of this.productionInstance.materials.SorceryAccent ?? []) material.emissiveIntensity = 0.7 + 2.1 * level;
       this.magicLight.intensity = 0.12 + 2.6 * level;
+      this.#chargeGlow(gesture, timeSec);
       return motion;
     }
 
@@ -390,6 +426,20 @@ export class WeaponView {
     }
     this.magicLight.intensity = pose.state === 'cast' ? 3.2 : 0.95 * Math.max(0.4, magicScale);
     return motion;
+  }
+
+  // the spell in the palm grows as it gathers and is gone when thrown; the palm light takes on its colour
+  #chargeGlow(gesture, timeSec) {
+    const color = SPELL_GLOW[this.castSpell] ?? SPELL_GLOW.fireball;
+    this.magicLight.color.setHex(gesture.draw > 0.01 ? color : SPELLBLADE_PALETTE.magic);
+    if (!this.chargeOrb) return;
+    this.chargeOrb.visible = gesture.draw > 0.02;
+    if (!this.chargeOrb.visible) return;
+    const flicker = 1 + Math.sin(timeSec * 38) * 0.08;
+    this.chargeOrb.scale.setScalar((0.35 + 0.9 * gesture.draw) * flicker);
+    this.chargeGlow.material.color.setHex(color);
+    this.chargeCore.material.color.setHex(this.castSpell === 'frostfire' ? 0xeafcff : 0xfff0c8);
+    this.chargeGlow.rotation.y = timeSec * 5;
   }
 
   dispose() {

@@ -6,6 +6,13 @@
   --safe-b: env(safe-area-inset-bottom, 0px);
 }
 
+/* one pixel of page to scroll on touch screens (pullGuard.mjs: an app that refreshes on a pull from the top of the
+   page never sees the top); the game itself stays put */
+html.pull-guard { overflow-y: auto; scrollbar-width: none; }
+html.pull-guard::-webkit-scrollbar { display: none; }
+html.pull-guard body { height: calc(100% + 1px); }
+html.pull-guard #game-shell { position: fixed; left: 0; top: 0; }
+
 /* --- Lying sideways on a screen that stays upright (screenTurn.mjs) ------------------------------------------------
    Some apps open the game in a browser locked to portrait. The shell is then rotated a quarter turn to fill the
    portrait screen as a landscape one (the player turns the phone to meet it). --turn-w/--turn-h are the screen's
@@ -37,7 +44,8 @@ button, input { touch-action: manipulation; }
 .touch-attack svg { width: calc(var(--size) * var(--s) * .38); height: calc(var(--size) * var(--s) * .38); }
 .touch-guard { --size: 64px; right: calc(var(--safe-r) + 152px * var(--s)); bottom: calc(var(--safe-b) + 36px * var(--s)); color: #a6e6f3; border-color: rgba(102, 201, 221, .62); }
 .touch-dash { --size: 54px; right: calc(var(--safe-r) + 138px * var(--s)); bottom: calc(var(--safe-b) + 104px * var(--s)); color: #a6e6f3; }
-.touch-fireball { --size: 54px; right: calc(var(--safe-r) + 88px * var(--s)); bottom: calc(var(--safe-b) + 147px * var(--s)); color: #ffb277; border-color: rgba(233, 130, 67, .62); }
+.touch-spell { --size: 54px; right: calc(var(--safe-r) + 88px * var(--s)); bottom: calc(var(--safe-b) + 147px * var(--s)); color: #ffb277; border-color: rgba(233, 130, 67, .62); }
+.touch-spell.frost { color: #a6e2ff; border-color: rgba(120, 200, 240, .62); }
 .touch-jump { --size: 58px; right: calc(var(--safe-r) + 21px * var(--s)); bottom: calc(var(--safe-b) + 154px * var(--s)); }
 .touch-guard.drained { opacity: .5; }
 

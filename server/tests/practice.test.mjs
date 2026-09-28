@@ -36,7 +36,7 @@ test('practice reset restores base combat resources and cooldowns', () => {
   const { room, human } = makePracticeRoom();
   human.health = 12;
   human.guardStamina = 9;
-  human.fireballReadyAt = 99;
+  human.spellReadyAt = 99;
   human.dashReadyAt = 99;
   human.guarding = true;
   human.attackHeld = true;
@@ -45,7 +45,7 @@ test('practice reset restores base combat resources and cooldowns', () => {
   assert.equal(resetPracticePlayer(room, human.id, 5), true);
   assert.equal(human.health, 100);
   assert.equal(human.guardStamina, 100);
-  assert.ok(human.fireballReadyAt <= 5);
+  assert.ok(human.spellReadyAt <= 5);
   assert.ok(human.dashReadyAt <= 5);
   assert.equal(human.guarding, false);
   assert.equal(human.attackHeld, false);

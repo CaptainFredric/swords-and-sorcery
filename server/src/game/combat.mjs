@@ -1,4 +1,5 @@
-import { GAME, SWORD_STRIKE_TIMES, fireballSplashDamage, resolveSwordVsGuard } from '../../../shared/src/combat.mjs';
+import { GAME, SWORD_STRIKE_TIMES, resolveSwordVsGuard } from '../../../shared/src/combat.mjs';
+import { blastDamage, burnFrom, chillScale, spellFor, strongerChill } from '../../../shared/src/spells.mjs';
 import { findSwordWorldHit, segmentAabbHit, surfaceHeightAt } from '../../../shared/src/collision.mjs';
 import { SPRINT, movePlayer, resolveSprint, tryStartDash } from '../../../shared/src/movement.mjs';
 import { separatePlayers } from '../../../shared/src/separation.mjs';
@@ -50,9 +51,12 @@ function resetAtSpawn(player, spawn, nowSec) {
   player.attackNextStrike = 0;
   player.attackRestartAt = -Infinity;
   player.staggerUntil = -Infinity;
-  player.fireballReadyAt = Math.max(player.fireballReadyAt ?? 0, nowSec);
+  player.spellReadyAt = Math.max(player.spellReadyAt ?? 0, nowSec);
   player.castEndsAt = 0;
-  player.pendingFireball = null;
+  player.pendingSpell = null;
+  player.burn = null;
+  player.chill = null;
+  player.speedScale = 1;
   player.spawnProtectionUntil = nowSec + SPAWN_PROTECTION_SEC;
   player.alive = true;
   player.respawnAt = 0;
@@ -110,17 +114,19 @@ export function tryDash(room, playerId, direction, nowSec) {
   return ok;
 }
 
-export function tryCastFireball(room, playerId, direction, nowSec) {
+/** Gather the Spellblade's spell in the palm; it flies when the gather ends (see stepRoom). */
+export function tryCastSpell(room, playerId, direction, nowSec) {
   const player = room.players.get(playerId);
-  if (room.state !== 'PLAYING' || !player || !player.alive || nowSec < player.staggerUntil || nowSec < player.fireballReadyAt) return false;
-  player.fireballReadyAt = nowSec + GAME.fireballCooldownSec;
-  player.castEndsAt = nowSec + 0.3;
-  player.pendingFireball = normalize3(direction);
+  if (room.state !== 'PLAYING' || !player || !player.alive || nowSec < player.staggerUntil || nowSec < player.spellReadyAt) return false;
+  const spell = spellFor(player.spell);
+  player.spellReadyAt = nowSec + spell.cooldownSec;
+  player.castEndsAt = nowSec + spell.gatherSec;
+  player.pendingSpell = { spell: spell.id, direction: normalize3(direction) };
   player.guarding = false;
   player.attackActive = false;
   player.attackHeld = false;
   player.spawnProtectionUntil = Math.min(player.spawnProtectionUntil, nowSec);
-  room.events.push({ type: 'fireballCast', playerId, at: nowSec, castEndsAt: player.castEndsAt });
+  room.events.push({ type: 'spellCast', playerId, spell: spell.id, at: nowSec, castEndsAt: player.castEndsAt });
   return true;
 }
 
@@ -283,9 +289,11 @@ export function killPlayer(room, victimId, attackerId, source, nowSec) {
   return true;
 }
 
-function spawnFireball(room, player, nowSec) {
-  const direction = player.pendingFireball;
-  if (!direction) return;
+function spawnSpell(room, player, nowSec) {
+  const pending = player.pendingSpell;
+  if (!pending) return;
+  const spell = spellFor(pending.spell);
+  const direction = pending.direction;
   const id = `f${++projectileCounter}`;
   const f = forwardFromYaw(player.yaw);
   const horizontalFallback = { x: f.x, y: 0, z: f.z };
@@ -294,30 +302,56 @@ function spawnFireball(room, player, nowSec) {
   const projectile = {
     id,
     ownerId: player.id,
+    spell: spell.id,
     position: { x: player.position.x + normalized.x * 0.7, y: player.position.y + 1.25, z: player.position.z + normalized.z * 0.7 },
-    velocity: { x: normalized.x * 24, y: normalized.y * 24, z: normalized.z * 24 },
+    velocity: { x: normalized.x * spell.speed, y: normalized.y * spell.speed, z: normalized.z * spell.speed },
     bornAt: nowSec,
   };
   room.projectiles.set(id, projectile);
-  player.pendingFireball = null;
+  player.pendingSpell = null;
   player.castEndsAt = 0;
   room.events.push({ type: 'projectileSpawned', projectile: structuredClone(projectile), at: nowSec });
 }
 
-function explodeFireball(room, projectile, point, nowSec, worldHit = false, directVictimId = null) {
+// the blast: damage by distance, a shove away from its heart, then what the spell leaves behind (a burn, a chill)
+function explodeSpell(room, projectile, point, nowSec, worldHit = false, directVictimId = null) {
   room.projectiles.delete(projectile.id);
+  const spell = spellFor(projectile.spell);
+  // fire throws a body back; cold only staggers it a little
+  const shove = spell.chill ? 0.5 : 1;
   for (const player of room.players.values()) {
     if (!player.alive || player.id === projectile.ownerId) continue;
     const center = playerCenter(player);
     const distance = Math.hypot(center.x - point.x, center.y - point.y, center.z - point.z);
-    if (distance > GAME.fireballSplashRadius) continue;
-    const amount = player.id === directVictimId ? GAME.fireballDirectDamage : fireballSplashDamage(distance);
+    const direct = player.id === directVictimId;
+    if (!direct && distance > spell.radius) continue;
+    const amount = direct ? spell.directDamage : blastDamage(spell, distance);
     const away = normalize3({ x: center.x - point.x, y: Math.max(0.15, center.y - point.y), z: center.z - point.z });
-    applyDamage(room, projectile.ownerId, player.id, amount, 'fireball', nowSec, {
-      x: away.x * 4.3, y: away.y * 2.3, z: away.z * 4.3,
+    const hit = applyDamage(room, projectile.ownerId, player.id, amount, spell.id, nowSec, {
+      x: away.x * 4.3 * shove, y: away.y * 2.3 * shove, z: away.z * 4.3 * shove,
     });
+    if (!hit || !player.alive) continue;
+    if (spell.burn) player.burn = burnFrom(spell, amount, projectile.ownerId, nowSec);
+    if (spell.chill) {
+      player.chill = strongerChill(player.chill, { slow: spell.chill.slow, startedAt: nowSec, until: nowSec + spell.chill.seconds }, nowSec);
+    }
   }
-  room.events.push({ type: 'projectileImpact', projectileId: projectile.id, ownerId: projectile.ownerId, point, worldHit, at: nowSec });
+  room.events.push({
+    type: 'projectileImpact', projectileId: projectile.id, ownerId: projectile.ownerId, spell: spell.id, radius: spell.radius, point, worldHit, at: nowSec,
+  });
+}
+
+// burns lick at their victims (credited to whoever threw the fire); chills thaw on their own
+function stepAfflictions(room, player, nowSec) {
+  const burn = player.burn;
+  if (burn && nowSec >= burn.nextAt) {
+    burn.licksLeft -= 1;
+    burn.nextAt += burn.interval;
+    if (burn.licksLeft <= 0) player.burn = null;
+    applyDamage(room, burn.attackerId, player.id, burn.perLick, 'burn', nowSec);
+  }
+  if (player.chill && nowSec >= player.chill.until) player.chill = null;
+  player.speedScale = chillScale(player.chill, nowSec);
 }
 
 function stepProjectiles(room, dt, nowSec, world) {
@@ -334,7 +368,18 @@ function stepProjectiles(room, dt, nowSec, world) {
       if (hit && (!nearestWorld || hit.t < nearestWorld.t)) nearestWorld = hit;
     }
     if (nearestWorld) {
-      explodeFireball(room, projectile, { x: nearestWorld.point[0], y: nearestWorld.point[1], z: nearestWorld.point[2] }, nowSec, true);
+      explodeSpell(room, projectile, { x: nearestWorld.point[0], y: nearestWorld.point[1], z: nearestWorld.point[2] }, nowSec, true);
+      continue;
+    }
+    // a spell thrown at the ground (at someone's feet) bursts where it meets it, instead of sinking through
+    const ground = surfaceHeightAt(after.x, after.z, before.y, world);
+    if (ground !== null && after.y <= ground && before.y > ground) {
+      const t = (before.y - ground) / (before.y - after.y);
+      explodeSpell(room, projectile, {
+        x: before.x + (after.x - before.x) * t,
+        y: ground + 0.05,
+        z: before.z + (after.z - before.z) * t,
+      }, nowSec, true);
       continue;
     }
 
@@ -347,7 +392,7 @@ function stepProjectiles(room, dt, nowSec, world) {
     }
     if (direct) {
       projectile.position = after;
-      explodeFireball(room, projectile, after, nowSec, false, direct.id);
+      explodeSpell(room, projectile, after, nowSec, false, direct.id);
       continue;
     }
 
@@ -378,7 +423,9 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
       continue;
     }
 
-    if (player.pendingFireball && nowSec >= player.castEndsAt) spawnFireball(room, player, nowSec);
+    if (player.pendingSpell && nowSec >= player.castEndsAt) spawnSpell(room, player, nowSec);
+    stepAfflictions(room, player, nowSec);
+    if (!player.alive) continue;
 
     if (!player.guarding && nowSec - player.lastGuardDrainAt >= GUARD_REGEN_DELAY_SEC && player.guardStamina < GAME.guardMax) {
       player.guardStamina = Math.min(GAME.guardMax, player.guardStamina + GUARD_REGEN_PER_SEC * dt);
@@ -396,7 +443,7 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
       grounded: player.grounded,
       stamina: player.guardStamina,
       sprinting: player.sprinting,
-      blocked: staggered || player.guarding || player.attackActive || Boolean(player.pendingFireball),
+      blocked: staggered || player.guarding || player.attackActive || Boolean(player.pendingSpell),
     });
     if (player.sprinting) {
       player.guardStamina = Math.max(0, player.guardStamina - SPRINT.staminaPerSec * dt);

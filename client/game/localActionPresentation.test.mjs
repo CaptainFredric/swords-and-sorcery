@@ -8,7 +8,7 @@ import {
 
 test('authoritative local events release weapon poses that the server has cancelled', () => {
   const me = 'me';
-  assert.deepEqual(localWeaponReleaseForEvent({ type: 'fireballCast', playerId: me }, me), { attack: true, guard: true });
+  assert.deepEqual(localWeaponReleaseForEvent({ type: 'spellCast', playerId: me }, me), { attack: true, guard: true });
   assert.deepEqual(localWeaponReleaseForEvent({ type: 'attackStarted', playerId: me }, me), { attack: false, guard: true });
   assert.deepEqual(localWeaponReleaseForEvent({ type: 'guardStarted', playerId: me }, me), { attack: true, guard: false });
   assert.deepEqual(localWeaponReleaseForEvent({ type: 'swordWorldImpact', playerId: me }, me), { attack: true, guard: false });
@@ -19,7 +19,7 @@ test('authoritative local events release weapon poses that the server has cancel
 });
 
 test('remote combat events do not alter the local first-person pose', () => {
-  assert.equal(localWeaponReleaseForEvent({ type: 'fireballCast', playerId: 'them' }, 'me'), null);
+  assert.equal(localWeaponReleaseForEvent({ type: 'spellCast', playerId: 'them' }, 'me'), null);
   assert.equal(localWeaponReleaseForEvent({ type: 'parry', attackerId: 'a', defenderId: 'b' }, 'me'), null);
   assert.equal(localWeaponReleaseForEvent({ type: 'guardBreak', attackerId: 'a', defenderId: 'b' }, 'me'), null);
 });

@@ -62,3 +62,16 @@
 .pause-card button, #start-match, #lobby-leave { margin-bottom: 10px; }
 #solo-name, #private-name { margin: 8px 0 12px; width: 100%; }
 #lobby-code { user-select: text; }
+
+/* --- spells: the Q tile's colour follows the spell carried; burns and chills show at the edges of my view ---------- */
+.ability[data-spell="frostfire"] .ability-icon { color: #8fdcff; }
+.feed-line.frost { color: #aee8ff; }
+.afflict { position: absolute; inset: 0; z-index: 0; opacity: 0; pointer-events: none; }
+.afflict-burn { box-shadow: inset 0 0 90px rgba(255, 120, 40, .5), inset 0 0 26px rgba(255, 190, 90, .35); transition: opacity .25s ease; }
+.afflict-burn.on { opacity: 1; animation: afflict-flicker .22s steps(2) infinite; }
+@keyframes afflict-flicker { 50% { opacity: .72; } }
+.afflict-chill {
+  background: radial-gradient(ellipse at center, transparent 52%, rgba(170, 225, 255, .26) 78%, rgba(215, 245, 255, .55) 100%);
+  box-shadow: inset 0 0 60px rgba(160, 220, 255, .45); transition: opacity .15s linear;
+}
+@media (prefers-reduced-motion: reduce) { .afflict-burn.on { animation: none; } }

@@ -1,7 +1,14 @@
 import * as THREE from 'three';
 import { impactWorldPresentation, sampleTrailSegment, transientScale } from './effectTrail.mjs';
 
-const MAX_TRANSIENTS = 220;
+const MAX_TRANSIENTS = 260;
+
+// how each spell looks: fire is orange and throws embers; frost is ice-blue and throws shards
+const SPELL_LOOKS = Object.freeze({
+  fireball: { core: 0xffe0a3, emissive: 0xff641c, shell: 0xff7a2a, heart: 0xffe6a8, light: 0xff6b24, bits: [0xffb13b, 0xff6328], flash: 0xff8a2b, burst: 0xffd18a, ring: 0xff9a3c, cloud: 0x6b5a4c },
+  frostfire: { core: 0xe9fcff, emissive: 0x3fb8ff, shell: 0x86dcff, heart: 0xf4fdff, light: 0x5cc8ff, bits: [0xd9f6ff, 0x7fd0ff], flash: 0x8fdcff, burst: 0xe6fbff, ring: 0x7fd6ff, cloud: 0xdff4ff },
+});
+const lookFor = (spell) => SPELL_LOOKS[spell] ?? SPELL_LOOKS.fireball;
 
 // A crescent ribbon in the XY plane, centred on the origin: width swells to its middle and tapers to both points;
 // vertex brightness is hottest on the outer (cutting) edge and fades toward the tips.
@@ -90,6 +97,15 @@ export class Effects {
       blending: THREE.AdditiveBlending,
       depthWrite: false,
     });
+    this.blastGeometry = new THREE.IcosahedronGeometry(0.5, 2);
+    this.groundRingGeometry = new THREE.RingGeometry(0.8, 1, 40);
+    this.puffGeometry = new THREE.IcosahedronGeometry(0.35, 0);
+    this.shardGeometry = new THREE.BoxGeometry(0.04, 0.04, 0.2);
+    this.moteGeometry = new THREE.BoxGeometry(0.03, 0.03, 0.03);
+    this.flameGeometry = new THREE.OctahedronGeometry(0.1, 0);
+    this.spellMaterials = new Map();
+    this.flashLights = [];
+    this.afflictionCarry = new Map();
     this.projectileCoreMaterial = new THREE.MeshStandardMaterial({
       color: 0xffe0a3,
       emissive: 0xff641c,
@@ -104,6 +120,32 @@ export class Effects {
       blending: THREE.AdditiveBlending,
       depthWrite: false,
     });
+  }
+
+  // a spell's own materials, made once (projectile core and shell, blast, rings, cloud)
+  #spellMaterials(spell) {
+    if (this.spellMaterials.has(spell)) return this.spellMaterials.get(spell);
+    const look = lookFor(spell);
+    const glow = (color, opacity) => new THREE.MeshBasicMaterial({ color, transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false });
+    const materials = {
+      core: new THREE.MeshStandardMaterial({ color: look.core, emissive: look.emissive, emissiveIntensity: 5.2, roughness: 0.18, metalness: 0.05 }),
+      shell: glow(look.shell, 0.31),
+      blast: glow(look.shell, 0.5),
+      heart: glow(look.heart, 0.85),
+      ring: new THREE.MeshBasicMaterial({ color: look.ring, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }),
+      cloud: new THREE.MeshBasicMaterial({ color: look.cloud, transparent: true, opacity: spell === 'frostfire' ? 0.28 : 0.32, depthWrite: false }),
+      bits: look.bits.map((color) => new THREE.MeshBasicMaterial({ color })),
+    };
+    this.spellMaterials.set(spell, materials);
+    return materials;
+  }
+
+  // a brief burst of light where a spell breaks
+  #flashLight(point, color, intensity, life, distance) {
+    const light = new THREE.PointLight(color, intensity, distance, 2);
+    light.position.set(point.x, point.y, point.z);
+    this.scene.add(light);
+    this.flashLights.push({ light, life, age: 0, intensity });
   }
 
   #basicMaterial(color) {
@@ -188,7 +230,8 @@ export class Effects {
   block() { this.#cameraFlash(0xffd38a, 0.09, 0.8); }
   parry() { this.#cameraFlash(0xaeefff, 0.12, 1.25); }
   guardBreak() { this.#cameraFlash(0xff744d, 0.14, 1.15); }
-  fireball() { this.#cameraFlash(0xff8a2b, 0.08, 0.58); }
+  /** The palm lights up as a spell begins to gather. */
+  castFlash(spell = 'fireball') { this.#cameraFlash(lookFor(spell).flash, 0.08, 0.58); }
   dash() { this.#dashStreaks(); }
 
   wallClang(point) {
@@ -360,13 +403,71 @@ export class Effects {
     });
   }
 
-  impact(point) {
+  /**
+   * A spell breaking. Fire: a swelling fireball out toward its reach, a shock ring along the ground, smoke, embers and
+   * a flash of light. Frost: a burst of ice shards, a frost ring and cold mist.
+   */
+  impact(point, { spell = 'fireball', radius = 2.6 } = {}) {
     const worldPoint = new THREE.Vector3(point.x, point.y, point.z);
     const cameraPosition = new THREE.Vector3();
     this.camera.getWorldPosition(cameraPosition);
     const presentation = impactWorldPresentation(cameraPosition.distanceTo(worldPoint));
+    const look = lookFor(spell);
+    const materials = this.#spellMaterials(spell);
+    const frost = spell === 'frostfire';
 
-    if (presentation.cameraFlash) this.#cameraFlash(0xff8a2b, 0.1, 0.78);
+    if (presentation.cameraFlash) this.#cameraFlash(look.flash, 0.1, 0.78);
+    this.#flashLight(point, look.light, frost ? 14 : 32, frost ? 0.22 : 0.32, radius * 3.2);
+    // a transient grows as base * (1 + expand * age): the rate that takes it from its start to `to` over its life
+    const growth = (from, to, life) => (to / from - 1) / life;
+    const blastLife = frost ? 0.2 : 0.28;
+
+    // the blast itself, swelling out toward its reach
+    const blast = new THREE.Mesh(this.blastGeometry, materials.blast);
+    blast.position.copy(worldPoint);
+    blast.scale.setScalar(0.3);
+    // the blast geometry has a 0.5 m radius: it swells to most of the spell's reach
+    this.#addTransient(blast, { life: blastLife, expand: growth(0.3, (radius * 0.9) / 0.5, blastLife), fade: true });
+    // and a white-hot heart inside it, quicker and smaller
+    const heart = new THREE.Mesh(this.blastGeometry, materials.heart);
+    heart.position.copy(worldPoint);
+    heart.scale.setScalar(0.25);
+    this.#addTransient(heart, { life: blastLife * 0.55, expand: growth(0.25, (radius * 0.5) / 0.5, blastLife * 0.55), fade: true });
+
+    // a ring running out along the ground (or whatever it broke against)
+    const ring = new THREE.Mesh(this.groundRingGeometry, materials.ring);
+    ring.position.set(point.x, point.y + 0.03, point.z);
+    ring.rotation.x = -Math.PI / 2;
+    ring.scale.setScalar(0.2);
+    // the ring's outer edge is 1 m: it runs out to the full reach
+    this.#addTransient(ring, { life: 0.36, expand: growth(0.2, radius, 0.36), fade: true });
+
+    // smoke rolling up (fire) or cold mist hanging (frost)
+    for (let i = 0; i < (frost ? 4 : 6); i += 1) {
+      const puff = new THREE.Mesh(this.puffGeometry, materials.cloud);
+      puff.position.set(point.x + (Math.random() - 0.5) * radius * 0.5, point.y + Math.random() * 0.3, point.z + (Math.random() - 0.5) * radius * 0.5);
+      puff.rotation.set(Math.random() * 3, Math.random() * 3, 0);
+      this.#addTransient(puff, {
+        velocity: new THREE.Vector3((Math.random() - 0.5) * 0.6, frost ? 0.15 : 0.9 + Math.random() * 0.6, (Math.random() - 0.5) * 0.6),
+        life: 0.8 + Math.random() * 0.4,
+        expand: 2.2,
+        fade: true,
+        drag: 1.5,
+      });
+    }
+
+    if (frost) {
+      // ice shards flung out, tumbling
+      for (let i = 0; i < 18; i += 1) {
+        const shard = new THREE.Mesh(this.shardGeometry, materials.bits[i % 2]);
+        shard.position.copy(worldPoint);
+        const dir = new THREE.Vector3(Math.random() - 0.5, Math.random() * 0.7 + 0.1, Math.random() - 0.5).normalize();
+        shard.lookAt(worldPoint.clone().add(dir));
+        this.#addTransient(shard, { velocity: dir.multiplyScalar(4 + Math.random() * 4), life: 0.45 + Math.random() * 0.25, shrink: true, gravity: 9, spin: new THREE.Vector3(6, 8, 4) });
+      }
+      this.sparks(point, 0xcff4ff, 8);
+      return;
+    }
 
     if (presentation.showWorldBurst) {
       const flash = new THREE.Mesh(this.impactFlashGeometry, this.#basicMaterial(0xffd18a));
@@ -391,22 +492,42 @@ export class Effects {
       }
     }
 
-    for (let i = 0; i < 18; i += 1) this.#ember(point);
-    this.sparks(point, 0xff8a3c, 12);
+    // flames licking up out of it
+    for (let i = 0; i < 12; i += 1) {
+      const angle = Math.random() * Math.PI * 2;
+      const reach = Math.random() * radius * 0.6;
+      this.#flame({ x: point.x + Math.cos(angle) * reach, y: point.y + Math.random() * 0.4, z: point.z + Math.sin(angle) * reach });
+    }
+    // embers thrown out well past the heart of it
+    for (let i = 0; i < 26; i += 1) {
+      const mesh = new THREE.Mesh(this.emberGeometry, this.emberMaterials[i % 2]);
+      mesh.position.copy(worldPoint);
+      const dir = new THREE.Vector3(Math.random() - 0.5, Math.random() * 0.9 + 0.1, Math.random() - 0.5).normalize();
+      this.#addTransient(mesh, { velocity: dir.multiplyScalar(3 + Math.random() * 5), life: 0.4 + Math.random() * 0.4, shrink: true, gravity: 6, spin: new THREE.Vector3(4, 6, 5), drag: 0.8 });
+    }
+    this.sparks(point, 0xff8a3c, 14);
   }
 
-  #createProjectile() {
+  #createProjectile(spell = 'fireball') {
+    const look = lookFor(spell);
+    const materials = this.#spellMaterials(spell);
     const group = new THREE.Group();
-    const core = new THREE.Mesh(this.projectileCoreGeometry, this.projectileCoreMaterial);
-    const shell = new THREE.Mesh(this.projectileShellGeometry, this.projectileShellMaterial);
+    const core = new THREE.Mesh(this.projectileCoreGeometry, materials.core);
+    const shell = new THREE.Mesh(this.projectileShellGeometry, materials.shell);
     shell.rotation.set(0.4, 0.2, 0.1);
+    // frost flies as a lean bolt along its path; fire as a rolling ball
+    if (spell === 'frostfire') {
+      core.scale.set(0.7, 0.7, 2.1);
+      shell.scale.set(0.55, 0.55, 1.6);
+    }
     group.add(core, shell);
 
-    const light = new THREE.PointLight(0xff6b24, 7.5, 5, 2);
+    const light = new THREE.PointLight(look.light, 7.5, 5, 2);
     group.add(light);
     this.scene.add(group);
 
     return {
+      spell,
       group,
       core,
       shell,
@@ -417,13 +538,58 @@ export class Effects {
     };
   }
 
+  // a mote of frost shed along a bolt's path or off a chilled body: small, pale, drifting
+  #frostMote(point, velocity = new THREE.Vector3(), life = 0.35) {
+    const materials = this.#spellMaterials('frostfire');
+    const mesh = new THREE.Mesh(this.moteGeometry, materials.bits[Math.random() < 0.5 ? 0 : 1]);
+    mesh.position.set(point.x + (Math.random() - 0.5) * 0.08, point.y + (Math.random() - 0.5) * 0.08, point.z + (Math.random() - 0.5) * 0.08);
+    this.#addTransient(mesh, { velocity, life: life + Math.random() * 0.15, shrink: true, gravity: 0.6, spin: new THREE.Vector3(2, 3, 2) });
+  }
+
+  // a lick of flame rising off a burning body
+  #flame(point) {
+    const mesh = new THREE.Mesh(this.flameGeometry, this.emberMaterials[Math.random() < 0.6 ? 0 : 1]);
+    mesh.position.set(point.x, point.y, point.z);
+    this.#addTransient(mesh, {
+      velocity: new THREE.Vector3((Math.random() - 0.5) * 0.3, 1.2 + Math.random() * 0.9, (Math.random() - 0.5) * 0.3),
+      life: 0.3 + Math.random() * 0.25,
+      shrink: true,
+      spin: new THREE.Vector3(3, 5, 2),
+    });
+  }
+
+  /**
+   * What an affliction looks like on a body, called every frame: flames licking up while it burns, frost drifting off
+   * it while it is chilled (chill 0..1, fading as it thaws).
+   */
+  afflict(id, position, { burning = false, chill = 0 } = {}, dt = 0.016) {
+    if (!position || (!burning && chill <= 0.01)) {
+      this.afflictionCarry.delete(id);
+      return;
+    }
+    const carry = this.afflictionCarry.get(id) ?? { flames: 0, frost: 0 };
+    const around = () => ({ x: position.x + (Math.random() - 0.5) * 0.5, y: position.y + 0.35 + Math.random() * 1.3, z: position.z + (Math.random() - 0.5) * 0.5 });
+    if (burning) {
+      carry.flames += dt * 28;
+      while (carry.flames >= 1) { carry.flames -= 1; this.#flame(around()); }
+    }
+    if (chill > 0.01) {
+      carry.frost += dt * 16 * chill;
+      while (carry.frost >= 1) {
+        carry.frost -= 1;
+        this.#frostMote(around(), new THREE.Vector3((Math.random() - 0.5) * 0.2, -0.3 - Math.random() * 0.3, (Math.random() - 0.5) * 0.2), 0.5);
+      }
+    }
+    this.afflictionCarry.set(id, carry);
+  }
+
   syncProjectiles(projectiles) {
     const seen = new Set();
     for (const p of projectiles) {
       seen.add(p.id);
       let effect = this.projectiles.get(p.id);
       if (!effect) {
-        effect = this.#createProjectile();
+        effect = this.#createProjectile(p.spell);
         this.projectiles.set(p.id, effect);
       }
 
@@ -435,10 +601,15 @@ export class Effects {
           maxSamples: 5,
         });
         effect.trailCarry = trail.carry;
-        for (const point of trail.points) this.#ember(point, p.velocity);
+        for (const point of trail.points) {
+          if (effect.spell === 'frostfire') this.#frostMote(point, new THREE.Vector3((Math.random() - 0.5) * 0.4, (Math.random() - 0.5) * 0.4, (Math.random() - 0.5) * 0.4));
+          else this.#ember(point, p.velocity);
+        }
       }
 
       effect.group.position.set(next.x, next.y, next.z);
+      // a bolt points along its flight
+      if (effect.spell === 'frostfire' && p.velocity) effect.group.lookAt(next.x + p.velocity.x, next.y + p.velocity.y, next.z + p.velocity.z);
       effect.lastPosition = next;
     }
 
@@ -451,6 +622,17 @@ export class Effects {
   }
 
   update(dt) {
+    for (let i = this.flashLights.length - 1; i >= 0; i -= 1) {
+      const flash = this.flashLights[i];
+      flash.age += dt;
+      const t = flash.age / flash.life;
+      if (t >= 1) {
+        this.scene.remove(flash.light);
+        this.flashLights.splice(i, 1);
+        continue;
+      }
+      flash.light.intensity = flash.intensity * (1 - t) * (1 - t);
+    }
     for (const effect of this.projectiles.values()) {
       effect.phase += dt * 8;
       effect.shell.rotation.x += dt * 2.9;

@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <title>Swords &amp; Sorcery</title>
+  <defs>
+    <radialGradient id="field" cx="50%" cy="40%" r="72%">
+      <stop offset="0" stop-color="#9c3027"/>
+      <stop offset="1" stop-color="#3a100d"/>
+    </radialGradient>
+    <linearGradient id="blade" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#f6f8fa"/>
+      <stop offset=".48" stop-color="#d3d8df"/>
+      <stop offset=".52" stop-color="#9ea6b2"/>
+      <stop offset="1" stop-color="#7c8491"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f9e19a"/>
+      <stop offset="1" stop-color="#b3812f"/>
+    </linearGradient>
+    <radialGradient id="fire" cx="40%" cy="38%" r="66%">
+      <stop offset="0" stop-color="#fffbe6"/>
+      <stop offset=".3" stop-color="#ffd35c"/>
+      <stop offset=".7" stop-color="#ff7424"/>
+      <stop offset="1" stop-color="#c72f10"/>
+    </radialGradient>
+    <linearGradient id="helm" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#e8ebef"/>
+      <stop offset=".55" stop-color="#b7bec8"/>
+      <stop offset="1" stop-color="#6f7784"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="512" height="512" fill="url(#field)"/>
+
+  <g transform="translate(256 256) scale(0.78) translate(-256 -256)">
+  <!-- the sword, point to the upper right -->
+  <g transform="rotate(45 256 256)">
+    <path d="M256 30 L284 82 L284 318 L228 318 L228 82 Z" fill="url(#blade)" stroke="#23180f" stroke-width="9" stroke-linejoin="round"/>
+    <rect x="170" y="314" width="172" height="30" rx="12" fill="url(#gold)" stroke="#23180f" stroke-width="9"/>
+    <rect x="238" y="344" width="36" height="76" rx="9" fill="#4d2e1b" stroke="#23180f" stroke-width="9"/>
+    <circle cx="256" cy="440" r="24" fill="url(#gold)" stroke="#23180f" stroke-width="9"/>
+  </g>
+
+  <!-- the fireball, flying to the upper left with its flames streaming behind -->
+  <g transform="rotate(-45 256 256)">
+    <path d="M190 120 C196 220 214 330 232 400 C240 432 248 456 256 478 C264 456 272 432 280 400 C298 330 316 220 322 120 Z" fill="#e0441a" stroke="#23180f" stroke-width="8" stroke-linejoin="round"/>
+    <path d="M204 132 C212 230 226 318 242 372 L256 420 L270 372 C286 318 300 230 308 132 Z" fill="#ff8a2a"/>
+    <path d="M226 140 C232 214 242 280 256 340 C270 280 280 214 286 140 Z" fill="#ffd35c"/>
+    <circle cx="256" cy="110" r="68" fill="url(#fire)" stroke="#23180f" stroke-width="9"/>
+    <path d="M222 92 Q234 70 260 66" fill="none" stroke="#fffbe6" stroke-width="11" stroke-linecap="round" opacity=".85"/>
+  </g>
+
+  <!-- the great helm, over the crossing -->
+  <g>
+    <path d="M178 176 Q180 146 256 142 Q332 146 334 176 L334 316 Q334 346 304 352 L208 352 Q178 346 178 316 Z" fill="url(#helm)" stroke="#23180f" stroke-width="11" stroke-linejoin="round"/>
+    <path d="M180 190 L332 190" stroke="#e2bd72" stroke-width="12"/>
+    <path d="M200 238 L312 238" stroke="#1a120c" stroke-width="20" stroke-linecap="round"/>
+    <path d="M256 238 L256 318" stroke="#1a120c" stroke-width="18" stroke-linecap="round"/>
+    <path d="M256 150 L256 222" stroke="#8e97a4" stroke-width="7" stroke-linecap="round"/>
+    <circle cx="298" cy="292" r="5.5" fill="#1a120c"/>
+    <circle cx="298" cy="314" r="5.5" fill="#1a120c"/>
+    <circle cx="214" cy="292" r="5.5" fill="#1a120c"/>
+    <circle cx="214" cy="314" r="5.5" fill="#1a120c"/>
+  </g>
+  </g>
+</svg>

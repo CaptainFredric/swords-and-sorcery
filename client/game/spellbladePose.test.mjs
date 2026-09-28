@@ -49,11 +49,11 @@ test('locomotion distinguishes air, run and idle', () => {
 
 test('cast pose is driven only by authoritative fireball cast events', () => {
   assert.equal(castPoseDeadlineFromEvent({ type: 'respawn', playerId: 'p1', at: 20 }, 19.5), 19.5);
-  assertNear(castPoseDeadlineFromEvent({ type: 'fireballCast', playerId: 'p1', at: 20, castEndsAt: 20.3 }, 19.5), 20.36);
+  assertNear(castPoseDeadlineFromEvent({ type: 'spellCast', playerId: 'p1', at: 20, castEndsAt: 20.3 }, 19.5), 20.36);
 
   assert.deepEqual(castPoseWindowFromEvent({ type: 'respawn', playerId: 'p1', at: 20 }), null);
   assert.deepEqual(
-    castPoseWindowFromEvent({ type: 'fireballCast', playerId: 'p1', at: 20, castEndsAt: 20.3 }),
+    castPoseWindowFromEvent({ type: 'spellCast', playerId: 'p1', at: 20, castEndsAt: 20.3 }),
     { startAt: 20, endAt: 20.36 },
   );
 });

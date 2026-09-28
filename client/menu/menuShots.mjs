@@ -15,6 +15,8 @@ export const MENU_SHOTS = Object.freeze({
   private: shot([1.6, 1.1, 0.2], [-0.39, 5.8, 16.08], 42),
   how: shot([-4.6, 1.6, 0.2], [2.38, 1.7, 5.88], 38),
   lobby: shot([0.6, 2.4, -2.4], [2.15, 3.0, 13.52], 44),
+  // the Armory: close on the Spellblade and the spell in his palm, still on the right third
+  armory: shot([0.9, 1.55, 1.6], [-0.55, 1.3, 7.42], 40),
 });
 
 const SCREEN_SHOTS = Object.freeze({
@@ -24,6 +26,7 @@ const SCREEN_SHOTS = Object.freeze({
   PRIVATE_MENU: 'private',
   HOW_TO_PLAY: 'how',
   LOBBY: 'lobby',
+  ARMORY: 'armory',
 });
 
 /** The shot for a screen id (or a shot name); anything unknown gets the front door. */

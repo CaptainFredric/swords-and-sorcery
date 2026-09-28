@@ -1,5 +1,6 @@
 import { SPRINT } from '../../shared/src/movement.mjs';
 import { combatStatusDurationMs } from '../game/combatFeedbackTiming.mjs';
+import { spellFor } from '../../shared/src/spells.mjs';
 
 export function matchInfoText(snapshot, serverNow) {
   if (snapshot?.mode === 'PRACTICE') return 'PRACTICE YARD  ·  UNTIMED';
@@ -21,7 +22,11 @@ export class HUD {
     this.healthTrail = document.querySelector('#health-trail');
     this.guardBlock = document.querySelector('#guard-block');
     this.guardFill = document.querySelector('#guard-fill');
-    this.fireball = document.querySelector('#fireball-ability');
+    this.spell = document.querySelector('#spell-ability');
+    this.spellLabel = this.spell.querySelector('em');
+    this.spellIcon = this.spell.querySelector('.ability-icon');
+    this.burnEdge = document.querySelector('#afflict-burn');
+    this.chillEdge = document.querySelector('#afflict-chill');
     this.dash = document.querySelector('#dash-ability');
     this.matchInfo = document.querySelector('#match-info');
     this.feed = document.querySelector('#kill-feed');
@@ -60,7 +65,14 @@ export class HUD {
     this.guardBlock.classList.toggle('sprinting', Boolean(local.sprinting));
     this.guardBlock.classList.toggle('winded', !local.sprinting && guard < SPRINT.restartStamina);
 
-    this.#ability(this.fireball, Math.max(0, local.fireballReadyAt - serverNow));
+    // the Q tile shows whichever spell was carried in from the Armory
+    const spell = spellFor(local.spell);
+    if (this.spell.dataset.spell !== spell.id) {
+      this.spell.dataset.spell = spell.id;
+      this.spellLabel.textContent = spell.label.toUpperCase();
+      this.spellIcon.textContent = spell.id === 'frostfire' ? '❄' : '✦';
+    }
+    this.#ability(this.spell, Math.max(0, (local.spellReadyAt ?? 0) - serverNow), spell.cooldownSec);
     this.#ability(this.dash, Math.max(0, local.dashReadyAt - serverNow));
     this.matchInfo.textContent = matchInfoText(snapshot, serverNow);
 
@@ -68,13 +80,19 @@ export class HUD {
     if (!local.alive) this.deathTimer.textContent = Math.max(0, local.respawnAt - serverNow).toFixed(1);
   }
 
-  #ability(element, remaining) {
+  #ability(element, remaining, cooldownSec = 5) {
     const value = element.querySelector('strong');
     const ready = remaining <= 0.01;
     element.classList.toggle('ready', ready);
     element.classList.toggle('cooling', !ready);
     value.textContent = ready ? 'READY' : remaining.toFixed(1);
-    element.style.setProperty('--cooldown', String(Math.min(1, remaining / 5)));
+    element.style.setProperty('--cooldown', String(Math.min(1, remaining / cooldownSec)));
+  }
+
+  /** My own afflictions at the edges of the view: burning (on or off), chill 0..1 (fading as it thaws). */
+  setAfflictions({ burning = false, chill = 0 } = {}) {
+    this.burnEdge.classList.toggle('on', Boolean(burning));
+    this.chillEdge.style.opacity = String(Math.max(0, Math.min(1, chill)));
   }
 
   flashText(text, kind = '', durationMs = null) {

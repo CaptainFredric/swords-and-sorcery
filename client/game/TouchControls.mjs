@@ -1,5 +1,5 @@
-import { GAME } from '../../shared/src/combat.mjs';
 import { MOVEMENT } from '../../shared/src/movement.mjs';
+import { spellFor } from '../../shared/src/spells.mjs';
 import { lookDelta, stickVector, TOUCH } from './touchControlsModel.mjs';
 import { screenTurn } from '../ui/screenTurn.mjs';
 
@@ -17,6 +17,7 @@ const ICONS = {
   attack: '<path d="M20 4 9 15M6 12l6 6M7.5 16.5 4 20"/>',
   guard: '<path d="M12 3l7 3v5c0 5-3.5 8.5-7 10-3.5-1.5-7-5-7-10V6z"/>',
   fireball: '<path d="M12 2.8c.9 3.7 5 5.3 5 10a5 5 0 0 1-10 0c0-2.4 1.3-4 2.6-5.3.3 1.7 1 2.7 2.1 3.2-.5-3 .1-5.5.3-7.9z"/>',
+  frostfire: '<path d="M12 3v18M4.2 7.5l15.6 9M4.2 16.5l15.6-9M9.5 4.5 12 7l2.5-2.5M9.5 19.5 12 17l2.5 2.5"/>',
   dash: '<path d="M4 8h6M3 12h8M4 16h6M13 6l6 6-6 6"/>',
   jump: '<path d="M12 18V6M6.5 11.5 12 6l5.5 5.5M6 21h12"/>',
   sprint: '<path d="M6 12.5 12 7l6 5.5M6 18.5 12 13l6 5.5"/>',
@@ -28,15 +29,16 @@ const BUTTONS = [
   { action: 'attack', label: 'ATTACK' },
   { action: 'guard', label: 'GUARD' },
   { action: 'dash', label: 'DASH', cooldown: { key: 'dashReadyAt', seconds: MOVEMENT.dashCooldown } },
-  { action: 'fireball', label: 'FIREBALL', cooldown: { key: 'fireballReadyAt', seconds: GAME.fireballCooldownSec } },
+  // the spell carried from the Armory (its icon, name and cooldown follow the spell)
+  { action: 'spell', label: 'FIREBALL', icon: 'fireball', cooldown: { key: 'spellReadyAt', seconds: 4 } },
   { action: 'jump', label: 'JUMP' },
   { action: 'sprint', label: 'SPRINT' },
   { action: 'pause', label: 'MENU' },
   { action: 'scores', label: 'SCORES' },
 ];
 
-function svg(action) {
-  return `<svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[action]}</svg>`;
+function svg(icon) {
+  return `<svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[icon]}</svg>`;
 }
 
 // where a finger is in the game's own frame (the game may be lying sideways on a screen that stays upright)
@@ -60,9 +62,9 @@ export class TouchControls {
     this.layer.className = 'touch-controls';
     this.layer.innerHTML = `
       <div class="touch-stick"><div class="touch-stick-knob"></div></div>
-      ${BUTTONS.map(({ action, label, cooldown }) => `
+      ${BUTTONS.map(({ action, label, icon = action, cooldown }) => `
         <div class="touch-btn touch-${action}" data-action="${action}" role="button" aria-label="${label}">
-          ${svg(action)}<span>${label}</span>${cooldown ? '<i class="touch-cooldown"></i><b class="touch-timer"></b>' : ''}
+          ${svg(icon)}<span>${label}</span>${cooldown ? '<i class="touch-cooldown"></i><b class="touch-timer"></b>' : ''}
         </div>`).join('')}`;
     root.append(this.layer);
     this.stickBase = this.layer.querySelector('.touch-stick');
@@ -140,6 +142,7 @@ export class TouchControls {
 
   update(local, serverNow) {
     if (!local) return;
+    this.#showSpell(spellFor(local.spell));
     for (const { element, timer, key, seconds } of this.cooldowns) {
       const remaining = Math.max(0, (local[key] ?? 0) - serverNow);
       const ready = remaining <= 0.01;
@@ -149,6 +152,19 @@ export class TouchControls {
     }
     this.buttons.sprint.classList.toggle('sprinting', Boolean(local.sprinting));
     this.buttons.guard.classList.toggle('drained', (local.guardStamina ?? 100) < 1);
+  }
+
+  // the spell button wears the carried spell
+  #showSpell(spell) {
+    const button = this.buttons.spell;
+    if (!button || button.dataset.spell === spell.id) return;
+    button.dataset.spell = spell.id;
+    button.classList.toggle('frost', spell.id === 'frostfire');
+    button.setAttribute('aria-label', spell.label.toUpperCase());
+    button.querySelector('span').textContent = spell.label.toUpperCase();
+    button.querySelector('svg').innerHTML = ICONS[spell.id] ?? ICONS.fireball;
+    const cooldown = this.cooldowns.find((entry) => entry.element === button);
+    if (cooldown) cooldown.seconds = spell.cooldownSec;
   }
 
   dispose() {
@@ -215,7 +231,7 @@ export class TouchControls {
       this.aim ??= new Map();
       this.aim.set(event.pointerId, gamePoint(event));
     }
-    if (action === 'fireball') this.input.cast();
+    if (action === 'spell') this.input.cast();
     if (action === 'dash') this.input.dash();
     if (action === 'jump') {
       this.jumpHeld = true;

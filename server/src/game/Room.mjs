@@ -1,6 +1,7 @@
 import { createMovementState } from '../../../shared/src/movement.mjs';
 import { GAME_MODES, VOTE_OPTIONS, getModePolicy } from '../../../shared/src/modes.mjs';
 import { WORLD_IDS, getWorld } from '../../../shared/worlds/registry.mjs';
+import { DEFAULT_SPELL, SPELLS, isSpell } from '../../../shared/src/spells.mjs';
 
 const COUNTDOWN_SEC = 3;
 const MATCH_SEC = 360;
@@ -28,9 +29,12 @@ function freshCombatState(spawn, nowSec = 0) {
     attackNextStrike: 0,
     attackRestartAt: -Infinity,
     staggerUntil: -Infinity,
-    fireballReadyAt: 0,
+    spellReadyAt: 0,
     castEndsAt: 0,
-    pendingFireball: null,
+    pendingSpell: null,
+    burn: null,
+    chill: null,
+    speedScale: 1,
     spawnProtectionUntil: nowSec + 1,
     alive: true,
     respawnAt: 0,
@@ -73,13 +77,15 @@ export class Room {
     this.autoStartAfterSec = isPrivate ? AUTO_START_PRIVATE_SEC : AUTO_START_PUBLIC_SEC;
   }
 
-  addPlayer({ id, token, name }, nowSec) {
+  addPlayer({ id, token, name, spell = DEFAULT_SPELL }, nowSec) {
     if (this.players.size >= 8) throw new Error('Room is full');
     const spawn = this.world.spawnPoints[this.players.size % this.world.spawnPoints.length];
     const player = {
       id,
       token,
       name: String(name || 'Spellblade').slice(0, 18),
+      // the spell carried from the Armory
+      spell: isSpell(spell) ? spell : DEFAULT_SPELL,
       actorKind: 'human',
       connected: true,
       arenaReady: false,
@@ -95,15 +101,18 @@ export class Room {
     return player;
   }
 
-  addServerActor({ id, name, actorKind }, nowSec) {
+  addServerActor({ id, name, actorKind, spell = null }, nowSec) {
     if (!['bot', 'dummy'].includes(actorKind)) throw new Error('Server actor must be bot or dummy');
     if (this.players.size >= 8) throw new Error('Room is full');
     if (this.players.has(id)) return this.players.get(id);
     const spawn = this.world.spawnPoints[this.players.size % this.world.spawnPoints.length];
+    const spells = Object.keys(SPELLS);
     const actor = {
       id,
       token: null,
       name: String(name || (actorKind === 'bot' ? 'Rival Spellblade' : 'Training Dummy')).slice(0, 18),
+      // a bot brings either spell, so both turn up in a fight
+      spell: isSpell(spell) ? spell : spells[Math.floor(Math.random() * spells.length)],
       actorKind,
       connected: false,
       disconnectedAt: null,
@@ -280,7 +289,7 @@ export class Room {
     player.attackActive = false;
     player.attackNextStrike = 0;
     player.guarding = false;
-    player.pendingFireball = null;
+    player.pendingSpell = null;
     player.castEndsAt = 0;
     if (this.mode === GAME_MODES.BOT_DUEL && this.state === 'COUNTDOWN') {
       this.state = 'WAITING';

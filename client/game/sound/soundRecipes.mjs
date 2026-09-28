@@ -50,17 +50,25 @@ export function swordHitRecipe(rand = Math.random, { strike = 0, kill = false } 
   return { layers, reverb: kill ? 0.5 : heavy ? 0.32 : 0.22 };
 }
 
-/** A blow taken on a raised guard: a hard, bright clang without the body thump. */
+/**
+ * A blow taken on a raised guard: a sharp TING of edge on edge that rings off the courtyard walls. Each block meets
+ * the blade at a slightly different point, so no two ring quite alike.
+ */
 export function blockRecipe(rand = Math.random, { heavy = false } = {}) {
-  return {
-    layers: [
-      { type: 'noise', filter: 'highpass', freq: 3200 * jitter(rand, 0.1), q: 0.8, attack: 0.001, decay: 0.03, gain: 0.6 },
-      ring(rand, (heavy ? 380 : 700) * jitter(rand, 0.05), { decay: heavy ? 0.7 : 0.5, gain: 0.24, bright: 1.1 }),
-      { type: 'tone', wave: 'triangle', freq: 240, slideTo: 120, attack: 0.001, decay: 0.08, gain: 0.35 },
-      ...(heavy ? [{ type: 'noise', filter: 'lowpass', freq: 600, q: 0.6, attack: 0.002, decay: 0.3, gain: 0.55 }] : []),
-    ],
-    reverb: heavy ? 0.4 : 0.3,
-  };
+  const base = (heavy ? 420 : [760, 840, 920][Math.floor(rand() * 3)]) * jitter(rand, 0.06);
+  const echo = 0.11 + rand() * 0.03;
+  const layers = [
+    // the edges meet: a hard, very short click with a glint above it
+    { type: 'noise', filter: 'highpass', freq: 4800 * jitter(rand, 0.1), q: 0.9, attack: 0.0005, decay: 0.012, gain: 0.55 },
+    { type: 'ring', partials: [{ freq: 5600 * jitter(rand, 0.05), gain: 0.07, decay: 0.05 }, { freq: 7300 * jitter(rand, 0.05), gain: 0.04, decay: 0.03 }] },
+    // the TING
+    ring(rand, base, { decay: heavy ? 0.75 : 0.6, gain: 0.24, bright: 1.35 }),
+    { type: 'tone', wave: 'triangle', freq: 260, slideTo: 130, attack: 0.001, decay: 0.06, gain: 0.28 },
+    // and back off the walls, softer
+    { ...ring(rand, base, { decay: 0.35, gain: 0.07, partials: 4, bright: 1.1 }), at: echo },
+  ];
+  if (heavy) layers.push({ type: 'noise', filter: 'lowpass', freq: 600, q: 0.6, attack: 0.002, decay: 0.3, gain: 0.55 });
+  return { layers, reverb: heavy ? 0.5 : 0.42, hall: 0.18 };
 }
 
 /** A clean parry: a high, singing ring that hangs in the air. */
@@ -110,15 +118,41 @@ export function hurtRecipe(rand = Math.random, { heavy = false } = {}) {
   };
 }
 
-/** A fireball bursting. */
+/** A fireball bursting: a deep boom that rolls out, and the fire crackling after it. */
 export function fireballImpactRecipe(rand = Math.random) {
+  const layers = [
+    { type: 'noise', filter: 'lowpass', freq: 1100 * jitter(rand, 0.1), q: 0.6, sweepTo: 160, attack: 0.004, decay: 0.75, gain: 0.85 },
+    { type: 'tone', wave: 'sine', freq: 92, slideTo: 32, attack: 0.004, decay: 0.55, gain: 0.9 },
+    { type: 'noise', filter: 'highpass', freq: 2800, q: 0.6, attack: 0.002, decay: 0.25, gain: 0.3 },
+  ];
+  for (let i = 0; i < 6; i += 1) {
+    layers.push({ type: 'noise', filter: 'bandpass', freq: 3000 * jitter(rand, 0.3), q: 3, at: 0.12 + i * 0.07 + rand() * 0.05, attack: 0.001, decay: 0.02, gain: 0.12 * (1 - i / 7) });
+  }
+  return { layers, reverb: 0.45, hall: 0.2 };
+}
+
+/** Frostfire breaking: ice shattering, its shards ringing as they scatter, a cold hiss after. */
+export function frostImpactRecipe(rand = Math.random) {
+  const layers = [
+    { type: 'noise', filter: 'highpass', freq: 4200, q: 0.8, attack: 0.001, decay: 0.06, gain: 0.5 },
+    { type: 'tone', wave: 'sine', freq: 140, slideTo: 60, attack: 0.003, decay: 0.2, gain: 0.5 },
+    { type: 'noise', filter: 'bandpass', freq: 5200, q: 1.2, sweepTo: 2600, attack: 0.01, decay: 0.45, gain: 0.18 },
+  ];
+  for (let i = 0; i < 7; i += 1) {
+    layers.push({ type: 'ring', at: rand() * 0.18, partials: [{ freq: 2400 + rand() * 3200, gain: 0.05, decay: 0.12 + rand() * 0.15 }, { freq: 4000 + rand() * 3000, gain: 0.03, decay: 0.08 }] });
+  }
+  return { layers, reverb: 0.4, hall: 0.18 };
+}
+
+/** A lick of the burn a Fireball leaves: a small flare and a crackle. */
+export function burnLickRecipe(rand = Math.random) {
   return {
     layers: [
-      { type: 'noise', filter: 'lowpass', freq: 900 * jitter(rand, 0.1), q: 0.6, sweepTo: 180, attack: 0.004, decay: 0.55, gain: 0.8 },
-      { type: 'tone', wave: 'sine', freq: 95, slideTo: 36, attack: 0.004, decay: 0.4, gain: 0.8 },
-      { type: 'noise', filter: 'highpass', freq: 3000, q: 0.6, attack: 0.002, decay: 0.2, gain: 0.25 },
+      { type: 'noise', filter: 'bandpass', freq: 900 * jitter(rand, 0.2), q: 1, sweepTo: 1800, attack: 0.02, decay: 0.14, gain: 0.3 },
+      { type: 'noise', filter: 'bandpass', freq: 3200 * jitter(rand, 0.3), q: 3, at: 0.03 + rand() * 0.04, attack: 0.001, decay: 0.02, gain: 0.14 },
+      { type: 'noise', filter: 'bandpass', freq: 2600 * jitter(rand, 0.3), q: 3, at: 0.09 + rand() * 0.05, attack: 0.001, decay: 0.02, gain: 0.1 },
     ],
-    reverb: 0.4,
+    reverb: 0.12,
   };
 }
 
@@ -149,13 +183,37 @@ export function killRecipe(rand = Math.random) {
   };
 }
 
-/** Gathering fire in the palm, then the release. */
-export function castRecipe(rand = Math.random) {
+/**
+ * Gathering a spell in the palm (release: seconds until it flies). Fire roars up into the hand and leaves with a
+ * whoomp; frost draws in a cold hiss and glassy tones, and leaves with a crack of ice.
+ */
+export function castRecipe(rand = Math.random, { spell = 'fireball', release = 0.3 } = {}) {
+  if (spell === 'frostfire') {
+    return {
+      layers: [
+        { type: 'noise', filter: 'bandpass', freq: 2400 * jitter(rand, 0.1), q: 2, sweepTo: 5200, attack: 0.18, decay: 0.16, gain: 0.3 },
+        {
+          type: 'ring',
+          partials: [
+            { freq: 1568 * jitter(rand, 0.02), gain: 0.05, decay: 0.5, attack: 0.15 },
+            { freq: 2349 * jitter(rand, 0.02), gain: 0.04, decay: 0.45, attack: 0.18 },
+            { freq: 3136 * jitter(rand, 0.02), gain: 0.03, decay: 0.35, attack: 0.2 },
+          ],
+        },
+        { type: 'noise', filter: 'highpass', freq: 3600, q: 0.8, at: release, attack: 0.002, decay: 0.05, gain: 0.35 },
+        { type: 'tone', wave: 'sine', freq: 220, slideTo: 110, at: release, attack: 0.003, decay: 0.08, gain: 0.25 },
+      ],
+      reverb: 0.3,
+      hall: 0.12,
+    };
+  }
   return {
     layers: [
       { type: 'noise', filter: 'bandpass', freq: 300 * jitter(rand, 0.1), q: 1.1, sweepTo: 1400, attack: 0.12, decay: 0.2, gain: 0.45 },
       { type: 'noise', filter: 'highpass', freq: 4000, q: 0.5, attack: 0.05, decay: 0.25, gain: 0.12 },
       { type: 'tone', wave: 'sine', freq: 180, slideTo: 90, attack: 0.02, decay: 0.25, gain: 0.3 },
+      { type: 'noise', filter: 'lowpass', freq: 700, q: 0.7, sweepTo: 240, at: release, attack: 0.01, decay: 0.2, gain: 0.45 },
+      { type: 'tone', wave: 'sine', freq: 120, slideTo: 55, at: release, attack: 0.005, decay: 0.16, gain: 0.4 },
     ],
     reverb: 0.2,
   };
