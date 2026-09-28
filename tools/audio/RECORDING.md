@@ -2,8 +2,9 @@
 
 The Spellblade is a hardened battlemage: controlled, chesty, economical. He grunts from the gut rather than yelling
 from the throat, and he saves his breath for the one cry that matters. Record your own takes, then let
-`knight_voice.py` put him in his helm (deeper, a little grit, the boxy ring of steel around the face). The game adds
-the echo off the castle walls live.
+`knight_voice.py` put him in his helm: the room it was recorded in taken out, then deeper, closer, a little grit, the
+ring of steel around the face. The game adds the echo off the castle walls live, and only for other knights: your own
+knight is heard close, from inside his helm.
 
 ## What to record
 
@@ -21,28 +22,30 @@ Two to six takes of a line keep it from repeating.
 
 ## Lines already in the game
 
-These came from your two recorded clips, already helm-treated (the "veteran" profile, 4.5 semitones down), so they
-are not run through the tool again. Each one plays only at its moment and only now and then. The rules are in
-`client/game/sound/voiceRules.mjs`.
+These came from your two recorded clips (the masters are in `artifacts/spellblade-voice-handoff.zip`, under
+`source/`). SORCERY! is processed from the master by the close helm (below). The rest are still the earlier "veteran"
+treatment (4.5 semitones down, no room taken out) until they are run through the tool too. Each one plays only at its
+moment and only now and then. The rules are in `client/game/sound/voiceRules.mjs`.
 
 | Line | Take | When |
 | --- | --- | --- |
-| `sorcery` | "SORCERY!" ×2 | A spell is cast (1 in 12, not again within 45 s). |
+| `sorcery` | "SORCERY!" ×2 (recording 2, 0.38–1.93 s and 3.15–4.71 s) | A spell is cast (1 in 12, not again within 45 s). |
 | `magicDefeat` | "I don't believe in magic." | Killed by a spell or its burn (about 1 in 3, 90 s apart). |
 | `defeat` | "What? But I am a knight!" ×2 | Every lost match; now and then when felled. |
 | `killTaunt` | "Good knight? That will not be you." and a laugh | Over someone you felled, if they said nothing. |
 | `breakTaunt` | "You should have hired a REAL guard!" | After breaking a guard, now and then. |
 | `victory` | "Might makes… KNIGHT!" | Winning a match. |
 
-The voiced contact effects (your TING on a blocked blow, PERCUNK when a guard breaks) sound every time over the steel.
-Settings › Sound › Voiced guard hits turns them off.
+Blows on a guard and guards breaking are steel only (`blockRecipe` and `guardBreakRecipe` in
+`client/game/sound/soundRecipes.mjs`); there are no voiced contact effects any more.
 
-Processing any of the tool's own lines (`sorcery`, `victory`, …) replaces that line's takes; the other lines and the
-effects are kept.
+Processing any of the tool's own lines (`sorcery`, `victory`, …) replaces that line's takes; the other lines are
+kept.
 
 ## How to record
 
-- Voice Memos or QuickTime (File › New Audio Recording) is fine. Use a quiet room with soft furnishings.
+- Voice Memos or QuickTime (File › New Audio Recording) is fine. Use a quiet room with soft furnishings: a closet of
+  coats beats a bare room. The less room the recording has, the less the tool has to take out.
 - Stay a hand's width or two from the mic, a little off to the side so plosives don't pop. For the SORCERY cry, lean
   back to arm's length so the loud part doesn't clip.
 - Leave a short pause before and after each take. The tool trims silence.
@@ -51,11 +54,31 @@ effects are kept.
 
 ```bash
 python3 tools/audio/knight_voice.py ~/Desktop/knight-takes --preview
+python3 tools/audio/knight_voice.py recording.wav:0.38-1.93 recording.wav:3.15-4.71 --line sorcery
 ```
+
+The close helm is the standard chain for every line (`--profile close`, the default):
+
+| Step | What it does | Why |
+| --- | --- | --- |
+| declip | Rebuilds peaks the recorder flattened, with a curve through each flat top | Clipped shouts crackle, and grit makes it worse |
+| dereverb | Estimates how long the recording room rings (T60, capped at 0.85 s) and subtracts that late reverberation band by band, never more than 18 dB | The room's echo is what makes a take sound "stitched in from outside" |
+| expand | Sinks whatever is 30 dB under the loudest moment, 2.5 to 1 | The last of the room between and after the words |
+| pitch | 4.5 semitones down (the veteran's depth), same length | Deeper and bigger |
+| EQ | Proximity +3.5 dB at 150 Hz, chest +1.5 dB at 260 Hz, room boxiness −1.5 dB at 620 Hz, helm ring +2 dB at 1250 Hz, clarity +1.5 dB at 2.7 kHz, bite −2.5 dB at 4.5 kHz, lowpass 7 kHz | Close, chesty, behind steel, every word clear |
+| helm | Three reflections at 1.1, 2.3 and 3.7 ms | The inside of a great helm, not a room |
+| compress | 3 to 1 above 18 dB under the peak, 4 ms attack, 80 ms release | A shout is dense, not spiky |
+| grit | Gentle saturation (drive per line, about 2.5) | Battle-worn |
+| loudness | Matched per line (−15 to −20 dB RMS), peaks under −1 dBFS | Every line sits at the same place in the mix |
+
+In the game: your own knight's lines get a quarter of the line's reverb and no echo; other knights' come from where
+they stand, with the line's echo off the nearest wall.
 
 - Every line you process replaces that line's earlier takes.
 - `--preview` also writes each take with the in-game echo to `artifacts/voice-preview/` so you can listen first.
-- `--semitones -1.5` goes less deep and `--semitones -4` goes deeper (the default is about -2.5).
+- `--semitones -3` goes less deep and `--semitones -5.5` goes deeper (the default is -4.5).
+- `--line sorcery` names the line for inputs whose file names don't (a window of a longer recording, `path:start-end`).
+- `--profile classic` is the earlier chain, without the declip, dereverb, expander and compressor.
 - `--drive 1.5` gives less grit and `--drive 3` gives more.
 - The takes land in `client/assets/voice/` with `manifest.json`. Commit that folder and they are in the game.
 

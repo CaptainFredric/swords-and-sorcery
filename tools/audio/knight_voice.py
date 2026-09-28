@@ -3,16 +3,30 @@
 
     python3 tools/audio/knight_voice.py ~/Desktop/knight-takes            # every take in a folder
     python3 tools/audio/knight_voice.py effort-1.m4a hurt-2.m4a --semitones -2
+    python3 tools/audio/knight_voice.py master.wav:0.43-1.88 --line sorcery   # a window of a longer recording
 
 Name each take after its line (effort, hurt, death, sorcery, dash, victory; a number or anything after a dash or
-space is ignored, and a few aliases work: grunt, pain, die, spell, breath, laugh...). Any format macOS can read works
-(Voice Memos .m4a, QuickTime .m4a/.mov, .wav, .aiff, .mp3).
+space is ignored, and a few aliases work: grunt, pain, die, spell, breath, laugh...), or give --line. Any format
+macOS can read works (Voice Memos .m4a, QuickTime .m4a/.mov, .wav, .aiff, .mp3). A take may be a window of a longer
+file: path:start-end in seconds.
 
-Each take is trimmed, pitched down (a phase vocoder: same length, deeper and bigger), given a chest and a helm (EQ
-and the tight reflections inside a great helm), gently distorted, loudness-matched, and written to
-client/assets/voice as AAC (.m4a) with a small WAV fallback; manifest.json lists what exists. The echo off the castle
-walls is added live in the game (it follows where you stand), so --preview also writes a version with that echo to
-listen to here.
+The close helm (the standard chain, --profile close; see tools/audio/RECORDING.md for the reasons):
+  1. declip     rebuild peaks the recorder flattened (a curve through each flat top, from the slopes either side)
+  2. dereverb   take out the room it was recorded in: its late reverberation, predicted from the take's own decay,
+                is subtracted band by band down to a gentle floor
+  3. expand     a downward expander: what is left of the room between and after the words sinks away
+  4. pitch      down (a phase vocoder: same length, deeper and bigger)
+  5. EQ         proximity and chest, a little helm ring, clarity, the bite taken off (it is behind steel)
+  6. helm       the tight reflections inside a great helm, a millimetre or two of air away
+  7. compress   a shout is dense, not spiky
+  8. grit       gentle saturation
+  9. loudness   matched per line, peaks under -1 dBFS
+Nothing of a castle is baked in: the game adds the courtyard's echo itself, and only for other knights (your own
+voice is heard close, from inside the helm). --profile classic is the earlier chain (no declip, dereverb, expander
+or compressor).
+
+Each take is written to client/assets/voice as AAC (.m4a) with a small WAV fallback; manifest.json lists what exists.
+--preview also writes a before/after pair to artifacts/voice-preview to listen to here.
 
 Processing a line replaces all of its earlier takes.
 """
@@ -42,26 +56,41 @@ ALIASES = {
     'win': 'victory', 'laugh': 'victory', 'cheer': 'victory', 'triumph': 'victory',
 }
 
-# per line: how far down, how hard the grit, how loud
+# per line: how far down, how hard the grit, how loud (the close helm keeps the veteran's -4.5 semitones)
 PRESETS = {
-    'effort': {'semitones': -2.5, 'drive': 2.4, 'rms_db': -15},
-    'hurt': {'semitones': -2.5, 'drive': 2.2, 'rms_db': -15},
-    'death': {'semitones': -3.0, 'drive': 2.0, 'rms_db': -15},
-    'sorcery': {'semitones': -2.0, 'drive': 3.0, 'rms_db': -13},
-    'dash': {'semitones': -2.5, 'drive': 1.6, 'rms_db': -19},
-    'victory': {'semitones': -2.5, 'drive': 2.2, 'rms_db': -15},
+    'effort': {'semitones': -4.5, 'drive': 2.4, 'rms_db': -16},
+    'hurt': {'semitones': -4.5, 'drive': 2.2, 'rms_db': -16},
+    'death': {'semitones': -4.5, 'drive': 2.0, 'rms_db': -16},
+    'sorcery': {'semitones': -4.5, 'drive': 2.5, 'rms_db': -15},
+    'dash': {'semitones': -4.5, 'drive': 1.6, 'rms_db': -20},
+    'victory': {'semitones': -4.5, 'drive': 2.2, 'rms_db': -16},
+}
+
+# the close helm's room removal and dynamics (see close_helm)
+CLOSE = {
+    't60': 0.85,          # seconds: how long the recording room rings (estimated from each take, clamped to this)
+    'strength': 1.6,      # how hard its late reverberation is subtracted
+    'floor_db': -18,      # never more than this taken out of any band
+    'expand_below_db': -30, 'expand_ratio': 2.5,
+    'compress_db': -18, 'compress_ratio': 3.0,
 }
 
 
 # --- reading and writing ------------------------------------------------------------------------------------------
 
 def load_any(path):
-    """Any audio file macOS can read -> mono float32 at 48 kHz (decoded by afconvert)."""
+    """Any audio file macOS can read -> mono float32 at 48 kHz (decoded by afconvert). path:start-end takes a window."""
+    window = None
+    match = re.fullmatch(r'(.+):(\d+(?:\.\d+)?)-(\d+(?:\.\d+)?)', path)
+    if match and not os.path.exists(path):
+        path, window = match.group(1), (float(match.group(2)), float(match.group(3)))
     with tempfile.TemporaryDirectory() as tmp:
         wav_path = os.path.join(tmp, 'take.wav')
         subprocess.run(['afconvert', '-f', 'WAVE', '-d', f'LEI16@{SR}', '-c', '1', path, wav_path], check=True, capture_output=True)
         with wave.open(wav_path) as w:
             data = np.frombuffer(w.readframes(w.getnframes()), dtype=np.int16).astype(np.float64) / 32768
+    if window:
+        data = data[int(window[0] * SR):int(window[1] * SR)]
     return data
 
 
@@ -165,10 +194,10 @@ def equalize(x, sr, bands):
     return np.fft.irfft(np.fft.rfft(padded) * response, len(padded))[:len(x)]
 
 
-def helm(x, sr):
+def helm(x, sr, reflections=((1.1, 0.3), (2.3, 0.18), (3.7, 0.08))):
     """The inside of a great helm: two reflections a millimetre or two of air away, and its boxy resonance."""
     out = x.copy()
-    for delay_ms, gain in ((1.1, 0.3), (2.3, 0.18), (3.7, 0.08)):
+    for delay_ms, gain in reflections:
         d = int(sr * delay_ms / 1000)
         out[d:] += gain * x[:-d]
     return out
@@ -235,6 +264,145 @@ def knight(x, sr, preset):
     return loudness(x, sr, preset['rms_db'])
 
 
+# --- the close helm -------------------------------------------------------------------------------------------------
+
+def declip(x, near=2.5 / 32768):
+    """Rebuild peaks the recorder flattened: every run of three or more samples stuck at the take's own extreme gets
+    a cubic through it, from the samples and slopes either side (only ever raising the flat top, never cutting it)."""
+    out = x.copy()
+    n = len(x)
+    for sign, extreme in ((1, np.max(x)), (-1, np.min(x))):
+        stuck = (x >= extreme - near) if sign > 0 else (x <= extreme + near)
+        i = 0
+        while i < n:
+            if not stuck[i]:
+                i += 1
+                continue
+            j = i
+            while j + 1 < n and stuck[j + 1]:
+                j += 1
+            if j - i >= 2 and i >= 2 and j + 2 < n:
+                a, b = i - 1, j + 1
+                length = b - a
+                m0, m1 = (x[a] - x[a - 1]) * length, (x[b + 1] - x[b]) * length
+                t = np.arange(1, length) / length
+                curve = ((2 * t ** 3 - 3 * t ** 2 + 1) * x[a] + (t ** 3 - 2 * t ** 2 + t) * m0
+                         + (-2 * t ** 3 + 3 * t ** 2) * x[b] + (t ** 3 - t ** 2) * m1)
+                out[a + 1:b] = np.where(sign * curve > sign * x[a + 1:b], curve, x[a + 1:b])
+            i = j + 1
+    return out
+
+
+def room_decay(x, sr):
+    """How long the room rings (T60, seconds), from how fast the take dies away after its last loud moment."""
+    levels, hop = frame_levels(x, sr)
+    if len(levels) < 10:
+        return None
+    levels_db = 20 * np.log10(levels)
+    top = levels_db.max()
+    last = np.where(levels_db > top - 20)[0][-1]
+    tail = levels_db[last:]
+    index = np.where((tail < top - 20) & (tail > top - 50))[0]
+    if len(index) < 4:
+        return None
+    slope = np.polyfit(index * hop / sr, tail[index], 1)[0]
+    return 60 / -slope if slope < 0 else None
+
+
+def stft(x, n_fft=1024, hop=256):
+    window = np.sqrt(np.hanning(n_fft + 1)[:-1])
+    pad = np.concatenate([np.zeros(n_fft), x, np.zeros(n_fft)])
+    frames = 1 + (len(pad) - n_fft) // hop
+    spec = np.array([np.fft.rfft(pad[t * hop:t * hop + n_fft] * window) for t in range(frames)])
+    return spec, window, len(pad)
+
+
+def istft(spec, window, length, n, n_fft=1024, hop=256):
+    out = np.zeros(length)
+    norm = np.zeros(length)
+    for t in range(len(spec)):
+        out[t * hop:t * hop + n_fft] += np.fft.irfft(spec[t], n_fft) * window
+        norm[t * hop:t * hop + n_fft] += window ** 2
+    out /= np.maximum(norm, 1e-6)
+    return out[n_fft:n_fft + n]
+
+
+def dereverb(x, sr, t60=0.85, strength=1.35, floor_db=-16, early_ms=45, n_fft=1024, hop=256):
+    """Take the recording room out (late-reverberation suppression, after Lebart et al.): the reverberant power in each
+    band is predicted from the take `early_ms` earlier, decayed at the room's rate, and subtracted down to a floor;
+    the gain is smoothed across neighbouring bands and closes more slowly than it opens, against watery artefacts."""
+    spec, window, length = stft(x, n_fft, hop)
+    power = np.abs(spec) ** 2
+    smooth = power.copy()
+    for t in range(1, len(smooth)):
+        smooth[t] = 0.5 * smooth[t - 1] + 0.5 * power[t]
+    lag = max(1, int(round(early_ms / 1000 * sr / hop)))
+    decay = np.exp(-2 * (3 * np.log(10) / t60) * lag * hop / sr)
+    late = np.zeros_like(smooth)
+    late[lag:] = decay * smooth[:-lag]
+    floor = 10 ** (floor_db / 10)
+    gain = np.sqrt(np.maximum(1 - strength * late / np.maximum(smooth, 1e-14), floor))
+    gain = (np.roll(gain, 1, axis=1) + 2 * gain + np.roll(gain, -1, axis=1)) / 4
+    for t in range(1, len(gain)):
+        closing = gain[t] < gain[t - 1]
+        gain[t] = np.where(closing, 0.6 * gain[t - 1] + 0.4 * gain[t], gain[t])
+    return istft(spec * gain, window, length, len(x), n_fft, hop)
+
+
+def dynamics(x, sr, below_db=None, ratio=2.5, above_db=None, squeeze=3.0, attack_ms=3, release_ms=70, step_ms=2.5):
+    """A downward expander (whatever falls `below_db` under the take's loudest moment sinks further) and/or a
+    compressor (whatever rises above `above_db` under it is held back `squeeze` to one), on a smoothed level."""
+    hop = max(1, int(sr * step_ms / 1000))
+    frames = len(x) // hop + 1
+    level_db = np.array([10 * np.log10(np.mean(x[i * hop:(i + 1) * hop] ** 2) + 1e-12) if len(x[i * hop:(i + 1) * hop]) else -120
+                         for i in range(frames)])
+    top = level_db.max()
+    target = np.zeros(frames)
+    if below_db is not None:
+        target += np.minimum(0, (level_db - (top + below_db)) * (ratio - 1))
+    if above_db is not None:
+        target -= np.maximum(0, (level_db - (top + above_db)) * (1 - 1 / squeeze))
+    attack = 1 - np.exp(-step_ms / attack_ms)
+    release = 1 - np.exp(-step_ms / release_ms)
+    gain_db = np.zeros(frames)
+    g = target[0]
+    for i in range(frames):
+        g += (target[i] - g) * (attack if target[i] < g else release)
+        gain_db[i] = g
+    gain = np.interp(np.arange(len(x)), np.arange(frames) * hop + hop / 2, 10 ** (gain_db / 20))
+    return x * gain
+
+
+def close_helm(x, sr, preset, report=None):
+    """The standard chain: the take's room out first, then the knight. See the module notes for each step."""
+    x = x - np.mean(x)
+    x = declip(x)
+    x = trim(x, sr, pre=0.02, post=0.3)
+    measured = room_decay(x, sr)
+    t60 = min(CLOSE['t60'], measured) if measured else CLOSE['t60']
+    x = dereverb(x, sr, t60=max(0.3, t60), strength=CLOSE['strength'], floor_db=CLOSE['floor_db'])
+    x = dynamics(x, sr, below_db=CLOSE['expand_below_db'], ratio=CLOSE['expand_ratio'])
+    x = trim(x, sr, pre=0.02, post=0.12)
+    x = pitch_shift(x, preset['semitones'])
+    x = equalize(x, sr, [
+        ('highpass', 80),
+        ('bell', 150, 3.5, 1.2),      # proximity: he is right here
+        ('bell', 260, 1.5, 1.0),      # chest
+        ('bell', 620, -1.5, 1.2),     # the recording room's boxiness
+        ('bell', 1250, 2.0, 0.9),     # the helm's ring, kept small
+        ('bell', 2700, 1.5, 1.2),     # clarity: every word lands
+        ('bell', 4500, -2.5, 1.5),    # the bite taken off: it is behind steel
+        ('lowpass', 7000),
+    ])
+    x = helm(x, sr, reflections=((1.1, 0.22), (2.3, 0.12), (3.7, 0.05)))
+    x = dynamics(x, sr, above_db=CLOSE['compress_db'], squeeze=CLOSE['compress_ratio'], attack_ms=4, release_ms=80)
+    x = saturate(x, preset['drive'])
+    x = dynamics(x, sr, below_db=-36, ratio=2.0)
+    if report is not None:
+        report['t60'] = round(t60, 2)
+    return loudness(x, sr, preset['rms_db'])
+
+
 def with_echo(x, sr, echo='wall'):
     """Roughly what the game adds: repeats off the walls that darken, and a stone courtyard behind them."""
     delay, feedback = {'wall': (0.2, 0.26), 'shout': (0.32, 0.46)}[echo]
@@ -294,7 +462,7 @@ def clear_line(line):
             os.remove(os.path.join(OUT_DIR, name))
 
 
-def publish(line, takes, preview_dir=None, echo='wall'):
+def publish(line, takes, preview_dir=None, echo='wall', notes=None):
     """Write processed takes of one line (replacing its earlier ones)."""
     clear_line(line)
     for number, x in enumerate(takes, start=1):
@@ -309,7 +477,9 @@ def publish(line, takes, preview_dir=None, echo='wall'):
             json.dump({'seconds': round(len(x) / SR, 2)}, f)
         if preview_dir:
             save_wav(os.path.join(preview_dir, f'{line}-{number}-with-echo.wav'), with_echo(x, SR, echo))
-        print(f'  {line}-{number}: {len(x) / SR:.2f}s, peak {db(np.max(np.abs(x))):.1f} dBFS')
+        note = notes[number - 1] if notes else {}
+        extra = f", room T60 {note['t60']}s taken out" if 't60' in note else ''
+        print(f'  {line}-{number}: {len(x) / SR:.2f}s, peak {db(np.max(np.abs(x))):.1f} dBFS{extra}')
 
 
 def main():
@@ -317,6 +487,8 @@ def main():
     parser.add_argument('inputs', nargs='*', help='takes, or folders of takes')
     parser.add_argument('--semitones', type=float, help='pitch change (default per line, about -2.5)')
     parser.add_argument('--drive', type=float, help='distortion drive (default per line, about 2.2)')
+    parser.add_argument('--line', choices=LINES, help='the line every input is a take of (instead of reading file names)')
+    parser.add_argument('--profile', choices=('close', 'classic'), default='close', help='the chain (default: close helm)')
     parser.add_argument('--preview', action='store_true', help='also write versions with the in-game echo to artifacts/voice-preview')
     args = parser.parse_args()
     os.makedirs(OUT_DIR, exist_ok=True)
@@ -326,13 +498,13 @@ def main():
 
     files = []
     for item in args.inputs:
-        if os.path.isdir(item):
+        if os.path.isdir(item.split(':')[0]) and ':' not in item:
             files += [os.path.join(item, name) for name in sorted(os.listdir(item)) if not name.startswith('.')]
         else:
             files.append(item)
     by_line = {}
     for path in files:
-        line = line_for(path)
+        line = args.line or line_for(path)
         if not line:
             print(f'skipped {os.path.basename(path)}: name it after a line ({", ".join(LINES)})', file=sys.stderr)
             continue
@@ -343,9 +515,13 @@ def main():
             preset['semitones'] = args.semitones
         if args.drive is not None:
             preset['drive'] = args.drive
-        print(f'{line}: {len(paths)} take(s)')
-        takes = [knight(load_any(path), SR, preset) for path in paths]
-        publish(line, takes, preview_dir=preview_dir, echo='shout' if line in ('sorcery', 'victory') else 'wall')
+        print(f'{line}: {len(paths)} take(s), {args.profile} chain')
+        notes = [{} for _ in paths]
+        if args.profile == 'close':
+            takes = [close_helm(load_any(path), SR, preset, report=note) for path, note in zip(paths, notes)]
+        else:
+            takes = [knight(load_any(path), SR, preset) for path in paths]
+        publish(line, takes, preview_dir=preview_dir, echo='wall', notes=notes)
 
     manifest = write_manifest()
     print('manifest:', ', '.join(f'{line} ({len(takes)})' for line, takes in manifest['lines'].items()) or 'no lines yet')

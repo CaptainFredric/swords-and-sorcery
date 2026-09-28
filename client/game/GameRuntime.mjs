@@ -13,7 +13,7 @@ import { castVisualDuration } from './weaponPose.mjs';
 import { localPushDirection } from './spellbladeMotion.mjs';
 import { blowDirection, hitKick, hitstopSeconds, impactPoint } from './hitFeel.mjs';
 import {
-  blockRecipe, burnLickRecipe, castRecipe, dashRecipe, fireballImpactRecipe, frostImpactRecipe, hurtRecipe, killRecipe,
+  blockRecipe, burnLickRecipe, castRecipe, dashRecipe, fireballImpactRecipe, frostImpactRecipe, guardBreakRecipe, hurtRecipe, killRecipe,
   parryRecipe, spatialize, swingRecipe, swordHitRecipe, wallClangRecipe,
 } from './sound/soundRecipes.mjs';
 import { chillScale, spellFor } from '../../shared/src/spells.mjs';
@@ -447,7 +447,7 @@ export class GameRuntime {
   // Returns whether anything was said.
   #say(line, playerId, { chanceScale = 1, delay = 0 } = {}) {
     if (!this.voice || !playerId) return false;
-    if (playerId === this.socket.playerId) return this.voice.say(line, { speaker: playerId, gain: 0.8, chanceScale, delay });
+    if (playerId === this.socket.playerId) return this.voice.say(line, { speaker: playerId, gain: 0.8, chanceScale, delay, close: true });
     const body = this.#bodyPosition(playerId);
     const snapshotPlayer = this.latestSnapshot?.players.find((p) => p.id === playerId);
     if (!body || snapshotPlayer?.actorKind === 'dummy') return false;
@@ -462,20 +462,6 @@ export class GameRuntime {
     const { fallen, victor } = deathLines(event);
     if (fallen.some((say) => this.#say(say.line, say.speaker, say))) return;
     for (const say of victor) this.#say(say.line, say.speaker, say);
-  }
-
-  // the voiced ring of a blow on a guard (or the PERCUNK of one breaking), where the blades met
-  #voicedContact(event, point, involved) {
-    if (!this.voice) return;
-    const name = event.type === 'guardBreak' ? 'guardBreak' : 'guardHit';
-    const gain = event.type === 'parry' ? 0.7 : 0.85;
-    if (involved || !point) {
-      this.voice.effect(name, { gain });
-      return;
-    }
-    const listener = this.localState?.position ?? this.localAuth?.position;
-    const place = spatialize(listener, this.input.yaw, point);
-    this.voice.effect(name, { pan: place.pan, gain: gain * place.gain });
   }
 
   // steel anywhere stirs the music; blows that involve me put it on the fight
@@ -528,7 +514,7 @@ export class GameRuntime {
     }
   }
 
-  // a blow meeting a guard: sparks where the blades met and the ring of steel
+  // a blow meeting a guard: sparks where the blades met and the ring of steel (or the crunch of it breaking)
   #guardContact(event) {
     const me = this.socket.playerId;
     const attacker = this.#bodyPosition(event.attackerId);
@@ -539,10 +525,9 @@ export class GameRuntime {
     if (point && event.defenderId !== me) {
       this.effects.blockBurst({ ...point, y: point.y + 0.15 }, blowDirection(defender, attacker), { heavy, parry });
     }
-    const recipe = parry ? parryRecipe() : blockRecipe(Math.random, { heavy });
+    const recipe = parry ? parryRecipe() : heavy ? guardBreakRecipe() : blockRecipe();
     const involved = event.attackerId === me || event.defenderId === me;
     this.#play(recipe, involved ? null : point, involved ? 1 : 0.8);
-    this.#voicedContact(event, point, involved);
     // the one who broke it may gloat, once the crunch has landed
     if (heavy) this.#say('breakTaunt', event.attackerId, { delay: 0.7 });
   }

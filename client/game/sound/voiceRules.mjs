@@ -10,8 +10,9 @@ export const VOICE_LINES = Object.freeze({
   effort: { chance: 0.4, cooldown: 1.8, gain: 0.75, reverb: 0.15, echo: 'wall', echoLevel: 0.22 },
   hurt: { chance: 0.7, cooldown: 1.1, gain: 0.85, reverb: 0.15, echo: 'wall', echoLevel: 0.2 },
   death: { chance: 1, cooldown: 0, gain: 1, reverb: 0.25, echo: 'wall', echoLevel: 0.45, interrupts: true },
-  // SORCERY! is rare: about one cast in twelve, and never twice within 45 seconds
-  sorcery: { chance: 0.08, cooldown: 45, gain: 1, reverb: 0.2, echo: 'shout', echoLevel: 0.6 },
+  // SORCERY! is rare: about one cast in twelve, and never twice within 45 seconds (another knight's rings off the
+  // nearest wall; my own is heard close, from inside the helm)
+  sorcery: { chance: 0.08, cooldown: 45, gain: 1, reverb: 0.15, echo: 'wall', echoLevel: 0.32 },
   dash: { chance: 0.25, cooldown: 3, gain: 0.55, reverb: 0.1, echo: 'wall', echoLevel: 0.12 },
   // "MIGHT MAKES... KNIGHT!"
   victory: { chance: 1, cooldown: 0, gain: 1, reverb: 0.25, echo: 'shout', echoLevel: 0.45, interrupts: true },

@@ -51,24 +51,65 @@ export function swordHitRecipe(rand = Math.random, { strike = 0, kill = false } 
 }
 
 /**
- * A blow taken on a raised guard: a sharp TING of edge on edge that rings off the courtyard walls. Each block meets
- * the blade at a slightly different point, so no two ring quite alike.
+ * A blow taken on a raised guard: the edges meet with a sharp TING, slide a finger's width with a scrape, and the
+ * braced arm behind the guard takes the weight (a short clank and a thump under the ring); then it rings off the
+ * courtyard walls. Each block meets the blade at a slightly different point, so no two ring quite alike. `heavy`: two
+ * full swings meeting (the menu round's big exchanges); a guard that breaks has its own sound (guardBreakRecipe).
  */
 export function blockRecipe(rand = Math.random, { heavy = false } = {}) {
   const base = (heavy ? 420 : [760, 840, 920][Math.floor(rand() * 3)]) * jitter(rand, 0.06);
   const echo = 0.11 + rand() * 0.03;
   const layers = [
     // the edges meet: a hard, very short click with a glint above it
-    { type: 'noise', filter: 'highpass', freq: 4800 * jitter(rand, 0.1), q: 0.9, attack: 0.0005, decay: 0.012, gain: 0.55 },
-    { type: 'ring', partials: [{ freq: 5600 * jitter(rand, 0.05), gain: 0.07, decay: 0.05 }, { freq: 7300 * jitter(rand, 0.05), gain: 0.04, decay: 0.03 }] },
+    { type: 'noise', filter: 'highpass', freq: 4800 * jitter(rand, 0.1), q: 0.9, attack: 0.0005, decay: 0.012, gain: 0.62 },
+    { type: 'ring', partials: [{ freq: 5600 * jitter(rand, 0.05), gain: 0.08, decay: 0.05 }, { freq: 7300 * jitter(rand, 0.05), gain: 0.05, decay: 0.03 }] },
     // the TING
-    ring(rand, base, { decay: heavy ? 0.75 : 0.6, gain: 0.24, bright: 1.35 }),
-    { type: 'tone', wave: 'triangle', freq: 260, slideTo: 130, attack: 0.001, decay: 0.06, gain: 0.28 },
+    ring(rand, base, { decay: heavy ? 0.75 : 0.62, gain: 0.28, bright: 1.35 }),
+    // the edges slide along each other
+    { type: 'noise', filter: 'bandpass', freq: 3400 * jitter(rand, 0.1), q: 3.2, sweepTo: 1700, attack: 0.004, decay: 0.075, gain: 0.24, at: 0.006 },
+    // the weight of the blow stopped by a braced arm: the blades' own clank, and a thump behind them
+    ring(rand, base * 0.41, { decay: 0.2, gain: 0.14, partials: 3, bright: 0.7 }),
+    { type: 'tone', wave: 'triangle', freq: 260, slideTo: 130, attack: 0.001, decay: 0.06, gain: 0.3 },
+    { type: 'tone', wave: 'sine', freq: 150 * jitter(rand, 0.06), slideTo: 62, attack: 0.002, decay: 0.12, gain: 0.35 },
     // and back off the walls, softer
     { ...ring(rand, base, { decay: 0.35, gain: 0.07, partials: 4, bright: 1.1 }), at: echo },
   ];
   if (heavy) layers.push({ type: 'noise', filter: 'lowpass', freq: 600, q: 0.6, attack: 0.002, decay: 0.3, gain: 0.55 });
   return { layers, reverb: heavy ? 0.5 : 0.42, hall: 0.18 };
+}
+
+/**
+ * A guard broken: PER-CUNK. A bright crack as the blow lands; then, a beat later, the guard caves (a low clang of
+ * plate driven into plate, a crunch and a thud as the arm gives way); then a rattle of mail and buckles as he
+ * staggers, and the courtyard throws it all back.
+ */
+export function guardBreakRecipe(rand = Math.random) {
+  const give = 0.03 + rand() * 0.012;
+  const low = 185 * jitter(rand, 0.05);
+  const layers = [
+    // PER: the blow lands on the guard
+    { type: 'noise', filter: 'highpass', freq: 3000 * jitter(rand, 0.1), q: 0.8, attack: 0.0006, decay: 0.022, gain: 0.65 },
+    ring(rand, 540 * jitter(rand, 0.05), { decay: 0.32, gain: 0.2, bright: 1.25 }),
+    // CUNK: the guard caves in
+    { ...ring(rand, low, { decay: 1.15, gain: 0.28, partials: 6, bright: 0.95 }), at: give },
+    { type: 'noise', filter: 'bandpass', freq: 1050 * jitter(rand, 0.1), q: 1.4, sweepTo: 260, attack: 0.003, decay: 0.24, gain: 0.72, at: give },
+    { type: 'tone', wave: 'triangle', freq: 190, slideTo: 88, attack: 0.002, decay: 0.11, gain: 0.34, at: give },
+    { type: 'tone', wave: 'sine', freq: 96 * jitter(rand, 0.05), slideTo: 40, attack: 0.003, decay: 0.3, gain: 0.66, at: give },
+    { type: 'noise', filter: 'lowpass', freq: 520, q: 0.6, attack: 0.004, decay: 0.34, gain: 0.4, at: give },
+  ];
+  // the rattle of mail and buckles
+  for (let i = 0; i < 3; i += 1) {
+    const fade = 1 - i * 0.2;
+    layers.push({
+      type: 'ring',
+      at: give + 0.09 + i * (0.055 + rand() * 0.04),
+      partials: [
+        { freq: 2300 + rand() * 1600, gain: 0.045 * fade, decay: 0.06 + rand() * 0.04 },
+        { freq: 3600 + rand() * 1800, gain: 0.03 * fade, decay: 0.04 + rand() * 0.03 },
+      ],
+    });
+  }
+  return { layers, reverb: 0.55, hall: 0.24 };
 }
 
 /**
