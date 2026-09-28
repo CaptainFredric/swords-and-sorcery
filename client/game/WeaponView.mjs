@@ -8,9 +8,8 @@ import { createSpellbladeAsset, reportSpellbladeAssetStatus } from './Spellblade
 import { resolveFirstPersonAnimationPlan } from './spellbladeAnimationPlan.mjs';
 import { FIRST_PERSON_WEAPON_SCALE, resolveWeaponPose } from './weaponPose.mjs';
 import { FP_MOTION, FirstPersonMotion } from './firstPersonMotion.mjs';
-import { OFF_HAND_CLEAR, slashPose } from './fpSlash.mjs';
-import { solveSwordArm } from './swordArmIK.mjs';
-import { attackMotion } from './spellbladePose.mjs';
+import { OFF_HAND_CLEAR, comboPose } from './fpSlash.mjs';
+import { FIRST_PERSON_OFF_ARM, solveArm, solveSwordArm } from './swordArmIK.mjs';
 
 function damp(value, target, amount) {
   return value + (target - value) * amount;
@@ -226,6 +225,9 @@ export class WeaponView {
     // told when each stroke of the combo begins its cut (the swing sound plays from here, without network delay)
     this.onSwing = () => {};
     this.lastSwingKey = null;
+    // the combo's last pose, and when the chain was let go (it eases back to rest from there)
+    this.lastCombo = null;
+    this.comboReleasedAt = null;
 
     this.#upgradeVisual();
   }
@@ -375,10 +377,15 @@ export class WeaponView {
 
     if (this.visualKind === 'production' && this.productionInstance) {
       let plan = resolveFirstPersonAnimationPlan(pose, this, timeSec);
-      // the combo is drawn by the sword hand's path (fpSlash.mjs): right to left, left to right, then down
-      const slash = pose.state === 'attack' ? attackMotion({ attackStartedAt: this.attackStartedAt }, timeSec) : null;
-      const swordArm = slash ? slashPose(slash.strike, slash.local) : null;
-      if (swordArm) plan = { clip: 'Idle', loop: true, time: timeSec };
+      // the combo is one unbroken path of both hands (fpSlash.mjs): fast, fast, then heavy with both on the grip
+      const combo = this.#combo(pose.state, timeSec);
+      if (combo) {
+        plan = { clip: 'Idle', loop: true, time: timeSec };
+        // the view leans with the body into each cut (purely visual: aim is the input's)
+        motion.camera.pitch += combo.look.pitch * combo.weight;
+        motion.camera.roll += combo.look.roll * combo.weight;
+        motion.camera.yaw += combo.look.yaw * combo.weight;
+      }
       // neutral hands sit a little wider apart (clear sightline); in the sprint the arms pump with the stride
       const spread = FP_MOTION.neutralSpread * motion.neutral;
       // the magic arm draws the spell in close, then throws it (see castGesture.mjs)
@@ -400,10 +407,13 @@ export class WeaponView {
           { bone: 'forearm.L', axis: [0, 1, 0], angle: FP_MOTION.magicForearmTwist * motion.neutral, space: 'local' },
           { bone: 'upper_arm.L', axis: [1, 0, 0], angle: -FP_MOTION.magicArmDrop * motion.neutral, space: 'local' },
           ...castGestureRotations(gesture),
-          // the magic arm drops out of the blade's way while it works
-          ...(swordArm ? OFF_HAND_CLEAR.map((turn) => ({ ...turn, angle: turn.angle * swordArm.weight })) : []),
+          // the magic arm drops out of the blade's way while it works (unless it is on the grip)
+          ...(combo ? OFF_HAND_CLEAR.map((turn) => ({ ...turn, angle: turn.angle * combo.weight })) : []),
         ],
-        solve: swordArm ? (bones) => solveSwordArm(bones, swordArm, swordArm.weight) : undefined,
+        solve: combo ? (bones) => {
+          solveSwordArm(bones, combo.arm, combo.weight);
+          if (combo.offHand) solveArm(bones, FIRST_PERSON_OFF_ARM, combo.offHand, combo.offHand.weight * combo.weight);
+        } : undefined,
       };
       const shown = frozen && this.lastPlan ? this.lastPlan : plan;
       this.productionInstance.animator.apply(shown, frozen ? 0 : dt);
@@ -440,6 +450,26 @@ export class WeaponView {
     }
     this.magicLight.intensity = pose.state === 'cast' ? 3.2 : 0.95 * Math.max(0.4, magicScale);
     return motion;
+  }
+
+  // the combo while the attack is held; let go, it eases back to rest from wherever it was (never a snap). A fresh
+  // chain starts from the resting arm, so it only needs a beat to take hold.
+  #combo(state, timeSec) {
+    const ease = (t) => t * t * (3 - 2 * t);
+    if (state === 'attack') {
+      const since = timeSec - this.attackStartedAt;
+      this.lastCombo = comboPose(since);
+      this.comboReleasedAt = null;
+      return this.lastCombo && { ...this.lastCombo, weight: since < 0.08 ? ease(Math.max(0, since) / 0.08) : 1 };
+    }
+    if (!this.lastCombo) return null;
+    if (this.comboReleasedAt === null) this.comboReleasedAt = timeSec;
+    const left = 1 - (timeSec - this.comboReleasedAt) / 0.22;
+    if (left <= 0) {
+      this.lastCombo = null;
+      return null;
+    }
+    return { ...this.lastCombo, weight: ease(left) };
   }
 
   // the spell in the palm grows as it gathers and is gone when thrown; the palm light takes on its colour

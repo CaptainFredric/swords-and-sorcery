@@ -56,7 +56,6 @@ export class Effects {
     this.sparkGeometry = new THREE.BoxGeometry(0.025, 0.025, 0.11);
     this.flashGeometry = new THREE.OctahedronGeometry(0.055, 0);
     this.impactFlashGeometry = new THREE.OctahedronGeometry(0.22, 0);
-    this.impactShellGeometry = new THREE.IcosahedronGeometry(0.38, 1);
     this.impactRingGeometry = new THREE.TorusGeometry(0.28, 0.025, 4, 16);
     this.projectileCoreGeometry = new THREE.OctahedronGeometry(0.15, 1);
     this.projectileShellGeometry = new THREE.IcosahedronGeometry(0.25, 1);
@@ -82,23 +81,9 @@ export class Effects {
       blending: THREE.AdditiveBlending,
       depthWrite: false,
     });
-    this.impactRingMaterial = new THREE.MeshBasicMaterial({
-      color: 0xff7a28,
-      transparent: true,
-      opacity: 0.58,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-    });
-    this.impactShellMaterial = new THREE.MeshBasicMaterial({
-      color: 0xff6725,
-      wireframe: true,
-      transparent: true,
-      opacity: 0.55,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-    });
     this.blastGeometry = new THREE.IcosahedronGeometry(0.5, 2);
     this.groundRingGeometry = new THREE.RingGeometry(0.8, 1, 40);
+    this.scorchGeometry = new THREE.CircleGeometry(1, 24);
     this.puffGeometry = new THREE.IcosahedronGeometry(0.35, 0);
     this.shardGeometry = new THREE.BoxGeometry(0.04, 0.04, 0.2);
     this.moteGeometry = new THREE.BoxGeometry(0.03, 0.03, 0.03);
@@ -131,8 +116,14 @@ export class Effects {
       core: new THREE.MeshStandardMaterial({ color: look.core, emissive: look.emissive, emissiveIntensity: 5.2, roughness: 0.18, metalness: 0.05 }),
       shell: glow(look.shell, 0.31),
       blast: glow(look.shell, 0.5),
+      // fire you could not see through: the billows of a fireball (drawn solid, so a bright sky cannot wash them out)
+      billow: new THREE.MeshBasicMaterial({ color: spell === 'frostfire' ? look.shell : 0xff5a14, transparent: true, opacity: 0.85, depthWrite: false }),
+      ember: new THREE.MeshBasicMaterial({ color: spell === 'frostfire' ? look.shell : 0xc9300c, transparent: true, opacity: 0.8, depthWrite: false }),
       heart: glow(look.heart, 0.85),
-      ring: new THREE.MeshBasicMaterial({ color: look.ring, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }),
+      // the blast's reach along the ground: a faint pressure wave, not a painted circle
+      ring: new THREE.MeshBasicMaterial({ color: look.ring, transparent: true, opacity: 0.28, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }),
+      // what it leaves on the ground for a moment: scorched earth, or a rime of frost
+      mark: new THREE.MeshBasicMaterial({ color: spell === 'frostfire' ? 0xd9f3ff : 0x1c130c, transparent: true, opacity: spell === 'frostfire' ? 0.3 : 0.42, depthWrite: false }),
       cloud: new THREE.MeshBasicMaterial({ color: look.cloud, transparent: true, opacity: spell === 'frostfire' ? 0.28 : 0.32, depthWrite: false }),
       bits: look.bits.map((color) => new THREE.MeshBasicMaterial({ color })),
     };
@@ -407,7 +398,11 @@ export class Effects {
    * A spell breaking. Fire: a swelling fireball out toward its reach, a shock ring along the ground, smoke, embers and
    * a flash of light. Frost: a burst of ice shards, a frost ring and cold mist.
    */
-  impact(point, { spell = 'fireball', radius = 2.6 } = {}) {
+  /**
+   * A spell breaking at `point` with its reach `radius`. ground: the height of the ground under it, if known; the
+   * blast's wave runs along the ground (and leaves a mark there) only when the ground is within its reach.
+   */
+  impact(point, { spell = 'fireball', radius = 2.6, ground = null } = {}) {
     const worldPoint = new THREE.Vector3(point.x, point.y, point.z);
     const cameraPosition = new THREE.Vector3();
     this.camera.getWorldPosition(cameraPosition);
@@ -422,37 +417,66 @@ export class Effects {
     const growth = (from, to, life) => (to / from - 1) / life;
     const blastLife = frost ? 0.2 : 0.28;
 
-    // the blast itself, swelling out toward its reach
-    const blast = new THREE.Mesh(this.blastGeometry, materials.blast);
-    blast.position.copy(worldPoint);
-    blast.scale.setScalar(0.3);
-    // the blast geometry has a 0.5 m radius: it swells to most of the spell's reach
-    this.#addTransient(blast, { life: blastLife, expand: growth(0.3, (radius * 0.9) / 0.5, blastLife), fade: true });
+    if (frost) {
+      // cold breaks clean: one crisp swelling burst (the blast geometry has a 0.5 m radius)
+      const blast = new THREE.Mesh(this.blastGeometry, materials.blast);
+      blast.position.copy(worldPoint);
+      blast.scale.setScalar(0.3);
+      this.#addTransient(blast, { life: blastLife, expand: growth(0.3, (radius * 0.9) / 0.5, blastLife), fade: true });
+    } else {
+      // fire does not make a dome: a few lobes of it billow out at their own rates and roll upward as they burn
+      for (let i = 0; i < 5; i += 1) {
+        // the heart of it glows; around it, billows of solid flame, the last of them already darkening
+        const lobe = new THREE.Mesh(this.blastGeometry, i < 2 ? materials.blast : i < 4 ? materials.billow : materials.ember);
+        const off = i === 0 ? [0, 0, 0] : [(Math.random() - 0.5) * radius * 0.34, Math.random() * radius * 0.2, (Math.random() - 0.5) * radius * 0.34];
+        lobe.position.set(point.x + off[0], point.y + off[1], point.z + off[2]);
+        lobe.scale.setScalar(0.24);
+        lobe.rotation.set(Math.random() * 3, Math.random() * 3, 0);
+        const life = blastLife * (0.8 + Math.random() * 0.5);
+        const size = radius * (i === 0 ? 0.6 : 0.32 + Math.random() * 0.18);
+        this.#addTransient(lobe, {
+          life,
+          expand: growth(0.24, size / 0.5, life),
+          fade: true,
+          velocity: new THREE.Vector3(off[0] * 1.4, 0.9 + Math.random() * 1.5, off[2] * 1.4),
+          drag: 2.5,
+        });
+      }
+    }
     // and a white-hot heart inside it, quicker and smaller
     const heart = new THREE.Mesh(this.blastGeometry, materials.heart);
     heart.position.copy(worldPoint);
     heart.scale.setScalar(0.25);
-    this.#addTransient(heart, { life: blastLife * 0.55, expand: growth(0.25, (radius * 0.5) / 0.5, blastLife * 0.55), fade: true });
+    this.#addTransient(heart, { life: blastLife * 0.5, expand: growth(0.25, (radius * 0.45) / 0.5, blastLife * 0.5), fade: true });
 
-    // a ring running out along the ground (or whatever it broke against)
-    const ring = new THREE.Mesh(this.groundRingGeometry, materials.ring);
-    ring.position.set(point.x, point.y + 0.03, point.z);
-    ring.rotation.x = -Math.PI / 2;
-    ring.scale.setScalar(0.2);
-    // the ring's outer edge is 1 m: it runs out to the full reach
-    this.#addTransient(ring, { life: 0.36, expand: growth(0.2, radius, 0.36), fade: true });
+    // along the ground, if it is within reach: a faint pressure wave running out, and a mark left behind
+    const drop = Number.isFinite(ground) ? point.y - ground : Infinity;
+    if (drop >= -0.2 && drop < radius * 0.8) {
+      const onGround = ground + 0.03;
+      const wave = new THREE.Mesh(this.groundRingGeometry, materials.ring);
+      wave.position.set(point.x, onGround, point.z);
+      wave.rotation.x = -Math.PI / 2;
+      wave.scale.setScalar(0.25);
+      // the ring's outer edge is 1 m: it runs out to the reach, weaker the higher up the blast was
+      this.#addTransient(wave, { life: 0.26, expand: growth(0.25, radius * (1 - (0.4 * drop) / radius), 0.26), fade: true });
+      const mark = new THREE.Mesh(this.scorchGeometry, materials.mark);
+      mark.position.set(point.x, ground + 0.02, point.z);
+      mark.rotation.x = -Math.PI / 2;
+      mark.scale.setScalar(radius * (frost ? 0.42 : 0.34) * (1 - (0.5 * drop) / radius));
+      this.#addTransient(mark, { life: frost ? 1.1 : 1.6, fade: true });
+    }
 
-    // smoke rolling up (fire) or cold mist hanging (frost)
-    for (let i = 0; i < (frost ? 4 : 6); i += 1) {
+    // smoke rolling up in a column (fire) or cold mist hanging (frost)
+    for (let i = 0; i < (frost ? 4 : 8); i += 1) {
       const puff = new THREE.Mesh(this.puffGeometry, materials.cloud);
-      puff.position.set(point.x + (Math.random() - 0.5) * radius * 0.5, point.y + Math.random() * 0.3, point.z + (Math.random() - 0.5) * radius * 0.5);
+      puff.position.set(point.x + (Math.random() - 0.5) * radius * 0.45, point.y + Math.random() * 0.4, point.z + (Math.random() - 0.5) * radius * 0.45);
       puff.rotation.set(Math.random() * 3, Math.random() * 3, 0);
       this.#addTransient(puff, {
-        velocity: new THREE.Vector3((Math.random() - 0.5) * 0.6, frost ? 0.15 : 0.9 + Math.random() * 0.6, (Math.random() - 0.5) * 0.6),
-        life: 0.8 + Math.random() * 0.4,
-        expand: 2.2,
+        velocity: new THREE.Vector3((Math.random() - 0.5) * 0.6, frost ? 0.15 : 1.2 + Math.random() * 1.0, (Math.random() - 0.5) * 0.6),
+        life: 0.8 + Math.random() * 0.5,
+        expand: 2.4,
         fade: true,
-        drag: 1.5,
+        drag: 1.4,
       });
     }
 
@@ -470,26 +494,11 @@ export class Effects {
     }
 
     if (presentation.showWorldBurst) {
+      // the instant of it: a hard flash
       const flash = new THREE.Mesh(this.impactFlashGeometry, this.#basicMaterial(0xffd18a));
       flash.position.copy(worldPoint);
       flash.scale.setScalar(presentation.worldScale);
-      this.#addTransient(flash, { life: 0.13, expand: 5.4, shrink: true });
-
-      const shell = new THREE.Mesh(this.impactShellGeometry, this.impactShellMaterial);
-      shell.position.copy(worldPoint);
-      shell.scale.setScalar(presentation.worldScale);
-      this.#addTransient(shell, { life: 0.22, expand: 4.6, spin: new THREE.Vector3(2.5, 3.5, 1.8) });
-
-      if (presentation.showRings) {
-        for (let axis = 0; axis < 2; axis += 1) {
-          const ring = new THREE.Mesh(this.impactRingGeometry, this.impactRingMaterial);
-          ring.position.copy(worldPoint);
-          ring.scale.setScalar(presentation.worldScale);
-          ring.rotation.x = axis === 0 ? Math.PI / 2 : 0;
-          ring.rotation.y = axis === 1 ? Math.PI / 2 : 0;
-          this.#addTransient(ring, { life: 0.2, expand: 6.1 });
-        }
-      }
+      this.#addTransient(flash, { life: 0.1, expand: 6, shrink: true });
     }
 
     // flames licking up out of it
@@ -498,12 +507,13 @@ export class Effects {
       const reach = Math.random() * radius * 0.6;
       this.#flame({ x: point.x + Math.cos(angle) * reach, y: point.y + Math.random() * 0.4, z: point.z + Math.sin(angle) * reach });
     }
-    // embers thrown out well past the heart of it
-    for (let i = 0; i < 26; i += 1) {
+    // burning fragments spat out hard and fast, falling as they die (sparks, not confetti)
+    for (let i = 0; i < 16; i += 1) {
       const mesh = new THREE.Mesh(this.emberGeometry, this.emberMaterials[i % 2]);
       mesh.position.copy(worldPoint);
-      const dir = new THREE.Vector3(Math.random() - 0.5, Math.random() * 0.9 + 0.1, Math.random() - 0.5).normalize();
-      this.#addTransient(mesh, { velocity: dir.multiplyScalar(3 + Math.random() * 5), life: 0.4 + Math.random() * 0.4, shrink: true, gravity: 6, spin: new THREE.Vector3(4, 6, 5), drag: 0.8 });
+      mesh.scale.setScalar(0.75);
+      const dir = new THREE.Vector3(Math.random() - 0.5, Math.random() * 0.8 + 0.15, Math.random() - 0.5).normalize();
+      this.#addTransient(mesh, { velocity: dir.multiplyScalar(5 + Math.random() * 5), life: 0.28 + Math.random() * 0.3, shrink: true, gravity: 9, spin: new THREE.Vector3(4, 6, 5), drag: 1.2 });
     }
     this.sparks(point, 0xff8a3c, 14);
   }

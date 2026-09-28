@@ -345,7 +345,7 @@ export class TourDirector {
         const flight = this.projectiles.find((projectile) => projectile.id.startsWith(`tour-${index}-`));
         const point = flight ? flight.to.clone() : this.#chest(rivalRoot);
         this.projectiles = this.projectiles.filter((projectile) => projectile !== flight);
-        this.effects.impact(point, { spell: cue.spell, radius: 2.2 });
+        this.effects.impact(point, { spell: cue.spell, radius: 2.2, ground: 0 });
         this.#play(fireballImpactRecipe(), point, 0.75);
         break;
       }

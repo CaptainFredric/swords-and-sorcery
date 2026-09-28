@@ -33,21 +33,21 @@ function dampEuler(object, x, y, z, amount = 0.22) {
 
 // how long an opponent may stay hidden while its production model loads before the fallback stands in
 const FALLBACK_GRACE_MS = 4000;
-// a struck body flashes hot for a few frames
-const HIT_FLASH_MATERIAL = new THREE.MeshBasicMaterial({ color: 0xfff0dc });
+// a struck body glows hot for a moment: a warm tint over its own shading (its own materials; never a white
+// silhouette that erases the knight), strongest at the blow and gone in a tenth of a second
+const HIT_GLOW = Object.freeze({ color: new THREE.Color(0xffc98f), peak: 0.42, seconds: 0.1 });
 
-function setHitFlash(shell, on) {
-  const root = shell.visual;
-  if (!root || shell.hitFlashing === on) return;
-  shell.hitFlashing = on;
-  root.traverse((object) => {
+function setHitGlow(shell, amount) {
+  if (shell.visualKind !== 'glb' || !shell.visual) return;
+  const level = Math.max(0, Math.min(1, amount));
+  if (level === 0 && !shell.hitGlowing) return;
+  shell.hitGlowing = level > 0;
+  shell.visual.traverse((object) => {
     if (!object.isMesh) return;
-    if (on) {
-      object.userData.hitRestore = object.material;
-      object.material = HIT_FLASH_MATERIAL;
-    } else if (object.userData.hitRestore) {
-      object.material = object.userData.hitRestore;
-      delete object.userData.hitRestore;
+    for (const material of Array.isArray(object.material) ? object.material : [object.material]) {
+      if (!material?.emissive) continue;
+      material.userData.restEmissive ??= material.emissive.clone();
+      material.emissive.copy(material.userData.restEmissive).lerp(HIT_GLOW.color, level * HIT_GLOW.peak);
     }
   });
 }
@@ -179,6 +179,13 @@ export class RemotePlayers {
 
   // queue a short procedural reaction on the body that took the blow, played on the interpolated clock
   #react(event, snapshot) {
+    // a sword blow says which strike it was (its damage came a moment before, in the same tick): the flinch turns
+    // with that blade's travel
+    if (event?.type === 'swordHit') {
+      const d = this.rigs.get(event.targetId)?.root.userData;
+      if (d) d.reactions = d.reactions.map((reaction) => (reaction.kind === 'hit' && reaction.at === event.at ? { ...reaction, strike: event.strikeIndex } : reaction));
+      return;
+    }
     const spec = REACTION_EVENTS[event?.type];
     if (!spec || !Number.isFinite(event.at)) return;
     if (event.type === 'damage' && (event.source === 'abyss' || !(event.amount > 0))) return;
@@ -192,6 +199,8 @@ export class RemotePlayers {
     const strength = event.type === 'damage' ? Math.min(1.2, 0.6 + (event.amount ?? 0) / 60) : 1;
     const d = shell.root.userData;
     d.reactions = [...pruneReactions(d.reactions, event.at), { kind: spec.kind, at: event.at, push, strength }];
+    // the killing blow's push carries into the fall
+    if (event.type === 'damage') d.lastPush = push;
   }
 
   pushSnapshot(snapshot, receivedAtMs) {
@@ -246,10 +255,10 @@ export class RemotePlayers {
     }
   }
 
-  // flash a struck opponent (the game runtime calls this when a blow lands)
-  flashHit(id, seconds = 0.07) {
+  // a struck opponent glows hot for a moment (the game runtime calls this when a blow lands)
+  flashHit(id) {
     const shell = this.rigs.get(id);
-    if (shell) shell.hitFlashUntil = performance.now() + seconds * 1000;
+    if (shell) shell.hitGlowAt = performance.now();
   }
 
   // where an opponent is drawn right now
@@ -328,14 +337,17 @@ export class RemotePlayers {
       const animationPlayer = { ...pb, castPoseStartAt: d.castPoseStartAt };
       const plan = resolveSpellbladeAnimationPlan({ state, player: animationPlayer, serverNow, localTime });
       plan.motion = {
-        reactions: state === 'dead' ? [] : d.reactions,
+        // the killing blow's flinch plays on into the death, and the body gives way under it
+        reactions: d.reactions,
         now: serverNow,
         yaw: shell.root.rotation.y,
         airFlex: state === 'air' ? airborneLegFlex(verticalVelocity) : 0,
+        death: plan.clip === 'Death' ? { age: plan.time, push: d.lastPush ?? null } : null,
       };
       setRemoteVisualPlan(shell, plan, dt);
 
-      setHitFlash(shell, nowMs < (shell.hitFlashUntil ?? 0));
+      const glowAge = (nowMs - (shell.hitGlowAt ?? -Infinity)) / 1000;
+      setHitGlow(shell, glowAge < HIT_GLOW.seconds ? 1 - glowAge / HIT_GLOW.seconds : 0);
 
       const protectedNow = (pb.spawnProtectionUntil ?? 0) > serverNow;
       const accentIntensity = protectedNow ? 2.8 : state === 'cast' ? 2.3 : 1.4;
@@ -353,7 +365,7 @@ export class RemotePlayers {
 
   dispose() {
     for (const shell of this.rigs.values()) {
-      setHitFlash(shell, false);
+      setHitGlow(shell, 0);
       this.scene.remove(shell.root);
       disposeRemoteVisualShell(shell);
     }
