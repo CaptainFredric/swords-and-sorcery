@@ -33,6 +33,7 @@ function neutralInput(player) {
 function resetActorAtSpawn(player, spawn, nowSec) {
   player.position = { x: spawn.x, y: spawn.y, z: spawn.z };
   player.velocity = { x: 0, y: 0, z: 0 };
+  player.impulse = { x: 0, z: 0 };
   player.grounded = true;
   player.jumpHeld = false;
   player.yaw = spawn.yaw ?? 0;

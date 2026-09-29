@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { MOVEMENT, SPRINT, createMovementState, movePlayer, resolveSprint, tryStartDash } from './movement.mjs';
+import { IMPULSE, MOVEMENT, SPRINT, createMovementState, movePlayer, resolveSprint, shoveBody, tryStartDash } from './movement.mjs';
 import { SHATTERED_KEEP } from './map.mjs';
 
 const flatWorld = {
@@ -130,4 +130,37 @@ test('a dash cannot tunnel through a thin wall at the server tick rate', () => {
   tryStartDash(state, { x: 0, z: -1 }, 0);
   for (let i = 1; i <= 8; i += 1) state = movePlayer(state, { forward: 0, right: 0, jump: false, yaw: 0 }, 1 / 30, i / 30, walled);
   assert.ok(state.position.z > -2, `dashed through the wall to z=${state.position.z}`);
+});
+
+test('a shove carries a body on top of its own steps and dies away: quickly on the ground, slowly in the air', () => {
+  const travel = (airborne) => {
+    let state = createMovementState({ x: 0, y: airborne ? 20 : 0, z: 0 });
+    state.grounded = !airborne;
+    shoveBody(state, { x: 8, y: 0, z: 0 });
+    for (let i = 0; i < 30; i += 1) state = movePlayer(state, { forward: 0, right: 0, jump: false, yaw: 0 }, 1 / 30, i / 30, airborne ? { floors: [], ramps: [], solids: [] } : flatWorld);
+    return { x: state.position.x, left: Math.hypot(state.impulse.x, state.impulse.z) };
+  };
+  const ground = travel(false);
+  const air = travel(true);
+  assert.ok(ground.x > 0.5, `pushed along the ground ${ground.x.toFixed(2)} m`);
+  assert.ok(air.x > ground.x * 1.5, 'carried further through the air');
+  assert.equal(ground.left, 0, 'spent on the ground within a second');
+  // on top of its own steps, not instead of them
+  let walking = createMovementState({ x: 0, y: 0, z: 0 });
+  shoveBody(walking, { x: 0, y: 0, z: -4 });
+  walking = movePlayer(walking, { forward: 1, right: 0, jump: false, yaw: 0 }, 1 / 30, 0, flatWorld);
+  assert.ok(Math.hypot(walking.velocity.x, walking.velocity.z) > MOVEMENT.runSpeed, 'its run and the shove together');
+  // an upward shove takes it off its feet
+  const lifted = shoveBody(createMovementState({ x: 0, y: 0, z: 0 }), { x: 0, y: 3, z: 0 });
+  assert.equal(lifted.grounded, false);
+  assert.ok(IMPULSE.airDecay < IMPULSE.groundDecay);
+});
+
+test('a wall takes the shove driven into it', () => {
+  const walled = { ...flatWorld, solids: [{ id: 'wall', center: [0.9, 1, 0], size: [0.4, 2, 6] }] };
+  let state = createMovementState({ x: 0, y: 0, z: 0 });
+  shoveBody(state, { x: 10, y: 0, z: 0 });
+  for (let i = 0; i < 6; i += 1) state = movePlayer(state, { forward: 0, right: 0, jump: false, yaw: 0 }, 1 / 30, i / 30, walled);
+  assert.ok(state.position.x < 0.7, 'stopped at the wall');
+  assert.ok(Math.hypot(state.impulse.x, state.impulse.z) < 2, 'the shove spent against it');
 });

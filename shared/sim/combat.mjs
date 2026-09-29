@@ -4,8 +4,9 @@ import {
 } from '../src/combat.mjs';
 import { blastDamage, blastDistance, burnFrom, chillFrom, chillScale, spellExposure, spellFor, strongerChill } from '../src/spells.mjs';
 import { STEEL, callSteel, chipSteel, steelExposure } from '../src/steel.mjs';
+import { galeOnBody, galeRecoil, galeShove } from '../src/gale.mjs';
 import { findSwordWorldHit, segmentAabbHit, surfaceHeightAt } from '../src/collision.mjs';
-import { SPRINT, movePlayer, resolveSprint, tryStartDash } from '../src/movement.mjs';
+import { SPRINT, movePlayer, resolveSprint, shoveBody, tryStartDash } from '../src/movement.mjs';
 import { separatePlayers } from '../src/separation.mjs';
 import { chooseSpawn } from './spawns.mjs';
 import { recordTransform, sampleTransform } from './history.mjs';
@@ -37,6 +38,7 @@ function playerCenter(player) {
 function resetAtSpawn(player, spawn, nowSec) {
   player.position = { x: spawn.x, y: spawn.y, z: spawn.z };
   player.velocity = { x: 0, y: 0, z: 0 };
+  player.impulse = { x: 0, z: 0 };
   player.grounded = true;
   player.jumpHeld = false;
   player.yaw = spawn.yaw ?? 0;
@@ -402,12 +404,10 @@ export function applyDamage(room, attackerId, victimId, amount, source, nowSec, 
   victim.lastDamageAt = nowSec;
   victim.lastAttackerId = attackerId;
   if (knockback) {
-    victim.velocity.x += knockback.x ?? 0;
-    victim.velocity.y += knockback.y ?? 0;
-    victim.velocity.z += knockback.z ?? 0;
+    shoveBody(victim, knockback);
     victim.lastKnockbackAt = nowSec;
   }
-  room.events.push({ type: 'damage', attackerId, victimId, source, amount, health: victim.health, at: nowSec });
+  room.events.push({ type: 'damage', attackerId, victimId, source, amount, health: victim.health, push: knockback ?? null, at: nowSec });
   if (victim.health <= 0) killPlayer(room, victimId, attackerId, source, nowSec);
   return true;
 }
@@ -436,10 +436,14 @@ export function killPlayer(room, victimId, attackerId, source, nowSec) {
   return true;
 }
 
-function spawnSpell(room, player, nowSec) {
+function spawnSpell(room, player, nowSec, world) {
   const pending = player.pendingSpell;
   if (!pending) return;
   const spell = spellFor(pending.spell);
+  if (spell.kind === 'cone') {
+    releaseGale(room, player, spell, nowSec, world);
+    return;
+  }
   const direction = pending.direction;
   const id = `f${++projectileCounter}`;
   const f = forwardFromYaw(player.yaw);
@@ -458,6 +462,60 @@ function spawnSpell(room, player, nowSec) {
   player.pendingSpell = null;
   player.castEndsAt = 0;
   room.events.push({ type: 'projectileSpawned', projectile: structuredClone(projectile), at: nowSec });
+}
+
+// Gale Garner lets go: every body its gust reaches is shoved (its heart also stings a little); a raised guard facing it
+// keeps most of its footing but pays for it like a blow; hardened steel turns the sting, not the shove; walls stop it.
+// Driven into the ground close by, it throws its caster back off it.
+function releaseGale(room, player, spell, nowSec, world) {
+  const pending = player.pendingSpell;
+  player.pendingSpell = null;
+  player.castEndsAt = 0;
+  const f = forwardFromYaw(player.yaw);
+  const direction = Math.hypot(pending.direction.x, pending.direction.y, pending.direction.z) > 0.01
+    ? normalize3(pending.direction) : { x: f.x, y: 0, z: f.z };
+  const eye = { x: player.position.x, y: player.position.y + EYE_HEIGHT, z: player.position.z };
+  const origin = { x: eye.x + direction.x * 0.35, y: eye.y + direction.y * 0.35, z: eye.z + direction.z * 0.35 };
+  const affected = [];
+  for (const target of room.players.values()) {
+    if (target.id === player.id || !target.alive || target.spawnProtectionUntil > nowSec) continue;
+    const caught = galeOnBody(spell, origin, direction, target.position);
+    if (caught.pressure <= 0.01) continue;
+    const at = caught.point;
+    let walled = false;
+    for (const box of world.solids ?? []) {
+      if (segmentAabbHit([origin.x, origin.y, origin.z], [at.x, at.y, at.z], box)) { walled = true; break; }
+    }
+    if (walled) continue;
+    let shove = galeShove(spell, origin, direction, at, caught.pressure);
+    const guarded = target.guarding && isInGuardCone(target, player, nowSec);
+    if (guarded) {
+      // it holds its ground behind the guard, and the guard pays for it like a blow (its breath waits again)
+      shove = { x: shove.x * spell.cone.guarded, y: shove.y * spell.cone.guarded, z: shove.z * spell.cone.guarded };
+      target.guardStamina = Math.max(0, target.guardStamina - spell.cone.guardCost * caught.pressure);
+      target.lastGuardDrainAt = nowSec;
+      if (target.guardStamina <= 1e-9) {
+        target.guarding = false;
+        target.staggerUntil = nowSec + GAME.guardBreakStaggerMs / 1000;
+        room.events.push({ type: 'guardBreak', attackerId: player.id, defenderId: target.id, at: nowSec });
+      }
+    }
+    // its heart stings a little (steel turns that aside, never the shove)
+    const armour = steelExposure(target.steel, guarded ? 0 : caught.exposure, nowSec);
+    if (armour.turned > 0.1) target.steel = chipSteel(target.steel, STEEL.spellChip * armour.turned, nowSec);
+    const damage = Math.round(spell.cone.damage * armour.exposure);
+    if (damage >= 1) {
+      applyDamage(room, player.id, target.id, damage, spell.id, nowSec, shove);
+    } else {
+      shoveBody(target, shove);
+      target.lastAttackerId = player.id;
+      target.lastKnockbackAt = nowSec;
+    }
+    affected.push({ id: target.id, pressure: caught.pressure, guarded, shove });
+  }
+  const recoil = galeRecoil(spell, eye, direction, world);
+  if (recoil) shoveBody(player, recoil);
+  room.events.push({ type: 'galeBlast', playerId: player.id, spell: spell.id, origin, direction, affected, recoil, at: nowSec });
 }
 
 // the blast: damage by distance, a shove away from its heart, then what the spell leaves behind (a burn, a chill)
@@ -578,7 +636,7 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
       continue;
     }
 
-    if (player.pendingSpell && nowSec >= player.castEndsAt) spawnSpell(room, player, nowSec);
+    if (player.pendingSpell && nowSec >= player.castEndsAt) spawnSpell(room, player, nowSec, world);
     stepAfflictions(room, player, nowSec);
     if (!player.alive) continue;
 
@@ -618,6 +676,7 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
     player.dashReadyAt = moved.dashReadyAt;
     player.dashDir = moved.dashDir;
     player.sprintBlend = moved.sprintBlend;
+    player.impulse = moved.impulse;
     player.yaw = input.yaw ?? player.yaw;
     player.pitch = input.pitch ?? player.pitch;
     recordTransform(player, nowSec);

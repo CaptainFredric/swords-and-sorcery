@@ -43,6 +43,30 @@ export const SPELLS = Object.freeze({
     // further out is chilled less, and for less long (down to these shares at the very edge)
     chill: Object.freeze({ slow: 0.55, seconds: 3, edgeSlow: 0.4, edgeSeconds: 0.5 }),
   }),
+  // A short, forceful cone of wind that moves bodies far more than it hurts them (shared/src/gale.mjs). A readable
+  // breath is drawn in first, so it is no instant "get away from me". Its heart does a little damage and shoves
+  // hardest; its pressure reaches wider and further and only shoves; both fade evenly with distance and angle.
+  // Current, provisional tuning (the cooldown especially).
+  gale: Object.freeze({
+    id: 'gale',
+    label: 'Gale Garner',
+    kind: 'cone',
+    cooldownSec: 7,
+    gatherSec: 0.5,
+    cone: Object.freeze({
+      reach: 5.2,                // the heart of the gust, out to here and this wide...
+      halfAngleDeg: 28,
+      pressureReach: 8.5,        // ...and its pressure, further and wider (a shove, no damage)
+      pressureHalfAngleDeg: 46,
+      damage: 8,                 // at point blank in its heart
+      push: 12.5,                // m/s: the shove at point blank
+      lift: 0.28,                // a share of it lifting the body off its feet
+      guarded: 0.35,             // a raised guard facing it keeps this much of the shove...
+      guardCost: 12,             // ...and pays this much stamina for it at point blank
+    }),
+    // aimed into the ground (or a wall) close by, the gust throws its caster back off it
+    recoil: Object.freeze({ reach: 3.2, push: 9.5, maxUp: 8 }),
+  }),
 });
 
 export const DEFAULT_SPELL = 'fireball';

@@ -61,6 +61,7 @@ export function serializeSnapshot(room, nowSec) {
       arenaReady: Boolean(p.arenaReady),
       position: p.position,
       velocity: p.velocity,
+      impulse: p.impulse ?? { x: 0, z: 0 },
       yaw: p.yaw,
       pitch: p.pitch,
       health: p.health,

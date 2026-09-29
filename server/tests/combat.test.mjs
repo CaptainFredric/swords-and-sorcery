@@ -273,6 +273,7 @@ test('Frostfire hits lighter and leaves a chill that is strongest at once and th
   };
   // run away from the caster, so nothing but the cold decides the distance
   b.yaw = -Math.PI / 2;
+  b.impulse = { x: 0, z: 0 };
   b.chill = { slow: 0.5, startedAt: 20, until: 23 };
   const start = { ...b.position };
   const chilledStep = moved(b, start, 20.1);
@@ -502,4 +503,66 @@ test('the magic hand cannot clench while it gathers a spell', () => {
   const room = playingRoom();
   tryCastSpell(room, 'b', { x: -1, y: 0, z: 0 }, 10);
   assert.equal(tryActivateSteel(room, 'b', 10.1), false);
+});
+
+// a Gale from a (facing +x); returns b's state after the gust has done its work
+function galeAt(room, bAt, { guard = false, steel = false, wall = null, direction = { x: 1, y: 0, z: 0 } } = {}) {
+  const a = room.players.get('a');
+  const b = room.players.get('b');
+  a.spell = 'gale';
+  Object.assign(b.position, bAt);
+  b.history = [];
+  if (guard) { b.yaw = Math.atan2(b.position.x - a.position.x, b.position.z - a.position.z); b.input.yaw = b.yaw; setGuard(room, 'b', true, 9); }
+  if (steel) tryActivateSteel(room, 'b', 10);
+  const world = wall ? { ...openWorld, solids: [wall] } : openWorld;
+  assert.equal(tryCastSpell(room, 'a', direction, 10), true);
+  const before = { ...b.position };
+  stepRoom(room, 0.02, 10.2, world);
+  const early = { health: b.health, x: b.position.x };
+  for (let now = 10.22; now < 11.2; now += 0.02) {
+    b.input = { forward: 0, right: 0, jump: false, yaw: b.yaw, pitch: 0 };
+    stepRoom(room, 0.02, now, world);
+  }
+  const blast = room.events.find((e) => e.type === 'galeBlast');
+  return { b, moved: b.position.x - before.x, damage: 100 - b.health, early, blast, before };
+}
+
+test('Gale Garner: after its breath, the gust shoves a knight in its heart well away and stings a little', () => {
+  const heart = galeAt(playingRoom(), { x: 2, y: 0, z: 0 });
+  assert.equal(heart.early.health, 100, 'nothing before the breath is let go');
+  assert.ok(heart.moved > 1, `shoved ${heart.moved.toFixed(2)} m`);
+  assert.ok(heart.damage > 0 && heart.damage < GAME.swordDamage / 2, `stung for ${heart.damage}`);
+  // further out, in its pressure only: shoved, not stung
+  const pressure = galeAt(playingRoom(), { x: SPELLS.gale.cone.reach + 1.2, y: 0, z: 0 });
+  assert.ok(pressure.moved > 0.1 && pressure.moved < heart.moved);
+  assert.equal(pressure.damage, 0);
+  // behind the caster, untouched; behind a wall, sheltered
+  assert.equal(galeAt(playingRoom(), { x: -2, y: 0, z: 0 }).moved, 0);
+  const sheltered = galeAt(playingRoom(), { x: 3, y: 0, z: 0 }, { wall: { id: 'w', center: [1.5, 1, 0], size: [0.3, 3, 4] } });
+  assert.equal(sheltered.damage, 0);
+  assert.ok(Math.abs(sheltered.moved) < 0.05);
+});
+
+test('a guard facing the gust keeps its footing better, but pays for it like a blow; steel turns the sting, not the shove', () => {
+  const open = galeAt(playingRoom(), { x: 2, y: 0, z: 0 });
+  const guarded = galeAt(playingRoom(), { x: 2, y: 0, z: 0 }, { guard: true });
+  assert.ok(guarded.moved < open.moved * 0.6, 'held its ground better');
+  assert.equal(guarded.damage, 0);
+  assert.ok(guarded.b.guardStamina < 100, 'the guard paid');
+  assert.ok(guarded.b.lastGuardDrainAt >= 10.49, 'and its breath waits again, as after a blow');
+  const steeled = galeAt(playingRoom(), { x: 2, y: 0, z: 0 }, { steel: true });
+  assert.ok(steeled.damage < open.damage, 'less of a sting');
+  assert.ok(Math.abs(steeled.moved - open.moved) < 0.05, 'the same shove');
+});
+
+test('a gust driven into the ground close by throws its caster up off it', () => {
+  const room = playingRoom();
+  const a = room.players.get('a');
+  a.spell = 'gale';
+  tryCastSpell(room, 'a', { x: 0, y: -1, z: 0 }, 10);
+  stepRoom(room, 0.02, 10.5, openWorld);
+  const blast = room.events.find((e) => e.type === 'galeBlast');
+  assert.ok(blast.recoil && blast.recoil.y > 0);
+  stepRoom(room, 0.02, 10.52, openWorld);
+  assert.ok(a.position.y > 0.05 && a.grounded === false, 'off its feet');
 });
