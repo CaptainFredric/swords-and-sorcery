@@ -1,5 +1,5 @@
 /* A page in the existing Castleward armory: stitched cloth, iron plaques and brass fittings. */
-#armory-menu .armory-inner { --banner-width: min(408px, 43cqw); max-height: calc(100% - 20px); overflow-y: auto; overscroll-behavior: contain; }
+#armory-menu .armory-inner { --banner-width: min(408px, 43cqw); max-height: calc(100% - 20px); padding-top: 24px; padding-bottom: calc(var(--hem) + 18px); overflow-y: auto; overscroll-behavior: contain; }
 .armory-inner > * { flex-shrink: 0; }
 .armory-tabs { display: flex; gap: 0; margin: 8px 0 16px; border-bottom: 1px solid var(--heraldry-brass); }
 .armory-tabs button { flex: 1; padding: 11px 8px; border: 0; border-bottom: 3px solid transparent; background: rgba(34, 29, 25, .55); color: var(--heraldry-cream); cursor: pointer; font: 400 17px/1 var(--font-inscription); letter-spacing: .04em; }
@@ -10,7 +10,7 @@
 .heraldry-ledger small { color: var(--heraldry-cream); font: 700 10px/1 var(--font-script); letter-spacing: .15em; }
 .heraldry-ledger strong { color: var(--heraldry-brass-light); font: 400 27px/1 var(--font-inscription); }
 .cloth-choices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; margin: 8px 0 12px; }
-.cloth-card { display: flex; align-items: center; gap: 9px; min-width: 0; min-height: 60px; padding: 8px; text-align: left; border: 1px solid rgba(201,156,82,.45); border-radius: 2px; background: linear-gradient(var(--heraldry-iron-light), var(--heraldry-iron)); color: var(--heraldry-cream); cursor: pointer; }
+.cloth-card { display: flex; align-items: center; gap: 9px; min-width: 0; min-height: 56px; padding: 6px; text-align: left; border: 1px solid rgba(201,156,82,.45); border-radius: 2px; background: linear-gradient(var(--heraldry-iron-light), var(--heraldry-iron)); color: var(--heraldry-cream); cursor: pointer; }
 .cloth-card > span:last-child { min-width: 0; }
 .cloth-card strong { display: block; font: 400 15px/1.12 var(--font-inscription); }
 .cloth-card small { display: block; margin-top: 4px; font: 600 11px/1.1 var(--font-script); color: var(--heraldry-brass-light); }
@@ -40,7 +40,7 @@
   @keyframes armory-arrive { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 }
 @container app (max-height: 500px) {
-  #armory-menu .armory-inner { --banner-width: min(390px, 51cqw); max-height: calc(100% - 12px); }
+  #armory-menu .armory-inner { --banner-width: min(390px, 51cqw); max-height: calc(100% - 12px); padding-top: 18px; }
   .cloth-card { min-height: 52px; padding: 6px; }
   .cloth-swatch { flex-basis: 19px; height: 26px; }
   .heraldry-ledger strong { font-size: 22px; }
