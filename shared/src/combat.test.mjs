@@ -3,6 +3,13 @@ import assert from 'node:assert/strict';
 import {
   GAME,
   GUARD_PROFILES,
+  MELEE_CONTACT,
+  bladeAngleAt,
+  closingImpact,
+  meleeAlignment,
+  meleeContactQuality,
+  meleePhase,
+  swordDamageFor,
   SWORD_CHAIN,
   SWORD_STRIKE_TIMES,
   getSwordStrikeIndex,
@@ -79,4 +86,33 @@ test('cooldown readiness uses absolute ready time', () => {
   assert.equal(isCooldownReady(10, 10), true);
   assert.equal(isCooldownReady(10.001, 10), true);
   assert.equal(isCooldownReady(9.999, 10), false);
+});
+
+test('contact quality: a clean plateau in the middle, an even taper to the fringe, never zero for a legal hit', () => {
+  const deg = Math.PI / 180;
+  const reach = GAME.swordRange;
+  // the middle of the arc, on the strong of the blade, in the heart of the swing: clean
+  assert.equal(meleeContactQuality({ angle: 0, distance: reach * 0.5, dt: 0 }), 1);
+  assert.equal(meleeContactQuality({ angle: 8 * deg, distance: reach * 0.6, dt: 0.01 }), 1, 'a forgiving plateau');
+  // tapering evenly (no step anywhere) toward the fringe and the tip
+  let last = 1;
+  for (let a = 0; a <= MELEE_CONTACT.arcHalfDeg; a += 1) {
+    const q = meleeAlignment(a * deg, reach * 0.5, reach);
+    assert.ok(q <= last + 1e-12 && last - q < 0.03, `a smooth taper at ${a} degrees`);
+    last = q;
+  }
+  assert.ok(meleeAlignment(0, reach, reach) < 1, 'the very tip is a glancing touch');
+  // the heart of the swing is strongest; coming in, or late in the follow-through, a little less
+  assert.ok(meleePhase(-MELEE_CONTACT.window.early) < meleePhase(0) && meleePhase(MELEE_CONTACT.window.late) < meleePhase(0));
+  // the worst legal contact still does real damage
+  const worst = meleeContactQuality({ angle: MELEE_CONTACT.arcHalfDeg * deg, distance: reach, dt: -MELEE_CONTACT.window.early });
+  assert.ok(worst > 0 && swordDamageFor(worst) >= GAME.swordDamage / 3, `the worst glancing blow still does ${swordDamageFor(worst)}`);
+  // the blade crosses the arc through the live stretch, and is at the middle at the contact
+  assert.equal(bladeAngleAt(0, 0), 0);
+  assert.ok(Math.sign(bladeAngleAt(0, -0.05)) === -Math.sign(bladeAngleAt(0, 0.05)), 'from one side to the other');
+  assert.ok(Math.sign(bladeAngleAt(0, -0.05)) === -Math.sign(bladeAngleAt(1, -0.05)), 'the backhand the other way');
+  // closing speed: nothing when standing or parting, up to a full collision
+  assert.equal(closingImpact(0), 0);
+  assert.equal(closingImpact(-4), 0);
+  assert.ok(closingImpact(4) > 0 && closingImpact(4) < 1 && closingImpact(50) === 1);
 });

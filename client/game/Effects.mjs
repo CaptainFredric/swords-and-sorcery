@@ -233,29 +233,31 @@ export class Effects {
    * A sword landing on a body: a slash arc along the stroke, a white-hot flash, hot sparks thrown along the blow and
    * a few chips of armour. strike: combo index (2 = the heavy finisher); dir: the blow's direction (attacker to victim).
    */
-  hitBurst(point, dir, { strike = 0, heavy = false } = {}) {
+  hitBurst(point, dir, { strike = 0, heavy = false, quality = 1 } = {}) {
     const at = new THREE.Vector3(point.x, point.y, point.z);
     const push = new THREE.Vector3(dir?.x ?? 0, 0, dir?.z ?? 0);
     if (push.lengthSq() < 1e-6) push.set(0, 0, 1);
     push.normalize();
     const big = heavy || strike >= 2;
+    // a glancing blow: a smaller, quicker burst (fewer sparks), the blade skating off rather than biting in
+    const bite = 0.55 + 0.45 * Math.max(0, Math.min(1, Number.isFinite(quality) ? quality : 1));
 
     // the slash: an arc facing the camera, rolled to match the stroke (right-to-left, left-to-right, overhead)
     const arc = new THREE.Mesh(this.slashGeometry, this.slashMaterial);
     arc.position.copy(at);
     arc.lookAt(this.camera.getWorldPosition(new THREE.Vector3()));
     arc.rotateZ([-0.75, 0.75 + Math.PI, -Math.PI / 2][strike % 3]);
-    arc.scale.setScalar(big ? 1.25 : 1);
-    this.#addTransient(arc, { life: big ? 0.2 : 0.15, expand: 2.6, fade: true });
+    arc.scale.setScalar((big ? 1.25 : 1) * bite);
+    this.#addTransient(arc, { life: (big ? 0.2 : 0.15) * bite, expand: 2.6, fade: true });
 
     const core = new THREE.Mesh(this.impactFlashGeometry, this.#basicMaterial(0xfff4dc));
     core.position.copy(at);
-    core.scale.setScalar(big ? 0.75 : 0.5);
+    core.scale.setScalar((big ? 0.75 : 0.5) * bite);
     this.#addTransient(core, { life: 0.09, expand: 3.2, shrink: true, spin: new THREE.Vector3(4, 6, 3) });
 
     // sparks fly out of the cut to both sides and up (across the view, where they read), a few along the blow
     const side = new THREE.Vector3(-push.z, 0, push.x);
-    for (let i = 0; i < (big ? 28 : 18); i += 1) {
+    for (let i = 0; i < Math.round((big ? 28 : 18) * bite); i += 1) {
       const spark = new THREE.Mesh(this.hotSparkGeometry, this.#basicMaterial(i % 3 ? 0xffcf6a : 0xfff3c4));
       spark.position.copy(at);
       const velocity = side.clone().multiplyScalar((Math.random() < 0.5 ? -1 : 1) * (2 + Math.random() * 3.5))
@@ -264,7 +266,7 @@ export class Effects {
       spark.lookAt(at.clone().add(velocity));
       this.#addTransient(spark, { velocity, life: 0.22 + Math.random() * 0.22, shrink: true, gravity: 9, drag: 2.2 });
     }
-    for (let i = 0; i < (big ? 7 : 4); i += 1) {
+    for (let i = 0; i < Math.round((big ? 7 : 4) * bite); i += 1) {
       const chip = new THREE.Mesh(this.chipGeometry, this.#basicMaterial(i % 2 ? 0x55585c : 0x8a8f94));
       chip.position.copy(at);
       const velocity = push.clone().multiplyScalar(1.2 + Math.random() * 1.8)

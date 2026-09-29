@@ -10,6 +10,7 @@ import {
   tryDash,
 } from '../../shared/sim/combat.mjs';
 import { SPRINT } from '../../shared/src/movement.mjs';
+import { GAME } from '../../shared/src/combat.mjs';
 import { SPELLS } from '../../shared/src/spells.mjs';
 
 const openWorld = {
@@ -59,20 +60,18 @@ test('held sword lands 28 damage at 0.40, 1.10 and 1.80 seconds, and the fourth 
   assert.equal(room.players.get('b').alive, false);
 });
 
-test('each committed sword strike emits an authoritative swing cue', () => {
+test('each committed sword strike emits one authoritative swing cue as it goes live, before its contact', () => {
   const room = playingRoom();
   beginAttack(room, 'a', 10);
   room.events.length = 0;
+  const swings = () => room.events.filter((e) => e.type === 'swordSwing' && e.playerId === 'a').map((e) => e.strikeIndex);
 
-  stepRoom(room, 0.01, 10.39, openWorld);
-  assert.deepEqual(room.events.filter((e) => e.type === 'swordSwing'), []);
-
-  stepRoom(room, 0.01, 10.40, openWorld);
-  stepRoom(room, 0.01, 11.10, openWorld);
-  stepRoom(room, 0.01, 11.80, openWorld);
-
-  const swings = room.events.filter((e) => e.type === 'swordSwing' && e.playerId === 'a');
-  assert.deepEqual(swings.map((e) => e.strikeIndex), [0, 1, 2]);
+  stepRoom(room, 0.01, 10.2, openWorld);
+  assert.deepEqual(swings(), [], 'not yet');
+  stepRoom(room, 0.01, 10.36, openWorld);
+  assert.deepEqual(swings(), [0], 'live just before its contact');
+  for (const now of [10.40, 11.10, 11.80, 12]) stepRoom(room, 0.01, now, openWorld);
+  assert.deepEqual(swings(), [0, 1, 2], 'once each');
 });
 
 test('releasing attack prevents later combo strikes', () => {
@@ -379,4 +378,87 @@ test('but a second swing asked for by a fresh press stands, whenever the button 
   endAttack(room, 'a', 10.8, 10.6);                  // that tap let go before the second began
   for (const now of [11.1, 11.5]) stepRoom(room, 0.01, now, openWorld);
   assert.equal(room.players.get('b').health, 44, 'the second lands');
+});
+
+// b placed at `angle` (radians, + to a's left) and `distance` from a, who faces +x
+function placeB(room, angle, distance) {
+  const b = room.players.get('b');
+  Object.assign(b.position, { x: Math.cos(angle) * distance, y: 0, z: -Math.sin(angle) * distance });
+  b.history = [];
+  return b;
+}
+
+test('a sword caught cleanly does its full damage; one at the fringe of the arc glances, weaker but real', () => {
+  const clean = playingRoom();
+  placeB(clean, 0, 1.6);
+  beginAttack(clean, 'a', 10);
+  for (const now of [10.3, 10.4, 10.5, 10.6]) stepRoom(clean, 0.01, now, openWorld);
+  assert.equal(clean.players.get('b').health, 100 - GAME.swordDamage);
+
+  const fringe = playingRoom();
+  placeB(fringe, -50 * Math.PI / 180, 1.6);
+  beginAttack(fringe, 'a', 10);
+  for (const now of [10.3, 10.4, 10.5, 10.6]) stepRoom(fringe, 0.01, now, openWorld);
+  const lost = 100 - fringe.players.get('b').health;
+  assert.ok(lost > 0 && lost < GAME.swordDamage, `a glancing blow: ${lost}`);
+  const hit = fringe.events.find((e) => e.type === 'swordHit');
+  assert.ok(hit.quality < 1 && hit.quality > 0);
+
+  const outside = playingRoom();
+  placeB(outside, 80 * Math.PI / 180, 1.6);
+  beginAttack(outside, 'a', 10);
+  for (const now of [10.3, 10.4, 10.5, 10.6]) stepRoom(outside, 0.01, now, openWorld);
+  assert.equal(outside.players.get('b').health, 100, 'outside the arc: a miss');
+});
+
+test('the forehand meets a body on its incoming side sooner than one on the far side', () => {
+  const when = (angle) => {
+    const room = playingRoom();
+    placeB(room, angle, 1.6);
+    beginAttack(room, 'a', 10);
+    for (let now = 10.25; now <= 10.6; now += 0.01) {
+      stepRoom(room, 0.01, now, openWorld);
+      if (room.players.get('b').health < 100) return now;
+    }
+    return Infinity;
+  };
+  // the forehand comes across from a's right (negative angles) to the left
+  assert.ok(when(-30 * Math.PI / 180) < when(0) && when(0) < when(30 * Math.PI / 180));
+});
+
+test('running into each other shoves harder; it barely changes the damage', () => {
+  const measure = (closing) => {
+    const room = playingRoom();
+    const b = placeB(room, 0, 1.6);
+    const a = room.players.get('a');
+    beginAttack(room, 'a', 10);
+    stepRoom(room, 0.01, 10.39, openWorld);
+    a.velocity.x = closing / 2;
+    b.velocity.x = -closing / 2;
+    const before = Math.hypot(b.velocity.x, b.velocity.z);
+    stepRoom(room, 0.01, 10.40, openWorld);
+    const hit = room.events.find((e) => e.type === 'swordHit');
+    return { damage: 100 - b.health, shove: b.velocity.x - (-closing / 2), impact: hit.impact, before };
+  };
+  const standing = measure(0);
+  const collision = measure(12);
+  assert.ok(collision.impact > standing.impact);
+  assert.ok(collision.shove > standing.shove * 1.3, 'a much bigger shove');
+  assert.ok(Math.abs(collision.damage - standing.damage) <= GAME.swordDamage * 0.1, 'about the same damage');
+});
+
+test('a glancing blow bears less on a guard than a clean one', () => {
+  const cost = (angle) => {
+    const room = playingRoom();
+    const b = placeB(room, angle, 1.6);
+    // b faces a, guarding for a while (no parry)
+    b.yaw = Math.atan2(b.position.x, b.position.z); b.input.yaw = b.yaw;
+    setGuard(room, 'b', true, 9);
+    beginAttack(room, 'a', 10);
+    for (const now of [10.3, 10.4, 10.5, 10.6]) stepRoom(room, 0.01, now, openWorld);
+    return 100 - b.guardStamina;
+  };
+  const clean = cost(0);
+  const glancing = cost(-50 * Math.PI / 180);
+  assert.ok(clean > 0 && glancing > 0 && glancing < clean, `clean ${clean}, glancing ${glancing}`);
 });

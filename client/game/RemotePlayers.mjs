@@ -187,7 +187,9 @@ export class RemotePlayers {
     // with that blade's travel
     if (event?.type === 'swordHit') {
       const d = this.rigs.get(event.targetId)?.root.userData;
-      if (d) d.reactions = d.reactions.map((reaction) => (reaction.kind === 'hit' && reaction.at === event.at ? { ...reaction, strike: event.strikeIndex } : reaction));
+      // (and two knights crashing together throws the body harder)
+      const crash = 1 + 0.35 * Math.max(0, Math.min(1, Number(event.impact) || 0));
+      if (d) d.reactions = d.reactions.map((reaction) => (reaction.kind === 'hit' && reaction.at === event.at ? { ...reaction, strike: event.strikeIndex, strength: (reaction.strength ?? 1) * crash } : reaction));
       return;
     }
     const spec = REACTION_EVENTS[event?.type];

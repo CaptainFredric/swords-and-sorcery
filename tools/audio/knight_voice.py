@@ -47,7 +47,8 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 OUT_DIR = os.path.join(ROOT, 'client', 'assets', 'voice')
 SR = 48000
 
-LINES = ('effort', 'hurt', 'death', 'sorcery', 'dash', 'victory', 'defeat', 'magicDefeat', 'killTaunt', 'breakTaunt')
+LINES = ('effort', 'hurt', 'death', 'sorcery', 'dash', 'victory', 'defeat', 'magicDefeat', 'killTaunt', 'breakTaunt',
+         'galeTaunt', 'steelBoast')
 ALIASES = {
     'grunt': 'effort', 'swing': 'effort', 'attack': 'effort', 'heave': 'effort', 'strike': 'effort',
     'pain': 'hurt', 'hit': 'hurt', 'ow': 'hurt', 'ouch': 'hurt',
@@ -70,6 +71,11 @@ PRESETS = {
     'magicDefeat': {'semitones': -4.5, 'drive': 2.0, 'rms_db': -18},   # deadpan, not shouted
     'killTaunt': {'semitones': -4.5, 'drive': 2.2, 'rms_db': -16},
     'breakTaunt': {'semitones': -4.5, 'drive': 2.2, 'rms_db': -16},
+    # "What did you say? Must have been the wind..." (the second half is an aside, spoken low: the expander is
+    # eased so it keeps it)
+    'galeTaunt': {'semitones': -4.5, 'drive': 2.0, 'rms_db': -17, 'expand_below_db': -42},
+    # "My armor works now!"
+    'steelBoast': {'semitones': -4.5, 'drive': 2.2, 'rms_db': -16},
 }
 
 # the close helm's room removal and dynamics (see close_helm)
@@ -387,7 +393,7 @@ def close_helm(x, sr, preset, report=None):
     measured = room_decay(x, sr)
     t60 = min(CLOSE['t60'], measured) if measured else CLOSE['t60']
     x = dereverb(x, sr, t60=max(0.3, t60), strength=CLOSE['strength'], floor_db=CLOSE['floor_db'])
-    x = dynamics(x, sr, below_db=CLOSE['expand_below_db'], ratio=CLOSE['expand_ratio'])
+    x = dynamics(x, sr, below_db=preset.get('expand_below_db', CLOSE['expand_below_db']), ratio=CLOSE['expand_ratio'])
     x = trim(x, sr, pre=0.02, post=0.12)
     x = pitch_shift(x, preset['semitones'])
     x = equalize(x, sr, [

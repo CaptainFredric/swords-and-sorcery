@@ -12,7 +12,7 @@ import { SCENE_PRESENTATION } from './scenePresentation.mjs';
 import { localCombatFeedback, shouldPlayWorldClang } from './combatFeedback.mjs';
 import { castVisualDuration } from './weaponPose.mjs';
 import { localPushDirection } from './spellbladeMotion.mjs';
-import { blowDirection, hitKick, hitstopSeconds, impactPoint } from './hitFeel.mjs';
+import { blowDirection, glancing, hitKick, hitstopSeconds, impactPoint } from './hitFeel.mjs';
 import {
   blockRecipe, burnLickRecipe, castRecipe, dashRecipe, fireballImpactRecipe, frostImpactRecipe, guardBreakRecipe, hurtRecipe, killRecipe,
   parryRecipe, spatialize, swingRecipe, swordHitRecipe, wallClangRecipe,
@@ -520,21 +520,24 @@ export class GameRuntime {
   #swordHit(event) {
     const me = this.socket.playerId;
     const strike = event.strikeIndex ?? 0;
+    // how cleanly it landed (a glancing blow skates off with a scrape) and how hard the two met
+    const quality = Number.isFinite(event.quality) ? event.quality : 1;
+    const impact = Number.isFinite(event.impact) ? event.impact : 0;
     const attacker = this.#bodyPosition(event.playerId);
     const victim = this.#bodyPosition(event.targetId);
     const point = impactPoint(victim, attacker);
     if (event.targetId !== me) {
-      if (point) this.effects.hitBurst(point, blowDirection(victim, attacker), { strike });
+      if (point) this.effects.hitBurst(point, blowDirection(victim, attacker), { strike, quality });
       this.remotePlayers.flashHit(event.targetId);
     }
     if (event.playerId === me) {
-      this.hud.hit('hit');
-      this.weapon.hitstop(hitstopSeconds({ strike }), hitKick({ strike }));
-      this.#play(swordHitRecipe(Math.random, { strike }), null, 1);
+      this.hud.hit(glancing(quality) ? 'glance' : 'hit');
+      this.weapon.hitstop(hitstopSeconds({ strike, quality }), hitKick({ strike, quality }));
+      this.#play(swordHitRecipe(Math.random, { strike, quality, impact }), null, 1);
     } else if (event.targetId === me) {
-      this.#play(hurtRecipe(Math.random, { heavy: strike >= 2 }), null, 1);
+      this.#play(hurtRecipe(Math.random, { heavy: strike >= 2 || impact > 0.5 }), null, 1);
     } else {
-      this.#play(swordHitRecipe(Math.random, { strike }), point, 0.8);
+      this.#play(swordHitRecipe(Math.random, { strike, quality, impact }), point, 0.8);
     }
   }
 

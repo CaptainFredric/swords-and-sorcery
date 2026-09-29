@@ -28,19 +28,28 @@ export function ring(rand, base, { decay = 0.45, gain = 0.2, partials = PLATE.le
 /**
  * A sword landing on an armoured body. strike: combo index (0, 1, 2 = the heavy finisher); kill: the blow slew.
  */
-export function swordHitRecipe(rand = Math.random, { strike = 0, kill = false } = {}) {
+export function swordHitRecipe(rand = Math.random, { strike = 0, kill = false, quality = 1, impact = 0 } = {}) {
   const heavy = strike >= 2 || kill;
   const base = (heavy ? 430 : 560 - strike * 50) * jitter(rand, 0.06);
+  const q = Math.max(0, Math.min(1, Number.isFinite(quality) ? quality : 1));
+  const crash = Math.max(0, Math.min(1, Number(impact) || 0));
+  // a clean cut bites; a glancing one skates across the plate with a scrape and less of a thump
+  const bite = 0.35 + 0.65 * q;
   const layers = [
     // the crack of contact
-    { type: 'noise', filter: 'highpass', freq: 2600 * jitter(rand, 0.1), q: 0.7, attack: 0.001, decay: 0.035, gain: 0.55 },
+    { type: 'noise', filter: 'highpass', freq: 2600 * jitter(rand, 0.1), q: 0.7, attack: 0.001, decay: 0.035, gain: 0.55 * (0.6 + 0.4 * q) },
     // plate and mail crunching under the edge
-    { type: 'noise', filter: 'bandpass', freq: 1100 * jitter(rand, 0.15), q: 1.3, sweepTo: 520, attack: 0.002, decay: 0.11, gain: 0.5 },
-    // the weight of the body behind the armour
-    { type: 'tone', wave: 'sine', freq: 150 * jitter(rand, 0.08), slideTo: 52, attack: 0.002, decay: heavy ? 0.2 : 0.12, gain: heavy ? 0.9 : 0.7 },
+    { type: 'noise', filter: 'bandpass', freq: 1100 * jitter(rand, 0.15), q: 1.3, sweepTo: 520, attack: 0.002, decay: 0.11, gain: 0.5 * bite },
+    // the weight of the body behind the armour (heavier when the two crashed together)
+    { type: 'tone', wave: 'sine', freq: 150 * jitter(rand, 0.08), slideTo: 52, attack: 0.002, decay: heavy ? 0.2 : 0.12, gain: (heavy ? 0.9 : 0.7) * bite * (1 + 0.35 * crash) },
     // steel ringing out
     ring(rand, base, { decay: heavy ? 0.6 : 0.38, gain: heavy ? 0.2 : 0.16, bright: 0.8 }),
   ];
+  if (q < 0.85) {
+    // the edge sliding off: a bright scrape that falls away
+    layers.push({ type: 'noise', filter: 'bandpass', freq: 3400 * jitter(rand, 0.1), q: 2.2, sweepTo: 1800, attack: 0.004, decay: 0.09 + 0.08 * (1 - q), gain: 0.28 * (1 - q) + 0.08 });
+  }
+  if (crash > 0.3) layers.push({ type: 'noise', filter: 'lowpass', freq: 260, q: 0.6, attack: 0.002, decay: 0.12, gain: 0.35 * crash });
   if (heavy) layers.push({ type: 'tone', wave: 'sine', freq: 72, slideTo: 38, attack: 0.004, decay: 0.32, gain: 0.8 });
   if (kill) {
     // a low toll under the killing blow
