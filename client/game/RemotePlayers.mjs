@@ -352,7 +352,11 @@ export class RemotePlayers {
       } else if (d.airborne) {
         d.airborne = false;
         const strength = landingStrength(d.fastestFall);
-        if (strength > 0.05 && state !== 'dead') d.reactions = [...d.reactions, { kind: 'land', at: serverNow, strength }];
+        if (strength > 0.05 && state !== 'dead') {
+          d.reactions = [...d.reactions, { kind: 'land', at: serverNow, strength }];
+          // and the tabards flip out with it, then settle
+          shell.visualInstance?.animator?.cloth?.land?.(strength);
+        }
         d.fastestFall = 0;
       }
       d.reactions = pruneReactions(d.reactions, serverNow);

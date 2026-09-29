@@ -166,6 +166,19 @@ export function gustCloth(state, { forward = 0, right = 0 } = {}, gain = 1.1) {
   return state;
 }
 
+/**
+ * Coming down from a jump or a fall: the hanging cloth runs on down as the body stops, so both ends flip out a moment
+ * (the back backward, the front forward) and then fall back and settle. strength: 0..1 (how hard it landed).
+ */
+export function landCloth(state, strength = 1) {
+  if (!state?.chains) return state;
+  const s = Math.max(0, Math.min(1, Number(strength) || 0));
+  for (const [name, chain] of Object.entries(state.chains)) {
+    chain.swingVel = clamp(chain.swingVel + (name === 'front' ? -5 : 6.5) * s, -14, 14);
+  }
+  return state;
+}
+
 /** Forget motion history (spawn, teleport, respawn) so the cloth does not whip. */
 export function resetCloth(state) {
   const fresh = createClothState();

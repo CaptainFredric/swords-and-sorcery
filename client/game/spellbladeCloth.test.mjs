@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { CLOTH_CHAINS, createClothState, isTeleport, resetCloth, stepCloth } from './spellbladeCloth.mjs';
+import { CLOTH_CHAINS, createClothState, isTeleport, landCloth, resetCloth, stepCloth } from './spellbladeCloth.mjs';
 
 function run(state, seconds, velocityAt, dt = 1 / 60) {
   for (let t = 0; t < seconds; t += dt) stepCloth(state, dt, velocityAt(t));
@@ -151,4 +151,21 @@ test('speeding up, it swings back past its trail, then settles; a turn leaves it
     if (t > 0.8) last = last === null ? state.chains.back.swing : last;
   }
   assert.ok(Math.abs(state.chains.back.swing - last) < 0.01, 'and holds still at a steady sprint');
+});
+
+test('a landing flips both ends out (the back backward, the front forward), then they fall back and settle', () => {
+  const state = run(createClothState(), 1, () => ({ forward: 0, right: 0 }));
+  landCloth(state, 1);
+  run(state, 0.1, () => ({ forward: 0, right: 0 }));
+  assert.ok(state.chains.back.swing > 0.05, `the back flips backward: ${state.chains.back.swing.toFixed(3)}`);
+  assert.ok(state.chains.front.swing < -0.05, `the front flips forward: ${state.chains.front.swing.toFixed(3)}`);
+  run(state, 2.5, () => ({ forward: 0, right: 0 }));
+  assert.ok(Math.abs(state.chains.back.swing) < 0.01 && Math.abs(state.chains.front.swing) < 0.01, 'and hangs still again');
+  // a light landing, a lighter flip
+  const flip = (strength) => {
+    const cloth = run(createClothState(), 1, () => ({ forward: 0, right: 0 }));
+    landCloth(cloth, strength);
+    return run(cloth, 0.1, () => ({ forward: 0, right: 0 })).chains.back.swing;
+  };
+  assert.ok(flip(0.3) > 0 && flip(0.3) < flip(1) * 0.6, 'lighter from a lighter landing');
 });
