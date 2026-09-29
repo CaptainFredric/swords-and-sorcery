@@ -2,7 +2,7 @@
 // Spellblades and does with what they send. The same shapes either way, so the client cannot tell who is hosting
 // except by asking.
 
-import { beginAttack, endAttack, setGuard, tryActivateSteel, tryCastOrGauntlet, tryDash } from './combat.mjs';
+import { beginAttack, endAttack, setGuard, tryCastOrGauntlet, tryDash } from './combat.mjs';
 import { compensatedInputTime } from './history.mjs';
 import { removePracticeDummy, resetPracticePlayer, setPracticeDummyMode, spawnPracticeDummy } from './practice.mjs';
 import { GAME_MODES } from '../src/modes.mjs';
@@ -85,7 +85,6 @@ export function serializeSnapshot(room, nowSec) {
       burningUntil: p.burn?.until ?? 0,
       // Sheathed in Steel: when its strength was last set, and to what (it wears off evenly from there)
       steel: p.steel ? { at: p.steel.at, base: p.steel.base, calledAt: p.steel.calledAt } : null,
-      steelReadyAt: p.steelReadyAt ?? 0,
       dashReadyAt: p.dashReadyAt,
       dashUntil: p.dashUntil,
       staggerUntil: p.staggerUntil,
@@ -134,7 +133,6 @@ export function applyRoomCommand(room, player, message, time) {
     // the spell's key: the spell when it is ready; on its cooldown, the gauntlet if a foe is in reach
     case 'cast': tryCastOrGauntlet(room, player.id, message.direction || { x: 0, y: 0, z: -1 }, time, compensatedInputTime(message.clientTime, time)); return {};
     case 'dash': tryDash(room, player.id, message.direction || { x: 0, z: -1 }, time); return {};
-    case 'steel': tryActivateSteel(room, player.id, time); return {};
     case 'rematch': room.requestRematch(player.id, time); return {};
     case 'practiceResetPlayer':
       return room.mode === GAME_MODES.PRACTICE && resetPracticePlayer(room, player.id, time) ? {} : { rejected: PRACTICE_REJECTED };

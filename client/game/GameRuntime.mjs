@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { getWorld } from '../../shared/worlds/registry.mjs';
-import { createMovementState, movePlayer, resolveSprint, shoveBody, tryStartDash } from '../../shared/src/movement.mjs';
+import { createMovementState, launchBody, movePlayer, resolveSprint, shoveBody, tryStartDash } from '../../shared/src/movement.mjs';
 import { separateLocal } from '../../shared/src/separation.mjs';
 import { segmentAabbHit, surfaceHeightAt } from '../../shared/src/collision.mjs';
 import { InputController } from './InputController.mjs';
@@ -12,10 +12,10 @@ import { SCENE_PRESENTATION } from './scenePresentation.mjs';
 import { localCombatFeedback, shouldPlayWorldClang } from './combatFeedback.mjs';
 import { castVisualDuration } from './weaponPose.mjs';
 import { localPushDirection } from './spellbladeMotion.mjs';
-import { blowDirection, glancing, hitKick, hitstopSeconds, impactPoint } from './hitFeel.mjs';
+import { blowDirection, glancing, hitKick, hitstopSeconds, impactPoint, steelHitFeel } from './hitFeel.mjs';
 import {
   blockRecipe, burnLickRecipe, castRecipe, dashRecipe, fireballImpactRecipe, frostImpactRecipe, guardBreakRecipe, hurtRecipe, killRecipe,
-  deniedRecipe, galeReleaseRecipe, gauntletHitRecipe, gauntletSwingRecipe, parryRecipe, spatialize, steelCallRecipe, steelTurnRecipe,
+  deniedRecipe, galeReleaseRecipe, gauntletHitRecipe, gauntletSwingRecipe, parryRecipe, spatialize, steelCallRecipe, steelClangRecipe, steelTickRecipe,
   swingRecipe, swordHitRecipe, wallClangRecipe,
 } from './sound/soundRecipes.mjs';
 import { galeRecoil } from '../../shared/src/gale.mjs';
@@ -147,17 +147,17 @@ export class GameRuntime {
         return;
       }
       const spell = spellFor(this.localAuth?.spell);
+      // Sheathe in Steel, carried in the spell's place: the clench and the ring of plate at once (the server hardens
+      // the armour a moment later)
+      if (spell.kind === 'ward') {
+        this.weapon.clench();
+        this.localSteelAt = now;
+        this.#play(steelCallRecipe(), null, 0.9);
+        return;
+      }
       this.weapon.cast({ gatherSec: spell.gatherSec, spell: spell.id });
       // a Gale lets go when its breath is drawn: my own is seen and felt the moment it goes, once the server has taken it
       if (spell.kind === 'cone') this.localGale = { at: now + spell.gatherSec, direction: this.input.lookDirection(), spell, confirmed: false };
-    };
-    // Sheathe in Steel: the clench and the ring of plate at once (the server hardens the armour a moment later)
-    this.input.onSteelLocal = () => {
-      const now = this.socket.serverNow();
-      if (!canPresentLocalAction('steel', this.localAuth, this.localState, now)) return;
-      this.weapon.clench();
-      this.localSteelAt = now;
-      this.#play(steelCallRecipe(), null, 0.9);
     };
     this.input.onDashLocal = (dir) => {
       const now = this.socket.serverNow();
@@ -403,14 +403,8 @@ export class GameRuntime {
 
       // Sheathed in Steel: another knight's plate ringing as it hardens (mine rang as I pressed)
       if (event.type === 'steelOn' && event.playerId !== me) this.#play(steelCallRecipe(), this.#bodyPosition(event.playerId), 0.7);
-      // a spell turned aside by it: a glint where it struck the plate, a ping, and now and then a word of pride
-      if (event.type === 'steelTurn') {
-        const body = this.#bodyPosition(event.playerId);
-        const point = body && event.point ? impactPoint(body, event.point) : null;
-        if (point && event.playerId !== me) this.effects.steelGlint(point, blowDirection(body, event.point));
-        this.#play(steelTurnRecipe(), event.playerId === me ? null : point, 0.85);
-        if (event.turned >= 0.25) this.#say('steelBoast', event.playerId, { delay: 0.35 });
-      }
+      // a spell turned aside by it: now and then a word of pride (its clang and sparks come with the blow's damage)
+      if (event.type === 'steelTurn' && event.turned >= 0.25) this.#say('steelBoast', event.playerId, { delay: 0.35 });
 
       // my own swings whoosh from the local swing (no network delay); others' from the server's strike
       if (event.type === 'swordSwing' && event.playerId !== me) {
@@ -473,7 +467,9 @@ export class GameRuntime {
         }
         // a blow that kills gets the death cry instead
         if (event.amount >= 8 && event.health > 0 && event.source !== 'abyss') this.#say('hurt', event.victimId);
-        if (event.victimId === this.socket.playerId && this.view.damageFlash) document.body.classList.add('took-damage');
+        // a blow on hardened plate clangs and sparks instead (#steelStruck); otherwise, mine flashes the view red
+        const plated = this.#steelStruck(event);
+        if (event.victimId === this.socket.playerId && this.view.damageFlash && !plated) document.body.classList.add('took-damage');
         setTimeout(() => document.body.classList.remove('took-damage'), 120);
       }
       if (event.type === 'death') {
@@ -551,7 +547,7 @@ export class GameRuntime {
     if (!shownAlready && spell.cone) {
       this.effects.galeBlast(event.origin, event.direction, spell.cone, this.#groundUnder());
       this.#play(galeReleaseRecipe(), mine ? null : event.origin, mine ? 1 : 0.9);
-      if (mine && event.recoil && this.localState) shoveBody(this.localState, event.recoil);
+      if (mine && event.recoil && this.localState) launchBody(this.localState, event.recoil, event.recoil.maxUp);
     }
     for (const caught of event.affected ?? []) {
       if (caught.id === me) {
@@ -563,6 +559,39 @@ export class GameRuntime {
       }
     }
     if ((event.affected ?? []).some((caught) => caught.pressure >= 0.3 && !caught.guarded)) this.#say('galeTaunt', event.playerId, { delay: 0.7 });
+  }
+
+  // a blow landing on Sheathed in Steel: the plate clangs as hard as it still is (a bright KLANG fresh, a TANG and a
+  // scrape half worn, a dull clunk nearly gone) and throws sparks to match; on my own plate the clang is punchier, the
+  // sparks fly up across the view and the health bar's frame flashes. One full clang per blow: a second within its
+  // ring only ticks, and a burn's licks make none. Whether it was shown (the red flash is not, then).
+  #steelStruck(event) {
+    const now = performance.now() / 1000;
+    const clangs = (this.steelClangAt ??= new Map());
+    const feel = steelHitFeel(event, { lastClangAt: clangs.get(event.victimId) ?? -Infinity, now });
+    if (!feel) return false;
+    const mine = event.victimId === this.socket.playerId;
+    const body = this.#bodyPosition(event.victimId);
+    const attacker = this.#bodyPosition(event.attackerId);
+    if (feel.full) {
+      clangs.set(event.victimId, now);
+      this.#play(steelClangRecipe(Math.random, { strength: feel.strength, local: mine }), mine ? null : body, mine ? 1 : 0.85);
+    } else {
+      this.#play(steelTickRecipe(Math.random, { strength: feel.strength }), mine ? null : body, mine ? 0.8 : 0.6);
+    }
+    if (mine) {
+      this.hud.steelStruck?.();
+      if (attacker && body) this.effects.steelSparksInView({ x: attacker.x - body.x, z: attacker.z - body.z }, feel.strength);
+      if (this.view.damageFlash && feel.full) {
+        document.body.style.setProperty('--steel-hit', feel.strength.toFixed(2));
+        document.body.classList.add('took-steel');
+        setTimeout(() => document.body.classList.remove('took-steel'), 110);
+      }
+    } else if (body) {
+      const point = impactPoint(body, attacker);
+      if (point) this.effects.steelGlint(point, blowDirection(body, attacker), { strength: feel.strength * (feel.full ? 1 : 0.4) });
+    }
+    return true;
   }
 
   // the gauntlet, thrown from my own hand (the local rule: the sword does not have the hand, a foe within reach, as far
@@ -601,7 +630,10 @@ export class GameRuntime {
     const me = this.socket.playerId;
     const involved = event.playerId === me || event.targetId === me;
     const body = this.#bodyPosition(event.targetId);
-    this.#play(gauntletHitRecipe(Math.random, { guarded: event.guarded }), involved ? null : body, involved ? 0.95 : 0.7);
+    // (a fist on my own hardened plate is its clang alone: #steelStruck)
+    if (!(event.targetId === me && event.steel >= 0.02)) {
+      this.#play(gauntletHitRecipe(Math.random, { guarded: event.guarded }), involved ? null : body, involved ? 0.95 : 0.7);
+    }
     if (event.targetId === me && !event.guarded) this.cameraKick = Math.max(this.cameraKick, 0.05);
     if (event.guarded) return;
     const foe = this.latestSnapshot?.players.find((p) => p.id === event.targetId);
@@ -627,12 +659,12 @@ export class GameRuntime {
     this.localGaleAt = serverNow;
     if (!this.localState || !gale.spell.cone) return;
     const d = gale.direction;
-    const eye = { x: this.localState.position.x, y: this.localState.position.y + 1.35, z: this.localState.position.z };
+    const eye = { x: this.localState.position.x, y: this.localState.position.y + postureOf(this.localState).eye, z: this.localState.position.z };
     const origin = { x: eye.x + d.x * 0.35, y: eye.y + d.y * 0.35, z: eye.z + d.z * 0.35 };
     this.effects.galeBlast(origin, d, gale.spell.cone, this.#groundUnder());
     this.#play(galeReleaseRecipe(), null, 1);
     const recoil = galeRecoil(gale.spell, eye, d, this.activeWorld);
-    if (recoil) shoveBody(this.localState, recoil);
+    if (recoil) launchBody(this.localState, recoil, recoil.maxUp);
   }
 
   // the fallen may protest (magic they do not believe in, or that they are a knight); if they keep quiet, whoever
@@ -690,7 +722,8 @@ export class GameRuntime {
       this.weapon.hitstop(hitstopSeconds({ strike, quality }), hitKick({ strike, quality }));
       this.#play(swordHitRecipe(Math.random, { strike, quality, impact }), null, 1);
     } else if (event.targetId === me) {
-      this.#play(hurtRecipe(Math.random, { heavy: strike >= 2 || impact > 0.5 }), null, 1);
+      // (on hardened plate, the clang is the whole of it: #steelStruck)
+      if (!(event.steel >= 0.02)) this.#play(hurtRecipe(Math.random, { heavy: strike >= 2 || impact > 0.5 }), null, 1);
     } else {
       this.#play(swordHitRecipe(Math.random, { strike, quality, impact }), point, 0.8);
     }

@@ -1,6 +1,5 @@
 import { MOVEMENT } from '../../shared/src/movement.mjs';
 import { spellFor } from '../../shared/src/spells.mjs';
-import { STEEL } from '../../shared/src/steel.mjs';
 import { isDeliberateTap, lookDelta, stickVector, TOUCH } from './touchControlsModel.mjs';
 import { screenTurn } from '../ui/screenTurn.mjs';
 
@@ -22,7 +21,7 @@ const ICONS = {
   // three lines of wind, curling at their ends
   gale: '<path d="M3 8h11a3 3 0 1 0-3-3M3 12h15a3 3 0 1 1-3 3M3 16h8"/>',
   dash: '<path d="M4 8h6M3 12h8M4 16h6M13 6l6 6-6 6"/>',
-  // a gauntleted fist, closed
+  // a gauntleted fist, closed (Sheathe in Steel, carried in the spell's place)
   steel: '<path d="M7 11V8a1.5 1.5 0 0 1 3 0v2V6.5a1.5 1.5 0 0 1 3 0V10V7.5a1.5 1.5 0 0 1 3 0V13c0 4-2.5 7-6 7s-5-2.5-5-5v-2.5a1.5 1.5 0 0 1 2-1.4"/>',
   jump: '<path d="M12 18V6M6.5 11.5 12 6l5.5 5.5M6 21h12"/>',
   sprint: '<path d="M6 12.5 12 7l6 5.5M6 18.5 12 13l6 5.5"/>',
@@ -36,7 +35,6 @@ const BUTTONS = [
   { action: 'attack', label: 'ATTACK' },
   { action: 'guard', label: 'GUARD' },
   { action: 'dash', label: 'DASH', cooldown: { key: 'dashReadyAt', seconds: MOVEMENT.dashCooldown } },
-  { action: 'steel', label: 'STEEL', cooldown: { key: 'steelReadyAt', seconds: STEEL.cooldownSec } },
   // the spell carried from the Armory (its icon, name and cooldown follow the spell)
   { action: 'spell', label: 'FIREBALL', icon: 'fireball', cooldown: { key: 'spellReadyAt', seconds: 4 } },
   { action: 'jump', label: 'JUMP' },
@@ -181,8 +179,9 @@ export class TouchControls {
     button.dataset.spell = spell.id;
     button.classList.toggle('frost', spell.id === 'frostfire');
     button.classList.toggle('gale', spell.id === 'gale');
+    button.classList.toggle('steel', spell.id === 'steel');
     button.setAttribute('aria-label', spell.label.toUpperCase());
-    button.querySelector('span').textContent = spell.label.toUpperCase();
+    button.querySelector('span').textContent = (spell.short ?? spell.label).toUpperCase();
     button.querySelector('svg').innerHTML = ICONS[spell.id] ?? ICONS.fireball;
     const cooldown = this.cooldowns.find((entry) => entry.element === button);
     if (cooldown) cooldown.seconds = spell.cooldownSec;
@@ -265,7 +264,6 @@ export class TouchControls {
     }
     if (action === 'spell') this.input.cast();
     if (action === 'dash') this.input.dash();
-    if (action === 'steel') this.input.steel();
     if (action === 'jump') {
       this.jumpHeld = true;
       this.jumpUntil = performance.now() + JUMP_LATCH_MS;

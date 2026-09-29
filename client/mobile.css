@@ -44,10 +44,10 @@ button, input { touch-action: manipulation; }
 .touch-attack svg { width: calc(var(--size) * var(--s) * .38); height: calc(var(--size) * var(--s) * .38); }
 .touch-guard { --size: 64px; right: calc(var(--safe-r) + 152px * var(--s)); bottom: calc(var(--safe-b) + 36px * var(--s)); color: #a6e6f3; border-color: rgba(102, 201, 221, .62); }
 .touch-dash { --size: 54px; right: calc(var(--safe-r) + 138px * var(--s)); bottom: calc(var(--safe-b) + 104px * var(--s)); color: #a6e6f3; }
-.touch-steel { --size: 54px; right: calc(var(--safe-r) + 206px * var(--s)); bottom: calc(var(--safe-b) + 150px * var(--s)); color: #dfe6ee; border-color: rgba(214, 224, 236, .6); }
 .touch-spell { --size: 54px; right: calc(var(--safe-r) + 88px * var(--s)); bottom: calc(var(--safe-b) + 147px * var(--s)); color: #ffb277; border-color: rgba(233, 130, 67, .62); }
 .touch-spell.frost { color: #a6e2ff; border-color: rgba(120, 200, 240, .62); }
 .touch-spell.gale { color: #e6eee3; border-color: rgba(220, 232, 216, .6); }
+.touch-spell.steel { color: #dfe6ee; border-color: rgba(214, 224, 236, .6); }
 .touch-jump { --size: 58px; right: calc(var(--safe-r) + 21px * var(--s)); bottom: calc(var(--safe-b) + 154px * var(--s)); }
 .touch-guard.drained { opacity: .5; }
 

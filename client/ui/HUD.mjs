@@ -1,7 +1,7 @@
 import { SPRINT } from '../../shared/src/movement.mjs';
 import { combatStatusDurationMs } from '../game/combatFeedbackTiming.mjs';
 import { spellFor } from '../../shared/src/spells.mjs';
-import { STEEL, steelStrength } from '../../shared/src/steel.mjs';
+import { steelStrength } from '../../shared/src/steel.mjs';
 
 export function matchInfoText(snapshot, serverNow) {
   if (snapshot?.mode === 'PRACTICE') return 'PRACTICE YARD  ·  UNTIMED';
@@ -29,7 +29,9 @@ export class HUD {
     this.burnEdge = document.querySelector('#afflict-burn');
     this.chillEdge = document.querySelector('#afflict-chill');
     this.dash = document.querySelector('#dash-ability');
-    this.steel = document.querySelector('#steel-ability');
+    this.armour = document.querySelector('#health-armour');
+    this.armourPlates = [...(this.armour?.querySelectorAll('.armour-plate') ?? [])];
+    this.armourShown = -1;
     this.matchInfo = document.querySelector('#match-info');
     this.feed = document.querySelector('#kill-feed');
     this.crosshair = document.querySelector('#crosshair');
@@ -73,19 +75,12 @@ export class HUD {
     const spell = spellFor(local.spell);
     if (this.spell.dataset.spell !== spell.id) {
       this.spell.dataset.spell = spell.id;
-      this.spellLabel.textContent = spell.label.toUpperCase();
-      this.spellIcon.textContent = spell.id === 'frostfire' ? '❄' : spell.id === 'gale' ? '≋' : '✦';
+      this.spellLabel.textContent = (spell.short ?? spell.label).toUpperCase();
+      this.spellIcon.textContent = spell.id === 'frostfire' ? '❄' : spell.id === 'gale' ? '≋' : spell.id === 'steel' ? '⛨' : '✦';
     }
     this.#ability(this.spell, Math.max(0, (local.spellReadyAt ?? 0) - serverNow), spell.cooldownSec);
     this.#ability(this.dash, Math.max(0, local.dashReadyAt - serverNow));
-    if (this.steel) {
-      this.#ability(this.steel, Math.max(0, (local.steelReadyAt ?? 0) - serverNow), STEEL.cooldownSec);
-      // Sheathed in Steel: the tile holds the armour's strength, draining as it wears
-      const strength = steelStrength(local.steel, serverNow);
-      this.steel.classList.toggle('sheathed', strength > 0.01);
-      this.steel.style.setProperty('--steel', strength.toFixed(3));
-      if (strength > 0.01) this.steel.querySelector('strong').textContent = 'SHEATHED';
-    }
+    this.#armour(steelStrength(local.steel, serverNow), local.steel?.calledAt);
     this.matchInfo.textContent = matchInfoText(snapshot, serverNow);
 
     this.deathCard.classList.toggle('hidden', local.alive);
@@ -94,7 +89,7 @@ export class HUD {
 
   /** A key pressed that can do nothing yet (the spell cooling with nobody in reach of the gauntlet): the tile says so. */
   denied(ability) {
-    const element = ability === 'spell' ? this.spell : ability === 'dash' ? this.dash : ability === 'steel' ? this.steel : null;
+    const element = ability === 'spell' ? this.spell : ability === 'dash' ? this.dash : null;
     if (!element) return;
     element.classList.remove('denied');
     // (restart the shake if it is already playing)
@@ -107,6 +102,35 @@ export class HUD {
   /** While the spell cools, whether its key would throw the gauntlet (a foe within reach): a fist on its tile. */
   setFistReady(ready) {
     this.spell.classList.toggle('fist-ready', Boolean(ready));
+  }
+
+  /** A blow landing on my hardened plate: the frame flashes, as bright as the armour is strong. */
+  steelStruck() {
+    if (!this.armour) return;
+    this.armour.classList.add('struck');
+    clearTimeout(this.armourStruckTimer);
+    this.armourStruckTimer = setTimeout(() => this.armour.classList.remove('struck'), 110);
+  }
+
+  // Sheathed in Steel round the health bar: each of the five plates holds a fifth of the armour's strength, the
+  // right-hand ones wearing first; freshly called, a sheen runs along them once
+  #armour(strength, calledAt) {
+    if (!this.armour) return;
+    const shown = Math.round(strength * 200) / 200;
+    if (shown === this.armourShown) return;
+    this.armourShown = shown;
+    this.armour.classList.toggle('sheathed', shown > 0);
+    this.armourPlates.forEach((plate, i) => {
+      const p = Math.max(0, Math.min(1, shown * this.armourPlates.length - i));
+      plate.style.setProperty('--p', p.toFixed(3));
+      plate.classList.toggle('cracked', shown > 0 && p < 0.5);
+    });
+    if (Number.isFinite(calledAt) && calledAt !== this.armourCalledAt) {
+      this.armourCalledAt = calledAt;
+      this.armour.classList.remove('called');
+      void this.armour.offsetWidth;
+      this.armour.classList.add('called');
+    }
   }
 
   #ability(element, remaining, cooldownSec = 5) {

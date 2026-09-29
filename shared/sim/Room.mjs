@@ -41,7 +41,6 @@ function freshCombatState(spawn, nowSec = 0) {
     burn: null,
     chill: null,
     steel: null,
-    steelReadyAt: 0,
     speedScale: 1,
     spawnProtectionUntil: nowSec + 1,
     alive: true,
@@ -114,7 +113,8 @@ export class Room {
     if (this.players.size >= 8) throw new Error('Room is full');
     if (this.players.has(id)) return this.players.get(id);
     const spawn = this.world.spawnPoints[this.players.size % this.world.spawnPoints.length];
-    const spells = Object.keys(SPELLS);
+    // (a bot brings a spell it throws, never a ward)
+    const spells = Object.values(SPELLS).filter((s) => s.kind !== 'ward').map((s) => s.id);
     const actor = {
       id,
       token: null,

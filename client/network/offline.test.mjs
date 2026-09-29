@@ -66,7 +66,9 @@ test('every command the controls send reaches whichever host is playing: the ser
   const { readFile } = await import('node:fs/promises');
   const source = await readFile(new URL('../game/InputController.mjs', import.meta.url), 'utf8');
   const sent = [...new Set([...source.matchAll(/this\.socket\.(\w+)\(/g)].map((match) => match[1]))];
-  assert.ok(sent.includes('steel') && sent.includes('cast'), `found the controls' commands: ${sent.join(', ')}`);
+  assert.ok(sent.includes('cast') && sent.includes('dash'), `found the controls' commands: ${sent.join(', ')}`);
+  // (Sheathe in Steel is no key of its own: it is carried in the spell's place and called on the spell's key)
+  assert.ok(!sent.includes('steel'));
   const { GameSocket } = await import('./GameSocket.mjs');
   const link = new GameLink({ remote: fakeRemote(), local: new LocalHost({ every: () => 1, cancel: () => {}, later: () => {} }) });
   for (const command of sent) {
@@ -76,16 +78,18 @@ test('every command the controls send reaches whichever host is playing: the ser
   }
 });
 
-test('Sheathe in Steel works in a match the browser hosts', () => {
+test('Sheathe in Steel, carried from the Armory, works in a match the browser hosts', () => {
   const { host, advance } = handHost();
+  host.loadout('steel');
   host.startSolo('PRACTICE', 'Aden');
   host.arenaReady(true);
   advance(0.5);
-  host.steel();
+  host.cast({ x: 0, y: 0, z: -1 });
   advance(0.2);
   const me = host.latestSnapshot.players.find((player) => player.id === host.playerId);
+  assert.equal(me.spell, 'steel');
   assert.ok(me.steel && me.steel.base === 1, 'sheathed');
-  assert.ok(me.steelReadyAt > host.serverNow(), 'and it waits to be called again');
+  assert.ok(me.spellReadyAt > host.serverNow(), 'and it waits to be called again');
 });
 
 test('a Bot Duel comes with its bot; online play is refused with a plain word; leaving ends the match', () => {

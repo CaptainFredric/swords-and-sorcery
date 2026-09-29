@@ -6,7 +6,7 @@ import {
   endAttack,
   setGuard,
   stepRoom,
-  tryActivateSteel,
+  tryCastOrGauntlet,
   tryCastSpell,
   tryDash,
 } from '../../shared/sim/combat.mjs';
@@ -44,17 +44,17 @@ function playingRoom() {
   return room;
 }
 
-test('held sword lands 28 damage at 0.40, 1.10 and 1.80 seconds, and the fourth blow fells', () => {
+test('held sword lands 30 damage (caught square) at 0.40, 1.10 and 1.80 seconds, and the fourth blow fells', () => {
   const room = playingRoom();
   beginAttack(room, 'a', 10);
   stepRoom(room, 0.01, 10.39, openWorld);
   assert.equal(room.players.get('b').health, 100);
   stepRoom(room, 0.01, 10.40, openWorld);
-  assert.equal(room.players.get('b').health, 72);
+  assert.equal(room.players.get('b').health, 70);
   stepRoom(room, 0.01, 11.10, openWorld);
-  assert.equal(room.players.get('b').health, 44);
+  assert.equal(room.players.get('b').health, 40);
   stepRoom(room, 0.01, 11.80, openWorld);
-  assert.equal(room.players.get('b').health, 16);
+  assert.equal(room.players.get('b').health, 10);
   assert.equal(room.players.get('b').alive, true, 'three blows are not enough');
   // still holding: the combo comes round again and its first strike fells them
   stepRoom(room, 0.01, 12.09, openWorld);
@@ -82,7 +82,7 @@ test('releasing attack prevents later combo strikes', () => {
   stepRoom(room, 0.01, 10.4, openWorld);
   endAttack(room, 'a', 10.5);
   stepRoom(room, 0.01, 12, openWorld);
-  assert.equal(room.players.get('b').health, 72);
+  assert.equal(room.players.get('b').health, 70);
 });
 
 test('perfect guard parries, damages nobody and staggers attacker 450ms', () => {
@@ -122,12 +122,12 @@ test('a tap is exactly one strike: let go before it lands and it still lands, th
   beginAttack(room, 'a', 10);
   endAttack(room, 'a', 10.1);
   stepRoom(room, 0.01, 10.4, openWorld);
-  assert.equal(room.players.get('b').health, 72, 'the committed swing lands');
+  assert.equal(room.players.get('b').health, 70, 'the committed swing lands');
   assert.equal(a.attackActive, true, 'its follow-through is still under way');
   stepRoom(room, 0.01, 10.72, openWorld);
   assert.equal(a.attackActive, false, 'the chain ends where the next swing would have begun');
   for (const now of [11.1, 11.8, 12.5, 13.2]) stepRoom(room, 0.01, now, openWorld);
-  assert.equal(room.players.get('b').health, 72);
+  assert.equal(room.players.get('b').health, 70);
   assert.deepEqual(room.events.filter((e) => e.type === 'swordSwing').map((e) => e.strikeIndex), [0]);
 });
 
@@ -138,10 +138,10 @@ test('holding chains each strike as it becomes due; letting go mid-swing finishe
   stepRoom(room, 0.01, 10.8, openWorld);          // still held as the second swing begins: committed
   endAttack(room, 'a', 10.9);                      // let go in the middle of it
   stepRoom(room, 0.01, 11.1, openWorld);
-  assert.equal(room.players.get('b').health, 44, 'the second strike still lands');
+  assert.equal(room.players.get('b').health, 40, 'the second strike still lands');
   stepRoom(room, 0.01, 11.5, openWorld);
   stepRoom(room, 0.01, 11.9, openWorld);
-  assert.equal(room.players.get('b').health, 44, 'no third');
+  assert.equal(room.players.get('b').health, 40, 'no third');
   assert.equal(room.players.get('a').attackActive, false);
 });
 
@@ -153,7 +153,7 @@ test('quick taps chain the combo too: a press during a swing asks for the next s
   endAttack(room, 'a', 10.58);                     // and let go before the second would begin
   for (const now of [10.4, 10.72, 11.1, 11.44, 11.8, 12.5]) stepRoom(room, 0.01, now, openWorld);
   assert.deepEqual(room.events.filter((e) => e.type === 'swordSwing').map((e) => e.strikeIndex), [0, 1]);
-  assert.equal(room.players.get('b').health, 44);
+  assert.equal(room.players.get('b').health, 40);
 });
 
 test('spells and dash reject use during cooldown', () => {
@@ -296,7 +296,7 @@ test('sword resolution can use recent transform history for latency compensation
   ];
   beginAttack(room, 'a', 10);
   stepRoom(room, 0.01, 10.50, openWorld);
-  assert.equal(b.health, 72);
+  assert.equal(b.health, 70);
 });
 
 function sprintInput(player, overrides = {}) {
@@ -367,7 +367,7 @@ test('let go just before the next swing, but the word arrives after it began: th
   assert.equal(room.players.get('a').attackCommitted, 2);
   endAttack(room, 'a', 10.8, 10.69);                 // it was let go at 10.69, before the second began
   for (const now of [11.1, 11.5, 12.2]) stepRoom(room, 0.01, now, openWorld);
-  assert.equal(room.players.get('b').health, 72, 'only the first landed');
+  assert.equal(room.players.get('b').health, 70, 'only the first landed');
   assert.equal(room.players.get('a').attackActive, false);
 });
 
@@ -380,7 +380,7 @@ test('but a second swing asked for by a fresh press stands, whenever the button 
   stepRoom(room, 0.01, 10.74, openWorld);            // committed by the tap
   endAttack(room, 'a', 10.8, 10.6);                  // that tap let go before the second began
   for (const now of [11.1, 11.5]) stepRoom(room, 0.01, now, openWorld);
-  assert.equal(room.players.get('b').health, 44, 'the second lands');
+  assert.equal(room.players.get('b').health, 40, 'the second lands');
 });
 
 // b placed at `angle` (radians, + to a's left) and `distance` from a, who faces +x
@@ -403,7 +403,7 @@ test('a sword caught cleanly does its full damage; one at the fringe of the arc 
   beginAttack(fringe, 'a', 10);
   for (const now of [10.3, 10.4, 10.5, 10.6]) stepRoom(fringe, 0.01, now, openWorld);
   const lost = 100 - fringe.players.get('b').health;
-  assert.ok(lost > 0 && lost < GAME.swordDamage, `a glancing blow: ${lost}`);
+  assert.ok(lost >= GAME.swordGlance && lost < GAME.swordDamage - 4, `a glancing blow: ${lost}`);
   const hit = fringe.events.find((e) => e.type === 'swordHit');
   assert.ok(hit.quality < 1 && hit.quality > 0);
 
@@ -466,10 +466,16 @@ test('a glancing blow bears less on a guard than a clean one', () => {
   assert.ok(clean > 0 && glancing > 0 && glancing < clean, `clean ${clean}, glancing ${glancing}`);
 });
 
+// b, carrying Sheathe in Steel in the spell's place, calls it on the spell's key
+function sheathe(room, id, now) {
+  room.players.get(id).spell = 'steel';
+  return tryCastSpell(room, id, { x: 0, y: 0, z: -1 }, now);
+}
+
 // a Fireball straight into b (who stands 2 m in front of a), resolved; returns what it did to b
 function fireballInto(room, { steel = false } = {}) {
   const b = room.players.get('b');
-  if (steel) assert.equal(tryActivateSteel(room, 'b', 10), true);
+  if (steel) assert.equal(sheathe(room, 'b', 10), true);
   tryCastSpell(room, 'a', { x: 1, y: 0, z: 0 }, 10);
   let now = 10;
   while (now < 10.8 && !room.events.some((e) => e.type === 'projectileImpact')) { now += 0.02; stepRoom(room, 0.02, now, openWorld); }
@@ -487,22 +493,70 @@ test('Sheathed in Steel: a square Fireball lands like a glancing one (less damag
   assert.ok(steelStrength(steeled.b.steel, 10.2) < steelStrength({ at: 10, base: 1 }, 10.2));
 });
 
-test('the steel does not soften a sword, but each blow wears it; and it waits out its cooldown', () => {
-  const room = playingRoom();
+// a's first strike, square into b (2 m in front), landing at 10.40; returns what it did
+function swordInto(room, at = 10) {
   const b = room.players.get('b');
-  assert.equal(tryActivateSteel(room, 'b', 10), true);
-  assert.equal(tryActivateSteel(room, 'b', 10 + STEEL.cooldownSec - 0.1), false, 'not again yet');
-  beginAttack(room, 'a', 10);
-  for (const now of [10.3, 10.4, 10.5]) stepRoom(room, 0.01, now, openWorld);
-  assert.equal(b.health, 72, 'the sword bites as ever');
-  assert.ok(steelStrength(b.steel, 10.5) < steelStrength({ at: 10, base: 1 }, 10.5), 'but it chipped the steel');
-  assert.equal(tryActivateSteel(room, 'b', 10 + STEEL.cooldownSec + 0.01), true, 'ready again after its cooldown');
+  const before = { health: b.health, vx: b.velocity.x };
+  beginAttack(room, 'a', at);
+  for (const now of [at + 0.3, at + 0.39, at + 0.4]) stepRoom(room, 0.01, now, openWorld);
+  endAttack(room, 'a', at + 0.41);
+  const hit = room.events.find((e) => e.type === 'swordHit');
+  return { damage: before.health - b.health, hit, b };
+}
+
+test('Sheathed in Steel: a clean sword blow on fresh steel lands like a glancing one; more gets through as it wears', () => {
+  const bare = swordInto(playingRoom());
+  assert.equal(bare.damage, GAME.swordDamage, 'unsheathed: the full clean blow');
+  const blowAt = (age) => {
+    const room = playingRoom();
+    assert.equal(sheathe(room, 'b', 10 - age), true);
+    return swordInto(room);
+  };
+  const fresh = blowAt(0.4);
+  assert.ok(fresh.damage >= GAME.swordGlance && fresh.damage <= GAME.swordGlance + 2, `fresh: ${fresh.damage}`);
+  const half = blowAt(STEEL.seconds * 0.4);
+  assert.ok(half.damage >= 23 && half.damage <= 25, `partly worn: ${half.damage}`);
+  const nearly = blowAt(STEEL.seconds * 0.93);
+  assert.ok(nearly.damage >= GAME.swordDamage - 1 && nearly.damage <= GAME.swordDamage, `nearly gone: ${nearly.damage}`);
+  const gone = blowAt(STEEL.seconds + 1);
+  assert.equal(gone.damage, GAME.swordDamage, 'worn off: the full blow');
+  // never on or off: each moment later, a little more gets through
+  let last = null;
+  for (let age = 0.4; age <= STEEL.seconds + 0.5; age += 0.35) {
+    const damage = blowAt(age).damage;
+    if (last !== null) assert.ok(damage >= last && damage - last <= 2, `evenly: ${damage} at ${age.toFixed(2)} s`);
+    last = damage;
+  }
+  // the blow is felt as glancing, but it shoves as hard as ever, and it wears the steel
+  assert.ok(fresh.hit.quality < 0.15 && fresh.hit.steel > 0.85);
+  assert.ok(Math.abs(fresh.b.velocity.x - bare.b.velocity.x) < 1e-6, 'the same shove');
+  assert.ok(steelStrength(fresh.b.steel, 10.4) < steelStrength({ at: 9.6, base: 1 }, 10.4), 'the blow chipped the steel');
 });
 
-test('the magic hand cannot clench while it gathers a spell', () => {
+test('Sheathe in Steel is carried in the spell\'s place: its key calls it at once, then it waits out its cooldown', () => {
   const room = playingRoom();
-  tryCastSpell(room, 'b', { x: -1, y: 0, z: 0 }, 10);
-  assert.equal(tryActivateSteel(room, 'b', 10.1), false);
+  const b = room.players.get('b');
+  assert.equal(sheathe(room, 'b', 10), true);
+  assert.equal(steelStrength(b.steel, 10), 1);
+  assert.equal(b.pendingSpell, null, 'no gather: it is called at once');
+  assert.equal(b.spellReadyAt, 10 + STEEL.cooldownSec);
+  assert.ok(room.events.some((e) => e.type === 'steelOn' && e.playerId === 'b' && e.readyAt === b.spellReadyAt));
+  // it neither drops a guard nor stops a sword
+  const guarded = playingRoom();
+  setGuard(guarded, 'b', true, 9);
+  assert.equal(sheathe(guarded, 'b', 10), true);
+  assert.equal(guarded.players.get('b').guarding, true);
+  // on its cooldown the key does not call it again (and with nobody in reach, no fist either)
+  room.players.get('a').position.x = -5;
+  room.players.get('a').history = [];
+  b.steel = null;
+  assert.equal(tryCastOrGauntlet(room, 'b', { x: -1, y: 0, z: 0 }, 10 + STEEL.cooldownSec - 0.1), false, 'not again yet');
+  assert.equal(b.steel, null);
+  assert.equal(tryCastOrGauntlet(room, 'b', { x: -1, y: 0, z: 0 }, 10 + STEEL.cooldownSec + 0.01), true, 'ready again after its cooldown');
+  // a knight carrying a spell has no steel to call
+  const caster = playingRoom();
+  tryCastSpell(caster, 'b', { x: -1, y: 0, z: 0 }, 10);
+  assert.equal(caster.players.get('b').steel, null);
 });
 
 // a Gale from a (facing +x); returns b's state after the gust has done its work
@@ -513,7 +567,7 @@ function galeAt(room, bAt, { guard = false, steel = false, wall = null, directio
   Object.assign(b.position, bAt);
   b.history = [];
   if (guard) { b.yaw = Math.atan2(b.position.x - a.position.x, b.position.z - a.position.z); b.input.yaw = b.yaw; setGuard(room, 'b', true, 9); }
-  if (steel) tryActivateSteel(room, 'b', 10);
+  if (steel) sheathe(room, 'b', 10);
   const world = wall ? { ...openWorld, solids: [wall] } : openWorld;
   assert.equal(tryCastSpell(room, 'a', direction, 10), true);
   const before = { ...b.position };
@@ -553,6 +607,35 @@ test('a guard facing the gust keeps its footing better, but pays for it like a b
   const steeled = galeAt(playingRoom(), { x: 2, y: 0, z: 0 }, { steel: true });
   assert.ok(steeled.damage < open.damage, 'less of a sting');
   assert.ok(Math.abs(steeled.moved - open.moved) < 0.05, 'the same shove');
+});
+
+test('far out in the gust\'s pressure, a guard still pays and its breath waits again, though nothing is hurt', () => {
+  const far = galeAt(playingRoom(), { x: SPELLS.gale.cone.reach + 2.5, y: 0, z: 0 }, { guard: true });
+  assert.equal(far.damage, 0);
+  assert.ok(far.b.guardStamina < 100 && far.b.guardStamina > 90, `a little guard pressure: ${far.b.guardStamina.toFixed(1)}`);
+  assert.ok(far.b.lastGuardDrainAt >= 10.49, 'the regeneration waits again');
+  const open = galeAt(playingRoom(), { x: SPELLS.gale.cone.reach + 2.5, y: 0, z: 0 });
+  assert.ok(open.moved > 0.5, `and unguarded, visibly shoved: ${open.moved.toFixed(2)} m`);
+  assert.equal(open.damage, 0);
+});
+
+test('a burn\'s licks make no clang: only a blow landing on the plate carries its strength', () => {
+  // burning, then sheathed while the fire still licks
+  const room = playingRoom();
+  const { b } = fireballInto(room);
+  assert.ok(b.burn, 'burning');
+  const blast = room.events.find((e) => e.type === 'damage' && e.victimId === 'b' && e.source === 'fireball');
+  assert.ok(!blast.steel, 'no plate, no clang');
+  assert.equal(sheathe(room, 'b', 10.8), true);
+  room.events.length = 0;
+  for (let now = 10.85; now < 13.5; now += 0.05) stepRoom(room, 0.05, now, openWorld);
+  const licks = room.events.filter((e) => e.type === 'damage' && e.source === 'burn');
+  assert.ok(licks.length > 0 && licks.every((e) => !e.steel), 'the licks land quietly on the plate');
+  // a spell landing square on the plate does carry it
+  const steeled = playingRoom();
+  assert.equal(sheathe(steeled, 'b', 9.9), true);
+  fireballInto(steeled);
+  assert.ok(steeled.events.find((e) => e.type === 'damage' && e.victimId === 'b' && e.source === 'fireball').steel > 0.8);
 });
 
 test('a gust driven into the ground close by throws its caster up off it', () => {

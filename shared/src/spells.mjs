@@ -1,5 +1,6 @@
 // The spells a Spellblade can carry into a fight, one at a time (chosen in the Armory). Each is gathered in the palm
-// for a moment, then thrown; they differ in what they leave behind.
+// for a moment, then thrown; they differ in what they leave behind. The same slot can carry a ward instead (kind
+// 'ward': Sheathe in Steel, shared/src/steel.mjs), called at once on the same key rather than thrown.
 //
 //   Fireball: a wide blast, and whoever it catches near its heart keeps burning for a moment (in licks).
 //   Frostfire: a quicker, tighter bolt that leaves its victim heavy with cold: slowest at once, thawing back to full
@@ -15,6 +16,7 @@
 // Shared by the server (authority) and the client (prediction of your own chilled movement, the HUD, the effects).
 
 import { POSTURES } from './body.mjs';
+import { STEEL } from './steel.mjs';
 
 export const SPELLS = Object.freeze({
   fireball: Object.freeze({
@@ -45,10 +47,10 @@ export const SPELLS = Object.freeze({
     // further out is chilled less, and for less long (down to these shares at the very edge)
     chill: Object.freeze({ slow: 0.55, seconds: 3, edgeSlow: 0.4, edgeSeconds: 0.5 }),
   }),
-  // A short, forceful cone of wind that moves bodies far more than it hurts them (shared/src/gale.mjs). A readable
-  // breath is drawn in first, so it is no instant "get away from me". Its heart does a little damage and shoves
-  // hardest; its pressure reaches wider and further and only shoves; both fade evenly with distance and angle.
-  // Current, provisional tuning (the cooldown especially).
+  // A broad cone of wind, short to middling in reach, that moves bodies far more than it hurts them
+  // (shared/src/gale.mjs). A readable breath is drawn in first, so it is no instant "get away from me". Its heart does
+  // a little damage; its pressure reaches wider and further and only shoves (and bears on a guard). The shove is
+  // hardest close to the hand and fades evenly out to the edge. Current, provisional tuning (the cooldown especially).
   gale: Object.freeze({
     id: 'gale',
     label: 'Gale Garner',
@@ -56,18 +58,30 @@ export const SPELLS = Object.freeze({
     cooldownSec: 7,
     gatherSec: 0.5,
     cone: Object.freeze({
-      reach: 5.2,                // the heart of the gust, out to here and this wide...
-      halfAngleDeg: 28,
-      pressureReach: 8.5,        // ...and its pressure, further and wider (a shove, no damage)
-      pressureHalfAngleDeg: 46,
+      reach: 6.5,                // the heart of the gust, out to here and this wide...
+      halfAngleDeg: 30,
+      pressureReach: 11,         // ...and its pressure, further and wider (a shove, no damage)
+      pressureHalfAngleDeg: 48,
+      bend: 0.8,                 // how the shove falls with distance: (1 - d / reach) ^ bend
+      core: 0.35,                // the middle share of the cone's angle at full strength, easing out to its edge
       damage: 8,                 // at point blank in its heart
-      push: 12.5,                // m/s: the shove at point blank
-      lift: 0.28,                // a share of it lifting the body off its feet
+      push: 16,                  // m/s: the shove at point blank
+      lift: 0.32,                // a share of it lifting the body off its feet
       guarded: 0.35,             // a raised guard facing it keeps this much of the shove...
-      guardCost: 12,             // ...and pays this much stamina for it at point blank
+      guardCost: 14,             // ...and pays this much stamina for it at point blank
     }),
-    // aimed into the ground (or a wall) close by, the gust throws its caster back off it
-    recoil: Object.freeze({ reach: 3.2, push: 9.5, maxUp: 8 }),
+    // driven into the ground (or a wall), the gust throws its caster off it: at full strength up to `full` metres
+    // from the eyes, fading out to `reach`; `maxUp`: the most upward speed a throw leaves (m/s)
+    recoil: Object.freeze({ reach: 4.5, full: 2.4, push: 11.5, maxUp: 10.5 }),
+  }),
+  // Sheathe in Steel: not thrown but called, at once, on the spell's key (shared/src/steel.mjs)
+  steel: Object.freeze({
+    id: 'steel',
+    label: 'Sheathe in Steel',
+    short: 'Steel',              // where a label must be short (a HUD tile, a touch button)
+    kind: 'ward',
+    cooldownSec: STEEL.cooldownSec,
+    gatherSec: 0,
   }),
 });
 

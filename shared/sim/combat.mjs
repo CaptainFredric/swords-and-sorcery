@@ -3,12 +3,12 @@ import {
   resolveSwordVsGuard, swordDamageFor,
 } from '../src/combat.mjs';
 import { blastDamage, blastDistance, burnFrom, chillFrom, chillScale, spellExposure, spellFor, strongerChill } from '../src/spells.mjs';
-import { STEEL, callSteel, chipSteel, steelExposure } from '../src/steel.mjs';
+import { STEEL, callSteel, chipSteel, steelBlunt, steelExposure, steelQuality } from '../src/steel.mjs';
 import { galeOnBody, galeRecoil, galeShove } from '../src/gale.mjs';
 import { GAUNTLET, gauntletGeometry, gauntletTarget, withinGauntlet } from '../src/gauntlet.mjs';
 import { postureOf } from '../src/body.mjs';
 import { findSwordWorldHit, segmentAabbHit, surfaceHeightAt } from '../src/collision.mjs';
-import { SPRINT, movePlayer, resolveSprint, shoveBody, tryStartDash } from '../src/movement.mjs';
+import { SPRINT, launchBody, movePlayer, resolveSprint, shoveBody, tryStartDash } from '../src/movement.mjs';
 import { separatePlayers } from '../src/separation.mjs';
 import { chooseSpawn } from './spawns.mjs';
 import { recordTransform, sampleTransform } from './history.mjs';
@@ -214,25 +214,14 @@ export function tryDash(room, playerId, direction, nowSec) {
 }
 
 /**
- * Sheathe in Steel: the magic hand clenches and the armour hardens at once (shared/src/steel.mjs). It needs that
- * hand free (not gathering a spell); it does not stop a sword or drop a guard.
+ * Gather the Spellblade's spell in the palm; it flies when the gather ends (see stepRoom). A ward carried in the
+ * spell's place is called at once instead (sheatheInSteel).
  */
-export function tryActivateSteel(room, playerId, nowSec) {
-  const player = room.players.get(playerId);
-  if (room.state !== 'PLAYING' || !player || !player.alive || nowSec < player.staggerUntil) return false;
-  if (nowSec < (player.steelReadyAt ?? 0) || player.pendingSpell) return false;
-  player.steel = callSteel(nowSec);
-  player.steelReadyAt = nowSec + STEEL.cooldownSec;
-  player.spawnProtectionUntil = Math.min(player.spawnProtectionUntil, nowSec);
-  room.events.push({ type: 'steelOn', playerId, at: nowSec, readyAt: player.steelReadyAt });
-  return true;
-}
-
-/** Gather the Spellblade's spell in the palm; it flies when the gather ends (see stepRoom). */
 export function tryCastSpell(room, playerId, direction, nowSec) {
   const player = room.players.get(playerId);
   if (room.state !== 'PLAYING' || !player || !player.alive || nowSec < player.staggerUntil || nowSec < player.spellReadyAt) return false;
   const spell = spellFor(player.spell);
+  if (spell.kind === 'ward') return sheatheInSteel(room, player, spell, nowSec);
   player.spellReadyAt = nowSec + spell.cooldownSec;
   player.castEndsAt = nowSec + spell.gatherSec;
   player.pendingSpell = { spell: spell.id, direction: normalize3(direction) };
@@ -240,6 +229,17 @@ export function tryCastSpell(room, playerId, direction, nowSec) {
   stopSwordChain(player);
   player.spawnProtectionUntil = Math.min(player.spawnProtectionUntil, nowSec);
   room.events.push({ type: 'spellCast', playerId, spell: spell.id, at: nowSec, castEndsAt: player.castEndsAt });
+  return true;
+}
+
+// Sheathe in Steel: the magic hand clenches and the armour hardens at once (shared/src/steel.mjs). It needs that hand
+// free (not gathering a spell); it does not stop a sword or drop a guard.
+function sheatheInSteel(room, player, spell, nowSec) {
+  if (player.pendingSpell) return false;
+  player.steel = callSteel(nowSec);
+  player.spellReadyAt = nowSec + spell.cooldownSec;
+  player.spawnProtectionUntil = Math.min(player.spawnProtectionUntil, nowSec);
+  room.events.push({ type: 'steelOn', playerId: player.id, at: nowSec, readyAt: player.spellReadyAt });
   return true;
 }
 
@@ -310,10 +310,12 @@ function landGauntlet(room, player, nowSec, world) {
     room.events.push({ type: 'gauntletHit', playerId: player.id, targetId: target.id, guarded: true, at: nowSec });
     return;
   }
+  // hardened plate blunts it as it would a sword's clean blow (and wears a little)
+  const armour = steelBlunt(target.steel, GAUNTLET.damage, nowSec);
   if (target.steel) target.steel = chipSteel(target.steel, GAUNTLET.steelChip, nowSec);
   const push = { x: g.direction.x * GAUNTLET.shove, y: 0.1, z: g.direction.z * GAUNTLET.shove };
-  applyDamage(room, player.id, target.id, GAUNTLET.damage, 'gauntlet', nowSec, push);
-  room.events.push({ type: 'gauntletHit', playerId: player.id, targetId: target.id, guarded: false, at: nowSec });
+  applyDamage(room, player.id, target.id, armour.amount, 'gauntlet', nowSec, push, { steel: armour.strength });
+  room.events.push({ type: 'gauntletHit', playerId: player.id, targetId: target.id, guarded: false, steel: armour.strength, at: nowSec });
 }
 
 function transformFor(player, atSec) {
@@ -526,13 +528,17 @@ function landStrike(room, attacker, strikeIndex, target, g, atSec, nowSec) {
 
   const shove = 1.7 * (1 + MELEE_CONTACT.impactKnockback * impact);
   const push = { x: g.direction.x * shove, y: strikeIndex === 2 ? 0.8 : 0.2, z: g.direction.z * shove };
-  // hardened armour does not turn a sword (it is a guard against sorcery), but each blow wears some of it away
+  // hardened plate turns the blow toward a glancing one (never the shove), and each blow wears some of it away
+  const armour = steelQuality(target.steel, quality, nowSec);
   if (target.steel) target.steel = chipSteel(target.steel, STEEL.swordChip * quality, nowSec);
-  applyDamage(room, attacker.id, target.id, swordDamageFor(quality), 'sword', nowSec, push);
-  room.events.push({ type: 'swordHit', playerId: attacker.id, targetId: target.id, strikeIndex, quality, impact, at: nowSec });
+  applyDamage(room, attacker.id, target.id, swordDamageFor(armour.quality), 'sword', nowSec, push, { steel: armour.strength });
+  room.events.push({
+    type: 'swordHit', playerId: attacker.id, targetId: target.id, strikeIndex, quality: armour.quality, impact, steel: armour.strength, at: nowSec,
+  });
 }
 
-export function applyDamage(room, attackerId, victimId, amount, source, nowSec, knockback = null) {
+/** `steel`: how strong the victim's hardened plate was as the blow met it (0: none), for the clang it makes. */
+export function applyDamage(room, attackerId, victimId, amount, source, nowSec, knockback = null, { steel = 0 } = {}) {
   const victim = room.players.get(victimId);
   if (!victim || !victim.alive || victim.spawnProtectionUntil > nowSec) return false;
   victim.health = Math.max(0, victim.health - amount);
@@ -542,7 +548,9 @@ export function applyDamage(room, attackerId, victimId, amount, source, nowSec, 
     shoveBody(victim, knockback);
     victim.lastKnockbackAt = nowSec;
   }
-  room.events.push({ type: 'damage', attackerId, victimId, source, amount, health: victim.health, push: knockback ?? null, at: nowSec });
+  const event = { type: 'damage', attackerId, victimId, source, amount, health: victim.health, push: knockback ?? null, at: nowSec };
+  if (steel > 0.005) event.steel = steel;
+  room.events.push(event);
   if (victim.health <= 0) killPlayer(room, victimId, attackerId, source, nowSec);
   return true;
 }
@@ -641,7 +649,7 @@ function releaseGale(room, player, spell, nowSec, world) {
     if (armour.turned > 0.1) target.steel = chipSteel(target.steel, STEEL.spellChip * armour.turned, nowSec);
     const damage = Math.round(spell.cone.damage * armour.exposure);
     if (damage >= 1) {
-      applyDamage(room, player.id, target.id, damage, spell.id, nowSec, shove);
+      applyDamage(room, player.id, target.id, damage, spell.id, nowSec, shove, { steel: armour.strength });
     } else {
       shoveBody(target, shove);
       target.lastAttackerId = player.id;
@@ -650,7 +658,7 @@ function releaseGale(room, player, spell, nowSec, world) {
     affected.push({ id: target.id, pressure: caught.pressure, guarded, shove });
   }
   const recoil = galeRecoil(spell, eye, direction, world);
-  if (recoil) shoveBody(player, recoil);
+  if (recoil) launchBody(player, recoil, recoil.maxUp);
   room.events.push({ type: 'galeBlast', playerId: player.id, spell: spell.id, origin, direction, affected, recoil, at: nowSec });
 }
 
@@ -677,7 +685,7 @@ function explodeSpell(room, projectile, point, nowSec, worldHit = false, directV
     const away = normalize3({ x: center.x - point.x, y: Math.max(0.15, center.y - point.y), z: center.z - point.z });
     const hit = applyDamage(room, projectile.ownerId, player.id, amount, spell.id, nowSec, {
       x: away.x * 4.3 * shove, y: away.y * 2.3 * shove, z: away.z * 4.3 * shove,
-    });
+    }, { steel: armour.strength });
     if (!hit || !player.alive) continue;
     // a fresh burn replaces one already licking (it never stacks); a blast too far out to catch leaves any burn be
     const burn = burnFrom(spell, exposure, projectile.ownerId, nowSec);

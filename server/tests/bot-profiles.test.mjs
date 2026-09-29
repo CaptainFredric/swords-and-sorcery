@@ -112,3 +112,17 @@ test('a bot never reads its foe\'s buttons: at every moment of a fight, what the
   }
   assert.ok(swung >= 4, 'a real fight, not a standstill');
 });
+
+test('a bot brings a spell it throws, never Sheathe in Steel (a ward carried in the spell\'s place)', async () => {
+  const { Room } = await import('../../shared/sim/Room.mjs');
+  const { spellFor } = await import('../../shared/src/spells.mjs');
+  const room = new Room('BOT_SPELLS');
+  const brought = new Set();
+  for (let i = 0; i < 60; i += 1) {
+    const bot = room.addServerActor({ id: `bot-${i}`, actorKind: 'bot' }, 0);
+    brought.add(bot.spell);
+    room.players.delete(bot.id);
+  }
+  assert.ok(![...brought].some((id) => spellFor(id).kind === 'ward'), `brought: ${[...brought].join(', ')}`);
+  assert.ok(brought.size >= 2, 'more than one kind turns up');
+});

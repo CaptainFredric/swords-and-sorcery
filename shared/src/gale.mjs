@@ -4,9 +4,10 @@
 //
 // A body is caught by the gust's pressure (0..1) if it stands in the wider, longer outer cone, and by its heart
 // (exposure 0..1, for the little damage it does) if in the inner one; both fall evenly to nothing with distance and
-// with angle off the gust's line (no bands). The shove runs along the gust (a little outward from its line, a little
-// lifting). `sign` is the direction of the force: +1 pushes; a future pull (a vacuum left behind a spell) would be -1
-// through the same field.
+// with angle off the gust's line (no bands): the pressure is strongest near the hand and still a real shove far out,
+// and across the cone its middle is full strength, easing to nothing at the edge. The shove runs along the gust (a
+// little outward from its line, a little lifting). `sign` is the direction of the force: +1 pushes; a future pull (a
+// vacuum left behind a spell) would be -1 through the same field.
 
 import { segmentAabbHit, surfaceHeightAt } from './collision.mjs';
 import { POSTURES } from './body.mjs';
@@ -19,11 +20,12 @@ const scale = (a, s) => ({ x: a.x * s, y: a.y * s, z: a.z * s });
 const normalize = (a) => { const n = length(a); return n > 1e-9 ? scale(a, 1 / n) : { x: 0, y: 0, z: 0 }; };
 const smoothstep = (t) => { const s = Math.max(0, Math.min(1, t)); return s * s * (3 - 2 * s); };
 
-// how strongly the gust reaches a point at `distance` and `angle` off its line, within `reach` and `halfAngle`
-function falloff(distance, angle, reach, halfAngle) {
+// how strongly the gust reaches a point at `distance` and `angle` off its line, within `reach` and `halfAngle`:
+// (1 - d / reach) ^ bend along it, full across the `core` share of its angle and easing out to the edge
+function falloff(distance, angle, reach, halfAngle, bend = 1, core = 0) {
   if (!(distance < reach) || !(angle < halfAngle)) return 0;
-  const near = (1 - distance / reach) ** 1.25;
-  const on = 1 - smoothstep(angle / halfAngle);
+  const near = (1 - distance / reach) ** bend;
+  const on = 1 - smoothstep((angle / halfAngle - core) / (1 - core));
   return near * on;
 }
 
@@ -40,8 +42,8 @@ export function galeAt(spell, origin, direction, point) {
   const angle = Math.acos(Math.max(-1, Math.min(1, along / distance)));
   const c = spell.cone;
   return {
-    pressure: falloff(distance, angle, c.pressureReach, c.pressureHalfAngleDeg * DEG),
-    exposure: falloff(distance, angle, c.reach, c.halfAngleDeg * DEG),
+    pressure: falloff(distance, angle, c.pressureReach, c.pressureHalfAngleDeg * DEG, c.bend ?? 1, c.core ?? 0),
+    exposure: falloff(distance, angle, c.reach, c.halfAngleDeg * DEG, 1, c.core ?? 0),
     distance,
     angle,
   };
@@ -76,10 +78,11 @@ export function galeShove(spell, origin, direction, point, pressure, sign = 1) {
 }
 
 /**
- * A gust driven into the ground or a wall close in front throws its caster back off it (aimed down and behind, it
- * sends them forward and up): the closer the surface and the more squarely it meets it, the harder (one that only
- * grazes a wall hardly throws them at all). `eye`: where the gust leaves from. Null when the gust meets nothing
- * within the recoil's reach.
+ * A gust driven into the ground or a wall throws its caster off it, straight back along the gust: aimed straight down
+ * it lifts them, down and behind sends them forward and up, down and ahead back and up. Full strength while the
+ * surface is within `full` of the eyes, fading out to `reach`; the more squarely the gust meets it, the harder (one
+ * that only grazes a wall hardly throws them at all). `eye`: where the gust leaves from. Null when the gust meets
+ * nothing within the recoil's reach. Apply it with launchBody (shared/src/movement.mjs), capped at `maxUp`.
  */
 export function galeRecoil(spell, eye, direction, world) {
   const r = spell.recoil;
@@ -112,6 +115,8 @@ export function galeRecoil(spell, eye, direction, world) {
   // (a gust that starts inside a solid has no face to meet: it counts as square on)
   const facing = normal && (normal[0] || normal[1] || normal[2]);
   const square = facing ? Math.abs(direction.x * normal[0] + direction.y * normal[1] + direction.z * normal[2]) : 1;
-  const strength = r.push * (1 - hit / r.reach) ** 0.7 * square ** 0.75;
-  return { x: -direction.x * strength, y: Math.min(r.maxUp, -direction.y * strength), z: -direction.z * strength };
+  const full = r.full ?? 0;
+  const near = 1 - smoothstep((hit - full) / Math.max(1e-6, r.reach - full));
+  const strength = r.push * near * square ** 0.75;
+  return { x: -direction.x * strength, y: -direction.y * strength, z: -direction.z * strength, maxUp: r.maxUp };
 }

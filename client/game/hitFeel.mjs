@@ -37,9 +37,24 @@ export function hitKick({ strike = 0, kill = false, quality = 1 } = {}) {
   return (strike >= 2 ? 0.8 : 0.5) * (0.5 + 0.5 * clamp01(quality));
 }
 
-/** Whether a blow reads as glancing (a scrape across the armour rather than a clean cut). */
+/** Whether a blow reads as glancing (a scrape across the armour rather than a clean cut): the low end of the range. */
 export function glancing(quality) {
-  return Number.isFinite(quality) && quality < 0.8;
+  return Number.isFinite(quality) && quality < 0.4;
+}
+
+// a blow on Sheathed in Steel: one full clang, then only small ticks for any more within its ring (a burn's licks and
+// other lingering hurts make no clang at all)
+export const STEEL_HIT = Object.freeze({ ringSec: 0.25, least: 0.02 });
+
+/**
+ * How a damage word landing on hardened plate is shown: null (no plate, or a lingering hurt such as a burn's lick),
+ * or { strength (0..1, how hard the plate still is), full (a full clang; false: a small tick) }. `lastClangAt`: when
+ * this body's plate last clanged (seconds, the same clock as `now`).
+ */
+export function steelHitFeel(event, { lastClangAt = -Infinity, now = 0 } = {}) {
+  const strength = Number(event?.steel) || 0;
+  if (strength < STEEL_HIT.least || !(event.amount > 0) || event.source === 'burn') return null;
+  return { strength: Math.min(1, strength), full: now - lastClangAt >= STEEL_HIT.ringSec };
 }
 
 function clamp01(value) {

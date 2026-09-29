@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { impactWorldPresentation, sampleTrailSegment, transientScale } from './effectTrail.mjs';
-import { puffTexture, windRingTexture, windStreakTexture } from './softTextures.mjs';
+import { puffTexture, windStreakTexture } from './softTextures.mjs';
+import { GALE_VOLUME, createWindConeMaterial, createWindRibbonMaterial, galeVolumeAt, windConeGeometry, windRibbonGeometry } from './galeVolume.mjs';
 
 const MAX_TRANSIENTS = 260;
 
@@ -93,12 +94,12 @@ export class Effects {
     this.windMaterial = new THREE.MeshBasicMaterial({
       map: windStreakTexture(), color: 0xf1f5ef, transparent: true, opacity: 0.42, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
     });
-    // a ring of pushed air (unit radius: a soft bright band, clear in the middle), a puff of dust (tinted by what the
-    // ground is made of) and a blade of grass torn loose
-    this.windRingGeometry = new THREE.PlaneGeometry(2, 2);
-    this.windRingMaterial = new THREE.MeshBasicMaterial({
-      map: windRingTexture(), color: 0xeef3ec, transparent: true, opacity: 0.3, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
-    });
+    // the body of a gust (galeVolume.mjs: a cone of moving air and ribbons twisting round it; shapes made per spell),
+    // a breath of air at the hand, a puff of dust (tinted by what the ground is made of) and a blade of grass torn loose
+    this.windConeMaterial = createWindConeMaterial();
+    this.windRibbonMaterial = createWindRibbonMaterial();
+    this.windShapes = new Map();
+    this.windPuffMaterial = new THREE.SpriteMaterial({ map: puffTexture(), color: 0xf4f7f2, transparent: true, opacity: 0.4, depthWrite: false });
     this.dustMaterials = new Map(Object.entries({ stone: 0xd9d4c8, grass: 0xc2c29a, earth: 0xc9b390 }).map(([surface, color]) => [
       surface, new THREE.SpriteMaterial({ map: puffTexture(), color, transparent: true, opacity: 0.34, depthWrite: false }),
     ]));
@@ -185,6 +186,9 @@ export class Effects {
     parent = this.scene,
     fade = false,
     drag = 0,
+    // tick(age): called each frame (a shader's uniforms, say); own: the transient owns its material (disposed with it)
+    tick = null,
+    own = false,
   } = {}) {
     parent.add(mesh);
     if (fade) {
@@ -204,6 +208,8 @@ export class Effects {
       spin,
       fade,
       drag,
+      tick,
+      own,
       baseScale: mesh.scale.clone(),
     });
     while (this.transients.length > MAX_TRANSIENTS) this.#removeTransient(this.transients.shift());
@@ -214,7 +220,7 @@ export class Effects {
     if (!transient) return;
     transient.parent?.remove(transient.mesh);
     // fading transients own their material (cloned); textures such as damage numbers are cached and shared
-    if (transient.fade) transient.mesh.material.dispose();
+    if (transient.fade || transient.own) transient.mesh.material.dispose();
   }
 
   #cameraFlash(color = 0xffd68a, life = 0.1, scale = 1) {
@@ -340,11 +346,13 @@ export class Effects {
   }
 
   /**
-   * Gale Garner lets go: soft rings of pushed air racing out and widening from the hand, streaks of wind running out
-   * through the cone (a tunnel of them round its heart, seen from the hand), and dust (and on grass, torn blades)
-   * blown along the ground wherever the gust runs low over it. origin/direction: where it leaves and which way (unit);
-   * cone: its reach and angles (shared/src/spells.mjs), so what is seen matches where it pushes. ground: { groundAt(x,
-   * z, y) → the floor's height there or null, surfaceAt(x, z, y) → 'stone' | 'grass' | 'earth' }; without it, no dust.
+   * Gale Garner lets go: a body of moving air, not a mark on the ground. A translucent cone of wind (its pressure) with
+   * a denser heart inside it, both white streaked with pale sage and billowing, their front racing out from the hand
+   * and the air behind it rushing on; ribbons of air twisting out round it; a breath of air bursting from the hand;
+   * streaks of wind rushing past; and dust (and on grass, torn blades) blown along the ground wherever the gust runs
+   * low over it. origin/direction: where it leaves and which way (unit); cone: its reach and angles
+   * (shared/src/spells.mjs), so what is seen is where it pushes. ground: { groundAt(x, z, y) → the floor's height there
+   * or null, surfaceAt(x, z, y) → 'stone' | 'grass' | 'earth' }; without it, no dust.
    */
   galeBlast(origin, direction, cone, { groundAt = null, surfaceAt = null } = {}) {
     const from = new THREE.Vector3(origin.x, origin.y, origin.z);
@@ -359,34 +367,52 @@ export class Effects {
       .addScaledVector(side, Math.sin(angle) * Math.cos(around))
       .addScaledVector(lift, Math.sin(angle) * Math.sin(around)).normalize();
 
-    // the pressure: rings of pushed air leaving the hand as wide as its heart and flying off down it, widening as
-    // they go but less than they travel (so, from the hand, each is seen shrinking away)
-    for (let i = 0; i < 2; i += 1) {
-      const start = 0.6 + i * 0.25;
-      const speed = 11 - i * 2.5;
-      const drag = 1.4;
-      const life = 0.36 + i * 0.08;
-      const radius = Math.tan(heart) * start;
-      const reached = start + (speed * (1 - Math.exp(-drag * life))) / drag;
-      const ring = new THREE.Mesh(this.windRingGeometry, this.windRingMaterial);
-      ring.position.copy(from).addScaledVector(dir, start);
-      ring.lookAt(ring.position.clone().add(dir));
-      ring.rotateZ(Math.random() * Math.PI * 2);
-      ring.scale.setScalar(radius);
-      this.#addTransient(ring, {
-        velocity: dir.clone().multiplyScalar(speed),
-        life,
-        drag,
-        fade: true,
-        expand: ((0.6 * Math.tan(heart) * reached) / radius - 1) / life,
+    // the body of the gust: its pressure (wide, faint), its heart (narrower, denser) and the ribbons round it, each
+    // playing out over the gust's short life (galeVolumeAt)
+    const shapes = this.#windShapes(cone);
+    const turn = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), dir);
+    const body = (geometry, material, length, { opacity, swirl = null, near = null, haze = null, lag = 1, ribbons = false }) => {
+      const mesh = new THREE.Mesh(geometry, material.clone());
+      mesh.position.copy(from);
+      mesh.quaternion.copy(turn);
+      mesh.rotateZ(Math.random() * Math.PI * 2);
+      mesh.scale.setScalar(length);
+      mesh.frustumCulled = false;
+      const u = mesh.material.uniforms;
+      u.uOpacity.value = opacity;
+      if (swirl !== null) u.uSwirl.value = swirl;
+      if (near !== null) u.uNear.value = near;
+      if (haze !== null) u.uHaze.value = haze;
+      this.#addTransient(mesh, {
+        life: GALE_VOLUME.life * lag,
+        own: true,
+        tick: (age) => {
+          const at = galeVolumeAt(age / lag);
+          if (ribbons) {
+            u.uHead.value = at.head;
+          } else {
+            u.uTime.value = age;
+            u.uFront.value = at.front;
+            u.uTurb.value = at.turbulence;
+          }
+          u.uFade.value = at.fade;
+        },
       });
-      if (i === 1) ring.material.opacity = ring.userData.baseOpacity = 0.2;
-    }
+    };
+    body(shapes.pressure, this.windConeMaterial, cone.pressureReach * 0.95, { opacity: 0.42, swirl: 0.25, near: 0.2, lag: 1.12 });
+    body(shapes.heart, this.windConeMaterial, cone.reach, { opacity: 0.8, swirl: 0.45, near: 0.12, haze: 0.14 });
+    body(shapes.ribbons[Math.floor(Math.random() * shapes.ribbons.length)], this.windRibbonMaterial, cone.reach * 1.2, { opacity: 0.75, ribbons: true });
+    // a breath of air bursting from the hand
+    const breath = new THREE.Sprite(this.windPuffMaterial);
+    breath.position.copy(from).addScaledVector(dir, 0.5);
+    breath.scale.setScalar(0.5);
+    this.#addTransient(breath, { velocity: dir.clone().multiplyScalar(4), life: 0.26, expand: 5, fade: true, drag: 3 });
+
     // the streaks: most sweep out low and to either side (from the hand, wind rushing past on the left and right and
     // skimming the ground, not a burst of sparks), a few down its heart further out; fast and stretched, spent
     // toward the edge of the pressure
-    for (let i = 0; i < 24; i += 1) {
-      const outer = i < 18;
+    for (let i = 0; i < 16; i += 1) {
+      const outer = i < 12;
       const angle = outer ? spread * (0.4 + 0.6 * Math.random()) : heart * (0.15 + 0.4 * Math.random());
       // round the gust from its right (0) through below it (-pi/2) to its left (pi): mostly the sides, some low
       const around = outer ? (i % 3 === 2 ? -Math.PI / 2 : i % 3 === 0 ? 0 : Math.PI) + (Math.random() - 0.5) * 1.1 : Math.random() * Math.PI * 2;
@@ -406,8 +432,8 @@ export class Effects {
     if (!groundAt || along.lengthSq() < 1e-4) return;
     along.normalize();
     const across = new THREE.Vector3(-along.z, 0, along.x);
-    for (let i = 0; i < 14; i += 1) {
-      const d = 1 + Math.random() * cone.reach;
+    for (let i = 0; i < 18; i += 1) {
+      const d = 1 + Math.random() * cone.pressureReach * 0.8;
       const wide = Math.tan(spread) * d * 0.7;
       const x = from.x + dir.x * d + across.x * (Math.random() - 0.5) * 2 * wide;
       const z = from.z + dir.z * d + across.z * (Math.random() - 0.5) * 2 * wide;
@@ -415,7 +441,7 @@ export class Effects {
       const low = from.y + dir.y * d - (floor ?? -Infinity);
       if (floor === null || low > Math.tan(spread) * d + 0.5 || low < -0.5) continue;
       const surface = surfaceAt?.(x, z, floor) ?? 'earth';
-      const strength = 1 - d / (cone.reach + 1);
+      const strength = 1 - d / (cone.pressureReach + 1);
       const puff = new THREE.Sprite(this.dustMaterials.get(surface) ?? this.dustMaterials.get('earth'));
       puff.position.set(x, floor + 0.12 + Math.random() * 0.2, z);
       puff.scale.setScalar(0.35 + Math.random() * 0.25);
@@ -438,11 +464,30 @@ export class Effects {
    */
   warm(renderer, scene = this.scene) {
     const group = new THREE.Group();
-    group.add(new THREE.Mesh(this.windRingGeometry, this.windRingMaterial));
+    const shapes = this.#windShapes({ halfAngleDeg: 30, pressureHalfAngleDeg: 45 });
+    group.add(new THREE.Mesh(shapes.heart, this.windConeMaterial));
+    group.add(new THREE.Mesh(shapes.ribbons[0], this.windRibbonMaterial));
+    group.add(new THREE.Sprite(this.windPuffMaterial));
     group.add(new THREE.Mesh(this.windStreakGeometry, this.windMaterial));
     group.add(new THREE.Sprite(this.dustMaterials.get('earth')));
     group.add(new THREE.Mesh(this.grassGeometry, this.grassMaterials[0]));
     return (renderer.compileAsync?.(group, this.camera, scene) ?? Promise.resolve(renderer.compile(group, this.camera, scene))).catch(() => {});
+  }
+
+  // the gust's shapes for a cone of these angles: its pressure's shell, its heart's, and a few sets of ribbons
+  #windShapes(cone) {
+    const key = `${cone.halfAngleDeg}/${cone.pressureHalfAngleDeg}`;
+    let shapes = this.windShapes.get(key);
+    if (!shapes) {
+      const heart = Math.tan((cone.halfAngleDeg * Math.PI) / 180);
+      shapes = {
+        pressure: windConeGeometry(Math.tan((cone.pressureHalfAngleDeg * Math.PI) / 180)),
+        heart: windConeGeometry(heart),
+        ribbons: [0, 1, 2].map(() => windRibbonGeometry(heart)),
+      };
+      this.windShapes.set(key, shapes);
+    }
+    return shapes;
   }
 
   /** A Gale gathering in someone's hand: wisps of air drawn in to it, turning as they come. */
@@ -463,25 +508,47 @@ export class Effects {
     }
   }
 
-  /** A spell turned aside by hardened plate: a cool glint on the armour and a few pale sparks skating off it. */
-  steelGlint(point, dir) {
+  /**
+   * A blow on hardened plate: a white glint on the armour and sparks skating off it, as many and as bright as the
+   * plate is still strong (`strength` 0..1: fresh plate throws a shower, worn plate a few). `ring`: a flash of light
+   * round it (not for sparks seen from inside the helm).
+   */
+  steelGlint(point, dir, { strength = 1, ring = true, scale = 1 } = {}) {
+    const s = Math.max(0.1, Math.min(1, strength));
     const at = new THREE.Vector3(point.x, point.y, point.z);
     const away = new THREE.Vector3(dir?.x ?? 0, 0, dir?.z ?? 0);
     if (away.lengthSq() < 1e-6) away.set(0, 0, 1);
     away.normalize();
     const flash = new THREE.Mesh(this.impactFlashGeometry, this.#basicMaterial(0xeef5ff));
     flash.position.copy(at);
-    flash.scale.setScalar(0.55);
-    this.#addTransient(flash, { life: 0.12, expand: 4, shrink: true, spin: new THREE.Vector3(3, 7, 4) });
-    for (let i = 0; i < 12; i += 1) {
-      const spark = new THREE.Mesh(this.sparkGeometry, this.#basicMaterial(i % 2 ? 0xdfe9f4 : 0xffffff));
+    flash.scale.setScalar((0.25 + 0.4 * s) * scale);
+    this.#addTransient(flash, { life: 0.07 + 0.07 * s, expand: 4, shrink: true, spin: new THREE.Vector3(3, 7, 4) });
+    const count = Math.round(4 + 14 * s);
+    for (let i = 0; i < count; i += 1) {
+      const spark = new THREE.Mesh(this.sparkGeometry, this.#basicMaterial(i % 3 === 0 ? 0xffe9b8 : i % 2 ? 0xdfe9f4 : 0xffffff));
       spark.position.copy(at);
-      const velocity = away.clone().multiplyScalar(-(1 + Math.random() * 2.2))
-        .add(new THREE.Vector3((Math.random() - 0.5) * 4.5, Math.random() * 3, (Math.random() - 0.5) * 4.5));
+      spark.scale.setScalar(scale);
+      const fling = (0.5 + 0.8 * s) * scale;
+      const velocity = away.clone().multiplyScalar(-(1 + Math.random() * 2.2) * fling)
+        .add(new THREE.Vector3((Math.random() - 0.5) * 4.5 * fling, Math.random() * 3 * fling, (Math.random() - 0.5) * 4.5 * fling));
       spark.lookAt(at.clone().add(velocity));
-      this.#addTransient(spark, { velocity, life: 0.18 + Math.random() * 0.16, shrink: true, gravity: 8, drag: 2.4 });
+      this.#addTransient(spark, { velocity, life: 0.12 + Math.random() * (0.1 + 0.12 * s), shrink: true, gravity: 8 * scale, drag: 2.4 });
     }
-    this.#groundRing(at, 0xd9e6f2, 0.6, true);
+    if (ring && s > 0.35) this.#groundRing(at, 0xd9e6f2, 0.3 + 0.35 * s, true);
+  }
+
+  /**
+   * A blow on my own hardened plate, seen from inside the helm: sparks thrown up across the bottom of the view on the
+   * side it came from. `from`: the way to whoever struck (world, across the ground).
+   */
+  steelSparksInView(from, strength = 1) {
+    const eye = this.camera.getWorldPosition(new THREE.Vector3());
+    const forward = this.camera.getWorldDirection(new THREE.Vector3());
+    const side = new THREE.Vector3(from?.x ?? forward.x, 0, from?.z ?? forward.z);
+    if (side.lengthSq() < 1e-6) side.copy(forward);
+    side.normalize();
+    const at = eye.clone().addScaledVector(forward, 0.5).addScaledVector(side, 0.18).add(new THREE.Vector3(0, -0.3, 0));
+    this.steelGlint(at, { x: -side.x, z: -side.z }, { strength, ring: false, scale: 0.3 });
   }
 
   // a flat ring of light expanding from a point (at the feet unless upright)
@@ -839,6 +906,7 @@ export class Effects {
       transient.velocity.y -= transient.gravity * dt;
       if (transient.drag) transient.velocity.multiplyScalar(Math.exp(-transient.drag * dt));
       if (transient.fade) transient.mesh.material.opacity = transient.mesh.userData.baseOpacity * Math.max(0, transient.life / transient.maxLife);
+      transient.tick?.(transient.age);
 
       const scale = transientScale(transient.age, transient.maxLife, transient.expand, transient.shrink);
       transient.mesh.scale.copy(transient.baseScale).multiplyScalar(scale);

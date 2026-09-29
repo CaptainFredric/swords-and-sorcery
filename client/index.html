@@ -87,7 +87,7 @@
         <div id="armory-kit">
         <p class="armory-slot">BLADE</p>
         <div class="armory-blade"><b id="armory-blade-name">Castleward longsword</b><small id="armory-blade-facts"></small></div>
-        <p class="armory-slot">SPELL · Q</p>
+        <p class="armory-slot">SPELL OR WARD · Q</p>
         <div id="armory-spells" class="armory-spells" role="radiogroup" aria-label="Spell"></div>
         <p class="panel-copy armory-note">Carried into your next match. More arms and arcana will hang here.</p>
         </div>
@@ -198,7 +198,7 @@
           <span>MENU</span><b>Arena menu · practice tools</b>
         </div>
         <button class="wide-button how-settings" data-open-settings="controls">SETTINGS · CONTROLS AND KEYS</button>
-        <p class="rules-copy">Four sword hits defeat a full-health Spellblade (or three and a spell). Fireball keeps burning after it lands; Frostfire slows whoever it strikes until they thaw. A well-timed Guard parries and staggers the attacker. Spells beat passive blocking. Dash repositions; it does not grant invulnerability. Guard and Sprint share one stamina bar: sprinting drains it slowly, every block costs a chunk, and it refills a moment after you stop.</p>
+        <p class="rules-copy">Four clean sword hits defeat a full-health Spellblade (or three and a spell). Fireball keeps burning after it lands; Frostfire slows whoever it strikes until they thaw. A well-timed Guard parries and staggers the attacker. Spells beat passive blocking. Dash repositions; it does not grant invulnerability. Guard and Sprint share one stamina bar: sprinting drains it slowly, every block costs a chunk, and it refills a moment after you stop.</p>
       </div>
     </section>
 
@@ -270,7 +270,11 @@
       <div class="bottom-hud">
         <div class="health-block">
           <div class="health-label"><span id="health-value">100</span> HP</div>
-          <div class="health-track"><div id="health-trail" class="health-trail"></div><div id="health-fill" class="health-fill"></div></div>
+          <!-- Sheathed in Steel: a riveted frame of plates round the bar, as strong as the armour, wearing away plate by plate -->
+          <div id="health-armour" class="health-armour" aria-hidden="true">
+            <div class="health-track"><div id="health-trail" class="health-trail"></div><div id="health-fill" class="health-fill"></div></div>
+            <i class="armour-plate"></i><i class="armour-plate"></i><i class="armour-plate"></i><i class="armour-plate"></i><i class="armour-plate"></i>
+          </div>
         </div>
         <div id="guard-block" class="guard-block faded">
           <span>STAMINA</span><div class="guard-track"><div id="guard-fill" class="guard-fill"></div></div>
@@ -278,7 +282,6 @@
         <div class="abilities">
           <div id="spell-ability" class="ability ready" data-spell="fireball"><span class="ability-icon">✦</span><b>Q</b><em>FIREBALL</em><strong>READY</strong></div>
           <div id="dash-ability" class="ability ready"><span class="ability-icon">➤</span><b>E</b><em>DASH</em><strong>READY</strong></div>
-          <div id="steel-ability" class="ability ready"><span class="ability-icon">⛨</span><b>F</b><em>STEEL</em><strong>READY</strong></div>
         </div>
       </div>
       <aside id="practice-overlay" class="practice-tools hidden">
