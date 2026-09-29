@@ -8,6 +8,7 @@ import { TourDirector } from './tour/TourDirector.mjs';
 import { performanceAt } from './menuReactions.mjs';
 import { THIRD_PERSON_SPELL_ARM, THIRD_PERSON_SWORD_ARM, solveArm } from '../game/swordArmIK.mjs';
 import { screenTurn } from '../ui/screenTurn.mjs';
+import { createGaleOrb } from '../game/galeOrb.mjs';
 
 // a drag in the game's own frame (the game may be lying sideways on a screen that stays upright)
 // where an element sits across the page in layout pixels (transforms, like a quarter turn of the shell, ignored)
@@ -32,10 +33,12 @@ function disposeObject(root) {
 const STAGE = Object.freeze({ x: -1.0, z: 5.5 });
 const CAMERA_FROM = Object.freeze({ x: MENU_SHOTS.main.camera[0], z: MENU_SHOTS.main.camera[2] });
 
-// a spell held up in the Armory
+// a spell held up in the Armory (a Gale is its own ball of wind, galeOrb.mjs, and lights the hand only softly; glow:
+// the palm light's colour)
 const SPELL_PREVIEW = Object.freeze({
   fireball: { core: 0xfff0c8, glow: 0xff7a2a },
   frostfire: { core: 0xeafcff, glow: 0x7fd6ff },
+  gale: { wind: true, glow: 0x7fd08e, light: 0.9 },
 });
 
 export class MenuScene {
@@ -264,11 +267,12 @@ export class MenuScene {
       this.characterRoot.rotation.y += (this.targetYaw - this.characterRoot.rotation.y) * 0.09;
       this.characterRoot.rotation.x += (this.targetPitch - this.characterRoot.rotation.x) * 0.09;
     }
-    // the spell held up in the Armory breathes and turns
+    // the spell held up in the Armory breathes and turns (a Gale flows)
     if (this.spellOrb?.visible) {
       this.spellOrb.scale.setScalar(1 + Math.sin(t * 3.1) * 0.08);
       this.spellOrbGlow.rotation.y = t * 1.7;
     }
+    if (this.galeOrb?.visible) this.galeOrb.userData.update(t);
 
     const round = this.touring ? this.tour.update(dt) : null;
     if (this.touring) {
@@ -426,6 +430,7 @@ export class MenuScene {
     const look = SPELL_PREVIEW[spell];
     if (!look) {
       if (this.spellOrb) this.spellOrb.visible = false;
+      if (this.galeOrb) this.galeOrb.visible = false;
       this.magicLight.color.setHex(0x55d9ff);
       this.magicLight.intensity = 1.1;
       return;
@@ -439,13 +444,21 @@ export class MenuScene {
       this.spellOrb.position.set(0, 0.06, 0);
       socket.add(this.spellOrb);
     }
+    if (look.wind && !this.galeOrb && socket) {
+      this.galeOrb = createGaleOrb({ radius: 0.1 });
+      this.galeOrb.position.set(0, 0.08, 0);
+      socket.add(this.galeOrb);
+    }
+    if (this.galeOrb) this.galeOrb.visible = Boolean(look.wind);
     if (this.spellOrb) {
-      this.spellOrb.visible = true;
-      this.spellOrbCore.material.color.setHex(look.core);
-      this.spellOrbGlow.material.color.setHex(look.glow);
+      this.spellOrb.visible = !look.wind;
+      if (!look.wind) {
+        this.spellOrbCore.material.color.setHex(look.core);
+        this.spellOrbGlow.material.color.setHex(look.glow);
+      }
     }
     this.magicLight.color.setHex(look.glow);
-    this.magicLight.intensity = 2.4;
+    this.magicLight.intensity = look.light ?? 2.4;
   }
 
   /** Render quality (a setting): the menu never draws sharper than 1.25x, and Smooth draws at 1x. */

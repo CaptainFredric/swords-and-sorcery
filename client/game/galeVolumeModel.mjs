@@ -60,6 +60,103 @@ export function windRibbonData(tanHalf, { count = 6, samples = 48, random = Math
   return { positions, uvs, seeds, indices };
 }
 
+// wavy lines of wind: strips running out from the hand along the cone, most of them out toward its edge (they fill out
+// its sides), each rippling from side to side as it goes, wider and further the further out. One geometry for all of
+// them. aSeed: each line's own 0..1 (its streak runs out a little apart); aTint: 1 a green line, 0 a white one; aWave:
+// the way round the gust it ripples, times how far (the shader sets the ripple flowing)
+export function windWaveData(tanHalf, { count = 14, samples = 40, random = Math.random } = {}) {
+  const positions = [];
+  const uvs = [];
+  const seeds = [];
+  const tints = [];
+  const waves = [];
+  const indices = [];
+  for (let n = 0; n < count; n += 1) {
+    const seed = random();
+    const tint = n % 2;
+    const around = (n / count) * Math.PI * 2 + (random() - 0.5) * 0.5;
+    // out toward the sides, mostly: a share of the cone's angle
+    const out = 0.45 + 0.55 * Math.sqrt(random());
+    const cycles = 1.6 + random() * 1.4;
+    const phase = random() * Math.PI * 2;
+    const offset = positions.length / 3;
+    for (let i = 0; i <= samples; i += 1) {
+      const t = i / samples;
+      const sway = Math.sin(t * cycles * Math.PI * 2 + phase) * 0.28 * t * tanHalf;
+      const a = around + sway / Math.max(1e-3, t * tanHalf * out + 0.02);
+      const r = 0.02 + t * tanHalf * out;
+      const width = 0.004 + 0.022 * t;
+      const cx = Math.cos(a) * r;
+      const cy = Math.sin(a) * r;
+      // across the line: round the gust (it lies in the cone's side, seen from the hand and from the side alike)
+      const wx = -Math.sin(a) * width;
+      const wy = Math.cos(a) * width;
+      positions.push(cx - wx, cy - wy, t, cx + wx, cy + wy, t);
+      uvs.push(0, t, 1, t);
+      seeds.push(seed, seed);
+      tints.push(tint, tint);
+      const wave = 0.05 * t;
+      waves.push(-Math.sin(a) * wave, Math.cos(a) * wave, 0, -Math.sin(a) * wave, Math.cos(a) * wave, 0);
+      if (i < samples) {
+        const k = offset + i * 2;
+        indices.push(k, k + 2, k + 1, k + 1, k + 2, k + 3);
+      }
+    }
+  }
+  return { positions, uvs, seeds, tints, waves, indices };
+}
+
+// wisps of air: small curls (a spiral of a turn and a half, tightening), tumbling out through the gust. Each lies in
+// a plane along the gust's way, so it reads as a curl rolling out; aCenter: its middle (the shader turns it about
+// that and carries it out), aSeed, aTint as the wavy lines
+export function windWispData(tanHalf, { count = 18, samples = 26, random = Math.random } = {}) {
+  const positions = [];
+  const uvs = [];
+  const seeds = [];
+  const tints = [];
+  const centers = [];
+  const indices = [];
+  for (let n = 0; n < count; n += 1) {
+    const seed = random();
+    const tint = n % 3 === 0 ? 0 : 1;
+    const along = 0.12 + 0.7 * random();
+    const around = random() * Math.PI * 2;
+    const out = 0.25 + 0.75 * Math.sqrt(random());
+    const r0 = 0.02 + along * tanHalf * out;
+    const center = [Math.cos(around) * r0, Math.sin(around) * r0, along];
+    const size = 0.022 + 0.035 * random();
+    // the curl's plane: the gust's way (z) and outward from its line
+    const ox = Math.cos(around);
+    const oy = Math.sin(around);
+    const turn = random() * Math.PI * 2;
+    const offset = positions.length / 3;
+    for (let i = 0; i <= samples; i += 1) {
+      const t = i / samples;
+      const a = turn + t * Math.PI * 3;
+      const radius = size * (1 - 0.65 * t);
+      const width = size * 0.18 * (1 - 0.5 * t);
+      const u = Math.cos(a);
+      const v = Math.sin(a);
+      // on the curl: outward by u, along the gust by v; its width runs round the gust
+      const px = center[0] + ox * u * radius;
+      const py = center[1] + oy * u * radius;
+      const pz = center[2] + v * radius;
+      const wx = -oy * width;
+      const wy = ox * width;
+      positions.push(px - wx, py - wy, pz, px + wx, py + wy, pz);
+      uvs.push(0, t, 1, t);
+      seeds.push(seed, seed);
+      tints.push(tint, tint);
+      centers.push(...center, ...center);
+      if (i < samples) {
+        const k = offset + i * 2;
+        indices.push(k, k + 2, k + 1, k + 1, k + 2, k + 3);
+      }
+    }
+  }
+  return { positions, uvs, seeds, tints, centers, indices };
+}
+
 // how long the air is seen, and when its front reaches the end of the gust
 export const GALE_VOLUME = Object.freeze({ life: 0.62, frontSec: 0.3, ribbonSec: 0.42 });
 

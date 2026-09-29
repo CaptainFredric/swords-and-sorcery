@@ -1,7 +1,12 @@
 import * as THREE from 'three';
 import { impactWorldPresentation, sampleTrailSegment, transientScale } from './effectTrail.mjs';
 import { puffTexture, windStreakTexture } from './softTextures.mjs';
-import { GALE_VOLUME, createWindConeMaterial, createWindRibbonMaterial, galeVolumeAt, windConeGeometry, windRibbonGeometry } from './galeVolume.mjs';
+import {
+  GALE_VOLUME, createWindConeMaterial, createWindRibbonMaterial, createWindWaveMaterial, createWindWispMaterial, galeVolumeAt, windConeGeometry,
+  windRibbonGeometry, windWaveGeometry, windWispGeometry,
+} from './galeVolume.mjs';
+import { SPELLS } from '../../shared/src/spells.mjs';
+import { createGaleOrb } from './galeOrb.mjs';
 
 const MAX_TRANSIENTS = 260;
 
@@ -98,6 +103,8 @@ export class Effects {
     // a breath of air at the hand, a puff of dust (tinted by what the ground is made of) and a blade of grass torn loose
     this.windConeMaterial = createWindConeMaterial();
     this.windRibbonMaterial = createWindRibbonMaterial();
+    this.windWaveMaterial = createWindWaveMaterial();
+    this.windWispMaterial = createWindWispMaterial();
     this.windShapes = new Map();
     this.windPuffMaterial = new THREE.SpriteMaterial({ map: puffTexture(), color: 0xf4f7f2, transparent: true, opacity: 0.4, depthWrite: false });
     this.dustMaterials = new Map(Object.entries({ stone: 0xd9d4c8, grass: 0xc2c29a, earth: 0xc9b390 }).map(([surface, color]) => [
@@ -371,7 +378,7 @@ export class Effects {
     // playing out over the gust's short life (galeVolumeAt)
     const shapes = this.#windShapes(cone);
     const turn = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), dir);
-    const body = (geometry, material, length, { opacity, swirl = null, near = null, haze = null, lag = 1, ribbons = false }) => {
+    const body = (geometry, material, length, { opacity, swirl = null, near = null, haze = null, rim = null, lag = 1, kind = 'cone' }) => {
       const mesh = new THREE.Mesh(geometry, material.clone());
       mesh.position.copy(from);
       mesh.quaternion.copy(turn);
@@ -383,25 +390,28 @@ export class Effects {
       if (swirl !== null) u.uSwirl.value = swirl;
       if (near !== null) u.uNear.value = near;
       if (haze !== null) u.uHaze.value = haze;
+      if (rim !== null) u.uRimFill.value = rim;
       this.#addTransient(mesh, {
         life: GALE_VOLUME.life * lag,
         own: true,
         tick: (age) => {
           const at = galeVolumeAt(age / lag);
-          if (ribbons) {
-            u.uHead.value = at.head;
-          } else {
-            u.uTime.value = age;
-            u.uFront.value = at.front;
-            u.uTurb.value = at.turbulence;
-          }
+          if (u.uHead) u.uHead.value = kind === 'waves' ? at.head * 0.95 : at.head;
+          if (u.uTime) u.uTime.value = age;
+          if (u.uFront) u.uFront.value = at.front;
+          if (u.uTurb) u.uTurb.value = at.turbulence;
           u.uFade.value = at.fade;
         },
       });
     };
-    body(shapes.pressure, this.windConeMaterial, cone.pressureReach * 0.95, { opacity: 0.42, swirl: 0.25, near: 0.2, lag: 1.12 });
-    body(shapes.heart, this.windConeMaterial, cone.reach, { opacity: 0.8, swirl: 0.45, near: 0.12, haze: 0.14 });
-    body(shapes.ribbons[Math.floor(Math.random() * shapes.ribbons.length)], this.windRibbonMaterial, cone.reach * 1.2, { opacity: 0.75, ribbons: true });
+    const pick = (list) => list[Math.floor(Math.random() * list.length)];
+    // the pressure's sides filled out with a soft wall of air, green toward its edge
+    body(shapes.pressure, this.windConeMaterial, cone.pressureReach * 0.95, { opacity: 0.5, swirl: 0.25, near: 0.2, rim: 0.55, lag: 1.12 });
+    body(shapes.heart, this.windConeMaterial, cone.reach, { opacity: 0.8, swirl: 0.45, near: 0.12, haze: 0.14, rim: 0.25 });
+    body(pick(shapes.ribbons), this.windRibbonMaterial, cone.reach * 1.2, { opacity: 0.75, kind: 'ribbons' });
+    // wavy lines of wind, white and green, rippling out along the sides; and wisps curling out through it
+    body(pick(shapes.waves), this.windWaveMaterial, cone.pressureReach * 0.9, { opacity: 0.8, kind: 'waves', lag: 1.08 });
+    body(pick(shapes.wisps), this.windWispMaterial, cone.pressureReach * 0.85, { opacity: 0.85, kind: 'wisps', lag: 1.15 });
     // a breath of air bursting from the hand
     const breath = new THREE.Sprite(this.windPuffMaterial);
     breath.position.copy(from).addScaledVector(dir, 0.5);
@@ -459,14 +469,19 @@ export class Effects {
   }
 
   /**
-   * Compile the shaders of effects first seen mid-fight (a gust's rings, streaks, dust and grass), where the browser
-   * allows off the frame, so the first of them does not stall one. `scene`: where they will be drawn (its fog).
+   * Compile the shaders of effects first seen mid-fight (a gust's air, streaks, dust and grass; a Gale's ball), where
+   * the browser allows off the frame, so the first of them does not stall one. `scene`: where they will be drawn.
    */
   warm(renderer, scene = this.scene) {
     const group = new THREE.Group();
-    const shapes = this.#windShapes({ halfAngleDeg: 30, pressureHalfAngleDeg: 45 });
+    const shapes = this.#windShapes(SPELLS.gale.cone);
     group.add(new THREE.Mesh(shapes.heart, this.windConeMaterial));
     group.add(new THREE.Mesh(shapes.ribbons[0], this.windRibbonMaterial));
+    group.add(new THREE.Mesh(shapes.waves[0], this.windWaveMaterial));
+    group.add(new THREE.Mesh(shapes.wisps[0], this.windWispMaterial));
+    // (the Gale ball in the palm shares its shaders with this one, kept so they stay built: ready for the first hand)
+    this.warmGaleOrb ??= createGaleOrb();
+    group.add(this.warmGaleOrb);
     group.add(new THREE.Sprite(this.windPuffMaterial));
     group.add(new THREE.Mesh(this.windStreakGeometry, this.windMaterial));
     group.add(new THREE.Sprite(this.dustMaterials.get('earth')));
@@ -484,6 +499,8 @@ export class Effects {
         pressure: windConeGeometry(Math.tan((cone.pressureHalfAngleDeg * Math.PI) / 180)),
         heart: windConeGeometry(heart),
         ribbons: [0, 1, 2].map(() => windRibbonGeometry(heart)),
+        waves: [0, 1, 2].map(() => windWaveGeometry(Math.tan((cone.pressureHalfAngleDeg * Math.PI) / 180))),
+        wisps: [0, 1, 2].map(() => windWispGeometry(Math.tan((cone.pressureHalfAngleDeg * Math.PI) / 180))),
       };
       this.windShapes.set(key, shapes);
     }

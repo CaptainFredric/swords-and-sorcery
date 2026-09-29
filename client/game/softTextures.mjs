@@ -1,6 +1,6 @@
 // Soft textures for effects, each drawn once on a small canvas and shared: a puff (bright in the middle, fading out to
-// nothing), a streak of wind (a soft head and a long fading tail, along the texture's v) and a swirl (two arms of air,
-// to be seen turning). White, so a material's colour tints them.
+// nothing) and a streak of wind (a soft head and a long fading tail, along the texture's v). White, so a material's
+// colour tints them.
 
 import * as THREE from 'three';
 
@@ -37,26 +37,5 @@ export function windStreakTexture() {
     for (const [at, alpha] of [[0, 0], [0.12, 1], [0.45, 0.45], [1, 0]]) streak.addColorStop(at, `rgba(255,255,255,${alpha})`);
     g.fillStyle = streak;
     g.fillRect(0, 0, w, h);
-  });
-}
-
-export function swirlTexture() {
-  return drawn('swirl', 64, 64, (g, w) => {
-    g.lineCap = 'round';
-    g.filter = 'blur(1.5px)';
-    for (let arm = 0; arm < 2; arm += 1) {
-      const steps = 24;
-      for (let i = 0; i < steps; i += 1) {
-        // each arm curls inward a little as it trails off behind its head
-        const t = i / steps;
-        const from = arm * Math.PI + t * Math.PI * 0.95;
-        const radius = w * (0.36 - 0.1 * t);
-        g.strokeStyle = `rgba(255,255,255,${(1 - t) ** 1.5})`;
-        g.lineWidth = w * (0.09 - 0.05 * t);
-        g.beginPath();
-        g.arc(w / 2, w / 2, radius, from, from + (Math.PI * 0.95) / steps + 0.02);
-        g.stroke();
-      }
-    }
   });
 }

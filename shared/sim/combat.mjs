@@ -244,8 +244,8 @@ function sheatheInSteel(room, player, spell, nowSec) {
 }
 
 /**
- * The spell's key: the spell, if it is ready; while it is on its cooldown, the gauntlet, if a foe is within arm's reach
- * (shared/src/gauntlet.mjs); otherwise nothing (the client shows the cooldown). pressedAt: the player's own moment.
+ * The spell's key: the spell, if it is ready; while it is on its cooldown, the gauntlet, on command
+ * (shared/src/gauntlet.mjs). pressedAt: the player's own moment.
  */
 export function tryCastOrGauntlet(room, playerId, direction, nowSec, pressedAt = nowSec) {
   const player = room.players.get(playerId);
@@ -255,9 +255,10 @@ export function tryCastOrGauntlet(room, playerId, direction, nowSec, pressedAt =
 }
 
 /**
- * The magic hand's armoured fist, at the nearest foe within reach (judged where everyone stood at the player's
- * moment). Never through the sword: not while a committed strike has yet to land, nor while a blade is live. Thrown
- * in a chain's recovery, it ends the chain; and nothing attacks again before its own recovery is over.
+ * The magic hand's armoured fist, thrown whenever it is asked for: at the nearest foe within reach (judged where
+ * everyone stood at the player's moment), or at the air. Never through the sword: not while a committed strike has
+ * yet to land, nor while a blade is live. Thrown in a chain's recovery, it ends the chain; and nothing attacks again
+ * before its own recovery is over.
  */
 export function tryGauntletStrike(room, playerId, nowSec, pressedAt = nowSec) {
   const player = room.players.get(playerId);
@@ -273,34 +274,42 @@ export function tryGauntletStrike(room, playerId, nowSec, pressedAt = nowSec) {
     foes.push({ id: other.id, position: transformFor(other, at).position });
   }
   const best = gauntletTarget(from.position, from.yaw, foes);
-  if (!best || targetBlockedByWorld(from, transformFor(room.players.get(best.foe.id), at), room.world ?? {})) return false;
+  const aimed = best && !targetBlockedByWorld(from, transformFor(room.players.get(best.foe.id), at), room.world ?? {}) ? best.foe.id : null;
   if (player.attackActive) {
     stopSwordChain(player);
     room.events.push({ type: 'attackEnded', playerId, at: nowSec });
   }
   player.guarding = false;
   const landAt = at + GAUNTLET.startup;
-  player.gauntlet = { targetId: best.foe.id, landAt };
+  player.gauntlet = { targetId: aimed, landAt };
   player.gauntletReadyAt = landAt + GAUNTLET.recovery;
   player.attackRestartAt = Math.max(player.attackRestartAt ?? -Infinity, player.gauntletReadyAt);
   player.spawnProtectionUntil = Math.min(player.spawnProtectionUntil, nowSec);
-  room.events.push({ type: 'gauntletStrike', playerId, targetId: best.foe.id, at: nowSec, landAt });
+  room.events.push({ type: 'gauntletStrike', playerId, targetId: aimed, at: nowSec, landAt });
   return true;
 }
 
-// the fist lands: on the foe if they are still within reach (it follows through a little), on a guard facing it, or on
-// nothing
+// the fist lands: on the foe it was thrown at if they are still within reach (it follows through a little), else on
+// whoever is nearest within reach now, on a guard facing it, or on nothing (the air)
 function landGauntlet(room, player, nowSec, world) {
   const blow = player.gauntlet;
   player.gauntlet = null;
-  const target = room.players.get(blow.targetId);
   const miss = (reason) => room.events.push({ type: 'gauntletMiss', playerId: player.id, targetId: blow.targetId, reason, at: nowSec });
-  if (!player.alive || !target?.alive) return miss('gone');
+  if (!player.alive) return miss('gone');
   const at = Math.min(nowSec, blow.landAt);
   const from = transformFor(player, at);
-  const to = transformFor(target, at);
-  const g = gauntletGeometry(from.position, from.yaw, to.position);
-  if (!withinGauntlet(g, GAUNTLET.landSlack) || targetBlockedByWorld(from, to, world)) return miss('reach');
+  let target = null;
+  let g = null;
+  for (const other of room.players.values()) {
+    if (other.id === player.id || !other.alive) continue;
+    const to = transformFor(other, at);
+    const placed = gauntletGeometry(from.position, from.yaw, to.position);
+    if (!withinGauntlet(placed, GAUNTLET.landSlack) || targetBlockedByWorld(from, to, world)) continue;
+    // the one it was thrown at first; otherwise the nearest
+    const better = !target || other.id === blow.targetId || (target.id !== blow.targetId && placed.distance < g.distance);
+    if (better) { target = other; g = placed; }
+  }
+  if (!target) return miss(blow.targetId ? 'reach' : 'air');
   if (target.spawnProtectionUntil > nowSec) return miss('protected');
   if (target.guarding && isInGuardCone(target, player, at)) {
     // a guard facing it pays a little; one spent by it is lowered, never broken (no stagger)
@@ -314,7 +323,9 @@ function landGauntlet(room, player, nowSec, world) {
   const armour = steelBlunt(target.steel, GAUNTLET.damage, nowSec);
   if (target.steel) target.steel = chipSteel(target.steel, GAUNTLET.steelChip, nowSec);
   const push = { x: g.direction.x * GAUNTLET.shove, y: 0.1, z: g.direction.z * GAUNTLET.shove };
-  applyDamage(room, player.id, target.id, armour.amount, 'gauntlet', nowSec, push, { steel: armour.strength });
+  applyDamage(room, player.id, target.id, armour.amount, 'gauntlet', nowSec, push, {
+    steel: armour.strength, turned: GAUNTLET.damage - armour.amount,
+  });
   room.events.push({ type: 'gauntletHit', playerId: player.id, targetId: target.id, guarded: false, steel: armour.strength, at: nowSec });
 }
 
@@ -531,14 +542,20 @@ function landStrike(room, attacker, strikeIndex, target, g, atSec, nowSec) {
   // hardened plate turns the blow toward a glancing one (never the shove), and each blow wears some of it away
   const armour = steelQuality(target.steel, quality, nowSec);
   if (target.steel) target.steel = chipSteel(target.steel, STEEL.swordChip * quality, nowSec);
-  applyDamage(room, attacker.id, target.id, swordDamageFor(armour.quality), 'sword', nowSec, push, { steel: armour.strength });
+  const damage = swordDamageFor(armour.quality);
+  applyDamage(room, attacker.id, target.id, damage, 'sword', nowSec, push, {
+    steel: armour.strength, turned: swordDamageFor(quality) - damage,
+  });
   room.events.push({
     type: 'swordHit', playerId: attacker.id, targetId: target.id, strikeIndex, quality: armour.quality, impact, steel: armour.strength, at: nowSec,
   });
 }
 
-/** `steel`: how strong the victim's hardened plate was as the blow met it (0: none), for the clang it makes. */
-export function applyDamage(room, attackerId, victimId, amount, source, nowSec, knockback = null, { steel = 0 } = {}) {
+/**
+ * `steel`: how strong the victim's hardened plate was as the blow met it (0: none), for the clang it makes; `turned`:
+ * the damage the plate took off the blow, for its owner to see.
+ */
+export function applyDamage(room, attackerId, victimId, amount, source, nowSec, knockback = null, { steel = 0, turned = 0 } = {}) {
   const victim = room.players.get(victimId);
   if (!victim || !victim.alive || victim.spawnProtectionUntil > nowSec) return false;
   victim.health = Math.max(0, victim.health - amount);
@@ -549,7 +566,10 @@ export function applyDamage(room, attackerId, victimId, amount, source, nowSec, 
     victim.lastKnockbackAt = nowSec;
   }
   const event = { type: 'damage', attackerId, victimId, source, amount, health: victim.health, push: knockback ?? null, at: nowSec };
-  if (steel > 0.005) event.steel = steel;
+  if (steel > 0.005) {
+    event.steel = steel;
+    event.turned = Math.max(0, Math.round(turned));
+  }
   room.events.push(event);
   if (victim.health <= 0) killPlayer(room, victimId, attackerId, source, nowSec);
   return true;
@@ -649,7 +669,8 @@ function releaseGale(room, player, spell, nowSec, world) {
     if (armour.turned > 0.1) target.steel = chipSteel(target.steel, STEEL.spellChip * armour.turned, nowSec);
     const damage = Math.round(spell.cone.damage * armour.exposure);
     if (damage >= 1) {
-      applyDamage(room, player.id, target.id, damage, spell.id, nowSec, shove, { steel: armour.strength });
+      const turned = Math.round(spell.cone.damage * (guarded ? 0 : caught.exposure)) - damage;
+      applyDamage(room, player.id, target.id, damage, spell.id, nowSec, shove, { steel: armour.strength, turned });
     } else {
       shoveBody(target, shove);
       target.lastAttackerId = player.id;
@@ -675,7 +696,8 @@ function explodeSpell(room, projectile, point, nowSec, worldHit = false, directV
     const distance = direct ? 0 : blastDistance(point, player.position, postureOf(player).crown);
     if (distance > spell.radius) continue;
     // how directly it caught them decides everything it leaves (hardened armour turns some of it aside)
-    const armour = steelExposure(player.steel, spellExposure(spell, distance), nowSec);
+    const bare = spellExposure(spell, distance);
+    const armour = steelExposure(player.steel, bare, nowSec);
     const exposure = armour.exposure;
     if (armour.turned > 0.02) {
       player.steel = chipSteel(player.steel, STEEL.spellChip * armour.turned, nowSec);
@@ -685,7 +707,7 @@ function explodeSpell(room, projectile, point, nowSec, worldHit = false, directV
     const away = normalize3({ x: center.x - point.x, y: Math.max(0.15, center.y - point.y), z: center.z - point.z });
     const hit = applyDamage(room, projectile.ownerId, player.id, amount, spell.id, nowSec, {
       x: away.x * 4.3 * shove, y: away.y * 2.3 * shove, z: away.z * 4.3 * shove,
-    }, { steel: armour.strength });
+    }, { steel: armour.strength, turned: blastDamage(spell, bare) - amount });
     if (!hit || !player.alive) continue;
     // a fresh burn replaces one already licking (it never stacks); a blast too far out to catch leaves any burn be
     const burn = burnFrom(spell, exposure, projectile.ownerId, nowSec);

@@ -501,7 +501,8 @@ function swordInto(room, at = 10) {
   for (const now of [at + 0.3, at + 0.39, at + 0.4]) stepRoom(room, 0.01, now, openWorld);
   endAttack(room, 'a', at + 0.41);
   const hit = room.events.find((e) => e.type === 'swordHit');
-  return { damage: before.health - b.health, hit, b };
+  const hurt = room.events.find((e) => e.type === 'damage' && e.victimId === 'b');
+  return { damage: before.health - b.health, hit, hurt, b };
 }
 
 test('Sheathed in Steel: a clean sword blow on fresh steel lands like a glancing one; more gets through as it wears', () => {
@@ -529,6 +530,7 @@ test('Sheathed in Steel: a clean sword blow on fresh steel lands like a glancing
   }
   // the blow is felt as glancing, but it shoves as hard as ever, and it wears the steel
   assert.ok(fresh.hit.quality < 0.15 && fresh.hit.steel > 0.85);
+  assert.equal(fresh.hurt.turned, GAME.swordDamage - fresh.damage, 'the damage word says what the plate turned aside');
   assert.ok(Math.abs(fresh.b.velocity.x - bare.b.velocity.x) < 1e-6, 'the same shove');
   assert.ok(steelStrength(fresh.b.steel, 10.4) < steelStrength({ at: 9.6, base: 1 }, 10.4), 'the blow chipped the steel');
 });
@@ -546,13 +548,14 @@ test('Sheathe in Steel is carried in the spell\'s place: its key calls it at onc
   setGuard(guarded, 'b', true, 9);
   assert.equal(sheathe(guarded, 'b', 10), true);
   assert.equal(guarded.players.get('b').guarding, true);
-  // on its cooldown the key does not call it again (and with nobody in reach, no fist either)
-  room.players.get('a').position.x = -5;
-  room.players.get('a').history = [];
+  // on its cooldown the key does not call it again: it throws the gauntlet instead
   b.steel = null;
-  assert.equal(tryCastOrGauntlet(room, 'b', { x: -1, y: 0, z: 0 }, 10 + STEEL.cooldownSec - 0.1), false, 'not again yet');
-  assert.equal(b.steel, null);
+  const early = 10 + STEEL.cooldownSec - 0.6;
+  assert.equal(tryCastOrGauntlet(room, 'b', { x: -1, y: 0, z: 0 }, early), true);
+  assert.ok(b.gauntlet && b.steel === null, 'a fist, not the steel');
+  for (let now = early; now < early + 0.5; now += 0.05) stepRoom(room, 0.05, now, openWorld);
   assert.equal(tryCastOrGauntlet(room, 'b', { x: -1, y: 0, z: 0 }, 10 + STEEL.cooldownSec + 0.01), true, 'ready again after its cooldown');
+  assert.ok(steelStrength(b.steel, 10 + STEEL.cooldownSec + 0.01) > 0.99, 'and it is the steel again');
   // a knight carrying a spell has no steel to call
   const caster = playingRoom();
   tryCastSpell(caster, 'b', { x: -1, y: 0, z: 0 }, 10);

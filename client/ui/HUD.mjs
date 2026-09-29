@@ -99,38 +99,84 @@ export class HUD {
     element.deniedTimer = setTimeout(() => element.classList.remove('denied'), 320);
   }
 
-  /** While the spell cools, whether its key would throw the gauntlet (a foe within reach): a fist on its tile. */
+  /** While the spell cools, whether its key would throw the gauntlet now (the hand free of the sword): a fist on its tile. */
   setFistReady(ready) {
     this.spell.classList.toggle('fist-ready', Boolean(ready));
   }
 
-  /** A blow landing on my hardened plate: the frame flashes, as bright as the armour is strong. */
-  steelStruck() {
+  /**
+   * A blow landing on my hardened plate: the frame jolts and flashes, as bright as the armour is strong, throws
+   * sparks where the health ends, and what it turned aside (`turned`, damage) rises off it. `full`: the blow's own
+   * clang (a quick follow-on only jolts it).
+   */
+  steelStruck({ strength = 1, turned = 0, full = true, health = null } = {}) {
     if (!this.armour) return;
+    this.armour.classList.remove('struck');
+    void this.armour.offsetWidth;
     this.armour.classList.add('struck');
     clearTimeout(this.armourStruckTimer);
-    this.armourStruckTimer = setTimeout(() => this.armour.classList.remove('struck'), 110);
+    this.armourStruckTimer = setTimeout(() => this.armour.classList.remove('struck'), 160);
+    if (!full) return;
+    const at = Math.max(4, Math.min(96, Number.isFinite(health) ? health : 50));
+    const sparks = Math.round(3 + 9 * Math.max(0, Math.min(1, strength)));
+    for (let i = 0; i < sparks; i += 1) {
+      const spark = document.createElement('i');
+      spark.className = 'armour-spark';
+      const up = i % 2 === 0;
+      const reach = 10 + 26 * strength * Math.random();
+      spark.style.left = `calc(${at}% + ${(Math.random() - 0.5) * 14}px)`;
+      spark.style.top = up ? '-5px' : 'calc(100% + 2px)';
+      spark.style.setProperty('--dx', `${(Math.random() - 0.5) * 2 * reach}px`);
+      spark.style.setProperty('--dy', `${(up ? -1 : 1) * (4 + reach * Math.random())}px`);
+      this.armour.append(spark);
+      setTimeout(() => spark.remove(), 420);
+    }
+    if (turned >= 1) {
+      const word = document.createElement('b');
+      word.className = 'armour-turned';
+      word.style.left = `${at}%`;
+      word.innerHTML = `⛨ ${Math.round(turned)}<small>TURNED</small>`;
+      this.armour.append(word);
+      setTimeout(() => word.remove(), 950);
+    }
   }
 
   // Sheathed in Steel round the health bar: each of the five plates holds a fifth of the armour's strength, the
-  // right-hand ones wearing first; freshly called, a sheen runs along them once
+  // right-hand ones wearing first, and one worn through breaks away and falls; freshly called, they slam on
   #armour(strength, calledAt) {
     if (!this.armour) return;
     const shown = Math.round(strength * 200) / 200;
     if (shown === this.armourShown) return;
     this.armourShown = shown;
+    const recalled = Number.isFinite(calledAt) && calledAt !== this.armourCalledAt;
     this.armour.classList.toggle('sheathed', shown > 0);
+    this.armour.style.setProperty('--steel', shown.toFixed(3));
+    this.armourWas ??= this.armourPlates.map(() => 0);
     this.armourPlates.forEach((plate, i) => {
       const p = Math.max(0, Math.min(1, shown * this.armourPlates.length - i));
+      if (!recalled && this.armourWas[i] > 0.02 && p <= 0) this.#breakPlate(plate, this.armourWas[i]);
+      this.armourWas[i] = p;
       plate.style.setProperty('--p', p.toFixed(3));
       plate.classList.toggle('cracked', shown > 0 && p < 0.5);
     });
-    if (Number.isFinite(calledAt) && calledAt !== this.armourCalledAt) {
+    if (recalled) {
       this.armourCalledAt = calledAt;
       this.armour.classList.remove('called');
       void this.armour.offsetWidth;
       this.armour.classList.add('called');
     }
+  }
+
+  // a plate worn through: a copy of it as it last was breaks away and falls
+  #breakPlate(plate, p) {
+    const fragment = plate.cloneNode(false);
+    fragment.classList.add('armour-fragment');
+    fragment.classList.add('cracked');
+    fragment.style.setProperty('--p', Math.max(0.35, p).toFixed(3));
+    fragment.style.setProperty('--dx', `${4 + Math.random() * 8}px`);
+    fragment.style.setProperty('--turn', `${(Math.random() < 0.5 ? -1 : 1) * (14 + Math.random() * 20)}deg`);
+    this.armour.append(fragment);
+    setTimeout(() => fragment.remove(), 720);
   }
 
   #ability(element, remaining, cooldownSec = 5) {

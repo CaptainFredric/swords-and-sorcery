@@ -15,7 +15,7 @@ import { MELEE_CONTACT, SWORD_STRIKE_TIMES } from '../../shared/src/combat.mjs';
 import { GAUNTLET } from '../../shared/src/gauntlet.mjs';
 import { jabKick, jabTarget } from './gauntletJab.mjs';
 import { createSteelSheen } from './steelSheen.mjs';
-import { swirlTexture } from './softTextures.mjs';
+import { createGaleOrb } from './galeOrb.mjs';
 
 function damp(value, target, amount) {
   return value + (target - value) * amount;
@@ -135,7 +135,6 @@ function addMagicWisp(parent, material, name, position, size, rotation) {
 const SPELL_GLOW = Object.freeze({ fireball: 0xff7a2a, frostfire: 0x7fd6ff, gale: 0xe4ece2 });
 // the light the palm throws on the arms while a spell gathers (air is pale, but lights them only a little)
 const SPELL_LIGHT = Object.freeze({ fireball: 0xff7a2a, frostfire: 0x7fd6ff, gale: 0x7d9282 });
-const EYE_TURN = new THREE.Quaternion();
 
 // the clench of Sheathe in Steel: tightening over a moment, then letting go (0..1)
 function clenchPulse(age) {
@@ -305,16 +304,9 @@ export class WeaponView {
         this.chargeOrb = new THREE.Group();
         this.chargeCore = new THREE.Mesh(new THREE.IcosahedronGeometry(0.035, 1), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
         this.chargeGlow = new THREE.Mesh(new THREE.IcosahedronGeometry(0.068, 1), new THREE.MeshBasicMaterial({ color: 0xff7a2a, transparent: true, opacity: 0.45, blending: THREE.AdditiveBlending, depthWrite: false }));
-        // Gale's breath drawn into the palm: two soft swirls of air turning against each other round the fist, facing
-        // the eye (no core, no glow)
-        const swirlMaterial = new THREE.MeshBasicMaterial({ map: swirlTexture(), color: 0xf1f5ef, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
-        this.chargeSwirl = new THREE.Group();
-        for (const tilt of [0.25, -0.35]) {
-          const swirl = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.3), swirlMaterial);
-          swirl.rotation.x = tilt;
-          this.chargeSwirl.add(swirl);
-        }
-        this.chargeOrb.add(this.chargeCore, this.chargeGlow, this.chargeSwirl);
+        // Gale's breath drawn into the palm: a ball of wind, white and green, turning and flowing (galeOrb.mjs)
+        this.chargeGale = createGaleOrb({ radius: 0.062 });
+        this.chargeOrb.add(this.chargeCore, this.chargeGlow, this.chargeGale);
         this.chargeOrb.visible = false;
         instance.sockets.sorcery.add(this.chargeOrb);
       }
@@ -653,12 +645,10 @@ export class WeaponView {
     const gale = this.castSpell === 'gale';
     this.chargeCore.visible = !gale;
     this.chargeGlow.visible = !gale;
-    this.chargeSwirl.visible = gale;
+    this.chargeGale.visible = gale;
     if (gale) {
-      this.chargeSwirl.parent.getWorldQuaternion(this.chargeSwirl.quaternion).invert();
-      this.chargeSwirl.quaternion.multiply(this.camera.getWorldQuaternion(EYE_TURN));
-      this.chargeSwirl.children[0].rotation.z = -timeSec * 13;
-      this.chargeSwirl.children[1].rotation.z = timeSec * 9;
+      this.chargeGale.userData.update(timeSec);
+      this.chargeGale.userData.setStrength(0.45 + 0.55 * gesture.draw);
       return;
     }
     this.chargeGlow.material.color.setHex(color);
