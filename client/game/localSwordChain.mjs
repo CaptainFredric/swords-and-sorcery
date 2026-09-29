@@ -1,13 +1,13 @@
 // The sword chain as the first-person arms play it, ahead of the server's word: the same rule as the server's
 // (SWORD_CHAIN in shared/src/combat.mjs), on the local clock. A press starts a chain; the next strike follows only if
 // the button is still held as its swing would begin, or was pressed again during the swing before it; let go and the
-// swing under way plays out, and the chain ends where the next would have begun. After the finisher, the arms play its
-// recovery to the end of the cycle, where a held (or pressed again) button carries straight on into the next chain.
-// Pure: times in, the chain under way out.
+// swing under way plays out, and the chain ends where the next would have begun. After the heavy third strike, the
+// arms play its recovery to the end of the cycle, where a held (or pressed again) button carries straight on into the
+// next chain. (What the arms do once a chain ends is fpSlash.mjs's recoveryPose.) Pure: times in, the chain out.
 
 import { SWORD_CHAIN, SWORD_STRIKE_TIMES, nextChainStep } from '../../shared/src/combat.mjs';
 
-// the finisher lands, and a new chain may start this much later (fpSlash COMBO_CYCLE: 1.8 + 0.28)
+// the heavy third strike lands, and a new chain may start this much later (fpSlash COMBO_CYCLE: 1.8 + 0.28)
 export const CHAIN_CYCLE = SWORD_STRIKE_TIMES[SWORD_STRIKE_TIMES.length - 1] + SWORD_CHAIN.restart;
 
 export class LocalSwordChain {
@@ -63,7 +63,7 @@ export class LocalSwordChain {
       }
     }
     if (chain.landed >= SWORD_STRIKE_TIMES.length && elapsed >= CHAIN_CYCLE) {
-      // the finisher's recovery is over: straight on into the next chain, or back to rest
+      // the heavy strike's recovery is over: straight on into the next chain, or back to rest
       this.chain = null;
       this.restartAt = chain.startedAt + CHAIN_CYCLE;
       if (this.held || this.queued) {

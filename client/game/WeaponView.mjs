@@ -8,9 +8,10 @@ import { createSpellbladeAsset, reportSpellbladeAssetStatus } from './Spellblade
 import { resolveFirstPersonAnimationPlan } from './spellbladeAnimationPlan.mjs';
 import { FIRST_PERSON_WEAPON_SCALE, resolveWeaponPose } from './weaponPose.mjs';
 import { FP_MOTION, FirstPersonMotion } from './firstPersonMotion.mjs';
-import { OFF_HAND_CLEAR, comboPose } from './fpSlash.mjs';
+import { blendPoses, comboPose, counterRotations, recoveryPose } from './fpSlash.mjs';
 import { FIRST_PERSON_OFF_ARM, solveArm, solveSwordArm } from './swordArmIK.mjs';
 import { LocalSwordChain } from './localSwordChain.mjs';
+import { MELEE_CONTACT, SWORD_STRIKE_TIMES } from '../../shared/src/combat.mjs';
 import { createSteelSheen } from './steelSheen.mjs';
 import { swirlTexture } from './softTextures.mjs';
 
@@ -255,9 +256,16 @@ export class WeaponView {
     // told when each stroke of the combo begins its cut (the swing sound plays from here, without network delay)
     this.onSwing = () => {};
     this.lastSwingKey = null;
-    // the combo's last pose, and when the chain was let go (it eases back to rest from there)
-    this.lastCombo = null;
-    this.comboReleasedAt = null;
+    // where the arms' sword path comes from: the chain under way, or their way home after it (fpSlash.mjs). A new
+    // chain takes over from whichever it was; a guard, a cast or a dash lets go of it for its own clip
+    this.comboSource = null;
+    this.comboHandover = null;
+    this.comboLetGo = null;
+    this.comboShown = null;
+    this.comboLast = null;
+    this.comboBroken = false;
+    // the pose's state last frame (what the arms were doing when a chain begins)
+    this.lastPoseState = 'idle';
 
     this.#upgradeVisual();
   }
@@ -327,6 +335,8 @@ export class WeaponView {
 
   /** Stop the chain outright (a parry, a wall, a stagger, a fall, the match over). */
   cancelAttack() {
+    // (broken off, not let go: the arms come home a little quicker, and straight)
+    if (this.swordChain.active) this.comboBroken = true;
     this.swordChain.cancel();
     this.attackButton = false;
   }
@@ -431,19 +441,25 @@ export class WeaponView {
     });
 
     const motion = this.motion.step({ dt, speed, grounded, yaw, pitch, state: pose.state, dashing: pose.state === 'dash' });
-    if (pose.state === 'attack' && pose.attackPhase === 'cut') {
-      const key = `${this.attackStartedAt}:${pose.strike}`;
-      if (key !== this.lastSwingKey) {
-        this.lastSwingKey = key;
-        this.onSwing(pose.strike);
+    // each committed strike's swing is heard as it goes live (when the server lets it land, and the blade is at its
+    // fastest a moment later)
+    if (chain) {
+      const since = timeSec - chain.startedAt;
+      const heard = this.lastSwingKey?.startedAt === chain.startedAt ? this.lastSwingKey.strike : -1;
+      for (let strike = heard + 1; strike < chain.committed; strike += 1) {
+        if (since < SWORD_STRIKE_TIMES[strike] - MELEE_CONTACT.window.early) break;
+        this.lastSwingKey = { startedAt: chain.startedAt, strike };
+        this.onSwing(strike);
       }
     }
     const frozen = timeSec < this.frozenUntil;
+    const stateBefore = this.lastPoseState;
+    this.lastPoseState = pose.state;
 
     if (this.visualKind === 'production' && this.productionInstance) {
       let plan = resolveFirstPersonAnimationPlan(pose, this, timeSec);
       // the combo is one unbroken path of both hands (fpSlash.mjs): fast, fast, then heavy with both on the grip
-      const combo = this.#combo(pose.state, timeSec);
+      const combo = this.#combo(pose.state, timeSec, stateBefore);
       if (combo) {
         plan = { clip: 'Idle', loop: true, time: timeSec };
         // the view leans with the body into each cut (purely visual: aim is the input's)
@@ -473,9 +489,9 @@ export class WeaponView {
           { bone: 'upper_arm.L', axis: [1, 0, 0], angle: -FP_MOTION.magicArmDrop * motion.neutral, space: 'local' },
           ...castGestureRotations(gesture),
           ...clenchRotations(timeSec - this.clenchAt),
-          // the magic arm drops out of the blade's way while it works (unless it is on the grip)
-          // (fading as it reaches for the grip, so the two never pull against each other)
-          ...(combo ? OFF_HAND_CLEAR.map((turn) => ({ ...turn, angle: turn.angle * combo.weight * (1 - (combo.offHand?.weight ?? 0)) })) : []),
+          // the magic arm counterbalances the cuts (and fades out of it as it reaches for the grip, so the two never
+          // pull against each other)
+          ...(combo ? counterRotations(combo.counter, combo.weight * (1 - (combo.offHand?.weight ?? 0))) : []),
         ],
         solve: combo ? (bones) => {
           solveSwordArm(bones, combo.arm, combo.weight);
@@ -486,7 +502,9 @@ export class WeaponView {
       this.productionInstance.animator.apply(shown, frozen ? 0 : dt);
       this.lastPlan = shown;
       const w = motion.weapon;
-      this.productionOffset.position.set(w.x, w.y, w.z);
+      // the body carries the arms into each cut
+      const body = combo ? combo.body.map((v) => v * combo.weight) : [0, 0, 0];
+      this.productionOffset.position.set(w.x + body[0], w.y + body[1], w.z + body[2]);
       this.productionOffset.rotation.set(w.rx, w.ry, w.rz);
       // gauntlet runes and palm light follow the palm sorcery: dim at rest, bright only while a cast gathers
       const level = Math.max(this.productionInstance.sorceryLevel?.() ?? 0, gesture.draw);
@@ -530,25 +548,66 @@ export class WeaponView {
     return motion;
   }
 
-  // the combo while the attack is held; let go, it eases back to rest from wherever it was (never a snap). A fresh
-  // chain starts from the resting arm, so it only needs a beat to take hold.
-  #combo(state, timeSec) {
+  // The arms' sword path this frame, with how firmly they follow it (weight), or null when the clip has them. While a
+  // chain is under way it is the chain; when it ends they come home along a way of their own (quicker and straighter
+  // when it was broken off), carrying on as they were moving; a new chain takes over from wherever they were (a short
+  // hand-over, never a jump); a guard, a cast or a dash takes them for its own clip, the path letting go of them.
+  #combo(state, timeSec, stateBefore) {
     const ease = (t) => t * t * (3 - 2 * t);
     if (state === 'attack') {
-      const since = timeSec - this.attackStartedAt;
-      this.lastCombo = comboPose(since);
-      this.comboReleasedAt = null;
-      return this.lastCombo && { ...this.lastCombo, weight: since < 0.08 ? ease(Math.max(0, since) / 0.08) : 1 };
+      const startedAt = this.attackStartedAt;
+      if (this.comboSource?.chainAt !== startedAt) {
+        const previous = this.comboLetGo ? null : this.comboSource;
+        this.comboHandover = previous ? { from: previous, at: timeSec } : null;
+        // from rest the chain's first pose is the rest's own, so it takes the arms at once; out of a guard, a cast or
+        // a dash it takes a beat to take hold of them
+        const fadeIn = !previous && stateBefore !== 'idle';
+        this.comboSource = { chainAt: startedAt, fadeIn, pose: (t) => comboPose(t - startedAt) };
+        this.comboLetGo = null;
+        this.comboBroken = false;
+      }
+      const source = this.comboSource;
+      this.comboLast = { since: timeSec - startedAt, at: timeSec };
+      const weight = source.fadeIn ? ease(Math.min(1, Math.max(0, timeSec - startedAt) / 0.1)) : 1;
+      return this.#comboShow(source.pose(timeSec), timeSec, weight);
     }
-    if (!this.lastCombo) return null;
-    if (this.comboReleasedAt === null) this.comboReleasedAt = timeSec;
-    // back to rest from wherever the last swing left the arms
-    const left = 1 - (timeSec - this.comboReleasedAt) / 0.3;
-    if (left <= 0) {
-      this.lastCombo = null;
-      return null;
+    if (!this.comboSource) return null;
+    if (state !== 'idle' || this.comboLetGo) {
+      this.comboLetGo ??= { pose: this.comboShown, at: timeSec };
+      const left = 1 - (timeSec - this.comboLetGo.at) / 0.2;
+      if (left <= 0 || !this.comboLetGo.pose) return this.#comboDone();
+      return { ...this.comboLetGo.pose, weight: this.comboLetGo.pose.weight * ease(left) };
     }
-    return { ...this.lastCombo, weight: ease(left) };
+    if (this.comboSource.chainAt !== undefined && this.comboLast) {
+      // the chain is over: home from where it had got to, carrying on from the last frame it was shown
+      const { since, at } = this.comboLast;
+      const quick = this.comboBroken;
+      this.comboSource = { home: true, pose: (t) => recoveryPose(since, t - at, { quick }) };
+    }
+    const pose = this.comboSource.pose(timeSec);
+    if (!pose) return this.#comboDone();
+    return this.#comboShow(pose, timeSec, this.comboShown?.weight ?? 1);
+  }
+
+  // the pose shown, blended from the path the arms were on while a new chain takes over from it
+  #comboShow(pose, timeSec, weight) {
+    let shown = pose;
+    if (this.comboHandover) {
+      const w = (timeSec - this.comboHandover.at) / 0.18;
+      if (w >= 1) this.comboHandover = null;
+      else shown = blendPoses(this.comboHandover.from.pose(timeSec) ?? comboPose(0), pose, w);
+    }
+    this.comboShown = { ...shown, weight };
+    return this.comboShown;
+  }
+
+  #comboDone() {
+    this.comboSource = null;
+    this.comboHandover = null;
+    this.comboLetGo = null;
+    this.comboShown = null;
+    this.comboLast = null;
+    return null;
   }
 
   // the spell in the palm grows as it gathers and is gone when thrown; the palm light takes on its colour

@@ -262,7 +262,7 @@ export class Effects {
 
   /**
    * A sword landing on a body: a slash arc along the stroke, a white-hot flash, hot sparks thrown along the blow and
-   * a few chips of armour. strike: combo index (2 = the heavy finisher); dir: the blow's direction (attacker to victim).
+   * a few chips of armour. strike: combo index (2 = the heavy third strike); dir: the blow's direction (attacker to victim).
    */
   hitBurst(point, dir, { strike = 0, heavy = false, quality = 1 } = {}) {
     const at = new THREE.Vector3(point.x, point.y, point.z);

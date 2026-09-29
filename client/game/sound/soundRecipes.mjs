@@ -26,7 +26,7 @@ export function ring(rand, base, { decay = 0.45, gain = 0.2, partials = PLATE.le
 }
 
 /**
- * A sword landing on an armoured body. strike: combo index (0, 1, 2 = the heavy finisher); kill: the blow slew.
+ * A sword landing on an armoured body. strike: combo index (0, 1, 2 = the heavy third strike); kill: the blow slew.
  */
 export function swordHitRecipe(rand = Math.random, { strike = 0, kill = false, quality = 1, impact = 0 } = {}) {
   const heavy = strike >= 2 || kill;

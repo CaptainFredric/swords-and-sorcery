@@ -21,14 +21,14 @@ test('a blow lands on the chest, on the side facing the attacker', () => {
   assert.deepEqual(impactPoint({ x: 1, y: 0, z: 1 }, null), { x: 1, y: 1.2, z: 1 });
 });
 
-test('the finisher and the killing blow freeze and kick harder, but only briefly', () => {
+test('the heavy third strike and the killing blow freeze and kick harder, but only briefly', () => {
   assert.ok(hitstopSeconds({ strike: 2 }) > hitstopSeconds({ strike: 0 }));
   assert.ok(hitstopSeconds({ kill: true }) > hitstopSeconds({ strike: 2 }));
   assert.ok(hitstopSeconds({ kill: true }) <= 0.12, 'short enough not to fall behind the server swing');
   assert.ok(hitKick({ kill: true }) >= hitKick({ strike: 2 }) && hitKick({ strike: 2 }) > hitKick({ strike: 0 }));
 });
 
-test('hit sounds layer a crack, a crunch, a body thump and a steel ring; the finisher adds weight', () => {
+test('hit sounds layer a crack, a crunch, a body thump and a steel ring; the heavy third strike adds weight', () => {
   const light = swordHitRecipe(seeded(1), { strike: 0 });
   const heavy = swordHitRecipe(seeded(1), { strike: 2 });
   const kill = swordHitRecipe(seeded(1), { kill: true });
