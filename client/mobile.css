@@ -169,12 +169,19 @@ html.turn-typing .rotate-prompt { display: none !important; }
 @media (prefers-reduced-motion: reduce) {
   .rotate-phone { animation: none; transform: rotate(-90deg); }
 }
-/* the gauntlet: while the spell cools and the hand is free, a fist on the spell button (it will strike) */
-.touch-spell.fist-ready { border-color: rgba(214, 190, 140, .75); }
-.touch-spell.fist-ready::after {
-  content: "✊"; position: absolute; right: 4px; top: 3px; font-size: 13px; line-height: 1;
-  filter: grayscale(1) brightness(1.4) sepia(.5);
-}
+/* the gauntlet: while the spell cools the spell button is the fist's (steel and brass), the spell's own mark small in
+   its corner and its cooldown still counting; dimmed while the sword has the hand */
+.touch-spell.fist { color: #eadfc4; border-color: rgba(214, 190, 140, .78); }
+.touch-spell.fist.fist-held { opacity: .62; }
+.touch-badge { position: absolute; right: 7%; top: 7%; width: 34%; height: 34%; display: grid; place-items: center; border-radius: 50%; background: rgba(15, 16, 12, .8); color: #ffb277; opacity: .9; }
+.touch-badge:empty { display: none; }
+.touch-badge svg { width: 70% !important; height: 70% !important; stroke-width: 2.4; }
+.touch-spell.frost .touch-badge { color: #a6e2ff; }
+.touch-spell.gale .touch-badge { color: #cfeed2; }
+.touch-spell.steel .touch-badge { color: #dfe6ee; }
+/* the gauntlet's own button: only when asked for in the settings, left of the spell */
+.touch-gauntlet { --size: 46px; display: none !important; right: calc(var(--safe-r) + 206px * var(--s)); bottom: calc(var(--safe-b) + 150px * var(--s)); color: #eadfc4; border-color: rgba(214, 190, 140, .62); }
+.touch-controls.gauntlet-on .touch-gauntlet { display: grid !important; }
 /* crouch: a toggle beside sprint, as big as it; a finger landing a little off it still counts (the hit area reaches
    past the ring). Lit while on (its word says so), glowing while the body is actually down */
 .touch-crouch { --size: 50px; left: calc(var(--safe-l) + 90px * var(--s)); bottom: calc(var(--safe-b) + 196px * var(--s)); color: #e6dcc2; border-color: rgba(222, 204, 160, .62); overflow: visible; }

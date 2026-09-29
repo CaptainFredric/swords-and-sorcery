@@ -161,15 +161,27 @@
   .health-armour.called .armour-plate, .health-armour.sheathed, .health-armour.struck { animation: none; }
   .health-armour .armour-plate.armour-fragment, .armour-spark, .armour-turned { animation-duration: .01s; }
 }
-.ability[data-spell="gale"] .ability-icon { color: #e3ece0; }
+.ability[data-spell="gale"] .ability-icon { color: #bfe8c4; }
 .ability[data-spell="steel"] .ability-icon { color: #d8e1ea; }
-/* the gauntlet: the spell tile says no with a small shake when its key can do nothing; while the spell cools and the
-   hand is free of the sword, a fist shows on the tile (its key throws the gauntlet) */
+/* the spell tile says no with a small shake when its key can do nothing */
 .ability.denied { animation: ability-denied .3s ease-out; }
 @keyframes ability-denied { 20% { transform: translateX(-3px); } 45% { transform: translateX(3px); } 70% { transform: translateX(-2px); } }
-#spell-ability.fist-ready { border-color: #b9a37a; }
-#spell-ability.fist-ready::before {
-  content: "✊"; position: absolute; right: 6px; top: 4px; z-index: 2; font-size: 15px; line-height: 1;
-  filter: grayscale(1) brightness(1.4) sepia(.5); opacity: .95;
-}
+/* the ability tiles: a drawn icon in a soft ring, and the key on a small keycap */
+.ability-icon { display: grid; place-items: center; width: 26px; height: 26px; margin-top: 3px; border-radius: 50%; background: radial-gradient(circle, rgba(255, 255, 255, .08), transparent 72%); }
+.ability-icon svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; filter: drop-shadow(0 0 3px color-mix(in srgb, currentColor 45%, transparent)); }
+.ability b { justify-self: end; align-self: start; min-width: 16px; padding: 2px 4px 1px; text-align: center; font: 800 9px/1 system-ui, sans-serif; color: #ece5d6; background: rgba(255, 255, 255, .06); border: 1px solid rgba(221, 214, 200, .32); border-bottom-width: 2px; border-radius: 3px; }
+.ability.cooling .ability-icon { opacity: .8; }
+.ability em { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* while the spell cools its key is the gauntlet's: the fist on the tile (bright over the cooldown's shade), the spell's
+   own mark small in the corner, its cooldown still counting; dimmed while the sword has the hand */
+.ability.fist { border-color: #b9a37a; }
+.ability.fist .ability-icon { position: relative; z-index: 1; color: #eadcb8; }
+.ability.fist em { color: #cdbd98; }
+.ability.fist.fist-held .ability-icon { opacity: .45; }
+.ability-badge { position: absolute; right: 6px; bottom: 5px; z-index: 2; display: grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; background: rgba(12, 13, 10, .88); border: 1px solid rgba(255, 255, 255, .14); color: #ff9a4a; }
+.ability-badge:empty { display: none; }
+.ability-badge svg { width: 10px; height: 10px; fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+.ability[data-spell="frostfire"] .ability-badge { color: #8fdcff; }
+.ability[data-spell="gale"] .ability-badge { color: #bfe8c4; }
+.ability[data-spell="steel"] .ability-badge { color: #d8e1ea; }
 @media (prefers-reduced-motion: reduce) { .ability.denied { animation: none; outline: 1px solid #9c6a55; } }

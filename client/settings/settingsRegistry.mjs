@@ -141,7 +141,11 @@ registry
   .defineSetting({ id: 'controls.mouseSensitivity', section: 'controls', label: 'Mouse sensitivity', type: 'range', min: 0.2, max: 3, step: 0.05, unit: '×', default: 1, devices: 'desktop' })
   .defineSetting({ id: 'controls.touchSensitivity', section: 'controls', label: 'Look sensitivity', type: 'range', min: 0.3, max: 2.5, step: 0.05, unit: '×', default: 1, devices: 'touch' })
   .defineSetting({ id: 'controls.invertY', section: 'controls', label: 'Invert look up and down', type: 'toggle', default: false })
-  .defineSetting({ id: 'controls.touchScale', section: 'controls', label: 'Button size', type: 'range', min: 80, max: 130, step: 5, unit: '%', default: 100, devices: 'touch' });
+  .defineSetting({ id: 'controls.touchScale', section: 'controls', label: 'Button size', type: 'range', min: 80, max: 130, step: 5, unit: '%', default: 100, devices: 'touch' })
+  .defineSetting({
+    id: 'controls.touchGauntlet', section: 'controls', label: 'Gauntlet button', type: 'toggle', default: false, devices: 'touch',
+    hint: 'A fist button of its own, spell or no spell',
+  });
 
 registry
   .defineSetting({ id: 'display.fov', section: 'display', label: 'Field of view', type: 'range', min: 65, max: 100, step: 1, unit: '°', default: 78 })
@@ -182,6 +186,8 @@ registry
   .defineAction({ id: 'guard', label: 'Guard (hold)', group: 'Combat', keys: ['Mouse2'] })
   .defineAction({ id: 'spell', label: 'Cast spell', group: 'Abilities', keys: ['KeyQ'] })
   .defineAction({ id: 'dash', label: 'Dash', group: 'Abilities', keys: ['KeyE'] })
+  // (the spell's key throws the fist while the spell cools; this throws it spell or no spell, for whoever wants it)
+  .defineAction({ id: 'gauntlet', label: 'Gauntlet on its own', group: 'Abilities', keys: [] })
   .defineAction({ id: 'scoreboard', label: 'Scoreboard (hold)', group: 'Interface', keys: ['Tab'] })
   .defineAction({ id: 'toggleSound', label: 'Sound on / off', group: 'Interface', keys: ['KeyM'] })
   .defineAction({ id: 'toggleMusic', label: 'Music on / off', group: 'Interface', keys: ['KeyN'] });

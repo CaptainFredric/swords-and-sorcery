@@ -2,6 +2,7 @@ import { SPRINT } from '../../shared/src/movement.mjs';
 import { combatStatusDurationMs } from '../game/combatFeedbackTiming.mjs';
 import { spellFor } from '../../shared/src/spells.mjs';
 import { steelStrength } from '../../shared/src/steel.mjs';
+import { iconSvg } from './icons.mjs';
 
 export function matchInfoText(snapshot, serverNow) {
   if (snapshot?.mode === 'PRACTICE') return 'PRACTICE YARD  ·  UNTIMED';
@@ -26,9 +27,12 @@ export class HUD {
     this.spell = document.querySelector('#spell-ability');
     this.spellLabel = this.spell.querySelector('em');
     this.spellIcon = this.spell.querySelector('.ability-icon');
+    this.spellBadge = this.spell.querySelector('.ability-badge');
     this.burnEdge = document.querySelector('#afflict-burn');
     this.chillEdge = document.querySelector('#afflict-chill');
     this.dash = document.querySelector('#dash-ability');
+    const dashIcon = this.dash?.querySelector('.ability-icon');
+    if (dashIcon) dashIcon.innerHTML = iconSvg('dash');
     this.armour = document.querySelector('#health-armour');
     this.armourPlates = [...(this.armour?.querySelectorAll('.armour-plate') ?? [])];
     this.armourShown = -1;
@@ -71,12 +75,18 @@ export class HUD {
     this.guardBlock.classList.toggle('sprinting', Boolean(local.sprinting));
     this.guardBlock.classList.toggle('winded', !local.sprinting && guard < SPRINT.restartStamina);
 
-    // the Q tile shows whichever spell was carried in from the Armory
+    // the Q tile shows whichever spell was carried in from the Armory; while it cools, the key is the gauntlet's (the
+    // fist on the tile, the spell's own mark small in its corner, its cooldown still counting down)
     const spell = spellFor(local.spell);
-    if (this.spell.dataset.spell !== spell.id) {
+    const cooling = (local.spellReadyAt ?? 0) - serverNow > 0.01;
+    const face = `${spell.id}:${cooling ? 'fist' : 'spell'}`;
+    if (this.spell.dataset.face !== face) {
+      this.spell.dataset.face = face;
       this.spell.dataset.spell = spell.id;
-      this.spellLabel.textContent = (spell.short ?? spell.label).toUpperCase();
-      this.spellIcon.textContent = spell.id === 'frostfire' ? '❄' : spell.id === 'gale' ? '≋' : spell.id === 'steel' ? '⛨' : '✦';
+      this.spell.classList.toggle('fist', cooling);
+      this.spellLabel.textContent = cooling ? 'GAUNTLET' : (spell.short ?? spell.label).toUpperCase();
+      this.spellIcon.innerHTML = iconSvg(cooling ? 'gauntlet' : spell.id);
+      if (this.spellBadge) this.spellBadge.innerHTML = cooling ? iconSvg(spell.id) : '';
     }
     this.#ability(this.spell, Math.max(0, (local.spellReadyAt ?? 0) - serverNow), spell.cooldownSec);
     this.#ability(this.dash, Math.max(0, local.dashReadyAt - serverNow));
@@ -99,9 +109,9 @@ export class HUD {
     element.deniedTimer = setTimeout(() => element.classList.remove('denied'), 320);
   }
 
-  /** While the spell cools, whether its key would throw the gauntlet now (the hand free of the sword): a fist on its tile. */
+  /** While the spell cools, whether its key would throw the gauntlet now (dimmed while the sword has the hand). */
   setFistReady(ready) {
-    this.spell.classList.toggle('fist-ready', Boolean(ready));
+    this.spell.classList.toggle('fist-held', !ready);
   }
 
   /**

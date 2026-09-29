@@ -158,6 +158,12 @@ export class GameRuntime {
       // a Gale lets go when its breath is drawn: my own is seen and felt the moment it goes, once the server has taken it
       if (spell.kind === 'cone') this.localGale = { at: now + spell.gatherSec, direction: this.input.lookDirection(), spell, confirmed: false };
     };
+    // the gauntlet on its own key: the fist at once, spell or no spell (the server's word follows); only while the hand
+    // cannot (mid-swing, say), the quiet no
+    this.input.onGauntletLocal = () => {
+      const now = this.socket.serverNow();
+      if (this.localAuth?.alive && !this.#tryLocalJab(now)) this.#play(deniedRecipe(), null, 0.5);
+    };
     this.input.onDashLocal = (dir) => {
       const now = this.socket.serverNow();
       if (!canPresentLocalAction('dash', this.localAuth, this.localState, now)) return;
@@ -293,7 +299,7 @@ export class GameRuntime {
 
   /**
    * The player's settings: view { fov, pixelRatioCap, cameraMotion 0..1, damageNumbers, damageFlash } and input
-   * { mouse, touch, invertY, touchScale, bindings }.
+   * { mouse, touch, invertY, touchScale, touchGauntlet, bindings }.
    */
   configure({ view = null, input = null } = {}) {
     if (view) {
@@ -308,7 +314,9 @@ export class GameRuntime {
     if (input) {
       this.input.configure(input);
       this.touchScale = input.touchScale ?? this.touchScale;
+      this.touchGauntlet = input.touchGauntlet ?? this.touchGauntlet;
       this.touch?.setScale(this.touchScale);
+      this.touch?.setGauntletButton(this.touchGauntlet);
     }
   }
 
@@ -317,6 +325,7 @@ export class GameRuntime {
     if (this.touch) return;
     this.touch = new TouchControls(this.hud.root, this.input);
     this.touch.setScale(this.touchScale);
+    this.touch.setGauntletButton(this.touchGauntlet);
     this.input.touch = this.touch;
     this.touch.setActive(this.input.touchFocus);
     this.#shadowDetail();
