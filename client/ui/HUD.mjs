@@ -92,6 +92,23 @@ export class HUD {
     if (!local.alive) this.deathTimer.textContent = Math.max(0, local.respawnAt - serverNow).toFixed(1);
   }
 
+  /** A key pressed that can do nothing yet (the spell cooling with nobody in reach of the gauntlet): the tile says so. */
+  denied(ability) {
+    const element = ability === 'spell' ? this.spell : ability === 'dash' ? this.dash : ability === 'steel' ? this.steel : null;
+    if (!element) return;
+    element.classList.remove('denied');
+    // (restart the shake if it is already playing)
+    void element.offsetWidth;
+    element.classList.add('denied');
+    clearTimeout(element.deniedTimer);
+    element.deniedTimer = setTimeout(() => element.classList.remove('denied'), 320);
+  }
+
+  /** While the spell cools, whether its key would throw the gauntlet (a foe within reach): a fist on its tile. */
+  setFistReady(ready) {
+    this.spell.classList.toggle('fist-ready', Boolean(ready));
+  }
+
   #ability(element, remaining, cooldownSec = 5) {
     const value = element.querySelector('strong');
     const ready = remaining <= 0.01;

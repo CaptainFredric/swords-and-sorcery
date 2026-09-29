@@ -1,5 +1,6 @@
 import { MOVEMENT } from './movement.mjs';
 import { resolvePlayerWorld, surfaceHeightAt } from './collision.mjs';
+import { POSTURES } from './body.mjs';
 
 // Two Spellblades never stand inside each other. The spacing is closer than two full collision radii, so melee stays
 // intimate (armour can brush), but bodies no longer occupy the same space.
@@ -33,12 +34,14 @@ export function separationPush(a, b) {
   return { x: nx * overlap, z: nz * overlap };
 }
 
-// move a position by (dx, dz) unless that would walk it into a wall or off a ledge; returns the share applied
-function tryMove(position, dx, dz, world) {
+// move a position by (dx, dz) unless that would walk it into a wall or off a ledge; returns the share applied (a
+// crouched body, `height` tall, may be eased along under what a standing one could not)
+function tryMove(position, dx, dz, world, height = POSTURES.standing.height) {
   const moved = resolvePlayerWorld(
     { ...position, x: position.x + dx, z: position.z + dz },
     MOVEMENT.playerRadius,
     world?.solids ?? [],
+    height,
   );
   const ground = world ? surfaceHeightAt(moved.x, moved.z, position.y, world) : position.y;
   if (ground === null || position.y - ground > SEPARATION.maxDrop) return false;
@@ -56,20 +59,22 @@ export function separatePlayers(players, world) {
       const b = bodies[j];
       const push = separationPush({ ...a.position, id: a.id }, { ...b.position, id: b.id });
       if (!push) continue;
-      const aMoved = tryMove(a.position, push.x / 2, push.z / 2, world);
-      const bMoved = tryMove(b.position, -push.x / 2, -push.z / 2, world);
+      const aHeight = a.crouched ? POSTURES.crouched.height : POSTURES.standing.height;
+      const bHeight = b.crouched ? POSTURES.crouched.height : POSTURES.standing.height;
+      const aMoved = tryMove(a.position, push.x / 2, push.z / 2, world, aHeight);
+      const bMoved = tryMove(b.position, -push.x / 2, -push.z / 2, world, bHeight);
       // one side is against a wall or an edge: the other gives way completely
-      if (aMoved && !bMoved) tryMove(a.position, push.x / 2, push.z / 2, world);
-      if (bMoved && !aMoved) tryMove(b.position, -push.x / 2, -push.z / 2, world);
+      if (aMoved && !bMoved) tryMove(a.position, push.x / 2, push.z / 2, world, aHeight);
+      if (bMoved && !aMoved) tryMove(b.position, -push.x / 2, -push.z / 2, world, bHeight);
     }
   }
 }
 
 /** Client prediction: move only the local body, by its half of each push (the server moves the other half). */
-export function separateLocal(position, others, world) {
+export function separateLocal(position, others, world, { crouched = false } = {}) {
   for (const other of others) {
     const push = separationPush(position, other);
-    if (push) tryMove(position, push.x / 2, push.z / 2, world);
+    if (push) tryMove(position, push.x / 2, push.z / 2, world, crouched ? POSTURES.crouched.height : POSTURES.standing.height);
   }
   return position;
 }

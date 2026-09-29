@@ -160,7 +160,7 @@ export class LocalHost {
   input(input) { this.#command({ type: 'input', ...input }); }
   attack(down) { this.#command({ type: 'attack', down, clientTime: this.now() }); }
   guard(down) { this.#command({ type: 'guard', down, clientTime: this.now() }); }
-  cast(direction) { this.#command({ type: 'cast', direction }); }
+  cast(direction) { this.#command({ type: 'cast', direction, clientTime: this.now() }); }
   dash(direction) { this.#command({ type: 'dash', direction }); }
   steel() { this.#command({ type: 'steel' }); }
   rematch() { this.#command({ type: 'rematch' }); }

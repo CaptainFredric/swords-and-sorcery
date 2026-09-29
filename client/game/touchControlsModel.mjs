@@ -45,3 +45,14 @@ export function isTouchPrimary(matchMedia = globalThis.matchMedia?.bind(globalTh
   if (typeof matchMedia !== 'function') return false;
   return matchMedia('(hover: none) and (pointer: coarse)').matches;
 }
+
+// what counts as a deliberate tap on a toggle (crouch): pressed on it and lifted within this long, without sliding
+// further than this. A finger that only passes over it while steering or looking never presses it at all: each finger
+// belongs to what it first touched.
+export const TOGGLE_TAP = Object.freeze({ maxMs: 450, maxSlide: 22 });
+
+/** Whether a press ({ at ms, x, y }) and its release ({ at, x, y, lifted: a real lift, not a cancel }) were a tap. */
+export function isDeliberateTap(press, release, tap = TOGGLE_TAP) {
+  if (!press || !release || !release.lifted) return false;
+  return release.at - press.at < tap.maxMs && Math.hypot(release.x - press.x, release.y - press.y) < tap.maxSlide;
+}

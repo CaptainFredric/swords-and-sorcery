@@ -5,7 +5,7 @@
 // arms play its recovery to the end of the cycle, where a held (or pressed again) button carries straight on into the
 // next chain. (What the arms do once a chain ends is fpSlash.mjs's recoveryPose.) Pure: times in, the chain out.
 
-import { SWORD_CHAIN, SWORD_STRIKE_TIMES, nextChainStep } from '../../shared/src/combat.mjs';
+import { MELEE_CONTACT, SWORD_CHAIN, SWORD_STRIKE_TIMES, nextChainStep } from '../../shared/src/combat.mjs';
 
 // the heavy third strike lands, and a new chain may start this much later (fpSlash COMBO_CYCLE: 1.8 + 0.28)
 export const CHAIN_CYCLE = SWORD_STRIKE_TIMES[SWORD_STRIKE_TIMES.length - 1] + SWORD_CHAIN.restart;
@@ -26,6 +26,8 @@ export class LocalSwordChain {
   get startedAt() { return this.chain?.startedAt ?? null; }
 
   press(now) {
+    // (up to date first: a press just after the chain ended starts a new one, as it does on the server)
+    this.step(now);
     this.held = true;
     if (!this.chain && now >= this.restartAt) this.#start(now);
     else this.queued = true;
@@ -35,8 +37,22 @@ export class LocalSwordChain {
     this.held = false;
   }
 
-  /** Stop at once: a guard, a spell, a wall, a parry, a fall. */
-  cancel() {
+  /** Whether the sword has the hand: a committed strike yet to land, or a strike's blade still live (the gauntlet
+   * waits for both, as on the server). */
+  busy(now) {
+    const chain = this.chain;
+    if (!chain) return false;
+    if (chain.landed < chain.committed) return true;
+    const last = chain.landed - 1;
+    return last >= 0 && now - chain.startedAt < SWORD_STRIKE_TIMES[last] + MELEE_CONTACT.window.late;
+  }
+
+  /**
+   * Stop at once: a guard, a spell, a wall, a parry, a fall. As on the server, nothing new starts before the chain's
+   * next strike would have begun (a strike that went live is spent even if broken off before its contact).
+   */
+  cancel(now = null) {
+    if (this.chain && Number.isFinite(now)) this.restartAt = Math.max(this.restartAt, nextStrikeDue(this.chain, now));
     this.chain = null;
     this.held = false;
     this.queued = false;
@@ -44,6 +60,11 @@ export class LocalSwordChain {
 
   /** Advance to `now`. Returns the chain under way ({ startedAt, committed, landed }) or null. */
   step(now) {
+    // a press made before the last chain's next strike was due starts the new one when it is (buffered, as on the
+    // server)
+    if (!this.chain && (this.held || this.queued) && now >= this.restartAt && Number.isFinite(this.restartAt)) {
+      this.#start(now);
+    }
     const chain = this.chain;
     if (!chain) return null;
     const elapsed = now - chain.startedAt;
@@ -56,9 +77,9 @@ export class LocalSwordChain {
         chain.committed += 1;
         this.queued = false;
       } else {
-        // let go: the swing under way has played out
+        // let go: the swing under way has played out (and the next could not have begun sooner than now)
         this.chain = null;
-        this.restartAt = -Infinity;
+        this.restartAt = Math.max(this.restartAt, chain.startedAt + next.at);
         return null;
       }
     }
@@ -79,4 +100,16 @@ export class LocalSwordChain {
     this.chain = { startedAt: at, committed: 1, landed: 0 };
     this.queued = false;
   }
+}
+
+// when a chain broken off at `now` would have begun its next strike (-Infinity if none of its strikes went live)
+function nextStrikeDue(chain, now) {
+  const elapsed = now - chain.startedAt;
+  let spent = chain.landed;
+  for (let i = chain.landed; i < chain.committed; i += 1) {
+    if (elapsed >= SWORD_STRIKE_TIMES[i] - MELEE_CONTACT.window.early) spent = i + 1;
+  }
+  if (spent <= 0) return -Infinity;
+  const begin = SWORD_CHAIN.starts[spent];
+  return chain.startedAt + (Number.isFinite(begin) ? begin : CHAIN_CYCLE);
 }

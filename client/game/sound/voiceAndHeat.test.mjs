@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { CombatHeat, HEAT, matchClosing, nearestFoe } from './combatHeat.mjs';
-import { DEFEAT_ON_LOSS, MAGIC_SOURCES, MOUTH_BUSY_SEC, VOICE_HEARING, VOICE_LINES, VoiceDirector, deathLines, voicePlacement, voiceRate } from './voiceRules.mjs';
+import { DEFEAT_ON_LOSS, MAGIC_SOURCES, MOUTH_BUSY_SEC, REBUTTAL, SENTENCE_GAP, VOICE_HEARING, VOICE_LINES, VoiceDirector, deathLines, gauntletLines, voicePlacement, voiceRate } from './voiceRules.mjs';
 
 test('SORCERY! is rare: it needs the dice, then waits out its cooldown', () => {
   let roll = 0.05;
@@ -118,4 +118,38 @@ test('only foes who can fight back count as near: not dummies, not the fallen', 
   ];
   assert.equal(nearestFoe(me, players), 10);
   assert.equal(nearestFoe(null, players), Infinity);
+});
+
+test('exertions come often, each on its own short cooldown; sentences are rare and never two close together', () => {
+  for (const [line, rule] of Object.entries(VOICE_LINES)) assert.ok(['exertion', 'sentence'].includes(rule.kind), `${line} is one or the other`);
+  for (const line of ['effort', 'hurt', 'dash', 'fistEffort']) assert.ok(VOICE_LINES[line].cooldown <= 3, `${line} can come often`);
+  const director = new VoiceDirector({ rand: () => 0 });
+  assert.ok(director.allow('killTaunt', 'k', 10));
+  // another sentence from the same knight must wait out the gap (even one never said before)
+  assert.ok(!director.allow('breakTaunt', 'k', 10 + SENTENCE_GAP / 2), 'not two sentences close together');
+  assert.ok(director.allow('breakTaunt', 'k', 10 + SENTENCE_GAP + 0.1));
+  // exertions are not held up by sentences (only by the mouth being busy a moment)
+  assert.ok(director.allow('fistEffort', 'k', 10 + SENTENCE_GAP + 1));
+  assert.ok(director.allow('effort', 'k', 10 + SENTENCE_GAP + 3));
+  // a death or a match's end always speaks
+  assert.ok(director.allow('victory', 'k', 10 + SENTENCE_GAP + 3.5));
+  assert.equal(director.sentenceAgo('k', 30), 30 - (10 + SENTENCE_GAP + 3.5));
+  assert.equal(director.sentenceAgo('nobody', 30), Infinity);
+});
+
+test('the gauntlet\'s lines: the one that belongs to the moment first, and all of them rare', () => {
+  // a gauntlet's kill has its own line, tried before the ordinary taunt
+  const fisted = deathLines({ victimId: 'v', killerId: 'k', source: 'gauntlet' });
+  assert.deepEqual(fisted.victor.map((say) => say.line), ['fistKill', 'killTaunt']);
+  assert.deepEqual(deathLines({ victimId: 'v', killerId: 'k', source: 'sword' }).victor.map((say) => say.line), ['killTaunt']);
+  // the rebuttal only answers a foe who has just spoken and is left low enough for a gauntlet to finish
+  assert.deepEqual(gauntletLines({ attackerId: 'k', foeSpokeAgo: 2, foeHealth: REBUTTAL.health }).map((say) => say.line), ['rebuttal', 'fistThrow']);
+  assert.deepEqual(gauntletLines({ attackerId: 'k', foeSpokeAgo: REBUTTAL.within + 1, foeHealth: 5 }).map((say) => say.line), ['fistThrow']);
+  assert.deepEqual(gauntletLines({ attackerId: 'k', foeSpokeAgo: 1, foeHealth: 60 }).map((say) => say.line), ['fistThrow']);
+  for (const line of ['fistThrow', 'fistKill', 'rebuttal']) {
+    assert.equal(VOICE_LINES[line].kind, 'sentence');
+    assert.ok(VOICE_LINES[line].cooldown >= 60, `${line} does not repeat soon`);
+  }
+  assert.ok(VOICE_LINES.fistThrow.chance <= 0.15, 'the gauntlet thrown is rare');
+  assert.equal(VOICE_LINES.fistEffort.kind, 'exertion');
 });

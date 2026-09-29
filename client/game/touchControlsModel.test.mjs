@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { TOUCH, isTouchPrimary, lookDelta, stickVector } from './touchControlsModel.mjs';
+import { TOGGLE_TAP, TOUCH, isDeliberateTap, isTouchPrimary, lookDelta, stickVector } from './touchControlsModel.mjs';
 
 function close(actual, expected, epsilon = 1e-9) {
   assert.ok(Math.abs(actual - expected) <= epsilon, `${actual} != ${expected}`);
@@ -51,4 +51,13 @@ test('touch controls are for phones and tablets, not touchscreen laptops with a 
   assert.equal(isTouchPrimary((query) => ({ matches: query === '(hover: none) and (pointer: coarse)' })), true);
   assert.equal(isTouchPrimary(() => ({ matches: false })), false);
   assert.equal(isTouchPrimary(undefined), false);
+});
+
+test('the crouch toggle answers only a deliberate tap on it: quick, lifted where it was pressed', () => {
+  const press = { at: 1000, x: 100, y: 200 };
+  assert.equal(isDeliberateTap(press, { at: 1180, x: 104, y: 197, lifted: true }), true, 'a tap');
+  assert.equal(isDeliberateTap(press, { at: 1000 + TOGGLE_TAP.maxMs + 50, x: 100, y: 200, lifted: true }), false, 'held too long: a rest, not a tap');
+  assert.equal(isDeliberateTap(press, { at: 1100, x: 100 + TOGGLE_TAP.maxSlide + 5, y: 200, lifted: true }), false, 'slid away: on its way somewhere else');
+  assert.equal(isDeliberateTap(press, { at: 1100, x: 100, y: 200, lifted: false }), false, 'cancelled, not lifted');
+  assert.equal(isDeliberateTap(null, { at: 1100, x: 100, y: 200, lifted: true }), false, 'never pressed on it at all');
 });

@@ -5,13 +5,14 @@ import {
 import { blastDamage, blastDistance, burnFrom, chillFrom, chillScale, spellExposure, spellFor, strongerChill } from '../src/spells.mjs';
 import { STEEL, callSteel, chipSteel, steelExposure } from '../src/steel.mjs';
 import { galeOnBody, galeRecoil, galeShove } from '../src/gale.mjs';
+import { GAUNTLET, gauntletGeometry, gauntletTarget, withinGauntlet } from '../src/gauntlet.mjs';
+import { postureOf } from '../src/body.mjs';
 import { findSwordWorldHit, segmentAabbHit, surfaceHeightAt } from '../src/collision.mjs';
 import { SPRINT, movePlayer, resolveSprint, shoveBody, tryStartDash } from '../src/movement.mjs';
 import { separatePlayers } from '../src/separation.mjs';
 import { chooseSpawn } from './spawns.mjs';
 import { recordTransform, sampleTransform } from './history.mjs';
 
-const EYE_HEIGHT = 1.35;
 const SWORD_ARC_COS = Math.cos((110 * Math.PI / 180) / 2);
 const RESPAWN_SEC = 3;
 const SPAWN_PROTECTION_SEC = 1;
@@ -31,8 +32,9 @@ function normalize3(v) {
   return { x: v.x / m, y: v.y / m, z: v.z / m };
 }
 
+// the middle of a body as it stands (or crouches): a blast's heart, a spell's aim
 function playerCenter(player) {
-  return { x: player.position.x, y: player.position.y + 0.9, z: player.position.z };
+  return { x: player.position.x, y: player.position.y + postureOf(player).center, z: player.position.z };
 }
 
 function resetAtSpawn(player, spawn, nowSec) {
@@ -58,6 +60,9 @@ function resetAtSpawn(player, spawn, nowSec) {
   player.spellReadyAt = Math.max(player.spellReadyAt ?? 0, nowSec);
   player.castEndsAt = 0;
   player.pendingSpell = null;
+  player.gauntlet = null;
+  player.gauntletReadyAt = -Infinity;
+  player.crouched = false;
   player.burn = null;
   player.chill = null;
   player.steel = null;
@@ -75,6 +80,12 @@ function resetAtSpawn(player, spawn, nowSec) {
 // The sword chain (SWORD_CHAIN in shared/src/combat.mjs): a press starts one or asks for its next strike; a release
 // only lets go, and the swing under way still lands. Stopping one outright is for a parry, a wall, a guard, a spell
 // and a fall.
+//
+// However a chain ends, no new attack (a sword chain, or the gauntlet) begins before the chain's next strike would
+// have begun had the button been held (attackRestartAt): letting go and pressing again, or cancelling into a guard or
+// a spell, can never bring the sword round sooner than holding it would. A press the player made while a let-go
+// chain was still running, whose word only arrived after it had ended, carries that chain on exactly as a timely
+// press would have (it asked for the chain's next strike, not a fresh first one).
 function startSwordChain(player, nowSec) {
   player.attackActive = true;
   player.attackStartedAt = nowSec;
@@ -84,10 +95,29 @@ function startSwordChain(player, nowSec) {
   player.attackQueued = false;
   player.attackOpened = -1;
   player.attackSweep = null;
+  player.attackLastChain = null;
 }
 
-// keepSweep: the chain has simply run its course, and its last strike's blade is still going through its sweep
-function stopSwordChain(player, { keepSweep = false } = {}) {
+// when the chain under way would begin its next strike: every strike that has gone live counts (a swing broken off
+// after it could already have hit is spent all the same). -Infinity when none has.
+function nextStrikeDue(player) {
+  if (!player.attackActive) return -Infinity;
+  const spent = Math.max(player.attackNextStrike ?? 0, (player.attackOpened ?? -1) + 1);
+  if (spent <= 0) return -Infinity;
+  const begin = SWORD_CHAIN.starts[spent];
+  const cycle = SWORD_STRIKE_TIMES[SWORD_STRIKE_TIMES.length - 1] + SWORD_CHAIN.restart;
+  return player.attackStartedAt + (Number.isFinite(begin) ? begin : cycle);
+}
+
+// keepSweep: the chain has simply run its course, and its last strike's blade is still going through its sweep.
+// letGo: it ended because the button was let go (not broken off), so a late word of a press made before its end can
+// still carry it on
+function stopSwordChain(player, { keepSweep = false, letGo = false } = {}) {
+  const due = nextStrikeDue(player);
+  if (due > (player.attackRestartAt ?? -Infinity)) player.attackRestartAt = due;
+  player.attackLastChain = letGo && player.attackActive && (player.attackCommitted ?? 0) < SWORD_STRIKE_TIMES.length
+    ? { startedAt: player.attackStartedAt, committed: player.attackCommitted, landed: player.attackNextStrike, endedAt: due }
+    : null;
   player.attackActive = false;
   player.attackHeld = false;
   player.attackQueued = false;
@@ -97,12 +127,27 @@ function stopSwordChain(player, { keepSweep = false } = {}) {
   if (!keepSweep) player.attackSweep = null;
 }
 
+// a let-go chain carried on by a press made before it ended: its next strike, as if that press had been in time
+function resumeSwordChain(player, last) {
+  player.attackActive = true;
+  player.attackStartedAt = last.startedAt;
+  player.attackNextStrike = last.landed;
+  player.attackCommitted = last.committed + 1;
+  player.attackCommitBy = 'queued';
+  player.attackQueued = false;
+  player.attackOpened = last.landed - 1;
+  player.attackLastChain = null;
+}
+
 export function beginAttack(room, playerId, nowSec) {
   const player = room.players.get(playerId);
   if (room.state !== 'PLAYING' || !player || !player.alive || nowSec < player.staggerUntil) return false;
   player.attackHeld = true;
-  // a fresh press: a chain begins, or (mid-chain, or still recovering from one) its next strike is asked for
-  if (!player.attackActive && nowSec >= (player.attackRestartAt ?? -Infinity)) startSwordChain(player, nowSec);
+  // a fresh press: a chain begins, or (mid-chain, or still recovering from one) its next strike is asked for; one
+  // made before a let-go chain ended carries that chain on
+  const last = player.attackLastChain;
+  if (!player.attackActive && last && nowSec < last.endedAt - 1e-9) resumeSwordChain(player, last);
+  else if (!player.attackActive && nowSec >= (player.attackRestartAt ?? -Infinity)) startSwordChain(player, nowSec);
   else player.attackQueued = true;
   player.guarding = false;
   player.spawnProtectionUntil = Math.min(player.spawnProtectionUntil, nowSec);
@@ -131,7 +176,7 @@ export function endAttack(room, playerId, nowSec, releasedAt = nowSec) {
     player.attackCommitted = committed - 1;
     // the swing before it has landed, so the chain is over (where the next would have begun)
     if (player.attackNextStrike >= player.attackCommitted) {
-      stopSwordChain(player);
+      stopSwordChain(player, { letGo: true });
       room.events.push({ type: 'attackEnded', playerId, at: nowSec });
     }
   }
@@ -198,6 +243,79 @@ export function tryCastSpell(room, playerId, direction, nowSec) {
   return true;
 }
 
+/**
+ * The spell's key: the spell, if it is ready; while it is on its cooldown, the gauntlet, if a foe is within arm's reach
+ * (shared/src/gauntlet.mjs); otherwise nothing (the client shows the cooldown). pressedAt: the player's own moment.
+ */
+export function tryCastOrGauntlet(room, playerId, direction, nowSec, pressedAt = nowSec) {
+  const player = room.players.get(playerId);
+  if (!player) return false;
+  if (nowSec >= player.spellReadyAt) return tryCastSpell(room, playerId, direction, nowSec);
+  return tryGauntletStrike(room, playerId, nowSec, pressedAt);
+}
+
+/**
+ * The magic hand's armoured fist, at the nearest foe within reach (judged where everyone stood at the player's
+ * moment). Never through the sword: not while a committed strike has yet to land, nor while a blade is live. Thrown
+ * in a chain's recovery, it ends the chain; and nothing attacks again before its own recovery is over.
+ */
+export function tryGauntletStrike(room, playerId, nowSec, pressedAt = nowSec) {
+  const player = room.players.get(playerId);
+  if (room.state !== 'PLAYING' || !player || !player.alive) return false;
+  if (nowSec < player.staggerUntil || player.pendingSpell || player.gauntlet) return false;
+  if (nowSec < (player.gauntletReadyAt ?? -Infinity)) return false;
+  if (player.attackSweep || (player.attackActive && player.attackNextStrike < player.attackCommitted)) return false;
+  const at = Math.min(nowSec, pressedAt);
+  const from = transformFor(player, at);
+  const foes = [];
+  for (const other of room.players.values()) {
+    if (other.id === player.id || !other.alive) continue;
+    foes.push({ id: other.id, position: transformFor(other, at).position });
+  }
+  const best = gauntletTarget(from.position, from.yaw, foes);
+  if (!best || targetBlockedByWorld(from, transformFor(room.players.get(best.foe.id), at), room.world ?? {})) return false;
+  if (player.attackActive) {
+    stopSwordChain(player);
+    room.events.push({ type: 'attackEnded', playerId, at: nowSec });
+  }
+  player.guarding = false;
+  const landAt = at + GAUNTLET.startup;
+  player.gauntlet = { targetId: best.foe.id, landAt };
+  player.gauntletReadyAt = landAt + GAUNTLET.recovery;
+  player.attackRestartAt = Math.max(player.attackRestartAt ?? -Infinity, player.gauntletReadyAt);
+  player.spawnProtectionUntil = Math.min(player.spawnProtectionUntil, nowSec);
+  room.events.push({ type: 'gauntletStrike', playerId, targetId: best.foe.id, at: nowSec, landAt });
+  return true;
+}
+
+// the fist lands: on the foe if they are still within reach (it follows through a little), on a guard facing it, or on
+// nothing
+function landGauntlet(room, player, nowSec, world) {
+  const blow = player.gauntlet;
+  player.gauntlet = null;
+  const target = room.players.get(blow.targetId);
+  const miss = (reason) => room.events.push({ type: 'gauntletMiss', playerId: player.id, targetId: blow.targetId, reason, at: nowSec });
+  if (!player.alive || !target?.alive) return miss('gone');
+  const at = Math.min(nowSec, blow.landAt);
+  const from = transformFor(player, at);
+  const to = transformFor(target, at);
+  const g = gauntletGeometry(from.position, from.yaw, to.position);
+  if (!withinGauntlet(g, GAUNTLET.landSlack) || targetBlockedByWorld(from, to, world)) return miss('reach');
+  if (target.spawnProtectionUntil > nowSec) return miss('protected');
+  if (target.guarding && isInGuardCone(target, player, at)) {
+    // a guard facing it pays a little; one spent by it is lowered, never broken (no stagger)
+    target.guardStamina = Math.max(0, target.guardStamina - GAUNTLET.guardCost);
+    target.lastGuardDrainAt = nowSec;
+    if (target.guardStamina <= 0) target.guarding = false;
+    room.events.push({ type: 'gauntletHit', playerId: player.id, targetId: target.id, guarded: true, at: nowSec });
+    return;
+  }
+  if (target.steel) target.steel = chipSteel(target.steel, GAUNTLET.steelChip, nowSec);
+  const push = { x: g.direction.x * GAUNTLET.shove, y: 0.1, z: g.direction.z * GAUNTLET.shove };
+  applyDamage(room, player.id, target.id, GAUNTLET.damage, 'gauntlet', nowSec, push);
+  room.events.push({ type: 'gauntletHit', playerId: player.id, targetId: target.id, guarded: false, at: nowSec });
+}
+
 function transformFor(player, atSec) {
   return sampleTransform(player, atSec);
 }
@@ -214,8 +332,8 @@ function isInGuardCone(defender, attacker, atSec) {
 }
 
 function targetBlockedByWorld(attackerTransform, targetTransform, world) {
-  const start = [attackerTransform.position.x, attackerTransform.position.y + EYE_HEIGHT, attackerTransform.position.z];
-  const end = [targetTransform.position.x, targetTransform.position.y + 0.9, targetTransform.position.z];
+  const start = [attackerTransform.position.x, attackerTransform.position.y + postureOf(attackerTransform).eye, attackerTransform.position.z];
+  const end = [targetTransform.position.x, targetTransform.position.y + postureOf(targetTransform).center, targetTransform.position.z];
   for (const box of world.solids ?? []) {
     if (segmentAabbHit(start, end, box)) return true;
   }
@@ -227,7 +345,7 @@ function recoilFromWall(attacker, hit, nowSec, room) {
   attacker.velocity.x = -f.x * 3.1;
   attacker.velocity.z = -f.z * 3.1;
   stopSwordChain(attacker);
-  attacker.attackRestartAt = nowSec + 0.22;
+  attacker.attackRestartAt = Math.max(attacker.attackRestartAt ?? -Infinity, nowSec + 0.22);
   room.events.push({
     type: 'swordWorldImpact',
     playerId: attacker.id,
@@ -265,13 +383,20 @@ function strikeWindow(player, strike) {
 }
 
 // a target's place in a strike seen from the attacker at `atSec`: angle off the facing (+ to the attacker's left),
-// distance, and whether anything solid stands between them
+// distance, how far below and above the attacker's aim the body runs (degrees: whether the blade's band can meet it),
+// and whether anything solid stands between them. Both bodies as they stood or crouched then.
 function strikeGeometry(attackerTransform, target, atSec, world) {
   const targetTransform = transformFor(target, atSec);
+  const attackerBody = postureOf(attackerTransform);
+  const targetBody = postureOf(targetTransform);
   const dx = targetTransform.position.x - attackerTransform.position.x;
   const dz = targetTransform.position.z - attackerTransform.position.z;
-  const dy = (targetTransform.position.y + 0.9) - (attackerTransform.position.y + EYE_HEIGHT);
+  const dy = (targetTransform.position.y + targetBody.center) - (attackerTransform.position.y + attackerBody.eye);
   const horizontal = Math.hypot(dx, dz);
+  // the body from its feet to its crown, as seen from the attacker's view against where they aim
+  const view = attackerTransform.position.y + attackerBody.camera;
+  const aim = (attackerTransform.pitch ?? 0) * 180 / Math.PI;
+  const toward = (y) => Math.atan2(y - view, Math.max(horizontal, 1e-3)) * 180 / Math.PI - aim;
   const f = forwardFromYaw(attackerTransform.yaw);
   const across = dx * -f.z + dz * f.x;
   const along = dx * f.x + dz * f.z;
@@ -279,9 +404,18 @@ function strikeGeometry(attackerTransform, target, atSec, world) {
     angle: Math.atan2(-across, along),
     distance: Math.hypot(horizontal, dy),
     horizontal,
+    below: toward(targetTransform.position.y + 0.1),
+    above: toward(targetTransform.position.y + targetBody.crown),
     direction: horizontal > 1e-6 ? { x: dx / horizontal, z: dz / horizontal } : { x: f.x, z: f.z },
     blocked: () => targetBlockedByWorld(attackerTransform, targetTransform, world),
   };
+}
+
+// whether a strike's blade, passing through its band below and above the aim, can meet a body placed so (a body that
+// the blade passes wholly over, or under, is not met: a crouch under a swing aimed high, say)
+function withinBand(strike, g) {
+  const [down, up] = MELEE_CONTACT.bandDeg[strike] ?? [-90, 90];
+  return g.above >= down && g.below <= up;
 }
 
 /** Begin a strike's live stretch (its swing is heard from here). */
@@ -317,6 +451,7 @@ function sweepStrike(room, player, nowSec, world) {
         if (target.id === player.id || !target.alive) continue;
         const g = strikeGeometry(attackerTransform, target, at, world);
         if (g.distance > GAME.swordRange || g.horizontal < 1e-6 || Math.abs(g.angle) > half) continue;
+        if (!withinBand(live.strike, g)) continue;
         if (sweep && (g.angle < low || g.angle > high)) continue;
         if (g.blocked()) continue;
         if (!best || g.distance < best.g.distance) best = { target, g };
@@ -333,7 +468,7 @@ function sweepStrike(room, player, nowSec, world) {
     if (!live.wallChecked && dt >= -1e-9) {
       live.wallChecked = true;
       const f = forwardFromYaw(attackerTransform.yaw);
-      const origin = [attackerTransform.position.x, attackerTransform.position.y + EYE_HEIGHT, attackerTransform.position.z];
+      const origin = [attackerTransform.position.x, attackerTransform.position.y + postureOf(attackerTransform).eye, attackerTransform.position.z];
       const worldHit = findSwordWorldHit(origin, [f.x, 0, f.z], GAME.swordRange, world.solids ?? []);
       if (worldHit) {
         player.attackSweep = null;
@@ -454,7 +589,8 @@ function spawnSpell(room, player, nowSec, world) {
     id,
     ownerId: player.id,
     spell: spell.id,
-    position: { x: player.position.x + normalized.x * 0.7, y: player.position.y + 1.25, z: player.position.z + normalized.z * 0.7 },
+    // (from the casting hand, a little below the eyes)
+    position: { x: player.position.x + normalized.x * 0.7, y: player.position.y + postureOf(player).eye - 0.1, z: player.position.z + normalized.z * 0.7 },
     velocity: { x: normalized.x * spell.speed, y: normalized.y * spell.speed, z: normalized.z * spell.speed },
     bornAt: nowSec,
   };
@@ -474,12 +610,12 @@ function releaseGale(room, player, spell, nowSec, world) {
   const f = forwardFromYaw(player.yaw);
   const direction = Math.hypot(pending.direction.x, pending.direction.y, pending.direction.z) > 0.01
     ? normalize3(pending.direction) : { x: f.x, y: 0, z: f.z };
-  const eye = { x: player.position.x, y: player.position.y + EYE_HEIGHT, z: player.position.z };
+  const eye = { x: player.position.x, y: player.position.y + postureOf(player).eye, z: player.position.z };
   const origin = { x: eye.x + direction.x * 0.35, y: eye.y + direction.y * 0.35, z: eye.z + direction.z * 0.35 };
   const affected = [];
   for (const target of room.players.values()) {
     if (target.id === player.id || !target.alive || target.spawnProtectionUntil > nowSec) continue;
-    const caught = galeOnBody(spell, origin, direction, target.position);
+    const caught = galeOnBody(spell, origin, direction, target.position, postureOf(target).crown);
     if (caught.pressure <= 0.01) continue;
     const at = caught.point;
     let walled = false;
@@ -528,7 +664,7 @@ function explodeSpell(room, projectile, point, nowSec, worldHit = false, directV
     if (!player.alive || player.id === projectile.ownerId) continue;
     const center = playerCenter(player);
     const direct = player.id === directVictimId;
-    const distance = direct ? 0 : blastDistance(point, player.position);
+    const distance = direct ? 0 : blastDistance(point, player.position, postureOf(player).crown);
     if (distance > spell.radius) continue;
     // how directly it caught them decides everything it leaves (hardened armour turns some of it aside)
     const armour = steelExposure(player.steel, spellExposure(spell, distance), nowSec);
@@ -599,9 +735,10 @@ function stepProjectiles(room, dt, nowSec, world) {
     let direct = null;
     for (const target of room.players.values()) {
       if (!target.alive || target.id === projectile.ownerId || target.spawnProtectionUntil > nowSec) continue;
+      // (the body as a ball about its middle: a crouched one is smaller, and a spell can fly over it)
       const c = playerCenter(target);
       const d = Math.hypot(c.x - after.x, c.y - after.y, c.z - after.z);
-      if (d < 0.75) { direct = target; break; }
+      if (d < Math.min(0.75, postureOf(target).height / 2)) { direct = target; break; }
     }
     if (direct) {
       projectile.position = after;
@@ -658,6 +795,7 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
       stamina: player.guardStamina,
       sprinting: player.sprinting,
       blocked: staggered || player.guarding || player.attackActive || Boolean(player.pendingSpell),
+      crouched: Boolean(player.crouched),
     });
     if (player.sprinting) {
       player.guardStamina = Math.max(0, player.guardStamina - SPRINT.staminaPerSec * dt);
@@ -665,7 +803,7 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
     }
 
     const input = staggered
-      ? { forward: 0, right: 0, jump: false, yaw: player.yaw, pitch: player.pitch }
+      ? { forward: 0, right: 0, jump: false, crouch: Boolean(player.input?.crouch), yaw: player.yaw, pitch: player.pitch }
       : player.input;
     const moved = movePlayer(player, input, dt, nowSec, world);
     player.position = moved.position;
@@ -677,6 +815,7 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
     player.dashDir = moved.dashDir;
     player.sprintBlend = moved.sprintBlend;
     player.impulse = moved.impulse;
+    player.crouched = moved.crouched;
     player.yaw = input.yaw ?? player.yaw;
     player.pitch = input.pitch ?? player.pitch;
     recordTransform(player, nowSec);
@@ -709,7 +848,7 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
           player.attackCommitBy = player.attackQueued ? 'queued' : 'held';
           player.attackQueued = false;
         } else {
-          stopSwordChain(player);
+          stopSwordChain(player, { letGo: true });
           room.events.push({ type: 'attackEnded', playerId: player.id, at: nowSec });
         }
       }
@@ -717,16 +856,21 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
         // the whole chain is done: a held (or pressed again) button starts the next one a beat later
         const again = player.attackHeld || player.attackQueued;
         const held = player.attackHeld;
+        // (its restart is the chain's own: SWORD_CHAIN.restart after the third contact, not after this tick)
         stopSwordChain(player, { keepSweep: true });
         player.attackHeld = held;
         player.attackQueued = again;
-        player.attackRestartAt = nowSec + SWORD_CHAIN.restart;
       }
     } else if ((player.attackHeld || player.attackQueued) && !player.attackActive && nowSec >= (player.attackRestartAt ?? -Infinity) && nowSec >= player.staggerUntil) {
-      startSwordChain(player, nowSec);
+      // a held or waiting press starts the chain the moment it became legal (at most a tick back), not at the tick
+      // that noticed: holding comes round exactly on time
+      const legal = Math.max(player.attackRestartAt ?? -Infinity, player.staggerUntil ?? -Infinity);
+      startSwordChain(player, Math.min(nowSec, Math.max(nowSec - dt, legal)));
     }
     // a live strike sweeps on to the end of its stretch (the last one past the chain's own end)
     if (player.attackSweep) sweepStrike(room, player, nowSec, world);
+    // a thrown fist lands
+    if (player.gauntlet && nowSec + 1e-9 >= player.gauntlet.landAt) landGauntlet(room, player, nowSec, world);
   }
 
   // bodies do not share space: overlapping Spellblades are eased apart (never off a ledge or into a wall)

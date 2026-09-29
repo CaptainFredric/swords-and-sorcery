@@ -1,34 +1,54 @@
 // When the Spellblade speaks. A knight who grunts on every swing is a parody, so each line has a chance and a
-// cooldown, and a speaker only says one thing at a time (a death cry cuts through anything). Pure, so it is tested.
+// cooldown, and a speaker only says one thing at a time (a death cry cuts through anything). Two kinds: exertions
+// (the breath of a blow, a grunt of pain) are heard fairly often, each on its own short cooldown; sentences (every
+// spoken line) are rare, and one knight never says two within SENTENCE_GAP of each other. Where a moment could have
+// more than one line, the one that belongs to it most is tried first (deathLines, gauntletLines). Current tuning.
+// Pure, so it is tested.
 //
 // Who he is: a proud, formal knight-mage who means every word. The comedy is that he never knows he is funny: he
 // protests that he is a knight when he loses, refuses to believe in the magic that killed him, and cannot resist a
 // pun over a fallen foe. So the lines are rare, and each has its own moment.
 
 export const VOICE_LINES = Object.freeze({
+  // --- exertions
   // the heavy third strike, and now and then a lighter one
-  effort: { chance: 0.4, cooldown: 1.8, gain: 0.75 },
-  hurt: { chance: 0.7, cooldown: 1.1, gain: 0.85 },
-  death: { chance: 1, cooldown: 0, gain: 1, interrupts: true },
+  effort: { kind: 'exertion', chance: 0.4, cooldown: 1.8, gain: 0.75 },
+  hurt: { kind: 'exertion', chance: 0.7, cooldown: 1.1, gain: 0.85 },
+  death: { kind: 'exertion', chance: 1, cooldown: 0, gain: 1, interrupts: true },
+  dash: { kind: 'exertion', chance: 0.25, cooldown: 3, gain: 0.55 },
+  // "HYA!" as the gauntlet goes out
+  fistEffort: { kind: 'exertion', chance: 0.55, cooldown: 1.5, gain: 0.8 },
+  // --- sentences
   // SORCERY! is rare: about one cast in twelve, and never twice within 45 seconds
-  sorcery: { chance: 0.08, cooldown: 45, gain: 1 },
-  dash: { chance: 0.25, cooldown: 3, gain: 0.55 },
+  sorcery: { kind: 'sentence', chance: 0.08, cooldown: 45, gain: 1 },
   // "MIGHT MAKES... KNIGHT!"
-  victory: { chance: 1, cooldown: 0, gain: 1, interrupts: true },
+  victory: { kind: 'sentence', chance: 1, cooldown: 0, gain: 1, interrupts: true },
   // "I don't believe in magic." Only from a knight that magic actually killed, and not every time
-  magicDefeat: { chance: 0.35, cooldown: 90, gain: 1, interrupts: true },
+  magicDefeat: { kind: 'sentence', chance: 0.35, cooldown: 90, gain: 1, interrupts: true },
   // "What? But I am a knight!" Now and then when felled, a little likelier when the match is lost, and never soon
   // again: it is funniest when it is a surprise
-  defeat: { chance: 0.25, cooldown: 150, gain: 1, interrupts: true },
+  defeat: { kind: 'sentence', chance: 0.25, cooldown: 150, gain: 1, interrupts: true },
   // over a fallen foe: "Good knight? That will not be you." (or a laugh)
-  killTaunt: { chance: 0.3, cooldown: 30, gain: 0.95 },
+  killTaunt: { kind: 'sentence', chance: 0.3, cooldown: 30, gain: 0.95 },
   // "You should have hired a REAL guard!" after breaking one, rarely
-  breakTaunt: { chance: 0.35, cooldown: 45, gain: 0.95 },
+  breakTaunt: { kind: 'sentence', chance: 0.35, cooldown: 45, gain: 0.95 },
   // "What did you say? Must have been the wind..." after a Gale has moved someone, now and then
-  galeTaunt: { chance: 0.3, cooldown: 60, gain: 0.95 },
+  galeTaunt: { kind: 'sentence', chance: 0.3, cooldown: 60, gain: 0.95 },
   // "My armor works now!" when Sheathed in Steel has turned a spell aside, rarely
-  steelBoast: { chance: 0.3, cooldown: 75, gain: 0.95 },
+  steelBoast: { kind: 'sentence', chance: 0.3, cooldown: 75, gain: 0.95 },
+  // "I throw you my gauntlet." now and then as the fist lands
+  fistThrow: { kind: 'sentence', chance: 0.12, cooldown: 90, gain: 0.95 },
+  // "I am quite soFISTicated." only when the gauntlet fells someone, and not every time even then
+  fistKill: { kind: 'sentence', chance: 0.35, cooldown: 180, gain: 1 },
+  // "I present my rebuttal." answering a foe who has just spoken, with the gauntlet, when it could finish them
+  rebuttal: { kind: 'sentence', chance: 0.5, cooldown: 120, gain: 1 },
 });
+
+// the least time between two of one knight's sentences (exertions are not counted; a death or a match's end, which
+// interrupt, always speak)
+export const SENTENCE_GAP = 12;
+// the rebuttal: a foe's sentence this recent, and the foe this low (health a gauntlet could plausibly take)
+export const REBUTTAL = Object.freeze({ within: 5, health: 15 });
 
 // How a knight's voice carries. Your own is heard as it is: dry and close, at its full level. Another knight's is heard
 // from where he stands and only near him: full level within `near`, falling off with distance as sound does (inverse,
@@ -83,8 +103,24 @@ export function deathLines({ victimId, killerId, source }) {
   if (MAGIC_SOURCES.includes(source)) fallen.push({ line: 'magicDefeat', speaker: victimId });
   fallen.push({ line: 'defeat', speaker: victimId });
   fallen.push({ line: 'death', speaker: victimId });
-  const victor = killerId && killerId !== victimId ? [{ line: 'killTaunt', speaker: killerId, delay: 0.45 }] : [];
+  // (the victor's line that belongs to the moment most first: a gauntlet's kill has its own)
+  const victor = killerId && killerId !== victimId ? [
+    ...(source === 'gauntlet' ? [{ line: 'fistKill', speaker: killerId, delay: 0.45 }] : []),
+    { line: 'killTaunt', speaker: killerId, delay: 0.45 },
+  ] : [];
   return { fallen, victor };
+}
+
+/**
+ * What the knight who landed the gauntlet might say, in the order to try (the first that passes its rules is the only
+ * one): the rebuttal, when the foe has just spoken (`foeSpokeAgo` seconds ago) and is left low enough for a gauntlet
+ * to finish; otherwise, now and then, the gauntlet thrown.
+ */
+export function gauntletLines({ attackerId, foeSpokeAgo = Infinity, foeHealth = 100 }) {
+  const lines = [];
+  if (foeSpokeAgo <= REBUTTAL.within && foeHealth > 0 && foeHealth <= REBUTTAL.health) lines.push({ line: 'rebuttal', speaker: attackerId, delay: 0.25 });
+  lines.push({ line: 'fistThrow', speaker: attackerId, delay: 0.3 });
+  return lines;
 }
 
 // a speaker finishes one line before starting another
@@ -95,6 +131,7 @@ export class VoiceDirector {
     this.rand = rand;
     this.lastLine = new Map();
     this.lastSpoke = new Map();
+    this.lastSentence = new Map();
   }
 
   /** Whether `speaker` says `line` at `now` (seconds). chanceScale softens a line for lighter moments. */
@@ -104,10 +141,18 @@ export class VoiceDirector {
     const key = `${speaker}:${line}`;
     if (now - (this.lastLine.get(key) ?? -Infinity) < rule.cooldown) return false;
     if (!rule.interrupts && now - (this.lastSpoke.get(speaker) ?? -Infinity) < MOUTH_BUSY_SEC) return false;
+    const sentence = rule.kind === 'sentence';
+    if (sentence && !rule.interrupts && now - (this.lastSentence.get(speaker) ?? -Infinity) < SENTENCE_GAP) return false;
     if (this.rand() >= rule.chance * chanceScale) return false;
     this.lastLine.set(key, now);
     this.lastSpoke.set(speaker, now);
+    if (sentence) this.lastSentence.set(speaker, now);
     return true;
+  }
+
+  /** How long ago `speaker` last said a sentence (Infinity if never): for lines that answer one. */
+  sentenceAgo(speaker, now) {
+    return now - (this.lastSentence.get(speaker) ?? -Infinity);
   }
 }
 

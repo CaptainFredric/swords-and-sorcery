@@ -258,3 +258,25 @@ export function sorceryLevel(clip, time, duration) {
 }
 
 export const GAIT_CLIPS = Object.freeze(new Set(['Run', 'Sprint']));
+
+// A crouched knight (third person): the knees bent deep (the animator keeps the feet planted), the back leaning in, the
+// head up to look ahead, and both arms carried forward so the sword stays clear of the ground. `amount` 0..1 eases in
+// and out; moving, the knees bend a little further (the run clip stands taller). Sized so the crown comes down where
+// the crouched body's does (shared/src/body.mjs).
+export const CROUCH_POSE = Object.freeze({ flex: 0.82, flexMoving: 0.9 });
+
+export function crouchPose(amount, moving = false) {
+  const a = Math.max(0, Math.min(1, Number(amount) || 0));
+  if (a < 1e-3) return { flex: 0, turns: [] };
+  return {
+    flex: a * (moving ? CROUCH_POSE.flexMoving : CROUCH_POSE.flex),
+    // (about the knight's own axes: +x is its right, and it faces -z)
+    turns: [
+      { bone: 'spine', axis: [1, 0, 0], angle: -0.28 * a },
+      { bone: 'chest', axis: [1, 0, 0], angle: -0.12 * a },
+      { bone: 'head', axis: [1, 0, 0], angle: 0.32 * a },
+      { bone: 'upper_arm.R', axis: [1, 0, 0], angle: 0.55 * a },
+      { bone: 'upper_arm.L', axis: [1, 0, 0], angle: 0.3 * a },
+    ],
+  };
+}

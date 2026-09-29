@@ -2,7 +2,7 @@
 // Spellblades and does with what they send. The same shapes either way, so the client cannot tell who is hosting
 // except by asking.
 
-import { beginAttack, endAttack, setGuard, tryActivateSteel, tryCastSpell, tryDash } from './combat.mjs';
+import { beginAttack, endAttack, setGuard, tryActivateSteel, tryCastOrGauntlet, tryDash } from './combat.mjs';
 import { compensatedInputTime } from './history.mjs';
 import { removePracticeDummy, resetPracticePlayer, setPracticeDummyMode, spawnPracticeDummy } from './practice.mjs';
 import { GAME_MODES } from '../src/modes.mjs';
@@ -68,6 +68,7 @@ export function serializeSnapshot(room, nowSec) {
       guardStamina: p.guardStamina,
       guarding: p.guarding,
       sprinting: Boolean(p.sprinting),
+      crouched: Boolean(p.crouched),
       attackActive: p.attackActive,
       attackStartedAt: p.attackStartedAt,
       attackNextStrike: p.attackNextStrike,
@@ -117,6 +118,7 @@ export function applyRoomCommand(room, player, message, time) {
         right: Math.max(-1, Math.min(1, Number(message.right) || 0)),
         jump: Boolean(message.jump),
         sprint: Boolean(message.sprint),
+        crouch: Boolean(message.crouch),
         yaw: Number.isFinite(message.yaw) ? message.yaw : player.yaw,
         pitch: Number.isFinite(message.pitch) ? Math.max(-1.45, Math.min(1.45, message.pitch)) : player.pitch,
       };
@@ -129,7 +131,8 @@ export function applyRoomCommand(room, player, message, time) {
       return {};
     }
     case 'guard': setGuard(room, player.id, Boolean(message.down), compensatedInputTime(message.clientTime, time)); return {};
-    case 'cast': tryCastSpell(room, player.id, message.direction || { x: 0, y: 0, z: -1 }, time); return {};
+    // the spell's key: the spell when it is ready; on its cooldown, the gauntlet if a foe is in reach
+    case 'cast': tryCastOrGauntlet(room, player.id, message.direction || { x: 0, y: 0, z: -1 }, time, compensatedInputTime(message.clientTime, time)); return {};
     case 'dash': tryDash(room, player.id, message.direction || { x: 0, z: -1 }, time); return {};
     case 'steel': tryActivateSteel(room, player.id, time); return {};
     case 'rematch': room.requestRematch(player.id, time); return {};

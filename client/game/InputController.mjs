@@ -213,6 +213,9 @@ export class InputController {
       jump: this.held('jump') || Boolean(touch?.jump),
       // hold Sprint (Shift unless rebound; or push the touch stick all the way forward, or latch the touch button)
       sprint: this.held('sprint') || Boolean(touch?.sprint),
+      // hold Crouch (C unless rebound), or toggle the touch button: the wish; the body crouches and stands by the
+      // server's rule (it cannot stand up under something)
+      crouch: this.held('crouch') || Boolean(touch?.crouch),
       yaw: this.yaw,
       pitch: this.pitch,
     };

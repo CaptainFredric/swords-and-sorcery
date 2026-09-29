@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { CLOTH_CHAINS, createClothState, gustCloth, isTeleport, resetCloth, stepCloth } from './spellbladeCloth.mjs';
+import { CLOTH_CHAINS, createClothState, gustCloth, isTeleport, landCloth, resetCloth, stepCloth } from './spellbladeCloth.mjs';
 
 const UP = new THREE.Vector3(0, 1, 0);
 const _q = new THREE.Quaternion();
@@ -127,6 +127,12 @@ export class SpellbladeClothRig {
   }
 
   /** A gust of wind across the knight ({ x, z } in the world, m/s): the cloth is flung the way it blows. */
+  /** A landing (strength 0..1): the tabards flip out and settle (landCloth). */
+  land(strength) {
+    if (!this.enabled) return;
+    landCloth(this.state, strength);
+  }
+
   gust(wind) {
     if (!this.enabled || !wind) return;
     this.root.getWorldQuaternion(this.worldQuat);

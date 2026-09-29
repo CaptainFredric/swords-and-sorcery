@@ -5,6 +5,7 @@ function cloneTransform(player) {
     position: { x: player.position.x, y: player.position.y, z: player.position.z },
     yaw: player.yaw ?? 0,
     pitch: player.pitch ?? 0,
+    crouched: Boolean(player.crouched),
   };
 }
 
@@ -25,11 +26,11 @@ export function sampleTransform(player, atSec) {
   if (!history.length) return cloneTransform(player);
   if (atSec <= history[0].at) {
     const s = history[0];
-    return { position: { ...s.position }, yaw: s.yaw, pitch: s.pitch };
+    return { position: { ...s.position }, yaw: s.yaw, pitch: s.pitch, crouched: Boolean(s.crouched) };
   }
   const last = history[history.length - 1];
   if (atSec >= last.at) {
-    return { position: { ...last.position }, yaw: last.yaw, pitch: last.pitch };
+    return { position: { ...last.position }, yaw: last.yaw, pitch: last.pitch, crouched: Boolean(last.crouched) };
   }
   for (let i = 0; i < history.length - 1; i += 1) {
     const a = history[i];
@@ -45,6 +46,8 @@ export function sampleTransform(player, atSec) {
         },
         yaw: lerpAngle(a.yaw, b.yaw, t),
         pitch: a.pitch + (b.pitch - a.pitch) * t,
+        // (a body is standing or crouched, never between: the nearer moment's)
+        crouched: Boolean(t < 0.5 ? a.crouched : b.crouched),
       };
     }
   }

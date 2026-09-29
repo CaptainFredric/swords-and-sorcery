@@ -15,12 +15,15 @@ import { localPushDirection } from './spellbladeMotion.mjs';
 import { blowDirection, glancing, hitKick, hitstopSeconds, impactPoint } from './hitFeel.mjs';
 import {
   blockRecipe, burnLickRecipe, castRecipe, dashRecipe, fireballImpactRecipe, frostImpactRecipe, guardBreakRecipe, hurtRecipe, killRecipe,
-  galeReleaseRecipe, parryRecipe, spatialize, steelCallRecipe, steelTurnRecipe, swingRecipe, swordHitRecipe, wallClangRecipe,
+  deniedRecipe, galeReleaseRecipe, gauntletHitRecipe, gauntletSwingRecipe, parryRecipe, spatialize, steelCallRecipe, steelTurnRecipe,
+  swingRecipe, swordHitRecipe, wallClangRecipe,
 } from './sound/soundRecipes.mjs';
 import { galeRecoil } from '../../shared/src/gale.mjs';
+import { gauntletTarget } from '../../shared/src/gauntlet.mjs';
+import { CROUCH, POSTURES, postureOf } from '../../shared/src/body.mjs';
 import { steelStrength } from '../../shared/src/steel.mjs';
 import { chillScale, spellFor } from '../../shared/src/spells.mjs';
-import { deathLines, voicePlacement, voiceRate } from './sound/voiceRules.mjs';
+import { deathLines, gauntletLines, voicePlacement, voiceRate } from './sound/voiceRules.mjs';
 import { FOOTSTEPS, footfallsCrossed, footstepPlacement, footstepRecipe, surfaceAt, variantPicker } from './sound/footsteps.mjs';
 import { CombatHeat, matchClosing, nearestFoe } from './sound/combatHeat.mjs';
 import { FP_MOTION } from './firstPersonMotion.mjs';
@@ -100,7 +103,8 @@ export class GameRuntime {
     this.worldId = null;
     this.worldError = null;
     this.remotePlayers = new RemotePlayers(this.scene, socket.playerId);
-    this.remotePlayers.onFootstep = (id, position, heavy) => this.#footstep(id, position, heavy);
+    // (a crouched knight's steps are soft and light)
+    this.remotePlayers.onFootstep = (id, position, heavy, crouched) => this.#footstep(id, position, crouched ? 0 : heavy, FOOTSTEPS.other * (crouched ? 0.55 : 1));
     this.weapon = new WeaponView(this.camera);
     this.weapon.onSwing = (strike) => {
       this.#play(swingRecipe(Math.random, { strike }), null, 0.85);
@@ -133,7 +137,15 @@ export class GameRuntime {
     // the palm starts gathering the moment the spell is called (the server's word follows and confirms it)
     this.input.onCastLocal = () => {
       const now = this.socket.serverNow();
-      if (!canPresentLocalAction('cast', this.localAuth, this.localState, now)) return;
+      if (!canPresentLocalAction('cast', this.localAuth, this.localState, now)) {
+        // on its cooldown the spell's key throws the gauntlet at a foe within reach (the server's word follows); with
+        // nobody there, the cooldown's quiet no
+        if (this.localAuth?.alive && now < (this.localAuth.spellReadyAt ?? 0) && !this.#tryLocalJab(now)) {
+          this.hud.denied?.('spell');
+          this.#play(deniedRecipe(), null, 0.6);
+        }
+        return;
+      }
       const spell = spellFor(this.localAuth?.spell);
       this.weapon.cast({ gatherSec: spell.gatherSec, spell: spell.id });
       // a Gale lets go when its breath is drawn: my own is seen and felt the moment it goes, once the server has taken it
@@ -329,6 +341,7 @@ export class GameRuntime {
       this.localState = createMovementState(auth.position);
       this.localState.velocity = { ...auth.velocity };
       if (auth.impulse) this.localState.impulse = { ...auth.impulse };
+      this.localState.crouched = Boolean(auth.crouched);
       this.localState.dashReadyAt = auth.dashReadyAt;
       this.input.yaw = auth.yaw;
       this.input.pitch = auth.pitch;
@@ -342,6 +355,7 @@ export class GameRuntime {
         this.localState.position = { ...auth.position };
         this.localState.velocity = { ...auth.velocity };
         this.localState.impulse = auth.impulse ? { ...auth.impulse } : { x: 0, z: 0 };
+        this.localState.crouched = Boolean(auth.crouched);
       } else {
         this.localState.position.x += dx * 0.11;
         this.localState.position.y += dy * 0.16;
@@ -381,8 +395,11 @@ export class GameRuntime {
       }
 
       if (event.type === 'galeBlast') this.#galeBlast(event);
+      if (event.type === 'gauntletStrike') this.#gauntletStrike(event);
+      if (event.type === 'gauntletHit') this.#gauntletHit(event);
       // a blow or a blast that shoved me: my own steps carry the shove at once (the server's already do)
       if (event.type === 'damage' && event.victimId === me && event.push && this.localState) shoveBody(this.localState, event.push);
+      if (event.type === 'damage') (this.healthAfterBlow ??= new Map()).set(event.victimId, event.health);
 
       // Sheathed in Steel: another knight's plate ringing as it hardens (mine rang as I pressed)
       if (event.type === 'steelOn' && event.playerId !== me) this.#play(steelCallRecipe(), this.#bodyPosition(event.playerId), 0.7);
@@ -548,6 +565,54 @@ export class GameRuntime {
     if ((event.affected ?? []).some((caught) => caught.pressure >= 0.3 && !caught.guarded)) this.#say('galeTaunt', event.playerId, { delay: 0.7 });
   }
 
+  // the gauntlet, thrown from my own hand (the local rule: the sword does not have the hand, a foe within reach, as far
+  // as I can see them): the magic hand drives out at once, with a grunt
+  #tryLocalJab(now) {
+    const auth = this.localAuth;
+    if (!this.localState || (auth.staggerUntil ?? -Infinity) > now || auth.pendingSpell) return false;
+    if (!this.weapon.canJab()) return false;
+    const foes = this.remotePlayers.bodies().map((body) => ({ id: body.id, position: body }));
+    if (!gauntletTarget(this.localState.position, this.input.yaw, foes)) return false;
+    this.weapon.jab();
+    this.#play(gauntletSwingRecipe(), null, 0.8);
+    this.#say('fistEffort', this.socket.playerId);
+    this.localJabAt = now;
+    return true;
+  }
+
+  // another knight's gauntlet going out (mine was shown as I pressed, unless the server saw a foe I did not)
+  #gauntletStrike(event) {
+    const me = this.socket.playerId;
+    if (event.playerId === me) {
+      if (!(Math.abs((this.localJabAt ?? -Infinity) - event.at) < 0.5)) {
+        this.weapon.jab();
+        this.#play(gauntletSwingRecipe(), null, 0.8);
+      }
+      return;
+    }
+    this.remotePlayers.jab(event.playerId, event.at);
+    this.#play(gauntletSwingRecipe(), this.#bodyPosition(event.playerId), 0.6);
+    this.#say('fistEffort', event.playerId);
+  }
+
+  // the gauntlet lands: a knock on a guard, or a thud into plate; and, rarely, a word from the one who threw it (the
+  // rebuttal first, to a foe who has just spoken and is left low enough for a gauntlet to finish)
+  #gauntletHit(event) {
+    const me = this.socket.playerId;
+    const involved = event.playerId === me || event.targetId === me;
+    const body = this.#bodyPosition(event.targetId);
+    this.#play(gauntletHitRecipe(Math.random, { guarded: event.guarded }), involved ? null : body, involved ? 0.95 : 0.7);
+    if (event.targetId === me && !event.guarded) this.cameraKick = Math.max(this.cameraKick, 0.05);
+    if (event.guarded) return;
+    const foe = this.latestSnapshot?.players.find((p) => p.id === event.targetId);
+    const foeSpokeAgo = this.voice?.director?.sentenceAgo?.(event.targetId, this.voice.engine.now) ?? Infinity;
+    // (the blow's own damage word came just before, with the health it left: the snapshot may lag behind it)
+    const foeHealth = this.healthAfterBlow?.get(event.targetId) ?? foe?.health ?? 100;
+    for (const say of gauntletLines({ attackerId: event.playerId, foeSpokeAgo, foeHealth })) {
+      if (this.#say(say.line, say.speaker, say)) break;
+    }
+  }
+
   // the ground a gust runs over, for what it blows off it: its height and what it is made of
   #groundUnder() {
     const world = this.activeWorld;
@@ -575,7 +640,7 @@ export class GameRuntime {
   #deathVoice(event) {
     const { fallen, victor } = deathLines(event);
     if (fallen.some((say) => this.#say(say.line, say.speaker, say))) return;
-    for (const say of victor) this.#say(say.line, say.speaker, say);
+    victor.some((say) => this.#say(say.line, say.speaker, say));
   }
 
   // steel anywhere stirs the music; blows that involve me put it on the fight
@@ -675,6 +740,7 @@ export class GameRuntime {
     else if (event.source === 'burn' && killer) this.hud.addFeed(`${killer.name} burned ${victim?.name ?? 'someone'} down`, 'fire');
     else if (event.source === 'frostfire' && killer) this.hud.addFeed(`${killer.name} shattered ${victim?.name ?? 'someone'}`, 'frost');
     else if (event.source === 'gale' && killer) this.hud.addFeed(`${killer.name} blew ${victim?.name ?? 'someone'} away`, 'gale');
+    else if (event.source === 'gauntlet' && killer) this.hud.addFeed(`${killer.name} laid ${victim?.name ?? 'someone'} low with a gauntlet`, 'sword');
     else if (killer) this.hud.addFeed(`${killer.name} slew ${victim?.name ?? 'someone'}`, 'sword');
     else this.hud.addFeed(`${victim?.name ?? 'A spellblade'} fell into the abyss`, 'abyss');
   }
@@ -754,6 +820,7 @@ export class GameRuntime {
         stamina: this.localAuth.guardStamina,
         sprinting: this.localState.sprinting,
         blocked: this.input.guardHeld || this.input.attackHeld || (this.localAuth.staggerUntil ?? 0) > serverNow,
+        crouched: Boolean(this.localState.crouched),
       });
       const wasGrounded = this.localState.grounded;
       const fallSpeed = -this.localState.velocity.y;
@@ -761,7 +828,7 @@ export class GameRuntime {
       this.localState.speedScale = chillScale(this.localAuth.chill, serverNow);
       this.localState = movePlayer(this.localState, moveInput, dt, serverNow, this.activeWorld);
       // predict the server's body separation so pressing into an opponent does not rubber-band
-      separateLocal(this.localState.position, this.remotePlayers.bodies(), this.activeWorld);
+      separateLocal(this.localState.position, this.remotePlayers.bodies(), this.activeWorld, { crouched: this.localState.crouched });
       if (!wasGrounded && this.localState.grounded) {
         this.weapon.land(fallSpeed);
         // both feet down at once, heavier the further he fell
@@ -781,6 +848,12 @@ export class GameRuntime {
         Number.isFinite(calledAt) ? serverNow - calledAt : null,
       );
       // my Gale lets go when its breath is drawn; one the server never took is let go of quietly
+      // while the spell cools, whether its key would throw the gauntlet now (a foe in reach, the hand free)
+      const cooling = serverNow < (this.localAuth.spellReadyAt ?? 0);
+      const fistReady = cooling && this.weapon.canJab() && Boolean(gauntletTarget(this.localState.position, this.input.yaw,
+        this.remotePlayers.bodies().map((body) => ({ id: body.id, position: body }))));
+      this.hud.setFistReady?.(fistReady);
+      this.touch?.setFistReady(fistReady);
       if (this.localGale && serverNow >= this.localGale.at) {
         if (this.localGale.confirmed) this.#releaseLocalGale(serverNow);
         else if (serverNow > this.localGale.at + 0.4) this.localGale = null;
@@ -794,9 +867,13 @@ export class GameRuntime {
       });
       // my footsteps fall where the stride puts them (the view's own bob), so they keep pace with the legs
       if (this.localState.grounded && footfallsCrossed(strideBefore, this.weapon.motion.stride) > 0) {
-        this.#footstep(null, this.localState.position, this.weapon.motion.sprint, FOOTSTEPS.own);
+        // (crouched, the steps are soft and light)
+        this.#footstep(null, this.localState.position, this.localState.crouched ? 0 : this.weapon.motion.sprint, FOOTSTEPS.own * (this.localState.crouched ? 0.55 : 1));
       }
-      this.camera.position.set(this.localState.position.x, this.localState.position.y + 1.58 + view.camera.y, this.localState.position.z);
+      // the view sits where the body's eyes are, settling quickly to a crouch and back (the body itself changes at once)
+      const eyes = postureOf(this.localState).camera;
+      this.viewHeight = Number.isFinite(this.viewHeight) ? this.viewHeight + (eyes - this.viewHeight) * (1 - Math.exp(-dt / CROUCH.viewSec)) : eyes;
+      this.camera.position.set(this.localState.position.x, this.localState.position.y + this.viewHeight + view.camera.y, this.localState.position.z);
       this.camera.rotation.order = 'YXZ';
       // camera motion (a comfort setting) scales the sway, bob, kicks and the widening of the view when sprinting
       const motion = this.view.cameraMotion;
@@ -810,7 +887,7 @@ export class GameRuntime {
       this.#deathView(timeSec);
       this.#setFov(this.view.fov + (this.weapon.update(timeSec, dt).fov - FP_MOTION.baseFov) * this.view.cameraMotion);
     } else if (this.localAuth && this.localState) {
-      this.camera.position.set(this.localState.position.x, this.localState.position.y + 1.58, this.localState.position.z);
+      this.camera.position.set(this.localState.position.x, this.localState.position.y + POSTURES.standing.camera, this.localState.position.z);
       this.camera.rotation.z = 0;
       this.#setFov(this.view.fov + (this.weapon.update(timeSec, dt).fov - FP_MOTION.baseFov) * this.view.cameraMotion);
     }

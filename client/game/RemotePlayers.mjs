@@ -11,10 +11,11 @@ import {
   upgradeRemoteVisual,
 } from './remoteVisualState.mjs';
 import { bufferedServerTime, castPoseWindowFromEvent, resolveSpellbladeState } from './spellbladePose.mjs';
-import { airborneLegFlex, landingStrength, pruneReactions } from './spellbladeMotion.mjs';
+import { airborneLegFlex, crouchPose, landingStrength, pruneReactions } from './spellbladeMotion.mjs';
 import { gaitFootfall } from './sound/footsteps.mjs';
 import { createSteelSheen } from './steelSheen.mjs';
 import { steelStrength } from '../../shared/src/steel.mjs';
+import { jabTurns } from './gauntletJab.mjs';
 
 // which body reacts to which combat event, and how
 const REACTION_EVENTS = Object.freeze({
@@ -216,6 +217,12 @@ export class RemotePlayers {
     this.rigs.get(id)?.visualInstance?.animator?.cloth?.gust(wind);
   }
 
+  /** Another knight throws the gauntlet (pressed at server time `at`): the left arm drives out, on their own clock. */
+  jab(id, at) {
+    const d = this.rigs.get(id)?.root.userData;
+    if (d && Number.isFinite(at)) d.jabAt = at;
+  }
+
   pushSnapshot(snapshot, receivedAtMs) {
     const seen = new Set();
     for (const player of snapshot.players) {
@@ -345,10 +352,18 @@ export class RemotePlayers {
       } else if (d.airborne) {
         d.airborne = false;
         const strength = landingStrength(d.fastestFall);
-        if (strength > 0.05 && state !== 'dead') d.reactions = [...d.reactions, { kind: 'land', at: serverNow, strength }];
+        if (strength > 0.05 && state !== 'dead') {
+          d.reactions = [...d.reactions, { kind: 'land', at: serverNow, strength }];
+          // and the tabards flip out with it, then settle
+          shell.visualInstance?.animator?.cloth?.land?.(strength);
+        }
         d.fastestFall = 0;
       }
       d.reactions = pruneReactions(d.reactions, serverNow);
+
+      // crouched: the body is lower at once (the server's word); the pose eases down to it in a moment
+      d.crouchAmount = (d.crouchAmount ?? 0) + ((pb.crouched && state !== 'dead' ? 1 : 0) - (d.crouchAmount ?? 0)) * (1 - Math.exp(-dt * 14));
+      const crouch = crouchPose(d.crouchAmount, state === 'run' || state === 'sprint');
 
       const animationPlayer = { ...pb, castPoseStartAt: d.castPoseStartAt };
       const plan = resolveSpellbladeAnimationPlan({ state, player: animationPlayer, serverNow, localTime });
@@ -359,12 +374,15 @@ export class RemotePlayers {
         yaw: shell.root.rotation.y,
         airFlex: state === 'air' ? airborneLegFlex(verticalVelocity) : 0,
         death: plan.clip === 'Death' ? { age: plan.time, push: d.lastPush ?? null } : null,
+        crouch: crouch.flex,
+        // the gauntlet's jab, if one is under way, and the crouch's lean
+        extra: state === 'dead' ? [] : [...crouch.turns, ...jabTurns(serverNow - (d.jabAt ?? -Infinity))],
       };
       setRemoteVisualPlan(shell, plan, dt);
       // a foot comes down where the gait clip puts it (its rate follows the knight's speed)
       const gait = shell.visualInstance?.animator?.gaitPhase;
       if ((state === 'run' || state === 'sprint') && Number.isFinite(gait) && Number.isFinite(d.lastGait) && gaitFootfall(d.lastGait, gait)) {
-        this.onFootstep?.(id, shell.root.position, state === 'sprint' ? 1 : 0);
+        this.onFootstep?.(id, shell.root.position, state === 'sprint' ? 1 : 0, Boolean(pb.crouched));
       }
       d.lastGait = gait;
 
