@@ -18,7 +18,8 @@ import {
   parryRecipe, spatialize, swingRecipe, swordHitRecipe, wallClangRecipe,
 } from './sound/soundRecipes.mjs';
 import { chillScale, spellFor } from '../../shared/src/spells.mjs';
-import { deathLines, voiceRate } from './sound/voiceRules.mjs';
+import { deathLines, voicePlacement, voiceRate } from './sound/voiceRules.mjs';
+import { FOOTSTEPS, footfallsCrossed, footstepPlacement, footstepRecipe, surfaceAt, variantPicker } from './sound/footsteps.mjs';
 import { CombatHeat, matchClosing, nearestFoe } from './sound/combatHeat.mjs';
 import { FP_MOTION } from './firstPersonMotion.mjs';
 import { DEATH_CAM, deathCamera, deathCardText, killerCamPolicy } from './deathCam.mjs';
@@ -97,6 +98,7 @@ export class GameRuntime {
     this.worldId = null;
     this.worldError = null;
     this.remotePlayers = new RemotePlayers(this.scene, socket.playerId);
+    this.remotePlayers.onFootstep = (id, position, heavy) => this.#footstep(id, position, heavy);
     this.weapon = new WeaponView(this.camera);
     this.weapon.onSwing = (strike) => {
       this.#play(swingRecipe(Math.random, { strike }), null, 0.85);
@@ -185,7 +187,7 @@ export class GameRuntime {
 
   #applyWeaponRelease(release) {
     if (!release) return;
-    if (release.attack) this.weapon.setAttack(false);
+    if (release.attack) this.weapon.cancelAttack();
     if (release.guard) this.weapon.setGuard(false);
   }
 
@@ -456,8 +458,26 @@ export class GameRuntime {
     const snapshotPlayer = this.latestSnapshot?.players.find((p) => p.id === playerId);
     if (!body || snapshotPlayer?.actorKind === 'dummy') return false;
     const listener = this.localState?.position ?? this.localAuth?.position;
-    const place = spatialize(listener, this.input.yaw, body);
-    return this.voice.say(line, { speaker: playerId, pan: place.pan, gain: place.gain * 0.9, rate: voiceRate(playerId), chanceScale, delay });
+    // only within earshot: a bark is for the knights around him, not the whole map (voiceRules VOICE_HEARING)
+    const place = voicePlacement(listener, this.input.yaw, body);
+    if (!place) return false;
+    return this.voice.say(line, { speaker: playerId, pan: place.pan, gain: place.gain * 0.9, reverb: place.reverb, rate: voiceRate(playerId), chanceScale, delay });
+  }
+
+  // a footstep on whatever is underfoot: mine (from = null) at my own feet, another knight's from where he stands and
+  // only near him (footsteps.mjs)
+  #footstep(from, position, heavy = 0, gain = FOOTSTEPS.other) {
+    if (!this.sound || !position) return;
+    this.stepVariant ??= variantPicker();
+    const surface = surfaceAt(this.activeWorld, position.x, position.z, position.y ?? 0);
+    const recipe = footstepRecipe(Math.random, { surface, heavy, variant: this.stepVariant(from ?? 'me') });
+    if (!from) {
+      this.sound.play(recipe, { gain });
+      return;
+    }
+    const listener = this.localState?.position ?? this.localAuth?.position;
+    const place = footstepPlacement(listener, this.input.yaw, position);
+    if (place && place.gain > 0.01) this.sound.play(recipe, { pan: place.pan, gain: place.gain * gain / FOOTSTEPS.other });
   }
 
   // the fallen may protest (magic they do not believe in, or that they are a knight); if they keep quiet, whoever
@@ -648,18 +668,27 @@ export class GameRuntime {
       this.localState = movePlayer(this.localState, moveInput, dt, serverNow, this.activeWorld);
       // predict the server's body separation so pressing into an opponent does not rubber-band
       separateLocal(this.localState.position, this.remotePlayers.bodies(), this.activeWorld);
-      if (!wasGrounded && this.localState.grounded) this.weapon.land(fallSpeed);
+      if (!wasGrounded && this.localState.grounded) {
+        this.weapon.land(fallSpeed);
+        // both feet down at once, heavier the further he fell
+        if (fallSpeed > 2.5) this.#footstep(null, this.localState.position, Math.min(1, fallSpeed / 10), FOOTSTEPS.landing);
+      }
       if (nowMs - this.lastInputSentAt >= 50) {
         this.lastInputSentAt = nowMs;
         this.socket.input({ seq: ++this.sequence, ...moveInput, clientTime: this.socket.serverNow() });
       }
       // the weapon's procedural motion also returns small camera offsets (purely visual: aim uses input yaw/pitch)
+      const strideBefore = this.weapon.motion.stride;
       const view = this.weapon.update(timeSec, dt, {
         speed: Math.hypot(this.localState.velocity.x, this.localState.velocity.z),
         grounded: this.localState.grounded,
         yaw: this.input.yaw,
         pitch: this.input.pitch,
       });
+      // my footsteps fall where the stride puts them (the view's own bob), so they keep pace with the legs
+      if (this.localState.grounded && footfallsCrossed(strideBefore, this.weapon.motion.stride) > 0) {
+        this.#footstep(null, this.localState.position, this.weapon.motion.sprint, FOOTSTEPS.own);
+      }
       this.camera.position.set(this.localState.position.x, this.localState.position.y + 1.58 + view.camera.y, this.localState.position.z);
       this.camera.rotation.order = 'YXZ';
       // camera motion (a comfort setting) scales the sway, bob, kicks and the widening of the view when sprinting

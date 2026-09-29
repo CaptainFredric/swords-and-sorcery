@@ -1,5 +1,6 @@
 import { GAME_MODES } from '../src/modes.mjs';
-import { endAttack, setGuard } from './combat.mjs';
+import { guardProfile } from '../src/combat.mjs';
+import { cancelAttack, setGuard } from './combat.mjs';
 import { recordTransform } from './history.mjs';
 import { stepBotControllers } from './BotController.mjs';
 
@@ -38,14 +39,16 @@ function resetActorAtSpawn(player, spawn, nowSec) {
   player.pitch = 0;
   player.input = { forward: 0, right: 0, jump: false, yaw: player.yaw, pitch: 0 };
   player.health = 100;
-  player.guardStamina = 100;
+  player.guardStamina = guardProfile(player.knightClass).capacity;
   player.guarding = false;
   player.guardStartedAt = -Infinity;
   player.lastGuardDrainAt = -Infinity;
   player.attackActive = false;
   player.attackHeld = false;
+  player.attackQueued = false;
   player.attackStartedAt = -Infinity;
   player.attackNextStrike = 0;
+  player.attackCommitted = 0;
   player.attackRestartAt = -Infinity;
   player.staggerUntil = -Infinity;
   player.spellReadyAt = nowSec;
@@ -120,7 +123,7 @@ export function setPracticeDummyMode(room, mode, nowSec = 0) {
   const dummy = findPracticeDummy(room);
   if (!dummy) return false;
 
-  if (dummy.attackHeld || dummy.attackActive) endAttack(room, dummy.id, nowSec);
+  if (dummy.attackHeld || dummy.attackActive) cancelAttack(room, dummy.id, nowSec);
   if (dummy.guarding) setGuard(room, dummy.id, false, nowSec);
   dummy.input = neutralInput(dummy);
   dummy.ai = null;
@@ -143,14 +146,14 @@ export function stepPracticeActors(room, nowSec, world = room.world, { random = 
   if (!dummy || !dummy.alive) return;
 
   if (dummy.practiceMode === PRACTICE_DUMMY_MODES.PASSIVE) {
-    if (dummy.attackHeld || dummy.attackActive) endAttack(room, dummy.id, nowSec);
+    if (dummy.attackHeld || dummy.attackActive) cancelAttack(room, dummy.id, nowSec);
     if (dummy.guarding) setGuard(room, dummy.id, false, nowSec);
     dummy.input = neutralInput(dummy);
     return;
   }
 
   if (dummy.practiceMode === PRACTICE_DUMMY_MODES.GUARDING) {
-    if (dummy.attackHeld || dummy.attackActive) endAttack(room, dummy.id, nowSec);
+    if (dummy.attackHeld || dummy.attackActive) cancelAttack(room, dummy.id, nowSec);
     dummy.input = neutralInput(dummy);
     if (!dummy.guarding && dummy.guardStamina > 0 && nowSec >= dummy.staggerUntil) {
       if (setGuard(room, dummy.id, true, nowSec)) dummy.guardStartedAt = nowSec - 1;

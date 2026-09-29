@@ -15,9 +15,9 @@ test('cloth stays on the animated pose when the character stands still', () => {
   }
 });
 
-test('running forward trails the back banner behind and keeps the front tabard off the legs', () => {
-  const state = run(createClothState(), 1.5, () => ({ forward: 6, right: 0 }));
-  assert.ok(state.chains.back.swing > 0.3, `back banner should trail, got ${state.chains.back.swing}`);
+test('running forward trails the back banner behind (a little, at a steady pace) and keeps the front tabard off the legs', () => {
+  const state = run(createClothState(), 2.5, () => ({ forward: 6, right: 0 }));
+  assert.ok(state.chains.back.swing > 0.12 && state.chains.back.swing < 0.3, `back banner should trail a little, got ${state.chains.back.swing}`);
   assert.ok(state.chains.back.swing <= CLOTH_CHAINS.back.swingLimits[1]);
   assert.ok(state.chains.front.swing <= CLOTH_CHAINS.front.swingLimits[1] + 1e-9);
 });
@@ -86,4 +86,69 @@ test('tipping and turning leave the cape trailing the motion, then it settles on
     assert.ok(Math.abs(chain.side) <= CLOTH_CHAINS[name].sideLimit + 1e-9, `${name} side stays in limits`);
     assert.ok(chain.swing >= CLOTH_CHAINS[name].swingLimits[0] - 1e-9 && chain.swing <= CLOTH_CHAINS[name].swingLimits[1] + 1e-9);
   }
+});
+
+// the range each chain moved through over a stretch of steps, as the eye sees it: in the world, with the body's own
+// lean added back (a cloth that hangs still while the body sways is moving against the body, not in the world)
+function sweep(state, seconds, velocityAt, bodyAt, dt = 1 / 60) {
+  const seen = { back: { swing: [], side: [] }, front: { swing: [], side: [] } };
+  for (let t = 0; t < seconds; t += dt) {
+    const body = bodyAt(t);
+    stepCloth(state, dt, velocityAt(t), body);
+    for (const name of ['back', 'front']) {
+      seen[name].swing.push(state.chains[name].swing + (body.tilt?.forward ?? 0));
+      seen[name].side.push(state.chains[name].side - (body.tilt?.right ?? 0));
+    }
+  }
+  const range = (values) => Math.max(...values) - Math.min(...values);
+  return { back: { swing: range(seen.back.swing), side: range(seen.back.side) }, front: { swing: range(seen.front.swing), side: range(seen.front.side) } };
+}
+
+test('standing, a breath does not stir it; running steadily, the stride does not set it flapping', () => {
+  // idle breathing: the body rises and leans a hair, slowly
+  const idle = createClothState();
+  sweep(idle, 1, () => ({ forward: 0, right: 0 }), () => ({}));
+  const breathing = sweep(idle, 4, () => ({ forward: 0, right: 0 }), (t) => ({ tilt: { forward: 0.03 * Math.sin(t * 1.6), right: 0.015 * Math.sin(t * 0.8) } }));
+  assert.ok(breathing.back.swing < 0.06 && breathing.back.side < 0.06, `standing still (within a degree or two): ${JSON.stringify(breathing.back)}`);
+  // a steady run: the torso rocks and dips with every step (the travel itself is the body's own, steady but for a
+  // remote knight's snapshot steps). Flapping is the cloth moving against the body, so that is what is measured here
+  const running = createClothState();
+  for (let t = 0; t < 2; t += 1 / 60) stepCloth(running, 1 / 60, { forward: 6.5, right: 0 }, { tilt: { forward: 0.08, right: 0 } });
+  const seen = { back: { swing: [], side: [] }, front: { swing: [], side: [] } };
+  for (let t = 0; t < 3; t += 1 / 60) {
+    const jitter = Math.floor(t * 20) % 2 ? 0.15 : -0.15;
+    stepCloth(running, 1 / 60, { forward: 6.5 + jitter, right: jitter / 3 }, {
+      tilt: { forward: 0.08 + 0.06 * Math.sin(t * 18.2), right: 0.07 * Math.sin(t * 9.1) },
+    });
+    for (const name of ['back', 'front']) {
+      seen[name].swing.push(running.chains[name].swing);
+      seen[name].side.push(running.chains[name].side);
+    }
+  }
+  const range = (values) => Math.max(...values) - Math.min(...values);
+  for (const name of ['back', 'front']) {
+    const moved = { swing: range(seen[name].swing), side: range(seen[name].side) };
+    assert.ok(moved.swing < 0.08 && moved.side < 0.08, `${name} at a steady run: ${JSON.stringify(moved)}`);
+  }
+});
+
+test('speeding up, it swings back past its trail, then settles; a turn leaves it swinging out, then it settles', () => {
+  const state = createClothState();
+  sweep(state, 1, () => ({ forward: 0, right: 0 }), () => ({}));
+  // from a standstill to a sprint in a third of a second
+  let peak = 0;
+  for (let t = 0; t < 0.6; t += 1 / 60) {
+    stepCloth(state, 1 / 60, { forward: Math.min(1, t / 0.33) * 10, right: 0 }, {});
+    peak = Math.max(peak, state.chains.back.swing);
+  }
+  const settled = sweep(state, 3, () => ({ forward: 10, right: 0 }), () => ({}));
+  const trail = state.chains.back.swing;
+  assert.ok(peak > trail + 0.12, `it visibly swings back as he sets off (peak ${peak.toFixed(2)}, trail ${trail.toFixed(2)})`);
+  assert.ok(settled.back.swing < peak, 'then settles');
+  let last = null;
+  for (let t = 0; t < 1; t += 1 / 60) {
+    stepCloth(state, 1 / 60, { forward: 10, right: 0 }, {});
+    if (t > 0.8) last = last === null ? state.chains.back.swing : last;
+  }
+  assert.ok(Math.abs(state.chains.back.swing - last) < 0.01, 'and holds still at a steady sprint');
 });

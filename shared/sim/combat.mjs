@@ -1,4 +1,4 @@
-import { GAME, SWORD_STRIKE_TIMES, resolveSwordVsGuard } from '../src/combat.mjs';
+import { GAME, SWORD_CHAIN, SWORD_STRIKE_TIMES, guardProfile, nextChainStep, resolveSwordVsGuard } from '../src/combat.mjs';
 import { blastDamage, blastDistance, burnFrom, chillScale, spellFor, strongerChill } from '../src/spells.mjs';
 import { findSwordWorldHit, segmentAabbHit, surfaceHeightAt } from '../src/collision.mjs';
 import { SPRINT, movePlayer, resolveSprint, tryStartDash } from '../src/movement.mjs';
@@ -39,16 +39,14 @@ function resetAtSpawn(player, spawn, nowSec) {
   player.pitch = 0;
   player.input = { forward: 0, right: 0, jump: false, yaw: player.yaw, pitch: 0 };
   player.health = 100;
-  player.guardStamina = 100;
+  player.guardStamina = guardProfile(player.knightClass).capacity;
   player.guarding = false;
   player.sprinting = false;
   player.sprintBlend = 0;
   player.guardStartedAt = -Infinity;
   player.lastGuardDrainAt = -Infinity;
-  player.attackActive = false;
-  player.attackHeld = false;
+  stopSwordChain(player);
   player.attackStartedAt = -Infinity;
-  player.attackNextStrike = 0;
   player.attackRestartAt = -Infinity;
   player.staggerUntil = -Infinity;
   player.spellReadyAt = Math.max(player.spellReadyAt ?? 0, nowSec);
@@ -67,28 +65,74 @@ function resetAtSpawn(player, spawn, nowSec) {
   recordTransform(player, nowSec);
 }
 
+// The sword chain (SWORD_CHAIN in shared/src/combat.mjs): a press starts one or asks for its next strike; a release
+// only lets go, and the swing under way still lands. Stopping one outright is for a parry, a wall, a guard, a spell
+// and a fall.
+function startSwordChain(player, nowSec) {
+  player.attackActive = true;
+  player.attackStartedAt = nowSec;
+  player.attackNextStrike = 0;
+  player.attackCommitted = 1;
+  player.attackCommitBy = null;
+  player.attackQueued = false;
+}
+
+function stopSwordChain(player) {
+  player.attackActive = false;
+  player.attackHeld = false;
+  player.attackQueued = false;
+  player.attackNextStrike = 0;
+  player.attackCommitted = 0;
+  player.attackCommitBy = null;
+}
+
 export function beginAttack(room, playerId, nowSec) {
   const player = room.players.get(playerId);
   if (room.state !== 'PLAYING' || !player || !player.alive || nowSec < player.staggerUntil) return false;
   player.attackHeld = true;
-  if (!player.attackActive) {
-    player.attackActive = true;
-    player.attackStartedAt = nowSec;
-    player.attackNextStrike = 0;
-  }
+  // a fresh press: a chain begins, or (mid-chain, or still recovering from one) its next strike is asked for
+  if (!player.attackActive && nowSec >= (player.attackRestartAt ?? -Infinity)) startSwordChain(player, nowSec);
+  else player.attackQueued = true;
   player.guarding = false;
   player.spawnProtectionUntil = Math.min(player.spawnProtectionUntil, nowSec);
   room.events.push({ type: 'attackStarted', playerId, at: nowSec });
   return true;
 }
 
-export function endAttack(room, playerId, nowSec) {
+/**
+ * The attack button let go: the swing under way still lands, but no further strike begins (outside play: all stops).
+ * releasedAt: when it was let go (the word takes a moment to arrive). A swing that began after that, only because the
+ * button still seemed held, never really began: it is taken back (the player's own view ended the chain there).
+ */
+export function endAttack(room, playerId, nowSec, releasedAt = nowSec) {
   const player = room.players.get(playerId);
   if (!player) return;
   player.attackHeld = false;
-  player.attackActive = false;
-  player.attackNextStrike = 0;
-  room.events.push({ type: 'attackEnded', playerId, at: nowSec });
+  if (room.state !== 'PLAYING' || !player.alive) {
+    const was = player.attackActive;
+    stopSwordChain(player);
+    if (was) room.events.push({ type: 'attackEnded', playerId, at: nowSec });
+    return;
+  }
+  const committed = player.attackCommitted ?? 0;
+  const began = player.attackStartedAt + (SWORD_CHAIN.starts[committed - 1] ?? Infinity);
+  if (player.attackActive && committed > 1 && player.attackCommitBy === 'held' && player.attackNextStrike < committed && releasedAt < began - 1e-9) {
+    player.attackCommitted = committed - 1;
+    // the swing before it has landed, so the chain is over (where the next would have begun)
+    if (player.attackNextStrike >= player.attackCommitted) {
+      stopSwordChain(player);
+      room.events.push({ type: 'attackEnded', playerId, at: nowSec });
+    }
+  }
+}
+
+/** Stop a sword chain outright: nothing further lands (a practice dummy told to stop, for one). */
+export function cancelAttack(room, playerId, nowSec) {
+  const player = room.players.get(playerId);
+  if (!player) return;
+  const was = player.attackActive;
+  stopSwordChain(player);
+  if (was) room.events.push({ type: 'attackEnded', playerId, at: nowSec });
 }
 
 export function setGuard(room, playerId, guarding, nowSec) {
@@ -99,8 +143,7 @@ export function setGuard(room, playerId, guarding, nowSec) {
   player.guarding = Boolean(guarding);
   if (guarding) {
     player.guardStartedAt = nowSec;
-    player.attackActive = false;
-    player.attackHeld = false;
+    stopSwordChain(player);
   }
   room.events.push({ type: guarding ? 'guardStarted' : 'guardEnded', playerId, at: nowSec });
   return true;
@@ -123,8 +166,7 @@ export function tryCastSpell(room, playerId, direction, nowSec) {
   player.castEndsAt = nowSec + spell.gatherSec;
   player.pendingSpell = { spell: spell.id, direction: normalize3(direction) };
   player.guarding = false;
-  player.attackActive = false;
-  player.attackHeld = false;
+  stopSwordChain(player);
   player.spawnProtectionUntil = Math.min(player.spawnProtectionUntil, nowSec);
   room.events.push({ type: 'spellCast', playerId, spell: spell.id, at: nowSec, castEndsAt: player.castEndsAt });
   return true;
@@ -179,9 +221,7 @@ function recoilFromWall(attacker, hit, nowSec, room) {
   const f = forwardFromYaw(attacker.yaw);
   attacker.velocity.x = -f.x * 3.1;
   attacker.velocity.z = -f.z * 3.1;
-  attacker.attackActive = false;
-  attacker.attackHeld = false;
-  attacker.attackNextStrike = 0;
+  stopSwordChain(attacker);
   attacker.attackRestartAt = nowSec + 0.22;
   room.events.push({
     type: 'swordWorldImpact',
@@ -222,13 +262,13 @@ function resolveSwordStrike(room, attacker, strikeIndex, nowSec, world) {
       guarding: true,
       guardAgeMs: (nowSec - target.guardStartedAt) * 1000,
       stamina: target.guardStamina,
+      profile: guardProfile(target.knightClass),
     });
     target.guardStamina = guardResult.staminaAfter;
     if (guardResult.kind === 'parry') {
       target.parries += 1;
       attacker.staggerUntil = nowSec + GAME.parryStaggerMs / 1000;
-      attacker.attackActive = false;
-      attacker.attackHeld = false;
+      stopSwordChain(attacker);
       room.events.push({ type: 'parry', attackerId: attacker.id, defenderId: target.id, at: nowSec });
       return;
     }
@@ -273,8 +313,7 @@ export function killPlayer(room, victimId, attackerId, source, nowSec) {
   victim.alive = false;
   victim.health = 0;
   victim.guarding = false;
-  victim.attackActive = false;
-  victim.attackHeld = false;
+  stopSwordChain(victim);
   victim.respawnAt = nowSec + RESPAWN_SEC;
   if (credited && credited !== victimId) {
     room.recordKill(credited, victimId, nowSec);
@@ -429,8 +468,9 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
     stepAfflictions(room, player, nowSec);
     if (!player.alive) continue;
 
-    if (!player.guarding && nowSec - player.lastGuardDrainAt >= GUARD_REGEN_DELAY_SEC && player.guardStamina < GAME.guardMax) {
-      player.guardStamina = Math.min(GAME.guardMax, player.guardStamina + GUARD_REGEN_PER_SEC * dt);
+    const guardCapacity = guardProfile(player.knightClass).capacity;
+    if (!player.guarding && nowSec - player.lastGuardDrainAt >= GUARD_REGEN_DELAY_SEC && player.guardStamina < guardCapacity) {
+      player.guardStamina = Math.min(guardCapacity, player.guardStamina + GUARD_REGEN_PER_SEC * dt);
     }
     if (nowSec - player.lastDamageAt >= HEALTH_REGEN_DELAY_SEC && player.health < GAME.maxHealth) {
       player.health = Math.min(GAME.maxHealth, player.health + HEALTH_REGEN_PER_SEC * dt);
@@ -474,21 +514,37 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
     }
 
     if (player.attackActive && nowSec >= player.staggerUntil) {
+      // the chain in time order: committed strikes land; as each next swing would begin, it is committed if the
+      // button is still held (or was pressed again), or the chain ends there, the swing before it having landed
       const elapsed = nowSec - player.attackStartedAt;
-      while (player.attackActive && player.attackNextStrike < SWORD_STRIKE_TIMES.length && elapsed + 1e-9 >= SWORD_STRIKE_TIMES[player.attackNextStrike]) {
-        const strike = player.attackNextStrike;
-        player.attackNextStrike += 1;
-        room.events.push({ type: 'swordSwing', playerId: player.id, strikeIndex: strike, at: nowSec });
-        resolveSwordStrike(room, player, strike, nowSec, world);
+      for (;;) {
+        const step = player.attackActive ? nextChainStep({ committed: player.attackCommitted ?? 1, landed: player.attackNextStrike }, elapsed) : null;
+        if (!step) break;
+        if (step.kind === 'land') {
+          player.attackNextStrike += 1;
+          room.events.push({ type: 'swordSwing', playerId: player.id, strikeIndex: step.strike, at: nowSec });
+          resolveSwordStrike(room, player, step.strike, nowSec, world);
+        } else if (player.attackHeld || player.attackQueued) {
+          player.attackCommitted = (player.attackCommitted ?? 1) + 1;
+          // (a fresh press asked for it outright; a hold may yet turn out to have been let go just before)
+          player.attackCommitBy = player.attackQueued ? 'queued' : 'held';
+          player.attackQueued = false;
+        } else {
+          stopSwordChain(player);
+          room.events.push({ type: 'attackEnded', playerId: player.id, at: nowSec });
+        }
       }
       if (player.attackActive && player.attackNextStrike >= SWORD_STRIKE_TIMES.length) {
-        player.attackActive = false;
-        player.attackRestartAt = nowSec + 0.28;
+        // the whole chain is done: a held (or pressed again) button starts the next one a beat later
+        const again = player.attackHeld || player.attackQueued;
+        const held = player.attackHeld;
+        stopSwordChain(player);
+        player.attackHeld = held;
+        player.attackQueued = again;
+        player.attackRestartAt = nowSec + SWORD_CHAIN.restart;
       }
-    } else if (player.attackHeld && !player.attackActive && nowSec >= (player.attackRestartAt ?? -Infinity) && nowSec >= player.staggerUntil) {
-      player.attackActive = true;
-      player.attackStartedAt = nowSec;
-      player.attackNextStrike = 0;
+    } else if ((player.attackHeld || player.attackQueued) && !player.attackActive && nowSec >= (player.attackRestartAt ?? -Infinity) && nowSec >= player.staggerUntil) {
+      startSwordChain(player, nowSec);
     }
   }
 

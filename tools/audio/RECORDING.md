@@ -2,9 +2,9 @@
 
 The Spellblade is a hardened battlemage: controlled, chesty, economical. He grunts from the gut rather than yelling
 from the throat, and he saves his breath for the one cry that matters. Record your own takes, then let
-`knight_voice.py` put him in his helm: the room it was recorded in taken out, then deeper, closer, a little grit, the
-ring of steel around the face. The game adds the echo off the castle walls live, and only for other knights: your own
-knight is heard close, from inside his helm.
+`knight_voice.py` put him in his helm: the room it was recorded in taken out, then deeper, closer, a little grit, a
+touch of steel around the face, with the dry performance leading. The game adds only a little of the courtyard, and only
+for other knights near you: your own knight is heard as he is.
 
 ## What to record
 
@@ -76,17 +76,19 @@ The close helm is the standard chain for every line (`--profile close`, the defa
 | dereverb | Estimates how long the recording room rings (T60, capped at 0.85 s) and subtracts that late reverberation band by band, never more than 18 dB | The room's echo is what makes a take sound "stitched in from outside" |
 | expand | Sinks whatever is 30 dB under the loudest moment, 2.5 to 1 | The last of the room between and after the words |
 | pitch | 4.5 semitones down (the veteran's depth), same length | Deeper and bigger |
-| EQ | Proximity +3.5 dB at 150 Hz, chest +1.5 dB at 260 Hz, room boxiness −1.5 dB at 620 Hz, helm ring +2 dB at 1250 Hz, clarity +1.5 dB at 2.7 kHz, bite −2.5 dB at 4.5 kHz, lowpass 7 kHz | Close, chesty, behind steel, every word clear |
-| helm | Three reflections at 1.1, 2.3 and 3.7 ms | The inside of a great helm, not a room |
+| EQ | Proximity +3.5 dB at 150 Hz, chest +1.5 dB at 260 Hz, room boxiness −1.5 dB at 620 Hz, helm ring +1 dB at 1250 Hz, clarity +1.5 dB at 2.7 kHz, bite −1.5 dB at 4.5 kHz, lowpass 8 kHz | Close and chesty, a hint of steel, every word clear |
+| helm | Three faint reflections at 1.1, 2.3 and 3.7 ms (a tenth of the voice and less) | A touch of the great helm; the dry performance leads |
 | compress | 3 to 1 above 18 dB under the peak, 4 ms attack, 80 ms release | A shout is dense, not spiky |
 | grit | Gentle saturation (drive per line, about 2.5) | Battle-worn |
 | loudness | Matched per line (−15 to −20 dB RMS), peaks under −1 dBFS | Every line sits at the same place in the mix |
 
-In the game: your own knight's lines get a quarter of the line's reverb and no echo; other knights' come from where
-they stand, with the line's echo off the nearest wall.
+In the game: your own knight's lines are heard as they are (dry, full level). Other knights' are heard only near them
+(full level within 2.5 m, falling off with distance, silent beyond 16 m: `VOICE_HEARING` in
+`client/game/sound/voiceRules.mjs`), with a touch of the courtyard and no echo.
 
 - Every line you process replaces that line's earlier takes.
-- `--preview` also writes each take with the in-game echo to `artifacts/voice-preview/` so you can listen first.
+- `--preview` also writes each take as another knight a few metres away hears it (a touch of the courtyard) to
+  `artifacts/voice-preview/`, so you can listen first.
 - `--semitones -3` goes less deep and `--semitones -5.5` goes deeper (the default is -4.5).
 - `--line sorcery` names the line for inputs whose file names don't (a window of a longer recording, `path:start-end`).
 - `--profile classic` is the earlier chain, without the declip, dereverb, expander and compressor.

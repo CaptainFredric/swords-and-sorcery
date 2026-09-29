@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { CombatHeat, HEAT, matchClosing, nearestFoe } from './combatHeat.mjs';
-import { DEFEAT_ON_DEATH, MAGIC_SOURCES, MOUTH_BUSY_SEC, VOICE_LINES, VoiceDirector, deathLines, voiceRate } from './voiceRules.mjs';
+import { DEFEAT_ON_DEATH, MAGIC_SOURCES, MOUTH_BUSY_SEC, VOICE_HEARING, VOICE_LINES, VoiceDirector, deathLines, voicePlacement, voiceRate } from './voiceRules.mjs';
 
 test('SORCERY! is rare: it needs the dice, then waits out its cooldown', () => {
   let roll = 0.05;
@@ -53,6 +53,27 @@ test('the taunts are rare and wait out long cooldowns; a lost match always gets 
   const director = new VoiceDirector({ rand: () => 0.2 });
   assert.ok(director.allow('defeat', 'me', 10, { chanceScale: DEFEAT_ON_DEATH }), 'felled: 0.2 under 0.3');
   assert.ok(!director.allow('defeat', 'me', 12), 'the end screen does not say it again straight after');
+});
+
+test("another knight's voice carries only near him: normal falloff, no map-wide barks, a little room far off", () => {
+  const me = { x: 0, z: 0 };
+  const at = (d) => voicePlacement(me, 0, { x: 0, z: -d });
+  // full level close by, then falling off as 1/d
+  assert.equal(at(1).gain, 1);
+  assert.ok(Math.abs(at(5).gain - VOICE_HEARING.near / 5) < 1e-9);
+  assert.ok(at(8).gain < at(5).gain && at(5).gain < at(3).gain);
+  // fading out toward the edge of earshot, and nothing at all beyond it
+  assert.ok(at(VOICE_HEARING.far - 0.3).gain < 0.01);
+  assert.equal(at(VOICE_HEARING.far), null);
+  assert.equal(at(60), null, 'a bark across the map is not heard');
+  assert.ok(VOICE_HEARING.far <= 20, 'a modest range');
+  // more of the room, the further off (and never much of it)
+  assert.ok(at(12).reverb > at(2).reverb && at(12).reverb <= 0.15);
+  // from where he stands: on my right when he is to my right (facing -z, my right is +x)
+  assert.ok(voicePlacement(me, 0, { x: 4, z: 0 }).pan > 0.5);
+  assert.ok(voicePlacement(me, 0, { x: -4, z: 0 }).pan < -0.5);
+  // no echo off the walls on any line: clear words
+  for (const [line, rule] of Object.entries(VOICE_LINES)) assert.equal(rule.echo, undefined, line);
 });
 
 test('every Spellblade keeps their own pitch, within a narrow band', () => {

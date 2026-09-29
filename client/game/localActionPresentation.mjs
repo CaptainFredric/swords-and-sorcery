@@ -15,7 +15,8 @@ export function localWeaponReleaseForEvent(event, localId) {
 
   if (event.type === 'spellCast' && event.playerId === localId) return { attack: true, guard: true };
   if (event.type === 'attackStarted' && event.playerId === localId) return { attack: false, guard: true };
-  if (event.type === 'attackEnded' && event.playerId === localId) return { attack: true, guard: false };
+  // (the server's word that a chain ended is not one: the arms end it by the same rule, and by the time the word
+  // arrives a new tap may have started the next chain, which it must not cut off)
   if (event.type === 'guardStarted' && event.playerId === localId) return { attack: true, guard: false };
   if (event.type === 'guardEnded' && event.playerId === localId) return { attack: false, guard: true };
   if (event.type === 'swordWorldImpact' && event.playerId === localId) return { attack: true, guard: false };

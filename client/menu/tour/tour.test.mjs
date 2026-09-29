@@ -5,7 +5,7 @@ import { TOUR_POINTS, buildTourPath, yawFacing } from './tourPath.mjs';
 import { FIGHTS, FIGHT_POOL, clipAt, keyed, makeWhirlwind } from './tourFights.mjs';
 import { FIGHT_DISTANCES, buildSchedule, lineupFor, roundRandom, tourMoment } from './tourSchedule.mjs';
 import {
-  FIGHT_SHOT, FOLLOW_SETTINGS, blocked, blockedMoments, castlewardBlockers, fightPair, fightShot, followEye, followPlan,
+  COMPACT_SHOT, FIGHT_SHOT, FOLLOW_SETTINGS, blocked, blockedMoments, castlewardBlockers, fightPair, fightShot, followAim, followEye, followPlan,
   lookFor, placeFight,
 } from './tourCamera.mjs';
 import { insideCastlewardFootprint } from '../../worlds/castlewardDecor.mjs';
@@ -237,4 +237,41 @@ test('keyed values ease between keys and hold at the ends; clips play from their
   assert.deepEqual(clipAt(sheet, 0.5), { clip: 'Idle', time: 0.5, loop: true });
   assert.deepEqual(clipAt(sheet, 1.25), { clip: 'Slash_1', time: 0.25, loop: false });
   assert.deepEqual(clipAt(sheet, 5), { clip: 'Guard', time: 0.4, loop: false });
+});
+
+test('the running camera keeps him clear of the banner: it turns just enough, and not at all when he is clear', () => {
+  const eye = [0, 2, 0];
+  const target = [0, 1, -10];
+  const aspect = 2.16;
+  // where a point shows across the screen (0 at the left edge, 1 at the right) looking from eye at target
+  const share = (aim, point) => {
+    const l = [aim[0] - eye[0], aim[2] - eye[2]];
+    const n = Math.hypot(l[0], l[1]);
+    const d = [l[0] / n, l[1] / n];
+    const p = [point[0] - eye[0], point[1] - eye[2]];
+    const along = p[0] * d[0] + p[1] * d[1];
+    const across = p[0] * -d[1] + p[1] * d[0];
+    return (across / along / (Math.tan((FIGHT_SHOT.fov * Math.PI) / 360) * aspect) + 1) / 2;
+  };
+  const hero = [-0.5, -6];
+  assert.ok(share(target, hero) < 0.5);
+  assert.equal(followAim(eye, hero, target, { aspect, clear: [0.2, 0.96] }), target, 'clear already: untouched');
+  // a phone's wide banner: he is moved right of it, with his reach
+  const aimed = followAim(eye, hero, target, { aspect, clear: [0.55, 0.96] });
+  const halfReach = FIGHT_SHOT.reach / (6 * Math.tan((FIGHT_SHOT.fov * Math.PI) / 360) * aspect) / 2;
+  assert.ok(share(aimed, hero) >= 0.55 + halfReach - 1e-6);
+  assert.equal(aimed[1], target[1], 'a level turn');
+});
+
+test('on a small screen the knights stand a little smaller in the fights, still inside the clear part', () => {
+  const look = [0, -1];
+  const hero = [0, 0];
+  const rival = [1.9, 0];
+  const clear = [0.41, 0.96];
+  const normal = fightShot(hero, rival, look, { aspect: 2.16, clear });
+  const compact = fightShot(hero, rival, look, { aspect: 2.16, clear, fov: COMPACT_SHOT.fov, fill: COMPACT_SHOT.fill });
+  // how big a knight stands: his height over the view's height at his distance
+  const size = (shot) => 1 / (Math.hypot(shot.position[0] - shot.target[0], shot.position[2] - shot.target[2]) * Math.tan((shot.fov * Math.PI) / 360));
+  assert.ok(size(compact) < size(normal) * 0.95, `smaller: ${size(compact).toFixed(3)} vs ${size(normal).toFixed(3)}`);
+  assert.ok(size(compact) > size(normal) * 0.7, 'but only a little');
 });

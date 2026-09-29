@@ -26,6 +26,10 @@ export const FIGHT_SHOT = Object.freeze({
   swings: Object.freeze([0, 0.2, -0.2, 0.4, -0.4, 0.6, -0.6, 0.8, -0.8]),
 });
 
+// a small screen (a phone on its side, most of it banner): a wider lens and the pair kept to most of the clear part,
+// so the knights stand a little smaller with room around them
+export const COMPACT_SHOT = Object.freeze({ fov: 52, fill: 0.85, followFov: 52 });
+
 /**
  * A fight's frame on the path: its origin, u toward the rival's side and v along the path (unit [x, z]), and `along`,
  * the path itself from there (a pose with `path` stands that far down it: a knight walking away down the road).
@@ -75,8 +79,9 @@ export function lookFor(frame, swing) {
  * The shot of the pair looking along `look`: { position: [x, y, z], target: [x, y, z], fov }. The camera backs off
  * until both knights fit the `clear` part of the screen (shares of its width) at this `aspect`, and slides sideways
  * to set them in the middle of it. `held` below 1 lets go of the rival (he is framed that much of the way to him).
+ * fov/fill (COMPACT_SHOT on a small screen): the lens, and how much of the clear part the pair may take.
  */
-export function fightShot(hero, rival, look, { aspect = FIGHT_SHOT.aspect, clear = FIGHT_SHOT.clear, held = 1 } = {}, shot = FIGHT_SHOT) {
+export function fightShot(hero, rival, look, { aspect = FIGHT_SHOT.aspect, clear = FIGHT_SHOT.clear, held = 1, fov = FIGHT_SHOT.fov, fill = 1 } = {}, shot = FIGHT_SHOT) {
   const dx = rival[0] - hero[0];
   const dz = rival[1] - hero[1];
   const apart = Math.hypot(dx, dz);
@@ -93,8 +98,11 @@ export function fightShot(hero, rival, look, { aspect = FIGHT_SHOT.aspect, clear
   });
   // a point `across` right of the middle, `depth` ahead of a camera slid `slide` to the right, shows on screen at
   // (across - slide) / (depth * spread) from the centre, from -1 at the left edge to 1 at the right
-  const spread = Math.tan((shot.fov * Math.PI) / 360) * aspect;
-  const [from, to] = clear.map((share) => share * 2 - 1);
+  const spread = Math.tan((fov * Math.PI) / 360) * aspect;
+  const [clearFrom, clearTo] = clear.map((share) => share * 2 - 1);
+  const mid = (clearFrom + clearTo) / 2;
+  const from = mid - ((clearTo - clearFrom) / 2) * fill;
+  const to = mid + ((clearTo - clearFrom) / 2) * fill;
   let back = shot.minBack;
   let slide = 0;
   for (;;) {
@@ -114,8 +122,40 @@ export function fightShot(hero, rival, look, { aspect = FIGHT_SHOT.aspect, clear
   return {
     position: [x - look[0] * back, shot.rise + back * shot.risePerBack, z - look[1] * back],
     target: [x, shot.aimHeight, z],
-    fov: shot.fov,
+    fov,
   };
+}
+
+/**
+ * The follow camera's aim, turned level about the eye just enough that he stands in the `clear` part of the screen
+ * (shares of its width), `reach` either side of him included: where the banner takes more of a narrow screen, he runs
+ * further right of it. eye/target: [x, y, z]; hero: [x, z]. Returns the target (the same one if he is already clear).
+ */
+export function followAim(eye, hero, target, { aspect = FIGHT_SHOT.aspect, clear = FIGHT_SHOT.clear, fov = FIGHT_SHOT.fov, reach = FIGHT_SHOT.reach } = {}) {
+  const look = [target[0] - eye[0], target[2] - eye[2]];
+  const length = Math.hypot(look[0], look[1]);
+  if (length < 1e-6) return target;
+  const l = [look[0] / length, look[1] / length];
+  const toHero = [hero[0] - eye[0], hero[1] - eye[2]];
+  const along = toHero[0] * l[0] + toHero[1] * l[1];
+  if (along < 0.5) return target;
+  // right of a horizontal look d is (-d.z, d.x); a point shows at (across / along) / spread from the centre
+  const across = toHero[0] * -l[1] + toHero[1] * l[0];
+  const spread = Math.tan((fov * Math.PI) / 360) * aspect;
+  const half = reach / (along * spread);
+  const [from, to] = clear.map((share) => share * 2 - 1);
+  const at = across / along / spread;
+  let want = at;
+  if (from + half > to - half) want = (from + to) / 2;
+  else if (at < from + half) want = from + half;
+  else if (at > to - half) want = to - half;
+  if (want === at) return target;
+  // turn the look left by the difference (he moves right on screen), about the eye
+  const turn = -(Math.atan(want * spread) - Math.atan2(across, along));
+  const c = Math.cos(turn);
+  const s = Math.sin(turn);
+  const turned = [l[0] * c - l[1] * s, l[0] * s + l[1] * c];
+  return [eye[0] + turned[0] * length, target[1], eye[2] + turned[1] * length];
 }
 
 /** Everything in Castleward that could stand between a camera and a fight, as boxes { min: [x, y, z], max }. */

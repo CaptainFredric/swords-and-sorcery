@@ -1,4 +1,5 @@
 import { createMovementState } from '../src/movement.mjs';
+import { guardProfile } from '../src/combat.mjs';
 import { GAME_MODES, VOTE_OPTIONS, getModePolicy } from '../src/modes.mjs';
 import { WORLD_IDS, getWorld } from '../worlds/registry.mjs';
 import { DEFAULT_SPELL, SPELLS, isSpell } from '../src/spells.mjs';
@@ -19,14 +20,16 @@ function freshCombatState(spawn, nowSec = 0) {
     yaw: spawn.yaw ?? 0,
     pitch: 0,
     health: 100,
-    guardStamina: 100,
+    guardStamina: guardProfile().capacity,
     guarding: false,
     guardStartedAt: -Infinity,
     lastGuardDrainAt: -Infinity,
     attackActive: false,
     attackHeld: false,
+    attackQueued: false,
     attackStartedAt: -Infinity,
     attackNextStrike: 0,
+    attackCommitted: 0,
     attackRestartAt: -Infinity,
     staggerUntil: -Infinity,
     spellReadyAt: 0,
@@ -287,7 +290,9 @@ export class Room {
     player.sprinting = false;
     player.attackHeld = false;
     player.attackActive = false;
+    player.attackQueued = false;
     player.attackNextStrike = 0;
+    player.attackCommitted = 0;
     player.guarding = false;
     player.pendingSpell = null;
     player.castEndsAt = 0;

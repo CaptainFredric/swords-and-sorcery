@@ -7,24 +7,60 @@
 
 export const VOICE_LINES = Object.freeze({
   // the heavy third strike, and now and then a lighter one
-  effort: { chance: 0.4, cooldown: 1.8, gain: 0.75, reverb: 0.15, echo: 'wall', echoLevel: 0.22 },
-  hurt: { chance: 0.7, cooldown: 1.1, gain: 0.85, reverb: 0.15, echo: 'wall', echoLevel: 0.2 },
-  death: { chance: 1, cooldown: 0, gain: 1, reverb: 0.25, echo: 'wall', echoLevel: 0.45, interrupts: true },
-  // SORCERY! is rare: about one cast in twelve, and never twice within 45 seconds (another knight's rings off the
-  // nearest wall; my own is heard close, from inside the helm)
-  sorcery: { chance: 0.08, cooldown: 45, gain: 1, reverb: 0.15, echo: 'wall', echoLevel: 0.32 },
-  dash: { chance: 0.25, cooldown: 3, gain: 0.55, reverb: 0.1, echo: 'wall', echoLevel: 0.12 },
+  effort: { chance: 0.4, cooldown: 1.8, gain: 0.75 },
+  hurt: { chance: 0.7, cooldown: 1.1, gain: 0.85 },
+  death: { chance: 1, cooldown: 0, gain: 1, interrupts: true },
+  // SORCERY! is rare: about one cast in twelve, and never twice within 45 seconds
+  sorcery: { chance: 0.08, cooldown: 45, gain: 1 },
+  dash: { chance: 0.25, cooldown: 3, gain: 0.55 },
   // "MIGHT MAKES... KNIGHT!"
-  victory: { chance: 1, cooldown: 0, gain: 1, reverb: 0.25, echo: 'shout', echoLevel: 0.45, interrupts: true },
+  victory: { chance: 1, cooldown: 0, gain: 1, interrupts: true },
   // "I don't believe in magic." Only from a knight that magic actually killed, and not every time
-  magicDefeat: { chance: 0.35, cooldown: 90, gain: 1, reverb: 0.2, echo: 'wall', echoLevel: 0.35, interrupts: true },
+  magicDefeat: { chance: 0.35, cooldown: 90, gain: 1, interrupts: true },
   // "What? But I am a knight!" Every lost match; now and then when felled
-  defeat: { chance: 1, cooldown: 30, gain: 1, reverb: 0.2, echo: 'wall', echoLevel: 0.35, interrupts: true },
+  defeat: { chance: 1, cooldown: 30, gain: 1, interrupts: true },
   // over a fallen foe: "Good knight? That will not be you." (or a laugh)
-  killTaunt: { chance: 0.3, cooldown: 30, gain: 0.95, reverb: 0.2, echo: 'shout', echoLevel: 0.4 },
+  killTaunt: { chance: 0.3, cooldown: 30, gain: 0.95 },
   // "You should have hired a REAL guard!" after breaking one, rarely
-  breakTaunt: { chance: 0.35, cooldown: 45, gain: 0.95, reverb: 0.2, echo: 'shout', echoLevel: 0.4 },
+  breakTaunt: { chance: 0.35, cooldown: 45, gain: 0.95 },
 });
+
+// How a knight's voice carries. Your own is heard as it is: dry and close, at its full level. Another knight's is heard
+// from where he stands and only near him: full level within `near`, falling off with distance as sound does (inverse,
+// 1/d), fading out over the last part of the range and not played at all beyond `far`. A bark is for the knights around
+// him, never the whole map. A touch of the courtyard grows with distance (the direct sound falls faster than the room);
+// no echo off the walls, so every word stays clear.
+export const VOICE_HEARING = Object.freeze({
+  near: 2.5,          // metres: full level this close
+  far: 16,            // metres: silent from here (and not played at all)
+  fade: 0.3,          // the last share of the range it fades out over (no sudden cut at the edge)
+  pan: 0.85,          // how far left or right a voice can sit
+  reverb: 0.05,       // the courtyard's share, close by...
+  reverbFar: 0.14,    // ...and at the edge of earshot
+  own: 0.02,          // the courtyard in my own voice (next to none)
+});
+
+const clamp01 = (t) => Math.max(0, Math.min(1, t));
+
+/**
+ * Where another knight's line is heard: { pan, gain, reverb }, or null when he is out of earshot (then nothing plays).
+ * listener/source: { x, z }; yaw: which way the listener faces (three.js: forward is (-sin, -cos)).
+ */
+export function voicePlacement(listener, yaw, source, hearing = VOICE_HEARING) {
+  if (!listener || !source) return null;
+  const dx = source.x - listener.x;
+  const dz = source.z - listener.z;
+  const distance = Math.hypot(dx, dz);
+  if (!(distance < hearing.far)) return null;
+  const falloff = hearing.near / Math.max(hearing.near, distance);
+  const edge = hearing.far * (1 - hearing.fade);
+  const fadeOut = 1 - clamp01((distance - edge) / (hearing.far - edge));
+  const gain = falloff * fadeOut * fadeOut * (3 - 2 * fadeOut);
+  // the listener's right for this yaw is (cos yaw, -sin yaw)
+  const pan = distance < 0.5 ? 0 : Math.max(-1, Math.min(1, ((dx * Math.cos(yaw) - dz * Math.sin(yaw)) / distance) * hearing.pan));
+  const reverb = hearing.reverb + (hearing.reverbFar - hearing.reverb) * clamp01(distance / hearing.far);
+  return { pan, gain, reverb };
+}
 
 // the killing blows that count as magic (a knight burned down by a Fireball was still killed by sorcery)
 export const MAGIC_SOURCES = Object.freeze(['fireball', 'frostfire', 'burn']);

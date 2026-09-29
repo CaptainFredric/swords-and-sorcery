@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { RoomManager } from '../../shared/sim/RoomManager.mjs';
-import { stepBotControllers } from '../../shared/sim/BotController.mjs';
+import { POST_KILL, stepBotControllers } from '../../shared/sim/BotController.mjs';
+import { killPlayer, stepRoom } from '../../shared/sim/combat.mjs';
 
 function sequenceRandom(values = [0.5]) {
   let i = 0;
@@ -133,4 +134,85 @@ test('bot finishes a bounded escape before evaluating another stuck pursuit wind
 
   assert.equal(bot.ai.escapeUntil, -Infinity);
   assert.ok(bot.input.forward > 0.4, 'bot should resume pursuit after the bounded escape');
+});
+
+test('when its foe falls, a bot lets the attack go, looks at the body a moment, then moves off (briefly)', () => {
+  const { room, bot, human } = makeBotDuel();
+  bot.position = { x: 0, y: 0, z: 0 };
+  human.position = { x: 0, y: 0, z: -1.4 };
+  stepBotControllers(room, 4, room.world, { random: () => 0.5 });
+  assert.equal(bot.attackHeld, true, 'it was attacking');
+  // the foe falls (and is back in three seconds, as always)
+  killPlayer(room, human.id, bot.id, 'sword', 4.05);
+  stepBotControllers(room, 4.1, room.world, { random: () => 0.5 });
+  assert.equal(bot.attackHeld, false, 'the button is let go at once');
+  assert.ok(bot.ai.postKill, 'a moment over the body');
+  const body = bot.ai.postKill.body;
+  // at first it stands over the body, looking at it
+  const facing = Math.atan2(-(body.x - bot.position.x), -(body.z - bot.position.z));
+  assert.ok(Math.abs(bot.input.yaw - facing) < 1e-6);
+  assert.equal(bot.input.forward, 0);
+  // no swing starts while it stands over the body, and the swing it had under way does not chain on
+  let now = 4.1;
+  const swings = () => room.events.filter((e) => e.type === 'swordSwing' && e.playerId === bot.id).length;
+  const before = swings();
+  while (now < 4.1 + POST_KILL.confirm[1] + POST_KILL.settle[1] + 0.05) {
+    now += 0.05;
+    stepBotControllers(room, now, room.world, { random: () => 0.5 });
+    stepRoom(room, 0.05, now, room.world);
+  }
+  assert.ok(swings() - before <= 1, 'at most the swing already under way lands');
+  // it is over within a second and a half, and it walks on (a walk, not a run) rather than standing there
+  assert.equal(bot.ai.postKill, null);
+  assert.ok(now - 4.1 < 1.5);
+  let walking = false;
+  for (let i = 0; i < 40 && !walking; i += 1) {
+    now += 0.05;
+    stepBotControllers(room, now, room.world, { random: () => 0.5 });
+    stepRoom(room, 0.05, now, room.world);
+    assert.ok(!bot.attackHeld && !bot.attackActive, 'nothing to attack');
+    walking = bot.input.forward > 0 && bot.input.pace < 0.6;
+  }
+  assert.ok(walking, 'walking the arena (a walk, not a run) while nobody is there');
+});
+
+test('with nobody to fight, a bot walks between spots in the middle of the arena and looks about at each', () => {
+  const { room, bot, human } = makeBotDuel();
+  human.alive = false;
+  bot.position = { x: 0, y: 0, z: 0 };
+  let now = 4;
+  let rested = false;
+  let walked = false;
+  for (let i = 0; i < 400 && !(rested && walked); i += 1) {
+    now += 0.05;
+    stepBotControllers(room, now, room.world, { random: () => 0.3 });
+    // (move it as its input asks, at its pace)
+    const pace = bot.input.pace ?? 1;
+    bot.position.x += -Math.sin(bot.input.yaw) * bot.input.forward * 7.5 * pace * 0.05;
+    bot.position.z += -Math.cos(bot.input.yaw) * bot.input.forward * 7.5 * pace * 0.05;
+    if (bot.input.forward > 0) walked = true;
+    if (walked && bot.input.forward === 0) rested = true;
+    assert.ok(Math.hypot(bot.position.x, bot.position.z) < POST_KILL.patrolRadius + 1.5, 'it stays in the middle');
+  }
+  assert.ok(walked && rested);
+});
+
+test('a foe who comes at it while it stands over a body is answered at once', () => {
+  const { room, bot, human } = makeBotDuel();
+  const second = room.addPlayer({ id: 'second', token: 'token-2', name: 'Other' }, 4);
+  bot.position = { x: 0, y: 0, z: 0 };
+  human.position = { x: 0, y: 0, z: -1.4 };
+  second.position = { x: 20, y: 0, z: 0 };
+  second.alive = true;
+  second.connected = true;
+  second.actorKind = 'human';
+  stepBotControllers(room, 4, room.world, { random: () => 0.5 });
+  human.alive = false;
+  stepBotControllers(room, 4.1, room.world, { random: () => 0.5 });
+  assert.ok(bot.ai.postKill);
+  // the other one closes in
+  second.position = { x: 0, y: 0, z: 2 };
+  stepBotControllers(room, 4.2, room.world, { random: () => 0.5 });
+  assert.equal(bot.ai.postKill, null);
+  assert.equal(bot.ai.targetId, second.id);
 });

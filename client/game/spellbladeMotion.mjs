@@ -174,15 +174,43 @@ export function deathSlump(age, push = null, yaw = 0) {
     );
   }
   if (fall > 1e-4) {
-    // going over with the knees still bent (the joints' own bend: hip and knee)
+    // going over with the knees still bent (the joints' own bend: hip and knee), easing half straight as he lies
+    const bend = fall * (1 - 0.5 * deathRest(age));
     for (const side of ['L', 'R']) {
-      rotations.push({ bone: `thigh.${side}`, axis: [1, 0, 0], angle: 0.35 * fall, space: 'local' });
-      rotations.push({ bone: `shin.${side}`, axis: [1, 0, 0], angle: 0.7 * fall, space: 'local' });
+      rotations.push({ bone: `thigh.${side}`, axis: [1, 0, 0], angle: 0.35 * bend, space: 'local' });
+      rotations.push({ bone: `shin.${side}`, axis: [1, 0, 0], angle: 0.7 * bend, space: 'local' });
     }
   }
   if (!rotations.length) return none;
   const d = localPushDirection(push, yaw);
   return { rotations, pelvis: [d.x * 0.08 * w, 0, d.z * 0.08 * w], legFlex: 0.42 * w };
+}
+
+// The Death clip ends mid-fall: toppled back in one piece, propped on its heels at a slant. The body carries on down
+// from there until it lies on the ground: slow to start and quick at the end (it is falling), a small bounce as the
+// armour lands, then still. The animator turns the whole body the rest of the way about the heels and rests its
+// lowest part on the ground (SpellbladeAnimator #lieDown); these are the timing, and how far off the ground each part
+// rests (its bone sits inside the armour).
+export const DEATH_REST = Object.freeze({
+  buckle: 0.45,         // from here the knees give and he comes down onto the ground (not kicking his feet up)...
+  buckleSeconds: 0.35,  // ...over this long
+  start: 0.9,           // seconds into the death: the clip's topple is well under way
+  land: 1.4,            // flat on the ground
+  settled: 1.75,        // the bounce over
+  bounce: 0.05,         // how far back up the bounce lifts him (a share of the last of the fall)
+  clearance: Object.freeze({ pelvis: 0.16, chest: 0.2, head: 0.15, 'foot.L': 0.07, 'foot.R': 0.07, 'hand.L': 0.08, 'hand.R': 0.08 }),
+});
+
+/** How far the body has gone from the clip's slant to lying on the ground at `age` (0..1, with the bounce). */
+export function deathRest(age) {
+  const { start, land, settled, bounce } = DEATH_REST;
+  if (!(age > start)) return 0;
+  if (age <= land) {
+    const f = (age - start) / (land - start);
+    return f * f;
+  }
+  const b = clamp01((age - land) / (settled - land));
+  return 1 - bounce * Math.sin(Math.PI * b) * (1 - b);
 }
 
 /** Drop reactions that have finished (keeps the per-character list short). */

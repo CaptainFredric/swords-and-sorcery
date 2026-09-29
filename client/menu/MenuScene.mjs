@@ -10,6 +10,13 @@ import { THIRD_PERSON_SPELL_ARM, THIRD_PERSON_SWORD_ARM, solveArm } from '../gam
 import { screenTurn } from '../ui/screenTurn.mjs';
 
 // a drag in the game's own frame (the game may be lying sideways on a screen that stays upright)
+// where an element sits across the page in layout pixels (transforms, like a quarter turn of the shell, ignored)
+function layoutLeft(element) {
+  let x = 0;
+  for (let node = element; node; node = node.offsetParent) x += node.offsetLeft;
+  return x;
+}
+
 const gamePoint = (event) => (screenTurn ? screenTurn.point(event.clientX, event.clientY) : { x: event.clientX, y: event.clientY });
 
 function disposeObject(root) {
@@ -389,14 +396,18 @@ export class MenuScene {
     this.sun.target.position.set(STAGE.x, 0, STAGE.z);
   }
 
-  // the part of the screen right of the banner, as shares of its width: the round frames its fights in it
+  // the part of the screen right of the banner, as shares of its width: the round frames its fights in it. Measured
+  // in layout pixels, not screen boxes: lying sideways on an upright phone (screenTurn.mjs), every screen box is turned
+  // a quarter and the banner would seem to cover the whole screen
   #measureBanner() {
-    const banner = this.banner?.getBoundingClientRect();
-    const view = this.renderer.domElement.getBoundingClientRect();
-    if (!this.tour || !banner?.width || view.width < 1) return;
-    const edge = (banner.right - view.left) / view.width;
+    const banner = this.banner;
+    const canvas = this.renderer.domElement;
+    if (!this.tour || !banner?.offsetWidth || canvas.clientWidth < 1) return;
+    const edge = (layoutLeft(banner) + banner.offsetWidth - layoutLeft(canvas)) / canvas.clientWidth;
     // a banner across most of a narrow screen leaves nothing clear of it: the fights take the middle
     this.tour.clear = edge > 0.62 ? [0.1, 0.9] : [Math.max(0.1, edge + 0.03), 0.96];
+    // a phone on its side: the knights a little smaller, with room around them
+    this.tour.compact = canvas.clientHeight < 520;
   }
 
   // restart the render loop (after it was starved by a hidden page, for instance)

@@ -12,6 +12,7 @@ import {
 } from './remoteVisualState.mjs';
 import { bufferedServerTime, castPoseWindowFromEvent, resolveSpellbladeState } from './spellbladePose.mjs';
 import { airborneLegFlex, landingStrength, pruneReactions } from './spellbladeMotion.mjs';
+import { gaitFootfall } from './sound/footsteps.mjs';
 
 // which body reacts to which combat event, and how
 const REACTION_EVENTS = Object.freeze({
@@ -154,6 +155,8 @@ export class RemotePlayers {
   constructor(scene, localId) {
     this.scene = scene;
     this.localId = localId;
+    // told each time a knight's foot comes down: (id, position, heavy 0..1), from the gait clip's own stride
+    this.onFootstep = null;
     this.rigs = new Map();
     this.samples = new Map();
     this.pendingCasts = new Map();
@@ -348,6 +351,12 @@ export class RemotePlayers {
         death: plan.clip === 'Death' ? { age: plan.time, push: d.lastPush ?? null } : null,
       };
       setRemoteVisualPlan(shell, plan, dt);
+      // a foot comes down where the gait clip puts it (its rate follows the knight's speed)
+      const gait = shell.visualInstance?.animator?.gaitPhase;
+      if ((state === 'run' || state === 'sprint') && Number.isFinite(gait) && Number.isFinite(d.lastGait) && gaitFootfall(d.lastGait, gait)) {
+        this.onFootstep?.(id, shell.root.position, state === 'sprint' ? 1 : 0);
+      }
+      d.lastGait = gait;
 
       const glowAge = (nowMs - (shell.hitGlowAt ?? -Infinity)) / 1000;
       setHitGlow(shell, glowAge < HIT_GLOW.seconds ? 1 - glowAge / HIT_GLOW.seconds : 0);

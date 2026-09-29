@@ -7,8 +7,11 @@ import {
   blockRecipe, burnLickRecipe, castRecipe, fireballImpactRecipe, parryRecipe, spatialize, swingRecipe, swordHitRecipe, wallClangRecipe,
 } from '../../game/sound/soundRecipes.mjs';
 import { buildTourPath, yawFacing } from './tourPath.mjs';
+import { voicePlacement } from '../../game/sound/voiceRules.mjs';
+import { footstepRecipe, gaitFootfall, surfaceAt, variantPicker } from '../../game/sound/footsteps.mjs';
+import { CASTLEWARD } from '../../../shared/worlds/castleward.mjs';
 import {
-  FIGHT_SHOT, castlewardBlockers, fightPair, fightShot, followEye, followPlan, lookFor, placeFight,
+  COMPACT_SHOT, FIGHT_SHOT, castlewardBlockers, fightPair, fightShot, followAim, followEye, followPlan, lookFor, placeFight,
 } from './tourCamera.mjs';
 import { FIGHT_POOL } from './tourFights.mjs';
 import { FIGHT_DISTANCES, buildSchedule, lineupFor, roundRandom, tourMoment } from './tourSchedule.mjs';
@@ -29,6 +32,8 @@ const RIVAL_DRESS = Object.freeze([
 ]);
 
 const _p = new THREE.Vector3();
+// his footsteps out on the round: soft, under the music and the steel
+const TOUR_STEPS = 0.28;
 const _q = new THREE.Quaternion();
 
 function angleLerp(a, b, t) {
@@ -69,8 +74,10 @@ export class TourDirector {
     this.performance = null;
     // the front door's own shot: the round starts and ends on it
     this.home = null;
-    // the part of the screen clear of the menu's banner (shares of its width), kept up to date by MenuScene
+    // the part of the screen clear of the menu's banner (shares of its width), and whether the screen is a small one
+    // (the knights a little smaller: COMPACT_SHOT), both kept up to date by MenuScene
     this.clear = FIGHT_SHOT.clear;
+    this.compact = false;
     this.visible = false;
     this.blockers = castlewardBlockers();
     // where each version of each fight goes at each stop, worked out once (tourCamera.placeFight)
@@ -264,6 +271,19 @@ export class TourDirector {
     root.rotation.y = this.heroYaw === undefined || snap ? yaw : angleLerp(this.heroYaw, yaw, Math.min(1, dt * 12));
     this.heroYaw = root.rotation.y;
     instance.animator.apply(plan, dt);
+    this.#footfall('hero', instance, root.position, plan.clip);
+  }
+
+  // his feet on the ground as the gait clip puts them down (its rate follows his pace), on whatever is underfoot
+  #footfall(key, instance, position, clip) {
+    const gait = instance.animator.gaitPhase;
+    this.lastGait ??= {};
+    const before = this.lastGait[key];
+    this.lastGait[key] = gait;
+    if (!this.sound || !this.visible || (clip !== 'Run' && clip !== 'Sprint') || !gaitFootfall(before, gait)) return;
+    this.stepVariant ??= variantPicker();
+    const recipe = footstepRecipe(Math.random, { surface: surfaceAt(CASTLEWARD, position.x, position.z, position.y), variant: this.stepVariant(key) });
+    this.#play(recipe, position, TOUR_STEPS);
   }
 
   // an animator plan from a fight pose: its clip, and the procedural layer (bends, crouch, the arms by the solver)
@@ -273,6 +293,8 @@ export class TourDirector {
     plan.motion = {
       extra: pose.rotations ?? [],
       crouch: pose.crouch ?? 0,
+      // a knight felled on the round goes down the way one does in the arena (the slump, then lying on the ground)
+      death: pose.clip === 'Death' ? { age: pose.time, push: null } : null,
       solve: sword || spell ? (bones) => {
         if (sword) solveArm(bones, THIRD_PERSON_SWORD_ARM, sword.target, sword.weight);
         if (spell) solveArm(bones, THIRD_PERSON_SPELL_ARM, spell.target, spell.weight);
@@ -318,7 +340,9 @@ export class TourDirector {
         rival.shadows = near;
         rival.instance.root.traverse((object) => { if (object.isMesh) object.castShadow = near; });
       }
-      rival.instance.animator.apply(this.#plan(pose), dt);
+      const plan = this.#plan(pose);
+      rival.instance.animator.apply(plan, dt);
+      this.#footfall(`rival-${index}`, rival.instance, position, plan.clip);
     });
   }
 
@@ -503,8 +527,10 @@ export class TourDirector {
   }
 
   #say(line) {
-    const place = this.#hear(this.#chest(this.hero.root));
-    this.voice.say(line, { speaker: 'tour-spellblade', pan: place.pan, gain: 0.75 * place.gain });
+    // heard like another knight's voice nearby: from where he stands, a touch of the courtyard, no echo
+    this.camera.getWorldDirection(_p);
+    const place = voicePlacement(this.camera.position, Math.atan2(-_p.x, -_p.z), this.#chest(this.hero.root));
+    if (place) this.voice.say(line, { speaker: 'tour-spellblade', pan: place.pan, gain: 0.8 * place.gain, reverb: place.reverb });
   }
 
   // -------------------------------------------------------------------------------------------------- camera
@@ -517,10 +543,15 @@ export class TourDirector {
     const forward = new THREE.Vector3(here.dir[0], 0, here.dir[1]);
     // screen-left when looking along a horizontal direction d is (d.z, 0, -d.x) in this world
     const left = new THREE.Vector3(forward.z, 0, -forward.x);
+    const lens = this.compact ? COMPACT_SHOT : null;
+    const eye = followEye(here, this.follow.at(onPath));
+    const aim = hero.clone().addScaledVector(forward, 2.6).addScaledVector(left, 1.2).add(new THREE.Vector3(0, 1.1, 0));
+    const followFov = lens?.followFov ?? FIGHT_SHOT.fov;
     const follow = {
-      position: new THREE.Vector3(...followEye(here, this.follow.at(onPath))),
-      target: hero.clone().addScaledVector(forward, 2.6).addScaledVector(left, 1.2).add(new THREE.Vector3(0, 1.1, 0)),
-      fov: 46,
+      position: new THREE.Vector3(...eye),
+      // turned just enough to keep him clear of the banner (on a narrow screen he runs further right of it)
+      target: new THREE.Vector3(...followAim(eye, [hero.x, hero.z], aim.toArray(), { aspect: this.camera.aspect, clear: this.clear, fov: followFov })),
+      fov: followFov,
     };
     // how much the nearest fight holds the frame: from a second before he stops until he is under way again
     let weight = 0;
@@ -534,7 +565,9 @@ export class TourDirector {
         // both knights where the script has them a beat from now (a leap back, a stroll round, a run for it), framed
         // right of the banner (tourCamera.mjs)
         const pair = fightPair(fight, frame.plan, t + FIGHT_SHOT.lead);
-        const shot = fightShot(pair.hero, pair.rival, frame.look, { aspect: this.camera.aspect, clear: this.clear, held: pair.held });
+        const shot = fightShot(pair.hero, pair.rival, frame.look, {
+          aspect: this.camera.aspect, clear: this.clear, held: pair.held, fov: lens?.fov ?? FIGHT_SHOT.fov, fill: lens?.fill ?? 1,
+        });
         fightView = { position: new THREE.Vector3(...shot.position), target: new THREE.Vector3(...shot.target), fov: shot.fov };
       }
     });
@@ -565,6 +598,11 @@ export class TourDirector {
     this.view.position.lerp(want.position, k);
     this.view.target.lerp(want.target, k);
     this.view.fov += (want.fov - this.view.fov) * k;
+    // and whatever it is doing, it never lets him slip behind the banner (setting off, he walks straight across the
+    // front door's shot, faster than the steadicam follows)
+    this.view.target.set(...followAim(this.view.position.toArray(), [hero.x, hero.z], this.view.target.toArray(), {
+      aspect: this.camera.aspect, clear: this.clear, fov: this.view.fov,
+    }));
     return this.view;
   }
 

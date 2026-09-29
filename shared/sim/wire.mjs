@@ -121,7 +121,7 @@ export function applyRoomCommand(room, player, message, time) {
     case 'attack': {
       const inputTime = compensatedInputTime(message.clientTime, time);
       if (message.down) beginAttack(room, player.id, inputTime);
-      else endAttack(room, player.id, time);
+      else endAttack(room, player.id, time, inputTime);
       return {};
     }
     case 'guard': setGuard(room, player.id, Boolean(message.down), compensatedInputTime(message.clientTime, time)); return {};

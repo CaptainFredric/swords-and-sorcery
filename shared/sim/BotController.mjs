@@ -16,6 +16,20 @@ const ESCAPE_DURATION_SEC = 0.7;
 const BOT_SPRINT_DISTANCE = 9;
 const BOT_SPRINT_STAMINA_RESERVE = 45;
 
+// When its foe falls, a bot does not keep hacking at the body or rush on as if someone still stood there. It lets
+// the attack go (a swing already under way still lands), looks at the fallen a moment to be sure, steps back, then
+// turns to find the next foe, or, with nobody to fight, walks the middle of the arena until someone is back. It is
+// short: never a long gloat to be punished for, and a foe who comes at it in the meantime is answered at once.
+export const POST_KILL = Object.freeze({
+  confirm: Object.freeze([0.35, 0.6]),     // seconds looking at the body
+  settle: Object.freeze([0.45, 0.7]),      // then stepping back and turning away
+  threat: 3.5,                             // metres: a live foe this close ends it early
+  walkPace: 0.4,                           // walking away from the body (a share of a run: movement's `pace`)
+  patrolRadius: 4,                         // metres around the arena's middle it wanders while nobody is there
+  patrolPace: 0.45,                        // how fast it walks meanwhile
+  patrolRest: Object.freeze([0.6, 1.4]),   // and how long it stands and looks about at each spot
+});
+
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
@@ -70,6 +84,8 @@ function ensureAi(actor, nowSec, random) {
   }
   actor.ai = {
     targetId: null,
+    postKill: null,
+    patrol: null,
     nextThinkAt: nowSec,
     nextDefensiveDecisionAt: nowSec + MIN_REACTION_SEC + random() * REACTION_JITTER_SEC,
     guardUntil: -Infinity,
@@ -208,6 +224,68 @@ function updateMovement(actor, target, distance, ai, aggression, world, nowSec) 
   };
 }
 
+// the fallen foe's body, and how long the bot takes over it (see POST_KILL)
+function beginPostKill(room, actor, fallen, ai, nowSec, random) {
+  const confirm = POST_KILL.confirm[0] + random() * (POST_KILL.confirm[1] - POST_KILL.confirm[0]);
+  const settle = POST_KILL.settle[0] + random() * (POST_KILL.settle[1] - POST_KILL.settle[0]);
+  ai.postKill = { body: { x: fallen.position.x, z: fallen.position.z }, confirmUntil: nowSec + confirm, until: nowSec + confirm + settle };
+  ai.targetId = null;
+  ai.patrol = null;
+  // no more pressure on the body: the button is let go (a swing already under way still lands)
+  if (actor.attackHeld) endAttack(room, actor.id, nowSec);
+  ai.attackReleaseAt = -Infinity;
+  if (actor.guarding) setGuard(room, actor.id, false, nowSec);
+}
+
+// a live foe close enough to matter (it ends the pause over a body at once)
+function threatNear(room, actor) {
+  const foe = nearestHuman(room, actor);
+  return foe && distance2d(actor, foe) <= POST_KILL.threat ? foe : null;
+}
+
+// over the body: a look at it, then a step back and a turn toward whoever is left (or the arena's middle)
+function postKillMovement(room, actor, ai, nowSec) {
+  const body = { position: { x: ai.postKill.body.x, z: ai.postKill.body.z } };
+  const next = nearestHuman(room, actor);
+  if (nowSec < ai.postKill.confirmUntil) {
+    // standing over it, looking down at it
+    actor.input = { forward: 0, right: 0, jump: false, sprint: false, yaw: yawToward(actor, body), pitch: -0.25 };
+    return;
+  }
+  // then a walk away from it, toward whoever is left (or the arena's middle)
+  const toward = next ?? { position: { x: 0, z: 0 } };
+  actor.input = { forward: 1, right: 0, jump: false, sprint: false, pace: POST_KILL.walkPace, yaw: yawToward(actor, toward), pitch: 0 };
+}
+
+// nobody to fight (the foe is down and not back yet): walk the middle of the arena, not the body or a spawn
+function patrol(actor, ai, nowSec, random, world) {
+  const here = actor.position;
+  // at a spot: stand a moment and look about, then on to the next
+  if (ai.patrol?.restUntil > nowSec) {
+    const look = ai.patrol.lookFrom + Math.sin((nowSec - ai.patrol.restFrom) * 1.6) * 0.7;
+    actor.input = { forward: 0, right: 0, jump: false, sprint: false, yaw: look, pitch: 0 };
+    actor.yaw = look;
+    return;
+  }
+  const arrived = ai.patrol && Math.hypot(ai.patrol.x - here.x, ai.patrol.z - here.z) < 1.2;
+  if (arrived && !ai.patrol.rested) {
+    const rest = POST_KILL.patrolRest[0] + random() * (POST_KILL.patrolRest[1] - POST_KILL.patrolRest[0]);
+    Object.assign(ai.patrol, { rested: true, restFrom: nowSec, restUntil: nowSec + rest, lookFrom: actor.yaw });
+    actor.input = { forward: 0, right: 0, jump: false, sprint: false, yaw: actor.yaw, pitch: 0 };
+    return;
+  }
+  const stale = !ai.patrol || arrived || nowSec > ai.patrol.until
+    || forwardLaneBlocked(actor, yawToward(actor, { position: ai.patrol }), world);
+  if (stale) {
+    const angle = random() * Math.PI * 2;
+    const reach = POST_KILL.patrolRadius * (0.35 + 0.65 * random());
+    ai.patrol = { x: Math.cos(angle) * reach, z: Math.sin(angle) * reach, until: nowSec + 6 };
+  }
+  const yaw = yawToward(actor, { position: ai.patrol });
+  actor.input = { forward: 1, right: 0, jump: false, sprint: false, pace: POST_KILL.patrolPace, yaw, pitch: 0 };
+  actor.yaw = yaw;
+}
+
 export function stepBotControllers(
   room,
   nowSec,
@@ -224,13 +302,27 @@ export function stepBotControllers(
     releaseExpiredActions(room, actor, ai, nowSec);
 
     let target = ai.targetId ? room.players.get(ai.targetId) : null;
+    // its foe has just fallen: stop, be sure, and move on (POST_KILL)
+    if (target && !target.alive && !ai.postKill) beginPostKill(room, actor, target, ai, nowSec, random);
+    if (ai.postKill) {
+      const threat = threatNear(room, actor);
+      if (nowSec >= ai.postKill.until || threat) {
+        ai.postKill = null;
+        ai.nextThinkAt = Math.max(ai.nextThinkAt, nowSec + (threat ? 0 : THINK_INTERVAL_SEC));
+      } else {
+        if (actor.attackHeld) endAttack(room, actor.id, nowSec);
+        postKillMovement(room, actor, ai, nowSec);
+        actor.yaw = actor.input.yaw;
+        continue;
+      }
+    }
     if (!target || target.actorKind !== 'human' || !target.connected || !target.alive) {
       target = nearestHuman(room, actor);
       ai.targetId = target?.id ?? null;
     }
 
     if (!target) {
-      actor.input = { forward: 0, right: 0, jump: false, yaw: actor.yaw, pitch: actor.pitch };
+      patrol(actor, ai, nowSec, random, world);
       ai.avoidUntil = -Infinity;
       ai.escapeUntil = -Infinity;
       resetProgressSample(actor, ai, nowSec);
@@ -238,6 +330,7 @@ export function stepBotControllers(
       if (actor.guarding) setGuard(room, actor.id, false, nowSec);
       continue;
     }
+    ai.patrol = null;
 
     const distance = distance2d(actor, target);
     updateMovement(actor, target, distance, ai, aggressionScale, world, nowSec);
