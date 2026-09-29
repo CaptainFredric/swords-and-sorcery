@@ -53,10 +53,11 @@ export class SpellbladeClothRig {
 
   #bodyFrame() {
     const anchorInRoot = this.#anchorInRoot(_q);
-    // the anchor's turn away from its rest, applied to the root: the body frame in the world
+    // the anchor's turn away from its rest, applied to the root: the body frame in the world (its lean)
     const body = _body.copy(this.worldQuat).multiply(anchorInRoot.multiply(this.restInverse));
-    _fwd.set(0, 0, -1).applyQuaternion(body);
     _up.set(0, 1, 0).applyQuaternion(body);
+    // which way he faces is the root's (the knight turning), not the animation's twist from stride to stride
+    _fwd.set(0, 0, -1).applyQuaternion(this.worldQuat);
     const heading = Math.atan2(_fwd.x, -_fwd.z);
     const flatForward = { x: Math.sin(heading), z: -Math.cos(heading) };
     const flatRight = { x: -flatForward.z, z: flatForward.x };
@@ -72,7 +73,8 @@ export class SpellbladeClothRig {
   apply(dt) {
     if (!this.enabled) return;
     this.anchor.updateWorldMatrix(true, false);
-    this.anchor.getWorldPosition(this.position);
+    // the knight's own travel (the root), not the animated hips' sway from stride to stride
+    this.root.getWorldPosition(this.position);
     this.root.getWorldQuaternion(this.worldQuat);
     this.forward.set(0, 0, -1).applyQuaternion(this.worldQuat).setY(0).normalize();
     this.right.crossVectors(this.forward, UP).normalize();
@@ -94,7 +96,6 @@ export class SpellbladeClothRig {
         }, {
           turn: wrapAngle(body.heading - before.heading) / dt,
           tilt: { forward: body.forward, right: body.right },
-          tiltRate: { forward: (body.forward - before.forward) / dt, right: (body.right - before.right) / dt },
         });
       }
       this.previousPosition = now;

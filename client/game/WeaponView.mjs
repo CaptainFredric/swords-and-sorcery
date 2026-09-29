@@ -10,6 +10,7 @@ import { FIRST_PERSON_WEAPON_SCALE, resolveWeaponPose } from './weaponPose.mjs';
 import { FP_MOTION, FirstPersonMotion } from './firstPersonMotion.mjs';
 import { OFF_HAND_CLEAR, comboPose } from './fpSlash.mjs';
 import { FIRST_PERSON_OFF_ARM, solveArm, solveSwordArm } from './swordArmIK.mjs';
+import { LocalSwordChain } from './localSwordChain.mjs';
 
 function damp(value, target, amount) {
   return value + (target - value) * amount;
@@ -206,7 +207,10 @@ export class WeaponView {
     this.magicLight = new THREE.PointLight(SPELLBLADE_PALETTE.magic, 1.0, 2.1, 2);
     this.magicAnchor.add(this.magicLight);
 
-    this.attackHeld = false;
+    // the sword chain, played ahead of the server by its own rule: a tap is one swing, a hold chains, and a swing
+    // under way plays out when the button is let go (localSwordChain.mjs)
+    this.swordChain = new LocalSwordChain();
+    this.attackButton = false;
     this.attackStartedAt = 0;
     this.guard = false;
     this.recoilUntil = 0;
@@ -275,15 +279,26 @@ export class WeaponView {
     });
   }
 
+  /** The attack button: a press starts a chain (or asks for its next strike); a release lets go (the swing plays out). */
   setAttack(held) {
-    if (held && !this.attackHeld) this.attackStartedAt = performance.now() / 1000;
-    this.attackHeld = held;
+    if (held && !this.attackButton) this.swordChain.press(performance.now() / 1000);
+    if (!held) this.swordChain.release();
+    this.attackButton = held;
     if (held) this.guard = false;
   }
 
+  /** Stop the chain outright (a parry, a wall, a stagger, a fall, the match over). */
+  cancelAttack() {
+    this.swordChain.cancel();
+    this.attackButton = false;
+  }
+
+  /** Whether the arms are in the sword chain. */
+  get attackHeld() { return this.swordChain.active; }
+
   setGuard(guard) {
     this.guard = guard;
-    if (guard) this.attackHeld = false;
+    if (guard) this.cancelAttack();
   }
 
   /**
@@ -303,7 +318,7 @@ export class WeaponView {
     this.castSpell = spell;
     this.castReleased = false;
     this.guard = false;
-    this.attackHeld = false;
+    this.cancelAttack();
   }
 
   dash() {
@@ -312,7 +327,7 @@ export class WeaponView {
 
   wallImpact() {
     this.recoilUntil = performance.now() / 1000 + 0.23;
-    this.attackHeld = false;
+    this.cancelAttack();
     this.motion.clang();
   }
 
@@ -352,10 +367,12 @@ export class WeaponView {
    */
   update(timeSec, dt = 0, { speed = 0, grounded = true, yaw = 0, pitch = 0 } = {}) {
     const movingAmount = Math.min(1, speed / 7.5);
+    const chain = this.swordChain.step(timeSec);
+    if (chain) this.attackStartedAt = chain.startedAt;
     const pose = resolveWeaponPose({
       timeSec,
       movingAmount,
-      attackHeld: this.attackHeld,
+      attackHeld: Boolean(chain),
       attackStartedAt: this.attackStartedAt,
       guard: this.guard,
       recoilUntil: this.recoilUntil,
@@ -465,7 +482,8 @@ export class WeaponView {
     }
     if (!this.lastCombo) return null;
     if (this.comboReleasedAt === null) this.comboReleasedAt = timeSec;
-    const left = 1 - (timeSec - this.comboReleasedAt) / 0.22;
+    // back to rest from wherever the last swing left the arms
+    const left = 1 - (timeSec - this.comboReleasedAt) / 0.3;
     if (left <= 0) {
       this.lastCombo = null;
       return null;

@@ -69,7 +69,8 @@ function strideRate(player, clipSpeed) {
   const velocity = player?.velocity;
   if (!velocity) return 1;
   const speed = Math.hypot(finite(velocity.x), finite(velocity.z));
-  return Math.max(0.75, Math.min(1.2, speed / clipSpeed));
+  // (down to a walk: a bot easing off, a chilled knight)
+  return Math.max(0.4, Math.min(1.2, speed / clipSpeed));
 }
 
 function airPhase(verticalVelocity) {

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { SpellbladeClothRig } from './SpellbladeClothRig.mjs';
 import { blendProgressFor, blendSeconds, blendWeights } from './spellbladeBlend.mjs';
-import { GAIT_CLIPS, deathSlump, gaitTime, reactionPose } from './spellbladeMotion.mjs';
+import { DEATH_REST, GAIT_CLIPS, deathRest, deathSlump, gaitTime, reactionPose } from './spellbladeMotion.mjs';
 
 // three.js strips '.', ':', '/' and brackets from glTF node names ("thigh.L" loads as "thighL")
 function sanitize(name) {
@@ -13,6 +13,25 @@ const _q = new THREE.Quaternion();
 const _qp = new THREE.Quaternion();
 const _qpInv = new THREE.Quaternion();
 const _axis = new THREE.Vector3();
+const clamp01 = (t) => Math.max(0, Math.min(1, t));
+
+// the turn about a level `axis` through `pivot` (root space, radians, the smaller way round) that brings `point` down
+// to `height`, or as low as it can go if it cannot reach
+function swingDown(pivot, point, axis, height) {
+  const r = [point.x - pivot.x, point.y - pivot.y, point.z - pivot.z];
+  const along = r[0] * axis[0] + r[2] * axis[2];
+  const perp = [r[0] - axis[0] * along, r[1], r[2] - axis[2] * along];
+  // axis × perp, the way the point moves for a positive turn
+  const b = [axis[1] * perp[2] - axis[2] * perp[1], axis[2] * perp[0] - axis[0] * perp[2], axis[0] * perp[1] - axis[1] * perp[0]];
+  // height(θ) = pivot.y + perp.y cos θ + b.y sin θ
+  const size = Math.hypot(perp[1], b[1]);
+  if (size < 1e-6) return 0;
+  const phase = Math.atan2(b[1], perp[1]);
+  const want = Math.max(-1, Math.min(1, (height - pivot.y) / size));
+  if (point.y <= height) return 0;
+  const options = [phase + Math.acos(want), phase - Math.acos(want)].map((t) => Math.atan2(Math.sin(t), Math.cos(t)));
+  return options.reduce((best, t) => (Math.abs(t) < Math.abs(best) ? t : best));
+}
 const _v = new THREE.Vector3();
 const _s = new THREE.Vector3();
 const _origin = new THREE.Vector3();
@@ -209,7 +228,7 @@ export class SpellbladeAnimator {
     const landFlex = pose.legFlex + (Number.isFinite(motion.crouch) ? Math.max(0, motion.crouch) : 0);
     const airFlex = Number.isFinite(motion.airFlex) ? Math.max(0, motion.airFlex) : 0;
     const solve = typeof motion.solve === 'function' ? motion.solve : null;
-    if (!pose.rotations.length && landFlex + airFlex < 1e-4 && Math.hypot(...pose.pelvis) < 1e-5 && !solve) return;
+    if (!pose.rotations.length && landFlex + airFlex < 1e-4 && Math.hypot(...pose.pelvis) < 1e-5 && !solve && !motion.death) return;
 
     this.root.updateMatrixWorld(true);
     _rootInv.copy(this.root.matrixWorld).invert();
@@ -237,8 +256,70 @@ export class SpellbladeAnimator {
       else this.#rotateInRootSpace(this.bone(bone), axis, angle);
     }
     if (pelvisBone && Math.hypot(...pose.pelvis) > 1e-5) this.#offsetInRootSpace(pelvisBone, pose.pelvis);
+    if (motion.death) this.#lieDown(motion.death.age);
     // last, a solver that places bones by where they should end up (reads the pose everything above has made)
     solve?.(this.boneApi);
+  }
+
+  // the rest of a death's fall (spellbladeMotion.deathRest): the knees give and the body comes down onto the ground
+  // rather than kicking its feet up; the whole body turns about the heels until the trunk lies level, the arms drop
+  // to the ground beside it, and its lowest part rests on the ground (never through it, never floating once down)
+  #lieDown(age) {
+    const rest = deathRest(age);
+    const grounded = Math.max(rest, clamp01((age - DEATH_REST.buckle) / DEATH_REST.buckleSeconds));
+    if (!(grounded > 1e-4)) return;
+    const pelvis = this.bone('pelvis');
+    const skeleton = pelvis?.parent;
+    if (!skeleton?.isBone || !skeleton.parent) return;
+    const at = (name) => {
+      const bone = this.bone(name);
+      return bone ? new THREE.Vector3().setFromMatrixPosition(bone.matrixWorld).applyMatrix4(_rootInv) : null;
+    };
+    const hips = at('pelvis');
+    const head = at('head');
+    if (!hips || !head) return;
+    const across = Math.hypot(head.x - hips.x, head.z - hips.z);
+    // about the axis across the fall (up × the way it goes over)
+    const axis = across > 1e-3 ? [(head.z - hips.z) / across, 0, -(head.x - hips.x) / across] : null;
+    if (rest > 1e-4 && axis) {
+      // how far the trunk still slants up from the hips to the head: turned that far, about the heels
+      const slant = Math.atan2(head.y - hips.y, across);
+      if (slant > 0) {
+        const heels = () => {
+          const l = at('foot.L');
+          const r = at('foot.R');
+          return l && r ? l.add(r).multiplyScalar(0.5) : at('pelvis').setY(0);
+        };
+        const before = heels();
+        this.#rotateInRootSpace(skeleton, axis, slant * Math.min(1, rest));
+        const after = heels();
+        this.#offsetInRootSpace(skeleton, [before.x - after.x, before.y - after.y, before.z - after.z]);
+      }
+    }
+    // resting: lowered onto its lowest part as he comes down (the trunk and legs: the arms follow it down after)
+    const settleOn = (names, lowerBy) => {
+      let lift = -Infinity;
+      for (const name of names) {
+        const point = at(name);
+        if (point) lift = Math.max(lift, DEATH_REST.clearance[name] - point.y);
+      }
+      if (!Number.isFinite(lift)) return;
+      const settle = Math.max(0, lift) + Math.min(0, lift) * lowerBy;
+      if (Math.abs(settle) > 1e-5) this.#offsetInRootSpace(skeleton, [0, settle, 0]);
+    };
+    settleOn(['pelvis', 'chest', 'head', 'foot.L', 'foot.R'], Math.min(1, grounded));
+    if (rest > 1e-4 && axis) {
+      // the arms go down with him: each swung about the shoulder, the short way, until the hand is on the ground
+      for (const side of ['L', 'R']) {
+        const shoulder = at(`upper_arm.${side}`);
+        const hand = at(`hand.${side}`);
+        if (!shoulder || !hand) continue;
+        const turn = swingDown(shoulder, hand, axis, DEATH_REST.clearance[`hand.${side}`]);
+        if (Math.abs(turn) > 1e-3) this.#rotateInRootSpace(this.bone(`upper_arm.${side}`), axis, turn * Math.min(1, rest));
+      }
+    }
+    // and nothing left in the ground
+    settleOn(Object.keys(DEATH_REST.clearance), 0);
   }
 
   #rootY(bone) {

@@ -395,12 +395,13 @@ def close_helm(x, sr, preset, report=None):
         ('bell', 150, 3.5, 1.2),      # proximity: he is right here
         ('bell', 260, 1.5, 1.0),      # chest
         ('bell', 620, -1.5, 1.2),     # the recording room's boxiness
-        ('bell', 1250, 2.0, 0.9),     # the helm's ring, kept small
+        ('bell', 1250, 1.0, 0.9),     # the helm's ring: a hint of it, no more
         ('bell', 2700, 1.5, 1.2),     # clarity: every word lands
-        ('bell', 4500, -2.5, 1.5),    # the bite taken off: it is behind steel
-        ('lowpass', 7000),
+        ('bell', 4500, -1.5, 1.5),    # a little of the bite taken off: behind steel, every consonant still there
+        ('lowpass', 8000),
     ])
-    x = helm(x, sr, reflections=((1.1, 0.22), (2.3, 0.12), (3.7, 0.05)))
+    # the helm's own reflections, well under the voice: the dry performance leads
+    x = helm(x, sr, reflections=((1.1, 0.1), (2.3, 0.05), (3.7, 0.02)))
     x = dynamics(x, sr, above_db=CLOSE['compress_db'], squeeze=CLOSE['compress_ratio'], attack_ms=4, release_ms=80)
     x = saturate(x, preset['drive'])
     x = dynamics(x, sr, below_db=-36, ratio=2.0)
@@ -409,8 +410,17 @@ def close_helm(x, sr, preset, report=None):
     return loudness(x, sr, preset['rms_db'])
 
 
-def with_echo(x, sr, echo='wall'):
-    """Roughly what the game adds: repeats off the walls that darken, and a stone courtyard behind them."""
+def with_echo(x, sr, echo='nearby'):
+    """Roughly what the game adds: 'nearby' (another knight a few metres off: a touch of the stone courtyard, no echo, as
+    the game plays it now), or the old 'wall'/'shout' repeats that darken, with the courtyard behind them."""
+    if echo == 'nearby':
+        rng = np.random.default_rng(3)
+        t = np.arange(int(sr * 1.6)) / sr
+        impulse = rng.standard_normal(len(t)) * (1 - t / 1.6) ** 2.4 * 0.02
+        out = np.concatenate([x, np.zeros(int(sr * 1.2))])
+        room = np.fft.irfft(np.fft.rfft(out, len(out) + len(impulse)) * np.fft.rfft(impulse, len(out) + len(impulse)))[:len(out)]
+        mix = out + room * 0.15          # about a quarter of the old courtyard (0.5 below)
+        return mix / max(1, np.max(np.abs(mix)) / 0.89)
     delay, feedback = {'wall': (0.2, 0.26), 'shout': (0.32, 0.46)}[echo]
     tail = int(sr * 2.5)
     out = np.concatenate([x, np.zeros(tail)])
@@ -481,7 +491,7 @@ def clear_line(line):
             os.remove(os.path.join(OUT_DIR, name))
 
 
-def publish(line, takes, preview_dir=None, echo='wall', notes=None):
+def publish(line, takes, preview_dir=None, echo='nearby', notes=None):
     """Write processed takes of one line (replacing its earlier ones)."""
     clear_line(line)
     for number, x in enumerate(takes, start=1):
@@ -495,7 +505,7 @@ def publish(line, takes, preview_dir=None, echo='wall', notes=None):
         with open(base + '.json', 'w') as f:
             json.dump({'seconds': round(len(x) / SR, 2)}, f)
         if preview_dir:
-            save_wav(os.path.join(preview_dir, f'{file_stem(line)}-{number}-with-echo.wav'), with_echo(x, SR, echo))
+            save_wav(os.path.join(preview_dir, f'{file_stem(line)}-{number}-nearby.wav'), with_echo(x, SR, echo))
         note = notes[number - 1] if notes else {}
         extra = f", room T60 {note['t60']}s taken out" if 't60' in note else ''
         print(f'  {file_stem(line)}-{number}: {len(x) / SR:.2f}s, peak {db(np.max(np.abs(x))):.1f} dBFS{extra}')
@@ -540,7 +550,7 @@ def main():
             takes = [close_helm(load_any(path), SR, preset, report=note) for path, note in zip(paths, notes)]
         else:
             takes = [knight(load_any(path), SR, preset) for path in paths]
-        publish(line, takes, preview_dir=preview_dir, echo='wall', notes=notes)
+        publish(line, takes, preview_dir=preview_dir, notes=notes)
 
     manifest = write_manifest()
     print('manifest:', ', '.join(f'{line} ({len(takes)})' for line, takes in manifest['lines'].items()) or 'no lines yet')

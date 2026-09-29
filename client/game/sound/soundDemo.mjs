@@ -5,7 +5,7 @@ import { Ambience } from './Ambience.mjs';
 import { bellTollRecipe, gateRecipe, uiClankRecipe, warDrumRecipe } from './atmosphereRecipes.mjs';
 import { MusicPlayer } from './music/MusicPlayer.mjs';
 import { SoundEngine } from './SoundEngine.mjs';
-import { CLOSE_ROOM } from './VoiceBank.mjs';
+import { VOICE_HEARING } from './voiceRules.mjs';
 import { appUrl } from '../../appUrl.mjs';
 
 export const DEMOS = {
@@ -72,7 +72,7 @@ export const DEMOS = {
       for (const [file, at] of lines) {
         const data = await (await fetch(appUrl(`/client/assets/voice/${file}.m4a`))).arrayBuffer();
         const buffer = await engine.ctx.decodeAudioData(data);
-        engine.playBuffer(buffer, { bus: 'voice', at, gain: 0.95, reverb: 0.2 * CLOSE_ROOM });
+        engine.playBuffer(buffer, { bus: 'voice', at, gain: 0.95, reverb: VOICE_HEARING.own });
       }
     },
   },

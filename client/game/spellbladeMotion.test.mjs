@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  REACTIONS, airborneLegFlex, bladeTravel, deathSlump, gaitTime, landingStrength, localPushDirection, pruneReactions,
+  DEATH_REST, REACTIONS, airborneLegFlex, bladeTravel, deathRest, deathSlump, gaitTime, landingStrength, localPushDirection, pruneReactions,
   reactionEnvelope, reactionPose, sorceryLevel,
 } from './spellbladeMotion.mjs';
 
@@ -135,4 +135,22 @@ test('palm sorcery is a small ember at rest and only swells while a cast gathers
   assert.ok(charge[0] < charge[1] && charge[1] < charge[2], 'the charge gathers');
   assert.ok(sorceryLevel('Cast', 0.58, 1) > 0.95, 'flares at the release');
   assert.ok(sorceryLevel('Cast', 0.99, 1) < 0.05, 'settles back to the ember');
+});
+
+test('after the Death clip topples him, the body carries on down to lie on the ground, lands with a bounce and stays', () => {
+  assert.equal(deathRest(0), 0);
+  assert.equal(deathRest(DEATH_REST.start), 0, 'the clip has him until its topple is under way');
+  // falling: slow to start, quick at the end
+  const quarter = deathRest(DEATH_REST.start + (DEATH_REST.land - DEATH_REST.start) * 0.25);
+  const half = deathRest(DEATH_REST.start + (DEATH_REST.land - DEATH_REST.start) * 0.5);
+  assert.ok(quarter < 0.1 && half > quarter && half < 0.5);
+  assert.equal(deathRest(DEATH_REST.land), 1, 'flat on the ground');
+  // the bounce lifts him a touch, and then he is still for good
+  const bounce = Math.min(...[0.1, 0.2, 0.3].map((t) => deathRest(DEATH_REST.land + t)));
+  assert.ok(bounce < 1 && bounce > 1 - DEATH_REST.bounce - 1e-9);
+  assert.equal(deathRest(DEATH_REST.settled), 1);
+  assert.equal(deathRest(10), 1);
+  // his knees ease half straight as he lies (the slump's bend, less of it once he is down)
+  const knees = (age) => Math.abs(deathSlump(age, null, 0).rotations.find((r) => r.bone === 'shin.L')?.angle ?? 0);
+  assert.ok(knees(3) < knees(0.8) && knees(3) > 0.3 * knees(0.8));
 });

@@ -114,7 +114,10 @@ export function movePlayer(previous, input, dt, nowSec, world) {
     const fz = -cos;
     const rx = cos;
     const rz = -sin;
-    const speed = locomotionSpeed(state);
+    // pace: a walk for those that want one (a bot easing off or wandering; never above a run, and players' own input
+    // does not carry it: shared/sim/wire.mjs builds theirs field by field)
+    const pace = Number.isFinite(input.pace) ? Math.max(0.3, Math.min(1, input.pace)) : 1;
+    const speed = locomotionSpeed(state) * pace;
     state.velocity.x = (fx * nf + rx * nr) * speed;
     state.velocity.z = (fz * nf + rz * nr) * speed;
   }

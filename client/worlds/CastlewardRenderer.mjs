@@ -4,7 +4,7 @@ import { buildCastlewardDecorPlan, insideCastlewardFootprint } from './castlewar
 import { buildCastlewardTerrainSkirts } from './castlewardTerrain.mjs';
 import { FacetBuilder, KIT_PALETTE as P, facetMesh, kitMaterials, seededRandom, shadeColor, valueNoise } from './kit/facetKit.mjs';
 import { banner, brazier, cottage, createBatch, hedgerow, masonry, palisade, runeStone, sconce, tree } from './kit/kitPieces.mjs';
-import { floorTile, outerTerrain } from './kit/kitTerrain.mjs';
+import { floorTile, outerTerrain, scatterGroundDetail } from './kit/kitTerrain.mjs';
 import { archeryTarget, barrel, crate, flowers, lanternPost, pavilion, pennant, sacks, strawBales, weaponRack, woodpile } from './kit/kitProps.mjs';
 
 // Late afternoon over Castleward: a warm low sun, a neutral sky fill and a honey haze. The game runtime applies the
@@ -55,8 +55,11 @@ export class CastlewardRenderer {
         minX: other.center[0] - other.size[0] / 2, maxX: other.center[0] + other.size[0] / 2,
         minZ: other.center[2] - other.size[2] / 2, maxZ: other.center[2] + other.size[2] / 2,
       }));
-      floorTile(batch, floor, this.decor.paths, rand, covers);
+      floorTile(batch, floor, this.decor.paths, rand, covers, (x, z) => this.#groundShade(x, z, floor.y));
     });
+    // tufts, pebbles and a few flowers over the grass and earth (their own seeded stream: the rest of the build is
+    // unchanged by them)
+    scatterGroundDetail(batch, { floors: CASTLEWARD.floors, paths: this.decor.paths, solids: CASTLEWARD.solids, seed: 4242 });
     for (const ramp of CASTLEWARD.ramps) this.#ramp(batch, rand, ramp);
     for (const solid of CASTLEWARD.solids) this.#solid(batch, rand, solid);
     this.#castle(batch, rand);
@@ -78,6 +81,23 @@ export class CastlewardRenderer {
       if (!builder.triangleCount) continue;
       this.group.add(facetMesh(builder, this.materials[name], { castShadow: !shadowless.has(name), receiveShadow: true, name: `castleward-${name}` }));
     }
+  }
+
+  // the ground at the foot of a wall, a house or a hedge is darker (the lee of it: shade, damp, trodden dirt), fading
+  // out over a metre or so
+  #groundShade(x, z, y) {
+    let factor = 1;
+    for (const solid of CASTLEWARD.solids) {
+      const bottom = solid.center[1] - solid.size[1] / 2;
+      if (Math.abs(bottom - y) > 0.8) continue;
+      const dx = Math.max(0, Math.abs(x - solid.center[0]) - solid.size[0] / 2);
+      const dz = Math.max(0, Math.abs(z - solid.center[2]) - solid.size[2] / 2);
+      const d = Math.hypot(dx, dz);
+      if (d >= 1.2) continue;
+      const t = d / 1.2;
+      factor = Math.min(factor, 1 - 0.2 * (1 - t * t * (3 - 2 * t)));
+    }
+    return factor;
   }
 
   // a paved slope with masonry cheeks down to the ground on both sides

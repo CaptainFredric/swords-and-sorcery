@@ -97,19 +97,62 @@ test('perfect guard parries, damages nobody and staggers attacker 450ms', () => 
   assert.equal(a.attackActive, false);
 });
 
-test('normal guard drains 35 stamina and third block guard-breaks for 700ms', () => {
+test('a normal guard drains 22 stamina a blow and the fifth block guard-breaks for 700ms', () => {
   const room = playingRoom();
   const b = room.players.get('b');
   setGuard(room, 'b', true, 9);
-  for (const now of [10, 10.8, 11.6]) {
+  const left = [];
+  for (const now of [10, 10.8, 11.6, 12.4, 13.2]) {
     const a = room.players.get('a');
-    a.attackActive = false; a.attackHeld = false;
+    a.attackActive = false; a.attackHeld = false; a.attackRestartAt = -Infinity;
     beginAttack(room, 'a', now - 0.4);
     stepRoom(room, 0.01, now, openWorld);
+    // (the guard does not get its breath back between blows this close together)
+    left.push(Math.round(b.guardStamina));
   }
-  assert.equal(b.guardStamina, 0);
+  assert.deepEqual(left, [78, 56, 34, 12, 0]);
   assert.equal(b.guarding, false);
-  assert.ok(b.staggerUntil >= 12.3 - 1e-6);
+  assert.ok(b.staggerUntil >= 13.9 - 1e-6);
+});
+
+test('a tap is exactly one strike: let go before it lands and it still lands, then nothing more', () => {
+  const room = playingRoom();
+  const a = room.players.get('a');
+  beginAttack(room, 'a', 10);
+  endAttack(room, 'a', 10.1);
+  stepRoom(room, 0.01, 10.4, openWorld);
+  assert.equal(room.players.get('b').health, 72, 'the committed swing lands');
+  assert.equal(a.attackActive, true, 'its follow-through is still under way');
+  stepRoom(room, 0.01, 10.72, openWorld);
+  assert.equal(a.attackActive, false, 'the chain ends where the next swing would have begun');
+  for (const now of [11.1, 11.8, 12.5, 13.2]) stepRoom(room, 0.01, now, openWorld);
+  assert.equal(room.players.get('b').health, 72);
+  assert.deepEqual(room.events.filter((e) => e.type === 'swordSwing').map((e) => e.strikeIndex), [0]);
+});
+
+test('holding chains each strike as it becomes due; letting go mid-swing finishes that swing only', () => {
+  const room = playingRoom();
+  beginAttack(room, 'a', 10);
+  stepRoom(room, 0.01, 10.4, openWorld);
+  stepRoom(room, 0.01, 10.8, openWorld);          // still held as the second swing begins: committed
+  endAttack(room, 'a', 10.9);                      // let go in the middle of it
+  stepRoom(room, 0.01, 11.1, openWorld);
+  assert.equal(room.players.get('b').health, 44, 'the second strike still lands');
+  stepRoom(room, 0.01, 11.5, openWorld);
+  stepRoom(room, 0.01, 11.9, openWorld);
+  assert.equal(room.players.get('b').health, 44, 'no third');
+  assert.equal(room.players.get('a').attackActive, false);
+});
+
+test('quick taps chain the combo too: a press during a swing asks for the next strike', () => {
+  const room = playingRoom();
+  beginAttack(room, 'a', 10);
+  endAttack(room, 'a', 10.08);
+  beginAttack(room, 'a', 10.5);                    // pressed again while the first is in its follow-through
+  endAttack(room, 'a', 10.58);                     // and let go before the second would begin
+  for (const now of [10.4, 10.72, 11.1, 11.44, 11.8, 12.5]) stepRoom(room, 0.01, now, openWorld);
+  assert.deepEqual(room.events.filter((e) => e.type === 'swordSwing').map((e) => e.strikeIndex), [0, 1]);
+  assert.equal(room.players.get('b').health, 44);
 });
 
 test('spells and dash reject use during cooldown', () => {
@@ -312,4 +355,28 @@ test('an emptied bar winds the Spellblade: no sprint until it recovers', () => {
   a.guardStamina = SPRINT.restartStamina + 1;
   stepRoom(room, 0.05, 10.2, openWorld);
   assert.equal(a.sprinting, true, 'recovered: sprint again');
+});
+
+test('let go just before the next swing, but the word arrives after it began: that swing is taken back, not landed', () => {
+  const room = playingRoom();
+  beginAttack(room, 'a', 10);
+  stepRoom(room, 0.01, 10.4, openWorld);            // the first lands
+  stepRoom(room, 0.01, 10.74, openWorld);           // the button still seems held as the second begins: committed
+  assert.equal(room.players.get('a').attackCommitted, 2);
+  endAttack(room, 'a', 10.8, 10.69);                 // it was let go at 10.69, before the second began
+  for (const now of [11.1, 11.5, 12.2]) stepRoom(room, 0.01, now, openWorld);
+  assert.equal(room.players.get('b').health, 72, 'only the first landed');
+  assert.equal(room.players.get('a').attackActive, false);
+});
+
+test('but a second swing asked for by a fresh press stands, whenever the button was let go', () => {
+  const room = playingRoom();
+  beginAttack(room, 'a', 10);
+  endAttack(room, 'a', 10.1, 10.1);
+  beginAttack(room, 'a', 10.5);                      // tapped again during the first
+  stepRoom(room, 0.01, 10.4, openWorld);
+  stepRoom(room, 0.01, 10.74, openWorld);            // committed by the tap
+  endAttack(room, 'a', 10.8, 10.6);                  // that tap let go before the second began
+  for (const now of [11.1, 11.5]) stepRoom(room, 0.01, now, openWorld);
+  assert.equal(room.players.get('b').health, 44, 'the second lands');
 });
