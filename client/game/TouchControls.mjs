@@ -160,6 +160,11 @@ export class TouchControls {
     this.buttons.guard.classList.toggle('drained', (local.guardStamina ?? 100) < 1);
   }
 
+  /** While the spell cools, whether its button would throw the gauntlet (a foe within reach): a fist on it. */
+  setFistReady(ready) {
+    this.buttons.spell?.classList.toggle('fist-ready', Boolean(ready));
+  }
+
   // the spell button wears the carried spell
   #showSpell(spell) {
     const button = this.buttons.spell;

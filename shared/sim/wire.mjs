@@ -2,7 +2,7 @@
 // Spellblades and does with what they send. The same shapes either way, so the client cannot tell who is hosting
 // except by asking.
 
-import { beginAttack, endAttack, setGuard, tryActivateSteel, tryCastSpell, tryDash } from './combat.mjs';
+import { beginAttack, endAttack, setGuard, tryActivateSteel, tryCastOrGauntlet, tryDash } from './combat.mjs';
 import { compensatedInputTime } from './history.mjs';
 import { removePracticeDummy, resetPracticePlayer, setPracticeDummyMode, spawnPracticeDummy } from './practice.mjs';
 import { GAME_MODES } from '../src/modes.mjs';
@@ -129,7 +129,8 @@ export function applyRoomCommand(room, player, message, time) {
       return {};
     }
     case 'guard': setGuard(room, player.id, Boolean(message.down), compensatedInputTime(message.clientTime, time)); return {};
-    case 'cast': tryCastSpell(room, player.id, message.direction || { x: 0, y: 0, z: -1 }, time); return {};
+    // the spell's key: the spell when it is ready; on its cooldown, the gauntlet if a foe is in reach
+    case 'cast': tryCastOrGauntlet(room, player.id, message.direction || { x: 0, y: 0, z: -1 }, time, compensatedInputTime(message.clientTime, time)); return {};
     case 'dash': tryDash(room, player.id, message.direction || { x: 0, z: -1 }, time); return {};
     case 'steel': tryActivateSteel(room, player.id, time); return {};
     case 'rematch': room.requestRematch(player.id, time); return {};

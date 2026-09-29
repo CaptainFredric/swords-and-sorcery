@@ -33,6 +33,8 @@ function freshCombatState(spawn, nowSec = 0) {
     attackRestartAt: -Infinity,
     staggerUntil: -Infinity,
     spellReadyAt: 0,
+    gauntlet: null,
+    gauntletReadyAt: -Infinity,
     castEndsAt: 0,
     pendingSpell: null,
     burn: null,
@@ -297,6 +299,7 @@ export class Room {
     player.attackCommitted = 0;
     player.guarding = false;
     player.pendingSpell = null;
+    player.gauntlet = null;
     player.castEndsAt = 0;
     if (this.mode === GAME_MODES.BOT_DUEL && this.state === 'COUNTDOWN') {
       this.state = 'WAITING';

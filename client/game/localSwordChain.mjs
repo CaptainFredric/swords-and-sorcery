@@ -37,6 +37,16 @@ export class LocalSwordChain {
     this.held = false;
   }
 
+  /** Whether the sword has the hand: a committed strike yet to land, or a strike's blade still live (the gauntlet
+   * waits for both, as on the server). */
+  busy(now) {
+    const chain = this.chain;
+    if (!chain) return false;
+    if (chain.landed < chain.committed) return true;
+    const last = chain.landed - 1;
+    return last >= 0 && now - chain.startedAt < SWORD_STRIKE_TIMES[last] + MELEE_CONTACT.window.late;
+  }
+
   /**
    * Stop at once: a guard, a spell, a wall, a parry, a fall. As on the server, nothing new starts before the chain's
    * next strike would have begun (a strike that went live is spent even if broken off before its contact).

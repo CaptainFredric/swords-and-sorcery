@@ -81,3 +81,13 @@
 #steel-ability.sheathed::before { content: ""; position: absolute; left: 0; bottom: 0; height: 3px; width: calc(var(--steel, 0) * 100%); background: linear-gradient(90deg, #9fb2c4, #f4f8fb); z-index: 2; }
 #steel-ability.sheathed strong { color: #eef4f9; }
 .ability[data-spell="gale"] .ability-icon { color: #e3ece0; }
+/* the gauntlet: the spell tile says no with a small shake when its key can do nothing; while the spell cools and a foe
+   is within arm's reach, a fist shows on the tile (its key will throw the gauntlet) */
+.ability.denied { animation: ability-denied .3s ease-out; }
+@keyframes ability-denied { 20% { transform: translateX(-3px); } 45% { transform: translateX(3px); } 70% { transform: translateX(-2px); } }
+#spell-ability.fist-ready { border-color: #b9a37a; }
+#spell-ability.fist-ready::before {
+  content: "✊"; position: absolute; right: 6px; top: 4px; z-index: 2; font-size: 15px; line-height: 1;
+  filter: grayscale(1) brightness(1.4) sepia(.5); opacity: .95;
+}
+@media (prefers-reduced-motion: reduce) { .ability.denied { animation: none; outline: 1px solid #9c6a55; } }

@@ -169,3 +169,9 @@ html.turn-typing .rotate-prompt { display: none !important; }
 @media (prefers-reduced-motion: reduce) {
   .rotate-phone { animation: none; transform: rotate(-90deg); }
 }
+/* the gauntlet: while the spell cools and a foe is within arm's reach, a fist on the spell button (it will strike) */
+.touch-spell.fist-ready { border-color: rgba(214, 190, 140, .75); }
+.touch-spell.fist-ready::after {
+  content: "✊"; position: absolute; right: 4px; top: 3px; font-size: 13px; line-height: 1;
+  filter: grayscale(1) brightness(1.4) sepia(.5);
+}

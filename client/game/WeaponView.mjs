@@ -12,6 +12,8 @@ import { blendPoses, comboPose, counterRotations, recoveryPose } from './fpSlash
 import { FIRST_PERSON_OFF_ARM, solveArm, solveSwordArm } from './swordArmIK.mjs';
 import { LocalSwordChain } from './localSwordChain.mjs';
 import { MELEE_CONTACT, SWORD_STRIKE_TIMES } from '../../shared/src/combat.mjs';
+import { GAUNTLET } from '../../shared/src/gauntlet.mjs';
+import { jabKick, jabTarget } from './gauntletJab.mjs';
 import { createSteelSheen } from './steelSheen.mjs';
 import { swirlTexture } from './softTextures.mjs';
 
@@ -266,6 +268,9 @@ export class WeaponView {
     this.comboBroken = false;
     // the pose's state last frame (what the arms were doing when a chain begins)
     this.lastPoseState = 'idle';
+    // the gauntlet strike: when the magic hand was last thrown, and when it is free to strike again
+    this.jabAt = -Infinity;
+    this.jabReadyAt = -Infinity;
 
     this.#upgradeVisual();
   }
@@ -367,6 +372,24 @@ export class WeaponView {
     this.castReleased = false;
     this.guard = false;
     this.cancelAttack();
+  }
+
+  /** Whether the magic hand is free for the gauntlet: the sword does not have it, and the last blow is over. */
+  canJab(now = performance.now() / 1000) {
+    return !this.swordChain.busy(now) && now >= this.jabReadyAt && this.castReleased;
+  }
+
+  /**
+   * The gauntlet strike (gauntletJab.mjs): the magic hand driven out. It ends a chain it is thrown from, and, as on
+   * the server, nothing attacks again before its recovery is over.
+   */
+  jab() {
+    const now = performance.now() / 1000;
+    if (this.swordChain.active) this.cancelAttack();
+    this.jabAt = now;
+    this.jabReadyAt = now + GAUNTLET.startup + GAUNTLET.recovery;
+    this.swordChain.restartAt = Math.max(this.swordChain.restartAt, this.jabReadyAt);
+    this.guard = false;
   }
 
   /** The magic hand clenches (Sheathe in Steel): a quick tightening, the palm light flashing to steel. */
@@ -471,6 +494,10 @@ export class WeaponView {
       const spread = FP_MOTION.neutralSpread * motion.neutral;
       // the magic arm draws the spell in close, then throws it (see castGesture.mjs)
       const gesture = castGesture(timeSec - this.castStartedAt, this.castGather);
+      // or drives the gauntlet out (gauntletJab.mjs), the view nudged as it lands
+      const jab = jabTarget(timeSec - this.jabAt);
+      const jabbed = jabKick(timeSec - this.jabAt);
+      if (jabbed > 0) motion.camera.pitch -= 0.012 * jabbed;
       if (!this.castReleased && timeSec >= this.castStartedAt + this.castGather) {
         this.castReleased = true;
         this.motion.release();
@@ -493,9 +520,13 @@ export class WeaponView {
           // pull against each other)
           ...(combo ? counterRotations(combo.counter, combo.weight * (1 - (combo.offHand?.weight ?? 0))) : []),
         ],
-        solve: combo ? (bones) => {
-          solveSwordArm(bones, combo.arm, combo.weight);
-          if (combo.offHand) solveArm(bones, FIRST_PERSON_OFF_ARM, combo.offHand, combo.offHand.weight * combo.weight);
+        solve: combo || jab ? (bones) => {
+          if (combo) {
+            solveSwordArm(bones, combo.arm, combo.weight);
+            if (combo.offHand) solveArm(bones, FIRST_PERSON_OFF_ARM, combo.offHand, combo.offHand.weight * combo.weight);
+          }
+          // the gauntlet strike has the magic hand
+          if (jab) solveArm(bones, FIRST_PERSON_OFF_ARM, jab, jab.weight);
         } : undefined,
       };
       const shown = frozen && this.lastPlan ? this.lastPlan : plan;

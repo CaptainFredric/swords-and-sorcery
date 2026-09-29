@@ -15,6 +15,7 @@ import { airborneLegFlex, landingStrength, pruneReactions } from './spellbladeMo
 import { gaitFootfall } from './sound/footsteps.mjs';
 import { createSteelSheen } from './steelSheen.mjs';
 import { steelStrength } from '../../shared/src/steel.mjs';
+import { jabTurns } from './gauntletJab.mjs';
 
 // which body reacts to which combat event, and how
 const REACTION_EVENTS = Object.freeze({
@@ -216,6 +217,12 @@ export class RemotePlayers {
     this.rigs.get(id)?.visualInstance?.animator?.cloth?.gust(wind);
   }
 
+  /** Another knight throws the gauntlet (pressed at server time `at`): the left arm drives out, on their own clock. */
+  jab(id, at) {
+    const d = this.rigs.get(id)?.root.userData;
+    if (d && Number.isFinite(at)) d.jabAt = at;
+  }
+
   pushSnapshot(snapshot, receivedAtMs) {
     const seen = new Set();
     for (const player of snapshot.players) {
@@ -359,6 +366,8 @@ export class RemotePlayers {
         yaw: shell.root.rotation.y,
         airFlex: state === 'air' ? airborneLegFlex(verticalVelocity) : 0,
         death: plan.clip === 'Death' ? { age: plan.time, push: d.lastPush ?? null } : null,
+        // the gauntlet's jab, if one is under way
+        extra: state === 'dead' ? [] : jabTurns(serverNow - (d.jabAt ?? -Infinity)),
       };
       setRemoteVisualPlan(shell, plan, dt);
       // a foot comes down where the gait clip puts it (its rate follows the knight's speed)

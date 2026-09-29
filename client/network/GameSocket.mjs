@@ -127,7 +127,7 @@ export class GameSocket {
   input(input) { this.send({ type: 'input', ...input }); }
   attack(down) { this.send({ type: 'attack', down, clientTime: this.serverNow() }); }
   guard(down) { this.send({ type: 'guard', down, clientTime: this.serverNow() }); }
-  cast(direction) { this.send({ type: 'cast', direction }); }
+  cast(direction) { this.send({ type: 'cast', direction, clientTime: this.serverNow() }); }
   dash(direction) { this.send({ type: 'dash', direction }); }
   steel() { this.send({ type: 'steel' }); }
   rematch() { this.send({ type: 'rematch' }); }

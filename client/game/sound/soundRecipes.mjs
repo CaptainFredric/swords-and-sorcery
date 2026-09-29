@@ -168,6 +168,58 @@ export function swingRecipe(rand = Math.random, { strike = 0 } = {}) {
   };
 }
 
+/** The gauntlet thrown: a short, low rush of a fist through the air (no blade to sing). */
+export function gauntletSwingRecipe(rand = Math.random) {
+  const low = 280 * jitter(rand, 0.08);
+  return {
+    layers: [
+      { type: 'noise', filter: 'bandpass', freq: low, q: 1.2, sweepTo: low * 2.6, attack: 0.025, decay: 0.09, gain: 0.34 },
+      // the plate of the arm shifting as it goes
+      ring(rand, 1900 * jitter(rand, 0.06), { decay: 0.05, gain: 0.03, partials: 2 }),
+    ],
+    reverb: 0.05,
+  };
+}
+
+/**
+ * The gauntlet landing: guarded, steel on steel (a dull knock, no ring to speak of); on the body, a heavy thud into
+ * plate with a short clank, lighter than a sword's bite.
+ */
+export function gauntletHitRecipe(rand = Math.random, { guarded = false } = {}) {
+  if (guarded) {
+    return {
+      layers: [
+        { type: 'noise', filter: 'bandpass', freq: 1500 * jitter(rand, 0.08), q: 1.4, attack: 0.001, decay: 0.03, gain: 0.34 },
+        ring(rand, 610 * jitter(rand, 0.05), { decay: 0.16, gain: 0.1, partials: 3, bright: 0.8 }),
+        { type: 'tone', wave: 'sine', freq: 130, slideTo: 70, attack: 0.002, decay: 0.08, gain: 0.26 },
+      ],
+      reverb: 0.1,
+    };
+  }
+  return {
+    layers: [
+      // the knuckles of the gauntlet on plate
+      { type: 'noise', filter: 'bandpass', freq: 900 * jitter(rand, 0.1), q: 1.1, attack: 0.001, decay: 0.035, gain: 0.46 },
+      ring(rand, 470 * jitter(rand, 0.06), { decay: 0.14, gain: 0.1, partials: 3, bright: 0.7 }),
+      // and the weight of it: a thud through the body
+      { type: 'tone', wave: 'sine', freq: 110 * jitter(rand, 0.06), slideTo: 52, attack: 0.002, decay: 0.14, gain: 0.5 },
+      { type: 'noise', filter: 'lowpass', freq: 240, q: 0.6, attack: 0.002, decay: 0.08, gain: 0.34 },
+    ],
+    reverb: 0.1,
+  };
+}
+
+/** The spell's key pressed while it cools and nothing is in reach: a dull, quiet no. */
+export function deniedRecipe() {
+  return {
+    layers: [
+      { type: 'noise', filter: 'lowpass', freq: 520, q: 0.8, attack: 0.002, decay: 0.05, gain: 0.22 },
+      { type: 'tone', wave: 'triangle', freq: 190, slideTo: 150, attack: 0.002, decay: 0.07, gain: 0.12 },
+    ],
+    reverb: 0.02,
+  };
+}
+
 /** Steel on stone. */
 export function wallClangRecipe(rand = Math.random) {
   return {
