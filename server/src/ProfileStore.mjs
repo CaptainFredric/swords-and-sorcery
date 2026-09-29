@@ -3,13 +3,18 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { CLOTH } from '../../shared/src/cosmetics.mjs';
 
-export function matchReward(room, player, finishedAt) {
-  if (room.state !== 'FINISHED' || !['FFA', 'DUEL', 'BOT_DUEL'].includes(room.mode)
-    || room.finishReason === 'forfeit' || room.matchStartedAt === null
-    || finishedAt - room.matchStartedAt < 30 || player.actorKind !== 'human' || !player.connected
-    || !(player.kills + player.deaths + player.parries > 0)) return 0;
-  return 20 + (room.winnerId === player.id ? 10 : 0);
+export function assessMatchReward(room, player, finishedAt) {
+  let reason = 'earned';
+  if (room.state !== 'FINISHED' || !['FFA', 'DUEL', 'BOT_DUEL'].includes(room.mode)) reason = 'training';
+  else if (room.finishReason === 'forfeit') reason = 'forfeit';
+  else if (player.actorKind !== 'human' || !player.connected) reason = 'left';
+  else if (room.matchStartedAt === null || finishedAt - room.matchStartedAt < 30) reason = 'short';
+  else if (!(player.kills + player.deaths + player.parries > 0)) reason = 'inactive';
+  if (reason !== 'earned') return { amount: 0, reason, completion: 0, victory: 0 };
+  const victory = room.winnerId === player.id ? 10 : 0;
+  return { amount: 20 + victory, reason, completion: 20, victory };
 }
+export function matchReward(room, player, finishedAt) { return assessMatchReward(room, player, finishedAt).amount; }
 
 // One process owns this directory. Credentials are random bearer secrets; only hashes are stored on disk.
 // Each transaction replaces one complete profile atomically. A failed write never mutates the cached wallet.
@@ -56,12 +61,13 @@ export class ProfileStore {
     const profile = this.write(token, { version: 1, balance: 0, owned: ['crimson'], equipped: 'crimson', receipts: [] });
     return { token, profile };
   }
-  reward(token, matchId, amount) {
+  reward(token, matchId, amount, details = {}) {
     const current = this.read(token);
     if (current.receipts.includes(matchId)) return this.view(current);
     if (!Number.isSafeInteger(amount) || amount < 0 || amount > 30) throw new Error('Invalid reward');
     return this.write(token, { ...current, balance: current.balance + amount,
-      receipts: [...current.receipts, matchId], lastReward: { matchId, amount } });
+      receipts: [...current.receipts, matchId], lastReward: { matchId, amount, reason: details.reason ?? (amount ? 'earned' : 'ineligible'),
+        completion: amount > 0 ? 20 : 0, victory: amount === 30 ? 10 : 0 } });
   }
   purchase(token, id) {
     const current = this.read(token);

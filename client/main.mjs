@@ -556,7 +556,7 @@ for (const button of document.querySelectorAll('[data-open-settings]')) {
   button.addEventListener('click', () => settingsPanel.open(button.dataset.openSettings || undefined));
 }
 
-renown = new RenownController({ socket, scene: () => menuScene });
+renown = new RenownController({ socket, scene: () => menuScene, spell: () => settings.get('loadout.spell') });
 $('#end-armory').addEventListener('click', () => {
   const showArmory = () => {
     runtime?.setPlaying(false);

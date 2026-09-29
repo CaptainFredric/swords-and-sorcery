@@ -56,3 +56,32 @@ test('failed persistence leaves wallet unchanged; corrupt profiles are never sil
   assert.throws(() => new ProfileStore(good).open(token), /profile unavailable/);
   assert.equal(fs.readFileSync(file, 'utf8'), '{corrupt');
 });
+
+import { assessMatchReward } from '../src/ProfileStore.mjs';
+test('reward explanation reflects the actual eligibility failure', () => {
+  const player = { id: 'a', actorKind: 'human', connected: true, kills: 1, deaths: 0, parries: 0 };
+  const room = { state: 'FINISHED', mode: 'DUEL', matchStartedAt: 0, winnerId: 'a', finishReason: 'score' };
+  assert.equal(assessMatchReward(room, player, 10).reason, 'short');
+  assert.equal(assessMatchReward({ ...room, finishReason: 'forfeit' }, player, 60).reason, 'forfeit');
+  assert.equal(assessMatchReward(room, { ...player, kills: 0 }, 60).reason, 'inactive');
+  assert.deepEqual(assessMatchReward(room, player, 60), { amount: 30, reason: 'earned', completion: 20, victory: 10 });
+});
+
+import { CLOTH } from '../../shared/src/cosmetics.mjs';
+test('every catalog standard can be bought and equipped; collection survives store restart', (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'renown-collection-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const store = new ProfileStore(dir);
+  const { token } = store.open();
+  for (let i = 0; i < 10; i++) store.reward(token, `earned-${i}`, 30);
+  let spent = 0;
+  for (const item of Object.values(CLOTH)) {
+    spent += item.price;
+    assert.equal(store.purchase(token, item.id).balance, 300 - spent);
+    assert.equal(store.equip(token, item.id).equipped, item.id);
+  }
+  const restored = new ProfileStore(dir).open(token).profile;
+  assert.equal(restored.balance, 20);
+  assert.deepEqual(restored.owned, Object.keys(CLOTH));
+  assert.equal(restored.equipped, 'charcoal');
+});

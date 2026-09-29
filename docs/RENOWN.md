@@ -1,6 +1,6 @@
 # Renown and the armory
 
-Combat Kit is the default armory section. Heraldry contains cosmetic tabard dyes. Previewing a dye changes only the menu model. Unlocking and equipping are separate confirmed server operations. Azure costs 40 Renown; Crimson is free.
+Combat Kit is the default armory section. Heraldry contains cosmetic tabard dyes. Previewing a dye changes only the menu model. Unlocking and equipping are separate confirmed server operations. Crimson is free. Azure and Verdant cost 40 Renown, Ivory and Royal Amethyst cost 60, and Ashen costs 80.
 
 ## Earning
 
@@ -25,6 +25,10 @@ Storage failures preserve existing credentials and display an error instead of s
 Automated tests cover reward eligibility, duplicate settlement and purchase, insufficient funds, equipment ownership, persistence, write failures and corrupt profiles, websocket settlement, observer appearance replication, reconnect identity, cloth material isolation, and combat first armory navigation.
 
 Browser verification uses a disposable local wallet seeded with 60 Renown to exercise purchase and equip. Match earnings are verified separately through the authoritative simulation and real websocket clients. No production wallet was seeded.
+
+## Refinement pass
+
+The catalog now contains six standards, with per knight shader colors that preserve banner embroidery. Heraldry uses existing menu design tokens and shows collection count, selected unlock progress, server confirmation feedback and specific reasons for zero rewards. Combat Kit remains the opening section. The latest Claude changes through a243b99 are included. See GPT_HANDOFF_RENOWN.md for the complete handoff.
 
 ## Next increment
 

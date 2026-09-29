@@ -2,9 +2,13 @@ import { CLOTH } from '../../shared/src/cosmetics.mjs';
 import { renownView, rewardText } from './renownView.mjs';
 
 export class RenownController {
-  constructor({ socket, scene, document: doc = document, storage = localStorage }) {
+  constructor({ socket, scene, spell = () => null, document: doc = document, storage = localStorage }) {
     this.socket = socket;
     this.scene = scene;
+    this.spell = spell;
+    this.feedback = '';
+    this.operation = null;
+    this.cardLabels = new Map();
     this.doc = doc;
     this.storage = storage;
     this.profile = null;
@@ -17,7 +21,11 @@ export class RenownController {
       doc.querySelector(`#armory-${section}-tab`).addEventListener('click', () => this.selectSection(section));
     }
     // Cache is presentation only. Only server messages authorise purchases or equipment.
-    try { this.profile = JSON.parse(storage.getItem('ss-profile-cache')); } catch {}
+    try {
+      const cached = JSON.parse(storage.getItem('ss-profile-cache'));
+      if (Number.isSafeInteger(cached?.balance) && cached.balance >= 0 && Array.isArray(cached.owned)
+        && cached.owned.includes(cached.equipped) && Object.hasOwn(CLOTH, cached.equipped)) this.profile = cached;
+    } catch {}
     this.preview = this.profile?.equipped ?? 'crimson';
     scene()?.setCloth(this.preview);
     this.cards = doc.querySelector('#armory-cloths');
@@ -27,9 +35,27 @@ export class RenownController {
       button.className = 'cloth-card';
       button.dataset.cloth = item.id;
       button.style.setProperty('--cloth-color', item.color);
-      button.textContent = item.name;
+      const swatch = doc.createElement('span');
+      swatch.className = 'cloth-swatch';
+      swatch.setAttribute('aria-hidden', 'true');
+      const words = doc.createElement('span');
+      const name = doc.createElement('strong');
+      name.textContent = item.name;
+      const status = doc.createElement('small');
+      words.appendChild(name); words.appendChild(status);
+      button.appendChild(swatch); button.appendChild(words);
+      this.cardLabels.set(item.id, status);
       button.setAttribute('role', 'radio');
-      button.addEventListener('click', () => { this.preview = item.id; this.error = ''; this.render(); scene()?.setCloth(item.id); });
+      button.addEventListener('click', () => { this.preview = item.id; this.error = ''; this.feedback = ''; this.render(); scene()?.setCloth(item.id); });
+      button.addEventListener('keydown', (event) => {
+        const ids = Object.keys(CLOTH), index = ids.indexOf(item.id);
+        const delta = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[event.key];
+        if (!delta && !['Home', 'End'].includes(event.key)) return;
+        event.preventDefault();
+        const next = event.key === 'Home' ? 0 : event.key === 'End' ? ids.length - 1 : (index + delta + ids.length) % ids.length;
+        this.preview = ids[next]; this.error = ''; this.feedback = '';
+        this.render(); scene()?.setCloth(this.preview); this.cards.children[next].focus();
+      });
       this.cards.appendChild(button);
     }
     this.action = doc.querySelector('#cloth-action');
@@ -37,32 +63,45 @@ export class RenownController {
       const view = renownView(this.profile, this.preview, this.online());
       if (view.disabled || this.pending) return;
       this.pending = true;
+      this.operation = { action: view.action, id: view.item.id };
+      this.feedback = '';
       this.error = '';
       this.render();
       socket.remote.send({ type: view.action === 'purchase' ? 'purchaseCloth' : 'equipCloth', cloth: view.item.id });
       clearTimeout(this.timer);
       this.timer = setTimeout(() => {
         this.pending = false;
+        this.operation = null;
         this.error = 'Confirmation delayed. Reconnect or retry; repeat requests are safe.';
         this.render();
       }, 8000);
     });
     socket.on('profile', ({ profile }) => {
       this.profile = profile;
-      this.pending = false;
+      const operation = this.operation;
+      const confirmed = operation && (operation.action === 'purchase' ? profile.owned.includes(operation.id) : profile.equipped === operation.id);
+      if (confirmed) {
+        const name = CLOTH[operation.id].name;
+        this.feedback = operation.action === 'purchase' ? `${name} unlocked. Equip it when ready.` : `${name} equipped. Your next battle awaits.`;
+        this.operation = null;
+      }
+      if (!operation || confirmed) { this.pending = false; clearTimeout(this.timer); }
       this.error = '';
-      clearTimeout(this.timer);
       try { storage.setItem('ss-profile-cache', JSON.stringify(profile)); } catch {}
       if (!this.inArmory || this.section === 'kit') scene()?.setCloth(profile.equipped);
       this.render();
     });
     socket.on('profileError', ({ message }) => {
       this.pending = false;
+      this.operation = null;
       clearTimeout(this.timer);
       this.error = message;
       this.render();
     });
-    socket.on('status', () => { if (!this.online()) this.pending = false; this.render(); });
+    socket.on('status', () => {
+      if (!this.online()) { this.pending = false; this.operation = null; clearTimeout(this.timer); }
+      this.render();
+    });
     socket.on('snapshot', (snapshot) => { this.snapshot = snapshot; this.renderReward(); });
     this.render();
   }
@@ -72,6 +111,7 @@ export class RenownController {
       this.doc.querySelector(`#armory-${id}`).classList.toggle('hidden', id !== section);
       this.doc.querySelector(`#armory-${id}-tab`).setAttribute('aria-pressed', String(id === section));
     }
+    this.scene()?.showSpell?.(section === 'kit' ? this.spell() : null);
     this.scene()?.setCloth(section === 'heraldry' ? this.preview : this.profile?.equipped ?? 'crimson');
   }
   online() { return this.socket.status === 'online' && this.socket.remote.profileReady; }
@@ -82,23 +122,35 @@ export class RenownController {
     if (!this.inArmory) this.scene()?.setCloth(this.profile?.equipped ?? 'crimson');
   }
   renderReward() {
-    this.doc.querySelector('#renown-reward').textContent = rewardText(this.profile, this.snapshot, this.socket.playingLocally);
+    const text = this.error && this.snapshot?.roomState === 'FINISHED' && this.profile?.lastReward?.matchId !== this.snapshot.rewardMatchId
+      ? this.error : rewardText(this.profile, this.snapshot, this.socket.playingLocally);
+    const node = this.doc.querySelector('#renown-reward');
+    if (node.textContent !== text) node.textContent = text;
   }
   render() {
     const view = renownView(this.profile, this.preview, this.online());
-    this.doc.querySelector('#renown-balance').textContent = this.profile ? `${this.profile.balance} RENOWN` : 'CONNECTING PROFILE…';
+    this.doc.querySelector('#renown-balance').textContent = this.profile ? String(view.balance) : '…';
+    this.doc.querySelector('#renown-collection').textContent = view.collection;
     for (const button of this.cards.children) {
-      const id = button.dataset.cloth;
-      const item = CLOTH[id];
+      const id = button.dataset.cloth, item = CLOTH[id];
+      const status = this.profile?.equipped === id ? 'Equipped' : this.profile?.owned?.includes(id) ? 'Owned' : `${item.price} Renown`;
       button.setAttribute('aria-checked', String(id === view.item.id));
-      button.textContent = `${item.name} · ${this.profile?.equipped === id ? 'Equipped' : this.profile?.owned?.includes(id) ? 'Owned' : `${item.price} Renown`}`;
+      button.setAttribute('aria-label', `${item.name} · ${status}`);
+      button.tabIndex = id === view.item.id ? 0 : -1;
+      this.cardLabels.get(id).textContent = status;
     }
     this.action.textContent = this.pending ? 'CONFIRMING…' : view.label;
     this.action.disabled = view.disabled || this.pending;
-    this.doc.querySelector('#cloth-description').textContent = `${view.item.name} · Front and back tabard dye. Preview changes appearance here until you equip it.`;
+    this.doc.querySelector('#cloth-name').textContent = view.item.name;
+    this.doc.querySelector('#cloth-description').textContent = view.item.description;
+    this.doc.querySelector('#cloth-hint').textContent = view.hint;
+    const progress = this.doc.querySelector('#cloth-progress');
+    progress.value = view.progress;
+    progress.hidden = view.owned;
+    progress.setAttribute('aria-valuetext', `${Math.min(view.balance, view.item.price)} of ${view.item.price} Renown`);
     this.doc.querySelector('#renown-status').textContent = this.error || (!this.online()
-      ? 'Connect to the game server to earn and spend Renown. Saved appearance is available for preview.'
-      : 'Earn 20 for completing a qualifying match, plus 10 for victory. Practice and offline play award no Renown.');
+      ? 'Reconnect to earn and spend Renown. You can still preview your standards.'
+      : this.feedback || 'Preview freely. Unlock and equip when ready.');
     this.renderReward();
   }
 }

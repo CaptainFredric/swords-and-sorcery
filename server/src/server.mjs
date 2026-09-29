@@ -1,5 +1,5 @@
 import http from 'node:http';
-import { ProfileStore, matchReward } from './ProfileStore.mjs';
+import { ProfileStore, assessMatchReward } from './ProfileStore.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -412,7 +412,7 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
             // Capture the result now: a later rematch, departure or retry cannot change this reward.
             if (!pendingRewards.has(key)) pendingRewards.set(key, {
               token: player.profileToken, matchId: room.rewardMatchId,
-              amount: matchReward(room, player, event.at), retryAt: 0,
+              ...assessMatchReward(room, player, event.at), retryAt: 0,
             });
           }
         }
@@ -423,7 +423,7 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
     for (const [key, reward] of pendingRewards) {
       if (time < reward.retryAt) continue;
       try {
-        publishProfile(reward.token, profileStore.reward(reward.token, reward.matchId, reward.amount));
+        publishProfile(reward.token, profileStore.reward(reward.token, reward.matchId, reward.amount, reward));
         pendingRewards.delete(key);
       } catch {
         reward.retryAt = time + 5;

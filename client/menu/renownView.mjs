@@ -1,17 +1,31 @@
-import { clothChoice } from '../../shared/src/cosmetics.mjs';
+import { CLOTH, clothChoice } from '../../shared/src/cosmetics.mjs';
 export function renownView(profile, preview, online) {
   const item = clothChoice(preview);
-  const owned = profile?.owned?.includes(item.id);
+  const ownedIds = Array.isArray(profile?.owned) ? profile.owned.filter((id) => Object.hasOwn(CLOTH, id)) : [];
+  const owned = ownedIds.includes(item.id);
   const equipped = profile?.equipped === item.id;
-  return { item, action: owned ? 'equip' : 'purchase',
-    label: equipped ? 'EQUIPPED' : owned ? 'EQUIP' : `UNLOCK · ${item.price} RENOWN`,
-    disabled: !online || !profile || equipped || (!owned && profile.balance < item.price) };
+  const balance = Number.isSafeInteger(profile?.balance) && profile.balance >= 0 ? profile.balance : 0;
+  const remaining = Math.max(0, item.price - balance);
+  const hint = owned ? (equipped ? 'Worn into your next battle.' : 'In your collection. Ready to equip.')
+    : remaining ? `${remaining} more Renown to unlock.` : 'Within reach. Unlock this standard.';
+  return { item, owned, equipped, remaining, hint, balance,
+    collection: `${new Set(ownedIds).size} / ${Object.keys(CLOTH).length}`,
+    progress: owned || !item.price ? 1 : Math.min(1, balance / item.price),
+    action: owned ? 'equip' : 'purchase',
+    label: equipped ? 'EQUIPPED' : owned ? 'EQUIP STANDARD' : `UNLOCK · ${item.price} RENOWN`,
+    disabled: !online || !profile || equipped || (!owned && remaining > 0) };
 }
 export function rewardText(profile, snapshot, local) {
   if (local) return 'Offline training complete. Renown is earned in server hosted matches.';
   const reward = profile?.lastReward;
   if (!reward || !snapshot?.rewardMatchId || reward.matchId !== snapshot.rewardMatchId) return 'Confirming your match reward…';
-  return reward.amount > 0
-    ? `+${reward.amount} RENOWN · ${reward.amount === 30 ? '20 completion + 10 victory' : 'Match completion'} · Balance ${profile.balance}`
-    : 'No Renown this match. Complete 30 seconds of combat with a kill, death or parry. Forfeits award zero.';
+  if (reward.amount > 0) return `+${reward.amount} RENOWN · ${reward.amount === 30 ? '20 completion + 10 victory' : '20 completion'} · Balance ${profile.balance}`;
+  const reasons = {
+    forfeit: 'Match ended by forfeit. No Renown awarded.',
+    short: 'This match lasted under 30 seconds. No Renown awarded.',
+    inactive: 'Join the fighting with a kill, death or parry to earn Renown.',
+    left: 'Finish the match while connected to earn Renown.',
+    training: 'Practice is for training. Earn Renown in completed duels and arena matches.',
+  };
+  return reasons[reward.reason] ?? 'No Renown this match. Complete 30 seconds of combat with a kill, death or parry. Forfeits award zero.';
 }

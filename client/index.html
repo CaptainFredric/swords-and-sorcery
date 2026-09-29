@@ -92,12 +92,25 @@
         <p class="panel-copy armory-note">Carried into your next match. More arms and arcana will hang here.</p>
         </div>
         <div id="armory-heraldry" class="hidden">
-        <p id="renown-balance" class="renown-balance" aria-live="polite">CONNECTING PROFILE…</p>
-        <p class="armory-slot">TABARD CLOTH</p>
-        <div id="armory-cloths" class="cloth-choices" role="radiogroup" aria-label="Preview cloth"></div>
-        <p id="cloth-description" class="panel-copy"></p>
-        <button id="cloth-action" type="button" class="wide-button" disabled>CONNECTING…</button>
-        <p id="renown-status" class="panel-copy" role="status"></p>
+          <div class="heraldry-ledger">
+            <div><small>YOUR RENOWN</small><strong id="renown-balance">CONNECTING…</strong></div>
+            <div><small>COLLECTION</small><strong id="renown-collection">0 / 6</strong></div>
+          </div>
+          <p class="armory-slot">CHOOSE YOUR STANDARD</p>
+          <div id="armory-cloths" class="cloth-choices" role="radiogroup" aria-label="Preview cloth"></div>
+          <div class="cloth-detail">
+            <h3 id="cloth-name"></h3>
+            <p id="cloth-description"></p>
+            <p id="cloth-hint"></p>
+            <progress id="cloth-progress" max="1" value="0" aria-label="Renown toward selected standard"></progress>
+            <button id="cloth-action" type="button" class="wide-button" disabled>CONNECTING…</button>
+          </div>
+          <p id="renown-status" role="status"></p>
+          <details class="renown-rules">
+            <summary>EARNING RENOWN</summary>
+            <p><b>20</b> Complete a match <span>+10 for victory</span></p>
+            <p>Fight for at least 30 seconds and record a kill, death or parry. Server hosted bot duels count. Practice, offline play and forfeits award none.</p>
+          </details>
         </div>
       </div>
     </section>

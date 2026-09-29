@@ -27,9 +27,9 @@ test('dye isolates cloth, keeps shared armor untouched, and releases only its ow
   assert.equal(armor.material, original);
   const shader = { uniforms: {}, fragmentShader: '#include <color_fragment>' };
   cloth.material.onBeforeCompile(shader);
-  assert.equal(shader.uniforms.ssAzure.value, 1);
+  assert.equal(shader.uniforms.ssDyeAmount.value, 1);
   dye.set('crimson');
-  assert.equal(shader.uniforms.ssAzure.value, 0);
+  assert.equal(shader.uniforms.ssDyeAmount.value, 0);
   dye.dispose();
   assert.equal(cloth.material.disposed, true);
   assert.equal(original.disposed, undefined);
@@ -63,7 +63,7 @@ test('armory defaults to combat, separates previews from equipped cloth, and wai
   assert.equal(sent.length, 1);
   assert.equal(controller.profile.balance, 40);
   handlers.profile({ profile: { balance: 0, owned: ['crimson', 'azure'], equipped: 'crimson' } });
-  assert.equal(controller.action.textContent, 'EQUIP');
+  assert.equal(controller.action.textContent, 'EQUIP STANDARD');
   controller.action.handlers.click();
   handlers.profile({ profile: { balance: 0, owned: ['crimson', 'azure'], equipped: 'azure' } });
   assert.equal(controller.action.disabled, true);
@@ -73,4 +73,38 @@ test('armory defaults to combat, separates previews from equipped cloth, and wai
   controller.route('MAIN_MENU');
   controller.route('ARMORY');
   assert.equal(controller.section, 'kit');
+});
+
+import { CLOTH } from '../../shared/src/cosmetics.mjs';
+test('expanded dye catalog provides six distinct shades and useful unlock progress', () => {
+  assert.equal(Object.keys(CLOTH).length, 6);
+  assert.equal(new Set(Object.values(CLOTH).map((item) => item.color)).size, 6);
+  const view = renownView({ balance: 20, owned: ['crimson'], equipped: 'crimson' }, 'forest', true);
+  assert.equal(view.remaining, 20);
+  assert.equal(view.progress, 0.5);
+  assert.equal(view.collection, '1 / 6');
+  assert.match(view.hint, /20 more/);
+  assert.equal(renownView({ balance: 80, owned: ['crimson'], equipped: 'crimson' }, 'charcoal', true).disabled, false);
+});
+test('each dye updates an independent shader uniform and invalid choices restore original cloth', () => {
+  const mesh = () => ({ name: 'TabardBack', isMesh: true, material: { clone() { return { dispose() {} }; } } });
+  const a = mesh(), b = mesh();
+  const first = createClothDye({ traverse(fn) { fn(a); } });
+  const second = createClothDye({ traverse(fn) { fn(b); } });
+  const sa = { uniforms: {}, fragmentShader: '#include <color_fragment>' };
+  const sb = { uniforms: {}, fragmentShader: '#include <color_fragment>' };
+  a.material.onBeforeCompile(sa); b.material.onBeforeCompile(sb);
+  first.set('forest'); second.set('ivory');
+  assert.deepEqual(sa.uniforms.ssClothTint.value, CLOTH.forest.tint);
+  assert.deepEqual(sb.uniforms.ssClothTint.value, CLOTH.ivory.tint);
+  first.set('invalid');
+  assert.equal(sa.uniforms.ssDyeAmount.value, 0);
+  assert.equal(sb.uniforms.ssDyeAmount.value, 1);
+});
+
+test('zero rewards explain the recorded reason and old receipts remain readable', () => {
+  const snapshot = { rewardMatchId: 'm' };
+  assert.match(rewardText({ lastReward: { matchId: 'm', amount: 0, reason: 'forfeit' } }, snapshot, false), /forfeit/);
+  assert.match(rewardText({ lastReward: { matchId: 'm', amount: 0, reason: 'short' } }, snapshot, false), /under 30/);
+  assert.match(rewardText({ balance: 50, lastReward: { matchId: 'm', amount: 30 } }, snapshot, false), /20 completion \+ 10 victory/);
 });

@@ -1,26 +1,50 @@
-/* The armory remains usable on narrow screens and with motion disabled. */
-.armory-inner { max-height: 88dvh; overflow-y: auto; overscroll-behavior: contain; }
-.renown-balance { color: #e5c78f; letter-spacing: .12em; font-weight: 800; }
-.cloth-choices { display: flex; gap: .6rem; margin: .65rem 0; }
-.cloth-card { flex: 1; min-width: 0; padding: .75rem; text-align: left; background: #182023; border: 1px solid #7a7463; color: #eae2cf; cursor: pointer; }
-.cloth-card::before { content: ''; display: block; width: 1.6rem; height: 1.8rem; margin-bottom: .4rem; background: var(--cloth-color); clip-path: polygon(0 0,100% 0,100% 80%,50% 100%,0 80%); }
-.cloth-card[aria-checked='true'] { border-color: #eed199; box-shadow: inset 0 0 0 1px #eed199; }
-.cloth-card:focus-visible, #cloth-action:focus-visible { outline: 2px solid #a5e6f3; outline-offset: 3px; }
-#cloth-action { margin-top: .5rem; }
-#cloth-action:disabled { opacity: .55; cursor: default; }
-#renown-status, #cloth-description { font-size: .9rem; line-height: 1.3; }
-#renown-reward { color: #edd09a; max-width: 38rem; margin: .8rem auto; }
-@media (prefers-reduced-motion: no-preference) {
-  #armory-menu:not(.hidden) .armory-inner { animation: armory-arrive .32s ease-out both; }
-  @keyframes armory-arrive { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-}
+/* A page in the existing Castleward armory: stitched cloth, iron plaques and brass fittings. */
+#armory-menu .armory-inner { --banner-width: min(408px, 43cqw); max-height: calc(100% - 20px); overflow-y: auto; overscroll-behavior: contain; }
 .armory-inner > * { flex-shrink: 0; }
-.cloth-card { font: 600 13px/1.3 var(--font-script); letter-spacing: .02em; }
-#armory-menu #renown-status { display: block; }
-@container app (max-width: 600px) and (min-height: 501px) {
-  #armory-menu .armory-inner { --banner-width: calc(100cqw - 24px); left: 12px; padding: 24px 24px calc(var(--hem) + 20px); }
+.armory-tabs { display: flex; gap: 0; margin: 8px 0 16px; border-bottom: 1px solid var(--heraldry-brass); }
+.armory-tabs button { flex: 1; padding: 11px 8px; border: 0; border-bottom: 3px solid transparent; background: rgba(34, 29, 25, .55); color: var(--heraldry-cream); cursor: pointer; font: 400 17px/1 var(--font-inscription); letter-spacing: .04em; }
+.armory-tabs button[aria-pressed='true'] { border-bottom-color: var(--heraldry-brass-light); background: linear-gradient(180deg, rgba(201,156,82,.2), rgba(34,29,25,.65)); color: var(--heraldry-brass-light); }
+.heraldry-ledger { display: flex; justify-content: space-between; align-items: center; padding: 2px 0 11px; border-bottom: 1px solid rgba(234,220,182,.25); }
+.heraldry-ledger > div { display: grid; gap: 4px; }
+.heraldry-ledger > div:last-child { text-align: right; }
+.heraldry-ledger small { color: var(--heraldry-cream); font: 700 10px/1 var(--font-script); letter-spacing: .15em; }
+.heraldry-ledger strong { color: var(--heraldry-brass-light); font: 400 27px/1 var(--font-inscription); }
+.cloth-choices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; margin: 8px 0 12px; }
+.cloth-card { display: flex; align-items: center; gap: 9px; min-width: 0; min-height: 60px; padding: 8px; text-align: left; border: 1px solid rgba(201,156,82,.45); border-radius: 2px; background: linear-gradient(var(--heraldry-iron-light), var(--heraldry-iron)); color: var(--heraldry-cream); cursor: pointer; }
+.cloth-card > span:last-child { min-width: 0; }
+.cloth-card strong { display: block; font: 400 15px/1.12 var(--font-inscription); }
+.cloth-card small { display: block; margin-top: 4px; font: 600 11px/1.1 var(--font-script); color: var(--heraldry-brass-light); }
+.cloth-swatch { flex: 0 0 23px; height: 32px; background: linear-gradient(90deg, rgba(0,0,0,.25), transparent 35%, rgba(255,255,255,.12) 55%, rgba(0,0,0,.22)), var(--cloth-color); clip-path: polygon(0 0,100% 0,100% 77%,50% 100%,0 77%); }
+.cloth-card[aria-checked='true'] { border-color: var(--heraldry-brass-light); box-shadow: inset 0 0 0 1px rgba(236,201,127,.35); background: linear-gradient(#554735, var(--heraldry-iron)); }
+.cloth-card:hover { border-color: var(--heraldry-brass-light); }
+.cloth-card:focus-visible, #cloth-action:focus-visible, .armory-tabs button:focus-visible, .renown-rules summary:focus-visible { outline: 2px solid var(--heraldry-magic); outline-offset: 3px; }
+.cloth-detail { padding: 12px; background: rgba(34,29,25,.55); border: 1px solid rgba(201,156,82,.35); }
+#cloth-name { margin: 0 0 5px; color: var(--heraldry-brass-light); font: 400 20px/1.1 var(--font-inscription); }
+#cloth-description, #cloth-hint, #renown-status, .renown-rules p { margin: 0; font: 500 13px/1.35 var(--font-script); color: var(--heraldry-cream); }
+#cloth-hint { margin-top: 9px; font-weight: 700; }
+#cloth-progress { display: block; width: 100%; height: 6px; margin-top: 8px; border: 0; background: var(--heraldry-iron); accent-color: var(--heraldry-brass-light); }
+#cloth-progress[hidden] { display: none; }
+#cloth-progress::-webkit-progress-bar { background: var(--heraldry-iron); }
+#cloth-progress::-webkit-progress-value { background: var(--heraldry-brass-light); }
+#cloth-progress::-moz-progress-bar { background: var(--heraldry-brass-light); }
+#cloth-action { margin-top: 10px; min-height: 40px; }
+#cloth-action:disabled { opacity: .65; cursor: default; }
+#renown-status { display: block; margin: 10px 0; min-height: 2.7em; color: #f3dfb0; }
+.renown-rules { border-top: 1px solid rgba(234,220,182,.3); padding-top: 9px; }
+.renown-rules summary { cursor: pointer; color: var(--heraldry-brass-light); font: 700 11px/1.4 var(--font-script); letter-spacing: .12em; }
+.renown-rules p { margin-top: 8px; }
+.renown-rules p span { float: right; color: var(--heraldry-brass-light); }
+#renown-reward { color: var(--heraldry-brass-light); max-width: 38rem; margin: .8rem auto; font-family: var(--font-script); }
+@media (prefers-reduced-motion: no-preference) {
+  #armory-menu:not(.hidden) .armory-inner { animation: armory-arrive .28s ease-out both; }
+  @keyframes armory-arrive { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 }
-.armory-tabs { display: flex; gap: 6px; margin: 8px 0 14px; }
-.armory-tabs button { flex: 1; padding: 10px 6px; border: 1px solid #b59863; background: #26272a; color: #efdfb8; cursor: pointer; font: 700 12px/1.2 var(--font-script); letter-spacing: .08em; }
-.armory-tabs button[aria-pressed='true'] { background: #ead3a0; color: #30251b; }
-.armory-tabs button:focus-visible { outline: 2px solid #a5e6f3; outline-offset: 3px; }
+@container app (max-height: 500px) {
+  #armory-menu .armory-inner { --banner-width: min(390px, 51cqw); max-height: calc(100% - 12px); }
+  .cloth-card { min-height: 52px; padding: 6px; }
+  .cloth-swatch { flex-basis: 19px; height: 26px; }
+  .heraldry-ledger strong { font-size: 22px; }
+}
+@container app (max-width: 600px) and (min-height: 501px) {
+  #armory-menu .armory-inner { --banner-width: calc(100cqw - 24px); left: 12px; padding: 22px 23px calc(var(--hem) + 20px); }
+}
