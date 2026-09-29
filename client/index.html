@@ -20,6 +20,7 @@
   <link rel="stylesheet" href="client/playability.css" />
   <link rel="stylesheet" href="client/menu.css" />
   <link rel="stylesheet" href="client/mobile.css" />
+  <link rel="stylesheet" href="client/renown.css" />
   <script type="importmap">
     {
       "imports": {
@@ -79,11 +80,38 @@
         <button class="back-button" id="armory-back">← BACK</button>
         <p class="eyebrow">THE SPELLBLADE'S KIT</p>
         <h2>ARMORY</h2>
+        <nav class="armory-tabs" aria-label="Armory sections">
+          <button type="button" id="armory-kit-tab" aria-pressed="true" aria-controls="armory-kit">COMBAT KIT</button>
+          <button type="button" id="armory-heraldry-tab" aria-pressed="false" aria-controls="armory-heraldry">HERALDRY</button>
+        </nav>
+        <div id="armory-kit">
         <p class="armory-slot">BLADE</p>
         <div class="armory-blade"><b id="armory-blade-name">Castleward longsword</b><small id="armory-blade-facts"></small></div>
         <p class="armory-slot">SPELL · Q</p>
         <div id="armory-spells" class="armory-spells" role="radiogroup" aria-label="Spell"></div>
         <p class="panel-copy armory-note">Carried into your next match. More arms and arcana will hang here.</p>
+        </div>
+        <div id="armory-heraldry" class="hidden">
+          <div class="heraldry-ledger">
+            <div><small>YOUR RENOWN</small><strong id="renown-balance">CONNECTING…</strong></div>
+            <div><small>COLLECTION</small><strong id="renown-collection">0 / 6</strong></div>
+          </div>
+          <p class="armory-slot">CHOOSE YOUR STANDARD</p>
+          <div id="armory-cloths" class="cloth-choices" role="radiogroup" aria-label="Preview cloth"></div>
+          <div class="cloth-detail">
+            <h3 id="cloth-name"></h3>
+            <p id="cloth-description"></p>
+            <p id="cloth-hint"></p>
+            <progress id="cloth-progress" max="1" value="0" aria-label="Renown toward selected standard"></progress>
+            <button id="cloth-action" type="button" class="wide-button" disabled>CONNECTING…</button>
+          </div>
+          <p id="renown-status" role="status"></p>
+          <details class="renown-rules">
+            <summary>EARNING RENOWN</summary>
+            <p><b>20</b> Complete a match <span>+10 for victory</span></p>
+            <p>Fight for at least 30 seconds and record a kill, death or parry. Server hosted bot duels count. Practice, offline play and forfeits award none.</p>
+          </details>
+        </div>
       </div>
     </section>
 
@@ -278,10 +306,12 @@
       <div class="end-medallion">⚔</div>
       <p class="eyebrow">MATCH COMPLETE</p>
       <h2 id="winner-title">VICTORY</h2>
+      <p id="renown-reward" role="status"></p>
       <div id="final-scoreboard" class="final-scoreboard"></div>
       <div class="end-actions">
         <button id="seek-another" class="wide-button primary-command hidden">SEEK ANOTHER</button>
         <button id="rematch" class="wide-button primary-command">PLAY AGAIN</button>
+        <button id="end-armory" class="wide-button">VISIT ARMORY</button>
         <button id="leave" class="wide-button">RETURN TO MENU</button>
       </div>
       <p id="rematch-copy" class="small-copy">All remaining players vote to rematch.</p>

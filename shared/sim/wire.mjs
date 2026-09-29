@@ -50,6 +50,7 @@ export function serializeSnapshot(room, nowSec) {
     matchSeconds: room.policy.matchSeconds,
     finishReason: room.finishReason ?? null,
     winnerId: room.winnerId,
+    rewardMatchId: room.rewardMatchId ?? null,
     suddenDeath: room.suddenDeath,
     players: [...room.players.values()].map((p) => ({
       id: p.id,
@@ -75,6 +76,7 @@ export function serializeSnapshot(room, nowSec) {
       parries: p.parries,
       abyssKills: p.abyssKills,
       spell: p.spell,
+      cloth: p.cloth ?? 'crimson',
       spellReadyAt: p.spellReadyAt,
       // afflictions, for your own prediction (the chill slows you) and everyone's effects
       chill: p.chill ? { slow: p.chill.slow, startedAt: p.chill.startedAt, until: p.chill.until } : null,

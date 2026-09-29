@@ -145,6 +145,7 @@ export class MenuScene {
 
       this.assetInstance = instance;
       this.visualKind = 'production';
+      instance.setCloth(this.cloth ?? 'crimson');
       this.characterRoot.add(instance.root);
       instance.root.traverse((object) => { if (object.isMesh) { object.castShadow = true; object.receiveShadow = true; } });
       instance.animator.apply({ clip: 'Idle', loop: true, time: 0 });
@@ -202,13 +203,18 @@ export class MenuScene {
   }
 
   /** Ease the camera to the shot for a menu screen (main, solo, private, how, lobby). */
-  setShot(name, seconds = 1.4) {
+  setCloth(id) {
+    this.cloth = id;
+    this.assetInstance?.setCloth(id);
+  }
+
+  setShot(name, seconds = 0.65) {
     const next = menuShotFor(name);
     if (next === this.shotTo) return;
     this.shotFrom = { ...this.shot };
     this.shotTo = next;
     this.shotElapsed = 0;
-    this.shotDuration = Math.max(0.01, seconds);
+    this.shotDuration = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches ? 0.01 : Math.max(0.01, seconds);
   }
 
   #pointerDown = (event) => {
