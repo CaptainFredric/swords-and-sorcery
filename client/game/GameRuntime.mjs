@@ -15,8 +15,9 @@ import { localPushDirection } from './spellbladeMotion.mjs';
 import { blowDirection, glancing, hitKick, hitstopSeconds, impactPoint } from './hitFeel.mjs';
 import {
   blockRecipe, burnLickRecipe, castRecipe, dashRecipe, fireballImpactRecipe, frostImpactRecipe, guardBreakRecipe, hurtRecipe, killRecipe,
-  parryRecipe, spatialize, swingRecipe, swordHitRecipe, wallClangRecipe,
+  parryRecipe, spatialize, steelCallRecipe, steelTurnRecipe, swingRecipe, swordHitRecipe, wallClangRecipe,
 } from './sound/soundRecipes.mjs';
+import { steelStrength } from '../../shared/src/steel.mjs';
 import { chillScale, spellFor } from '../../shared/src/spells.mjs';
 import { deathLines, voicePlacement, voiceRate } from './sound/voiceRules.mjs';
 import { FOOTSTEPS, footfallsCrossed, footstepPlacement, footstepRecipe, surfaceAt, variantPicker } from './sound/footsteps.mjs';
@@ -134,6 +135,14 @@ export class GameRuntime {
       if (!canPresentLocalAction('cast', this.localAuth, this.localState, now)) return;
       const spell = spellFor(this.localAuth?.spell);
       this.weapon.cast({ gatherSec: spell.gatherSec, spell: spell.id });
+    };
+    // Sheathe in Steel: the clench and the ring of plate at once (the server hardens the armour a moment later)
+    this.input.onSteelLocal = () => {
+      const now = this.socket.serverNow();
+      if (!canPresentLocalAction('steel', this.localAuth, this.localState, now)) return;
+      this.weapon.clench();
+      this.localSteelAt = now;
+      this.#play(steelCallRecipe(), null, 0.9);
     };
     this.input.onDashLocal = (dir) => {
       const now = this.socket.serverNow();
@@ -353,6 +362,17 @@ export class GameRuntime {
         const release = Math.max(0, (event.castEndsAt ?? event.at + spell.gatherSec) - this.socket.serverNow());
         this.#play(castRecipe(Math.random, { spell: spell.id, release }), event.playerId === me ? null : this.#bodyPosition(event.playerId), event.playerId === me ? 0.9 : 0.6);
         this.#say('sorcery', event.playerId);
+      }
+
+      // Sheathed in Steel: another knight's plate ringing as it hardens (mine rang as I pressed)
+      if (event.type === 'steelOn' && event.playerId !== me) this.#play(steelCallRecipe(), this.#bodyPosition(event.playerId), 0.7);
+      // a spell turned aside by it: a glint where it struck the plate, a ping, and now and then a word of pride
+      if (event.type === 'steelTurn') {
+        const body = this.#bodyPosition(event.playerId);
+        const point = body && event.point ? impactPoint(body, event.point) : null;
+        if (point && event.playerId !== me) this.effects.steelGlint(point, blowDirection(body, event.point));
+        this.#play(steelTurnRecipe(), event.playerId === me ? null : point, 0.85);
+        if (event.turned >= 0.25) this.#say('steelBoast', event.playerId, { delay: 0.35 });
       }
 
       // my own swings whoosh from the local swing (no network delay); others' from the server's strike
@@ -681,6 +701,14 @@ export class GameRuntime {
         this.socket.input({ seq: ++this.sequence, ...moveInput, clientTime: this.socket.serverNow() });
       }
       // the weapon's procedural motion also returns small camera offsets (purely visual: aim uses input yaw/pitch)
+      // Sheathed in Steel on my own arms: the server's word, or my own press while that word is on the way
+      const steel = this.localAuth.steel;
+      const pressed = Number.isFinite(this.localSteelAt) && serverNow - this.localSteelAt < 0.6 ? this.localSteelAt : null;
+      const calledAt = Math.max(steel?.calledAt ?? -Infinity, pressed ?? -Infinity);
+      this.weapon.setSteel(
+        Math.max(steelStrength(steel, serverNow), pressed !== null && !steel ? 1 : 0),
+        Number.isFinite(calledAt) ? serverNow - calledAt : null,
+      );
       const strideBefore = this.weapon.motion.stride;
       const view = this.weapon.update(timeSec, dt, {
         speed: Math.hypot(this.localState.velocity.x, this.localState.velocity.z),

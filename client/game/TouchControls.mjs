@@ -1,5 +1,6 @@
 import { MOVEMENT } from '../../shared/src/movement.mjs';
 import { spellFor } from '../../shared/src/spells.mjs';
+import { STEEL } from '../../shared/src/steel.mjs';
 import { lookDelta, stickVector, TOUCH } from './touchControlsModel.mjs';
 import { screenTurn } from '../ui/screenTurn.mjs';
 
@@ -19,6 +20,8 @@ const ICONS = {
   fireball: '<path d="M12 2.8c.9 3.7 5 5.3 5 10a5 5 0 0 1-10 0c0-2.4 1.3-4 2.6-5.3.3 1.7 1 2.7 2.1 3.2-.5-3 .1-5.5.3-7.9z"/>',
   frostfire: '<path d="M12 3v18M4.2 7.5l15.6 9M4.2 16.5l15.6-9M9.5 4.5 12 7l2.5-2.5M9.5 19.5 12 17l2.5 2.5"/>',
   dash: '<path d="M4 8h6M3 12h8M4 16h6M13 6l6 6-6 6"/>',
+  // a gauntleted fist, closed
+  steel: '<path d="M7 11V8a1.5 1.5 0 0 1 3 0v2V6.5a1.5 1.5 0 0 1 3 0V10V7.5a1.5 1.5 0 0 1 3 0V13c0 4-2.5 7-6 7s-5-2.5-5-5v-2.5a1.5 1.5 0 0 1 2-1.4"/>',
   jump: '<path d="M12 18V6M6.5 11.5 12 6l5.5 5.5M6 21h12"/>',
   sprint: '<path d="M6 12.5 12 7l6 5.5M6 18.5 12 13l6 5.5"/>',
   pause: '<path d="M9 5v14M15 5v14"/>',
@@ -29,6 +32,7 @@ const BUTTONS = [
   { action: 'attack', label: 'ATTACK' },
   { action: 'guard', label: 'GUARD' },
   { action: 'dash', label: 'DASH', cooldown: { key: 'dashReadyAt', seconds: MOVEMENT.dashCooldown } },
+  { action: 'steel', label: 'STEEL', cooldown: { key: 'steelReadyAt', seconds: STEEL.cooldownSec } },
   // the spell carried from the Armory (its icon, name and cooldown follow the spell)
   { action: 'spell', label: 'FIREBALL', icon: 'fireball', cooldown: { key: 'spellReadyAt', seconds: 4 } },
   { action: 'jump', label: 'JUMP' },
@@ -233,6 +237,7 @@ export class TouchControls {
     }
     if (action === 'spell') this.input.cast();
     if (action === 'dash') this.input.dash();
+    if (action === 'steel') this.input.steel();
     if (action === 'jump') {
       this.jumpHeld = true;
       this.jumpUntil = performance.now() + JUMP_LATCH_MS;

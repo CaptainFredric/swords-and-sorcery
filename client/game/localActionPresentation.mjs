@@ -4,6 +4,7 @@ export function canPresentLocalAction(action, auth, localState, nowSec) {
 
   if (action === 'guard') return (auth.guardStamina ?? 0) > 0;
   if (action === 'dash') return Boolean(localState) && nowSec >= (localState.dashReadyAt ?? Infinity);
+  if (action === 'steel') return nowSec >= (auth.steelReadyAt ?? 0);
   if (action === 'attack') return true;
   // the spell answers the moment it is ready again (the server keeps the true cooldown)
   if (action === 'cast') return nowSec >= (auth.spellReadyAt ?? 0);

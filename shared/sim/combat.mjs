@@ -2,7 +2,8 @@ import {
   GAME, MELEE_CONTACT, SWORD_CHAIN, SWORD_STRIKE_TIMES, bladeAngleAt, closingImpact, guardProfile, meleeContactQuality, nextChainStep,
   resolveSwordVsGuard, swordDamageFor,
 } from '../src/combat.mjs';
-import { blastDamage, blastDistance, burnFrom, chillScale, spellFor, strongerChill } from '../src/spells.mjs';
+import { blastDamage, blastDistance, burnFrom, chillFrom, chillScale, spellExposure, spellFor, strongerChill } from '../src/spells.mjs';
+import { STEEL, callSteel, chipSteel, steelExposure } from '../src/steel.mjs';
 import { findSwordWorldHit, segmentAabbHit, surfaceHeightAt } from '../src/collision.mjs';
 import { SPRINT, movePlayer, resolveSprint, tryStartDash } from '../src/movement.mjs';
 import { separatePlayers } from '../src/separation.mjs';
@@ -57,6 +58,7 @@ function resetAtSpawn(player, spawn, nowSec) {
   player.pendingSpell = null;
   player.burn = null;
   player.chill = null;
+  player.steel = null;
   player.speedScale = 1;
   player.spawnProtectionUntil = nowSec + SPAWN_PROTECTION_SEC;
   player.alive = true;
@@ -162,6 +164,21 @@ export function tryDash(room, playerId, direction, nowSec) {
   const ok = tryStartDash(player, direction, nowSec);
   if (ok) room.events.push({ type: 'dash', playerId, direction, at: nowSec });
   return ok;
+}
+
+/**
+ * Sheathe in Steel: the magic hand clenches and the armour hardens at once (shared/src/steel.mjs). It needs that
+ * hand free (not gathering a spell); it does not stop a sword or drop a guard.
+ */
+export function tryActivateSteel(room, playerId, nowSec) {
+  const player = room.players.get(playerId);
+  if (room.state !== 'PLAYING' || !player || !player.alive || nowSec < player.staggerUntil) return false;
+  if (nowSec < (player.steelReadyAt ?? 0) || player.pendingSpell) return false;
+  player.steel = callSteel(nowSec);
+  player.steelReadyAt = nowSec + STEEL.cooldownSec;
+  player.spawnProtectionUntil = Math.min(player.spawnProtectionUntil, nowSec);
+  room.events.push({ type: 'steelOn', playerId, at: nowSec, readyAt: player.steelReadyAt });
+  return true;
 }
 
 /** Gather the Spellblade's spell in the palm; it flies when the gather ends (see stepRoom). */
@@ -372,6 +389,8 @@ function landStrike(room, attacker, strikeIndex, target, g, atSec, nowSec) {
 
   const shove = 1.7 * (1 + MELEE_CONTACT.impactKnockback * impact);
   const push = { x: g.direction.x * shove, y: strikeIndex === 2 ? 0.8 : 0.2, z: g.direction.z * shove };
+  // hardened armour does not turn a sword (it is a guard against sorcery), but each blow wears some of it away
+  if (target.steel) target.steel = chipSteel(target.steel, STEEL.swordChip * quality, nowSec);
   applyDamage(room, attacker.id, target.id, swordDamageFor(quality), 'sword', nowSec, push);
   room.events.push({ type: 'swordHit', playerId: attacker.id, targetId: target.id, strikeIndex, quality, impact, at: nowSec });
 }
@@ -401,6 +420,7 @@ export function killPlayer(room, victimId, attackerId, source, nowSec) {
   victim.alive = false;
   victim.health = 0;
   victim.guarding = false;
+  victim.steel = null;
   stopSwordChain(victim);
   victim.respawnAt = nowSec + RESPAWN_SEC;
   if (credited && credited !== victimId) {
@@ -452,18 +472,24 @@ function explodeSpell(room, projectile, point, nowSec, worldHit = false, directV
     const direct = player.id === directVictimId;
     const distance = direct ? 0 : blastDistance(point, player.position);
     if (distance > spell.radius) continue;
-    const amount = blastDamage(spell, distance);
+    // how directly it caught them decides everything it leaves (hardened armour turns some of it aside)
+    const armour = steelExposure(player.steel, spellExposure(spell, distance), nowSec);
+    const exposure = armour.exposure;
+    if (armour.turned > 0.02) {
+      player.steel = chipSteel(player.steel, STEEL.spellChip * armour.turned, nowSec);
+      room.events.push({ type: 'steelTurn', playerId: player.id, spell: spell.id, turned: armour.turned, point, at: nowSec });
+    }
+    const amount = blastDamage(spell, exposure);
     const away = normalize3({ x: center.x - point.x, y: Math.max(0.15, center.y - point.y), z: center.z - point.z });
     const hit = applyDamage(room, projectile.ownerId, player.id, amount, spell.id, nowSec, {
       x: away.x * 4.3 * shove, y: away.y * 2.3 * shove, z: away.z * 4.3 * shove,
     });
     if (!hit || !player.alive) continue;
     // a fresh burn replaces one already licking (it never stacks); a blast too far out to catch leaves any burn be
-    const burn = burnFrom(spell, distance, projectile.ownerId, nowSec);
+    const burn = burnFrom(spell, exposure, projectile.ownerId, nowSec);
     if (burn) player.burn = burn;
-    if (spell.chill) {
-      player.chill = strongerChill(player.chill, { slow: spell.chill.slow, startedAt: nowSec, until: nowSec + spell.chill.seconds }, nowSec);
-    }
+    const chill = chillFrom(spell, exposure, nowSec);
+    if (chill) player.chill = strongerChill(player.chill, chill, nowSec);
   }
   room.events.push({
     type: 'projectileImpact', projectileId: projectile.id, ownerId: projectile.ownerId, spell: spell.id, radius: spell.radius, point, worldHit, at: nowSec,

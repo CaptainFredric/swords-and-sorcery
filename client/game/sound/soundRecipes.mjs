@@ -303,3 +303,30 @@ export function dashRecipe(rand = Math.random) {
     reverb: 0.1,
   };
 }
+
+/**
+ * Sheathe in Steel: the magic hand clenches (leather and mail drawing tight), the plate settles hard (a restrained
+ * CHINK over a short low KLANG of the whole harness), and a thin shimmer runs with the glint over the steel.
+ */
+export function steelCallRecipe(rand = Math.random) {
+  return {
+    layers: [
+      { type: 'noise', filter: 'bandpass', freq: 900 * jitter(rand, 0.1), q: 1.2, attack: 0.004, decay: 0.07, gain: 0.22 },
+      { ...ring(rand, 1850 * jitter(rand, 0.03), { decay: 0.16, gain: 0.2, partials: 4, bright: 1.2 }), at: 0.012 },
+      { ...ring(rand, 520 * jitter(rand, 0.03), { decay: 0.38, gain: 0.11, partials: 5, bright: 0.8 }), at: 0.035 },
+      { ...ring(rand, 4300 * jitter(rand, 0.05), { decay: 0.34, gain: 0.045, partials: 3 }), at: 0.08 },
+    ],
+    reverb: 0.12,
+  };
+}
+
+/** A spell skating off hardened plate: a bright ping and a hiss, the blast's own sound underneath. */
+export function steelTurnRecipe(rand = Math.random) {
+  return {
+    layers: [
+      ring(rand, 1350 * jitter(rand, 0.05), { decay: 0.28, gain: 0.2, partials: 4, bright: 1.1 }),
+      { type: 'noise', filter: 'highpass', freq: 3800, q: 0.7, attack: 0.002, decay: 0.12, gain: 0.18 },
+    ],
+    reverb: 0.2,
+  };
+}

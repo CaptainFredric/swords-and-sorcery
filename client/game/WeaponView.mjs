@@ -11,6 +11,7 @@ import { FP_MOTION, FirstPersonMotion } from './firstPersonMotion.mjs';
 import { OFF_HAND_CLEAR, comboPose } from './fpSlash.mjs';
 import { FIRST_PERSON_OFF_ARM, solveArm, solveSwordArm } from './swordArmIK.mjs';
 import { LocalSwordChain } from './localSwordChain.mjs';
+import { createSteelSheen } from './steelSheen.mjs';
 
 function damp(value, target, amount) {
   return value + (target - value) * amount;
@@ -129,6 +130,23 @@ function addMagicWisp(parent, material, name, position, size, rotation) {
 // what a spell looks like gathering in the palm
 const SPELL_GLOW = Object.freeze({ fireball: 0xff7a2a, frostfire: 0x7fd6ff });
 
+// the clench of Sheathe in Steel: tightening over a moment, then letting go (0..1)
+function clenchPulse(age) {
+  if (!(age >= 0) || age > 0.42) return 0;
+  return Math.sin(Math.PI * Math.min(1, age / 0.42)) ** 0.7;
+}
+
+// the magic hand tightening into a fist (the wrist curling in, the forearm turning, the arm drawn in a touch)
+function clenchRotations(age) {
+  const c = clenchPulse(age);
+  if (c <= 0) return [];
+  return [
+    { bone: 'hand.L', axis: [1, 0, 0], angle: -0.55 * c, space: 'local' },
+    { bone: 'forearm.L', axis: [0, 1, 0], angle: -0.3 * c, space: 'local' },
+    { bone: 'upper_arm.L', axis: [1, 0, 0], angle: 0.12 * c },
+  ];
+}
+
 export class WeaponView {
   constructor(camera) {
     this.camera = camera;
@@ -226,6 +244,10 @@ export class WeaponView {
     // hit-stop: while frozen the arms hold their pose (the procedural kick keeps playing)
     this.frozenUntil = 0;
     this.lastPlan = null;
+    // Sheathe in Steel: the magic hand's clench (a quick pulse), and the plate's sheen while the armour is hard
+    this.clenchAt = -Infinity;
+    this.steel = { strength: 0, rippleAge: null };
+    this.steelSheen = null;
     // told when each stroke of the combo begins its cut (the swing sound plays from here, without network delay)
     this.onSwing = () => {};
     this.lastSwingKey = null;
@@ -319,6 +341,16 @@ export class WeaponView {
     this.castReleased = false;
     this.guard = false;
     this.cancelAttack();
+  }
+
+  /** The magic hand clenches (Sheathe in Steel): a quick tightening, the palm light flashing to steel. */
+  clench() {
+    this.clenchAt = performance.now() / 1000;
+  }
+
+  /** The armour's hardening on my arms: strength 0..1, and seconds since it was called (for the glint), or null. */
+  setSteel(strength = 0, rippleAge = null) {
+    this.steel = { strength, rippleAge };
   }
 
   dash() {
@@ -424,6 +456,7 @@ export class WeaponView {
           { bone: 'forearm.L', axis: [0, 1, 0], angle: FP_MOTION.magicForearmTwist * motion.neutral, space: 'local' },
           { bone: 'upper_arm.L', axis: [1, 0, 0], angle: -FP_MOTION.magicArmDrop * motion.neutral, space: 'local' },
           ...castGestureRotations(gesture),
+          ...clenchRotations(timeSec - this.clenchAt),
           // the magic arm drops out of the blade's way while it works (unless it is on the grip)
           // (fading as it reaches for the grip, so the two never pull against each other)
           ...(combo ? OFF_HAND_CLEAR.map((turn) => ({ ...turn, angle: turn.angle * combo.weight * (1 - (combo.offHand?.weight ?? 0)) })) : []),
@@ -444,6 +477,17 @@ export class WeaponView {
       for (const material of this.productionInstance.materials.SorceryAccent ?? []) material.emissiveIntensity = 0.7 + 2.1 * level;
       this.magicLight.intensity = 0.12 + 2.6 * level;
       this.#chargeGlow(gesture, timeSec);
+      // the clench: the palm light flares to steel and dies back as the hand opens
+      const clench = clenchPulse(timeSec - this.clenchAt);
+      if (clench > 0) {
+        this.magicLight.color.setHex(0xcfdbe8);
+        this.magicLight.intensity += 1.1 * clench;
+      }
+      // the steel on my own arms
+      if (this.steel.strength > 0.001 || this.steelSheen || Number.isFinite(this.steel.rippleAge)) {
+        this.steelSheen ??= createSteelSheen(this.productionInstance);
+        this.steelSheen.set(this.steel.strength, this.steel.rippleAge);
+      }
       return motion;
     }
 
@@ -507,6 +551,7 @@ export class WeaponView {
 
   dispose() {
     this.disposed = true;
+    this.steelSheen?.dispose();
     this.assetGeneration += 1;
     if (this.productionInstance) {
       this.productionOffset.remove(this.productionInstance.root);

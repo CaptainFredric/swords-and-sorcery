@@ -24,6 +24,10 @@ export const VOICE_LINES = Object.freeze({
   killTaunt: { chance: 0.3, cooldown: 30, gain: 0.95 },
   // "You should have hired a REAL guard!" after breaking one, rarely
   breakTaunt: { chance: 0.35, cooldown: 45, gain: 0.95 },
+  // "What did you say? Must have been the wind..." after a Gale has moved someone, now and then
+  galeTaunt: { chance: 0.3, cooldown: 60, gain: 0.95 },
+  // "My armor works now!" when Sheathed in Steel has turned a spell aside, rarely
+  steelBoast: { chance: 0.3, cooldown: 75, gain: 0.95 },
 });
 
 // How a knight's voice carries. Your own is heard as it is: dry and close, at its full level. Another knight's is heard

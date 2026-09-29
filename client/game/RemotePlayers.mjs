@@ -13,6 +13,8 @@ import {
 import { bufferedServerTime, castPoseWindowFromEvent, resolveSpellbladeState } from './spellbladePose.mjs';
 import { airborneLegFlex, landingStrength, pruneReactions } from './spellbladeMotion.mjs';
 import { gaitFootfall } from './sound/footsteps.mjs';
+import { createSteelSheen } from './steelSheen.mjs';
+import { steelStrength } from '../../shared/src/steel.mjs';
 
 // which body reacts to which combat event, and how
 const REACTION_EVENTS = Object.freeze({
@@ -252,6 +254,7 @@ export class RemotePlayers {
     for (const [id, shell] of this.rigs) {
       if (!seen.has(id)) {
         this.scene.remove(shell.root);
+        shell.steelSheen?.dispose();
         disposeRemoteVisualShell(shell);
         this.rigs.delete(id);
         this.samples.delete(id);
@@ -360,6 +363,17 @@ export class RemotePlayers {
       }
       d.lastGait = gait;
 
+      // Sheathed in Steel: the plate's hardening, and the glint running over it as it was called
+      const steel = steelStrength(pb.steel, serverNow);
+      if (shell.visualInstance && (steel > 0.001 || shell.steelSheen)) {
+        if (shell.steelSheenOf !== shell.visualInstance) {
+          shell.steelSheen?.dispose();
+          shell.steelSheen = createSteelSheen(shell.visualInstance);
+          shell.steelSheenOf = shell.visualInstance;
+        }
+        shell.steelSheen.set(steel, pb.steel ? serverNow - pb.steel.calledAt : null);
+      }
+
       const glowAge = (nowMs - (shell.hitGlowAt ?? -Infinity)) / 1000;
       setHitGlow(shell, glowAge < HIT_GLOW.seconds ? 1 - glowAge / HIT_GLOW.seconds : 0);
 
@@ -381,6 +395,7 @@ export class RemotePlayers {
     for (const shell of this.rigs.values()) {
       setHitGlow(shell, 0);
       this.scene.remove(shell.root);
+      shell.steelSheen?.dispose();
       disposeRemoteVisualShell(shell);
     }
     this.rigs.clear();

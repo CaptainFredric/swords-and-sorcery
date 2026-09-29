@@ -308,6 +308,27 @@ export class Effects {
     if (parry) this.#groundRing(at.clone().setY(at.y + 0.2), 0x9fe8ff, 0.8, true);
   }
 
+  /** A spell turned aside by hardened plate: a cool glint on the armour and a few pale sparks skating off it. */
+  steelGlint(point, dir) {
+    const at = new THREE.Vector3(point.x, point.y, point.z);
+    const away = new THREE.Vector3(dir?.x ?? 0, 0, dir?.z ?? 0);
+    if (away.lengthSq() < 1e-6) away.set(0, 0, 1);
+    away.normalize();
+    const flash = new THREE.Mesh(this.impactFlashGeometry, this.#basicMaterial(0xeef5ff));
+    flash.position.copy(at);
+    flash.scale.setScalar(0.55);
+    this.#addTransient(flash, { life: 0.12, expand: 4, shrink: true, spin: new THREE.Vector3(3, 7, 4) });
+    for (let i = 0; i < 12; i += 1) {
+      const spark = new THREE.Mesh(this.sparkGeometry, this.#basicMaterial(i % 2 ? 0xdfe9f4 : 0xffffff));
+      spark.position.copy(at);
+      const velocity = away.clone().multiplyScalar(-(1 + Math.random() * 2.2))
+        .add(new THREE.Vector3((Math.random() - 0.5) * 4.5, Math.random() * 3, (Math.random() - 0.5) * 4.5));
+      spark.lookAt(at.clone().add(velocity));
+      this.#addTransient(spark, { velocity, life: 0.18 + Math.random() * 0.16, shrink: true, gravity: 8, drag: 2.4 });
+    }
+    this.#groundRing(at, 0xd9e6f2, 0.6, true);
+  }
+
   // a flat ring of light expanding from a point (at the feet unless upright)
   #groundRing(at, color, scale = 1, upright = false) {
     const ring = new THREE.Mesh(this.impactRingGeometry, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false }));

@@ -1,6 +1,7 @@
 import { SPRINT } from '../../shared/src/movement.mjs';
 import { combatStatusDurationMs } from '../game/combatFeedbackTiming.mjs';
 import { spellFor } from '../../shared/src/spells.mjs';
+import { STEEL, steelStrength } from '../../shared/src/steel.mjs';
 
 export function matchInfoText(snapshot, serverNow) {
   if (snapshot?.mode === 'PRACTICE') return 'PRACTICE YARD  ·  UNTIMED';
@@ -28,6 +29,7 @@ export class HUD {
     this.burnEdge = document.querySelector('#afflict-burn');
     this.chillEdge = document.querySelector('#afflict-chill');
     this.dash = document.querySelector('#dash-ability');
+    this.steel = document.querySelector('#steel-ability');
     this.matchInfo = document.querySelector('#match-info');
     this.feed = document.querySelector('#kill-feed');
     this.crosshair = document.querySelector('#crosshair');
@@ -76,6 +78,14 @@ export class HUD {
     }
     this.#ability(this.spell, Math.max(0, (local.spellReadyAt ?? 0) - serverNow), spell.cooldownSec);
     this.#ability(this.dash, Math.max(0, local.dashReadyAt - serverNow));
+    if (this.steel) {
+      this.#ability(this.steel, Math.max(0, (local.steelReadyAt ?? 0) - serverNow), STEEL.cooldownSec);
+      // Sheathed in Steel: the tile holds the armour's strength, draining as it wears
+      const strength = steelStrength(local.steel, serverNow);
+      this.steel.classList.toggle('sheathed', strength > 0.01);
+      this.steel.style.setProperty('--steel', strength.toFixed(3));
+      if (strength > 0.01) this.steel.querySelector('strong').textContent = 'SHEATHED';
+    }
     this.matchInfo.textContent = matchInfoText(snapshot, serverNow);
 
     this.deathCard.classList.toggle('hidden', local.alive);

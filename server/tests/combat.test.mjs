@@ -6,9 +6,11 @@ import {
   endAttack,
   setGuard,
   stepRoom,
+  tryActivateSteel,
   tryCastSpell,
   tryDash,
 } from '../../shared/sim/combat.mjs';
+import { STEEL, steelStrength } from '../../shared/src/steel.mjs';
 import { SPRINT } from '../../shared/src/movement.mjs';
 import { GAME } from '../../shared/src/combat.mjs';
 import { SPELLS } from '../../shared/src/spells.mjs';
@@ -461,4 +463,43 @@ test('a glancing blow bears less on a guard than a clean one', () => {
   const clean = cost(0);
   const glancing = cost(-50 * Math.PI / 180);
   assert.ok(clean > 0 && glancing > 0 && glancing < clean, `clean ${clean}, glancing ${glancing}`);
+});
+
+// a Fireball straight into b (who stands 2 m in front of a), resolved; returns what it did to b
+function fireballInto(room, { steel = false } = {}) {
+  const b = room.players.get('b');
+  if (steel) assert.equal(tryActivateSteel(room, 'b', 10), true);
+  tryCastSpell(room, 'a', { x: 1, y: 0, z: 0 }, 10);
+  let now = 10;
+  while (now < 10.8 && !room.events.some((e) => e.type === 'projectileImpact')) { now += 0.02; stepRoom(room, 0.02, now, openWorld); }
+  const damage = room.events.filter((e) => e.type === 'damage' && e.victimId === 'b' && e.source === 'fireball').reduce((sum, e) => sum + e.amount, 0);
+  return { damage, burn: b.burn, push: b.velocity.x, b };
+}
+
+test('Sheathed in Steel: a square Fireball lands like a glancing one (less damage, less or no burn), the shove the same', () => {
+  const bare = fireballInto(playingRoom());
+  const steeled = fireballInto(playingRoom(), { steel: true });
+  assert.ok(steeled.damage < bare.damage, `${steeled.damage} < ${bare.damage}`);
+  assert.ok((steeled.burn?.licksLeft ?? 0) < (bare.burn?.licksLeft ?? 0), 'the fire clings less');
+  assert.ok(Math.abs(steeled.push - bare.push) < 1e-6, 'momentum is untouched');
+  // turning it aside wore the armour
+  assert.ok(steelStrength(steeled.b.steel, 10.2) < steelStrength({ at: 10, base: 1 }, 10.2));
+});
+
+test('the steel does not soften a sword, but each blow wears it; and it waits out its cooldown', () => {
+  const room = playingRoom();
+  const b = room.players.get('b');
+  assert.equal(tryActivateSteel(room, 'b', 10), true);
+  assert.equal(tryActivateSteel(room, 'b', 10 + STEEL.cooldownSec - 0.1), false, 'not again yet');
+  beginAttack(room, 'a', 10);
+  for (const now of [10.3, 10.4, 10.5]) stepRoom(room, 0.01, now, openWorld);
+  assert.equal(b.health, 72, 'the sword bites as ever');
+  assert.ok(steelStrength(b.steel, 10.5) < steelStrength({ at: 10, base: 1 }, 10.5), 'but it chipped the steel');
+  assert.equal(tryActivateSteel(room, 'b', 10 + STEEL.cooldownSec + 0.01), true, 'ready again after its cooldown');
+});
+
+test('the magic hand cannot clench while it gathers a spell', () => {
+  const room = playingRoom();
+  tryCastSpell(room, 'b', { x: -1, y: 0, z: 0 }, 10);
+  assert.equal(tryActivateSteel(room, 'b', 10.1), false);
 });

@@ -56,6 +56,7 @@ function resetActorAtSpawn(player, spawn, nowSec) {
   player.pendingSpell = null;
   player.burn = null;
   player.chill = null;
+  player.steel = null;
   player.speedScale = 1;
   player.dashReadyAt = nowSec;
   player.dashUntil = 0;
