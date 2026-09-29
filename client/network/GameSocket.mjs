@@ -12,6 +12,7 @@ export function gameServerUrl(doc = globalThis.document, loc = globalThis.locati
 export class GameSocket {
   constructor() {
     this.ws = null;
+    this.profileReady = false;
     this.handlers = new Map();
     this.playerId = null;
     this.token = localStorage.getItem('ss-session-token');
@@ -50,18 +51,38 @@ export class GameSocket {
     });
     ws.addEventListener('message', (event) => this.#message(event));
     ws.addEventListener('close', () => this.#closed());
+    this.profileReady = false;
+    let guestToken = null;
+    try { guestToken = localStorage.getItem('ss-guest-token'); } catch {}
+    this.send({ type: 'profileHello', token: guestToken });
     if (resume && this.token) this.send({ type: 'resume', token: this.token });
   }
 
   #message(event) {
     let message;
     try { message = JSON.parse(event.data); } catch { return; }
+    if (message.type === 'profile') {
+      this.profileReady = true;
+      if (message.token) {
+        try { localStorage.setItem('ss-guest-token', message.token); } catch {
+          this.emit('profileError', { message: 'Browser storage is blocked. Your guest identity will be lost after closing this page.' });
+        }
+      }
+    }
     if (message.type === 'joined') {
       this.playerId = message.playerId;
       this.token = message.token;
       this.roomCode = message.roomCode;
       localStorage.setItem('ss-session-token', message.token);
       localStorage.setItem('ss-room-code', message.roomCode);
+    }
+    if (message.type === 'left') {
+      this.playerId = null;
+      this.token = null;
+      this.roomCode = null;
+      this.latestSnapshot = null;
+      localStorage.removeItem('ss-session-token');
+      localStorage.removeItem('ss-room-code');
     }
     if (message.type === 'snapshot') {
       this.latestSnapshot = message;
@@ -75,6 +96,7 @@ export class GameSocket {
   }
 
   #closed() {
+    this.profileReady = false;
     this.emit('connection', { connected: false });
     if (this.intentionalClose) return;
     clearTimeout(this.reconnectTimer);

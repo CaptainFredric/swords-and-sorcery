@@ -9,3 +9,6 @@ __pycache__/
 
 # Local Blender review and build output
 artifacts/
+
+# Guest wallet storage, private server data
+.data/
