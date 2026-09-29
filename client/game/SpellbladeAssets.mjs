@@ -1,3 +1,4 @@
+import { createClothDye } from './clothDye.mjs';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import { createSorceryVolume } from './SorceryVolume.mjs';
@@ -158,9 +159,11 @@ export async function createSpellbladeAsset({ kind = 'thirdPerson', manifestUrl 
     sorcery.update(performance.now() / 1000, sorceryLevel(plan.clip, plan.time, castDuration));
   }, { cloth: kind !== 'firstPerson' });
 
+  const clothDye = createClothDye(root);
   let disposed = false;
   return {
     root,
+    setCloth: (id) => clothDye.set(id),
     animator,
     sockets,
     sorceryLevel: () => sorcery.level(),
@@ -169,6 +172,7 @@ export async function createSpellbladeAsset({ kind = 'thirdPerson', manifestUrl 
     dispose() {
       if (disposed) return;
       disposed = true;
+      clothDye.dispose();
       animator.dispose();
       sorcery.dispose();
       for (const material of mutableMaterials.owned) material.dispose();

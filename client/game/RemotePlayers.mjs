@@ -137,6 +137,7 @@ function createRemoteShell(index, player, pendingCast) {
         return;
       }
       if (upgradeRemoteVisual(shell, instance, generation)) {
+        instance.setCloth(shell.cloth ?? 'crimson');
         reportSpellbladeAssetStatus('remote', instance);
       }
     })
@@ -220,6 +221,8 @@ export class RemotePlayers {
       }
 
       const shell = this.rigs.get(player.id);
+      shell.cloth = player.cloth ?? 'crimson';
+      shell.visualInstance?.setCloth(shell.cloth);
       const d = shell.root.userData;
 
       if (d.lastAlive && !player.alive) d.deathStartedAt = receivedAtMs;

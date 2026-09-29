@@ -1,4 +1,5 @@
 import http from 'node:http';
+import { ProfileStore, matchReward } from './ProfileStore.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -68,11 +69,13 @@ export function resolveStaticFile(root, urlPath) {
   return candidate;
 }
 
-export function createGameServer({ port = Number(process.env.PORT || 3001), host = process.env.HOST || '0.0.0.0' } = {}) {
+export function createGameServer({ port = Number(process.env.PORT || 3001), host = process.env.HOST || '0.0.0.0',
+  profileStore = new ProfileStore(process.env.RENOWN_DATA_DIR || path.join(ROOT, '.data', 'renown')) } = {}) {
   const roomManager = new RoomManager();
   const matchmaker = new Matchmaker();
   const sessions = new Set();
   const sessionsById = new Map();
+  const pendingRewards = new Map();
   let lastSeekBroadcastAt = 0;
   let tickTimer = null;
   const now = () => performance.now() / 1000;
@@ -120,6 +123,10 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
   }
 
   function attachPlayer(session, room, player) {
+    if (session.profileToken) {
+      player.profileToken = session.profileToken;
+      player.cloth = profileStore.open(session.profileToken).profile.equipped;
+    }
     session.roomCode = room.code;
     session.playerId = player.id;
     send(session, {
@@ -220,6 +227,13 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
     return room && session.playerId ? room.players.get(session.playerId) : null;
   }
 
+  function publishProfile(token, profile, extra = {}) {
+    for (const room of roomManager.rooms.values()) {
+      for (const player of room.players.values()) if (player.profileToken === token) player.cloth = profile.equipped;
+    }
+    for (const session of sessions) if (session.profileToken === token) send(session, { type: 'profile', profile, ...extra });
+  }
+
   function handleMessage(session, message) {
     const time = now();
     if (time - session.messageWindowStartedAt >= 1) {
@@ -234,6 +248,29 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
     if (!message || typeof message.type !== 'string') return;
     if (message.type === 'ping') {
       send(session, { type: 'pong', sentAt: message.sentAt, serverTime: time });
+      return;
+    }
+    if (['profileHello', 'purchaseCloth', 'equipCloth'].includes(message.type)) {
+      try {
+        if (message.type === 'profileHello') {
+          // A connection may establish one identity only; reconnect to change identities.
+          if (session.profileToken) {
+            send(session, { type: 'profile', ...profileStore.open(session.profileToken) });
+          } else {
+            const result = profileStore.open(message.token || null);
+            session.profileToken = result.token || message.token;
+            send(session, { type: 'profile', ...result });
+          }
+        } else {
+          if (!session.profileToken) throw new Error('Connect your guest profile first.');
+          const profile = message.type === 'purchaseCloth'
+            ? profileStore.purchase(session.profileToken, message.cloth)
+            : profileStore.equip(session.profileToken, message.cloth);
+          publishProfile(session.profileToken, profile);
+        }
+      } catch (error) {
+        send(session, { type: 'profileError', message: error.code ? 'Renown storage unavailable. Please retry later.' : error.message });
+      }
       return;
     }
     if (message.type === 'loadout') {
@@ -319,6 +356,8 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
     }
     if (message.type === 'resume' && !session.roomCode && message.token) {
       for (const room of roomManager.rooms.values()) {
+        const candidate = [...room.players.values()].find((p) => p.token === message.token);
+        if (candidate?.profileToken && candidate.profileToken !== session.profileToken) continue;
         const player = room.reconnectPlayer(message.token, time);
         if (player) { attachPlayer(session, room, player); return; }
       }
@@ -364,8 +403,33 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
       stepPracticeActors(room, time, room.world);
       stepRoom(room, 1 / TICK_RATE, time, room.world);
       const events = room.events.splice(0);
+      for (const event of events) {
+        if (event.type === 'matchStarted') room.rewardMatchId = crypto.randomUUID();
+        if (event.type === 'matchEnded' && room.rewardMatchId) {
+          for (const player of room.players.values()) {
+            if (!player.profileToken) continue;
+            const key = `${room.rewardMatchId}:${profileStore.key(player.profileToken)}`;
+            // Capture the result now: a later rematch, departure or retry cannot change this reward.
+            if (!pendingRewards.has(key)) pendingRewards.set(key, {
+              token: player.profileToken, matchId: room.rewardMatchId,
+              amount: matchReward(room, player, event.at), retryAt: 0,
+            });
+          }
+        }
+      }
       if (events.length) broadcastRoom(room, { type: 'events', events });
       broadcastRoom(room, serializeSnapshot(room, time));
+    }
+    for (const [key, reward] of pendingRewards) {
+      if (time < reward.retryAt) continue;
+      try {
+        publishProfile(reward.token, profileStore.reward(reward.token, reward.matchId, reward.amount));
+        pendingRewards.delete(key);
+      } catch {
+        reward.retryAt = time + 5;
+        for (const session of sessions) if (session.profileToken === reward.token)
+          send(session, { type: 'profileError', message: 'Reward storage is temporarily unavailable. Your match reward will retry shortly.' });
+      }
     }
     runMatchmaking(time);
     roomManager.cleanup(time);

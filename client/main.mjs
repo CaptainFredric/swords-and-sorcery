@@ -1,3 +1,4 @@
+import { RenownController } from './menu/RenownController.mjs';
 import { GameLink, LINK_RESTORED, linkStatusView } from './network/GameLink.mjs';
 import { HUD } from './ui/HUD.mjs';
 import { GameRuntime } from './game/GameRuntime.mjs';
@@ -116,6 +117,7 @@ setTimeout(liftVeil, 12000);
 preloadSpellbladeAssets().catch(() => {});
 
 let menuScene = null;
+let renown = null;
 try {
   menuScene = new MenuScene(menuSpellblade, { onReady: () => setTimeout(liftVeil, 250), sound, voice, banner: $('#menu .banner-panel') });
   menuScene.setTourAllowed(tourAllowed());
@@ -158,6 +160,7 @@ function tourAllowed() {
 }
 
 function route(screenId) {
+  renown?.route(screenId);
   const previous = router.current;
   if (screenId === SCREEN_IDS.PLAYING) router.hideAll();
   else router.show(screenId);
@@ -551,6 +554,25 @@ settings.onChange((change) => {
 for (const button of document.querySelectorAll('[data-open-settings]')) {
   button.addEventListener('click', () => settingsPanel.open(button.dataset.openSettings || undefined));
 }
+
+renown = new RenownController({ socket, scene: () => menuScene });
+$('#end-armory').addEventListener('click', () => {
+  const showArmory = () => {
+    runtime?.setPlaying(false);
+    latestSnapshot = null;
+    latestLobby = null;
+    currentRoomState = null;
+    renderArmory();
+    route(SCREEN_IDS.ARMORY);
+  };
+  if (socket.playingLocally || socket.status !== 'online') {
+    socket.leaveRoom();
+    showArmory();
+  } else {
+    const unsubscribe = socket.on('left', () => { unsubscribe(); showArmory(); });
+    socket.leaveRoom();
+  }
+});
 
 // --- the Armory: the Spellblade's kit (for now the blade, and the spell carried into a fight) ---
 function renderArmory() {
