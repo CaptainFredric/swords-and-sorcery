@@ -34,6 +34,8 @@ export class HUD {
     this.flash = document.querySelector('#status-flash');
     this.deathCard = document.querySelector('#death-card');
     this.deathKiller = document.querySelector('#death-killer');
+    this.deathHow = document.querySelector('#death-how');
+    this.deathLeft = document.querySelector('#death-left');
     this.deathTimer = document.querySelector('#death-timer');
     this.debug = document.querySelector('#debug');
     this.scoreboard = document.querySelector('#scoreboard');
@@ -118,7 +120,15 @@ export class HUD {
     setTimeout(() => line.remove(), 4100);
   }
 
-  setDeathKiller(name) { this.deathKiller.textContent = name || 'THE ABYSS'; }
+  /** Who felled me, how, and how close it was (deathCam.deathCardText). */
+  setDeath({ name, how = '', left = '' } = {}) {
+    this.deathKiller.textContent = name || 'THE ABYSS';
+    if (this.deathHow) this.deathHow.textContent = how;
+    if (this.deathLeft) {
+      this.deathLeft.textContent = left;
+      this.deathLeft.hidden = !left;
+    }
+  }
 
   setScoreboard(snapshot, visible) {
     this.scoreboard.classList.toggle('hidden', !visible);

@@ -5,8 +5,9 @@
     python3 tools/audio/knight_voice.py effort-1.m4a hurt-2.m4a --semitones -2
     python3 tools/audio/knight_voice.py master.wav:0.43-1.88 --line sorcery   # a window of a longer recording
 
-Name each take after its line (effort, hurt, death, sorcery, dash, victory; a number or anything after a dash or
-space is ignored, and a few aliases work: grunt, pain, die, spell, breath, laugh...), or give --line. Any format
+Name each take after its line (effort, hurt, death, sorcery, dash, victory, defeat, magic-defeat, kill-taunt,
+break-taunt; a number or anything after a dash or space is ignored, and a few aliases work: grunt, pain, die, spell,
+breath, laugh...), or give --line (magicDefeat, killTaunt, ... as the game names them). Any format
 macOS can read works (Voice Memos .m4a, QuickTime .m4a/.mov, .wav, .aiff, .mp3). A take may be a window of a longer
 file: path:start-end in seconds.
 
@@ -46,7 +47,7 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 OUT_DIR = os.path.join(ROOT, 'client', 'assets', 'voice')
 SR = 48000
 
-LINES = ('effort', 'hurt', 'death', 'sorcery', 'dash', 'victory')
+LINES = ('effort', 'hurt', 'death', 'sorcery', 'dash', 'victory', 'defeat', 'magicDefeat', 'killTaunt', 'breakTaunt')
 ALIASES = {
     'grunt': 'effort', 'swing': 'effort', 'attack': 'effort', 'heave': 'effort', 'strike': 'effort',
     'pain': 'hurt', 'hit': 'hurt', 'ow': 'hurt', 'ouch': 'hurt',
@@ -64,6 +65,11 @@ PRESETS = {
     'sorcery': {'semitones': -4.5, 'drive': 2.5, 'rms_db': -15},
     'dash': {'semitones': -4.5, 'drive': 1.6, 'rms_db': -20},
     'victory': {'semitones': -4.5, 'drive': 2.2, 'rms_db': -16},
+    # the spoken lines: a touch less grit than the cries, so every word lands
+    'defeat': {'semitones': -4.5, 'drive': 2.2, 'rms_db': -16},
+    'magicDefeat': {'semitones': -4.5, 'drive': 2.0, 'rms_db': -18},   # deadpan, not shouted
+    'killTaunt': {'semitones': -4.5, 'drive': 2.2, 'rms_db': -16},
+    'breakTaunt': {'semitones': -4.5, 'drive': 2.2, 'rms_db': -16},
 }
 
 # the close helm's room removal and dynamics (see close_helm)
@@ -424,8 +430,21 @@ def with_echo(x, sr, echo='wall'):
 
 # --- takes, lines and the manifest --------------------------------------------------------------------------------
 
+def file_stem(line):
+    """A line's file name: magicDefeat -> magic-defeat (magic-defeat-1.m4a, ...)."""
+    return re.sub(r'[A-Z]', lambda m: '-' + m.group(0).lower(), line)
+
+
+FILE_LINES = {file_stem(line): line for line in LINES}
+
+
 def line_for(path):
     stem = os.path.splitext(os.path.basename(path))[0].lower()
+    # the whole name without its number: magic-defeat-1, magicdefeat 2, kill_taunt-3 ...
+    name = re.sub(r'[^a-z]', '', re.sub(r'[\s_-]*\d+$', '', stem))
+    for line in LINES:
+        if name == line.lower():
+            return line
     word = re.split(r'[^a-z]+', stem)[0]
     if word in LINES:
         return word
@@ -435,17 +454,17 @@ def line_for(path):
 def write_manifest():
     path = os.path.join(OUT_DIR, 'manifest.json')
     existing = json.load(open(path)) if os.path.exists(path) else {}
-    # lines this tool does not make (imported already processed, like the taunts) and the contact effects stay as they are
+    # lines this tool does not make (imported already processed) and the contact effects stay as they are
     kept = {line: takes for line, takes in existing.get('lines', {}).items() if line not in LINES}
     lines = {}
     for name in sorted(os.listdir(OUT_DIR)):
-        match = re.fullmatch(r'([a-z]+)-(\d+)\.m4a', name)
-        if not match or match.group(1) not in LINES:
+        match = re.fullmatch(r'([a-z-]+?)-(\d+)\.m4a', name)
+        if not match or match.group(1) not in FILE_LINES:
             continue
-        line, number = match.group(1), int(match.group(2))
-        meta_path = os.path.join(OUT_DIR, f'{line}-{number}.json')
+        stem, number = match.group(1), int(match.group(2))
+        meta_path = os.path.join(OUT_DIR, f'{stem}-{number}.json')
         meta = json.load(open(meta_path)) if os.path.exists(meta_path) else {}
-        lines.setdefault(line, []).append({'file': f'{line}-{number}', **meta})
+        lines.setdefault(FILE_LINES[stem], []).append({'file': f'{stem}-{number}', **meta})
     lines = {line: sorted(takes, key=lambda t: t['file']) for line, takes in lines.items()}
     manifest = {'version': 1, 'lines': {**kept, **lines}}
     if 'effects' in existing:
@@ -458,7 +477,7 @@ def write_manifest():
 
 def clear_line(line):
     for name in os.listdir(OUT_DIR):
-        if re.fullmatch(rf'{line}-\d+\.(m4a|wav|json)', name):
+        if re.fullmatch(rf'{file_stem(line)}-\d+\.(m4a|wav|json)', name):
             os.remove(os.path.join(OUT_DIR, name))
 
 
@@ -466,7 +485,7 @@ def publish(line, takes, preview_dir=None, echo='wall', notes=None):
     """Write processed takes of one line (replacing its earlier ones)."""
     clear_line(line)
     for number, x in enumerate(takes, start=1):
-        base = os.path.join(OUT_DIR, f'{line}-{number}')
+        base = os.path.join(OUT_DIR, f'{file_stem(line)}-{number}')
         full_wav = base + '.full.wav'
         save_wav(full_wav, x)
         encode_m4a(full_wav, base + '.m4a')
@@ -476,10 +495,10 @@ def publish(line, takes, preview_dir=None, echo='wall', notes=None):
         with open(base + '.json', 'w') as f:
             json.dump({'seconds': round(len(x) / SR, 2)}, f)
         if preview_dir:
-            save_wav(os.path.join(preview_dir, f'{line}-{number}-with-echo.wav'), with_echo(x, SR, echo))
+            save_wav(os.path.join(preview_dir, f'{file_stem(line)}-{number}-with-echo.wav'), with_echo(x, SR, echo))
         note = notes[number - 1] if notes else {}
         extra = f", room T60 {note['t60']}s taken out" if 't60' in note else ''
-        print(f'  {line}-{number}: {len(x) / SR:.2f}s, peak {db(np.max(np.abs(x))):.1f} dBFS{extra}')
+        print(f'  {file_stem(line)}-{number}: {len(x) / SR:.2f}s, peak {db(np.max(np.abs(x))):.1f} dBFS{extra}')
 
 
 def main():

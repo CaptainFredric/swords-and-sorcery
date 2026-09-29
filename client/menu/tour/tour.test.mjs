@@ -2,15 +2,28 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { CASTLEWARD } from '../../../shared/worlds/castleward.mjs';
 import { TOUR_POINTS, buildTourPath, yawFacing } from './tourPath.mjs';
-import { FIGHTS, clipAt, keyed } from './tourFights.mjs';
-import { FIGHT_DISTANCES, buildSchedule, tourMoment } from './tourSchedule.mjs';
+import { FIGHTS, FIGHT_POOL, clipAt, keyed, makeWhirlwind } from './tourFights.mjs';
+import { FIGHT_DISTANCES, buildSchedule, lineupFor, roundRandom, tourMoment } from './tourSchedule.mjs';
 import {
-  FIGHT_SHOT, FOLLOW_SETTINGS, blocked, blockedMoments, castlewardBlockers, chooseSwing, fightFrame, fightPair, fightShot,
-  followEye, followPlan, lookFor,
+  FIGHT_SHOT, FOLLOW_SETTINGS, blocked, blockedMoments, castlewardBlockers, fightPair, fightShot, followEye, followPlan,
+  lookFor, placeFight,
 } from './tourCamera.mjs';
 import { insideCastlewardFootprint } from '../../worlds/castlewardDecor.mjs';
 
 const path = buildTourPath();
+const blockers = castlewardBlockers();
+
+// every version of every fight in the pool (the whirlwind's spins vary), as the round would try them
+const VERSIONS = Object.entries(FIGHT_POOL).map(([name, versions]) => [name, versions(() => 0), versions(() => 0.99)]);
+// where a stop stages a fight: the first version that places (as TourDirector does)
+const placements = new Map();
+function stage(name, slot, random = () => 0) {
+  const key = `${name}@${slot}@${random()}`;
+  if (!placements.has(key)) {
+    placements.set(key, FIGHT_POOL[name](random).map((fight) => placeFight(path, fight, FIGHT_DISTANCES[slot], blockers)).find(Boolean) ?? null);
+  }
+  return placements.get(key);
+}
 
 const gapTo = (x, z, solid) => Math.hypot(
   Math.max(0, Math.abs(x - solid.center[0]) - solid.size[0] / 2),
@@ -38,32 +51,45 @@ test('the round keeps to open ground: clear of every wall, well, stall, bale and
   assert.ok(Math.abs(yawFacing([1, 0]) + Math.PI / 2) < 1e-9);
 });
 
-test('each rival waits on the round, with room around him for his fight, and neither knight ever stands in a wall', () => {
-  FIGHT_DISTANCES.forEach((distance, index) => {
-    const fight = FIGHTS[index];
-    const anchor = path.at(distance);
-    const side = fight.side ?? 1;
-    const across = [anchor.dir[1] * side, -anchor.dir[0] * side];
-    const rival = [anchor.x + across[0] * fight.reach, anchor.z + across[1] * fight.reach];
-    for (const solid of CASTLEWARD.solids) {
-      if (solid.center[1] - solid.size[1] / 2 > 1.8) continue;
-      // a whole reach of room around him (the whirlwind's stroll circles him at it)
-      assert.ok(gapTo(rival[0], rival[1], solid) > fight.reach + 0.4, `${fight.id}: ${solid.id} too close to the rival`);
-    }
-    // wherever the fight takes them (a leap back, a stroll round, a run for it), both stay on open ground
-    const frame = fightFrame(path, fight, distance);
-    for (let t = -1; t <= fight.duration; t += 0.1) {
-      const { hero, rival: runner, rivalHere } = fightPair(fight, frame, t);
-      for (const [who, at] of [['the Spellblade', hero], ['the rival', runner]]) {
-        if (who === 'the rival' && !rivalHere) continue;
-        for (const solid of CASTLEWARD.solids) {
-          if (solid.center[1] - solid.size[1] / 2 > 1.8) continue;
-          assert.ok(gapTo(at[0], at[1], solid) > 0.45, `${fight.id}: ${who} in ${solid.id} at ${t.toFixed(1)} s`);
+test('any fight can be staged at any stop: room around the rival, both knights on open ground all through it', () => {
+  for (const [name] of VERSIONS) {
+    FIGHT_DISTANCES.forEach((distance, slot) => {
+      for (const random of [() => 0, () => 0.99]) {
+        const placed = stage(name, slot, random);
+        assert.ok(placed, `${name} has room at stop ${slot + 1}`);
+        const { fight, frame } = placed;
+        // wherever the fight takes them (a leap back, a walk away, a run for it), both stay on open ground
+        for (let t = -1; t <= fight.duration; t += 0.1) {
+          const { hero, rival, rivalHere } = fightPair(fight, frame, t);
+          for (const [who, at] of [['the Spellblade', hero], ['the rival', rival]]) {
+            if (who === 'the rival' && !rivalHere) continue;
+            for (const solid of CASTLEWARD.solids) {
+              if (solid.center[1] - solid.size[1] / 2 > 1.8) continue;
+              assert.ok(gapTo(at[0], at[1], solid) > 0.45, `${name} at stop ${slot + 1}: ${who} in ${solid.id} at ${t.toFixed(1)} s`);
+            }
+            assert.ok(insideCastlewardFootprint(at[0], at[1], -0.6), `${name} at stop ${slot + 1}: ${who} off the ground at ${t.toFixed(1)} s`);
+          }
         }
-        assert.ok(insideCastlewardFootprint(at[0], at[1], -0.6), `${fight.id}: ${who} off the ground at ${t.toFixed(1)} s`);
       }
-    }
-  });
+    });
+  }
+});
+
+test('each round stages the fights in another order: the first as written, never the same twice running', () => {
+  assert.deepEqual(lineupFor(0), ['fireball', 'whirlwind', 'whiteFlag']);
+  const seen = new Set();
+  for (let round = 1; round < 12; round += 1) {
+    const lineup = lineupFor(round);
+    assert.notDeepEqual(lineup, lineupFor(round - 1), `round ${round} changes the order`);
+    assert.deepEqual([...lineup].sort(), Object.keys(FIGHT_POOL).sort(), 'every fight, once each');
+    seen.add(lineup.join());
+    // and every round can be staged
+    lineup.forEach((name, slot) => assert.ok(stage(name, slot, roundRandom(round)), `round ${round}: ${name} at stop ${slot + 1}`));
+  }
+  assert.equal(seen.size, 6, 'every order comes round');
+  // what varies within a fight from round to round: how many times the whirlwind goes round
+  const turns = new Set(Array.from({ length: 20 }, (_, round) => FIGHT_POOL.whirlwind(roundRandom(round))[0].key));
+  assert.ok(turns.size >= 2);
 });
 
 test('the schedule is one smooth run: he never jumps along the path, and stops dead for each fight', () => {
@@ -74,8 +100,12 @@ test('the schedule is one smooth run: he never jumps along the path, and stops d
   for (let t = 0.05; t < schedule.duration; t += 0.05) {
     const now = tourMoment(schedule, t);
     assert.ok(now.distance >= last.distance - 1e-6, 'never backwards');
-    assert.ok(now.distance - last.distance <= schedule.pace.speed * 0.05 + 1e-6, 'never faster than a run');
-    assert.ok(Math.abs(now.speed - last.speed) < 1.2, 'no jolts in pace');
+    // (a fight that ends with him walking away down the path has already carried him that far)
+    const walked = last.phase === 'fight' && now.phase !== 'fight' ? FIGHTS[last.fight].exit ?? 0 : 0;
+    assert.ok(now.distance - last.distance <= schedule.pace.speed * 0.05 + walked + 1e-6, 'never faster than a run');
+    // (and the run picks up from the pace he was walking at, which the fight, not the schedule, gave him)
+    const pace = last.phase === 'fight' && now.phase !== 'fight' ? FIGHTS[last.fight].exitSpeed ?? 0 : 0;
+    assert.ok(Math.abs(now.speed - last.speed - pace) < 1.2, 'no jolts in pace');
     if (now.phase === 'fight') assert.equal(now.speed, 0);
     last = now;
   }
@@ -92,12 +122,21 @@ test('the schedule is one smooth run: he never jumps along the path, and stops d
   assert.ok(nextRound < -5 && FIGHTS[0].rival(nextRound).clip === 'Idle', 'next round, he is back and waiting');
 });
 
-test('every fight hands the Spellblade back to the path as it found him, facing on down it', () => {
+test('every fight hands the Spellblade back to the path, facing on down it (or already walking down it)', () => {
   for (const fight of FIGHTS) {
-    for (const t of [0, fight.duration]) {
-      const hero = fight.hero(t);
-      assert.ok(Math.abs(hero.u) < 1e-6 && Math.abs(hero.v) < 1e-6, `${fight.id}: on the path at ${t}`);
-      assert.ok(Math.abs(Math.cos(hero.heading)) < 1e-6 && Math.sin(hero.heading) > 0.99, `${fight.id}: facing along it at ${t}`);
+    const start = fight.hero(0);
+    assert.ok(Math.abs(start.u) < 1e-6 && Math.abs(start.v) < 1e-6, `${fight.id}: on the path at the start`);
+    const end = fight.hero(fight.duration);
+    if (fight.exit) {
+      // it leaves him walking away down the path, as far down it as the schedule picks up from
+      assert.ok(Math.abs(end.path - fight.exit) < 1e-6, `${fight.id}: ${fight.exit} m down the path`);
+      const pace = (fight.hero(fight.duration).path - fight.hero(fight.duration - 0.05).path) / 0.05;
+      assert.ok(Math.abs(pace - fight.exitSpeed) < 0.05, `${fight.id}: walking at the pace the run picks up from`);
+    } else {
+      assert.ok(Math.abs(end.u) < 1e-6 && Math.abs(end.v) < 1e-6, `${fight.id}: on the path at the end`);
+    }
+    for (const hero of [start, fight.exit ? null : end].filter(Boolean)) {
+      assert.ok(Math.abs(Math.cos(hero.heading)) < 1e-6 && Math.sin(hero.heading) > 0.99, `${fight.id}: facing along it`);
     }
     // cues all happen within the fight, in order
     const times = fight.cues.map((cue) => cue.at);
@@ -109,6 +148,17 @@ test('every fight hands the Spellblade back to the path as it found him, facing 
     assert.equal(waiting.u, fight.reach);
   }
   const [fireball, whirlwind, whiteFlag] = FIGHTS;
+  // the whirlwind: round and round fast, slowing to a dizzy stop, then away down the path while the rival falls apart
+  const spin = (a, b) => Math.abs(whirlwind.hero(b).heading - whirlwind.hero(a).heading) / (b - a);
+  assert.ok(spin(2.1, 2.2) > 2 * spin(3.9, 4.0), 'the spin starts fast and slows');
+  assert.ok(whirlwind.hero(2.5).snap, 'a spin is not eased after');
+  assert.ok(whirlwind.cues.some((cue) => cue.type === 'dizzy'));
+  const shatter = whirlwind.cues.find((cue) => cue.type === 'shatter').at;
+  assert.ok(whirlwind.hero(shatter).path > 0.3, 'he is already walking away when the rival falls apart');
+  assert.ok(Math.abs(whirlwind.hero(shatter).heading - Math.PI / 2) < 0.05, 'and does not look back');
+  assert.equal(whirlwind.rival(shatter - 1).clip, 'Guard', 'the rival never moved');
+  assert.ok(!whirlwind.hero(6).sword && !whirlwind.hero(7).sword, 'no sword laid on the shoulder');
+  assert.notEqual(makeWhirlwind({ turns: 3 }).key, makeWhirlwind({ turns: 5 }).key);
   assert.equal(fireball.rival(20).clip, 'Death', 'burned down');
   assert.ok(fireball.cues.some((cue) => cue.type === 'burn'));
   assert.equal(whirlwind.rival(20).gone, true, 'fallen to pieces');
@@ -121,26 +171,24 @@ test('every fight hands the Spellblade back to the path as it found him, facing 
 });
 
 test('every fight is filmed in clear view: nothing solid between the camera and either knight, and the camera inside the walls', () => {
-  const blockers = castlewardBlockers();
-  FIGHTS.forEach((fight, index) => {
-    const frame = fightFrame(path, fight, FIGHT_DISTANCES[index]);
-    const swing = chooseSwing(fight, frame, blockers);
-    assert.equal(blockedMoments(fight, frame, swing, blockers), 0, `${fight.id}: in clear view (turned ${swing})`);
-    const look = lookFor(frame, swing);
-    for (let t = -0.4; t <= fight.duration; t += 0.1) {
-      const { hero, rival } = fightPair(fight, frame, t + FIGHT_SHOT.lead);
-      const shot = fightShot(hero, rival, look);
-      const [x, y, z] = shot.position;
-      assert.ok(insideCastlewardFootprint(x, z), `${fight.id}: the camera stands in Castleward at ${t.toFixed(1)} s`);
-      assert.ok(y > 1.5 && y < 2.6, `${fight.id}: at eye height`);
-      // never on top of either of them, and never so far back that they are specks
-      for (const at of [hero, rival]) {
-        const range = Math.hypot(x - at[0], z - at[1]);
-        assert.ok(range > 2.5, `${fight.id}: the camera keeps its distance at ${t.toFixed(1)} s (${range.toFixed(1)} m)`);
+  for (const [name] of VERSIONS) {
+    FIGHT_DISTANCES.forEach((distance, slot) => {
+      const { fight, frame, swing } = stage(name, slot);
+      assert.equal(blockedMoments(fight, frame, swing, blockers), 0, `${name} at stop ${slot + 1}: in clear view`);
+      const look = lookFor(frame, swing);
+      for (let t = -0.4; t <= fight.duration; t += 0.1) {
+        const { hero, rival, held } = fightPair(fight, frame, t + FIGHT_SHOT.lead);
+        const shot = fightShot(hero, rival, look, { held });
+        const [x, y, z] = shot.position;
+        const where = `${name} at stop ${slot + 1}, ${t.toFixed(1)} s`;
+        assert.ok(insideCastlewardFootprint(x, z), `${where}: the camera stands in Castleward`);
+        assert.ok(y > 1.5 && y < 2.6, `${where}: at eye height`);
+        // never on top of either of them, and never so far back that they are specks
+        for (const at of [hero, rival]) assert.ok(Math.hypot(x - at[0], z - at[1]) > 2.5, `${where}: the camera keeps its distance`);
+        assert.ok(Math.hypot(x - hero[0], z - hero[1]) < 11, `${where}: the Spellblade stays close enough to read`);
       }
-      assert.ok(Math.hypot(x - hero[0], z - hero[1]) < 11, `${fight.id}: the Spellblade stays close enough to read`);
-    }
-  });
+    });
+  }
   // a rival far off is framed as if he were only so far away, and one the fight lets go of not at all
   assert.deepEqual(fightShot([0, 0], [30, 0], [0, 1]), fightShot([0, 0], [FIGHT_SHOT.maxSpread, 0], [0, 1]));
   assert.deepEqual(fightShot([0, 0], [30, 0], [0, 1], { held: 0 }), fightShot([0, 0], [0, 0], [0, 1]));

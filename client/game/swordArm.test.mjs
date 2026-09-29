@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { FIRST_PERSON_OFF_ARM, elbowAngleFor, normalize, rotateVector, solveArm, solveSwordArm } from './swordArmIK.mjs';
-import { COMBO, COMBO_CONTACTS, COMBO_CYCLE, OFF_HAND_CLEAR, REST_ARM, comboPose } from './fpSlash.mjs';
+import { CHAIN, COMBO, COMBO_CONTACTS, COMBO_CYCLE, OFF_HAND_CLEAR, REST_ARM, comboPose, offHandOnGrip } from './fpSlash.mjs';
 
 // a toy arm with the first-person rig's proportions: each bone a pivot and an orientation (three axes), turning a
 // bone carries everything after it in the chain
@@ -136,4 +136,19 @@ test('the combo is one unbroken chain: fast, fast, heavy, each strike starting w
   assert.equal(comboPose(NaN), null);
   assert.ok(COMBO.every((key, i) => i === 0 || key.t > COMBO[i - 1].t), 'keys in order');
   assert.ok(OFF_HAND_CLEAR.every((turn) => turn.bone === 'upper_arm.L'), 'only the magic arm steps aside');
+});
+
+test('the arm whips the blade (body first, hand, then blade), and the magic hand swoops up into the grip', () => {
+  assert.ok(CHAIN.body > 0 && CHAIN.blade > 0, 'the body leads and the blade trails');
+  // mid-cut the blade is still turning after the hand has moved on: not the same instant of the path
+  const now = comboPose(0.36).arm;
+  const handOnly = comboPose(0.36 + CHAIN.blade).arm;
+  assert.ok(dot(now.blade, handOnly.blade) < 0.9999, 'the blade lags');
+  // while it is still taking hold, the magic hand comes up from below the grip, and it falls away the same way
+  for (const t of [1.3, 1.38, 2.0]) {
+    const pose = comboPose(t);
+    if (!pose.offHand || pose.offHand.weight > 0.98) continue;
+    assert.ok(pose.offHand.wrist[1] < offHandOnGrip(pose.arm).wrist[1] - 0.01, `from below at ${t} s`);
+  }
+  assert.ok(Math.abs(comboPose(1.7).offHand.wrist[1] - offHandOnGrip(comboPose(1.7).arm).wrist[1]) < 1e-6, 'on the grip once it holds');
 });

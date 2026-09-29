@@ -8,16 +8,17 @@ import {
 } from '../../game/sound/soundRecipes.mjs';
 import { buildTourPath, yawFacing } from './tourPath.mjs';
 import {
-  FIGHT_SHOT, castlewardBlockers, chooseSwing, fightFrame, fightPair, fightShot, followEye, followPlan, lookFor,
+  FIGHT_SHOT, castlewardBlockers, fightPair, fightShot, followEye, followPlan, lookFor, placeFight,
 } from './tourCamera.mjs';
-import { FIGHTS } from './tourFights.mjs';
-import { FIGHT_DISTANCES, buildSchedule, tourMoment } from './tourSchedule.mjs';
-import { Debris, cutSword, dressRival, mendSword, shatterKnight, whiteFlag } from './tourProps.mjs';
+import { FIGHT_POOL } from './tourFights.mjs';
+import { FIGHT_DISTANCES, buildSchedule, lineupFor, roundRandom, tourMoment } from './tourSchedule.mjs';
+import { Debris, cutSword, dizzyStars, dressRival, mendSword, shatterKnight, whiteFlag } from './tourProps.mjs';
 
 // The Spellblade's round behind the front door, played out: he runs the path, stops at each rival, and they fight to
 // the script in tourFights.mjs; the camera follows him and frames each fight to the right of the menu banner. Three
 // rivals are dressed in their own colours (another Spellblade, but not him), and everything they go through (burned,
-// shattered, disarmed and sent running) is undone out of sight before the next round.
+// shattered, disarmed and sent running) is undone out of sight before the next round. Each round stages the pool's
+// fights in a different order at the three stops (lineupFor), each placed where it has room and a clear view.
 
 const RUN_CLIP_SPEED = 7.5;         // the Run clip's own pace (m/s): the stride rate follows the actual pace
 // each rival's colours: steel tint and the glow behind the visor
@@ -56,7 +57,6 @@ export class TourDirector {
     this.sound = sound;
     this.voice = voice;
     this.path = buildTourPath();
-    this.schedule = buildSchedule(this.path.length);
     this.effects = new Effects(scene, camera);
     this.debris = new Debris(scene, { onLand: (point, impact) => this.#clatter(point, impact) });
     this.time = 0;
@@ -72,22 +72,45 @@ export class TourDirector {
     // the part of the screen clear of the menu's banner (shares of its width), kept up to date by MenuScene
     this.clear = FIGHT_SHOT.clear;
     this.visible = false;
-    const blockers = castlewardBlockers();
-    this.frames = FIGHTS.map((fight, index) => this.#frame(fight, FIGHT_DISTANCES[index], blockers));
-    this.follow = followPlan(this.path, blockers);
+    this.blockers = castlewardBlockers();
+    // where each version of each fight goes at each stop, worked out once (tourCamera.placeFight)
+    this.placements = new Map();
+    this.#stageRound(0);
+    this.follow = followPlan(this.path, this.blockers);
     this.#spawnRivals();
+  }
+
+  // this round's fights at the three stops, their frames and the schedule they make
+  #stageRound(round) {
+    this.round = round;
+    const random = roundRandom(round);
+    const first = lineupFor(0);
+    const placed = lineupFor(round).map((name, slot) => this.#placed(name, slot, random) ?? this.#placed(first[slot], slot, random));
+    this.fights = placed.map((each) => each.fight);
+    this.frames = placed.map((each) => this.#frame(each));
+    this.schedule = buildSchedule(this.path.length, { fights: this.fights });
+  }
+
+  // the first version of a fight from the pool that has room and a clear view at this stop
+  #placed(name, slot, random) {
+    for (const fight of FIGHT_POOL[name](random)) {
+      const key = `${fight.key ?? fight.id}@${slot}`;
+      if (!this.placements.has(key)) this.placements.set(key, placeFight(this.path, fight, FIGHT_DISTANCES[slot], this.blockers));
+      const placement = this.placements.get(key);
+      if (placement) return placement;
+    }
+    return null;
   }
 
   // a fight's own frame in the world (the anchor, u toward the rival's side, v along the path), and the way its
   // camera looks: side on, turned only as far as it takes to see past whatever stands in the way
-  #frame(fight, distance, blockers) {
-    const plan = fightFrame(this.path, fight, distance);
+  #frame({ frame: plan, swing }) {
     return {
       origin: new THREE.Vector3(plan.origin[0], 0, plan.origin[1]),
       u: new THREE.Vector3(plan.u[0], 0, plan.u[1]),
       v: new THREE.Vector3(plan.v[0], 0, plan.v[1]),
       plan,
-      look: lookFor(plan, chooseSwing(fight, plan, blockers)),
+      look: lookFor(plan, swing),
     };
   }
 
@@ -115,16 +138,20 @@ export class TourDirector {
     this.ready = true;
   }
 
-  /** Start the round over: the Spellblade at his place, every rival whole and waiting. */
+  /** Start the round over (the first round, as the fights were written): the Spellblade at his place, every rival
+   * whole and waiting. */
   restart() {
     this.time = 0;
     this.lastMoment = null;
     this.pause = 0;
     this.performance = null;
+    this.#stageRound(0);
     this.#resetRivals();
   }
 
   #resetRivals() {
+    this.stars?.dispose();
+    this.stars = null;
     this.debris.clear();
     this.projectiles = [];
     this.effects.syncProjectiles([]);
@@ -168,9 +195,14 @@ export class TourDirector {
       this.performance = null;
       this.time += dt;
     }
+    // a new round: another lineup, and everyone back to their places (the Spellblade is home, far from all of them)
+    if (this.time >= this.schedule.duration) {
+      this.time -= this.schedule.duration;
+      this.#stageRound(this.round + 1);
+      this.#resetRivals();
+      this.lastMoment = null;
+    }
     const moment = tourMoment(this.schedule, this.time);
-    // a new round: everyone back to their places (the Spellblade is home, far from all of them)
-    if (this.lastMoment && moment.time < this.lastMoment.time) this.#resetRivals();
     this.#poseHero(moment, dt);
     this.#poseRivals(moment, dt);
     this.#fireCues(moment);
@@ -178,6 +210,7 @@ export class TourDirector {
     this.#stepBurns(dt);
     this.debris.update(dt);
     for (const rival of this.rivals) rival?.flag?.update(this.time);
+    this.#stepStars();
     this.effects.update(dt);
     this.lastMoment = moment;
     return this.#camera(moment, dt);
@@ -189,10 +222,24 @@ export class TourDirector {
     let plan;
     let position;
     let yaw;
+    let snap = false;
+    // how far round the path he really is (a fight can walk him on down it)
+    this.heroDistance = moment.distance;
     if (moment.phase === 'fight') {
-      const fight = FIGHTS[moment.fight];
+      const fight = this.fights[moment.fight];
+      const frame = this.frames[moment.fight];
       const pose = fight.hero(moment.fightTimes[moment.fight]);
-      ({ position, yaw } = this.#place(this.frames[moment.fight], pose));
+      if (Number.isFinite(pose.path)) {
+        // walking away down the path: on it, facing along it
+        this.heroDistance = frame.plan.distance + pose.path;
+        const here = this.path.at(this.heroDistance);
+        position = new THREE.Vector3(here.x, 0, here.z);
+        yaw = yawFacing(here.dir);
+      } else {
+        ({ position, yaw } = this.#place(frame, pose));
+      }
+      // a spin is too quick to ease after: he faces exactly where the script says
+      snap = Boolean(pose.snap);
       plan = this.#plan(pose);
       // the White Flag's finale: he raises his sword to the sky as the rival runs for it
       if (pose.rally !== null && pose.rally !== undefined) plan = this.#performancePlan('rally', pose.rally, plan);
@@ -205,15 +252,16 @@ export class TourDirector {
         const restYaw = this.restYaw ?? yaw;
         yaw = angleLerp(restYaw, yaw, Math.max(0, Math.min(1, (moment.time - (this.schedule.pace.rest - 0.7)) / 0.7)));
       }
-      const running = moment.speed > 1.1;
+      // the stride follows the pace all the way down to a walk, so he never snaps from a run to standing
+      const running = moment.speed > 0.6;
       plan = running
-        ? { clip: 'Run', loop: true, rate: Math.max(0.45, moment.speed / RUN_CLIP_SPEED) }
+        ? { clip: 'Run', loop: true, rate: Math.max(0.28, moment.speed / RUN_CLIP_SPEED) }
         : { clip: 'Idle', loop: true, time: this.time };
     }
     if (this.performance) plan = this.#performancePlan(this.performance.kind, this.performance.elapsed, { clip: 'Idle', loop: true, time: this.time });
     root.position.copy(position);
-    // the turn is eased (a knight turns in a moment, never snaps)
-    root.rotation.y = this.heroYaw === undefined ? yaw : angleLerp(this.heroYaw, yaw, Math.min(1, dt * 12));
+    // the turn is eased (a knight turns in a moment, never snaps), except in a spin, which is all turn
+    root.rotation.y = this.heroYaw === undefined || snap ? yaw : angleLerp(this.heroYaw, yaw, Math.min(1, dt * 12));
     this.heroYaw = root.rotation.y;
     instance.animator.apply(plan, dt);
   }
@@ -253,7 +301,7 @@ export class TourDirector {
   #poseRivals(moment, dt) {
     this.rivals.forEach((rival, index) => {
       if (!rival || rival.shattered) return;
-      const fight = FIGHTS[index];
+      const fight = this.fights[index];
       const t = moment.fightTimes[index];
       const pose = fight.rival(t);
       if (pose.gone) {
@@ -287,7 +335,7 @@ export class TourDirector {
   // ------------------------------------------------------------------------------------------------------- cues
   #fireCues(moment) {
     if (!this.lastMoment || moment.time < this.lastMoment.time) return;
-    FIGHTS.forEach((fight, index) => {
+    this.fights.forEach((fight, index) => {
       const before = this.lastMoment.fightTimes[index];
       const now = moment.fightTimes[index];
       for (const cue of fight.cues) if (cue.at > before && cue.at <= now) this.#cue(cue, index);
@@ -378,6 +426,12 @@ export class TourDirector {
           this.#play(castRecipe(Math.random, { spell: 'frostfire', release: 0 }), point, 0.45);
         }
         break;
+      case 'dizzy':
+        // stars round his head while the world goes round
+        this.stars?.dispose();
+        this.stars = dizzyStars(this.scene, this.hero.instance);
+        this.starsUntil = this.time + (cue.seconds ?? 1.8);
+        break;
       case 'voice':
         if (this.voice && Math.random() < cue.chance) this.#say(cue.line);
         break;
@@ -397,6 +451,18 @@ export class TourDirector {
       live.push({ id: projectile.id, spell: projectile.spell, position, velocity });
     }
     this.effects.syncProjectiles(live);
+  }
+
+  #stepStars() {
+    if (!this.stars) return;
+    // they fade in, circle, and fade as he steadies
+    const left = this.starsUntil - this.time;
+    if (left <= 0) {
+      this.stars.dispose();
+      this.stars = null;
+      return;
+    }
+    this.stars.update(this.time, Math.min(1, left / 0.4));
   }
 
   #stepBurns(dt) {
@@ -446,12 +512,13 @@ export class TourDirector {
   // where scenery is in the way: tourCamera.mjs), and framing each fight to the right of the banner; eased between
   #camera(moment, dt) {
     const hero = this.hero.root.getWorldPosition(new THREE.Vector3());
-    const here = this.path.at(moment.distance);
+    const onPath = this.heroDistance ?? moment.distance;
+    const here = this.path.at(onPath);
     const forward = new THREE.Vector3(here.dir[0], 0, here.dir[1]);
     // screen-left when looking along a horizontal direction d is (d.z, 0, -d.x) in this world
     const left = new THREE.Vector3(forward.z, 0, -forward.x);
     const follow = {
-      position: new THREE.Vector3(...followEye(here, this.follow.at(moment.distance))),
+      position: new THREE.Vector3(...followEye(here, this.follow.at(onPath))),
       target: hero.clone().addScaledVector(forward, 2.6).addScaledVector(left, 1.2).add(new THREE.Vector3(0, 1.1, 0)),
       fov: 46,
     };
@@ -460,7 +527,7 @@ export class TourDirector {
     let fightView = null;
     this.frames.forEach((frame, index) => {
       const t = moment.fightTimes[index];
-      const fight = FIGHTS[index];
+      const fight = this.fights[index];
       const w = Math.min(1, Math.max(0, (t + 1.4) / 1.2)) * Math.min(1, Math.max(0, (fight.duration + 1.0 - t) / 1.2));
       if (w > weight) {
         weight = w;

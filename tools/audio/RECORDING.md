@@ -22,25 +22,36 @@ Two to six takes of a line keep it from repeating.
 
 ## Lines already in the game
 
-These came from your two recorded clips (the masters are in `artifacts/spellblade-voice-handoff.zip`, under
-`source/`). SORCERY! is processed from the master by the close helm (below). The rest are still the earlier "veteran"
-treatment (4.5 semitones down, no room taken out) until they are run through the tool too. Each one plays only at its
-moment and only now and then. The rules are in `client/game/sound/voiceRules.mjs`.
+These came from your second recorded clip (the master is in `artifacts/spellblade-voice-handoff.zip`, under
+`source/recording-2-master.wav`). Every line is processed from the master by the close helm (below), from these
+windows. Each one plays only at its moment and only now and then. The rules are in `client/game/sound/voiceRules.mjs`.
 
-| Line | Take | When |
-| --- | --- | --- |
-| `sorcery` | "SORCERY!" ×2 (recording 2, 0.38–1.93 s and 3.15–4.71 s) | A spell is cast (1 in 12, not again within 45 s). |
-| `magicDefeat` | "I don't believe in magic." | Killed by a spell or its burn (about 1 in 3, 90 s apart). |
-| `defeat` | "What? But I am a knight!" ×2 | Every lost match; now and then when felled. |
-| `killTaunt` | "Good knight? That will not be you." and a laugh | Over someone you felled, if they said nothing. |
-| `breakTaunt` | "You should have hired a REAL guard!" | After breaking a guard, now and then. |
-| `victory` | "Might makes… KNIGHT!" | Winning a match. |
+| Line | Take | Window (s) | When |
+| --- | --- | --- | --- |
+| `sorcery` | "SORCERY!" ×2 | 0.38–1.93, 3.15–4.71 | A spell is cast (1 in 12, not again within 45 s). |
+| `magicDefeat` | "I don't believe in magic." | 5.15–7.25 | Killed by a spell or its burn (about 1 in 3, 90 s apart). |
+| `victory` | "Might makes… KNIGHT!" | 8.15–10.72 | Winning a match. |
+| `killTaunt` | "Good knight? That will not be you." and a laugh | 23.62–26.42, 11.87–13.91 | Over someone you felled, if they said nothing. |
+| `breakTaunt` | "You should have hired a REAL guard!" | 14.2–17.04 | After breaking a guard, now and then. |
+| `defeat` | "What? But I am a knight!" ×2 | 18.35–20.16, 20.58–23.04 | Every lost match; now and then when felled. |
+
+To redo them all (for example after changing the chain):
+
+```bash
+M=recording-2-master.wav
+python3 tools/audio/knight_voice.py --line sorcery $M:0.38-1.93 $M:3.15-4.71
+python3 tools/audio/knight_voice.py --line magicDefeat $M:5.15-7.25
+python3 tools/audio/knight_voice.py --line victory $M:8.15-10.72
+python3 tools/audio/knight_voice.py --line killTaunt $M:23.62-26.42 $M:11.87-13.91
+python3 tools/audio/knight_voice.py --line breakTaunt $M:14.2-17.04
+python3 tools/audio/knight_voice.py --line defeat $M:18.35-20.16 $M:20.58-23.04
+```
 
 Blows on a guard and guards breaking are steel only (`blockRecipe` and `guardBreakRecipe` in
 `client/game/sound/soundRecipes.mjs`); there are no voiced contact effects any more.
 
-Processing any of the tool's own lines (`sorcery`, `victory`, …) replaces that line's takes; the other lines are
-kept.
+Processing a line replaces that line's takes; the other lines are kept. A new spoken line gets a camelCase name in
+the game (`killTaunt`) and a hyphenated file name (`kill-taunt-1.m4a`); add it to `LINES` and `PRESETS` in the tool.
 
 ## How to record
 
