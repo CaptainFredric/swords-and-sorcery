@@ -118,7 +118,7 @@ test('a sword aimed at a crouched knight lands as on anyone: no crouch is a dodg
     a.pitch = pitch; a.input.pitch = pitch;
     beginAttack(room, 'a', 10);
     run(room, 10, 10.5);
-    assert.equal(b.health, 72, `hit through a level or lowered swing (pitch ${pitch})`);
+    assert.equal(b.health, 70, `hit through a level or lowered swing (pitch ${pitch})`);
   }
 });
 

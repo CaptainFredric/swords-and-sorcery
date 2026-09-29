@@ -1,7 +1,6 @@
-// Soft textures for effects, each drawn once on a small canvas and shared: a ring of pushed air (a bright band, clear
-// in the middle and at the rim), a puff (bright in the middle, fading out to nothing), a streak of wind (a soft head
-// and a long fading tail, along the texture's v) and a swirl (two arms of air, to be seen turning). White, so a
-// material's colour tints them.
+// Soft textures for effects, each drawn once on a small canvas and shared: a puff (bright in the middle, fading out to
+// nothing), a streak of wind (a soft head and a long fading tail, along the texture's v) and a swirl (two arms of air,
+// to be seen turning). White, so a material's colour tints them.
 
 import * as THREE from 'three';
 
@@ -25,10 +24,6 @@ function radial(g, w, stops) {
   for (const [at, alpha] of stops) gradient.addColorStop(at, `rgba(255,255,255,${alpha})`);
   g.fillStyle = gradient;
   g.fillRect(0, 0, w, w);
-}
-
-export function windRingTexture() {
-  return drawn('windRing', 64, 64, (g, w) => radial(g, w, [[0, 0], [0.55, 0], [0.8, 1], [1, 0]]));
 }
 
 export function puffTexture() {

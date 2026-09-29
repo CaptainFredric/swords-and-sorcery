@@ -77,7 +77,7 @@ test('websocket clients support multiplayer combat and one-tab Practice on the a
   const damage = damageBatch.events.find((e) => e.type === 'damage');
   assert.equal(damage.attackerId, aliceJoined.playerId);
   assert.equal(damage.victimId, bobJoined.playerId);
-  assert.equal(damage.amount, 28);
+  assert.equal(damage.amount, 30);
 
   const soloJoinedP = waitFor(solo, (m) => m.type === 'joined');
   const soloPlayingP = waitFor(solo, (m) => m.type === 'snapshot' && m.roomState === 'PLAYING' && m.mode === 'PRACTICE');

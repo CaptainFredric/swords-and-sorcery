@@ -24,3 +24,15 @@ test('it turns a spell\'s exposure down as far as it is strong, and what it turn
   assert.ok(steelStrength(chipped, 11) < steelStrength(steel, 11));
   assert.equal(chipSteel(steel, 5, 11), null, 'chipped away entirely');
 });
+
+test('every blow lands more like a glancing one: a sword\'s cleanness turned down, anything else blunted, evenly as it wears', async () => {
+  const { steelQuality, steelBlunt } = await import('./steel.mjs');
+  const steel = callSteel(10);
+  assert.equal(steelQuality(steel, 1, 10).quality, 0, 'fresh: a clean blow lands as a glancing one');
+  const later = steelQuality(steel, 1, 10 + STEEL.seconds / 2);
+  assert.ok(Math.abs(later.quality - 0.5) < 1e-9, 'half worn: half of it gets through');
+  assert.equal(steelQuality(steel, 0.8, 10 + STEEL.seconds).quality, 0.8, 'worn off: all of it');
+  assert.equal(steelQuality(null, 0.7, 10).quality, 0.7);
+  assert.equal(steelBlunt(steel, 9, 10).amount, 6, 'a fist blunted as a clean sword blow is (30 to 20)');
+  assert.equal(steelBlunt(null, 9, 10).amount, 9);
+});

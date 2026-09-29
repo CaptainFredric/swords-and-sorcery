@@ -88,25 +88,43 @@ test('cooldown readiness uses absolute ready time', () => {
   assert.equal(isCooldownReady(9.999, 10), false);
 });
 
-test('contact quality: a clean plateau in the middle, an even taper to the fringe, never zero for a legal hit', () => {
+test('contact quality: a legal hit lands for 20 to 30; a normally centred one reliably near 28, dead centre 30', () => {
   const deg = Math.PI / 180;
   const reach = GAME.swordRange;
-  // the middle of the arc, on the strong of the blade, in the heart of the swing: clean
-  assert.equal(meleeContactQuality({ angle: 0, distance: reach * 0.5, dt: 0 }), 1);
-  assert.equal(meleeContactQuality({ angle: 8 * deg, distance: reach * 0.6, dt: 0.01 }), 1, 'a forgiving plateau');
-  // tapering evenly (no step anywhere) toward the fringe and the tip
+  const damage = (angleDeg, share, dt = 0) => swordDamageFor(meleeContactQuality({ angle: angleDeg * deg, distance: reach * share, dt }));
+  assert.equal(GAME.swordGlance, 20);
+  assert.equal(GAME.swordDamage, 30);
+  // dead centre, on the strong of the blade, in the heart of the swing: the cleanest
+  assert.equal(damage(0, 0.5), 30);
+  assert.equal(damage(10, 0.6, 0.03), 30, 'not a pinpoint: a little off the middle is still the cleanest');
+  // normally centred at any ordinary fighting distance, anywhere in the swing: 28 or better, reliably
+  for (let a = 0; a <= 20; a += 1) {
+    for (let share = 0.4; share <= 0.85; share += 0.05) {
+      for (let dt = -MELEE_CONTACT.window.early; dt <= MELEE_CONTACT.window.late; dt += 0.01) {
+        assert.ok(damage(a, share, dt) >= 28, `centred (${a} degrees, ${share.toFixed(2)} of the reach, ${dt.toFixed(2)} s): ${damage(a, share, dt)}`);
+      }
+    }
+  }
+  // an ordinary good hit, off the middle or out at the tip: in the middle of the range
+  assert.ok(damage(35, 0.6) >= 24 && damage(35, 0.6) <= 28, `off the middle: ${damage(35, 0.6)}`);
+  assert.ok(damage(0, 1) >= 26 && damage(0, 1) < 30, `the very tip: ${damage(0, 1)}`);
+  // the arc's very edge is a genuinely glancing touch: the least a legal hit does, never less
+  assert.equal(damage(MELEE_CONTACT.arcHalfDeg, 1, -MELEE_CONTACT.window.early), GAME.swordGlance);
+  assert.equal(swordDamageFor(0), GAME.swordGlance);
+  assert.equal(swordDamageFor(-3), GAME.swordGlance);
+  // alignment decides: tapering evenly across the arc (no step anywhere, no hidden line)
   let last = 1;
   for (let a = 0; a <= MELEE_CONTACT.arcHalfDeg; a += 1) {
     const q = meleeAlignment(a * deg, reach * 0.5, reach);
-    assert.ok(q <= last + 1e-12 && last - q < 0.03, `a smooth taper at ${a} degrees`);
+    assert.ok(q <= last + 1e-12 && last - q < 0.05, `a smooth taper at ${a} degrees`);
     last = q;
   }
-  assert.ok(meleeAlignment(0, reach, reach) < 1, 'the very tip is a glancing touch');
-  // the heart of the swing is strongest; coming in, or late in the follow-through, a little less
+  // the phase only a little: the heart of the swing is strongest, and the whole live stretch costs a point or so
   assert.ok(meleePhase(-MELEE_CONTACT.window.early) < meleePhase(0) && meleePhase(MELEE_CONTACT.window.late) < meleePhase(0));
-  // the worst legal contact still does real damage
-  const worst = meleeContactQuality({ angle: MELEE_CONTACT.arcHalfDeg * deg, distance: reach, dt: -MELEE_CONTACT.window.early });
-  assert.ok(worst > 0 && swordDamageFor(worst) >= GAME.swordDamage / 3, `the worst glancing blow still does ${swordDamageFor(worst)}`);
+  for (let dt = -MELEE_CONTACT.window.early; dt <= MELEE_CONTACT.window.late; dt += 0.005) {
+    assert.ok(meleePhase(dt) >= 0.9, `the swing's timing is never a sweet spot (${dt.toFixed(3)} s)`);
+    assert.ok(damage(0, 0.5) - damage(0, 0.5, dt) <= 1);
+  }
   // the blade crosses the arc through the live stretch, and is at the middle at the contact
   assert.equal(bladeAngleAt(0, 0), 0);
   assert.ok(Math.sign(bladeAngleAt(0, -0.05)) === -Math.sign(bladeAngleAt(0, 0.05)), 'from one side to the other');

@@ -88,3 +88,35 @@ test('drawing the sword: steel hisses along the scabbard, rising, then the blade
   assert.ok(song.at >= hiss.attack, 'the ring comes as the point clears, not before');
   assert.ok(song.partials[0].decay > 1, 'and hangs in the air');
 });
+
+test('a blow on hardened plate: one full clang, only a tick for another within its ring, and none for a burn\'s lick', async () => {
+  const { steelHitFeel, STEEL_HIT, glancing } = await import('./hitFeel.mjs');
+  const blow = { type: 'damage', source: 'sword', amount: 21, steel: 0.9 };
+  assert.deepEqual(steelHitFeel(blow, { lastClangAt: -Infinity, now: 5 }), { strength: 0.9, full: true });
+  assert.equal(steelHitFeel(blow, { lastClangAt: 5, now: 5 + STEEL_HIT.ringSec / 2 }).full, false, 'a quick second blow ticks');
+  assert.equal(steelHitFeel({ ...blow, source: 'burn' }, { now: 5 }), null, 'a lick of fire: no clang');
+  assert.equal(steelHitFeel({ ...blow, steel: undefined }, { now: 5 }), null, 'no plate');
+  assert.equal(steelHitFeel({ ...blow, amount: 0 }, { now: 5 }), null);
+  // glancing reads only at the low end of the sword's range (a normal good blow is no scrape)
+  assert.ok(glancing(0.1) && !glancing(0.8) && !glancing(1));
+});
+
+test('the clang is as hard as the plate: fresh rings bright and long, worn is a short dull clunk; my own is punchier', async () => {
+  const { steelClangRecipe } = await import('./sound/soundRecipes.mjs');
+  const ringOf = (recipe) => recipe.layers.find((layer) => layer.type === 'ring');
+  const fresh = steelClangRecipe(seeded(3), { strength: 1 });
+  const half = steelClangRecipe(seeded(3), { strength: 0.5 });
+  const worn = steelClangRecipe(seeded(3), { strength: 0.05 });
+  assert.ok(ringOf(fresh).partials[0].freq > ringOf(worn).partials[0].freq * 1.8, 'fresh rings higher');
+  assert.ok(ringOf(fresh).partials[0].decay > ringOf(worn).partials[0].decay * 3, 'and longer');
+  const scrape = (recipe) => recipe.layers.find((layer) => layer.type === 'noise' && layer.filter === 'bandpass' && layer.sweepTo < layer.freq);
+  assert.ok(scrape(half) && !scrape(worn), 'half worn: a TANG with a scrape');
+  const mine = steelClangRecipe(seeded(3), { strength: 1, local: true });
+  assert.ok(mine.layers.length > fresh.layers.length && mine.reverb < fresh.reverb, 'inside the helm: a thump, less courtyard');
+  for (const recipe of [fresh, half, worn, mine]) {
+    for (const layer of recipe.layers) {
+      const freqs = layer.type === 'ring' ? layer.partials.map((p) => p.freq) : [layer.freq];
+      for (const f of freqs) assert.ok(f > 20 && f < 16000, `audible frequency ${f}`);
+    }
+  }
+});

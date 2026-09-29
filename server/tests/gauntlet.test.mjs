@@ -176,3 +176,19 @@ test('weaving the fist between cuts never out-damages simply holding the sword',
   assert.ok(best > 0, 'the weave lands something');
   assert.ok(best <= heldDamage, `a weave did ${best} to holding's ${heldDamage}`);
 });
+
+test('Sheathed in Steel blunts the fist as it would a clean sword blow, and the shove is the same', () => {
+  const blow = (steel) => {
+    const { room, b } = duel();
+    if (steel) { b.spell = 'steel'; b.spellReadyAt = 0; assert.equal(tryCastOrGauntlet(room, 'b', { x: 0, y: 0, z: 1 }, 9.9), true); }
+    tryCastOrGauntlet(room, 'a', { x: 0, y: 0, z: -1 }, 10);
+    const events = run(room, 10, 10.4);
+    return { hurt: events.find((e) => e.type === 'damage' && e.victimId === 'b'), vz: b.velocity.z, impulse: b.impulse.z };
+  };
+  const bare = blow(false);
+  const steeled = blow(true);
+  assert.equal(bare.hurt.amount, GAUNTLET.damage);
+  assert.ok(steeled.hurt.amount < bare.hurt.amount && steeled.hurt.amount >= Math.round(GAUNTLET.damage * 2 / 3), `${steeled.hurt.amount}`);
+  assert.ok(steeled.hurt.steel > 0.9 && !bare.hurt.steel, 'the damage word says how strong the plate was');
+  assert.ok(Math.abs(steeled.impulse - bare.impulse) < 1e-6, 'the same shove');
+});

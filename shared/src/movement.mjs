@@ -27,6 +27,23 @@ export function shoveBody(state, push) {
   return state;
 }
 
+/**
+ * Throw a body (a Gale driven into the ground under it): as a shove across the ground, but upward it is a launch, not
+ * a nudge: a fall under way is caught first, and it leaves the body rising no faster than `maxUp` (m/s).
+ */
+export function launchBody(state, push, maxUp = Infinity) {
+  if (!state || !push) return state;
+  state.impulse = { x: (state.impulse?.x ?? 0) + (push.x ?? 0), z: (state.impulse?.z ?? 0) + (push.z ?? 0) };
+  const up = push.y ?? 0;
+  if (up > 0) {
+    state.velocity.y = Math.max(state.velocity.y, Math.min(maxUp, Math.max(0, state.velocity.y) + up));
+    state.grounded = false;
+  } else if (up < 0) {
+    state.velocity.y += up;
+  }
+  return state;
+}
+
 // Sprint is a locomotion state of its own (not just a faster run) so later modifiers, debuffs and animation can
 // key off it. It spends the same stamina pool the guard uses, slowly, so sprinting in costs blocking power.
 export const SPRINT = Object.freeze({

@@ -23,7 +23,7 @@ The Render free tier may cold start after inactivity. The first load can therefo
 
 - Free-for-all and Bot Duel: first to 10 kills, six-minute timer, sudden death on a tie.
 - 100 health; regeneration begins after roughly five seconds without damage.
-- Sword combo: 34 damage per committed hit at 0.40 / 1.10 / 1.80 seconds while attack is held.
+- Sword combo: committed hits at 0.40 / 1.10 / 1.80 seconds while attack is held. A hit centred on the target lands hardest; one caught at the edge of the swing glances for less, but still counts.
 - Guard blocks frontal sword attacks; raising Guard inside the 180 ms timing window can Parry and stagger the attacker.
 - Fireball ignores sword Guard, deals 28 direct damage, and has splash falloff.
 - Arcane Dash moves roughly 5 m and has a five-second cooldown; it gives no invulnerability.
@@ -38,7 +38,7 @@ The Render free tier may cold start after inactivity. The first load can therefo
 | Mouse | Aim |
 | Left Mouse | Hold sword combo |
 | Right Mouse | Guard / timed parry |
-| Q | Fireball |
+| Q | The spell or ward carried from the Armory (Fireball, Frostfire, Gale Garner or Sheathe in Steel); on its cooldown, the gauntlet at a foe in reach |
 | E | Arcane Dash |
 | Space | Jump |
 | Tab | Hold scoreboard |

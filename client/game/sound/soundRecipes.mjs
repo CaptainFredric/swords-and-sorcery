@@ -45,8 +45,8 @@ export function swordHitRecipe(rand = Math.random, { strike = 0, kill = false, q
     // steel ringing out
     ring(rand, base, { decay: heavy ? 0.6 : 0.38, gain: heavy ? 0.2 : 0.16, bright: 0.8 }),
   ];
-  if (q < 0.85) {
-    // the edge sliding off: a bright scrape that falls away
+  if (q < 0.6) {
+    // the edge sliding off: a bright scrape that falls away (a genuinely glancing blow, the low end of the range)
     layers.push({ type: 'noise', filter: 'bandpass', freq: 3400 * jitter(rand, 0.1), q: 2.2, sweepTo: 1800, attack: 0.004, decay: 0.09 + 0.08 * (1 - q), gain: 0.28 * (1 - q) + 0.08 });
   }
   if (crash > 0.3) layers.push({ type: 'noise', filter: 'lowpass', freq: 260, q: 0.6, attack: 0.002, decay: 0.12, gain: 0.35 * crash });
@@ -374,14 +374,44 @@ export function steelCallRecipe(rand = Math.random) {
   };
 }
 
-/** A spell skating off hardened plate: a bright ping and a hiss, the blast's own sound underneath. */
-export function steelTurnRecipe(rand = Math.random) {
+/**
+ * A blow landing on Sheathed in Steel, as hard as the plate still is (`strength` 0..1, sliding evenly between):
+ * fresh, a bright ringing KLANG; half worn, a shorter TANG with the edge scraping off; nearly gone, a dull clunk, more
+ * body than ring. `local`: my own plate, heard from inside it: punchier (a harder crack, a thump in the chest, less of
+ * the courtyard) than what anyone else hears of it.
+ */
+export function steelClangRecipe(rand = Math.random, { strength = 1, local = false } = {}) {
+  const s = Math.max(0, Math.min(1, Number.isFinite(strength) ? strength : 1));
+  const base = (420 + 780 * s) * jitter(rand, 0.05);
+  const punch = local ? 1.25 : 1;
+  const layers = [
+    // the strike on the plate
+    { type: 'noise', filter: 'highpass', freq: (2200 + 2800 * s) * jitter(rand, 0.1), q: 0.8, attack: 0.0005, decay: 0.01 + 0.02 * s, gain: (0.35 + 0.35 * s) * punch },
+    // the plate ringing: long and bright when fresh, short and dark when worn
+    ring(rand, base, { decay: 0.14 + 0.8 * s * s, gain: 0.12 + 0.16 * s, bright: 0.5 + 0.9 * s }),
+    // the weight behind it: a clunk, most of the sound once the plate is worn
+    { type: 'noise', filter: 'lowpass', freq: 700 + 500 * s, q: 0.7, attack: 0.002, decay: 0.07 + 0.05 * (1 - s), gain: (0.2 + 0.4 * (1 - s)) * punch },
+    { type: 'tone', wave: 'sine', freq: 160 * jitter(rand, 0.06), slideTo: 70, attack: 0.002, decay: 0.09, gain: (0.25 + 0.3 * (1 - s)) * punch },
+  ];
+  // fresh plate sings a glint above the ring
+  if (s > 0.55) layers.push({ type: 'ring', partials: [{ freq: 5200 * jitter(rand, 0.06), gain: 0.05 * s, decay: 0.25 * s }, { freq: 6900 * jitter(rand, 0.06), gain: 0.03 * s, decay: 0.16 * s }] });
+  // the edge scraping off it: loudest half worn (a TANG with a scrape)
+  const scrape = 4 * s * (1 - s);
+  if (scrape > 0.2) layers.push({ type: 'noise', filter: 'bandpass', freq: 3200 * jitter(rand, 0.1), q: 2.4, sweepTo: 1400, attack: 0.004, decay: 0.12, gain: 0.26 * scrape, at: 0.006 });
+  // inside the helm: a thump in the chest
+  if (local) layers.push({ type: 'tone', wave: 'sine', freq: 88 * jitter(rand, 0.05), slideTo: 44, attack: 0.003, decay: 0.16, gain: 0.45 });
+  return { layers, reverb: local ? 0.14 : 0.22 + 0.12 * s };
+}
+
+/** A quick follow-on blow on the plate (a second within a clang's ring): a small tick, never another full clang. */
+export function steelTickRecipe(rand = Math.random, { strength = 1 } = {}) {
+  const s = Math.max(0, Math.min(1, Number.isFinite(strength) ? strength : 1));
   return {
     layers: [
-      ring(rand, 1350 * jitter(rand, 0.05), { decay: 0.28, gain: 0.2, partials: 4, bright: 1.1 }),
-      { type: 'noise', filter: 'highpass', freq: 3800, q: 0.7, attack: 0.002, decay: 0.12, gain: 0.18 },
+      ring(rand, (700 + 700 * s) * jitter(rand, 0.06), { decay: 0.06 + 0.08 * s, gain: 0.05, partials: 3, bright: 0.8 }),
+      { type: 'noise', filter: 'bandpass', freq: 2400, q: 1.4, attack: 0.001, decay: 0.02, gain: 0.08 },
     ],
-    reverb: 0.2,
+    reverb: 0.1,
   };
 }
 
@@ -389,8 +419,9 @@ export function steelTurnRecipe(rand = Math.random) {
 const CHIMES = Object.freeze([1568, 1760, 2093, 2349, 2637, 3136]);
 
 /**
- * Gale Garner gathering: a calm breath of air drawn in (a soft wind swelling, rising a little in pitch), and delicate
- * wind chimes stirring in it. `seconds`: how long the gather lasts.
+ * Gale Garner gathering: a calm breath of air drawn in (a soft wind swelling, rising a little in pitch), delicate wind
+ * chimes stirring in it, and a light run of wooden notes climbing under them (a little xylophone, struck softly).
+ * `seconds`: how long the gather lasts.
  */
 export function galeGatherRecipe(rand = Math.random, { seconds = 0.5 } = {}) {
   const chimes = [];
@@ -398,6 +429,16 @@ export function galeGatherRecipe(rand = Math.random, { seconds = 0.5 } = {}) {
     chimes.push({
       ...ring(rand, CHIMES[Math.floor(rand() * CHIMES.length)], { decay: 1.1 + rand() * 0.6, gain: 0.03 + rand() * 0.015, partials: 3, bright: 0.7 }),
       at: rand() * seconds * 0.85,
+    });
+  }
+  // the wooden notes: a bar's clear fundamental with its bright fourth harmonic, short, climbing the scale
+  const first = Math.floor(rand() * 2);
+  for (let i = 0; i < 3; i += 1) {
+    const freq = CHIMES[first + i] / 2;
+    chimes.push({
+      type: 'ring',
+      at: seconds * (0.12 + i * 0.24) + rand() * 0.02,
+      partials: [{ freq, gain: 0.05, decay: 0.22 }, { freq: freq * 3.93, gain: 0.018, decay: 0.07 }],
     });
   }
   return {
@@ -411,15 +452,20 @@ export function galeGatherRecipe(rand = Math.random, { seconds = 0.5 } = {}) {
   };
 }
 
-/** Gale Garner let go: a strong, abrupt WHOOSH (a rush of air falling in pitch, the body of it, a thump, a hiss). */
+/**
+ * Gale Garner let go: an abrupt, heavy WHOOSH. A rush of air falling in pitch, the weight of it (a low roar and a
+ * thump you feel), a hiss at its edge, and the air it leaves still tumbling after.
+ */
 export function galeReleaseRecipe(rand = Math.random) {
   return {
     layers: [
-      { type: 'noise', filter: 'bandpass', freq: 1900 * jitter(rand, 0.1), q: 0.8, sweepTo: 280, attack: 0.008, decay: 0.46, gain: 0.72 },
-      { type: 'noise', filter: 'lowpass', freq: 560, q: 0.6, sweepTo: 150, attack: 0.012, decay: 0.36, gain: 0.55 },
-      { type: 'tone', wave: 'sine', freq: 92 * jitter(rand, 0.06), slideTo: 42, attack: 0.005, decay: 0.26, gain: 0.5 },
-      { type: 'noise', filter: 'highpass', freq: 4200, q: 0.7, attack: 0.004, decay: 0.12, gain: 0.16 },
+      { type: 'noise', filter: 'bandpass', freq: 2100 * jitter(rand, 0.1), q: 0.8, sweepTo: 240, attack: 0.004, decay: 0.5, gain: 0.8 },
+      { type: 'noise', filter: 'lowpass', freq: 620, q: 0.6, sweepTo: 120, attack: 0.006, decay: 0.42, gain: 0.72 },
+      { type: 'tone', wave: 'sine', freq: 84 * jitter(rand, 0.06), slideTo: 36, attack: 0.003, decay: 0.3, gain: 0.7 },
+      { type: 'noise', filter: 'highpass', freq: 4200, q: 0.7, attack: 0.002, decay: 0.12, gain: 0.18 },
+      // the air it leaves tumbling after it
+      { type: 'noise', filter: 'bandpass', freq: 700 * jitter(rand, 0.1), q: 1.1, sweepTo: 380, attack: 0.05, decay: 0.45, gain: 0.22, at: 0.12 },
     ],
-    reverb: 0.25,
+    reverb: 0.28,
   };
 }

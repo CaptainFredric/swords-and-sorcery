@@ -3,6 +3,7 @@
 
 import { GAME } from '../../shared/src/combat.mjs';
 import { SPELLS } from '../../shared/src/spells.mjs';
+import { STEEL } from '../../shared/src/steel.mjs';
 
 // how each spell reads in the Armory: what it is like, then plainly what it does
 const SPELL_WORDS = Object.freeze({
@@ -21,13 +22,18 @@ const SPELL_WORDS = Object.freeze({
     line: 'Draw a breath of wind, then loose it in a cone: it throws knights back far more than it hurts them. Into the ground, it throws you.',
     facts: (s) => `Stings for up to ${s.cone.damage}, shoves out to ${s.cone.pressureReach} m · ${s.cooldownSec} s`,
   },
+  steel: {
+    mark: '⛨',
+    line: 'Clench the magic hand and your plate hardens: every blow lands like a glancing one, less so as it wears off.',
+    facts: (s) => `A clean sword blow lands for ${GAME.swordGlance} · wears off over ${STEEL.seconds} s · ${s.cooldownSec} s`,
+  },
 });
 
 export function armoryView(equipped) {
   return {
     blade: {
       name: 'Castleward longsword',
-      facts: `Three-strike combo · ${GAME.swordDamage} a blow · guard and parry`,
+      facts: `Three-strike combo · ${GAME.swordGlance}–${GAME.swordDamage} a blow · guard and parry`,
     },
     spells: Object.values(SPELLS).map((spell) => {
       const words = SPELL_WORDS[spell.id] ?? { mark: '◆', line: '', facts: () => `${spell.cooldownSec} s` };
