@@ -20,7 +20,7 @@ test('transform history keeps only the latest half second and interpolates posit
 test('sampling without history returns the current transform', () => {
   const player = { position: { x: 4, y: 2, z: -3 }, yaw: 0.7, pitch: -0.2 };
   assert.deepEqual(sampleTransform(player, 99), {
-    position: { x: 4, y: 2, z: -3 }, yaw: 0.7, pitch: -0.2,
+    position: { x: 4, y: 2, z: -3 }, yaw: 0.7, pitch: -0.2, crouched: false,
   });
 });
 

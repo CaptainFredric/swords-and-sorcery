@@ -11,7 +11,7 @@ import {
   upgradeRemoteVisual,
 } from './remoteVisualState.mjs';
 import { bufferedServerTime, castPoseWindowFromEvent, resolveSpellbladeState } from './spellbladePose.mjs';
-import { airborneLegFlex, landingStrength, pruneReactions } from './spellbladeMotion.mjs';
+import { airborneLegFlex, crouchPose, landingStrength, pruneReactions } from './spellbladeMotion.mjs';
 import { gaitFootfall } from './sound/footsteps.mjs';
 import { createSteelSheen } from './steelSheen.mjs';
 import { steelStrength } from '../../shared/src/steel.mjs';
@@ -357,6 +357,10 @@ export class RemotePlayers {
       }
       d.reactions = pruneReactions(d.reactions, serverNow);
 
+      // crouched: the body is lower at once (the server's word); the pose eases down to it in a moment
+      d.crouchAmount = (d.crouchAmount ?? 0) + ((pb.crouched && state !== 'dead' ? 1 : 0) - (d.crouchAmount ?? 0)) * (1 - Math.exp(-dt * 14));
+      const crouch = crouchPose(d.crouchAmount, state === 'run' || state === 'sprint');
+
       const animationPlayer = { ...pb, castPoseStartAt: d.castPoseStartAt };
       const plan = resolveSpellbladeAnimationPlan({ state, player: animationPlayer, serverNow, localTime });
       plan.motion = {
@@ -366,14 +370,15 @@ export class RemotePlayers {
         yaw: shell.root.rotation.y,
         airFlex: state === 'air' ? airborneLegFlex(verticalVelocity) : 0,
         death: plan.clip === 'Death' ? { age: plan.time, push: d.lastPush ?? null } : null,
-        // the gauntlet's jab, if one is under way
-        extra: state === 'dead' ? [] : jabTurns(serverNow - (d.jabAt ?? -Infinity)),
+        crouch: crouch.flex,
+        // the gauntlet's jab, if one is under way, and the crouch's lean
+        extra: state === 'dead' ? [] : [...crouch.turns, ...jabTurns(serverNow - (d.jabAt ?? -Infinity))],
       };
       setRemoteVisualPlan(shell, plan, dt);
       // a foot comes down where the gait clip puts it (its rate follows the knight's speed)
       const gait = shell.visualInstance?.animator?.gaitPhase;
       if ((state === 'run' || state === 'sprint') && Number.isFinite(gait) && Number.isFinite(d.lastGait) && gaitFootfall(d.lastGait, gait)) {
-        this.onFootstep?.(id, shell.root.position, state === 'sprint' ? 1 : 0);
+        this.onFootstep?.(id, shell.root.position, state === 'sprint' ? 1 : 0, Boolean(pb.crouched));
       }
       d.lastGait = gait;
 

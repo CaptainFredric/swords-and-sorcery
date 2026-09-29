@@ -55,6 +55,9 @@ export const MELEE_CONTACT = Object.freeze({
   // a top-to-bottom strike reaches body height this long before its contact
   chopLead: 0.02,
   arcHalfDeg: 55,
+  // how far below and above the knight's aim each strike's blade passes (degrees, from the eyes: the first person's
+  // swings run mostly below the crosshair, the third comes all the way down); a body wholly outside it is not met
+  bandDeg: Object.freeze([Object.freeze([-45, 20]), Object.freeze([-45, 25]), Object.freeze([-60, 60])]),
   cleanArcDeg: 22,
   fringe: 0.62,          // alignment at the very edge of the arc
   cleanReach: 0.75,      // share of the reach that is the strong of the blade

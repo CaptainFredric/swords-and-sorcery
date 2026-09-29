@@ -35,6 +35,7 @@ function freshCombatState(spawn, nowSec = 0) {
     spellReadyAt: 0,
     gauntlet: null,
     gauntletReadyAt: -Infinity,
+    crouched: false,
     castEndsAt: 0,
     pendingSpell: null,
     burn: null,

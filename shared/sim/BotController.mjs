@@ -1,6 +1,7 @@
 import { findSwordWorldHit } from '../src/collision.mjs';
 import { beginAttack, endAttack, setGuard, tryCastSpell, tryDash } from './combat.mjs';
 import { spellFor } from '../src/spells.mjs';
+import { postureOf } from '../src/body.mjs';
 
 const MELEE_RANGE = 2.25;
 const FIREBALL_RANGE = 11;
@@ -73,7 +74,8 @@ function yawToward(from, to) {
 
 function aimDirection(from, to) {
   const dx = to.position.x - from.position.x;
-  const dy = (to.position.y + 0.9) - (from.position.y + 1.25);
+  // (at the middle of the body as it stands or crouches, from the casting hand)
+  const dy = (to.position.y + postureOf(to).center) - (from.position.y + postureOf(from).eye - 0.1);
   const dz = to.position.z - from.position.z;
   const magnitude = Math.hypot(dx, dy, dz) || 1;
   return { x: dx / magnitude, y: dy / magnitude, z: dz / magnitude };

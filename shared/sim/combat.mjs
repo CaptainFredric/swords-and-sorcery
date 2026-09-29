@@ -6,13 +6,13 @@ import { blastDamage, blastDistance, burnFrom, chillFrom, chillScale, spellExpos
 import { STEEL, callSteel, chipSteel, steelExposure } from '../src/steel.mjs';
 import { galeOnBody, galeRecoil, galeShove } from '../src/gale.mjs';
 import { GAUNTLET, gauntletGeometry, gauntletTarget, withinGauntlet } from '../src/gauntlet.mjs';
+import { postureOf } from '../src/body.mjs';
 import { findSwordWorldHit, segmentAabbHit, surfaceHeightAt } from '../src/collision.mjs';
 import { SPRINT, movePlayer, resolveSprint, shoveBody, tryStartDash } from '../src/movement.mjs';
 import { separatePlayers } from '../src/separation.mjs';
 import { chooseSpawn } from './spawns.mjs';
 import { recordTransform, sampleTransform } from './history.mjs';
 
-const EYE_HEIGHT = 1.35;
 const SWORD_ARC_COS = Math.cos((110 * Math.PI / 180) / 2);
 const RESPAWN_SEC = 3;
 const SPAWN_PROTECTION_SEC = 1;
@@ -32,8 +32,9 @@ function normalize3(v) {
   return { x: v.x / m, y: v.y / m, z: v.z / m };
 }
 
+// the middle of a body as it stands (or crouches): a blast's heart, a spell's aim
 function playerCenter(player) {
-  return { x: player.position.x, y: player.position.y + 0.9, z: player.position.z };
+  return { x: player.position.x, y: player.position.y + postureOf(player).center, z: player.position.z };
 }
 
 function resetAtSpawn(player, spawn, nowSec) {
@@ -61,6 +62,7 @@ function resetAtSpawn(player, spawn, nowSec) {
   player.pendingSpell = null;
   player.gauntlet = null;
   player.gauntletReadyAt = -Infinity;
+  player.crouched = false;
   player.burn = null;
   player.chill = null;
   player.steel = null;
@@ -330,8 +332,8 @@ function isInGuardCone(defender, attacker, atSec) {
 }
 
 function targetBlockedByWorld(attackerTransform, targetTransform, world) {
-  const start = [attackerTransform.position.x, attackerTransform.position.y + EYE_HEIGHT, attackerTransform.position.z];
-  const end = [targetTransform.position.x, targetTransform.position.y + 0.9, targetTransform.position.z];
+  const start = [attackerTransform.position.x, attackerTransform.position.y + postureOf(attackerTransform).eye, attackerTransform.position.z];
+  const end = [targetTransform.position.x, targetTransform.position.y + postureOf(targetTransform).center, targetTransform.position.z];
   for (const box of world.solids ?? []) {
     if (segmentAabbHit(start, end, box)) return true;
   }
@@ -381,13 +383,20 @@ function strikeWindow(player, strike) {
 }
 
 // a target's place in a strike seen from the attacker at `atSec`: angle off the facing (+ to the attacker's left),
-// distance, and whether anything solid stands between them
+// distance, how far below and above the attacker's aim the body runs (degrees: whether the blade's band can meet it),
+// and whether anything solid stands between them. Both bodies as they stood or crouched then.
 function strikeGeometry(attackerTransform, target, atSec, world) {
   const targetTransform = transformFor(target, atSec);
+  const attackerBody = postureOf(attackerTransform);
+  const targetBody = postureOf(targetTransform);
   const dx = targetTransform.position.x - attackerTransform.position.x;
   const dz = targetTransform.position.z - attackerTransform.position.z;
-  const dy = (targetTransform.position.y + 0.9) - (attackerTransform.position.y + EYE_HEIGHT);
+  const dy = (targetTransform.position.y + targetBody.center) - (attackerTransform.position.y + attackerBody.eye);
   const horizontal = Math.hypot(dx, dz);
+  // the body from its feet to its crown, as seen from the attacker's view against where they aim
+  const view = attackerTransform.position.y + attackerBody.camera;
+  const aim = (attackerTransform.pitch ?? 0) * 180 / Math.PI;
+  const toward = (y) => Math.atan2(y - view, Math.max(horizontal, 1e-3)) * 180 / Math.PI - aim;
   const f = forwardFromYaw(attackerTransform.yaw);
   const across = dx * -f.z + dz * f.x;
   const along = dx * f.x + dz * f.z;
@@ -395,9 +404,18 @@ function strikeGeometry(attackerTransform, target, atSec, world) {
     angle: Math.atan2(-across, along),
     distance: Math.hypot(horizontal, dy),
     horizontal,
+    below: toward(targetTransform.position.y + 0.1),
+    above: toward(targetTransform.position.y + targetBody.crown),
     direction: horizontal > 1e-6 ? { x: dx / horizontal, z: dz / horizontal } : { x: f.x, z: f.z },
     blocked: () => targetBlockedByWorld(attackerTransform, targetTransform, world),
   };
+}
+
+// whether a strike's blade, passing through its band below and above the aim, can meet a body placed so (a body that
+// the blade passes wholly over, or under, is not met: a crouch under a swing aimed high, say)
+function withinBand(strike, g) {
+  const [down, up] = MELEE_CONTACT.bandDeg[strike] ?? [-90, 90];
+  return g.above >= down && g.below <= up;
 }
 
 /** Begin a strike's live stretch (its swing is heard from here). */
@@ -433,6 +451,7 @@ function sweepStrike(room, player, nowSec, world) {
         if (target.id === player.id || !target.alive) continue;
         const g = strikeGeometry(attackerTransform, target, at, world);
         if (g.distance > GAME.swordRange || g.horizontal < 1e-6 || Math.abs(g.angle) > half) continue;
+        if (!withinBand(live.strike, g)) continue;
         if (sweep && (g.angle < low || g.angle > high)) continue;
         if (g.blocked()) continue;
         if (!best || g.distance < best.g.distance) best = { target, g };
@@ -449,7 +468,7 @@ function sweepStrike(room, player, nowSec, world) {
     if (!live.wallChecked && dt >= -1e-9) {
       live.wallChecked = true;
       const f = forwardFromYaw(attackerTransform.yaw);
-      const origin = [attackerTransform.position.x, attackerTransform.position.y + EYE_HEIGHT, attackerTransform.position.z];
+      const origin = [attackerTransform.position.x, attackerTransform.position.y + postureOf(attackerTransform).eye, attackerTransform.position.z];
       const worldHit = findSwordWorldHit(origin, [f.x, 0, f.z], GAME.swordRange, world.solids ?? []);
       if (worldHit) {
         player.attackSweep = null;
@@ -570,7 +589,8 @@ function spawnSpell(room, player, nowSec, world) {
     id,
     ownerId: player.id,
     spell: spell.id,
-    position: { x: player.position.x + normalized.x * 0.7, y: player.position.y + 1.25, z: player.position.z + normalized.z * 0.7 },
+    // (from the casting hand, a little below the eyes)
+    position: { x: player.position.x + normalized.x * 0.7, y: player.position.y + postureOf(player).eye - 0.1, z: player.position.z + normalized.z * 0.7 },
     velocity: { x: normalized.x * spell.speed, y: normalized.y * spell.speed, z: normalized.z * spell.speed },
     bornAt: nowSec,
   };
@@ -590,12 +610,12 @@ function releaseGale(room, player, spell, nowSec, world) {
   const f = forwardFromYaw(player.yaw);
   const direction = Math.hypot(pending.direction.x, pending.direction.y, pending.direction.z) > 0.01
     ? normalize3(pending.direction) : { x: f.x, y: 0, z: f.z };
-  const eye = { x: player.position.x, y: player.position.y + EYE_HEIGHT, z: player.position.z };
+  const eye = { x: player.position.x, y: player.position.y + postureOf(player).eye, z: player.position.z };
   const origin = { x: eye.x + direction.x * 0.35, y: eye.y + direction.y * 0.35, z: eye.z + direction.z * 0.35 };
   const affected = [];
   for (const target of room.players.values()) {
     if (target.id === player.id || !target.alive || target.spawnProtectionUntil > nowSec) continue;
-    const caught = galeOnBody(spell, origin, direction, target.position);
+    const caught = galeOnBody(spell, origin, direction, target.position, postureOf(target).crown);
     if (caught.pressure <= 0.01) continue;
     const at = caught.point;
     let walled = false;
@@ -644,7 +664,7 @@ function explodeSpell(room, projectile, point, nowSec, worldHit = false, directV
     if (!player.alive || player.id === projectile.ownerId) continue;
     const center = playerCenter(player);
     const direct = player.id === directVictimId;
-    const distance = direct ? 0 : blastDistance(point, player.position);
+    const distance = direct ? 0 : blastDistance(point, player.position, postureOf(player).crown);
     if (distance > spell.radius) continue;
     // how directly it caught them decides everything it leaves (hardened armour turns some of it aside)
     const armour = steelExposure(player.steel, spellExposure(spell, distance), nowSec);
@@ -715,9 +735,10 @@ function stepProjectiles(room, dt, nowSec, world) {
     let direct = null;
     for (const target of room.players.values()) {
       if (!target.alive || target.id === projectile.ownerId || target.spawnProtectionUntil > nowSec) continue;
+      // (the body as a ball about its middle: a crouched one is smaller, and a spell can fly over it)
       const c = playerCenter(target);
       const d = Math.hypot(c.x - after.x, c.y - after.y, c.z - after.z);
-      if (d < 0.75) { direct = target; break; }
+      if (d < Math.min(0.75, postureOf(target).height / 2)) { direct = target; break; }
     }
     if (direct) {
       projectile.position = after;
@@ -774,6 +795,7 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
       stamina: player.guardStamina,
       sprinting: player.sprinting,
       blocked: staggered || player.guarding || player.attackActive || Boolean(player.pendingSpell),
+      crouched: Boolean(player.crouched),
     });
     if (player.sprinting) {
       player.guardStamina = Math.max(0, player.guardStamina - SPRINT.staminaPerSec * dt);
@@ -781,7 +803,7 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
     }
 
     const input = staggered
-      ? { forward: 0, right: 0, jump: false, yaw: player.yaw, pitch: player.pitch }
+      ? { forward: 0, right: 0, jump: false, crouch: Boolean(player.input?.crouch), yaw: player.yaw, pitch: player.pitch }
       : player.input;
     const moved = movePlayer(player, input, dt, nowSec, world);
     player.position = moved.position;
@@ -793,6 +815,7 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
     player.dashDir = moved.dashDir;
     player.sprintBlend = moved.sprintBlend;
     player.impulse = moved.impulse;
+    player.crouched = moved.crouched;
     player.yaw = input.yaw ?? player.yaw;
     player.pitch = input.pitch ?? player.pitch;
     recordTransform(player, nowSec);

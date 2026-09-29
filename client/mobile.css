@@ -175,3 +175,7 @@ html.turn-typing .rotate-prompt { display: none !important; }
   content: "✊"; position: absolute; right: 4px; top: 3px; font-size: 13px; line-height: 1;
   filter: grayscale(1) brightness(1.4) sepia(.5);
 }
+/* crouch: a small toggle beside sprint, quieter than the combat buttons; lit while on, ringed while actually down */
+.touch-crouch { --size: 42px; left: calc(var(--safe-l) + 84px * var(--s)); bottom: calc(var(--safe-b) + 198px * var(--s)); color: #d8ceb6; opacity: .82; }
+.touch-crouch.on { opacity: 1; background: radial-gradient(circle, rgba(200, 186, 150, .42), rgba(60, 56, 44, .72)); border-color: #d8c89c; }
+.touch-crouch.crouched { box-shadow: 0 0 10px rgba(216, 200, 156, .45); }

@@ -14,6 +14,8 @@
 //
 // Shared by the server (authority) and the client (prediction of your own chilled movement, the HUD, the effects).
 
+import { POSTURES } from './body.mjs';
+
 export const SPELLS = Object.freeze({
   fireball: Object.freeze({
     id: 'fireball',
@@ -79,12 +81,16 @@ export function isSpell(id) {
   return Object.hasOwn(SPELLS, id);
 }
 
-// a Spellblade's body, for blasts: an upright column this wide from the feet to the crown
-const BODY = Object.freeze({ radius: 0.4, low: 0.1, high: 1.75 });
+// a Spellblade's body, for blasts: an upright column this wide from the feet to the crown (body.mjs: lower when
+// crouched)
+const BODY = Object.freeze({ radius: 0.4, low: 0.1 });
 
-/** How far a blast's heart is from the nearest part of a body standing at `position` (0 when it is inside it). */
-export function blastDistance(point, position) {
-  const y = Math.max(position.y + BODY.low, Math.min(position.y + BODY.high, point.y));
+/**
+ * How far a blast's heart is from the nearest part of a body at `position` (0 when it is inside it). crown: how high
+ * the body reaches (a standing one's by default).
+ */
+export function blastDistance(point, position, crown = POSTURES.standing.crown) {
+  const y = Math.max(position.y + BODY.low, Math.min(position.y + crown, point.y));
   return Math.max(0, Math.hypot(point.x - position.x, point.y - y, point.z - position.z) - BODY.radius);
 }
 

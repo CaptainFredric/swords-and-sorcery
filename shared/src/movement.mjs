@@ -1,4 +1,5 @@
 import { resolvePlayerWorld, surfaceHeightAt } from './collision.mjs';
+import { CROUCH, postureOf, roomToStand } from './body.mjs';
 
 export const MOVEMENT = Object.freeze({
   runSpeed: 7.5,
@@ -60,6 +61,8 @@ export function createMovementState(position = { x: 0, y: 0, z: 0 }) {
     speedScale: 1,
     // shoves from outside, dying away (IMPULSE)
     impulse: { x: 0, z: 0 },
+    // the posture (body.mjs): a crouched body is shorter, slower, and stands only when there is room
+    crouched: false,
   };
 }
 
@@ -67,10 +70,11 @@ export function createMovementState(position = { x: 0, y: 0, z: 0 }) {
  * Whether the Spellblade sprints this tick. Pure, so the server (authoritative, real stamina) and the client
  * (prediction, last known stamina) decide the same way.
  * @param {{wantsSprint:boolean, forward:number, right:number, grounded:boolean, stamina:number,
- *          sprinting:boolean, blocked:boolean}} args  blocked: guarding, attacking, casting or staggered
+ *          sprinting:boolean, blocked:boolean, crouched:boolean}} args  blocked: guarding, attacking, casting or
+ *          staggered; a crouched knight never sprints (crouching ends one, and none begins crouched)
  */
-export function resolveSprint({ wantsSprint, forward = 0, right = 0, grounded = true, stamina = 0, sprinting = false, blocked = false }) {
-  if (!wantsSprint || blocked || !(stamina > 0)) return false;
+export function resolveSprint({ wantsSprint, forward = 0, right = 0, grounded = true, stamina = 0, sprinting = false, blocked = false, crouched = false }) {
+  if (!wantsSprint || blocked || crouched || !(stamina > 0)) return false;
   const f = Math.max(-1, Math.min(1, forward));
   const r = Math.max(-1, Math.min(1, right));
   const magnitude = Math.hypot(f, r);
@@ -113,7 +117,14 @@ export function movePlayer(previous, input, dt, nowSec, world) {
     velocity: { ...previous.velocity },
     dashDir: { ...previous.dashDir },
     impulse: { x: previous.impulse?.x ?? 0, z: previous.impulse?.z ?? 0 },
+    crouched: Boolean(previous.crouched),
   };
+
+  // the posture: down at once when asked (feet on the ground), up only when asked and there is room over the head
+  const wantsCrouch = Boolean(input.crouch);
+  if (wantsCrouch && !state.crouched && state.grounded) state.crouched = true;
+  else if (!wantsCrouch && state.crouched && roomToStand(state.position, MOVEMENT.playerRadius, world)) state.crouched = false;
+  if (state.crouched) state.sprinting = false;
 
   const inDash = nowSec < state.dashUntil;
   if (inDash) {
@@ -136,7 +147,7 @@ export function movePlayer(previous, input, dt, nowSec, world) {
     const fz = -cos;
     const rx = cos;
     const rz = -sin;
-    const speed = locomotionSpeed(state);
+    const speed = locomotionSpeed(state) * (state.crouched ? CROUCH.speed : 1);
     // its own steps, and whatever shoved it on top
     state.velocity.x = (fx * nf + rx * nr) * speed + state.impulse.x;
     state.velocity.z = (fz * nf + rz * nr) * speed + state.impulse.z;
@@ -149,7 +160,8 @@ export function movePlayer(previous, input, dt, nowSec, world) {
 
   const jumpPressed = Boolean(input.jump) && !state.jumpHeld;
   state.jumpHeld = Boolean(input.jump);
-  if (jumpPressed && state.grounded) {
+  // (crouched, there is no jump: the knight stands first)
+  if (jumpPressed && state.grounded && !state.crouched) {
     state.velocity.y = MOVEMENT.jumpImpulse;
     state.grounded = false;
   }
@@ -166,7 +178,7 @@ export function movePlayer(previous, input, dt, nowSec, world) {
   for (let i = 0; i < substeps; i += 1) {
     state.position.x += travelX / substeps;
     state.position.z += travelZ / substeps;
-    state.position = resolvePlayerWorld(state.position, MOVEMENT.playerRadius, world.solids ?? []);
+    state.position = resolvePlayerWorld(state.position, MOVEMENT.playerRadius, world.solids ?? [], postureOf(state).height);
   }
   // a wall takes what a shove drives into it
   if (state.impulse.x || state.impulse.z) {

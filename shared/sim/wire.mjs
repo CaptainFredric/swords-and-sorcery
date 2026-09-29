@@ -68,6 +68,7 @@ export function serializeSnapshot(room, nowSec) {
       guardStamina: p.guardStamina,
       guarding: p.guarding,
       sprinting: Boolean(p.sprinting),
+      crouched: Boolean(p.crouched),
       attackActive: p.attackActive,
       attackStartedAt: p.attackStartedAt,
       attackNextStrike: p.attackNextStrike,
@@ -117,6 +118,7 @@ export function applyRoomCommand(room, player, message, time) {
         right: Math.max(-1, Math.min(1, Number(message.right) || 0)),
         jump: Boolean(message.jump),
         sprint: Boolean(message.sprint),
+        crouch: Boolean(message.crouch),
         yaw: Number.isFinite(message.yaw) ? message.yaw : player.yaw,
         pitch: Number.isFinite(message.pitch) ? Math.max(-1.45, Math.min(1.45, message.pitch)) : player.pitch,
       };

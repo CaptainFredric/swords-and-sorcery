@@ -9,6 +9,7 @@
 // through the same field.
 
 import { segmentAabbHit, surfaceHeightAt } from './collision.mjs';
+import { POSTURES } from './body.mjs';
 
 const DEG = Math.PI / 180;
 const sub = (a, b) => ({ x: a.x - b.x, y: a.y - b.y, z: a.z - b.z });
@@ -50,13 +51,15 @@ export function galeAt(spell, origin, direction, point) {
 const BODY_HEIGHTS = Object.freeze([0.25, 0.6, 0.95, 1.3, 1.65]);
 
 /**
- * Where a whole body standing at `position` (its feet) sits in the gust: the part of it the gust catches best
- * (a gust at someone's chest or legs is a gust on them). { pressure, exposure, point, ... } as galeAt.
+ * Where a whole body at `position` (its feet) sits in the gust: the part of it the gust catches best (a gust at
+ * someone's chest or legs is a gust on them). { pressure, exposure, point, ... } as galeAt. crown: how high the body
+ * reaches (a crouched one is sampled lower down).
  */
-export function galeOnBody(spell, origin, direction, position) {
+export function galeOnBody(spell, origin, direction, position, crown = POSTURES.standing.crown) {
   let best = null;
+  const scale = crown / POSTURES.standing.crown;
   for (const height of BODY_HEIGHTS) {
-    const point = { x: position.x, y: position.y + height, z: position.z };
+    const point = { x: position.x, y: position.y + height * scale, z: position.z };
     const caught = galeAt(spell, origin, direction, point);
     if (!best || caught.pressure > best.pressure) best = { ...caught, point };
   }

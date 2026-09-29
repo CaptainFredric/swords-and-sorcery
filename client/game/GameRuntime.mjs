@@ -20,6 +20,7 @@ import {
 } from './sound/soundRecipes.mjs';
 import { galeRecoil } from '../../shared/src/gale.mjs';
 import { gauntletTarget } from '../../shared/src/gauntlet.mjs';
+import { CROUCH, POSTURES, postureOf } from '../../shared/src/body.mjs';
 import { steelStrength } from '../../shared/src/steel.mjs';
 import { chillScale, spellFor } from '../../shared/src/spells.mjs';
 import { deathLines, gauntletLines, voicePlacement, voiceRate } from './sound/voiceRules.mjs';
@@ -102,7 +103,8 @@ export class GameRuntime {
     this.worldId = null;
     this.worldError = null;
     this.remotePlayers = new RemotePlayers(this.scene, socket.playerId);
-    this.remotePlayers.onFootstep = (id, position, heavy) => this.#footstep(id, position, heavy);
+    // (a crouched knight's steps are soft and light)
+    this.remotePlayers.onFootstep = (id, position, heavy, crouched) => this.#footstep(id, position, crouched ? 0 : heavy, FOOTSTEPS.other * (crouched ? 0.55 : 1));
     this.weapon = new WeaponView(this.camera);
     this.weapon.onSwing = (strike) => {
       this.#play(swingRecipe(Math.random, { strike }), null, 0.85);
@@ -339,6 +341,7 @@ export class GameRuntime {
       this.localState = createMovementState(auth.position);
       this.localState.velocity = { ...auth.velocity };
       if (auth.impulse) this.localState.impulse = { ...auth.impulse };
+      this.localState.crouched = Boolean(auth.crouched);
       this.localState.dashReadyAt = auth.dashReadyAt;
       this.input.yaw = auth.yaw;
       this.input.pitch = auth.pitch;
@@ -352,6 +355,7 @@ export class GameRuntime {
         this.localState.position = { ...auth.position };
         this.localState.velocity = { ...auth.velocity };
         this.localState.impulse = auth.impulse ? { ...auth.impulse } : { x: 0, z: 0 };
+        this.localState.crouched = Boolean(auth.crouched);
       } else {
         this.localState.position.x += dx * 0.11;
         this.localState.position.y += dy * 0.16;
@@ -816,6 +820,7 @@ export class GameRuntime {
         stamina: this.localAuth.guardStamina,
         sprinting: this.localState.sprinting,
         blocked: this.input.guardHeld || this.input.attackHeld || (this.localAuth.staggerUntil ?? 0) > serverNow,
+        crouched: Boolean(this.localState.crouched),
       });
       const wasGrounded = this.localState.grounded;
       const fallSpeed = -this.localState.velocity.y;
@@ -823,7 +828,7 @@ export class GameRuntime {
       this.localState.speedScale = chillScale(this.localAuth.chill, serverNow);
       this.localState = movePlayer(this.localState, moveInput, dt, serverNow, this.activeWorld);
       // predict the server's body separation so pressing into an opponent does not rubber-band
-      separateLocal(this.localState.position, this.remotePlayers.bodies(), this.activeWorld);
+      separateLocal(this.localState.position, this.remotePlayers.bodies(), this.activeWorld, { crouched: this.localState.crouched });
       if (!wasGrounded && this.localState.grounded) {
         this.weapon.land(fallSpeed);
         // both feet down at once, heavier the further he fell
@@ -862,9 +867,13 @@ export class GameRuntime {
       });
       // my footsteps fall where the stride puts them (the view's own bob), so they keep pace with the legs
       if (this.localState.grounded && footfallsCrossed(strideBefore, this.weapon.motion.stride) > 0) {
-        this.#footstep(null, this.localState.position, this.weapon.motion.sprint, FOOTSTEPS.own);
+        // (crouched, the steps are soft and light)
+        this.#footstep(null, this.localState.position, this.localState.crouched ? 0 : this.weapon.motion.sprint, FOOTSTEPS.own * (this.localState.crouched ? 0.55 : 1));
       }
-      this.camera.position.set(this.localState.position.x, this.localState.position.y + 1.58 + view.camera.y, this.localState.position.z);
+      // the view sits where the body's eyes are, settling quickly to a crouch and back (the body itself changes at once)
+      const eyes = postureOf(this.localState).camera;
+      this.viewHeight = Number.isFinite(this.viewHeight) ? this.viewHeight + (eyes - this.viewHeight) * (1 - Math.exp(-dt / CROUCH.viewSec)) : eyes;
+      this.camera.position.set(this.localState.position.x, this.localState.position.y + this.viewHeight + view.camera.y, this.localState.position.z);
       this.camera.rotation.order = 'YXZ';
       // camera motion (a comfort setting) scales the sway, bob, kicks and the widening of the view when sprinting
       const motion = this.view.cameraMotion;
@@ -878,7 +887,7 @@ export class GameRuntime {
       this.#deathView(timeSec);
       this.#setFov(this.view.fov + (this.weapon.update(timeSec, dt).fov - FP_MOTION.baseFov) * this.view.cameraMotion);
     } else if (this.localAuth && this.localState) {
-      this.camera.position.set(this.localState.position.x, this.localState.position.y + 1.58, this.localState.position.z);
+      this.camera.position.set(this.localState.position.x, this.localState.position.y + POSTURES.standing.camera, this.localState.position.z);
       this.camera.rotation.z = 0;
       this.#setFov(this.view.fov + (this.weapon.update(timeSec, dt).fov - FP_MOTION.baseFov) * this.view.cameraMotion);
     }

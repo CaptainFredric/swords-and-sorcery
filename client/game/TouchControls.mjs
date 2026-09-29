@@ -1,7 +1,7 @@
 import { MOVEMENT } from '../../shared/src/movement.mjs';
 import { spellFor } from '../../shared/src/spells.mjs';
 import { STEEL } from '../../shared/src/steel.mjs';
-import { lookDelta, stickVector, TOUCH } from './touchControlsModel.mjs';
+import { isDeliberateTap, lookDelta, stickVector, TOUCH } from './touchControlsModel.mjs';
 import { screenTurn } from '../ui/screenTurn.mjs';
 
 // On-screen controls for phones and tablets. They drive the same InputController actions as the mouse and
@@ -26,6 +26,8 @@ const ICONS = {
   steel: '<path d="M7 11V8a1.5 1.5 0 0 1 3 0v2V6.5a1.5 1.5 0 0 1 3 0V10V7.5a1.5 1.5 0 0 1 3 0V13c0 4-2.5 7-6 7s-5-2.5-5-5v-2.5a1.5 1.5 0 0 1 2-1.4"/>',
   jump: '<path d="M12 18V6M6.5 11.5 12 6l5.5 5.5M6 21h12"/>',
   sprint: '<path d="M6 12.5 12 7l6 5.5M6 18.5 12 13l6 5.5"/>',
+  // a chevron pressed down to a line
+  crouch: '<path d="M6 7.5 12 13l6-5.5M6 18.5h12"/>',
   pause: '<path d="M9 5v14M15 5v14"/>',
   scores: '<path d="M5 7h14M5 12h14M5 17h14"/>',
 };
@@ -39,6 +41,8 @@ const BUTTONS = [
   { action: 'spell', label: 'FIREBALL', icon: 'fireball', cooldown: { key: 'spellReadyAt', seconds: 4 } },
   { action: 'jump', label: 'JUMP' },
   { action: 'sprint', label: 'SPRINT' },
+  // (a toggle, and only for a deliberate tap on it: see #up)
+  { action: 'crouch', label: 'CROUCH' },
   { action: 'pause', label: 'MENU' },
   { action: 'scores', label: 'SCORES' },
 ];
@@ -119,9 +123,12 @@ export class TouchControls {
     this.#endStick();
     this.look = null;
     this.sprintLatched = false;
+    this.crouchLatched = false;
+    this.crouchTap = null;
     this.jumpHeld = false;
     this.jumpUntil = 0;
     this.buttons.sprint.classList.remove('on');
+    this.buttons.crouch?.classList.remove('on');
   }
 
   movement() {
@@ -132,6 +139,7 @@ export class TouchControls {
       right: this.stickState.right,
       jump: this.jumpHeld || performance.now() < this.jumpUntil,
       sprint: this.stickState.sprint || (this.sprintLatched && moving),
+      crouch: Boolean(this.crouchLatched),
     };
   }
 
@@ -157,6 +165,7 @@ export class TouchControls {
       timer.textContent = ready ? '' : remaining.toFixed(remaining < 1 ? 1 : 0);
     }
     this.buttons.sprint.classList.toggle('sprinting', Boolean(local.sprinting));
+    this.buttons.crouch?.classList.toggle('crouched', Boolean(local.crouched));
     this.buttons.guard.classList.toggle('drained', (local.guardStamina ?? 100) < 1);
   }
 
@@ -224,6 +233,17 @@ export class TouchControls {
     if (this.stick?.id === event.pointerId) this.#endStick();
     if (this.look?.id === event.pointerId) this.look = null;
     const action = this.held.get(event.pointerId);
+    // crouch toggles only for a deliberate tap: pressed on the button and lifted soon after, without sliding off it (a
+    // finger passing over it while steering or looking belongs to the stick or the view, and never reaches it at all)
+    if (action === 'crouch' && this.crouchTap?.id === event.pointerId) {
+      const point = gamePoint(event);
+      const tap = this.crouchTap;
+      this.crouchTap = null;
+      if (isDeliberateTap(tap, { at: performance.now(), x: point.x, y: point.y, lifted: event.type === 'pointerup' })) {
+        this.crouchLatched = !this.crouchLatched;
+        this.buttons.crouch.classList.toggle('on', this.crouchLatched);
+      }
+    }
     if (action) {
       this.held.delete(event.pointerId);
       this.aim?.delete(event.pointerId);
@@ -253,6 +273,10 @@ export class TouchControls {
     if (action === 'sprint') {
       this.sprintLatched = !this.sprintLatched;
       this.buttons.sprint.classList.toggle('on', this.sprintLatched);
+    }
+    if (action === 'crouch') {
+      const point = gamePoint(event);
+      this.crouchTap = { id: event.pointerId, at: performance.now(), x: point.x, y: point.y };
     }
     if (action === 'scores') this.input.scoreboardHeld = !this.input.scoreboardHeld;
   }
