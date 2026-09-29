@@ -152,6 +152,20 @@ export function stepCloth(state, dt, velocity, { turn = 0, tilt = null } = {}) {
   return state;
 }
 
+/**
+ * A gust of wind catching the cloth: it is flung the way the air goes (in the character's frame: forward, right, in
+ * m/s of wind), then the springs bring it back. Spent at once; the next steps do the swinging.
+ */
+export function gustCloth(state, { forward = 0, right = 0 } = {}, gain = 1.1) {
+  if (!state?.chains) return state;
+  for (const chain of Object.values(state.chains)) {
+    // the air coming from behind throws the tips forward (swing < 0); from the left, to the right (side > 0)
+    chain.swingVel = clamp(chain.swingVel - forward * gain, -14, 14);
+    chain.sideVel = clamp(chain.sideVel + right * gain, -14, 14);
+  }
+  return state;
+}
+
 /** Forget motion history (spawn, teleport, respawn) so the cloth does not whip. */
 export function resetCloth(state) {
   const fresh = createClothState();

@@ -1,7 +1,12 @@
-import { GAME, SWORD_CHAIN, SWORD_STRIKE_TIMES, guardProfile, nextChainStep, resolveSwordVsGuard } from '../src/combat.mjs';
-import { blastDamage, blastDistance, burnFrom, chillScale, spellFor, strongerChill } from '../src/spells.mjs';
+import {
+  GAME, MELEE_CONTACT, SWORD_CHAIN, SWORD_STRIKE_TIMES, bladeAngleAt, closingImpact, guardProfile, meleeContactQuality, nextChainStep,
+  resolveSwordVsGuard, swordDamageFor,
+} from '../src/combat.mjs';
+import { blastDamage, blastDistance, burnFrom, chillFrom, chillScale, spellExposure, spellFor, strongerChill } from '../src/spells.mjs';
+import { STEEL, callSteel, chipSteel, steelExposure } from '../src/steel.mjs';
+import { galeOnBody, galeRecoil, galeShove } from '../src/gale.mjs';
 import { findSwordWorldHit, segmentAabbHit, surfaceHeightAt } from '../src/collision.mjs';
-import { SPRINT, movePlayer, resolveSprint, tryStartDash } from '../src/movement.mjs';
+import { SPRINT, movePlayer, resolveSprint, shoveBody, tryStartDash } from '../src/movement.mjs';
 import { separatePlayers } from '../src/separation.mjs';
 import { chooseSpawn } from './spawns.mjs';
 import { recordTransform, sampleTransform } from './history.mjs';
@@ -33,6 +38,7 @@ function playerCenter(player) {
 function resetAtSpawn(player, spawn, nowSec) {
   player.position = { x: spawn.x, y: spawn.y, z: spawn.z };
   player.velocity = { x: 0, y: 0, z: 0 };
+  player.impulse = { x: 0, z: 0 };
   player.grounded = true;
   player.jumpHeld = false;
   player.yaw = spawn.yaw ?? 0;
@@ -54,6 +60,7 @@ function resetAtSpawn(player, spawn, nowSec) {
   player.pendingSpell = null;
   player.burn = null;
   player.chill = null;
+  player.steel = null;
   player.speedScale = 1;
   player.spawnProtectionUntil = nowSec + SPAWN_PROTECTION_SEC;
   player.alive = true;
@@ -75,15 +82,19 @@ function startSwordChain(player, nowSec) {
   player.attackCommitted = 1;
   player.attackCommitBy = null;
   player.attackQueued = false;
+  player.attackOpened = -1;
+  player.attackSweep = null;
 }
 
-function stopSwordChain(player) {
+// keepSweep: the chain has simply run its course, and its last strike's blade is still going through its sweep
+function stopSwordChain(player, { keepSweep = false } = {}) {
   player.attackActive = false;
   player.attackHeld = false;
   player.attackQueued = false;
   player.attackNextStrike = 0;
   player.attackCommitted = 0;
   player.attackCommitBy = null;
+  if (!keepSweep) player.attackSweep = null;
 }
 
 export function beginAttack(room, playerId, nowSec) {
@@ -157,6 +168,21 @@ export function tryDash(room, playerId, direction, nowSec) {
   return ok;
 }
 
+/**
+ * Sheathe in Steel: the magic hand clenches and the armour hardens at once (shared/src/steel.mjs). It needs that
+ * hand free (not gathering a spell); it does not stop a sword or drop a guard.
+ */
+export function tryActivateSteel(room, playerId, nowSec) {
+  const player = room.players.get(playerId);
+  if (room.state !== 'PLAYING' || !player || !player.alive || nowSec < player.staggerUntil) return false;
+  if (nowSec < (player.steelReadyAt ?? 0) || player.pendingSpell) return false;
+  player.steel = callSteel(nowSec);
+  player.steelReadyAt = nowSec + STEEL.cooldownSec;
+  player.spawnProtectionUntil = Math.min(player.spawnProtectionUntil, nowSec);
+  room.events.push({ type: 'steelOn', playerId, at: nowSec, readyAt: player.steelReadyAt });
+  return true;
+}
+
 /** Gather the Spellblade's spell in the palm; it flies when the gather ends (see stepRoom). */
 export function tryCastSpell(room, playerId, direction, nowSec) {
   const player = room.players.get(playerId);
@@ -196,27 +222,6 @@ function targetBlockedByWorld(attackerTransform, targetTransform, world) {
   return false;
 }
 
-function candidateSwordTarget(room, attacker, world, atSec) {
-  const attackerTransform = transformFor(attacker, atSec);
-  const forward = forwardFromYaw(attackerTransform.yaw);
-  let best = null;
-  for (const target of room.players.values()) {
-    if (target.id === attacker.id || !target.alive) continue;
-    const targetTransform = transformFor(target, atSec);
-    const dx = targetTransform.position.x - attackerTransform.position.x;
-    const dz = targetTransform.position.z - attackerTransform.position.z;
-    const dy = (targetTransform.position.y + 0.9) - (attackerTransform.position.y + EYE_HEIGHT);
-    const horizontal = Math.hypot(dx, dz);
-    const distance = Math.hypot(horizontal, dy);
-    if (distance > GAME.swordRange || horizontal < 1e-6) continue;
-    const dot = forward.x * (dx / horizontal) + forward.z * (dz / horizontal);
-    if (dot < SWORD_ARC_COS) continue;
-    if (targetBlockedByWorld(attackerTransform, targetTransform, world)) continue;
-    if (!best || distance < best.distance) best = { target, distance, attackerTransform, targetTransform };
-  }
-  return best;
-}
-
 function recoilFromWall(attacker, hit, nowSec, room) {
   const f = forwardFromYaw(attacker.yaw);
   attacker.velocity.x = -f.x * 3.1;
@@ -233,36 +238,137 @@ function recoilFromWall(attacker, hit, nowSec, room) {
   });
 }
 
-function resolveSwordStrike(room, attacker, strikeIndex, nowSec, world) {
-  const strikeAt = attacker.attackStartedAt + SWORD_STRIKE_TIMES[strikeIndex];
-  const attackerTransform = transformFor(attacker, strikeAt);
+// --- the sword strike -------------------------------------------------------------------------------------------
+// A strike is live for a short stretch around its contact (MELEE_CONTACT.window): its blade sweeps across the legal
+// arc (the third comes straight down), and the first body it meets takes the blow. Where the body sat in the arc and
+// how far into the swing it was met decide how cleanly it lands; how hard the two were closing adds to the impact.
+// Everything is judged on the lag-compensated transforms of the moment (history.mjs), a sixtieth of a second apart.
+
+const SWEEP_STEP = 1 / 60;
+const ARC_TOLERANCE = 3 * Math.PI / 180;
+
+// the next moment to judge after `after`: the live stretch in even steps of about SWEEP_STEP, the contact itself
+// always one of them
+function nextSample(window, after) {
+  const leg = (from, to) => {
+    const steps = Math.max(1, Math.ceil((to - from) / SWEEP_STEP - 1e-9));
+    const step = (to - from) / steps;
+    return from + (Math.floor((after - from) / step + 1e-9) + 1) * step;
+  };
+  return after < window.contact - 1e-9 ? Math.min(window.contact, leg(window.from, window.contact)) : Math.min(window.to, leg(window.contact, window.to));
+}
+
+// where a strike's live stretch lies (absolute seconds)
+function strikeWindow(player, strike) {
+  const contact = player.attackStartedAt + SWORD_STRIKE_TIMES[strike];
+  return { contact, from: contact - MELEE_CONTACT.window.early, to: contact + MELEE_CONTACT.window.late };
+}
+
+// a target's place in a strike seen from the attacker at `atSec`: angle off the facing (+ to the attacker's left),
+// distance, and whether anything solid stands between them
+function strikeGeometry(attackerTransform, target, atSec, world) {
+  const targetTransform = transformFor(target, atSec);
+  const dx = targetTransform.position.x - attackerTransform.position.x;
+  const dz = targetTransform.position.z - attackerTransform.position.z;
+  const dy = (targetTransform.position.y + 0.9) - (attackerTransform.position.y + EYE_HEIGHT);
+  const horizontal = Math.hypot(dx, dz);
   const f = forwardFromYaw(attackerTransform.yaw);
-  const origin = [attackerTransform.position.x, attackerTransform.position.y + EYE_HEIGHT, attackerTransform.position.z];
-  const worldHit = findSwordWorldHit(origin, [f.x, 0, f.z], GAME.swordRange, world.solids ?? []);
-  const candidate = candidateSwordTarget(room, attacker, world, strikeAt);
+  const across = dx * -f.z + dz * f.x;
+  const along = dx * f.x + dz * f.z;
+  return {
+    angle: Math.atan2(-across, along),
+    distance: Math.hypot(horizontal, dy),
+    horizontal,
+    direction: horizontal > 1e-6 ? { x: dx / horizontal, z: dz / horizontal } : { x: f.x, z: f.z },
+    blocked: () => targetBlockedByWorld(attackerTransform, targetTransform, world),
+  };
+}
 
-  if (worldHit && (!candidate || worldHit.distance <= candidate.distance)) {
-    recoilFromWall(attacker, worldHit, nowSec, room);
-    return;
+/** Begin a strike's live stretch (its swing is heard from here). */
+function openStrike(room, player, strike, nowSec) {
+  player.attackOpened = strike;
+  const window = strikeWindow(player, strike);
+  const sweep = MELEE_CONTACT.sweep[strike] ?? 0;
+  const half = MELEE_CONTACT.arcHalfDeg * Math.PI / 180;
+  player.attackSweep = { strike, sampledTo: window.from, bladeAngle: sweep ? sweep * -half : 0, wallChecked: false };
+  room.events.push({ type: 'swordSwing', playerId: player.id, strikeIndex: strike, at: nowSec });
+}
+
+/** Carry a live strike's sweep on to `nowSec`: it meets a body, meets a wall, or runs out (a miss). */
+function sweepStrike(room, player, nowSec, world) {
+  const live = player.attackSweep;
+  if (!live) return;
+  const window = strikeWindow(player, live.strike);
+  const half = MELEE_CONTACT.arcHalfDeg * Math.PI / 180;
+  const sweep = MELEE_CONTACT.sweep[live.strike] ?? 0;
+  const until = Math.min(nowSec, window.to);
+  while (player.attackSweep === live && live.sampledTo < until - 1e-9) {
+    const at = Math.min(until, nextSample(window, live.sampledTo));
+    const dt = at - window.contact;
+    const bladeAngle = bladeAngleAt(live.strike, dt);
+    const attackerTransform = transformFor(player, at);
+    let best = null;
+    // a chop meets whatever is in the arc once it is down at body height; a sweep, whoever its blade passes
+    const chopping = !sweep && dt >= -MELEE_CONTACT.chopLead;
+    const low = Math.min(live.bladeAngle, bladeAngle) - ARC_TOLERANCE;
+    const high = Math.max(live.bladeAngle, bladeAngle) + ARC_TOLERANCE;
+    if (sweep || chopping) {
+      for (const target of room.players.values()) {
+        if (target.id === player.id || !target.alive) continue;
+        const g = strikeGeometry(attackerTransform, target, at, world);
+        if (g.distance > GAME.swordRange || g.horizontal < 1e-6 || Math.abs(g.angle) > half) continue;
+        if (sweep && (g.angle < low || g.angle > high)) continue;
+        if (g.blocked()) continue;
+        if (!best || g.distance < best.g.distance) best = { target, g };
+      }
+    }
+    live.sampledTo = at;
+    live.bladeAngle = bladeAngle;
+    if (best) {
+      player.attackSweep = null;
+      landStrike(room, player, live.strike, best.target, best.g, at, nowSec);
+      return;
+    }
+    // at the contact with nobody met yet, a wall in the way stops the blade (and the knight recoils)
+    if (!live.wallChecked && dt >= -1e-9) {
+      live.wallChecked = true;
+      const f = forwardFromYaw(attackerTransform.yaw);
+      const origin = [attackerTransform.position.x, attackerTransform.position.y + EYE_HEIGHT, attackerTransform.position.z];
+      const worldHit = findSwordWorldHit(origin, [f.x, 0, f.z], GAME.swordRange, world.solids ?? []);
+      if (worldHit) {
+        player.attackSweep = null;
+        recoilFromWall(player, worldHit, nowSec, room);
+        return;
+      }
+    }
   }
-
-  if (!candidate) {
-    room.events.push({ type: 'swordMiss', playerId: attacker.id, strikeIndex, at: nowSec });
-    return;
+  if (player.attackSweep === live && live.sampledTo >= window.to - 1e-9) {
+    player.attackSweep = null;
+    room.events.push({ type: 'swordMiss', playerId: player.id, strikeIndex: live.strike, at: nowSec });
   }
+}
 
-  const target = candidate.target;
+/** The blow lands on `target`: parried, blocked or a hit, as cleanly and as hard as it was met. */
+function landStrike(room, attacker, strikeIndex, target, g, atSec, nowSec) {
   if (target.spawnProtectionUntil > nowSec) {
     room.events.push({ type: 'swordProtected', playerId: attacker.id, targetId: target.id, strikeIndex, at: nowSec });
     return;
   }
+  const window = strikeWindow(attacker, strikeIndex);
+  const quality = meleeContactQuality({ angle: g.angle, distance: g.distance, reach: GAME.swordRange, dt: atSec - window.contact });
+  // how hard they were closing on each other along the line between them
+  const closing = ((attacker.velocity?.x ?? 0) - (target.velocity?.x ?? 0)) * g.direction.x
+    + ((attacker.velocity?.z ?? 0) - (target.velocity?.z ?? 0)) * g.direction.z;
+  const impact = closingImpact(closing);
 
-  if (target.guarding && isInGuardCone(target, attacker, strikeAt)) {
+  if (target.guarding && isInGuardCone(target, attacker, atSec)) {
     const guardResult = resolveSwordVsGuard({
       guarding: true,
       guardAgeMs: (nowSec - target.guardStartedAt) * 1000,
       stamina: target.guardStamina,
       profile: guardProfile(target.knightClass),
+      // a glancing blow bears less on the guard, a collision more
+      pressure: (0.6 + 0.4 * quality) * (1 + MELEE_CONTACT.impactGuard * impact),
     });
     target.guardStamina = guardResult.staminaAfter;
     if (guardResult.kind === 'parry') {
@@ -275,17 +381,20 @@ function resolveSwordStrike(room, attacker, strikeIndex, nowSec, world) {
     target.lastGuardDrainAt = nowSec;
     if (guardResult.kind === 'guardBreak') {
       target.guarding = false;
-      target.staggerUntil = nowSec + GAME.guardBreakStaggerMs / 1000;
-      room.events.push({ type: 'guardBreak', attackerId: attacker.id, defenderId: target.id, at: nowSec });
+      target.staggerUntil = nowSec + (GAME.guardBreakStaggerMs / 1000) * (1 + MELEE_CONTACT.impactBreakStagger * impact);
+      room.events.push({ type: 'guardBreak', attackerId: attacker.id, defenderId: target.id, impact, at: nowSec });
     } else {
-      room.events.push({ type: 'block', attackerId: attacker.id, defenderId: target.id, at: nowSec });
+      room.events.push({ type: 'block', attackerId: attacker.id, defenderId: target.id, quality, impact, at: nowSec });
     }
     return;
   }
 
-  const push = { x: f.x * 1.7, y: strikeIndex === 2 ? 0.8 : 0.2, z: f.z * 1.7 };
-  applyDamage(room, attacker.id, target.id, GAME.swordDamage, 'sword', nowSec, push);
-  room.events.push({ type: 'swordHit', playerId: attacker.id, targetId: target.id, strikeIndex, at: nowSec });
+  const shove = 1.7 * (1 + MELEE_CONTACT.impactKnockback * impact);
+  const push = { x: g.direction.x * shove, y: strikeIndex === 2 ? 0.8 : 0.2, z: g.direction.z * shove };
+  // hardened armour does not turn a sword (it is a guard against sorcery), but each blow wears some of it away
+  if (target.steel) target.steel = chipSteel(target.steel, STEEL.swordChip * quality, nowSec);
+  applyDamage(room, attacker.id, target.id, swordDamageFor(quality), 'sword', nowSec, push);
+  room.events.push({ type: 'swordHit', playerId: attacker.id, targetId: target.id, strikeIndex, quality, impact, at: nowSec });
 }
 
 export function applyDamage(room, attackerId, victimId, amount, source, nowSec, knockback = null) {
@@ -295,12 +404,10 @@ export function applyDamage(room, attackerId, victimId, amount, source, nowSec, 
   victim.lastDamageAt = nowSec;
   victim.lastAttackerId = attackerId;
   if (knockback) {
-    victim.velocity.x += knockback.x ?? 0;
-    victim.velocity.y += knockback.y ?? 0;
-    victim.velocity.z += knockback.z ?? 0;
+    shoveBody(victim, knockback);
     victim.lastKnockbackAt = nowSec;
   }
-  room.events.push({ type: 'damage', attackerId, victimId, source, amount, health: victim.health, at: nowSec });
+  room.events.push({ type: 'damage', attackerId, victimId, source, amount, health: victim.health, push: knockback ?? null, at: nowSec });
   if (victim.health <= 0) killPlayer(room, victimId, attackerId, source, nowSec);
   return true;
 }
@@ -313,6 +420,7 @@ export function killPlayer(room, victimId, attackerId, source, nowSec) {
   victim.alive = false;
   victim.health = 0;
   victim.guarding = false;
+  victim.steel = null;
   stopSwordChain(victim);
   victim.respawnAt = nowSec + RESPAWN_SEC;
   if (credited && credited !== victimId) {
@@ -328,10 +436,14 @@ export function killPlayer(room, victimId, attackerId, source, nowSec) {
   return true;
 }
 
-function spawnSpell(room, player, nowSec) {
+function spawnSpell(room, player, nowSec, world) {
   const pending = player.pendingSpell;
   if (!pending) return;
   const spell = spellFor(pending.spell);
+  if (spell.kind === 'cone') {
+    releaseGale(room, player, spell, nowSec, world);
+    return;
+  }
   const direction = pending.direction;
   const id = `f${++projectileCounter}`;
   const f = forwardFromYaw(player.yaw);
@@ -352,6 +464,60 @@ function spawnSpell(room, player, nowSec) {
   room.events.push({ type: 'projectileSpawned', projectile: structuredClone(projectile), at: nowSec });
 }
 
+// Gale Garner lets go: every body its gust reaches is shoved (its heart also stings a little); a raised guard facing it
+// keeps most of its footing but pays for it like a blow; hardened steel turns the sting, not the shove; walls stop it.
+// Driven into the ground close by, it throws its caster back off it.
+function releaseGale(room, player, spell, nowSec, world) {
+  const pending = player.pendingSpell;
+  player.pendingSpell = null;
+  player.castEndsAt = 0;
+  const f = forwardFromYaw(player.yaw);
+  const direction = Math.hypot(pending.direction.x, pending.direction.y, pending.direction.z) > 0.01
+    ? normalize3(pending.direction) : { x: f.x, y: 0, z: f.z };
+  const eye = { x: player.position.x, y: player.position.y + EYE_HEIGHT, z: player.position.z };
+  const origin = { x: eye.x + direction.x * 0.35, y: eye.y + direction.y * 0.35, z: eye.z + direction.z * 0.35 };
+  const affected = [];
+  for (const target of room.players.values()) {
+    if (target.id === player.id || !target.alive || target.spawnProtectionUntil > nowSec) continue;
+    const caught = galeOnBody(spell, origin, direction, target.position);
+    if (caught.pressure <= 0.01) continue;
+    const at = caught.point;
+    let walled = false;
+    for (const box of world.solids ?? []) {
+      if (segmentAabbHit([origin.x, origin.y, origin.z], [at.x, at.y, at.z], box)) { walled = true; break; }
+    }
+    if (walled) continue;
+    let shove = galeShove(spell, origin, direction, at, caught.pressure);
+    const guarded = target.guarding && isInGuardCone(target, player, nowSec);
+    if (guarded) {
+      // it holds its ground behind the guard, and the guard pays for it like a blow (its breath waits again)
+      shove = { x: shove.x * spell.cone.guarded, y: shove.y * spell.cone.guarded, z: shove.z * spell.cone.guarded };
+      target.guardStamina = Math.max(0, target.guardStamina - spell.cone.guardCost * caught.pressure);
+      target.lastGuardDrainAt = nowSec;
+      if (target.guardStamina <= 1e-9) {
+        target.guarding = false;
+        target.staggerUntil = nowSec + GAME.guardBreakStaggerMs / 1000;
+        room.events.push({ type: 'guardBreak', attackerId: player.id, defenderId: target.id, at: nowSec });
+      }
+    }
+    // its heart stings a little (steel turns that aside, never the shove)
+    const armour = steelExposure(target.steel, guarded ? 0 : caught.exposure, nowSec);
+    if (armour.turned > 0.1) target.steel = chipSteel(target.steel, STEEL.spellChip * armour.turned, nowSec);
+    const damage = Math.round(spell.cone.damage * armour.exposure);
+    if (damage >= 1) {
+      applyDamage(room, player.id, target.id, damage, spell.id, nowSec, shove);
+    } else {
+      shoveBody(target, shove);
+      target.lastAttackerId = player.id;
+      target.lastKnockbackAt = nowSec;
+    }
+    affected.push({ id: target.id, pressure: caught.pressure, guarded, shove });
+  }
+  const recoil = galeRecoil(spell, eye, direction, world);
+  if (recoil) shoveBody(player, recoil);
+  room.events.push({ type: 'galeBlast', playerId: player.id, spell: spell.id, origin, direction, affected, recoil, at: nowSec });
+}
+
 // the blast: damage by distance, a shove away from its heart, then what the spell leaves behind (a burn, a chill)
 function explodeSpell(room, projectile, point, nowSec, worldHit = false, directVictimId = null) {
   room.projectiles.delete(projectile.id);
@@ -364,18 +530,24 @@ function explodeSpell(room, projectile, point, nowSec, worldHit = false, directV
     const direct = player.id === directVictimId;
     const distance = direct ? 0 : blastDistance(point, player.position);
     if (distance > spell.radius) continue;
-    const amount = blastDamage(spell, distance);
+    // how directly it caught them decides everything it leaves (hardened armour turns some of it aside)
+    const armour = steelExposure(player.steel, spellExposure(spell, distance), nowSec);
+    const exposure = armour.exposure;
+    if (armour.turned > 0.02) {
+      player.steel = chipSteel(player.steel, STEEL.spellChip * armour.turned, nowSec);
+      room.events.push({ type: 'steelTurn', playerId: player.id, spell: spell.id, turned: armour.turned, point, at: nowSec });
+    }
+    const amount = blastDamage(spell, exposure);
     const away = normalize3({ x: center.x - point.x, y: Math.max(0.15, center.y - point.y), z: center.z - point.z });
     const hit = applyDamage(room, projectile.ownerId, player.id, amount, spell.id, nowSec, {
       x: away.x * 4.3 * shove, y: away.y * 2.3 * shove, z: away.z * 4.3 * shove,
     });
     if (!hit || !player.alive) continue;
     // a fresh burn replaces one already licking (it never stacks); a blast too far out to catch leaves any burn be
-    const burn = burnFrom(spell, distance, projectile.ownerId, nowSec);
+    const burn = burnFrom(spell, exposure, projectile.ownerId, nowSec);
     if (burn) player.burn = burn;
-    if (spell.chill) {
-      player.chill = strongerChill(player.chill, { slow: spell.chill.slow, startedAt: nowSec, until: nowSec + spell.chill.seconds }, nowSec);
-    }
+    const chill = chillFrom(spell, exposure, nowSec);
+    if (chill) player.chill = strongerChill(player.chill, chill, nowSec);
   }
   room.events.push({
     type: 'projectileImpact', projectileId: projectile.id, ownerId: projectile.ownerId, spell: spell.id, radius: spell.radius, point, worldHit, at: nowSec,
@@ -464,7 +636,7 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
       continue;
     }
 
-    if (player.pendingSpell && nowSec >= player.castEndsAt) spawnSpell(room, player, nowSec);
+    if (player.pendingSpell && nowSec >= player.castEndsAt) spawnSpell(room, player, nowSec, world);
     stepAfflictions(room, player, nowSec);
     if (!player.alive) continue;
 
@@ -504,6 +676,7 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
     player.dashReadyAt = moved.dashReadyAt;
     player.dashDir = moved.dashDir;
     player.sprintBlend = moved.sprintBlend;
+    player.impulse = moved.impulse;
     player.yaw = input.yaw ?? player.yaw;
     player.pitch = input.pitch ?? player.pitch;
     recordTransform(player, nowSec);
@@ -517,13 +690,19 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
       // the chain in time order: committed strikes land; as each next swing would begin, it is committed if the
       // button is still held (or was pressed again), or the chain ends there, the swing before it having landed
       const elapsed = nowSec - player.attackStartedAt;
+      // the next committed strike goes live a moment before its contact
+      const next = player.attackNextStrike;
+      if (next < (player.attackCommitted ?? 0) && (player.attackOpened ?? -1) < next
+        && elapsed + 1e-9 >= SWORD_STRIKE_TIMES[next] - MELEE_CONTACT.window.early) {
+        openStrike(room, player, next, nowSec);
+      }
       for (;;) {
         const step = player.attackActive ? nextChainStep({ committed: player.attackCommitted ?? 1, landed: player.attackNextStrike }, elapsed) : null;
         if (!step) break;
         if (step.kind === 'land') {
+          // its contact has come (the strike went live a moment before, and sweeps on a moment after)
+          if ((player.attackOpened ?? -1) < step.strike) openStrike(room, player, step.strike, nowSec);
           player.attackNextStrike += 1;
-          room.events.push({ type: 'swordSwing', playerId: player.id, strikeIndex: step.strike, at: nowSec });
-          resolveSwordStrike(room, player, step.strike, nowSec, world);
         } else if (player.attackHeld || player.attackQueued) {
           player.attackCommitted = (player.attackCommitted ?? 1) + 1;
           // (a fresh press asked for it outright; a hold may yet turn out to have been let go just before)
@@ -538,7 +717,7 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
         // the whole chain is done: a held (or pressed again) button starts the next one a beat later
         const again = player.attackHeld || player.attackQueued;
         const held = player.attackHeld;
-        stopSwordChain(player);
+        stopSwordChain(player, { keepSweep: true });
         player.attackHeld = held;
         player.attackQueued = again;
         player.attackRestartAt = nowSec + SWORD_CHAIN.restart;
@@ -546,6 +725,8 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
     } else if ((player.attackHeld || player.attackQueued) && !player.attackActive && nowSec >= (player.attackRestartAt ?? -Infinity) && nowSec >= player.staggerUntil) {
       startSwordChain(player, nowSec);
     }
+    // a live strike sweeps on to the end of its stretch (the last one past the chain's own end)
+    if (player.attackSweep) sweepStrike(room, player, nowSec, world);
   }
 
   // bodies do not share space: overlapping Spellblades are eased apart (never off a ledge or into a wall)

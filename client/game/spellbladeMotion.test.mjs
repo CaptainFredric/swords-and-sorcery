@@ -28,7 +28,7 @@ test('a sword blow knocks the body back, turns it with the blade, flings the swo
   // it swings a touch past rest on the way back, then steadies
   const past = Math.min(...Array.from({ length: 40 }, (_, i) => reactionEnvelope(spec.rise + spec.hold + (spec.fall * i) / 40, spec)));
   assert.ok(past < -0.05 && past > -spec.settle - 1e-9, 'swings past rest, not far');
-  // the forehand and the finisher cross the body from its left, the backhand from its right
+  // the forehand and the heavy third strike cross the body from its left, the backhand from its right
   assert.equal(bladeTravel(0), 1);
   assert.equal(bladeTravel(1), -1);
   assert.equal(bladeTravel(2), 1);
@@ -41,7 +41,7 @@ test('a sword blow knocks the body back, turns it with the blade, flings the swo
   assert.ok(pose.rotations.some((r) => r.bone === 'upper_arm.R' && Math.abs(r.angle) > 0.2), 'the sword arm is flung');
   assert.ok(pose.legFlex > 0.05, 'the knees give');
   assert.ok(pose.pelvis[2] > 0.03, 'the weight goes back with the blow');
-  // the finisher folds deeper than the forehand
+  // the heavy third strike folds deeper than the forehand
   const fold = (strike) => reactionPose([{ kind: 'hit', at: 0, push: { x: 0, z: 1 }, strike }], at, 0).rotations.find((r) => r.bone === 'spine').angle;
   assert.ok(fold(2) > fold(0));
 });

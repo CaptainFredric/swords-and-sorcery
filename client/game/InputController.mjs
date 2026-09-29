@@ -8,6 +8,7 @@ const PRESS = {
   guard: (input) => input.setGuard(true),
   spell: (input) => input.cast(),
   dash: (input) => input.dash(),
+  steel: (input) => input.steel(),
   scoreboard: (input) => { input.scoreboardHeld = true; },
 };
 const RELEASE = {
@@ -39,6 +40,7 @@ export class InputController {
     this.onGuardLocal = () => {};
     this.onCastLocal = () => {};
     this.onDashLocal = () => {};
+    this.onSteelLocal = () => {};
     this.onPointer = () => {};
     this.onAction = () => {};
     // look speed (multipliers) and the key bindings, from the settings
@@ -194,6 +196,13 @@ export class InputController {
     const dir = this.dashDirection();
     this.socket.dash(dir);
     this.onDashLocal(dir);
+  }
+
+  // Sheathe in Steel: the magic hand clenches (the server hardens the armour; the view shows it at once)
+  steel() {
+    if (!this.enabled) return;
+    this.socket.steel();
+    this.onSteelLocal();
   }
 
   movement() {

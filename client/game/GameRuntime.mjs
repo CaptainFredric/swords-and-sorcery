@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { getWorld } from '../../shared/worlds/registry.mjs';
-import { createMovementState, movePlayer, resolveSprint, tryStartDash } from '../../shared/src/movement.mjs';
+import { createMovementState, movePlayer, resolveSprint, shoveBody, tryStartDash } from '../../shared/src/movement.mjs';
 import { separateLocal } from '../../shared/src/separation.mjs';
 import { segmentAabbHit, surfaceHeightAt } from '../../shared/src/collision.mjs';
 import { InputController } from './InputController.mjs';
@@ -12,11 +12,13 @@ import { SCENE_PRESENTATION } from './scenePresentation.mjs';
 import { localCombatFeedback, shouldPlayWorldClang } from './combatFeedback.mjs';
 import { castVisualDuration } from './weaponPose.mjs';
 import { localPushDirection } from './spellbladeMotion.mjs';
-import { blowDirection, hitKick, hitstopSeconds, impactPoint } from './hitFeel.mjs';
+import { blowDirection, glancing, hitKick, hitstopSeconds, impactPoint } from './hitFeel.mjs';
 import {
   blockRecipe, burnLickRecipe, castRecipe, dashRecipe, fireballImpactRecipe, frostImpactRecipe, guardBreakRecipe, hurtRecipe, killRecipe,
-  parryRecipe, spatialize, swingRecipe, swordHitRecipe, wallClangRecipe,
+  galeReleaseRecipe, parryRecipe, spatialize, steelCallRecipe, steelTurnRecipe, swingRecipe, swordHitRecipe, wallClangRecipe,
 } from './sound/soundRecipes.mjs';
+import { galeRecoil } from '../../shared/src/gale.mjs';
+import { steelStrength } from '../../shared/src/steel.mjs';
 import { chillScale, spellFor } from '../../shared/src/spells.mjs';
 import { deathLines, voicePlacement, voiceRate } from './sound/voiceRules.mjs';
 import { FOOTSTEPS, footfallsCrossed, footstepPlacement, footstepRecipe, surfaceAt, variantPicker } from './sound/footsteps.mjs';
@@ -134,6 +136,16 @@ export class GameRuntime {
       if (!canPresentLocalAction('cast', this.localAuth, this.localState, now)) return;
       const spell = spellFor(this.localAuth?.spell);
       this.weapon.cast({ gatherSec: spell.gatherSec, spell: spell.id });
+      // a Gale lets go when its breath is drawn: my own is seen and felt the moment it goes, once the server has taken it
+      if (spell.kind === 'cone') this.localGale = { at: now + spell.gatherSec, direction: this.input.lookDirection(), spell, confirmed: false };
+    };
+    // Sheathe in Steel: the clench and the ring of plate at once (the server hardens the armour a moment later)
+    this.input.onSteelLocal = () => {
+      const now = this.socket.serverNow();
+      if (!canPresentLocalAction('steel', this.localAuth, this.localState, now)) return;
+      this.weapon.clench();
+      this.localSteelAt = now;
+      this.#play(steelCallRecipe(), null, 0.9);
     };
     this.input.onDashLocal = (dir) => {
       const now = this.socket.serverNow();
@@ -204,6 +216,8 @@ export class GameRuntime {
       this.worldId = worldId;
       this.worldError = null;
       this.localState = null;
+      // what a fight first shows mid-swing is readied now, so it does not stall the frame it appears in
+      this.effects.warm(this.renderer, this.scene);
       return true;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -314,6 +328,7 @@ export class GameRuntime {
     if (!this.localState) {
       this.localState = createMovementState(auth.position);
       this.localState.velocity = { ...auth.velocity };
+      if (auth.impulse) this.localState.impulse = { ...auth.impulse };
       this.localState.dashReadyAt = auth.dashReadyAt;
       this.input.yaw = auth.yaw;
       this.input.pitch = auth.pitch;
@@ -326,6 +341,7 @@ export class GameRuntime {
       if (!auth.alive || error > 2.2) {
         this.localState.position = { ...auth.position };
         this.localState.velocity = { ...auth.velocity };
+        this.localState.impulse = auth.impulse ? { ...auth.impulse } : { x: 0, z: 0 };
       } else {
         this.localState.position.x += dx * 0.11;
         this.localState.position.y += dy * 0.16;
@@ -352,7 +368,31 @@ export class GameRuntime {
         }
         const release = Math.max(0, (event.castEndsAt ?? event.at + spell.gatherSec) - this.socket.serverNow());
         this.#play(castRecipe(Math.random, { spell: spell.id, release }), event.playerId === me ? null : this.#bodyPosition(event.playerId), event.playerId === me ? 0.9 : 0.6);
+        if (spell.kind === 'cone') {
+          // my own lets go when the server's does (and now it surely will); another's is seen gathering in their hand
+          if (event.playerId === me && this.localGale) {
+            if (Number.isFinite(event.castEndsAt)) this.localGale.at = event.castEndsAt;
+            this.localGale.confirmed = true;
+          }
+          const body = event.playerId === me ? null : this.#bodyPosition(event.playerId);
+          if (body) this.effects.galeGather({ x: body.x, y: body.y + 1.3, z: body.z });
+        }
         this.#say('sorcery', event.playerId);
+      }
+
+      if (event.type === 'galeBlast') this.#galeBlast(event);
+      // a blow or a blast that shoved me: my own steps carry the shove at once (the server's already do)
+      if (event.type === 'damage' && event.victimId === me && event.push && this.localState) shoveBody(this.localState, event.push);
+
+      // Sheathed in Steel: another knight's plate ringing as it hardens (mine rang as I pressed)
+      if (event.type === 'steelOn' && event.playerId !== me) this.#play(steelCallRecipe(), this.#bodyPosition(event.playerId), 0.7);
+      // a spell turned aside by it: a glint where it struck the plate, a ping, and now and then a word of pride
+      if (event.type === 'steelTurn') {
+        const body = this.#bodyPosition(event.playerId);
+        const point = body && event.point ? impactPoint(body, event.point) : null;
+        if (point && event.playerId !== me) this.effects.steelGlint(point, blowDirection(body, event.point));
+        this.#play(steelTurnRecipe(), event.playerId === me ? null : point, 0.85);
+        if (event.turned >= 0.25) this.#say('steelBoast', event.playerId, { delay: 0.35 });
       }
 
       // my own swings whoosh from the local swing (no network delay); others' from the server's strike
@@ -480,6 +520,56 @@ export class GameRuntime {
     if (place && place.gain > 0.01) this.sound.play(recipe, { pan: place.pan, gain: place.gain * gain / FOOTSTEPS.other });
   }
 
+  // a Gale let go: the gust seen and heard, the knights it caught shoved and their cloth flung, and now and then a word
+  // from whoever loosed it. My own was shown the moment it went (#releaseLocalGale), so only its shoves are left
+  #galeBlast(event) {
+    const me = this.socket.playerId;
+    const spell = spellFor(event.spell);
+    const mine = event.playerId === me;
+    // the server's word can beat my own frame to it: then this is the moment it goes, and it goes once
+    const pending = mine && this.localGale;
+    if (pending) this.localGale = null;
+    const shownAlready = mine && !pending && Number.isFinite(this.localGaleAt) && Math.abs(event.at - this.localGaleAt) < 0.5;
+    if (mine) this.localGaleAt = event.at;
+    if (!shownAlready && spell.cone) {
+      this.effects.galeBlast(event.origin, event.direction, spell.cone, this.#groundUnder());
+      this.#play(galeReleaseRecipe(), mine ? null : event.origin, mine ? 1 : 0.9);
+      if (mine && event.recoil && this.localState) shoveBody(this.localState, event.recoil);
+    }
+    for (const caught of event.affected ?? []) {
+      if (caught.id === me) {
+        // the gust hits me: my body goes with it at once, and the view is buffeted
+        if (this.localState && caught.shove) shoveBody(this.localState, caught.shove);
+        this.weapon.damage(this.#pushTowardMe(event.playerId), 6 * caught.pressure);
+      } else {
+        this.remotePlayers.gust(caught.id, caught.shove);
+      }
+    }
+    if ((event.affected ?? []).some((caught) => caught.pressure >= 0.3 && !caught.guarded)) this.#say('galeTaunt', event.playerId, { delay: 0.7 });
+  }
+
+  // the ground a gust runs over, for what it blows off it: its height and what it is made of
+  #groundUnder() {
+    const world = this.activeWorld;
+    if (!world) return {};
+    return { groundAt: (x, z, y) => surfaceHeightAt(x, z, y, world), surfaceAt: (x, z, y) => surfaceAt(world, x, z, y) };
+  }
+
+  // my own Gale lets go: seen and heard at once, and its throw off the ground felt at once (the server does the same)
+  #releaseLocalGale(serverNow) {
+    const gale = this.localGale;
+    this.localGale = null;
+    this.localGaleAt = serverNow;
+    if (!this.localState || !gale.spell.cone) return;
+    const d = gale.direction;
+    const eye = { x: this.localState.position.x, y: this.localState.position.y + 1.35, z: this.localState.position.z };
+    const origin = { x: eye.x + d.x * 0.35, y: eye.y + d.y * 0.35, z: eye.z + d.z * 0.35 };
+    this.effects.galeBlast(origin, d, gale.spell.cone, this.#groundUnder());
+    this.#play(galeReleaseRecipe(), null, 1);
+    const recoil = galeRecoil(gale.spell, eye, d, this.activeWorld);
+    if (recoil) shoveBody(this.localState, recoil);
+  }
+
   // the fallen may protest (magic they do not believe in, or that they are a knight); if they keep quiet, whoever
   // felled them may have a word over the body
   #deathVoice(event) {
@@ -520,21 +610,24 @@ export class GameRuntime {
   #swordHit(event) {
     const me = this.socket.playerId;
     const strike = event.strikeIndex ?? 0;
+    // how cleanly it landed (a glancing blow skates off with a scrape) and how hard the two met
+    const quality = Number.isFinite(event.quality) ? event.quality : 1;
+    const impact = Number.isFinite(event.impact) ? event.impact : 0;
     const attacker = this.#bodyPosition(event.playerId);
     const victim = this.#bodyPosition(event.targetId);
     const point = impactPoint(victim, attacker);
     if (event.targetId !== me) {
-      if (point) this.effects.hitBurst(point, blowDirection(victim, attacker), { strike });
+      if (point) this.effects.hitBurst(point, blowDirection(victim, attacker), { strike, quality });
       this.remotePlayers.flashHit(event.targetId);
     }
     if (event.playerId === me) {
-      this.hud.hit('hit');
-      this.weapon.hitstop(hitstopSeconds({ strike }), hitKick({ strike }));
-      this.#play(swordHitRecipe(Math.random, { strike }), null, 1);
+      this.hud.hit(glancing(quality) ? 'glance' : 'hit');
+      this.weapon.hitstop(hitstopSeconds({ strike, quality }), hitKick({ strike, quality }));
+      this.#play(swordHitRecipe(Math.random, { strike, quality, impact }), null, 1);
     } else if (event.targetId === me) {
-      this.#play(hurtRecipe(Math.random, { heavy: strike >= 2 }), null, 1);
+      this.#play(hurtRecipe(Math.random, { heavy: strike >= 2 || impact > 0.5 }), null, 1);
     } else {
-      this.#play(swordHitRecipe(Math.random, { strike }), point, 0.8);
+      this.#play(swordHitRecipe(Math.random, { strike, quality, impact }), point, 0.8);
     }
   }
 
@@ -581,6 +674,7 @@ export class GameRuntime {
     else if (event.source === 'fireball' && killer) this.hud.addFeed(`${killer.name} incinerated ${victim?.name ?? 'someone'}`, 'fire');
     else if (event.source === 'burn' && killer) this.hud.addFeed(`${killer.name} burned ${victim?.name ?? 'someone'} down`, 'fire');
     else if (event.source === 'frostfire' && killer) this.hud.addFeed(`${killer.name} shattered ${victim?.name ?? 'someone'}`, 'frost');
+    else if (event.source === 'gale' && killer) this.hud.addFeed(`${killer.name} blew ${victim?.name ?? 'someone'} away`, 'gale');
     else if (killer) this.hud.addFeed(`${killer.name} slew ${victim?.name ?? 'someone'}`, 'sword');
     else this.hud.addFeed(`${victim?.name ?? 'A spellblade'} fell into the abyss`, 'abyss');
   }
@@ -678,6 +772,19 @@ export class GameRuntime {
         this.socket.input({ seq: ++this.sequence, ...moveInput, clientTime: this.socket.serverNow() });
       }
       // the weapon's procedural motion also returns small camera offsets (purely visual: aim uses input yaw/pitch)
+      // Sheathed in Steel on my own arms: the server's word, or my own press while that word is on the way
+      const steel = this.localAuth.steel;
+      const pressed = Number.isFinite(this.localSteelAt) && serverNow - this.localSteelAt < 0.6 ? this.localSteelAt : null;
+      const calledAt = Math.max(steel?.calledAt ?? -Infinity, pressed ?? -Infinity);
+      this.weapon.setSteel(
+        Math.max(steelStrength(steel, serverNow), pressed !== null && !steel ? 1 : 0),
+        Number.isFinite(calledAt) ? serverNow - calledAt : null,
+      );
+      // my Gale lets go when its breath is drawn; one the server never took is let go of quietly
+      if (this.localGale && serverNow >= this.localGale.at) {
+        if (this.localGale.confirmed) this.#releaseLocalGale(serverNow);
+        else if (serverNow > this.localGale.at + 0.4) this.localGale = null;
+      }
       const strideBefore = this.weapon.motion.stride;
       const view = this.weapon.update(timeSec, dt, {
         speed: Math.hypot(this.localState.velocity.x, this.localState.velocity.z),

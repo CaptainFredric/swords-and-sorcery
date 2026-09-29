@@ -22,16 +22,26 @@ export function blowDirection(victim, attacker) {
 }
 
 /**
- * Hit-stop for the attacker's first-person swing: a short freeze sells the contact. The combo finisher holds
- * longer, a killing blow longest. Never long enough to desync the swing from the server's strike timing.
+ * Hit-stop for the attacker's first-person swing: a short freeze sells the contact. The heavy third strike holds
+ * longer, a killing blow longest; a glancing blow (quality below 1) barely catches. Never long enough to desync the
+ * swing from the server's strike timing.
  */
-export function hitstopSeconds({ strike = 0, kill = false } = {}) {
+export function hitstopSeconds({ strike = 0, kill = false, quality = 1 } = {}) {
   if (kill) return 0.11;
-  return strike >= 2 ? 0.075 : 0.05;
+  return (strike >= 2 ? 0.075 : 0.05) * (0.35 + 0.65 * clamp01(quality));
 }
 
-/** How strongly the attacker's view and arms kick on contact (0..1). */
-export function hitKick({ strike = 0, kill = false } = {}) {
+/** How strongly the attacker's view and arms kick on contact (0..1): less when the blade only glanced. */
+export function hitKick({ strike = 0, kill = false, quality = 1 } = {}) {
   if (kill) return 1;
-  return strike >= 2 ? 0.8 : 0.5;
+  return (strike >= 2 ? 0.8 : 0.5) * (0.5 + 0.5 * clamp01(quality));
+}
+
+/** Whether a blow reads as glancing (a scrape across the armour rather than a clean cut). */
+export function glancing(quality) {
+  return Number.isFinite(quality) && quality < 0.8;
+}
+
+function clamp01(value) {
+  return Math.max(0, Math.min(1, Number.isFinite(value) ? value : 1));
 }

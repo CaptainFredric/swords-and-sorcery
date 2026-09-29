@@ -37,6 +37,8 @@ function freshCombatState(spawn, nowSec = 0) {
     pendingSpell: null,
     burn: null,
     chill: null,
+    steel: null,
+    steelReadyAt: 0,
     speedScale: 1,
     spawnProtectionUntil: nowSec + 1,
     alive: true,

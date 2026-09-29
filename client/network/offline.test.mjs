@@ -61,6 +61,33 @@ test('it plays: moving, swinging and the yard\'s controls go through the same ru
   assert.notEqual(host.latestSnapshot.players[0].position.x, 999);
 });
 
+test('every command the controls send reaches whichever host is playing: the server or the browser', async () => {
+  // what the controls send (InputController calls these on the link in play)
+  const { readFile } = await import('node:fs/promises');
+  const source = await readFile(new URL('../game/InputController.mjs', import.meta.url), 'utf8');
+  const sent = [...new Set([...source.matchAll(/this\.socket\.(\w+)\(/g)].map((match) => match[1]))];
+  assert.ok(sent.includes('steel') && sent.includes('cast'), `found the controls' commands: ${sent.join(', ')}`);
+  const { GameSocket } = await import('./GameSocket.mjs');
+  const link = new GameLink({ remote: fakeRemote(), local: new LocalHost({ every: () => 1, cancel: () => {}, later: () => {} }) });
+  for (const command of sent) {
+    assert.equal(typeof link[command], 'function', `the link passes on ${command}`);
+    assert.equal(typeof GameSocket.prototype[command], 'function', `the server connection sends ${command}`);
+    assert.equal(typeof LocalHost.prototype[command], 'function', `the browser host answers ${command}`);
+  }
+});
+
+test('Sheathe in Steel works in a match the browser hosts', () => {
+  const { host, advance } = handHost();
+  host.startSolo('PRACTICE', 'Aden');
+  host.arenaReady(true);
+  advance(0.5);
+  host.steel();
+  advance(0.2);
+  const me = host.latestSnapshot.players.find((player) => player.id === host.playerId);
+  assert.ok(me.steel && me.steel.base === 1, 'sheathed');
+  assert.ok(me.steelReadyAt > host.serverNow(), 'and it waits to be called again');
+});
+
 test('a Bot Duel comes with its bot; online play is refused with a plain word; leaving ends the match', () => {
   const { host, heard, flush, advance } = handHost();
   host.startSolo('BOT_DUEL', 'Aden');

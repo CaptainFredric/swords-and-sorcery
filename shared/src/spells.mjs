@@ -5,10 +5,12 @@
 //   Frostfire: a quicker, tighter bolt that leaves its victim heavy with cold: slowest at once, thawing back to full
 //   speed. The slow is a feeling rather than a rule to learn: strongest when it lands, visibly fading.
 //
-// Every spell bursts: a blast with a reach (radius), full force at its heart easing off slightly toward its edge,
-// measured to the nearest part of a body (a burst at someone's feet is a burst on them). Anything fiery carries a
-// `burn`, which catches only near the heart and fades to nothing at `reach` (a fraction of the radius): no dice, the
-// closer the fire, the longer it clings.
+// Every spell bursts: a blast with a reach (radius), measured to the nearest part of a body (a burst at someone's feet
+// is a burst on them). How directly it caught that body is its exposure (spellExposure): 1 at the heart, falling to 0
+// at the edge. Everything a blast leaves follows from the exposure: its damage (full at the heart, easing off a little
+// toward the edge), a fire's burn (it catches only near the heart, more licks the closer), a frost's chill (colder and
+// longer the closer). No dice. Anything that hardens a body against spells (Sheathed in Steel, shared/src/steel.mjs)
+// turns the exposure down, and all of those follow of themselves.
 //
 // Shared by the server (authority) and the client (prediction of your own chilled movement, the HUD, the effects).
 
@@ -37,8 +39,33 @@ export const SPELLS = Object.freeze({
     directDamage: 15,
     edgeDamage: 11,
     radius: 1.6,
-    // the cold: this much of their speed taken at once, all of it back after this long
-    chill: Object.freeze({ slow: 0.55, seconds: 3 }),
+    // the cold, for a direct hit: this much of their speed taken at once, all of it back after this long; a body caught
+    // further out is chilled less, and for less long (down to these shares at the very edge)
+    chill: Object.freeze({ slow: 0.55, seconds: 3, edgeSlow: 0.4, edgeSeconds: 0.5 }),
+  }),
+  // A short, forceful cone of wind that moves bodies far more than it hurts them (shared/src/gale.mjs). A readable
+  // breath is drawn in first, so it is no instant "get away from me". Its heart does a little damage and shoves
+  // hardest; its pressure reaches wider and further and only shoves; both fade evenly with distance and angle.
+  // Current, provisional tuning (the cooldown especially).
+  gale: Object.freeze({
+    id: 'gale',
+    label: 'Gale Garner',
+    kind: 'cone',
+    cooldownSec: 7,
+    gatherSec: 0.5,
+    cone: Object.freeze({
+      reach: 5.2,                // the heart of the gust, out to here and this wide...
+      halfAngleDeg: 28,
+      pressureReach: 8.5,        // ...and its pressure, further and wider (a shove, no damage)
+      pressureHalfAngleDeg: 46,
+      damage: 8,                 // at point blank in its heart
+      push: 12.5,                // m/s: the shove at point blank
+      lift: 0.28,                // a share of it lifting the body off its feet
+      guarded: 0.35,             // a raised guard facing it keeps this much of the shove...
+      guardCost: 12,             // ...and pays this much stamina for it at point blank
+    }),
+    // aimed into the ground (or a wall) close by, the gust throws its caster back off it
+    recoil: Object.freeze({ reach: 3.2, push: 9.5, maxUp: 8 }),
   }),
 });
 
@@ -61,11 +88,26 @@ export function blastDistance(point, position) {
   return Math.max(0, Math.hypot(point.x - position.x, point.y - y, point.z - position.z) - BODY.radius);
 }
 
-/** The blast's damage at a distance from its heart: full at the heart, easing off a little toward the edge. */
-export function blastDamage(spell, distance) {
-  if (distance > spell.radius) return 0;
-  const t = Math.max(0, Math.min(1, distance / spell.radius));
+/** How directly a blast caught a body `distance` from its heart: 1 at the heart, 0 at (and past) its edge. */
+export function spellExposure(spell, distance) {
+  if (!(distance >= 0) || distance > spell.radius) return 0;
+  return 1 - distance / spell.radius;
+}
+
+/** The blast's damage at an exposure: full at the heart, easing off a little toward the edge (0 only outside it). */
+export function blastDamage(spell, exposure) {
+  if (!(exposure > 0)) return 0;
+  const t = 1 - Math.min(1, exposure);
   return Math.round(spell.directDamage + (spell.edgeDamage - spell.directDamage) * t * t);
+}
+
+/** The chill a frost leaves at an exposure: colder and longer the more directly it caught (null for no frost). */
+export function chillFrom(spell, exposure, nowSec) {
+  if (!spell.chill || !(exposure > 0)) return null;
+  const e = Math.min(1, exposure);
+  const slow = spell.chill.slow * ((spell.chill.edgeSlow ?? 1) + (1 - (spell.chill.edgeSlow ?? 1)) * e);
+  const seconds = spell.chill.seconds * ((spell.chill.edgeSeconds ?? 1) + (1 - (spell.chill.edgeSeconds ?? 1)) * e);
+  return { slow, startedAt: nowSec, until: nowSec + seconds };
 }
 
 /** How fast a chilled Spellblade can move now (1 = unhindered): the cold is worst when it lands, then thaws. */
@@ -81,13 +123,13 @@ export function strongerChill(current, next, nowSec) {
 }
 
 /**
- * The burn a blast leaves on a body `distance` from its heart: every lick the same, but fewer of them the further
- * out, none past the burn's reach. Returns null when nothing catches.
+ * The burn a blast leaves at an exposure: every lick the same, but fewer of them the less directly it caught, none
+ * past the burn's reach (a share of the blast's). Returns null when nothing catches.
  */
-export function burnFrom(spell, distance, attackerId, nowSec) {
-  if (!spell.burn || !(distance >= 0)) return null;
-  const reach = spell.radius * (spell.burn.reach ?? 1);
-  const closeness = Math.max(0, 1 - distance / reach);
+export function burnFrom(spell, exposure, attackerId, nowSec) {
+  if (!spell.burn || !(exposure > 0)) return null;
+  const reach = spell.burn.reach ?? 1;
+  const closeness = Math.max(0, 1 - (1 - Math.min(1, exposure)) / reach);
   const licks = Math.round(spell.burn.licks * closeness);
   if (licks < 1) return null;
   const perLick = spell.burn.damage / spell.burn.licks;

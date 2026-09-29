@@ -162,6 +162,7 @@ export class LocalHost {
   guard(down) { this.#command({ type: 'guard', down, clientTime: this.now() }); }
   cast(direction) { this.#command({ type: 'cast', direction }); }
   dash(direction) { this.#command({ type: 'dash', direction }); }
+  steel() { this.#command({ type: 'steel' }); }
   rematch() { this.#command({ type: 'rematch' }); }
   vote(key, value) { this.#command({ type: 'vote', key, value }); }
   ping() { this.#deliver({ type: 'pong', sentAt: performance.now(), serverTime: this.now() }); }

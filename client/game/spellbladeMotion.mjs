@@ -44,7 +44,7 @@ export function reactionEnvelope(age, { rise, hold = 0, fall, settle = 0 }) {
 }
 
 // which way a sword blow's blade travels across the one it hits, in their own frame (+1 toward their right): the
-// forehand and the finisher come from the attacker's right (the victim's left), the backhand the other way
+// forehand and the heavy third strike come from the attacker's right (the victim's left), the backhand the other way
 export function bladeTravel(strike) {
   if (strike === 1) return -1;
   if (strike === 0 || strike === 2) return 1;
@@ -105,7 +105,7 @@ export function reactionPose(reactions, now, yaw = 0, { slack = false } = {}) {
       continue;
     }
 
-    // the finisher comes down from above: more fold, deeper knees
+    // the heavy third strike comes down from above: more fold, deeper knees
     const heavy = reaction.strike === 2 ? 1.3 : 1;
     rotations.push({ bone: 'spine', axis: tilt, angle: spec.spine * heavy * weight });
     rotations.push({ bone: 'chest', axis: tilt, angle: spec.chest * weight });

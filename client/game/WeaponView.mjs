@@ -8,9 +8,12 @@ import { createSpellbladeAsset, reportSpellbladeAssetStatus } from './Spellblade
 import { resolveFirstPersonAnimationPlan } from './spellbladeAnimationPlan.mjs';
 import { FIRST_PERSON_WEAPON_SCALE, resolveWeaponPose } from './weaponPose.mjs';
 import { FP_MOTION, FirstPersonMotion } from './firstPersonMotion.mjs';
-import { OFF_HAND_CLEAR, comboPose } from './fpSlash.mjs';
+import { blendPoses, comboPose, counterRotations, recoveryPose } from './fpSlash.mjs';
 import { FIRST_PERSON_OFF_ARM, solveArm, solveSwordArm } from './swordArmIK.mjs';
 import { LocalSwordChain } from './localSwordChain.mjs';
+import { MELEE_CONTACT, SWORD_STRIKE_TIMES } from '../../shared/src/combat.mjs';
+import { createSteelSheen } from './steelSheen.mjs';
+import { swirlTexture } from './softTextures.mjs';
 
 function damp(value, target, amount) {
   return value + (target - value) * amount;
@@ -127,7 +130,27 @@ function addMagicWisp(parent, material, name, position, size, rotation) {
 
 
 // what a spell looks like gathering in the palm
-const SPELL_GLOW = Object.freeze({ fireball: 0xff7a2a, frostfire: 0x7fd6ff });
+const SPELL_GLOW = Object.freeze({ fireball: 0xff7a2a, frostfire: 0x7fd6ff, gale: 0xe4ece2 });
+// the light the palm throws on the arms while a spell gathers (air is pale, but lights them only a little)
+const SPELL_LIGHT = Object.freeze({ fireball: 0xff7a2a, frostfire: 0x7fd6ff, gale: 0x7d9282 });
+const EYE_TURN = new THREE.Quaternion();
+
+// the clench of Sheathe in Steel: tightening over a moment, then letting go (0..1)
+function clenchPulse(age) {
+  if (!(age >= 0) || age > 0.42) return 0;
+  return Math.sin(Math.PI * Math.min(1, age / 0.42)) ** 0.7;
+}
+
+// the magic hand tightening into a fist (the wrist curling in, the forearm turning, the arm drawn in a touch)
+function clenchRotations(age) {
+  const c = clenchPulse(age);
+  if (c <= 0) return [];
+  return [
+    { bone: 'hand.L', axis: [1, 0, 0], angle: -0.55 * c, space: 'local' },
+    { bone: 'forearm.L', axis: [0, 1, 0], angle: -0.3 * c, space: 'local' },
+    { bone: 'upper_arm.L', axis: [1, 0, 0], angle: 0.12 * c },
+  ];
+}
 
 export class WeaponView {
   constructor(camera) {
@@ -226,12 +249,23 @@ export class WeaponView {
     // hit-stop: while frozen the arms hold their pose (the procedural kick keeps playing)
     this.frozenUntil = 0;
     this.lastPlan = null;
+    // Sheathe in Steel: the magic hand's clench (a quick pulse), and the plate's sheen while the armour is hard
+    this.clenchAt = -Infinity;
+    this.steel = { strength: 0, rippleAge: null };
+    this.steelSheen = null;
     // told when each stroke of the combo begins its cut (the swing sound plays from here, without network delay)
     this.onSwing = () => {};
     this.lastSwingKey = null;
-    // the combo's last pose, and when the chain was let go (it eases back to rest from there)
-    this.lastCombo = null;
-    this.comboReleasedAt = null;
+    // where the arms' sword path comes from: the chain under way, or their way home after it (fpSlash.mjs). A new
+    // chain takes over from whichever it was; a guard, a cast or a dash lets go of it for its own clip
+    this.comboSource = null;
+    this.comboHandover = null;
+    this.comboLetGo = null;
+    this.comboShown = null;
+    this.comboLast = null;
+    this.comboBroken = false;
+    // the pose's state last frame (what the arms were doing when a chain begins)
+    this.lastPoseState = 'idle';
 
     this.#upgradeVisual();
   }
@@ -250,6 +284,9 @@ export class WeaponView {
 
       this.productionInstance = instance;
       this.visualKind = 'production';
+      // the plate's steel readied with the arms (its shader built now, not the first time it is called)
+      this.steelSheen?.dispose();
+      this.steelSheen = createSteelSheen(instance, { ready: true });
       this.productionOffset.add(instance.root);
       // the arms are always in view, and a swung blade leaves the bounds the skinned meshes were measured at rest
       instance.root.traverse((object) => { if (object.isMesh) object.frustumCulled = false; });
@@ -263,7 +300,16 @@ export class WeaponView {
         this.chargeOrb = new THREE.Group();
         this.chargeCore = new THREE.Mesh(new THREE.IcosahedronGeometry(0.035, 1), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
         this.chargeGlow = new THREE.Mesh(new THREE.IcosahedronGeometry(0.068, 1), new THREE.MeshBasicMaterial({ color: 0xff7a2a, transparent: true, opacity: 0.45, blending: THREE.AdditiveBlending, depthWrite: false }));
-        this.chargeOrb.add(this.chargeCore, this.chargeGlow);
+        // Gale's breath drawn into the palm: two soft swirls of air turning against each other round the fist, facing
+        // the eye (no core, no glow)
+        const swirlMaterial = new THREE.MeshBasicMaterial({ map: swirlTexture(), color: 0xf1f5ef, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+        this.chargeSwirl = new THREE.Group();
+        for (const tilt of [0.25, -0.35]) {
+          const swirl = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.3), swirlMaterial);
+          swirl.rotation.x = tilt;
+          this.chargeSwirl.add(swirl);
+        }
+        this.chargeOrb.add(this.chargeCore, this.chargeGlow, this.chargeSwirl);
         this.chargeOrb.visible = false;
         instance.sockets.sorcery.add(this.chargeOrb);
       }
@@ -289,6 +335,8 @@ export class WeaponView {
 
   /** Stop the chain outright (a parry, a wall, a stagger, a fall, the match over). */
   cancelAttack() {
+    // (broken off, not let go: the arms come home a little quicker, and straight)
+    if (this.swordChain.active) this.comboBroken = true;
     this.swordChain.cancel();
     this.attackButton = false;
   }
@@ -319,6 +367,16 @@ export class WeaponView {
     this.castReleased = false;
     this.guard = false;
     this.cancelAttack();
+  }
+
+  /** The magic hand clenches (Sheathe in Steel): a quick tightening, the palm light flashing to steel. */
+  clench() {
+    this.clenchAt = performance.now() / 1000;
+  }
+
+  /** The armour's hardening on my arms: strength 0..1, and seconds since it was called (for the glint), or null. */
+  setSteel(strength = 0, rippleAge = null) {
+    this.steel = { strength, rippleAge };
   }
 
   dash() {
@@ -383,19 +441,25 @@ export class WeaponView {
     });
 
     const motion = this.motion.step({ dt, speed, grounded, yaw, pitch, state: pose.state, dashing: pose.state === 'dash' });
-    if (pose.state === 'attack' && pose.attackPhase === 'cut') {
-      const key = `${this.attackStartedAt}:${pose.strike}`;
-      if (key !== this.lastSwingKey) {
-        this.lastSwingKey = key;
-        this.onSwing(pose.strike);
+    // each committed strike's swing is heard as it goes live (when the server lets it land, and the blade is at its
+    // fastest a moment later)
+    if (chain) {
+      const since = timeSec - chain.startedAt;
+      const heard = this.lastSwingKey?.startedAt === chain.startedAt ? this.lastSwingKey.strike : -1;
+      for (let strike = heard + 1; strike < chain.committed; strike += 1) {
+        if (since < SWORD_STRIKE_TIMES[strike] - MELEE_CONTACT.window.early) break;
+        this.lastSwingKey = { startedAt: chain.startedAt, strike };
+        this.onSwing(strike);
       }
     }
     const frozen = timeSec < this.frozenUntil;
+    const stateBefore = this.lastPoseState;
+    this.lastPoseState = pose.state;
 
     if (this.visualKind === 'production' && this.productionInstance) {
       let plan = resolveFirstPersonAnimationPlan(pose, this, timeSec);
       // the combo is one unbroken path of both hands (fpSlash.mjs): fast, fast, then heavy with both on the grip
-      const combo = this.#combo(pose.state, timeSec);
+      const combo = this.#combo(pose.state, timeSec, stateBefore);
       if (combo) {
         plan = { clip: 'Idle', loop: true, time: timeSec };
         // the view leans with the body into each cut (purely visual: aim is the input's)
@@ -424,9 +488,10 @@ export class WeaponView {
           { bone: 'forearm.L', axis: [0, 1, 0], angle: FP_MOTION.magicForearmTwist * motion.neutral, space: 'local' },
           { bone: 'upper_arm.L', axis: [1, 0, 0], angle: -FP_MOTION.magicArmDrop * motion.neutral, space: 'local' },
           ...castGestureRotations(gesture),
-          // the magic arm drops out of the blade's way while it works (unless it is on the grip)
-          // (fading as it reaches for the grip, so the two never pull against each other)
-          ...(combo ? OFF_HAND_CLEAR.map((turn) => ({ ...turn, angle: turn.angle * combo.weight * (1 - (combo.offHand?.weight ?? 0)) })) : []),
+          ...clenchRotations(timeSec - this.clenchAt),
+          // the magic arm counterbalances the cuts (and fades out of it as it reaches for the grip, so the two never
+          // pull against each other)
+          ...(combo ? counterRotations(combo.counter, combo.weight * (1 - (combo.offHand?.weight ?? 0))) : []),
         ],
         solve: combo ? (bones) => {
           solveSwordArm(bones, combo.arm, combo.weight);
@@ -437,13 +502,26 @@ export class WeaponView {
       this.productionInstance.animator.apply(shown, frozen ? 0 : dt);
       this.lastPlan = shown;
       const w = motion.weapon;
-      this.productionOffset.position.set(w.x, w.y, w.z);
+      // the body carries the arms into each cut
+      const body = combo ? combo.body.map((v) => v * combo.weight) : [0, 0, 0];
+      this.productionOffset.position.set(w.x + body[0], w.y + body[1], w.z + body[2]);
       this.productionOffset.rotation.set(w.rx, w.ry, w.rz);
       // gauntlet runes and palm light follow the palm sorcery: dim at rest, bright only while a cast gathers
       const level = Math.max(this.productionInstance.sorceryLevel?.() ?? 0, gesture.draw);
       for (const material of this.productionInstance.materials.SorceryAccent ?? []) material.emissiveIntensity = 0.7 + 2.1 * level;
       this.magicLight.intensity = 0.12 + 2.6 * level;
       this.#chargeGlow(gesture, timeSec);
+      // the clench: the palm light flares to steel and dies back as the hand opens
+      const clench = clenchPulse(timeSec - this.clenchAt);
+      if (clench > 0) {
+        this.magicLight.color.setHex(0xcfdbe8);
+        this.magicLight.intensity += 1.1 * clench;
+      }
+      // the steel on my own arms
+      if (this.steel.strength > 0.001 || this.steelSheen || Number.isFinite(this.steel.rippleAge)) {
+        this.steelSheen ??= createSteelSheen(this.productionInstance);
+        this.steelSheen.set(this.steel.strength, this.steel.rippleAge);
+      }
       return motion;
     }
 
@@ -470,43 +548,96 @@ export class WeaponView {
     return motion;
   }
 
-  // the combo while the attack is held; let go, it eases back to rest from wherever it was (never a snap). A fresh
-  // chain starts from the resting arm, so it only needs a beat to take hold.
-  #combo(state, timeSec) {
+  // The arms' sword path this frame, with how firmly they follow it (weight), or null when the clip has them. While a
+  // chain is under way it is the chain; when it ends they come home along a way of their own (quicker and straighter
+  // when it was broken off), carrying on as they were moving; a new chain takes over from wherever they were (a short
+  // hand-over, never a jump); a guard, a cast or a dash takes them for its own clip, the path letting go of them.
+  #combo(state, timeSec, stateBefore) {
     const ease = (t) => t * t * (3 - 2 * t);
     if (state === 'attack') {
-      const since = timeSec - this.attackStartedAt;
-      this.lastCombo = comboPose(since);
-      this.comboReleasedAt = null;
-      return this.lastCombo && { ...this.lastCombo, weight: since < 0.08 ? ease(Math.max(0, since) / 0.08) : 1 };
+      const startedAt = this.attackStartedAt;
+      if (this.comboSource?.chainAt !== startedAt) {
+        const previous = this.comboLetGo ? null : this.comboSource;
+        this.comboHandover = previous ? { from: previous, at: timeSec } : null;
+        // from rest the chain's first pose is the rest's own, so it takes the arms at once; out of a guard, a cast or
+        // a dash it takes a beat to take hold of them
+        const fadeIn = !previous && stateBefore !== 'idle';
+        this.comboSource = { chainAt: startedAt, fadeIn, pose: (t) => comboPose(t - startedAt) };
+        this.comboLetGo = null;
+        this.comboBroken = false;
+      }
+      const source = this.comboSource;
+      this.comboLast = { since: timeSec - startedAt, at: timeSec };
+      const weight = source.fadeIn ? ease(Math.min(1, Math.max(0, timeSec - startedAt) / 0.1)) : 1;
+      return this.#comboShow(source.pose(timeSec), timeSec, weight);
     }
-    if (!this.lastCombo) return null;
-    if (this.comboReleasedAt === null) this.comboReleasedAt = timeSec;
-    // back to rest from wherever the last swing left the arms
-    const left = 1 - (timeSec - this.comboReleasedAt) / 0.3;
-    if (left <= 0) {
-      this.lastCombo = null;
-      return null;
+    if (!this.comboSource) return null;
+    if (state !== 'idle' || this.comboLetGo) {
+      this.comboLetGo ??= { pose: this.comboShown, at: timeSec };
+      const left = 1 - (timeSec - this.comboLetGo.at) / 0.2;
+      if (left <= 0 || !this.comboLetGo.pose) return this.#comboDone();
+      return { ...this.comboLetGo.pose, weight: this.comboLetGo.pose.weight * ease(left) };
     }
-    return { ...this.lastCombo, weight: ease(left) };
+    if (this.comboSource.chainAt !== undefined && this.comboLast) {
+      // the chain is over: home from where it had got to, carrying on from the last frame it was shown
+      const { since, at } = this.comboLast;
+      const quick = this.comboBroken;
+      this.comboSource = { home: true, pose: (t) => recoveryPose(since, t - at, { quick }) };
+    }
+    const pose = this.comboSource.pose(timeSec);
+    if (!pose) return this.#comboDone();
+    return this.#comboShow(pose, timeSec, this.comboShown?.weight ?? 1);
+  }
+
+  // the pose shown, blended from the path the arms were on while a new chain takes over from it
+  #comboShow(pose, timeSec, weight) {
+    let shown = pose;
+    if (this.comboHandover) {
+      const w = (timeSec - this.comboHandover.at) / 0.18;
+      if (w >= 1) this.comboHandover = null;
+      else shown = blendPoses(this.comboHandover.from.pose(timeSec) ?? comboPose(0), pose, w);
+    }
+    this.comboShown = { ...shown, weight };
+    return this.comboShown;
+  }
+
+  #comboDone() {
+    this.comboSource = null;
+    this.comboHandover = null;
+    this.comboLetGo = null;
+    this.comboShown = null;
+    this.comboLast = null;
+    return null;
   }
 
   // the spell in the palm grows as it gathers and is gone when thrown; the palm light takes on its colour
   #chargeGlow(gesture, timeSec) {
     const color = SPELL_GLOW[this.castSpell] ?? SPELL_GLOW.fireball;
-    this.magicLight.color.setHex(gesture.draw > 0.01 ? color : SPELLBLADE_PALETTE.magic);
+    this.magicLight.color.setHex(gesture.draw > 0.01 ? SPELL_LIGHT[this.castSpell] ?? color : SPELLBLADE_PALETTE.magic);
     if (!this.chargeOrb) return;
     this.chargeOrb.visible = gesture.draw > 0.02;
     if (!this.chargeOrb.visible) return;
     const flicker = 1 + Math.sin(timeSec * 38) * 0.08;
     this.chargeOrb.scale.setScalar((0.35 + 0.9 * gesture.draw) * flicker);
+    const gale = this.castSpell === 'gale';
+    this.chargeCore.visible = !gale;
+    this.chargeGlow.visible = !gale;
+    this.chargeSwirl.visible = gale;
+    if (gale) {
+      this.chargeSwirl.parent.getWorldQuaternion(this.chargeSwirl.quaternion).invert();
+      this.chargeSwirl.quaternion.multiply(this.camera.getWorldQuaternion(EYE_TURN));
+      this.chargeSwirl.children[0].rotation.z = -timeSec * 13;
+      this.chargeSwirl.children[1].rotation.z = timeSec * 9;
+      return;
+    }
     this.chargeGlow.material.color.setHex(color);
-    this.chargeCore.material.color.setHex(this.castSpell === 'frostfire' ? 0xeafcff : 0xfff0c8);
+    this.chargeCore.material.color.setHex(this.castSpell === 'frostfire' ? 0xeafcff : this.castSpell === 'gale' ? 0xffffff : 0xfff0c8);
     this.chargeGlow.rotation.y = timeSec * 5;
   }
 
   dispose() {
     this.disposed = true;
+    this.steelSheen?.dispose();
     this.assetGeneration += 1;
     if (this.productionInstance) {
       this.productionOffset.remove(this.productionInstance.root);

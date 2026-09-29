@@ -16,6 +16,11 @@ const SPELL_WORDS = Object.freeze({
     line: 'A quick bolt of cold. Whoever it strikes turns sluggish, then thaws.',
     facts: (s) => `Hits for ${s.directDamage}, chills them heavy for ${s.chill.seconds} s · ${s.cooldownSec} s`,
   },
+  gale: {
+    mark: '≋',
+    line: 'Draw a breath of wind, then loose it in a cone: it throws knights back far more than it hurts them. Into the ground, it throws you.',
+    facts: (s) => `Stings for up to ${s.cone.damage}, shoves out to ${s.cone.pressureReach} m · ${s.cooldownSec} s`,
+  },
 });
 
 export function armoryView(equipped) {

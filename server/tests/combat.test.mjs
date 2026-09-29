@@ -6,10 +6,13 @@ import {
   endAttack,
   setGuard,
   stepRoom,
+  tryActivateSteel,
   tryCastSpell,
   tryDash,
 } from '../../shared/sim/combat.mjs';
+import { STEEL, steelStrength } from '../../shared/src/steel.mjs';
 import { SPRINT } from '../../shared/src/movement.mjs';
+import { GAME } from '../../shared/src/combat.mjs';
 import { SPELLS } from '../../shared/src/spells.mjs';
 
 const openWorld = {
@@ -59,20 +62,18 @@ test('held sword lands 28 damage at 0.40, 1.10 and 1.80 seconds, and the fourth 
   assert.equal(room.players.get('b').alive, false);
 });
 
-test('each committed sword strike emits an authoritative swing cue', () => {
+test('each committed sword strike emits one authoritative swing cue as it goes live, before its contact', () => {
   const room = playingRoom();
   beginAttack(room, 'a', 10);
   room.events.length = 0;
+  const swings = () => room.events.filter((e) => e.type === 'swordSwing' && e.playerId === 'a').map((e) => e.strikeIndex);
 
-  stepRoom(room, 0.01, 10.39, openWorld);
-  assert.deepEqual(room.events.filter((e) => e.type === 'swordSwing'), []);
-
-  stepRoom(room, 0.01, 10.40, openWorld);
-  stepRoom(room, 0.01, 11.10, openWorld);
-  stepRoom(room, 0.01, 11.80, openWorld);
-
-  const swings = room.events.filter((e) => e.type === 'swordSwing' && e.playerId === 'a');
-  assert.deepEqual(swings.map((e) => e.strikeIndex), [0, 1, 2]);
+  stepRoom(room, 0.01, 10.2, openWorld);
+  assert.deepEqual(swings(), [], 'not yet');
+  stepRoom(room, 0.01, 10.36, openWorld);
+  assert.deepEqual(swings(), [0], 'live just before its contact');
+  for (const now of [10.40, 11.10, 11.80, 12]) stepRoom(room, 0.01, now, openWorld);
+  assert.deepEqual(swings(), [0, 1, 2], 'once each');
 });
 
 test('releasing attack prevents later combo strikes', () => {
@@ -272,6 +273,7 @@ test('Frostfire hits lighter and leaves a chill that is strongest at once and th
   };
   // run away from the caster, so nothing but the cold decides the distance
   b.yaw = -Math.PI / 2;
+  b.impulse = { x: 0, z: 0 };
   b.chill = { slow: 0.5, startedAt: 20, until: 23 };
   const start = { ...b.position };
   const chilledStep = moved(b, start, 20.1);
@@ -379,4 +381,188 @@ test('but a second swing asked for by a fresh press stands, whenever the button 
   endAttack(room, 'a', 10.8, 10.6);                  // that tap let go before the second began
   for (const now of [11.1, 11.5]) stepRoom(room, 0.01, now, openWorld);
   assert.equal(room.players.get('b').health, 44, 'the second lands');
+});
+
+// b placed at `angle` (radians, + to a's left) and `distance` from a, who faces +x
+function placeB(room, angle, distance) {
+  const b = room.players.get('b');
+  Object.assign(b.position, { x: Math.cos(angle) * distance, y: 0, z: -Math.sin(angle) * distance });
+  b.history = [];
+  return b;
+}
+
+test('a sword caught cleanly does its full damage; one at the fringe of the arc glances, weaker but real', () => {
+  const clean = playingRoom();
+  placeB(clean, 0, 1.6);
+  beginAttack(clean, 'a', 10);
+  for (const now of [10.3, 10.4, 10.5, 10.6]) stepRoom(clean, 0.01, now, openWorld);
+  assert.equal(clean.players.get('b').health, 100 - GAME.swordDamage);
+
+  const fringe = playingRoom();
+  placeB(fringe, -50 * Math.PI / 180, 1.6);
+  beginAttack(fringe, 'a', 10);
+  for (const now of [10.3, 10.4, 10.5, 10.6]) stepRoom(fringe, 0.01, now, openWorld);
+  const lost = 100 - fringe.players.get('b').health;
+  assert.ok(lost > 0 && lost < GAME.swordDamage, `a glancing blow: ${lost}`);
+  const hit = fringe.events.find((e) => e.type === 'swordHit');
+  assert.ok(hit.quality < 1 && hit.quality > 0);
+
+  const outside = playingRoom();
+  placeB(outside, 80 * Math.PI / 180, 1.6);
+  beginAttack(outside, 'a', 10);
+  for (const now of [10.3, 10.4, 10.5, 10.6]) stepRoom(outside, 0.01, now, openWorld);
+  assert.equal(outside.players.get('b').health, 100, 'outside the arc: a miss');
+});
+
+test('the forehand meets a body on its incoming side sooner than one on the far side', () => {
+  const when = (angle) => {
+    const room = playingRoom();
+    placeB(room, angle, 1.6);
+    beginAttack(room, 'a', 10);
+    for (let now = 10.25; now <= 10.6; now += 0.01) {
+      stepRoom(room, 0.01, now, openWorld);
+      if (room.players.get('b').health < 100) return now;
+    }
+    return Infinity;
+  };
+  // the forehand comes across from a's right (negative angles) to the left
+  assert.ok(when(-30 * Math.PI / 180) < when(0) && when(0) < when(30 * Math.PI / 180));
+});
+
+test('running into each other shoves harder; it barely changes the damage', () => {
+  const measure = (closing) => {
+    const room = playingRoom();
+    const b = placeB(room, 0, 1.6);
+    const a = room.players.get('a');
+    beginAttack(room, 'a', 10);
+    stepRoom(room, 0.01, 10.39, openWorld);
+    a.velocity.x = closing / 2;
+    b.velocity.x = -closing / 2;
+    const before = Math.hypot(b.velocity.x, b.velocity.z);
+    stepRoom(room, 0.01, 10.40, openWorld);
+    const hit = room.events.find((e) => e.type === 'swordHit');
+    return { damage: 100 - b.health, shove: b.velocity.x - (-closing / 2), impact: hit.impact, before };
+  };
+  const standing = measure(0);
+  const collision = measure(12);
+  assert.ok(collision.impact > standing.impact);
+  assert.ok(collision.shove > standing.shove * 1.3, 'a much bigger shove');
+  assert.ok(Math.abs(collision.damage - standing.damage) <= GAME.swordDamage * 0.1, 'about the same damage');
+});
+
+test('a glancing blow bears less on a guard than a clean one', () => {
+  const cost = (angle) => {
+    const room = playingRoom();
+    const b = placeB(room, angle, 1.6);
+    // b faces a, guarding for a while (no parry)
+    b.yaw = Math.atan2(b.position.x, b.position.z); b.input.yaw = b.yaw;
+    setGuard(room, 'b', true, 9);
+    beginAttack(room, 'a', 10);
+    for (const now of [10.3, 10.4, 10.5, 10.6]) stepRoom(room, 0.01, now, openWorld);
+    return 100 - b.guardStamina;
+  };
+  const clean = cost(0);
+  const glancing = cost(-50 * Math.PI / 180);
+  assert.ok(clean > 0 && glancing > 0 && glancing < clean, `clean ${clean}, glancing ${glancing}`);
+});
+
+// a Fireball straight into b (who stands 2 m in front of a), resolved; returns what it did to b
+function fireballInto(room, { steel = false } = {}) {
+  const b = room.players.get('b');
+  if (steel) assert.equal(tryActivateSteel(room, 'b', 10), true);
+  tryCastSpell(room, 'a', { x: 1, y: 0, z: 0 }, 10);
+  let now = 10;
+  while (now < 10.8 && !room.events.some((e) => e.type === 'projectileImpact')) { now += 0.02; stepRoom(room, 0.02, now, openWorld); }
+  const damage = room.events.filter((e) => e.type === 'damage' && e.victimId === 'b' && e.source === 'fireball').reduce((sum, e) => sum + e.amount, 0);
+  return { damage, burn: b.burn, push: b.velocity.x, b };
+}
+
+test('Sheathed in Steel: a square Fireball lands like a glancing one (less damage, less or no burn), the shove the same', () => {
+  const bare = fireballInto(playingRoom());
+  const steeled = fireballInto(playingRoom(), { steel: true });
+  assert.ok(steeled.damage < bare.damage, `${steeled.damage} < ${bare.damage}`);
+  assert.ok((steeled.burn?.licksLeft ?? 0) < (bare.burn?.licksLeft ?? 0), 'the fire clings less');
+  assert.ok(Math.abs(steeled.push - bare.push) < 1e-6, 'momentum is untouched');
+  // turning it aside wore the armour
+  assert.ok(steelStrength(steeled.b.steel, 10.2) < steelStrength({ at: 10, base: 1 }, 10.2));
+});
+
+test('the steel does not soften a sword, but each blow wears it; and it waits out its cooldown', () => {
+  const room = playingRoom();
+  const b = room.players.get('b');
+  assert.equal(tryActivateSteel(room, 'b', 10), true);
+  assert.equal(tryActivateSteel(room, 'b', 10 + STEEL.cooldownSec - 0.1), false, 'not again yet');
+  beginAttack(room, 'a', 10);
+  for (const now of [10.3, 10.4, 10.5]) stepRoom(room, 0.01, now, openWorld);
+  assert.equal(b.health, 72, 'the sword bites as ever');
+  assert.ok(steelStrength(b.steel, 10.5) < steelStrength({ at: 10, base: 1 }, 10.5), 'but it chipped the steel');
+  assert.equal(tryActivateSteel(room, 'b', 10 + STEEL.cooldownSec + 0.01), true, 'ready again after its cooldown');
+});
+
+test('the magic hand cannot clench while it gathers a spell', () => {
+  const room = playingRoom();
+  tryCastSpell(room, 'b', { x: -1, y: 0, z: 0 }, 10);
+  assert.equal(tryActivateSteel(room, 'b', 10.1), false);
+});
+
+// a Gale from a (facing +x); returns b's state after the gust has done its work
+function galeAt(room, bAt, { guard = false, steel = false, wall = null, direction = { x: 1, y: 0, z: 0 } } = {}) {
+  const a = room.players.get('a');
+  const b = room.players.get('b');
+  a.spell = 'gale';
+  Object.assign(b.position, bAt);
+  b.history = [];
+  if (guard) { b.yaw = Math.atan2(b.position.x - a.position.x, b.position.z - a.position.z); b.input.yaw = b.yaw; setGuard(room, 'b', true, 9); }
+  if (steel) tryActivateSteel(room, 'b', 10);
+  const world = wall ? { ...openWorld, solids: [wall] } : openWorld;
+  assert.equal(tryCastSpell(room, 'a', direction, 10), true);
+  const before = { ...b.position };
+  stepRoom(room, 0.02, 10.2, world);
+  const early = { health: b.health, x: b.position.x };
+  for (let now = 10.22; now < 11.2; now += 0.02) {
+    b.input = { forward: 0, right: 0, jump: false, yaw: b.yaw, pitch: 0 };
+    stepRoom(room, 0.02, now, world);
+  }
+  const blast = room.events.find((e) => e.type === 'galeBlast');
+  return { b, moved: b.position.x - before.x, damage: 100 - b.health, early, blast, before };
+}
+
+test('Gale Garner: after its breath, the gust shoves a knight in its heart well away and stings a little', () => {
+  const heart = galeAt(playingRoom(), { x: 2, y: 0, z: 0 });
+  assert.equal(heart.early.health, 100, 'nothing before the breath is let go');
+  assert.ok(heart.moved > 1, `shoved ${heart.moved.toFixed(2)} m`);
+  assert.ok(heart.damage > 0 && heart.damage < GAME.swordDamage / 2, `stung for ${heart.damage}`);
+  // further out, in its pressure only: shoved, not stung
+  const pressure = galeAt(playingRoom(), { x: SPELLS.gale.cone.reach + 1.2, y: 0, z: 0 });
+  assert.ok(pressure.moved > 0.1 && pressure.moved < heart.moved);
+  assert.equal(pressure.damage, 0);
+  // behind the caster, untouched; behind a wall, sheltered
+  assert.equal(galeAt(playingRoom(), { x: -2, y: 0, z: 0 }).moved, 0);
+  const sheltered = galeAt(playingRoom(), { x: 3, y: 0, z: 0 }, { wall: { id: 'w', center: [1.5, 1, 0], size: [0.3, 3, 4] } });
+  assert.equal(sheltered.damage, 0);
+  assert.ok(Math.abs(sheltered.moved) < 0.05);
+});
+
+test('a guard facing the gust keeps its footing better, but pays for it like a blow; steel turns the sting, not the shove', () => {
+  const open = galeAt(playingRoom(), { x: 2, y: 0, z: 0 });
+  const guarded = galeAt(playingRoom(), { x: 2, y: 0, z: 0 }, { guard: true });
+  assert.ok(guarded.moved < open.moved * 0.6, 'held its ground better');
+  assert.equal(guarded.damage, 0);
+  assert.ok(guarded.b.guardStamina < 100, 'the guard paid');
+  assert.ok(guarded.b.lastGuardDrainAt >= 10.49, 'and its breath waits again, as after a blow');
+  const steeled = galeAt(playingRoom(), { x: 2, y: 0, z: 0 }, { steel: true });
+  assert.ok(steeled.damage < open.damage, 'less of a sting');
+  assert.ok(Math.abs(steeled.moved - open.moved) < 0.05, 'the same shove');
+});
+
+test('a gust driven into the ground close by throws its caster up off it', () => {
+  const room = playingRoom();
+  const a = room.players.get('a');
+  a.spell = 'gale';
+  tryCastSpell(room, 'a', { x: 0, y: -1, z: 0 }, 10);
+  stepRoom(room, 0.02, 10.5, openWorld);
+  const blast = room.events.find((e) => e.type === 'galeBlast');
+  assert.ok(blast.recoil && blast.recoil.y > 0);
+  stepRoom(room, 0.02, 10.52, openWorld);
+  assert.ok(a.position.y > 0.05 && a.grounded === false, 'off its feet');
 });

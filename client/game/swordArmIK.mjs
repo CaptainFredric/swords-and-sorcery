@@ -10,18 +10,21 @@
 
 // the first-person sword arm: the blade in the grip socket's own frame (measured from the sword's vertices: 0.78 m
 // from the grip to the point, 0.19 m edge to edge); the socket is not square to it. The elbow hangs down and out.
+// Its roll is exact: the chain's path (fpSlash.mjs) says which way each edge lies, continuously, so the hand is
+// turned exactly so (never whichever way happens to be nearer this frame, which can flip it between two frames)
 export const FIRST_PERSON_SWORD_ARM = Object.freeze({
   shoulder: 'upper_arm.R', elbow: 'forearm.R', wrist: 'hand.R', grip: 'socket_sword',
   aim: Object.freeze([0.283, 0.767, 0.576]), roll: Object.freeze([0.959, -0.212, -0.189]),
-  pole: Object.freeze([0.55, -0.8, 0.1]),
+  pole: Object.freeze([0.55, -0.8, 0.1]), exactRoll: true,
 });
 
-// the first-person magic arm when it joins the sword's grip (the combo's finisher): it aims the hand's fingers (its own
-// y) and lies its palm (its own z); the elbow hangs down and out to the left
+// the first-person magic arm when it joins the sword's grip (the heavy third strike): it aims the hand's fingers (its
+// own y) and lies its palm (its own z) against the grip, exactly; the elbow stays out to the left, well apart from
+// the sword arm's
 export const FIRST_PERSON_OFF_ARM = Object.freeze({
   shoulder: 'upper_arm.L', elbow: 'forearm.L', wrist: 'hand.L', grip: 'hand.L',
   aim: Object.freeze([0, 1, 0]), roll: Object.freeze([0, 0, 1]),
-  pole: Object.freeze([-0.55, -0.8, 0.1]),
+  pole: Object.freeze([-0.85, -0.5, 0.1]), exactRoll: true,
 });
 
 // the third-person Spellblade (menu flourishes): its blade (0.94 m) in the grip socket, the elbows out and down
@@ -87,7 +90,8 @@ export function elbowAngleFor(upper, lower, reach) {
 /**
  * Pose an arm (a chain) toward `target` { wrist, aim, roll, shoulder? } with `weight` 0..1 (0 leaves the clip's arm
  * alone, 1 is exactly the target). aim: which way the held thing points; roll: which way its `roll` axis should lie
- * (either sign will do, the nearer is taken); shoulder: an offset for the shoulder itself (the body turning in).
+ * (either sign will do and the nearer is taken, unless the chain's roll is exact); shoulder: an offset for the
+ * shoulder itself (the body turning in).
  */
 export function solveArm(api, chain, target, weight = 1) {
   const w = clamp(Number.isFinite(weight) ? weight : 0, 0, 1);
@@ -134,9 +138,10 @@ export function solveArm(api, chain, target, weight = 1) {
     if (rollWant) {
       const axis = api.direction(chain.grip, chain.aim);
       const rollNow = api.direction(chain.grip, chain.roll);
-      // either side will do: take the nearer, so the hand never spins half a turn
+      // either side will do, unless the chain asks for its roll exactly: take the nearer, so the hand never spins
+      // half a turn
       let lie = normalize(reject(rollWant, axis));
-      if (dot(lie, rollNow) < 0) lie = scale(lie, -1);
+      if (!chain.exactRoll && dot(lie, rollNow) < 0) lie = scale(lie, -1);
       const twist = signedAngle(rollNow, lie, axis);
       if (Math.abs(twist) > 1e-4) api.rotate(chain.wrist, axis, twist * w);
     }

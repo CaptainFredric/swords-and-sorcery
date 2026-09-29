@@ -167,7 +167,7 @@ registry
 registry
   .defineSetting({
     id: 'loadout.spell', section: 'loadout', label: 'Spell', type: 'choice', default: 'fireball',
-    options: [{ value: 'fireball', label: 'Fireball' }, { value: 'frostfire', label: 'Frostfire' }],
+    options: [{ value: 'fireball', label: 'Fireball' }, { value: 'frostfire', label: 'Frostfire' }, { value: 'gale', label: 'Gale Garner' }],
   });
 
 registry
@@ -181,6 +181,7 @@ registry
   .defineAction({ id: 'guard', label: 'Guard (hold)', group: 'Combat', keys: ['Mouse2'] })
   .defineAction({ id: 'spell', label: 'Cast spell', group: 'Abilities', keys: ['KeyQ'] })
   .defineAction({ id: 'dash', label: 'Dash', group: 'Abilities', keys: ['KeyE'] })
+  .defineAction({ id: 'steel', label: 'Sheathe in Steel', group: 'Abilities', keys: ['KeyF'] })
   .defineAction({ id: 'scoreboard', label: 'Scoreboard (hold)', group: 'Interface', keys: ['Tab'] })
   .defineAction({ id: 'toggleSound', label: 'Sound on / off', group: 'Interface', keys: ['KeyM'] })
   .defineAction({ id: 'toggleMusic', label: 'Music on / off', group: 'Interface', keys: ['KeyN'] });

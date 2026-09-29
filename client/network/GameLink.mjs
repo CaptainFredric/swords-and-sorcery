@@ -45,7 +45,7 @@ export const LINK_RESTORED = Object.freeze({ title: 'WORTHY CHALLENGERS AWAIT YO
 
 const FORWARDED = ['playerId', 'token', 'roomCode', 'latestSnapshot', 'snapshotReceivedAt', 'pingMs'];
 const PLAY = ['startMatch', 'ready', 'arenaReady', 'practiceResetPlayer', 'practiceSpawnDummy', 'practiceRemoveDummy',
-  'practiceSetDummyMode', 'input', 'attack', 'guard', 'cast', 'dash', 'rematch', 'vote', 'ping', 'send'];
+  'practiceSetDummyMode', 'input', 'attack', 'guard', 'cast', 'dash', 'steel', 'rematch', 'vote', 'ping', 'send'];
 const ONLINE = ['createRoom', 'quickPlay', 'joinRoom', 'seekDuel', 'cancelSeek', 'seekBotDuel', 'listRooms', 'createPublicRoom'];
 
 export class GameLink {

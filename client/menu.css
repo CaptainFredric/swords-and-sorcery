@@ -421,6 +421,7 @@ html[data-turn] .turn-only { display: block !important; }
 .spell-card:hover { border-color: var(--heraldry-brass-light); transform: translateX(3px); }
 .spell-card .spell-mark { grid-row: 1 / span 3; font-size: 22px; color: #ffa35a; text-align: center; }
 .spell-card[data-spell="frostfire"] .spell-mark { color: #8fdcff; }
+.spell-card[data-spell="gale"] .spell-mark { color: #e6eee3; }
 .spell-card .spell-name { font: 400 18px/1 var(--font-inscription); letter-spacing: .06em; }
 .spell-card i { font: 800 9px/1 var(--font-script); letter-spacing: .18em; font-style: normal; color: #b9dca8; }
 .spell-card small { grid-column: 2 / 4; color: rgba(234, 220, 182, .78); font: 500 12px/1.35 var(--font-script); }

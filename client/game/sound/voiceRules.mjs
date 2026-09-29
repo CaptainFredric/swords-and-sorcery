@@ -17,12 +17,17 @@ export const VOICE_LINES = Object.freeze({
   victory: { chance: 1, cooldown: 0, gain: 1, interrupts: true },
   // "I don't believe in magic." Only from a knight that magic actually killed, and not every time
   magicDefeat: { chance: 0.35, cooldown: 90, gain: 1, interrupts: true },
-  // "What? But I am a knight!" Every lost match; now and then when felled
-  defeat: { chance: 1, cooldown: 30, gain: 1, interrupts: true },
+  // "What? But I am a knight!" Now and then when felled, a little likelier when the match is lost, and never soon
+  // again: it is funniest when it is a surprise
+  defeat: { chance: 0.25, cooldown: 150, gain: 1, interrupts: true },
   // over a fallen foe: "Good knight? That will not be you." (or a laugh)
   killTaunt: { chance: 0.3, cooldown: 30, gain: 0.95 },
   // "You should have hired a REAL guard!" after breaking one, rarely
   breakTaunt: { chance: 0.35, cooldown: 45, gain: 0.95 },
+  // "What did you say? Must have been the wind..." after a Gale has moved someone, now and then
+  galeTaunt: { chance: 0.3, cooldown: 60, gain: 0.95 },
+  // "My armor works now!" when Sheathed in Steel has turned a spell aside, rarely
+  steelBoast: { chance: 0.3, cooldown: 75, gain: 0.95 },
 });
 
 // How a knight's voice carries. Your own is heard as it is: dry and close, at its full level. Another knight's is heard
@@ -65,8 +70,8 @@ export function voicePlacement(listener, yaw, source, hearing = VOICE_HEARING) {
 // the killing blows that count as magic (a knight burned down by a Fireball was still killed by sorcery)
 export const MAGIC_SOURCES = Object.freeze(['fireball', 'frostfire', 'burn']);
 
-// how often a felled knight protests "But I am a knight!" (a lost match always gets it)
-export const DEFEAT_ON_DEATH = 0.3;
+// how much likelier "But I am a knight!" is when the match itself is lost (than when merely felled)
+export const DEFEAT_ON_LOSS = 1.8;
 
 /**
  * What might be said when a Spellblade falls, in the order to try: the fallen first (the first line that passes its
@@ -76,7 +81,7 @@ export const DEFEAT_ON_DEATH = 0.3;
 export function deathLines({ victimId, killerId, source }) {
   const fallen = [];
   if (MAGIC_SOURCES.includes(source)) fallen.push({ line: 'magicDefeat', speaker: victimId });
-  fallen.push({ line: 'defeat', speaker: victimId, chanceScale: DEFEAT_ON_DEATH });
+  fallen.push({ line: 'defeat', speaker: victimId });
   fallen.push({ line: 'death', speaker: victimId });
   const victor = killerId && killerId !== victimId ? [{ line: 'killTaunt', speaker: killerId, delay: 0.45 }] : [];
   return { fallen, victor };

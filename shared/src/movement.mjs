@@ -10,6 +10,22 @@ export const MOVEMENT = Object.freeze({
   dashCooldown: 5,
 });
 
+// Shoves from outside the body (a blow, a blast, a gust of wind): they carry it on top of its own steps and die
+// away, quickly on the ground (the feet dig in) and slowly in the air (there is nothing to stop it), and a wall takes
+// what is driven into it. Current tuning. Server and client share this, so a shove moves a body the same on both.
+export const IMPULSE = Object.freeze({ groundDecay: 6, airDecay: 1.1, rest: 0.05 });
+
+/** Shove a body: `push` (m/s) is added to its outside impulse (across the ground) and its velocity (upward). */
+export function shoveBody(state, push) {
+  if (!state || !push) return state;
+  state.impulse = { x: (state.impulse?.x ?? 0) + (push.x ?? 0), z: (state.impulse?.z ?? 0) + (push.z ?? 0) };
+  if ((push.y ?? 0) !== 0) {
+    state.velocity.y += push.y;
+    if (push.y > 0) state.grounded = false;
+  }
+  return state;
+}
+
 // Sprint is a locomotion state of its own (not just a faster run) so later modifiers, debuffs and animation can
 // key off it. It spends the same stamina pool the guard uses, slowly, so sprinting in costs blocking power.
 export const SPRINT = Object.freeze({
@@ -42,6 +58,8 @@ export function createMovementState(position = { x: 0, y: 0, z: 0 }) {
     sprintBlend: 0,
     // multiplier for future slows and hastes; 1 = unmodified
     speedScale: 1,
+    // shoves from outside, dying away (IMPULSE)
+    impulse: { x: 0, z: 0 },
   };
 }
 
@@ -94,6 +112,7 @@ export function movePlayer(previous, input, dt, nowSec, world) {
     position: { ...previous.position },
     velocity: { ...previous.velocity },
     dashDir: { ...previous.dashDir },
+    impulse: { x: previous.impulse?.x ?? 0, z: previous.impulse?.z ?? 0 },
   };
 
   const inDash = nowSec < state.dashUntil;
@@ -105,22 +124,28 @@ export function movePlayer(previous, input, dt, nowSec, world) {
     const f = Math.max(-1, Math.min(1, input.forward ?? 0));
     const r = Math.max(-1, Math.min(1, input.right ?? 0));
     state.sprintBlend = stepSprintBlend(state.sprintBlend, state.sprinting, Math.hypot(f, r) > 0.01, dt);
-    const length = Math.hypot(f, r) || 1;
-    const nf = f / length;
-    const nr = r / length;
+    // how much of a run the input asks for: a key or a full stick is all of it, a stick part-way (or a bot easing
+    // off) is part of it; two keys at once point the way between them without going any faster
+    const length = Math.hypot(f, r);
+    const over = Math.max(1, length);
+    const nf = f / over;
+    const nr = r / over;
     const sin = Math.sin(input.yaw ?? 0);
     const cos = Math.cos(input.yaw ?? 0);
     const fx = -sin;
     const fz = -cos;
     const rx = cos;
     const rz = -sin;
-    // pace: a walk for those that want one (a bot easing off or wandering; never above a run, and players' own input
-    // does not carry it: shared/sim/wire.mjs builds theirs field by field)
-    const pace = Number.isFinite(input.pace) ? Math.max(0.3, Math.min(1, input.pace)) : 1;
-    const speed = locomotionSpeed(state) * pace;
-    state.velocity.x = (fx * nf + rx * nr) * speed;
-    state.velocity.z = (fz * nf + rz * nr) * speed;
+    const speed = locomotionSpeed(state);
+    // its own steps, and whatever shoved it on top
+    state.velocity.x = (fx * nf + rx * nr) * speed + state.impulse.x;
+    state.velocity.z = (fz * nf + rz * nr) * speed + state.impulse.z;
   }
+  // the shove dies away: fast with feet on the ground, slowly in the air
+  const fade = Math.exp(-dt * (state.grounded ? IMPULSE.groundDecay : IMPULSE.airDecay));
+  state.impulse.x *= fade;
+  state.impulse.z *= fade;
+  if (Math.hypot(state.impulse.x, state.impulse.z) < IMPULSE.rest) state.impulse = { x: 0, z: 0 };
 
   const jumpPressed = Boolean(input.jump) && !state.jumpHeld;
   state.jumpHeld = Boolean(input.jump);
@@ -136,10 +161,18 @@ export function movePlayer(previous, input, dt, nowSec, world) {
   const travelX = state.velocity.x * dt;
   const travelZ = state.velocity.z * dt;
   const substeps = Math.max(1, Math.ceil(Math.hypot(travelX, travelZ) / MAX_COLLISION_STEP));
+  const startX = state.position.x;
+  const startZ = state.position.z;
   for (let i = 0; i < substeps; i += 1) {
     state.position.x += travelX / substeps;
     state.position.z += travelZ / substeps;
     state.position = resolvePlayerWorld(state.position, MOVEMENT.playerRadius, world.solids ?? []);
+  }
+  // a wall takes what a shove drives into it
+  if (state.impulse.x || state.impulse.z) {
+    const wanted = Math.hypot(travelX, travelZ);
+    const went = Math.hypot(state.position.x - startX, state.position.z - startZ);
+    if (wanted > 1e-6 && went < wanted * 0.5) state.impulse = { x: state.impulse.x * 0.3, z: state.impulse.z * 0.3 };
   }
   state.position.y += state.velocity.y * dt;
 

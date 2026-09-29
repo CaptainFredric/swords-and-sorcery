@@ -26,21 +26,30 @@ export function ring(rand, base, { decay = 0.45, gain = 0.2, partials = PLATE.le
 }
 
 /**
- * A sword landing on an armoured body. strike: combo index (0, 1, 2 = the heavy finisher); kill: the blow slew.
+ * A sword landing on an armoured body. strike: combo index (0, 1, 2 = the heavy third strike); kill: the blow slew.
  */
-export function swordHitRecipe(rand = Math.random, { strike = 0, kill = false } = {}) {
+export function swordHitRecipe(rand = Math.random, { strike = 0, kill = false, quality = 1, impact = 0 } = {}) {
   const heavy = strike >= 2 || kill;
   const base = (heavy ? 430 : 560 - strike * 50) * jitter(rand, 0.06);
+  const q = Math.max(0, Math.min(1, Number.isFinite(quality) ? quality : 1));
+  const crash = Math.max(0, Math.min(1, Number(impact) || 0));
+  // a clean cut bites; a glancing one skates across the plate with a scrape and less of a thump
+  const bite = 0.35 + 0.65 * q;
   const layers = [
     // the crack of contact
-    { type: 'noise', filter: 'highpass', freq: 2600 * jitter(rand, 0.1), q: 0.7, attack: 0.001, decay: 0.035, gain: 0.55 },
+    { type: 'noise', filter: 'highpass', freq: 2600 * jitter(rand, 0.1), q: 0.7, attack: 0.001, decay: 0.035, gain: 0.55 * (0.6 + 0.4 * q) },
     // plate and mail crunching under the edge
-    { type: 'noise', filter: 'bandpass', freq: 1100 * jitter(rand, 0.15), q: 1.3, sweepTo: 520, attack: 0.002, decay: 0.11, gain: 0.5 },
-    // the weight of the body behind the armour
-    { type: 'tone', wave: 'sine', freq: 150 * jitter(rand, 0.08), slideTo: 52, attack: 0.002, decay: heavy ? 0.2 : 0.12, gain: heavy ? 0.9 : 0.7 },
+    { type: 'noise', filter: 'bandpass', freq: 1100 * jitter(rand, 0.15), q: 1.3, sweepTo: 520, attack: 0.002, decay: 0.11, gain: 0.5 * bite },
+    // the weight of the body behind the armour (heavier when the two crashed together)
+    { type: 'tone', wave: 'sine', freq: 150 * jitter(rand, 0.08), slideTo: 52, attack: 0.002, decay: heavy ? 0.2 : 0.12, gain: (heavy ? 0.9 : 0.7) * bite * (1 + 0.35 * crash) },
     // steel ringing out
     ring(rand, base, { decay: heavy ? 0.6 : 0.38, gain: heavy ? 0.2 : 0.16, bright: 0.8 }),
   ];
+  if (q < 0.85) {
+    // the edge sliding off: a bright scrape that falls away
+    layers.push({ type: 'noise', filter: 'bandpass', freq: 3400 * jitter(rand, 0.1), q: 2.2, sweepTo: 1800, attack: 0.004, decay: 0.09 + 0.08 * (1 - q), gain: 0.28 * (1 - q) + 0.08 });
+  }
+  if (crash > 0.3) layers.push({ type: 'noise', filter: 'lowpass', freq: 260, q: 0.6, attack: 0.002, decay: 0.12, gain: 0.35 * crash });
   if (heavy) layers.push({ type: 'tone', wave: 'sine', freq: 72, slideTo: 38, attack: 0.004, decay: 0.32, gain: 0.8 });
   if (kill) {
     // a low toll under the killing blow
@@ -253,6 +262,8 @@ export function killRecipe(rand = Math.random) {
  * whoomp; frost draws in a cold hiss and glassy tones, and leaves with a crack of ice.
  */
 export function castRecipe(rand = Math.random, { spell = 'fireball', release = 0.3 } = {}) {
+  // the Gale's breath drawn in (its release, the whoosh, is played as it goes: galeReleaseRecipe)
+  if (spell === 'gale') return galeGatherRecipe(rand, { seconds: release });
   if (spell === 'frostfire') {
     return {
       layers: [
@@ -292,5 +303,71 @@ export function dashRecipe(rand = Math.random) {
       { type: 'tone', wave: 'sine', freq: 120, slideTo: 60, attack: 0.005, decay: 0.1, gain: 0.35 },
     ],
     reverb: 0.1,
+  };
+}
+
+/**
+ * Sheathe in Steel: the magic hand clenches (leather and mail drawing tight), the plate settles hard (a restrained
+ * CHINK over a short low KLANG of the whole harness), and a thin shimmer runs with the glint over the steel.
+ */
+export function steelCallRecipe(rand = Math.random) {
+  return {
+    layers: [
+      { type: 'noise', filter: 'bandpass', freq: 900 * jitter(rand, 0.1), q: 1.2, attack: 0.004, decay: 0.07, gain: 0.22 },
+      { ...ring(rand, 1850 * jitter(rand, 0.03), { decay: 0.16, gain: 0.2, partials: 4, bright: 1.2 }), at: 0.012 },
+      { ...ring(rand, 520 * jitter(rand, 0.03), { decay: 0.38, gain: 0.11, partials: 5, bright: 0.8 }), at: 0.035 },
+      { ...ring(rand, 4300 * jitter(rand, 0.05), { decay: 0.34, gain: 0.045, partials: 3 }), at: 0.08 },
+    ],
+    reverb: 0.12,
+  };
+}
+
+/** A spell skating off hardened plate: a bright ping and a hiss, the blast's own sound underneath. */
+export function steelTurnRecipe(rand = Math.random) {
+  return {
+    layers: [
+      ring(rand, 1350 * jitter(rand, 0.05), { decay: 0.28, gain: 0.2, partials: 4, bright: 1.1 }),
+      { type: 'noise', filter: 'highpass', freq: 3800, q: 0.7, attack: 0.002, decay: 0.12, gain: 0.18 },
+    ],
+    reverb: 0.2,
+  };
+}
+
+// the high, soft notes of wind chimes stirring (a pentatonic handful, so any few of them sit together)
+const CHIMES = Object.freeze([1568, 1760, 2093, 2349, 2637, 3136]);
+
+/**
+ * Gale Garner gathering: a calm breath of air drawn in (a soft wind swelling, rising a little in pitch), and delicate
+ * wind chimes stirring in it. `seconds`: how long the gather lasts.
+ */
+export function galeGatherRecipe(rand = Math.random, { seconds = 0.5 } = {}) {
+  const chimes = [];
+  for (let i = 0; i < 5; i += 1) {
+    chimes.push({
+      ...ring(rand, CHIMES[Math.floor(rand() * CHIMES.length)], { decay: 1.1 + rand() * 0.6, gain: 0.03 + rand() * 0.015, partials: 3, bright: 0.7 }),
+      at: rand() * seconds * 0.85,
+    });
+  }
+  return {
+    layers: [
+      { type: 'noise', filter: 'bandpass', freq: 380 * jitter(rand, 0.08), q: 0.9, sweepTo: 950, attack: seconds * 0.85, decay: 0.2, gain: 0.2 },
+      { type: 'noise', filter: 'highpass', freq: 2600, q: 0.6, attack: seconds * 0.7, decay: 0.15, gain: 0.045 },
+      ...chimes,
+    ],
+    reverb: 0.25,
+    hall: 0.1,
+  };
+}
+
+/** Gale Garner let go: a strong, abrupt WHOOSH (a rush of air falling in pitch, the body of it, a thump, a hiss). */
+export function galeReleaseRecipe(rand = Math.random) {
+  return {
+    layers: [
+      { type: 'noise', filter: 'bandpass', freq: 1900 * jitter(rand, 0.1), q: 0.8, sweepTo: 280, attack: 0.008, decay: 0.46, gain: 0.72 },
+      { type: 'noise', filter: 'lowpass', freq: 560, q: 0.6, sweepTo: 150, attack: 0.012, decay: 0.36, gain: 0.55 },
+      { type: 'tone', wave: 'sine', freq: 92 * jitter(rand, 0.06), slideTo: 42, attack: 0.005, decay: 0.26, gain: 0.5 },
+      { type: 'noise', filter: 'highpass', freq: 4200, q: 0.7, attack: 0.004, decay: 0.12, gain: 0.16 },
+    ],
+    reverb: 0.25,
   };
 }

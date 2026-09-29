@@ -13,6 +13,8 @@ import {
 import { bufferedServerTime, castPoseWindowFromEvent, resolveSpellbladeState } from './spellbladePose.mjs';
 import { airborneLegFlex, landingStrength, pruneReactions } from './spellbladeMotion.mjs';
 import { gaitFootfall } from './sound/footsteps.mjs';
+import { createSteelSheen } from './steelSheen.mjs';
+import { steelStrength } from '../../shared/src/steel.mjs';
 
 // which body reacts to which combat event, and how
 const REACTION_EVENTS = Object.freeze({
@@ -187,7 +189,9 @@ export class RemotePlayers {
     // with that blade's travel
     if (event?.type === 'swordHit') {
       const d = this.rigs.get(event.targetId)?.root.userData;
-      if (d) d.reactions = d.reactions.map((reaction) => (reaction.kind === 'hit' && reaction.at === event.at ? { ...reaction, strike: event.strikeIndex } : reaction));
+      // (and two knights crashing together throws the body harder)
+      const crash = 1 + 0.35 * Math.max(0, Math.min(1, Number(event.impact) || 0));
+      if (d) d.reactions = d.reactions.map((reaction) => (reaction.kind === 'hit' && reaction.at === event.at ? { ...reaction, strike: event.strikeIndex, strength: (reaction.strength ?? 1) * crash } : reaction));
       return;
     }
     const spec = REACTION_EVENTS[event?.type];
@@ -205,6 +209,11 @@ export class RemotePlayers {
     d.reactions = [...pruneReactions(d.reactions, event.at), { kind: spec.kind, at: event.at, push, strength }];
     // the killing blow's push carries into the fall
     if (event.type === 'damage') d.lastPush = push;
+  }
+
+  /** A gust of wind across a knight (a Gale): their cloth is flung the way it blows. */
+  gust(id, wind) {
+    this.rigs.get(id)?.visualInstance?.animator?.cloth?.gust(wind);
   }
 
   pushSnapshot(snapshot, receivedAtMs) {
@@ -250,6 +259,7 @@ export class RemotePlayers {
     for (const [id, shell] of this.rigs) {
       if (!seen.has(id)) {
         this.scene.remove(shell.root);
+        shell.steelSheen?.dispose();
         disposeRemoteVisualShell(shell);
         this.rigs.delete(id);
         this.samples.delete(id);
@@ -358,6 +368,18 @@ export class RemotePlayers {
       }
       d.lastGait = gait;
 
+      // Sheathed in Steel: the plate's hardening, and the glint running over it as it was called
+      const steel = steelStrength(pb.steel, serverNow);
+      if (shell.visualInstance) {
+        if (shell.steelSheenOf !== shell.visualInstance) {
+          shell.steelSheen?.dispose();
+          // readied with the knight: its plate's shader is built as it first appears, not when its steel is called
+          shell.steelSheen = createSteelSheen(shell.visualInstance, { ready: true });
+          shell.steelSheenOf = shell.visualInstance;
+        }
+        shell.steelSheen.set(steel, pb.steel ? serverNow - pb.steel.calledAt : null);
+      }
+
       const glowAge = (nowMs - (shell.hitGlowAt ?? -Infinity)) / 1000;
       setHitGlow(shell, glowAge < HIT_GLOW.seconds ? 1 - glowAge / HIT_GLOW.seconds : 0);
 
@@ -379,6 +401,7 @@ export class RemotePlayers {
     for (const shell of this.rigs.values()) {
       setHitGlow(shell, 0);
       this.scene.remove(shell.root);
+      shell.steelSheen?.dispose();
       disposeRemoteVisualShell(shell);
     }
     this.rigs.clear();

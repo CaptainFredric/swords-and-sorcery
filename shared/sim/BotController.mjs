@@ -1,5 +1,6 @@
 import { findSwordWorldHit } from '../src/collision.mjs';
 import { beginAttack, endAttack, setGuard, tryCastSpell, tryDash } from './combat.mjs';
+import { spellFor } from '../src/spells.mjs';
 
 const MELEE_RANGE = 2.25;
 const FIREBALL_RANGE = 11;
@@ -20,14 +21,19 @@ const BOT_SPRINT_STAMINA_RESERVE = 45;
 // the attack go (a swing already under way still lands), looks at the fallen a moment to be sure, steps back, then
 // turns to find the next foe, or, with nobody to fight, walks the middle of the arena until someone is back. It is
 // short: never a long gloat to be punished for, and a foe who comes at it in the meantime is answered at once.
+// Each pause over a body is a little different (how long it looks, whether it steps back or aside first, where it
+// wanders, which way it looks about), so the pattern reads as behaviour rather than a routine. Current tuning.
 export const POST_KILL = Object.freeze({
-  confirm: Object.freeze([0.35, 0.6]),     // seconds looking at the body
-  settle: Object.freeze([0.45, 0.7]),      // then stepping back and turning away
+  confirm: Object.freeze([0.3, 0.65]),     // seconds looking at the body
+  settle: Object.freeze([0.45, 0.8]),      // then easing away from it
+  // how it first moves as it looks: stands still, steps back, or steps aside (shares of the time, in that order)
+  styles: Object.freeze([0.45, 0.3, 0.25]),
+  step: 0.55,                              // that step, as much of a run as it asks (a short, quick step)
   threat: 3.5,                             // metres: a live foe this close ends it early
-  walkPace: 0.4,                           // walking away from the body (a share of a run: movement's `pace`)
+  walk: 0.4,                               // walking away from the body (as much of a run as it asks)
   patrolRadius: 4,                         // metres around the arena's middle it wanders while nobody is there
-  patrolPace: 0.45,                        // how fast it walks meanwhile
-  patrolRest: Object.freeze([0.6, 1.4]),   // and how long it stands and looks about at each spot
+  patrolWalk: Object.freeze([0.38, 0.52]), // how fast it walks meanwhile
+  patrolRest: Object.freeze([0.5, 1.5]),   // and how long it stands and looks about at each spot
 });
 
 function clamp(value, min, max) {
@@ -127,7 +133,7 @@ function chooseCombatIntent(room, actor, target, distance, ai, nowSec, random, a
     return;
   }
 
-  if (distance <= FIREBALL_RANGE && random() < 0.42 * aggression) {
+  if (distance <= castRange(spellFor(actor.spell)) && random() < 0.42 * aggression) {
     tryCastSpell(room, actor.id, aimDirection(actor, target), nowSec);
     return;
   }
@@ -136,6 +142,11 @@ function chooseCombatIntent(room, actor, target, distance, ai, nowSec, random, a
     const direction = aimDirection(actor, target);
     tryDash(room, actor.id, { x: direction.x, z: direction.z }, nowSec);
   }
+}
+
+// how near a foe must be for a spell to be worth it: a Fireball carries; a Gale is felt only near its heart
+function castRange(spell) {
+  return spell.kind === 'cone' ? spell.cone.reach : FIREBALL_RANGE;
 }
 
 function forwardLaneBlocked(actor, yaw, world) {
@@ -228,7 +239,18 @@ function updateMovement(actor, target, distance, ai, aggression, world, nowSec) 
 function beginPostKill(room, actor, fallen, ai, nowSec, random) {
   const confirm = POST_KILL.confirm[0] + random() * (POST_KILL.confirm[1] - POST_KILL.confirm[0]);
   const settle = POST_KILL.settle[0] + random() * (POST_KILL.settle[1] - POST_KILL.settle[0]);
-  ai.postKill = { body: { x: fallen.position.x, z: fallen.position.z }, confirmUntil: nowSec + confirm, until: nowSec + confirm + settle };
+  const roll = random();
+  const style = roll < POST_KILL.styles[0] ? 'still' : roll < POST_KILL.styles[0] + POST_KILL.styles[1] ? 'back' : 'aside';
+  ai.postKill = {
+    body: { x: fallen.position.x, z: fallen.position.z },
+    confirmUntil: nowSec + confirm,
+    until: nowSec + confirm + settle,
+    style,
+    // a step lasts a moment at the start of the look; aside goes left or right
+    stepUntil: nowSec + 0.18 + random() * 0.12,
+    side: random() < 0.5 ? -1 : 1,
+    walk: POST_KILL.walk * (0.9 + random() * 0.25),
+  };
   ai.targetId = null;
   ai.patrol = null;
   // no more pressure on the body: the button is let go (a swing already under way still lands)
@@ -247,14 +269,18 @@ function threatNear(room, actor) {
 function postKillMovement(room, actor, ai, nowSec) {
   const body = { position: { x: ai.postKill.body.x, z: ai.postKill.body.z } };
   const next = nearestHuman(room, actor);
-  if (nowSec < ai.postKill.confirmUntil) {
-    // standing over it, looking down at it
-    actor.input = { forward: 0, right: 0, jump: false, sprint: false, yaw: yawToward(actor, body), pitch: -0.25 };
+  const pk = ai.postKill;
+  if (nowSec < pk.confirmUntil) {
+    // looking down at it: from where it stands, or after a quick step back or aside
+    const stepping = nowSec < pk.stepUntil && pk.style !== 'still';
+    const forward = stepping && pk.style === 'back' ? -POST_KILL.step : 0;
+    const right = stepping && pk.style === 'aside' ? pk.side * POST_KILL.step : 0;
+    actor.input = { forward, right, jump: false, sprint: false, yaw: yawToward(actor, body), pitch: -0.25 };
     return;
   }
   // then a walk away from it, toward whoever is left (or the arena's middle)
   const toward = next ?? { position: { x: 0, z: 0 } };
-  actor.input = { forward: 1, right: 0, jump: false, sprint: false, pace: POST_KILL.walkPace, yaw: yawToward(actor, toward), pitch: 0 };
+  actor.input = { forward: pk.walk, right: 0, jump: false, sprint: false, yaw: yawToward(actor, toward), pitch: 0 };
 }
 
 // nobody to fight (the foe is down and not back yet): walk the middle of the arena, not the body or a spawn
@@ -262,7 +288,8 @@ function patrol(actor, ai, nowSec, random, world) {
   const here = actor.position;
   // at a spot: stand a moment and look about, then on to the next
   if (ai.patrol?.restUntil > nowSec) {
-    const look = ai.patrol.lookFrom + Math.sin((nowSec - ai.patrol.restFrom) * 1.6) * 0.7;
+    const { lookFrom, restFrom, scan, scanRate } = ai.patrol;
+    const look = lookFrom + Math.sin((nowSec - restFrom) * scanRate) * scan;
     actor.input = { forward: 0, right: 0, jump: false, sprint: false, yaw: look, pitch: 0 };
     actor.yaw = look;
     return;
@@ -270,7 +297,9 @@ function patrol(actor, ai, nowSec, random, world) {
   const arrived = ai.patrol && Math.hypot(ai.patrol.x - here.x, ai.patrol.z - here.z) < 1.2;
   if (arrived && !ai.patrol.rested) {
     const rest = POST_KILL.patrolRest[0] + random() * (POST_KILL.patrolRest[1] - POST_KILL.patrolRest[0]);
-    Object.assign(ai.patrol, { rested: true, restFrom: nowSec, restUntil: nowSec + rest, lookFrom: actor.yaw });
+    // it looks about one way or the other, more or less widely
+    const scan = (random() < 0.5 ? -1 : 1) * (0.45 + random() * 0.5);
+    Object.assign(ai.patrol, { rested: true, restFrom: nowSec, restUntil: nowSec + rest, lookFrom: actor.yaw, scan, scanRate: 1.2 + random() * 0.8 });
     actor.input = { forward: 0, right: 0, jump: false, sprint: false, yaw: actor.yaw, pitch: 0 };
     return;
   }
@@ -279,10 +308,11 @@ function patrol(actor, ai, nowSec, random, world) {
   if (stale) {
     const angle = random() * Math.PI * 2;
     const reach = POST_KILL.patrolRadius * (0.35 + 0.65 * random());
-    ai.patrol = { x: Math.cos(angle) * reach, z: Math.sin(angle) * reach, until: nowSec + 6 };
+    const walk = POST_KILL.patrolWalk[0] + random() * (POST_KILL.patrolWalk[1] - POST_KILL.patrolWalk[0]);
+    ai.patrol = { x: Math.cos(angle) * reach, z: Math.sin(angle) * reach, until: nowSec + 6, walk };
   }
   const yaw = yawToward(actor, { position: ai.patrol });
-  actor.input = { forward: 1, right: 0, jump: false, sprint: false, pace: POST_KILL.patrolPace, yaw, pitch: 0 };
+  actor.input = { forward: ai.patrol.walk, right: 0, jump: false, sprint: false, yaw, pitch: 0 };
   actor.yaw = yaw;
 }
 
