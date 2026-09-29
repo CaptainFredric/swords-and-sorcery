@@ -74,17 +74,22 @@ export function galeShove(spell, origin, direction, point, pressure, sign = 1) {
 
 /**
  * A gust driven into the ground or a wall close in front throws its caster back off it (aimed down and behind, it
- * sends them forward and up): the closer the surface, the harder. `eye`: where the gust leaves from. Null when the
- * gust meets nothing within the recoil's reach.
+ * sends them forward and up): the closer the surface and the more squarely it meets it, the harder (one that only
+ * grazes a wall hardly throws them at all). `eye`: where the gust leaves from. Null when the gust meets nothing
+ * within the recoil's reach.
  */
 export function galeRecoil(spell, eye, direction, world) {
   const r = spell.recoil;
   if (!r) return null;
   const end = { x: eye.x + direction.x * r.reach, y: eye.y + direction.y * r.reach, z: eye.z + direction.z * r.reach };
   let hit = null;
+  let normal = null;
   for (const box of world?.solids ?? []) {
     const found = segmentAabbHit([eye.x, eye.y, eye.z], [end.x, end.y, end.z], box);
-    if (found && (hit === null || found.t * r.reach < hit)) hit = found.t * r.reach;
+    if (found && (hit === null || found.t * r.reach < hit)) {
+      hit = found.t * r.reach;
+      normal = found.normal;
+    }
   }
   // the ground: stepped along the gust until it is at or below the surface under it
   if (direction.y < -0.05) {
@@ -93,10 +98,17 @@ export function galeRecoil(spell, eye, direction, world) {
       const y = eye.y + direction.y * d;
       const z = eye.z + direction.z * d;
       const ground = surfaceHeightAt(x, z, eye.y, world);
-      if (ground !== null && y <= ground) { hit = d; break; }
+      if (ground !== null && y <= ground) {
+        hit = d;
+        normal = [0, 1, 0];
+        break;
+      }
     }
   }
   if (hit === null) return null;
-  const strength = r.push * (1 - hit / r.reach) ** 0.7;
+  // (a gust that starts inside a solid has no face to meet: it counts as square on)
+  const facing = normal && (normal[0] || normal[1] || normal[2]);
+  const square = facing ? Math.abs(direction.x * normal[0] + direction.y * normal[1] + direction.z * normal[2]) : 1;
+  const strength = r.push * (1 - hit / r.reach) ** 0.7 * square ** 0.75;
   return { x: -direction.x * strength, y: Math.min(r.maxUp, -direction.y * strength), z: -direction.z * strength };
 }

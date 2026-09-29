@@ -80,3 +80,4 @@
 #steel-ability.sheathed { border-color: #c9d6e2; box-shadow: 0 0 10px rgba(200, 220, 240, .22) inset; }
 #steel-ability.sheathed::before { content: ""; position: absolute; left: 0; bottom: 0; height: 3px; width: calc(var(--steel, 0) * 100%); background: linear-gradient(90deg, #9fb2c4, #f4f8fb); z-index: 2; }
 #steel-ability.sheathed strong { color: #eef4f9; }
+.ability[data-spell="gale"] .ability-icon { color: #e3ece0; }

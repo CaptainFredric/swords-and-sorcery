@@ -47,6 +47,21 @@ test('a bot spell cannot bypass the authoritative cooldown', () => {
   assert.equal(bot.spellReadyAt, 10);
 });
 
+test('a bot keeps its Gale for a foe near enough to feel it; a Fireball it throws from further off', () => {
+  const casts = (spell, distance) => {
+    const { room, bot, human } = makeBotDuel();
+    bot.spell = spell;
+    bot.spellReadyAt = 0;
+    bot.position = { x: 0, y: 0, z: 0 };
+    human.position = { x: 0, y: 0, z: -distance };
+    stepBotControllers(room, 5, room.world, { random: () => 0.05 });
+    return bot.pendingSpell !== null;
+  };
+  assert.equal(casts('gale', 8), false, 'out where a Gale is only a breeze');
+  assert.equal(casts('gale', 4), true);
+  assert.equal(casts('fireball', 8), true);
+});
+
 test('bot defensive decisions have nonzero reaction latency', () => {
   const { room, bot, human } = makeBotDuel();
   bot.position = { x: 0, y: 0, z: 0 };

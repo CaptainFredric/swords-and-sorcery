@@ -59,3 +59,15 @@ test('driven into the ground close by, the gust throws its caster back off it; i
   const low = galeRecoil(gale, { x: 0, y: 0.6, z: 0 }, { x: 0, y: -1, z: 0 }, flat);
   assert.ok(low.y > down.y);
 });
+
+test('a gust that only grazes a wall hardly throws its caster; one driven square into it throws them back', () => {
+  // a wall half a metre to the right, running the way the caster faces
+  const walled = { floors: [], ramps: [], solids: [{ id: 'wall', center: [0.65, 1.5, -3], size: [0.3, 3, 8] }] };
+  const eye = { x: 0, y: 1.35, z: 0 };
+  const square = galeRecoil(gale, eye, { x: 1, y: 0, z: 0 }, walled);
+  const along = Math.sin(0.2);
+  const graze = galeRecoil(gale, eye, { x: along, y: 0, z: -Math.cos(0.2) }, walled);
+  assert.ok(square.x < -gale.recoil.push * 0.7, 'straight into it: back off it, hard');
+  assert.ok(graze, 'the graze still meets the wall');
+  assert.ok(Math.hypot(graze.x, graze.z) < Math.hypot(square.x, square.z) * 0.3, 'a glancing gust: a nudge');
+});

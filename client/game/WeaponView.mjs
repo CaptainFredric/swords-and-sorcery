@@ -12,6 +12,7 @@ import { OFF_HAND_CLEAR, comboPose } from './fpSlash.mjs';
 import { FIRST_PERSON_OFF_ARM, solveArm, solveSwordArm } from './swordArmIK.mjs';
 import { LocalSwordChain } from './localSwordChain.mjs';
 import { createSteelSheen } from './steelSheen.mjs';
+import { swirlTexture } from './softTextures.mjs';
 
 function damp(value, target, amount) {
   return value + (target - value) * amount;
@@ -128,7 +129,10 @@ function addMagicWisp(parent, material, name, position, size, rotation) {
 
 
 // what a spell looks like gathering in the palm
-const SPELL_GLOW = Object.freeze({ fireball: 0xff7a2a, frostfire: 0x7fd6ff });
+const SPELL_GLOW = Object.freeze({ fireball: 0xff7a2a, frostfire: 0x7fd6ff, gale: 0xe4ece2 });
+// the light the palm throws on the arms while a spell gathers (air is pale, but lights them only a little)
+const SPELL_LIGHT = Object.freeze({ fireball: 0xff7a2a, frostfire: 0x7fd6ff, gale: 0x7d9282 });
+const EYE_TURN = new THREE.Quaternion();
 
 // the clench of Sheathe in Steel: tightening over a moment, then letting go (0..1)
 function clenchPulse(age) {
@@ -272,6 +276,9 @@ export class WeaponView {
 
       this.productionInstance = instance;
       this.visualKind = 'production';
+      // the plate's steel readied with the arms (its shader built now, not the first time it is called)
+      this.steelSheen?.dispose();
+      this.steelSheen = createSteelSheen(instance, { ready: true });
       this.productionOffset.add(instance.root);
       // the arms are always in view, and a swung blade leaves the bounds the skinned meshes were measured at rest
       instance.root.traverse((object) => { if (object.isMesh) object.frustumCulled = false; });
@@ -285,7 +292,16 @@ export class WeaponView {
         this.chargeOrb = new THREE.Group();
         this.chargeCore = new THREE.Mesh(new THREE.IcosahedronGeometry(0.035, 1), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
         this.chargeGlow = new THREE.Mesh(new THREE.IcosahedronGeometry(0.068, 1), new THREE.MeshBasicMaterial({ color: 0xff7a2a, transparent: true, opacity: 0.45, blending: THREE.AdditiveBlending, depthWrite: false }));
-        this.chargeOrb.add(this.chargeCore, this.chargeGlow);
+        // Gale's breath drawn into the palm: two soft swirls of air turning against each other round the fist, facing
+        // the eye (no core, no glow)
+        const swirlMaterial = new THREE.MeshBasicMaterial({ map: swirlTexture(), color: 0xf1f5ef, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+        this.chargeSwirl = new THREE.Group();
+        for (const tilt of [0.25, -0.35]) {
+          const swirl = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.3), swirlMaterial);
+          swirl.rotation.x = tilt;
+          this.chargeSwirl.add(swirl);
+        }
+        this.chargeOrb.add(this.chargeCore, this.chargeGlow, this.chargeSwirl);
         this.chargeOrb.visible = false;
         instance.sockets.sorcery.add(this.chargeOrb);
       }
@@ -538,14 +554,25 @@ export class WeaponView {
   // the spell in the palm grows as it gathers and is gone when thrown; the palm light takes on its colour
   #chargeGlow(gesture, timeSec) {
     const color = SPELL_GLOW[this.castSpell] ?? SPELL_GLOW.fireball;
-    this.magicLight.color.setHex(gesture.draw > 0.01 ? color : SPELLBLADE_PALETTE.magic);
+    this.magicLight.color.setHex(gesture.draw > 0.01 ? SPELL_LIGHT[this.castSpell] ?? color : SPELLBLADE_PALETTE.magic);
     if (!this.chargeOrb) return;
     this.chargeOrb.visible = gesture.draw > 0.02;
     if (!this.chargeOrb.visible) return;
     const flicker = 1 + Math.sin(timeSec * 38) * 0.08;
     this.chargeOrb.scale.setScalar((0.35 + 0.9 * gesture.draw) * flicker);
+    const gale = this.castSpell === 'gale';
+    this.chargeCore.visible = !gale;
+    this.chargeGlow.visible = !gale;
+    this.chargeSwirl.visible = gale;
+    if (gale) {
+      this.chargeSwirl.parent.getWorldQuaternion(this.chargeSwirl.quaternion).invert();
+      this.chargeSwirl.quaternion.multiply(this.camera.getWorldQuaternion(EYE_TURN));
+      this.chargeSwirl.children[0].rotation.z = -timeSec * 13;
+      this.chargeSwirl.children[1].rotation.z = timeSec * 9;
+      return;
+    }
     this.chargeGlow.material.color.setHex(color);
-    this.chargeCore.material.color.setHex(this.castSpell === 'frostfire' ? 0xeafcff : 0xfff0c8);
+    this.chargeCore.material.color.setHex(this.castSpell === 'frostfire' ? 0xeafcff : this.castSpell === 'gale' ? 0xffffff : 0xfff0c8);
     this.chargeGlow.rotation.y = timeSec * 5;
   }
 

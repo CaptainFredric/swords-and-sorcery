@@ -1,5 +1,6 @@
 import { findSwordWorldHit } from '../src/collision.mjs';
 import { beginAttack, endAttack, setGuard, tryCastSpell, tryDash } from './combat.mjs';
+import { spellFor } from '../src/spells.mjs';
 
 const MELEE_RANGE = 2.25;
 const FIREBALL_RANGE = 11;
@@ -132,7 +133,7 @@ function chooseCombatIntent(room, actor, target, distance, ai, nowSec, random, a
     return;
   }
 
-  if (distance <= FIREBALL_RANGE && random() < 0.42 * aggression) {
+  if (distance <= castRange(spellFor(actor.spell)) && random() < 0.42 * aggression) {
     tryCastSpell(room, actor.id, aimDirection(actor, target), nowSec);
     return;
   }
@@ -141,6 +142,11 @@ function chooseCombatIntent(room, actor, target, distance, ai, nowSec, random, a
     const direction = aimDirection(actor, target);
     tryDash(room, actor.id, { x: direction.x, z: direction.z }, nowSec);
   }
+}
+
+// how near a foe must be for a spell to be worth it: a Fireball carries; a Gale is felt only near its heart
+function castRange(spell) {
+  return spell.kind === 'cone' ? spell.cone.reach : FIREBALL_RANGE;
 }
 
 function forwardLaneBlocked(actor, yaw, world) {

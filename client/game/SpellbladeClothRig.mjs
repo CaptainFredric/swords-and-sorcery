@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { CLOTH_CHAINS, createClothState, isTeleport, resetCloth, stepCloth } from './spellbladeCloth.mjs';
+import { CLOTH_CHAINS, createClothState, gustCloth, isTeleport, resetCloth, stepCloth } from './spellbladeCloth.mjs';
 
 const UP = new THREE.Vector3(0, 1, 0);
 const _q = new THREE.Quaternion();
@@ -124,6 +124,18 @@ export class SpellbladeClothRig {
         chain.written[i] = bone.quaternion.clone();
       });
     }
+  }
+
+  /** A gust of wind across the knight ({ x, z } in the world, m/s): the cloth is flung the way it blows. */
+  gust(wind) {
+    if (!this.enabled || !wind) return;
+    this.root.getWorldQuaternion(this.worldQuat);
+    this.forward.set(0, 0, -1).applyQuaternion(this.worldQuat).setY(0).normalize();
+    this.right.crossVectors(this.forward, UP).normalize();
+    gustCloth(this.state, {
+      forward: (wind.x ?? 0) * this.forward.x + (wind.z ?? 0) * this.forward.z,
+      right: (wind.x ?? 0) * this.right.x + (wind.z ?? 0) * this.right.z,
+    });
   }
 
   reset() {

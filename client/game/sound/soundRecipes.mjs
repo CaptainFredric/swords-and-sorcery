@@ -262,6 +262,8 @@ export function killRecipe(rand = Math.random) {
  * whoomp; frost draws in a cold hiss and glassy tones, and leaves with a crack of ice.
  */
 export function castRecipe(rand = Math.random, { spell = 'fireball', release = 0.3 } = {}) {
+  // the Gale's breath drawn in (its release, the whoosh, is played as it goes: galeReleaseRecipe)
+  if (spell === 'gale') return galeGatherRecipe(rand, { seconds: release });
   if (spell === 'frostfire') {
     return {
       layers: [
@@ -328,5 +330,44 @@ export function steelTurnRecipe(rand = Math.random) {
       { type: 'noise', filter: 'highpass', freq: 3800, q: 0.7, attack: 0.002, decay: 0.12, gain: 0.18 },
     ],
     reverb: 0.2,
+  };
+}
+
+// the high, soft notes of wind chimes stirring (a pentatonic handful, so any few of them sit together)
+const CHIMES = Object.freeze([1568, 1760, 2093, 2349, 2637, 3136]);
+
+/**
+ * Gale Garner gathering: a calm breath of air drawn in (a soft wind swelling, rising a little in pitch), and delicate
+ * wind chimes stirring in it. `seconds`: how long the gather lasts.
+ */
+export function galeGatherRecipe(rand = Math.random, { seconds = 0.5 } = {}) {
+  const chimes = [];
+  for (let i = 0; i < 5; i += 1) {
+    chimes.push({
+      ...ring(rand, CHIMES[Math.floor(rand() * CHIMES.length)], { decay: 1.1 + rand() * 0.6, gain: 0.03 + rand() * 0.015, partials: 3, bright: 0.7 }),
+      at: rand() * seconds * 0.85,
+    });
+  }
+  return {
+    layers: [
+      { type: 'noise', filter: 'bandpass', freq: 380 * jitter(rand, 0.08), q: 0.9, sweepTo: 950, attack: seconds * 0.85, decay: 0.2, gain: 0.2 },
+      { type: 'noise', filter: 'highpass', freq: 2600, q: 0.6, attack: seconds * 0.7, decay: 0.15, gain: 0.045 },
+      ...chimes,
+    ],
+    reverb: 0.25,
+    hall: 0.1,
+  };
+}
+
+/** Gale Garner let go: a strong, abrupt WHOOSH (a rush of air falling in pitch, the body of it, a thump, a hiss). */
+export function galeReleaseRecipe(rand = Math.random) {
+  return {
+    layers: [
+      { type: 'noise', filter: 'bandpass', freq: 1900 * jitter(rand, 0.1), q: 0.8, sweepTo: 280, attack: 0.008, decay: 0.46, gain: 0.72 },
+      { type: 'noise', filter: 'lowpass', freq: 560, q: 0.6, sweepTo: 150, attack: 0.012, decay: 0.36, gain: 0.55 },
+      { type: 'tone', wave: 'sine', freq: 92 * jitter(rand, 0.06), slideTo: 42, attack: 0.005, decay: 0.26, gain: 0.5 },
+      { type: 'noise', filter: 'highpass', freq: 4200, q: 0.7, attack: 0.004, decay: 0.12, gain: 0.16 },
+    ],
+    reverb: 0.25,
   };
 }

@@ -74,7 +74,7 @@ export class HUD {
     if (this.spell.dataset.spell !== spell.id) {
       this.spell.dataset.spell = spell.id;
       this.spellLabel.textContent = spell.label.toUpperCase();
-      this.spellIcon.textContent = spell.id === 'frostfire' ? '❄' : '✦';
+      this.spellIcon.textContent = spell.id === 'frostfire' ? '❄' : spell.id === 'gale' ? '≋' : '✦';
     }
     this.#ability(this.spell, Math.max(0, (local.spellReadyAt ?? 0) - serverNow), spell.cooldownSec);
     this.#ability(this.dash, Math.max(0, local.dashReadyAt - serverNow));

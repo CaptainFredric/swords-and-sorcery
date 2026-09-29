@@ -211,6 +211,11 @@ export class RemotePlayers {
     if (event.type === 'damage') d.lastPush = push;
   }
 
+  /** A gust of wind across a knight (a Gale): their cloth is flung the way it blows. */
+  gust(id, wind) {
+    this.rigs.get(id)?.visualInstance?.animator?.cloth?.gust(wind);
+  }
+
   pushSnapshot(snapshot, receivedAtMs) {
     const seen = new Set();
     for (const player of snapshot.players) {
@@ -365,10 +370,11 @@ export class RemotePlayers {
 
       // Sheathed in Steel: the plate's hardening, and the glint running over it as it was called
       const steel = steelStrength(pb.steel, serverNow);
-      if (shell.visualInstance && (steel > 0.001 || shell.steelSheen)) {
+      if (shell.visualInstance) {
         if (shell.steelSheenOf !== shell.visualInstance) {
           shell.steelSheen?.dispose();
-          shell.steelSheen = createSteelSheen(shell.visualInstance);
+          // readied with the knight: its plate's shader is built as it first appears, not when its steel is called
+          shell.steelSheen = createSteelSheen(shell.visualInstance, { ready: true });
           shell.steelSheenOf = shell.visualInstance;
         }
         shell.steelSheen.set(steel, pb.steel ? serverNow - pb.steel.calledAt : null);

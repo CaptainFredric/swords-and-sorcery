@@ -35,9 +35,11 @@ function patch(material, uniforms) {
 
 /**
  * The steel on one knight's model ({ root } of a Spellblade asset). set(strength 0..1, rippleAge seconds since it was
- * called, or null) each frame; nothing is copied or patched until the knight is first sheathed.
+ * called, or null) each frame. Nothing is copied or patched until the knight is first sheathed, unless `ready`: then
+ * at once, so the plate's shader is built with the knight's own and not mid-fight, the first time it is called
+ * (unsheathed, the patched plate looks exactly as before).
  */
-export function createSteelSheen(instance, { gauntlet = 'handL' } = {}) {
+export function createSteelSheen(instance, { gauntlet = 'handL', ready = false } = {}) {
   const uniforms = { uSteel: { value: 0 }, uRipple: { value: -1 }, uRippleFrom: { value: new THREE.Vector3() } };
   let clones = null;
 
@@ -70,6 +72,7 @@ export function createSteelSheen(instance, { gauntlet = 'handL' } = {}) {
     });
     if (origin) uniforms.uRippleFrom.value.copy(origin);
   }
+  if (ready) ensure();
 
   return {
     set(strength = 0, rippleAge = null) {

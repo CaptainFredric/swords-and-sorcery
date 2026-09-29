@@ -167,7 +167,7 @@ registry
 registry
   .defineSetting({
     id: 'loadout.spell', section: 'loadout', label: 'Spell', type: 'choice', default: 'fireball',
-    options: [{ value: 'fireball', label: 'Fireball' }, { value: 'frostfire', label: 'Frostfire' }],
+    options: [{ value: 'fireball', label: 'Fireball' }, { value: 'frostfire', label: 'Frostfire' }, { value: 'gale', label: 'Gale Garner' }],
   });
 
 registry
