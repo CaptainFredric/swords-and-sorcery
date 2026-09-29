@@ -75,6 +75,12 @@ function resetAtSpawn(player, spawn, nowSec) {
 // The sword chain (SWORD_CHAIN in shared/src/combat.mjs): a press starts one or asks for its next strike; a release
 // only lets go, and the swing under way still lands. Stopping one outright is for a parry, a wall, a guard, a spell
 // and a fall.
+//
+// However a chain ends, no new attack (a sword chain, or the gauntlet) begins before the chain's next strike would
+// have begun had the button been held (attackRestartAt): letting go and pressing again, or cancelling into a guard or
+// a spell, can never bring the sword round sooner than holding it would. A press the player made while a let-go
+// chain was still running, whose word only arrived after it had ended, carries that chain on exactly as a timely
+// press would have (it asked for the chain's next strike, not a fresh first one).
 function startSwordChain(player, nowSec) {
   player.attackActive = true;
   player.attackStartedAt = nowSec;
@@ -84,10 +90,29 @@ function startSwordChain(player, nowSec) {
   player.attackQueued = false;
   player.attackOpened = -1;
   player.attackSweep = null;
+  player.attackLastChain = null;
 }
 
-// keepSweep: the chain has simply run its course, and its last strike's blade is still going through its sweep
-function stopSwordChain(player, { keepSweep = false } = {}) {
+// when the chain under way would begin its next strike: every strike that has gone live counts (a swing broken off
+// after it could already have hit is spent all the same). -Infinity when none has.
+function nextStrikeDue(player) {
+  if (!player.attackActive) return -Infinity;
+  const spent = Math.max(player.attackNextStrike ?? 0, (player.attackOpened ?? -1) + 1);
+  if (spent <= 0) return -Infinity;
+  const begin = SWORD_CHAIN.starts[spent];
+  const cycle = SWORD_STRIKE_TIMES[SWORD_STRIKE_TIMES.length - 1] + SWORD_CHAIN.restart;
+  return player.attackStartedAt + (Number.isFinite(begin) ? begin : cycle);
+}
+
+// keepSweep: the chain has simply run its course, and its last strike's blade is still going through its sweep.
+// letGo: it ended because the button was let go (not broken off), so a late word of a press made before its end can
+// still carry it on
+function stopSwordChain(player, { keepSweep = false, letGo = false } = {}) {
+  const due = nextStrikeDue(player);
+  if (due > (player.attackRestartAt ?? -Infinity)) player.attackRestartAt = due;
+  player.attackLastChain = letGo && player.attackActive && (player.attackCommitted ?? 0) < SWORD_STRIKE_TIMES.length
+    ? { startedAt: player.attackStartedAt, committed: player.attackCommitted, landed: player.attackNextStrike, endedAt: due }
+    : null;
   player.attackActive = false;
   player.attackHeld = false;
   player.attackQueued = false;
@@ -97,12 +122,27 @@ function stopSwordChain(player, { keepSweep = false } = {}) {
   if (!keepSweep) player.attackSweep = null;
 }
 
+// a let-go chain carried on by a press made before it ended: its next strike, as if that press had been in time
+function resumeSwordChain(player, last) {
+  player.attackActive = true;
+  player.attackStartedAt = last.startedAt;
+  player.attackNextStrike = last.landed;
+  player.attackCommitted = last.committed + 1;
+  player.attackCommitBy = 'queued';
+  player.attackQueued = false;
+  player.attackOpened = last.landed - 1;
+  player.attackLastChain = null;
+}
+
 export function beginAttack(room, playerId, nowSec) {
   const player = room.players.get(playerId);
   if (room.state !== 'PLAYING' || !player || !player.alive || nowSec < player.staggerUntil) return false;
   player.attackHeld = true;
-  // a fresh press: a chain begins, or (mid-chain, or still recovering from one) its next strike is asked for
-  if (!player.attackActive && nowSec >= (player.attackRestartAt ?? -Infinity)) startSwordChain(player, nowSec);
+  // a fresh press: a chain begins, or (mid-chain, or still recovering from one) its next strike is asked for; one
+  // made before a let-go chain ended carries that chain on
+  const last = player.attackLastChain;
+  if (!player.attackActive && last && nowSec < last.endedAt - 1e-9) resumeSwordChain(player, last);
+  else if (!player.attackActive && nowSec >= (player.attackRestartAt ?? -Infinity)) startSwordChain(player, nowSec);
   else player.attackQueued = true;
   player.guarding = false;
   player.spawnProtectionUntil = Math.min(player.spawnProtectionUntil, nowSec);
@@ -131,7 +171,7 @@ export function endAttack(room, playerId, nowSec, releasedAt = nowSec) {
     player.attackCommitted = committed - 1;
     // the swing before it has landed, so the chain is over (where the next would have begun)
     if (player.attackNextStrike >= player.attackCommitted) {
-      stopSwordChain(player);
+      stopSwordChain(player, { letGo: true });
       room.events.push({ type: 'attackEnded', playerId, at: nowSec });
     }
   }
@@ -227,7 +267,7 @@ function recoilFromWall(attacker, hit, nowSec, room) {
   attacker.velocity.x = -f.x * 3.1;
   attacker.velocity.z = -f.z * 3.1;
   stopSwordChain(attacker);
-  attacker.attackRestartAt = nowSec + 0.22;
+  attacker.attackRestartAt = Math.max(attacker.attackRestartAt ?? -Infinity, nowSec + 0.22);
   room.events.push({
     type: 'swordWorldImpact',
     playerId: attacker.id,
@@ -709,7 +749,7 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
           player.attackCommitBy = player.attackQueued ? 'queued' : 'held';
           player.attackQueued = false;
         } else {
-          stopSwordChain(player);
+          stopSwordChain(player, { letGo: true });
           room.events.push({ type: 'attackEnded', playerId: player.id, at: nowSec });
         }
       }
@@ -717,13 +757,16 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
         // the whole chain is done: a held (or pressed again) button starts the next one a beat later
         const again = player.attackHeld || player.attackQueued;
         const held = player.attackHeld;
+        // (its restart is the chain's own: SWORD_CHAIN.restart after the third contact, not after this tick)
         stopSwordChain(player, { keepSweep: true });
         player.attackHeld = held;
         player.attackQueued = again;
-        player.attackRestartAt = nowSec + SWORD_CHAIN.restart;
       }
     } else if ((player.attackHeld || player.attackQueued) && !player.attackActive && nowSec >= (player.attackRestartAt ?? -Infinity) && nowSec >= player.staggerUntil) {
-      startSwordChain(player, nowSec);
+      // a held or waiting press starts the chain the moment it became legal (at most a tick back), not at the tick
+      // that noticed: holding comes round exactly on time
+      const legal = Math.max(player.attackRestartAt ?? -Infinity, player.staggerUntil ?? -Infinity);
+      startSwordChain(player, Math.min(nowSec, Math.max(nowSec - dt, legal)));
     }
     // a live strike sweeps on to the end of its stretch (the last one past the chain's own end)
     if (player.attackSweep) sweepStrike(room, player, nowSec, world);

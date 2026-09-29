@@ -337,7 +337,7 @@ export class WeaponView {
   cancelAttack() {
     // (broken off, not let go: the arms come home a little quicker, and straight)
     if (this.swordChain.active) this.comboBroken = true;
-    this.swordChain.cancel();
+    this.swordChain.cancel(performance.now() / 1000);
     this.attackButton = false;
   }
 

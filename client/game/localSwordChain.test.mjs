@@ -45,3 +45,35 @@ test('quick taps chain, and a guard or a spell stops it outright', () => {
   chain.cancel();
   assert.equal(chain.step(0.1), null);
 });
+
+test('the arms keep the same gate as the server: pressing again never swings sooner than holding would', () => {
+  // let go after the first strike and press again the moment the chain has ended: the next swing lands no sooner
+  // than holding's second would have
+  const tapped = run([[0, 'press'], [0.05, 'release'], [0.74, 'press'], [0.8, 'release']], 2);
+  assert.equal(tapped.length, 3);
+  assert.equal(tapped[0], '0.00:1');
+  assert.ok(Number(tapped[1].split(':')[0]) >= 0.72 && tapped[1].endsWith(':1'), `a fresh first strike, no sooner: ${tapped[1]}`);
+  // broken off into a guard just after the first strike, then pressed straight away: it waits for the gate
+  const chain = new LocalSwordChain();
+  chain.press(0);
+  for (let t = 0; t <= 0.45; t += 1 / 60) chain.step(t);
+  chain.cancel(0.45);
+  chain.press(0.5);
+  assert.equal(chain.step(0.6), null, 'not yet: the backhand would not have begun');
+  const next = chain.step(0.73);
+  assert.ok(next && next.startedAt >= 0.72 - 1e-9, 'it starts once the held chain could have');
+  // a swing broken off after it went live is spent too (it could already have met someone)
+  const feint = new LocalSwordChain();
+  feint.press(0);
+  for (let t = 0; t <= 0.35; t += 1 / 60) feint.step(t);
+  feint.cancel(0.35);
+  feint.press(0.36);
+  assert.equal(feint.step(0.4), null);
+  // but one broken off before it could meet anyone costs nothing
+  const early = new LocalSwordChain();
+  early.press(0);
+  early.step(0.1);
+  early.cancel(0.1);
+  early.press(0.15);
+  assert.ok(early.step(0.16), 'a fresh chain at once');
+});
