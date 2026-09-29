@@ -32,6 +32,7 @@ export function inputOptions(store) {
     touch: store.get('controls.touchSensitivity'),
     invertY: store.get('controls.invertY'),
     touchScale: store.get('controls.touchScale') / 100,
+    touchGauntlet: Boolean(store.get('controls.touchGauntlet')),
     bindings: store.allBindings(),
   };
 }

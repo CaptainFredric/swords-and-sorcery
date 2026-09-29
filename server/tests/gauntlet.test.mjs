@@ -208,3 +208,14 @@ test('Sheathed in Steel blunts the fist as it would a clean sword blow, and the 
   assert.equal(steeled.hurt.turned, GAUNTLET.damage - steeled.hurt.amount, 'and what it turned aside');
   assert.ok(Math.abs(steeled.impulse - bare.impulse) < 1e-6, 'the same shove');
 });
+
+test('the gauntlet\'s own key throws the fist with the spell ready, and leaves the spell for later', async () => {
+  const { applyRoomCommand } = await import('../../shared/sim/wire.mjs');
+  const { room, a } = duel({ spellReady: true });
+  applyRoomCommand(room, a, { type: 'gauntlet', clientTime: 10 }, 10);
+  assert.ok(a.gauntlet, 'the fist is going out');
+  assert.equal(a.pendingSpell, null, 'no spell gathered');
+  assert.equal(a.spellReadyAt, 0, 'the spell is still ready');
+  const events = run(room, 10, 10.4);
+  assert.ok(events.some((e) => e.type === 'damage' && e.source === 'gauntlet'));
+});

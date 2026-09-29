@@ -8,6 +8,7 @@ const PRESS = {
   guard: (input) => input.setGuard(true),
   spell: (input) => input.cast(),
   dash: (input) => input.dash(),
+  gauntlet: (input) => input.gauntlet(),
   scoreboard: (input) => { input.scoreboardHeld = true; },
 };
 const RELEASE = {
@@ -38,6 +39,7 @@ export class InputController {
     this.onAttackLocal = () => {};
     this.onGuardLocal = () => {};
     this.onCastLocal = () => {};
+    this.onGauntletLocal = () => {};
     this.onDashLocal = () => {};
     this.onPointer = () => {};
     this.onAction = () => {};
@@ -187,6 +189,13 @@ export class InputController {
     if (!this.enabled) return;
     this.socket.cast(this.lookDirection());
     this.onCastLocal();
+  }
+
+  // the gauntlet on its own key (unbound unless chosen): the fist whether or not the spell is ready
+  gauntlet() {
+    if (!this.enabled) return;
+    this.socket.gauntlet();
+    this.onGauntletLocal();
   }
 
   dash() {

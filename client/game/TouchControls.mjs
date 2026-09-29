@@ -2,6 +2,7 @@ import { MOVEMENT } from '../../shared/src/movement.mjs';
 import { spellFor } from '../../shared/src/spells.mjs';
 import { isDeliberateTap, lookDelta, stickVector, TOUCH } from './touchControlsModel.mjs';
 import { screenTurn } from '../ui/screenTurn.mjs';
+import { ICONS, iconSvg } from '../ui/icons.mjs';
 
 // On-screen controls for phones and tablets. They drive the same InputController actions as the mouse and
 // keyboard, so the server, prediction and animation see no difference between the two.
@@ -13,24 +14,6 @@ const STICK_ZONE = 0.42;
 // a quick tap must stay pressed for at least two input sends (50 ms apart) to reach the server
 const JUMP_LATCH_MS = 150;
 
-const ICONS = {
-  attack: '<path d="M20 4 9 15M6 12l6 6M7.5 16.5 4 20"/>',
-  guard: '<path d="M12 3l7 3v5c0 5-3.5 8.5-7 10-3.5-1.5-7-5-7-10V6z"/>',
-  fireball: '<path d="M12 2.8c.9 3.7 5 5.3 5 10a5 5 0 0 1-10 0c0-2.4 1.3-4 2.6-5.3.3 1.7 1 2.7 2.1 3.2-.5-3 .1-5.5.3-7.9z"/>',
-  frostfire: '<path d="M12 3v18M4.2 7.5l15.6 9M4.2 16.5l15.6-9M9.5 4.5 12 7l2.5-2.5M9.5 19.5 12 17l2.5 2.5"/>',
-  // three lines of wind, curling at their ends
-  gale: '<path d="M3 8h11a3 3 0 1 0-3-3M3 12h15a3 3 0 1 1-3 3M3 16h8"/>',
-  dash: '<path d="M4 8h6M3 12h8M4 16h6M13 6l6 6-6 6"/>',
-  // a gauntleted fist, closed (Sheathe in Steel, carried in the spell's place)
-  steel: '<path d="M7 11V8a1.5 1.5 0 0 1 3 0v2V6.5a1.5 1.5 0 0 1 3 0V10V7.5a1.5 1.5 0 0 1 3 0V13c0 4-2.5 7-6 7s-5-2.5-5-5v-2.5a1.5 1.5 0 0 1 2-1.4"/>',
-  jump: '<path d="M12 18V6M6.5 11.5 12 6l5.5 5.5M6 21h12"/>',
-  sprint: '<path d="M6 12.5 12 7l6 5.5M6 18.5 12 13l6 5.5"/>',
-  // a chevron pressed down to a line
-  crouch: '<path d="M6 7.5 12 13l6-5.5M6 18.5h12"/>',
-  pause: '<path d="M9 5v14M15 5v14"/>',
-  scores: '<path d="M5 7h14M5 12h14M5 17h14"/>',
-};
-
 const BUTTONS = [
   { action: 'attack', label: 'ATTACK' },
   { action: 'guard', label: 'GUARD' },
@@ -41,13 +24,13 @@ const BUTTONS = [
   { action: 'sprint', label: 'SPRINT' },
   // (a toggle, and only for a deliberate tap on it: see #up)
   { action: 'crouch', label: 'CROUCH' },
+  // the gauntlet on its own, spell or no spell: hidden unless asked for in the settings
+  { action: 'gauntlet', label: 'FIST' },
   { action: 'pause', label: 'MENU' },
   { action: 'scores', label: 'SCORES' },
 ];
 
-function svg(icon) {
-  return `<svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[icon]}</svg>`;
-}
+const svg = (icon) => iconSvg(icon);
 
 // where a finger is in the game's own frame (the game may be lying sideways on a screen that stays upright)
 function gamePoint(event) {
@@ -154,7 +137,7 @@ export class TouchControls {
 
   update(local, serverNow) {
     if (!local) return;
-    this.#showSpell(spellFor(local.spell));
+    this.#showSpell(spellFor(local.spell), (local.spellReadyAt ?? 0) - serverNow > 0.01);
     for (const { element, timer, key, seconds } of this.cooldowns) {
       const remaining = Math.max(0, (local[key] ?? 0) - serverNow);
       const ready = remaining <= 0.01;
@@ -171,22 +154,40 @@ export class TouchControls {
     this.buttons.guard.classList.toggle('drained', (local.guardStamina ?? 100) < 1);
   }
 
-  /** While the spell cools, whether its button would throw the gauntlet now (the hand free of the sword): a fist on it. */
+  /**
+   * While the spell cools its button is the gauntlet's (the fist on it, the spell's own mark small in its corner, the
+   * cooldown still counting down); `ready`: the fist can be thrown now (dimmed while the sword has the hand).
+   */
   setFistReady(ready) {
-    this.buttons.spell?.classList.toggle('fist-ready', Boolean(ready));
+    this.buttons.spell?.classList.toggle('fist-held', !ready);
   }
 
-  // the spell button wears the carried spell
-  #showSpell(spell) {
+  /** The gauntlet's own button (a setting; hidden unless asked for). */
+  setGauntletButton(shown) {
+    this.layer.classList.toggle('gauntlet-on', Boolean(shown));
+  }
+
+  // the spell button wears the carried spell, or, while that cools, the gauntlet
+  #showSpell(spell, cooling) {
     const button = this.buttons.spell;
-    if (!button || button.dataset.spell === spell.id) return;
+    const face = `${spell.id}:${cooling ? 'fist' : 'spell'}`;
+    if (!button || button.dataset.face === face) return;
+    button.dataset.face = face;
     button.dataset.spell = spell.id;
     button.classList.toggle('frost', spell.id === 'frostfire');
     button.classList.toggle('gale', spell.id === 'gale');
     button.classList.toggle('steel', spell.id === 'steel');
-    button.setAttribute('aria-label', spell.label.toUpperCase());
-    button.querySelector('span').textContent = (spell.short ?? spell.label).toUpperCase();
-    button.querySelector('svg').innerHTML = ICONS[spell.id] ?? ICONS.fireball;
+    button.classList.toggle('fist', Boolean(cooling));
+    button.setAttribute('aria-label', cooling ? `GAUNTLET (${spell.label.toUpperCase()} RECHARGING)` : spell.label.toUpperCase());
+    button.querySelector('span').textContent = cooling ? 'FIST' : (spell.short ?? spell.label).toUpperCase();
+    button.querySelector('svg').innerHTML = ICONS[cooling ? 'gauntlet' : spell.id] ?? ICONS.fireball;
+    let badge = button.querySelector('.touch-badge');
+    if (!badge) {
+      badge = document.createElement('i');
+      badge.className = 'touch-badge';
+      button.append(badge);
+    }
+    badge.innerHTML = cooling ? iconSvg(spell.id) : '';
     const cooldown = this.cooldowns.find((entry) => entry.element === button);
     if (cooldown) cooldown.seconds = spell.cooldownSec;
   }
@@ -267,6 +268,7 @@ export class TouchControls {
       this.aim.set(event.pointerId, gamePoint(event));
     }
     if (action === 'spell') this.input.cast();
+    if (action === 'gauntlet') this.input.gauntlet();
     if (action === 'dash') this.input.dash();
     if (action === 'jump') {
       this.jumpHeld = true;
