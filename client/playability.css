@@ -77,34 +77,40 @@
 @media (prefers-reduced-motion: reduce) { .afflict-burn.on { animation: none; } }
 /* Sheathed in Steel: armour round the health bar, never a part of it (it is no extra health). Five riveted plates frame
    the bar, a band of steel above it and below; each holds a fifth of the armour's strength (--p, 0..1, set by the HUD)
-   and, as that wears, thins, dulls, greys and cracks, the right-hand plates first, down to a thin battered edge. A blow
-   on it flashes the frame. */
-.health-armour { position: relative; }
+   and, as that wears, thins, dulls, greys and cracks, the right-hand plates first, until each breaks away and only a
+   thin battered edge is left. Called, the plates slam on one after another; while it holds, a glint runs along them;
+   struck, the frame jolts, flashes and throws sparks, and what it turned aside rises off it. */
+@property --glint { syntax: '<number>'; inherits: true; initial-value: -1; }
+.health-armour { position: relative; --steel: 0; }
 .armour-plate {
-  --p: 0; --band: calc(1px + 3.5px * var(--p));
-  --steel-hi: #f1f5f8; --steel-mid: #a9b6c2; --steel-lo: #5f6b77;
-  --rivet: radial-gradient(circle, #f7fafc 0 0.8px, #7d8995 1.3px, #3a424a 1.9px, transparent 2.3px);
+  --p: 0; --band: calc(1px + 4.5px * var(--p));
+  --steel-hi: #f4f7fa; --steel-mid: #aab7c3; --steel-lo: #5c6874;
+  --rivet: radial-gradient(circle, #fbfdfe 0 0.9px, #8a96a2 1.4px, #333b43 2.1px, transparent 2.6px);
+  --shine: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, calc(.9 * var(--p))) 50%, transparent 70%);
+  --shine-x: calc((var(--glint) * 5 - var(--i, 0)) * 100%);
   position: absolute; top: calc(-1 * var(--band) - 2px); bottom: calc(-1 * var(--band) - 2px); width: 20%;
   opacity: 0; pointer-events: none;
   background:
-    var(--rivet) 3px 0 / 6px var(--band) no-repeat,
-    var(--rivet) 3px 100% / 6px var(--band) no-repeat,
-    linear-gradient(90deg, rgba(20, 24, 28, .7) 0 1px, transparent 1px) 0 0 / 100% var(--band) no-repeat,
-    linear-gradient(90deg, rgba(20, 24, 28, .7) 0 1px, transparent 1px) 0 100% / 100% var(--band) no-repeat,
-    linear-gradient(180deg, var(--steel-hi), var(--steel-mid) 55%, var(--steel-lo)) 0 0 / 100% var(--band) no-repeat,
-    linear-gradient(180deg, var(--steel-mid), var(--steel-lo) 70%, #414a53) 0 100% / 100% var(--band) no-repeat;
-  filter: saturate(calc(.15 + .85 * var(--p))) brightness(calc(.55 + .55 * var(--p))) drop-shadow(0 1px 1px rgba(0, 0, 0, .55));
+    var(--rivet) 3px 0 / 7px var(--band) no-repeat,
+    var(--rivet) 3px 100% / 7px var(--band) no-repeat,
+    var(--shine) var(--shine-x) 0 / 45% var(--band) no-repeat,
+    var(--shine) var(--shine-x) 100% / 45% var(--band) no-repeat,
+    linear-gradient(90deg, rgba(20, 24, 28, .75) 0 1px, transparent 1px) 0 0 / 100% var(--band) no-repeat,
+    linear-gradient(90deg, rgba(20, 24, 28, .75) 0 1px, transparent 1px) 0 100% / 100% var(--band) no-repeat,
+    linear-gradient(180deg, var(--steel-hi), var(--steel-mid) 50%, var(--steel-lo)) 0 0 / 100% var(--band) no-repeat,
+    linear-gradient(180deg, var(--steel-mid), var(--steel-lo) 70%, #3c454e) 0 100% / 100% var(--band) no-repeat;
+  filter: saturate(calc(.15 + .85 * var(--p))) brightness(calc(.55 + .55 * var(--p))) drop-shadow(0 1px 1px rgba(0, 0, 0, .6));
   transition: opacity .2s linear;
 }
-.armour-plate:nth-of-type(1) { left: -4px; width: calc(20% + 4px); }
+.armour-plate:nth-of-type(1) { left: -5px; width: calc(20% + 5px); }
 .armour-plate:nth-of-type(2) { left: 20%; }
 .armour-plate:nth-of-type(3) { left: 40%; }
 .armour-plate:nth-of-type(4) { left: 60%; }
-.armour-plate:nth-of-type(5) { left: 80%; right: -4px; width: auto; }
+.armour-plate:nth-of-type(5) { left: 80%; right: -5px; width: auto; }
 /* the end plates close round the bar's ends */
 .armour-plate:nth-of-type(1)::before, .armour-plate:nth-of-type(5)::before {
-  content: ""; position: absolute; top: 0; bottom: 0; width: var(--band);
-  background: linear-gradient(90deg, var(--steel-hi), var(--steel-mid) 60%, var(--steel-lo));
+  content: ""; position: absolute; top: 0; bottom: 0; width: calc(var(--band) + 1px);
+  background: linear-gradient(90deg, var(--steel-hi), var(--steel-mid) 55%, var(--steel-lo));
 }
 .armour-plate:nth-of-type(1)::before { left: 0; }
 .armour-plate:nth-of-type(5)::before { right: 0; transform: scaleX(-1); }
@@ -116,16 +122,49 @@
   transform: skewX(-24deg);
 }
 .armour-plate.cracked::after { opacity: .9; }
-/* freshly called: a bright sheen runs along the plates once */
-.health-armour.called .armour-plate { animation: armour-sheen .6s ease-out; }
-@keyframes armour-sheen { 0% { --steel-hi: #ffffff; --steel-mid: #eef4f8; } 100% { --steel-hi: #f1f5f8; --steel-mid: #a9b6c2; } }
-/* struck: the frame flashes white-hot for a moment, as bright as the armour is strong */
+/* its name over the frame's end, as strong as the armour */
+.armour-tag {
+  position: absolute; right: -5px; top: -21px; font: 800 9px/1 Georgia, serif; letter-spacing: .16em; color: #e4ecf3;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, .8); opacity: 0; transition: opacity .25s linear; pointer-events: none;
+}
+.health-armour.sheathed .armour-tag { opacity: calc(.35 + .65 * var(--steel)); }
+/* while it holds, a glint runs along the plates now and then */
+.health-armour.sheathed { animation: armour-glint 2.8s linear infinite; }
+@keyframes armour-glint { 0% { --glint: -0.4; } 50%, 100% { --glint: 1.4; } }
+/* freshly called: the plates slam on one after another, white-hot, and settle */
+.health-armour.called .armour-plate { animation: armour-slam .34s cubic-bezier(.2, 1.5, .45, 1) both; animation-delay: calc(var(--i, 0) * 55ms); }
+@keyframes armour-slam {
+  0% { transform: translateY(-7px) scaleY(1.8); --steel-hi: #ffffff; --steel-mid: #ffffff; --steel-lo: #dfe8ef; }
+  60% { --steel-hi: #ffffff; --steel-mid: #eef4f8; }
+}
+/* struck: the frame jolts and flashes white-hot for a moment, as bright as the armour is strong */
+.health-armour.struck { animation: armour-jolt .16s ease-out, armour-glint 2.8s linear infinite; }
+@keyframes armour-jolt { 25% { transform: translate(-2px, 1px); } 60% { transform: translate(2px, -1px); } }
 .health-armour.struck .armour-plate { --steel-hi: #ffffff; --steel-mid: #f4f8fb; --steel-lo: #c9d5df; }
-@media (prefers-reduced-motion: reduce) { .health-armour.called .armour-plate { animation: none; } }
+/* the sparks a blow strikes off it, and what it turned aside rising off the frame */
+.armour-spark {
+  position: absolute; width: 3px; height: 3px; border-radius: 50%; background: #fff8e6; box-shadow: 0 0 4px #ffe7b0;
+  pointer-events: none; animation: armour-spark .38s ease-out forwards;
+}
+@keyframes armour-spark { to { transform: translate(var(--dx), var(--dy)) scale(.3); opacity: 0; } }
+.armour-turned {
+  position: absolute; bottom: calc(100% + 6px); transform: translateX(-50%); font: 900 12px/1 Georgia, serif; color: #eef4f9;
+  text-shadow: 0 0 6px rgba(190, 215, 240, .8), 0 1px 2px rgba(0, 0, 0, .9); white-space: nowrap; pointer-events: none;
+  animation: armour-turned .9s ease-out forwards;
+}
+.armour-turned small { font-size: 8px; letter-spacing: .14em; margin-left: 3px; opacity: .85; }
+@keyframes armour-turned { 0% { opacity: 0; translate: 0 4px; } 15% { opacity: 1; } 100% { opacity: 0; translate: 0 -16px; } }
+/* a plate worn through breaks away and falls */
+@keyframes armour-fall { to { transform: translate(var(--dx, 6px), 22px) rotate(var(--turn, 24deg)); opacity: 0; } }
+.health-armour .armour-plate.armour-fragment { opacity: .9; animation: armour-fall .7s ease-in forwards; }
+@media (prefers-reduced-motion: reduce) {
+  .health-armour.called .armour-plate, .health-armour.sheathed, .health-armour.struck { animation: none; }
+  .health-armour .armour-plate.armour-fragment, .armour-spark, .armour-turned { animation-duration: .01s; }
+}
 .ability[data-spell="gale"] .ability-icon { color: #e3ece0; }
 .ability[data-spell="steel"] .ability-icon { color: #d8e1ea; }
-/* the gauntlet: the spell tile says no with a small shake when its key can do nothing; while the spell cools and a foe
-   is within arm's reach, a fist shows on the tile (its key will throw the gauntlet) */
+/* the gauntlet: the spell tile says no with a small shake when its key can do nothing; while the spell cools and the
+   hand is free of the sword, a fist shows on the tile (its key throws the gauntlet) */
 .ability.denied { animation: ability-denied .3s ease-out; }
 @keyframes ability-denied { 20% { transform: translateX(-3px); } 45% { transform: translateX(3px); } 70% { transform: translateX(-2px); } }
 #spell-ability.fist-ready { border-color: #b9a37a; }

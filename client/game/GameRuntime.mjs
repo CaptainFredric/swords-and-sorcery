@@ -19,7 +19,6 @@ import {
   swingRecipe, swordHitRecipe, wallClangRecipe,
 } from './sound/soundRecipes.mjs';
 import { galeRecoil } from '../../shared/src/gale.mjs';
-import { gauntletTarget } from '../../shared/src/gauntlet.mjs';
 import { CROUCH, POSTURES, postureOf } from '../../shared/src/body.mjs';
 import { steelStrength } from '../../shared/src/steel.mjs';
 import { chillScale, spellFor } from '../../shared/src/spells.mjs';
@@ -138,8 +137,8 @@ export class GameRuntime {
     this.input.onCastLocal = () => {
       const now = this.socket.serverNow();
       if (!canPresentLocalAction('cast', this.localAuth, this.localState, now)) {
-        // on its cooldown the spell's key throws the gauntlet at a foe within reach (the server's word follows); with
-        // nobody there, the cooldown's quiet no
+        // on its cooldown the spell's key throws the gauntlet, on command (the server's word follows whether it met
+        // anyone); only while the hand cannot (mid-swing, say), the cooldown's quiet no
         if (this.localAuth?.alive && now < (this.localAuth.spellReadyAt ?? 0) && !this.#tryLocalJab(now)) {
           this.hud.denied?.('spell');
           this.#play(deniedRecipe(), null, 0.6);
@@ -580,7 +579,7 @@ export class GameRuntime {
       this.#play(steelTickRecipe(Math.random, { strength: feel.strength }), mine ? null : body, mine ? 0.8 : 0.6);
     }
     if (mine) {
-      this.hud.steelStruck?.();
+      this.hud.steelStruck?.({ strength: feel.strength, turned: event.turned ?? 0, full: feel.full, health: event.health });
       if (attacker && body) this.effects.steelSparksInView({ x: attacker.x - body.x, z: attacker.z - body.z }, feel.strength);
       if (this.view.damageFlash && feel.full) {
         document.body.style.setProperty('--steel-hit', feel.strength.toFixed(2));
@@ -594,14 +593,12 @@ export class GameRuntime {
     return true;
   }
 
-  // the gauntlet, thrown from my own hand (the local rule: the sword does not have the hand, a foe within reach, as far
-  // as I can see them): the magic hand drives out at once, with a grunt
+  // the gauntlet, thrown from my own hand on command (the local rule: the sword does not have the hand): the magic
+  // hand drives out at once, with a grunt, whether or not anyone is there to meet it
   #tryLocalJab(now) {
     const auth = this.localAuth;
     if (!this.localState || (auth.staggerUntil ?? -Infinity) > now || auth.pendingSpell) return false;
     if (!this.weapon.canJab()) return false;
-    const foes = this.remotePlayers.bodies().map((body) => ({ id: body.id, position: body }));
-    if (!gauntletTarget(this.localState.position, this.input.yaw, foes)) return false;
     this.weapon.jab();
     this.#play(gauntletSwingRecipe(), null, 0.8);
     this.#say('fistEffort', this.socket.playerId);
@@ -881,10 +878,9 @@ export class GameRuntime {
         Number.isFinite(calledAt) ? serverNow - calledAt : null,
       );
       // my Gale lets go when its breath is drawn; one the server never took is let go of quietly
-      // while the spell cools, whether its key would throw the gauntlet now (a foe in reach, the hand free)
+      // while the spell cools, whether its key would throw the gauntlet now (the hand free of the sword)
       const cooling = serverNow < (this.localAuth.spellReadyAt ?? 0);
-      const fistReady = cooling && this.weapon.canJab() && Boolean(gauntletTarget(this.localState.position, this.input.yaw,
-        this.remotePlayers.bodies().map((body) => ({ id: body.id, position: body }))));
+      const fistReady = cooling && this.weapon.canJab();
       this.hud.setFistReady?.(fistReady);
       this.touch?.setFistReady(fistReady);
       if (this.localGale && serverNow >= this.localGale.at) {

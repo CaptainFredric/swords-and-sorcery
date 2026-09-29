@@ -164,10 +164,14 @@ export class TouchControls {
     }
     this.buttons.sprint.classList.toggle('sprinting', Boolean(local.sprinting));
     this.buttons.crouch?.classList.toggle('crouched', Boolean(local.crouched));
+    // its word says what it is doing: CROUCH to go down, DOWN while it holds the knight low
+    const crouchWord = this.crouchLatched ? 'DOWN' : 'CROUCH';
+    const crouchLabel = this.buttons.crouch?.querySelector('span');
+    if (crouchLabel && crouchLabel.textContent !== crouchWord) crouchLabel.textContent = crouchWord;
     this.buttons.guard.classList.toggle('drained', (local.guardStamina ?? 100) < 1);
   }
 
-  /** While the spell cools, whether its button would throw the gauntlet (a foe within reach): a fist on it. */
+  /** While the spell cools, whether its button would throw the gauntlet now (the hand free of the sword): a fist on it. */
   setFistReady(ready) {
     this.buttons.spell?.classList.toggle('fist-ready', Boolean(ready));
   }

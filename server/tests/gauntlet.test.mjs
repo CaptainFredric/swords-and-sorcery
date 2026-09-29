@@ -72,15 +72,30 @@ test('on its cooldown, a foe within arm\'s reach gets the fist: light, a small s
   assert.ok(Math.abs(a.velocity.y) < 1e-9, 'the fist throws nobody (not its knight either)');
 });
 
-test('with nobody in reach there is no blow at all: the knight never punches the air', () => {
-  const { room, a } = duel({ gap: GAUNTLET.reach + 0.4 });
-  assert.equal(tryCastOrGauntlet(room, 'a', { x: 0, y: 0, z: -1 }, 10), false);
+test('on command: with nobody in reach the fist still goes out, and meets only air', () => {
+  const { room, a } = duel({ gap: GAUNTLET.reach + GAUNTLET.landSlack + 1 });
+  assert.equal(tryCastOrGauntlet(room, 'a', { x: 0, y: 0, z: -1 }, 10), true);
   const events = run(room, 10, 10.6);
-  assert.ok(!events.some((e) => e.type.startsWith('gauntlet') || e.type === 'damage'));
-  assert.equal(a.gauntlet, null);
-  // nor at a foe standing behind
-  const behind = duel({ gap: -1 });
-  assert.equal(tryCastOrGauntlet(behind.room, 'a', { x: 0, y: 0, z: -1 }, 10), false);
+  assert.ok(events.some((e) => e.type === 'gauntletStrike' && e.targetId === null), 'thrown');
+  assert.ok(events.some((e) => e.type === 'gauntletMiss' && e.reason === 'air'), 'at the air');
+  assert.ok(!events.some((e) => e.type === 'damage'));
+  // and it is still a blow: its recovery holds the next
+  assert.ok(a.gauntletReadyAt >= 10 + GAUNTLET.startup + GAUNTLET.recovery - 1e-9);
+  assert.equal(tryCastOrGauntlet(room, 'a', { x: 0, y: 0, z: -1 }, 10.3), false, 'not again before its recovery');
+  assert.equal(tryCastOrGauntlet(room, 'a', { x: 0, y: 0, z: -1 }, 10.6), true, 'and again after it');
+});
+
+test('it reaches a foe at an ordinary fighting distance, and one who walks into it as it goes home', () => {
+  // squared up at sword distance (bodies apart, as in a fight): the fist lands
+  const fight = duel({ gap: 1.7 });
+  tryCastOrGauntlet(fight.room, 'a', { x: 0, y: 0, z: -1 }, 10);
+  assert.ok(run(fight.room, 10, 10.4).some((e) => e.type === 'damage' && e.source === 'gauntlet'), 'lands at 1.7 m');
+  // thrown at the air, then a foe steps into it before it lands
+  const late = duel({ gap: 3 });
+  tryCastOrGauntlet(late.room, 'a', { x: 0, y: 0, z: -1 }, 10);
+  late.b.position.z = -1.4;
+  late.b.history = [];
+  assert.ok(run(late.room, 10, 10.4).some((e) => e.type === 'damage' && e.source === 'gauntlet'), 'caught stepping in');
 });
 
 test('never through the sword: refused while a committed strike has yet to land or its blade is live; from a chain\'s recovery it ends the chain', () => {
@@ -190,5 +205,6 @@ test('Sheathed in Steel blunts the fist as it would a clean sword blow, and the 
   assert.equal(bare.hurt.amount, GAUNTLET.damage);
   assert.ok(steeled.hurt.amount < bare.hurt.amount && steeled.hurt.amount >= Math.round(GAUNTLET.damage * 2 / 3), `${steeled.hurt.amount}`);
   assert.ok(steeled.hurt.steel > 0.9 && !bare.hurt.steel, 'the damage word says how strong the plate was');
+  assert.equal(steeled.hurt.turned, GAUNTLET.damage - steeled.hurt.amount, 'and what it turned aside');
   assert.ok(Math.abs(steeled.impulse - bare.impulse) < 1e-6, 'the same shove');
 });

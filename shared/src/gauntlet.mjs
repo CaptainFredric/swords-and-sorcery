@@ -1,6 +1,6 @@
-// The gauntlet strike. With the spell still on its cooldown, a Spellblade asking for it gets the magic hand's armoured
-// fist instead, if a foe is within arm's reach: a short, quick jab, light, with a small shove. With nobody in reach
-// there is no blow at all (only the cooldown's word): the knight never punches the air.
+// The gauntlet strike. With the spell still on its cooldown, the spell's key throws the magic hand's armoured fist
+// instead, on command, every time it is asked for: a short, quick jab, light, with a small shove. It lands on the
+// nearest foe within arm's reach as it goes home; with nobody there, it meets only air.
 //
 // It is an emergency, not a second weapon: no stun, no guard break (a guard facing it pays a little, and a spent one
 // is simply lowered), no throw off the ground, and it shares the sword's one line of attack. It is never thrown
@@ -12,7 +12,7 @@
 // Current tuning (provisional). The server resolves it; the client asks the same questions to show it at once.
 
 export const GAUNTLET = Object.freeze({
-  reach: 1.35,         // metres between the two bodies' centres, across the ground: arm's length
+  reach: 1.75,         // metres between the two bodies' centres, across the ground: arm's length past both bodies
   arcHalfDeg: 42,      // how far off the facing a foe may stand
   startup: 0.14,       // from the press to the blow landing
   recovery: 0.36,      // after it lands, before any attack begins
