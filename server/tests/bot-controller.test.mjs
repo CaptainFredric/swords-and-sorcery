@@ -148,10 +148,10 @@ test('when its foe falls, a bot lets the attack go, looks at the body a moment, 
   assert.equal(bot.attackHeld, false, 'the button is let go at once');
   assert.ok(bot.ai.postKill, 'a moment over the body');
   const body = bot.ai.postKill.body;
-  // at first it stands over the body, looking at it
+  // at first it looks at the body (from where it stands, or a quick step back or aside: never toward it)
   const facing = Math.atan2(-(body.x - bot.position.x), -(body.z - bot.position.z));
   assert.ok(Math.abs(bot.input.yaw - facing) < 1e-6);
-  assert.equal(bot.input.forward, 0);
+  assert.ok(bot.input.forward <= 0);
   // no swing starts while it stands over the body, and the swing it had under way does not chain on
   let now = 4.1;
   const swings = () => room.events.filter((e) => e.type === 'swordSwing' && e.playerId === bot.id).length;
@@ -164,14 +164,14 @@ test('when its foe falls, a bot lets the attack go, looks at the body a moment, 
   assert.ok(swings() - before <= 1, 'at most the swing already under way lands');
   // it is over within a second and a half, and it walks on (a walk, not a run) rather than standing there
   assert.equal(bot.ai.postKill, null);
-  assert.ok(now - 4.1 < 1.5);
+  assert.ok(now - 4.1 <= POST_KILL.confirm[1] + POST_KILL.settle[1] + 0.1, 'a moment, not a gloat');
   let walking = false;
   for (let i = 0; i < 40 && !walking; i += 1) {
     now += 0.05;
     stepBotControllers(room, now, room.world, { random: () => 0.5 });
     stepRoom(room, 0.05, now, room.world);
     assert.ok(!bot.attackHeld && !bot.attackActive, 'nothing to attack');
-    walking = bot.input.forward > 0 && bot.input.pace < 0.6;
+    walking = bot.input.forward > 0 && bot.input.forward < 0.6;
   }
   assert.ok(walking, 'walking the arena (a walk, not a run) while nobody is there');
 });
@@ -186,10 +186,9 @@ test('with nobody to fight, a bot walks between spots in the middle of the arena
   for (let i = 0; i < 400 && !(rested && walked); i += 1) {
     now += 0.05;
     stepBotControllers(room, now, room.world, { random: () => 0.3 });
-    // (move it as its input asks, at its pace)
-    const pace = bot.input.pace ?? 1;
-    bot.position.x += -Math.sin(bot.input.yaw) * bot.input.forward * 7.5 * pace * 0.05;
-    bot.position.z += -Math.cos(bot.input.yaw) * bot.input.forward * 7.5 * pace * 0.05;
+    // (move it as its input asks)
+    bot.position.x += -Math.sin(bot.input.yaw) * bot.input.forward * 7.5 * 0.05;
+    bot.position.z += -Math.cos(bot.input.yaw) * bot.input.forward * 7.5 * 0.05;
     if (bot.input.forward > 0) walked = true;
     if (walked && bot.input.forward === 0) rested = true;
     assert.ok(Math.hypot(bot.position.x, bot.position.z) < POST_KILL.patrolRadius + 1.5, 'it stays in the middle');
@@ -215,4 +214,22 @@ test('a foe who comes at it while it stands over a body is answered at once', ()
   stepBotControllers(room, 4.2, room.world, { random: () => 0.5 });
   assert.equal(bot.ai.postKill, null);
   assert.equal(bot.ai.targetId, second.id);
+});
+
+test('no two pauses over a body are quite alike: how long it looks, how it first moves, how it looks about', () => {
+  const seen = { styles: new Set(), confirms: new Set() };
+  let seed = 7;
+  const random = () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 2 ** 32; };
+  for (let i = 0; i < 24; i += 1) {
+    const { room, bot, human } = makeBotDuel();
+    bot.position = { x: 0, y: 0, z: 0 };
+    human.position = { x: 0, y: 0, z: -1.4 };
+    stepBotControllers(room, 4, room.world, { random });
+    killPlayer(room, human.id, bot.id, 'sword', 4.05);
+    stepBotControllers(room, 4.1, room.world, { random });
+    seen.styles.add(bot.ai.postKill.style);
+    seen.confirms.add(Math.round((bot.ai.postKill.confirmUntil - 4.1) * 20));
+  }
+  assert.equal(seen.styles.size, 3, 'still, a step back, a step aside');
+  assert.ok(seen.confirms.size >= 3, 'looks for different lengths of time');
 });

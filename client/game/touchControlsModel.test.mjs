@@ -18,6 +18,14 @@ test('the stick ignores tiny drifts and moves in the direction the thumb pushes'
   close(back.forward, -1);
 });
 
+test('a stick part-way walks, further runs, and is a full run before the rim', () => {
+  const at = (share) => stickVector(0, -TOUCH.stickRadius * share).forward;
+  assert.ok(at(0.3) > 0 && at(0.3) < 0.4, 'a little tilt: a walk');
+  assert.ok(at(0.6) > at(0.3) && at(0.6) < 1);
+  close(at(TOUCH.fullAt), 1);
+  close(at(0.95), 1);
+});
+
 test('the knob stays on the rim when the thumb slides past it', () => {
   const far = stickVector(300, 0);
   close(far.knob.x, TOUCH.stickRadius);

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { CombatHeat, HEAT, matchClosing, nearestFoe } from './combatHeat.mjs';
-import { DEFEAT_ON_DEATH, MAGIC_SOURCES, MOUTH_BUSY_SEC, VOICE_HEARING, VOICE_LINES, VoiceDirector, deathLines, voicePlacement, voiceRate } from './voiceRules.mjs';
+import { DEFEAT_ON_LOSS, MAGIC_SOURCES, MOUTH_BUSY_SEC, VOICE_HEARING, VOICE_LINES, VoiceDirector, deathLines, voicePlacement, voiceRate } from './voiceRules.mjs';
 
 test('SORCERY! is rare: it needs the dice, then waits out its cooldown', () => {
   let roll = 0.05;
@@ -35,7 +35,6 @@ test('a knight killed by magic may say he does not believe in it; any fallen kni
   assert.ok(burned.fallen.every((say) => say.speaker === 'v'));
   const cut = deathLines({ victimId: 'v', killerId: 'k', source: 'sword' });
   assert.deepEqual(cut.fallen.map((say) => say.line), ['defeat', 'death'], 'a sword is no magic');
-  assert.equal(cut.fallen[0].chanceScale, DEFEAT_ON_DEATH);
   for (const source of ['fireball', 'frostfire']) assert.ok(MAGIC_SOURCES.includes(source));
   // the victor's word waits for the fallen to have had theirs, and nobody taunts over their own fall
   assert.deepEqual(cut.victor.map((say) => [say.line, say.speaker]), [['killTaunt', 'k']]);
@@ -44,15 +43,16 @@ test('a knight killed by magic may say he does not believe in it; any fallen kni
   assert.deepEqual(deathLines({ victimId: 'v', killerId: 'v', source: 'abyss' }).victor, []);
 });
 
-test('the taunts are rare and wait out long cooldowns; a lost match always gets its protest', () => {
-  for (const line of ['magicDefeat', 'killTaunt', 'breakTaunt']) {
+test('the taunts and the protest are rare and wait out long cooldowns, so they stay a surprise', () => {
+  for (const line of ['magicDefeat', 'killTaunt', 'breakTaunt', 'defeat']) {
     assert.ok(VOICE_LINES[line].chance < 0.5, `${line} is rare`);
     assert.ok(VOICE_LINES[line].cooldown >= 30, `${line} does not repeat soon`);
   }
-  assert.equal(VOICE_LINES.defeat.chance, 1);
+  // a lost match makes the protest likelier, but not certain
+  assert.ok(VOICE_LINES.defeat.chance * DEFEAT_ON_LOSS > VOICE_LINES.defeat.chance && VOICE_LINES.defeat.chance * DEFEAT_ON_LOSS < 1);
   const director = new VoiceDirector({ rand: () => 0.2 });
-  assert.ok(director.allow('defeat', 'me', 10, { chanceScale: DEFEAT_ON_DEATH }), 'felled: 0.2 under 0.3');
-  assert.ok(!director.allow('defeat', 'me', 12), 'the end screen does not say it again straight after');
+  assert.ok(director.allow('defeat', 'me', 10), 'felled, and the dice allow it');
+  assert.ok(!director.allow('defeat', 'me', 40, { chanceScale: DEFEAT_ON_LOSS }), 'but not again soon, even at the end of the match');
 });
 
 test("another knight's voice carries only near him: normal falloff, no map-wide barks, a little room far off", () => {

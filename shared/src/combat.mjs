@@ -10,15 +10,15 @@ export const GAME = Object.freeze({
   dashCooldownSec: 5,
 });
 
+// Current Spellblade chain timing (tuning, not doctrine): seconds from the chain's start to each strike's contact.
+// The server's strike resolution and the first-person presentation both derive from these values.
 export const SWORD_STRIKE_TIMES = Object.freeze([0.4, 1.1, 1.8]);
 
-// The sword chain. Its strikes land SWORD_STRIKE_TIMES after it starts (fast, fast, heavy), and each is committed as
-// its swing begins (`starts`). A press starts a chain with the first strike committed. The next strike follows only
-// if, as its swing would begin, the button is still held or was pressed again during the swing before it: a tap is
-// exactly one strike, a hold chains, quick taps chain too. Let go mid-swing and that swing still lands; the chain ends
-// where the next would have begun. After the last strike lands, a held (or pressed again) button starts a new chain
-// `restart` seconds later. The same for a mouse, a touch button and a bot: the server runs it (shared/sim/combat.mjs)
-// and the first-person arms play it ahead of the server's word (client WeaponView).
+// How the chain is driven: a press starts one with its first strike committed; each later strike is committed at its
+// `start` only if the button is still held then, or was pressed again during the strike before it. Letting go
+// mid-swing lets that swing finish and commits no more; the chain ends where the next strike would have begun. After
+// the last strike's contact, a held (or pressed again) button starts another chain `restart` seconds later. Server
+// (shared/sim/combat.mjs) and first-person arms (client WeaponView) run the same rule, for mouse, touch and bots alike.
 export const SWORD_CHAIN = Object.freeze({
   starts: Object.freeze([0, 0.72, 1.44]),
   restart: 0.28,

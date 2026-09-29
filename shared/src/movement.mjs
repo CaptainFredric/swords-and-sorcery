@@ -105,19 +105,19 @@ export function movePlayer(previous, input, dt, nowSec, world) {
     const f = Math.max(-1, Math.min(1, input.forward ?? 0));
     const r = Math.max(-1, Math.min(1, input.right ?? 0));
     state.sprintBlend = stepSprintBlend(state.sprintBlend, state.sprinting, Math.hypot(f, r) > 0.01, dt);
-    const length = Math.hypot(f, r) || 1;
-    const nf = f / length;
-    const nr = r / length;
+    // how much of a run the input asks for: a key or a full stick is all of it, a stick part-way (or a bot easing
+    // off) is part of it; two keys at once point the way between them without going any faster
+    const length = Math.hypot(f, r);
+    const over = Math.max(1, length);
+    const nf = f / over;
+    const nr = r / over;
     const sin = Math.sin(input.yaw ?? 0);
     const cos = Math.cos(input.yaw ?? 0);
     const fx = -sin;
     const fz = -cos;
     const rx = cos;
     const rz = -sin;
-    // pace: a walk for those that want one (a bot easing off or wandering; never above a run, and players' own input
-    // does not carry it: shared/sim/wire.mjs builds theirs field by field)
-    const pace = Number.isFinite(input.pace) ? Math.max(0.3, Math.min(1, input.pace)) : 1;
-    const speed = locomotionSpeed(state) * pace;
+    const speed = locomotionSpeed(state);
     state.velocity.x = (fx * nf + rx * nr) * speed;
     state.velocity.z = (fz * nf + rz * nr) * speed;
   }

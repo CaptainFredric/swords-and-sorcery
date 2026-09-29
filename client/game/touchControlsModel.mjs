@@ -1,12 +1,14 @@
 // Touch input math, kept free of the DOM so it runs in node tests.
 //
 // The left half of the screen is a floating joystick: it appears where the thumb lands. Tilt beyond the dead zone
-// moves; pushing it to the rim straight ahead sprints (like holding Shift), so a thumb can sprint without letting
-// go of the stick. The right half turns the view.
+// moves, as fast as the stick is tilted (a full run from about four-fifths of the way out); pushing it to the rim
+// straight ahead sprints (like holding Shift), so a thumb can sprint without letting go of the stick. The right half
+// turns the view.
 
 export const TOUCH = Object.freeze({
   stickRadius: 56,          // px from the stick centre to its rim
   deadZone: 0.14,           // share of the radius that does nothing
+  fullAt: 0.8,              // share of the radius that is already a full run (the thumb need not pin the rim)
   sprintAt: 0.92,           // share of the radius that engages sprint...
   sprintForward: 0.75,      // ...when the stick points at least this much straight ahead
   lookYawPerPx: 0.0058,     // radians of turn per px of drag
@@ -26,7 +28,8 @@ export function stickVector(dx, dy, { radius = TOUCH.stickRadius, deadZone = TOU
   const knob = { x: unitX * clamped, y: unitY * clamped };
   const raw = clamped / radius;
   if (raw <= deadZone) return { forward: 0, right: 0, magnitude: 0, sprint: false, knob };
-  const magnitude = (raw - deadZone) / (1 - deadZone);
+  // tilted part-way it walks, part-way further it runs faster: a full run well before the rim
+  const magnitude = Math.min(1, (raw - deadZone) / (TOUCH.fullAt - deadZone));
   const forward = -unitY * magnitude;
   const right = unitX * magnitude;
   const sprint = raw >= TOUCH.sprintAt && -unitY >= TOUCH.sprintForward;

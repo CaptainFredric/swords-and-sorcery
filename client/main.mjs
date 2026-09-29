@@ -8,6 +8,7 @@ import { Ambience } from './game/sound/Ambience.mjs';
 import { MusicPlayer } from './game/sound/music/MusicPlayer.mjs';
 import { fightPieceFor } from './game/sound/music/score.mjs';
 import { VoiceBank } from './game/sound/VoiceBank.mjs';
+import { DEFEAT_ON_LOSS } from './game/sound/voiceRules.mjs';
 import { gateRecipe, uiClankRecipe, warDrumRecipe } from './game/sound/atmosphereRecipes.mjs';
 import { unsheatheRecipe } from './game/sound/soundRecipes.mjs';
 import { arenaGateCopy, challengeCopy, countdownSeconds, romanCount } from './menu/challengeCard.mjs';
@@ -422,7 +423,7 @@ function soundTheEnd(snapshot) {
   const won = snapshot.winnerId === socket.playerId;
   music.stinger(won ? 'victory' : 'defeat');
   // MIGHT MAKES... KNIGHT! or, having lost, the protest that he is a knight (unless he just said so as he fell)
-  voice.say(won ? 'victory' : 'defeat', { speaker: socket.playerId, gain: 0.85, delay: 0.4, close: true });
+  voice.say(won ? 'victory' : 'defeat', { speaker: socket.playerId, gain: 0.85, delay: 0.4, close: true, chanceScale: won ? 1 : DEFEAT_ON_LOSS });
 }
 
 function updateEnd(snapshot) {

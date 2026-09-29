@@ -16,20 +16,15 @@ test('run velocity caps at 7.5 m/s', () => {
   assert.ok(Math.abs(speed - 7.5) < 0.001);
 });
 
-test('a pace slows a knight to a walk, never speeds one up, and a player\'s own input does not carry it', async () => {
+test('the input asks for how much of a run it wants: a key is all of it, a stick part-way is part, never more', () => {
   const speedWith = (input) => {
-    const state = movePlayer(createMovementState({ x: 0, y: 0, z: 0 }), { forward: 1, right: 0, jump: false, yaw: 0, ...input }, 0.1, 0.1, flatWorld);
+    const state = movePlayer(createMovementState({ x: 0, y: 0, z: 0 }), { forward: 0, right: 0, jump: false, yaw: 0, ...input }, 0.1, 0.1, flatWorld);
     return Math.hypot(state.velocity.x, state.velocity.z);
   };
-  assert.ok(Math.abs(speedWith({ pace: 0.4 }) - 3) < 0.001, 'a walk');
-  assert.ok(Math.abs(speedWith({ pace: 5 }) - 7.5) < 0.001, 'never above a run');
-  assert.ok(Math.abs(speedWith({ pace: 0.01 }) - 7.5 * 0.3) < 0.001, 'nor slower than a slow walk');
-  // a player's input is rebuilt field by field on the server: a pace sent by a client never arrives
-  const { applyRoomCommand } = await import('../sim/wire.mjs');
-  const player = { input: {}, yaw: 0, pitch: 0 };
-  applyRoomCommand({ players: new Map([['p', player]]) }, player, { type: 'input', forward: 1, pace: 0.3 }, 0);
-  assert.equal(player.input.forward, 1);
-  assert.equal(player.input.pace, undefined);
+  assert.ok(Math.abs(speedWith({ forward: 1 }) - 7.5) < 0.001, 'a key: a full run');
+  assert.ok(Math.abs(speedWith({ forward: 0.4 }) - 3) < 0.001, 'part-way: a walk');
+  assert.ok(Math.abs(speedWith({ forward: 1, right: 1 }) - 7.5) < 0.001, 'two keys: between them, no faster');
+  assert.ok(Math.abs(speedWith({ forward: 0.3, right: -0.4 }) - 3.75) < 0.001, 'a diagonal part-way: as much as it asks');
 });
 
 test('jump begins only while grounded and gravity returns player to floor', () => {
