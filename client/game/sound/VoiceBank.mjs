@@ -61,12 +61,12 @@ export class VoiceBank {
    * voiceRules.mjs: nothing is said by one out of earshot); rate is their pitch. close: it is my own knight, heard as
    * he is (dry, full level). Returns whether anything was said.
    */
-  say(line, { speaker = 'me', pan = 0, gain = 1, rate = 1, chanceScale = 1, delay = 0, close = false, reverb = VOICE_HEARING.reverb } = {}) {
+  say(line, { speaker = 'me', pan = 0, gain = 1, rate = 1, chanceScale = 1, delay = 0, close = false, reverb = VOICE_HEARING.reverb, force = false } = {}) {
     if (!this.has(line) || !this.engine.running || !(gain > 0)) return false;
     const takes = this.takes.get(line);
     const index = this.#nextTake(`line:${line}`, takes.length);
     const take = takes[index];
-    const verdict = this.director.consider(line, speaker, this.engine.now, { chanceScale, duration: delay + take.duration / Math.max(0.5, rate) });
+    const verdict = this.director.consider(line, speaker, this.engine.now, { chanceScale, force, duration: delay + take.duration / Math.max(0.5, rate) });
     if (!verdict) return false;
     this.lastTake.set(`line:${line}`, index);
     // a line that matters more cuts the one it overrides (a short fade, not a click)

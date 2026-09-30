@@ -537,23 +537,46 @@ export function galeReleaseRecipe(rand = Math.random) {
 // --- Sunder All That Rusts and balance ---------------------------------------------------------------------------
 
 /**
- * The brace into Sunder: the whole harness drawn tight at once (a low boom of the body setting itself, plate grinding
- * on plate as it takes the strain, a hard clank as it locks), felt more than heard.
+ * The brace into Sunder: a sudden drop (the floor falling out from under the moment: a deep note plunging, the air
+ * rushing down after it), over by the time the brace takes hold, leaving a breath of silence for the bell
+ * (sunderDongRecipe, at the commit).
  */
-export function sunderBraceRecipe(rand = Math.random) {
+export function sunderDropRecipe(rand = Math.random) {
   return {
     layers: [
-      { type: 'tone', wave: 'sine', freq: 68 * jitter(rand, 0.05), slideTo: 38, attack: 0.03, decay: 0.7, gain: 0.95 },
-      { type: 'noise', filter: 'lowpass', freq: 240, q: 0.7, attack: 0.02, decay: 0.55, gain: 0.55 },
-      // plate grinding as it takes the strain
-      { type: 'noise', filter: 'bandpass', freq: 1300 * jitter(rand, 0.1), q: 5, sweepTo: 520, attack: 0.08, decay: 0.42, gain: 0.2, at: 0.05 },
-      ring(rand, 160 * jitter(rand, 0.05), { decay: 0.6, gain: 0.12, partials: 5, bright: 0.6 }),
-      // and locks
-      { type: 'noise', filter: 'highpass', freq: 2400, q: 0.8, attack: 0.0008, decay: 0.03, gain: 0.45, at: 0.5 },
-      { ...ring(rand, 420 * jitter(rand, 0.05), { decay: 0.4, gain: 0.16, partials: 4, bright: 0.9 }), at: 0.5 },
+      { type: 'tone', wave: 'sine', freq: 190 * jitter(rand, 0.03), slideTo: 30, attack: 0.008, decay: 0.46, gain: 0.95 },
+      { type: 'tone', wave: 'triangle', freq: 380 * jitter(rand, 0.03), slideTo: 60, attack: 0.008, decay: 0.38, gain: 0.16 },
+      // the air rushing down after it
+      { type: 'noise', filter: 'bandpass', freq: 2600, q: 1.1, sweepTo: 170, attack: 0.02, decay: 0.42, gain: 0.34 },
+      // and the harness drawn tight under it
+      { type: 'noise', filter: 'lowpass', freq: 240, q: 0.7, attack: 0.015, decay: 0.38, gain: 0.45 },
     ],
-    reverb: 0.4,
-    hall: 0.2,
+    reverb: 0.25,
+  };
+}
+
+// a great bell's partials, as ratios of its strike note: the hum an octave below, the minor-third tierce, the
+// quint, the nominal an octave above, and the bright ones over it (with how long each rings, relative)
+const BELL = Object.freeze([
+  [0.5, 0.12, 1.35], [1, 0.18, 1.1], [1.19, 0.12, 0.95], [1.51, 0.08, 0.7], [2, 0.2, 0.85], [2.66, 0.08, 0.5], [4.01, 0.06, 0.32], [5.34, 0.035, 0.22], [6.73, 0.025, 0.16], [8.25, 0.015, 0.12],
+]);
+
+/**
+ * Sunder taken hold: DONG. One great bell struck once (the clapper's knock, a low thump under it, and the bell
+ * ringing on through the first seconds of it), heard across the field.
+ */
+export function sunderDongRecipe(rand = Math.random) {
+  const strikeNote = 110 * jitter(rand, 0.01);
+  return {
+    layers: [
+      { type: 'noise', filter: 'highpass', freq: 1900, q: 0.8, attack: 0.0006, decay: 0.03, gain: 0.5 },
+      { type: 'tone', wave: 'sine', freq: 74, slideTo: 42, attack: 0.002, decay: 0.3, gain: 0.6 },
+      { type: 'ring', partials: BELL.map(([ratio, gain, decay]) => ({ freq: strikeNote * ratio * jitter(rand, 0.004), gain: gain * jitter(rand, 0.08), decay: 3.2 * decay, attack: 0.003 })) },
+      // the clapper's metal, a moment of it
+      ring(rand, 1250 * jitter(rand, 0.04), { decay: 0.18, gain: 0.07, partials: 3, bright: 0.6 }),
+    ],
+    reverb: 0.55,
+    hall: 0.4,
   };
 }
 
@@ -569,19 +592,36 @@ export function sunderForceRecipe(rand = Math.random) {
   };
 }
 
-/** A Sundering blade driven into the ground: a hard crack of stone giving way, then the grind of it splitting. */
-export function groundCrackRecipe(rand = Math.random) {
-  return {
-    layers: [
-      { type: 'noise', filter: 'highpass', freq: 1800 * jitter(rand, 0.1), q: 0.8, attack: 0.0006, decay: 0.05, gain: 0.8 },
-      { type: 'tone', wave: 'sine', freq: 90 * jitter(rand, 0.06), slideTo: 34, attack: 0.002, decay: 0.5, gain: 0.95 },
-      { type: 'noise', filter: 'lowpass', freq: 420, q: 0.7, attack: 0.003, decay: 0.45, gain: 0.6 },
-      // stone splitting, grinding outward
-      { type: 'noise', filter: 'bandpass', freq: 700 * jitter(rand, 0.1), q: 2.2, sweepTo: 260, attack: 0.02, decay: 0.6, gain: 0.35, at: 0.04 },
-    ],
-    reverb: 0.45,
-    hall: 0.22,
-  };
+// the inharmonic modes of a struck bar of iron (an anvil's clang)
+const ANVIL = Object.freeze([[1, 0.24, 1.6], [2.76, 0.2, 1.3], [5.4, 0.14, 1.0], [8.93, 0.08, 0.7], [13.34, 0.04, 0.45]]);
+
+/**
+ * A Sundering slam into the ground: a heavy anvil strike (a hard crack, a deep thud, and struck iron clanging on, its
+ * bright ting riding over it), and under it the rock giving way: a crunch, then rubble crumbling and stones
+ * skittering down, thinning out, and the low grumble of it settling.
+ */
+export function anvilSlamRecipe(rand = Math.random) {
+  const base = 285 * jitter(rand, 0.04);
+  const layers = [
+    { type: 'noise', filter: 'highpass', freq: 2600, q: 0.7, attack: 0.0004, decay: 0.035, gain: 0.75 },
+    { type: 'tone', wave: 'sine', freq: 96 * jitter(rand, 0.05), slideTo: 36, attack: 0.002, decay: 0.55, gain: 0.9 },
+    { type: 'noise', filter: 'lowpass', freq: 380, q: 0.7, attack: 0.002, decay: 0.4, gain: 0.65 },
+    { type: 'ring', partials: ANVIL.map(([ratio, gain, decay]) => ({ freq: base * ratio * jitter(rand, 0.01), gain: gain * jitter(rand, 0.12), decay: decay * jitter(rand, 0.1) })) },
+    { type: 'ring', partials: [{ freq: 2150 * jitter(rand, 0.03), gain: 0.13, decay: 2.6 }, { freq: 3380 * jitter(rand, 0.03), gain: 0.06, decay: 1.8 }] },
+    // the rock giving way
+    { type: 'noise', filter: 'bandpass', freq: 900 * jitter(rand, 0.1), q: 1.4, sweepTo: 300, attack: 0.004, decay: 0.28, gain: 0.5, at: 0.01 },
+    { type: 'noise', filter: 'lowpass', freq: 220, q: 0.5, attack: 0.08, decay: 0.8, gain: 0.32, at: 0.05 },
+  ];
+  // rubble: stones breaking and falling (a gravelly bed under them), thinning out
+  layers.push({ type: 'noise', filter: 'bandpass', freq: 1600, q: 0.9, sweepTo: 700, attack: 0.03, decay: 0.7, gain: 0.16, at: 0.05 });
+  const stones = 24;
+  for (let i = 0; i < stones; i += 1) {
+    layers.push({
+      type: 'noise', filter: 'bandpass', freq: 500 + rand() * 2600, q: 2 + rand() * 3, attack: 0.001, decay: 0.03 + rand() * 0.07,
+      gain: (0.55 - i * 0.017) * (0.6 + rand() * 0.4), at: 0.05 + Math.pow(i / stones, 1.5) * 0.9 + rand() * 0.03,
+    });
+  }
+  return { layers, reverb: 0.45, hall: 0.25 };
 }
 
 /** A fissure running: a gravelly crackle and a low grumble as it goes. */

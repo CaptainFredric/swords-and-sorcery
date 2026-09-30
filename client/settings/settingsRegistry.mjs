@@ -172,6 +172,10 @@ registry
   .defineSetting({
     id: 'loadout.spell', section: 'loadout', label: 'Spell', type: 'choice', default: 'fireball',
     options: [{ value: 'fireball', label: 'Fireball' }, { value: 'frostfire', label: 'Frostfire' }, { value: 'gale', label: 'Gale Garner' }, { value: 'steel', label: 'Sheathe in Steel' }],
+  })
+  .defineSetting({
+    id: 'loadout.ultimate', section: 'loadout', label: 'Ultimate', type: 'choice', default: 'sunder',
+    options: [{ value: 'sunder', label: 'Sunder All That Rusts' }],
   });
 
 registry

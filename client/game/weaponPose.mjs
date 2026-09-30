@@ -78,6 +78,7 @@ export function resolveWeaponPose({
   movingAmount = 0,
   attackHeld = false,
   attackStartedAt = 0,
+  attackSlam = false,
   guard = false,
   recoilUntil = 0,
   parryUntil = 0,
@@ -124,7 +125,7 @@ export function resolveWeaponPose({
     magicScale = 0.46;
   } else if (attackHeld) {
     state = 'attack';
-    const motion = attackMotion({ attackStartedAt }, timeSec);
+    const motion = attackMotion({ attackStartedAt, attackSlam }, timeSec);
     strike = motion.strike;
     const phase = attackPhase(motion.local);
     attackPhaseName = phase.name;

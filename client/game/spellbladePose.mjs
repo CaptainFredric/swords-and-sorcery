@@ -44,8 +44,11 @@ export function bufferedServerTime(a, b, renderTimeMs) {
 export function attackMotion(player, serverNow) {
   const elapsed = Math.max(0, serverNow - (player.attackStartedAt ?? serverNow));
   const cycle = elapsed % 2.08;
-  const strike = cycle < 0.72 ? 0 : cycle < 1.44 ? 1 : 2;
-  const start = strike === 0 ? 0 : strike === 1 ? 0.72 : 1.44;
+  const slot = cycle < 0.72 ? 0 : cycle < 1.44 ? 1 : 2;
+  // a chain begun Sundering: every strike is the heavy one's slam, timed to its own contact
+  const slam = Boolean(player.attackSlam);
+  const strike = slam ? 2 : slot;
+  const start = slam ? [0.4, 1.1, 1.8][slot] - 0.36 : slot === 0 ? 0 : slot === 1 ? 0.72 : 1.44;
   const duration = strike === 2 ? 0.64 : 0.72;
   const local = Math.max(0, Math.min(1, (cycle - start) / duration));
   const swing = Math.sin(local * Math.PI);

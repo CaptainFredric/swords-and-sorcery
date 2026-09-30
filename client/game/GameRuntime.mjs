@@ -17,7 +17,7 @@ import {
   blockRecipe, burnLickRecipe, castRecipe, dashRecipe, fireballImpactRecipe, frostImpactRecipe, guardBreakRecipe, hurtRecipe, killRecipe,
   deniedRecipe, galeReleaseRecipe, preciseRecipe, softStrikeRecipe, strikeSurface, woodThunkRecipe, gauntletHitRecipe, gauntletSwingRecipe, parryRecipe, spatialize, steelCallRecipe, steelClangRecipe, steelTickRecipe,
   swingRecipe, swordHitRecipe, wallClangRecipe,
-  groundCrackRecipe, ruptureRunRecipe, staggerBreakRecipe, staggerStrainRecipe, sunderBraceRecipe, sunderForceRecipe,
+  anvilSlamRecipe, ruptureRunRecipe, staggerBreakRecipe, staggerStrainRecipe, sunderDongRecipe, sunderDropRecipe, sunderForceRecipe,
   ultimateFizzleRecipe, ultimateReadyRecipe,
 } from './sound/soundRecipes.mjs';
 import { PROWESS } from '../../shared/src/prowess.mjs';
@@ -28,7 +28,8 @@ import { swordDamageFor } from '../../shared/src/combat.mjs';
 import { CROUCH, POSTURES, postureOf } from '../../shared/src/body.mjs';
 import { steelStrength } from '../../shared/src/steel.mjs';
 import { chillScale, spellFor } from '../../shared/src/spells.mjs';
-import { deathLines, galeTauntScale, gauntletLines, isOverkill, voicePlacement, voiceRate, worldImpactLines } from './sound/voiceRules.mjs';
+import { gauntletLines, voicePlacement, voiceRate, worldImpactLines } from './sound/voiceRules.mjs';
+import { VoiceMoments } from './sound/voiceMoments.mjs';
 import { FOOTSTEPS, footfallsCrossed, footstepPlacement, footstepRecipe, surfaceAt, variantPicker } from './sound/footsteps.mjs';
 import { CombatHeat, matchClosing, nearestFoe } from './sound/combatHeat.mjs';
 import { FP_MOTION } from './firstPersonMotion.mjs';
@@ -114,11 +115,15 @@ export class GameRuntime {
     this.remotePlayers.onFootstep = (id, position, heavy, crouched) => this.#footstep(id, position, crouched ? 0 : heavy, FOOTSTEPS.other * (crouched ? 0.55 : 1));
     // now and then a knight grunts as he jumps (an exertion: never over his other lines)
     this.remotePlayers.onJump = (id) => this.#say('jump', id);
+    // the moments he has a line for, remembered a little while (voiceMoments.mjs)
+    this.moments = new VoiceMoments();
     this.weapon = new WeaponView(this.camera);
-    this.weapon.onSwing = (strike) => {
-      this.#play(swingRecipe(Math.random, { strike }), null, 0.85);
+    this.weapon.onSwing = (strike, { slam = false } = {}) => {
+      // (Sundering, every strike is swung as the heavy one)
+      const heavy = slam || strike >= 2;
+      this.#play(swingRecipe(Math.random, { strike: heavy ? 2 : strike }), null, 0.85);
       // the heavy third strike gets his breath behind it; the lighter ones only now and then
-      this.#say('effort', this.socket.playerId, { chanceScale: strike >= 2 ? 1 : 0.3 });
+      this.#say('effort', this.socket.playerId, { chanceScale: heavy ? 1 : 0.3 });
     };
     this.effects = new Effects(this.scene, this.camera);
     this.onPointer = () => {};
@@ -203,7 +208,7 @@ export class GameRuntime {
       this.weapon.dash();
       this.effects.dash();
       this.#play(dashRecipe(), null, 0.8);
-      this.#say('dash', this.socket.playerId);
+      if (!this.#say('dash', this.socket.playerId)) this.#say('laugh', this.socket.playerId, { delay: 0.1 });
     };
 
     this.localState = null;
@@ -431,7 +436,8 @@ export class GameRuntime {
           const body = event.playerId === me ? null : this.#bodyPosition(event.playerId);
           if (body) this.effects.galeGather({ x: body.x, y: body.y + 1.3, z: body.z });
         }
-        this.#say('sorcery', event.playerId);
+        // SORCERY!! now and then; when it keeps quiet, the wildcard may not
+        if (!this.#say('sorcery', event.playerId)) this.#say('laugh', event.playerId, { delay: 0.2 });
       }
 
       if (event.type === 'galeBlast') this.#galeBlast(event);
@@ -443,8 +449,13 @@ export class GameRuntime {
       if (event.type === 'damage') {
         // the killing blow's weight against the health it took, for the fallen's line (an overkill: voiceRules)
         const before = this.healthAfterBlow?.get(event.victimId) ?? this.latestSnapshot?.players.find((p) => p.id === event.victimId)?.health ?? 100;
-        if (event.health <= 0) (this.killingBlow ??= new Map()).set(event.victimId, { overkill: isOverkill({ amount: event.amount, healthBefore: before, level: event.level }) });
+        if (event.health <= 0) {
+          (this.killingBlow ??= new Map()).set(event.victimId, {
+            amount: event.amount, healthBefore: before, level: event.level ?? null, ultimate: Boolean(event.ultimate), clean: Boolean(event.clean),
+          });
+        }
         (this.healthAfterBlow ??= new Map()).set(event.victimId, event.health);
+        this.#sayMoments(this.moments.damage(event, this.#voiceWorld()), event.at);
       }
 
       // Sheathed in Steel: another knight's plate ringing as it hardens (mine rang as I pressed)
@@ -454,13 +465,23 @@ export class GameRuntime {
 
       // Sunder All That Rusts: the brace (and the cry), the brace broken before it took hold, the ground split
       if (event.type === 'ultimateStart') this.#ultimateStart(event);
+      // ...and as it takes hold, the bell
+      if (event.type === 'ultimateActive') {
+        this.#play(sunderDongRecipe(), event.playerId === me ? null : this.#bodyPosition(event.playerId), event.playerId === me ? 0.95 : 0.8);
+        this.#say('laugh', event.playerId, { delay: 1.1 });
+      }
       if (event.type === 'ultimateInterrupted') {
         this.#play(ultimateFizzleRecipe(), event.playerId === me ? null : this.#bodyPosition(event.playerId), 0.8);
         if (event.playerId === me) this.hud.flashText('INTERRUPTED', 'danger');
       }
-      if (event.type === 'staggerBreak') this.#staggerBreak(event);
+      if (event.type === 'staggerBreak') {
+        this.#staggerBreak(event);
+        this.#sayMoments(this.moments.staggerBreak(event, this.#voiceWorld()), event.at);
+      }
+      // another knight's dash: the wildcard, now and then (mine is said as I press it)
+      if (event.type === 'dash' && event.playerId !== me) this.#say('laugh', event.playerId, { delay: 0.1 });
       if (event.type === 'groundStrike') {
-        this.#play(groundCrackRecipe(), event.playerId === me ? null : event.point, 1);
+        this.#play(anvilSlamRecipe(), event.playerId === me ? null : event.point, 1);
         if (event.playerId === me) this.cameraKick = Math.max(this.cameraKick, 0.2);
       }
       if (event.type === 'rupture') {
@@ -471,8 +492,9 @@ export class GameRuntime {
 
       // my own swings whoosh from the local swing (no network delay); others' from the server's strike
       if (event.type === 'swordSwing' && event.playerId !== me) {
-        this.#play(swingRecipe(Math.random, { strike: event.strikeIndex }), this.#bodyPosition(event.playerId), 0.55);
-        this.#say('effort', event.playerId, { chanceScale: event.strikeIndex >= 2 ? 1 : 0.3 });
+        const heavy = event.slam || event.strikeIndex >= 2;
+        this.#play(swingRecipe(Math.random, { strike: heavy ? 2 : event.strikeIndex }), this.#bodyPosition(event.playerId), 0.55);
+        this.#say('effort', event.playerId, { chanceScale: heavy ? 1 : 0.3 });
       }
       this.#warm(event, me);
 
@@ -553,6 +575,12 @@ export class GameRuntime {
         this.#deathVoice(event);
       }
       if (event.type === 'respawn' && event.playerId === this.socket.playerId) this.hud.flashText('FIGHT!', 'ready');
+      // a life begun again (the wildcard is once a life); a new match forgets everything
+      if (event.type === 'respawn') this.voice?.director?.newLife?.(event.playerId);
+      if (event.type === 'matchStarted') {
+        this.moments.reset();
+        this.voice?.director?.newLife?.();
+      }
     }
   }
 
@@ -580,9 +608,9 @@ export class GameRuntime {
 
   // a Spellblade speaks: mine from inside my own helm, others from where they stand, each with their own pitch.
   // Returns whether anything was said.
-  #say(line, playerId, { chanceScale = 1, delay = 0 } = {}) {
+  #say(line, playerId, { chanceScale = 1, delay = 0, force = false } = {}) {
     if (!this.voice || !playerId) return false;
-    if (playerId === this.socket.playerId) return this.voice.say(line, { speaker: playerId, gain: 0.8, chanceScale, delay, close: true });
+    if (playerId === this.socket.playerId) return this.voice.say(line, { speaker: playerId, gain: 0.8, chanceScale, delay, close: true, force });
     const body = this.#bodyPosition(playerId);
     const snapshotPlayer = this.latestSnapshot?.players.find((p) => p.id === playerId);
     if (!body || snapshotPlayer?.actorKind === 'dummy') return false;
@@ -590,7 +618,7 @@ export class GameRuntime {
     // only within earshot: a bark is for the knights around him, not the whole map (voiceRules VOICE_HEARING)
     const place = voicePlacement(listener, this.input.yaw, body);
     if (!place) return false;
-    return this.voice.say(line, { speaker: playerId, pan: place.pan, gain: place.gain * 0.9, reverb: place.reverb, rate: voiceRate(playerId), chanceScale, delay });
+    return this.voice.say(line, { speaker: playerId, pan: place.pan, gain: place.gain * 0.9, reverb: place.reverb, rate: voiceRate(playerId), chanceScale, delay, force });
   }
 
   // a footstep on whatever is underfoot: mine (from = null) at my own feet, another knight's from where he stands and
@@ -642,9 +670,9 @@ export class GameRuntime {
         this.remotePlayers.gust(caught.id, caught.shove);
       }
     }
-    // the gale's jibe: only after a gust that really moved someone, likelier the harder it threw them
-    const jibe = galeTauntScale(event.affected ?? []);
-    if (jibe > 0) this.#say('galeTaunt', event.playerId, { delay: 0.7, chanceScale: jibe });
+    // the gale's jibe (only after a gust that really moved someone, likelier the harder it threw them), the thrown,
+    // and anyone it rescued
+    this.#sayMoments(this.moments.galeCaught(event, this.#voiceWorld()), event.at);
   }
 
   // the precise ring of the cleanest contact, over the blow's own sound (a cluster of them is one ring)
@@ -794,11 +822,31 @@ export class GameRuntime {
   // the fallen may protest (magic they do not believe in, or that they are a knight); if they keep quiet, whoever
   // felled them may have a word over the body
   #deathVoice(event) {
-    const overkill = Boolean(this.killingBlow?.get(event.victimId)?.overkill);
+    const blow = this.killingBlow?.get(event.victimId) ?? null;
     this.killingBlow?.delete(event.victimId);
-    const { fallen, victor } = deathLines({ ...event, overkill });
-    if (fallen.some((say) => this.#say(say.line, say.speaker, say))) return;
-    victor.some((say) => this.#say(say.line, say.speaker, say));
+    const { fallen, victor, rescued } = this.moments.death(event, { ...this.#voiceWorld(), blow, practice: this.#inPractice() });
+    if (!fallen.some((say) => this.#say(say.line, say.speaker, say))) this.#sayMoments([victor], event.at);
+    this.#sayMoments(rescued, event.at);
+  }
+
+  // what the voice's moments need to know of the knights (voiceMoments.mjs)
+  #voiceWorld() {
+    const players = this.latestSnapshot?.players ?? [];
+    return {
+      knight: (id) => players.find((p) => p.id === id) ?? null,
+      positionOf: (id) => this.#bodyPosition(id),
+    };
+  }
+
+  // each group of lines: the first that is said is the only one (a squire's question asked opens its window)
+  #sayMoments(groups, at) {
+    for (const group of groups) {
+      for (const say of group) {
+        if (!this.#say(say.line, say.speaker, say)) continue;
+        if (say.squire) this.moments.squireAsked(say.speaker, at, this.#bodyPosition(say.speaker));
+        break;
+      }
+    }
   }
 
   // steel anywhere stirs the music; blows that involve me put it on the fight
@@ -837,7 +885,7 @@ export class GameRuntime {
   // a knight braces into Sunder: the harness drawn tight, and the cry; mine names it
   #ultimateStart(event) {
     const me = event.playerId === this.socket.playerId;
-    this.#play(sunderBraceRecipe(), me ? null : this.#bodyPosition(event.playerId), me ? 1 : 0.8);
+    this.#play(sunderDropRecipe(), me ? null : this.#bodyPosition(event.playerId), me ? 1 : 0.8);
     this.#say('sunderCall', event.playerId, { delay: 0.05 });
     if (me) {
       this.hud.flashText('SUNDER ALL THAT RUSTS', 'sunder', 1400);
@@ -928,7 +976,7 @@ export class GameRuntime {
       if (event.defenderId === me) this.cameraKick = Math.max(this.cameraKick, 0.12);
     }
     // the one who broke it may gloat, once the crunch has landed
-    if (heavy) this.#say('breakTaunt', event.attackerId, { delay: 0.7 });
+    if (heavy) this.#sayMoments(this.moments.guardBreak(event), event.at);
   }
 
   // direction a blow drove me, in view space (+x right, +z backward); straight back if the source is unknown
@@ -1029,6 +1077,7 @@ export class GameRuntime {
       const moveInput = this.input.movement();
       const serverNow = this.socket.serverNow();
       // predict the sprint with the same rule the server uses, from the last authoritative stamina
+      const wasSprinting = this.localState.sprinting;
       this.localState.sprinting = resolveSprint({
         wantsSprint: moveInput.sprint,
         forward: moveInput.forward,
@@ -1039,6 +1088,8 @@ export class GameRuntime {
         blocked: this.input.guardHeld || this.input.attackHeld || (this.localAuth.staggerUntil ?? 0) > serverNow,
         crouched: Boolean(this.localState.crouched),
       });
+      // breaking into a sprint with someone at my heels: the wildcard, now and then
+      if (!wasSprinting && this.localState.sprinting && this.moments.underPressure(this.socket.playerId, serverNow)) this.#say('laugh', this.socket.playerId);
       const wasGrounded = this.localState.grounded;
       const fallSpeed = -this.localState.velocity.y;
       // a chill slows my own steps exactly as the server slows them (it thaws on the same clock)
@@ -1050,6 +1101,8 @@ export class GameRuntime {
       if (wasGrounded && !this.localState.grounded && this.localState.velocity.y > 4) this.#say('jump', this.socket.playerId);
       if (!wasGrounded && this.localState.grounded) {
         this.weapon.land(fallSpeed);
+        // a hard landing: the wildcard, now and then
+        if (fallSpeed > 11) this.#say('laugh', this.socket.playerId, { delay: 0.15 });
         // both feet down at once, heavier the further he fell
         if (fallSpeed > 2.5) this.#footstep(null, this.localState.position, Math.min(1, fallSpeed / 10), FOOTSTEPS.landing);
       }

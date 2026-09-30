@@ -53,16 +53,18 @@
       {
         "file": "kill-taunt-1",
         "seconds": 2.01
-      },
-      {
-        "file": "kill-taunt-2",
-        "seconds": 1.81
       }
     ],
     "knightFallen": [
       {
         "file": "knight-fallen-1",
         "seconds": 4.82
+      }
+    ],
+    "laugh": [
+      {
+        "file": "laugh-1",
+        "seconds": 1.81
       }
     ],
     "magicDefeat": [

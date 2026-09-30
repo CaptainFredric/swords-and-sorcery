@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { FIRST_PERSON_OFF_ARM, FIRST_PERSON_SWORD_ARM, elbowAngleFor, normalize, rotateVector, solveArm, solveSwordArm } from './swordArmIK.mjs';
-import { CHAIN, COMBO, COMBO_CONTACTS, COMBO_END, REST_ARM, RECOVERY, blendPoses, comboPose, counterRotations, offHandOnGrip, recoveryPose } from './fpSlash.mjs';
+import { CHAIN, COMBO, COMBO_CONTACTS, COMBO_END, REST_ARM, RECOVERY, SLAM, blendPoses, comboPose, counterRotations, offHandOnGrip, recoveryPose, slamPose } from './fpSlash.mjs';
 import { MELEE_CONTACT, SWORD_CHAIN } from '../../shared/src/combat.mjs';
 
 // a toy arm with the first-person rig's proportions: each bone a pivot and an orientation (three axes), turning a
@@ -284,4 +284,36 @@ test('the body drives the blade: it leads the hand, the blade trails a touch, th
   assert.ok(comboPose(C2 + 0.1).counter[1] < -0.05, 'and comes across with the backhand');
   assert.deepEqual(counterRotations([0.1, 0.1, 0.1], 0), []);
   assert.ok(counterRotations([0.1, -0.1, 0.05]).every((turn) => /\.L$/.test(turn.bone)), 'only the magic arm');
+});
+
+test('Sundering, every strike is the heavy slam: raised in both hands, driven down through the middle at each contact, smooth all the way', () => {
+  assert.ok(SLAM.every((key, i) => i === 0 || key.t > SLAM[i - 1].t), 'keys in order');
+  smoothly(frames(slamPose, 0, COMBO_END), 'the slams');
+  for (const from of [SWORD_CHAIN.starts[1], SWORD_CHAIN.starts[2], C1 - 0.03, C2 + 0.02]) {
+    for (const quick of [false, true]) {
+      smoothly(frames((t) => (t < from ? slamPose(t) : recoveryPose(from, t - from, { quick, slam: true })), from - 0.1, from + RECOVERY.seconds + 0.1), `home from ${from.toFixed(2)} s`);
+    }
+  }
+  // held: the next chain of slams takes over from the last one's settle
+  const cycle = C3 + SWORD_CHAIN.restart;
+  smoothly(frames((t) => (t < cycle ? slamPose(t) : blendPoses(slamPose(t), slamPose(t - cycle), (t - cycle) / 0.18)), C3, cycle + 0.8), 'slams again');
+  for (const pose of [slamPose(0), slamPose(COMBO_END)]) assert.ok(distance(pose.arm.wrist, REST_ARM.wrist) < 1e-6, 'from rest, and home to it');
+  for (const contact of COMBO_CONTACTS) {
+    assert.ok(slamPose(contact - 0.2).arm.blade[1] > 0.8, `raised high before ${contact}`);
+    assert.ok(slamPose(contact).offHand?.weight > 0.99, 'both hands on the grip');
+    const before = seen(slamPose(contact - 0.05).arm).midOnScreen;
+    const after = seen(slamPose(contact + 0.05).arm).midOnScreen;
+    assert.ok(after[1] < before[1] - 0.4 && Math.abs(after[1] - before[1]) > 4 * Math.abs(after[0] - before[0]), `down, not across, at ${contact}`);
+    let crossed = null;
+    for (let t = contact - 0.2; t < contact + 0.2; t += FRAME) {
+      const a = seen(slamPose(t).arm).midOnScreen[1];
+      const b = seen(slamPose(t + FRAME).arm).midOnScreen[1];
+      if ((a > 0) !== (b > 0)) { crossed = t + FRAME * (a / (a - b)); break; }
+    }
+    assert.ok(crossed !== null && Math.abs(crossed - (contact - 0.02)) < 0.03, `through the middle at ${crossed?.toFixed(3)} (contact ${contact})`);
+  }
+  for (const { t, pose } of frames(slamPose, 0, COMBO_END)) {
+    assert.ok(-seen(pose.arm).tip[2] > 0.6, `the point near the eye at ${t.toFixed(2)} s`);
+    assert.ok(size(pose.arm) < 1.6 * size(REST_ARM), `the blade looms at ${t.toFixed(2)} s`);
+  }
 });

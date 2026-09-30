@@ -49,19 +49,26 @@ SR = 48000
 
 LINES = ('effort', 'hurt', 'death', 'sorcery', 'dash', 'victory', 'defeat', 'magicDefeat', 'killTaunt', 'breakTaunt',
          'galeTaunt', 'steelBoast', 'fistEffort', 'fistThrow', 'fistKill', 'rebuttal', 'sunderCall', 'knightFallen', 'jump',
-         'bladeCaught', 'vortexUse', 'vortexDefeat')
+         'bladeCaught', 'vortexUse', 'vortexDefeat', 'laugh', 'neverThought', 'lateLine', 'squireSetup', 'newKnighthood',
+         'staggerDisplay', 'lowerGuard', 'hackSlash', 'subparStandard', 'alwaysKnew', 'neverReach', 'misaddressed')
 ALIASES = {
     'grunt': 'effort', 'swing': 'effort', 'attack': 'effort', 'heave': 'effort', 'strike': 'effort',
     'pain': 'hurt', 'hit': 'hurt', 'ow': 'hurt', 'ouch': 'hurt',
     'die': 'death', 'dying': 'death', 'dead': 'death',
     'spell': 'sorcery', 'cast': 'sorcery', 'fireball': 'sorcery',
     'breath': 'dash', 'huff': 'dash', 'exhale': 'dash',
-    'win': 'victory', 'laugh': 'victory', 'cheer': 'victory', 'triumph': 'victory',
+    'win': 'victory', 'might': 'victory', 'cheer': 'victory', 'triumph': 'victory',
     'hya': 'fistEffort', 'hiyah': 'fistEffort', 'hiyaah': 'fistEffort', 'punch': 'fistEffort',
     'gauntlet': 'fistThrow', 'sofisticated': 'fistKill', 'fistkill': 'fistKill',
     'sunder': 'sunderCall', 'integrity': 'sunderCall', 'ultimate': 'sunderCall',
     'fallen': 'knightFallen', 'knightfallen': 'knightFallen', 'hop': 'jump', 'leap': 'jump',
     'snag': 'bladeCaught', 'flowerpot': 'bladeCaught', 'vortex': 'vortexUse', 'dizzy': 'vortexDefeat',
+    'haha': 'laugh', 'chuckle': 'laugh', 'thisday': 'neverThought', 'never': 'neverThought',
+    'late': 'lateLine', 'noooo': 'lateLine', 'squire': 'squireSetup', 'knighthood': 'newKnighthood', 'hood': 'newKnighthood',
+    'staggering': 'staggerDisplay', 'display': 'staggerDisplay', 'lower': 'lowerGuard', 'helped': 'lowerGuard',
+    'hack': 'hackSlash', 'slash': 'hackSlash', 'standard': 'subparStandard', 'subpar': 'subparStandard',
+    'always': 'alwaysKnew', 'knew': 'alwaysKnew', 'practicing': 'neverReach', 'reach': 'neverReach',
+    'misaddressed': 'misaddressed', 'riposte': 'misaddressed',
 }
 
 # per line: how far down, how hard the grit, how loud (the close helm keeps the veteran's -4.5 semitones)
@@ -101,6 +108,31 @@ PRESETS = {
     'vortexUse': {'semitones': -4.5, 'drive': 2.3, 'rms_db': -16},
     # "I was dizzy anyway." felled during Blazing Vortex (prepared for the ultimate; dry, not shouted)
     'vortexDefeat': {'semitones': -4.5, 'drive': 2.0, 'rms_db': -17, 'expand_below_db': -40},
+    # "AHHhhh, hahaHAH!" (once the second take of killTaunt; now a line of its own, heard in several moments)
+    'laugh': {'semitones': -4.5, 'drive': 2.2, 'rms_db': -16},
+    # "I had never thought this day would come..." (the match lost; trails off, so the expander is eased)
+    'neverThought': {'semitones': -4.5, 'drive': 2.0, 'rms_db': -17, 'expand_below_db': -42},
+    # --- to be recorded (each is wired in the game, and silent until it is)
+    # "NOOoo! I am going to be late!" (a wail: the cries' grit)
+    'lateLine': {'semitones': -4.5, 'drive': 2.3, 'rms_db': -16},
+    # "What did the squire say to the Spellblade?" (a setup, conversational: every word must land)
+    'squireSetup': {'semitones': -4.5, 'drive': 2.0, 'rms_db': -17},
+    # "You have achieved a new form of knight hood." (ceremonial, measured)
+    'newKnighthood': {'semitones': -4.5, 'drive': 2.0, 'rms_db': -17},
+    # "A staggering display." (dry)
+    'staggerDisplay': {'semitones': -4.5, 'drive': 2.0, 'rms_db': -17},
+    # "I helped you lower your guard." (dry)
+    'lowerGuard': {'semitones': -4.5, 'drive': 2.0, 'rms_db': -17},
+    # "You are the hack. I will be the slash."
+    'hackSlash': {'semitones': -4.5, 'drive': 2.2, 'rms_db': -16},
+    # "Your standard is subpar." (deadpan)
+    'subparStandard': {'semitones': -4.5, 'drive': 2.0, 'rms_db': -18},
+    # "I always knew that I thought this would happen." (a quick, self-satisfied aside)
+    'alwaysKnew': {'semitones': -4.5, 'drive': 2.0, 'rms_db': -17, 'expand_below_db': -42},
+    # "If you keep practicing... you will still never reach me." (a pause in the middle: the expander is eased)
+    'neverReach': {'semitones': -4.5, 'drive': 2.0, 'rms_db': -17, 'expand_below_db': -42},
+    # "I have misaddressed." (for the Riposte, when it exists)
+    'misaddressed': {'semitones': -4.5, 'drive': 2.0, 'rms_db': -17},
 }
 
 # the close helm's room removal and dynamics (see close_helm)

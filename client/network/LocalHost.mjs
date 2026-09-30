@@ -10,6 +10,7 @@ import { RoomManager } from '../../shared/sim/RoomManager.mjs';
 import { applyRoomCommand, serializeLobby, serializeSnapshot } from '../../shared/sim/wire.mjs';
 import { DEFAULT_SPELL, isSpell } from '../../shared/src/spells.mjs';
 import { GAME_MODES, arenaOrDefault } from '../../shared/src/modes.mjs';
+import { DEFAULT_ULTIMATE, isUltimate } from '../../shared/src/ultimates.mjs';
 
 const TICK_RATE = 30;
 const SOLO_MODES = new Set([GAME_MODES.BOT_DUEL, GAME_MODES.PRACTICE]);
@@ -93,7 +94,7 @@ export class LocalHost {
     this.#stop();
     const time = this.now();
     const room = this.rooms.createSoloRoom(mode, time, arenaOrDefault(worldId));
-    const player = room.addPlayer({ id: randomId(), token: randomId(), name: String(name || 'Spellblade').slice(0, 18), spell: this.spell }, time);
+    const player = room.addPlayer({ id: randomId(), token: randomId(), name: String(name || 'Spellblade').slice(0, 18), spell: this.spell, ultimate: this.ultimate }, time);
     room.provisionModeActors(time);
     room.armAutoStart(time);
     this.room = room;
@@ -144,9 +145,11 @@ export class LocalHost {
     this.#deliver({ type: 'left' });
   }
 
-  loadout(spell) {
+  loadout(spell, ultimate = this.ultimate) {
     this.spell = isSpell(spell) ? spell : DEFAULT_SPELL;
+    this.ultimate = isUltimate(ultimate) ? ultimate : DEFAULT_ULTIMATE;
     if (this.player && !this.player.pendingSpell) this.player.spell = this.spell;
+    if (this.player && !this.player.ultimateState) this.player.ultimate = this.ultimate;
   }
 
   send(message) { this.#command(message); }

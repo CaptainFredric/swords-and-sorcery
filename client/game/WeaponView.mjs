@@ -8,7 +8,7 @@ import { createSpellbladeAsset, reportSpellbladeAssetStatus } from './Spellblade
 import { resolveFirstPersonAnimationPlan } from './spellbladeAnimationPlan.mjs';
 import { FIRST_PERSON_WEAPON_SCALE, resolveWeaponPose } from './weaponPose.mjs';
 import { FP_MOTION, FirstPersonMotion } from './firstPersonMotion.mjs';
-import { blendPoses, comboPose, counterRotations, recoveryPose } from './fpSlash.mjs';
+import { blendPoses, comboPose, counterRotations, recoveryPose, slamPose } from './fpSlash.mjs';
 import { FIRST_PERSON_OFF_ARM, FIRST_PERSON_SWORD_ARM, solveArm, solveSwordArm } from './swordArmIK.mjs';
 import { BLADE_CLEARANCE, nextRetraction } from './bladeClearance.mjs';
 import { createSunderBlade } from './sunderBlade.mjs';
@@ -500,6 +500,7 @@ export class WeaponView {
       movingAmount,
       attackHeld: Boolean(chain),
       attackStartedAt: this.attackStartedAt,
+      attackSlam: Boolean(this.comboSource?.slam ?? this.sunderActive),
       guard: this.guard,
       recoilUntil: this.recoilUntil,
       parryUntil: this.parryUntil,
@@ -517,7 +518,7 @@ export class WeaponView {
       for (let strike = heard + 1; strike < chain.committed; strike += 1) {
         if (since < SWORD_STRIKE_TIMES[strike] - MELEE_CONTACT.window.early) break;
         this.lastSwingKey = { startedAt: chain.startedAt, strike };
-        this.onSwing(strike);
+        this.onSwing(strike, { slam: Boolean(this.comboSource?.chainAt === chain.startedAt ? this.comboSource.slam : this.sunderActive) });
       }
     }
     const frozen = timeSec < this.frozenUntil;
@@ -660,7 +661,10 @@ export class WeaponView {
         // from rest the chain's first pose is the rest's own, so it takes the arms at once; out of a guard, a cast or
         // a dash it takes a beat to take hold of them
         const fadeIn = !previous && stateBefore !== 'idle';
-        this.comboSource = { chainAt: startedAt, fadeIn, pose: (t) => comboPose(t - startedAt) };
+        // (a chain begun Sundering is slams to its end, as the server swings it)
+        const slam = Boolean(this.sunderActive);
+        const chain = slam ? slamPose : comboPose;
+        this.comboSource = { chainAt: startedAt, fadeIn, slam, pose: (t) => chain(t - startedAt) };
         this.comboLetGo = null;
         this.comboBroken = false;
       }
@@ -680,7 +684,8 @@ export class WeaponView {
       // the chain is over: home from where it had got to, carrying on from the last frame it was shown
       const { since, at } = this.comboLast;
       const quick = this.comboBroken;
-      this.comboSource = { home: true, pose: (t) => recoveryPose(since, t - at, { quick }) };
+      const slam = Boolean(this.comboSource.slam);
+      this.comboSource = { home: true, pose: (t) => recoveryPose(since, t - at, { quick, slam }) };
     }
     const pose = this.comboSource.pose(timeSec);
     if (!pose) return this.#comboDone();

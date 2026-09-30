@@ -4,7 +4,7 @@ import { GAME_MODES, VOTE_OPTIONS, getModePolicy } from '../src/modes.mjs';
 import { WORLD_IDS, getWorld } from '../worlds/registry.mjs';
 import { DEFAULT_SPELL, SPELLS, isSpell } from '../src/spells.mjs';
 import { freshStagger } from '../src/stagger.mjs';
-import { DEFAULT_ULTIMATE } from '../src/ultimates.mjs';
+import { DEFAULT_ULTIMATE, isUltimate } from '../src/ultimates.mjs';
 
 const COUNTDOWN_SEC = 3;
 const MATCH_SEC = 360;
@@ -30,6 +30,7 @@ function freshCombatState(spawn, nowSec = 0) {
     attackHeld: false,
     attackQueued: false,
     attackStartedAt: -Infinity,
+    attackSlam: false,
     attackNextStrike: 0,
     attackCommitted: 0,
     attackRestartAt: -Infinity,
@@ -93,7 +94,7 @@ export class Room {
     this.autoStartAfterSec = isPrivate ? AUTO_START_PRIVATE_SEC : AUTO_START_PUBLIC_SEC;
   }
 
-  addPlayer({ id, token, name, spell = DEFAULT_SPELL }, nowSec) {
+  addPlayer({ id, token, name, spell = DEFAULT_SPELL, ultimate = DEFAULT_ULTIMATE }, nowSec) {
     if (this.players.size >= 8) throw new Error('Room is full');
     const spawn = this.world.spawnPoints[this.players.size % this.world.spawnPoints.length];
     const player = {
@@ -102,7 +103,8 @@ export class Room {
       name: String(name || 'Spellblade').slice(0, 18),
       // the spell carried from the Armory
       spell: isSpell(spell) ? spell : DEFAULT_SPELL,
-      ultimate: DEFAULT_ULTIMATE,
+      // and the ultimate chosen there
+      ultimate: isUltimate(ultimate) ? ultimate : DEFAULT_ULTIMATE,
       actorKind: 'human',
       connected: true,
       arenaReady: false,

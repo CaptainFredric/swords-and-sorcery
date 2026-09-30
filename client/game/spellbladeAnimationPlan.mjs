@@ -1,5 +1,5 @@
 import { MOVEMENT, SPRINT } from '../../shared/src/movement.mjs';
-import { GAME } from '../../shared/src/combat.mjs';
+import { GAME, SWORD_CHAIN, SWORD_STRIKE_TIMES } from '../../shared/src/combat.mjs';
 
 const SLASH_DURATIONS = Object.freeze([0.72, 0.72, 0.64]);
 const ATTACK_CYCLE = SLASH_DURATIONS.reduce((sum, value) => sum + value, 0);
@@ -21,10 +21,19 @@ function fixed(clip, time = 0, loop = false) {
   return { clip, time: nonNegative(time), loop, weight: 1 };
 }
 
+// the heavy strike's contact, this far into Slash_3 (its slot begins at the chain's third start)
+const SLAM_CONTACT = SWORD_STRIKE_TIMES[2] - SWORD_CHAIN.starts[2];
+
 function attackPlan(player, serverNow) {
   const startedAt = finite(player?.attackStartedAt, serverNow);
   const elapsed = nonNegative(serverNow - startedAt);
   const cycle = elapsed % ATTACK_CYCLE;
+
+  // a chain begun Sundering: every strike is the heavy one's slam, each timed to its own contact
+  if (player?.attackSlam) {
+    const slot = cycle < SLASH_DURATIONS[0] ? 0 : cycle < SLASH_DURATIONS[0] + SLASH_DURATIONS[1] ? 1 : 2;
+    return fixed('Slash_3', cycle - SWORD_STRIKE_TIMES[slot] + SLAM_CONTACT);
+  }
 
   if (cycle < SLASH_DURATIONS[0]) return fixed('Slash_1', cycle);
   if (cycle < SLASH_DURATIONS[0] + SLASH_DURATIONS[1]) {
