@@ -416,6 +416,18 @@ function updateMovement(actor, target, distance, ai, aggression, world, nowSec, 
     && nowSec >= ai.escapeUntil
     && nowSec >= ai.avoidUntil;
 
+  // a bot never walks itself off a ledge: a drop ahead the way it is moving, and it circles the other way, or stops
+  // (a blow or a gust can still send it over)
+  if (dropAhead(actor, yaw, forward, right, world)) {
+    right = -right;
+    ai.strafeDirection = -(ai.strafeDirection || 1);
+    if (dropAhead(actor, yaw, forward, right, world)) {
+      forward = Math.min(0, forward);
+      right = 0;
+      if (dropAhead(actor, yaw, forward, right, world)) forward = 0;
+    }
+  }
+
   actor.input = {
     forward: clamp(forward, -1, 1),
     right: clamp(right, -1, 1),
@@ -424,6 +436,34 @@ function updateMovement(actor, target, distance, ai, aggression, world, nowSec, 
     yaw,
     pitch: 0,
   };
+}
+
+// a fall ahead of a body moving with this input: a stride or two that way, no ground (or ground far below) anywhere
+// under a body's width (a crack narrower than a knight is no fall), and no wall first
+const LEDGE = Object.freeze({ probes: Object.freeze([0.8, 1.5]), fall: 2, halfWidth: 0.35 });
+
+function dropAhead(actor, yaw, forward, right, world) {
+  if (!world?.floors?.length) return false;
+  const x = -Math.sin(yaw) * forward + Math.cos(yaw) * right;
+  const z = -Math.cos(yaw) * forward - Math.sin(yaw) * right;
+  const length = Math.hypot(x, z);
+  if (length < 0.1) return false;
+  const [dx, dz] = [x / length, z / length];
+  const { y } = actor.position;
+  for (const reach of LEDGE.probes) {
+    const px = actor.position.x + dx * reach;
+    const pz = actor.position.z + dz * reach;
+    const wall = (world.solids ?? []).some((s) => s.center[1] - s.size[1] / 2 < y + 1 && s.center[1] + s.size[1] / 2 > y + 0.3
+      && Math.abs(px - s.center[0]) < s.size[0] / 2 && Math.abs(pz - s.center[2]) < s.size[2] / 2);
+    if (wall) return false;
+    // (ground above the feet there is a climb ahead, not a fall: any floor up to a storey up counts)
+    const footing = [0, -LEDGE.halfWidth, LEDGE.halfWidth].some((side) => {
+      const ground = surfaceHeightAt(px - dz * side, pz + dx * side, y + 3, world);
+      return ground !== null && ground >= y - LEDGE.fall;
+    });
+    if (!footing) return true;
+  }
+  return false;
 }
 
 // the fallen foe's body, and how long the bot takes over it (see POST_KILL)

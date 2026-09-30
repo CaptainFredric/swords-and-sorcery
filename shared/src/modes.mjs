@@ -6,9 +6,17 @@ export const GAME_MODES = Object.freeze({
   DUEL: 'DUEL',
 });
 
+// the arenas a match can be fought in (the old greybox Shattered Keep stays only as a fixture for tests)
+export const ARENAS = Object.freeze(['castleward', 'ruined-keep']);
+
+/** An arena by id, or Castleward for anything that is not one. */
+export function arenaOrDefault(worldId) {
+  return ARENAS.includes(worldId) ? worldId : ARENAS[0];
+}
+
 // what a room's players may vote on before a match (majority of connected Spellblades; a tie keeps the current)
 export const VOTE_OPTIONS = Object.freeze({
-  world: Object.freeze(['castleward', 'shattered-keep']),
+  world: ARENAS,
   score: Object.freeze([5, 10, 15]),
 });
 

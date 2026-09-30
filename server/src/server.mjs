@@ -12,7 +12,7 @@ import { applyRoomCommand, serializeLobby, serializeSnapshot } from '../../share
 import { DEFAULT_SPELL, isSpell } from '../../shared/src/spells.mjs';
 import { stepBotControllers } from '../../shared/sim/BotController.mjs';
 import { spawnPracticeDummy, stepPracticeActors } from '../../shared/sim/practice.mjs';
-import { GAME_MODES } from '../../shared/src/modes.mjs';
+import { GAME_MODES, arenaOrDefault } from '../../shared/src/modes.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '../..');
@@ -340,7 +340,7 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
         send(session, { type: 'error', message: 'Unknown solo mode' });
         return;
       }
-      const room = roomManager.createSoloRoom(message.mode, time);
+      const room = roomManager.createSoloRoom(message.mode, time, arenaOrDefault(message.worldId));
       const player = createNetworkPlayer(session, room, message.name);
       room.provisionModeActors(time);
       room.armAutoStart(time);

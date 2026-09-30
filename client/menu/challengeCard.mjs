@@ -1,8 +1,9 @@
 // Copy for the countdown card between the lobby and the arena, and for the arena gate. Pure, so it can be tested.
 
+import { WORLD_NAMES } from './lobbyView.mjs';
+
 function worldName(worldId) {
-  if (worldId === 'shattered-keep') return 'The Shattered Keep';
-  return 'Castleward';
+  return WORLD_NAMES[worldId] ?? WORLD_NAMES.castleward;
 }
 
 /** What the challenge card says while a match counts down. */
