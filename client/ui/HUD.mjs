@@ -5,6 +5,7 @@ import { steelStrength } from '../../shared/src/steel.mjs';
 import { iconSvg } from './icons.mjs';
 import { ultimateView } from './ultimateView.mjs';
 import { STAGGER } from '../../shared/src/stagger.mjs';
+import { practiceOverride } from '../../shared/src/practiceRecast.mjs';
 
 export function matchInfoText(snapshot, serverNow) {
   if (snapshot?.mode === 'PRACTICE') return 'PRACTICE YARD  ·  UNTIMED';
@@ -102,7 +103,9 @@ export class HUD {
     // the Q tile shows whichever spell was carried in from the Armory; while it cools, the key is the gauntlet's (the
     // fist on the tile, the spell's own mark small in its corner, its cooldown still counting down)
     const spell = spellFor(local.spell);
-    const cooling = (local.spellReadyAt ?? 0) - serverNow > 0.01;
+    // (in the Practice Yard the key stays the spell's while it cools: it comes back after a moment)
+    const practice = snapshot?.mode === 'PRACTICE';
+    const cooling = (local.spellReadyAt ?? 0) - serverNow > 0.01 && !practice;
     const face = `${spell.id}:${cooling ? 'fist' : 'spell'}`;
     if (this.spell.dataset.face !== face) {
       this.spell.dataset.face = face;
@@ -114,6 +117,9 @@ export class HUD {
     }
     this.#ability(this.spell, Math.max(0, (local.spellReadyAt ?? 0) - serverNow), spell.cooldownSec);
     this.#ability(this.dash, Math.max(0, local.dashReadyAt - serverNow));
+    // the real cooldown counts down as in a match; the yard's mark says why the key works anyway
+    this.spell.classList.toggle('practice', practiceOverride(local, 'spell', serverNow, practice));
+    this.dash.classList.toggle('practice', practiceOverride(local, 'dash', serverNow, practice));
     this.#ultimate(local, serverNow);
     this.#armour(steelStrength(local.steel, serverNow), local.steel?.calledAt);
     this.matchInfo.textContent = matchInfoText(snapshot, serverNow);

@@ -40,9 +40,10 @@ export const BLADE = Object.freeze({
 
 // how cleanly a knight is caught, by how far off the aim their body was as the blade met it (degrees, quality 0..1):
 // dead centre the cleanest, a knight clipped by the edge of the swing the least
-// (a knight two metres off is some 26 degrees wide: aimed anywhere near their middle is 29-30, near their edge 28,
-// a blow that catches them off to one side 25-27, as the blade comes round 22-24, the very end of the swing 19-21)
-export const AIM_QUALITY = Object.freeze([[0, 1], [4, 0.97], [12, 0.82], [25, 0.6], [42, 0.33], [75, 0]]);
+// (a knight two metres off is some 26 degrees wide: only a blow held right on their middle is 28-30, a good ordinary
+// blow somewhere on them 25-27 (near their edge 26), one that catches them as the blade comes round 22-24, the very
+// end of the swing 19-21. The top of the scale is earned by consistently centred aim, not handed out)
+export const AIM_QUALITY = Object.freeze([[0, 1], [2.5, 0.97], [6, 0.82], [15, 0.6], [32, 0.33], [75, 0]]);
 
 /** The quality of a blow that met a body `offAimDeg` off the aim (0..1, by AIM_QUALITY, evenly between its points). */
 export function aimQuality(offAimDeg, curve = AIM_QUALITY) {

@@ -1,6 +1,12 @@
 {
   "version": 1,
   "lines": {
+    "bladeCaught": [
+      {
+        "file": "blade-caught-1",
+        "seconds": 6.37
+      }
+    ],
     "breakTaunt": [
       {
         "file": "break-taunt-1",
@@ -17,10 +23,30 @@
         "seconds": 1.85
       }
     ],
+    "fistThrow": [
+      {
+        "file": "fist-throw-1",
+        "seconds": 1.77
+      }
+    ],
     "galeTaunt": [
       {
         "file": "gale-taunt-1",
-        "seconds": 2.7
+        "seconds": 3.32
+      }
+    ],
+    "jump": [
+      {
+        "file": "jump-1",
+        "seconds": 0.44
+      },
+      {
+        "file": "jump-2",
+        "seconds": 0.42
+      },
+      {
+        "file": "jump-3",
+        "seconds": 0.31
       }
     ],
     "killTaunt": [
@@ -33,10 +59,22 @@
         "seconds": 1.81
       }
     ],
+    "knightFallen": [
+      {
+        "file": "knight-fallen-1",
+        "seconds": 4.82
+      }
+    ],
     "magicDefeat": [
       {
         "file": "magic-defeat-1",
         "seconds": 1.92
+      }
+    ],
+    "rebuttal": [
+      {
+        "file": "rebuttal-1",
+        "seconds": 2.06
       }
     ],
     "sorcery": [
@@ -55,10 +93,22 @@
         "seconds": 2.32
       }
     ],
+    "sunderCall": [
+      {
+        "file": "sunder-call-1",
+        "seconds": 3.12
+      }
+    ],
     "victory": [
       {
         "file": "victory-1",
         "seconds": 2.22
+      }
+    ],
+    "vortexUse": [
+      {
+        "file": "vortex-use-1",
+        "seconds": 4.86
       }
     ]
   }

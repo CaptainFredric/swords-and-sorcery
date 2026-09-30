@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { getWorld } from '../../shared/worlds/registry.mjs';
-import { createMovementState, launchBody, movePlayer, resolveSprint, shoveBody, tryStartDash } from '../../shared/src/movement.mjs';
+import { MOVEMENT, createMovementState, launchBody, movePlayer, resolveSprint, shoveBody, tryStartDash } from '../../shared/src/movement.mjs';
 import { separateLocal } from '../../shared/src/separation.mjs';
 import { segmentAabbHit, surfaceHeightAt } from '../../shared/src/collision.mjs';
 import { InputController } from './InputController.mjs';
@@ -21,13 +21,14 @@ import {
   ultimateFizzleRecipe, ultimateReadyRecipe,
 } from './sound/soundRecipes.mjs';
 import { PROWESS } from '../../shared/src/prowess.mjs';
+import { PRACTICE_RECAST, recordUse } from '../../shared/src/practiceRecast.mjs';
 import { STAGGER } from '../../shared/src/stagger.mjs';
 import { galeRecoil } from '../../shared/src/gale.mjs';
 import { swordDamageFor } from '../../shared/src/combat.mjs';
 import { CROUCH, POSTURES, postureOf } from '../../shared/src/body.mjs';
 import { steelStrength } from '../../shared/src/steel.mjs';
 import { chillScale, spellFor } from '../../shared/src/spells.mjs';
-import { deathLines, gauntletLines, voicePlacement, voiceRate } from './sound/voiceRules.mjs';
+import { deathLines, galeTauntScale, gauntletLines, isOverkill, voicePlacement, voiceRate, worldImpactLines } from './sound/voiceRules.mjs';
 import { FOOTSTEPS, footfallsCrossed, footstepPlacement, footstepRecipe, surfaceAt, variantPicker } from './sound/footsteps.mjs';
 import { CombatHeat, matchClosing, nearestFoe } from './sound/combatHeat.mjs';
 import { FP_MOTION } from './firstPersonMotion.mjs';
@@ -111,6 +112,8 @@ export class GameRuntime {
     this.remotePlayers = new RemotePlayers(this.scene, socket.playerId);
     // (a crouched knight's steps are soft and light)
     this.remotePlayers.onFootstep = (id, position, heavy, crouched) => this.#footstep(id, position, crouched ? 0 : heavy, FOOTSTEPS.other * (crouched ? 0.55 : 1));
+    // now and then a knight grunts as he jumps (an exertion: never over his other lines)
+    this.remotePlayers.onJump = (id) => this.#say('jump', id);
     this.weapon = new WeaponView(this.camera);
     this.weapon.onSwing = (strike) => {
       this.#play(swingRecipe(Math.random, { strike }), null, 0.85);
@@ -143,16 +146,19 @@ export class GameRuntime {
     // the palm starts gathering the moment the spell is called (the server's word follows and confirms it)
     this.input.onCastLocal = () => {
       const now = this.socket.serverNow();
-      if (!canPresentLocalAction('cast', this.localAuth, this.localState, now)) {
+      const practice = this.#inPractice();
+      if (!canPresentLocalAction('cast', this.localAuth, this.localState, now, { practice, gate: this.localGate })) {
         // on its cooldown the spell's key throws the gauntlet, on command (the server's word follows whether it met
-        // anyone); only while the hand cannot (mid-swing, say), the cooldown's quiet no
-        if (this.localAuth?.alive && now < (this.localAuth.spellReadyAt ?? 0) && !this.#tryLocalJab(now)) {
+        // anyone); only while the hand cannot (mid-swing, say), the cooldown's quiet no. (In the yard the key stays the
+        // spell's: it comes back in a moment.)
+        if (this.localAuth?.alive && now < (this.localAuth.spellReadyAt ?? 0) && (practice || !this.#tryLocalJab(now))) {
           this.hud.denied?.('spell');
           this.#play(deniedRecipe(), null, 0.6);
         }
         return;
       }
       const spell = spellFor(this.localAuth?.spell);
+      if (practice) this.localGate = { ...(this.localGate ?? {}), spell: now + Math.max(PRACTICE_RECAST.gateSec, spell.gatherSec ?? 0) };
       // Sheathe in Steel, carried in the spell's place: the clench and the ring of plate at once (the server hardens
       // the armour a moment later)
       if (spell.kind === 'ward') {
@@ -184,8 +190,16 @@ export class GameRuntime {
     this.hud.onUltimateReady = () => this.#play(ultimateReadyRecipe(), null, 0.9);
     this.input.onDashLocal = (dir) => {
       const now = this.socket.serverNow();
-      if (!canPresentLocalAction('dash', this.localAuth, this.localState, now)) return;
-      if (!tryStartDash(this.localState, dir, now)) return;
+      const practice = this.#inPractice();
+      if (!canPresentLocalAction('dash', this.localAuth, this.localState, now, { practice, gate: this.localGate })) return;
+      // (as the host does it: the dash itself as ever, its real cooldown as the yard's rule has it)
+      const running = this.localState.dashReadyAt;
+      this.localState.dashReadyAt = -Infinity;
+      const dashed = tryStartDash(this.localState, dir, now);
+      this.localState.dashReadyAt = running;
+      if (!dashed) return;
+      recordUse(this.localState, 'dash', now, MOVEMENT.dashCooldown, practice);
+      if (practice) this.localGate = { ...(this.localGate ?? {}), dash: now + PRACTICE_RECAST.gateSec };
       this.weapon.dash();
       this.effects.dash();
       this.#play(dashRecipe(), null, 0.8);
@@ -426,7 +440,12 @@ export class GameRuntime {
       if (event.type === 'gauntletHit') this.#gauntletHit(event);
       // a blow or a blast that shoved me: my own steps carry the shove at once (the server's already do)
       if (event.type === 'damage' && event.victimId === me && event.push && this.localState) shoveBody(this.localState, event.push);
-      if (event.type === 'damage') (this.healthAfterBlow ??= new Map()).set(event.victimId, event.health);
+      if (event.type === 'damage') {
+        // the killing blow's weight against the health it took, for the fallen's line (an overkill: voiceRules)
+        const before = this.healthAfterBlow?.get(event.victimId) ?? this.latestSnapshot?.players.find((p) => p.id === event.victimId)?.health ?? 100;
+        if (event.health <= 0) (this.killingBlow ??= new Map()).set(event.victimId, { overkill: isOverkill({ amount: event.amount, healthBefore: before, level: event.level }) });
+        (this.healthAfterBlow ??= new Map()).set(event.victimId, event.health);
+      }
 
       // Sheathed in Steel: another knight's plate ringing as it hardens (mine rang as I pressed)
       if (event.type === 'steelOn' && event.playerId !== me) this.#play(steelCallRecipe(), this.#bodyPosition(event.playerId), 0.7);
@@ -480,6 +499,8 @@ export class GameRuntime {
         }
         this.#play(recipe, localImpact ? null : event.point, localImpact ? 0.9 : 0.5);
       }
+      // a blade snagged on some small furnishing in passing: very rarely, the knight formally surrenders over it
+      for (const say of worldImpactLines(event)) this.#say(say.line, say.speaker, say);
       if (event.type === 'swordHit') this.#swordHit(event);
       if (event.type === 'parry' || event.type === 'block' || event.type === 'guardBreak') this.#guardContact(event);
       if (event.type === 'parry') {
@@ -621,7 +642,9 @@ export class GameRuntime {
         this.remotePlayers.gust(caught.id, caught.shove);
       }
     }
-    if ((event.affected ?? []).some((caught) => caught.pressure >= 0.3 && !caught.guarded)) this.#say('galeTaunt', event.playerId, { delay: 0.7 });
+    // the gale's jibe: only after a gust that really moved someone, likelier the harder it threw them
+    const jibe = galeTauntScale(event.affected ?? []);
+    if (jibe > 0) this.#say('galeTaunt', event.playerId, { delay: 0.7, chanceScale: jibe });
   }
 
   // the precise ring of the cleanest contact, over the blow's own sound (a cluster of them is one ring)
@@ -771,7 +794,9 @@ export class GameRuntime {
   // the fallen may protest (magic they do not believe in, or that they are a knight); if they keep quiet, whoever
   // felled them may have a word over the body
   #deathVoice(event) {
-    const { fallen, victor } = deathLines(event);
+    const overkill = Boolean(this.killingBlow?.get(event.victimId)?.overkill);
+    this.killingBlow?.delete(event.victimId);
+    const { fallen, victor } = deathLines({ ...event, overkill });
     if (fallen.some((say) => this.#say(say.line, say.speaker, say))) return;
     victor.some((say) => this.#say(say.line, say.speaker, say));
   }
@@ -797,6 +822,11 @@ export class GameRuntime {
   }
 
   // play a sound at a world position (null: mine, centred) with extra gain
+  // the Practice Yard (abilities come back after a short gate: practiceRecast.mjs)
+  #inPractice() {
+    return this.latestSnapshot?.mode === 'PRACTICE';
+  }
+
   #play(recipe, source = null, gain = 1, delay = 0) {
     if (!this.sound) return;
     const listener = this.localState?.position ?? this.localAuth?.position;
@@ -1016,6 +1046,8 @@ export class GameRuntime {
       this.localState = movePlayer(this.localState, moveInput, dt, serverNow, this.activeWorld);
       // predict the server's body separation so pressing into an opponent does not rubber-band
       separateLocal(this.localState.position, this.remotePlayers.bodies(), this.activeWorld, { crouched: this.localState.crouched });
+      // my own jump: now and then a grunt with it
+      if (wasGrounded && !this.localState.grounded && this.localState.velocity.y > 4) this.#say('jump', this.socket.playerId);
       if (!wasGrounded && this.localState.grounded) {
         this.weapon.land(fallSpeed);
         // both feet down at once, heavier the further he fell
@@ -1036,7 +1068,7 @@ export class GameRuntime {
       );
       // my Gale lets go when its breath is drawn; one the server never took is let go of quietly
       // while the spell cools, whether its key would throw the gauntlet now (the hand free of the sword)
-      const cooling = serverNow < (this.localAuth.spellReadyAt ?? 0);
+      const cooling = serverNow < (this.localAuth.spellReadyAt ?? 0) && !this.#inPractice();
       const fistReady = cooling && this.weapon.canJab();
       this.hud.setFistReady?.(fistReady);
       this.touch?.setFistReady(fistReady);
@@ -1087,7 +1119,7 @@ export class GameRuntime {
     if (this.latestSnapshot && this.localAuth) {
       this.#showCondition(this.socket.serverNow());
       this.hud.update(this.localAuth, this.latestSnapshot, this.socket.serverNow());
-      this.touch?.update(this.localAuth, this.socket.serverNow());
+      this.touch?.update(this.localAuth, this.socket.serverNow(), { practice: this.#inPractice() });
       this.hud.setScoreboard(this.latestSnapshot, this.input.scoreboardHeld);
       this.hud.setDebug({
         fps: this.fps,

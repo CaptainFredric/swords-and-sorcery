@@ -35,6 +35,23 @@ windows. Each one plays only at its moment and only now and then. The rules are 
 | `breakTaunt` | "You should have hired a REAL guard!" | 14.2–17.04 | After breaking a guard, now and then. |
 | `defeat` | "What? But I am a knight!" ×2 | 18.35–20.16, 20.58–23.04 | Every lost match; now and then when felled. |
 
+Later recordings (each its own file, through the same close helm):
+
+| Line | What | When |
+| --- | --- | --- |
+| `galeTaunt` | "What did you say? Must have been the wind…" | After a Gale really moved someone, now and then. |
+| `steelBoast` | "My armor works now!" | Sheathe in Steel turned a spell aside, rarely. |
+| `sunderCall` | "YOUR INTEGRITY WILL NOT SUFFICE!" | Every Sunder All That Rusts, as the brace begins. |
+| `knightFallen` | "The knight has fallen! …and day may arrive no longer…" | A rare fall; likelier after an overkill. |
+| `fistThrow` | "I throw you my gauntlet." | Now and then as the fist lands. |
+| `rebuttal` | "I present my rebuttal." | The fist, on a foe who just spoke and is nearly beaten. |
+| `bladeCaught` | "Ah! My blade caught on the edge of a flower pot! …Quickly!" | Almost never, and only when the blade snags on a small furnishing. |
+| `jump` ×3 | Jump grunts | Now and then on a jump, never the same take twice running. |
+| `vortexUse` | Blazing Vortex's spin cry | Prepared for Blazing Vortex; not in the game yet. |
+
+Lines have ranks (`VOICE_PRIORITY` in `voiceRules.mjs`): exertions never cut anything; situational lines wait their
+turn; a death, a defeat or an ultimate's cry cuts through a lesser line. Only one sentence is heard at a time.
+
 To redo them all (for example after changing the chain):
 
 ```bash

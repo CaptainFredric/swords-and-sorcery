@@ -259,6 +259,9 @@ export class RemotePlayers {
       d.lastAlive = player.alive;
 
       const list = this.samples.get(player.id) ?? [];
+      // a jump: leaving the ground upward (for the grunt some jumps get)
+      const before = list[list.length - 1]?.player;
+      if (before && player.alive && (before.velocity?.y ?? 0) < 2 && (player.velocity?.y ?? 0) > 4) this.onJump?.(player.id);
       list.push({ at: receivedAtMs, serverTime: snapshot.serverTime, player });
       while (list.length > 5) list.shift();
       this.samples.set(player.id, list);

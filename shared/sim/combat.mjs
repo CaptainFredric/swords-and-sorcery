@@ -6,6 +6,8 @@ import { STAGGER, addStagger, drainStagger, freshStagger, staggerShove } from '.
 import { PROWESS, gainProwess, prowessForDamage } from '../src/prowess.mjs';
 import { activeUltimate, sundering, ultimateFor, ultimateStartup } from '../src/ultimates.mjs';
 import { RUPTURE, fissureCatches, planRupture } from '../src/rupture.mjs';
+import { recastReady, recordUse } from '../src/practiceRecast.mjs';
+import { GAME_MODES } from '../src/modes.mjs';
 import { blastDamage, blastDistance, burnFrom, chillFrom, chillScale, spellExposure, spellFor, strongerChill } from '../src/spells.mjs';
 import { callSteel, steelBlunt, steelExposure, steelQuality, steelStrength, steelTakes } from '../src/steel.mjs';
 import { galeOnBody, galeRecoil, galeShove } from '../src/gale.mjs';
@@ -13,7 +15,7 @@ import { GAUNTLET, gauntletGeometry, gauntletTarget, withinGauntlet } from '../s
 import { postureOf } from '../src/body.mjs';
 import { segmentAabbHit, surfaceHeightAt } from '../src/collision.mjs';
 import { aimFrame, aimQuality, bladeDirection, offAimDegrees, sweepBlade } from '../src/blade.mjs';
-import { SPRINT, launchBody, movePlayer, resolveSprint, shoveBody, tryStartDash } from '../src/movement.mjs';
+import { MOVEMENT, SPRINT, launchBody, movePlayer, resolveSprint, shoveBody, tryStartDash } from '../src/movement.mjs';
 import { separatePlayers } from '../src/separation.mjs';
 import { chooseSpawn } from './spawns.mjs';
 import { recordTransform, sampleTransform } from './history.mjs';
@@ -222,12 +224,25 @@ export function setGuard(room, playerId, guarding, nowSec) {
   return true;
 }
 
+// the Practice Yard lets abilities be used again after a moment, their real cooldowns still shown (practiceRecast.mjs)
+function inPractice(room) {
+  return room.mode === GAME_MODES.PRACTICE;
+}
+
 export function tryDash(room, playerId, direction, nowSec) {
   const player = room.players.get(playerId);
   if (room.state !== 'PLAYING' || !player || !player.alive || nowSec < player.staggerUntil || ultimateStartup(player, nowSec)) return false;
+  const practice = inPractice(room);
+  if (!recastReady(player, 'dash', nowSec, practice)) return false;
+  // (the dash itself as ever; its real cooldown as the yard's rule has it)
+  const running = player.dashReadyAt;
+  player.dashReadyAt = -Infinity;
   const ok = tryStartDash(player, direction, nowSec);
-  if (ok) room.events.push({ type: 'dash', playerId, direction, at: nowSec });
-  return ok;
+  player.dashReadyAt = running;
+  if (!ok) return false;
+  recordUse(player, 'dash', nowSec, MOVEMENT.dashCooldown, practice);
+  room.events.push({ type: 'dash', playerId, direction, at: nowSec });
+  return true;
 }
 
 /**
@@ -236,11 +251,13 @@ export function tryDash(room, playerId, direction, nowSec) {
  */
 export function tryCastSpell(room, playerId, direction, nowSec) {
   const player = room.players.get(playerId);
-  if (room.state !== 'PLAYING' || !player || !player.alive || nowSec < player.staggerUntil || nowSec < player.spellReadyAt) return false;
-  if (ultimateStartup(player, nowSec)) return false;
+  if (room.state !== 'PLAYING' || !player || !player.alive || nowSec < player.staggerUntil) return false;
+  if (!recastReady(player, 'spell', nowSec, inPractice(room)) || ultimateStartup(player, nowSec)) return false;
   const spell = spellFor(player.spell);
   if (spell.kind === 'ward') return sheatheInSteel(room, player, spell, nowSec);
-  player.spellReadyAt = nowSec + spell.cooldownSec;
+  // (in the yard a spell can come back before the last has left the palm: one at a time; its gate opens as it goes)
+  if (inPractice(room) && player.pendingSpell) return false;
+  recordUse(player, 'spell', nowSec, spell.cooldownSec, inPractice(room), { readyAt: nowSec + spell.gatherSec });
   player.castEndsAt = nowSec + spell.gatherSec;
   player.pendingSpell = { spell: spell.id, direction: normalize3(direction) };
   player.guarding = false;
@@ -255,7 +272,7 @@ export function tryCastSpell(room, playerId, direction, nowSec) {
 function sheatheInSteel(room, player, spell, nowSec) {
   if (player.pendingSpell) return false;
   player.steel = callSteel(nowSec);
-  player.spellReadyAt = nowSec + spell.cooldownSec;
+  recordUse(player, 'spell', nowSec, spell.cooldownSec, inPractice(room));
   player.spawnProtectionUntil = Math.min(player.spawnProtectionUntil, nowSec);
   room.events.push({ type: 'steelOn', playerId: player.id, at: nowSec, readyAt: player.spellReadyAt });
   return true;
@@ -268,7 +285,9 @@ function sheatheInSteel(room, player, spell, nowSec) {
 export function tryCastOrGauntlet(room, playerId, direction, nowSec, pressedAt = nowSec) {
   const player = room.players.get(playerId);
   if (!player) return false;
-  if (nowSec >= player.spellReadyAt) return tryCastSpell(room, playerId, direction, nowSec);
+  if (recastReady(player, 'spell', nowSec, inPractice(room))) return tryCastSpell(room, playerId, direction, nowSec);
+  // (in the yard the key is the spell's: it comes back after a moment; the gauntlet keeps its own key)
+  if (inPractice(room)) return false;
   return tryGauntletStrike(room, playerId, nowSec, pressedAt);
 }
 
@@ -386,9 +405,14 @@ function recoilFromWall(attacker, hit, nowSec, room) {
     surfaceId: hit.box.id,
     // what the blade struck (stone rings and sparks; timber thunks; a hedge or cloth only takes it)
     material: hit.box.material ?? 'stone',
+    ...(hit.snag ? { snag: true } : {}),
     at: nowSec,
   });
 }
+
+// a blade that met the world this far or more off its aim, on a furnishing marked incidental (shared/worlds/props.mjs),
+// was caught in passing: a snag (for a rare line of the knight's; the blow is stopped as any other)
+export const SNAG = Object.freeze({ offAimDeg: 12 });
 
 // --- the sword strike -------------------------------------------------------------------------------------------
 // A strike is live for a short stretch around its contact (MELEE_CONTACT.window): its blade (shared/src/blade.mjs)
@@ -468,7 +492,10 @@ function sweepStrike(room, player, nowSec, world) {
     }
     if (met?.kind === 'solid') {
       player.attackSweep = null;
-      recoilFromWall(player, { point: [met.point.x, met.point.y, met.point.z], normal: met.normal, box: met.solid }, nowSec, room);
+      // a snag: the blade caught on some small incidental furnishing as it came round, not driven at it (SNAG)
+      const offAim = Math.acos(Math.max(-1, Math.min(1, met.direction.x * frame.forward.x + met.direction.y * frame.forward.y + met.direction.z * frame.forward.z))) * 180 / Math.PI;
+      const snag = Boolean(met.solid.incidental) && offAim >= SNAG.offAimDeg;
+      recoilFromWall(player, { point: [met.point.x, met.point.y, met.point.z], normal: met.normal, box: met.solid, snag }, nowSec, room);
       return;
     }
     if (met?.kind === 'ground') {

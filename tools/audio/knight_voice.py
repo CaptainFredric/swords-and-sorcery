@@ -48,7 +48,8 @@ OUT_DIR = os.path.join(ROOT, 'client', 'assets', 'voice')
 SR = 48000
 
 LINES = ('effort', 'hurt', 'death', 'sorcery', 'dash', 'victory', 'defeat', 'magicDefeat', 'killTaunt', 'breakTaunt',
-         'galeTaunt', 'steelBoast', 'fistEffort', 'fistThrow', 'fistKill', 'rebuttal', 'sunderCall')
+         'galeTaunt', 'steelBoast', 'fistEffort', 'fistThrow', 'fistKill', 'rebuttal', 'sunderCall', 'knightFallen', 'jump',
+         'bladeCaught', 'vortexUse')
 ALIASES = {
     'grunt': 'effort', 'swing': 'effort', 'attack': 'effort', 'heave': 'effort', 'strike': 'effort',
     'pain': 'hurt', 'hit': 'hurt', 'ow': 'hurt', 'ouch': 'hurt',
@@ -59,6 +60,8 @@ ALIASES = {
     'hya': 'fistEffort', 'hiyah': 'fistEffort', 'hiyaah': 'fistEffort', 'punch': 'fistEffort',
     'gauntlet': 'fistThrow', 'sofisticated': 'fistKill', 'fistkill': 'fistKill',
     'sunder': 'sunderCall', 'integrity': 'sunderCall', 'ultimate': 'sunderCall',
+    'fallen': 'knightFallen', 'knightfallen': 'knightFallen', 'hop': 'jump', 'leap': 'jump',
+    'snag': 'bladeCaught', 'flowerpot': 'bladeCaught', 'vortex': 'vortexUse',
 }
 
 # per line: how far down, how hard the grit, how loud (the close helm keeps the veteran's -4.5 semitones)
@@ -86,6 +89,16 @@ PRESETS = {
     'fistThrow': {'semitones': -4.5, 'drive': 2.2, 'rms_db': -16},     # "I throw you my gauntlet."
     'fistKill': {'semitones': -4.5, 'drive': 2.0, 'rms_db': -17},      # "I am quite soFISTicated." (smug, not shouted)
     'rebuttal': {'semitones': -4.5, 'drive': 2.0, 'rms_db': -17},      # "I present my rebuttal."
+    # "The knight has fallen! ...and day may arrive no longer..." (theatrical: the second half trails off low, so the
+    # expander is eased to keep it)
+    'knightFallen': {'semitones': -4.5, 'drive': 2.0, 'rms_db': -17, 'expand_below_db': -42},
+    # a jump's grunt: short, from the chest, under the sentences in the mix
+    'jump': {'semitones': -4.5, 'drive': 2.2, 'rms_db': -19},
+    # "Ah! My blade caught on the edge of a flower pot! I must rest. You may slay me. Quickly!" (the asides are
+    # quieter: eased expander so "Quickly!" and the rest survive)
+    'bladeCaught': {'semitones': -4.5, 'drive': 2.0, 'rms_db': -17, 'expand_below_db': -42},
+    # Blazing Vortex's spin (prepared for the ultimate; not yet in the game)
+    'vortexUse': {'semitones': -4.5, 'drive': 2.3, 'rms_db': -16},
 }
 
 # the close helm's room removal and dynamics (see close_helm)

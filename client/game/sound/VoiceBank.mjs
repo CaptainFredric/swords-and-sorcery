@@ -14,6 +14,8 @@ export class VoiceBank {
     this.director = director;
     this.takes = new Map();
     this.lastTake = new Map();
+    // what each knight is saying now (the handle to stop it, if a line that matters more cuts it)
+    this.playing = new Map();
     engine.onReady(() => this.#load());
   }
 
@@ -32,13 +34,6 @@ export class VoiceBank {
         this.takes.get(name).push(buffer);
       }
     }
-  }
-
-  #pick(key, takes) {
-    let index = Math.floor(Math.random() * takes.length);
-    if (takes.length > 1 && index === this.lastTake.get(key)) index = (index + 1) % takes.length;
-    this.lastTake.set(key, index);
-    return takes[index];
   }
 
   async #decode(file) {
@@ -64,12 +59,30 @@ export class VoiceBank {
    */
   say(line, { speaker = 'me', pan = 0, gain = 1, rate = 1, chanceScale = 1, delay = 0, close = false, reverb = VOICE_HEARING.reverb } = {}) {
     if (!this.has(line) || !this.engine.running || !(gain > 0)) return false;
-    if (!this.director.allow(line, speaker, this.engine.now, { chanceScale })) return false;
+    const takes = this.takes.get(line);
+    const index = this.#nextTake(`line:${line}`, takes.length);
+    const take = takes[index];
+    const verdict = this.director.consider(line, speaker, this.engine.now, { chanceScale, duration: delay + take.duration / Math.max(0.5, rate) });
+    if (!verdict) return false;
+    this.lastTake.set(`line:${line}`, index);
+    // a line that matters more cuts the one it overrides (a short fade, not a click)
+    for (const cut of verdict.stop) {
+      this.playing.get(cut)?.stop?.(0.1);
+      this.playing.delete(cut);
+    }
     const rule = VOICE_LINES[line];
-    this.engine.playBuffer(this.#pick(`line:${line}`, this.takes.get(line)), {
+    const handle = this.engine.playBuffer(take, {
       bus: 'voice', pan: close ? 0 : pan, gain: gain * rule.gain, rate: rate * (0.98 + Math.random() * 0.04), delay,
       reverb: close ? VOICE_HEARING.own : reverb,
     });
+    if (handle) this.playing.set(speaker, handle);
     return true;
+  }
+
+  // the take to try next: any but the one said last (turned about, never the same twice running)
+  #nextTake(key, count) {
+    let index = Math.floor(Math.random() * count);
+    if (count > 1 && index === this.lastTake.get(key)) index = (index + 1) % count;
+    return index;
   }
 }
