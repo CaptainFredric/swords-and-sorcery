@@ -29,6 +29,8 @@ export class HUD {
     this.spellIcon = this.spell.querySelector('.ability-icon');
     this.spellBadge = this.spell.querySelector('.ability-badge');
     this.burnEdge = document.querySelector('#afflict-burn');
+    this.hurtEdge = document.querySelector('#hurt-edge');
+    this.lowHealth = document.querySelector('#low-health');
     this.chillEdge = document.querySelector('#afflict-chill');
     this.dash = document.querySelector('#dash-ability');
     const dashIcon = this.dash?.querySelector('.ability-icon');
@@ -68,6 +70,12 @@ export class HUD {
     if (hp < this.displayedTrail) this.displayedTrail = Math.max(hp, this.displayedTrail - 0.25);
     else this.displayedTrail = hp;
     this.healthTrail.style.width = `${this.displayedTrail}%`;
+    // badly hurt: the edges of the view keep a slow pulse, stronger the lower it gets
+    const low = local.alive && hp < 35 ? (35 - hp) / 35 : 0;
+    if (this.lowHealth) {
+      this.lowHealth.classList.toggle('on', low > 0);
+      this.lowHealth.style.setProperty('--low', low.toFixed(2));
+    }
 
     const guard = Math.max(0, Math.min(100, local.guardStamina));
     this.guardFill.style.width = `${guard}%`;
@@ -112,6 +120,19 @@ export class HUD {
   /** While the spell cools, whether its key would throw the gauntlet now (dimmed while the sword has the hand). */
   setFistReady(ready) {
     this.spell.classList.toggle('fist-held', !ready);
+  }
+
+  /**
+   * A blow taken: the edges of the view redden, as deep as the blow was heavy (`amount` damage) and deeper on the side
+   * it came from (`side`: -1 its left .. 1 its right), easing back over most of a second.
+   */
+  hurt({ amount = 10, side = 0 } = {}) {
+    if (!this.hurtEdge) return;
+    this.hurtEdge.style.setProperty('--hurt', Math.min(0.85, 0.3 + amount / 55).toFixed(2));
+    this.hurtEdge.style.setProperty('--hx', Math.max(-1, Math.min(1, side)).toFixed(2));
+    this.hurtEdge.classList.remove('struck');
+    void this.hurtEdge.offsetWidth;
+    this.hurtEdge.classList.add('struck');
   }
 
   /**

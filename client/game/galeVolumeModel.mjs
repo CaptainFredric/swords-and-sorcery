@@ -158,18 +158,22 @@ export function windWispData(tanHalf, { count = 18, samples = 26, random = Math.
 }
 
 // how long the air is seen, and when its front reaches the end of the gust
-export const GALE_VOLUME = Object.freeze({ life: 0.62, frontSec: 0.3, ribbonSec: 0.42 });
+// (the gust blows for half a second, shared/src/spells.mjs, and the air it moved rolls on out a little after); spread:
+// how much further out and wider it has rolled by the end of its life
+export const GALE_VOLUME = Object.freeze({ life: 0.9, frontSec: 0.3, holdSec: 0.5, ribbonSec: 0.5, spread: 0.45 });
 
 /**
  * The gust `age` seconds after it was loosed: { front (0..1+, how far out its front is), fade (0..1), head (the
  * ribbons' streak heads), turbulence, done }. The front races out and slows (as a gust does), the air then thins away.
  */
 export function galeVolumeAt(age) {
-  const { life, frontSec, ribbonSec } = GALE_VOLUME;
+  const { life, frontSec, ribbonSec, holdSec } = GALE_VOLUME;
   const t = Math.max(0, age);
   const out = Math.min(1, t / frontSec);
-  const front = 1.08 * (1 - (1 - out) ** 2.2);
-  const fade = t < frontSec ? 1 : Math.max(0, 1 - (t - frontSec) / (life - frontSec)) ** 1.4;
+  // out fast, then rolling on further while it lasts
+  const front = 1.08 * (1 - (1 - out) ** 2.2) + 0.3 * Math.max(0, t - frontSec) / (life - frontSec);
+  // full while the gust blows, then thinning away
+  const fade = t < holdSec ? 1 : Math.max(0, 1 - (t - holdSec) / (life - holdSec)) ** 1.4;
   const head = 1.35 * Math.min(1, t / ribbonSec) ** 0.7;
   return { front, fade, head, turbulence: 0.05 * (1 - Math.min(1, t / life)), done: t >= life };
 }

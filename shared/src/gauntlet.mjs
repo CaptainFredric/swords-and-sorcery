@@ -19,7 +19,6 @@ export const GAUNTLET = Object.freeze({
   damage: 9,
   shove: 1.3,          // m/s along the blow (a sword's is 1.7)
   guardCost: 6,        // stamina a guard facing it pays
-  steelChip: 0.05,     // Sheathed in Steel wears a little, as from any blow
   // how far a foe may have moved off by the time it lands and still be caught (the arm follows through)
   landSlack: 0.3,
 });

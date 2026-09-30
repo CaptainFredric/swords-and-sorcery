@@ -88,7 +88,7 @@ test('Sheathe in Steel, carried from the Armory, works in a match the browser ho
   advance(0.2);
   const me = host.latestSnapshot.players.find((player) => player.id === host.playerId);
   assert.equal(me.spell, 'steel');
-  assert.ok(me.steel && me.steel.base === 1, 'sheathed');
+  assert.ok(me.steel && me.steel.fullUntil > host.serverNow(), 'sheathed');
   assert.ok(me.spellReadyAt > host.serverNow(), 'and it waits to be called again');
 });
 

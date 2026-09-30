@@ -34,6 +34,7 @@ function freshCombatState(spawn, nowSec = 0) {
     staggerUntil: -Infinity,
     spellReadyAt: 0,
     gauntlet: null,
+    gust: null,
     gauntletReadyAt: -Infinity,
     crouched: false,
     castEndsAt: 0,

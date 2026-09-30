@@ -5,6 +5,8 @@ import { createSorceryVolume } from './SorceryVolume.mjs';
 import { sorceryLevel } from './spellbladeMotion.mjs';
 import { SpellbladeAnimator } from './SpellbladeAnimator.mjs';
 import { appUrl } from '../appUrl.mjs';
+import { finishSword } from './swordFinish.mjs';
+import { trimSwordHand } from './swordHand.mjs';
 
 const DEFAULT_MANIFEST_URL = '/client/assets/characters/spellblade/manifest.json';
 const SHA40 = /^[0-9a-f]{40}$/;
@@ -93,6 +95,8 @@ function loadGltf(url) {
     }).then((gltf) => {
       const done = progress.get(url);
       reportProgress(url, done?.total || 1, done?.total || 1);
+      // the sword as a sword (polished steel, a gilt guard), once, before any knight is made from it
+      finishSword(gltf.scene);
       return gltf;
     }));
   }
@@ -138,6 +142,8 @@ export async function createSpellbladeAsset({ kind = 'thirdPerson', manifestUrl 
   if (!entry) throw new Error(`Spellblade manifest has no ${kind} asset`);
 
   const gltf = await loadGltf(entry.url);
+  // the first-person sword hand drawn in around its grip (once; every first-person clone shares the shape)
+  if (kind === 'firstPerson') trimSwordHand(gltf.scene);
   const root = SkeletonUtils.clone(gltf.scene);
   root.name = kind === 'firstPerson' ? 'SpellbladeFirstPersonAsset' : 'SpellbladeThirdPersonAsset';
   root.userData.sourceRevision = manifest.sourceRevision;

@@ -75,6 +75,24 @@
   box-shadow: inset 0 0 60px rgba(160, 220, 255, .45); transition: opacity .15s linear;
 }
 @media (prefers-reduced-motion: reduce) { .afflict-burn.on { animation: none; } }
+/* a blow taken: the edges of the view redden (deeper on the side it came from, as deep as the blow was heavy) and ease
+   back; the middle of the view is never touched. Badly hurt, the edges keep a slow, faint pulse, like a heartbeat */
+.hurt-edge, .low-health { position: absolute; inset: 0; z-index: 0; pointer-events: none; opacity: 0; }
+.hurt-edge {
+  --hurt: .6; --hx: 0;
+  background:
+    radial-gradient(ellipse 72% 68% at calc(50% - var(--hx) * 11%) 50%, transparent 62%, rgba(170, 16, 12, .45) 86%, rgba(96, 0, 0, .82) 100%),
+    linear-gradient(90deg, rgba(150, 10, 8, calc(.32 * max(0, -1 * var(--hx)))), transparent 15%, transparent 85%, rgba(150, 10, 8, calc(.32 * max(0, var(--hx)))));
+}
+.hurt-edge.struck { animation: hurt-edge .75s ease-out forwards; }
+@keyframes hurt-edge { 0% { opacity: var(--hurt); } 18% { opacity: calc(var(--hurt) * .9); } 100% { opacity: 0; } }
+.low-health {
+  --low: 0;
+  background: radial-gradient(ellipse 72% 68% at 50% 50%, transparent 62%, rgba(120, 8, 8, .55) 90%, rgba(70, 0, 0, .8) 100%);
+}
+.low-health.on { animation: low-health 1.15s ease-in-out infinite; }
+@keyframes low-health { 0%, 100% { opacity: calc(.18 + .25 * var(--low)); } 18% { opacity: calc(.32 + .45 * var(--low)); } 34% { opacity: calc(.2 + .3 * var(--low)); } 48% { opacity: calc(.28 + .4 * var(--low)); } }
+@media (prefers-reduced-motion: reduce) { .low-health.on { animation: none; opacity: calc(.2 + .3 * var(--low)); } }
 /* Sheathed in Steel: armour round the health bar, never a part of it (it is no extra health). Five riveted plates frame
    the bar, a band of steel above it and below; each holds a fifth of the armour's strength (--p, 0..1, set by the HUD)
    and, as that wears, thins, dulls, greys and cracks, the right-hand plates first, until each breaks away and only a

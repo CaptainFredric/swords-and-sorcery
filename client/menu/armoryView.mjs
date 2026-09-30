@@ -25,7 +25,7 @@ const SPELL_WORDS = Object.freeze({
   steel: {
     mark: '⛨',
     line: 'Clench the magic hand and your plate hardens: every blow lands like a glancing one, less so as it wears off.',
-    facts: (s) => `A clean sword blow lands for ${GAME.swordGlance} · wears off over ${STEEL.seconds} s · ${s.cooldownSec} s`,
+    facts: (s) => `Every sword blow lands for ${GAME.swordGlance} · hard ${STEEL.fullSec} s, then wears off over ${STEEL.fadeSec} s · ${s.cooldownSec} s`,
   },
 });
 

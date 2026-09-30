@@ -19,6 +19,7 @@ import {
   swingRecipe, swordHitRecipe, wallClangRecipe,
 } from './sound/soundRecipes.mjs';
 import { galeRecoil } from '../../shared/src/gale.mjs';
+import { swordDamageFor } from '../../shared/src/combat.mjs';
 import { CROUCH, POSTURES, postureOf } from '../../shared/src/body.mjs';
 import { steelStrength } from '../../shared/src/steel.mjs';
 import { chillScale, spellFor } from '../../shared/src/spells.mjs';
@@ -156,7 +157,8 @@ export class GameRuntime {
       }
       this.weapon.cast({ gatherSec: spell.gatherSec, spell: spell.id });
       // a Gale lets go when its breath is drawn: my own is seen and felt the moment it goes, once the server has taken it
-      if (spell.kind === 'cone') this.localGale = { at: now + spell.gatherSec, direction: this.input.lookDirection(), spell, confirmed: false };
+      // (it goes where I aim as it leaves the hand, as the server's does: the aim is taken then, not now)
+      if (spell.kind === 'cone') this.localGale = { at: now + spell.gatherSec, spell, confirmed: false };
     };
     // the gauntlet on its own key: the fist at once, spell or no spell (the server's word follows); only while the hand
     // cannot (mid-swing, say), the quiet no
@@ -403,6 +405,7 @@ export class GameRuntime {
       }
 
       if (event.type === 'galeBlast') this.#galeBlast(event);
+      if (event.type === 'galeCatch') this.#galeCaught(event);
       if (event.type === 'gauntletStrike') this.#gauntletStrike(event);
       if (event.type === 'gauntletHit') this.#gauntletHit(event);
       // a blow or a blast that shoved me: my own steps carry the shove at once (the server's already do)
@@ -477,8 +480,11 @@ export class GameRuntime {
         if (event.amount >= 8 && event.health > 0 && event.source !== 'abyss') this.#say('hurt', event.victimId);
         // a blow on hardened plate clangs and sparks instead (#steelStruck); otherwise, mine flashes the view red
         const plated = this.#steelStruck(event);
-        if (event.victimId === this.socket.playerId && this.view.damageFlash && !plated) document.body.classList.add('took-damage');
-        setTimeout(() => document.body.classList.remove('took-damage'), 120);
+        if (event.victimId === this.socket.playerId && this.view.damageFlash && !plated && event.amount > 0 && event.source !== 'abyss') {
+          // (the side it came from: the push runs away from whoever struck)
+          const push = this.#pushTowardMe(event.attackerId);
+          this.hud.hurt?.({ amount: event.amount, side: -push.x });
+        }
       }
       if (event.type === 'death') {
         this.#deathEvent(event);
@@ -553,10 +559,18 @@ export class GameRuntime {
     const shownAlready = mine && !pending && Number.isFinite(this.localGaleAt) && Math.abs(event.at - this.localGaleAt) < 0.5;
     if (mine) this.localGaleAt = event.at;
     if (!shownAlready && spell.cone) {
-      this.effects.galeBlast(event.origin, event.direction, spell.cone, this.#groundUnder());
+      const view = this.effects.galeBlast(event.origin, event.direction, spell.cone, this.#groundUnder());
+      (this.gustViews ??= []).push({ view, ownerId: event.playerId });
       this.#play(galeReleaseRecipe(), mine ? null : event.origin, mine ? 1 : 0.9);
       if (mine && event.recoil && this.localState) launchBody(this.localState, event.recoil, event.recoil.maxUp);
     }
+    this.#galeCaught(event);
+  }
+
+  // a gust catching knights (as it leaves the hand, or a moment later, still blowing): my body goes with it at once
+  // and the view is buffeted; others are shoved and their cloth flung; now and then a word from whoever loosed it
+  #galeCaught(event) {
+    const me = this.socket.playerId;
     for (const caught of event.affected ?? []) {
       if (caught.id === me) {
         // the gust hits me: my body goes with it at once, and the view is buffeted
@@ -658,19 +672,49 @@ export class GameRuntime {
     return { groundAt: (x, z, y) => surfaceHeightAt(x, z, y, world), surfaceAt: (x, z, y) => surfaceAt(world, x, z, y) };
   }
 
-  // my own Gale lets go: seen and heard at once, and its throw off the ground felt at once (the server does the same)
+  // my own Gale lets go where I aim as it goes: seen and heard at once, and its throw off the ground felt at once (the
+  // server does the same)
   #releaseLocalGale(serverNow) {
     const gale = this.localGale;
     this.localGale = null;
     this.localGaleAt = serverNow;
     if (!this.localState || !gale.spell.cone) return;
-    const d = gale.direction;
+    const d = this.input.lookDirection();
     const eye = { x: this.localState.position.x, y: this.localState.position.y + postureOf(this.localState).eye, z: this.localState.position.z };
-    const origin = { x: eye.x + d.x * 0.35, y: eye.y + d.y * 0.35, z: eye.z + d.z * 0.35 };
-    this.effects.galeBlast(origin, d, gale.spell.cone, this.#groundUnder());
+    const view = this.effects.galeBlast(this.#gustOrigin(null, eye, d), d, gale.spell.cone, this.#groundUnder());
+    (this.gustViews ??= []).push({ view, ownerId: this.socket.playerId });
     this.#play(galeReleaseRecipe(), null, 1);
     const recoil = galeRecoil(gale.spell, eye, d, this.activeWorld);
     if (recoil) launchBody(this.localState, recoil, recoil.maxUp);
+  }
+
+  // where a gust leaves a knight: my own from the magic hand's palm as the view draws it; another's a little in front
+  // of their eyes along their aim
+  #gustOrigin(id, eye, direction) {
+    const palm = id === null ? this.weapon.palmPosition?.() : null;
+    if (palm) return { x: palm.x + direction.x * 0.15, y: palm.y + direction.y * 0.15, z: palm.z + direction.z * 0.15 };
+    return { x: eye.x + direction.x * 0.35, y: eye.y + direction.y * 0.35, z: eye.z + direction.z * 0.35 };
+  }
+
+  // the gusts still blowing stay at their casters' hands and turn with their aim
+  #followGusts() {
+    if (!this.gustViews?.length) return;
+    const me = this.socket.playerId;
+    this.gustViews = this.gustViews.filter((entry) => entry.view?.alive);
+    for (const { view, ownerId } of this.gustViews) {
+      if (ownerId === me) {
+        if (!this.localState) continue;
+        const d = this.input.lookDirection();
+        const eye = { x: this.localState.position.x, y: this.localState.position.y + postureOf(this.localState).eye, z: this.localState.position.z };
+        view.follow(this.#gustOrigin(null, eye, d), d);
+        continue;
+      }
+      const body = this.remotePlayers.bodyAim?.(ownerId);
+      if (!body) continue;
+      const d = { x: -Math.sin(body.yaw) * Math.cos(body.pitch), y: Math.sin(body.pitch), z: -Math.cos(body.yaw) * Math.cos(body.pitch) };
+      const eye = { x: body.x, y: body.y + (body.crouched ? POSTURES.crouched.eye : POSTURES.standing.eye), z: body.z };
+      view.follow(this.#gustOrigin(ownerId, eye, d), d);
+    }
   }
 
   // the fallen may protest (magic they do not believe in, or that they are a knight); if they keep quiet, whoever
@@ -729,7 +773,9 @@ export class GameRuntime {
       this.#play(swordHitRecipe(Math.random, { strike, quality, impact }), null, 1);
     } else if (event.targetId === me) {
       // (on hardened plate, the clang is the whole of it: #steelStruck)
-      if (!(event.steel >= 0.02)) this.#play(hurtRecipe(Math.random, { heavy: strike >= 2 || impact > 0.5 }), null, 1);
+      if (!(event.steel >= 0.02)) {
+        this.#play(hurtRecipe(Math.random, { heavy: strike >= 2 || impact > 0.5, amount: swordDamageFor(quality) }), null, 1);
+      }
     } else {
       this.#play(swordHitRecipe(Math.random, { strike, quality, impact }), point, 0.8);
     }
@@ -932,6 +978,7 @@ export class GameRuntime {
     this.remotePlayers.update(nowMs, dt);
     this.#showAfflictions(dt);
     this.world?.update?.(timeSec, this.camera);
+    this.#followGusts();
     this.effects.update(dt);
 
     if (this.latestSnapshot && this.localAuth) {

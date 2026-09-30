@@ -70,6 +70,10 @@ export const SPELLS = Object.freeze({
       lift: 0.32,                // a share of it lifting the body off its feet
       guarded: 0.35,             // a raised guard facing it keeps this much of the shove...
       guardCost: 14,             // ...and pays this much stamina for it at point blank
+      // the gust blows this long, from the hand along the aim (following both), catching each body it reaches once;
+      // by its end it blows only this share as hard
+      lastsSec: 0.5,
+      tail: 0.4,
     }),
     // driven into the ground (or a wall), the gust throws its caster off it: at full strength up to `full` metres
     // from the eyes, fading out to `reach`; `maxUp`: the most upward speed a throw leaves (m/s)

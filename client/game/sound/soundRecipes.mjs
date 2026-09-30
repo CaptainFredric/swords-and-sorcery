@@ -232,16 +232,34 @@ export function wallClangRecipe(rand = Math.random) {
   };
 }
 
-/** The blow you take, heard from inside the helm: muffled and heavy. */
-export function hurtRecipe(rand = Math.random, { heavy = false } = {}) {
-  return {
-    layers: [
-      { type: 'noise', filter: 'lowpass', freq: 700 * jitter(rand, 0.1), q: 0.8, attack: 0.002, decay: 0.16, gain: 0.75 },
-      { type: 'tone', wave: 'sine', freq: 110, slideTo: 40, attack: 0.003, decay: heavy ? 0.3 : 0.2, gain: 0.9 },
-      ring(rand, 300 * jitter(rand, 0.05), { decay: 0.3, gain: 0.08, partials: 3 }),
-    ],
-    reverb: 0.12,
-  };
+/**
+ * The blow you take, heard from inside the helm: the edge biting the plate (a hard crack), the plate clanking round you,
+ * a thud in the chest, the mail shaking, and the breath knocked out of you. Heavier blows (`heavy`, or a big `amount`)
+ * land deeper, with a low whump under them.
+ */
+export function hurtRecipe(rand = Math.random, { heavy = false, amount = 25 } = {}) {
+  const weight = Math.max(0.8, Math.min(1.2, 0.7 + (Number(amount) || 0) / 60));
+  const layers = [
+    // the edge biting the plate
+    { type: 'noise', filter: 'bandpass', freq: 2200 * jitter(rand, 0.12), q: 1.4, attack: 0.0008, decay: 0.03, gain: 0.5 * weight },
+    // the plate round you clanking, a dull ring and a brighter one over it
+    ring(rand, 250 * jitter(rand, 0.06), { decay: 0.24, gain: 0.15, partials: 5, bright: 0.7 }),
+    ring(rand, 610 * jitter(rand, 0.06), { decay: 0.1, gain: 0.07, partials: 3 }),
+    // the weight of it in the chest, and the muffled knock through the padding
+    { type: 'tone', wave: 'sine', freq: 124 * jitter(rand, 0.05), slideTo: 42, attack: 0.002, decay: heavy ? 0.34 : 0.24, gain: 0.95 * weight },
+    { type: 'noise', filter: 'lowpass', freq: 650 * jitter(rand, 0.1), q: 0.8, attack: 0.002, decay: 0.18, gain: 0.7 * weight },
+    // the breath knocked out
+    { type: 'noise', filter: 'bandpass', freq: 950 * jitter(rand, 0.1), q: 1.1, sweepTo: 480, attack: 0.01, decay: 0.13, gain: 0.14, at: 0.025 },
+  ];
+  // the mail shaking
+  for (let i = 0; i < 5; i += 1) {
+    layers.push({ type: 'ring', at: 0.02 + rand() * 0.11, partials: [{ freq: 3600 + rand() * 2400, gain: 0.028, decay: 0.035 + rand() * 0.03 }] });
+  }
+  if (heavy) {
+    layers.push({ type: 'tone', wave: 'sine', freq: 62, slideTo: 34, attack: 0.004, decay: 0.36, gain: 0.7 });
+    layers.push({ type: 'noise', filter: 'lowpass', freq: 300, q: 0.6, attack: 0.003, decay: 0.28, gain: 0.45 });
+  }
+  return { layers, reverb: 0.1 };
 }
 
 /** A fireball bursting: a deep boom that rolls out, and the fire crackling after it. */
