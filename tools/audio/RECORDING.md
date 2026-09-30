@@ -48,6 +48,10 @@ Later recordings (each its own file, through the same close helm):
 | `bladeCaught` | "Ah! My blade caught on the edge of a flower pot! …Quickly!" | Almost never, and only when the blade snags on a small furnishing. |
 | `jump` ×3 | Jump grunts | Now and then on a jump, never the same take twice running. |
 | `vortexUse` | Blazing Vortex's spin cry | Prepared for Blazing Vortex; not in the game yet. |
+| `vortexDefeat` | "I was dizzy anyway." | Prepared: felled during Blazing Vortex (or its dizziness). |
+
+Every line, recorded or still to come, can be heard from the game: Settings, then the quiet CREDITS button in its
+footer (the voice library, `client/ui/voiceLibrary.mjs`). A new line gets an entry there too (a test insists).
 
 Lines have ranks (`VOICE_PRIORITY` in `voiceRules.mjs`): exertions never cut anything; situational lines wait their
 turn; a death, a defeat or an ultimate's cry cuts through a lesser line. Only one sentence is heard at a time.

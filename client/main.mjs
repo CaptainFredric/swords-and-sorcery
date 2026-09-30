@@ -21,6 +21,7 @@ import { SCREEN_IDS, ScreenRouter } from './ui/ScreenRouter.mjs';
 import { isTouchPrimary } from './game/touchControlsModel.mjs';
 import { registry } from './settings/settingsRegistry.mjs';
 import { SettingsStore } from './settings/SettingsStore.mjs';
+import { CreditsPanel } from './ui/CreditsPanel.mjs';
 import { SettingsPanel } from './settings/SettingsPanel.mjs';
 import { inputOptions, soundLevels, turnOptions, viewOptions } from './settings/applySettings.mjs';
 import { screenTurn } from './ui/screenTurn.mjs';
@@ -573,6 +574,9 @@ settings.onChange((change) => {
 for (const button of document.querySelectorAll('[data-open-settings]')) {
   button.addEventListener('click', () => settingsPanel.open(button.dataset.openSettings || undefined));
 }
+// the credits and the voice library, from a quiet button in the settings' footer (over the settings; Done returns)
+const creditsPanel = new CreditsPanel({ root: $('#credits'), voice });
+$('[data-open-credits]')?.addEventListener('click', () => creditsPanel.open());
 
 renown = new RenownController({ socket, scene: () => menuScene, spell: () => settings.get('loadout.spell') });
 $('#end-armory').addEventListener('click', () => {
@@ -675,6 +679,10 @@ document.addEventListener('click', (event) => {
 }, { capture: true });
 document.addEventListener('keydown', event => {
   if (event.key !== 'Escape' || event.repeat) return;
+  if (creditsPanel.isOpen) {
+    creditsPanel.close();
+    return;
+  }
   if (settingsPanel.isOpen) {
     settingsPanel.close();
     return;

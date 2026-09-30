@@ -439,3 +439,31 @@ html[data-turn] .turn-only { display: block !important; }
   .spell-card { padding: 7px 10px; }
   .spell-card small { display: none; }
 }
+
+/* --- the credits and the voice library: opened from a quiet button in the settings' footer ----------------------- */
+.settings-foot { justify-content: space-between; align-items: center; }
+.settings-credits { padding: 6px 8px; border: 0; background: none; color: rgba(234, 220, 182, .38); font: 700 10px/1 var(--font-script); letter-spacing: .22em; cursor: pointer; }
+.settings-credits:hover, .settings-credits:focus-visible { color: var(--heraldry-brass-light); outline: none; }
+.credits-screen { z-index: 81; }
+.credits-shell { grid-template-rows: auto minmax(0, 1fr); }
+.credits-card { margin: 10px 0 6px; padding: 16px 14px 12px; text-align: center; border: 1px solid rgba(201, 156, 82, .35); background: radial-gradient(ellipse at 50% 0%, rgba(138, 41, 34, .28), transparent 70%), rgba(20, 17, 14, .5); }
+.credits-title { margin: 0 0 10px; font: 400 22px/1 var(--font-inscription); letter-spacing: .12em; color: #f1dfae; }
+.credits-line { margin: 6px 0; display: grid; gap: 2px; }
+.credits-line small { color: rgba(234, 220, 182, .55); font: 600 10px/1.2 var(--font-script); letter-spacing: .2em; text-transform: uppercase; }
+.credits-line b { color: var(--heraldry-brass-light); font: 400 19px/1.1 var(--font-inscription); letter-spacing: .06em; }
+.credits-note { margin: 10px auto 0; max-width: 42ch; color: rgba(234, 220, 182, .6); font: italic 500 12px/1.4 var(--font-script); }
+.voice-entry { padding: 10px 0 11px; border-bottom: 1px solid rgba(201, 156, 82, .12); }
+.voice-entry header { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.voice-entry header b { font: 600 15px/1.2 var(--font-script); color: #f1e4c2; }
+.voice-status { flex: none; color: rgba(185, 220, 168, .8); font: 800 9px/1 var(--font-script); letter-spacing: .16em; }
+.voice-coming .voice-status { color: rgba(240, 178, 116, .85); }
+.voice-unrecorded .voice-status { color: rgba(234, 220, 182, .4); }
+.voice-entry q { display: block; margin: 5px 0 4px; color: #f6e7c0; font: 400 16px/1.3 var(--font-inscription); quotes: "\201C" "\201D"; }
+.voice-unrecorded q { color: rgba(234, 220, 182, .55); }
+.voice-when { margin: 0; color: rgba(234, 220, 182, .7); font: 500 12px/1.4 var(--font-script); }
+.voice-note { margin: 3px 0 0; color: rgba(230, 196, 106, .75); font: italic 500 12px/1.4 var(--font-script); }
+.voice-takes { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.voice-play { min-width: 40px; padding: 7px 10px; border: 1px solid rgba(201, 156, 82, .55); border-radius: 2px; background: rgba(34, 29, 25, .85); color: #f1dfae; font: 800 12px/1 var(--font-script); letter-spacing: .08em; cursor: pointer; }
+.voice-play:hover, .voice-play.playing { background: linear-gradient(180deg, #e7c47c, #b8893f); color: #2a1c10; }
+.voice-loading { display: inline-block; margin-top: 8px; color: rgba(234, 220, 182, .4); font: 700 9px/1 var(--font-script); letter-spacing: .2em; }
+.voice-direction { display: block; margin: 5px 0 4px; color: rgba(234, 220, 182, .6); font: italic 500 13px/1.3 var(--font-script); }

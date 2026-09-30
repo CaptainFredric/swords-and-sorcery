@@ -356,8 +356,19 @@
         <nav class="settings-tabs" role="tablist" aria-label="Settings sections" data-settings-tabs></nav>
         <div class="settings-body" role="tabpanel" data-settings-body></div>
         <footer class="settings-foot">
+          <!-- a quiet way in: the credits, and the Spellblade's voice library -->
+          <button type="button" class="settings-credits" data-open-credits>CREDITS</button>
           <button type="button" class="settings-reset" data-settings-reset>RESET</button>
         </footer>
+      </div>
+    </section>
+    <section id="credits" class="settings-screen credits-screen hidden" role="dialog" aria-modal="true" aria-labelledby="credits-title">
+      <div class="settings-card credits-shell">
+        <header class="settings-head">
+          <h2 id="credits-title">CREDITS</h2>
+          <button type="button" class="settings-done" data-credits-done>DONE</button>
+        </header>
+        <div class="settings-body credits-body" data-credits-body></div>
       </div>
     </section>
     <!-- the multiplayer server has answered: challengers await -->
