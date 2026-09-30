@@ -280,3 +280,19 @@ export function crouchPose(amount, moving = false) {
     ],
   };
 }
+
+// A guarding knight (third person): the sword arm brought in across the body toward the middle and a little lower, the
+// blade held across rather than upright at the side (as the first person's guard is). `amount` 0..1 eases in and out.
+// (the arm comes in and down from the Guard clip's raised sword; the wrist turns the blade in across the chest)
+export const GUARD_POSE = Object.freeze({ inward: 1.5, drop: 1.1, across: -0.6 });
+
+export function guardTurns(amount, pose = GUARD_POSE) {
+  const a = Math.max(0, Math.min(1, Number(amount) || 0));
+  if (a < 1e-3) return [];
+  // (about the knight's own axes: +x is its right, and it faces -z)
+  return [
+    { bone: 'upper_arm.R', axis: [0, 1, 0], angle: pose.inward * a },
+    { bone: 'upper_arm.R', axis: [1, 0, 0], angle: -pose.drop * a },
+    { bone: 'hand.R', axis: [0, 0, 1], angle: pose.across * a, space: 'local' },
+  ];
+}

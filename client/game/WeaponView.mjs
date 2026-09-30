@@ -136,6 +136,11 @@ const SPELL_GLOW = Object.freeze({ fireball: 0xff7a2a, frostfire: 0x7fd6ff, gale
 // the light the palm throws on the arms while a spell gathers (air is pale, but lights them only a little)
 const SPELL_LIGHT = Object.freeze({ fireball: 0xff7a2a, frostfire: 0x7fd6ff, gale: 0x7d9282 });
 
+// a value moved toward a target by at most `step`
+function approach(value, target, step) {
+  return value + Math.max(-step, Math.min(step, target - value));
+}
+
 // the clench of Sheathe in Steel: tightening over a moment, then letting go (0..1)
 function clenchPulse(age) {
   if (!(age >= 0) || age > 0.42) return 0;
@@ -490,6 +495,9 @@ export class WeaponView {
       }
       // neutral hands sit a little wider apart (clear sightline); in the sprint the arms pump with the stride
       const spread = FP_MOTION.neutralSpread * motion.neutral;
+      // the guard brings the sword in toward the middle, a little lower, the blade across the body
+      this.guardBlend = approach(this.guardBlend ?? 0, pose.state === 'guard' ? 1 : 0, FP_MOTION.guardBlendRate * dt);
+      const guardIn = FP_MOTION.guardInward * this.guardBlend;
       // the magic arm draws the spell in close, then throws it (see castGesture.mjs)
       const gesture = castGesture(timeSec - this.castStartedAt, this.castGather);
       // or drives the gauntlet out (gauntletJab.mjs), the view nudged as it lands
@@ -506,6 +514,9 @@ export class WeaponView {
           { bone: 'upper_arm.L', axis: [0, 1, 0], angle: spread },
           { bone: 'upper_arm.R', axis: [1, 0, 0], angle: 0.1 * motion.pump },
           { bone: 'upper_arm.L', axis: [1, 0, 0], angle: -0.1 * motion.pump },
+          { bone: 'upper_arm.R', axis: [0, 1, 0], angle: guardIn },
+          { bone: 'upper_arm.R', axis: [1, 0, 0], angle: -FP_MOTION.guardDrop * this.guardBlend },
+          { bone: 'hand.R', axis: [0, 0, 1], angle: FP_MOTION.guardAcross * this.guardBlend, space: 'local' },
           // at rest only (actions keep their authored arms): a clean grip on the sword, the magic hand lower
           { bone: 'hand.R', axis: [1, 0, 0], angle: FP_MOTION.swordWristFlex * motion.neutral, space: 'local' },
           { bone: 'forearm.R', axis: [0, 1, 0], angle: FP_MOTION.swordForearmTurn * motion.neutral, space: 'local' },

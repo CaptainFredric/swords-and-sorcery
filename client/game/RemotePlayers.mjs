@@ -11,7 +11,7 @@ import {
   upgradeRemoteVisual,
 } from './remoteVisualState.mjs';
 import { bufferedServerTime, castPoseWindowFromEvent, resolveSpellbladeState } from './spellbladePose.mjs';
-import { airborneLegFlex, crouchPose, landingStrength, pruneReactions } from './spellbladeMotion.mjs';
+import { airborneLegFlex, crouchPose, guardTurns, landingStrength, pruneReactions } from './spellbladeMotion.mjs';
 import { gaitFootfall } from './sound/footsteps.mjs';
 import { createSteelSheen } from './steelSheen.mjs';
 import { steelStrength } from '../../shared/src/steel.mjs';
@@ -374,6 +374,7 @@ export class RemotePlayers {
       // crouched: the body is lower at once (the server's word); the pose eases down to it in a moment
       d.crouchAmount = (d.crouchAmount ?? 0) + ((pb.crouched && state !== 'dead' ? 1 : 0) - (d.crouchAmount ?? 0)) * (1 - Math.exp(-dt * 14));
       const crouch = crouchPose(d.crouchAmount, state === 'run' || state === 'sprint');
+      d.guardAmount = (d.guardAmount ?? 0) + ((state === 'guard' ? 1 : 0) - (d.guardAmount ?? 0)) * (1 - Math.exp(-dt * 14));
 
       const animationPlayer = { ...pb, castPoseStartAt: d.castPoseStartAt };
       const plan = resolveSpellbladeAnimationPlan({ state, player: animationPlayer, serverNow, localTime });
@@ -386,7 +387,7 @@ export class RemotePlayers {
         death: plan.clip === 'Death' ? { age: plan.time, push: d.lastPush ?? null } : null,
         crouch: crouch.flex,
         // the gauntlet's jab, if one is under way, and the crouch's lean
-        extra: state === 'dead' ? [] : [...crouch.turns, ...jabTurns(serverNow - (d.jabAt ?? -Infinity))],
+        extra: state === 'dead' ? [] : [...crouch.turns, ...guardTurns(d.guardAmount), ...jabTurns(serverNow - (d.jabAt ?? -Infinity))],
       };
       setRemoteVisualPlan(shell, plan, dt);
       // a foot comes down where the gait clip puts it (its rate follows the knight's speed)

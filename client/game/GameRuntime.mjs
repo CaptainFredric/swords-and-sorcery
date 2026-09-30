@@ -19,6 +19,7 @@ import {
   swingRecipe, swordHitRecipe, wallClangRecipe,
 } from './sound/soundRecipes.mjs';
 import { galeRecoil } from '../../shared/src/gale.mjs';
+import { swordDamageFor } from '../../shared/src/combat.mjs';
 import { CROUCH, POSTURES, postureOf } from '../../shared/src/body.mjs';
 import { steelStrength } from '../../shared/src/steel.mjs';
 import { chillScale, spellFor } from '../../shared/src/spells.mjs';
@@ -479,8 +480,11 @@ export class GameRuntime {
         if (event.amount >= 8 && event.health > 0 && event.source !== 'abyss') this.#say('hurt', event.victimId);
         // a blow on hardened plate clangs and sparks instead (#steelStruck); otherwise, mine flashes the view red
         const plated = this.#steelStruck(event);
-        if (event.victimId === this.socket.playerId && this.view.damageFlash && !plated) document.body.classList.add('took-damage');
-        setTimeout(() => document.body.classList.remove('took-damage'), 120);
+        if (event.victimId === this.socket.playerId && this.view.damageFlash && !plated && event.amount > 0 && event.source !== 'abyss') {
+          // (the side it came from: the push runs away from whoever struck)
+          const push = this.#pushTowardMe(event.attackerId);
+          this.hud.hurt?.({ amount: event.amount, side: -push.x });
+        }
       }
       if (event.type === 'death') {
         this.#deathEvent(event);
@@ -769,7 +773,9 @@ export class GameRuntime {
       this.#play(swordHitRecipe(Math.random, { strike, quality, impact }), null, 1);
     } else if (event.targetId === me) {
       // (on hardened plate, the clang is the whole of it: #steelStruck)
-      if (!(event.steel >= 0.02)) this.#play(hurtRecipe(Math.random, { heavy: strike >= 2 || impact > 0.5 }), null, 1);
+      if (!(event.steel >= 0.02)) {
+        this.#play(hurtRecipe(Math.random, { heavy: strike >= 2 || impact > 0.5, amount: swordDamageFor(quality) }), null, 1);
+      }
     } else {
       this.#play(swordHitRecipe(Math.random, { strike, quality, impact }), point, 0.8);
     }
