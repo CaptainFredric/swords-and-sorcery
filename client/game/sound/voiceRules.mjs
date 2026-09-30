@@ -29,23 +29,54 @@ export const VOICE_LINES = Object.freeze({
   // running); experimental
   jump: { kind: 'exertion', priority: EXERTION, chance: 0.3, cooldown: 2.5, gain: 0.7 },
   // --- sentences
-  // SORCERY! is rare: about one cast in twelve, and never twice within 45 seconds
+  // "SORCERY!!" now and then as an ordinary spell leaves his hand: about one cast in twelve, never twice within 45 s
   sorcery: { kind: 'sentence', priority: CONTEXT, chance: 0.08, cooldown: 45, gain: 1 },
-  // "MIGHT MAKES... KNIGHT!"
-  victory: { kind: 'sentence', priority: STATE, chance: 1, cooldown: 0, gain: 1, interrupts: true },
+  // "MIGHT MAKES... KNIGHT!" no longer the match's end: after force has settled the argument (a Sundering kill, a
+  // Sundering blow that breaks a knight or ruptures the ground under two, a guard broken by one; victorLines)
+  victory: { kind: 'sentence', priority: CONTEXT, chance: 0.3, cooldown: 120, gain: 1 },
   // "I don't believe in magic." Only from a knight that magic actually killed, and not every time
   magicDefeat: { kind: 'sentence', priority: STATE, chance: 0.35, cooldown: 90, gain: 1, interrupts: true },
-  // "The knight has fallen! ...and day may arrive no longer..." A rare, theatrical fall (the wording is the joke:
-  // knight, night, day); likelier after a blow far heavier than it needed to be (KNIGHT_FALLEN_OVERKILL)
+  // "The Knight has fallen!... no longer may day arrive..." A rare, theatrical fall (the wording is the joke: knight,
+  // night, day); much likelier after a blow far heavier than it needed to be (KNIGHT_FALLEN_OVERKILL)
   knightFallen: { kind: 'sentence', priority: STATE, chance: 0.06, cooldown: 300, gain: 1, interrupts: true },
-  // "What? But I am a knight!" Now and then when felled, a little likelier when the match is lost, and never soon
-  // again: it is funniest when it is a surprise
+  // "What!? But I am a knight!" Now and then when felled, substantially likelier when that fall loses the match
+  // (DEFEAT_ON_LOSS), and never soon again: it is funniest when it is a surprise
   defeat: { kind: 'sentence', priority: STATE, chance: 0.25, cooldown: 150, gain: 1, interrupts: true },
-  // over a fallen foe: "Good knight? That will not be you." (or a laugh)
+  // "I had never thought this day would come..." Only when the defeat is official: the match lost (not a fall)
+  neverThought: { kind: 'sentence', priority: STATE, chance: 0.3, cooldown: 200, gain: 1, interrupts: true },
+  // "NOOoo! I am going to be late!" Felled by very little (a burn's lick, a last scrap of a blow: isMinorLethal),
+  // likelier when it cut short something he was doing; never an overkill, an ultimate or a fall worth drama
+  lateLine: { kind: 'sentence', priority: STATE, chance: 0.12, cooldown: 180, gain: 1, interrupts: true },
+  // over a fallen foe: "Good knight? That will not be you."
   killTaunt: { kind: 'sentence', priority: CONTEXT, chance: 0.3, cooldown: 30, gain: 0.95 },
-  // "You should have hired a REAL guard!" after breaking one, rarely
-  breakTaunt: { kind: 'sentence', priority: CONTEXT, chance: 0.35, cooldown: 45, gain: 0.95 },
-  // "What did you say? Must have been the wind..." after a Gale has really moved someone, now and then (galeTauntScale)
+  // "AHHHhh, hahaHAH!" The wildcard: any sufficiently ill-advised moment (a blow dealt or taken, a kill, a fall, a
+  // dash, a launch, a hard landing, a sprint under pressure, a cast, an ultimate), a chance in fifty each time; about
+  // once in a life at most, and a long while between (45-75 s). Never from anything that runs on (a burn, a loop)
+  laugh: { kind: 'sentence', priority: EXERTION, chance: 0.02, cooldown: [45, 75], perLife: 1, gain: 0.95 },
+  // "What did the squire say to the Spellblade?" Asked, very rarely, of a foe he has all but finished. What follows is
+  // the joke: the first knight to fall near him in the next few seconds answers with a death line, whatever its odds
+  // (SQUIRE; VoiceMoments). Nobody falling is an answer too
+  squireSetup: { kind: 'sentence', priority: CONTEXT, chance: 0.1, cooldown: 240, gain: 1 },
+  // "You have achieved a new form of knight hood." A sword kill after a run of clean blows, aimed high (a knighting,
+  // and a beheading); likelier when the killing swing itself was high (knighthoodFrom)
+  newKnighthood: { kind: 'sentence', priority: CONTEXT, chance: 0.3, cooldown: 240, gain: 1 },
+  // "A staggering display." after breaking someone's balance
+  staggerDisplay: { kind: 'sentence', priority: CONTEXT, chance: 0.3, cooldown: 90, gain: 0.95 },
+  // "I helped you lower your guard." after breaking a guard; "You should've hired a REAL guard." is the rarer one
+  lowerGuard: { kind: 'sentence', priority: CONTEXT, chance: 0.3, cooldown: 60, gain: 0.95 },
+  breakTaunt: { kind: 'sentence', priority: CONTEXT, chance: 0.15, cooldown: 90, gain: 0.95 },
+  // "You are the hack. I will be the slash." a sword kill at the cleanest contact, or a clean blow through a swing
+  hackSlash: { kind: 'sentence', priority: CONTEXT, chance: 0.25, cooldown: 120, gain: 0.95 },
+  // "Your standard is subpar." felling another player who flies a standard other than the default
+  subparStandard: { kind: 'sentence', priority: CONTEXT, chance: 0.08, cooldown: 300, gain: 0.95 },
+  // "I always knew that I thought this would happen." Rescued by events: a knight near his end whose threat is
+  // felled, thrown or broken by someone else a moment later (the likeliest); or a kill of his that arrived late and
+  // messily (a burn, a fall)
+  alwaysKnew: { kind: 'sentence', priority: CONTEXT, chance: 0.35, cooldown: 300, gain: 1 },
+  // "If you keep practicing... you will still never reach me." the Practice Yard only, felling an opponent that fights
+  neverReach: { kind: 'sentence', priority: CONTEXT, chance: 0.25, cooldown: 120, gain: 0.95 },
+  // "What did you say? Must have been the wind..." after a Gale has really moved someone (galeTauntScale); much
+  // likelier when the ground is no longer under them (a kill by the drop it threw them into)
   galeTaunt: { kind: 'sentence', priority: CONTEXT, chance: 0.3, cooldown: 60, gain: 0.95 },
   // "My armor works now!" when Sheathed in Steel has turned a spell aside, rarely
   steelBoast: { kind: 'sentence', priority: CONTEXT, chance: 0.3, cooldown: 75, gain: 0.95 },
@@ -59,10 +90,10 @@ export const VOICE_LINES = Object.freeze({
   // truly snagged on some small, incidental furnishing in passing (the host marks it: a `snag` world impact), and
   // even then almost never
   bladeCaught: { kind: 'sentence', priority: CONTEXT, chance: 0.12, cooldown: 900, gain: 1 },
-  // "YOUR INTEGRITY WILL NOT SUFFICE!" as Sunder All That Rusts takes hold: every time (it is the ultimate's own cry)
+  // "Your integrity will not suffice!" as Sunder All That Rusts takes hold: every time (it is the ultimate's own cry)
   sunderCall: { kind: 'sentence', priority: STATE, chance: 1, cooldown: 0, gain: 1, interrupts: true },
-  // (recorded and loaded, waiting on Blazing Vortex, so never said yet: `vortexUse`, its early-spin cry. Its fall,
-  // "I was dizzy anyway.", is still to be recorded)
+  // (recorded and loaded, waiting on Blazing Vortex, so never said yet: `vortexUse`, its early-spin cry, and
+  // `vortexDefeat`, "I was dizzy anyway.". Waiting on the Riposte, and unrecorded: "I have misaddressed.")
 });
 
 // the least time between two of one knight's sentences (exertions are not counted; a death or a match's end, which
@@ -111,17 +142,28 @@ export function voicePlacement(listener, yaw, source, hearing = VOICE_HEARING) {
 // the killing blows that count as magic (a knight burned down by a Fireball was still killed by sorcery)
 export const MAGIC_SOURCES = Object.freeze(['fireball', 'frostfire', 'burn']);
 
-// how much likelier "But I am a knight!" is when the match itself is lost (than when merely felled)
-export const DEFEAT_ON_LOSS = 1.8;
+// how much likelier "But I am a knight!" is when the fall loses the match (than when merely felled)
+export const DEFEAT_ON_LOSS = 2.5;
 
 // how much likelier "The knight has fallen!" is after an overkill (a killing blow far heavier than the health it took)
 export const KNIGHT_FALLEN_OVERKILL = 3.5;
-export const OVERKILL = Object.freeze({ ratio: 2.5 });
+// an overkill: at least `ratio` times the health it took, and a real blow (`least`), not a lick on the last scrap
+export const OVERKILL = Object.freeze({ ratio: 2.5, least: 20 });
 
 /** Whether a killing blow was an overkill: far more than the health it took, or struck at the elevated level. */
 export function isOverkill({ amount = 0, healthBefore = 100, level = null } = {}) {
   if (level === 'elevated') return true;
-  return amount >= Math.max(1, healthBefore) * OVERKILL.ratio;
+  return amount >= Math.max(OVERKILL.least, Math.max(1, healthBefore) * OVERKILL.ratio);
+}
+
+// a minor lethal blow: this much or less (a burn's lick, a gauntlet's tap, a blast's edge), and nothing grander
+export const MINOR_LETHAL = Object.freeze({ amount: 12, interrupted: 1.4 });
+
+/** Whether a killing blow was a very small amount that proved sufficient: no overkill, no ultimate, no fall. */
+export function isMinorLethal({ amount = 0, healthBefore = 100, level = null, ultimate = false, source = null } = {}) {
+  if (ultimate || level === 'elevated' || source === 'abyss' || source === 'rupture') return false;
+  if (isOverkill({ amount, healthBefore, level })) return false;
+  return amount > 0 && amount <= MINOR_LETHAL.amount;
 }
 
 /**
@@ -145,19 +187,61 @@ export function worldImpactLines(event) {
  * What might be said when a Spellblade falls, in the order to try: the fallen first (the first line that passes its
  * rules is the only one), then, only if the fallen kept quiet, whoever felled them. Pure; the runtime asks the
  * director for each in turn.
+ *
+ * minor: a very small blow proved enough (isMinorLethal), `interrupted` if it cut short something they were doing;
+ * decisive: the fall lost the match; answer: it answers the squire's question (every line of the fallen that fits
+ * is forced, the grander ones in a random order: SQUIRE). moment: what made the kill (for the victor's line): {
+ * sunder, knighthood (0, 1, or 2 for a high killing swing), gale, clean, subpar, practice, messy }.
  */
-export function deathLines({ victimId, killerId, source, overkill = false }) {
+export function deathLines({ victimId, killerId, source, overkill = false, minor = false, interrupted = false, decisive = false, answer = false, moment = {} }, rand = Math.random) {
   const fallen = [];
+  if (minor) fallen.push({ line: 'lateLine', speaker: victimId, chanceScale: interrupted ? MINOR_LETHAL.interrupted : 1 });
   if (MAGIC_SOURCES.includes(source)) fallen.push({ line: 'magicDefeat', speaker: victimId });
-  fallen.push({ line: 'knightFallen', speaker: victimId, chanceScale: overkill ? KNIGHT_FALLEN_OVERKILL : 1 });
-  fallen.push({ line: 'defeat', speaker: victimId });
+  const grand = [
+    { line: 'knightFallen', speaker: victimId, chanceScale: overkill ? KNIGHT_FALLEN_OVERKILL : 1 },
+    { line: 'defeat', speaker: victimId, chanceScale: decisive ? DEFEAT_ON_LOSS : 1 },
+  ];
+  if (answer) {
+    // the squire's answer: whichever fits, with no odds about it (and no grunt: it must be a line)
+    if (rand() < 0.5) grand.reverse();
+    return { fallen: [...fallen, ...grand].map((say) => ({ ...say, force: true })), victor: [] };
+  }
+  fallen.push(...grand);
+  fallen.push({ line: 'laugh', speaker: victimId });
   fallen.push({ line: 'death', speaker: victimId });
-  // (the victor's line that belongs to the moment most first: a gauntlet's kill has its own)
-  const victor = killerId && killerId !== victimId ? [
-    ...(source === 'gauntlet' ? [{ line: 'fistKill', speaker: killerId, delay: 0.45 }] : []),
-    { line: 'killTaunt', speaker: killerId, delay: 0.45 },
-  ] : [];
-  return { fallen, victor };
+  return { fallen, victor: killerId && killerId !== victimId ? victorLines({ killerId, source, moment }) : [] };
+}
+
+/** What the knight who felled another might say over them, in the order to try (see deathLines' moment). */
+export function victorLines({ killerId, source, moment = {} }) {
+  const say = (line, extra = {}) => ({ line, speaker: killerId, delay: 0.45, ...extra });
+  const lines = [];
+  if (moment.sunder) lines.push(say('victory'));
+  if (moment.knighthood) lines.push(say('newKnighthood', { chanceScale: moment.knighthood >= 2 ? 2 : 1 }));
+  if (moment.gale) lines.push(say('galeTaunt', { chanceScale: GALE_KILL, delay: 0.6 }));
+  if (moment.practice) lines.push(say('neverReach', { delay: 0.6 }));
+  if (source === 'gauntlet') lines.push(say('fistKill'));
+  if (moment.clean && source === 'sword') lines.push(say('hackSlash'));
+  if (moment.subpar) lines.push(say('subparStandard', { delay: 0.6 }));
+  if (moment.messy) lines.push(say('alwaysKnew', { chanceScale: 0.35, delay: 0.6 }));
+  lines.push(say('killTaunt'));
+  lines.push(say('laugh', { delay: 0.5 }));
+  return lines;
+}
+
+// how much likelier the gale's jibe is when the drop it threw them into is what killed them
+export const GALE_KILL = 3;
+
+/**
+ * What the knight who broke a guard might say, in the order to try: a guard broken by a Sundering blow (catastrophic)
+ * may be force settling the argument; otherwise the helping hand, and rarely the staffing advice.
+ */
+export function guardBreakLines({ attackerId, catastrophic = false }) {
+  return [
+    ...(catastrophic ? [{ line: 'victory', speaker: attackerId, delay: 0.7 }] : []),
+    { line: 'lowerGuard', speaker: attackerId, delay: 0.7 },
+    { line: 'breakTaunt', speaker: attackerId, delay: 0.7 },
+  ];
 }
 
 /**
@@ -178,6 +262,9 @@ export const MOUTH_BUSY_SEC = 0.8;
 export class VoiceDirector {
   constructor({ rand = Math.random } = {}) {
     this.rand = rand;
+    // when each knight may say each line again (its cooldown, some of them a spread), and how often this life
+    this.readyAt = new Map();
+    this.thisLife = new Map();
     this.lastLine = new Map();
     this.lastSpoke = new Map();
     this.lastSentence = new Map();
@@ -189,15 +276,17 @@ export class VoiceDirector {
   /**
    * Whether `speaker` says `line` at `now` (seconds), and what it cuts: null (nothing is said), or { stop: [speakers
    * whose line this one cuts off] }. duration: how long the take will run (from `now`, any delay included).
-   * chanceScale softens (or, for a fitting moment, raises) a line's chance. Voice is presentation only: nothing in
-   * the game waits on a line, and nothing here waits on anything.
+   * chanceScale softens (or, for a fitting moment, raises) a line's chance. force: the moment demands it (the
+   * squire's answer): no odds, no cooldown and no gap, though it still waits its turn by rank. Voice is presentation
+   * only: nothing in the game waits on a line, and nothing here waits on anything.
    */
-  consider(line, speaker, now, { chanceScale = 1, duration = MOUTH_BUSY_SEC } = {}) {
+  consider(line, speaker, now, { chanceScale = 1, duration = MOUTH_BUSY_SEC, force = false } = {}) {
     const rule = VOICE_LINES[line];
     if (!rule) return null;
     const priority = rule.priority ?? (rule.interrupts ? STATE : rule.kind === 'sentence' ? CONTEXT : EXERTION);
     const key = `${speaker}:${line}`;
-    if (now - (this.lastLine.get(key) ?? -Infinity) < rule.cooldown) return null;
+    if (!force && now < (this.readyAt.get(key) ?? -Infinity)) return null;
+    if (!force && rule.perLife && (this.thisLife.get(key) ?? 0) >= rule.perLife) return null;
     // never over one's own line, unless this one matters more
     const own = this.speaking.get(speaker);
     const ownBusy = Boolean(own) && now < own.until;
@@ -207,8 +296,8 @@ export class VoiceDirector {
     // one sentence heard at a time: another knight's is let finish, unless this one matters more
     const other = sentence && this.sentence && now < this.sentence.until && this.sentence.speaker !== speaker ? this.sentence : null;
     if (other && priority <= other.priority) return null;
-    if (sentence && !rule.interrupts && now - (this.lastSentence.get(speaker) ?? -Infinity) < SENTENCE_GAP) return null;
-    if (this.rand() >= rule.chance * chanceScale) return null;
+    if (!force && sentence && !rule.interrupts && now - (this.lastSentence.get(speaker) ?? -Infinity) < SENTENCE_GAP) return null;
+    if (!force && this.rand() >= rule.chance * chanceScale) return null;
     const stop = [];
     if (ownBusy) stop.push(speaker);
     if (other) {
@@ -216,6 +305,9 @@ export class VoiceDirector {
       this.speaking.delete(other.speaker);
     }
     this.lastLine.set(key, now);
+    const [least, most] = Array.isArray(rule.cooldown) ? rule.cooldown : [rule.cooldown, rule.cooldown];
+    this.readyAt.set(key, now + (most > least ? least + (most - least) * this.rand() : least));
+    if (rule.perLife) this.thisLife.set(key, (this.thisLife.get(key) ?? 0) + 1);
     this.lastSpoke.set(speaker, now);
     const entry = { speaker, line, priority, until: now + Math.max(0, duration) };
     this.speaking.set(speaker, entry);
@@ -229,6 +321,12 @@ export class VoiceDirector {
   /** Whether `speaker` says `line` at `now` (as consider, for callers that cut nothing). */
   allow(line, speaker, now, options = {}) {
     return Boolean(this.consider(line, speaker, now, options));
+  }
+
+  /** A knight lives again (a respawn; every knight, for a new match): lines kept to once a life may be said again. */
+  newLife(speaker = null) {
+    if (speaker === null) this.thisLife.clear();
+    for (const key of [...this.thisLife.keys()]) if (key.startsWith(`${speaker}:`)) this.thisLife.delete(key);
   }
 
   /** How long ago `speaker` last said a sentence (Infinity if never): for lines that answer one. */

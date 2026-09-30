@@ -272,6 +272,42 @@ export const COMBO = settle([
   rest(COMBO_END, { ease: 0 }),
 ], REST_TURN);
 
+// Sundering, every strike of the chain is a slam: the heavy strike's blow, both hands on the grip from the first,
+// each timed to its own contact, the blade biting into the ground a beat before it is hauled straight back up
+// (the edge carried round with it, no turn of the hand) for the next. After the last, the heavy strike's own settle.
+const HELD = [-0.1, -0.14, -0.12];
+function slam(c, { raise = 0.3, grip = 1, first = false } = {}) {
+  return [
+    // (up and back from the ground: the edge carried round with the blade, never turned over)
+    ...(first ? [] : [key(c - 0.4, [0.2, -0.3, -0.64], dir(-12, 15), [-0.15, -0.95, -0.25],
+      { shoulder: [-0.06, 0.06, -0.08], body: [0.005, 0.005, -0.005], look: [0.3, 0.4, 0.3], grip: 1, counter: HELD })]),
+    key(c - raise, [0.3, -0.13, -0.6], dir(-22, 62), [-0.3, 0.1, -0.95],
+      { shoulder: [0, 0.12, -0.05], body: [0.02, 0.015, 0.005], look: [1.1, 1.5, 1.1], grip, counter: HELD }),
+    key(c - 0.14, [0.29, -0.11, -0.6], dir(-18, 68), [-0.25, -0.2, -0.95],
+      { shoulder: [0, 0.14, -0.05], body: [0.02, 0.018, 0.01], look: [1.4, 1.6, 1.2], grip: 1, counter: HELD, ease: 0 }),
+    key(c - 0.07, [0.21, -0.1, -0.63], dir(-5, 63), [-0.1, -0.6, -0.8],
+      { shoulder: [-0.04, 0.1, -0.08], body: [0.01, 0.005, -0.01], look: [0.8, 0.9, 0.6], grip: 1, counter: HELD }),
+    key(c, [0.11, -0.23, -0.66], dir(9, -10), [-0.2, -0.95, 0.2],
+      { shoulder: [-0.13, 0, -0.15], body: [-0.01, -0.02, -0.02], look: [-2.2, -1.6, -1.0], grip: 1, counter: [-0.05, -0.08, -0.08] }),
+  ];
+}
+// the blade in the ground, a beat (the view jolted with it)
+const bite = (c) => [
+  key(c + 0.08, [0.07, -0.48, -0.73], dir(10, -40), [-0.1, -0.7, 0.7],
+    { shoulder: [-0.18, -0.05, -0.13], body: [-0.02, -0.035, -0.02], look: [-2.4, -1.6, -1.1], grip: 1, counter: [0, -0.04, -0.04] }),
+  key(c + 0.2, [0.07, -0.52, -0.72], dir(11, -42), [-0.1, -0.7, 0.7],
+    { shoulder: [-0.18, -0.06, -0.12], body: [-0.02, -0.04, -0.018], look: [-2.0, -1.4, -1.0], grip: 1, counter: [0, -0.04, -0.04], ease: 0.2 }),
+];
+
+export const SLAM = settle([
+  rest(0, { ease: 0 }),
+  ...slam(C1, { raise: 0.24, grip: 0.8, first: true }), ...bite(C1),
+  ...slam(C2), ...bite(C2),
+  ...slam(C3),
+  // the last spends itself low, the magic hand letting go, and the arms come heavily back to rest
+  ...COMBO.filter((k) => k.t > C3).map(({ turn, ...k }) => k),
+], REST_TURN);
+
 // the kinetic chain's delays (seconds): the body leads the hand by a beat, and the blade trails it a touch
 export const CHAIN = Object.freeze({ body: 0.03, blade: 0.012 });
 // where the magic hand comes up from to take the grip (and falls back to), relative to the grip: below and left
@@ -349,6 +385,13 @@ export function comboPose(time) {
   return present(poseFrom(COMBO, t), t);
 }
 
+/** The Sundering chain `time` seconds in: every strike a slam (SLAM), posed as comboPose's. */
+export function slamPose(time) {
+  if (!Number.isFinite(time)) return null;
+  const t = Math.max(0, Math.min(COMBO_END, time));
+  return present(poseFrom(SLAM, t), t);
+}
+
 // --- going home: when a chain ends before its heavy strike (or is broken off), the arms come back to rest from
 // wherever they are, carrying on as they were moving and easing into rest (a real path, not a fade)
 
@@ -385,11 +428,12 @@ function velocityAt(keys, time) {
 const recoveries = new Map();
 
 /** The keys of the way home from `from` seconds into a chain (built once for each place it can start from). */
-function recoveryKeys(from, quick) {
-  const id = `${from.toFixed(4)}:${quick}`;
+function recoveryKeys(from, quick, slammed) {
+  const id = `${from.toFixed(4)}:${quick}:${slammed}`;
   if (recoveries.has(id)) return recoveries.get(id);
-  const start = poseFrom(COMBO, from);
-  const moving = velocityAt(COMBO, from);
+  const chain = slammed ? SLAM : COMBO;
+  const start = poseFrom(chain, from);
+  const moving = velocityAt(chain, from);
   const seconds = quick ? RECOVERY.quickSeconds : RECOVERY.seconds;
   // (all but the magic hand's hold carry on as they were going: a reach for the grip stops as soon as there is no
   // strike to reach for)
@@ -397,7 +441,8 @@ function recoveryKeys(from, quick) {
   const keys = [first];
   // (the heavy strike's own settle is its way home; a broken-off chain goes straight there, a little quicker)
   const landed = SWORD_STRIKE_TIMES.filter((contact) => from >= contact - 1e-9).length;
-  const via = !quick && landed >= 1 && landed <= 2 ? RECOVERY.via[landed - 1] : null;
+  // (a slam is already on its way back up from the ground: straight home from there)
+  const via = !quick && !slammed && landed >= 1 && landed <= 2 ? RECOVERY.via[landed - 1] : null;
   if (via) {
     // the way the edge lies at the passing point: whichever makes the least turning overall, out and home
     const one = nearerTurn(via.blade, via.lead, start.turn);
@@ -418,13 +463,14 @@ function recoveryKeys(from, quick) {
 
 /**
  * The arms on their way home after a chain ended `from` seconds in, `elapsed` seconds ago: a pose like comboPose's,
- * or null once they are at rest. quick: the chain was broken off (a parry, a wall), not let go.
+ * or null once they are at rest. quick: the chain was broken off (a parry, a wall), not let go. slam: it was a
+ * Sundering chain (SLAM).
  */
-export function recoveryPose(from, elapsed, { quick = false } = {}) {
+export function recoveryPose(from, elapsed, { quick = false, slam: slammed = false } = {}) {
   if (!Number.isFinite(from) || !Number.isFinite(elapsed)) return null;
   // after the heavy strike the chain's own settle is the way home
-  if (!quick && from >= C3 - 1e-9) return from + elapsed >= COMBO_END ? null : comboPose(from + elapsed);
-  const keys = recoveryKeys(Math.max(0, Math.min(COMBO_END, from)), quick);
+  if (!quick && from >= C3 - 1e-9) return from + elapsed >= COMBO_END ? null : (slammed ? slamPose : comboPose)(from + elapsed);
+  const keys = recoveryKeys(Math.max(0, Math.min(COMBO_END, from)), quick, Boolean(slammed));
   const last = keys[keys.length - 1].t;
   if (elapsed >= last) return null;
   const t = Math.max(0, elapsed);

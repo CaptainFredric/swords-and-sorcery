@@ -24,6 +24,17 @@ test('late attack snapshots select the authoritative slash clip and local clip t
   close(plan.time, 0.26);
 });
 
+test('a chain begun Sundering plays every strike as the heavy slam, each at its own contact', () => {
+  const player = { attackStartedAt: 10, attackSlam: true };
+  // the heavy strike's contact is 0.36 s into Slash_3, and each strike's contact (0.4, 1.1, 1.8) lands there
+  for (const contact of [0.4, 1.1, 1.8]) {
+    const plan = resolveSpellbladeAnimationPlan({ state: 'attack', player, serverNow: 10 + contact, localTime: 99 });
+    assert.equal(plan.clip, 'Slash_3');
+    close(plan.time, 0.36);
+  }
+  assert.equal(resolveSpellbladeAnimationPlan({ state: 'attack', player: { attackStartedAt: 10 }, serverNow: 10.4 }).clip, 'Slash_1');
+});
+
 test('cast timing comes from the authoritative cast window start', () => {
   const plan = resolveSpellbladeAnimationPlan({
     state: 'cast',

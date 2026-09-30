@@ -11,8 +11,10 @@
 export const ULTIMATES = Object.freeze({
   // Sunder All That Rusts: for a while, every blow the Spellblade lands is the most forceful it could be. The sword
   // strikes at an elevated level, with the greatest physical force (the shove, the weight on a guard, the stagger),
-  // a guard pays for two blows at once, and a blade driven into the ground ruptures it (shared/src/rupture.mjs).
-  // Sheathe in Steel meets it halfway: against hardened plate, a Sundering blow is an ordinary one.
+  // a guard pays for two blows at once, and every strike is a slam: the sword comes down from overhead, driven along an
+  // aim at least `slamPitch` below level (so it finds the ground without the knight looking at their feet), through
+  // whoever it meets and on into the ground, which ruptures (shared/src/rupture.mjs). Sheathe in Steel meets it
+  // halfway: against hardened plate, a Sundering blow is an ordinary one.
   sunder: Object.freeze({
     id: 'sunder',
     label: 'Sunder All That Rusts',
@@ -23,10 +25,16 @@ export const ULTIMATES = Object.freeze({
     startupMove: 0.35,     // a bracing knight moves this much of a run
     startupStagger: 1.5,
     guardImpacts: 2,       // one Sundering blow on a guard weighs as two
+    slamPitch: -0.45,      // radians: a slam is driven along the aim, or this far below level if that is lower
   }),
 });
 
 export const DEFAULT_ULTIMATE = 'sunder';
+
+/** Whether `id` names an ultimate. */
+export function isUltimate(id) {
+  return Object.hasOwn(ULTIMATES, String(id));
+}
 
 /** An ultimate by id (the default for anything else). */
 export function ultimateFor(id) {

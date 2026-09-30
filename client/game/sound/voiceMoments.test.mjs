@@ -1,0 +1,153 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { DEFEAT_ON_LOSS, GALE_KILL, MINOR_LETHAL, VOICE_LINES, VoiceDirector, deathLines, guardBreakLines, isMinorLethal } from './voiceRules.mjs';
+import { MOMENTS, VoiceMoments } from './voiceMoments.mjs';
+
+const lines = (group) => group.map((say) => say.line);
+const knights = (table) => ({ knight: (id) => table[id] ?? null, positionOf: (id) => table[id]?.position ?? null });
+
+test('the wildcard laugh: a chance in fifty, a long while between, and once in a life at most', () => {
+  const rule = VOICE_LINES.laugh;
+  assert.ok(rule.chance >= 0.01 && rule.chance <= 0.03);
+  assert.deepEqual(rule.cooldown, [45, 75]);
+  assert.equal(rule.kind, 'sentence', 'one sentence at a time, like any line...');
+  assert.equal(rule.priority, 1, '...but it never cuts anything');
+  const director = new VoiceDirector({ rand: () => 0 });
+  assert.ok(director.allow('laugh', 'k', 10));
+  assert.ok(!director.allow('laugh', 'k', 40), 'not within 45 s');
+  assert.ok(!director.allow('laugh', 'k', 200), 'nor again in the same life, however long it lasts');
+  director.newLife('k');
+  assert.ok(director.allow('laugh', 'k', 210), 'a new life, a new chance');
+  // the spread: somewhere between 45 and 75 s (the dice: yes to the chance, the middle of the spread)
+  let roll = 0;
+  const spread = new VoiceDirector({ rand: () => (roll++ % 2 ? 0.5 : 0) });
+  spread.allow('laugh', 'k', 0);
+  spread.newLife('k');
+  assert.ok(!spread.allow('laugh', 'k', 59), 'half way through the spread (60 s): not yet');
+  assert.ok(spread.allow('laugh', 'k', 61));
+});
+
+test('the wildcard comes from discrete moments only: never a burn\'s licks, never a fall', () => {
+  const moments = new VoiceMoments();
+  const blow = (source, health = 50) => moments.damage({ type: 'damage', attackerId: 'a', victimId: 'v', source, amount: 5, health, at: 1 });
+  assert.ok(blow('sword').some((group) => group.some((say) => say.line === 'laugh' && say.speaker === 'a')));
+  assert.ok(blow('sword').some((group) => group.some((say) => say.line === 'laugh' && say.speaker === 'v')));
+  assert.ok(!blow('burn').some((group) => group.some((say) => say.line === 'laugh')), 'a burn\'s lick');
+  assert.ok(!blow('sword', 0).some((group) => group.some((say) => say.line === 'laugh' && say.speaker === 'v')), 'a killing blow has the fall\'s lines');
+});
+
+test('the squire\'s question: asked over a foe all but finished, answered by the next fall near him, whatever its odds', () => {
+  const moments = new VoiceMoments({ rand: () => 0.9 });
+  const world = knights({ a: { position: { x: 0, z: 0 } }, v: { position: { x: 3, z: 0 } }, far: { position: { x: 60, z: 0 } } });
+  const asked = moments.damage({ type: 'damage', attackerId: 'a', victimId: 'v', source: 'sword', amount: 25, health: MOMENTS.squire.health - 5, at: 10 }, world);
+  const setup = asked.flat().find((say) => say.line === 'squireSetup');
+  assert.ok(setup && setup.speaker === 'a' && setup.squire, 'asked, by the one who struck');
+  assert.ok(!moments.damage({ type: 'damage', attackerId: 'a', victimId: 'v', source: 'sword', amount: 5, health: 80, at: 10 }, world).flat().some((say) => say.line === 'squireSetup'), 'not over a foe still hale');
+  moments.squireAsked('a', 10, { x: 0, z: 0 });
+  // a fall far off is no answer, and leaves the question open
+  assert.equal(moments.death({ type: 'death', victimId: 'far', killerId: 'x', source: 'sword', at: 12 }, world).answer, false);
+  const answered = moments.death({ type: 'death', victimId: 'v', killerId: 'a', source: 'sword', at: 14 }, world);
+  assert.equal(answered.answer, true);
+  assert.ok(answered.fallen.length && answered.fallen.every((say) => say.force && say.speaker === 'v'), 'every line of the fallen, forced');
+  assert.ok(!lines(answered.fallen).includes('death') && !lines(answered.fallen).includes('laugh'), 'a line, not a grunt or the wildcard');
+  assert.deepEqual(answered.victor, [], 'the answer is the joke: nobody talks over it');
+  // answered once: the next fall is ordinary again
+  assert.equal(moments.death({ type: 'death', victimId: 'v', killerId: 'a', source: 'sword', at: 15 }, world).answer, false);
+  // and a question nobody answers in time simply lapses
+  moments.squireAsked('a', 20, { x: 0, z: 0 });
+  assert.equal(moments.death({ type: 'death', victimId: 'v', killerId: 'a', source: 'sword', at: 20 + MOMENTS.squire.windowSec + 0.1 }, world).answer, false);
+  // forced: said whatever the dice and however recently
+  const director = new VoiceDirector({ rand: () => 0.99 });
+  assert.ok(!director.allow('knightFallen', 'v', 1), 'ordinarily, the dice say no');
+  assert.ok(director.allow('knightFallen', 'v', 2, { force: true }));
+  assert.ok(director.allow('knightFallen', 'v', 10, { force: true }), 'even inside its long cooldown');
+});
+
+test('late: felled by very little, likelier when it cut something short; never an overkill, an ultimate or a fall', () => {
+  assert.ok(isMinorLethal({ amount: 4, healthBefore: 3, source: 'burn' }), 'a burn\'s last lick');
+  assert.ok(isMinorLethal({ amount: 9, healthBefore: 8, source: 'gauntlet' }));
+  assert.ok(!isMinorLethal({ amount: 25, healthBefore: 8, source: 'sword' }), 'a real blow is an overkill, not a scrap');
+  assert.ok(!isMinorLethal({ amount: 12, healthBefore: 10, source: 'rupture', ultimate: true }), 'an ultimate');
+  assert.ok(!isMinorLethal({ amount: 34, healthBefore: 5, level: 'elevated', source: 'sword' }));
+  assert.ok(!isMinorLethal({ amount: 100, source: 'abyss' }));
+  const moments = new VoiceMoments();
+  const world = knights({ v: { attackActive: true } });
+  const { fallen } = moments.death({ type: 'death', victimId: 'v', killerId: 'k', source: 'burn', at: 1 }, { ...world, blow: { amount: 4, healthBefore: 3 } });
+  assert.equal(fallen[0].line, 'lateLine', 'before anything else he might say');
+  assert.equal(fallen[0].chanceScale, MINOR_LETHAL.interrupted, 'mid-swing');
+  const chance = VOICE_LINES.lateLine.chance;
+  assert.ok(chance >= 0.1 && chance <= 0.15);
+  assert.ok(!lines(deathLines({ victimId: 'v', killerId: 'k', source: 'sword', overkill: true }).fallen).includes('lateLine'));
+});
+
+test('a new knighthood: a sword kill after a run of near-perfect blows aimed high, fuller when the last swing is higher', () => {
+  const run = (hits) => {
+    const moments = new VoiceMoments();
+    for (const [i, [amount, pitch]] of hits.entries()) {
+      const health = i === hits.length - 1 ? 0 : 50;
+      moments.damage({ type: 'damage', attackerId: 'k', victimId: 'v', source: 'sword', amount, health, at: i }, knights({ k: { pitch } }));
+    }
+    return moments.death({ type: 'death', victimId: 'v', killerId: 'k', source: 'sword', at: hits.length }, knights({}));
+  };
+  const high = run([[29, 0.15], [30, 0.25], [28, 0.3]]).victor.find((say) => say.line === 'newKnighthood');
+  assert.equal(high?.chanceScale, 2, 'the killing swing aimed high');
+  assert.equal(run([[29, 0.15], [30, 0.12]]).victor.find((say) => say.line === 'newKnighthood')?.chanceScale, 1);
+  assert.ok(!run([[29, -0.1], [30, -0.05]]).victor.some((say) => say.line === 'newKnighthood'), 'aimed low');
+  assert.ok(!run([[22, 0.2], [24, 0.2], [30, 0.3]]).victor.some((say) => say.line === 'newKnighthood'), 'not mostly perfect');
+  assert.ok(!run([[30, 0.3]]).victor.some((say) => say.line === 'newKnighthood'), 'one blow is no lesson');
+});
+
+test('always knew: near his end, and his threat felled or thrown by somebody else a moment later', () => {
+  const world = knights({ s: { health: 18 }, a: {}, t: {} });
+  const moments = new VoiceMoments();
+  moments.damage({ type: 'damage', attackerId: 'a', victimId: 's', source: 'sword', amount: 25, health: 18, at: 10 }, world);
+  const rescued = moments.death({ type: 'death', victimId: 'a', killerId: 't', source: 'sword', at: 11 }, world).rescued;
+  assert.deepEqual(rescued.map((group) => [lines(group), group[0].speaker]), [[['alwaysKnew'], 's']]);
+  // not when he saved himself, not once the moment has passed, not when he was never in danger
+  const again = () => { const m = new VoiceMoments(); m.damage({ type: 'damage', attackerId: 'a', victimId: 's', source: 'sword', amount: 25, health: 18, at: 10 }, world); return m; };
+  assert.deepEqual(again().death({ type: 'death', victimId: 'a', killerId: 's', source: 'sword', at: 11 }, world).rescued, []);
+  assert.deepEqual(again().death({ type: 'death', victimId: 'a', killerId: 't', source: 'sword', at: 10 + MOMENTS.threatSec + 0.5 }, world).rescued, []);
+  const hale = knights({ s: { health: 80 } });
+  const m = new VoiceMoments();
+  m.damage({ type: 'damage', attackerId: 'a', victimId: 's', source: 'sword', amount: 20, health: 80, at: 10 }, hale);
+  assert.deepEqual(m.death({ type: 'death', victimId: 'a', killerId: 't', source: 'sword', at: 11 }, hale).rescued, []);
+  // a gust from somebody else that throws the threat clear rescues too
+  const g = again();
+  const thrown = g.galeCaught({ type: 'galeBlast', playerId: 't', affected: [{ id: 'a', pressure: 0.8, guarded: false }], at: 11 }, world);
+  assert.ok(thrown.some((group) => group.some((say) => say.line === 'alwaysKnew' && say.speaker === 's')));
+  // and a messy kill of his own that arrived late (a burn's lick, a fall) may do, now and then
+  assert.ok(deathLines({ victimId: 'v', killerId: 'k', source: 'burn', moment: { messy: true } }).victor.some((say) => say.line === 'alwaysKnew'));
+});
+
+test('the victor\'s lines: each moment its own, before the ordinary taunt', () => {
+  const victor = (moment, source = 'sword') => lines(deathLines({ victimId: 'v', killerId: 'k', source, moment }).victor);
+  assert.equal(victor({ sunder: true })[0], 'victory', 'MIGHT MAKES... KNIGHT! after force');
+  assert.equal(victor({ gale: true }, 'abyss')[0], 'galeTaunt');
+  assert.equal(deathLines({ victimId: 'v', killerId: 'k', source: 'abyss', moment: { gale: true } }).victor[0].chanceScale, GALE_KILL);
+  assert.equal(victor({ practice: true })[0], 'neverReach');
+  assert.equal(victor({ clean: true })[0], 'hackSlash');
+  assert.equal(victor({ clean: true }, 'fireball').includes('hackSlash'), false, 'a clean sword kill only');
+  assert.equal(victor({ subpar: true })[0], 'subparStandard');
+  assert.deepEqual(victor({}).slice(-2), ['killTaunt', 'laugh']);
+  // the fall that lost the match: the protest likelier
+  assert.equal(deathLines({ victimId: 'v', killerId: 'k', source: 'sword', decisive: true }).fallen.find((say) => say.line === 'defeat').chanceScale, DEFEAT_ON_LOSS);
+  // who they were: a player flying another standard, a Practice Yard opponent that fights
+  const moments = new VoiceMoments();
+  const world = knights({ k: { actorKind: 'human' }, v: { actorKind: 'human', cloth: 'azure' }, d: { actorKind: 'dummy', practiceMode: 'MELEE' }, p: { actorKind: 'dummy', practiceMode: 'PASSIVE' } });
+  assert.ok(lines(moments.death({ type: 'death', victimId: 'v', killerId: 'k', source: 'sword', at: 1 }, world).victor).includes('subparStandard'));
+  assert.ok(lines(moments.death({ type: 'death', victimId: 'd', killerId: 'k', source: 'sword', at: 2 }, { ...world, practice: true }).victor).includes('neverReach'));
+  assert.ok(!lines(moments.death({ type: 'death', victimId: 'p', killerId: 'k', source: 'sword', at: 3 }, { ...world, practice: true }).victor).includes('neverReach'), 'a dummy that stands there');
+});
+
+test('force settles the argument: a Sundering guard break, balance broken by a Sundering knight, a slam that splits the ground under two', () => {
+  assert.deepEqual(lines(guardBreakLines({ attackerId: 'k', catastrophic: true })), ['victory', 'lowerGuard', 'breakTaunt']);
+  assert.deepEqual(lines(guardBreakLines({ attackerId: 'k' })), ['lowerGuard', 'breakTaunt'], 'the helping hand first, the staffing advice rarer');
+  assert.ok(VOICE_LINES.breakTaunt.chance < VOICE_LINES.lowerGuard.chance);
+  const moments = new VoiceMoments();
+  const sundering = knights({ k: { ultimateState: { phase: 'active', until: 20 } } });
+  assert.deepEqual(lines(moments.staggerBreak({ type: 'staggerBreak', playerId: 'v', by: 'k', at: 5 }, sundering)[0]), ['victory', 'staggerDisplay']);
+  assert.deepEqual(lines(moments.staggerBreak({ type: 'staggerBreak', playerId: 'v', by: 'k', at: 25 }, sundering)[0]), ['staggerDisplay']);
+  const rupture = (victimId, at) => moments.damage({ type: 'damage', attackerId: 'k', victimId, source: 'rupture', amount: 12, health: 50, at, ultimate: true }, sundering);
+  assert.ok(!rupture('a', 5).some((group) => lines(group).includes('victory')));
+  assert.ok(rupture('b', 5.3).some((group) => lines(group).includes('victory')), 'two caught at once');
+});

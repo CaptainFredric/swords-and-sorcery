@@ -24,13 +24,21 @@ const openWorld = {
   abyssY: -9,
 };
 
-function duel({ mode = 'FFA' } = {}) {
+function duel({ mode = 'FFA', third = false } = {}) {
   const room = new Room('SUNDR', { mode });
   room.addPlayer({ id: 'a', token: 'ta', name: 'A' }, 0);
   room.addPlayer({ id: 'b', token: 'tb', name: 'B' }, 0);
+  if (third) room.addPlayer({ id: 'c', token: 'tc', name: 'C' }, 0);
   room.setReady('a', true, 0);
   room.setReady('b', true, 0);
+  if (third) room.setReady('c', true, 0);
   room.tick(3.1);
+  if (third) {
+    const c = room.players.get('c');
+    Object.assign(c.position, { x: 40, y: 0, z: 0 });
+    c.spawnProtectionUntil = 0;
+    c.history = [];
+  }
   const a = room.players.get('a');
   const b = room.players.get('b');
   Object.assign(a.position, { x: 0, y: 0, z: 0 });
@@ -80,8 +88,8 @@ test('an ordinary sword blow still follows the 19-30 contact curve, at the norma
   }
 });
 
-test('Sundering, every sword blow strikes at the elevated level, wherever in the arc it caught', () => {
-  for (const deg of [0, 30, 60]) {
+test('Sundering, every sword blow it lands strikes at the elevated level, and every strike is a slam', () => {
+  for (const deg of [0, 8]) {
     const { room, a, b } = duel();
     sunder(room, a);
     place(b, deg);
@@ -92,6 +100,7 @@ test('Sundering, every sword blow strikes at the elevated level, wherever in the
     assert.equal(hit.level, 'elevated');
     assert.ok(GAME.swordElevated > GAME.swordDamage, 'above the ordinary curve altogether');
     assert.ok(events.find((e) => e.type === 'swordHit').level === 'elevated');
+    assert.equal(events.find((e) => e.type === 'swordSwing').slam, true, 'the forehand came down as a slam');
   }
 });
 
@@ -255,22 +264,58 @@ test('prowess: earned by fighting, kept through a death, never for an ultimate\'
   assert.equal(practice.a.prowess ?? 0, 0);
 });
 
-test('the ground ruptures only under a Sundering blade actually driven into it', () => {
-  const chop = ({ sundering, pitch }) => {
+test('Sundering, every strike is a slam into the ground, aimed level; an ordinary chop never ruptures it', () => {
+  const swing = ({ sundering, pitch, chain = false }) => {
     const { room, a, b } = duel();
     place(b, 0, 9);   // well away
     if (sundering) sunder(room, a);
     a.pitch = pitch; a.input.pitch = pitch;
     room.events.length = 0;
-    // the chop: the third strike
     beginAttack(room, 'a', 10);
-    return run(room, 10, 12);
+    if (chain) return run(room, 10, 12);
+    run(room, 10, 10.55);
+    endAttack(room, 'a', 10.55);
+    return room.events;
   };
-  const driven = chop({ sundering: true, pitch: -0.45 });
-  assert.ok(driven.some((e) => e.type === 'groundStrike'), 'a Sundering chop aimed into the ground strikes it');
-  assert.ok(driven.some((e) => e.type === 'rupture'));
-  assert.ok(!chop({ sundering: true, pitch: 0 }).some((e) => e.type === 'rupture'), 'a level chop is not driven into the ground');
-  assert.ok(!chop({ sundering: false, pitch: -0.45 }).some((e) => e.type === 'rupture' || e.type === 'groundStrike'), 'nor an ordinary one');
+  for (const pitch of [0, 0.3, -0.45]) {
+    const events = swing({ sundering: true, pitch });
+    assert.ok(events.some((e) => e.type === 'groundStrike'), `the forehand slams the ground (aimed ${pitch})`);
+    assert.ok(events.some((e) => e.type === 'rupture'));
+    assert.ok(!events.some((e) => e.type === 'swordMiss'), 'the ground took it: no miss');
+  }
+  assert.ok(!swing({ sundering: false, pitch: -0.45, chain: true }).some((e) => e.type === 'rupture' || e.type === 'groundStrike'), 'nor an ordinary chain, aimed down');
+});
+
+test('a slam goes through the knight it strikes and on into the ground: its rupture passes them by and catches the next', () => {
+  const { room, a, b } = duel({ third: true });
+  const c = room.players.get('c');
+  sunder(room, a);
+  place(b, 0, 1.8);
+  Object.assign(c.position, { x: 4.5, y: 0, z: 0 });
+  c.history = [];
+  room.events.length = 0;
+  beginAttack(room, 'a', 10);
+  run(room, 10, 10.55);
+  endAttack(room, 'a', 10.55);
+  run(room, 10.56, 12);
+  const damage = room.events.filter((e) => e.type === 'damage');
+  assert.deepEqual(damage.filter((e) => e.victimId === 'b').map((e) => e.source), ['sword'], 'b: the sword, once, and never the ground');
+  assert.deepEqual(damage.filter((e) => e.victimId === 'c').map((e) => e.source), ['rupture'], 'c: the ground');
+  assert.equal(room.events.find((e) => e.type === 'groundStrike').through, 'b');
+});
+
+test('one knight\'s ruptures catch the same knight at most once a second: a warning to move, not a blender', () => {
+  const { room, a, b } = duel();
+  sunder(room, a);
+  place(b, 0, 4.5);
+  room.events.length = 0;
+  beginAttack(room, 'a', 10);
+  run(room, 10, 13);
+  const ruptures = room.events.filter((e) => e.type === 'rupture').length;
+  const caught = room.events.filter((e) => e.type === 'damage' && e.source === 'rupture').map((e) => e.at);
+  assert.ok(ruptures >= 3, `every strike ruptured (${ruptures})`);
+  assert.ok(caught.length >= 2 && caught.length < ruptures, `${caught.length} of ${ruptures}`);
+  for (let i = 1; i < caught.length; i += 1) assert.ok(caught[i] - caught[i - 1] >= RUPTURE.recatchSec - 1e-6);
 });
 
 test('a rupture runs along the ground, never through what stands on it, and catches whoever stands on its line', () => {
@@ -287,11 +332,12 @@ test('a rupture runs along the ground, never through what stands on it, and catc
     sunder(room, a);
     Object.assign(b.position, target);
     b.history = [];
-    a.pitch = -0.45; a.input.pitch = a.pitch;
     room.events.length = 0;
-    // (the chain's third strike is the chop: it is the one driven into the ground)
+    // one slam, and its fissures left to run
     beginAttack(room, 'a', 10);
-    run(room, 10, 13, world);
+    run(room, 10, 10.55, world);
+    endAttack(room, 'a', 10.55);
+    run(room, 10.56, 12, world);
     return room.events.filter((e) => e.type === 'damage' && e.source === 'rupture');
   };
   assert.equal(strike(openWorld, { x: 4.5, y: 0, z: 0 }).length, 1, 'caught in the open');
@@ -317,4 +363,21 @@ test('nothing is left to chance: no random roll anywhere in how a blow, a stagge
   assert.deepEqual([...amounts], [GAME.swordElevated]);
   assert.ok(Math.abs(aimQuality(0) - 1) < 1e-9 && closingImpact(0) === 0);
   void tryCastSpell;
+});
+
+test('the host says who broke a knight\'s balance, and whether a fall lost the match (for the voice)', () => {
+  const { room, a, b } = duel();
+  place(b, 0);
+  b.stagger = { level: STAGGER.max - 1, recoverUntil: -Infinity, lastAt: 10 };
+  const broke = forehand(room).find((e) => e.type === 'staggerBreak');
+  assert.equal(broke?.by, 'a');
+  // the winning kill: the fall that lost it is decisive; an ordinary one is not
+  const decide = (score) => {
+    const duelled = duel();
+    duelled.room.scoreToWin = score;
+    applyDamage(duelled.room, 'a', 'b', 200, 'sword', 10);
+    return duelled.room.events.find((e) => e.type === 'death');
+  };
+  assert.equal(decide(1).decisive, true);
+  assert.equal(decide(5).decisive, undefined);
 });

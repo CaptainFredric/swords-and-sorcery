@@ -423,8 +423,11 @@ function soundTheEnd(snapshot) {
   endHeardFor = key;
   const won = snapshot.winnerId === socket.playerId;
   music.stinger(won ? 'victory' : 'defeat');
-  // MIGHT MAKES... KNIGHT! or, having lost, the protest that he is a knight (unless he just said so as he fell)
-  voice.say(won ? 'victory' : 'defeat', { speaker: socket.playerId, gain: 0.85, delay: 0.4, close: true, chanceScale: won ? 1 : DEFEAT_ON_LOSS });
+  // the defeat made official: now and then, that he never thought this day would come; if not, the protest that he
+  // is a knight (unless he just said so as he fell). A win is the stinger's (MIGHT MAKES... KNIGHT! is for force)
+  if (won) return;
+  const said = { speaker: socket.playerId, gain: 0.85, delay: 0.4, close: true };
+  if (!voice.say('neverThought', said)) voice.say('defeat', { ...said, chanceScale: DEFEAT_ON_LOSS });
 }
 
 function updateEnd(snapshot) {
@@ -560,8 +563,12 @@ const settingsPanel = new SettingsPanel({
 });
 settings.onChange((change) => {
   applySettings();
+  if (change.id === 'loadout.ultimate') {
+    socket.loadout(settings.get('loadout.spell'), change.value);
+    renderArmory();
+  }
   if (change.id === 'loadout.spell') {
-    socket.loadout(change.value);
+    socket.loadout(change.value, settings.get('loadout.ultimate'));
     renderArmory();
     if (router.current === SCREEN_IDS.ARMORY) menuScene?.showSpell(change.value);
   }
@@ -576,7 +583,10 @@ for (const button of document.querySelectorAll('[data-open-settings]')) {
 }
 // the credits and the voice library, from a quiet button in the settings' footer (over the settings; Done returns)
 const creditsPanel = new CreditsPanel({ root: $('#credits'), voice });
-$('[data-open-credits]')?.addEventListener('click', () => creditsPanel.open());
+// (answered at the document: a tap anywhere on the button, whatever the settings panel has redrawn round it)
+document.addEventListener('click', (event) => {
+  if (event.target.closest?.('[data-open-credits]')) creditsPanel.open();
+});
 
 renown = new RenownController({ socket, scene: () => menuScene, spell: () => settings.get('loadout.spell') });
 $('#end-armory').addEventListener('click', () => {
@@ -599,13 +609,20 @@ $('#end-armory').addEventListener('click', () => {
 
 // --- the Armory: the Spellblade's kit (for now the blade, and the spell carried into a fight) ---
 function renderArmory() {
-  const view = armoryView(settings.get('loadout.spell'));
+  const view = armoryView(settings.get('loadout.spell'), settings.get('loadout.ultimate'));
   $('#armory-blade-name').textContent = view.blade.name;
   $('#armory-blade-facts').textContent = view.blade.facts;
   $('#armory-spells').innerHTML = view.spells.map((spell) => `<button type="button" class="spell-card${spell.equipped ? ' equipped' : ''}" role="radio" aria-checked="${spell.equipped}" data-spell="${spell.id}">
     <span class="spell-mark">${spell.mark}</span><span class="spell-name">${escapeHtml(spell.name)}</span>${spell.equipped ? '<i>EQUIPPED</i>' : ''}
     <small>${escapeHtml(spell.line)}</small><em>${escapeHtml(spell.facts)}</em></button>`).join('');
+  $('#armory-ultimates').innerHTML = view.ultimates.map((u) => `<button type="button" class="spell-card ultimate-card${u.equipped ? ' equipped' : ''}" role="radio" aria-checked="${u.equipped}" data-ultimate="${u.id}">
+    <span class="spell-mark">${u.mark}</span><span class="spell-name">${escapeHtml(u.name)}</span>${u.equipped ? '<i>EQUIPPED</i>' : ''}
+    <small>${escapeHtml(u.line)}</small><em>${escapeHtml(u.facts)}</em></button>`).join('');
 }
+$('#armory-ultimates').addEventListener('click', (event) => {
+  const card = event.target.closest('[data-ultimate]');
+  if (card) settings.set('loadout.ultimate', card.dataset.ultimate);
+});
 $('#armory-button').addEventListener('click', () => {
   renderArmory();
   route(SCREEN_IDS.ARMORY);
@@ -867,7 +884,7 @@ for (const selector of ONLINE_COMMANDS) {
 
 socket.on('connection', ({ connected }) => {
   // every connection carries the Armory's spell (the server keeps it for the rooms this connection joins)
-  if (connected) socket.loadout(settings.get('loadout.spell'));
+  if (connected) socket.loadout(settings.get('loadout.spell'), settings.get('loadout.ultimate'));
   if (!connected && runtime) hud.flashText('RECONNECTING…', 'danger');
 });
 
