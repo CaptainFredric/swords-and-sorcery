@@ -152,8 +152,8 @@ test('with the server there, everything goes to it, and every connection carries
   assert.equal(await link.connect(), true);
   assert.equal(link.status, 'online');
   assert.deepEqual(heard, [{ connected: true }]);
-  link.startSolo('PRACTICE', 'Aden');
-  assert.deepEqual(remote.calls.at(-1), ['startSolo', 'PRACTICE', 'Aden']);
+  link.startSolo('PRACTICE', 'Aden', 'ruined-keep');
+  assert.deepEqual(remote.calls.at(-1), ['startSolo', 'PRACTICE', 'Aden', 'ruined-keep']);
   assert.equal(link.playingLocally, false);
   assert.equal(link.playerId, 'remote-player');
   assert.equal(link.serverNow(), 7);
@@ -192,7 +192,7 @@ test('with the server gone, solo play runs in the browser, online play waits, an
   assert.equal(link.playingLocally, true, 'nobody is pulled out of the match');
   link.leaveRoom();
   link.startSolo('BOT_DUEL', 'Aden');
-  assert.deepEqual(remote.calls.at(-1), ['startSolo', 'BOT_DUEL', 'Aden']);
+  assert.deepEqual(remote.calls.at(-1), ['startSolo', 'BOT_DUEL', 'Aden', undefined]);
 });
 
 test('a server that is slow to answer is waking; one that never answers is given up on and retried', async () => {
@@ -210,4 +210,14 @@ test('a server that is slow to answer is waking; one that never answers is given
   assert.equal(link.status, 'offline');
   assert.match(linkStatusView('offline').note, /solo still works/);
   assert.match(linkStatusView('offline').detail, /browser/);
+});
+
+test('solo play in the browser is fought in the arena chosen for it (Castleward for anything else)', () => {
+  const local = new LocalHost({ every: () => 1, cancel: () => {}, later: (fn) => fn() });
+  local.startSolo('BOT_DUEL', 'Aden', 'ruined-keep');
+  assert.equal(local.room.worldId, 'ruined-keep');
+  local.startSolo('PRACTICE', 'Aden', 'the-moon');
+  assert.equal(local.room.worldId, 'castleward');
+  local.startSolo('PRACTICE', 'Aden', 'shattered-keep');
+  assert.equal(local.room.worldId, 'castleward', 'the old greybox is not an arena');
 });

@@ -484,6 +484,23 @@ for (const [id, reaction] of Object.entries(MENU_REACTIONS)) $(`#${id}`)?.addEve
 $('#solo-back').addEventListener('click', () => route(SCREEN_IDS.MAIN_MENU));
 $('#private-back').addEventListener('click', () => route(SCREEN_IDS.MAIN_MENU));
 $('[data-close-how]').addEventListener('click', () => route(SCREEN_IDS.MAIN_MENU));
+// the solo arena: a chip each, the chosen one lit
+const soloArena = $('#solo-arena');
+function showSoloArena() {
+  const chosen = menuController.soloArena();
+  for (const chip of soloArena.querySelectorAll('[data-arena]')) {
+    const on = chip.dataset.arena === chosen;
+    chip.classList.toggle('mine', on);
+    chip.setAttribute('aria-checked', String(on));
+  }
+}
+soloArena.addEventListener('click', (event) => {
+  const chip = event.target.closest?.('[data-arena]');
+  if (!chip) return;
+  menuController.chooseSoloArena(chip.dataset.arena);
+  showSoloArena();
+});
+showSoloArena();
 $('#bot-duel').addEventListener('click', () => runMenuAction(menuController.botDuel(nameInput.value), SCREEN_IDS.SOLO_MENU));
 $('#practice-mode').addEventListener('click', () => runMenuAction(menuController.practice(nameInput.value), SCREEN_IDS.SOLO_MENU));
 $('#create-room').addEventListener('click', () => runMenuAction(menuController.createPrivate(nameInput.value), SCREEN_IDS.PRIVATE_MENU));

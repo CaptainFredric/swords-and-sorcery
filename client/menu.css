@@ -300,6 +300,8 @@
 .vote-chip.chosen { border-color: var(--heraldry-brass-light); box-shadow: 0 0 0 1px rgba(236, 201, 127, .3); }
 .vote-chip.mine { background: linear-gradient(180deg, #e7c47c, #b8893f); color: #2a1c10; }
 .vote-chip.mine .tally { background: #2a1c10; color: #f1dfae; }
+/* the solo arena choice: the vote chips, one lit */
+.solo-arena { margin: 2px 0 12px; }
 .vote-chip:hover { border-color: var(--heraldry-brass-light); }
 
 /* --- seeking a duel: a banner in the practice yard --------------------------------------------------------------- */

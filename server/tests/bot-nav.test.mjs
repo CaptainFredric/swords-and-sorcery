@@ -58,9 +58,9 @@ for (const world of WORLDS) {
 }
 
 // a Bot Duel with the bot at `from` and its foe standing still at `to`; how near the bot got, and when
-function chase(from, to, seconds = 12) {
+function chase(from, to, seconds = 12, worldId = WORLD_IDS.CASTLEWARD) {
   const manager = new RoomManager({ random: lcg(7) });
-  const room = manager.createSoloRoom('BOT_DUEL', 0);
+  const room = manager.createSoloRoom('BOT_DUEL', 0, worldId);
   const human = room.addPlayer({ id: 'human', token: 'token', name: 'Aden' }, 0);
   room.provisionModeActors(0);
   room.setArenaReady(human.id, true, 0);
@@ -107,4 +107,39 @@ test('round something small it steps aside, not off round the waypoints', () => 
   assert.equal(bot.ai.route?.length, 1, 'one step aside');
   assert.equal(bot.ai.route[0].id, undefined, 'a step aside, not a waypoint');
   assert.ok(Math.hypot(bot.ai.route[0].x - bot.position.x, bot.ai.route[0].z - bot.position.z) <= 4.5);
+});
+
+test('in the Ruined Keep a bot in the Ward finds the stair to a foe up on the Gallery', () => {
+  const { reached, bot } = chase({ x: -5, y: 0, z: -9.5 }, { x: 11.8, y: 2.6, z: 4 }, 12, WORLD_IDS.RUINED_KEEP);
+  assert.ok(reached !== null, `stuck at (${bot.position.x.toFixed(1)}, ${bot.position.y.toFixed(1)}, ${bot.position.z.toFixed(1)})`);
+});
+
+test('a bot fighting on the terrace never walks itself over the crumbled edge', () => {
+  for (const kind of ['rival', 'melee', 'caster', 'runner']) {
+    for (const seed of [1, 2, 3]) {
+      const manager = new RoomManager({ random: lcg(seed) });
+      const room = manager.createSoloRoom('BOT_DUEL', 0, WORLD_IDS.RUINED_KEEP);
+      const human = room.addPlayer({ id: 'human', token: 'token', name: 'Aden' }, 0);
+      room.provisionModeActors(0);
+      room.setArenaReady(human.id, true, 0);
+      room.tick(3.1);
+      const bot = [...room.players.values()].find((p) => p.actorKind === 'bot');
+      bot.botProfile = kind;
+      human.connected = true;
+      // its foe stands at the edge's gap; the bot starts beside it
+      Object.assign(human.position, { x: -12.5, y: 0, z: -6.5 });
+      Object.assign(bot.position, { x: -11.2, y: 0, z: -8.4 });
+      const random = lcg(seed + 10);
+      for (let now = 4; now < 14; now += TICK) {
+        human.health = 100;
+        bot.health = 100;
+        human.input = { forward: 0, right: 0, jump: false, yaw: 0, pitch: 0 };
+        stepBotControllers(room, now, room.world, { random });
+        // (no blows land: only its own feet could carry it over)
+        for (const player of room.players.values()) player.spawnProtectionUntil = now + 1;
+        stepRoom(room, TICK, now, room.world).splice(0);
+        assert.ok(bot.position.y > -1, `${kind} (seed ${seed}) walked off at (${bot.position.x.toFixed(1)}, ${bot.position.z.toFixed(1)})`);
+      }
+    }
+  }
 });

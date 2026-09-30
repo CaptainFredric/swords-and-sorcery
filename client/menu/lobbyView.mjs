@@ -1,7 +1,7 @@
 // What the lobby banner shows for a room: the state line, who is in it, the Ready button, the invite or bot-duel
 // action and the arena/score votes. Pure (lobby message in, view data out) so every rule can be tested.
 
-export const WORLD_NAMES = Object.freeze({ castleward: 'Castleward', 'shattered-keep': 'The Shattered Keep' });
+export const WORLD_NAMES = Object.freeze({ castleward: 'Castleward', 'ruined-keep': 'The Ruined Keep', 'shattered-keep': 'The Shattered Keep' });
 
 export function worldLabel(worldId) {
   return (WORLD_NAMES[worldId] ?? String(worldId || 'Unknown')).toUpperCase();

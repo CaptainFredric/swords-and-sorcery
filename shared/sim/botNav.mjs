@@ -11,10 +11,10 @@
 import { findSwordWorldHit, surfaceHeightAt } from '../src/collision.mjs';
 
 export const NAV = Object.freeze({
-  heights: Object.freeze([0.4, 0.9]),   // the rays: knee and chest
+  heights: Object.freeze([0.4, 0.9, 1.6]), // the rays: knee, chest and head (a gap only a crouch fits is no way)
   halfWidth: 0.3,                       // and either side of the middle, a body's width apart
-  step: 0.75,                           // ground checked this often along the way
-  gap: 1,                               // ground more than this below the line is a drop, not a slope
+  step: 0.5,                            // ground checked this often along the way
+  drop: 1.5,                            // a knight steps down this far without a thought (further is a fall)
   linkReach: 18,                        // waypoints further apart than this are not linked directly
   // round something small it tries a point this far aside (and this far on along the way) first
   sidesteps: Object.freeze([1.2, 2.4, 3.6]),
@@ -26,8 +26,9 @@ export const NAV = Object.freeze({
 const lerp = (a, b, t) => a + (b - a) * t;
 
 /**
- * Whether a knight could run straight from `from` to `to` ({x, y, z}: feet): nothing solid in the way and ground
- * underfoot the whole way.
+ * Whether a knight could run straight from `from` to `to` ({x, y, z}: feet): nothing solid in the way, and ground
+ * underfoot the whole way that it could walk (up no more than a step at a time, down no more than a short drop),
+ * arriving at `to`'s level.
  */
 export function runClear(world, from, to, nav = NAV) {
   const dx = to.x - from.x;
@@ -47,12 +48,15 @@ export function runClear(world, from, to, nav = NAV) {
   }
   if (world?.floors?.length || world?.ramps?.length) {
     const steps = Math.max(1, Math.ceil(length / nav.step));
-    for (let i = 1; i < steps; i += 1) {
+    let underfoot = from.y;
+    for (let i = 1; i <= steps; i += 1) {
       const t = i / steps;
-      const y = lerp(from.y, to.y, t);
-      const ground = surfaceHeightAt(lerp(from.x, to.x, t), lerp(from.z, to.z, t), y + 0.7, world);
-      if (ground === null || ground < y - nav.gap) return false;
+      // the highest ground a knight standing at `underfoot` can step onto there (surfaceHeightAt: up to a step up)
+      const ground = surfaceHeightAt(lerp(from.x, to.x, t), lerp(from.z, to.z, t), underfoot, world);
+      if (ground === null || ground < underfoot - nav.drop) return false;
+      underfoot = ground;
     }
+    if (Math.abs(underfoot - to.y) > 0.7) return false;
   }
   return true;
 }

@@ -4,6 +4,7 @@ import { attachCastlewardTerrainSkirts } from './castlewardTerrain.mjs';
 const WORLD_RENDERER_KEYS = Object.freeze({
   'castleward': 'castleward',
   'shattered-keep': 'shattered-keep',
+  'ruined-keep': 'ruined-keep',
 });
 
 export function rendererKeyForWorld(worldId) {

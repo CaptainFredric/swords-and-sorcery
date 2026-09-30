@@ -1,3 +1,5 @@
+import { arenaOrDefault } from '../../shared/src/modes.mjs';
+
 const MAX_NAME_LENGTH = 18;
 
 function normalizeName(value) {
@@ -22,6 +24,17 @@ export class MenuController {
     return normalizeName(this.storage?.getItem?.('ss-player-name') ?? '');
   }
 
+  /** The arena chosen for solo play (remembered; Castleward until another is chosen). */
+  soloArena() {
+    return arenaOrDefault(this.storage?.getItem?.('ss-solo-arena'));
+  }
+
+  chooseSoloArena(worldId) {
+    const arena = arenaOrDefault(worldId);
+    this.storage?.setItem?.('ss-solo-arena', arena);
+    return arena;
+  }
+
   #withName(rawName, action) {
     const name = normalizeName(rawName);
     if (!name) return { ok: false, error: 'Enter a Spellblade name.' };
@@ -43,11 +56,11 @@ export class MenuController {
   }
 
   botDuel(rawName) {
-    return this.#withName(rawName, (name) => this.socket.startSolo('BOT_DUEL', name));
+    return this.#withName(rawName, (name) => this.socket.startSolo('BOT_DUEL', name, this.soloArena()));
   }
 
   practice(rawName) {
-    return this.#withName(rawName, (name) => this.socket.startSolo('PRACTICE', name));
+    return this.#withName(rawName, (name) => this.socket.startSolo('PRACTICE', name, this.soloArena()));
   }
 
   createPrivate(rawName) {

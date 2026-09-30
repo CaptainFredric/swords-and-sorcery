@@ -31,6 +31,7 @@ import { DEATH_CAM, deathCamera, deathCardText, killerCamPolicy } from './deathC
 import { createWorldRenderer, rendererKeyForWorld } from '../worlds/WorldRendererFactory.mjs';
 import { CastlewardRenderer } from '../worlds/CastlewardRenderer.mjs';
 import { ShatteredKeepRenderer } from '../worlds/ShatteredKeepRenderer.mjs';
+import { RuinedKeepRenderer } from '../worlds/RuinedKeepRenderer.mjs';
 import {
   canPresentLocalAction,
   localWeaponReleaseForEvent,
@@ -48,6 +49,7 @@ const _sunUp = new THREE.Vector3(0, 1, 0);
 const WORLD_RENDERERS = Object.freeze({
   castleward: CastlewardRenderer,
   'shattered-keep': ShatteredKeepRenderer,
+  'ruined-keep': RuinedKeepRenderer,
 });
 
 export class GameRuntime {

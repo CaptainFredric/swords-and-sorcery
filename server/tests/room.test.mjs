@@ -19,10 +19,10 @@ test('room codes are short readable uppercase codes', () => {
 });
 
 test('Room stores mode/world identity and marks network players human', () => {
-  const room = new Room('ABCDE', { mode: 'FFA', worldId: 'shattered-keep' });
+  const room = new Room('ABCDE', { mode: 'FFA', worldId: 'ruined-keep' });
   const player = room.addPlayer({ id: 'p1', token: 't1', name: 'A' }, 0);
   assert.equal(room.mode, 'FFA');
-  assert.equal(room.worldId, 'shattered-keep');
+  assert.equal(room.worldId, 'ruined-keep');
   assert.equal(player.actorKind, 'human');
 });
 
@@ -162,19 +162,19 @@ test('with two or more Spellblades the match starts on its own after a short wai
 test('arena and score are majority votes; a tie keeps what the room has; they apply when the match starts', () => {
   const room = new Room('VOTE2', { isPrivate: false, worldId: 'castleward' });
   add(room, 'a'); add(room, 'b'); add(room, 'c');
-  assert.equal(room.vote('a', 'world', 'shattered-keep'), true);
-  assert.equal(room.vote('b', 'world', 'shattered-keep'), true);
+  assert.equal(room.vote('a', 'world', 'ruined-keep'), true);
+  assert.equal(room.vote('b', 'world', 'ruined-keep'), true);
   assert.equal(room.vote('c', 'world', 'castleward'), true);
   assert.equal(room.vote('a', 'score', 5), true);
   assert.equal(room.vote('b', 'score', 15), true);
   assert.equal(room.vote('a', 'world', 'the-moon'), false, 'only offered choices count');
   assert.equal(room.vote('a', 'score', 7), false);
   const tally = room.tallyVotes();
-  assert.equal(tally.world.chosen, 'shattered-keep');
+  assert.equal(tally.world.chosen, 'ruined-keep');
   assert.equal(tally.score.chosen, 10, 'a 1-1 tie keeps the current score');
   readyAll(room, 0); room.tick(3.1);
   assert.equal(room.state, 'PLAYING');
-  assert.equal(room.worldId, 'shattered-keep');
+  assert.equal(room.worldId, 'ruined-keep');
   assert.equal(room.scoreToWin, 10);
   assert.equal(room.vote('a', 'score', 5), false, 'no voting mid-match');
 });

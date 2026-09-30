@@ -9,7 +9,7 @@ import { stepPracticeActors } from '../../shared/sim/practice.mjs';
 import { RoomManager } from '../../shared/sim/RoomManager.mjs';
 import { applyRoomCommand, serializeLobby, serializeSnapshot } from '../../shared/sim/wire.mjs';
 import { DEFAULT_SPELL, isSpell } from '../../shared/src/spells.mjs';
-import { GAME_MODES } from '../../shared/src/modes.mjs';
+import { GAME_MODES, arenaOrDefault } from '../../shared/src/modes.mjs';
 
 const TICK_RATE = 30;
 const SOLO_MODES = new Set([GAME_MODES.BOT_DUEL, GAME_MODES.PRACTICE]);
@@ -85,14 +85,14 @@ export class LocalHost {
   }
 
   // --- a solo room: you, and the bots or dummies the mode brings ---
-  startSolo(mode, name) {
+  startSolo(mode, name, worldId) {
     if (!SOLO_MODES.has(mode)) {
       this.#deliver({ type: 'error', message: 'Unknown solo mode' });
       return;
     }
     this.#stop();
     const time = this.now();
-    const room = this.rooms.createSoloRoom(mode, time);
+    const room = this.rooms.createSoloRoom(mode, time, arenaOrDefault(worldId));
     const player = room.addPlayer({ id: randomId(), token: randomId(), name: String(name || 'Spellblade').slice(0, 18), spell: this.spell }, time);
     room.provisionModeActors(time);
     room.armAutoStart(time);

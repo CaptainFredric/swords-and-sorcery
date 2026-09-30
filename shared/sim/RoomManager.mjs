@@ -1,4 +1,4 @@
-import { GAME_MODES } from '../src/modes.mjs';
+import { ARENAS, GAME_MODES } from '../src/modes.mjs';
 import { WORLD_IDS } from '../worlds/registry.mjs';
 import { Room } from './Room.mjs';
 
@@ -16,6 +16,14 @@ export class RoomManager {
   constructor({ random = Math.random } = {}) {
     this.random = random;
     this.rooms = new Map();
+    this.duelsMade = 0;
+  }
+
+  /** The arena for the next matchmade duel: each in turn. */
+  nextDuelArena() {
+    const arena = ARENAS[this.duelsMade % ARENAS.length];
+    this.duelsMade += 1;
+    return arena;
   }
 
   createPrivateRoom(nowSec = 0, worldId = WORLD_IDS.CASTLEWARD) {
@@ -27,7 +35,7 @@ export class RoomManager {
   }
 
   // a matchmade one-on-one: never listed, never joinable by code or Quick Play
-  createDuelRoom(nowSec = 0, worldId = WORLD_IDS.CASTLEWARD) {
+  createDuelRoom(nowSec = 0, worldId = this.nextDuelArena()) {
     return this.#createRoom({ isPrivate: true, mode: GAME_MODES.DUEL, worldId }, nowSec);
   }
 
@@ -49,7 +57,7 @@ export class RoomManager {
     for (const room of this.rooms.values()) {
       if (!room.isPrivate
         && room.mode === GAME_MODES.FFA
-        && room.worldId === WORLD_IDS.CASTLEWARD
+        && ARENAS.includes(room.worldId)
         && ['WAITING', 'COUNTDOWN', 'PLAYING'].includes(room.state)
         && room.players.size < 8) return room;
     }
