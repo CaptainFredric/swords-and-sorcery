@@ -3,7 +3,7 @@ export const GAME = Object.freeze({
   // a sword blow lands for between these: the cleanest for the most, a genuinely glancing one for the least (four
   // clean hits fell a full-health Spellblade; a spell can stand in for one)
   swordDamage: 30,
-  swordGlance: 20,
+  swordGlance: 19,
   swordRange: 2.75,
   // the guard's capacity and what a blow costs it are per kind of knight: GUARD_PROFILES below
   parryWindowMs: 180,

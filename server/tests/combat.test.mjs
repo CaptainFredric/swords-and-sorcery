@@ -489,8 +489,8 @@ test('Sheathed in Steel: a square Fireball lands like a glancing one (less damag
   assert.ok(steeled.damage < bare.damage, `${steeled.damage} < ${bare.damage}`);
   assert.ok((steeled.burn?.licksLeft ?? 0) < (bare.burn?.licksLeft ?? 0), 'the fire clings less');
   assert.ok(Math.abs(steeled.push - bare.push) < 1e-6, 'momentum is untouched');
-  // turning it aside wore the armour
-  assert.ok(steelStrength(steeled.b.steel, 10.2) < steelStrength({ at: 10, base: 1 }, 10.2));
+  // turning it aside counted as the first blow on it
+  assert.equal(steeled.b.steel.struck, true);
 });
 
 // a's first strike, square into b (2 m in front), landing at 10.40; returns what it did
@@ -505,34 +505,48 @@ function swordInto(room, at = 10) {
   return { damage: before.health - b.health, hit, hurt, b };
 }
 
-test('Sheathed in Steel: a clean sword blow on fresh steel lands like a glancing one; more gets through as it wears', () => {
+test('Sheathed in Steel: while fully hardened every sword blow lands as the most glancing; then more gets through', () => {
   const bare = swordInto(playingRoom());
   assert.equal(bare.damage, GAME.swordDamage, 'unsheathed: the full clean blow');
+  // the blow lands at 20.40, `age` seconds after Steel was called
   const blowAt = (age) => {
     const room = playingRoom();
-    assert.equal(sheathe(room, 'b', 10 - age), true);
-    return swordInto(room);
+    assert.equal(sheathe(room, 'b', 20.4 - age), true);
+    return swordInto(room, 20);
   };
-  const fresh = blowAt(0.4);
-  assert.ok(fresh.damage >= GAME.swordGlance && fresh.damage <= GAME.swordGlance + 2, `fresh: ${fresh.damage}`);
-  const half = blowAt(STEEL.seconds * 0.4);
-  assert.ok(half.damage >= 23 && half.damage <= 25, `partly worn: ${half.damage}`);
-  const nearly = blowAt(STEEL.seconds * 0.93);
-  assert.ok(nearly.damage >= GAME.swordDamage - 1 && nearly.damage <= GAME.swordDamage, `nearly gone: ${nearly.damage}`);
-  const gone = blowAt(STEEL.seconds + 1);
-  assert.equal(gone.damage, GAME.swordDamage, 'worn off: the full blow');
+  for (const age of [0.3, 2.5, STEEL.fullSec - 0.1]) assert.equal(blowAt(age).damage, GAME.swordGlance, `fully hardened at ${age} s`);
+  const half = blowAt(STEEL.fullSec + STEEL.fadeSec / 2);
+  assert.ok(half.damage >= 24 && half.damage <= 25, `half worn: ${half.damage}`);
+  const nearly = blowAt(STEEL.fullSec + STEEL.fadeSec * 0.9);
+  assert.ok(nearly.damage >= GAME.swordDamage - 2 && nearly.damage < GAME.swordDamage, `nearly gone: ${nearly.damage}`);
+  assert.equal(blowAt(STEEL.fullSec + STEEL.fadeSec + 0.5).damage, GAME.swordDamage, 'worn off: the full blow');
   // never on or off: each moment later, a little more gets through
   let last = null;
-  for (let age = 0.4; age <= STEEL.seconds + 0.5; age += 0.35) {
+  for (let age = STEEL.fullSec; age <= STEEL.fullSec + STEEL.fadeSec + 0.4; age += 0.35) {
     const damage = blowAt(age).damage;
     if (last !== null) assert.ok(damage >= last && damage - last <= 2, `evenly: ${damage} at ${age.toFixed(2)} s`);
     last = damage;
   }
-  // the blow is felt as glancing, but it shoves as hard as ever, and it wears the steel
-  assert.ok(fresh.hit.quality < 0.15 && fresh.hit.steel > 0.85);
-  assert.equal(fresh.hurt.turned, GAME.swordDamage - fresh.damage, 'the damage word says what the plate turned aside');
+  // the blow is felt as glancing and says what the plate turned aside; it shoves as hard as ever
+  const fresh = blowAt(0.3);
+  assert.ok(fresh.hit.quality < 1e-9 && fresh.hit.steel === 1);
+  assert.equal(fresh.hurt.turned, GAME.swordDamage - fresh.damage);
   assert.ok(Math.abs(fresh.b.velocity.x - bare.b.velocity.x) < 1e-6, 'the same shove');
-  assert.ok(steelStrength(fresh.b.steel, 10.4) < steelStrength({ at: 9.6, base: 1 }, 10.4), 'the blow chipped the steel');
+});
+
+test('Sheathed in Steel: struck late in its full stretch, the first blow holds it full a little longer; others do not', () => {
+  const room = playingRoom();
+  const b = room.players.get('b');
+  // called long enough ago that the first blow (at 10.40) comes just before it would start to wear
+  assert.equal(sheathe(room, 'b', 10.4 - (STEEL.fullSec - 0.3)), true);
+  swordInto(room);
+  assert.ok(Math.abs(b.steel.fullUntil - (10.4 + STEEL.holdSec)) < 1e-6, 'held full after the first blow');
+  const held = b.steel.fullUntil;
+  // the next blows land on the same clock
+  beginAttack(room, 'a', 10.5);
+  for (let now = 10.5; now < 12.5; now += 0.05) stepRoom(room, 0.05, now, openWorld);
+  assert.ok(room.events.filter((e) => e.type === 'swordHit').length >= 2, 'struck again');
+  assert.equal(b.steel.fullUntil, held);
 });
 
 test('Sheathe in Steel is carried in the spell\'s place: its key calls it at once, then it waits out its cooldown', () => {
@@ -641,10 +655,68 @@ test('a burn\'s licks make no clang: only a blow landing on the plate carries it
   assert.ok(steeled.events.find((e) => e.type === 'damage' && e.victimId === 'b' && e.source === 'fireball').steel > 0.8);
 });
 
+test('the gust leaves the hand where its caster aims as the breath is let go, not where they aimed to begin', () => {
+  const room = playingRoom();
+  const a = room.players.get('a');
+  const b = room.players.get('b');
+  a.spell = 'gale';
+  Object.assign(b.position, { x: 0, y: 0, z: -3 });
+  b.history = [];
+  // pressed facing +x (away from b), then turned to face b (-z) while the breath was drawn
+  assert.equal(tryCastSpell(room, 'a', { x: 1, y: 0, z: 0 }, 10), true);
+  a.yaw = 0; a.input.yaw = 0;
+  for (let now = 10.02; now <= 10.52; now += 0.02) {
+    a.input = { ...a.input, yaw: 0, pitch: 0 };
+    stepRoom(room, 0.02, now, openWorld);
+  }
+  const blast = room.events.find((e) => e.type === 'galeBlast');
+  assert.ok(blast.direction.z < -0.99, 'toward where it was aimed at the last');
+  assert.ok(blast.affected.some((c) => c.id === 'b'));
+});
+
+test('the gust blows for a moment, following its caster\'s aim: a knight who steps into it is still caught, once', () => {
+  const room = playingRoom();
+  const a = room.players.get('a');
+  const b = room.players.get('b');
+  a.spell = 'gale';
+  // b stands off to the side as it goes
+  Object.assign(b.position, { x: 0, y: 0, z: -3 });
+  b.history = [];
+  assert.equal(tryCastSpell(room, 'a', { x: 1, y: 0, z: 0 }, 10), true);
+  let now = 10;
+  for (; now <= 10.52; now += 0.02) stepRoom(room, 0.02, now, openWorld);
+  assert.ok(!room.events.find((e) => e.type === 'galeBlast').affected.length, 'nobody in it as it left the hand');
+  // the caster turns the gust onto b a moment later
+  a.yaw = 0;
+  for (; now <= 10.8; now += 0.02) {
+    a.input = { ...a.input, yaw: 0, pitch: 0 };
+    stepRoom(room, 0.02, now, openWorld);
+  }
+  const catches = room.events.filter((e) => e.type === 'galeCatch' && e.affected.some((c) => c.id === 'b'));
+  assert.equal(catches.length, 1, 'caught, once');
+  const pressure = catches[0].affected[0].pressure;
+  // and it is spent after its moment
+  const late = playingRoom();
+  const la = late.players.get('a');
+  la.spell = 'gale';
+  Object.assign(late.players.get('b').position, { x: 0, y: 0, z: -3 });
+  late.players.get('b').history = [];
+  tryCastSpell(late, 'a', { x: 1, y: 0, z: 0 }, 10);
+  let t = 10;
+  for (; t <= 10.5 + SPELLS.gale.cone.lastsSec + 0.1; t += 0.02) stepRoom(late, 0.02, t, openWorld);
+  la.yaw = 0;
+  for (; t <= 11.4; t += 0.02) { la.input = { ...la.input, yaw: 0, pitch: 0 }; stepRoom(late, 0.02, t, openWorld); }
+  assert.ok(!late.events.some((e) => e.type === 'galeCatch'), 'nothing once it has blown out');
+  assert.ok(pressure > 0 && pressure < 1, 'caught a little later, a little softer');
+});
+
 test('a gust driven into the ground close by throws its caster up off it', () => {
   const room = playingRoom();
   const a = room.players.get('a');
   a.spell = 'gale';
+  // (the gust goes where the caster aims as it leaves the hand: straight down)
+  a.pitch = -Math.PI / 2 + 0.01;
+  a.input.pitch = a.pitch;
   tryCastSpell(room, 'a', { x: 0, y: -1, z: 0 }, 10);
   stepRoom(room, 0.02, 10.5, openWorld);
   const blast = room.events.find((e) => e.type === 'galeBlast');

@@ -56,6 +56,7 @@ function resetActorAtSpawn(player, spawn, nowSec) {
   player.castEndsAt = 0;
   player.pendingSpell = null;
   player.gauntlet = null;
+  player.gust = null;
   player.gauntletReadyAt = -Infinity;
   player.crouched = false;
   player.burn = null;

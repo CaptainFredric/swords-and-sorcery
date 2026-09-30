@@ -88,11 +88,11 @@ test('cooldown readiness uses absolute ready time', () => {
   assert.equal(isCooldownReady(9.999, 10), false);
 });
 
-test('contact quality: a legal hit lands for 20 to 30; a normally centred one reliably near 28, dead centre 30', () => {
+test('contact quality: a legal hit lands for 19 to 30; a normally centred one reliably near 28, dead centre 30', () => {
   const deg = Math.PI / 180;
   const reach = GAME.swordRange;
   const damage = (angleDeg, share, dt = 0) => swordDamageFor(meleeContactQuality({ angle: angleDeg * deg, distance: reach * share, dt }));
-  assert.equal(GAME.swordGlance, 20);
+  assert.equal(GAME.swordGlance, 19);
   assert.equal(GAME.swordDamage, 30);
   // dead centre, on the strong of the blade, in the heart of the swing: the cleanest
   assert.equal(damage(0, 0.5), 30);

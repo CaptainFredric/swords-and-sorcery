@@ -384,6 +384,12 @@ export class WeaponView {
     this.guard = false;
   }
 
+  /** Where the magic hand's palm is in the world (null until the arms have loaded). */
+  palmPosition(target = new THREE.Vector3()) {
+    const palm = this.productionInstance?.sockets?.sorcery;
+    return palm ? palm.getWorldPosition(target) : null;
+  }
+
   /** The magic hand clenches (Sheathe in Steel): a quick tightening, the palm light flashing to steel. */
   clench() {
     this.clenchAt = performance.now() / 1000;

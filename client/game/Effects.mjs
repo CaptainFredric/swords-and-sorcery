@@ -106,6 +106,8 @@ export class Effects {
     this.windWaveMaterial = createWindWaveMaterial();
     this.windWispMaterial = createWindWispMaterial();
     this.windShapes = new Map();
+    // gusts still blowing (a body each, following its caster), until they are spent
+    this.gustBodies = [];
     this.windPuffMaterial = new THREE.SpriteMaterial({ map: puffTexture(), color: 0xf4f7f2, transparent: true, opacity: 0.4, depthWrite: false });
     this.dustMaterials = new Map(Object.entries({ stone: 0xd9d4c8, grass: 0xc2c29a, earth: 0xc9b390 }).map(([surface, color]) => [
       surface, new THREE.SpriteMaterial({ map: puffTexture(), color, transparent: true, opacity: 0.34, depthWrite: false }),
@@ -364,24 +366,20 @@ export class Effects {
   galeBlast(origin, direction, cone, { groundAt = null, surfaceAt = null } = {}) {
     const from = new THREE.Vector3(origin.x, origin.y, origin.z);
     const dir = new THREE.Vector3(direction.x, direction.y, direction.z).normalize();
-    const up = Math.abs(dir.y) > 0.95 ? new THREE.Vector3(1, 0, 0) : new THREE.Vector3(0, 1, 0);
-    const side = new THREE.Vector3().crossVectors(dir, up).normalize();
-    const lift = new THREE.Vector3().crossVectors(side, dir).normalize();
-    const heart = (cone.halfAngleDeg * Math.PI) / 180;
     const spread = (cone.pressureHalfAngleDeg * Math.PI) / 180;
-    // a direction `angle` off the gust's line, `around` it
-    const off = (angle, around) => dir.clone().multiplyScalar(Math.cos(angle))
-      .addScaledVector(side, Math.sin(angle) * Math.cos(around))
-      .addScaledVector(lift, Math.sin(angle) * Math.sin(around)).normalize();
 
-    // the body of the gust: its pressure (wide, faint), its heart (narrower, denser) and the ribbons round it, each
-    // playing out over the gust's short life (galeVolumeAt)
+    // the body of the gust: its pressure (wide, faint), its heart (narrower, denser), the ribbons round it, the wavy
+    // lines and the wisps, each playing out over the gust's life (galeVolumeAt) and rolling further out as it goes. All
+    // of it is one body that stays at its caster's hand and turns with their aim while the gust blows (the handle's
+    // follow()); what it blows loose (streaks, dust, grass) flies free
     const shapes = this.#windShapes(cone);
-    const turn = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), dir);
-    const body = (geometry, material, length, { opacity, swirl = null, near = null, haze = null, rim = null, lag = 1, kind = 'cone' }) => {
+    const gust = new THREE.Group();
+    gust.position.copy(from);
+    gust.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), dir);
+    this.scene.add(gust);
+    const bodyLife = GALE_VOLUME.life * 1.15;
+    const body = (geometry, material, length, { opacity, swirl = null, near = null, haze = null, rim = null, lag = 1 }) => {
       const mesh = new THREE.Mesh(geometry, material.clone());
-      mesh.position.copy(from);
-      mesh.quaternion.copy(turn);
       mesh.rotateZ(Math.random() * Math.PI * 2);
       mesh.scale.setScalar(length);
       mesh.frustumCulled = false;
@@ -392,11 +390,14 @@ export class Effects {
       if (haze !== null) u.uHaze.value = haze;
       if (rim !== null) u.uRimFill.value = rim;
       this.#addTransient(mesh, {
+        parent: gust,
         life: GALE_VOLUME.life * lag,
         own: true,
+        // rolling out: longer and wider as it goes
+        expand: GALE_VOLUME.spread / (GALE_VOLUME.life * lag),
         tick: (age) => {
           const at = galeVolumeAt(age / lag);
-          if (u.uHead) u.uHead.value = kind === 'waves' ? at.head * 0.95 : at.head;
+          if (u.uHead) u.uHead.value = at.head;
           if (u.uTime) u.uTime.value = age;
           if (u.uFront) u.uFront.value = at.front;
           if (u.uTurb) u.uTurb.value = at.turbulence;
@@ -408,38 +409,45 @@ export class Effects {
     // the pressure's sides filled out with a soft wall of air, green toward its edge
     body(shapes.pressure, this.windConeMaterial, cone.pressureReach * 0.95, { opacity: 0.5, swirl: 0.25, near: 0.2, rim: 0.55, lag: 1.12 });
     body(shapes.heart, this.windConeMaterial, cone.reach, { opacity: 0.8, swirl: 0.45, near: 0.12, haze: 0.14, rim: 0.25 });
-    body(pick(shapes.ribbons), this.windRibbonMaterial, cone.reach * 1.2, { opacity: 0.75, kind: 'ribbons' });
+    body(pick(shapes.ribbons), this.windRibbonMaterial, cone.reach * 1.2, { opacity: 0.75 });
     // wavy lines of wind, white and green, rippling out along the sides; and wisps curling out through it
-    body(pick(shapes.waves), this.windWaveMaterial, cone.pressureReach * 0.9, { opacity: 0.8, kind: 'waves', lag: 1.08 });
-    body(pick(shapes.wisps), this.windWispMaterial, cone.pressureReach * 0.85, { opacity: 0.85, kind: 'wisps', lag: 1.15 });
+    body(pick(shapes.waves), this.windWaveMaterial, cone.pressureReach * 0.9, { opacity: 0.8, lag: 1.08 });
+    body(pick(shapes.wisps), this.windWispMaterial, cone.pressureReach * 0.85, { opacity: 0.85, lag: 1.15 });
+    const born = performance.now() / 1000;
+    const turned = new THREE.Quaternion();
+    const handle = {
+      /** Keep the gust at its caster's hand and along their aim (eased, so it sways with the arm rather than jumps). */
+      follow(origin, direction) {
+        if (!gust.parent) return;
+        gust.position.set(origin.x, origin.y, origin.z);
+        const way = new THREE.Vector3(direction.x, direction.y, direction.z);
+        if (way.lengthSq() < 1e-8) return;
+        turned.setFromUnitVectors(new THREE.Vector3(0, 0, 1), way.normalize());
+        gust.quaternion.slerp(turned, 0.35);
+      },
+      get alive() { return Boolean(gust.parent) && performance.now() / 1000 - born < bodyLife; },
+    };
+    this.gustBodies.push({ gust, until: born + bodyLife });
+    // more wind keeps leaving the hand while the gust blows
+    for (const delay of [0.16, 0.32]) {
+      setTimeout(() => {
+        if (!gust.parent) return;
+        const at = gust.getWorldPosition(new THREE.Vector3());
+        const way = new THREE.Vector3(0, 0, 1).applyQuaternion(gust.quaternion);
+        this.#galeStreaks(at, way, cone, 6, 0.8);
+      }, delay * 1000);
+    }
+
     // a breath of air bursting from the hand
     const breath = new THREE.Sprite(this.windPuffMaterial);
     breath.position.copy(from).addScaledVector(dir, 0.5);
     breath.scale.setScalar(0.5);
     this.#addTransient(breath, { velocity: dir.clone().multiplyScalar(4), life: 0.26, expand: 5, fade: true, drag: 3 });
 
-    // the streaks: most sweep out low and to either side (from the hand, wind rushing past on the left and right and
-    // skimming the ground, not a burst of sparks), a few down its heart further out; fast and stretched, spent
-    // toward the edge of the pressure
-    for (let i = 0; i < 16; i += 1) {
-      const outer = i < 12;
-      const angle = outer ? spread * (0.4 + 0.6 * Math.random()) : heart * (0.15 + 0.4 * Math.random());
-      // round the gust from its right (0) through below it (-pi/2) to its left (pi): mostly the sides, some low
-      const around = outer ? (i % 3 === 2 ? -Math.PI / 2 : i % 3 === 0 ? 0 : Math.PI) + (Math.random() - 0.5) * 1.1 : Math.random() * Math.PI * 2;
-      const way = off(angle, around);
-      const at = outer ? 0.9 + Math.random() * 1.4 : 1.8 + Math.random() * 1.6;
-      const speed = 16 + Math.random() * 8;
-      const streak = new THREE.Mesh(this.windStreakGeometry, this.windMaterial);
-      streak.position.copy(from).addScaledVector(way, at);
-      streak.lookAt(streak.position.clone().add(way));
-      streak.scale.set(1, 1, 1.3 + Math.random() * 1.3);
-      const left = Math.max(0.6, cone.pressureReach - at);
-      this.#addTransient(streak, { velocity: way.multiplyScalar(speed), life: (left / speed) * (0.45 + Math.random() * 0.35), fade: true, drag: 1.2 });
-      streak.material.opacity = streak.userData.baseOpacity = outer ? 0.34 : 0.22;
-    }
+    this.#galeStreaks(from, dir, cone, 16, 1);
     // what it blows off the ground: only where the pressure reaches down to it
     const along = new THREE.Vector3(dir.x, 0, dir.z);
-    if (!groundAt || along.lengthSq() < 1e-4) return;
+    if (!groundAt || along.lengthSq() < 1e-4) return handle;
     along.normalize();
     const across = new THREE.Vector3(-along.z, 0, along.x);
     for (let i = 0; i < 18; i += 1) {
@@ -466,6 +474,7 @@ export class Effects {
         this.#addTransient(blade, { velocity: fling, life: 0.8 + Math.random() * 0.4, gravity: 4.5, drag: 1.6, spin: { x: 9 * Math.random(), y: 12, z: 7 * Math.random() } });
       }
     }
+    return handle;
   }
 
   /**
@@ -487,6 +496,36 @@ export class Effects {
     group.add(new THREE.Sprite(this.dustMaterials.get('earth')));
     group.add(new THREE.Mesh(this.grassGeometry, this.grassMaterials[0]));
     return (renderer.compileAsync?.(group, this.camera, scene) ?? Promise.resolve(renderer.compile(group, this.camera, scene))).catch(() => {});
+  }
+
+  // streaks of wind: most sweep out low and to either side (from the hand, wind rushing past on the left and right and
+  // skimming the ground, not a burst of sparks), a few down its heart further out; fast and stretched, spent toward
+  // the edge of the pressure. `scale`: how bright
+  #galeStreaks(from, dir, cone, count, scale) {
+    const up = Math.abs(dir.y) > 0.95 ? new THREE.Vector3(1, 0, 0) : new THREE.Vector3(0, 1, 0);
+    const side = new THREE.Vector3().crossVectors(dir, up).normalize();
+    const lift = new THREE.Vector3().crossVectors(side, dir).normalize();
+    const heart = (cone.halfAngleDeg * Math.PI) / 180;
+    const spread = (cone.pressureHalfAngleDeg * Math.PI) / 180;
+    const off = (angle, around) => dir.clone().multiplyScalar(Math.cos(angle))
+      .addScaledVector(side, Math.sin(angle) * Math.cos(around))
+      .addScaledVector(lift, Math.sin(angle) * Math.sin(around)).normalize();
+    for (let i = 0; i < count; i += 1) {
+      const outer = i < count * 0.75;
+      const angle = outer ? spread * (0.4 + 0.6 * Math.random()) : heart * (0.15 + 0.4 * Math.random());
+      // round the gust from its right (0) through below it (-pi/2) to its left (pi): mostly the sides, some low
+      const around = outer ? (i % 3 === 2 ? -Math.PI / 2 : i % 3 === 0 ? 0 : Math.PI) + (Math.random() - 0.5) * 1.1 : Math.random() * Math.PI * 2;
+      const way = off(angle, around);
+      const at = outer ? 0.9 + Math.random() * 1.4 : 1.8 + Math.random() * 1.6;
+      const speed = 16 + Math.random() * 8;
+      const streak = new THREE.Mesh(this.windStreakGeometry, this.windMaterial);
+      streak.position.copy(from).addScaledVector(way, at);
+      streak.lookAt(streak.position.clone().add(way));
+      streak.scale.set(1, 1, 1.3 + Math.random() * 1.3);
+      const left = Math.max(0.6, cone.pressureReach - at);
+      this.#addTransient(streak, { velocity: way.multiplyScalar(speed), life: (left / speed) * (0.45 + Math.random() * 0.35), fade: true, drag: 1.2 });
+      streak.material.opacity = streak.userData.baseOpacity = (outer ? 0.34 : 0.22) * scale;
+    }
   }
 
   // the gust's shapes for a cone of these angles: its pressure's shell, its heart's, and a few sets of ribbons
@@ -894,6 +933,12 @@ export class Effects {
   }
 
   update(dt) {
+    const nowSec = performance.now() / 1000;
+    for (let i = this.gustBodies.length - 1; i >= 0; i -= 1) {
+      if (nowSec < this.gustBodies[i].until) continue;
+      this.gustBodies[i].gust.removeFromParent();
+      this.gustBodies.splice(i, 1);
+    }
     for (let i = this.flashLights.length - 1; i >= 0; i -= 1) {
       const flash = this.flashLights[i];
       flash.age += dt;

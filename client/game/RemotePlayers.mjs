@@ -292,6 +292,14 @@ export class RemotePlayers {
     return { x, y, z };
   }
 
+  // where an opponent is drawn right now and where they aim: { x, y, z, yaw, pitch, crouched }
+  bodyAim(id) {
+    const shell = this.rigs.get(id);
+    if (!shell) return null;
+    const { x, y, z } = shell.root.position;
+    return { x, y, z, yaw: shell.root.rotation.y, pitch: shell.root.userData.pitch ?? 0, crouched: Boolean(shell.root.userData.crouched) };
+  }
+
   // where the other living Spellblades are drawn right now (for the local body's separation prediction)
   bodies() {
     const list = [];
@@ -331,6 +339,8 @@ export class RemotePlayers {
       );
       const yawDelta = Math.atan2(Math.sin(pb.yaw - pa.yaw), Math.cos(pb.yaw - pa.yaw));
       shell.root.rotation.y = pa.yaw + yawDelta * t;
+      shell.root.userData.pitch = (pa.pitch ?? 0) + ((pb.pitch ?? 0) - (pa.pitch ?? 0)) * t;
+      shell.root.userData.crouched = Boolean(pb.crouched);
 
       const serverNow = bufferedServerTime(a, b, renderTime);
       const d = shell.root.userData;

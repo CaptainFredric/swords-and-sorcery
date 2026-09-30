@@ -3,7 +3,7 @@ import {
   resolveSwordVsGuard, swordDamageFor,
 } from '../src/combat.mjs';
 import { blastDamage, blastDistance, burnFrom, chillFrom, chillScale, spellExposure, spellFor, strongerChill } from '../src/spells.mjs';
-import { STEEL, callSteel, chipSteel, steelBlunt, steelExposure, steelQuality } from '../src/steel.mjs';
+import { callSteel, steelBlunt, steelExposure, steelQuality, steelTakes } from '../src/steel.mjs';
 import { galeOnBody, galeRecoil, galeShove } from '../src/gale.mjs';
 import { GAUNTLET, gauntletGeometry, gauntletTarget, withinGauntlet } from '../src/gauntlet.mjs';
 import { postureOf } from '../src/body.mjs';
@@ -60,6 +60,7 @@ function resetAtSpawn(player, spawn, nowSec) {
   player.spellReadyAt = Math.max(player.spellReadyAt ?? 0, nowSec);
   player.castEndsAt = 0;
   player.pendingSpell = null;
+  player.gust = null;
   player.gauntlet = null;
   player.gauntletReadyAt = -Infinity;
   player.crouched = false;
@@ -319,9 +320,9 @@ function landGauntlet(room, player, nowSec, world) {
     room.events.push({ type: 'gauntletHit', playerId: player.id, targetId: target.id, guarded: true, at: nowSec });
     return;
   }
-  // hardened plate blunts it as it would a sword's clean blow (and wears a little)
+  // hardened plate blunts it as it would a sword's clean blow
   const armour = steelBlunt(target.steel, GAUNTLET.damage, nowSec);
-  if (target.steel) target.steel = chipSteel(target.steel, GAUNTLET.steelChip, nowSec);
+  target.steel = steelTakes(target.steel, nowSec);
   const push = { x: g.direction.x * GAUNTLET.shove, y: 0.1, z: g.direction.z * GAUNTLET.shove };
   applyDamage(room, player.id, target.id, armour.amount, 'gauntlet', nowSec, push, {
     steel: armour.strength, turned: GAUNTLET.damage - armour.amount,
@@ -539,9 +540,9 @@ function landStrike(room, attacker, strikeIndex, target, g, atSec, nowSec) {
 
   const shove = 1.7 * (1 + MELEE_CONTACT.impactKnockback * impact);
   const push = { x: g.direction.x * shove, y: strikeIndex === 2 ? 0.8 : 0.2, z: g.direction.z * shove };
-  // hardened plate turns the blow toward a glancing one (never the shove), and each blow wears some of it away
+  // hardened plate turns the blow toward a glancing one (never the shove)
   const armour = steelQuality(target.steel, quality, nowSec);
-  if (target.steel) target.steel = chipSteel(target.steel, STEEL.swordChip * quality, nowSec);
+  target.steel = steelTakes(target.steel, nowSec);
   const damage = swordDamageFor(armour.quality);
   applyDamage(room, attacker.id, target.id, damage, 'sword', nowSec, push, {
     steel: armour.strength, turned: swordDamageFor(quality) - damage,
@@ -584,6 +585,7 @@ export function killPlayer(room, victimId, attackerId, source, nowSec) {
   victim.health = 0;
   victim.guarding = false;
   victim.steel = null;
+  victim.gust = null;
   stopSwordChain(victim);
   victim.respawnAt = nowSec + RESPAWN_SEC;
   if (credited && credited !== victimId) {
@@ -628,35 +630,73 @@ function spawnSpell(room, player, nowSec, world) {
   room.events.push({ type: 'projectileSpawned', projectile: structuredClone(projectile), at: nowSec });
 }
 
-// Gale Garner lets go: every body its gust reaches is shoved (its heart also stings a little); a raised guard facing it
-// keeps most of its footing but pays for it like a blow; hardened steel turns the sting, not the shove; walls stop it.
-// Driven into the ground close by, it throws its caster back off it.
+// Gale Garner lets go, where its caster is aiming as it goes (the breath is drawn first; the gust leaves the hand
+// where the hand then points). The gust blows for a moment (cone.lastsSec), from the caster's hand along their aim,
+// following both, fading as it goes: every body it reaches in that moment is caught once, as hard as the gust still
+// is. Caught, a body is shoved (its heart also stings a little); a raised guard facing it keeps most of its footing but
+// pays for it like a blow; hardened steel turns the sting, not the shove; walls stop it. Driven into the ground close
+// by, the gust throws its caster back off it (once, as it leaves the hand).
 function releaseGale(room, player, spell, nowSec, world) {
-  const pending = player.pendingSpell;
   player.pendingSpell = null;
   player.castEndsAt = 0;
-  const f = forwardFromYaw(player.yaw);
-  const direction = Math.hypot(pending.direction.x, pending.direction.y, pending.direction.z) > 0.01
-    ? normalize3(pending.direction) : { x: f.x, y: 0, z: f.z };
+  player.gust = { spell: spell.id, bornAt: nowSec, until: nowSec + (spell.cone.lastsSec ?? 0), caught: [] };
+  const { eye, direction } = galeAim(player);
+  const affected = blowGale(room, player, nowSec, world);
+  const recoil = galeRecoil(spell, eye, direction, world);
+  if (recoil) launchBody(player, recoil, recoil.maxUp);
+  const origin = galeOrigin(eye, direction);
+  room.events.push({ type: 'galeBlast', playerId: player.id, spell: spell.id, origin, direction, affected, recoil, at: nowSec });
+}
+
+// where a caster's gust comes from and goes: their eyes, and where they aim
+function galeAim(player) {
   const eye = { x: player.position.x, y: player.position.y + postureOf(player).eye, z: player.position.z };
-  const origin = { x: eye.x + direction.x * 0.35, y: eye.y + direction.y * 0.35, z: eye.z + direction.z * 0.35 };
+  const pitch = player.pitch ?? 0;
+  const direction = normalize3({ x: -Math.sin(player.yaw) * Math.cos(pitch), y: Math.sin(pitch), z: -Math.cos(player.yaw) * Math.cos(pitch) });
+  return { eye, direction };
+}
+
+// (the gust leaves the hand, a little in front of the eyes)
+function galeOrigin(eye, direction) {
+  return { x: eye.x + direction.x * 0.35, y: eye.y + direction.y * 0.35, z: eye.z + direction.z * 0.35 };
+}
+
+/** How hard a gust still blows `age` seconds after it left the hand (1 at first, fading to its tail). */
+export function galeStrength(spell, age) {
+  const lasts = spell.cone.lastsSec ?? 0;
+  if (!(lasts > 0)) return age <= 0 ? 1 : 0;
+  if (age > lasts) return 0;
+  return 1 - (1 - (spell.cone.tail ?? 1)) * Math.max(0, age) / lasts;
+}
+
+// the gust blows on: every body it reaches now that it has not caught yet (as hard as it still blows); the bodies it
+// caught, for the event
+function blowGale(room, player, nowSec, world) {
+  const gust = player.gust;
+  const spell = spellFor(gust.spell);
+  const strength = galeStrength(spell, nowSec - gust.bornAt);
   const affected = [];
+  if (strength <= 0) return affected;
+  const { direction, eye } = galeAim(player);
+  const origin = galeOrigin(eye, direction);
   for (const target of room.players.values()) {
-    if (target.id === player.id || !target.alive || target.spawnProtectionUntil > nowSec) continue;
+    if (target.id === player.id || !target.alive || target.spawnProtectionUntil > nowSec || gust.caught.includes(target.id)) continue;
     const caught = galeOnBody(spell, origin, direction, target.position, postureOf(target).crown);
-    if (caught.pressure <= 0.01) continue;
+    const pressure = caught.pressure * strength;
+    if (pressure <= 0.01) continue;
     const at = caught.point;
     let walled = false;
     for (const box of world.solids ?? []) {
       if (segmentAabbHit([origin.x, origin.y, origin.z], [at.x, at.y, at.z], box)) { walled = true; break; }
     }
     if (walled) continue;
-    let shove = galeShove(spell, origin, direction, at, caught.pressure);
+    gust.caught.push(target.id);
+    let shove = galeShove(spell, origin, direction, at, pressure);
     const guarded = target.guarding && isInGuardCone(target, player, nowSec);
     if (guarded) {
       // it holds its ground behind the guard, and the guard pays for it like a blow (its breath waits again)
       shove = { x: shove.x * spell.cone.guarded, y: shove.y * spell.cone.guarded, z: shove.z * spell.cone.guarded };
-      target.guardStamina = Math.max(0, target.guardStamina - spell.cone.guardCost * caught.pressure);
+      target.guardStamina = Math.max(0, target.guardStamina - spell.cone.guardCost * pressure);
       target.lastGuardDrainAt = nowSec;
       if (target.guardStamina <= 1e-9) {
         target.guarding = false;
@@ -665,22 +705,21 @@ function releaseGale(room, player, spell, nowSec, world) {
       }
     }
     // its heart stings a little (steel turns that aside, never the shove)
-    const armour = steelExposure(target.steel, guarded ? 0 : caught.exposure, nowSec);
-    if (armour.turned > 0.1) target.steel = chipSteel(target.steel, STEEL.spellChip * armour.turned, nowSec);
+    const exposure = guarded ? 0 : caught.exposure * strength;
+    const armour = steelExposure(target.steel, exposure, nowSec);
+    if (armour.turned > 0.1) target.steel = steelTakes(target.steel, nowSec);
     const damage = Math.round(spell.cone.damage * armour.exposure);
     if (damage >= 1) {
-      const turned = Math.round(spell.cone.damage * (guarded ? 0 : caught.exposure)) - damage;
+      const turned = Math.round(spell.cone.damage * exposure) - damage;
       applyDamage(room, player.id, target.id, damage, spell.id, nowSec, shove, { steel: armour.strength, turned });
     } else {
       shoveBody(target, shove);
       target.lastAttackerId = player.id;
       target.lastKnockbackAt = nowSec;
     }
-    affected.push({ id: target.id, pressure: caught.pressure, guarded, shove });
+    affected.push({ id: target.id, pressure, guarded, shove });
   }
-  const recoil = galeRecoil(spell, eye, direction, world);
-  if (recoil) launchBody(player, recoil, recoil.maxUp);
-  room.events.push({ type: 'galeBlast', playerId: player.id, spell: spell.id, origin, direction, affected, recoil, at: nowSec });
+  return affected;
 }
 
 // the blast: damage by distance, a shove away from its heart, then what the spell leaves behind (a burn, a chill)
@@ -700,7 +739,7 @@ function explodeSpell(room, projectile, point, nowSec, worldHit = false, directV
     const armour = steelExposure(player.steel, bare, nowSec);
     const exposure = armour.exposure;
     if (armour.turned > 0.02) {
-      player.steel = chipSteel(player.steel, STEEL.spellChip * armour.turned, nowSec);
+      player.steel = steelTakes(player.steel, nowSec);
       room.events.push({ type: 'steelTurn', playerId: player.id, spell: spell.id, turned: armour.turned, point, at: nowSec });
     }
     const amount = blastDamage(spell, exposure);
@@ -804,6 +843,14 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
     }
 
     if (player.pendingSpell && nowSec >= player.castEndsAt) spawnSpell(room, player, nowSec, world);
+    // a gust still blowing catches whoever it reaches now
+    if (player.gust) {
+      if (nowSec > player.gust.until) player.gust = null;
+      else if (nowSec > player.gust.bornAt) {
+        const affected = blowGale(room, player, nowSec, world);
+        if (affected.length) room.events.push({ type: 'galeCatch', playerId: player.id, spell: player.gust.spell, affected, at: nowSec });
+      }
+    }
     stepAfflictions(room, player, nowSec);
     if (!player.alive) continue;
 
