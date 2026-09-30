@@ -221,6 +221,52 @@ export function deniedRecipe() {
 }
 
 /** Steel on stone. */
+/**
+ * The cleanest contact there is (a blow caught dead centre, a spell square on): a short, crisp chink laid over the
+ * blow's own sound, a little higher than it. Precision, not a jackpot.
+ */
+export function preciseRecipe(rand = Math.random) {
+  const base = 2900 * jitter(rand, 0.04);
+  return {
+    layers: [
+      { type: 'noise', filter: 'highpass', freq: 5200, q: 0.8, attack: 0.0005, decay: 0.008, gain: 0.16 },
+      { type: 'ring', partials: [{ freq: base, gain: 0.07, decay: 0.09 }, { freq: base * 1.5, gain: 0.035, decay: 0.06 }, { freq: base * 2.2, gain: 0.02, decay: 0.04 }] },
+    ],
+    reverb: 0.12,
+  };
+}
+
+/** The blade biting timber: a hard wooden thunk and a split of wood, a little ring off the steel. */
+export function woodThunkRecipe(rand = Math.random) {
+  return {
+    layers: [
+      { type: 'noise', filter: 'bandpass', freq: 1400 * jitter(rand, 0.12), q: 1.2, attack: 0.001, decay: 0.04, gain: 0.55 },
+      { type: 'tone', wave: 'triangle', freq: 190 * jitter(rand, 0.08), slideTo: 110, attack: 0.001, decay: 0.12, gain: 0.55 },
+      { type: 'noise', filter: 'lowpass', freq: 520, q: 0.6, attack: 0.002, decay: 0.1, gain: 0.45 },
+      ring(rand, 1200 * jitter(rand, 0.05), { decay: 0.16, gain: 0.05, partials: 3 }),
+    ],
+    reverb: 0.25,
+  };
+}
+
+/** The blade taken by something soft (a hedge, canvas, straw): a muffled thump and a rustle, no ring. */
+export function softStrikeRecipe(rand = Math.random) {
+  return {
+    layers: [
+      { type: 'noise', filter: 'bandpass', freq: 2600 * jitter(rand, 0.15), q: 0.6, sweepTo: 1400, attack: 0.004, decay: 0.16, gain: 0.3 },
+      { type: 'noise', filter: 'lowpass', freq: 420, q: 0.5, attack: 0.003, decay: 0.1, gain: 0.4 },
+    ],
+    reverb: 0.15,
+  };
+}
+
+// what a struck surface is, for its sound and what flies off it
+export function strikeSurface(material) {
+  if (material === 'timber' || material === 'wood') return 'wood';
+  if (material === 'hedge' || material === 'cloth' || material === 'straw') return 'soft';
+  return 'stone';
+}
+
 export function wallClangRecipe(rand = Math.random) {
   return {
     layers: [

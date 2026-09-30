@@ -56,7 +56,7 @@ export const SPELLS = Object.freeze({
     label: 'Gale Garner',
     short: 'Gale',               // where a label must be short (a HUD tile, a touch button)
     kind: 'cone',
-    cooldownSec: 7,
+    cooldownSec: 6,
     gatherSec: 0.5,
     cone: Object.freeze({
       reach: 6.5,                // the heart of the gust, out to here and this wide...

@@ -112,19 +112,23 @@ test('the posture is the server\'s: the input asks, the snapshot tells, and a bo
 });
 
 test('a sword aimed at a crouched knight lands as on anyone: no crouch is a dodge', () => {
-  // aimed level, and aimed down at them
-  for (const pitch of [0, -0.3]) {
+  const blow = (pitch) => {
     const { room, a, b } = duel({ crouched: true });
     a.pitch = pitch; a.input.pitch = pitch;
     beginAttack(room, 'a', 10);
     run(room, 10, 10.5);
-    assert.equal(b.health, 70, `hit through a level or lowered swing (pitch ${pitch})`);
-  }
+    return 100 - b.health;
+  };
+  // aimed down at them: caught dead centre, as anyone would be
+  assert.equal(blow(-0.3), 30);
+  // swung level, over the crouched head: it still catches them, less cleanly (the aim was over them)
+  const level = blow(0);
+  assert.ok(level >= 19 && level < 30, `a level swing: ${level}`);
 });
 
 test('a swing aimed high passes over a crouched knight, and meets a standing one', () => {
-  // (aimed 40 degrees up: the blade's band starts a little below the aim, over a crouched crown, not a standing one)
-  const high = 0.7;
+  // (aimed about 17 degrees up: the blade passes at chest height on a standing knight, over a crouched crown)
+  const high = 0.3;
   const low = duel({ crouched: true });
   low.a.pitch = high; low.a.input.pitch = high;
   beginAttack(low.room, 'a', 10);

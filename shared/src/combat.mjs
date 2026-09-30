@@ -39,15 +39,12 @@ export function nextChainStep({ committed, landed }, elapsed) {
   return contact <= begin ? { kind: 'land', strike: landed, at } : { kind: 'commit', strike: committed, at };
 }
 
-// Sword contact quality. A strike is live for a short stretch around its contact, its blade sweeping across the
-// legal arc (the first two strikes side to side, the third straight down). Who it meets, and how, decides how cleanly
-// it lands: 1 is the cleanest hit, 0 a genuinely glancing one; a legal hit always lands (swordDamageFor: between
-// GAME.swordGlance and GAME.swordDamage); outside the arc is a miss.
-//   alignment: the main thing. Caught through the middle of the arc on the strong of the blade is clean (a broad
-//              dome: a normally centred blow lands close to the cleanest, dead centre cleanest of all), tapering
-//              evenly to a glancing touch at the arc's very edge; the very tip of the reach takes a little off.
-//   phase:     a small thing. The swing's broad middle is full strength; only the first and last moments of the live
-//              stretch take a little off. No timing is frame-perfect.
+// Sword contact. A strike is live for a short stretch around its contact, its blade sweeping through the strike's arc
+// in the attacker's view (the first two strikes across, the third straight down; shared/src/blade.mjs has the blade
+// itself). The first knight the blade passes through takes the blow, unless something solid stops the blade first.
+// How cleanly it lands is one thing: how far off the attacker's aim the knight was as the blade met them (blade.mjs,
+// AIM_QUALITY): 1 dead centre, 0 clipped by the edge of the swing; a legal hit always lands (swordDamageFor: between
+// GAME.swordGlance and GAME.swordDamage). No moment of the swing is sweeter than another.
 // How hard two knights meet (their closing speed) is separate: it adds to the physical impact (knockback, pressure
 // on a guard, the stagger of a broken one), never to the damage. Current tuning; the server resolves it
 // (shared/sim/combat.mjs) and the first-person sweep is timed from the same window.
@@ -56,53 +53,12 @@ export const MELEE_CONTACT = Object.freeze({
   window: Object.freeze({ early: 0.09, late: 0.11 }),
   // which way each strike's blade crosses the arc: +1 from its right to its left, -1 left to right, 0 top to bottom
   sweep: Object.freeze([1, -1, 0]),
-  // a top-to-bottom strike reaches body height this long before its contact
-  chopLead: 0.02,
-  arcHalfDeg: 55,
-  // how far below and above the knight's aim each strike's blade passes (degrees, from the eyes: the first person's
-  // swings run mostly below the crosshair, the third comes all the way down); a body wholly outside it is not met
-  bandDeg: Object.freeze([Object.freeze([-45, 20]), Object.freeze([-45, 25]), Object.freeze([-60, 60])]),
-  // across the arc: 1 - (angle off the aim / the arc's edge) ^ this. A broad dome: about 0.95 at 15 degrees, 0.85
-  // at 24, a glancing touch only out at the edge
-  arcBend: 2.3,
-  cleanReach: 0.75,      // share of the reach that is the strong of the blade
-  tip: 0.75,             // alignment right at the tip
-  phasePlateau: Object.freeze([-0.05, 0.07]),
-  phaseEnds: 0.9,        // at the very start and end of the live stretch
   // closing speed (m/s) that counts as a full-tilt collision, and what it adds at full tilt
   closingFull: 8,
   impactKnockback: 0.6,
   impactGuard: 0.3,
   impactBreakStagger: 0.3,
 });
-
-const smoothstep = (t) => {
-  const s = Math.max(0, Math.min(1, t));
-  return s * s * (3 - 2 * s);
-};
-
-/** How cleanly a target sits in the strike: `angle` (radians off the attacker's facing), `distance` of its `reach`. */
-export function meleeAlignment(angle, distance, reach, contact = MELEE_CONTACT) {
-  const off = Math.min(1, Math.abs(angle) * 180 / Math.PI / contact.arcHalfDeg);
-  const across = 1 - off ** contact.arcBend;
-  const share = reach > 0 ? distance / reach : 0;
-  const along = 1 - (1 - contact.tip) * smoothstep((share - contact.cleanReach) / (1 - contact.cleanReach));
-  return across * along;
-}
-
-/** How far into its swing the blade met the target: `dt` seconds from the contact (negative: still coming in). */
-export function meleePhase(dt, contact = MELEE_CONTACT) {
-  const [from, to] = contact.phasePlateau;
-  const off = 1 - contact.phaseEnds;
-  if (dt < from) return 1 - off * smoothstep((from - dt) / (from + contact.window.early));
-  if (dt > to) return 1 - off * smoothstep((dt - to) / (contact.window.late - to));
-  return 1;
-}
-
-/** The contact's quality (0 glancing .. 1 cleanest): alignment first, the phase a little. */
-export function meleeContactQuality({ angle = 0, distance = 0, reach = GAME.swordRange, dt = 0 } = {}, contact = MELEE_CONTACT) {
-  return Math.max(0, Math.min(1, meleeAlignment(angle, distance, reach, contact) * meleePhase(dt, contact)));
-}
 
 /** How hard two bodies met: 0 (standing, or parting) to 1 (a full-tilt collision), from their closing speed. */
 export function closingImpact(closingSpeed, contact = MELEE_CONTACT) {
@@ -113,15 +69,6 @@ export function closingImpact(closingSpeed, contact = MELEE_CONTACT) {
 export function swordDamageFor(quality) {
   const q = Math.max(0, Math.min(1, Number.isFinite(quality) ? quality : 1));
   return Math.round(GAME.swordGlance + (GAME.swordDamage - GAME.swordGlance) * q);
-}
-
-/** Where the blade is across the arc `dt` from the contact (radians, + to the attacker's left), for a sweeping strike. */
-export function bladeAngleAt(strikeIndex, dt, contact = MELEE_CONTACT) {
-  const sweep = contact.sweep[strikeIndex] ?? 0;
-  const half = contact.arcHalfDeg * Math.PI / 180;
-  if (!sweep) return 0;
-  const share = dt < 0 ? dt / contact.window.early : dt / contact.window.late;
-  return sweep * half * Math.max(-1, Math.min(1, share));
 }
 
 // Guard stamina, as data. Each kind of knight carries a guard of some capacity, and every sword blow it absorbs costs

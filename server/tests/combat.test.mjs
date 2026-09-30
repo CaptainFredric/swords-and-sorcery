@@ -47,7 +47,8 @@ function playingRoom() {
 test('held sword lands 30 damage (caught square) at 0.40, 1.10 and 1.80 seconds, and the fourth blow fells', () => {
   const room = playingRoom();
   beginAttack(room, 'a', 10);
-  stepRoom(room, 0.01, 10.39, openWorld);
+  // (the blade meets the near side of the body a moment before it crosses the aim)
+  stepRoom(room, 0.01, 10.3, openWorld);
   assert.equal(room.players.get('b').health, 100);
   stepRoom(room, 0.01, 10.40, openWorld);
   assert.equal(room.players.get('b').health, 70);
@@ -407,8 +408,9 @@ test('a sword caught cleanly does its full damage; one at the fringe of the arc 
   const hit = fringe.events.find((e) => e.type === 'swordHit');
   assert.ok(hit.quality < 1 && hit.quality > 0);
 
+  // well outside the arc (past its edge by more than a body's width): a miss
   const outside = playingRoom();
-  placeB(outside, 80 * Math.PI / 180, 1.6);
+  placeB(outside, 110 * Math.PI / 180, 1.6);
   beginAttack(outside, 'a', 10);
   for (const now of [10.3, 10.4, 10.5, 10.6]) stepRoom(outside, 0.01, now, openWorld);
   assert.equal(outside.players.get('b').health, 100, 'outside the arc: a miss');
@@ -435,7 +437,7 @@ test('running into each other shoves harder; it barely changes the damage', () =
     const b = placeB(room, 0, 1.6);
     const a = room.players.get('a');
     beginAttack(room, 'a', 10);
-    stepRoom(room, 0.01, 10.39, openWorld);
+    stepRoom(room, 0.01, 10.28, openWorld);
     a.velocity.x = closing / 2;
     b.velocity.x = -closing / 2;
     const before = Math.hypot(b.velocity.x, b.velocity.z);
@@ -539,8 +541,9 @@ test('Sheathed in Steel: struck late in its full stretch, the first blow holds i
   const b = room.players.get('b');
   // called long enough ago that the first blow (at 10.40) comes just before it would start to wear
   assert.equal(sheathe(room, 'b', 10.4 - (STEEL.fullSec - 0.3)), true);
-  swordInto(room);
-  assert.ok(Math.abs(b.steel.fullUntil - (10.4 + STEEL.holdSec)) < 1e-6, 'held full after the first blow');
+  const first = swordInto(room);
+  const struckAt = room.events.find((e) => e.type === 'swordHit').at;
+  assert.ok(first.damage > 0 && Math.abs(b.steel.fullUntil - (struckAt + STEEL.holdSec)) < 1e-6, 'held full after the first blow');
   const held = b.steel.fullUntil;
   // the next blows land on the same clock
   beginAttack(room, 'a', 10.5);
@@ -723,4 +726,61 @@ test('a gust driven into the ground close by throws its caster up off it', () =>
   assert.ok(blast.recoil && blast.recoil.y > 0);
   stepRoom(room, 0.02, 10.52, openWorld);
   assert.ok(a.position.y > 0.05 && a.grounded === false, 'off its feet');
+});
+
+// a's forehand at b standing `deg` off a's aim at `distance`, in `world`; what it did
+function forehandAt(deg, distance = 1.8, world = openWorld) {
+  const room = playingRoom();
+  const b = placeB(room, deg * Math.PI / 180, distance);
+  beginAttack(room, 'a', 10);
+  for (let now = 10.2; now <= 10.6; now += 0.01) stepRoom(room, 0.01, now, world);
+  endAttack(room, 'a', 10.6);
+  return { damage: 100 - b.health, events: room.events };
+}
+
+test('the closer to the aim the blade meets a knight, the cleaner: dead centre 30, then less and less out to the fringe', () => {
+  const byAngle = [0, 8, 16, 30, 55].map((deg) => ({ deg, damage: forehandAt(deg).damage }));
+  assert.equal(byAngle[0].damage, 30, 'dead centre');
+  for (let i = 1; i < byAngle.length; i += 1) {
+    assert.ok(byAngle[i].damage < byAngle[i - 1].damage, `less at ${byAngle[i].deg} degrees: ${JSON.stringify(byAngle)}`);
+  }
+  assert.ok(byAngle[4].damage >= 19 && byAngle[4].damage <= 21, `the fringe: ${byAngle[4].damage}`);
+  // (on either side alike)
+  assert.equal(forehandAt(-16).damage, forehandAt(16).damage);
+});
+
+test('a wall at the corner stops the blade: it rings off the stone and nobody behind the corner is hurt', () => {
+  // (a faces +x: its right is +z) a knight just past the corner of a wall on a's right, the wall between them (the
+  // forehand comes from the right, through the wall first)
+  const wall = { id: 'corner', center: [1.4, 1.5, 0.9], size: [0.5, 3, 1.4], material: 'limestone' };
+  const walled = { ...openWorld, solids: [wall] };
+  const struck = forehandAt(-8, 2.2, walled);
+  assert.equal(struck.damage, 0, 'nothing through the wall');
+  const impact = struck.events.find((e) => e.type === 'swordWorldImpact');
+  assert.ok(impact && impact.surfaceId === 'corner' && impact.material === 'limestone', 'it rings off the stone');
+  assert.ok(!struck.events.some((e) => e.type === 'swordHit'));
+  // with the wall gone, the same blow lands
+  assert.ok(forehandAt(-8, 2.2).damage > 0);
+});
+
+test('a thin post in the swing is struck, not passed through', () => {
+  // a post off to a's right, the knight straight ahead: the forehand comes through the post first
+  const post = { id: 'post', center: [1.09, 1.2, 0.51], size: [0.1, 2.4, 0.1], material: 'timber' };
+  const struck = forehandAt(0, 2.2, { ...openWorld, solids: [post] });
+  const impact = struck.events.find((e) => e.type === 'swordWorldImpact');
+  assert.ok(impact && impact.material === 'timber', 'the blade meets the post');
+  assert.equal(struck.damage, 0, 'and not the knight beyond it');
+});
+
+test('only the cleanest contact is marked clean: a sword blow dead centre, a spell square on; never an ordinary blow', () => {
+  const centre = forehandAt(0).events.find((e) => e.type === 'damage');
+  assert.equal(centre.clean, true, 'dead centre');
+  const off = forehandAt(12).events.find((e) => e.type === 'damage');
+  assert.ok(off.amount <= 28 && !off.clean, `a good blow off the middle (${off.amount}) is not`);
+  const room = playingRoom();
+  fireballInto(room);
+  const direct = room.events.find((e) => e.type === 'damage' && e.source === 'fireball');
+  assert.equal(direct.clean, true, 'a fireball square on');
+  for (let now = 10.8; now < 13.5; now += 0.05) stepRoom(room, 0.05, now, openWorld);
+  assert.ok(room.events.filter((e) => e.source === 'burn').every((e) => !e.clean), 'never a burn\'s lick');
 });
