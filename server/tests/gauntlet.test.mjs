@@ -140,7 +140,9 @@ test('after the fist nothing attacks again before its recovery, nor before the s
 test('a guard facing the fist pays a little and is never broken', () => {
   const { room, a, b } = duel();
   setGuard(room, 'b', true, 9);
+  // a guard all but spent, and still under pressure (a raised guard's stamina comes back once the pressure lets up)
   b.guardStamina = 4;
+  b.lastGuardDrainAt = 10;
   tryCastOrGauntlet(room, 'a', { x: 0, y: 0, z: -1 }, 10);
   const events = run(room, 10, 10.3);
   assert.equal(b.health, 100, 'no damage through the guard');

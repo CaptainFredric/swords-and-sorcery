@@ -31,6 +31,7 @@ export const BLADE = Object.freeze({
   stepDeg: 2,            // the sweep, judged at least this finely (about 8 cm apart at the tip)
   arcHalfDeg: 75,        // the side cuts cross this far each side of the aim
   worldStopDeg: 40,      // the world stops the blade only this far either side of the aim (the driven part of it)
+  groundStopDeg: 25,     // and the ground only this near it: a blade driven into the ground, not one that dips to it
   tiltDeg: 12,           // their plane leans: high on the right, low on the left
   // the chop: from this far above the aim to this far below it
   chopFromDeg: 60,
@@ -176,17 +177,33 @@ export function occluded(eye, point, solids) {
   return false;
 }
 
+// where a blade segment meets the top of a floor (below the eyes): the fraction along it, or null
+function segmentFloor(start, end, floor) {
+  const y = floor.y;
+  if (!(start.y > y && end.y <= y)) return null;
+  const t = (start.y - y) / (start.y - end.y);
+  const x = start.x + (end.x - start.x) * t;
+  const z = start.z + (end.z - start.z) * t;
+  const halfX = floor.size[0] / 2;
+  const halfZ = floor.size[2] / 2;
+  if (Math.abs(x - floor.center[0]) > halfX || Math.abs(z - floor.center[2]) > halfZ) return null;
+  return t;
+}
+
 /**
  * Sweep a blade between two directions from `eye` (unit vectors, `steps` evenly between) and report what it meets
  * first: { kind: 'body', id, point, along (m from the eyes) } or { kind: 'solid', solid, point, normal, along }, or
  * null. bodies: [{ id, base: { x, y, z } (the feet), top: the crown's height above them }]; solids: boxes.
  * aim: the attacker's aim (a unit vector): the world stops the blade only within `blade.worldStopDeg` of it (with no
  * aim given, anywhere). A knight met with something solid between the eyes and the blade's contact is not met.
+ * ground: floors (a world's `floors`) the blade can be driven into, where the world stops it (with none, the ground is
+ * not asked about): met as { kind: 'ground', floor, point, along }.
  */
-export function sweepBlade(eye, fromDirection, toDirection, bodies, solids, { aim = null, blade = BLADE } = {}) {
+export function sweepBlade(eye, fromDirection, toDirection, bodies, solids, { aim = null, blade = BLADE, ground = null } = {}) {
   const turn = Math.acos(Math.max(-1, Math.min(1, dot(fromDirection, toDirection))));
   const steps = Math.max(1, Math.ceil(turn / (blade.stepDeg * DEG)));
   const corridor = Math.cos(blade.worldStopDeg * DEG);
+  const groundCorridor = Math.cos(blade.groundStopDeg * DEG);
   const stopping = solids.filter(blocksBlade);
   for (let i = 1; i <= steps; i += 1) {
     const direction = slerpDirection(fromDirection, toDirection, i / steps, turn);
@@ -207,6 +224,13 @@ export function sweepBlade(eye, fromDirection, toDirection, bodies, solids, { ai
     }
     // the world stops the blade only where the swing is driven
     const driven = !aim || dot(direction, aim) >= corridor;
+    const intoGround = !aim || dot(direction, aim) >= groundCorridor;
+    for (const floor of intoGround && ground ? ground : []) {
+      const t = segmentFloor(start, end, floor);
+      if (t === null) continue;
+      const along = blade.from + t * length;
+      if (!best || along < best.along) best = { kind: 'ground', floor, point: add(start, scale(sub(end, start), t)), along, direction };
+    }
     for (const solid of driven ? stopping : []) {
       const hit = segmentBox(start, end, solid, blade.radius);
       if (!hit) continue;

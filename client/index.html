@@ -287,10 +287,14 @@
         </div>
         <div id="guard-block" class="guard-block faded">
           <span>STAMINA</span><div class="guard-track"><div id="guard-fill" class="guard-fill"></div></div>
+          <!-- balance lost to blows (stagger): filling toward the break, warning red near it -->
+          <div id="stagger-track" class="stagger-track" aria-hidden="true"><div id="stagger-fill" class="stagger-fill"></div></div>
         </div>
         <div class="abilities">
           <div id="spell-ability" class="ability ready" data-spell="fireball"><span class="ability-icon"></span><b>Q</b><em>FIREBALL</em><strong>READY</strong><i class="ability-badge"></i></div>
           <div id="dash-ability" class="ability ready"><span class="ability-icon"></span><b>E</b><em>DASH</em><strong>READY</strong></div>
+          <!-- the ultimate: its shade drains as prowess is earned; full, it is ready -->
+          <div id="ultimate-ability" class="ability ultimate cooling" data-ultimate="sunder"><span class="ability-icon"></span><b>R</b><em>SUNDER</em><strong>0%</strong></div>
         </div>
       </div>
       <aside id="practice-overlay" class="practice-tools hidden">
@@ -303,6 +307,7 @@
         <button id="practice-melee" class="practice-opponent">MR. MELEE</button>
         <button id="practice-runner" class="practice-opponent">SIR RUNS-A-LOT</button>
         <button id="practice-remove">REMOVE DUMMY</button>
+        <button id="practice-ultimate">READY ULTIMATE</button>
         <button type="button" data-open-settings>SETTINGS</button>
         <button id="practice-leave" class="practice-leave">LEAVE PRACTICE</button>
       </aside>

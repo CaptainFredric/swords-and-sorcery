@@ -244,3 +244,26 @@
 .ability[data-spell="gale"] .ability-badge { color: #bfe8c4; }
 .ability[data-spell="steel"] .ability-badge { color: #d8e1ea; }
 @media (prefers-reduced-motion: reduce) { .ability.denied { animation: none; outline: 1px solid #9c6a55; } }
+
+/* --- the ultimate: a tile of its own, brass-edged. Its shade drains as prowess is earned; full, it glows softly (a
+   restrained cue: it is ready, not shouting); while it runs, a steady ember-dark light ------------------------------ */
+.ability.ultimate { border-color: #7a6a44; }
+.ability.ultimate .ability-icon { color: #d9b36a; }
+.ability.ultimate em { color: #c9ae78; }
+.ability.ultimate.ready { border-color: #e2c27a; box-shadow: 0 0 10px rgba(226, 194, 122, .35), inset 0 0 8px rgba(226, 194, 122, .18); animation: ultimate-ready 2.4s ease-in-out infinite; }
+.ability.ultimate.ready strong { color: #f1dca6; }
+.ability.ultimate.active { border-color: #c96a3a; box-shadow: 0 0 12px rgba(201, 106, 58, .45); }
+.ability.ultimate.active .ability-icon { color: #f0a36a; }
+.ability.ultimate.active strong { color: #f3c49a; }
+@keyframes ultimate-ready { 0%, 100% { box-shadow: 0 0 8px rgba(226, 194, 122, .28), inset 0 0 6px rgba(226, 194, 122, .12); } 50% { box-shadow: 0 0 14px rgba(226, 194, 122, .5), inset 0 0 10px rgba(226, 194, 122, .24); } }
+
+/* --- stagger: balance lost, a thin bar under the stamina; red and pulsing near its break, dimmer while recovering */
+.stagger-track { height: 3px; margin-top: 3px; background: rgba(17, 21, 16, .7); border: 1px solid rgba(72, 81, 74, .6); opacity: 0; transition: opacity .2s ease; }
+.stagger-track.shown { opacity: 1; }
+.stagger-fill { height: 100%; width: 0; background: linear-gradient(180deg, #e0b070, #b8733a); transition: width .08s linear; }
+.stagger-track.warn .stagger-fill { background: linear-gradient(180deg, #ef7a62, #b03a2c); animation: stagger-warn .55s ease-in-out infinite; }
+.stagger-track.recovering .stagger-fill { background: linear-gradient(180deg, #b8a58a, #7d6c55); animation: none; }
+@keyframes stagger-warn { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
+
+/* the ultimate named as it takes hold: ember on brass, a little letter-spaced (a declaration, not a hit marker) */
+.status-flash.sunder { color: #f0b274; letter-spacing: .12em; text-shadow: 0 0 14px rgba(201, 106, 58, .55), 0 2px 3px rgba(0, 0, 0, .8); }

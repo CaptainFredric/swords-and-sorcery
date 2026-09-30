@@ -1,5 +1,6 @@
 import { findSwordWorldHit, surfaceHeightAt } from '../src/collision.mjs';
-import { beginAttack, endAttack, setGuard, tryCastSpell, tryDash } from './combat.mjs';
+import { beginAttack, endAttack, setGuard, tryCastSpell, tryDash, tryUltimate } from './combat.mjs';
+import { PROWESS } from '../src/prowess.mjs';
 import { spellFor } from '../src/spells.mjs';
 import { postureOf } from '../src/body.mjs';
 import { steelStrength } from '../src/steel.mjs';
@@ -10,6 +11,8 @@ const MELEE_RANGE = 2.25;
 const FIREBALL_RANGE = 11;
 const DEFENSE_THREAT_RANGE = 3.1;
 const THINK_INTERVAL_SEC = 0.18;
+// how near a foe must be for a bot to call its ultimate
+const ULTIMATE_RANGE = 5;
 const MIN_REACTION_SEC = 0.22;
 const REACTION_JITTER_SEC = 0.2;
 const AVOID_PROBE_RANGE = 1.65;
@@ -143,6 +146,12 @@ function chooseCombatIntent(room, actor, target, distance, ai, nowSec, random, a
       else dashAside(room, actor, target, ai, nowSec);
     }
     return;
+  }
+
+  // a swordsman with a full prowess meter calls its ultimate as a fight is joined (a foe close, not already reeling
+  // itself), never at nothing
+  if (profile.sword && (actor.prowess ?? 0) >= PROWESS.full && !actor.ultimateState && distance <= ULTIMATE_RANGE) {
+    if (tryUltimate(room, actor.id, nowSec)) return;
   }
 
   // a kind that carries a ward (Mr. Melee's Sheathe in Steel) hardens as a fight begins, never at nothing

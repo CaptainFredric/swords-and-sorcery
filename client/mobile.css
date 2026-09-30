@@ -190,3 +190,11 @@ html.turn-typing .rotate-prompt { display: none !important; }
 .touch-crouch svg { stroke-width: 2.5; }
 .touch-crouch.on { color: #fff6de; background: radial-gradient(circle at 50% 40%, rgba(214, 196, 150, .55), rgba(64, 58, 42, .78)); border-color: #ecd9a4; box-shadow: inset 0 0 0 2px rgba(236, 217, 164, .3); }
 .touch-crouch.crouched { box-shadow: inset 0 0 0 2px rgba(236, 217, 164, .3), 0 0 14px rgba(236, 217, 164, .55); }
+
+/* the ultimate: top of the right thumb's arc, above Jump; its shade drains as prowess fills, full it glows */
+.touch-ultimate { --size: 50px; right: calc(var(--safe-r) + 24px * var(--s)); bottom: calc(var(--safe-b) + 222px * var(--s)); color: #e2c27a; border-color: rgba(226, 194, 122, .55); }
+.touch-ultimate::after { content: ""; position: absolute; inset: 0; background: rgba(8, 9, 7, .66); transform: translateY(calc(var(--charge, 0) * -100%)); pointer-events: none; }
+.touch-ultimate.charging svg, .touch-ultimate.charging span { opacity: .55; }
+.touch-ultimate.ready { border-color: #e2c27a; box-shadow: 0 0 14px rgba(226, 194, 122, .55); }
+.touch-ultimate.ready::after, .touch-ultimate.active::after { display: none; }
+.touch-ultimate.active { color: #f0a36a; border-color: rgba(201, 106, 58, .8); box-shadow: 0 0 14px rgba(201, 106, 58, .55); }

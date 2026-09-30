@@ -14,6 +14,7 @@ import { bufferedServerTime, castPoseWindowFromEvent, resolveSpellbladeState } f
 import { airborneLegFlex, crouchPose, guardTurns, landingStrength, pruneReactions } from './spellbladeMotion.mjs';
 import { gaitFootfall } from './sound/footsteps.mjs';
 import { createSteelSheen } from './steelSheen.mjs';
+import { createSunderBlade } from './sunderBlade.mjs';
 import { steelStrength } from '../../shared/src/steel.mjs';
 import { jabTurns } from './gauntletJab.mjs';
 
@@ -267,6 +268,7 @@ export class RemotePlayers {
       if (!seen.has(id)) {
         this.scene.remove(shell.root);
         shell.steelSheen?.dispose();
+        shell.sunderBlade?.dispose();
         disposeRemoteVisualShell(shell);
         this.rigs.delete(id);
         this.samples.delete(id);
@@ -407,6 +409,19 @@ export class RemotePlayers {
           shell.steelSheenOf = shell.visualInstance;
         }
         shell.steelSheen.set(steel, pb.steel ? serverNow - pb.steel.calledAt : null);
+        // Sundering: the ember heat in that knight's steel (sunderBlade.mjs)
+        const sunder = pb.ultimateState?.phase === 'active' && serverNow < (pb.ultimateState.until ?? 0);
+        if (sunder || shell.sunderBlade) {
+          if (shell.sunderBladeOf !== shell.visualInstance) {
+            shell.sunderBlade?.dispose();
+            shell.sunderBlade = createSunderBlade(shell.visualInstance.root);
+            shell.sunderBladeOf = shell.visualInstance;
+          }
+          shell.sunderBlade.set(sunder, nowMs / 1000);
+        }
+        // badly off balance: the whole knight sways as he fights to keep his feet (never his aim)
+        const unsteady = Math.max(0, ((pb.stagger?.level ?? 0) - 45) / 55);
+        shell.visualInstance.root.rotation.z = unsteady > 0 ? Math.sin(nowMs / 1000 * 5.3 + (d.swayPhase ??= Math.random() * 6)) * 0.06 * unsteady : 0;
       }
 
       const glowAge = (nowMs - (shell.hitGlowAt ?? -Infinity)) / 1000;
@@ -431,6 +446,7 @@ export class RemotePlayers {
       setHitGlow(shell, 0);
       this.scene.remove(shell.root);
       shell.steelSheen?.dispose();
+      shell.sunderBlade?.dispose();
       disposeRemoteVisualShell(shell);
     }
     this.rigs.clear();

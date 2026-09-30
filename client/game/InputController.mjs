@@ -9,6 +9,7 @@ const PRESS = {
   spell: (input) => input.cast(),
   dash: (input) => input.dash(),
   gauntlet: (input) => input.gauntlet(),
+  ultimate: (input) => input.ultimate(),
   scoreboard: (input) => { input.scoreboardHeld = true; },
 };
 const RELEASE = {
@@ -196,6 +197,13 @@ export class InputController {
     if (!this.enabled) return;
     this.socket.gauntlet();
     this.onGauntletLocal();
+  }
+
+  // the ultimate's key (the host decides whether the meter is full)
+  ultimate() {
+    if (!this.enabled) return;
+    this.socket.ultimate?.();
+    this.onUltimateLocal?.();
   }
 
   dash() {

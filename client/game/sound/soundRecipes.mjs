@@ -533,3 +533,114 @@ export function galeReleaseRecipe(rand = Math.random) {
     reverb: 0.28,
   };
 }
+
+// --- Sunder All That Rusts and balance ---------------------------------------------------------------------------
+
+/**
+ * The brace into Sunder: the whole harness drawn tight at once (a low boom of the body setting itself, plate grinding
+ * on plate as it takes the strain, a hard clank as it locks), felt more than heard.
+ */
+export function sunderBraceRecipe(rand = Math.random) {
+  return {
+    layers: [
+      { type: 'tone', wave: 'sine', freq: 68 * jitter(rand, 0.05), slideTo: 38, attack: 0.03, decay: 0.7, gain: 0.95 },
+      { type: 'noise', filter: 'lowpass', freq: 240, q: 0.7, attack: 0.02, decay: 0.55, gain: 0.55 },
+      // plate grinding as it takes the strain
+      { type: 'noise', filter: 'bandpass', freq: 1300 * jitter(rand, 0.1), q: 5, sweepTo: 520, attack: 0.08, decay: 0.42, gain: 0.2, at: 0.05 },
+      ring(rand, 160 * jitter(rand, 0.05), { decay: 0.6, gain: 0.12, partials: 5, bright: 0.6 }),
+      // and locks
+      { type: 'noise', filter: 'highpass', freq: 2400, q: 0.8, attack: 0.0008, decay: 0.03, gain: 0.45, at: 0.5 },
+      { ...ring(rand, 420 * jitter(rand, 0.05), { decay: 0.4, gain: 0.16, partials: 4, bright: 0.9 }), at: 0.5 },
+    ],
+    reverb: 0.4,
+    hall: 0.2,
+  };
+}
+
+/** Under a Sundering blow: the low-frequency weight of it (a deep whump and the air it moves), laid under the hit. */
+export function sunderForceRecipe(rand = Math.random) {
+  return {
+    layers: [
+      { type: 'tone', wave: 'sine', freq: 72 * jitter(rand, 0.06), slideTo: 30, attack: 0.002, decay: 0.42, gain: 1.0 },
+      { type: 'noise', filter: 'lowpass', freq: 300, q: 0.6, attack: 0.002, decay: 0.3, gain: 0.7 },
+      { type: 'noise', filter: 'bandpass', freq: 900, q: 0.8, attack: 0.001, decay: 0.08, gain: 0.3 },
+    ],
+    reverb: 0.3,
+  };
+}
+
+/** A Sundering blade driven into the ground: a hard crack of stone giving way, then the grind of it splitting. */
+export function groundCrackRecipe(rand = Math.random) {
+  return {
+    layers: [
+      { type: 'noise', filter: 'highpass', freq: 1800 * jitter(rand, 0.1), q: 0.8, attack: 0.0006, decay: 0.05, gain: 0.8 },
+      { type: 'tone', wave: 'sine', freq: 90 * jitter(rand, 0.06), slideTo: 34, attack: 0.002, decay: 0.5, gain: 0.95 },
+      { type: 'noise', filter: 'lowpass', freq: 420, q: 0.7, attack: 0.003, decay: 0.45, gain: 0.6 },
+      // stone splitting, grinding outward
+      { type: 'noise', filter: 'bandpass', freq: 700 * jitter(rand, 0.1), q: 2.2, sweepTo: 260, attack: 0.02, decay: 0.6, gain: 0.35, at: 0.04 },
+    ],
+    reverb: 0.45,
+    hall: 0.22,
+  };
+}
+
+/** A fissure running: a gravelly crackle and a low grumble as it goes. */
+export function ruptureRunRecipe(rand = Math.random, { seconds = 0.7 } = {}) {
+  const layers = [
+    { type: 'noise', filter: 'lowpass', freq: 260, q: 0.6, attack: 0.05, decay: seconds, gain: 0.45 },
+  ];
+  for (let i = 0; i < 7; i += 1) {
+    layers.push({ type: 'noise', filter: 'bandpass', freq: (1100 + rand() * 1400), q: 3, attack: 0.001, decay: 0.03, gain: 0.18 + rand() * 0.12, at: (i / 7) * seconds + rand() * 0.04 });
+  }
+  return { layers, reverb: 0.3 };
+}
+
+/** Balance lost: plate clattering as the knight stumbles, a heavy step caught, the breath knocked out. */
+export function staggerBreakRecipe(rand = Math.random) {
+  const layers = [
+    { type: 'tone', wave: 'sine', freq: 110 * jitter(rand, 0.06), slideTo: 48, attack: 0.002, decay: 0.3, gain: 0.8 },
+    { type: 'noise', filter: 'lowpass', freq: 500, q: 0.6, attack: 0.003, decay: 0.22, gain: 0.5 },
+    { type: 'noise', filter: 'bandpass', freq: 900, q: 1.2, sweepTo: 420, attack: 0.01, decay: 0.16, gain: 0.18, at: 0.05 },
+  ];
+  for (let i = 0; i < 4; i += 1) {
+    layers.push({ type: 'ring', at: 0.04 + i * (0.06 + rand() * 0.05), partials: [
+      { freq: 1900 + rand() * 1800, gain: 0.05 * (1 - i * 0.18), decay: 0.07 },
+      { freq: 3200 + rand() * 1600, gain: 0.03 * (1 - i * 0.18), decay: 0.05 },
+    ] });
+  }
+  return { layers, reverb: 0.4, hall: 0.16 };
+}
+
+/** Near the break: the harness creaking under strain, low, like a held breath (my own balance only). */
+export function staggerStrainRecipe(rand = Math.random) {
+  return {
+    layers: [
+      { type: 'tone', wave: 'sine', freq: 58, slideTo: 52, attack: 0.02, decay: 0.2, gain: 0.5 },
+      { type: 'noise', filter: 'bandpass', freq: 520 * jitter(rand, 0.1), q: 6, sweepTo: 440, attack: 0.03, decay: 0.2, gain: 0.08 },
+    ],
+    reverb: 0.1,
+  };
+}
+
+/** The meter full: a restrained brass note, once (it is ready, not shouting). */
+export function ultimateReadyRecipe(rand = Math.random) {
+  const base = 392 * jitter(rand, 0.01);
+  return {
+    layers: [
+      { type: 'ring', partials: [{ freq: base, gain: 0.07, decay: 1.1 }, { freq: base * 2.01, gain: 0.035, decay: 0.8 }, { freq: base * 3.02, gain: 0.015, decay: 0.5 }] },
+      { type: 'tone', wave: 'sine', freq: base / 2, attack: 0.05, decay: 0.9, gain: 0.08 },
+    ],
+    reverb: 0.35,
+  };
+}
+
+/** The brace broken before it took hold: the harness slackening, a dull clank. */
+export function ultimateFizzleRecipe(rand = Math.random) {
+  return {
+    layers: [
+      { type: 'noise', filter: 'bandpass', freq: 800, q: 1.5, sweepTo: 280, attack: 0.005, decay: 0.25, gain: 0.3 },
+      ring(rand, 210 * jitter(rand, 0.05), { decay: 0.25, gain: 0.1, partials: 3, bright: 0.6 }),
+    ],
+    reverb: 0.25,
+  };
+}

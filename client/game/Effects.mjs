@@ -195,9 +195,11 @@ export class Effects {
     parent = this.scene,
     fade = false,
     drag = 0,
-    // tick(age): called each frame (a shader's uniforms, say); own: the transient owns its material (disposed with it)
+    // tick(age): called each frame (a shader's uniforms, say); own: the transient owns its material (disposed with it);
+    // ownGeometry: and its geometry
     tick = null,
     own = false,
+    ownGeometry = false,
   } = {}) {
     parent.add(mesh);
     if (fade) {
@@ -219,6 +221,7 @@ export class Effects {
       drag,
       tick,
       own,
+      ownGeometry,
       baseScale: mesh.scale.clone(),
     });
     while (this.transients.length > MAX_TRANSIENTS) this.#removeTransient(this.transients.shift());
@@ -230,6 +233,7 @@ export class Effects {
     transient.parent?.remove(transient.mesh);
     // fading transients own their material (cloned); textures such as damage numbers are cached and shared
     if (transient.fade || transient.own) transient.mesh.material.dispose();
+    if (transient.ownGeometry) transient.mesh.geometry.dispose();
   }
 
   #cameraFlash(color = 0xffd68a, life = 0.1, scale = 1) {
@@ -276,6 +280,93 @@ export class Effects {
   }
 
   /** Splinters and dust knocked off timber by a blade. */
+  // a puff of dust off the ground, drifting up and spreading as it thins
+  #dust(point, { size = 1, rise = 0.8, life = 0.6, color = 0x9a8a72 } = {}) {
+    this.dustGeometry ??= new THREE.IcosahedronGeometry(0.14, 0);
+    this.dustMaterials ??= new Map();
+    if (!this.dustMaterials.has(color)) this.dustMaterials.set(color, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.42, depthWrite: false }));
+    const puff = new THREE.Mesh(this.dustGeometry, this.dustMaterials.get(color));
+    puff.position.set(point.x + (Math.random() - 0.5) * 0.2, point.y + 0.05, point.z + (Math.random() - 0.5) * 0.2);
+    puff.scale.setScalar(size);
+    this.#addTransient(puff, { velocity: new THREE.Vector3((Math.random() - 0.5) * 0.5, rise, (Math.random() - 0.5) * 0.5), life, expand: 2.4, fade: true, drag: 2.5 });
+  }
+
+  /**
+   * A Sundering blade driven into the ground: broken stone thrown up and a burst of dust where it struck; then each
+   * fissure runs out along the ground at `speed` (a dark jagged split drawn as it goes, dust kicked up at its head), and
+   * the split ground lingers a moment before it fades. fissures: [{ dir: {x, z}, length }] (as the host planned them).
+   */
+  rupture(origin, fissures, { speed = 8.5, lastsSec = 2.5 } = {}) {
+    const at = { x: origin.x, y: origin.y, z: origin.z };
+    const stones = [this.#basicMaterial(0x6d655a), this.#basicMaterial(0x8e8574), this.#basicMaterial(0x4f4a43)];
+    for (let i = 0; i < 16; i += 1) {
+      const mesh = new THREE.Mesh(this.chipGeometry, stones[i % 3]);
+      mesh.position.set(at.x, at.y + 0.05, at.z);
+      mesh.scale.setScalar(1.4 + Math.random() * 1.6);
+      const dir = new THREE.Vector3(Math.random() - 0.5, 0.6 + Math.random() * 0.8, Math.random() - 0.5).normalize();
+      this.#addTransient(mesh, { velocity: dir.multiplyScalar(2.5 + Math.random() * 3), life: 0.6 + Math.random() * 0.4, gravity: 14, spin: new THREE.Vector3(10, 7, 8) });
+    }
+    for (let i = 0; i < 6; i += 1) this.#dust(at, { size: 1.6, rise: 1.1, life: 0.9 });
+    this.#flashLight({ x: at.x, y: at.y + 0.3, z: at.z }, 0xffb070, 3, 0.18, 5);
+    const crackMaterial = new THREE.MeshBasicMaterial({ color: 0x1a120c, transparent: true, opacity: 0.88, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, side: THREE.DoubleSide });
+    for (const fissure of fissures) {
+      const segments = Math.max(2, Math.round(fissure.length / 0.3));
+      const positions = new Float32Array(segments * 6 * 3);
+      const across = { x: -fissure.dir.z, z: fissure.dir.x };
+      let wander = 0;
+      const point = (k) => {
+        const t = k / segments;
+        const d = t * fissure.length;
+        return { x: at.x + fissure.dir.x * d + across.x * wander, z: at.z + fissure.dir.z * d + across.z * wander, w: 0.13 * (1 - 0.55 * t) + 0.03 };
+      };
+      let prev = point(0);
+      for (let k = 1; k <= segments; k += 1) {
+        wander = Math.max(-0.25, Math.min(0.25, wander + (Math.random() - 0.5) * 0.16));
+        const next = point(k);
+        const y = at.y + 0.015;
+        const quad = [
+          [prev.x - across.x * prev.w, y, prev.z - across.z * prev.w], [next.x - across.x * next.w, y, next.z - across.z * next.w], [next.x + across.x * next.w, y, next.z + across.z * next.w],
+          [prev.x - across.x * prev.w, y, prev.z - across.z * prev.w], [next.x + across.x * next.w, y, next.z + across.z * next.w], [prev.x + across.x * prev.w, y, prev.z + across.z * prev.w],
+        ];
+        quad.forEach((v, j) => positions.set(v, ((k - 1) * 6 + j) * 3));
+        prev = next;
+      }
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      geometry.setDrawRange(0, 0);
+      const crack = new THREE.Mesh(geometry, crackMaterial.clone());
+      crack.renderOrder = 2;
+      const runSec = fissure.length / speed;
+      let dustAt = 0;
+      this.#addTransient(crack, {
+        life: runSec + lastsSec,
+        own: true,
+        ownGeometry: true,
+        tick: (age) => {
+          const reached = Math.min(1, age / runSec);
+          geometry.setDrawRange(0, Math.ceil(reached * segments) * 6);
+          const left = runSec + lastsSec - age;
+          crack.material.opacity = 0.88 * Math.min(1, left / 0.8);
+          // dust kicked up at the running head
+          if (reached < 1 && age >= dustAt) {
+            dustAt = age + 0.07;
+            const d = reached * fissure.length;
+            this.#dust({ x: at.x + fissure.dir.x * d, y: at.y, z: at.z + fissure.dir.z * d }, { size: 1.1, rise: 0.9, life: 0.55 });
+          }
+        },
+      });
+    }
+    crackMaterial.dispose();
+  }
+
+  /** A Sundering blow landing: heavier sparks and a dull shock ring round the point, the blow's weight made visible. */
+  sunderStrike(point, dir) {
+    this.sparks(point, 0xffb060, 16);
+    this.#groundRing({ x: point.x, y: point.y, z: point.z }, 0xb8602c, 0.8, true);
+    this.#flashLight(point, 0xff9a50, 2.4, 0.12, 4);
+    void dir;
+  }
+
   splinters(point, count = 10) {
     const materials = [this.#basicMaterial(0x8a6a44), this.#basicMaterial(0xb89868)];
     for (let i = 0; i < count; i += 1) {

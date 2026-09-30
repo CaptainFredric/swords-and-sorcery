@@ -4,6 +4,8 @@ import { cancelAttack, setGuard } from './combat.mjs';
 import { recordTransform } from './history.mjs';
 import { stepBotControllers } from './BotController.mjs';
 import { BOT_PROFILES } from './botBehavior.mjs';
+import { PROWESS } from '../src/prowess.mjs';
+import { freshStagger } from '../src/stagger.mjs';
 
 export const PRACTICE_DUMMY_MODES = Object.freeze({
   PASSIVE: 'PASSIVE',
@@ -78,6 +80,9 @@ function resetActorAtSpawn(player, spawn, nowSec) {
   player.chill = null;
   player.steel = null;
   player.speedScale = 1;
+  player.stagger = freshStagger();
+  player.ultimateState = null;
+  player.ultimateLockedUntil = -Infinity;
   player.dashReadyAt = nowSec;
   player.dashUntil = 0;
   player.dashDir = { x: 0, z: 0 };
@@ -103,6 +108,15 @@ export function resetPracticePlayer(room, playerId, nowSec) {
   }
   resetActorAtSpawn(player, spawn, nowSec);
   room.events.push({ type: 'practicePlayerReset', playerId, at: nowSec });
+  return true;
+}
+
+/** The yard earns no prowess (prowess.mjs); its tools ready a knight's ultimate to try instead. */
+export function readyPracticeUltimate(room, playerId) {
+  if (!isPractice(room)) return false;
+  const player = room.players.get(playerId);
+  if (!player || player.actorKind !== 'human') return false;
+  player.prowess = PROWESS.full;
   return true;
 }
 

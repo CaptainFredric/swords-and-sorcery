@@ -48,7 +48,7 @@ OUT_DIR = os.path.join(ROOT, 'client', 'assets', 'voice')
 SR = 48000
 
 LINES = ('effort', 'hurt', 'death', 'sorcery', 'dash', 'victory', 'defeat', 'magicDefeat', 'killTaunt', 'breakTaunt',
-         'galeTaunt', 'steelBoast', 'fistEffort', 'fistThrow', 'fistKill', 'rebuttal')
+         'galeTaunt', 'steelBoast', 'fistEffort', 'fistThrow', 'fistKill', 'rebuttal', 'sunderCall')
 ALIASES = {
     'grunt': 'effort', 'swing': 'effort', 'attack': 'effort', 'heave': 'effort', 'strike': 'effort',
     'pain': 'hurt', 'hit': 'hurt', 'ow': 'hurt', 'ouch': 'hurt',
@@ -58,6 +58,7 @@ ALIASES = {
     'win': 'victory', 'laugh': 'victory', 'cheer': 'victory', 'triumph': 'victory',
     'hya': 'fistEffort', 'hiyah': 'fistEffort', 'hiyaah': 'fistEffort', 'punch': 'fistEffort',
     'gauntlet': 'fistThrow', 'sofisticated': 'fistKill', 'fistkill': 'fistKill',
+    'sunder': 'sunderCall', 'integrity': 'sunderCall', 'ultimate': 'sunderCall',
 }
 
 # per line: how far down, how hard the grit, how loud (the close helm keeps the veteran's -4.5 semitones)
@@ -78,6 +79,8 @@ PRESETS = {
     'galeTaunt': {'semitones': -4.5, 'drive': 2.0, 'rms_db': -17, 'expand_below_db': -42},
     # "My armor works now!"
     'steelBoast': {'semitones': -4.5, 'drive': 2.2, 'rms_db': -16},
+    # "YOUR INTEGRITY WILL NOT SUFFICE!" (the ultimate's cry: shouted, so a little more grit)
+    'sunderCall': {'semitones': -4.5, 'drive': 2.4, 'rms_db': -15},
     # the gauntlet: "HYA!" as it goes out (a cry, with the cries' grit), and three rare lines
     'fistEffort': {'semitones': -4.5, 'drive': 2.4, 'rms_db': -16},
     'fistThrow': {'semitones': -4.5, 'drive': 2.2, 'rms_db': -16},     # "I throw you my gauntlet."
