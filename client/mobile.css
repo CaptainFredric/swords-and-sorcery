@@ -198,3 +198,7 @@ html.turn-typing .rotate-prompt { display: none !important; }
 .touch-ultimate.ready { border-color: #e2c27a; box-shadow: 0 0 14px rgba(226, 194, 122, .55); }
 .touch-ultimate.ready::after, .touch-ultimate.active::after { display: none; }
 .touch-ultimate.active { color: #f0a36a; border-color: rgba(201, 106, 58, .8); box-shadow: 0 0 14px rgba(201, 106, 58, .55); }
+
+/* the Practice Yard: the button works though its real cooldown shows; a small brass infinity says so */
+.touch-btn.practice::before { content: "\221E"; position: absolute; left: 12%; top: 8%; z-index: 3; width: 34%; height: 34%; display: grid; place-items: center; border-radius: 50%; font: 900 11px/1 system-ui, sans-serif; color: #2a1c10; background: linear-gradient(180deg, #e7c47c, #b8893f); pointer-events: none; }
+.touch-btn.practice svg, .touch-btn.practice span { opacity: .85 !important; }

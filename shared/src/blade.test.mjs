@@ -5,16 +5,18 @@ import { MELEE_CONTACT, swordDamageFor } from './combat.mjs';
 
 const damageAt = (deg) => swordDamageFor(aimQuality(deg));
 
-test('aimed near the middle is 28-30, off to one side 25-27, weak side contact 22-24, the fringe 19-21', () => {
-  for (const deg of [0, 3, 6, 10, 13]) assert.ok(damageAt(deg) >= 28, `${deg} degrees: ${damageAt(deg)}`);
-  for (const deg of [16, 20, 25, 29]) assert.ok(damageAt(deg) >= 25 && damageAt(deg) <= 27, `${deg} degrees: ${damageAt(deg)}`);
-  for (const deg of [33, 38, 44, 48]) assert.ok(damageAt(deg) >= 22 && damageAt(deg) <= 24, `${deg} degrees: ${damageAt(deg)}`);
-  for (const deg of [55, 62, 70, 90]) assert.ok(damageAt(deg) >= 19 && damageAt(deg) <= 21, `${deg} degrees: ${damageAt(deg)}`);
+test('held on the middle is 28-30, an ordinary good blow 25-27, weak side contact 22-24, the fringe 19-21', () => {
+  for (const deg of [0, 2, 4, 6]) assert.ok(damageAt(deg) >= 28, `${deg} degrees: ${damageAt(deg)}`);
+  for (const deg of [9, 12, 16, 20]) assert.ok(damageAt(deg) >= 25 && damageAt(deg) <= 27, `${deg} degrees: ${damageAt(deg)}`);
+  for (const deg of [24, 28, 32, 40]) assert.ok(damageAt(deg) >= 22 && damageAt(deg) <= 24, `${deg} degrees: ${damageAt(deg)}`);
+  for (const deg of [50, 60, 70, 90]) assert.ok(damageAt(deg) >= 19 && damageAt(deg) <= 21, `${deg} degrees: ${damageAt(deg)}`);
   // the glancing floor and the clean ceiling stay where they are
   assert.equal(damageAt(75), 19);
   assert.equal(damageAt(0), 30);
-  // a clean blow is an ordinary good aim, not a feat: anywhere within a few degrees of the middle of a knight
-  for (const deg of [0, 2, 4, 6, 8]) assert.ok(damageAt(deg) >= 29, `${deg} degrees: ${damageAt(deg)}`);
+  // the top of the scale is earned: 29-30 only right on the middle; a knight's edge at two metres (some 13 degrees
+  // off) is an ordinary 26
+  for (const deg of [0, 1, 2]) assert.equal(damageAt(deg), 30, `${deg} degrees`);
+  for (const deg of [8, 10, 13]) assert.ok(damageAt(deg) <= 27, `${deg} degrees: ${damageAt(deg)}`);
   // one even curve: never rising, never jumping
   let last = damageAt(0);
   for (let deg = 0.5; deg <= 80; deg += 0.5) {

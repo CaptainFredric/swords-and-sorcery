@@ -4,6 +4,7 @@ import { isDeliberateTap, lookDelta, stickVector, TOUCH } from './touchControlsM
 import { screenTurn } from '../ui/screenTurn.mjs';
 import { ICONS, iconSvg } from '../ui/icons.mjs';
 import { ultimateView } from '../ui/ultimateView.mjs';
+import { practiceOverride } from '../../shared/src/practiceRecast.mjs';
 
 // On-screen controls for phones and tablets. They drive the same InputController actions as the mouse and
 // keyboard, so the server, prediction and animation see no difference between the two.
@@ -138,9 +139,12 @@ export class TouchControls {
     }
   }
 
-  update(local, serverNow) {
+  update(local, serverNow, { practice = false } = {}) {
     if (!local) return;
-    this.#showSpell(spellFor(local.spell), (local.spellReadyAt ?? 0) - serverNow > 0.01);
+    this.#showSpell(spellFor(local.spell), (local.spellReadyAt ?? 0) - serverNow > 0.01 && !practice);
+    // the Practice Yard: the real cooldown shown, and a mark while the button works anyway
+    this.buttons.spell?.classList.toggle('practice', practiceOverride(local, 'spell', serverNow, practice));
+    this.buttons.dash?.classList.toggle('practice', practiceOverride(local, 'dash', serverNow, practice));
     for (const { element, timer, key, seconds } of this.cooldowns) {
       const remaining = Math.max(0, (local[key] ?? 0) - serverNow);
       const ready = remaining <= 0.01;

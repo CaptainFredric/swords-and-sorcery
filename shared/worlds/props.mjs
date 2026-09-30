@@ -4,16 +4,19 @@
 // is itself solid) stands in nobody's way. One table, not a rule per prop: a new prop kind is a new row here.
 //
 // A kind's footprint is given along its own facing (`width` across it, `depth` along it); facings are quarter turns.
+// `incidental`: a small, loose furnishing a blade can catch in passing (a barrel's rim, a crate's corner, a lantern
+// post, the rack of practice blades), as against a pile or a butt that is the thing itself. What a knight says when
+// his blade snags on one is the voice's business (a rare line); nothing about the blow changes.
 
 export const PROP_KINDS = Object.freeze({
-  barrel: Object.freeze({ width: 0.64, depth: 0.64, height: 0.84, material: 'timber' }),
-  crate: Object.freeze({ width: 0.68, depth: 0.68, height: 0.62, stacked: 1.22, material: 'timber' }),
+  barrel: Object.freeze({ width: 0.64, depth: 0.64, height: 0.84, material: 'timber', incidental: true }),
+  crate: Object.freeze({ width: 0.68, depth: 0.68, height: 0.62, stacked: 1.22, material: 'timber', incidental: true }),
   // split logs, stacked three rows high, their cut ends out (length: how long the logs are, along the facing)
   woodpile: Object.freeze({ width: 0.98, height: 0.64, material: 'timber' }),
-  sacks: Object.freeze({ width: 0.8, depth: 0.8, height: 0.46, material: 'cloth' }),
-  lantern: Object.freeze({ width: 0.2, depth: 0.2, height: 2.5, material: 'timber' }),
+  sacks: Object.freeze({ width: 0.8, depth: 0.8, height: 0.46, material: 'cloth', incidental: true }),
+  lantern: Object.freeze({ width: 0.2, depth: 0.2, height: 2.5, material: 'timber', incidental: true }),
   target: Object.freeze({ width: 1.2, depth: 0.6, height: 1.6, material: 'straw' }),
-  rack: Object.freeze({ width: 1.7, depth: 0.25, height: 1.3, material: 'timber' }),
+  rack: Object.freeze({ width: 1.7, depth: 0.25, height: 1.3, material: 'timber', incidental: true }),
   flowers: null,
   pennant: null,
 });
@@ -38,6 +41,7 @@ export function propSolid(prop) {
     material: kind.material,
     kind: 'prop',
     prop: prop.kind,
+    ...(kind.incidental ? { incidental: true } : {}),
   };
 }
 

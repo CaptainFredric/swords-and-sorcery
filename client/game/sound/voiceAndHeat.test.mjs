@@ -31,10 +31,10 @@ test('lighter moments can be made rarer with chanceScale', () => {
 
 test('a knight killed by magic may say he does not believe in it; any fallen knight may protest he is a knight', () => {
   const burned = deathLines({ victimId: 'v', killerId: 'k', source: 'burn' });
-  assert.deepEqual(burned.fallen.map((say) => say.line), ['magicDefeat', 'defeat', 'death']);
+  assert.deepEqual(burned.fallen.map((say) => say.line), ['magicDefeat', 'knightFallen', 'defeat', 'death']);
   assert.ok(burned.fallen.every((say) => say.speaker === 'v'));
   const cut = deathLines({ victimId: 'v', killerId: 'k', source: 'sword' });
-  assert.deepEqual(cut.fallen.map((say) => say.line), ['defeat', 'death'], 'a sword is no magic');
+  assert.deepEqual(cut.fallen.map((say) => say.line), ['knightFallen', 'defeat', 'death'], 'a sword is no magic');
   for (const source of ['fireball', 'frostfire']) assert.ok(MAGIC_SOURCES.includes(source));
   // the victor's word waits for the fallen to have had theirs, and nobody taunts over their own fall
   assert.deepEqual(cut.victor.map((say) => [say.line, say.speaker]), [['killTaunt', 'k']]);

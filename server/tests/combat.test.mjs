@@ -799,7 +799,7 @@ test('ordinary fighting among barrels and posts: blow after blow lands, none spo
   ] };
   for (const deg of [-10, 0, 10]) {
     const struck = forehandAt(deg, 1.9, clutter);
-    assert.ok(struck.damage >= 28, `aimed ${deg} degrees off: ${struck.damage}`);
+    assert.ok(struck.damage >= 25, `aimed ${deg} degrees off: ${struck.damage}`);
     assert.ok(!struck.events.some((e) => e.type === 'swordWorldImpact'));
   }
 });
@@ -819,4 +819,28 @@ test('only the cleanest contact is marked clean: a sword blow dead centre, a spe
   assert.equal(direct.clean, true, 'a fireball square on');
   for (let now = 10.8; now < 13.5; now += 0.05) stepRoom(room, 0.05, now, openWorld);
   assert.ok(room.events.filter((e) => e.source === 'burn').every((e) => !e.clean), 'never a burn\'s lick');
+});
+
+test('a snag: the blade caught in passing on a small furnishing, never a wall, never one struck head-on, never a miss', () => {
+  // (a faces +x: negative angles on a's right, where the forehand comes in)
+  // a lantern post (the forehand comes in high: it passes over a knee-high barrel, as a blade would)
+  const barrelAt = (deg, d = 1.3) => {
+    const a = deg * Math.PI / 180;
+    return { id: 'lantern', center: [Math.cos(a) * d, 1.25, -Math.sin(a) * d], size: [0.2, 2.5, 0.2], material: 'timber', kind: 'prop', prop: 'lantern', incidental: true };
+  };
+  const impact = (solids, deg = 0) => forehandAt(deg, 5, { ...openWorld, solids }).events.find((e) => e.type === 'swordWorldImpact');
+  // a post off to the right: the blade catches it as it comes round
+  const caught = impact([barrelAt(-25)]);
+  assert.ok(caught && caught.snag === true, 'caught in passing: a snag');
+  // the same post dead ahead: struck, not snagged
+  const struck = impact([barrelAt(0, 1.2)]);
+  assert.ok(struck && !struck.snag, 'driven straight at: no snag');
+  // a wall off to the right, where the barrel was: a wall is never a snag
+  const wall = impact([{ id: 'wall', center: [1.1, 1.5, 0.6], size: [0.4, 3, 0.6], material: 'limestone' }]);
+  assert.ok(wall && !wall.snag, 'a wall: an ordinary strike');
+  // a woodpile (not incidental) in the same place: no snag either
+  const pile = impact([{ ...barrelAt(-25), incidental: undefined, prop: 'woodpile' }]);
+  assert.ok(pile && !pile.snag);
+  // and a swing that meets nothing makes no world impact at all
+  assert.equal(impact([]), undefined);
 });

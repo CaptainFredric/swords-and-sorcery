@@ -87,6 +87,8 @@ export function serializeSnapshot(room, nowSec) {
       steel: p.steel ? { calledAt: p.steel.calledAt, fullUntil: p.steel.fullUntil, struck: Boolean(p.steel.struck) } : null,
       dashReadyAt: p.dashReadyAt,
       dashUntil: p.dashUntil,
+      // the Practice Yard's recast gates (practiceRecast.mjs): the real cooldowns above are shown as they are
+      practiceGate: p.practiceGate ?? null,
       staggerUntil: p.staggerUntil,
       // balance lost (for the view's unsteadiness and the warning near its break), prowess earned, the ultimate
       stagger: p.stagger ? { level: p.stagger.level, recoverUntil: p.stagger.recoverUntil } : null,

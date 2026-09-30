@@ -267,3 +267,8 @@
 
 /* the ultimate named as it takes hold: ember on brass, a little letter-spaced (a declaration, not a hit marker) */
 .status-flash.sunder { color: #f0b274; letter-spacing: .12em; text-shadow: 0 0 14px rgba(201, 106, 58, .55), 0 2px 3px rgba(0, 0, 0, .8); }
+
+/* the Practice Yard: the tile keeps the real cooldown (it counts down as in a match), and a small brass mark says why
+   the key works anyway */
+.ability.practice::before { content: "\221E PRACTICE"; position: absolute; right: 6px; bottom: 4px; z-index: 2; padding: 1px 4px; font: 800 7px/1 system-ui, sans-serif; letter-spacing: .12em; color: #2a1c10; background: linear-gradient(180deg, #e7c47c, #b8893f); border-radius: 2px; pointer-events: none; }
+.ability.practice .ability-icon { opacity: 1; }
