@@ -9,7 +9,8 @@ import { resolveFirstPersonAnimationPlan } from './spellbladeAnimationPlan.mjs';
 import { FIRST_PERSON_WEAPON_SCALE, resolveWeaponPose } from './weaponPose.mjs';
 import { FP_MOTION, FirstPersonMotion } from './firstPersonMotion.mjs';
 import { blendPoses, comboPose, counterRotations, recoveryPose } from './fpSlash.mjs';
-import { FIRST_PERSON_OFF_ARM, solveArm, solveSwordArm } from './swordArmIK.mjs';
+import { FIRST_PERSON_OFF_ARM, FIRST_PERSON_SWORD_ARM, solveArm, solveSwordArm } from './swordArmIK.mjs';
+import { BLADE_CLEARANCE, nextRetraction } from './bladeClearance.mjs';
 import { LocalSwordChain } from './localSwordChain.mjs';
 import { MELEE_CONTACT, SWORD_STRIKE_TIMES } from '../../shared/src/combat.mjs';
 import { GAUNTLET } from '../../shared/src/gauntlet.mjs';
@@ -449,7 +450,41 @@ export class WeaponView {
    * @param {{speed?:number, grounded?:boolean, yaw?:number, pitch?:number}} body  the local Spellblade's motion
    * @returns {{camera:{y:number,pitch:number,roll:number}, fov:number}} view offsets for the camera
    */
-  update(timeSec, dt = 0, { speed = 0, grounded = true, yaw = 0, pitch = 0 } = {}) {
+  // measured with the arms as posed this frame, before drawing back: how far the blade would run into anything solid
+  #clearBlade(solids, dt) {
+    const socket = this.productionInstance?.animator?.bone?.('socket_sword');
+    if (!socket) return;
+    socket.updateWorldMatrix(true, false);
+    const grip = new THREE.Vector3().setFromMatrixPosition(socket.matrixWorld);
+    const axis = new THREE.Vector3(...FIRST_PERSON_SWORD_ARM.aim).applyQuaternion(socket.getWorldQuaternion(new THREE.Quaternion())).normalize();
+    // the blade's length in the view (the arms are drawn at their own scale): its farthest point along the axis
+    this.bladeReach ??= this.#measureBladeReach(grip, axis);
+    this.bladeRetract = solids?.length
+      ? nextRetraction({ grip, axis, reach: this.bladeReach, current: this.bladeRetract ?? 0, solids, dt })
+      : 0;
+    if (this.bladeRetract > 1e-4) {
+      this.productionOffset.position.z += this.bladeRetract;
+      this.productionOffset.rotation.x += BLADE_CLEARANCE.lift * this.bladeRetract;
+    }
+  }
+
+  #measureBladeReach(grip, axis) {
+    let reach = 0;
+    const point = new THREE.Vector3();
+    this.productionInstance.root.traverse((object) => {
+      if (!object.isMesh || !/^HeroSword/i.test(object.name)) return;
+      object.updateWorldMatrix(true, false);
+      const position = object.geometry.getAttribute('position');
+      for (let i = 0; i < position.count; i += 1) {
+        if (object.isSkinnedMesh) object.getVertexPosition(i, point); else point.fromBufferAttribute(position, i);
+        point.applyMatrix4(object.matrixWorld);
+        reach = Math.max(reach, point.sub(grip).dot(axis));
+      }
+    });
+    return reach > 0.2 ? reach : BLADE_CLEARANCE.reach;
+  }
+
+  update(timeSec, dt = 0, { speed = 0, grounded = true, yaw = 0, pitch = 0, solids = null } = {}) {
     const movingAmount = Math.min(1, speed / 7.5);
     const chain = this.swordChain.step(timeSec);
     if (chain) this.attackStartedAt = chain.startedAt;
@@ -546,6 +581,9 @@ export class WeaponView {
       const body = combo ? combo.body.map((v) => v * combo.weight) : [0, 0, 0];
       this.productionOffset.position.set(w.x + body[0], w.y + body[1], w.z + body[2]);
       this.productionOffset.rotation.set(w.rx, w.ry, w.rz);
+      // the blade kept out of the walls in my own view (bladeClearance.mjs): the arms draw back by as much as it
+      // would sink into them
+      this.#clearBlade(solids, dt);
       // gauntlet runes and palm light follow the palm sorcery: dim at rest, bright only while a cast gathers
       const level = Math.max(this.productionInstance.sorceryLevel?.() ?? 0, gesture.draw);
       for (const material of this.productionInstance.materials.SorceryAccent ?? []) material.emissiveIntensity = 0.7 + 2.1 * level;

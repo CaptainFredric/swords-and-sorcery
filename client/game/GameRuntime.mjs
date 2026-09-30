@@ -968,6 +968,7 @@ export class GameRuntime {
         grounded: this.localState.grounded,
         yaw: this.input.yaw,
         pitch: this.input.pitch,
+        solids: this.activeWorld?.solids ?? null,
       });
       // my footsteps fall where the stride puts them (the view's own bob), so they keep pace with the legs
       if (this.localState.grounded && footfallsCrossed(strideBefore, this.weapon.motion.stride) > 0) {

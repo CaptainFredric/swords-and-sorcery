@@ -772,6 +772,42 @@ test('a thin post in the swing is struck, not passed through', () => {
   assert.equal(struck.damage, 0, 'and not the knight beyond it');
 });
 
+test('a wall the slash only grazes at its edge does not spoil it: the knight ahead is still hit, and nothing rings', () => {
+  // (a faces +x: its right is +z) a wall close on a's right, far out in the forehand's incoming side
+  const wall = { id: 'side-wall', center: [0.5, 1.5, 1.25], size: [0.7, 3, 0.4], material: 'limestone' };
+  const struck = forehandAt(0, 2, { ...openWorld, solids: [wall] });
+  assert.equal(struck.damage, 30, 'the blow lands, clean');
+  assert.ok(!struck.events.some((e) => e.type === 'swordWorldImpact'), 'and the grazed wall does not ring');
+});
+
+test('a knight genuinely round a corner cannot be hit, even where the slash reaches past the wall', () => {
+  // a knight off to a's right at the slash's edge, a wall between them outside the driven corridor
+  // (a faces +x: negative angles are on a's right, +z, where the forehand comes in)
+  const wall = { id: 'corner', center: [0.4, 1.5, 1.0], size: [0.6, 3, 0.3], material: 'limestone' };
+  // (the whole knight hidden behind it from a's eyes: bearings 56-80 degrees; the wall from 50)
+  const struck = forehandAt(-68, 2.6, { ...openWorld, solids: [wall] });
+  assert.equal(struck.damage, 0, 'nothing through the corner');
+  assert.ok(!struck.events.some((e) => e.type === 'swordWorldImpact'), 'the wall is out at the edge: it does not ring either');
+  assert.ok(forehandAt(-68, 2.6).damage > 0, 'in the open, the same blow lands');
+});
+
+test('ordinary fighting among barrels and posts: blow after blow lands, none spoiled by what stands at the side', () => {
+  const clutter = { ...openWorld, solids: [
+    { id: 'barrel-left', center: [0.6, 0.42, -1.1], size: [0.64, 0.84, 0.64], material: 'timber', kind: 'prop' },
+    { id: 'barrel-right', center: [0.7, 0.42, 1.15], size: [0.64, 0.84, 0.64], material: 'timber', kind: 'prop' },
+    { id: 'post', center: [1.3, 1.2, -1.35], size: [0.14, 2.4, 0.14], material: 'timber' },
+  ] };
+  for (const deg of [-10, 0, 10]) {
+    const struck = forehandAt(deg, 1.9, clutter);
+    assert.ok(struck.damage >= 28, `aimed ${deg} degrees off: ${struck.damage}`);
+    assert.ok(!struck.events.some((e) => e.type === 'swordWorldImpact'));
+  }
+});
+
+test('the fringe of the swing still glances for the floor, 19', () => {
+  assert.equal(forehandAt(74, 1.8).damage, 19);
+});
+
 test('only the cleanest contact is marked clean: a sword blow dead centre, a spell square on; never an ordinary blow', () => {
   const centre = forehandAt(0).events.find((e) => e.type === 'damage');
   assert.equal(centre.clean, true, 'dead centre');

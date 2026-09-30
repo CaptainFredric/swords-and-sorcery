@@ -5,11 +5,16 @@ import { MELEE_CONTACT, swordDamageFor } from './combat.mjs';
 
 const damageAt = (deg) => swordDamageFor(aimQuality(deg));
 
-test('dead centre is 29-30, a visibly off-centre blow 25-27, weak side contact 22-24, the fringe 19-21', () => {
-  for (const deg of [0, 2, 4]) assert.ok(damageAt(deg) >= 29, `${deg} degrees: ${damageAt(deg)}`);
-  for (const deg of [10, 14, 18]) assert.ok(damageAt(deg) >= 25 && damageAt(deg) <= 27, `${deg} degrees: ${damageAt(deg)}`);
-  for (const deg of [26, 32, 38]) assert.ok(damageAt(deg) >= 22 && damageAt(deg) <= 24, `${deg} degrees: ${damageAt(deg)}`);
-  for (const deg of [55, 65, 75, 90]) assert.ok(damageAt(deg) >= 19 && damageAt(deg) <= 21, `${deg} degrees: ${damageAt(deg)}`);
+test('aimed near the middle is 28-30, off to one side 25-27, weak side contact 22-24, the fringe 19-21', () => {
+  for (const deg of [0, 3, 6, 10, 13]) assert.ok(damageAt(deg) >= 28, `${deg} degrees: ${damageAt(deg)}`);
+  for (const deg of [16, 20, 25, 29]) assert.ok(damageAt(deg) >= 25 && damageAt(deg) <= 27, `${deg} degrees: ${damageAt(deg)}`);
+  for (const deg of [33, 38, 44, 48]) assert.ok(damageAt(deg) >= 22 && damageAt(deg) <= 24, `${deg} degrees: ${damageAt(deg)}`);
+  for (const deg of [55, 62, 70, 90]) assert.ok(damageAt(deg) >= 19 && damageAt(deg) <= 21, `${deg} degrees: ${damageAt(deg)}`);
+  // the glancing floor and the clean ceiling stay where they are
+  assert.equal(damageAt(75), 19);
+  assert.equal(damageAt(0), 30);
+  // a clean blow is an ordinary good aim, not a feat: anywhere within a few degrees of the middle of a knight
+  for (const deg of [0, 2, 4, 6, 8]) assert.ok(damageAt(deg) >= 29, `${deg} degrees: ${damageAt(deg)}`);
   // one even curve: never rising, never jumping
   let last = damageAt(0);
   for (let deg = 0.5; deg <= 80; deg += 0.5) {
@@ -73,4 +78,37 @@ test('how far off the aim a knight was: their body\'s axis, not their edge', () 
   // aimed over a crouched head: off by as much as the aim passes over it
   assert.ok(offAimDegrees(view, frame.forward, { x: 0, y: 0, z: -1.6 }, 1.15) > 10);
   assert.ok(segmentDistance({ x: 0, y: 0, z: 0 }, { x: 1, y: 0, z: 0 }, { x: 0.5, y: 1, z: 0 }, { x: 0.5, y: 2, z: 0 }).distance === 1);
+});
+
+// the world stops the blade only where the swing is driven; a knight is never met through it
+const aimed = (bodies, solids, strike = 0) => sweepBlade(eye, bladeDirection(strike, -MELEE_CONTACT.window.early, frame), bladeDirection(strike, MELEE_CONTACT.window.late, frame), bodies, solids, { aim: frame.forward });
+
+test('a wall the slash only grazes out at its edge does not stop it: the knight straight ahead is met', () => {
+  // (the aim is -z; the forehand comes in from the right, +x) a wall close on the right, 48-70 degrees off the aim
+  const wall = { id: 'wall', center: [1.25, 1.5, -0.45], size: [0.4, 3, 0.7], material: 'limestone' };
+  assert.equal(sweepAcross([body(0, -2)], [wall]).kind, 'solid', 'the blade does pass through it');
+  assert.equal(aimed([body(0, -2)], [wall]).kind, 'body', 'the grazed wall lets the blow through');
+  // the same wall is still met by a blade swung straight at it
+  const ahead = { ...wall, center: [0.3, 1.5, -1.2] };
+  assert.equal(aimed([body(0, -2.2)], [ahead]).kind, 'solid', 'driven straight into the stone, it rings off');
+});
+
+test('a knight round a corner is never met, however far out in the slash', () => {
+  // a knight off to the right at the slash's edge, a wall between (outside the corridor: it does not stop the blade,
+  // but it stands between the eyes and them)
+  const wall = { id: 'corner', center: [1.3, 1.5, -0.55], size: [0.3, 3, 0.9], material: 'limestone' };
+  const behind = body(2.1, -1.1);
+  assert.equal(aimed([behind], [wall]), null, 'nothing met at all: not the knight, and not the grazed wall');
+  assert.equal(aimed([behind], []).kind, 'body', 'with the wall gone, the same knight is met');
+  // and one straight ahead behind a wall is not met either (the wall takes the blade)
+  const front = { id: 'front', center: [0, 1.5, -1.4], size: [3, 3, 0.3] };
+  assert.equal(aimed([body(0, -2.2)], [front]).kind, 'solid');
+});
+
+test('barrels and posts to the side do not keep ending swings', () => {
+  const barrels = [
+    { id: 'barrel-right', center: [1.1, 0.42, -0.5], size: [0.64, 0.84, 0.64], material: 'timber', kind: 'prop' },
+    { id: 'post-left', center: [-1.2, 1.2, -0.7], size: [0.12, 2.4, 0.12], material: 'timber' },
+  ];
+  for (const strike of [0, 1]) assert.equal(aimed([body(0.3, -1.9)], barrels, strike).kind, 'body', `strike ${strike}`);
 });

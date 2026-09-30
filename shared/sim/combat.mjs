@@ -439,7 +439,7 @@ function sweepStrike(room, player, nowSec, world) {
       const placed = transformFor(target, at);
       bodies.push({ id: target.id, base: placed.position, top: postureOf(placed).crown });
     }
-    const met = sweepBlade(eye, from, to, bodies, solids);
+    const met = sweepBlade(eye, from, to, bodies, solids, { aim: frame.forward });
     live.sampledTo = at;
     live.direction = to;
     if (met?.kind === 'body') {
