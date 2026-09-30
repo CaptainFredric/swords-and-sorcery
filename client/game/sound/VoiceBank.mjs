@@ -16,6 +16,8 @@ export class VoiceBank {
     this.lastTake = new Map();
     // what each knight is saying now (the handle to stop it, if a line that matters more cuts it)
     this.playing = new Map();
+    // settles once every take has been loaded (or there were none to load)
+    this.ready = new Promise((resolve) => { this.resolveReady = resolve; });
     engine.onReady(() => this.#load());
   }
 
@@ -24,6 +26,7 @@ export class VoiceBank {
     try {
       manifest = await (await fetch(appUrl(`${this.base}manifest.json`), { cache: 'no-cache' })).json();
     } catch {
+      this.resolveReady();
       return; // no voice recorded yet: the knight fights in silence
     }
     for (const [name, takes] of Object.entries(manifest.lines ?? {})) {
@@ -34,6 +37,7 @@ export class VoiceBank {
         this.takes.get(name).push(buffer);
       }
     }
+    this.resolveReady();
   }
 
   async #decode(file) {
@@ -77,6 +81,25 @@ export class VoiceBank {
     });
     if (handle) this.playing.set(speaker, handle);
     return true;
+  }
+
+  /**
+   * Play a take of `line` to hear it (the credits' voice library): as my own knight is heard (dry, at the voice's
+   * level), outside every rule of when he speaks; a preview still playing is cut. Returns whether anything played.
+   */
+  preview(line, take = 0) {
+    const takes = this.takes.get(line);
+    if (!takes?.length || !this.engine.running) return false;
+    this.stopPreview();
+    this.previewing = this.engine.playBuffer(takes[Math.max(0, Math.min(takes.length - 1, take))], {
+      bus: 'voice', gain: VOICE_LINES[line]?.gain ?? 1, reverb: VOICE_HEARING.own,
+    });
+    return Boolean(this.previewing);
+  }
+
+  stopPreview() {
+    this.previewing?.stop?.(0.08);
+    this.previewing = null;
   }
 
   // the take to try next: any but the one said last (turned about, never the same twice running)

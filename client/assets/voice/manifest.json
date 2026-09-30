@@ -105,6 +105,12 @@
         "seconds": 2.22
       }
     ],
+    "vortexDefeat": [
+      {
+        "file": "vortex-defeat-1",
+        "seconds": 1.66
+      }
+    ],
     "vortexUse": [
       {
         "file": "vortex-use-1",

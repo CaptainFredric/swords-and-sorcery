@@ -49,7 +49,7 @@ SR = 48000
 
 LINES = ('effort', 'hurt', 'death', 'sorcery', 'dash', 'victory', 'defeat', 'magicDefeat', 'killTaunt', 'breakTaunt',
          'galeTaunt', 'steelBoast', 'fistEffort', 'fistThrow', 'fistKill', 'rebuttal', 'sunderCall', 'knightFallen', 'jump',
-         'bladeCaught', 'vortexUse')
+         'bladeCaught', 'vortexUse', 'vortexDefeat')
 ALIASES = {
     'grunt': 'effort', 'swing': 'effort', 'attack': 'effort', 'heave': 'effort', 'strike': 'effort',
     'pain': 'hurt', 'hit': 'hurt', 'ow': 'hurt', 'ouch': 'hurt',
@@ -61,7 +61,7 @@ ALIASES = {
     'gauntlet': 'fistThrow', 'sofisticated': 'fistKill', 'fistkill': 'fistKill',
     'sunder': 'sunderCall', 'integrity': 'sunderCall', 'ultimate': 'sunderCall',
     'fallen': 'knightFallen', 'knightfallen': 'knightFallen', 'hop': 'jump', 'leap': 'jump',
-    'snag': 'bladeCaught', 'flowerpot': 'bladeCaught', 'vortex': 'vortexUse',
+    'snag': 'bladeCaught', 'flowerpot': 'bladeCaught', 'vortex': 'vortexUse', 'dizzy': 'vortexDefeat',
 }
 
 # per line: how far down, how hard the grit, how loud (the close helm keeps the veteran's -4.5 semitones)
@@ -99,6 +99,8 @@ PRESETS = {
     'bladeCaught': {'semitones': -4.5, 'drive': 2.0, 'rms_db': -17, 'expand_below_db': -42},
     # Blazing Vortex's spin (prepared for the ultimate; not yet in the game)
     'vortexUse': {'semitones': -4.5, 'drive': 2.3, 'rms_db': -16},
+    # "I was dizzy anyway." felled during Blazing Vortex (prepared for the ultimate; dry, not shouted)
+    'vortexDefeat': {'semitones': -4.5, 'drive': 2.0, 'rms_db': -17, 'expand_below_db': -40},
 }
 
 # the close helm's room removal and dynamics (see close_helm)
