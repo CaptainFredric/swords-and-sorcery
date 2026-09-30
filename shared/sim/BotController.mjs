@@ -1,8 +1,10 @@
-import { findSwordWorldHit } from '../src/collision.mjs';
+import { findSwordWorldHit, surfaceHeightAt } from '../src/collision.mjs';
 import { beginAttack, endAttack, setGuard, tryCastSpell, tryDash } from './combat.mjs';
 import { spellFor } from '../src/spells.mjs';
 import { postureOf } from '../src/body.mjs';
-import { botProfile } from './botBehavior.mjs';
+import { steelStrength } from '../src/steel.mjs';
+import { botProfile, nextCycledSpell } from './botBehavior.mjs';
+import { wayToward } from './botNav.mjs';
 
 const MELEE_RANGE = 2.25;
 const FIREBALL_RANGE = 11;
@@ -128,15 +130,37 @@ function considerDefense(room, actor, target, distance, ai, nowSec, random, aggr
 
 function chooseCombatIntent(room, actor, target, distance, ai, nowSec, random, aggression, profile) {
   if (actor.guarding || actor.attackActive || actor.attackHeld || actor.pendingSpell) return;
+  // going round something to reach its foe: nothing to throw at, nothing to dash at, until it is round
+  if (ai.goingRound && !profile.flee) return;
 
   // a kind that runs (Sir Runs-a-Lot): away and across when pressed, with a dash to the side, never a blow
   if (profile.flee) {
-    if (distance < (profile.keepRange?.[0] ?? 6) && random() < profile.dash * aggression) {
-      const direction = aimDirection(actor, target);
-      const side = ai.strafeDirection || 1;
-      tryDash(room, actor.id, { x: -direction.x * 0.4 - direction.z * side, z: -direction.z * 0.4 + direction.x * side }, nowSec);
+    if (distance < RUNNER.closeCall && random() < profile.dash * aggression) {
+      // running (its back to its foe): on along the way it runs; facing them (caught): aside
+      const toward = aimDirection(actor, target);
+      const facing = { x: -Math.sin(actor.yaw), z: -Math.cos(actor.yaw) };
+      if (facing.x * toward.x + facing.z * toward.z < 0) tryDash(room, actor.id, facing, nowSec);
+      else dashAside(room, actor, target, ai, nowSec);
     }
     return;
+  }
+
+  // a kind that carries a ward (Mr. Melee's Sheathe in Steel) hardens as a fight begins, never at nothing
+  if (profile.ward && shouldHarden(room, actor, target, distance, nowSec)) {
+    actor.spell = profile.ward;
+    if (tryCastSpell(room, actor.id, aimDirection(actor, target), nowSec)) return;
+  }
+
+  // a kind that keeps its distance slips aside and away when a foe gets inside it
+  if (profile.keepRange && distance < profile.keepRange[0] - 1.5 && random() < profile.dash * aggression) {
+    dashAside(room, actor, target, ai, nowSec);
+    return;
+  }
+
+  // a swordsman lunges in from just beyond reach, to close to the blade
+  if (profile.lunge && distance >= profile.lunge[0] && distance <= profile.lunge[1] && random() < 0.45 * aggression) {
+    const direction = aimDirection(actor, target);
+    if (tryDash(room, actor.id, { x: direction.x, z: direction.z }, nowSec)) return;
   }
 
   if (profile.sword && distance <= MELEE_RANGE) {
@@ -146,20 +170,87 @@ function chooseCombatIntent(room, actor, target, distance, ai, nowSec, random, a
     return;
   }
 
-  if (profile.spells && distance <= castRange(spellFor(actor.spell)) && random() < 0.42 * aggression) {
-    tryCastSpell(room, actor.id, aimDirection(actor, target), nowSec);
-    return;
+  if (profile.spells && random() < 0.42 * aggression) {
+    // one that turns through its spells casts the next in turn that can reach (a Gale only from close by)
+    const spell = profile.spellCycle ? nextCycledSpell(profile.spellCycle, ai.lastSpell, distance, (id) => castRange(spellFor(id))) : actor.spell;
+    if (spell && distance <= castRange(spellFor(spell))) {
+      const carried = actor.spell;
+      actor.spell = spell;
+      if (tryCastSpell(room, actor.id, aimDirection(actor, target), nowSec)) {
+        ai.lastSpell = spell;
+        // and has it back sooner than a knight would
+        if (profile.spellCooldown) actor.spellReadyAt = nowSec + (actor.spellReadyAt - nowSec) * profile.spellCooldown;
+        return;
+      }
+      if (!profile.spellCycle) actor.spell = carried;
+    }
   }
 
-  if (distance > 5 && random() < profile.dash * aggression) {
+  // (a kind that keeps its distance dashes in only from well beyond it)
+  if (distance > (profile.keepRange ? profile.keepRange[1] + 2 : 5) && random() < profile.dash * aggression) {
     const direction = aimDirection(actor, target);
     tryDash(room, actor.id, { x: direction.x, z: direction.z }, nowSec);
   }
 }
 
+// a dash aside (and a little away) from a foe: the way it is already circling
+function dashAside(room, actor, target, ai, nowSec) {
+  const direction = aimDirection(actor, target);
+  const side = ai.strafeDirection || 1;
+  tryDash(room, actor.id, { x: -direction.x * 0.4 - direction.z * side, z: -direction.z * 0.4 + direction.x * side }, nowSec);
+}
+
+// Mr. Melee's judgment of when to harden (from what it can see): its Steel ready and not already on, and a fight about
+// to begin: a foe close and swinging, or closing fast, or all but in reach; or a spell gathering in a foe's hand close
+// by, or one of theirs already on its way to it
+const HARDEN = Object.freeze({ near: 3.4, reach: 2.5, closing: 2, spellNear: 8, projectileNear: 7 });
+
+function shouldHarden(room, actor, target, distance, nowSec) {
+  if (nowSec < (actor.spellReadyAt ?? 0) || steelStrength(actor.steel, nowSec) > 0.15) return false;
+  const dx = target.position.x - actor.position.x;
+  const dz = target.position.z - actor.position.z;
+  const length = Math.hypot(dx, dz) || 1;
+  // how fast the foe is coming (their own motion toward it)
+  const closing = -(((target.velocity?.x ?? 0) * dx + (target.velocity?.z ?? 0) * dz) / length);
+  if (distance <= HARDEN.near && (target.attackActive || closing > HARDEN.closing || distance <= HARDEN.reach)) return true;
+  if (target.pendingSpell && distance <= HARDEN.spellNear) return true;
+  for (const projectile of room.projectiles?.values?.() ?? []) {
+    if (projectile.ownerId !== target.id) continue;
+    const px = actor.position.x - projectile.position.x;
+    const pz = actor.position.z - projectile.position.z;
+    const away = Math.hypot(px, pz);
+    const toward = (projectile.velocity.x * px + projectile.velocity.z * pz) / (away || 1);
+    if (away <= HARDEN.projectileNear && toward > 0) return true;
+  }
+  return false;
+}
+
 // how near a foe must be for a spell to be worth it: a Fireball carries; a Gale is felt only near its heart
 function castRange(spell) {
   return spell.kind === 'cone' ? spell.cone.reach : FIREBALL_RANGE;
+}
+
+// how far a knight could run along a heading before something stops it (m, up to `reach`): a solid at knee or chest
+// height, or the ground falling away (a drop of more than a storey, or none at all)
+const DROP_TOO_FAR = 2.5;
+
+function openRun(actor, yaw, world, reach = 8) {
+  const dx = -Math.sin(yaw);
+  const dz = -Math.cos(yaw);
+  let clear = reach;
+  for (const height of [0.4, 0.9]) {
+    const hit = world?.solids?.length
+      ? findSwordWorldHit([actor.position.x, actor.position.y + height, actor.position.z], [dx, 0, dz], reach, world.solids)
+      : null;
+    if (hit) clear = Math.min(clear, hit.distance);
+  }
+  if (world?.floors?.length) {
+    for (let d = 1; d < clear; d += 1) {
+      const ground = surfaceHeightAt(actor.position.x + dx * d, actor.position.z + dz * d, actor.position.y + 0.1, world);
+      if (ground === null || ground < actor.position.y - DROP_TOO_FAR) return d - 0.5;
+    }
+  }
+  return clear;
 }
 
 function forwardLaneBlocked(actor, yaw, world) {
@@ -195,19 +286,100 @@ function detectStuckMovement(actor, ai, nowSec, wantsMeaningfulMovement) {
   ai.escapeUntil = nowSec + ESCAPE_DURATION_SEC;
 }
 
-function updateMovement(actor, target, distance, ai, aggression, world, nowSec, profile) {
-  const yaw = yawToward(actor, target);
+// Sir Runs-a-Lot, pressed: it turns and runs this far off straight away from its foe, to one side and then the other,
+// at a sprint while it has the breath (at 35 degrees a sprint still outruns a knight at a run, not one at a sprint);
+// inside `caught` it faces its foe instead, so its guard is up where the blow is
+// (lines: the angles off straight away it weighs; farFromMiddle: this far out from the arena's middle, it bends fully
+// back toward it; within nearMiddle it pays the middle no mind; closeCall: inside this it spends its dash, along the
+// way it is running)
+const RUNNER = Object.freeze({
+  fleeOffDeg: 35, caught: 2.2, zigSec: [1.6, 3.4], lines: Object.freeze([35, 60, 90, 115]), nearMiddle: 7, farFromMiddle: 16,
+  closeCall: 3.2,
+});
+
+// the open middle of an arena: the middle of where knights spawn (worked out once per world)
+const MIDDLES = new WeakMap();
+function arenaMiddle(world) {
+  if (!world?.spawnPoints?.length) return { x: 0, z: 0 };
+  let middle = MIDDLES.get(world);
+  if (!middle) {
+    const n = world.spawnPoints.length;
+    middle = {
+      x: world.spawnPoints.reduce((sum, p) => sum + p.x, 0) / n,
+      z: world.spawnPoints.reduce((sum, p) => sum + p.z, 0) / n,
+    };
+    MIDDLES.set(world, middle);
+  }
+  return middle;
+}
+
+function updateMovement(actor, target, distance, ai, aggression, world, nowSec, profile, way = null) {
+  let yaw = yawToward(actor, way ? { position: way } : target);
   actor.yaw = yaw;
   actor.pitch = 0;
+  let fleeing = false;
 
   let forward = distance > MELEE_RANGE * 0.85 ? Math.max(0.45, aggression) : 0;
   let right = 0;
-  if (distance < 7) right = ai.strafeDirection * (distance <= MELEE_RANGE ? 0.55 : 0.32) * aggression;
-  // a kind that keeps its distance: in when too far, out when too near, across in between (a runner runs across)
-  if (profile.keepRange) {
+  if (distance < 7) right = ai.strafeDirection * (distance <= MELEE_RANGE ? profile.footwork ?? 0.55 : 0.32) * aggression;
+  if (way) {
+    // no straight way to its foe: round by the waypoints, at a run
+    forward = 1;
+    right = 0;
+  } else if (profile.keepRange) {
+    // a kind that keeps its distance: in when too far, out when too near, across in between (a runner runs across)
     const [near, far] = profile.keepRange;
-    forward = distance > far ? 0.75 : distance < near ? -(profile.flee ? 1 : 0.8) : 0;
-    right = ai.strafeDirection * (profile.flee ? 0.95 : 0.6);
+    if (profile.flee) {
+      // a runner makes you chase: it circles across your line at a distance, and when you press it, it turns and runs
+      // off at an angle, cutting back the other way every few seconds (a zig-zag, never a straight retreat)
+      if (!(nowSec < (ai.zigUntil ?? -Infinity))) {
+        ai.strafeDirection = -(ai.strafeDirection || 1);
+        const [shortest, longest] = RUNNER.zigSec;
+        ai.zigUntil = nowSec + shortest + ((Math.abs(Math.sin(nowSec * 12.9898)) * 43758.5453) % 1) * (longest - shortest);
+      }
+      // caught: a foe in reach and swinging; it turns to face the blow (and guards: considerDefense)
+      const caught = distance <= RUNNER.caught && target.attackActive;
+      if (distance < near && !caught) {
+        // away from the foe (yaw + half a turn), bent off to the side it is cutting toward; a wall or a drop that way,
+        // and it cuts back the other way at once (and if both are shut, straight across its foe's line)
+        // (it looks for open ground ahead, not just the next step, and the further it is from the open middle of the
+        // arena the more it bends back toward it: it runs loops round its foe rather than into a corner)
+        const heading = (side, off) => yaw + Math.PI - side * off * (Math.PI / 180);
+        const side = ai.strafeDirection || 1;
+        const middle = arenaMiddle(world);
+        const outX = middle.x - actor.position.x;
+        const outZ = middle.z - actor.position.z;
+        const out = Math.hypot(outX, outZ) || 1;
+        const pull = Math.max(0, Math.min(1, (out - RUNNER.nearMiddle) / (RUNNER.farFromMiddle - RUNNER.nearMiddle)));
+        let chosen = [side, RUNNER.fleeOffDeg];
+        let best = -Infinity;
+        for (const off of RUNNER.lines) {
+          for (const way of [side, -side]) {
+            const h = heading(way, off);
+            const room = openRun(actor, h, world);
+            const inward = (-Math.sin(h) * outX - Math.cos(h) * outZ) / out;
+            const score = Math.min(room, 8) / 8 * 2 - (room < 3 ? 3 : 0) + inward * pull * 1.5
+              + (way === side ? 0.3 : 0) - (off - RUNNER.fleeOffDeg) / 100;
+            if (score > best) { best = score; chosen = [way, off]; }
+          }
+        }
+        if (chosen[0] !== side) {
+          ai.strafeDirection = chosen[0];
+          ai.zigUntil = nowSec + RUNNER.zigSec[0];
+        }
+        yaw = heading(...chosen);
+        actor.yaw = yaw;
+        forward = 1;
+        right = 0;
+        fleeing = true;
+      } else {
+        forward = distance > far ? 0.6 : caught ? -0.6 : 0;
+        right = ai.strafeDirection;
+      }
+    } else {
+      forward = distance > far ? 0.75 : distance < near ? -0.8 : 0;
+      right = ai.strafeDirection * 0.6;
+    }
   }
   if (actor.guarding || actor.attackActive) forward = Math.min(forward, 0.28);
 
@@ -239,7 +411,7 @@ function updateMovement(actor, target, distance, ai, aggression, world, nowSec, 
 
   // close long gaps at a sprint, but keep enough stamina in reserve to block when the fight starts
   const sprint = forward > 0.4
-    && distance > BOT_SPRINT_DISTANCE
+    && (distance > BOT_SPRINT_DISTANCE || fleeing)
     && (actor.guardStamina ?? 0) > BOT_SPRINT_STAMINA_RESERVE
     && nowSec >= ai.escapeUntil
     && nowSec >= ai.avoidUntil;
@@ -383,7 +555,11 @@ export function stepBotControllers(
 
     const profile = botProfile(actor);
     const distance = distance2d(actor, target);
-    updateMovement(actor, target, distance, ai, aggressionScale, world, nowSec, profile);
+    // (a runner pressed runs its own way; any other kind that cannot run straight at its foe goes round)
+    const pressed = profile.flee && distance < (profile.keepRange?.[0] ?? 0);
+    const way = pressed ? null : wayToward(world, actor, target, ai, nowSec);
+    ai.goingRound = Boolean(way);
+    updateMovement(actor, target, distance, ai, aggressionScale, world, nowSec, profile, way);
     considerDefense(room, actor, target, distance, ai, nowSec, random, aggressionScale, profile);
 
     if (nowSec < ai.nextThinkAt) continue;

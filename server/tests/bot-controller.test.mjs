@@ -87,12 +87,13 @@ test('bot targets living humans instead of server-owned actors', () => {
   assert.equal(bot.ai.targetId, human.id);
 });
 
-test('bot sidesteps and slows when a solid blocks its forward lane', () => {
+test('bot sidesteps and slows when a solid blocks its forward lane (a world without waypoints)', () => {
   const { room, bot, human } = makeBotDuel();
   bot.position = { x: 0, y: 0, z: 0 };
   human.position = { x: 0, y: 0, z: -9 };
   const world = {
     ...room.world,
+    navigation: null,
     solids: [{ id: 'test-wall', center: [0, 0.9, -1.05], size: [1.4, 1.8, 0.5] }],
   };
 

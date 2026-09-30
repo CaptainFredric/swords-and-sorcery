@@ -93,14 +93,15 @@ export function buildCastlewardDecorPlan(seed = 1337) {
     { id: 'meadow-brazier', light: true },
   ];
 
+  // (the gate towers' banners hang above the stone course that girds each tower, never across it)
   const banners = [
-    { id: 'gate-west', x: -5.8, y: 5.6, z: 14.6, facing: Math.PI, width: 1.2, height: 2.6 },
-    { id: 'gate-east', x: 5.8, y: 5.6, z: 14.6, facing: Math.PI, width: 1.2, height: 2.6 },
+    { id: 'gate-west', x: -5.8, y: 6.35, z: 14.6, facing: Math.PI, width: 1.2, height: 2.15 },
+    { id: 'gate-east', x: 5.8, y: 6.35, z: 14.6, facing: Math.PI, width: 1.2, height: 2.15 },
     { id: 'bailey-west', x: -6.2, y: 5.4, z: 25.97, facing: Math.PI, width: 1.1, height: 2.3 },
     { id: 'bailey-east', x: 6.2, y: 5.4, z: 25.97, facing: Math.PI, width: 1.1, height: 2.3 },
     { id: 'keep-front', x: 0, y: 12.5, z: 27.38, facing: Math.PI, width: 2.2, height: 4.6 },
-    { id: 'south-gate-west', x: -4.0, y: 5.3, z: -21.35, facing: 0, width: 1.0, height: 2.2 },
-    { id: 'south-gate-east', x: 4.0, y: 5.3, z: -21.35, facing: 0, width: 1.0, height: 2.2 },
+    { id: 'south-gate-west', x: -4.0, y: 5.25, z: -21.35, facing: 0, width: 0.9, height: 1.25 },
+    { id: 'south-gate-east', x: 4.0, y: 5.25, z: -21.35, facing: 0, width: 0.9, height: 1.25 },
     { id: 'chapel', x: 18.0, y: 3.3, z: 7.7, facing: Math.PI, width: 0.9, height: 1.8 },
   ];
 
@@ -112,22 +113,5 @@ export function buildCastlewardDecorPlan(seed = 1337) {
     { id: 'village-rune', facing: 0 },
   ];
 
-  // the little things of a lived-in town, each set against a wall or post so nobody runs through one:
-  // barrels, crates and a woodpile by the village houses; lanterns along the South Road; flowers at the walls' feet;
-  // and on the Tourney Field, archery butts against the hedge, a rack of practice blades and pennants on the gateway
-  const props = [
-    { kind: 'barrel', x: -10.42, z: 6.55 }, { kind: 'barrel', x: -10.45, z: 5.9, tilt: 0.1 }, { kind: 'crate', x: -10.5, z: 4.4, turn: 0.2 },
-    { kind: 'crate', x: -17.8, z: 9.28, turn: 0.1 }, { kind: 'crate', x: -17.1, z: 9.3, turn: -0.15, stack: true }, { kind: 'barrel', x: -16.2, z: 9.3 },
-    { kind: 'woodpile', x: -15.3, z: -4.8, length: 2.4, facing: Math.PI / 2 },
-    { kind: 'sacks', x: 6.45, z: 4.9 },
-    { kind: 'lantern', x: -4.62, z: -11.5 }, { kind: 'lantern', x: 4.62, z: -11.5 }, { kind: 'lantern', x: -4.62, z: -18 }, { kind: 'lantern', x: 4.62, z: -18 },
-    { kind: 'flowers', x: -13.5, z: 9.35 }, { kind: 'flowers', x: 12.2, z: 11.35 }, { kind: 'flowers', x: 19.5, z: 11.3 },
-    { kind: 'flowers', x: -20.9, z: -7.35 }, { kind: 'flowers', x: 7.2, z: -7.35 }, { kind: 'flowers', x: 22.2, z: -8.25 },
-    { kind: 'target', x: 23.05, z: -11.2, facing: -Math.PI / 2 }, { kind: 'target', x: 23.05, z: -14.6, facing: -Math.PI / 2 },
-    { kind: 'target', x: 23.05, z: -17.2, facing: -Math.PI / 2 },
-    { kind: 'rack', x: 12.5, z: -22.0, facing: 0 },
-    { kind: 'pennant', x: 11.0, z: -7.8, height: 3.4 }, { kind: 'pennant', x: 16.6, z: -7.8, height: 3.4 },
-  ].map((prop, index) => ({ id: `prop-${index}`, ...prop }));
-
-  return { paths, houses, trees, forest, torches, braziers, banners, runeStones, props };
+  return { paths, houses, trees, forest, torches, braziers, banners, runeStones };
 }

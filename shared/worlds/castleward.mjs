@@ -1,3 +1,5 @@
+import { propSolids } from './props.mjs';
+
 function yawToward(x, z, targetX = 0, targetZ = 0) {
   // Movement forward is (-sin(yaw), -cos(yaw)).
   return Math.atan2(x - targetX, z - targetZ);
@@ -5,6 +7,29 @@ function yawToward(x, z, targetX = 0, targetZ = 0) {
 
 function spawn(x, y, z, targetX = 0, targetZ = 0) {
   return { x, y, z, yaw: yawToward(x, z, targetX, targetZ) };
+}
+
+// The furnishings of a lived-in town (shared/worlds/props.mjs), each set against a wall, a post or a hedge: barrels,
+// crates and a woodpile by the village houses; sacks by the stall; lanterns along the South Road; flowers at the walls'
+// feet; and on the Tourney Field, archery butts against the hedge, a rack of practice blades and pennants on the
+// gateway. The ones that stand are solid, for bodies and blades alike.
+const PROPS = Object.freeze([
+  { kind: 'barrel', x: -10.42, z: 6.55 }, { kind: 'barrel', x: -10.45, z: 5.9, tilt: 0.1 }, { kind: 'crate', x: -10.5, z: 4.4, turn: 0.2 },
+  { kind: 'crate', x: -17.8, z: 9.28, turn: 0.1 }, { kind: 'crate', x: -17.1, z: 9.3, turn: -0.15, stack: true }, { kind: 'barrel', x: -16.2, z: 9.3 },
+  { kind: 'woodpile', x: -15.3, z: -4.8, length: 2.4, facing: Math.PI / 2 },
+  { kind: 'sacks', x: 6.45, z: 4.9 },
+  { kind: 'lantern', x: -4.62, z: -11.5 }, { kind: 'lantern', x: 4.62, z: -11.5 }, { kind: 'lantern', x: -4.62, z: -18 }, { kind: 'lantern', x: 4.62, z: -18 },
+  { kind: 'flowers', x: -13.5, z: 9.35 }, { kind: 'flowers', x: 12.2, z: 11.35 }, { kind: 'flowers', x: 19.5, z: 11.3 },
+  { kind: 'flowers', x: -20.9, z: -7.35 }, { kind: 'flowers', x: 7.2, z: -7.35 }, { kind: 'flowers', x: 22.2, z: -8.25 },
+  { kind: 'target', x: 23.05, z: -11.2, facing: -Math.PI / 2 }, { kind: 'target', x: 23.05, z: -14.6, facing: -Math.PI / 2 },
+  { kind: 'target', x: 23.05, z: -17.2, facing: -Math.PI / 2 },
+  { kind: 'rack', x: 12.5, z: -22.0, facing: 0 },
+  { kind: 'pennant', x: 11.0, z: -7.8, height: 3.4 }, { kind: 'pennant', x: 16.6, z: -7.8, height: 3.4 },
+  ].map((prop, index) => Object.freeze({ id: `prop-${index}`, ...prop })));
+
+// a waypoint for bots finding their way (feet)
+function nav(id, x, y, z) {
+  return Object.freeze({ id, x, y, z });
 }
 
 export const CASTLEWARD = Object.freeze({
@@ -126,15 +151,27 @@ export const CASTLEWARD = Object.freeze({
     // Town Green cover stays sparse enough for the north/east route tests and
     // preserves a readable central duel space.
     { id: 'market-well', center: [-2.8, 0.75, -1.0], size: [1.8, 1.5, 1.8], material: 'stone' },
+    // (its roof on two posts and a beam, head high over the well)
+    { id: 'market-well-post-west', center: [-3.58, 1.65, -1.0], size: [0.14, 1.5, 0.14], material: 'timber' },
+    { id: 'market-well-post-east', center: [-2.02, 1.65, -1.0], size: [0.14, 1.5, 0.14], material: 'timber' },
+    { id: 'market-well-beam', center: [-2.8, 2.25, -1.0], size: [1.8, 0.12, 0.12], material: 'timber' },
     { id: 'market-stall-base', center: [4.8, 0.65, 4.0], size: [2.8, 1.3, 2.2], material: 'timber' },
+    // (its awning on four corner posts)
+    { id: 'market-stall-post-nw', center: [3.46, 1.125, 3.0], size: [0.12, 2.25, 0.12], material: 'timber' },
+    { id: 'market-stall-post-ne', center: [6.14, 1.125, 3.0], size: [0.12, 2.25, 0.12], material: 'timber' },
+    { id: 'market-stall-post-se', center: [6.14, 1.125, 5.0], size: [0.12, 2.25, 0.12], material: 'timber' },
+    { id: 'market-stall-post-sw', center: [3.46, 1.125, 5.0], size: [0.12, 2.25, 0.12], material: 'timber' },
+    // the furnishings that stand in the way (above)
+    ...propSolids(PROPS),
   ],
+  props: PROPS,
   spawnPoints: [
     spawn(-6.0, 0, -4.5),
     spawn(6.0, 0, -4.5),
     spawn(-6.5, 0, 4.0),
-    spawn(6.5, 0, 4.0),
+    spawn(7.4, 0, 3.6),
     spawn(-18.0, 0, -1.0),
-    spawn(-14.0, 0, 7.0),
+    spawn(-13.5, 0, 1.8),
     spawn(19.0, 0, -4.5),
     spawn(19.0, 0, 3.0),
     spawn(-2.5, 0, -18.5),
@@ -144,6 +181,29 @@ export const CASTLEWARD = Object.freeze({
     spawn(8.5, 0, -12.5, 14.5, -15),
     spawn(20.5, 0, -15.5, 14.5, -15),
   ],
+  // where bots find their way round (shared/sim/botNav.mjs): the middle of each open space, each gate, each end of a
+  // ramp; linked wherever a knight could run straight between them
+  navigation: Object.freeze({
+    nodes: Object.freeze([
+      // the green and the castle approach
+      nav('green', 0, 0, 3), nav('green-south', 0, 0, -5.5), nav('green-east', 6.5, 0, -1), nav('green-west', -6.5, 0, 2.5),
+      nav('approach', 0, 0, 10.5), nav('approach-west', -7, 0, 9), nav('approach-east', 7, 0, 9),
+      // up the ramp to the bailey, and up to each wall walk
+      nav('ramp-top', 0, 2.5, 19.5), nav('bailey', 0, 2.5, 23), nav('bailey-west', -4.8, 2.5, 17.75), nav('bailey-east', 4.8, 2.5, 17.75),
+      nav('west-walk-foot', -7, 2.5, 17.75), nav('west-walk', -7.4, 4, 22.5),
+      nav('east-walk-foot', 7, 2.5, 17.75), nav('east-walk', 7.4, 4, 22.5),
+      // the west village
+      nav('village', -12, 0, 0), nav('village-west', -18.5, 0, 0.5), nav('village-south', -12.5, 0, -5.5), nav('village-north', -12, 0, 8.5),
+      // the east meadow and the chapel
+      nav('meadow', 12, 0, 0), nav('meadow-east', 18.5, 0, 1.5), nav('chapel', 18, 0, 5), nav('meadow-north', 12, 0, 9.5),
+      // the south road and the bridge
+      nav('road', 0, 0, -11), nav('road-south', 0, 0, -18.5), nav('south-gate', 0, 0, -22.6), nav('bridge', 0, 0, -25.5),
+      // the tourney field, through its gate
+      nav('tourney-gate-north', 13.8, 0, -5.5), nav('tourney-gate-south', 13.8, 0, -10), nav('tourney', 13.5, 0, -15),
+      nav('tourney-west', 7.5, 0, -14), nav('tourney-southwest', 7.5, 0, -20.5), nav('tourney-east', 21, 0, -12.5),
+      nav('tourney-south', 14, 0, -20.5),
+    ]),
+  }),
   navigationHints: Object.freeze([
     { id: 'green-to-bailey', from: [0, 0, 5], to: [0, 2.5, 22], kind: 'run-ramp' },
     { id: 'green-to-west', from: [-7, 0, 1], to: [-17, 0, 1], kind: 'run' },
