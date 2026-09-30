@@ -592,28 +592,22 @@ export function sunderForceRecipe(rand = Math.random) {
   };
 }
 
-// the inharmonic modes of a struck bar of iron (an anvil's clang)
-const ANVIL = Object.freeze([[1, 0.24, 1.6], [2.76, 0.2, 1.3], [5.4, 0.14, 1.0], [8.93, 0.08, 0.7], [13.34, 0.04, 0.45]]);
-
 /**
- * A Sundering slam into the ground: a heavy anvil strike (a hard crack, a deep thud, and struck iron clanging on, its
- * bright ting riding over it), and under it the rock giving way: a crunch, then rubble crumbling and stones
- * skittering down, thinning out, and the low grumble of it settling.
+ * A Sundering slam into the ground: the weight of it (a hard crack, a deep thud) and the rock giving way under it (a
+ * crunch, then rubble crumbling and stones skittering down, thinning out, and the low grumble of it settling). No
+ * ring: the iron rings only on a knight (sunderRingRecipe).
  */
-export function anvilSlamRecipe(rand = Math.random) {
-  const base = 285 * jitter(rand, 0.04);
+export function groundSlamRecipe(rand = Math.random) {
   const layers = [
-    { type: 'noise', filter: 'highpass', freq: 2600, q: 0.7, attack: 0.0004, decay: 0.035, gain: 0.75 },
-    { type: 'tone', wave: 'sine', freq: 96 * jitter(rand, 0.05), slideTo: 36, attack: 0.002, decay: 0.55, gain: 0.9 },
-    { type: 'noise', filter: 'lowpass', freq: 380, q: 0.7, attack: 0.002, decay: 0.4, gain: 0.65 },
-    { type: 'ring', partials: ANVIL.map(([ratio, gain, decay]) => ({ freq: base * ratio * jitter(rand, 0.01), gain: gain * jitter(rand, 0.12), decay: decay * jitter(rand, 0.1) })) },
-    { type: 'ring', partials: [{ freq: 2150 * jitter(rand, 0.03), gain: 0.13, decay: 2.6 }, { freq: 3380 * jitter(rand, 0.03), gain: 0.06, decay: 1.8 }] },
+    { type: 'noise', filter: 'highpass', freq: 2200, q: 0.7, attack: 0.0004, decay: 0.03, gain: 0.7 },
+    { type: 'tone', wave: 'sine', freq: 92 * jitter(rand, 0.05), slideTo: 34, attack: 0.002, decay: 0.55, gain: 0.95 },
+    { type: 'noise', filter: 'lowpass', freq: 360, q: 0.7, attack: 0.002, decay: 0.42, gain: 0.7 },
     // the rock giving way
-    { type: 'noise', filter: 'bandpass', freq: 900 * jitter(rand, 0.1), q: 1.4, sweepTo: 300, attack: 0.004, decay: 0.28, gain: 0.5, at: 0.01 },
+    { type: 'noise', filter: 'bandpass', freq: 850 * jitter(rand, 0.1), q: 1.3, sweepTo: 280, attack: 0.003, decay: 0.3, gain: 0.55, at: 0.008 },
     { type: 'noise', filter: 'lowpass', freq: 220, q: 0.5, attack: 0.08, decay: 0.8, gain: 0.32, at: 0.05 },
+    // a gravelly bed under the falling stones
+    { type: 'noise', filter: 'bandpass', freq: 1600, q: 0.9, sweepTo: 700, attack: 0.03, decay: 0.7, gain: 0.16, at: 0.05 },
   ];
-  // rubble: stones breaking and falling (a gravelly bed under them), thinning out
-  layers.push({ type: 'noise', filter: 'bandpass', freq: 1600, q: 0.9, sweepTo: 700, attack: 0.03, decay: 0.7, gain: 0.16, at: 0.05 });
   const stones = 24;
   for (let i = 0; i < stones; i += 1) {
     layers.push({
@@ -622,6 +616,28 @@ export function anvilSlamRecipe(rand = Math.random) {
     });
   }
   return { layers, reverb: 0.45, hall: 0.25 };
+}
+
+// the inharmonic modes of a struck bar of iron (an anvil's clang)
+const ANVIL = Object.freeze([[1, 0.24, 1.6], [2.76, 0.2, 1.3], [5.4, 0.14, 1.0], [8.93, 0.08, 0.7], [13.34, 0.04, 0.45]]);
+
+/**
+ * A Sundering blow on a knight: iron struck like an anvil, ringing on, its bright ting riding over it (laid over the
+ * blow's own sound and its weight). light: the ground's rupture catching them, a smaller, shorter ring.
+ */
+export function sunderRingRecipe(rand = Math.random, { light = false } = {}) {
+  const base = (light ? 360 : 285) * jitter(rand, 0.04);
+  const scale = light ? 0.55 : 1;
+  const ring = light ? 0.5 : 1;
+  return {
+    layers: [
+      { type: 'ring', partials: ANVIL.map(([ratio, gain, decay]) => ({ freq: base * ratio * jitter(rand, 0.01), gain: gain * scale * jitter(rand, 0.12), decay: decay * ring * jitter(rand, 0.1) })) },
+      { type: 'ring', partials: [{ freq: 2150 * jitter(rand, 0.03), gain: 0.13 * scale, decay: 2.6 * ring }, { freq: 3380 * jitter(rand, 0.03), gain: 0.06 * scale, decay: 1.8 * ring }] },
+      { type: 'noise', filter: 'highpass', freq: 3000, q: 0.7, attack: 0.0004, decay: 0.02, gain: 0.35 * scale },
+    ],
+    reverb: 0.4,
+    hall: 0.22,
+  };
 }
 
 /** A fissure running: a gravelly crackle and a low grumble as it goes. */

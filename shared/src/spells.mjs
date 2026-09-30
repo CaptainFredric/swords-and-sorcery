@@ -26,6 +26,7 @@ export const SPELLS = Object.freeze({
     // the palm gathers the fire before it flies
     gatherSec: 0.3,
     speed: 24,
+    windResist: 1,               // how hard a Gale finds it to bend in flight (galeDeflection)
     // full force at the heart of the blast, a little less at its edge
     directDamage: 18,
     edgeDamage: 13,
@@ -40,6 +41,7 @@ export const SPELLS = Object.freeze({
     cooldownSec: 4.5,
     gatherSec: 0.3,
     speed: 30,
+    windResist: 1.2,             // a quicker, denser bolt: a little harder to blow aside
     directDamage: 15,
     edgeDamage: 11,
     radius: 1.6,
@@ -66,14 +68,26 @@ export const SPELLS = Object.freeze({
       bend: 0.8,                 // how the shove falls with distance: (1 - d / reach) ^ bend
       core: 0.35,                // the middle share of the cone's angle at full strength, easing out to its edge
       damage: 8,                 // at point blank in its heart
-      push: 16,                  // m/s: the shove at point blank
+      push: 18,                  // m/s: the shove at point blank, as it first catches a body
       lift: 0.32,                // a share of it lifting the body off its feet
-      guarded: 0.35,             // a raised guard facing it keeps this much of the shove...
+      guarded: 0.35,             // a raised guard facing it keeps this much of the shove (and of the wind)...
       guardCost: 14,             // ...and pays this much stamina for it at point blank
-      // the gust blows this long, from the hand along the aim (following both), catching each body it reaches once;
-      // by its end it blows only this share as hard
-      lastsSec: 0.5,
-      tail: 0.4,
+      // the gust blows this long, from the hand along the aim (following both), at full strength until its last
+      // `fadeSec`, then dying away. The first time it reaches a body it shoves it (stings it, bears on its guard); for as
+      // long as the body stays in it after, its wind carries it on: a windbox the size of the pressure's cone, the same
+      // all through it (easing out over its last `windEdge` of reach and outside the middle `windCore` of its angle),
+      // drawing a body along the gust toward `wind` m/s (`drag`: how quickly), never past it: more than a knight can
+      // run against (shared/src/gale.mjs galeWindAt, galeCarry)
+      lastsSec: 1.0,
+      fadeSec: 0.3,
+      wind: 14,
+      drag: 12,
+      windEdge: 0.25,
+      windCore: 0.6,
+      // a spell in flight through it is bent off its line, never taken over (whose it is stays whose it was): by up to
+      // `heart` m/s where the heart catches it squarely and `pressure` m/s where its pressure does, less for a heavier
+      // spell (its windResist); in all, no more than the strongest the gust met it with (galeDeflection)
+      deflect: Object.freeze({ heart: 30, pressure: 12 }),
     }),
     // driven into the ground (or a wall), the gust throws its caster off it: at full strength up to `full` metres
     // from the eyes, fading out to `reach`; `maxUp`: the most upward speed a throw leaves (m/s)

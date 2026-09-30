@@ -61,12 +61,12 @@ export class VoiceBank {
    * voiceRules.mjs: nothing is said by one out of earshot); rate is their pitch. close: it is my own knight, heard as
    * he is (dry, full level). Returns whether anything was said.
    */
-  say(line, { speaker = 'me', pan = 0, gain = 1, rate = 1, chanceScale = 1, delay = 0, close = false, reverb = VOICE_HEARING.reverb, force = false } = {}) {
+  say(line, { speaker = 'me', pan = 0, gain = 1, rate = 1, chanceScale = 1, delay = 0, close = false, reverb = VOICE_HEARING.reverb, force = false, cry = false } = {}) {
     if (!this.has(line) || !this.engine.running || !(gain > 0)) return false;
     const takes = this.takes.get(line);
     const index = this.#nextTake(`line:${line}`, takes.length);
     const take = takes[index];
-    const verdict = this.director.consider(line, speaker, this.engine.now, { chanceScale, force, duration: delay + take.duration / Math.max(0.5, rate) });
+    const verdict = this.director.consider(line, speaker, this.engine.now, { chanceScale, force, cry, duration: delay + take.duration / Math.max(0.5, rate) });
     if (!verdict) return false;
     this.lastTake.set(`line:${line}`, index);
     // a line that matters more cuts the one it overrides (a short fade, not a click)
@@ -75,11 +75,17 @@ export class VoiceBank {
       this.playing.delete(cut);
     }
     const rule = VOICE_LINES[line];
+    // (a hair of variety each time, no more: every word stays the word it was)
+    const played = rate * (0.99 + Math.random() * 0.02);
     const handle = this.engine.playBuffer(take, {
-      bus: 'voice', pan: close ? 0 : pan, gain: gain * rule.gain, rate: rate * (0.98 + Math.random() * 0.04), delay,
+      bus: 'voice', pan: close ? 0 : pan, gain: gain * rule.gain, rate: played, delay,
       reverb: close ? VOICE_HEARING.own : reverb,
     });
     if (handle) this.playing.set(speaker, handle);
+    const seconds = take.duration / Math.max(0.5, played);
+    // a spoken line: the music and the wind give way under it (a grunt does not need them to)
+    if (rule.kind === 'sentence') this.engine.duck?.(seconds, { amount: Math.min(1, gain / 0.8), delay });
+    this.onSpoken?.({ line, speaker, delay, seconds, close });
     return true;
   }
 

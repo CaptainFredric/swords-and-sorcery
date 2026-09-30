@@ -134,6 +134,7 @@ registry
   .defineSetting({ id: 'audio.effects', section: 'audio', label: 'Blows and spells', type: 'range', min: 0, max: 100, step: 5, unit: '%', default: 100 })
   .defineSetting({ id: 'audio.voice', section: 'audio', label: 'Spellblade voices', type: 'range', min: 0, max: 100, step: 5, unit: '%', default: 100 })
   .defineSetting({ id: 'audio.ambience', section: 'audio', label: 'Wind and bells', type: 'range', min: 0, max: 100, step: 5, unit: '%', default: 100 })
+  .defineSetting({ id: 'audio.subtitles', section: 'audio', label: 'Subtitles', type: 'toggle', default: true, hint: 'What the Spellblades say, written out as they say it' })
   .defineSetting({ id: 'audio.musicMuted', section: 'audio', group: 'Music', label: 'Music', type: 'toggle', default: false, invert: true, hint: 'N turns it on and off' })
   .defineSetting({ id: 'audio.music', section: 'audio', group: 'Music', label: 'Music volume', type: 'range', min: 0, max: 100, step: 5, unit: '%', default: 55 });
 

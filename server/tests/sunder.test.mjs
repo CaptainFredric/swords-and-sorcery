@@ -118,8 +118,9 @@ test('Sundering, a blow lands with the greatest physical force: the shove of a f
   const events = forehand(sundered.room);
   assert.equal(events.find((e) => e.type === 'swordHit').impact, 1, 'met as a full-tilt collision');
   assert.ok(Math.abs(shoveOf(events) - shoveAt(1)) < 1e-6, 'the full-tilt shove');
-  // and the most it can shake a knight's balance
-  assert.ok(Math.abs(sundered.b.stagger.level - STAGGER.gain.sword) < 1e-6);
+  // and the most it can shake a knight's balance (and the ground it split under them shakes it again)
+  assert.ok(sundered.b.stagger.level >= STAGGER.gain.sword + RUPTURE.stagger - 1, `${sundered.b.stagger.level}`);
+  assert.ok(sundered.b.stagger.level <= STAGGER.gain.sword + RUPTURE.stagger + 1e-6);
   assert.ok(still.b.stagger.level < sundered.b.stagger.level);
 });
 
@@ -161,7 +162,9 @@ test('a Sundering blow on a guard costs it two blows\' worth, and is still one b
   assert.equal(blocks.length, 1);
   assert.equal(blocks[0].impacts, ULTIMATES.sunder.guardImpacts);
   assert.equal(sundered.events.filter((e) => e.type === 'swordSwing').length, 1);
-  assert.ok(!sundered.events.some((e) => e.type === 'damage' || e.type === 'swordHit'));
+  assert.ok(!sundered.events.some((e) => e.type === 'swordHit' || (e.type === 'damage' && e.source === 'sword')));
+  // (the guard stops the blade, not the ground it splits: the rupture still runs under them)
+  assert.deepEqual(sundered.events.filter((e) => e.type === 'damage').map((e) => e.source), ['rupture']);
 });
 
 test('stagger builds with blows and drains away once nothing shakes the knight', () => {
@@ -286,7 +289,7 @@ test('Sundering, every strike is a slam into the ground, aimed level; an ordinar
   assert.ok(!swing({ sundering: false, pitch: -0.45, chain: true }).some((e) => e.type === 'rupture' || e.type === 'groundStrike'), 'nor an ordinary chain, aimed down');
 });
 
-test('a slam goes through the knight it strikes and on into the ground: its rupture passes them by and catches the next', () => {
+test('a slam goes through the knight it strikes and on into the ground: its rupture catches them too, and the next', () => {
   const { room, a, b } = duel({ third: true });
   const c = room.players.get('c');
   sunder(room, a);
@@ -299,9 +302,10 @@ test('a slam goes through the knight it strikes and on into the ground: its rupt
   endAttack(room, 'a', 10.55);
   run(room, 10.56, 12);
   const damage = room.events.filter((e) => e.type === 'damage');
-  assert.deepEqual(damage.filter((e) => e.victimId === 'b').map((e) => e.source), ['sword'], 'b: the sword, once, and never the ground');
+  assert.deepEqual(damage.filter((e) => e.victimId === 'b').map((e) => e.source), ['sword', 'rupture'], 'b: the sword, then the ground under them');
   assert.deepEqual(damage.filter((e) => e.victimId === 'c').map((e) => e.source), ['rupture'], 'c: the ground');
   assert.equal(room.events.find((e) => e.type === 'groundStrike').through, 'b');
+  assert.ok(damage.filter((e) => e.source === 'rupture').every((e) => e.amount === RUPTURE.damage && e.ultimate));
 });
 
 test('one knight\'s ruptures catch the same knight at most once a second: a warning to move, not a blender', () => {

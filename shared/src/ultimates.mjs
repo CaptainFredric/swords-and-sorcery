@@ -13,8 +13,9 @@ export const ULTIMATES = Object.freeze({
   // strikes at an elevated level, with the greatest physical force (the shove, the weight on a guard, the stagger),
   // a guard pays for two blows at once, and every strike is a slam: the sword comes down from overhead, driven along an
   // aim at least `slamPitch` below level (so it finds the ground without the knight looking at their feet), through
-  // whoever it meets and on into the ground, which ruptures (shared/src/rupture.mjs). Sheathe in Steel meets it
-  // halfway: against hardened plate, a Sundering blow is an ordinary one.
+  // whoever it meets and on into the ground, which ruptures under them and whoever else stands on its line
+  // (shared/src/rupture.mjs). Sheathe in Steel meets it halfway: against hardened plate, a Sundering blow is an
+  // ordinary one.
   sunder: Object.freeze({
     id: 'sunder',
     label: 'Sunder All That Rusts',

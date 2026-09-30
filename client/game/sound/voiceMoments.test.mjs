@@ -151,3 +151,23 @@ test('force settles the argument: a Sundering guard break, balance broken by a S
   assert.ok(!rupture('a', 5).some((group) => lines(group).includes('victory')));
   assert.ok(rupture('b', 5.3).some((group) => lines(group).includes('victory')), 'two caught at once');
 });
+
+test('Sunder\'s cry: most times its own, now and then MIGHT MAKES... KNIGHT!, and always said, cutting a lesser line', async () => {
+  const { ULTIMATE_CRIES, ultimateCry } = await import('./voiceRules.mjs');
+  let seed = 1;
+  const rand = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+  const counts = { sunderCall: 0, victory: 0 };
+  for (let i = 0; i < 2000; i += 1) counts[ultimateCry('sunder', rand)] += 1;
+  assert.ok(counts.victory > 500 && counts.victory < 900, `MIGHT MAKES... KNIGHT! ${counts.victory} of 2000`);
+  assert.ok(counts.sunderCall > counts.victory, 'its own cry the likelier');
+  assert.equal(ultimateCry('nothing-such', () => 0), ULTIMATE_CRIES.sunder[0][0]);
+  // as a cry the line is forced (inside its own cooldown, whatever the dice) and ranks as state: it cuts another's taunt
+  const director = new VoiceDirector({ rand: () => 0.99 });
+  assert.ok(new VoiceDirector({ rand: () => 0 }).allow('killTaunt', 'k', 1));
+  const busy = new VoiceDirector({ rand: () => 0 });
+  busy.consider('killTaunt', 'other', 10, { duration: 3 });
+  assert.equal(busy.consider('victory', 'me', 10.5), null, 'an ordinary MIGHT MAKES... KNIGHT! waits for another knight\'s taunt');
+  assert.deepEqual(busy.consider('victory', 'me', 10.6, { cry: true })?.stop, ['other'], 'as a cry it cuts it');
+  assert.ok(director.allow('victory', 'me', 1, { cry: true }));
+  assert.ok(director.allow('victory', 'me', 20, { cry: true }), 'inside its own two-minute cooldown');
+});

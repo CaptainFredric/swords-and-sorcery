@@ -10,7 +10,7 @@ import { recastReady, recordUse } from '../src/practiceRecast.mjs';
 import { GAME_MODES } from '../src/modes.mjs';
 import { blastDamage, blastDistance, burnFrom, chillFrom, chillScale, spellExposure, spellFor, strongerChill } from '../src/spells.mjs';
 import { callSteel, steelBlunt, steelExposure, steelQuality, steelStrength, steelTakes } from '../src/steel.mjs';
-import { galeOnBody, galeRecoil, galeShove } from '../src/gale.mjs';
+import { galeBend, galeCarry, galeOnBody, galeRecoil, galeShove, galeWindOnBody } from '../src/gale.mjs';
 import { GAUNTLET, gauntletGeometry, gauntletTarget, withinGauntlet } from '../src/gauntlet.mjs';
 import { postureOf } from '../src/body.mjs';
 import { segmentAabbHit, surfaceHeightAt } from '../src/collision.mjs';
@@ -479,7 +479,7 @@ function openStrike(room, player, strike, nowSec) {
 /**
  * Carry a live strike's sweep on to `nowSec`: it meets a body, meets something solid, or runs out (a miss). A slam
  * (Sundering) that meets a body goes on through: unless it was parried, it is carried on down into the ground, where
- * its rupture catches anyone but the knight it struck (one blow, sword or ground, for each).
+ * its rupture catches whoever stands on its line, the knight it struck among them.
  */
 function sweepStrike(room, player, nowSec, world) {
   const live = player.attackSweep;
@@ -526,7 +526,7 @@ function sweepStrike(room, player, nowSec, world) {
     }
     if (met?.kind === 'ground') {
       player.attackSweep = null;
-      groundStrike(room, player, live.strike, met, nowSec, world, { spare: live.struck });
+      groundStrike(room, player, live.strike, met, nowSec, world, { through: live.struck });
       return;
     }
   }
@@ -745,11 +745,12 @@ function spawnSpell(room, player, nowSec, world) {
 }
 
 // Gale Garner lets go, where its caster is aiming as it goes (the breath is drawn first; the gust leaves the hand
-// where the hand then points). The gust blows for a moment (cone.lastsSec), from the caster's hand along their aim,
-// following both, fading as it goes: every body it reaches in that moment is caught once, as hard as the gust still
-// is. Caught, a body is shoved (its heart also stings a little); a raised guard facing it keeps most of its footing but
-// pays for it like a blow; hardened steel turns the sting, not the shove; walls stop it. Driven into the ground close
-// by, the gust throws its caster back off it (once, as it leaves the hand).
+// where the hand then points). The gust blows for a second (cone.lastsSec), from the caster's hand along their aim,
+// following both, dying away at its very end: every body it reaches is caught once, as hard as the gust still is, and
+// then carried on by its wind for as long as it stands in it. Caught, a body is shoved (its heart also stings a
+// little); a raised guard facing it keeps most of its footing but pays for it like a blow; hardened steel turns the
+// sting, not the shove; walls stop it. A spell flying through it is bent off its line. Driven into the ground close by,
+// the gust throws its caster back off it (once, as it leaves the hand).
 function releaseGale(room, player, spell, nowSec, world) {
   player.pendingSpell = null;
   player.castEndsAt = 0;
@@ -775,17 +776,23 @@ function galeOrigin(eye, direction) {
   return { x: eye.x + direction.x * 0.35, y: eye.y + direction.y * 0.35, z: eye.z + direction.z * 0.35 };
 }
 
-/** How hard a gust still blows `age` seconds after it left the hand (1 at first, fading to its tail). */
+/** How hard a gust still blows `age` seconds after it left the hand: full, then dying away over its last fadeSec. */
 export function galeStrength(spell, age) {
   const lasts = spell.cone.lastsSec ?? 0;
   if (!(lasts > 0)) return age <= 0 ? 1 : 0;
   if (age > lasts) return 0;
-  return 1 - (1 - (spell.cone.tail ?? 1)) * Math.max(0, age) / lasts;
+  const fade = Math.min(lasts, spell.cone.fadeSec ?? 0);
+  if (!(fade > 0) || age <= lasts - fade) return 1;
+  return Math.max(0, (lasts - age) / fade);
 }
 
-// the gust blows on: every body it reaches now that it has not caught yet (as hard as it still blows); the bodies it
-// caught, for the event
-function blowGale(room, player, nowSec, world) {
+// how quickly a gust's bend is given to a spell it caught (most of it within a tenth of a second or so)
+const GALE_BEND_SEC = 0.05;
+
+// the gust blows on, `dt` seconds of it: every body it reaches now that it has not caught yet is caught (as hard as the
+// gust still blows); every body in it is carried on by the wind (galeCarry); every spell in flight through it is bent
+// off its line. The bodies it caught now, for the event
+function blowGale(room, player, nowSec, world, dt = 0) {
   const gust = player.gust;
   const spell = spellFor(gust.spell);
   const strength = galeStrength(spell, nowSec - gust.bornAt);
@@ -793,20 +800,25 @@ function blowGale(room, player, nowSec, world) {
   if (strength <= 0) return affected;
   const { direction, eye } = galeAim(player);
   const origin = galeOrigin(eye, direction);
+  const sheltered = (at) => (world.solids ?? []).some((box) => segmentAabbHit([origin.x, origin.y, origin.z], [at.x, at.y, at.z], box));
   for (const target of room.players.values()) {
-    if (target.id === player.id || !target.alive || target.spawnProtectionUntil > nowSec || gust.caught.includes(target.id)) continue;
+    if (target.id === player.id || !target.alive || target.spawnProtectionUntil > nowSec) continue;
     const caught = galeOnBody(spell, origin, direction, target.position, postureOf(target).crown);
     const pressure = caught.pressure * strength;
-    if (pressure <= 0.01) continue;
-    const at = caught.point;
-    let walled = false;
-    for (const box of world.solids ?? []) {
-      if (segmentAabbHit([origin.x, origin.y, origin.z], [at.x, at.y, at.z], box)) { walled = true; break; }
+    const blown = galeWindOnBody(spell, origin, direction, target.position, postureOf(target).crown);
+    const wind = blown.wind * strength;
+    if (pressure <= 0.01 && wind <= 0.01) continue;
+    const guarded = target.guarding && isInGuardCone(target, player, nowSec);
+    // the wind carries them on for as long as they stand in it (and a fall it carries them into is its doing)
+    if (dt > 0 && wind > 0.01 && !sheltered(blown.point)) {
+      target.impulse = galeCarry(spell, target.impulse, origin, direction, blown.point, wind, dt, { guarded });
+      target.lastAttackerId = player.id;
+      target.lastKnockbackAt = nowSec;
     }
-    if (walled) continue;
+    const at = caught.point;
+    if (pressure <= 0.01 || sheltered(at) || gust.caught.includes(target.id)) continue;
     gust.caught.push(target.id);
     let shove = galeShove(spell, origin, direction, at, pressure);
-    const guarded = target.guarding && isInGuardCone(target, player, nowSec);
     if (guarded) {
       // it holds its ground behind the guard, and the guard pays for it like a blow (its breath waits again)
       shove = { x: shove.x * spell.cone.guarded, y: shove.y * spell.cone.guarded, z: shove.z * spell.cone.guarded };
@@ -840,6 +852,23 @@ function blowGale(room, player, nowSec, world) {
       target.lastKnockbackAt = nowSec;
     }
     affected.push({ id: target.id, pressure, guarded, shove });
+  }
+  // spells in flight through it: each bent once, as it flies in, by as much as the gust would meet it with on its
+  // course (galeBend), the bend given over a moment so it curves rather than kinks; whose spell it is does not change
+  gust.bent ??= {};
+  for (const projectile of room.projectiles.values()) {
+    let bend = gust.bent[projectile.id];
+    if (!bend) {
+      if (sheltered(projectile.position)) continue;
+      const given = galeBend(spell, origin, direction, projectile.position, projectile.velocity, strength, spellFor(projectile.spell).windResist ?? 1);
+      if (!given) continue;
+      bend = gust.bent[projectile.id] = { left: given };
+    }
+    if (!(dt > 0)) continue;
+    const share = 1 - Math.exp(-dt / GALE_BEND_SEC);
+    const now = { x: bend.left.x * share, y: bend.left.y * share, z: bend.left.z * share };
+    projectile.velocity = { x: projectile.velocity.x + now.x, y: projectile.velocity.y + now.y, z: projectile.velocity.z + now.z };
+    bend.left = { x: bend.left.x - now.x, y: bend.left.y - now.y, z: bend.left.z - now.z };
   }
   return affected;
 }
@@ -994,16 +1023,16 @@ function stepUltimate(room, player, nowSec) {
 }
 
 // a Sundering blade driven into the ground: it ruptures (shared/src/rupture.mjs), splitting outward the way the blow
-// was going; the strike ends there (no recoil: the ground took it). `spare`: the knight the slam's blade already
-// struck on its way down (their blow was the sword's; the rupture passes them by)
+// was going; the strike ends there (no recoil: the ground took it). `through`: the knight the slam's blade struck on
+// its way down (for the event: the rupture catches them as it would anyone)
 let ruptureCounter = 0;
-function groundStrike(room, player, strikeIndex, met, nowSec, world, { spare = null } = {}) {
+function groundStrike(room, player, strikeIndex, met, nowSec, world, { through = null } = {}) {
   const point = { x: met.point.x, y: met.floor.y, z: met.point.z };
   const f = forwardFromYaw(player.yaw);
   const fissures = planRupture(world, point, { x: f.x, z: f.z });
-  room.events.push({ type: 'groundStrike', playerId: player.id, strikeIndex, point, ...(spare ? { through: spare } : {}), at: nowSec });
+  room.events.push({ type: 'groundStrike', playerId: player.id, strikeIndex, point, ...(through ? { through } : {}), at: nowSec });
   if (!fissures.length) return;
-  const rupture = { id: `r${++ruptureCounter}`, ownerId: player.id, origin: point, fissures, bornAt: nowSec, reached: 0, caught: spare ? [spare] : [] };
+  const rupture = { id: `r${++ruptureCounter}`, ownerId: player.id, origin: point, fissures, bornAt: nowSec, reached: 0, caught: [] };
   (room.ruptures ??= []).push(rupture);
   room.events.push({
     type: 'rupture', id: rupture.id, ownerId: player.id, origin: point, speed: RUPTURE.speed,
@@ -1061,7 +1090,7 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
     if (player.gust) {
       if (nowSec > player.gust.until) player.gust = null;
       else if (nowSec > player.gust.bornAt) {
-        const affected = blowGale(room, player, nowSec, world);
+        const affected = blowGale(room, player, nowSec, world, dt);
         if (affected.length) room.events.push({ type: 'galeCatch', playerId: player.id, spell: player.gust.spell, affected, at: nowSec });
       }
     }

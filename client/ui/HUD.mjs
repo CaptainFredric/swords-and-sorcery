@@ -51,6 +51,7 @@ export class HUD {
     this.feed = document.querySelector('#kill-feed');
     this.crosshair = document.querySelector('#crosshair');
     this.flash = document.querySelector('#status-flash');
+    this.subtitleLine = document.querySelector('#subtitle');
     this.deathCard = document.querySelector('#death-card');
     this.deathKiller = document.querySelector('#death-killer');
     this.deathHow = document.querySelector('#death-how');
@@ -189,7 +190,7 @@ export class HUD {
       const word = document.createElement('b');
       word.className = 'armour-turned';
       word.style.left = `${at}%`;
-      word.innerHTML = `⛨ ${Math.round(turned)}<small>TURNED</small>`;
+      word.innerHTML = `⛨ ${Math.round(turned)}<small>GLANCING</small>`;
       this.armour.append(word);
       setTimeout(() => word.remove(), 950);
     }
@@ -271,6 +272,31 @@ export class HUD {
     clearTimeout(this.flashTimer);
     const duration = Number.isFinite(durationMs) ? Math.max(0, durationMs) : combatStatusDurationMs(text);
     this.flashTimer = setTimeout(() => { this.flash.className = 'status-flash'; }, duration);
+  }
+
+  /**
+   * A Spellblade's words as he says them: `delay` seconds from now, for as long as he says them (and a breath after).
+   * name: whose they are (none for my own); a new line takes the place of the last.
+   */
+  subtitle({ text, name = null, delay = 0, seconds = 2 } = {}) {
+    const line = this.subtitleLine;
+    if (!line || !text) return;
+    clearTimeout(this.subtitleShow);
+    clearTimeout(this.subtitleHide);
+    this.subtitleShow = setTimeout(() => {
+      line.replaceChildren();
+      if (name) {
+        const who = document.createElement('b');
+        who.textContent = name;
+        line.append(who);
+      }
+      const words = document.createElement('span');
+      words.textContent = text;
+      line.append(words);
+      line.classList.toggle('mine', !name);
+      line.classList.add('show');
+      this.subtitleHide = setTimeout(() => line.classList.remove('show'), (seconds + 0.9) * 1000);
+    }, Math.max(0, delay) * 1000);
   }
 
   hit(kind = 'hit') {

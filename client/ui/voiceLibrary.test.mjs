@@ -32,3 +32,14 @@ test('what the library says of each recording is true', () => {
 test('the credits name their maker', () => {
   assert.ok(CREDITS.lines.every((line) => line.name === 'CaptainFredric'));
 });
+
+test('a subtitle is a line\'s words, and nothing for a line without words', async () => {
+  const { subtitleFor } = await import('./voiceLibrary.mjs');
+  assert.equal(subtitleFor('defeat'), 'What!? But I am a knight!');
+  assert.equal(subtitleFor('jump'), null, 'a grunt has no words to write');
+  assert.equal(subtitleFor('effort'), null);
+  assert.equal(subtitleFor('no-such-line'), null);
+  for (const entry of VOICE_LIBRARY) {
+    if (!entry.words.startsWith('(')) assert.equal(subtitleFor(entry.line), entry.words, entry.line);
+  }
+});

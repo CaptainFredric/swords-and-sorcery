@@ -4,107 +4,107 @@
     "bladeCaught": [
       {
         "file": "blade-caught-1",
-        "seconds": 6.37
+        "seconds": 6.43
       }
     ],
     "breakTaunt": [
       {
         "file": "break-taunt-1",
-        "seconds": 2.04
+        "seconds": 2.18
       }
     ],
     "defeat": [
       {
         "file": "defeat-1",
-        "seconds": 1.63
+        "seconds": 1.65
       },
       {
         "file": "defeat-2",
-        "seconds": 1.85
+        "seconds": 1.91
       }
     ],
     "fistThrow": [
       {
         "file": "fist-throw-1",
-        "seconds": 1.77
+        "seconds": 1.95
       }
     ],
     "galeTaunt": [
       {
         "file": "gale-taunt-1",
-        "seconds": 3.32
+        "seconds": 3.23
       }
     ],
     "jump": [
       {
         "file": "jump-1",
-        "seconds": 0.44
+        "seconds": 0.57
       },
       {
         "file": "jump-2",
-        "seconds": 0.42
+        "seconds": 0.53
       },
       {
         "file": "jump-3",
-        "seconds": 0.31
+        "seconds": 0.45
       }
     ],
     "killTaunt": [
       {
         "file": "kill-taunt-1",
-        "seconds": 2.01
+        "seconds": 2.03
       }
     ],
     "knightFallen": [
       {
         "file": "knight-fallen-1",
-        "seconds": 4.82
+        "seconds": 4.75
       }
     ],
     "laugh": [
       {
         "file": "laugh-1",
-        "seconds": 1.81
+        "seconds": 1.98
       }
     ],
     "magicDefeat": [
       {
         "file": "magic-defeat-1",
-        "seconds": 1.92
+        "seconds": 2.09
       }
     ],
     "rebuttal": [
       {
         "file": "rebuttal-1",
-        "seconds": 2.06
+        "seconds": 2.07
       }
     ],
     "sorcery": [
       {
         "file": "sorcery-1",
-        "seconds": 1.3
+        "seconds": 1.55
       },
       {
         "file": "sorcery-2",
-        "seconds": 1.3
+        "seconds": 1.34
       }
     ],
     "steelBoast": [
       {
         "file": "steel-boast-1",
-        "seconds": 2.32
+        "seconds": 2.42
       }
     ],
     "sunderCall": [
       {
         "file": "sunder-call-1",
-        "seconds": 3.12
+        "seconds": 3.16
       }
     ],
     "victory": [
       {
         "file": "victory-1",
-        "seconds": 2.22
+        "seconds": 2.27
       }
     ],
     "vortexDefeat": [
@@ -116,7 +116,7 @@
     "vortexUse": [
       {
         "file": "vortex-use-1",
-        "seconds": 4.86
+        "seconds": 4.9
       }
     ]
   }

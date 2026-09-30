@@ -23,6 +23,7 @@ export function viewOptions(store) {
     cameraMotion: store.get('display.cameraShake') / 100,
     damageNumbers: store.get('display.damageNumbers'),
     damageFlash: store.get('display.damageFlash'),
+    subtitles: store.get('audio.subtitles'),
   };
 }
 

@@ -2,6 +2,8 @@
 // of the ribbons twisting round it, for a unit gust along +z from the origin, and how it plays out over its short life.
 // galeVolume.mjs builds and draws them.
 
+import { SPELLS } from '../../shared/src/spells.mjs';
+
 // the shell of a cone of air: its radius `base + z * tanHalf` along z from 0 to 1 (uv: u round it, v along it)
 export function windConeData(tanHalf, { base = 0.02, radial = 40, rings = 18 } = {}) {
   const positions = [];
@@ -157,10 +159,13 @@ export function windWispData(tanHalf, { count = 18, samples = 26, random = Math.
   return { positions, uvs, seeds, tints, centers, indices };
 }
 
-// how long the air is seen, and when its front reaches the end of the gust
-// (the gust blows for half a second, shared/src/spells.mjs, and the air it moved rolls on out a little after); spread:
-// how much further out and wider it has rolled by the end of its life
-export const GALE_VOLUME = Object.freeze({ life: 0.9, frontSec: 0.3, holdSec: 0.5, ribbonSec: 0.5, spread: 0.45 });
+// how long the air is seen, and when its front reaches the end of the gust: full for as long as the gust blows full
+// (shared/src/spells.mjs: cone.lastsSec less its fadeSec), thinning away as it dies and a little after, while the air
+// it moved rolls on out; spread: how much further out and wider it has rolled by the end of its life
+const CONE = SPELLS.gale.cone;
+export const GALE_VOLUME = Object.freeze({
+  life: CONE.lastsSec + 0.25, frontSec: 0.3, holdSec: CONE.lastsSec - CONE.fadeSec, ribbonSec: 0.5, spread: 0.45,
+});
 
 /**
  * The gust `age` seconds after it was loosed: { front (0..1+, how far out its front is), fade (0..1), head (the
