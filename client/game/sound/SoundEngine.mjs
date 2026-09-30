@@ -9,6 +9,9 @@
 
 // each bus's own level, before the player's volume for it
 export const BUS_LEVELS = Object.freeze({ sfx: 1, ui: 0.5, ambience: 0.55, music: 1, voice: 0.9 });
+// under a spoken line the music and the wind give way (to these shares of their level, for a line said right beside
+// you; less for one further off), so every word is heard; they come back as it ends
+export const VOICE_DUCK = Object.freeze({ music: 0.5, ambience: 0.65, attack: 0.08, release: 0.5 });
 export const DEFAULT_LEVELS = Object.freeze({ muted: false, master: 0.8, effects: 1, voice: 1, ambience: 1, music: 0.55, musicMuted: false });
 
 export class SoundEngine {
@@ -66,6 +69,27 @@ export class SoundEngine {
     set(this.buses.music.gain, levels.musicMuted ? 0 : BUS_LEVELS.music * levels.music);
   }
 
+  /**
+   * A spoken line is starting (`delay` s from now, lasting `seconds`): the music and the wind give way under it.
+   * amount 0..1: how much (1 for a line said beside you). Overlapping lines hold the deeper duck to the last one's end.
+   */
+  duck(seconds, { amount = 1, delay = 0 } = {}) {
+    if (!this.ctx || !this.ducks || !(seconds > 0) || !(amount > 0)) return;
+    const now = this.ctx.currentTime;
+    const start = now + Math.max(0, delay);
+    const end = start + seconds;
+    const holding = now < (this.duckUntil ?? -Infinity);
+    this.duckAmount = holding ? Math.max(this.duckAmount ?? 0, amount) : amount;
+    this.duckUntil = holding ? Math.max(this.duckUntil, end) : end;
+    const depth = Math.min(1, this.duckAmount);
+    for (const [name, node] of Object.entries(this.ducks)) {
+      const level = 1 - (1 - VOICE_DUCK[name]) * depth;
+      node.gain.cancelScheduledValues(now);
+      node.gain.setTargetAtTime(level, start, VOICE_DUCK.attack / 3);
+      node.gain.setTargetAtTime(1, this.duckUntil, VOICE_DUCK.release / 3);
+    }
+  }
+
   /** Render into a given context instead of the speakers (an OfflineAudioContext, for checking the mix). */
   useContext(ctx) {
     this.ctx = ctx;
@@ -109,10 +133,18 @@ export class SoundEngine {
     this.compressor.connect(ctx.destination);
     this.master = ctx.createGain();
     this.master.connect(this.compressor);
+    this.ducks = {};
     for (const [name, level] of Object.entries(BUS_LEVELS)) {
       const bus = ctx.createGain();
       bus.gain.value = level;
-      bus.connect(this.master);
+      // (the music and the wind pass through a duck of their own, for the voice: duck())
+      if (VOICE_DUCK[name] !== undefined) {
+        const duck = ctx.createGain();
+        bus.connect(duck).connect(this.master);
+        this.ducks[name] = duck;
+      } else {
+        bus.connect(this.master);
+      }
       this.buses[name] = bus;
     }
     this.#applyLevels();

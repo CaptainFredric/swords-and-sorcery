@@ -78,7 +78,7 @@ test("another knight's voice carries only near him: normal falloff, no map-wide 
 
 test('every Spellblade keeps their own pitch, within a narrow band', () => {
   const rates = ['alpha', 'beta', 'gamma', 'x'].map(voiceRate);
-  for (const rate of rates) assert.ok(rate >= 0.94 && rate <= 1.06);
+  for (const rate of rates) assert.ok(rate >= 0.97 && rate <= 1.03, 'within half a semitone: the words stay clear');
   assert.equal(voiceRate('alpha'), voiceRate('alpha'));
   assert.ok(new Set(rates).size > 1);
 });

@@ -32,7 +32,8 @@ export const VOICE_LINES = Object.freeze({
   // "SORCERY!!" now and then as an ordinary spell leaves his hand: about one cast in twelve, never twice within 45 s
   sorcery: { kind: 'sentence', priority: CONTEXT, chance: 0.08, cooldown: 45, gain: 1 },
   // "MIGHT MAKES... KNIGHT!" no longer the match's end: after force has settled the argument (a Sundering kill, a
-  // Sundering blow that breaks a knight or ruptures the ground under two, a guard broken by one; victorLines)
+  // Sundering blow that breaks a knight or ruptures the ground under two, a guard broken by one; victorLines); and now
+  // and then as Sunder All That Rusts is invoked, in place of its own cry (ULTIMATE_CRIES)
   victory: { kind: 'sentence', priority: CONTEXT, chance: 0.3, cooldown: 120, gain: 1 },
   // "I don't believe in magic." Only from a knight that magic actually killed, and not every time
   magicDefeat: { kind: 'sentence', priority: STATE, chance: 0.35, cooldown: 90, gain: 1, interrupts: true },
@@ -90,11 +91,28 @@ export const VOICE_LINES = Object.freeze({
   // truly snagged on some small, incidental furnishing in passing (the host marks it: a `snag` world impact), and
   // even then almost never
   bladeCaught: { kind: 'sentence', priority: CONTEXT, chance: 0.12, cooldown: 900, gain: 1 },
-  // "Your integrity will not suffice!" as Sunder All That Rusts takes hold: every time (it is the ultimate's own cry)
+  // "Your integrity will not suffice!" as Sunder All That Rusts is invoked: its own cry, most times (ULTIMATE_CRIES)
   sunderCall: { kind: 'sentence', priority: STATE, chance: 1, cooldown: 0, gain: 1, interrupts: true },
   // (recorded and loaded, waiting on Blazing Vortex, so never said yet: `vortexUse`, its early-spin cry, and
   // `vortexDefeat`, "I was dizzy anyway.". Waiting on the Riposte, and unrecorded: "I have misaddressed.")
 });
+
+// An ultimate's cry as it is invoked: its own line, and now and then another that suits it (Sunder All That Rusts:
+// "Your integrity will not suffice!", or "MIGHT MAKES... KNIGHT!"), each with its share.
+export const ULTIMATE_CRIES = Object.freeze({
+  sunder: Object.freeze([Object.freeze(['sunderCall', 0.65]), Object.freeze(['victory', 0.35])]),
+});
+
+/** The cry for invoking ultimate `id` (a line of VOICE_LINES; `sunderCall` for anything unknown). */
+export function ultimateCry(id, rand = Math.random) {
+  const cries = ULTIMATE_CRIES[id] ?? ULTIMATE_CRIES.sunder;
+  let roll = rand() * cries.reduce((sum, [, share]) => sum + share, 0);
+  for (const [line, share] of cries) {
+    roll -= share;
+    if (roll < 0) return line;
+  }
+  return cries[0][0];
+}
 
 // the least time between two of one knight's sentences (exertions are not counted; a death or a match's end, which
 // interrupt, always speak)
@@ -277,12 +295,15 @@ export class VoiceDirector {
    * Whether `speaker` says `line` at `now` (seconds), and what it cuts: null (nothing is said), or { stop: [speakers
    * whose line this one cuts off] }. duration: how long the take will run (from `now`, any delay included).
    * chanceScale softens (or, for a fitting moment, raises) a line's chance. force: the moment demands it (the
-   * squire's answer): no odds, no cooldown and no gap, though it still waits its turn by rank. Voice is presentation
-   * only: nothing in the game waits on a line, and nothing here waits on anything.
+   * squire's answer): no odds, no cooldown and no gap, though it still waits its turn by rank. cry: said as an
+   * ultimate's cry (ULTIMATE_CRIES), whatever line it is: forced, at the rank of state, cutting a lesser line. Voice is
+   * presentation only: nothing in the game waits on a line, and nothing here waits on anything.
    */
-  consider(line, speaker, now, { chanceScale = 1, duration = MOUTH_BUSY_SEC, force = false } = {}) {
-    const rule = VOICE_LINES[line];
-    if (!rule) return null;
+  consider(line, speaker, now, { chanceScale = 1, duration = MOUTH_BUSY_SEC, force = false, cry = false } = {}) {
+    const base = VOICE_LINES[line];
+    if (!base) return null;
+    const rule = cry ? { ...base, priority: STATE, interrupts: true } : base;
+    if (cry) force = true;
     const priority = rule.priority ?? (rule.interrupts ? STATE : rule.kind === 'sentence' ? CONTEXT : EXERTION);
     const key = `${speaker}:${line}`;
     if (!force && now < (this.readyAt.get(key) ?? -Infinity)) return null;
@@ -335,9 +356,13 @@ export class VoiceDirector {
   }
 }
 
-/** Every Spellblade wears the same helm, but no two sound quite alike: a steady pitch per player. */
+/**
+ * Every Spellblade wears the same helm, but no two sound quite alike: a steady pitch per player, within half a
+ * semitone either way (a wider spread took the words with it).
+ */
 export function voiceRate(playerId) {
   let hash = 0;
   for (const char of String(playerId ?? '')) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
-  return 0.94 + (hash % 1000) / 1000 * 0.12;
+  return 0.97 + (hash % 1000) / 1000 * 0.06;
 }
+

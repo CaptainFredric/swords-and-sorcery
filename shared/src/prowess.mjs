@@ -4,17 +4,17 @@
 // smaller share (the knight on the losing end is not locked out of theirs); a parry, a broken guard, a foe thrown
 // well off their feet a small fixed piece. Nothing for standing about, nothing for hurting yourself, nothing in the
 // Practice Yard, and nothing for what an ultimate does while it is active (Sunder does not pay for the next Sunder).
-// It holds one ultimate at most, it is kept through a death, and it starts each match empty. Tuned so a knight
-// usually has one after some 45-75 s of real fighting (a health bar and a half to two of back and forth); a long
-// fight can earn a second. Current tuning (provisional).
+// It holds one ultimate at most, it is kept through a death, and it starts each match empty. Tuned so it is an
+// event, not a routine: some two and a half health bars of back and forth (dealt and taken) earn one, or three to
+// four kills for a knight having it all their own way; two or three in a match to ten. Current tuning (provisional).
 
 export const PROWESS = Object.freeze({
   full: 100,
-  dealt: 0.7,          // per point of health taken off a foe
-  taken: 0.35,         // per point of health lost to a foe
-  parry: 8,
-  guardBreak: 10,
-  displaced: 5,        // a foe thrown well off their feet (a gust's heart, a spell's burst square on)
+  dealt: 0.28,         // per point of health taken off a foe
+  taken: 0.14,         // per point of health lost to a foe
+  parry: 4,
+  guardBreak: 5,
+  displaced: 2.5,      // a foe thrown well off their feet (a gust's heart, a spell's burst square on)
 });
 
 /** Whether a room pays prowess (its mode says so: never the Practice Yard). */

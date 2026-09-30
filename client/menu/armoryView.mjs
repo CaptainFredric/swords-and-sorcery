@@ -20,8 +20,8 @@ const SPELL_WORDS = Object.freeze({
   },
   gale: {
     mark: '≋',
-    line: 'Draw a breath of wind, then loose it in a cone: it throws knights back far more than it hurts them. Into the ground, it throws you.',
-    facts: (s) => `Stings for up to ${s.cone.damage}, shoves out to ${s.cone.pressureReach} m · ${s.cooldownSec} s`,
+    line: 'Draw a breath of wind, then loose it in a cone: for a moment it carries off whoever stands in it, and bends any spell flying through it. It hurts far less than it moves. Into the ground, it throws you.',
+    facts: (s) => `Stings for up to ${s.cone.damage}, carries out to ${s.cone.pressureReach} m for ${s.cone.lastsSec} s · ${s.cooldownSec} s`,
   },
   steel: {
     mark: '⛨',

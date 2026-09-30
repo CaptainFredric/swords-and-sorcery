@@ -11,20 +11,22 @@ breath, laugh...), or give --line (magicDefeat, killTaunt, ... as the game names
 macOS can read works (Voice Memos .m4a, QuickTime .m4a/.mov, .wav, .aiff, .mp3). A take may be a window of a longer
 file: path:start-end in seconds.
 
-The close helm (the standard chain, --profile close; see tools/audio/RECORDING.md for the reasons):
+The clear helm (the standard chain, --profile clear; see tools/audio/RECORDING.md for the reasons):
   1. declip     rebuild peaks the recorder flattened (a curve through each flat top, from the slopes either side)
   2. dereverb   take out the room it was recorded in: its late reverberation, predicted from the take's own decay,
-                is subtracted band by band down to a gentle floor
-  3. expand     a downward expander: what is left of the room between and after the words sinks away
-  4. pitch      down (a phase vocoder: same length, deeper and bigger)
-  5. EQ         proximity and chest, a little helm ring, clarity, the bite taken off (it is behind steel)
-  6. helm       the tight reflections inside a great helm, a millimetre or two of air away
+                is subtracted band by band, gently (a hard hand leaves a watery warble)
+  3. expand     a downward expander: what is left of the room between and after the words sinks away (the soft
+                consonants kept)
+  4. pitch      two semitones down (a phase vocoder: same length), the voice's formants put back where they were, so
+                every vowel stays the word it was
+  5. EQ         a little chest, the mud taken out, a clear presence lift for the consonants
+  6. helm       the faintest reflections of a great helm
   7. compress   a shout is dense, not spiky
-  8. grit       gentle saturation
+  8. grit       a touch of saturation
   9. loudness   matched per line, peaks under -1 dBFS
-Nothing of a castle is baked in: the game adds the courtyard's echo itself, and only for other knights (your own
-voice is heard close, from inside the helm). --profile classic is the earlier chain (no declip, dereverb, expander
-or compressor).
+Nothing of a castle is baked in: the game adds a touch of the courtyard itself, and only for other knights (your own
+voice is heard close, from inside the helm). --profile close is the earlier, deeper chain (4.5 semitones down, the
+formants going down with it: bigger, but players could not make out the words); --profile classic the one before it.
 
 Each take is written to client/assets/voice as AAC (.m4a) with a small WAV fallback; manifest.json lists what exists.
 --preview also writes a before/after pair to artifacts/voice-preview to listen to here.
@@ -71,68 +73,85 @@ ALIASES = {
     'misaddressed': 'misaddressed', 'riposte': 'misaddressed',
 }
 
-# per line: how far down, how hard the grit, how loud (the close helm keeps the veteran's -4.5 semitones)
+# per line: how hard the grit, how loud, and where a soft tail needs the expander eased (how far down is the
+# profile's: PROFILE_SEMITONES; a line may still say 'semitones' of its own)
 PRESETS = {
-    'effort': {'semitones': -4.5, 'drive': 2.4, 'rms_db': -16},
-    'hurt': {'semitones': -4.5, 'drive': 2.2, 'rms_db': -16},
-    'death': {'semitones': -4.5, 'drive': 2.0, 'rms_db': -16},
-    'sorcery': {'semitones': -4.5, 'drive': 2.5, 'rms_db': -15},
-    'dash': {'semitones': -4.5, 'drive': 1.6, 'rms_db': -20},
-    'victory': {'semitones': -4.5, 'drive': 2.2, 'rms_db': -16},
+    'effort': {'drive': 2.4, 'rms_db': -16},
+    'hurt': {'drive': 2.2, 'rms_db': -16},
+    'death': {'drive': 2.0, 'rms_db': -16},
+    'sorcery': {'drive': 2.5, 'rms_db': -15},
+    'dash': {'drive': 1.6, 'rms_db': -20},
+    'victory': {'drive': 2.2, 'rms_db': -16},
     # the spoken lines: a touch less grit than the cries, so every word lands
-    'defeat': {'semitones': -4.5, 'drive': 2.2, 'rms_db': -16},
-    'magicDefeat': {'semitones': -4.5, 'drive': 2.0, 'rms_db': -18},   # deadpan, not shouted
-    'killTaunt': {'semitones': -4.5, 'drive': 2.2, 'rms_db': -16},
-    'breakTaunt': {'semitones': -4.5, 'drive': 2.2, 'rms_db': -16},
+    'defeat': {'drive': 2.2, 'rms_db': -16},
+    'magicDefeat': {'drive': 2.0, 'rms_db': -18},   # deadpan, not shouted
+    'killTaunt': {'drive': 2.2, 'rms_db': -16},
+    'breakTaunt': {'drive': 2.2, 'rms_db': -16},
     # "What did you say? Must have been the wind..." (the second half is an aside, spoken low: the expander is
     # eased so it keeps it)
-    'galeTaunt': {'semitones': -4.5, 'drive': 2.0, 'rms_db': -17, 'expand_below_db': -42},
+    'galeTaunt': {'drive': 2.0, 'rms_db': -17, 'expand_below_db': -42},
     # "My armor works now!"
-    'steelBoast': {'semitones': -4.5, 'drive': 2.2, 'rms_db': -16},
+    'steelBoast': {'drive': 2.2, 'rms_db': -16},
     # "YOUR INTEGRITY WILL NOT SUFFICE!" (the ultimate's cry: shouted, so a little more grit)
-    'sunderCall': {'semitones': -4.5, 'drive': 2.4, 'rms_db': -15},
+    'sunderCall': {'drive': 2.4, 'rms_db': -15},
     # the gauntlet: "HYA!" as it goes out (a cry, with the cries' grit), and three rare lines
-    'fistEffort': {'semitones': -4.5, 'drive': 2.4, 'rms_db': -16},
-    'fistThrow': {'semitones': -4.5, 'drive': 2.2, 'rms_db': -16},     # "I throw you my gauntlet."
-    'fistKill': {'semitones': -4.5, 'drive': 2.0, 'rms_db': -17},      # "I am quite soFISTicated." (smug, not shouted)
-    'rebuttal': {'semitones': -4.5, 'drive': 2.0, 'rms_db': -17},      # "I present my rebuttal."
+    'fistEffort': {'drive': 2.4, 'rms_db': -16},
+    'fistThrow': {'drive': 2.2, 'rms_db': -16},     # "I throw you my gauntlet."
+    'fistKill': {'drive': 2.0, 'rms_db': -17},      # "I am quite soFISTicated." (smug, not shouted)
+    'rebuttal': {'drive': 2.0, 'rms_db': -17},      # "I present my rebuttal."
     # "The knight has fallen! ...and day may arrive no longer..." (theatrical: the second half trails off low, so the
     # expander is eased to keep it)
-    'knightFallen': {'semitones': -4.5, 'drive': 2.0, 'rms_db': -17, 'expand_below_db': -42},
+    'knightFallen': {'drive': 2.0, 'rms_db': -17, 'expand_below_db': -42},
     # a jump's grunt: short, from the chest, under the sentences in the mix
-    'jump': {'semitones': -4.5, 'drive': 2.2, 'rms_db': -19},
+    'jump': {'drive': 2.2, 'rms_db': -19},
     # "Ah! My blade caught on the edge of a flower pot! I must rest. You may slay me. Quickly!" (the asides are
     # quieter: eased expander so "Quickly!" and the rest survive)
-    'bladeCaught': {'semitones': -4.5, 'drive': 2.0, 'rms_db': -17, 'expand_below_db': -42},
+    'bladeCaught': {'drive': 2.0, 'rms_db': -17, 'expand_below_db': -42},
     # Blazing Vortex's spin (prepared for the ultimate; not yet in the game)
-    'vortexUse': {'semitones': -4.5, 'drive': 2.3, 'rms_db': -16},
+    'vortexUse': {'drive': 2.3, 'rms_db': -16},
     # "I was dizzy anyway." felled during Blazing Vortex (prepared for the ultimate; dry, not shouted)
-    'vortexDefeat': {'semitones': -4.5, 'drive': 2.0, 'rms_db': -17, 'expand_below_db': -40},
+    'vortexDefeat': {'drive': 2.0, 'rms_db': -17, 'expand_below_db': -40},
     # "AHHhhh, hahaHAH!" (once the second take of killTaunt; now a line of its own, heard in several moments)
-    'laugh': {'semitones': -4.5, 'drive': 2.2, 'rms_db': -16},
+    'laugh': {'drive': 2.2, 'rms_db': -16},
     # "I had never thought this day would come..." (the match lost; trails off, so the expander is eased)
-    'neverThought': {'semitones': -4.5, 'drive': 2.0, 'rms_db': -17, 'expand_below_db': -42},
+    'neverThought': {'drive': 2.0, 'rms_db': -17, 'expand_below_db': -42},
     # --- to be recorded (each is wired in the game, and silent until it is)
     # "NOOoo! I am going to be late!" (a wail: the cries' grit)
-    'lateLine': {'semitones': -4.5, 'drive': 2.3, 'rms_db': -16},
+    'lateLine': {'drive': 2.3, 'rms_db': -16},
     # "What did the squire say to the Spellblade?" (a setup, conversational: every word must land)
-    'squireSetup': {'semitones': -4.5, 'drive': 2.0, 'rms_db': -17},
+    'squireSetup': {'drive': 2.0, 'rms_db': -17},
     # "You have achieved a new form of knight hood." (ceremonial, measured)
-    'newKnighthood': {'semitones': -4.5, 'drive': 2.0, 'rms_db': -17},
+    'newKnighthood': {'drive': 2.0, 'rms_db': -17},
     # "A staggering display." (dry)
-    'staggerDisplay': {'semitones': -4.5, 'drive': 2.0, 'rms_db': -17},
+    'staggerDisplay': {'drive': 2.0, 'rms_db': -17},
     # "I helped you lower your guard." (dry)
-    'lowerGuard': {'semitones': -4.5, 'drive': 2.0, 'rms_db': -17},
+    'lowerGuard': {'drive': 2.0, 'rms_db': -17},
     # "You are the hack. I will be the slash."
-    'hackSlash': {'semitones': -4.5, 'drive': 2.2, 'rms_db': -16},
+    'hackSlash': {'drive': 2.2, 'rms_db': -16},
     # "Your standard is subpar." (deadpan)
-    'subparStandard': {'semitones': -4.5, 'drive': 2.0, 'rms_db': -18},
+    'subparStandard': {'drive': 2.0, 'rms_db': -18},
     # "I always knew that I thought this would happen." (a quick, self-satisfied aside)
-    'alwaysKnew': {'semitones': -4.5, 'drive': 2.0, 'rms_db': -17, 'expand_below_db': -42},
+    'alwaysKnew': {'drive': 2.0, 'rms_db': -17, 'expand_below_db': -42},
     # "If you keep practicing... you will still never reach me." (a pause in the middle: the expander is eased)
-    'neverReach': {'semitones': -4.5, 'drive': 2.0, 'rms_db': -17, 'expand_below_db': -42},
+    'neverReach': {'drive': 2.0, 'rms_db': -17, 'expand_below_db': -42},
     # "I have misaddressed." (for the Riposte, when it exists)
-    'misaddressed': {'semitones': -4.5, 'drive': 2.0, 'rms_db': -17},
+    'misaddressed': {'drive': 2.0, 'rms_db': -17},
+}
+
+# how far down each chain takes the voice (semitones): the clear helm two, with the formants kept; the close helm
+# took it 4.5 down, formants and all
+PROFILE_SEMITONES = {'clear': -2.0, 'close': -4.5, 'classic': -4.5}
+
+# the clear helm: the room taken out gently (a hard hand leaves a watery warble), the soft consonants kept, less grit,
+# and a presence lift for the words (see clear_helm). Measured against the raw takes (STOI, how much of the speech's
+# envelope survives): the close helm kept 0.70 of it on average, the clear helm 0.86.
+CLEAR = {
+    't60': 0.85, 'strength': 1.0, 'floor_db': -12,
+    'expand_below_db': -42, 'expand_ratio': 2.0,
+    'compress_db': -18, 'compress_ratio': 3.0,
+    'grit': 0.3, 'drive_scale': 0.8,
+    'tail_below_db': -46,
+    'gate_open_db': -30, 'gate_hold_ms': 120,
 }
 
 # the close helm's room removal and dynamics (see close_helm)
@@ -236,12 +255,36 @@ def stretch(x, factor, n_fft=2048, hop=256):
     return out[start:start + int(len(x) * factor)]
 
 
-def pitch_shift(x, semitones):
-    """Deeper (negative) or higher, same length: stretch in time, then resample back."""
+def pitch_shift(x, semitones, formants=0.0):
+    """Deeper (negative) or higher, same length: stretch in time, then resample back. formants: how much of the
+    voice's own spectral envelope to put back afterwards (1: all of it, so the vowels stay where they were)."""
     if abs(semitones) < 1e-3:
         return x
     ratio = 2 ** (semitones / 12)
-    return resample(stretch(x, ratio), len(x))
+    shifted = resample(stretch(x, ratio), len(x))
+    return keep_formants(x, shifted, formants) if formants > 0 else shifted
+
+
+def spectral_envelope(magnitude, lifter):
+    """Each frame's spectral envelope (its formants, without the harmonics): the low quefrencies of its cepstrum."""
+    cepstrum = np.fft.irfft(np.log(np.maximum(magnitude, 1e-9)), axis=1)
+    cepstrum[:, lifter:cepstrum.shape[1] - lifter + 1] = 0
+    return np.exp(np.fft.rfft(cepstrum, axis=1).real)
+
+
+def keep_formants(original, shifted, amount=1.0, n_fft=2048, hop=256, lifter_ms=1.6, limit_db=12):
+    """Put the original's spectral envelope back on a pitch-shifted take (at most limit_db either way), smoothed over
+    three frames so it cannot flutter: the pitch moves, the vowels do not."""
+    X, window, length = stft(original, n_fft, hop)
+    Y, _, _ = stft(shifted, n_fft, hop)
+    count = min(len(X), len(Y))
+    X, Y = X[:count], Y[:count]
+    lifter = int(SR * lifter_ms / 1000)
+    ratio = spectral_envelope(np.abs(X), lifter) / spectral_envelope(np.abs(Y), lifter)
+    limit = 10 ** (limit_db / 20)
+    ratio = np.log(np.clip(ratio, 1 / limit, limit) ** amount)
+    ratio[1:-1] = (ratio[:-2] + 2 * ratio[1:-1] + ratio[2:]) / 4
+    return istft(Y * np.exp(ratio), window, length, len(shifted), n_fft, hop)
 
 
 def equalize(x, sr, bands):
@@ -442,6 +485,31 @@ def dynamics(x, sr, below_db=None, ratio=2.5, above_db=None, squeeze=3.0, attack
     return x * gain
 
 
+def gate_pauses(x, sr, open_db=-30, hold_ms=120, ratio=2.5, step_ms=5, attack_ms=3, release_ms=40):
+    """Silence the pauses, not the consonants: whatever lies more than `hold_ms` from anything within `open_db` of the
+    take's loudest moment (lead-ins, gaps between phrases, the room after the last word) is expanded down as the
+    close helm's expander did, `ratio` to one below `open_db`; everything near the words is left alone, so a soft
+    "s", "f" or the release of a final "t" survives."""
+    hop = max(1, int(sr * step_ms / 1000))
+    frames = len(x) // hop + 1
+    level_db = np.array([10 * np.log10(np.mean(x[i * hop:(i + 1) * hop] ** 2) + 1e-12) if len(x[i * hop:(i + 1) * hop]) else -120
+                         for i in range(frames)])
+    top = level_db.max()
+    loud = level_db > top + open_db
+    hold = max(1, int(hold_ms / step_ms))
+    near = np.convolve(loud.astype(float), np.ones(2 * hold + 1), mode='same') > 0
+    target = np.where(near, 0.0, np.minimum(0, (level_db - (top + open_db)) * (ratio - 1)))
+    attack = 1 - np.exp(-step_ms / attack_ms)
+    release = 1 - np.exp(-step_ms / release_ms)
+    gain_db = np.zeros(frames)
+    g = target[0]
+    for i in range(frames):
+        g += (target[i] - g) * (attack if target[i] < g else release)
+        gain_db[i] = g
+    gain = np.interp(np.arange(len(x)), np.arange(frames) * hop + hop / 2, 10 ** (gain_db / 20))
+    return x * gain
+
+
 def close_helm(x, sr, preset, report=None):
     """The standard chain: the take's room out first, then the knight. See the module notes for each step."""
     x = x - np.mean(x)
@@ -468,6 +536,42 @@ def close_helm(x, sr, preset, report=None):
     x = dynamics(x, sr, above_db=CLOSE['compress_db'], squeeze=CLOSE['compress_ratio'], attack_ms=4, release_ms=80)
     x = saturate(x, preset['drive'])
     x = dynamics(x, sr, below_db=-36, ratio=2.0)
+    if report is not None:
+        report['t60'] = round(t60, 2)
+    return loudness(x, sr, preset['rms_db'])
+
+
+def clear_helm(x, sr, preset, report=None):
+    """The standard chain: the take's room out (gently), then the knight, every word left clear. See the module notes."""
+    x = x - np.mean(x)
+    x = declip(x)
+    x = trim(x, sr, pre=0.02, post=0.3)
+    measured = room_decay(x, sr)
+    t60 = min(CLEAR['t60'], measured) if measured else CLEAR['t60']
+    x = dereverb(x, sr, t60=max(0.3, t60), strength=CLEAR['strength'], floor_db=CLEAR['floor_db'])
+    # the pauses silenced (the room between phrases and around the words), the soft consonants near the words kept
+    x = gate_pauses(x, sr, open_db=CLEAR['gate_open_db'], hold_ms=CLEAR['gate_hold_ms'])
+    x = dynamics(x, sr, below_db=min(preset.get('expand_below_db', CLEAR['expand_below_db']), CLEAR['expand_below_db']),
+                 ratio=CLEAR['expand_ratio'])
+    x = trim(x, sr, pre=0.02, post=0.12)
+    x = pitch_shift(x, preset['semitones'], formants=1.0)
+    x = equalize(x, sr, [
+        ('highpass', 85),
+        ('bell', 150, 2.0, 1.2),      # proximity, without the boom that buries words
+        ('bell', 260, 1.0, 1.0),      # chest
+        ('bell', 420, -1.5, 1.0),     # the mud
+        ('bell', 620, -1.0, 1.2),     # the recording room's boxiness
+        ('bell', 1250, 0.5, 0.9),     # the helm's ring: a hint
+        ('bell', 2600, 3.0, 1.4),     # presence: the consonants, every word lands
+        ('bell', 5000, 1.0, 1.5),     # air
+        ('lowpass', 11000),
+    ])
+    # the helm's own reflections, barely there: the dry performance leads
+    x = helm(x, sr, reflections=((1.1, 0.06), (2.3, 0.03), (3.7, 0.01)))
+    x = dynamics(x, sr, above_db=CLEAR['compress_db'], squeeze=CLEAR['compress_ratio'], attack_ms=4, release_ms=80)
+    x = saturate(x, preset['drive'] * CLEAR['drive_scale'], wet=CLEAR['grit'])
+    x = dynamics(x, sr, below_db=CLEAR['tail_below_db'], ratio=2.0)
+    x = gate_pauses(x, sr, open_db=CLEAR['gate_open_db'], hold_ms=CLEAR['gate_hold_ms'])
     if report is not None:
         report['t60'] = round(t60, 2)
     return loudness(x, sr, preset['rms_db'])
@@ -577,10 +681,10 @@ def publish(line, takes, preview_dir=None, echo='nearby', notes=None):
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('inputs', nargs='*', help='takes, or folders of takes')
-    parser.add_argument('--semitones', type=float, help='pitch change (default per line, about -2.5)')
+    parser.add_argument('--semitones', type=float, help='pitch change (default: the profile\'s, -2 for the clear helm)')
     parser.add_argument('--drive', type=float, help='distortion drive (default per line, about 2.2)')
     parser.add_argument('--line', choices=LINES, help='the line every input is a take of (instead of reading file names)')
-    parser.add_argument('--profile', choices=('close', 'classic'), default='close', help='the chain (default: close helm)')
+    parser.add_argument('--profile', choices=('clear', 'close', 'classic'), default='clear', help='the chain (default: clear helm)')
     parser.add_argument('--preview', action='store_true', help='also write versions with the in-game echo to artifacts/voice-preview')
     args = parser.parse_args()
     os.makedirs(OUT_DIR, exist_ok=True)
@@ -602,14 +706,16 @@ def main():
             continue
         by_line.setdefault(line, []).append(path)
     for line, paths in by_line.items():
-        preset = dict(PRESETS[line])
+        preset = {'semitones': PROFILE_SEMITONES[args.profile], **PRESETS[line]}
         if args.semitones is not None:
             preset['semitones'] = args.semitones
         if args.drive is not None:
             preset['drive'] = args.drive
         print(f'{line}: {len(paths)} take(s), {args.profile} chain')
         notes = [{} for _ in paths]
-        if args.profile == 'close':
+        if args.profile == 'clear':
+            takes = [clear_helm(load_any(path), SR, preset, report=note) for path, note in zip(paths, notes)]
+        elif args.profile == 'close':
             takes = [close_helm(load_any(path), SR, preset, report=note) for path, note in zip(paths, notes)]
         else:
             takes = [knight(load_any(path), SR, preset) for path in paths]

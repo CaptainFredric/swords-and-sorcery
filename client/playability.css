@@ -272,3 +272,14 @@
    the key works anyway */
 .ability.practice::before { content: "\221E PRACTICE"; position: absolute; right: 6px; bottom: 4px; z-index: 2; padding: 1px 4px; font: 800 7px/1 system-ui, sans-serif; letter-spacing: .12em; color: #2a1c10; background: linear-gradient(180deg, #e7c47c, #b8893f); border-radius: 2px; pointer-events: none; }
 .ability.practice .ability-icon { opacity: 1; }
+
+/* what a Spellblade is saying, as he says it: at the foot of the view, above the bars, gone when he is done */
+.subtitle {
+  position: absolute; left: 50%; bottom: 112px; max-width: min(640px, 72cqw); padding: 5px 12px 6px; border-radius: 2px;
+  background: rgba(12, 10, 8, .58); color: #f3e6c4; font: 400 17px/1.3 var(--font-inscription, Georgia, serif); text-align: center;
+  text-shadow: 0 1px 2px #000; opacity: 0; transform: translate(-50%, 4px); transition: opacity .18s ease, transform .18s ease; pointer-events: none;
+}
+.subtitle.show { opacity: 1; transform: translate(-50%, 0); }
+.subtitle b { margin-right: 8px; color: #e6c47c; font: 800 11px/1 var(--font-script, system-ui, sans-serif); letter-spacing: .16em; text-transform: uppercase; }
+.subtitle.mine span { color: #fff3d6; }
+.touch-ui .subtitle { bottom: calc(var(--safe-b, 0px) + 16px); max-width: min(440px, 44cqw); padding: 4px 10px 5px; font-size: 14px; }

@@ -2,8 +2,8 @@
 
 The Spellblade is a hardened battlemage: controlled, chesty, economical. He grunts from the gut rather than yelling
 from the throat, and he saves his breath for the one cry that matters. Record your own takes, then let
-`knight_voice.py` put him in his helm: the room it was recorded in taken out, then deeper, closer, a little grit, a
-touch of steel around the face, with the dry performance leading. The game adds only a little of the courtyard, and only
+`knight_voice.py` put him in his helm: the room it was recorded in taken out, then a little deeper, closer, a touch of
+grit and of steel around the face, with every word left clear. The game adds only a little of the courtyard, and only
 for other knights near you: your own knight is heard as he is.
 
 ## What to record
@@ -23,26 +23,27 @@ Two to six takes of a line keep it from repeating.
 ## Lines already in the game
 
 These came from your second recorded clip (the master is in `artifacts/spellblade-voice-handoff.zip`, under
-`source/recording-2-master.wav`). Every line is processed from the master by the close helm (below), from these
+`source/recording-2-master.wav`). Every line is processed from the master by the clear helm (below), from these
 windows. Each one plays only at its moment and only now and then. The rules are in `client/game/sound/voiceRules.mjs`.
 
 | Line | Take | Window (s) | When |
 | --- | --- | --- | --- |
 | `sorcery` | "SORCERY!" ×2 | 0.38–1.93, 3.15–4.71 | A spell is cast (1 in 12, not again within 45 s). |
 | `magicDefeat` | "I don't believe in magic." | 5.15–7.25 | Killed by a spell or its burn (about 1 in 3, 90 s apart). |
-| `victory` | "Might makes… KNIGHT!" | 8.15–10.72 | Winning a match. |
-| `killTaunt` | "Good knight? That will not be you." and a laugh | 23.62–26.42, 11.87–13.91 | Over someone you felled, if they said nothing. |
-| `breakTaunt` | "You should have hired a REAL guard!" | 14.2–17.04 | After breaking a guard, now and then. |
-| `defeat` | "What? But I am a knight!" ×2 | 18.35–20.16, 20.58–23.04 | Every lost match; now and then when felled. |
+| `victory` | "MIGHT MAKES… KNIGHT!" | 8.15–10.72 | After force settles the argument (a Sundering kill, guard break or broken balance); now and then as Sunder is invoked. |
+| `killTaunt` | "Good knight? That will not be you." | 23.62–26.42 | Over someone you felled, if they said nothing. |
+| `laugh` | "AHHHhh, hahaHAH!" | 11.87–13.91 | The wildcard: rarely, at nearly anything ill-advised; once a life at most. |
+| `breakTaunt` | "You should've hired a REAL guard." | 14.2–17.04 | After breaking a guard, rarely (the helping hand is likelier). |
+| `defeat` | "What!? But I am a knight!" ×2 | 18.35–20.16, 20.58–23.04 | Now and then when felled; likelier on the fall that loses the match. |
 
-Later recordings (each its own file, through the same close helm):
+Later recordings (each its own file, through the same clear helm):
 
 | Line | What | When |
 | --- | --- | --- |
 | `galeTaunt` | "What did you say? Must have been the wind…" | After a Gale really moved someone, now and then. |
 | `steelBoast` | "My armor works now!" | Sheathe in Steel turned a spell aside, rarely. |
-| `sunderCall` | "YOUR INTEGRITY WILL NOT SUFFICE!" | Every Sunder All That Rusts, as the brace begins. |
-| `knightFallen` | "The knight has fallen! …and day may arrive no longer…" | A rare fall; likelier after an overkill. |
+| `sunderCall` | "Your integrity will not suffice!" | Most Sunders, as the brace begins (now and then MIGHT MAKES… KNIGHT! instead). |
+| `knightFallen` | "The Knight has fallen!… no longer may day arrive…" | A rare fall; likelier after an overkill. |
 | `fistThrow` | "I throw you my gauntlet." | Now and then as the fist lands. |
 | `rebuttal` | "I present my rebuttal." | The fist, on a foe who just spoke and is nearly beaten. |
 | `bladeCaught` | "Ah! My blade caught on the edge of a flower pot! …Quickly!" | Almost never, and only when the blade snags on a small furnishing. |
@@ -51,22 +52,39 @@ Later recordings (each its own file, through the same close helm):
 | `vortexDefeat` | "I was dizzy anyway." | Prepared: felled during Blazing Vortex (or its dizziness). |
 
 Every line, recorded or still to come, can be heard from the game: Settings, then the quiet CREDITS button in its
-footer (the voice library, `client/ui/voiceLibrary.mjs`). A new line gets an entry there too (a test insists).
+footer (the voice library, `client/ui/voiceLibrary.mjs`, which is also where each line's exact moment is described).
+A new line gets an entry there too (a test insists).
 
 Lines have ranks (`VOICE_PRIORITY` in `voiceRules.mjs`): exertions never cut anything; situational lines wait their
 turn; a death, a defeat or an ultimate's cry cuts through a lesser line. Only one sentence is heard at a time.
 
-To redo them all (for example after changing the chain):
+To redo them all (for example after changing the chain). The first master is
+`artifacts/knight-voice-takes/source/recording-2-master.wav`; the later recordings are kept beside it in `source/later/`
+(both local only, not in git):
 
 ```bash
-M=recording-2-master.wav
+M=artifacts/knight-voice-takes/source/recording-2-master.wav
+L=artifacts/knight-voice-takes/source/later
 python3 tools/audio/knight_voice.py --line sorcery $M:0.38-1.93 $M:3.15-4.71
 python3 tools/audio/knight_voice.py --line magicDefeat $M:5.15-7.25
 python3 tools/audio/knight_voice.py --line victory $M:8.15-10.72
-python3 tools/audio/knight_voice.py --line killTaunt $M:23.62-26.42 $M:11.87-13.91
+python3 tools/audio/knight_voice.py --line killTaunt $M:23.62-26.42
+python3 tools/audio/knight_voice.py --line laugh $M:11.87-13.91
 python3 tools/audio/knight_voice.py --line breakTaunt $M:14.2-17.04
 python3 tools/audio/knight_voice.py --line defeat $M:18.35-20.16 $M:20.58-23.04
+python3 tools/audio/knight_voice.py --line galeTaunt $L/gale-taunt.mp3
+python3 tools/audio/knight_voice.py --line steelBoast $L/steel-boast.mp3
+python3 tools/audio/knight_voice.py --line sunderCall $L/sunder-call.mp3
+python3 tools/audio/knight_voice.py --line knightFallen $L/knight-fallen.mp3
+python3 tools/audio/knight_voice.py --line fistThrow $L/fist-throw.mp3
+python3 tools/audio/knight_voice.py --line rebuttal $L/rebuttal.mp3
+python3 tools/audio/knight_voice.py --line bladeCaught $L/blade-caught.mp3
+python3 tools/audio/knight_voice.py --line vortexUse $L/vortex-use.mp3
+python3 tools/audio/knight_voice.py --line vortexDefeat $L/vortex-defeat.mp3
+python3 tools/audio/knight_voice.py --line jump $L/jump-1.mp3 $L/jump-2.mp3 $L/jump-3.mp3
 ```
+
+(Use `/usr/local/bin/python3`, which has numpy.)
 
 Blows on a guard and guards breaking are steel only (`blockRecipe` and `guardBreakRecipe` in
 `client/game/sound/soundRecipes.mjs`); there are no voiced contact effects any more.
@@ -89,31 +107,37 @@ python3 tools/audio/knight_voice.py ~/Desktop/knight-takes --preview
 python3 tools/audio/knight_voice.py recording.wav:0.38-1.93 recording.wav:3.15-4.71 --line sorcery
 ```
 
-The close helm is the standard chain for every line (`--profile close`, the default):
+The clear helm is the standard chain for every line (`--profile clear`, the default). It replaced the close helm
+on 2026-09-30, when players said they could not make out what he was saying: the close helm took the voice 4.5
+semitones down with its formants (the vowels) going down too, and a heavy hand on the room left a watery warble.
+Measured against the raw takes with STOI (how much of speech's short-time envelope survives, 0 to 1), the close helm
+kept 0.70 of it on average and the clear helm keeps 0.86.
 
 | Step | What it does | Why |
 | --- | --- | --- |
 | declip | Rebuilds peaks the recorder flattened, with a curve through each flat top | Clipped shouts crackle, and grit makes it worse |
-| dereverb | Estimates how long the recording room rings (T60, capped at 0.85 s) and subtracts that late reverberation band by band, never more than 18 dB | The room's echo is what makes a take sound "stitched in from outside" |
-| expand | Sinks whatever is 30 dB under the loudest moment, 2.5 to 1 | The last of the room between and after the words |
-| pitch | 4.5 semitones down (the veteran's depth), same length | Deeper and bigger |
-| EQ | Proximity +3.5 dB at 150 Hz, chest +1.5 dB at 260 Hz, room boxiness −1.5 dB at 620 Hz, helm ring +1 dB at 1250 Hz, clarity +1.5 dB at 2.7 kHz, bite −1.5 dB at 4.5 kHz, lowpass 8 kHz | Close and chesty, a hint of steel, every word clear |
-| helm | Three faint reflections at 1.1, 2.3 and 3.7 ms (a tenth of the voice and less) | A touch of the great helm; the dry performance leads |
+| dereverb | Estimates how long the recording room rings (T60, capped at 0.85 s) and subtracts that late reverberation band by band, gently (at most 12 dB) | The room's echo is what makes a take sound "stitched in from outside"; a harder hand warbles |
+| gate | Silences whatever lies more than 120 ms from the words (lead-ins, pauses, the room after the last word); nothing near the words is touched | Quiet between phrases, while a soft "s", "f" or a final "t" survives |
+| pitch | 2 semitones down (same length), then the take's own spectral envelope put back | A little deeper, every vowel still the word it was |
+| EQ | Proximity +2 dB at 150 Hz, chest +1 dB at 260 Hz, mud −1.5 dB at 420 Hz, room boxiness −1 dB at 620 Hz, helm ring +0.5 dB at 1250 Hz, presence +3 dB at 2.6 kHz, air +1 dB at 5 kHz, lowpass 11 kHz | Close and chesty, the consonants forward |
+| helm | Three faint reflections at 1.1, 2.3 and 3.7 ms (six hundredths of the voice and less) | A touch of the great helm; the dry performance leads |
 | compress | 3 to 1 above 18 dB under the peak, 4 ms attack, 80 ms release | A shout is dense, not spiky |
-| grit | Gentle saturation (drive per line, about 2.5) | Battle-worn |
+| grit | A touch of saturation (drive per line, about 1.7) | Battle-worn, not buried |
 | loudness | Matched per line (−15 to −20 dB RMS), peaks under −1 dBFS | Every line sits at the same place in the mix |
 
 In the game: your own knight's lines are heard as they are (dry, full level). Other knights' are heard only near them
 (full level within 2.5 m, falling off with distance, silent beyond 16 m: `VOICE_HEARING` in
-`client/game/sound/voiceRules.mjs`), with a touch of the courtyard and no echo.
+`client/game/sound/voiceRules.mjs`), with a touch of the courtyard and no echo, each knight within half a semitone of
+the next. Under a spoken line the music and the wind give way a little (`VOICE_DUCK` in `SoundEngine.mjs`), and every
+spoken line is written out at the foot of the view (Settings, Sound, Subtitles; on by default).
 
 - Every line you process replaces that line's earlier takes.
 - `--preview` also writes each take as another knight a few metres away hears it (a touch of the courtyard) to
   `artifacts/voice-preview/`, so you can listen first.
-- `--semitones -3` goes less deep and `--semitones -5.5` goes deeper (the default is -4.5).
+- `--semitones -1.5` goes less deep and `--semitones -3` deeper (the default is -2; the formants stay put either way).
 - `--line sorcery` names the line for inputs whose file names don't (a window of a longer recording, `path:start-end`).
-- `--profile classic` is the earlier chain, without the declip, dereverb, expander and compressor.
-- `--drive 1.5` gives less grit and `--drive 3` gives more.
+- `--profile close` is the earlier, deeper chain (−4.5 semitones, formants and all); `--profile classic` the one before.
+- `--drive 1.5` gives less grit and `--drive 3` gives more (the clear helm uses four fifths of it).
 - The takes land in `client/assets/voice/` with `manifest.json`. Commit that folder and they are in the game.
 
 In the game, the knight grunts on some heavy swings and cries out when hurt or slain. About one cast in twelve gets

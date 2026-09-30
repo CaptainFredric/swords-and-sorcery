@@ -55,13 +55,13 @@ export const VOICE_LIBRARY = Object.freeze([
   {
     line: 'victory', title: 'Might Makes Knight', status: 'live',
     words: 'MIGHT MAKES… KNIGHT!',
-    when: 'Occasionally, after force has settled the argument.',
+    when: 'Occasionally, after force has settled the argument. Now and then, as Sunder All That Rusts is invoked.',
     note: 'The argument is not examined further.',
   },
   {
     line: 'sunderCall', title: 'Sunder All That Rusts', status: 'live',
     words: 'Your integrity will not suffice!',
-    when: 'When Sunder All That Rusts is invoked.',
+    when: 'Usually, when Sunder All That Rusts is invoked.',
     note: 'His definition of integrity is broad.',
   },
   {
@@ -223,6 +223,14 @@ export const VOICE_LIBRARY = Object.freeze([
     note: 'Too fast to comment.',
   },
 ].map((entry) => Object.freeze(entry)));
+
+const BY_LINE = new Map(VOICE_LIBRARY.map((entry) => [entry.line, entry]));
+
+/** A line's words as its subtitle shows them: null for anything without words (a grunt, a breath). */
+export function subtitleFor(line) {
+  const words = BY_LINE.get(line)?.words;
+  return words && !words.startsWith('(') ? words : null;
+}
 
 export const LIBRARY_STATUS = Object.freeze({
   live: 'IN THE GAME',
