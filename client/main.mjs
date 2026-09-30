@@ -687,6 +687,9 @@ $('#practice-reset').addEventListener('click', () => socket.practiceResetPlayer(
 $('#practice-passive').addEventListener('click', () => socket.practiceSpawnDummy('PASSIVE'));
 $('#practice-guarding').addEventListener('click', () => socket.practiceSpawnDummy('GUARDING'));
 $('#practice-fight').addEventListener('click', () => socket.practiceSpawnDummy('FIGHTS_BACK'));
+$('#practice-sorcery').addEventListener('click', () => socket.practiceSpawnDummy('SORCERY'));
+$('#practice-melee').addEventListener('click', () => socket.practiceSpawnDummy('MELEE'));
+$('#practice-runner').addEventListener('click', () => socket.practiceSpawnDummy('RUNNER'));
 $('#practice-remove').addEventListener('click', () => socket.practiceRemoveDummy());
 $('#practice-leave').addEventListener('click', () => clearSessionAndNavigate());
 

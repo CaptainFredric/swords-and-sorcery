@@ -3,11 +3,26 @@ import { guardProfile } from '../src/combat.mjs';
 import { cancelAttack, setGuard } from './combat.mjs';
 import { recordTransform } from './history.mjs';
 import { stepBotControllers } from './BotController.mjs';
+import { BOT_PROFILES } from './botBehavior.mjs';
 
 export const PRACTICE_DUMMY_MODES = Object.freeze({
   PASSIVE: 'PASSIVE',
   GUARDING: 'GUARDING',
   FIGHTS_BACK: 'FIGHTS_BACK',
+  SORCERY: 'SORCERY',
+  MELEE: 'MELEE',
+  RUNNER: 'RUNNER',
+});
+
+// the modes in which the dummy is a bot, and which kind: one controller plays each from its profile (botBehavior.mjs).
+// spell: what it carries (Mr. Melee's Sheathe in Steel; Spells & Sorcery turns through its own); aggression: how
+// eagerly the controller acts on its profile. None of it scores: Practice keeps no tally and ends no match, so nothing
+// here awards Renown.
+export const PRACTICE_OPPONENTS = Object.freeze({
+  FIGHTS_BACK: Object.freeze({ profile: 'rival', name: 'Training Dummy', spell: 'fireball', aggression: 0.55 }),
+  SORCERY: Object.freeze({ profile: 'caster', name: BOT_PROFILES.caster.name, spell: 'fireball', aggression: 0.7 }),
+  MELEE: Object.freeze({ profile: 'melee', name: BOT_PROFILES.melee.name, spell: 'steel', aggression: 0.62 }),
+  RUNNER: Object.freeze({ profile: 'runner', name: BOT_PROFILES.runner.name, spell: 'fireball', aggression: 0.7 }),
 });
 
 const VALID_DUMMY_MODES = new Set(Object.values(PRACTICE_DUMMY_MODES));
@@ -134,6 +149,11 @@ export function setPracticeDummyMode(room, mode, nowSec = 0) {
   dummy.input = neutralInput(dummy);
   dummy.ai = null;
   dummy.practiceMode = mode;
+  const opponent = PRACTICE_OPPONENTS[mode];
+  dummy.botProfile = opponent?.profile ?? null;
+  dummy.name = opponent?.name ?? 'Training Dummy';
+  dummy.spell = opponent?.spell ?? 'fireball';
+  dummy.steel = null;
 
   if (mode === PRACTICE_DUMMY_MODES.GUARDING && dummy.alive && dummy.guardStamina > 0) {
     if (setGuard(room, dummy.id, true, nowSec)) {
@@ -167,11 +187,12 @@ export function stepPracticeActors(room, nowSec, world = room.world, { random = 
     return;
   }
 
-  if (dummy.practiceMode === PRACTICE_DUMMY_MODES.FIGHTS_BACK) {
+  const opponent = PRACTICE_OPPONENTS[dummy.practiceMode];
+  if (opponent) {
     stepBotControllers(room, nowSec, world, {
       random,
       actorKinds: ['dummy'],
-      aggression: 0.55,
+      aggression: opponent.aggression,
     });
   }
 }

@@ -43,34 +43,113 @@ test('the rival is the default kind, and it fights as it always has', () => {
   assert.equal(rival.dash, 0.12);
 });
 
-test('bot kinds are data: the Blade Duelist never casts, the Spellcaster never swings, Sir Runs-a-Lot keeps away', () => {
-  assert.equal(BOT_PROFILES.duelist.spells, false);
+// a bot of a kind against a Spellblade who stands and watches, from `start` metres; what it did, and where it went
+function runKind(kind, start, { seconds = 6, foe = () => {}, seed = 5 } = {}) {
+  const { room, human, bot } = botDuel(kind);
+  bot.spellReadyAt = 0;
+  if (BOT_PROFILES[kind]?.ward) bot.spell = BOT_PROFILES[kind].ward;
+  Object.assign(human.position, { x: 0, y: 0, z: 0 });
+  Object.assign(bot.position, { x: 0, y: 0, z: -start });
+  const random = lcg(seed);
+  const did = { swung: false, cast: new Set(), steelAt: null, dashes: [], nearest: Infinity, across: 0, away: 0, inReach: 0 };
+  let last = { ...bot.position };
+  for (let now = 4; now < 4 + seconds; now += TICK) {
+    foe(human, now, room);
+    stepBotControllers(room, now, room.world, { random });
+    for (const event of stepRoom(room, TICK, now, room.world).splice(0)) {
+      if (event.playerId !== bot.id) continue;
+      if (event.type === 'swordSwing') did.swung = true;
+      if (event.type === 'dash') did.dashes.push({ at: now, distance: Math.hypot(bot.position.x - human.position.x, bot.position.z - human.position.z) });
+      if (event.type === 'spellCast') did.cast.add(event.spell);
+      if (event.type === 'steelOn' && did.steelAt === null) did.steelAt = { at: now, distance: Math.hypot(bot.position.x, bot.position.z) };
+    }
+    human.health = 100;
+    bot.health = 100;
+    // how it moved: along the line from its foe (away) and across it
+    const r = Math.hypot(bot.position.x, bot.position.z) || 1;
+    const step = { x: bot.position.x - last.x, z: bot.position.z - last.z };
+    did.away += (step.x * bot.position.x + step.z * bot.position.z) / r;
+    did.across += Math.abs((step.x * -bot.position.z + step.z * bot.position.x) / r);
+    last = { ...bot.position };
+    const apart = Math.hypot(bot.position.x - human.position.x, bot.position.z - human.position.z);
+    did.nearest = Math.min(did.nearest, apart);
+    if (apart <= 2.25) did.inReach += TICK / seconds;
+  }
+  return did;
+}
+
+test('bot kinds are data: Mr. Melee never throws a spell, Spells & Sorcery never swings, Sir Runs-a-Lot keeps away', () => {
+  assert.equal(BOT_PROFILES.melee.spells, false);
+  assert.equal(BOT_PROFILES.melee.ward, 'steel');
   assert.equal(BOT_PROFILES.caster.sword, false);
   assert.ok(BOT_PROFILES.runner.flee && !BOT_PROFILES.runner.sword && !BOT_PROFILES.runner.spells);
-  const run = (kind, start) => {
-    const { room, human, bot } = botDuel(kind);
-    bot.spellReadyAt = 0;
-    Object.assign(human.position, { x: 0, y: 0, z: 0 });
-    Object.assign(bot.position, { x: 0, y: 0, z: -start });
-    const random = lcg(5);
-    const did = { swung: false, cast: false, nearest: Infinity };
-    for (let now = 4; now < 10; now += TICK) {
-      stepBotControllers(room, now, room.world, { random });
-      for (const event of stepRoom(room, TICK, now, room.world).splice(0)) {
-        if (event.playerId === bot.id && event.type === 'swordSwing') did.swung = true;
-        if (event.playerId === bot.id && event.type === 'spellCast') did.cast = true;
-      }
-      if (bot.spellReadyAt < now) bot.spellReadyAt = 0;
-      did.nearest = Math.min(did.nearest, Math.hypot(bot.position.x - human.position.x, bot.position.z - human.position.z));
-    }
-    return did;
-  };
-  const duelist = run('duelist', 3);
-  assert.ok(duelist.swung && !duelist.cast, 'the Blade Duelist: steel only');
-  const caster = run('caster', 7);
-  assert.ok(caster.cast && !caster.swung, 'the Spellcaster: spells only');
-  const runner = run('runner', 4);
-  assert.ok(!runner.swung && !runner.cast && runner.nearest > 3, `Sir Runs-a-Lot keeps his distance (${runner.nearest.toFixed(2)})`);
+  const melee = runKind('melee', 3);
+  assert.ok(melee.swung, 'Mr. Melee: the sword');
+  // and from just beyond reach it lunges in
+  const lunges = [1, 2, 3, 4, 5, 6, 7, 8].filter((seed) => runKind('melee', 7, { seconds: 1.2, seed }).dashes.length).length;
+  assert.ok(lunges >= 3, `Mr. Melee lunges in (${lunges} of 8 approaches)`);
+  assert.deepEqual([...melee.cast], [], 'and no spell thrown');
+  const caster = runKind('caster', 7);
+  assert.ok(caster.cast.size && !caster.swung, 'Spells & Sorcery: spells only');
+  const runner = runKind('runner', 4);
+  assert.ok(!runner.swung && !runner.cast.size && runner.nearest > 3, `Sir Runs-a-Lot keeps his distance (${runner.nearest.toFixed(2)})`);
+});
+
+test('Spells & Sorcery turns through its spells, keeps its casting distance, and has them back sooner', () => {
+  const caster = runKind('caster', 8, { seconds: 14 });
+  assert.ok(caster.cast.has('fireball') && caster.cast.has('frostfire'), `cast: ${[...caster.cast].join(', ')}`);
+  assert.ok(caster.nearest > 4, `it kept off (${caster.nearest.toFixed(2)} m at nearest)`);
+  // a cast comes back in 0.65 of a knight's time
+  const { room, bot } = botDuel('caster');
+  Object.assign(bot.position, { x: 0, y: 0, z: -8 });
+  bot.spellReadyAt = 0;
+  const always = () => 0;
+  let castAt = null;
+  for (let now = 4; now < 6 && castAt === null; now += TICK) {
+    stepBotControllers(room, now, room.world, { random: always });
+    if (bot.pendingSpell) castAt = now;
+    stepRoom(room, TICK, now, room.world).splice(0);
+  }
+  assert.ok(castAt !== null, 'it cast');
+  const knightCooldown = { fireball: 4, frostfire: 4.5, gale: 6 }[bot.ai.lastSpell];
+  assert.ok(Math.abs(bot.spellReadyAt - castAt - knightCooldown * BOT_PROFILES.caster.spellCooldown) < 1e-6);
+});
+
+test('Sir Runs-a-Lot makes you chase: away at an angle, cutting back and forth, never a straight backpedal', () => {
+  let sides = 0;
+  let side = null;
+  const runner = runKind('runner', 5, {
+    seconds: 10,
+    // a foe who runs straight at it (not sprinting)
+    foe: (human, now, room) => {
+      const bot = [...room.players.values()].find((p) => p.actorKind === 'bot');
+      const yaw = Math.atan2(-(bot.position.x - human.position.x), -(bot.position.z - human.position.z));
+      human.input = { forward: 1, right: 0, jump: false, sprint: false, yaw, pitch: 0 };
+      human.yaw = yaw;
+      if (bot.ai?.strafeDirection && bot.ai.strafeDirection !== side) { side = bot.ai.strafeDirection; sides += 1; }
+    },
+  });
+  assert.ok(runner.across > 0.4 * runner.away, `across ${runner.across.toFixed(1)} m against away ${runner.away.toFixed(1)} m`);
+  assert.ok(sides >= 3, `it cut back and forth (${sides - 1} times)`);
+  // a knight at a run seldom has it in reach (one at a sprint will: that is how you catch a runner)
+  assert.ok(runner.inReach < 0.2, `in reach ${(runner.inReach * 100).toFixed(0)}% of the time`);
+});
+
+test('Mr. Melee hardens as a fight begins, not at nothing', () => {
+  // a foe far off and still: no Steel
+  const idle = runKind('melee', 14, {
+    seconds: 3,
+    // (held there: however it wants to close, it is not yet in a fight)
+    foe: (human, now, room) => {
+      const bot = [...room.players.values()].find((p) => p.actorKind === 'bot');
+      Object.assign(bot.position, { x: 0, y: 0, z: -14 });
+    },
+  });
+  assert.equal(idle.steelAt, null, 'nothing to harden against');
+  // it closes in: Steel as the blades come into reach, not before
+  const fight = runKind('melee', 9, { seconds: 6 });
+  assert.ok(fight.steelAt, 'it hardened');
+  assert.ok(fight.steelAt.distance <= 3.5, `as the fight began (${fight.steelAt.distance.toFixed(2)} m)`);
 });
 
 test('a bot never reads its foe\'s buttons: at every moment of a fight, what they hold changes nothing it decides', () => {

@@ -27,6 +27,11 @@ const PROPS = Object.freeze([
   { kind: 'pennant', x: 11.0, z: -7.8, height: 3.4 }, { kind: 'pennant', x: 16.6, z: -7.8, height: 3.4 },
   ].map((prop, index) => Object.freeze({ id: `prop-${index}`, ...prop })));
 
+// a waypoint for bots finding their way (feet)
+function nav(id, x, y, z) {
+  return Object.freeze({ id, x, y, z });
+}
+
 export const CASTLEWARD = Object.freeze({
   id: 'castleward',
   name: 'Castleward',
@@ -164,9 +169,9 @@ export const CASTLEWARD = Object.freeze({
     spawn(-6.0, 0, -4.5),
     spawn(6.0, 0, -4.5),
     spawn(-6.5, 0, 4.0),
-    spawn(6.5, 0, 4.0),
+    spawn(7.4, 0, 3.6),
     spawn(-18.0, 0, -1.0),
-    spawn(-14.0, 0, 7.0),
+    spawn(-13.5, 0, 1.8),
     spawn(19.0, 0, -4.5),
     spawn(19.0, 0, 3.0),
     spawn(-2.5, 0, -18.5),
@@ -176,6 +181,29 @@ export const CASTLEWARD = Object.freeze({
     spawn(8.5, 0, -12.5, 14.5, -15),
     spawn(20.5, 0, -15.5, 14.5, -15),
   ],
+  // where bots find their way round (shared/sim/botNav.mjs): the middle of each open space, each gate, each end of a
+  // ramp; linked wherever a knight could run straight between them
+  navigation: Object.freeze({
+    nodes: Object.freeze([
+      // the green and the castle approach
+      nav('green', 0, 0, 3), nav('green-south', 0, 0, -5.5), nav('green-east', 6.5, 0, -1), nav('green-west', -6.5, 0, 2.5),
+      nav('approach', 0, 0, 10.5), nav('approach-west', -7, 0, 9), nav('approach-east', 7, 0, 9),
+      // up the ramp to the bailey, and up to each wall walk
+      nav('ramp-top', 0, 2.5, 19.5), nav('bailey', 0, 2.5, 23), nav('bailey-west', -4.8, 2.5, 17.75), nav('bailey-east', 4.8, 2.5, 17.75),
+      nav('west-walk-foot', -7, 2.5, 17.75), nav('west-walk', -7.4, 4, 22.5),
+      nav('east-walk-foot', 7, 2.5, 17.75), nav('east-walk', 7.4, 4, 22.5),
+      // the west village
+      nav('village', -12, 0, 0), nav('village-west', -18.5, 0, 0.5), nav('village-south', -12.5, 0, -5.5), nav('village-north', -12, 0, 8.5),
+      // the east meadow and the chapel
+      nav('meadow', 12, 0, 0), nav('meadow-east', 18.5, 0, 1.5), nav('chapel', 18, 0, 5), nav('meadow-north', 12, 0, 9.5),
+      // the south road and the bridge
+      nav('road', 0, 0, -11), nav('road-south', 0, 0, -18.5), nav('south-gate', 0, 0, -22.6), nav('bridge', 0, 0, -25.5),
+      // the tourney field, through its gate
+      nav('tourney-gate-north', 13.8, 0, -5.5), nav('tourney-gate-south', 13.8, 0, -10), nav('tourney', 13.5, 0, -15),
+      nav('tourney-west', 7.5, 0, -14), nav('tourney-southwest', 7.5, 0, -20.5), nav('tourney-east', 21, 0, -12.5),
+      nav('tourney-south', 14, 0, -20.5),
+    ]),
+  }),
   navigationHints: Object.freeze([
     { id: 'green-to-bailey', from: [0, 0, 5], to: [0, 2.5, 22], kind: 'run-ramp' },
     { id: 'green-to-west', from: [-7, 0, 1], to: [-17, 0, 1], kind: 'run' },
