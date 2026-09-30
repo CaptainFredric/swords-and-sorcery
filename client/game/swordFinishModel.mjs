@@ -3,11 +3,11 @@
 
 // the kit's colours for the sword's parts (linear), and what each becomes (linear)
 export const SWORD_FINISH = Object.freeze([
-  { part: 'blade', from: [0.40, 0.37, 0.64], to: [0.6, 0.64, 0.7] },
-  { part: 'ridge', from: [0.32, 0.30, 0.52], to: [0.47, 0.52, 0.58] },
+  { part: 'blade', from: [0.40, 0.37, 0.64], to: [0.34, 0.355, 0.38] },
+  { part: 'ridge', from: [0.32, 0.30, 0.52], to: [0.23, 0.245, 0.27] },
   { part: 'binding', from: [0.08, 0.07, 0.13], to: [0.05, 0.052, 0.062] },
-  { part: 'guard', from: [1.00, 0.66, 0.59], to: [0.6, 0.38, 0.085] },
-  { part: 'guard shade', from: [0.85, 0.54, 0.48], to: [0.36, 0.21, 0.042] },
+  { part: 'guard', from: [1.00, 0.66, 0.59], to: [0.4, 0.27, 0.09] },
+  { part: 'guard shade', from: [0.85, 0.54, 0.48], to: [0.23, 0.145, 0.05] },
 ]);
 
 /** The finished colour for a sword vertex of this kit colour (linear rgb), or the colour itself if it is none of them. */

@@ -162,7 +162,8 @@ test('each strike\'s blade crosses the middle of the view at its contact, moving
       const b = seen(list[i].pose.arm).midOnScreen[axis];
       if ((a > 0) !== (b > 0)) { crossed = list[i - 1].t + FRAME * (a / (a - b)); break; }
     }
-    const lead = strike < 2 ? 0 : MELEE_CONTACT.chopLead;
+    // (the chop's arms bring the blade down through body height a moment before its contact)
+    const lead = strike < 2 ? 0 : 0.02;
     assert.ok(crossed !== null && Math.abs(crossed - (contact - lead)) < 0.03, `strike ${strike + 1} crosses the middle at ${crossed?.toFixed(3)} (contact ${contact})`);
     // and it is at its fastest round the contact, not in its windup or its follow-through
     let fastest = { t: 0, speed: 0 };

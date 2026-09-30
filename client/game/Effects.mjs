@@ -275,6 +275,17 @@ export class Effects {
     this.sparks(point, 0xffd48a, 14);
   }
 
+  /** Splinters and dust knocked off timber by a blade. */
+  splinters(point, count = 10) {
+    const materials = [this.#basicMaterial(0x8a6a44), this.#basicMaterial(0xb89868)];
+    for (let i = 0; i < count; i += 1) {
+      const mesh = new THREE.Mesh(this.chipGeometry, materials[i % 2]);
+      mesh.position.set(point.x, point.y, point.z);
+      const dir = new THREE.Vector3(Math.random() - 0.5, Math.random() * 0.7 + 0.2, Math.random() - 0.5).normalize();
+      this.#addTransient(mesh, { velocity: dir.multiplyScalar(2 + Math.random() * 2.5), life: 0.45 + Math.random() * 0.3, gravity: 9, spin: new THREE.Vector3(9, 6, 7) });
+    }
+  }
+
   /**
    * A sword landing on a body: a slash arc along the stroke, a white-hot flash, hot sparks thrown along the blow and
    * a few chips of armour. strike: combo index (2 = the heavy third strike); dir: the blow's direction (attacker to victim).

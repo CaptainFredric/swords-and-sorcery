@@ -1,5 +1,5 @@
 import {
-  GAME, MELEE_CONTACT, SWORD_CHAIN, SWORD_STRIKE_TIMES, bladeAngleAt, closingImpact, guardProfile, meleeContactQuality, nextChainStep,
+  GAME, MELEE_CONTACT, SWORD_CHAIN, SWORD_STRIKE_TIMES, closingImpact, guardProfile, nextChainStep,
   resolveSwordVsGuard, swordDamageFor,
 } from '../src/combat.mjs';
 import { blastDamage, blastDistance, burnFrom, chillFrom, chillScale, spellExposure, spellFor, strongerChill } from '../src/spells.mjs';
@@ -7,7 +7,8 @@ import { callSteel, steelBlunt, steelExposure, steelQuality, steelTakes } from '
 import { galeOnBody, galeRecoil, galeShove } from '../src/gale.mjs';
 import { GAUNTLET, gauntletGeometry, gauntletTarget, withinGauntlet } from '../src/gauntlet.mjs';
 import { postureOf } from '../src/body.mjs';
-import { findSwordWorldHit, segmentAabbHit, surfaceHeightAt } from '../src/collision.mjs';
+import { segmentAabbHit, surfaceHeightAt } from '../src/collision.mjs';
+import { aimFrame, aimQuality, bladeDirection, offAimDegrees, sweepBlade } from '../src/blade.mjs';
 import { SPRINT, launchBody, movePlayer, resolveSprint, shoveBody, tryStartDash } from '../src/movement.mjs';
 import { separatePlayers } from '../src/separation.mjs';
 import { chooseSpawn } from './spawns.mjs';
@@ -366,18 +367,22 @@ function recoilFromWall(attacker, hit, nowSec, room) {
     point: { x: hit.point[0], y: hit.point[1], z: hit.point[2] },
     normal: { x: hit.normal[0], y: hit.normal[1], z: hit.normal[2] },
     surfaceId: hit.box.id,
+    // what the blade struck (stone rings and sparks; timber thunks; a hedge or cloth only takes it)
+    material: hit.box.material ?? 'stone',
     at: nowSec,
   });
 }
 
 // --- the sword strike -------------------------------------------------------------------------------------------
-// A strike is live for a short stretch around its contact (MELEE_CONTACT.window): its blade sweeps across the legal
-// arc (the third comes straight down), and the first body it meets takes the blow. Where the body sat in the arc and
-// how far into the swing it was met decide how cleanly it lands; how hard the two were closing adds to the impact.
-// Everything is judged on the lag-compensated transforms of the moment (history.mjs), a sixtieth of a second apart.
+// A strike is live for a short stretch around its contact (MELEE_CONTACT.window): its blade (shared/src/blade.mjs)
+// sweeps through the strike's arc in the attacker's view, and the first thing it passes through takes it: a knight
+// takes the blow; anything solid stops the blade (it rings off, and the knight recoils), and nothing beyond it is
+// touched. How cleanly a knight is caught is how far off the attacker's aim they were; how hard the two were closing
+// adds to the impact. Everything is judged on the lag-compensated transforms of the moment (history.mjs), a sixtieth
+// of a second apart, and the blade is swept between those moments in steps of a couple of degrees (it cannot pass
+// through anything between them).
 
 const SWEEP_STEP = 1 / 60;
-const ARC_TOLERANCE = 3 * Math.PI / 180;
 
 // the next moment to judge after `after`: the live stretch in even steps of about SWEEP_STEP, the contact itself
 // always one of them
@@ -396,99 +401,56 @@ function strikeWindow(player, strike) {
   return { contact, from: contact - MELEE_CONTACT.window.early, to: contact + MELEE_CONTACT.window.late };
 }
 
-// a target's place in a strike seen from the attacker at `atSec`: angle off the facing (+ to the attacker's left),
-// distance, how far below and above the attacker's aim the body runs (degrees: whether the blade's band can meet it),
-// and whether anything solid stands between them. Both bodies as they stood or crouched then.
-function strikeGeometry(attackerTransform, target, atSec, world) {
-  const targetTransform = transformFor(target, atSec);
-  const attackerBody = postureOf(attackerTransform);
-  const targetBody = postureOf(targetTransform);
-  const dx = targetTransform.position.x - attackerTransform.position.x;
-  const dz = targetTransform.position.z - attackerTransform.position.z;
-  const dy = (targetTransform.position.y + targetBody.center) - (attackerTransform.position.y + attackerBody.eye);
-  const horizontal = Math.hypot(dx, dz);
-  // the body from its feet to its crown, as seen from the attacker's view against where they aim
-  const view = attackerTransform.position.y + attackerBody.camera;
-  const aim = (attackerTransform.pitch ?? 0) * 180 / Math.PI;
-  const toward = (y) => Math.atan2(y - view, Math.max(horizontal, 1e-3)) * 180 / Math.PI - aim;
-  const f = forwardFromYaw(attackerTransform.yaw);
-  const across = dx * -f.z + dz * f.x;
-  const along = dx * f.x + dz * f.z;
+// a knight's eyes and aim at a moment (lag-compensated): where the blade swings from, and where they look from
+function bladeOrigin(transform) {
+  const body = postureOf(transform);
+  const at = transform.position;
   return {
-    angle: Math.atan2(-across, along),
-    distance: Math.hypot(horizontal, dy),
-    horizontal,
-    below: toward(targetTransform.position.y + 0.1),
-    above: toward(targetTransform.position.y + targetBody.crown),
-    direction: horizontal > 1e-6 ? { x: dx / horizontal, z: dz / horizontal } : { x: f.x, z: f.z },
-    blocked: () => targetBlockedByWorld(attackerTransform, targetTransform, world),
+    eye: { x: at.x, y: at.y + body.eye, z: at.z },
+    view: { x: at.x, y: at.y + body.camera, z: at.z },
+    frame: aimFrame(transform.yaw, transform.pitch ?? 0),
   };
-}
-
-// whether a strike's blade, passing through its band below and above the aim, can meet a body placed so (a body that
-// the blade passes wholly over, or under, is not met: a crouch under a swing aimed high, say)
-function withinBand(strike, g) {
-  const [down, up] = MELEE_CONTACT.bandDeg[strike] ?? [-90, 90];
-  return g.above >= down && g.below <= up;
 }
 
 /** Begin a strike's live stretch (its swing is heard from here). */
 function openStrike(room, player, strike, nowSec) {
   player.attackOpened = strike;
   const window = strikeWindow(player, strike);
-  const sweep = MELEE_CONTACT.sweep[strike] ?? 0;
-  const half = MELEE_CONTACT.arcHalfDeg * Math.PI / 180;
-  player.attackSweep = { strike, sampledTo: window.from, bladeAngle: sweep ? sweep * -half : 0, wallChecked: false };
+  player.attackSweep = { strike, sampledTo: window.from, direction: null };
   room.events.push({ type: 'swordSwing', playerId: player.id, strikeIndex: strike, at: nowSec });
 }
 
-/** Carry a live strike's sweep on to `nowSec`: it meets a body, meets a wall, or runs out (a miss). */
+/** Carry a live strike's sweep on to `nowSec`: it meets a body, meets something solid, or runs out (a miss). */
 function sweepStrike(room, player, nowSec, world) {
   const live = player.attackSweep;
   if (!live) return;
   const window = strikeWindow(player, live.strike);
-  const half = MELEE_CONTACT.arcHalfDeg * Math.PI / 180;
-  const sweep = MELEE_CONTACT.sweep[live.strike] ?? 0;
   const until = Math.min(nowSec, window.to);
+  const solids = world.solids ?? [];
   while (player.attackSweep === live && live.sampledTo < until - 1e-9) {
     const at = Math.min(until, nextSample(window, live.sampledTo));
-    const dt = at - window.contact;
-    const bladeAngle = bladeAngleAt(live.strike, dt);
-    const attackerTransform = transformFor(player, at);
-    let best = null;
-    // a chop meets whatever is in the arc once it is down at body height; a sweep, whoever its blade passes
-    const chopping = !sweep && dt >= -MELEE_CONTACT.chopLead;
-    const low = Math.min(live.bladeAngle, bladeAngle) - ARC_TOLERANCE;
-    const high = Math.max(live.bladeAngle, bladeAngle) + ARC_TOLERANCE;
-    if (sweep || chopping) {
-      for (const target of room.players.values()) {
-        if (target.id === player.id || !target.alive) continue;
-        const g = strikeGeometry(attackerTransform, target, at, world);
-        if (g.distance > GAME.swordRange || g.horizontal < 1e-6 || Math.abs(g.angle) > half) continue;
-        if (!withinBand(live.strike, g)) continue;
-        if (sweep && (g.angle < low || g.angle > high)) continue;
-        if (g.blocked()) continue;
-        if (!best || g.distance < best.g.distance) best = { target, g };
-      }
+    const { eye, frame } = bladeOrigin(transformFor(player, at));
+    // (the blade is carried round with the knight as they turn: where it was is where it was in their hands)
+    const from = live.direction ?? bladeDirection(live.strike, live.sampledTo - window.contact, frame);
+    const to = bladeDirection(live.strike, at - window.contact, frame);
+    const bodies = [];
+    for (const target of room.players.values()) {
+      if (target.id === player.id || !target.alive) continue;
+      const placed = transformFor(target, at);
+      bodies.push({ id: target.id, base: placed.position, top: postureOf(placed).crown });
     }
+    const met = sweepBlade(eye, from, to, bodies, solids);
     live.sampledTo = at;
-    live.bladeAngle = bladeAngle;
-    if (best) {
+    live.direction = to;
+    if (met?.kind === 'body') {
       player.attackSweep = null;
-      landStrike(room, player, live.strike, best.target, best.g, at, nowSec);
+      landStrike(room, player, live.strike, room.players.get(met.id), at, nowSec);
       return;
     }
-    // at the contact with nobody met yet, a wall in the way stops the blade (and the knight recoils)
-    if (!live.wallChecked && dt >= -1e-9) {
-      live.wallChecked = true;
-      const f = forwardFromYaw(attackerTransform.yaw);
-      const origin = [attackerTransform.position.x, attackerTransform.position.y + postureOf(attackerTransform).eye, attackerTransform.position.z];
-      const worldHit = findSwordWorldHit(origin, [f.x, 0, f.z], GAME.swordRange, world.solids ?? []);
-      if (worldHit) {
-        player.attackSweep = null;
-        recoilFromWall(player, worldHit, nowSec, room);
-        return;
-      }
+    if (met?.kind === 'solid') {
+      player.attackSweep = null;
+      recoilFromWall(player, { point: [met.point.x, met.point.y, met.point.z], normal: met.normal, box: met.solid }, nowSec, room);
+      return;
     }
   }
   if (player.attackSweep === live && live.sampledTo >= window.to - 1e-9) {
@@ -498,13 +460,22 @@ function sweepStrike(room, player, nowSec, world) {
 }
 
 /** The blow lands on `target`: parried, blocked or a hit, as cleanly and as hard as it was met. */
-function landStrike(room, attacker, strikeIndex, target, g, atSec, nowSec) {
+function landStrike(room, attacker, strikeIndex, target, atSec, nowSec) {
   if (target.spawnProtectionUntil > nowSec) {
     room.events.push({ type: 'swordProtected', playerId: attacker.id, targetId: target.id, strikeIndex, at: nowSec });
     return;
   }
-  const window = strikeWindow(attacker, strikeIndex);
-  const quality = meleeContactQuality({ angle: g.angle, distance: g.distance, reach: GAME.swordRange, dt: atSec - window.contact });
+  const attackerTransform = transformFor(attacker, atSec);
+  const targetTransform = transformFor(target, atSec);
+  const { view, frame } = bladeOrigin(attackerTransform);
+  // how cleanly: how far off the aim they were as the blade met them
+  const offAim = offAimDegrees(view, frame.forward, targetTransform.position, postureOf(targetTransform).crown);
+  const quality = aimQuality(offAim);
+  const dx = targetTransform.position.x - attackerTransform.position.x;
+  const dz = targetTransform.position.z - attackerTransform.position.z;
+  const horizontal = Math.hypot(dx, dz);
+  const f = forwardFromYaw(attackerTransform.yaw);
+  const g = { direction: horizontal > 1e-6 ? { x: dx / horizontal, z: dz / horizontal } : { x: f.x, z: f.z } };
   // how hard they were closing on each other along the line between them
   const closing = ((attacker.velocity?.x ?? 0) - (target.velocity?.x ?? 0)) * g.direction.x
     + ((attacker.velocity?.z ?? 0) - (target.velocity?.z ?? 0)) * g.direction.z;
@@ -545,18 +516,22 @@ function landStrike(room, attacker, strikeIndex, target, g, atSec, nowSec) {
   target.steel = steelTakes(target.steel, nowSec);
   const damage = swordDamageFor(armour.quality);
   applyDamage(room, attacker.id, target.id, damage, 'sword', nowSec, push, {
-    steel: armour.strength, turned: swordDamageFor(quality) - damage,
+    steel: armour.strength, turned: swordDamageFor(quality) - damage, clean: armour.quality >= CLEAN_CONTACT.sword,
   });
   room.events.push({
     type: 'swordHit', playerId: attacker.id, targetId: target.id, strikeIndex, quality: armour.quality, impact, steel: armour.strength, at: nowSec,
   });
 }
 
+// how clean a contact must be (as it was felt: after any hardened plate) to count as the cleanest there is, for the
+// precise ring that marks it: a sword blow caught dead centre, a spell square on, a gust's heart at point blank
+export const CLEAN_CONTACT = Object.freeze({ sword: 0.91, spell: 0.9, gale: 0.85 });
+
 /**
  * `steel`: how strong the victim's hardened plate was as the blow met it (0: none), for the clang it makes; `turned`:
- * the damage the plate took off the blow, for its owner to see.
+ * the damage the plate took off the blow, for its owner to see; `clean`: the contact was the cleanest there is.
  */
-export function applyDamage(room, attackerId, victimId, amount, source, nowSec, knockback = null, { steel = 0, turned = 0 } = {}) {
+export function applyDamage(room, attackerId, victimId, amount, source, nowSec, knockback = null, { steel = 0, turned = 0, clean = false } = {}) {
   const victim = room.players.get(victimId);
   if (!victim || !victim.alive || victim.spawnProtectionUntil > nowSec) return false;
   victim.health = Math.max(0, victim.health - amount);
@@ -571,6 +546,7 @@ export function applyDamage(room, attackerId, victimId, amount, source, nowSec, 
     event.steel = steel;
     event.turned = Math.max(0, Math.round(turned));
   }
+  if (clean) event.clean = true;
   room.events.push(event);
   if (victim.health <= 0) killPlayer(room, victimId, attackerId, source, nowSec);
   return true;
@@ -711,7 +687,9 @@ function blowGale(room, player, nowSec, world) {
     const damage = Math.round(spell.cone.damage * armour.exposure);
     if (damage >= 1) {
       const turned = Math.round(spell.cone.damage * exposure) - damage;
-      applyDamage(room, player.id, target.id, damage, spell.id, nowSec, shove, { steel: armour.strength, turned });
+      applyDamage(room, player.id, target.id, damage, spell.id, nowSec, shove, {
+        steel: armour.strength, turned, clean: armour.exposure >= CLEAN_CONTACT.gale,
+      });
     } else {
       shoveBody(target, shove);
       target.lastAttackerId = player.id;
@@ -746,7 +724,7 @@ function explodeSpell(room, projectile, point, nowSec, worldHit = false, directV
     const away = normalize3({ x: center.x - point.x, y: Math.max(0.15, center.y - point.y), z: center.z - point.z });
     const hit = applyDamage(room, projectile.ownerId, player.id, amount, spell.id, nowSec, {
       x: away.x * 4.3 * shove, y: away.y * 2.3 * shove, z: away.z * 4.3 * shove,
-    }, { steel: armour.strength, turned: blastDamage(spell, bare) - amount });
+    }, { steel: armour.strength, turned: blastDamage(spell, bare) - amount, clean: exposure >= CLEAN_CONTACT.spell });
     if (!hit || !player.alive) continue;
     // a fresh burn replaces one already licking (it never stacks); a blast too far out to catch leaves any burn be
     const burn = burnFrom(spell, exposure, projectile.ownerId, nowSec);

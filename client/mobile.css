@@ -76,7 +76,8 @@ button, input { touch-action: manipulation; }
 .touch-ui .bottom-hud { top: 9px; bottom: auto; left: calc(var(--safe-l) + 104px); right: auto; display: block; }
 .touch-ui .health-block { width: 150px; }
 .touch-ui .health-label { font-size: 13px; margin-bottom: 3px; }
-.touch-ui .health-track { height: 9px; }
+.touch-ui .health-track { height: 10px; }
+.touch-ui .guard-track { height: 7px; }
 .touch-ui .guard-block { position: static; transform: none; width: 150px; margin-top: 6px; }
 .touch-ui .guard-block span { font-size: 8px; }
 .touch-ui .abilities { display: none; }

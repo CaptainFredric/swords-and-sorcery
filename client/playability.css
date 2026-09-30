@@ -93,6 +93,47 @@
 .low-health.on { animation: low-health 1.15s ease-in-out infinite; }
 @keyframes low-health { 0%, 100% { opacity: calc(.18 + .25 * var(--low)); } 18% { opacity: calc(.32 + .45 * var(--low)); } 34% { opacity: calc(.2 + .3 * var(--low)); } 48% { opacity: calc(.28 + .4 * var(--low)); } }
 @media (prefers-reduced-motion: reduce) { .low-health.on { animation: none; opacity: calc(.2 + .3 * var(--low)); } }
+/* the health and stamina bars, as the rest of the kit: an iron well framed in dark iron, a brass cap riveted at each
+   end, the health in deep blood red with a hairline mark every quarter, the stamina slimmer, marked every block it can
+   still take. Read at a glance first; the smithing stays at the edges */
+.health-label { display: flex; align-items: baseline; gap: 5px; text-shadow: 0 1px 2px rgba(0, 0, 0, .8); }
+.health-label small { font: 800 10px/1 Georgia, serif; letter-spacing: .18em; color: #cdb57a; }
+.health-track {
+  height: 14px; border: 1px solid #0a0907; border-radius: 2px;
+  background: linear-gradient(180deg, #0c0b09, #1c1a15);
+  box-shadow: 0 0 0 2px #45433c, 0 0 0 3px #16150f, 0 2px 6px 3px rgba(0, 0, 0, .45), inset 0 2px 3px rgba(0, 0, 0, .75);
+}
+.health-fill { background: linear-gradient(180deg, #e0685a 0, #b23a30 45%, #7e231d 100%); box-shadow: inset 0 1px 0 rgba(255, 210, 190, .35); }
+.health-trail { background: linear-gradient(180deg, #c9887c, #8c4d45); }
+.health-track::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 1;
+  background: repeating-linear-gradient(90deg, transparent 0 calc(25% - 1px), rgba(8, 6, 4, .55) calc(25% - 1px) 25%);
+}
+/* the brass caps at the bar's ends, riveted */
+.health-armour::before, .health-armour::after {
+  content: ""; position: absolute; top: -4px; bottom: -4px; width: 7px; z-index: 2; pointer-events: none; border-radius: 1px;
+  background:
+    radial-gradient(circle at 50% 50%, #f6e2a6 0 1px, #7a5a22 1.6px, transparent 2.3px) center / 7px 7px no-repeat,
+    linear-gradient(90deg, #6d5020, #c69a45 45%, #8a672a);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .6);
+}
+.health-armour::before { left: -6px; }
+.health-armour::after { right: -6px; }
+.guard-block span { color: #cdb57a; letter-spacing: .2em; text-shadow: 0 1px 2px rgba(0, 0, 0, .8); }
+.guard-track {
+  position: relative; height: 8px; border: 1px solid #0a0907; border-radius: 2px; margin-top: 6px;
+  background: linear-gradient(180deg, #0c0b09, #1a1c18);
+  box-shadow: 0 0 0 2px #3d3c36, 0 0 0 3px #14130e, inset 0 1px 2px rgba(0, 0, 0, .8);
+}
+.guard-fill { background: linear-gradient(180deg, #8fe0ec, #4fa9bd 55%, #2f7486); box-shadow: inset 0 1px 0 rgba(230, 250, 255, .35); }
+.guard-block.sprinting .guard-fill { background: linear-gradient(180deg, #f2d78a, #c9a44e 55%, #8f7031); }
+.guard-block.winded .guard-fill { background: linear-gradient(180deg, #d97a6c, #a8473c 55%, #74302a); }
+/* a mark for each block the guard can take (a block costs a fifth and a bit of a full bar) */
+.guard-track::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: repeating-linear-gradient(90deg, transparent 0 calc(22% - 1px), rgba(8, 6, 4, .6) calc(22% - 1px) 22%);
+}
+
 /* Sheathed in Steel: armour round the health bar, never a part of it (it is no extra health). Five riveted plates frame
    the bar, a band of steel above it and below; each holds a fifth of the armour's strength (--p, 0..1, set by the HUD)
    and, as that wears, thins, dulls, greys and cracks, the right-hand plates first, until each breaks away and only a

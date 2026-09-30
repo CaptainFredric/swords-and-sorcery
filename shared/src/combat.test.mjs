@@ -3,12 +3,7 @@ import assert from 'node:assert/strict';
 import {
   GAME,
   GUARD_PROFILES,
-  MELEE_CONTACT,
-  bladeAngleAt,
   closingImpact,
-  meleeAlignment,
-  meleeContactQuality,
-  meleePhase,
   swordDamageFor,
   SWORD_CHAIN,
   SWORD_STRIKE_TIMES,
@@ -88,47 +83,12 @@ test('cooldown readiness uses absolute ready time', () => {
   assert.equal(isCooldownReady(9.999, 10), false);
 });
 
-test('contact quality: a legal hit lands for 19 to 30; a normally centred one reliably near 28, dead centre 30', () => {
-  const deg = Math.PI / 180;
-  const reach = GAME.swordRange;
-  const damage = (angleDeg, share, dt = 0) => swordDamageFor(meleeContactQuality({ angle: angleDeg * deg, distance: reach * share, dt }));
+test('a sword blow lands for 19 to 30 by how cleanly it was caught; closing speed is not damage', () => {
   assert.equal(GAME.swordGlance, 19);
   assert.equal(GAME.swordDamage, 30);
-  // dead centre, on the strong of the blade, in the heart of the swing: the cleanest
-  assert.equal(damage(0, 0.5), 30);
-  assert.equal(damage(10, 0.6, 0.03), 30, 'not a pinpoint: a little off the middle is still the cleanest');
-  // normally centred at any ordinary fighting distance, anywhere in the swing: 28 or better, reliably
-  for (let a = 0; a <= 20; a += 1) {
-    for (let share = 0.4; share <= 0.85; share += 0.05) {
-      for (let dt = -MELEE_CONTACT.window.early; dt <= MELEE_CONTACT.window.late; dt += 0.01) {
-        assert.ok(damage(a, share, dt) >= 28, `centred (${a} degrees, ${share.toFixed(2)} of the reach, ${dt.toFixed(2)} s): ${damage(a, share, dt)}`);
-      }
-    }
-  }
-  // an ordinary good hit, off the middle or out at the tip: in the middle of the range
-  assert.ok(damage(35, 0.6) >= 24 && damage(35, 0.6) <= 28, `off the middle: ${damage(35, 0.6)}`);
-  assert.ok(damage(0, 1) >= 26 && damage(0, 1) < 30, `the very tip: ${damage(0, 1)}`);
-  // the arc's very edge is a genuinely glancing touch: the least a legal hit does, never less
-  assert.equal(damage(MELEE_CONTACT.arcHalfDeg, 1, -MELEE_CONTACT.window.early), GAME.swordGlance);
-  assert.equal(swordDamageFor(0), GAME.swordGlance);
-  assert.equal(swordDamageFor(-3), GAME.swordGlance);
-  // alignment decides: tapering evenly across the arc (no step anywhere, no hidden line)
-  let last = 1;
-  for (let a = 0; a <= MELEE_CONTACT.arcHalfDeg; a += 1) {
-    const q = meleeAlignment(a * deg, reach * 0.5, reach);
-    assert.ok(q <= last + 1e-12 && last - q < 0.05, `a smooth taper at ${a} degrees`);
-    last = q;
-  }
-  // the phase only a little: the heart of the swing is strongest, and the whole live stretch costs a point or so
-  assert.ok(meleePhase(-MELEE_CONTACT.window.early) < meleePhase(0) && meleePhase(MELEE_CONTACT.window.late) < meleePhase(0));
-  for (let dt = -MELEE_CONTACT.window.early; dt <= MELEE_CONTACT.window.late; dt += 0.005) {
-    assert.ok(meleePhase(dt) >= 0.9, `the swing's timing is never a sweet spot (${dt.toFixed(3)} s)`);
-    assert.ok(damage(0, 0.5) - damage(0, 0.5, dt) <= 1);
-  }
-  // the blade crosses the arc through the live stretch, and is at the middle at the contact
-  assert.equal(bladeAngleAt(0, 0), 0);
-  assert.ok(Math.sign(bladeAngleAt(0, -0.05)) === -Math.sign(bladeAngleAt(0, 0.05)), 'from one side to the other');
-  assert.ok(Math.sign(bladeAngleAt(0, -0.05)) === -Math.sign(bladeAngleAt(1, -0.05)), 'the backhand the other way');
+  assert.equal(swordDamageFor(1), 30);
+  assert.equal(swordDamageFor(0), 19);
+  assert.equal(swordDamageFor(-3), 19);
   // closing speed: nothing when standing or parting, up to a full collision
   assert.equal(closingImpact(0), 0);
   assert.equal(closingImpact(-4), 0);

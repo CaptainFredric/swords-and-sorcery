@@ -15,7 +15,7 @@ import { localPushDirection } from './spellbladeMotion.mjs';
 import { blowDirection, glancing, hitKick, hitstopSeconds, impactPoint, steelHitFeel } from './hitFeel.mjs';
 import {
   blockRecipe, burnLickRecipe, castRecipe, dashRecipe, fireballImpactRecipe, frostImpactRecipe, guardBreakRecipe, hurtRecipe, killRecipe,
-  deniedRecipe, galeReleaseRecipe, gauntletHitRecipe, gauntletSwingRecipe, parryRecipe, spatialize, steelCallRecipe, steelClangRecipe, steelTickRecipe,
+  deniedRecipe, galeReleaseRecipe, preciseRecipe, softStrikeRecipe, strikeSurface, woodThunkRecipe, gauntletHitRecipe, gauntletSwingRecipe, parryRecipe, spatialize, steelCallRecipe, steelClangRecipe, steelTickRecipe,
   swingRecipe, swordHitRecipe, wallClangRecipe,
 } from './sound/soundRecipes.mjs';
 import { galeRecoil } from '../../shared/src/gale.mjs';
@@ -429,18 +429,23 @@ export class GameRuntime {
       if (combatFeedback === 'parry') this.effects.parry();
       if (combatFeedback === 'guardBreak') this.effects.guardBreak();
 
+      // a blade stopped by the world: stone rings and sparks, timber thunks and splinters, a hedge or cloth only takes it
       if (event.type === 'swordWorldImpact') {
         const localImpact = shouldPlayWorldClang(event, this.socket.playerId);
+        const surface = strikeSurface(event.material);
+        const recipe = surface === 'wood' ? woodThunkRecipe() : surface === 'soft' ? softStrikeRecipe() : wallClangRecipe();
         if (localImpact) {
           this.weapon.wallImpact();
-          this.hud.flashText('CLANG!', 'metal');
-          this.cameraKick = Math.max(this.cameraKick, 0.13);
-          this.effects.wallClang(event.point);
-          this.#play(wallClangRecipe(), null, 0.9);
-        } else {
-          this.effects.sparks(event.point, 0xffd48a, 8);
-          this.#play(wallClangRecipe(), event.point, 0.5);
+          if (surface === 'stone') this.hud.flashText('CLANG!', 'metal');
+          this.cameraKick = Math.max(this.cameraKick, surface === 'soft' ? 0.05 : 0.13);
         }
+        if (surface === 'stone') {
+          if (localImpact) this.effects.wallClang(event.point);
+          else this.effects.sparks(event.point, 0xffd48a, 8);
+        } else if (surface === 'wood') {
+          this.effects.splinters(event.point, localImpact ? 12 : 7);
+        }
+        this.#play(recipe, localImpact ? null : event.point, localImpact ? 0.9 : 0.5);
       }
       if (event.type === 'swordHit') this.#swordHit(event);
       if (event.type === 'parry' || event.type === 'block' || event.type === 'guardBreak') this.#guardContact(event);
@@ -478,6 +483,9 @@ export class GameRuntime {
         }
         // a blow that kills gets the death cry instead
         if (event.amount >= 8 && event.health > 0 && event.source !== 'abyss') this.#say('hurt', event.victimId);
+        // the cleanest contact there is: a short chink over the blow (mine, or on me; others' a little, from where
+        // it landed), never more than one at a time
+        if (event.clean && event.source !== 'burn') this.#precise(event);
         // a blow on hardened plate clangs and sparks instead (#steelStruck); otherwise, mine flashes the view red
         const plated = this.#steelStruck(event);
         if (event.victimId === this.socket.playerId && this.view.damageFlash && !plated && event.amount > 0 && event.source !== 'abyss') {
@@ -581,6 +589,16 @@ export class GameRuntime {
       }
     }
     if ((event.affected ?? []).some((caught) => caught.pressure >= 0.3 && !caught.guarded)) this.#say('galeTaunt', event.playerId, { delay: 0.7 });
+  }
+
+  // the precise ring of the cleanest contact, over the blow's own sound (a cluster of them is one ring)
+  #precise(event) {
+    const now = performance.now() / 1000;
+    if (now - (this.preciseAt ?? -Infinity) < 0.2) return;
+    this.preciseAt = now;
+    const me = this.socket.playerId;
+    const involved = event.attackerId === me || event.victimId === me;
+    this.#play(preciseRecipe(), involved ? null : this.#bodyPosition(event.victimId), involved ? (event.attackerId === me ? 0.9 : 0.55) : 0.35);
   }
 
   // a blow landing on Sheathed in Steel: the plate clangs as hard as it still is (a bright KLANG fresh, a TANG and a
