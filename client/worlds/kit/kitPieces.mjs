@@ -256,7 +256,9 @@ export function banner(batch, rand, { x, y, z, width = 1.1, height = 2.2, facing
   geometry.translate(0, -height / 2, 0);
   const material = new THREE.MeshStandardMaterial({ map: heraldry(), roughness: 0.92, side: THREE.DoubleSide });
   const mesh = new THREE.Mesh(geometry, material);
-  mesh.position.set(x, y, z);
+  // (hung a hair out from the wall: it stirs out from the stone, never into it; see CastlewardRenderer.update)
+  mesh.position.set(x + Math.sin(facing) * 0.04, y, z + Math.cos(facing) * 0.04);
+  mesh.rotation.order = 'YXZ';
   mesh.rotation.y = facing;
   mesh.castShadow = true;
   mesh.userData.phase = rand() * Math.PI * 2;

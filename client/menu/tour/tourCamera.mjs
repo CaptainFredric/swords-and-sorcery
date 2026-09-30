@@ -188,7 +188,7 @@ export function castlewardBlockers(world = CASTLEWARD, decor = buildCastlewardDe
   }
   for (const tree of decor.trees) box(tree.x, 3, tree.z, 2.6 * tree.scale, 6, 2.6 * tree.scale);
   const tall = { lantern: [0.4, 2.3], pennant: [0.3, 3.4], target: [1.3, 1.8], rack: [1.9, 1.5] };
-  for (const prop of decor.props) {
+  for (const prop of world.props ?? []) {
     const [width, height] = tall[prop.kind] ?? [0, 0];
     if (!width) continue;
     const top = prop.height ?? height;

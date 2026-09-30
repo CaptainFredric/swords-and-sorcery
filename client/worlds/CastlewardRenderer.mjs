@@ -399,9 +399,9 @@ export class CastlewardRenderer {
     }
   }
 
-  // the lived-in things (see castlewardDecor props): each against a wall, a post or a hedge
+  // the lived-in things (the world's props, shared/worlds/castleward.mjs): each against a wall, a post or a hedge
   #props(batch, rand) {
-    for (const prop of this.decor.props) {
+    for (const prop of CASTLEWARD.props) {
       if (prop.kind === 'barrel') barrel(batch, rand, prop);
       else if (prop.kind === 'crate') crate(batch, rand, prop);
       else if (prop.kind === 'woodpile') woodpile(batch, rand, prop);
@@ -451,7 +451,8 @@ export class CastlewardRenderer {
     for (const light of this.torchLights) {
       light.intensity = 3.0 + Math.sin(timeSec * 9.1 + light.userData.phase) * 0.25 + Math.sin(timeSec * 15.7 + light.userData.phase) * 0.15;
     }
-    for (const cloth of this.banners) cloth.rotation.x = Math.sin(timeSec * 1.2 + cloth.userData.phase) * 0.045;
+    // a banner stirs about its rod, its hem lifting out from the wall and settling back (never swinging into the stone)
+    for (const cloth of this.banners) cloth.rotation.x = -0.05 * (0.5 + 0.5 * Math.sin(timeSec * 1.2 + cloth.userData.phase));
     for (const rune of this.runes) rune.material.emissiveIntensity = 0.75 + Math.sin(timeSec * 1.4) * 0.2;
     if (camera && this.sky) this.sky.position.copy(camera.position);
   }

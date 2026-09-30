@@ -130,7 +130,12 @@ export function pennant(batch, rand, { x, y = 0, z, height = 1.2, facing = 0 }) 
   const [ax, az] = [Math.cos(facing), -Math.sin(facing)];
   const top = y + height - 0.05;
   batch.cloth.tri([x, top, z], [x, top - 0.42, z], [x + ax * 0.9, top - 0.2, z + az * 0.9], P.crimson);
-  batch.cloth.tri([x, top - 0.1, z], [x, top - 0.32, z], [x + ax * 0.55, top - 0.21, z + az * 0.55], P.cream);
+  // the stripe sewn on both faces, a hair off the cloth (drawn in its very plane, the two would flicker)
+  const [nx, nz] = [-az * 0.008, ax * 0.008];
+  for (const side of [-1, 1]) {
+    const o = (px, py, pz) => [px + nx * side, py, pz + nz * side];
+    batch.cloth.tri(o(x, top - 0.1, z), o(x, top - 0.32, z), o(x + ax * 0.55, top - 0.21, z + az * 0.55), P.cream);
+  }
 }
 
 /** Straw bales stacked to fill a solid (two layers). */
