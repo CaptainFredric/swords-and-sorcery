@@ -42,6 +42,8 @@ export const VOICE_LINES = Object.freeze({
   fistKill: { kind: 'sentence', chance: 0.35, cooldown: 180, gain: 1 },
   // "I present my rebuttal." answering a foe who has just spoken, with the gauntlet, when it could finish them
   rebuttal: { kind: 'sentence', chance: 0.5, cooldown: 120, gain: 1 },
+  // "YOUR INTEGRITY WILL NOT SUFFICE!" as Sunder All That Rusts takes hold: every time (it is the ultimate's own cry)
+  sunderCall: { kind: 'sentence', chance: 1, cooldown: 0, gain: 1, interrupts: true },
 });
 
 // the least time between two of one knight's sentences (exertions are not counted; a death or a match's end, which

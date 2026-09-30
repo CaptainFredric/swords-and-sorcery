@@ -2,9 +2,9 @@
 // Spellblades and does with what they send. The same shapes either way, so the client cannot tell who is hosting
 // except by asking.
 
-import { beginAttack, endAttack, setGuard, tryCastOrGauntlet, tryDash, tryGauntletStrike } from './combat.mjs';
+import { beginAttack, endAttack, setGuard, tryCastOrGauntlet, tryDash, tryGauntletStrike, tryUltimate } from './combat.mjs';
 import { compensatedInputTime } from './history.mjs';
-import { removePracticeDummy, resetPracticePlayer, setPracticeDummyMode, spawnPracticeDummy } from './practice.mjs';
+import { readyPracticeUltimate, removePracticeDummy, resetPracticePlayer, setPracticeDummyMode, spawnPracticeDummy } from './practice.mjs';
 import { GAME_MODES } from '../src/modes.mjs';
 
 export function serializeLobby(room) {
@@ -88,6 +88,12 @@ export function serializeSnapshot(room, nowSec) {
       dashReadyAt: p.dashReadyAt,
       dashUntil: p.dashUntil,
       staggerUntil: p.staggerUntil,
+      // balance lost (for the view's unsteadiness and the warning near its break), prowess earned, the ultimate
+      stagger: p.stagger ? { level: p.stagger.level, recoverUntil: p.stagger.recoverUntil } : null,
+      prowess: p.prowess ?? 0,
+      ultimate: p.ultimate ?? null,
+      ultimateState: p.ultimateState ? { id: p.ultimateState.id, phase: p.ultimateState.phase, commitAt: p.ultimateState.commitAt, until: p.ultimateState.until } : null,
+      ultimateLockedUntil: p.ultimateLockedUntil ?? -Infinity,
       spawnProtectionUntil: p.spawnProtectionUntil,
       respawnAt: p.respawnAt,
       lastInputSeq: p.lastInputSeq,
@@ -135,6 +141,8 @@ export function applyRoomCommand(room, player, message, time) {
     // the gauntlet on its own key: the fist, whether or not the spell is ready
     case 'gauntlet': tryGauntletStrike(room, player.id, time, compensatedInputTime(message.clientTime, time)); return {};
     case 'dash': tryDash(room, player.id, message.direction || { x: 0, z: -1 }, time); return {};
+    // the ultimate's key (a full prowess meter): the brace begins
+    case 'ultimate': tryUltimate(room, player.id, time); return {};
     case 'rematch': room.requestRematch(player.id, time); return {};
     case 'practiceResetPlayer':
       return room.mode === GAME_MODES.PRACTICE && resetPracticePlayer(room, player.id, time) ? {} : { rejected: PRACTICE_REJECTED };
@@ -143,6 +151,8 @@ export function applyRoomCommand(room, player, message, time) {
       return spawnPracticeDummy(room, message.mode, time) ? { lobby: true } : { rejected: PRACTICE_REJECTED };
     case 'practiceRemoveDummy':
       return room.mode === GAME_MODES.PRACTICE && removePracticeDummy(room) ? { lobby: true } : { rejected: PRACTICE_REJECTED };
+    case 'practiceReadyUltimate':
+      return room.mode === GAME_MODES.PRACTICE && readyPracticeUltimate(room, player.id) ? {} : { rejected: PRACTICE_REJECTED };
     case 'practiceSetDummyMode':
       return room.mode === GAME_MODES.PRACTICE && setPracticeDummyMode(room, message.mode, time) ? { lobby: true } : { rejected: PRACTICE_REJECTED };
     default: return {};

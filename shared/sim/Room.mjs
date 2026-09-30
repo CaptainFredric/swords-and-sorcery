@@ -3,6 +3,8 @@ import { guardProfile } from '../src/combat.mjs';
 import { GAME_MODES, VOTE_OPTIONS, getModePolicy } from '../src/modes.mjs';
 import { WORLD_IDS, getWorld } from '../worlds/registry.mjs';
 import { DEFAULT_SPELL, SPELLS, isSpell } from '../src/spells.mjs';
+import { freshStagger } from '../src/stagger.mjs';
+import { DEFAULT_ULTIMATE } from '../src/ultimates.mjs';
 
 const COUNTDOWN_SEC = 3;
 const MATCH_SEC = 360;
@@ -43,6 +45,11 @@ function freshCombatState(spawn, nowSec = 0) {
     chill: null,
     steel: null,
     speedScale: 1,
+    // balance, prowess and the ultimate start each match fresh (prowess is kept through a death, not past a match)
+    stagger: freshStagger(),
+    prowess: 0,
+    ultimateState: null,
+    ultimateLockedUntil: -Infinity,
     spawnProtectionUntil: nowSec + 1,
     alive: true,
     respawnAt: 0,
@@ -70,6 +77,7 @@ export class Room {
     this.state = 'WAITING';
     this.players = new Map();
     this.projectiles = new Map();
+    this.ruptures = [];
     this.events = [];
     this.countdownEndsAt = null;
     this.matchStartedAt = null;
@@ -94,6 +102,7 @@ export class Room {
       name: String(name || 'Spellblade').slice(0, 18),
       // the spell carried from the Armory
       spell: isSpell(spell) ? spell : DEFAULT_SPELL,
+      ultimate: DEFAULT_ULTIMATE,
       actorKind: 'human',
       connected: true,
       arenaReady: false,
@@ -122,6 +131,7 @@ export class Room {
       name: String(name || (actorKind === 'bot' ? 'Rival Spellblade' : 'Training Dummy')).slice(0, 18),
       // a bot brings either spell, so both turn up in a fight
       spell: isSpell(spell) ? spell : spells[Math.floor(Math.random() * spells.length)],
+      ultimate: DEFAULT_ULTIMATE,
       actorKind,
       connected: false,
       disconnectedAt: null,
@@ -411,6 +421,7 @@ export class Room {
       i += 1;
     }
     this.projectiles.clear();
+    this.ruptures = [];
     for (const player of this.players.values()) player.lobbyReady = false;
     this.events.push({ type: 'matchStarted', at: nowSec });
   }

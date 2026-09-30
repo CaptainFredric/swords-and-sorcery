@@ -3,6 +3,8 @@ import { combatStatusDurationMs } from '../game/combatFeedbackTiming.mjs';
 import { spellFor } from '../../shared/src/spells.mjs';
 import { steelStrength } from '../../shared/src/steel.mjs';
 import { iconSvg } from './icons.mjs';
+import { ultimateView } from './ultimateView.mjs';
+import { STAGGER } from '../../shared/src/stagger.mjs';
 
 export function matchInfoText(snapshot, serverNow) {
   if (snapshot?.mode === 'PRACTICE') return 'PRACTICE YARD  ·  UNTIMED';
@@ -35,6 +37,12 @@ export class HUD {
     this.dash = document.querySelector('#dash-ability');
     const dashIcon = this.dash?.querySelector('.ability-icon');
     if (dashIcon) dashIcon.innerHTML = iconSvg('dash');
+    this.ultimate = document.querySelector('#ultimate-ability');
+    const ultimateIcon = this.ultimate?.querySelector('.ability-icon');
+    if (ultimateIcon) ultimateIcon.innerHTML = iconSvg('sunder');
+    this.ultimateReady = false;
+    this.staggerTrack = document.querySelector('#stagger-track');
+    this.staggerFill = document.querySelector('#stagger-fill');
     this.armour = document.querySelector('#health-armour');
     this.armourPlates = [...(this.armour?.querySelectorAll('.armour-plate') ?? [])];
     this.armourShown = -1;
@@ -79,7 +87,15 @@ export class HUD {
 
     const guard = Math.max(0, Math.min(100, local.guardStamina));
     this.guardFill.style.width = `${guard}%`;
-    this.guardBlock.classList.toggle('faded', !local.guarding && !local.sprinting && guard >= 99.5);
+    // balance lost: a thin bar under the stamina, filling toward the break (red and pulsing near it)
+    const stagger = Math.max(0, Math.min(1, (local.stagger?.level ?? 0) / STAGGER.max));
+    if (this.staggerFill) {
+      this.staggerFill.style.width = `${(stagger * 100).toFixed(1)}%`;
+      this.staggerTrack.classList.toggle('shown', stagger > 0.01);
+      this.staggerTrack.classList.toggle('warn', stagger >= 0.72);
+      this.staggerTrack.classList.toggle('recovering', (local.stagger?.recoverUntil ?? -Infinity) > serverNow);
+    }
+    this.guardBlock.classList.toggle('faded', !local.guarding && !local.sprinting && guard >= 99.5 && stagger <= 0.01);
     this.guardBlock.classList.toggle('sprinting', Boolean(local.sprinting));
     this.guardBlock.classList.toggle('winded', !local.sprinting && guard < SPRINT.restartStamina);
 
@@ -98,6 +114,7 @@ export class HUD {
     }
     this.#ability(this.spell, Math.max(0, (local.spellReadyAt ?? 0) - serverNow), spell.cooldownSec);
     this.#ability(this.dash, Math.max(0, local.dashReadyAt - serverNow));
+    this.#ultimate(local, serverNow);
     this.#armour(steelStrength(local.steel, serverNow), local.steel?.calledAt);
     this.matchInfo.textContent = matchInfoText(snapshot, serverNow);
 
@@ -107,7 +124,7 @@ export class HUD {
 
   /** A key pressed that can do nothing yet (the spell cooling with nobody in reach of the gauntlet): the tile says so. */
   denied(ability) {
-    const element = ability === 'spell' ? this.spell : ability === 'dash' ? this.dash : null;
+    const element = ability === 'spell' ? this.spell : ability === 'dash' ? this.dash : ability === 'ultimate' ? this.ultimate : null;
     if (!element) return;
     element.classList.remove('denied');
     // (restart the shake if it is already playing)
@@ -208,6 +225,23 @@ export class HUD {
     fragment.style.setProperty('--turn', `${(Math.random() < 0.5 ? -1 : 1) * (14 + Math.random() * 20)}deg`);
     this.armour.append(fragment);
     setTimeout(() => fragment.remove(), 720);
+  }
+
+  // the ultimate's tile: its shade drains as prowess is earned; full, it glows (and says so once); while it runs, its
+  // seconds count down
+  #ultimate(local, serverNow) {
+    if (!this.ultimate) return;
+    const view = ultimateView(local, serverNow);
+    const tile = this.ultimate;
+    tile.classList.toggle('ready', view.state === 'ready');
+    tile.classList.toggle('cooling', view.state === 'charging' || view.state === 'locked');
+    tile.classList.toggle('active', view.state === 'active' || view.state === 'bracing');
+    tile.style.setProperty('--cooldown', view.state === 'active' ? String(1 - view.charge) : view.state === 'charging' || view.state === 'locked' ? String(1 - view.charge) : '0');
+    const value = tile.querySelector('strong');
+    if (value.textContent !== view.label) value.textContent = view.label;
+    const ready = view.state === 'ready';
+    if (ready && !this.ultimateReady) this.onUltimateReady?.();
+    this.ultimateReady = ready;
   }
 
   #ability(element, remaining, cooldownSec = 5) {

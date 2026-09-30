@@ -14,6 +14,8 @@ export const ICONS = Object.freeze({
   // the gauntlet: a closed armoured fist driving forward, a line of speed behind it
   gauntlet: '<path d="M8.5 6.5h8a4 4 0 0 1 4 4v3a4 4 0 0 1-4 4H11a2.5 2.5 0 0 1-2.5-2.5z"/><path d="M12.5 6.5v4M16.5 6.5v4M8.5 13h5"/><path d="M8.5 8.5h-3v7h3"/><path d="M1.5 9.5h2M1 14.5h2.5"/>',
   dash: '<path d="M4 8h6M3 12h8M4 16h6M13 6l6 6-6 6"/>',
+  // Sunder All That Rusts: a sword driven point down into the ground, the ground split either side of it
+  sunder: '<path d="M12 2.5v11.5M9 5.5h6M12 14l-1.6 2.6M12 14l1.6 2.6"/><path d="M2.5 20.5 6 18.5l2.5 1.7L11 18.2M13 18.2l2.5 2 2.5-1.7 3.5 2"/>',
   jump: '<path d="M12 18V6M6.5 11.5 12 6l5.5 5.5M6 21h12"/>',
   sprint: '<path d="M6 12.5 12 7l6 5.5M6 18.5 12 13l6 5.5"/>',
   // a chevron pressed down to a line

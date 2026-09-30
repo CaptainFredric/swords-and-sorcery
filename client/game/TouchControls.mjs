@@ -3,6 +3,7 @@ import { spellFor } from '../../shared/src/spells.mjs';
 import { isDeliberateTap, lookDelta, stickVector, TOUCH } from './touchControlsModel.mjs';
 import { screenTurn } from '../ui/screenTurn.mjs';
 import { ICONS, iconSvg } from '../ui/icons.mjs';
+import { ultimateView } from '../ui/ultimateView.mjs';
 
 // On-screen controls for phones and tablets. They drive the same InputController actions as the mouse and
 // keyboard, so the server, prediction and animation see no difference between the two.
@@ -26,6 +27,8 @@ const BUTTONS = [
   { action: 'crouch', label: 'CROUCH' },
   // the gauntlet on its own, spell or no spell: hidden unless asked for in the settings
   { action: 'gauntlet', label: 'FIST' },
+  // the ultimate: its shade drains as prowess is earned; full, it glows
+  { action: 'ultimate', label: 'SUNDER', icon: 'sunder' },
   { action: 'pause', label: 'MENU' },
   { action: 'scores', label: 'SCORES' },
 ];
@@ -152,6 +155,18 @@ export class TouchControls {
     const crouchLabel = this.buttons.crouch?.querySelector('span');
     if (crouchLabel && crouchLabel.textContent !== crouchWord) crouchLabel.textContent = crouchWord;
     this.buttons.guard.classList.toggle('drained', (local.guardStamina ?? 100) < 1);
+    this.#showUltimate(local, serverNow);
+  }
+
+  // the ultimate's button: filling with prowess, glowing when full, lit while it is active
+  #showUltimate(local, serverNow) {
+    const button = this.buttons.ultimate;
+    if (!button) return;
+    const view = ultimateView(local, serverNow);
+    button.classList.toggle('charging', view.state === 'charging' || view.state === 'locked');
+    button.classList.toggle('ready', view.state === 'ready');
+    button.classList.toggle('active', view.state === 'active' || view.state === 'bracing');
+    button.style.setProperty('--charge', view.charge.toFixed(3));
   }
 
   /**
@@ -269,6 +284,7 @@ export class TouchControls {
     }
     if (action === 'spell') this.input.cast();
     if (action === 'gauntlet') this.input.gauntlet();
+    if (action === 'ultimate') this.input.ultimate();
     if (action === 'dash') this.input.dash();
     if (action === 'jump') {
       this.jumpHeld = true;

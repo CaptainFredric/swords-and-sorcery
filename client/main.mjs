@@ -708,6 +708,8 @@ $('#practice-sorcery').addEventListener('click', () => socket.practiceSpawnDummy
 $('#practice-melee').addEventListener('click', () => socket.practiceSpawnDummy('MELEE'));
 $('#practice-runner').addEventListener('click', () => socket.practiceSpawnDummy('RUNNER'));
 $('#practice-remove').addEventListener('click', () => socket.practiceRemoveDummy());
+// the yard earns no prowess: this readies the ultimate to try
+$('#practice-ultimate').addEventListener('click', () => socket.practiceReadyUltimate());
 $('#practice-leave').addEventListener('click', () => clearSessionAndNavigate());
 
 // into a fight: the blade comes out of its scabbard (once per room: not again on a reconnect to the same one)

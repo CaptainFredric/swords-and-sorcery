@@ -17,7 +17,11 @@ import {
   blockRecipe, burnLickRecipe, castRecipe, dashRecipe, fireballImpactRecipe, frostImpactRecipe, guardBreakRecipe, hurtRecipe, killRecipe,
   deniedRecipe, galeReleaseRecipe, preciseRecipe, softStrikeRecipe, strikeSurface, woodThunkRecipe, gauntletHitRecipe, gauntletSwingRecipe, parryRecipe, spatialize, steelCallRecipe, steelClangRecipe, steelTickRecipe,
   swingRecipe, swordHitRecipe, wallClangRecipe,
+  groundCrackRecipe, ruptureRunRecipe, staggerBreakRecipe, staggerStrainRecipe, sunderBraceRecipe, sunderForceRecipe,
+  ultimateFizzleRecipe, ultimateReadyRecipe,
 } from './sound/soundRecipes.mjs';
+import { PROWESS } from '../../shared/src/prowess.mjs';
+import { STAGGER } from '../../shared/src/stagger.mjs';
 import { galeRecoil } from '../../shared/src/gale.mjs';
 import { swordDamageFor } from '../../shared/src/combat.mjs';
 import { CROUCH, POSTURES, postureOf } from '../../shared/src/body.mjs';
@@ -168,6 +172,16 @@ export class GameRuntime {
       const now = this.socket.serverNow();
       if (this.localAuth?.alive && !this.#tryLocalJab(now)) this.#play(deniedRecipe(), null, 0.5);
     };
+    // the ultimate's key: the host decides; with the meter short (or it already running), the quiet no
+    this.input.onUltimateLocal = () => {
+      const me = this.localAuth;
+      if (me?.alive && ((me.prowess ?? 0) < PROWESS.full || me.ultimateState)) {
+        this.hud.denied?.('ultimate');
+        this.#play(deniedRecipe(), null, 0.5);
+      }
+    };
+    // the meter full: a restrained note, once
+    this.hud.onUltimateReady = () => this.#play(ultimateReadyRecipe(), null, 0.9);
     this.input.onDashLocal = (dir) => {
       const now = this.socket.serverNow();
       if (!canPresentLocalAction('dash', this.localAuth, this.localState, now)) return;
@@ -418,6 +432,23 @@ export class GameRuntime {
       if (event.type === 'steelOn' && event.playerId !== me) this.#play(steelCallRecipe(), this.#bodyPosition(event.playerId), 0.7);
       // a spell turned aside by it: now and then a word of pride (its clang and sparks come with the blow's damage)
       if (event.type === 'steelTurn' && event.turned >= 0.25) this.#say('steelBoast', event.playerId, { delay: 0.35 });
+
+      // Sunder All That Rusts: the brace (and the cry), the brace broken before it took hold, the ground split
+      if (event.type === 'ultimateStart') this.#ultimateStart(event);
+      if (event.type === 'ultimateInterrupted') {
+        this.#play(ultimateFizzleRecipe(), event.playerId === me ? null : this.#bodyPosition(event.playerId), 0.8);
+        if (event.playerId === me) this.hud.flashText('INTERRUPTED', 'danger');
+      }
+      if (event.type === 'staggerBreak') this.#staggerBreak(event);
+      if (event.type === 'groundStrike') {
+        this.#play(groundCrackRecipe(), event.playerId === me ? null : event.point, 1);
+        if (event.playerId === me) this.cameraKick = Math.max(this.cameraKick, 0.2);
+      }
+      if (event.type === 'rupture') {
+        this.effects.rupture(event.origin, event.fissures, { speed: event.speed });
+        const runs = Math.max(...event.fissures.map((fissure) => fissure.length)) / event.speed;
+        this.#play(ruptureRunRecipe(Math.random, { seconds: runs }), event.origin, 0.85);
+      }
 
       // my own swings whoosh from the local swing (no network delay); others' from the server's strike
       if (event.type === 'swordSwing' && event.playerId !== me) {
@@ -766,11 +797,48 @@ export class GameRuntime {
   }
 
   // play a sound at a world position (null: mine, centred) with extra gain
-  #play(recipe, source = null, gain = 1) {
+  #play(recipe, source = null, gain = 1, delay = 0) {
     if (!this.sound) return;
     const listener = this.localState?.position ?? this.localAuth?.position;
     const place = source ? spatialize(listener, this.input.yaw, source) : { pan: 0, gain: 1 };
-    this.sound.play(recipe, { pan: place.pan, gain: place.gain * gain });
+    this.sound.play(recipe, { pan: place.pan, gain: place.gain * gain, delay });
+  }
+
+  // a knight braces into Sunder: the harness drawn tight, and the cry; mine names it
+  #ultimateStart(event) {
+    const me = event.playerId === this.socket.playerId;
+    this.#play(sunderBraceRecipe(), me ? null : this.#bodyPosition(event.playerId), me ? 1 : 0.8);
+    this.#say('sunderCall', event.playerId, { delay: 0.05 });
+    if (me) {
+      this.hud.flashText('SUNDER ALL THAT RUSTS', 'sunder', 1400);
+      this.cameraKick = Math.max(this.cameraKick, 0.08);
+    }
+  }
+
+  // a knight's balance broken: plate clattering as they stumble; mine lurches and says so
+  #staggerBreak(event) {
+    const me = event.playerId === this.socket.playerId;
+    this.#play(staggerBreakRecipe(), me ? null : this.#bodyPosition(event.playerId), me ? 1 : 0.8);
+    if (me) {
+      this.hud.flashText('STAGGERED', 'danger');
+      this.weapon.damage({ x: 0, z: 1 }, 45);
+      this.cameraKick = Math.max(this.cameraKick, 0.16);
+    }
+  }
+
+  // my condition, each frame: Sundering (the heat in my sword) and how far off balance I am (the arms sway; near the
+  // break, the harness strains, heard)
+  #showCondition(serverNow) {
+    const me = this.localAuth;
+    if (!me) return;
+    const sunder = me.ultimateState?.phase === 'active' && serverNow < (me.ultimateState.until ?? 0);
+    const level = (me.stagger?.level ?? 0) / STAGGER.max;
+    this.weapon.setCondition({ sunder, unsteady: Math.max(0, (level - 0.4) / 0.6) });
+    const recovering = (me.stagger?.recoverUntil ?? -Infinity) > serverNow;
+    if (me.alive && level >= 0.72 && !recovering && serverNow >= (this.strainAt ?? -Infinity)) {
+      this.strainAt = serverNow + 0.7;
+      this.#play(staggerStrainRecipe(), null, 0.75);
+    }
   }
 
   // a sword biting into a body: burst, flash, sound and (for the attacker) hit-stop and kick
@@ -786,6 +854,13 @@ export class GameRuntime {
     if (event.targetId !== me) {
       if (point) this.effects.hitBurst(point, blowDirection(victim, attacker), { strike, quality });
       this.remotePlayers.flashHit(event.targetId);
+    }
+    // a Sundering blow: its weight made felt and seen (a deep whump under the hit, heavier sparks and a shock ring)
+    if (event.level === 'elevated') {
+      const mine = event.playerId === me || event.targetId === me;
+      this.#play(sunderForceRecipe(), mine ? null : point, mine ? 1 : 0.8);
+      if (point) this.effects.sunderStrike(point, blowDirection(victim, attacker));
+      if (event.targetId === me) this.cameraKick = Math.max(this.cameraKick, 0.14);
     }
     if (event.playerId === me) {
       this.hud.hit(glancing(quality) ? 'glance' : 'hit');
@@ -815,6 +890,13 @@ export class GameRuntime {
     const recipe = parry ? parryRecipe() : heavy ? guardBreakRecipe() : blockRecipe();
     const involved = event.attackerId === me || event.defenderId === me;
     this.#play(recipe, involved ? null : point, involved ? 1 : 0.8);
+    // a Sundering blow lands on a guard as two: CLANG-CLANG, the weight of it under both
+    if ((event.impacts ?? 1) >= 2) {
+      this.#play(blockRecipe(Math.random, { heavy: true }), involved ? null : point, involved ? 1 : 0.8, 0.09);
+      this.#play(sunderForceRecipe(), involved ? null : point, involved ? 0.9 : 0.7);
+      if (point && event.defenderId !== me) setTimeout(() => this.effects.blockBurst({ ...point, y: point.y + 0.15 }, blowDirection(defender, attacker), { heavy: true }), 90);
+      if (event.defenderId === me) this.cameraKick = Math.max(this.cameraKick, 0.12);
+    }
     // the one who broke it may gloat, once the crunch has landed
     if (heavy) this.#say('breakTaunt', event.attackerId, { delay: 0.7 });
   }
@@ -1003,6 +1085,7 @@ export class GameRuntime {
     this.effects.update(dt);
 
     if (this.latestSnapshot && this.localAuth) {
+      this.#showCondition(this.socket.serverNow());
       this.hud.update(this.localAuth, this.latestSnapshot, this.socket.serverNow());
       this.touch?.update(this.localAuth, this.socket.serverNow());
       this.hud.setScoreboard(this.latestSnapshot, this.input.scoreboardHeld);

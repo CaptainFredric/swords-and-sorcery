@@ -11,6 +11,7 @@ import { FP_MOTION, FirstPersonMotion } from './firstPersonMotion.mjs';
 import { blendPoses, comboPose, counterRotations, recoveryPose } from './fpSlash.mjs';
 import { FIRST_PERSON_OFF_ARM, FIRST_PERSON_SWORD_ARM, solveArm, solveSwordArm } from './swordArmIK.mjs';
 import { BLADE_CLEARANCE, nextRetraction } from './bladeClearance.mjs';
+import { createSunderBlade } from './sunderBlade.mjs';
 import { LocalSwordChain } from './localSwordChain.mjs';
 import { MELEE_CONTACT, SWORD_STRIKE_TIMES } from '../../shared/src/combat.mjs';
 import { GAUNTLET } from '../../shared/src/gauntlet.mjs';
@@ -450,6 +451,12 @@ export class WeaponView {
    * @param {{speed?:number, grounded?:boolean, yaw?:number, pitch?:number}} body  the local Spellblade's motion
    * @returns {{camera:{y:number,pitch:number,roll:number}, fov:number}} view offsets for the camera
    */
+  /** Sundering (my sword's heat), and how unsteady I am (0..1: the arms sway with it; never the view or the aim). */
+  setCondition({ sunder = false, unsteady = 0 } = {}) {
+    this.sunderActive = Boolean(sunder);
+    this.unsteady = Math.max(0, Math.min(1, unsteady));
+  }
+
   // measured with the arms as posed this frame, before drawing back: how far the blade would run into anything solid
   #clearBlade(solids, dt) {
     const socket = this.productionInstance?.animator?.bone?.('socket_sword');
@@ -584,6 +591,19 @@ export class WeaponView {
       // the blade kept out of the walls in my own view (bladeClearance.mjs): the arms draw back by as much as it
       // would sink into them
       this.#clearBlade(solids, dt);
+      // Sundering: the heat in my steel; off balance: the arms sway as I fight to keep my feet (the aim never does)
+      if (this.sunderBladeOf !== this.productionInstance) {
+        this.sunderBlade?.dispose();
+        this.sunderBlade = createSunderBlade(this.productionInstance.root);
+        this.sunderBladeOf = this.productionInstance;
+      }
+      this.sunderBlade.set(Boolean(this.sunderActive), timeSec);
+      const u = this.unsteady ?? 0;
+      if (u > 0.01) {
+        this.productionOffset.position.x += Math.sin(timeSec * 4.7) * 0.018 * u;
+        this.productionOffset.position.y += Math.sin(timeSec * 6.1 + 1) * 0.012 * u;
+        this.productionOffset.rotation.z += Math.sin(timeSec * 3.9) * 0.05 * u;
+      }
       // gauntlet runes and palm light follow the palm sorcery: dim at rest, bright only while a cast gathers
       const level = Math.max(this.productionInstance.sorceryLevel?.() ?? 0, gesture.draw);
       for (const material of this.productionInstance.materials.SorceryAccent ?? []) material.emissiveIntensity = 0.7 + 2.1 * level;
@@ -714,6 +734,8 @@ export class WeaponView {
   dispose() {
     this.disposed = true;
     this.steelSheen?.dispose();
+    this.sunderBlade?.dispose();
+    this.sunderBlade = null;
     this.assetGeneration += 1;
     if (this.productionInstance) {
       this.productionOffset.remove(this.productionInstance.root);

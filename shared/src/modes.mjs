@@ -53,6 +53,8 @@ const POLICIES = Object.freeze({
     minHumansToStart: 1,
     botCount: 0,
     scored: false,
+    // no prowess is earned here (the yard's tools can ready an ultimate to try)
+    prowess: false,
     timed: false,
     scoreToWin: null,
     matchSeconds: null,

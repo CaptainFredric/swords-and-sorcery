@@ -186,6 +186,7 @@ registry
   .defineAction({ id: 'guard', label: 'Guard (hold)', group: 'Combat', keys: ['Mouse2'] })
   .defineAction({ id: 'spell', label: 'Cast spell', group: 'Abilities', keys: ['KeyQ'] })
   .defineAction({ id: 'dash', label: 'Dash', group: 'Abilities', keys: ['KeyE'] })
+  .defineAction({ id: 'ultimate', label: 'Ultimate (Sunder All That Rusts)', group: 'Abilities', keys: ['KeyR'] })
   // (the spell's key throws the fist while the spell cools; this throws it spell or no spell, for whoever wants it)
   .defineAction({ id: 'gauntlet', label: 'Gauntlet on its own', group: 'Abilities', keys: [] })
   .defineAction({ id: 'scoreboard', label: 'Scoreboard (hold)', group: 'Interface', keys: ['Tab'] })
