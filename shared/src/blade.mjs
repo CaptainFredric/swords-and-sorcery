@@ -2,9 +2,17 @@
 // with a little thickness) through its arc in the attacker's view: the forehand from high on the right down across to
 // the left, the backhand back the other way, the third straight down from above the aim to below it. Wherever it is,
 // it passes through the attacker's aim at the strike's contact. Swept in small angular steps (never more than a few
-// centimetres apart at the tip), it meets whatever it passes through first: a knight (an upright capsule) or anything
-// solid in the world (a box); the first meets it, and nothing beyond. Pure: the server resolves strikes with it
-// (shared/sim/combat.mjs); tests and the client can ask it the same questions.
+// centimetres apart at the tip), it meets whatever it passes through first. Three questions, kept apart:
+//
+//   - a knight (an upright capsule) anywhere in the swing's whole arc takes the blow...
+//   - ...unless something solid stands between the attacker and where the blade met them (nothing through a wall or
+//     round a corner);
+//   - and the world stops the blade (it rings off, and the knight recoils) only where the swing is driven: within a
+//     corridor either side of the aim. Out at the edges of a slash, a wall or a barrel the blade brushes does not end
+//     an otherwise good blow.
+//
+// Pure: the server resolves strikes with it (shared/sim/combat.mjs); tests and the client can ask it the same
+// questions.
 //
 // How cleanly a knight it meets is caught is one thing only: how far off the attacker's aim the knight's body was as
 // the blade met it (the angle from the aim to the nearest point of their body's axis). Dead centre is the cleanest;
@@ -22,6 +30,7 @@ export const BLADE = Object.freeze({
   bodyRadius: 0.45,      // a knight, as the blade meets it: an upright capsule this thick
   stepDeg: 2,            // the sweep, judged at least this finely (about 8 cm apart at the tip)
   arcHalfDeg: 75,        // the side cuts cross this far each side of the aim
+  worldStopDeg: 40,      // the world stops the blade only this far either side of the aim (the driven part of it)
   tiltDeg: 12,           // their plane leans: high on the right, low on the left
   // the chop: from this far above the aim to this far below it
   chopFromDeg: 60,
@@ -30,9 +39,9 @@ export const BLADE = Object.freeze({
 
 // how cleanly a knight is caught, by how far off the aim their body was as the blade met it (degrees, quality 0..1):
 // dead centre the cleanest, a knight clipped by the edge of the swing the least
-// (a knight two metres off is some 26 degrees wide: aimed at their middle is 29-30, near their edge 26-27, a blow
-// that only catches them as the blade comes round 22-24, the very end of the swing 19-21)
-export const AIM_QUALITY = Object.freeze([[0, 1], [3, 0.97], [7, 0.82], [15, 0.6], [30, 0.33], [75, 0]]);
+// (a knight two metres off is some 26 degrees wide: aimed anywhere near their middle is 29-30, near their edge 28,
+// a blow that catches them off to one side 25-27, as the blade comes round 22-24, the very end of the swing 19-21)
+export const AIM_QUALITY = Object.freeze([[0, 1], [4, 0.97], [12, 0.82], [25, 0.6], [42, 0.33], [75, 0]]);
 
 /** The quality of a blow that met a body `offAimDeg` off the aim (0..1, by AIM_QUALITY, evenly between its points). */
 export function aimQuality(offAimDeg, curve = AIM_QUALITY) {
@@ -157,14 +166,28 @@ export function blocksBlade(solid) {
   return solid?.blade !== false;
 }
 
+/** Whether something solid stands between the eyes and a point (a knight met behind a wall or round a corner). */
+export function occluded(eye, point, solids) {
+  for (const solid of solids) {
+    if (!blocksBlade(solid)) continue;
+    const hit = segmentBox(eye, point, solid, 0);
+    if (hit && hit.t < 1 - 1e-6) return true;
+  }
+  return false;
+}
+
 /**
  * Sweep a blade between two directions from `eye` (unit vectors, `steps` evenly between) and report what it meets
  * first: { kind: 'body', id, point, along (m from the eyes) } or { kind: 'solid', solid, point, normal, along }, or
  * null. bodies: [{ id, base: { x, y, z } (the feet), top: the crown's height above them }]; solids: boxes.
+ * aim: the attacker's aim (a unit vector): the world stops the blade only within `blade.worldStopDeg` of it (with no
+ * aim given, anywhere). A knight met with something solid between the eyes and the blade's contact is not met.
  */
-export function sweepBlade(eye, fromDirection, toDirection, bodies, solids, blade = BLADE) {
+export function sweepBlade(eye, fromDirection, toDirection, bodies, solids, { aim = null, blade = BLADE } = {}) {
   const turn = Math.acos(Math.max(-1, Math.min(1, dot(fromDirection, toDirection))));
   const steps = Math.max(1, Math.ceil(turn / (blade.stepDeg * DEG)));
+  const corridor = Math.cos(blade.worldStopDeg * DEG);
+  const stopping = solids.filter(blocksBlade);
   for (let i = 1; i <= steps; i += 1) {
     const direction = slerpDirection(fromDirection, toDirection, i / steps, turn);
     const [start, end] = bladeSegment(eye, direction, blade);
@@ -176,10 +199,15 @@ export function sweepBlade(eye, fromDirection, toDirection, bodies, solids, blad
       const near = segmentDistance(start, end, q0, q1);
       if (near.distance > blade.bodyRadius + blade.radius) continue;
       const along = blade.from + near.s * length;
-      if (!best || along < best.along) best = { kind: 'body', id: body.id, point: add(start, scale(sub(end, start), near.s)), along, direction };
+      if (best && along >= best.along) continue;
+      // the way from the eyes to where the blade meets them must be open (checked a hand's breadth short of the
+      // contact: the far side of a knight leaning on a wall is not the wall between)
+      if (occluded(eye, add(eye, scale(direction, Math.max(0, along - 0.2))), stopping)) continue;
+      best = { kind: 'body', id: body.id, point: add(start, scale(sub(end, start), near.s)), along, direction };
     }
-    for (const solid of solids) {
-      if (!blocksBlade(solid)) continue;
+    // the world stops the blade only where the swing is driven
+    const driven = !aim || dot(direction, aim) >= corridor;
+    for (const solid of driven ? stopping : []) {
       const hit = segmentBox(start, end, solid, blade.radius);
       if (!hit) continue;
       const along = blade.from + hit.t * length;
