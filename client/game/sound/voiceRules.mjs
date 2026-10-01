@@ -41,9 +41,13 @@ export const VOICE_LINES = Object.freeze(Object.fromEntries(VOICE_LINE_LIST.filt
   })];
 })));
 
-/** The cry for invoking ultimate `id`: one of its lines, by share (voiceLines.mjs: the `sunderInvoked` moment). */
+/**
+ * The cry for invoking ultimate `id`: one of its lines, by share (voiceLines.mjs: the `sunderInvoked` moment), or null
+ * for an ultimate with no cry of its own (a Blazing Vortex is lit without a word).
+ */
 export function ultimateCry(id, rand = Math.random) {
-  return linesFor(null, [cryMoment(id)], { rand })[0]?.line ?? 'sunderCall';
+  const moment = cryMoment(id);
+  return moment ? linesFor(null, [moment], { rand })[0]?.line ?? null : null;
 }
 
 // the least time between two of one knight's sentences (exertions are not counted; a death or a match's end, which
@@ -90,7 +94,7 @@ export function voicePlacement(listener, yaw, source, hearing = VOICE_HEARING) {
 }
 
 // the killing blows that count as magic (a knight burned down by a Fireball was still killed by sorcery)
-export const MAGIC_SOURCES = Object.freeze(['fireball', 'frostfire', 'burn']);
+export const MAGIC_SOURCES = Object.freeze(['fireball', 'frostfire', 'burn', 'ember']);
 
 // (how much likelier some lines are at their fitting moment is theirs to say: voiceLines.mjs)
 export { DEFEAT_ON_LOSS, GALE_KILL, KNIGHT_FALLEN_OVERKILL };
@@ -156,9 +160,10 @@ export function deathLines(fall, rand = Math.random) {
  * A fall as the moments it is (their tags, for linesFor): { fallen, facts } for the one who fell, and { victor,
  * victorFacts } for whoever felled them (victor: null when nobody did, or they fell by their own doing).
  */
-export function deathMoment({ victimId, killerId, source, overkill = false, minor = false, interrupted = false, decisive = false, moment = {} }) {
+export function deathMoment({ victimId, killerId, source, overkill = false, minor = false, interrupted = false, decisive = false, dizzy = false, moment = {} }) {
   return {
-    fallen: { death: 1, ...(minor ? { minorLethal: 1 } : {}), ...(MAGIC_SOURCES.includes(source) ? { magicDeath: 1 } : {}) },
+    // (dizzy: felled spinning in a Blazing Vortex, or in the moment after it)
+    fallen: { death: 1, ...(minor ? { minorLethal: 1 } : {}), ...(dizzy ? { vortexDeath: 1 } : {}), ...(MAGIC_SOURCES.includes(source) ? { magicDeath: 1 } : {}) },
     facts: [overkill && 'overkill', decisive && 'decisive', interrupted && 'interrupted'].filter(Boolean),
     victor: killerId && killerId !== victimId ? victorTags({ source, moment }) : null,
     victorFacts: moment.knighthood >= 2 ? ['highSwing'] : [],
@@ -209,9 +214,9 @@ export function gauntletMoment({ foeSpokeAgo = Infinity, foeHealth = 100 }) {
   return { gauntletHit: 1, ...(rebuttal ? { rebuttalOpening: 1 } : {}) };
 }
 
-/** The moment an ultimate's cry belongs to (its tag): `<id>Invoked`, or Sunder's for one with no cry of its own. */
+/** The moment an ultimate's cry belongs to (its tag): `<id>Invoked`, or null for one with no cry of its own. */
 export function cryMoment(id) {
-  return VOICE_TAGS[`${id}Invoked`]?.cry ? `${id}Invoked` : 'sunderInvoked';
+  return VOICE_TAGS[`${id}Invoked`]?.cry ? `${id}Invoked` : null;
 }
 
 // a speaker finishes one line before starting another

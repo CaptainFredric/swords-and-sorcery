@@ -117,7 +117,7 @@ export class VoiceMoments {
     const minor = Boolean(blow) && isMinorLethal({ ...blow, source });
     const interrupted = Boolean(victim && (victim.attackActive || victim.guarding || victim.sprinting || (victim.dashUntil ?? -Infinity) > at));
     const overkill = Boolean(blow) && isOverkill(blow);
-    const fall = deathMoment({ victimId, killerId, source, overkill, minor, interrupted, decisive: Boolean(event.decisive), moment });
+    const fall = deathMoment({ victimId, killerId, source, overkill, minor, interrupted, decisive: Boolean(event.decisive), dizzy: Boolean(event.dizzy), moment });
     // (the squire's answer is forced: a line, never a grunt, and nobody talks over it)
     const fallen = this.#lines(victimId, fall.fallen, { facts: fall.facts, force: answer });
     const victor = !answer && fall.victor ? this.#lines(killerId, fall.victor, { facts: fall.victorFacts }) : [];

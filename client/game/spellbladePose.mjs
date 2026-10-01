@@ -1,6 +1,8 @@
 export function resolveSpellbladeState(player, serverNow, castPoseUntil = 0, castPoseStartAt = -Infinity) {
   if (!player?.alive) return 'dead';
   if ((player.staggerUntil ?? 0) > serverNow) return 'stagger';
+  // a Blazing Vortex (lit, or spinning): the knight is the spin
+  if (player.ultimateState?.id === 'vortex') return 'vortex';
   if ((player.dashUntil ?? 0) > serverNow) return 'dash';
   if (player.guarding) return 'guard';
   if (player.attackActive) return 'attack';

@@ -12,6 +12,8 @@ import { blendPoses, comboPose, counterRotations, recoveryPose, slamPose } from 
 import { FIRST_PERSON_OFF_ARM, solveArm, solveSwordArm } from './swordArmIK.mjs';
 import { onViewLayer } from './viewLayers.mjs';
 import { createSunderBlade } from './sunderBlade.mjs';
+import { VORTEX_BLADES, createVortexBlade } from './vortexBlade.mjs';
+import { FP_VORTEX, vortexSpinPose, vortexStartupPose } from './fpVortex.mjs';
 import { LocalSwordChain } from './localSwordChain.mjs';
 import { MELEE_CONTACT, SWORD_STRIKE_TIMES } from '../../shared/src/combat.mjs';
 import { GAUNTLET } from '../../shared/src/gauntlet.mjs';
@@ -457,9 +459,52 @@ export class WeaponView {
    * @returns {{camera:{y:number,pitch:number,roll:number}, fov:number}} view offsets for the camera
    */
   /** Sundering (my sword's heat), and how unsteady I am (0..1: the arms sway with it; never the view or the aim). */
-  setCondition({ sunder = false, unsteady = 0 } = {}) {
+  setCondition({ sunder = false, unsteady = 0, dizzy = 0 } = {}) {
     this.sunderActive = Boolean(sunder);
     this.unsteady = Math.max(0, Math.min(1, unsteady));
+    // (dizzy, after a Vortex: the view rocks a little and the arms sway; the aim never moves)
+    this.dizzy = Math.max(0, Math.min(1, dizzy));
+  }
+
+  /**
+   * The Blazing Vortex in my arms (fpVortex.mjs), or null when there is none: { phase: 'startup', share (0..1 through
+   * it), windup (radians the turn has gathered) } or { phase: 'active', rel (the blade's turn from straight ahead,
+   * radians, + left) }.
+   */
+  setVortex(vortex) {
+    this.vortex = vortex;
+    if (vortex) {
+      this.guard = false;
+      if (this.swordChain.active) this.cancelAttack();
+    }
+  }
+
+  // the arms' Vortex pose this frame, with how firmly they hold it, or null: it takes hold over a moment and lets go
+  // over a moment when it ends
+  #vortexPose(timeSec, dt) {
+    const vortex = this.vortex;
+    const held = this.vortexHeld ??= { weight: 0, pose: null, fire: 0, sparked: false };
+    if (vortex) {
+      held.pose = vortex.phase === 'active' ? vortexSpinPose(vortex.rel) : vortexStartupPose(vortex.share, vortex.windup);
+      held.weight = Math.min(1, held.weight + dt / 0.12);
+      // lit once the sword is up and both hands are on it: the star first, then the fire
+      const lit = vortex.phase === 'active' || vortex.share >= FP_VORTEX.raiseBy;
+      if (lit && !held.sparked) {
+        held.sparked = true;
+        this.vortexBlade?.spark(timeSec);
+        this.onVortexSpark?.();
+      }
+      held.fire = lit ? Math.min(1, held.fire + dt / 0.22) : 0;
+      held.swinging = vortex.phase === 'active' || vortex.share >= FP_VORTEX.carryBy;
+    } else {
+      held.weight = Math.max(0, held.weight - dt / 0.3);
+      held.fire = Math.max(0, held.fire - dt / 0.35);
+      held.sparked = false;
+      held.swinging = false;
+      if (held.weight <= 0) held.pose = null;
+    }
+    const ease = held.weight * held.weight * (3 - 2 * held.weight);
+    return held.pose && ease > 0.001 ? { ...held.pose, weight: ease } : null;
   }
 
   update(timeSec, dt = 0, { speed = 0, grounded = true, yaw = 0, pitch = 0 } = {}) {
@@ -502,7 +547,9 @@ export class WeaponView {
     if (this.visualKind === 'production' && this.productionInstance) {
       let plan = resolveFirstPersonAnimationPlan(pose, this, timeSec);
       // the combo is one unbroken path of both hands (fpSlash.mjs): fast, fast, then heavy with both on the grip
-      const combo = this.#combo(pose.state, timeSec, stateBefore);
+      // (a Vortex has both arms outright: the chain's path gives way to it)
+      const vortexPose = this.#vortexPose(timeSec, dt);
+      const combo = vortexPose ?? this.#combo(pose.state, timeSec, stateBefore);
       if (combo) {
         plan = { clip: 'Idle', loop: true, time: timeSec };
         // the view leans with the body into each cut (purely visual: aim is the input's)
@@ -570,7 +617,18 @@ export class WeaponView {
         this.sunderBladeOf = this.productionInstance;
       }
       this.sunderBlade.set(Boolean(this.sunderActive), timeSec);
-      const u = this.unsteady ?? 0;
+      // a Vortex: the blade lit, the star at its point, the hot trail it leaves across the view
+      if (this.vortexBladeOf !== this.productionInstance) {
+        this.vortexBlade?.dispose();
+        this.vortexBlade = createVortexBlade(this.productionInstance, { blade: VORTEX_BLADES.firstPerson, trailParent: this.group });
+        this.vortexBladeOf = this.productionInstance;
+      }
+      const fire = this.vortexHeld?.fire ?? 0;
+      this.vortexBlade.set(fire, timeSec, { swinging: Boolean(this.vortexHeld?.swinging) });
+      // dizzy: the view rocks, slowly, and settles (roll only: the aim is where it was)
+      const dizzy = this.dizzy ?? 0;
+      if (dizzy > 0.01) motion.camera.roll += Math.sin(timeSec * 6.6) * 0.04 * dizzy;
+      const u = Math.max(this.unsteady ?? 0, dizzy * 0.8);
       if (u > 0.01) {
         this.productionOffset.position.x += Math.sin(timeSec * 4.7) * 0.018 * u;
         this.productionOffset.position.y += Math.sin(timeSec * 6.1 + 1) * 0.012 * u;
@@ -581,6 +639,11 @@ export class WeaponView {
       for (const material of this.productionInstance.materials.SorceryAccent ?? []) material.emissiveIntensity = 0.7 + 2.1 * level;
       this.magicLight.intensity = 0.12 + 2.6 * level;
       this.#chargeGlow(gesture, timeSec);
+      // (the hand on a burning sword is lit by it)
+      if (fire > 0.01) {
+        this.magicLight.color.setHex(0xff8a3c);
+        this.magicLight.intensity += 2.2 * fire * (0.85 + 0.15 * Math.sin(timeSec * 29));
+      }
       // the clench: the palm light flares to steel and dies back as the hand opens
       const clench = clenchPulse(timeSec - this.clenchAt);
       if (clench > 0) {
@@ -712,6 +775,8 @@ export class WeaponView {
     this.steelSheen?.dispose();
     this.sunderBlade?.dispose();
     this.sunderBlade = null;
+    this.vortexBlade?.dispose();
+    this.vortexBlade = null;
     this.assetGeneration += 1;
     if (this.productionInstance) {
       this.productionOffset.remove(this.productionInstance.root);

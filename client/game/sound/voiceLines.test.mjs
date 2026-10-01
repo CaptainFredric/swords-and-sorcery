@@ -29,8 +29,8 @@ test('what is wrong with a declaration is said plainly', () => {
   assert.match(problems({ ...good, priority: 'urgent' }), /priority/);
   assert.match(problems({ ...good, boost: { lucky: 2 } }), /unknown boost 'lucky'/);
   assert.match(problems({ ...good, credits: { title: 'T' } }), /Credits need/);
-  assert.match(problems({ ...good, trigger: 'vortexDeath' }), /not raised by the game yet/);
-  assert.equal(problems({ ...good, trigger: 'vortexDeath', coming: 'Blazing Vortex' }), '');
+  assert.match(problems({ ...good, trigger: 'riposteOvershoot' }), /not raised by the game yet/);
+  assert.equal(problems({ ...good, trigger: 'riposteOvershoot', coming: 'the Riposte' }), '');
   assert.match(validateVoiceLines({ declarations: [good, good] }).errors.join(' | '), /declared twice/);
   // a recording nobody declared, and a take the manifest lists that is not there
   assert.match(problems(good, { manifest: { lines: { strayLine: [{ file: 'stray-line-1' }] } }, files: [] }), /strayLine: recorded .* but not declared/);
@@ -78,7 +78,11 @@ test('a moment gives its lines in order: the most particular moment first, the w
   assert.deepEqual(said(['dash']), ['dash', 'laugh']);
   assert.deepEqual(said(['noSuchMoment']), []);
   // a line waiting on what it belongs to is never offered, even if its moment were raised
-  assert.deepEqual(said(['vortexDeath', 'vortexSpin', 'riposteOvershoot']), []);
+  assert.deepEqual(said(['riposteOvershoot']), []);
+  // the Blazing Vortex's own: its noise as it takes hold, and its excuse for whoever falls spinning (ahead of an
+  // ordinary defeat)
+  assert.deepEqual(said(['vortexSpin']), ['vortexUse']);
+  assert.deepEqual(said({ death: 1, vortexDeath: 1 }).slice(0, 2), ['vortexDefeat', 'knightFallen']);
   // how fitting a moment is scales its lines' odds: the moment's own word, the line's share of it, and its boosts
   const fallen = linesFor('v', { death: 1 }, { facts: ['overkill', 'decisive'] });
   assert.equal(fallen.find((say) => say.line === 'knightFallen').chanceScale, 3.5);

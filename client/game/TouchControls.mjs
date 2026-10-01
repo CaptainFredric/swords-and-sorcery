@@ -167,6 +167,14 @@ export class TouchControls {
     const button = this.buttons.ultimate;
     if (!button) return;
     const view = ultimateView(local, serverNow);
+    // (the button is the ultimate carried: its own mark and name)
+    if (button.dataset.ultimate !== view.ultimate.id) {
+      button.dataset.ultimate = view.ultimate.id;
+      const name = (view.ultimate.short ?? view.ultimate.label).toUpperCase();
+      button.setAttribute('aria-label', name);
+      button.querySelector('span').textContent = name;
+      button.querySelector('svg')?.replaceWith(document.createRange().createContextualFragment(iconSvg(view.ultimate.id, 'sunder')));
+    }
     button.classList.toggle('charging', view.state === 'charging' || view.state === 'locked');
     button.classList.toggle('ready', view.state === 'ready');
     button.classList.toggle('active', view.state === 'active' || view.state === 'bracing');

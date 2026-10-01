@@ -17,3 +17,12 @@ test('the gauntlet\'s own key and touch button are there for whoever wants them,
   assert.deepEqual(registry.actions.get('gauntlet').keys, [], 'unbound');
   assert.equal(registry.settings.get('controls.touchGauntlet').default, false, 'no button unless asked for');
 });
+
+test('every ultimate has its drawing, each its own', async () => {
+  const { ULTIMATES } = await import('../../shared/src/ultimates.mjs');
+  for (const id of Object.keys(ULTIMATES)) assert.ok(ICONS[id]?.startsWith('<path'), `${id} has an icon`);
+  assert.notEqual(ICONS.vortex, ICONS.sunder);
+  assert.equal(iconSvg('no-such-ultimate', 'sunder'), iconSvg('sunder'));
+  assert.deepEqual(registry.settings.get('loadout.ultimate').options.map((option) => option.value), Object.keys(ULTIMATES));
+  assert.equal(registry.settings.get('loadout.ultimate').default, 'sunder');
+});

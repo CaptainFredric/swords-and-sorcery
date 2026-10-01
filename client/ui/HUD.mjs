@@ -41,6 +41,7 @@ export class HUD {
     this.ultimate = document.querySelector('#ultimate-ability');
     const ultimateIcon = this.ultimate?.querySelector('.ability-icon');
     if (ultimateIcon) ultimateIcon.innerHTML = iconSvg('sunder');
+    this.ultimateShown = 'sunder';
     this.ultimateReady = false;
     this.staggerTrack = document.querySelector('#stagger-track');
     this.staggerFill = document.querySelector('#stagger-fill');
@@ -240,6 +241,13 @@ export class HUD {
     if (!this.ultimate) return;
     const view = ultimateView(local, serverNow);
     const tile = this.ultimate;
+    // (the tile is the ultimate carried: its own mark and name)
+    if (this.ultimateShown !== view.ultimate.id) {
+      this.ultimateShown = view.ultimate.id;
+      tile.dataset.ultimate = view.ultimate.id;
+      tile.querySelector('.ability-icon').innerHTML = iconSvg(view.ultimate.id, 'sunder');
+      tile.querySelector('em').textContent = (view.ultimate.short ?? view.ultimate.label).toUpperCase();
+    }
     tile.classList.toggle('ready', view.state === 'ready');
     tile.classList.toggle('cooling', view.state === 'charging' || view.state === 'locked');
     tile.classList.toggle('active', view.state === 'active' || view.state === 'bracing');

@@ -48,3 +48,24 @@ test('snapshots roll back poses that are impossible under authoritative state', 
   assert.deepEqual(localWeaponReleaseForSnapshot({ ...ready, staggerUntil: 11 }, 10), { attack: true, guard: true });
   assert.deepEqual(localWeaponReleaseForSnapshot({ ...ready, guardStamina: 0 }, 10), { attack: false, guard: true });
 });
+
+test('a Blazing Vortex has both hands from the moment it is lit to the end of its recovery: nothing else is shown in them', async () => {
+  const { handsTaken } = await import('./localActionPresentation.mjs');
+  const ready = { alive: true, staggerUntil: 0, guardStamina: 100, spellReadyAt: 0 };
+  const state = { position: { x: 0, y: 0, z: 0 }, dashReadyAt: 0 };
+  const lit = { ...ready, ultimateState: { id: 'vortex', phase: 'startup', commitAt: 10.9 } };
+  const spinning = { ...ready, ultimateState: { id: 'vortex', phase: 'active', commitAt: 10, until: 14.5 } };
+  const recovering = { ...ready, ultimateState: null, recoverUntil: 10.5 };
+  for (const auth of [lit, spinning, recovering]) {
+    assert.equal(handsTaken(auth, 10.2), true);
+    for (const action of ['attack', 'guard', 'cast', 'dash']) assert.equal(canPresentLocalAction(action, auth, state, 10.2), false, `${action} is not shown`);
+    assert.deepEqual(localWeaponReleaseForSnapshot(auth, 10.2), { attack: true, guard: true }, 'and what was held is let go');
+  }
+  // after it, and all through a Sunder, the hands are the knight's own
+  assert.equal(handsTaken(recovering, 10.6), false);
+  assert.equal(canPresentLocalAction('attack', recovering, state, 10.6), true);
+  const sundering = { ...ready, ultimateState: { id: 'sunder', phase: 'active', commitAt: 10, until: 18 } };
+  assert.equal(handsTaken(sundering, 10.2), false);
+  assert.equal(canPresentLocalAction('attack', sundering, state, 10.2), true);
+  assert.equal(localWeaponReleaseForSnapshot(sundering, 10.2), null);
+});

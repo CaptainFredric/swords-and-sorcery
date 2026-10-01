@@ -13,7 +13,8 @@ export function ultimateView(local, serverNow) {
     const left = state.until - serverNow;
     return { state: 'active', charge: left / ultimate.activeSec, label: left.toFixed(1), ultimate };
   }
-  if (state?.phase === 'startup') return { state: 'bracing', charge: 1, label: 'BRACE', ultimate };
+  // (its startup: a Sunder is braced into; a Vortex has no brace, it is lit)
+  if (state?.phase === 'startup') return { state: 'bracing', charge: 1, label: ultimate.hop ? 'IGNITE' : 'BRACE', ultimate };
   const locked = (local?.ultimateLockedUntil ?? -Infinity) - serverNow;
   if (locked > 0.01) return { state: 'locked', charge, label: locked.toFixed(1), ultimate };
   if (charge >= 1) return { state: 'ready', charge: 1, label: 'READY', ultimate };

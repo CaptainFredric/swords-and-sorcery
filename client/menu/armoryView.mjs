@@ -37,6 +37,11 @@ const ULTIMATE_WORDS = Object.freeze({
     line: 'Every blow the most forceful it could be: the sword slams down with each strike and the ground ruptures under it; a guard pays double.',
     facts: (u) => `${GAME.swordElevated} a blow, the ground split with each · ${u.activeSec} s · earned by fighting`,
   },
+  vortex: {
+    mark: '✺',
+    line: 'Spin into a close-range storm of sword cuts and aimed fire. Move faster, fall slowly, and overwhelm anyone who stays near you.',
+    facts: (u) => `${u.contact.damage} a cut, small Fireballs where you aim · no guard while it lasts · ${u.activeSec} s · earned by fighting`,
+  },
 });
 
 export function armoryView(equipped, ultimate = 'sunder') {

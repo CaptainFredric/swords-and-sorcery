@@ -4,7 +4,7 @@ import { GAME_MODES, VOTE_OPTIONS, getModePolicy } from '../src/modes.mjs';
 import { WORLD_IDS, getWorld } from '../worlds/registry.mjs';
 import { DEFAULT_SPELL, SPELLS, isSpell } from '../src/spells.mjs';
 import { freshStagger } from '../src/stagger.mjs';
-import { DEFAULT_ULTIMATE, isUltimate } from '../src/ultimates.mjs';
+import { DEFAULT_ULTIMATE, ULTIMATES, isUltimate } from '../src/ultimates.mjs';
 
 const COUNTDOWN_SEC = 3;
 const MATCH_SEC = 360;
@@ -51,6 +51,8 @@ function freshCombatState(spawn, nowSec = 0) {
     prowess: 0,
     ultimateState: null,
     ultimateLockedUntil: -Infinity,
+    recoverUntil: -Infinity,
+    dizzyUntil: -Infinity,
     spawnProtectionUntil: nowSec + 1,
     alive: true,
     respawnAt: 0,
@@ -120,20 +122,22 @@ export class Room {
     return player;
   }
 
-  addServerActor({ id, name, actorKind, spell = null }, nowSec) {
+  addServerActor({ id, name, actorKind, spell = null, ultimate = null }, nowSec) {
     if (!['bot', 'dummy'].includes(actorKind)) throw new Error('Server actor must be bot or dummy');
     if (this.players.size >= 8) throw new Error('Room is full');
     if (this.players.has(id)) return this.players.get(id);
     const spawn = this.world.spawnPoints[this.players.size % this.world.spawnPoints.length];
     // (a bot brings a spell it throws, never a ward)
     const spells = Object.values(SPELLS).filter((s) => s.kind !== 'ward').map((s) => s.id);
+    const ultimates = Object.keys(ULTIMATES);
     const actor = {
       id,
       token: null,
       name: String(name || (actorKind === 'bot' ? 'Rival Spellblade' : 'Training Dummy')).slice(0, 18),
       // a bot brings either spell, so both turn up in a fight
       spell: isSpell(spell) ? spell : spells[Math.floor(Math.random() * spells.length)],
-      ultimate: DEFAULT_ULTIMATE,
+      // (and either ultimate; a practice dummy, which earns none, the default)
+      ultimate: isUltimate(ultimate) ? ultimate : actorKind === 'bot' ? ultimates[Math.floor(Math.random() * ultimates.length)] : DEFAULT_ULTIMATE,
       actorKind,
       connected: false,
       disconnectedAt: null,

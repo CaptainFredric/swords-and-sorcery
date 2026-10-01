@@ -56,7 +56,8 @@ several tags, the lines of the most particular one are tried first, and the firs
 cooldown and its rank is the only one said. The tags, with what each means, are `VOICE_TAGS` in `voiceLines.mjs`:
 `death`, `minorLethal`, `magicDeath`, `matchLost`, `kill`, `cleanSwordKill`, `knighthoodKill`, `galeKill`,
 `gauntletKill`, `subparKill`, `messyKill`, `practiceWin`, `sunderKill`, `guardBreak`, `staggerBreakInflicted`,
-`galeDisplacement`, `rescued`, `squireOpening`, `bladeSnag`, `spellCast`, `steelTurn`, `sunderInvoked`, and the
+`galeDisplacement`, `rescued`, `squireOpening`, `bladeSnag`, `spellCast`, `steelTurn`, `sunderInvoked`, `vortexSpin`,
+`vortexDeath`, and the
 smaller ones the wildcard and the grunts hang on. Facts that only make a line likelier (`boost`): `overkill`,
 `decisive`, `interrupted`, `highSwing`.
 

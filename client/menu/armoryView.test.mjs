@@ -17,3 +17,18 @@ test('the Armory lists every spell from the shared table, marks the one carried,
   assert.ok(steel && /glancing/.test(steel.line) && /lands for 19/.test(steel.facts));
   for (const spell of view.spells) assert.ok(spell.line.length > 20, `${spell.id} has words`);
 });
+
+test('the Armory offers both ultimates, marks the one carried, and says plainly what each does', async () => {
+  const { ULTIMATES } = await import('../../shared/src/ultimates.mjs');
+  const view = armoryView('fireball', 'vortex');
+  assert.deepEqual(view.ultimates.map((u) => u.id), Object.keys(ULTIMATES));
+  assert.deepEqual(view.ultimates.map((u) => u.id), ['sunder', 'vortex'], 'Sunder first, the Vortex beside it');
+  assert.deepEqual(view.ultimates.filter((u) => u.equipped).map((u) => u.id), ['vortex']);
+  const vortex = view.ultimates.find((u) => u.id === 'vortex');
+  assert.equal(vortex.name, 'BLAZING VORTEX');
+  assert.match(vortex.line, /^Spin into a close-range storm of sword cuts and aimed fire\./);
+  assert.match(vortex.facts, new RegExp(`${ULTIMATES.vortex.contact.damage} a cut.*no guard.*${ULTIMATES.vortex.activeSec} s`));
+  // with nothing said, Sunder is the one carried
+  assert.deepEqual(armoryView('fireball').ultimates.filter((u) => u.equipped).map((u) => u.id), ['sunder']);
+  for (const u of view.ultimates) assert.ok(u.line.length > 20 && u.mark, `${u.id} has words and a mark`);
+});

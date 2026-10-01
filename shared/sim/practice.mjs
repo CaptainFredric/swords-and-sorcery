@@ -84,6 +84,8 @@ function resetActorAtSpawn(player, spawn, nowSec) {
   player.ultimateState = null;
   player.practiceGate = null;
   player.ultimateLockedUntil = -Infinity;
+  player.recoverUntil = -Infinity;
+  player.dizzyUntil = -Infinity;
   player.dashReadyAt = nowSec;
   player.dashUntil = 0;
   player.dashDir = { x: 0, z: 0 };

@@ -17,3 +17,13 @@ test('the ultimate tile: filling, ready, bracing, running (seconds left), and a 
   assert.equal(locked.state, 'locked');
   assert.equal(locked.label, '1.5');
 });
+
+test('the tile is the ultimate carried: a Vortex is lit, not braced into, and says so', () => {
+  const lit = ultimateView({ ultimate: 'vortex', prowess: PROWESS.full, ultimateState: { id: 'vortex', phase: 'startup', commitAt: 10.9 } }, 10);
+  assert.deepEqual([lit.state, lit.label, lit.ultimate.id, lit.ultimate.short], ['bracing', 'IGNITE', 'vortex', 'Vortex']);
+  const spinning = ultimateView({ ultimate: 'vortex', prowess: 0, ultimateState: { id: 'vortex', phase: 'active', until: 12.25 } }, 10);
+  assert.equal(spinning.state, 'active');
+  assert.equal(spinning.charge, 0.5, 'half of its stretch left');
+  assert.equal(ultimateView({ ultimate: 'sunder', prowess: PROWESS.full, ultimateState: { id: 'sunder', phase: 'startup', commitAt: 10.6 } }, 10).label, 'BRACE');
+  assert.equal(ultimateView({ prowess: 0 }, 10).ultimate.id, 'sunder', 'nothing said: Sunder');
+});

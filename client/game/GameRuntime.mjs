@@ -19,7 +19,9 @@ import {
   swingRecipe, swordHitRecipe, wallClangRecipe,
   groundSlamRecipe, ruptureRunRecipe, sunderRingRecipe, staggerBreakRecipe, staggerStrainRecipe, sunderDongRecipe, sunderDropRecipe, sunderForceRecipe,
   ultimateFizzleRecipe, ultimateReadyRecipe,
+  emberImpactRecipe, emberRecipe, vortexCatchRecipe, vortexCutRecipe, vortexEndRecipe, vortexIgniteRecipe, vortexStarRecipe, vortexWhooshRecipe,
 } from './sound/soundRecipes.mjs';
+import { ULTIMATES, ultimateStartup, ultimateWhirl, vortexAngle, vortexWindup } from '../../shared/src/ultimates.mjs';
 import { PROWESS } from '../../shared/src/prowess.mjs';
 import { PRACTICE_RECAST, recordUse } from '../../shared/src/practiceRecast.mjs';
 import { STAGGER } from '../../shared/src/stagger.mjs';
@@ -41,6 +43,7 @@ import { ShatteredKeepRenderer } from '../worlds/ShatteredKeepRenderer.mjs';
 import { RuinedKeepRenderer } from '../worlds/RuinedKeepRenderer.mjs';
 import {
   canPresentLocalAction,
+  handsTaken,
   localWeaponReleaseForEvent,
   localWeaponReleaseForSnapshot,
 } from './localActionPresentation.mjs';
@@ -124,11 +127,16 @@ export class GameRuntime {
     this.remotePlayers.onFootstep = (id, position, heavy, crouched) => this.#footstep(id, position, crouched ? 0 : heavy, FOOTSTEPS.other * (crouched ? 0.55 : 1));
     // now and then a knight grunts as he jumps (an exertion: never over his other lines)
     this.remotePlayers.onJump = (id) => this.#sayMoment(id, ['jump']);
+    // another knight's Blazing Vortex: the star's ting as it is lit, and the beat of the blade, once a turn
+    this.remotePlayers.onVortexSpark = (id) => this.#play(vortexStarRecipe(), this.#bodyPosition(id), 0.7);
+    this.remotePlayers.onVortexTurn = (id) => this.#play(vortexWhooshRecipe(), this.#bodyPosition(id), 0.5);
     // the moments he has a line for, remembered a little while (voiceMoments.mjs)
     this.moments = new VoiceMoments();
     // my own blade against the world, judged in my own view (localBladeSweep.mjs)
     this.bladeSweep = new LocalBladeSweep();
     this.weapon = new WeaponView(this.camera);
+    // my own Vortex lit: the star's ting
+    this.weapon.onVortexSpark = () => this.#play(vortexStarRecipe(), null, 0.8);
     this.weapon.onSwing = (strike, { slam = false } = {}) => {
       // (Sundering, every strike is swung as the heavy one)
       const heavy = slam || strike >= 2;
@@ -481,9 +489,23 @@ export class GameRuntime {
       // Sunder All That Rusts: the brace (and the cry), the brace broken before it took hold, the ground split
       if (event.type === 'ultimateStart') this.#ultimateStart(event);
       // ...and as it takes hold, the bell
-      if (event.type === 'ultimateActive') {
+      if (event.type === 'ultimateActive' && event.ultimate === 'vortex') {
+        // the fire catches as the spin takes hold; and, now and then, what he has to say at that speed (once)
+        this.#play(vortexCatchRecipe(), event.playerId === me ? null : this.#bodyPosition(event.playerId), event.playerId === me ? 0.9 : 0.7);
+        this.#sayMoment(event.playerId, ['vortexSpin']);
+      } else if (event.type === 'ultimateActive') {
         this.#play(sunderDongRecipe(), event.playerId === me ? null : this.#bodyPosition(event.playerId), event.playerId === me ? 0.95 : 0.8);
         this.#sayMoment(event.playerId, ['ultimateActive']);
+      }
+      // a Vortex run out: the spin winding down
+      if (event.type === 'ultimateEnded' && event.ultimate === 'vortex') {
+        this.#play(vortexEndRecipe(), event.playerId === me ? null : this.#bodyPosition(event.playerId), event.playerId === me ? 0.8 : 0.6);
+      }
+      if (event.type === 'vortexHit') this.#vortexHit(event);
+      // an ember leaving the spin: a small spit of fire
+      if (event.type === 'projectileSpawned' && event.projectile?.spell === 'ember') {
+        const mine = event.projectile.ownerId === me;
+        this.#play(emberRecipe(), mine ? null : event.projectile.position, mine ? 0.55 : 0.5);
       }
       if (event.type === 'ultimateInterrupted') {
         this.#play(ultimateFizzleRecipe(), event.playerId === me ? null : this.#bodyPosition(event.playerId), 0.8);
@@ -536,7 +558,8 @@ export class GameRuntime {
       }
       if (event.type === 'block') {
         if (event.defenderId === me) this.weapon.block(false);
-        if (event.attackerId === me) this.weapon.rebound();
+        // (a Vortex's blade is not thrown back by a guard: it is already coming round again)
+        if (event.attackerId === me && !event.vortex) this.weapon.rebound();
       }
       if (event.type === 'guardBreak' && event.defenderId === me) {
         this.hud.flashText('GUARD BROKEN', 'danger');
@@ -547,7 +570,7 @@ export class GameRuntime {
         // the ground under it, for the wave and the mark the blast leaves
         const ground = this.activeWorld ? surfaceHeightAt(event.point.x, event.point.z, event.point.y, this.activeWorld) : null;
         this.effects.impact(event.point, { spell: spell.id, radius: event.radius ?? spell.radius, ground });
-        this.#play(spell.chill ? frostImpactRecipe() : fireballImpactRecipe(), event.point, 1);
+        this.#play(spell.conjured ? emberImpactRecipe() : spell.chill ? frostImpactRecipe() : fireballImpactRecipe(), event.point, spell.conjured ? 0.8 : 1);
       }
       if (event.type === 'damage' && event.source === 'burn') this.#play(burnLickRecipe(), event.victimId === me ? null : this.#bodyPosition(event.victimId), 0.7);
       // the split ground catching a knight: a smaller ring of the same iron
@@ -734,7 +757,7 @@ export class GameRuntime {
   // hand drives out at once, with a grunt, whether or not anyone is there to meet it
   #tryLocalJab(now) {
     const auth = this.localAuth;
-    if (!this.localState || (auth.staggerUntil ?? -Infinity) > now || auth.pendingSpell) return false;
+    if (!this.localState || (auth.staggerUntil ?? -Infinity) > now || auth.pendingSpell || handsTaken(auth, now)) return false;
     if (!this.weapon.canJab()) return false;
     this.weapon.jab();
     this.#play(gauntletSwingRecipe(), null, 0.8);
@@ -956,12 +979,76 @@ export class GameRuntime {
   // a knight braces into Sunder: the harness drawn tight, and the cry; mine names it
   #ultimateStart(event) {
     const me = event.playerId === this.socket.playerId;
+    // a Blazing Vortex is lit, not braced into: the breath drawn up into flame through its startup, and no cry
+    if (event.ultimate === 'vortex') {
+      this.#play(vortexIgniteRecipe(Math.random, { seconds: ULTIMATES.vortex.startupSec }), me ? null : this.#bodyPosition(event.playerId), me ? 0.9 : 0.7);
+      if (me) {
+        // (its small hop: the host has thrown me up already, and my own steps follow at once)
+        if (event.hop && this.localState?.grounded) {
+          this.localState.velocity.y = event.hop;
+          this.localState.grounded = false;
+        }
+        this.hud.flashText('BLAZING VORTEX', 'vortex', 1200);
+      }
+      return;
+    }
     this.#play(sunderDropRecipe(), me ? null : this.#bodyPosition(event.playerId), me ? 1 : 0.8);
     // its cry: most times its own, now and then MIGHT MAKES... KNIGHT! (voiceRules ULTIMATE_CRIES)
-    this.#sayMoment(event.playerId, [cryMoment(event.ultimate)]);
+    const cry = cryMoment(event.ultimate);
+    if (cry) this.#sayMoment(event.playerId, [cry]);
     if (me) {
       this.hud.flashText('SUNDER ALL THAT RUSTS', 'sunder', 1400);
       this.cameraKick = Math.max(this.cameraKick, 0.08);
+    }
+  }
+
+  // my own Blazing Vortex in my arms, each frame (fpVortex.mjs): the startup, then the blade going round as the host's
+  // goes round; and the beat of it, once a turn, as the blade comes in on my right
+  #spin(serverNow) {
+    const me = this.localAuth;
+    const state = me?.alive && me.ultimateState?.id === 'vortex' ? me.ultimateState : null;
+    const vortex = ULTIMATES.vortex;
+    let view = null;
+    if (state && serverNow < state.commitAt) {
+      view = { phase: 'startup', share: 1 - (state.commitAt - serverNow) / vortex.startupSec, windup: vortexWindup(state, serverNow) };
+      this.spinFrom = null;
+      this.spinTurn = null;
+    } else if (state && serverNow < (state.until ?? state.commitAt + vortex.activeSec)) {
+      // (until the host has said where its blade started round from, it started from where I faced)
+      this.spinFrom ??= this.input.yaw;
+      const rel = vortexAngle({ commitAt: state.commitAt, spinFrom: state.spinFrom ?? this.spinFrom }, serverNow) - this.input.yaw;
+      view = { phase: 'active', rel };
+      const turn = Math.floor((rel + Math.PI / 2) / (2 * Math.PI));
+      if (turn !== this.spinTurn) {
+        this.spinTurn = turn;
+        this.#play(vortexWhooshRecipe(), null, 0.6);
+      }
+    } else {
+      this.spinFrom = null;
+      this.spinTurn = null;
+    }
+    this.weapon.setVortex(view);
+  }
+
+  // a Vortex's blade biting a knight as it comes round: sparks and fire where it met them, and the cut heard
+  #vortexHit(event) {
+    const me = this.socket.playerId;
+    const attacker = this.#bodyPosition(event.playerId);
+    const victim = this.#bodyPosition(event.targetId);
+    const point = event.point ?? impactPoint(victim, attacker);
+    if (event.targetId !== me && point) {
+      this.effects.hitBurst(point, blowDirection(victim, attacker), { strike: 0, quality: 1 });
+      this.effects.sparks(point, 0xffa040, 8);
+      this.remotePlayers.flashHit(event.targetId);
+    }
+    if (event.playerId === me) {
+      this.cameraKick = Math.max(this.cameraKick, 0.03);
+      this.#play(vortexCutRecipe(), null, 0.9);
+    } else if (event.targetId === me) {
+      // (on hardened plate, the clang is the whole of it: #steelStruck)
+      if (!(event.steel >= 0.02)) this.#play(hurtRecipe(Math.random, { heavy: false, amount: ULTIMATES.vortex.contact.damage }), null, 1);
+    } else {
+      this.#play(vortexCutRecipe(), point, 0.75);
     }
   }
 
@@ -981,9 +1068,11 @@ export class GameRuntime {
   #showCondition(serverNow) {
     const me = this.localAuth;
     if (!me) return;
-    const sunder = me.ultimateState?.phase === 'active' && serverNow < (me.ultimateState.until ?? 0);
+    const sunder = me.ultimateState?.id === 'sunder' && me.ultimateState.phase === 'active' && serverNow < (me.ultimateState.until ?? 0);
     const level = (me.stagger?.level ?? 0) / STAGGER.max;
-    this.weapon.setCondition({ sunder, unsteady: Math.max(0, (level - 0.4) / 0.6) });
+    // (dizzy for a moment after a Vortex: strongest as it ends, gone by the end of it)
+    const dizzy = me.alive ? Math.max(0, Math.min(1, ((me.dizzyUntil ?? -Infinity) - serverNow) / ULTIMATES.vortex.dizzySec)) : 0;
+    this.weapon.setCondition({ sunder, unsteady: Math.max(0, (level - 0.4) / 0.6), dizzy });
     const recovering = (me.stagger?.recoverUntil ?? -Infinity) > serverNow;
     if (me.alive && level >= 0.72 && !recovering && serverNow >= (this.strainAt ?? -Infinity)) {
       this.strainAt = serverNow + 0.7;
@@ -1079,6 +1168,8 @@ export class GameRuntime {
     else if (event.source === 'burn' && killer) this.hud.addFeed(`${killer.name} burned ${victim?.name ?? 'someone'} down`, 'fire');
     else if (event.source === 'frostfire' && killer) this.hud.addFeed(`${killer.name} shattered ${victim?.name ?? 'someone'}`, 'frost');
     else if (event.source === 'gale' && killer) this.hud.addFeed(`${killer.name} blew ${victim?.name ?? 'someone'} away`, 'gale');
+    else if (event.source === 'vortex' && killer) this.hud.addFeed(`${killer.name} spun through ${victim?.name ?? 'someone'}`, 'fire');
+    else if (event.source === 'ember' && killer) this.hud.addFeed(`${killer.name} scorched ${victim?.name ?? 'someone'}`, 'fire');
     else if (event.source === 'gauntlet' && killer) this.hud.addFeed(`${killer.name} laid ${victim?.name ?? 'someone'} low with a gauntlet`, 'sword');
     else if (killer) this.hud.addFeed(`${killer.name} slew ${victim?.name ?? 'someone'}`, 'sword');
     else this.hud.addFeed(`${victim?.name ?? 'A spellblade'} fell into the abyss`, 'abyss');
@@ -1141,6 +1232,7 @@ export class GameRuntime {
     this.fps += ((1 / dt) - this.fps) * 0.05;
     const timeSec = nowMs / 1000;
 
+    if (this.localAuth) this.#spin(this.socket.serverNow());
     if (this.localState && this.localAuth?.alive && this.playing && this.activeWorld) {
       // back on my feet: my own eyes and arms again (once I was seen down; the death event can beat its snapshot here)
       if (this.deathCam && (this.deathCam.down || timeSec - this.deathCam.at > 1)) {
@@ -1148,18 +1240,26 @@ export class GameRuntime {
         this.weapon.group.visible = true;
         this.weapon.group.position.y = 0;
       }
-      const moveInput = this.input.movement();
       const serverNow = this.socket.serverNow();
+      // my own steps as the host takes them: bracing into an ultimate I move only a little (and do not jump); spinning
+      // in a Vortex, at its pace, with its slow fall, no sprint and no crouch
+      const wanted = this.input.movement();
+      const bracing = ultimateStartup(this.localAuth, serverNow);
+      const whirl = ultimateWhirl(this.localAuth, serverNow);
+      const moveInput = bracing
+        ? { ...wanted, forward: wanted.forward * bracing.startupMove, right: wanted.right * bracing.startupMove, jump: false, sprint: false }
+        : whirl ? { ...wanted, sprint: false, crouch: false } : wanted;
+      this.localState.whirl = whirl;
       // predict the sprint with the same rule the server uses, from the last authoritative stamina
       const wasSprinting = this.localState.sprinting;
       this.localState.sprinting = resolveSprint({
-        wantsSprint: moveInput.sprint,
-        forward: moveInput.forward,
-        right: moveInput.right,
+        wantsSprint: wanted.sprint,
+        forward: wanted.forward,
+        right: wanted.right,
         grounded: this.localState.grounded,
         stamina: this.localAuth.guardStamina,
         sprinting: this.localState.sprinting,
-        blocked: this.input.guardHeld || this.input.attackHeld || (this.localAuth.staggerUntil ?? 0) > serverNow,
+        blocked: this.input.guardHeld || this.input.attackHeld || (this.localAuth.staggerUntil ?? 0) > serverNow || Boolean(whirl),
         crouched: Boolean(this.localState.crouched),
       });
       // breaking into a sprint with someone at my heels: the wildcard, now and then
@@ -1182,7 +1282,7 @@ export class GameRuntime {
       }
       if (nowMs - this.lastInputSentAt >= 50) {
         this.lastInputSentAt = nowMs;
-        this.socket.input({ seq: ++this.sequence, ...moveInput, clientTime: this.socket.serverNow() });
+        this.socket.input({ seq: ++this.sequence, ...wanted, clientTime: this.socket.serverNow() });
       }
       // the weapon's procedural motion also returns small camera offsets (purely visual: aim uses input yaw/pitch)
       // Sheathed in Steel on my own arms: the server's word, or my own press while that word is on the way

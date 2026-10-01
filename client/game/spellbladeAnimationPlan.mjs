@@ -24,6 +24,10 @@ function fixed(clip, time = 0, loop = false) {
 // the heavy strike's contact, this far into Slash_3 (its slot begins at the chain's third start)
 const SLAM_CONTACT = SWORD_STRIKE_TIMES[2] - SWORD_CHAIN.starts[2];
 
+// a Blazing Vortex's held poses: Slash_3 with the sword raised (as it is lit), Slash_1 at its contact (the blade level
+// along the aim); it comes down level this long before the spin takes hold
+const VORTEX_HELD = Object.freeze({ raised: Math.max(0, SLAM_CONTACT - 0.16), level: SWORD_STRIKE_TIMES[0], levelBefore: 0.5 });
+
 function attackPlan(player, serverNow) {
   const startedAt = finite(player?.attackStartedAt, serverNow);
   const elapsed = nonNegative(serverNow - startedAt);
@@ -44,6 +48,14 @@ function attackPlan(player, serverNow) {
 
 export function resolveSpellbladeAnimationPlan({ state, player = {}, serverNow = 0, localTime = 0 }) {
   if (state === 'attack') return attackPlan(player, serverNow);
+
+  // a Blazing Vortex: the sword held out level in both hands, where the forehand's blade crosses the aim (the whole
+  // knight is turned round by the spin: RemotePlayers); as it is lit, raised first (the heavy strike's raise)
+  if (state === 'vortex') {
+    const vortex = player.ultimateState ?? {};
+    const lighting = vortex.phase === 'startup' && serverNow < finite(vortex.commitAt, serverNow) - VORTEX_HELD.levelBefore;
+    return lighting ? fixed('Slash_3', VORTEX_HELD.raised) : fixed('Slash_1', VORTEX_HELD.level);
+  }
 
   if (state === 'cast') {
     return fixed('Cast', serverNow - finite(player.castPoseStartAt, serverNow));

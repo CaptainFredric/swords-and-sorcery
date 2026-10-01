@@ -96,7 +96,14 @@ export function serializeSnapshot(room, nowSec) {
       stagger: p.stagger ? { level: p.stagger.level, recoverUntil: p.stagger.recoverUntil } : null,
       prowess: p.prowess ?? 0,
       ultimate: p.ultimate ?? null,
-      ultimateState: p.ultimateState ? { id: p.ultimateState.id, phase: p.ultimateState.phase, commitAt: p.ultimateState.commitAt, until: p.ultimateState.until } : null,
+      ultimateState: p.ultimateState ? {
+        id: p.ultimateState.id, phase: p.ultimateState.phase, commitAt: p.ultimateState.commitAt, until: p.ultimateState.until,
+        // (a Vortex: where its blade started round from)
+        ...(p.ultimateState.spinFrom !== undefined ? { spinFrom: p.ultimateState.spinFrom } : {}),
+      } : null,
+      // dizzy from a Vortex just ended (only seen)
+      dizzyUntil: p.dizzyUntil ?? -Infinity,
+      recoverUntil: p.recoverUntil ?? -Infinity,
       ultimateLockedUntil: p.ultimateLockedUntil ?? -Infinity,
       spawnProtectionUntil: p.spawnProtectionUntil,
       respawnAt: p.respawnAt,

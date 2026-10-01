@@ -267,6 +267,7 @@
 
 /* the ultimate named as it takes hold: ember on brass, a little letter-spaced (a declaration, not a hit marker) */
 .status-flash.sunder { color: #f0b274; letter-spacing: .12em; text-shadow: 0 0 14px rgba(201, 106, 58, .55), 0 2px 3px rgba(0, 0, 0, .8); }
+.status-flash.vortex { color: #ffc27a; letter-spacing: .12em; text-shadow: 0 0 14px rgba(255, 122, 40, .6), 0 2px 3px rgba(0, 0, 0, .8); }
 
 /* the Practice Yard: the tile keeps the real cooldown (it counts down as in a match), and a small brass mark says why
    the key works anyway */
