@@ -128,7 +128,7 @@ test('the victor\'s lines: each moment its own, before the ordinary taunt', () =
   assert.equal(victor({ clean: true })[0], 'hackSlash');
   assert.equal(victor({ clean: true }, 'fireball').includes('hackSlash'), false, 'a clean sword kill only');
   assert.equal(victor({ subpar: true })[0], 'subparStandard');
-  assert.deepEqual(victor({}).slice(-2), ['killTaunt', 'laugh']);
+  assert.deepEqual(victor({}).slice(-3), ['killTaunt', 'workHard', 'laugh']);
   // the fall that lost the match: the protest likelier
   assert.equal(deathLines({ victimId: 'v', killerId: 'k', source: 'sword', decisive: true }).fallen.find((say) => say.line === 'defeat').chanceScale, DEFEAT_ON_LOSS);
   // who they were: a player flying another standard, a Practice Yard opponent that fights
@@ -140,8 +140,8 @@ test('the victor\'s lines: each moment its own, before the ordinary taunt', () =
 });
 
 test('force settles the argument: a Sundering guard break, balance broken by a Sundering knight, a slam that splits the ground under two', () => {
-  assert.deepEqual(lines(guardBreakLines({ attackerId: 'k', catastrophic: true })), ['victory', 'lowerGuard', 'breakTaunt']);
-  assert.deepEqual(lines(guardBreakLines({ attackerId: 'k' })), ['lowerGuard', 'breakTaunt'], 'the helping hand first, the staffing advice rarer');
+  assert.deepEqual(lines(guardBreakLines({ attackerId: 'k', catastrophic: true })), ['victory', 'lowerGuard', 'breakTaunt', 'offGuard']);
+  assert.deepEqual(lines(guardBreakLines({ attackerId: 'k' })), ['lowerGuard', 'breakTaunt', 'offGuard'], 'the helping hand first, the staffing advice rarer');
   assert.ok(VOICE_LINES.breakTaunt.chance < VOICE_LINES.lowerGuard.chance);
   const moments = new VoiceMoments();
   const sundering = knights({ k: { ultimateState: { phase: 'active', until: 20 } } });
@@ -186,4 +186,18 @@ test('why a line is never heard can be read off: whether its moment comes, wheth
   assert.deepEqual(row('defeat'), { line: 'defeat', recorded: false, moments: 3, tried: 0, said: 0 }, 'its moment comes, but it has no take');
   assert.equal(row('steelBoast').moments, 0, 'a moment that never came');
   assert.equal(row('vortexDefeat').waitsFor, 'Blazing Vortex');
+});
+
+test('the Tin Man line is for a foe felled with their plate still hardened, never any kill; Steel\'s own line is for calling it', async () => {
+  const { linesFor } = await import('./voiceLines.mjs');
+  const moments = new VoiceMoments();
+  const world = knights({ k: {}, v: {} });
+  const steeled = moments.death({ type: 'death', victimId: 'v', killerId: 'k', source: 'sword', steeled: true, at: 1 }, world).victor;
+  assert.equal(steeled[0].line, 'tinManHeart');
+  assert.ok(!lines(moments.death({ type: 'death', victimId: 'v', killerId: 'k', source: 'sword', at: 2 }, world).victor).includes('tinManHeart'));
+  assert.deepEqual(lines(linesFor('k', ['steelCalled'])), ['steelPolished']);
+  assert.ok(!lines(linesFor('k', ['steelTurn'])).includes('steelPolished'), 'the boast at a spell turned aside stays its own');
+  assert.deepEqual(lines(linesFor('k', ['guardBreak'])), ['lowerGuard', 'breakTaunt', 'offGuard']);
+  assert.ok(lines(linesFor('k', ['kill'])).includes('workHard'));
+  assert.deepEqual(lines(linesFor('k', ['riposteOvershoot'])), [], 'the Riposte line is recorded, and still cannot be said');
 });

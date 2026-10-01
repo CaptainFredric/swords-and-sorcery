@@ -106,6 +106,8 @@ export class VoiceMoments {
       sunder: blow?.level === 'elevated' || source === 'rupture',
       knighthood: source === 'sword' ? this.#knighthood(killerId, victimId) : 0,
       gale,
+      // their plate still hardened as the killing blow landed (the host's word)
+      steel: Boolean(event.steeled),
       clean: Boolean(blow?.clean),
       subpar: killer?.actorKind === 'human' && victim?.actorKind === 'human' && (victim.cloth ?? 'crimson') !== 'crimson',
       practice: practice && victim?.actorKind === 'dummy' && FIGHTING.includes(victim.practiceMode),

@@ -47,7 +47,6 @@ export class CreditsPanel {
       <div class="credits-card">
         <h3 class="credits-title">${escape(CREDITS.title)}</h3>
         ${CREDITS.lines.map((line) => `<p class="credits-line"><small>${escape(line.role)}</small><b>${escape(line.name)}</b></p>`).join('')}
-        <p class="credits-note">${escape(CREDITS.note)}</p>
       </div>`;
     // which lines have a recording is the voice bank's to say (from the takes' manifest); until it has it, they load
     const recorded = this.voice?.recorded ?? null;
@@ -67,7 +66,7 @@ export class CreditsPanel {
           ${buttons ? `<div class="voice-takes">${buttons}</div>` : ''}
         </article>`;
     }).join('');
-    this.body.innerHTML = `${credits}<h3 class="setting-group">The Spellblade's voice</h3><p class="setting-note">Every line he has, and a few he is still to say.</p>${rows}`;
+    this.body.innerHTML = `${credits}<h3 class="setting-group">The Spellblade’s voice</h3><p class="setting-note">Every line the Spellblade can say.</p>${rows}`;
   }
 
   // (the voice may still be loading the first time: it is asked again a moment later)

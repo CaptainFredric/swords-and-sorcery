@@ -52,6 +52,7 @@ export const VOICE_TAGS = Object.freeze({
   knighthoodKill: { rank: 90, delay: 0.45, about: 'a sword kill after a run of near-perfect blows aimed high' },
   galeKill: { rank: 85, delay: 0.6, about: 'a kill by the drop a gust had just thrown them into' },
   practiceWin: { rank: 80, delay: 0.6, about: 'felling a Practice Yard opponent that fights' },
+  steelKill: { rank: 78, delay: 0.5, about: 'felling an opponent who was still Sheathed in Steel as the killing blow landed' },
   gauntletKill: { rank: 75, delay: 0.45, about: 'a kill with the gauntlet' },
   cleanSwordKill: { rank: 70, delay: 0.45, about: 'a sword kill at the cleanest contact' },
   subparKill: { rank: 65, delay: 0.6, about: 'felling another player who flies a standard other than the default' },
@@ -75,6 +76,7 @@ export const VOICE_TAGS = Object.freeze({
   rescued: { rank: 30, delay: 0.7, about: 'near his end, and his threat felled, thrown or broken by somebody else' },
   // --- spells and the gauntlet
   spellCast: { rank: 20, about: 'a spell leaving the hand' },
+  steelCalled: { rank: 20, delay: 0.45, about: 'calling Sheathe in Steel, as the armour hardens' },
   steelTurn: { rank: 20, delay: 0.35, about: 'Sheathe in Steel turning a spell aside' },
   galeDisplacement: { rank: 20, delay: 0.7, about: 'a gust really moving someone (likelier the harder it threw them)' },
   launched: { rank: 5, delay: 0.4, about: 'thrown off his feet by a gust\'s heart' },
@@ -100,18 +102,18 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
   // --- the breath of things: exertions (heard often, each on its own short cooldown; they never cut anything)
   {
     id: 'effort', kind: 'exertion',
-    text: '(the breath behind a heavy swing)',
-    trigger: { heavySwing: 1, lightSwing: 0.3 },
-    priority: 'low', rarity: 0.4, cooldown: 1.8, gain: 0.75,
-    credits: { title: 'Effort', description: 'The heavy strike, and now and then a lighter one.', note: 'Currently swung in dignified silence.' },
+    text: '(HIYAAAAH!)',
+    trigger: { heavySwing: 1, lightSwing: 0.2 },
+    priority: 'low', rarity: 0.22, cooldown: 5, gain: 0.75,
+    credits: { title: 'Hiyaaaah', description: 'Occasionally, behind a hard sword swing.', note: 'The sword did not swing itself.' },
     voice: { drive: 2.4, rmsDb: -16 }, aliases: ['grunt', 'swing', 'attack', 'heave', 'strike'],
   },
   {
     id: 'hurt', kind: 'exertion',
     text: '(a blow taken)',
     trigger: 'hurt',
-    priority: 'low', rarity: 0.7, cooldown: 1.1, gain: 0.85,
-    credits: { title: 'Hurt', description: 'Taking a real blow.', note: 'For now he suffers in silence, which he considers knightly.' },
+    priority: 'low', rarity: 0.35, cooldown: 4, gain: 0.85,
+    credits: { title: 'Oof', description: 'After taking a proper hit.', note: 'A concise medical report.' },
     voice: { drive: 2.2, rmsDb: -16 }, aliases: ['pain', 'hit', 'ow', 'ouch'],
   },
   {
@@ -184,7 +186,7 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     text: '(going down)',
     trigger: 'death', order: -10,
     priority: 'high', rarity: 1, cooldown: 0,
-    credits: { title: 'Death', description: 'When nothing better comes to him.', note: 'The quiet option.' },
+    credits: { title: 'Death', description: 'When he dies without a better line.', note: 'Defeat has several accepted pronunciations.' },
     voice: { drive: 2, rmsDb: -16 }, aliases: ['die', 'dying', 'dead'],
   },
   // --- over a fallen foe
@@ -209,7 +211,7 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     text: 'I am quite soFISTicated.',
     trigger: 'gauntletKill',
     priority: 'normal', rarity: 0.35, cooldown: 180,
-    credits: { title: 'SoFISTicated', description: 'Very rarely, after the gauntlet settles matters.', note: 'Regrettably, he prepared this one.' },
+    credits: { title: 'SoFISTicated', description: 'Very rarely, after a gauntlet kill.', note: 'He has been waiting to say this.' },
     voice: { drive: 2, rmsDb: -17 }, aliases: ['sofisticated', 'fistkill'],
   },
   {
@@ -217,7 +219,7 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     text: 'You are the hack. I will be the slash.',
     trigger: { cleanSwordKill: 1, counterHit: 0.6 },
     priority: 'normal', rarity: 0.25, cooldown: 120, gain: 0.95,
-    credits: { title: 'The Hack and the Slash', description: 'Occasionally, after a particularly tidy sword exchange.', note: 'He has divided the responsibilities.' },
+    credits: { title: 'The Hack and the Slash', description: 'Occasionally, after a very clean sword kill or counter.', note: 'He has divided the responsibilities.' },
     voice: { drive: 2.2, rmsDb: -16 }, aliases: ['hack', 'slash'],
   },
   {
@@ -225,7 +227,7 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     text: 'Your standard is subpar.',
     trigger: 'subparKill',
     priority: 'normal', rarity: 0.08, cooldown: 300, gain: 0.95,
-    credits: { title: 'Subpar Standard', description: 'Very rarely, when heraldry and homicide coincide.', note: 'The assessment was unsolicited.' },
+    credits: { title: 'Subpar Standard', description: 'Very rarely, after killing someone flying a non-default standard.', note: 'The assessment was unsolicited.' },
     voice: { drive: 2, rmsDb: -18 }, aliases: ['standard', 'subpar'],
   },
   {
@@ -233,8 +235,24 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     text: 'I always knew that I thought this would happen.',
     trigger: { rescued: 1, messyKill: 0.35 },
     priority: 'normal', rarity: 0.35, cooldown: 300,
-    credits: { title: 'Always Knew', description: 'Rarely, after events rescue him in a manner he immediately claims to have anticipated.', note: 'Confidence has been reconstructed.' },
+    credits: { title: 'Always Knew', description: 'Rarely, after luck or somebody else saves the situation.', note: 'He knew that would happen. Apparently.' },
     voice: { drive: 2, rmsDb: -17, expandBelowDb: -42 }, aliases: ['always', 'knew'],
+  },
+  {
+    id: 'tinManHeart',
+    text: 'You have quite the heart for a Tin Man.',
+    trigger: 'steelKill',
+    priority: 'normal', rarity: 0.15, cooldown: 240,
+    credits: { title: 'Tin Man', description: 'Rarely, after killing an opponent who was protected by Sheathe in Steel.', note: 'No cardiologist was consulted.' },
+    voice: { drive: 2.0, rmsDb: -17 },
+  },
+  {
+    id: 'workHard',
+    text: "At least work hard if you can't be smart.",
+    trigger: 'kill', order: -1,
+    priority: 'normal', rarity: 0.08, cooldown: 210, gain: 0.95,
+    credits: { title: 'Work Hard', description: 'Very rarely, over a fallen opponent.', note: 'He believes this is constructive.' },
+    voice: { drive: 2.0, rmsDb: -17 },
   },
   {
     id: 'killTaunt',
@@ -274,7 +292,7 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     text: 'What did the squire say to the Spellblade?',
     trigger: 'squireOpening',
     priority: 'normal', rarity: 0.1, cooldown: 240,
-    credits: { title: 'The Squire', description: 'Very rarely, when an answer appears likely to present itself.', note: 'The setup is considered legally binding. No answer has ever survived transcription.' },
+    credits: { title: 'The Squire', description: 'Very rarely, after leaving an opponent close to death.', note: 'He never gets to the punchline.' },
     voice: { drive: 2, rmsDb: -17 }, aliases: ['squire'],
   },
   {
@@ -282,7 +300,7 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     text: 'A staggering display.',
     trigger: 'staggerBreakInflicted',
     priority: 'normal', rarity: 0.3, cooldown: 90, gain: 0.95,
-    credits: { title: 'A Staggering Display', description: "Occasionally, after somebody's balance ceases to cooperate.", note: 'He has chosen to notice.' },
+    credits: { title: 'A Staggering Display', description: "Occasionally, after breaking an opponent's balance.", note: 'He noticed.' },
     voice: { drive: 2, rmsDb: -17 }, aliases: ['staggering', 'display'],
   },
   {
@@ -290,7 +308,7 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     text: 'I helped you lower your guard.',
     trigger: 'guardBreak',
     priority: 'normal', rarity: 0.3, cooldown: 60, gain: 0.95,
-    credits: { title: 'Lower Your Guard', description: "Occasionally, after breaking an opponent's Guard.", note: 'Assistance was neither requested nor gentle.' },
+    credits: { title: 'Lower Your Guard', description: "Occasionally, after breaking an opponent's Guard.", note: "You're welcome." },
     voice: { drive: 2, rmsDb: -17 }, aliases: ['lower', 'helped'],
   },
   {
@@ -300,6 +318,22 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     priority: 'normal', rarity: 0.15, cooldown: 90, gain: 0.95,
     credits: { title: 'A Real Guard', description: 'Rarely, after demonstrating a personnel concern.', note: 'Recruitment remains closed.' },
     voice: { drive: 2.2, rmsDb: -16 },
+  },
+  {
+    id: 'offGuard',
+    text: 'En garde! … Off Guard!',
+    trigger: 'guardBreak',
+    priority: 'normal', rarity: 0.12, cooldown: 120, gain: 0.95,
+    credits: { title: 'Off Guard', description: "Rarely, after breaking an opponent's Guard.", note: 'The warning was brief.' },
+    voice: { drive: 2.1, rmsDb: -16, expandBelowDb: -42 },
+  },
+  {
+    id: 'steelPolished',
+    text: 'I had it polished.',
+    trigger: 'steelCalled',
+    priority: 'normal', rarity: 0.18, cooldown: 90, gain: 0.95,
+    credits: { title: 'Polished', description: 'Occasionally, when Sheathe in Steel activates.', note: 'He is omitting several details.' },
+    voice: { drive: 2.0, rmsDb: -17 },
   },
   {
     id: 'rebuttal',
@@ -345,10 +379,10 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
   // --- the wildcard
   {
     id: 'laugh',
-    text: 'AHHHhh, hahaHAH!',
+    text: 'aaaAAH, hahaHAH!',
     trigger: ['blowDealt', 'blowTaken', 'kill', 'death', 'dash', 'launched', 'hardLanding', 'sprintUnderPressure', 'spellCast', 'ultimateActive'], order: -5,
     priority: 'low', rarity: 0.02, cooldown: [45, 75], gain: 0.95, perLife: 1,
-    credits: { title: 'The Laugh', description: 'Very rarely, during nearly anything sufficiently ill-advised.', note: 'No useful pattern has been identified.' },
+    credits: { title: 'The Laugh', description: 'Very rarely, in the middle of almost anything sufficiently reckless.', note: 'This does not narrow it down.' },
     voice: { drive: 2.2, rmsDb: -16 }, aliases: ['haha', 'chuckle'],
   },
   // --- waiting on what they belong to (declared, never said yet)
@@ -373,7 +407,7 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     text: 'I have misaddressed.',
     trigger: 'riposteOvershoot',
     priority: 'normal', rarity: 0.2, cooldown: 300,
-    credits: { title: 'Misaddressed', description: 'Very rarely, after delivering himself somewhere unintended.', note: 'The destination was incorrect.' },
+    credits: { title: 'Misaddressed', description: "Very rarely, after a Riposte takes him somewhere it shouldn't.", note: 'The destination was incorrect.' },
     voice: { drive: 2, rmsDb: -17 }, aliases: ['misaddressed', 'riposte'],
   },
 ]);

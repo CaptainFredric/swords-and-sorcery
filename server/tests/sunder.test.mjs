@@ -386,3 +386,14 @@ test('the host says who broke a knight\'s balance, and whether a fall lost the m
   assert.equal(decide(1).decisive, true);
   assert.equal(decide(5).decisive, undefined);
 });
+
+test('the host says when a knight fell with their plate still hardened', () => {
+  const fall = (steel) => {
+    const { room, b } = duel();
+    if (steel) b.steel = { calledAt: 9.9, fullUntil: 14.9, struck: false };
+    applyDamage(room, 'a', 'b', 500, 'rupture', 10);
+    return room.events.find((e) => e.type === 'death');
+  };
+  assert.equal(fall(true).steeled, true);
+  assert.equal(fall(false).steeled, undefined);
+});

@@ -7,10 +7,9 @@ import { VOICE_LINE_LIST } from '../game/sound/voiceLines.mjs';
 export const CREDITS = Object.freeze({
   title: 'SWORDS & SORCERY',
   lines: Object.freeze([
-    Object.freeze({ role: 'Conceived and designed by', name: 'CaptainFredric' }),
+    Object.freeze({ role: 'Created and designed by', name: 'CaptainFredric' }),
     Object.freeze({ role: 'The Spellblade voiced by', name: 'CaptainFredric' }),
   ]),
-  note: 'Every word he says was said first, in earnest, by the man who made him.',
 });
 
 // Every line as the Credits show it, from its declaration (client/game/sound/voiceLines.mjs: one entry there is the
@@ -37,12 +36,12 @@ export function libraryStatus(entry, recorded) {
   return entry.coming ? 'coming' : 'live';
 }
 
-/** The status as the Credits print it. */
+/** The status as the Credits print it: nothing for a line in the game (its play button says so). */
 export function statusLabel(entry, recorded) {
   const status = libraryStatus(entry, recorded);
-  if (status === 'live') return 'IN THE GAME';
-  if (status === 'coming') return `COMING WITH ${String(entry.coming).toUpperCase()}`;
-  return entry.coming ? `NOT YET RECORDED · FOR ${String(entry.coming).toUpperCase()}` : 'NOT YET RECORDED';
+  if (status === 'live') return '';
+  if (status === 'coming') return `WITH ${String(entry.coming).toUpperCase()}`;
+  return entry.coming ? `${String(entry.coming).replace(/^the /i, '').toUpperCase()} · NO RECORDING` : 'NO RECORDING';
 }
 
 const SHELF = Object.freeze({ live: 0, coming: 1, unrecorded: 2 });

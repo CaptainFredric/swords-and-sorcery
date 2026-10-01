@@ -700,6 +700,8 @@ export function killPlayer(room, victimId, attackerId, source, nowSec) {
   if (!victim || !victim.alive) return false;
   let credited = attackerId;
   if (!credited && victim.lastAttackerId && nowSec - victim.lastKnockbackAt <= ABYSS_ATTRIBUTION_SEC) credited = victim.lastAttackerId;
+  // (for the voice: whether their plate was still hardened as the blow that felled them landed)
+  const steeled = steelStrength(victim.steel, nowSec) > 0.005;
   victim.alive = false;
   victim.health = 0;
   victim.guarding = false;
@@ -721,7 +723,7 @@ export function killPlayer(room, victimId, attackerId, source, nowSec) {
   }
   // (decisive: the fall lost the match, which that kill has just won)
   const decisive = playing && room.state === 'FINISHED' && Boolean(credited) && credited !== victimId && room.winnerId === credited;
-  room.events.push({ type: 'death', victimId, killerId: credited, source, ...(decisive ? { decisive: true } : {}), respawnAt: victim.respawnAt, at: nowSec });
+  room.events.push({ type: 'death', victimId, killerId: credited, source, ...(decisive ? { decisive: true } : {}), ...(steeled ? { steeled: true } : {}), respawnAt: victim.respawnAt, at: nowSec });
   return true;
 }
 

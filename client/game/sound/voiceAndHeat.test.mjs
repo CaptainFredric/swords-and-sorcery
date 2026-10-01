@@ -37,7 +37,7 @@ test('a knight killed by magic may say he does not believe in it; any fallen kni
   assert.deepEqual(cut.fallen.map((say) => say.line), ['knightFallen', 'defeat', 'laugh', 'death'], 'a sword is no magic');
   for (const source of ['fireball', 'frostfire']) assert.ok(MAGIC_SOURCES.includes(source));
   // the victor's word waits for the fallen to have had theirs, and nobody taunts over their own fall
-  assert.deepEqual(cut.victor.map((say) => [say.line, say.speaker]), [['killTaunt', 'k'], ['laugh', 'k']]);
+  assert.deepEqual(cut.victor.map((say) => [say.line, say.speaker]), [['killTaunt', 'k'], ['workHard', 'k'], ['laugh', 'k']]);
   assert.ok(cut.victor[0].delay > 0);
   assert.deepEqual(deathLines({ victimId: 'v', killerId: null, source: 'abyss' }).victor, []);
   assert.deepEqual(deathLines({ victimId: 'v', killerId: 'v', source: 'abyss' }).victor, []);
@@ -122,7 +122,7 @@ test('only foes who can fight back count as near: not dummies, not the fallen', 
 
 test('exertions come often, each on its own short cooldown; sentences are rare and never two close together', () => {
   for (const [line, rule] of Object.entries(VOICE_LINES)) assert.ok(['exertion', 'sentence'].includes(rule.kind), `${line} is one or the other`);
-  for (const line of ['effort', 'hurt', 'dash', 'fistEffort']) assert.ok(VOICE_LINES[line].cooldown <= 3, `${line} can come often`);
+  for (const line of ['effort', 'hurt', 'dash', 'fistEffort']) assert.ok(VOICE_LINES[line].cooldown <= 5, `${line} comes back soon`);
   const director = new VoiceDirector({ rand: () => 0 });
   assert.ok(director.allow('killTaunt', 'k', 10));
   // another sentence from the same knight must wait out the gap (even one never said before)
@@ -140,8 +140,8 @@ test('exertions come often, each on its own short cooldown; sentences are rare a
 test('the gauntlet\'s lines: the one that belongs to the moment first, and all of them rare', () => {
   // a gauntlet's kill has its own line, tried before the ordinary taunt
   const fisted = deathLines({ victimId: 'v', killerId: 'k', source: 'gauntlet' });
-  assert.deepEqual(fisted.victor.map((say) => say.line), ['fistKill', 'killTaunt', 'laugh']);
-  assert.deepEqual(deathLines({ victimId: 'v', killerId: 'k', source: 'sword' }).victor.map((say) => say.line), ['killTaunt', 'laugh']);
+  assert.deepEqual(fisted.victor.map((say) => say.line), ['fistKill', 'killTaunt', 'workHard', 'laugh']);
+  assert.deepEqual(deathLines({ victimId: 'v', killerId: 'k', source: 'sword' }).victor.map((say) => say.line), ['killTaunt', 'workHard', 'laugh']);
   // the rebuttal only answers a foe who has just spoken and is left low enough for a gauntlet to finish
   assert.deepEqual(gauntletLines({ attackerId: 'k', foeSpokeAgo: 2, foeHealth: REBUTTAL.health }).map((say) => say.line), ['rebuttal', 'fistThrow']);
   assert.deepEqual(gauntletLines({ attackerId: 'k', foeSpokeAgo: REBUTTAL.within + 1, foeHealth: 5 }).map((say) => say.line), ['fistThrow']);
