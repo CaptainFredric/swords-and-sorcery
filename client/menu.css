@@ -462,7 +462,12 @@ html[data-turn] .turn-only { display: block !important; }
 .voice-unrecorded q { color: rgba(234, 220, 182, .55); }
 .voice-when { margin: 0; color: rgba(234, 220, 182, .7); font: 500 12px/1.4 var(--font-script); }
 .voice-note { margin: 3px 0 0; color: rgba(230, 196, 106, .75); font: italic 500 12px/1.4 var(--font-script); }
-.voice-takes { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+/* the play buttons sit beside the line they play, not on a row of their own */
+.voice-entry { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 12px; }
+.voice-entry > * { grid-column: 1; }
+.voice-entry > header { grid-column: 1 / -1; }
+.voice-takes { grid-column: 2; grid-row: 2 / span 3; align-self: center; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; max-width: 150px; }
+.voice-entry > .voice-loading { grid-column: 2; grid-row: 2 / span 3; align-self: center; margin-top: 0; }
 .voice-play { min-width: 40px; padding: 7px 10px; border: 1px solid rgba(201, 156, 82, .55); border-radius: 2px; background: rgba(34, 29, 25, .85); color: #f1dfae; font: 800 12px/1 var(--font-script); letter-spacing: .08em; cursor: pointer; }
 .voice-play:hover, .voice-play.playing { background: linear-gradient(180deg, #e7c47c, #b8893f); color: #2a1c10; }
 .voice-loading { display: inline-block; margin-top: 8px; color: rgba(234, 220, 182, .4); font: 700 9px/1 var(--font-script); letter-spacing: .2em; }

@@ -140,7 +140,7 @@ export function worldImpactLines(event) {
  * minor: a very small blow proved enough (isMinorLethal), `interrupted` if it cut short something they were doing;
  * decisive: the fall lost the match; answer: it answers the squire's question (every line of the fallen that fits
  * is forced, those of one moment in a random order). moment: what made the kill (for the victor's line): { sunder,
- * knighthood (0, 1, or 2 for a high killing swing), gale, clean, subpar, practice, messy }.
+ * knighthood (0, 1, or 2 for a high killing swing), gale, steel, clean, subpar, practice, messy }.
  */
 export function deathLines(fall, rand = Math.random) {
   const moment = deathMoment(fall);
@@ -173,6 +173,7 @@ function victorTags({ source, moment = {} }) {
     ...(moment.knighthood ? { knighthoodKill: 1 } : {}),
     ...(moment.gale ? { galeKill: 1 } : {}),
     ...(moment.practice ? { practiceWin: 1 } : {}),
+    ...(moment.steel ? { steelKill: 1 } : {}),
     ...(source === 'gauntlet' ? { gauntletKill: 1 } : {}),
     ...(moment.clean && source === 'sword' ? { cleanSwordKill: 1 } : {}),
     ...(moment.subpar ? { subparKill: 1 } : {}),

@@ -73,8 +73,8 @@ test('the director\'s rules follow from the declarations: rank, rarity, cooldown
 test('a moment gives its lines in order: the most particular moment first, the wildcard and the grunt last', () => {
   const said = (tags, options) => linesFor('k', tags, options).map((say) => say.line);
   assert.deepEqual(said({ death: 1, minorLethal: 1, magicDeath: 1 }), ['lateLine', 'magicDefeat', 'knightFallen', 'defeat', 'laugh', 'death']);
-  assert.deepEqual(said(['kill', 'cleanSwordKill', 'subparKill']), ['hackSlash', 'subparStandard', 'killTaunt', 'laugh']);
-  assert.deepEqual(said(['guardBreak']), ['lowerGuard', 'breakTaunt']);
+  assert.deepEqual(said(['kill', 'cleanSwordKill', 'subparKill']), ['hackSlash', 'subparStandard', 'killTaunt', 'workHard', 'laugh']);
+  assert.deepEqual(said(['guardBreak']), ['lowerGuard', 'breakTaunt', 'offGuard']);
   assert.deepEqual(said(['dash']), ['dash', 'laugh']);
   assert.deepEqual(said(['noSuchMoment']), []);
   // a line waiting on what it belongs to is never offered, even if its moment were raised

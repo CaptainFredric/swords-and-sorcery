@@ -473,6 +473,8 @@ export class GameRuntime {
 
       // Sheathed in Steel: another knight's plate ringing as it hardens (mine rang as I pressed)
       if (event.type === 'steelOn' && event.playerId !== me) this.#play(steelCallRecipe(), this.#bodyPosition(event.playerId), 0.7);
+      // now and then a word as it hardens
+      if (event.type === 'steelOn') this.#sayMoment(event.playerId, ['steelCalled']);
       // a spell turned aside by it: now and then a word of pride (its clang and sparks come with the blow's damage)
       if (event.type === 'steelTurn' && event.turned >= 0.25) this.#sayMoment(event.playerId, ['steelTurn']);
 

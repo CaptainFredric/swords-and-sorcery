@@ -1,19 +1,38 @@
 {
+  "alwaysKnew": [
+    "always-knew-1.mp3"
+  ],
   "bladeCaught": [
     "blade-caught-1.mp3"
   ],
   "breakTaunt": [
     "recording-2-master.wav:14.2-17.04"
   ],
+  "death": [
+    "death-1.mp3",
+    "death-2.mp3"
+  ],
   "defeat": [
     "recording-2-master.wav:18.35-20.16",
     "recording-2-master.wav:20.58-23.04"
+  ],
+  "effort": [
+    "effort-1.mp3"
+  ],
+  "fistKill": [
+    "fist-kill-1.mp3"
   ],
   "fistThrow": [
     "fist-throw-1.mp3"
   ],
   "galeTaunt": [
     "gale-taunt-1.mp3"
+  ],
+  "hackSlash": [
+    "hack-slash-1.mp3"
+  ],
+  "hurt": [
+    "hurt-1.mp3"
   ],
   "jump": [
     "jump-1.mp3",
@@ -26,11 +45,24 @@
   "knightFallen": [
     "knight-fallen-1.mp3"
   ],
+  "lateLine": [
+    "late-line-1.mp3"
+  ],
   "laugh": [
-    "recording-2-master.wav:11.87-13.91"
+    "recording-2-master.wav:11.87-13.91",
+    "laugh-2.mp3"
+  ],
+  "lowerGuard": [
+    "lower-guard-1.mp3"
   ],
   "magicDefeat": [
     "recording-2-master.wav:5.15-7.25"
+  ],
+  "misaddressed": [
+    "misaddressed-1.mp3"
+  ],
+  "offGuard": [
+    "off-guard-1.mp3"
   ],
   "rebuttal": [
     "rebuttal-1.mp3"
@@ -39,11 +71,26 @@
     "recording-2-master.wav:0.38-1.93",
     "recording-2-master.wav:3.15-4.71"
   ],
+  "squireSetup": [
+    "squire-setup-1.mp3"
+  ],
+  "staggerDisplay": [
+    "stagger-display-1.mp3"
+  ],
   "steelBoast": [
     "steel-boast-1.mp3"
   ],
+  "steelPolished": [
+    "steel-polished-1.mp3"
+  ],
+  "subparStandard": [
+    "subpar-standard-1.mp3"
+  ],
   "sunderCall": [
     "sunder-call-1.mp3"
+  ],
+  "tinManHeart": [
+    "tin-man-heart-1.mp3"
   ],
   "victory": [
     "recording-2-master.wav:8.15-10.72"
@@ -53,5 +100,8 @@
   ],
   "vortexUse": [
     "vortex-use-1.mp3"
+  ],
+  "workHard": [
+    "work-hard-1.mp3"
   ]
 }

@@ -21,13 +21,15 @@ test('every line the game can say, and every recording, has its place in the lib
 test('what the library says of each recording follows from what is recorded', () => {
   const sorcery = listed.get('sorcery');
   assert.equal(libraryStatus(sorcery, true), 'live');
-  assert.equal(statusLabel(sorcery, true), 'IN THE GAME');
+  assert.equal(statusLabel(sorcery, true), '', 'its play button says it is in the game');
   assert.equal(libraryStatus(sorcery, false), 'unrecorded');
-  assert.equal(statusLabel(sorcery, false), 'NOT YET RECORDED');
+  assert.equal(statusLabel(sorcery, false), 'NO RECORDING');
   // a line recorded ahead of what it belongs to waits for it, and has no rule: it cannot be said yet
   const vortex = listed.get('vortexDefeat');
   assert.equal(libraryStatus(vortex, true), 'coming');
-  assert.equal(statusLabel(vortex, true), 'COMING WITH BLAZING VORTEX');
+  assert.equal(statusLabel(vortex, true), 'WITH BLAZING VORTEX');
+  assert.equal(statusLabel(listed.get('misaddressed'), true), 'WITH THE RIPOSTE');
+  assert.equal(statusLabel(listed.get('misaddressed'), false), 'RIPOSTE · NO RECORDING');
   assert.equal(VOICE_LINES.vortexDefeat, undefined);
   for (const entry of VOICE_LIBRARY) {
     const status = libraryStatus(entry, recorded.has(entry.line));
