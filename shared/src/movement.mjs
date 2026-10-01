@@ -76,6 +76,8 @@ export function createMovementState(position = { x: 0, y: 0, z: 0 }) {
     sprintBlend: 0,
     // multiplier for future slows and hastes; 1 = unmodified
     speedScale: 1,
+    // spinning in a Blazing Vortex: { speed, fallGravity, maxFall } (shared/src/ultimates.mjs ultimateWhirl), else null
+    whirl: null,
     // shoves from outside, dying away (IMPULSE)
     impulse: { x: 0, z: 0 },
     // the posture (body.mjs): a crouched body is shorter, slower, and stands only when there is room
@@ -105,7 +107,8 @@ export function locomotionSpeed(state) {
   const blend = Math.max(0, Math.min(1, Number(state.sprintBlend) || 0));
   // eased out: quick to get going, slower to reach the top end
   const eased = 1 - (1 - blend) * (1 - blend);
-  const base = MOVEMENT.runSpeed + (SPRINT.speed - MOVEMENT.runSpeed) * eased;
+  // (spinning in a Blazing Vortex, the pace is the spin's own: state.whirl, shared/src/ultimates.mjs)
+  const base = state.whirl ? state.whirl.speed : MOVEMENT.runSpeed + (SPRINT.speed - MOVEMENT.runSpeed) * eased;
   const scale = Number.isFinite(state.speedScale) ? Math.max(0, state.speedScale) : 1;
   return base * scale;
 }
@@ -182,7 +185,12 @@ export function movePlayer(previous, input, dt, nowSec, world) {
     state.velocity.y = MOVEMENT.jumpImpulse;
     state.grounded = false;
   }
-  if (!state.grounded) state.velocity.y -= MOVEMENT.gravity * dt;
+  if (!state.grounded) {
+    // a spinning knight (state.whirl) falls slowly, and no faster than its `maxFall`; rising is as ever (it is no flight)
+    const whirl = state.whirl ?? null;
+    state.velocity.y -= MOVEMENT.gravity * (whirl && state.velocity.y <= 0 ? whirl.fallGravity : 1) * dt;
+    if (whirl) state.velocity.y = Math.max(state.velocity.y, -whirl.maxFall);
+  }
 
   const beforeY = state.position.y;
   // Sub-step horizontal travel so no single step can carry the body through a thin wall (a dash covers about

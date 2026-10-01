@@ -249,3 +249,40 @@ test('no two pauses over a body are quite alike: how long it looks, how it first
   assert.equal(seen.styles.size, 3, 'still, a step back, a step aside');
   assert.ok(seen.confirms.size >= 3, 'looks for different lengths of time');
 });
+
+test('a bot carrying the Blazing Vortex calls it in a fight, then goes at its foe and aims at them while it spins', async () => {
+  const { ULTIMATES } = await import('../../shared/src/ultimates.mjs');
+  const { PROWESS } = await import('../../shared/src/prowess.mjs');
+  const { room, bot, human } = makeBotDuel();
+  bot.ultimate = 'vortex';
+  bot.prowess = PROWESS.full;
+  bot.position = { x: 0, y: 0, z: 0 };
+  // a foe within a fight's distance
+  human.position = { x: 0, y: 0, z: -3.6 };
+  // far off, it keeps its ultimate: never at nothing
+  const idle = makeBotDuel();
+  idle.bot.ultimate = 'vortex';
+  idle.bot.prowess = PROWESS.full;
+  idle.bot.position = { x: 0, y: 0, z: 0 };
+  idle.human.position = { x: 0, y: 0, z: -14 };
+  stepBotControllers(idle.room, 4, idle.room.world, { random: () => 0.5 });
+  assert.equal(idle.bot.ultimateState, null);
+
+  stepBotControllers(room, 4, room.world, { random: () => 0.5 });
+  assert.equal(bot.ultimateState?.id, 'vortex', 'called as the fight is joined');
+  const flat = { ...room.world, solids: [] };
+  for (let now = 4; now <= 4 + ULTIMATES.vortex.startupSec + 0.4; now += 1 / 30) {
+    // (the foe keeps off, a little above it: something to chase, and to look up at)
+    human.position = { x: 0, y: 2, z: -9 };
+    human.velocity = { x: 0, y: 0, z: 0 };
+    human.grounded = true;
+    human.health = 100;
+    stepBotControllers(room, now, flat, { random: () => 0.5 });
+    stepRoom(room, 1 / 30, now, flat);
+  }
+  assert.equal(bot.ultimateState?.phase, 'active');
+  assert.ok(bot.input.forward >= 0.9, 'it goes at them');
+  assert.ok(bot.input.pitch > 0.1, `and looks at them: pitch ${bot.input.pitch.toFixed(2)}`);
+  assert.equal(bot.guarding, false);
+  assert.ok(bot.position.z < -0.5, 'closing the distance');
+});

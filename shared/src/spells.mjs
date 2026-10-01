@@ -104,10 +104,27 @@ export const SPELLS = Object.freeze({
   }),
 });
 
+// Spells no knight carries: thrown by something else, and from there a spell like any other (it flies, meets the
+// world, bursts and is bent by a gust by the same rules).
+export const CONJURED = Object.freeze({
+  // a Blazing Vortex's fire (shared/src/ultimates.mjs): a small Fireball, weaker in every way, that leaves no burn
+  ember: Object.freeze({
+    id: 'ember',
+    label: 'Ember',
+    conjured: true,
+    speed: 26,
+    windResist: 0.8,
+    directDamage: 8,
+    edgeDamage: 5,
+    radius: 1.5,
+    shove: 0.45,                 // how hard its burst throws a body, as a share of a Fireball's
+  }),
+});
+
 export const DEFAULT_SPELL = 'fireball';
 
 export function spellFor(id) {
-  return SPELLS[id] ?? SPELLS[DEFAULT_SPELL];
+  return SPELLS[id] ?? CONJURED[id] ?? SPELLS[DEFAULT_SPELL];
 }
 
 export function isSpell(id) {

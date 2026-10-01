@@ -221,3 +221,23 @@ test('solo play in the browser is fought in the arena chosen for it (Castleward 
   local.startSolo('PRACTICE', 'Aden', 'shattered-keep');
   assert.equal(local.room.worldId, 'castleward', 'the old greybox is not an arena');
 });
+
+test('the ultimate carried from the Armory, and its key, both work in a match the browser hosts', () => {
+  for (const ultimate of ['vortex', 'sunder']) {
+    const { host, flush, advance } = handHost();
+    // (the Armory's choice arrives before the match, as it does when the game starts)
+    host.loadout('fireball', ultimate);
+    host.startSolo('PRACTICE', 'Aden');
+    flush();
+    host.arenaReady(true);
+    advance(0.5);
+    const me = () => host.latestSnapshot.players.find((player) => player.id === host.playerId);
+    assert.equal(me().ultimate, ultimate, 'the one chosen');
+    host.practiceReadyUltimate();
+    advance(0.1);
+    assert.equal(typeof host.ultimate, 'function', 'the key is still a command after the loadout is set');
+    host.ultimate();
+    advance(0.2);
+    assert.equal(me().ultimateState?.id, ultimate, 'it begins');
+  }
+});

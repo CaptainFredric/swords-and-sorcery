@@ -15,6 +15,8 @@ import { airborneLegFlex, crouchPose, guardTurns, landingStrength, pruneReaction
 import { gaitFootfall } from './sound/footsteps.mjs';
 import { createSteelSheen } from './steelSheen.mjs';
 import { createSunderBlade } from './sunderBlade.mjs';
+import { VORTEX_BLADES, createVortexBlade } from './vortexBlade.mjs';
+import { ULTIMATES, vortexAngle, vortexWindup } from '../../shared/src/ultimates.mjs';
 import { steelStrength } from '../../shared/src/steel.mjs';
 import { jabTurns } from './gauntletJab.mjs';
 
@@ -34,6 +36,27 @@ function dampEuler(object, x, y, z, amount = 0.22) {
   object.rotation.x = damp(object.rotation.x, x, amount);
   object.rotation.y = damp(object.rotation.y, y, amount);
   object.rotation.z = damp(object.rotation.z, z, amount);
+}
+
+// the share of a Vortex's startup from which its blade is lit (as my own arms have it: fpVortex.mjs raiseBy), from
+// which the sword is held out level, and from which it leaves its trail
+const VORTEX_LIT_FROM = 0.32;
+const VORTEX_LEVEL_FROM = 0.45;
+const VORTEX_TRAIL_FROM = 0.6;
+
+const _grip = new THREE.Vector3();
+const _point = new THREE.Vector3();
+
+// where a knight's sword points across the ground, in the knight's own frame: a yaw off the way the body faces
+function heldBladeYaw(shell) {
+  const socket = shell.visualInstance?.sockets?.sword;
+  if (!socket) return 0;
+  socket.updateWorldMatrix(true, false);
+  socket.localToWorld(_grip.set(0, 0, 0));
+  const [x, y, z] = VORTEX_BLADES.thirdPerson.aim;
+  socket.localToWorld(_point.set(x, y, z));
+  const yaw = Math.atan2(-(_point.x - _grip.x), -(_point.z - _grip.z));
+  return Math.atan2(Math.sin(yaw - shell.root.rotation.y), Math.cos(yaw - shell.root.rotation.y));
 }
 
 // how long an opponent may stay hidden while its production model loads before the fallback stands in
@@ -272,6 +295,7 @@ export class RemotePlayers {
         this.scene.remove(shell.root);
         shell.steelSheen?.dispose();
         shell.sunderBlade?.dispose();
+        shell.vortexBlade?.dispose();
         disposeRemoteVisualShell(shell);
         this.rigs.delete(id);
         this.samples.delete(id);
@@ -302,7 +326,7 @@ export class RemotePlayers {
     const shell = this.rigs.get(id);
     if (!shell) return null;
     const { x, y, z } = shell.root.position;
-    return { x, y, z, yaw: shell.root.rotation.y, pitch: shell.root.userData.pitch ?? 0, crouched: Boolean(shell.root.userData.crouched) };
+    return { x, y, z, yaw: shell.root.userData.yaw ?? shell.root.rotation.y, pitch: shell.root.userData.pitch ?? 0, crouched: Boolean(shell.root.userData.crouched) };
   }
 
   // where the other living Spellblades are drawn right now (for the local body's separation prediction)
@@ -344,12 +368,36 @@ export class RemotePlayers {
       );
       const yawDelta = Math.atan2(Math.sin(pb.yaw - pa.yaw), Math.cos(pb.yaw - pa.yaw));
       shell.root.rotation.y = pa.yaw + yawDelta * t;
+      // (where they face and aim, whatever a Vortex then does with the body)
+      shell.root.userData.yaw = shell.root.rotation.y;
       shell.root.userData.pitch = (pa.pitch ?? 0) + ((pb.pitch ?? 0) - (pa.pitch ?? 0)) * t;
       shell.root.userData.crouched = Boolean(pb.crouched);
 
       const serverNow = bufferedServerTime(a, b, renderTime);
       const d = shell.root.userData;
       const state = resolveSpellbladeState(pb, serverNow, d.castPoseUntil, d.castPoseStartAt);
+      // a Blazing Vortex turns the whole knight: one gathering turn as it is lit, then round with its blade
+      const spin = pb.alive && pb.ultimateState?.id === 'vortex' ? pb.ultimateState : null;
+      const spinning = spin && serverNow >= spin.commitAt && Number.isFinite(spin.spinFrom);
+      // (turned so that the sword seen is the blade that cuts: by where the held sword points in the knight's own frame)
+      const held = d.vortexBladeYaw ?? 0;
+      if (spinning) {
+        const angle = vortexAngle(spin, serverNow);
+        shell.root.rotation.y = angle - held;
+        // (its beat, once a turn)
+        const turn = Math.floor((angle - spin.spinFrom) / (2 * Math.PI));
+        if (turn !== d.vortexTurn) {
+          d.vortexTurn = turn;
+          this.onVortexTurn?.(id);
+        }
+      } else if (spin) {
+        const share = 1 - (spin.commitAt - serverNow) / ULTIMATES.vortex.startupSec;
+        const levelled = Math.max(0, Math.min(1, (share - VORTEX_LEVEL_FROM) / (1 - VORTEX_LEVEL_FROM)));
+        shell.root.rotation.y = d.yaw + vortexWindup(spin, serverNow) - held * levelled * levelled * (3 - 2 * levelled);
+        d.vortexTurn = null;
+      } else {
+        d.vortexTurn = null;
+      }
 
       if (state === 'dead') {
         if (d.deathStartedAt === null) d.deathStartedAt = nowMs;
@@ -413,7 +461,7 @@ export class RemotePlayers {
         }
         shell.steelSheen.set(steel, pb.steel ? serverNow - pb.steel.calledAt : null);
         // Sundering: the ember heat in that knight's steel (sunderBlade.mjs)
-        const sunder = pb.ultimateState?.phase === 'active' && serverNow < (pb.ultimateState.until ?? 0);
+        const sunder = pb.ultimateState?.id === 'sunder' && pb.ultimateState.phase === 'active' && serverNow < (pb.ultimateState.until ?? 0);
         if (sunder || shell.sunderBlade) {
           if (shell.sunderBladeOf !== shell.visualInstance) {
             shell.sunderBlade?.dispose();
@@ -422,9 +470,39 @@ export class RemotePlayers {
           }
           shell.sunderBlade.set(sunder, nowMs / 1000);
         }
-        // badly off balance: the whole knight sways as he fights to keep his feet (never his aim)
+        // a Vortex: the blade lit (the star at its point first), and the arc of fire it draws as it goes round
+        const share = spin ? 1 - (spin.commitAt - serverNow) / ULTIMATES.vortex.startupSec : 0;
+        const lit = Boolean(spin) && (spinning || share >= VORTEX_LIT_FROM);
+        if (lit || shell.vortexBlade) {
+          if (shell.vortexBladeOf !== shell.visualInstance) {
+            shell.vortexBlade?.dispose();
+            shell.vortexBlade = createVortexBlade(shell.visualInstance, { blade: VORTEX_BLADES.thirdPerson, trailParent: this.scene });
+            shell.vortexBladeOf = shell.visualInstance;
+            d.vortexFire = 0;
+            d.vortexLit = false;
+          }
+          if (lit && !d.vortexLit) {
+            shell.vortexBlade.spark(nowMs / 1000);
+            this.onVortexSpark?.(id);
+          }
+          d.vortexLit = lit;
+          d.vortexFire = Math.max(0, Math.min(1, (d.vortexFire ?? 0) + (lit ? dt / 0.22 : -dt / 0.35)));
+          shell.vortexBlade.set(d.vortexFire, nowMs / 1000, { swinging: Boolean(spinning) || share >= VORTEX_TRAIL_FROM });
+          // where the sword, held out level, points in the knight's own frame (settling as the pose does)
+          if (spin && share >= VORTEX_LEVEL_FROM) {
+            const measured = heldBladeYaw(shell);
+            const off = Math.atan2(Math.sin(measured - (d.vortexBladeYaw ?? measured)), Math.cos(measured - (d.vortexBladeYaw ?? measured)));
+            d.vortexBladeYaw = (d.vortexBladeYaw ?? measured) + off * Math.min(1, dt * 10);
+          }
+        }
+        // badly off balance: the whole knight sways as he fights to keep his feet (never his aim); dizzy after a
+        // Vortex, he rocks more slowly, and it settles
         const unsteady = Math.max(0, ((pb.stagger?.level ?? 0) - 45) / 55);
-        shell.visualInstance.root.rotation.z = unsteady > 0 ? Math.sin(nowMs / 1000 * 5.3 + (d.swayPhase ??= Math.random() * 6)) * 0.06 * unsteady : 0;
+        const dizzy = pb.alive ? Math.max(0, Math.min(1, ((pb.dizzyUntil ?? -Infinity) - serverNow) / ULTIMATES.vortex.dizzySec)) : 0;
+        const phase = (d.swayPhase ??= Math.random() * 6);
+        shell.visualInstance.root.rotation.z = (unsteady > 0 ? Math.sin(nowMs / 1000 * 5.3 + phase) * 0.06 * unsteady : 0)
+          + (dizzy > 0 ? Math.sin(nowMs / 1000 * 6.6 + phase) * 0.11 * dizzy : 0);
+        shell.visualInstance.root.rotation.x = dizzy > 0 ? Math.cos(nowMs / 1000 * 4.9 + phase) * 0.05 * dizzy : 0;
       }
 
       const glowAge = (nowMs - (shell.hitGlowAt ?? -Infinity)) / 1000;
@@ -450,6 +528,7 @@ export class RemotePlayers {
       this.scene.remove(shell.root);
       shell.steelSheen?.dispose();
       shell.sunderBlade?.dispose();
+      shell.vortexBlade?.dispose();
       disposeRemoteVisualShell(shell);
     }
     this.rigs.clear();

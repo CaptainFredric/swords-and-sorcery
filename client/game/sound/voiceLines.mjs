@@ -44,7 +44,7 @@ export const VOICE_TAGS = Object.freeze({
   // --- the one who falls
   matchLost: { rank: 70, delay: 0.4, about: 'the match is lost (heard by the one who lost it)' },
   minorLethal: { rank: 60, about: 'felled by a very small blow: no overkill, no ultimate, no fall' },
-  vortexDeath: { rank: 55, future: true, about: 'felled during Blazing Vortex, or still dizzy from it' },
+  vortexDeath: { rank: 55, about: 'felled during Blazing Vortex, or still dizzy from it' },
   magicDeath: { rank: 50, about: 'felled by a spell or the burn it left' },
   death: { rank: 10, about: 'felled' },
   // --- the one who felled them (the fallen having kept quiet)
@@ -86,7 +86,7 @@ export const VOICE_TAGS = Object.freeze({
   // --- the ultimate
   sunderInvoked: { rank: 100, delay: 0.05, cry: true, about: 'Sunder All That Rusts invoked: its cry' },
   ultimateActive: { rank: 5, delay: 1.1, about: 'an ultimate taking hold' },
-  vortexSpin: { rank: 20, future: true, about: 'Blazing Vortex at full spin' },
+  vortexSpin: { rank: 20, delay: 0.3, about: 'Blazing Vortex at full spin (once, as it takes hold)' },
   riposteOvershoot: { rank: 20, future: true, about: 'a Riposte or lunge carrying him over an edge' },
   // --- getting about
   dash: { rank: 5, about: 'a dash' },
@@ -385,9 +385,9 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     credits: { title: 'The Laugh', description: 'Very rarely, in the middle of almost anything sufficiently reckless.', note: 'This does not narrow it down.' },
     voice: { drive: 2.2, rmsDb: -16 }, aliases: ['haha', 'chuckle'],
   },
-  // --- waiting on what they belong to (declared, never said yet)
+  // --- Blazing Vortex
   {
-    id: 'vortexUse', coming: 'Blazing Vortex',
+    id: 'vortexUse',
     text: 'Bleublurblurblur blurburrrbluuurrr!!',
     trigger: 'vortexSpin',
     priority: 'normal', rarity: 0.4, cooldown: 60,
@@ -395,13 +395,14 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     voice: { drive: 2.3, rmsDb: -16 }, aliases: ['vortex'],
   },
   {
-    id: 'vortexDefeat', coming: 'Blazing Vortex',
+    id: 'vortexDefeat',
     text: 'I was dizzy anyway.',
     trigger: 'vortexDeath',
     priority: 'high', rarity: 0.5, cooldown: 120,
     credits: { title: 'Dizzy Anyway', description: 'Rarely, when Blazing Vortex ends somewhat earlier than intended.', note: 'The defense was entered after death.' },
     voice: { drive: 2, rmsDb: -17, expandBelowDb: -40 }, aliases: ['dizzy'],
   },
+  // --- waiting on what they belong to (declared, never said yet)
   {
     id: 'misaddressed', coming: 'the Riposte',
     text: 'I have misaddressed.',

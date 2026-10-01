@@ -16,6 +16,8 @@ export const ICONS = Object.freeze({
   dash: '<path d="M4 8h6M3 12h8M4 16h6M13 6l6 6-6 6"/>',
   // Sunder All That Rusts: a sword driven point down into the ground, the ground split either side of it
   sunder: '<path d="M12 2.5v11.5M9 5.5h6M12 14l-1.6 2.6M12 14l1.6 2.6"/><path d="M2.5 20.5 6 18.5l2.5 1.7L11 18.2M13 18.2l2.5 2 2.5-1.7 3.5 2"/>',
+  // Blazing Vortex: a turning spiral, and the spark it starts from
+  vortex: '<path d="M12 12a2 2 0 0 1 2-2 4 4 0 0 1 4 4 6 6 0 0 1-6 6 8 8 0 0 1-8-8 8.5 8.5 0 0 1 7-8.4"/><path d="M18.5 2.5l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9z"/>',
   jump: '<path d="M12 18V6M6.5 11.5 12 6l5.5 5.5M6 21h12"/>',
   sprint: '<path d="M6 12.5 12 7l6 5.5M6 18.5 12 13l6 5.5"/>',
   // a chevron pressed down to a line

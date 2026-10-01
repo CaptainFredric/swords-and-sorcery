@@ -36,6 +36,8 @@ export class LocalHost {
     this.room = null;
     this.timer = null;
     this.spell = DEFAULT_SPELL;
+    // (the ultimate carried: named apart from ultimate(), the key's command)
+    this.ultimateId = DEFAULT_ULTIMATE;
     this.playerId = null;
     this.token = null;
     this.roomCode = null;
@@ -94,7 +96,7 @@ export class LocalHost {
     this.#stop();
     const time = this.now();
     const room = this.rooms.createSoloRoom(mode, time, arenaOrDefault(worldId));
-    const player = room.addPlayer({ id: randomId(), token: randomId(), name: String(name || 'Spellblade').slice(0, 18), spell: this.spell, ultimate: this.ultimate }, time);
+    const player = room.addPlayer({ id: randomId(), token: randomId(), name: String(name || 'Spellblade').slice(0, 18), spell: this.spell, ultimate: this.ultimateId }, time);
     room.provisionModeActors(time);
     room.armAutoStart(time);
     this.room = room;
@@ -145,11 +147,11 @@ export class LocalHost {
     this.#deliver({ type: 'left' });
   }
 
-  loadout(spell, ultimate = this.ultimate) {
+  loadout(spell, ultimate = this.ultimateId) {
     this.spell = isSpell(spell) ? spell : DEFAULT_SPELL;
-    this.ultimate = isUltimate(ultimate) ? ultimate : DEFAULT_ULTIMATE;
+    this.ultimateId = isUltimate(ultimate) ? ultimate : DEFAULT_ULTIMATE;
     if (this.player && !this.player.pendingSpell) this.player.spell = this.spell;
-    if (this.player && !this.player.ultimateState) this.player.ultimate = this.ultimate;
+    if (this.player && !this.player.ultimateState) this.player.ultimate = this.ultimateId;
   }
 
   send(message) { this.#command(message); }

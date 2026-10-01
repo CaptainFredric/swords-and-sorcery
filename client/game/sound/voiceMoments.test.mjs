@@ -160,7 +160,8 @@ test('Sunder\'s cry: most times its own, now and then MIGHT MAKES... KNIGHT!, an
   for (let i = 0; i < 2000; i += 1) counts[ultimateCry('sunder', rand)] += 1;
   assert.ok(counts.victory > 500 && counts.victory < 900, `MIGHT MAKES... KNIGHT! ${counts.victory} of 2000`);
   assert.ok(counts.sunderCall > counts.victory, 'its own cry the likelier');
-  assert.equal(ultimateCry('nothing-such', () => 0), 'sunderCall', 'an ultimate without a cry of its own takes Sunder\'s');
+  assert.equal(ultimateCry('vortex', () => 0), null, 'an ultimate without a cry of its own has none (never Sunder\'s)');
+  assert.equal(ultimateCry('nothing-such', () => 0), null);
   // as a cry the line is forced (inside its own cooldown, whatever the dice) and ranks as state: it cuts another's taunt
   const director = new VoiceDirector({ rand: () => 0.99 });
   assert.ok(new VoiceDirector({ rand: () => 0 }).allow('killTaunt', 'k', 1));
@@ -185,7 +186,8 @@ test('why a line is never heard can be read off: whether its moment comes, wheth
   assert.deepEqual(row('knightFallen'), { line: 'knightFallen', recorded: true, moments: 3, tried: 3, said: 0 });
   assert.deepEqual(row('defeat'), { line: 'defeat', recorded: false, moments: 3, tried: 0, said: 0 }, 'its moment comes, but it has no take');
   assert.equal(row('steelBoast').moments, 0, 'a moment that never came');
-  assert.equal(row('vortexDefeat').waitsFor, 'Blazing Vortex');
+  assert.equal(row('misaddressed').waitsFor, 'the Riposte');
+  assert.equal(row('vortexDefeat').waitsFor, undefined, 'the Vortex is in the game: its lines wait for nothing');
 });
 
 test('the Tin Man line is for a foe felled with their plate still hardened, never any kill; Steel\'s own line is for calling it', async () => {
@@ -200,4 +202,24 @@ test('the Tin Man line is for a foe felled with their plate still hardened, neve
   assert.deepEqual(lines(linesFor('k', ['guardBreak'])), ['lowerGuard', 'breakTaunt', 'offGuard']);
   assert.ok(lines(linesFor('k', ['kill'])).includes('workHard'));
   assert.deepEqual(lines(linesFor('k', ['riposteOvershoot'])), [], 'the Riposte line is recorded, and still cannot be said');
+});
+
+test('the Blazing Vortex: no cry as it is lit, its noise once as it takes hold, and its excuse for whoever falls spinning or dizzy', async () => {
+  const { cryMoment, deathMoment } = await import('./voiceRules.mjs');
+  const { linesFor } = await import('./voiceLines.mjs');
+  assert.equal(cryMoment('vortex'), null, 'lit without a word (never Sunder\'s cry)');
+  assert.equal(cryMoment('sunder'), 'sunderInvoked');
+  assert.deepEqual(linesFor('k', ['vortexSpin']).map((say) => say.line), ['vortexUse']);
+  assert.ok(VOICE_LINES.vortexUse.chance < 1 && VOICE_LINES.vortexUse.cooldown >= 30, 'now and then, not every time');
+  // felled spinning (or still dizzy): the host marks the fall, and his excuse comes before an ordinary defeat
+  assert.equal(deathMoment({ victimId: 'v', killerId: 'k', source: 'sword', dizzy: true }).fallen.vortexDeath, 1);
+  assert.equal(deathMoment({ victimId: 'v', killerId: 'k', source: 'sword' }).fallen.vortexDeath, undefined);
+  const moments = new VoiceMoments();
+  const dizzy = moments.death({ type: 'death', victimId: 'v', killerId: 'k', source: 'sword', dizzy: true, at: 1 }, knights({}));
+  assert.equal(dizzy.fallen[0].line, 'vortexDefeat');
+  const plain = moments.death({ type: 'death', victimId: 'v', killerId: 'k', source: 'sword', at: 2 }, knights({}));
+  assert.ok(!lines(plain.fallen).includes('vortexDefeat'));
+  // a death by its embers is a death by sorcery
+  assert.equal(deathMoment({ victimId: 'v', killerId: 'k', source: 'ember' }).fallen.magicDeath, 1);
+  assert.ok(VOICE_LINES.vortexDefeat.cooldown >= 60, 'kept rare');
 });

@@ -73,3 +73,22 @@ test('a sprinting Spellblade on the move is in the sprint state; airborne or sto
   assert.equal(resolveSpellbladeState({ ...base, sprinting: true, velocity: { x: 0, y: 0, z: 0 } }, 10), 'idle');
   assert.equal(resolveSpellbladeState({ ...base, sprinting: true, guarding: true, velocity: { x: 0, y: 0, z: -3 } }, 10), 'guard');
 });
+
+test('a knight in a Blazing Vortex is the spin (lit or spinning), unless felled or staggered', async () => {
+  const { resolveSpellbladeAnimationPlan } = await import('./spellbladeAnimationPlan.mjs');
+  const lit = { ...base, ultimateState: { id: 'vortex', phase: 'startup', commitAt: 10.9 } };
+  const spinning = { ...base, guarding: false, velocity: { x: 6, y: -3, z: 0 }, ultimateState: { id: 'vortex', phase: 'active', commitAt: 10, until: 14.5, spinFrom: 0 } };
+  assert.equal(resolveSpellbladeState(lit, 10.1), 'vortex');
+  assert.equal(resolveSpellbladeState(spinning, 11), 'vortex', 'whatever it is doing with its feet');
+  assert.equal(resolveSpellbladeState({ ...spinning, staggerUntil: 12 }, 11), 'stagger');
+  assert.equal(resolveSpellbladeState({ ...spinning, alive: false }, 11), 'dead');
+  assert.notEqual(resolveSpellbladeState({ ...base, ultimateState: { id: 'sunder', phase: 'active', until: 18 } }, 11), 'vortex');
+  // lit, the sword is raised; then held out level, a held pose (the knight is turned by the spin, not by the clip)
+  const raised = resolveSpellbladeAnimationPlan({ state: 'vortex', player: lit, serverNow: 10.1 });
+  const level = resolveSpellbladeAnimationPlan({ state: 'vortex', player: spinning, serverNow: 11 });
+  const levelLater = resolveSpellbladeAnimationPlan({ state: 'vortex', player: spinning, serverNow: 12.7 });
+  assert.equal(raised.clip, 'Slash_3');
+  assert.equal(level.clip, 'Slash_1');
+  assert.deepEqual(level, levelLater, 'held: the same frame all the way through');
+  assert.equal(resolveSpellbladeAnimationPlan({ state: 'vortex', player: lit, serverNow: 10.8 }).clip, 'Slash_1', 'level before the spin takes hold');
+});

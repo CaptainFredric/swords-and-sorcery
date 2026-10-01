@@ -814,9 +814,11 @@ export class Effects {
     const look = lookFor(spell);
     const materials = this.#spellMaterials(spell);
     const frost = spell === 'frostfire';
+    // an ember off a Blazing Vortex: a small burst that clears at once (it must never hide whoever it burst on)
+    const small = spell === 'ember';
 
-    if (presentation.cameraFlash) this.#cameraFlash(look.flash, 0.1, 0.78);
-    this.#flashLight(point, look.light, frost ? 14 : 32, frost ? 0.22 : 0.32, radius * 3.2);
+    if (presentation.cameraFlash && !small) this.#cameraFlash(look.flash, 0.1, 0.78);
+    this.#flashLight(point, look.light, small ? 10 : frost ? 14 : 32, frost || small ? 0.22 : 0.32, radius * 3.2);
     // a transient grows as base * (1 + expand * age): the rate that takes it from its start to `to` over its life
     const growth = (from, to, life) => (to / from - 1) / life;
     const blastLife = frost ? 0.2 : 0.28;
@@ -829,7 +831,8 @@ export class Effects {
       this.#addTransient(blast, { life: blastLife, expand: growth(0.3, (radius * 0.9) / 0.5, blastLife), fade: true });
     } else {
       // fire does not make a dome: a few lobes of it billow out at their own rates and roll upward as they burn
-      for (let i = 0; i < 5; i += 1) {
+      // (an ember's is only the glow: no solid billows to stand between two knights)
+      for (let i = 0; i < (small ? 2 : 5); i += 1) {
         // the heart of it glows; around it, billows of solid flame, the last of them already darkening
         const lobe = new THREE.Mesh(this.blastGeometry, i < 2 ? materials.blast : i < 4 ? materials.billow : materials.ember);
         const off = i === 0 ? [0, 0, 0] : [(Math.random() - 0.5) * radius * 0.34, Math.random() * radius * 0.2, (Math.random() - 0.5) * radius * 0.34];
@@ -871,13 +874,14 @@ export class Effects {
     }
 
     // smoke rolling up in a column (fire) or cold mist hanging (frost)
-    for (let i = 0; i < (frost ? 4 : 8); i += 1) {
+    for (let i = 0; i < (small ? 2 : frost ? 4 : 8); i += 1) {
       const puff = new THREE.Mesh(this.puffGeometry, materials.cloud);
+      if (small) puff.scale.setScalar(0.45);
       puff.position.set(point.x + (Math.random() - 0.5) * radius * 0.45, point.y + Math.random() * 0.4, point.z + (Math.random() - 0.5) * radius * 0.45);
       puff.rotation.set(Math.random() * 3, Math.random() * 3, 0);
       this.#addTransient(puff, {
         velocity: new THREE.Vector3((Math.random() - 0.5) * 0.6, frost ? 0.15 : 1.2 + Math.random() * 1.0, (Math.random() - 0.5) * 0.6),
-        life: 0.8 + Math.random() * 0.5,
+        life: small ? 0.35 + Math.random() * 0.2 : 0.8 + Math.random() * 0.5,
         expand: 2.4,
         fade: true,
         drag: 1.4,
@@ -906,20 +910,20 @@ export class Effects {
     }
 
     // flames licking up out of it
-    for (let i = 0; i < 12; i += 1) {
+    for (let i = 0; i < (small ? 4 : 12); i += 1) {
       const angle = Math.random() * Math.PI * 2;
       const reach = Math.random() * radius * 0.6;
       this.#flame({ x: point.x + Math.cos(angle) * reach, y: point.y + Math.random() * 0.4, z: point.z + Math.sin(angle) * reach });
     }
     // burning fragments spat out hard and fast, falling as they die (sparks, not confetti)
-    for (let i = 0; i < 16; i += 1) {
+    for (let i = 0; i < (small ? 6 : 16); i += 1) {
       const mesh = new THREE.Mesh(this.emberGeometry, this.emberMaterials[i % 2]);
       mesh.position.copy(worldPoint);
       mesh.scale.setScalar(0.75);
       const dir = new THREE.Vector3(Math.random() - 0.5, Math.random() * 0.8 + 0.15, Math.random() - 0.5).normalize();
       this.#addTransient(mesh, { velocity: dir.multiplyScalar(5 + Math.random() * 5), life: 0.28 + Math.random() * 0.3, shrink: true, gravity: 9, spin: new THREE.Vector3(4, 6, 5), drag: 1.2 });
     }
-    this.sparks(point, 0xff8a3c, 14);
+    this.sparks(point, 0xff8a3c, small ? 6 : 14);
   }
 
   #createProjectile(spell = 'fireball') {
@@ -938,6 +942,9 @@ export class Effects {
 
     const light = everywhere(new THREE.PointLight(look.light, 7.5, 5, 2));
     group.add(light);
+    // (an ember off a Blazing Vortex: a small Fireball, and a small light)
+    const small = spell === 'ember' ? 0.5 : 1;
+    group.scale.setScalar(small);
     this.scene.add(group);
 
     return {
@@ -946,6 +953,7 @@ export class Effects {
       core,
       shell,
       light,
+      lightScale: small * small,
       phase: Math.random() * Math.PI * 2,
       lastPosition: null,
       trailCarry: 0,
@@ -1060,7 +1068,7 @@ export class Effects {
       effect.shell.rotation.z -= dt * 2.2;
       effect.shell.scale.setScalar(0.92 + Math.sin(effect.phase) * 0.07);
       effect.core.scale.setScalar(0.98 + Math.sin(effect.phase * 1.7) * 0.05);
-      effect.light.intensity = 6.8 + Math.sin(effect.phase * 1.4) * 1.2;
+      effect.light.intensity = (6.8 + Math.sin(effect.phase * 1.4) * 1.2) * (effect.lightScale ?? 1);
     }
 
     for (let i = this.transients.length - 1; i >= 0; i -= 1) {

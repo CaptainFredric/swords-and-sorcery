@@ -700,3 +700,101 @@ export function ultimateFizzleRecipe(rand = Math.random) {
     reverb: 0.25,
   };
 }
+
+// --- Blazing Vortex ------------------------------------------------------------------------------------------------
+
+/**
+ * The Vortex lit: a breath drawn up into flame (a rush of air rising with the turn as it gathers, a low note climbing
+ * under it), done as the spin takes hold. `seconds`: how long the startup lasts.
+ */
+export function vortexIgniteRecipe(rand = Math.random, { seconds = 0.9 } = {}) {
+  return {
+    layers: [
+      { type: 'noise', filter: 'bandpass', freq: 260 * jitter(rand, 0.06), q: 1.1, sweepTo: 2300, attack: seconds * 0.85, decay: 0.16, gain: 0.3 },
+      { type: 'tone', wave: 'sine', freq: 120 * jitter(rand, 0.03), slideTo: 380, attack: seconds * 0.8, decay: 0.18, gain: 0.16 },
+      { type: 'noise', filter: 'highpass', freq: 3400, q: 0.6, attack: seconds * 0.9, decay: 0.1, gain: 0.05 },
+    ],
+    reverb: 0.2,
+  };
+}
+
+/** The star at the sword's point: one small bright ting. */
+export function vortexStarRecipe(rand = Math.random) {
+  const note = 3136 * jitter(rand, 0.01);
+  return {
+    layers: [
+      { type: 'ring', partials: [{ freq: note, gain: 0.07, decay: 0.5 }, { freq: note * 1.5, gain: 0.03, decay: 0.3 }, { freq: note * 2.01, gain: 0.02, decay: 0.18 }] },
+      { type: 'noise', filter: 'highpass', freq: 6000, q: 0.7, attack: 0.001, decay: 0.02, gain: 0.06 },
+    ],
+    reverb: 0.4,
+  };
+}
+
+/** The fire catching as the spin takes hold: a soft, heavy whoomph. */
+export function vortexCatchRecipe(rand = Math.random) {
+  return {
+    layers: [
+      { type: 'noise', filter: 'lowpass', freq: 900 * jitter(rand, 0.08), q: 0.6, sweepTo: 220, attack: 0.02, decay: 0.42, gain: 0.55 },
+      { type: 'tone', wave: 'sine', freq: 112 * jitter(rand, 0.04), slideTo: 54, attack: 0.01, decay: 0.34, gain: 0.5 },
+      { type: 'noise', filter: 'bandpass', freq: 1700, q: 0.9, sweepTo: 700, attack: 0.03, decay: 0.3, gain: 0.16 },
+    ],
+    reverb: 0.3,
+  };
+}
+
+/**
+ * One turn of the burning blade: the edge cutting the air as it comes round (a short rising rush) and the flame
+ * fluttering after it. Played once a turn, so the spin has a beat rather than a roar.
+ */
+export function vortexWhooshRecipe(rand = Math.random) {
+  const low = 430 * jitter(rand, 0.1);
+  return {
+    layers: [
+      { type: 'noise', filter: 'bandpass', freq: low, q: 1.5, sweepTo: low * 3.6, attack: 0.07, decay: 0.11, gain: 0.3 },
+      { type: 'noise', filter: 'lowpass', freq: 340 * jitter(rand, 0.1), q: 0.7, attack: 0.05, decay: 0.13, gain: 0.2 },
+    ],
+    reverb: 0.06,
+  };
+}
+
+/** An ember let go: a small spit of fire (nothing like a Fireball's roar). */
+export function emberRecipe(rand = Math.random) {
+  return {
+    layers: [
+      { type: 'noise', filter: 'bandpass', freq: 1300 * jitter(rand, 0.12), q: 1.2, sweepTo: 480, attack: 0.004, decay: 0.1, gain: 0.3 },
+      { type: 'tone', wave: 'triangle', freq: 560 * jitter(rand, 0.08), slideTo: 210, attack: 0.003, decay: 0.09, gain: 0.1 },
+    ],
+    reverb: 0.1,
+  };
+}
+
+/** An ember bursting: a short crack and puff, a small thing beside a Fireball. */
+export function emberImpactRecipe(rand = Math.random) {
+  return {
+    layers: [
+      { type: 'noise', filter: 'highpass', freq: 2200 * jitter(rand, 0.1), q: 0.7, attack: 0.001, decay: 0.04, gain: 0.3 },
+      { type: 'noise', filter: 'lowpass', freq: 700 * jitter(rand, 0.1), q: 0.6, sweepTo: 240, attack: 0.004, decay: 0.2, gain: 0.42 },
+      { type: 'tone', wave: 'sine', freq: 130 * jitter(rand, 0.06), slideTo: 60, attack: 0.003, decay: 0.14, gain: 0.3 },
+    ],
+    reverb: 0.2,
+  };
+}
+
+/** The burning blade biting a body as it comes round: a sword's cut with the fire's hiss on it. */
+export function vortexCutRecipe(rand = Math.random) {
+  const cut = swordHitRecipe(rand, { strike: 0, quality: 0.9 });
+  cut.layers.push({ type: 'noise', filter: 'highpass', freq: 3800 * jitter(rand, 0.1), q: 0.8, attack: 0.004, decay: 0.12, gain: 0.16 });
+  return cut;
+}
+
+/** The Vortex run out: the spin winding down (a rush falling away) and the fire guttering. */
+export function vortexEndRecipe(rand = Math.random) {
+  return {
+    layers: [
+      { type: 'noise', filter: 'bandpass', freq: 1600 * jitter(rand, 0.08), q: 1.1, sweepTo: 240, attack: 0.03, decay: 0.55, gain: 0.3 },
+      { type: 'tone', wave: 'sine', freq: 300 * jitter(rand, 0.04), slideTo: 90, attack: 0.02, decay: 0.5, gain: 0.12 },
+      { type: 'noise', filter: 'lowpass', freq: 420, q: 0.6, attack: 0.05, decay: 0.4, gain: 0.2, at: 0.1 },
+    ],
+    reverb: 0.2,
+  };
+}

@@ -1,6 +1,7 @@
 import { findSwordWorldHit, surfaceHeightAt } from '../src/collision.mjs';
 import { beginAttack, endAttack, setGuard, tryCastSpell, tryDash, tryUltimate } from './combat.mjs';
 import { PROWESS } from '../src/prowess.mjs';
+import { vortexing } from '../src/ultimates.mjs';
 import { spellFor } from '../src/spells.mjs';
 import { postureOf } from '../src/body.mjs';
 import { steelStrength } from '../src/steel.mjs';
@@ -347,6 +348,7 @@ function updateMovement(actor, target, distance, ai, aggression, world, nowSec, 
   let yaw = yawToward(actor, way ? { position: way } : target);
   actor.yaw = yaw;
   actor.pitch = 0;
+  let pitch = 0;
   let fleeing = false;
 
   let forward = distance > MELEE_RANGE * 0.85 ? Math.max(0.45, aggression) : 0;
@@ -412,6 +414,14 @@ function updateMovement(actor, target, distance, ai, aggression, world, nowSec, 
     }
   }
   if (actor.guarding || actor.attackActive) forward = Math.min(forward, 0.28);
+  // spinning in a Vortex: straight at its foe, to keep them inside the blade, looking at them (its embers go there)
+  const spinning = !way && !profile.flee && Boolean(vortexing(actor, nowSec));
+  if (spinning) {
+    forward = distance > 1.3 ? 1 : 0.2;
+    right = ai.strafeDirection * 0.2;
+    pitch = Math.asin(Math.max(-1, Math.min(1, aimDirection(actor, target).y)));
+    actor.pitch = pitch;
+  }
 
   const escapeExpired = ai.escapeUntil !== -Infinity && nowSec >= ai.escapeUntil;
   if (escapeExpired) {
@@ -464,7 +474,7 @@ function updateMovement(actor, target, distance, ai, aggression, world, nowSec, 
     jump: false,
     sprint,
     yaw,
-    pitch: 0,
+    pitch,
   };
 }
 

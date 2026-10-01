@@ -134,7 +134,7 @@ export function deathCamera(age, death, killer = null, { policy = { look: 'follo
   };
 }
 
-const HOW = Object.freeze({ sword: 'Sword', fireball: 'Fireball', burn: 'Fireball’s burn', frostfire: 'Frostfire', gale: 'Gale Garner', gauntlet: 'Gauntlet', abyss: 'The fall' });
+const HOW = Object.freeze({ sword: 'Sword', fireball: 'Fireball', burn: 'Fireball’s burn', frostfire: 'Frostfire', gale: 'Gale Garner', gauntlet: 'Gauntlet', rupture: 'Sunder All That Rusts', vortex: 'Blazing Vortex', ember: 'Blazing Vortex', abyss: 'The fall' });
 
 /**
  * What the death card says: who (and how), and how close it was: SLAIN BY ASTRA, 3 HP REMAINING.

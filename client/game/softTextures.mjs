@@ -39,3 +39,31 @@ export function windStreakTexture() {
     g.fillRect(0, 0, w, h);
   });
 }
+
+// a four-pointed star (a twinkle): a hot middle and four thin rays, the upright pair the longer
+export function starTexture() {
+  return drawn('star', 128, 128, (g, w) => {
+    const c = w / 2;
+    g.translate(c, c);
+    const ray = (length, width) => {
+      const fade = g.createLinearGradient(0, 0, 0, -length);
+      fade.addColorStop(0, 'rgba(255,255,255,0.95)');
+      fade.addColorStop(1, 'rgba(255,255,255,0)');
+      g.fillStyle = fade;
+      g.beginPath();
+      g.moveTo(-width, 0);
+      g.quadraticCurveTo(-width * 0.2, -length * 0.3, 0, -length);
+      g.quadraticCurveTo(width * 0.2, -length * 0.3, width, 0);
+      g.fill();
+    };
+    for (let i = 0; i < 4; i += 1) {
+      ray(i % 2 === 0 ? c * 0.98 : c * 0.62, c * 0.12);
+      g.rotate(Math.PI / 2);
+    }
+    const heart = g.createRadialGradient(0, 0, 0, 0, 0, c * 0.34);
+    heart.addColorStop(0, 'rgba(255,255,255,1)');
+    heart.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = heart;
+    g.fillRect(-c, -c, w, w);
+  });
+}

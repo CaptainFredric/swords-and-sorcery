@@ -82,6 +82,8 @@ if (new URLSearchParams(location.search).has('debug')) {
 }
 // the game server when it answers, the browser itself when it does not (see GameLink)
 const socket = new GameLink();
+// (local inspection only: /?debug exposes the link, so a match can be hosted here in the browser and looked into)
+if (new URLSearchParams(location.search).has('debug')) globalThis.__ssLink = socket;
 const menuController = new MenuController(socket, localStorage);
 const router = new ScreenRouter({
   [SCREEN_IDS.MAIN_MENU]: menu,
