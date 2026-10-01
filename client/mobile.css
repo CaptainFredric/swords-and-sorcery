@@ -197,7 +197,18 @@ html.turn-typing .rotate-prompt { display: none !important; }
 .touch-ultimate.charging svg, .touch-ultimate.charging span { opacity: .55; }
 .touch-ultimate.ready { border-color: #e2c27a; box-shadow: 0 0 14px rgba(226, 194, 122, .55); }
 .touch-ultimate.ready::after, .touch-ultimate.active::after { display: none; }
-.touch-ultimate.active { color: #f0a36a; border-color: rgba(201, 106, 58, .8); box-shadow: 0 0 14px rgba(201, 106, 58, .55); }
+.touch-ultimate.active { --ring: #f0a36a; --beat: .8s; color: #f0a36a; border-color: rgba(201, 106, 58, .8); animation: touch-ultimate-active var(--beat) ease-in-out infinite; }
+/* while it runs: what is left of it as a ring round the button, its edge beating; a Vortex takes on what it has been
+   steered to (the blade: hot white, quick; the fire: deep orange, slow), as the desktop tile does */
+.touch-ultimate.active::before {
+  content: ""; position: absolute; inset: 0; padding: 3px; border-radius: 50%; pointer-events: none;
+  background: conic-gradient(from 0deg, var(--ring) calc(var(--left, 0) * 360deg), rgba(255, 255, 255, .08) 0);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+}
+.touch-ultimate.active[data-emphasis="blade"] { --ring: #ffe9c6; --beat: .42s; color: #fff1d6; border-color: #e9d2aa; }
+.touch-ultimate.active[data-emphasis="fire"] { --ring: #ff5a1e; --beat: 1.15s; color: #ff8a4a; border-color: #d2481a; }
+@keyframes touch-ultimate-active { 0%, 100% { box-shadow: 0 0 9px color-mix(in srgb, var(--ring) 40%, transparent); } 50% { box-shadow: 0 0 18px color-mix(in srgb, var(--ring) 70%, transparent); } }
+@media (prefers-reduced-motion: reduce) { .touch-ultimate.active { animation: none; box-shadow: 0 0 14px color-mix(in srgb, var(--ring) 55%, transparent); } }
 
 /* the Practice Yard: the button works though its real cooldown shows; a small brass infinity says so */
 .touch-btn.practice::before { content: "\221E"; position: absolute; left: 12%; top: 8%; z-index: 3; width: 34%; height: 34%; display: grid; place-items: center; border-radius: 50%; font: 900 11px/1 system-ui, sans-serif; color: #2a1c10; background: linear-gradient(180deg, #e7c47c, #b8893f); pointer-events: none; }

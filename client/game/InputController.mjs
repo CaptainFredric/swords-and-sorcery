@@ -224,6 +224,9 @@ export class InputController {
       // hold Crouch (C unless rebound), or toggle the touch button: the wish; the body crouches and stands by the
       // server's rule (it cannot stand up under something)
       crouch: this.held('crouch') || Boolean(touch?.crouch),
+      // what is held, beside the presses themselves (a Blazing Vortex is steered by it: the attack, the spell)
+      attack: this.attackHeld,
+      spell: this.held('spell') || Boolean(touch?.spell),
       yaw: this.yaw,
       pitch: this.pitch,
     };

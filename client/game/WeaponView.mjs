@@ -375,6 +375,14 @@ export class WeaponView {
     this.cancelAttack();
   }
 
+  /** A spell gathering in the palm is lost (a Sundering blow cut it short): the hand lets go of it, nothing is thrown. */
+  cancelCast() {
+    if (this.castReleased) return;
+    this.castReleased = true;
+    this.castUntil = performance.now() / 1000;
+    this.castStartedAt = 0;
+  }
+
   /** Whether the magic hand is free for the gauntlet: the sword does not have it, and the last blow is over. */
   canJab(now = performance.now() / 1000) {
     return !this.swordChain.busy(now) && now >= this.jabReadyAt && this.castReleased;
@@ -494,13 +502,20 @@ export class WeaponView {
         this.vortexBlade?.spark(timeSec);
         this.onVortexSpark?.();
       }
-      held.fire = lit ? Math.min(1, held.fire + dt / 0.22) : 0;
+      held.fire = lit ? Math.min(1, held.fire + dt / 0.3) : 0;
       held.swinging = vortex.phase === 'active' || vortex.share >= FP_VORTEX.carryBy;
+      // (before it is lit, a faint light gathers along the blade as it comes up)
+      held.gather = lit ? 0 : Math.max(0, Math.min(1, vortex.share / FP_VORTEX.raiseBy));
+      // the flare as the spin takes hold
+      if (vortex.phase === 'active' && !held.spinning) this.vortexBlade?.flash(timeSec);
+      held.spinning = vortex.phase === 'active';
     } else {
       held.weight = Math.max(0, held.weight - dt / 0.3);
       held.fire = Math.max(0, held.fire - dt / 0.35);
       held.sparked = false;
       held.swinging = false;
+      held.gather = 0;
+      held.spinning = false;
       if (held.weight <= 0) held.pose = null;
     }
     const ease = held.weight * held.weight * (3 - 2 * held.weight);
@@ -624,7 +639,7 @@ export class WeaponView {
         this.vortexBladeOf = this.productionInstance;
       }
       const fire = this.vortexHeld?.fire ?? 0;
-      this.vortexBlade.set(fire, timeSec, { swinging: Boolean(this.vortexHeld?.swinging) });
+      this.vortexBlade.set(fire, timeSec, { swinging: Boolean(this.vortexHeld?.swinging), gather: this.vortexHeld?.gather ?? 0, spinning: Boolean(this.vortexHeld?.spinning) });
       // dizzy: the view rocks, slowly, and settles (roll only: the aim is where it was)
       const dizzy = this.dizzy ?? 0;
       if (dizzy > 0.01) motion.camera.roll += Math.sin(timeSec * 6.6) * 0.04 * dizzy;

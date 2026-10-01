@@ -718,15 +718,38 @@ export function vortexIgniteRecipe(rand = Math.random, { seconds = 0.9 } = {}) {
   };
 }
 
-/** The star at the sword's point: one small bright ting. */
+/**
+ * The star at the sword's point: the Vortex's own signature. A bright crystalline TING (a hard glassy strike high
+ * up), its twinkle a breath later (a second, higher note, as a star catches the light twice), and a short magical
+ * resonance under them that rings on a moment. Made to be unmistakable beside everything else in a fight; nothing
+ * else in the game uses it.
+ */
 export function vortexStarRecipe(rand = Math.random) {
-  const note = 3136 * jitter(rand, 0.01);
+  const note = 2637 * jitter(rand, 0.006);
+  const strike = (freq, gain, decay, at = 0) => ({
+    type: 'ring', at,
+    partials: [
+      { freq, gain, decay },
+      { freq: freq * 2.004, gain: gain * 0.55, decay: decay * 0.6 },
+      { freq: freq * 2.99, gain: gain * 0.3, decay: decay * 0.4 },
+      { freq: freq * 4.23, gain: gain * 0.14, decay: decay * 0.25 },
+    ],
+  });
   return {
     layers: [
-      { type: 'ring', partials: [{ freq: note, gain: 0.07, decay: 0.5 }, { freq: note * 1.5, gain: 0.03, decay: 0.3 }, { freq: note * 2.01, gain: 0.02, decay: 0.18 }] },
-      { type: 'noise', filter: 'highpass', freq: 6000, q: 0.7, attack: 0.001, decay: 0.02, gain: 0.06 },
+      // the strike itself: a glassy tick
+      { type: 'noise', filter: 'highpass', freq: 7000, q: 0.7, attack: 0.0005, decay: 0.018, gain: 0.3 },
+      strike(note, 0.3, 0.75),
+      // the twinkle: the same star, a fifth up, a breath later, and once more, fainter
+      { type: 'noise', filter: 'highpass', freq: 8000, q: 0.7, attack: 0.0005, decay: 0.012, gain: 0.16, at: 0.085 },
+      strike(note * 1.498, 0.2, 0.6, 0.085),
+      strike(note * 2.0, 0.1, 0.45, 0.17),
+      // the resonance under it: a soft bell an octave and more below, swelling a little and ringing on
+      { type: 'ring', partials: [{ freq: note / 3, gain: 0.1, decay: 0.9, attack: 0.02 }, { freq: note / 2, gain: 0.07, decay: 0.7, attack: 0.02 }] },
+      { type: 'tone', wave: 'sine', freq: note / 6, attack: 0.03, decay: 0.5, gain: 0.07 },
     ],
-    reverb: 0.4,
+    reverb: 0.5,
+    hall: 0.25,
   };
 }
 
@@ -744,39 +767,72 @@ export function vortexCatchRecipe(rand = Math.random) {
 
 /**
  * One turn of the burning blade: the edge cutting the air as it comes round (a short rising rush) and the flame
- * fluttering after it. Played once a turn, so the spin has a beat rather than a roar.
+ * fluttering after it. Played once a turn, so the spin has a beat rather than a roar. `rate`: how fast it is turning
+ * (radians a second): faster, the rush is shorter, higher and a little quieter (many turns a second must not become
+ * one unbroken noise); slower, it is longer, lower and heavier.
  */
-export function vortexWhooshRecipe(rand = Math.random) {
-  const low = 430 * jitter(rand, 0.1);
+export function vortexWhooshRecipe(rand = Math.random, { rate = 2 * Math.PI * 3.25 } = {}) {
+  const turns = Math.max(1.5, Math.min(5, rate / (2 * Math.PI)));
+  const pace = turns / 3.25;
+  const low = 430 * pace ** 0.6 * jitter(rand, 0.1);
+  const length = 1 / Math.max(0.75, pace);
   return {
     layers: [
-      { type: 'noise', filter: 'bandpass', freq: low, q: 1.5, sweepTo: low * 3.6, attack: 0.07, decay: 0.11, gain: 0.3 },
-      { type: 'noise', filter: 'lowpass', freq: 340 * jitter(rand, 0.1), q: 0.7, attack: 0.05, decay: 0.13, gain: 0.2 },
+      { type: 'noise', filter: 'bandpass', freq: low, q: 1.5, sweepTo: low * 3.6, attack: 0.07 * length, decay: 0.11 * length, gain: 0.3 / pace ** 0.5 },
+      { type: 'noise', filter: 'lowpass', freq: 340 * jitter(rand, 0.1), q: 0.7, attack: 0.05 * length, decay: 0.13 * length, gain: 0.2 / pace },
     ],
     reverb: 0.06,
   };
 }
 
-/** An ember let go: a small spit of fire (nothing like a Fireball's roar). */
-export function emberRecipe(rand = Math.random) {
-  return {
-    layers: [
-      { type: 'noise', filter: 'bandpass', freq: 1300 * jitter(rand, 0.12), q: 1.2, sweepTo: 480, attack: 0.004, decay: 0.1, gain: 0.3 },
-      { type: 'tone', wave: 'triangle', freq: 560 * jitter(rand, 0.08), slideTo: 210, attack: 0.003, decay: 0.09, gain: 0.1 },
-    ],
-    reverb: 0.1,
-  };
+/**
+ * A Vortex's fire let go. `size` (beside a Fireball: an ember 0.45, the fire's own 0.9): an ember is a small spit; the
+ * larger are real launches, lower and fuller, with a thump of air behind them.
+ */
+export function emberRecipe(rand = Math.random, { size = 0.45 } = {}) {
+  const weight = Math.max(0, Math.min(1, (size - 0.45) / 0.45));
+  const layers = [
+    { type: 'noise', filter: 'bandpass', freq: (1300 - 500 * weight) * jitter(rand, 0.12), q: 1.2, sweepTo: 480 - 200 * weight, attack: 0.004, decay: 0.1 + 0.1 * weight, gain: 0.3 + 0.12 * weight },
+    { type: 'tone', wave: 'triangle', freq: (560 - 240 * weight) * jitter(rand, 0.08), slideTo: 210 - 90 * weight, attack: 0.003, decay: 0.09 + 0.07 * weight, gain: 0.1 + 0.06 * weight },
+  ];
+  if (weight > 0.2) {
+    // the air it pushes, and the roar of it going
+    layers.push({ type: 'tone', wave: 'sine', freq: 120 * jitter(rand, 0.06), slideTo: 55, attack: 0.004, decay: 0.16, gain: 0.34 * weight });
+    layers.push({ type: 'noise', filter: 'lowpass', freq: 520, q: 0.6, sweepTo: 200, attack: 0.01, decay: 0.2, gain: 0.26 * weight });
+  }
+  return { layers, reverb: 0.1 + 0.08 * weight };
 }
 
-/** An ember bursting: a short crack and puff, a small thing beside a Fireball. */
-export function emberImpactRecipe(rand = Math.random) {
+/**
+ * A Vortex's fire bursting. An ember: a short crack and puff. The larger: a real burst, with a low thump under the
+ * crack, the fire's own the heaviest (still a size down from a Fireball's roar).
+ */
+export function emberImpactRecipe(rand = Math.random, { size = 0.45 } = {}) {
+  const weight = Math.max(0, Math.min(1, (size - 0.45) / 0.45));
+  const layers = [
+    { type: 'noise', filter: 'highpass', freq: 2200 * jitter(rand, 0.1), q: 0.7, attack: 0.001, decay: 0.04, gain: 0.3 + 0.12 * weight },
+    { type: 'noise', filter: 'lowpass', freq: (700 + 300 * weight) * jitter(rand, 0.1), q: 0.6, sweepTo: 240 - 90 * weight, attack: 0.004, decay: 0.2 + 0.16 * weight, gain: 0.42 + 0.2 * weight },
+    { type: 'tone', wave: 'sine', freq: (130 - 40 * weight) * jitter(rand, 0.06), slideTo: 60 - 22 * weight, attack: 0.003, decay: 0.14 + 0.16 * weight, gain: 0.3 + 0.45 * weight },
+  ];
+  // the flame breaking up after it
+  if (weight > 0.2) layers.push({ type: 'noise', filter: 'bandpass', freq: 1500 * jitter(rand, 0.1), q: 0.9, sweepTo: 600, attack: 0.02, decay: 0.24, gain: 0.14 * weight, at: 0.03 });
+  return { layers, reverb: 0.2 + 0.1 * weight };
+}
+
+/**
+ * A Vortex's blade clipping stone as it comes round: a short bright SHING of steel skating off it and a knock, lighter
+ * and quicker than a blade stopped dead (wallClangRecipe): the spin goes on.
+ */
+export function vortexScrapeRecipe(rand = Math.random) {
+  const note = 1450 * jitter(rand, 0.12);
   return {
     layers: [
-      { type: 'noise', filter: 'highpass', freq: 2200 * jitter(rand, 0.1), q: 0.7, attack: 0.001, decay: 0.04, gain: 0.3 },
-      { type: 'noise', filter: 'lowpass', freq: 700 * jitter(rand, 0.1), q: 0.6, sweepTo: 240, attack: 0.004, decay: 0.2, gain: 0.42 },
-      { type: 'tone', wave: 'sine', freq: 130 * jitter(rand, 0.06), slideTo: 60, attack: 0.003, decay: 0.14, gain: 0.3 },
+      { type: 'noise', filter: 'highpass', freq: 3000 * jitter(rand, 0.1), q: 0.7, attack: 0.001, decay: 0.03, gain: 0.34 },
+      { type: 'noise', filter: 'bandpass', freq: 3800 * jitter(rand, 0.1), q: 2.4, sweepTo: 2200, attack: 0.003, decay: 0.11, gain: 0.2 },
+      ring(rand, note, { decay: 0.3, gain: 0.13, partials: 4, bright: 0.85 }),
+      { type: 'tone', wave: 'sine', freq: 190 * jitter(rand, 0.08), slideTo: 90, attack: 0.002, decay: 0.07, gain: 0.3 },
     ],
-    reverb: 0.2,
+    reverb: 0.25,
   };
 }
 
@@ -791,9 +847,9 @@ export function vortexCutRecipe(rand = Math.random) {
 export function vortexEndRecipe(rand = Math.random) {
   return {
     layers: [
-      { type: 'noise', filter: 'bandpass', freq: 1600 * jitter(rand, 0.08), q: 1.1, sweepTo: 240, attack: 0.03, decay: 0.55, gain: 0.3 },
-      { type: 'tone', wave: 'sine', freq: 300 * jitter(rand, 0.04), slideTo: 90, attack: 0.02, decay: 0.5, gain: 0.12 },
-      { type: 'noise', filter: 'lowpass', freq: 420, q: 0.6, attack: 0.05, decay: 0.4, gain: 0.2, at: 0.1 },
+      { type: 'noise', filter: 'bandpass', freq: 1600 * jitter(rand, 0.08), q: 1.1, sweepTo: 240, attack: 0.03, decay: 0.6, gain: 0.44 },
+      { type: 'tone', wave: 'sine', freq: 300 * jitter(rand, 0.04), slideTo: 90, attack: 0.02, decay: 0.55, gain: 0.2 },
+      { type: 'noise', filter: 'lowpass', freq: 420, q: 0.6, attack: 0.05, decay: 0.45, gain: 0.3, at: 0.1 },
     ],
     reverb: 0.2,
   };

@@ -94,7 +94,7 @@ export function voicePlacement(listener, yaw, source, hearing = VOICE_HEARING) {
 }
 
 // the killing blows that count as magic (a knight burned down by a Fireball was still killed by sorcery)
-export const MAGIC_SOURCES = Object.freeze(['fireball', 'frostfire', 'burn', 'ember']);
+export const MAGIC_SOURCES = Object.freeze(['fireball', 'frostfire', 'burn', 'ember', 'vortexFire', 'vortexBlaze']);
 
 // (how much likelier some lines are at their fitting moment is theirs to say: voiceLines.mjs)
 export { DEFEAT_ON_LOSS, GALE_KILL, KNIGHT_FALLEN_OVERKILL };

@@ -122,7 +122,7 @@ export class HUD {
     // the real cooldown counts down as in a match; the yard's mark says why the key works anyway
     this.spell.classList.toggle('practice', practiceOverride(local, 'spell', serverNow, practice));
     this.dash.classList.toggle('practice', practiceOverride(local, 'dash', serverNow, practice));
-    this.#ultimate(local, serverNow);
+    this.#ultimate(local, serverNow, practice);
     this.#armour(steelStrength(local.steel, serverNow), local.steel?.calledAt);
     this.matchInfo.textContent = matchInfoText(snapshot, serverNow);
 
@@ -237,21 +237,29 @@ export class HUD {
 
   // the ultimate's tile: its shade drains as prowess is earned; full, it glows (and says so once); while it runs, its
   // seconds count down
-  #ultimate(local, serverNow) {
+  #ultimate(local, serverNow, practice = false) {
     if (!this.ultimate) return;
-    const view = ultimateView(local, serverNow);
+    const view = ultimateView(local, serverNow, { practice });
     const tile = this.ultimate;
     // (the tile is the ultimate carried: its own mark and name)
     if (this.ultimateShown !== view.ultimate.id) {
       this.ultimateShown = view.ultimate.id;
       tile.dataset.ultimate = view.ultimate.id;
       tile.querySelector('.ability-icon').innerHTML = iconSvg(view.ultimate.id, 'sunder');
-      tile.querySelector('em').textContent = (view.ultimate.short ?? view.ultimate.label).toUpperCase();
     }
+    // its name; while a Vortex runs, what it has been steered to (BLADE, FIRE), and the tile takes that on
+    const word = view.word ?? (view.ultimate.short ?? view.ultimate.label).toUpperCase();
+    const name = tile.querySelector('em');
+    if (name.textContent !== word) name.textContent = word;
+    const emphasis = view.emphasis ?? '';
+    if ((tile.dataset.emphasis ?? '') !== emphasis) tile.dataset.emphasis = emphasis;
+    // (while it runs: how much of its stretch is left, as a ring drawn round the tile)
+    tile.style.setProperty('--left', view.state === 'active' ? view.charge.toFixed(3) : '0');
     tile.classList.toggle('ready', view.state === 'ready');
     tile.classList.toggle('cooling', view.state === 'charging' || view.state === 'locked');
     tile.classList.toggle('active', view.state === 'active' || view.state === 'bracing');
-    tile.style.setProperty('--cooldown', view.state === 'active' ? String(1 - view.charge) : view.state === 'charging' || view.state === 'locked' ? String(1 - view.charge) : '0');
+    // (running, it is lit, not shaded: what is left of it is the ring round it)
+    tile.style.setProperty('--cooldown', view.state === 'charging' || view.state === 'locked' ? String(1 - view.charge) : '0');
     const value = tile.querySelector('strong');
     if (value.textContent !== view.label) value.textContent = view.label;
     const ready = view.state === 'ready';
@@ -274,8 +282,14 @@ export class HUD {
     this.chillEdge.style.opacity = String(Math.max(0, Math.min(1, chill)));
   }
 
-  flashText(text, kind = '', durationMs = null) {
+  flashText(text, kind = '', durationMs = null, hint = null) {
     this.flash.textContent = text;
+    // (a smaller line under it, for the once it is worth saying: how a Vortex is steered)
+    if (hint) {
+      const small = document.createElement('small');
+      small.textContent = hint;
+      this.flash.append(small);
+    }
     this.flash.className = `status-flash show ${kind}`;
     clearTimeout(this.flashTimer);
     const duration = Number.isFinite(durationMs) ? Math.max(0, durationMs) : combatStatusDurationMs(text);

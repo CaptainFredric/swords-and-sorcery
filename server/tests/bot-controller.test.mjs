@@ -284,5 +284,13 @@ test('a bot carrying the Blazing Vortex calls it in a fight, then goes at its fo
   assert.ok(bot.input.forward >= 0.9, 'it goes at them');
   assert.ok(bot.input.pitch > 0.1, `and looks at them: pitch ${bot.input.pitch.toFixed(2)}`);
   assert.equal(bot.guarding, false);
-  assert.ok(bot.position.z < -0.5, 'closing the distance');
+  assert.ok(bot.position.z < -0.5, 'closing the distance');  // and steers it by how far off they are: the fire from a distance, the blade up close, balanced between
+  const steer = (distance) => {
+    human.position = { x: bot.position.x, y: bot.position.y, z: bot.position.z - distance };
+    stepBotControllers(room, 5.6, flat, { random: () => 0.5 });
+    return [bot.input.attack, bot.input.spell];
+  };
+  assert.deepEqual(steer(2), [true, false], 'close: the blade');
+  assert.deepEqual(steer(4.4), [false, false], 'between: balanced');
+  assert.deepEqual(steer(8), [false, true]);
 });

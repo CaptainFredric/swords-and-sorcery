@@ -19,7 +19,7 @@ export const RUPTURE = Object.freeze({
   rise: 0.35,           // the ground may rise or fall this much along it before it stops
   airborne: 0.45,       // feet this far over the ground clear it
   damage: 12,
-  stagger: 24,
+  stagger: 38,          // a Sundering blow and the ground it split are most of a balance between them; the next blow tips it
   jolt: 3.2,            // the upward jolt (m/s)
   recatchSec: 1.0,      // one knight's ruptures catch the same knight at most once in this long
   lastsSec: 2.5,        // the split ground, seen, this long after it stops
