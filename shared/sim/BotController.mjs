@@ -154,10 +154,9 @@ function chooseCombatIntent(room, actor, target, distance, ai, nowSec, random, a
     if (tryUltimate(room, actor.id, nowSec)) return;
   }
 
-  // a kind that carries a ward (Mr. Melee's Sheathe in Steel) hardens as a fight begins, never at nothing
-  if (profile.ward && shouldHarden(room, actor, target, distance, nowSec)) {
-    actor.spell = profile.ward;
-    if (tryCastSpell(room, actor.id, aimDirection(actor, target), nowSec)) return;
+  // a kind that carries a ward (Sheathe in Steel) hardens as a fight begins, never at nothing
+  if (profile.ward && shouldHarden(room, actor, target, distance, nowSec, wardReadyAt(actor, ai, profile))) {
+    if (callWard(room, actor, ai, profile, target, nowSec)) return;
   }
 
   // a kind that keeps its distance slips aside and away when a foe gets inside it
@@ -214,8 +213,30 @@ function dashAside(room, actor, target, ai, nowSec) {
 // by, or one of theirs already on its way to it
 const HARDEN = Object.freeze({ near: 3.4, reach: 2.5, closing: 2, spellNear: 8, projectileNear: 7 });
 
-function shouldHarden(room, actor, target, distance, nowSec) {
-  if (nowSec < (actor.spellReadyAt ?? 0) || steelStrength(actor.steel, nowSec) > 0.15) return false;
+// when a kind's ward is ready: one that only carries the ward keeps it in its spell's place (the spell's own clock); one
+// that also throws spells keeps it on a clock of its own
+function wardReadyAt(actor, ai, profile) {
+  return profile.spells ? ai.wardReadyAt ?? -Infinity : actor.spellReadyAt ?? 0;
+}
+
+// call the ward. For a kind that also throws spells, it is called beside them: the spell it carries and that spell's
+// clock are left exactly as they were, and the ward waits out a knight's full cooldown on its own
+function callWard(room, actor, ai, profile, target, nowSec) {
+  const carried = actor.spell;
+  const ready = actor.spellReadyAt;
+  if (profile.spells) actor.spellReadyAt = -Infinity;
+  actor.spell = profile.ward;
+  const called = tryCastSpell(room, actor.id, aimDirection(actor, target), nowSec);
+  if (profile.spells) {
+    if (called) ai.wardReadyAt = nowSec + spellFor(profile.ward).cooldownSec;
+    actor.spellReadyAt = ready;
+    actor.spell = carried;
+  }
+  return called;
+}
+
+function shouldHarden(room, actor, target, distance, nowSec, readyAt = actor.spellReadyAt ?? 0) {
+  if (nowSec < readyAt || steelStrength(actor.steel, nowSec) > 0.15) return false;
   const dx = target.position.x - actor.position.x;
   const dz = target.position.z - actor.position.z;
   const length = Math.hypot(dx, dz) || 1;

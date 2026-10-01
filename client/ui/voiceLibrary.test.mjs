@@ -1,11 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { CREDITS, LIBRARY_STATUS, VOICE_LIBRARY } from './voiceLibrary.mjs';
+import { CREDITS, VOICE_LIBRARY, libraryInOrder, libraryStatus, statusLabel, subtitleFor } from './voiceLibrary.mjs';
 import { VOICE_LINES } from '../game/sound/voiceRules.mjs';
 
-// The credits' voice library is held to the game: every line the game can speak, or has a recording for, is listed,
-// and what it says of each line's recording is true.
+// The credits' voice library is drawn from the lines' own declarations (voiceLines.mjs), and what it says of each
+// line's recording comes from the takes that are really there: it cannot fall out of step with the game.
 
 const manifest = JSON.parse(readFileSync(new URL('../assets/voice/manifest.json', import.meta.url), 'utf8'));
 const recorded = new Set(Object.keys(manifest.lines ?? {}));
@@ -15,31 +15,45 @@ test('every line the game can say, and every recording, has its place in the lib
   for (const line of Object.keys(VOICE_LINES)) assert.ok(listed.has(line), `${line} is listed`);
   for (const line of recorded) assert.ok(listed.has(line), `${line} (recorded) is listed`);
   assert.equal(listed.size, VOICE_LIBRARY.length, 'each line once');
+  for (const entry of VOICE_LIBRARY) assert.ok(entry.title && entry.words && entry.when && entry.note, `${entry.line}: said, when, and why`);
 });
 
-test('what the library says of each recording is true', () => {
+test('what the library says of each recording follows from what is recorded', () => {
+  const sorcery = listed.get('sorcery');
+  assert.equal(libraryStatus(sorcery, true), 'live');
+  assert.equal(statusLabel(sorcery, true), 'IN THE GAME');
+  assert.equal(libraryStatus(sorcery, false), 'unrecorded');
+  assert.equal(statusLabel(sorcery, false), 'NOT YET RECORDED');
+  // a line recorded ahead of what it belongs to waits for it, and has no rule: it cannot be said yet
+  const vortex = listed.get('vortexDefeat');
+  assert.equal(libraryStatus(vortex, true), 'coming');
+  assert.equal(statusLabel(vortex, true), 'COMING WITH BLAZING VORTEX');
+  assert.equal(VOICE_LINES.vortexDefeat, undefined);
   for (const entry of VOICE_LIBRARY) {
-    assert.ok(LIBRARY_STATUS[entry.status], `${entry.line}: a known status`);
-    assert.ok(entry.title && entry.words && entry.when && entry.note, `${entry.line}: said, when, and why`);
-    if (entry.status === 'unrecorded') assert.ok(!recorded.has(entry.line), `${entry.line} is in fact recorded`);
-    else assert.ok(recorded.has(entry.line), `${entry.line} has no recording`);
-    // a line said in the game has its rule; one still waiting has none
-    if (entry.status === 'live') assert.ok(VOICE_LINES[entry.line], `${entry.line} is live but never said`);
-    if (entry.status === 'coming') assert.ok(!VOICE_LINES[entry.line], `${entry.line} is said before its ultimate exists`);
+    const status = libraryStatus(entry, recorded.has(entry.line));
+    if (status === 'live') assert.ok(VOICE_LINES[entry.line], `${entry.line} is live but never said`);
+    if (entry.coming) assert.ok(!VOICE_LINES[entry.line], `${entry.line} is said before what it waits for exists`);
   }
+});
+
+test('the Credits show what is in the game first, then what waits, then the places kept', () => {
+  const shelves = libraryInOrder((line) => recorded.has(line)).map((entry) => libraryStatus(entry, recorded.has(entry.line)));
+  const order = { live: 0, coming: 1, unrecorded: 2 };
+  for (let i = 1; i < shelves.length; i += 1) assert.ok(order[shelves[i]] >= order[shelves[i - 1]], `${shelves[i - 1]} then ${shelves[i]}`);
+  assert.equal(shelves.length, VOICE_LIBRARY.length);
 });
 
 test('the credits name their maker', () => {
   assert.ok(CREDITS.lines.every((line) => line.name === 'CaptainFredric'));
 });
 
-test('a subtitle is a line\'s words, and nothing for a line without words', async () => {
-  const { subtitleFor } = await import('./voiceLibrary.mjs');
+test('a subtitle is a line\'s words, and nothing for a line without words', () => {
   assert.equal(subtitleFor('defeat'), 'What!? But I am a knight!');
   assert.equal(subtitleFor('jump'), null, 'a grunt has no words to write');
   assert.equal(subtitleFor('effort'), null);
+  assert.equal(subtitleFor('fistEffort'), null, 'nor a shout of effort');
   assert.equal(subtitleFor('no-such-line'), null);
   for (const entry of VOICE_LIBRARY) {
-    if (!entry.words.startsWith('(')) assert.equal(subtitleFor(entry.line), entry.words, entry.line);
+    if (entry.kind === 'sentence' && !entry.words.startsWith('(')) assert.equal(subtitleFor(entry.line), entry.words, entry.line);
   }
 });

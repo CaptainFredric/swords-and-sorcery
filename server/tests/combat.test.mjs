@@ -738,8 +738,9 @@ function forehandAt(deg, distance = 1.8, world = openWorld) {
   return { damage: 100 - b.health, events: room.events };
 }
 
+// (a faces +x, its right is +z: a negative angle is on a's right, the side the forehand comes in from)
 test('the closer to the aim the blade meets a knight, the cleaner: dead centre 30, then less and less out to the fringe', () => {
-  const byAngle = [0, 8, 16, 30, 55].map((deg) => ({ deg, damage: forehandAt(deg).damage }));
+  const byAngle = [0, -8, -16, -30, -55].map((deg) => ({ deg, damage: forehandAt(deg).damage }));
   assert.equal(byAngle[0].damage, 30, 'dead centre');
   for (let i = 1; i < byAngle.length; i += 1) {
     assert.ok(byAngle[i].damage < byAngle[i - 1].damage, `less at ${byAngle[i].deg} degrees: ${JSON.stringify(byAngle)}`);
@@ -805,7 +806,23 @@ test('ordinary fighting among barrels and posts: blow after blow lands, none spo
 });
 
 test('the fringe of the swing still glances for the floor, 19', () => {
-  assert.equal(forehandAt(74, 1.8).damage, 19);
+  assert.equal(forehandAt(-74, 1.8).damage, 19);
+});
+
+test('past its contact the sword is only swinging through: leaning away to the side, it lands on nothing and rings off nothing', () => {
+  // the forehand comes in from the right (negative angles) and swings away to the left: a knight well round to the
+  // left is no longer clipped by the follow-through; the same knight on the right, where it is driven, is
+  assert.equal(forehandAt(60, 1.8).damage, 0, 'not in the follow-through');
+  assert.ok(forehandAt(-60, 1.8).damage >= 19, 'on the way in');
+  // one near the aim on the follow side is still met: the blow is driven through its contact
+  assert.ok(forehandAt(20, 1.8).damage >= 22, `just past the aim: ${forehandAt(20, 1.8).damage}`);
+  // a barrel low on the left, where the blade ends up: nothing rings, and a knight straight ahead still takes the blow
+  const barrel = { id: 'barrel', center: [1.5, 0.5, -0.9], size: [0.7, 1, 0.7], material: 'wood', incidental: true };
+  const through = forehandAt(0, 2.3, { ...openWorld, solids: [barrel] });
+  assert.ok(!through.events.some((e) => e.type === 'swordWorldImpact'), 'no clang off something it only swings past afterwards');
+  // the same barrel on the right, in the blade's way as it comes in: it stops the blow as ever
+  const blocked = forehandAt(0, 2.3, { ...openWorld, solids: [{ ...barrel, center: [1.5, 0.9, 0.55] }] });
+  assert.ok(blocked.events.some((e) => e.type === 'swordWorldImpact'), 'still stopped by what is in its way');
 });
 
 test('only the cleanest contact is marked clean: a sword blow dead centre, a spell square on; never an ordinary blow', () => {

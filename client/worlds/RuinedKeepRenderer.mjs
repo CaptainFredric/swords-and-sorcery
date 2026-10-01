@@ -5,6 +5,7 @@ import { KIT_PALETTE as P, facetMesh, kitMaterials, seededRandom, shadeColor, va
 import { banner, brazier, createBatch, masonry, sconce, tree } from './kit/kitPieces.mjs';
 import { floorTile, outerTerrain, scatterGroundDetail } from './kit/kitTerrain.mjs';
 import { barrel, crate, sacks, weaponRack, woodpile } from './kit/kitProps.mjs';
+import { everywhere } from '../game/viewLayers.mjs';
 
 // The Ruined Keep, drawn with the environment kit (as Castleward is): everything that stops a knight fills its
 // authoritative box (shared/worlds/ruinedKeep.mjs), and everything else is plainly out of reach or flat on the ground.
@@ -514,7 +515,7 @@ export class RuinedKeepRenderer {
     glow.scale.setScalar(scale);
     this.group.add(glow);
     if (light) {
-      const point = new THREE.PointLight(0xffa24c, 3.2, 8, 2);
+      const point = everywhere(new THREE.PointLight(0xffa24c, 3.2, 8, 2));
       point.position.set(position[0], position[1] + 0.2, position[2]);
       point.userData.phase = flame.userData.phase;
       this.group.add(point);

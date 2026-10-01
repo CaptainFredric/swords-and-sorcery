@@ -34,6 +34,16 @@ export function menuShotFor(name) {
   return MENU_SHOTS[SCREEN_SHOTS[name] ?? name] ?? MENU_SHOTS.main;
 }
 
+/**
+ * Whether the camera has arrived at one of the menu's shots: { to (the shot it is going to), duration, elapsed }. Never
+ * while it still holds the establishing shot it opens on: the Spellblade's round begins from the front door's shot
+ * (which it keeps as its home), so it must not begin before the camera has come down to it. (Begun from the
+ * establishing shot, the round took that for home, and the camera went out, in and out again as the menu opened.)
+ */
+export function shotSettled({ to, duration, elapsed }) {
+  return to !== MENU_SHOTS.intro && (duration === 0 || elapsed >= duration);
+}
+
 // ease in and out (no jolt at either end of a camera move)
 export function easeShot(u) {
   const t = Math.max(0, Math.min(1, u));

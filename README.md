@@ -155,6 +155,17 @@ npm run verify  # all three
 
 Coverage includes real WebSocket clients for multiplayer and one-tab solo flows, reconnect behavior, world/mode identity, bot/dummy authority, cooldown/combat rules, path isolation, oversized messages, flood protection, Castleward route contracts, and the shipped menu shell.
 
+## The Spellblade's voice
+
+Every line is declared once, in `client/game/sound/voiceLines.mjs` (its words, the moment it belongs to, how rare it is, its Credits copy). To add one, declare it, drop its recording in `tools/audio/inbox/` and run:
+
+```bash
+npm run voice             # process what is in the inbox, register it, and check everything
+npm run voice -- --check  # only the check: what is declared, recorded, still silent, or wrong
+```
+
+`tools/audio/RECORDING.md` has the whole of it.
+
 ## Docker
 
 ```bash

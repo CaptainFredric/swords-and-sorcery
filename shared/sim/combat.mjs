@@ -232,10 +232,16 @@ function inPractice(room) {
   return room.mode === GAME_MODES.PRACTICE;
 }
 
+// that leave is the knight's who came to practise: the yard's own opponents keep their real cooldowns (or they would
+// throw a spell every time the gate opened: a fireball every half second)
+function practising(room, player) {
+  return inPractice(room) && player?.actorKind === 'human';
+}
+
 export function tryDash(room, playerId, direction, nowSec) {
   const player = room.players.get(playerId);
   if (room.state !== 'PLAYING' || !player || !player.alive || nowSec < player.staggerUntil || ultimateStartup(player, nowSec)) return false;
-  const practice = inPractice(room);
+  const practice = practising(room, player);
   if (!recastReady(player, 'dash', nowSec, practice)) return false;
   // (the dash itself as ever; its real cooldown as the yard's rule has it)
   const running = player.dashReadyAt;
@@ -255,12 +261,13 @@ export function tryDash(room, playerId, direction, nowSec) {
 export function tryCastSpell(room, playerId, direction, nowSec) {
   const player = room.players.get(playerId);
   if (room.state !== 'PLAYING' || !player || !player.alive || nowSec < player.staggerUntil) return false;
-  if (!recastReady(player, 'spell', nowSec, inPractice(room)) || ultimateStartup(player, nowSec)) return false;
+  const practice = practising(room, player);
+  if (!recastReady(player, 'spell', nowSec, practice) || ultimateStartup(player, nowSec)) return false;
   const spell = spellFor(player.spell);
   if (spell.kind === 'ward') return sheatheInSteel(room, player, spell, nowSec);
   // (in the yard a spell can come back before the last has left the palm: one at a time; its gate opens as it goes)
-  if (inPractice(room) && player.pendingSpell) return false;
-  recordUse(player, 'spell', nowSec, spell.cooldownSec, inPractice(room), { readyAt: nowSec + spell.gatherSec });
+  if (practice && player.pendingSpell) return false;
+  recordUse(player, 'spell', nowSec, spell.cooldownSec, practice, { readyAt: nowSec + spell.gatherSec });
   player.castEndsAt = nowSec + spell.gatherSec;
   player.pendingSpell = { spell: spell.id, direction: normalize3(direction) };
   player.guarding = false;
@@ -275,7 +282,7 @@ export function tryCastSpell(room, playerId, direction, nowSec) {
 function sheatheInSteel(room, player, spell, nowSec) {
   if (player.pendingSpell) return false;
   player.steel = callSteel(nowSec);
-  recordUse(player, 'spell', nowSec, spell.cooldownSec, inPractice(room));
+  recordUse(player, 'spell', nowSec, spell.cooldownSec, practising(room, player));
   player.spawnProtectionUntil = Math.min(player.spawnProtectionUntil, nowSec);
   room.events.push({ type: 'steelOn', playerId: player.id, at: nowSec, readyAt: player.spellReadyAt });
   return true;
@@ -288,9 +295,9 @@ function sheatheInSteel(room, player, spell, nowSec) {
 export function tryCastOrGauntlet(room, playerId, direction, nowSec, pressedAt = nowSec) {
   const player = room.players.get(playerId);
   if (!player) return false;
-  if (recastReady(player, 'spell', nowSec, inPractice(room))) return tryCastSpell(room, playerId, direction, nowSec);
+  if (recastReady(player, 'spell', nowSec, practising(room, player))) return tryCastSpell(room, playerId, direction, nowSec);
   // (in the yard the key is the spell's: it comes back after a moment; the gauntlet keeps its own key)
-  if (inPractice(room)) return false;
+  if (practising(room, player)) return false;
   return tryGauntletStrike(room, playerId, nowSec, pressedAt);
 }
 
@@ -418,10 +425,10 @@ function recoilFromWall(attacker, hit, nowSec, room) {
 export const SNAG = Object.freeze({ offAimDeg: 12 });
 
 // --- the sword strike -------------------------------------------------------------------------------------------
-// A strike is live for a short stretch around its contact (MELEE_CONTACT.window): its blade (shared/src/blade.mjs)
-// sweeps through the strike's arc in the attacker's view, and the first thing it passes through takes it: a knight
-// takes the blow; anything solid stops the blade (it rings off, and the knight recoils), and nothing beyond it is
-// touched. How cleanly a knight is caught is how far off the attacker's aim they were; how hard the two were closing
+// A strike is live for a short stretch around its contact (from where its swing begins to MELEE_CONTACT.follow past
+// the contact: its driven part, not its follow-through): its blade (shared/src/blade.mjs) sweeps through the strike's
+// arc in the attacker's view, and the first thing it passes through takes it: a knight takes the blow; anything solid
+// stops the blade up to its contact (it rings off, and the knight recoils), and nothing beyond it is touched. How cleanly a knight is caught is how far off the attacker's aim they were; how hard the two were closing
 // adds to the impact. Everything is judged on the lag-compensated transforms of the moment (history.mjs), a sixtieth
 // of a second apart, and the blade is swept between those moments in steps of a couple of degrees (it cannot pass
 // through anything between them).
@@ -439,10 +446,11 @@ function nextSample(window, after) {
   return after < window.contact - 1e-9 ? Math.min(window.contact, leg(window.from, window.contact)) : Math.min(window.to, leg(window.contact, window.to));
 }
 
-// where a strike's live stretch lies (absolute seconds)
-function strikeWindow(player, strike) {
+// where a strike's live stretch lies (absolute seconds): from where its swing begins to `follow` past its contact
+// (the rest of the swing is follow-through); a slam's is its whole swing, driven on down into the ground
+function strikeWindow(player, strike, slam = false) {
   const contact = player.attackStartedAt + SWORD_STRIKE_TIMES[strike];
-  return { contact, from: contact - MELEE_CONTACT.window.early, to: contact + MELEE_CONTACT.window.late };
+  return { contact, from: contact - MELEE_CONTACT.window.early, to: contact + (slam ? MELEE_CONTACT.window.late : MELEE_CONTACT.follow) };
 }
 
 // a knight's eyes and aim at a moment (lag-compensated): where the blade swings from, and where they look from
@@ -468,7 +476,7 @@ function strikeFrame(transform, slam) {
 /** Begin a strike's live stretch (its swing is heard from here). */
 function openStrike(room, player, strike, nowSec) {
   player.attackOpened = strike;
-  const window = strikeWindow(player, strike);
+  const window = strikeWindow(player, strike, Boolean(player.attackSlam));
   // (a chain begun Sundering: the strike is a slam, whichever of the chain it is; driven into the ground while the
   // Sunder lasts, it splits it)
   const slam = Boolean(player.attackSlam);
@@ -484,7 +492,7 @@ function openStrike(room, player, strike, nowSec) {
 function sweepStrike(room, player, nowSec, world) {
   const live = player.attackSweep;
   if (!live) return;
-  const window = strikeWindow(player, live.strike);
+  const window = strikeWindow(player, live.strike, live.slam);
   const until = Math.min(nowSec, window.to);
   const solids = world.solids ?? [];
   const blade = live.slam ? SLAM_STRIKE : live.strike;
@@ -504,7 +512,9 @@ function sweepStrike(room, player, nowSec, world) {
     }
     // (a Sundering slam strikes the ground too: a blade driven into it ruptures it)
     const ground = live.ruptures ? world.floors ?? null : null;
-    const met = sweepBlade(eye, from, to, bodies, solids, { aim: frame.forward, ground });
+    // (the world stops the blade only up to its contact: past that it is swinging through, not driven)
+    const driven = live.sampledTo < window.contact + MELEE_CONTACT.worldFollow - 1e-9;
+    const met = sweepBlade(eye, from, to, bodies, solids, { aim: frame.forward, ground, world: driven });
     live.sampledTo = at;
     live.direction = to;
     if (met?.kind === 'body') {

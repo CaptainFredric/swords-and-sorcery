@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
 """Turn raw voice takes into the Spellblade's voice: a hardened battlemage heard through his helm.
 
-    python3 tools/audio/knight_voice.py ~/Desktop/knight-takes            # every take in a folder
-    python3 tools/audio/knight_voice.py effort-1.m4a hurt-2.m4a --semitones -2
-    python3 tools/audio/knight_voice.py master.wav:0.43-1.88 --line sorcery   # a window of a longer recording
+This is the processing itself. The front door is `npm run voice` (tools/audio/voice-ingest.mjs): it reads each line's
+declaration (client/game/sound/voiceLines.mjs), finds its recording in tools/audio/inbox/, and calls this with the
+line's own settings. Used directly:
 
-Name each take after its line (effort, hurt, death, sorcery, dash, victory, defeat, magic-defeat, kill-taunt,
-break-taunt; a number or anything after a dash or space is ignored, and a few aliases work: grunt, pain, die, spell,
-breath, laugh...), or give --line (magicDefeat, killTaunt, ... as the game names them). Any format
-macOS can read works (Voice Memos .m4a, QuickTime .m4a/.mov, .wav, .aiff, .mp3). A take may be a window of a longer
-file: path:start-end in seconds.
+    python3 tools/audio/knight_voice.py --line lateLine ~/Desktop/GoingToBeLate.mp3
+    python3 tools/audio/knight_voice.py --line sorcery master.wav:0.38-1.93 master.wav:3.15-4.71   # windows of a recording
+    python3 tools/audio/knight_voice.py --line effort take-1.m4a take-2.m4a --drive 2.4 --rms-db -16
+
+--line is the line's id as the game names it (lateLine: its files are late-line-1.m4a ...); without it, each file's own
+name is read as its line (late-line-2.m4a, lateLine 2.wav). Any format macOS can read works (Voice Memos .m4a,
+QuickTime .m4a/.mov, .wav, .aiff, .mp3). A take may be a window of a longer file: path:start-end in seconds.
 
 The clear helm (the standard chain, --profile clear; see tools/audio/RECORDING.md for the reasons):
   1. declip     rebuild peaks the recorder flattened (a curve through each flat top, from the slopes either side)
@@ -49,94 +51,9 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 OUT_DIR = os.path.join(ROOT, 'client', 'assets', 'voice')
 SR = 48000
 
-LINES = ('effort', 'hurt', 'death', 'sorcery', 'dash', 'victory', 'defeat', 'magicDefeat', 'killTaunt', 'breakTaunt',
-         'galeTaunt', 'steelBoast', 'fistEffort', 'fistThrow', 'fistKill', 'rebuttal', 'sunderCall', 'knightFallen', 'jump',
-         'bladeCaught', 'vortexUse', 'vortexDefeat', 'laugh', 'neverThought', 'lateLine', 'squireSetup', 'newKnighthood',
-         'staggerDisplay', 'lowerGuard', 'hackSlash', 'subparStandard', 'alwaysKnew', 'neverReach', 'misaddressed')
-ALIASES = {
-    'grunt': 'effort', 'swing': 'effort', 'attack': 'effort', 'heave': 'effort', 'strike': 'effort',
-    'pain': 'hurt', 'hit': 'hurt', 'ow': 'hurt', 'ouch': 'hurt',
-    'die': 'death', 'dying': 'death', 'dead': 'death',
-    'spell': 'sorcery', 'cast': 'sorcery', 'fireball': 'sorcery',
-    'breath': 'dash', 'huff': 'dash', 'exhale': 'dash',
-    'win': 'victory', 'might': 'victory', 'cheer': 'victory', 'triumph': 'victory',
-    'hya': 'fistEffort', 'hiyah': 'fistEffort', 'hiyaah': 'fistEffort', 'punch': 'fistEffort',
-    'gauntlet': 'fistThrow', 'sofisticated': 'fistKill', 'fistkill': 'fistKill',
-    'sunder': 'sunderCall', 'integrity': 'sunderCall', 'ultimate': 'sunderCall',
-    'fallen': 'knightFallen', 'knightfallen': 'knightFallen', 'hop': 'jump', 'leap': 'jump',
-    'snag': 'bladeCaught', 'flowerpot': 'bladeCaught', 'vortex': 'vortexUse', 'dizzy': 'vortexDefeat',
-    'haha': 'laugh', 'chuckle': 'laugh', 'thisday': 'neverThought', 'never': 'neverThought',
-    'late': 'lateLine', 'noooo': 'lateLine', 'squire': 'squireSetup', 'knighthood': 'newKnighthood', 'hood': 'newKnighthood',
-    'staggering': 'staggerDisplay', 'display': 'staggerDisplay', 'lower': 'lowerGuard', 'helped': 'lowerGuard',
-    'hack': 'hackSlash', 'slash': 'hackSlash', 'standard': 'subparStandard', 'subpar': 'subparStandard',
-    'always': 'alwaysKnew', 'knew': 'alwaysKnew', 'practicing': 'neverReach', 'reach': 'neverReach',
-    'misaddressed': 'misaddressed', 'riposte': 'misaddressed',
-}
-
-# per line: how hard the grit, how loud, and where a soft tail needs the expander eased (how far down is the
-# profile's: PROFILE_SEMITONES; a line may still say 'semitones' of its own)
-PRESETS = {
-    'effort': {'drive': 2.4, 'rms_db': -16},
-    'hurt': {'drive': 2.2, 'rms_db': -16},
-    'death': {'drive': 2.0, 'rms_db': -16},
-    'sorcery': {'drive': 2.5, 'rms_db': -15},
-    'dash': {'drive': 1.6, 'rms_db': -20},
-    'victory': {'drive': 2.2, 'rms_db': -16},
-    # the spoken lines: a touch less grit than the cries, so every word lands
-    'defeat': {'drive': 2.2, 'rms_db': -16},
-    'magicDefeat': {'drive': 2.0, 'rms_db': -18},   # deadpan, not shouted
-    'killTaunt': {'drive': 2.2, 'rms_db': -16},
-    'breakTaunt': {'drive': 2.2, 'rms_db': -16},
-    # "What did you say? Must have been the wind..." (the second half is an aside, spoken low: the expander is
-    # eased so it keeps it)
-    'galeTaunt': {'drive': 2.0, 'rms_db': -17, 'expand_below_db': -42},
-    # "My armor works now!"
-    'steelBoast': {'drive': 2.2, 'rms_db': -16},
-    # "YOUR INTEGRITY WILL NOT SUFFICE!" (the ultimate's cry: shouted, so a little more grit)
-    'sunderCall': {'drive': 2.4, 'rms_db': -15},
-    # the gauntlet: "HYA!" as it goes out (a cry, with the cries' grit), and three rare lines
-    'fistEffort': {'drive': 2.4, 'rms_db': -16},
-    'fistThrow': {'drive': 2.2, 'rms_db': -16},     # "I throw you my gauntlet."
-    'fistKill': {'drive': 2.0, 'rms_db': -17},      # "I am quite soFISTicated." (smug, not shouted)
-    'rebuttal': {'drive': 2.0, 'rms_db': -17},      # "I present my rebuttal."
-    # "The knight has fallen! ...and day may arrive no longer..." (theatrical: the second half trails off low, so the
-    # expander is eased to keep it)
-    'knightFallen': {'drive': 2.0, 'rms_db': -17, 'expand_below_db': -42},
-    # a jump's grunt: short, from the chest, under the sentences in the mix
-    'jump': {'drive': 2.2, 'rms_db': -19},
-    # "Ah! My blade caught on the edge of a flower pot! I must rest. You may slay me. Quickly!" (the asides are
-    # quieter: eased expander so "Quickly!" and the rest survive)
-    'bladeCaught': {'drive': 2.0, 'rms_db': -17, 'expand_below_db': -42},
-    # Blazing Vortex's spin (prepared for the ultimate; not yet in the game)
-    'vortexUse': {'drive': 2.3, 'rms_db': -16},
-    # "I was dizzy anyway." felled during Blazing Vortex (prepared for the ultimate; dry, not shouted)
-    'vortexDefeat': {'drive': 2.0, 'rms_db': -17, 'expand_below_db': -40},
-    # "AHHhhh, hahaHAH!" (once the second take of killTaunt; now a line of its own, heard in several moments)
-    'laugh': {'drive': 2.2, 'rms_db': -16},
-    # "I had never thought this day would come..." (the match lost; trails off, so the expander is eased)
-    'neverThought': {'drive': 2.0, 'rms_db': -17, 'expand_below_db': -42},
-    # --- to be recorded (each is wired in the game, and silent until it is)
-    # "NOOoo! I am going to be late!" (a wail: the cries' grit)
-    'lateLine': {'drive': 2.3, 'rms_db': -16},
-    # "What did the squire say to the Spellblade?" (a setup, conversational: every word must land)
-    'squireSetup': {'drive': 2.0, 'rms_db': -17},
-    # "You have achieved a new form of knight hood." (ceremonial, measured)
-    'newKnighthood': {'drive': 2.0, 'rms_db': -17},
-    # "A staggering display." (dry)
-    'staggerDisplay': {'drive': 2.0, 'rms_db': -17},
-    # "I helped you lower your guard." (dry)
-    'lowerGuard': {'drive': 2.0, 'rms_db': -17},
-    # "You are the hack. I will be the slash."
-    'hackSlash': {'drive': 2.2, 'rms_db': -16},
-    # "Your standard is subpar." (deadpan)
-    'subparStandard': {'drive': 2.0, 'rms_db': -18},
-    # "I always knew that I thought this would happen." (a quick, self-satisfied aside)
-    'alwaysKnew': {'drive': 2.0, 'rms_db': -17, 'expand_below_db': -42},
-    # "If you keep practicing... you will still never reach me." (a pause in the middle: the expander is eased)
-    'neverReach': {'drive': 2.0, 'rms_db': -17, 'expand_below_db': -42},
-    # "I have misaddressed." (for the Riposte, when it exists)
-    'misaddressed': {'drive': 2.0, 'rms_db': -17},
-}
+# how a take is processed unless its line says otherwise (voiceLines.mjs `voice`: the grit, the level, and an eased
+# expander for a line with a soft tail)
+DEFAULT_PRESET = {'drive': 2.0, 'rms_db': -17}
 
 # how far down each chain takes the voice (semitones): the clear helm two, with the formants kept; the close helm
 # took it 4.5 down, formants and all
@@ -612,38 +529,36 @@ def file_stem(line):
     return re.sub(r'[A-Z]', lambda m: '-' + m.group(0).lower(), line)
 
 
-FILE_LINES = {file_stem(line): line for line in LINES}
+def line_of_stem(stem):
+    """The line a file stem belongs to: magic-defeat -> magicDefeat."""
+    return re.sub(r'-([a-z0-9])', lambda m: m.group(1).upper(), stem)
 
 
 def line_for(path):
-    stem = os.path.splitext(os.path.basename(path))[0].lower()
-    # the whole name without its number: magic-defeat-1, magicdefeat 2, kill_taunt-3 ...
-    name = re.sub(r'[^a-z]', '', re.sub(r'[\s_-]*\d+$', '', stem))
-    for line in LINES:
-        if name == line.lower():
-            return line
-    word = re.split(r'[^a-z]+', stem)[0]
-    if word in LINES:
-        return word
-    return ALIASES.get(word)
+    """The line a take's own name says it is: late-line-2.m4a, lateLine 2.wav, late_line.mp3 -> lateLine."""
+    stem = os.path.splitext(os.path.basename(path.split(':')[0]))[0]
+    stem = re.sub(r'[\s_-]*\d+$', '', stem)
+    words = [w for w in re.split(r'[^A-Za-z0-9]+', re.sub(r'([a-z0-9])([A-Z])', r'\1 \2', stem)) if w]
+    if not words:
+        return None
+    return words[0].lower() + ''.join(w[:1].upper() + w[1:].lower() for w in words[1:])
 
 
 def write_manifest():
+    """What is recorded, from the takes that are really there (every <line>-<n>.m4a in the voice folder)."""
     path = os.path.join(OUT_DIR, 'manifest.json')
     existing = json.load(open(path)) if os.path.exists(path) else {}
-    # lines this tool does not make (imported already processed) and the contact effects stay as they are
-    kept = {line: takes for line, takes in existing.get('lines', {}).items() if line not in LINES}
     lines = {}
     for name in sorted(os.listdir(OUT_DIR)):
-        match = re.fullmatch(r'([a-z-]+?)-(\d+)\.m4a', name)
-        if not match or match.group(1) not in FILE_LINES:
+        match = re.fullmatch(r'([a-z0-9-]+?)-(\d+)\.m4a', name)
+        if not match:
             continue
         stem, number = match.group(1), int(match.group(2))
         meta_path = os.path.join(OUT_DIR, f'{stem}-{number}.json')
         meta = json.load(open(meta_path)) if os.path.exists(meta_path) else {}
-        lines.setdefault(FILE_LINES[stem], []).append({'file': f'{stem}-{number}', **meta})
-    lines = {line: sorted(takes, key=lambda t: t['file']) for line, takes in lines.items()}
-    manifest = {'version': 1, 'lines': {**kept, **lines}}
+        lines.setdefault(line_of_stem(stem), []).append({'file': f'{stem}-{number}', **meta})
+    lines = {line: sorted(takes, key=lambda t: int(t['file'].rsplit('-', 1)[1])) for line, takes in sorted(lines.items())}
+    manifest = {'version': 1, 'lines': lines}
     if 'effects' in existing:
         manifest['effects'] = existing['effects']
     with open(path, 'w') as f:
@@ -681,19 +596,24 @@ def publish(line, takes, preview_dir=None, echo='nearby', notes=None):
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('inputs', nargs='*', help='takes, or folders of takes')
+    parser.add_argument('--line', help='the line every input is a take of, as the game names it (lateLine); otherwise each file name is read')
     parser.add_argument('--semitones', type=float, help='pitch change (default: the profile\'s, -2 for the clear helm)')
-    parser.add_argument('--drive', type=float, help='distortion drive (default per line, about 2.2)')
-    parser.add_argument('--line', choices=LINES, help='the line every input is a take of (instead of reading file names)')
+    parser.add_argument('--drive', type=float, help='distortion drive (default 2.0)')
+    parser.add_argument('--rms-db', type=float, help='the level the take is matched to (default -17 dB RMS)')
+    parser.add_argument('--expand-below-db', type=float, help='ease the expander for a line with a soft tail (for example -42)')
     parser.add_argument('--profile', choices=('clear', 'close', 'classic'), default='clear', help='the chain (default: clear helm)')
     parser.add_argument('--preview', action='store_true', help='also write versions with the in-game echo to artifacts/voice-preview')
+    parser.add_argument('--manifest-only', action='store_true', help='only rewrite manifest.json from the takes that are there')
     args = parser.parse_args()
     os.makedirs(OUT_DIR, exist_ok=True)
+    if args.line and not re.fullmatch(r'[a-z][A-Za-z0-9]*', args.line):
+        parser.error(f'--line {args.line}: a line is named in camelCase (lateLine)')
     preview_dir = os.path.join(ROOT, 'artifacts', 'voice-preview') if args.preview else None
     if preview_dir:
         os.makedirs(preview_dir, exist_ok=True)
 
     files = []
-    for item in args.inputs:
+    for item in ([] if args.manifest_only else args.inputs):
         if os.path.isdir(item.split(':')[0]) and ':' not in item:
             files += [os.path.join(item, name) for name in sorted(os.listdir(item)) if not name.startswith('.')]
         else:
@@ -702,15 +622,19 @@ def main():
     for path in files:
         line = args.line or line_for(path)
         if not line:
-            print(f'skipped {os.path.basename(path)}: name it after a line ({", ".join(LINES)})', file=sys.stderr)
+            print(f'skipped {os.path.basename(path)}: name it after its line, or give --line', file=sys.stderr)
             continue
         by_line.setdefault(line, []).append(path)
     for line, paths in by_line.items():
-        preset = {'semitones': PROFILE_SEMITONES[args.profile], **PRESETS[line]}
+        preset = {'semitones': PROFILE_SEMITONES[args.profile], **DEFAULT_PRESET}
         if args.semitones is not None:
             preset['semitones'] = args.semitones
         if args.drive is not None:
             preset['drive'] = args.drive
+        if args.rms_db is not None:
+            preset['rms_db'] = args.rms_db
+        if args.expand_below_db is not None:
+            preset['expand_below_db'] = args.expand_below_db
         print(f'{line}: {len(paths)} take(s), {args.profile} chain')
         notes = [{} for _ in paths]
         if args.profile == 'clear':

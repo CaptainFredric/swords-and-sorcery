@@ -16,18 +16,33 @@ export class VoiceBank {
     this.lastTake = new Map();
     // what each knight is saying now (the handle to stop it, if a line that matters more cuts it)
     this.playing = new Map();
-    // settles once every take has been loaded (or there were none to load)
+    // which lines have a recording, and how many takes (from the takes' manifest; null until it is known)
+    this.recorded = null;
+    // settles once the manifest is in (what is recorded is known), and once every take has been loaded (or there
+    // were none to load)
+    this.listed = new Promise((resolve) => { this.resolveListed = resolve; });
     this.ready = new Promise((resolve) => { this.resolveReady = resolve; });
-    engine.onReady(() => this.#load());
+    // what is recorded is asked for at once (the Credits show it whether or not any sound has started); the takes
+    // themselves are decoded once the sound has
+    const manifest = this.#list();
+    engine.onReady(() => this.#load(manifest));
   }
 
-  async #load() {
-    let manifest;
+  async #list() {
+    let manifest = null;
     try {
-      manifest = await (await fetch(appUrl(`${this.base}manifest.json`), { cache: 'no-cache' })).json();
-    } catch {
+      if (typeof fetch === 'function') manifest = await (await fetch(appUrl(`${this.base}manifest.json`), { cache: 'no-cache' })).json();
+    } catch { /* no voice recorded yet: the knight fights in silence */ }
+    this.recorded = new Map(Object.entries(manifest?.lines ?? {}).map(([name, takes]) => [name, takes.length]));
+    this.resolveListed();
+    return manifest;
+  }
+
+  async #load(listing) {
+    const manifest = await listing;
+    if (!manifest) {
       this.resolveReady();
-      return; // no voice recorded yet: the knight fights in silence
+      return;
     }
     for (const [name, takes] of Object.entries(manifest.lines ?? {})) {
       for (const take of takes) {

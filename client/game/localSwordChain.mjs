@@ -44,7 +44,7 @@ export class LocalSwordChain {
     if (!chain) return false;
     if (chain.landed < chain.committed) return true;
     const last = chain.landed - 1;
-    return last >= 0 && now - chain.startedAt < SWORD_STRIKE_TIMES[last] + MELEE_CONTACT.window.late;
+    return last >= 0 && now - chain.startedAt < SWORD_STRIKE_TIMES[last] + MELEE_CONTACT.follow;
   }
 
   /**

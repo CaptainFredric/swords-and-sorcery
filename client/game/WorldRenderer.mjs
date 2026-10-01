@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { KEEP_HORIZONTAL_SCALE, SHATTERED_KEEP } from '../../shared/src/map.mjs';
 import { buildKeepDecorPlan, KEEP_ROUTE_COLORS } from './worldDecor.mjs';
 import { SCENE_PRESENTATION } from './scenePresentation.mjs';
+import { everywhere } from './viewLayers.mjs';
 
 function box(parent, size, material, position, rotation = [0, 0, 0], shadows = true) {
   const mesh = new THREE.Mesh(new THREE.BoxGeometry(...size), material);
@@ -167,7 +168,7 @@ export class WorldRenderer {
     this.spireRing.rotation.x = Math.PI / 2;
     this.group.add(this.spireRing);
 
-    const light = new THREE.PointLight(0x40dfff, 14, 11, 2);
+    const light = everywhere(new THREE.PointLight(0x40dfff, 14, 11, 2));
     light.position.set(basePosition.x, 3.0, basePosition.z);
     this.group.add(light);
     this.crystal = crystal;
@@ -196,7 +197,7 @@ export class WorldRenderer {
     }
 
     for (const routeLight of this.decor.routeLights) {
-      const light = new THREE.PointLight(routeLight.color, routeLight.intensity, routeLight.distance, 2);
+      const light = everywhere(new THREE.PointLight(routeLight.color, routeLight.intensity, routeLight.distance, 2));
       light.position.set(routeLight.x, routeLight.y, routeLight.z);
       this.group.add(light);
       const markerMaterial = routeLight.color === KEEP_ROUTE_COLORS.east ? this.materials.violetGlow : this.materials.warmGlow;
@@ -226,7 +227,7 @@ export class WorldRenderer {
       const flame = new THREE.Mesh(flameGeometry, flameMaterial);
       flame.position.set(x, y, z);
       this.group.add(flame);
-      const light = new THREE.PointLight(0xff8a2b, SCENE_PRESENTATION.torches.intensity, SCENE_PRESENTATION.torches.distance, 2);
+      const light = everywhere(new THREE.PointLight(0xff8a2b, SCENE_PRESENTATION.torches.intensity, SCENE_PRESENTATION.torches.distance, 2));
       light.position.copy(flame.position);
       this.group.add(light);
     }

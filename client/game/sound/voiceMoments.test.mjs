@@ -41,7 +41,7 @@ test('the squire\'s question: asked over a foe all but finished, answered by the
   const world = knights({ a: { position: { x: 0, z: 0 } }, v: { position: { x: 3, z: 0 } }, far: { position: { x: 60, z: 0 } } });
   const asked = moments.damage({ type: 'damage', attackerId: 'a', victimId: 'v', source: 'sword', amount: 25, health: MOMENTS.squire.health - 5, at: 10 }, world);
   const setup = asked.flat().find((say) => say.line === 'squireSetup');
-  assert.ok(setup && setup.speaker === 'a' && setup.squire, 'asked, by the one who struck');
+  assert.ok(setup && setup.speaker === 'a' && setup.opens === 'squire', 'asked, by the one who struck');
   assert.ok(!moments.damage({ type: 'damage', attackerId: 'a', victimId: 'v', source: 'sword', amount: 5, health: 80, at: 10 }, world).flat().some((say) => say.line === 'squireSetup'), 'not over a foe still hale');
   moments.squireAsked('a', 10, { x: 0, z: 0 });
   // a fall far off is no answer, and leaves the question open
@@ -153,14 +153,14 @@ test('force settles the argument: a Sundering guard break, balance broken by a S
 });
 
 test('Sunder\'s cry: most times its own, now and then MIGHT MAKES... KNIGHT!, and always said, cutting a lesser line', async () => {
-  const { ULTIMATE_CRIES, ultimateCry } = await import('./voiceRules.mjs');
+  const { ultimateCry } = await import('./voiceRules.mjs');
   let seed = 1;
   const rand = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
   const counts = { sunderCall: 0, victory: 0 };
   for (let i = 0; i < 2000; i += 1) counts[ultimateCry('sunder', rand)] += 1;
   assert.ok(counts.victory > 500 && counts.victory < 900, `MIGHT MAKES... KNIGHT! ${counts.victory} of 2000`);
   assert.ok(counts.sunderCall > counts.victory, 'its own cry the likelier');
-  assert.equal(ultimateCry('nothing-such', () => 0), ULTIMATE_CRIES.sunder[0][0]);
+  assert.equal(ultimateCry('nothing-such', () => 0), 'sunderCall', 'an ultimate without a cry of its own takes Sunder\'s');
   // as a cry the line is forced (inside its own cooldown, whatever the dice) and ranks as state: it cuts another's taunt
   const director = new VoiceDirector({ rand: () => 0.99 });
   assert.ok(new VoiceDirector({ rand: () => 0 }).allow('killTaunt', 'k', 1));
@@ -170,4 +170,20 @@ test('Sunder\'s cry: most times its own, now and then MIGHT MAKES... KNIGHT!, an
   assert.deepEqual(busy.consider('victory', 'me', 10.6, { cry: true })?.stop, ['other'], 'as a cry it cuts it');
   assert.ok(director.allow('victory', 'me', 1, { cry: true }));
   assert.ok(director.allow('victory', 'me', 20, { cry: true }), 'inside its own two-minute cooldown');
+});
+
+test('why a line is never heard can be read off: whether its moment comes, whether it is tried, whether it is said', () => {
+  const moments = new VoiceMoments({ rand: () => 0.99 });
+  const director = new VoiceDirector({ rand: () => 0.99 });
+  // three falls: the moments come; the recorded line is tried each time and (the dice being what they are) never said
+  for (let i = 0; i < 3; i += 1) {
+    const { fallen } = moments.death({ type: 'death', victimId: 'v', killerId: 'k', source: 'sword', at: i });
+    for (const say of fallen) if (say.line === 'knightFallen') director.consider(say.line, say.speaker, i * 400);
+  }
+  const report = moments.report({ recorded: (line) => line === 'knightFallen', stats: director.stats });
+  const row = (line) => report.find((entry) => entry.line === line);
+  assert.deepEqual(row('knightFallen'), { line: 'knightFallen', recorded: true, moments: 3, tried: 3, said: 0 });
+  assert.deepEqual(row('defeat'), { line: 'defeat', recorded: false, moments: 3, tried: 0, said: 0 }, 'its moment comes, but it has no take');
+  assert.equal(row('steelBoast').moments, 0, 'a moment that never came');
+  assert.equal(row('vortexDefeat').waitsFor, 'Blazing Vortex');
 });

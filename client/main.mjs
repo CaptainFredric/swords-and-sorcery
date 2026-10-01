@@ -8,7 +8,7 @@ import { Ambience } from './game/sound/Ambience.mjs';
 import { MusicPlayer } from './game/sound/music/MusicPlayer.mjs';
 import { fightPieceFor } from './game/sound/music/score.mjs';
 import { VoiceBank } from './game/sound/VoiceBank.mjs';
-import { DEFEAT_ON_LOSS } from './game/sound/voiceRules.mjs';
+import { linesFor } from './game/sound/voiceLines.mjs';
 import { gateRecipe, uiClankRecipe, warDrumRecipe } from './game/sound/atmosphereRecipes.mjs';
 import { unsheatheRecipe } from './game/sound/soundRecipes.mjs';
 import { arenaGateCopy, challengeCopy, countdownSeconds, romanCount } from './menu/challengeCard.mjs';
@@ -426,8 +426,9 @@ function soundTheEnd(snapshot) {
   // the defeat made official: now and then, that he never thought this day would come; if not, the protest that he
   // is a knight (unless he just said so as he fell). A win is the stinger's (MIGHT MAKES... KNIGHT! is for force)
   if (won) return;
-  const said = { speaker: socket.playerId, gain: 0.85, delay: 0.4, close: true };
-  if (!voice.say('neverThought', said)) voice.say('defeat', { ...said, chanceScale: DEFEAT_ON_LOSS });
+  for (const say of linesFor(socket.playerId, ['matchLost'])) {
+    if (voice.say(say.line, { speaker: say.speaker, gain: 0.85, delay: say.delay, chanceScale: say.chanceScale, close: true })) break;
+  }
 }
 
 function updateEnd(snapshot) {
