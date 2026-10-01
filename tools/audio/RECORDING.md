@@ -6,91 +6,72 @@ from the throat, and he saves his breath for the one cry that matters. Record yo
 grit and of steel around the face, with every word left clear. The game adds only a little of the courtyard, and only
 for other knights near you: your own knight is heard as he is.
 
-## What to record
+## Adding a line (the whole of it)
 
-Record each take as its own file and name it after its line (`effort-1.m4a`, `effort-2.m4a`, `sorcery-1.m4a`, …).
-Two to six takes of a line keep it from repeating.
+1. **Declare it** in `client/game/sound/voiceLines.mjs`: one entry is the whole line.
 
-| Line | Takes | What it is |
-| --- | --- | --- |
-| `effort` | 4–6 | The breath behind a heavy swing: "hnh!", "hah!", "rrah!". Short (under half a second), from the chest. |
-| `hurt` | 4–6 | Taking a blow: "ugh!", "hrk!", "nngh". Sharp, short, no screaming. |
-| `death` | 2–3 | Going down: a heavier groan that cuts off. Up to a second; not theatrical. |
-| `sorcery` | 3–4 | The battle cry, **SOURCE–CERYYYY!** Hit "SOURCE" hard, then hold the "-ryyyy" for about a second and let it fall away. |
-| `dash` | 2–3 | A quick exhale as he lunges: "hff!". |
-| `victory` | 2 | A low, satisfied "Hah!" or a short laugh. |
+   ```js
+   {
+     id: 'lateLine',
+     text: 'NOOoo! I am going to be late!',
+     trigger: 'minorLethal',                 // the moment it may be said at (VOICE_TAGS, in the same file)
+     boost: { interrupted: 1.4 },            // optional: other facts of the moment that make it likelier
+     priority: 'high',                       // 'high' cuts a lesser line; 'normal' waits its turn; 'low' never cuts
+     rarity: 0.12,                           // the chance it is said when its moment comes
+     cooldown: 180,                          // seconds before the same knight may say it again
+     credits: { title: 'Late', description: 'Rarely, when a very small amount of damage proves sufficient.', note: 'Apparently he had prior commitments.' },
+   },
+   ```
 
-## Lines already in the game
+2. **Drop the recording** in `tools/audio/inbox/`, named after the line (`lateLine.mp3`, `late-line-2.m4a` for a
+   second take), or add `file: 'GoingToBeLate.mp3'` to the declaration and keep your own name.
 
-These came from your second recorded clip (the master is in `artifacts/spellblade-voice-handoff.zip`, under
-`source/recording-2-master.wav`). Every line is processed from the master by the clear helm (below), from these
-windows. Each one plays only at its moment and only now and then. The rules are in `client/game/sound/voiceRules.mjs`.
+3. **Run** `npm run voice`. It converts, trims, takes the room out, puts him in the helm, levels and encodes each take
+   into `client/assets/voice/`, rewrites the manifest the game loads, moves the recording to `artifacts/voice-sources/`
+   (kept out of git) with a note in `tools/audio/voice-sources.json`, and checks everything.
 
-| Line | Take | Window (s) | When |
-| --- | --- | --- | --- |
-| `sorcery` | "SORCERY!" ×2 | 0.38–1.93, 3.15–4.71 | A spell is cast (1 in 12, not again within 45 s). |
-| `magicDefeat` | "I don't believe in magic." | 5.15–7.25 | Killed by a spell or its burn (about 1 in 3, 90 s apart). |
-| `victory` | "MIGHT MAKES… KNIGHT!" | 8.15–10.72 | After force settles the argument (a Sundering kill, guard break or broken balance); now and then as Sunder is invoked. |
-| `killTaunt` | "Good knight? That will not be you." | 23.62–26.42 | Over someone you felled, if they said nothing. |
-| `laugh` | "AHHHhh, hahaHAH!" | 11.87–13.91 | The wildcard: rarely, at nearly anything ill-advised; once a life at most. |
-| `breakTaunt` | "You should've hired a REAL guard." | 14.2–17.04 | After breaking a guard, rarely (the helping hand is likelier). |
-| `defeat` | "What!? But I am a knight!" ×2 | 18.35–20.16, 20.58–23.04 | Now and then when felled; likelier on the fall that loses the match. |
+4. **Commit** `client/assets/voice/`, `voiceLines.mjs` and `voice-sources.json`. The line is in the game: the
+   director's rule, the subtitle and the Credits' voice library all come from the declaration.
 
-Later recordings (each its own file, through the same clear helm):
+That is all, unless the line belongs to a moment the game does not raise yet. Then one more thing is needed: the code
+that decides the moment has happened (a new tag in `VOICE_TAGS`, raised from `voiceMoments.mjs` or `GameRuntime.mjs`).
+A test fails if a line waits for a moment nobody raises.
 
-| Line | What | When |
-| --- | --- | --- |
-| `galeTaunt` | "What did you say? Must have been the wind…" | After a Gale really moved someone, now and then. |
-| `steelBoast` | "My armor works now!" | Sheathe in Steel turned a spell aside, rarely. |
-| `sunderCall` | "Your integrity will not suffice!" | Most Sunders, as the brace begins (now and then MIGHT MAKES… KNIGHT! instead). |
-| `knightFallen` | "The Knight has fallen!… no longer may day arrive…" | A rare fall; likelier after an overkill. |
-| `fistThrow` | "I throw you my gauntlet." | Now and then as the fist lands. |
-| `rebuttal` | "I present my rebuttal." | The fist, on a foe who just spoke and is nearly beaten. |
-| `bladeCaught` | "Ah! My blade caught on the edge of a flower pot! …Quickly!" | Almost never, and only when the blade snags on a small furnishing. |
-| `jump` ×3 | Jump grunts | Now and then on a jump, never the same take twice running. |
-| `vortexUse` | Blazing Vortex's spin cry | Prepared for Blazing Vortex; not in the game yet. |
-| `vortexDefeat` | "I was dizzy anyway." | Prepared: felled during Blazing Vortex (or its dizziness). |
+Other things `npm run voice` does:
 
-Every line, recorded or still to come, can be heard from the game: Settings, then the quiet CREDITS button in its
-footer (the voice library, `client/ui/voiceLibrary.mjs`, which is also where each line's exact moment is described).
-A new line gets an entry there too (a test insists).
+| Command | What it does |
+| --- | --- |
+| `npm run voice -- --check` | Only the check: what is declared, recorded, still silent, or wrong (a duplicate id, an unknown trigger, a recording nobody declared, a listed take that is missing). |
+| `npm run voice -- ~/Desktop/Late.mp3 --line lateLine` | A recording from anywhere, for a named line. |
+| `npm run voice -- master.wav:0.38-1.93 --line sorcery` | A window of a longer recording (seconds). |
+| `npm run voice -- --add ...` | Keeps the line's earlier takes and adds these (otherwise a line's takes are replaced). |
+| `npm run voice -- --redo` | Makes every take again from the archived recordings (after changing the chain); `--redo sorcery defeat` for some. |
 
-Lines have ranks (`VOICE_PRIORITY` in `voiceRules.mjs`): exertions never cut anything; situational lines wait their
-turn; a death, a defeat or an ultimate's cry cuts through a lesser line. Only one sentence is heard at a time.
+It needs a Python with numpy (`/usr/local/bin/python3` here; `--python` or `VOICE_PYTHON` to name another).
 
-To redo them all (for example after changing the chain). The first master is
-`artifacts/knight-voice-takes/source/recording-2-master.wav`; the later recordings are kept beside it in `source/later/`
-(both local only, not in git):
+### Moments
 
-```bash
-M=artifacts/knight-voice-takes/source/recording-2-master.wav
-L=artifacts/knight-voice-takes/source/later
-python3 tools/audio/knight_voice.py --line sorcery $M:0.38-1.93 $M:3.15-4.71
-python3 tools/audio/knight_voice.py --line magicDefeat $M:5.15-7.25
-python3 tools/audio/knight_voice.py --line victory $M:8.15-10.72
-python3 tools/audio/knight_voice.py --line killTaunt $M:23.62-26.42
-python3 tools/audio/knight_voice.py --line laugh $M:11.87-13.91
-python3 tools/audio/knight_voice.py --line breakTaunt $M:14.2-17.04
-python3 tools/audio/knight_voice.py --line defeat $M:18.35-20.16 $M:20.58-23.04
-python3 tools/audio/knight_voice.py --line galeTaunt $L/gale-taunt.mp3
-python3 tools/audio/knight_voice.py --line steelBoast $L/steel-boast.mp3
-python3 tools/audio/knight_voice.py --line sunderCall $L/sunder-call.mp3
-python3 tools/audio/knight_voice.py --line knightFallen $L/knight-fallen.mp3
-python3 tools/audio/knight_voice.py --line fistThrow $L/fist-throw.mp3
-python3 tools/audio/knight_voice.py --line rebuttal $L/rebuttal.mp3
-python3 tools/audio/knight_voice.py --line bladeCaught $L/blade-caught.mp3
-python3 tools/audio/knight_voice.py --line vortexUse $L/vortex-use.mp3
-python3 tools/audio/knight_voice.py --line vortexDefeat $L/vortex-defeat.mp3
-python3 tools/audio/knight_voice.py --line jump $L/jump-1.mp3 $L/jump-2.mp3 $L/jump-3.mp3
-```
+A line says which moments it belongs to (`trigger`); the game raises moments by their tags. When a moment carries
+several tags, the lines of the most particular one are tried first, and the first line that passes its odds, its
+cooldown and its rank is the only one said. The tags, with what each means, are `VOICE_TAGS` in `voiceLines.mjs`:
+`death`, `minorLethal`, `magicDeath`, `matchLost`, `kill`, `cleanSwordKill`, `knighthoodKill`, `galeKill`,
+`gauntletKill`, `subparKill`, `messyKill`, `practiceWin`, `sunderKill`, `guardBreak`, `staggerBreakInflicted`,
+`galeDisplacement`, `rescued`, `squireOpening`, `bladeSnag`, `spellCast`, `steelTurn`, `sunderInvoked`, and the
+smaller ones the wildcard and the grunts hang on. Facts that only make a line likelier (`boost`): `overkill`,
+`decisive`, `interrupted`, `highSwing`.
 
-(Use `/usr/local/bin/python3`, which has numpy.)
+### "It never fires"
+
+With `?debug` in the address, `console.table(__ssRuntime.voiceReport())` lists every line with how often its moments
+have come this session, how often it was tried and how often said. A line whose moments never come needs its moment
+looked at; one tried often and never said is only rare; one never tried though its moments come has no recording.
+
+Lines have ranks: exertions never cut anything; situational lines wait their turn; a death, a defeat or an ultimate's
+cry cuts through a lesser line. Only one sentence is heard at a time. Every line, recorded or still to come, can be
+heard from the game: Settings, then the quiet CREDITS button in its footer.
 
 Blows on a guard and guards breaking are steel only (`blockRecipe` and `guardBreakRecipe` in
 `client/game/sound/soundRecipes.mjs`); there are no voiced contact effects any more.
-
-Processing a line replaces that line's takes; the other lines are kept. A new spoken line gets a camelCase name in
-the game (`killTaunt`) and a hyphenated file name (`kill-taunt-1.m4a`); add it to `LINES` and `PRESETS` in the tool.
 
 ## How to record
 
@@ -100,11 +81,13 @@ the game (`killTaunt`) and a hyphenated file name (`kill-taunt-1.m4a`); add it t
   back to arm's length so the loud part doesn't clip.
 - Leave a short pause before and after each take. The tool trims silence.
 
-## Turn the takes into the knight
+## How a take becomes the knight
+
+`npm run voice` hands each take to `tools/audio/knight_voice.py` with the line's own settings (its `voice` in the
+declaration: the grit, the level, an eased expander for a line with a soft tail). It can be run by hand too:
 
 ```bash
-python3 tools/audio/knight_voice.py ~/Desktop/knight-takes --preview
-python3 tools/audio/knight_voice.py recording.wav:0.38-1.93 recording.wav:3.15-4.71 --line sorcery
+python3 tools/audio/knight_voice.py --line lateLine ~/Desktop/GoingToBeLate.mp3 --preview
 ```
 
 The clear helm is the standard chain for every line (`--profile clear`, the default). It replaced the close helm
@@ -131,15 +114,9 @@ In the game: your own knight's lines are heard as they are (dry, full level). Ot
 the next. Under a spoken line the music and the wind give way a little (`VOICE_DUCK` in `SoundEngine.mjs`), and every
 spoken line is written out at the foot of the view (Settings, Sound, Subtitles; on by default).
 
-- Every line you process replaces that line's earlier takes.
+- Every line you process replaces that line's earlier takes (`npm run voice -- --add` keeps them).
 - `--preview` also writes each take as another knight a few metres away hears it (a touch of the courtyard) to
   `artifacts/voice-preview/`, so you can listen first.
 - `--semitones -1.5` goes less deep and `--semitones -3` deeper (the default is -2; the formants stay put either way).
-- `--line sorcery` names the line for inputs whose file names don't (a window of a longer recording, `path:start-end`).
 - `--profile close` is the earlier, deeper chain (−4.5 semitones, formants and all); `--profile classic` the one before.
 - `--drive 1.5` gives less grit and `--drive 3` gives more (the clear helm uses four fifths of it).
-- The takes land in `client/assets/voice/` with `manifest.json`. Commit that folder and they are in the game.
-
-In the game, the knight grunts on some heavy swings and cries out when hurt or slain. About one cast in twelve gets
-SORCERY!, never twice within 45 seconds. Other players hear your knight from where you stand, each at a slightly
-different pitch.

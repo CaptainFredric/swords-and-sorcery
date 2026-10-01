@@ -6,6 +6,7 @@ import { FacetBuilder, KIT_PALETTE as P, facetMesh, kitMaterials, seededRandom, 
 import { banner, brazier, cottage, createBatch, hedgerow, masonry, palisade, runeStone, sconce, tree } from './kit/kitPieces.mjs';
 import { floorTile, outerTerrain, scatterGroundDetail } from './kit/kitTerrain.mjs';
 import { archeryTarget, barrel, crate, flowers, lanternPost, pavilion, pennant, sacks, strawBales, weaponRack, woodpile } from './kit/kitProps.mjs';
+import { everywhere } from '../game/viewLayers.mjs';
 
 // Late afternoon over Castleward: a warm low sun, a neutral sky fill and a honey haze. The game runtime applies the
 // hemisphere and sun from here (the other worlds keep the default moonlit presentation).
@@ -391,7 +392,7 @@ export class CastlewardRenderer {
     glow.scale.setScalar(scale);
     this.group.add(glow);
     if (light) {
-      const point = new THREE.PointLight(0xffa24c, 3.2, 7.5, 2);
+      const point = everywhere(new THREE.PointLight(0xffa24c, 3.2, 7.5, 2));
       point.position.set(position[0], position[1] + 0.2, position[2]);
       point.userData.phase = flame.userData.phase;
       this.group.add(point);

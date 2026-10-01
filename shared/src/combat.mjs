@@ -52,8 +52,14 @@ export function nextChainStep({ committed, landed }, elapsed) {
 // on a guard, the stagger of a broken one), never to the damage. Current tuning; the server resolves it
 // (shared/sim/combat.mjs) and the first-person sweep is timed from the same window.
 export const MELEE_CONTACT = Object.freeze({
-  // the strike's live stretch around its contact (seconds before, after)
+  // the blade's whole swing around its contact (seconds before, after): how it moves (blade.mjs bladeDirection)
   window: Object.freeze({ early: 0.09, late: 0.11 }),
+  // of that, only the driven part can land. A knight is met until `follow` seconds past the contact (the blade about
+  // thirty degrees beyond the aim); the world stops the blade only up to the contact (`worldFollow` past it: one step
+  // of the sweep). After that the sword is only swinging through, leaning away to the side: it lands on nothing and
+  // rings off nothing. (A Sundering slam is driven all the way down: its whole swing is live.)
+  follow: 0.045,
+  worldFollow: 0.012,
   // which way each strike's blade crosses the arc: +1 from its right to its left, -1 left to right, 0 top to bottom
   sweep: Object.freeze([1, -1, 0]),
   // closing speed (m/s) that counts as a full-tilt collision, and what it adds at full tilt

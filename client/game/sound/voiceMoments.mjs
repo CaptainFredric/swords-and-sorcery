@@ -8,7 +8,8 @@
 // knight(id): the knight as last seen (a snapshot's player: health, alive, staggerUntil, attackActive, guarding,
 // dashUntil, sprinting, pitch, actorKind, practiceMode, cloth, ultimateState). Times are the host's (event.at).
 
-import { deathLines, galeTauntScale, guardBreakLines, isMinorLethal, isOverkill } from './voiceRules.mjs';
+import { deathMoment, galeTauntScale, isMinorLethal, isOverkill } from './voiceRules.mjs';
+import { VOICE_LINE_LIST, linesFor } from './voiceLines.mjs';
 
 export const MOMENTS = Object.freeze({
   // a knight near their end: this little health left, or reeling (staggered)
@@ -46,6 +47,7 @@ export class VoiceMoments {
     this.gusts = new Map();     // `${owner}>${victim}` -> when it threw them
     this.ruptured = new Map();  // owner -> when their ruptures caught someone, lately
     this.squire = null;         // { speaker, until, position }
+    this.seen = new Map();      // tag -> how often its moment has been raised (for telling why a line is never heard)
   }
 
   /** A blow landed (a `damage` event). */
@@ -65,21 +67,20 @@ export class VoiceMoments {
     if (other && source === 'rupture') {
       const recent = [...(this.ruptured.get(attackerId) ?? []).filter((t) => at - t <= MOMENTS.massive.withinSec), at];
       this.ruptured.set(attackerId, recent);
-      if (recent.length === MOMENTS.massive.caught) groups.push([{ line: 'victory', speaker: attackerId, delay: 0.5 }]);
+      if (recent.length === MOMENTS.massive.caught) groups.push(this.#lines(attackerId, ['massiveSunder']));
     }
     const standing = event.health > 0;
     if (other && standing) {
-      const said = [];
-      // "What did the squire say to the Spellblade?" over a foe he has all but finished
-      if (event.health <= MOMENTS.squire.health) said.push({ line: 'squireSetup', speaker: attackerId, delay: 0.45, squire: true });
-      // the cleanest blow, through the foe's own swing
-      if (source === 'sword' && event.clean && knight(victimId)?.attackActive) said.push({ line: 'hackSlash', speaker: attackerId, delay: 0.4, chanceScale: 0.6 });
-      if (wild(source)) said.push({ line: 'laugh', speaker: attackerId, delay: 0.3 });
-      groups.push(said);
+      groups.push(this.#lines(attackerId, [
+        // a foe he has all but finished (the squire's question); the cleanest blow, through the foe's own swing
+        event.health <= MOMENTS.squire.health && 'squireOpening',
+        source === 'sword' && event.clean && knight(victimId)?.attackActive && 'counterHit',
+        wild(source) && 'blowDealt',
+      ]));
     }
     // (a blow that kills has the fall's own lines)
-    if (standing && wild(source)) groups.push([{ line: 'laugh', speaker: victimId, delay: 0.3 }]);
-    return groups;
+    if (standing && wild(source)) groups.push(this.#lines(victimId, ['blowTaken']));
+    return groups.filter((group) => group.length);
   }
 
   /**
@@ -114,9 +115,10 @@ export class VoiceMoments {
     const minor = Boolean(blow) && isMinorLethal({ ...blow, source });
     const interrupted = Boolean(victim && (victim.attackActive || victim.guarding || victim.sprinting || (victim.dashUntil ?? -Infinity) > at));
     const overkill = Boolean(blow) && isOverkill(blow);
-    const { fallen, victor } = deathLines({
-      victimId, killerId, source, overkill, minor, interrupted, decisive: Boolean(event.decisive), answer, moment,
-    }, this.rand);
+    const fall = deathMoment({ victimId, killerId, source, overkill, minor, interrupted, decisive: Boolean(event.decisive), moment });
+    // (the squire's answer is forced: a line, never a grunt, and nobody talks over it)
+    const fallen = this.#lines(victimId, fall.fallen, { facts: fall.facts, force: answer });
+    const victor = !answer && fall.victor ? this.#lines(killerId, fall.victor, { facts: fall.victorFacts }) : [];
     // whoever the fallen was threatening, near their own end, saved by somebody else
     const rescued = this.#rescues(victimId, killerId, at, knight);
     this.#forget(victimId);
@@ -126,34 +128,62 @@ export class VoiceMoments {
   /** A gust caught knights (a `galeBlast`'s `affected`): the jibe, the thrown, and anyone it rescued. */
   galeCaught(event, { knight = () => null } = {}) {
     const groups = [];
+    // (how fitting the jibe is, the moment says itself: likelier the harder the gust threw them)
     const jibe = galeTauntScale(event.affected ?? []);
-    if (jibe > 0) groups.push([{ line: 'galeTaunt', speaker: event.playerId, delay: 0.7, chanceScale: jibe }]);
+    if (jibe > 0) groups.push(this.#lines(event.playerId, { galeDisplacement: jibe }));
     for (const caught of event.affected ?? []) {
       if (caught.guarded || !(caught.pressure >= 0.5)) continue;
       this.gusts.set(`${event.playerId}>${caught.id}`, event.at);
       groups.push(...this.#rescues(caught.id, event.playerId, event.at, knight));
-      if (caught.pressure >= MOMENTS.launch) groups.push([{ line: 'laugh', speaker: caught.id, delay: 0.4 }]);
+      if (caught.pressure >= MOMENTS.launch) groups.push(this.#lines(caught.id, ['launched']));
     }
-    return groups;
+    return groups.filter((group) => group.length);
   }
 
   /** A knight's balance broke (a `staggerBreak`): the one who broke it, and anyone it rescued. */
   staggerBreak(event, { knight = () => null } = {}) {
     const groups = [];
-    if (event.by) {
-      groups.push([
-        // a Sundering blow that breaks a knight is force settling the argument
-        ...(sundering(knight(event.by), event.at) ? [{ line: 'victory', speaker: event.by, delay: 0.6 }] : []),
-        { line: 'staggerDisplay', speaker: event.by, delay: 0.6 },
-      ]);
-    }
+    // (a Sundering blow that breaks a knight is force settling the argument)
+    if (event.by) groups.push(this.#lines(event.by, ['staggerBreakInflicted', sundering(knight(event.by), event.at) && 'sunderStaggerBreak']));
     groups.push(...this.#rescues(event.playerId, event.by ?? null, event.at, knight));
-    return groups;
+    return groups.filter((group) => group.length);
   }
 
   /** A guard broke (a `guardBreak`). */
   guardBreak(event) {
-    return [guardBreakLines({ attackerId: event.attackerId, catastrophic: (event.impacts ?? 1) >= 2 })];
+    return [this.#lines(event.attackerId, ['guardBreak', (event.impacts ?? 1) >= 2 && 'catastrophicGuardBreak'])];
+  }
+
+  /**
+   * The lines for a moment `speaker` is in, by its tags (voiceLines.mjs: the lines subscribe to the moments; a list
+   * may hold false for a tag that does not apply). Each moment raised is counted (`seen`), so a line that never seems
+   * to be said can be told from a moment that never comes.
+   */
+  lines(speaker, tags, options = {}) {
+    return this.#lines(speaker, tags, options);
+  }
+
+  #lines(speaker, tags, options = {}) {
+    const present = Array.isArray(tags) ? Object.fromEntries(tags.filter(Boolean).map((tag) => [tag, 1])) : tags;
+    for (const tag of Object.keys(present)) this.seen.set(tag, (this.seen.get(tag) ?? 0) + 1);
+    return linesFor(speaker, present, { rand: this.rand, ...options });
+  }
+
+  /**
+   * Why a line is or is not heard, for every line declared: { line, recorded, moments (how often a moment it waits for
+   * has come), tried (how often it got as far as its odds: only a recorded line does), said }. recorded(id): whether it
+   * has a take; stats: the director's (line -> { tried, said }). A line whose moments never come needs its moment
+   * looked at; one tried often and never said is only rare; one never tried though its moments come is unrecorded.
+   */
+  report({ recorded = () => false, stats = new Map() } = {}) {
+    return VOICE_LINE_LIST.map((line) => ({
+      line: line.id,
+      recorded: Boolean(recorded(line.id)),
+      ...(line.coming ? { waitsFor: line.coming } : {}),
+      moments: Object.keys(line.triggers).reduce((sum, tag) => sum + (this.seen.get(tag) ?? 0), 0),
+      tried: stats.get(line.id)?.tried ?? 0,
+      said: stats.get(line.id)?.said ?? 0,
+    }));
   }
 
   /** Whether someone has hurt `id` within the last moment (a knight with a threat at their heels). */
@@ -196,7 +226,7 @@ export class VoiceMoments {
       if (threat.by !== threatId || id === by || id === threatId || at - threat.at > MOMENTS.threatSec) continue;
       const k = knight(id);
       if (!k || k.alive === false) continue;
-      if ((k.health ?? 100) <= MOMENTS.nearDemise || (k.staggerUntil ?? -Infinity) > at) saved.push([{ line: 'alwaysKnew', speaker: id, delay: 0.7 }]);
+      if ((k.health ?? 100) <= MOMENTS.nearDemise || (k.staggerUntil ?? -Infinity) > at) saved.push(this.#lines(id, ['rescued']));
     }
     return saved;
   }

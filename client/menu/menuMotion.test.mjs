@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { MENU_SHOTS, easeShot, lerpShot, menuShotFor } from './menuShots.mjs';
+import { MENU_SHOTS, easeShot, lerpShot, menuShotFor, shotSettled } from './menuShots.mjs';
 import { MOMENTS, MOMENT_EVERY, REACTIONS, idleMoment, idlePose, reactionMoment } from './menuIdle.mjs';
 
 const STAGE = { x: -1.0, z: 5.5 };
@@ -90,4 +90,13 @@ test('the challenge card names the duel, the melee and the arena', async () => {
   assert.equal(arenaGateCopy({ mode: 'FFA' }).title, 'CASTLEWARD');
   const { romanCount } = await import('./challengeCard.mjs');
   assert.deepEqual([3, 2, 1].map(romanCount), ['III', 'II', 'I']);
+});
+
+test('the round waits for the camera to come down to the front door: never begun from the establishing shot', () => {
+  // as the menu opens: holding the establishing shot (no move under way), the camera has not arrived anywhere
+  assert.equal(shotSettled({ to: MENU_SHOTS.intro, duration: 0, elapsed: 0 }), false);
+  // gliding down to the front door: not yet; there: yes
+  assert.equal(shotSettled({ to: MENU_SHOTS.main, duration: 2.8, elapsed: 1.2 }), false);
+  assert.equal(shotSettled({ to: MENU_SHOTS.main, duration: 2.8, elapsed: 2.8 }), true);
+  assert.equal(shotSettled({ to: MENU_SHOTS.solo, duration: 0, elapsed: 0 }), true);
 });

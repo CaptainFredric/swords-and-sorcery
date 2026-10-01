@@ -123,3 +123,32 @@ test('no Practice opponent ends a match, so none awards Renown, however often it
     assert.ok(human.kills >= 20 && dummy.kills >= 20);
   }
 });
+
+test('the yard\'s short recast is for the knight who came to practise: its opponents keep their real cooldowns', () => {
+  for (const mode of ['SORCERY', 'FIGHTS_BACK']) {
+    const { room, human } = makePracticeRoom();
+    room.tick(4);
+    const dummy = spawnPracticeDummy(room, mode, 4);
+    dummy.spawnProtectionUntil = 0;
+    Object.assign(human.position, { x: 0, y: 0, z: 0 });
+    Object.assign(dummy.position, { x: 0, y: 0, z: -8 });
+    const casts = [];
+    const random = sequenceRandom([0.05, 0.2, 0.11, 0.3]);
+    for (let i = 0; i < 30 * 14; i += 1) {
+      const now = 4 + i / 30;
+      stepPracticeActors(room, now, room.world, { random });
+      for (const event of stepRoom(room, 1 / 30, now, room.world).splice(0)) {
+        if (event.type === 'spellCast' && event.playerId === dummy.id) casts.push(now);
+      }
+      human.health = 100;
+      dummy.health = 100;
+      // (held where they stand: only the casting is in question)
+      Object.assign(human.position, { x: 0, y: 0, z: 0 });
+    }
+    assert.ok(casts.length >= (mode === 'SORCERY' ? 3 : 1), `${mode}: it cast (${casts.length})`);
+    for (let i = 1; i < casts.length; i += 1) {
+      assert.ok(casts[i] - casts[i - 1] >= 2.5, `${mode}: two spells ${(casts[i] - casts[i - 1]).toFixed(2)} s apart`);
+    }
+    assert.equal(dummy.practiceGate ?? null, null, 'no gate of its own');
+  }
+});

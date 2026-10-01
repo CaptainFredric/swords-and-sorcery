@@ -79,7 +79,8 @@ function forehand(room, world = openWorld) {
 }
 
 test('an ordinary sword blow still follows the 19-30 contact curve, at the normal level', () => {
-  for (const deg of [0, 30, 60]) {
+  // (negative: on a's right, the side the forehand is driven in from; its follow-through lands on nothing)
+  for (const deg of [0, -30, -60]) {
     const { room, b } = duel();
     place(b, deg);
     const hit = forehand(room).find((e) => e.type === 'damage' && e.source === 'sword');

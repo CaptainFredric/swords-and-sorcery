@@ -1,4 +1,4 @@
-import { CREDITS, LIBRARY_STATUS, VOICE_LIBRARY } from './voiceLibrary.mjs';
+import { CREDITS, libraryInOrder, libraryStatus, statusLabel } from './voiceLibrary.mjs';
 
 // The credits, and the Spellblade's voice library (voiceLibrary.mjs): who made him, and every line he has or will
 // have, each with a button per take to hear it as the game plays it (dry, as your own knight is heard). Opened from a
@@ -25,7 +25,9 @@ export class CreditsPanel {
   open() {
     this.root.classList.remove('hidden');
     this.#render();
-    // the voice may still be loading the first time it is opened: drawn again once it has
+    // the voice may still be loading the first time it is opened: drawn again once it knows what is recorded, and
+    // again once every take can be played
+    this.voice?.listed?.then(() => { if (this.isOpen) this.#render(); });
     this.voice?.ready?.then(() => { if (this.isOpen) this.#render(); });
     this.root.querySelector('[data-credits-done]')?.focus({ preventScroll: true });
   }
@@ -47,14 +49,18 @@ export class CreditsPanel {
         ${CREDITS.lines.map((line) => `<p class="credits-line"><small>${escape(line.role)}</small><b>${escape(line.name)}</b></p>`).join('')}
         <p class="credits-note">${escape(CREDITS.note)}</p>
       </div>`;
-    const rows = VOICE_LIBRARY.map((entry) => {
-      const takes = entry.status === 'unrecorded' ? 0 : this.#takes(entry.line);
+    // which lines have a recording is the voice bank's to say (from the takes' manifest); until it has it, they load
+    const recorded = this.voice?.recorded ?? null;
+    const isRecorded = (line) => (recorded?.get(line) ?? 0) > 0;
+    const rows = libraryInOrder(isRecorded).map((entry) => {
+      const status = libraryStatus(entry, isRecorded(entry.line));
+      const takes = this.#takes(entry.line);
       const buttons = takes
         ? Array.from({ length: takes }, (_, i) => `<button type="button" class="voice-play" data-play-line="${entry.line}" data-take="${i}" aria-label="Play ${escape(entry.title)}${takes > 1 ? `, take ${i + 1}` : ''}">&#9654;${takes > 1 ? ` ${i + 1}` : ''}</button>`).join('')
-        : entry.status === 'unrecorded' ? '' : '<span class="voice-loading">LOADING</span>';
+        : status === 'unrecorded' && recorded ? '' : '<span class="voice-loading">LOADING</span>';
       return `
-        <article class="voice-entry voice-${entry.status}">
-          <header><b>${escape(entry.title)}</b><span class="voice-status">${escape(LIBRARY_STATUS[entry.status])}</span></header>
+        <article class="voice-entry voice-${recorded ? status : 'live'}">
+          <header><b>${escape(entry.title)}</b><span class="voice-status">${escape(recorded ? statusLabel(entry, isRecorded(entry.line)) : '')}</span></header>
           ${entry.words.startsWith('(') ? `<i class="voice-direction">${escape(entry.words)}</i>` : `<q>${escape(entry.words)}</q>`}
           <p class="voice-when">${escape(entry.when)}</p>
           <p class="voice-note">${escape(entry.note)}</p>

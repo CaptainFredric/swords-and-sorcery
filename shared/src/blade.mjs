@@ -8,8 +8,9 @@
 //   - ...unless something solid stands between the attacker and where the blade met them (nothing through a wall or
 //     round a corner);
 //   - and the world stops the blade (it rings off, and the knight recoils) only where the swing is driven: within a
-//     corridor either side of the aim. Out at the edges of a slash, a wall or a barrel the blade brushes does not end
-//     an otherwise good blow.
+//     corridor either side of the aim, and only up to its contact (never in the follow-through, the blade leaning
+//     away to the side). Out at the edges of a slash, a wall or a barrel the blade brushes does not end an otherwise
+//     good blow.
 //
 // Pure: the server resolves strikes with it (shared/sim/combat.mjs); tests and the client can ask it the same
 // questions.
@@ -198,9 +199,10 @@ function segmentFloor(start, end, floor) {
  * aim: the attacker's aim (a unit vector): the world stops the blade only within `blade.worldStopDeg` of it (with no
  * aim given, anywhere). A knight met with something solid between the eyes and the blade's contact is not met.
  * ground: floors (a world's `floors`) the blade can be driven into, where the world stops it (with none, the ground is
- * not asked about): met as { kind: 'ground', floor, point, along }.
+ * not asked about): met as { kind: 'ground', floor, point, along }. world: false once the blade is past its driven
+ * part (MELEE_CONTACT.worldFollow): nothing solid stops it then, though a wall still hides a knight behind it.
  */
-export function sweepBlade(eye, fromDirection, toDirection, bodies, solids, { aim = null, blade = BLADE, ground = null } = {}) {
+export function sweepBlade(eye, fromDirection, toDirection, bodies, solids, { aim = null, blade = BLADE, ground = null, world = true } = {}) {
   const turn = Math.acos(Math.max(-1, Math.min(1, dot(fromDirection, toDirection))));
   const steps = Math.max(1, Math.ceil(turn / (blade.stepDeg * DEG)));
   const corridor = Math.cos(blade.worldStopDeg * DEG);
@@ -232,7 +234,7 @@ export function sweepBlade(eye, fromDirection, toDirection, bodies, solids, { ai
       const along = blade.from + t * length;
       if (!best || along < best.along) best = { kind: 'ground', floor, point: add(start, scale(sub(end, start), t)), along, direction };
     }
-    for (const solid of driven ? stopping : []) {
+    for (const solid of driven && world ? stopping : []) {
       const hit = segmentBox(start, end, solid, blade.radius);
       if (!hit) continue;
       const along = blade.from + hit.t * length;

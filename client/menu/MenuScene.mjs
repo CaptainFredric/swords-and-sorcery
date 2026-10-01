@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { createSpellbladeRig } from '../game/SpellbladeFallback.mjs';
 import { createSpellbladeAsset, reportSpellbladeAssetStatus } from '../game/SpellbladeAssets.mjs';
 import { CASTLEWARD_LIGHTING, CastlewardRenderer } from '../worlds/CastlewardRenderer.mjs';
-import { MENU_SHOTS, easeShot, lerpShot, menuShotFor } from './menuShots.mjs';
+import { MENU_SHOTS, easeShot, lerpShot, menuShotFor, shotSettled } from './menuShots.mjs';
 import { REACTIONS, idleMoment, idlePose, reactionMoment } from './menuIdle.mjs';
 import { TourDirector } from './tour/TourDirector.mjs';
 import { performanceAt } from './menuReactions.mjs';
@@ -260,8 +260,8 @@ export class MenuScene {
     this.lastFrameAt = nowMs;
     this.clock += dt;
     const t = nowMs / 1000;
-    // the round begins once the camera has settled on him at the front door
-    const settled = this.shotDuration === 0 || this.shotElapsed >= this.shotDuration;
+    // the round begins once the camera has settled on him at the front door (never from the establishing shot)
+    const settled = shotSettled({ to: this.shotTo, duration: this.shotDuration, elapsed: this.shotElapsed });
     if (this.touringWanted && !this.touring && this.tour?.ready && settled) this.#startTouring();
     if (!this.touring) {
       this.characterRoot.rotation.y += (this.targetYaw - this.characterRoot.rotation.y) * 0.09;

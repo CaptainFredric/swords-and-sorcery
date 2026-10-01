@@ -28,7 +28,7 @@ import { swordDamageFor } from '../../shared/src/combat.mjs';
 import { CROUCH, POSTURES, postureOf } from '../../shared/src/body.mjs';
 import { steelStrength } from '../../shared/src/steel.mjs';
 import { chillScale, spellFor } from '../../shared/src/spells.mjs';
-import { gauntletLines, ultimateCry, voicePlacement, voiceRate, worldImpactLines } from './sound/voiceRules.mjs';
+import { cryMoment, gauntletMoment, voicePlacement, voiceRate } from './sound/voiceRules.mjs';
 import { VoiceMoments } from './sound/voiceMoments.mjs';
 import { subtitleFor } from '../ui/voiceLibrary.mjs';
 import { FOOTSTEPS, footfallsCrossed, footstepPlacement, footstepRecipe, surfaceAt, variantPicker } from './sound/footsteps.mjs';
@@ -44,6 +44,8 @@ import {
   localWeaponReleaseForEvent,
   localWeaponReleaseForSnapshot,
 } from './localActionPresentation.mjs';
+import { VIEW_LAYER, everywhere } from './viewLayers.mjs';
+import { LocalBladeSweep } from './localBladeSweep.mjs';
 
 // the sun's shadows cover this far around you (a box this many metres from the middle to each side), and follow you:
 // crisp where you fight instead of soft over the whole arena
@@ -58,6 +60,9 @@ const WORLD_RENDERERS = Object.freeze({
   'shattered-keep': ShatteredKeepRenderer,
   'ruined-keep': RuinedKeepRenderer,
 });
+
+// the server's word for a clang my own view already foretold arrives within this long (a round trip and a tick or two)
+const FORETOLD_CLANG_MS = 700;
 
 export class GameRuntime {
   constructor(container, socket, hud, { sound = null, voice = null } = {}) {
@@ -87,14 +92,14 @@ export class GameRuntime {
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     container.appendChild(this.renderer.domElement);
 
-    const hemi = new THREE.HemisphereLight(
+    const hemi = everywhere(new THREE.HemisphereLight(
       SCENE_PRESENTATION.hemisphere.skyColor,
       SCENE_PRESENTATION.hemisphere.groundColor,
       SCENE_PRESENTATION.hemisphere.intensity,
-    );
+    ));
     this.scene.add(hemi);
     this.hemi = hemi;
-    const moon = new THREE.DirectionalLight(SCENE_PRESENTATION.moon.color, SCENE_PRESENTATION.moon.intensity);
+    const moon = everywhere(new THREE.DirectionalLight(SCENE_PRESENTATION.moon.color, SCENE_PRESENTATION.moon.intensity));
     moon.position.set(-12, 24, 8);
     this.sun = moon;
     moon.castShadow = true;
@@ -118,16 +123,18 @@ export class GameRuntime {
     // (a crouched knight's steps are soft and light)
     this.remotePlayers.onFootstep = (id, position, heavy, crouched) => this.#footstep(id, position, crouched ? 0 : heavy, FOOTSTEPS.other * (crouched ? 0.55 : 1));
     // now and then a knight grunts as he jumps (an exertion: never over his other lines)
-    this.remotePlayers.onJump = (id) => this.#say('jump', id);
+    this.remotePlayers.onJump = (id) => this.#sayMoment(id, ['jump']);
     // the moments he has a line for, remembered a little while (voiceMoments.mjs)
     this.moments = new VoiceMoments();
+    // my own blade against the world, judged in my own view (localBladeSweep.mjs)
+    this.bladeSweep = new LocalBladeSweep();
     this.weapon = new WeaponView(this.camera);
     this.weapon.onSwing = (strike, { slam = false } = {}) => {
       // (Sundering, every strike is swung as the heavy one)
       const heavy = slam || strike >= 2;
       this.#play(swingRecipe(Math.random, { strike: heavy ? 2 : strike }), null, 0.85);
       // the heavy third strike gets his breath behind it; the lighter ones only now and then
-      this.#say('effort', this.socket.playerId, { chanceScale: heavy ? 1 : 0.3 });
+      this.#sayMoment(this.socket.playerId, [heavy ? 'heavySwing' : 'lightSwing']);
     };
     this.effects = new Effects(this.scene, this.camera);
     this.onPointer = () => {};
@@ -212,7 +219,7 @@ export class GameRuntime {
       this.weapon.dash();
       this.effects.dash();
       this.#play(dashRecipe(), null, 0.8);
-      if (!this.#say('dash', this.socket.playerId)) this.#say('laugh', this.socket.playerId, { delay: 0.1 });
+      this.#sayMoment(this.socket.playerId, ['dash']);
     };
 
     this.localState = null;
@@ -443,7 +450,7 @@ export class GameRuntime {
           if (body) this.effects.galeGather({ x: body.x, y: body.y + 1.3, z: body.z });
         }
         // SORCERY!! now and then; when it keeps quiet, the wildcard may not
-        if (!this.#say('sorcery', event.playerId)) this.#say('laugh', event.playerId, { delay: 0.2 });
+        this.#sayMoment(event.playerId, ['spellCast']);
       }
 
       if (event.type === 'galeBlast') this.#galeBlast(event);
@@ -467,14 +474,14 @@ export class GameRuntime {
       // Sheathed in Steel: another knight's plate ringing as it hardens (mine rang as I pressed)
       if (event.type === 'steelOn' && event.playerId !== me) this.#play(steelCallRecipe(), this.#bodyPosition(event.playerId), 0.7);
       // a spell turned aside by it: now and then a word of pride (its clang and sparks come with the blow's damage)
-      if (event.type === 'steelTurn' && event.turned >= 0.25) this.#say('steelBoast', event.playerId, { delay: 0.35 });
+      if (event.type === 'steelTurn' && event.turned >= 0.25) this.#sayMoment(event.playerId, ['steelTurn']);
 
       // Sunder All That Rusts: the brace (and the cry), the brace broken before it took hold, the ground split
       if (event.type === 'ultimateStart') this.#ultimateStart(event);
       // ...and as it takes hold, the bell
       if (event.type === 'ultimateActive') {
         this.#play(sunderDongRecipe(), event.playerId === me ? null : this.#bodyPosition(event.playerId), event.playerId === me ? 0.95 : 0.8);
-        this.#say('laugh', event.playerId, { delay: 1.1 });
+        this.#sayMoment(event.playerId, ['ultimateActive']);
       }
       if (event.type === 'ultimateInterrupted') {
         this.#play(ultimateFizzleRecipe(), event.playerId === me ? null : this.#bodyPosition(event.playerId), 0.8);
@@ -484,8 +491,8 @@ export class GameRuntime {
         this.#staggerBreak(event);
         this.#sayMoments(this.moments.staggerBreak(event, this.#voiceWorld()), event.at);
       }
-      // another knight's dash: the wildcard, now and then (mine is said as I press it)
-      if (event.type === 'dash' && event.playerId !== me) this.#say('laugh', event.playerId, { delay: 0.1 });
+      // another knight's dash: its breath, or the wildcard, now and then (mine is said as I press it)
+      if (event.type === 'dash' && event.playerId !== me) this.#sayMoment(event.playerId, ['dash']);
       if (event.type === 'groundStrike') {
         this.#play(groundSlamRecipe(), event.playerId === me ? null : event.point, 1);
         if (event.playerId === me) this.cameraKick = Math.max(this.cameraKick, 0.2);
@@ -500,7 +507,7 @@ export class GameRuntime {
       if (event.type === 'swordSwing' && event.playerId !== me) {
         const heavy = event.slam || event.strikeIndex >= 2;
         this.#play(swingRecipe(Math.random, { strike: heavy ? 2 : event.strikeIndex }), this.#bodyPosition(event.playerId), 0.55);
-        this.#say('effort', event.playerId, { chanceScale: heavy ? 1 : 0.3 });
+        this.#sayMoment(event.playerId, [heavy ? 'heavySwing' : 'lightSwing']);
       }
       this.#warm(event, me);
 
@@ -509,26 +516,16 @@ export class GameRuntime {
       if (combatFeedback === 'parry') this.effects.parry();
       if (combatFeedback === 'guardBreak') this.effects.guardBreak();
 
-      // a blade stopped by the world: stone rings and sparks, timber thunks and splinters, a hedge or cloth only takes it
+      // a blade stopped by the world. Mine was felt as my own view judged it (#foretellClang): the server's word for
+      // the same strike only ends the swing (#applyWeaponRelease above), it does not ring twice
       if (event.type === 'swordWorldImpact') {
-        const localImpact = shouldPlayWorldClang(event, this.socket.playerId);
-        const surface = strikeSurface(event.material);
-        const recipe = surface === 'wood' ? woodThunkRecipe() : surface === 'soft' ? softStrikeRecipe() : wallClangRecipe();
-        if (localImpact) {
-          this.weapon.wallImpact();
-          if (surface === 'stone') this.hud.flashText('CLANG!', 'metal');
-          this.cameraKick = Math.max(this.cameraKick, surface === 'soft' ? 0.05 : 0.13);
-        }
-        if (surface === 'stone') {
-          if (localImpact) this.effects.wallClang(event.point);
-          else this.effects.sparks(event.point, 0xffd48a, 8);
-        } else if (surface === 'wood') {
-          this.effects.splinters(event.point, localImpact ? 12 : 7);
-        }
-        this.#play(recipe, localImpact ? null : event.point, localImpact ? 0.9 : 0.5);
+        const mine = shouldPlayWorldClang(event, this.socket.playerId);
+        const foretold = mine && performance.now() - (this.foretoldClangAt ?? -Infinity) < FORETOLD_CLANG_MS;
+        if (foretold) this.foretoldClangAt = -Infinity;
+        else this.#worldClang(event, mine);
       }
       // a blade snagged on some small furnishing in passing: very rarely, the knight formally surrenders over it
-      for (const say of worldImpactLines(event)) this.#say(say.line, say.speaker, say);
+      if (event.type === 'swordWorldImpact' && event.snag) this.#sayMoment(event.playerId, ['bladeSnag']);
       if (event.type === 'swordHit') this.#swordHit(event);
       if (event.type === 'parry' || event.type === 'block' || event.type === 'guardBreak') this.#guardContact(event);
       if (event.type === 'parry') {
@@ -569,7 +566,7 @@ export class GameRuntime {
           this.weapon.damage(this.#pushTowardMe(event.attackerId), event.amount);
         }
         // a blow that kills gets the death cry instead
-        if (event.amount >= 8 && event.health > 0 && event.source !== 'abyss') this.#say('hurt', event.victimId);
+        if (event.amount >= 8 && event.health > 0 && event.source !== 'abyss') this.#sayMoment(event.victimId, ['hurt']);
         // the cleanest contact there is: a short chink over the blow (mine, or on me; others' a little, from where
         // it landed), never more than one at a time
         if (event.clean && event.source !== 'burn') this.#precise(event);
@@ -739,7 +736,7 @@ export class GameRuntime {
     if (!this.weapon.canJab()) return false;
     this.weapon.jab();
     this.#play(gauntletSwingRecipe(), null, 0.8);
-    this.#say('fistEffort', this.socket.playerId);
+    this.#sayMoment(this.socket.playerId, ['gauntletThrow']);
     this.localJabAt = now;
     return true;
   }
@@ -756,7 +753,7 @@ export class GameRuntime {
     }
     this.remotePlayers.jab(event.playerId, event.at);
     this.#play(gauntletSwingRecipe(), this.#bodyPosition(event.playerId), 0.6);
-    this.#say('fistEffort', event.playerId);
+    this.#sayMoment(event.playerId, ['gauntletThrow']);
   }
 
   // the gauntlet lands: a knock on a guard, or a thud into plate; and, rarely, a word from the one who threw it (the
@@ -775,9 +772,7 @@ export class GameRuntime {
     const foeSpokeAgo = this.voice?.director?.sentenceAgo?.(event.targetId, this.voice.engine.now) ?? Infinity;
     // (the blow's own damage word came just before, with the health it left: the snapshot may lag behind it)
     const foeHealth = this.healthAfterBlow?.get(event.targetId) ?? foe?.health ?? 100;
-    for (const say of gauntletLines({ attackerId: event.playerId, foeSpokeAgo, foeHealth })) {
-      if (this.#say(say.line, say.speaker, say)) break;
-    }
+    this.#sayMoment(event.playerId, gauntletMoment({ foeSpokeAgo, foeHealth }));
   }
 
   // the ground a gust runs over, for what it blows off it: its height and what it is made of
@@ -852,6 +847,42 @@ export class GameRuntime {
     this.hud.subtitle({ text, name, delay, seconds });
   }
 
+  // a blade stopped by the world: stone rings and sparks, timber thunks and splinters, a hedge or cloth only takes it.
+  // mine: my own blade (the jolt in the arms, the flash, the view's kick)
+  #worldClang({ point, material }, mine) {
+    const surface = strikeSurface(material);
+    const recipe = surface === 'wood' ? woodThunkRecipe() : surface === 'soft' ? softStrikeRecipe() : wallClangRecipe();
+    if (mine) {
+      this.weapon.clang();
+      if (surface === 'stone') this.hud.flashText('CLANG!', 'metal');
+      this.cameraKick = Math.max(this.cameraKick, surface === 'soft' ? 0.05 : 0.13);
+    }
+    if (surface === 'stone') {
+      if (mine) this.effects.wallClang(point);
+      else this.effects.sparks(point, 0xffd48a, 8);
+    } else if (surface === 'wood') {
+      this.effects.splinters(point, mine ? 12 : 7);
+    }
+    this.#play(recipe, mine ? null : point, mine ? 0.9 : 0.5);
+  }
+
+  // my own swing, judged in my own view as the server will judge it (localBladeSweep.mjs): what it rings off is heard
+  // and felt now, at its contact, not a round trip later when the sword is already swinging away
+  #foretellClang(timeSec) {
+    const struck = this.bladeSweep.step(timeSec, {
+      chain: this.weapon.swordChain.chain,
+      slam: Boolean(this.weapon.sunderActive),
+      body: this.localState,
+      yaw: this.input.yaw,
+      pitch: this.input.pitch,
+      bodies: this.remotePlayers.bodies(),
+      solids: this.activeWorld?.solids ?? [],
+    });
+    if (!struck) return;
+    this.foretoldClangAt = performance.now();
+    this.#worldClang({ point: struck.point, material: struck.solid.material ?? 'stone' }, true);
+  }
+
   // what the voice's moments need to know of the knights (voiceMoments.mjs)
   #voiceWorld() {
     const players = this.latestSnapshot?.players ?? [];
@@ -861,12 +892,27 @@ export class GameRuntime {
     };
   }
 
+  /**
+   * Why each line is or is not heard this session (with `?debug`: console.table(__ssRuntime.voiceReport())): how often
+   * its moments came, how often it was tried, how often said (voiceMoments.mjs report).
+   */
+  voiceReport() {
+    return this.moments.report({ recorded: (line) => this.voice?.has?.(line), stats: this.voice?.director?.stats });
+  }
+
+  // a moment a knight is in, by its tags (voiceLines.mjs: the lines subscribe to the moments): of the lines that
+  // belong to it, the first that is said is the only one
+  #sayMoment(speaker, tags, options) {
+    if (!this.voice || !speaker) return;
+    this.#sayMoments([this.moments.lines(speaker, tags, options)], this.socket.serverNow());
+  }
+
   // each group of lines: the first that is said is the only one (a squire's question asked opens its window)
   #sayMoments(groups, at) {
     for (const group of groups) {
       for (const say of group) {
         if (!this.#say(say.line, say.speaker, say)) continue;
-        if (say.squire) this.moments.squireAsked(say.speaker, at, this.#bodyPosition(say.speaker));
+        if (say.opens === 'squire') this.moments.squireAsked(say.speaker, at, this.#bodyPosition(say.speaker));
         break;
       }
     }
@@ -910,7 +956,7 @@ export class GameRuntime {
     const me = event.playerId === this.socket.playerId;
     this.#play(sunderDropRecipe(), me ? null : this.#bodyPosition(event.playerId), me ? 1 : 0.8);
     // its cry: most times its own, now and then MIGHT MAKES... KNIGHT! (voiceRules ULTIMATE_CRIES)
-    this.#say(ultimateCry(event.ultimate), event.playerId, { delay: 0.05, cry: true });
+    this.#sayMoment(event.playerId, [cryMoment(event.ultimate)]);
     if (me) {
       this.hud.flashText('SUNDER ALL THAT RUSTS', 'sunder', 1400);
       this.cameraKick = Math.max(this.cameraKick, 0.08);
@@ -1115,7 +1161,7 @@ export class GameRuntime {
         crouched: Boolean(this.localState.crouched),
       });
       // breaking into a sprint with someone at my heels: the wildcard, now and then
-      if (!wasSprinting && this.localState.sprinting && this.moments.underPressure(this.socket.playerId, serverNow)) this.#say('laugh', this.socket.playerId);
+      if (!wasSprinting && this.localState.sprinting && this.moments.underPressure(this.socket.playerId, serverNow)) this.#sayMoment(this.socket.playerId, ['sprintUnderPressure']);
       const wasGrounded = this.localState.grounded;
       const fallSpeed = -this.localState.velocity.y;
       // a chill slows my own steps exactly as the server slows them (it thaws on the same clock)
@@ -1124,11 +1170,11 @@ export class GameRuntime {
       // predict the server's body separation so pressing into an opponent does not rubber-band
       separateLocal(this.localState.position, this.remotePlayers.bodies(), this.activeWorld, { crouched: this.localState.crouched });
       // my own jump: now and then a grunt with it
-      if (wasGrounded && !this.localState.grounded && this.localState.velocity.y > 4) this.#say('jump', this.socket.playerId);
+      if (wasGrounded && !this.localState.grounded && this.localState.velocity.y > 4) this.#sayMoment(this.socket.playerId, ['jump']);
       if (!wasGrounded && this.localState.grounded) {
         this.weapon.land(fallSpeed);
         // a hard landing: the wildcard, now and then
-        if (fallSpeed > 11) this.#say('laugh', this.socket.playerId, { delay: 0.15 });
+        if (fallSpeed > 11) this.#sayMoment(this.socket.playerId, ['hardLanding']);
         // both feet down at once, heavier the further he fell
         if (fallSpeed > 2.5) this.#footstep(null, this.localState.position, Math.min(1, fallSpeed / 10), FOOTSTEPS.landing);
       }
@@ -1161,7 +1207,6 @@ export class GameRuntime {
         grounded: this.localState.grounded,
         yaw: this.input.yaw,
         pitch: this.input.pitch,
-        solids: this.activeWorld?.solids ?? null,
       });
       // my footsteps fall where the stride puts them (the view's own bob), so they keep pace with the legs
       if (this.localState.grounded && footfallsCrossed(strideBefore, this.weapon.motion.stride) > 0) {
@@ -1173,6 +1218,7 @@ export class GameRuntime {
       this.viewHeight = Number.isFinite(this.viewHeight) ? this.viewHeight + (eyes - this.viewHeight) * (1 - Math.exp(-dt / CROUCH.viewSec)) : eyes;
       this.camera.position.set(this.localState.position.x, this.localState.position.y + this.viewHeight + view.camera.y, this.localState.position.z);
       this.camera.rotation.order = 'YXZ';
+      this.#foretellClang(timeSec);
       // camera motion (a comfort setting) scales the sway, bob, kicks and the widening of the view when sprinting
       const motion = this.view.cameraMotion;
       this.camera.rotation.y = this.input.yaw + view.camera.yaw * motion;
@@ -1216,8 +1262,33 @@ export class GameRuntime {
 
     if (nowMs - this.lastPingAt > 2000) { this.lastPingAt = nowMs; this.socket.ping(); }
     this.#followSun(this.localState?.position ?? this.camera.position);
-    this.renderer.render(this.scene, this.camera);
+    this.#renderView();
     requestAnimationFrame((t) => this.#frame(t));
+  }
+
+  // the world; then my own arms and sword over it, on depth cleared of the world (viewLayers.mjs), with the shadows
+  // the world's pass already made
+  #renderView() {
+    const { renderer, scene, camera } = this;
+    camera.layers.set(0);
+    renderer.render(scene, camera);
+    const background = scene.background;
+    const shadows = renderer.shadowMap.autoUpdate;
+    const clears = renderer.autoClear;
+    // (a background colour would clear what the first pass drew)
+    scene.background = null;
+    renderer.autoClear = false;
+    renderer.shadowMap.autoUpdate = false;
+    renderer.clearDepth();
+    camera.layers.set(VIEW_LAYER);
+    try {
+      renderer.render(scene, camera);
+    } finally {
+      camera.layers.set(0);
+      renderer.autoClear = clears;
+      renderer.shadowMap.autoUpdate = shadows;
+      scene.background = background;
+    }
   }
 
   #setFov(fov) {

@@ -1,0 +1,57 @@
+{
+  "bladeCaught": [
+    "blade-caught-1.mp3"
+  ],
+  "breakTaunt": [
+    "recording-2-master.wav:14.2-17.04"
+  ],
+  "defeat": [
+    "recording-2-master.wav:18.35-20.16",
+    "recording-2-master.wav:20.58-23.04"
+  ],
+  "fistThrow": [
+    "fist-throw-1.mp3"
+  ],
+  "galeTaunt": [
+    "gale-taunt-1.mp3"
+  ],
+  "jump": [
+    "jump-1.mp3",
+    "jump-2.mp3",
+    "jump-3.mp3"
+  ],
+  "killTaunt": [
+    "recording-2-master.wav:23.62-26.42"
+  ],
+  "knightFallen": [
+    "knight-fallen-1.mp3"
+  ],
+  "laugh": [
+    "recording-2-master.wav:11.87-13.91"
+  ],
+  "magicDefeat": [
+    "recording-2-master.wav:5.15-7.25"
+  ],
+  "rebuttal": [
+    "rebuttal-1.mp3"
+  ],
+  "sorcery": [
+    "recording-2-master.wav:0.38-1.93",
+    "recording-2-master.wav:3.15-4.71"
+  ],
+  "steelBoast": [
+    "steel-boast-1.mp3"
+  ],
+  "sunderCall": [
+    "sunder-call-1.mp3"
+  ],
+  "victory": [
+    "recording-2-master.wav:8.15-10.72"
+  ],
+  "vortexDefeat": [
+    "vortex-defeat-1.mp3"
+  ],
+  "vortexUse": [
+    "vortex-use-1.mp3"
+  ]
+}

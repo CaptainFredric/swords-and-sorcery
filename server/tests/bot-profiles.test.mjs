@@ -47,11 +47,11 @@ test('the rival is the default kind, and it fights as it always has', () => {
 function runKind(kind, start, { seconds = 6, foe = () => {}, seed = 5 } = {}) {
   const { room, human, bot } = botDuel(kind);
   bot.spellReadyAt = 0;
-  if (BOT_PROFILES[kind]?.ward) bot.spell = BOT_PROFILES[kind].ward;
+  if (BOT_PROFILES[kind]?.ward && !BOT_PROFILES[kind].spells) bot.spell = BOT_PROFILES[kind].ward;
   Object.assign(human.position, { x: 0, y: 0, z: 0 });
   Object.assign(bot.position, { x: 0, y: 0, z: -start });
   const random = lcg(seed);
-  const did = { swung: false, cast: new Set(), steelAt: null, dashes: [], nearest: Infinity, across: 0, away: 0, inReach: 0 };
+  const did = { swung: false, cast: new Set(), casts: [], steelAt: null, dashes: [], nearest: Infinity, across: 0, away: 0, inReach: 0 };
   let last = { ...bot.position };
   for (let now = 4; now < 4 + seconds; now += TICK) {
     foe(human, now, room);
@@ -60,7 +60,7 @@ function runKind(kind, start, { seconds = 6, foe = () => {}, seed = 5 } = {}) {
       if (event.playerId !== bot.id) continue;
       if (event.type === 'swordSwing') did.swung = true;
       if (event.type === 'dash') did.dashes.push({ at: now, distance: Math.hypot(bot.position.x - human.position.x, bot.position.z - human.position.z) });
-      if (event.type === 'spellCast') did.cast.add(event.spell);
+      if (event.type === 'spellCast') { did.cast.add(event.spell); did.casts.push({ at: now, spell: event.spell }); }
       if (event.type === 'steelOn' && did.steelAt === null) did.steelAt = { at: now, distance: Math.hypot(bot.position.x, bot.position.z) };
     }
     human.health = 100;
@@ -113,6 +113,29 @@ test('Spells & Sorcery turns through its spells, keeps its casting distance, and
   assert.ok(castAt !== null, 'it cast');
   const knightCooldown = { fireball: 4, frostfire: 4.5, gale: 6 }[bot.ai.lastSpell];
   assert.ok(Math.abs(bot.spellReadyAt - castAt - knightCooldown * BOT_PROFILES.caster.spellCooldown) < 1e-6);
+});
+
+test('Spells & Sorcery has every spell and Sheathe in Steel beside them, and never throws a volley', () => {
+  assert.equal(BOT_PROFILES.caster.ward, 'steel');
+  assert.deepEqual([...BOT_PROFILES.caster.spellCycle], ['fireball', 'frostfire', 'gale']);
+  // pressed (a foe close and swinging), it hardens; and its spells' clock is none the worse for it
+  const pressed = runKind('caster', 3, {
+    seconds: 8,
+    foe: (human, now, room) => { if (!human.attackHeld) beginAttack(room, human.id, now); },
+  });
+  assert.ok(pressed.steelAt, 'it called Sheathe in Steel');
+  assert.ok(pressed.cast.size, `and still threw spells: ${[...pressed.cast].join(', ')}`);
+  // every spell in turn over a long exchange (a Gale only once a foe is near enough to feel it)
+  const long = runKind('caster', 5, { seconds: 30, seed: 3 });
+  assert.ok(long.cast.has('fireball') && long.cast.has('frostfire') && long.cast.has('gale'), `cast: ${[...long.cast].join(', ')}`);
+  // a spell every two and a half seconds at the soonest: its own (shorter) cooldown, never a volley
+  const soonest = Math.min(...Object.values({ fireball: 4, frostfire: 4.5, gale: 6 })) * BOT_PROFILES.caster.spellCooldown;
+  for (const did of [pressed, long]) {
+    for (let i = 1; i < did.casts.length; i += 1) {
+      const gap = did.casts[i].at - did.casts[i - 1].at;
+      assert.ok(gap >= soonest - 1e-6, `${did.casts[i - 1].spell} then ${did.casts[i].spell} only ${gap.toFixed(2)} s apart`);
+    }
+  }
 });
 
 test('Sir Runs-a-Lot makes you chase: away at an angle, cutting back and forth, never a straight backpedal', () => {

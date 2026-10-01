@@ -7,6 +7,7 @@ import {
 } from './galeVolume.mjs';
 import { SPELLS } from '../../shared/src/spells.mjs';
 import { createGaleOrb } from './galeOrb.mjs';
+import { everywhere } from './viewLayers.mjs';
 
 const MAX_TRANSIENTS = 260;
 
@@ -174,7 +175,7 @@ export class Effects {
 
   // a brief burst of light where a spell breaks
   #flashLight(point, color, intensity, life, distance) {
-    const light = new THREE.PointLight(color, intensity, distance, 2);
+    const light = everywhere(new THREE.PointLight(color, intensity, distance, 2));
     light.position.set(point.x, point.y, point.z);
     this.scene.add(light);
     this.flashLights.push({ light, life, age: 0, intensity });
@@ -935,7 +936,7 @@ export class Effects {
     }
     group.add(core, shell);
 
-    const light = new THREE.PointLight(look.light, 7.5, 5, 2);
+    const light = everywhere(new THREE.PointLight(look.light, 7.5, 5, 2));
     group.add(light);
     this.scene.add(group);
 

@@ -7,9 +7,10 @@
 //   readily it dashes; keepRange: [near, far] metres it keeps from its foe (null: it closes in); flee: it gets out of
 //   the way when pressed rather than fighting; spellCycle: the spells it turns through, one after another (null: the
 //   one it carries); spellCooldown: its spells come back this much sooner than a knight's; ward: a ward it carries in
-//   its spell's place and calls as a fight begins (Sheathe in Steel); lunge: [near, far] metres from which it dashes in
-//   to close to the blade; footwork: how hard it circles once in sword range (the rival's 0.55); name: what the
-//   Practice Yard calls it.
+//   its spell's place and calls as a fight begins (Sheathe in Steel; a kind that also throws spells keeps the ward on a
+//   clock of its own, at a knight's full cooldown, so calling it never holds its spells back); lunge: [near, far]
+//   metres from which it dashes in to close to the blade; footwork: how hard it circles once in sword range (the
+//   rival's 0.55); name: what the Practice Yard calls it.
 
 export const BOT_PROFILES = Object.freeze({
   // the Bot Duel's rival: sword and spell
@@ -21,10 +22,11 @@ export const BOT_PROFILES = Object.freeze({
     lunge: Object.freeze([3.2, 7]), footwork: 0.85,
   }),
   // Spells & Sorcery: all spell, never the sword. Keeps its casting distance, slips aside when you close, turns through
-  // every spell there is, and has them back sooner than you do
+  // every spell there is (and hardens with Sheathe in Steel when pressed), and has the thrown ones back sooner than
+  // you do: a spell every two and a half to four seconds, never a volley
   caster: Object.freeze({
     name: 'Spells & Sorcery', sword: false, spells: true, guard: 0.5, dash: 0.25, keepRange: Object.freeze([6, 10]), flee: false,
-    spellCycle: Object.freeze(['fireball', 'frostfire', 'gale']), spellCooldown: 0.65,
+    spellCycle: Object.freeze(['fireball', 'frostfire', 'gale']), spellCooldown: 0.65, ward: 'steel',
   }),
   // Sir Runs-a-Lot: avoidance. Runs across your line and away at an angle (never just backwards), dashes aside when
   // you close, guards when caught; for learning to pursue and cut off
