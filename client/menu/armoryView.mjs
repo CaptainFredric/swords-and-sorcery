@@ -40,7 +40,7 @@ const ULTIMATE_WORDS = Object.freeze({
   vortex: {
     mark: '✺',
     line: 'Spin into a close-range storm of sword cuts and aimed fire. Move faster, fall slowly, and overwhelm anyone who stays near you.',
-    facts: (u) => `${u.contact.damage} a cut, small Fireballs where you aim · no guard while it lasts · ${u.activeSec} s · earned by fighting`,
+    facts: (u) => `${u.contact.damage} a cut, fire where you aim · hold Attack for the blade, Spell for the fire · no guard while it lasts · ${u.activeSec} s · earned by fighting`,
   },
 });
 

@@ -37,7 +37,7 @@ const lerpAngle = (a, b, t) => a + Math.atan2(Math.sin(b - a), Math.cos(b - a)) 
 
 // as far along a straight leg as the walls allow, stopping `margin` short of anything in the way.
 // reach(from, to): the free fraction of that segment (1: nothing in the way)
-function clip(reach, from, to, margin) {
+export function clip(reach, from, to, margin) {
   const d = [to[0] - from[0], to[1] - from[1], to[2] - from[2]];
   const length = Math.hypot(d[0], d[1], d[2]);
   if (length < 1e-6) return to;
@@ -134,7 +134,7 @@ export function deathCamera(age, death, killer = null, { policy = { look: 'follo
   };
 }
 
-const HOW = Object.freeze({ sword: 'Sword', fireball: 'Fireball', burn: 'Fireball’s burn', frostfire: 'Frostfire', gale: 'Gale Garner', gauntlet: 'Gauntlet', rupture: 'Sunder All That Rusts', vortex: 'Blazing Vortex', ember: 'Blazing Vortex', abyss: 'The fall' });
+const HOW = Object.freeze({ sword: 'Sword', fireball: 'Fireball', burn: 'Fireball’s burn', frostfire: 'Frostfire', gale: 'Gale Garner', gauntlet: 'Gauntlet', rupture: 'Sunder All That Rusts', vortex: 'Blazing Vortex', ember: 'Blazing Vortex', vortexFire: 'Blazing Vortex', vortexBlaze: 'Blazing Vortex', abyss: 'The fall' });
 
 /**
  * What the death card says: who (and how), and how close it was: SLAIN BY ASTRA, 3 HP REMAINING.

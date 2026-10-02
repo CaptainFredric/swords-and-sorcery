@@ -2,9 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { Room } from '../../shared/sim/Room.mjs';
-import { applyDamage, beginAttack, endAttack, setGuard, staggerBy, stepRoom, tryCastSpell, tryUltimate } from '../../shared/sim/combat.mjs';
+import { applyDamage, beginAttack, endAttack, setGuard, staggerBy, stepRoom, tryCastSpell, tryDash, tryGauntletStrike, tryUltimate } from '../../shared/sim/combat.mjs';
 import { GAME, MELEE_CONTACT, closingImpact, guardBlockCost, swordDamageFor } from '../../shared/src/combat.mjs';
-import { aimQuality } from '../../shared/src/blade.mjs';
+import { BLADE, aimFrame, aimQuality, bladeDirection, sweepBlade } from '../../shared/src/blade.mjs';
 import { STAGGER } from '../../shared/src/stagger.mjs';
 import { PROWESS } from '../../shared/src/prowess.mjs';
 import { ULTIMATES } from '../../shared/src/ultimates.mjs';
@@ -396,4 +396,263 @@ test('the host says when a knight fell with their plate still hardened', () => {
   };
   assert.equal(fall(true).steeled, true);
   assert.equal(fall(false).steeled, undefined);
+});
+
+// --- what stops a Sundering blade -------------------------------------------------------------------------------
+
+// one slam from a (Sundering) at 10 s, with `solids` in the world; the events of it
+function slamInto(solids, { withB = null } = {}) {
+  const { room, a, b } = duel();
+  place(b, 0, withB ?? 9);
+  sunder(room, a);
+  room.events.length = 0;
+  const world = { ...openWorld, solids };
+  beginAttack(room, 'a', 10);
+  const events = run(room, 10, 10.55, world);
+  endAttack(room, 'a', 10.55);
+  return { events, b };
+}
+
+test('a Sundering blow is not caught by what it only brushes: a loose furnishing in its way, or something off its aim, never stops it', () => {
+  // a barrel standing in front of the slam (a small loose furnishing: shared/worlds/props.mjs marks them incidental)
+  const barrel = { id: 'barrel', center: [1.4, 0.42, 0], size: [0.64, 0.84, 0.64], material: 'timber', incidental: true };
+  const past = slamInto([barrel]).events;
+  assert.ok(!past.some((e) => e.type === 'swordWorldImpact'), 'the barrel does not stop it');
+  assert.ok(past.some((e) => e.type === 'groundStrike') && past.some((e) => e.type === 'rupture'), 'it goes on into the ground');
+  // a beam overhead in front: the blade passes it well above where the slam is driven (an ordinary blade would be stopped)
+  const beam = { id: 'beam', center: [1.5, 1.75, 0], size: [0.3, 0.2, 3], material: 'timber' };
+  const under = slamInto([beam]).events;
+  assert.ok(!under.some((e) => e.type === 'swordWorldImpact'), 'the beam it brushes on the way down does not stop it');
+  assert.ok(under.some((e) => e.type === 'groundStrike'));
+  // the same blade, swept as an ordinary chop, is stopped by both (the ordinary rule is as it was)
+  const eye = { x: 0, y: 1.35, z: 0 };
+  const frame = aimFrame(-Math.PI / 2, ULTIMATES.sunder.slamPitch);
+  const chop = (solids, options = {}) => {
+    let from = bladeDirection(2, -MELEE_CONTACT.window.early, frame);
+    for (let dt = -MELEE_CONTACT.window.early + 0.01; dt <= MELEE_CONTACT.window.late + 1e-9; dt += 0.01) {
+      const to = bladeDirection(2, dt, frame);
+      const met = sweepBlade(eye, from, to, [], solids, { aim: frame.forward, ...options });
+      if (met) return met;
+      from = to;
+    }
+    return null;
+  };
+  assert.equal(chop([beam])?.kind, 'solid', 'an ordinary chop is stopped by the beam');
+  assert.equal(chop([barrel])?.kind, 'solid', 'and by the barrel');
+  const sundering = { blade: { ...BLADE, worldStopDeg: ULTIMATES.sunder.worldStopDeg }, spares: (solid) => Boolean(solid.incidental) };
+  assert.equal(chop([beam], sundering), null);
+  assert.equal(chop([barrel], sundering), null);
+  assert.ok(ULTIMATES.sunder.worldStopDeg < BLADE.worldStopDeg);
+});
+
+test('driven straight into a wall, a Sundering blow is still stopped by it; and nobody behind a wall is struck', () => {
+  const wall = { id: 'wall', center: [1.3, 1.5, 0], size: [0.4, 3, 6], material: 'stone' };
+  const { events, b } = slamInto([wall], { withB: 2.2 });
+  assert.ok(events.some((e) => e.type === 'swordWorldImpact' && e.surfaceId === 'wall'), 'the wall dead ahead stops it');
+  assert.ok(!events.some((e) => e.type === 'groundStrike' || e.type === 'rupture'), 'and it never reaches the ground');
+  assert.ok(!events.some((e) => e.type === 'swordHit'), 'b, behind the wall, is not struck');
+  assert.equal(b.health, 100);
+  // a loose furnishing spares nobody either: it still hides whoever stands behind it
+  const crate = { id: 'crate', center: [1.2, 0.9, 0], size: [0.7, 1.8, 0.7], material: 'timber', incidental: true };
+  const hidden = slamInto([crate], { withB: 2.0 });
+  assert.ok(!hidden.events.some((e) => e.type === 'swordHit'), 'b, behind the crate, is not struck through it');
+});
+
+// --- a Sundering blow ends what its victim was doing -------------------------------------------------------------
+
+// a Sundering; b 1.8 m in front; a's first slam lands on b at about 10.4 s. `before(room, b)` sets b doing something
+function struckWhile(before, { until = 10.6, at = 10.25 } = {}) {
+  const { room, a, b } = duel();
+  sunder(room, a);
+  place(b, 0, 1.8);
+  room.events.length = 0;
+  beginAttack(room, 'a', 10);
+  let done = false;
+  for (let now = 10; now <= until + 1e-9; now += 0.01) {
+    if (!done && now >= at) { before(room, b, now); done = true; }
+    stepRoom(room, 0.01, now, openWorld);
+  }
+  endAttack(room, 'a', until);
+  const hit = room.events.find((e) => e.type === 'swordHit' && e.targetId === 'b');
+  assert.ok(hit && hit.level === 'elevated', 'the Sundering blow landed');
+  const cut = room.events.find((e) => e.type === 'actionInterrupted' && e.playerId === 'b');
+  return { room, a, b, hit, cut };
+}
+
+test('a Sundering blow on a body ends a spell being gathered: it is lost, and never flies', () => {
+  const { room, b, cut } = struckWhile((r, knight, now) => {
+    knight.spellReadyAt = 0;
+    knight.spell = 'fireball';
+    // (b turns its palm on a, and is struck before the gather ends)
+    assert.equal(tryCastSpell(r, 'b', { x: -1, y: 0, z: 0 }, now + 0.13), true);
+  });
+  assert.ok(cut && cut.what.includes('spell') && cut.by === 'a');
+  assert.equal(b.pendingSpell, null);
+  assert.equal(room.events.some((e) => e.type === 'projectileSpawned' && e.projectile.ownerId === 'b'), false);
+});
+
+test('it ends a sword chain under way, a fist already thrown, a dash and a sprint', () => {
+  const sword = struckWhile((r, knight, now) => { beginAttack(r, 'b', now); });
+  assert.ok(sword.cut.what.includes('sword'));
+  assert.equal(sword.b.attackActive, false);
+  assert.equal(sword.b.attackSweep, null);
+  assert.equal(sword.room.events.some((e) => e.type === 'swordHit' && e.playerId === 'b'), false, 'its own blow never lands');
+
+  const fist = struckWhile((r, knight, now) => {
+    // (thrown just before the blow lands: it would have landed after it)
+    assert.equal(tryGauntletStrike(r, 'b', now + 0.1), true);
+  });
+  assert.ok(fist.cut.what.includes('gauntlet'));
+  assert.equal(fist.b.gauntlet, null);
+  assert.equal(fist.room.events.some((e) => e.type === 'gauntletHit' || e.type === 'gauntletMiss'), false, 'it never lands');
+
+  const dash = struckWhile((r, knight, now) => {
+    knight.dashReadyAt = 0;
+    // (straight at a, a moment before the blow: the blade still meets them, mid-dash)
+    assert.equal(tryDash(r, 'b', { x: -1, z: 0 }, now), true);
+  }, { at: 10.3 });
+  assert.ok(dash.cut.what.includes('dash'));
+  assert.ok(dash.b.dashUntil <= dash.hit.at + 1e-9, 'the dash ends where it was struck');
+
+  // (b at a full sprint at a: the blow takes the speed it had built; it may begin again, from nothing)
+  const sprint = struckWhile((r, knight) => {
+    knight.input = { forward: 1, right: 0, jump: false, sprint: true, yaw: knight.yaw, pitch: 0 };
+    knight.sprinting = true;
+    knight.sprintBlend = 1;
+  }, { until: 10.4 });
+  assert.ok(sprint.cut.what.includes('sprint'));
+  assert.ok(sprint.b.sprintBlend < 0.3, `its speed is gone: ${sprint.b.sprintBlend.toFixed(2)}`);
+});
+
+test('it interrupts an ultimate still being braced into (the charge kept, the usual lockout); one already committed is not undone', () => {
+  const bracing = struckWhile((r, knight, now) => {
+    knight.prowess = PROWESS.full;
+    assert.equal(tryUltimate(r, 'b', now), true);
+  });
+  assert.ok(bracing.cut.what.includes('ultimate'));
+  assert.equal(bracing.b.ultimateState, null);
+  assert.equal(bracing.b.prowess, PROWESS.full, 'the charge is kept');
+  const interrupted = bracing.room.events.find((e) => e.type === 'ultimateInterrupted' && e.playerId === 'b');
+  assert.ok(interrupted && Math.abs(interrupted.at - bracing.hit.at) < 1e-9, 'there and then');
+  assert.ok(bracing.b.ultimateLockedUntil > bracing.hit.at + 1);
+  // committed: b is Sundering too (its own chain is cut short, as any sword chain is; its Sunder is not taken away)
+  const { room, a, b } = duel();
+  place(b, 0, 1.8);
+  b.prowess = PROWESS.full;
+  a.prowess = PROWESS.full;
+  assert.ok(tryUltimate(room, 'a', 9) && tryUltimate(room, 'b', 9));
+  run(room, 9, 9 + ULTIMATES.sunder.startupSec + 0.02);
+  assert.equal(b.ultimateState?.phase, 'active');
+  room.events.length = 0;
+  beginAttack(room, 'a', 10);
+  run(room, 10, 10.6);
+  assert.ok(room.events.some((e) => e.type === 'swordHit' && e.targetId === 'b' && e.level === 'elevated'));
+  assert.equal(b.ultimateState?.phase, 'active', 'still Sundering');
+  assert.ok(b.prowess < PROWESS.full * 0.2, 'and its charge is not handed back (only what the blow itself earns the one struck)');
+  assert.equal(room.events.some((e) => e.type === 'ultimateInterrupted'), false);
+});
+
+test('only a Sundering blow on the body does it: not an ordinary blow, not one caught on a guard, not one met by hardened plate', () => {
+  // an ordinary blow leaves a gathering spell alone
+  const plain = duel();
+  place(plain.b, 0, 1.8);
+  plain.b.spell = 'gale';
+  plain.b.spellReadyAt = 0;
+  beginAttack(plain.room, 'a', 10);
+  let cast = false;
+  for (let now = 10; now <= 10.5 + 1e-9; now += 0.01) {
+    if (!cast && now >= 10.2) { cast = tryCastSpell(plain.room, 'b', { x: -1, y: 0, z: 0 }, now); }
+    stepRoom(plain.room, 0.01, now, openWorld);
+  }
+  assert.ok(plain.room.events.some((e) => e.type === 'swordHit' && e.targetId === 'b'));
+  assert.equal(plain.room.events.some((e) => e.type === 'actionInterrupted'), false);
+  assert.ok(plain.b.pendingSpell, 'the gather goes on');
+  // caught on a guard: a block, and nothing cut short
+  const guarded = struckOnGuard();
+  assert.equal(guarded.some((e) => e.type === 'actionInterrupted'), false);
+  // met by hardened plate (an ordinary blow by ordinary rules): nothing cut short
+  const { room, a, b } = duel();
+  sunder(room, a);
+  place(b, 0, 1.8);
+  b.spell = 'steel';
+  b.spellReadyAt = 0;
+  assert.equal(tryCastSpell(room, 'b', { x: -1, y: 0, z: 0 }, 10.05), true);
+  b.sprinting = true; b.sprintBlend = 1;
+  room.events.length = 0;
+  beginAttack(room, 'a', 10.06);
+  run(room, 10.06, 10.6);
+  assert.ok(room.events.some((e) => e.type === 'swordHit' && e.sunderMet));
+  assert.equal(room.events.some((e) => e.type === 'actionInterrupted'), false);
+});
+
+function struckOnGuard() {
+  const { room, a, b } = duel();
+  sunder(room, a);
+  place(b, 0, 1.8);
+  setGuard(room, 'b', true, 9);
+  b.sprintBlend = 0.5;
+  room.events.length = 0;
+  beginAttack(room, 'a', 10);
+  run(room, 10, 10.5);
+  assert.ok(room.events.some((e) => e.type === 'block' || e.type === 'guardBreak'));
+  return room.events;
+}
+
+// --- the rupture's part in a broken balance -----------------------------------------------------------------------
+
+test('a Sundering blow and the ground it splits are most of a balance between them, and the next blow tips it', () => {
+  assert.ok(RUPTURE.stagger >= 36 && RUPTURE.stagger <= 40);
+  const { room, a, b } = duel();
+  sunder(room, a);
+  place(b, 0, 1.8);
+  room.events.length = 0;
+  const pin = () => { Object.assign(b.position, { x: 1.8, y: 0, z: 0 }); b.velocity = { x: 0, y: 0, z: 0 }; b.impulse = { x: 0, z: 0 }; b.grounded = true; b.health = 100; };
+  beginAttack(room, 'a', 10);
+  // the first slam and its rupture
+  for (let now = 10; now <= 10.75 + 1e-9; now += 0.01) { pin(); stepRoom(room, 0.01, now, openWorld); }
+  assert.ok(room.events.some((e) => e.type === 'damage' && e.source === 'rupture' && e.victimId === 'b'));
+  assert.equal(room.events.some((e) => e.type === 'staggerBreak'), false, 'one slam alone does not break a fresh balance');
+  assert.ok(Math.abs(b.stagger.level - (STAGGER.gain.sword + RUPTURE.stagger)) < 1e-6, `it holds: ${b.stagger.level}`);
+  assert.ok(b.stagger.level >= 0.6 * STAGGER.max, 'most of a balance');
+  // the slams go on: the balance breaks, and who broke it is said
+  for (let now = 10.76; now <= 12 + 1e-9; now += 0.01) { pin(); stepRoom(room, 0.01, now, openWorld); }
+  const broke = room.events.find((e) => e.type === 'staggerBreak' && e.playerId === 'b');
+  assert.ok(broke && broke.by === 'a', 'a real break');
+  assert.ok(broke.at <= 11.85, `by the third slam at the latest: ${broke.at.toFixed(2)}`);
+});
+
+test('the ground alone, split under a knight again and again, breaks a balance by the third time (it took five)', () => {
+  // (what the rupture adds, with the hold and the drain between catches a second apart)
+  const stagger = { level: 0, shakenAt: -Infinity, recoverUntil: -Infinity };
+  let breaks = 0;
+  let catches = 0;
+  for (let now = 0; now < 3 - 1e-9 && !breaks; now += RUPTURE.recatchSec) {
+    // (drained since the last catch: nothing while it holds, then steadily)
+    const idle = Math.max(0, RUPTURE.recatchSec - STAGGER.holdSec);
+    stagger.level = Math.max(0, stagger.level - (catches ? STAGGER.drainPerSec * idle : 0));
+    catches += 1;
+    stagger.level += RUPTURE.stagger;
+    if (stagger.level >= STAGGER.max) breaks += 1;
+  }
+  assert.equal(breaks, 1);
+  assert.equal(catches, 3);
+});
+
+test('a broken balance is still not broken again straight away, however the slams and ruptures go on', () => {
+  const { room, a, b } = duel();
+  sunder(room, a);
+  place(b, 0, 1.8);
+  room.events.length = 0;
+  const pin = () => { Object.assign(b.position, { x: 1.8, y: 0, z: 0 }); b.velocity = { x: 0, y: 0, z: 0 }; b.impulse = { x: 0, z: 0 }; b.grounded = true; b.health = 100; };
+  beginAttack(room, 'a', 10);
+  for (let now = 10; now <= 9 + ULTIMATES.sunder.startupSec + ULTIMATES.sunder.activeSec + 1e-9; now += 0.01) { pin(); stepRoom(room, 0.01, now, openWorld); }
+  const breaks = room.events.filter((e) => e.type === 'staggerBreak' && e.playerId === 'b');
+  assert.ok(breaks.length >= 1);
+  for (let i = 1; i < breaks.length; i += 1) {
+    assert.ok(breaks[i].at - breaks[i - 1].at >= STAGGER.breakSec + STAGGER.recoverSec - 1e-6, `breaks ${(breaks[i].at - breaks[i - 1].at).toFixed(2)} s apart`);
+  }
+  // and between breaks they have their feet: staggered for about a second each time, no longer
+  const staggered = breaks.reduce((sum, e) => sum + (e.until - e.at), 0);
+  const span = 9 + ULTIMATES.sunder.startupSec + ULTIMATES.sunder.activeSec - 10;
+  assert.ok(staggered <= span * 0.4, `staggered ${staggered.toFixed(2)} s of ${span.toFixed(1)} s under constant slams`);
 });

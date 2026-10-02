@@ -125,6 +125,8 @@ export class TouchControls {
       jump: this.jumpHeld || performance.now() < this.jumpUntil,
       sprint: this.stickState.sprint || (this.sprintLatched && moving),
       crouch: Boolean(this.crouchLatched),
+      // (a finger resting on the spell's button: held, for a Vortex to be steered by)
+      spell: [...this.held.values()].includes('spell'),
     };
   }
 
@@ -159,22 +161,29 @@ export class TouchControls {
     const crouchLabel = this.buttons.crouch?.querySelector('span');
     if (crouchLabel && crouchLabel.textContent !== crouchWord) crouchLabel.textContent = crouchWord;
     this.buttons.guard.classList.toggle('drained', (local.guardStamina ?? 100) < 1);
-    this.#showUltimate(local, serverNow);
+    this.#showUltimate(local, serverNow, practice);
   }
 
   // the ultimate's button: filling with prowess, glowing when full, lit while it is active
-  #showUltimate(local, serverNow) {
+  #showUltimate(local, serverNow, practice = false) {
     const button = this.buttons.ultimate;
     if (!button) return;
-    const view = ultimateView(local, serverNow);
+    const view = ultimateView(local, serverNow, { practice });
     // (the button is the ultimate carried: its own mark and name)
     if (button.dataset.ultimate !== view.ultimate.id) {
       button.dataset.ultimate = view.ultimate.id;
       const name = (view.ultimate.short ?? view.ultimate.label).toUpperCase();
       button.setAttribute('aria-label', name);
-      button.querySelector('span').textContent = name;
       button.querySelector('svg')?.replaceWith(document.createRange().createContextualFragment(iconSvg(view.ultimate.id, 'sunder')));
     }
+    // its name; while a Vortex runs, what it has been steered to (BLADE, FIRE), the button taking that on, and how
+    // much of its stretch is left drawn round it
+    const word = view.word ?? (view.ultimate.short ?? view.ultimate.label).toUpperCase();
+    const label = button.querySelector('span');
+    if (label.textContent !== word) label.textContent = word;
+    const emphasis = view.emphasis ?? '';
+    if ((button.dataset.emphasis ?? '') !== emphasis) button.dataset.emphasis = emphasis;
+    button.style.setProperty('--left', view.state === 'active' ? view.charge.toFixed(3) : '0');
     button.classList.toggle('charging', view.state === 'charging' || view.state === 'locked');
     button.classList.toggle('ready', view.state === 'ready');
     button.classList.toggle('active', view.state === 'active' || view.state === 'bracing');

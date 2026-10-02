@@ -98,8 +98,10 @@ export function serializeSnapshot(room, nowSec) {
       ultimate: p.ultimate ?? null,
       ultimateState: p.ultimateState ? {
         id: p.ultimateState.id, phase: p.ultimateState.phase, commitAt: p.ultimateState.commitAt, until: p.ultimateState.until,
-        // (a Vortex: where its blade started round from)
-        ...(p.ultimateState.spinFrom !== undefined ? { spinFrom: p.ultimateState.spinFrom } : {}),
+        // (a Vortex: where its blade is, how fast it turns, and what the knight has steered it to)
+        ...(p.ultimateState.angle !== undefined ? {
+          angle: p.ultimateState.angle, angleAt: p.ultimateState.angleAt, rate: p.ultimateState.rate, emphasis: p.ultimateState.emphasis ?? 0,
+        } : {}),
       } : null,
       // dizzy from a Vortex just ended (only seen)
       dizzyUntil: p.dizzyUntil ?? -Infinity,
@@ -135,6 +137,9 @@ export function applyRoomCommand(room, player, message, time) {
         jump: Boolean(message.jump),
         sprint: Boolean(message.sprint),
         crouch: Boolean(message.crouch),
+        // (what is held, beside the presses themselves: a Vortex is steered by it)
+        attack: Boolean(message.attack),
+        spell: Boolean(message.spell),
         yaw: Number.isFinite(message.yaw) ? message.yaw : player.yaw,
         pitch: Number.isFinite(message.pitch) ? Math.max(-1.45, Math.min(1.45, message.pitch)) : player.pitch,
       };

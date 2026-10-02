@@ -255,6 +255,24 @@
 .ability.ultimate.active { border-color: #c96a3a; box-shadow: 0 0 12px rgba(201, 106, 58, .45); }
 .ability.ultimate.active .ability-icon { color: #f0a36a; }
 .ability.ultimate.active strong { color: #f3c49a; }
+/* while it runs: an instrument in use. A ring round the tile runs down with what is left of it, its edge beats like
+   something alive, and for a Blazing Vortex it takes on what the knight has steered it to: the blade (hot white steel,
+   a quick beat), the fire (deep orange, a slow one). Never garish: the numbers stay plain to read */
+.ability.ultimate.active { --ring: #f0a36a; --beat: .8s; animation: ultimate-active var(--beat) ease-in-out infinite; }
+.ability.ultimate.active::before {
+  content: ""; position: absolute; inset: 0; padding: 2px; pointer-events: none;
+  background: conic-gradient(from 0deg, var(--ring) calc(var(--left, 0) * 360deg), rgba(255, 255, 255, .07) 0);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+}
+.ability.ultimate.active em { color: #f3c49a; }
+.ability.ultimate.active[data-emphasis="blade"] { --ring: #ffe9c6; --beat: .42s; border-color: #e9d2aa; }
+.ability.ultimate.active[data-emphasis="blade"] .ability-icon, .ability.ultimate.active[data-emphasis="blade"] em { color: #fff1d6; }
+.ability.ultimate.active[data-emphasis="fire"] { --ring: #ff5a1e; --beat: 1.15s; border-color: #d2481a; }
+.ability.ultimate.active[data-emphasis="fire"] .ability-icon, .ability.ultimate.active[data-emphasis="fire"] em { color: #ff8a4a; }
+@keyframes ultimate-active { 0%, 100% { box-shadow: 0 0 8px color-mix(in srgb, var(--ring) 35%, transparent), inset 0 0 6px color-mix(in srgb, var(--ring) 14%, transparent); } 50% { box-shadow: 0 0 16px color-mix(in srgb, var(--ring) 62%, transparent), inset 0 0 11px color-mix(in srgb, var(--ring) 28%, transparent); } }
+@media (prefers-reduced-motion: reduce) { .ability.ultimate.active { animation: none; box-shadow: 0 0 12px color-mix(in srgb, var(--ring) 50%, transparent); } }
+/* a Vortex's name as it is lit, and (that once) how it is steered, small, under it */
+.status-flash small { display: block; margin-top: 7px; font: 800 10px/1 system-ui, sans-serif; letter-spacing: .2em; color: #efe2c4; text-shadow: 0 1px 3px rgba(0, 0, 0, .9); opacity: .92; }
 @keyframes ultimate-ready { 0%, 100% { box-shadow: 0 0 8px rgba(226, 194, 122, .28), inset 0 0 6px rgba(226, 194, 122, .12); } 50% { box-shadow: 0 0 14px rgba(226, 194, 122, .5), inset 0 0 10px rgba(226, 194, 122, .24); } }
 
 /* --- stagger: balance lost, a thin bar under the stamina; red and pulsing near its break, dimmer while recovering */

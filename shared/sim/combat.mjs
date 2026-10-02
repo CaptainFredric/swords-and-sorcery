@@ -4,7 +4,9 @@ import {
 } from '../src/combat.mjs';
 import { STAGGER, addStagger, drainStagger, freshStagger, staggerShove } from '../src/stagger.mjs';
 import { PROWESS, gainProwess, prowessForDamage } from '../src/prowess.mjs';
-import { ULTIMATES, dizzy, sundering, ultimateFor, ultimateStartup, ultimateWhirl, vortexAngle, vortexFallBias, vortexing } from '../src/ultimates.mjs';
+import {
+  ULTIMATES, dizzy, stepVortexEmphasis, sundering, ultimateFor, ultimateStartup, ultimateWhirl, vortexEmphasisWanted, vortexTune, vortexing,
+} from '../src/ultimates.mjs';
 import { RUPTURE, fissureCatches, planRupture } from '../src/rupture.mjs';
 import { recastReady, recordUse } from '../src/practiceRecast.mjs';
 import { GAME_MODES } from '../src/modes.mjs';
@@ -14,7 +16,7 @@ import { galeBend, galeCarry, galeOnBody, galeRecoil, galeShove, galeWindOnBody 
 import { GAUNTLET, gauntletGeometry, gauntletTarget, withinGauntlet } from '../src/gauntlet.mjs';
 import { postureOf } from '../src/body.mjs';
 import { segmentAabbHit, surfaceHeightAt } from '../src/collision.mjs';
-import { BLADE, aimFrame, aimQuality, bladeDirection, offAimDegrees, sweepBlade } from '../src/blade.mjs';
+import { BLADE, aimFrame, aimQuality, bladeDirection, bladeTouches, offAimDegrees, sweepBlade } from '../src/blade.mjs';
 import { MOVEMENT, SPRINT, launchBody, movePlayer, resolveSprint, shoveBody, tryStartDash } from '../src/movement.mjs';
 import { separatePlayers } from '../src/separation.mjs';
 import { chooseSpawn } from './spawns.mjs';
@@ -475,6 +477,15 @@ function bladeOrigin(transform) {
 // the chain's chop: a slam is swung as this strike, whichever of the chain it is
 const SLAM_STRIKE = 2;
 
+// What stops a Sundering blade. A blow of the greatest force is not turned by what it brushes on its way: the world
+// stops it only close about its aim (where it is being driven: a wall dead ahead), and a small loose furnishing never
+// does. A wall still hides whoever stands behind it, and the ground is still the ground (it ruptures). An ordinary
+// blade is as it was.
+const SUNDER_SWEEP = Object.freeze({
+  blade: Object.freeze({ ...BLADE, worldStopDeg: ULTIMATES.sunder.worldStopDeg }),
+  spares: (solid) => Boolean(solid.incidental),
+});
+
 // the aim a strike is swung along: a slam's is driven down to at least the ultimate's slamPitch
 function strikeFrame(transform, slam) {
   const pitch = transform.pitch ?? 0;
@@ -522,7 +533,8 @@ function sweepStrike(room, player, nowSec, world) {
     const ground = live.ruptures ? world.floors ?? null : null;
     // (the world stops the blade only up to its contact: past that it is swinging through, not driven)
     const driven = live.sampledTo < window.contact + MELEE_CONTACT.worldFollow - 1e-9;
-    const met = sweepBlade(eye, from, to, bodies, solids, { aim: frame.forward, ground, world: driven });
+    // (and a Sundering blade only where it is driven straight into something: SUNDER_SWEEP)
+    const met = sweepBlade(eye, from, to, bodies, solids, { aim: frame.forward, ground, world: driven, ...(live.ruptures ? SUNDER_SWEEP : {}) });
     live.sampledTo = at;
     live.direction = to;
     if (met?.kind === 'body') {
@@ -639,11 +651,52 @@ function landStrike(room, attacker, strikeIndex, target, atSec, nowSec) {
     ultimate: sunder,
   });
   staggerBy(room, target, STAGGER.gain.sword * force, nowSec, attacker.id);
+  // a Sundering blow ends what they were doing, there and then (whether or not their balance has broken)
+  if (empowered) cutShort(room, target, attacker, nowSec);
   room.events.push({
     type: 'swordHit', playerId: attacker.id, targetId: target.id, strikeIndex, quality: armour.quality, impact: physical.impact, steel: armour.strength,
     ...(level !== DAMAGE_LEVELS.normal ? { level } : {}), ...(cancelled ? { sunderMet: true } : {}), at: nowSec,
   });
   return 'hit';
+}
+
+/**
+ * A Sundering blow lands on a knight's body: whatever they were in the middle of ends. A spell gathering is lost, a
+ * sword chain stops, a fist thrown never lands, a dash ends where it is, a sprint is broken (its speed gone with it),
+ * and an ultimate still being braced into is interrupted as any other (its charge kept, the usual lockout). One
+ * already committed is not undone. Nothing is taken from them afterwards: they may begin again at once.
+ */
+function cutShort(room, target, attacker, nowSec) {
+  if (!target.alive) return;
+  const what = [];
+  if (target.pendingSpell) {
+    target.pendingSpell = null;
+    target.castEndsAt = 0;
+    what.push('spell');
+  }
+  if (target.attackActive || target.attackSweep || target.attackHeld || target.attackQueued) {
+    const swinging = target.attackActive || Boolean(target.attackSweep);
+    stopSwordChain(target);
+    if (swinging) {
+      room.events.push({ type: 'attackEnded', playerId: target.id, at: nowSec });
+      what.push('sword');
+    }
+  }
+  if (target.gauntlet) {
+    target.gauntlet = null;
+    what.push('gauntlet');
+  }
+  if (nowSec < (target.dashUntil ?? -Infinity)) {
+    target.dashUntil = nowSec;
+    what.push('dash');
+  }
+  if (target.sprinting || (target.sprintBlend ?? 0) > 0) {
+    target.sprinting = false;
+    target.sprintBlend = 0;
+    what.push('sprint');
+  }
+  if (interruptUltimate(room, target, nowSec)) what.push('ultimate');
+  if (what.length) room.events.push({ type: 'actionInterrupted', playerId: target.id, by: attacker.id, what, at: nowSec });
 }
 
 // how clean a contact must be (as it was felt: after any hardened plate) to count as the cleanest there is, for the
@@ -943,7 +996,8 @@ function stepAfflictions(room, player, nowSec) {
     burn.licksLeft -= 1;
     burn.nextAt += burn.interval;
     if (burn.licksLeft <= 0) player.burn = null;
-    applyDamage(room, burn.attackerId, player.id, burn.perLick, 'burn', nowSec);
+    // (a Vortex's scorch is the ultimate's own: it earns its user nothing)
+    applyDamage(room, burn.attackerId, player.id, burn.perLick, 'burn', nowSec, null, { ultimate: Boolean(burn.ultimate) });
   }
   if (player.chill && nowSec >= player.chill.until) player.chill = null;
   player.speedScale = chillScale(player.chill, nowSec);
@@ -1008,6 +1062,11 @@ export function tryUltimate(room, playerId, nowSec) {
   if (room.state !== 'PLAYING' || !player || !player.alive) return false;
   if (nowSec < player.staggerUntil || nowSec < (player.ultimateLockedUntil ?? -Infinity)) return false;
   if (player.ultimateState || player.pendingSpell || player.gauntlet) return false;
+  // (nor in the moment after a Vortex, while both hands are still its)
+  if (nowSec < (player.recoverUntil ?? -Infinity)) return false;
+  // in the Practice Yard the key readies the ultimate itself: whoever came to practise can call it again as soon as
+  // the last has run its course (the yard earns no prowess; a real match's meter is untouched)
+  if (practising(room, player)) player.prowess = PROWESS.full;
   if ((player.prowess ?? 0) < PROWESS.full) return false;
   const ultimate = ultimateFor(player.ultimate);
   player.ultimateState = { id: ultimate.id, phase: 'startup', startedAt: nowSec, commitAt: nowSec + ultimate.startupSec, until: null };
@@ -1033,19 +1092,19 @@ function stepUltimate(room, player, nowSec) {
   const ultimate = ultimateFor(state.id);
   if (state.phase === 'startup') {
     if (!player.alive || nowSec < player.staggerUntil) {
-      player.ultimateState = null;
-      player.ultimateLockedUntil = nowSec + ultimate.lockoutSec;
-      room.events.push({ type: 'ultimateInterrupted', playerId: player.id, ultimate: ultimate.id, lockedUntil: player.ultimateLockedUntil, at: nowSec });
+      interruptUltimate(room, player, nowSec);
       return;
     }
     if (nowSec + 1e-9 >= state.commitAt) {
       player.prowess = 0;
       state.phase = 'active';
       state.until = state.commitAt + ultimate.activeSec;
-      // (a Vortex's blade starts round from where the knight faces as it commits)
+      // (a Vortex's blade starts round from where the knight faces as it commits, balanced)
       if (ultimate.spin) {
-        state.spinFrom = player.yaw;
-        state.sampledTo = state.commitAt;
+        state.angle = player.yaw;
+        state.angleAt = state.commitAt;
+        state.rate = 2 * Math.PI * vortexTune(0, ultimate).revPerSec;
+        state.emphasis = 0;
       }
       room.events.push({ type: 'ultimateActive', playerId: player.id, ultimate: ultimate.id, until: state.until, at: nowSec });
     }
@@ -1064,11 +1123,24 @@ function stepUltimate(room, player, nowSec) {
   }
 }
 
+// an ultimate still in its startup is broken off: the charge kept, a short lockout before it can be tried again
+function interruptUltimate(room, player, nowSec) {
+  const state = player.ultimateState;
+  if (!state || state.phase !== 'startup') return false;
+  const ultimate = ultimateFor(state.id);
+  player.ultimateState = null;
+  player.ultimateLockedUntil = nowSec + ultimate.lockoutSec;
+  room.events.push({ type: 'ultimateInterrupted', playerId: player.id, ultimate: ultimate.id, lockedUntil: player.ultimateLockedUntil, at: nowSec });
+  return true;
+}
+
 // --- Blazing Vortex (shared/src/ultimates.mjs) ------------------------------------------------------------------
 // While it spins, the blade is a real one going round the knight (blade.mjs), swept from where it was to where it is
 // each tick: whoever it passes through is cut, each knight no more often than the Vortex's own cadence, a wall
-// between them and the knight's eyes sparing them. Embers leave toward the aim on their own clock. Staggered, the
-// spin cuts nothing and throws nothing until the knight has their feet again.
+// between them and the knight's eyes sparing them. What it clips of the world on the way rings (an event, for the
+// eye and the ear) and does not stop it. Its fire leaves along the aim on its own clock. How fast it turns, how it
+// falls and what fire it throws follow its emphasis, which the knight steers by what they hold (the host's own
+// reading of it, eased). Staggered, the spin cuts nothing and throws nothing until the knight has their feet again.
 
 // where the blade points when turned to `angle` (a yaw): level, drooping a little, leaning the way the knight looks
 function vortexBlade(angle, player, vortex) {
@@ -1079,21 +1151,36 @@ function vortexBlade(angle, player, vortex) {
   return normalize3({ x: flat.x, y: Math.tan(lean) * (flat.x * f.x + flat.z * f.z) - Math.tan(vortex.spin.droopDeg * rad), z: flat.z });
 }
 
+// the knight steers their Vortex by what they hold (before they are moved: how it falls follows from it)
+function steerVortex(player, dt, nowSec) {
+  const vortex = vortexing(player, nowSec);
+  const state = player.ultimateState;
+  if (!vortex || !state) return;
+  state.emphasis = stepVortexEmphasis(state.emphasis, vortexEmphasisWanted(player.input), dt, vortex);
+}
+
+// the sword as it is seen (shorter than the reach it cuts at): what it clips of the world is looked for along this
+const VORTEX_WORLD_BLADE = Object.freeze({ ...BLADE, to: ULTIMATES.vortex.world.reach });
+
 function stepVortex(room, player, dt, nowSec, world) {
   const vortex = vortexing(player, nowSec);
   const state = player.ultimateState;
   if (!vortex || !state) return;
-  const from = state.sampledTo ?? state.commitAt;
-  state.sampledTo = nowSec;
-  if (nowSec < player.staggerUntil || !(nowSec > from)) return;
-  const bias = vortexFallBias(player, vortex);
+  const tune = vortexTune(state.emphasis, vortex);
+  // the blade turns on, at the pace its emphasis gives it
+  const from = state.angle;
+  state.rate = 2 * Math.PI * tune.revPerSec;
+  state.angle = from + state.rate * Math.max(0, nowSec - state.angleAt);
+  state.angleAt = nowSec;
+  const turned = state.angle - from;
+  if (nowSec < player.staggerUntil || !(turned > 0)) return;
   const eye = { x: player.position.x, y: player.position.y + postureOf(player).eye, z: player.position.z };
   const hits = (state.hits ??= {});
-  // (an eighth of a turn at a time, so the sweep between two moments is the way the blade really went)
-  const legs = Math.max(1, Math.ceil((nowSec - from) * vortex.spin.revPerSec * 8));
+  // (a few degrees at a time, so the sweep between two moments is the way the blade really went)
+  const legs = Math.max(1, Math.ceil(turned / (vortex.world.stepDeg * Math.PI / 180)));
   for (let leg = 0; leg < legs && player.alive; leg += 1) {
-    let a = vortexBlade(vortexAngle(state, from + (nowSec - from) * leg / legs, vortex), player, vortex);
-    const b = vortexBlade(vortexAngle(state, from + (nowSec - from) * (leg + 1) / legs, vortex), player, vortex);
+    let a = vortexBlade(from + turned * leg / legs, player, vortex);
+    const b = vortexBlade(from + turned * (leg + 1) / legs, player, vortex);
     for (;;) {
       const bodies = [];
       for (const target of room.players.values()) {
@@ -1103,26 +1190,49 @@ function stepVortex(room, player, dt, nowSec, world) {
       const met = bodies.length ? sweepBlade(eye, a, b, bodies, world.solids ?? [], { world: false }) : null;
       if (met?.kind !== 'body') break;
       hits[met.id] = nowSec;
-      landVortex(room, player, room.players.get(met.id), met, bias, nowSec);
+      landVortex(room, player, room.players.get(met.id), met, nowSec);
       a = met.direction;
     }
+    vortexWorld(room, player, state, eye, b, world, nowSec);
   }
-  // the fire: thicker the faster the knight falls
-  if (nowSec - state.commitAt + 1e-9 < vortex.ember.firstAfterSec) return;
-  const every = vortex.ember.everySec + (vortex.ember.fallingEverySec - vortex.ember.everySec) * bias;
-  // (the first as soon as it may; then one each time the clock comes round)
-  state.ember = state.ember === undefined ? 1 : state.ember + dt / every;
-  if (state.ember >= 1) {
-    state.ember -= 1;
-    throwEmber(room, player, vortex, nowSec);
+  // the fire: on the clock its emphasis gives it, the first as soon as it may
+  if (nowSec - state.commitAt + 1e-9 < vortex.firstFireSec) return;
+  state.fire = state.fire === undefined ? 1 : state.fire + dt / tune.fireEverySec;
+  if (state.fire >= 1) {
+    state.fire -= 1;
+    throwVortexFire(room, player, tune.fire, nowSec);
   }
 }
 
+// what the blade clips of the world as it comes round: a ring and sparks where it first touches a thing (an event:
+// nothing is stopped, nothing is hurt), once for each time it comes into it, never two close together, and never
+// again off the same thing within a moment (a blade turning inside one wall is not a bell rung four times a second)
+function vortexWorld(room, player, state, eye, direction, world, nowSec) {
+  const rules = ULTIMATES.vortex.world;
+  const seen = (state.world ??= { touching: new Set(), lastAt: -Infinity, rang: new Map() });
+  const now = new Set();
+  for (const touch of bladeTouches(eye, direction, world.solids ?? [], VORTEX_WORLD_BLADE)) {
+    const key = touch.solid.id ?? touch.solid;
+    now.add(key);
+    if (seen.touching.has(key)) continue;
+    if (nowSec < seen.lastAt + rules.everySec - 1e-9 || nowSec < (seen.rang.get(key) ?? -Infinity) + rules.sameSec - 1e-9) continue;
+    seen.lastAt = nowSec;
+    seen.rang.set(key, nowSec);
+    room.events.push({
+      type: 'vortexWorldContact', playerId: player.id, point: touch.point,
+      normal: { x: touch.normal[0], y: touch.normal[1], z: touch.normal[2] },
+      surfaceId: touch.solid.id ?? null, material: touch.solid.material ?? 'stone', at: nowSec,
+    });
+  }
+  seen.touching = now;
+}
+
 // the Vortex's blade meets a knight: on a guard facing it (never a perfect one: it only pays, and the third breaks a
-// fresh guard), or on the knight
-function landVortex(room, attacker, target, met, bias, nowSec) {
+// fresh guard), or on the knight, who is cut and left scorched
+function landVortex(room, attacker, target, met, nowSec) {
   if (target.spawnProtectionUntil > nowSec) return;
-  const contact = ULTIMATES.vortex.contact;
+  const vortex = ULTIMATES.vortex;
+  const contact = vortex.contact;
   const point = met.point;
   if (target.guarding && isInGuardCone(target, attacker, nowSec)) {
     const result = resolveSwordVsGuard({
@@ -1141,9 +1251,9 @@ function landVortex(room, attacker, target, met, bias, nowSec) {
     }
     return;
   }
-  // full within the blade's inner stretch, less out toward its point; less again from a knight falling fast
+  // full within the blade's inner stretch, less out toward its point
   const reach = met.along <= contact.inner ? 1 : 1 - (1 - contact.tip) * Math.min(1, (met.along - contact.inner) / (BLADE.to - contact.inner));
-  const raw = contact.damage * reach * (1 - (1 - contact.airborne) * bias);
+  const raw = contact.damage * reach;
   // hardened plate blunts it as it would any blow
   const armour = steelBlunt(target.steel, raw, nowSec);
   target.steel = steelTakes(target.steel, nowSec);
@@ -1155,14 +1265,26 @@ function landVortex(room, attacker, target, met, bias, nowSec) {
   applyDamage(room, attacker.id, target.id, armour.amount, 'vortex', nowSec, { x: away.x * contact.shove, y: contact.lift, z: away.z * contact.shove }, {
     steel: armour.strength, turned: Math.round(raw) - armour.amount, ultimate: true,
   });
+  // the scorch a burning blade leaves: begun again by each cut, never two at once (and never in place of a worse burn
+  // already on them); hardened plate takes fewer licks of it
+  const scorch = vortex.scorch;
+  const licks = Math.round(scorch.licks * (1 - armour.strength));
+  if (target.alive && licks >= 1) {
+    const interval = scorch.seconds / scorch.licks;
+    const perLick = scorch.damage / scorch.licks;
+    const left = target.burn ? target.burn.perLick * target.burn.licksLeft : 0;
+    if (left <= perLick * licks + 1e-9) {
+      target.burn = { attackerId: attacker.id, perLick, licksLeft: licks, interval, nextAt: nowSec + interval, until: nowSec + interval * licks, ultimate: true };
+    }
+  }
   staggerBy(room, target, contact.stagger, nowSec, attacker.id);
   room.events.push({ type: 'vortexHit', playerId: attacker.id, targetId: target.id, point, steel: armour.strength, at: nowSec });
 }
 
-// an ember leaves the spin toward where the knight aims now: a small Fireball, its owner's, and the ultimate's own
-// (it earns no prowess)
-function throwEmber(room, player, vortex, nowSec) {
-  const spell = spellFor(vortex.ember.spell);
+// the Vortex's fire leaves the spin toward where the knight aims now: a small Fireball of the kind its emphasis
+// gives it, its owner's, and the ultimate's own (it earns no prowess)
+function throwVortexFire(room, player, spellId, nowSec) {
+  const spell = spellFor(spellId);
   const { eye, direction } = galeAim(player);
   const id = `f${++projectileCounter}`;
   const projectile = {
@@ -1283,7 +1405,8 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
     }
 
     // (bracing into an ultimate, a knight moves only a little: the startup is exposed)
-    // (spinning in a Vortex, they move at its pace and fall slowly: no sprint, no crouch)
+    // (spinning in a Vortex, they move at its pace and fall slowly, as they have steered it: no sprint, no crouch)
+    steerVortex(player, dt, nowSec);
     const bracing = ultimateStartup(player, nowSec);
     const whirl = ultimateWhirl(player, nowSec);
     const input = staggered
@@ -1362,7 +1485,7 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
     // a thrown fist lands
     if (player.gauntlet && nowSec + 1e-9 >= player.gauntlet.landAt) landGauntlet(room, player, nowSec, world);
     // a Vortex's blade goes round, and its embers leave
-    if (player.ultimateState?.spinFrom !== undefined) stepVortex(room, player, dt, nowSec, world);
+    if (player.ultimateState?.angle !== undefined) stepVortex(room, player, dt, nowSec, world);
   }
 
   stepRuptures(room, nowSec);

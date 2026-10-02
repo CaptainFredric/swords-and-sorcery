@@ -201,8 +201,9 @@ function segmentFloor(start, end, floor) {
  * ground: floors (a world's `floors`) the blade can be driven into, where the world stops it (with none, the ground is
  * not asked about): met as { kind: 'ground', floor, point, along }. world: false once the blade is past its driven
  * part (MELEE_CONTACT.worldFollow): nothing solid stops it then, though a wall still hides a knight behind it.
+ * spares: (solid) => whether this blade passes it by (it never stops the blade; it still hides a knight behind it).
  */
-export function sweepBlade(eye, fromDirection, toDirection, bodies, solids, { aim = null, blade = BLADE, ground = null, world = true } = {}) {
+export function sweepBlade(eye, fromDirection, toDirection, bodies, solids, { aim = null, blade = BLADE, ground = null, world = true, spares = null } = {}) {
   const turn = Math.acos(Math.max(-1, Math.min(1, dot(fromDirection, toDirection))));
   const steps = Math.max(1, Math.ceil(turn / (blade.stepDeg * DEG)));
   const corridor = Math.cos(blade.worldStopDeg * DEG);
@@ -235,6 +236,8 @@ export function sweepBlade(eye, fromDirection, toDirection, bodies, solids, { ai
       if (!best || along < best.along) best = { kind: 'ground', floor, point: add(start, scale(sub(end, start), t)), along, direction };
     }
     for (const solid of driven && world ? stopping : []) {
+      // (what this blade is spared by never stops it, though it still hides a knight behind it)
+      if (spares?.(solid)) continue;
       const hit = segmentBox(start, end, solid, blade.radius);
       if (!hit) continue;
       const along = blade.from + hit.t * length;
@@ -245,6 +248,22 @@ export function sweepBlade(eye, fromDirection, toDirection, bodies, solids, { ai
     if (best) return best;
   }
   return null;
+}
+
+/**
+ * What a blade pointing along `direction` from `eye` is touching of the world now: [{ solid, point, normal, along }]
+ * (nothing stops here: for a blade that goes on through what it clips, and only rings off it).
+ */
+export function bladeTouches(eye, direction, solids, blade = BLADE) {
+  const [start, end] = bladeSegment(eye, direction, blade);
+  const length = blade.to - blade.from;
+  const touches = [];
+  for (const solid of solids) {
+    if (!blocksBlade(solid)) continue;
+    const hit = segmentBox(start, end, solid, blade.radius);
+    if (hit) touches.push({ solid, point: add(start, scale(sub(end, start), hit.t)), normal: hit.normal, along: blade.from + hit.t * length });
+  }
+  return touches;
 }
 
 // a direction partway round from one unit vector to another (evenly by angle)

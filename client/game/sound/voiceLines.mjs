@@ -391,7 +391,7 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     text: 'Bleublurblurblur blurburrrbluuurrr!!',
     trigger: 'vortexSpin',
     priority: 'normal', rarity: 0.4, cooldown: 60,
-    credits: { title: 'Blazing Vortex', description: 'Occasionally, once rotation has exceeded useful speech.', note: 'No transcript was requested.' },
+    credits: { title: 'Blazing Vortex', description: 'Occasionally, as Blazing Vortex reaches full speed.', note: 'No transcript was requested.' },
     voice: { drive: 2.3, rmsDb: -16 }, aliases: ['vortex'],
   },
   {
@@ -399,7 +399,7 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     text: 'I was dizzy anyway.',
     trigger: 'vortexDeath',
     priority: 'high', rarity: 0.5, cooldown: 120,
-    credits: { title: 'Dizzy Anyway', description: 'Rarely, when Blazing Vortex ends somewhat earlier than intended.', note: 'The defense was entered after death.' },
+    credits: { title: 'Dizzy Anyway', description: 'Rarely, when he dies spinning or shortly afterward.', note: 'The defense was entered after death.' },
     voice: { drive: 2, rmsDb: -17, expandBelowDb: -40 }, aliases: ['dizzy'],
   },
   // --- waiting on what they belong to (declared, never said yet)

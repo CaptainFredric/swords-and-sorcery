@@ -69,3 +69,12 @@ test('a Blazing Vortex has both hands from the moment it is lit to the end of it
   assert.equal(canPresentLocalAction('attack', sundering, state, 10.2), true);
   assert.equal(localWeaponReleaseForSnapshot(sundering, 10.2), null);
 });
+
+test('what is held is sent with the movement, for a Vortex to be steered by: the attack, and the spell\'s key', async () => {
+  const { readFileSync } = await import('node:fs');
+  const input = readFileSync(new URL('./InputController.mjs', import.meta.url), 'utf8');
+  assert.match(input, /attack: this\.attackHeld,/);
+  assert.match(input, /spell: this\.held\('spell'\) \|\| Boolean\(touch\?\.spell\),/);
+  const touch = readFileSync(new URL('./TouchControls.mjs', import.meta.url), 'utf8');
+  assert.match(touch, /spell: \[\.\.\.this\.held\.values\(\)\]\.includes\('spell'\),/);
+});

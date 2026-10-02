@@ -5,7 +5,7 @@ import {
   GALE_VOLUME, createWindConeMaterial, createWindRibbonMaterial, createWindWaveMaterial, createWindWispMaterial, galeVolumeAt, windConeGeometry,
   windRibbonGeometry, windWaveGeometry, windWispGeometry,
 } from './galeVolume.mjs';
-import { SPELLS } from '../../shared/src/spells.mjs';
+import { CONJURED, SPELLS } from '../../shared/src/spells.mjs';
 import { createGaleOrb } from './galeOrb.mjs';
 import { everywhere } from './viewLayers.mjs';
 
@@ -814,11 +814,15 @@ export class Effects {
     const look = lookFor(spell);
     const materials = this.#spellMaterials(spell);
     const frost = spell === 'frostfire';
-    // an ember off a Blazing Vortex: a small burst that clears at once (it must never hide whoever it burst on)
-    const small = spell === 'ember';
+    // a Blazing Vortex's fire: a burst sized to what was thrown (an ember's is slight; the fire's own a real flash and a
+    // thump of light), all glow, sparks and a quick breakup of flame, clearing at once: it must never hide whoever it
+    // burst on
+    const conjured = CONJURED[spell] ?? null;
+    const small = Boolean(conjured);
+    const size = conjured?.size ?? 1;
 
-    if (presentation.cameraFlash && !small) this.#cameraFlash(look.flash, 0.1, 0.78);
-    this.#flashLight(point, look.light, small ? 10 : frost ? 14 : 32, frost || small ? 0.22 : 0.32, radius * 3.2);
+    if (presentation.cameraFlash && (!small || size >= 0.85)) this.#cameraFlash(look.flash, 0.1, 0.78);
+    this.#flashLight(point, look.light, small ? 8 + 22 * size : frost ? 14 : 32, frost || small ? 0.2 + 0.1 * size : 0.32, radius * 3.2);
     // a transient grows as base * (1 + expand * age): the rate that takes it from its start to `to` over its life
     const growth = (from, to, life) => (to / from - 1) / life;
     const blastLife = frost ? 0.2 : 0.28;
@@ -876,7 +880,7 @@ export class Effects {
     // smoke rolling up in a column (fire) or cold mist hanging (frost)
     for (let i = 0; i < (small ? 2 : frost ? 4 : 8); i += 1) {
       const puff = new THREE.Mesh(this.puffGeometry, materials.cloud);
-      if (small) puff.scale.setScalar(0.45);
+      if (small) puff.scale.setScalar(0.3 + 0.25 * size);
       puff.position.set(point.x + (Math.random() - 0.5) * radius * 0.45, point.y + Math.random() * 0.4, point.z + (Math.random() - 0.5) * radius * 0.45);
       puff.rotation.set(Math.random() * 3, Math.random() * 3, 0);
       this.#addTransient(puff, {
@@ -910,20 +914,64 @@ export class Effects {
     }
 
     // flames licking up out of it
-    for (let i = 0; i < (small ? 4 : 12); i += 1) {
+    for (let i = 0; i < (small ? Math.round(2 + 9 * size) : 12); i += 1) {
       const angle = Math.random() * Math.PI * 2;
       const reach = Math.random() * radius * 0.6;
       this.#flame({ x: point.x + Math.cos(angle) * reach, y: point.y + Math.random() * 0.4, z: point.z + Math.sin(angle) * reach });
     }
     // burning fragments spat out hard and fast, falling as they die (sparks, not confetti)
-    for (let i = 0; i < (small ? 6 : 16); i += 1) {
+    for (let i = 0; i < (small ? Math.round(3 + 12 * size) : 16); i += 1) {
       const mesh = new THREE.Mesh(this.emberGeometry, this.emberMaterials[i % 2]);
       mesh.position.copy(worldPoint);
       mesh.scale.setScalar(0.75);
       const dir = new THREE.Vector3(Math.random() - 0.5, Math.random() * 0.8 + 0.15, Math.random() - 0.5).normalize();
       this.#addTransient(mesh, { velocity: dir.multiplyScalar(5 + Math.random() * 5), life: 0.28 + Math.random() * 0.3, shrink: true, gravity: 9, spin: new THREE.Vector3(4, 6, 5), drag: 1.2 });
     }
-    this.sparks(point, 0xff8a3c, small ? 6 : 14);
+    this.sparks(point, 0xff8a3c, small ? Math.round(4 + 10 * size) : 14);
+  }
+
+  /**
+   * A Vortex's fire leaving the spin (at `point`, going `velocity`): a quick flare where it left and a few sparks
+   * thrown on ahead, bigger for the fire's own than for an ember.
+   */
+  fireLaunch(point, velocity, size = 0.5) {
+    const at = new THREE.Vector3(point.x, point.y, point.z);
+    const flare = new THREE.Mesh(this.impactFlashGeometry, this.#basicMaterial(0xffd28a));
+    flare.position.copy(at);
+    flare.scale.setScalar(0.25 + 0.5 * size);
+    this.#addTransient(flare, { life: 0.07 + 0.05 * size, expand: 5, shrink: true, spin: new THREE.Vector3(4, 6, 3) });
+    this.#flashLight(point, 0xff8a3c, 4 + 12 * size, 0.14, 4);
+    const way = new THREE.Vector3(velocity?.x ?? 0, velocity?.y ?? 0, velocity?.z ?? 0);
+    if (way.lengthSq() > 1e-6) way.normalize();
+    for (let i = 0; i < Math.round(2 + 6 * size); i += 1) {
+      const spark = new THREE.Mesh(this.sparkGeometry, this.#basicMaterial(i % 2 ? 0xffb347 : 0xff7a2a));
+      spark.position.copy(at);
+      const fling = way.clone().multiplyScalar(3 + Math.random() * 4).add(new THREE.Vector3((Math.random() - 0.5) * 3, Math.random() * 2, (Math.random() - 0.5) * 3));
+      this.#addTransient(spark, { velocity: fling, life: 0.16 + Math.random() * 0.14, shrink: true, gravity: 6, spin: new THREE.Vector3(5, 7, 4) });
+    }
+  }
+
+  /**
+   * A Blazing Vortex taking hold, about the knight at `point`: one short punch of light, a ring of sparks thrown
+   * outward and a breath of glow that is gone in a moment (never a cloud: whoever stands near is still plain to see).
+   * mine: my own (the view flashes with it).
+   */
+  vortexIgnite(point, { mine = false } = {}) {
+    const at = new THREE.Vector3(point.x, point.y, point.z);
+    this.#flashLight(point, 0xff9a44, 36, 0.3, 9);
+    if (mine) this.#cameraFlash(0xffb768, 0.12, 1.1);
+    const glow = new THREE.Mesh(this.blastGeometry, this.#spellMaterials('fireball').blast);
+    glow.position.copy(at);
+    glow.scale.setScalar(0.5);
+    this.#addTransient(glow, { life: 0.18, expand: 16, fade: true });
+    for (let i = 0; i < 26; i += 1) {
+      const angle = (i / 26) * Math.PI * 2 + Math.random() * 0.2;
+      const spark = new THREE.Mesh(this.hotSparkGeometry, this.#basicMaterial(i % 3 ? 0xffb347 : 0xfff0c4));
+      spark.position.copy(at);
+      const velocity = new THREE.Vector3(Math.cos(angle) * (5 + Math.random() * 3), 0.6 + Math.random() * 2.2, Math.sin(angle) * (5 + Math.random() * 3));
+      spark.lookAt(at.clone().add(velocity));
+      this.#addTransient(spark, { velocity, life: 0.24 + Math.random() * 0.18, shrink: true, gravity: 7, drag: 2 });
+    }
   }
 
   #createProjectile(spell = 'fireball') {
@@ -942,8 +990,8 @@ export class Effects {
 
     const light = everywhere(new THREE.PointLight(look.light, 7.5, 5, 2));
     group.add(light);
-    // (an ember off a Blazing Vortex: a small Fireball, and a small light)
-    const small = spell === 'ember' ? 0.5 : 1;
+    // (a Blazing Vortex's fire: a Fireball as big as what was thrown, with a light to match)
+    const small = CONJURED[spell]?.size ?? 1;
     group.scale.setScalar(small);
     this.scene.add(group);
 

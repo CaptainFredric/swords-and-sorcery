@@ -12,6 +12,8 @@ const MELEE_RANGE = 2.25;
 const FIREBALL_RANGE = 11;
 const DEFENSE_THREAT_RANGE = 3.1;
 const THINK_INTERVAL_SEC = 0.18;
+// spinning in a Vortex, a bot holds the blade's emphasis within `blade` metres of its foe and the fire's from `fire`
+const VORTEX_STEER = Object.freeze({ blade: 3.2, fire: 5.5 });
 // how near a foe must be for a bot to call its ultimate
 const ULTIMATE_RANGE = 5;
 const MIN_REACTION_SEC = 0.22;
@@ -349,6 +351,7 @@ function updateMovement(actor, target, distance, ai, aggression, world, nowSec, 
   actor.yaw = yaw;
   actor.pitch = 0;
   let pitch = 0;
+  let held = { attack: false, spell: false };
   let fleeing = false;
 
   let forward = distance > MELEE_RANGE * 0.85 ? Math.max(0.45, aggression) : 0;
@@ -421,6 +424,8 @@ function updateMovement(actor, target, distance, ai, aggression, world, nowSec, 
     right = ai.strafeDirection * 0.2;
     pitch = Math.asin(Math.max(-1, Math.min(1, aimDirection(actor, target).y)));
     actor.pitch = pitch;
+    // and steers it by how far off they are: the blade up close, the fire from further off, balanced between
+    held = { attack: distance <= VORTEX_STEER.blade, spell: distance >= VORTEX_STEER.fire };
   }
 
   const escapeExpired = ai.escapeUntil !== -Infinity && nowSec >= ai.escapeUntil;
@@ -475,6 +480,7 @@ function updateMovement(actor, target, distance, ai, aggression, world, nowSec, 
     sprint,
     yaw,
     pitch,
+    ...held,
   };
 }
 

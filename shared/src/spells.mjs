@@ -105,19 +105,23 @@ export const SPELLS = Object.freeze({
 });
 
 // Spells no knight carries: thrown by something else, and from there a spell like any other (it flies, meets the
-// world, bursts and is bent by a gust by the same rules).
+// world, bursts and is bent by a gust by the same rules). `size`: how big it is seen, beside a Fireball; `shove`: how
+// hard its burst throws a body, as a share of a Fireball's. None of them leaves a burn.
 export const CONJURED = Object.freeze({
-  // a Blazing Vortex's fire (shared/src/ultimates.mjs): a small Fireball, weaker in every way, that leaves no burn
+  // a Blazing Vortex's fire (shared/src/ultimates.mjs), by its emphasis. On the blade: a weak ember
   ember: Object.freeze({
-    id: 'ember',
-    label: 'Ember',
-    conjured: true,
-    speed: 26,
-    windResist: 0.8,
-    directDamage: 8,
-    edgeDamage: 5,
-    radius: 1.5,
-    shove: 0.45,                 // how hard its burst throws a body, as a share of a Fireball's
+    id: 'ember', label: 'Ember', conjured: true, speed: 26, windResist: 0.8,
+    directDamage: 5, edgeDamage: 3, radius: 1.2, shove: 0.3, size: 0.45,
+  }),
+  // balanced: a small Fireball, plainly less than one thrown from the palm
+  vortexFire: Object.freeze({
+    id: 'vortexFire', label: 'Vortex fire', conjured: true, speed: 27, windResist: 0.9,
+    directDamage: 12, edgeDamage: 7, radius: 1.8, shove: 0.6, size: 0.68,
+  }),
+  // on the fire: a small, serious Fireball (a Fireball's blow at its heart, a tighter burst, no burn)
+  vortexBlaze: Object.freeze({
+    id: 'vortexBlaze', label: 'Vortex blaze', conjured: true, speed: 28, windResist: 1,
+    directDamage: 18, edgeDamage: 10, radius: 2.2, shove: 0.85, size: 0.9,
   }),
 });
 

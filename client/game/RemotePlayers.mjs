@@ -342,7 +342,6 @@ export class RemotePlayers {
 
   update(nowMs, dt = 0) {
     const renderTime = nowMs - 100;
-    const localTime = nowMs / 1000;
     for (const [id, shell] of this.rigs) {
       const samples = this.samples.get(id) ?? [];
       if (!samples.length) continue;
@@ -373,157 +372,199 @@ export class RemotePlayers {
       shell.root.userData.pitch = (pa.pitch ?? 0) + ((pb.pitch ?? 0) - (pa.pitch ?? 0)) * t;
       shell.root.userData.crouched = Boolean(pb.crouched);
 
-      const serverNow = bufferedServerTime(a, b, renderTime);
-      const d = shell.root.userData;
-      const state = resolveSpellbladeState(pb, serverNow, d.castPoseUntil, d.castPoseStartAt);
-      // a Blazing Vortex turns the whole knight: one gathering turn as it is lit, then round with its blade
-      const spin = pb.alive && pb.ultimateState?.id === 'vortex' ? pb.ultimateState : null;
-      const spinning = spin && serverNow >= spin.commitAt && Number.isFinite(spin.spinFrom);
-      // (turned so that the sword seen is the blade that cuts: by where the held sword points in the knight's own frame)
-      const held = d.vortexBladeYaw ?? 0;
-      if (spinning) {
-        const angle = vortexAngle(spin, serverNow);
-        shell.root.rotation.y = angle - held;
-        // (its beat, once a turn)
-        const turn = Math.floor((angle - spin.spinFrom) / (2 * Math.PI));
-        if (turn !== d.vortexTurn) {
-          d.vortexTurn = turn;
-          this.onVortexTurn?.(id);
+      this.#pose(id, shell, pb, bufferedServerTime(a, b, renderTime), nowMs, dt);
+    }
+  }
+
+  /**
+   * My own body, for when the view is outside it (a Blazing Vortex seen from behind): drawn where I am now (my own
+   * steps, not the host's word a moment old), posed as any knight is. `player`: my snapshot; `at`: { position, velocity,
+   * yaw, pitch } as I have them; visible: whether it is drawn (kept ready, hidden, the rest of the time).
+   */
+  showSelf(player, at, serverNow, nowMs, dt, visible) {
+    if (!player) return;
+    if (!this.self) {
+      this.self = createRemoteShell(this.nextRigIndex++, player, null);
+      this.self.root.visible = false;
+      this.scene.add(this.self.root);
+    }
+    const shell = this.self;
+    shell.cloth = player.cloth ?? 'crimson';
+    shell.visualInstance?.setCloth(shell.cloth);
+    if (!visible || !at?.position) {
+      if (shell.root.visible) shell.vortexBlade?.set(0, nowMs / 1000, { swinging: false });
+      shell.root.visible = false;
+      return;
+    }
+    shell.root.position.set(at.position.x, at.position.y, at.position.z);
+    shell.root.rotation.y = at.yaw ?? 0;
+    shell.root.userData.yaw = at.yaw ?? 0;
+    shell.root.userData.pitch = at.pitch ?? 0;
+    shell.root.userData.crouched = false;
+    this.#pose(null, shell, { ...player, position: at.position, velocity: at.velocity ?? player.velocity, yaw: at.yaw ?? player.yaw }, serverNow, nowMs, dt);
+    shell.root.visible = true;
+  }
+
+  // a knight's body, placed and facing, is posed for this frame: what it is doing, a Vortex's spin, its blade's fire,
+  // its plate's steel, its sway. id: whose (null: my own body, which makes no sounds of its own here)
+  #pose(id, shell, pb, serverNow, nowMs, dt) {
+    const localTime = nowMs / 1000;
+    const d = shell.root.userData;
+    const state = resolveSpellbladeState(pb, serverNow, d.castPoseUntil, d.castPoseStartAt);
+    // a Blazing Vortex turns the whole knight: one gathering turn as it is lit, then round with its blade
+    const spin = pb.alive && pb.ultimateState?.id === 'vortex' ? pb.ultimateState : null;
+    const spinning = spin && serverNow >= spin.commitAt && Number.isFinite(spin.angle);
+    // (turned so that the sword seen is the blade that cuts: by where the held sword points in the knight's own frame)
+    const held = d.vortexBladeYaw ?? 0;
+    if (spinning) {
+      const angle = vortexAngle(spin, serverNow);
+      shell.root.rotation.y = angle - held;
+      // (its beat, once a turn)
+      const turn = Math.floor(angle / (2 * Math.PI));
+      if (turn !== d.vortexTurn) {
+        d.vortexTurn = turn;
+        if (id) this.onVortexTurn?.(id, spin.rate);
+      }
+    } else if (spin) {
+      const share = 1 - (spin.commitAt - serverNow) / ULTIMATES.vortex.startupSec;
+      const levelled = Math.max(0, Math.min(1, (share - VORTEX_LEVEL_FROM) / (1 - VORTEX_LEVEL_FROM)));
+      shell.root.rotation.y = d.yaw + vortexWindup(spin, serverNow) - held * levelled * levelled * (3 - 2 * levelled);
+      d.vortexTurn = null;
+    } else {
+      d.vortexTurn = null;
+    }
+
+    if (state === 'dead') {
+      if (d.deathStartedAt === null) d.deathStartedAt = nowMs;
+      shell.root.visible = nowMs - d.deathStartedAt < 1050;
+    } else {
+      shell.root.visible = true;
+      d.deathStartedAt = null;
+    }
+
+    // landing: remember the fastest fall while airborne and absorb it on touch-down
+    const verticalVelocity = pb.velocity?.y ?? 0;
+    if (state === 'air') {
+      d.airborne = true;
+      d.fastestFall = Math.max(d.fastestFall, -verticalVelocity);
+    } else if (d.airborne) {
+      d.airborne = false;
+      const strength = landingStrength(d.fastestFall);
+      if (strength > 0.05 && state !== 'dead') {
+        d.reactions = [...d.reactions, { kind: 'land', at: serverNow, strength }];
+        // and the tabards flip out with it, then settle
+        shell.visualInstance?.animator?.cloth?.land?.(strength);
+      }
+      d.fastestFall = 0;
+    }
+    d.reactions = pruneReactions(d.reactions, serverNow);
+
+    // crouched: the body is lower at once (the server's word); the pose eases down to it in a moment
+    d.crouchAmount = (d.crouchAmount ?? 0) + ((pb.crouched && state !== 'dead' ? 1 : 0) - (d.crouchAmount ?? 0)) * (1 - Math.exp(-dt * 14));
+    const crouch = crouchPose(d.crouchAmount, state === 'run' || state === 'sprint');
+    d.guardAmount = (d.guardAmount ?? 0) + ((state === 'guard' ? 1 : 0) - (d.guardAmount ?? 0)) * (1 - Math.exp(-dt * 14));
+
+    const animationPlayer = { ...pb, castPoseStartAt: d.castPoseStartAt };
+    const plan = resolveSpellbladeAnimationPlan({ state, player: animationPlayer, serverNow, localTime });
+    plan.motion = {
+      // the killing blow's flinch plays on into the death, and the body gives way under it
+      reactions: d.reactions,
+      now: serverNow,
+      yaw: shell.root.rotation.y,
+      airFlex: state === 'air' ? airborneLegFlex(verticalVelocity) : 0,
+      death: plan.clip === 'Death' ? { age: plan.time, push: d.lastPush ?? null } : null,
+      crouch: crouch.flex,
+      // the gauntlet's jab, if one is under way, and the crouch's lean
+      extra: state === 'dead' ? [] : [...crouch.turns, ...guardTurns(d.guardAmount), ...jabTurns(serverNow - (d.jabAt ?? -Infinity))],
+    };
+    setRemoteVisualPlan(shell, plan, dt);
+    // a foot comes down where the gait clip puts it (its rate follows the knight's speed)
+    const gait = shell.visualInstance?.animator?.gaitPhase;
+    if ((state === 'run' || state === 'sprint') && Number.isFinite(gait) && Number.isFinite(d.lastGait) && gaitFootfall(d.lastGait, gait)) {
+      if (id) this.onFootstep?.(id, shell.root.position, state === 'sprint' ? 1 : 0, Boolean(pb.crouched));
+    }
+    d.lastGait = gait;
+
+    // Sheathed in Steel: the plate's hardening, and the glint running over it as it was called
+    const steel = steelStrength(pb.steel, serverNow);
+    if (shell.visualInstance) {
+      if (shell.steelSheenOf !== shell.visualInstance) {
+        shell.steelSheen?.dispose();
+        // readied with the knight: its plate's shader is built as it first appears, not when its steel is called
+        shell.steelSheen = createSteelSheen(shell.visualInstance, { ready: true });
+        shell.steelSheenOf = shell.visualInstance;
+      }
+      shell.steelSheen.set(steel, pb.steel ? serverNow - pb.steel.calledAt : null);
+      // Sundering: the ember heat in that knight's steel (sunderBlade.mjs)
+      const sunder = pb.ultimateState?.id === 'sunder' && pb.ultimateState.phase === 'active' && serverNow < (pb.ultimateState.until ?? 0);
+      if (sunder || shell.sunderBlade) {
+        if (shell.sunderBladeOf !== shell.visualInstance) {
+          shell.sunderBlade?.dispose();
+          shell.sunderBlade = createSunderBlade(shell.visualInstance.root);
+          shell.sunderBladeOf = shell.visualInstance;
         }
-      } else if (spin) {
-        const share = 1 - (spin.commitAt - serverNow) / ULTIMATES.vortex.startupSec;
-        const levelled = Math.max(0, Math.min(1, (share - VORTEX_LEVEL_FROM) / (1 - VORTEX_LEVEL_FROM)));
-        shell.root.rotation.y = d.yaw + vortexWindup(spin, serverNow) - held * levelled * levelled * (3 - 2 * levelled);
-        d.vortexTurn = null;
-      } else {
-        d.vortexTurn = null;
+        shell.sunderBlade.set(sunder, nowMs / 1000);
       }
-
-      if (state === 'dead') {
-        if (d.deathStartedAt === null) d.deathStartedAt = nowMs;
-        shell.root.visible = nowMs - d.deathStartedAt < 1050;
-      } else {
-        shell.root.visible = true;
-        d.deathStartedAt = null;
-      }
-
-      // landing: remember the fastest fall while airborne and absorb it on touch-down
-      const verticalVelocity = pb.velocity?.y ?? 0;
-      if (state === 'air') {
-        d.airborne = true;
-        d.fastestFall = Math.max(d.fastestFall, -verticalVelocity);
-      } else if (d.airborne) {
-        d.airborne = false;
-        const strength = landingStrength(d.fastestFall);
-        if (strength > 0.05 && state !== 'dead') {
-          d.reactions = [...d.reactions, { kind: 'land', at: serverNow, strength }];
-          // and the tabards flip out with it, then settle
-          shell.visualInstance?.animator?.cloth?.land?.(strength);
+      // a Vortex: the blade lit (the star at its point first), and the arc of fire it draws as it goes round
+      const share = spin ? 1 - (spin.commitAt - serverNow) / ULTIMATES.vortex.startupSec : 0;
+      const lit = Boolean(spin) && (spinning || share >= VORTEX_LIT_FROM);
+      if (spin || shell.vortexBlade) {
+        if (shell.vortexBladeOf !== shell.visualInstance) {
+          shell.vortexBlade?.dispose();
+          shell.vortexBlade = createVortexBlade(shell.visualInstance, { blade: VORTEX_BLADES.thirdPerson, trailParent: this.scene });
+          shell.vortexBladeOf = shell.visualInstance;
+          d.vortexFire = 0;
+          d.vortexLit = false;
         }
-        d.fastestFall = 0;
-      }
-      d.reactions = pruneReactions(d.reactions, serverNow);
-
-      // crouched: the body is lower at once (the server's word); the pose eases down to it in a moment
-      d.crouchAmount = (d.crouchAmount ?? 0) + ((pb.crouched && state !== 'dead' ? 1 : 0) - (d.crouchAmount ?? 0)) * (1 - Math.exp(-dt * 14));
-      const crouch = crouchPose(d.crouchAmount, state === 'run' || state === 'sprint');
-      d.guardAmount = (d.guardAmount ?? 0) + ((state === 'guard' ? 1 : 0) - (d.guardAmount ?? 0)) * (1 - Math.exp(-dt * 14));
-
-      const animationPlayer = { ...pb, castPoseStartAt: d.castPoseStartAt };
-      const plan = resolveSpellbladeAnimationPlan({ state, player: animationPlayer, serverNow, localTime });
-      plan.motion = {
-        // the killing blow's flinch plays on into the death, and the body gives way under it
-        reactions: d.reactions,
-        now: serverNow,
-        yaw: shell.root.rotation.y,
-        airFlex: state === 'air' ? airborneLegFlex(verticalVelocity) : 0,
-        death: plan.clip === 'Death' ? { age: plan.time, push: d.lastPush ?? null } : null,
-        crouch: crouch.flex,
-        // the gauntlet's jab, if one is under way, and the crouch's lean
-        extra: state === 'dead' ? [] : [...crouch.turns, ...guardTurns(d.guardAmount), ...jabTurns(serverNow - (d.jabAt ?? -Infinity))],
-      };
-      setRemoteVisualPlan(shell, plan, dt);
-      // a foot comes down where the gait clip puts it (its rate follows the knight's speed)
-      const gait = shell.visualInstance?.animator?.gaitPhase;
-      if ((state === 'run' || state === 'sprint') && Number.isFinite(gait) && Number.isFinite(d.lastGait) && gaitFootfall(d.lastGait, gait)) {
-        this.onFootstep?.(id, shell.root.position, state === 'sprint' ? 1 : 0, Boolean(pb.crouched));
-      }
-      d.lastGait = gait;
-
-      // Sheathed in Steel: the plate's hardening, and the glint running over it as it was called
-      const steel = steelStrength(pb.steel, serverNow);
-      if (shell.visualInstance) {
-        if (shell.steelSheenOf !== shell.visualInstance) {
-          shell.steelSheen?.dispose();
-          // readied with the knight: its plate's shader is built as it first appears, not when its steel is called
-          shell.steelSheen = createSteelSheen(shell.visualInstance, { ready: true });
-          shell.steelSheenOf = shell.visualInstance;
+        if (lit && !d.vortexLit) {
+          shell.vortexBlade.spark(nowMs / 1000);
+          if (id) this.onVortexSpark?.(id);
         }
-        shell.steelSheen.set(steel, pb.steel ? serverNow - pb.steel.calledAt : null);
-        // Sundering: the ember heat in that knight's steel (sunderBlade.mjs)
-        const sunder = pb.ultimateState?.id === 'sunder' && pb.ultimateState.phase === 'active' && serverNow < (pb.ultimateState.until ?? 0);
-        if (sunder || shell.sunderBlade) {
-          if (shell.sunderBladeOf !== shell.visualInstance) {
-            shell.sunderBlade?.dispose();
-            shell.sunderBlade = createSunderBlade(shell.visualInstance.root);
-            shell.sunderBladeOf = shell.visualInstance;
-          }
-          shell.sunderBlade.set(sunder, nowMs / 1000);
+        d.vortexLit = lit;
+        d.vortexFire = Math.max(0, Math.min(1, (d.vortexFire ?? 0) + (lit ? dt / 0.3 : -dt / 0.35)));
+        // (the flare as the spin takes hold)
+        if (spinning && !d.vortexSpinning) shell.vortexBlade.flash(nowMs / 1000);
+        d.vortexSpinning = Boolean(spinning);
+        shell.vortexBlade.set(d.vortexFire, nowMs / 1000, {
+          swinging: Boolean(spinning) || share >= VORTEX_TRAIL_FROM,
+          gather: spin && !lit ? Math.max(0, Math.min(1, share / VORTEX_LIT_FROM)) : 0,
+          spinning: Boolean(spinning),
+        });
+        // where the sword, held out level, points in the knight's own frame (settling as the pose does)
+        if (spin && share >= VORTEX_LEVEL_FROM) {
+          const measured = heldBladeYaw(shell);
+          const off = Math.atan2(Math.sin(measured - (d.vortexBladeYaw ?? measured)), Math.cos(measured - (d.vortexBladeYaw ?? measured)));
+          d.vortexBladeYaw = (d.vortexBladeYaw ?? measured) + off * Math.min(1, dt * 10);
         }
-        // a Vortex: the blade lit (the star at its point first), and the arc of fire it draws as it goes round
-        const share = spin ? 1 - (spin.commitAt - serverNow) / ULTIMATES.vortex.startupSec : 0;
-        const lit = Boolean(spin) && (spinning || share >= VORTEX_LIT_FROM);
-        if (lit || shell.vortexBlade) {
-          if (shell.vortexBladeOf !== shell.visualInstance) {
-            shell.vortexBlade?.dispose();
-            shell.vortexBlade = createVortexBlade(shell.visualInstance, { blade: VORTEX_BLADES.thirdPerson, trailParent: this.scene });
-            shell.vortexBladeOf = shell.visualInstance;
-            d.vortexFire = 0;
-            d.vortexLit = false;
-          }
-          if (lit && !d.vortexLit) {
-            shell.vortexBlade.spark(nowMs / 1000);
-            this.onVortexSpark?.(id);
-          }
-          d.vortexLit = lit;
-          d.vortexFire = Math.max(0, Math.min(1, (d.vortexFire ?? 0) + (lit ? dt / 0.22 : -dt / 0.35)));
-          shell.vortexBlade.set(d.vortexFire, nowMs / 1000, { swinging: Boolean(spinning) || share >= VORTEX_TRAIL_FROM });
-          // where the sword, held out level, points in the knight's own frame (settling as the pose does)
-          if (spin && share >= VORTEX_LEVEL_FROM) {
-            const measured = heldBladeYaw(shell);
-            const off = Math.atan2(Math.sin(measured - (d.vortexBladeYaw ?? measured)), Math.cos(measured - (d.vortexBladeYaw ?? measured)));
-            d.vortexBladeYaw = (d.vortexBladeYaw ?? measured) + off * Math.min(1, dt * 10);
-          }
-        }
-        // badly off balance: the whole knight sways as he fights to keep his feet (never his aim); dizzy after a
-        // Vortex, he rocks more slowly, and it settles
-        const unsteady = Math.max(0, ((pb.stagger?.level ?? 0) - 45) / 55);
-        const dizzy = pb.alive ? Math.max(0, Math.min(1, ((pb.dizzyUntil ?? -Infinity) - serverNow) / ULTIMATES.vortex.dizzySec)) : 0;
-        const phase = (d.swayPhase ??= Math.random() * 6);
-        shell.visualInstance.root.rotation.z = (unsteady > 0 ? Math.sin(nowMs / 1000 * 5.3 + phase) * 0.06 * unsteady : 0)
-          + (dizzy > 0 ? Math.sin(nowMs / 1000 * 6.6 + phase) * 0.11 * dizzy : 0);
-        shell.visualInstance.root.rotation.x = dizzy > 0 ? Math.cos(nowMs / 1000 * 4.9 + phase) * 0.05 * dizzy : 0;
       }
+      // badly off balance: the whole knight sways as he fights to keep his feet (never his aim); dizzy after a
+      // Vortex, he rocks more slowly, and it settles
+      const unsteady = Math.max(0, ((pb.stagger?.level ?? 0) - 45) / 55);
+      const dizzy = pb.alive ? Math.max(0, Math.min(1, ((pb.dizzyUntil ?? -Infinity) - serverNow) / ULTIMATES.vortex.dizzySec)) : 0;
+      const phase = (d.swayPhase ??= Math.random() * 6);
+      shell.visualInstance.root.rotation.z = (unsteady > 0 ? Math.sin(nowMs / 1000 * 5.3 + phase) * 0.06 * unsteady : 0)
+        + (dizzy > 0 ? Math.sin(nowMs / 1000 * 6.6 + phase) * 0.11 * dizzy : 0);
+      shell.visualInstance.root.rotation.x = dizzy > 0 ? Math.cos(nowMs / 1000 * 4.9 + phase) * 0.05 * dizzy : 0;
+    }
 
-      const glowAge = (nowMs - (shell.hitGlowAt ?? -Infinity)) / 1000;
-      setHitGlow(shell, glowAge < HIT_GLOW.seconds ? 1 - glowAge / HIT_GLOW.seconds : 0);
+    const glowAge = (nowMs - (shell.hitGlowAt ?? -Infinity)) / 1000;
+    setHitGlow(shell, glowAge < HIT_GLOW.seconds ? 1 - glowAge / HIT_GLOW.seconds : 0);
 
-      const protectedNow = (pb.spawnProtectionUntil ?? 0) > serverNow;
-      const accentIntensity = protectedNow ? 2.8 : state === 'cast' ? 2.3 : 1.4;
-      if (shell.visualKind === 'fallback') {
-        if (!shell.visual?.visible && nowMs - (shell.createdAtMs ?? nowMs) > FALLBACK_GRACE_MS) revealRemoteFallback(shell);
-        animateFallbackRig(shell.fallbackRig, state, pb, serverNow, localTime);
-        shell.fallbackRig.userData.accentMaterial.emissiveIntensity = accentIntensity;
-      } else {
-        // the visor keeps its read (and flares for spawn protection); the gauntlet runes follow the palm sorcery
-        const sorcery = shell.visualInstance?.sorceryLevel?.() ?? 0;
-        setGlbAccent(shell.visualInstance, accentIntensity, (protectedNow ? 1.6 : 0.6) + 1.8 * sorcery);
-      }
+    const protectedNow = (pb.spawnProtectionUntil ?? 0) > serverNow;
+    const accentIntensity = protectedNow ? 2.8 : state === 'cast' ? 2.3 : 1.4;
+    if (shell.visualKind === 'fallback') {
+      if (!shell.visual?.visible && nowMs - (shell.createdAtMs ?? nowMs) > FALLBACK_GRACE_MS) revealRemoteFallback(shell);
+      animateFallbackRig(shell.fallbackRig, state, pb, serverNow, localTime);
+      shell.fallbackRig.userData.accentMaterial.emissiveIntensity = accentIntensity;
+    } else {
+      // the visor keeps its read (and flares for spawn protection); the gauntlet runes follow the palm sorcery
+      const sorcery = shell.visualInstance?.sorceryLevel?.() ?? 0;
+      setGlbAccent(shell.visualInstance, accentIntensity, (protectedNow ? 1.6 : 0.6) + 1.8 * sorcery);
     }
   }
 
   dispose() {
-    for (const shell of this.rigs.values()) {
+    for (const shell of [...this.rigs.values(), ...(this.self ? [this.self] : [])]) {
       setHitGlow(shell, 0);
       this.scene.remove(shell.root);
       shell.steelSheen?.dispose();
