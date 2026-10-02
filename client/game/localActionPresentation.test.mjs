@@ -70,11 +70,15 @@ test('a Blazing Vortex has both hands from the moment it is lit to the end of it
   assert.equal(localWeaponReleaseForSnapshot(sundering, 10.2), null);
 });
 
-test('what is held is sent with the movement, for a Vortex to be steered by: the attack, and the spell\'s key', async () => {
+test('what is held is sent with the movement, for a Vortex to be steered by: the attack and the guard, on keys and on a touch screen alike', async () => {
   const { readFileSync } = await import('node:fs');
   const input = readFileSync(new URL('./InputController.mjs', import.meta.url), 'utf8');
   assert.match(input, /attack: this\.attackHeld,/);
-  assert.match(input, /spell: this\.held\('spell'\) \|\| Boolean\(touch\?\.spell\),/);
+  assert.match(input, /guard: this\.guardHeld,/);
+  // the touch buttons are the same two holds (they set the same two states), so a phone steers it the same way
   const touch = readFileSync(new URL('./TouchControls.mjs', import.meta.url), 'utf8');
-  assert.match(touch, /spell: \[\.\.\.this\.held\.values\(\)\]\.includes\('spell'\),/);
+  assert.match(touch, /if \(action === 'attack'\) this\.input\.setAttack\(true\);/);
+  assert.match(touch, /if \(action === 'guard'\) this\.input\.setGuard\(true\);/);
+  assert.match(touch, /if \(action === 'attack'\) this\.input\.setAttack\(false\);/);
+  assert.match(touch, /if \(action === 'guard'\) this\.input\.setGuard\(false\);/);
 });

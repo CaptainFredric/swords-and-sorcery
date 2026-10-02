@@ -44,8 +44,10 @@ export const ULTIMATES = Object.freeze({
   //
   // What it is, the knight steers with what they hold (`emphasis`, -1..1, moving between them over `emphasisSec`):
   //   nothing held, or both: balanced;
-  //   the attack held: the blade (it spins faster, hangs in the air longest, and its fire is a weak ember);
-  //   the spell held: the fire (it spins slower, falls sooner, and its fire is a small, serious Fireball).
+  //   the guard held (the right hand's button: there is no guard to raise while it spins): the blade (it spins
+  //   faster, hangs in the air longest, and its fire is a weak ember);
+  //   the attack held (the left: as one looses a shot): the fire (it spins slower, falls sooner, and its fire is a
+  //   small, serious Fireball).
   // One measure, eased: there is no having the fastest blade and the strongest fire at once, and nothing to gain by
   // flicking between them. A guard catches its first contacts and is then broken through (no perfect guard turns a
   // blade that is already coming round again). Then a short recovery, and a dizzy moment that is only seen.
@@ -126,11 +128,11 @@ export function dizzy(player, nowSec) {
   return nowSec < (player?.dizzyUntil ?? -Infinity);
 }
 
-/** The emphasis a knight asks of their Vortex by what they hold: 1 the blade (attack), -1 the fire (spell), 0 balanced (neither, or both). */
+/** The emphasis a knight asks of their Vortex by what they hold: 1 the blade (guard), -1 the fire (attack), 0 balanced (neither, or both). */
 export function vortexEmphasisWanted(input) {
-  const attack = Boolean(input?.attack);
-  const spell = Boolean(input?.spell);
-  return attack === spell ? 0 : attack ? 1 : -1;
+  const fire = Boolean(input?.attack);
+  const blade = Boolean(input?.guard);
+  return fire === blade ? 0 : blade ? 1 : -1;
 }
 
 /** A Vortex's emphasis `dt` seconds on: moved toward what is wanted, evenly, never faster than `emphasisSec` allows. */

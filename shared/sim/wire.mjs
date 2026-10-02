@@ -139,7 +139,7 @@ export function applyRoomCommand(room, player, message, time) {
         crouch: Boolean(message.crouch),
         // (what is held, beside the presses themselves: a Vortex is steered by it)
         attack: Boolean(message.attack),
-        spell: Boolean(message.spell),
+        guard: Boolean(message.guard),
         yaw: Number.isFinite(message.yaw) ? message.yaw : player.yaw,
         pitch: Number.isFinite(message.pitch) ? Math.max(-1.45, Math.min(1.45, message.pitch)) : player.pitch,
       };

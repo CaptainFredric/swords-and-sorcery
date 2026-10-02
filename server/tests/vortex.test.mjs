@@ -73,9 +73,10 @@ const pinned = (b, distance) => () => {
 
 const cuts = (events, victim = 'b') => events.filter((e) => e.type === 'damage' && e.source === 'vortex' && e.victimId === victim);
 
-// what a holds (the host reads it from their input): 'attack' the blade, 'spell' the fire, 'both', or nothing
+// what a holds (the host reads it from their input): 'blade' (the guard's button), 'fire' (the attack's), 'both', or
+// nothing
 const hold = (a, what = null, extra = {}) => {
-  a.input = { ...a.input, attack: what === 'attack' || what === 'both', spell: what === 'spell' || what === 'both', ...extra };
+  a.input = { ...a.input, guard: what === 'blade' || what === 'both', attack: what === 'fire' || what === 'both', ...extra };
 };
 
 const fires = (events) => events.filter((e) => e.type === 'projectileSpawned');
@@ -197,11 +198,12 @@ test('it moves faster than a run and slower than a sprint, and sprinting adds no
   assert.equal(a.sprinting, false);
 });
 
-test('the knight steers it by what they hold, as the host reads it: the attack for the blade, the spell for the fire, neither or both balanced', () => {
+test('the knight steers it by what they hold, as the host reads it: the guard\'s button for the blade, the attack\'s for the fire, neither or both balanced', () => {
   assert.equal(vortexEmphasisWanted({}), 0);
-  assert.equal(vortexEmphasisWanted({ attack: true }), 1);
-  assert.equal(vortexEmphasisWanted({ spell: true }), -1);
-  assert.equal(vortexEmphasisWanted({ attack: true, spell: true }), 0, 'both: balanced, never both bonuses');
+  assert.equal(vortexEmphasisWanted({ guard: true }), 1, 'the guard\'s button: the blade');
+  assert.equal(vortexEmphasisWanted({ attack: true }), -1, 'the attack\'s: the fire');
+  assert.equal(vortexEmphasisWanted({ attack: true, guard: true }), 0, 'both: balanced, never both bonuses');
+  assert.equal(vortexEmphasisWanted({ spell: true }), 0, 'the spell\'s key steers nothing');
   const steered = (what) => {
     const { room, a } = duel({ distance: 30 });
     const committed = spin(room, a, () => hold(a, null));
@@ -209,13 +211,13 @@ test('the knight steers it by what they hold, as the host reads it: the attack f
     return a.ultimateState.emphasis;
   };
   assert.equal(steered(null), 0);
-  assert.equal(steered('attack'), 1);
-  assert.equal(steered('spell'), -1);
+  assert.equal(steered('blade'), 1);
+  assert.equal(steered('fire'), -1);
   assert.equal(steered('both'), 0);
   // it is the host's reading: on the wire for the knight's own view, never taken from them
   const { room, a } = duel({ distance: 30 });
   const committed = spin(room, a);
-  run(room, committed + TICK * 2, committed + 1, () => hold(a, 'attack'));
+  run(room, committed + TICK * 2, committed + 1, () => hold(a, 'blade'));
   const me = serializeSnapshot(room, committed + 1).players.find((p) => p.id === 'a');
   assert.equal(me.ultimateState.emphasis, 1);
   // each emphasis is its own thing
@@ -241,7 +243,7 @@ test('the emphasis is eased: it takes a moment to come round, and flicking betwe
   let fastest = 0;
   run(room, committed + TICK * 2, committed + 2, () => {
     on = !on;
-    hold(a, on ? 'attack' : 'spell');
+    hold(a, on ? 'blade' : 'fire');
     most = Math.max(most, Math.abs(a.ultimateState.emphasis));
     fastest = Math.max(fastest, a.ultimateState.rate);
   });
@@ -257,7 +259,7 @@ test('the emphasis is eased: it takes a moment to come round, and flicking betwe
   for (let i = 1; i < path.length; i += 1) assert.ok(Math.abs(path[i] - path[i - 1]) <= TICK / vortex.emphasisSec + 1e-9);
 });
 
-test('the blade holds the attack to spin faster and the spell to spin slower: the host turns it at the pace it is steered to', () => {
+test('steered to the blade it spins faster, to the fire slower: the host turns it at the pace it is steered to', () => {
   const turns = (what) => {
     const { room, a } = duel({ distance: 30 });
     const committed = spin(room, a, () => hold(a, what));
@@ -266,7 +268,7 @@ test('the blade holds the attack to spin faster and the spell to spin slower: th
     run(room, committed + 1 + TICK, committed + 2, () => hold(a, what));
     return (a.ultimateState.angle - from) / (2 * Math.PI);
   };
-  const [balanced, blade, fire] = [null, 'attack', 'spell'].map(turns);
+  const [balanced, blade, fire] = [null, 'blade', 'fire'].map(turns);
   assert.ok(Math.abs(balanced - vortex.balanced.revPerSec) < 0.2, `balanced: ${balanced.toFixed(2)} turns a second`);
   assert.ok(Math.abs(blade - vortex.blade.revPerSec) < 0.2, `the blade: ${blade.toFixed(2)}`);
   assert.ok(Math.abs(fire - vortex.fire.revPerSec) < 0.2, `the fire: ${fire.toFixed(2)}`);
@@ -295,7 +297,7 @@ test('it falls slowly, slowest on the blade and soonest on the fire, and never r
     return { fell: 30 - a.position.y, fastest, highest };
   };
   const plain = drop(null, false);
-  const [balanced, blade, fire] = [null, 'attack', 'spell'].map((what) => drop(what));
+  const [balanced, blade, fire] = [null, 'blade', 'fire'].map((what) => drop(what));
   for (const [name, fall, tune] of [['balanced', balanced, vortex.balanced], ['blade', blade, vortex.blade], ['fire', fire, vortex.fire]]) {
     assert.ok(fall.fell > 1, `${name}: gravity still matters: fell ${fall.fell.toFixed(2)} m`);
     assert.ok(fall.fell < plain.fell * 0.8, `${name}: slower than a plain fall: ${fall.fell.toFixed(2)} m against ${plain.fell.toFixed(2)} m`);
@@ -305,7 +307,7 @@ test('it falls slowly, slowest on the blade and soonest on the fire, and never r
   assert.ok(blade.fell < balanced.fell && balanced.fell < fire.fell, `the blade hangs longest: ${blade.fell.toFixed(2)} < ${balanced.fell.toFixed(2)} < ${fire.fell.toFixed(2)} m`);
   // and hammering the jump the whole way through, on any emphasis, gains no height beyond one ordinary jump
   const oneJump = MOVEMENT.jumpImpulse ** 2 / (2 * MOVEMENT.gravity);
-  for (const what of [null, 'attack', 'spell']) {
+  for (const what of [null, 'blade', 'fire']) {
     const { room, a } = duel({ distance: 30 });
     const committed = spin(room, a);
     let top = 0;
@@ -346,21 +348,21 @@ test('a knight who stays within its inner reach is cut for thirty a turn and is 
   assert.equal(balanced.a.prowess, 0);
   assert.ok(balanced.hits.every((e) => e.ultimate === true));
   // on the blade: quicker, by turning faster (each cut is the same cut), and still never faster than its cadence
-  const blade = stays('attack');
+  const blade = stays('blade');
   assert.ok(blade.took < balanced.took, `the blade: ${blade.took.toFixed(2)} s against ${balanced.took.toFixed(2)} s`);
   assert.ok(blade.took <= 0.85);
   assert.ok(blade.hits.every((e) => e.amount <= vortex.contact.damage));
   for (let i = 1; i < blade.hits.length; i += 1) assert.ok(blade.hits[i].at - blade.hits[i - 1].at >= vortex.contact.everySec - 1e-6);
   assert.ok(vortex.contact.everySec <= 1 / vortex.blade.revPerSec, 'its cadence lets the fastest blade cut once a turn');
   // on the fire the blade is as sharp, and comes round less often
-  const fire = stays('spell');
+  const fire = stays('fire');
   assert.equal(fire.hits[0].amount, vortex.contact.damage);
   assert.ok(fire.took > balanced.took);
 });
 
 test('the sword is a blade, not an aura: out of its reach nothing is cut, at its tip less, and a wall between spares them', () => {
   const far = duel({ distance: 4 });
-  const up = (a) => { a.input = { ...a.input, pitch: 1.4, yaw: a.yaw, attack: true }; };
+  const up = (a) => { a.input = { ...a.input, pitch: 1.4, yaw: a.yaw, guard: true }; };
   const committed = spin(far.room, far.a, pinned(far.b, 4));
   run(far.room, committed + TICK * 2, committed + 3, () => { pinned(far.b, 4)(); up(far.a); });
   assert.equal(cuts(far.room.events).length, 0, 'four metres off: never cut, however fast it spins');
@@ -392,7 +394,7 @@ test('what the blade clips of the world rings and does not stop it; it is not ru
   };
   a.prowess = PROWESS.full;
   tryUltimate(room, 'a', 9);
-  const each = () => { pinned(b, 1.9)(); Object.assign(a.position, { x: 0, z: 0 }); hold(a, 'attack', { pitch: 1.4, yaw: a.yaw, forward: 0, right: 0 }); };
+  const each = () => { pinned(b, 1.9)(); Object.assign(a.position, { x: 0, z: 0 }); hold(a, 'blade', { pitch: 1.4, yaw: a.yaw, forward: 0, right: 0 }); };
   run(room, 9, 9 + vortex.startupSec + 4, each, world);
   const rings = room.events.filter((e) => e.type === 'vortexWorldContact');
   assert.ok(rings.length >= 5, `it rings: ${rings.length} contacts in four seconds`);
@@ -420,7 +422,7 @@ test('what the blade clips of the world rings and does not stop it; it is not ru
   const slow = duel({ distance: 20 });
   slow.a.prowess = PROWESS.full;
   tryUltimate(slow.room, 'a', 9);
-  run(slow.room, 9, 9 + vortex.startupSec + 4, () => { Object.assign(slow.a.position, { x: 0, z: 0 }); hold(slow.a, 'spell', { pitch: 1.4, yaw: slow.a.yaw, forward: 0, right: 0 }); }, world);
+  run(slow.room, 9, 9 + vortex.startupSec + 4, () => { Object.assign(slow.a.position, { x: 0, z: 0 }); hold(slow.a, 'fire', { pitch: 1.4, yaw: slow.a.yaw, forward: 0, right: 0 }); }, world);
   const offWall = slow.room.events.filter((e) => e.type === 'vortexWorldContact' && e.surfaceId === 'wall');
   const passes = Math.ceil(4 * vortex.balanced.revPerSec);
   assert.ok(offWall.length >= 2 && offWall.length <= passes, `${offWall.length} rings off the wall in at most ${passes} passes`);
@@ -486,7 +488,7 @@ test('a cut leaves a scorch: a little more, over a moment, begun again by the ne
   const hold2 = () => {
     pinned(kept.b, 1.4)();
     kept.b.health = 100;
-    kept.a.input = { ...kept.a.input, pitch: 1.4, yaw: kept.a.yaw, attack: true };
+    kept.a.input = { ...kept.a.input, pitch: 1.4, yaw: kept.a.yaw, guard: true };
     const burn = kept.b.burn;
     if (burn) most = Math.max(most, burn.perLick * burn.licksLeft);
   };
@@ -566,8 +568,8 @@ test('its fire is thrown where the knight aims, on a limited clock, by the host:
   assert.ok(!balanced.room.events.some((e) => e.type === 'damage' && e.source === 'burn'), 'and leave no burn');
   assert.equal(cuts(balanced.room.events).length, 0, 'twelve metres off, the sword never reached');
   // on the blade: the weakest, and fewer; on the fire: the strongest and largest; all of them still along the aim
-  const blade = thrown('attack');
-  const fire = thrown('spell');
+  const blade = thrown('blade');
+  const fire = thrown('fire');
   const kinds = (run) => [...new Set(run.spawned.filter((e) => e.at > run.committed + 1).map((e) => e.projectile.spell))];
   assert.deepEqual(kinds(blade), ['ember']);
   assert.deepEqual(kinds(fire), ['vortexBlaze']);

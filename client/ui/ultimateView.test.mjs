@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { ultimateView } from './ultimateView.mjs';
+import { ultimateView, vortexHint } from './ultimateView.mjs';
 import { PROWESS } from '../../shared/src/prowess.mjs';
 
 test('the ultimate tile: filling, ready, bracing, running (seconds left), and a moment locked after an interruption', () => {
@@ -55,4 +55,11 @@ test('in the Practice Yard the tile says READY whenever the key would work: the 
   const after = ultimateView({ prowess: 0, recoverUntil: 10.4 }, 10, { practice: true });
   assert.deepEqual([after.state, after.label], ['locked', '0.4']);
   assert.equal(ultimateView({ prowess: 0, ultimateLockedUntil: 12 }, 10, { practice: true }).state, 'locked');
+});
+
+test('the line under a Vortex\'s name says how it is steered, by the buttons the player has', () => {
+  assert.equal(vortexHint({ bindings: { attack: ['Mouse0'], guard: ['Mouse2'] } }), 'LEFT CLICK — FIRE   ·   RIGHT CLICK — BLADE');
+  assert.equal(vortexHint({ bindings: { attack: ['KeyJ'], guard: ['KeyK'] } }), 'J — FIRE   ·   K — BLADE', 'rebound: their own keys');
+  assert.equal(vortexHint({ touch: true, bindings: { attack: ['Mouse0'], guard: ['Mouse2'] } }), 'ATTACK — FIRE   ·   GUARD — BLADE', 'on a touch screen: the buttons\' names');
+  assert.equal(vortexHint({ bindings: {} }), 'ATTACK — FIRE   ·   GUARD — BLADE');
 });
