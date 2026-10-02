@@ -351,7 +351,7 @@ function updateMovement(actor, target, distance, ai, aggression, world, nowSec, 
   actor.yaw = yaw;
   actor.pitch = 0;
   let pitch = 0;
-  let held = { attack: false, spell: false };
+  let held = { attack: false, guard: false };
   let fleeing = false;
 
   let forward = distance > MELEE_RANGE * 0.85 ? Math.max(0.45, aggression) : 0;
@@ -425,7 +425,8 @@ function updateMovement(actor, target, distance, ai, aggression, world, nowSec, 
     pitch = Math.asin(Math.max(-1, Math.min(1, aimDirection(actor, target).y)));
     actor.pitch = pitch;
     // and steers it by how far off they are: the blade up close, the fire from further off, balanced between
-    held = { attack: distance <= VORTEX_STEER.blade, spell: distance >= VORTEX_STEER.fire };
+    // (the guard's button is the blade's, the attack's the fire's: ultimates.mjs vortexEmphasisWanted)
+    held = { guard: distance <= VORTEX_STEER.blade, attack: distance >= VORTEX_STEER.fire };
   }
 
   const escapeExpired = ai.escapeUntil !== -Infinity && nowSec >= ai.escapeUntil;

@@ -1,5 +1,6 @@
 import { PROWESS } from '../../shared/src/prowess.mjs';
 import { ultimateFor, vortexTune } from '../../shared/src/ultimates.mjs';
+import { keyLabel } from '../settings/settingsRegistry.mjs';
 
 // What the ultimate's tile and button show, from a knight's snapshot: its state, how full the meter is (0..1), and the
 // words for the tile. Pure, so it is tested.
@@ -28,4 +29,19 @@ export function ultimateView(local, serverNow, { practice = false } = {}) {
   if (locked > 0.01) return { state: 'locked', charge, label: locked.toFixed(1), ultimate };
   if (charge >= 1 || practice) return { state: 'ready', charge: 1, label: 'READY', ultimate };
   return { state: 'charging', charge, label: `${Math.floor(charge * 100)}%`, ultimate };
+}
+
+// how a held button reads in the hint: the mouse's buttons as a player says them, any other key as its key chip does
+const HELD_WORDS = Object.freeze({ Mouse0: 'LEFT CLICK', Mouse2: 'RIGHT CLICK', Mouse1: 'MIDDLE CLICK' });
+
+/**
+ * The line under a Vortex's name as it is lit: how it is steered. Hold the attack for the fire, the guard for the
+ * blade: said by the buttons the player has (their own bindings; on a touch screen, the buttons' names).
+ */
+export function vortexHint({ touch = false, bindings = {} } = {}) {
+  const word = (action, fallback) => {
+    const code = touch ? null : bindings[action]?.[0];
+    return code ? HELD_WORDS[code] ?? keyLabel(code).toUpperCase() : fallback;
+  };
+  return `${word('attack', 'ATTACK')} — FIRE   ·   ${word('guard', 'GUARD')} — BLADE`;
 }

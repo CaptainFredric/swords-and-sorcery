@@ -125,8 +125,6 @@ export class TouchControls {
       jump: this.jumpHeld || performance.now() < this.jumpUntil,
       sprint: this.stickState.sprint || (this.sprintLatched && moving),
       crouch: Boolean(this.crouchLatched),
-      // (a finger resting on the spell's button: held, for a Vortex to be steered by)
-      spell: [...this.held.values()].includes('spell'),
     };
   }
 

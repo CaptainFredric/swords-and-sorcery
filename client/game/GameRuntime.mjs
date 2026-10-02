@@ -50,6 +50,7 @@ import {
 import { VIEW_LAYER, everywhere } from './viewLayers.mjs';
 import { LocalBladeSweep } from './localBladeSweep.mjs';
 import { aimVector, chaseAim, chaseCamera, chaseLimit, chaseWanted, reticleDistance, stepChase } from './vortexCamera.mjs';
+import { vortexHint } from '../ui/ultimateView.mjs';
 
 // the sun's shadows cover this far around you (a box this many metres from the middle to each side), and follow you:
 // crisp where you fight instead of soft over the whole arena
@@ -1031,7 +1032,7 @@ export class GameRuntime {
           this.localState.grounded = false;
         }
         // its name, and under it (for this once) how it is steered; after that the tile says what it is doing
-        this.hud.flashText('BLAZING VORTEX', 'vortex', 1900, 'ATTACK — BLADE   ·   SPELL — FIRE');
+        this.hud.flashText('BLAZING VORTEX', 'vortex', 1900, vortexHint({ touch: Boolean(this.touch), bindings: this.input.bindings }));
       }
       return;
     }
