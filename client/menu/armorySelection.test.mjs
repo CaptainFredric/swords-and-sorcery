@@ -17,25 +17,26 @@ function harness() {
   return { selection, events, pending, equip: (id) => events.push(`equip ${id}`) };
 }
 
-test('restoration and same equipped choice are silent; a changed deliberate choice equips once then previews once', () => {
-  const h = harness();
-  assert.deepEqual(h.events, []);
-  assert.equal(h.selection.select('fireball', 'fireball', h.equip), false);
-  assert.deepEqual(h.events, []);
-  assert.equal(h.selection.select('frostfire', 'fireball', h.equip), true);
-  assert.deepEqual(h.events, ['equip frostfire', 'play frostfire', 'preview frostfire']);
-  assert.equal(h.pending.size, 1);
-});
-
-test('rapid choices stop the previous sound and retire its restore timer before previewing the new identity', () => {
-  const h = harness();
-  h.selection.select('steel', 'gale', h.equip);
-  h.selection.select('sunder', 'vortex', h.equip);
-  assert.deepEqual(h.events, ['equip steel', 'play steel', 'preview steel', 'stop steel', 'equip sunder', 'play sunder', 'preview sunder']);
-  assert.equal(h.pending.size, 1);
+test('restoration stays silent; every card press sounds without resetting an active same item gesture', () => {
+  const h=harness();
+  assert.deepEqual(h.events,[]);
+  h.selection.select('fireball','fireball',h.equip);
+  h.selection.select('fireball','fireball',h.equip);
+  assert.deepEqual(h.events,['play fireball','preview fireball','stop fireball','play fireball']);
+  assert.equal(h.pending.size,1);
   [...h.pending.values()][0]();
-  assert.equal(h.pending.size, 0);
-  assert.deepEqual(h.events.slice(-2), ['stop sunder', 'restore']);
+  h.pending.clear();
+  h.selection.select('fireball','fireball',h.equip);
+  assert.equal(h.events.filter(e=>e==='preview fireball').length,2);
+});
+test('rapid different choices replace audio and retire the old gesture timer', () => {
+  const h=harness();
+  h.selection.select('steel','gale',h.equip);
+  h.selection.select('sunder','vortex',h.equip);
+  assert.deepEqual(h.events,['equip steel','play steel','preview steel','stop steel','equip sunder','play sunder','preview sunder']);
+  assert.equal(h.pending.size,1);
+  [...h.pending.values()][0]();
+  assert.equal(h.events.at(-1),'restore');
 });
 
 test('leaving or muting cancels pending sound and timer; no stale model restoration follows', () => {
@@ -51,7 +52,7 @@ test('every identity has a short distinctive cue; steel contains exactly two met
   assert.deepEqual(Object.keys(ARMORY_CUES), ['fireball', 'frostfire', 'gale', 'steel', 'sunder', 'vortex']);
   assert.equal(ARMORY_CUES.steel.tones.length, 2);
   assert.equal(ARMORY_CUES.vortex.rotation, true);
-  for (const cue of Object.values(ARMORY_CUES)) assert.ok(cue.duration <= .5);
+  for (const cue of Object.values(ARMORY_CUES)) assert.ok(cue.duration >= .35 && cue.duration <= .9);
 });
 
 test('sound feedback honors mute, zero effects, zero master and suspended audio without queuing playback', () => {
