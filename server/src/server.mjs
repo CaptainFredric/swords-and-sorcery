@@ -1,3 +1,4 @@
+import { applySavedLoadout } from './savedLoadout.mjs';
 import http from 'node:http';
 import { ProfileStore, assessMatchReward } from './ProfileStore.mjs';
 import fs from 'node:fs';
@@ -147,7 +148,7 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
   function createNetworkPlayer(session, room, name) {
     const id = crypto.randomUUID();
     const token = crypto.randomUUID();
-    return room.addPlayer({ id, token, name, spell: session.spell, ultimate: session.ultimate }, now());
+    return room.addPlayer({ id, token, name, spell: session.spell, ultimate: session.ultimate, preparedSpells: session.preparedSpells }, now());
   }
 
   function joinNew(session, room, name) {
@@ -275,13 +276,8 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
       return;
     }
     if (message.type === 'loadout') {
-      // the Armory's choice: kept for every room this connection joins, and taken up at once if already in one
-      session.spell = isSpell(message.spell) ? message.spell : DEFAULT_SPELL;
-      session.ultimate = isUltimate(message.ultimate) ? message.ultimate : DEFAULT_ULTIMATE;
-      const player = sessionRoom(session)?.players.get(session.playerId);
-      if (player && !player.pendingSpell) player.spell = session.spell;
-      // (an ultimate already under way keeps its own; the next is the new choice)
-      if (player && !player.ultimateState) player.ultimate = session.ultimate;
+      const room = sessionRoom(session);
+      applySavedLoadout(session, room, room?.players.get(session.playerId), message);
       return;
     }
     if (message.type === 'seekDuel') {

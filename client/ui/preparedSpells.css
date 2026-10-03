@@ -1,0 +1,22 @@
+.prepared-spells { position:absolute; left:50%; bottom:138px; transform:translateX(-50%); color:#e6ded0; font:10px system-ui,sans-serif; text-align:center; pointer-events:none; width:260px; }
+.prepared-spells[hidden], .touch-prepared-fan[hidden] { display:none; }
+.prepared-spells>small { display:block; letter-spacing:.16em; font-size:9px; color:#d7c58f; margin-bottom:5px; }
+.prepared-spells>small>b { font-variant-numeric:tabular-nums; margin-left:8px; color:#fff2c6; }
+.prepared-spell-row { display:flex; gap:5px; justify-content:center; align-items:center; }
+.prepared-spell { display:grid; grid-template-columns:20px 1fr; gap:2px 4px; align-items:center; width:73px; padding:5px; background:rgba(15,24,29,.86); border:1px solid rgba(164,191,192,.35); border-radius:5px; opacity:.78; }
+.prepared-spell svg { width:20px; height:20px; grid-row:span 2; }
+.prepared-spell span { white-space:nowrap; font-size:9px; }
+.prepared-spell b { font-size:8px; color:#b6e0d7; font-variant-numeric:tabular-nums; }
+.prepared-spell.current { width:86px; min-height:34px; border-color:#ccb87c; opacity:1; }
+.prepared-spell.cooling b { color:#b0a79d; }
+.prepared-spell.highlighted { border-color:#90f2e6; box-shadow:0 0 9px rgba(122,240,222,.3); opacity:1; }
+.prepared-spells>em { display:block; font-style:normal; font-size:8px; letter-spacing:.07em; margin-top:5px; opacity:.7; }
+.prepared-spells.cancelled>em { color:#e9b49c; }
+.touch-prepared-fan { position:absolute; width:0; height:0; pointer-events:none; z-index:8; }
+.touch-prepared-slot { position:absolute; display:grid; justify-items:center; align-content:center; width:62px; min-height:60px; transform:translate(-50%,-50%); border-radius:12px; background:rgba(15,24,29,.94); border:1px solid #8ea8a8; color:#f1e7d4; font:9px system-ui,sans-serif; }
+.touch-prepared-slot svg { width:26px; height:26px; }
+.touch-prepared-slot b { color:#afdcd4; font-size:8px; }
+.touch-prepared-slot.cooling b { color:#b0a79d; }
+.touch-prepared-slot.highlighted, .chivalry-prepared .touch-spell.prepared-highlighted { border-color:#90f2e6; box-shadow:0 0 10px rgba(122,240,222,.4); }
+@media (pointer:coarse) { .prepared-spells { bottom:90px; width:235px; } .prepared-spells>em { display:none; } .prepared-spell { width:64px; } .prepared-spell.current { width:78px; } }
+@media (max-height:450px) { .prepared-spells { bottom:104px; } }

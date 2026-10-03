@@ -43,8 +43,9 @@ export class SettingsStore {
   /** Set a value (made valid first). Returns the value kept. */
   set(id, value) {
     const valid = this.registry.validate(id, value);
-    if (this.get(id) === valid && id in this.values) return valid;
-    this.values[id] = valid;
+    const current = this.get(id);
+    if (id in this.values && (current === valid || (Array.isArray(current) && Array.isArray(valid) && JSON.stringify(current) === JSON.stringify(valid)))) return valid;
+    this.values[id] = Array.isArray(valid) ? [...valid] : valid;
     this.#save();
     this.#emit({ type: 'setting', id, value: valid });
     return valid;

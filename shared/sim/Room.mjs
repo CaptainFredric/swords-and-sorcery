@@ -3,6 +3,7 @@ import { guardProfile } from '../src/combat.mjs';
 import { GAME_MODES, VOTE_OPTIONS, getModePolicy } from '../src/modes.mjs';
 import { WORLD_IDS, getWorld } from '../worlds/registry.mjs';
 import { DEFAULT_SPELL, SPELLS, isSpell } from '../src/spells.mjs';
+import { normalizePreparedSpells } from '../src/preparedSpells.mjs';
 import { freshStagger } from '../src/stagger.mjs';
 import { DEFAULT_ULTIMATE, ULTIMATES, isUltimate } from '../src/ultimates.mjs';
 
@@ -24,6 +25,7 @@ function freshCombatState(spawn, nowSec = 0) {
     health: 100,
     guardStamina: guardProfile().capacity,
     guarding: false,
+    guardHeld: false,
     guardStartedAt: -Infinity,
     lastGuardDrainAt: -Infinity,
     attackActive: false,
@@ -36,6 +38,8 @@ function freshCombatState(spawn, nowSec = 0) {
     attackRestartAt: -Infinity,
     staggerUntil: -Infinity,
     spellReadyAt: 0,
+    spellReadyById: {},
+    chivalryProjectileReadyAt: 0,
     gauntlet: null,
     gust: null,
     gauntletReadyAt: -Infinity,
@@ -96,7 +100,7 @@ export class Room {
     this.autoStartAfterSec = isPrivate ? AUTO_START_PRIVATE_SEC : AUTO_START_PUBLIC_SEC;
   }
 
-  addPlayer({ id, token, name, spell = DEFAULT_SPELL, ultimate = DEFAULT_ULTIMATE }, nowSec) {
+  addPlayer({ id, token, name, spell = DEFAULT_SPELL, ultimate = DEFAULT_ULTIMATE, preparedSpells = [] }, nowSec) {
     if (this.players.size >= 8) throw new Error('Room is full');
     const spawn = this.world.spawnPoints[this.players.size % this.world.spawnPoints.length];
     const player = {
@@ -117,6 +121,10 @@ export class Room {
       ...scoreFields(),
       ...freshCombatState(spawn, nowSec),
     };
+    player.startingSpell = player.spell;
+    player.preparedSpells = normalizePreparedSpells(player.startingSpell, preparedSpells);
+    player.startingPreparedSpells = [...player.preparedSpells];
+    player.startingUltimate = player.ultimate;
     this.players.set(id, player);
     this.emptySince = null;
     return player;
@@ -145,6 +153,10 @@ export class Room {
       ...scoreFields(),
       ...freshCombatState(spawn, nowSec),
     };
+    actor.startingSpell = actor.spell;
+    actor.preparedSpells = normalizePreparedSpells(actor.startingSpell, []);
+    actor.startingPreparedSpells = [...actor.preparedSpells];
+    actor.startingUltimate = actor.ultimate;
     this.players.set(id, actor);
     return actor;
   }
@@ -316,6 +328,7 @@ export class Room {
     player.attackNextStrike = 0;
     player.attackCommitted = 0;
     player.guarding = false;
+    player.guardHeld = false;
     player.pendingSpell = null;
     player.gauntlet = null;
     player.castEndsAt = 0;
@@ -423,6 +436,9 @@ export class Room {
     let i = 0;
     for (const player of this.players.values()) {
       const spawn = this.world.spawnPoints[i % this.world.spawnPoints.length];
+      player.spell = isSpell(player.startingSpell) ? player.startingSpell : player.spell;
+      player.preparedSpells = normalizePreparedSpells(player.spell, player.startingPreparedSpells ?? player.preparedSpells);
+      player.ultimate = isUltimate(player.startingUltimate) ? player.startingUltimate : player.ultimate;
       Object.assign(player, freshCombatState(spawn, nowSec));
       i += 1;
     }

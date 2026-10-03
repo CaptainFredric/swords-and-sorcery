@@ -154,3 +154,25 @@ test('the Armory keeps its choice here without becoming a Settings tab, and old 
   store.set('loadout.spell', 'lightning');
   assert.equal(store.get('loadout.spell'), 'fireball', 'an unknown spell falls back to the default');
 });
+
+test('prepared spells validate as three legal unique identities and are stored as independent arrays', () => {
+  assert.deepEqual(registry.defaultBindings().guard, ['Mouse2', 'KeyG']);
+  assert.equal(registry.validate('loadout.ultimate', 'chivalry'), 'chivalry');
+  const storage = memoryStorage();
+  const store = new SettingsStore({ registry, storage });
+  assert.deepEqual(store.get('loadout.preparedSpells'), ['fireball', 'frostfire', 'gale']);
+  store.set('loadout.preparedSpells', ['steel', 'gale', 'frostfire']);
+  const returned = store.get('loadout.preparedSpells');
+  returned[0] = 'fireball';
+  assert.deepEqual(store.get('loadout.preparedSpells'), ['steel', 'gale', 'frostfire']);
+  assert.deepEqual(new SettingsStore({ registry, storage }).get('loadout.preparedSpells'), ['steel', 'gale', 'frostfire']);
+  store.set('loadout.preparedSpells', ['steel', 'steel', 'bogus']);
+  const normalized = store.get('loadout.preparedSpells');
+  assert.equal(normalized.length, 3);
+  assert.equal(new Set(normalized).size, 3);
+  assert.equal(normalized[0], 'steel');
+});
+
+test('prepared validator keeps all valid identities when corrupt entries precede them', () => {
+  assert.deepEqual(registry.validate('loadout.preparedSpells', ['corrupt', 'steel', 'gale', 'frostfire']), ['steel', 'gale', 'frostfire']);
+});

@@ -1,4 +1,5 @@
 import { recordArenaKey, releaseHeldInputs } from './inputRelease.mjs';
+import { PREPARED_HOLD_MS, PreparedSpellSelector, preparedSpellView } from './preparedSpellSelector.mjs';
 import { registry } from '../settings/settingsRegistry.mjs';
 
 // what pressing and letting go of each action does (held movement keys are read by movement() instead); any other
@@ -22,9 +23,18 @@ const HELD = new Set(['forward', 'back', 'left', 'right', 'jump', 'sprint']);
 const MENU_ACTIONS = new Set(['toggleSound', 'toggleMusic']);
 
 export class InputController {
-  constructor(element, socket) {
+  constructor(element, socket, {
+    setTimer = (callback, milliseconds) => globalThis.setTimeout(callback, milliseconds),
+    clearTimer = (timer) => globalThis.clearTimeout(timer),
+  } = {}) {
     this.element = element;
     this.socket = socket;
+    this.setTimer = setTimer;
+    this.clearTimer = clearTimer;
+    this.guardSources = new Set();
+    this.prepared = { visible: false };
+    this.preparedGesture = null;
+    this.onPreparedSelector = () => {};
     this.keys = new Set();
     this.yaw = 0;
     this.pitch = 0;
@@ -54,6 +64,7 @@ export class InputController {
 
   /** Settings: { mouse, touch, invertY, bindings: { action: [codes] } }. */
   configure({ mouse = this.look.mouse, touch = this.look.touch, invertY = this.look.invertY, bindings = this.bindings } = {}) {
+    this.releaseInputs();
     this.look = { mouse, touch, invertY: Boolean(invertY) };
     this.bindings = bindings;
     this.#index();
@@ -73,14 +84,20 @@ export class InputController {
   #press(code, repeat = false) {
     const action = this.actionOf.get(code);
     if (!action || repeat || HELD.has(action) || MENU_ACTIONS.has(action)) return;
-    if (PRESS[action]) PRESS[action](this);
+    if (action === 'guard') this.setGuard(this.held('guard'), 'desktop');
+    else if (action === 'attack') this.setAttack(this.held('attack'));
+    else if (action === 'spell' && this.prepared.visible) this.beginPreparedGesture();
+    else if (PRESS[action]) PRESS[action](this);
     else if (!RELEASE[action]) this.onAction(action, true);
   }
 
   #release(code) {
     const action = this.actionOf.get(code);
     if (!action || HELD.has(action) || MENU_ACTIONS.has(action)) return;
-    if (RELEASE[action]) RELEASE[action](this);
+    if (action === 'guard') this.setGuard(this.held('guard'), 'desktop');
+    else if (action === 'attack') this.setAttack(this.held('attack'));
+    else if (action === 'spell') { if (!this.held('spell')) this.finishPreparedGesture(); }
+    else if (RELEASE[action]) RELEASE[action](this);
     else if (!PRESS[action]) this.onAction(action, false);
   }
 
@@ -91,10 +108,10 @@ export class InputController {
       this.#setEnabled(this.pointerLocked);
     });
 
-    window.addEventListener('blur', () => releaseHeldInputs(this));
+    window.addEventListener('blur', () => this.releaseInputs());
     document.addEventListener('visibilitychange', () => {
       if (!document.hidden) return;
-      releaseHeldInputs(this);
+      this.releaseInputs();
       // leaving the app counts as leaving the arena, like losing pointer lock
       if (this.touchFocus) this.#setTouchFocus(false);
     });
@@ -103,11 +120,19 @@ export class InputController {
 
     document.addEventListener('mousemove', (event) => {
       if (!this.pointerLocked) return;
+      if (this.preparedGesture) {
+        this.preparedGesture.x += event.movementX;
+        this.preparedGesture.y += event.movementY;
+        this.preparedGesture.selector.move(this.preparedGesture.x, this.preparedGesture.y);
+        this.#showPreparedGesture();
+        return;
+      }
       const invert = this.look.invertY ? -1 : 1;
       this.turn(-event.movementX * 0.00235 * this.look.mouse, -event.movementY * 0.0021 * this.look.mouse * invert);
     });
 
     document.addEventListener('keydown', (event) => {
+      if (event.code === 'Escape') this.cancelPreparedGesture();
       if (!recordArenaKey(this.keys, event.code, this.enabled)) return;
       // a bound key belongs to the game while in the arena (Space would scroll, Tab would move focus)
       if (this.actionOf.has(event.code)) event.preventDefault();
@@ -119,7 +144,7 @@ export class InputController {
     });
 
     document.addEventListener('keyup', (event) => {
-      this.keys.delete(event.code);
+      if (!this.keys.delete(event.code)) return;
       this.#release(event.code);
     });
 
@@ -134,7 +159,7 @@ export class InputController {
     document.addEventListener('mouseup', (event) => {
       if (this.touchFocus) return;
       const code = `Mouse${event.button}`;
-      this.keys.delete(code);
+      if (!this.keys.delete(code)) return;
       this.#release(code);
     });
     document.addEventListener('contextmenu', (event) => event.preventDefault());
@@ -143,7 +168,7 @@ export class InputController {
   #setEnabled(enabled) {
     this.enabled = enabled;
     this.onPointer(this.enabled);
-    if (!this.enabled) releaseHeldInputs(this);
+    if (!this.enabled) this.releaseInputs();
   }
 
   #setTouchFocus(focused) {
@@ -179,15 +204,74 @@ export class InputController {
     this.onAttackLocal(this.attackHeld);
   }
 
-  setGuard(held) {
-    if (Boolean(held) === this.guardHeld) return;
-    this.guardHeld = Boolean(held);
+  setGuard(held, source = 'touch') {
+    if (held) this.guardSources.add(source);
+    else this.guardSources.delete(source);
+    const logical = this.guardSources.size > 0;
+    if (logical === this.guardHeld) return;
+    this.guardHeld = logical;
     this.socket.guard(this.guardHeld);
     this.onGuardLocal(this.guardHeld);
   }
 
+  releaseInputs() {
+    this.cancelPreparedGesture();
+    this.guardSources.clear();
+    releaseHeldInputs(this);
+  }
+
+  updatePreparedSpells(local, serverNow) {
+    this.prepared = preparedSpellView(local, serverNow);
+    if (!this.prepared.visible) this.cancelPreparedGesture();
+  }
+
+  beginPreparedGesture() {
+    if (!this.enabled || !this.prepared.visible || this.preparedGesture) return;
+    const selector = new PreparedSpellSelector(this.prepared.spells.map((spell) => spell.id), this.prepared.current);
+    const gesture = { selector, x: 0, y: 0, shown: false };
+    this.preparedGesture = gesture;
+    this.preparedTimer = this.setTimer(() => {
+      if (this.preparedGesture !== gesture) return;
+      gesture.shown = true;
+      this.#showPreparedGesture();
+    }, PREPARED_HOLD_MS);
+  }
+
+  #showPreparedGesture() {
+    const gesture = this.preparedGesture;
+    this.onPreparedSelector(gesture?.shown ? gesture.selector.view() : null);
+  }
+
+  cancelPreparedGesture() {
+    this.clearTimer(this.preparedTimer);
+    this.preparedTimer = null;
+    this.preparedGesture = null;
+    this.onPreparedSelector(null);
+  }
+
+  finishPreparedGesture() {
+    const gesture = this.preparedGesture;
+    if (!gesture) return;
+    const spell = gesture.shown ? gesture.selector.highlight : this.prepared.current;
+    this.cancelPreparedGesture();
+    if (spell) this.usePreparedSpell(spell);
+  }
+
+  usePreparedSpell(id) {
+    if (!this.enabled || !this.prepared.visible) return;
+    const spell = this.prepared.spells.find((entry) => entry.id === id);
+    if (!spell) return;
+    if (this.prepared.phase === 'startup') {
+      this.socket.selectPreparedSpell(id);
+      return;
+    }
+    this.socket.castPreparedSpell(id, this.lookDirection(), { yaw: this.yaw, pitch: this.pitch });
+    if (spell.available) this.onCastLocal({ spell: id, prepared: true });
+  }
+
   cast() {
     if (!this.enabled) return;
+    if (this.prepared.visible) { this.usePreparedSpell(this.prepared.current); return; }
     this.socket.cast(this.lookDirection());
     this.onCastLocal();
   }

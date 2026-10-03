@@ -1,0 +1,5 @@
+.prepared-row { display:flex; align-items:center; gap:12px; padding:8px 0; border-bottom:1px solid #ad925733; }
+.prepared-row span { width:95px; color:#d8bb7d; font-size:11px; letter-spacing:1px; }
+.prepared-row select { flex:1; min-width:0; padding:9px; color:#ede0c4; background:#201519; border:1px solid #b38d5360; font:inherit; }
+.prepared-row select:disabled { opacity:1; border-color:#d8bb7d; }
+#armory-prepared { padding:12px; margin-top:12px; border:1px solid #b38d5360; background:#51242a33; }

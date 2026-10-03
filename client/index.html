@@ -21,6 +21,8 @@
   <link rel="stylesheet" href="client/menu.css" />
   <link rel="stylesheet" href="client/mobile.css" />
   <link rel="stylesheet" href="client/renown.css" />
+  <link rel="stylesheet" href="client/ui/preparedSpells.css" />
+  <link rel="stylesheet" href="client/chivalry.css" />
   <script type="importmap">
     {
       "imports": {
@@ -92,6 +94,7 @@
         <div id="armory-spells" class="armory-spells" role="radiogroup" aria-label="Spell"></div>
         <p class="armory-slot">ULTIMATE · R</p>
         <div id="armory-ultimates" class="armory-spells" role="radiogroup" aria-label="Ultimate"></div>
+        <div id="armory-prepared" class="hidden"></div>
         <p class="panel-copy armory-note">Equipped for your next match.</p>
         </div>
         <div id="armory-heraldry" class="hidden">
@@ -193,10 +196,10 @@
           <span>E</span><b>Dash in your movement direction</b>
           <h3 class="controls-group">COMBAT</h3>
           <span>LMB</span><b>Hold for sword combos</b>
-          <span>RMB</span><b>Guard · time it with a hit to Parry</b>
+          <span>RMB / G</span><b>Guard · time it with a hit to Parry</b>
           <span>Q</span><b>Cast your equipped spell or ward</b>
           <span>R</span><b>Use your Ultimate when Prowess is full</b>
-          <span>Q · COOLING</span><b>Throw your gauntlet while the spell recovers</b>
+          <span>Q · COOLING</span><b>Throw your gauntlet while the spell recovers, except during Chivalry</b>
           <h3 class="controls-group">OTHER</h3>
           <span>TAB</span><b>Scoreboard</b>
           <span>M / N</span><b>Toggle sound / music</b>
@@ -214,7 +217,7 @@
           <span>MENU</span><b>Arena menu · practice tools</b>
         </div>
         <button class="wide-button how-settings" data-open-settings="controls">SETTINGS · CONTROLS AND KEYS</button>
-        <div class="rules-copy"><p>Guard blocks sword hits. A timed Parry staggers the attacker. Damaging spells pass through Guard.</p><p>Sprint and Guard share stamina. Pause both to recover it. Dash moves you quickly; incoming hits can still connect.</p><p>Fighting builds Prowess for your Ultimate. Choose your spell, ward and Ultimate in the Armory.</p></div>
+        <div class="rules-copy"><p>Guard blocks sword hits. A timed Parry staggers the attacker. Damaging spells pass through Guard.</p><p>Sprint and Guard share stamina. Pause both to recover it. Dash moves you quickly; incoming hits can still connect.</p><p>Fighting builds Prowess for your Ultimate. Choose your spell, ward and Ultimate in the Armory.</p><p>Spells &amp; Chivalry lets you attack, Guard, Dash and cast together for 9 seconds. Hold Q to choose a prepared spell. On touch, drag from the spell button.</p></div>
         </div>
       </div>
     </section>

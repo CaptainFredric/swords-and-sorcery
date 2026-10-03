@@ -85,7 +85,23 @@ export function resolveWeaponPose({
   castStartedAt = 0,
   castUntil = 0,
   dashUntil = 0,
+  concurrent = false,
 }) {
+  if (concurrent) {
+    const args = { timeSec, movingAmount, attackStartedAt, attackSlam, recoilUntil, parryUntil, castStartedAt, castUntil };
+    const swordPose = resolveWeaponPose({ ...args, attackHeld, guard: guard && !attackHeld });
+    if (guard && attackHeld) {
+      const defense = resolveWeaponPose({ ...args, guard: true });
+      swordPose.group = mixTransform(swordPose.group, defense.group, 0.25);
+    }
+    if (castUntil > timeSec) {
+      const sorcery = resolveWeaponPose(args);
+      swordPose.leftHand = sorcery.leftHand;
+      swordPose.magicScale = sorcery.magicScale;
+      swordPose.castPhase = sorcery.castPhase;
+    }
+    return { ...swordPose, concurrent: { attack: attackHeld, guard, cast: castUntil > timeSec, dash: dashUntil > timeSec } };
+  }
   const idle = Math.sin(timeSec * 2.2) * 0.010;
   const stride = Math.sin(timeSec * 9.2);
   const bob = Math.abs(Math.cos(timeSec * 9.2)) * 0.014 * movingAmount;

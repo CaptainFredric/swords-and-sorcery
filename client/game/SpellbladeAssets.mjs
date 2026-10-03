@@ -159,7 +159,7 @@ export async function createSpellbladeAsset({ kind = 'thirdPerson', manifestUrl 
   const castDuration = gltf.animations.find((clip) => clip.name === 'Cast')?.duration ?? 1;
   const animator = new SpellbladeAnimator(root, gltf.animations, (plan) => {
     // the palm glow stays a small ember except while a cast gathers and releases
-    sorcery.update(performance.now() / 1000, sorceryLevel(plan.clip, plan.time, castDuration));
+    sorcery.update(performance.now() / 1000, sorceryLevel(plan.layers?.sorcery?.clip ?? plan.clip, plan.layers?.sorcery?.time ?? plan.time, castDuration));
   }, { cloth: kind !== 'firstPerson' });
 
   const clothDye = createClothDye(root);

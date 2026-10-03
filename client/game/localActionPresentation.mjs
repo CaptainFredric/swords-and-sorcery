@@ -1,3 +1,5 @@
+import { combatActionPolicy } from '../../shared/src/combatActionPolicy.mjs';
+import { spellFor } from '../../shared/src/spells.mjs';
 import { recastReady } from '../../shared/src/practiceRecast.mjs';
 
 /**
@@ -5,7 +7,7 @@ import { recastReady } from '../../shared/src/practiceRecast.mjs';
  * ability comes back after a short gate though its real cooldown still runs (practiceRecast.mjs); gate: my own
  * press's gate, known before the server's word says so ({ spell, dash }: seconds).
  */
-export function canPresentLocalAction(action, auth, localState, nowSec, { practice = false, gate = null } = {}) {
+export function canPresentLocalAction(action, auth, localState, nowSec, { practice = false, gate = null, spell = auth?.spell } = {}) {
   if (!auth?.alive || !Number.isFinite(nowSec)) return false;
   if ((auth.staggerUntil ?? -Infinity) > nowSec) return false;
   // both hands are the Vortex's from its startup to the end of its recovery: nothing else is shown in them
@@ -16,19 +18,30 @@ export function canPresentLocalAction(action, auth, localState, nowSec, { practi
   if (action === 'dash') return Boolean(localState) && recastReady({ dashReadyAt: localState.dashReadyAt ?? Infinity, practiceGate: gates('dash') }, 'dash', nowSec, practice);
   if (action === 'attack') return true;
   // the spell answers the moment it is ready again (the server keeps the true cooldown)
+  if (action === 'cast' && combatActionPolicy(auth, nowSec).concurrent) {
+    const selected = spellFor(spell);
+    if (!auth.preparedSpells?.includes(selected.id) || (auth.castEndsAt ?? 0) > nowSec || (gate?.gatherUntil ?? 0) > nowSec) return false;
+    if (!selected.kind) return nowSec >= Math.max(auth.chivalryProjectileReadyAt ?? 0, gate?.projectile ?? 0);
+    return recastReady({ spellReadyAt: Math.max(auth.spellReadyById?.[selected.id] ?? 0, gate?.byId?.[selected.id] ?? 0), practiceGate: gates('spell') }, 'spell', nowSec, practice);
+  }
   if (action === 'cast') return recastReady({ spellReadyAt: auth.spellReadyAt ?? 0, practiceGate: gates('spell') }, 'spell', nowSec, practice);
   return false;
 }
 
 /** Whether a Blazing Vortex has a knight's hands now: lighting it, spinning, or in the moment after it ends. */
 export function handsTaken(auth, nowSec) {
-  return auth?.ultimateState?.id === 'vortex' || (auth?.recoverUntil ?? -Infinity) > nowSec;
+  return auth?.ultimateState?.id === 'vortex' || (auth?.ultimateState?.id === 'chivalry' && auth.ultimateState.phase === 'startup') || (auth?.recoverUntil ?? -Infinity) > nowSec;
 }
 
-export function localWeaponReleaseForEvent(event, localId) {
+export function localWeaponReleaseForEvent(event, localId, auth = null, nowSec = event?.at ?? 0) {
   if (!event || !localId) return null;
 
-  if (event.type === 'spellCast' && event.playerId === localId) return { attack: true, guard: true };
+  const policy = combatActionPolicy(auth, nowSec);
+  if (policy.concurrent && event.playerId === localId && ['spellCast', 'attackStarted', 'guardStarted'].includes(event.type)) return null;
+  if ((event.suppressParryReel ?? policy.suppressParryReel) && event.type === 'parry' && event.attackerId === localId) return null;
+  if (policy.concurrent && event.type === 'guardBreak' && event.defenderId === localId) return { attack: true, guard: true, cast: true, dash: true };
+  if (event.type === 'ultimateStart' && event.playerId === localId && event.ultimate === 'chivalry') return { attack: true, guard: true, cast: true, dash: true };
+  if (event.type === 'spellCast'  && event.playerId === localId) return { attack: true, guard: true };
   if (event.type === 'attackStarted' && event.playerId === localId) return { attack: false, guard: true };
   // (the server's word that a chain ended is not one: the arms end it by the same rule, and by the time the word
   // arrives a new tap may have started the next chain, which it must not cut off)

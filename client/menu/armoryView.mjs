@@ -37,6 +37,11 @@ const ULTIMATE_WORDS = Object.freeze({
     line: 'Every sword strike becomes a crushing downward blow. Hits interrupt actions, split the ground, and hammer through Guard.',
     facts: (u) => `${GAME.swordElevated} sword damage · double Guard impact · ${u.activeSec}s duration`,
   },
+  chivalry: {
+    mark: '⚔',
+    line: 'For 9 seconds, attack, Guard, Dash and cast together. Draw from three prepared spells. The spell you finish with stays equipped for the match.',
+    facts: (u) => `${u.activeSec}s · 3 prepared spells · rapid projectile casting · no parry reel`,
+  },
   vortex: {
     mark: '✺',
     line: 'Spin through enemies with your blade and aimed fire. Move faster and fall slowly. Hold Attack for stronger fire or Guard for faster cuts.',
