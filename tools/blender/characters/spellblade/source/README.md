@@ -301,3 +301,11 @@ Run `scripts/test-spellblade-motion.py` in Blender to sample contact between key
 The right gauntlet is now fitted in the artist source around the physical sword handle. `kit/first_person_grip.py` identifies the grip from its compact connected mesh component, preserves its radial clearance, reduces excess palm volume and fits the forearm profile. Only `Arm.R` vertex positions change. Topology, skin weights, materials, sword geometry, the left hand, rest rig and every action curve are preserved.
 
 The former load time `trimSwordHand` call is removed. Its guessed pivot was about four centimetres away from the actual grip centre. The source and its exported first person asset now own the final hand shape, so the model can be inspected and edited accurately in Blender.
+
+## October 3 ordinary combat presentation
+
+Guard's source hold runs from frame 8 through frame 56. Its matching endpoint poses previously had different endpoint velocities because the first hold key also followed the raising gesture. `kit/combat_presentation.py` makes the hold tangents periodic while preserving the incoming raising tangent. The runtime samples the same frame 8 boundary and 48 frame period. Idle samples the authored frame 1 through frame 60 interval, excluding the export's constant interval before its first key.
+
+First person Slash_2 clears the left gauntlet with a small outward upper arm arc authored into the existing action. The normal first person combo already uses its own counterbalance and sword IK keys; its second strike counterbalance also clears the exported left arm. Sword targets, contact times, duration, other source actions and ultimate motion keys are preserved.
+
+Run `scripts/test-spellblade-combat-presentation.py` in Blender for endpoint pose and velocity continuity, clip durations, and sword/offhand intersection checks between authored keys. The asset workflow runs this check before export. In a browser, `checkOrdinaryOffhand()` from `client/game/combatPresentation.browser.mjs` samples the actual exported skinned sword and left arm with the existing ordinary combo solver at 120 Hz, before the intentional two hand grip.

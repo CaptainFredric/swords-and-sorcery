@@ -236,6 +236,12 @@ export class RemotePlayers {
     if (event.type === 'damage') d.lastPush = push;
   }
 
+  /** Current animated sorcery socket, including the interpolated cast pose. */
+  palmPosition(id, target = new THREE.Vector3()) {
+    const palm = this.rigs.get(id)?.visualInstance?.sockets?.sorcery;
+    return palm ? palm.getWorldPosition(target) : null;
+  }
+
   /** A gust of wind across a knight (a Gale): their cloth is flung the way it blows. */
   gust(id, wind) {
     this.rigs.get(id)?.visualInstance?.animator?.cloth?.gust(wind);

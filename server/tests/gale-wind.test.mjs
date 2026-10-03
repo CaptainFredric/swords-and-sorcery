@@ -66,11 +66,13 @@ test('the wind holds back a knight charging into it, and gives way the moment th
   Object.assign(b.position, { x: 4, y: 0, z: 0 });
   b.yaw = Math.PI / 2; b.input.yaw = b.yaw;   // facing a (-x)
   let during = null;
+  let releasePosition = null;
   const released = gale(room, 12.0, (now, at) => {
     b.input = { forward: 1, right: 0, jump: false, yaw: b.yaw, pitch: 0 };
+    if (releasePosition === null && now >= at) releasePosition = b.position.x;
     if (during === null && now >= at + cone.lastsSec - cone.fadeSec) during = b.position.x;
   });
-  assert.ok(during > 4, `still held off, charging all the while: at ${during.toFixed(2)} m`);
+  assert.ok(during > releasePosition, `still held off, charging all the while: at ${during.toFixed(2)} m`);
   assert.ok(released + cone.lastsSec < 12.0 && b.position.x < during, 'and once it is spent, the charge goes on');
 });
 

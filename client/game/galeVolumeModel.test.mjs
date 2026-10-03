@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { SPELLS } from '../../shared/src/spells.mjs';
 import { GALE_VOLUME, galeVolumeAt, windConeData, windRibbonData } from './galeVolumeModel.mjs';
 
 test('the gust is a body of air: a cone opening from the hand along its way, wrapped in ribbons twisting out', () => {
@@ -55,4 +56,11 @@ test('wavy lines run out along the gust\'s sides, rippling, white and green; wis
   const wisps = windWispData(tan, { random: () => 0.5 });
   assert.ok(wisps.positions.length > 0 && new Set(wisps.tints).size === 2);
   for (let i = 0; i < wisps.centers.length; i += 3) assert.ok(wisps.centers[i + 2] > 0.05 && wisps.centers[i + 2] < 1, 'inside the gust');
+});
+
+ test('Gale presentation follows the shared duration with at most a brief residual fade', () => {
+  assert.ok(GALE_VOLUME.life <= SPELLS.gale.cone.lastsSec + 0.080001);
+  assert.ok(GALE_VOLUME.frontSec < GALE_VOLUME.holdSec);
+  assert.ok(GALE_VOLUME.ribbonSec < SPELLS.gale.cone.lastsSec);
+  assert.equal(galeVolumeAt(GALE_VOLUME.life).fade, 0);
 });

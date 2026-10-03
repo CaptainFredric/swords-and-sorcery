@@ -5,7 +5,7 @@ const SLASH_DURATIONS = Object.freeze([0.72, 0.72, 0.64]);
 const ATTACK_CYCLE = SLASH_DURATIONS.reduce((sum, value) => sum + value, 0);
 const RESPAWN_SEC = 3;
 // Guard: frames 1-8 raise the guard, frames 8-56 are a breathing hold that loops (30 fps)
-export const GUARD_HOLD_START = 7 / 30;
+export const GUARD_HOLD_START = 8 / 30;
 export const GUARD_HOLD_SECONDS = 48 / 30;
 const MAX_STAGGER_SEC = Math.max(GAME.parryStaggerMs, GAME.guardBreakStaggerMs) / 1000;
 
@@ -82,7 +82,7 @@ export function resolveSpellbladeAnimationPlan({ state, player = {}, serverNow =
   if (state === 'air') return { ...fixed('Air', airPhase(player.velocity?.y)), normalized: true };
   if (state === 'sprint') return { ...fixed('Sprint', localTime, true), fallback: 'Run', rate: strideRate(player, SPRINT.speed) };
   if (state === 'run') return { ...fixed('Run', localTime, true), rate: strideRate(player, MOVEMENT.runSpeed) };
-  return fixed('Idle', localTime, true);
+  return fixed('Idle', idleTime(localTime), true);
 }
 
 // stride cadence follows ground speed (the sprint builds up), so feet do not skate
@@ -99,6 +99,14 @@ function airPhase(verticalVelocity) {
   return Math.max(0, Math.min(1, (MOVEMENT.jumpImpulse - v) / (2 * MOVEMENT.jumpImpulse)));
 }
 
+// Blender exports frame 1 at 1/30 s. Loop only the authored frame 1..60 span,
+// excluding the constant pre-roll that otherwise pauses the breath at every reset.
+function idleTime(clock) {
+  const duration = 59 / 30;
+  const t = finite(clock);
+  return 1 / 30 + (((t % duration) + duration) % duration);
+}
+
 function guardHoldTime(clock) {
   const t = finite(clock);
   return GUARD_HOLD_START + (((t % GUARD_HOLD_SECONDS) + GUARD_HOLD_SECONDS) % GUARD_HOLD_SECONDS);
@@ -109,5 +117,5 @@ export function resolveFirstPersonAnimationPlan(pose, view, timeSec) {
   if (pose.state === 'guard') return { clip: 'Guard', loop: false, time: guardHoldTime(timeSec) };
   if (pose.state === 'cast') return { clip: 'Cast', loop: false, time: Math.max(0, timeSec - view.castStartedAt) };
   if (pose.state === 'dash') return { clip: 'Dash', loop: false, time: Math.max(0, timeSec - (view.dashUntil - 0.18)) };
-  return { clip: 'Idle', loop: true, time: timeSec };
+  return { clip: 'Idle', loop: true, time: idleTime(timeSec) };
 }

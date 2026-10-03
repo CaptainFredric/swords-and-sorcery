@@ -88,3 +88,14 @@ body.took-steel::after{content:"";position:fixed;inset:0;z-index:50;pointer-even
   .practice-tools { top: 54px; left: 10px; width: 170px; }
 }
 
+
+/* Practice tools share the menu's crimson cloth and brass fittings. */
+.practice-tools { width: 224px; max-height: calc(100% - 36px); overflow-y: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 0 7px; padding: 10px 12px; background: linear-gradient(180deg, rgba(119,35,29,.96), rgba(72,22,18,.96)); border: 1px solid #c99c52; box-shadow: inset 0 0 0 3px rgba(234,220,182,.1), 0 8px 30px rgba(0,0,0,.3); scrollbar-width: thin; scrollbar-color: #c99c52 #481612; }
+.practice-tools > div { grid-column: 1 / -1; margin-bottom: 2px; }
+.practice-tools h3 { grid-column: 1 / -1; margin: 7px 0 2px; color: #ecc97f; font: 800 9px/1.1 var(--font-script); letter-spacing: .14em; }
+.practice-tools strong { color: #eadcb6; font-family: var(--font-inscription); }
+.practice-tools button { font-size: 9px; letter-spacing: .035em; min-height: 28px; padding: 6px 3px; color: #eadcb6; transition: background .12s, transform .12s; }
+.practice-tools button:active { transform: translateY(1px); }
+.practice-tools button:focus-visible { outline: 1px solid #ecc97f; }
+.practice-tools .practice-leave { margin-top: 0; color: #ffc9b6; }
+@container app (max-height: 500px) { .practice-tools { top: 10px; width: 224px; max-height: calc(100% - 20px); padding: 8px 10px; } .practice-tools h3 { margin-top: 5px; } .practice-tools button { min-height: 25px; padding: 4px 3px; } }

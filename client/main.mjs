@@ -14,6 +14,8 @@ import { unsheatheRecipe } from './game/sound/soundRecipes.mjs';
 import { arenaGateCopy, challengeCopy, countdownSeconds, romanCount } from './menu/challengeCard.mjs';
 import { lobbyView, roomRows } from './menu/lobbyView.mjs';
 import { armoryView } from './menu/armoryView.mjs';
+import { createArmorySelection } from './menu/armorySelection.mjs';
+import { playArmorySound } from './menu/armorySound.mjs';
 import { seekView } from './menu/seekView.mjs';
 import { MenuController, shouldRouteSocketError } from './menu/MenuController.mjs';
 import { MenuScene } from './menu/MenuScene.mjs';
@@ -67,6 +69,11 @@ const hud = new HUD();
 // one sound engine for the whole page; it unlocks on the first click or key press. Around it: the wind and bell of
 // the courtyard, the music, and the Spellblade's voice.
 const sound = new SoundEngine();
+const armoryFeedback = createArmorySelection({
+  play: (id) => playArmorySound(sound, id),
+  preview: (id) => menuScene?.previewArmory(id),
+  restore: () => menuScene?.showSpell(router.current === SCREEN_IDS.ARMORY ? settings.get('loadout.spell') : null),
+});
 // the player's settings, saved in this browser (see settings/settingsRegistry.mjs for what exists and how to add more)
 const settings = new SettingsStore({ registry });
 sound.setLevels(soundLevels(settings));
@@ -164,6 +171,7 @@ function tourAllowed() {
 }
 
 function route(screenId) {
+  armoryFeedback.cancel();
   renown?.route(screenId);
   const previous = router.current;
   if (screenId === SCREEN_IDS.PLAYING) router.hideAll();
@@ -550,6 +558,10 @@ startMatchButton.addEventListener('click', () => socket.ready(!startMatchButton.
 // --- settings: every change reaches what it belongs to, at once ---
 function applySettings() {
   sound.setLevels(soundLevels(settings));
+  if (sound.levels.muted || sound.levels.effects === 0 || sound.levels.master === 0) {
+    armoryFeedback.cancel();
+    menuScene?.showSpell(router.current === SCREEN_IDS.ARMORY && renown?.section !== 'heraldry' ? settings.get('loadout.spell') : null);
+  }
   const view = viewOptions(settings);
   menuScene?.setPixelRatioCap(view.pixelRatioCap);
   menuScene?.setTourAllowed(tourAllowed());
@@ -567,10 +579,13 @@ const settingsPanel = new SettingsPanel({
 settings.onChange((change) => {
   applySettings();
   if (change.id === 'loadout.ultimate') {
+    armoryFeedback.cancel();
+    if (router.current === SCREEN_IDS.ARMORY && renown?.section !== 'heraldry') menuScene?.showSpell(settings.get('loadout.spell'));
     socket.loadout(settings.get('loadout.spell'), change.value);
     renderArmory();
   }
   if (change.id === 'loadout.spell') {
+    armoryFeedback.cancel();
     socket.loadout(change.value, settings.get('loadout.ultimate'));
     renderArmory();
     if (router.current === SCREEN_IDS.ARMORY) menuScene?.showSpell(change.value);
@@ -612,7 +627,10 @@ $('#end-armory').addEventListener('click', () => {
 
 // --- the Armory: the Spellblade's kit (for now the blade, and the spell carried into a fight) ---
 function renderArmory() {
+  const focusSpell = document.activeElement?.dataset?.spell;
+  const focusUltimate = document.activeElement?.dataset?.ultimate;
   const view = armoryView(settings.get('loadout.spell'), settings.get('loadout.ultimate'));
+  $('#armory-equipped').textContent = `${({ fireball: 'Fireball', frostfire: 'Frostfire', gale: 'Gale', steel: 'Steel' })[settings.get('loadout.spell')]} · ${settings.get('loadout.ultimate') === 'vortex' ? 'Vortex' : 'Sunder'}`;
   $('#armory-blade-name').textContent = view.blade.name;
   $('#armory-blade-facts').textContent = view.blade.facts;
   $('#armory-spells').innerHTML = view.spells.map((spell) => `<button type="button" class="spell-card${spell.equipped ? ' equipped' : ''}" role="radio" aria-checked="${spell.equipped}" data-spell="${spell.id}">
@@ -621,19 +639,26 @@ function renderArmory() {
   $('#armory-ultimates').innerHTML = view.ultimates.map((u) => `<button type="button" class="spell-card ultimate-card${u.equipped ? ' equipped' : ''}" role="radio" aria-checked="${u.equipped}" data-ultimate="${u.id}">
     <span class="spell-mark">${u.mark}</span><span class="spell-name">${escapeHtml(u.name)}</span>${u.equipped ? '<i>EQUIPPED</i>' : ''}
     <small>${escapeHtml(u.line)}</small><em>${escapeHtml(u.facts)}</em></button>`).join('');
+  if (focusSpell) document.querySelector(`[data-spell="${focusSpell}"]`)?.focus({ preventScroll: true });
+  if (focusUltimate) document.querySelector(`[data-ultimate="${focusUltimate}"]`)?.focus({ preventScroll: true });
 }
+renderArmory();
 $('#armory-ultimates').addEventListener('click', (event) => {
   const card = event.target.closest('[data-ultimate]');
-  if (card) settings.set('loadout.ultimate', card.dataset.ultimate);
+  if (card) armoryFeedback.select(card.dataset.ultimate, settings.get('loadout.ultimate'), (id) => settings.set('loadout.ultimate', id));
 });
 $('#armory-button').addEventListener('click', () => {
   renderArmory();
   route(SCREEN_IDS.ARMORY);
 });
+for (const id of ['armory-kit-tab', 'armory-heraldry-tab']) $('#'+id).addEventListener('click', () => {
+  armoryFeedback.cancel();
+  menuScene?.showSpell(id === 'armory-kit-tab' ? settings.get('loadout.spell') : null);
+});
 $('#armory-back').addEventListener('click', () => route(SCREEN_IDS.MAIN_MENU));
 $('#armory-spells').addEventListener('click', (event) => {
   const card = event.target.closest('[data-spell]');
-  if (card) settings.set('loadout.spell', card.dataset.spell);
+  if (card) armoryFeedback.select(card.dataset.spell, settings.get('loadout.spell'), (id) => settings.set('loadout.spell', id));
 });
 
 // the sound and music switches (M and N unless rebound; the same switches sit in the arena menu for touch screens)

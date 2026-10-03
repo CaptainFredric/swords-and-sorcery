@@ -116,7 +116,7 @@ test('air selects a fixed pose while locomotion loops locally', () => {
   const idle = resolveSpellbladeAnimationPlan({ state: 'idle', player: {}, serverNow: 1, localTime: 7.5 });
   assert.equal(idle.clip, 'Idle');
   assert.equal(idle.loop, true);
-  close(idle.time, 7.5);
+  close(idle.time, 1 / 30 + (7.5 % (59 / 30)));
 });
 
 
@@ -143,4 +143,13 @@ test('sprint is its own looping clip that falls back to Run on an asset without 
   assert.equal(plan.fallback, 'Run');
   assert.equal(plan.loop, true);
   close(plan.time, 2.5);
+});
+
+test('breathing clocks sample only the authored loop interval', () => {
+  close(GUARD_HOLD_START, 8 / 30);
+  const idle = (clock) => resolveSpellbladeAnimationPlan({ state: 'idle', localTime: clock });
+  close(idle(0).time, 1 / 30);
+  close(idle(59 / 30).time, 1 / 30);
+  const fp = resolveFirstPersonAnimationPlan({ state: 'idle' }, {}, 0);
+  close(fp.time, 1 / 30);
 });

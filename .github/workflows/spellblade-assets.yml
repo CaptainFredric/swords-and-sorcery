@@ -9,6 +9,7 @@ on:
       - 'scripts/validate-spellblade-fp-render.py'
       - 'scripts/test-spellblade-source.py'
       - 'scripts/test-spellblade-motion.py'
+      - 'scripts/test-spellblade-combat-presentation.py'
   workflow_dispatch:
     inputs:
       mode:
@@ -70,6 +71,9 @@ jobs:
 
       - name: Verify authored ordinary motion contacts
         run: ./.blender/blender --background --factory-startup --python-exit-code 1 --python scripts/test-spellblade-motion.py
+
+      - name: Verify authored breathing seams and offhand clearance
+        run: .blender/blender --background --factory-startup --python-exit-code 1 --python scripts/test-spellblade-combat-presentation.py
 
       - name: Build Spellblade asset evidence
         shell: bash

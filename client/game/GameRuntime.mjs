@@ -459,7 +459,23 @@ export class GameRuntime {
             this.localGale.confirmed = true;
           }
           const body = event.playerId === me ? null : this.#bodyPosition(event.playerId);
-          if (body) this.effects.galeGather({ x: body.x, y: body.y + 1.3, z: body.z });
+          if (body) this.effects.galeGather(() => {
+            const current = this.remotePlayers.bodyAim?.(event.playerId);
+            if (!current) return null;
+            const direction = aimVector(current.yaw, current.pitch);
+            const palm = this.remotePlayers.palmPosition(event.playerId);
+            return { origin: palm ?? { x: current.x, y: current.y + 1.3, z: current.z }, direction };
+          }, { gatherSec: release });
+        }
+        if (event.playerId !== me && (spell.id === 'fireball' || spell.id === 'frostfire') && release > 0) {
+          this.effects.spellGather(spell.id, () => {
+            const body = this.remotePlayers.bodyAim?.(event.playerId);
+            if (!body) return null;
+            const direction = aimVector(body.yaw, body.pitch);
+            const palm = this.remotePlayers.palmPosition(event.playerId);
+            const origin = palm ?? { x: body.x, y: body.y + (body.crouched ? POSTURES.crouched.eye : POSTURES.standing.eye), z: body.z };
+            return { origin, direction };
+          }, { gatherSec: release });
         }
         // SORCERY!! now and then; when it keeps quiet, the wildcard may not
         this.#sayMoment(event.playerId, ['spellCast']);
@@ -642,6 +658,8 @@ export class GameRuntime {
     const snapshot = this.latestSnapshot;
     if (!snapshot) return;
     const serverNow = this.socket.serverNow();
+    const present = new Set(snapshot.players.map((player) => player.id));
+    for (const id of this.effects.chilledBodies.keys()) if (!present.has(id)) this.effects.afflict(id, null);
     for (const player of snapshot.players) {
       const burning = player.alive !== false && (player.burningUntil ?? 0) > serverNow;
       const chill = player.alive !== false ? 1 - chillScale(player.chill, serverNow) : 0;

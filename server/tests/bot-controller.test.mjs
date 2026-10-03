@@ -295,3 +295,27 @@ test('a bot carrying the Blazing Vortex calls it in a fight, then goes at its fo
   assert.deepEqual(steer(4.4), [false, false], 'between: balanced');
   assert.deepEqual(steer(8), [false, true]);
 });
+
+test('an ordinary bot spell tracks target height and bearing throughout its gather', () => {
+  const { room, bot, human } = makeBotDuel();
+  const world = { ...room.world, navigation: null, solids: [], floors: [{ id: 'flat', center: [0, -0.1, 0], size: [50, 0.2, 50], y: 0 }] };
+  bot.spell = 'fireball';
+  bot.spellReadyAt = 0;
+  bot.position = { x: 0, y: 0, z: 0 };
+  human.position = { x: 0, y: 0, z: -8 };
+  stepBotControllers(room, 5, world, { random: () => 0.05 });
+  assert.equal(bot.pendingSpell?.spell, 'fireball');
+  assert.ok(bot.input.pitch < 0, 'the casting hand aims down toward the standing body center');
+  human.position = { x: 4, y: 3, z: -6 };
+  stepBotControllers(room, 5.1, world, { random: () => 0.05 });
+  assert.ok(bot.input.pitch > 0, 'the gathered spell follows an elevated target before the next decision');
+  assert.ok(bot.input.yaw < 0);
+  const { yaw, pitch } = bot.input;
+  stepRoom(room, 0.01, 5.3, world);
+  const spawned = room.events.find((event) => event.type === 'projectileSpawned');
+  assert.ok(spawned);
+  const velocity = spawned.projectile.velocity;
+  const speed = Math.hypot(velocity.x, velocity.y, velocity.z);
+  assert.ok(Math.abs(velocity.y / speed - Math.sin(pitch)) < 1e-9);
+  assert.ok(Math.abs(velocity.x / speed + Math.sin(yaw) * Math.cos(pitch)) < 1e-9);
+});

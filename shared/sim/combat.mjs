@@ -798,12 +798,8 @@ function spawnSpell(room, player, nowSec, world) {
     releaseGale(room, player, spell, nowSec, world);
     return;
   }
-  const direction = pending.direction;
+  const { direction: normalized } = galeAim(player);
   const id = `f${++projectileCounter}`;
-  const f = forwardFromYaw(player.yaw);
-  const horizontalFallback = { x: f.x, y: 0, z: f.z };
-  const dir = Math.hypot(direction.x, direction.y, direction.z) > 0.01 ? direction : horizontalFallback;
-  const normalized = normalize3(dir);
   const projectile = {
     id,
     ownerId: player.id,
@@ -820,7 +816,7 @@ function spawnSpell(room, player, nowSec, world) {
 }
 
 // Gale Garner lets go, where its caster is aiming as it goes (the breath is drawn first; the gust leaves the hand
-// where the hand then points). The gust blows for a second (cone.lastsSec), from the caster's hand along their aim,
+// where the hand then points). The gust blows briefly (cone.lastsSec), from the caster's hand along their aim,
 // following both, dying away at its very end: every body it reaches is caught once, as hard as the gust still is, and
 // then carried on by its wind for as long as it stands in it. Caught, a body is shoved (its heart also stings a
 // little); a raised guard facing it keeps most of its footing but pays for it like a blow; hardened steel turns the
@@ -913,13 +909,14 @@ function blowGale(room, player, nowSec, world, dt = 0) {
     if (!guarded && pressure >= 0.5) gainProwess(room, player, PROWESS.displaced);
     // its heart stings a little (steel turns that aside, never the shove)
     const exposure = guarded ? 0 : caught.exposure * strength;
-    const armour = steelExposure(target.steel, exposure, nowSec);
-    if (armour.turned > 0.1) target.steel = steelTakes(target.steel, nowSec);
-    const damage = Math.round(spell.cone.damage * armour.exposure);
+    const rawDamage = Math.round(spell.cone.damage * exposure);
+    const armour = steelBlunt(target.steel, rawDamage, nowSec);
+    if (rawDamage > armour.amount) target.steel = steelTakes(target.steel, nowSec);
+    const damage = armour.amount;
     if (damage >= 1) {
-      const turned = Math.round(spell.cone.damage * exposure) - damage;
+      const turned = rawDamage - damage;
       applyDamage(room, player.id, target.id, damage, spell.id, nowSec, shove, {
-        steel: armour.strength, turned, clean: armour.exposure >= CLEAN_CONTACT.gale,
+        steel: armour.strength, turned, clean: exposure >= CLEAN_CONTACT.gale && armour.strength <= 0.005,
       });
     } else {
       shoveBody(target, shove);
@@ -976,7 +973,7 @@ function explodeSpell(room, projectile, point, nowSec, worldHit = false, directV
       x: away.x * 4.3 * shove, y: away.y * 2.3 * shove, z: away.z * 4.3 * shove,
     }, { steel: armour.strength, turned: blastDamage(spell, bare) - amount, clean: exposure >= CLEAN_CONTACT.spell, ultimate });
     if (!hit || !player.alive) continue;
-    staggerBy(room, player, STAGGER.gain.blast * exposure * shove, nowSec, projectile.ownerId);
+    staggerBy(room, player, STAGGER.gain.blast * bare * shove, nowSec, projectile.ownerId);
     if (exposure >= 0.8 && shove >= 1 && !ultimate) gainProwess(room, room.players.get(projectile.ownerId), PROWESS.displaced);
     // a fresh burn replaces one already licking (it never stacks); a blast too far out to catch leaves any burn be
     const burn = burnFrom(spell, exposure, projectile.ownerId, nowSec);
@@ -1363,7 +1360,7 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
       continue;
     }
 
-    if (player.pendingSpell && nowSec >= player.castEndsAt) spawnSpell(room, player, nowSec, world);
+    if (player.pendingSpell && spellFor(player.pendingSpell.spell).kind === 'cone' && nowSec >= player.castEndsAt) spawnSpell(room, player, nowSec, world);
     // a gust still blowing catches whoever it reaches now
     if (player.gust) {
       if (nowSec > player.gust.until) player.gust = null;
@@ -1431,6 +1428,10 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
     player.yaw = input.yaw ?? player.yaw;
     player.pitch = input.pitch ?? player.pitch;
     recordTransform(player, nowSec);
+
+    // A gathered projectile leaves the current hand along the latest authoritative aim. Once released its
+    // velocity belongs to the projectile; turning or moving the caster never steers it.
+    if (player.pendingSpell && spellFor(player.pendingSpell.spell).kind !== 'cone' && nowSec >= player.castEndsAt) spawnSpell(room, player, nowSec, world);
 
     if (player.position.y < (world.abyssY ?? -9)) {
       killPlayer(room, player.id, null, 'abyss', nowSec);
