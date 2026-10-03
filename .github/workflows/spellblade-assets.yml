@@ -8,6 +8,7 @@ on:
       - 'scripts/validate-spellblade-glb.py'
       - 'scripts/validate-spellblade-fp-render.py'
       - 'scripts/test-spellblade-source.py'
+      - 'scripts/test-spellblade-motion.py'
   workflow_dispatch:
     inputs:
       mode:
@@ -66,6 +67,9 @@ jobs:
 
       - name: Verify authored source survives export
         run: ./.blender/blender --background --factory-startup --python-exit-code 1 --python scripts/test-spellblade-source.py
+
+      - name: Verify authored ordinary motion contacts
+        run: ./.blender/blender --background --factory-startup --python-exit-code 1 --python scripts/test-spellblade-motion.py
 
       - name: Build Spellblade asset evidence
         shell: bash
