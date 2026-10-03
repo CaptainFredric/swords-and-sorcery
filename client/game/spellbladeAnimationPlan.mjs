@@ -53,15 +53,17 @@ export function resolveSpellbladeAnimationPlan({ state, player = {}, serverNow =
     const still = fixed('Idle', idleTime(localTime), true);
     const guard = fixed('Guard', guardHoldTime(localTime));
     const attack = { ...attackPlan(player, serverNow), actionKey: player.attackStartedAt };
+    const defensive = { ...attack, clip: attack.clip.replace('Slash_', 'GuardCut_'), fallback: attack.clip };
+    const cut = layers.guard ? defensive : attack;
     const cast = { ...fixed('Cast', serverNow - finite(player.castPoseStartAt, serverNow)), actionKey: player.castPoseStartAt };
     const locomotion = layers.dash
       ? fixed('Dash', serverNow - (finite(player.dashUntil, serverNow) - MOVEMENT.dashDuration))
       : resolveSpellbladeAnimationPlan({ state: locomotionState(player), player: { ...player, ultimateState: null }, serverNow, localTime });
     return { ...locomotion, layers: {
       locomotion,
-      posture: layers.attack ? { ...attack, ...(layers.guard ? { overlay: { ...guard, weight: 0.35 } } : {}) } : layers.guard ? guard : layers.cast ? cast : still,
-      sword: layers.attack ? attack : layers.guard ? guard : still,
-      sorcery: layers.cast ? cast : layers.guard ? guard : still,
+      posture: layers.attack ? cut : layers.guard ? guard : layers.cast ? cast : still,
+      sword: layers.attack ? cut : layers.guard ? guard : still,
+      sorcery: layers.cast ? cast : layers.guard ? layers.attack ? defensive : guard : still,
     }, concurrent: layers };
   }
   if (state === 'attack') return attackPlan(player, serverNow);

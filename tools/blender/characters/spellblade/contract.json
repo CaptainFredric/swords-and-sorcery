@@ -15,7 +15,10 @@
     "Cast",
     "Dash",
     "Stagger",
-    "Death"
+    "Death",
+    "GuardCut_1",
+    "GuardCut_2",
+    "GuardCut_3"
   ],
   "firstPersonClips": [
     "Idle",
@@ -38,10 +41,20 @@
     "socket_sword",
     "socket_sorcery"
   ],
-  "firstPersonRequiredNodes": ["HeroSword"],
-  "firstPersonMutableMaterials": ["SorceryAccent"],
-  "sockets": ["socket_sword", "socket_sorcery"],
-  "mutableMaterials": ["VisorGlow", "SorceryAccent"],
+  "firstPersonRequiredNodes": [
+    "HeroSword"
+  ],
+  "firstPersonMutableMaterials": [
+    "SorceryAccent"
+  ],
+  "sockets": [
+    "socket_sword",
+    "socket_sorcery"
+  ],
+  "mutableMaterials": [
+    "VisorGlow",
+    "SorceryAccent"
+  ],
   "thirdPerson": {
     "maxTriangles": 35000,
     "targetBytes": 2400000

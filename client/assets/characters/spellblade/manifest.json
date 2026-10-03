@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "sourceRevision": "04fabe05c9afd96b7baba4e05cdc17f05974b096",
+  "sourceRevision": "388c586705f97135fbc69597ab7fbd94b1e7f601",
   "thirdPerson": {
-    "url": "/client/assets/characters/spellblade/spellblade.glb?v=04fabe05c9afd96b7baba4e05cdc17f05974b096",
+    "url": "/client/assets/characters/spellblade/spellblade.glb?v=388c586705f97135fbc69597ab7fbd94b1e7f601",
     "clips": [
       "Idle",
       "Run",
@@ -15,11 +15,14 @@
       "Cast",
       "Dash",
       "Stagger",
-      "Death"
+      "Death",
+      "GuardCut_1",
+      "GuardCut_2",
+      "GuardCut_3"
     ]
   },
   "firstPerson": {
-    "url": "/client/assets/characters/spellblade/spellblade-fp.glb?v=04fabe05c9afd96b7baba4e05cdc17f05974b096",
+    "url": "/client/assets/characters/spellblade/spellblade-fp.glb?v=388c586705f97135fbc69597ab7fbd94b1e7f601",
     "clips": [
       "Idle",
       "Guard",

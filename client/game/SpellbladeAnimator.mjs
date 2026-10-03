@@ -150,6 +150,8 @@ export class SpellbladeAnimator {
       this.composition.release(['stagger', 'dead'].includes(plan?.state) || ['Stagger', 'Death'].includes(plan?.clip) ? 0.08 : 0.2);
       this.composing = false;
     }
+    // The mixer may skip an unchanged binding. Restore its underlying sample before blending the exit again.
+    this.composition.restoreBase();
     const clip = this.actions.has(plan?.clip) ? plan.clip : plan?.fallback;
     const action = this.actions.get(clip);
     if (!action) return false;

@@ -17,18 +17,19 @@ const planFor = (player, serverNow = 10.2) => resolveSpellbladeAnimationPlan({ s
 test('all four authored ownership channels coexist at their original accepted clocks', () => {
   const plan = planFor(active);
   assert.equal(plan.layers.locomotion.clip, 'Dash');
-  assert.equal(plan.layers.posture.clip, 'Slash_1');
-  assert.equal(plan.layers.posture.overlay.clip, 'Guard');
-  assert.equal(plan.layers.posture.overlay.weight, 0.35);
-  assert.equal(plan.layers.sword.clip, 'Slash_1');
+  assert.equal(plan.layers.posture.clip, 'GuardCut_1');
+  assert.equal(plan.layers.sword.clip, 'GuardCut_1');
   assert.equal(plan.layers.sorcery.clip, 'Cast');
   assert.ok(Math.abs(plan.layers.sword.time - 0.2) < 1e-9);
   assert.ok(Math.abs(plan.layers.sorcery.time - 0.1) < 1e-9);
   for (const change of [{ guarding: false }, { dashUntil: 0 }, { castPoseUntil: 0 }]) {
-    assert.deepEqual(planFor({ ...active, ...change }).layers.sword, plan.layers.sword, 'ordinary action changes preserve strike clock');
+    const sword = planFor({ ...active, ...change }).layers.sword;
+    assert.equal(sword.time, plan.layers.sword.time, 'ordinary action changes preserve strike clock');
+    assert.equal(sword.actionKey, plan.layers.sword.actionKey);
+    assert.equal(sword.clip, change.guarding === false ? 'Slash_1' : 'GuardCut_1');
   }
   assert.deepEqual(planFor({ ...active, attackActive: false }).layers.sorcery, plan.layers.sorcery, 'sword ending preserves accepted gather');
-  assert.equal(planFor(active, 10.85).layers.sword.clip, 'Slash_2');
+  assert.equal(planFor(active, 10.85).layers.sword.clip, 'GuardCut_2');
 });
 
 test('concurrent Guard torso and casting offhand remain visible above fallback Dash legs', () => {
