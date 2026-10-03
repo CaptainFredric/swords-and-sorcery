@@ -59,7 +59,7 @@ export function resolveSpellbladeAnimationPlan({ state, player = {}, serverNow =
       : resolveSpellbladeAnimationPlan({ state: locomotionState(player), player: { ...player, ultimateState: null }, serverNow, localTime });
     return { ...locomotion, layers: {
       locomotion,
-      posture: layers.guard ? guard : layers.attack ? attack : layers.cast ? cast : still,
+      posture: layers.attack ? { ...attack, ...(layers.guard ? { overlay: { ...guard, weight: 0.35 } } : {}) } : layers.guard ? guard : layers.cast ? cast : still,
       sword: layers.attack ? attack : layers.guard ? guard : still,
       sorcery: layers.cast ? cast : layers.guard ? guard : still,
     }, concurrent: layers };

@@ -17,7 +17,9 @@ const planFor = (player, serverNow = 10.2) => resolveSpellbladeAnimationPlan({ s
 test('all four authored ownership channels coexist at their original accepted clocks', () => {
   const plan = planFor(active);
   assert.equal(plan.layers.locomotion.clip, 'Dash');
-  assert.equal(plan.layers.posture.clip, 'Guard');
+  assert.equal(plan.layers.posture.clip, 'Slash_1');
+  assert.equal(plan.layers.posture.overlay.clip, 'Guard');
+  assert.equal(plan.layers.posture.overlay.weight, 0.35);
   assert.equal(plan.layers.sword.clip, 'Slash_1');
   assert.equal(plan.layers.sorcery.clip, 'Cast');
   assert.ok(Math.abs(plan.layers.sword.time - 0.2) < 1e-9);
@@ -97,4 +99,15 @@ test('commit signatures stay beside the palm with no link or center crest', () =
   }
   const projected = 2 * fp.signatureRadius * 1.5 * 716 / (2 * 0.35 * Math.tan(78 * Math.PI / 360));
   assert.ok(projected < 20);
+});
+
+test('opponent active tell uses existing visor light and fades on expiry', async () => {
+  const { chivalryVisorAccent } = await import('./chivalryPresentation.mjs');
+  const start = chivalryTellState(active, 9.9);
+  assert.equal(chivalryVisorAccent(start, 9.9), 0);
+  const holding = chivalryTellState(active, 11, start);
+  assert.ok(chivalryVisorAccent(holding, 11) > 0.5);
+  const end = chivalryTellState(active, 19, holding);
+  assert.ok(chivalryVisorAccent(chivalryTellState(active, 19.15, end), 19.15) < chivalryVisorAccent(end, 19));
+  assert.equal(chivalryVisorAccent(chivalryTellState(active, 19.31, end), 19.31), 0);
 });

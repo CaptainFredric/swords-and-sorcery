@@ -1,3 +1,4 @@
+import { ChallengesController } from './menu/ChallengesController.mjs';
 import { normalizePreparedSpells, replacePreparedSpell } from '../shared/src/preparedSpells.mjs';
 import { SPELLS } from '../shared/src/spells.mjs';
 import { ULTIMATES } from '../shared/src/ultimates.mjs';
@@ -563,7 +564,7 @@ function applySettings() {
   sound.setLevels(soundLevels(settings));
   if (sound.levels.muted || sound.levels.effects === 0 || sound.levels.master === 0) {
     armoryFeedback.cancel();
-    menuScene?.showSpell(router.current === SCREEN_IDS.ARMORY && renown?.section !== 'heraldry' ? settings.get('loadout.spell') : null);
+    menuScene?.showSpell(router.current === SCREEN_IDS.ARMORY && renown?.section === 'kit' ? settings.get('loadout.spell') : null);
   }
   const view = viewOptions(settings);
   menuScene?.setPixelRatioCap(view.pixelRatioCap);
@@ -583,7 +584,7 @@ settings.onChange((change) => {
   applySettings();
   if (change.id === 'loadout.ultimate') {
     armoryFeedback.cancel();
-    if (router.current === SCREEN_IDS.ARMORY && renown?.section !== 'heraldry') menuScene?.showSpell(settings.get('loadout.spell'));
+    if (router.current === SCREEN_IDS.ARMORY && renown?.section === 'kit') menuScene?.showSpell(settings.get('loadout.spell'));
     socket.loadout(settings.get('loadout.spell'), change.value, settings.get('loadout.preparedSpells'));
     renderArmory();
   }
@@ -616,6 +617,7 @@ document.addEventListener('click', (event) => {
 });
 
 renown = new RenownController({ socket, scene: () => menuScene, spell: () => settings.get('loadout.spell') });
+const challenges = new ChallengesController({ link: socket, getProfile: () => renown.profile, root: $('#armory-challenges'), rewardRoot: $('#challenges-reward') });
 $('#end-armory').addEventListener('click', () => {
   const showArmory = () => {
     runtime?.setPlaying(false);
@@ -677,7 +679,7 @@ $('#armory-button').addEventListener('click', () => {
   renderArmory();
   route(SCREEN_IDS.ARMORY);
 });
-for (const id of ['armory-kit-tab', 'armory-heraldry-tab']) $('#'+id).addEventListener('click', () => {
+for (const id of ['armory-kit-tab', 'armory-heraldry-tab', 'armory-challenges-tab']) $('#'+id).addEventListener('click', () => {
   armoryFeedback.cancel();
   menuScene?.showSpell(id === 'armory-kit-tab' ? settings.get('loadout.spell') : null);
 });
@@ -787,6 +789,7 @@ $('#practice-fight').addEventListener('click', () => socket.practiceSpawnDummy('
 $('#practice-sorcery').addEventListener('click', () => socket.practiceSpawnDummy('SORCERY'));
 $('#practice-melee').addEventListener('click', () => socket.practiceSpawnDummy('MELEE'));
 $('#practice-runner').addEventListener('click', () => socket.practiceSpawnDummy('RUNNER'));
+$('#practice-ultimate-knight').addEventListener('click', () => socket.practiceSpawnDummy('ULTIMATE_KNIGHT'));
 $('#practice-remove').addEventListener('click', () => socket.practiceRemoveDummy());
 // the yard earns no prowess: this readies the ultimate to try
 $('#practice-ultimate').addEventListener('click', () => socket.practiceReadyUltimate());

@@ -1,3 +1,5 @@
+import { observeChallengeFacts, challengeProgressFor } from '../../shared/sim/challenges.mjs';
+import { eligibleChallengeParticipant } from './challengeSettlement.mjs';
 import { applySavedLoadout } from './savedLoadout.mjs';
 import http from 'node:http';
 import { ProfileStore, assessMatchReward } from './ProfileStore.mjs';
@@ -402,6 +404,7 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
       stepBotControllers(room, time, room.world);
       stepPracticeActors(room, time, room.world);
       stepRoom(room, 1 / TICK_RATE, time, room.world);
+      observeChallengeFacts(room);
       const events = room.events.splice(0);
       for (const event of events) {
         if (event.type === 'matchStarted') room.rewardMatchId = crypto.randomUUID();
@@ -412,7 +415,9 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
             // Capture the result now: a later rematch, departure or retry cannot change this reward.
             if (!pendingRewards.has(key)) pendingRewards.set(key, {
               token: player.profileToken, matchId: room.rewardMatchId,
-              ...assessMatchReward(room, player, event.at), retryAt: 0,
+              ...assessMatchReward(room, player, event.at),
+              challengeProgress: eligibleChallengeParticipant(room, player) ? { ...challengeProgressFor(room, player.id) } : {},
+              completedAt: Date.now(), retryAt: 0,
             });
           }
         }
@@ -423,7 +428,7 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
     for (const [key, reward] of pendingRewards) {
       if (time < reward.retryAt) continue;
       try {
-        publishProfile(reward.token, profileStore.reward(reward.token, reward.matchId, reward.amount, reward));
+        publishProfile(reward.token, profileStore.settleMatch(reward.token, reward.matchId, reward.amount, reward.challengeProgress, reward));
         pendingRewards.delete(key);
       } catch {
         reward.retryAt = time + 5;

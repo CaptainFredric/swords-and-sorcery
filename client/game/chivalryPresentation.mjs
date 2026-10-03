@@ -22,3 +22,12 @@ const FIRST_PERSON_TELL = Object.freeze({ signatureRadius: 0.005, opacity: 0.25,
 export function chivalryTellStyle({ firstPerson = false } = {}) {
   return firstPerson ? FIRST_PERSON_TELL : THIRD_PERSON_TELL;
 }
+
+/** Existing visor light carries the ongoing tell; no extra symbol crosses the body. */
+export function chivalryVisorAccent(state, now) {
+  if (!(state?.opacity > 0)) return 0;
+  const age = Math.max(0, now - (state.committedAt ?? now));
+  const t = Math.min(1, age / 0.16);
+  const entry = t * t * (3 - 2 * t);
+  return state.opacity * entry * (0.7 + 0.12 * Math.sin(age * Math.PI * 3));
+}

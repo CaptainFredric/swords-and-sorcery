@@ -1,0 +1,27 @@
+.armory-tabs:has(#armory-challenges-tab) { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.armory-tabs:has(#armory-challenges-tab) button { min-width: 0; font-size: 13px; letter-spacing: .02em; }
+#armory-challenges { padding-bottom: 4px; }
+.mastery-intro { margin-bottom: 16px; }
+.mastery-copy, .mastery-condition { color: var(--heraldry-cream); font: 500 12px/1.5 var(--font-script); margin: 6px 0; }
+.mastery-copy { opacity: .8; }
+.mastery-count { margin: 10px 0 0; color: var(--heraldry-brass-light); font: 800 10px/1.3 var(--font-script); letter-spacing: .12em; }
+.mastery-family { margin: 16px 0; }
+.mastery-family-title { margin: 0 0 8px; color: var(--heraldry-brass-light); font: 400 13px/1.2 var(--font-inscription); letter-spacing: .16em; }
+.mastery-feat { margin-top: 7px; padding: 10px 12px; background: rgba(34, 29, 25, .65); border: 1px solid rgba(201, 156, 82, .35); }
+.mastery-feat.complete { border-color: rgba(236, 201, 127, .7); background: rgba(74, 58, 38, .65); }
+.mastery-feat-heading { display: flex; justify-content: space-between; align-items: baseline; gap: 9px; }
+.mastery-feat-title { margin: 0; color: var(--heraldry-cream); font: 400 13px/1.3 var(--font-inscription); overflow-wrap: anywhere; }
+.mastery-feat-state { flex-shrink: 0; color: var(--heraldry-brass-light); font: 800 8px/1.3 var(--font-script); letter-spacing: .08em; }
+.mastery-feat.hinted .mastery-condition { font-style: italic; opacity: .85; }
+.mastery-reward, .mastery-progress-count { display: block; margin-top: 5px; color: var(--heraldry-brass-light); font: 700 9px/1.3 var(--font-script); letter-spacing: .08em; }
+.mastery-progress { display: block; width: 100%; height: 5px; margin-top: 8px; accent-color: var(--heraldry-brass); }
+.mastery-flavor { color: var(--heraldry-cream); opacity: .75; font: italic 500 11px/1.45 var(--font-script); margin: 6px 0 0; }
+#challenges-reward { max-width: 480px; margin: 10px auto 0; padding: 8px 10px; border-top: 1px solid rgba(201, 156, 82, .35); color: var(--heraldry-cream); text-align: center; }
+#challenges-reward[hidden] { display: none; }
+.mastery-earned-label { display: block; color: var(--heraldry-brass-light); font: 800 10px/1.4 var(--font-script); letter-spacing: .12em; }
+.mastery-earned-copy { display: block; margin-top: 3px; font: 500 12px/1.4 var(--font-script); }
+@media (max-width: 600px) {
+  .armory-tabs:has(#armory-challenges-tab) button { padding: 9px 5px; font-size: 11px; letter-spacing: 0; }
+  .mastery-feat { padding: 9px; }
+  .mastery-feat-heading { flex-wrap: wrap; gap: 3px 8px; }
+}

@@ -1,3 +1,4 @@
+import { chivalryTellState, chivalryVisorAccent } from './chivalryPresentation.mjs';
 import { createChivalryLink } from './chivalryLink.mjs';
 import * as THREE from 'three';
 import { createSpellbladeAsset, reportSpellbladeAssetStatus } from './SpellbladeAssets.mjs';
@@ -577,7 +578,8 @@ export class RemotePlayers {
       shell.chivalryLink.set(pb, serverNow, plan.concurrent);
     }
     const protectedNow = (pb.spawnProtectionUntil ?? 0) > serverNow;
-    const accentIntensity = protectedNow ? 2.8 : state === 'cast' ? 2.3 : 1.4;
+    shell.chivalryAccent = chivalryTellState(pb, serverNow, shell.chivalryAccent);
+    const accentIntensity = (protectedNow ? 2.8 : state === 'cast' ? 2.3 : 1.4) + chivalryVisorAccent(shell.chivalryAccent, serverNow);
     if (shell.visualKind === 'fallback') {
       if (!shell.visual?.visible && nowMs - (shell.createdAtMs ?? nowMs) > FALLBACK_GRACE_MS) revealRemoteFallback(shell);
       animateFallbackRig(shell.fallbackRig, state, animationPlayer, serverNow, localTime);

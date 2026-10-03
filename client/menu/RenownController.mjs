@@ -17,8 +17,8 @@ export class RenownController {
     this.error = '';
     this.inArmory = false;
     this.section = 'kit';
-    for (const section of ['kit', 'heraldry']) {
-      doc.querySelector(`#armory-${section}-tab`).addEventListener('click', () => this.selectSection(section));
+    for (const section of ['kit', 'heraldry', 'challenges']) {
+      doc.querySelector(`#armory-${section}-tab`)?.addEventListener('click', () => this.selectSection(section));
     }
     // Cache is presentation only. Only server messages authorise purchases or equipment.
     try {
@@ -106,10 +106,16 @@ export class RenownController {
     this.render();
   }
   selectSection(section) {
+    if (!['kit', 'heraldry', 'challenges'].includes(section)) return;
+    const changed = this.section !== section;
     this.section = section;
-    for (const id of ['kit', 'heraldry']) {
-      this.doc.querySelector(`#armory-${id}`).classList.toggle('hidden', id !== section);
-      this.doc.querySelector(`#armory-${id}-tab`).setAttribute('aria-pressed', String(id === section));
+    for (const id of ['kit', 'heraldry', 'challenges']) {
+      this.doc.querySelector(`#armory-${id}`)?.classList.toggle('hidden', id !== section);
+      this.doc.querySelector(`#armory-${id}-tab`)?.setAttribute('aria-pressed', String(id === section));
+    }
+    if (changed) {
+      const scroll = this.doc.querySelector('#armory-menu .armory-scroll');
+      if (scroll) scroll.scrollTop = 0;
     }
     this.scene()?.showSpell?.(section === 'kit' ? this.spell() : null);
     this.scene()?.setCloth(section === 'heraldry' ? this.preview : this.profile?.equipped ?? 'crimson');

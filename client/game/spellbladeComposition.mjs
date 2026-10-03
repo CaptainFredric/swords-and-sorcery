@@ -48,9 +48,16 @@ export class SpellbladeComposition {
       if (!channel || channel.signature !== signature) {
         channel = { signature, clip: plan.clip, duration: ownershipBlendSeconds(channel?.clip, plan.clip), elapsed: 0, from: new Map() };
         for (const track of clip.tracks) if (track.owner === owner) channel.from.set(track.bone.uuid + track.property, valueOf(track.bone, track.property));
+        channel.overlayWeight = 0;
         this.channels.set(owner, channel);
       }
       channel.elapsed += dt;
+      const overlay = plan.overlay;
+      const overlayClip = overlay ? this.clips.get(overlay.clip) : null;
+      // Keep sampling the outgoing Guard while its influence eases away during a continuing strike.
+      if (overlayClip) channel.overlay = { ...overlay, clip: overlayClip };
+      const wantedOverlay = overlayClip ? Math.max(0, Math.min(1, overlay.weight ?? 0)) : 0;
+      channel.overlayWeight += (wantedOverlay - channel.overlayWeight) * (1 - Math.exp(-Math.max(0, dt) / 0.045));
       const weight = smooth(Math.min(1, channel.elapsed / channel.duration));
       let time = Number.isFinite(plan.time) ? plan.time : 0;
       if (plan.normalized) time *= clip.duration;
@@ -59,6 +66,14 @@ export class SpellbladeComposition {
       for (const track of clip.tracks) {
         if (track.owner !== owner) continue;
         const target = valueOf(track.bone, track.property).fromArray(track.sample.evaluate(time));
+        if (channel.overlay && channel.overlayWeight > 0.001) {
+          const other = channel.overlay.clip.tracks.find(candidate => candidate.bone === track.bone && candidate.property === track.property);
+          if (other) {
+            const sampled = valueOf(track.bone, track.property).fromArray(other.sample.evaluate(Math.max(0, Math.min(channel.overlay.clip.duration, channel.overlay.time ?? 0))));
+            if (track.property === 'quaternion') target.slerp(sampled, channel.overlayWeight);
+            else target.lerp(sampled, channel.overlayWeight);
+          }
+        }
         const from = channel.from.get(track.bone.uuid + track.property) ?? target;
         blendValue(track.bone, track.property, from, target, weight);
       }

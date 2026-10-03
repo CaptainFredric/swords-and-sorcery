@@ -32,6 +32,7 @@
       }
     }
   </script>
+  <link rel="stylesheet" href="./client/challenges.css">
 </head>
 <body>
   <main id="game-shell">
@@ -85,6 +86,7 @@
         <nav class="armory-tabs" aria-label="Armory sections">
           <button type="button" id="armory-kit-tab" aria-pressed="true" aria-controls="armory-kit">COMBAT KIT</button>
           <button type="button" id="armory-heraldry-tab" aria-pressed="false" aria-controls="armory-heraldry">HERALDRY</button>
+          <button type="button" id="armory-challenges-tab" aria-pressed="false" aria-controls="armory-challenges">CHALLENGES</button>
         </nav>
         <div class="armory-scroll" tabindex="0" aria-label="Armory choices">
         <div id="armory-kit">
@@ -118,6 +120,7 @@
             <p>Fight for at least 30 seconds and record a kill, death or parry. Server hosted bot duels count. Practice, offline play and forfeits award none.</p>
           </details>
         </div>
+        <div id="armory-challenges" class="hidden"></div>
         </div>
         <p class="armory-scroll-hint">SCROLL FOR SPELLS, ULTIMATES AND STANDARDS ↓</p>
       </div>
@@ -325,6 +328,7 @@
         <button id="practice-sorcery" class="practice-opponent">SPELLS &amp; SORCERY</button>
         <button id="practice-melee" class="practice-opponent">MR. MELEE</button>
         <button id="practice-runner" class="practice-opponent">SIR RUNS-A-LOT</button>
+        <button id="practice-ultimate-knight" class="practice-opponent">THE ULTIMATE KNIGHT</button>
         <button id="practice-remove">REMOVE DUMMY</button>
         <h3>ULTIMATE</h3>
         <button id="practice-ultimate">READY ULTIMATE</button>
@@ -349,6 +353,7 @@
       <p class="eyebrow">MATCH COMPLETE</p>
       <h2 id="winner-title">VICTORY</h2>
       <p id="renown-reward" role="status"></p>
+      <p id="challenges-reward" hidden role="status" aria-live="polite"></p>
       <div id="final-scoreboard" class="final-scoreboard"></div>
       <div class="end-actions">
         <button id="seek-another" class="wide-button primary-command hidden">SEEK ANOTHER</button>

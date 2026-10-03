@@ -55,7 +55,13 @@ test('armory defaults to combat, separates previews from equipped cloth, and wai
   controller.route('ARMORY');
   assert.equal(controller.section, 'kit');
   assert.equal(doc.querySelector('#armory-heraldry').classList.contains('hidden'), true);
+  controller.selectSection('challenges');
+  assert.equal(doc.querySelector('#armory-kit').classList.contains('hidden'), true);
+  assert.equal(doc.querySelector('#armory-heraldry').classList.contains('hidden'), true);
+  assert.equal(doc.querySelector('#armory-challenges').classList.contains('hidden'), false);
+  assert.equal(doc.querySelector('#armory-challenges-tab').attrs['aria-pressed'], 'true');
   controller.selectSection('heraldry');
+  assert.equal(doc.querySelector('#armory-challenges').classList.contains('hidden'), true);
   controller.cards.children[1].handlers.click();
   assert.equal(visibleCloth, 'azure');
   controller.action.handlers.click();
@@ -107,4 +113,35 @@ test('zero rewards explain the recorded reason and old receipts remain readable'
   assert.match(rewardText({ lastReward: { matchId: 'm', amount: 0, reason: 'forfeit' } }, snapshot, false), /forfeit/);
   assert.match(rewardText({ lastReward: { matchId: 'm', amount: 0, reason: 'short' } }, snapshot, false), /under 30/);
   assert.match(rewardText({ balance: 50, lastReward: { matchId: 'm', amount: 30 } }, snapshot, false), /20 completion \+ 10 victory/);
+});
+
+test('mastery reward totals distinguish a short feat from ordinary completion', () => {
+  const snapshot = { rewardMatchId: 'm' };
+  assert.equal(rewardText({ balance: 20, lastReward: { matchId: 'm', amount: 20, completion: 0, victory: 0, challengeAmount: 20 } }, snapshot, false), '+20 RENOWN · 20 mastery · Balance 20');
+  assert.match(rewardText({ balance: 55, lastReward: { matchId: 'm', amount: 55, completion: 20, victory: 10, challengeAmount: 25 } }, snapshot, false), /20 completion \+ 10 victory \+ 25 mastery/);
+});
+
+test('changing Armory sections starts their shared scroll at the top while the current section keeps its place', () => {
+  const nodes = new Map();
+  const doc = { querySelector(id) { if (!nodes.has(id)) nodes.set(id, element()); return nodes.get(id); }, createElement: element };
+  const socket = { status: 'online', remote: { profileReady: true }, on() {} };
+  const controller = new RenownController({ socket, document: doc, storage: { getItem() { return null; } }, scene: () => null });
+  const scroll = doc.querySelector('#armory-menu .armory-scroll');
+  scroll.scrollTop = 320;
+  controller.selectSection('kit');
+  assert.equal(scroll.scrollTop, 320, 'clicking the current tab preserves its position');
+  controller.selectSection('challenges');
+  assert.equal(scroll.scrollTop, 0, 'Challenges starts at its introduction');
+  scroll.scrollTop = 180;
+  controller.selectSection('challenges');
+  assert.equal(scroll.scrollTop, 180);
+  controller.selectSection('heraldry');
+  assert.equal(scroll.scrollTop, 0);
+  scroll.scrollTop = 90;
+  controller.selectSection('kit');
+  assert.equal(scroll.scrollTop, 0);
+  scroll.scrollTop = 40;
+  controller.selectSection('unknown');
+  assert.equal(scroll.scrollTop, 40, 'an invalid section changes neither selection nor scroll');
+  assert.equal(controller.section, 'kit');
 });
