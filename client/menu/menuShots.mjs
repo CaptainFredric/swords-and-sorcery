@@ -47,7 +47,7 @@ export function shotSettled({ to, duration, elapsed }) {
 // ease in and out (no jolt at either end of a camera move)
 export function easeShot(u) {
   const t = Math.max(0, Math.min(1, u));
-  return t < 0.5 ? 4 * t * t * t : 1 - ((-2 * t + 2) ** 3) / 2;
+  return t * t * t * (t * (6 * t - 15) + 10);
 }
 
 export function lerpShot(a, b, t) {
@@ -57,4 +57,8 @@ export function lerpShot(a, b, t) {
     target: a.target.map((value, i) => mix(value, b.target[i])),
     fov: mix(a.fov, b.fov),
   };
+}
+
+export function menuMoveSeconds(from, to) {
+  return Math.hypot(...from.camera.map((v,i)=>v-to.camera[i])) > 4 ? 1.05 : .85;
 }

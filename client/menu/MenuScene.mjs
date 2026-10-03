@@ -1,3 +1,5 @@
+import { armoryPose, mixArmoryPose, ARMORY_PREVIEW_SEC } from './armoryPreview.mjs';
+import { createArmoryHand } from './armoryHand.mjs';
 import { createElementalOrb } from '../game/elementalOrb.mjs';
 import { createSteelSheen } from '../game/steelSheen.mjs';
 import { resolveSpellbladeAnimationPlan } from '../game/spellbladeAnimationPlan.mjs';
@@ -5,7 +7,7 @@ import * as THREE from 'three';
 import { createSpellbladeRig } from '../game/SpellbladeFallback.mjs';
 import { createSpellbladeAsset, reportSpellbladeAssetStatus } from '../game/SpellbladeAssets.mjs';
 import { CASTLEWARD_LIGHTING, CastlewardRenderer } from '../worlds/CastlewardRenderer.mjs';
-import { MENU_SHOTS, easeShot, lerpShot, menuShotFor, shotSettled } from './menuShots.mjs';
+import { MENU_SHOTS, easeShot, lerpShot, menuShotFor, shotSettled, menuMoveSeconds } from './menuShots.mjs';
 import { REACTIONS, idleMoment, idlePose, reactionMoment } from './menuIdle.mjs';
 import { TourDirector } from './tour/TourDirector.mjs';
 import { performanceAt } from './menuReactions.mjs';
@@ -217,13 +219,13 @@ export class MenuScene {
     this.assetInstance?.setCloth(id);
   }
 
-  setShot(name, seconds = 0.28) {
+  setShot(name, seconds = null) {
     const next = menuShotFor(name);
     if (next === this.shotTo) return;
-    this.shotFrom = { ...this.shot };
+    this.shotFrom = { ...(this.presentedShot ?? this.shot) };
     this.shotTo = next;
     this.shotElapsed = 0;
-    this.shotDuration = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches ? 0.01 : Math.max(0.01, seconds);
+    this.shotDuration = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches ? 0.01 : Math.max(0.01, seconds ?? menuMoveSeconds(this.shotFrom, next));
   }
 
   #pointerDown = (event) => {
@@ -276,7 +278,7 @@ export class MenuScene {
     // A deliberate Armory choice briefly flares its identity on the live model.
     if (this.armoryPreview) {
       const age = Math.max(0, this.clock - this.armoryPreview.started);
-      const pulse = Math.max(0, 1 - age / .85);
+      const pulse = Math.max(0, Math.sin(Math.PI * Math.min(1, age / ARMORY_PREVIEW_SEC)));
       const id = this.armoryPreview.id;
       if (this.spellOrb) this.spellOrb.scale.setScalar(1 + pulse * (id === 'sunder' ? .9 : .6));
       this.magicLight.intensity = (SPELL_PREVIEW[id]?.light ?? 2.4) + pulse * .8;
@@ -320,17 +322,35 @@ export class MenuScene {
         if (pose.clip === 'Cast') plan = { clip: 'Cast', loop: false, time: moment.elapsed };
         plan.motion = { extra: pose.rotations };
       }
+      let armoryEffect=null;
       if (this.armoryPreview && !globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches) {
         const elapsed = Math.max(0, this.clock - this.armoryPreview.started);
         const id = this.armoryPreview.id;
-        const clip = id === 'steel' ? 'Guard' : id === 'sunder' ? 'Slash_3' : id === 'vortex' ? 'Slash_1' : 'Cast';
-        plan = { clip, loop: false, time: Math.min(elapsed, id === 'sunder' ? .64 : .72) };
+        let gesture = armoryPose(id, elapsed);
+        if (this.armoryPreview.from && elapsed < .18) {
+          const u=elapsed/.18, eased=u*u*(3-2*u);
+          gesture = { ...gesture, ...mixArmoryPose(this.armoryPreview.from, gesture, eased) };
+        }
+        this.lastArmoryPose=gesture;
+        this.lastArmoryPoseAt=this.clock;
+        plan = resolveSpellbladeAnimationPlan({ state:'idle',localTime:t });
+        plan.motion={crouch:gesture.crouch, extra:[
+          {bone:'chest',axis:[0,-1,0],angle:gesture.body},
+          {bone:'spine',axis:[-1,0,0],angle:gesture.crouch*.2},
+        ], solve:(bones)=>{
+          if(gesture.sword) solveArm(bones,THIRD_PERSON_SWORD_ARM,gesture.sword.target,gesture.sword.weight);
+          if(gesture.spell) solveArm(bones,THIRD_PERSON_SPELL_ARM,gesture.spell.target,gesture.spell.weight);
+        }};
+        this.armoryHand ??= createArmoryHand(this.assetInstance);
+        this.armoryHand.set(gesture.fist);
         if (id === 'steel') {
           this.armorySteel ??= createSteelSheen(this.assetInstance);
-          this.armorySteel.set(Math.sin(Math.min(1, elapsed / .85) * Math.PI), elapsed);
+          this.armorySteel.set(gesture.strength, elapsed);
         }
+        armoryEffect={id,elapsed,strength:gesture.strength};
       }
       this.assetInstance.animator.apply(plan, dt);
+      if(armoryEffect){this.assetInstance.root.updateMatrixWorld(true);this.#previewParticles(armoryEffect.id,armoryEffect.elapsed,armoryEffect.strength);}
     } else if (this.fallbackVisual) {
       const rig = this.fallbackVisual.userData;
       rig.visual.position.y = Math.sin(t * 1.7) * 0.018;
@@ -363,6 +383,7 @@ export class MenuScene {
   };
 
   #placeCamera(shot, drift = [0, 0, 0]) {
+    this.presentedShot = { camera:[...shot.camera],target:[...shot.target],fov:shot.fov };
     this.camera.position.set(shot.camera[0] + drift[0], shot.camera[1] + drift[1], shot.camera[2] + drift[2]);
     this.camera.lookAt(shot.target[0], shot.target[1], shot.target[2]);
     if (Math.abs(this.camera.fov - shot.fov) > 1e-3) {
@@ -453,6 +474,8 @@ export class MenuScene {
    */
   showSpell(spell) {
     this.armoryPreview = null;
+    this.armoryHand?.set(0);
+    if(this.previewBits)this.previewBits.visible=false;
     this.armorySteel?.set(0, null);
     if (this.spellOrbGlow) this.spellOrbGlow.rotation.z = 0;
     this.shownSpell = spell;
@@ -480,7 +503,7 @@ export class MenuScene {
     }
     if (this.galeOrb) this.galeOrb.visible = Boolean(look.wind);
     if (this.spellOrb) {
-      this.spellOrb.visible = !look.wind;
+      this.spellOrb.visible = !look.wind && !['steel','sunder','vortex'].includes(spell);
       if (!look.wind) {
         this.spellOrbCore.material.color.setHex(look.core);
         this.spellOrbGlow.material.color.setHex(look.glow);
@@ -502,7 +525,56 @@ export class MenuScene {
 
   previewArmory(id) {
     this.showSpell(id);
-    this.armoryPreview = { id, started: this.clock };
+    this.armoryPreview = { id, started: this.clock, from:this.clock-(this.lastArmoryPoseAt??-10)<.1 ? this.lastArmoryPose : null };
+    this.reaction=null;
+  }
+
+  #previewParticles(id,age,strength) {
+    if(!this.previewBits){
+      this.previewBits=new THREE.Group();
+      this.previewBitGeometry=new THREE.OctahedronGeometry(.025,0);
+      this.previewBitMaterial=new THREE.MeshBasicMaterial({color:0xffb950,transparent:true,depthWrite:false});
+      for(let i=0;i<16;i++)this.previewBits.add(new THREE.Mesh(this.previewBitGeometry,this.previewBitMaterial));
+      this.stage.add(this.previewBits);
+    }
+    this.previewBits.visible=strength>.03 && id!=='steel';
+    this.previewBitMaterial.color.setHex(id==='frostfire'?0xc6f3ff:id==='gale'?0xe5ecda:id==='sunder'?0x88765e:0xffbd5f);
+    this.previewBitMaterial.opacity=strength*.7;
+    const point=new THREE.Vector3();
+    const socket=id==='vortex'?this.assetInstance.sockets.sword:this.assetInstance.sockets.sorcery;
+    socket?.getWorldPosition(point);
+    this.stage.worldToLocal(point);
+    this.previewBits.position.copy(point);
+    const bladeDirection=new THREE.Vector3(0,1,0);
+    if(id==='vortex') {
+      if(!this.previewSwordTip) {
+        const meshes=[];
+        this.assetInstance.root.traverse((mesh)=>{if(mesh.isSkinnedMesh&&mesh.name.startsWith('HeroSword'))meshes.push(mesh);});
+        let farthest=-1;
+        for(const mesh of meshes) {
+          mesh.skeleton.update();
+          for(let i=0;i<mesh.geometry.attributes.position.count;i++) {
+            const distance=mesh.getVertexPosition(i,new THREE.Vector3()).applyMatrix4(mesh.matrixWorld).distanceToSquared(socket.getWorldPosition(new THREE.Vector3()));
+            if(distance>farthest){farthest=distance;this.previewSwordTip={mesh,index:i};}
+          }
+        }
+      }
+      if(this.previewSwordTip) {
+        const {mesh,index}=this.previewSwordTip;
+        mesh.skeleton.update();
+        const tip=this.stage.worldToLocal(mesh.getVertexPosition(index,new THREE.Vector3()).applyMatrix4(mesh.matrixWorld));
+        bladeDirection.copy(tip).sub(point).normalize();
+      }
+    }
+    if(id==='sunder')this.previewBits.position.set(0,.06,-.55);
+    this.previewBits.children.forEach((bit,i)=>{
+      const phase=age*5+i*.8, radius=id==='sunder'?.14+Math.max(0,age-.9)*.3:.08;
+      bit.position.set(Math.cos(phase)*radius,Math.sin(phase*1.2)*.1,Math.sin(phase)*radius);
+      if(id==='vortex')bit.position.addScaledVector(bladeDirection,.12+(i%8)*.1);
+      bit.scale.setScalar((id==='gale'?.5:id==='frostfire'?1.2:1)*strength);
+      bit.rotation.set(phase,phase*.7,phase*.2);
+      bit.visible=id!=='sunder'||(age>.9&&age<1.3);
+    });
   }
 
   /** Render quality (a setting): the menu never draws sharper than 1.25x, and Smooth draws at 1x. */
@@ -528,6 +600,10 @@ export class MenuScene {
   }
 
   dispose() {
+    this.armoryHand?.dispose();
+    this.previewBits?.removeFromParent();
+    this.previewBitGeometry?.dispose();
+    this.previewBitMaterial?.dispose();
     this.armorySteel?.dispose();
     this.armoryElemental?.removeFromParent();
     this.armoryElemental?.userData.dispose?.();

@@ -714,10 +714,11 @@ for (const button of document.querySelectorAll('[data-turn-flip]')) {
     screenTurn?.listenToMotion();
   });
 }
-// every button lands with a little brass (not the on-screen fighting controls)
+// Armory item cards own their identity cue; opening the Armory stays silent.
 document.addEventListener('click', (event) => {
   const button = event.target.closest?.('button');
-  if (!button || button.disabled || button.closest('.touch-controls')) return;
+  if (!button || button.disabled || button.closest('.touch-controls')
+    || button.matches('[data-spell], [data-ultimate], #armory-button')) return;
   const back = button.classList.contains('back-button') || /leave|cancel|back/.test(button.id);
   const variant = back ? 'back' : button.classList.contains('primary-command') ? 'confirm' : 'press';
   sound.play(uiClankRecipe(Math.random, { variant }), { bus: 'ui' });
