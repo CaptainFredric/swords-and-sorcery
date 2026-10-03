@@ -1,5 +1,7 @@
 # Chivalry, mastery and practice handoff
 
+The later [motion and selector followup](CHIVALRY_MOTION_POLISH.md) adds three authored guarded cuts and supersedes this report's original presentation and verification details.
+
 Actual base: `30ea64816b061eeb6a092434359d9bc11efe1723`.
 Implementation result: `4d6318c48f3eeea037221d6629974099aea7059c`. A subsequent documentation commit adds this report only.
 Branch: `feat/chivalry-arsenal`. Worktree: `/Users/erendiracisneros/swords-and-sorcery-polish`.

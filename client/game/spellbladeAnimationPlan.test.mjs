@@ -153,3 +153,21 @@ test('breathing clocks sample only the authored loop interval', () => {
   const fp = resolveFirstPersonAnimationPlan({ state: 'idle' }, {}, 0);
   close(fp.time, 1 / 30);
 });
+
+test('Chivalry guarded cuts use authored defensive variants at the ordinary contact clocks', () => {
+  const player = { alive: true, guarding: true, attackActive: true, attackStartedAt: 10,
+    ultimateState: { id: 'chivalry', phase: 'active', until: 19 } };
+  for (const [time, clip, local] of [[10.4,'GuardCut_1',.4],[11.1,'GuardCut_2',.38],[11.8,'GuardCut_3',.36]]) {
+    const plan = resolveSpellbladeAnimationPlan({ state:'attack', player, serverNow: time, localTime: time });
+    assert.equal(plan.layers.sword.clip,clip);
+    close(plan.layers.sword.time,local);
+    assert.equal(plan.layers.posture.clip,clip);
+    assert.equal(plan.layers.sorcery.clip,clip,'free gauntlet stays in the authored defensive cut');
+    assert.equal(plan.layers.sword.actionKey,10);
+    const casting = resolveSpellbladeAnimationPlan({ state:'attack', player:{...player,castPoseStartAt:time-.1,castPoseUntil:time+.2},serverNow:time });
+    assert.equal(casting.layers.sorcery.clip,'Cast');
+    assert.equal(casting.layers.sword.clip,clip);
+  }
+  const open=resolveSpellbladeAnimationPlan({state:'attack',player:{...player,guarding:false},serverNow:10.4});
+  assert.equal(open.layers.sword.clip,'Slash_1');
+});

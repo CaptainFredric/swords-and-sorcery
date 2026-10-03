@@ -30,9 +30,9 @@ test('Chivalry HUD keeps a cooling spell face and exposes three identities with 
   assert.equal(view.spell.classList.contains('fist'), false);
   assert.equal(view.spell.querySelector('strong').textContent, '6.0');
   assert.equal(view.preparedPanel.hidden, false);
-  assert.ok(view.preparedPanel.innerHTML.includes('★ Gale'));
-  assert.ok(view.preparedPanel.innerHTML.includes('9.0'));
-  assert.equal((view.preparedPanel.innerHTML.match(/data-spell=/g) ?? []).length, 3);
+  assert.equal(view.preparedSlots.get('gale').classList.contains('current'),true);
+  assert.equal(view.preparedTimer.textContent,'9.0s');
+  assert.equal(view.preparedSlots.size,3);
   view.setPreparedSelector({ highlight: 'frostfire' });
   assert.equal(view.preparedPanel.classList.contains('selecting'), true);
   view.setPreparedSelector({ highlight: null });
@@ -46,4 +46,18 @@ test('repertoire collapses at expiry while the authoritative current spell remai
   assert.equal(view.preparedPanel.hidden, true);
   assert.equal(view.spell.dataset.spell, 'gale');
   assert.equal(view.spell.querySelector('em').textContent, 'GALE');
+});
+
+test('spell selection preserves card identity through cooldown ticks and equipped changes',()=>{
+  const view=hud();view.update(local,{},10);
+  assert.equal(view.preparedSlots.size,3);
+  assert.deepEqual(view.preparedOrder,['fireball','gale','frostfire']);
+  const first=view.preparedSlots.get('fireball');
+  view.update({...local,spell:'fireball'}, {},10.1);
+  assert.equal(view.preparedSlots.get('fireball'),first);
+  assert.equal(first.classList.contains('current'),true);
+  assert.deepEqual(view.preparedOrder,['frostfire','fireball','gale'],'mouse left and right choices agree with the visible card order');
+  view.setPreparedSelector({highlight:'frostfire'});
+  assert.equal(view.preparedSlots.get('frostfire').classList.contains('highlighted'),true);
+  assert.ok(view.preparedHint.textContent.includes('SELECT'),'a cooling choice selects without claiming to cast');
 });

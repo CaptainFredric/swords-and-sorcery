@@ -375,8 +375,8 @@ export class TouchControls {
     this.preparedFan.style.top = `${gesture.y}px`;
     this.preparedFan.innerHTML = gesture.selector.slots.slice(1).map((slot) => {
       const entry = this.prepared.spells.find((spell) => spell.id === slot.id);
-      const state = entry.available ? 'READY' : this.prepared.phase === 'startup' ? 'PRESELECT' : entry.remaining > 0.01 ? entry.remaining.toFixed(1) : 'GATHER';
-      return `<div class="touch-prepared-slot ${slot.id === gesture.selector.highlight ? 'highlighted' : ''} ${entry.available ? '' : 'cooling'}" style="left:${slot.x}px;top:${slot.y}px">${iconSvg(slot.id)}<span>${entry.spell.short ?? entry.spell.label}</span><b>${state}</b></div>`;
+      const state = entry.available ? 'READY' : this.prepared.phase === 'startup' ? 'PRESELECT' : entry.remaining > 0.01 ? `${entry.remaining.toFixed(1)}s` : 'GATHER';
+      return `<div data-spell="${slot.id}" class="touch-prepared-slot ${slot.id === gesture.selector.highlight ? 'highlighted' : ''} ${entry.available ? '' : 'cooling'}" style="left:${slot.x}px;top:${slot.y}px">${iconSvg(slot.id)}<span>${entry.spell.short ?? entry.spell.label}</span><b>${state}</b></div>`;
     }).join('');
     this.buttons.spell.classList.toggle('prepared-highlighted', gesture.selector.highlight === this.prepared.current);
   }

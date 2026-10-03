@@ -1,4 +1,4 @@
-import { guardedSwordArm } from './chivalryMotion.mjs';
+import { guardedSwordPose } from './chivalryMotion.mjs';
 import { createChivalryLink } from './chivalryLink.mjs';
 import { createElementalOrb } from './elementalOrb.mjs';
 import * as THREE from 'three';
@@ -598,7 +598,9 @@ export class WeaponView {
       // the combo is one unbroken path of both hands (fpSlash.mjs): fast, fast, then heavy with both on the grip
       // (a Vortex has both arms outright: the chain's path gives way to it)
       const vortexPose = this.#vortexPose(timeSec, dt);
-      const combo = vortexPose ?? this.#combo(this.concurrent && chain ? 'attack' : pose.state, timeSec, stateBefore);
+      const sourceCombo = vortexPose ?? this.#combo(this.concurrent && chain ? 'attack' : pose.state, timeSec, stateBefore);
+      this.concurrentGuardBlend = approach(this.concurrentGuardBlend ?? 0, this.concurrent && this.guard ? 1 : 0, dt / 0.18);
+      const combo = vortexPose ? sourceCombo : guardedSwordPose(sourceCombo, this.concurrentGuardBlend);
       if (combo) {
         plan = resolveFirstPersonAnimationPlan({ state: 'idle' }, this, timeSec);
         // the view leans with the body into each cut (purely visual: aim is the input's)
@@ -610,7 +612,6 @@ export class WeaponView {
       const spread = FP_MOTION.neutralSpread * motion.neutral;
       // the guard brings the sword in toward the middle, a little lower, the blade across the body
       this.guardBlend = approach(this.guardBlend ?? 0, (this.concurrent ? this.guard : pose.state === 'guard') ? 1 : 0, FP_MOTION.guardBlendRate * dt);
-      this.concurrentGuardBlend = approach(this.concurrentGuardBlend ?? 0, this.concurrent && this.guard ? 1 : 0, dt / 0.14);
       const guardArm = this.guardBlend * (combo ? 0 : 1);
       const guardIn = FP_MOTION.guardInward * guardArm;
       // the magic arm draws the spell in close, then throws it (see castGesture.mjs)
@@ -648,8 +649,7 @@ export class WeaponView {
         ],
         solve: combo || jab ? (bones) => {
           if (combo) {
-            const guardedArm = guardedSwordArm(combo.arm, this.concurrentGuardBlend);
-            solveSwordArm(bones, guardedArm, combo.weight);
+            solveSwordArm(bones, combo.arm, combo.weight);
             if (combo.offHand) solveArm(bones, FIRST_PERSON_OFF_ARM, combo.offHand, combo.offHand.weight * combo.weight * swordOffhand);
           }
           // the gauntlet strike has the magic hand

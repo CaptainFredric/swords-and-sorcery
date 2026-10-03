@@ -152,14 +152,50 @@ export class HUD {
     if (!view.visible) { this.preparedSelector = null; return; }
     this.preparedPanel.classList.toggle('selecting', Boolean(this.preparedSelector));
     this.preparedPanel.classList.toggle('cancelled', Boolean(this.preparedSelector && !this.preparedSelector.highlight));
-    const current = view.spells.find((entry) => entry.current);
-    const alternates = view.spells.filter((entry) => !entry.current);
-    const ordered = [alternates[0], current, alternates[1]].filter(Boolean);
-    this.preparedPanel.innerHTML = `<small>${view.phase === 'startup' ? 'PRESELECT' : 'PREPARED SPELLS'} <b>${view.phase === 'active' ? view.left.toFixed(1) : ''}</b></small><div class="prepared-spell-row">${ordered.map((entry) => {
+    const signature = view.spells.map(entry => entry.id).join(':');
+    if (signature !== this.preparedSignature) {
+      this.preparedSignature = signature;
+      this.preparedPanel.innerHTML = '<small><span>Spells & Chivalry</span><b></b></small><div class="prepared-spell-row"></div><em></em>';
+      this.preparedHeader = this.preparedPanel.querySelector('small>span');
+      this.preparedTimer = this.preparedPanel.querySelector('small>b');
+      this.preparedHint = this.preparedPanel.querySelector('em');
+      const row = this.preparedPanel.querySelector('.prepared-spell-row');
+      this.preparedSlots = new Map();
+      for (const entry of view.spells) {
+        const tile = document.createElement('div');
+        tile.className = 'prepared-spell';
+        tile.dataset.spell = entry.id;
+        tile.innerHTML = `${iconSvg(entry.id)}<span>${entry.spell.short ?? entry.spell.label}</span><b></b><i></i>`;
+        row.append(tile);
+        this.preparedSlots.set(entry.id, tile);
+      }
+    }
+    const current = view.spells.find(entry => entry.current);
+    const alternates = view.spells.filter(entry => !entry.current);
+    const order = [alternates[0], current, alternates[1]].filter(Boolean).map(entry => entry.id);
+    if (this.preparedOrder?.join(':') !== order.join(':')) {
+      const row = this.preparedPanel.querySelector('.prepared-spell-row');
+      for (const id of order) row.append(this.preparedSlots.get(id));
+      this.preparedOrder = order;
+    }
+    this.preparedHeader.textContent = view.phase === 'startup' ? 'Prepare your spells' : 'Spells & Chivalry';
+    this.preparedTimer.textContent = view.phase === 'active' ? `${view.left.toFixed(1)}s` : '';
+    this.preparedPanel.style.setProperty('--chivalry-left', `${Math.min(100, view.left / 9 * 100)}%`);
+    for (const entry of view.spells) {
+      const tile = this.preparedSlots.get(entry.id);
       const highlighted = this.preparedSelector?.highlight === entry.id;
-      const status = view.phase === 'startup' ? 'PRESELECT' : entry.available ? 'READY' : entry.remaining > 0.01 ? entry.remaining.toFixed(1) : 'GATHER';
-      return `<div class="prepared-spell ${entry.current ? 'current' : ''} ${highlighted ? 'highlighted' : ''} ${entry.available ? '' : 'cooling'}" data-spell="${entry.id}">${iconSvg(entry.id)}<span>${entry.current ? '★ ' : ''}${entry.spell.short ?? entry.spell.label}</span><b>${status}</b></div>`;
-    }).join('')}</div><em>${this.preparedSelector ? this.preparedSelector.highlight ? 'RELEASE TO USE · ESC TO CANCEL' : 'CANCEL' : 'TAP Q TO CAST · HOLD Q TO CHOOSE'}</em>`;
+      const status = view.phase === 'startup' ? 'PRESELECT' : entry.available ? 'READY' : entry.remaining > 0.01 ? `${entry.remaining.toFixed(1)}s` : 'GATHER';
+      tile.classList.toggle('current', entry.current);
+      tile.classList.toggle('highlighted', highlighted);
+      tile.classList.toggle('cooling', !entry.available);
+      tile.querySelector('b').textContent = status;
+      tile.querySelector('i').textContent = highlighted ? 'SELECTED' : entry.current ? 'EQUIPPED' : '';
+      tile.setAttribute('aria-label', `${entry.spell.label}, ${status}${entry.current ? ', equipped' : ''}${highlighted ? ', selected' : ''}`);
+    }
+    const highlighted = view.spells.find(entry => entry.id === this.preparedSelector?.highlight);
+    this.preparedHint.textContent = this.preparedSelector
+      ? highlighted ? `${highlighted.available ? 'RELEASE TO CAST' : 'RELEASE TO SELECT'} · ESC TO CANCEL` : 'RELEASE TO CANCEL'
+      : view.phase === 'startup' ? 'HOLD Q TO PRESELECT' : 'TAP Q TO CAST · HOLD Q TO CHOOSE';
   }
 
   /** A key pressed that can do nothing yet (the spell cooling with nobody in reach of the gauntlet): the tile says so. */
