@@ -16,8 +16,8 @@ export function chivalryTellState(player, now, previous = {}) {
 }
 
 
-const THIRD_PERSON_TELL = Object.freeze({ thickness: 0.014, crestRadius: 0.085, signatureRadius: 0.06, opacity: 1, archY: 0.15, archZ: 0.055, commitRise: 0.14, palmMarks: false });
-const FIRST_PERSON_TELL = Object.freeze({ thickness: 0.0012, crestRadius: 0.008, signatureRadius: 0.005, opacity: 0.32, archY: -0.035, archZ: -0.025, commitRise: 0.006, palmMarks: true });
+const THIRD_PERSON_TELL = Object.freeze({ signatureRadius: 0.035, opacity: 0.65, commitRise: 0.06, spacing: 0.11, height: 0.055, depth: 0.015 });
+const FIRST_PERSON_TELL = Object.freeze({ signatureRadius: 0.005, opacity: 0.25, commitRise: 0.006, spacing: 0.022, height: 0.018, depth: 0.014 });
 
 export function chivalryTellStyle({ firstPerson = false } = {}) {
   return firstPerson ? FIRST_PERSON_TELL : THIRD_PERSON_TELL;

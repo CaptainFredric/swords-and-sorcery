@@ -1,3 +1,4 @@
+import { guardedSwordArm } from './chivalryMotion.mjs';
 import { createChivalryLink } from './chivalryLink.mjs';
 import { createElementalOrb } from './elementalOrb.mjs';
 import * as THREE from 'three';
@@ -609,11 +610,12 @@ export class WeaponView {
       const spread = FP_MOTION.neutralSpread * motion.neutral;
       // the guard brings the sword in toward the middle, a little lower, the blade across the body
       this.guardBlend = approach(this.guardBlend ?? 0, (this.concurrent ? this.guard : pose.state === 'guard') ? 1 : 0, FP_MOTION.guardBlendRate * dt);
+      this.concurrentGuardBlend = approach(this.concurrentGuardBlend ?? 0, this.concurrent && this.guard ? 1 : 0, dt / 0.14);
       const guardArm = this.guardBlend * (combo ? 0 : 1);
       const guardIn = FP_MOTION.guardInward * guardArm;
       // the magic arm draws the spell in close, then throws it (see castGesture.mjs)
       const gesture = castGesture(timeSec - this.castStartedAt, this.castGather);
-      this.sorceryFreedom = approach(this.sorceryFreedom ?? 0, this.concurrent && (!gesture.done || clenchPulse(timeSec - this.clenchAt) > 0) ? 1 : 0, dt / 0.1);
+      this.sorceryFreedom = approach(this.sorceryFreedom ?? 0, !gesture.done || clenchPulse(timeSec - this.clenchAt) > 0 ? 1 : 0, dt / 0.1);
       const swordOffhand = 1 - this.sorceryFreedom;
       // or drives the gauntlet out (gauntletJab.mjs), the view nudged as it lands
       const jab = jabTarget(timeSec - this.jabAt);
@@ -646,10 +648,7 @@ export class WeaponView {
         ],
         solve: combo || jab ? (bones) => {
           if (combo) {
-            const guardedArm = this.concurrent && this.guard ? {
-              ...combo.arm,
-              wrist: combo.arm.wrist.map((v, i) => i === 0 ? 0.16 + (v - 0.16) * 0.82 : i === 1 ? v - 0.035 : v),
-            } : combo.arm;
+            const guardedArm = guardedSwordArm(combo.arm, this.concurrentGuardBlend);
             solveSwordArm(bones, guardedArm, combo.weight);
             if (combo.offHand) solveArm(bones, FIRST_PERSON_OFF_ARM, combo.offHand, combo.offHand.weight * combo.weight * swordOffhand);
           }

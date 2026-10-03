@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { ownershipBlendSeconds } from './chivalryMotion.mjs';
 
 export const COMPOSITION_BLEND_SEC = 0.1;
 
@@ -18,7 +19,7 @@ function blendValue(bone, property, from, to, amount) {
   else bone[property].copy(from).lerp(to, amount);
 }
 
-/** Samples existing authored tracks at supplied clocks, with independent 100 ms ownership handovers. */
+/** Samples authored tracks at supplied clocks, with independent action and recovery handovers. */
 export class SpellbladeComposition {
   constructor(root, clips) {
     this.root = root;
@@ -45,12 +46,12 @@ export class SpellbladeComposition {
       const signature = `${plan.clip}:${plan.actionKey ?? ''}`;
       let channel = this.channels.get(owner);
       if (!channel || channel.signature !== signature) {
-        channel = { signature, elapsed: 0, from: new Map() };
+        channel = { signature, clip: plan.clip, duration: ownershipBlendSeconds(channel?.clip, plan.clip), elapsed: 0, from: new Map() };
         for (const track of clip.tracks) if (track.owner === owner) channel.from.set(track.bone.uuid + track.property, valueOf(track.bone, track.property));
         this.channels.set(owner, channel);
       }
       channel.elapsed += dt;
-      const weight = smooth(Math.min(1, channel.elapsed / COMPOSITION_BLEND_SEC));
+      const weight = smooth(Math.min(1, channel.elapsed / channel.duration));
       let time = Number.isFinite(plan.time) ? plan.time : 0;
       if (plan.normalized) time *= clip.duration;
       if (plan.loop) time = ((time % clip.duration) + clip.duration) % clip.duration;
@@ -65,8 +66,8 @@ export class SpellbladeComposition {
     this.root.updateMatrixWorld(true);
   }
 
-  release() {
-    this.out = { elapsed: 0, bones: new Map() };
+  release(duration = 0.2) {
+    this.out = { elapsed: 0, duration, bones: new Map() };
     this.root.traverse((bone) => {
       if (bone.isBone) this.out.bones.set(bone, { quaternion: bone.quaternion.clone(), position: bone.position.clone(), scale: bone.scale.clone() });
     });
@@ -76,7 +77,7 @@ export class SpellbladeComposition {
   blendOut(dt) {
     if (!this.out) return;
     this.out.elapsed += dt;
-    const weight = smooth(Math.min(1, this.out.elapsed / COMPOSITION_BLEND_SEC));
+    const weight = smooth(Math.min(1, this.out.elapsed / this.out.duration));
     for (const [bone, from] of this.out.bones) {
       for (const property of ['quaternion', 'position', 'scale']) blendValue(bone, property, from[property], valueOf(bone, property), weight);
     }

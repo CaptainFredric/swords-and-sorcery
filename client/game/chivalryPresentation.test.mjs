@@ -85,18 +85,16 @@ test('ordinary coexistence events keep held actions and a parry still permits tr
   assert.deepEqual(localWeaponReleaseForEvent({ type: 'ultimateStart', playerId: 'me', ultimate: 'chivalry', at: 10.2 }, 'me', active), { attack: true, guard: true, cast: true, dash: true });
 });
 
-test('first person tell uses small dim palm signatures and a link below the hand line', () => {
+test('commit signatures stay beside the palm with no link or center crest', () => {
   const fp = chivalryTellStyle({ firstPerson: true });
   const remote = chivalryTellStyle();
-  assert.ok(fp.signatureRadius <= remote.signatureRadius * 0.1);
-  assert.ok(fp.crestRadius <= remote.crestRadius * 0.1);
-  assert.ok(fp.thickness <= remote.thickness * 0.1);
-  assert.ok(fp.opacity <= 0.35);
-  assert.ok(fp.archY < 0);
-  assert.equal(fp.palmMarks, true);
-  // At 35 cm from the camera and 78 degree FOV, a 1.5x commit mark stays under 20 px tall.
+  assert.ok(fp.opacity <= 0.25);
+  for (const style of [fp, remote]) {
+    assert.equal(style.crestRadius, undefined);
+    assert.equal(style.thickness, undefined);
+    assert.equal(style.archY, undefined);
+    assert.ok(style.spacing > style.signatureRadius * 2);
+  }
   const projected = 2 * fp.signatureRadius * 1.5 * 716 / (2 * 0.35 * Math.tan(78 * Math.PI / 360));
   assert.ok(projected < 20);
-  assert.equal(remote.palmMarks, false);
-  assert.equal(remote.signatureRadius, 0.06);
 });

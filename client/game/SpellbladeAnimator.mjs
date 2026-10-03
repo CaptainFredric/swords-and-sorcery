@@ -129,7 +129,17 @@ export class SpellbladeAnimator {
         this.fading = [];
         this.composing = true;
       }
-      this.composition.apply(plan.layers, step);
+      const layers = { ...plan.layers };
+      const locomotion = layers.locomotion;
+      if (locomotion?.loop && GAIT_CLIPS.has(locomotion.clip)) {
+        const clip = this.actions.get(locomotion.clip)?.getClip() ?? this.actions.get(locomotion.fallback)?.getClip();
+        if (clip) {
+          this.gaitPhase = (this.gaitPhase + step * (locomotion.rate ?? 1) / Math.max(0.05, clip.duration)) % 1;
+          layers.locomotion = { ...locomotion, time: gaitTime(this.gaitPhase, clip.duration), normalized: false };
+        }
+      }
+      this.activeClip = locomotion?.clip ?? this.activeClip;
+      this.composition.apply(layers, step);
       this.#applyProcedural(plan.motion);
       this.cloth?.apply(step);
       this.onPose?.(plan);
@@ -137,7 +147,7 @@ export class SpellbladeAnimator {
     }
     if (this.composing) {
       this.#restoreTouched();
-      this.composition.release();
+      this.composition.release(['stagger', 'dead'].includes(plan?.state) || ['Stagger', 'Death'].includes(plan?.clip) ? 0.08 : 0.2);
       this.composing = false;
     }
     const clip = this.actions.has(plan?.clip) ? plan.clip : plan?.fallback;
