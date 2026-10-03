@@ -2,9 +2,10 @@
 // Spellblades and does with what they send. The same shapes either way, so the client cannot tell who is hosting
 // except by asking.
 
-import { beginAttack, endAttack, setGuard, tryCastOrGauntlet, tryDash, tryGauntletStrike, tryUltimate } from './combat.mjs';
+import { castPreparedSpell, selectPreparedSpell, beginAttack, endAttack, setGuard, tryCastOrGauntlet, tryDash, tryGauntletStrike, tryUltimate } from './combat.mjs';
 import { compensatedInputTime } from './history.mjs';
 import { readyPracticeUltimate, removePracticeDummy, resetPracticePlayer, setPracticeDummyMode, spawnPracticeDummy } from './practice.mjs';
+import { spellFor } from '../src/spells.mjs';
 import { GAME_MODES } from '../src/modes.mjs';
 
 export function serializeLobby(room) {
@@ -80,8 +81,15 @@ export function serializeSnapshot(room, nowSec) {
       parries: p.parries,
       abyssKills: p.abyssKills,
       spell: p.spell,
+      startingSpell: p.startingSpell ?? p.spell,
+      preparedSpells: [...(p.preparedSpells ?? [])],
+      spellReadyById: { ...(p.spellReadyById ?? {}) },
+      chivalryProjectileReadyAt: p.chivalryProjectileReadyAt ?? 0,
       cloth: p.cloth ?? 'crimson',
       spellReadyAt: p.spellReadyAt,
+      castingSpell: p.pendingSpell?.spell ?? null,
+      castEndsAt: p.castEndsAt ?? 0,
+      castStartedAt: p.pendingSpell ? p.castEndsAt - spellFor(p.pendingSpell.spell).gatherSec : 0,
       // afflictions, for your own prediction (the chill slows you) and everyone's effects
       chill: p.chill ? { slow: p.chill.slow, startedAt: p.chill.startedAt, until: p.chill.until } : null,
       burningUntil: p.burn?.until ?? 0,
@@ -154,6 +162,16 @@ export function applyRoomCommand(room, player, message, time) {
     case 'guard': setGuard(room, player.id, Boolean(message.down), compensatedInputTime(message.clientTime, time)); return {};
     // the spell's key: the spell when it is ready; on its cooldown, the gauntlet if a foe is in reach
     case 'cast': tryCastOrGauntlet(room, player.id, message.direction || { x: 0, y: 0, z: -1 }, time, compensatedInputTime(message.clientTime, time)); return {};
+    case 'selectPreparedSpell': selectPreparedSpell(room, player.id, message.spell ?? message.id, time); return {};
+    case 'castPreparedSpell': {
+      // Aim is current input intent. Only finite angles enter the authoritative state.
+      const yaw = Number.isFinite(message.yaw) ? message.yaw : player.input?.yaw ?? player.yaw;
+      const pitch = Number.isFinite(message.pitch) ? Math.max(-1.45, Math.min(1.45, message.pitch)) : player.input?.pitch ?? player.pitch;
+      player.input = { ...player.input, yaw, pitch };
+      player.yaw = yaw; player.pitch = pitch;
+      castPreparedSpell(room, player.id, message.spell ?? message.id, message.direction || { x: 0, y: 0, z: -1 }, time);
+      return {};
+    }
     // the gauntlet on its own key: the fist, whether or not the spell is ready
     case 'gauntlet': tryGauntletStrike(room, player.id, time, compensatedInputTime(message.clientTime, time)); return {};
     case 'dash': tryDash(room, player.id, message.direction || { x: 0, z: -1 }, time); return {};

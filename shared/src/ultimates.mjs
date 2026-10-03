@@ -86,6 +86,17 @@ export const ULTIMATES = Object.freeze({
     recoverSec: 0.5,       // after it ends: no sword, spell or fist
     dizzySec: 1.6,         // and this long a little dizzy (seen and heard; nothing is taken from the knight)
   }),
+  chivalry: Object.freeze({
+    id: 'chivalry',
+    label: 'Spells & Chivalry',
+    short: 'Chivalry',
+    startupSec: 0.65,
+    activeSec: 9,
+    lockoutSec: 2.5,
+    startupMove: 0.65,
+    startupStagger: 1.5,
+    projectileChivalryGateSec: 0.72,
+  }),
 });
 
 export const DEFAULT_ULTIMATE = 'sunder';

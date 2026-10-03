@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { SpellbladeComposition } from './spellbladeComposition.mjs';
 import { bootSide, soleContactOffset } from './spellbladeContact.mjs';
 import { SpellbladeClothRig } from './SpellbladeClothRig.mjs';
 import { blendProgressFor, blendSeconds, blendWeights } from './spellbladeBlend.mjs';
@@ -54,6 +55,8 @@ export class SpellbladeAnimator {
     this.mixer = new THREE.AnimationMixer(root);
     this.cloth = cloth ? new SpellbladeClothRig(root) : null;
     this.actions = new Map();
+    this.composition = new SpellbladeComposition(root, clips);
+    this.composing = false;
     this.activeAction = null;
     this.activeClip = null;
     this.activeBlend = { elapsed: 0, duration: 0 };
@@ -113,6 +116,40 @@ export class SpellbladeAnimator {
 
   apply(plan, dt = 0) {
     const step = Number.isFinite(dt) ? Math.max(0, Math.min(0.1, dt)) : 0;
+    if (plan?.layers) {
+      this.#restoreTouched();
+      if (!this.composing) {
+        this.composition.begin();
+        // Stop full-body bindings before applying their individually owned tracks.
+        const held = new Map();
+        for (const bone of this.bones.values()) held.set(bone, { q: bone.quaternion.clone(), p: bone.position.clone(), s: bone.scale.clone() });
+        this.mixer.stopAllAction();
+        for (const [bone, value] of held) { bone.quaternion.copy(value.q); bone.position.copy(value.p); bone.scale.copy(value.s); }
+        this.activeAction = null;
+        this.fading = [];
+        this.composing = true;
+      }
+      const layers = { ...plan.layers };
+      const locomotion = layers.locomotion;
+      if (locomotion?.loop && GAIT_CLIPS.has(locomotion.clip)) {
+        const clip = this.actions.get(locomotion.clip)?.getClip() ?? this.actions.get(locomotion.fallback)?.getClip();
+        if (clip) {
+          this.gaitPhase = (this.gaitPhase + step * (locomotion.rate ?? 1) / Math.max(0.05, clip.duration)) % 1;
+          layers.locomotion = { ...locomotion, time: gaitTime(this.gaitPhase, clip.duration), normalized: false };
+        }
+      }
+      this.activeClip = locomotion?.clip ?? this.activeClip;
+      this.composition.apply(layers, step);
+      this.#applyProcedural(plan.motion);
+      this.cloth?.apply(step);
+      this.onPose?.(plan);
+      return true;
+    }
+    if (this.composing) {
+      this.#restoreTouched();
+      this.composition.release(['stagger', 'dead'].includes(plan?.state) || ['Stagger', 'Death'].includes(plan?.clip) ? 0.08 : 0.2);
+      this.composing = false;
+    }
     const clip = this.actions.has(plan?.clip) ? plan.clip : plan?.fallback;
     const action = this.actions.get(clip);
     if (!action) return false;
@@ -182,6 +219,7 @@ export class SpellbladeAnimator {
 
     this.#restoreTouched();
     this.mixer.update(0);
+    this.composition.blendOut(step);
     this.#applyProcedural(plan.motion);
     this.cloth?.apply(step);
     this.onPose?.(plan);

@@ -1,3 +1,4 @@
+import { preparedSpellView } from '../game/preparedSpellSelector.mjs';
 import { SPRINT } from '../../shared/src/movement.mjs';
 import { combatStatusDurationMs } from '../game/combatFeedbackTiming.mjs';
 import { spellFor } from '../../shared/src/spells.mjs';
@@ -63,6 +64,11 @@ export class HUD {
     this.pointerHint = document.querySelector('#pointer-hint');
     this.displayedTrail = 100;
     this.feedTimers = [];
+    this.preparedPanel = document.createElement('div');
+    this.preparedPanel.className = 'prepared-spells';
+    this.preparedPanel.hidden = true;
+    this.root.append(this.preparedPanel);
+    this.preparedSelector = null;
   }
 
   show() { this.root.classList.remove('hidden'); this.root.setAttribute('aria-hidden', 'false'); }
@@ -107,7 +113,10 @@ export class HUD {
     const spell = spellFor(local.spell);
     // (in the Practice Yard the key stays the spell's while it cools: it comes back after a moment)
     const practice = snapshot?.mode === 'PRACTICE';
-    const cooling = (local.spellReadyAt ?? 0) - serverNow > 0.01 && !practice;
+    const prepared = preparedSpellView(local, serverNow);
+    const currentPrepared = prepared.spells.find((entry) => entry.current);
+    const cooling = !prepared.visible && (local.spellReadyAt ?? 0) - serverNow > 0.01 && !practice;
+    this.#preparedSpells(prepared);
     const face = `${spell.id}:${cooling ? 'fist' : 'spell'}`;
     if (this.spell.dataset.face !== face) {
       this.spell.dataset.face = face;
@@ -117,7 +126,9 @@ export class HUD {
       this.spellIcon.innerHTML = iconSvg(cooling ? 'gauntlet' : spell.id);
       if (this.spellBadge) this.spellBadge.innerHTML = cooling ? iconSvg(spell.id) : '';
     }
-    this.#ability(this.spell, Math.max(0, (local.spellReadyAt ?? 0) - serverNow), spell.cooldownSec);
+    this.#ability(this.spell, prepared.visible ? currentPrepared?.remaining ?? 0 : Math.max(0, (local.spellReadyAt ?? 0) - serverNow), spell.cooldownSec);
+    this.spell.classList.toggle('prepared-current', prepared.visible);
+    this.spell.classList.toggle('preselect', prepared.phase === 'startup');
     this.#ability(this.dash, Math.max(0, local.dashReadyAt - serverNow));
     // the real cooldown counts down as in a match; the yard's mark says why the key works anyway
     this.spell.classList.toggle('practice', practiceOverride(local, 'spell', serverNow, practice));
@@ -128,6 +139,27 @@ export class HUD {
 
     this.deathCard.classList.toggle('hidden', local.alive);
     if (!local.alive) this.deathTimer.textContent = Math.max(0, local.respawnAt - serverNow).toFixed(1);
+  }
+
+  setPreparedSelector(view) {
+    this.preparedSelector = view;
+    if (this.preparedView) this.#preparedSpells(this.preparedView);
+  }
+
+  #preparedSpells(view) {
+    this.preparedView = view;
+    this.preparedPanel.hidden = !view.visible;
+    if (!view.visible) { this.preparedSelector = null; return; }
+    this.preparedPanel.classList.toggle('selecting', Boolean(this.preparedSelector));
+    this.preparedPanel.classList.toggle('cancelled', Boolean(this.preparedSelector && !this.preparedSelector.highlight));
+    const current = view.spells.find((entry) => entry.current);
+    const alternates = view.spells.filter((entry) => !entry.current);
+    const ordered = [alternates[0], current, alternates[1]].filter(Boolean);
+    this.preparedPanel.innerHTML = `<small>${view.phase === 'startup' ? 'PRESELECT' : 'PREPARED SPELLS'} <b>${view.phase === 'active' ? view.left.toFixed(1) : ''}</b></small><div class="prepared-spell-row">${ordered.map((entry) => {
+      const highlighted = this.preparedSelector?.highlight === entry.id;
+      const status = view.phase === 'startup' ? 'PRESELECT' : entry.available ? 'READY' : entry.remaining > 0.01 ? entry.remaining.toFixed(1) : 'GATHER';
+      return `<div class="prepared-spell ${entry.current ? 'current' : ''} ${highlighted ? 'highlighted' : ''} ${entry.available ? '' : 'cooling'}" data-spell="${entry.id}">${iconSvg(entry.id)}<span>${entry.current ? '★ ' : ''}${entry.spell.short ?? entry.spell.label}</span><b>${status}</b></div>`;
+    }).join('')}</div><em>${this.preparedSelector ? this.preparedSelector.highlight ? 'RELEASE TO USE · ESC TO CANCEL' : 'CANCEL' : 'TAP Q TO CAST · HOLD Q TO CHOOSE'}</em>`;
   }
 
   /** A key pressed that can do nothing yet (the spell cooling with nobody in reach of the gauntlet): the tile says so. */

@@ -21,6 +21,8 @@
   <link rel="stylesheet" href="client/menu.css" />
   <link rel="stylesheet" href="client/mobile.css" />
   <link rel="stylesheet" href="client/renown.css" />
+  <link rel="stylesheet" href="client/ui/preparedSpells.css" />
+  <link rel="stylesheet" href="client/chivalry.css" />
   <script type="importmap">
     {
       "imports": {
@@ -30,6 +32,7 @@
       }
     }
   </script>
+  <link rel="stylesheet" href="./client/challenges.css">
 </head>
 <body>
   <main id="game-shell">
@@ -83,6 +86,7 @@
         <nav class="armory-tabs" aria-label="Armory sections">
           <button type="button" id="armory-kit-tab" aria-pressed="true" aria-controls="armory-kit">COMBAT KIT</button>
           <button type="button" id="armory-heraldry-tab" aria-pressed="false" aria-controls="armory-heraldry">HERALDRY</button>
+          <button type="button" id="armory-challenges-tab" aria-pressed="false" aria-controls="armory-challenges">CHALLENGES</button>
         </nav>
         <div class="armory-scroll" tabindex="0" aria-label="Armory choices">
         <div id="armory-kit">
@@ -92,6 +96,7 @@
         <div id="armory-spells" class="armory-spells" role="radiogroup" aria-label="Spell"></div>
         <p class="armory-slot">ULTIMATE · R</p>
         <div id="armory-ultimates" class="armory-spells" role="radiogroup" aria-label="Ultimate"></div>
+        <div id="armory-prepared" class="hidden"></div>
         <p class="panel-copy armory-note">Equipped for your next match.</p>
         </div>
         <div id="armory-heraldry" class="hidden">
@@ -115,6 +120,7 @@
             <p>Fight for at least 30 seconds and record a kill, death or parry. Server hosted bot duels count. Practice, offline play and forfeits award none.</p>
           </details>
         </div>
+        <div id="armory-challenges" class="hidden"></div>
         </div>
         <p class="armory-scroll-hint">SCROLL FOR SPELLS, ULTIMATES AND STANDARDS ↓</p>
       </div>
@@ -193,10 +199,10 @@
           <span>E</span><b>Dash in your movement direction</b>
           <h3 class="controls-group">COMBAT</h3>
           <span>LMB</span><b>Hold for sword combos</b>
-          <span>RMB</span><b>Guard · time it with a hit to Parry</b>
+          <span>RMB / G</span><b>Guard · time it with a hit to Parry</b>
           <span>Q</span><b>Cast your equipped spell or ward</b>
           <span>R</span><b>Use your Ultimate when Prowess is full</b>
-          <span>Q · COOLING</span><b>Throw your gauntlet while the spell recovers</b>
+          <span>Q · COOLING</span><b>Throw your gauntlet while the spell recovers, except during Chivalry</b>
           <h3 class="controls-group">OTHER</h3>
           <span>TAB</span><b>Scoreboard</b>
           <span>M / N</span><b>Toggle sound / music</b>
@@ -214,7 +220,7 @@
           <span>MENU</span><b>Arena menu · practice tools</b>
         </div>
         <button class="wide-button how-settings" data-open-settings="controls">SETTINGS · CONTROLS AND KEYS</button>
-        <div class="rules-copy"><p>Guard blocks sword hits. A timed Parry staggers the attacker. Damaging spells pass through Guard.</p><p>Sprint and Guard share stamina. Pause both to recover it. Dash moves you quickly; incoming hits can still connect.</p><p>Fighting builds Prowess for your Ultimate. Choose your spell, ward and Ultimate in the Armory.</p></div>
+        <div class="rules-copy"><p>Guard blocks sword hits. A timed Parry staggers the attacker. Damaging spells pass through Guard.</p><p>Sprint and Guard share stamina. Pause both to recover it. Dash moves you quickly; incoming hits can still connect.</p><p>Fighting builds Prowess for your Ultimate. Choose your spell, ward and Ultimate in the Armory.</p><p>Spells &amp; Chivalry lets you attack, Guard, Dash and cast together for 9 seconds. Hold Q to choose a prepared spell. On touch, drag from the spell button.</p></div>
         </div>
       </div>
     </section>
@@ -322,6 +328,7 @@
         <button id="practice-sorcery" class="practice-opponent">SPELLS &amp; SORCERY</button>
         <button id="practice-melee" class="practice-opponent">MR. MELEE</button>
         <button id="practice-runner" class="practice-opponent">SIR RUNS-A-LOT</button>
+        <button id="practice-ultimate-knight" class="practice-opponent">THE ULTIMATE KNIGHT</button>
         <button id="practice-remove">REMOVE DUMMY</button>
         <h3>ULTIMATE</h3>
         <button id="practice-ultimate">READY ULTIMATE</button>
@@ -346,6 +353,7 @@
       <p class="eyebrow">MATCH COMPLETE</p>
       <h2 id="winner-title">VICTORY</h2>
       <p id="renown-reward" role="status"></p>
+      <p id="challenges-reward" hidden role="status" aria-live="polite"></p>
       <div id="final-scoreboard" class="final-scoreboard"></div>
       <div class="end-actions">
         <button id="seek-another" class="wide-button primary-command hidden">SEEK ANOTHER</button>

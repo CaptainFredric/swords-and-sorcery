@@ -22,7 +22,7 @@ test('the Armory offers both ultimates, marks the one carried, and says plainly 
   const { ULTIMATES } = await import('../../shared/src/ultimates.mjs');
   const view = armoryView('fireball', 'vortex');
   assert.deepEqual(view.ultimates.map((u) => u.id), Object.keys(ULTIMATES));
-  assert.deepEqual(view.ultimates.map((u) => u.id), ['sunder', 'vortex'], 'Sunder first, the Vortex beside it');
+  assert.deepEqual(view.ultimates.map((u) => u.id), ['sunder', 'vortex', 'chivalry'], 'three ultimate identities');
   assert.deepEqual(view.ultimates.filter((u) => u.equipped).map((u) => u.id), ['vortex']);
   const vortex = view.ultimates.find((u) => u.id === 'vortex');
   assert.equal(vortex.name, 'BLAZING VORTEX');

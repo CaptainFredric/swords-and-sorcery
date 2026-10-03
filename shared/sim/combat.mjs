@@ -7,6 +7,9 @@ import { PROWESS, gainProwess, prowessForDamage } from '../src/prowess.mjs';
 import {
   ULTIMATES, dizzy, stepVortexEmphasis, sundering, ultimateFor, ultimateStartup, ultimateWhirl, vortexEmphasisWanted, vortexTune, vortexing,
 } from '../src/ultimates.mjs';
+import { combatActionPolicy } from '../src/combatActionPolicy.mjs';
+import { recordChallengeFact } from './challenges.mjs';
+import { preparedSpellMember } from '../src/preparedSpells.mjs';
 import { RUPTURE, fissureCatches, planRupture } from '../src/rupture.mjs';
 import { recastReady, recordUse } from '../src/practiceRecast.mjs';
 import { GAME_MODES } from '../src/modes.mjs';
@@ -49,7 +52,7 @@ function playerCenter(player) {
   return { x: player.position.x, y: player.position.y + postureOf(player).center, z: player.position.z };
 }
 
-function resetAtSpawn(player, spawn, nowSec) {
+function resetAtSpawn(player, spawn, nowSec, room) {
   player.position = { x: spawn.x, y: spawn.y, z: spawn.z };
   player.velocity = { x: 0, y: 0, z: 0 };
   player.impulse = { x: 0, z: 0 };
@@ -61,15 +64,17 @@ function resetAtSpawn(player, spawn, nowSec) {
   player.health = 100;
   player.guardStamina = guardProfile(player.knightClass).capacity;
   player.guarding = false;
+  player.guardHeld = false;
   player.sprinting = false;
   player.sprintBlend = 0;
   player.guardStartedAt = -Infinity;
   player.lastGuardDrainAt = -Infinity;
-  stopSwordChain(player);
+  stopSwordChain(player, {}, room, nowSec);
   player.attackStartedAt = -Infinity;
   player.attackRestartAt = -Infinity;
   player.staggerUntil = -Infinity;
-  player.spellReadyAt = Math.max(player.spellReadyAt ?? 0, nowSec);
+  player.spellReadyAt = Math.max(player.spellReadyById?.[player.spell] ?? player.spellReadyAt ?? 0, nowSec);
+  player.chivalryProjectileReadyAt = 0;
   player.castEndsAt = 0;
   player.pendingSpell = null;
   player.gust = null;
@@ -104,9 +109,12 @@ function resetAtSpawn(player, spawn, nowSec) {
 // press would have (it asked for the chain's next strike, not a fresh first one).
 function startSwordChain(player, nowSec) {
   player.attackActive = true;
+  player.attackChainSerial = (player.attackChainSerial ?? 0) + 1;
+  player.attackChainId = `${player.id}:${player.attackChainSerial}`;
   player.attackStartedAt = nowSec;
   // a chain begun Sundering is swung as slams to its end (the ground splits under them only while Sundering)
   player.attackSlam = sundering(player, nowSec);
+  player.attackChivalry = combatActionPolicy(player, nowSec).concurrent;
   player.attackNextStrike = 0;
   player.attackCommitted = 1;
   player.attackCommitBy = null;
@@ -130,11 +138,14 @@ function nextStrikeDue(player) {
 // keepSweep: the chain has simply run its course, and its last strike's blade is still going through its sweep.
 // letGo: it ended because the button was let go (not broken off), so a late word of a press made before its end can
 // still carry it on
-function stopSwordChain(player, { keepSweep = false, letGo = false } = {}) {
+function stopSwordChain(player, { keepSweep = false, letGo = false } = {}, room = null, nowSec = 0) {
+  if (!keepSweep && !letGo && (player.attackActive || player.attackSweep)) {
+    recordChallengeFact(room, { type: 'swordChainInterrupted', playerId: player.id, chainId: player.attackChainId, at: nowSec });
+  }
   const due = nextStrikeDue(player);
   if (due > (player.attackRestartAt ?? -Infinity)) player.attackRestartAt = due;
   player.attackLastChain = letGo && player.attackActive && (player.attackCommitted ?? 0) < SWORD_STRIKE_TIMES.length
-    ? { startedAt: player.attackStartedAt, committed: player.attackCommitted, landed: player.attackNextStrike, endedAt: due, slam: Boolean(player.attackSlam) }
+    ? { startedAt: player.attackStartedAt, committed: player.attackCommitted, landed: player.attackNextStrike, endedAt: due, slam: Boolean(player.attackSlam), chainId: player.attackChainId }
     : null;
   player.attackActive = false;
   player.attackHeld = false;
@@ -149,6 +160,7 @@ function stopSwordChain(player, { keepSweep = false, letGo = false } = {}) {
 function resumeSwordChain(player, last) {
   player.attackActive = true;
   player.attackStartedAt = last.startedAt;
+  player.attackChainId = last.chainId;
   player.attackSlam = Boolean(last.slam);
   player.attackNextStrike = last.landed;
   player.attackCommitted = last.committed + 1;
@@ -176,7 +188,11 @@ export function beginAttack(room, playerId, nowSec) {
   if (!player.attackActive && last && nowSec < last.endedAt - 1e-9) resumeSwordChain(player, last);
   else if (!player.attackActive && nowSec >= (player.attackRestartAt ?? -Infinity)) startSwordChain(player, nowSec);
   else player.attackQueued = true;
-  player.guarding = false;
+  if (!combatActionPolicy(player, nowSec).concurrent) {
+    player.guarding = false;
+    player.pendingSpell = null;
+    player.castEndsAt = 0;
+  }
   player.spawnProtectionUntil = Math.min(player.spawnProtectionUntil, nowSec);
   room.events.push({ type: 'attackStarted', playerId, at: nowSec });
   return true;
@@ -193,7 +209,7 @@ export function endAttack(room, playerId, nowSec, releasedAt = nowSec) {
   player.attackHeld = false;
   if (room.state !== 'PLAYING' || !player.alive) {
     const was = player.attackActive;
-    stopSwordChain(player);
+    stopSwordChain(player, {}, room, nowSec);
     if (was) room.events.push({ type: 'attackEnded', playerId, at: nowSec });
     return;
   }
@@ -203,7 +219,7 @@ export function endAttack(room, playerId, nowSec, releasedAt = nowSec) {
     player.attackCommitted = committed - 1;
     // the swing before it has landed, so the chain is over (where the next would have begun)
     if (player.attackNextStrike >= player.attackCommitted) {
-      stopSwordChain(player, { letGo: true });
+      stopSwordChain(player, { letGo: true }, room, nowSec);
       room.events.push({ type: 'attackEnded', playerId, at: nowSec });
     }
   }
@@ -214,19 +230,21 @@ export function cancelAttack(room, playerId, nowSec) {
   const player = room.players.get(playerId);
   if (!player) return;
   const was = player.attackActive;
-  stopSwordChain(player);
+  stopSwordChain(player, {}, room, nowSec);
   if (was) room.events.push({ type: 'attackEnded', playerId, at: nowSec });
 }
 
 export function setGuard(room, playerId, guarding, nowSec) {
   const player = room.players.get(playerId);
   if (!player || !player.alive) return false;
+  player.guardHeld = Boolean(guarding);
   if (guarding && room.state !== 'PLAYING') return false;
   if (guarding && (player.guardStamina <= 0 || nowSec < player.staggerUntil || ultimateStartup(player, nowSec) || vortexing(player, nowSec))) return false;
+  if (player.guarding === Boolean(guarding)) return true;
   player.guarding = Boolean(guarding);
   if (guarding) {
     player.guardStartedAt = nowSec;
-    stopSwordChain(player);
+    if (!combatActionPolicy(player, nowSec).concurrent) stopSwordChain(player, {}, room, nowSec);
   }
   room.events.push({ type: guarding ? 'guardStarted' : 'guardEnded', playerId, at: nowSec });
   return true;
@@ -259,9 +277,26 @@ export function tryDash(room, playerId, direction, nowSec) {
   const ok = tryStartDash(player, direction, nowSec);
   player.dashReadyAt = running;
   if (!ok) return false;
+  player.dashStartedAt = nowSec;
   recordUse(player, 'dash', nowSec, MOVEMENT.dashCooldown, practice);
   room.events.push({ type: 'dash', playerId, direction, at: nowSec });
   return true;
+}
+
+/** Identity clocks remain ordinary; the temporary projectile gate is shared across the arsenal. */
+function spellReady(player, spell, nowSec, practice) {
+  const policy = combatActionPolicy(player, nowSec);
+  if (policy.projectileGateSec && !spell.kind) return nowSec + 1e-9 >= (player.chivalryProjectileReadyAt ?? 0);
+  const readyAt = player.spellReadyAt ?? 0;
+  return recastReady({ ...player, spellReadyAt: readyAt }, 'spell', nowSec, practice);
+}
+
+function recordSpellUse(player, spell, nowSec, practice) {
+  recordUse(player, 'spell', nowSec, spell.cooldownSec, practice, { readyAt: nowSec + (spell.gatherSec ?? 0) });
+  player.spellReadyById ??= {};
+  player.spellReadyById[spell.id] = player.spellReadyAt;
+  const policy = combatActionPolicy(player, nowSec);
+  if (policy.projectileGateSec && !spell.kind) player.chivalryProjectileReadyAt = nowSec + policy.projectileGateSec;
 }
 
 /**
@@ -272,27 +307,53 @@ export function tryCastSpell(room, playerId, direction, nowSec) {
   const player = room.players.get(playerId);
   if (room.state !== 'PLAYING' || !player || !player.alive || nowSec < player.staggerUntil) return false;
   const practice = practising(room, player);
-  if (!recastReady(player, 'spell', nowSec, practice) || ultimateStartup(player, nowSec) || handsTaken(player, nowSec)) return false;
   const spell = spellFor(player.spell);
+  if (player.pendingSpell && nowSec >= player.castEndsAt && !ultimateStartup(player, nowSec)) spawnSpell(room, player, nowSec, room.world);
+  if (player.pendingSpell || !spellReady(player, spell, nowSec, practice) || ultimateStartup(player, nowSec) || handsTaken(player, nowSec)) return false;
   if (spell.kind === 'ward') return sheatheInSteel(room, player, spell, nowSec);
-  // (in the yard a spell can come back before the last has left the palm: one at a time; its gate opens as it goes)
-  if (practice && player.pendingSpell) return false;
-  recordUse(player, 'spell', nowSec, spell.cooldownSec, practice, { readyAt: nowSec + spell.gatherSec });
+  recordSpellUse(player, spell, nowSec, practice);
   player.castEndsAt = nowSec + spell.gatherSec;
-  player.pendingSpell = { spell: spell.id, direction: normalize3(direction) };
-  player.guarding = false;
-  stopSwordChain(player);
+  const policy = combatActionPolicy(player, nowSec);
+  player.pendingSpell = { spell: spell.id, direction: normalize3(direction), ...(policy.concurrent ? { ultimate: true } : {}) };
+  if (!policy.concurrent) {
+    player.guarding = false;
+    stopSwordChain(player, {}, room, nowSec);
+  }
   player.spawnProtectionUntil = Math.min(player.spawnProtectionUntil, nowSec);
   room.events.push({ type: 'spellCast', playerId, spell: spell.id, at: nowSec, castEndsAt: player.castEndsAt });
   return true;
 }
 
-// Sheathe in Steel: the magic hand clenches and the armour hardens at once (shared/src/steel.mjs). It needs that hand
-// free (not gathering a spell); it does not stop a sword or drop a guard.
+function preparedSelectionAllowed(room, player, spellId, nowSec) {
+  return room.state === 'PLAYING' && player?.alive && preparedSpellMember(player, spellId)
+    && (ultimateStartup(player, nowSec)?.id === 'chivalry' || combatActionPolicy(player, nowSec).concurrent);
+}
+
+/** Preselection changes the match spell, even when that identity is cooling. */
+export function selectPreparedSpell(room, playerId, spellId, nowSec) {
+  const player = room.players.get(playerId);
+  if (!preparedSelectionAllowed(room, player, spellId, nowSec)) return false;
+  player.spellReadyById ??= {};
+  // Capture legacy state before switching, for hosts that restored an older player shape.
+  player.spellReadyById[player.spell] ??= player.spellReadyAt ?? 0;
+  player.spell = spellId;
+  player.spellReadyAt = player.spellReadyById[spellId] ?? 0;
+  return true;
+}
+
+/** Select a valid prepared identity and attempt its cast in the same authoritative command. */
+export function castPreparedSpell(room, playerId, spellId, direction, nowSec) {
+  if (!selectPreparedSpell(room, playerId, spellId, nowSec)) return false;
+  const player = room.players.get(playerId);
+  if (!combatActionPolicy(player, nowSec).concurrent) return false;
+  return tryCastSpell(room, playerId, direction, nowSec);
+}
+
+// Steel keeps its ordinary identity clock and mechanics.
 function sheatheInSteel(room, player, spell, nowSec) {
   if (player.pendingSpell) return false;
   player.steel = callSteel(nowSec);
-  recordUse(player, 'spell', nowSec, spell.cooldownSec, practising(room, player));
+  recordSpellUse(player, spell, nowSec, practising(room, player));
   player.spawnProtectionUntil = Math.min(player.spawnProtectionUntil, nowSec);
   room.events.push({ type: 'steelOn', playerId: player.id, at: nowSec, readyAt: player.spellReadyAt });
   return true;
@@ -305,7 +366,7 @@ function sheatheInSteel(room, player, spell, nowSec) {
 export function tryCastOrGauntlet(room, playerId, direction, nowSec, pressedAt = nowSec) {
   const player = room.players.get(playerId);
   if (!player) return false;
-  if (recastReady(player, 'spell', nowSec, practising(room, player))) return tryCastSpell(room, playerId, direction, nowSec);
+  if (combatActionPolicy(player, nowSec).concurrent || spellReady(player, spellFor(player.spell), nowSec, practising(room, player))) return tryCastSpell(room, playerId, direction, nowSec);
   // (in the yard the key is the spell's: it comes back after a moment; the gauntlet keeps its own key)
   if (practising(room, player)) return false;
   return tryGauntletStrike(room, playerId, nowSec, pressedAt);
@@ -333,7 +394,7 @@ export function tryGauntletStrike(room, playerId, nowSec, pressedAt = nowSec) {
   const best = gauntletTarget(from.position, from.yaw, foes);
   const aimed = best && !targetBlockedByWorld(from, transformFor(room.players.get(best.foe.id), at), room.world ?? {}) ? best.foe.id : null;
   if (player.attackActive) {
-    stopSwordChain(player);
+    stopSwordChain(player, {}, room, nowSec);
     room.events.push({ type: 'attackEnded', playerId, at: nowSec });
   }
   player.guarding = false;
@@ -369,6 +430,7 @@ function landGauntlet(room, player, nowSec, world) {
   if (!target) return miss(blow.targetId ? 'reach' : 'air');
   if (target.spawnProtectionUntil > nowSec) return miss('protected');
   if (target.guarding && isInGuardCone(target, player, at)) {
+    guardChallengeContact(room, target, player, nowSec);
     // a guard facing it pays a little; one spent by it is lowered, never broken (no stagger)
     target.guardStamina = Math.max(0, target.guardStamina - GAUNTLET.guardCost);
     target.lastGuardDrainAt = nowSec;
@@ -381,7 +443,7 @@ function landGauntlet(room, player, nowSec, world) {
   target.steel = steelTakes(target.steel, nowSec);
   const push = { x: g.direction.x * GAUNTLET.shove, y: 0.1, z: g.direction.z * GAUNTLET.shove };
   applyDamage(room, player.id, target.id, armour.amount, 'gauntlet', nowSec, push, {
-    steel: armour.strength, turned: GAUNTLET.damage - armour.amount,
+    steel: armour.strength, turned: GAUNTLET.damage - armour.amount, rawDamage: GAUNTLET.damage,
   });
   staggerBy(room, target, STAGGER.gain.gauntlet, nowSec, player.id);
   room.events.push({ type: 'gauntletHit', playerId: player.id, targetId: target.id, guarded: false, steel: armour.strength, at: nowSec });
@@ -415,7 +477,7 @@ function recoilFromWall(attacker, hit, nowSec, room) {
   const f = forwardFromYaw(attacker.yaw);
   attacker.velocity.x = -f.x * 3.1;
   attacker.velocity.z = -f.z * 3.1;
-  stopSwordChain(attacker);
+  stopSwordChain(attacker, {}, room, nowSec);
   attacker.attackRestartAt = Math.max(attacker.attackRestartAt ?? -Infinity, nowSec + 0.22);
   room.events.push({
     type: 'swordWorldImpact',
@@ -601,6 +663,7 @@ function landStrike(room, attacker, strikeIndex, target, atSec, nowSec) {
   const force = swordForce(physical);
 
   if (target.guarding && isInGuardCone(target, attacker, atSec)) {
+    guardChallengeContact(room, target, attacker, nowSec);
     // a Sundering blow lands on a guard as two (the guard pays for both; it is still one blow)
     const impacts = empowered ? ultimateFor('sunder').guardImpacts : 1;
     const guardResult = resolveSwordVsGuard({
@@ -615,18 +678,23 @@ function landStrike(room, attacker, strikeIndex, target, atSec, nowSec) {
     target.guardStamina = guardResult.staminaAfter;
     if (guardResult.kind === 'parry') {
       target.parries += 1;
-      attacker.staggerUntil = nowSec + GAME.parryStaggerMs / 1000;
-      stopSwordChain(attacker);
+      const { suppressParryReel } = combatActionPolicy(attacker, nowSec);
+      if (!suppressParryReel) {
+        attacker.staggerUntil = nowSec + GAME.parryStaggerMs / 1000;
+        stopSwordChain(attacker, {}, room, nowSec);
+      }
       gainProwess(room, target, PROWESS.parry);
-      room.events.push({ type: 'parry', attackerId: attacker.id, defenderId: target.id, at: nowSec });
+      room.events.push({ type: 'parry', attackerId: attacker.id, defenderId: target.id, suppressParryReel, at: nowSec });
+      recordChallengeFact(room, { type: 'parry', attackerId: attacker.id, defenderId: target.id, at: nowSec });
       staggerBy(room, attacker, STAGGER.gain.parried, nowSec, target.id);
       return 'parry';
     }
     target.lastGuardDrainAt = nowSec;
     if (guardResult.kind === 'guardBreak') {
       target.guarding = false;
+      if (combatActionPolicy(target, nowSec).concurrent) interruptOrdinaryActions(room, target, nowSec);
       target.staggerUntil = nowSec + (GAME.guardBreakStaggerMs / 1000) * (1 + MELEE_CONTACT.impactBreakStagger * physical.impact);
-      gainProwess(room, attacker, PROWESS.guardBreak);
+      if (!combatActionPolicy(attacker, nowSec).concurrent && !attacker.attackChivalry) gainProwess(room, attacker, PROWESS.guardBreak);
       room.events.push({ type: 'guardBreak', attackerId: attacker.id, defenderId: target.id, impact: physical.impact, impacts, at: nowSec });
       staggerBy(room, target, STAGGER.gain.guardBreak, nowSec, attacker.id);
     } else {
@@ -648,7 +716,10 @@ function landStrike(room, attacker, strikeIndex, target, atSec, nowSec) {
     turned: level === DAMAGE_LEVELS.normal ? swordDamageFor(quality) - damage : 0,
     clean: armour.quality >= CLEAN_CONTACT.sword,
     level,
-    ultimate: sunder,
+    ultimate: sunder || Boolean(attacker.attackChivalry) || combatActionPolicy(attacker, nowSec).concurrent,
+    rawDamage: sunder ? GAME.swordElevated : GAME.swordGlance + (GAME.swordDamage - GAME.swordGlance) * quality,
+    contactFacts: challengeContact(attacker, atSec, { ordinary: !attacker.attackSlam && !sunder,
+      chainId: attacker.attackChainId, strikeIndex, steel: cancelled ? steelStrength(target.steel, nowSec) : armour.strength }),
   });
   staggerBy(room, target, STAGGER.gain.sword * force, nowSec, attacker.id);
   // a Sundering blow ends what they were doing, there and then (whether or not their balance has broken)
@@ -669,6 +740,7 @@ function landStrike(room, attacker, strikeIndex, target, atSec, nowSec) {
 function cutShort(room, target, attacker, nowSec) {
   if (!target.alive) return;
   const what = [];
+  if (target.guarding) { target.guarding = false; what.push('guard'); }
   if (target.pendingSpell) {
     target.pendingSpell = null;
     target.castEndsAt = 0;
@@ -676,7 +748,7 @@ function cutShort(room, target, attacker, nowSec) {
   }
   if (target.attackActive || target.attackSweep || target.attackHeld || target.attackQueued) {
     const swinging = target.attackActive || Boolean(target.attackSweep);
-    stopSwordChain(target);
+    stopSwordChain(target, {}, room, nowSec);
     if (swinging) {
       room.events.push({ type: 'attackEnded', playerId: target.id, at: nowSec });
       what.push('sword');
@@ -695,13 +767,22 @@ function cutShort(room, target, attacker, nowSec) {
     target.sprintBlend = 0;
     what.push('sprint');
   }
-  if (interruptUltimate(room, target, nowSec)) what.push('ultimate');
+  if (interruptUltimate(room, target, nowSec, attacker.id, 'sunder')) what.push('ultimate');
   if (what.length) room.events.push({ type: 'actionInterrupted', playerId: target.id, by: attacker.id, what, at: nowSec });
 }
 
 // how clean a contact must be (as it was felt: after any hardened plate) to count as the cleanest there is, for the
 // precise ring that marks it: a sword blow caught dead centre, a spell square on, a gust's heart at point blank
 export const CLEAN_CONTACT = Object.freeze({ sword: 0.91, spell: 0.9, gale: 0.85 });
+
+function interruptOrdinaryActions(room, player, nowSec) {
+  player.guarding = false;
+  player.pendingSpell = null;
+  player.castEndsAt = 0;
+  player.gauntlet = null;
+  player.dashUntil = Math.min(player.dashUntil ?? nowSec, nowSec);
+  stopSwordChain(player, {}, room, nowSec);
+}
 
 /**
  * Shake a knight's balance by `amount` (shared/src/stagger.mjs), `by` whoever did it; more while they brace into an
@@ -714,9 +795,12 @@ export function staggerBy(room, player, amount, nowSec, by = null) {
   player.stagger ??= freshStagger();
   if (!addStagger(player.stagger, amount * (bracing ? bracing.startupStagger : 1), nowSec)) return false;
   player.staggerUntil = Math.max(player.staggerUntil ?? -Infinity, nowSec + STAGGER.breakSec);
-  player.guarding = false;
-  player.pendingSpell = null;
-  stopSwordChain(player);
+  interruptOrdinaryActions(room, player, nowSec);
+  if (bracing && !Number.isFinite(player.ultimateInterruptionAt)) {
+    player.ultimateInterruptionBy = by;
+    player.ultimateInterruptionAt = nowSec;
+    player.ultimateInterruptionSource = 'stagger';
+  }
   // (and who broke it, when someone did)
   room.events.push({ type: 'staggerBreak', playerId: player.id, ...(by && by !== player.id ? { by } : {}), until: player.staggerUntil, at: nowSec });
   return true;
@@ -728,11 +812,26 @@ export function staggerBy(room, player, amount, nowSec, by = null) {
  * `level`: the level it was struck at (DAMAGE_LEVELS); `ultimate`: an active ultimate's own damage (it earns no
  * prowess). Health taken earns prowess for both (prowess.mjs); a shove carries further on an unsteady knight.
  */
+function challengeContact(player, nowSec, extra = {}) {
+  return {
+    chivalry: combatActionPolicy(player, nowSec).concurrent,
+    guarding: Boolean(player?.guarding),
+    dashing: nowSec >= (player?.dashStartedAt ?? Infinity) && nowSec < (player?.dashUntil ?? -Infinity),
+    ...extra,
+  };
+}
+
+function guardChallengeContact(room, defender, attacker, nowSec) {
+  recordChallengeFact(room, { type: 'guardContact', playerId: defender.id, enemyId: attacker.id,
+    chivalry: combatActionPolicy(defender, nowSec).concurrent, at: nowSec });
+}
+
 export function applyDamage(room, attackerId, victimId, amount, source, nowSec, knockback = null, {
-  steel = 0, turned = 0, clean = false, level = DAMAGE_LEVELS.normal, ultimate = false,
+  steel = 0, turned = 0, clean = false, level = DAMAGE_LEVELS.normal, ultimate = false, rawDamage = amount, contactFacts = null,
 } = {}) {
   const victim = room.players.get(victimId);
   if (!victim || !victim.alive || victim.spawnProtectionUntil > nowSec) return false;
+  const healthBefore = victim.health;
   const taken = Math.min(victim.health, amount);
   victim.health = Math.max(0, victim.health - amount);
   victim.lastDamageAt = nowSec;
@@ -742,6 +841,10 @@ export function applyDamage(room, attackerId, victimId, amount, source, nowSec, 
     const scale = staggerShove(victim.stagger);
     shoveBody(victim, { x: knockback.x * scale, y: knockback.y, z: knockback.z * scale });
     victim.lastKnockbackAt = nowSec;
+    if (Math.hypot(knockback.x, knockback.y, knockback.z) > 1e-6) {
+      victim.lastKnockbackSource = source;
+      victim.lastKnockbackBy = attackerId;
+    }
   }
   const event = { type: 'damage', attackerId, victimId, source, amount, health: victim.health, push: knockback ?? null, at: nowSec };
   if (steel > 0.005) {
@@ -752,6 +855,10 @@ export function applyDamage(room, attackerId, victimId, amount, source, nowSec, 
   if (level !== DAMAGE_LEVELS.normal) event.level = level;
   if (ultimate) event.ultimate = true;
   room.events.push(event);
+  recordChallengeFact(room, {
+    ...contactFacts, type: 'damage', attackerId, victimId, source, amount: taken, rawDamage,
+    healthBefore, healthAfter: victim.health, steel: contactFacts?.steel ?? steel, contact: source !== 'burn', at: nowSec,
+  });
   if (victim.health <= 0) killPlayer(room, victimId, attackerId, source, nowSec);
   return true;
 }
@@ -765,12 +872,26 @@ export function killPlayer(room, victimId, attackerId, source, nowSec) {
   const steeled = steelStrength(victim.steel, nowSec) > 0.005;
   // (and whether they fell spinning, or still dizzy from it)
   const spun = Boolean(vortexing(victim, nowSec)) || dizzy(victim, nowSec);
+  recordChallengeFact(room, { type: 'death', victimId, killerId: credited, source, at: nowSec,
+    displacementSource: victim.lastKnockbackSource ?? null, displacementBy: victim.lastKnockbackBy ?? null,
+    displacementAt: victim.lastKnockbackAt });
+  if (victim.ultimateState?.phase === 'startup' && !Number.isFinite(victim.ultimateInterruptionAt)) {
+    victim.ultimateInterruptionBy = credited;
+    victim.ultimateInterruptionAt = nowSec;
+    victim.ultimateInterruptionSource = 'death';
+  }
   victim.alive = false;
   victim.health = 0;
   victim.guarding = false;
   victim.steel = null;
   victim.gust = null;
-  stopSwordChain(victim);
+  victim.pendingSpell = null;
+  victim.castEndsAt = 0;
+  victim.gauntlet = null;
+  victim.guardHeld = false;
+  victim.dashUntil = Math.min(victim.dashUntil ?? nowSec, nowSec);
+  victim.chivalryProjectileReadyAt = 0;
+  stopSwordChain(victim, {}, room, nowSec);
   // an ultimate still bracing is interrupted (its charge kept); one active is over
   stepUltimate(room, victim, nowSec);
   victim.respawnAt = nowSec + RESPAWN_SEC;
@@ -808,6 +929,7 @@ function spawnSpell(room, player, nowSec, world) {
     position: { x: player.position.x + normalized.x * 0.7, y: player.position.y + postureOf(player).eye - 0.1, z: player.position.z + normalized.z * 0.7 },
     velocity: { x: normalized.x * spell.speed, y: normalized.y * spell.speed, z: normalized.z * spell.speed },
     bornAt: nowSec,
+    ...(pending.ultimate ? { ultimate: true } : {}),
   };
   room.projectiles.set(id, projectile);
   player.pendingSpell = null;
@@ -823,9 +945,10 @@ function spawnSpell(room, player, nowSec, world) {
 // sting, not the shove; walls stop it. A spell flying through it is bent off its line. Driven into the ground close by,
 // the gust throws its caster back off it (once, as it leaves the hand).
 function releaseGale(room, player, spell, nowSec, world) {
+  const ultimate = Boolean(player.pendingSpell?.ultimate);
   player.pendingSpell = null;
   player.castEndsAt = 0;
-  player.gust = { spell: spell.id, bornAt: nowSec, until: nowSec + (spell.cone.lastsSec ?? 0), caught: [] };
+  player.gust = { ultimate, spell: spell.id, bornAt: nowSec, until: nowSec + (spell.cone.lastsSec ?? 0), caught: [] };
   const { eye, direction } = galeAim(player);
   const affected = blowGale(room, player, nowSec, world);
   const recoil = galeRecoil(spell, eye, direction, world);
@@ -885,28 +1008,31 @@ function blowGale(room, player, nowSec, world, dt = 0) {
       target.impulse = galeCarry(spell, target.impulse, origin, direction, blown.point, wind, dt, { guarded });
       target.lastAttackerId = player.id;
       target.lastKnockbackAt = nowSec;
+      target.lastKnockbackSource = 'gale'; target.lastKnockbackBy = player.id;
     }
     const at = caught.point;
     if (pressure <= 0.01 || sheltered(at) || gust.caught.includes(target.id)) continue;
     gust.caught.push(target.id);
     let shove = galeShove(spell, origin, direction, at, pressure);
     if (guarded) {
+      guardChallengeContact(room, target, player, nowSec);
       // it holds its ground behind the guard, and the guard pays for it like a blow (its breath waits again)
       shove = { x: shove.x * spell.cone.guarded, y: shove.y * spell.cone.guarded, z: shove.z * spell.cone.guarded };
       target.guardStamina = Math.max(0, target.guardStamina - spell.cone.guardCost * pressure);
       target.lastGuardDrainAt = nowSec;
       if (target.guardStamina <= 1e-9) {
         target.guarding = false;
+        if (combatActionPolicy(target, nowSec).concurrent) interruptOrdinaryActions(room, target, nowSec);
         target.staggerUntil = nowSec + GAME.guardBreakStaggerMs / 1000;
         room.events.push({ type: 'guardBreak', attackerId: player.id, defenderId: target.id, at: nowSec });
-        gainProwess(room, player, PROWESS.guardBreak);
+        if (!gust.ultimate) gainProwess(room, player, PROWESS.guardBreak);
         staggerBy(room, target, STAGGER.gain.guardBreak, nowSec, player.id);
       }
     }
     // the gust takes their balance with it (less so behind a guard), and one caught in its heart is thrown well off
     // their feet
     staggerBy(room, target, STAGGER.gain.gale * pressure * (guarded ? STAGGER.gain.blocked : 1), nowSec, player.id);
-    if (!guarded && pressure >= 0.5) gainProwess(room, player, PROWESS.displaced);
+    if (!gust.ultimate && !guarded && pressure >= 0.5) gainProwess(room, player, PROWESS.displaced);
     // its heart stings a little (steel turns that aside, never the shove)
     const exposure = guarded ? 0 : caught.exposure * strength;
     const rawDamage = Math.round(spell.cone.damage * exposure);
@@ -916,12 +1042,15 @@ function blowGale(room, player, nowSec, world, dt = 0) {
     if (damage >= 1) {
       const turned = rawDamage - damage;
       applyDamage(room, player.id, target.id, damage, spell.id, nowSec, shove, {
-        steel: armour.strength, turned, clean: exposure >= CLEAN_CONTACT.gale && armour.strength <= 0.005,
+        steel: armour.strength, turned, clean: exposure >= CLEAN_CONTACT.gale && armour.strength <= 0.005, ultimate: Boolean(gust.ultimate),
+        rawDamage: spell.cone.damage * exposure,
+        contactFacts: challengeContact(player, nowSec, { prepared: preparedSpellMember(player, spell.id) }),
       });
     } else {
       shoveBody(target, shove);
       target.lastAttackerId = player.id;
       target.lastKnockbackAt = nowSec;
+      if (Math.hypot(shove.x, shove.y, shove.z) > 1e-6) { target.lastKnockbackSource = 'gale'; target.lastKnockbackBy = player.id; }
     }
     affected.push({ id: target.id, pressure, guarded, shove });
   }
@@ -939,7 +1068,14 @@ function blowGale(room, player, nowSec, world, dt = 0) {
     if (!(dt > 0)) continue;
     const share = 1 - Math.exp(-dt / GALE_BEND_SEC);
     const now = { x: bend.left.x * share, y: bend.left.y * share, z: bend.left.z * share };
-    projectile.velocity = { x: projectile.velocity.x + now.x, y: projectile.velocity.y + now.y, z: projectile.velocity.z + now.z };
+    const before = projectile.velocity;
+    projectile.velocity = { x: before.x + now.x, y: before.y + now.y, z: before.z + now.z };
+    const turned = Math.hypot(before.y * now.z - before.z * now.y, before.z * now.x - before.x * now.z, before.x * now.y - before.y * now.x);
+    if (!bend.recorded && turned > 1e-6) {
+      bend.recorded = true;
+      recordChallengeFact(room, { type: 'projectileBent', ownerId: projectile.ownerId, benderId: player.id,
+        projectileId: projectile.id, ordinary: ['fireball', 'frostfire'].includes(projectile.spell), at: nowSec });
+    }
     bend.left = { x: bend.left.x - now.x, y: bend.left.y - now.y, z: bend.left.z - now.z };
   }
   return affected;
@@ -971,13 +1107,19 @@ function explodeSpell(room, projectile, point, nowSec, worldHit = false, directV
     const away = normalize3({ x: center.x - point.x, y: Math.max(0.15, center.y - point.y), z: center.z - point.z });
     const hit = applyDamage(room, projectile.ownerId, player.id, amount, spell.id, nowSec, {
       x: away.x * 4.3 * shove, y: away.y * 2.3 * shove, z: away.z * 4.3 * shove,
-    }, { steel: armour.strength, turned: blastDamage(spell, bare) - amount, clean: exposure >= CLEAN_CONTACT.spell, ultimate });
+    }, { steel: armour.strength, turned: blastDamage(spell, bare) - amount, clean: exposure >= CLEAN_CONTACT.spell, ultimate,
+      rawDamage: bare > 0 ? spell.directDamage + (spell.edgeDamage - spell.directDamage) * (1 - Math.min(1, bare)) ** 2 : 0,
+      contactFacts: challengeContact(room.players.get(projectile.ownerId), nowSec, {
+        ordinaryProjectile: !spell.conjured && !spell.kind,
+        prepared: preparedSpellMember(room.players.get(projectile.ownerId), spell.id), projectileId: projectile.id,
+      }),
+    });
     if (!hit || !player.alive) continue;
     staggerBy(room, player, STAGGER.gain.blast * bare * shove, nowSec, projectile.ownerId);
     if (exposure >= 0.8 && shove >= 1 && !ultimate) gainProwess(room, room.players.get(projectile.ownerId), PROWESS.displaced);
     // a fresh burn replaces one already licking (it never stacks); a blast too far out to catch leaves any burn be
     const burn = burnFrom(spell, exposure, projectile.ownerId, nowSec);
-    if (burn) player.burn = burn;
+    if (burn) player.burn = ultimate ? { ...burn, ultimate: true } : burn;
     const chill = chillFrom(spell, exposure, nowSec);
     if (chill) player.chill = strongerChill(player.chill, chill, nowSec);
   }
@@ -1058,7 +1200,7 @@ export function tryUltimate(room, playerId, nowSec) {
   const player = room.players.get(playerId);
   if (room.state !== 'PLAYING' || !player || !player.alive) return false;
   if (nowSec < player.staggerUntil || nowSec < (player.ultimateLockedUntil ?? -Infinity)) return false;
-  if (player.ultimateState || player.pendingSpell || player.gauntlet) return false;
+  if (player.ultimateState || player.gauntlet || (player.pendingSpell && ultimateFor(player.ultimate).id !== 'chivalry')) return false;
   // (nor in the moment after a Vortex, while both hands are still its)
   if (nowSec < (player.recoverUntil ?? -Infinity)) return false;
   // in the Practice Yard the key readies the ultimate itself: whoever came to practise can call it again as soon as
@@ -1066,10 +1208,19 @@ export function tryUltimate(room, playerId, nowSec) {
   if (practising(room, player)) player.prowess = PROWESS.full;
   if ((player.prowess ?? 0) < PROWESS.full) return false;
   const ultimate = ultimateFor(player.ultimate);
+  player.ultimateInterruptionBy = null;
+  player.ultimateInterruptionAt = null;
+  player.ultimateInterruptionSource = null;
   player.ultimateState = { id: ultimate.id, phase: 'startup', startedAt: nowSec, commitAt: nowSec + ultimate.startupSec, until: null };
   // the brace: sword and guard put up, the knight gathers himself
+  const heldAttack = player.attackHeld || Boolean(player.input?.attack);
+  player.guardHeld = player.guardHeld || player.guarding || Boolean(player.input?.guard);
   player.guarding = false;
-  stopSwordChain(player);
+  stopSwordChain(player, {}, room, nowSec);
+  player.attackHeld = heldAttack;
+  player.pendingSpell = null;
+  player.castEndsAt = 0;
+  player.dashUntil = Math.min(player.dashUntil ?? nowSec, nowSec);
   player.spawnProtectionUntil = Math.min(player.spawnProtectionUntil, nowSec);
   // (a Vortex begins with a small hop, from the ground only: a knight already in the air is not thrown up again)
   const hop = ultimate.hop && player.grounded ? ultimate.hop : 0;
@@ -1103,12 +1254,20 @@ function stepUltimate(room, player, nowSec) {
         state.rate = 2 * Math.PI * vortexTune(0, ultimate).revPerSec;
         state.emphasis = 0;
       }
+      if (combatActionPolicy(player, nowSec).concurrent) {
+        player.attackRestartAt = Math.max(player.attackRestartAt ?? -Infinity, state.commitAt);
+        if (player.guardHeld) setGuard(room, player.id, true, nowSec);
+      }
       room.events.push({ type: 'ultimateActive', playerId: player.id, ultimate: ultimate.id, until: state.until, at: nowSec });
     }
     return;
   }
   if (!player.alive || nowSec >= state.until) {
     player.ultimateState = null;
+    if (ultimate.id === 'chivalry') {
+      player.chivalryProjectileReadyAt = 0;
+      if (player.guarding || player.pendingSpell) stopSwordChain(player, { keepSweep: true }, room, nowSec);
+    }
     // a Vortex run its course winds down: a moment with no sword, spell or fist, and a little longer dizzy
     const spent = player.alive && ultimate.recoverSec ? { recoverUntil: nowSec + ultimate.recoverSec, dizzyUntil: nowSec + (ultimate.dizzySec ?? 0) } : null;
     if (spent) {
@@ -1121,10 +1280,15 @@ function stepUltimate(room, player, nowSec) {
 }
 
 // an ultimate still in its startup is broken off: the charge kept, a short lockout before it can be tried again
-function interruptUltimate(room, player, nowSec) {
+function interruptUltimate(room, player, nowSec, by = null, source = null) {
   const state = player.ultimateState;
   if (!state || state.phase !== 'startup') return false;
   const ultimate = ultimateFor(state.id);
+  recordChallengeFact(room, {
+    type: 'ultimateInterrupted', victimId: player.id, phase: state.phase, commitAt: state.commitAt,
+    by: player.ultimateInterruptionBy ?? by, source: player.ultimateInterruptionSource ?? source,
+    at: player.ultimateInterruptionAt ?? nowSec,
+  });
   player.ultimateState = null;
   player.ultimateLockedUntil = nowSec + ultimate.lockoutSec;
   room.events.push({ type: 'ultimateInterrupted', playerId: player.id, ultimate: ultimate.id, lockedUntil: player.ultimateLockedUntil, at: nowSec });
@@ -1232,6 +1396,7 @@ function landVortex(room, attacker, target, met, nowSec) {
   const contact = vortex.contact;
   const point = met.point;
   if (target.guarding && isInGuardCone(target, attacker, nowSec)) {
+    guardChallengeContact(room, target, attacker, nowSec);
     const result = resolveSwordVsGuard({
       guarding: true, guardAgeMs: Infinity, stamina: target.guardStamina, profile: guardProfile(target.knightClass), pressure: contact.guardPressure,
     });
@@ -1239,6 +1404,7 @@ function landVortex(room, attacker, target, met, nowSec) {
     target.lastGuardDrainAt = nowSec;
     if (result.kind === 'guardBreak') {
       target.guarding = false;
+      if (combatActionPolicy(target, nowSec).concurrent) interruptOrdinaryActions(room, target, nowSec);
       target.staggerUntil = nowSec + GAME.guardBreakStaggerMs / 1000;
       room.events.push({ type: 'guardBreak', attackerId: attacker.id, defenderId: target.id, impact: 0, impacts: 1, vortex: true, point, at: nowSec });
       staggerBy(room, target, STAGGER.gain.guardBreak, nowSec, attacker.id);
@@ -1260,7 +1426,7 @@ function landVortex(room, attacker, target, met, nowSec) {
   const f = forwardFromYaw(attacker.yaw);
   const away = apart > 1e-6 ? { x: dx / apart, z: dz / apart } : { x: f.x, z: f.z };
   applyDamage(room, attacker.id, target.id, armour.amount, 'vortex', nowSec, { x: away.x * contact.shove, y: contact.lift, z: away.z * contact.shove }, {
-    steel: armour.strength, turned: Math.round(raw) - armour.amount, ultimate: true,
+    steel: armour.strength, turned: Math.round(raw) - armour.amount, ultimate: true, rawDamage: raw,
   });
   // the scorch a burning blade leaves: begun again by each cut, never two at once (and never in place of a worse burn
   // already on them); hardened plate takes fewer licks of it
@@ -1345,7 +1511,7 @@ function respawnPlayer(room, player, nowSec, world) {
   const choice = chooseSpawn(spawnPoints, enemies, room.recentSpawnUse, nowSec);
   const spawn = choice?.spawn ?? spawnPoints[0];
   if (choice) room.recentSpawnUse.set(choice.index, nowSec);
-  resetAtSpawn(player, spawn, nowSec);
+  resetAtSpawn(player, spawn, nowSec, room);
   room.events.push({ type: 'respawn', playerId: player.id, position: { ...player.position }, at: nowSec });
 }
 
@@ -1461,7 +1627,7 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
           player.attackCommitBy = player.attackQueued ? 'queued' : 'held';
           player.attackQueued = false;
         } else {
-          stopSwordChain(player, { letGo: true });
+          stopSwordChain(player, { letGo: true }, room, nowSec);
           room.events.push({ type: 'attackEnded', playerId: player.id, at: nowSec });
         }
       }
@@ -1470,7 +1636,7 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
         const again = player.attackHeld || player.attackQueued;
         const held = player.attackHeld;
         // (its restart is the chain's own: SWORD_CHAIN.restart after the third contact, not after this tick)
-        stopSwordChain(player, { keepSweep: true });
+        stopSwordChain(player, { keepSweep: true }, room, nowSec);
         player.attackHeld = held;
         player.attackQueued = again;
       }

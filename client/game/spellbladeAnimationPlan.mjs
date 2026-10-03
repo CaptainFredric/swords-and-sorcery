@@ -1,3 +1,4 @@
+import { concurrentPresentation } from './spellbladePose.mjs';
 import { MOVEMENT, SPRINT } from '../../shared/src/movement.mjs';
 import { GAME, SWORD_CHAIN, SWORD_STRIKE_TIMES } from '../../shared/src/combat.mjs';
 
@@ -47,6 +48,22 @@ function attackPlan(player, serverNow) {
 }
 
 export function resolveSpellbladeAnimationPlan({ state, player = {}, serverNow = 0, localTime = 0 }) {
+  const layers = concurrentPresentation(player, serverNow, player.castPoseUntil, player.castPoseStartAt);
+  if (layers.concurrent && !['dead', 'stagger'].includes(state)) {
+    const still = fixed('Idle', idleTime(localTime), true);
+    const guard = fixed('Guard', guardHoldTime(localTime));
+    const attack = { ...attackPlan(player, serverNow), actionKey: player.attackStartedAt };
+    const cast = { ...fixed('Cast', serverNow - finite(player.castPoseStartAt, serverNow)), actionKey: player.castPoseStartAt };
+    const locomotion = layers.dash
+      ? fixed('Dash', serverNow - (finite(player.dashUntil, serverNow) - MOVEMENT.dashDuration))
+      : resolveSpellbladeAnimationPlan({ state: locomotionState(player), player: { ...player, ultimateState: null }, serverNow, localTime });
+    return { ...locomotion, layers: {
+      locomotion,
+      posture: layers.attack ? { ...attack, ...(layers.guard ? { overlay: { ...guard, weight: 0.35 } } : {}) } : layers.guard ? guard : layers.cast ? cast : still,
+      sword: layers.attack ? attack : layers.guard ? guard : still,
+      sorcery: layers.cast ? cast : layers.guard ? guard : still,
+    }, concurrent: layers };
+  }
   if (state === 'attack') return attackPlan(player, serverNow);
 
   // a Blazing Vortex: the sword held out level in both hands, where the forehand's blade crosses the aim (the whole
@@ -113,9 +130,25 @@ function guardHoldTime(clock) {
 }
 
 export function resolveFirstPersonAnimationPlan(pose, view, timeSec) {
+  if (view.concurrent) {
+    const still = { clip: 'Idle', loop: true, time: idleTime(timeSec) };
+    const guard = { clip: 'Guard', loop: false, time: guardHoldTime(timeSec) };
+    return { ...still, layers: {
+      locomotion: still,
+      posture: view.guard ? guard : still,
+      sword: view.guard && !view.attackHeld ? guard : still,
+      sorcery: view.guard && !(view.castUntil > timeSec) ? guard : still,
+    } };
+  }
   if (pose.state === 'attack') return attackPlan(view, timeSec);
   if (pose.state === 'guard') return { clip: 'Guard', loop: false, time: guardHoldTime(timeSec) };
   if (pose.state === 'cast') return { clip: 'Cast', loop: false, time: Math.max(0, timeSec - view.castStartedAt) };
   if (pose.state === 'dash') return { clip: 'Dash', loop: false, time: Math.max(0, timeSec - (view.dashUntil - 0.18)) };
   return { clip: 'Idle', loop: true, time: idleTime(timeSec) };
+}
+
+function locomotionState(player) {
+  if (Math.abs(player.velocity?.y ?? 0) > 0.45) return 'air';
+  if (Math.hypot(player.velocity?.x ?? 0, player.velocity?.z ?? 0) > 0.8) return player.sprinting ? 'sprint' : 'run';
+  return 'idle';
 }

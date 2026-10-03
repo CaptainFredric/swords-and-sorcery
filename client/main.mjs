@@ -1,3 +1,7 @@
+import { ChallengesController } from './menu/ChallengesController.mjs';
+import { normalizePreparedSpells, replacePreparedSpell } from '../shared/src/preparedSpells.mjs';
+import { SPELLS } from '../shared/src/spells.mjs';
+import { ULTIMATES } from '../shared/src/ultimates.mjs';
 import { RenownController } from './menu/RenownController.mjs';
 import { GameLink, LINK_RESTORED, linkStatusView } from './network/GameLink.mjs';
 import { HUD } from './ui/HUD.mjs';
@@ -560,7 +564,7 @@ function applySettings() {
   sound.setLevels(soundLevels(settings));
   if (sound.levels.muted || sound.levels.effects === 0 || sound.levels.master === 0) {
     armoryFeedback.cancel();
-    menuScene?.showSpell(router.current === SCREEN_IDS.ARMORY && renown?.section !== 'heraldry' ? settings.get('loadout.spell') : null);
+    menuScene?.showSpell(router.current === SCREEN_IDS.ARMORY && renown?.section === 'kit' ? settings.get('loadout.spell') : null);
   }
   const view = viewOptions(settings);
   menuScene?.setPixelRatioCap(view.pixelRatioCap);
@@ -580,15 +584,21 @@ settings.onChange((change) => {
   applySettings();
   if (change.id === 'loadout.ultimate') {
     armoryFeedback.cancel();
-    if (router.current === SCREEN_IDS.ARMORY && renown?.section !== 'heraldry') menuScene?.showSpell(settings.get('loadout.spell'));
-    socket.loadout(settings.get('loadout.spell'), change.value);
+    if (router.current === SCREEN_IDS.ARMORY && renown?.section === 'kit') menuScene?.showSpell(settings.get('loadout.spell'));
+    socket.loadout(settings.get('loadout.spell'), change.value, settings.get('loadout.preparedSpells'));
     renderArmory();
   }
   if (change.id === 'loadout.spell') {
     armoryFeedback.cancel();
-    socket.loadout(change.value, settings.get('loadout.ultimate'));
+    const prepared = normalizePreparedSpells(change.value, settings.get('loadout.preparedSpells'));
+    if (JSON.stringify(prepared) !== JSON.stringify(settings.get('loadout.preparedSpells'))) settings.set('loadout.preparedSpells', prepared);
+    socket.loadout(change.value, settings.get('loadout.ultimate'), prepared);
     renderArmory();
     if (router.current === SCREEN_IDS.ARMORY) menuScene?.showSpell(change.value);
+  }
+  if (change.id === 'loadout.preparedSpells') {
+    socket.loadout(settings.get('loadout.spell'), settings.get('loadout.ultimate'), change.value);
+    renderArmory();
   }
   // choosing to lie sideways (a tap, so motion access can be asked for): say which way to turn the phone
   if (change.id === 'display.orientation' && change.value === 'sideways') {
@@ -607,6 +617,7 @@ document.addEventListener('click', (event) => {
 });
 
 renown = new RenownController({ socket, scene: () => menuScene, spell: () => settings.get('loadout.spell') });
+const challenges = new ChallengesController({ link: socket, getProfile: () => renown.profile, root: $('#armory-challenges'), rewardRoot: $('#challenges-reward') });
 $('#end-armory').addEventListener('click', () => {
   const showArmory = () => {
     runtime?.setPlaying(false);
@@ -630,7 +641,7 @@ function renderArmory() {
   const focusSpell = document.activeElement?.dataset?.spell;
   const focusUltimate = document.activeElement?.dataset?.ultimate;
   const view = armoryView(settings.get('loadout.spell'), settings.get('loadout.ultimate'));
-  $('#armory-equipped').textContent = `${({ fireball: 'Fireball', frostfire: 'Frostfire', gale: 'Gale', steel: 'Steel' })[settings.get('loadout.spell')]} · ${settings.get('loadout.ultimate') === 'vortex' ? 'Vortex' : 'Sunder'}`;
+  $('#armory-equipped').textContent = `${({ fireball: 'Fireball', frostfire: 'Frostfire', gale: 'Gale', steel: 'Steel' })[settings.get('loadout.spell')]} · ${ULTIMATES[settings.get('loadout.ultimate')]?.short ?? 'Sunder'}`;
   $('#armory-blade-name').textContent = view.blade.name;
   $('#armory-blade-facts').textContent = view.blade.facts;
   $('#armory-spells').innerHTML = view.spells.map((spell) => `<button type="button" class="spell-card${spell.equipped ? ' equipped' : ''}" role="radio" aria-checked="${spell.equipped}" data-spell="${spell.id}">
@@ -639,9 +650,26 @@ function renderArmory() {
   $('#armory-ultimates').innerHTML = view.ultimates.map((u) => `<button type="button" class="spell-card ultimate-card${u.equipped ? ' equipped' : ''}" role="radio" aria-checked="${u.equipped}" data-ultimate="${u.id}">
     <span class="spell-mark">${u.mark}</span><span class="spell-name">${escapeHtml(u.name)}</span>${u.equipped ? '<i>EQUIPPED</i>' : ''}
     <small>${escapeHtml(u.line)}</small><em>${escapeHtml(u.facts)}</em></button>`).join('');
+  renderPreparedArmory();
   if (focusSpell) document.querySelector(`[data-spell="${focusSpell}"]`)?.focus({ preventScroll: true });
   if (focusUltimate) document.querySelector(`[data-ultimate="${focusUltimate}"]`)?.focus({ preventScroll: true });
 }
+function renderPreparedArmory() {
+  const root = $('#armory-prepared');
+  const chivalry = settings.get('loadout.ultimate') === 'chivalry';
+  root.classList.toggle('hidden', !chivalry);
+  if (!chivalry) return;
+  const starting = settings.get('loadout.spell');
+  const prepared = normalizePreparedSpells(starting, settings.get('loadout.preparedSpells'));
+  root.innerHTML = '<p class="armory-slot">PREPARED SPELLS</p><p class="panel-copy">Three equal spells. The starting spell is marked ★. Hold Q during Chivalry to choose another.</p>'
+    + prepared.map((id, slot) => `<label class="prepared-row"><span>${id === starting ? '★ STARTING' : 'PREPARED'}</span><select data-prepared-slot="${slot}" aria-label="Prepared spell ${slot + 1}" ${id === starting ? 'disabled' : ''}>${Object.values(SPELLS).filter(s => s.id === id || !prepared.includes(s.id)).map(s => `<option value="${s.id}" ${s.id === id ? 'selected' : ''}>${escapeHtml(s.label)}</option>`).join('')}</select></label>`).join('');
+}
+$('#armory-prepared').addEventListener('change', event => {
+  const slot = Number(event.target.dataset.preparedSlot);
+  const prepared = replacePreparedSpell(settings.get('loadout.spell'), settings.get('loadout.preparedSpells'), slot, event.target.value);
+  settings.set('loadout.preparedSpells', prepared);
+  menuScene?.showSpell(event.target.value);
+});
 renderArmory();
 $('#armory-ultimates').addEventListener('click', (event) => {
   const card = event.target.closest('[data-ultimate]');
@@ -651,7 +679,7 @@ $('#armory-button').addEventListener('click', () => {
   renderArmory();
   route(SCREEN_IDS.ARMORY);
 });
-for (const id of ['armory-kit-tab', 'armory-heraldry-tab']) $('#'+id).addEventListener('click', () => {
+for (const id of ['armory-kit-tab', 'armory-heraldry-tab', 'armory-challenges-tab']) $('#'+id).addEventListener('click', () => {
   armoryFeedback.cancel();
   menuScene?.showSpell(id === 'armory-kit-tab' ? settings.get('loadout.spell') : null);
 });
@@ -761,6 +789,7 @@ $('#practice-fight').addEventListener('click', () => socket.practiceSpawnDummy('
 $('#practice-sorcery').addEventListener('click', () => socket.practiceSpawnDummy('SORCERY'));
 $('#practice-melee').addEventListener('click', () => socket.practiceSpawnDummy('MELEE'));
 $('#practice-runner').addEventListener('click', () => socket.practiceSpawnDummy('RUNNER'));
+$('#practice-ultimate-knight').addEventListener('click', () => socket.practiceSpawnDummy('ULTIMATE_KNIGHT'));
 $('#practice-remove').addEventListener('click', () => socket.practiceRemoveDummy());
 // the yard earns no prowess: this readies the ultimate to try
 $('#practice-ultimate').addEventListener('click', () => socket.practiceReadyUltimate());
@@ -913,7 +942,7 @@ for (const selector of ONLINE_COMMANDS) {
 
 socket.on('connection', ({ connected }) => {
   // every connection carries the Armory's spell (the server keeps it for the rooms this connection joins)
-  if (connected) socket.loadout(settings.get('loadout.spell'), settings.get('loadout.ultimate'));
+  if (connected) socket.loadout(settings.get('loadout.spell'), settings.get('loadout.ultimate'), settings.get('loadout.preparedSpells'));
   if (!connected && runtime) hud.flashText('RECONNECTING…', 'danger');
 });
 

@@ -3,6 +3,8 @@ import { guardProfile } from '../src/combat.mjs';
 import { GAME_MODES, VOTE_OPTIONS, getModePolicy } from '../src/modes.mjs';
 import { WORLD_IDS, getWorld } from '../worlds/registry.mjs';
 import { DEFAULT_SPELL, SPELLS, isSpell } from '../src/spells.mjs';
+import { recordChallengeFact, resetChallengeTracking } from './challenges.mjs';
+import { normalizePreparedSpells } from '../src/preparedSpells.mjs';
 import { freshStagger } from '../src/stagger.mjs';
 import { DEFAULT_ULTIMATE, ULTIMATES, isUltimate } from '../src/ultimates.mjs';
 
@@ -19,14 +21,18 @@ function freshCombatState(spawn, nowSec = 0) {
   const movement = createMovementState({ x: spawn.x, y: spawn.y, z: spawn.z });
   return {
     ...movement,
+    dashStartedAt: -Infinity,
     yaw: spawn.yaw ?? 0,
     pitch: 0,
     health: 100,
     guardStamina: guardProfile().capacity,
     guarding: false,
+    guardHeld: false,
     guardStartedAt: -Infinity,
     lastGuardDrainAt: -Infinity,
     attackActive: false,
+    attackChainSerial: 0,
+    attackChainId: null,
     attackHeld: false,
     attackQueued: false,
     attackStartedAt: -Infinity,
@@ -36,6 +42,8 @@ function freshCombatState(spawn, nowSec = 0) {
     attackRestartAt: -Infinity,
     staggerUntil: -Infinity,
     spellReadyAt: 0,
+    spellReadyById: {},
+    chivalryProjectileReadyAt: 0,
     gauntlet: null,
     gust: null,
     gauntletReadyAt: -Infinity,
@@ -59,6 +67,8 @@ function freshCombatState(spawn, nowSec = 0) {
     lastDamageAt: -Infinity,
     lastAttackerId: null,
     lastKnockbackAt: -Infinity,
+    lastKnockbackSource: null,
+    lastKnockbackBy: null,
     lastInputSeq: 0,
     history: [],
     input: { forward: 0, right: 0, jump: false, sprint: false, yaw: spawn.yaw ?? 0, pitch: 0 },
@@ -72,6 +82,7 @@ function scoreFields() {
 export class Room {
   constructor(code, { isPrivate = true, mode = GAME_MODES.FFA, worldId = WORLD_IDS.SHATTERED_KEEP } = {}) {
     this.code = code;
+    resetChallengeTracking(this);
     this.isPrivate = isPrivate;
     this.mode = mode;
     this.policy = getModePolicy(mode);
@@ -96,7 +107,7 @@ export class Room {
     this.autoStartAfterSec = isPrivate ? AUTO_START_PRIVATE_SEC : AUTO_START_PUBLIC_SEC;
   }
 
-  addPlayer({ id, token, name, spell = DEFAULT_SPELL, ultimate = DEFAULT_ULTIMATE }, nowSec) {
+  addPlayer({ id, token, name, spell = DEFAULT_SPELL, ultimate = DEFAULT_ULTIMATE, preparedSpells = [] }, nowSec) {
     if (this.players.size >= 8) throw new Error('Room is full');
     const spawn = this.world.spawnPoints[this.players.size % this.world.spawnPoints.length];
     const player = {
@@ -117,6 +128,10 @@ export class Room {
       ...scoreFields(),
       ...freshCombatState(spawn, nowSec),
     };
+    player.startingSpell = player.spell;
+    player.preparedSpells = normalizePreparedSpells(player.startingSpell, preparedSpells);
+    player.startingPreparedSpells = [...player.preparedSpells];
+    player.startingUltimate = player.ultimate;
     this.players.set(id, player);
     this.emptySince = null;
     return player;
@@ -145,6 +160,10 @@ export class Room {
       ...scoreFields(),
       ...freshCombatState(spawn, nowSec),
     };
+    actor.startingSpell = actor.spell;
+    actor.preparedSpells = normalizePreparedSpells(actor.startingSpell, []);
+    actor.startingPreparedSpells = [...actor.preparedSpells];
+    actor.startingUltimate = actor.ultimate;
     this.players.set(id, actor);
     return actor;
   }
@@ -316,6 +335,7 @@ export class Room {
     player.attackNextStrike = 0;
     player.attackCommitted = 0;
     player.guarding = false;
+    player.guardHeld = false;
     player.pendingSpell = null;
     player.gauntlet = null;
     player.castEndsAt = 0;
@@ -412,6 +432,7 @@ export class Room {
   }
 
   startMatch(nowSec) {
+    resetChallengeTracking(this);
     this.#applyVotes();
     this.state = 'PLAYING';
     this.matchStartedAt = nowSec;
@@ -423,6 +444,9 @@ export class Room {
     let i = 0;
     for (const player of this.players.values()) {
       const spawn = this.world.spawnPoints[i % this.world.spawnPoints.length];
+      player.spell = isSpell(player.startingSpell) ? player.startingSpell : player.spell;
+      player.preparedSpells = normalizePreparedSpells(player.spell, player.startingPreparedSpells ?? player.preparedSpells);
+      player.ultimate = isUltimate(player.startingUltimate) ? player.startingUltimate : player.ultimate;
       Object.assign(player, freshCombatState(spawn, nowSec));
       i += 1;
     }
@@ -452,6 +476,7 @@ export class Room {
     this.winnerId = winnerId;
     this.finishReason = reason;
     this.events.push({ type: 'matchEnded', winnerId, reason, at: nowSec });
+    recordChallengeFact(this, { type: 'matchFinished', winnerId, reason, at: nowSec });
   }
 
   requestRematch(playerId, nowSec) {
