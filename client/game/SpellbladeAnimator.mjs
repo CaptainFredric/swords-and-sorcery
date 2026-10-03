@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { bootSide, soleContactOffset } from './spellbladeContact.mjs';
 import { SpellbladeClothRig } from './SpellbladeClothRig.mjs';
 import { blendProgressFor, blendSeconds, blendWeights } from './spellbladeBlend.mjs';
 import { DEATH_REST, GAIT_CLIPS, deathRest, deathSlump, gaitTime, reactionPose } from './spellbladeMotion.mjs';
@@ -66,6 +67,25 @@ export class SpellbladeAnimator {
     root.traverse((object) => { if (object.isBone) this.bones.set(object.name, object); });
     // bone transforms the procedural layer changed last frame (restored before the next pose)
     this.touched = new Map();
+    // Cache the rigid boots in their foot bones' space once. Contact checks then use cheap transforms,
+    // retaining the real faceted sole instead of an ankle proxy or a box that exaggerates toe clearance.
+    this.soles = new Map();
+    root.updateMatrixWorld(true);
+    root.traverse((object) => {
+      if (!object.isSkinnedMesh) return;
+      const side = bootSide(object.name);
+      if (!side) return;
+      const foot = this.bone(`foot.${side}`);
+      if (!foot) return;
+      object.skeleton.update();
+      const inverse = foot.matrixWorld.clone().invert();
+      const unique = new Map();
+      for (let i = 0; i < object.geometry.attributes.position.count; i += 1) {
+        const point = object.getVertexPosition(i, new THREE.Vector3()).applyMatrix4(object.matrixWorld).applyMatrix4(inverse);
+        unique.set(point.toArray().map((v) => v.toFixed(6)).join(','), point);
+      }
+      this.soles.set(`foot.${side}`, [...(this.soles.get(`foot.${side}`) ?? []), ...unique.values()]);
+    });
     // what a procedural solver (motion.solve, e.g. the first-person sword arm) may read and turn, in root space
     this.boneApi = {
       position: (name) => {
@@ -239,16 +259,23 @@ export class SpellbladeAnimator {
     // the airborne tuck lets the feet rise instead.
     const flex = landFlex + airFlex;
     if (flex > 1e-4 && pelvisBone) {
-      const before = LEG_CHAINS.map(([, , foot]) => this.#rootY(this.bone(foot)));
+      // A moving crouch can swap support legs. Comparing each ankle's lift and taking the maximum
+      // lowers the opposite boot into the floor. Preserve the lowest actual sole across the whole pose.
+      // Keep the existing landing and airborne behavior, including ultimate action poses, unchanged.
+      const movingCrouch = landFlex > 0 && motion.crouch > 1e-4 && airFlex < 1e-4
+        && GAIT_CLIPS.has(this.activeClip) && this.soles.size === 2;
+      const height = (foot) => movingCrouch ? this.#soleY(foot) : this.#rootY(this.bone(foot));
+      const before = LEG_CHAINS.map(([, , foot]) => height(foot));
       for (const [thigh, shin, foot] of LEG_CHAINS) {
         // hips flex (knee forward), the knee bends twice as far back, the foot stays flat
         this.#rotateInRootSpace(this.bone(thigh), [1, 0, 0], flex);
         this.#rotateInRootSpace(this.bone(shin), [1, 0, 0], -2 * flex);
         this.#rotateInRootSpace(this.bone(foot), [1, 0, 0], flex);
       }
-      const after = LEG_CHAINS.map(([, , foot]) => this.#rootY(this.bone(foot)));
-      const lift = Math.max(...after.map((y, i) => y - before[i]));
-      if (Number.isFinite(lift) && landFlex > 1e-4) this.#offsetInRootSpace(pelvisBone, [0, -lift * (landFlex / flex), 0]);
+      const after = LEG_CHAINS.map(([, , foot]) => height(foot));
+      const offset = movingCrouch ? soleContactOffset(before, after)
+        : -Math.max(...after.map((y, i) => y - before[i])) * (landFlex / flex);
+      if (Number.isFinite(offset) && landFlex > 1e-4) this.#offsetInRootSpace(pelvisBone, [0, offset, 0]);
     }
 
     for (const { bone, axis, angle, space } of pose.rotations) {
@@ -320,6 +347,14 @@ export class SpellbladeAnimator {
     }
     // and nothing left in the ground
     settleOn(Object.keys(DEATH_REST.clearance), 0);
+  }
+
+  #soleY(name) {
+    const bone = this.bone(name);
+    _m.multiplyMatrices(_rootInv, bone.matrixWorld);
+    let low = Infinity;
+    for (const point of this.soles.get(name) ?? []) low = Math.min(low, _v.copy(point).applyMatrix4(_m).y);
+    return low;
   }
 
   #rootY(bone) {

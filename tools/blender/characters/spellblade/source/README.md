@@ -287,3 +287,17 @@ Both pauldrons have a slightly flatter roof, 10 percent less front/back depth, a
 The front collar is shallower and follows a subtle diagonal. Its former rectangular hanging end is a shorter, thinner tapered fold, tucked into the wrap and resting closer to the breastplate. The rear collar and helmet opening remain in place.
 
 An exact comparison against b683b14 permits only coordinates on the scarf's two disconnected components inside Breastplate. All remaining geometry, topology, UVs, colors, weights, 30 materials, rig and 12 action curves are preserved. Sword/body and helmet/shoulder intersections remain zero at every integer animation frame. The set of existing helmet/collar contact frames is identical to the baseline.
+
+## Ordinary motion contact pass
+
+Idle and Guard now measure pelvis contact from the beveled boot soles. Run and Sprint retain their original upper body curves, cadence and duration, with extra knee clearance on the returning leg and sole based pelvis contact baked into the artist source. Geometry, rest rig, weights, materials, references, sword actions, Cast and Dash remain unchanged.
+
+The focused authoring utility is `kit/ordinary_motion.py`. Run it against a source before this pass and supply a separate output file; its source marker prevents applying it twice. It edits existing actions and never reconstructs the character.
+
+Run `scripts/test-spellblade-motion.py` in Blender to sample contact between keys. Pass a candidate source after `--`, followed by `--baseline /path/to/original.blend`, to verify that every unrelated object and animation curve is preserved. In a local browser preview, `checkSoleContacts()` from `client/game/spellbladeContact.browser.mjs` checks the exported skeleton and actual skinned soles, including the runtime moving crouch correction.
+
+## First person sword grip refinement
+
+The right gauntlet is now fitted in the artist source around the physical sword handle. `kit/first_person_grip.py` identifies the grip from its compact connected mesh component, preserves its radial clearance, reduces excess palm volume and fits the forearm profile. Only `Arm.R` vertex positions change. Topology, skin weights, materials, sword geometry, the left hand, rest rig and every action curve are preserved.
+
+The former load time `trimSwordHand` call is removed. Its guessed pivot was about four centimetres away from the actual grip centre. The source and its exported first person asset now own the final hand shape, so the model can be inspected and edited accurately in Blender.

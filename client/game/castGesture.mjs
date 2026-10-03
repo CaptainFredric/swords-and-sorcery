@@ -20,6 +20,8 @@ export const CAST_GESTURE = Object.freeze({
   ]),
 });
 
+const smooth = (t) => t * t * (3 - 2 * t);
+
 /**
  * Where the gesture is `elapsed` seconds after the cast began: draw 0..1 (eased in over the gather), thrust 0..1
  * (a snap out at the release, easing back over the recovery), done once it is over.
@@ -28,18 +30,19 @@ export function castGesture(elapsed, gatherSec = 0.3) {
   if (!(elapsed >= 0)) return { draw: 0, thrust: 0, done: true };
   if (elapsed < gatherSec) {
     const t = elapsed / gatherSec;
-    return { draw: 1 - (1 - t) * (1 - t), thrust: 0, done: false };
+    const eased = smooth(t);
+    return { draw: 1 - (1 - eased) ** 2, thrust: 0, done: false };
   }
   const released = elapsed - gatherSec;
   if (released < CAST_GESTURE.releaseSec) {
     const t = released / CAST_GESTURE.releaseSec;
     // the draw lets go as the arm snaps out (there is none to let go of when the spell had no gather)
-    return { draw: gatherSec > 0 ? 1 - t : 0, thrust: Math.sin((t * Math.PI) / 2), done: false };
+    return { draw: gatherSec > 0 ? 1 - smooth(t) : 0, thrust: smooth(t), done: false };
   }
   const recovering = released - CAST_GESTURE.releaseSec;
   if (recovering < CAST_GESTURE.recoverSec) {
     const t = recovering / CAST_GESTURE.recoverSec;
-    return { draw: 0, thrust: (1 - t) * (1 - t), done: false };
+    return { draw: 0, thrust: (1 - smooth(t)) ** 2, done: false };
   }
   return { draw: 0, thrust: 0, done: true };
 }
