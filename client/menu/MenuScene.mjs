@@ -1,3 +1,6 @@
+import { createElementalOrb } from '../game/elementalOrb.mjs';
+import { createSteelSheen } from '../game/steelSheen.mjs';
+import { resolveSpellbladeAnimationPlan } from '../game/spellbladeAnimationPlan.mjs';
 import * as THREE from 'three';
 import { createSpellbladeRig } from '../game/SpellbladeFallback.mjs';
 import { createSpellbladeAsset, reportSpellbladeAssetStatus } from '../game/SpellbladeAssets.mjs';
@@ -39,6 +42,9 @@ const SPELL_PREVIEW = Object.freeze({
   fireball: { core: 0xfff0c8, glow: 0xff7a2a },
   frostfire: { core: 0xeafcff, glow: 0x7fd6ff },
   gale: { wind: true, glow: 0x7fd08e, light: 0.9 },
+  steel: { core: 0xe9f3ff, glow: 0xabc8e6, light: 1.3 },
+  sunder: { core: 0xffd08a, glow: 0xd79a45, light: 1.7 },
+  vortex: { core: 0xffeab5, glow: 0xff5822, light: 2.6 },
 });
 
 export class MenuScene {
@@ -211,7 +217,7 @@ export class MenuScene {
     this.assetInstance?.setCloth(id);
   }
 
-  setShot(name, seconds = 0.65) {
+  setShot(name, seconds = 0.28) {
     const next = menuShotFor(name);
     if (next === this.shotTo) return;
     this.shotFrom = { ...this.shot };
@@ -267,12 +273,22 @@ export class MenuScene {
       this.characterRoot.rotation.y += (this.targetYaw - this.characterRoot.rotation.y) * 0.09;
       this.characterRoot.rotation.x += (this.targetPitch - this.characterRoot.rotation.x) * 0.09;
     }
+    // A deliberate Armory choice briefly flares its identity on the live model.
+    if (this.armoryPreview) {
+      const age = Math.max(0, this.clock - this.armoryPreview.started);
+      const pulse = Math.max(0, 1 - age / .85);
+      const id = this.armoryPreview.id;
+      if (this.spellOrb) this.spellOrb.scale.setScalar(1 + pulse * (id === 'sunder' ? .9 : .6));
+      this.magicLight.intensity = (SPELL_PREVIEW[id]?.light ?? 2.4) + pulse * .8;
+      if (id === 'vortex' && this.spellOrbGlow) this.spellOrbGlow.rotation.z = age * 16;
+    }
     // the spell held up in the Armory breathes and turns (a Gale flows)
     if (this.spellOrb?.visible) {
-      this.spellOrb.scale.setScalar(1 + Math.sin(t * 3.1) * 0.08);
+      if (!this.armoryPreview) this.spellOrb.scale.setScalar(1 + Math.sin(t * 3.1) * 0.08);
       this.spellOrbGlow.rotation.y = t * 1.7;
     }
     if (this.galeOrb?.visible) this.galeOrb.userData.update(t);
+    if (this.armoryElemental?.visible) this.armoryElemental.userData.update(t);
 
     const round = this.touring ? this.tour.update(dt) : null;
     if (this.touring) {
@@ -286,7 +302,7 @@ export class MenuScene {
       const reaction = this.ready ? reactionMoment(this.reaction, this.clock) : null;
       const performance = reaction ? performanceAt(reaction.kind, reaction.elapsed) : null;
       const moment = reaction ?? (this.ready ? idleMoment(this.clock) : null);
-      let plan = { clip: 'Idle', loop: true, time: t };
+      let plan = resolveSpellbladeAnimationPlan({ state: 'idle', localTime: t });
       if (performance) {
         // a performed flourish: the body bends as keyed, and the arm solver puts each hand where it belongs
         plan.motion = {
@@ -303,6 +319,16 @@ export class MenuScene {
         if (pose.clip === 'Guard') plan = { clip: 'Guard', loop: false, time: Math.min(moment.elapsed, 1.8) };
         if (pose.clip === 'Cast') plan = { clip: 'Cast', loop: false, time: moment.elapsed };
         plan.motion = { extra: pose.rotations };
+      }
+      if (this.armoryPreview && !globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches) {
+        const elapsed = Math.max(0, this.clock - this.armoryPreview.started);
+        const id = this.armoryPreview.id;
+        const clip = id === 'steel' ? 'Guard' : id === 'sunder' ? 'Slash_3' : id === 'vortex' ? 'Slash_1' : 'Cast';
+        plan = { clip, loop: false, time: Math.min(elapsed, id === 'sunder' ? .64 : .72) };
+        if (id === 'steel') {
+          this.armorySteel ??= createSteelSheen(this.assetInstance);
+          this.armorySteel.set(Math.sin(Math.min(1, elapsed / .85) * Math.PI), elapsed);
+        }
       }
       this.assetInstance.animator.apply(plan, dt);
     } else if (this.fallbackVisual) {
@@ -426,6 +452,9 @@ export class MenuScene {
    * colour; the rest of the menu keeps his usual cyan glow.
    */
   showSpell(spell) {
+    this.armoryPreview = null;
+    this.armorySteel?.set(0, null);
+    if (this.spellOrbGlow) this.spellOrbGlow.rotation.z = 0;
     this.shownSpell = spell;
     const look = SPELL_PREVIEW[spell];
     if (!look) {
@@ -457,8 +486,23 @@ export class MenuScene {
         this.spellOrbGlow.material.color.setHex(look.glow);
       }
     }
+    if (this.armoryElementalSpell !== spell) {
+      this.armoryElemental?.removeFromParent();
+      this.armoryElemental?.userData.dispose?.();
+      this.armoryElemental = spell === 'fireball' || spell === 'frostfire' ? createElementalOrb(spell) : null;
+      this.armoryElemental?.scale.setScalar(.5);
+      if (this.armoryElemental && this.spellOrb) this.spellOrb.add(this.armoryElemental);
+      this.armoryElementalSpell = spell;
+    }
+    if (this.spellOrbCore) this.spellOrbCore.visible = !this.armoryElemental;
+    if (this.spellOrbGlow) this.spellOrbGlow.visible = !this.armoryElemental;
     this.magicLight.color.setHex(look.glow);
     this.magicLight.intensity = look.light ?? 2.4;
+  }
+
+  previewArmory(id) {
+    this.showSpell(id);
+    this.armoryPreview = { id, started: this.clock };
   }
 
   /** Render quality (a setting): the menu never draws sharper than 1.25x, and Smooth draws at 1x. */
@@ -484,6 +528,10 @@ export class MenuScene {
   }
 
   dispose() {
+    this.armorySteel?.dispose();
+    this.armoryElemental?.removeFromParent();
+    this.armoryElemental?.userData.dispose?.();
+    this.armoryElemental = null;
     this.disposed = true;
     this.assetGeneration += 1;
     cancelAnimationFrame(this.frameHandle);

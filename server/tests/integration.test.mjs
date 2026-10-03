@@ -178,3 +178,44 @@ test('server closes a websocket that floods messages far above gameplay rate', a
   for (let i = 0; i < 220; i += 1) ws.send(JSON.stringify({ type: 'ping', sentAt: i }));
   await closed;
 });
+
+test('host and guest both see Fireball and Frostfire launch toward aim changed during gathering', async (t) => {
+  const game = createGameServer({ port: 0, host: '127.0.0.1' });
+  await game.start();
+  t.after(async () => game.stop());
+  const connections = [0, 1].map(() => new WebSocket(`ws://127.0.0.1:${game.address().port}/ws`));
+  t.after(() => connections.forEach((ws) => ws.close()));
+  await Promise.all(connections.map(waitOpen));
+  const hostJoined = waitFor(connections[0], (m) => m.type === 'joined');
+  send(connections[0], { type: 'createRoom', name: 'Host' });
+  const host = await hostJoined;
+  const guestJoined = waitFor(connections[1], (m) => m.type === 'joined');
+  send(connections[1], { type: 'joinRoom', code: host.roomCode, name: 'Guest' });
+  const guest = await guestJoined;
+  const room = game.roomManager.findByCode(host.roomCode);
+  room.startMatch(game.now());
+  for (const spell of ['fireball', 'frostfire']) {
+    for (const [index, joined] of [host, guest].entries()) {
+      const player = room.players.get(joined.playerId);
+      player.spell = spell;
+      player.spellReadyAt = 0;
+      player.alive = true;
+      player.spawnProtectionUntil = 0;
+      const cast = waitFor(connections[index], (m) => m.type === 'events' && m.events.some((e) => e.type === 'spellCast' && e.playerId === player.id));
+      send(connections[index], { type: 'input', seq: 1, yaw: 0, pitch: 0 });
+      send(connections[index], { type: 'cast', direction: { x: 0, y: 0, z: -1 } });
+      await cast;
+      const starts = connections.map((ws) => waitFor(ws, (m) => m.type === 'events' && m.events.some((e) => e.type === 'projectileSpawned' && e.projectile.ownerId === player.id)));
+      send(connections[index], { type: 'input', seq: 2, yaw: Math.PI / 2, pitch: .3, forward: .5 });
+      const batches = await Promise.all(starts);
+      const projectiles = batches.map((m) => m.events.find((e) => e.type === 'projectileSpawned' && e.projectile.ownerId === player.id).projectile);
+      assert.deepEqual(projectiles[0], projectiles[1], 'both screens receive the same release');
+      const projectile = projectiles[0];
+      assert.equal(projectile.spell, spell);
+      assert.ok(projectile.velocity.x < -20, 'new aim points left instead of initial forward');
+      assert.ok(Math.abs(projectile.velocity.z) < 1e-6);
+      assert.ok(projectile.velocity.y > 6);
+      assert.ok(Math.abs(projectile.position.x - (player.position.x - Math.cos(.3) * .7)) < .15, 'release follows current authoritative hand position');
+    }
+  }
+});

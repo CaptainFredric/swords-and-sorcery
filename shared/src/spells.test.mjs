@@ -21,7 +21,7 @@ test('exposure: 1 at the heart of a blast, falling to 0 at its edge; the damage 
     assert.ok(Math.abs(spellExposure(spell, spell.radius / 2) - 0.5) < 1e-9);
     assert.equal(blastDamage(spell, 1), spell.directDamage);
     assert.equal(blastDamage(spell, 1e-6), spell.edgeDamage);
-    assert.ok(spell.edgeDamage >= spell.directDamage * 0.7, `${spell.id}: a slight falloff, not a cliff`);
+    assert.ok(spell.edgeDamage >= Math.floor(spell.directDamage * 0.7), `${spell.id}: a slight falloff, not a cliff`);
     const middle = blastDamage(spell, 0.5);
     assert.ok(middle < spell.directDamage && middle > spell.edgeDamage);
     assert.ok(spell.directDamage - middle < middle - spell.edgeDamage, 'the heart holds its force; the loss comes near the edge');

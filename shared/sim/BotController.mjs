@@ -134,6 +134,16 @@ function considerDefense(room, actor, target, distance, ai, nowSec, random, aggr
   }
 }
 
+// Ordinary projectiles now leave along the current authoritative aim. Keep a gathered spell trained on the
+// target's body as it moves, including its height, using the same hand to body direction used to start the cast.
+function aimGatheredProjectile(actor, target) {
+  if (!['fireball', 'frostfire'].includes(actor.pendingSpell?.spell)) return;
+  const direction = aimDirection(actor, target);
+  actor.yaw = yawToward(actor, target);
+  actor.pitch = Math.asin(Math.max(-1, Math.min(1, direction.y)));
+  actor.input = { ...actor.input, yaw: actor.yaw, pitch: actor.pitch };
+}
+
 function chooseCombatIntent(room, actor, target, distance, ai, nowSec, random, aggression, profile) {
   if (actor.guarding || actor.attackActive || actor.attackHeld || actor.pendingSpell) return;
   // going round something to reach its foe: nothing to throw at, nothing to dash at, until it is round
@@ -648,9 +658,11 @@ export function stepBotControllers(
     ai.goingRound = Boolean(way);
     updateMovement(actor, target, distance, ai, aggressionScale, world, nowSec, profile, way);
     considerDefense(room, actor, target, distance, ai, nowSec, random, aggressionScale, profile);
+    aimGatheredProjectile(actor, target);
 
     if (nowSec < ai.nextThinkAt) continue;
     ai.nextThinkAt = nowSec + THINK_INTERVAL_SEC;
     chooseCombatIntent(room, actor, target, distance, ai, nowSec, random, aggressionScale, profile);
+    aimGatheredProjectile(actor, target);
   }
 }

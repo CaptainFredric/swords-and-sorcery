@@ -164,7 +164,8 @@ export function windWispData(tanHalf, { count = 18, samples = 26, random = Math.
 // it moved rolls on out; spread: how much further out and wider it has rolled by the end of its life
 const CONE = SPELLS.gale.cone;
 export const GALE_VOLUME = Object.freeze({
-  life: CONE.lastsSec + 0.25, frontSec: 0.3, holdSec: CONE.lastsSec - CONE.fadeSec, ribbonSec: 0.5, spread: 0.45,
+  life: CONE.lastsSec + 0.08, frontSec: Math.min(0.2, CONE.lastsSec * 0.33),
+  holdSec: CONE.lastsSec - CONE.fadeSec, ribbonSec: CONE.lastsSec * 0.62, spread: 0.32,
 });
 
 /**

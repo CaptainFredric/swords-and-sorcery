@@ -1,3 +1,4 @@
+import { createElementalOrb } from './elementalOrb.mjs';
 import * as THREE from 'three';
 import { facetedMesh } from './facetedGeometry.mjs';
 import { taperedPrismData, wedgeData } from './facetedGeometryData.mjs';
@@ -566,7 +567,7 @@ export class WeaponView {
       const vortexPose = this.#vortexPose(timeSec, dt);
       const combo = vortexPose ?? this.#combo(pose.state, timeSec, stateBefore);
       if (combo) {
-        plan = { clip: 'Idle', loop: true, time: timeSec };
+        plan = resolveFirstPersonAnimationPlan({ state: 'idle' }, this, timeSec);
         // the view leans with the body into each cut (purely visual: aim is the input's)
         motion.camera.pitch += combo.look.pitch * combo.weight;
         motion.camera.roll += combo.look.roll * combo.weight;
@@ -775,18 +776,34 @@ export class WeaponView {
     this.chargeCore.visible = !gale;
     this.chargeGlow.visible = !gale;
     this.chargeGale.visible = gale;
+    if (this.chargeElemental) this.chargeElemental.visible = !gale;
     if (gale) {
       this.chargeGale.userData.update(timeSec);
       this.chargeGale.userData.setStrength(0.45 + 0.55 * gesture.draw);
       return;
     }
-    this.chargeGlow.material.color.setHex(color);
-    this.chargeCore.material.color.setHex(this.castSpell === 'frostfire' ? 0xeafcff : this.castSpell === 'gale' ? 0xffffff : 0xfff0c8);
-    this.chargeGlow.rotation.y = timeSec * 5;
+    this.chargeCore.visible = false;
+    this.chargeGlow.visible = false;
+    if (this.chargeElementalSpell !== this.castSpell) {
+      this.chargeElemental?.removeFromParent();
+      this.chargeElemental?.userData.dispose?.();
+      this.chargeElemental = createElementalOrb(this.castSpell);
+      this.chargeElemental.scale.setScalar(0.28);
+      this.chargeOrb.add(this.chargeElemental);
+      this.chargeElementalSpell = this.castSpell;
+    }
+    this.chargeElemental.visible = true;
+    this.chargeElemental.userData.update(timeSec);
+
   }
 
   dispose() {
     this.disposed = true;
+    this.chargeElemental?.removeFromParent();
+    this.chargeElemental?.userData.dispose?.();
+    this.chargeElemental = null;
+    for (const mesh of [this.chargeCore, this.chargeGlow]) { mesh?.geometry.dispose(); mesh?.material.dispose(); }
+    this.chargeGale?.userData.dispose?.();
     this.steelSheen?.dispose();
     this.sunderBlade?.dispose();
     this.sunderBlade = null;

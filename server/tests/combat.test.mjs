@@ -234,6 +234,7 @@ test('a spell thrown at the ground bursts where it lands, and its blast catches 
   a.yaw = -Math.PI / 2; a.input.yaw = a.yaw;
   // aimed down at the ground just short of b's feet
   const down = { x: Math.cos(0.45), y: -Math.sin(0.45), z: 0 };
+  a.pitch = -0.45; a.input.pitch = a.pitch;
   assert.equal(tryCastSpell(room, 'a', down, 10), true);
   for (let t = 10.31; t < 10.8; t += 0.02) stepRoom(room, 0.02, t, openWorld);
   const impact = room.events.find((e) => e.type === 'projectileImpact');
@@ -488,7 +489,9 @@ function fireballInto(room, { steel = false } = {}) {
 test('Sheathed in Steel: a square Fireball lands like a glancing one (less damage, less or no burn), the shove the same', () => {
   const bare = fireballInto(playingRoom());
   const steeled = fireballInto(playingRoom(), { steel: true });
+  assert.equal(steeled.damage, SPELLS.fireball.edgeDamage);
   assert.ok(steeled.damage < bare.damage, `${steeled.damage} < ${bare.damage}`);
+  assert.equal(steeled.b.stagger.level, bare.b.stagger.level, 'Steel preserves the balance taken by the same blast');
   assert.ok((steeled.burn?.licksLeft ?? 0) < (bare.burn?.licksLeft ?? 0), 'the fire clings less');
   assert.ok(Math.abs(steeled.push - bare.push) < 1e-6, 'momentum is untouched');
   // turning it aside counted as the first blow on it
@@ -650,6 +653,7 @@ test('a burn\'s licks make no clang: only a blow landing on the plate carries it
   room.events.length = 0;
   for (let now = 10.85; now < 13.5; now += 0.05) stepRoom(room, 0.05, now, openWorld);
   const licks = room.events.filter((e) => e.type === 'damage' && e.source === 'burn');
+  assert.equal(licks.reduce((sum, e) => sum + e.amount, 0), SPELLS.fireball.burn.damage, 'Steel leaves existing burn damage intact');
   assert.ok(licks.length > 0 && licks.every((e) => !e.steel), 'the licks land quietly on the plate');
   // a spell landing square on the plate does carry it
   const steeled = playingRoom();
@@ -860,4 +864,42 @@ test('a snag: the blade caught in passing on a small furnishing, never a wall, n
   assert.ok(pile && !pile.snag);
   // and a swing that meets nothing makes no world impact at all
   assert.equal(impact([]), undefined);
+});
+
+for (const spellId of ['fireball', 'frostfire']) {
+  test(`${spellId} gathers with current aim and releases from current position, then flies independently`, () => {
+    const room = playingRoom();
+    const a = room.players.get('a');
+    room.players.get('b').position = { x: 20, y: 0, z: 20 };
+    a.spell = spellId;
+    assert.equal(tryCastSpell(room, 'a', { x: 1, y: 0, z: 0 }, 10), true);
+    stepRoom(room, 0.01, 10.29, openWorld);
+    assert.equal(room.projectiles.size, 0);
+    a.position = { x: 3, y: 0, z: 4 };
+    a.input = { ...a.input, yaw: 0, pitch: 0.3, forward: 1 };
+    stepRoom(room, 0.01, 10.3, openWorld);
+    const spawned = room.events.find((e) => e.type === 'projectileSpawned').projectile;
+    const dir = { x: 0, y: Math.sin(0.3), z: -Math.cos(0.3) };
+    assert.ok(Math.abs(spawned.velocity.x) < 1e-9);
+    assert.ok(Math.abs(spawned.velocity.y - dir.y * SPELLS[spellId].speed) < 1e-9);
+    assert.ok(Math.abs(spawned.velocity.z - dir.z * SPELLS[spellId].speed) < 1e-9);
+    assert.ok(Math.abs(spawned.position.x - a.position.x) < 1e-9);
+    assert.ok(Math.abs(spawned.position.z - (a.position.z + dir.z * 0.7)) < 1e-9);
+    const projectile = room.projectiles.get(spawned.id);
+    assert.ok(projectile);
+    const velocity = { ...projectile.velocity };
+    a.input = { ...a.input, yaw: Math.PI / 2, pitch: -0.3 };
+    stepRoom(room, 0.01, 10.31, openWorld);
+    assert.deepEqual(projectile.velocity, velocity, 'turning after release leaves its velocity alone');
+  });
+}
+
+test('Frostfire deals 16 at its heart and 11 at its edge; Gale retains its force in a shorter breath', () => {
+  assert.equal(SPELLS.frostfire.directDamage, 16);
+  assert.equal(SPELLS.frostfire.edgeDamage, 11);
+  assert.equal(SPELLS.gale.cone.lastsSec, 0.55);
+  assert.equal(SPELLS.gale.cone.fadeSec, 0.165);
+  assert.equal(SPELLS.gale.cone.wind, 14);
+  assert.equal(SPELLS.gale.cone.push, 18);
+  assert.equal(SPELLS.gale.cone.drag, 12);
 });

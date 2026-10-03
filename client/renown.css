@@ -1,6 +1,7 @@
 /* A page in the existing Castleward armory: stitched cloth, iron plaques and brass fittings. */
-#armory-menu .armory-inner { --banner-width: min(408px, 43cqw); max-height: calc(100% - 20px); padding-top: 24px; padding-bottom: calc(var(--hem) + 18px); overflow-y: auto; overscroll-behavior: contain; }
-.armory-inner > * { flex-shrink: 0; }
+#armory-menu .armory-inner { --banner-width: min(408px, 43cqw); max-height: calc(100% - 20px); padding-top: 24px; padding-bottom: calc(var(--hem) + 18px); overflow: hidden; overscroll-behavior: contain; }
+.armory-inner > *:not(.armory-scroll) { flex-shrink: 0; }
+#armory-menu .armory-scroll { flex: 1 1 auto; min-height: 0; }
 .armory-tabs { display: flex; gap: 0; margin: 8px 0 16px; border-bottom: 1px solid var(--heraldry-brass); }
 .armory-tabs button { flex: 1; padding: 11px 8px; border: 0; border-bottom: 3px solid transparent; background: rgba(34, 29, 25, .55); color: var(--heraldry-cream); cursor: pointer; font: 400 17px/1 var(--font-inscription); letter-spacing: .04em; }
 .armory-tabs button[aria-pressed='true'] { border-bottom-color: var(--heraldry-brass-light); background: linear-gradient(180deg, rgba(201,156,82,.2), rgba(34,29,25,.65)); color: var(--heraldry-brass-light); }
@@ -41,6 +42,8 @@
 }
 @container app (max-height: 500px) {
   #armory-menu .armory-inner { --banner-width: min(390px, 51cqw); max-height: calc(100% - 12px); padding-top: 18px; }
+  .armory-tabs { margin: 4px 0 8px; }
+  .armory-tabs button { padding: 8px; font-size: 15px; }
   .cloth-card { min-height: 52px; padding: 6px; }
   .cloth-swatch { flex-basis: 19px; height: 26px; }
   .heraldry-ledger strong { font-size: 22px; }

@@ -21,7 +21,7 @@ export const STEEL = Object.freeze({
   holdSec: 2,            // the first blow taken while fully hardened keeps it so at least this long after that blow
   fadeSec: 5,            // then it wears off evenly to nothing
   qualityCut: 1,         // how much of a sword blow's cleanness full strength turns aside (all of it: a glancing blow)
-  exposureCut: 0.62,     // how much of a spell's exposure full strength turns aside
+  edgeExposure: 0.001,   // a real blast contact still lands at the edge; zero exposure stays zero
   // how much of any other blow full strength turns aside: as much as a clean sword blow loses
   bluntCut: 1 - GAME.swordGlance / GAME.swordDamage,
 });
@@ -48,7 +48,8 @@ export function steelBlunt(steel, amount, nowSec) {
 /** A spell's exposure as the armour lets it through: { exposure (felt), turned (what it turned aside), strength }. */
 export function steelExposure(steel, exposure, nowSec) {
   const strength = steelStrength(steel, nowSec);
-  const felt = exposure * (1 - STEEL.exposureCut * strength);
+  const minimum = Math.min(Math.max(0, exposure), STEEL.edgeExposure);
+  const felt = minimum * strength + exposure * (1 - strength);
   return { exposure: felt, turned: exposure - felt, strength };
 }
 
