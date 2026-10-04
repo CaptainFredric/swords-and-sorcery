@@ -10,7 +10,7 @@ function setup({ useHostTimers = false } = {}) {
   globalThis.window = win;
   doc.pointerLockElement = element;
   const calls = [];
-  const socket = Object.fromEntries(['guard', 'attack', 'cast', 'castPreparedSpell', 'selectPreparedSpell'].map((action) => [action, (...args) => calls.push([action, ...args])]));
+  const socket = Object.fromEntries(['guard', 'attack', 'cast', 'castPreparedSpell', 'selectPreparedSpell', 'selectPreparedSlot', 'castCurrentSpell'].map((action) => [action, (...args) => calls.push([action, ...args])]));
   let timer;
   const input = new InputController(element, socket, useHostTimers ? undefined : { setTimer: (fn) => { timer = fn; return 1; }, clearTimer: () => { timer = null; } });
   doc.dispatchEvent(new Event('pointerlockchange'));
@@ -44,26 +44,24 @@ test('ordinary spell press keeps its existing immediate command', () => {
   assert.equal(calls[0][0], 'cast');
 });
 
-test('prepared tap sends one atomic current spell command with aim', () => {
+test('prepared tap casts the authoritative current spell without resending a stale identity', () => {
   const { input, calls, down, up } = setup();
   input.updatePreparedSpells(chivalry, 10);
   down('KeyQ');
   assert.equal(calls.length, 0);
   up('KeyQ');
   assert.equal(calls.length, 1);
-  assert.equal(calls[0][0], 'castPreparedSpell');
-  assert.equal(calls[0][1], 'fireball');
-  assert.deepEqual(calls[0][3], { yaw: 0, pitch: 0 });
+  assert.equal(calls[0][0], 'castCurrentSpell');
+  assert.deepEqual(calls[0][2], { yaw: 0, pitch: 0 });
 });
 
-test('hold and drag releases one atomic alternate command while preserving aim and pointer lock', () => {
+test('holding Q leaves the mouse free to aim and release without a choice does not cast', () => {
   const { input, calls, down, up, reveal, send } = setup();
   input.updatePreparedSpells(chivalry, 10);
-  down('KeyQ'); reveal(); send('mousemove', { movementX: -60, movementY: 0 }); up('KeyQ');
+  down('KeyQ'); reveal(); send('mousemove', { movementX: -600, movementY: 100 }); up('KeyQ');
   assert.equal(input.pointerLocked, true);
-  assert.equal(input.yaw, 0);
-  assert.equal(calls.length, 1);
-  assert.deepEqual(calls[0].slice(0, 2), ['castPreparedSpell', 'frostfire']);
+  assert.ok(input.yaw > 1);
+  assert.deepEqual(calls, []);
 });
 
 test('startup preselects while a cooling active gesture remains one atomic select and attempt', () => {
@@ -126,10 +124,70 @@ test('prepared gesture timers retain the browser host receiver', () => {
     timers[0].callback();
     input.finishPreparedGesture();
     assert.deepEqual(timers.at(-1), { cancelled: 42 });
-    assert.equal(calls[0][0], 'castPreparedSpell');
+    assert.equal(calls.length, 0, 'a held selector release never casts');
     input.updatePreparedSpells({ alive: false }, 10);
   } finally {
     globalThis.setTimeout = priorSet;
     globalThis.clearTimeout = priorClear;
   }
+});
+
+
+for (const [key, slot] of [['Digit1',1],['Digit2',2],['Digit3',3],['Numpad2',2]]) test(`Q plus ${key} selects slot ${slot} once without casting`, () => {
+  const { input, calls, down, up, reveal, send } = setup();
+  input.updatePreparedSpells({ ...chivalry, spell: 'gale' }, 10);
+  down('KeyQ'); reveal(); down(key);
+  assert.deepEqual(calls, [['selectPreparedSlot', slot]], 'slot order comes from the repertoire, not current spell');
+  assert.equal(input.preparedGesture, null, 'valid choice closes immediately');
+  send('keydown', { code:key, repeat:true }); up(key); up('KeyQ');
+  assert.deepEqual(calls, [['selectPreparedSlot', slot]], 'release and autorepeat stay quiet');
+  down('KeyQ'); up('KeyQ');
+  assert.equal(calls.at(-1)[0], 'castCurrentSpell', 'a quick later tap uses server current identity');
+});
+
+test('quick Q plus a number works before the informational panel hold timer', () => {
+  const { input, calls, down, up, reveal } = setup();
+  input.updatePreparedSpells(chivalry, 10); down('KeyQ'); down('Digit3'); reveal(); up('Digit3'); up('KeyQ');
+  assert.deepEqual(calls, [['selectPreparedSlot', 3]]);
+});
+
+test('numeric bindings retain ordinary actions outside selection and consumed releases never reach them', () => {
+  const { input, calls, down, up, reveal, send } = setup();
+  input.configure({bindings:{...input.bindings,attack:['Digit2'],forward:['Digit1']}});
+  input.updatePreparedSpells(chivalry, 10);
+  down('Digit2'); up('Digit2'); assert.deepEqual(calls, [['attack',true],['attack',false]]);
+  calls.length=0; down('KeyQ'); reveal(); down('Digit2'); up('KeyQ');
+  send('keydown',{code:'Digit2',repeat:true}); up('Digit2');
+  assert.deepEqual(calls, [['selectPreparedSlot',2]], 'selection consumes the complete numeric press');
+  calls.length=0; down('KeyQ'); down('Digit1'); assert.equal(input.movement().forward,0);
+  up('Digit1'); up('KeyQ'); down('Digit1'); assert.equal(input.movement().forward,1); up('Digit1');
+});
+
+test('numbers without Q and numeric autorepeat before a fresh press never select', () => {
+  const { input, calls, down, up, send, reveal } = setup();
+  input.updatePreparedSpells(chivalry,10); down('Digit1'); down('KeyQ'); reveal();
+  send('keydown',{code:'Digit1',repeat:true}); up('KeyQ'); up('Digit1');
+  assert.deepEqual(calls,[]);
+});
+
+test('selected prepared identity remains a spell input after expiry and returns to normal on a new match', () => {
+  const { input, calls, down, up } = setup();
+  input.updatePreparedSpells({...chivalry,ultimateState:null,spell:'gale',preparedSpellSelected:true},20);
+  down('KeyQ'); up('KeyQ'); assert.equal(calls[0][0],'castCurrentSpell');
+  input.updatePreparedSpells({...chivalry,ultimateState:null,preparedSpellSelected:false},30);
+  down('KeyQ'); up('KeyQ'); assert.equal(calls.at(-1)[0],'cast');
+});
+
+test('a quick next Q tap predicts the chosen spell without overwriting authoritative identity', () => {
+  const { input, calls, down, up } = setup(); const presentations = [];
+  input.onCastLocal = metadata => presentations.push(metadata);
+  input.updatePreparedSpells(chivalry, 10);
+  down('KeyQ'); down('Digit2'); up('Digit2'); up('KeyQ');
+  assert.deepEqual(presentations, []);
+  down('KeyQ'); up('KeyQ');
+  assert.deepEqual(presentations, [{spellOnly:true,spell:'frostfire'}]);
+  assert.equal(input.prepared.current, 'fireball', 'only snapshots change authoritative current');
+  assert.equal(calls.at(-1)[0], 'castCurrentSpell');
+  input.updatePreparedSpells({...chivalry,spell:'frostfire',preparedSpellSelected:true},10.1);
+  assert.equal(input.pendingPreparedSelection,null);
 });

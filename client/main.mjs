@@ -661,8 +661,8 @@ function renderPreparedArmory() {
   if (!chivalry) return;
   const starting = settings.get('loadout.spell');
   const prepared = normalizePreparedSpells(starting, settings.get('loadout.preparedSpells'));
-  root.innerHTML = '<p class="armory-slot">PREPARED SPELLS</p><p class="panel-copy">Three equal spells. The starting spell is marked ★. Hold Q during Chivalry to choose another.</p>'
-    + prepared.map((id, slot) => `<label class="prepared-row"><span>${id === starting ? '★ STARTING' : 'PREPARED'}</span><select data-prepared-slot="${slot}" aria-label="Prepared spell ${slot + 1}" ${id === starting ? 'disabled' : ''}>${Object.values(SPELLS).filter(s => s.id === id || !prepared.includes(s.id)).map(s => `<option value="${s.id}" ${s.id === id ? 'selected' : ''}>${escapeHtml(s.label)}</option>`).join('')}</select></label>`).join('');
+  root.innerHTML = '<p class="armory-slot">PREPARED SPELLS</p><p class="panel-copy">The starting spell is marked ★. During Chivalry, hold Q and press 1, 2 or 3 to select. Release Q, then tap it to cast.</p>'
+    + prepared.map((id, slot) => `<label class="prepared-row"><span>${slot + 1} · ${id === starting ? '★ STARTING' : 'PREPARED'}</span><select data-prepared-slot="${slot}" aria-label="Prepared spell ${slot + 1}" ${id === starting ? 'disabled' : ''}>${Object.values(SPELLS).filter(s => s.id === id || !prepared.includes(s.id)).map(s => `<option value="${s.id}" ${s.id === id ? 'selected' : ''}>${escapeHtml(s.label)}</option>`).join('')}</select></label>`).join('');
 }
 $('#armory-prepared').addEventListener('change', event => {
   const slot = Number(event.target.dataset.preparedSlot);

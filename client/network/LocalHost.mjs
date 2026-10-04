@@ -183,6 +183,12 @@ export class LocalHost {
       ...(Number.isFinite(input.yaw) ? { yaw: input.yaw } : {}),
       ...(Number.isFinite(input.pitch) ? { pitch: input.pitch } : {}), clientTime: this.now() });
   }
+  selectPreparedSlot(slot) { this.#command({ type: 'selectPreparedSlot', slot }); }
+  castCurrentSpell(direction, input = {}) {
+    this.#command({ type: 'castCurrentSpell', direction,
+      ...(Number.isFinite(input.yaw) ? { yaw: input.yaw } : {}),
+      ...(Number.isFinite(input.pitch) ? { pitch: input.pitch } : {}), clientTime: this.now() });
+  }
   selectPreparedSpell(spell) { this.#command({ type: 'selectPreparedSpell', spell }); }
   gauntlet() { this.#command({ type: 'gauntlet', clientTime: this.now() }); }
   ultimate() { this.#command({ type: 'ultimate' }); }

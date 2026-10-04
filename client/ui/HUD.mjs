@@ -115,7 +115,7 @@ export class HUD {
     const practice = snapshot?.mode === 'PRACTICE';
     const prepared = preparedSpellView(local, serverNow);
     const currentPrepared = prepared.spells.find((entry) => entry.current);
-    const cooling = !prepared.visible && (local.spellReadyAt ?? 0) - serverNow > 0.01 && !practice;
+    const cooling = !prepared.visible && !local.preparedSpellSelected && (local.spellReadyAt ?? 0) - serverNow > 0.01 && !practice;
     this.#preparedSpells(prepared);
     const face = `${spell.id}:${cooling ? 'fist' : 'spell'}`;
     if (this.spell.dataset.face !== face) {
@@ -146,12 +146,19 @@ export class HUD {
     if (this.preparedView) this.#preparedSpells(this.preparedView);
   }
 
+  setPreparedInputMode(mode) {
+    this.preparedInputMode = mode;
+    if (this.preparedView) this.#preparedSpells(this.preparedView);
+  }
+
   #preparedSpells(view) {
     this.preparedView = view;
     this.preparedPanel.hidden = !view.visible;
     if (!view.visible) { this.preparedSelector = null; return; }
     this.preparedPanel.classList.toggle('selecting', Boolean(this.preparedSelector));
-    this.preparedPanel.classList.toggle('cancelled', Boolean(this.preparedSelector && !this.preparedSelector.highlight));
+    const keyboard = this.preparedInputMode !== 'touch' || this.preparedSelector?.mode === 'keyboard';
+    this.preparedPanel.dataset.input = keyboard ? 'keyboard' : 'touch';
+    this.preparedPanel.classList.toggle('cancelled', Boolean(!keyboard && this.preparedSelector && !this.preparedSelector.highlight));
     const signature = view.spells.map(entry => entry.id).join(':');
     if (signature !== this.preparedSignature) {
       this.preparedSignature = signature;
@@ -165,20 +172,20 @@ export class HUD {
         const tile = document.createElement('div');
         tile.className = 'prepared-spell';
         tile.dataset.spell = entry.id;
-        tile.innerHTML = `${iconSvg(entry.id)}<span>${entry.spell.short ?? entry.spell.label}</span><b></b><i></i>`;
+        tile.innerHTML = `<kbd></kbd>${iconSvg(entry.id)}<span>${entry.spell.short ?? entry.spell.label}</span><b></b><i></i>`;
         row.append(tile);
         this.preparedSlots.set(entry.id, tile);
       }
     }
     const current = view.spells.find(entry => entry.current);
     const alternates = view.spells.filter(entry => !entry.current);
-    const order = [alternates[0], current, alternates[1]].filter(Boolean).map(entry => entry.id);
+    const order = (keyboard ? view.spells : [alternates[0], current, alternates[1]].filter(Boolean)).map(entry => entry.id);
     if (this.preparedOrder?.join(':') !== order.join(':')) {
       const row = this.preparedPanel.querySelector('.prepared-spell-row');
       for (const id of order) row.append(this.preparedSlots.get(id));
       this.preparedOrder = order;
     }
-    this.preparedHeader.textContent = view.phase === 'startup' ? 'Prepare your spells' : 'Spells & Chivalry';
+    this.preparedHeader.textContent = keyboard && this.preparedSelector ? 'Q HELD · PREPARED SPELLS' : view.phase === 'startup' ? 'Prepare your spells' : 'Spells & Chivalry';
     this.preparedTimer.textContent = view.phase === 'active' ? `${view.left.toFixed(1)}s` : '';
     this.preparedPanel.style.setProperty('--chivalry-left', `${Math.min(100, view.left / 9 * 100)}%`);
     for (const entry of view.spells) {
@@ -188,12 +195,15 @@ export class HUD {
       tile.classList.toggle('current', entry.current);
       tile.classList.toggle('highlighted', highlighted);
       tile.classList.toggle('cooling', !entry.available);
+      tile.querySelector('kbd').textContent = String(view.spells.indexOf(entry) + 1);
       tile.querySelector('b').textContent = status;
       tile.querySelector('i').textContent = highlighted ? 'SELECTED' : entry.current ? 'EQUIPPED' : '';
       tile.setAttribute('aria-label', `${entry.spell.label}, ${status}${entry.current ? ', equipped' : ''}${highlighted ? ', selected' : ''}`);
     }
     const highlighted = view.spells.find(entry => entry.id === this.preparedSelector?.highlight);
-    this.preparedHint.textContent = this.preparedSelector
+    this.preparedHint.textContent = keyboard
+      ? this.preparedSelector ? 'PRESS 1, 2 OR 3 TO SELECT · ESC TO CANCEL' : 'TAP Q TO CAST · HOLD Q + 1 / 2 / 3 TO SELECT'
+      : this.preparedSelector
       ? highlighted ? `${highlighted.available ? 'RELEASE TO CAST' : 'RELEASE TO SELECT'} · ESC TO CANCEL` : 'RELEASE TO CANCEL'
       : view.phase === 'startup' ? 'HOLD Q TO PRESELECT' : 'TAP Q TO CAST · HOLD Q TO CHOOSE';
   }

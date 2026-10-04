@@ -43,3 +43,7 @@
 @media (max-height:450px) { .prepared-spells { bottom:104px; } }
 @media (prefers-reduced-motion:reduce) { .prepared-spells { animation:none; } .prepared-spell, .touch-prepared-slot, .prepared-spells::after { transition:none; } }
 .prepared-spell svg, .touch-prepared-slot svg { fill:none; stroke:currentColor; stroke-width:2.1; stroke-linecap:round; stroke-linejoin:round; }
+
+.prepared-spell kbd { grid-column:1/-1; justify-self:center; min-width:17px; padding:2px 3px; border:1px solid #c99c5280; border-radius:2px; color:var(--heraldry-brass-light); font:800 10px/1 var(--font-script); background:#171511b3; }
+.prepared-spells[data-input="touch"] kbd { display:none; }
+.prepared-spells[data-input="keyboard"].selecting>small>span { font:700 12px/1 var(--font-script); letter-spacing:.04em; }

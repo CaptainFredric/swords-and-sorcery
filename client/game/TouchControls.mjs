@@ -151,7 +151,7 @@ export class TouchControls {
     this.input.updatePreparedSpells(local, serverNow);
     if (!this.prepared.visible) this.#cancelPreparedTouch();
     this.layer.classList.toggle('chivalry-prepared', this.prepared.visible);
-    this.#showSpell(spellFor(local.spell), !this.prepared.visible && (local.spellReadyAt ?? 0) - serverNow > 0.01 && !practice);
+    this.#showSpell(spellFor(local.spell), !this.prepared.visible && !local.preparedSpellSelected && (local.spellReadyAt ?? 0) - serverNow > 0.01 && !practice);
     if (this.preparedTouch) this.#showPreparedTouch();
     // the Practice Yard: the real cooldown shown, and a mark while the button works anyway
     this.buttons.spell?.classList.toggle('practice', practiceOverride(local, 'spell', serverNow, practice));

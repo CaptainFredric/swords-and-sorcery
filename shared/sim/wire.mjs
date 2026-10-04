@@ -2,7 +2,7 @@
 // Spellblades and does with what they send. The same shapes either way, so the client cannot tell who is hosting
 // except by asking.
 
-import { castPreparedSpell, selectPreparedSpell, beginAttack, endAttack, setGuard, tryCastOrGauntlet, tryDash, tryGauntletStrike, tryUltimate } from './combat.mjs';
+import { tryCastSpell, castPreparedSpell, selectPreparedSpell, beginAttack, endAttack, setGuard, tryCastOrGauntlet, tryDash, tryGauntletStrike, tryUltimate } from './combat.mjs';
 import { compensatedInputTime } from './history.mjs';
 import { readyPracticeUltimate, removePracticeDummy, resetPracticePlayer, setPracticeDummyMode, spawnPracticeDummy } from './practice.mjs';
 import { spellFor } from '../src/spells.mjs';
@@ -83,6 +83,7 @@ export function serializeSnapshot(room, nowSec) {
       spell: p.spell,
       startingSpell: p.startingSpell ?? p.spell,
       preparedSpells: [...(p.preparedSpells ?? [])],
+      preparedSpellSelected: Boolean(p.preparedSpellSelected),
       spellReadyById: { ...(p.spellReadyById ?? {}) },
       chivalryProjectileReadyAt: p.chivalryProjectileReadyAt ?? 0,
       cloth: p.cloth ?? 'crimson',
@@ -163,13 +164,21 @@ export function applyRoomCommand(room, player, message, time) {
     // the spell's key: the spell when it is ready; on its cooldown, the gauntlet if a foe is in reach
     case 'cast': tryCastOrGauntlet(room, player.id, message.direction || { x: 0, y: 0, z: -1 }, time, compensatedInputTime(message.clientTime, time)); return {};
     case 'selectPreparedSpell': selectPreparedSpell(room, player.id, message.spell ?? message.id, time); return {};
+    case 'selectPreparedSlot': {
+      if (Number.isInteger(message.slot) && message.slot >= 1 && message.slot <= 3) {
+        selectPreparedSpell(room, player.id, player.preparedSpells?.[message.slot - 1], time);
+      }
+      return {};
+    }
+    case 'castCurrentSpell':
     case 'castPreparedSpell': {
       // Aim is current input intent. Only finite angles enter the authoritative state.
       const yaw = Number.isFinite(message.yaw) ? message.yaw : player.input?.yaw ?? player.yaw;
       const pitch = Number.isFinite(message.pitch) ? Math.max(-1.45, Math.min(1.45, message.pitch)) : player.input?.pitch ?? player.pitch;
       player.input = { ...player.input, yaw, pitch };
       player.yaw = yaw; player.pitch = pitch;
-      castPreparedSpell(room, player.id, message.spell ?? message.id, message.direction || { x: 0, y: 0, z: -1 }, time);
+      if (message.type === 'castCurrentSpell') tryCastSpell(room, player.id, message.direction || { x: 0, y: 0, z: -1 }, time);
+      else castPreparedSpell(room, player.id, message.spell ?? message.id, message.direction || { x: 0, y: 0, z: -1 }, time);
       return {};
     }
     // the gauntlet on its own key: the fist, whether or not the spell is ready

@@ -107,3 +107,44 @@ test('both clients observe commit Guard and the complete Sprint sword spell Dash
   for (const client of [a, b]) await client.next('snapshot', matching(k => k?.sprinting && !k.guarding));
   await new Promise(r => setTimeout(r, 120)); assert.equal(p.guarding, false);
 });
+
+test('both clients observe select only and an immediate authoritative current cast', async t => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'chivalry-slot-wire-'));
+  const game = createGameServer({port:0,host:'127.0.0.1',profileStore:new ProfileStore(dir)});
+  await game.start(); const sockets = [];
+  t.after(async () => { sockets.forEach(s => s.close()); await game.stop(); fs.rmSync(dir,{recursive:true,force:true}); });
+  async function connect() {
+    const ws = new WebSocket(`ws://127.0.0.1:${game.address().port}/ws`); sockets.push(ws); const next = inbox(ws);
+    await new Promise(r => ws.addEventListener('open',r,{once:true})); return {ws,next};
+  }
+  const a = await connect();
+  send(a.ws,{type:'loadout',spell:'fireball',ultimate:'chivalry',preparedSpells:['fireball','frostfire','gale']});
+  send(a.ws,{type:'createRoom',name:'Knight'}); const joined = await a.next('joined');
+  const b = await connect(); send(b.ws,{type:'joinRoom',code:joined.roomCode,name:'Observer'}); await b.next('joined');
+  const room = game.roomManager.findByCode(joined.roomCode), p = room.players.get(joined.playerId);
+  room.startMatch(game.now()); p.prowess = 100; send(a.ws,{type:'ultimate'});
+  await a.next('events',m => m.events.some(e => e.type === 'ultimateActive' && e.ultimate === 'chivalry'));
+  const history = {[p.spell]:p.spellReadyAt,...p.spellReadyById};
+  send(a.ws,{type:'selectPreparedSlot',slot:3});
+  for (const client of [a,b]) {
+    const snap = await client.next('snapshot',m => m.players.some(k => k.id === p.id && k.spell === 'gale'));
+    const knight = snap.players.find(k => k.id === p.id);
+    assert.equal(knight.castingSpell,null); assert.equal(knight.preparedSpellSelected,true);
+    assert.deepEqual(knight.spellReadyById,history);
+  }
+  // Ordered commands are sent together before either client receives selection acknowledgement.
+  send(a.ws,{type:'selectPreparedSlot',slot:2});
+  send(a.ws,{type:'castCurrentSpell',direction:{x:0,y:0,z:-1},yaw:Math.PI/2,pitch:0.2});
+  for (const client of [a,b]) {
+    const cast = await client.next('events',m => m.events.some(e => e.type === 'spellCast' && e.playerId === p.id));
+    assert.equal(cast.events.find(e => e.type === 'spellCast' && e.playerId === p.id).spell,'frostfire');
+  }
+  send(a.ws,{type:'selectPreparedSlot',slot:3});
+  for (const client of [a,b]) {
+    const snap = await client.next('snapshot',m => m.players.some(k => k.id === p.id && k.spell === 'gale' && k.castingSpell === 'frostfire'));
+    assert.equal(snap.players.find(k => k.id === p.id).preparedSpellSelected,true);
+    const released = await client.next('events',m => m.events.some(e => e.type === 'projectileSpawned' && e.projectile.ownerId === p.id));
+    const shot = released.events.find(e => e.type === 'projectileSpawned' && e.projectile.ownerId === p.id).projectile;
+    assert.equal(shot.spell,'frostfire'); assert.ok(shot.velocity.x < 0); assert.ok(shot.velocity.y > 0);
+  }
+});
