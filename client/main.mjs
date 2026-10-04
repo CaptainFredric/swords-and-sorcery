@@ -17,7 +17,7 @@ import { gateRecipe, uiClankRecipe, warDrumRecipe } from './game/sound/atmospher
 import { unsheatheRecipe } from './game/sound/soundRecipes.mjs';
 import { arenaGateCopy, challengeCopy, countdownSeconds, romanCount } from './menu/challengeCard.mjs';
 import { lobbyView, roomRows } from './menu/lobbyView.mjs';
-import { armoryView } from './menu/armoryView.mjs';
+import { armoryView, preparedArmoryView } from './menu/armoryView.mjs';
 import { createArmorySelection } from './menu/armorySelection.mjs';
 import { loadArmoryCues, playArmorySound } from './menu/armorySound.mjs';
 import { seekView } from './menu/seekView.mjs';
@@ -664,14 +664,23 @@ function renderPreparedArmory() {
   if (!chivalry) return;
   const starting = settings.get('loadout.spell');
   const prepared = normalizePreparedSpells(starting, settings.get('loadout.preparedSpells'));
-  root.innerHTML = '<p class="armory-slot">PREPARED SPELLS</p><p class="panel-copy">The starting spell is marked ★. During Chivalry, hold Q and press 1, 2 or 3 to select. Release Q, then tap it to cast.</p>'
-    + prepared.map((id, slot) => `<label class="prepared-row"><span>${slot + 1} · ${id === starting ? '★ STARTING' : 'PREPARED'}</span><select data-prepared-slot="${slot}" aria-label="Prepared spell ${slot + 1}" ${id === starting ? 'disabled' : ''}>${Object.values(SPELLS).filter(s => s.id === id || !prepared.includes(s.id)).map(s => `<option value="${s.id}" ${s.id === id ? 'selected' : ''}>${escapeHtml(s.label)}</option>`).join('')}</select></label>`).join('');
+  // the three slots as the Armory's own cards: the key, the spell's mark and name; the starting spell fixed (★), the
+  // others changed one way or the other
+  const change = (slot, to, way, label) => to ? `<button type="button" class="prepared-turn" data-prepared-slot="${slot.slot}" data-prepared-to="${to}" data-way="${way}" aria-label="Slot ${slot.key}: ${label} ${escapeHtml(SPELLS[to].label)}">${way === 'previous' ? '‹' : '›'}</button>` : '';
+  root.innerHTML = '<p class="armory-slot">PREPARED SPELLS</p><p class="panel-copy">During Chivalry, hold Q and press 1, 2 or 3 to select. Release Q, then tap it to cast. The starting spell is marked ★.</p>'
+    + '<div class="prepared-slots">' + preparedArmoryView(starting, prepared).map((slot) => `<div class="prepared-slot spell-card${slot.starting ? ' equipped' : ''}" data-spell="${slot.id}">
+      <kbd>${slot.key}</kbd><span class="spell-mark">${slot.mark}</span><span class="spell-name">${escapeHtml(slot.name)}</span>
+      ${slot.starting ? '<i>★ STARTING</i>' : `<span class="prepared-turns">${change(slot, slot.previous, 'previous', 'change to')}${change(slot, slot.next, 'next', 'change to')}</span>`}</div>`).join('') + '</div>';
 }
-$('#armory-prepared').addEventListener('change', event => {
-  const slot = Number(event.target.dataset.preparedSlot);
-  const prepared = replacePreparedSpell(settings.get('loadout.spell'), settings.get('loadout.preparedSpells'), slot, event.target.value);
-  settings.set('loadout.preparedSpells', prepared);
-  menuScene?.showSpell(event.target.value);
+$('#armory-prepared').addEventListener('click', event => {
+  const button = event.target.closest('[data-prepared-to]');
+  if (!button) return;
+  const slot = Number(button.dataset.preparedSlot);
+  const to = button.dataset.preparedTo;
+  // (a deliberate press: the spell is heard and shown, as any Armory card is; the starting spell stays equipped)
+  armoryFeedback.select(to, to, () => {});
+  settings.set('loadout.preparedSpells', replacePreparedSpell(settings.get('loadout.spell'), settings.get('loadout.preparedSpells'), slot, to));
+  document.querySelector(`[data-prepared-slot="${slot}"][data-way="${button.dataset.way}"]`)?.focus({ preventScroll: true });
 });
 renderArmory();
 $('#armory-ultimates').addEventListener('click', (event) => {

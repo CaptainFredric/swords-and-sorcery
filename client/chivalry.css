@@ -1,7 +1,19 @@
-.prepared-row { display:flex; align-items:center; gap:12px; padding:8px 0; border-bottom:1px solid #ad925733; }
-.prepared-row span { width:95px; color:var(--heraldry-brass-light); font-size:11px; letter-spacing:1px; }
-.prepared-row select { flex:1; min-width:0; padding:9px; color:var(--heraldry-cream); background:linear-gradient(180deg,var(--heraldry-iron-light),var(--heraldry-iron)); border:1px solid #c99c5266; border-radius:2px; font:inherit; }
-.prepared-row select:disabled { opacity:1; border-color:var(--heraldry-brass-light); }
 #armory-prepared { padding:12px; margin-top:12px; border:1px solid #c99c5266; border-top:2px solid var(--heraldry-crimson); background:linear-gradient(180deg,#321e1d,#221d19); }
 
-.prepared-row select:focus-visible { outline:2px solid var(--heraldry-cream); outline-offset:2px; }
+
+/* the three prepared slots: the Armory's own spell cards, small, each with its key; the starting spell edged as the
+   equipped card is, the others turned one way or the other */
+.prepared-slots { display:grid; gap:6px; margin-top:8px; }
+.prepared-slot.spell-card { grid-template-columns:20px 26px 1fr auto; padding:7px 8px 7px 10px; cursor:default; }
+.prepared-slot.spell-card:hover { background:linear-gradient(180deg,var(--heraldry-iron-light),var(--heraldry-iron)); }
+.prepared-slot.spell-card:active { transform:none; }
+.prepared-slot kbd { justify-self:start; min-width:16px; padding:2px 4px 1px; text-align:center; font:800 10px/1 var(--font-script); color:var(--heraldry-brass-light); background:#171511b3; border:1px solid #c99c5280; border-bottom-width:2px; border-radius:2px; }
+.prepared-slot .spell-mark { grid-row:auto; font-size:18px; }
+.prepared-slot .spell-name { font-size:15px; }
+.prepared-slot i { color:var(--heraldry-brass-light); }
+.prepared-turns { display:flex; gap:4px; }
+.prepared-turn { width:28px; height:26px; padding:0; color:var(--heraldry-cream); font:400 18px/1 var(--font-inscription); background:#171511b3; border:1px solid #c99c5266; border-radius:2px; cursor:pointer; transition:border-color .12s ease, background .12s ease; }
+.prepared-turn:hover { border-color:var(--heraldry-brass-light); background:#3a2c22; }
+.prepared-turn:active { transform:translateY(1px); }
+.prepared-turn:focus-visible { outline:2px solid var(--heraldry-cream); outline-offset:1px; }
+@media (pointer:coarse) { .prepared-turn { width:36px; height:34px; } }

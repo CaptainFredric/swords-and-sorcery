@@ -47,3 +47,41 @@
 .prepared-spell kbd { grid-column:1/-1; justify-self:center; min-width:17px; padding:2px 3px; border:1px solid #c99c5280; border-radius:2px; color:var(--heraldry-brass-light); font:800 10px/1 var(--font-script); background:#171511b3; }
 .prepared-spells[data-input="touch"] kbd { display:none; }
 .prepared-spells[data-input="keyboard"].selecting>small>span { font:700 12px/1 var(--font-script); letter-spacing:.04em; }
+
+/* With a mouse and keyboard: a rack of three tiles standing on the Q, E and R tiles, cut from the same cloth as them
+   (their dark plate, thin rule, key badge and cooldown shade), the equipped spell edged in the ultimate's gold. The R
+   tile beside it counts Chivalry down, so the rack carries no timer of its own. */
+.abilities { position: relative; }
+.prepared-spells.docked {
+  left: 0; right: 0; bottom: calc(100% + 9px); transform: none; width: auto; max-width: none;
+  display: flex; flex-direction: column; padding: 0; border: 0; background: none; box-shadow: none; text-align: left;
+  animation: prepared-rise .16s ease-out;
+}
+.prepared-spells.docked::after { display: none; }
+.prepared-spells.docked > small { margin: 0 0 5px; font: 800 8px/1 system-ui, sans-serif; letter-spacing: .14em; text-transform: uppercase; color: #c9ae78; }
+.prepared-spells.docked > small > span, .prepared-spells.docked.selecting > small > span { font: inherit; letter-spacing: inherit; }
+.prepared-spells.docked > em { order: -1; margin: 0 0 6px; font: 800 8px/1.25 system-ui, sans-serif; letter-spacing: .1em; color: #d0b98f; }
+.prepared-spells.docked.quiet > em { display: none; }
+.prepared-spells.docked .prepared-spell-row { gap: 9px; }
+.prepared-spells.docked .prepared-spell {
+  position: relative; height: 46px; padding: 6px 7px 5px; overflow: hidden; border: 1px solid #585648; border-radius: 0;
+  background: rgba(21, 22, 18, .86); grid-template-columns: 22px minmax(0, 1fr); grid-template-rows: 18px 12px; gap: 1px 5px;
+}
+.prepared-spells.docked .prepared-spell::after { content: ""; position: absolute; inset: 0; background: rgba(10, 11, 8, .62); transform: translateY(calc((1 - var(--cooldown, 0)) * 100%)); pointer-events: none; }
+.prepared-spells.docked .prepared-spell svg { grid-row: 1 / 3; align-self: center; width: 19px; height: 19px; filter: drop-shadow(0 0 3px color-mix(in srgb, currentColor 45%, transparent)); }
+.prepared-spells.docked .prepared-spell span { align-self: end; overflow: hidden; text-overflow: ellipsis; font: 800 8px/1 system-ui, sans-serif; letter-spacing: .09em; text-transform: uppercase; color: #a39f91; }
+.prepared-spells.docked .prepared-spell b { z-index: 1; font: 700 9px/1 system-ui, sans-serif; color: #ddd6c8; }
+.prepared-spells.docked .prepared-spell.cooling b { color: #8f8b7f; }
+.prepared-spells.docked .prepared-spell kbd {
+  position: absolute; bottom: 4px; right: 5px; z-index: 1; min-width: 14px; padding: 2px 3px 1px; text-align: center;
+  font: 800 9px/1 system-ui, sans-serif; color: #ece5d6; background: rgba(255, 255, 255, .06);
+  border: 1px solid rgba(221, 214, 200, .32); border-bottom-width: 2px; border-radius: 3px;
+}
+/* (the equipped spell is told by its gold edge and a gold mark on its name; the words stay for screen readers) */
+.prepared-spells.docked .prepared-spell i { display: none; }
+.prepared-spells.docked .prepared-spell.current span { color: #e2c27a; }
+.prepared-spells.docked .prepared-spell.current b::after { content: " ◆"; color: #e2c27a; font-size: 7px; }
+.prepared-spells.docked .prepared-spell.current { border-color: #e2c27a; box-shadow: inset 0 0 8px rgba(226, 194, 122, .18); }
+.prepared-spells.docked .prepared-spell.highlighted { border-color: #f1dca6; transform: translateY(-3px); background: rgba(44, 36, 24, .94); box-shadow: 0 0 10px rgba(226, 194, 122, .35), inset 0 0 8px rgba(226, 194, 122, .2); }
+@keyframes prepared-rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .prepared-spells.docked { animation: none; } .prepared-spells.docked .prepared-spell.highlighted { transform: none; } }
