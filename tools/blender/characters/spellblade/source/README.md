@@ -309,3 +309,11 @@ Guard's source hold runs from frame 8 through frame 56. Its matching endpoint po
 First person Slash_2 clears the left gauntlet with a small outward upper arm arc authored into the existing action. The normal first person combo already uses its own counterbalance and sword IK keys; its second strike counterbalance also clears the exported left arm. Sword targets, contact times, duration, other source actions and ultimate motion keys are preserved.
 
 Run `scripts/test-spellblade-combat-presentation.py` in Blender for endpoint pose and velocity continuity, clip durations, and sword/offhand intersection checks between authored keys. The asset workflow runs this check before export. In a browser, `checkOrdinaryOffhand()` from `client/game/combatPresentation.browser.mjs` samples the actual exported skinned sword and left arm with the existing ordinary combo solver at 120 Hz, before the intentional two hand grip.
+
+## October 3 authored guarded sword techniques
+
+`GuardCut_1`, `GuardCut_2` and `GuardCut_3` now contain independent upper body paths: defended diagonal forehand, returning upper backhand and centered descending beat. Each has authored torso yaw, chest compression, clavicle response, head counterrotation and free gauntlet counterbalance. The physical HeroSword blade axis determines the sword hand orientation. Its direction differs from the rig socket axis.
+
+The focused utility is `kit/guarded_technique.py`. Open the accepted source in Blender, run it with a separate output path after `--`, then export through `build.py`. The utility only replaces upper body curves in the existing three guarded actions. It preserves geometry, skin weights, rest bones, ordinary actions and guarded lower body curves. Contacts remain at 0.40, 0.38 and 0.36 seconds within the existing combo slots. Each cut finishes in the exact existing Guard hold.
+
+Run `scripts/test-spellblade-guarded-technique.py` in Blender with `-- BASELINE.blend CANDIDATE.blend` for source preservation, sampled defensive lines, natural arm reach, contact silhouettes and head tracking. `docs/CHIVALRY_GUARDED_TECHNIQUE.md` records the focused checks and exported motion proof. The first person source and solver remain as previously accepted.
