@@ -1251,6 +1251,7 @@ function stepUltimate(room, player, nowSec) {
       // (a Vortex's blade starts round from where the knight faces as it commits, balanced)
       if (ultimate.spin) {
         state.angle = player.yaw;
+        state.travel = 0; // active angular travel, independent of facing and visual wrapping
         state.angleAt = state.commitAt;
         state.rate = 2 * Math.PI * vortexTune(0, ultimate).revPerSec;
         state.emphasis = 0;
@@ -1301,7 +1302,7 @@ function interruptUltimate(room, player, nowSec, by = null, source = null) {
 // While it spins, the blade is a real one going round the knight (blade.mjs), swept from where it was to where it is
 // each tick: whoever it passes through is cut, each knight no more often than the Vortex's own cadence, a wall
 // between them and the knight's eyes sparing them. What it clips of the world on the way rings (an event, for the
-// eye and the ear) and does not stop it. Its fire leaves along the aim on its own clock. How fast it turns, how it
+// eye and the ear) and does not stop it. Its fire leaves along the aim once per completed active revolution. How fast it turns, how it
 // falls and what fire it throws follow its emphasis, which the knight steers by what they hold (the host's own
 // reading of it, eased). Staggered, the spin cuts nothing and throws nothing until the knight has their feet again.
 
@@ -1333,9 +1334,14 @@ function stepVortex(room, player, dt, nowSec, world) {
   // the blade turns on, at the pace its emphasis gives it
   const from = state.angle;
   state.rate = 2 * Math.PI * tune.revPerSec;
-  state.angle = from + state.rate * Math.max(0, nowSec - state.angleAt);
+  const turned = state.rate * Math.max(0, nowSec - state.angleAt);
+  state.angle = from + turned;
   state.angleAt = nowSec;
-  const turned = state.angle - from;
+  // Count boundaries in continuous active travel, never in the facing/visual angle.
+  // Consume even suppressed boundaries during Stagger so recovery cannot release a backlog.
+  const previousTravel = state.travel;
+  state.travel += turned;
+  const revolutions = Math.floor(state.travel / (2 * Math.PI)) - Math.floor(previousTravel / (2 * Math.PI));
   if (nowSec < player.staggerUntil || !(turned > 0)) return;
   const eye = { x: player.position.x, y: player.position.y + postureOf(player).eye, z: player.position.z };
   const hits = (state.hits ??= {});
@@ -1358,11 +1364,9 @@ function stepVortex(room, player, dt, nowSec, world) {
     }
     vortexWorld(room, player, state, eye, b, world, nowSec);
   }
-  // the fire: on the clock its emphasis gives it, the first as soon as it may
-  if (nowSec - state.commitAt + 1e-9 < vortex.firstFireSec) return;
-  state.fire = state.fire === undefined ? 1 : state.fire + dt / tune.fireEverySec;
-  if (state.fire >= 1) {
-    state.fire -= 1;
+  // Every completed revolution emits along the current authoritative aim.
+  // A large simulation step may legitimately complete several revolutions.
+  for (let revolution = 0; revolution < revolutions; revolution += 1) {
     throwVortexFire(room, player, tune.fire, nowSec);
   }
 }
