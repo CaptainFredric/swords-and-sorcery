@@ -14,6 +14,7 @@ import { onViewLayer } from './viewLayers.mjs';
 import { createSunderBlade } from './sunderBlade.mjs';
 import { VORTEX_BLADES, createVortexBlade } from './vortexBlade.mjs';
 import { FP_VORTEX, vortexSpinPose, vortexStartupPose } from './fpVortex.mjs';
+import { ULTIMATES } from '../../shared/src/ultimates.mjs';
 import { LocalSwordChain } from './localSwordChain.mjs';
 import { MELEE_CONTACT, SWORD_STRIKE_TIMES } from '../../shared/src/combat.mjs';
 import { GAUNTLET } from '../../shared/src/gauntlet.mjs';
@@ -333,10 +334,83 @@ export class WeaponView {
 
   /** The attack button: a press starts a chain (or asks for its next strike); a release lets go (the swing plays out). */
   setAttack(held) {
-    if (held && !this.attackButton) this.swordChain.press(performance.now() / 1000);
+    // (bracing into Sunder, the button is only remembered: the first slam is its, as the brace ends)
+    const bracing = this.bracing && !this.bracing.committed;
+    if (held && !this.attackButton && !bracing) this.swordChain.press(performance.now() / 1000);
     if (!held) this.swordChain.release();
     this.attackButton = held;
     if (held) this.guard = false;
+  }
+
+  /**
+   * The brace into Sunder All That Rusts, from the moment its key is pressed: whatever the sword was doing is over,
+   * and both arms take it up overhead through the startup (the opening of the first slam's own swing, slowed: fpSlash
+   * slamPose), so that the slam drives down out of it as the brace ends, with no step between. commitAt: when the
+   * brace ends (this view's clock, seconds). Called again (the host's own word for when it ends), it only corrects that.
+   */
+  brace(commitAt, { startupSec = ULTIMATES.sunder.startupSec, lead = ULTIMATES.sunder.firstSlamLead } = {}) {
+    const now = performance.now() / 1000;
+    if (this.bracing && !this.bracing.committed) {
+      this.bracing.commitAt = commitAt;
+      return;
+    }
+    const button = this.attackButton;
+    // (blended from wherever the arms were: a swing under way flows up into it)
+    const from = this.comboShown ?? null;
+    this.swordChain.cancel(null);
+    this.swordChain.restartAt = -Infinity;
+    this.#comboDone();
+    this.attackButton = button;
+    this.guard = false;
+    this.bracing = { at: now, commitAt, startupSec, lead, from, committed: false, heldUntil: null };
+  }
+
+  /** The brace is broken off (interrupted, or the host never took the key): the arms come back to rest. */
+  braceCancel() {
+    if (this.bracing) this.bracing = { ...this.bracing, committed: true, heldUntil: performance.now() / 1000 };
+  }
+
+  // the brace ends: with the button held, the first slam's chain begins exactly where the brace left the sword (its
+  // swing already this far on its way: the host begins it the same way); otherwise the sword is held a breath and let
+  // down again
+  #braceCommit(timeSec) {
+    const brace = this.bracing;
+    if (!brace || brace.committed || timeSec < brace.commitAt) return;
+    brace.committed = true;
+    if (!this.attackButton) {
+      brace.heldUntil = timeSec + 0.12;
+      return;
+    }
+    const startedAt = brace.commitAt - brace.lead;
+    this.swordChain.begin(startedAt);
+    this.comboSource = { chainAt: startedAt, fadeIn: false, slam: true, pose: (t) => slamPose(t - startedAt) };
+    this.comboHandover = null;
+    this.comboLetGo = null;
+    this.comboBroken = false;
+    this.bracing = null;
+  }
+
+  // the arms' brace pose this frame (with how firmly they hold it), or null
+  #bracePose(timeSec) {
+    const brace = this.bracing;
+    if (!brace) return null;
+    const ease = (t) => { const s = Math.max(0, Math.min(1, t)); return s * s * (3 - 2 * s); };
+    const share = Math.max(0, Math.min(1, 1 - (brace.commitAt - timeSec) / brace.startupSec));
+    let pose = slamPose(brace.lead * ease(brace.committed ? 1 : share));
+    // taking over from a swing that was under way: a short hand-over, never a jump
+    const takeover = (timeSec - brace.at) / 0.16;
+    if (brace.from?.raw && takeover < 1) pose = blendPoses(brace.from, pose, takeover);
+    let weight = brace.from?.raw ? 1 : ease((timeSec - brace.at) / 0.12);
+    if (brace.committed) {
+      // nothing swung: the sword is held up a breath, then let down
+      const left = 1 - Math.max(0, timeSec - brace.heldUntil) / 0.3;
+      if (left <= 0) {
+        this.bracing = null;
+        return null;
+      }
+      weight *= ease(left);
+    }
+    return { ...pose, weight };
   }
 
   /** Stop the chain outright (a parry, a wall, a stagger, a fall, the match over). */
@@ -527,6 +601,7 @@ export class WeaponView {
     // put on them since the last frame included
     onViewLayer(this.group);
     const movingAmount = Math.min(1, speed / 7.5);
+    this.#braceCommit(timeSec);
     const chain = this.swordChain.step(timeSec);
     if (chain) this.attackStartedAt = chain.startedAt;
     const pose = resolveWeaponPose({
@@ -564,7 +639,8 @@ export class WeaponView {
       // the combo is one unbroken path of both hands (fpSlash.mjs): fast, fast, then heavy with both on the grip
       // (a Vortex has both arms outright: the chain's path gives way to it)
       const vortexPose = this.#vortexPose(timeSec, dt);
-      const combo = vortexPose ?? this.#combo(pose.state, timeSec, stateBefore);
+      // (and the brace into Sunder has them through its startup, handing over to the first slam's chain)
+      const combo = vortexPose ?? this.#bracePose(timeSec) ?? this.#combo(pose.state, timeSec, stateBefore);
       if (combo) {
         plan = { clip: 'Idle', loop: true, time: timeSec };
         // the view leans with the body into each cut (purely visual: aim is the input's)

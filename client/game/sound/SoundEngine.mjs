@@ -3,8 +3,9 @@
 //
 // Chain: every sound -> its own panner -> a bus (sfx, ui, ambience, music, voice) -> master gain -> compressor ->
 // speakers. Sounds can also send to two generated rooms: a stone courtyard (combat, voice) and a long hall (music, the
-// bell), and the voice has an echo off the castle walls. Browsers only let audio start after a user gesture, so the
-// context is created and resumed on the first click, tap or key press. The levels come from the player's settings
+// bell), and the voice has an echo off the castle walls. The sound is asked for as the page loads: a browser that
+// lets a page play unasked starts it at once; one that holds sound back for a gesture starts it on the first press,
+// tap or key anywhere on the page (UNLOCK_GESTURES), whatever was pressed. The levels come from the player's settings
 // (setLevels); until then the defaults below.
 
 // each bus's own level, before the player's volume for it
@@ -14,8 +15,19 @@ export const BUS_LEVELS = Object.freeze({ sfx: 1, ui: 0.5, ambience: 0.55, music
 export const VOICE_DUCK = Object.freeze({ music: 0.5, ambience: 0.65, attack: 0.08, release: 0.5 });
 export const DEFAULT_LEVELS = Object.freeze({ muted: false, master: 0.8, effects: 1, voice: 1, ambience: 1, music: 0.55, musicMuted: false });
 
+// What counts as the player touching the page, anywhere on it: the first of these resumes the sound if the browser
+// held it back (it need not be on a button, or on the menu at all). A press and its release are both listened for:
+// which of them a browser counts as the gesture differs (a mouse's press; a finger's lift).
+export const UNLOCK_GESTURES = Object.freeze(['pointerdown', 'pointerup', 'mousedown', 'touchstart', 'touchend', 'click', 'keydown', 'keyup']);
+
 export class SoundEngine {
-  constructor({ listen = true } = {}) {
+  /**
+   * listen: start with the page (false: a context is handed in later, useContext: offline renders, tests).
+   * target, doc, Context: the window, its document and the AudioContext class (given in tests).
+   */
+  constructor({ listen = true, target = globalThis, doc = globalThis.document, Context = globalThis.AudioContext || globalThis.webkitAudioContext } = {}) {
+    this.Context = Context;
+    this.doc = doc;
     this.ctx = null;
     this.offline = false;
     this.levels = { ...DEFAULT_LEVELS };
@@ -26,13 +38,17 @@ export class SoundEngine {
     this.pending = [];
     if (!listen) return;
     const unlock = () => this.unlock();
-    for (const type of ['pointerdown', 'touchend', 'click', 'keydown']) addEventListener(type, unlock, { capture: true, passive: true });
+    for (const type of UNLOCK_GESTURES) target.addEventListener?.(type, unlock, { capture: true, passive: true });
     // nothing plays in a hidden tab: the music and wind stop costing anything until you come back
-    document.addEventListener('visibilitychange', () => {
+    doc?.addEventListener?.('visibilitychange', () => {
       if (!this.ctx || this.offline) return;
-      if (document.hidden) this.ctx.suspend().catch(() => {});
+      if (doc.hidden) this.ctx.suspend().catch(() => {});
       else this.ctx.resume().catch(() => {});
     });
+    // as early as the browser allows: asked for now, with the page. Where a browser lets a page sound unasked, the
+    // music begins at once; where it holds sound back for a gesture, the context waits, and the first gesture
+    // anywhere starts it (above). Nothing is done to get round what the browser has decided.
+    this.unlock();
   }
 
   get muted() { return Boolean(this.levels.muted); }
@@ -101,15 +117,22 @@ export class SoundEngine {
 
   unlock() {
     if (!this.ctx) {
-      const Context = globalThis.AudioContext || globalThis.webkitAudioContext;
+      const Context = this.Context;
       if (!Context) return null;
-      this.ctx = new Context({ latencyHint: 'interactive' });
+      try {
+        this.ctx = new Context({ latencyHint: 'interactive' });
+      } catch {
+        return null;
+      }
+      // (whenever it starts running, by whatever leave: what was waiting for it begins, once)
+      this.ctx.addEventListener?.('statechange', () => this.#flushReady());
       this.#buildChain();
     }
-    if (this.ctx.state === 'suspended' && !document.hidden) {
-      this.ctx.resume().then(() => this.#flushReady()).catch(() => {});
-    } else if (this.ctx.state === 'running') {
+    if (this.ctx.state === 'running') {
       this.#flushReady();
+    } else if (!this.doc?.hidden) {
+      // suspended (held back for a gesture), or interrupted (a phone took the sound away and gave it back)
+      Promise.resolve(this.ctx.resume?.()).then(() => this.#flushReady()).catch(() => {});
     }
     return this.ctx;
   }

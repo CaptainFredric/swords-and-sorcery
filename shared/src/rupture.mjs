@@ -20,9 +20,12 @@ export const RUPTURE = Object.freeze({
   airborne: 0.45,       // feet this far over the ground clear it
   damage: 12,
   stagger: 38,          // a Sundering blow and the ground it split are most of a balance between them; the next blow tips it
-  jolt: 3.2,            // the upward jolt (m/s)
+  jolt: 3.6,            // the upward jolt (m/s)
   recatchSec: 1.0,      // one knight's ruptures catch the same knight at most once in this long
-  lastsSec: 2.5,        // the split ground, seen, this long after it stops
+  // the split ground stays torn this long after its fissures stop running (seen, and felt: a knight other than the
+  // one who split it cannot sprint with their feet on it; no further hurt comes of standing there)
+  lastsSec: 2.5,
+  tornWidth: 0.45,      // feet this near a fissure's line are on it (a body's own breadth)
 });
 
 // solid ground to split at (x, z), near `level`: the floor there, or null (nothing, or not near it)
@@ -68,6 +71,15 @@ export function planRupture(world, origin, forward, rules = RUPTURE) {
     if (length > 0) fissures.push({ dir, length, level });
   }
   return fissures;
+}
+
+/**
+ * Whether a knight at `position` (feet), with their feet on the ground, stands on a rupture's torn ground: on any of
+ * its fissures, as far as each has run (`reached`: metres its head has travelled).
+ */
+export function onTornGround(rupture, position, reached = Infinity, rules = RUPTURE) {
+  const narrow = { ...rules, width: rules.tornWidth, airborne: 0.05 };
+  return rupture.fissures.some((fissure) => fissureCatches(rupture.origin, fissure, 0, Math.min(reached, fissure.length) - narrow.width, position, narrow));
 }
 
 /**

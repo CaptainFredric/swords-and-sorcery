@@ -111,17 +111,17 @@ export const CONJURED = Object.freeze({
   // a Blazing Vortex's fire (shared/src/ultimates.mjs), by its emphasis. On the blade: a weak ember
   ember: Object.freeze({
     id: 'ember', label: 'Ember', conjured: true, speed: 26, windResist: 0.8,
-    directDamage: 5, edgeDamage: 3, radius: 1.2, shove: 0.3, size: 0.45,
+    directDamage: 4, edgeDamage: 2, radius: 1.2, shove: 0.3, size: 0.45,
   }),
   // balanced: a small Fireball, plainly less than one thrown from the palm
   vortexFire: Object.freeze({
     id: 'vortexFire', label: 'Vortex fire', conjured: true, speed: 27, windResist: 0.9,
-    directDamage: 12, edgeDamage: 7, radius: 1.8, shove: 0.6, size: 0.68,
+    directDamage: 10, edgeDamage: 6, radius: 1.8, shove: 0.6, size: 0.68,
   }),
   // on the fire: a small, serious Fireball (a Fireball's blow at its heart, a tighter burst, no burn)
   vortexBlaze: Object.freeze({
-    id: 'vortexBlaze', label: 'Vortex blaze', conjured: true, speed: 28, windResist: 1,
-    directDamage: 18, edgeDamage: 10, radius: 2.2, shove: 0.85, size: 0.9,
+    id: 'vortexBlaze', label: 'Vortex blaze', conjured: true, speed: 26, windResist: 1,
+    directDamage: 18, edgeDamage: 10, radius: 2.2, shove: 0.85, size: 1.08,
   }),
 });
 

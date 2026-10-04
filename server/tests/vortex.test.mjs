@@ -735,3 +735,27 @@ test('what a player\'s view needs of it is on the wire: where the blade is and h
   const slope = (vortexWindup(state, 10) - vortexWindup(state, 10 - 1e-4)) / 1e-4;
   assert.ok(Math.abs(slope - 2 * Math.PI * vortex.balanced.revPerSec) < 0.05, `it runs on into the spin: ${slope.toFixed(2)} rad/s`);
 });
+
+test('the rhythm of its fire: blade and balanced throw quicker and weaker than they did, the fire slowest, largest and worst to be hit by', () => {
+  const { blade, balanced, fire } = vortex;
+  const [ember, small, blaze] = [blade.fire, balanced.fire, fire.fire].map((id) => CONJURED[id]);
+  assert.deepEqual([blade.fire, balanced.fire, fire.fire], ['ember', 'vortexFire', 'vortexBlaze'], 'each emphasis keeps its own fire');
+  // how often (the blade's embers were every 0.75 s, balanced's fires every 0.55): both quicker, the fire's pace kept
+  assert.ok(blade.fireEverySec >= 0.48 && blade.fireEverySec <= 0.5);
+  assert.ok(balanced.fireEverySec >= 0.4 && balanced.fireEverySec <= 0.43);
+  assert.equal(fire.fireEverySec, 0.6, 'the fire\'s own pace is as it was');
+  // how hard each lands: blade < balanced < fire, direct and splash
+  assert.deepEqual([ember.directDamage, ember.edgeDamage], [4, 2]);
+  assert.deepEqual([small.directDamage, small.edgeDamage], [10, 6]);
+  assert.deepEqual([blaze.directDamage, blaze.edgeDamage], [18, 10], 'the fire\'s damage is kept');
+  assert.ok(ember.directDamage < small.directDamage && small.directDamage < blaze.directDamage);
+  // and the blade is never the best way to fight at range: what each can do in a second, at its own pace
+  const perSec = (tune) => CONJURED[tune.fire].directDamage / tune.fireEverySec;
+  assert.ok(perSec(blade) < perSec(balanced) && perSec(balanced) < perSec(fire), `${perSec(blade)} < ${perSec(balanced)} < ${perSec(fire)}`);
+  assert.ok(perSec(blade) < perSec(balanced) / 2, 'by a wide margin');
+  // the fire\'s ball: larger to look at and a little slower, its blast no wider than it was
+  assert.ok(blaze.size >= 1.05 && blaze.size <= 1.1);
+  assert.ok(blaze.speed >= 25.5 && blaze.speed <= 26 && blaze.speed < small.speed);
+  assert.equal(blaze.radius, 2.2);
+  assert.ok(ember.size < small.size && small.size < blaze.size);
+});

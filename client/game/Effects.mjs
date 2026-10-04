@@ -297,7 +297,12 @@ export class Effects {
    * fissure runs out along the ground at `speed` (a dark jagged split drawn as it goes, dust kicked up at its head), and
    * the split ground lingers a moment before it fades. fissures: [{ dir: {x, z}, length }] (as the host planned them).
    */
-  rupture(origin, fissures, { speed = 8.5, lastsSec = 2.5 } = {}) {
+  rupture(origin, fissures, { speed = 8.5, lastsSec = 2.5, tornWidth = 0.45 } = {}) {
+    // the ground stays torn (no sprinting over it for anyone but whoever split it) until every fissure has stopped and
+    // `lastsSec` more has passed: for that long the crack is seen to be live (a dull ember light in it, the torn
+    // strip either side of it); then it settles and fades, and is only ground again
+    const activeSec = Math.max(...fissures.map((fissure) => fissure.length), 0) / speed + lastsSec;
+    const settleSec = 0.7;
     const at = { x: origin.x, y: origin.y, z: origin.z };
     const stones = [this.#basicMaterial(0x6d655a), this.#basicMaterial(0x8e8574), this.#basicMaterial(0x4f4a43)];
     for (let i = 0; i < 16; i += 1) {
@@ -339,15 +344,41 @@ export class Effects {
       crack.renderOrder = 2;
       const runSec = fissure.length / speed;
       let dustAt = 0;
+      // the torn strip: as wide as the ground that is torn (where a sprint is broken), faint, breathing with an ember
+      // light while it is live
+      const strip = new Float32Array(18);
+      const far = { x: at.x + fissure.dir.x * fissure.length, z: at.z + fissure.dir.z * fissure.length };
+      const sy = at.y + 0.012;
+      const corner = (p, side) => [p.x + across.x * tornWidth * side, sy, p.z + across.z * tornWidth * side];
+      [corner(at, -1), corner(far, -1), corner(far, 1), corner(at, -1), corner(far, 1), corner(at, 1)].forEach((v, j) => strip.set(v, j * 3));
+      const stripGeometry = new THREE.BufferGeometry();
+      stripGeometry.setAttribute('position', new THREE.BufferAttribute(strip, 3));
+      const torn = new THREE.Mesh(stripGeometry, new THREE.MeshBasicMaterial({ color: 0xff7a2a, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, side: THREE.DoubleSide }));
+      torn.renderOrder = 1;
+      const phase = Math.random() * 6;
+      this.#addTransient(torn, {
+        life: activeSec + settleSec,
+        own: true,
+        ownGeometry: true,
+        tick: (age) => {
+          const reached = Math.min(1, age / runSec);
+          // (it grows out with the fissure's head: the far corners follow it)
+          const head = { x: at.x + fissure.dir.x * fissure.length * reached, z: at.z + fissure.dir.z * fissure.length * reached };
+          [corner(at, -1), corner(head, -1), corner(head, 1), corner(at, -1), corner(head, 1), corner(at, 1)].forEach((v, j) => strip.set(v, j * 3));
+          stripGeometry.attributes.position.needsUpdate = true;
+          const live = age < activeSec ? 1 : Math.max(0, 1 - (age - activeSec) / (settleSec * 0.5));
+          torn.material.opacity = (0.075 + 0.045 * Math.sin(age * 5.2 + phase)) * live;
+        },
+      });
       this.#addTransient(crack, {
-        life: runSec + lastsSec,
+        life: activeSec + settleSec,
         own: true,
         ownGeometry: true,
         tick: (age) => {
           const reached = Math.min(1, age / runSec);
           geometry.setDrawRange(0, Math.ceil(reached * segments) * 6);
-          const left = runSec + lastsSec - age;
-          crack.material.opacity = 0.88 * Math.min(1, left / 0.8);
+          // live: the crack dark and whole; settled: it closes over and fades
+          crack.material.opacity = 0.88 * (age < activeSec ? 1 : Math.max(0, 1 - (age - activeSec) / settleSec));
           // dust kicked up at the running head
           if (reached < 1 && age >= dustAt) {
             dustAt = age + 0.07;

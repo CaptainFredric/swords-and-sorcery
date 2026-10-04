@@ -61,3 +61,33 @@ test('a subtitle is a line\'s words, and nothing for a line without words', () =
     if (entry.kind === 'sentence' && !entry.words.startsWith('(')) assert.equal(subtitleFor(entry.line), entry.words, entry.line);
   }
 });
+
+test('a line said in parts is subtitled part by part: two parts each their own words, a sentence a word at a time as far as it has got', () => {
+  assert.equal(subtitleFor('finalDuel', 0), 'All of my life, I have sought a challenger worthy of one glorious final duel.');
+  assert.equal(subtitleFor('finalDuel', 1), '...The quest continues.');
+  assert.equal(subtitleFor('regenTrick', 0), 'Wait, wait!!...');
+  assert.equal(subtitleFor('regenTrick', 1), '...ahahahaha! I TRICKED you!');
+  assert.equal(subtitleFor('sunderLeave', 0), 'How.');
+  assert.equal(subtitleFor('sunderLeave', 3), 'How. Many. More. Times.');
+  assert.equal(subtitleFor('sunderLeave', 11), 'How. Many. More. Times. Need. I. Do. This. For. You. To. LEAVE!?');
+  // heard whole (the Credits), it is the whole line
+  assert.equal(subtitleFor('sunderLeave'), 'How. Many. More. Times. Need. I. Do. This. For. You. To. LEAVE!?');
+  // the new lines' words are the intended ones, not a transcription's
+  for (const [line, words] of Object.entries({
+    herald: 'HERALD!!! I HAD THOUGHT I HAD ASKED FOR A CHALLENGE!!',
+    openUp: 'When will you open up? Hold still.',
+    newKnighthood: 'You have achieved a new form of knighthood.',
+    deftlyDodge: 'Deftly Dodge!',
+    thankYou: 'Thank. You.',
+    neverThought: 'I had never thought this day would come.',
+    standFight: "No. I've had enough. I will stand... and I will fight.",
+    chivalryTest: 'In accordance with chivalry, I now allow you to surrender. I was merely testing you.',
+    getThingOff: 'Get this thing off of me!',
+    acceptSaint: 'I accept sainthood with my usual humility.',
+  })) assert.equal(subtitleFor(line), words, line);
+  // a parts line has one entry in the library, and its recordings are its parts
+  for (const line of ['finalDuel', 'regenTrick', 'sunderLeave']) {
+    assert.equal(VOICE_LIBRARY.filter((entry) => entry.line === line).length, 1);
+    assert.equal(manifest.lines[line].length, listed.get(line).parts, `${line}: a recording for each part`);
+  }
+});

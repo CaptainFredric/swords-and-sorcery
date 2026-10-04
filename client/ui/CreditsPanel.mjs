@@ -53,7 +53,8 @@ export class CreditsPanel {
     const isRecorded = (line) => (recorded?.get(line) ?? 0) > 0;
     const rows = libraryInOrder(isRecorded).map((entry) => {
       const status = libraryStatus(entry, isRecorded(entry.line));
-      const takes = this.#takes(entry.line);
+      // (a line said in parts is heard as one: a single button plays its parts in order)
+      const takes = entry.parts ? Math.min(1, this.#takes(entry.line)) : this.#takes(entry.line);
       const buttons = takes
         ? Array.from({ length: takes }, (_, i) => `<button type="button" class="voice-play" data-play-line="${entry.line}" data-take="${i}" aria-label="Play ${escape(entry.title)}${takes > 1 ? `, take ${i + 1}` : ''}">&#9654;${takes > 1 ? ` ${i + 1}` : ''}</button>`).join('')
         : status === 'unrecorded' && recorded ? '' : '<span class="voice-loading">LOADING</span>';

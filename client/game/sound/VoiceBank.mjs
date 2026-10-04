@@ -6,6 +6,8 @@ import { VOICE_HEARING, VOICE_LINES, VoiceDirector } from './voiceRules.mjs';
 import { appUrl } from '../../appUrl.mjs';
 
 const BASE = '/client/assets/voice/';
+// in the Credits, the breath between the parts of a line said in parts
+const PREVIEW_PART_GAP = 0.22;
 
 export class VoiceBank {
   constructor(engine, { base = BASE, director = new VoiceDirector() } = {}) {
@@ -76,12 +78,15 @@ export class VoiceBank {
    * voiceRules.mjs: nothing is said by one out of earshot); rate is their pitch. close: it is my own knight, heard as
    * he is (dry, full level). Returns whether anything was said.
    */
-  say(line, { speaker = 'me', pan = 0, gain = 1, rate = 1, chanceScale = 1, delay = 0, close = false, reverb = VOICE_HEARING.reverb, force = false, cry = false } = {}) {
+  say(line, { speaker = 'me', pan = 0, gain = 1, rate = 1, chanceScale = 1, delay = 0, close = false, reverb = VOICE_HEARING.reverb, force = false, cry = false, earned = false, opening = false, part = null } = {}) {
     if (!this.has(line) || !this.engine.running || !(gain > 0)) return false;
     const takes = this.takes.get(line);
-    const index = this.#nextTake(`line:${line}`, takes.length);
+    // a line said in parts: its recordings are its parts, in order (the part asked for, the first if none is)
+    const parts = VOICE_LINES[line]?.parts ?? 0;
+    if (parts && !takes[part ?? 0]) return false;
+    const index = parts ? part ?? 0 : this.#nextTake(`line:${line}`, takes.length);
     const take = takes[index];
-    const verdict = this.director.consider(line, speaker, this.engine.now, { chanceScale, force, cry, duration: delay + take.duration / Math.max(0.5, rate) });
+    const verdict = this.director.consider(line, speaker, this.engine.now, { chanceScale, force, cry, earned, opening, duration: delay + take.duration / Math.max(0.5, rate) });
     if (!verdict) return false;
     this.lastTake.set(`line:${line}`, index);
     // a line that matters more cuts the one it overrides (a short fade, not a click)
@@ -100,8 +105,9 @@ export class VoiceBank {
     const seconds = take.duration / Math.max(0.5, played);
     // a spoken line: the music and the wind give way under it (a grunt does not need them to)
     if (rule.kind === 'sentence') this.engine.duck?.(seconds, { amount: Math.min(1, gain / 0.8), delay });
-    this.onSpoken?.({ line, speaker, delay, seconds, close });
-    return true;
+    this.onSpoken?.({ line, speaker, delay, seconds, close, ...(parts ? { part: index } : {}) });
+    // (how long it runs, for whoever times something on its end: the next part, an answer)
+    return { seconds, delay };
   }
 
   /**
@@ -112,14 +118,23 @@ export class VoiceBank {
     const takes = this.takes.get(line);
     if (!takes?.length || !this.engine.running) return false;
     this.stopPreview();
-    this.previewing = this.engine.playBuffer(takes[Math.max(0, Math.min(takes.length - 1, take))], {
-      bus: 'voice', gain: VOICE_LINES[line]?.gain ?? 1, reverb: VOICE_HEARING.own,
-    });
+    const options = { bus: 'voice', gain: VOICE_LINES[line]?.gain ?? 1, reverb: VOICE_HEARING.own };
+    // a line said in parts is heard whole: its parts one after another, a breath between them
+    if (VOICE_LINES[line]?.parts) {
+      let at = 0;
+      this.previewing = takes.map((part) => {
+        const handle = this.engine.playBuffer(part, { ...options, delay: at });
+        at += part.duration + PREVIEW_PART_GAP;
+        return handle;
+      }).filter(Boolean);
+      return this.previewing.length > 0;
+    }
+    this.previewing = this.engine.playBuffer(takes[Math.max(0, Math.min(takes.length - 1, take))], options);
     return Boolean(this.previewing);
   }
 
   stopPreview() {
-    this.previewing?.stop?.(0.08);
+    for (const handle of [].concat(this.previewing ?? [])) handle?.stop?.(0.08);
     this.previewing = null;
   }
 

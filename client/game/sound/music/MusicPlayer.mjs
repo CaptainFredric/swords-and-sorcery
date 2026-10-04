@@ -36,7 +36,17 @@ export class MusicPlayer {
   /** Which piece should be playing: 'hall', 'battle' or null for none. */
   play(name) {
     this.wanted = PIECES[name] ? name : null;
-    this.engine.onReady(() => this.#sync());
+    if (this.engine.running) {
+      this.#sync();
+      return;
+    }
+    // (asked again and again while the sound is still held back: one wait, and when it starts, the piece wanted then)
+    if (this.waiting) return;
+    this.waiting = true;
+    this.engine.onReady(() => {
+      this.waiting = false;
+      this.#sync();
+    });
   }
 
   /** 0 calm, 1 blades out, 2 the fight is on (takes effect on the next bar). */

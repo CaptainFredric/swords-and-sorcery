@@ -2,7 +2,7 @@
 // and a word on why. Shown from the settings' footer (a quiet button, not a menu item). Pure data, drawn from the
 // lines' own declarations, so nothing here can fall out of step with the game.
 
-import { VOICE_LINE_LIST } from '../game/sound/voiceLines.mjs';
+import { VOICE_LINE_LIST, partText, voiceLine } from '../game/sound/voiceLines.mjs';
 
 export const CREDITS = Object.freeze({
   title: 'SWORDS & SORCERY',
@@ -23,6 +23,8 @@ export const VOICE_LIBRARY = Object.freeze(VOICE_LINE_LIST.map((line) => Object.
   note: line.credits.note,
   kind: line.kind,
   coming: line.coming,
+  // (a line said in parts: how many; its recordings are those parts, heard in the Credits as one)
+  parts: line.parts?.length ?? 0,
 })));
 
 const BY_LINE = new Map(VOICE_LIBRARY.map((entry) => [entry.line, entry]));
@@ -57,8 +59,14 @@ export function libraryInOrder(isRecorded) {
     .map(({ entry }) => entry);
 }
 
-/** A line's words as its subtitle shows them: null for anything without words (a grunt, a breath). */
-export function subtitleFor(line) {
+/**
+ * A line's words as its subtitle shows them: null for anything without words (a grunt, a breath). part: which part of
+ * a line said in parts is being said (its own words, not the whole line's).
+ */
+export function subtitleFor(line, part = null) {
   const entry = BY_LINE.get(line);
-  return entry && entry.kind === 'sentence' && !entry.words.startsWith('(') ? entry.words : null;
+  if (!entry || entry.kind !== 'sentence' || entry.words.startsWith('(')) return null;
+  if (!entry.parts || part === null) return entry.words;
+  // (two parts: each its own words; a sentence said a word at a time: the sentence so far)
+  return entry.parts > 2 ? voiceLine(line).parts.slice(0, part + 1).join(' ') : partText(line, part);
 }

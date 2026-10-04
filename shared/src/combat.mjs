@@ -1,3 +1,6 @@
+// A knight's health comes back once nothing has hurt them for a moment: after `delaySec`, at `perSec`.
+export const HEALTH_REGEN = Object.freeze({ delaySec: 5, perSec: 20 });
+
 export const GAME = Object.freeze({
   maxHealth: 100,
   // a sword blow lands for between these: the cleanest for the most, a genuinely glancing one for the least (four

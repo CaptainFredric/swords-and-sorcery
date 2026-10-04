@@ -49,6 +49,21 @@ Other things `npm run voice` does:
 
 It needs a Python with numpy (`/usr/local/bin/python3` here; `--python` or `VOICE_PYTHON` to name another).
 
+### A line said in parts
+
+Some lines are said a part at a time, each part when the game says so (the final duel's declaration and its answer, the
+trick's "Wait, wait!!..." and its reveal, the Sunder sentence a word to a slam). Such a line declares `parts`: the
+words of each part, in order. Its recordings are its parts, one each, in that order (never alternate takes), all cut
+from the one master with windows:
+
+```bash
+npm run voice -- Master.mp3:0.80-7.00 Master.mp3:8.85-11.05 --line finalDuel
+```
+
+The check fails if the number recorded is not the number declared. The master is archived whole, as always; the
+windows are remembered in `tools/audio/voice-sources.json`, so `--redo` cuts them again. What decides when each part
+is said is `client/game/sound/voiceScenes.mjs`.
+
 ### Moments
 
 A line says which moments it belongs to (`trigger`); the game raises moments by their tags. When a moment carries

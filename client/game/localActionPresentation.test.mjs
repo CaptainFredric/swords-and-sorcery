@@ -82,3 +82,13 @@ test('what is held is sent with the movement, for a Vortex to be steered by: the
   assert.match(touch, /if \(action === 'attack'\) this\.input\.setAttack\(false\);/);
   assert.match(touch, /if \(action === 'guard'\) this\.input\.setGuard\(false\);/);
 });
+
+test('bracing into an ultimate, nothing but the attack is shown in the hands: the host takes no guard, spell or dash then', () => {
+  const auth = { alive: true, guardStamina: 100, spellReadyAt: 0, ultimateState: { id: 'sunder', phase: 'startup', commitAt: 10.6 } };
+  const state = { dashReadyAt: 0 };
+  for (const action of ['guard', 'cast', 'dash']) assert.equal(canPresentLocalAction(action, auth, state, 10.2), false, action);
+  assert.equal(canPresentLocalAction('attack', auth, state, 10.2), true, 'the attack is kept: the first slam is swung out of the brace');
+  // taken hold, a Sundering knight guards, casts and dashes as ever
+  const active = { ...auth, ultimateState: { id: 'sunder', phase: 'active', until: 18 } };
+  for (const action of ['guard', 'cast', 'dash', 'attack']) assert.equal(canPresentLocalAction(action, active, state, 11), true, action);
+});
