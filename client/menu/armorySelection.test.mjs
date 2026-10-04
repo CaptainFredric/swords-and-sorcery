@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createArmorySelection } from './armorySelection.mjs';
-import { ARMORY_CUES, playArmorySound } from './armorySound.mjs';
+import { playArmorySound } from './armorySound.mjs';
 
 function harness() {
   const events = [];
@@ -46,13 +46,6 @@ test('leaving or muting cancels pending sound and timer; no stale model restorat
   h.selection.cancel();
   assert.equal(h.pending.size, 0);
   assert.deepEqual(h.events, ['equip vortex', 'play vortex', 'preview vortex', 'stop vortex']);
-});
-
-test('every identity has a short distinctive cue; steel contains exactly two metallic tones', () => {
-  assert.deepEqual(Object.keys(ARMORY_CUES), ['fireball', 'frostfire', 'gale', 'steel', 'sunder', 'vortex']);
-  assert.equal(ARMORY_CUES.steel.tones.length, 2);
-  assert.equal(ARMORY_CUES.vortex.rotation, true);
-  for (const cue of Object.values(ARMORY_CUES)) assert.ok(cue.duration >= .35 && cue.duration <= .9);
 });
 
 test('sound feedback honors mute, zero effects, zero master and suspended audio without queuing playback', () => {

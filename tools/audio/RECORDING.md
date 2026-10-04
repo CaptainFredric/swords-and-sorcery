@@ -136,3 +136,10 @@ spoken line is written out at the foot of the view (Settings, Sound, Subtitles; 
 - `--semitones -1.5` goes less deep and `--semitones -3` deeper (the default is -2; the formants stay put either way).
 - `--profile close` is the earlier, deeper chain (−4.5 semitones, formants and all); `--profile classic` the one before.
 - `--drive 1.5` gives less grit and `--drive 3` gives more (the clear helm uses four fifths of it).
+
+### The Armory's cues
+
+The sound each Armory card makes when pressed is not recorded: `tools/audio/armory_cues.py` renders it from layered
+material models (struck plate, flame and crackle, ice, moving air, rock, the anvil) into `client/assets/armory/`, all at
+one loudness. Change a cue there and run `/usr/local/bin/python3 tools/audio/armory_cues.py <id>`; each cue has its own
+seed, so the rest stay as they are. Each Armory gesture (`client/menu/armoryPreview.mjs`) is timed to its cue's beats.

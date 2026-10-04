@@ -47,6 +47,7 @@ const SPELL_PREVIEW = Object.freeze({
   steel: { core: 0xe9f3ff, glow: 0xabc8e6, light: 1.3 },
   sunder: { core: 0xffd08a, glow: 0xd79a45, light: 1.7 },
   vortex: { core: 0xffeab5, glow: 0xff5822, light: 2.6 },
+  chivalry: { core: 0xf4f8ff, glow: 0x8fd3ff, light: 1.6 },
 });
 
 export class MenuScene {
@@ -503,7 +504,7 @@ export class MenuScene {
     }
     if (this.galeOrb) this.galeOrb.visible = Boolean(look.wind);
     if (this.spellOrb) {
-      this.spellOrb.visible = !look.wind && !['steel','sunder','vortex'].includes(spell);
+      this.spellOrb.visible = !look.wind && !['steel','sunder','vortex','chivalry'].includes(spell);
       if (!look.wind) {
         this.spellOrbCore.material.color.setHex(look.core);
         this.spellOrbGlow.material.color.setHex(look.glow);
@@ -538,7 +539,7 @@ export class MenuScene {
       this.stage.add(this.previewBits);
     }
     this.previewBits.visible=strength>.03 && id!=='steel';
-    this.previewBitMaterial.color.setHex(id==='frostfire'?0xc6f3ff:id==='gale'?0xe5ecda:id==='sunder'?0x88765e:0xffbd5f);
+    this.previewBitMaterial.color.setHex(id==='frostfire'?0xc6f3ff:id==='gale'?0xe5ecda:id==='sunder'?0x88765e:id==='chivalry'?0xa9dcff:0xffbd5f);
     this.previewBitMaterial.opacity=strength*.7;
     const point=new THREE.Vector3();
     const socket=id==='vortex'?this.assetInstance.sockets.sword:this.assetInstance.sockets.sorcery;
@@ -568,12 +569,13 @@ export class MenuScene {
     }
     if(id==='sunder')this.previewBits.position.set(0,.06,-.55);
     this.previewBits.children.forEach((bit,i)=>{
-      const phase=age*5+i*.8, radius=id==='sunder'?.14+Math.max(0,age-.9)*.3:.08;
+      // (Sunder's rubble is thrown up as its sword comes down: ARMORY_GESTURES.sunder)
+      const phase=age*5+i*.8, radius=id==='sunder'?.14+Math.max(0,age-.43)*.3:.08;
       bit.position.set(Math.cos(phase)*radius,Math.sin(phase*1.2)*.1,Math.sin(phase)*radius);
       if(id==='vortex')bit.position.addScaledVector(bladeDirection,.12+(i%8)*.1);
       bit.scale.setScalar((id==='gale'?.5:id==='frostfire'?1.2:1)*strength);
       bit.rotation.set(phase,phase*.7,phase*.2);
-      bit.visible=id!=='sunder'||(age>.9&&age<1.3);
+      bit.visible=id!=='sunder'||(age>.43&&age<.85);
     });
   }
 

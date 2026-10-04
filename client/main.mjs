@@ -19,7 +19,7 @@ import { arenaGateCopy, challengeCopy, countdownSeconds, romanCount } from './me
 import { lobbyView, roomRows } from './menu/lobbyView.mjs';
 import { armoryView } from './menu/armoryView.mjs';
 import { createArmorySelection } from './menu/armorySelection.mjs';
-import { playArmorySound } from './menu/armorySound.mjs';
+import { loadArmoryCues, playArmorySound } from './menu/armorySound.mjs';
 import { seekView } from './menu/seekView.mjs';
 import { MenuController, shouldRouteSocketError } from './menu/MenuController.mjs';
 import { MenuScene } from './menu/MenuScene.mjs';
@@ -190,8 +190,9 @@ function route(screenId) {
   if (screenId === SCREEN_IDS.PLAYING && previous !== null && currentRoomState === 'PLAYING') openArenaGate(latestSnapshot ?? latestLobby ?? {});
   renderSeek();
   syncSoundscape();
-  // in the Armory he holds the chosen spell up in his palm
+  // in the Armory he holds the chosen spell up in his palm (and its cards' sounds are made ready for the first press)
   menuScene?.showSpell(screenId === SCREEN_IDS.ARMORY ? settings.get('loadout.spell') : null);
+  if (screenId === SCREEN_IDS.ARMORY) loadArmoryCues(sound);
   // on the front door he is out on his round; every other screen finds him at his place
   menuScene?.setTouring(screenId === SCREEN_IDS.MAIN_MENU);
   $('.turn-hint')?.classList.toggle('hidden', screenId === SCREEN_IDS.MAIN_MENU && tourAllowed());
