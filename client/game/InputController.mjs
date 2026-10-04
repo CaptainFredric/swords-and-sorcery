@@ -1,5 +1,5 @@
 import { recordArenaKey, releaseHeldInputs } from './inputRelease.mjs';
-import { PREPARED_HOLD_MS, PreparedSpellSelector, preparedSpellView } from './preparedSpellSelector.mjs';
+import { PREPARED_HOLD_MS, preparedSpellView } from './preparedSpellSelector.mjs';
 import { registry } from '../settings/settingsRegistry.mjs';
 
 // what pressing and letting go of each action does (held movement keys are read by movement() instead); any other
@@ -34,6 +34,9 @@ export class InputController {
     this.guardSources = new Set();
     this.prepared = { visible: false };
     this.preparedGesture = null;
+    this.preparedConsumedKeys = new Set();
+    this.pendingPreparedSelection = null;
+    this.spellOnly = false;
     this.onPreparedSelector = () => {};
     this.keys = new Set();
     this.yaw = 0;
@@ -120,19 +123,22 @@ export class InputController {
 
     document.addEventListener('mousemove', (event) => {
       if (!this.pointerLocked) return;
-      if (this.preparedGesture) {
-        this.preparedGesture.x += event.movementX;
-        this.preparedGesture.y += event.movementY;
-        this.preparedGesture.selector.move(this.preparedGesture.x, this.preparedGesture.y);
-        this.#showPreparedGesture();
-        return;
-      }
       const invert = this.look.invertY ? -1 : 1;
       this.turn(-event.movementX * 0.00235 * this.look.mouse, -event.movementY * 0.0021 * this.look.mouse * invert);
     });
 
     document.addEventListener('keydown', (event) => {
       if (event.code === 'Escape') this.cancelPreparedGesture();
+      if (this.preparedConsumedKeys.has(event.code)) { event.preventDefault(); return; }
+      const slot = /^(?:Digit|Numpad)([123])$/.exec(event.code)?.[1];
+      if (this.enabled && this.preparedGesture && this.held('spell') && slot && !event.repeat && !this.keys.has(event.code)) {
+        event.preventDefault();
+        this.preparedConsumedKeys.add(event.code);
+        this.pendingPreparedSelection = this.prepared.spells[Number(slot) - 1]?.id;
+        this.socket.selectPreparedSlot(Number(slot));
+        this.cancelPreparedGesture();
+        return;
+      }
       if (!recordArenaKey(this.keys, event.code, this.enabled)) return;
       // a bound key belongs to the game while in the arena (Space would scroll, Tab would move focus)
       if (this.actionOf.has(event.code)) event.preventDefault();
@@ -144,6 +150,7 @@ export class InputController {
     });
 
     document.addEventListener('keyup', (event) => {
+      if (this.preparedConsumedKeys.delete(event.code)) { event.preventDefault(); return; }
       if (!this.keys.delete(event.code)) return;
       this.#release(event.code);
     });
@@ -217,18 +224,20 @@ export class InputController {
   releaseInputs() {
     this.cancelPreparedGesture();
     this.guardSources.clear();
+    this.preparedConsumedKeys.clear();
     releaseHeldInputs(this);
   }
 
   updatePreparedSpells(local, serverNow) {
     this.prepared = preparedSpellView(local, serverNow);
+    this.spellOnly = Boolean(local?.preparedSpellSelected);
+    if (local?.spell === this.pendingPreparedSelection || !this.prepared.visible) this.pendingPreparedSelection = null;
     if (!this.prepared.visible) this.cancelPreparedGesture();
   }
 
   beginPreparedGesture() {
     if (!this.enabled || !this.prepared.visible || this.preparedGesture) return;
-    const selector = new PreparedSpellSelector(this.prepared.spells.map((spell) => spell.id), this.prepared.current);
-    const gesture = { selector, x: 0, y: 0, shown: false };
+    const gesture = { shown: false, slots: this.prepared.spells.map((spell, index) => ({ id: spell.id, slot: index + 1 })) };
     this.preparedGesture = gesture;
     this.preparedTimer = this.setTimer(() => {
       if (this.preparedGesture !== gesture) return;
@@ -239,7 +248,7 @@ export class InputController {
 
   #showPreparedGesture() {
     const gesture = this.preparedGesture;
-    this.onPreparedSelector(gesture?.shown ? gesture.selector.view() : null);
+    this.onPreparedSelector(gesture?.shown ? { mode: 'keyboard', slots: gesture.slots } : null);
   }
 
   cancelPreparedGesture() {
@@ -252,9 +261,9 @@ export class InputController {
   finishPreparedGesture() {
     const gesture = this.preparedGesture;
     if (!gesture) return;
-    const spell = gesture.shown ? gesture.selector.highlight : this.prepared.current;
+    const tap = !gesture.shown;
     this.cancelPreparedGesture();
-    if (spell) this.usePreparedSpell(spell);
+    if (tap && this.prepared.phase === 'active') this.castCurrentSpell();
   }
 
   usePreparedSpell(id) {
@@ -269,9 +278,16 @@ export class InputController {
     if (spell.available) this.onCastLocal({ spell: id, prepared: true });
   }
 
+  castCurrentSpell() {
+    this.socket.castCurrentSpell(this.lookDirection(), { yaw: this.yaw, pitch: this.pitch });
+    // Predict the ordered selection intent without sending a stale identity back to authority.
+    this.onCastLocal({ spellOnly: true, ...(this.pendingPreparedSelection ? { spell: this.pendingPreparedSelection } : {}) });
+  }
+
   cast() {
     if (!this.enabled) return;
-    if (this.prepared.visible) { this.usePreparedSpell(this.prepared.current); return; }
+    if (this.prepared.visible) { if (this.prepared.phase === 'active') this.castCurrentSpell(); return; }
+    if (this.spellOnly) { this.castCurrentSpell(); return; }
     this.socket.cast(this.lookDirection());
     this.onCastLocal();
   }

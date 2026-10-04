@@ -133,6 +133,12 @@ export class GameSocket {
       ...(Number.isFinite(input.yaw) ? { yaw: input.yaw } : {}),
       ...(Number.isFinite(input.pitch) ? { pitch: input.pitch } : {}), clientTime: this.serverNow() });
   }
+  selectPreparedSlot(slot) { this.send({ type: 'selectPreparedSlot', slot }); }
+  castCurrentSpell(direction, input = {}) {
+    this.send({ type: 'castCurrentSpell', direction,
+      ...(Number.isFinite(input.yaw) ? { yaw: input.yaw } : {}),
+      ...(Number.isFinite(input.pitch) ? { pitch: input.pitch } : {}), clientTime: this.serverNow() });
+  }
   selectPreparedSpell(spell) { this.send({ type: 'selectPreparedSpell', spell }); }
   gauntlet() { this.send({ type: 'gauntlet', clientTime: this.serverNow() }); }
   ultimate() { this.send({ type: 'ultimate' }); }

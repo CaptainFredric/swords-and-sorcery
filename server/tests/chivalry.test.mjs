@@ -321,3 +321,40 @@ test('activation Guard gets one ordinary perfect Parry then settles into an ordi
   assert.ok(room.events.some(e => e.type === 'block' && e.defenderId === 'a'));
   assert.equal(a.guardStartedAt, 10.65);
 });
+
+test('prepared slot selection validates authoritative order, preserves cooldowns and never casts', () => {
+  const { room, a } = duel(['gale','fireball','steel']); active(room,a);
+  a.spellReadyById.steel=30; combat.tryCastSpell(room,'a',aim,10.7);
+  const pending=a.pendingSpell, release=a.castEndsAt, clocks={...a.spellReadyById};
+  command(room,a,'selectPreparedSlot',null,10.71,{slot:3});
+  assert.equal(a.spell,'steel'); assert.equal(a.spellReadyAt,30);
+  assert.equal(a.pendingSpell,pending); assert.equal(a.castEndsAt,release); assert.deepEqual(a.spellReadyById,clocks);
+  assert.equal(a.preparedSpellSelected,true);
+  for(const slot of [0,4,-1,1.5,'2',null,{},Infinity]) command(room,a,'selectPreparedSlot',null,10.72,{slot});
+  assert.equal(a.spell,'steel');
+  a.alive=false; command(room,a,'selectPreparedSlot',null,10.73,{slot:1}); assert.equal(a.spell,'steel');
+});
+
+test('select then immediate current cast uses the selected spell before any snapshot acknowledgement', () => {
+  const {room,a}=duel(); active(room,a);
+  command(room,a,'selectPreparedSlot',null,10.7,{slot:2});
+  assert.equal(a.pendingSpell,null);
+  command(room,a,'castCurrentSpell',null,10.71,{yaw:Math.PI/2,pitch:.3});
+  assert.equal(a.spell,'frostfire'); assert.equal(a.pendingSpell?.spell,'frostfire');
+  tick(room,11.02);
+  const shot=room.events.find(e=>e.type==='projectileSpawned').projectile;
+  assert.ok(shot.velocity.x<0 && shot.velocity.y>0);
+});
+
+test('a selected cooling spell never falls back to a gauntlet after expiry or same match respawn', () => {
+  const {room,a}=duel(); active(room,a);
+  command(room,a,'selectPreparedSlot',null,10.7,{slot:3}); a.spellReadyAt=a.spellReadyById.gale=30;
+  a.ultimateState.until=10.8; tick(room,10.8);
+  command(room,a,'castCurrentSpell',null,10.9); command(room,a,'cast',null,10.91);
+  assert.equal(a.pendingSpell,null); assert.equal(a.gauntlet,null); assert.equal(a.spell,'gale');
+  combat.killPlayer(room,'a',null,'test',11); tick(room,14.1);
+  assert.equal(a.alive,true); assert.equal(a.spell,'gale'); assert.equal(a.preparedSpellSelected,true);
+  command(room,a,'cast',null,14.2); assert.equal(a.gauntlet,null);
+  room.startMatch(40); assert.equal(a.spell,'fireball'); assert.equal(a.preparedSpellSelected,false);
+  command(room,a,'selectPreparedSlot',null,40.1,{slot:2}); assert.equal(a.spell,'fireball');
+});

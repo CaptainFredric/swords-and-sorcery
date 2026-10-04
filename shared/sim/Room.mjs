@@ -44,6 +44,7 @@ function freshCombatState(spawn, nowSec = 0) {
     spellReadyAt: 0,
     spellReadyById: {},
     chivalryProjectileReadyAt: 0,
+    preparedSpellSelected: false,
     gauntlet: null,
     gust: null,
     gauntletReadyAt: -Infinity,

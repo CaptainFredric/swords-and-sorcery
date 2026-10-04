@@ -177,7 +177,7 @@ export class GameRuntime {
       const intendedSpell = metadata.spell ?? this.localAuth?.spell;
       const policy = combatActionPolicy(this.localAuth, now);
       if (!canPresentLocalAction('cast', this.localAuth, this.localState, now, { practice, gate: this.localGate, spell: intendedSpell })) {
-        if (policy.concurrent || handsTaken(this.localAuth, now)) {
+        if (metadata.spellOnly || this.localAuth?.preparedSpellSelected || policy.concurrent || handsTaken(this.localAuth, now)) {
           this.hud.denied?.('spell');
           this.#play(deniedRecipe(), null, 0.6);
           return;
@@ -403,6 +403,7 @@ export class GameRuntime {
   enableTouch() {
     if (this.touch) return;
     this.touch = new TouchControls(this.hud.root, this.input);
+    this.hud.setPreparedInputMode('touch');
     this.touch.setScale(this.touchScale);
     this.touch.setGauntletButton(this.touchGauntlet);
     this.input.touch = this.touch;
