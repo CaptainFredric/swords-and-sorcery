@@ -1,21 +1,36 @@
-import { CREDITS, libraryInOrder, libraryStatus, statusLabel } from './voiceLibrary.mjs';
+import { CREDITS, LIBRARY_GROUPS, MUSIC_LIBRARY, librarySections, libraryStatus, statusLabel } from './voiceLibrary.mjs';
 
-// The credits, and the Spellblade's voice library (voiceLibrary.mjs): who made him, and every line he has or will
-// have, each with a button per take to hear it as the game plays it (dry, as your own knight is heard). Opened from a
-// quiet button in the settings' footer.
+// The credits, and the Spellblade's voice library (voiceLibrary.mjs): who made him, then every line he has or will
+// have (each section folding away), the sounds he makes in a fight, and the music performed for him, each with a
+// button per take to hear it as the game plays it (dry, as your own knight is heard). Opened from a quiet button in
+// the settings' footer.
 
 const escape = (text) => String(text).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
 export class CreditsPanel {
-  constructor({ root, voice = null }) {
+  constructor({ root, voice = null, stingers = null }) {
     this.root = root;
     this.voice = voice;
+    this.stingers = stingers;
     this.body = root.querySelector('[data-credits-body]');
+    // which sections are unfolded (kept while the panel is drawn again as the voice loads)
+    this.unfolded = new Set();
     root.querySelector('[data-credits-done]')?.addEventListener('click', () => this.close());
     this.body.addEventListener('click', (event) => {
       const play = event.target.closest('[data-play-line]');
       if (play) this.#play(play, play.dataset.playLine, Number(play.dataset.take));
+      const music = event.target.closest('[data-play-stinger]');
+      if (music && this.stingers?.play(music.dataset.playStinger, { preview: true })) {
+        music.classList.add('playing');
+        setTimeout(() => music.classList.remove('playing'), 400);
+      }
     });
+    this.body.addEventListener('toggle', (event) => {
+      const section = event.target.dataset?.section;
+      if (!section) return;
+      if (event.target.open) this.unfolded.add(section);
+      else this.unfolded.delete(section);
+    }, true);
   }
 
   get isOpen() {
@@ -51,7 +66,7 @@ export class CreditsPanel {
     // which lines have a recording is the voice bank's to say (from the takes' manifest); until it has it, they load
     const recorded = this.voice?.recorded ?? null;
     const isRecorded = (line) => (recorded?.get(line) ?? 0) > 0;
-    const rows = libraryInOrder(isRecorded).map((entry) => {
+    const row = (entry) => {
       const status = libraryStatus(entry, isRecorded(entry.line));
       // (a line said in parts is heard as one: a single button plays its parts in order)
       const takes = entry.parts ? Math.min(1, this.#takes(entry.line)) : this.#takes(entry.line);
@@ -66,8 +81,30 @@ export class CreditsPanel {
           <p class="voice-note">${escape(entry.note)}</p>
           ${buttons ? `<div class="voice-takes">${buttons}</div>` : ''}
         </article>`;
+    };
+    // each group under its title, each of its sections folding away (with how many lines it holds)
+    const shelves = librarySections(isRecorded);
+    const groups = LIBRARY_GROUPS.map((group) => {
+      if (group.id === 'music') {
+        this.stingers?.load?.();
+        const music = MUSIC_LIBRARY.map((entry) => `
+          <article class="voice-entry voice-live voice-music">
+            <header><b>${escape(entry.title)}</b></header>
+            <i class="voice-direction">${escape(entry.source)}</i>
+            <p class="voice-when">${escape(entry.when)}</p>
+            <p class="voice-note">${escape(entry.note)}</p>
+            ${this.stingers ? `<div class="voice-takes"><button type="button" class="voice-play" data-play-stinger="${entry.stinger}" aria-label="Play ${escape(entry.title)}">&#9654;</button></div>` : ''}
+          </article>`).join('');
+        return `<h3 class="setting-group">${escape(group.title)}</h3>${music}`;
+      }
+      const sections = shelves.filter((shelf) => shelf.group === group.id).map((shelf) => `
+        <details class="credits-section" data-section="${escape(shelf.section)}"${this.unfolded.has(shelf.section) ? ' open' : ''}>
+          <summary><span>${escape(shelf.section)}</span><small>${shelf.entries.length}</small></summary>
+          ${shelf.entries.map(row).join('')}
+        </details>`).join('');
+      return `<h3 class="setting-group">${escape(group.title)}</h3>${sections}`;
     }).join('');
-    this.body.innerHTML = `${credits}<h3 class="setting-group">The Spellblade’s voice</h3><p class="setting-note">Every line the Spellblade can say.</p>${rows}`;
+    this.body.innerHTML = `${credits}${groups}`;
   }
 
   // (the voice may still be loading the first time: it is asked again a moment later)

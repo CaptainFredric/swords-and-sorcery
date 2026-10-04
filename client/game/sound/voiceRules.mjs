@@ -163,10 +163,11 @@ export function deathLines(fall, rand = Math.random) {
  * A fall as the moments it is (their tags, for linesFor): { fallen, facts } for the one who fell, and { victor,
  * victorFacts } for whoever felled them (victor: null when nobody did, or they fell by their own doing).
  */
-export function deathMoment({ victimId, killerId, source, overkill = false, minor = false, interrupted = false, decisive = false, dizzy = false, planFailed = false, moment = {} }) {
+export function deathMoment({ victimId, killerId, source, overkill = false, minor = false, interrupted = false, decisive = false, dizzy = false, planFailed = false, chivalry = false, fair = false, moment = {} }) {
   return {
     // (dizzy: felled spinning in a Blazing Vortex, or in the moment after it)
-    fallen: { death: 1, ...(minor ? { minorLethal: 1 } : {}), ...(dizzy ? { vortexDeath: 1 } : {}), ...(MAGIC_SOURCES.includes(source) ? { magicDeath: 1 } : {}) },
+    // (chivalry: felled during Spells & Chivalry; fair: by the sword, after a real exchange of blows with the victor)
+    fallen: { death: 1, ...(minor ? { minorLethal: 1 } : {}), ...(dizzy ? { vortexDeath: 1 } : {}), ...(chivalry ? { chivalryDeath: 1 } : {}), ...(fair ? { fairLoss: 1 } : {}), ...(MAGIC_SOURCES.includes(source) ? { magicDeath: 1 } : {}) },
     // (planFailed: felled waiting on a plan he had just announced: "Wait, wait!!...")
     facts: [overkill && 'overkill', decisive && 'decisive', interrupted && 'interrupted', planFailed && 'planFailed'].filter(Boolean),
     victor: killerId && killerId !== victimId ? victorTags({ source, moment }) : null,
@@ -187,6 +188,10 @@ function victorTags({ source, moment = {} }) {
     ...(moment.clean && source === 'sword' ? { cleanSwordKill: 1 } : {}),
     ...(moment.subpar ? { subparKill: 1 } : {}),
     ...(moment.messy ? { messyKill: 1 } : {}),
+    ...(moment.rushed ? { rushedKill: 1 } : {}),
+    ...(moment.leader ? { leaderFelled: 1 } : {}),
+    ...(moment.streak === 3 ? { killStreak3: 1 } : {}),
+    ...(moment.finalStrike ? { finalStrike: 1 } : {}),
   };
 }
 

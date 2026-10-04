@@ -28,6 +28,7 @@ import { isTouchPrimary } from './game/touchControlsModel.mjs';
 import { registry } from './settings/settingsRegistry.mjs';
 import { SettingsStore } from './settings/SettingsStore.mjs';
 import { CreditsPanel } from './ui/CreditsPanel.mjs';
+import { RecordedStingers } from './game/sound/recordedStingers.mjs';
 import { SettingsPanel } from './settings/SettingsPanel.mjs';
 import { inputOptions, soundLevels, turnOptions, viewOptions } from './settings/applySettings.mjs';
 import { screenTurn } from './ui/screenTurn.mjs';
@@ -610,7 +611,8 @@ for (const button of document.querySelectorAll('[data-open-settings]')) {
   button.addEventListener('click', () => settingsPanel.open(button.dataset.openSettings || undefined));
 }
 // the credits and the voice library, from a quiet button in the settings' footer (over the settings; Done returns)
-const creditsPanel = new CreditsPanel({ root: $('#credits'), voice });
+// (the music performed for him, heard from the Credits)
+const creditsPanel = new CreditsPanel({ root: $('#credits'), voice, stingers: new RecordedStingers(sound) });
 // (answered at the document: a tap anywhere on the button, whatever the settings panel has redrawn round it)
 document.addEventListener('click', (event) => {
   if (event.target.closest?.('[data-open-credits]')) creditsPanel.open();

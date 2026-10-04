@@ -1,6 +1,12 @@
 {
   "version": 1,
   "lines": {
+    "abolishBattle": [
+      {
+        "file": "abolish-battle-1",
+        "seconds": 11.99
+      }
+    ],
     "acceptSaint": [
       {
         "file": "accept-saint-1",
@@ -11,6 +17,18 @@
       {
         "file": "always-knew-1",
         "seconds": 2.81
+      }
+    ],
+    "believeMagic": [
+      {
+        "file": "believe-magic-1",
+        "seconds": 2.67
+      }
+    ],
+    "bestManWin": [
+      {
+        "file": "best-man-win-1",
+        "seconds": 3.91
       }
     ],
     "bladeCaught": [
@@ -25,10 +43,28 @@
         "seconds": 2.18
       }
     ],
+    "chargeDefeat": [
+      {
+        "file": "charge-defeat-1",
+        "seconds": 5.02
+      }
+    ],
     "chivalryTest": [
       {
         "file": "chivalry-test-1",
         "seconds": 5.41
+      }
+    ],
+    "coldHurt": [
+      {
+        "file": "cold-hurt-1",
+        "seconds": 0.78
+      }
+    ],
+    "constitution": [
+      {
+        "file": "constitution-1",
+        "seconds": 2.07
       }
     ],
     "death": [
@@ -57,10 +93,28 @@
         "seconds": 0.98
       }
     ],
+    "downUpSideways": [
+      {
+        "file": "down-up-sideways-1",
+        "seconds": 5.89
+      }
+    ],
     "effort": [
       {
         "file": "effort-1",
         "seconds": 1.08
+      }
+    ],
+    "fairSquare": [
+      {
+        "file": "fair-square-1",
+        "seconds": 2.8
+      }
+    ],
+    "fightAsMe": [
+      {
+        "file": "fight-as-me-1",
+        "seconds": 2.85
       }
     ],
     "finalDuel": [
@@ -71,6 +125,12 @@
       {
         "file": "final-duel-2",
         "seconds": 1.86
+      }
+    ],
+    "firstStrike": [
+      {
+        "file": "first-strike-1",
+        "seconds": 0.78
       }
     ],
     "fistKill": [
@@ -101,6 +161,24 @@
       {
         "file": "hack-slash-1",
         "seconds": 3.02
+      }
+    ],
+    "headOn": [
+      {
+        "file": "head-on-1",
+        "seconds": 1.95
+      }
+    ],
+    "heavyHurt": [
+      {
+        "file": "heavy-hurt-1",
+        "seconds": 0.74
+      }
+    ],
+    "heavyHurt2": [
+      {
+        "file": "heavy-hurt2-1",
+        "seconds": 1.87
       }
     ],
     "herald": [
@@ -169,6 +247,18 @@
         "seconds": 2.09
       }
     ],
+    "masterBreak": [
+      {
+        "file": "master-break-1",
+        "seconds": 3.33
+      }
+    ],
+    "masterCall": [
+      {
+        "file": "master-call-1",
+        "seconds": 6.97
+      }
+    ],
     "misaddressed": [
       {
         "file": "misaddressed-1",
@@ -187,6 +277,24 @@
         "seconds": 2.47
       }
     ],
+    "noSpare": [
+      {
+        "file": "no-spare-1",
+        "seconds": 3.7
+      }
+    ],
+    "noSquire": [
+      {
+        "file": "no-squire-1",
+        "seconds": 5.22
+      }
+    ],
+    "notFall": [
+      {
+        "file": "not-fall-1",
+        "seconds": 3.92
+      }
+    ],
     "offGuard": [
       {
         "file": "off-guard-1",
@@ -197,6 +305,18 @@
       {
         "file": "open-up-1",
         "seconds": 2.75
+      }
+    ],
+    "poorTaste": [
+      {
+        "file": "poor-taste-1",
+        "seconds": 5.59
+      }
+    ],
+    "preferNoPain": [
+      {
+        "file": "prefer-no-pain-1",
+        "seconds": 3.22
       }
     ],
     "rebuttal": [
@@ -213,6 +333,24 @@
       {
         "file": "regen-trick-2",
         "seconds": 3.93
+      }
+    ],
+    "remainStaggered": [
+      {
+        "file": "remain-staggered-1",
+        "seconds": 2.66
+      }
+    ],
+    "renownDisowned": [
+      {
+        "file": "renown-disowned-1",
+        "seconds": 5.94
+      }
+    ],
+    "savedFromPeace": [
+      {
+        "file": "saved-from-peace-1",
+        "seconds": 6.54
       }
     ],
     "sorcery": [
@@ -253,6 +391,12 @@
       {
         "file": "steel-polished-1",
         "seconds": 1.35
+      }
+    ],
+    "stopRunning": [
+      {
+        "file": "stop-running-1",
+        "seconds": 3.91
       }
     ],
     "subparStandard": [
@@ -323,10 +467,28 @@
         "seconds": 1.42
       }
     ],
+    "thePlan": [
+      {
+        "file": "the-plan-1",
+        "seconds": 5.6
+      }
+    ],
     "tinManHeart": [
       {
         "file": "tin-man-heart-1",
         "seconds": 2.11
+      }
+    ],
+    "toldToWait": [
+      {
+        "file": "told-to-wait-1",
+        "seconds": 1.01
+      }
+    ],
+    "underworld": [
+      {
+        "file": "underworld-1",
+        "seconds": 3.7
       }
     ],
     "victory": [

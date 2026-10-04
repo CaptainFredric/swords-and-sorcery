@@ -223,3 +223,48 @@ test('the Blazing Vortex: no cry as it is lit, its noise once as it takes hold, 
   assert.equal(deathMoment({ victimId: 'v', killerId: 'k', source: 'ember' }).fallen.magicDeath, 1);
   assert.ok(VOICE_LINES.vortexDefeat.cooldown >= 60, 'kept rare');
 });
+
+test('the new blows: committing to a fresh foe, his own spell landing, badly hurt (likelier on hardened plate) and the hurt he makes', () => {
+  const world = { knight: () => ({ alive: true, health: 100 }), positionOf: () => null };
+  const moments = new VoiceMoments();
+  const tags = (groups, speaker) => groups.flat().filter((say) => say.speaker === speaker).map((say) => say.line);
+  // the first blow of any encounter (whatever the health) is him committing to it: "I confront my foes head on!"
+  const first = moments.damage({ type: 'damage', attackerId: 'a', victimId: 'v', source: 'sword', amount: 26, health: 40, at: 1 }, world);
+  assert.ok(tags(first, 'a').includes('headOn'));
+  assert.ok(!tags(moments.damage({ type: 'damage', attackerId: 'a', victimId: 'v', source: 'sword', amount: 26, health: 20, at: 2 }, world), 'a').includes('headOn'));
+  // his own Fireball or Frostfire landing
+  const spell = new VoiceMoments().damage({ type: 'damage', attackerId: 'a', victimId: 'v', source: 'fireball', amount: 18, health: 60, at: 1 }, world);
+  assert.ok(tags(spell, 'a').includes('believeMagic'));
+  // badly hurt and standing: his reserves, first if Sheathe in Steel took the blow
+  const plated = new VoiceMoments().damage({ type: 'damage', attackerId: 'a', victimId: 'v', source: 'sword', amount: 19, health: 25, steel: 0.8, at: 1 }, world);
+  assert.ok(tags(plated, 'v').includes('constitution'));
+  const bare = new VoiceMoments().damage({ type: 'damage', attackerId: 'a', victimId: 'v', source: 'sword', amount: 26, health: 28, at: 1 }, world);
+  assert.ok(tags(bare, 'v').includes('constitution'), 'without Steel too, at a smaller share');
+  // the hurt he makes: severe, small after a long while, or ordinary
+  const hurt = new VoiceMoments();
+  assert.deepEqual(hurt.hurt({ victimId: 'v', amount: 30, at: 10 }), ['heavyHurt', 'hurt']);
+  assert.deepEqual(hurt.hurt({ victimId: 'v', amount: 10, at: 12 }), ['hurt'], 'small, but not after a long while');
+  assert.deepEqual(hurt.hurt({ victimId: 'v', amount: 10, at: 12 + MOMENTS.hurtSounds.coldSec }), ['coldHurt', 'hurt']);
+});
+
+test('the new falls: three kills without falling, the rushed, the leader, a fair fight lost, Chivalry ended, the final strike', () => {
+  const world = { knight: () => ({ alive: true, health: 100 }), positionOf: () => null };
+  const moments = new VoiceMoments();
+  const fall = (victimId, extra = {}, source = 'sword') => moments.death({ type: 'death', victimId, killerId: 'a', source, at: 5 }, { ...world, extra });
+  const victor = (result) => result.victor.map((say) => say.line);
+  const fallen = (result) => result.fallen.map((say) => say.line);
+  fall('v1');
+  fall('v2');
+  assert.ok(victor(fall('v3')).includes('noSpare'), 'the third without falling');
+  assert.ok(!victor(fall('v4')).includes('noSpare'), 'the third, not the fourth');
+  // (his fall ends the streak)
+  moments.death({ type: 'death', victimId: 'a', killerId: 'v1', source: 'sword', at: 6 }, world);
+  fall('v5'); fall('v6');
+  assert.ok(victor(fall('v7')).includes('noSpare'));
+  assert.ok(victor(fall('x', { rushed: true })).includes('toldToWait'));
+  assert.ok(victor(fall('y', { leader: true })).includes('renownDisowned'));
+  assert.ok(victor(fall('z', { finalStrike: true })).includes('firstStrike'), 'the heavy third strike that ends it');
+  assert.ok(fallen(fall('w', { fair: true })).includes('fairSquare'));
+  assert.ok(!fallen(fall('w2', {})).includes('fairSquare'));
+  assert.equal(fallen(fall('m', { chivalry: true }))[0], 'masterBreak', 'the master takes a break, before anything else he might say');
+});
