@@ -68,7 +68,7 @@ test('practice owns at most one dummy and can switch its mode', () => {
 
 test('practice dummy modes are explicit and invalid modes are rejected', () => {
   const { room } = makePracticeRoom();
-  assert.deepEqual(new Set(Object.values(PRACTICE_DUMMY_MODES)), new Set(['PASSIVE', 'GUARDING', 'FIGHTS_BACK', 'SORCERY', 'MELEE', 'RUNNER']));
+  assert.deepEqual(new Set(Object.values(PRACTICE_DUMMY_MODES)), new Set(['PASSIVE', 'GUARDING', 'FIGHTS_BACK', 'SORCERY', 'MELEE', 'RUNNER', 'ULTIMATE_KNIGHT']));
   assert.equal(spawnPracticeDummy(room, 'NOPE', 0), null);
   assert.equal(setPracticeDummyMode(room, 'NOPE', 0), false);
 });

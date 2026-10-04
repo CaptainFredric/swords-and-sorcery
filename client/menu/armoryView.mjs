@@ -10,23 +10,23 @@ import { ULTIMATES } from '../../shared/src/ultimates.mjs';
 const SPELL_WORDS = Object.freeze({
   fireball: {
     mark: '✦',
-    line: 'A roaring blast that catches everyone near it; whoever it lands close to keeps burning.',
-    facts: (s) => `Hits for ${s.directDamage}, burns for ${s.burn.damage} more · ${s.cooldownSec} s`,
+    line: 'Explodes on impact and burns enemies caught near the blast.',
+    facts: (s) => `${s.directDamage} impact · ${s.burn.damage} burn · ${s.cooldownSec}s cooldown`,
   },
   frostfire: {
     mark: '❄',
-    line: 'A quick bolt of cold. Whoever it strikes turns sluggish, then thaws.',
-    facts: (s) => `Hits for ${s.directDamage}, chills them heavy for ${s.chill.seconds} s · ${s.cooldownSec} s`,
+    line: 'A fast bolt of cold that slows whoever it hits until they thaw.',
+    facts: (s) => `${s.directDamage} impact · heavy chill ${s.chill.seconds}s · ${s.cooldownSec}s cooldown`,
   },
   gale: {
     mark: '≋',
-    line: 'Draw a breath of wind, then loose it in a cone: for a moment it carries off whoever stands in it, and bends any spell flying through it. It hurts far less than it moves. Into the ground, it throws you.',
-    facts: (s) => `Stings for up to ${s.cone.damage}, carries out to ${s.cone.pressureReach} m for ${s.cone.lastsSec} s · ${s.cooldownSec} s`,
+    line: 'Release a cone of wind that carries enemies, bends projectiles, and can launch you when aimed at the ground.',
+    facts: (s) => `Up to ${s.cone.damage} damage · ${s.cone.pressureReach}m reach · ${s.cone.lastsSec}s wind · ${s.cooldownSec}s cooldown`,
   },
   steel: {
     mark: '⛨',
-    line: 'Clench the magic hand and your plate hardens: every blow lands like a glancing one, less so as it wears off.',
-    facts: (s) => `Every sword blow lands for ${GAME.swordGlance} · hard ${STEEL.fullSec} s, then wears off over ${STEEL.fadeSec} s · ${s.cooldownSec} s`,
+    line: 'Harden your armor. While Steel holds, incoming hits land like glancing contacts.',
+    facts: (s) => `${GAME.swordGlance} sword damage · ${STEEL.fullSec}s full strength · ${STEEL.fadeSec}s fade · ${s.cooldownSec}s cooldown`,
   },
 });
 
@@ -34,13 +34,18 @@ const SPELL_WORDS = Object.freeze({
 const ULTIMATE_WORDS = Object.freeze({
   sunder: {
     mark: '⚒',
-    line: 'Every blow the most forceful it could be: the sword slams down with each strike and the ground ruptures under it; a guard pays double.',
-    facts: (u) => `${GAME.swordElevated} a blow, the ground split with each · ${u.activeSec} s · earned by fighting`,
+    line: 'Every sword strike becomes a crushing downward blow. Hits interrupt actions, split the ground, and hammer through Guard.',
+    facts: (u) => `${GAME.swordElevated} sword damage · double Guard impact · ${u.activeSec}s duration`,
+  },
+  chivalry: {
+    mark: '⚔',
+    line: 'Guard rises as Chivalry begins. For 9 seconds, Sprint, attack, Guard, Dash and cast together. Draw from three prepared spells. The spell you finish with stays equipped for the match.',
+    facts: (u) => `${u.activeSec}s · 3 prepared spells · rapid projectile casting · no parry reel`,
   },
   vortex: {
     mark: '✺',
-    line: 'Spin into a close-range storm of sword cuts and aimed fire. Move faster, fall slowly, and overwhelm anyone who stays near you.',
-    facts: (u) => `${u.contact.damage} a cut, fire where you aim · hold Attack for the fire, Guard for the blade · no guard while it lasts · ${u.activeSec} s · earned by fighting`,
+    line: 'Spin through enemies with your blade and aimed fire. Move faster and fall slowly. Hold Attack for stronger fire or Guard for faster cuts.',
+    facts: (u) => `${u.contact.damage} contact damage · Guard unavailable · ${u.activeSec}s duration`,
   },
 });
 
@@ -48,7 +53,7 @@ export function armoryView(equipped, ultimate = 'sunder') {
   return {
     blade: {
       name: 'Castleward longsword',
-      facts: `Three-strike combo · ${GAME.swordGlance}–${GAME.swordDamage} a blow · guard and parry`,
+      facts: `Three-strike combo · ${GAME.swordGlance} to ${GAME.swordDamage} damage · guard and parry`,
     },
     spells: Object.values(SPELLS).map((spell) => {
       const words = SPELL_WORDS[spell.id] ?? { mark: '◆', line: '', facts: () => `${spell.cooldownSec} s` };

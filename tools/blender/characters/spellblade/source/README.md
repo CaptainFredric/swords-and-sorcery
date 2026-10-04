@@ -287,3 +287,33 @@ Both pauldrons have a slightly flatter roof, 10 percent less front/back depth, a
 The front collar is shallower and follows a subtle diagonal. Its former rectangular hanging end is a shorter, thinner tapered fold, tucked into the wrap and resting closer to the breastplate. The rear collar and helmet opening remain in place.
 
 An exact comparison against b683b14 permits only coordinates on the scarf's two disconnected components inside Breastplate. All remaining geometry, topology, UVs, colors, weights, 30 materials, rig and 12 action curves are preserved. Sword/body and helmet/shoulder intersections remain zero at every integer animation frame. The set of existing helmet/collar contact frames is identical to the baseline.
+
+## Ordinary motion contact pass
+
+Idle and Guard now measure pelvis contact from the beveled boot soles. Run and Sprint retain their original upper body curves, cadence and duration, with extra knee clearance on the returning leg and sole based pelvis contact baked into the artist source. Geometry, rest rig, weights, materials, references, sword actions, Cast and Dash remain unchanged.
+
+The focused authoring utility is `kit/ordinary_motion.py`. Run it against a source before this pass and supply a separate output file; its source marker prevents applying it twice. It edits existing actions and never reconstructs the character.
+
+Run `scripts/test-spellblade-motion.py` in Blender to sample contact between keys. Pass a candidate source after `--`, followed by `--baseline /path/to/original.blend`, to verify that every unrelated object and animation curve is preserved. In a local browser preview, `checkSoleContacts()` from `client/game/spellbladeContact.browser.mjs` checks the exported skeleton and actual skinned soles, including the runtime moving crouch correction.
+
+## First person sword grip refinement
+
+The right gauntlet is now fitted in the artist source around the physical sword handle. `kit/first_person_grip.py` identifies the grip from its compact connected mesh component, preserves its radial clearance, reduces excess palm volume and fits the forearm profile. Only `Arm.R` vertex positions change. Topology, skin weights, materials, sword geometry, the left hand, rest rig and every action curve are preserved.
+
+The former load time `trimSwordHand` call is removed. Its guessed pivot was about four centimetres away from the actual grip centre. The source and its exported first person asset now own the final hand shape, so the model can be inspected and edited accurately in Blender.
+
+## October 3 ordinary combat presentation
+
+Guard's source hold runs from frame 8 through frame 56. Its matching endpoint poses previously had different endpoint velocities because the first hold key also followed the raising gesture. `kit/combat_presentation.py` makes the hold tangents periodic while preserving the incoming raising tangent. The runtime samples the same frame 8 boundary and 48 frame period. Idle samples the authored frame 1 through frame 60 interval, excluding the export's constant interval before its first key.
+
+First person Slash_2 clears the left gauntlet with a small outward upper arm arc authored into the existing action. The normal first person combo already uses its own counterbalance and sword IK keys; its second strike counterbalance also clears the exported left arm. Sword targets, contact times, duration, other source actions and ultimate motion keys are preserved.
+
+Run `scripts/test-spellblade-combat-presentation.py` in Blender for endpoint pose and velocity continuity, clip durations, and sword/offhand intersection checks between authored keys. The asset workflow runs this check before export. In a browser, `checkOrdinaryOffhand()` from `client/game/combatPresentation.browser.mjs` samples the actual exported skinned sword and left arm with the existing ordinary combo solver at 120 Hz, before the intentional two hand grip.
+
+## October 3 authored guarded sword techniques
+
+`GuardCut_1`, `GuardCut_2` and `GuardCut_3` now contain independent upper body paths: defended diagonal forehand, returning upper backhand and centered descending beat. Each has authored torso yaw, chest compression, clavicle response, head counterrotation and free gauntlet counterbalance. The physical HeroSword blade axis determines the sword hand orientation. Its direction differs from the rig socket axis.
+
+The focused utility is `kit/guarded_technique.py`. Open the accepted source in Blender, run it with a separate output path after `--`, then export through `build.py`. The utility only replaces upper body curves in the existing three guarded actions. It preserves geometry, skin weights, rest bones, ordinary actions and guarded lower body curves. Contacts remain at 0.40, 0.38 and 0.36 seconds within the existing combo slots. Each cut finishes in the exact existing Guard hold.
+
+Run `scripts/test-spellblade-guarded-technique.py` in Blender with `-- BASELINE.blend CANDIDATE.blend` for source preservation, sampled defensive lines, natural arm reach, contact silhouettes and head tracking. `docs/CHIVALRY_GUARDED_TECHNIQUE.md` records the focused checks and exported motion proof. The first person source and solver remain as previously accepted.

@@ -1,3 +1,6 @@
+import { observeChallengeFacts, challengeProgressFor } from '../../shared/sim/challenges.mjs';
+import { eligibleChallengeParticipant } from './challengeSettlement.mjs';
+import { applySavedLoadout } from './savedLoadout.mjs';
 import http from 'node:http';
 import { ProfileStore, assessMatchReward } from './ProfileStore.mjs';
 import fs from 'node:fs';
@@ -147,7 +150,7 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
   function createNetworkPlayer(session, room, name) {
     const id = crypto.randomUUID();
     const token = crypto.randomUUID();
-    return room.addPlayer({ id, token, name, spell: session.spell, ultimate: session.ultimate }, now());
+    return room.addPlayer({ id, token, name, spell: session.spell, ultimate: session.ultimate, preparedSpells: session.preparedSpells }, now());
   }
 
   function joinNew(session, room, name) {
@@ -275,13 +278,8 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
       return;
     }
     if (message.type === 'loadout') {
-      // the Armory's choice: kept for every room this connection joins, and taken up at once if already in one
-      session.spell = isSpell(message.spell) ? message.spell : DEFAULT_SPELL;
-      session.ultimate = isUltimate(message.ultimate) ? message.ultimate : DEFAULT_ULTIMATE;
-      const player = sessionRoom(session)?.players.get(session.playerId);
-      if (player && !player.pendingSpell) player.spell = session.spell;
-      // (an ultimate already under way keeps its own; the next is the new choice)
-      if (player && !player.ultimateState) player.ultimate = session.ultimate;
+      const room = sessionRoom(session);
+      applySavedLoadout(session, room, room?.players.get(session.playerId), message);
       return;
     }
     if (message.type === 'seekDuel') {
@@ -406,6 +404,7 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
       stepBotControllers(room, time, room.world);
       stepPracticeActors(room, time, room.world);
       stepRoom(room, 1 / TICK_RATE, time, room.world);
+      observeChallengeFacts(room);
       const events = room.events.splice(0);
       for (const event of events) {
         if (event.type === 'matchStarted') room.rewardMatchId = crypto.randomUUID();
@@ -416,7 +415,9 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
             // Capture the result now: a later rematch, departure or retry cannot change this reward.
             if (!pendingRewards.has(key)) pendingRewards.set(key, {
               token: player.profileToken, matchId: room.rewardMatchId,
-              ...assessMatchReward(room, player, event.at), retryAt: 0,
+              ...assessMatchReward(room, player, event.at),
+              challengeProgress: eligibleChallengeParticipant(room, player) ? { ...challengeProgressFor(room, player.id) } : {},
+              completedAt: Date.now(), retryAt: 0,
             });
           }
         }
@@ -427,7 +428,7 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
     for (const [key, reward] of pendingRewards) {
       if (time < reward.retryAt) continue;
       try {
-        publishProfile(reward.token, profileStore.reward(reward.token, reward.matchId, reward.amount, reward));
+        publishProfile(reward.token, profileStore.settleMatch(reward.token, reward.matchId, reward.amount, reward.challengeProgress, reward));
         pendingRewards.delete(key);
       } catch {
         reward.retryAt = time + 5;

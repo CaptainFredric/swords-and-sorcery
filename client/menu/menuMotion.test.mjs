@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { MENU_SHOTS, easeShot, lerpShot, menuShotFor, shotSettled } from './menuShots.mjs';
+import { MENU_SHOTS, easeShot, lerpShot, menuShotFor, shotSettled, menuMoveSeconds } from './menuShots.mjs';
 import { MOMENTS, MOMENT_EVERY, REACTIONS, idleMoment, idlePose, reactionMoment } from './menuIdle.mjs';
 
 const STAGE = { x: -1.0, z: 5.5 };
@@ -99,4 +99,12 @@ test('the round waits for the camera to come down to the front door: never begun
   assert.equal(shotSettled({ to: MENU_SHOTS.main, duration: 2.8, elapsed: 1.2 }), false);
   assert.equal(shotSettled({ to: MENU_SHOTS.main, duration: 2.8, elapsed: 2.8 }), true);
   assert.equal(shotSettled({ to: MENU_SHOTS.solo, duration: 0, elapsed: 0 }), true);
+});
+
+test('menu travel is deliberate and longer reframing gets more time',()=>{
+  assert.equal(menuMoveSeconds(MENU_SHOTS.main,MENU_SHOTS.armory),.85);
+  assert.equal(menuMoveSeconds(MENU_SHOTS.armory,MENU_SHOTS.how),1.05);
+  const h=.001;
+  assert.ok((easeShot(h)-easeShot(0))/h<.0001);
+  assert.ok((easeShot(1)-easeShot(1-h))/h<.0001);
 });

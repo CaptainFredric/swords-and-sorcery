@@ -42,7 +42,7 @@ export const SPELLS = Object.freeze({
     gatherSec: 0.3,
     speed: 30,
     windResist: 1.2,             // a quicker, denser bolt: a little harder to blow aside
-    directDamage: 15,
+    directDamage: 16,
     edgeDamage: 11,
     radius: 1.6,
     // the cold, for a direct hit: this much of their speed taken at once, all of it back after this long; a body caught
@@ -78,8 +78,8 @@ export const SPELLS = Object.freeze({
       // all through it (easing out over its last `windEdge` of reach and outside the middle `windCore` of its angle),
       // drawing a body along the gust toward `wind` m/s (`drag`: how quickly), never past it: more than a knight can
       // run against (shared/src/gale.mjs galeWindAt, galeCarry)
-      lastsSec: 1.0,
-      fadeSec: 0.3,
+      lastsSec: 0.55,
+      fadeSec: 0.165,
       wind: 14,
       drag: 12,
       windEdge: 0.25,
@@ -116,12 +116,12 @@ export const CONJURED = Object.freeze({
   // balanced: a small Fireball, plainly less than one thrown from the palm
   vortexFire: Object.freeze({
     id: 'vortexFire', label: 'Vortex fire', conjured: true, speed: 27, windResist: 0.9,
-    directDamage: 10, edgeDamage: 6, radius: 1.8, shove: 0.6, size: 0.68,
+    directDamage: 7, edgeDamage: 4, radius: 1.8, shove: 0.6, size: 0.68,
   }),
-  // on the fire: a small, serious Fireball (a Fireball's blow at its heart, a tighter burst, no burn)
+  // on the fire: a small, serious Fireball (a stronger blow, a tighter burst, no burn)
   vortexBlaze: Object.freeze({
     id: 'vortexBlaze', label: 'Vortex blaze', conjured: true, speed: 26, windResist: 1,
-    directDamage: 18, edgeDamage: 10, radius: 2.2, shove: 0.85, size: 1.08,
+    directDamage: 15, edgeDamage: 9, radius: 2.2, shove: 0.85, size: 1.08,
   }),
 });
 

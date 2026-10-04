@@ -77,12 +77,11 @@ export const ULTIMATES = Object.freeze({
     speed: 9.3,            // the knight's own pace while it spins (a run is 7.5, a sprint 11)
     emphasisSec: 0.35,     // from balanced to all the way one way (twice that from one end to the other)
     // each emphasis at its full: turns a second; falling, gravity is this share of itself and the fall never faster
-    // than `maxFall` (rising is as ever); which fire it throws, and how often
-    balanced: Object.freeze({ revPerSec: 3.25, fallGravity: 0.4, maxFall: 5, fire: 'vortexFire', fireEverySec: 0.42 }),
-    blade: Object.freeze({ revPerSec: 4.25, fallGravity: 0.2, maxFall: 2.4, fire: 'ember', fireEverySec: 0.48 }),
-    fire: Object.freeze({ revPerSec: 2.1, fallGravity: 0.55, maxFall: 7, fire: 'vortexBlaze', fireEverySec: 0.6 }),
+    // than `maxFall` (rising is as ever); which fire it throws (one projectile per full active revolution)
+    balanced: Object.freeze({ revPerSec: 3.25, fallGravity: 0.4, maxFall: 5, fire: 'vortexFire' }),
+    blade: Object.freeze({ revPerSec: 4.25, fallGravity: 0.2, maxFall: 2.4, fire: 'ember' }),
+    fire: Object.freeze({ revPerSec: 2.1, fallGravity: 0.55, maxFall: 7, fire: 'vortexBlaze' }),
     fireFrom: 0.5,         // past this much emphasis either way, the fire thrown is that end's own
-    firstFireSec: 0.3,     // the first no sooner than this into the spin
     // the blade: how far its tip droops below level, how far it leans with the aim
     spin: Object.freeze({ droopDeg: 8, leanDeg: 25 }),
     // a contact: full damage within `inner` metres of the eyes along the blade, falling to `tip` of it at the point;
@@ -97,6 +96,17 @@ export const ULTIMATES = Object.freeze({
     world: Object.freeze({ reach: 1.75, stepDeg: 12, everySec: 0.4, sameSec: 0.8 }),
     recoverSec: 0.5,       // after it ends: no sword, spell or fist
     dizzySec: 1.6,         // and this long a little dizzy (seen and heard; nothing is taken from the knight)
+  }),
+  chivalry: Object.freeze({
+    id: 'chivalry',
+    label: 'Spells & Chivalry',
+    short: 'Chivalry',
+    startupSec: 0.65,
+    activeSec: 9,
+    lockoutSec: 2.5,
+    startupMove: 0.65,
+    startupStagger: 1.5,
+    projectileChivalryGateSec: 0.72,
   }),
 });
 
@@ -159,7 +169,7 @@ export function stepVortexEmphasis(emphasis, wanted, dt, vortex = ULTIMATES.vort
 }
 
 /**
- * What a Vortex is at an emphasis (-1..1): { revPerSec, fallGravity, maxFall, fireEverySec } eased between balanced
+ * What a Vortex is at an emphasis (-1..1): { revPerSec, fallGravity, maxFall } eased between balanced
  * and that end's own, and `fire` (which fire it throws) and `kind` ('balanced', 'blade', 'fire').
  */
 export function vortexTune(emphasis = 0, vortex = ULTIMATES.vortex) {
@@ -172,7 +182,6 @@ export function vortexTune(emphasis = 0, vortex = ULTIMATES.vortex) {
     revPerSec: mix('revPerSec'),
     fallGravity: mix('fallGravity'),
     maxFall: mix('maxFall'),
-    fireEverySec: mix('fireEverySec'),
     fire: vortex[kind].fire,
     kind,
   };

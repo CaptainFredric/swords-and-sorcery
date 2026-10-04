@@ -1,0 +1,49 @@
+/* The Armory's iron plaques, crimson cloth and brass edging carried into combat. */
+.prepared-spells {
+  position:absolute; left:50%; bottom:138px; transform:translateX(-50%);
+  width:302px; max-width:calc(100% - 28px); padding:9px 10px 8px;
+  color:var(--heraldry-cream); font:600 11px/1.2 var(--font-script); text-align:center; pointer-events:none;
+  border:1px solid #c99c525c; border-top:2px solid var(--heraldry-crimson);
+  background:linear-gradient(180deg, #321e1ded, #221d19e6); box-shadow:0 5px 16px #0005;
+  animation:prepared-enter .16s ease-out;
+}
+.prepared-spells::after { content:""; position:absolute; bottom:-1px; left:0; height:2px; width:var(--chivalry-left); background:var(--heraldry-brass); transition:width .08s linear; }
+.prepared-spells[hidden], .touch-prepared-fan[hidden] { display:none; }
+.prepared-spells>small { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; color:var(--heraldry-brass-light); }
+.prepared-spells>small>span { font:400 16px/1 var(--font-inscription); letter-spacing:.04em; }
+.prepared-spells>small>b { font:700 11px/1 var(--font-script); font-variant-numeric:tabular-nums; color:var(--heraldry-cream); }
+.prepared-spell-row { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; align-items:stretch; }
+.prepared-spell, .touch-prepared-slot {
+  --spell-color:#ffa35a; color:var(--heraldry-cream); border:1px solid #c99c5266; border-radius:2px;
+  background:linear-gradient(180deg, #3a322bf5, #221d19f5);
+  transition:border-color .12s ease, background .12s ease, transform .12s ease, box-shadow .12s ease;
+}
+.prepared-spell[data-spell="frostfire"], .touch-prepared-slot[data-spell="frostfire"] { --spell-color:#8fdcff; }
+.prepared-spell[data-spell="gale"], .touch-prepared-slot[data-spell="gale"] { --spell-color:#e6eee3; }
+.prepared-spell[data-spell="steel"], .touch-prepared-slot[data-spell="steel"] { --spell-color:#d8e1ea; }
+.prepared-spell { display:grid; grid-template-columns:20px minmax(0,1fr); gap:3px 4px; align-items:center; padding:7px 5px 5px; }
+.prepared-spell svg { width:20px; height:20px; grid-row:span 2; color:var(--spell-color); }
+.prepared-spell span { white-space:nowrap; font:400 12px/1 var(--font-inscription); }
+.prepared-spell b { font-size:10px; color:#c8d6ad; font-variant-numeric:tabular-nums; }
+.prepared-spell i { grid-column:1/-1; min-height:8px; font:800 7px/1 var(--font-script); letter-spacing:.12em; font-style:normal; color:var(--heraldry-brass-light); }
+.prepared-spell.current { border-color:var(--heraldry-brass-light); box-shadow:inset 3px 0 var(--heraldry-crimson), inset 0 0 14px #ecc97f12; }
+.prepared-spell.cooling b, .touch-prepared-slot.cooling b { color:#c3b39b; }
+.prepared-spell.highlighted, .touch-prepared-slot.highlighted { border-color:var(--heraldry-cream); transform:translateY(-2px); background:linear-gradient(180deg,#63352a,#34221c); box-shadow:0 0 0 1px #ecc97f44, inset 0 0 14px #ecc97f20; }
+.prepared-spells>em { display:block; font:700 9px/1.2 var(--font-script); font-style:normal; letter-spacing:.04em; margin-top:7px; color:#d0b98f; }
+.prepared-spells.cancelled>em { color:#efb29d; }
+.touch-prepared-fan { position:absolute; width:0; height:0; pointer-events:none; z-index:8; }
+.touch-prepared-slot { position:absolute; display:grid; justify-items:center; align-content:center; gap:3px; width:62px; min-height:60px; transform:translate(-50%,-50%); font:400 12px/1 var(--font-inscription); box-shadow:0 4px 12px #0006; }
+.touch-prepared-slot svg { width:23px; height:23px; color:var(--spell-color); }
+.touch-prepared-slot b { color:#c8d6ad; font:700 9px/1 var(--font-script); }
+.touch-prepared-slot.highlighted { transform:translate(-50%,calc(-50% - 2px)); }
+.chivalry-prepared .touch-spell { border-radius:2px; border-color:var(--heraldry-brass); background:linear-gradient(180deg,#493127e6,#221d19e6); }
+.chivalry-prepared .touch-spell.prepared-highlighted { border-color:var(--heraldry-cream); box-shadow:inset 0 0 14px #ecc97f33; }
+@keyframes prepared-enter { from { opacity:0; transform:translate(-50%,5px); } to { opacity:1; transform:translate(-50%,0); } }
+@media (pointer:coarse) { .prepared-spells { bottom:90px; width:254px; padding:7px 8px; } .prepared-spells>em { display:none; } .prepared-spell { grid-template-columns:16px minmax(0,1fr); gap:3px; padding:6px 3px 4px; } .prepared-spell svg { width:16px; height:16px; } }
+@media (max-height:450px) { .prepared-spells { bottom:104px; } }
+@media (prefers-reduced-motion:reduce) { .prepared-spells { animation:none; } .prepared-spell, .touch-prepared-slot, .prepared-spells::after { transition:none; } }
+.prepared-spell svg, .touch-prepared-slot svg { fill:none; stroke:currentColor; stroke-width:2.1; stroke-linecap:round; stroke-linejoin:round; }
+
+.prepared-spell kbd { grid-column:1/-1; justify-self:center; min-width:17px; padding:2px 3px; border:1px solid #c99c5280; border-radius:2px; color:var(--heraldry-brass-light); font:800 10px/1 var(--font-script); background:#171511b3; }
+.prepared-spells[data-input="touch"] kbd { display:none; }
+.prepared-spells[data-input="keyboard"].selecting>small>span { font:700 12px/1 var(--font-script); letter-spacing:.04em; }

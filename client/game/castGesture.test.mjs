@@ -25,3 +25,19 @@ test('the gesture turns the magic arm with local bone turns, scaled by how far i
   const half = castGestureRotations({ draw: 0.5, thrust: 0 });
   assert.ok(Math.abs(half[0].angle - CAST_GESTURE.draw[0].angle / 2) < 1e-9);
 });
+
+test('the ordinary cast changes direction smoothly at draw, release and recovery boundaries', () => {
+  const h = 1e-5;
+  for (const gather of [0, 0.18, 0.3, 0.5]) {
+    for (const boundary of [gather, gather + CAST_GESTURE.releaseSec, gather + CAST_GESTURE.releaseSec + CAST_GESTURE.recoverSec]) {
+      const before = castGesture(boundary - h, gather);
+      const at = castGesture(boundary, gather);
+      const after = castGesture(boundary + h, gather);
+      for (const channel of ['draw', 'thrust']) {
+        const left = (at[channel] - before[channel]) / h;
+        const right = (after[channel] - at[channel]) / h;
+        assert.ok(Math.abs(left - right) < 0.02, `${gather}s gather: ${channel} jerks at ${boundary}s`);
+      }
+    }
+  }
+});

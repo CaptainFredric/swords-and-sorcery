@@ -1,3 +1,4 @@
+import { combatActionPolicy } from '../../shared/src/combatActionPolicy.mjs';
 export function resolveSpellbladeState(player, serverNow, castPoseUntil = 0, castPoseStartAt = -Infinity) {
   if (!player?.alive) return 'dead';
   if ((player.staggerUntil ?? 0) > serverNow) return 'stagger';
@@ -5,6 +6,7 @@ export function resolveSpellbladeState(player, serverNow, castPoseUntil = 0, cas
   if (player.ultimateState?.id === 'vortex') return 'vortex';
   // bracing into Sunder: the sword going up overhead, from the moment its key is pressed
   if (player.ultimateState?.id === 'sunder' && player.ultimateState.phase === 'startup' && serverNow < (player.ultimateState.commitAt ?? -Infinity)) return 'brace';
+  if (combatActionPolicy(player, serverNow).concurrent && player.attackActive) return 'attack';
   if ((player.dashUntil ?? 0) > serverNow) return 'dash';
   if (player.guarding) return 'guard';
   if (player.attackActive) return 'attack';
@@ -57,4 +59,16 @@ export function attackMotion(player, serverNow) {
   const local = Math.max(0, Math.min(1, (cycle - start) / duration));
   const swing = Math.sin(local * Math.PI);
   return { strike, local, swing };
+}
+
+export function concurrentPresentation(player, now, castUntil = player?.castEndsAt ?? 0, castStart = -Infinity) {
+  const policy = combatActionPolicy(player, now);
+  const available = policy.concurrent && player?.alive && (player.staggerUntil ?? 0) <= now;
+  return {
+    concurrent: available,
+    attack: available && Boolean(player.attackActive),
+    guard: available && Boolean(player.guarding),
+    cast: available && now >= castStart && castUntil > now,
+    dash: available && (player.dashUntil ?? 0) > now,
+  };
 }

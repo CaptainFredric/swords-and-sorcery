@@ -116,7 +116,7 @@ test('air selects a fixed pose while locomotion loops locally', () => {
   const idle = resolveSpellbladeAnimationPlan({ state: 'idle', player: {}, serverNow: 1, localTime: 7.5 });
   assert.equal(idle.clip, 'Idle');
   assert.equal(idle.loop, true);
-  close(idle.time, 7.5);
+  close(idle.time, 1 / 30 + (7.5 % (59 / 30)));
 });
 
 
@@ -181,4 +181,52 @@ test('the brace into Sunder is the slam\'s own wind-up: it eases up through the 
   // and that slam meets the ground `0.4 - firstSlamLead` after the commit, not a whole swing later
   const contact = resolveSpellbladeAnimationPlan({ state: 'attack', player: slamming, serverNow: slamming.attackStartedAt + 0.4 });
   close(contact.time, 0.36);
+});
+
+test('breathing clocks sample only the authored loop interval', () => {
+  close(GUARD_HOLD_START, 8 / 30);
+  const idle = (clock) => resolveSpellbladeAnimationPlan({ state: 'idle', localTime: clock });
+  close(idle(0).time, 1 / 30);
+  close(idle(59 / 30).time, 1 / 30);
+  const fp = resolveFirstPersonAnimationPlan({ state: 'idle' }, {}, 0);
+  close(fp.time, 1 / 30);
+});
+
+test('Chivalry guarded cuts use authored defensive variants at the ordinary contact clocks', () => {
+  const player = { alive: true, guarding: true, attackActive: true, attackStartedAt: 10,
+    ultimateState: { id: 'chivalry', phase: 'active', until: 19 } };
+  for (const [time, clip, local] of [[10.4,'GuardCut_1',.4],[11.1,'GuardCut_2',.38],[11.8,'GuardCut_3',.36]]) {
+    const plan = resolveSpellbladeAnimationPlan({ state:'attack', player, serverNow: time, localTime: time });
+    assert.equal(plan.layers.sword.clip,clip);
+    close(plan.layers.sword.time,local);
+    assert.equal(plan.layers.posture.clip,clip);
+    assert.equal(plan.layers.sorcery.clip,clip,'free gauntlet stays in the authored defensive cut');
+    assert.equal(plan.layers.sword.actionKey,10);
+    const casting = resolveSpellbladeAnimationPlan({ state:'attack', player:{...player,castPoseStartAt:time-.1,castPoseUntil:time+.2},serverNow:time });
+    assert.equal(casting.layers.sorcery.clip,'Cast');
+    assert.equal(casting.layers.sword.clip,clip);
+  }
+  const open=resolveSpellbladeAnimationPlan({state:'attack',player:{...player,guarding:false},serverNow:10.4});
+  assert.equal(open.layers.sword.clip,'Slash_1');
+});
+
+test('Sprint plus Guard sword and spell keeps authored gait with a restrained Sprint torso underlay', () => {
+  const p = { alive:true, sprinting:true, sprintBlend:1, guarding:true, attackActive:true, attackStartedAt:10,
+    castPoseStartAt:10.1, castPoseUntil:10.7, velocity:{x:0,y:0,z:-11},
+    ultimateState:{id:'chivalry',phase:'active',until:19} };
+  const plan = resolveSpellbladeAnimationPlan({ state:'attack', player:p, serverNow:10.4, localTime:2 });
+  assert.equal(plan.layers.locomotion.clip, 'Sprint');
+  assert.equal(plan.layers.sword.clip, 'GuardCut_1');
+  assert.equal(plan.layers.sorcery.clip, 'Cast');
+  assert.equal(plan.layers.posture.overlay?.clip, 'Sprint');
+  assert.ok(plan.layers.posture.overlay.weight > 0 && plan.layers.posture.overlay.weight <= .2);
+  const dash = resolveSpellbladeAnimationPlan({ state:'attack', player:{...p,dashUntil:10.5}, serverNow:10.4,localTime:2 });
+  assert.equal(dash.layers.locomotion.clip,'Dash');
+  assert.equal(dash.layers.sword.clip,'GuardCut_1');
+  assert.equal(dash.layers.sorcery.clip,'Cast');
+  assert.equal(dash.layers.posture.overlay,undefined);
+  const resumed = resolveSpellbladeAnimationPlan({ state:'guard', player:{...p,attackActive:false,castPoseUntil:0},serverNow:10.8,localTime:2.4 });
+  assert.equal(resumed.layers.locomotion.clip,'Sprint');
+  assert.equal(resumed.layers.sword.clip,'Guard');
+  assert.equal(resumed.layers.posture.overlay.clip,'Sprint');
 });

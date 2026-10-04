@@ -1,3 +1,5 @@
+import { chivalryTellState, chivalryVisorAccent } from './chivalryPresentation.mjs';
+import { createChivalryLink } from './chivalryLink.mjs';
 import * as THREE from 'three';
 import { createSpellbladeAsset, reportSpellbladeAssetStatus } from './SpellbladeAssets.mjs';
 import { createSpellbladeRig } from './SpellbladeModel.mjs';
@@ -194,6 +196,12 @@ export class RemotePlayers {
 
   onEvent(event, snapshot = null) {
     this.#react(event, snapshot);
+    const lifecycleShell = this.rigs.get(event?.playerId ?? event?.victimId ?? event?.defenderId);
+    lifecycleShell?.chivalryLink?.event(event);
+    if (lifecycleShell && ['ultimateStart', 'actionInterrupted', 'death', 'guardBreak', 'staggerBreak'].includes(event?.type)) {
+      const d = lifecycleShell.root.userData;
+      d.castPoseUntil = Math.min(d.castPoseUntil, event.at ?? 0);
+    }
     if (event?.type !== 'spellCast' || event.playerId === this.localId) return;
     const window = castPoseWindowFromEvent(event);
     if (!window) return;
@@ -234,6 +242,12 @@ export class RemotePlayers {
     d.reactions = [...pruneReactions(d.reactions, event.at), { kind: spec.kind, at: event.at, push, strength }];
     // the killing blow's push carries into the fall
     if (event.type === 'damage') d.lastPush = push;
+  }
+
+  /** Current animated sorcery socket, including the interpolated cast pose. */
+  palmPosition(id, target = new THREE.Vector3()) {
+    const palm = this.rigs.get(id)?.visualInstance?.sockets?.sorcery;
+    return palm ? palm.getWorldPosition(target) : null;
   }
 
   /** A gust of wind across a knight (a Gale): their cloth is flung the way it blows. */
@@ -280,6 +294,7 @@ export class RemotePlayers {
         }
       }
       d.lastAlive = player.alive;
+      if (player.castingSpell === null && snapshot.serverTime >= d.castPoseStartAt && d.castPoseUntil > snapshot.serverTime + 0.06) d.castPoseUntil = 0;
 
       const list = this.samples.get(player.id) ?? [];
       // a jump: leaving the ground upward (for the grunt some jumps get)
@@ -296,6 +311,7 @@ export class RemotePlayers {
         shell.steelSheen?.dispose();
         shell.sunderBlade?.dispose();
         shell.vortexBlade?.dispose();
+        shell.chivalryLink?.dispose();
         disposeRemoteVisualShell(shell);
         this.rigs.delete(id);
         this.samples.delete(id);
@@ -462,9 +478,13 @@ export class RemotePlayers {
     // crouched: the body is lower at once (the server's word); the pose eases down to it in a moment
     d.crouchAmount = (d.crouchAmount ?? 0) + ((pb.crouched && state !== 'dead' ? 1 : 0) - (d.crouchAmount ?? 0)) * (1 - Math.exp(-dt * 14));
     const crouch = crouchPose(d.crouchAmount, state === 'run' || state === 'sprint');
-    d.guardAmount = (d.guardAmount ?? 0) + ((state === 'guard' ? 1 : 0) - (d.guardAmount ?? 0)) * (1 - Math.exp(-dt * 14));
+    d.guardAmount = (d.guardAmount ?? 0) + ((pb.guarding && state !== 'stagger' && state !== 'dead' ? 1 : 0) - (d.guardAmount ?? 0)) * (1 - Math.exp(-dt * 14));
 
-    const animationPlayer = { ...pb, castPoseStartAt: d.castPoseStartAt };
+    const animationPlayer = { ...pb, castPoseStartAt: d.castPoseStartAt, castPoseUntil: d.castPoseUntil };
+    if ((pb.castEndsAt ?? 0) > serverNow && !(d.castPoseUntil > serverNow)) {
+      animationPlayer.castPoseUntil = pb.castEndsAt + 0.06;
+      animationPlayer.castPoseStartAt = pb.castStartedAt ?? pb.castEndsAt - (pb.castingSpell === 'gale' ? 0.5 : 0.3);
+    }
     const plan = resolveSpellbladeAnimationPlan({ state, player: animationPlayer, serverNow, localTime });
     plan.motion = {
       // the killing blow's flinch plays on into the death, and the body gives way under it
@@ -475,7 +495,7 @@ export class RemotePlayers {
       death: plan.clip === 'Death' ? { age: plan.time, push: d.lastPush ?? null } : null,
       crouch: crouch.flex,
       // the gauntlet's jab, if one is under way, and the crouch's lean
-      extra: state === 'dead' ? [] : [...crouch.turns, ...guardTurns(d.guardAmount), ...jabTurns(serverNow - (d.jabAt ?? -Infinity))],
+      extra: state === 'dead' ? [] : [...crouch.turns, ...guardTurns(plan.concurrent?.attack ? 0 : d.guardAmount), ...jabTurns(serverNow - (d.jabAt ?? -Infinity))],
     };
     setRemoteVisualPlan(shell, plan, dt);
     // a foot comes down where the gait clip puts it (its rate follows the knight's speed)
@@ -550,11 +570,19 @@ export class RemotePlayers {
     const glowAge = (nowMs - (shell.hitGlowAt ?? -Infinity)) / 1000;
     setHitGlow(shell, glowAge < HIT_GLOW.seconds ? 1 - glowAge / HIT_GLOW.seconds : 0);
 
+    if (pb.ultimateState?.id === 'chivalry' || shell.chivalryLink) {
+      shell.chivalryLink ??= createChivalryLink(shell.root, () => shell.visualInstance?.sockets ?? {
+        sword: shell.fallbackRig.userData.sword,
+        sorcery: shell.fallbackRig.userData.magicAnchor,
+      });
+      shell.chivalryLink.set(pb, serverNow, plan.concurrent);
+    }
     const protectedNow = (pb.spawnProtectionUntil ?? 0) > serverNow;
-    const accentIntensity = protectedNow ? 2.8 : state === 'cast' ? 2.3 : 1.4;
+    shell.chivalryAccent = chivalryTellState(pb, serverNow, shell.chivalryAccent);
+    const accentIntensity = (protectedNow ? 2.8 : state === 'cast' ? 2.3 : 1.4) + chivalryVisorAccent(shell.chivalryAccent, serverNow);
     if (shell.visualKind === 'fallback') {
       if (!shell.visual?.visible && nowMs - (shell.createdAtMs ?? nowMs) > FALLBACK_GRACE_MS) revealRemoteFallback(shell);
-      animateFallbackRig(shell.fallbackRig, state, pb, serverNow, localTime);
+      animateFallbackRig(shell.fallbackRig, state, animationPlayer, serverNow, localTime);
       shell.fallbackRig.userData.accentMaterial.emissiveIntensity = accentIntensity;
     } else {
       // the visor keeps its read (and flares for spawn protection); the gauntlet runes follow the palm sorcery
@@ -570,6 +598,7 @@ export class RemotePlayers {
       shell.steelSheen?.dispose();
       shell.sunderBlade?.dispose();
       shell.vortexBlade?.dispose();
+      shell.chivalryLink?.dispose();
       disposeRemoteVisualShell(shell);
     }
     this.rigs.clear();

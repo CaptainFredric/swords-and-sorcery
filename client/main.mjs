@@ -1,3 +1,7 @@
+import { ChallengesController } from './menu/ChallengesController.mjs';
+import { normalizePreparedSpells, replacePreparedSpell } from '../shared/src/preparedSpells.mjs';
+import { SPELLS } from '../shared/src/spells.mjs';
+import { ULTIMATES } from '../shared/src/ultimates.mjs';
 import { RenownController } from './menu/RenownController.mjs';
 import { GameLink, LINK_RESTORED, linkStatusView } from './network/GameLink.mjs';
 import { HUD } from './ui/HUD.mjs';
@@ -14,6 +18,8 @@ import { unsheatheRecipe } from './game/sound/soundRecipes.mjs';
 import { arenaGateCopy, challengeCopy, countdownSeconds, romanCount } from './menu/challengeCard.mjs';
 import { lobbyView, roomRows } from './menu/lobbyView.mjs';
 import { armoryView } from './menu/armoryView.mjs';
+import { createArmorySelection } from './menu/armorySelection.mjs';
+import { playArmorySound } from './menu/armorySound.mjs';
 import { seekView } from './menu/seekView.mjs';
 import { MenuController, shouldRouteSocketError } from './menu/MenuController.mjs';
 import { MenuScene } from './menu/MenuScene.mjs';
@@ -67,6 +73,11 @@ const hud = new HUD();
 // one sound engine for the whole page; it unlocks on the first click or key press. Around it: the wind and bell of
 // the courtyard, the music, and the Spellblade's voice.
 const sound = new SoundEngine();
+const armoryFeedback = createArmorySelection({
+  play: (id) => playArmorySound(sound, id),
+  preview: (id) => menuScene?.previewArmory(id),
+  restore: () => menuScene?.showSpell(router.current === SCREEN_IDS.ARMORY ? settings.get('loadout.spell') : null),
+});
 // the player's settings, saved in this browser (see settings/settingsRegistry.mjs for what exists and how to add more)
 const settings = new SettingsStore({ registry });
 sound.setLevels(soundLevels(settings));
@@ -164,6 +175,7 @@ function tourAllowed() {
 }
 
 function route(screenId) {
+  armoryFeedback.cancel();
   renown?.route(screenId);
   const previous = router.current;
   if (screenId === SCREEN_IDS.PLAYING) router.hideAll();
@@ -550,6 +562,10 @@ startMatchButton.addEventListener('click', () => socket.ready(!startMatchButton.
 // --- settings: every change reaches what it belongs to, at once ---
 function applySettings() {
   sound.setLevels(soundLevels(settings));
+  if (sound.levels.muted || sound.levels.effects === 0 || sound.levels.master === 0) {
+    armoryFeedback.cancel();
+    menuScene?.showSpell(router.current === SCREEN_IDS.ARMORY && renown?.section === 'kit' ? settings.get('loadout.spell') : null);
+  }
   const view = viewOptions(settings);
   menuScene?.setPixelRatioCap(view.pixelRatioCap);
   menuScene?.setTourAllowed(tourAllowed());
@@ -567,13 +583,22 @@ const settingsPanel = new SettingsPanel({
 settings.onChange((change) => {
   applySettings();
   if (change.id === 'loadout.ultimate') {
-    socket.loadout(settings.get('loadout.spell'), change.value);
+    armoryFeedback.cancel();
+    if (router.current === SCREEN_IDS.ARMORY && renown?.section === 'kit') menuScene?.showSpell(settings.get('loadout.spell'));
+    socket.loadout(settings.get('loadout.spell'), change.value, settings.get('loadout.preparedSpells'));
     renderArmory();
   }
   if (change.id === 'loadout.spell') {
-    socket.loadout(change.value, settings.get('loadout.ultimate'));
+    armoryFeedback.cancel();
+    const prepared = normalizePreparedSpells(change.value, settings.get('loadout.preparedSpells'));
+    if (JSON.stringify(prepared) !== JSON.stringify(settings.get('loadout.preparedSpells'))) settings.set('loadout.preparedSpells', prepared);
+    socket.loadout(change.value, settings.get('loadout.ultimate'), prepared);
     renderArmory();
     if (router.current === SCREEN_IDS.ARMORY) menuScene?.showSpell(change.value);
+  }
+  if (change.id === 'loadout.preparedSpells') {
+    socket.loadout(settings.get('loadout.spell'), settings.get('loadout.ultimate'), change.value);
+    renderArmory();
   }
   // choosing to lie sideways (a tap, so motion access can be asked for): say which way to turn the phone
   if (change.id === 'display.orientation' && change.value === 'sideways') {
@@ -592,6 +617,7 @@ document.addEventListener('click', (event) => {
 });
 
 renown = new RenownController({ socket, scene: () => menuScene, spell: () => settings.get('loadout.spell') });
+const challenges = new ChallengesController({ link: socket, getProfile: () => renown.profile, root: $('#armory-challenges'), rewardRoot: $('#challenges-reward') });
 $('#end-armory').addEventListener('click', () => {
   const showArmory = () => {
     runtime?.setPlaying(false);
@@ -612,7 +638,10 @@ $('#end-armory').addEventListener('click', () => {
 
 // --- the Armory: the Spellblade's kit (for now the blade, and the spell carried into a fight) ---
 function renderArmory() {
+  const focusSpell = document.activeElement?.dataset?.spell;
+  const focusUltimate = document.activeElement?.dataset?.ultimate;
   const view = armoryView(settings.get('loadout.spell'), settings.get('loadout.ultimate'));
+  $('#armory-equipped').textContent = `${({ fireball: 'Fireball', frostfire: 'Frostfire', gale: 'Gale', steel: 'Steel' })[settings.get('loadout.spell')]} · ${ULTIMATES[settings.get('loadout.ultimate')]?.short ?? 'Sunder'}`;
   $('#armory-blade-name').textContent = view.blade.name;
   $('#armory-blade-facts').textContent = view.blade.facts;
   $('#armory-spells').innerHTML = view.spells.map((spell) => `<button type="button" class="spell-card${spell.equipped ? ' equipped' : ''}" role="radio" aria-checked="${spell.equipped}" data-spell="${spell.id}">
@@ -621,19 +650,43 @@ function renderArmory() {
   $('#armory-ultimates').innerHTML = view.ultimates.map((u) => `<button type="button" class="spell-card ultimate-card${u.equipped ? ' equipped' : ''}" role="radio" aria-checked="${u.equipped}" data-ultimate="${u.id}">
     <span class="spell-mark">${u.mark}</span><span class="spell-name">${escapeHtml(u.name)}</span>${u.equipped ? '<i>EQUIPPED</i>' : ''}
     <small>${escapeHtml(u.line)}</small><em>${escapeHtml(u.facts)}</em></button>`).join('');
+  renderPreparedArmory();
+  if (focusSpell) document.querySelector(`[data-spell="${focusSpell}"]`)?.focus({ preventScroll: true });
+  if (focusUltimate) document.querySelector(`[data-ultimate="${focusUltimate}"]`)?.focus({ preventScroll: true });
 }
+function renderPreparedArmory() {
+  const root = $('#armory-prepared');
+  const chivalry = settings.get('loadout.ultimate') === 'chivalry';
+  root.classList.toggle('hidden', !chivalry);
+  if (!chivalry) return;
+  const starting = settings.get('loadout.spell');
+  const prepared = normalizePreparedSpells(starting, settings.get('loadout.preparedSpells'));
+  root.innerHTML = '<p class="armory-slot">PREPARED SPELLS</p><p class="panel-copy">The starting spell is marked ★. During Chivalry, hold Q and press 1, 2 or 3 to select. Release Q, then tap it to cast.</p>'
+    + prepared.map((id, slot) => `<label class="prepared-row"><span>${slot + 1} · ${id === starting ? '★ STARTING' : 'PREPARED'}</span><select data-prepared-slot="${slot}" aria-label="Prepared spell ${slot + 1}" ${id === starting ? 'disabled' : ''}>${Object.values(SPELLS).filter(s => s.id === id || !prepared.includes(s.id)).map(s => `<option value="${s.id}" ${s.id === id ? 'selected' : ''}>${escapeHtml(s.label)}</option>`).join('')}</select></label>`).join('');
+}
+$('#armory-prepared').addEventListener('change', event => {
+  const slot = Number(event.target.dataset.preparedSlot);
+  const prepared = replacePreparedSpell(settings.get('loadout.spell'), settings.get('loadout.preparedSpells'), slot, event.target.value);
+  settings.set('loadout.preparedSpells', prepared);
+  menuScene?.showSpell(event.target.value);
+});
+renderArmory();
 $('#armory-ultimates').addEventListener('click', (event) => {
   const card = event.target.closest('[data-ultimate]');
-  if (card) settings.set('loadout.ultimate', card.dataset.ultimate);
+  if (card) armoryFeedback.select(card.dataset.ultimate, settings.get('loadout.ultimate'), (id) => settings.set('loadout.ultimate', id));
 });
 $('#armory-button').addEventListener('click', () => {
   renderArmory();
   route(SCREEN_IDS.ARMORY);
 });
+for (const id of ['armory-kit-tab', 'armory-heraldry-tab', 'armory-challenges-tab']) $('#'+id).addEventListener('click', () => {
+  armoryFeedback.cancel();
+  menuScene?.showSpell(id === 'armory-kit-tab' ? settings.get('loadout.spell') : null);
+});
 $('#armory-back').addEventListener('click', () => route(SCREEN_IDS.MAIN_MENU));
 $('#armory-spells').addEventListener('click', (event) => {
   const card = event.target.closest('[data-spell]');
-  if (card) settings.set('loadout.spell', card.dataset.spell);
+  if (card) armoryFeedback.select(card.dataset.spell, settings.get('loadout.spell'), (id) => settings.set('loadout.spell', id));
 });
 
 // the sound and music switches (M and N unless rebound; the same switches sit in the arena menu for touch screens)
@@ -689,10 +742,11 @@ for (const button of document.querySelectorAll('[data-turn-flip]')) {
     screenTurn?.listenToMotion();
   });
 }
-// every button lands with a little brass (not the on-screen fighting controls)
+// Armory item cards own their identity cue; opening the Armory stays silent.
 document.addEventListener('click', (event) => {
   const button = event.target.closest?.('button');
-  if (!button || button.disabled || button.closest('.touch-controls')) return;
+  if (!button || button.disabled || button.closest('.touch-controls')
+    || button.matches('[data-spell], [data-ultimate], #armory-button')) return;
   const back = button.classList.contains('back-button') || /leave|cancel|back/.test(button.id);
   const variant = back ? 'back' : button.classList.contains('primary-command') ? 'confirm' : 'press';
   sound.play(uiClankRecipe(Math.random, { variant }), { bus: 'ui' });
@@ -735,6 +789,7 @@ $('#practice-fight').addEventListener('click', () => socket.practiceSpawnDummy('
 $('#practice-sorcery').addEventListener('click', () => socket.practiceSpawnDummy('SORCERY'));
 $('#practice-melee').addEventListener('click', () => socket.practiceSpawnDummy('MELEE'));
 $('#practice-runner').addEventListener('click', () => socket.practiceSpawnDummy('RUNNER'));
+$('#practice-ultimate-knight').addEventListener('click', () => socket.practiceSpawnDummy('ULTIMATE_KNIGHT'));
 $('#practice-remove').addEventListener('click', () => socket.practiceRemoveDummy());
 // the yard earns no prowess: this readies the ultimate to try
 $('#practice-ultimate').addEventListener('click', () => socket.practiceReadyUltimate());
@@ -887,7 +942,7 @@ for (const selector of ONLINE_COMMANDS) {
 
 socket.on('connection', ({ connected }) => {
   // every connection carries the Armory's spell (the server keeps it for the rooms this connection joins)
-  if (connected) socket.loadout(settings.get('loadout.spell'), settings.get('loadout.ultimate'));
+  if (connected) socket.loadout(settings.get('loadout.spell'), settings.get('loadout.ultimate'), settings.get('loadout.preparedSpells'));
   if (!connected && runtime) hud.flashText('RECONNECTING…', 'danger');
 });
 

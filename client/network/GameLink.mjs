@@ -45,7 +45,7 @@ export const LINK_RESTORED = Object.freeze({ title: 'WORTHY CHALLENGERS AWAIT YO
 
 const FORWARDED = ['playerId', 'token', 'roomCode', 'latestSnapshot', 'snapshotReceivedAt', 'pingMs'];
 const PLAY = ['startMatch', 'ready', 'arenaReady', 'practiceResetPlayer', 'practiceSpawnDummy', 'practiceRemoveDummy',
-  'practiceSetDummyMode', 'practiceReadyUltimate', 'input', 'attack', 'guard', 'cast', 'gauntlet', 'ultimate', 'dash', 'rematch', 'vote',
+  'practiceSetDummyMode', 'practiceReadyUltimate', 'input', 'attack', 'guard', 'cast', 'castCurrentSpell', 'selectPreparedSlot', 'castPreparedSpell', 'selectPreparedSpell', 'gauntlet', 'ultimate', 'dash', 'rematch', 'vote',
   'ping', 'send'];
 const ONLINE = ['createRoom', 'quickPlay', 'joinRoom', 'seekDuel', 'cancelSeek', 'seekBotDuel', 'listRooms', 'createPublicRoom'];
 
@@ -121,7 +121,7 @@ export class GameLink {
     this.#setStatus('online');
     // every connection carries what the player brings (the Armory's spell): heard like a reconnect
     if (this.hosting === 'remote') this.#emit('connection', { connected: true });
-    else this.remote.loadout(this.local.spell, this.local.ultimateId);
+    else this.remote.loadout(this.local.spell, this.local.ultimateId, this.local.preparedSpells);
   }
 
   #retryLater() {
@@ -192,9 +192,9 @@ export class GameLink {
     if (this.hosting === 'local') this.hosting = 'remote';
   }
 
-  loadout(spell, ultimate) {
-    this.local.loadout(spell, ultimate);
-    this.remote.loadout(spell, ultimate);
+  loadout(spell, ultimate, preparedSpells) {
+    this.local.loadout(spell, ultimate, preparedSpells);
+    this.remote.loadout(spell, ultimate, preparedSpells);
   }
 
   serverNow() {

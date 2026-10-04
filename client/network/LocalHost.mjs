@@ -10,6 +10,7 @@ import { RoomManager } from '../../shared/sim/RoomManager.mjs';
 import { applyRoomCommand, serializeLobby, serializeSnapshot } from '../../shared/sim/wire.mjs';
 import { DEFAULT_SPELL, isSpell } from '../../shared/src/spells.mjs';
 import { GAME_MODES, arenaOrDefault } from '../../shared/src/modes.mjs';
+import { normalizePreparedSpells, DEFAULT_PREPARED_SPELLS } from '../../shared/src/preparedSpells.mjs';
 import { DEFAULT_ULTIMATE, isUltimate } from '../../shared/src/ultimates.mjs';
 
 const TICK_RATE = 30;
@@ -36,6 +37,7 @@ export class LocalHost {
     this.room = null;
     this.timer = null;
     this.spell = DEFAULT_SPELL;
+    this.preparedSpells = [...DEFAULT_PREPARED_SPELLS];
     // (the ultimate carried: named apart from ultimate(), the key's command)
     this.ultimateId = DEFAULT_ULTIMATE;
     this.playerId = null;
@@ -96,7 +98,7 @@ export class LocalHost {
     this.#stop();
     const time = this.now();
     const room = this.rooms.createSoloRoom(mode, time, arenaOrDefault(worldId));
-    const player = room.addPlayer({ id: randomId(), token: randomId(), name: String(name || 'Spellblade').slice(0, 18), spell: this.spell, ultimate: this.ultimateId }, time);
+    const player = room.addPlayer({ id: randomId(), token: randomId(), name: String(name || 'Spellblade').slice(0, 18), spell: this.spell, ultimate: this.ultimateId, preparedSpells: this.preparedSpells }, time);
     room.provisionModeActors(time);
     room.armAutoStart(time);
     this.room = room;
@@ -147,11 +149,21 @@ export class LocalHost {
     this.#deliver({ type: 'left' });
   }
 
-  loadout(spell, ultimate = this.ultimateId) {
+  loadout(spell, ultimate = this.ultimateId, preparedSpells = this.preparedSpells) {
     this.spell = isSpell(spell) ? spell : DEFAULT_SPELL;
     this.ultimateId = isUltimate(ultimate) ? ultimate : DEFAULT_ULTIMATE;
-    if (this.player && !this.player.pendingSpell) this.player.spell = this.spell;
-    if (this.player && !this.player.ultimateState) this.player.ultimate = this.ultimateId;
+    this.preparedSpells = normalizePreparedSpells(this.spell, preparedSpells);
+    const player = this.player;
+    if (!player) return;
+    player.startingSpell = this.spell;
+    player.startingPreparedSpells = [...this.preparedSpells];
+    player.startingUltimate = this.ultimateId;
+    if (this.room?.state !== 'PLAYING') {
+      player.spell = this.spell;
+      player.preparedSpells = [...this.preparedSpells];
+      player.ultimate = this.ultimateId;
+      player.spellReadyAt = player.spellReadyById?.[this.spell] ?? -Infinity;
+    }
   }
 
   send(message) { this.#command(message); }
@@ -166,6 +178,18 @@ export class LocalHost {
   attack(down) { this.#command({ type: 'attack', down, clientTime: this.now() }); }
   guard(down) { this.#command({ type: 'guard', down, clientTime: this.now() }); }
   cast(direction) { this.#command({ type: 'cast', direction, clientTime: this.now() }); }
+  castPreparedSpell(spell, direction, input = {}) {
+    this.#command({ type: 'castPreparedSpell', spell, direction,
+      ...(Number.isFinite(input.yaw) ? { yaw: input.yaw } : {}),
+      ...(Number.isFinite(input.pitch) ? { pitch: input.pitch } : {}), clientTime: this.now() });
+  }
+  selectPreparedSlot(slot) { this.#command({ type: 'selectPreparedSlot', slot }); }
+  castCurrentSpell(direction, input = {}) {
+    this.#command({ type: 'castCurrentSpell', direction,
+      ...(Number.isFinite(input.yaw) ? { yaw: input.yaw } : {}),
+      ...(Number.isFinite(input.pitch) ? { pitch: input.pitch } : {}), clientTime: this.now() });
+  }
+  selectPreparedSpell(spell) { this.#command({ type: 'selectPreparedSpell', spell }); }
   gauntlet() { this.#command({ type: 'gauntlet', clientTime: this.now() }); }
   ultimate() { this.#command({ type: 'ultimate' }); }
   practiceReadyUltimate() { this.#command({ type: 'practiceReadyUltimate' }); }

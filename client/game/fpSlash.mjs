@@ -236,16 +236,16 @@ export const COMBO = settle([
   // 2. the backhand: the forehand's momentum carried on round the low left (the blade still moving, the body
   // starting to unwind), rebounding a little as it turns, then dipping to load...
   key(C1 + 0.22, [-0.03, -0.28, -0.62], dir(76, -17), [-0.8, -0.55, 0.2],
-    { shoulder: [-0.21, -0.01, -0.11], body: [-0.03, -0.012, -0.01], look: [-0.2, -1.4, -1.6], counter: [0.42, 0.3, 0.09] }),
+    { shoulder: [-0.21, -0.01, -0.11], body: [-0.03, -0.012, -0.01], look: [-0.2, -1.4, -1.6], counter: [0.42, 0.5, 0.09] }),
   key(C1 + 0.34, [-0.06, -0.25, -0.61], dir(73, 0), [0.75, 0.6, -0.2],
-    { shoulder: [-0.21, -0.02, -0.1], body: [-0.028, -0.012, -0.008], look: [0.1, -1.3, -1.6], counter: [0.38, 0.26, 0.06] }),
+    { shoulder: [-0.21, -0.02, -0.1], body: [-0.028, -0.012, -0.008], look: [0.1, -1.3, -1.6], counter: [0.38, 0.8, 0.06] }),
   key(C2 - 0.24, [-0.06, -0.33, -0.61], dir(69, -19), [0.7, 0.65, -0.2],
-    { shoulder: [-0.2, -0.03, -0.09], body: [-0.025, -0.012, -0.006], look: [0.3, -1.1, -1.5], counter: [0.3, 0.18, 0.04], ease: 0.6 }),
+    { shoulder: [-0.2, -0.03, -0.09], body: [-0.025, -0.012, -0.006], look: [0.3, -1.1, -1.5], counter: [0.3, 0.78, 0.04], ease: 0.6 }),
   // ...and rises across, the body unwinding behind it; through the middle at the contact
   key(C2 - EARLY, [-0.04, -0.31, -0.62], dir(64, -8), [0.75, 0.55, -0.35],
-    { shoulder: [-0.15, 0, -0.1], body: [-0.01, -0.005, -0.01], look: [0.1, -0.3, -0.5], counter: [0.14, 0.06, 0] }),
+    { shoulder: [-0.15, 0, -0.1], body: [-0.01, -0.005, -0.01], look: [0.1, -0.3, -0.5], counter: [0.14, 0.66, 0] }),
   key(C2, [0.05, -0.28, -0.64], dir(-10, 35), [0.8, 0.5, 0.3],
-    { shoulder: [-0.08, 0.03, -0.11], body: [0.015, 0.005, -0.01], look: [-0.3, 1.1, 1.0], counter: [0, -0.08, -0.06] }),
+    { shoulder: [-0.08, 0.03, -0.11], body: [0.015, 0.005, -0.01], look: [-0.3, 1.1, 1.0], counter: [0, 0.42, -0.06] }),
   key(C2 + LATE, [0.26, -0.15, -0.63], dir(-45, 40), [0.6, 0.35, 0.72],
     { shoulder: [0, 0.06, -0.07], body: [0.03, 0.01, -0.005], look: [0.1, 1.4, 1.3], counter: [-0.08, -0.18, -0.1] }),
   // it finishes high on the right, out in front; the magic hand is getting ready to reach
@@ -390,6 +390,30 @@ export function slamPose(time) {
   if (!Number.isFinite(time)) return null;
   const t = Math.max(0, Math.min(COMBO_END, time));
   return present(poseFrom(SLAM, t), t);
+}
+
+/** Author a separate sword path with the same continuous hand frame and natural recovery as the ordinary chain. */
+export function createSwordPath(keyframes) {
+  const keys = keyframes.map(({ t, wrist, blade, edge, ...motion }) => key(t, wrist, blade, edge, motion));
+  const homeTurn = quatFromFrame(leading(keys[0].lead, keys[0].blade), normalize(keys[0].blade));
+  const authored = settle(keys, homeTurn);
+  const sample = (time) => Number.isFinite(time)
+    ? present(poseFrom(authored, Math.max(0, Math.min(authored.at(-1).t, time))), time) : null;
+  return Object.freeze({
+    sample,
+    recover(from, elapsed, seconds = 0.3) {
+      if (!Number.isFinite(from) || !Number.isFinite(elapsed)) return sample(0);
+      if (elapsed >= seconds) return sample(0);
+      const start = poseFrom(authored, from), home = poseFrom(authored, 0);
+      const moving = velocityAt(authored, from);
+      if (dotQuat(start.turn, home.turn) < 0) home.turn = home.turn.map(v => -v);
+      const zero = Object.fromEntries(Object.entries(TRACK).map(([name, pick]) => [name, pick(home).map(() => 0)]));
+      const recovery = [{ t: 0, ...start, tangents: moving }, { t: seconds, ...home, tangents: zero }];
+      const raw = Object.fromEntries(Object.keys(TRACK).map(name => [name, spline(recovery, Math.max(0, elapsed), name)]));
+      raw.turn = normalizeQuat(raw.turn); raw.grip = 0;
+      return present(raw, from);
+    },
+  });
 }
 
 // --- going home: when a chain ends before its heavy strike (or is broken off), the arms come back to rest from

@@ -1,0 +1,2098 @@
+SWORDS & SORCERY — CODEX HANDOFF
+Spells & Chivalry + Prepared Spell Arsenal + Challenges + Ultimate Knight
+
+BASE
+Current main at handoff creation:
+30ea64816b061eeb6a092434359d9bc11efe1723
+
+Re-check main before beginning and report the actual base SHA used.
+
+Work in an isolated branch/worktree.
+
+This handoff SUPERSEDES all earlier Spells & Chivalry / Challenges handoffs.
+
+Claude may be working separately on subjective audio/presentation work.
+Avoid unrelated edits to:
+- Armory identity SFX
+- client/menu/armorySound.mjs
+- recorded VO / voice processing
+- menu music/autoplay
+- unrelated Sunder tuning
+- unrelated Vortex tuning
+
+Do not merge automatically if the new concurrent animation or spell-selection UX
+is visibly questionable.
+
+
+======================================================================
+GOALS
+======================================================================
+
+Implement three connected pieces:
+
+A. SPELLS & CHIVALRY
+   A third ultimate based on genuine simultaneous mastery of the ordinary kit.
+
+B. CHALLENGES
+   Permanent server-authoritative mastery challenges that double as an
+   implicit advanced tutorial.
+
+C. THE ULTIMATE KNIGHT
+   A Practice Yard opponent that demonstrates ultimates against the player.
+
+Implement in that order.
+
+Do not turn any of these into a generic live-service or hero-framework system.
+
+
+######################################################################
+#
+# PART A — SPELLS & CHIVALRY
+#
+######################################################################
+
+
+======================================================================
+1. CORE FANTASY
+======================================================================
+
+SPELLS & CHIVALRY
+
+Activation line already conceptually belongs to:
+
+    "I am the master... of swords & sorcery!!!"
+
+The mechanic needs to justify that claim.
+
+For 9 seconds, the Spellblade becomes exceptionally competent with the SAME
+combat kit rather than gaining generic stats.
+
+Ordinarily, Sword, Guard, Dash and spellcasting compete for action ownership.
+
+During Spells & Chivalry:
+
+    SWORD + GUARD + SPELL + DASH
+
+may operate simultaneously.
+
+In addition:
+
+- recovery between those actions becomes extremely fluid
+- ordinary parries still defeat a sword contact but do not impose the special
+  mandatory parry reel
+- the player gains access to THREE prepared spells chosen in the Armory
+- those spells can be switched rapidly during combat
+- whichever prepared spell becomes current stays current after the ultimate
+  ends, for the remainder of that match
+
+This is NOT:
+
+- +30% everything
+- damage resistance
+- invulnerability
+- infinite Guard
+- attack-speed steroid
+- movement-speed steroid
+- global cooldown reduction
+- AoE aura
+- a stance slider
+- a giant spell wheel
+- a paused inventory
+- Vortex again
+
+The fantasy is:
+
+    "I no longer have to choose one discipline at a time."
+
+
+======================================================================
+2. ULTIMATE IDENTITY RELATIVE TO SUNDER AND VORTEX
+======================================================================
+
+Preserve the three ultimate identities.
+
+SUNDER
+    brute physical authority
+    interruption
+    impact
+    rupture
+    overwhelms actions
+
+VORTEX
+    spatial threat
+    transformation
+    mobility
+    close-range hazard + aimed fire
+
+SPELLS & CHIVALRY
+    flexibility
+    concurrency
+    rapid tactical adaptation
+    technical mastery
+
+Do NOT hard-code a rock-paper-scissors triangle.
+
+But preserve the natural counterplay identities that emerge from these roles.
+
+Spells & Chivalry should not become "the safe best ultimate."
+
+
+======================================================================
+3. LIFECYCLE / VALUES
+======================================================================
+
+Use the existing Prowess lifecycle:
+
+press Ultimate
+-> vulnerable startup
+-> commit
+-> active
+-> end
+
+Provisional exact values:
+
+startupSec:                0.65
+activeSec:                 9.0
+lockoutSec:                2.5
+startupMove:               ~0.65
+startupStagger:            1.5
+projectileChivalryGateSec: 0.72
+
+Do not silently retune them.
+
+
+BEFORE COMMIT
+
+If killed or genuinely Staggered:
+- startup interrupted
+- Prowess retained
+- normal retry lockout applies
+
+
+AT COMMIT
+
+- Prowess spent
+- Chivalry becomes active
+
+
+AFTER COMMIT
+
+- ordinary interruption does not refund Prowess
+- death ends active Chivalry
+
+Ultimate-enabled damage must not fund the next Prowess charge.
+
+
+======================================================================
+4. STARTUP
+======================================================================
+
+Startup should visibly take ownership immediately.
+
+On startup:
+
+- stop ordinary sword continuation cleanly
+- lower Guard
+- cancel an uncommitted ordinary spell gather
+- normalize/end incompatible Dash state according to existing ultimate rules
+- deal no startup damage
+
+Blend visually rather than snapping.
+
+Physical held inputs remain intent.
+
+Examples:
+
+hold G through startup
+-> Guard becomes active immediately at commit
+
+hold LMB through startup
+-> sword may begin immediately at commit
+
+
+IMPORTANT NEW RULE:
+
+The prepared-spell HUD/repertoire may become visible during startup.
+
+The player may PRESELECT a prepared spell during startup.
+
+They may NOT cast it before commit.
+
+This gives the vulnerable startup a short tactical planning beat without
+turning it into a menu.
+
+
+======================================================================
+5. CORE CONCURRENCY
+======================================================================
+
+During active Chivalry:
+
+Beginning one action from:
+
+    Sword
+    Guard
+    current prepared spell
+    Dash
+
+does not cancel another legal action in that set.
+
+
+ATTACK + GUARD
+
+- sword attacks do not lower Guard
+- raising Guard does not stop sword chain
+- Guard remains mechanically active during attacks
+- normal sword geometry/timing/damage remain
+- attacking does not refresh perfect-parry timing
+
+
+ATTACK + SPELL
+
+- spell gather does not stop sword
+- sword does not cancel gather
+- release uses current authoritative aim/origin
+
+
+GUARD + SPELL
+
+- spell may gather and release while Guard remains active
+- casting does not lower Guard
+
+
+DASH + ATTACK
+
+- sword remains real spatial contact during Dash
+- no bonus Dash-strike damage
+- no duplicated sweep
+
+
+DASH + GUARD
+
+- Guard may remain active through Dash
+
+
+DASH + SPELL
+
+- gather/release may occur during Dash
+
+
+ALL FOUR
+
+Sword + Guard + spell + Dash simultaneously is legal.
+
+This must be real authoritative coexistence, not fake rapid state swapping.
+
+
+======================================================================
+6. FAST ACTION FLOW
+======================================================================
+
+Chivalry is also about technical fluency.
+
+Allowed actions should transition/recover into each other with very little
+dead time.
+
+Target presentation blend where useful:
+
+    ~80–120 ms
+
+Examples:
+
+- sword recovery -> spell
+- sword recovery -> Dash
+- sword recovery -> Guard
+- spell release -> sword
+- spell release -> Dash
+- Dash -> sword
+- Dash -> spell
+- Dash -> Guard
+- Guard -> sword
+- Guard -> spell
+
+IMPORTANT:
+
+If two actions can coexist, prefer coexistence.
+
+Do not cancel one merely because another began.
+
+Fast transitions remove dead recovery, not legitimate offensive clocks.
+
+
+======================================================================
+7. NO ANIMATION-CANCEL DPS
+======================================================================
+
+SWORD
+
+Once a sword strike is committed/live:
+
+- it is spent
+- it does not reset because another action begins
+- it does not duplicate because Dash began
+- it does not duplicate because Guard began
+- it does not duplicate because a spell began
+- the next strike cannot arrive earlier than the ordinary chain permits
+
+Do not create cancel-tech extra DPS.
+
+
+SPELL
+
+Once a spell gather is accepted:
+
+- one gather exists
+- it cannot duplicate
+- another action does not reset gather timing
+- release happens once
+- changing prepared spell cannot duplicate an accepted cast
+
+
+======================================================================
+8. GUARD: ADD G AS A SECOND DEFAULT
+======================================================================
+
+Keep:
+
+    RMB = Guard
+
+Add:
+
+    G = Guard
+
+as a second DEFAULT binding.
+
+Do not replace RMB.
+
+Guard remains one logical action with multiple physical sources.
+
+
+REQUIRED HOLD SEMANTICS
+
+Hold RMB
+press G
+release RMB
+
+=> Guard stays active because G remains held
+
+
+Hold G
+press RMB
+release G
+
+=> Guard stays active because RMB remains held
+
+
+Release both
+
+=> Guard ends
+
+
+Pressing a second Guard binding while logical Guard is already active must NOT:
+
+- emit a second Guard-start event
+- reset guardStartedAt
+- manufacture another perfect-parry window
+
+Touch controls remain unchanged.
+
+Vortex uses logical Guard for Blade emphasis, so either RMB or G may steer it.
+
+
+======================================================================
+9. PARRY RULE DURING CHIVALRY
+======================================================================
+
+A successful ordinary parry still:
+
+- defeats that sword contact
+- benefits defender normally
+- applies normal Balance contribution
+- produces parry presentation
+
+BUT:
+
+While committed Spells & Chivalry is active:
+
+    suppress the special mandatory parry action-lock/reel.
+
+The strike loses.
+
+The attacker does not become inert.
+
+
+This is NOT Stagger immunity.
+
+If the parry's Balance contribution creates a true Balance break:
+
+    real Stagger still happens.
+
+Chivalry does not protect against:
+
+- real Balance break
+- Guard Break
+- Sunder interruption
+- knockback
+- death
+
+
+======================================================================
+10. REAL COUNTERPLAY
+======================================================================
+
+Spells & Chivalry removes ordinary commitment vulnerability.
+
+It does NOT remove resource or physical vulnerability.
+
+Opponent counterplay should remain:
+
+- exhaust/break Guard
+- hit with spells that passive Guard does not solve
+- build real Balance break
+- Gale the player out of advantageous geometry
+- Sunder-interrupt current actions
+- disengage and survive the 9-second window
+- punish the return to ordinary action exclusivity afterward
+
+Do not add hidden DR to compensate for survivability.
+
+The ultimate's defense is:
+
+    "I can defend while doing other things."
+
+Not:
+
+    "I take less damage because ultimate."
+
+
+======================================================================
+11. PREPARED SPELLS — LOADOUT ARCHETYPE
+======================================================================
+
+Spells & Chivalry changes what the player's spell loadout means.
+
+A player who chooses this ultimate prepares THREE spells.
+
+Do NOT conceptually model them as:
+
+    Main
+    Reserve I
+    Reserve II
+
+Instead model:
+
+    PREPARED SPELLS
+    three equal spell identities
+    one is CURRENT
+
+Example:
+
+    PREPARED SPELLS
+
+    ★ Fireball
+      Frostfire
+      Gale Garner
+
+The star/current marker moves.
+
+The prepared SET does not.
+
+
+======================================================================
+12. ARMORY CONFIGURATION
+======================================================================
+
+When Spells & Chivalry is selected, its Armory card exposes:
+
+    PREPARED SPELLS
+
+Choose exactly THREE distinct legal spells.
+
+The player's ordinary equipped spell determines which prepared spell begins
+as CURRENT when the match begins.
+
+The other two are equally prepared, not lesser reserves.
+
+
+Example:
+
+Prepared:
+- Fireball
+- Frostfire
+- Gale
+
+Starting/current:
+- Fireball
+
+
+If ordinary starting spell is changed to one already in the set:
+
+preserve three unique prepared spells deterministically rather than allowing
+duplicates.
+
+Example:
+
+Prepared set:
+Fireball / Frostfire / Gale
+
+Starting:
+Fireball
+
+Player makes Frostfire starting spell.
+
+Result:
+
+Prepared set remains:
+Fireball / Frostfire / Gale
+
+Current/start marker moves to Frostfire.
+
+Do not needlessly reorder identities.
+
+
+======================================================================
+13. CHIVALRY AS A REAL LOADOUT CHOICE
+======================================================================
+
+The Armory should make this distinction legible:
+
+Choosing Sunder or Vortex:
+    choose a powerful dedicated ultimate
+
+Choosing Spells & Chivalry:
+    choose tactical breadth and a three-spell prepared arsenal
+
+This is part of the ultimate's identity.
+
+Do not hide the prepared-spell system behind an obscure settings disclosure.
+
+
+======================================================================
+14. CURRENT SPELL PERSISTENCE
+======================================================================
+
+Distinguish:
+
+A. SAVED STARTING SPELL
+   chosen in Armory for the next match
+
+B. MATCH CURRENT SPELL
+   currently active in live combat
+
+
+During Chivalry:
+
+switching prepared spell changes MATCH CURRENT SPELL.
+
+
+WHEN CHIVALRY ENDS:
+
+the selected spell stays current.
+
+
+WHEN PLAYER DIES AND RESPAWNS IN SAME MATCH:
+
+the selected spell stays current.
+
+
+ON A LATER CHIVALRY ACTIVATION:
+
+the same prepared set reopens around whatever member is currently selected.
+
+
+WHEN A NEW MATCH STARTS:
+
+return to SAVED STARTING SPELL.
+
+
+A tactical in-match switch must NOT silently rewrite the persistent Armory
+starting loadout.
+
+
+======================================================================
+15. SPELL MATCHUP INTENT
+======================================================================
+
+The prepared-spell system should enable real adaptation.
+
+Examples:
+
+Opponent passively Guards:
+    Fireball may be attractive
+
+Opponent needs slowing / spacing control:
+    Frostfire
+
+Environmental displacement opportunity:
+    Gale
+
+Need temporary mitigation:
+    Steel
+
+Do not flatten spell identities merely to make switching symmetrical.
+
+Prepared spell selection should reward knowledge of what each spell actually
+does.
+
+
+======================================================================
+16. SPELL SELECTION VS AVAILABILITY
+======================================================================
+
+Selection and availability are distinct.
+
+The player may make a prepared spell CURRENT even if that spell is cooling down.
+
+Selection means:
+
+    "This is what Q now attempts to use."
+
+Availability means:
+
+    "It is currently legal to cast."
+
+
+HUD must show unavailable/cooldown state clearly.
+
+
+======================================================================
+17. COOLDOWN OWNERSHIP
+======================================================================
+
+Switching spell must NEVER cleanse cooldown.
+
+Cooldown/use history follows spell identity.
+
+
+FIREBALL / FROSTFIRE
+
+During active Chivalry:
+
+- use ~0.72 second Chivalry projectile gate
+- one gather at a time
+- do not permanently rewrite ordinary cooldown clocks
+
+
+GALE GARNER
+
+Selectable during Chivalry.
+
+Do NOT make Gale a 0.72-second machine gun.
+
+Preserve its own meaningful cooldown/recast restrictions.
+
+
+SHEATHE IN STEEL
+
+Selectable during Chivalry.
+
+Steel retains:
+- normal cooldown
+- normal duration
+- normal mechanics
+
+
+GENERAL RULE:
+
+    switching spell identity does not reset ability history.
+
+
+======================================================================
+18. GAUNTLET
+======================================================================
+
+Gauntlet is NOT part of Chivalry's concurrency set.
+
+Do not:
+
+- shorten its cooldown
+- let it inherit projectile gate
+- grant special concurrency simply because Chivalry is active
+
+
+Important:
+
+If current selected spell is unavailable, Q should NOT unexpectedly become a
+gauntlet fallback during Chivalry.
+
+No accidental punching because the selected spell is cooling down.
+
+Explicit gauntlet input remains ordinary.
+
+
+======================================================================
+19. ATOMIC SELECT + CAST
+======================================================================
+
+This is important for network correctness.
+
+A player gesture meaning:
+
+    "switch to Frostfire and cast Frostfire"
+
+must be one logical server-authoritative intent.
+
+Do NOT depend on:
+
+packet A:
+    set current spell Frostfire
+
+packet B:
+    cast current spell
+
+because latency/order can cast the old spell.
+
+
+Provide an authoritative command equivalent to:
+
+    castPreparedSpell(slot/validated-id, aim/input-state)
+
+Server validates:
+
+- alive
+- Chivalry phase allows it
+- requested spell belongs to prepared set
+- requested spell is legal
+- relevant cooldown/gate is ready
+- gather rules allow another cast
+
+Then atomically:
+
+- change match current spell
+- begin that spell cast
+
+
+Clients send intent, not outcomes.
+
+
+======================================================================
+20. DESKTOP SPELL UX
+======================================================================
+
+Keep ordinary fast use simple.
+
+Q TAP
+    cast current spell
+
+
+During Chivalry:
+
+Q held briefly may reveal a SMALL pointer-lock-safe three-spell selector.
+
+Do NOT:
+
+- unlock mouse cursor
+- cover screen with wheel
+- pause match
+- use confirmation
+- use hold-to-confirm
+- use sliders
+- require several clicks
+
+
+Selection must stay near existing combat HUD/crosshair or spell UI.
+
+Exact interaction may follow current input architecture, but it must support:
+
+- current spell
+- two alternates
+- quick highlight
+- cancel
+- select+cast
+
+
+Expert temporary direct-slot shortcuts are acceptable only if they do not
+conflict with existing controls.
+
+Do not force 1/2/3 if those keys are already meaningful.
+
+
+======================================================================
+21. MOBILE SPELL UX
+======================================================================
+
+During active Chivalry, the existing spell button becomes a local gesture
+selector.
+
+
+TAP CURRENT SPELL BUTTON
+
+=> cast current spell
+
+
+PRESS / DRAG
+
+The other two prepared spells fan outward locally.
+
+Drag toward one.
+
+That spell highlights.
+
+
+RELEASE OVER ALTERNATE
+
+=> atomically:
+   select that spell
+   make it MATCH CURRENT
+   attempt to cast it
+
+
+DRAG OUTSIDE VALID REGION AND RELEASE
+
+=> cancel
+   no cast
+   no current-spell change
+
+
+Use hysteresis/deadzone so normal thumb jitter does not change spell.
+
+No:
+- fullscreen radial wheel
+- confirmation prompt
+- second tap
+- long hold
+
+
+======================================================================
+22. PRESELECTION DURING STARTUP
+======================================================================
+
+During the 0.65-second vulnerable startup:
+
+- prepared spell selector may appear
+- player may move CURRENT marker
+- server records valid selection intent
+
+BUT:
+
+no spell may actually cast until commit.
+
+This makes startup tactically useful without removing vulnerability.
+
+
+======================================================================
+23. HUD
+======================================================================
+
+While Chivalry is active, HUD needs to show:
+
+- CURRENT prepared spell prominently
+- two other prepared spells compactly
+- cooldown/unavailable state
+- ultimate remaining time
+
+Do not obstruct combat.
+
+After Chivalry ends:
+
+- repertoire display collapses
+- normal spell HUD remains
+- current spell remains whatever was selected
+
+
+======================================================================
+24. OPPONENT-FACING READABILITY
+======================================================================
+
+This is a major requirement.
+
+Sunder is obvious.
+
+Vortex is obvious.
+
+Spells & Chivalry must ALSO be readable to the opponent.
+
+An enemy must be able to tell:
+
+    "Spells & Chivalry is active."
+
+within roughly one second.
+
+
+Do NOT use a giant generic aura.
+
+Use a restrained but distinctive presentation, for example:
+
+- brief commit flash involving the three prepared spell signatures
+- subtle sword-to-sorcery magical connection
+- distinctive cross-body trace when concurrent actions overlap
+- recognizable stance/hand treatment
+- restrained heraldic/gold-cyan magical language
+
+Exact art direction may adapt to existing effects.
+
+The result must be tactically readable at normal combat distance.
+
+
+======================================================================
+25. END TELL
+======================================================================
+
+When Chivalry expires, opponents need to know ordinary commitment rules have
+returned.
+
+Provide a short recognizable end cue.
+
+Examples:
+
+- cross-body magical linkage collapses
+- multiple spell signatures resolve back to the one current spell
+- brief extinguishing/folding effect
+
+No giant explosion.
+
+This should create readable counterplay:
+
+    survive mastery
+    recognize the end
+    punish ordinary commitments again
+
+
+======================================================================
+26. ACTIVATION PRESENTATION
+======================================================================
+
+On commit, briefly communicate:
+
+    the prepared arsenal is open.
+
+The sorcery hand/HUD may flash the three prepared magical identities quickly.
+
+Do NOT play three full casts.
+
+Do NOT turn activation into a cutscene.
+
+
+======================================================================
+27. GUARDED OFFENSE ANIMATION
+======================================================================
+
+Guard + attack must read as one trained posture.
+
+Do NOT animate:
+
+Guard
+-> full neutral Slash
+-> Guard
+-> full neutral Slash
+
+Prefer:
+
+- defensive torso
+- compact sword motion
+- protected off-side
+- sword recovers through a defensible line
+- Guard remains mechanically/visually plausible
+
+
+======================================================================
+28. SPELL + SWORD ANIMATION
+======================================================================
+
+Sorcery arm and sword arm must operate independently enough to communicate
+real concurrency.
+
+Spell gather:
+- follows actual sorcery hand
+- does not reset because sword attacks
+
+Sword:
+- follows authoritative attack clock
+- does not reset because spell releases
+
+
+======================================================================
+29. DASH LAYERING
+======================================================================
+
+Dash movement belongs under active upper-body combat.
+
+Support:
+
+- Dash + Guard
+- Dash + sword
+- Dash + spell
+- all three upper-body actions during Dash
+
+Avoid:
+- arm teleport
+- sword through gauntlet
+- shoulder inversion
+- chest clipping
+- pose reset
+
+
+======================================================================
+30. REAL INTERRUPTIONS
+======================================================================
+
+Chivalry removes ordinary action exclusivity.
+
+It does NOT remove incapacitation.
+
+Still interrupt active ordinary actions on:
+
+- true Balance break / Stagger
+- Guard Break
+- Sunder action-cut
+- death
+- equivalent existing hard interruption
+
+On real interruption:
+
+- sword stops
+- Guard drops
+- pending gather lost
+- Dash ends if existing rules require
+
+If Chivalry was committed:
+
+- ultimate itself remains active
+- no refund
+- player may resume concurrency when recovered if time remains
+
+
+======================================================================
+31. SUNDER
+======================================================================
+
+Sunder remains especially meaningful against Chivalry.
+
+A committed Sunder hit should cut the Chivalry user's simultaneous ordinary
+actions together.
+
+Do not let Chivalry bypass Sunder interruption.
+
+Do not erase/refund already committed Chivalry.
+
+
+======================================================================
+32. EXPIRY
+======================================================================
+
+At 9.0 seconds:
+
+- no NEW illegal concurrency may begin
+- ordinary exclusivity resumes
+
+Already committed tails may finish cleanly:
+
+- live sword sweep
+- already accepted spell gather
+- already begun Dash
+
+Do not extend full Chivalry behavior beyond duration.
+
+CURRENT SPELL DOES NOT REVERT.
+
+
+======================================================================
+33. DEATH / RESPAWN / MATCH RESET
+======================================================================
+
+Death:
+
+- ends Chivalry
+- clears active concurrent actions
+- closes selector
+- clears temporary Chivalry gates/state
+
+BUT:
+
+MATCH CURRENT SPELL remains selected through respawn.
+
+
+New match:
+
+- restore SAVED STARTING SPELL
+
+
+======================================================================
+34. MINIMUM-SKILL / FAN TEST
+======================================================================
+
+This ultimate must work for a mediocre player too.
+
+A player should be able to:
+
+- activate
+- hold G
+- hold LMB
+- press Q sometimes
+- Dash sometimes
+
+and immediately receive value.
+
+Because:
+
+- Guard stays up
+- sword still works
+- spell still works
+- Dash does not cancel those
+- ordinary parries do not force the special reel
+
+
+They can still die to:
+
+- Guard Break
+- actual Stagger
+- spells
+- Sunder
+- positional mistakes
+- running stamina dry
+- being generally Fan
+
+
+The skill ceiling comes from:
+
+- choosing the right prepared spell
+- fast switching
+- cancel timing
+- aim
+- geometry
+- deliberate combinations
+
+
+======================================================================
+35. ARMORY PRESENTATION
+======================================================================
+
+When Spells & Chivalry is selected, Armory should visibly present its prepared
+spell loadout.
+
+Suggested structure:
+
+SPELLS & CHIVALRY
+
+PREPARED SPELLS
+★ Fireball
+  Frostfire
+  Gale Garner
+
+Clicking a prepared spell in the Armory may preview that spell's visual identity
+on the live model.
+
+Do not reopen identity-sound design in this task.
+
+
+Suggested description:
+
+"For 9 seconds, fight without choosing between swordplay and sorcery.
+Attack, Guard, Dash and cast together, and draw from three prepared spells.
+The spell you finish with stays equipped for the match."
+
+Suggested facts:
+
+"9 s · 3 prepared spells · rapid projectile casting · no parry reel"
+
+
+======================================================================
+36. SPELLS & CHIVALRY TESTS
+======================================================================
+
+Lifecycle:
+- startup interrupt retains Prowess
+- commit spends Prowess
+- active duration 9 sec
+- death ends active state
+
+Concurrency:
+- ordinary cancellation unchanged outside Chivalry
+- attack + Guard
+- attack + spell
+- Guard + spell
+- Dash + attack
+- Dash + Guard
+- Dash + spell
+- all four simultaneously
+
+Parry:
+- normal parry outside Chivalry reels normally
+- Chivalry parry defeats sword contact
+- no direct mandatory parry reel
+- Balance gain remains
+- actual Balance break still Staggers
+
+Guard input:
+- RMB default works
+- G default works
+- multi-held semantics correct
+- second binding does not refresh parry window
+
+Recovery:
+- low dead time
+- no accelerated sword cadence
+- no duplicate sweep
+- no duplicate projectile
+
+Prepared arsenal:
+- exactly 3 distinct spells
+- current marker moves independently from set
+- invalid requested spell rejected
+- spell switch persists after ultimate
+- persists through death
+- new match restores saved starting spell
+- tactical switch does not modify persistent Armory starting selection
+
+Cooldown:
+- swap does not clear cooldown
+- Fireball/Frostfire use Chivalry projectile gate
+- Gale keeps intended restriction
+- Steel keeps normal cooldown
+
+Network:
+- select+cast is atomic
+- packet timing cannot cast old spell
+- server validates prepared membership
+
+Selector:
+- startup preselection works
+- no pre-commit cast
+- expiry closes unresolved selector
+- death closes selector
+- pointer/touch cancellation clean
+- mobile drag-out cancels
+- touch jitter protected
+
+Opponent readability:
+- activation state visible remotely
+- active tell persists appropriately
+- end tell visible
+- no misleading lingering active effect after expiry
+
+
+######################################################################
+#
+# PART B — CHALLENGES
+#
+######################################################################
+
+
+======================================================================
+37. PURPOSE
+======================================================================
+
+Challenges are not merely alternate Renown chores.
+
+They serve TWO purposes:
+
+1. permanent mastery goals
+2. an implicit advanced tutorial for systems players may otherwise miss
+
+A good Challenge should make someone discover or deliberately use a real
+interaction in the combat system.
+
+Ask:
+
+    "Would the player remember doing this?"
+
+Not:
+
+    "How many more repetitions until the bar fills?"
+
+
+NO MMO QUEST SLOP.
+
+No:
+- Deal 10,000 damage
+- Cast Fireball 100 times
+- Kill 200 enemies
+- daily chores
+- weekly FOMO
+- login streaks
+- reroll currency
+- generic grind meters
+
+
+======================================================================
+38. CHALLENGE FAMILIES
+======================================================================
+
+Organize Challenges into a few meaningful families.
+
+Recommended initial families:
+
+SWORDSMANSHIP
+    sword / Guard / parry mastery
+
+SORCERY
+    spell interactions / Gale / Steel
+
+CHIVALRY
+    ultimates / mixed-discipline mastery
+
+ODDITIES
+    hidden or strange interactions
+
+Do not make categories so granular that each contains one item.
+
+These families should help the player notice:
+
+    "There are systems here I have not explored."
+
+
+======================================================================
+39. VISIBILITY
+======================================================================
+
+VISIBLE
+
+- title visible
+- real condition visible
+- progress visible where useful
+
+
+HINTED
+
+Before completion:
+- real title hidden
+- exact condition hidden
+- authored hint visible
+- no numeric leakage that trivially solves it
+
+After completion:
+- reveal title
+- reveal exact condition
+- mark complete
+- reveal reward
+
+Hints may vary deliberately in vagueness.
+
+Do not create an automatic hint-vagueness system.
+
+
+======================================================================
+40. REWARDS
+======================================================================
+
+Initial Challenges may primarily award Renown.
+
+BUT:
+
+Do not architect reward as:
+
+    reward: number
+
+Use an extensible reward shape, for example:
+
+    reward: { renown: 20 }
+
+This leaves room later for authored cosmetic rewards such as:
+
+- heraldry
+- title
+- crest variation
+- tabard trim
+- badge
+
+NO combat power rewards.
+
+Do not implement a giant cosmetic-reward feature now.
+
+Just avoid hardcoding the schema into "challenge equals integer Renown."
+
+
+======================================================================
+41. AUTHORITY
+======================================================================
+
+Challenge progress is server authoritative.
+
+Client does NOT report:
+
+    "I completed challenge X."
+
+Recommended split:
+
+shared/src/challenges.mjs
+    player-facing metadata / definitions
+
+shared/sim/challenges.mjs
+    authoritative match-local observation/evaluation
+
+server profile persistence
+    permanent progress/completion/rewards
+
+Combat code decides combat.
+
+Challenge code observes authoritative facts.
+
+Profile code persists settled results.
+
+
+======================================================================
+42. SETTLEMENT
+======================================================================
+
+Track relevant Challenge facts in match memory.
+
+Persist at eligible match settlement.
+
+Do not write profile disk state every sword hit.
+
+Eligible by default:
+
+- FFA
+- DUEL
+- BOT_DUEL
+
+Do not count:
+
+- Practice
+- profile-less/offline local play
+- forfeits
+- players who leave before eligible settlement
+
+Do not require the ordinary generic 30-second Renown threshold if the specific
+Challenge feat itself demonstrates meaningful participation.
+
+Challenge reward applies automatically.
+
+NO claim button.
+
+
+======================================================================
+43. PROFILE MIGRATION
+======================================================================
+
+Existing profiles must continue loading.
+
+Use explicit migration/versioning if appropriate.
+
+Persist enough for:
+
+- challenge progress
+- challenge completions
+- reward idempotency
+
+Unknown obsolete/future IDs must not corrupt profile.
+
+Repeated settlement must not double-pay.
+
+
+======================================================================
+44. COMPLETION PRESENTATION
+======================================================================
+
+Do not interrupt combat with a giant achievement modal.
+
+Allowed:
+
+- very small unobtrusive cue
+- match-end summary
+- Challenges panel in menu
+
+Hidden Challenge completion should feel authored, not generic.
+
+The data model should allow optional completion flavor/subtext.
+
+Example concept:
+
+WIND CORRECTION
+"The wind was apparently not particular about straight lines."
+
+Do not spend excessive time writing dozens of these now.
+
+Just leave room for them.
+
+
+======================================================================
+45. INITIAL CHALLENGE CURRICULUM
+======================================================================
+
+These should collectively teach hidden depth.
+
+
+SWORDSMANSHIP
+
+
+THREE-PART ARGUMENT
+VISIBLE
+reward: { renown: 15 }
+
+Land all three strikes of one ordinary sword chain on the SAME opponent
+without that chain being interrupted.
+
+Teaches:
+    sword chaining
+
+
+TURNABOUT
+VISIBLE
+reward: { renown: 20 }
+
+Perfect-parry an opponent, then kill that SAME opponent within 5 seconds.
+
+Teaches:
+    parry advantage / immediate conversion
+
+
+SORCERY
+
+
+MIND THE GAP
+VISIBLE
+reward: { renown: 20 }
+
+Earn an environmental/abyss kill attributed to your Gale displacement.
+
+Teaches:
+    environmental knockback
+
+
+WIND CORRECTION
+HINTED
+reward: { renown: 20 }
+
+Hint:
+
+    "The wind is not particular about straight lines."
+
+Condition:
+
+Hit an enemy with your ordinary projectile after that same owned projectile
+was bent by your Gale.
+
+Teaches:
+    Gale projectile bending
+
+
+POLISHED UNDER PRESSURE
+HINTED
+reward: { renown: 20 }
+
+Hint:
+
+    "Armor is most convincing when tested."
+
+Condition:
+
+While Steel is active, survive a damaging contact whose unmitigated damage
+would have been lethal.
+
+Teaches:
+    what Steel actually prevents
+
+
+CHIVALRY
+
+
+NOT YET
+VISIBLE
+reward: { renown: 20 }
+
+Interrupt an enemy ultimate during vulnerable startup before commit.
+
+Teaches:
+    ultimate startup vulnerability
+
+
+AGAINST BETTER JUDGMENT
+VISIBLE
+reward: { renown: 20 }
+
+Win a Duel after reaching 15 HP or less during that Duel.
+
+Teaches:
+    comeback / survival
+
+
+BOTH HANDS FULL
+HINTED
+reward: { renown: 25 }
+
+Hint:
+
+    "A knight need not choose one thing at a time."
+
+Condition during Spells & Chivalry:
+
+- Guard mechanically active during at least one relevant contact
+- damage SAME enemy with sword
+- damage same enemy with a prepared damaging spell
+- relevant damage events within 1.5 sec
+
+Teaches:
+    Chivalry concurrency
+
+
+PASSING REMARK
+HINTED
+reward: { renown: 15 }
+
+Hint:
+
+    "Momentum is an argument too."
+
+Condition:
+
+During active Spells & Chivalry, land an ordinary sword contact while
+authoritatively in Dash.
+
+Teaches:
+    sword geometry remains real while moving
+
+
+OPTIONAL — only if implementation stays clean:
+
+A BROADER EDUCATION
+HINTED
+reward: { renown: 25 }
+
+Hint:
+
+    "One discipline is respectable. Three begins to look intentional."
+
+Condition:
+
+During one Spells & Chivalry activation, make meaningful use of all three
+prepared spells.
+
+Meaningful use must be spell-specific and authoritative:
+
+Fireball/Frostfire:
+    hit an enemy
+
+Gale:
+    meaningfully affect enemy or projectile
+
+Steel:
+    actually reduce at least one incoming hit
+
+Do not build an ugly generic abstraction merely for this tenth challenge.
+
+Nine good challenges are better than ten bad ones.
+
+
+======================================================================
+46. CHALLENGE TESTS
+======================================================================
+
+Persistence:
+- old profiles migrate/load
+- completion persists
+- progress persists
+- reward applies once
+- repeated settlement idempotent
+- unknown IDs harmless
+
+Eligibility:
+- Practice no
+- offline/profile-less no
+- forfeit no
+- leave no
+- server FFA yes
+- Duel yes
+- Bot Duel yes where intended
+
+Visibility:
+- visible exposes title/condition
+- hinted hides title/condition
+- hint visible
+- hidden progress not leaked
+- completion reveals correct data
+
+Conditions:
+- Three-Part Argument same chain + same victim
+- interruption fails it
+- Turnabout wrong victim fails
+- >5 sec fails
+- Gale attribution required for Mind the Gap
+- Not Yet requires startup, not committed ult
+- low-health threshold exactly <=15
+- Wind Correction requires same owned Gale-bent projectile
+- Steel save requires genuinely lethal raw value
+- Both Hands Full same enemy + Guard + sword + prepared spell
+- Passing Remark requires sword contact DURING authoritative Dash
+
+
+######################################################################
+#
+# PART C — THE ULTIMATE KNIGHT
+#
+######################################################################
+
+
+======================================================================
+47. PURPOSE
+======================================================================
+
+Add a Practice Yard opponent:
+
+    THE ULTIMATE KNIGHT
+
+His job is NOT to be the hardest bot.
+
+His job is:
+
+    "Show me what these ultimates look like when another knight uses them
+    against me."
+
+This is particularly valuable for Spells & Chivalry because its mechanics are
+less visually obvious than Sunder or Vortex.
+
+
+======================================================================
+48. BEHAVIOR
+======================================================================
+
+The Ultimate Knight:
+
+- spawns with full Prowess or otherwise receives a ready ultimate promptly
+- uses real ultimate startup/commit/active/recovery rules
+- does not cheat around interruptibility
+- refills after a short Practice-specific delay
+- fights ordinarily between ultimates
+
+Prefer deterministic cycling:
+
+    Sunder
+    -> Vortex
+    -> Spells & Chivalry
+    -> repeat
+
+A small Practice control may optionally select:
+
+    CYCLE
+    SUNDER
+    VORTEX
+    SPELLS & CHIVALRY
+
+Do not randomize by default if determinism teaches better.
+
+
+======================================================================
+49. S&C DEMONSTRATION BEHAVIOR
+======================================================================
+
+When The Ultimate Knight uses Spells & Chivalry, deliberately demonstrate:
+
+- Guard + sword
+- spell + sword
+- Dash + sword
+- spell switching
+- at least occasional all-layer concurrency
+
+Do not make him perfect.
+
+He should visibly teach the mechanic.
+
+
+======================================================================
+50. PRACTICE EXCLUSIONS
+======================================================================
+
+Practice remains non-progression.
+
+The Ultimate Knight:
+
+- does not award Renown
+- does not advance Challenges
+- does not end the Practice session as a scored match
+
+Preserve existing Practice conventions.
+
+
+######################################################################
+#
+# ARCHITECTURAL REQUIREMENTS
+#
+######################################################################
+
+
+======================================================================
+51. DO NOT SCATTER CHIVALRY CHECKS
+======================================================================
+
+Avoid dozens of:
+
+    if (ultimateState?.id === 'chivalry')
+
+checks across unrelated code.
+
+There are existing action-cancellation relationships among:
+
+- attack
+- Guard
+- cast
+- Dash
+- WeaponView/presentation
+
+Extract only enough policy to make coexistence explicit.
+
+Examples:
+
+    combatActionPolicy(player, nowSec)
+
+or narrow predicates:
+
+    mayKeepGuardWhileAttacking(...)
+    mayKeepAttackWhileCasting(...)
+    suppressParryReel(...)
+    chivalryRecoveryAllowed(...)
+
+Do NOT build a massive generic ability scripting framework.
+
+The game has three ultimates.
+
+
+======================================================================
+52. DO NOT SCATTER CHALLENGE WRITES
+======================================================================
+
+Combat:
+    resolves combat and exposes facts
+
+Challenge evaluator:
+    interprets authoritative outcomes
+
+Profile store:
+    persists settled challenge state
+
+Do not let each combat feature directly mutate profile files.
+
+
+======================================================================
+53. AUTHORITATIVE SPELL STATE
+======================================================================
+
+Prepared spell set:
+    validated authoritative loadout state
+
+Current match spell:
+    authoritative combat state
+
+Client may predict selection visually.
+
+Server decides legality.
+
+Snapshots/reconciliation must keep local/current spell correct.
+
+
+======================================================================
+54. NETWORK / SECURITY PRINCIPLE
+======================================================================
+
+Preserve project doctrine:
+
+    CLIENTS SEND INTENT, NOT OUTCOMES.
+
+Never accept client claims such as:
+
+- challenge completed
+- spell successfully cast
+- target hit
+- Steel saved lethal damage
+- projectile was Gale-bent
+
+All derive from authoritative simulation.
+
+
+######################################################################
+#
+# MANUAL ACCEPTANCE
+#
+######################################################################
+
+
+======================================================================
+55. SPELLS & CHIVALRY
+======================================================================
+
+Loadout:
+1. Select Spells & Chivalry.
+2. Configure three distinct prepared spells.
+3. Confirm Armory clearly communicates the prepared arsenal.
+
+Startup:
+4. Activate.
+5. Prepared HUD appears during startup.
+6. Select Frostfire during startup.
+7. Confirm it cannot cast before commit.
+8. At commit, Frostfire is current.
+
+Concurrency:
+9. Hold G.
+10. Hold LMB.
+11. Cast current spell.
+12. Dash.
+13. Confirm all four operate concurrently.
+
+Parry:
+14. Get parried.
+15. Sword contact loses.
+16. No direct mandatory parry reel.
+17. Balance still increases.
+18. Force real Balance break.
+19. Real Stagger still occurs.
+
+Spell switching:
+20. Switch to another prepared spell.
+21. Cast it.
+22. Confirm requested spell, not stale previous spell, actually casts.
+23. Confirm it becomes current.
+
+Persistence:
+24. Let ultimate expire.
+25. Confirm changed spell remains current.
+26. Die/respawn.
+27. Confirm changed spell remains current.
+28. Start a new match.
+29. Confirm saved starting spell returns.
+
+Cooldown:
+30. Cast Fireball.
+31. Switch away and back.
+32. Confirm no cooldown cleanse.
+33. Confirm Gale cannot be spammed at projectile cadence.
+34. Confirm Steel retains normal cooldown.
+
+Mobile:
+35. Tap current spell = cast current.
+36. Drag to alternate = highlight.
+37. Release on alternate = select + cast.
+38. Drag out = cancel.
+39. Confirm jitter protection.
+
+Opponent:
+40. Observe remote Chivalry activation.
+41. Confirm active state is recognizable.
+42. Observe expiry.
+43. Confirm end state is recognizable.
+
+
+======================================================================
+56. CHALLENGES
+======================================================================
+
+Run real server-hosted matches.
+
+Verify:
+
+- valid feat settles
+- approximate-but-invalid feat does not
+- hidden details stay hidden before completion
+- completion reveals properly
+- reward applies once
+- reload persists
+- Practice cannot progress any challenge
+
+
+======================================================================
+57. ULTIMATE KNIGHT
+======================================================================
+
+Verify:
+
+- cycles real ultimates
+- startup can be interrupted
+- committed active behavior uses real systems
+- S&C visibly demonstrates concurrency and spell switching
+- no Renown/Challenge farming
+- Practice session never becomes scored because of him
+
+
+######################################################################
+#
+# VERIFICATION
+#
+######################################################################
+
+
+======================================================================
+58. AUTOMATED VERIFICATION
+======================================================================
+
+Run full repository verification.
+
+Run relevant:
+
+- shared tests
+- server tests
+- client tests
+- browser tests
+- multiplayer integration tests
+- input binding tests
+- action legality tests
+- ultimate lifecycle tests
+- profile migration tests
+- challenge evaluator tests
+- Practice bot tests
+
+
+If Blender-authored actions are modified:
+
+- run source build/export validation
+- verify asset budgets
+- report exact authored actions changed
+
+
+======================================================================
+59. FINAL REPORT
+======================================================================
+
+Report:
+
+1. base SHA
+2. resulting SHA
+3. exact Spells & Chivalry values
+4. files changed
+5. concurrency/action-policy architecture
+6. cancel/recovery implementation
+7. parry-reel suppression behavior
+8. prepared-spell data model
+9. saved-starting vs match-current spell semantics
+10. authoritative select+cast protocol
+11. desktop spell-selection UX
+12. mobile spell-selection UX
+13. opponent active/end tell
+14. animation composition strategy
+15. cooldown handling
+16. Challenge architecture
+17. Challenge families
+18. Challenge definitions/rewards
+19. profile migration
+20. Ultimate Knight behavior
+21. tests run/results
+22. manual/browser verification
+23. known presentation rough edges
+
+
+DO NOT AUTO-MERGE if:
+
+- concurrent animation visibly breaks
+- opponent cannot tell Chivalry is active
+- mobile selector is unreliable
+- select+cast sometimes casts wrong spell
+- swapping spells cleanses cooldown
+- ordinary combat regresses outside Chivalry
+- Challenges can be farmed in Practice
+
+
+======================================================================
+FINAL DESIGN TEST
+======================================================================
+
+SPELLS & CHIVALRY should make a player think:
+
+    "For nine seconds I can actually use the whole discipline."
+
+The novice should receive immediate value.
+
+The expert should discover frightening combinations.
+
+The opponent should understand what is happening and how to survive it.
+
+
+CHALLENGES should make players think:
+
+    "Oh. I didn't know the game could do that."
+
+Not:
+
+    "Only 37 more Fireballs."
+
+
+THE ULTIMATE KNIGHT should answer:
+
+    "What does this ultimate actually look like when it is used against me?"

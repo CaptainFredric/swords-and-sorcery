@@ -6,7 +6,6 @@ import { sorceryLevel } from './spellbladeMotion.mjs';
 import { SpellbladeAnimator } from './SpellbladeAnimator.mjs';
 import { appUrl } from '../appUrl.mjs';
 import { finishSword } from './swordFinish.mjs';
-import { trimSwordHand } from './swordHand.mjs';
 
 const DEFAULT_MANIFEST_URL = '/client/assets/characters/spellblade/manifest.json';
 const SHA40 = /^[0-9a-f]{40}$/;
@@ -142,8 +141,6 @@ export async function createSpellbladeAsset({ kind = 'thirdPerson', manifestUrl 
   if (!entry) throw new Error(`Spellblade manifest has no ${kind} asset`);
 
   const gltf = await loadGltf(entry.url);
-  // the first-person sword hand drawn in around its grip (once; every first-person clone shares the shape)
-  if (kind === 'firstPerson') trimSwordHand(gltf.scene);
   const root = SkeletonUtils.clone(gltf.scene);
   root.name = kind === 'firstPerson' ? 'SpellbladeFirstPersonAsset' : 'SpellbladeThirdPersonAsset';
   root.userData.sourceRevision = manifest.sourceRevision;
@@ -162,7 +159,7 @@ export async function createSpellbladeAsset({ kind = 'thirdPerson', manifestUrl 
   const castDuration = gltf.animations.find((clip) => clip.name === 'Cast')?.duration ?? 1;
   const animator = new SpellbladeAnimator(root, gltf.animations, (plan) => {
     // the palm glow stays a small ember except while a cast gathers and releases
-    sorcery.update(performance.now() / 1000, sorceryLevel(plan.clip, plan.time, castDuration));
+    sorcery.update(performance.now() / 1000, sorceryLevel(plan.layers?.sorcery?.clip ?? plan.clip, plan.layers?.sorcery?.time ?? plan.time, castDuration));
   }, { cloth: kind !== 'firstPerson' });
 
   const clothDye = createClothDye(root);

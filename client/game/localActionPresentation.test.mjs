@@ -92,3 +92,10 @@ test('bracing into an ultimate, nothing but the attack is shown in the hands: th
   const active = { ...auth, ultimateState: { id: 'sunder', phase: 'active', until: 18 } };
   for (const action of ['guard', 'cast', 'dash', 'attack']) assert.equal(canPresentLocalAction(action, active, state, 11), true, action);
 });
+
+test('Chivalry snapshots release the view Guard after an interruption even if its physical input remains held', () => {
+  const p = { alive: true, guarding: false, guardStamina: 100,
+    ultimateState: { id: 'chivalry', phase: 'active', until: 19 } };
+  assert.equal(localWeaponReleaseForSnapshot(p, 12)?.guard, true);
+  assert.equal(localWeaponReleaseForSnapshot({ ...p, guarding: true }, 12), null);
+});

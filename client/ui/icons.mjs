@@ -18,6 +18,7 @@ export const ICONS = Object.freeze({
   sunder: '<path d="M12 2.5v11.5M9 5.5h6M12 14l-1.6 2.6M12 14l1.6 2.6"/><path d="M2.5 20.5 6 18.5l2.5 1.7L11 18.2M13 18.2l2.5 2 2.5-1.7 3.5 2"/>',
   // Blazing Vortex: a turning spiral, and the spark it starts from
   vortex: '<path d="M12 12a2 2 0 0 1 2-2 4 4 0 0 1 4 4 6 6 0 0 1-6 6 8 8 0 0 1-8-8 8.5 8.5 0 0 1 7-8.4"/><path d="M18.5 2.5l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9z"/>',
+  chivalry: '<path d="M4 4l13 13M4 8l4-4M14 17l3-3M17 17l3 3M18 3l1 3 3 1-3 1-1 3-1-3-3-1 3-1zM4 19l5-5"/>',
   jump: '<path d="M12 18V6M6.5 11.5 12 6l5.5 5.5M6 21h12"/>',
   sprint: '<path d="M6 12.5 12 7l6 5.5M6 18.5 12 13l6 5.5"/>',
   // a chevron pressed down to a line

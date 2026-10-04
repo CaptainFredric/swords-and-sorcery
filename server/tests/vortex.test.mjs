@@ -97,7 +97,7 @@ test('the Vortex is an ultimate a knight can carry, beside Sunder (which stays t
   }
   assert.ok(ember.directDamage < fire.directDamage && fire.directDamage < blaze.directDamage, 'the blade\'s ember the weakest, the fire\'s the strongest');
   assert.ok(ember.radius < fire.radius && fire.radius < blaze.radius && blaze.radius < SPELLS.fireball.radius);
-  assert.ok(fire.directDamage > 8, 'balanced, more than the ember it used to throw');
+  assert.equal(fire.directDamage, 7, 'balanced projectile tuning');
   assert.ok(fire.directDamage < SPELLS.fireball.directDamage, 'and plainly less than a Fireball from the palm');
   assert.ok(blaze.directDamage <= SPELLS.fireball.directDamage);
 });
@@ -539,7 +539,7 @@ test('a knight who runs gets away from the sword', () => {
   assert.equal(b.alive, true);
 });
 
-test('its fire is thrown where the knight aims, on a limited clock, by the host: small Fireballs balanced, weak embers on the blade, serious ones on the fire', () => {
+test('its fire is thrown where the knight aims, once per revolution, by the host: small Fireballs balanced, weak embers on the blade, serious ones on the fire', () => {
   const thrown = (what) => {
     const { room, a, b } = duel({ distance: 12 });
     const each = () => { pinned(b, 12)(); b.health = 100; hold(a, what); };
@@ -549,7 +549,7 @@ test('its fire is thrown where the knight aims, on a limited clock, by the host:
   };
   const balanced = thrown(null);
   assert.ok(balanced.spawned.length >= 8, `${balanced.spawned.length} thrown`);
-  assert.ok(balanced.spawned.length <= Math.ceil(vortex.activeSec / vortex.balanced.fireEverySec) + 1, 'no more than its clock allows');
+  assert.ok(balanced.spawned.length <= Math.ceil(vortex.activeSec * vortex.balanced.revPerSec), 'one per completed revolution');
   for (const event of balanced.spawned) {
     assert.equal(event.projectile.spell, 'vortexFire');
     assert.equal(event.projectile.ownerId, 'a');
@@ -557,7 +557,7 @@ test('its fire is thrown where the knight aims, on a limited clock, by the host:
     // along the aim (a faces +x, level)
     const v = event.projectile.velocity;
     assert.ok(v.x > 0 && Math.abs(v.z) < 1e-6 && Math.abs(v.y) < 1e-6, 'toward the aim, not out in a ring');
-    assert.ok(event.at >= balanced.committed + vortex.firstFireSec - TICK, 'none in the startup');
+    assert.ok(event.at >= balanced.committed + 1 / vortex.balanced.revPerSec - TICK, 'none in the startup');
   }
   // they burst on what they meet, as their owner's, weaker than a Fireball, and earn their owner no prowess
   const burns = balanced.room.events.filter((e) => e.type === 'damage' && e.source === 'vortexFire');
@@ -567,13 +567,13 @@ test('its fire is thrown where the knight aims, on a limited clock, by the host:
   assert.equal(balanced.a.prowess, 0);
   assert.ok(!balanced.room.events.some((e) => e.type === 'damage' && e.source === 'burn'), 'and leave no burn');
   assert.equal(cuts(balanced.room.events).length, 0, 'twelve metres off, the sword never reached');
-  // on the blade: the weakest, and fewer; on the fire: the strongest and largest; all of them still along the aim
+  // on the blade: the weakest, and more frequent; on the fire: the strongest and largest; all of them still along the aim
   const blade = thrown('blade');
   const fire = thrown('fire');
   const kinds = (run) => [...new Set(run.spawned.filter((e) => e.at > run.committed + 1).map((e) => e.projectile.spell))];
   assert.deepEqual(kinds(blade), ['ember']);
   assert.deepEqual(kinds(fire), ['vortexBlaze']);
-  assert.ok(blade.spawned.length < balanced.spawned.length);
+  assert.ok(blade.spawned.length > balanced.spawned.length);
   for (const each of [...blade.spawned, ...fire.spawned]) {
     const v = each.projectile.velocity;
     assert.ok(v.x > 0 && Math.abs(v.z) < 1e-6 && Math.abs(v.y) < 1e-6);
@@ -736,26 +736,114 @@ test('what a player\'s view needs of it is on the wire: where the blade is and h
   assert.ok(Math.abs(slope - 2 * Math.PI * vortex.balanced.revPerSec) < 0.05, `it runs on into the spin: ${slope.toFixed(2)} rad/s`);
 });
 
-test('the rhythm of its fire: blade and balanced throw quicker and weaker than they did, the fire slowest, largest and worst to be hit by', () => {
-  const { blade, balanced, fire } = vortex;
-  const [ember, small, blaze] = [blade.fire, balanced.fire, fire.fire].map((id) => CONJURED[id]);
-  assert.deepEqual([blade.fire, balanced.fire, fire.fire], ['ember', 'vortexFire', 'vortexBlaze'], 'each emphasis keeps its own fire');
-  // how often (the blade's embers were every 0.75 s, balanced's fires every 0.55): both quicker, the fire's pace kept
-  assert.ok(blade.fireEverySec >= 0.48 && blade.fireEverySec <= 0.5);
-  assert.ok(balanced.fireEverySec >= 0.4 && balanced.fireEverySec <= 0.43);
-  assert.equal(fire.fireEverySec, 0.6, 'the fire\'s own pace is as it was');
-  // how hard each lands: blade < balanced < fire, direct and splash
-  assert.deepEqual([ember.directDamage, ember.edgeDamage], [4, 2]);
-  assert.deepEqual([small.directDamage, small.edgeDamage], [10, 6]);
-  assert.deepEqual([blaze.directDamage, blaze.edgeDamage], [18, 10], 'the fire\'s damage is kept');
-  assert.ok(ember.directDamage < small.directDamage && small.directDamage < blaze.directDamage);
-  // and the blade is never the best way to fight at range: what each can do in a second, at its own pace
-  const perSec = (tune) => CONJURED[tune.fire].directDamage / tune.fireEverySec;
-  assert.ok(perSec(blade) < perSec(balanced) && perSec(balanced) < perSec(fire), `${perSec(blade)} < ${perSec(balanced)} < ${perSec(fire)}`);
-  assert.ok(perSec(blade) < perSec(balanced) / 2, 'by a wide margin');
-  // the fire\'s ball: larger to look at and a little slower, its blast no wider than it was
-  assert.ok(blaze.size >= 1.05 && blaze.size <= 1.1);
-  assert.ok(blaze.speed >= 25.5 && blaze.speed <= 26 && blaze.speed < small.speed);
-  assert.equal(blaze.radius, 2.2);
-  assert.ok(ember.size < small.size && small.size < blaze.size);
+// Start exactly at commit so startup rotation and initial facing cannot count as active travel.
+function cadenceFixture(what = null) {
+  const { room, a } = duel({ distance: 30 });
+  a.prowess = PROWESS.full;
+  assert.equal(tryUltimate(room, a.id, 9), true);
+  const now = a.ultimateState.commitAt;
+  stepRoom(room, 0, now, openWorld);
+  hold(a, what);
+  a.ultimateState.emphasis = what === 'blade' ? 1 : what === 'fire' ? -1 : 0;
+  room.events.length = 0;
+  return { room, a, now, travel: 0 };
+}
+
+function cadenceStep(f, dt, { wrap = false } = {}) {
+  const state = f.a.ultimateState;
+  if (wrap) state.angle = ((state.angle % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+  const from = state.angle;
+  const before = Math.floor(f.travel / (2 * Math.PI));
+  const oldShots = fires(f.room.events).length;
+  f.now += dt;
+  stepRoom(f.room, dt, f.now, openWorld);
+  f.travel += state.angle - from;
+  const completed = Math.floor(f.travel / (2 * Math.PI));
+  assert.equal(fires(f.room.events).length - oldShots, completed - before,
+    'each authoritative angular boundary produces exactly one emission');
+  return completed - before;
+}
+
+for (const [what, rate] of [[null, 3.25], ['blade', 4.25], ['fire', 2.1]]) {
+  test(`Vortex ${what ?? 'balanced'} emits at every completed revolution, including the first`, () => {
+    const f = cadenceFixture(what);
+    for (let tick = 0; tick < 60; tick++) cadenceStep(f, TICK);
+    assert.ok(Math.abs(f.travel - 2 * Math.PI * rate * 2) < 1e-10);
+    assert.equal(fires(f.room.events).length, Math.floor(f.travel / (2 * Math.PI)));
+    const first = fires(f.room.events)[0];
+    assert.ok(first.at >= 9 + vortex.startupSec + 1 / rate - 1e-10);
+    assert.ok(first.at < 9 + vortex.startupSec + 1 / rate + TICK + 1e-10);
+  });
+}
+
+for (const [from, to] of [['blade', 'fire'], ['fire', 'blade']]) {
+  test(`Vortex ${from} to ${to} easing keeps the unfinished revolution`, () => {
+    const f = cadenceFixture(from);
+    cadenceStep(f, 0.12);
+    assert.equal(fires(f.room.events).length, 0);
+    const phase = f.travel;
+    hold(f.a, to);
+    cadenceStep(f, TICK);
+    assert.ok(f.travel > phase);
+    const e = f.a.ultimateState.emphasis;
+    assert.ok(e > -1 && e < 1, 'the existing emphasis easing remains active');
+    for (let tick = 0; tick < 45; tick++) cadenceStep(f, TICK);
+    // Rapid switching must still obey the same angular accounting.
+    for (let tick = 0; tick < 30; tick++) {
+      hold(f.a, tick % 2 ? from : to);
+      cadenceStep(f, TICK);
+    }
+  });
+}
+
+test('Vortex emits only across boundaries and accounts for multiple revolutions in one step', () => {
+  const f = cadenceFixture();
+  const revolution = 1 / 3.25;
+  assert.equal(cadenceStep(f, revolution - 0.001), 0);
+  assert.equal(cadenceStep(f, 0.002), 1);
+  assert.equal(cadenceStep(f, 0.001), 0);
+  assert.equal(cadenceStep(f, 3 * revolution), 3);
+});
+
+test('wrapping the visual sword angle cannot reset or duplicate Vortex emissions', () => {
+  const f = cadenceFixture('blade');
+  for (let tick = 0; tick < 90; tick++) cadenceStep(f, TICK, { wrap: true });
+  assert.equal(fires(f.room.events).length, Math.floor(f.travel / (2 * Math.PI)));
+});
+
+test('the boundary emission samples current authoritative aim', () => {
+  const f = cadenceFixture();
+  cadenceStep(f, 1 / 3.25 - 0.001);
+  f.a.input.yaw = 0;
+  f.a.input.pitch = 0.3;
+  assert.equal(cadenceStep(f, 0.002), 1);
+  const shot = fires(f.room.events)[0].projectile;
+  assert.ok(Math.abs(shot.velocity.x) < 1e-8 && shot.velocity.z < 0 && shot.velocity.y > 0);
+  assert.equal(shot.ultimate, true);
+});
+
+test('Vortex projectile direct and edge damage preserve Blade < Balanced < Fire pressure', () => {
+  for (const [id, direct, edge] of [['ember', 4, 2], ['vortexFire', 7, 4], ['vortexBlaze', 15, 9]]) {
+    assert.equal(CONJURED[id].directDamage, direct);
+    assert.equal(CONJURED[id].edgeDamage, edge);
+  }
+  assert.equal(4 * vortex.blade.revPerSec, 17);
+  assert.equal(7 * vortex.balanced.revPerSec, 22.75);
+  assert.equal(15 * vortex.fire.revPerSec, 31.5);
+});
+
+test('Stagger consumes suppressed Vortex revolutions without a recovery burst', () => {
+  const f = cadenceFixture();
+  f.a.staggerUntil = f.now + 0.8;
+  for (let tick = 0; tick < 23; tick++) {
+    f.now += TICK;
+    stepRoom(f.room, TICK, f.now, openWorld);
+  }
+  assert.equal(fires(f.room.events).length, 0);
+  // Recover before the next angular boundary; elapsed suppressed turns are never queued.
+  f.a.staggerUntil = 0;
+  const travel = f.a.ultimateState.travel;
+  f.travel = travel;
+  assert.equal(cadenceStep(f, 0.001), 0);
+  for (let tick = 0; tick < 20; tick++) cadenceStep(f, TICK);
 });

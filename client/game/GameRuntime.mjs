@@ -1,3 +1,4 @@
+import { combatActionPolicy, combatBlocksSprint } from '../../shared/src/combatActionPolicy.mjs';
 import * as THREE from 'three';
 import { getWorld } from '../../shared/worlds/registry.mjs';
 import { MOVEMENT, createMovementState, launchBody, movePlayer, resolveSprint, shoveBody, tryStartDash } from '../../shared/src/movement.mjs';
@@ -175,10 +176,17 @@ export class GameRuntime {
       if (canPresentLocalAction('guard', this.localAuth, this.localState, now)) this.weapon.setGuard(true);
     };
     // the palm starts gathering the moment the spell is called (the server's word follows and confirms it)
-    this.input.onCastLocal = () => {
+    this.input.onCastLocal = (metadata = {}) => {
       const now = this.socket.serverNow();
       const practice = this.#inPractice();
-      if (!canPresentLocalAction('cast', this.localAuth, this.localState, now, { practice, gate: this.localGate })) {
+      const intendedSpell = metadata.spell ?? this.localAuth?.spell;
+      const policy = combatActionPolicy(this.localAuth, now);
+      if (!canPresentLocalAction('cast', this.localAuth, this.localState, now, { practice, gate: this.localGate, spell: intendedSpell })) {
+        if (metadata.spellOnly || this.localAuth?.preparedSpellSelected || policy.concurrent || handsTaken(this.localAuth, now)) {
+          this.hud.denied?.('spell');
+          this.#play(deniedRecipe(), null, 0.6);
+          return;
+        }
         // on its cooldown the spell's key throws the gauntlet, on command (the server's word follows whether it met
         // anyone); only while the hand cannot (mid-swing, say), the cooldown's quiet no. (In the yard the key stays the
         // spell's: it comes back in a moment.)
@@ -188,7 +196,15 @@ export class GameRuntime {
         }
         return;
       }
-      const spell = spellFor(this.localAuth?.spell);
+      const spell = spellFor(intendedSpell);
+      this.weapon.setCombatPolicy(policy, this.localAuth, now);
+      if (policy.concurrent) {
+        this.localGate = { ...(this.localGate ?? {}),
+          projectile: !spell.kind ? now + policy.projectileGateSec : this.localGate?.projectile ?? 0,
+          gatherUntil: now + (spell.gatherSec ?? 0),
+          byId: { ...(this.localGate?.byId ?? {}), [spell.id]: now + spell.cooldownSec },
+        };
+      }
       if (practice) this.localGate = { ...(this.localGate ?? {}), spell: now + Math.max(PRACTICE_RECAST.gateSec, spell.gatherSec ?? 0) };
       // Sheathe in Steel, carried in the spell's place: the clench and the ring of plate at once (the server hardens
       // the armour a moment later)
@@ -230,6 +246,7 @@ export class GameRuntime {
       }
     };
     // the meter full: a restrained note, once
+    this.input.onPreparedSelector = (view) => this.hud.setPreparedSelector?.(view);
     this.hud.onUltimateReady = () => this.#play(ultimateReadyRecipe(), null, 0.9);
     this.input.onDashLocal = (dir) => {
       const now = this.socket.serverNow();
@@ -293,6 +310,8 @@ export class GameRuntime {
     if (!release) return;
     if (release.attack) this.weapon.cancelAttack();
     if (release.guard) this.weapon.setGuard(false);
+    if (release.cast) this.weapon.cancelCast();
+    if (release.dash && this.localState) this.localState.dashUntil = this.socket.serverNow();
   }
 
   #ensureWorld(worldId) {
@@ -399,6 +418,7 @@ export class GameRuntime {
   enableTouch() {
     if (this.touch) return;
     this.touch = new TouchControls(this.hud.root, this.input);
+    this.hud.setPreparedInputMode('touch');
     this.touch.setScale(this.touchScale);
     this.touch.setGauntletButton(this.touchGauntlet);
     this.input.touch = this.touch;
@@ -414,12 +434,16 @@ export class GameRuntime {
 
   onSnapshot(snapshot) {
     if (!this.#ensureWorld(snapshot.worldId)) return;
+    if (snapshot.matchStartedAt !== this.latestSnapshot?.matchStartedAt) this.localGate = null;
     this.latestSnapshot = snapshot;
     this.remotePlayers.pushSnapshot(snapshot, performance.now());
     this.effects.syncProjectiles(snapshot.projectiles ?? []);
     const auth = snapshot.players.find((p) => p.id === this.socket.playerId);
     this.localAuth = auth ?? null;
+    this.input.updatePreparedSpells?.(auth, this.socket.serverNow());
+    this.weapon.setCombatPolicy(combatActionPolicy(auth, this.socket.serverNow()), auth, this.socket.serverNow());
     if (!auth) return;
+    this.weapon.reconcileCast(auth, this.socket.serverNow());
     if (!this.localState) {
       this.localState = createMovementState(auth.position);
       this.localState.velocity = { ...auth.velocity };
@@ -449,20 +473,28 @@ export class GameRuntime {
       this.localState.dashReadyAt = auth.dashReadyAt;
       this.localState.dashUntil = auth.dashUntil ?? this.localState.dashUntil;
     }
-    this.#applyWeaponRelease(localWeaponReleaseForSnapshot(auth, this.socket.serverNow()));
+    const released = localWeaponReleaseForSnapshot(auth, this.socket.serverNow());
+    this.#applyWeaponRelease(released);
+    if (released?.attack && released?.guard) this.weapon.cancelCast();
+    // Guard follows authority, including its single automatic raise and later interruptions.
+    if (combatActionPolicy(auth, this.socket.serverNow()).concurrent && auth.alive && (auth.staggerUntil ?? 0) <= this.socket.serverNow()) {
+      this.weapon.setGuard(Boolean(auth.guarding) && auth.guardStamina > 0);
+      if (this.input.attackHeld) this.weapon.setAttack(true);
+    }
   }
 
   onEvents(events) {
     for (const event of events) {
       this.remotePlayers.onEvent(event, this.latestSnapshot);
-      this.#applyWeaponRelease(localWeaponReleaseForEvent(event, this.socket.playerId));
+      this.#applyWeaponRelease(localWeaponReleaseForEvent(event, this.socket.playerId, this.localAuth, event.at ?? this.socket.serverNow()));
 
       const me = this.socket.playerId;
+      if (event.playerId === me || event.victimId === me) this.weapon.chivalryEvent(event);
       if (event.type === 'spellCast') {
         const spell = spellFor(event.spell);
         const duration = castVisualDuration(event, me, this.socket.serverNow());
         if (duration !== null) {
-          this.weapon.cast({ gatherSec: Math.max(0, duration - 0.06), spell: spell.id });
+          this.weapon.cast({ gatherSec: Math.max(0, duration - 0.06), spell: spell.id, accepted: true });
           this.effects.castFlash(spell.id);
         }
         const release = Math.max(0, (event.castEndsAt ?? event.at + spell.gatherSec) - this.socket.serverNow());
@@ -474,7 +506,23 @@ export class GameRuntime {
             this.localGale.confirmed = true;
           }
           const body = event.playerId === me ? null : this.#bodyPosition(event.playerId);
-          if (body) this.effects.galeGather({ x: body.x, y: body.y + 1.3, z: body.z });
+          if (body) this.effects.galeGather(() => {
+            const current = this.remotePlayers.bodyAim?.(event.playerId);
+            if (!current) return null;
+            const direction = aimVector(current.yaw, current.pitch);
+            const palm = this.remotePlayers.palmPosition(event.playerId);
+            return { origin: palm ?? { x: current.x, y: current.y + 1.3, z: current.z }, direction };
+          }, { gatherSec: release });
+        }
+        if (event.playerId !== me && (spell.id === 'fireball' || spell.id === 'frostfire') && release > 0) {
+          this.effects.spellGather(spell.id, () => {
+            const body = this.remotePlayers.bodyAim?.(event.playerId);
+            if (!body) return null;
+            const direction = aimVector(body.yaw, body.pitch);
+            const palm = this.remotePlayers.palmPosition(event.playerId);
+            const origin = palm ?? { x: body.x, y: body.y + (body.crouched ? POSTURES.crouched.eye : POSTURES.standing.eye), z: body.z };
+            return { origin, direction };
+          }, { gatherSec: release });
         }
         // SORCERY!! now and then; when it keeps quiet, the wildcard may not
         // (or, rarely, a complaint about the thing gathering in his own palm: a spell that flies, not a gust or a ward)
@@ -520,6 +568,9 @@ export class GameRuntime {
         const body = this.#bodyPosition(event.playerId);
         if (body) this.effects.vortexIgnite({ x: body.x, y: body.y + 1.2, z: body.z }, { mine: event.playerId === me });
         this.#sayMoment(event.playerId, ['vortexSpin']);
+      } else if (event.type === 'ultimateActive' && event.ultimate === 'chivalry') {
+        this.#play(ultimateReadyRecipe(), event.playerId === me ? null : this.#bodyPosition(event.playerId), event.playerId === me ? 0.8 : 0.7);
+        this.#sayMoment(event.playerId, ['ultimateActive']);
       } else if (event.type === 'ultimateActive') {
         this.#play(sunderDongRecipe(), event.playerId === me ? null : this.#bodyPosition(event.playerId), event.playerId === me ? 0.95 : 0.8);
         this.#sayMoment(event.playerId, ['ultimateActive']);
@@ -597,7 +648,7 @@ export class GameRuntime {
       if (event.type === 'parry' || event.type === 'block' || event.type === 'guardBreak') this.#guardContact(event);
       if (event.type === 'parry') {
         if (event.defenderId === me) { this.weapon.parry(); this.hud.flashText('PARRY', 'parry'); this.hud.hit('parry'); }
-        if (event.attackerId === me) this.weapon.rebound();
+        if (event.attackerId === me && !(event.suppressParryReel ?? combatActionPolicy(this.localAuth, event.at ?? this.socket.serverNow()).suppressParryReel)) this.weapon.rebound();
       }
       if (event.type === 'block') {
         if (event.defenderId === me) this.weapon.block(false);
@@ -672,6 +723,8 @@ export class GameRuntime {
     const snapshot = this.latestSnapshot;
     if (!snapshot) return;
     const serverNow = this.socket.serverNow();
+    const present = new Set(snapshot.players.map((player) => player.id));
+    for (const id of this.effects.chilledBodies.keys()) if (!present.has(id)) this.effects.afflict(id, null);
     for (const player of snapshot.players) {
       const burning = player.alive !== false && (player.burningUntil ?? 0) > serverNow;
       const chill = player.alive !== false ? 1 - chillScale(player.chill, serverNow) : 0;
@@ -1087,6 +1140,12 @@ export class GameRuntime {
       }
       return;
     }
+    if (event.ultimate === 'chivalry') {
+      const cry = cryMoment(event.ultimate);
+      if (cry) this.#sayMoment(event.playerId, [cry]);
+      if (me) this.hud.flashText('SPELLS & CHIVALRY', 'chivalry', 1400);
+      return;
+    }
     this.#play(sunderDropRecipe(), me ? null : this.#bodyPosition(event.playerId), me ? 1 : 0.8);
     // my arms brace (already, if I pressed for it): when it ends is the host's to say
     if (me) {
@@ -1342,7 +1401,12 @@ export class GameRuntime {
     this.fps += ((1 / dt) - this.fps) * 0.05;
     const timeSec = nowMs / 1000;
 
-    if (this.localAuth) this.#spin(this.socket.serverNow());
+    if (this.localAuth) {
+      const now = this.socket.serverNow();
+      this.input.updatePreparedSpells?.(this.localAuth, now);
+      this.weapon.setCombatPolicy(combatActionPolicy(this.localAuth, now), this.localAuth, now);
+      this.#spin(now);
+    }
     // (a brace begun on my own key that the host never took: the arms are let down again)
     if (this.braceAskedAt && nowMs - this.braceAskedAt > 400) {
       this.braceAskedAt = null;
@@ -1387,7 +1451,11 @@ export class GameRuntime {
         grounded: this.localState.grounded,
         stamina: this.localAuth.guardStamina,
         sprinting: this.localState.sprinting,
-        blocked: this.input.guardHeld || this.input.attackHeld || reeling || Boolean(whirl) || torn,
+        blocked: reeling || torn || combatBlocksSprint(this.localAuth, serverNow, {
+          guarding: this.input.guardHeld || this.weapon.guard,
+          attacking: this.input.attackHeld || this.weapon.attackHeld,
+          casting: this.weapon.castUntil > timeSec || this.localAuth.castEndsAt > serverNow,
+        }),
         crouched: Boolean(this.localState.crouched),
       });
       // breaking into a sprint with someone at my heels: the wildcard, now and then
@@ -1425,7 +1493,7 @@ export class GameRuntime {
       // my Gale lets go when its breath is drawn; one the server never took is let go of quietly
       // while the spell cools, whether its key would throw the gauntlet now (the hand free of the sword)
       const cooling = serverNow < (this.localAuth.spellReadyAt ?? 0) && !this.#inPractice();
-      const fistReady = cooling && this.weapon.canJab();
+      const fistReady = cooling && !combatActionPolicy(this.localAuth, serverNow).concurrent && this.weapon.canJab();
       this.hud.setFistReady?.(fistReady);
       this.touch?.setFistReady(fistReady);
       if (this.localGale && serverNow >= this.localGale.at) {

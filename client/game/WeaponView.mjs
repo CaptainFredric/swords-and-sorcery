@@ -1,3 +1,7 @@
+import { guardedSwordPose } from './chivalryMotion.mjs';
+import { guardedBracePose, guardedComboPose, guardedRecoveryPose } from './fpGuardedSlash.mjs';
+import { createChivalryLink } from './chivalryLink.mjs';
+import { createElementalOrb } from './elementalOrb.mjs';
 import * as THREE from 'three';
 import { facetedMesh } from './facetedGeometry.mjs';
 import { taperedPrismData, wedgeData } from './facetedGeometryData.mjs';
@@ -339,7 +343,7 @@ export class WeaponView {
     if (held && !this.attackButton && !bracing) this.swordChain.press(performance.now() / 1000);
     if (!held) this.swordChain.release();
     this.attackButton = held;
-    if (held) this.guard = false;
+    if (held && !this.concurrent) this.guard = false;
   }
 
   /**
@@ -426,18 +430,18 @@ export class WeaponView {
 
   setGuard(guard) {
     this.guard = guard;
-    if (guard) this.cancelAttack();
+    if (guard && !this.concurrent) this.cancelAttack();
   }
 
   /**
    * Gather a spell in the palm and throw it: gatherSec until it flies (the rest of the server's gather), glowing in
    * the spell's colour. A cast already gathering (started on the key press) is not restarted by the server's word.
    */
-  cast({ gatherSec = 0.3, spell = 'fireball' } = {}) {
+  cast({ gatherSec = 0.3, spell = 'fireball', accepted = false } = {}) {
     const now = performance.now() / 1000;
     const gather = Number.isFinite(gatherSec) ? Math.max(0, gatherSec) : 0.3;
     if (!this.castReleased && now < this.castStartedAt + this.castGather + 0.05) {
-      this.castSpell = spell;
+      if (accepted) this.castSpell = spell;
       return;
     }
     this.castStartedAt = now;
@@ -445,8 +449,10 @@ export class WeaponView {
     this.castUntil = now + gather + 0.06;
     this.castSpell = spell;
     this.castReleased = false;
-    this.guard = false;
-    this.cancelAttack();
+    if (!this.concurrent) {
+      this.guard = false;
+      this.cancelAttack();
+    }
   }
 
   /** A spell gathering in the palm is lost (a Sundering blow cut it short): the hand lets go of it, nothing is thrown. */
@@ -553,6 +559,34 @@ export class WeaponView {
    * it), windup (radians the turn has gathered) } or { phase: 'active', rel (the blade's turn from straight ahead,
    * radians, + left) }.
    */
+  setCombatPolicy(policy, player = null, serverNow = 0) {
+    this.concurrent = Boolean(policy?.concurrent);
+    this.combatPlayer = player;
+    this.combatServerNow = serverNow;
+  }
+
+  reconcileCast(player, serverNow) {
+    if (!player) return;
+    const now = performance.now() / 1000;
+    if (player.castingSpell && player.castEndsAt > serverNow) {
+      const startedAt = player.castStartedAt ?? player.castEndsAt - this.castGather;
+      if (this.acceptedCastStartedAt !== startedAt) {
+        this.acceptedCastStartedAt = startedAt;
+        this.castReleased = false;
+      }
+      this.castStartedAt = now - (serverNow - startedAt);
+      this.castGather = player.castEndsAt - startedAt;
+      this.castUntil = now + (player.castEndsAt - serverNow) + 0.06;
+      this.castSpell = player.castingSpell;
+      this.acceptedCastEndsAt = player.castEndsAt;
+    } else if (this.acceptedCastEndsAt > serverNow && player.castingSpell === null) {
+      this.cancelCast();
+      this.acceptedCastEndsAt = null;
+    }
+  }
+
+  chivalryEvent(event) { this.chivalryLink?.event(event); }
+
   setVortex(vortex) {
     this.vortex = vortex;
     if (vortex) {
@@ -616,9 +650,10 @@ export class WeaponView {
       castStartedAt: this.castStartedAt,
       castUntil: this.castUntil,
       dashUntil: this.dashUntil,
+      concurrent: this.concurrent,
     });
 
-    const motion = this.motion.step({ dt, speed, grounded, yaw, pitch, state: pose.state, dashing: pose.state === 'dash' });
+    const motion = this.motion.step({ dt, speed, grounded, yaw, pitch, state: pose.state, concurrent: this.concurrent, dashing: this.concurrent ? timeSec < this.dashUntil : pose.state === 'dash' });
     // each committed strike's swing is heard as it goes live (when the server lets it land, and the blade is at its
     // fastest a moment later)
     if (chain) {
@@ -640,9 +675,24 @@ export class WeaponView {
       // (a Vortex has both arms outright: the chain's path gives way to it)
       const vortexPose = this.#vortexPose(timeSec, dt);
       // (and the brace into Sunder has them through its startup, handing over to the first slam's chain)
-      const combo = vortexPose ?? this.#bracePose(timeSec) ?? this.#combo(pose.state, timeSec, stateBefore);
+      const sourceCombo = vortexPose ?? this.#bracePose(timeSec) ?? this.#combo(this.concurrent && chain ? 'attack' : pose.state, timeSec, stateBefore);
+      this.concurrentGuardBlend = approach(this.concurrentGuardBlend ?? 0, this.concurrent && this.guard ? 1 : 0, dt / 0.18);
+      // Guard owns a complete defensive path, including the way home when a committed chain ends.
+      // The ordinary chain keeps its own handover bookkeeping and remains unchanged outside Chivalry.
+      let defended = guardedBracePose();
+      if (chain) {
+        defended = guardedComboPose(timeSec - this.attackStartedAt);
+        if (this.concurrent && this.guard) {
+          this.guardedCutFrom = timeSec - this.attackStartedAt;
+          this.guardedCutAt = timeSec;
+        }
+      } else if (Number.isFinite(this.guardedCutAt)) {
+        defended = guardedRecoveryPose(this.guardedCutFrom, timeSec - this.guardedCutAt);
+      }
+      if (this.concurrentGuardBlend <= 0) this.guardedCutAt = undefined;
+      const combo = vortexPose ? sourceCombo : guardedSwordPose(sourceCombo, this.concurrentGuardBlend, defended);
       if (combo) {
-        plan = { clip: 'Idle', loop: true, time: timeSec };
+        plan = resolveFirstPersonAnimationPlan({ state: 'idle' }, this, timeSec);
         // the view leans with the body into each cut (purely visual: aim is the input's)
         motion.camera.pitch += combo.look.pitch * combo.weight;
         motion.camera.roll += combo.look.roll * combo.weight;
@@ -651,10 +701,13 @@ export class WeaponView {
       // neutral hands sit a little wider apart (clear sightline); in the sprint the arms pump with the stride
       const spread = FP_MOTION.neutralSpread * motion.neutral;
       // the guard brings the sword in toward the middle, a little lower, the blade across the body
-      this.guardBlend = approach(this.guardBlend ?? 0, pose.state === 'guard' ? 1 : 0, FP_MOTION.guardBlendRate * dt);
-      const guardIn = FP_MOTION.guardInward * this.guardBlend;
+      this.guardBlend = approach(this.guardBlend ?? 0, (this.concurrent ? this.guard : pose.state === 'guard') ? 1 : 0, FP_MOTION.guardBlendRate * dt);
+      const guardArm = this.guardBlend * (combo ? 0 : 1);
+      const guardIn = FP_MOTION.guardInward * guardArm;
       // the magic arm draws the spell in close, then throws it (see castGesture.mjs)
       const gesture = castGesture(timeSec - this.castStartedAt, this.castGather);
+      this.sorceryFreedom = approach(this.sorceryFreedom ?? 0, !gesture.done || clenchPulse(timeSec - this.clenchAt) > 0 ? 1 : 0, dt / 0.1);
+      const swordOffhand = 1 - this.sorceryFreedom;
       // or drives the gauntlet out (gauntletJab.mjs), the view nudged as it lands
       const jab = jabTarget(timeSec - this.jabAt);
       const jabbed = jabKick(timeSec - this.jabAt);
@@ -670,8 +723,8 @@ export class WeaponView {
           { bone: 'upper_arm.R', axis: [1, 0, 0], angle: 0.1 * motion.pump },
           { bone: 'upper_arm.L', axis: [1, 0, 0], angle: -0.1 * motion.pump },
           { bone: 'upper_arm.R', axis: [0, 1, 0], angle: guardIn },
-          { bone: 'upper_arm.R', axis: [1, 0, 0], angle: -FP_MOTION.guardDrop * this.guardBlend },
-          { bone: 'hand.R', axis: [0, 0, 1], angle: FP_MOTION.guardAcross * this.guardBlend, space: 'local' },
+          { bone: 'upper_arm.R', axis: [1, 0, 0], angle: -FP_MOTION.guardDrop * guardArm },
+          { bone: 'hand.R', axis: [0, 0, 1], angle: FP_MOTION.guardAcross * guardArm, space: 'local' },
           // at rest only (actions keep their authored arms): a clean grip on the sword, the magic hand lower
           { bone: 'hand.R', axis: [1, 0, 0], angle: FP_MOTION.swordWristFlex * motion.neutral, space: 'local' },
           { bone: 'forearm.R', axis: [0, 1, 0], angle: FP_MOTION.swordForearmTurn * motion.neutral, space: 'local' },
@@ -682,12 +735,12 @@ export class WeaponView {
           ...clenchRotations(timeSec - this.clenchAt),
           // the magic arm counterbalances the cuts (and fades out of it as it reaches for the grip, so the two never
           // pull against each other)
-          ...(combo ? counterRotations(combo.counter, combo.weight * (1 - (combo.offHand?.weight ?? 0))) : []),
+          ...(combo ? counterRotations(combo.counter, combo.weight * swordOffhand * (1 - (combo.offHand?.weight ?? 0))) : []),
         ],
         solve: combo || jab ? (bones) => {
           if (combo) {
             solveSwordArm(bones, combo.arm, combo.weight);
-            if (combo.offHand) solveArm(bones, FIRST_PERSON_OFF_ARM, combo.offHand, combo.offHand.weight * combo.weight);
+            if (combo.offHand) solveArm(bones, FIRST_PERSON_OFF_ARM, combo.offHand, combo.offHand.weight * combo.weight * swordOffhand);
           }
           // the gauntlet strike has the magic hand
           if (jab) solveArm(bones, FIRST_PERSON_OFF_ARM, jab, jab.weight);
@@ -724,6 +777,10 @@ export class WeaponView {
         this.productionOffset.position.x += Math.sin(timeSec * 4.7) * 0.018 * u;
         this.productionOffset.position.y += Math.sin(timeSec * 6.1 + 1) * 0.012 * u;
         this.productionOffset.rotation.z += Math.sin(timeSec * 3.9) * 0.05 * u;
+      }
+      if (this.concurrent || this.chivalryLink) {
+        this.chivalryLink ??= createChivalryLink(this.group, () => this.productionInstance?.sockets, { firstPerson: true });
+        this.chivalryLink.set(this.combatPlayer, this.combatServerNow, pose.concurrent);
       }
       // gauntlet runes and palm light follow the palm sorcery: dim at rest, bright only while a cast gathers
       const level = Math.max(this.productionInstance.sorceryLevel?.() ?? 0, gesture.draw);
@@ -851,18 +908,35 @@ export class WeaponView {
     this.chargeCore.visible = !gale;
     this.chargeGlow.visible = !gale;
     this.chargeGale.visible = gale;
+    if (this.chargeElemental) this.chargeElemental.visible = !gale;
     if (gale) {
       this.chargeGale.userData.update(timeSec);
       this.chargeGale.userData.setStrength(0.45 + 0.55 * gesture.draw);
       return;
     }
-    this.chargeGlow.material.color.setHex(color);
-    this.chargeCore.material.color.setHex(this.castSpell === 'frostfire' ? 0xeafcff : this.castSpell === 'gale' ? 0xffffff : 0xfff0c8);
-    this.chargeGlow.rotation.y = timeSec * 5;
+    this.chargeCore.visible = false;
+    this.chargeGlow.visible = false;
+    if (this.chargeElementalSpell !== this.castSpell) {
+      this.chargeElemental?.removeFromParent();
+      this.chargeElemental?.userData.dispose?.();
+      this.chargeElemental = createElementalOrb(this.castSpell);
+      this.chargeElemental.scale.setScalar(0.28);
+      this.chargeOrb.add(this.chargeElemental);
+      this.chargeElementalSpell = this.castSpell;
+    }
+    this.chargeElemental.visible = true;
+    this.chargeElemental.userData.update(timeSec);
+
   }
 
   dispose() {
     this.disposed = true;
+    this.chivalryLink?.dispose();
+    this.chargeElemental?.removeFromParent();
+    this.chargeElemental?.userData.dispose?.();
+    this.chargeElemental = null;
+    for (const mesh of [this.chargeCore, this.chargeGlow]) { mesh?.geometry.dispose(); mesh?.material.dispose(); }
+    this.chargeGale?.userData.dispose?.();
     this.steelSheen?.dispose();
     this.sunderBlade?.dispose();
     this.sunderBlade = null;

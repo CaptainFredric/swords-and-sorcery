@@ -1,3 +1,4 @@
+import { concurrentPresentation } from './spellbladePose.mjs';
 import { MOVEMENT, SPRINT } from '../../shared/src/movement.mjs';
 import { GAME, SWORD_CHAIN, SWORD_STRIKE_TIMES } from '../../shared/src/combat.mjs';
 import { ULTIMATES } from '../../shared/src/ultimates.mjs';
@@ -6,7 +7,7 @@ const SLASH_DURATIONS = Object.freeze([0.72, 0.72, 0.64]);
 const ATTACK_CYCLE = SLASH_DURATIONS.reduce((sum, value) => sum + value, 0);
 const RESPAWN_SEC = 3;
 // Guard: frames 1-8 raise the guard, frames 8-56 are a breathing hold that loops (30 fps)
-export const GUARD_HOLD_START = 7 / 30;
+export const GUARD_HOLD_START = 8 / 30;
 export const GUARD_HOLD_SECONDS = 48 / 30;
 const MAX_STAGGER_SEC = Math.max(GAME.parryStaggerMs, GAME.guardBreakStaggerMs) / 1000;
 
@@ -48,6 +49,30 @@ function attackPlan(player, serverNow) {
 }
 
 export function resolveSpellbladeAnimationPlan({ state, player = {}, serverNow = 0, localTime = 0 }) {
+  const layers = concurrentPresentation(player, serverNow, player.castPoseUntil, player.castPoseStartAt);
+  if (layers.concurrent && !['dead', 'stagger'].includes(state)) {
+    const still = fixed('Idle', idleTime(localTime), true);
+    const guard = fixed('Guard', guardHoldTime(localTime));
+    const attack = { ...attackPlan(player, serverNow), actionKey: player.attackStartedAt };
+    const defensive = { ...attack, clip: attack.clip.replace('Slash_', 'GuardCut_'), fallback: attack.clip };
+    const cut = layers.guard ? defensive : attack;
+    const cast = { ...fixed('Cast', serverNow - finite(player.castPoseStartAt, serverNow)), actionKey: player.castPoseStartAt };
+    const locomotion = layers.dash
+      ? fixed('Dash', serverNow - (finite(player.dashUntil, serverNow) - MOVEMENT.dashDuration))
+      : resolveSpellbladeAnimationPlan({ state: locomotionState(player), player: { ...player, ultimateState: null }, serverNow, localTime });
+    const posture = layers.attack ? cut : layers.guard ? guard : layers.cast ? cast : still;
+    // A small share of the authored Sprint torso carries its forward weight beneath the action.
+    // Sword and sorcery retain their own complete tracks and contact clocks.
+    const movingPosture = locomotion.clip === 'Sprint'
+      ? { ...posture, overlay: { ...locomotion, weight: 0.16 * Math.max(0, Math.min(1, player.sprintBlend ?? 1)) } }
+      : posture;
+    return { ...locomotion, layers: {
+      locomotion,
+      posture: movingPosture,
+      sword: layers.attack ? cut : layers.guard ? guard : still,
+      sorcery: layers.cast ? cast : layers.guard ? layers.attack ? defensive : guard : still,
+    }, concurrent: layers };
+  }
   if (state === 'attack') return attackPlan(player, serverNow);
 
   // a Blazing Vortex: the sword held out level in both hands, where the forehand's blade crosses the aim (the whole
@@ -94,7 +119,7 @@ export function resolveSpellbladeAnimationPlan({ state, player = {}, serverNow =
   if (state === 'air') return { ...fixed('Air', airPhase(player.velocity?.y)), normalized: true };
   if (state === 'sprint') return { ...fixed('Sprint', localTime, true), fallback: 'Run', rate: strideRate(player, SPRINT.speed) };
   if (state === 'run') return { ...fixed('Run', localTime, true), rate: strideRate(player, MOVEMENT.runSpeed) };
-  return fixed('Idle', localTime, true);
+  return fixed('Idle', idleTime(localTime), true);
 }
 
 // stride cadence follows ground speed (the sprint builds up), so feet do not skate
@@ -111,15 +136,39 @@ function airPhase(verticalVelocity) {
   return Math.max(0, Math.min(1, (MOVEMENT.jumpImpulse - v) / (2 * MOVEMENT.jumpImpulse)));
 }
 
+// Blender exports frame 1 at 1/30 s. Loop only the authored frame 1..60 span,
+// excluding the constant pre-roll that otherwise pauses the breath at every reset.
+function idleTime(clock) {
+  const duration = 59 / 30;
+  const t = finite(clock);
+  return 1 / 30 + (((t % duration) + duration) % duration);
+}
+
 function guardHoldTime(clock) {
   const t = finite(clock);
   return GUARD_HOLD_START + (((t % GUARD_HOLD_SECONDS) + GUARD_HOLD_SECONDS) % GUARD_HOLD_SECONDS);
 }
 
 export function resolveFirstPersonAnimationPlan(pose, view, timeSec) {
+  if (view.concurrent) {
+    const still = { clip: 'Idle', loop: true, time: idleTime(timeSec) };
+    const guard = { clip: 'Guard', loop: false, time: guardHoldTime(timeSec) };
+    return { ...still, layers: {
+      locomotion: still,
+      posture: view.guard ? guard : still,
+      sword: view.guard && !view.attackHeld ? guard : still,
+      sorcery: view.guard && !(view.castUntil > timeSec) ? guard : still,
+    } };
+  }
   if (pose.state === 'attack') return attackPlan(view, timeSec);
   if (pose.state === 'guard') return { clip: 'Guard', loop: false, time: guardHoldTime(timeSec) };
   if (pose.state === 'cast') return { clip: 'Cast', loop: false, time: Math.max(0, timeSec - view.castStartedAt) };
   if (pose.state === 'dash') return { clip: 'Dash', loop: false, time: Math.max(0, timeSec - (view.dashUntil - 0.18)) };
-  return { clip: 'Idle', loop: true, time: timeSec };
+  return { clip: 'Idle', loop: true, time: idleTime(timeSec) };
+}
+
+function locomotionState(player) {
+  if (Math.abs(player.velocity?.y ?? 0) > 0.45) return 'air';
+  if (Math.hypot(player.velocity?.x ?? 0, player.velocity?.z ?? 0) > 0.8) return player.sprinting ? 'sprint' : 'run';
+  return 'idle';
 }

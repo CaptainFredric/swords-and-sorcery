@@ -1,3 +1,5 @@
+import { isSpell } from '../../shared/src/spells.mjs';
+import { normalizePreparedSpells, DEFAULT_PREPARED_SPELLS } from '../../shared/src/preparedSpells.mjs';
 // Everything a player can set, declared in one place. The Settings screen, saving, loading and validation all follow
 // from these declarations, so a new feature only has to declare what it needs:
 //
@@ -12,7 +14,7 @@
 // with `screen: 'armory'` (or any other screen of its own) keeps its values here but is shown elsewhere, not as a tab.
 // Actions are key (or mouse button) bindings, shown on the Controls tab; InputController fires them by id.
 
-const SETTING_TYPES = new Set(['range', 'toggle', 'choice']);
+const SETTING_TYPES = new Set(['range', 'toggle', 'choice', 'array']);
 
 export class SettingsRegistry {
   constructor() {
@@ -35,6 +37,9 @@ export class SettingsRegistry {
     if (type === 'range' && !(definition.max > definition.min)) throw new Error(`Setting ${id}: range needs min < max`);
     if (type === 'choice' && !definition.options?.some((option) => option.value === definition.default)) {
       throw new Error(`Setting ${id}: its default must be one of its options`);
+    }
+    if (type === 'array' && (typeof definition.validate !== 'function' || !Array.isArray(definition.default))) {
+      throw new Error(`Setting ${id}: array needs a default and validator`);
     }
     this.settings.set(id, { order: this.settings.size, ...definition });
     return this;
@@ -66,7 +71,8 @@ export class SettingsRegistry {
   }
 
   defaultValue(id) {
-    return this.settings.get(id)?.default;
+    const value = this.settings.get(id)?.default;
+    return Array.isArray(value) ? [...value] : value;
   }
 
   defaultBindings() {
@@ -77,6 +83,7 @@ export class SettingsRegistry {
   validate(id, value) {
     const setting = this.settings.get(id);
     if (!setting) return value;
+    if (setting.type === 'array') return setting.validate(value);
     if (setting.type === 'toggle') return typeof value === 'boolean' ? value : setting.default;
     if (setting.type === 'choice') return setting.options.some((option) => option.value === value) ? value : setting.default;
     const number = Number(value);
@@ -176,7 +183,11 @@ registry
   })
   .defineSetting({
     id: 'loadout.ultimate', section: 'loadout', label: 'Ultimate', type: 'choice', default: 'sunder',
-    options: [{ value: 'sunder', label: 'Sunder All That Rusts' }, { value: 'vortex', label: 'Blazing Vortex' }],
+    options: [{ value: 'sunder', label: 'Sunder All That Rusts' }, { value: 'vortex', label: 'Blazing Vortex' }, { value: 'chivalry', label: 'Spells & Chivalry' }],
+  })
+  .defineSetting({
+    id: 'loadout.preparedSpells', section: 'loadout', label: 'Prepared spells', type: 'array', default: DEFAULT_PREPARED_SPELLS,
+    validate: (ids) => normalizePreparedSpells(Array.isArray(ids) ? ids.find(isSpell) : 'fireball', ids),
   });
 
 registry
@@ -188,7 +199,7 @@ registry
   .defineAction({ id: 'sprint', label: 'Sprint (hold)', group: 'Movement', keys: ['ShiftLeft', 'ShiftRight'] })
   .defineAction({ id: 'crouch', label: 'Crouch (hold)', group: 'Movement', keys: ['KeyC'] })
   .defineAction({ id: 'attack', label: 'Sword combo (hold)', group: 'Combat', keys: ['Mouse0'] })
-  .defineAction({ id: 'guard', label: 'Guard (hold)', group: 'Combat', keys: ['Mouse2'] })
+  .defineAction({ id: 'guard', label: 'Guard (hold)', group: 'Combat', keys: ['Mouse2', 'KeyG'] })
   .defineAction({ id: 'spell', label: 'Cast spell', group: 'Abilities', keys: ['KeyQ'] })
   .defineAction({ id: 'dash', label: 'Dash', group: 'Abilities', keys: ['KeyE'] })
   .defineAction({ id: 'ultimate', label: 'Ultimate', group: 'Abilities', keys: ['KeyR'] })

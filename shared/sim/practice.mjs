@@ -6,6 +6,7 @@ import { stepBotControllers } from './BotController.mjs';
 import { BOT_PROFILES } from './botBehavior.mjs';
 import { PROWESS } from '../src/prowess.mjs';
 import { freshStagger } from '../src/stagger.mjs';
+import { setupUltimateKnight, stepUltimateKnight } from './UltimateKnight.mjs';
 
 export const PRACTICE_DUMMY_MODES = Object.freeze({
   PASSIVE: 'PASSIVE',
@@ -14,6 +15,7 @@ export const PRACTICE_DUMMY_MODES = Object.freeze({
   SORCERY: 'SORCERY',
   MELEE: 'MELEE',
   RUNNER: 'RUNNER',
+  ULTIMATE_KNIGHT: 'ULTIMATE_KNIGHT',
 });
 
 // the modes in which the dummy is a bot, and which kind: one controller plays each from its profile (botBehavior.mjs).
@@ -59,6 +61,7 @@ function resetActorAtSpawn(player, spawn, nowSec) {
   player.health = 100;
   player.guardStamina = guardProfile(player.knightClass).capacity;
   player.guarding = false;
+  player.guardHeld = false;
   player.guardStartedAt = -Infinity;
   player.lastGuardDrainAt = -Infinity;
   player.attackActive = false;
@@ -70,6 +73,8 @@ function resetActorAtSpawn(player, spawn, nowSec) {
   player.attackRestartAt = -Infinity;
   player.staggerUntil = -Infinity;
   player.spellReadyAt = nowSec;
+  player.spellReadyById = {};
+  player.chivalryProjectileReadyAt = 0;
   player.castEndsAt = 0;
   player.pendingSpell = null;
   player.gauntlet = null;
@@ -163,6 +168,16 @@ export function setPracticeDummyMode(room, mode, nowSec = 0) {
 
   if (dummy.attackHeld || dummy.attackActive) cancelAttack(room, dummy.id, nowSec);
   if (dummy.guarding) setGuard(room, dummy.id, false, nowSec);
+  dummy.guardHeld = false;
+  if (dummy.ultimateKnight) {
+    if (dummy.ultimateState) room.events.push({ type: 'ultimateEnded', playerId: dummy.id, ultimate: dummy.ultimateState.id, at: nowSec });
+    dummy.ultimateState = null;
+    dummy.pendingSpell = null;
+    dummy.castEndsAt = 0;
+    dummy.chivalryProjectileReadyAt = 0;
+    dummy.dashUntil = Math.min(dummy.dashUntil, nowSec);
+    dummy.ultimateKnight = null;
+  }
   dummy.input = neutralInput(dummy);
   dummy.ai = null;
   dummy.practiceMode = mode;
@@ -171,6 +186,7 @@ export function setPracticeDummyMode(room, mode, nowSec = 0) {
   dummy.name = opponent?.name ?? 'Training Dummy';
   dummy.spell = opponent?.spell ?? 'fireball';
   dummy.steel = null;
+  if (mode === PRACTICE_DUMMY_MODES.ULTIMATE_KNIGHT) setupUltimateKnight(dummy, nowSec);
 
   if (mode === PRACTICE_DUMMY_MODES.GUARDING && dummy.alive && dummy.guardStamina > 0) {
     if (setGuard(room, dummy.id, true, nowSec)) {
@@ -186,7 +202,12 @@ export function setPracticeDummyMode(room, mode, nowSec = 0) {
 export function stepPracticeActors(room, nowSec, world = room.world, { random = Math.random } = {}) {
   if (!isPractice(room) || room.state !== 'PLAYING') return;
   const dummy = findPracticeDummy(room);
-  if (!dummy || !dummy.alive) return;
+  if (!dummy) return;
+  if (dummy.practiceMode === PRACTICE_DUMMY_MODES.ULTIMATE_KNIGHT) {
+    stepUltimateKnight(room, dummy, nowSec, world, { random });
+    return;
+  }
+  if (!dummy.alive) return;
 
   if (dummy.practiceMode === PRACTICE_DUMMY_MODES.PASSIVE) {
     if (dummy.attackHeld || dummy.attackActive) cancelAttack(room, dummy.id, nowSec);

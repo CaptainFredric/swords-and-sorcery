@@ -128,6 +128,18 @@ export class GameSocket {
   attack(down) { this.send({ type: 'attack', down, clientTime: this.serverNow() }); }
   guard(down) { this.send({ type: 'guard', down, clientTime: this.serverNow() }); }
   cast(direction) { this.send({ type: 'cast', direction, clientTime: this.serverNow() }); }
+  castPreparedSpell(spell, direction, input = {}) {
+    this.send({ type: 'castPreparedSpell', spell, direction,
+      ...(Number.isFinite(input.yaw) ? { yaw: input.yaw } : {}),
+      ...(Number.isFinite(input.pitch) ? { pitch: input.pitch } : {}), clientTime: this.serverNow() });
+  }
+  selectPreparedSlot(slot) { this.send({ type: 'selectPreparedSlot', slot }); }
+  castCurrentSpell(direction, input = {}) {
+    this.send({ type: 'castCurrentSpell', direction,
+      ...(Number.isFinite(input.yaw) ? { yaw: input.yaw } : {}),
+      ...(Number.isFinite(input.pitch) ? { pitch: input.pitch } : {}), clientTime: this.serverNow() });
+  }
+  selectPreparedSpell(spell) { this.send({ type: 'selectPreparedSpell', spell }); }
   gauntlet() { this.send({ type: 'gauntlet', clientTime: this.serverNow() }); }
   ultimate() { this.send({ type: 'ultimate' }); }
   practiceReadyUltimate() { this.send({ type: 'practiceReadyUltimate' }); }
@@ -142,7 +154,7 @@ export class GameSocket {
   vote(key, value) { this.send({ type: 'vote', key, value }); }
   leaveRoom() { this.send({ type: 'leaveRoom' }); }
   // the spell carried from the Armory (kept by the server for every room this connection joins)
-  loadout(spell, ultimate) { this.send({ type: 'loadout', spell, ultimate }); }
+  loadout(spell, ultimate, preparedSpells) { this.send({ type: 'loadout', spell, ultimate, preparedSpells }); }
   ping() { this.send({ type: 'ping', sentAt: performance.now() }); }
 
   serverNow() {

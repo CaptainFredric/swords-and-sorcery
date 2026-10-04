@@ -24,7 +24,7 @@ export function ultimateView(local, serverNow, { practice = false } = {}) {
     };
   }
   // (its startup: a Sunder is braced into; a Vortex has no brace, it is lit)
-  if (state?.phase === 'startup') return { state: 'bracing', charge: 1, label: ultimate.hop ? 'IGNITE' : 'BRACE', ultimate };
+  if (state?.phase === 'startup') return { state: 'bracing', charge: 1, label: state.id === 'chivalry' ? 'PREPARE' : ultimate.hop ? 'IGNITE' : 'BRACE', ultimate };
   const locked = Math.max(local?.ultimateLockedUntil ?? -Infinity, local?.recoverUntil ?? -Infinity) - serverNow;
   if (locked > 0.01) return { state: 'locked', charge, label: locked.toFixed(1), ultimate };
   if (charge >= 1 || practice) return { state: 'ready', charge: 1, label: 'READY', ultimate };

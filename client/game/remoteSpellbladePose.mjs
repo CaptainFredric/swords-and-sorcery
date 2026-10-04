@@ -1,4 +1,4 @@
-import { attackMotion } from './spellbladePose.mjs';
+import { attackMotion, concurrentPresentation } from './spellbladePose.mjs';
 
 function euler(rx = 0, ry = 0, rz = 0) {
   return { rx, ry, rz };
@@ -10,6 +10,20 @@ export function resolveRemoteSpellbladePose({
   serverNow,
   localTime,
 }) {
+  const layers = concurrentPresentation(player, serverNow, player?.castPoseUntil, player?.castPoseStartAt);
+  if (layers.concurrent && !['dead', 'stagger'].includes(state)) {
+    const ordinary = { ...player, ultimateState: null };
+    const resolve = (next) => resolveRemoteSpellbladePose({ state: next, player: ordinary, serverNow, localTime });
+    const speed = Math.hypot(player.velocity?.x ?? 0, player.velocity?.z ?? 0);
+    const pose = resolve(layers.dash ? 'dash' : Math.abs(player.velocity?.y ?? 0) > 0.45 ? 'air' : speed > 0.8 ? 'run' : 'idle');
+    const upper = resolve(layers.guard ? 'guard' : layers.attack ? 'attack' : layers.cast ? 'cast' : 'idle');
+    for (const key of ['torso', 'head']) pose[key] = upper[key];
+    const sword = resolve(layers.attack ? 'attack' : layers.guard ? 'guard' : 'idle');
+    for (const key of ['rightUpperArm', 'rightForearm', 'sword']) pose[key] = sword[key];
+    const sorcery = resolve(layers.cast ? 'cast' : layers.guard ? 'guard' : 'idle');
+    for (const key of ['leftUpperArm', 'leftForearm', 'magicScale']) pose[key] = sorcery[key];
+    return pose;
+  }
   const velocity = player?.velocity ?? { x: 0, y: 0, z: 0 };
   const speed = Math.min(1, Math.hypot(velocity.x ?? 0, velocity.z ?? 0) / 7.5);
   const breath = Math.sin(localTime * 2.4);

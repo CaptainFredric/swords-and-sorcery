@@ -8,13 +8,13 @@ test('the Armory lists every spell from the shared table, marks the one carried,
   assert.deepEqual(view.spells.map((spell) => spell.id), Object.keys(SPELLS));
   assert.deepEqual(view.spells.filter((spell) => spell.equipped).map((spell) => spell.id), ['frostfire']);
   const fire = view.spells.find((spell) => spell.id === 'fireball');
-  assert.match(fire.facts, new RegExp(`Hits for ${SPELLS.fireball.directDamage}, burns for ${SPELLS.fireball.burn.damage} more`));
+  assert.match(fire.facts, new RegExp(`${SPELLS.fireball.directDamage} impact.*${SPELLS.fireball.burn.damage} burn`));
   const frost = view.spells.find((spell) => spell.id === 'frostfire');
-  assert.match(frost.facts, /chills them heavy/);
-  assert.match(view.blade.facts, /19–30 a blow/);
+  assert.match(frost.facts, /heavy chill/);
+  assert.match(view.blade.facts, /19 to 30 damage/);
   // Sheathe in Steel is carried in the same slot, with its own plain words
   const steel = view.spells.find((spell) => spell.id === 'steel');
-  assert.ok(steel && /glancing/.test(steel.line) && /lands for 19/.test(steel.facts));
+  assert.ok(steel && /glancing/.test(steel.line) && /19 sword damage/.test(steel.facts));
   for (const spell of view.spells) assert.ok(spell.line.length > 20, `${spell.id} has words`);
 });
 
@@ -22,12 +22,12 @@ test('the Armory offers both ultimates, marks the one carried, and says plainly 
   const { ULTIMATES } = await import('../../shared/src/ultimates.mjs');
   const view = armoryView('fireball', 'vortex');
   assert.deepEqual(view.ultimates.map((u) => u.id), Object.keys(ULTIMATES));
-  assert.deepEqual(view.ultimates.map((u) => u.id), ['sunder', 'vortex'], 'Sunder first, the Vortex beside it');
+  assert.deepEqual(view.ultimates.map((u) => u.id), ['sunder', 'vortex', 'chivalry'], 'three ultimate identities');
   assert.deepEqual(view.ultimates.filter((u) => u.equipped).map((u) => u.id), ['vortex']);
   const vortex = view.ultimates.find((u) => u.id === 'vortex');
   assert.equal(vortex.name, 'BLAZING VORTEX');
-  assert.match(vortex.line, /^Spin into a close-range storm of sword cuts and aimed fire\./);
-  assert.match(vortex.facts, new RegExp(`${ULTIMATES.vortex.contact.damage} a cut.*no guard.*${ULTIMATES.vortex.activeSec} s`));
+  assert.match(vortex.line, /^Spin through enemies with your blade and aimed fire\./);
+  assert.match(vortex.facts, new RegExp(`${ULTIMATES.vortex.contact.damage} contact damage.*Guard unavailable.*${ULTIMATES.vortex.activeSec}s`));
   // with nothing said, Sunder is the one carried
   assert.deepEqual(armoryView('fireball').ultimates.filter((u) => u.equipped).map((u) => u.id), ['sunder']);
   for (const u of view.ultimates) assert.ok(u.line.length > 20 && u.mark, `${u.id} has words and a mark`);

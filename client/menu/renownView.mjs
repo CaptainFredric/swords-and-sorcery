@@ -19,7 +19,16 @@ export function rewardText(profile, snapshot, local) {
   if (local) return 'Offline training complete. Renown is earned in server hosted matches.';
   const reward = profile?.lastReward;
   if (!reward || !snapshot?.rewardMatchId || reward.matchId !== snapshot.rewardMatchId) return 'Confirming your match reward…';
-  if (reward.amount > 0) return `+${reward.amount} RENOWN · ${reward.amount === 30 ? '20 completion + 10 victory' : '20 completion'} · Balance ${profile.balance}`;
+  if (reward.amount > 0) {
+    const parts = [];
+    const challenge = reward.challengeAmount ?? 0;
+    const completion = reward.completion ?? (reward.amount > challenge ? 20 : 0);
+    const victory = reward.victory ?? (reward.amount - challenge === 30 ? 10 : 0);
+    if (completion) parts.push(`${completion} completion`);
+    if (victory) parts.push(`${victory} victory`);
+    if (challenge) parts.push(`${challenge} mastery`);
+    return `+${reward.amount} RENOWN · ${parts.join(' + ')} · Balance ${profile.balance}`;
+  }
   const reasons = {
     forfeit: 'Match ended by forfeit. No Renown awarded.',
     short: 'This match lasted under 30 seconds. No Renown awarded.',

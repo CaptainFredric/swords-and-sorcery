@@ -1,3 +1,4 @@
+import { PreparedSpellSelector, preparedSpellView } from './preparedSpellSelector.mjs';
 import { MOVEMENT } from '../../shared/src/movement.mjs';
 import { spellFor } from '../../shared/src/spells.mjs';
 import { isDeliberateTap, lookDelta, stickVector, TOUCH } from './touchControlsModel.mjs';
@@ -62,6 +63,10 @@ export class TouchControls {
           ${svg(icon)}<span>${label}</span>${cooldown ? '<i class="touch-cooldown"></i><b class="touch-timer"></b>' : ''}
         </div>`).join('')}`;
     root.append(this.layer);
+    this.preparedFan = document.createElement('div');
+    this.preparedFan.className = 'touch-prepared-fan';
+    this.preparedFan.hidden = true;
+    this.layer.append(this.preparedFan);
     this.stickBase = this.layer.querySelector('.touch-stick');
     this.stickKnob = this.layer.querySelector('.touch-stick-knob');
     this.buttons = Object.fromEntries(BUTTONS.map(({ action }) => [action, this.layer.querySelector(`[data-action="${action}"]`)]));
@@ -103,6 +108,7 @@ export class TouchControls {
   }
 
   reset() {
+    this.#cancelPreparedTouch();
     for (const action of this.held.values()) this.#release(action);
     this.held.clear();
     this.#endStick();
@@ -141,12 +147,18 @@ export class TouchControls {
 
   update(local, serverNow, { practice = false } = {}) {
     if (!local) return;
-    this.#showSpell(spellFor(local.spell), (local.spellReadyAt ?? 0) - serverNow > 0.01 && !practice);
+    this.prepared = preparedSpellView(local, serverNow);
+    this.input.updatePreparedSpells(local, serverNow);
+    if (!this.prepared.visible) this.#cancelPreparedTouch();
+    this.layer.classList.toggle('chivalry-prepared', this.prepared.visible);
+    this.#showSpell(spellFor(local.spell), !this.prepared.visible && !local.preparedSpellSelected && (local.spellReadyAt ?? 0) - serverNow > 0.01 && !practice);
+    if (this.preparedTouch) this.#showPreparedTouch();
     // the Practice Yard: the real cooldown shown, and a mark while the button works anyway
     this.buttons.spell?.classList.toggle('practice', practiceOverride(local, 'spell', serverNow, practice));
     this.buttons.dash?.classList.toggle('practice', practiceOverride(local, 'dash', serverNow, practice));
     for (const { element, timer, key, seconds } of this.cooldowns) {
-      const remaining = Math.max(0, (local[key] ?? 0) - serverNow);
+      const preparedCurrent = key === 'spellReadyAt' && this.prepared.visible ? this.prepared.spells.find((spell) => spell.current) : null;
+      const remaining = preparedCurrent?.remaining ?? Math.max(0, (local[key] ?? 0) - serverNow);
       const ready = remaining <= 0.01;
       element.classList.toggle('cooling', !ready);
       element.style.setProperty('--cooldown', String(Math.min(1, remaining / seconds)));
@@ -250,6 +262,13 @@ export class TouchControls {
   };
 
   #move = (event) => {
+    if (this.preparedTouch?.id === event.pointerId) {
+      const point = gamePoint(event);
+      const gesture = this.preparedTouch;
+      gesture.selector.move(point.x - gesture.x, point.y - gesture.y);
+      this.#showPreparedTouch();
+      return;
+    }
     if (this.stick?.id === event.pointerId) {
       this.#moveStick(event);
       return;
@@ -268,6 +287,13 @@ export class TouchControls {
   };
 
   #up = (event) => {
+    if (this.preparedTouch?.id === event.pointerId) {
+      const point = gamePoint(event);
+      const gesture = this.preparedTouch;
+      const chosen = gesture.selector.move(point.x - gesture.x, point.y - gesture.y);
+      this.#cancelPreparedTouch();
+      if (event.type === 'pointerup' && chosen) this.input.usePreparedSpell(chosen);
+    }
     if (this.stick?.id === event.pointerId) this.#endStick();
     if (this.look?.id === event.pointerId) this.look = null;
     const action = this.held.get(event.pointerId);
@@ -301,7 +327,15 @@ export class TouchControls {
       this.aim ??= new Map();
       this.aim.set(event.pointerId, gamePoint(event));
     }
-    if (action === 'spell') this.input.cast();
+    if (action === 'spell') {
+      if (this.prepared?.visible) {
+        if (!this.preparedTouch) {
+          const point = gamePoint(event);
+          this.preparedTouch = { id: event.pointerId, ...point, selector: new PreparedSpellSelector(this.prepared.spells.map((spell) => spell.id), this.prepared.current, { touch: true }) };
+          this.#showPreparedTouch();
+        }
+      } else this.input.cast();
+    }
     if (action === 'gauntlet') this.input.gauntlet();
     if (action === 'ultimate') this.input.ultimate();
     if (action === 'dash') this.input.dash();
@@ -325,6 +359,26 @@ export class TouchControls {
     if (action === 'attack') this.input.setAttack(false);
     if (action === 'guard') this.input.setGuard(false);
     if (action === 'jump') this.jumpHeld = false;
+  }
+
+  #cancelPreparedTouch() {
+    this.preparedTouch = null;
+    if (this.preparedFan) this.preparedFan.hidden = true;
+    this.buttons?.spell?.classList.remove('prepared-highlighted');
+  }
+
+  #showPreparedTouch() {
+    const gesture = this.preparedTouch;
+    if (!gesture) return;
+    this.preparedFan.hidden = false;
+    this.preparedFan.style.left = `${gesture.x}px`;
+    this.preparedFan.style.top = `${gesture.y}px`;
+    this.preparedFan.innerHTML = gesture.selector.slots.slice(1).map((slot) => {
+      const entry = this.prepared.spells.find((spell) => spell.id === slot.id);
+      const state = entry.available ? 'READY' : this.prepared.phase === 'startup' ? 'PRESELECT' : entry.remaining > 0.01 ? `${entry.remaining.toFixed(1)}s` : 'GATHER';
+      return `<div data-spell="${slot.id}" class="touch-prepared-slot ${slot.id === gesture.selector.highlight ? 'highlighted' : ''} ${entry.available ? '' : 'cooling'}" style="left:${slot.x}px;top:${slot.y}px">${iconSvg(slot.id)}<span>${entry.spell.short ?? entry.spell.label}</span><b>${state}</b></div>`;
+    }).join('');
+    this.buttons.spell.classList.toggle('prepared-highlighted', gesture.selector.highlight === this.prepared.current);
   }
 
   #startStick(event, point) {

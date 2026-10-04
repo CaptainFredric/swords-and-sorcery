@@ -63,3 +63,13 @@ test('the line under a Vortex\'s name says how it is steered, by the buttons the
   assert.equal(vortexHint({ touch: true, bindings: { attack: ['Mouse0'], guard: ['Mouse2'] } }), 'ATTACK — FIRE   ·   GUARD — BLADE', 'on a touch screen: the buttons\' names');
   assert.equal(vortexHint({ bindings: {} }), 'ATTACK — FIRE   ·   GUARD — BLADE');
 });
+
+test('Chivalry distinguishes its planning startup and nine second active duration', () => {
+  const startup = ultimateView({ ultimate: 'chivalry', ultimateState: { id: 'chivalry', phase: 'startup', commitAt: 10.65 } }, 10);
+  assert.equal(startup.label, 'PREPARE');
+  assert.equal(startup.ultimate.id, 'chivalry');
+  const active = ultimateView({ ultimate: 'chivalry', ultimateState: { id: 'chivalry', phase: 'active', until: 19 } }, 10);
+  assert.equal(active.left, 9);
+  assert.equal(active.charge, 1);
+  assert.equal(ultimateView({ ultimate: 'chivalry', ultimateState: { id: 'chivalry', phase: 'active', until: 19 } }, 19).state, 'charging');
+});
