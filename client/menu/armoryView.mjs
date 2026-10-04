@@ -5,6 +5,7 @@ import { GAME } from '../../shared/src/combat.mjs';
 import { SPELLS } from '../../shared/src/spells.mjs';
 import { STEEL } from '../../shared/src/steel.mjs';
 import { ULTIMATES } from '../../shared/src/ultimates.mjs';
+import { normalizePreparedSpells } from '../../shared/src/preparedSpells.mjs';
 
 // how each spell reads in the Armory: what it is like, then plainly what it does
 const SPELL_WORDS = Object.freeze({
@@ -71,4 +72,25 @@ export function armoryView(equipped, ultimate = 'sunder') {
       return { id: u.id, name: u.label.toUpperCase(), mark: words.mark, line: words.line, facts: words.facts(u), equipped: u.id === ultimate };
     }),
   };
+}
+
+/**
+ * Chivalry's three prepared spells as the Armory shows them: a slot for each key (1, 2, 3), its spell's mark and name;
+ * the starting spell's slot is fixed (★), any other is changed one way or the other (`previous`, `next`) among the
+ * spells that are not already in another slot.
+ */
+export function preparedArmoryView(starting, ids) {
+  const prepared = normalizePreparedSpells(starting, ids);
+  return prepared.map((id, slot) => {
+    const others = prepared.filter((_, i) => i !== slot);
+    const choices = Object.keys(SPELLS).filter((spell) => spell === id || !others.includes(spell));
+    const at = choices.indexOf(id);
+    const fixed = id === starting || choices.length < 2;
+    const words = SPELL_WORDS[id] ?? { mark: '◆' };
+    return {
+      slot, key: slot + 1, id, name: SPELLS[id].label.toUpperCase(), mark: words.mark, starting: id === starting,
+      previous: fixed ? null : choices[(at - 1 + choices.length) % choices.length],
+      next: fixed ? null : choices[(at + 1) % choices.length],
+    };
+  });
 }

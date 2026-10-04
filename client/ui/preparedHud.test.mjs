@@ -14,8 +14,11 @@ function node() {
 }
 function hud() {
   const elements = new Map();
+  // (the Q tile stands in the row of ability tiles)
+  const row = node();
   globalThis.document = { createElement: () => node(), querySelector: (selector) => {
-    if (!elements.has(selector)) elements.set(selector, node()); return elements.get(selector);
+    if (!elements.has(selector)) elements.set(selector, Object.assign(node(), selector === '#spell-ability' ? { parentElement: row } : {}));
+    return elements.get(selector);
   } };
   return new HUD();
 }
@@ -31,7 +34,7 @@ test('Chivalry HUD keeps a cooling spell face and exposes three identities with 
   assert.equal(view.spell.querySelector('strong').textContent, '6.0');
   assert.equal(view.preparedPanel.hidden, false);
   assert.equal(view.preparedSlots.get('gale').classList.contains('current'),true);
-  assert.equal(view.preparedTimer.textContent,'9.0s');
+  assert.equal(view.preparedTimer.textContent,'','docked over the R tile, which already counts Chivalry down');
   assert.equal(view.preparedSlots.size,3);
   view.setPreparedSelector({ mode: 'keyboard' });
   assert.equal(view.preparedPanel.classList.contains('selecting'), true);
@@ -80,4 +83,20 @@ test('prepared selection retains its spell cooldown face after Chivalry expires'
   assert.equal(view.spell.classList.contains('fist'), false);
   assert.equal(view.spellLabel.textContent, 'GALE');
   assert.equal(view.spell.querySelector('strong').textContent, '5.0');
+});
+
+test('with a mouse and keyboard the rack stands on the ability tiles, in their cloth; on touch it keeps its own place', () => {
+  const view = hud();
+  view.update(local, {}, 10);
+  assert.equal(view.preparedPanel.classList.contains('docked'), true);
+  // the hint says how to use it while that is worth saying, then the rack goes quiet
+  assert.equal(view.preparedPanel.classList.contains('quiet'), false, 'the first moments of it');
+  view.update(local, {}, 13);
+  assert.equal(view.preparedPanel.classList.contains('quiet'), true);
+  view.setPreparedSelector({ mode: 'keyboard' });
+  assert.equal(view.preparedPanel.classList.contains('quiet'), false, 'choosing');
+  // touch: its own place, its own timer
+  const touch = hud(); touch.setPreparedInputMode('touch'); touch.update(local, {}, 10);
+  assert.equal(touch.preparedPanel.classList.contains('docked'), false);
+  assert.equal(touch.preparedTimer.textContent, '9.0s');
 });

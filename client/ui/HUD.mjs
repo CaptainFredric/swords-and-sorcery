@@ -7,6 +7,10 @@ import { iconSvg } from './icons.mjs';
 import { ultimateView } from './ultimateView.mjs';
 import { STAGGER } from '../../shared/src/stagger.mjs';
 import { practiceOverride } from '../../shared/src/practiceRecast.mjs';
+import { ultimateFor } from '../../shared/src/ultimates.mjs';
+
+// how long after Spells & Chivalry takes hold its prepared spells still say how to use them (s)
+export const PREPARED_HINT_SEC = 2.5;
 
 export function matchInfoText(snapshot, serverNow) {
   if (snapshot?.mode === 'PRACTICE') return 'PRACTICE YARD  ·  UNTIMED';
@@ -69,6 +73,10 @@ export class HUD {
     this.preparedPanel.hidden = true;
     this.root.append(this.preparedPanel);
     this.preparedSelector = null;
+    // with a mouse and keyboard, the prepared spells stand as a rack of tiles over the Q, E and R tiles (on touch they
+    // keep their own place: the touch layout has no ability tiles)
+    this.abilityRow = this.spell?.parentElement ?? null;
+    this.preparedDocked = false;
   }
 
   show() { this.root.classList.remove('hidden'); this.root.setAttribute('aria-hidden', 'false'); }
@@ -155,6 +163,12 @@ export class HUD {
     this.preparedView = view;
     this.preparedPanel.hidden = !view.visible;
     if (!view.visible) { this.preparedSelector = null; return; }
+    const docked = this.preparedInputMode !== 'touch' && Boolean(this.abilityRow);
+    if (docked !== this.preparedDocked) {
+      this.preparedDocked = docked;
+      (docked ? this.abilityRow : this.root).append(this.preparedPanel);
+      this.preparedPanel.classList.toggle('docked', docked);
+    }
     this.preparedPanel.classList.toggle('selecting', Boolean(this.preparedSelector));
     const keyboard = this.preparedInputMode !== 'touch' || this.preparedSelector?.mode === 'keyboard';
     this.preparedPanel.dataset.input = keyboard ? 'keyboard' : 'touch';
@@ -185,9 +199,14 @@ export class HUD {
       for (const id of order) row.append(this.preparedSlots.get(id));
       this.preparedOrder = order;
     }
+    const activeSec = ultimateFor('chivalry').activeSec;
     this.preparedHeader.textContent = keyboard && this.preparedSelector ? 'Q HELD · PREPARED SPELLS' : view.phase === 'startup' ? 'Prepare your spells' : 'Spells & Chivalry';
-    this.preparedTimer.textContent = view.phase === 'active' ? `${view.left.toFixed(1)}s` : '';
-    this.preparedPanel.style.setProperty('--chivalry-left', `${Math.min(100, view.left / 9 * 100)}%`);
+    // (docked, the R tile beside it already counts Chivalry down)
+    this.preparedTimer.textContent = view.phase === 'active' && !docked ? `${view.left.toFixed(1)}s` : '';
+    this.preparedPanel.style.setProperty('--chivalry-left', `${Math.min(100, view.left / activeSec * 100)}%`);
+    // how to use them, while that is worth saying: preparing, choosing, and the first moments of it
+    const fresh = view.phase === 'active' && view.left > activeSec - PREPARED_HINT_SEC;
+    this.preparedPanel.classList.toggle('quiet', docked && view.phase === 'active' && !fresh && !this.preparedSelector);
     for (const entry of view.spells) {
       const tile = this.preparedSlots.get(entry.id);
       const highlighted = this.preparedSelector?.highlight === entry.id;
@@ -195,6 +214,8 @@ export class HUD {
       tile.classList.toggle('current', entry.current);
       tile.classList.toggle('highlighted', highlighted);
       tile.classList.toggle('cooling', !entry.available);
+      // (its cooldown shades the tile from the top, as the ability tiles' do)
+      tile.style.setProperty('--cooldown', String(Math.min(1, entry.remaining / Math.max(0.1, entry.spell.cooldownSec ?? 1))));
       tile.querySelector('kbd').textContent = String(view.spells.indexOf(entry) + 1);
       tile.querySelector('b').textContent = status;
       tile.querySelector('i').textContent = highlighted ? 'SELECTED' : entry.current ? 'EQUIPPED' : '';

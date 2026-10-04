@@ -32,3 +32,17 @@ test('the Armory offers both ultimates, marks the one carried, and says plainly 
   assert.deepEqual(armoryView('fireball').ultimates.filter((u) => u.equipped).map((u) => u.id), ['sunder']);
   for (const u of view.ultimates) assert.ok(u.line.length > 20 && u.mark, `${u.id} has words and a mark`);
 });
+
+test('Chivalry\'s prepared spells in the Armory: a slot for each key, the starting spell fixed, the others turned among the spells not already prepared', async () => {
+  const { preparedArmoryView } = await import('./armoryView.mjs');
+  const slots = preparedArmoryView('frostfire', ['fireball', 'frostfire', 'gale']);
+  assert.deepEqual(slots.map((s) => [s.key, s.id, s.starting]), [[1, 'fireball', false], [2, 'frostfire', true], [3, 'gale', false]]);
+  assert.equal(slots[1].previous, null, 'the starting spell stays where it is');
+  assert.equal(slots[1].next, null);
+  // a slot turns only among its own spell and the one not prepared anywhere (Steel)
+  assert.deepEqual(new Set([slots[0].previous, slots[0].next]), new Set(['steel']));
+  assert.deepEqual(new Set([slots[2].previous, slots[2].next]), new Set(['steel']));
+  for (const slot of slots) assert.ok(slot.mark && slot.name === SPELLS[slot.id].label.toUpperCase());
+  // an outside starting spell takes the last slot, as the shared rule says
+  assert.deepEqual(preparedArmoryView('steel', ['fireball', 'frostfire', 'gale']).map((s) => s.id), ['fireball', 'frostfire', 'steel']);
+});
