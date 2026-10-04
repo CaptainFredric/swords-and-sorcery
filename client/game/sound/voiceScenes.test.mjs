@@ -426,27 +426,22 @@ test('"Hold still.": the same foe denying his sword again and again within a few
   assert.ok(VOICE_LINES.openUp.chance >= 0.1 && VOICE_LINES.openUp.chance <= 0.15 && VOICE_LINES.openUp.perLife === 1);
 });
 
-test('"Deftly Dodge!" is a small bark for a dash that really happened: now and then, long between, losing to any sentence', () => {
+test('"Deftly dodge." is a small bark for an attack narrowly avoided: now and then, long between, losing to any sentence', () => {
   const rule = VOICE_LINES.deftlyDodge;
   assert.ok(rule.chance >= 0.08 && rule.chance <= 0.12);
   assert.ok(rule.cooldown >= 35 && rule.cooldown <= 50);
   assert.equal(rule.priority, 1, 'the least of the lines with words');
-  assert.equal(voiceLine('deftlyDodge').text, 'Deftly Dodge!');
-  assert.deepEqual(Object.keys(voiceLine('deftlyDodge').triggers), ['dash'], 'its only moment is a dash');
+  assert.equal(voiceLine('deftlyDodge').text, 'Deftly dodge.');
+  assert.deepEqual(Object.keys(voiceLine('deftlyDodge').triggers), ['nearMiss'], 'its only moment is a sword narrowly missing him');
   const director = new VoiceDirector({ rand: () => 0 });
   director.consider('killTaunt', 'k', 10, { force: true, duration: 2 });
   assert.equal(director.consider('deftlyDodge', 'k', 10.5), null, 'never over his own sentence');
   assert.ok(director.consider('deftlyDodge', 'k', 60));
   assert.equal(director.consider('deftlyDodge', 'k', 60 + rule.cooldown - 1), null, 'not again so soon');
-  // the game raises a dash's moment in two places only: my own dash once it is allowed and begun (never on the key
-  // alone), and another knight's on the host's word that they dashed
+  // the game raises it on the host's word that a sword missed (voiceWatch.mjs miss: the knight it nearly caught, on
+  // the move)
   const runtime = readFileSync(new URL('../GameRuntime.mjs', import.meta.url), 'utf8');
-  const raised = [...runtime.matchAll(/#sayMoment\([^\n]*\['dash'\]\)/g)];
-  assert.equal(raised.length, 2);
-  const mine = runtime.slice(runtime.indexOf("canPresentLocalAction('dash'"), raised[0].index);
-  assert.match(mine, /canPresentLocalAction\('dash'[^\n]*\) return;/, 'a dash that is not allowed returns before anything is said');
-  assert.match(mine, /recordUse\(this\.localState, 'dash'/, 'and it is said after the dash is begun');
-  assert.match(runtime.slice(raised[1].index - 80, raised[1].index), /event\.type === 'dash' && event\.playerId !== me/);
+  assert.match(runtime, /event\.type === 'swordMiss'\) this\.#sayWatched\(this\.watch\.miss\(/);
 });
 
 test('a projectile gathering may be complained about, never a gust or a ward; and every scene\'s line is one the declarations own', () => {

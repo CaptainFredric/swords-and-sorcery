@@ -19,7 +19,7 @@ test('the declarations are sound: no duplicate, no unknown moment, every recordi
 });
 
 test('what is wrong with a declaration is said plainly', () => {
-  const good = { id: 'testLine', text: 'A test.', trigger: 'death', rarity: 0.5, cooldown: 10, credits: { title: 'T', description: 'D', note: 'N' } };
+  const good = { id: 'testLine', text: 'A test.', trigger: 'death', rarity: 0.5, cooldown: 10, section: 'Defeat & Death', credits: { title: 'T', description: 'D', note: 'N' } };
   const problems = (entry, extra = {}) => validateVoiceLines({ declarations: [entry], ...extra }).errors.join(' | ');
   assert.equal(problems(good), '');
   assert.match(problems({ ...good, trigger: 'noSuchMoment' }), /unknown trigger 'noSuchMoment'/);
@@ -35,6 +35,10 @@ test('what is wrong with a declaration is said plainly', () => {
   // a recording nobody declared, and a take the manifest lists that is not there
   assert.match(problems(good, { manifest: { lines: { strayLine: [{ file: 'stray-line-1' }] } }, files: [] }), /strayLine: recorded .* but not declared/);
   assert.match(problems(good, { manifest: { lines: { testLine: [{ file: 'test-line-1' }] } }, files: ['test-line-1.m4a'] }), /test-line-1\.wav is listed but missing/);
+  // where it stands in the Credits is authored, and fits what it is (a sentence among his voice, a grunt among the sounds)
+  assert.match(problems({ ...good, section: undefined }), /section must be one of/);
+  assert.match(problems({ ...good, section: 'Injury' }), /section must be one of/);
+  assert.equal(problems({ ...good, kind: 'exertion', section: 'Injury' }), '');
   // a line said in parts: the words of each part, and a recording for each (never fewer, never an alternate take)
   const inParts = { ...good, parts: ['A', 'test.'] };
   assert.match(problems({ ...good, parts: ['only one'] }), /parts must be the words of each part/);
@@ -46,7 +50,7 @@ test('what is wrong with a declaration is said plainly', () => {
 
 test('every moment a line waits for is one the game raises (or is marked as still to come)', () => {
   // the modules that raise moments: a tag nobody raises would leave its lines silent for ever
-  const sources = ['./voiceMoments.mjs', './voiceRules.mjs', './voiceScenes.mjs', '../GameRuntime.mjs', '../../main.mjs']
+  const sources = ['./voiceMoments.mjs', './voiceRules.mjs', './voiceScenes.mjs', './voiceWatch.mjs', '../GameRuntime.mjs', '../../main.mjs']
     .map((path) => readFileSync(new URL(path, import.meta.url), 'utf8')).join('\n');
   for (const [tag, about] of Object.entries(VOICE_TAGS)) {
     assert.ok(about.about, `${tag}: says what it is`);
@@ -77,11 +81,12 @@ test('the director\'s rules follow from the declarations: rank, rarity, cooldown
 
 test('a moment gives its lines in order: the most particular moment first, the wildcard and the grunt last', () => {
   const said = (tags, options) => linesFor('k', tags, options).map((say) => say.line);
-  assert.deepEqual(said({ death: 1, minorLethal: 1, magicDeath: 1 }), ['lateLine', 'magicDefeat', 'knightFallen', 'defeat', 'laugh', 'death']);
+  assert.deepEqual(said({ death: 1, minorLethal: 1, magicDeath: 1 }), ['lateLine', 'magicDefeat', 'knightFallen', 'defeat', 'underworld', 'laugh', 'death']);
   assert.deepEqual(said(['kill', 'cleanSwordKill', 'subparKill']), ['hackSlash', 'subparStandard', 'killTaunt', 'workHard', 'laugh']);
   assert.deepEqual(said(['guardBreak']), ['lowerGuard', 'breakTaunt', 'offGuard']);
-  // (his own review of a dash is weighed before its grunt: said one time in ten, the grunt the rest)
-  assert.deepEqual(said(['dash']), ['deftlyDodge', 'dash', 'laugh']);
+  assert.deepEqual(said(['dash']), ['dash', 'laugh']);
+  // (his review of a dodge is for an attack narrowly avoided, not any dash)
+  assert.deepEqual(said(['nearMiss']), ['deftlyDodge']);
   assert.deepEqual(said(['noSuchMoment']), []);
   // a line waiting on what it belongs to is never offered, even if its moment were raised
   assert.deepEqual(said(['riposteOvershoot']), []);
@@ -112,7 +117,7 @@ test('a cry\'s moment gives exactly one line, by share, and it is always said; a
   }
   assert.ok(cries.victory > 250 && cries.victory < 450 && cries.sunderCall > cries.victory, JSON.stringify(cries));
   const forced = linesFor('v', { death: 1, magicDeath: 1 }, { force: true });
-  assert.deepEqual(forced.map((say) => say.line).sort(), ['defeat', 'knightFallen', 'magicDefeat']);
+  assert.deepEqual(forced.map((say) => say.line).sort(), ['defeat', 'knightFallen', 'magicDefeat', 'underworld']);
   assert.equal(forced[0].line, 'magicDefeat', 'the most particular moment still first');
   assert.ok(forced.every((say) => say.force));
 });

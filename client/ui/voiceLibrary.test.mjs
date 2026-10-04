@@ -63,8 +63,8 @@ test('a subtitle is a line\'s words, and nothing for a line without words', () =
 });
 
 test('a line said in parts is subtitled part by part: two parts each their own words, a sentence a word at a time as far as it has got', () => {
-  assert.equal(subtitleFor('finalDuel', 0), 'All of my life, I have sought a challenger worthy of one glorious final duel.');
-  assert.equal(subtitleFor('finalDuel', 1), '...The quest continues.');
+  assert.equal(subtitleFor('finalDuel', 0), 'All of my life, I have sought a challenger, worthy of one glorious final duel...');
+  assert.equal(subtitleFor('finalDuel', 1), '...the quest continues.');
   assert.equal(subtitleFor('regenTrick', 0), 'Wait, wait!!...');
   assert.equal(subtitleFor('regenTrick', 1), '...ahahahaha! I TRICKED you!');
   assert.equal(subtitleFor('sunderLeave', 0), 'How.');
@@ -74,13 +74,13 @@ test('a line said in parts is subtitled part by part: two parts each their own w
   assert.equal(subtitleFor('sunderLeave'), 'How. Many. More. Times. Need. I. Do. This. For. You. To. LEAVE!?');
   // the new lines' words are the intended ones, not a transcription's
   for (const [line, words] of Object.entries({
-    herald: 'HERALD!!! I HAD THOUGHT I HAD ASKED FOR A CHALLENGE!!',
+    herald: "HERAAAAAALD! I HAD THOUGHT I'D ASKED FOR A CHALLENGE.",
     openUp: 'When will you open up? Hold still.',
-    newKnighthood: 'You have achieved a new form of knighthood.',
-    deftlyDodge: 'Deftly Dodge!',
+    newKnighthood: 'You have achieved a new form of knight hood.',
+    deftlyDodge: 'Deftly dodge.',
     thankYou: 'Thank. You.',
-    neverThought: 'I had never thought this day would come.',
-    standFight: "No. I've had enough. I will stand... and I will fight.",
+    neverThought: 'I had never thought this day would come...',
+    standFight: "No. I've had enough. I will stand. And I will fight.",
     chivalryTest: 'In accordance with chivalry, I now allow you to surrender. I was merely testing you.',
     getThingOff: 'Get this thing off of me!',
     acceptSaint: 'I accept sainthood with my usual humility.',
@@ -90,4 +90,54 @@ test('a line said in parts is subtitled part by part: two parts each their own w
     assert.equal(VOICE_LIBRARY.filter((entry) => entry.line === line).length, 1);
     assert.equal(manifest.lines[line].length, listed.get(line).parts, `${line}: a recording for each part`);
   }
+});
+
+test('the library stands in its authored sections: his voice, then the sounds of the fight, then the music; every line in exactly one', async () => {
+  const { LIBRARY_GROUPS, MUSIC_LIBRARY, librarySections } = await import('./voiceLibrary.mjs');
+  const { VOICE_SECTIONS } = await import('../game/sound/voiceLines.mjs');
+  assert.deepEqual(LIBRARY_GROUPS.map((g) => g.title), ['The Spellblade’s Voice', 'Combat Sounds', 'Music & Stingers']);
+  assert.deepEqual(VOICE_SECTIONS.voice, ['Battle & Abilities', 'Challenges & Pursuit', 'Kills & Triumphs', 'Defeat & Death', 'Remarks & Oddities', 'Team']);
+  assert.deepEqual(VOICE_SECTIONS.sounds, ['Exertions', 'Injury']);
+  const shelves = librarySections(() => true);
+  const seen = shelves.flatMap((shelf) => shelf.entries.map((entry) => entry.line));
+  assert.equal(seen.length, VOICE_LIBRARY.length);
+  assert.equal(new Set(seen).size, VOICE_LIBRARY.length);
+  for (const shelf of shelves) {
+    for (const entry of shelf.entries) {
+      assert.equal(entry.section, shelf.section);
+      // the sounds of the fight are performances, never quoted words
+      assert.equal(shelf.group === 'sounds', entry.kind === 'exertion', `${entry.line} in ${shelf.section}`);
+    }
+  }
+  // the sections in their order, each once
+  assert.deepEqual(shelves.map((shelf) => shelf.section), [...VOICE_SECTIONS.voice, ...VOICE_SECTIONS.sounds].filter((section) => shelves.some((s) => s.section === section)));
+  // a few of the new lines where they were put
+  const where = (line) => VOICE_LIBRARY.find((entry) => entry.line === line).section;
+  assert.equal(where('thePlan'), 'Battle & Abilities');
+  assert.equal(where('bestManWin'), 'Challenges & Pursuit');
+  assert.equal(where('noSpare'), 'Kills & Triumphs');
+  assert.equal(where('notFall'), 'Defeat & Death');
+  assert.equal(where('abolishBattle'), 'Remarks & Oddities');
+  assert.equal(where('fightAsMe'), 'Team');
+  assert.equal(where('heavyHurt2'), 'Injury');
+  assert.equal(where('firstStrike'), 'Exertions');
+  // the music performed for him
+  assert.deepEqual(MUSIC_LIBRARY.map((entry) => [entry.title, entry.note]), [['Spells & Chivalry', 'Mastery receives accompaniment.']]);
+  // the makers
+  assert.deepEqual(CREDITS.lines.map((line) => `${line.role} ${line.name}`), ['Created and designed by CaptainFredric', 'The Spellblade — performed by CaptainFredric']);
+});
+
+test('the new lines\' words and notes are as written (a few, checked to the letter)', () => {
+  const entry = (line) => VOICE_LIBRARY.find((e) => e.line === line);
+  assert.equal(entry('abolishBattle').words, 'Could we abolish the battle, for one day? And spend time with those whom we cherish most?... Haha! I jest!');
+  assert.equal(entry('abolishBattle').note, 'Phew. We were nearly threatened with dimensionality.');
+  assert.equal(entry('renownDisowned').words, 'Your renown has been disowned. AhHAHAHA!!!!!');
+  assert.equal(entry('herald').note, 'Customer service has been summoned.');
+  assert.equal(entry('neverThought').note, 'It has nevertheless arrived.');
+  assert.equal(entry('openUp').note, 'Cooperation would simplify matters.');
+  assert.equal(entry('standFight').note, 'Negotiations have concluded.');
+  assert.equal(entry('poorTaste').coming, 'the frozen-enemy slush');
+  assert.equal(entry('fightAsMe').coming, 'team matches');
+  assert.equal(entry('heavyHurt').title, 'Heavy Injury I');
+  assert.equal(entry('heavyHurt2').title, 'Heavy Injury II');
 });

@@ -1,9 +1,18 @@
 {
+  "abolishBattle": [
+    "abolish-battle-1.mp3"
+  ],
   "acceptSaint": [
     "accept-saint-1.mp3"
   ],
   "alwaysKnew": [
     "always-knew-1.mp3"
+  ],
+  "believeMagic": [
+    "believe-magic-1.mp3"
+  ],
+  "bestManWin": [
+    "best-man-win-1.mp3"
   ],
   "bladeCaught": [
     "blade-caught-1.mp3"
@@ -11,8 +20,17 @@
   "breakTaunt": [
     "recording-2-master.wav:14.2-17.04"
   ],
+  "chargeDefeat": [
+    "charge-defeat-1.mp3"
+  ],
   "chivalryTest": [
     "chivalry-test-1.mp3"
+  ],
+  "coldHurt": [
+    "cold-hurt-1.mp3"
+  ],
+  "constitution": [
+    "constitution-1.mp3"
   ],
   "death": [
     "death-1.mp3",
@@ -25,12 +43,24 @@
   "deftlyDodge": [
     "deftly-dodge-1.mp3"
   ],
+  "downUpSideways": [
+    "down-up-sideways-1.mp3"
+  ],
   "effort": [
     "effort-1.mp3"
+  ],
+  "fairSquare": [
+    "fair-square-1.mp3"
+  ],
+  "fightAsMe": [
+    "fight-as-me-1.mp3"
   ],
   "finalDuel": [
     "FinalDuelChallengerQuest.mp3:0.80-7.00",
     "FinalDuelChallengerQuest.mp3:8.85-11.05"
+  ],
+  "firstStrike": [
+    "first-strike-1.mp3"
   ],
   "fistKill": [
     "fist-kill-1.mp3"
@@ -46,6 +76,15 @@
   ],
   "hackSlash": [
     "hack-slash-1.mp3"
+  ],
+  "headOn": [
+    "head-on-1.mp3"
+  ],
+  "heavyHurt": [
+    "heavy-hurt-1.mp3"
+  ],
+  "heavyHurt2": [
+    "heavy-hurt2-1.mp3"
   ],
   "herald": [
     "herald-1.mp3"
@@ -77,6 +116,12 @@
   "magicDefeat": [
     "recording-2-master.wav:5.15-7.25"
   ],
+  "masterBreak": [
+    "master-break-1.mp3"
+  ],
+  "masterCall": [
+    "master-call-1.mp3"
+  ],
   "misaddressed": [
     "misaddressed-1.mp3"
   ],
@@ -86,11 +131,26 @@
   "newKnighthood": [
     "new-knighthood-1.mp3"
   ],
+  "noSpare": [
+    "no-spare-1.mp3"
+  ],
+  "noSquire": [
+    "no-squire-1.mp3"
+  ],
+  "notFall": [
+    "not-fall-1.mp3"
+  ],
   "offGuard": [
     "off-guard-1.mp3"
   ],
   "openUp": [
     "open-up-1.mp3"
+  ],
+  "poorTaste": [
+    "poor-taste-1.mp3"
+  ],
+  "preferNoPain": [
+    "prefer-no-pain-1.mp3"
   ],
   "rebuttal": [
     "rebuttal-1.mp3"
@@ -98,6 +158,15 @@
   "regenTrick": [
     "WaitRegenTrick.mp3:0.25-1.85",
     "WaitRegenTrick.mp3:2.60-6.95"
+  ],
+  "remainStaggered": [
+    "remain-staggered-1.mp3"
+  ],
+  "renownDisowned": [
+    "renown-disowned-1.mp3"
+  ],
+  "savedFromPeace": [
+    "saved-from-peace-1.mp3"
   ],
   "sorcery": [
     "recording-2-master.wav:0.38-1.93",
@@ -117,6 +186,9 @@
   ],
   "steelPolished": [
     "steel-polished-1.mp3"
+  ],
+  "stopRunning": [
+    "stop-running-1.mp3"
   ],
   "subparStandard": [
     "subpar-standard-1.mp3"
@@ -141,8 +213,17 @@
   "thankYou": [
     "thank-you-1.mp3"
   ],
+  "thePlan": [
+    "the-plan-1.mp3"
+  ],
   "tinManHeart": [
     "tin-man-heart-1.mp3"
+  ],
+  "toldToWait": [
+    "told-to-wait-1.mp3"
+  ],
+  "underworld": [
+    "underworld-1.mp3"
   ],
   "victory": [
     "recording-2-master.wav:8.15-10.72"

@@ -2,13 +2,14 @@
 // and a word on why. Shown from the settings' footer (a quiet button, not a menu item). Pure data, drawn from the
 // lines' own declarations, so nothing here can fall out of step with the game.
 
-import { VOICE_LINE_LIST, partText, voiceLine } from '../game/sound/voiceLines.mjs';
+import { VOICE_LINE_LIST, VOICE_SECTIONS, partText, voiceLine } from '../game/sound/voiceLines.mjs';
+import { RECORDED_STINGERS } from '../game/sound/recordedStingers.mjs';
 
 export const CREDITS = Object.freeze({
   title: 'SWORDS & SORCERY',
   lines: Object.freeze([
     Object.freeze({ role: 'Created and designed by', name: 'CaptainFredric' }),
-    Object.freeze({ role: 'The Spellblade voiced by', name: 'CaptainFredric' }),
+    Object.freeze({ role: 'The Spellblade — performed by', name: 'CaptainFredric' }),
   ]),
 });
 
@@ -25,7 +26,33 @@ export const VOICE_LIBRARY = Object.freeze(VOICE_LINE_LIST.map((line) => Object.
   coming: line.coming,
   // (a line said in parts: how many; its recordings are those parts, heard in the Credits as one)
   parts: line.parts?.length ?? 0,
+  // where it stands in the library: authored on the line (voiceLines.mjs `section`), never worked out from its triggers
+  section: line.section,
 })));
+
+// The library's groups, in the order the Credits show them: his voice, the sounds of the fight, then the music that
+// was performed for him. Each group's sections fold away.
+export const LIBRARY_GROUPS = Object.freeze([
+  Object.freeze({ id: 'voice', title: 'The Spellblade’s Voice', sections: VOICE_SECTIONS.voice }),
+  Object.freeze({ id: 'sounds', title: 'Combat Sounds', sections: VOICE_SECTIONS.sounds }),
+  Object.freeze({ id: 'music', title: 'Music & Stingers', sections: Object.freeze([]) }),
+]);
+
+// the music performed for him (client/game/sound/recordedStingers.mjs), as the Credits show it
+export const MUSIC_LIBRARY = Object.freeze([
+  Object.freeze({
+    stinger: 'spellsChivalry', title: RECORDED_STINGERS.spellsChivalry.title, source: 'The Spells & Chivalry ultimate’s stinger',
+    when: 'Associated with the ultimate’s activation and presentation.', note: 'Mastery receives accompaniment.',
+  }),
+]);
+
+/** The library by section (in its group's order), each section's lines in the order the Credits show them. */
+export function librarySections(isRecorded) {
+  const ordered = libraryInOrder(isRecorded);
+  return LIBRARY_GROUPS.filter((group) => group.sections.length).flatMap((group) => group.sections.map((section) => ({
+    group: group.id, section, entries: ordered.filter((entry) => entry.section === section),
+  }))).filter((shelf) => shelf.entries.length);
+}
 
 const BY_LINE = new Map(VOICE_LIBRARY.map((entry) => [entry.line, entry]));
 

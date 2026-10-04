@@ -504,3 +504,15 @@ html[data-turn] .turn-only { display: block !important; }
 .manual-scroll { min-height: 0; flex: 1; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--heraldry-brass) rgba(25, 14, 10, .3); padding-right: 6px; }
 .manual-scroll::-webkit-scrollbar { width: 5px; }
 .manual-scroll::-webkit-scrollbar-thumb { background: var(--heraldry-brass); border-radius: 2px; }
+/* the library's sections, each folding away under its name and how many lines it holds */
+.credits-section { border-bottom: 1px solid rgba(201, 156, 82, .18); }
+.credits-section > summary { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 11px 2px; cursor: pointer; list-style: none; color: #f1e4c2; font: 600 14px/1.2 var(--font-script); letter-spacing: .04em; }
+.credits-section > summary::-webkit-details-marker { display: none; }
+.credits-section > summary::before { content: "\25B8"; margin-right: 8px; color: var(--heraldry-brass-light); transition: transform .14s ease; }
+.credits-section[open] > summary::before { transform: rotate(90deg); }
+.credits-section > summary > span { flex: 1; }
+.credits-section > summary > small { color: rgba(234, 220, 182, .5); font: 700 10px/1 var(--font-script); letter-spacing: .12em; font-variant-numeric: tabular-nums; }
+.credits-section > summary:focus-visible { outline: 2px solid var(--heraldry-cream); outline-offset: 2px; }
+.credits-section > .voice-entry { padding-left: 14px; }
+.touch-ui .credits-section > summary { padding: 14px 2px; }
+@media (prefers-reduced-motion: reduce) { .credits-section > summary::before { transition: none; } }

@@ -35,6 +35,9 @@ import { chillScale, spellFor } from '../../shared/src/spells.mjs';
 import { cryMoment, gauntletMoment, voicePlacement, voiceRate } from './sound/voiceRules.mjs';
 import { MOMENTS, VoiceMoments } from './sound/voiceMoments.mjs';
 import { VoiceScenes } from './sound/voiceScenes.mjs';
+import { VoiceWatch } from './sound/voiceWatch.mjs';
+import { linesFor } from './sound/voiceLines.mjs';
+import { RecordedStingers } from './sound/recordedStingers.mjs';
 import { subtitleFor } from '../ui/voiceLibrary.mjs';
 import { FOOTSTEPS, footfallsCrossed, footstepPlacement, footstepRecipe, surfaceAt, variantPicker } from './sound/footsteps.mjs';
 import { CombatHeat, matchClosing, nearestFoe } from './sound/combatHeat.mjs';
@@ -139,6 +142,13 @@ export class GameRuntime {
     this.moments = new VoiceMoments();
     // and his longer scenes, each part said when the game has earned it (voiceScenes.mjs)
     this.scenes = new VoiceScenes({ say: (line, speaker, options) => this.#say(line, speaker, options) });
+    // and what he watches for over time: a charge, a chase, a lull, ground given and stood (voiceWatch.mjs)
+    this.watch = new VoiceWatch();
+    // the knights in Spells & Chivalry now, and when each one's last ended (it ends the moment a knight falls)
+    this.chivalrous = new Set();
+    this.chivalryEndedAt = new Map();
+    // the stingers that were performed and recorded (Spells & Chivalry's): over the music, on its bus
+    this.stingers = sound ? new RecordedStingers(sound) : null;
     // my own blade against the world, judged in my own view (localBladeSweep.mjs)
     this.bladeSweep = new LocalBladeSweep();
     this.weapon = new WeaponView(this.camera);
@@ -545,11 +555,20 @@ export class GameRuntime {
         }
         (this.healthAfterBlow ??= new Map()).set(event.victimId, event.health);
         this.scenes.damage(event);
+        this.watch.damage(event);
         this.#sayMoments(this.moments.damage(event, this.#voiceWorld()), event.at);
       }
       // a sword denied by the same foe again and again (their guard, their parry, or simply not being there)
       if ((event.type === 'block' && !event.vortex) || event.type === 'parry') this.#sayMoments(this.moments.denied(event.attackerId, event.defenderId, event.at), event.at);
       if (event.type === 'swordMiss') this.#sayMoments(this.moments.denied(event.playerId, this.#nearestFoe(event.playerId, MOMENTS.denied.near), event.at), event.at);
+      // a foe's sword narrowly missing a knight on the move; a swing after a while, a chain carrying on, ground stood
+      if (event.type === 'swordMiss') this.#sayWatched(this.watch.miss(event, this.latestSnapshot?.players ?? []));
+      if (event.type === 'swordSwing') this.#sayWatched(this.watch.swing(event, this.latestSnapshot?.players ?? []));
+      if (event.type === 'ultimateActive' && event.ultimate === 'chivalry') this.chivalrous.add(event.playerId);
+      if (event.type === 'ultimateEnded' && event.ultimate === 'chivalry') {
+        this.chivalrous.delete(event.playerId);
+        this.chivalryEndedAt.set(event.playerId, event.at);
+      }
 
       // Sheathed in Steel: another knight's plate ringing as it hardens (mine rang as I pressed)
       if (event.type === 'steelOn' && event.playerId !== me) this.#play(steelCallRecipe(), this.#bodyPosition(event.playerId), 0.7);
@@ -601,6 +620,7 @@ export class GameRuntime {
       }
       if (event.type === 'staggerBreak') {
         this.#staggerBreak(event);
+        this.watch.staggerBreak(event);
         this.#sayMoments(this.moments.staggerBreak(event, this.#voiceWorld()), event.at);
       }
       // another knight's dash: its breath, or the wildcard, now and then (mine is said as I press it)
@@ -685,7 +705,8 @@ export class GameRuntime {
           this.weapon.damage(this.#pushTowardMe(event.attackerId), event.amount);
         }
         // a blow that kills gets the death cry instead
-        if (event.amount >= 8 && event.health > 0 && event.source !== 'abyss') this.#sayMoment(event.victimId, ['hurt']);
+        // (a severe one has its own sounds; a small one after a long while unhurt, its own)
+        if (event.amount >= 8 && event.health > 0 && event.source !== 'abyss') this.#sayMoment(event.victimId, this.moments.hurt(event));
         // the cleanest contact there is: a short chink over the blow (mine, or on me; others' a little, from where
         // it landed), never more than one at a time
         if (event.clean && event.source !== 'burn') this.#precise(event);
@@ -704,10 +725,21 @@ export class GameRuntime {
       if (event.type === 'respawn' && event.playerId === this.socket.playerId) this.hud.flashText('FIGHT!', 'ready');
       // a life begun again (the wildcard is once a life); a new match forgets everything
       if (event.type === 'respawn') this.voice?.director?.newLife?.(event.playerId);
+      // back on my feet: whatever case I was still making for not having fallen is cut short
+      if (event.type === 'respawn' && event.playerId === me && this.appealing) {
+        this.appealing = false;
+        this.voice?.cut?.(me);
+      }
       if (event.type === 'matchStarted') {
         this.moments.reset();
         this.scenes.reset();
+        this.watch.reset();
+        this.chivalrous.clear();
+        this.chivalryEndedAt.clear();
         this.voice?.director?.newLife?.();
+        // a duel begins: one against one, each may certify the result in advance
+        const knights = (this.latestSnapshot?.players ?? []).filter((p) => p.actorKind !== 'dummy');
+        if (['DUEL', 'BOT_DUEL'].includes(this.latestSnapshot?.mode) && knights.length === 2) for (const knight of knights) this.#sayMoment(knight.id, ['duelBegins']);
       }
     }
   }
@@ -970,9 +1002,45 @@ export class GameRuntime {
     this.killingBlow?.delete(event.victimId);
     // (his longer scenes first: a plan the fallen had announced, a verdict or a sentence the victor has words for)
     const scene = this.scenes.death(event);
-    const { fallen, victor, rescued } = this.moments.death(event, { ...this.#voiceWorld(), blow, practice: this.#inPractice(), planFailed: scene.planFailed });
-    if (!fallen.some((say) => this.#say(say.line, say.speaker, say)) && !scene.victor) this.#sayMoments([victor], event.at);
+    // what was watched of it: the fallen had rushed the victor, led the match, fought them fairly, fell in Chivalry;
+    // the heavy third strike ended it
+    const { victimId, at } = event;
+    const killerId = event.killerId && event.killerId !== victimId ? event.killerId : null;
+    const players = this.latestSnapshot?.players ?? [];
+    const kills = (id) => players.find((p) => p.id === id)?.kills ?? 0;
+    const victimKills = kills(victimId);
+    const extra = {
+      rushed: Boolean(killerId) && this.watch.rushed(victimId, killerId, at),
+      fair: Boolean(killerId) && this.watch.fair(victimId, killerId, at, event.source),
+      finalStrike: Boolean(killerId) && this.watch.finalStrike(killerId, victimId, at),
+      leader: Boolean(killerId) && victimKills >= 3 && players.every((p) => p.id === victimId || (p.kills ?? 0) < victimKills),
+      chivalry: this.chivalrous.has(victimId) || Math.abs((this.chivalryEndedAt.get(victimId) ?? -Infinity) - at) < 1e-6,
+    };
+    this.chivalrous.delete(victimId);
+    this.watch.death(victimId);
+    const { fallen, victor, rescued } = this.moments.death(event, { ...this.#voiceWorld(), blow, practice: this.#inPractice(), planFailed: scene.planFailed, extra });
+    const spoke = fallen.some((say) => this.#say(say.line, say.speaker, say));
+    if (!spoke && !scene.victor) this.#sayMoments([victor], event.at);
     this.#sayMoments(rescued, event.at);
+    // nothing said of my own fall: now and then, I make my case late, and my return cuts it short ("Three—")
+    if (!spoke && victimId === this.socket.playerId) this.#appeal(event);
+  }
+
+  // my case for not having fallen, timed so that I am back on my feet just before it is finished
+  #appeal(event) {
+    const length = this.voice?.takes?.get('notFall')?.[0]?.duration;
+    const respawnIn = (event.respawnAt ?? event.at) - this.socket.serverNow();
+    if (!length || !(respawnIn > 1)) return;
+    // (its last word goes unsaid: the respawn arrives a third of a second before the end)
+    const delay = Math.max(0.6, respawnIn - length + 0.35);
+    for (const say of linesFor(this.socket.playerId, ['appeal'])) {
+      if (this.#say(say.line, say.speaker, { ...say, delay })) this.appealing = true;
+    }
+  }
+
+  // moments the watch has seen ([{ speaker, tags }]), raised as any other
+  #sayWatched(list) {
+    for (const moment of list) this.#sayMoment(moment.speaker, moment.tags);
   }
 
   // a line said, written out at the foot of the view: another knight's with his name, my own without
@@ -1058,6 +1126,8 @@ export class GameRuntime {
       positionOf: (id) => this.#bodyPosition(id),
       // how long ago a knight said a line (the voice's own clock), for lines that must keep apart
       saidAgo: (speaker, line) => (this.voice?.engine?.now ?? 0) - (this.voice?.director?.lastLine?.get(`${speaker}:${line}`) ?? -Infinity),
+      // whether a knight's plate was still hardened (Sheathe in Steel) at a moment
+      steeled: (id, at) => steelStrength(players.find((p) => p.id === id)?.steel, at) > 0,
     };
   }
 
@@ -1143,6 +1213,9 @@ export class GameRuntime {
     if (event.ultimate === 'chivalry') {
       const cry = cryMoment(event.ultimate);
       if (cry) this.#sayMoment(event.playerId, [cry]);
+      // and its music: mastery receives accompaniment (mine only: the stinger is music, not something heard across
+      // the field)
+      if (me) this.stingers?.play('spellsChivalry');
       if (me) this.hud.flashText('SPELLS & CHIVALRY', 'chivalry', 1400);
       return;
     }
@@ -1574,6 +1647,7 @@ export class GameRuntime {
     if (this.latestSnapshot && this.localAuth) {
       // (the longer scenes' clocks: a part whose moment has come is said)
       this.scenes.step(this.socket.serverNow(), this.latestSnapshot.players);
+      this.#sayWatched(this.watch.step(this.socket.serverNow(), this.latestSnapshot.players));
       this.#showCondition(this.socket.serverNow());
       this.hud.update(this.localAuth, this.latestSnapshot, this.socket.serverNow());
       this.touch?.update(this.localAuth, this.socket.serverNow(), { practice: this.#inPractice() });

@@ -133,6 +133,13 @@ export class VoiceBank {
     return Boolean(this.previewing);
   }
 
+  /** Cut short whatever `speaker` is saying (a short fade): his case for not falling, as he rises again. */
+  cut(speaker, fade = 0.06) {
+    this.playing.get(speaker)?.stop?.(fade);
+    this.playing.delete(speaker);
+    this.director.speaking?.delete?.(speaker);
+  }
+
   stopPreview() {
     for (const handle of [].concat(this.previewing ?? [])) handle?.stop?.(0.08);
     this.previewing = null;
