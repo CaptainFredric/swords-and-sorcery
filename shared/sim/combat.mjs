@@ -1,16 +1,16 @@
 import {
-  DAMAGE_LEVELS, GAME, MAX_FORCE, MELEE_CONTACT, SWORD_CHAIN, SWORD_STRIKE_TIMES, closingImpact, guardProfile, nextChainStep,
+  DAMAGE_LEVELS, GAME, HEALTH_REGEN, MAX_FORCE, MELEE_CONTACT, SWORD_CHAIN, SWORD_STRIKE_TIMES, closingImpact, guardProfile, nextChainStep,
   resolveSwordVsGuard, swordDamage, swordDamageFor, swordForce,
 } from '../src/combat.mjs';
 import { STAGGER, addStagger, drainStagger, freshStagger, staggerShove } from '../src/stagger.mjs';
 import { PROWESS, gainProwess, prowessForDamage } from '../src/prowess.mjs';
 import {
-  ULTIMATES, dizzy, stepVortexEmphasis, sundering, ultimateFor, ultimateStartup, ultimateWhirl, vortexEmphasisWanted, vortexTune, vortexing,
+  ULTIMATES, ULTIMATE_PRESS_KEPT_SEC, dizzy, stepVortexEmphasis, sundering, ultimateFor, ultimateStartup, ultimateWhirl, vortexEmphasisWanted, vortexTune, vortexing,
 } from '../src/ultimates.mjs';
 import { combatActionPolicy, combatBlocksSprint } from '../src/combatActionPolicy.mjs';
 import { recordChallengeFact } from './challenges.mjs';
 import { preparedSpellMember } from '../src/preparedSpells.mjs';
-import { RUPTURE, fissureCatches, planRupture } from '../src/rupture.mjs';
+import { RUPTURE, fissureCatches, onTornGround, planRupture } from '../src/rupture.mjs';
 import { recastReady, recordUse } from '../src/practiceRecast.mjs';
 import { GAME_MODES } from '../src/modes.mjs';
 import { blastDamage, blastDistance, burnFrom, chillFrom, chillScale, spellExposure, spellFor, strongerChill } from '../src/spells.mjs';
@@ -33,8 +33,8 @@ const SPAWN_PROTECTION_SEC = 1;
 const GUARD_REGEN_DELAY_SEC = 1;
 const GUARD_REGEN_PER_SEC = 40;
 const GUARD_REGEN_GUARDING = 0.6;
-const HEALTH_REGEN_DELAY_SEC = 5;
-const HEALTH_REGEN_PER_SEC = 20;
+const HEALTH_REGEN_DELAY_SEC = HEALTH_REGEN.delaySec;
+const HEALTH_REGEN_PER_SEC = HEALTH_REGEN.perSec;
 const ABYSS_ATTRIBUTION_SEC = 5;
 let projectileCounter = 0;
 
@@ -681,7 +681,9 @@ function landStrike(room, attacker, strikeIndex, target, atSec, nowSec) {
       target.parries += 1;
       const { suppressParryReel } = combatActionPolicy(attacker, nowSec);
       if (!suppressParryReel) {
-        attacker.staggerUntil = nowSec + GAME.parryStaggerMs / 1000;
+        // (a Sundering knight turned by a perfect guard is stopped, and staggered for less: the blow is theirs to lose,
+        // not the whole of their Sunder)
+        attacker.staggerUntil = nowSec + (sunder ? ultimateFor('sunder').parriedSec : GAME.parryStaggerMs / 1000);
         stopSwordChain(attacker, {}, room, nowSec);
       }
       gainProwess(room, target, PROWESS.parry);
@@ -722,8 +724,9 @@ function landStrike(room, attacker, strikeIndex, target, atSec, nowSec) {
     contactFacts: challengeContact(attacker, atSec, { ordinary: !attacker.attackSlam && !sunder,
       chainId: attacker.attackChainId, strikeIndex, steel: cancelled ? steelStrength(target.steel, nowSec) : armour.strength }),
   });
-  staggerBy(room, target, STAGGER.gain.sword * force, nowSec, attacker.id);
-  // a Sundering blow ends what they were doing, there and then (whether or not their balance has broken)
+  // (a Sundering blow on the body shakes a balance by its own measure: the heaviest single contact there is)
+  staggerBy(room, target, empowered ? ultimateFor('sunder').stagger : STAGGER.gain.sword * force, nowSec, attacker.id);
+  // and it ends what they were doing, there and then (whether or not their balance has broken), and leaves them reeling
   if (empowered) cutShort(room, target, attacker, nowSec);
   room.events.push({
     type: 'swordHit', playerId: attacker.id, targetId: target.id, strikeIndex, quality: armour.quality, impact: physical.impact, steel: armour.strength,
@@ -736,7 +739,8 @@ function landStrike(room, attacker, strikeIndex, target, atSec, nowSec) {
  * A Sundering blow lands on a knight's body: whatever they were in the middle of ends. A spell gathering is lost, a
  * sword chain stops, a fist thrown never lands, a dash ends where it is, a sprint is broken (its speed gone with it),
  * and an ultimate still being braced into is interrupted as any other (its charge kept, the usual lockout). One
- * already committed is not undone. Nothing is taken from them afterwards: they may begin again at once.
+ * already committed is not undone. Then they reel for a moment (the Sunder's `reelSec`: the same "cannot act" as a
+ * broken balance, only brief), so that what was cut short is felt to have been; after it they may begin again.
  */
 function cutShort(room, target, attacker, nowSec) {
   if (!target.alive) return;
@@ -769,7 +773,9 @@ function cutShort(room, target, attacker, nowSec) {
     what.push('sprint');
   }
   if (interruptUltimate(room, target, nowSec, attacker.id, 'sunder')) what.push('ultimate');
-  if (what.length) room.events.push({ type: 'actionInterrupted', playerId: target.id, by: attacker.id, what, at: nowSec });
+  const reelUntil = nowSec + ultimateFor('sunder').reelSec;
+  target.staggerUntil = Math.max(target.staggerUntil ?? -Infinity, reelUntil);
+  room.events.push({ type: 'actionInterrupted', playerId: target.id, by: attacker.id, what, reelUntil: target.staggerUntil, at: nowSec });
 }
 
 // how clean a contact must be (as it was felt: after any hardened plate) to count as the cleanest there is, for the
@@ -1201,9 +1207,16 @@ export function tryUltimate(room, playerId, nowSec) {
   const player = room.players.get(playerId);
   if (room.state !== 'PLAYING' || !player || !player.alive) return false;
   if (nowSec < player.staggerUntil || nowSec < (player.ultimateLockedUntil ?? -Infinity)) return false;
-  if (player.ultimateState || player.gauntlet || (player.pendingSpell && ultimateFor(player.ultimate).id !== 'chivalry')) return false;
+  if (player.ultimateState) return false;
   // (nor in the moment after a Vortex, while both hands are still its)
   if (nowSec < (player.recoverUntil ?? -Infinity)) return false;
+  // a fist in the air, or a spell gathering (Chivalry alone takes a gathering spell into itself), has the hand: the key
+  // is kept a moment, and taken as soon as it is free (stepRoom), rather than lost
+  if (player.gauntlet || (player.pendingSpell && ultimateFor(player.ultimate).id !== 'chivalry')) {
+    const full = (player.prowess ?? 0) >= PROWESS.full || practising(room, player);
+    if (full) player.ultimateWantedUntil = nowSec + ULTIMATE_PRESS_KEPT_SEC;
+    return false;
+  }
   // in the Practice Yard the key readies the ultimate itself: whoever came to practise can call it again as soon as
   // the last has run its course (the yard earns no prowess; a real match's meter is untouched)
   if (practising(room, player)) player.prowess = PROWESS.full;
@@ -1213,12 +1226,16 @@ export function tryUltimate(room, playerId, nowSec) {
   player.ultimateInterruptionAt = null;
   player.ultimateInterruptionSource = null;
   player.ultimateState = { id: ultimate.id, phase: 'startup', startedAt: nowSec, commitAt: nowSec + ultimate.startupSec, until: null };
-  // the brace: sword and guard put up, the knight gathers himself
-  const heldAttack = player.attackHeld || Boolean(player.input?.attack);
+  // the brace: sword and guard put up, the knight gathers himself. Whatever the sword was doing is over there and
+  // then: the ultimate has the knight from this moment. A button still held is still held (Sunder's first slam is its:
+  // it comes as the brace ends, not after the old chain's own recovery); a Vortex takes both hands and keeps no press
+  player.ultimateWantedUntil = -Infinity;
+  const heldAttack = Boolean(player.attackHeld || player.attackQueued || player.input?.attack) && !ultimate.spin;
   player.guardHeld = player.guardHeld || player.guarding || Boolean(player.input?.guard);
   player.guarding = false;
   stopSwordChain(player, {}, room, nowSec);
   player.attackHeld = heldAttack;
+  if (!ultimate.spin) player.attackRestartAt = Math.min(player.attackRestartAt ?? -Infinity, nowSec + ultimate.startupSec);
   player.pendingSpell = null;
   player.castEndsAt = 0;
   player.dashUntil = Math.min(player.dashUntil ?? nowSec, nowSec);
@@ -1255,6 +1272,11 @@ function stepUltimate(room, player, nowSec) {
         state.angleAt = state.commitAt;
         state.rate = 2 * Math.PI * vortexTune(0, ultimate).revPerSec;
         state.emphasis = 0;
+      }
+      // (a Sunder with the button held: its first slam was already on its way up through the brace, and comes down
+      // `firstSlamLead` after this; nothing of it could land before the commit)
+      if (ultimate.firstSlamLead && (player.attackHeld || player.attackQueued) && !player.attackActive && nowSec >= player.staggerUntil) {
+        startSwordChain(player, state.commitAt - ultimate.firstSlamLead);
       }
       if (combatActionPolicy(player, nowSec).concurrent) {
         player.attackRestartAt = Math.max(player.attackRestartAt ?? -Infinity, state.commitAt);
@@ -1506,7 +1528,19 @@ function stepRuptures(room, nowSec) {
       staggerBy(room, target, RUPTURE.stagger, nowSec, rupture.ownerId);
     }
     rupture.reached = reached;
-    if (reached >= longest - 1e-9) room.ruptures.splice(room.ruptures.indexOf(rupture), 1);
+    // its fissures have stopped: the ground stays torn a while (markTornGround), then it is only ground again
+    if (reached >= longest - 1e-9) rupture.stoppedAt ??= nowSec;
+    if (rupture.stoppedAt !== undefined && nowSec >= rupture.stoppedAt + RUPTURE.lastsSec) room.ruptures.splice(room.ruptures.indexOf(rupture), 1);
+  }
+}
+
+// Torn ground: while a rupture's fissures run and for a while after they stop, a knight other than the one who split
+// it, with their feet on one of them, cannot sprint (they may walk, run, dash and jump as ever; a knight in the air
+// over it is not on it; nothing more is taken from them, and nothing hurts them for standing there).
+function markTornGround(room) {
+  for (const player of room.players.values()) {
+    player.tornGround = Boolean(player.alive && player.grounded
+      && room.ruptures?.some((rupture) => rupture.ownerId !== player.id && onTornGround(rupture, player.position, rupture.reached)));
   }
 }
 
@@ -1526,11 +1560,14 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
   room.tick(nowSec);
   if (room.state !== 'PLAYING') return room.events;
 
+  markTornGround(room);
   for (const player of room.players.values()) {
     if (!player.alive) {
       if (nowSec >= player.respawnAt && room.state === 'PLAYING') respawnPlayer(room, player, nowSec, world);
       continue;
     }
+    // the ultimate's key, kept while the hand was busy: taken now if it is free
+    if (nowSec < (player.ultimateWantedUntil ?? -Infinity) && !player.pendingSpell && !player.gauntlet) tryUltimate(room, player.id, nowSec);
 
     if (player.pendingSpell && spellFor(player.pendingSpell.spell).kind === 'cone' && nowSec >= player.castEndsAt) spawnSpell(room, player, nowSec, world);
     // a gust still blowing catches whoever it reaches now
@@ -1565,9 +1602,11 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
       grounded: player.grounded,
       stamina: player.guardStamina,
       sprinting: player.sprinting,
-      blocked: combatBlocksSprint(player, nowSec),
+      blocked: combatBlocksSprint(player, nowSec) || Boolean(player.tornGround),
       crouched: Boolean(player.crouched),
     });
+    // (torn ground breaks a sprint outright: the speed it had built goes with it)
+    if (player.tornGround) player.sprintBlend = 0;
     if (player.sprinting) {
       player.guardStamina = Math.max(0, player.guardStamina - SPRINT.staminaPerSec * dt);
       player.lastGuardDrainAt = nowSec;

@@ -28,6 +28,18 @@ export const MOMENTS = Object.freeze({
   launch: 0.7,
   // a massive Sundering impact: its ruptures catching this many knights within this long (s)
   massive: Object.freeze({ caught: 2, withinSec: 0.8 }),
+  // a fresh encounter (the final duel's opening): the first blow between two knights, both with at least this much
+  worthy: Object.freeze({ health: 60 }),
+  // a miracle: a blow of at least `blow` that leaves him alive with `left` or less
+  miracle: Object.freeze({ blow: 20, left: 9 }),
+  // the last stand: struck and left this low; losing face: left this low with the foe at least `foe`
+  lastStand: Object.freeze({ health: 22 }),
+  losingFace: Object.freeze({ health: 34, foe: 57 }),
+  // the two are never said in the same low moment: one waits this long (s) after the other
+  lowApart: 25,
+  // a foe who will not be hit: this many sword attempts on the same foe blocked, parried or slipped within this long
+  // (a miss counts against whoever was within `near` metres of it)
+  denied: Object.freeze({ count: 3, withinSec: 5, near: 4 }),
 });
 
 // the Practice Yard's opponents that fight (shared/sim/practice.mjs PRACTICE_DUMMY_MODES): not the ones that stand,
@@ -47,16 +59,31 @@ export class VoiceMoments {
     this.gusts = new Map();     // `${owner}>${victim}` -> when it threw them
     this.ruptured = new Map();  // owner -> when their ruptures caught someone, lately
     this.squire = null;         // { speaker, until, position }
+    this.met = new Set();       // pairs of knights who have traded a blow this life (`a|b`)
+    this.duelFoes = new Map();  // speaker -> the foe a fresh encounter was opened with
+    this.denials = new Map();   // `${attacker}>${defender}` -> when their sword was lately denied
     this.seen = new Map();      // tag -> how often its moment has been raised (for telling why a line is never heard)
   }
 
   /** A blow landed (a `damage` event). */
-  damage(event, { knight = () => null } = {}) {
+  damage(event, { knight = () => null, saidAgo = () => Infinity } = {}) {
     const { attackerId, victimId, source, at } = event;
     if (!(event.amount > 0)) return [];
     const groups = [];
     const other = Boolean(attackerId) && attackerId !== victimId;
     if (other) this.threats.set(victimId, { by: attackerId, at });
+    // (a sword that lands is no longer being denied)
+    if (other && source === 'sword') this.denials.delete(`${attackerId}>${victimId}`);
+    // a fresh encounter: the first blow these two have traded this life, both still whole (a training dummy, who never
+    // speaks, is no challenger: nothing is declared to one)
+    let fresh = false;
+    if (other && wild(source)) {
+      const pair = [attackerId, victimId].sort().join('|');
+      fresh = !this.met.has(pair) && event.health >= MOMENTS.worthy.health && (knight(attackerId)?.health ?? 0) >= MOMENTS.worthy.health
+        && knight(victimId)?.actorKind !== 'dummy';
+      this.met.add(pair);
+      if (fresh) this.duelFoes.set(attackerId, victimId);
+    }
     if (other && source === 'sword') {
       const key = `${attackerId}>${victimId}`;
       // (a Sundering blow is force, not finesse: it does not count toward a knighthood)
@@ -75,11 +102,21 @@ export class VoiceMoments {
         // a foe he has all but finished (the squire's question); the cleanest blow, through the foe's own swing
         event.health <= MOMENTS.squire.health && 'squireOpening',
         source === 'sword' && event.clean && knight(victimId)?.attackActive && 'counterHit',
+        fresh && 'worthyFoe',
         wild(source) && 'blowDealt',
       ]));
     }
     // (a blow that kills has the fall's own lines)
-    if (standing && wild(source)) groups.push(this.#lines(victimId, ['blowTaken']));
+    if (standing && wild(source)) {
+      // struck and still standing: a miracle (a heavy blow that left almost nothing), the last stand (very low), or
+      // face to be saved (low, and the foe well ahead); the last two never in the same low moment
+      const foe = other ? knight(attackerId) : null;
+      const miracle = other && event.amount >= MOMENTS.miracle.blow && event.health <= MOMENTS.miracle.left;
+      const stand = other && event.health <= MOMENTS.lastStand.health && foe?.alive !== false && saidAgo(victimId, 'chivalryTest') > MOMENTS.lowApart;
+      const face = other && !stand && event.health > MOMENTS.lastStand.health && event.health <= MOMENTS.losingFace.health
+        && (foe?.health ?? 0) >= MOMENTS.losingFace.foe && saidAgo(victimId, 'standFight') > MOMENTS.lowApart;
+      groups.push(this.#lines(victimId, [miracle && 'miracle', stand && 'lastStand', face && 'losingFace', 'blowTaken']));
+    }
     return groups.filter((group) => group.length);
   }
 
@@ -87,7 +124,7 @@ export class VoiceMoments {
    * A knight fell (a `death` event): { fallen, victor, rescued } (the fallen first; the victor only if the fallen kept
    * quiet; each rescued group on its own). blow: the killing blow ({ amount, healthBefore, level, ultimate, clean }).
    */
-  death(event, { blow = null, knight = () => null, positionOf = () => null, practice = false } = {}) {
+  death(event, { blow = null, knight = () => null, positionOf = () => null, practice = false, planFailed = false } = {}) {
     const { victimId, source, at } = event;
     const killerId = event.killerId && event.killerId !== victimId ? event.killerId : null;
     const victim = knight(victimId);
@@ -117,7 +154,7 @@ export class VoiceMoments {
     const minor = Boolean(blow) && isMinorLethal({ ...blow, source });
     const interrupted = Boolean(victim && (victim.attackActive || victim.guarding || victim.sprinting || (victim.dashUntil ?? -Infinity) > at));
     const overkill = Boolean(blow) && isOverkill(blow);
-    const fall = deathMoment({ victimId, killerId, source, overkill, minor, interrupted, decisive: Boolean(event.decisive), dizzy: Boolean(event.dizzy), moment });
+    const fall = deathMoment({ victimId, killerId, source, overkill, minor, interrupted, decisive: Boolean(event.decisive), dizzy: Boolean(event.dizzy), planFailed, moment });
     // (the squire's answer is forced: a line, never a grunt, and nobody talks over it)
     const fallen = this.#lines(victimId, fall.fallen, { facts: fall.facts, force: answer });
     const victor = !answer && fall.victor ? this.#lines(killerId, fall.victor, { facts: fall.victorFacts }) : [];
@@ -149,6 +186,28 @@ export class VoiceMoments {
     if (event.by) groups.push(this.#lines(event.by, ['staggerBreakInflicted', sundering(knight(event.by), event.at) && 'sunderStaggerBreak']));
     groups.push(...this.#rescues(event.playerId, event.by ?? null, event.at, knight));
     return groups.filter((group) => group.length);
+  }
+
+  /**
+   * A sword that did not land on a foe: caught on their guard (a `block`), turned (a `parry`), or swung past them (a
+   * `swordMiss` with a foe close by: `near` gives who). The same foe denying him again and again is a moment of its
+   * own (once it has come, the count begins again).
+   */
+  denied(attackerId, defenderId, at) {
+    if (!attackerId || !defenderId || attackerId === defenderId) return [];
+    const key = `${attackerId}>${defenderId}`;
+    const times = [...(this.denials.get(key) ?? []).filter((t) => at - t <= MOMENTS.denied.withinSec), at];
+    if (times.length < MOMENTS.denied.count) {
+      this.denials.set(key, times);
+      return [];
+    }
+    this.denials.delete(key);
+    return [this.#lines(attackerId, ['deniedOpening'])];
+  }
+
+  /** The foe a fresh encounter was opened with by `speaker` (the final duel is declared to them). */
+  duelFoe(speaker) {
+    return this.duelFoes.get(speaker) ?? null;
   }
 
   /** A guard broke (a `guardBreak`). */
@@ -206,6 +265,9 @@ export class VoiceMoments {
     this.gusts.clear();
     this.ruptured.clear();
     this.squire = null;
+    this.met.clear();
+    this.duelFoes.clear();
+    this.denials.clear();
   }
 
   // 0, or 1 when the killer's blows on the fallen were mostly perfect and aimed high on the whole (2: and the killing
@@ -235,6 +297,10 @@ export class VoiceMoments {
 
   #forget(id) {
     this.threats.delete(id);
+    // (a new life is a new encounter with everyone)
+    for (const pair of [...this.met]) if (pair.split('|').includes(id)) this.met.delete(pair);
+    this.duelFoes.delete(id);
+    for (const key of [...this.denials.keys()]) if (key.startsWith(`${id}>`) || key.endsWith(`>${id}`)) this.denials.delete(key);
     for (const [victim, threat] of [...this.threats]) if (threat.by === id) this.threats.delete(victim);
     for (const map of [this.strikes, this.gusts]) {
       for (const key of [...map.keys()]) if (key.endsWith(`>${id}`)) map.delete(key);

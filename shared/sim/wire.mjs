@@ -69,6 +69,8 @@ export function serializeSnapshot(room, nowSec) {
       guardStamina: p.guardStamina,
       guarding: p.guarding,
       sprinting: Boolean(p.sprinting),
+      // feet on ground an enemy's Sunder has torn: no sprint while they are (for my own prediction, and the HUD)
+      tornGround: Boolean(p.tornGround),
       crouched: Boolean(p.crouched),
       attackActive: p.attackActive,
       attackStartedAt: p.attackStartedAt,

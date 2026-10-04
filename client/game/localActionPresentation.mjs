@@ -12,6 +12,8 @@ export function canPresentLocalAction(action, auth, localState, nowSec, { practi
   if ((auth.staggerUntil ?? -Infinity) > nowSec) return false;
   // both hands are the Vortex's from its startup to the end of its recovery: nothing else is shown in them
   if (handsTaken(auth, nowSec)) return false;
+  // bracing into any ultimate, the host takes no guard, spell or dash: none is shown (the attack is: its press is kept)
+  if (auth.ultimateState?.phase === 'startup' && action !== 'attack') return false;
   const gates = (ability) => ({ [ability]: Math.max(auth.practiceGate?.[ability] ?? -Infinity, gate?.[ability] ?? -Infinity) });
 
   if (action === 'guard') return (auth.guardStamina ?? 0) > 0;

@@ -37,6 +37,16 @@ export class LocalSwordChain {
     this.held = false;
   }
 
+  /**
+   * A chain that began at `at`, the button held, whatever came before it (as the host begins a Sunder's first slam as
+   * its brace ends, its swing already on the way up: the old chain and its recovery are over).
+   */
+  begin(at) {
+    this.held = true;
+    this.restartAt = -Infinity;
+    this.#start(at);
+  }
+
   /** Whether the sword has the hand: a committed strike yet to land, or a strike's blade still live (the gauntlet
    * waits for both, as on the server). */
   busy(now) {

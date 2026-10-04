@@ -22,17 +22,19 @@ import {
   ultimateFizzleRecipe, ultimateReadyRecipe,
   emberImpactRecipe, emberRecipe, vortexCatchRecipe, vortexCutRecipe, vortexEndRecipe, vortexIgniteRecipe, vortexScrapeRecipe, vortexStarRecipe, vortexWhooshRecipe,
 } from './sound/soundRecipes.mjs';
-import { ULTIMATES, ultimateStartup, ultimateWhirl, vortexAngle, vortexWindup } from '../../shared/src/ultimates.mjs';
+import { ULTIMATES, ultimateFor, ultimateStartup, ultimateWhirl, vortexAngle, vortexWindup } from '../../shared/src/ultimates.mjs';
 import { PROWESS } from '../../shared/src/prowess.mjs';
 import { PRACTICE_RECAST, recordUse } from '../../shared/src/practiceRecast.mjs';
 import { STAGGER } from '../../shared/src/stagger.mjs';
+import { RUPTURE } from '../../shared/src/rupture.mjs';
 import { galeRecoil } from '../../shared/src/gale.mjs';
 import { swordDamageFor } from '../../shared/src/combat.mjs';
 import { CROUCH, POSTURES, postureOf } from '../../shared/src/body.mjs';
 import { steelStrength } from '../../shared/src/steel.mjs';
 import { chillScale, spellFor } from '../../shared/src/spells.mjs';
 import { cryMoment, gauntletMoment, voicePlacement, voiceRate } from './sound/voiceRules.mjs';
-import { VoiceMoments } from './sound/voiceMoments.mjs';
+import { MOMENTS, VoiceMoments } from './sound/voiceMoments.mjs';
+import { VoiceScenes } from './sound/voiceScenes.mjs';
 import { subtitleFor } from '../ui/voiceLibrary.mjs';
 import { FOOTSTEPS, footfallsCrossed, footstepPlacement, footstepRecipe, surfaceAt, variantPicker } from './sound/footsteps.mjs';
 import { CombatHeat, matchClosing, nearestFoe } from './sound/combatHeat.mjs';
@@ -135,6 +137,8 @@ export class GameRuntime {
     this.remotePlayers.onVortexTurn = (id, rate) => this.#play(vortexWhooshRecipe(Math.random, { rate }), this.#bodyPosition(id), 0.6);
     // the moments he has a line for, remembered a little while (voiceMoments.mjs)
     this.moments = new VoiceMoments();
+    // and his longer scenes, each part said when the game has earned it (voiceScenes.mjs)
+    this.scenes = new VoiceScenes({ say: (line, speaker, options) => this.#say(line, speaker, options) });
     // my own blade against the world, judged in my own view (localBladeSweep.mjs)
     this.bladeSweep = new LocalBladeSweep();
     this.weapon = new WeaponView(this.camera);
@@ -145,7 +149,8 @@ export class GameRuntime {
       const heavy = slam || strike >= 2;
       this.#play(swingRecipe(Math.random, { strike: heavy ? 2 : strike }), null, 0.85);
       // the heavy third strike gets his breath behind it; the lighter ones only now and then
-      this.#sayMoment(this.socket.playerId, [heavy ? 'heavySwing' : 'lightSwing']);
+      // (under the Sunder sentence, a word to a slam, the ordinary breath of a swing keeps quiet)
+      if (!this.scenes.sentenceRunning(this.socket.playerId, this.socket.serverNow())) this.#sayMoment(this.socket.playerId, [heavy ? 'heavySwing' : 'lightSwing']);
     };
     this.effects = new Effects(this.scene, this.camera);
     this.onPointer = () => {};
@@ -224,10 +229,20 @@ export class GameRuntime {
     this.input.onUltimateLocal = () => {
       const me = this.localAuth;
       // (in the Practice Yard the key readies it too: only one already under way, or its recovery, says no)
+      const now = this.socket.serverNow();
       const short = (me?.prowess ?? 0) < PROWESS.full && !this.#inPractice();
-      if (me?.alive && (short || me.ultimateState || handsTaken(me, this.socket.serverNow()))) {
+      if (me?.alive && (short || me.ultimateState || handsTaken(me, now))) {
         this.hud.denied?.('ultimate');
         this.#play(deniedRecipe(), null, 0.5);
+        return;
+      }
+      // Sunder: my arms take up the brace the moment the key goes down (the host's word follows and corrects when it
+      // ends; if the host never takes the key, they are let down again). Not while the palm or the fist is busy: then
+      // the host takes the key a moment later, and its word starts the brace
+      const free = me?.alive && !((me.staggerUntil ?? -Infinity) > now) && this.weapon.castReleased && this.weapon.canJab();
+      if (free && ultimateFor(me.ultimate).id === 'sunder') {
+        this.weapon.brace(performance.now() / 1000 + ULTIMATES.sunder.startupSec);
+        this.braceAskedAt = performance.now();
       }
     };
     // the meter full: a restrained note, once
@@ -510,7 +525,8 @@ export class GameRuntime {
           }, { gatherSec: release });
         }
         // SORCERY!! now and then; when it keeps quiet, the wildcard may not
-        this.#sayMoment(event.playerId, ['spellCast']);
+        // (or, rarely, a complaint about the thing gathering in his own palm: a spell that flies, not a gust or a ward)
+        this.#sayMoment(event.playerId, ['spellCast', !spell.kind && 'projectileGather']);
       }
 
       if (event.type === 'galeBlast') this.#galeBlast(event);
@@ -528,8 +544,12 @@ export class GameRuntime {
           });
         }
         (this.healthAfterBlow ??= new Map()).set(event.victimId, event.health);
+        this.scenes.damage(event);
         this.#sayMoments(this.moments.damage(event, this.#voiceWorld()), event.at);
       }
+      // a sword denied by the same foe again and again (their guard, their parry, or simply not being there)
+      if ((event.type === 'block' && !event.vortex) || event.type === 'parry') this.#sayMoments(this.moments.denied(event.attackerId, event.defenderId, event.at), event.at);
+      if (event.type === 'swordMiss') this.#sayMoments(this.moments.denied(event.playerId, this.#nearestFoe(event.playerId, MOMENTS.denied.near), event.at), event.at);
 
       // Sheathed in Steel: another knight's plate ringing as it hardens (mine rang as I pressed)
       if (event.type === 'steelOn' && event.playerId !== me) this.#play(steelCallRecipe(), this.#bodyPosition(event.playerId), 0.7);
@@ -574,7 +594,10 @@ export class GameRuntime {
       if (event.type === 'actionInterrupted') this.#cutShort(event);
       if (event.type === 'ultimateInterrupted') {
         this.#play(ultimateFizzleRecipe(), event.playerId === me ? null : this.#bodyPosition(event.playerId), 0.8);
-        if (event.playerId === me) this.hud.flashText('INTERRUPTED', 'danger');
+        if (event.playerId === me) {
+          this.hud.flashText('INTERRUPTED', 'danger');
+          this.weapon.braceCancel();
+        }
       }
       if (event.type === 'staggerBreak') {
         this.#staggerBreak(event);
@@ -582,12 +605,18 @@ export class GameRuntime {
       }
       // another knight's dash: its breath, or the wildcard, now and then (mine is said as I press it)
       if (event.type === 'dash' && event.playerId !== me) this.#sayMoment(event.playerId, ['dash']);
+      // the Sunder sentence: a Sunder taken hold may begin it at its first slam into the ground, and every slam swung
+      // after that is its next word (voiceScenes.mjs)
+      if (event.type === 'ultimateActive' && event.ultimate === 'sunder') this.scenes.sunderBegan(event.playerId);
+      if (event.type === 'ultimateEnded') this.scenes.sunderEnded(event.playerId);
+      if (event.type === 'swordSwing' && event.slam) this.scenes.slamSwung(event.playerId, event.at);
+      if (event.type === 'groundStrike') this.scenes.groundSlam(event.playerId, event.at);
       if (event.type === 'groundStrike') {
         this.#play(groundSlamRecipe(), event.playerId === me ? null : event.point, 1);
         if (event.playerId === me) this.cameraKick = Math.max(this.cameraKick, 0.2);
       }
       if (event.type === 'rupture') {
-        this.effects.rupture(event.origin, event.fissures, { speed: event.speed });
+        this.effects.rupture(event.origin, event.fissures, { speed: event.speed, lastsSec: RUPTURE.lastsSec, tornWidth: RUPTURE.tornWidth });
         const runs = Math.max(...event.fissures.map((fissure) => fissure.length)) / event.speed;
         this.#play(ruptureRunRecipe(Math.random, { seconds: runs }), event.origin, 0.85);
       }
@@ -596,7 +625,7 @@ export class GameRuntime {
       if (event.type === 'swordSwing' && event.playerId !== me) {
         const heavy = event.slam || event.strikeIndex >= 2;
         this.#play(swingRecipe(Math.random, { strike: heavy ? 2 : event.strikeIndex }), this.#bodyPosition(event.playerId), 0.55);
-        this.#sayMoment(event.playerId, [heavy ? 'heavySwing' : 'lightSwing']);
+        if (!this.scenes.sentenceRunning(event.playerId, event.at)) this.#sayMoment(event.playerId, [heavy ? 'heavySwing' : 'lightSwing']);
       }
       this.#warm(event, me);
 
@@ -677,6 +706,7 @@ export class GameRuntime {
       if (event.type === 'respawn') this.voice?.director?.newLife?.(event.playerId);
       if (event.type === 'matchStarted') {
         this.moments.reset();
+        this.scenes.reset();
         this.voice?.director?.newLife?.();
       }
     }
@@ -708,9 +738,9 @@ export class GameRuntime {
 
   // a Spellblade speaks: mine from inside my own helm, others from where they stand, each with their own pitch.
   // Returns whether anything was said.
-  #say(line, playerId, { chanceScale = 1, delay = 0, force = false, cry = false } = {}) {
+  #say(line, playerId, { chanceScale = 1, delay = 0, force = false, cry = false, earned = false, opening = false, part = null } = {}) {
     if (!this.voice || !playerId) return false;
-    if (playerId === this.socket.playerId) return this.voice.say(line, { speaker: playerId, gain: 0.8, chanceScale, delay, close: true, force, cry });
+    if (playerId === this.socket.playerId) return this.voice.say(line, { speaker: playerId, gain: 0.8, chanceScale, delay, close: true, force, cry, earned, opening, part });
     const body = this.#bodyPosition(playerId);
     const snapshotPlayer = this.latestSnapshot?.players.find((p) => p.id === playerId);
     if (!body || snapshotPlayer?.actorKind === 'dummy') return false;
@@ -718,7 +748,21 @@ export class GameRuntime {
     // only within earshot: a bark is for the knights around him, not the whole map (voiceRules VOICE_HEARING)
     const place = voicePlacement(listener, this.input.yaw, body);
     if (!place) return false;
-    return this.voice.say(line, { speaker: playerId, pan: place.pan, gain: place.gain * 0.9, reverb: place.reverb, rate: voiceRate(playerId), chanceScale, delay, force, cry });
+    return this.voice.say(line, { speaker: playerId, pan: place.pan, gain: place.gain * 0.9, reverb: place.reverb, rate: voiceRate(playerId), chanceScale, delay, force, cry, earned, opening, part });
+  }
+
+  // the living knight nearest `id`, within `reach` metres (their id), or null
+  #nearestFoe(id, reach) {
+    const from = this.#bodyPosition(id);
+    if (!from) return null;
+    let best = null;
+    for (const player of this.latestSnapshot?.players ?? []) {
+      if (player.id === id || player.alive === false) continue;
+      const at = this.#bodyPosition(player.id);
+      const distance = at ? Math.hypot(at.x - from.x, at.z - from.z) : Infinity;
+      if (distance <= reach && (!best || distance < best.distance)) best = { id: player.id, distance };
+    }
+    return best?.id ?? null;
   }
 
   // a footstep on whatever is underfoot: mine (from = null) at my own feet, another knight's from where he stands and
@@ -924,15 +968,17 @@ export class GameRuntime {
   #deathVoice(event) {
     const blow = this.killingBlow?.get(event.victimId) ?? null;
     this.killingBlow?.delete(event.victimId);
-    const { fallen, victor, rescued } = this.moments.death(event, { ...this.#voiceWorld(), blow, practice: this.#inPractice() });
-    if (!fallen.some((say) => this.#say(say.line, say.speaker, say))) this.#sayMoments([victor], event.at);
+    // (his longer scenes first: a plan the fallen had announced, a verdict or a sentence the victor has words for)
+    const scene = this.scenes.death(event);
+    const { fallen, victor, rescued } = this.moments.death(event, { ...this.#voiceWorld(), blow, practice: this.#inPractice(), planFailed: scene.planFailed });
+    if (!fallen.some((say) => this.#say(say.line, say.speaker, say)) && !scene.victor) this.#sayMoments([victor], event.at);
     this.#sayMoments(rescued, event.at);
   }
 
   // a line said, written out at the foot of the view: another knight's with his name, my own without
-  #subtitle({ line, speaker, delay = 0, seconds = 2 }) {
+  #subtitle({ line, speaker, delay = 0, seconds = 2, part = null }) {
     if (!this.view.subtitles) return;
-    const text = subtitleFor(line);
+    const text = subtitleFor(line, part);
     if (!text) return;
     const mine = speaker === this.socket.playerId;
     const name = mine ? null : (this.latestSnapshot?.players.find((p) => p.id === speaker)?.name ?? 'A Spellblade');
@@ -1010,6 +1056,8 @@ export class GameRuntime {
     return {
       knight: (id) => players.find((p) => p.id === id) ?? null,
       positionOf: (id) => this.#bodyPosition(id),
+      // how long ago a knight said a line (the voice's own clock), for lines that must keep apart
+      saidAgo: (speaker, line) => (this.voice?.engine?.now ?? 0) - (this.voice?.director?.lastLine?.get(`${speaker}:${line}`) ?? -Infinity),
     };
   }
 
@@ -1032,8 +1080,11 @@ export class GameRuntime {
   #sayMoments(groups, at) {
     for (const group of groups) {
       for (const say of group) {
-        if (!this.#say(say.line, say.speaker, say)) continue;
+        const said = this.#say(say.line, say.speaker, say);
+        if (!said) continue;
         if (say.opens === 'squire') this.moments.squireAsked(say.speaker, at, this.#bodyPosition(say.speaker));
+        // (the final duel declared: his foe answers, and the scene goes on from there)
+        if (say.opens === 'finalDuel') this.scenes.duelDeclared(say.speaker, this.moments.duelFoe(say.speaker), at, (said.delay ?? 0) + (said.seconds ?? 0));
         break;
       }
     }
@@ -1096,6 +1147,11 @@ export class GameRuntime {
       return;
     }
     this.#play(sunderDropRecipe(), me ? null : this.#bodyPosition(event.playerId), me ? 1 : 0.8);
+    // my arms brace (already, if I pressed for it): when it ends is the host's to say
+    if (me) {
+      this.weapon.brace(performance.now() / 1000 + (event.commitAt - this.socket.serverNow()));
+      this.braceAskedAt = null;
+    }
     // its cry: most times its own, now and then MIGHT MAKES... KNIGHT! (voiceRules ULTIMATE_CRIES)
     const cry = cryMoment(event.ultimate);
     if (cry) this.#sayMoment(event.playerId, [cry]);
@@ -1351,6 +1407,11 @@ export class GameRuntime {
       this.weapon.setCombatPolicy(combatActionPolicy(this.localAuth, now), this.localAuth, now);
       this.#spin(now);
     }
+    // (a brace begun on my own key that the host never took: the arms are let down again)
+    if (this.braceAskedAt && nowMs - this.braceAskedAt > 400) {
+      this.braceAskedAt = null;
+      if (!this.localAuth?.ultimateState) this.weapon.braceCancel();
+    }
     if (this.localState && this.localAuth?.alive && this.playing && this.activeWorld) {
       // back on my feet: my own eyes and arms again (once I was seen down; the death event can beat its snapshot here)
       if (this.deathCam && (this.deathCam.down || timeSec - this.deathCam.at > 1)) {
@@ -1364,9 +1425,22 @@ export class GameRuntime {
       const wanted = this.input.movement();
       const bracing = ultimateStartup(this.localAuth, serverNow);
       const whirl = ultimateWhirl(this.localAuth, serverNow);
-      const moveInput = bracing
-        ? { ...wanted, forward: wanted.forward * bracing.startupMove, right: wanted.right * bracing.startupMove, jump: false, sprint: false }
-        : whirl ? { ...wanted, sprint: false, crouch: false } : wanted;
+      // (staggered, or reeling from a Sundering blow, my feet are not my own for that moment: as the host has it)
+      const reeling = (this.localAuth.staggerUntil ?? -Infinity) > serverNow;
+      const moveInput = reeling
+        ? { ...wanted, forward: 0, right: 0, jump: false, sprint: false }
+        : bracing
+          ? { ...wanted, forward: wanted.forward * bracing.startupMove, right: wanted.right * bracing.startupMove, jump: false, sprint: false }
+          : whirl ? { ...wanted, sprint: false, crouch: false } : wanted;
+      // ground an enemy's Sunder has torn, under my feet: no sprint while I stand on it (the host's word for it)
+      const torn = Boolean(this.localAuth.tornGround);
+      if (torn) {
+        if (this.localState.sprinting && serverNow >= (this.tornSaidAt ?? -Infinity) + 3) {
+          this.tornSaidAt = serverNow;
+          this.hud.flashText('TORN GROUND', 'danger', 900);
+        }
+        this.localState.sprintBlend = 0;
+      }
       this.localState.whirl = whirl;
       // predict the sprint with the same rule the server uses, from the last authoritative stamina
       const wasSprinting = this.localState.sprinting;
@@ -1377,7 +1451,7 @@ export class GameRuntime {
         grounded: this.localState.grounded,
         stamina: this.localAuth.guardStamina,
         sprinting: this.localState.sprinting,
-        blocked: combatBlocksSprint(this.localAuth, serverNow, {
+        blocked: reeling || torn || combatBlocksSprint(this.localAuth, serverNow, {
           guarding: this.input.guardHeld || this.weapon.guard,
           attacking: this.input.attackHeld || this.weapon.attackHeld,
           casting: this.weapon.castUntil > timeSec || this.localAuth.castEndsAt > serverNow,
@@ -1498,6 +1572,8 @@ export class GameRuntime {
     this.effects.update(dt);
 
     if (this.latestSnapshot && this.localAuth) {
+      // (the longer scenes' clocks: a part whose moment has come is said)
+      this.scenes.step(this.socket.serverNow(), this.latestSnapshot.players);
       this.#showCondition(this.socket.serverNow());
       this.hud.update(this.localAuth, this.latestSnapshot, this.socket.serverNow());
       this.touch?.update(this.localAuth, this.socket.serverNow(), { practice: this.#inPractice() });

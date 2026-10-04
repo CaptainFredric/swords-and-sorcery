@@ -120,8 +120,8 @@ export const CONJURED = Object.freeze({
   }),
   // on the fire: a small, serious Fireball (a stronger blow, a tighter burst, no burn)
   vortexBlaze: Object.freeze({
-    id: 'vortexBlaze', label: 'Vortex blaze', conjured: true, speed: 28, windResist: 1,
-    directDamage: 15, edgeDamage: 9, radius: 2.2, shove: 0.85, size: 0.9,
+    id: 'vortexBlaze', label: 'Vortex blaze', conjured: true, speed: 26, windResist: 1,
+    directDamage: 15, edgeDamage: 9, radius: 2.2, shove: 0.85, size: 1.08,
   }),
 });
 

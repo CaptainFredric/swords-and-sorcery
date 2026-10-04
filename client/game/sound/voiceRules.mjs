@@ -20,8 +20,10 @@ import {
 // never cuts anything; a situational line (a taunt, the gale's jibe, the rebuttal) waits for a knight's own mouth
 // and for anyone's sentence to end; a line of state (a death, a defeat, the ultimate's cry, the match's end) cuts
 // through a lower one, the knight's own or whoever's sentence is playing. Only one sentence is heard at a time.
-export const VOICE_PRIORITY = Object.freeze({ exertion: 1, context: 2, state: 3 });
-const { exertion: EXERTION, context: CONTEXT, state: STATE } = VOICE_PRIORITY;
+// (and between the two: a part of a longer line already begun, which has earned its turn: it is not left hanging for a
+// passing taunt, and a death still cuts it)
+export const VOICE_PRIORITY = Object.freeze({ exertion: 1, context: 2, earned: 2.5, state: 3 });
+const { exertion: EXERTION, context: CONTEXT, earned: EARNED, state: STATE } = VOICE_PRIORITY;
 
 // The rules of every line that can be said, from its declaration (voiceLines.mjs: one entry there is the whole of a
 // line). kind: an exertion or a sentence; priority: its rank; chance: how rarely; cooldown: seconds (or a spread) before
@@ -38,6 +40,7 @@ export const VOICE_LINES = Object.freeze(Object.fromEntries(VOICE_LINE_LIST.filt
     gain: line.gain,
     ...(line.perLife ? { perLife: line.perLife } : {}),
     ...(priority === STATE ? { interrupts: true } : {}),
+    ...(line.parts ? { parts: line.parts.length } : {}),
   })];
 })));
 
@@ -160,11 +163,12 @@ export function deathLines(fall, rand = Math.random) {
  * A fall as the moments it is (their tags, for linesFor): { fallen, facts } for the one who fell, and { victor,
  * victorFacts } for whoever felled them (victor: null when nobody did, or they fell by their own doing).
  */
-export function deathMoment({ victimId, killerId, source, overkill = false, minor = false, interrupted = false, decisive = false, dizzy = false, moment = {} }) {
+export function deathMoment({ victimId, killerId, source, overkill = false, minor = false, interrupted = false, decisive = false, dizzy = false, planFailed = false, moment = {} }) {
   return {
     // (dizzy: felled spinning in a Blazing Vortex, or in the moment after it)
     fallen: { death: 1, ...(minor ? { minorLethal: 1 } : {}), ...(dizzy ? { vortexDeath: 1 } : {}), ...(MAGIC_SOURCES.includes(source) ? { magicDeath: 1 } : {}) },
-    facts: [overkill && 'overkill', decisive && 'decisive', interrupted && 'interrupted'].filter(Boolean),
+    // (planFailed: felled waiting on a plan he had just announced: "Wait, wait!!...")
+    facts: [overkill && 'overkill', decisive && 'decisive', interrupted && 'interrupted', planFailed && 'planFailed'].filter(Boolean),
     victor: killerId && killerId !== victimId ? victorTags({ source, moment }) : null,
     victorFacts: moment.knighthood >= 2 ? ['highSwing'] : [],
   };
@@ -247,14 +251,19 @@ export class VoiceDirector {
    * ultimate's cry (a cry's moment: voiceLines.mjs), whatever line it is: forced, at the rank of state, cutting a lesser line. Voice is
    * presentation only: nothing in the game waits on a line, and nothing here waits on anything.
    */
-  consider(line, speaker, now, { chanceScale = 1, duration = MOUTH_BUSY_SEC, force = false, cry = false } = {}) {
+  consider(line, speaker, now, { chanceScale = 1, duration = MOUTH_BUSY_SEC, force = false, cry = false, earned = false, opening = false } = {}) {
     const base = VOICE_LINES[line];
     if (!base) return null;
     const stat = this.stats.get(line) ?? { tried: 0, said: 0 };
     this.stats.set(line, stat);
     stat.tried += 1;
-    const rule = cry ? { ...base, priority: STATE, interrupts: true } : base;
-    if (cry) force = true;
+    // earned: the next part of a line already begun, or the answer a scene has led up to (voiceScenes.mjs): no odds, no
+    // cooldown, no gap, and it cuts a passing line (never a line of state)
+    // opening: the first part of a scene that begins on something done (the Sunder sentence, at its first slam): the
+    // line's own odds, cooldown and once-a-life, but it takes the voice as a part does
+    const part = earned || opening;
+    const rule = cry ? { ...base, priority: STATE, interrupts: true } : part ? { ...base, priority: Math.max(base.priority, EARNED), interrupts: true } : base;
+    if (cry || earned) force = true;
     const priority = rule.priority ?? (rule.interrupts ? STATE : rule.kind === 'sentence' ? CONTEXT : EXERTION);
     const key = `${speaker}:${line}`;
     if (!force && now < (this.readyAt.get(key) ?? -Infinity)) return null;
@@ -262,7 +271,11 @@ export class VoiceDirector {
     // never over one's own line, unless this one matters more
     const own = this.speaking.get(speaker);
     const ownBusy = Boolean(own) && now < own.until;
-    if (ownBusy && priority <= own.priority) return null;
+    // (the next part of the line he is saying follows on from the part before it: its tail gives way)
+    const followsOn = earned && ownBusy && own.line === line;
+    // (and a scene's part takes the voice from his own ultimate's cry: what has been earned outranks what is announced)
+    const overCry = part && ownBusy && own.cry;
+    if (ownBusy && priority <= own.priority && !followsOn && !overCry) return null;
     if (!rule.interrupts && now - (this.lastSpoke.get(speaker) ?? -Infinity) < MOUTH_BUSY_SEC && !(ownBusy && priority > own.priority)) return null;
     const sentence = rule.kind === 'sentence';
     // one sentence heard at a time: another knight's is let finish, unless this one matters more
@@ -282,7 +295,7 @@ export class VoiceDirector {
     this.readyAt.set(key, now + (most > least ? least + (most - least) * this.rand() : least));
     if (rule.perLife) this.thisLife.set(key, (this.thisLife.get(key) ?? 0) + 1);
     this.lastSpoke.set(speaker, now);
-    const entry = { speaker, line, priority, until: now + Math.max(0, duration) };
+    const entry = { speaker, line, priority, until: now + Math.max(0, duration), ...(cry ? { cry: true } : {}) };
     this.speaking.set(speaker, entry);
     if (sentence) {
       this.lastSentence.set(speaker, now);

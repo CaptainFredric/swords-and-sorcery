@@ -16,7 +16,9 @@ export const ULTIMATES = Object.freeze({
   // whoever it meets and on into the ground, which ruptures under them and whoever else stands on its line
   // (shared/src/rupture.mjs). A Sundering blow on a body ends what that knight was doing: a spell gathering, a sword
   // chain, a fist thrown, a dash, a sprint, an ultimate still being braced into (interrupted as any other; one
-  // already committed is not undone). The world stops it only where it is driven straight into something (`worldStopDeg`). Sheathe in Steel meets it halfway: against hardened plate, a Sundering blow is an
+  // already committed is not undone), and they reel a moment (`reelSec`). The world stops it only where it is driven
+  // straight into something (`worldStopDeg`). The ground it splits stays torn for a while (rupture.mjs `lastsSec`): a
+  // knight other than the one who split it cannot sprint with their feet on it. Sheathe in Steel meets it halfway: against hardened plate, a Sundering blow is an
   // ordinary one.
   sunder: Object.freeze({
     id: 'sunder',
@@ -32,6 +34,16 @@ export const ULTIMATES = Object.freeze({
     // the world stops a Sundering blade only where it is truly driven into it: within this far of the slam's aim (an
     // ordinary blade: BLADE.worldStopDeg), and never a small loose furnishing (a barrel's rim, a crate's corner)
     worldStopDeg: 14,
+    // a Sundering blow on a body (not a guard, not hardened plate) shakes a balance by this much itself (an ordinary
+    // blow at full force: STAGGER.gain.sword), and leaves them reeling this long: what they were doing is ended, and
+    // for that moment they can begin nothing (the same "cannot act" as a broken balance, only brief)
+    stagger: 40,
+    reelSec: 0.22,
+    // turned by a perfect guard, a Sundering knight is staggered this long (an ordinary one: GAME.parryStaggerMs)
+    parriedSec: 0.35,
+    // the button held as it commits: the first slam's swing began this long before (the brace was its windup), so it
+    // lands this soon after the commit
+    firstSlamLead: 0.2,
   }),
   // Blazing Vortex: for some seconds the Spellblade is a spinning, burning sword, steered. A small hop (from the
   // ground), the sword taken in both hands and lit, a turn that gathers speed (the startup, as exposed as any); then
@@ -99,6 +111,10 @@ export const ULTIMATES = Object.freeze({
 });
 
 export const DEFAULT_ULTIMATE = 'sunder';
+
+// the ultimate's key pressed (the meter full) while a spell is gathering or a fist is in the air: it is taken as soon
+// as the hand is free, if that is within this long, rather than lost
+export const ULTIMATE_PRESS_KEPT_SEC = 0.4;
 
 /** Whether `id` names an ultimate. */
 export function isUltimate(id) {

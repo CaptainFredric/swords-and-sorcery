@@ -35,13 +35,18 @@ test('what is wrong with a declaration is said plainly', () => {
   // a recording nobody declared, and a take the manifest lists that is not there
   assert.match(problems(good, { manifest: { lines: { strayLine: [{ file: 'stray-line-1' }] } }, files: [] }), /strayLine: recorded .* but not declared/);
   assert.match(problems(good, { manifest: { lines: { testLine: [{ file: 'test-line-1' }] } }, files: ['test-line-1.m4a'] }), /test-line-1\.wav is listed but missing/);
+  // a line said in parts: the words of each part, and a recording for each (never fewer, never an alternate take)
+  const inParts = { ...good, parts: ['A', 'test.'] };
+  assert.match(problems({ ...good, parts: ['only one'] }), /parts must be the words of each part/);
+  assert.match(problems(inParts, { manifest: { lines: { testLine: [{ file: 'test-line-1' }] } }, files: ['test-line-1.m4a', 'test-line-1.wav'] }), /2 parts are declared and 1 recorded/);
+  assert.equal(problems(inParts, { manifest: { lines: { testLine: [{ file: 'test-line-1' }, { file: 'test-line-2' }] } }, files: ['test-line-1.m4a', 'test-line-1.wav', 'test-line-2.m4a', 'test-line-2.wav'] }), '');
   // and a line still silent is a warning, not an error
   assert.match(validateVoiceLines({ declarations: [good], manifest: { lines: {} } }).warnings.join(' | '), /testLine: not recorded yet/);
 });
 
 test('every moment a line waits for is one the game raises (or is marked as still to come)', () => {
   // the modules that raise moments: a tag nobody raises would leave its lines silent for ever
-  const sources = ['./voiceMoments.mjs', './voiceRules.mjs', '../GameRuntime.mjs', '../../main.mjs']
+  const sources = ['./voiceMoments.mjs', './voiceRules.mjs', './voiceScenes.mjs', '../GameRuntime.mjs', '../../main.mjs']
     .map((path) => readFileSync(new URL(path, import.meta.url), 'utf8')).join('\n');
   for (const [tag, about] of Object.entries(VOICE_TAGS)) {
     assert.ok(about.about, `${tag}: says what it is`);
@@ -75,7 +80,8 @@ test('a moment gives its lines in order: the most particular moment first, the w
   assert.deepEqual(said({ death: 1, minorLethal: 1, magicDeath: 1 }), ['lateLine', 'magicDefeat', 'knightFallen', 'defeat', 'laugh', 'death']);
   assert.deepEqual(said(['kill', 'cleanSwordKill', 'subparKill']), ['hackSlash', 'subparStandard', 'killTaunt', 'workHard', 'laugh']);
   assert.deepEqual(said(['guardBreak']), ['lowerGuard', 'breakTaunt', 'offGuard']);
-  assert.deepEqual(said(['dash']), ['dash', 'laugh']);
+  // (his own review of a dash is weighed before its grunt: said one time in ten, the grunt the rest)
+  assert.deepEqual(said(['dash']), ['deftlyDodge', 'dash', 'laugh']);
   assert.deepEqual(said(['noSuchMoment']), []);
   // a line waiting on what it belongs to is never offered, even if its moment were raised
   assert.deepEqual(said(['riposteOvershoot']), []);

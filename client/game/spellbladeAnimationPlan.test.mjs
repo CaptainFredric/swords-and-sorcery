@@ -145,6 +145,44 @@ test('sprint is its own looping clip that falls back to Run on an asset without 
   close(plan.time, 2.5);
 });
 
+test('the brace into Sunder is the slam\'s own wind-up: it eases up through the startup and the first slam carries on from its last frame', async () => {
+  const { resolveSpellbladeState } = await import('./spellbladePose.mjs');
+  const { ULTIMATES } = await import('../../shared/src/ultimates.mjs');
+  const sunder = ULTIMATES.sunder;
+  const pressedAt = 10;
+  const commitAt = pressedAt + sunder.startupSec;
+  const base = { alive: true, velocity: { x: 0, y: 0, z: 0 } };
+  const bracing = { ...base, ultimateState: { id: 'sunder', phase: 'startup', commitAt } };
+  // the brace has the body from the moment the key is taken: over an attack in progress, a guard, a cast
+  assert.equal(resolveSpellbladeState(bracing, pressedAt), 'brace');
+  assert.equal(resolveSpellbladeState({ ...bracing, attackActive: true, attackStartedAt: 9.5 }, pressedAt + 0.1), 'brace', 'an attack under way does not keep the body');
+  assert.equal(resolveSpellbladeState({ ...bracing, guarding: true }, pressedAt + 0.1), 'brace');
+  assert.equal(resolveSpellbladeState({ ...bracing, staggerUntil: 11 }, pressedAt + 0.1), 'stagger', 'struck out of it, he is staggered');
+  assert.notEqual(resolveSpellbladeState({ ...base, ultimateState: { id: 'sunder', phase: 'active', until: 18 } }, commitAt + 0.1), 'brace');
+  // the sword goes up without a jump: the clip's time rises smoothly from 0, never backwards, and starts and ends gently
+  let last = -1;
+  const times = [];
+  for (let i = 0; i <= 30; i += 1) {
+    const plan = resolveSpellbladeAnimationPlan({ state: 'brace', player: bracing, serverNow: pressedAt + sunder.startupSec * i / 30 });
+    assert.equal(plan.clip, 'Slash_3');
+    assert.ok(plan.time >= last, 'never backwards');
+    last = plan.time;
+    times.push(plan.time);
+  }
+  close(times[0], 0);
+  assert.ok(times[1] - times[0] < times[15] - times[14], 'it starts gently');
+  assert.ok(times[30] - times[29] < times[15] - times[14], 'and settles at the top');
+  // the host begins the first slam's chain `firstSlamLead` before the commit: at the commit, the attack's own plan is at
+  // the very frame the brace ended on
+  const slamming = { ...base, attackActive: true, attackSlam: true, attackStartedAt: commitAt - sunder.firstSlamLead };
+  const first = resolveSpellbladeAnimationPlan({ state: 'attack', player: slamming, serverNow: commitAt });
+  assert.equal(first.clip, 'Slash_3');
+  close(first.time, times[30], 1e-9);
+  // and that slam meets the ground `0.4 - firstSlamLead` after the commit, not a whole swing later
+  const contact = resolveSpellbladeAnimationPlan({ state: 'attack', player: slamming, serverNow: slamming.attackStartedAt + 0.4 });
+  close(contact.time, 0.36);
+});
+
 test('breathing clocks sample only the authored loop interval', () => {
   close(GUARD_HOLD_START, 8 / 30);
   const idle = (clock) => resolveSpellbladeAnimationPlan({ state: 'idle', localTime: clock });

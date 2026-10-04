@@ -77,3 +77,22 @@ test('the arms keep the same gate as the server: pressing again never swings soo
   early.press(0.15);
   assert.ok(early.step(0.16), 'a fresh chain at once');
 });
+
+test('a chain can be begun outright, the button held, whatever came before: Sunder\'s first slam, out of its brace', () => {
+  // mid-chain, with the gap after it still to run: begun anew at a time already past, it is that chain at once
+  const chain = new LocalSwordChain();
+  chain.press(0);
+  chain.step(0.5);
+  chain.begin(0.8);
+  const under = chain.step(1.0);
+  assert.equal(under.startedAt, 0.8);
+  assert.equal(chain.held, true);
+  assert.equal(chain.step(1.21).landed, 1, 'its first strike lands 0.4 s from where it was begun');
+  // and from rest, straight after a chain ended (the restart gap does not hold it)
+  const rested = new LocalSwordChain();
+  rested.press(0);
+  rested.release();
+  for (let t = 0; t <= 0.8; t += 1 / 60) rested.step(t);
+  rested.begin(0.85);
+  assert.equal(rested.step(0.86).startedAt, 0.85);
+});

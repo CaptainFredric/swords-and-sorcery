@@ -1,6 +1,7 @@
 import { concurrentPresentation } from './spellbladePose.mjs';
 import { MOVEMENT, SPRINT } from '../../shared/src/movement.mjs';
 import { GAME, SWORD_CHAIN, SWORD_STRIKE_TIMES } from '../../shared/src/combat.mjs';
+import { ULTIMATES } from '../../shared/src/ultimates.mjs';
 
 const SLASH_DURATIONS = Object.freeze([0.72, 0.72, 0.64]);
 const ATTACK_CYCLE = SLASH_DURATIONS.reduce((sum, value) => sum + value, 0);
@@ -80,6 +81,17 @@ export function resolveSpellbladeAnimationPlan({ state, player = {}, serverNow =
     const vortex = player.ultimateState ?? {};
     const lighting = vortex.phase === 'startup' && serverNow < finite(vortex.commitAt, serverNow) - VORTEX_HELD.levelBefore;
     return lighting ? fixed('Slash_3', VORTEX_HELD.raised) : fixed('Slash_1', VORTEX_HELD.level);
+  }
+
+  // the brace into Sunder: the opening of the slam's own swing (the sword taken up overhead), played through the
+  // startup so that the first slam drives down out of it as the brace ends (the host begins that slam's chain
+  // `firstSlamLead` before the commit: attackPlan then carries on from the very frame this ends at)
+  if (state === 'brace') {
+    const brace = player.ultimateState ?? {};
+    const sunder = ULTIMATES.sunder;
+    const share = Math.max(0, Math.min(1, 1 - (finite(brace.commitAt, serverNow) - serverNow) / sunder.startupSec));
+    const eased = share * share * (3 - 2 * share);
+    return fixed('Slash_3', Math.max(0, sunder.firstSlamLead - SWORD_STRIKE_TIMES[0] + SLAM_CONTACT) * eased);
   }
 
   if (state === 'cast') {

@@ -22,7 +22,10 @@
 //     // order (within a moment: higher is tried sooner, the wildcard and the grunt last); coming: 'Blazing Vortex'
 //     // (recorded or declared ahead of what it belongs to: never said until that exists); file: 'GoingToBeLate.mp3'
 //     // (its recording's name in the inbox, if not its id); aliases; voice: { drive, rmsDb, expandBelowDb } (how its
-//     // take is processed: the grit, the level, and an eased expander for a line with a soft tail)
+//     // take is processed: the grit, the level, and an eased expander for a line with a soft tail);
+//     // parts: ['Wait, wait!!...', '...I TRICKED you!'] (a line said in parts, each when the game says so: its
+//     // recordings are its parts in order, one take each, cut from one master with windows: see RECORDING.md);
+//     // reply: true (an ordinary remark fit to be said back at a foe who has just spoken: the final duel's answer)
 //   }
 //
 // A moment is raised by the game with its tags (voiceMoments.mjs, GameRuntime.mjs): linesFor() gives the lines
@@ -35,6 +38,7 @@ export const DEFEAT_ON_LOSS = 2.5;            // "But I am a knight!" on the fal
 export const KNIGHT_FALLEN_OVERKILL = 3.5;    // "The Knight has fallen!" after a blow far heavier than it needed to be
 export const GALE_KILL = 3;                   // the wind's jibe when the drop it threw them into is what killed them
 export const MINOR_LETHAL_INTERRUPTED = 1.4;  // "I am going to be late!" when the little blow cut something short
+export const PLAN_FAILED = 4;                 // "But I am a knight!" when he is felled waiting on his own announced plan
 
 // The moments a line can be said at. rank: when a moment carries several tags, the lines of the higher-ranked (more
 // particular) one are tried first; delay: how long after the moment a line of it begins (s); cry: exactly one of its
@@ -48,6 +52,7 @@ export const VOICE_TAGS = Object.freeze({
   magicDeath: { rank: 50, about: 'felled by a spell or the burn it left' },
   death: { rank: 10, about: 'felled' },
   // --- the one who felled them (the fallen having kept quiet)
+  sunderSentenceKill: { rank: 97, delay: 0.3, about: 'a foe felled near the end of the Sunder sentence (they left)' },
   sunderKill: { rank: 95, delay: 0.45, about: 'a kill by a Sundering blow or the ground it split' },
   knighthoodKill: { rank: 90, delay: 0.45, about: 'a sword kill after a run of near-perfect blows aimed high' },
   galeKill: { rank: 85, delay: 0.6, about: 'a kill by the drop a gust had just thrown them into' },
@@ -67,6 +72,13 @@ export const VOICE_TAGS = Object.freeze({
   heavySwing: { rank: 5, about: 'the heavy strike (and every Sundering slam) swung' },
   lightSwing: { rank: 5, about: 'a lighter strike swung' },
   bladeSnag: { rank: 20, delay: 0.55, about: 'the blade truly caught on some small furnishing in passing' },
+  deniedOpening: { rank: 25, delay: 0.5, about: 'the same foe has blocked, parried or slipped his sword again and again' },
+  miracle: { rank: 45, delay: 0.5, about: 'a heavy blow that leaves him alive with almost nothing' },
+  lastStand: { rank: 35, delay: 0.4, about: 'struck while very low, the foe still a danger' },
+  losingFace: { rank: 30, delay: 0.4, about: 'struck while clearly losing: low, and the foe comfortably ahead' },
+  worthyFoe: { rank: 30, delay: 0.3, opens: 'finalDuel', about: 'the first blow of a fresh encounter with a foe, both still whole' },
+  challengerBrief: { rank: 60, delay: 0.7, about: 'the challenger of the final duel felled quickly and cheaply after the quest continued' },
+  regenWait: { rank: 30, about: 'badly hurt and a moment short of his health coming back' },
   // --- guards and balance
   catastrophicGuardBreak: { rank: 40, delay: 0.7, about: 'a guard broken by a Sundering blow' },
   guardBreak: { rank: 20, delay: 0.7, about: 'a guard broken' },
@@ -76,6 +88,7 @@ export const VOICE_TAGS = Object.freeze({
   rescued: { rank: 30, delay: 0.7, about: 'near his end, and his threat felled, thrown or broken by somebody else' },
   // --- spells and the gauntlet
   spellCast: { rank: 20, about: 'a spell leaving the hand' },
+  projectileGather: { rank: 25, delay: 0.12, about: 'a spell that flies (a Fireball, a Frostfire) gathering in the palm' },
   steelCalled: { rank: 20, delay: 0.45, about: 'calling Sheathe in Steel, as the armour hardens' },
   steelTurn: { rank: 20, delay: 0.35, about: 'Sheathe in Steel turning a spell aside' },
   galeDisplacement: { rank: 20, delay: 0.7, about: 'a gust really moving someone (likelier the harder it threw them)' },
@@ -86,6 +99,7 @@ export const VOICE_TAGS = Object.freeze({
   // --- the ultimate
   sunderInvoked: { rank: 100, delay: 0.05, cry: true, about: 'Sunder All That Rusts invoked: its cry' },
   ultimateActive: { rank: 5, delay: 1.1, about: 'an ultimate taking hold' },
+  sunderSentence: { rank: 30, about: 'the first slam of a Sunder driven into the ground (the sentence, a word to a slam, may begin)' },
   vortexSpin: { rank: 20, delay: 0.3, about: 'Blazing Vortex at full spin (once, as it takes hold)' },
   riposteOvershoot: { rank: 20, future: true, about: 'a Riposte or lunge carrying him over an edge' },
   // --- getting about
@@ -96,7 +110,7 @@ export const VOICE_TAGS = Object.freeze({
 });
 
 // Facts of a moment that never raise a line by themselves, only make one likelier (a line's `boost`)
-export const VOICE_FACTS = Object.freeze(['interrupted', 'overkill', 'decisive', 'highSwing']);
+export const VOICE_FACTS = Object.freeze(['interrupted', 'overkill', 'decisive', 'highSwing', 'planFailed']);
 
 export const VOICE_LINE_DECLARATIONS = Object.freeze([
   // --- the breath of things: exertions (heard often, each on its own short cooldown; they never cut anything)
@@ -167,16 +181,17 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
   },
   {
     id: 'neverThought',
-    text: 'I had never thought this day would come…',
+    text: 'I had never thought this day would come.',
     trigger: 'matchLost', order: 5,
     priority: 'high', rarity: 0.3, cooldown: 200,
     credits: { title: 'This Day', description: 'Rarely, when defeat becomes official.', note: 'Me neither, Spellblade.' },
-    voice: { drive: 2, rmsDb: -17, expandBelowDb: -42 }, aliases: ['thisday', 'never'],
+    voice: { drive: 2, rmsDb: -17, expandBelowDb: -42 }, file: 'NeverThoughtDayCome.mp3', aliases: ['thisday', 'never', 'neverthoughtdaycome'],
   },
   {
     id: 'defeat',
     text: 'What!? But I am a knight!',
-    trigger: { death: 1, matchLost: DEFEAT_ON_LOSS }, boost: { decisive: DEFEAT_ON_LOSS },
+    // (planFailed: felled with a plan still announced and not yet come off: "Wait, wait!!...")
+    trigger: { death: 1, matchLost: DEFEAT_ON_LOSS }, boost: { decisive: DEFEAT_ON_LOSS, planFailed: PLAN_FAILED },
     priority: 'high', rarity: 0.25, cooldown: 150,
     credits: { title: 'But I Am a Knight', description: 'Occasionally upon being felled. More often when that proves decisive.', note: 'His title has failed as protective equipment.' },
     voice: { drive: 2.2, rmsDb: -16 },
@@ -192,11 +207,11 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
   // --- over a fallen foe
   {
     id: 'newKnighthood',
-    text: 'You have achieved a new form of knight hood.',
+    text: 'You have achieved a new form of knighthood.',
     trigger: 'knighthoodKill', boost: { highSwing: 2 },
     priority: 'normal', rarity: 0.3, cooldown: 240,
     credits: { title: 'A New Knighthood', description: 'Rarely, after an unusually clean and elevated sword lesson.', note: 'The ceremony has been shortened.' },
-    voice: { drive: 2, rmsDb: -17 }, aliases: ['knighthood', 'hood'],
+    voice: { drive: 2, rmsDb: -17 }, file: 'NewKnighthoodForm.mp3', aliases: ['knighthood', 'hood', 'newknighthoodform'],
   },
   {
     id: 'neverReach',
@@ -220,7 +235,7 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     trigger: { cleanSwordKill: 1, counterHit: 0.6 },
     priority: 'normal', rarity: 0.25, cooldown: 120, gain: 0.95,
     credits: { title: 'The Hack and the Slash', description: 'Occasionally, after a very clean sword kill or counter.', note: 'He has divided the responsibilities.' },
-    voice: { drive: 2.2, rmsDb: -16 }, aliases: ['hack', 'slash'],
+    voice: { drive: 2.2, rmsDb: -16 }, aliases: ['hack', 'slash'], reply: true,
   },
   {
     id: 'subparStandard',
@@ -252,7 +267,7 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     trigger: 'kill', order: -1,
     priority: 'normal', rarity: 0.08, cooldown: 210, gain: 0.95,
     credits: { title: 'Work Hard', description: 'Very rarely, over a fallen opponent.', note: 'He believes this is constructive.' },
-    voice: { drive: 2.0, rmsDb: -17 },
+    voice: { drive: 2.0, rmsDb: -17 }, reply: true,
   },
   {
     id: 'killTaunt',
@@ -260,7 +275,7 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     trigger: 'kill',
     priority: 'normal', rarity: 0.3, cooldown: 30, gain: 0.95,
     credits: { title: 'Good Knight', description: 'Now and then, over a fallen foe.', note: 'Sportsmanship, loosely interpreted.' },
-    voice: { drive: 2.2, rmsDb: -16 },
+    voice: { drive: 2.2, rmsDb: -16 }, reply: true,
   },
   // --- in the fight
   {
@@ -383,7 +398,99 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     trigger: ['blowDealt', 'blowTaken', 'kill', 'death', 'dash', 'launched', 'hardLanding', 'sprintUnderPressure', 'spellCast', 'ultimateActive'], order: -5,
     priority: 'low', rarity: 0.02, cooldown: [45, 75], gain: 0.95, perLife: 1,
     credits: { title: 'The Laugh', description: 'Very rarely, in the middle of almost anything sufficiently reckless.', note: 'This does not narrow it down.' },
-    voice: { drive: 2.2, rmsDb: -16 }, aliases: ['haha', 'chuckle'],
+    voice: { drive: 2.2, rmsDb: -16 }, aliases: ['haha', 'chuckle'], reply: true,
+  },
+  {
+    id: 'sunderLeave',
+    text: 'How. Many. More. Times. Need. I. Do. This. For. You. To. LEAVE!?',
+    parts: ['How.', 'Many.', 'More.', 'Times.', 'Need.', 'I.', 'Do.', 'This.', 'For.', 'You.', 'To.', 'LEAVE!?'],
+    trigger: 'sunderSentence',
+    priority: 'normal', rarity: 0.12, cooldown: 120,
+    credits: { title: 'How Many More Times', description: 'Rarely, during Sunder All That Rusts. One word to a slam.', note: 'He would like you to leave.' },
+    voice: { drive: 2.4, rmsDb: -15 }, file: 'SunderLeave_1.mp3', aliases: ['sunderleave', 'leave'],
+  },
+  {
+    id: 'thankYou',
+    text: 'Thank. You.',
+    trigger: 'sunderSentenceKill',
+    priority: 'high', rarity: 1, cooldown: 0,
+    credits: { title: 'Thank You', description: 'When an opponent dies near the end of that question.', note: 'They left.' },
+    voice: { drive: 2.2, rmsDb: -16 }, file: 'ThankYouSunder.mp3', aliases: ['thankyousunder', 'thanks'],
+  },
+  // --- the longer scenes (each part said when the game has earned it: voiceScenes.mjs)
+  {
+    id: 'finalDuel',
+    text: 'All of my life, I have sought a challenger worthy of one glorious final duel. ...The quest continues.',
+    parts: ['All of my life, I have sought a challenger worthy of one glorious final duel.', '...The quest continues.'],
+    trigger: 'worthyFoe',
+    priority: 'normal', rarity: 0.03, cooldown: 600, perLife: 1,
+    credits: { title: 'The Final Duel', description: 'Rarely, upon finding a new opponent worthy of consideration.', note: 'The search parameters remain unchanged.' },
+    voice: { drive: 2.0, rmsDb: -17, expandBelowDb: -42 }, file: 'FinalDuelChallengerQuest.mp3', aliases: ['finalduelchallengerquest', 'quest'],
+  },
+  {
+    id: 'herald',
+    text: 'HERALD!!! I HAD THOUGHT I HAD ASKED FOR A CHALLENGE!!',
+    trigger: 'challengerBrief',
+    priority: 'normal', rarity: 1, cooldown: 300,
+    credits: { title: 'Herald', description: 'After the proposed challenger proves disappointingly brief.', note: 'The herald was unavailable for comment.' },
+    voice: { drive: 2.4, rmsDb: -15 }, file: 'HeraldAskChallenge.mp3', aliases: ['heraldaskchallenge'],
+  },
+  {
+    id: 'regenTrick',
+    text: 'Wait, wait!!... ...ahahahaha! I TRICKED you!',
+    parts: ['Wait, wait!!...', '...ahahahaha! I TRICKED you!'],
+    trigger: 'regenWait',
+    priority: 'normal', rarity: 0.06, cooldown: 300, perLife: 1,
+    credits: { title: 'The Trick', description: 'Occasionally, while waiting for an apparently deliberate recovery plan to succeed.', note: 'The plan was disclosed after succeeding.' },
+    voice: { drive: 2.2, rmsDb: -16 }, file: 'WaitRegenTrick.mp3', aliases: ['waitregentrick', 'tricked'],
+  },
+  {
+    id: 'openUp',
+    text: 'When will you open up? Hold still.',
+    trigger: 'deniedOpening',
+    priority: 'normal', rarity: 0.12, cooldown: 240, perLife: 1,
+    credits: { title: 'Hold Still', description: 'After an opponent repeatedly refuses to present a convenient opening.', note: 'This was not a request for emotional honesty.' },
+    voice: { drive: 2.0, rmsDb: -17 }, file: 'OpenUpWhen.mp3', aliases: ['openupwhen', 'holdstill'],
+  },
+  {
+    id: 'standFight',
+    text: "No. I've had enough. I will stand... and I will fight.",
+    trigger: 'lastStand',
+    priority: 'normal', rarity: 0.12, cooldown: 300, perLife: 1,
+    credits: { title: 'Stand and Fight', description: 'Rarely, when survival would suggest a different plan.', note: "He really shouldn't right now." },
+    voice: { drive: 2.0, rmsDb: -17, expandBelowDb: -42 }, file: 'StandFight.mp3', aliases: ['standfight'],
+  },
+  {
+    id: 'chivalryTest',
+    text: 'In accordance with chivalry, I now allow you to surrender. I was merely testing you.',
+    trigger: 'losingFace',
+    priority: 'normal', rarity: 0.1, cooldown: 300, perLife: 1,
+    credits: { title: 'Chivalry', description: 'Rarely, when he is clearly losing.', note: 'The examination criteria were revised during testing.' },
+    voice: { drive: 2.0, rmsDb: -17, expandBelowDb: -42 }, file: 'ChivalryTest.mp3', aliases: ['chivalry'],
+  },
+  {
+    id: 'getThingOff',
+    text: 'Get this thing off of me!',
+    trigger: 'projectileGather',
+    priority: 'normal', rarity: 0.05, cooldown: 120,
+    credits: { title: 'This Thing', description: 'Occasionally, while gathering a projectile spell.', note: 'The thing was his.' },
+    voice: { drive: 2.3, rmsDb: -16 }, file: 'GetThingOff.mp3', aliases: ['getthingoff', 'thing'],
+  },
+  {
+    id: 'acceptSaint',
+    text: 'I accept sainthood with my usual humility.',
+    trigger: 'miracle',
+    priority: 'normal', rarity: 0.35, cooldown: 300, perLife: 1,
+    credits: { title: 'Sainthood', description: 'Rarely, after surviving a blow that should have finished him.', note: 'The church has not been consulted.' },
+    voice: { drive: 2.0, rmsDb: -17 }, file: 'AcceptSaint.mp3', aliases: ['acceptsaint', 'saint'],
+  },
+  {
+    id: 'deftlyDodge',
+    text: 'Deftly Dodge!',
+    trigger: 'dash', order: 1,
+    priority: 'low', rarity: 0.1, cooldown: 40,
+    credits: { title: 'Deftly Dodge', description: 'Occasionally, after a dash.', note: 'Self-assessed.' },
+    voice: { drive: 2.3, rmsDb: -16 }, file: 'DeftlyDodge.mp3', aliases: ['deftlydodge', 'deftly'],
   },
   // --- Blazing Vortex
   {
@@ -451,6 +558,16 @@ const BY_ID = new Map(VOICE_LINE_LIST.map((line) => [line.id, line]));
 export function voiceLine(id) {
   return BY_ID.get(id);
 }
+
+/** The words of one part of a line said in parts (the whole line's words for any other line, or no such part). */
+export function partText(id, part = null) {
+  const line = BY_ID.get(id);
+  if (!line) return null;
+  return Number.isInteger(part) && line.parts?.[part] ? line.parts[part] : line.text;
+}
+
+/** The ordinary remarks fit to be said back at a foe who has just spoken (their ids): the final duel's answer. */
+export const REPLY_LINES = Object.freeze(VOICE_LINE_LIST.filter((line) => line.reply && !line.coming).map((line) => line.id));
 
 /** A line's rank as the director counts it (1 an exertion, 2 a situational line, 3 a line of state). */
 export function priorityRank(priority) {
@@ -523,6 +640,9 @@ export function validateVoiceLines({ declarations = VOICE_LINE_DECLARATIONS, man
     const cooldown = Array.isArray(line.cooldown) ? line.cooldown : [line.cooldown, line.cooldown];
     if (cooldown.length !== 2 || !(cooldown[0] >= 0) || !(cooldown[1] >= cooldown[0])) errors.push(`${at} cooldown must be seconds, or [least, most]`);
     if (!line.credits.title || !line.credits.description || !line.credits.note) errors.push(`${at} the Credits need its title, description and note`);
+    if (line.parts !== undefined && (!Array.isArray(line.parts) || line.parts.length < 2 || !line.parts.every((part) => typeof part === 'string' && part))) {
+      errors.push(`${at} parts must be the words of each part, two or more`);
+    }
     const tags = Object.keys(line.triggers);
     if (!tags.length) errors.push(`${at} it has no trigger: nothing would ever say it`);
     for (const tag of tags) {
@@ -544,6 +664,9 @@ export function validateVoiceLines({ declarations = VOICE_LINE_DECLARATIONS, man
     const recorded = manifest.lines ?? {};
     for (const [id, takes] of Object.entries(recorded)) {
       if (!seen.has(id)) errors.push(`${id}: recorded (in the manifest) but not declared`);
+      // (a line said in parts has one recording for each, in order: never alternates of one another)
+      const parts = declarations.find((raw) => raw.id === id)?.parts;
+      if (parts && takes.length !== parts.length) errors.push(`${id}: ${parts.length} parts are declared and ${takes.length} recorded (each part needs its own, in order)`);
       for (const take of takes) {
         for (const extension of files ? ['m4a', 'wav'] : []) {
           if (!files.includes(`${take.file}.${extension}`)) errors.push(`${id}: ${take.file}.${extension} is listed but missing`);

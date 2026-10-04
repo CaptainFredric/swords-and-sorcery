@@ -1,4 +1,7 @@
 {
+  "acceptSaint": [
+    "accept-saint-1.mp3"
+  ],
   "alwaysKnew": [
     "always-knew-1.mp3"
   ],
@@ -8,6 +11,9 @@
   "breakTaunt": [
     "recording-2-master.wav:14.2-17.04"
   ],
+  "chivalryTest": [
+    "chivalry-test-1.mp3"
+  ],
   "death": [
     "death-1.mp3",
     "death-2.mp3"
@@ -16,8 +22,15 @@
     "recording-2-master.wav:18.35-20.16",
     "recording-2-master.wav:20.58-23.04"
   ],
+  "deftlyDodge": [
+    "deftly-dodge-1.mp3"
+  ],
   "effort": [
     "effort-1.mp3"
+  ],
+  "finalDuel": [
+    "FinalDuelChallengerQuest.mp3:0.80-7.00",
+    "FinalDuelChallengerQuest.mp3:8.85-11.05"
   ],
   "fistKill": [
     "fist-kill-1.mp3"
@@ -28,8 +41,14 @@
   "galeTaunt": [
     "gale-taunt-1.mp3"
   ],
+  "getThingOff": [
+    "get-thing-off-1.mp3"
+  ],
   "hackSlash": [
     "hack-slash-1.mp3"
+  ],
+  "herald": [
+    "herald-1.mp3"
   ],
   "hurt": [
     "hurt-1.mp3"
@@ -61,11 +80,24 @@
   "misaddressed": [
     "misaddressed-1.mp3"
   ],
+  "neverThought": [
+    "never-thought-1.mp3"
+  ],
+  "newKnighthood": [
+    "new-knighthood-1.mp3"
+  ],
   "offGuard": [
     "off-guard-1.mp3"
   ],
+  "openUp": [
+    "open-up-1.mp3"
+  ],
   "rebuttal": [
     "rebuttal-1.mp3"
+  ],
+  "regenTrick": [
+    "WaitRegenTrick.mp3:0.25-1.85",
+    "WaitRegenTrick.mp3:2.60-6.95"
   ],
   "sorcery": [
     "recording-2-master.wav:0.38-1.93",
@@ -76,6 +108,9 @@
   ],
   "staggerDisplay": [
     "stagger-display-1.mp3"
+  ],
+  "standFight": [
+    "stand-fight-1.mp3"
   ],
   "steelBoast": [
     "steel-boast-1.mp3"
@@ -88,6 +123,23 @@
   ],
   "sunderCall": [
     "sunder-call-1.mp3"
+  ],
+  "sunderLeave": [
+    "SunderLeave_1.mp3:0.00-0.74",
+    "SunderLeave_1.mp3:0.74-1.42",
+    "SunderLeave_1.mp3:1.42-2.16",
+    "SunderLeave_1.mp3:2.16-2.91",
+    "SunderLeave_1.mp3:2.91-3.63",
+    "SunderLeave_1.mp3:3.63-4.38",
+    "SunderLeave_1.mp3:4.38-5.04",
+    "SunderLeave_1.mp3:5.04-5.80",
+    "SunderLeave_1.mp3:5.80-6.50",
+    "SunderLeave_1.mp3:6.50-7.20",
+    "SunderLeave_1.mp3:7.20-7.95",
+    "SunderLeave_1.mp3:7.95-10.20"
+  ],
+  "thankYou": [
+    "thank-you-1.mp3"
   ],
   "tinManHeart": [
     "tin-man-heart-1.mp3"

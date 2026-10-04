@@ -10,6 +10,9 @@ import { PROWESS } from '../../shared/src/prowess.mjs';
 import { ULTIMATES } from '../../shared/src/ultimates.mjs';
 import { RUPTURE, fissureCatches, planRupture } from '../../shared/src/rupture.mjs';
 import { steelStrength } from '../../shared/src/steel.mjs';
+import { serializeSnapshot } from '../../shared/sim/wire.mjs';
+import { MOVEMENT, SPRINT } from '../../shared/src/movement.mjs';
+import { SPELLS } from '../../shared/src/spells.mjs';
 
 // Sunder All That Rusts and the shared systems under it: the elevated damage level, maximum physical force, a guard
 // paying for two blows, Steel meeting it halfway, accumulated stagger, a guard's stamina coming back behind it once the
@@ -119,9 +122,11 @@ test('Sundering, a blow lands with the greatest physical force: the shove of a f
   const events = forehand(sundered.room);
   assert.equal(events.find((e) => e.type === 'swordHit').impact, 1, 'met as a full-tilt collision');
   assert.ok(Math.abs(shoveOf(events) - shoveAt(1)) < 1e-6, 'the full-tilt shove');
-  // and the most it can shake a knight's balance (and the ground it split under them shakes it again)
-  assert.ok(sundered.b.stagger.level >= STAGGER.gain.sword + RUPTURE.stagger - 1, `${sundered.b.stagger.level}`);
-  assert.ok(sundered.b.stagger.level <= STAGGER.gain.sword + RUPTURE.stagger + 1e-6);
+  // and it shakes a knight's balance by its own measure, more than any ordinary blow could (and the ground it split
+  // under them shakes it again)
+  assert.ok(ULTIMATES.sunder.stagger > STAGGER.gain.sword);
+  assert.ok(sundered.b.stagger.level >= ULTIMATES.sunder.stagger + RUPTURE.stagger - 1, `${sundered.b.stagger.level}`);
+  assert.ok(sundered.b.stagger.level <= ULTIMATES.sunder.stagger + RUPTURE.stagger + 1e-6);
   assert.ok(still.b.stagger.level < sundered.b.stagger.level);
 });
 
@@ -612,13 +617,13 @@ test('a Sundering blow and the ground it splits are most of a balance between th
   for (let now = 10; now <= 10.75 + 1e-9; now += 0.01) { pin(); stepRoom(room, 0.01, now, openWorld); }
   assert.ok(room.events.some((e) => e.type === 'damage' && e.source === 'rupture' && e.victimId === 'b'));
   assert.equal(room.events.some((e) => e.type === 'staggerBreak'), false, 'one slam alone does not break a fresh balance');
-  assert.ok(Math.abs(b.stagger.level - (STAGGER.gain.sword + RUPTURE.stagger)) < 1e-6, `it holds: ${b.stagger.level}`);
-  assert.ok(b.stagger.level >= 0.6 * STAGGER.max, 'most of a balance');
+  assert.ok(Math.abs(b.stagger.level - (ULTIMATES.sunder.stagger + RUPTURE.stagger)) < 1e-6, `it holds: ${b.stagger.level}`);
+  assert.ok(b.stagger.level >= 0.7 * STAGGER.max, 'most of a balance');
   // the slams go on: the balance breaks, and who broke it is said
   for (let now = 10.76; now <= 12 + 1e-9; now += 0.01) { pin(); stepRoom(room, 0.01, now, openWorld); }
   const broke = room.events.find((e) => e.type === 'staggerBreak' && e.playerId === 'b');
   assert.ok(broke && broke.by === 'a', 'a real break');
-  assert.ok(broke.at <= 11.85, `by the third slam at the latest: ${broke.at.toFixed(2)}`);
+  assert.ok(broke.at <= 11.15, `by the next slam: ${broke.at.toFixed(2)}`);
 });
 
 test('the ground alone, split under a knight again and again, breaks a balance by the third time (it took five)', () => {
@@ -655,4 +660,363 @@ test('a broken balance is still not broken again straight away, however the slam
   const staggered = breaks.reduce((sum, e) => sum + (e.until - e.at), 0);
   const span = 9 + ULTIMATES.sunder.startupSec + ULTIMATES.sunder.activeSec - 10;
   assert.ok(staggered <= span * 0.4, `staggered ${staggered.toFixed(2)} s of ${span.toFixed(1)} s under constant slams`);
+});
+
+// --- the heaviest single contact: its own stagger, a brief reel, and a perfect guard that still turns it ----------
+
+test('a Sundering blow on the body shakes a balance by about forty; an ordinary blow, or one met by hardened plate, as ever', () => {
+  assert.ok(ULTIMATES.sunder.stagger >= 38 && ULTIMATES.sunder.stagger <= 42);
+  // (b held off the ground a's blade splits, so only the blow itself is counted)
+  const { room, a, b } = duel();
+  sunder(room, a);
+  place(b, 0, 1.8);
+  room.events.length = 0;
+  beginAttack(room, 'a', 10);
+  let level = null;
+  for (let now = 10; now <= 10.45 + 1e-9; now += 0.01) {
+    stepRoom(room, 0.01, now, openWorld);
+    if (level === null && room.events.some((e) => e.type === 'swordHit')) level = b.stagger.level;
+  }
+  assert.equal(level, ULTIMATES.sunder.stagger);
+  // an ordinary blow at its very best is still an ordinary blow
+  const plain = duel();
+  forehand(plain.room);
+  assert.ok(plain.b.stagger.level <= STAGGER.gain.sword + 1e-9);
+  // hardened plate: an ordinary blow by ordinary rules, and no reel
+  const steeled = duel();
+  sunder(steeled.room, steeled.a);
+  place(steeled.b, 0, 1.8);
+  steeled.b.spell = 'steel';
+  steeled.b.spellReadyAt = 0;
+  assert.equal(tryCastSpell(steeled.room, 'b', { x: -1, y: 0, z: 0 }, 10.05), true);
+  steeled.room.events.length = 0;
+  beginAttack(steeled.room, 'a', 10.06);
+  let met = null;
+  for (let now = 10.06; now <= 10.5 + 1e-9; now += 0.01) {
+    stepRoom(steeled.room, 0.01, now, openWorld);
+    if (!met && steeled.room.events.some((e) => e.type === 'swordHit' && e.sunderMet)) met = { level: steeled.b.stagger.level, staggerUntil: steeled.b.staggerUntil, at: now };
+  }
+  assert.ok(met && met.level <= STAGGER.gain.sword + 1e-9, 'no more than an ordinary blow');
+  assert.ok(!(met.staggerUntil > met.at), 'and nothing reels');
+});
+
+test('struck by it, a knight reels for a moment: what they were doing is over and nothing new begins, then they have their hands again', () => {
+  assert.ok(ULTIMATES.sunder.reelSec >= 0.2 && ULTIMATES.sunder.reelSec <= 0.25);
+  const { room, b, hit, cut } = struckWhile(() => {}, { until: 10.34 });
+  assert.ok(cut, 'said even when nothing was under way (the reel itself)');
+  assert.ok(Math.abs(cut.reelUntil - (hit.at + ULTIMATES.sunder.reelSec)) < 1e-9);
+  const during = hit.at + ULTIMATES.sunder.reelSec * 0.5;
+  b.spellReadyAt = 0; b.dashReadyAt = 0;
+  assert.equal(beginAttack(room, 'b', during), false, 'no swing');
+  assert.equal(tryCastSpell(room, 'b', { x: -1, y: 0, z: 0 }, during), false, 'no spell');
+  assert.equal(tryDash(room, 'b', { x: 0, z: 1 }, during), false, 'no dash');
+  assert.equal(tryGauntletStrike(room, 'b', during), false, 'no fist');
+  // a quarter of a second, not a stun: then all of it again
+  const after = hit.at + ULTIMATES.sunder.reelSec + 0.02;
+  assert.equal(tryDash(room, 'b', { x: 0, z: 1 }, after), true);
+  assert.equal(beginAttack(room, 'b', after), true);
+  // a knight whose own ultimate is committed reels too (their Sunder is not taken from them)
+  const both = duel();
+  place(both.b, 0, 1.8);
+  both.a.prowess = PROWESS.full; both.b.prowess = PROWESS.full;
+  assert.ok(tryUltimate(both.room, 'a', 9) && tryUltimate(both.room, 'b', 9));
+  run(both.room, 9, 9 + ULTIMATES.sunder.startupSec + 0.02);
+  both.room.events.length = 0;
+  beginAttack(both.room, 'a', 10);
+  run(both.room, 10, 10.36);
+  const struck = both.room.events.find((e) => e.type === 'swordHit' && e.targetId === 'b');
+  assert.ok(struck && both.b.staggerUntil >= struck.at + ULTIMATES.sunder.reelSec - 1e-9);
+  assert.equal(both.b.ultimateState?.phase, 'active');
+});
+
+test('a perfect guard still turns a Sundering blow; the Sundering knight is staggered for less than an ordinary one', () => {
+  assert.ok(ULTIMATES.sunder.parriedSec >= 0.35 && ULTIMATES.sunder.parriedSec <= 0.45);
+  assert.ok(ULTIMATES.sunder.parriedSec < GAME.parryStaggerMs / 1000);
+  const parried = (sundering) => {
+    const { room, a, b } = duel();
+    if (sundering) sunder(room, a);
+    place(b, 0, 1.8);
+    room.events.length = 0;
+    beginAttack(room, 'a', 10);
+    let raised = false;
+    for (let now = 10; now <= 10.6 + 1e-9; now += 0.01) {
+      // (the guard raised just as the blade arrives)
+      if (!raised && now >= 10.27) { raised = setGuard(room, 'b', true, now); }
+      stepRoom(room, 0.01, now, openWorld);
+    }
+    const parry = room.events.find((e) => e.type === 'parry');
+    assert.ok(parry, `${sundering ? 'Sundering' : 'ordinary'}: parried`);
+    assert.equal(room.events.some((e) => e.type === 'damage' && e.source === 'sword' && e.victimId === 'b'), false, 'the blow is stopped');
+    return { held: a.staggerUntil - parry.at, room, a };
+  };
+  const ordinary = parried(false);
+  const sunderer = parried(true);
+  assert.ok(Math.abs(ordinary.held - GAME.parryStaggerMs / 1000) < 1e-9, 'an ordinary sword as ever');
+  assert.ok(Math.abs(sunderer.held - ULTIMATES.sunder.parriedSec) < 1e-9, `${sunderer.held.toFixed(2)} s`);
+  assert.equal(sunderer.a.attackActive, false, 'the chain is stopped all the same');
+  assert.equal(sunderer.a.ultimateState?.phase, 'active');
+});
+
+// --- torn ground ----------------------------------------------------------------------------------------------------
+
+// a's Sundering slam at 10 s splits the ground along +x (its middle fissure runs from about x = 2 out to its reach);
+// b far off to the side until asked for. Returns once the fissures have stopped running
+function tornGround() {
+  const { room, a, b } = duel({ third: true });
+  sunder(room, a);
+  Object.assign(b.position, { x: 0, y: 0, z: 25 });
+  b.history = [];
+  room.events.length = 0;
+  beginAttack(room, 'a', 10);
+  run(room, 10, 10.55);
+  endAttack(room, 'a', 10.55);
+  const rupture = room.events.find((e) => e.type === 'rupture');
+  assert.ok(rupture, 'the ground split');
+  const middle = rupture.fissures.find((f) => Math.abs(f.dir.z) < 1e-6);
+  run(room, 10.56, rupture.at + middle.length / RUPTURE.speed + 0.1);
+  // a place well along the middle fissure
+  const on = { x: rupture.origin.x + middle.length * 0.6, y: 0, z: rupture.origin.z };
+  return { room, a, b, rupture, middle, on, stoppedBy: rupture.at + middle.length / RUPTURE.speed + 0.1 };
+}
+
+const sprintAlong = (knight, yaw = -Math.PI / 2) => { knight.input = { forward: 1, right: 0, jump: false, sprint: true, crouch: false, yaw, pitch: 0 }; knight.yaw = yaw; };
+
+test('a knight sprinting onto ground an enemy\'s Sunder has torn stops sprinting, and cannot sprint again while their feet are on it', () => {
+  const { room, b, on, stoppedBy } = tornGround();
+  Object.assign(b.position, on);
+  b.grounded = true;
+  b.sprinting = true;
+  b.sprintBlend = 1;
+  sprintAlong(b);
+  b.guardStamina = 100;
+  stepRoom(room, 0.01, stoppedBy + 0.01, openWorld);
+  assert.equal(b.tornGround, true);
+  assert.equal(b.sprinting, false, 'the sprint ends at once');
+  assert.equal(b.sprintBlend, 0, 'and its speed with it');
+  assert.equal(serializeSnapshot(room, stoppedBy + 0.01).players.find((p) => p.id === 'b').tornGround, true, 'their own view is told');
+  // held on it, the sprint never comes back; but they run as ever
+  let ran = 0;
+  let sprinted = false;
+  for (let now = stoppedBy + 0.02; now <= stoppedBy + 0.5; now += 0.01) {
+    const before = b.position.x;
+    Object.assign(b.position, { z: on.z, x: Math.min(b.position.x, on.x + 0.5) });
+    stepRoom(room, 0.01, now, openWorld);
+    if (b.sprinting) sprinted = true;
+    ran = Math.max(ran, Math.hypot(b.velocity.x, b.velocity.z));
+    void before;
+  }
+  assert.equal(sprinted, false);
+  assert.ok(Math.abs(ran - MOVEMENT.runSpeed) < 0.2, `they run at a run: ${ran.toFixed(2)} m/s`);
+  assert.ok(ran < SPRINT.speed - 2);
+});
+
+test('on torn ground a knight can still dash, and jumping it clears it: in the air over a fissure they are not on it', () => {
+  const { room, b, on, stoppedBy } = tornGround();
+  Object.assign(b.position, on);
+  b.grounded = true;
+  sprintAlong(b);
+  stepRoom(room, 0.01, stoppedBy + 0.01, openWorld);
+  assert.equal(b.tornGround, true);
+  b.dashReadyAt = 0;
+  assert.equal(tryDash(room, 'b', { x: 0, z: 1 }, stoppedBy + 0.02), true, 'a dash is as ever');
+  // sprinting, in the air over it (a jump carried them across): still sprinting
+  const over = tornGround();
+  Object.assign(over.b.position, { x: over.on.x, y: 1.0, z: over.on.z });
+  over.b.grounded = false;
+  over.b.velocity = { x: 0, y: 1, z: 0 };
+  over.b.sprinting = true;
+  over.b.sprintBlend = 1;
+  over.b.guardStamina = 100;
+  sprintAlong(over.b);
+  stepRoom(over.room, 0.01, over.stoppedBy + 0.01, openWorld);
+  assert.equal(over.b.tornGround, false);
+  assert.equal(over.b.sprinting, true);
+  assert.equal(over.b.sprintBlend, 1);
+});
+
+test('off the torn ground, or once it has settled, the sprint is theirs again; and the knight who tore it is never slowed by it', () => {
+  const { room, a, b, on, stoppedBy } = tornGround();
+  // well clear of every fissure: sprinting as ever
+  Object.assign(b.position, { x: on.x, y: 0, z: on.z - 7 });
+  b.grounded = true;
+  b.guardStamina = 100;
+  sprintAlong(b);
+  run(room, stoppedBy + 0.01, stoppedBy + 0.2, openWorld, 0.01);
+  assert.equal(b.tornGround, false);
+  assert.equal(b.sprinting, true, 'off it, the sprint begins');
+  // its owner, standing on it, sprints
+  Object.assign(a.position, on);
+  a.grounded = true;
+  a.guardStamina = 100;
+  sprintAlong(a);
+  for (let now = stoppedBy + 0.21; now <= stoppedBy + 0.4; now += 0.01) { Object.assign(a.position, { z: on.z, x: on.x }); stepRoom(room, 0.01, now, openWorld); }
+  assert.equal(a.tornGround, false);
+  assert.equal(a.sprinting, true, 'their own fissures are no hindrance to them');
+  // it settles: this long after its fissures stopped, it is only ground again
+  const settled = tornGround();
+  const until = settled.stoppedBy + RUPTURE.lastsSec;
+  Object.assign(settled.b.position, settled.on);
+  settled.b.grounded = true;
+  settled.b.guardStamina = 100;
+  sprintAlong(settled.b);
+  stepRoom(settled.room, 0.01, until - 0.3, openWorld);
+  assert.equal(settled.b.tornGround, true, 'still torn a little before');
+  for (let now = until + 0.1; now <= until + 0.3; now += 0.01) { Object.assign(settled.b.position, { z: settled.on.z, x: settled.on.x }); stepRoom(settled.room, 0.01, now, openWorld); }
+  assert.equal(settled.b.tornGround, false);
+  assert.equal(settled.b.sprinting, true);
+  assert.equal(settled.room.ruptures.length, 0, 'and the host forgets it');
+});
+
+test('torn ground is not a blender: standing on it hurts nobody again, and it is the fissures themselves, not a ring about the blow', () => {
+  const { room, b, rupture, middle, on, stoppedBy } = tornGround();
+  room.events.length = 0;
+  Object.assign(b.position, on);
+  b.grounded = true;
+  for (let now = stoppedBy + 0.01; now <= stoppedBy + RUPTURE.lastsSec - 0.1; now += 0.02) {
+    Object.assign(b.position, on);
+    b.input = { forward: 0, right: 0, jump: false, sprint: false, yaw: 0, pitch: 0 };
+    stepRoom(room, 0.02, now, openWorld);
+    assert.equal(b.tornGround, true);
+  }
+  assert.equal(room.events.filter((e) => e.type === 'damage').length, 0, 'no damage for standing there');
+  assert.equal(room.events.filter((e) => e.type === 'staggerBreak').length, 0);
+  assert.equal(b.health, 100);
+  // between two fissures (as far from the blow as they were, but on whole ground): not on it
+  const side = rupture.fissures.find((f) => f.dir.z > 0.1);
+  const between = { x: rupture.origin.x + (middle.dir.x + side.dir.x) / 2 * middle.length * 0.8, y: 0, z: rupture.origin.z + (middle.dir.z + side.dir.z) / 2 * middle.length * 0.8 };
+  Object.assign(b.position, between);
+  stepRoom(room, 0.01, stoppedBy + 0.2 + RUPTURE.lastsSec * 0, openWorld);
+  const fresh = tornGround();
+  Object.assign(fresh.b.position, between);
+  fresh.b.grounded = true;
+  stepRoom(fresh.room, 0.01, fresh.stoppedBy + 0.01, openWorld);
+  assert.equal(fresh.b.tornGround, false, 'the gaps between the fissures are whole ground');
+  // and past a fissure's end
+  Object.assign(fresh.b.position, { x: fresh.rupture.origin.x + fresh.middle.length + 1.2, y: 0, z: fresh.rupture.origin.z });
+  stepRoom(fresh.room, 0.01, fresh.stoppedBy + 0.02, openWorld);
+  assert.equal(fresh.b.tornGround, false);
+  assert.ok(RUPTURE.tornWidth <= RUPTURE.width);
+});
+
+// --- the ultimate has the knight from the moment its key is pressed ---------------------------------------------------
+
+test('from rest, Sunder begins at once and nothing swings of itself', () => {
+  const { room, a, b } = duel();
+  place(b, 0, 9);
+  a.prowess = PROWESS.full;
+  assert.equal(tryUltimate(room, 'a', 9), true);
+  assert.equal(a.ultimateState?.phase, 'startup');
+  run(room, 9, 9 + ULTIMATES.sunder.startupSec + 0.6);
+  assert.equal(a.ultimateState?.phase, 'active');
+  assert.equal(room.events.some((e) => e.type === 'swordSwing'), false);
+  assert.equal(a.attackActive, false);
+});
+
+// a's attack held (or pressed again, or mid-chain) as the key is pressed at `press`; b in reach. The events from then on
+function heldInto({ chainFrom = 8.95, press = 9.0, queued = false, letGoAt = null } = {}) {
+  const { room, a, b } = duel();
+  place(b, 0, 1.8);
+  a.prowess = PROWESS.full;
+  beginAttack(room, 'a', chainFrom);
+  run(room, chainFrom, press - 0.01, openWorld, 0.01);
+  if (queued) beginAttack(room, 'a', press - 0.02);
+  // (whatever the old chain did to b is put right: only what follows the key is asked about)
+  b.health = 100;
+  b.stagger.level = 0;
+  b.staggerUntil = -Infinity;
+  const before = { active: a.attackActive, wanting: Boolean(a.attackHeld || a.attackQueued), restartAt: a.attackRestartAt };
+  room.events.length = 0;
+  assert.equal(tryUltimate(room, 'a', press), true, 'the key is taken at once, sword or no sword');
+  const taken = { active: a.attackActive, sweep: a.attackSweep, held: a.attackHeld, state: a.ultimateState?.phase };
+  const commitAt = a.ultimateState.commitAt;
+  let healthAtCommit = null;
+  for (let now = press; now <= commitAt + 0.6 + 1e-9; now += 0.01) {
+    if (letGoAt !== null && Math.abs(now - letGoAt) < 0.005) endAttack(room, 'a', now);
+    b.health = Math.max(b.health, 1);
+    if (healthAtCommit === null && now >= commitAt - 0.011) healthAtCommit = b.health;
+    stepRoom(room, 0.01, now, openWorld);
+  }
+  return { room, a, b, before, taken, commitAt, healthAtCommit, events: room.events };
+}
+
+test('with the attack already held, the key still takes the knight at once: the old chain is over, and the first slam comes as the brace ends', () => {
+  const lead = ULTIMATES.sunder.firstSlamLead;
+  for (const [name, options] of [
+    ['held from a fresh swing', {}],
+    ['a second strike asked for (queued)', { chainFrom: 8.8, queued: true }],
+    ['deep in a chain, its heavy strike just swung', { chainFrom: 7.15, press: 9.0 }],
+  ]) {
+    const { a, before, taken, commitAt, events, healthAtCommit } = heldInto(options);
+    assert.equal(before.wanting, true, `${name}: the button was down`);
+    // (the last case: its chain has just run out and is in its recovery, the next swing waiting on the button)
+    if (!name.startsWith('deep')) assert.equal(before.active, true, `${name}: a chain was under way`);
+    assert.deepEqual([taken.state, taken.active, taken.sweep, taken.held], ['startup', false, null, true], `${name}: superseded at once, the button still counted as held`);
+    // nothing of the old chain lands after the key, and nothing lands before the commit
+    const early = events.filter((e) => ['swordHit', 'swordSwing', 'groundStrike'].includes(e.type) && e.at < commitAt - 1e-9);
+    assert.deepEqual(early, [], `${name}: no blow between the key and the commit`);
+    assert.equal(healthAtCommit, 100, `${name}: the startup does no damage`);
+    // the first slam: swung as the brace ends, landing a moment after the commit
+    const swing = events.find((e) => e.type === 'swordSwing');
+    assert.ok(swing?.slam, `${name}: a slam`);
+    const landed = events.find((e) => (e.type === 'swordHit' && e.level === 'elevated') || e.type === 'groundStrike');
+    assert.ok(landed, `${name}: it lands`);
+    assert.ok(landed.at >= commitAt && landed.at <= commitAt + lead + 0.03, `${name}: ${(landed.at - commitAt).toFixed(2)} s after the commit`);
+    assert.equal(a.prowess, 0, 'the charge spent at the commit, as ever');
+  }
+  assert.ok(lead > 0 && lead < 0.31, 'never so early that its blade could be live before the commit');
+});
+
+test('pressed during the brace it is the same slam; let go before the commit, no slam comes; and the startup is as exposed as ever', () => {
+  // the attack pressed after the key
+  const { room, a, b } = duel();
+  place(b, 0, 1.8);
+  a.prowess = PROWESS.full;
+  tryUltimate(room, 'a', 9);
+  beginAttack(room, 'a', 9.2);
+  const commitAt = a.ultimateState.commitAt;
+  run(room, 9, commitAt + 0.5);
+  const landed = room.events.find((e) => e.type === 'swordHit' && e.level === 'elevated');
+  assert.ok(landed && landed.at <= commitAt + ULTIMATES.sunder.firstSlamLead + 0.03);
+  // held, then let go while bracing
+  const letGo = heldInto({ letGoAt: 9.3 });
+  assert.equal(letGo.events.some((e) => e.type === 'swordSwing'), false, 'no slam for a button no longer held');
+  assert.equal(letGo.a.ultimateState?.phase, 'active');
+  // interrupted while bracing with the button held: the charge kept, no slam, the lockout as ever
+  const broken = duel();
+  place(broken.b, 0, 9);
+  broken.a.prowess = PROWESS.full;
+  beginAttack(broken.room, 'a', 8.95);
+  tryUltimate(broken.room, 'a', 9);
+  staggerBy(broken.room, broken.a, STAGGER.max, 9.3, 'b');
+  run(broken.room, 9.3, 9 + ULTIMATES.sunder.startupSec + 0.5);
+  assert.equal(broken.a.ultimateState, null);
+  assert.equal(broken.a.prowess, PROWESS.full);
+  assert.ok(broken.room.events.some((e) => e.type === 'ultimateInterrupted'));
+  assert.equal(broken.room.events.some((e) => e.type === 'swordSwing' && e.slam), false);
+});
+
+test('the key pressed while a spell is gathering is not lost: it is taken the moment the hand is free', async () => {
+  const { ULTIMATE_PRESS_KEPT_SEC } = await import('../../shared/src/ultimates.mjs');
+  const { room, a, b } = duel();
+  place(b, 0, 9);
+  a.prowess = PROWESS.full;
+  a.spell = 'fireball';
+  a.spellReadyAt = 0;
+  assert.equal(tryCastSpell(room, 'a', { x: 1, y: 0, z: 0 }, 9), true);
+  assert.equal(tryUltimate(room, 'a', 9.05), false, 'not this instant: the palm is full');
+  assert.ok(SPELLS.fireball.gatherSec < ULTIMATE_PRESS_KEPT_SEC);
+  run(room, 9.05, 9.05 + ULTIMATE_PRESS_KEPT_SEC);
+  assert.ok(room.events.some((e) => e.type === 'projectileSpawned'), 'the spell flies');
+  const began = room.events.find((e) => e.type === 'ultimateStart');
+  assert.ok(began && began.at <= 9 + SPELLS.fireball.gatherSec + 0.03, 'and the ultimate begins as it leaves the hand');
+  // with the meter short, nothing is kept
+  const short = duel();
+  short.a.prowess = PROWESS.full - 1;
+  short.a.spell = 'fireball';
+  short.a.spellReadyAt = 0;
+  tryCastSpell(short.room, 'a', { x: 1, y: 0, z: 0 }, 9);
+  assert.equal(tryUltimate(short.room, 'a', 9.05), false);
+  short.a.prowess = PROWESS.full;
+  run(short.room, 9.05, 9.6);
+  assert.equal(short.room.events.some((e) => e.type === 'ultimateStart'), false);
 });
