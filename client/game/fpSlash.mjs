@@ -392,6 +392,30 @@ export function slamPose(time) {
   return present(poseFrom(SLAM, t), t);
 }
 
+/** Author a separate sword path with the same continuous hand frame and natural recovery as the ordinary chain. */
+export function createSwordPath(keyframes) {
+  const keys = keyframes.map(({ t, wrist, blade, edge, ...motion }) => key(t, wrist, blade, edge, motion));
+  const homeTurn = quatFromFrame(leading(keys[0].lead, keys[0].blade), normalize(keys[0].blade));
+  const authored = settle(keys, homeTurn);
+  const sample = (time) => Number.isFinite(time)
+    ? present(poseFrom(authored, Math.max(0, Math.min(authored.at(-1).t, time))), time) : null;
+  return Object.freeze({
+    sample,
+    recover(from, elapsed, seconds = 0.3) {
+      if (!Number.isFinite(from) || !Number.isFinite(elapsed)) return sample(0);
+      if (elapsed >= seconds) return sample(0);
+      const start = poseFrom(authored, from), home = poseFrom(authored, 0);
+      const moving = velocityAt(authored, from);
+      if (dotQuat(start.turn, home.turn) < 0) home.turn = home.turn.map(v => -v);
+      const zero = Object.fromEntries(Object.entries(TRACK).map(([name, pick]) => [name, pick(home).map(() => 0)]));
+      const recovery = [{ t: 0, ...start, tangents: moving }, { t: seconds, ...home, tangents: zero }];
+      const raw = Object.fromEntries(Object.keys(TRACK).map(name => [name, spline(recovery, Math.max(0, elapsed), name)]));
+      raw.turn = normalizeQuat(raw.turn); raw.grip = 0;
+      return present(raw, from);
+    },
+  });
+}
+
 // --- going home: when a chain ends before its heavy strike (or is broken off), the arms come back to rest from
 // wherever they are, carrying on as they were moving and easing into rest (a real path, not a fade)
 

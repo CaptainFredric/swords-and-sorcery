@@ -10,17 +10,31 @@ test('action entry stays responsive while idle and Guard recover more gently', (
   assert.equal(ownershipBlendSeconds('Run', 'Sprint'), 0.16);
 });
 
-test('guarded cuts keep the defensive hand free and reduce the sword shoulder excursion', async () => {
+test('first person guarded strikes use distinct forward defensive paths and leave the spell hand free', async () => {
   const {guardedSwordPose}=await import('./chivalryMotion.mjs');
-  const {comboPose}=await import('./fpSlash.mjs');
-  const pose=comboPose(1.8);
+  const {comboPose,COMBO_CONTACTS}=await import('./fpSlash.mjs');
+  const pose=comboPose(COMBO_CONTACTS[0]);
   const saved=structuredClone(pose);
-  const guarded=guardedSwordPose(pose,1);
   assert.deepEqual(guardedSwordPose(pose,0),pose);
-  assert.ok(Math.hypot(...guarded.arm.shoulder)<Math.hypot(...pose.arm.shoulder));
-  assert.equal(guarded.offHand.weight,0,'the left fist defends instead of joining the sword grip');
-  assert.deepEqual(guarded.arm.blade,pose.arm.blade,'contact direction follows the existing sword path');
+  const contacts=COMBO_CONTACTS.map(t=>guardedSwordPose(comboPose(t),1));
+  assert.ok(contacts[0].arm.blade[0]<-.25,'forehand occupies the diagonal defensive line');
+  assert.ok(contacts[1].arm.blade[0]>.2,'returning beat uses the other line');
+  assert.ok(Math.abs(contacts[2].arm.blade[0])<.18,'third strike drives along the center');
+  for (const guarded of contacts) {
+    assert.ok(guarded.arm.wrist[2]<-.70,'wrist drives forward rather than sweeping down to a hip');
+    assert.ok(guarded.arm.blade[2]<-.45,'blade stays ahead of the guarding hands');
+    assert.ok((guarded.offHand?.weight??0)===0,'the free gauntlet can guard or cast');
+    assert.ok(Math.max(...guarded.counter.map(Math.abs))<.12,'free gauntlet retains cover');
+  }
   assert.deepEqual(pose,saved);
+});
+
+test('Chivalry first person brace remains angled when no sword chain is active',async()=>{
+  const {guardedSwordPose}=await import('./chivalryMotion.mjs');
+  assert.equal(guardedSwordPose(null,0),null);
+  const brace=guardedSwordPose(null,1);
+  assert.ok(brace,'Guard has its own persistent first person pose');
+  assert.ok(brace.arm.blade[0]<-.25 && brace.arm.blade[1]>.3 && brace.arm.blade[2]<-.45);
 });
 
 test('transition residual preserves outgoing velocity and settles with zero residual velocity',async()=>{

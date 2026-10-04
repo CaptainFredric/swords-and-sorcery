@@ -1,4 +1,5 @@
 import { guardedSwordPose } from './chivalryMotion.mjs';
+import { guardedBracePose, guardedComboPose, guardedRecoveryPose } from './fpGuardedSlash.mjs';
 import { createChivalryLink } from './chivalryLink.mjs';
 import { createElementalOrb } from './elementalOrb.mjs';
 import * as THREE from 'three';
@@ -600,7 +601,20 @@ export class WeaponView {
       const vortexPose = this.#vortexPose(timeSec, dt);
       const sourceCombo = vortexPose ?? this.#combo(this.concurrent && chain ? 'attack' : pose.state, timeSec, stateBefore);
       this.concurrentGuardBlend = approach(this.concurrentGuardBlend ?? 0, this.concurrent && this.guard ? 1 : 0, dt / 0.18);
-      const combo = vortexPose ? sourceCombo : guardedSwordPose(sourceCombo, this.concurrentGuardBlend);
+      // Guard owns a complete defensive path, including the way home when a committed chain ends.
+      // The ordinary chain keeps its own handover bookkeeping and remains unchanged outside Chivalry.
+      let defended = guardedBracePose();
+      if (chain) {
+        defended = guardedComboPose(timeSec - this.attackStartedAt);
+        if (this.concurrent && this.guard) {
+          this.guardedCutFrom = timeSec - this.attackStartedAt;
+          this.guardedCutAt = timeSec;
+        }
+      } else if (Number.isFinite(this.guardedCutAt)) {
+        defended = guardedRecoveryPose(this.guardedCutFrom, timeSec - this.guardedCutAt);
+      }
+      if (this.concurrentGuardBlend <= 0) this.guardedCutAt = undefined;
+      const combo = vortexPose ? sourceCombo : guardedSwordPose(sourceCombo, this.concurrentGuardBlend, defended);
       if (combo) {
         plan = resolveFirstPersonAnimationPlan({ state: 'idle' }, this, timeSec);
         // the view leans with the body into each cut (purely visual: aim is the input's)

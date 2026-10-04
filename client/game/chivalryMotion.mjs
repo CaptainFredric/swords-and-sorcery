@@ -1,4 +1,6 @@
 import { blendSeconds } from './spellbladeBlend.mjs';
+import { blendPoses } from './fpSlash.mjs';
+import { guardedBracePose, guardedComboPose } from './fpGuardedSlash.mjs';
 
 export function ownershipBlendSeconds(fromClip, toClip) {
   // Answer attacks quickly, then let the hands and shoulders settle back into their stance.
@@ -14,20 +16,11 @@ export function transitionResidual(offset, velocity, elapsed, duration) {
     + velocity * duration * u * (1 - u) * (1 - u);
 }
 
-/** Compact one handed cuts: the free gauntlet keeps Guard while the sword follows its contact direction. */
-export function guardedSwordPose(pose, amount) {
-  if (!pose) return pose;
+/** Blend into a separately authored defensive path, including its persistent angled brace. */
+export function guardedSwordPose(pose, amount, defended = pose ? guardedComboPose(pose.time) : guardedBracePose()) {
   const u = Math.max(0, Math.min(1, amount));
+  if (!u) return pose;
   const w = u * u * (3 - 2 * u);
-  const center = [0.18, -0.22, -0.64];
-  return { ...pose,
-    arm: { ...pose.arm,
-      wrist: pose.arm.wrist.map((v, i) => v + (center[i] - v) * [0.28, 0.3, 0.12][i] * w),
-      shoulder: pose.arm.shoulder?.map(v => v * (1 - 0.4 * w)),
-    },
-    offHand: pose.offHand ? { ...pose.offHand, weight: pose.offHand.weight * (1 - w) } : null,
-    counter: pose.counter.map(v => v * (1 - w)),
-    body: pose.body.map(v => v * (1 - 0.35 * w)),
-    look: Object.fromEntries(Object.entries(pose.look).map(([k,v]) => [k,v * (1 - 0.35 * w)])),
-  };
+  const shown = pose ? blendPoses(pose, defended, u) : defended;
+  return { ...shown, weight: (pose?.weight ?? (pose ? 1 : 0)) * (1-w) + w };
 }
