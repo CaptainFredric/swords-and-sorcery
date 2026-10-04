@@ -577,7 +577,7 @@ export class WeaponView {
       concurrent: this.concurrent,
     });
 
-    const motion = this.motion.step({ dt, speed, grounded, yaw, pitch, state: pose.state, dashing: this.concurrent ? timeSec < this.dashUntil : pose.state === 'dash' });
+    const motion = this.motion.step({ dt, speed, grounded, yaw, pitch, state: pose.state, concurrent: this.concurrent, dashing: this.concurrent ? timeSec < this.dashUntil : pose.state === 'dash' });
     // each committed strike's swing is heard as it goes live (when the server lets it land, and the blade is at its
     // fastest a moment later)
     if (chain) {

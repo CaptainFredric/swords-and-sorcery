@@ -136,6 +136,9 @@ export class SpellbladeAnimator {
         if (clip) {
           this.gaitPhase = (this.gaitPhase + step * (locomotion.rate ?? 1) / Math.max(0.05, clip.duration)) % 1;
           layers.locomotion = { ...locomotion, time: gaitTime(this.gaitPhase, clip.duration), normalized: false };
+          if (layers.posture?.overlay?.clip === locomotion.clip) {
+            layers.posture = { ...layers.posture, overlay: { ...layers.posture.overlay, time: layers.locomotion.time, normalized: false } };
+          }
         }
       }
       this.activeClip = locomotion?.clip ?? this.activeClip;

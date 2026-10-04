@@ -80,7 +80,7 @@ export class SpellbladeComposition {
         if (channel.overlay && channel.overlayWeight > 0.001) {
           const other = channel.overlay.clip.tracks.find(candidate => candidate.bone === track.bone && candidate.property === track.property);
           if (other) {
-            const sampled = valueOf(track.bone, track.property).fromArray(other.sample.evaluate(Math.max(0, Math.min(channel.overlay.clip.duration, channel.overlay.time ?? 0))));
+            const sampled = valueOf(track.bone, track.property).fromArray(other.sample.evaluate(clipTime(channel.overlay.clip, channel.overlay)));
             if (track.property === 'quaternion') target.slerp(sampled, channel.overlayWeight);
             else target.lerp(sampled, channel.overlayWeight);
           }

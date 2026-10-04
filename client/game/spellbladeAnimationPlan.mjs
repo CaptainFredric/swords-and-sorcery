@@ -59,9 +59,15 @@ export function resolveSpellbladeAnimationPlan({ state, player = {}, serverNow =
     const locomotion = layers.dash
       ? fixed('Dash', serverNow - (finite(player.dashUntil, serverNow) - MOVEMENT.dashDuration))
       : resolveSpellbladeAnimationPlan({ state: locomotionState(player), player: { ...player, ultimateState: null }, serverNow, localTime });
+    const posture = layers.attack ? cut : layers.guard ? guard : layers.cast ? cast : still;
+    // A small share of the authored Sprint torso carries its forward weight beneath the action.
+    // Sword and sorcery retain their own complete tracks and contact clocks.
+    const movingPosture = locomotion.clip === 'Sprint'
+      ? { ...posture, overlay: { ...locomotion, weight: 0.16 * Math.max(0, Math.min(1, player.sprintBlend ?? 1)) } }
+      : posture;
     return { ...locomotion, layers: {
       locomotion,
-      posture: layers.attack ? cut : layers.guard ? guard : layers.cast ? cast : still,
+      posture: movingPosture,
       sword: layers.attack ? cut : layers.guard ? guard : still,
       sorcery: layers.cast ? cast : layers.guard ? layers.attack ? defensive : guard : still,
     }, concurrent: layers };

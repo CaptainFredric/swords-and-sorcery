@@ -7,7 +7,7 @@ import { PROWESS, gainProwess, prowessForDamage } from '../src/prowess.mjs';
 import {
   ULTIMATES, dizzy, stepVortexEmphasis, sundering, ultimateFor, ultimateStartup, ultimateWhirl, vortexEmphasisWanted, vortexTune, vortexing,
 } from '../src/ultimates.mjs';
-import { combatActionPolicy } from '../src/combatActionPolicy.mjs';
+import { combatActionPolicy, combatBlocksSprint } from '../src/combatActionPolicy.mjs';
 import { recordChallengeFact } from './challenges.mjs';
 import { preparedSpellMember } from '../src/preparedSpells.mjs';
 import { RUPTURE, fissureCatches, planRupture } from '../src/rupture.mjs';
@@ -1256,7 +1256,8 @@ function stepUltimate(room, player, nowSec) {
       }
       if (combatActionPolicy(player, nowSec).concurrent) {
         player.attackRestartAt = Math.max(player.attackRestartAt ?? -Infinity, state.commitAt);
-        if (player.guardHeld) setGuard(room, player.id, true, nowSec);
+        // Commit is the sole automatic raise. Later release and interruption stay down.
+        setGuard(room, player.id, true, nowSec);
       }
       room.events.push({ type: 'ultimateActive', playerId: player.id, ultimate: ultimate.id, until: state.until, at: nowSec });
     }
@@ -1559,7 +1560,7 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
       grounded: player.grounded,
       stamina: player.guardStamina,
       sprinting: player.sprinting,
-      blocked: staggered || player.guarding || player.attackActive || Boolean(player.pendingSpell) || Boolean(vortexing(player, nowSec)),
+      blocked: combatBlocksSprint(player, nowSec),
       crouched: Boolean(player.crouched),
     });
     if (player.sprinting) {
