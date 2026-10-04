@@ -87,6 +87,8 @@ export class FirstPersonMotion {
     this.lastYaw = null;
     this.lastPitch = null;
     this.moving = 0;
+    this.concurrentWeight = 0;
+    this.carriage = 1;          // relaxed stride carriage, restrained while concurrent actions own the arms
     this.neutral = 1;           // how much of the relaxed neutral offset applies (fades out for actions)
     this.fov = FP_MOTION.baseFov;
   }
@@ -169,11 +171,11 @@ export class FirstPersonMotion {
   }
 
   /**
-   * @param {{dt:number, speed:number, grounded:boolean, yaw:number, pitch:number, state:string, dashing?:boolean}} frame
+   * @param {{dt:number, speed:number, grounded:boolean, yaw:number, pitch:number, state:string, dashing?:boolean, concurrent?:boolean}} frame
    *   state: the first-person pose state ('idle', 'attack', 'guard', 'cast', 'dash')
    * @returns {{weapon:{x,y,z,rx,ry,rz}, camera:{y,pitch,roll,yaw}, fov:number, pump:number, neutral:number}}
    */
-  step({ dt, speed: rawSpeed = 0, grounded = true, yaw = 0, pitch = 0, state = 'idle', dashing = false }) {
+  step({ dt, speed: rawSpeed = 0, grounded = true, yaw = 0, pitch = 0, state = 'idle', dashing = false, concurrent = false }) {
     const h = Math.max(0, Math.min(0.1, Number.isFinite(dt) ? dt : 0));
     // a dash moves far faster than any gait; it has its own pose, so gait motion reads it as a sprint
     const speed = Math.max(0, Math.min(SPRINT.speed, Number.isFinite(rawSpeed) ? rawSpeed : 0));
@@ -215,6 +217,10 @@ export class FirstPersonMotion {
     const neutralTarget = state === 'idle' ? 1 : 0;
     this.neutral += (neutralTarget - this.neutral) * (1 - Math.exp(-h * (neutralTarget ? 6 : 16)));
 
+    // Keep a quarter of the stride carriage under concurrent action poses. Ease ownership changes
+    // instead of making the hands settle abruptly whenever sword, Guard or sorcery takes over.
+    this.concurrentWeight += (Number(concurrent) - this.concurrentWeight) * (1 - Math.exp(-h * 12));
+    this.carriage = this.neutral + (1 - this.neutral) * 0.25 * this.concurrentWeight;
     const m = this.moving;
     const s = this.sprint;
     const free = this.neutral;
@@ -222,13 +228,14 @@ export class FirstPersonMotion {
     const bobY = -(0.010 + 0.014 * s) * dip * m;
     const swayX = (0.006 + 0.006 * s) * Math.sin(phase) * m;
     // sprint carriage: hands held in and a touch low, blade laid back, arms pumping with the stride
-    const pump = Math.sin(phase) * s * m * free;
+    const carriage = this.carriage;
+    const pump = Math.sin(phase) * s * m * carriage;
     const weapon = {
-      x: swayX + this.lag.x.value + this.impact.x.value - 0.02 * s * free,
-      y: bobY + this.lag.y.value + this.impact.y.value - FP_MOTION.neutralDrop * free - 0.025 * s * free,
-      z: this.lag.z.value + this.impact.z.value + 0.03 * s * free,
-      rx: this.lag.rx.value + this.impact.rx.value - 0.05 * s * free - dip * 0.02 * m,
-      ry: this.lag.ry.value + this.impact.ry.value + 0.08 * s * free,
+      x: swayX + this.lag.x.value + this.impact.x.value - 0.02 * s * carriage,
+      y: bobY + this.lag.y.value + this.impact.y.value - FP_MOTION.neutralDrop * free - 0.025 * s * carriage,
+      z: this.lag.z.value + this.impact.z.value + 0.03 * s * carriage,
+      rx: this.lag.rx.value + this.impact.rx.value - 0.05 * s * carriage - dip * 0.02 * m,
+      ry: this.lag.ry.value + this.impact.ry.value + 0.08 * s * carriage,
       rz: this.lag.rz.value + this.impact.rz.value + swayX * 1.6,
     };
     // the camera moves far less than the arms: a small footfall dip, a slight lean into the sprint (yaw: a sword

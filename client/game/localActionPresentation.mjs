@@ -58,6 +58,6 @@ export function localWeaponReleaseForEvent(event, localId, auth = null, nowSec =
 export function localWeaponReleaseForSnapshot(auth, nowSec) {
   if (!auth || !Number.isFinite(nowSec)) return null;
   if (!auth.alive || (auth.staggerUntil ?? -Infinity) > nowSec || handsTaken(auth, nowSec)) return { attack: true, guard: true };
-  if ((auth.guardStamina ?? 0) <= 0) return { attack: false, guard: true };
+  if ((auth.guardStamina ?? 0) <= 0 || (combatActionPolicy(auth, nowSec).concurrent && !auth.guarding)) return { attack: false, guard: true };
   return null;
 }

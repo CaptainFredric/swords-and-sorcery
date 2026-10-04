@@ -74,7 +74,7 @@ test('all four coexist and further actions preserve the accepted strike and gath
   command(room, a, 'castPreparedSpell', 'fireball', 10.76);
   assert.equal(a.guarding, true); assert.equal(a.attackActive, true); assert.ok(a.dashUntil > 10.73);
   assert.equal(a.attackStartedAt, began); assert.equal(a.castEndsAt, ends); assert.equal(a.pendingSpell, pending);
-  assert.equal(a.spell, 'fireball'); assert.equal(a.pendingSpell.spell, 'frostfire'); assert.equal(a.guardStartedAt, 10.7);
+  assert.equal(a.spell, 'fireball'); assert.equal(a.pendingSpell.spell, 'frostfire'); assert.equal(a.guardStartedAt, 10.65);
   tick(room, ends); tick(room, ends + 0.01);
   assert.equal(room.events.filter((e) => e.type === 'projectileSpawned').length, 1);
 });
@@ -182,6 +182,8 @@ test('a Guard Break interrupts simultaneous actions even when Balance has room l
   assert.ok(room.events.some((e) => e.type === 'guardBreak' && e.defenderId === 'a'));
   assert.equal(a.attackActive, false); assert.equal(a.pendingSpell, null); assert.equal(a.castEndsAt, 0);
   assert.equal(a.guarding, false); assert.equal(a.ultimateState?.phase, 'active'); assert.equal(a.prowess, 0);
+  run(room, 11.13, 13); assert.equal(a.guarding, false);
+  assert.equal(room.events.filter(e => e.type === 'guardStarted' && e.playerId === 'a').length, 1);
 });
 
 test('a Sunder body hit cuts the concurrent kit while committed Chivalry stays spent and active', () => {
@@ -195,6 +197,9 @@ test('a Sunder body hit cuts the concurrent kit while committed Chivalry stays s
   assert.ok(room.events.some((e) => e.type === 'actionInterrupted' && e.playerId === 'a'));
   assert.equal(a.attackActive, false); assert.equal(a.pendingSpell, null); assert.equal(a.guarding, false);
   assert.equal(a.ultimateState?.phase, 'active'); assert.ok(a.prowess < 100);
+  combat.cancelAttack(room, 'b', 11.17); run(room, 11.17, 12);
+  assert.equal(a.guarding, false);
+  assert.equal(room.events.filter(e => e.type === 'guardStarted' && e.playerId === 'a').length, 1);
 });
 
 test('spell selection is rejected outside startup or active, on death, and for malformed identities', () => {
@@ -255,10 +260,11 @@ test('snapshot carries an accepted gather independently from later selected spel
   assert.equal(snapshot.castEndsAt, 11); assert.equal(snapshot.castStartedAt, 10.7);
 });
 
-test('release Guard during startup wins over an earlier held input snapshot', () => {
+test('commit raises Guard even if the physical hold was released during startup', () => {
   const { room, a } = duel(); a.input.guard = true; combat.setGuard(room, 'a', true, 9.9);
   a.prowess = 100; combat.tryUltimate(room, 'a', 10); combat.setGuard(room, 'a', false, 10.2);
-  tick(room, 10.65); assert.equal(a.guarding, false);
+  tick(room, 10.65); assert.equal(a.guarding, true);
+  combat.setGuard(room, 'a', false, 10.7); tick(room, 10.8); assert.equal(a.guarding, false);
 });
 
 test('a fresh physical Guard and attack press held during startup become real at commit', () => {
@@ -302,4 +308,16 @@ test('parry carries its authoritative reel decision through a later expiry snaps
     assert.equal(a.ultimateState, null);
     assert.equal(parry.suppressParryReel, chivalry);
   }
+});
+
+test('activation Guard gets one ordinary perfect Parry then settles into an ordinary block', () => {
+  const { room, a, b } = duel();
+  combat.beginAttack(room, 'b', 10.3); active(room, a);
+  run(room, 10.66, 10.72);
+  assert.equal(room.events.filter(e => e.type === 'parry' && e.defenderId === 'a').length, 1);
+  combat.cancelAttack(room, 'b', 10.73);
+  combat.beginAttack(room, 'b', 11.3); run(room, 11.31, 11.72);
+  assert.equal(room.events.filter(e => e.type === 'parry' && e.defenderId === 'a').length, 1);
+  assert.ok(room.events.some(e => e.type === 'block' && e.defenderId === 'a'));
+  assert.equal(a.guardStartedAt, 10.65);
 });

@@ -1,4 +1,4 @@
-import { combatActionPolicy } from '../../shared/src/combatActionPolicy.mjs';
+import { combatActionPolicy, combatBlocksSprint } from '../../shared/src/combatActionPolicy.mjs';
 import * as THREE from 'three';
 import { getWorld } from '../../shared/worlds/registry.mjs';
 import { MOVEMENT, createMovementState, launchBody, movePlayer, resolveSprint, shoveBody, tryStartDash } from '../../shared/src/movement.mjs';
@@ -460,9 +460,9 @@ export class GameRuntime {
     const released = localWeaponReleaseForSnapshot(auth, this.socket.serverNow());
     this.#applyWeaponRelease(released);
     if (released?.attack && released?.guard) this.weapon.cancelCast();
-    // Held physical inputs become live intent at commit, after startup owned the arms.
+    // Guard follows authority, including its single automatic raise and later interruptions.
     if (combatActionPolicy(auth, this.socket.serverNow()).concurrent && auth.alive && (auth.staggerUntil ?? 0) <= this.socket.serverNow()) {
-      if (this.input.guardHeld && auth.guardStamina > 0) this.weapon.setGuard(true);
+      this.weapon.setGuard(Boolean(auth.guarding) && auth.guardStamina > 0);
       if (this.input.attackHeld) this.weapon.setAttack(true);
     }
   }
@@ -1376,7 +1376,11 @@ export class GameRuntime {
         grounded: this.localState.grounded,
         stamina: this.localAuth.guardStamina,
         sprinting: this.localState.sprinting,
-        blocked: this.input.guardHeld || this.input.attackHeld || (this.localAuth.staggerUntil ?? 0) > serverNow || Boolean(whirl),
+        blocked: combatBlocksSprint(this.localAuth, serverNow, {
+          guarding: this.input.guardHeld || this.weapon.guard,
+          attacking: this.input.attackHeld || this.weapon.attackHeld,
+          casting: this.weapon.castUntil > timeSec || this.localAuth.castEndsAt > serverNow,
+        }),
         crouched: Boolean(this.localState.crouched),
       });
       // breaking into a sprint with someone at my heels: the wildcard, now and then

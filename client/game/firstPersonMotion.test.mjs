@@ -103,3 +103,22 @@ test('actions take the arms: the relaxed neutral offset and the sprint pump fade
   assert.ok(attacking.neutral < 0.02);
   assert.ok(Math.abs(attacking.pump) < 0.02);
 });
+
+test('Chivalry upper body actions retain restrained Sprint carriage and cadence', () => {
+  const motion = new FirstPersonMotion();
+  run(motion, 60, () => ({ speed: SPRINT.speed }));
+  const stride = motion.stride;
+  let pump = 0;
+  for (const state of ['guard', 'attack', 'cast']) {
+    pump = Math.max(pump, Math.abs(peak(motion, 60, () => ({ speed: SPRINT.speed, state, concurrent: true }), out => out.pump)));
+  }
+  assert.ok(pump > .15, 'combat should preserve a small stride driven arm motion');
+  assert.ok(motion.stride > stride + 9, 'the gait keeps advancing through all upper body actions');
+  assert.ok(motion.neutral < .01, 'action arms remain in their authored stance');
+  const before = motion.stride;
+  const dash = motion.step({ dt: 1/60, speed: 30, state: 'attack', concurrent: true, dashing: true });
+  assert.equal(motion.stride, before);
+  const after = motion.step({ dt: 1/60, speed: SPRINT.speed, state: 'guard', concurrent: true });
+  assert.ok(motion.stride > before);
+  assert.ok(Math.abs(after.weapon.y - dash.weapon.y) < .015, 'Dash handoff has no gait reset');
+});

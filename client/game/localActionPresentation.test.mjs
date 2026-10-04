@@ -82,3 +82,10 @@ test('what is held is sent with the movement, for a Vortex to be steered by: the
   assert.match(touch, /if \(action === 'attack'\) this\.input\.setAttack\(false\);/);
   assert.match(touch, /if \(action === 'guard'\) this\.input\.setGuard\(false\);/);
 });
+
+test('Chivalry snapshots release the view Guard after an interruption even if its physical input remains held', () => {
+  const p = { alive: true, guarding: false, guardStamina: 100,
+    ultimateState: { id: 'chivalry', phase: 'active', until: 19 } };
+  assert.equal(localWeaponReleaseForSnapshot(p, 12)?.guard, true);
+  assert.equal(localWeaponReleaseForSnapshot({ ...p, guarding: true }, 12), null);
+});

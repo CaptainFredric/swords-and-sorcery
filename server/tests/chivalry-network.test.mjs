@@ -68,3 +68,42 @@ test('real host broadcasts atomic requested casts, startup selection, live aim a
   room.startMatch(game.now());assert.equal(player.spell,'frostfire');
   assert.deepEqual(player.preparedSpells,['fireball','frostfire','steel']);
 });
+
+test('both clients observe commit Guard and the complete Sprint sword spell Dash sequence', async t => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'chivalry-sprint-wire-'));
+  const game = createGameServer({ port: 0, host: '127.0.0.1', profileStore: new ProfileStore(dir) });
+  await game.start(); const sockets = [];
+  t.after(async () => { sockets.forEach(s => s.close()); await game.stop(); fs.rmSync(dir, { recursive: true, force: true }); });
+  async function connect() {
+    const ws = new WebSocket(`ws://127.0.0.1:${game.address().port}/ws`); sockets.push(ws); const next = inbox(ws);
+    await new Promise(r => ws.addEventListener('open', r, { once: true })); return { ws, next };
+  }
+  const a = await connect();
+  send(a.ws, { type: 'loadout', spell: 'fireball', ultimate: 'chivalry', preparedSpells: ['fireball','frostfire','gale'] });
+  send(a.ws, { type: 'createRoom', name: 'Knight' }); const joined = await a.next('joined');
+  const b = await connect(); send(b.ws, { type: 'joinRoom', code: joined.roomCode, name: 'Observer' }); await b.next('joined');
+  const room = game.roomManager.findByCode(joined.roomCode), p = room.players.get(joined.playerId);
+  room.startMatch(game.now()); p.prowess = 100;
+  send(a.ws, { type: 'ultimate' });
+  const active = await a.next('events', m => m.events.some(e => e.type === 'ultimateActive' && e.ultimate === 'chivalry'));
+  assert.equal(active.events.filter(e => e.type === 'guardStarted' && e.playerId === p.id).length, 1);
+  const matching = predicate => m => predicate(m.players.find(k => k.id === p.id));
+  for (const client of [a, b]) {
+    const snap = await client.next('snapshot', matching(k => k?.guarding && k.ultimateState?.phase === 'active'));
+    assert.equal(snap.players.find(k => k.id === p.id).guarding, true);
+  }
+  send(a.ws, { type: 'input', seq: 1, forward: 1, right: 0, sprint: true, yaw: p.yaw, guard: false });
+  await a.next('snapshot', matching(k => k?.sprinting && k.guarding));
+  send(a.ws, { type: 'attack', down: true });
+  send(a.ws, { type: 'castPreparedSpell', spell: 'fireball', direction: {x:0,y:0,z:-1}, yaw: p.yaw, pitch: 0 });
+  for (const client of [a, b]) await client.next('snapshot', matching(k => k?.sprinting && k.guarding && k.attackActive && k.castingSpell === 'fireball'));
+  send(a.ws, { type: 'dash', direction: {x:0,z:-1} });
+  const dash = await b.next('events', m => m.events.some(e => e.type === 'dash' && e.playerId === p.id));
+  const at = dash.events.find(e => e.type === 'dash' && e.playerId === p.id).at;
+  for (const client of [a, b]) await client.next('snapshot', m => matching(k => k?.sprinting && k.guarding && k.attackActive && k.dashUntil > m.serverTime)(m));
+  for (const client of [a, b]) await client.next('snapshot', m => m.serverTime > at + .2 && matching(k => k?.sprinting && k.guarding && k.attackActive)(m));
+  assert.equal(p.input.sprint, true); assert.equal(p.guardStartedAt, active.events.find(e => e.type === 'guardStarted').at);
+  send(a.ws, { type: 'guard', down: true }); send(a.ws, { type: 'guard', down: false });
+  for (const client of [a, b]) await client.next('snapshot', matching(k => k?.sprinting && !k.guarding));
+  await new Promise(r => setTimeout(r, 120)); assert.equal(p.guarding, false);
+});
