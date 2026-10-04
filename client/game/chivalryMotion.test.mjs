@@ -10,21 +10,18 @@ test('action entry stays responsive while idle and Guard recover more gently', (
   assert.equal(ownershipBlendSeconds('Run', 'Sprint'), 0.16);
 });
 
-test('first person guarded strikes use distinct forward defensive paths and leave the spell hand free', async () => {
+test('first person guarded strikes keep the ordinary cut at each contact and leave the spell hand free', async () => {
   const {guardedSwordPose}=await import('./chivalryMotion.mjs');
   const {comboPose,COMBO_CONTACTS}=await import('./fpSlash.mjs');
   const pose=comboPose(COMBO_CONTACTS[0]);
   const saved=structuredClone(pose);
   assert.deepEqual(guardedSwordPose(pose,0),pose);
-  const contacts=COMBO_CONTACTS.map(t=>guardedSwordPose(comboPose(t),1));
-  assert.ok(contacts[0].arm.blade[0]<-.25,'forehand occupies the diagonal defensive line');
-  assert.ok(contacts[1].arm.blade[0]>.2,'returning beat uses the other line');
-  assert.ok(Math.abs(contacts[2].arm.blade[0])<.18,'third strike drives along the center');
-  for (const guarded of contacts) {
-    assert.ok(guarded.arm.wrist[2]<-.70,'wrist drives forward rather than sweeping down to a hip');
-    assert.ok(guarded.arm.blade[2]<-.45,'blade stays ahead of the guarding hands');
+  for (const contact of COMBO_CONTACTS) {
+    const plain=comboPose(contact), guarded=guardedSwordPose(comboPose(contact),1);
+    const along=plain.arm.blade.reduce((sum,v,i)=>sum+v*guarded.arm.blade[i],0);
+    assert.ok(along>Math.cos(15*Math.PI/180),'the blade lies across the aim as the ordinary cut does');
     assert.ok((guarded.offHand?.weight??0)===0,'the free gauntlet can guard or cast');
-    assert.ok(Math.max(...guarded.counter.map(Math.abs))<.12,'free gauntlet retains cover');
+    assert.ok(Math.max(...guarded.counter.map(Math.abs))<1e-9,'free gauntlet retains cover');
   }
   assert.deepEqual(pose,saved);
 });
