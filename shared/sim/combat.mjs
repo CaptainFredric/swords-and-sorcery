@@ -547,13 +547,19 @@ function bladeOrigin(transform) {
 // the chain's chop: a slam is swung as this strike, whichever of the chain it is
 const SLAM_STRIKE = 2;
 
-// What stops a Sundering blade. A blow of the greatest force is not turned by what it brushes on its way: the world
-// stops it only close about its aim (where it is being driven: a wall dead ahead), and a small loose furnishing never
-// does. A wall still hides whoever stands behind it, and the ground is still the ground (it ruptures). An ordinary
-// blade is as it was.
+// What stops a Sundering blade. A blow of the greatest force is not turned by what it brushes on its way. Only what
+// truly stands in the way of the blow being driven down stops it: a face met squarely (a wall dead ahead), close about
+// its aim. Never a small loose furnishing; never a face it only glances along; and the top of anything it comes down
+// onto (a terrace's lip, a heap, a step, a beam, or over such an edge) is ground to it: it is driven in there, and
+// ruptures what floor there is. A wall still hides whoever stands behind it. The stretch of blade nearest the hands
+// sweeps a little wider (a knight pressed close beside the cut is struck), the rest is as narrow as ever. These are
+// rules of the geometry, so they hold on any map. An ordinary blade is as it was.
 const SUNDER_SWEEP = Object.freeze({
-  blade: Object.freeze({ ...BLADE, worldStopDeg: ULTIMATES.sunder.worldStopDeg }),
+  blade: Object.freeze({ ...BLADE, worldStopDeg: ULTIMATES.sunder.worldStopDeg, hilt: ULTIMATES.sunder.hilt }),
   spares: (solid) => Boolean(solid.incidental),
+  topsAreGround: true,
+  corner: ULTIMATES.sunder.cornerM,
+  stopIncidence: ULTIMATES.sunder.stopIncidence,
 });
 
 // the aim a strike is swung along: a slam's is driven down to at least the ultimate's slamPitch
