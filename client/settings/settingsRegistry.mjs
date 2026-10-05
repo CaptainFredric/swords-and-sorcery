@@ -10,7 +10,8 @@ import { normalizePreparedSpells, DEFAULT_PREPARED_SPELLS } from '../../shared/s
 //
 // and the new tab, row or key binding appears on the Settings screen, with its value saved and validated. Setting
 // types: 'range' { min, max, step, unit }, 'toggle', 'choice' { options: [{ value, label }] }. `devices: 'touch'` or
-// 'desktop' shows a row only on that kind of device; `group` puts rows under a heading within their section. A section
+// 'desktop' shows a row only on that kind of device; `touchDefault` is the default on a phone or tablet instead (the
+// store is told which it is on); `group` puts rows under a heading within their section. A section
 // with `screen: 'armory'` (or any other screen of its own) keeps its values here but is shown elsewhere, not as a tab.
 // Actions are key (or mouse button) bindings, shown on the Controls tab; InputController fires them by id.
 
@@ -37,6 +38,9 @@ export class SettingsRegistry {
     if (type === 'range' && !(definition.max > definition.min)) throw new Error(`Setting ${id}: range needs min < max`);
     if (type === 'choice' && !definition.options?.some((option) => option.value === definition.default)) {
       throw new Error(`Setting ${id}: its default must be one of its options`);
+    }
+    if (type === 'choice' && 'touchDefault' in definition && !definition.options.some((option) => option.value === definition.touchDefault)) {
+      throw new Error(`Setting ${id}: its touch default must be one of its options`);
     }
     if (type === 'array' && (typeof definition.validate !== 'function' || !Array.isArray(definition.default))) {
       throw new Error(`Setting ${id}: array needs a default and validator`);
@@ -70,8 +74,10 @@ export class SettingsRegistry {
     return [...this.actions.values()].sort((a, b) => a.order - b.order);
   }
 
-  defaultValue(id) {
-    const value = this.settings.get(id)?.default;
+  /** A setting's default: on a phone or tablet (`device` 'touch'), its touch default if it has one. */
+  defaultValue(id, device = 'desktop') {
+    const setting = this.settings.get(id);
+    const value = device === 'touch' && setting && 'touchDefault' in setting ? setting.touchDefault : setting?.default;
     return Array.isArray(value) ? [...value] : value;
   }
 
@@ -80,12 +86,12 @@ export class SettingsRegistry {
   }
 
   /** A stored value made safe to use: clamped, stepped and checked against the options, or the default. */
-  validate(id, value) {
+  validate(id, value, device = 'desktop') {
     const setting = this.settings.get(id);
     if (!setting) return value;
     if (setting.type === 'array') return setting.validate(value);
     if (setting.type === 'toggle') return typeof value === 'boolean' ? value : setting.default;
-    if (setting.type === 'choice') return setting.options.some((option) => option.value === value) ? value : setting.default;
+    if (setting.type === 'choice') return setting.options.some((option) => option.value === value) ? value : this.defaultValue(id, device);
     const number = Number(value);
     if (!Number.isFinite(number)) return setting.default;
     const step = setting.step ?? 1;
@@ -158,7 +164,8 @@ registry
 registry
   .defineSetting({ id: 'display.fov', section: 'display', label: 'Field of view', type: 'range', min: 65, max: 100, step: 1, unit: '°', default: 78 })
   .defineSetting({
-    id: 'display.quality', section: 'display', label: 'Render quality', type: 'choice', default: 'high',
+    // (a phone or tablet starts on Balanced: Sharp's extra pixels cost a phone far more than they show)
+    id: 'display.quality', section: 'display', label: 'Render quality', type: 'choice', default: 'high', touchDefault: 'medium',
     hint: 'Lower is smoother on older phones and laptops',
     options: [{ value: 'low', label: 'Smooth' }, { value: 'medium', label: 'Balanced' }, { value: 'high', label: 'Sharp' }],
   })

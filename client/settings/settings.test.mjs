@@ -179,3 +179,21 @@ test('prepared spells validate as three legal unique identities and are stored a
 test('prepared validator keeps all valid identities when corrupt entries precede them', () => {
   assert.deepEqual(registry.validate('loadout.preparedSpells', ['corrupt', 'steel', 'gale', 'frostfire']), ['steel', 'gale', 'frostfire']);
 });
+
+test('a phone or tablet starts on Balanced quality; a desktop on Sharp; a choice made on either is kept', () => {
+  const phone = new SettingsStore({ registry, storage: memoryStorage(), device: 'touch' });
+  const desktop = new SettingsStore({ registry, storage: memoryStorage() });
+  assert.equal(phone.get('display.quality'), 'medium');
+  assert.equal(desktop.get('display.quality'), 'high');
+  assert.equal(viewOptions(phone).pixelRatioCap, RENDER_QUALITY.medium);
+  // only the quality differs (nothing else has a touch default)
+  assert.equal(phone.get('display.fov'), desktop.get('display.fov'));
+  phone.set('display.quality', 'high');
+  assert.equal(phone.get('display.quality'), 'high', 'Sharp chosen on a phone stays Sharp');
+  phone.reset('display');
+  assert.equal(phone.get('display.quality'), 'medium', 'and a reset goes back to the phone default');
+  assert.equal(registry.validate('display.quality', 'ultra', 'touch'), 'medium');
+  assert.throws(() => new SettingsRegistry().defineSection({ id: 's', label: 'S' }).defineSetting({
+    id: 's.q', section: 's', label: 'Q', type: 'choice', default: 'a', touchDefault: 'z', options: [{ value: 'a', label: 'A' }],
+  }), /touch default/);
+});
