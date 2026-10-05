@@ -61,7 +61,7 @@ export class VoiceMoments {
     this.threats = new Map();   // victim -> { by, at }
     this.strikes = new Map();   // `${attacker}>${victim}` -> [{ amount, pitch }]
     this.gusts = new Map();     // `${owner}>${victim}` -> when it threw them
-    this.ruptured = new Map();  // owner -> when their ruptures caught someone, lately
+    this.ruptured = new Map();  // owner -> [{ at, victimId }]: whom their ruptures caught, lately
     this.squire = null;         // { speaker, until, position }
     this.met = new Set();       // pairs of knights who have traded a blow this life (`a|b`)
     this.duelFoes = new Map();  // speaker -> the foe a fresh encounter was opened with
@@ -100,9 +100,12 @@ export class VoiceMoments {
     }
     // a Sundering slam whose split ground catches two: force has settled the argument
     if (other && source === 'rupture') {
-      const recent = [...(this.ruptured.get(attackerId) ?? []).filter((t) => at - t <= MOMENTS.massive.withinSec), at];
+      // (two knights, not one knight caught by two ruptures in quick succession: every rupture catches again)
+      const recent = [...(this.ruptured.get(attackerId) ?? []).filter((hit) => at - hit.at <= MOMENTS.massive.withinSec), { at, victimId }];
       this.ruptured.set(attackerId, recent);
-      if (recent.length === MOMENTS.massive.caught) groups.push(this.#lines(attackerId, ['massiveSunder']));
+      const caught = new Set(recent.map((hit) => hit.victimId)).size;
+      const before = new Set(recent.slice(0, -1).map((hit) => hit.victimId)).size;
+      if (caught === MOMENTS.massive.caught && before < caught) groups.push(this.#lines(attackerId, ['massiveSunder']));
     }
     const standing = event.health > 0;
     if (other && standing) {

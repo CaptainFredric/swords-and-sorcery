@@ -6,8 +6,9 @@ import { surfaceHeightAt } from './collision.mjs';
 // Each runs only as far as the ground carries it: it stops at anything solid in its way, where the ground drops away
 // or rises, and at its reach. It catches a knight standing on the ground it splits as its head passes them (a knight
 // in the air clears it), once per rupture, for a little damage and a hard jolt to their balance. Sundering, every
-// blow ruptures the ground, so one knight's ruptures catch the same knight at most once in `recatchSec`: the ground
-// splitting all round them again and again is a warning to move, not a blender. Current tuning (provisional).
+// blow ruptures the ground, and every rupture is its own: a knight who stays where the ground splits again and again is
+// caught again and again (the warning is to move). The knight the blow was driven through stands at its impact and is
+// caught by its rupture too: the sword and the ground are two consequences of one slam. Current tuning (provisional).
 
 export const RUPTURE = Object.freeze({
   count: 3,             // fissures, fanned about the blow's way
@@ -21,7 +22,7 @@ export const RUPTURE = Object.freeze({
   damage: 12,
   stagger: 38,          // a Sundering blow and the ground it split are most of a balance between them; the next blow tips it
   jolt: 3.6,            // the upward jolt (m/s)
-  recatchSec: 1.0,      // one knight's ruptures catch the same knight at most once in this long
+  throughReach: 1.6,    // the knight a slam was driven through is caught by its rupture within this of its impact
   // the split ground stays torn this long after its fissures stop running (seen, and felt: a knight other than the
   // one who split it cannot sprint with their feet on it; no further hurt comes of standing there)
   lastsSec: 2.5,

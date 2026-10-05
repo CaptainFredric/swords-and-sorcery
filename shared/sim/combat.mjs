@@ -547,13 +547,19 @@ function bladeOrigin(transform) {
 // the chain's chop: a slam is swung as this strike, whichever of the chain it is
 const SLAM_STRIKE = 2;
 
-// What stops a Sundering blade. A blow of the greatest force is not turned by what it brushes on its way: the world
-// stops it only close about its aim (where it is being driven: a wall dead ahead), and a small loose furnishing never
-// does. A wall still hides whoever stands behind it, and the ground is still the ground (it ruptures). An ordinary
-// blade is as it was.
+// What stops a Sundering blade. A blow of the greatest force is not turned by what it brushes on its way. Only what
+// truly stands in the way of the blow being driven down stops it: a face met squarely (a wall dead ahead), close about
+// its aim. Never a small loose furnishing; never a face it only glances along; and the top of anything it comes down
+// onto (a terrace's lip, a heap, a step, a beam, or over such an edge) is ground to it: it is driven in there, and
+// ruptures what floor there is. A wall still hides whoever stands behind it. The stretch of blade nearest the hands
+// sweeps a little wider (a knight pressed close beside the cut is struck), the rest is as narrow as ever. These are
+// rules of the geometry, so they hold on any map. An ordinary blade is as it was.
 const SUNDER_SWEEP = Object.freeze({
-  blade: Object.freeze({ ...BLADE, worldStopDeg: ULTIMATES.sunder.worldStopDeg }),
+  blade: Object.freeze({ ...BLADE, worldStopDeg: ULTIMATES.sunder.worldStopDeg, hilt: ULTIMATES.sunder.hilt }),
   spares: (solid) => Boolean(solid.incidental),
+  topsAreGround: true,
+  corner: ULTIMATES.sunder.cornerM,
+  stopIncidence: ULTIMATES.sunder.stopIncidence,
 });
 
 // the aim a strike is swung along: a slam's is driven down to at least the ultimate's slamPitch
@@ -1519,7 +1525,7 @@ function groundStrike(room, player, strikeIndex, met, nowSec, world, { through =
   const fissures = planRupture(world, point, { x: f.x, z: f.z });
   room.events.push({ type: 'groundStrike', playerId: player.id, strikeIndex, point, ...(through ? { through } : {}), at: nowSec });
   if (!fissures.length) return;
-  const rupture = { id: `r${++ruptureCounter}`, ownerId: player.id, origin: point, fissures, bornAt: nowSec, reached: 0, caught: [] };
+  const rupture = { id: `r${++ruptureCounter}`, ownerId: player.id, origin: point, fissures, bornAt: nowSec, reached: 0, caught: [], ...(through ? { through } : {}) };
   (room.ruptures ??= []).push(rupture);
   room.events.push({
     type: 'rupture', id: rupture.id, ownerId: player.id, origin: point, speed: RUPTURE.speed,
@@ -1527,21 +1533,19 @@ function groundStrike(room, player, strikeIndex, met, nowSec, world, { through =
   });
 }
 
-// each rupture's fissures run on; whoever stands on the ground they split as they pass is caught, once (and by one
-// knight's ruptures no more than once in RUPTURE.recatchSec)
+// each rupture's fissures run on; whoever stands on the ground they split as they pass is caught, once by each rupture
+// (every slam's rupture is its own: standing in one after another, a knight is caught by every one). The knight the
+// slam was driven through is caught where it struck the ground (they stood at its impact), as the blade passes into it.
 function stepRuptures(room, nowSec) {
   if (!room.ruptures?.length) return;
-  const lastCaught = (room.ruptureCaught ??= new Map());
   for (const rupture of [...room.ruptures]) {
     const longest = Math.max(...rupture.fissures.map((fissure) => fissure.length));
     const reached = Math.min(longest, (nowSec - rupture.bornAt) * RUPTURE.speed);
     for (const target of room.players.values()) {
       if (target.id === rupture.ownerId || !target.alive || rupture.caught.includes(target.id) || target.spawnProtectionUntil > nowSec) continue;
-      if (!rupture.fissures.some((fissure) => fissureCatches(rupture.origin, fissure, rupture.reached, reached, target.position))) continue;
+      const struck = target.id === rupture.through && Math.hypot(target.position.x - rupture.origin.x, target.position.z - rupture.origin.z) <= RUPTURE.throughReach;
+      if (!struck && !rupture.fissures.some((fissure) => fissureCatches(rupture.origin, fissure, rupture.reached, reached, target.position))) continue;
       rupture.caught.push(target.id);
-      const pair = `${rupture.ownerId}>${target.id}`;
-      if (nowSec < (lastCaught.get(pair) ?? -Infinity) + RUPTURE.recatchSec) continue;
-      lastCaught.set(pair, nowSec);
       applyDamage(room, rupture.ownerId, target.id, RUPTURE.damage, 'rupture', nowSec, { x: 0, y: RUPTURE.jolt, z: 0 }, { ultimate: true });
       staggerBy(room, target, RUPTURE.stagger, nowSec, rupture.ownerId);
     }

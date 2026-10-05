@@ -114,3 +114,26 @@ test('barrels and posts to the side do not keep ending swings', () => {
   ];
   for (const strike of [0, 1]) assert.equal(aimed([body(0.3, -1.9)], barrels, strike).kind, 'body', `strike ${strike}`);
 });
+
+test('a blade driven down onto the top of something meets ground there; a face met only glancingly is scraped and passed', async () => {
+  const { sweepBlade: sweep, aimFrame: frameOf, bladeDirection: dir } = await import('./blade.mjs');
+  const eye = { x: 0, y: 1.6, z: 0 };
+  const frame = frameOf(-Math.PI / 2, -0.45);
+  const from = dir(2, -0.09, frame);
+  const to = dir(2, 0.11, frame);
+  // a low lip a step ahead (a knight faces +x)
+  const lip = { id: 'lip', center: [1.2, 0.225, 0], size: [0.4, 0.45, 3] };
+  assert.equal(sweep(eye, from, to, [], [lip], { aim: frame.forward }).kind, 'solid', 'an ordinary blade rings off it');
+  const driven = sweep(eye, from, to, [], [lip], { aim: frame.forward, topsAreGround: true, corner: 0.3 });
+  assert.equal(driven.kind, 'ground');
+  assert.equal(driven.floor.y, 0.45, 'at the top of it');
+  // a tall wall met squarely still stops it
+  const wall = { id: 'wall', center: [1.2, 1.5, 0], size: [0.4, 3, 3] };
+  assert.equal(sweep(eye, from, to, [], [wall], { aim: frame.forward, topsAreGround: true, corner: 0.3, stopIncidence: 0.45 }).kind, 'solid');
+  // a wall met at 65 degrees off its face: an ordinary blade rings off it; a slam glances along it and goes on
+  const turned = frameOf(-Math.PI / 2 + 65 * Math.PI / 180, -0.45);
+  const side = { id: 'side', center: [1.6, 1.5, 0], size: [1.2, 3, 12] };
+  const swing = [dir(2, -0.09, turned), dir(2, 0.11, turned)];
+  assert.equal(sweep(eye, ...swing, [], [side], { aim: turned.forward }).kind, 'solid');
+  assert.equal(sweep(eye, ...swing, [], [side], { aim: turned.forward, topsAreGround: true, corner: 0.3, stopIncidence: 0.45 }), null);
+});

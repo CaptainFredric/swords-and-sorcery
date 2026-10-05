@@ -34,6 +34,14 @@ export const ULTIMATES = Object.freeze({
     // the world stops a Sundering blade only where it is truly driven into it: within this far of the slam's aim (an
     // ordinary blade: BLADE.worldStopDeg), and never a small loose furnishing (a barrel's rim, a crate's corner)
     worldStopDeg: 14,
+    // and only a face it is driven into squarely (the cosine between its way and the face's normal at least this: a
+    // face met more glancingly is scraped and passed); the top of anything it comes down onto, or over an edge within
+    // this far of a top, is ground to it (combat.mjs SUNDER_SWEEP)
+    stopIncidence: 0.45,
+    cornerM: 0.3,
+    // the stretch of the blade nearest the hands (out to `to` metres from the eyes) sweeps this wide: a knight pressed
+    // close beside the cut is struck by it; the rest of the blade is as narrow as ever
+    hilt: Object.freeze({ to: 1.3, radius: 0.25 }),
     // a Sundering blow on a body (not a guard, not hardened plate) shakes a balance by this much itself (an ordinary
     // blow at full force: STAGGER.gain.sword), and leaves them reeling this long: what they were doing is ended, and
     // for that moment they can begin nothing (the same "cannot act" as a broken balance, only brief)

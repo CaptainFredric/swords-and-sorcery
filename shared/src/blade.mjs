@@ -202,8 +202,16 @@ function segmentFloor(start, end, floor) {
  * not asked about): met as { kind: 'ground', floor, point, along }. world: false once the blade is past its driven
  * part (MELEE_CONTACT.worldFollow): nothing solid stops it then, though a wall still hides a knight behind it.
  * spares: (solid) => whether this blade passes it by (it never stops the blade; it still hides a knight behind it).
+ * topsAreGround: a blade coming down onto the top of something solid (or over its top edge, within `corner` metres of
+ * it) is driven into the ground there, met as { kind: 'ground', floor: { y, solid } }: a terrace's lip,
+ * a heap, a step, a beam is ground to a blade driven down, not a wall. stopIncidence: a face the blade meets only
+ * glancingly (the cosine between its way and the face's outward normal under this) is scraped and passed, not driven
+ * into. A blade's `hilt` ({ to, radius }): its stretch from the hands out to `to` sweeps this much wider (the arms and
+ * the hilt's path, for a body pressed close beside the cut).
  */
-export function sweepBlade(eye, fromDirection, toDirection, bodies, solids, { aim = null, blade = BLADE, ground = null, world = true, spares = null } = {}) {
+export function sweepBlade(eye, fromDirection, toDirection, bodies, solids, {
+  aim = null, blade = BLADE, ground = null, world = true, spares = null, topsAreGround = false, corner = 0, stopIncidence = 0,
+} = {}) {
   const turn = Math.acos(Math.max(-1, Math.min(1, dot(fromDirection, toDirection))));
   const steps = Math.max(1, Math.ceil(turn / (blade.stepDeg * DEG)));
   const corridor = Math.cos(blade.worldStopDeg * DEG);
@@ -217,9 +225,16 @@ export function sweepBlade(eye, fromDirection, toDirection, bodies, solids, { ai
     for (const body of bodies) {
       const q0 = { x: body.base.x, y: body.base.y + blade.bodyRadius * 0.5, z: body.base.z };
       const q1 = { x: body.base.x, y: body.base.y + Math.max(blade.bodyRadius * 0.5, body.top - blade.bodyRadius * 0.4), z: body.base.z };
-      const near = segmentDistance(start, end, q0, q1);
-      if (near.distance > blade.bodyRadius + blade.radius) continue;
-      const along = blade.from + near.s * length;
+      let near = segmentDistance(start, end, q0, q1);
+      let along = blade.from + near.s * length;
+      if (near.distance > blade.bodyRadius + blade.radius) {
+        // (the stretch nearest the hands sweeps wider: a body pressed close beside the cut is still met)
+        if (!blade.hilt) continue;
+        const inner = add(eye, scale(direction, blade.hilt.to));
+        near = segmentDistance(start, inner, q0, q1);
+        if (near.distance > blade.bodyRadius + blade.hilt.radius) continue;
+        along = blade.from + near.s * (blade.hilt.to - blade.from);
+      }
       if (best && along >= best.along) continue;
       // the way from the eyes to where the blade meets them must be open (checked a hand's breadth short of the
       // contact: the far side of a knight leaning on a wall is not the wall between)
@@ -241,9 +256,17 @@ export function sweepBlade(eye, fromDirection, toDirection, bodies, solids, { ai
       const hit = segmentBox(start, end, solid, blade.radius);
       if (!hit) continue;
       const along = blade.from + hit.t * length;
-      if (!best || along < best.along) {
-        best = { kind: 'solid', solid, point: add(start, scale(sub(end, start), hit.t)), normal: hit.normal, along, direction };
+      if (best && along >= best.along) continue;
+      const point = add(start, scale(sub(end, start), hit.t));
+      const top = solid.center[1] + solid.size[1] / 2;
+      // driven down onto its top (or over its top edge): the ground, there
+      if (topsAreGround && direction.y < 0 && (hit.normal[1] > 0 || top - point.y <= corner)) {
+        best = { kind: 'ground', floor: { y: top, solid }, point: { x: point.x, y: top, z: point.z }, along, direction };
+        continue;
       }
+      // met only glancingly: scraped along, not driven into
+      if (stopIncidence > 0 && -(direction.x * hit.normal[0] + direction.y * hit.normal[1] + direction.z * hit.normal[2]) < stopIncidence) continue;
+      best = { kind: 'solid', solid, point, normal: hit.normal, along, direction };
     }
     if (best) return best;
   }

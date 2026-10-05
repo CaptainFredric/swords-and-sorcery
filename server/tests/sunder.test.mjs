@@ -314,18 +314,52 @@ test('a slam goes through the knight it strikes and on into the ground: its rupt
   assert.ok(damage.filter((e) => e.source === 'rupture').every((e) => e.amount === RUPTURE.damage && e.ultimate));
 });
 
-test('one knight\'s ruptures catch the same knight at most once a second: a warning to move, not a blender', () => {
+test('a knight who stays where the ground splits again and again is caught by every rupture (the warning is to move)', () => {
   const { room, a, b } = duel();
   sunder(room, a);
   place(b, 0, 4.5);
   room.events.length = 0;
+  const pin = () => { Object.assign(b.position, { x: 4.5, y: 0, z: 0 }); b.velocity = { x: 0, y: 0, z: 0 }; b.impulse = { x: 0, z: 0 }; b.grounded = true; b.health = 100; };
   beginAttack(room, 'a', 10);
-  run(room, 10, 13);
+  for (let now = 10; now <= 13 + 1e-9; now += 0.01) { pin(); stepRoom(room, 0.01, now, openWorld); }
   const ruptures = room.events.filter((e) => e.type === 'rupture').length;
-  const caught = room.events.filter((e) => e.type === 'damage' && e.source === 'rupture').map((e) => e.at);
+  const caught = room.events.filter((e) => e.type === 'damage' && e.source === 'rupture');
   assert.ok(ruptures >= 3, `every strike ruptured (${ruptures})`);
-  assert.ok(caught.length >= 2 && caught.length < ruptures, `${caught.length} of ${ruptures}`);
-  for (let i = 1; i < caught.length; i += 1) assert.ok(caught[i] - caught[i - 1] >= RUPTURE.recatchSec - 1e-6);
+  assert.equal(caught.length, ruptures, `caught by ${caught.length} of ${ruptures}: none passes over them`);
+  // (but each rupture once: its three fissures are one rupture)
+  assert.equal(new Set(caught.map((e) => e.at)).size, caught.length);
+});
+
+test('struck by the slam and standing where it splits the ground, a knight takes both: the sword and the rupture', () => {
+  for (const distance of [0.6, 0.9, 1.2, 1.8, 2.4]) {
+    const { room, a, b } = duel();
+    sunder(room, a);
+    place(b, 0, distance);
+    room.events.length = 0;
+    const pin = () => { place(b, 0, distance); b.velocity = { x: 0, y: 0, z: 0 }; b.impulse = { x: 0, z: 0 }; b.grounded = true; };
+    beginAttack(room, 'a', 10);
+    for (let now = 10; now <= 10.55 + 1e-9; now += 0.01) { pin(); stepRoom(room, 0.01, now, openWorld); }
+    endAttack(room, 'a', 10.55);
+    run(room, 10.56, 11.5);
+    const sources = room.events.filter((e) => e.type === 'damage' && e.victimId === 'b').map((e) => e.source);
+    assert.deepEqual(sources, ['sword', 'rupture'], `at ${distance} m`);
+  }
+});
+
+test('a knight pressed close beside the slam is struck; further off it is as narrow a cut as ever', () => {
+  const struck = (deg, distance) => {
+    const { room, a, b } = duel();
+    sunder(room, a);
+    room.events.length = 0;
+    beginAttack(room, 'a', 10);
+    for (let now = 10; now <= 10.55 + 1e-9; now += 0.01) { place(b, deg, distance); stepRoom(room, 0.01, now, openWorld); }
+    return room.events.some((e) => e.type === 'damage' && e.victimId === 'b' && e.source === 'sword');
+  };
+  // pressed against the shoulder, well off the aim: struck
+  for (const deg of [-45, 45]) assert.equal(struck(deg, 0.9), true, `${deg} degrees, close`);
+  // at reach, off the aim: the slam is still narrow
+  assert.equal(struck(20, 2.2), false, 'not a broad sweep');
+  assert.equal(struck(40, 1.6), false);
 });
 
 test('a rupture runs along the ground, never through what stands on it, and catches whoever stands on its line', () => {
@@ -627,13 +661,14 @@ test('a Sundering blow and the ground it splits are most of a balance between th
 });
 
 test('the ground alone, split under a knight again and again, breaks a balance by the third time (it took five)', () => {
-  // (what the rupture adds, with the hold and the drain between catches a second apart)
+  // (what the rupture adds, with the hold and the drain between catches a slam apart)
+  const between = 0.7;
   const stagger = { level: 0, shakenAt: -Infinity, recoverUntil: -Infinity };
   let breaks = 0;
   let catches = 0;
-  for (let now = 0; now < 3 - 1e-9 && !breaks; now += RUPTURE.recatchSec) {
+  for (let now = 0; now < 3 - 1e-9 && !breaks; now += between) {
     // (drained since the last catch: nothing while it holds, then steadily)
-    const idle = Math.max(0, RUPTURE.recatchSec - STAGGER.holdSec);
+    const idle = Math.max(0, between - STAGGER.holdSec);
     stagger.level = Math.max(0, stagger.level - (catches ? STAGGER.drainPerSec * idle : 0));
     catches += 1;
     stagger.level += RUPTURE.stagger;
@@ -1019,4 +1054,42 @@ test('the key pressed while a spell is gathering is not lost: it is taken the mo
   short.a.prowess = PROWESS.full;
   run(short.room, 9.05, 9.6);
   assert.equal(short.room.events.some((e) => e.type === 'ultimateStart'), false);
+});
+
+test('on the Ruined Keep, a slam is not stopped by the low things it comes down onto; a wall dead ahead still stops it', async () => {
+  const { getWorld } = await import('../../shared/worlds/registry.mjs');
+  const keep = getWorld('ruined-keep');
+  const face = (dx, dz) => Math.atan2(-dx, -dz);
+  const slam = (position, yaw) => {
+    const room = new Room('KEEP', { mode: 'FFA', worldId: 'ruined-keep' });
+    room.addPlayer({ id: 'a', token: 'ta', name: 'A' }, 0);
+    room.addPlayer({ id: 'b', token: 'tb', name: 'B' }, 0);
+    room.setReady('a', true, 0);
+    room.setReady('b', true, 0);
+    room.tick(3.1);
+    const a = room.players.get('a');
+    const b = room.players.get('b');
+    Object.assign(b.position, { x: 0, y: 0, z: 12 });
+    b.history = [];
+    const hold = () => { Object.assign(a.position, position); a.velocity = { x: 0, y: 0, z: 0 }; };
+    hold();
+    a.history = [];
+    a.yaw = yaw; a.input.yaw = yaw; a.pitch = 0; a.input.pitch = 0;
+    a.prowess = PROWESS.full;
+    tryUltimate(room, 'a', 9);
+    for (let now = 9; now <= 9 + ULTIMATES.sunder.startupSec + 0.02; now += 0.01) { hold(); stepRoom(room, 0.01, now, keep); }
+    room.events.length = 0;
+    beginAttack(room, 'a', 10);
+    for (let now = 10; now <= 10.55; now += 0.01) { hold(); stepRoom(room, 0.01, now, keep); }
+    if (room.events.some((e) => e.type === 'swordWorldImpact')) return 'stopped';
+    return room.events.some((e) => e.type === 'groundStrike') ? 'driven in' : 'missed';
+  };
+  // the terrace's lip, column drums, a fallen beam, the stair's footing, the Breach's rubble: ground to a blade driven down
+  assert.equal(slam({ x: -12.2, y: 0, z: -8.8 }, face(-1, 0)), 'driven in', 'the terrace lip');
+  assert.equal(slam({ x: -4.8, y: 0, z: -7.7 }, face(-1, 0)), 'driven in', 'the column drums');
+  assert.equal(slam({ x: 2.7, y: 0, z: 3.9 }, face(0, 1)), 'driven in', 'the fallen beam');
+  assert.equal(slam({ x: 9.25, y: 0, z: -3.7 }, face(0, -1)), 'driven in', 'the stair footing');
+  assert.equal(slam({ x: -7.9, y: 0, z: -3.9 }, face(-1, 0)), 'driven in', 'the Breach rubble');
+  // a standing wall a step ahead is still in the way
+  assert.equal(slam({ x: -0.7, y: 0, z: -5.0 }, face(0, -1)), 'stopped', 'the toppled wall');
 });

@@ -273,3 +273,15 @@ test('the new falls: three kills without falling, the rushed, the leader, a fair
   assert.ok(fairWin.indexOf('toldToWait') < fairWin.indexOf('fairSquare'), 'the rushed kill is the more particular');
   assert.equal(fallen(fall('m', { chivalry: true }))[0], 'masterBreak', 'the master takes a break, before anything else he might say');
 });
+
+test('a massive Sunder is two knights caught by its split ground, never one knight caught by two ruptures', () => {
+  const world = { knight: () => ({ alive: true, health: 80 }), positionOf: () => null };
+  const offered = (groups) => groups.flat().map((say) => say.line);
+  const rupture = (moments, victimId, at) => moments.damage({ type: 'damage', attackerId: 'a', victimId, source: 'rupture', amount: 12, health: 80, at, ultimate: true }, world);
+  const one = new VoiceMoments();
+  rupture(one, 'b', 1);
+  assert.ok(!offered(rupture(one, 'b', 1.7)).includes('victory'), 'the same knight again');
+  const two = new VoiceMoments();
+  rupture(two, 'b', 1);
+  assert.ok(offered(rupture(two, 'c', 1.3)).includes('victory'), 'two knights: force has settled it');
+});
