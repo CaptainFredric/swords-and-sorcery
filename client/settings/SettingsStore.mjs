@@ -26,9 +26,11 @@ function readJson(storage, key) {
 }
 
 export class SettingsStore {
-  constructor({ registry, storage = globalThis.localStorage } = {}) {
+  /** device: 'touch' on a phone or tablet (settings with a touch default start there), else 'desktop'. */
+  constructor({ registry, storage = globalThis.localStorage, device = 'desktop' } = {}) {
     this.registry = registry;
     this.storage = storage;
+    this.device = device;
     this.values = {};
     this.bindings = {};
     this.listeners = new Set();
@@ -37,12 +39,12 @@ export class SettingsStore {
 
   /** The current value (the default until the player changes it). */
   get(id) {
-    return id in this.values ? this.registry.validate(id, this.values[id]) : this.registry.defaultValue(id);
+    return id in this.values ? this.registry.validate(id, this.values[id], this.device) : this.registry.defaultValue(id, this.device);
   }
 
   /** Set a value (made valid first). Returns the value kept. */
   set(id, value) {
-    const valid = this.registry.validate(id, value);
+    const valid = this.registry.validate(id, value, this.device);
     const current = this.get(id);
     if (id in this.values && (current === valid || (Array.isArray(current) && Array.isArray(valid) && JSON.stringify(current) === JSON.stringify(valid)))) return valid;
     this.values[id] = Array.isArray(valid) ? [...valid] : valid;

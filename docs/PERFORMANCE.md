@@ -61,6 +61,9 @@ every timing are as they were.
 | Draw calls, average / p95 | | 238 / 380 | 103 / 205 |
 | Heap churn over the Vortex | 9 MB | 5.1 MB | 2.4 MB |
 
+Phones and tablets start on Balanced (`display.quality`'s touch default; a choice made in Settings is kept). Desktops,
+touchscreen laptops included, start on Sharp.
+
 These are desktop measurements. A phone has to be tried on a phone: the shader compiles that are gone were the
 slowest thing a phone does, and Smooth halves the draw calls, but only a real device says how it feels.
 

@@ -80,7 +80,8 @@ const armoryFeedback = createArmorySelection({
   restore: () => menuScene?.showSpell(router.current === SCREEN_IDS.ARMORY ? settings.get('loadout.spell') : null),
 });
 // the player's settings, saved in this browser (see settings/settingsRegistry.mjs for what exists and how to add more)
-const settings = new SettingsStore({ registry });
+// (a phone or tablet starts on its own defaults: Balanced quality)
+const settings = new SettingsStore({ registry, device: isTouchPrimary() ? 'touch' : 'desktop' });
 sound.setLevels(soundLevels(settings));
 // a phone app that holds its screen upright: the game can lie sideways on it (Settings › Display › Screen)
 screenTurn?.configure(turnOptions(settings));
