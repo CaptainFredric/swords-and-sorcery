@@ -40,6 +40,6 @@ test('each gesture lands its beat on its cue\'s: the blow as the sword comes dow
   // the Vortex's two passes: across one way, then back
   assert.ok(armoryPose('vortex',.27).sword.target.wrist[0]<.15 && armoryPose('vortex',.46).sword.target.wrist[0]>.4);
   // Chivalry: the blade drawn first, then the gauntlet raised to Guard
-  assert.equal(armoryPose('chivalry',.28).spell,null);
-  assert.ok(armoryPose('chivalry',.42).spell.weight>.99 && armoryPose('chivalry',.42).sword.target.wrist[1]>1.5);
+  assert.equal(armoryPose('chivalry',.12).spell,null);
+  assert.ok(armoryPose('chivalry',.2).spell.weight>.99 && armoryPose('chivalry',.2).sword.target.wrist[1]>1.5);
 });

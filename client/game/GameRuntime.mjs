@@ -37,7 +37,6 @@ import { MOMENTS, VoiceMoments } from './sound/voiceMoments.mjs';
 import { VoiceScenes } from './sound/voiceScenes.mjs';
 import { VoiceWatch } from './sound/voiceWatch.mjs';
 import { linesFor } from './sound/voiceLines.mjs';
-import { RecordedStingers } from './sound/recordedStingers.mjs';
 import { subtitleFor } from '../ui/voiceLibrary.mjs';
 import { FOOTSTEPS, footfallsCrossed, footstepPlacement, footstepRecipe, surfaceAt, variantPicker } from './sound/footsteps.mjs';
 import { CombatHeat, matchClosing, nearestFoe } from './sound/combatHeat.mjs';
@@ -88,6 +87,9 @@ export class GameRuntime {
     // every line said is written out, if the player wants it (a grunt has no words to write)
     this.subtitleHook = (said) => this.#subtitle(said);
     if (this.voice) this.voice.onSpoken = this.subtitleHook;
+    // and a line cut off (by a line that matters more, or a fall) takes its caption with it
+    this.captionCut = (speaker) => this.hud.subtitleCut?.(speaker);
+    if (this.voice) this.voice.onCut = this.captionCut;
     this.touchScale = 1;
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(SCENE_PRESENTATION.background);
@@ -147,8 +149,6 @@ export class GameRuntime {
     // the knights in Spells & Chivalry now, and when each one's last ended (it ends the moment a knight falls)
     this.chivalrous = new Set();
     this.chivalryEndedAt = new Map();
-    // the stingers that were performed and recorded (Spells & Chivalry's): over the music, on its bus
-    this.stingers = sound ? new RecordedStingers(sound) : null;
     // my own blade against the world, judged in my own view (localBladeSweep.mjs)
     this.bladeSweep = new LocalBladeSweep();
     this.weapon = new WeaponView(this.camera);
@@ -720,6 +720,8 @@ export class GameRuntime {
       }
       if (event.type === 'death') {
         this.#deathEvent(event);
+        // whatever the fallen was saying stops there, and its caption fades (their fall may have words of its own)
+        this.voice?.cut?.(event.victimId, 0.12);
         this.#deathVoice(event);
       }
       if (event.type === 'respawn' && event.playerId === this.socket.playerId) this.hud.flashText('FIGHT!', 'ready');
@@ -737,9 +739,10 @@ export class GameRuntime {
         this.chivalrous.clear();
         this.chivalryEndedAt.clear();
         this.voice?.director?.newLife?.();
-        // a duel begins: one against one, each may certify the result in advance
+        // a battle begins (any match but the yard): now and then a knight certifies the result in advance (one
+        // sentence at a time: the first to pass its odds speaks for the field)
         const knights = (this.latestSnapshot?.players ?? []).filter((p) => p.actorKind !== 'dummy');
-        if (['DUEL', 'BOT_DUEL'].includes(this.latestSnapshot?.mode) && knights.length === 2) for (const knight of knights) this.#sayMoment(knight.id, ['duelBegins']);
+        if (!this.#inPractice() && knights.length >= 2) for (const knight of knights) this.#sayMoment(knight.id, ['battleBegins']);
       }
     }
   }
@@ -1050,7 +1053,7 @@ export class GameRuntime {
     if (!text) return;
     const mine = speaker === this.socket.playerId;
     const name = mine ? null : (this.latestSnapshot?.players.find((p) => p.id === speaker)?.name ?? 'A Spellblade');
-    this.hud.subtitle({ text, name, delay, seconds });
+    this.hud.subtitle({ text, name, delay, seconds, speaker });
   }
 
   // a Vortex's blade clipping the world as it comes round: the ring of what it clipped and sparks off it (lighter
@@ -1213,9 +1216,6 @@ export class GameRuntime {
     if (event.ultimate === 'chivalry') {
       const cry = cryMoment(event.ultimate);
       if (cry) this.#sayMoment(event.playerId, [cry]);
-      // and its music: mastery receives accompaniment (mine only: the stinger is music, not something heard across
-      // the field)
-      if (me) this.stingers?.play('spellsChivalry');
       if (me) this.hud.flashText('SPELLS & CHIVALRY', 'chivalry', 1400);
       return;
     }
@@ -1706,6 +1706,7 @@ export class GameRuntime {
   dispose() {
     this.running = false;
     if (this.voice?.onSpoken === this.subtitleHook) this.voice.onSpoken = null;
+    if (this.voice?.onCut === this.captionCut) this.voice.onCut = null;
     for (const off of this.unsubscribe) off();
     window.removeEventListener('resize', this.#resize);
     this.resizeObserver?.disconnect();

@@ -83,6 +83,8 @@ export function processorArgs(id, sources, lines = VOICE_LINE_LIST) {
   if (Number.isFinite(voice.rmsDb)) args.push('--rms-db', String(voice.rmsDb));
   if (Number.isFinite(voice.expandBelowDb)) args.push('--expand-below-db', String(voice.expandBelowDb));
   if (Number.isFinite(voice.semitones)) args.push('--semitones', String(voice.semitones));
+  if (Number.isFinite(voice.formants)) args.push('--formants', String(voice.formants));
+  if (Number.isFinite(voice.chest)) args.push('--chest', String(voice.chest));
   return [...args, ...sources];
 }
 

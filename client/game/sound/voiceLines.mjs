@@ -23,7 +23,8 @@
 //     // order (within a moment: higher is tried sooner, the wildcard and the grunt last); coming: 'Blazing Vortex'
 //     // (recorded or declared ahead of what it belongs to: never said until that exists); file: 'GoingToBeLate.mp3'
 //     // (its recording's name in the inbox, if not its id); aliases; voice: { drive, rmsDb, expandBelowDb } (how its
-//     // take is processed: the grit, the level, and an eased expander for a line with a soft tail);
+//     // take is processed: the grit, the level, an eased expander for a line with a soft tail, and for a line that
+//     // must carry weight: semitones further down, formants: how much of them stays put (0.6: a bigger chest), chest dB);
 //     // parts: ['Wait, wait!!...', '...I TRICKED you!'] (a line said in parts, each when the game says so: its
 //     // recordings are its parts in order, one take each, cut from one master with windows: see RECORDING.md);
 //     // reply: true (an ordinary remark fit to be said back at a foe who has just spoken: the final duel's answer)
@@ -138,7 +139,7 @@ export const VOICE_TAGS = Object.freeze({
   charge: { rank: 10, delay: 0.1, about: 'sprinting straight at a foe, closing fast' },
   pursuit: { rank: 10, delay: 0.2, about: 'chasing a foe who is running from him' },
   arrive: { rank: 8, delay: 0.3, about: 'the first foe he meets since he (re)spawned' },
-  duelBegins: { rank: 15, delay: 0.6, about: 'a duel (one against one) beginning' },
+  battleBegins: { rank: 15, delay: 0.6, about: 'a battle beginning: a match (any but the Practice Yard) under way' },
   lull: { rank: 5, about: 'a genuine lull: nobody near, nothing struck or swung for a while' },
   // --- waiting on what they belong to
   slushEnd: { rank: 20, future: true, about: 'the end of the frozen-enemy slush sequence' },
@@ -246,7 +247,7 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     id: 'death', kind: 'exertion',
     text: '(going down)',
     trigger: 'death', order: -10,
-    priority: 'high', rarity: 1, cooldown: 0,
+    priority: 'high', rarity: 0.35, cooldown: 10,
     section: 'Injury',
     credits: { title: 'Death', description: 'When he dies without a better line.', note: 'Defeat has several accepted pronunciations.' },
     voice: { drive: 2, rmsDb: -16 }, aliases: ['die', 'dying', 'dead'],
@@ -331,7 +332,7 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     priority: 'normal', rarity: 0.3, cooldown: 30, gain: 0.95,
     section: 'Kills & Triumphs',
     credits: { title: 'Good Knight', description: 'Now and then, over a fallen foe.', note: 'Sportsmanship, loosely interpreted.' },
-    voice: { drive: 2.2, rmsDb: -16 }, reply: true,
+    voice: { drive: 2.3, rmsDb: -16, semitones: -4, formants: 0.65, chest: 2.5 }, reply: true,
   },
   // --- in the fight
   {
@@ -341,7 +342,7 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     priority: 'normal', rarity: 0.08, cooldown: 45,
     section: 'Battle & Abilities',
     credits: { title: 'Sorcery', description: 'Occasionally, as sorcery leaves his hand.', note: 'Apparently this clarifies matters.' },
-    voice: { drive: 2.5, rmsDb: -15 }, aliases: ['spell', 'cast', 'fireball'],
+    voice: { drive: 2.2, rmsDb: -16, semitones: -5.5, formants: 0.6, chest: 2.5 }, aliases: ['spell', 'cast', 'fireball'],
   },
   {
     id: 'galeTaunt',
@@ -395,7 +396,7 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     priority: 'normal', rarity: 0.15, cooldown: 90, gain: 0.95,
     section: 'Battle & Abilities',
     credits: { title: 'A Real Guard', description: 'Rarely, after demonstrating a personnel concern.', note: 'Recruitment remains closed.' },
-    voice: { drive: 2.2, rmsDb: -16 },
+    voice: { drive: 2.3, rmsDb: -16, semitones: -4, formants: 0.65, chest: 2.5 },
   },
   {
     id: 'offGuard',
@@ -459,7 +460,7 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     priority: 'normal', rarity: 0.3, cooldown: 120,
     section: 'Kills & Triumphs',
     credits: { title: 'Might Makes Knight', description: 'Occasionally, after force has settled the argument. Now and then, as Sunder All That Rusts is invoked.', note: 'The argument is not examined further.' },
-    voice: { drive: 2.2, rmsDb: -16 }, aliases: ['win', 'might', 'cheer', 'triumph'],
+    voice: { drive: 2.3, rmsDb: -16, semitones: -5.5, formants: 0.6, chest: 2.5 }, aliases: ['win', 'might', 'cheer', 'triumph'],
   },
   // --- the wildcard
   {
@@ -479,7 +480,7 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     priority: 'normal', rarity: 0.12, cooldown: 120,
     section: 'Battle & Abilities',
     credits: { title: 'How Many More Times', description: 'Rarely, during Sunder All That Rusts. One word to a slam.', note: 'He would like you to leave.' },
-    voice: { drive: 2.4, rmsDb: -15 }, file: 'SunderLeave_1.mp3', aliases: ['sunderleave', 'leave'],
+    voice: { drive: 2.6, rmsDb: -15, semitones: -5.5, formants: 0.55, chest: 3 }, file: 'SunderLeave_1.mp3', aliases: ['sunderleave', 'leave'],
   },
   {
     id: 'thankYou',
@@ -488,7 +489,7 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     priority: 'high', rarity: 1, cooldown: 0,
     section: 'Kills & Triumphs',
     credits: { title: 'Thank You', description: 'When an opponent dies near the end of that question.', note: 'They left.' },
-    voice: { drive: 2.2, rmsDb: -16 }, file: 'ThankYouSunder.mp3', aliases: ['thankyousunder', 'thanks'],
+    voice: { drive: 2.3, rmsDb: -16, semitones: -5.5, formants: 0.6, chest: 3 }, file: 'ThankYouSunder.mp3', aliases: ['thankyousunder', 'thanks'],
   },
   // --- the longer scenes (each part said when the game has earned it: voiceScenes.mjs)
   {
@@ -606,16 +607,16 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
   {
     id: 'chargeDefeat',
     text: 'I CHARRRRRGE YOU! With defeat!!',
-    trigger: 'charge', order: 1,
-    priority: 'normal', rarity: 0.15, cooldown: 90,
+    trigger: 'charge', order: 3,
+    priority: 'normal', rarity: 0.4, cooldown: 60,
     section: 'Battle & Abilities',
     credits: { title: 'Charged with Defeat', description: 'While charging or rapidly closing on an enemy.', note: 'The accusation is delivered personally.' },
-    voice: { drive: 2.4, rmsDb: -15 }, file: 'IChargeYouDefeat.mp3',
+    voice: { drive: 2.5, rmsDb: -15, semitones: -4, formants: 0.6, chest: 3 }, file: 'IChargeYouDefeat.mp3',
   },
   {
     id: 'bestManWin',
     text: 'May the best man here win. There. You may lose now.',
-    trigger: 'duelBegins',
+    trigger: 'battleBegins',
     priority: 'normal', rarity: 0.35, cooldown: 120,
     section: 'Challenges & Pursuit',
     credits: { title: 'May the Best Man Win', description: 'Occasionally at the beginning of a duel or direct contest.', note: 'The result has been certified in advance.' },
@@ -655,7 +656,7 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     priority: 'high', rarity: 1, cooldown: 0,
     section: 'Battle & Abilities',
     credits: { title: 'Master of Swords & Sorcery', description: 'When activating Spells & Chivalry.', note: 'The demonstration is temporary.' },
-    voice: { drive: 2.4, rmsDb: -15 }, file: 'MasterSwordsSorcery.mp3',
+    voice: { drive: 2.5, rmsDb: -15, semitones: -5, formants: 0.6, chest: 2.5 }, file: 'MasterSwordsSorcery.mp3',
   },
   {
     id: 'constitution',
@@ -700,7 +701,7 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     priority: 'normal', rarity: 0.3, cooldown: 150,
     section: 'Battle & Abilities',
     credits: { title: 'Remain Staggered', description: 'Rarely when an opponent recovers from Stagger before he approves.', note: 'Recovery was premature.' },
-    voice: { drive: 2.2, rmsDb: -16 }, file: 'YouDareNotStaggered.mp3',
+    voice: { drive: 2.4, rmsDb: -16, semitones: -4.5, formants: 0.6, chest: 3 }, file: 'YouDareNotStaggered.mp3',
   },
   // --- kills
   {
@@ -710,7 +711,7 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     priority: 'normal', rarity: 0.5, cooldown: 120,
     section: 'Kills & Triumphs',
     credits: { title: 'I Do Not Spare', description: 'Occasionally on a three-kill streak.', note: 'Bowling is otherwise uninvolved.' },
-    voice: { drive: 2.2, rmsDb: -16 }, file: 'NospareJustStrike.mp3',
+    voice: { drive: 2.3, rmsDb: -16, semitones: -3.5, formants: 0.65, chest: 2.5 }, file: 'NospareJustStrike.mp3',
   },
   {
     id: 'toldToWait',
@@ -809,7 +810,7 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     id: 'heavyHurt', kind: 'exertion',
     text: '(a hard, strong hurt, scoffing down into a lower finish)',
     trigger: 'heavyHurt', order: 1,
-    priority: 'low', rarity: 0.45, cooldown: 5, gain: 0.85,
+    priority: 'low', rarity: 0.12, cooldown: 25, gain: 0.85,
     section: 'Injury',
     credits: { title: 'Heavy Injury I', description: 'One severe-hit variant.', note: 'The objection loses momentum near the end.' },
     voice: { drive: 2.2, rmsDb: -16 }, file: 'LargeInjureSound.mp3',
@@ -818,7 +819,7 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     id: 'heavyHurt2', kind: 'exertion',
     text: '(a cough, then a couple of forced, hurt laughs)',
     trigger: 'heavyHurt',
-    priority: 'low', rarity: 0.6, cooldown: 5, gain: 0.85,
+    priority: 'low', rarity: 0.15, cooldown: 25, gain: 0.85,
     section: 'Injury',
     credits: { title: 'Heavy Injury II', description: 'Alternate severe-hit reaction.', note: 'He has elected to find this amusing.' },
     voice: { drive: 2.2, rmsDb: -16 }, file: 'LargeInjure2.mp3',

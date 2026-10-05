@@ -471,15 +471,19 @@ def clear_helm(x, sr, preset, report=None):
     x = dynamics(x, sr, below_db=min(preset.get('expand_below_db', CLEAR['expand_below_db']), CLEAR['expand_below_db']),
                  ratio=CLEAR['expand_ratio'])
     x = trim(x, sr, pre=0.02, post=0.12)
-    x = pitch_shift(x, preset['semitones'], formants=1.0)
+    # (a line that must carry weight goes further down, and lets its formants follow part of the way: a bigger chest
+    # and helm behind the same words; `formants` 1 keeps them exactly where they were)
+    x = pitch_shift(x, preset['semitones'], formants=preset.get('formants', 1.0))
+    chest = preset.get('chest', 0.0)
     x = equalize(x, sr, [
         ('highpass', 85),
-        ('bell', 150, 2.0, 1.2),      # proximity, without the boom that buries words
-        ('bell', 260, 1.0, 1.0),      # chest
+        ('bell', 150, 2.0 + chest, 1.2),        # proximity, without the boom that buries words
+        ('bell', 260, 1.0 + 0.6 * chest, 1.0),  # chest
         ('bell', 420, -1.5, 1.0),     # the mud
         ('bell', 620, -1.0, 1.2),     # the recording room's boxiness
         ('bell', 1250, 0.5, 0.9),     # the helm's ring: a hint
-        ('bell', 2600, 3.0, 1.4),     # presence: the consonants, every word lands
+        # presence: the consonants, every word lands (more of it when the formants went down: the words stay clear)
+        ('bell', 2600, 3.0 + 3.0 * (1 - preset.get('formants', 1.0)), 1.4),
         ('bell', 5000, 1.0, 1.5),     # air
         ('lowpass', 11000),
     ])
@@ -601,6 +605,8 @@ def main():
     parser.add_argument('--drive', type=float, help='distortion drive (default 2.0)')
     parser.add_argument('--rms-db', type=float, help='the level the take is matched to (default -17 dB RMS)')
     parser.add_argument('--expand-below-db', type=float, help='ease the expander for a line with a soft tail (for example -42)')
+    parser.add_argument('--formants', type=float, help='how much of the voice\'s own formants to keep after the pitch change (default 1: all; 0.6 lets them follow part of the way down: bigger)')
+    parser.add_argument('--chest', type=float, help='extra chest and body, in dB (default 0)')
     parser.add_argument('--profile', choices=('clear', 'close', 'classic'), default='clear', help='the chain (default: clear helm)')
     parser.add_argument('--preview', action='store_true', help='also write versions with the in-game echo to artifacts/voice-preview')
     parser.add_argument('--manifest-only', action='store_true', help='only rewrite manifest.json from the takes that are there')
@@ -635,6 +641,10 @@ def main():
             preset['rms_db'] = args.rms_db
         if args.expand_below_db is not None:
             preset['expand_below_db'] = args.expand_below_db
+        if args.formants is not None:
+            preset['formants'] = args.formants
+        if args.chest is not None:
+            preset['chest'] = args.chest
         print(f'{line}: {len(paths)} take(s), {args.profile} chain')
         notes = [{} for _ in paths]
         if args.profile == 'clear':

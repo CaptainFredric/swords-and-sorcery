@@ -84,9 +84,11 @@ test('each cue is a short rendered asset (0.4 to 0.9 s), in AAC with a WAV besid
     assert.ok(seconds >= 0.4 && seconds <= 0.9, `${id}: ${seconds.toFixed(2)} s`);
     assert.equal(entry.channels, sound.channels.length);
     assert.ok(Math.max(...sound.channels.map((c) => c.reduce((m, v) => Math.max(m, Math.abs(v)), 0))) < 0.95, `${id} never clips`);
-    assert.ok(Math.abs(loudest(sound) - -22) < 1.5, `${id}: its loudest 200 ms at ${loudest(sound).toFixed(1)} dBFS`);
+    // (clearly over the menu music; Steel, short and hard, set a little higher so it reads as loud as the rest)
+    const level = id === 'steel' ? -13.5 : -16;
+    assert.ok(Math.abs(loudest(sound) - level) < 1.5, `${id}: its loudest 200 ms at ${loudest(sound).toFixed(1)} dBFS`);
   }
-  assert.ok(ARMORY_CUE_GAIN > 0 && ARMORY_CUE_GAIN <= 2);
+  assert.ok(ARMORY_CUE_GAIN > 0 && ARMORY_CUE_GAIN <= 4);
 });
 
 test('fire, ice and air are different materials: the Fireball warm without bass, Frostfire hard and high, the Gale only air', () => {

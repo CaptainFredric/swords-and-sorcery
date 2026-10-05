@@ -3,7 +3,6 @@
 // lines' own declarations, so nothing here can fall out of step with the game.
 
 import { VOICE_LINE_LIST, VOICE_SECTIONS, partText, voiceLine } from '../game/sound/voiceLines.mjs';
-import { RECORDED_STINGERS } from '../game/sound/recordedStingers.mjs';
 
 export const CREDITS = Object.freeze({
   title: 'SWORDS & SORCERY',
@@ -30,20 +29,11 @@ export const VOICE_LIBRARY = Object.freeze(VOICE_LINE_LIST.map((line) => Object.
   section: line.section,
 })));
 
-// The library's groups, in the order the Credits show them: his voice, the sounds of the fight, then the music that
-// was performed for him. Each group's sections fold away.
+// The library's groups, in the order the Credits show them: his voice, then the sounds of the fight. Each group's
+// sections fold away.
 export const LIBRARY_GROUPS = Object.freeze([
   Object.freeze({ id: 'voice', title: 'The Spellblade’s Voice', sections: VOICE_SECTIONS.voice }),
   Object.freeze({ id: 'sounds', title: 'Combat Sounds', sections: VOICE_SECTIONS.sounds }),
-  Object.freeze({ id: 'music', title: 'Music & Stingers', sections: Object.freeze([]) }),
-]);
-
-// the music performed for him (client/game/sound/recordedStingers.mjs), as the Credits show it
-export const MUSIC_LIBRARY = Object.freeze([
-  Object.freeze({
-    stinger: 'spellsChivalry', title: RECORDED_STINGERS.spellsChivalry.title, source: 'The Spells & Chivalry ultimate’s stinger',
-    when: 'Associated with the ultimate’s activation and presentation.', note: 'Mastery receives accompaniment.',
-  }),
 ]);
 
 /** The library by section (in its group's order), each section's lines in the order the Credits show them. */

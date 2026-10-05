@@ -142,9 +142,10 @@ def room(x, rng, wet=0.1, seconds=0.32):
     return one(x) if x.ndim == 1 else np.stack([one(c) for c in x])
 
 
-def finish(x, low_cut=60, loud_db=-22.0, peak_db=-1.0):
+def finish(x, low_cut=60, loud_db=-16.0, peak_db=-1.0):
     """High-pass the rumble away, fade the ends (no clicks), and set the level: the loudest 200 ms at `loud_db` (so
-    the cues sit at one level beside each other), never peaking above `peak_db`."""
+    the cues sit at one level beside each other, clearly over the menu music), never peaking above `peak_db` (a soft
+    knee takes the sharpest transients down rather than the whole cue)."""
     channels = x if x.ndim > 1 else x[None]
     shaped = []
     for c in channels:
@@ -159,204 +160,229 @@ def finish(x, low_cut=60, loud_db=-22.0, peak_db=-1.0):
     k, hop = frames(0.2), frames(0.01)
     loudest = max(np.sqrt(np.mean(mono[i:i + k] ** 2)) for i in range(0, max(1, len(mono) - k), hop))
     out *= 10 ** (loud_db / 20) / (loudest + 1e-12)
-    peak = np.max(np.abs(out))
-    if peak > 10 ** (peak_db / 20):
-        out *= 10 ** (peak_db / 20) / peak
+    ceiling = 10 ** (peak_db / 20)
+    knee = ceiling * 0.7
+    over = np.abs(out) > knee
+    out[over] = np.sign(out[over]) * (knee + (ceiling - knee) * np.tanh((np.abs(out[over]) - knee) / (ceiling - knee)))
     return out if x.ndim > 1 else out[0]
+
+
+def pop(rng, freq, decay=0.012, gain=1.0):
+    """One crisp crackle: a click and the tiny ring of what burst (a few close modes)."""
+    n = frames(decay * 4 + 0.004)
+    click = np.zeros(n)
+    click[0], click[1] = 1.0, -0.6
+    ring = modes(n, [(freq * r, g, decay * d) for r, g, d in ((1, 1, 1), (1.31, 0.6, 0.7), (1.83, 0.35, 0.5))], rng, attack=0.0002)
+    return gain * (0.5 * svf(click, 'high', 1200, 0.7) + 0.8 * ring)
+
+
+def flame(n, rng, centre, q=0.9, rate=35.0, depth=0.7):
+    """Fire: noise through a moving band, its level fluttering fast and unevenly (the flame tearing at the air)."""
+    return svf(rng.standard_normal(n), 'band', centre, q) * turbulence(n, rng, rate, depth)
+
+
+def impact(rng, low=1000, high=6000, seconds=0.0018):
+    """The instant two hard things meet: a burst of band-limited noise a millimetre long."""
+    return svf(svf(rng.standard_normal(frames(seconds)), 'high', low, 0.7), 'low', high, 0.7)
+
+
+def dense_plate(n, f0, rng, count=14, decay=0.2, gain=1.0, roll=0.9, split=0.012):
+    """Armour plate, struck hard: many irregular modes (the game's plate ratios, and more between them), each split
+    into a beating pair, the high ones dying first. Dense and short: a breastplate, not a bell."""
+    ratios = [1, 1.47, 2.09, 2.76, 3.29, 3.93, 4.6, 5.4, 6.2, 6.71, 7.5, 8.12, 9.1, 9.6, 10.4, 11.3][:count]
+    partials = []
+    for i, ratio in enumerate(ratios):
+        freq = f0 * ratio * (1 + rng.uniform(-0.04, 0.04))
+        g = gain * roll ** i * rng.uniform(0.6, 1.2)
+        d = decay * (0.9 ** i) * rng.uniform(0.7, 1.2)
+        partials += [(freq, g * 0.55, d), (freq * (1 + rng.uniform(split * 0.3, split)), g * 0.45, d * 0.85)]
+    return modes(n, partials, rng, attack=0.0003)
 
 
 # --- the cues -------------------------------------------------------------------------------------------------------
 
 def fireball(rng):
-    """Dry ignition (a flick and a bright puff), a brief flame bloom (the Fireball's 300 -> 1400 Hz sweep, turbulent),
-    and a tiny tail of embers (its 3 kHz crackle) thinning out. Warm and quick; nothing below the flame's own body."""
+    """ignite -> flare -> ember. A dry `fwhk` (a flick of noise rising fast), the flame flaring up and tearing at the
+    air (the Fireball's own 300 -> 1400 Hz flame, here quicker and brighter, its level fluttering), and a few crisp
+    embers popping as it settles. Warm, quick, no boom."""
     n = frames(0.62)
     out = np.zeros(n)
-    place(out, svf(rng.standard_normal(frames(0.003)), 'high', 3500, 0.7), 0.0, 0.5)
-    m = frames(0.06)
-    place(out, svf(rng.standard_normal(m), 'band', sweep(m, 1800, 3400), 1.2) * env(m, 0.002, 0.05), 0.002, 0.38)
-    m = frames(0.42)
-    bloom = svf(rng.standard_normal(m), 'band', sweep(m, 300, 1400), 1.1) * env(m, 0.035, 0.3, 0.02) * turbulence(m, rng, 22, 0.55)
-    body = svf(rng.standard_normal(m), 'band', sweep(m, 650, 900), 0.7) * env(m, 0.03, 0.22) * turbulence(m, rng, 14, 0.4)
-    place(out, bloom, 0.012, 1.0)
-    place(out, body, 0.012, 0.75)
+    m = frames(0.05)
+    place(out, impact(rng, 1500, 9000, 0.0012), 0.0, 0.7)
+    place(out, svf(rng.standard_normal(m), 'band', sweep(m, 900, 4200), 1.0) * env(m, 0.002, 0.04), 0.0, 0.9)
+    m = frames(0.36)
+    u = np.linspace(0, 1, m)
+    centre = 380 * (3.4 ** np.sin(np.pi * np.minimum(1, u * 1.6))) + 220
+    place(out, flame(m, rng, centre, 0.8, 38, 0.75) * env(m, 0.025, 0.3, 0.03), 0.012, 1.25)
+    place(out, flame(m, rng, sweep(m, 420, 760), 0.9, 30, 0.6) * env(m, 0.03, 0.24), 0.015, 0.7)
+    place(out, flame(m, rng, sweep(m, 300, 1400), 1.1, 22, 0.5) * env(m, 0.03, 0.26), 0.012, 0.8)
     m = frames(0.16)
-    place(out, svf(rng.standard_normal(m), 'low', sweep(m, 700, 260), 0.8) * env(m, 0.012, 0.12), 0.01, 0.45)
-    m = frames(0.28)
-    place(out, svf(rng.standard_normal(m), 'high', 4000, 0.6) * env(m, 0.03, 0.22), 0.01, 0.08)
-    for i in range(13):
-        at = 0.09 + (i / 13) ** 1.3 * 0.46 + rng.uniform(0, 0.025)
-        place(out, grain(rng, rng.uniform(0.0015, 0.004), 3000 * rng.uniform(0.7, 1.6), rng.uniform(3, 6)), at, 0.3 * (1 - i / 15) * rng.uniform(0.6, 1))
-    return finish(room(out, rng, 0.08), low_cut=120)
+    place(out, svf(rng.standard_normal(m), 'low', sweep(m, 900, 300), 0.8) * env(m, 0.015, 0.12), 0.01, 0.6)
+    for i in range(11):
+        at = 0.16 + (i / 11) ** 1.2 * 0.4 + rng.uniform(0, 0.02)
+        place(out, pop(rng, rng.uniform(1500, 4200), rng.uniform(0.006, 0.016)), at, 0.45 * (1 - i / 14) * rng.uniform(0.6, 1))
+    return finish(room(out, rng, 0.08), low_cut=140)
 
 
 def frostfire(rng):
-    """Brittle crystalline onset (a cluster of tiny glassy pings, thickening), an icy crack as the arm snaps out (a hard
-    snap and a fracture running through it), then a short cold hiss with a glassy sheen. Hard and high, with no warmth
-    in it at all."""
-    n = frames(0.62)
+    """tick ... crack -> fracture -> cold breath. A crystalline tick as the cold forms in the palm, then the hard crack
+    as the arm snaps out (a snap with a glassy ring), the ice fracturing through it in irregular brittle clicks, and a
+    short cold hiss sublimating away. Hard, irregular, high: nothing like the Fireball's flame."""
+    n = frames(0.58)
     out = np.zeros(n)
-    # (the frost forming in the palm as the arm draws back: the pings thicken toward the crack)
-    for _ in range(24):
-        f = rng.uniform(1800, 6500)
-        ping = modes(frames(0.1), [(f, 1, rng.uniform(0.01, 0.06)), (f * rng.uniform(1.37, 1.62), 0.5, rng.uniform(0.008, 0.035))], rng)
-        place(out, ping, 0.11 * rng.uniform(0, 1) ** 0.6, rng.uniform(0.08, 0.2))
-    crack = 0.11
-    place(out, svf(rng.standard_normal(frames(0.003)), 'band', 3500, 0.5), crack, 1.4)
-    gap, at = 0.006, crack + 0.003
-    for i in range(13):
-        place(out, svf(rng.standard_normal(frames(0.0006)), 'band', 2500, 0.8), at, 0.9 * 0.88 ** i)
-        at += gap
-        gap = max(0.0014, gap * 0.82)
-    place(out, modes(frames(0.08), [(f, 0.2, rng.uniform(0.015, 0.04)) for f in rng.uniform(900, 1900, 5)], rng), crack + 0.001, 1.2)
-    m = frames(0.5)
-    hiss = svf(svf(rng.standard_normal(m), 'high', 3800, 0.7), 'low', 9500, 0.7) * env(m, 0.03, 0.38, 0.04)
+    tick = modes(frames(0.05), [(rng.uniform(3800, 5200), 1, 0.012), (rng.uniform(6200, 7400), 0.6, 0.008)], rng, attack=0.0002)
+    place(out, tick, 0.0, 0.3)
+    place(out, impact(rng, 2500, 9000, 0.001), 0.0, 0.25)
+    crack = 0.1
+    place(out, impact(rng, 1500, 10000, 0.0025), crack, 2.2)
+    glass = modes(frames(0.12), [(f, g, d) for f, g, d in zip(rng.uniform(2400, 7600, 6), (1, .8, .7, .5, .4, .3), (0.04, 0.03, 0.025, 0.02, 0.015, 0.012))], rng, attack=0.0002)
+    place(out, glass, crack, 0.55)
+    place(out, modes(frames(0.06), [(f, 0.2, 0.02) for f in rng.uniform(800, 1600, 4)], rng), crack, 1.0)
+    at, gap = crack + 0.004, 0.003
+    for i in range(22):
+        click = impact(rng, 1800, 10000, rng.uniform(0.0003, 0.0008))
+        ring = modes(frames(0.03), [(rng.uniform(2200, 9000), 1, rng.uniform(0.004, 0.014)), (rng.uniform(3000, 8000), 0.5, 0.006)], rng, attack=0.0001)
+        place(out, click, at, 1.1 * 0.9 ** i * rng.uniform(0.5, 1))
+        place(out, ring, at, 0.18 * 0.92 ** i)
+        at += gap * rng.uniform(0.6, 1.8)
+        gap = min(0.012, gap * 1.12)
+    m = frames(0.42)
+    centre = sweep(m, 7200, 4600)
+    breath = svf(rng.standard_normal(m), 'band', centre, 1.1) * env(m, 0.04, 0.32, 0.02)
     delay = int(SR / 3100)
-    hiss[delay:] += 0.6 * hiss[:-delay]
-    place(out, hiss, crack + 0.008, 0.3)
-    place(out, svf(rng.standard_normal(m), 'band', 6200, 2.2) * env(m, 0.05, 0.22), crack + 0.018, 0.1)
-    m = frames(0.04)
-    place(out, svf(rng.standard_normal(m), 'low', 260, 0.8) * env(m, 0.001, 0.03), crack, 0.35)
-    return finish(room(out, rng, 0.1), low_cut=180)
+    breath[delay:] += 0.5 * breath[:-delay]
+    place(out, breath, crack + 0.03, 0.55)
+    return finish(room(out, rng, 0.09), low_cut=300)
 
 
 def gale(rng):
-    """A soft intake of air (the Gale's rising 380 -> 950 Hz breath), then a clean outward whoosh travelling across the
-    field: the Gale's falling 2.1 kHz -> 240 Hz rush, its 4.2 kHz edge, and the air left tumbling. Light and broad;
-    nothing below the air itself."""
-    n = frames(0.66)
+    """inhale -> whoosh. A small suction (air drawn in, rising, the Gale's own breath), then a clean, broad rush pushed
+    out across the field left to right (the Gale's falling rush and its edge), and the air flapping at the cloth as it
+    goes. Light low end: moving air, not weather."""
+    n = frames(0.64)
     out = np.zeros((2, n))
-    m = frames(0.22)
-    swell = np.linspace(0, 1, m) ** 2.2
-    intake = svf(rng.standard_normal(m), 'band', sweep(m, 380, 950), 0.9) * swell
-    place(out, intake, 0.0, 0.5, pan=-0.35)
-    place(out, svf(rng.standard_normal(m), 'high', 3000, 0.7) * swell, 0.0, 0.015, pan=-0.35)
-    m = frames(0.44)
-    shape = env(m, 0.025, 0.38, 0.02)
-    centre = sweep(m, 2100, 260)
-    rush = svf(rng.standard_normal(m), 'band', centre, 0.8) * shape
-    edge = svf(rng.standard_normal(m), 'band', centre * 1.45, 2.0) * shape
-    travel = np.linspace(-0.55, 0.75, m)
-    place(out, rush, 0.19, 1.0, pan=travel)
-    place(out, edge, 0.19, 0.35, pan=travel)
-    k = frames(0.1)
-    place(out, svf(rng.standard_normal(k), 'high', 4200, 0.7) * env(k, 0.003, 0.09), 0.19, 0.16, pan=travel[:k])
-    k = frames(0.34)
-    tumble = svf(rng.standard_normal(k), 'band', sweep(k, 700, 380), 1.1) * env(k, 0.05, 0.28) * turbulence(k, rng, 9, 0.5)
-    place(out, tumble, 0.3, 0.25, pan=0.6)
-    return finish(room(out, rng, 0.1), low_cut=180)
+    m = frames(0.17)
+    swell = np.linspace(0, 1, m) ** 2.4
+    place(out, svf(rng.standard_normal(m), 'band', sweep(m, 450, 1700), 1.1) * swell, 0.0, 0.75, pan=-0.35)
+    m = frames(0.42)
+    shape = env(m, 0.015, 0.34, 0.03)
+    travel = np.linspace(-0.6, 0.8, m)
+    place(out, svf(rng.standard_normal(m), 'band', sweep(m, 3000, 420), 0.7) * shape, 0.15, 1.3, pan=travel)
+    place(out, svf(rng.standard_normal(m), 'band', sweep(m, 1500, 320), 1.2) * shape * turbulence(m, rng, 14, 0.35), 0.15, 0.8, pan=travel)
+    k = frames(0.08)
+    place(out, svf(rng.standard_normal(k), 'band', 5200, 0.9) * env(k, 0.003, 0.07), 0.15, 0.35, pan=travel[:k])
+    k = frames(0.16)
+    flap = svf(rng.standard_normal(k), 'band', 520, 1.4) * (0.5 + 0.5 * np.sin(2 * np.pi * 24 * np.arange(k) / SR)) * env(k, 0.01, 0.14)
+    place(out, flap, 0.44, 0.35, pan=0.7)
+    return finish(room(out, rng, 0.08), low_cut=200)
 
 
 def steel(rng):
-    """Plate hardening: two contacts. The first, the plates clamping (a hard metallic snap, the armour's own irregular
-    plate modes, a shake of mail), the second a beat later and heavier (lower plate, the harness taking the weight).
-    Damped and physical: no chime, no long ring, nothing coin-, bell- or sparkle-like."""
-    n = frames(0.6)
+    """CLAK -> clunk/ring. A hard plate-on-plate crack (a dense crash of irregular plate modes over the instant of
+    contact), a second, lower contact as the harness seats home (a clunk with the body behind it), and a short dense
+    ring that dies quickly. Lower, shorter and more physical than the spells: no chime, no coin, no bell."""
+    n = frames(0.5)
     out = np.zeros(n)
-    place(out, svf(rng.standard_normal(frames(0.0015)), 'band', 3000, 0.6), 0.0, 0.45)
-    # (the game's Steel call: a CHINK near 1.85 kHz over a KLANG near 520 Hz, here as the plates themselves)
-    place(out, struck_plate(frames(0.4), 1450, rng, decay=0.16, gain=0.36, extra=2, damp=0.8, roll=0.8), 0.0005)
-    for _ in range(11):
-        f = rng.uniform(2800, 6800)
-        place(out, modes(frames(0.05), [(f, 1, rng.uniform(0.012, 0.035)), (f * 1.41, 0.5, 0.015)], rng), rng.uniform(0.004, 0.075), rng.uniform(0.02, 0.05))
-    m = frames(0.05)
-    place(out, svf(rng.standard_normal(m), 'band', 900, 1.2) * env(m, 0.002, 0.04), 0.0, 0.3)
-    second = 0.088
-    place(out, svf(rng.standard_normal(frames(0.002)), 'band', 2200, 0.6), second, 0.5)
-    place(out, struck_plate(frames(0.5), 500, rng, decay=0.3, gain=0.42, extra=4, damp=0.8, roll=0.86), second + 0.0005)
-    m = frames(0.12)
-    thump = svf(rng.standard_normal(m), 'low', 300, 0.8) * env(m, 0.002, 0.07)
-    knock = svf(rng.standard_normal(m), 'band', 150, 2.0) * env(m, 0.002, 0.09)
-    place(out, thump, second, 0.5)
-    place(out, knock, second, 0.6)
-    return finish(room(out, rng, 0.12), low_cut=70)
+    place(out, impact(rng, 900, 7000, 0.002), 0.0, 2.0)
+    place(out, dense_plate(frames(0.4), 640, rng, count=16, decay=0.16, gain=0.6, roll=0.9), 0.0003)
+    m = frames(0.06)
+    place(out, svf(rng.standard_normal(m), 'band', 3200, 1.2) * env(m, 0.001, 0.04), 0.0, 0.7)
+    second = 0.085
+    place(out, impact(rng, 400, 3500, 0.0025), second, 2.0)
+    place(out, dense_plate(frames(0.42), 330, rng, count=12, decay=0.22, gain=0.75, roll=0.88), second + 0.0003)
+    m = frames(0.09)
+    place(out, svf(rng.standard_normal(m), 'band', 260, 1.5) * env(m, 0.002, 0.06), second, 1.2)
+    for _ in range(6):
+        f = rng.uniform(2800, 6000)
+        place(out, modes(frames(0.04), [(f, 1, rng.uniform(0.01, 0.025))], rng), second + rng.uniform(0.005, 0.06), 0.06)
+    # (short and hard: measured over a fifth of a second it reads quieter than it sounds, so it is set a little higher)
+    return finish(room(out, rng, 0.1), low_cut=120, loud_db=-13.5)
 
 
 def sunder(rng):
-    """Weight first, ring second: a small shift of rock as the sword goes up (grit giving way), the heavy downward blow
-    as it comes down at 0.42 s (a crack and a deep resonant thud, rubble falling after), then a short ring of iron on
-    the anvil's own modes, quieter than the blow. No boom, no explosion."""
-    n = frames(0.9)
+    """grrk -> THUD -> gng. Grit and stone shifting as the sword goes up, one heavy blow as it comes down (0.42 s: a
+    crack, then a deep thud with the stone giving under it), and straight after it an ugly, beating ring of iron on
+    the anvil's modes. Weight first, metal second; nothing like an explosion."""
+    n = frames(0.88)
     out = np.zeros(n)
     hit = 0.42
-    # (the ground shifting under him as the sword goes up: grit loosening, a little more of it as the blow comes)
-    for i in range(18):
-        at = hit * (0.08 + 0.88 * (i / 18) ** 0.8) + rng.uniform(-0.01, 0.01)
-        place(out, grain(rng, rng.uniform(0.002, 0.008), rng.uniform(700, 2600), rng.uniform(2, 4)), at, rng.uniform(0.12, 0.3) * (0.5 + 0.5 * i / 18))
+    for i in range(22):
+        at = hit * (0.15 + 0.82 * (i / 22) ** 0.7) + rng.uniform(-0.01, 0.01)
+        place(out, grain(rng, rng.uniform(0.002, 0.007), rng.uniform(600, 2400), rng.uniform(2, 4)), at, rng.uniform(0.15, 0.3) * (0.4 + 0.6 * i / 22))
+    m = frames(0.28)
+    place(out, svf(rng.standard_normal(m), 'band', 380, 1.2) * np.linspace(0, 1, m) ** 2, hit - 0.28, 0.3)
+    place(out, impact(rng, 800, 5000, 0.002), hit, 1.0)
     m = frames(0.3)
-    place(out, svf(rng.standard_normal(m), 'band', 420, 1.4) * np.linspace(0, 1, m) ** 2, hit - 0.3, 0.18)
-    place(out, svf(rng.standard_normal(frames(0.0012)), 'high', 2200, 0.7), hit, 0.55)
-    m = frames(0.36)
-    thud = svf(rng.standard_normal(m), 'low', sweep(m, 230, 55), 1.6) * env(m, 0.002, 0.26)
-    place(out, thud, hit, 2.2)
-    m = frames(0.2)
-    place(out, svf(rng.standard_normal(m), 'low', 380, 0.7) * env(m, 0.002, 0.15), hit, 0.8)
-    place(out, svf(rng.standard_normal(m), 'band', sweep(m, 850, 300), 1.3) * env(m, 0.002, 0.13), hit + 0.004, 0.5)
-    for i in range(10):
-        at = hit + 0.04 + (i / 10) ** 1.4 * 0.38 + rng.uniform(0, 0.02)
-        place(out, grain(rng, rng.uniform(0.003, 0.01), rng.uniform(500, 2400), rng.uniform(2, 4)), at, 0.3 * (1 - i / 14))
-    ring_at = hit + 0.035
+    place(out, svf(rng.standard_normal(m), 'low', sweep(m, 180, 55), 1.8) * env(m, 0.002, 0.2), hit, 4.4)
+    m = frames(0.18)
+    place(out, svf(rng.standard_normal(m), 'band', sweep(m, 900, 300), 1.2) * env(m, 0.002, 0.12), hit + 0.002, 0.9)
+    for i in range(12):
+        at = hit + 0.03 + (i / 12) ** 1.4 * 0.32 + rng.uniform(0, 0.015)
+        place(out, grain(rng, rng.uniform(0.003, 0.009), rng.uniform(500, 2200), rng.uniform(2, 4)), at, 0.4 * (1 - i / 14))
     base = 285 * rng.uniform(0.98, 1.02)
-    partials = [(base * r * rng.uniform(0.995, 1.005), g, d * 0.32) for r, g, d in ANVIL]
-    partials += [(2150 * rng.uniform(0.98, 1.02), 0.1, 0.42), (3380 * rng.uniform(0.98, 1.02), 0.05, 0.3)]
-    place(out, modes(frames(0.45), partials, rng, attack=0.004), ring_at, 0.55)
-    return finish(room(out, rng, 0.12), low_cut=40)
+    partials = []
+    for ratio, g, d in ANVIL:
+        f = base * ratio * rng.uniform(0.995, 1.005)
+        partials += [(f, g, d * 0.26), (f * 1.017, g * 0.8, d * 0.24)]
+    partials += [(2150 * rng.uniform(0.98, 1.02), 0.12, 0.3), (2190, 0.1, 0.28), (3380, 0.06, 0.2)]
+    ring = modes(frames(0.42), partials, rng, attack=0.003)
+    ring = np.tanh(2.2 * ring / (np.max(np.abs(ring)) + 1e-9)) * np.max(np.abs(ring))
+    place(out, ring, hit + 0.03, 0.75)
+    return finish(room(out, rng, 0.12), low_cut=45)
 
 
 def vortex(rng):
-    """The fire catching (the Fireball's flame and the Vortex's whoomph, shorter), the burning blade passing round
-    through the air twice (a rising-and-falling rush crossing the field, its edge whistling faintly), and a brief spit
-    of hot metal and sparks. A compact flourish, not a tornado."""
-    n = frames(0.76)
+    """ignite -> WHRRSH -> spark. The fire catching on the blade (the Fireball's flame, quicker), one compact pass of
+    the burning sword going round (a rush whose level and pitch turn as it goes, carried round the field), and a
+    spit of hot metal and sparks at its end. A flourish, not a tornado."""
+    n = frames(0.72)
     out = np.zeros((2, n))
-    m = frames(0.26)
-    bloom = svf(rng.standard_normal(m), 'band', sweep(m, 300, 1400), 1.1) * env(m, 0.02, 0.2) * turbulence(m, rng, 22, 0.5)
-    place(out, bloom, 0.0, 0.8, pan=0.1)
-    place(out, svf(rng.standard_normal(m), 'low', sweep(m, 900, 220), 0.6) * env(m, 0.015, 0.2), 0.0, 0.5, pan=0.1)
-    def blade_pass(at, length, pan_from, pan_to, gain):
-        k = frames(length)
-        u = np.linspace(0, 1, k)
-        centre = 600 * (4.3 ** np.sin(np.pi * u)) * np.where(u > 0.5, 0.75 + 0.25 * (1 - u) * 2, 1)
-        shape = np.sin(np.pi * u) ** 1.6
-        rush = svf(rng.standard_normal(k), 'band', centre, 1.4) * shape
-        whistle = svf(rng.standard_normal(k), 'band', centre * 2.1, 7.0) * shape
-        place(out, rush, at, gain, pan=np.linspace(pan_from, pan_to, k))
-        place(out, whistle, at, gain * 0.35, pan=np.linspace(pan_from, pan_to, k))
-    blade_pass(0.14, 0.15, -0.7, 0.7, 0.9)
-    blade_pass(0.34, 0.15, 0.7, -0.6, 0.62)
+    m = frames(0.2)
+    place(out, impact(rng, 1500, 9000, 0.001), 0.0, 0.5, pan=0.0)
+    place(out, flame(m, rng, sweep(m, 380, 1300), 0.8, 38, 0.7) * env(m, 0.02, 0.17), 0.0, 1.0, pan=0.0)
+    m = frames(0.4)
+    t = np.arange(m) / SR
+    u = t / t[-1]
+    turn = 0.55 + 0.45 * np.sin(2 * np.pi * 7.5 * t - np.pi / 2)
+    centre = (650 + 2100 * np.sin(np.pi * u)) * (0.85 + 0.15 * turn)
+    rush = svf(rng.standard_normal(m), 'band', centre, 1.3) * turn * np.sin(np.pi * u) ** 0.8
+    whine = svf(rng.standard_normal(m), 'band', centre * 2.0, 6.0) * turn * np.sin(np.pi * u) ** 1.2
+    around = np.sin(2 * np.pi * 2.6 * t - np.pi / 2) * 0.85
+    place(out, rush + 0.5 * flame(m, rng, centre * 0.7, 1.0, 30, 0.6) * np.sin(np.pi * u), 0.11, 1.3, pan=around)
+    place(out, whine, 0.11, 0.3, pan=around)
+    spark = 0.44
+    place(out, modes(frames(0.08), [(3100, 0.5, 0.035), (4620, 0.35, 0.025), (6950, 0.2, 0.018)], rng), spark, 0.3, pan=0.3)
     for _ in range(8):
-        place(out, grain(rng, rng.uniform(0.0006, 0.002), rng.uniform(4000, 8500), 3), rng.uniform(0.24, 0.46), rng.uniform(0.25, 0.5), pan=rng.uniform(-0.5, 0.5))
-    place(out, modes(frames(0.08), [(3100, 0.5, 0.04), (4620, 0.3, 0.03), (6950, 0.15, 0.02)], rng), 0.26, 0.12, pan=0.2)
-    k = frames(0.16)
-    place(out, svf(rng.standard_normal(k), 'high', 5000, 0.7) * env(k, 0.005, 0.12), 0.25, 0.1, pan=0.0)
-    for i in range(5):
-        place(out, grain(rng, 0.002, 3000 * rng.uniform(0.8, 1.4), 4), 0.46 + i * 0.05 + rng.uniform(0, 0.02), 0.25 * (1 - i / 6), pan=rng.uniform(-0.3, 0.3))
-    return finish(room(out, rng, 0.1), low_cut=110)
+        place(out, pop(rng, rng.uniform(3500, 7000), rng.uniform(0.004, 0.01)), spark + rng.uniform(0, 0.14), rng.uniform(0.3, 0.55), pan=rng.uniform(-0.5, 0.5))
+    k = frames(0.14)
+    place(out, svf(rng.standard_normal(k), 'high', 5200, 0.7) * env(k, 0.004, 0.11), spark, 0.18, pan=0.1)
+    return finish(room(out, rng, 0.1), low_cut=130)
 
 
 def chivalry(rng):
-    """Spells & Chivalry: the blade drawn (steel hissing along the scabbard's throat, quicker as it comes: the game's
-    unsheathe), a short clear note as it clears, then the guard set (a small plate clack and the arm braced behind
-    it), with the gauntlet's breath under it. Steel and guard first; the sorcery only a breath."""
-    n = frames(0.72)
+    """steel set -> magic catches -> brief resolve. The blade drawn (a short bright shing, the game's unsheathe) and
+    the guard set (a small plate clack), a restrained arcane ignition warming under it, then a tiny resolving rise of
+    two metal notes, a fifth apart. Ceremonial and competent: no fanfare, no sparkle, no choir."""
+    n = frames(0.74)
     out = np.zeros(n)
-    m = frames(0.3)
+    m = frames(0.13)
     u = np.linspace(0, 1, m)
-    scrape = svf(rng.standard_normal(m), 'band', sweep(m, 1900, 4300), 3.0) * (0.2 + 0.8 * u ** 1.8)
-    grit = 1 + 0.6 * svf(rng.standard_normal(m), 'low', 300, 0.7) / 0.05
-    place(out, scrape * np.clip(grit, 0, 3), 0.0, 0.3)
-    place(out, modes(m, [(1480, 0.1, 0.4), (1480 * 2.09, 0.05, 0.3)], rng, attack=0.2), 0.0, 0.25)
-    clear = 0.3
-    place(out, svf(rng.standard_normal(frames(0.002)), 'band', 3200, 0.6), clear, 0.25)
-    place(out, modes(frames(0.4), [(1480, 0.4, 0.26), (1480 * 2.09, 0.2, 0.18), (1480 * 3.31, 0.1, 0.11), (1480 * 1.004, 0.25, 0.24)], rng), clear, 0.45)
-    guard = 0.4
-    place(out, svf(rng.standard_normal(frames(0.0015)), 'band', 2400, 0.6), guard, 0.4)
-    place(out, struck_plate(frames(0.3), 640, rng, decay=0.11, gain=0.3, extra=2), guard)
-    m = frames(0.1)
-    place(out, svf(rng.standard_normal(m), 'band', 170, 2.0) * env(m, 0.002, 0.07), guard, 0.8)
-    m = frames(0.3)
-    place(out, svf(rng.standard_normal(m), 'band', 900, 4.0) * env(m, 0.08, 0.2) * turbulence(m, rng, 6, 0.3), guard, 0.08)
-    return finish(room(out, rng, 0.12), low_cut=80)
+    place(out, svf(rng.standard_normal(m), 'band', sweep(m, 2400, 5200), 3.0) * (0.2 + 0.8 * u ** 1.5), 0.0, 0.6)
+    place(out, modes(frames(0.3), [(1480, 0.45, 0.2), (1480 * 1.004, 0.3, 0.19), (1480 * 2.09, 0.2, 0.12), (1480 * 3.31, 0.1, 0.07)], rng), 0.12, 0.55)
+    place(out, impact(rng, 900, 6000, 0.0015), 0.17, 1.1)
+    place(out, dense_plate(frames(0.25), 720, rng, count=8, decay=0.09, gain=0.4, roll=0.85), 0.1703)
+    m = frames(0.08)
+    place(out, svf(rng.standard_normal(m), 'band', 240, 1.5) * env(m, 0.002, 0.05), 0.17, 0.7)
+    m = frames(0.4)
+    t = np.arange(m) / SR
+    glow = env(m, 0.07, 0.3, 0.05)
+    hum = (0.6 * np.sin(2 * np.pi * 220 * t) + 0.4 * np.sin(2 * np.pi * 330 * t + 1.1)) * glow
+    place(out, hum, 0.16, 0.18)
+    place(out, svf(rng.standard_normal(m), 'band', 950, 4.0) * glow * turbulence(m, rng, 8, 0.3), 0.16, 0.5)
+    for at, note in ((0.42, 1318.5), (0.53, 1975.5)):
+        place(out, modes(frames(0.25), [(note, 0.5, 0.16), (note * 1.003, 0.3, 0.15), (note * 2.09, 0.12, 0.07)], rng), at, 0.42)
+        place(out, impact(rng, 2500, 9000, 0.0008), at, 0.25)
+    return finish(room(out, rng, 0.12), low_cut=110)
 
 
 CUES = {
