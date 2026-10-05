@@ -500,10 +500,15 @@ export class GameRuntime {
     this.#applyWeaponRelease(released);
     if (released?.attack && released?.guard) this.weapon.cancelCast();
     // Guard follows authority, including its single automatic raise and later interruptions.
-    if (combatActionPolicy(auth, this.socket.serverNow()).concurrent && auth.alive && (auth.staggerUntil ?? 0) <= this.socket.serverNow()) {
+    const concurrent = combatActionPolicy(auth, this.socket.serverNow()).concurrent && auth.alive;
+    if (concurrent && (auth.staggerUntil ?? 0) <= this.socket.serverNow()) {
       this.weapon.setGuard(Boolean(auth.guarding) && auth.guardStamina > 0);
       if (this.input.attackHeld) this.weapon.setAttack(true);
+    } else if (this.wasConcurrent && !concurrent) {
+      // the ultimate over, its automatic raise goes with it: my guard is whatever my own hand is doing
+      this.weapon.setGuard(this.input.guardHeld && auth.alive && auth.guardStamina > 0);
     }
+    this.wasConcurrent = concurrent;
   }
 
   onEvents(events) {

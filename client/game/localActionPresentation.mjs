@@ -41,7 +41,8 @@ export function localWeaponReleaseForEvent(event, localId, auth = null, nowSec =
   const policy = combatActionPolicy(auth, nowSec);
   if (policy.concurrent && event.playerId === localId && ['spellCast', 'attackStarted', 'guardStarted'].includes(event.type)) return null;
   if ((event.suppressParryReel ?? policy.suppressParryReel) && event.type === 'parry' && event.attackerId === localId) return null;
-  if (policy.concurrent && event.type === 'guardBreak' && event.defenderId === localId) return { attack: true, guard: true, cast: true, dash: true };
+  // (in Spells & Chivalry only the guard breaks: the sword, the spell and the dash carry on, as on the host)
+  if (policy.concurrent && event.type === 'guardBreak' && event.defenderId === localId) return { attack: false, guard: true };
   if (event.type === 'ultimateStart' && event.playerId === localId && event.ultimate === 'chivalry') return { attack: true, guard: true, cast: true, dash: true };
   if (event.type === 'spellCast'  && event.playerId === localId) return { attack: true, guard: true };
   if (event.type === 'attackStarted' && event.playerId === localId) return { attack: false, guard: true };

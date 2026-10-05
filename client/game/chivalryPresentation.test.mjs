@@ -84,7 +84,8 @@ test('ordinary coexistence events keep held actions and a parry still permits tr
   for (const type of ['spellCast', 'attackStarted', 'guardStarted']) assert.equal(localWeaponReleaseForEvent({ type, playerId: 'me', at: 10.2 }, 'me', active), null);
   assert.equal(localWeaponReleaseForEvent({ type: 'parry', attackerId: 'me', at: 10.2 }, 'me', active), null);
   assert.equal(localWeaponReleaseForEvent({ type: 'parry', attackerId: 'me', at: 10.2, suppressParryReel: true }, 'me', { ...active, ultimateState: null }), null, 'delayed event retains authoritative reel decision after expiry');
-  assert.deepEqual(localWeaponReleaseForEvent({ type: 'guardBreak', defenderId: 'me', at: 10.2 }, 'me', active), { attack: true, guard: true, cast: true, dash: true });
+  // (a broken guard is only the guard: the sword, the spell and the dash carry on)
+  assert.deepEqual(localWeaponReleaseForEvent({ type: 'guardBreak', defenderId: 'me', at: 10.2 }, 'me', active), { attack: false, guard: true });
   assert.deepEqual(localWeaponReleaseForEvent({ type: 'ultimateStart', playerId: 'me', ultimate: 'chivalry', at: 10.2 }, 'me', active), { attack: true, guard: true, cast: true, dash: true });
 });
 

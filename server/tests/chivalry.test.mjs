@@ -172,18 +172,53 @@ test('snapshot exposes saved, prepared, current and identity availability withou
 });
 
 
-test('a Guard Break interrupts simultaneous actions even when Balance has room left', () => {
+test('a Guard Break in Chivalry breaks only the guard: the sword and the spell carry on, and Guard waits to be raised again', () => {
   const { room, a, b } = duel(); active(room, a);
   combat.beginAttack(room, 'b', 10.7);
   combat.beginAttack(room, 'a', 10.9);
   combat.setGuard(room, 'a', true, 10.91); a.guardStartedAt = 9; a.guardStamina = 1;
   combat.tryCastSpell(room, 'a', { x: 0, y: 0, z: -1 }, 10.99);
+  const gather = a.castEndsAt;
   run(room, 11.01, 11.12);
   assert.ok(room.events.some((e) => e.type === 'guardBreak' && e.defenderId === 'a'));
-  assert.equal(a.attackActive, false); assert.equal(a.pendingSpell, null); assert.equal(a.castEndsAt, 0);
-  assert.equal(a.guarding, false); assert.equal(a.ultimateState?.phase, 'active'); assert.equal(a.prowess, 0);
+  assert.equal(a.guarding, false, 'the guard is what broke');
+  assert.equal(a.attackActive, true, 'the sword carries on');
+  assert.ok(a.pendingSpell && a.castEndsAt === gather, 'the gathering spell carries on');
+  assert.ok(!(a.staggerUntil > 11.0), 'no reel: nothing else is locked out');
+  assert.equal(a.ultimateState?.phase, 'active'); assert.equal(a.prowess, 0);
+  // it cannot be raised again at once, and it does not come back by itself
+  assert.equal(combat.setGuard(room, 'a', true, 11.15), false);
   run(room, 11.13, 13); assert.equal(a.guarding, false);
   assert.equal(room.events.filter(e => e.type === 'guardStarted' && e.playerId === 'a').length, 1);
+  // once it has recovered, raised again by hand
+  a.guardStamina = 50;
+  assert.equal(combat.setGuard(room, 'a', true, 13.01), true);
+  assert.equal(a.guarding, true);
+  // and a fresh attack is never refused for it
+  combat.cancelAttack(room, 'a', 13.02);
+  run(room, 13.02, 13.4);
+  assert.equal(combat.beginAttack(room, 'a', 13.41), true);
+});
+
+test('Chivalry\'s automatic raise ends with it: Guard stays up only if it is really held', () => {
+  // never touched: the raise was the ultimate's, and goes with it
+  const loose = duel(); active(loose.room, loose.a); loose.a.input.guard = false;
+  assert.equal(loose.a.guarding, true);
+  run(loose.room, 10.66, 19.8);
+  assert.equal(loose.a.ultimateState, null);
+  assert.equal(loose.a.guarding, false, 'no Guard left stuck after the ultimate');
+  assert.ok(loose.room.events.some((e) => e.type === 'guardEnded' && e.playerId === 'a'));
+  // held through the end: it stays up, as an ordinary guard
+  const held = duel(); active(held.room, held.a); held.a.input.guard = true;
+  run(held.room, 10.66, 19.8);
+  assert.equal(held.a.ultimateState, null);
+  assert.equal(held.a.guarding, true);
+  // raised by hand during it and let go before the end: down, as the hand says
+  const own = duel(); active(own.room, own.a);
+  combat.setGuard(own.room, 'a', false, 11); combat.setGuard(own.room, 'a', true, 12);
+  own.a.input.guard = true; combat.setGuard(own.room, 'a', false, 15); own.a.input.guard = false;
+  run(own.room, 15.01, 19.8);
+  assert.equal(own.a.guarding, false);
 });
 
 test('a Sunder body hit cuts the concurrent kit while committed Chivalry stays spent and active', () => {

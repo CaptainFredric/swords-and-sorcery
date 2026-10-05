@@ -4,7 +4,9 @@ Base: cdbb2f92f00990423c3b641f8141dec409e4748b from current main. Work uses the 
 
 ## Controls
 
-Tap Q casts the authoritative current spell. Hold Q and press 1, 2 or 3 to select a prepared slot. The number press closes selection immediately. Release Q, then tap it to cast. Holding Q without choosing and releasing cancels quietly. A quick Q plus number chord works before the 140 ms HUD reveal. Number keys and their numpad equivalents retain ordinary bindings outside selection. Consumed numeric repeats and key releases cannot trigger unrelated actions.
+Tap Q casts the authoritative current spell. Holding Q for 200 ms opens the selection, and it stays open once Q is released (revised 2026-10-05: Q no longer has to be held through the number). Then 1, 2 or 3 selects a prepared slot without casting, a cooling spell included, and the number press closes selection immediately. Q again or Escape closes it without casting. A quick Q plus number chord still works before the 200 ms reveal. Number keys and their numpad equivalents retain ordinary bindings outside selection. Consumed numeric repeats and key releases cannot trigger unrelated actions.
+
+(Before the revision, selection required holding Q while pressing the number, releasing Q without choosing cancelled quietly, and the reveal came at 140 ms.)
 
 Desktop mouse movement continues aiming throughout. Slots retain authoritative Armory order, with numbered badges. Changing the current spell never moves those slots. The panel remains informational and cannot receive pointer input.
 
@@ -28,7 +30,7 @@ How to Play before: “Hold Q to choose a prepared spell. On touch, drag from th
 
 How to Play after: “Hold Q and press 1, 2 or 3 to select a prepared spell. Release Q, then tap it to cast. On touch, drag from the spell button.”
 
-Desktop held HUD: “Q HELD · PREPARED SPELLS” and “PRESS 1, 2 OR 3 TO SELECT · ESC TO CANCEL”. Ordinary desktop hint: “TAP Q TO CAST · HOLD Q + 1 / 2 / 3 TO SELECT”.
+Desktop open HUD: “CHOOSE A PREPARED SPELL” (was “Q HELD · PREPARED SPELLS”) and “PRESS 1, 2 OR 3 TO SELECT · Q OR ESC TO CLOSE”. Ordinary desktop hint: “TAP Q TO CAST · HOLD Q, THEN 1 / 2 / 3 TO SELECT” (until 2026-10-05: “PRESS 1, 2 OR 3 TO SELECT · ESC TO CANCEL” and “TAP Q TO CAST · HOLD Q + 1 / 2 / 3 TO SELECT”).
 
 ## Verification
 
