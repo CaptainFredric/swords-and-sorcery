@@ -92,10 +92,10 @@ test('a line said in parts is subtitled part by part: two parts each their own w
   }
 });
 
-test('the library stands in its authored sections: his voice, then the sounds of the fight, then the music; every line in exactly one', async () => {
-  const { LIBRARY_GROUPS, MUSIC_LIBRARY, librarySections } = await import('./voiceLibrary.mjs');
+test('the library stands in its authored sections: his voice, then the sounds of the fight; every line in exactly one', async () => {
+  const { LIBRARY_GROUPS, librarySections } = await import('./voiceLibrary.mjs');
   const { VOICE_SECTIONS } = await import('../game/sound/voiceLines.mjs');
-  assert.deepEqual(LIBRARY_GROUPS.map((g) => g.title), ['The Spellblade’s Voice', 'Combat Sounds', 'Music & Stingers']);
+  assert.deepEqual(LIBRARY_GROUPS.map((g) => g.title), ['The Spellblade’s Voice', 'Combat Sounds'], 'no music section: none was meant');
   assert.deepEqual(VOICE_SECTIONS.voice, ['Battle & Abilities', 'Challenges & Pursuit', 'Kills & Triumphs', 'Defeat & Death', 'Remarks & Oddities', 'Team']);
   assert.deepEqual(VOICE_SECTIONS.sounds, ['Exertions', 'Injury']);
   const shelves = librarySections(() => true);
@@ -121,8 +121,6 @@ test('the library stands in its authored sections: his voice, then the sounds of
   assert.equal(where('fightAsMe'), 'Team');
   assert.equal(where('heavyHurt2'), 'Injury');
   assert.equal(where('firstStrike'), 'Exertions');
-  // the music performed for him
-  assert.deepEqual(MUSIC_LIBRARY.map((entry) => [entry.title, entry.note]), [['Spells & Chivalry', 'Mastery receives accompaniment.']]);
   // the makers
   assert.deepEqual(CREDITS.lines.map((line) => `${line.role} ${line.name}`), ['Created and designed by CaptainFredric', 'The Spellblade — performed by CaptainFredric']);
 });

@@ -12,6 +12,7 @@
 // The lines themselves (their words, their moments, how rare they are) are declared in voiceLines.mjs, one entry each;
 // this module is how they are spoken: the ranks, the director, how a voice carries, and what a moment's facts are.
 
+import { OTHER_KNIGHTS } from './voiceTimbre.mjs';
 import {
   DEFEAT_ON_LOSS, GALE_KILL, KNIGHT_FALLEN_OVERKILL, MINOR_LETHAL_INTERRUPTED, VOICE_LINE_LIST, VOICE_TAGS, linesFor, priorityRank,
 } from './voiceLines.mjs';
@@ -327,12 +328,11 @@ export class VoiceDirector {
 }
 
 /**
- * Every Spellblade wears the same helm, but no two sound quite alike: a steady pitch per player, within half a
- * semitone either way (a wider spread took the words with it).
+ * Every Spellblade wears the same helm, but no two sound quite alike: a steady pitch per player, within about two
+ * thirds of a semitone either way (a wider spread took the words with it). The rest of what makes another knight
+ * sound like another man (his grit, his helm's ring) is his timbre: voiceTimbre.mjs.
  */
 export function voiceRate(playerId) {
-  let hash = 0;
-  for (const char of String(playerId ?? '')) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
-  return 0.97 + (hash % 1000) / 1000 * 0.06;
+  return OTHER_KNIGHTS.of(playerId).rate;
 }
 

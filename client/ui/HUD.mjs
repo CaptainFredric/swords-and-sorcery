@@ -399,12 +399,16 @@ export class HUD {
    * A Spellblade's words as he says them: `delay` seconds from now, for as long as he says them (and a breath after).
    * name: whose they are (none for my own); a new line takes the place of the last.
    */
-  subtitle({ text, name = null, delay = 0, seconds = 2 } = {}) {
+  subtitle({ text, name = null, delay = 0, seconds = 2, speaker = null } = {}) {
     const line = this.subtitleLine;
     if (!line || !text) return;
     clearTimeout(this.subtitleShow);
     clearTimeout(this.subtitleHide);
+    // (whose words are waiting to be shown, and then whose are up: a speaker cut off takes theirs away)
+    this.subtitlePending = speaker;
     this.subtitleShow = setTimeout(() => {
+      this.subtitlePending = null;
+      this.subtitleSpeaker = speaker;
       line.replaceChildren();
       if (name) {
         const who = document.createElement('b');
@@ -418,6 +422,24 @@ export class HUD {
       line.classList.add('show');
       this.subtitleHide = setTimeout(() => line.classList.remove('show'), (seconds + 0.9) * 1000);
     }, Math.max(0, delay) * 1000);
+  }
+
+  /**
+   * `speaker` stopped speaking before their line was done (felled, or cut off by something else they say): their
+   * caption fades as it always does, now, and one still waiting to be shown never is. Anyone else's stays.
+   */
+  subtitleCut(speaker) {
+    const line = this.subtitleLine;
+    if (!line || speaker === null || speaker === undefined) return;
+    if (this.subtitlePending === speaker) {
+      clearTimeout(this.subtitleShow);
+      this.subtitlePending = null;
+    }
+    if (this.subtitleSpeaker === speaker && line.classList.contains('show')) {
+      clearTimeout(this.subtitleHide);
+      line.classList.remove('show');
+      this.subtitleSpeaker = null;
+    }
   }
 
   hit(kind = 'hit') {

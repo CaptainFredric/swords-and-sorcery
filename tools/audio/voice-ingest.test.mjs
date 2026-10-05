@@ -36,6 +36,9 @@ test('what comes in is planned by line; a recording no line answers to is left a
 test('each line is processed with its own settings', () => {
   const gale = voiceLine('galeTaunt').voice;
   assert.deepEqual(processorArgs('galeTaunt', ['a.mp3']), ['--line', 'galeTaunt', '--drive', String(gale.drive), '--rms-db', String(gale.rmsDb), '--expand-below-db', String(gale.expandBelowDb), 'a.mp3']);
+  // a line given weight: its pitch, how much of its formants stay, and its chest go to the processor too
+  const weighty = voiceLine('remainStaggered').voice;
+  assert.deepEqual(processorArgs('remainStaggered', ['b.mp3']).slice(-7), ['--semitones', String(weighty.semitones), '--formants', String(weighty.formants), '--chest', String(weighty.chest), 'b.mp3']);
   assert.ok(!processorArgs('sorcery', ['a.mp3']).includes('--expand-below-db'));
   // a line that says nothing of its processing gets the standard preset
   const plain = [normalizeLine({ id: 'plainLine', text: 'x', trigger: 'death' })];

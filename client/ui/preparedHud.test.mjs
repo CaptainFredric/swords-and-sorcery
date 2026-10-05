@@ -10,7 +10,7 @@ function node() {
     remove: (...names) => names.forEach((name) => classes.delete(name)),
     toggle: (name, enabled) => enabled ? classes.add(name) : classes.delete(name), contains: (name) => classes.has(name),
   }, querySelector: (selector) => { if (!children.has(selector)) children.set(selector, node()); return children.get(selector); },
-  querySelectorAll: () => [], append() {}, setAttribute() {}, textContent: '', innerHTML: '' };
+  querySelectorAll: () => [], append() {}, replaceChildren() {}, setAttribute() {}, textContent: '', innerHTML: '' };
 }
 function hud() {
   const elements = new Map();
@@ -99,4 +99,38 @@ test('with a mouse and keyboard the rack stands on the ability tiles, in their c
   const touch = hud(); touch.setPreparedInputMode('touch'); touch.update(local, {}, 10);
   assert.equal(touch.preparedPanel.classList.contains('docked'), false);
   assert.equal(touch.preparedTimer.textContent, '9.0s');
+});
+
+test('a caption goes with its speaker: felled or cut off, theirs fades at once; anyone else\'s stays', async () => {
+  const view = hud();
+  const line = view.subtitleLine;
+  const timers = [];
+  const realSet = globalThis.setTimeout;
+  const realClear = globalThis.clearTimeout;
+  globalThis.setTimeout = (fn, ms) => { timers.push({ fn, ms, live: true }); return timers.length - 1; };
+  globalThis.clearTimeout = (id) => { if (timers[id]) timers[id].live = false; };
+  try {
+    const run = () => { for (const t of timers) if (t.live && t.ms < 1000) { t.live = false; t.fn(); } };
+    view.subtitle({ text: 'Good knight? That will not be you.', name: 'Sir B', speaker: 'b', seconds: 3 });
+    run();
+    assert.equal(line.classList.contains('show'), true);
+    view.subtitleCut('a');
+    assert.equal(line.classList.contains('show'), true, 'someone else cut off: this one stays');
+    view.subtitleCut('b');
+    assert.equal(line.classList.contains('show'), false, 'b fell (or was cut off): his words fade now');
+    // a caption still waiting to be shown is never shown once its speaker is cut off
+    view.subtitle({ text: 'I confront my foes head on!', name: 'Sir B', speaker: 'b', delay: 0.4 });
+    view.subtitleCut('b');
+    run();
+    assert.equal(line.classList.contains('show'), false);
+    // a new line replaces the old one
+    view.subtitle({ text: 'One.', speaker: 'me' });
+    run();
+    view.subtitle({ text: 'Two.', speaker: 'me' });
+    run();
+    assert.equal(line.classList.contains('show'), true);
+  } finally {
+    globalThis.setTimeout = realSet;
+    globalThis.clearTimeout = realClear;
+  }
 });

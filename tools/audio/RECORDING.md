@@ -136,6 +136,13 @@ spoken line is written out at the foot of the view (Settings, Sound, Subtitles; 
 - `--semitones -1.5` goes less deep and `--semitones -3` deeper (the default is -2; the formants stay put either way).
 - `--profile close` is the earlier, deeper chain (−4.5 semitones, formants and all); `--profile classic` the one before.
 - `--drive 1.5` gives less grit and `--drive 3` gives more (the clear helm uses four fifths of it).
+- A line that must carry weight (a threat, a battle cry) and was performed high can be given more in its declaration:
+  `voice: { semitones: -4.5, formants: 0.6, chest: 3 }`. That takes it further down, lets its formants follow part
+  of the way (a bigger chest and helm behind the same words), and adds body, with a little more presence so the
+  words stay clear. Compare its median pitch with a line that already carries well (Constitution sits near 160 Hz
+  after processing).
+- Other knights are never processed differently here: the game gives each his own timbre as he speaks
+  (`client/game/sound/voiceTimbre.mjs`: a steady pitch, a little more grit, his helm's own ring).
 
 ### The Armory's cues
 

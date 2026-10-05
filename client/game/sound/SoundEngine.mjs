@@ -319,11 +319,12 @@ export class SoundEngine {
 
   /**
    * Play a decoded buffer (music notes, voice lines). Returns a handle with stop(fadeSeconds).
-   * rate: playback rate (pitch); reverb/hall: send levels; echo: 'wall' | 'shout' and echoLevel.
+   * rate: playback rate (pitch); reverb/hall: send levels; echo: 'wall' | 'shout' and echoLevel; shape: what it plays
+   * through on its way out (ctx => { input, output, nodes }: another knight's timbre, voiceTimbre.mjs).
    */
   playBuffer(buffer, {
     bus = 'sfx', pan = 0, gain = 1, rate = 1, at = null, delay = 0, reverb = 0, hall = 0, echo = null, echoLevel = 0.5,
-    attack = 0, duration = null, release = 0.05,
+    attack = 0, duration = null, release = 0.05, shape = null,
   } = {}) {
     const ctx = this.ctx;
     if (!ctx || !buffer || this.levels.muted || !this.running) return null;
@@ -339,7 +340,13 @@ export class SoundEngine {
     } else {
       amp.gain.value = gain;
     }
-    source.connect(amp).connect(out);
+    const shaped = shape ? shape(ctx) : null;
+    if (shaped) {
+      source.connect(amp).connect(shaped.input);
+      shaped.output.connect(out);
+    } else {
+      source.connect(amp).connect(out);
+    }
     this.#send(out, this.reverb, reverb);
     this.#send(out, this.hall, hall);
     if (echo && this.echoes[echo]) this.#send(out, this.echoes[echo], echoLevel);
@@ -351,7 +358,7 @@ export class SoundEngine {
     }
     source.start(start);
     source.stop(start + length + 0.02);
-    this.#release([out, panner, amp], start + length);
+    this.#release([out, panner, amp, ...(shaped?.nodes ?? [])], start + length);
     return {
       source,
       stop: (fade = 0.08) => {

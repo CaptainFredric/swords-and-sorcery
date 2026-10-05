@@ -6,7 +6,7 @@ import { appUrl } from '../appUrl.mjs';
 export const ARMORY_CUE_BASE = 'client/assets/armory/';
 export const ARMORY_CUE_IDS = Object.freeze(['fireball', 'frostfire', 'gale', 'steel', 'sunder', 'vortex', 'chivalry']);
 // how loud they sit on the UI bus, beside the menu music (the files themselves are all at one loudness)
-export const ARMORY_CUE_GAIN = 1.5;
+export const ARMORY_CUE_GAIN = 3;
 // a press made before its cue was decoded (straight after the Armory opened) is still heard if it is ready this soon
 export const ARMORY_CUE_LATE_SEC = 0.25;
 

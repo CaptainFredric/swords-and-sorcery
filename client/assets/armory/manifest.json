@@ -7,32 +7,32 @@
     },
     "frostfire": {
       "file": "frostfire",
-      "seconds": 0.62,
+      "seconds": 0.58,
       "channels": 1
     },
     "gale": {
       "file": "gale",
-      "seconds": 0.66,
+      "seconds": 0.64,
       "channels": 2
     },
     "steel": {
       "file": "steel",
-      "seconds": 0.6,
+      "seconds": 0.5,
       "channels": 1
     },
     "sunder": {
       "file": "sunder",
-      "seconds": 0.9,
+      "seconds": 0.88,
       "channels": 1
     },
     "vortex": {
       "file": "vortex",
-      "seconds": 0.76,
+      "seconds": 0.72,
       "channels": 2
     },
     "chivalry": {
       "file": "chivalry",
-      "seconds": 0.72,
+      "seconds": 0.74,
       "channels": 1
     }
   }

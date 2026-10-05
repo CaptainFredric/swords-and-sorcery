@@ -121,3 +121,27 @@ test('a cry\'s moment gives exactly one line, by share, and it is always said; a
   assert.equal(forced[0].line, 'magicDefeat', 'the most particular moment still first');
   assert.ok(forced.every((say) => say.force));
 });
+
+test('the rarer grunts, the likelier charge, the battle\'s opening line, and the lines given weight', () => {
+  // the heavy injuries and the death grunt: much rarer than they were (the sentences of a fall keep theirs)
+  for (const id of ['heavyHurt', 'heavyHurt2']) {
+    assert.ok(voiceLine(id).rarity <= 0.15 && voiceLine(id).cooldown >= 20, id);
+  }
+  assert.ok(voiceLine('death').rarity <= 0.4, 'the death grunt now and then, not every fall');
+  assert.equal(voiceLine('defeat').rarity, 0.25, 'the fall\'s sentences are as they were');
+  // Charged with Defeat: the charge's likelier line, tried first
+  const charge = linesFor('k', ['charge']).map((say) => say.line);
+  assert.equal(charge[0], 'chargeDefeat');
+  assert.ok(voiceLine('chargeDefeat').rarity >= 0.3);
+  // May the Best Man Win: one of the lines for any battle beginning
+  assert.deepEqual(Object.keys(voiceLine('bestManWin').triggers), ['battleBegins']);
+  const runtime = readFileSync(new URL('../GameRuntime.mjs', import.meta.url), 'utf8');
+  assert.match(runtime, /!this\.#inPractice\(\) && knights\.length >= 2\) for \(const knight of knights\) this\.#sayMoment\(knight\.id, \['battleBegins'\]\)/);
+  // the lines that must carry weight go further down, their formants following part of the way, with more chest
+  for (const id of ['sunderLeave', 'remainStaggered', 'chargeDefeat', 'masterCall', 'victory', 'sorcery', 'killTaunt', 'breakTaunt', 'noSpare', 'thankYou']) {
+    const voice = voiceLine(id).voice;
+    assert.ok(voice.semitones <= -3.5 && voice.formants < 1 && voice.chest > 0, id);
+  }
+  // and the ones he already carries well are left as they were
+  for (const id of ['constitution', 'preferNoPain']) assert.equal(voiceLine(id).voice.semitones, undefined, id);
+});

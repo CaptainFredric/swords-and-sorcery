@@ -3,6 +3,7 @@
 // voiceRules.mjs decides when a line is spoken at all, and how far another knight's voice carries.
 
 import { VOICE_HEARING, VOICE_LINES, VoiceDirector } from './voiceRules.mjs';
+import { OTHER_KNIGHTS } from './voiceTimbre.mjs';
 import { appUrl } from '../../appUrl.mjs';
 
 const BASE = '/client/assets/voice/';
@@ -10,8 +11,10 @@ const BASE = '/client/assets/voice/';
 const PREVIEW_PART_GAP = 0.22;
 
 export class VoiceBank {
-  constructor(engine, { base = BASE, director = new VoiceDirector() } = {}) {
+  constructor(engine, { base = BASE, director = new VoiceDirector(), timbre = OTHER_KNIGHTS } = {}) {
     this.engine = engine;
+    // how each other knight's voice is made his own (mine is heard as recorded)
+    this.timbre = timbre;
     this.base = base;
     this.director = director;
     this.takes = new Map();
@@ -93,6 +96,8 @@ export class VoiceBank {
     for (const cut of verdict.stop) {
       this.playing.get(cut)?.stop?.(0.1);
       this.playing.delete(cut);
+      // (what they were saying is over: its caption goes too)
+      this.onCut?.(cut);
     }
     const rule = VOICE_LINES[line];
     // (a hair of variety each time, no more: every word stays the word it was)
@@ -100,6 +105,8 @@ export class VoiceBank {
     const handle = this.engine.playBuffer(take, {
       bus: 'voice', pan: close ? 0 : pan, gain: gain * rule.gain, rate: played, delay,
       reverb: close ? VOICE_HEARING.own : reverb,
+      // (another knight: through his own helm, a little rougher than mine)
+      ...(close || !this.timbre ? {} : { shape: (ctx) => this.timbre.build(ctx, speaker) }),
     });
     if (handle) this.playing.set(speaker, handle);
     const seconds = take.duration / Math.max(0.5, played);
@@ -138,6 +145,9 @@ export class VoiceBank {
     this.playing.get(speaker)?.stop?.(fade);
     this.playing.delete(speaker);
     this.director.speaking?.delete?.(speaker);
+    // (and nobody else waits for the rest of a sentence that is no longer being said)
+    if (this.director.sentence?.speaker === speaker) this.director.sentence = null;
+    this.onCut?.(speaker);
   }
 
   stopPreview() {
