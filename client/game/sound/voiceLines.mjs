@@ -24,7 +24,10 @@
 //     // (recorded or declared ahead of what it belongs to: never said until that exists); file: 'GoingToBeLate.mp3'
 //     // (its recording's name in the inbox, if not its id); aliases; voice: { drive, rmsDb, expandBelowDb } (how its
 //     // take is processed: the grit, the level, an eased expander for a line with a soft tail, and for a line that
-//     // must carry weight: semitones further down, formants: how much of them stays put (0.6: a bigger chest), chest dB);
+//     // must carry weight: semitones further down, formants: how much of them stays put (0.6: a bigger chest), chest dB;
+//     // edits: small repairs in the recording's own seconds: { cut: [a, b] } dead air out, { splice: [a, b], from:
+//     // [c, d] } a clearer word of the same take in its place, { lift: [a, b], db } a buried word up, { rise: [a, b],
+//     // semitones } a flat ending raised; see tools/audio/knight_voice.py);
 //     // parts: ['Wait, wait!!...', '...I TRICKED you!'] (a line said in parts, each when the game says so: its
 //     // recordings are its parts in order, one take each, cut from one master with windows: see RECORDING.md);
 //     // reply: true (an ordinary remark fit to be said back at a foe who has just spoken: the final duel's answer)
@@ -231,7 +234,8 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     priority: 'high', rarity: 0.3, cooldown: 200,
     section: 'Defeat & Death',
     credits: { title: 'This Day', description: 'Rarely upon defeat.', note: 'It has nevertheless arrived.' },
-    voice: { drive: 2, rmsDb: -17, expandBelowDb: -42 }, file: 'NeverThoughtDayCome.mp3', aliases: ['thisday', 'never', 'neverthoughtdaycome'],
+    // (the "day" a touch up: the word the line is about)
+    voice: { drive: 2, rmsDb: -17, expandBelowDb: -42, edits: [{ lift: [1.665, 1.82], db: 2.5 }] }, file: 'NeverThoughtDayCome.mp3', aliases: ['thisday', 'never', 'neverthoughtdaycome'],
   },
   {
     id: 'defeat',
@@ -360,7 +364,8 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     priority: 'normal', rarity: 0.3, cooldown: 75, gain: 0.95,
     section: 'Battle & Abilities',
     credits: { title: 'My Armor Works', description: 'Now and then, when Sheathe in Steel turns a spell aside.', note: '"Now." It had not, previously.' },
-    voice: { drive: 2.2, rmsDb: -16 },
+    // (the mouth clicks before the words cut)
+    voice: { drive: 2.2, rmsDb: -16, edits: [{ cut: [0, 0.43] }] },
   },
   {
     id: 'squireSetup',
@@ -432,7 +437,8 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     priority: 'normal', rarity: 0.12, cooldown: 90, gain: 0.95,
     section: 'Battle & Abilities',
     credits: { title: 'I Throw You My Gauntlet', description: 'Rarely, at very close quarters.', note: 'Tradition has been interpreted loosely.' },
-    voice: { drive: 2.2, rmsDb: -16 }, aliases: ['gauntlet'],
+    // (the hum before the words cut: it would only delay them)
+    voice: { drive: 2.2, rmsDb: -16, edits: [{ cut: [0, 0.42] }] }, aliases: ['gauntlet'],
   },
   {
     id: 'bladeCaught',
@@ -656,7 +662,8 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     priority: 'high', rarity: 1, cooldown: 0,
     section: 'Battle & Abilities',
     credits: { title: 'Master of Swords & Sorcery', description: 'When activating Spells & Chivalry.', note: 'The demonstration is temporary.' },
-    voice: { drive: 2.5, rmsDb: -15, semitones: -5, formants: 0.6, chest: 2.5 }, file: 'MasterSwordsSorcery.mp3',
+    // (weighted, but less than the threats: a declaration, still his own voice)
+    voice: { drive: 2.5, rmsDb: -15, semitones: -3.5, formants: 0.75, chest: 1.5 }, file: 'MasterSwordsSorcery.mp3',
   },
   {
     id: 'constitution',
@@ -678,12 +685,13 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
   },
   {
     id: 'downUpSideways',
-    text: 'I strike you down! Then up. And sideways! And then back down!',
+    text: 'I strike you down! Then up. Then sideways! And then back down!',
     trigger: 'longChain',
     priority: 'normal', rarity: 0.1, cooldown: 180,
     section: 'Battle & Abilities',
     credits: { title: 'Down, Up, Sideways', description: 'Rarely during a continuing sword sequence.', note: 'The lesson now includes direction.' },
-    voice: { drive: 2.2, rmsDb: -16 }, file: 'StrikeUpDownSide.mp3',
+    // (the take's "and" before "sideways" replaced by the clear "then" of "and then back down")
+    voice: { drive: 2.2, rmsDb: -16, edits: [{ splice: [3.38, 3.625], from: [5.197, 5.41] }] }, file: 'StrikeUpDownSide.mp3',
   },
   {
     id: 'believeMagic',
@@ -701,7 +709,8 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     priority: 'normal', rarity: 0.3, cooldown: 150,
     section: 'Battle & Abilities',
     credits: { title: 'Remain Staggered', description: 'Rarely when an opponent recovers from Stagger before he approves.', note: 'Recovery was premature.' },
-    voice: { drive: 2.4, rmsDb: -16, semitones: -4.5, formants: 0.6, chest: 3 }, file: 'YouDareNotStaggered.mp3',
+    // (the end of "longer!?" lifted into a question: outrage that it is even possible)
+    voice: { drive: 2.4, rmsDb: -16, semitones: -4.5, formants: 0.6, chest: 3, edits: [{ rise: [2.46, 2.83], semitones: 3 }] }, file: 'YouDareNotStaggered.mp3',
   },
   // --- kills
   {
@@ -766,7 +775,13 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     priority: 'normal', rarity: 0.06, cooldown: 600,
     section: 'Defeat & Death',
     credits: { title: 'Why I Should Not Fall', description: 'Very rarely after defeat, to the rustle of his notes, interrupted by respawn.', note: 'The appeal is supported by documentation.' },
-    voice: { drive: 2.0, rmsDb: -17, expandBelowDb: -44 }, file: 'NotFall.mp3',
+    // (dead air out, never the words: a stretch of the rustle after the title, the silence before "One", a little
+    // before "Two", so "Three—" arrives with the respawn; no word is hurried. "One:" and "Two:" a touch up: the list)
+    voice: {
+      drive: 2.0, rmsDb: -17, expandBelowDb: -44,
+      edits: [{ cut: [1.2, 1.36] }, { cut: [1.425, 1.58] }, { cut: [2.335, 2.445] }, { lift: [1.6, 1.86], db: 2.5 }, { lift: [2.53, 2.73], db: 2.5 }],
+    },
+    file: 'NotFall.mp3',
   },
   // --- lulls
   {
@@ -951,6 +966,27 @@ export function linesFor(speaker, tags, { facts = [], force = false, rand = Math
   return offered.map((entry) => entry.say);
 }
 
+// a span of a recording: [from, to] seconds, in order
+const isSpan = (span) => Array.isArray(span) && span.length === 2 && span.every(Number.isFinite) && span[0] >= 0 && span[1] > span[0];
+const EDIT_KINDS = Object.freeze({ cut: [], splice: ['from'], lift: ['db'], rise: ['semitones'] });
+
+// what is wrong with a line's take edits (voice.edits), as sentences
+function editProblems(edits) {
+  if (edits === undefined) return [];
+  if (!Array.isArray(edits)) return ['voice.edits must be a list'];
+  const problems = [];
+  edits.forEach((edit, i) => {
+    const kinds = Object.keys(EDIT_KINDS).filter((kind) => kind in (edit ?? {}));
+    if (kinds.length !== 1) { problems.push(`edit ${i + 1} must be exactly one of ${Object.keys(EDIT_KINDS).join(', ')}`); return; }
+    const [kind] = kinds;
+    if (!isSpan(edit[kind])) problems.push(`edit ${i + 1}: ${kind} must be [from, to] seconds`);
+    if (kind === 'splice' && !isSpan(edit.from)) problems.push(`edit ${i + 1}: splice needs from: [from, to] seconds`);
+    for (const need of EDIT_KINDS[kind].filter((name) => name !== 'from')) if (!Number.isFinite(edit[need])) problems.push(`edit ${i + 1}: ${kind} needs ${need}`);
+    if (edit.take !== undefined && !(Number.isInteger(edit.take) && edit.take >= 1)) problems.push(`edit ${i + 1}: take must be 1 or more`);
+  });
+  return problems;
+}
+
 /**
  * Everything that is wrong with the declarations ({ errors, warnings }: lists of sentences). manifest: the recorded
  * takes (client/assets/voice/manifest.json), to say which lines are still silent and whether any recording is
@@ -992,6 +1028,7 @@ export function validateVoiceLines({ declarations = VOICE_LINE_DECLARATIONS, man
       warnings.push(`${at} marked coming, yet every moment it waits for is already raised`);
     }
     for (const fact of Object.keys(line.boost)) if (!VOICE_FACTS.includes(fact)) errors.push(`${at} unknown boost '${fact}' (see VOICE_FACTS)`);
+    for (const problem of editProblems(line.voice.edits)) errors.push(`${at} ${problem}`);
     for (const name of [line.id, fileStem(line.id), ...(line.aliases ?? []), ...(line.file ? [line.file] : [])]) {
       const key = String(name).toLowerCase();
       if (names.has(key) && names.get(key) !== line.id) errors.push(`${at} '${name}' is also a name of ${names.get(key)}`);

@@ -85,6 +85,7 @@ export function processorArgs(id, sources, lines = VOICE_LINE_LIST) {
   if (Number.isFinite(voice.semitones)) args.push('--semitones', String(voice.semitones));
   if (Number.isFinite(voice.formants)) args.push('--formants', String(voice.formants));
   if (Number.isFinite(voice.chest)) args.push('--chest', String(voice.chest));
+  if (voice.edits?.length) args.push('--edits', JSON.stringify(voice.edits));
   return [...args, ...sources];
 }
 

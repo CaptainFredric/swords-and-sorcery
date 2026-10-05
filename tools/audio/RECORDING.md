@@ -117,6 +117,7 @@ kept 0.70 of it on average and the clear helm keeps 0.86.
 | declip | Rebuilds peaks the recorder flattened, with a curve through each flat top | Clipped shouts crackle, and grit makes it worse |
 | dereverb | Estimates how long the recording room rings (T60, capped at 0.85 s) and subtracts that late reverberation band by band, gently (at most 12 dB) | The room's echo is what makes a take sound "stitched in from outside"; a harder hand warbles |
 | gate | Silences whatever lies more than 120 ms from the words (lead-ins, pauses, the room after the last word); nothing near the words is touched | Quiet between phrases, while a soft "s", "f" or a final "t" survives |
+| expand | Sinks what is left of the room more than 42 dB under the peak; it opens at once, 12 ms ahead of a sound, and closes slowly behind it | (Until 2026-10-05 it opened at its release's pace and took 5-7 dB off the first fifth of a second of every word after a pause: "One:", "Two:", "There.", "takes", "day") |
 | pitch | 2 semitones down (same length), then the take's own spectral envelope put back | A little deeper, every vowel still the word it was |
 | EQ | Proximity +2 dB at 150 Hz, chest +1 dB at 260 Hz, mud −1.5 dB at 420 Hz, room boxiness −1 dB at 620 Hz, helm ring +0.5 dB at 1250 Hz, presence +3 dB at 2.6 kHz, air +1 dB at 5 kHz, lowpass 11 kHz | Close and chesty, the consonants forward |
 | helm | Three faint reflections at 1.1, 2.3 and 3.7 ms (six hundredths of the voice and less) | A touch of the great helm; the dry performance leads |
@@ -142,7 +143,28 @@ spoken line is written out at the foot of the view (Settings, Sound, Subtitles; 
   words stay clear. Compare its median pitch with a line that already carries well (Constitution sits near 160 Hz
   after processing).
 - Other knights are never processed differently here: the game gives each his own timbre as he speaks
-  (`client/game/sound/voiceTimbre.mjs`: a steady pitch, a little more grit, his helm's own ring).
+  (`client/game/sound/voiceTimbre.mjs`: a steady pitch, a little more grit, his helm's own ring), on the take at its
+  own level before any distance, so he sounds the same near or far, and no louder or quieter for it.
+
+### Repairing a take (edits)
+
+A take you like that has one small fault (a word buried, a flat ending, an "and" where the line says "then", a pause
+too long for the moment it belongs to) can be repaired in its declaration instead of being recorded again. Each edit
+is in the recording's own seconds (the archived source, before any trimming), so `--redo` makes it again exactly:
+
+```js
+voice: { drive: 2.2, rmsDb: -16, edits: [
+  { cut: [1.2, 1.36] },                       // dead air out, the two sides crossfaded
+  { splice: [3.38, 3.625], from: [5.197, 5.41] }, // a clearer word of the same take in its place
+  { lift: [1.665, 1.82], db: 2.5 },           // a buried word up, eased in and out, in the finished take
+  { rise: [2.46, 2.83], semitones: 3 },       // the pitch rising across that stretch (inside the chain's own shift)
+] },
+```
+
+Keep them modest: a lift of 2-3 dB, a rise of 2-3 semitones, cuts only in pauses and room (never inside a word), a
+splice only of the same word from the same take, cut where the sound is silent or unvoiced (a pause, an "s"). Find the
+times by ear, or with any tool that shows the waveform with seconds; check the result by listening, since nothing
+here can tell a natural edit from an odd one. A word that cannot be repaired cleanly is worth recording again.
 
 ### The Armory's cues
 
