@@ -125,10 +125,11 @@ kept 0.70 of it on average and the clear helm keeps 0.86.
 | grit | A touch of saturation (drive per line, about 1.7) | Battle-worn, not buried |
 | loudness | Matched per line (−15 to −20 dB RMS), peaks under −1 dBFS | Every line sits at the same place in the mix |
 
-In the game: your own knight's lines are heard as they are (dry, full level). Other knights' are heard only near them
-(full level within 2.5 m, falling off with distance, silent beyond 16 m: `VOICE_HEARING` in
-`client/game/sound/voiceRules.mjs`), with a touch of the courtyard and no echo, each knight within half a semitone of
-the next. Under a spoken line the music and the wind give way a little (`VOICE_DUCK` in `SoundEngine.mjs`), and every
+In the game: your own knight's lines are heard as they are (dry, full level). Other knights' are heard from where they
+stand and follow them as they speak: their words carry across a duel (full level within 2.5 m, about 8 dB down at
+14 m, silent beyond 28 m: `SPEECH_HEARING` in `client/game/sound/voiceRules.mjs`), their breath only to the knights
+around them (falling off as 1/d, silent beyond 16 m: `VOICE_HEARING`), with a touch of the courtyard and no echo, each
+knight within two thirds of a semitone of the next. Under a spoken line the music and the wind give way a little (`VOICE_DUCK` in `SoundEngine.mjs`), and every
 spoken line is written out at the foot of the view (Settings, Sound, Subtitles; on by default).
 
 - Every line you process replaces that line's earlier takes (`npm run voice -- --add` keeps them).

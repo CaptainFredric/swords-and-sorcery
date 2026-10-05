@@ -32,7 +32,7 @@ import { swordDamageFor } from '../../shared/src/combat.mjs';
 import { CROUCH, POSTURES, postureOf } from '../../shared/src/body.mjs';
 import { steelStrength } from '../../shared/src/steel.mjs';
 import { chillScale, spellFor } from '../../shared/src/spells.mjs';
-import { cryMoment, gauntletMoment, voicePlacement, voiceRate } from './sound/voiceRules.mjs';
+import { cryMoment, gauntletMoment, hearingFor, voicePlacement, voiceRate } from './sound/voiceRules.mjs';
 import { MOMENTS, VoiceMoments } from './sound/voiceMoments.mjs';
 import { VoiceScenes } from './sound/voiceScenes.mjs';
 import { VoiceWatch } from './sound/voiceWatch.mjs';
@@ -797,10 +797,25 @@ export class GameRuntime {
     const snapshotPlayer = this.latestSnapshot?.players.find((p) => p.id === playerId);
     if (!body || snapshotPlayer?.actorKind === 'dummy') return false;
     const listener = this.localState?.position ?? this.localAuth?.position;
-    // only within earshot: a bark is for the knights around him, not the whole map (voiceRules VOICE_HEARING)
-    const place = voicePlacement(listener, this.input.yaw, body);
+    // only within earshot: his words carry across a duel, his breath only to those around him (voiceRules hearingFor)
+    const place = voicePlacement(listener, this.input.yaw, body, hearingFor(line));
     if (!place) return false;
     return this.voice.say(line, { speaker: playerId, pan: place.pan, gain: place.gain * 0.9, reverb: place.reverb, rate: voiceRate(playerId), chanceScale, delay, force, cry, earned, opening, part });
+  }
+
+  // another knight's line follows him while he says it (a charge begun a dozen metres off arrives with him)
+  #placeVoices() {
+    const bank = this.voice;
+    const listener = this.localState?.position ?? this.localAuth?.position;
+    if (!bank?.playing?.size || !listener) return;
+    for (const speaker of bank.playing.keys()) {
+      if (speaker === this.socket.playerId) continue;
+      const line = bank.speakingLine?.(speaker);
+      const body = line ? this.#bodyPosition(speaker) : null;
+      if (!body) continue;
+      const place = voicePlacement(listener, this.input.yaw, body, hearingFor(line));
+      bank.place(speaker, { pan: place?.pan ?? 0, gain: (place?.gain ?? 0) * 0.9 });
+    }
   }
 
   // the living knight nearest `id`, within `reach` metres (their id), or null
@@ -1663,6 +1678,7 @@ export class GameRuntime {
       // (the longer scenes' clocks: a part whose moment has come is said)
       this.scenes.step(this.socket.serverNow(), this.latestSnapshot.players);
       this.#sayWatched(this.watch.step(this.socket.serverNow(), this.latestSnapshot.players, { self: this.socket.playerId }));
+      this.#placeVoices();
       this.#showCondition(this.socket.serverNow());
       this.hud.update(this.localAuth, this.latestSnapshot, this.socket.serverNow());
       this.touch?.update(this.localAuth, this.socket.serverNow(), { practice: this.#inPractice() });

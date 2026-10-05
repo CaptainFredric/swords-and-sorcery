@@ -108,7 +108,14 @@ export class VoiceBank {
       // (another knight: through his own helm, a little rougher than mine)
       ...(close || !this.timbre ? {} : { shape: (ctx) => this.timbre.build(ctx, speaker) }),
     });
-    if (handle) this.playing.set(speaker, handle);
+    if (handle) {
+      // (what it is and how loud it was made, to move it with him: place())
+      handle.line = line;
+      handle.ruleGain = rule.gain;
+      handle.close = close;
+      handle.endsAt = this.engine.now + delay + take.duration / Math.max(0.5, played);
+      this.playing.set(speaker, handle);
+    }
     const seconds = take.duration / Math.max(0.5, played);
     // a spoken line: the music and the wind give way under it (a grunt does not need them to)
     if (rule.kind === 'sentence') this.engine.duck?.(seconds, { amount: Math.min(1, gain / 0.8), delay });
@@ -138,6 +145,19 @@ export class VoiceBank {
     }
     this.previewing = this.engine.playBuffer(takes[Math.max(0, Math.min(takes.length - 1, take))], options);
     return Boolean(this.previewing);
+  }
+
+  /** What another knight is saying now, to move with him ({ line } or null): my own is never moved. */
+  speakingLine(speaker) {
+    const handle = this.playing.get(speaker);
+    return handle && !handle.close && !(this.engine.now > handle.endsAt) ? handle.line ?? null : null;
+  }
+
+  /** Move another knight's line with him as he speaks: where he is heard from now (voicePlacement's pan and gain). */
+  place(speaker, { pan, gain }) {
+    const handle = this.playing.get(speaker);
+    if (!handle || handle.close) return;
+    handle.place?.({ pan, gain: gain * (handle.ruleGain ?? 1) });
   }
 
   /** Cut short whatever `speaker` is saying (a short fade): his case for not falling, as he rises again. */

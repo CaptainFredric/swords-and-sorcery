@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { CombatHeat, HEAT, matchClosing, nearestFoe } from './combatHeat.mjs';
-import { DEFEAT_ON_LOSS, MAGIC_SOURCES, MOUTH_BUSY_SEC, REBUTTAL, SENTENCE_GAP, VOICE_HEARING, VOICE_LINES, VoiceDirector, deathLines, gauntletLines, voicePlacement, voiceRate } from './voiceRules.mjs';
+import { DEFEAT_ON_LOSS, MAGIC_SOURCES, MOUTH_BUSY_SEC, REBUTTAL, SENTENCE_GAP, SPEECH_HEARING, VOICE_HEARING, VOICE_LINES, VoiceDirector, deathLines, gauntletLines, hearingFor, voicePlacement, voiceRate } from './voiceRules.mjs';
 
 test('SORCERY! is rare: it needs the dice, then waits out its cooldown', () => {
   let roll = 0.05;
@@ -74,6 +74,22 @@ test("another knight's voice carries only near him: normal falloff, no map-wide 
   assert.ok(voicePlacement(me, 0, { x: -4, z: 0 }).pan < -0.5);
   // no echo off the walls on any line: clear words
   for (const [line, rule] of Object.entries(VOICE_LINES)) assert.equal(rule.echo, undefined, line);
+});
+
+test('his words carry across a duel, his breath only to those around him', () => {
+  const me = { x: 0, z: 0 };
+  const words = (d) => voicePlacement(me, 0, { x: 0, z: -d }, hearingFor('chargeDefeat'));
+  const breath = (d) => voicePlacement(me, 0, { x: 0, z: -d }, hearingFor('jump'));
+  assert.equal(hearingFor('jump'), VOICE_HEARING);
+  assert.equal(hearingFor('chargeDefeat'), SPEECH_HEARING);
+  // a charge shouted from 14 m: well under one said beside you, but heard (it was some 20 dB down, and stayed there)
+  const db = (gain) => 20 * Math.log10(gain);
+  assert.ok(db(words(14).gain) > -10 && db(words(14).gain) < -6, String(db(words(14).gain)));
+  assert.ok(words(8).gain > breath(8).gain, 'the words carry further than the breath');
+  assert.equal(breath(16), null);
+  assert.ok(words(20).gain > 0.2, 'the battle begun, across the field');
+  assert.equal(words(SPEECH_HEARING.far), null, 'still never across the whole map');
+  assert.equal(words(1).gain, 1);
 });
 
 test('every Spellblade keeps their own pitch, within a narrow band', () => {

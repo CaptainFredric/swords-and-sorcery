@@ -340,10 +340,11 @@ export class SoundEngine {
     } else {
       amp.gain.value = gain;
     }
+    // (a shape works on the sound as it was recorded, before its level here: the same whatever that level is)
     const shaped = shape ? shape(ctx) : null;
     if (shaped) {
-      source.connect(amp).connect(shaped.input);
-      shaped.output.connect(out);
+      source.connect(shaped.input);
+      shaped.output.connect(amp).connect(out);
     } else {
       source.connect(amp).connect(out);
     }
@@ -359,9 +360,18 @@ export class SoundEngine {
     source.start(start);
     source.stop(start + length + 0.02);
     this.#release([out, panner, amp, ...(shaped?.nodes ?? [])], start + length);
+    let stopped = false;
     return {
       source,
+      /** Move it while it plays (a speaker walking as he talks): its level and its side, eased over a moment. */
+      place: ({ gain: level = null, pan: side = null } = {}) => {
+        if (stopped) return;
+        const now = ctx.currentTime;
+        if (Number.isFinite(level)) amp.gain.setTargetAtTime(Math.max(0, level), Math.max(now, start), 0.06);
+        if (Number.isFinite(side) && panner) panner.pan.setTargetAtTime(Math.max(-1, Math.min(1, side)), Math.max(now, start), 0.06);
+      },
       stop: (fade = 0.08) => {
+        stopped = true;
         const now = ctx.currentTime;
         amp.gain.cancelScheduledValues(now);
         amp.gain.setValueAtTime(amp.gain.value, now);
