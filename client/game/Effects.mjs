@@ -354,14 +354,34 @@ export class Effects {
 
   /** Splinters and dust knocked off timber by a blade. */
   // a puff of dust off the ground, drifting up and spreading as it thins
-  #dust(point, { size = 1, rise = 0.8, life = 0.6, color = 0x9a8a72 } = {}) {
+  // (velocity: where it is thrown, if not straight up)
+  #dust(point, { size = 1, rise = 0.8, life = 0.6, color = 0x9a8a72, velocity = null } = {}) {
     this.dustGeometry ??= new THREE.IcosahedronGeometry(0.14, 0);
     this.dustMaterials ??= new Map();
     if (!this.dustMaterials.has(color)) this.dustMaterials.set(color, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.42, depthWrite: false }));
     const puff = new THREE.Mesh(this.dustGeometry, this.dustMaterials.get(color));
     puff.position.set(point.x + (Math.random() - 0.5) * 0.2, point.y + 0.05, point.z + (Math.random() - 0.5) * 0.2);
     puff.scale.setScalar(size);
-    this.#addTransient(puff, { velocity: new THREE.Vector3((Math.random() - 0.5) * 0.5, rise, (Math.random() - 0.5) * 0.5), life, expand: 2.4, fade: true, drag: 2.5 });
+    this.#addTransient(puff, { velocity: velocity ?? new THREE.Vector3((Math.random() - 0.5) * 0.5, rise, (Math.random() - 0.5) * 0.5), life, expand: 2.4, fade: true, drag: 2.5 });
+  }
+
+  /**
+   * A very heavy blow into the ground at `point` (the Armory's Sunder): the ground's own shock, low and brief. A ring
+   * of dust driven out along it, and a dull ring of pressure running out over it; no light and no colour of its own.
+   */
+  groundShock(point, { radius = 2.6 } = {}) {
+    const at = { x: point.x, y: point.y, z: point.z };
+    for (let i = 0, n = this.#many(16); i < n; i += 1) {
+      const angle = (i / n) * Math.PI * 2 + Math.random() * 0.25;
+      const speed = radius * (2.2 + Math.random() * 0.8);
+      this.#dust(at, { size: 1.3 + Math.random() * 0.6, life: 0.55 + Math.random() * 0.2, velocity: new THREE.Vector3(Math.cos(angle) * speed, 0.35 + Math.random() * 0.4, Math.sin(angle) * speed) });
+    }
+    const ring = new THREE.Mesh(this.groundRingGeometry, new THREE.MeshBasicMaterial({ color: 0x8c7b62, transparent: true, opacity: 0.3, depthWrite: false, side: THREE.DoubleSide }));
+    ring.position.set(at.x, at.y + 0.03, at.z);
+    ring.rotation.x = -Math.PI / 2;
+    ring.scale.setScalar(0.3);
+    this.#addTransient(ring, { life: 0.34, expand: (radius / 0.3 - 1) / 0.34, fade: true });
+    ring.material.dispose();
   }
 
   /**

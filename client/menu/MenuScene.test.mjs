@@ -19,3 +19,20 @@ test('menu showcase presents the hero sword on an upward diagonal instead of dro
   const angle = Number(match[1]);
   assert.ok(angle > -1.15 && angle < -0.35, `menu sword angle ${angle} should lift the blade into the stage`);
 });
+
+test('the Armory\'s ultimates are performed with the menu\'s one set of effects, and any other choice puts one away', async () => {
+  const text = await source();
+  // one Effects for the menu (its lights are part of every lit shader): the round is given it, not a second
+  assert.equal((text.match(/new Effects\(/g) || []).length, 1);
+  assert.match(text, /new TourDirector\(\{[^\n]*effects: this\.#effects\(\)/);
+  // ...and the menu moves them on every frame, the round's fights included (the round leaves them to it)
+  assert.match(text, /\n    this\.effects\?\.update\(dt\);/);
+  const tour = await readFile(new URL('./tour/TourDirector.mjs', import.meta.url), 'utf8');
+  assert.match(tour, /if \(this\.ownsEffects\) this\.effects\.update\(dt\)/);
+  // showing anything else in the palm (another card, another screen) ends the performance
+  const showSpell = text.slice(text.indexOf('  showSpell(spell) {'));
+  assert.match(showSpell.slice(0, 400), /this\.showcase\.stop\(\)/);
+  // and a performance brings its own sounds in place of the card's cue (main.mjs)
+  const main = await readFile(new URL('../main.mjs', import.meta.url), 'utf8');
+  assert.match(main, /play: \(id\) => \(menuScene\?\.performs\(id\) \? null : playArmorySound\(sound, id\)\)/);
+});

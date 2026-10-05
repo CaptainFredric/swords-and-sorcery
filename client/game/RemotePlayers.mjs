@@ -42,9 +42,9 @@ function dampEuler(object, x, y, z, amount = 0.22) {
 
 // the share of a Vortex's startup from which its blade is lit (as my own arms have it: fpVortex.mjs raiseBy), from
 // which the sword is held out level, and from which it leaves its trail
-const VORTEX_LIT_FROM = 0.32;
+export const VORTEX_LIT_FROM = 0.32;
 const VORTEX_LEVEL_FROM = 0.45;
-const VORTEX_TRAIL_FROM = 0.6;
+export const VORTEX_TRAIL_FROM = 0.6;
 
 const _grip = new THREE.Vector3();
 const _point = new THREE.Vector3();

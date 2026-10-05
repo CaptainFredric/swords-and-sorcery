@@ -1,6 +1,7 @@
-// Card presses own sound; model feedback has an independent lifetime.
+// Card presses own sound; model feedback has an independent lifetime (the gesture's, or an ultimate's showcase).
 import { ARMORY_PREVIEW_SEC } from './armoryPreview.mjs';
-export function createArmorySelection({ play, preview, restore, schedule = setTimeout, unschedule = clearTimeout }) {
+import { armoryShowcaseSeconds } from './showcaseSheets.mjs';
+export function createArmorySelection({ play, preview, restore, schedule = setTimeout, unschedule = clearTimeout, seconds = (id) => armoryShowcaseSeconds(id, ARMORY_PREVIEW_SEC) }) {
   let stop = null;
   let timer = null;
   let active = null;
@@ -21,7 +22,7 @@ export function createArmorySelection({ play, preview, restore, schedule = setTi
         if (timer !== null) unschedule(timer);
         active = id;
         preview(id);
-        timer = schedule(() => { timer = null; active = null; restore(); }, ARMORY_PREVIEW_SEC * 1000);
+        timer = schedule(() => { timer = null; active = null; restore(); }, seconds(id) * 1000);
       }
       return id !== current;
     },

@@ -74,7 +74,8 @@ const hud = new HUD();
 // the courtyard, the music, and the Spellblade's voice.
 const sound = new SoundEngine();
 const armoryFeedback = createArmorySelection({
-  play: (id) => playArmorySound(sound, id),
+  // (an ultimate performed on the model brings its own sounds, in time with it, in place of the card's cue)
+  play: (id) => (menuScene?.performs(id) ? null : playArmorySound(sound, id)),
   preview: (id) => menuScene?.previewArmory(id),
   restore: () => menuScene?.showSpell(router.current === SCREEN_IDS.ARMORY ? settings.get('loadout.spell') : null),
 });
@@ -134,7 +135,7 @@ preloadSpellbladeAssets().catch(() => {});
 let menuScene = null;
 let renown = null;
 try {
-  menuScene = new MenuScene(menuSpellblade, { onReady: () => setTimeout(liftVeil, 250), sound, voice, banner: $('#menu .banner-panel') });
+  menuScene = new MenuScene(menuSpellblade, { onReady: () => setTimeout(liftVeil, 250), sound, voice, banner: $('#menu .banner-panel'), armoryPanel: $('#armory-menu .banner-panel') });
   menuScene.setTourAllowed(tourAllowed());
 } catch (error) {
   console.warn('Spellblade menu preview unavailable:', error);
@@ -143,6 +144,7 @@ try {
 }
 if (new URLSearchParams(location.search).has('debug')) globalThis.__ssMenu = menuScene;
 menuScene?.setPixelRatioCap(viewOptions(settings).pixelRatioCap);
+menuScene?.setParticleDensity(viewOptions(settings).particles);
 
 let runtime = null;
 let touchUi = false;
@@ -626,6 +628,7 @@ function applySettings() {
   }
   const view = viewOptions(settings);
   menuScene?.setPixelRatioCap(view.pixelRatioCap);
+  menuScene?.setParticleDensity(view.particles);
   menuScene?.setTourAllowed(tourAllowed());
   if (router.current === SCREEN_IDS.MAIN_MENU) menuScene?.setTouring(true);
   runtime?.configure({ view, input: inputOptions(settings) });
