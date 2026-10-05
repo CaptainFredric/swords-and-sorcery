@@ -247,7 +247,7 @@ test('the new blows: committing to a fresh foe, his own spell landing, badly hur
   assert.deepEqual(hurt.hurt({ victimId: 'v', amount: 10, at: 12 + MOMENTS.hurtSounds.coldSec }), ['coldHurt', 'hurt']);
 });
 
-test('the new falls: three kills without falling, the rushed, the leader, a fair fight lost, Chivalry ended, the final strike', () => {
+test('the new falls: three kills without falling, the rushed, the leader, a fair fight either way, Chivalry ended', () => {
   const world = { knight: () => ({ alive: true, health: 100 }), positionOf: () => null };
   const moments = new VoiceMoments();
   const fall = (victimId, extra = {}, source = 'sword') => moments.death({ type: 'death', victimId, killerId: 'a', source, at: 5 }, { ...world, extra });
@@ -263,8 +263,13 @@ test('the new falls: three kills without falling, the rushed, the leader, a fair
   assert.ok(victor(fall('v7')).includes('noSpare'));
   assert.ok(victor(fall('x', { rushed: true })).includes('toldToWait'));
   assert.ok(victor(fall('y', { leader: true })).includes('renownDisowned'));
-  assert.ok(victor(fall('z', { finalStrike: true })).includes('firstStrike'), 'the heavy third strike that ends it');
+  // (the heavy third strike's breath is raised as it is swung, never after the fall: voiceWatch begin())
+  assert.ok(!victor(fall('z', { finalStrike: true })).includes('firstStrike'), 'nothing breathed over the body');
+  // a fair fight: fit for either of them, felled or felling, and behind the more particular lines of each
   assert.ok(fallen(fall('w', { fair: true })).includes('fairSquare'));
-  assert.ok(!fallen(fall('w2', {})).includes('fairSquare'));
+  assert.ok(victor(fall('w3', { fair: true })).includes('fairSquare'), 'the one who won it fair and square, too');
+  assert.ok(!fallen(fall('w2', {})).includes('fairSquare') && !victor(fall('w4', {})).includes('fairSquare'));
+  const fairWin = victor(fall('w5', { fair: true, rushed: true }));
+  assert.ok(fairWin.indexOf('toldToWait') < fairWin.indexOf('fairSquare'), 'the rushed kill is the more particular');
   assert.equal(fallen(fall('m', { chivalry: true }))[0], 'masterBreak', 'the master takes a break, before anything else he might say');
 });

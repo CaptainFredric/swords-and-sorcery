@@ -189,10 +189,10 @@ function victorTags({ source, moment = {} }) {
     ...(moment.clean && source === 'sword' ? { cleanSwordKill: 1 } : {}),
     ...(moment.subpar ? { subparKill: 1 } : {}),
     ...(moment.messy ? { messyKill: 1 } : {}),
+    ...(moment.fair ? { fairWin: 1 } : {}),
     ...(moment.rushed ? { rushedKill: 1 } : {}),
     ...(moment.leader ? { leaderFelled: 1 } : {}),
     ...(moment.streak === 3 ? { killStreak3: 1 } : {}),
-    ...(moment.finalStrike ? { finalStrike: 1 } : {}),
   };
 }
 

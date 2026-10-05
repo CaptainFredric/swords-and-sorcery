@@ -80,6 +80,7 @@ export const VOICE_TAGS = Object.freeze({
   cleanSwordKill: { rank: 70, delay: 0.45, about: 'a sword kill at the cleanest contact' },
   subparKill: { rank: 65, delay: 0.6, about: 'felling another player who flies a standard other than the default' },
   messyKill: { rank: 60, delay: 0.6, about: 'a kill that arrived late and messily: a burn\'s last lick, a fall' },
+  fairWin: { rank: 40, delay: 0.5, about: 'felling a foe by the sword after a real exchange of blows with them' },
   kill: { rank: 10, delay: 0.45, about: 'felling anyone' },
   // --- blows
   squireOpening: { rank: 40, delay: 0.45, opens: 'squire', about: 'a blow that leaves a foe all but finished' },
@@ -89,8 +90,8 @@ export const VOICE_TAGS = Object.freeze({
   hurt: { rank: 6, about: 'a real blow taken and survived' },
   coldHurt: { rank: 8, about: 'a small blow, after a long while unhurt' },
   heavyHurt: { rank: 7, about: 'a severe blow taken and survived' },
-  firstSwing: { rank: 7, about: 'his first sword swing after a lull' },
-  finalStrike: { rank: 12, about: 'the heavy third strike felling a foe' },
+  firstSwing: { rank: 7, about: 'his first sword swing after a lull, as it begins' },
+  finalStrike: { rank: 12, about: 'the heavy third strike swung at a foe it would fell, as it begins' },
   longChain: { rank: 8, delay: 0.1, about: 'his sword chain carrying on past its third strike' },
   engage: { rank: 25, delay: 0.25, about: 'the first blow he lands in a fresh encounter with a foe' },
   standsGround: { rank: 32, delay: 0.15, about: 'after giving ground to a foe, he turns and swings at them' },
@@ -107,7 +108,7 @@ export const VOICE_TAGS = Object.freeze({
   losingFace: { rank: 30, delay: 0.4, about: 'struck while clearly losing: low, and the foe comfortably ahead' },
   worthyFoe: { rank: 30, delay: 0.3, opens: 'finalDuel', about: 'the first blow of a fresh encounter with a foe, both still whole' },
   challengerBrief: { rank: 60, delay: 0.7, about: 'the challenger of the final duel felled quickly and cheaply after the quest continued' },
-  regenWait: { rank: 30, about: 'badly hurt and a moment short of his health coming back' },
+  regenWait: { rank: 30, about: 'a blow survived that left him low (its reveal waits until he has regenerated out of danger)' },
   // --- guards and balance
   catastrophicGuardBreak: { rank: 40, delay: 0.7, about: 'a guard broken by a Sundering blow' },
   guardBreak: { rank: 20, delay: 0.7, about: 'a guard broken' },
@@ -744,10 +745,12 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
   {
     id: 'fairSquare',
     text: 'You are not allowed to win fair and square!',
-    trigger: 'fairLoss',
-    priority: 'high', rarity: 0.2, cooldown: 180,
+    // (fit for a clean fight either way: felled in one, or felling the other; rare, so the more particular falls and
+    // kills keep their turn)
+    trigger: { fairLoss: 1, fairWin: 0.5 },
+    priority: 'high', rarity: 0.1, cooldown: 300,
     section: 'Defeat & Death',
-    credits: { title: 'Fair and Square', description: 'Rarely after losing an apparently legitimate fight.', note: 'Fairness still requires authorization.' },
+    credits: { title: 'Fair and Square', description: 'Rarely after an apparently legitimate fight, whichever way it went.', note: 'Fairness still requires authorization.' },
     voice: { drive: 2.2, rmsDb: -16 }, file: 'CantWinFairSquare.mp3',
   },
   {

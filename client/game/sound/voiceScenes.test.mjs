@@ -159,62 +159,75 @@ test('the declaration is rare, once a life, and opened only by the first blow of
   assert.ok(offered(again).includes('finalDuel'));
 });
 
-test('the trick: "Wait, wait!!..." a moment short of his health coming back, only when badly hurt, weighed once for each hurt', () => {
+// a blow on `victimId` that leaves them with `health`
+const hit = (victimId, health, at, amount = 20) => ({ type: 'damage', victimId, attackerId: 'foe', amount, health, at });
+
+test('the trick: "Wait, wait!!..." the moment a blow he survives leaves him low, on the line\'s own odds; once until he is well clear of low', () => {
   const { said, say, heard } = voice();
   const scenes = new VoiceScenes({ say });
-  const due = 10 + HEALTH_REGEN.delaySec;
-  scenes.damage(blow('me', 'foe', 50, 10));
-  scenes.step(due - SCENES.regenTrick.early - 0.2, everyone({ me: { health: 50 } }));
-  assert.equal(said.length, 0, 'not yet');
-  scenes.step(due - SCENES.regenTrick.early + 0.05, everyone({ me: { health: 50 } }));
-  assert.deepEqual(heard(), ['me:regenTrick#0']);
+  scenes.damage(hit('me', 50, 10));
+  assert.equal(said.length, 0, 'hurt, but not low');
+  scenes.damage(hit('me', SCENES.regenTrick.low - 4, 11));
+  assert.deepEqual(heard(), ['me:regenTrick#0'], 'at once, as the blow lands: not seconds later');
   assert.ok(!said[0].earned, 'the setup takes the line\'s own odds, cooldown and once-a-life');
-  scenes.step(due - SCENES.regenTrick.early + 0.1, everyone({ me: { health: 50 } }));
-  assert.equal(said.length, 1, 'said once');
-  assert.ok(SCENES.regenTrick.early <= 1.0 && SCENES.regenTrick.late >= 0.6);
+  scenes.damage(hit('me', 12, 12));
+  assert.equal(said.length, 1, 'hurt again while waiting: nothing more to announce');
   assert.ok(VOICE_LINES.regenTrick.chance <= 0.08 && VOICE_LINES.regenTrick.perLife === 1, 'very rare, once a life');
-  // three health missing is no plan worth announcing
-  const scratch = voice();
-  const light = new VoiceScenes({ say: scratch.say });
-  light.damage(blow('me', 'foe', 3, 10));
-  light.step(due - SCENES.regenTrick.early + 0.05, everyone({ me: { health: 97 } }));
-  assert.equal(scratch.said.length, 0);
-  // the dice said no: it is not asked again every frame of the window
+  // a blow that fells him is no plan
+  const felled = voice();
+  new VoiceScenes({ say: felled.say }).damage(hit('me', 0, 10));
+  assert.equal(felled.said.length, 0);
+  // the dice said no: his health hovering at the edge of low never asks again until he has been well clear of it
   let asked = 0;
-  const refused = new VoiceScenes({ say: () => { asked += 1; return false; } });
-  refused.damage(blow('me', 'foe', 50, 10));
-  for (let t = due - SCENES.regenTrick.early; t < due; t += 0.016) refused.step(t, everyone({ me: { health: 50 } }));
-  assert.equal(asked, 1);
+  const edge = new VoiceScenes({ say: () => { asked += 1; return false; } });
+  edge.damage(hit('me', 28, 10));
+  edge.step(10.5, everyone({ me: { health: 34 } }));
+  edge.damage(hit('me', 27, 11));
+  edge.step(16.5, everyone({ me: { health: SCENES.regenTrick.rearm - 5 } }));
+  edge.damage(hit('me', 25, 17));
+  assert.equal(asked, 1, 'once for that whole stretch at the edge');
+  edge.step(23, everyone({ me: { health: SCENES.regenTrick.rearm + 5 } }));
+  edge.damage(hit('me', 22, 24));
+  assert.equal(asked, 2, 'well clear of it, the next fall to low is a new moment');
 });
 
-test('the trick is revealed only when his health is truly seen to rise; hurt again first, it is only "Wait, wait!!..."', () => {
-  const due = 10 + HEALTH_REGEN.delaySec;
+test('the trick is revealed only once he has regenerated out of danger; felled first, there is no trick', () => {
   const setup = () => {
     const spoken = voice();
     const scenes = new VoiceScenes({ say: spoken.say });
-    scenes.damage(blow('me', 'foe', 50, 10));
-    scenes.step(due - SCENES.regenTrick.early + 0.05, everyone({ me: { health: 50 } }));
+    scenes.damage(hit('me', 24, 10));
     return { scenes, ...spoken };
   };
+  const regen = 10 + HEALTH_REGEN.delaySec;
   // it comes off
   const worked = setup();
-  worked.scenes.step(due + 0.3, everyone({ me: { health: 50 } }));
-  assert.equal(worked.said.length, 1, 'the time alone proves nothing: his health has not moved');
-  worked.scenes.step(due + 0.4, everyone({ me: { health: 54 } }));
+  worked.scenes.step(10.05, everyone({ me: { health: 70 } }));
+  assert.equal(worked.said.length, 1, 'a stale look at his health before the blow proves nothing: he cannot have regenerated yet');
+  worked.scenes.step(regen + 0.5, everyone({ me: { health: 40 } }));
+  assert.equal(worked.said.length, 1, 'coming back, not yet out of danger');
+  worked.scenes.step(regen + 1.2, everyone({ me: { health: SCENES.regenTrick.recovered + 1 } }));
   assert.deepEqual(worked.heard(), ['me:regenTrick#0', 'me:regenTrick#1']);
   assert.equal(worked.said[1].earned, true);
-  worked.scenes.step(due + 0.6, everyone({ me: { health: 60 } }));
+  worked.scenes.step(regen + 1.6, everyone({ me: { health: 80 } }));
   assert.equal(worked.said.length, 2, 'once');
-  assert.equal(worked.scenes.death(fall('me', 'foe', due + 2)).planFailed, false, 'a plan that came off did not fail');
-  // hurt again before it could
-  const spoiled = setup();
-  spoiled.scenes.damage(blow('me', 'foe', 10, due - 0.2));
-  spoiled.scenes.step(due + 0.1, everyone({ me: { health: 40 } }));
-  spoiled.scenes.step(due - 0.2 + HEALTH_REGEN.delaySec + 0.5, everyone({ me: { health: 55 } }));
-  assert.deepEqual(spoiled.heard(), ['me:regenTrick#0'], 'no reveal, then or when his health later does come back');
-  // felled while waiting on it: the plan failed, and the fall is likelier to be protested
+  assert.equal(worked.scenes.death(fall('me', 'foe', regen + 2)).planFailed, false, 'a plan that came off did not fail');
+  // hurt again while waiting, and still he gets away with it: the reveal waits for the regeneration after that blow
+  const pressed = setup();
+  pressed.scenes.damage(hit('me', 14, 12));
+  pressed.scenes.step(regen + 1, everyone({ me: { health: 60 } }));
+  assert.equal(pressed.said.length, 1, 'not before his health could have begun to come back from the later blow');
+  pressed.scenes.step(12 + HEALTH_REGEN.delaySec + 1, everyone({ me: { health: 60 } }));
+  assert.deepEqual(pressed.heard(), ['me:regenTrick#0', 'me:regenTrick#1']);
+  // never out of danger for long enough: the scene is dropped, quietly
+  const stuck = setup();
+  stuck.scenes.step(10 + SCENES.regenTrick.giveUpSec + 1, everyone({ me: { health: 30 } }));
+  stuck.scenes.step(10 + SCENES.regenTrick.giveUpSec + 2, everyone({ me: { health: 90 } }));
+  assert.equal(stuck.said.length, 1);
+  // felled while waiting on it: no trick, the plan failed, and the fall is likelier to be protested
   const felled = setup();
-  assert.equal(felled.scenes.death(fall('me', 'foe', due - 0.3)).planFailed, true);
+  assert.equal(felled.scenes.death(fall('me', 'foe', 12)).planFailed, true);
+  felled.scenes.step(regen + 2, everyone({ me: { health: 100 } }));
+  assert.equal(felled.said.length, 1, 'a new life is no getaway');
   const fallen = new VoiceMoments().death({ type: 'death', victimId: 'me', killerId: 'foe', source: 'sword', at: 20 }, { knight: () => null, positionOf: () => null, planFailed: true }).fallen;
   const plain = new VoiceMoments().death({ type: 'death', victimId: 'me', killerId: 'foe', source: 'sword', at: 20 }, { knight: () => null, positionOf: () => null }).fallen;
   const odds = (group) => group.find((say) => say.line === 'defeat').chanceScale;

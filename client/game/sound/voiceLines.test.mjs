@@ -173,3 +173,11 @@ test('the repaired takes say what their words say, and every repair is a modest 
   assert.ok(master.semitones > voiceLine('sunderLeave').voice.semitones && master.formants > voiceLine('sunderLeave').voice.formants);
 });
 
+test('Fair and Square fits a clean fight either way, and is rarer than it was, behind the more particular lines', () => {
+  const fair = voiceLine('fairSquare');
+  assert.deepEqual(Object.keys(fair.triggers).sort(), ['fairLoss', 'fairWin']);
+  assert.ok(fair.rarity <= 0.12 && fair.cooldown >= 240);
+  // a win: every particular kill comes first, only the plain kill after it
+  for (const tag of ['rushedKill', 'leaderFelled', 'killStreak3', 'cleanSwordKill', 'gauntletKill']) assert.ok(VOICE_TAGS[tag].rank > VOICE_TAGS.fairWin.rank, tag);
+  assert.ok(VOICE_TAGS.fairWin.rank > VOICE_TAGS.kill.rank);
+});

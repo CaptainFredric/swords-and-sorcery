@@ -74,6 +74,11 @@ const WORLD_RENDERERS = Object.freeze({
 // the server's word for a clang my own view already foretold arrives within this long (a round trip and a tick or two)
 const FORETOLD_CLANG_MS = 700;
 
+// my case for not having fallen ("Why I should not fall. One... Two... Three—"): begun this long after the fall at the
+// soonest; meant to be cut this far before its end (its last word just begun: "Thr—") by my return; and, back on my
+// feet a moment before that word, let run on this long at most to reach it (the take is never hurried to fit)
+const APPEAL = Object.freeze({ leadSec: 0.1, interruptBeforeEnd: 0.4, runOnSec: 0.45 });
+
 export class GameRuntime {
   constructor(container, socket, hud, { sound = null, voice = null } = {}) {
     this.container = container;
@@ -161,6 +166,14 @@ export class GameRuntime {
       // the heavy third strike gets his breath behind it; the lighter ones only now and then
       // (under the Sunder sentence, a word to a slam, the ordinary breath of a swing keeps quiet)
       if (!this.scenes.sentenceRunning(this.socket.playerId, this.socket.serverNow())) this.#sayMoment(this.socket.playerId, [heavy ? 'heavySwing' : 'lightSwing']);
+    };
+    // my own strike committed, its swing beginning: the breath behind it leads the blade (a first swing after a while;
+    // the heavy third swung at a foe it would fell)
+    this.weapon.onBegin = (strike) => {
+      const me = this.socket.playerId;
+      const knights = (this.latestSnapshot?.players ?? []).map((p) => (p.id === me && this.localState
+        ? { ...p, position: this.localState.position, yaw: this.input.yaw ?? p.yaw } : p));
+      this.#sayWatched(this.watch.begin({ playerId: me, strikeIndex: strike, at: this.socket.serverNow() }, knights));
     };
     this.effects = new Effects(this.scene, this.camera);
     this.onPointer = () => {};
@@ -727,10 +740,14 @@ export class GameRuntime {
       if (event.type === 'respawn' && event.playerId === this.socket.playerId) this.hud.flashText('FIGHT!', 'ready');
       // a life begun again (the wildcard is once a life); a new match forgets everything
       if (event.type === 'respawn') this.voice?.director?.newLife?.(event.playerId);
-      // back on my feet: whatever case I was still making for not having fallen is cut short
+      // back on my feet: whatever case I was still making for not having fallen is cut short (at its last word, if
+      // that is only a moment away)
       if (event.type === 'respawn' && event.playerId === me && this.appealing) {
-        this.appealing = false;
-        this.voice?.cut?.(me);
+        const wait = this.appealing.interruptAt - performance.now() / 1000;
+        this.appealing = null;
+        clearTimeout(this.appealCut);
+        if (wait > 0 && wait <= APPEAL.runOnSec) this.appealCut = setTimeout(() => this.voice?.cut?.(me), wait * 1000);
+        else this.voice?.cut?.(me);
       }
       if (event.type === 'matchStarted') {
         this.moments.reset();
@@ -1005,8 +1022,7 @@ export class GameRuntime {
     this.killingBlow?.delete(event.victimId);
     // (his longer scenes first: a plan the fallen had announced, a verdict or a sentence the victor has words for)
     const scene = this.scenes.death(event);
-    // what was watched of it: the fallen had rushed the victor, led the match, fought them fairly, fell in Chivalry;
-    // the heavy third strike ended it
+    // what was watched of it: the fallen had rushed the victor, led the match, fought them fairly, fell in Chivalry
     const { victimId, at } = event;
     const killerId = event.killerId && event.killerId !== victimId ? event.killerId : null;
     const players = this.latestSnapshot?.players ?? [];
@@ -1015,7 +1031,6 @@ export class GameRuntime {
     const extra = {
       rushed: Boolean(killerId) && this.watch.rushed(victimId, killerId, at),
       fair: Boolean(killerId) && this.watch.fair(victimId, killerId, at, event.source),
-      finalStrike: Boolean(killerId) && this.watch.finalStrike(killerId, victimId, at),
       leader: Boolean(killerId) && victimKills >= 3 && players.every((p) => p.id === victimId || (p.kills ?? 0) < victimKills),
       chivalry: this.chivalrous.has(victimId) || Math.abs((this.chivalryEndedAt.get(victimId) ?? -Infinity) - at) < 1e-6,
     };
@@ -1029,15 +1044,15 @@ export class GameRuntime {
     if (!spoke && victimId === this.socket.playerId) this.#appeal(event);
   }
 
-  // my case for not having fallen, timed so that I am back on my feet just before it is finished
+  // my case for not having fallen, timed so that I am back on my feet as its last word begins (APPEAL)
   #appeal(event) {
     const length = this.voice?.takes?.get('notFall')?.[0]?.duration;
     const respawnIn = (event.respawnAt ?? event.at) - this.socket.serverNow();
     if (!length || !(respawnIn > 1)) return;
-    // (its last word goes unsaid: the respawn arrives a third of a second before the end)
-    const delay = Math.max(0.6, respawnIn - length + 0.35);
+    const delay = Math.max(APPEAL.leadSec, respawnIn - (length - APPEAL.interruptBeforeEnd));
     for (const say of linesFor(this.socket.playerId, ['appeal'])) {
-      if (this.#say(say.line, say.speaker, { ...say, delay })) this.appealing = true;
+      const said = this.#say(say.line, say.speaker, { ...say, delay });
+      if (said) this.appealing = { interruptAt: performance.now() / 1000 + said.delay + said.seconds - APPEAL.interruptBeforeEnd };
     }
   }
 
@@ -1647,7 +1662,7 @@ export class GameRuntime {
     if (this.latestSnapshot && this.localAuth) {
       // (the longer scenes' clocks: a part whose moment has come is said)
       this.scenes.step(this.socket.serverNow(), this.latestSnapshot.players);
-      this.#sayWatched(this.watch.step(this.socket.serverNow(), this.latestSnapshot.players));
+      this.#sayWatched(this.watch.step(this.socket.serverNow(), this.latestSnapshot.players, { self: this.socket.playerId }));
       this.#showCondition(this.socket.serverNow());
       this.hud.update(this.localAuth, this.latestSnapshot, this.socket.serverNow());
       this.touch?.update(this.localAuth, this.socket.serverNow(), { practice: this.#inPractice() });
@@ -1705,6 +1720,7 @@ export class GameRuntime {
 
   dispose() {
     this.running = false;
+    clearTimeout(this.appealCut);
     if (this.voice?.onSpoken === this.subtitleHook) this.voice.onSpoken = null;
     if (this.voice?.onCut === this.captionCut) this.voice.onCut = null;
     for (const off of this.unsubscribe) off();
