@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { inputOptions, RENDER_QUALITY, soundLevels, turnOptions, viewOptions } from './applySettings.mjs';
+import { inputOptions, PARTICLE_DENSITY, RENDER_QUALITY, soundLevels, turnOptions, viewOptions } from './applySettings.mjs';
 import { formatValue } from './SettingsPanel.mjs';
 import { isBindableCode, keyLabel, registry, SettingsRegistry } from './settingsRegistry.mjs';
 import { SettingsStore, STORAGE_KEY } from './SettingsStore.mjs';
@@ -136,6 +136,9 @@ test('each part of the game gets what it needs from the settings', () => {
   assert.equal(soundLevels(store).master, 0.5);
   assert.equal(soundLevels(store).music, 0.55);
   assert.equal(viewOptions(store).pixelRatioCap, RENDER_QUALITY.low);
+  // (Smooth also makes fewer of a burst's cosmetic particles: each is a draw of its own on an older phone)
+  assert.equal(viewOptions(store).particles, PARTICLE_DENSITY.low);
+  assert.ok(PARTICLE_DENSITY.low < PARTICLE_DENSITY.medium && PARTICLE_DENSITY.high === 1);
   assert.equal(viewOptions(store).cameraMotion, 0.3);
   assert.equal(viewOptions(store).fov, 78);
   assert.equal(inputOptions(store).touchScale, 1.2);

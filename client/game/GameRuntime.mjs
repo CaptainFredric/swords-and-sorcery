@@ -426,6 +426,7 @@ export class GameRuntime {
         this.renderer.setPixelRatio(Math.min(devicePixelRatio, this.view.pixelRatioCap));
         this.#resize();
       }
+      this.effects?.setDensity(this.view.particles ?? 1);
       this.#shadowDetail();
     }
     if (input) {
@@ -1704,6 +1705,7 @@ export class GameRuntime {
 
     if (nowMs - this.lastPingAt > 2000) { this.lastPingAt = nowMs; this.socket.ping(); }
     this.#followSun(this.localState?.position ?? this.camera.position);
+    this.weapon.syncPalmLight();
     this.#renderView();
     requestAnimationFrame((t) => this.#frame(t));
   }
