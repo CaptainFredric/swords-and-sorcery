@@ -14,7 +14,7 @@ import { FIRST_PERSON_WEAPON_SCALE, resolveWeaponPose } from './weaponPose.mjs';
 import { FP_MOTION, FirstPersonMotion } from './firstPersonMotion.mjs';
 import { blendPoses, comboPose, counterRotations, recoveryPose, slamPose } from './fpSlash.mjs';
 import { FIRST_PERSON_OFF_ARM, solveArm, solveSwordArm } from './swordArmIK.mjs';
-import { onViewLayer } from './viewLayers.mjs';
+import { everywhere, onViewLayer } from './viewLayers.mjs';
 import { createSunderBlade } from './sunderBlade.mjs';
 import { VORTEX_BLADES, createVortexBlade } from './vortexBlade.mjs';
 import { FP_VORTEX, vortexSpinPose, vortexStartupPose } from './fpVortex.mjs';
@@ -242,8 +242,16 @@ export class WeaponView {
       addMagicWisp(this.magicAnchor, materials.magic, 'first-person-magic-wisp-b', [0.1, 0.08, 0.03], 0.04, [-0.3, 0.2, 0.6]),
       addMagicWisp(this.magicAnchor, materials.magic, 'first-person-magic-wisp-c', [0.025, -0.105, -0.025], 0.043, [0.4, -0.25, 0.35]),
     ];
-    this.magicLight = new THREE.PointLight(SPELLBLADE_PALETTE.magic, 1.0, 2.1, 2);
+    // where the palm's light is and how bright: a marker on the hand. The light itself is carried by the camera and never
+    // hidden (syncPalmLight): hidden with the arms (a Vortex, a fall), it would take a light out of the scene, and every
+    // lit shader would be rebuilt for the scene's new number of lights (lightPool.mjs)
+    this.magicLight = new THREE.Object3D();
+    this.magicLight.name = 'palm-light';
+    this.magicLight.intensity = 1.0;
+    this.magicLight.color = new THREE.Color(SPELLBLADE_PALETTE.magic);
     this.magicAnchor.add(this.magicLight);
+    this.palmLight = everywhere(new THREE.PointLight(SPELLBLADE_PALETTE.magic, 0, 2.1, 2));
+    camera.add(this.palmLight);
 
     // the sword chain, played ahead of the server by its own rule: a tap is one swing, a hold chains, and a swing
     // under way plays out when the button is let go (localSwordChain.mjs)
@@ -938,8 +946,23 @@ export class WeaponView {
 
   }
 
+  /**
+   * The palm's light, from its marker on the hand, carried by the camera: dark while the arms are hidden, but never
+   * taken out of the scene (see the marker).
+   */
+  syncPalmLight() {
+    let shown = true;
+    for (let node = this.magicLight; node; node = node.parent) if (!node.visible) { shown = false; break; }
+    this.palmLight.intensity = shown ? this.magicLight.intensity : 0;
+    this.palmLight.color.copy(this.magicLight.color);
+    if (!shown) return;
+    this.magicLight.getWorldPosition(this.palmLight.position);
+    this.camera.worldToLocal(this.palmLight.position);
+  }
+
   dispose() {
     this.disposed = true;
+    this.palmLight.removeFromParent();
     this.chivalryLink?.dispose();
     this.chargeElemental?.removeFromParent();
     this.chargeElemental?.userData.dispose?.();

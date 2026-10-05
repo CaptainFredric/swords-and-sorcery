@@ -1704,6 +1704,7 @@ export class GameRuntime {
 
     if (nowMs - this.lastPingAt > 2000) { this.lastPingAt = nowMs; this.socket.ping(); }
     this.#followSun(this.localState?.position ?? this.camera.position);
+    this.weapon.syncPalmLight();
     this.#renderView();
     requestAnimationFrame((t) => this.#frame(t));
   }

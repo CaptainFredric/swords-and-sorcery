@@ -10,6 +10,7 @@ import { createGaleOrb } from './galeOrb.mjs';
 import { everywhere } from './viewLayers.mjs';
 import { createBlastFrontMaterial, createElementalOrb } from './elementalOrb.mjs';
 import { chillPresentation, elementalProfile, gatherEnvelope } from './elementalVfxModel.mjs';
+import { LIGHT_POOL_SIZE, LightPool } from './lightPool.mjs';
 
 const MAX_TRANSIENTS = 260;
 
@@ -134,7 +135,12 @@ export class Effects {
     this.flameGeometry = new THREE.OctahedronGeometry(0.1, 0);
     this.spellMaterials = new Map();
     this.elementalMistMaterials = new Map();
-    this.flashLights = [];
+    // every brief light of the fight, from a fixed few (lightPool.mjs: no shader rebuilt mid-fight)
+    this.lights = new LightPool(LIGHT_POOL_SIZE, () => {
+      const light = everywhere(new THREE.PointLight(0xffffff, 0, 1, 2));
+      this.scene.add(light);
+      return light;
+    });
     this.afflictionCarry = new Map();
 
   }
@@ -178,8 +184,7 @@ export class Effects {
     if (typeof provider !== 'function' || !(gatherSec > 0)) return null;
     const profile = elementalProfile(spell);
     const orb = createElementalOrb(spell);
-    const light = everywhere(new THREE.PointLight(lookFor(spell).light, 0, 2.4, 2));
-    orb.add(light);
+    const light = this.lights.hold(lookFor(spell).light, 2.4);
     const motes = [];
     const materials = this.#spellMaterials(spell);
     for (let i = 0; i < 7; i += 1) {
@@ -193,6 +198,7 @@ export class Effects {
     this.gathers.add(gather);
     const cancel = () => {
       if (!this.gathers.delete(gather)) return;
+      this.lights.release(light);
       orb.removeFromParent();
       // Motes borrow cached materials and geometry; remove before disposing owned orb resources.
       motes.forEach((mote) => orb.remove(mote));
@@ -217,7 +223,10 @@ export class Effects {
     const envelope = gatherEnvelope(gather.age, gather.duration);
     gather.orb.scale.setScalar(envelope.scale);
     gather.orb.userData.update(gather.age);
-    gather.light.intensity = (gather.profile.frost ? 2.5 : 5) * envelope.light;
+    if (gather.light) {
+      gather.light.light.position.copy(gather.orb.position);
+      gather.light.light.intensity = (gather.profile.frost ? 2.5 : 5) * envelope.light;
+    }
     gather.motes.forEach((mote, i) => {
       const angle = i * Math.PI * 2 / gather.motes.length + gather.age * (gather.profile.frost ? -3 : 7);
       const reach = 0.18 + (1 - envelope.progress) * (0.14 + i % 3 * 0.045);
@@ -228,10 +237,7 @@ export class Effects {
 
   // a brief burst of light where a spell breaks
   #flashLight(point, color, intensity, life, distance) {
-    const light = everywhere(new THREE.PointLight(color, intensity, distance, 2));
-    light.position.set(point.x, point.y, point.z);
-    this.scene.add(light);
-    this.flashLights.push({ light, life, age: 0, intensity });
+    this.lights.flash(point, color, intensity, life, distance);
   }
 
   #basicMaterial(color) {
@@ -679,6 +685,13 @@ export class Effects {
     // (the Gale ball in the palm shares its shaders with this one, kept so they stay built: ready for the first hand)
     this.warmGaleOrb ??= createGaleOrb();
     group.add(this.warmGaleOrb);
+    // (and so with a thrown spell's orb and the blast of its breaking: each is made and let go one by one, and three.js
+    // lets a shader go with the last thing that used it, so a Blazing Vortex's ember a revolution built them again
+    // every time; one of each kept here, they are never let go)
+    this.warmOrbs ??= ['fireball', 'frostfire'].map((spell) => createElementalOrb(spell));
+    for (const orb of this.warmOrbs) group.add(orb);
+    this.warmBlast ??= new THREE.Mesh(this.blastFrontGeometry, createBlastFrontMaterial('fireball'));
+    group.add(this.warmBlast);
     group.add(new THREE.Sprite(this.windPuffMaterial));
     group.add(new THREE.Mesh(this.windStreakGeometry, this.windMaterial));
     group.add(new THREE.Sprite(this.dustMaterials.get('earth')));
@@ -1048,8 +1061,8 @@ export class Effects {
   #createProjectile(spell = 'fireball') {
     const profile = elementalProfile(spell);
     const group = createElementalOrb(spell);
-    const light = everywhere(new THREE.PointLight(lookFor(spell).light, 7.5 * profile.size ** 2, 5 * profile.size, 2));
-    group.add(light);
+    // (its glow from the fight's few lights: none to spare, and it flies unlit)
+    const light = this.lights.hold(lookFor(spell).light, 5 * profile.size);
     group.scale.setScalar(profile.size);
     this.scene.add(group);
     return { spell, group, light, profile, phase: Math.random() * Math.PI * 2, lastPosition: null, trailCarry: 0 };
@@ -1187,6 +1200,7 @@ export class Effects {
 
     for (const [id, effect] of this.projectiles) {
       if (!seen.has(id)) {
+        this.lights.release(effect.light);
         this.scene.remove(effect.group);
         effect.group.userData.dispose();
         this.projectiles.delete(id);
@@ -1201,22 +1215,15 @@ export class Effects {
       this.gustBodies[i].gust.removeFromParent();
       this.gustBodies.splice(i, 1);
     }
-    for (let i = this.flashLights.length - 1; i >= 0; i -= 1) {
-      const flash = this.flashLights[i];
-      flash.age += dt;
-      const t = flash.age / flash.life;
-      if (t >= 1) {
-        this.scene.remove(flash.light);
-        this.flashLights.splice(i, 1);
-        continue;
-      }
-      flash.light.intensity = flash.intensity * (1 - t) * (1 - t);
-    }
+    this.lights.update(dt);
     for (const gather of this.gathers) this.#updateGather(gather, dt);
     for (const effect of this.projectiles.values()) {
       effect.phase += dt;
       effect.group.userData.update(effect.phase);
-      effect.light.intensity = (effect.profile.frost ? 4.8 : 6.8 + Math.sin(effect.phase * 12) * 1.2) * effect.profile.size ** 2;
+      if (effect.light) {
+        effect.light.light.position.copy(effect.group.position);
+        effect.light.light.intensity = (effect.profile.frost ? 4.8 : 6.8 + Math.sin(effect.phase * 12) * 1.2) * effect.profile.size ** 2;
+      }
     }
 
     for (let i = this.transients.length - 1; i >= 0; i -= 1) {
