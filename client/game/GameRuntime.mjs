@@ -1747,11 +1747,15 @@ export class GameRuntime {
     for (const off of this.unsubscribe) off();
     window.removeEventListener('resize', this.#resize);
     this.resizeObserver?.disconnect();
+    this.input.dispose();
     this.touch?.dispose();
     this.world?.dispose?.();
     this.remotePlayers.dispose();
     this.weapon.dispose();
     this.renderer.dispose();
+    // (its drawing context let go now, not whenever the browser gets round to it: the next match makes its own)
+    this.renderer.forceContextLoss?.();
     this.renderer.domElement.remove();
+    if (globalThis.__ssRuntime === this) globalThis.__ssRuntime = null;
   }
 }

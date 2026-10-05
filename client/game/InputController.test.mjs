@@ -219,3 +219,14 @@ test('Q again or Escape puts an open choice away without casting', () => {
     assert.deepEqual(calls, [], `${close}: a number after it is no choice`);
   }
 });
+
+test('a controller put away takes its listeners off the page: keys and buttons reach it no more', () => {
+  const { input, calls, down, up, send, win } = setup();
+  down('Mouse0'); up('Mouse0');
+  assert.deepEqual(calls, [['attack', true], ['attack', false]]);
+  input.dispose();
+  calls.length = 0;
+  down('Mouse0'); up('Mouse0'); down('KeyG'); send('blur', {}, win);
+  assert.deepEqual(calls, [], 'nothing after it was put away');
+  assert.equal(input.enabled, false);
+});

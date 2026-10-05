@@ -104,30 +104,44 @@ export class InputController {
     else if (!PRESS[action]) this.onAction(action, false);
   }
 
+  // a listener for as long as this controller lives (dispose() takes every one off again)
+  #listen(target, type, handler, options) {
+    target.addEventListener(type, handler, options);
+    (this.listeners ??= []).push([target, type, handler, options]);
+  }
+
+  /** Done with: every listener it put on the page taken off (a match put away). */
+  dispose() {
+    this.releaseInputs();
+    for (const [target, type, handler, options] of this.listeners ?? []) target.removeEventListener(type, handler, options);
+    this.listeners = [];
+    this.enabled = false;
+  }
+
   #bind() {
-    document.addEventListener('pointerlockchange', () => {
+    this.#listen(document, 'pointerlockchange', () => {
       this.pointerLocked = document.pointerLockElement === this.element;
       if (this.touchFocus) return;
       this.#setEnabled(this.pointerLocked);
     });
 
-    window.addEventListener('blur', () => this.releaseInputs());
-    document.addEventListener('visibilitychange', () => {
+    this.#listen(window, 'blur', () => this.releaseInputs());
+    this.#listen(document, 'visibilitychange', () => {
       if (!document.hidden) return;
       this.releaseInputs();
       // leaving the app counts as leaving the arena, like losing pointer lock
       if (this.touchFocus) this.#setTouchFocus(false);
     });
 
-    this.element.addEventListener('click', () => this.requestPointerLock());
+    this.#listen(this.element, 'click', () => this.requestPointerLock());
 
-    document.addEventListener('mousemove', (event) => {
+    this.#listen(document, 'mousemove', (event) => {
       if (!this.pointerLocked) return;
       const invert = this.look.invertY ? -1 : 1;
       this.turn(-event.movementX * 0.00235 * this.look.mouse, -event.movementY * 0.0021 * this.look.mouse * invert);
     });
 
-    document.addEventListener('keydown', (event) => {
+    this.#listen(document, 'keydown', (event) => {
       if (event.code === 'Escape') this.cancelPreparedGesture();
       if (this.preparedConsumedKeys.has(event.code)) { event.preventDefault(); return; }
       const slot = /^(?:Digit|Numpad)([123])$/.exec(event.code)?.[1];
@@ -151,27 +165,27 @@ export class InputController {
       }
     });
 
-    document.addEventListener('keyup', (event) => {
+    this.#listen(document, 'keyup', (event) => {
       if (this.preparedConsumedKeys.delete(event.code)) { event.preventDefault(); return; }
       if (!this.keys.delete(event.code)) return;
       this.#release(event.code);
     });
 
     // mouse buttons are bindings like keys: Mouse0 is the left button, Mouse2 the right
-    document.addEventListener('mousedown', (event) => {
+    this.#listen(document, 'mousedown', (event) => {
       if (!this.pointerLocked) return;
       const code = `Mouse${event.button}`;
       this.keys.add(code);
       this.#press(code);
     });
 
-    document.addEventListener('mouseup', (event) => {
+    this.#listen(document, 'mouseup', (event) => {
       if (this.touchFocus) return;
       const code = `Mouse${event.button}`;
       if (!this.keys.delete(code)) return;
       this.#release(code);
     });
-    document.addEventListener('contextmenu', (event) => event.preventDefault());
+    this.#listen(document, 'contextmenu', (event) => event.preventDefault());
   }
 
   #setEnabled(enabled) {
