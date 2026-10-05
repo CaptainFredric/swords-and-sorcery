@@ -14,6 +14,9 @@ import { performanceAt } from './menuReactions.mjs';
 import { THIRD_PERSON_SPELL_ARM, THIRD_PERSON_SWORD_ARM, solveArm } from '../game/swordArmIK.mjs';
 import { screenTurn } from '../ui/screenTurn.mjs';
 import { createGaleOrb } from '../game/galeOrb.mjs';
+import { Effects } from '../game/Effects.mjs';
+import { ArmoryShowcase, armoryGestureMotion } from './ArmoryShowcase.mjs';
+import { hasShowcase } from './showcaseSheets.mjs';
 
 // a drag in the game's own frame (the game may be lying sideways on a screen that stays upright)
 // where an element sits across the page in layout pixels (transforms, like a quarter turn of the shell, ignored)
@@ -37,6 +40,8 @@ function disposeObject(root) {
 // nearest thing (the market stall) 4 m away and out of shot, so his blade clears everything however he turns.
 const STAGE = Object.freeze({ x: -1.0, z: 5.5 });
 const CAMERA_FROM = Object.freeze({ x: MENU_SHOTS.main.camera[0], z: MENU_SHOTS.main.camera[2] });
+// a showcase cut short (another card, another screen): how long the camera takes to come away from it
+const SHOWCASE_RELEASE_SEC = 0.6;
 
 // a spell held up in the Armory (a Gale is its own ball of wind, galeOrb.mjs, and lights the hand only softly; glow:
 // the palm light's colour)
@@ -51,13 +56,15 @@ const SPELL_PREVIEW = Object.freeze({
 });
 
 export class MenuScene {
-  constructor(container, { onReady = () => {}, sound = null, voice = null, banner = null } = {}) {
+  constructor(container, { onReady = () => {}, sound = null, voice = null, banner = null, armoryPanel = null } = {}) {
     this.container = container;
     this.onReady = onReady;
     this.sound = sound;
     this.voice = voice;
     // the front door's banner, which the round's fights are framed to the right of
     this.banner = banner;
+    // the Armory's panel: its ultimates are performed in the part of the screen clear of it
+    this.armoryPanel = armoryPanel;
     // the Spellblade's round (the main menu): wanted by the front door, running once his model is in
     this.tour = null;
     this.touringWanted = false;
@@ -176,8 +183,15 @@ export class MenuScene {
       }
       // his rivals and his round (not on the Smooth quality, nor for anyone who asked the web for less motion)
       if (this.tourAllowed !== false) {
-        this.tour = new TourDirector({ scene: this.scene, camera: this.camera, hero: { root: this.characterRoot, instance }, sound: this.sound, voice: this.voice });
+        this.tour = new TourDirector({ scene: this.scene, camera: this.camera, hero: { root: this.characterRoot, instance }, sound: this.sound, voice: this.voice, effects: this.#effects() });
       }
+      // the Armory's ultimates, performed
+      this.showcase = new ArmoryShowcase({
+        scene: this.scene, camera: this.camera, holder: this.characterRoot, instance, sound: this.sound, palmLight: this.magicLight,
+        effects: () => this.#effects(),
+        steel: () => (this.armorySteel ??= createSteelSheen(instance)),
+        hand: () => (this.armoryHand ??= createArmoryHand(instance)),
+      });
       this.#markReady();
     }).catch(() => {
       if (!this.disposed) {
@@ -200,6 +214,18 @@ export class MenuScene {
     this.ready = true;
     this.container.classList.add('menu-spellblade-ready');
     this.onReady();
+  }
+
+  // the menu's one set of effects (the round's fights and the Armory's showcases share it: its lights are part of every
+  // lit shader, so a second set would cost every frame); made with the round, or when a showcase first wants it
+  #effects() {
+    if (!this.effects) {
+      this.effects = new Effects(this.scene, this.camera);
+      this.effects.setDensity(this.particleDensity ?? 1);
+      // (their orbs' and blasts' shaders built off the frame, and kept: Effects.warm)
+      this.effects.warm(this.renderer, this.scene);
+    }
+    return this.effects;
   }
 
   #setShowcasePose() {
@@ -299,6 +325,14 @@ export class MenuScene {
       const at = this.characterRoot.position;
       this.sun.position.set(at.x + CASTLEWARD_LIGHTING.sun.position[0], CASTLEWARD_LIGHTING.sun.position[1], at.z + CASTLEWARD_LIGHTING.sun.position[2]);
       this.sun.target.position.set(at.x, 0, at.z);
+    } else if (this.showcase?.active && this.assetInstance) {
+      // an ultimate chosen in the Armory, performed (ArmoryShowcase.mjs): posed, then what the moment brings
+      const plan = this.showcase.pose(dt);
+      if (plan) {
+        this.assetInstance.animator.apply(plan, dt);
+        this.characterRoot.updateMatrixWorld(true);
+        this.showcase.act(dt);
+      }
     } else if (this.visualKind === 'production' && this.assetInstance) {
       // between stretches of breathing he looks around, shifts, presents the blade, guards or kindles sorcery
       // a reaction to a choice on the front door takes over from the idle life while it lasts
@@ -335,13 +369,7 @@ export class MenuScene {
         this.lastArmoryPose=gesture;
         this.lastArmoryPoseAt=this.clock;
         plan = resolveSpellbladeAnimationPlan({ state:'idle',localTime:t });
-        plan.motion={crouch:gesture.crouch, extra:[
-          {bone:'chest',axis:[0,-1,0],angle:gesture.body},
-          {bone:'spine',axis:[-1,0,0],angle:gesture.crouch*.2},
-        ], solve:(bones)=>{
-          if(gesture.sword) solveArm(bones,THIRD_PERSON_SWORD_ARM,gesture.sword.target,gesture.sword.weight);
-          if(gesture.spell) solveArm(bones,THIRD_PERSON_SPELL_ARM,gesture.spell.target,gesture.spell.weight);
-        }};
+        plan.motion=armoryGestureMotion(gesture);
         this.armoryHand ??= createArmoryHand(this.assetInstance);
         this.armoryHand.set(gesture.fist);
         if (id === 'steel') {
@@ -376,8 +404,25 @@ export class MenuScene {
       const k = easeShot(this.tourBlend);
       this.#placeCamera(lerpShot(this.shot, { camera: round.position.toArray(), target: round.target.toArray(), fov: round.fov }, k), drift.map((d) => d * (1 - k)));
     } else {
-      this.#placeCamera(this.shot, drift);
+      let view = this.shot;
+      let offset = drift;
+      if (this.showcase?.active && this.showcase.framed > 0) {
+        // stepped back to keep the showcase in view, and shaken by what it brings down on the ground
+        const shake = this.showcase.shakeOffset(t);
+        view = lerpShot(this.shot, this.showcase.shot, easeShot(this.showcase.framed));
+        if (shake) offset = drift.map((d, i) => d + shake[i]);
+      }
+      // a showcase cut short: from wherever the camera was, eased to where it is wanted now
+      if (this.cameraRelease) {
+        this.cameraRelease.age += dt;
+        const share = this.cameraRelease.age / SHOWCASE_RELEASE_SEC;
+        view = lerpShot(this.cameraRelease.from, view, easeShot(share));
+        if (share >= 1) this.cameraRelease = null;
+      }
+      this.#placeCamera(view, offset);
     }
+    // the menu's effects (the round's fights and the showcases alike: the round leaves them to the menu)
+    this.effects?.update(dt);
 
     this.world.update(t, this.camera);
     this.renderer.render(this.scene, this.camera);
@@ -475,6 +520,10 @@ export class MenuScene {
    */
   showSpell(spell) {
     this.armoryPreview = null;
+    if (this.showcase?.active) {
+      if (this.presentedShot) this.cameraRelease = { from: this.presentedShot, age: 0 };
+      this.showcase.stop();
+    }
     this.armoryHand?.set(0);
     if(this.previewBits)this.previewBits.visible=false;
     this.armorySteel?.set(0, null);
@@ -526,8 +575,44 @@ export class MenuScene {
 
   previewArmory(id) {
     this.showSpell(id);
-    this.armoryPreview = { id, started: this.clock, from:this.clock-(this.lastArmoryPoseAt??-10)<.1 ? this.lastArmoryPose : null };
     this.reaction=null;
+    if (this.performs(id)) {
+      this.lastArmoryPoseAt = null;
+      this.showcase.start(id, this.#showcaseView());
+      return;
+    }
+    this.armoryPreview = { id, started: this.clock, from:this.clock-(this.lastArmoryPoseAt??-10)<.1 ? this.lastArmoryPose : null };
+  }
+
+  /**
+   * Whether choosing `id` now begins a showcase (an ultimate, on his own model, for anyone not asking for less motion,
+   * and not the one already being performed): it brings its own sounds, in place of the card's cue. (Pressed again
+   * while it plays, the card is heard as any card is, and the showcase goes on.)
+   */
+  performs(id) {
+    return hasShowcase(id) && Boolean(this.showcase) && this.visualKind === 'production' && !this.touring
+      && !(this.showcase.active && this.showcase.sheet.id === id)
+      && !globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+  }
+
+  // how the Armory's camera looks now, and the part of the screen clear of its panel, for a showcase's shot
+  #showcaseView() {
+    const shot = this.shotTo;
+    const canvas = this.renderer.domElement;
+    const panel = this.armoryPanel;
+    let clear = [0.1, 0.97];
+    if (panel?.offsetWidth && canvas.clientWidth > 0) {
+      const edge = (layoutLeft(panel) + panel.offsetWidth - layoutLeft(canvas)) / canvas.clientWidth;
+      // (a panel across most of a narrow screen: the showcase takes the middle)
+      clear = edge > 0.7 ? [0.1, 0.97] : [Math.max(0.05, edge + 0.02), 0.97];
+    }
+    return { look: [shot.target[0] - shot.camera[0], shot.target[2] - shot.camera[2]], aspect: this.camera.aspect, clear, fov: shot.fov };
+  }
+
+  /** How dense the effects' cosmetic particles are (the render quality: applySettings PARTICLE_DENSITY). */
+  setParticleDensity(density) {
+    this.particleDensity = density;
+    this.effects?.setDensity(density);
   }
 
   #previewParticles(id,age,strength) {
@@ -602,6 +687,7 @@ export class MenuScene {
   }
 
   dispose() {
+    this.showcase?.dispose();
     this.armoryHand?.dispose();
     this.previewBits?.removeFromParent();
     this.previewBitGeometry?.dispose();

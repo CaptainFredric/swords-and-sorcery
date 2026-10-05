@@ -54,3 +54,15 @@ test('sound feedback honors mute, zero effects, zero master and suspended audio 
   }
   assert.equal(playArmorySound({ running: false }, 'vortex'), null);
 });
+
+test('an ultimate\'s showcase is given its whole length before the model is restored; a spell its short gesture', () => {
+  const lengths = [];
+  const selection = createArmorySelection({
+    play: () => null, preview: () => {}, restore: () => {},
+    schedule: (fn, ms) => { lengths.push(ms); return lengths.length; }, unschedule: () => {},
+  });
+  selection.select('chivalry', 'sunder', () => {});
+  selection.select('fireball', 'fireball', () => {});
+  assert.ok(lengths[0] > 9000, `Spells & Chivalry ${lengths[0]} ms`);
+  assert.equal(lengths[1], 1500);
+});

@@ -25,7 +25,7 @@ import { Debris, cutSword, dizzyStars, dressRival, mendSword, shatterKnight, whi
 
 const RUN_CLIP_SPEED = 7.5;         // the Run clip's own pace (m/s): the stride rate follows the actual pace
 // each rival's colours: steel tint and the glow behind the visor
-const RIVAL_DRESS = Object.freeze([
+export const RIVAL_DRESS = Object.freeze([
   { tint: [0.5, 0.5, 0.56], visor: 0xff5a2a },       // the Ashen Knight: blackened steel, ember eyes
   { tint: [0.6, 1.08, 0.58], visor: 0x9dff6a },      // the Verdant Knight
   { tint: [1.3, 1.02, 0.55], visor: 0xffc84a },      // the Gilded Knight
@@ -53,16 +53,18 @@ function seeded(seed) {
 export class TourDirector {
   /**
    * scene/camera: the menu's; hero: { root (the group the knight stands in), instance }; sound/voice: optional
-   * SoundEngine and VoiceBank for the fights' steel, fire and words.
+   * SoundEngine and VoiceBank for the fights' steel, fire and words; effects: the menu's own Effects, when it has
+   * them (the round then leaves updating them to the menu).
    */
-  constructor({ scene, camera, hero, sound = null, voice = null }) {
+  constructor({ scene, camera, hero, sound = null, voice = null, effects = null }) {
     this.scene = scene;
     this.camera = camera;
     this.hero = hero;
     this.sound = sound;
     this.voice = voice;
     this.path = buildTourPath();
-    this.effects = new Effects(scene, camera);
+    this.effects = effects ?? new Effects(scene, camera);
+    this.ownsEffects = !effects;
     this.debris = new Debris(scene, { onLand: (point, impact) => this.#clatter(point, impact) });
     this.time = 0;
     this.lastMoment = null;
@@ -218,7 +220,7 @@ export class TourDirector {
     this.debris.update(dt);
     for (const rival of this.rivals) rival?.flag?.update(this.time);
     this.#stepStars();
-    this.effects.update(dt);
+    if (this.ownsEffects) this.effects.update(dt);
     this.lastMoment = moment;
     return this.#camera(moment, dt);
   }
