@@ -159,14 +159,16 @@ export class GameLink {
   }
 
   /** A solo mode: on the server when it is there, otherwise here. */
-  startSolo(mode, name, worldId) {
+  startSolo(mode, name, worldId, botSkill) {
+    // (how well a Bot Duel's rival plays, when it was chosen)
+    const args = [mode, name, worldId, ...(botSkill ? [botSkill] : [])];
     if (this.status === 'online') {
       this.hosting = 'remote';
-      this.remote.startSolo(mode, name, worldId);
+      this.remote.startSolo(...args);
       return;
     }
     this.hosting = 'local';
-    this.local.startSolo(mode, name, worldId);
+    this.local.startSolo(...args);
   }
 
   // online play needs the server; without it, Seek a Duel offers the honest next best thing: a bot, here

@@ -116,7 +116,7 @@ export class GameSocket {
 
   createRoom(name) { this.send({ type: 'createRoom', name }); }
   quickPlay(name) { this.send({ type: 'quickPlay', name }); }
-  startSolo(mode, name, worldId) { this.send({ type: 'startSolo', mode, name, worldId }); }
+  startSolo(mode, name, worldId, botSkill) { this.send({ type: 'startSolo', mode, name, worldId, ...(botSkill ? { botSkill } : {}) }); }
   joinRoom(code, name) { this.send({ type: 'joinRoom', code: code.trim().toUpperCase(), name }); }
   startMatch() { this.send({ type: 'startMatch' }); }
   arenaReady(ready) { this.send({ type: 'arenaReady', ready: Boolean(ready) }); }

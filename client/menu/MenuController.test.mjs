@@ -8,7 +8,7 @@ function harness() {
     quickPlay: (name) => calls.push(['quickPlay', name]),
     createRoom: (name) => calls.push(['createRoom', name]),
     joinRoom: (code, name) => calls.push(['joinRoom', code, name]),
-    startSolo: (mode, name) => calls.push(['startSolo', mode, name]),
+    startSolo: (mode, name, worldId, botSkill) => calls.push(['startSolo', mode, name, ...(botSkill ? [botSkill] : [])]),
   };
   const store = new Map();
   const storage = {
@@ -27,9 +27,19 @@ test('Quick Play, Bot Duel and Practice are distinct authoritative actions', () 
 
   assert.deepEqual(calls, [
     ['quickPlay', 'Aden'],
-    ['startSolo', 'BOT_DUEL', 'Aden'],
+    ['startSolo', 'BOT_DUEL', 'Aden', 'knight'],
     ['startSolo', 'PRACTICE', 'Aden'],
   ]);
+});
+
+test('the Bot Duel\'s rival is chosen and remembered: the Knight until another is', () => {
+  const { controller, calls, store } = harness();
+  assert.equal(controller.botSkill(), 'knight');
+  assert.equal(controller.chooseBotSkill('spellblade'), 'spellblade');
+  assert.equal(store.get('ss-bot-skill'), 'spellblade');
+  controller.botDuel('Aden');
+  assert.deepEqual(calls.at(-1), ['startSolo', 'BOT_DUEL', 'Aden', 'spellblade']);
+  assert.equal(controller.chooseBotSkill('grandmaster'), 'knight', 'nothing made up');
 });
 
 test('menu actions normalize names once and persist the accepted identity', () => {

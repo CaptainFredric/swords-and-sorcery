@@ -7,6 +7,7 @@ import { recordChallengeFact, resetChallengeTracking } from './challenges.mjs';
 import { normalizePreparedSpells } from '../src/preparedSpells.mjs';
 import { freshStagger } from '../src/stagger.mjs';
 import { DEFAULT_ULTIMATE, ULTIMATES, isUltimate } from '../src/ultimates.mjs';
+import { BOT_SKILLS, botSkillId } from './botSkill.mjs';
 import { beginPeace } from './peace.mjs';
 
 const COUNTDOWN_SEC = 3;
@@ -107,8 +108,21 @@ export class Room {
     this.scoreToWin = this.policy.scoreToWin;
     this.autoStartAt = null;
     this.autoStartAfterSec = isPrivate ? AUTO_START_PRIVATE_SEC : AUTO_START_PUBLIC_SEC;
-    // the peace a match opens in (peace.mjs)
+    // how well the mode's bots play (botSkill.mjs), and the peace a match opens in (peace.mjs)
+    this.botSkill = botSkillId(null);
     this.peace = null;
+  }
+
+  /** How well this room's bots play (a Bot Duel's rival): one of BOT_SKILLS, the Knight's otherwise. */
+  setBotSkill(skill) {
+    this.botSkill = botSkillId(skill);
+    for (const actor of this.players.values()) if (actor.actorKind === 'bot') this.#skilled(actor);
+  }
+
+  // a bot given the room's skill, and the name that goes with it (its first rival only: a second keeps its number)
+  #skilled(actor) {
+    actor.botSkill = this.botSkill;
+    if (actor.rivalIndex === 0) actor.name = BOT_SKILLS[this.botSkill].name;
   }
 
   addPlayer({ id, token, name, spell = DEFAULT_SPELL, ultimate = DEFAULT_ULTIMATE, preparedSpells = [] }, nowSec) {
@@ -176,11 +190,13 @@ export class Room {
     if (this.mode !== GAME_MODES.BOT_DUEL) return;
     const existingBots = [...this.players.values()].filter((p) => p.actorKind === 'bot');
     for (let i = existingBots.length; i < this.policy.botCount; i += 1) {
-      this.addServerActor({
+      const actor = this.addServerActor({
         id: `bot-${this.code}-${i + 1}`,
-        name: i === 0 ? 'Rival Spellblade' : `Rival ${i + 1}`,
+        name: i === 0 ? BOT_SKILLS[this.botSkill].name : `Rival ${i + 1}`,
         actorKind: 'bot',
       }, nowSec);
+      actor.rivalIndex = i;
+      this.#skilled(actor);
     }
   }
 

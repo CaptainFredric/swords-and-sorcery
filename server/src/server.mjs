@@ -344,6 +344,8 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
       }
       const room = roomManager.createSoloRoom(message.mode, time, arenaOrDefault(message.worldId));
       const player = createNetworkPlayer(session, room, message.name);
+      // (how well the rival plays: the player's choice, the Knight's otherwise)
+      room.setBotSkill(message.botSkill);
       room.provisionModeActors(time);
       room.armAutoStart(time);
       attachPlayer(session, room, player);

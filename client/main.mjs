@@ -521,6 +521,30 @@ soloArena.addEventListener('click', (event) => {
   showSoloArena();
 });
 showSoloArena();
+// the Bot Duel's rival: how well it plays (the same knight, better or worse at the game)
+const soloRival = $('#solo-rival');
+const RIVAL_NOTES = Object.freeze({
+  squire: 'Slow to react, and makes mistakes.',
+  knight: 'A steady rival.',
+  champion: 'Times its guard, punishes openings, leads its spells.',
+  spellblade: 'The Spellblade as he fights at his best. No extra health, no cheating.',
+});
+function showSoloRival() {
+  const chosen = menuController.botSkill();
+  for (const chip of soloRival.querySelectorAll('[data-skill]')) {
+    const on = chip.dataset.skill === chosen;
+    chip.classList.toggle('mine', on);
+    chip.setAttribute('aria-checked', String(on));
+  }
+  $('#solo-rival-note').textContent = RIVAL_NOTES[chosen] ?? '';
+}
+soloRival.addEventListener('click', (event) => {
+  const chip = event.target.closest?.('[data-skill]');
+  if (!chip) return;
+  menuController.chooseBotSkill(chip.dataset.skill);
+  showSoloRival();
+});
+showSoloRival();
 $('#bot-duel').addEventListener('click', () => runMenuAction(menuController.botDuel(nameInput.value), SCREEN_IDS.SOLO_MENU));
 $('#practice-mode').addEventListener('click', () => runMenuAction(menuController.practice(nameInput.value), SCREEN_IDS.SOLO_MENU));
 $('#create-room').addEventListener('click', () => runMenuAction(menuController.createPrivate(nameInput.value), SCREEN_IDS.PRIVATE_MENU));

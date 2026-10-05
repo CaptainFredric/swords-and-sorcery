@@ -1,4 +1,5 @@
 import { arenaOrDefault } from '../../shared/src/modes.mjs';
+import { botSkillId } from '../../shared/sim/botSkill.mjs';
 
 const MAX_NAME_LENGTH = 18;
 
@@ -35,6 +36,17 @@ export class MenuController {
     return arena;
   }
 
+  /** How well the Bot Duel's rival plays (remembered; the Knight until another is chosen). */
+  botSkill() {
+    return botSkillId(this.storage?.getItem?.('ss-bot-skill'));
+  }
+
+  chooseBotSkill(skill) {
+    const chosen = botSkillId(skill);
+    this.storage?.setItem?.('ss-bot-skill', chosen);
+    return chosen;
+  }
+
   #withName(rawName, action) {
     const name = normalizeName(rawName);
     if (!name) return { ok: false, error: 'Enter a Spellblade name.' };
@@ -56,7 +68,7 @@ export class MenuController {
   }
 
   botDuel(rawName) {
-    return this.#withName(rawName, (name) => this.socket.startSolo('BOT_DUEL', name, this.soloArena()));
+    return this.#withName(rawName, (name) => this.socket.startSolo('BOT_DUEL', name, this.soloArena(), this.botSkill()));
   }
 
   practice(rawName) {

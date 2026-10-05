@@ -90,7 +90,7 @@ export class LocalHost {
   }
 
   // --- a solo room: you, and the bots or dummies the mode brings ---
-  startSolo(mode, name, worldId) {
+  startSolo(mode, name, worldId, botSkill) {
     if (!SOLO_MODES.has(mode)) {
       this.#deliver({ type: 'error', message: 'Unknown solo mode' });
       return;
@@ -99,6 +99,7 @@ export class LocalHost {
     const time = this.now();
     const room = this.rooms.createSoloRoom(mode, time, arenaOrDefault(worldId));
     const player = room.addPlayer({ id: randomId(), token: randomId(), name: String(name || 'Spellblade').slice(0, 18), spell: this.spell, ultimate: this.ultimateId, preparedSpells: this.preparedSpells }, time);
+    room.setBotSkill(botSkill);
     room.provisionModeActors(time);
     room.armAutoStart(time);
     this.room = room;

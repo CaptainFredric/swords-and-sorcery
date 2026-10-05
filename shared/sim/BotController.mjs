@@ -1,11 +1,13 @@
 import { findSwordWorldHit, surfaceHeightAt } from '../src/collision.mjs';
 import { beginAttack, endAttack, setGuard, tryCastSpell, tryDash, tryUltimate } from './combat.mjs';
+import { SWORD_CHAIN, SWORD_STRIKE_TIMES } from '../src/combat.mjs';
 import { PROWESS } from '../src/prowess.mjs';
-import { vortexing } from '../src/ultimates.mjs';
+import { ultimateStartup, vortexing } from '../src/ultimates.mjs';
 import { spellFor } from '../src/spells.mjs';
 import { postureOf } from '../src/body.mjs';
 import { steelStrength } from '../src/steel.mjs';
 import { botProfile, nextCycledSpell } from './botBehavior.mjs';
+import { botSkill, reactionDelay } from './botSkill.mjs';
 import { wayToward } from './botNav.mjs';
 import { peaceHolds } from './peace.mjs';
 
@@ -13,12 +15,27 @@ const MELEE_RANGE = 2.25;
 const FIREBALL_RANGE = 11;
 const DEFENSE_THREAT_RANGE = 3.1;
 const THINK_INTERVAL_SEC = 0.18;
+// a foe's sword reaches this far (its blade's length and a body's thickness): inside it, its swing can land; a knight
+// stepping back gets out of it at about this speed (m/s)
+const FOE_REACH = 2.8;
+const BACKSTEP_SPEED = 3.2;
+// a foe open to a blow is swung at from this far (its blade reaches further than the ordinary, careful MELEE_RANGE)
+const PUNISH_RANGE = 2.6;
+// a parry: the guard raised this long before the blade it saw coming arrives (within the parry window either side of
+// it), and held this long
+const PARRY = Object.freeze({ lead: 0.1, hold: 0.32 });
+// stepping out of a swing's reach: held until a moment after its blow would have landed
+const SPACE_AFTER_SEC = 0.15;
+// backing off to heal: until its health is back to this, or its foe is upon it, or this long has passed
+const RETREAT = Object.freeze({ healed: 70, upon: 2.6, maxSec: 12, ahead: 15 });
+// a spell coming at it: slipped if it will pass this near, this soon
+const DODGE = Object.freeze({ near: 1.2, soonSec: 0.7 });
+// a Gale's push carries a foe this far: a drop within it behind them is worth a gust
+const GALE_DROP = 4;
 // spinning in a Vortex, a bot holds the blade's emphasis within `blade` metres of its foe and the fire's from `fire`
 const VORTEX_STEER = Object.freeze({ blade: 3.2, fire: 5.5 });
 // how near a foe must be for a bot to call its ultimate
 const ULTIMATE_RANGE = 5;
-const MIN_REACTION_SEC = 0.22;
-const REACTION_JITTER_SEC = 0.2;
 const AVOID_PROBE_RANGE = 1.65;
 const AVOID_DURATION_SEC = 0.62;
 const PROGRESS_SAMPLE_SEC = 0.7;
@@ -51,10 +68,12 @@ function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
 
-function humanTargets(room) {
+// the foes a bot fights: players (connected and alive) unless it is told otherwise (a bot against a bot, in a test)
+function foesOf(room, actor, targetKinds = ['human']) {
   return [...room.players.values()].filter((player) => (
-    player.actorKind === 'human'
-    && player.connected
+    player !== actor
+    && targetKinds.includes(player.actorKind)
+    && (player.actorKind !== 'human' || player.connected)
     && player.alive
   ));
 }
@@ -63,10 +82,10 @@ function distance2d(a, b) {
   return Math.hypot(b.position.x - a.position.x, b.position.z - a.position.z);
 }
 
-function nearestHuman(room, actor) {
+function nearestHuman(room, actor, targetKinds) {
   let best = null;
   let bestDistance = Infinity;
-  for (const human of humanTargets(room)) {
+  for (const human of foesOf(room, actor, targetKinds)) {
     const distance = distance2d(actor, human);
     if (distance < bestDistance) {
       best = human;
@@ -82,6 +101,27 @@ function yawToward(from, to) {
   return Math.atan2(-dx, -dz);
 }
 
+// where a spell thrown now should go: at the foe, or (lead) where they are heading by the time it gets there, with
+// the thrower's own scatter (aimError)
+function spellAim(from, to, skill, random, speed = 24) {
+  let target = to;
+  if (skill.lead > 0 && to.velocity) {
+    const flight = distance2d(from, to) / speed;
+    target = { ...to, position: { x: to.position.x + to.velocity.x * flight * skill.lead, y: to.position.y, z: to.position.z + to.velocity.z * flight * skill.lead } };
+  }
+  const aim = aimDirection(from, target);
+  if (!(skill.aimError > 0)) return aim;
+  const turn = (random() * 2 - 1) * skill.aimError;
+  const lift = (random() * 2 - 1) * skill.aimError * 0.5;
+  const c = Math.cos(turn);
+  const sn = Math.sin(turn);
+  const x = aim.x * c + aim.z * sn;
+  const z = -aim.x * sn + aim.z * c;
+  const y = aim.y + lift;
+  const n = Math.hypot(x, y, z) || 1;
+  return { x: x / n, y: y / n, z: z / n };
+}
+
 function aimDirection(from, to) {
   const dx = to.position.x - from.position.x;
   // (at the middle of the body as it stands or crouches, from the casting hand)
@@ -91,7 +131,7 @@ function aimDirection(from, to) {
   return { x: dx / magnitude, y: dy / magnitude, z: dz / magnitude };
 }
 
-function ensureAi(actor, nowSec, random) {
+function ensureAi(actor, nowSec, random, skill) {
   if (actor.ai) {
     actor.ai.avoidUntil ??= -Infinity;
     actor.ai.avoidDirection ??= actor.ai.strafeDirection ?? 1;
@@ -105,7 +145,7 @@ function ensureAi(actor, nowSec, random) {
     postKill: null,
     patrol: null,
     nextThinkAt: nowSec,
-    nextDefensiveDecisionAt: nowSec + MIN_REACTION_SEC + random() * REACTION_JITTER_SEC,
+    nextDefensiveDecisionAt: nowSec + reactionDelay(skill, random),
     guardUntil: -Infinity,
     attackReleaseAt: -Infinity,
     strafeDirection: random() < 0.5 ? -1 : 1,
@@ -123,30 +163,125 @@ function releaseExpiredActions(room, actor, ai, nowSec) {
   if (actor.guarding && nowSec >= ai.guardUntil) setGuard(room, actor.id, false, nowSec);
 }
 
-function considerDefense(room, actor, target, distance, ai, nowSec, random, aggression, profile) {
+function considerDefense(room, actor, target, distance, ai, nowSec, random, aggression, profile, skill) {
+  // a parry it decided on: its guard goes up just before the blade it saw coming arrives
+  if (Number.isFinite(ai.parryAt)) {
+    if (nowSec < ai.parryAt) return;
+    ai.parryAt = null;
+    if (!actor.guarding && !actor.attackActive && setGuard(room, actor.id, true, nowSec)) ai.guardUntil = nowSec + PARRY.hold;
+    return;
+  }
   if (nowSec < ai.nextDefensiveDecisionAt) return;
-  ai.nextDefensiveDecisionAt = nowSec + MIN_REACTION_SEC + random() * REACTION_JITTER_SEC;
+  ai.nextDefensiveDecisionAt = nowSec + reactionDelay(skill, random);
+
+  // a spell coming at it: slipped aside
+  if (skill.dodge > 0 && dodgeSpell(room, actor, target, ai, nowSec, random, skill)) return;
 
   const threatened = distance <= DEFENSE_THREAT_RANGE && target.attackActive;
-  if (!threatened || actor.guarding || actor.attackActive || actor.attackHeld) return;
+  if (!threatened || actor.guarding) return;
+  const contact = nextContactAt(target, nowSec);
+  // its own swing under way: a knight who will not trade a blow it loses lets it go when the foe's lands first
+  if (actor.attackActive || actor.attackHeld) {
+    const mine = nextContactAt(actor, nowSec) ?? (actor.attackHeld ? nowSec + SWORD_STRIKE_TIMES[0] : null);
+    if (!skill.yields || contact === null || (mine !== null && mine <= contact) || opening(target, nowSec)) return;
+    endAttack(room, actor.id, nowSec);
+    ai.attackReleaseAt = -Infinity;
+    if (actor.attackActive) return;
+  }
 
-  if (random() < profile.guard * aggression && setGuard(room, actor.id, true, nowSec)) {
+  // (a guard about to break is no guard at all)
+  const spent = (actor.guardStamina ?? 0) < skill.guardFloor;
+  // a parry: timed to the strike it can see coming (when that swing began, and which strike of it is next)
+  if (!spent && contact !== null && skill.parry > 0 && random() < skill.parry && contact - PARRY.lead >= nowSec) {
+    ai.parryAt = contact - PARRY.lead;
+    return;
+  }
+  // out of the swing's reach instead, if it can get there before the blade does
+  const clear = contact !== null && (FOE_REACH + 0.3 - distance) / BACKSTEP_SPEED < contact - nowSec;
+  if (clear && (spent || (skill.spacing > 0 && random() < skill.spacing))) {
+    ai.spaceUntil = contact + SPACE_AFTER_SEC;
+    return;
+  }
+  if (spent) return;
+  if (random() < Math.min(0.97, profile.guard * skill.guard) * aggression && setGuard(room, actor.id, true, nowSec)) {
     ai.guardUntil = nowSec + 0.24 + random() * 0.28;
   }
 }
 
+// when a foe's next blow will land (host seconds), as anyone can read it off their swing: its strike's swing has
+// visibly begun (the chain under way that long), so its contact is known; null if none is on its way (whether they
+// mean to swing again is theirs: never read)
+function nextContactAt(foe, nowSec = Infinity) {
+  if (!foe.attackActive || !Number.isFinite(foe.attackStartedAt)) return null;
+  const strike = foe.attackNextStrike ?? 0;
+  if (strike >= SWORD_STRIKE_TIMES.length) return null;
+  if (nowSec < foe.attackStartedAt + SWORD_CHAIN.starts[strike]) return null;
+  return foe.attackStartedAt + SWORD_STRIKE_TIMES[strike];
+}
+
+// a foe's spell in flight that will pass close by, soon: a dash aside, across its path (when the dash is ready)
+function dodgeSpell(room, actor, foe, ai, nowSec, random, skill) {
+  for (const projectile of room.projectiles?.values?.() ?? []) {
+    if (projectile.ownerId !== foe.id || !projectile.velocity) continue;
+    const rx = actor.position.x - projectile.position.x;
+    const rz = actor.position.z - projectile.position.z;
+    const vx = projectile.velocity.x;
+    const vz = projectile.velocity.z;
+    const speed2 = vx * vx + vz * vz;
+    if (speed2 < 1e-6) continue;
+    const t = (rx * vx + rz * vz) / speed2;
+    if (t <= 0 || t > DODGE.soonSec) continue;
+    const miss = Math.hypot(rx - vx * t, rz - vz * t);
+    if (miss > DODGE.near || random() >= skill.dodge) continue;
+    const speed = Math.sqrt(speed2);
+    // across its path, to the side it would already pass (or its own circling side if dead on)
+    const side = Math.sign(-vz * rx + vx * rz) || ai.strafeDirection || 1;
+    if (tryDash(room, actor.id, { x: (-vz / speed) * side, z: (vx / speed) * side }, nowSec)) return true;
+  }
+  return false;
+}
+
 // Ordinary projectiles now leave along the current authoritative aim. Keep a gathered spell trained on the
 // target's body as it moves, including its height, using the same hand to body direction used to start the cast.
-function aimGatheredProjectile(actor, target) {
+function aimGatheredProjectile(actor, target, skill = null) {
   if (!['fireball', 'frostfire'].includes(actor.pendingSpell?.spell)) return;
-  const direction = aimDirection(actor, target);
-  actor.yaw = yawToward(actor, target);
+  const direction = skill?.lead > 0 ? spellAim(actor, target, { ...skill, aimError: 0 }, Math.random) : aimDirection(actor, target);
+  actor.yaw = Math.atan2(-direction.x, -direction.z);
   actor.pitch = Math.asin(Math.max(-1, Math.min(1, direction.y)));
   actor.input = { ...actor.input, yaw: actor.yaw, pitch: actor.pitch };
 }
 
-function chooseCombatIntent(room, actor, target, distance, ai, nowSec, random, aggression, profile, peaceful = false) {
-  if (actor.guarding || actor.attackActive || actor.attackHeld || actor.pendingSpell) return;
+// a foe reeling (a parry, a broken guard or balance) or bracing into an ultimate: worth a dash to reach
+function reeling(foe, nowSec) {
+  return (foe.staggerUntil ?? -Infinity) > nowSec || Boolean(ultimateStartup(foe, nowSec));
+}
+
+// a foe open to a blow: reeling, gathering a spell, or between chains (their last one spent, the next not yet able to
+// begin: as plain as the recovery of their third strike)
+function opening(foe, nowSec) {
+  return reeling(foe, nowSec) || Boolean(foe.pendingSpell)
+    || (!foe.attackActive && !foe.guarding && (foe.attackRestartAt ?? -Infinity) > nowSec + 0.15);
+}
+
+// a drop behind a foe, along the way a gust from `actor` would push them: within a Gale's carry
+function dropBehind(actor, foe, world) {
+  if (!world?.floors?.length) return false;
+  const dx = foe.position.x - actor.position.x;
+  const dz = foe.position.z - actor.position.z;
+  const length = Math.hypot(dx, dz) || 1;
+  for (let d = 1; d <= GALE_DROP; d += 1) {
+    const x = foe.position.x + (dx / length) * d;
+    const z = foe.position.z + (dz / length) * d;
+    const ground = surfaceHeightAt(x, z, foe.position.y + 0.5, world);
+    if (ground === null || ground < foe.position.y - DROP_TOO_FAR) return true;
+  }
+  return false;
+}
+
+function chooseCombatIntent(room, actor, target, distance, ai, nowSec, random, aggression, profile, skill = botSkill(actor), peaceful = false, world = room.world) {
+  // (a guard up for a blow that has been turned is let go at once to answer the opening it made: a parry followed up)
+  const followUp = actor.guarding && skill.punish > 0 && !peaceful && opening(target, nowSec) && distance <= PUNISH_RANGE;
+  if ((actor.guarding && !followUp) || actor.attackActive || actor.attackHeld || actor.pendingSpell) return;
   // going round something to reach its foe: nothing to throw at, nothing to dash at, until it is round
   if (ai.goingRound && !profile.flee) return;
   // the opening peace: it starts nothing (a ward against a foe coming at it is no attack)
@@ -154,6 +289,9 @@ function chooseCombatIntent(room, actor, target, distance, ai, nowSec, random, a
     if (profile.ward && shouldHarden(room, actor, target, distance, nowSec, wardReadyAt(actor, ai, profile))) callWard(room, actor, ai, profile, target, nowSec);
     return;
   }
+  // backing off to heal: it starts nothing (turning to throw a spell would turn it back toward its foe)
+  const retreating = nowSec < (ai.retreatUntil ?? -Infinity);
+  const open = opening(target, nowSec);
 
   // a kind that runs (Sir Runs-a-Lot): away and across when pressed, with a dash to the side, never a blow
   if (profile.flee) {
@@ -169,7 +307,9 @@ function chooseCombatIntent(room, actor, target, distance, ai, nowSec, random, a
 
   // a swordsman with a full prowess meter calls its ultimate as a fight is joined (a foe close, not already reeling
   // itself), never at nothing
-  if (profile.sword && (actor.prowess ?? 0) >= PROWESS.full && !actor.ultimateState && distance <= ULTIMATE_RANGE) {
+  // (a better knight calls it when it will tell: a foe reeling or low, or a moment's opening)
+  const telling = !skill.smartUltimate || open || (target.health ?? 100) <= 50 || (!target.guarding && !target.attackActive);
+  if (profile.sword && !retreating && telling && (actor.prowess ?? 0) >= PROWESS.full && !actor.ultimateState && distance <= ULTIMATE_RANGE) {
     if (tryUltimate(room, actor.id, nowSec)) return;
   }
 
@@ -185,25 +325,42 @@ function chooseCombatIntent(room, actor, target, distance, ai, nowSec, random, a
   }
 
   // a swordsman lunges in from just beyond reach, to close to the blade
-  if (profile.lunge && distance >= profile.lunge[0] && distance <= profile.lunge[1] && random() < 0.45 * aggression) {
+  if (!retreating && profile.lunge && distance >= profile.lunge[0] && distance <= profile.lunge[1] && random() < 0.45 * aggression) {
+    const direction = aimDirection(actor, target);
+    if (tryDash(room, actor.id, { x: direction.x, z: direction.z }, nowSec)) return;
+  }
+  // an opening a dash away: a better knight closes on it at once
+  if (!retreating && skill.punish > 0 && profile.sword && reeling(target, nowSec) && distance > MELEE_RANGE && distance <= 5.5 && random() < skill.punish) {
     const direction = aimDirection(actor, target);
     if (tryDash(room, actor.id, { x: direction.x, z: direction.z }, nowSec)) return;
   }
 
-  if (profile.sword && distance <= MELEE_RANGE) {
+  // a raised guard: a patient knight answers it with a spell, which a guard does not stop
+  const projectile = profile.spells && ['fireball', 'frostfire'].includes(actor.spell);
+  const answerGuard = skill.patience > 0 && target.guarding && !open && projectile && nowSec >= (actor.spellReadyAt ?? 0) && random() < skill.patience;
+  // (a squire now and then swings from just out of reach)
+  const reach = (open && skill.punish > 0 ? PUNISH_RANGE : MELEE_RANGE) + (skill.mistakes > 0 && random() < skill.mistakes ? 0.7 : 0);
+  // (and one who will not trade does not begin a swing into a blow already on its way that lands first)
+  const incoming = skill.yields && distance <= FOE_REACH ? nextContactAt(target, nowSec) : null;
+  const losing = incoming !== null && incoming < nowSec + SWORD_STRIKE_TIMES[0] && !open;
+  if (!retreating && !answerGuard && !losing && profile.sword && distance <= reach) {
     if (beginAttack(room, actor.id, nowSec)) {
-      ai.attackReleaseAt = nowSec + 1.9 + random() * 0.3;
+      // (held a whole chain, or as long as it likes before deciding again; a foe left open, pressed to the end)
+      const [least, spread] = open ? [1.9, 0.3] : skill.chain;
+      ai.attackReleaseAt = nowSec + least + random() * spread;
     }
     return;
   }
 
-  if (profile.spells && random() < 0.42 * aggression) {
+  // (a Gale, to a knight who knows its worth, is for a foe with a drop behind them; otherwise only now and then)
+  const galeWorth = actor.spell !== 'gale' || !(skill.edgeGale > 0) || dropBehind(actor, target, world) || random() >= skill.edgeGale;
+  if (!retreating && profile.spells && galeWorth && (answerGuard || random() < 0.42 * aggression)) {
     // one that turns through its spells casts the next in turn that can reach (a Gale only from close by)
     const spell = profile.spellCycle ? nextCycledSpell(profile.spellCycle, ai.lastSpell, distance, (id) => castRange(spellFor(id))) : actor.spell;
     if (spell && distance <= castRange(spellFor(spell))) {
       const carried = actor.spell;
       actor.spell = spell;
-      if (tryCastSpell(room, actor.id, aimDirection(actor, target), nowSec)) {
+      if (tryCastSpell(room, actor.id, spellAim(actor, target, skill, random), nowSec)) {
         ai.lastSpell = spell;
         // and has it back sooner than a knight would
         if (profile.spellCooldown) actor.spellReadyAt = nowSec + (actor.spellReadyAt - nowSec) * profile.spellCooldown;
@@ -214,10 +371,27 @@ function chooseCombatIntent(room, actor, target, distance, ai, nowSec, random, a
   }
 
   // (a kind that keeps its distance dashes in only from well beyond it)
-  if (distance > (profile.keepRange ? profile.keepRange[1] + 2 : 5) && random() < profile.dash * aggression) {
+  if (!retreating && distance > (profile.keepRange ? profile.keepRange[1] + 2 : 5) && random() < profile.dash * aggression) {
     const direction = aimDirection(actor, target);
     tryDash(room, actor.id, { x: direction.x, z: direction.z }, nowSec);
   }
+}
+
+// a better knight, low and with its foe well ahead, backs off to let its health come back (RETREAT); caught, it fights
+function considerRetreat(actor, foe, distance, ai, nowSec, skill) {
+  if (!(skill.retreat > 0)) return;
+  const backing = nowSec < (ai.retreatUntil ?? -Infinity);
+  if (backing) {
+    const caught = distance <= RETREAT.upon && (foe.attackActive || foe.pendingSpell);
+    if ((actor.health ?? 100) >= RETREAT.healed || caught) {
+      ai.retreatUntil = -Infinity;
+      // (caught, it fights for a while before it tries again)
+      if (caught) ai.retreatAgainAt = nowSec + 4;
+    }
+    return;
+  }
+  const low = (actor.health ?? 100) <= skill.retreat && (foe.health ?? 100) >= (actor.health ?? 100) + RETREAT.ahead;
+  if (low && distance > RETREAT.upon && nowSec >= (ai.retreatAgainAt ?? -Infinity)) ai.retreatUntil = nowSec + RETREAT.maxSec;
 }
 
 // a dash aside (and a little away) from a foe: the way it is already circling
@@ -362,7 +536,7 @@ function arenaMiddle(world) {
   return middle;
 }
 
-function updateMovement(actor, target, distance, ai, aggression, world, nowSec, profile, way = null) {
+function updateMovement(actor, target, distance, ai, aggression, world, nowSec, profile, way = null, skill = botSkill(actor)) {
   let yaw = yawToward(actor, way ? { position: way } : target);
   actor.yaw = yaw;
   actor.pitch = 0;
@@ -432,7 +606,22 @@ function updateMovement(actor, target, distance, ai, aggression, world, nowSec, 
       right = ai.strafeDirection * 0.6;
     }
   }
-  if (actor.guarding || actor.attackActive) forward = Math.min(forward, 0.28);
+  // out of a swing's reach it saw coming (spacing), and back in after it: never standing in it
+  const spacing = !way && nowSec < (ai.spaceUntil ?? -Infinity) && distance < FOE_REACH + 0.3;
+  if (spacing) {
+    forward = -0.9;
+    right = ai.strafeDirection * 0.35;
+  }
+  // backing off to heal: away from its foe, at a run, across and away rather than straight back
+  const retreating = !way && !profile.flee && nowSec < (ai.retreatUntil ?? -Infinity);
+  if (retreating) {
+    yaw += Math.PI - (ai.strafeDirection || 1) * 0.5;
+    actor.yaw = yaw;
+    forward = 1;
+    right = 0;
+    fleeing = true;
+  }
+  if ((actor.guarding || actor.attackActive) && !spacing) forward = Math.min(forward, 0.28);
   // spinning in a Vortex: straight at its foe, to keep them inside the blade, looking at them (its embers go there)
   const spinning = !way && !profile.flee && Boolean(vortexing(actor, nowSec));
   if (spinning) {
@@ -474,7 +663,7 @@ function updateMovement(actor, target, distance, ai, aggression, world, nowSec, 
   // close long gaps at a sprint, but keep enough stamina in reserve to block when the fight starts
   const sprint = forward > 0.4
     && (distance > BOT_SPRINT_DISTANCE || fleeing)
-    && (actor.guardStamina ?? 0) > BOT_SPRINT_STAMINA_RESERVE
+    && (actor.guardStamina ?? 0) > (skill.sprintReserve ?? BOT_SPRINT_STAMINA_RESERVE)
     && nowSec >= ai.escapeUntil
     && nowSec >= ai.avoidUntil;
 
@@ -554,15 +743,15 @@ function beginPostKill(room, actor, fallen, ai, nowSec, random) {
 }
 
 // a live foe close enough to matter (it ends the pause over a body at once)
-function threatNear(room, actor) {
-  const foe = nearestHuman(room, actor);
+function threatNear(room, actor, targetKinds) {
+  const foe = nearestHuman(room, actor, targetKinds);
   return foe && distance2d(actor, foe) <= POST_KILL.threat ? foe : null;
 }
 
 // over the body: a look at it, then a step back and a turn toward whoever is left (or the arena's middle)
-function postKillMovement(room, actor, ai, nowSec) {
+function postKillMovement(room, actor, ai, nowSec, targetKinds) {
   const body = { position: { x: ai.postKill.body.x, z: ai.postKill.body.z } };
-  const next = nearestHuman(room, actor);
+  const next = nearestHuman(room, actor, targetKinds);
   const pk = ai.postKill;
   if (nowSec < pk.confirmUntil) {
     // looking down at it: from where it stands, or after a quick step back or aside
@@ -611,42 +800,45 @@ function patrol(actor, ai, nowSec, random, world) {
 }
 
 /**
- * Every bot's decisions for this tick. The room's opening peace (peace.mjs) holds every one of them off a fight until
- * it ends.
+ * Every bot's decisions for this tick. actorKinds: who is played (bots; the Practice Yard's fighting dummies);
+ * targetKinds: who they fight (players; a bot against a bot in a test); aggression: how readily they press (the
+ * yard's opponents press less). How well each plays is its own (botSkill.mjs); the room's opening peace (peace.mjs)
+ * holds every one of them off a fight until it ends.
  */
 export function stepBotControllers(
   room,
   nowSec,
   world = room.world,
-  { random = Math.random, actorKinds = ['bot'], aggression = 1 } = {},
+  { random = Math.random, actorKinds = ['bot'], targetKinds = ['human'], aggression = 1 } = {},
 ) {
   if (room.state !== 'PLAYING') return;
   const allowedKinds = new Set(actorKinds);
-  const aggressionScale = clamp(aggression, 0.1, 1);
-  const peaceful = peaceHolds(room, nowSec);
+  const peaceful = peaceHolds(room, nowSec, { isPlayer: (actor) => Boolean(actor) && targetKinds.includes(actor.actorKind) });
 
   for (const actor of room.players.values()) {
     if (!allowedKinds.has(actor.actorKind) || !actor.alive) continue;
-    const ai = ensureAi(actor, nowSec, random);
+    const skill = botSkill(actor);
+    const aggressionScale = clamp(aggression * skill.aggression, 0.1, 1);
+    const ai = ensureAi(actor, nowSec, random, skill);
     releaseExpiredActions(room, actor, ai, nowSec);
 
     let target = ai.targetId ? room.players.get(ai.targetId) : null;
     // its foe has just fallen: stop, be sure, and move on (POST_KILL)
     if (target && !target.alive && !ai.postKill) beginPostKill(room, actor, target, ai, nowSec, random);
     if (ai.postKill) {
-      const threat = threatNear(room, actor);
+      const threat = threatNear(room, actor, targetKinds);
       if (nowSec >= ai.postKill.until || threat) {
         ai.postKill = null;
         ai.nextThinkAt = Math.max(ai.nextThinkAt, nowSec + (threat ? 0 : THINK_INTERVAL_SEC));
       } else {
         if (actor.attackHeld) endAttack(room, actor.id, nowSec);
-        postKillMovement(room, actor, ai, nowSec);
+        postKillMovement(room, actor, ai, nowSec, targetKinds);
         actor.yaw = actor.input.yaw;
         continue;
       }
     }
-    if (!target || target.actorKind !== 'human' || !target.connected || !target.alive) {
-      target = nearestHuman(room, actor);
+    if (!target || !targetKinds.includes(target.actorKind) || (target.actorKind === 'human' && !target.connected) || !target.alive) {
+      target = nearestHuman(room, actor, targetKinds);
       ai.targetId = target?.id ?? null;
     }
 
@@ -667,13 +859,16 @@ export function stepBotControllers(
     const pressed = profile.flee && distance < (profile.keepRange?.[0] ?? 0);
     const way = pressed ? null : wayToward(world, actor, target, ai, nowSec);
     ai.goingRound = Boolean(way);
-    updateMovement(actor, target, distance, ai, aggressionScale, world, nowSec, profile, way);
-    considerDefense(room, actor, target, distance, ai, nowSec, random, aggressionScale, profile);
-    aimGatheredProjectile(actor, target);
+    considerRetreat(actor, target, distance, ai, nowSec, skill);
+    updateMovement(actor, target, distance, ai, aggressionScale, world, nowSec, profile, way, skill);
+    considerDefense(room, actor, target, distance, ai, nowSec, random, aggressionScale, profile, skill);
+    aimGatheredProjectile(actor, target, skill);
 
-    if (nowSec < ai.nextThinkAt) continue;
-    ai.nextThinkAt = nowSec + THINK_INTERVAL_SEC;
-    chooseCombatIntent(room, actor, target, distance, ai, nowSec, random, aggressionScale, profile, peaceful);
-    aimGatheredProjectile(actor, target);
+    // an opening is answered at once by a knight who punishes it; otherwise it thinks at its own pace
+    const punishNow = skill.punish > 0 && profile.sword && distance <= PUNISH_RANGE && opening(target, nowSec) && !peaceful;
+    if (nowSec < ai.nextThinkAt && !punishNow) continue;
+    ai.nextThinkAt = nowSec + (skill.think ?? THINK_INTERVAL_SEC);
+    chooseCombatIntent(room, actor, target, distance, ai, nowSec, random, aggressionScale, profile, skill, peaceful, world);
+    aimGatheredProjectile(actor, target, skill);
   }
 }
