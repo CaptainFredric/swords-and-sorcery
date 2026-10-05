@@ -99,3 +99,9 @@ test('Chivalry snapshots release the view Guard after an interruption even if it
   assert.equal(localWeaponReleaseForSnapshot(p, 12)?.guard, true);
   assert.equal(localWeaponReleaseForSnapshot({ ...p, guarding: true }, 12), null);
 });
+
+test('in Spells & Chivalry a broken guard lets go of the guard only: the sword, the spell and the dash carry on', () => {
+  const me = 'me';
+  const chivalrous = { alive: true, staggerUntil: 0, guardStamina: 0, ultimateState: { id: 'chivalry', phase: 'active', until: 19 } };
+  assert.deepEqual(localWeaponReleaseForEvent({ type: 'guardBreak', attackerId: 'them', defenderId: me }, me, chivalrous, 12), { attack: false, guard: true });
+});

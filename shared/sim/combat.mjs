@@ -234,12 +234,19 @@ export function cancelAttack(room, playerId, nowSec) {
   if (was) room.events.push({ type: 'attackEnded', playerId, at: nowSec });
 }
 
-export function setGuard(room, playerId, guarding, nowSec) {
+/**
+ * Raise or lower a knight's guard. auto: the raise is the ultimate's own (Spells & Chivalry's commit), not the
+ * knight's hand: it lasts no longer than the ultimate does (stepUltimate). A guard broken in Chivalry cannot be raised
+ * again until `guardBrokenUntil` (breakGuard).
+ */
+export function setGuard(room, playerId, guarding, nowSec, { auto = false } = {}) {
   const player = room.players.get(playerId);
   if (!player || !player.alive) return false;
   player.guardHeld = Boolean(guarding);
+  player.guardAuto = Boolean(guarding) && auto;
   if (guarding && room.state !== 'PLAYING') return false;
-  if (guarding && (player.guardStamina <= 0 || nowSec < player.staggerUntil || ultimateStartup(player, nowSec) || vortexing(player, nowSec))) return false;
+  if (guarding && (player.guardStamina <= 0 || nowSec < player.staggerUntil || nowSec < (player.guardBrokenUntil ?? -Infinity)
+    || ultimateStartup(player, nowSec) || vortexing(player, nowSec))) return false;
   if (player.guarding === Boolean(guarding)) return true;
   player.guarding = Boolean(guarding);
   if (guarding) {
@@ -694,9 +701,7 @@ function landStrike(room, attacker, strikeIndex, target, atSec, nowSec) {
     }
     target.lastGuardDrainAt = nowSec;
     if (guardResult.kind === 'guardBreak') {
-      target.guarding = false;
-      if (combatActionPolicy(target, nowSec).concurrent) interruptOrdinaryActions(room, target, nowSec);
-      target.staggerUntil = nowSec + (GAME.guardBreakStaggerMs / 1000) * (1 + MELEE_CONTACT.impactBreakStagger * physical.impact);
+      breakGuard(target, (GAME.guardBreakStaggerMs / 1000) * (1 + MELEE_CONTACT.impactBreakStagger * physical.impact), nowSec);
       if (!combatActionPolicy(attacker, nowSec).concurrent && !attacker.attackChivalry) gainProwess(room, attacker, PROWESS.guardBreak);
       room.events.push({ type: 'guardBreak', attackerId: attacker.id, defenderId: target.id, impact: physical.impact, impacts, at: nowSec });
       staggerBy(room, target, STAGGER.gain.guardBreak, nowSec, attacker.id);
@@ -781,6 +786,17 @@ function cutShort(room, target, attacker, nowSec) {
 // how clean a contact must be (as it was felt: after any hardened plate) to count as the cleanest there is, for the
 // precise ring that marks it: a sword blow caught dead centre, a spell square on, a gust's heart at point blank
 export const CLEAN_CONTACT = Object.freeze({ sword: 0.91, spell: 0.9, gale: 0.85 });
+
+// A guard broken, for `seconds`. In Spells & Chivalry only the guard breaks: it drops and cannot be raised again for
+// that long, while the sword, the spells and the dash carry on (every verb at once is the ultimate). Otherwise the
+// knight reels for that long (nothing new begins). Either way the blow still shakes their balance (staggerBy), and a
+// balance that breaks stops everything, Chivalry or not.
+function breakGuard(target, seconds, nowSec) {
+  target.guarding = false;
+  target.guardAuto = false;
+  if (combatActionPolicy(target, nowSec).concurrent) target.guardBrokenUntil = Math.max(target.guardBrokenUntil ?? -Infinity, nowSec + seconds);
+  else target.staggerUntil = nowSec + seconds;
+}
 
 function interruptOrdinaryActions(room, player, nowSec) {
   player.guarding = false;
@@ -1028,9 +1044,7 @@ function blowGale(room, player, nowSec, world, dt = 0) {
       target.guardStamina = Math.max(0, target.guardStamina - spell.cone.guardCost * pressure);
       target.lastGuardDrainAt = nowSec;
       if (target.guardStamina <= 1e-9) {
-        target.guarding = false;
-        if (combatActionPolicy(target, nowSec).concurrent) interruptOrdinaryActions(room, target, nowSec);
-        target.staggerUntil = nowSec + GAME.guardBreakStaggerMs / 1000;
+        breakGuard(target, GAME.guardBreakStaggerMs / 1000, nowSec);
         room.events.push({ type: 'guardBreak', attackerId: player.id, defenderId: target.id, at: nowSec });
         if (!gust.ultimate) gainProwess(room, player, PROWESS.guardBreak);
         staggerBy(room, target, STAGGER.gain.guardBreak, nowSec, player.id);
@@ -1281,7 +1295,7 @@ function stepUltimate(room, player, nowSec) {
       if (combatActionPolicy(player, nowSec).concurrent) {
         player.attackRestartAt = Math.max(player.attackRestartAt ?? -Infinity, state.commitAt);
         // Commit is the sole automatic raise. Later release and interruption stay down.
-        setGuard(room, player.id, true, nowSec);
+        setGuard(room, player.id, true, nowSec, { auto: true });
       }
       room.events.push({ type: 'ultimateActive', playerId: player.id, ultimate: ultimate.id, until: state.until, at: nowSec });
     }
@@ -1291,6 +1305,12 @@ function stepUltimate(room, player, nowSec) {
     player.ultimateState = null;
     if (ultimate.id === 'chivalry') {
       player.chivalryProjectileReadyAt = 0;
+      player.guardBrokenUntil = -Infinity;
+      // its automatic raise ends with it: Guard is now whatever the knight's own hand is doing (held, it stays up)
+      if (player.guardAuto) {
+        player.guardAuto = false;
+        if (player.alive && !player.input?.guard) setGuard(room, player.id, false, nowSec);
+      }
       if (player.guarding || player.pendingSpell) stopSwordChain(player, { keepSweep: true }, room, nowSec);
     }
     // a Vortex run its course winds down: a moment with no sword, spell or fist, and a little longer dizzy
@@ -1431,9 +1451,7 @@ function landVortex(room, attacker, target, met, nowSec) {
     target.guardStamina = result.staminaAfter;
     target.lastGuardDrainAt = nowSec;
     if (result.kind === 'guardBreak') {
-      target.guarding = false;
-      if (combatActionPolicy(target, nowSec).concurrent) interruptOrdinaryActions(room, target, nowSec);
-      target.staggerUntil = nowSec + GAME.guardBreakStaggerMs / 1000;
+      breakGuard(target, GAME.guardBreakStaggerMs / 1000, nowSec);
       room.events.push({ type: 'guardBreak', attackerId: attacker.id, defenderId: target.id, impact: 0, impacts: 1, vortex: true, point, at: nowSec });
       staggerBy(room, target, STAGGER.gain.guardBreak, nowSec, attacker.id);
     } else {
