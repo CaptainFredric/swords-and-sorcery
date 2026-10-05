@@ -47,6 +47,8 @@ const POLICIES = Object.freeze({
     autoStart: true,
     allowRematchVote: false,
     countdownSec: 3,
+    // the rival starts nothing for this long once the match begins (or until you do): time to find your feet
+    openingPeaceSec: 3,
   }),
   [GAME_MODES.PRACTICE]: Object.freeze({
     id: GAME_MODES.PRACTICE,

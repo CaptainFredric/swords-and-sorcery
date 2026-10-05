@@ -25,6 +25,8 @@ function botDuel(profile = null) {
   room.provisionModeActors(0);
   room.setArenaReady(human.id, true, 0);
   room.tick(3.1);
+  // (past the opening peace: these are fights already under way)
+  room.peace = null;
   const bot = [...room.players.values()].find((p) => p.actorKind === 'bot');
   if (profile) bot.botProfile = profile;
   human.spawnProtectionUntil = 0;

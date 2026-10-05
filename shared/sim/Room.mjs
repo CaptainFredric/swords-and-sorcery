@@ -7,6 +7,7 @@ import { recordChallengeFact, resetChallengeTracking } from './challenges.mjs';
 import { normalizePreparedSpells } from '../src/preparedSpells.mjs';
 import { freshStagger } from '../src/stagger.mjs';
 import { DEFAULT_ULTIMATE, ULTIMATES, isUltimate } from '../src/ultimates.mjs';
+import { beginPeace } from './peace.mjs';
 
 const COUNTDOWN_SEC = 3;
 const MATCH_SEC = 360;
@@ -106,6 +107,8 @@ export class Room {
     this.scoreToWin = this.policy.scoreToWin;
     this.autoStartAt = null;
     this.autoStartAfterSec = isPrivate ? AUTO_START_PRIVATE_SEC : AUTO_START_PUBLIC_SEC;
+    // the peace a match opens in (peace.mjs)
+    this.peace = null;
   }
 
   addPlayer({ id, token, name, spell = DEFAULT_SPELL, ultimate = DEFAULT_ULTIMATE, preparedSpells = [] }, nowSec) {
@@ -454,6 +457,8 @@ export class Room {
     this.projectiles.clear();
     this.ruptures = [];
     for (const player of this.players.values()) player.lobbyReady = false;
+    // (a mode that asks for it opens in peace: its bots start nothing for a few seconds, or until a player does)
+    beginPeace(this, nowSec, this.policy.openingPeaceSec ?? 0);
     this.events.push({ type: 'matchStarted', at: nowSec });
   }
 

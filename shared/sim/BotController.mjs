@@ -7,6 +7,7 @@ import { postureOf } from '../src/body.mjs';
 import { steelStrength } from '../src/steel.mjs';
 import { botProfile, nextCycledSpell } from './botBehavior.mjs';
 import { wayToward } from './botNav.mjs';
+import { peaceHolds } from './peace.mjs';
 
 const MELEE_RANGE = 2.25;
 const FIREBALL_RANGE = 11;
@@ -144,10 +145,15 @@ function aimGatheredProjectile(actor, target) {
   actor.input = { ...actor.input, yaw: actor.yaw, pitch: actor.pitch };
 }
 
-function chooseCombatIntent(room, actor, target, distance, ai, nowSec, random, aggression, profile) {
+function chooseCombatIntent(room, actor, target, distance, ai, nowSec, random, aggression, profile, peaceful = false) {
   if (actor.guarding || actor.attackActive || actor.attackHeld || actor.pendingSpell) return;
   // going round something to reach its foe: nothing to throw at, nothing to dash at, until it is round
   if (ai.goingRound && !profile.flee) return;
+  // the opening peace: it starts nothing (a ward against a foe coming at it is no attack)
+  if (peaceful) {
+    if (profile.ward && shouldHarden(room, actor, target, distance, nowSec, wardReadyAt(actor, ai, profile))) callWard(room, actor, ai, profile, target, nowSec);
+    return;
+  }
 
   // a kind that runs (Sir Runs-a-Lot): away and across when pressed, with a dash to the side, never a blow
   if (profile.flee) {
@@ -604,6 +610,10 @@ function patrol(actor, ai, nowSec, random, world) {
   actor.yaw = yaw;
 }
 
+/**
+ * Every bot's decisions for this tick. The room's opening peace (peace.mjs) holds every one of them off a fight until
+ * it ends.
+ */
 export function stepBotControllers(
   room,
   nowSec,
@@ -613,6 +623,7 @@ export function stepBotControllers(
   if (room.state !== 'PLAYING') return;
   const allowedKinds = new Set(actorKinds);
   const aggressionScale = clamp(aggression, 0.1, 1);
+  const peaceful = peaceHolds(room, nowSec);
 
   for (const actor of room.players.values()) {
     if (!allowedKinds.has(actor.actorKind) || !actor.alive) continue;
@@ -662,7 +673,7 @@ export function stepBotControllers(
 
     if (nowSec < ai.nextThinkAt) continue;
     ai.nextThinkAt = nowSec + THINK_INTERVAL_SEC;
-    chooseCombatIntent(room, actor, target, distance, ai, nowSec, random, aggressionScale, profile);
+    chooseCombatIntent(room, actor, target, distance, ai, nowSec, random, aggressionScale, profile, peaceful);
     aimGatheredProjectile(actor, target);
   }
 }
