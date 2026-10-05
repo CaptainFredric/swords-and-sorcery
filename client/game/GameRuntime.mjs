@@ -426,6 +426,7 @@ export class GameRuntime {
         this.renderer.setPixelRatio(Math.min(devicePixelRatio, this.view.pixelRatioCap));
         this.#resize();
       }
+      this.effects?.setDensity(this.view.particles ?? 1);
       this.#shadowDetail();
     }
     if (input) {

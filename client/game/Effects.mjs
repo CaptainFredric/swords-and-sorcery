@@ -142,6 +142,7 @@ export class Effects {
       return light;
     });
     this.afflictionCarry = new Map();
+    this.setDensity(1);
 
   }
 
@@ -240,6 +241,18 @@ export class Effects {
     this.lights.flash(point, color, intensity, life, distance);
   }
 
+  // how many of a burst's particles to make, by the render quality chosen (setDensity): fewer on Smooth, where an
+  // older phone draws each one as a draw of its own; never none
+  #many(count) {
+    return Math.max(1, Math.round(count * this.density));
+  }
+
+  /** How dense the purely cosmetic particles are (1: as authored; Balanced and Smooth fewer), and how many may live. */
+  setDensity(density = 1) {
+    this.density = Math.max(0.25, Math.min(1, density));
+    this.maxTransients = Math.round(MAX_TRANSIENTS * this.density);
+  }
+
   #basicMaterial(color) {
     if (!this.basicMaterials.has(color)) this.basicMaterials.set(color, new THREE.MeshBasicMaterial({ color }));
     return this.basicMaterials.get(color);
@@ -284,7 +297,7 @@ export class Effects {
       ownGeometry,
       baseScale: mesh.scale.clone(),
     });
-    while (this.transients.length > MAX_TRANSIENTS) this.#removeTransient(this.transients.shift());
+    while (this.transients.length > this.maxTransients) this.#removeTransient(this.transients.shift());
     return mesh;
   }
 
@@ -364,14 +377,14 @@ export class Effects {
     const settleSec = 0.7;
     const at = { x: origin.x, y: origin.y, z: origin.z };
     const stones = [this.#basicMaterial(0x6d655a), this.#basicMaterial(0x8e8574), this.#basicMaterial(0x4f4a43)];
-    for (let i = 0; i < 16; i += 1) {
+    for (let i = 0, n = this.#many(16); i < n; i += 1) {
       const mesh = new THREE.Mesh(this.chipGeometry, stones[i % 3]);
       mesh.position.set(at.x, at.y + 0.05, at.z);
       mesh.scale.setScalar(1.4 + Math.random() * 1.6);
       const dir = new THREE.Vector3(Math.random() - 0.5, 0.6 + Math.random() * 0.8, Math.random() - 0.5).normalize();
       this.#addTransient(mesh, { velocity: dir.multiplyScalar(2.5 + Math.random() * 3), life: 0.6 + Math.random() * 0.4, gravity: 14, spin: new THREE.Vector3(10, 7, 8) });
     }
-    for (let i = 0; i < 6; i += 1) this.#dust(at, { size: 1.6, rise: 1.1, life: 0.9 });
+    for (let i = 0, n = this.#many(6); i < n; i += 1) this.#dust(at, { size: 1.6, rise: 1.1, life: 0.9 });
     this.#flashLight({ x: at.x, y: at.y + 0.3, z: at.z }, 0xffb070, 3, 0.18, 5);
     const crackMaterial = new THREE.MeshBasicMaterial({ color: 0x1a120c, transparent: true, opacity: 0.88, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, side: THREE.DoubleSide });
     for (const fissure of fissures) {
@@ -460,7 +473,7 @@ export class Effects {
 
   splinters(point, count = 10) {
     const materials = [this.#basicMaterial(0x8a6a44), this.#basicMaterial(0xb89868)];
-    for (let i = 0; i < count; i += 1) {
+    for (let i = 0, n = this.#many(count); i < n; i += 1) {
       const mesh = new THREE.Mesh(this.chipGeometry, materials[i % 2]);
       mesh.position.set(point.x, point.y, point.z);
       const dir = new THREE.Vector3(Math.random() - 0.5, Math.random() * 0.7 + 0.2, Math.random() - 0.5).normalize();
@@ -496,7 +509,7 @@ export class Effects {
 
     // sparks fly out of the cut to both sides and up (across the view, where they read), a few along the blow
     const side = new THREE.Vector3(-push.z, 0, push.x);
-    for (let i = 0; i < Math.round((big ? 28 : 18) * bite); i += 1) {
+    for (let i = 0, n = this.#many(Math.round((big ? 28 : 18) * bite)); i < n; i += 1) {
       const spark = new THREE.Mesh(this.hotSparkGeometry, this.#basicMaterial(i % 3 ? 0xffcf6a : 0xfff3c4));
       spark.position.copy(at);
       const velocity = side.clone().multiplyScalar((Math.random() < 0.5 ? -1 : 1) * (2 + Math.random() * 3.5))
@@ -505,7 +518,7 @@ export class Effects {
       spark.lookAt(at.clone().add(velocity));
       this.#addTransient(spark, { velocity, life: 0.22 + Math.random() * 0.22, shrink: true, gravity: 9, drag: 2.2 });
     }
-    for (let i = 0; i < Math.round((big ? 7 : 4) * bite); i += 1) {
+    for (let i = 0, n = this.#many(Math.round((big ? 7 : 4) * bite)); i < n; i += 1) {
       const chip = new THREE.Mesh(this.chipGeometry, this.#basicMaterial(i % 2 ? 0x55585c : 0x8a8f94));
       chip.position.copy(at);
       const velocity = push.clone().multiplyScalar(1.2 + Math.random() * 1.8)
@@ -519,7 +532,7 @@ export class Effects {
   killBurst(point) {
     const at = new THREE.Vector3(point.x, point.y, point.z);
     this.#groundRing(at, 0xff9a4a, 1.6);
-    for (let i = 0; i < 24; i += 1) {
+    for (let i = 0, n = this.#many(24); i < n; i += 1) {
       const ember = new THREE.Mesh(this.emberGeometry, this.emberMaterials[i % 2]);
       ember.position.set(at.x + (Math.random() - 0.5) * 0.6, at.y - 0.4 + Math.random() * 0.8, at.z + (Math.random() - 0.5) * 0.6);
       this.#addTransient(ember, { velocity: new THREE.Vector3((Math.random() - 0.5) * 0.8, 1.2 + Math.random() * 1.6, (Math.random() - 0.5) * 0.8), life: 0.6 + Math.random() * 0.5, shrink: true, spin: new THREE.Vector3(3, 4, 5) });
@@ -535,7 +548,7 @@ export class Effects {
     flash.position.copy(at);
     flash.scale.setScalar(parry ? 0.7 : 0.45);
     this.#addTransient(flash, { life: parry ? 0.14 : 0.08, expand: parry ? 4.5 : 3, shrink: true, spin: new THREE.Vector3(5, 3, 6) });
-    for (let i = 0; i < (heavy || parry ? 24 : 14); i += 1) {
+    for (let i = 0, n = this.#many((heavy || parry ? 24 : 14)); i < n; i += 1) {
       const spark = new THREE.Mesh(this.sparkGeometry, this.#basicMaterial(i % 2 ? color : 0xffd27a));
       spark.position.copy(at);
       // sparks fly back toward the attacker off the guard
@@ -711,7 +724,7 @@ export class Effects {
     const off = (angle, around) => dir.clone().multiplyScalar(Math.cos(angle))
       .addScaledVector(side, Math.sin(angle) * Math.cos(around))
       .addScaledVector(lift, Math.sin(angle) * Math.sin(around)).normalize();
-    for (let i = 0; i < count; i += 1) {
+    for (let i = 0, n = this.#many(count); i < n; i += 1) {
       const outer = i < count * 0.75;
       const angle = outer ? spread * (0.4 + 0.6 * Math.random()) : heart * (0.15 + 0.4 * Math.random());
       // round the gust from its right (0) through below it (-pi/2) to its left (pi): mostly the sides, some low
@@ -808,7 +821,7 @@ export class Effects {
     flash.scale.setScalar((0.25 + 0.4 * s) * scale);
     this.#addTransient(flash, { life: 0.07 + 0.07 * s, expand: 4, shrink: true, spin: new THREE.Vector3(3, 7, 4) });
     const count = Math.round(4 + 14 * s);
-    for (let i = 0; i < count; i += 1) {
+    for (let i = 0, n = this.#many(count); i < n; i += 1) {
       const spark = new THREE.Mesh(this.sparkGeometry, this.#basicMaterial(i % 3 === 0 ? 0xffe9b8 : i % 2 ? 0xdfe9f4 : 0xffffff));
       spark.position.copy(at);
       spark.scale.setScalar(scale);
@@ -883,7 +896,7 @@ export class Effects {
 
   sparks(point, color = 0xffbd6b, count = 10) {
     const material = this.#basicMaterial(color);
-    for (let i = 0; i < count; i += 1) {
+    for (let i = 0, n = this.#many(count); i < n; i += 1) {
       const mesh = new THREE.Mesh(this.sparkGeometry, material);
       mesh.position.set(point.x, point.y, point.z);
       const dir = new THREE.Vector3(Math.random() - 0.5, Math.random() * 0.8 + 0.2, Math.random() - 0.5).normalize();
@@ -962,7 +975,7 @@ export class Effects {
     this.#addTransient(heart, { life: 0.1, expand: 5, fade: true });
 
     if (!profile.frost) {
-      for (let i = 0; i < Math.round(4 * profile.size); i += 1) {
+      for (let i = 0, n = this.#many(Math.round(4 * profile.size)); i < n; i += 1) {
         const angle = i * 2.4 + Math.random();
         const reach = radius * 0.1;
         const lobe = new THREE.Mesh(this.flameGeometry, i % 2 ? materials.shell : materials.blast);
@@ -991,13 +1004,13 @@ export class Effects {
       mark.material.opacity = mark.userData.baseOpacity = profile.frost ? 0.12 : 0.18;
     }
 
-    for (let i = 0; i < profile.smokeCount; i += 1) {
+    for (let i = 0, n = this.#many(profile.smokeCount); i < n; i += 1) {
       const mist = new THREE.Sprite(this.#elementalMist(profile.frost ? 'frostfire' : 'fireball'));
       mist.position.copy(at).add(new THREE.Vector3((Math.random() - 0.5) * radius * 0.35, Math.random() * 0.3, (Math.random() - 0.5) * radius * 0.35));
       mist.scale.setScalar(radius * (profile.frost ? 0.25 : 0.18));
       this.#addTransient(mist, { life: profile.frost ? 0.6 : 0.8, velocity: new THREE.Vector3((Math.random() - 0.5) * 0.4, profile.frost ? 0.1 : 0.7, (Math.random() - 0.5) * 0.4), expand: 1.4, fade: true, drag: 1.3 });
     }
-    for (let i = 0; i < profile.fragmentCount; i += 1) {
+    for (let i = 0, n = this.#many(profile.fragmentCount); i < n; i += 1) {
       const fragment = new THREE.Mesh(profile.frost ? this.shardGeometry : this.emberGeometry, profile.frost ? materials.bits[i % 2] : this.emberMaterials[i % 2]);
       fragment.position.copy(at);
       fragment.scale.setScalar(profile.size * (profile.frost ? 1 : 0.75));
@@ -1006,7 +1019,7 @@ export class Effects {
       this.#addTransient(fragment, { velocity: dir.multiplyScalar((profile.frost ? 4 : 5) + Math.random() * 3).multiplyScalar(0.65 + 0.35 * profile.strength), life: profile.frost ? 0.5 : 0.38, gravity: 8, shrink: true, drag: 1.2, spin: new THREE.Vector3(4, 6, 5) });
     }
     if (!profile.frost) {
-      for (let i = 0; i < Math.round(5 * profile.size); i += 1) {
+      for (let i = 0, n = this.#many(Math.round(5 * profile.size)); i < n; i += 1) {
         const angle = Math.random() * Math.PI * 2;
         const reach = Math.random() * radius * 0.35;
         this.#flame({ x: point.x + Math.cos(angle) * reach, y: point.y + Math.random() * 0.25, z: point.z + Math.sin(angle) * reach }, profile.size);
@@ -1048,7 +1061,7 @@ export class Effects {
     glow.position.copy(at);
     glow.scale.setScalar(0.5);
     this.#addTransient(glow, { life: 0.18, expand: 16, fade: true });
-    for (let i = 0; i < 26; i += 1) {
+    for (let i = 0, n = this.#many(26); i < n; i += 1) {
       const angle = (i / 26) * Math.PI * 2 + Math.random() * 0.2;
       const spark = new THREE.Mesh(this.hotSparkGeometry, this.#basicMaterial(i % 3 ? 0xffb347 : 0xfff0c4));
       spark.position.copy(at);
@@ -1182,7 +1195,7 @@ export class Effects {
       const next = { x: p.position.x, y: p.position.y, z: p.position.z };
       if (effect.lastPosition) {
         const trail = sampleTrailSegment(effect.lastPosition, next, {
-          spacing: effect.profile.trailSpacing,
+          spacing: effect.profile.trailSpacing / this.density,
           carry: effect.trailCarry,
           maxSamples: effect.profile.maxTrailSamples,
         });

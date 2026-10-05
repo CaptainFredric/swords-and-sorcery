@@ -169,6 +169,17 @@ export function blocksBlade(solid) {
   return solid?.blade !== false;
 }
 
+// a world's solids that stop a blade, worked out once for each list of them (a Vortex sweeps many times a tick)
+const STOPPING = new WeakMap();
+function stoppingSolids(solids) {
+  let stopping = STOPPING.get(solids);
+  if (!stopping) {
+    stopping = solids.filter(blocksBlade);
+    STOPPING.set(solids, stopping);
+  }
+  return stopping;
+}
+
 /** Whether something solid stands between the eyes and a point (a knight met behind a wall or round a corner). */
 export function occluded(eye, point, solids) {
   for (const solid of solids) {
@@ -216,7 +227,7 @@ export function sweepBlade(eye, fromDirection, toDirection, bodies, solids, {
   const steps = Math.max(1, Math.ceil(turn / (blade.stepDeg * DEG)));
   const corridor = Math.cos(blade.worldStopDeg * DEG);
   const groundCorridor = Math.cos(blade.groundStopDeg * DEG);
-  const stopping = solids.filter(blocksBlade);
+  const stopping = stoppingSolids(solids);
   for (let i = 1; i <= steps; i += 1) {
     const direction = slerpDirection(fromDirection, toDirection, i / steps, turn);
     const [start, end] = bladeSegment(eye, direction, blade);

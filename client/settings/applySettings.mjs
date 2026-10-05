@@ -3,6 +3,8 @@
 
 // the most pixels per CSS pixel each render quality draws (phones with dense screens gain the most from lowering it)
 export const RENDER_QUALITY = Object.freeze({ low: 1, medium: 1.35, high: 1.6 });
+// and how many of a burst's cosmetic particles are made (each is a draw of its own: fewer for an older phone)
+export const PARTICLE_DENSITY = Object.freeze({ low: 0.45, medium: 0.7, high: 1 });
 
 export function soundLevels(store) {
   return {
@@ -20,6 +22,7 @@ export function viewOptions(store) {
   return {
     fov: store.get('display.fov'),
     pixelRatioCap: RENDER_QUALITY[store.get('display.quality')] ?? RENDER_QUALITY.high,
+    particles: PARTICLE_DENSITY[store.get('display.quality')] ?? PARTICLE_DENSITY.high,
     cameraMotion: store.get('display.cameraShake') / 100,
     damageNumbers: store.get('display.damageNumbers'),
     damageFlash: store.get('display.damageFlash'),
