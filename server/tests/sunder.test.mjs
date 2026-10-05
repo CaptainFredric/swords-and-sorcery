@@ -314,18 +314,36 @@ test('a slam goes through the knight it strikes and on into the ground: its rupt
   assert.ok(damage.filter((e) => e.source === 'rupture').every((e) => e.amount === RUPTURE.damage && e.ultimate));
 });
 
-test('one knight\'s ruptures catch the same knight at most once a second: a warning to move, not a blender', () => {
+test('a knight who stays where the ground splits again and again is caught by every rupture (the warning is to move)', () => {
   const { room, a, b } = duel();
   sunder(room, a);
   place(b, 0, 4.5);
   room.events.length = 0;
+  const pin = () => { Object.assign(b.position, { x: 4.5, y: 0, z: 0 }); b.velocity = { x: 0, y: 0, z: 0 }; b.impulse = { x: 0, z: 0 }; b.grounded = true; b.health = 100; };
   beginAttack(room, 'a', 10);
-  run(room, 10, 13);
+  for (let now = 10; now <= 13 + 1e-9; now += 0.01) { pin(); stepRoom(room, 0.01, now, openWorld); }
   const ruptures = room.events.filter((e) => e.type === 'rupture').length;
-  const caught = room.events.filter((e) => e.type === 'damage' && e.source === 'rupture').map((e) => e.at);
+  const caught = room.events.filter((e) => e.type === 'damage' && e.source === 'rupture');
   assert.ok(ruptures >= 3, `every strike ruptured (${ruptures})`);
-  assert.ok(caught.length >= 2 && caught.length < ruptures, `${caught.length} of ${ruptures}`);
-  for (let i = 1; i < caught.length; i += 1) assert.ok(caught[i] - caught[i - 1] >= RUPTURE.recatchSec - 1e-6);
+  assert.equal(caught.length, ruptures, `caught by ${caught.length} of ${ruptures}: none passes over them`);
+  // (but each rupture once: its three fissures are one rupture)
+  assert.equal(new Set(caught.map((e) => e.at)).size, caught.length);
+});
+
+test('struck by the slam and standing where it splits the ground, a knight takes both: the sword and the rupture', () => {
+  for (const distance of [0.6, 0.9, 1.2, 1.8, 2.4]) {
+    const { room, a, b } = duel();
+    sunder(room, a);
+    place(b, 0, distance);
+    room.events.length = 0;
+    const pin = () => { place(b, 0, distance); b.velocity = { x: 0, y: 0, z: 0 }; b.impulse = { x: 0, z: 0 }; b.grounded = true; };
+    beginAttack(room, 'a', 10);
+    for (let now = 10; now <= 10.55 + 1e-9; now += 0.01) { pin(); stepRoom(room, 0.01, now, openWorld); }
+    endAttack(room, 'a', 10.55);
+    run(room, 10.56, 11.5);
+    const sources = room.events.filter((e) => e.type === 'damage' && e.victimId === 'b').map((e) => e.source);
+    assert.deepEqual(sources, ['sword', 'rupture'], `at ${distance} m`);
+  }
 });
 
 test('a rupture runs along the ground, never through what stands on it, and catches whoever stands on its line', () => {
@@ -627,13 +645,14 @@ test('a Sundering blow and the ground it splits are most of a balance between th
 });
 
 test('the ground alone, split under a knight again and again, breaks a balance by the third time (it took five)', () => {
-  // (what the rupture adds, with the hold and the drain between catches a second apart)
+  // (what the rupture adds, with the hold and the drain between catches a slam apart)
+  const between = 0.7;
   const stagger = { level: 0, shakenAt: -Infinity, recoverUntil: -Infinity };
   let breaks = 0;
   let catches = 0;
-  for (let now = 0; now < 3 - 1e-9 && !breaks; now += RUPTURE.recatchSec) {
+  for (let now = 0; now < 3 - 1e-9 && !breaks; now += between) {
     // (drained since the last catch: nothing while it holds, then steadily)
-    const idle = Math.max(0, RUPTURE.recatchSec - STAGGER.holdSec);
+    const idle = Math.max(0, between - STAGGER.holdSec);
     stagger.level = Math.max(0, stagger.level - (catches ? STAGGER.drainPerSec * idle : 0));
     catches += 1;
     stagger.level += RUPTURE.stagger;
@@ -1020,3 +1039,4 @@ test('the key pressed while a spell is gathering is not lost: it is taken the mo
   run(short.room, 9.05, 9.6);
   assert.equal(short.room.events.some((e) => e.type === 'ultimateStart'), false);
 });
+
