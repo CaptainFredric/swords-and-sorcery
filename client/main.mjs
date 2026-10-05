@@ -472,16 +472,49 @@ function updateEnd(snapshot) {
   }
 }
 
-function clearSessionAndNavigate(soloMode = null) {
+// Back to the front door, in place. The match is left (on purpose: its slot is freed at once, a duel forfeited now,
+// not after the reconnect grace) and put away: the arena and its renderer, its listeners, its sounds and voices, its
+// screens and overlays. Everything the page has loaded (the menu, its knight, the models, every sound and voice) stays
+// loaded: no loading screen, no reload. then: what comes next, if anything (FIGHT AGAIN: another Bot Duel at once).
+// (Whatever the old room still sends on its way out is ignored: leftRoom.)
+let leftRoom = null;
+function returnToMenu({ then = null } = {}) {
   localStorage.removeItem('ss-session-token');
   localStorage.removeItem('ss-room-code');
-  // leaving on purpose frees the slot at once (a duel is forfeited now, not after the reconnect grace)
+  leftRoom = socket.roomCode ?? latestSnapshot?.roomCode ?? latestLobby?.roomCode ?? null;
   socket.leaveRoom();
-  socket.close();
-  const next = new URL(location.href);
-  next.search = '';
-  if (soloMode) next.searchParams.set('solo', soloMode);
-  location.href = `${next.pathname}${next.search}`;
+  putAwayMatch();
+  route(SCREEN_IDS.MAIN_MENU);
+  then?.();
+}
+
+function putAwayMatch() {
+  paused = false;
+  pauseMenu.classList.add('hidden');
+  hideChallenge();
+  clearTimeout(gateTimer);
+  arenaGate.classList.add('hidden');
+  hud.hide();
+  setPracticeVisible(false);
+  // (what anyone was saying stops: its caption with it)
+  for (const speaker of [...(voice.playing?.keys?.() ?? [])]) voice.cut(speaker, 0.08);
+  if (runtime) {
+    runtime.setPlaying(false);
+    runtime.dispose();
+    runtime = null;
+  }
+  latestSnapshot = null;
+  latestLobby = null;
+  currentRoomState = null;
+  lastRoomKey = null;
+  seekStatus = null;
+  drawnFor = null;
+  renderSeek();
+}
+
+// a message from the room just left, still on its way: nothing of it is shown
+function fromLeftRoom(message) {
+  return leftRoom !== null && message?.roomCode === leftRoom;
 }
 
 function setPracticeVisible(visible) {
@@ -580,8 +613,8 @@ function openPause() {
   $('#resume-game').focus();
 }
 $('#resume-game').addEventListener('click', () => { paused = false; pauseMenu.classList.add('hidden'); runtime?.requestPointerLock(); });
-$('#pause-leave').addEventListener('click', () => clearSessionAndNavigate());
-$('#lobby-leave').addEventListener('click', () => clearSessionAndNavigate());
+$('#pause-leave').addEventListener('click', () => returnToMenu());
+$('#lobby-leave').addEventListener('click', () => returnToMenu());
 // the ready check: each Spellblade says they are ready (press again to take it back)
 startMatchButton.addEventListener('click', () => socket.ready(!startMatchButton.classList.contains('pressed')));
 // --- settings: every change reaches what it belongs to, at once ---
@@ -798,7 +831,7 @@ document.addEventListener('keydown', event => {
   if ([SCREEN_IDS.SOLO_MENU, SCREEN_IDS.PRIVATE_MENU, SCREEN_IDS.ROOMS_MENU, SCREEN_IDS.HOW_TO_PLAY, SCREEN_IDS.ARMORY].includes(router.current)) {
     route(SCREEN_IDS.MAIN_MENU);
   } else if (router.current === SCREEN_IDS.LOBBY || router.current === SCREEN_IDS.END_SCREEN) {
-    clearSessionAndNavigate();
+    returnToMenu();
   } else if (latestSnapshot?.roomState === 'PLAYING') {
     if (document.pointerLockElement) document.exitPointerLock();
     else if (paused) { paused = false; pauseMenu.classList.add('hidden'); }
@@ -808,13 +841,14 @@ document.addEventListener('keydown', event => {
 
 rematchButton.addEventListener('click', () => {
   if (latestSnapshot?.mode === 'BOT_DUEL') {
-    clearSessionAndNavigate('BOT_DUEL');
+    // another Bot Duel straight away (the same rival), without a reload
+    returnToMenu({ then: () => runMenuAction(menuController.botDuel(nameInput.value), SCREEN_IDS.SOLO_MENU) });
     return;
   }
   socket.rematch();
   rematchCopy.textContent = 'Rematch vote cast. Waiting for the others…';
 });
-$('#leave').addEventListener('click', () => clearSessionAndNavigate());
+$('#leave').addEventListener('click', () => returnToMenu());
 
 $('#practice-reset').addEventListener('click', () => socket.practiceResetPlayer());
 $('#practice-passive').addEventListener('click', () => socket.practiceSpawnDummy('PASSIVE'));
@@ -827,11 +861,13 @@ $('#practice-ultimate-knight').addEventListener('click', () => socket.practiceSp
 $('#practice-remove').addEventListener('click', () => socket.practiceRemoveDummy());
 // the yard earns no prowess: this readies the ultimate to try
 $('#practice-ultimate').addEventListener('click', () => socket.practiceReadyUltimate());
-$('#practice-leave').addEventListener('click', () => clearSessionAndNavigate());
+$('#practice-leave').addEventListener('click', () => returnToMenu());
 
 // into a fight: the blade comes out of its scabbard (once per room: not again on a reconnect to the same one)
 let drawnFor = null;
 socket.on('joined', (message) => {
+  if (fromLeftRoom(message)) return;
+  leftRoom = null;
   showMenuError('');
   ensureRuntime();
   if (drawnFor !== message.roomCode) {
@@ -854,6 +890,7 @@ socket.on('joined', (message) => {
 });
 
 socket.on('lobby', (message) => {
+  if (fromLeftRoom(message)) return;
   updateLobby(message);
   syncChallenge(message);
   if (message.roomState !== 'PLAYING' && message.roomState !== 'FINISHED' && message.mode !== 'DUEL') route(SCREEN_IDS.LOBBY);
@@ -869,6 +906,7 @@ function noteRoomState(snapshot) {
 }
 
 socket.on('snapshot', (snapshot) => {
+  if (fromLeftRoom(snapshot) || (leftRoom !== null && !socket.roomCode)) return;
   latestSnapshot = snapshot;
   ensureRuntime();
   noteRoomState(snapshot);
