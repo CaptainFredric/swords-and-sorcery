@@ -61,19 +61,29 @@ export const SENTENCE_GAP = 12;
 export const REBUTTAL = Object.freeze({ within: 5, health: 15 });
 
 // How a knight's voice carries. Your own is heard as it is: dry and close, at its full level. Another knight's is heard
-// from where he stands and only near him: full level within `near`, falling off with distance as sound does (inverse,
-// 1/d), fading out over the last part of the range and not played at all beyond `far`. A bark is for the knights around
-// him, never the whole map. A touch of the courtyard grows with distance (the direct sound falls faster than the room);
-// no echo off the walls, so every word stays clear.
+// from where he stands, and follows him while he speaks: full level within `near`, falling off with distance as
+// (near / distance) ^ rolloff, fading out over the last part of the range and not played at all beyond `far`. His
+// breath (a grunt, a gasp) is for the knights around him and falls off as sound does (1/d); his words are said to be
+// heard (a charge at a foe a dozen metres off, a chase, the battle begun), so they carry across a duel and fall off far
+// less (SPEECH_HEARING), never across the whole map. A touch of the courtyard grows with distance (the direct sound
+// falls faster than the room); no echo off the walls, so every word stays clear.
 export const VOICE_HEARING = Object.freeze({
   near: 2.5,          // metres: full level this close
   far: 16,            // metres: silent from here (and not played at all)
+  rolloff: 1,         // (near / distance) to this power: 1, as a breath falls away
   fade: 0.3,          // the last share of the range it fades out over (no sudden cut at the edge)
   pan: 0.85,          // how far left or right a voice can sit
   reverb: 0.05,       // the courtyard's share, close by...
   reverbFar: 0.14,    // ...and at the edge of earshot
   own: 0.02,          // the courtyard in my own voice (next to none)
 });
+// his words: heard across a duel (a shout at a foe 14 m off is some 9 dB under one said beside you, not 15-25)
+export const SPEECH_HEARING = Object.freeze({ ...VOICE_HEARING, far: 28, fade: 0.25, rolloff: 0.55 });
+
+/** How far a line of `line`'s carries (VOICE_HEARING for a breath or a grunt, SPEECH_HEARING for words). */
+export function hearingFor(line) {
+  return VOICE_LINES[line]?.kind === 'exertion' ? VOICE_HEARING : SPEECH_HEARING;
+}
 
 const clamp01 = (t) => Math.max(0, Math.min(1, t));
 
@@ -87,7 +97,7 @@ export function voicePlacement(listener, yaw, source, hearing = VOICE_HEARING) {
   const dz = source.z - listener.z;
   const distance = Math.hypot(dx, dz);
   if (!(distance < hearing.far)) return null;
-  const falloff = hearing.near / Math.max(hearing.near, distance);
+  const falloff = (hearing.near / Math.max(hearing.near, distance)) ** (hearing.rolloff ?? 1);
   const edge = hearing.far * (1 - hearing.fade);
   const fadeOut = 1 - clamp01((distance - edge) / (hearing.far - edge));
   const gain = falloff * fadeOut * fadeOut * (3 - 2 * fadeOut);
@@ -189,10 +199,10 @@ function victorTags({ source, moment = {} }) {
     ...(moment.clean && source === 'sword' ? { cleanSwordKill: 1 } : {}),
     ...(moment.subpar ? { subparKill: 1 } : {}),
     ...(moment.messy ? { messyKill: 1 } : {}),
+    ...(moment.fair ? { fairWin: 1 } : {}),
     ...(moment.rushed ? { rushedKill: 1 } : {}),
     ...(moment.leader ? { leaderFelled: 1 } : {}),
     ...(moment.streak === 3 ? { killStreak3: 1 } : {}),
-    ...(moment.finalStrike ? { finalStrike: 1 } : {}),
   };
 }
 

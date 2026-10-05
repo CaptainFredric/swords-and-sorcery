@@ -44,6 +44,14 @@ test('what is wrong with a declaration is said plainly', () => {
   assert.match(problems({ ...good, parts: ['only one'] }), /parts must be the words of each part/);
   assert.match(problems(inParts, { manifest: { lines: { testLine: [{ file: 'test-line-1' }] } }, files: ['test-line-1.m4a', 'test-line-1.wav'] }), /2 parts are declared and 1 recorded/);
   assert.equal(problems(inParts, { manifest: { lines: { testLine: [{ file: 'test-line-1' }, { file: 'test-line-2' }] } }, files: ['test-line-1.m4a', 'test-line-1.wav', 'test-line-2.m4a', 'test-line-2.wav'] }), '');
+  // a take's repairs: one kind each, over a span of the recording, with what that kind needs
+  const edits = (list) => problems({ ...good, voice: { edits: list } });
+  assert.equal(edits([{ cut: [1, 1.2] }, { splice: [2, 2.3], from: [4, 4.2] }, { lift: [1, 2], db: 2 }, { rise: [2, 3], semitones: 2, take: 1 }]), '');
+  assert.match(edits([{ cut: [1.2, 1] }]), /cut must be \[from, to\] seconds/);
+  assert.match(edits([{ splice: [2, 2.3] }]), /splice needs from/);
+  assert.match(edits([{ lift: [1, 2] }]), /lift needs db/);
+  assert.match(edits([{ cut: [1, 2], lift: [1, 2], db: 1 }]), /exactly one of/);
+  assert.match(edits([{ rise: [1, 2], semitones: 1, take: 0 }]), /take must be 1 or more/);
   // and a line still silent is a warning, not an error
   assert.match(validateVoiceLines({ declarations: [good], manifest: { lines: {} } }).warnings.join(' | '), /testLine: not recorded yet/);
 });
@@ -144,4 +152,32 @@ test('the rarer grunts, the likelier charge, the battle\'s opening line, and the
   }
   // and the ones he already carries well are left as they were
   for (const id of ['constitution', 'preferNoPain']) assert.equal(voiceLine(id).voice.semitones, undefined, id);
+});
+
+test('the repaired takes say what their words say, and every repair is a modest one', () => {
+  // "And sideways!" is now "Then sideways!": its words, and the clear "then" of its own take spliced in its place
+  assert.equal(voiceLine('downUpSideways').text, 'I strike you down! Then up. Then sideways! And then back down!');
+  assert.deepEqual(voiceLine('downUpSideways').voice.edits.map((edit) => Object.keys(edit)[0]), ['splice']);
+  // the end of "longer!?" raised a little, never a new performance
+  const rise = voiceLine('remainStaggered').voice.edits.find((edit) => edit.rise);
+  assert.ok(rise.semitones > 0 && rise.semitones <= 3.5);
+  // buried words lifted a touch, never pasted in
+  for (const id of ['neverThought', 'notFall']) {
+    for (const edit of voiceLine(id).voice.edits.filter((e) => e.lift)) assert.ok(edit.db > 0 && edit.db <= 3, id);
+  }
+  // Why I Should Not Fall: only dead air taken out, less than half a second of it (no word hurried)
+  const cut = voiceLine('notFall').voice.edits.filter((edit) => edit.cut).reduce((sum, edit) => sum + edit.cut[1] - edit.cut[0], 0);
+  assert.ok(cut > 0.2 && cut < 0.5, String(cut));
+  // the Master of Swords & Sorcery: weighted, but lighter than the threats (he was a little too deep)
+  const master = voiceLine('masterCall').voice;
+  assert.ok(master.semitones > voiceLine('sunderLeave').voice.semitones && master.formants > voiceLine('sunderLeave').voice.formants);
+});
+
+test('Fair and Square fits a clean fight either way, and is rarer than it was, behind the more particular lines', () => {
+  const fair = voiceLine('fairSquare');
+  assert.deepEqual(Object.keys(fair.triggers).sort(), ['fairLoss', 'fairWin']);
+  assert.ok(fair.rarity <= 0.12 && fair.cooldown >= 240);
+  // a win: every particular kill comes first, only the plain kill after it
+  for (const tag of ['rushedKill', 'leaderFelled', 'killStreak3', 'cleanSwordKill', 'gauntletKill']) assert.ok(VOICE_TAGS[tag].rank > VOICE_TAGS.fairWin.rank, tag);
+  assert.ok(VOICE_TAGS.fairWin.rank > VOICE_TAGS.kill.rank);
 });

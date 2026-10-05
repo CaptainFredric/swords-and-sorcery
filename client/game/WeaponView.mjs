@@ -271,6 +271,9 @@ export class WeaponView {
     // told when each stroke of the combo begins its cut (the swing sound plays from here, without network delay)
     this.onSwing = () => {};
     this.lastSwingKey = null;
+    // told earlier, as each stroke is committed and its swing begins (a breath behind it leads the blade)
+    this.onBegin = () => {};
+    this.lastBegunKey = null;
     // where the arms' sword path comes from: the chain under way, or their way home after it (fpSlash.mjs). A new
     // chain takes over from whichever it was; a guard, a cast or a dash lets go of it for its own clip
     this.comboSource = null;
@@ -657,6 +660,12 @@ export class WeaponView {
     // each committed strike's swing is heard as it goes live (when the server lets it land, and the blade is at its
     // fastest a moment later)
     if (chain) {
+      // (a strike is committed as its swing begins: the first with the chain, each later one at its own start)
+      const begun = this.lastBegunKey?.startedAt === chain.startedAt ? this.lastBegunKey.strike : -1;
+      for (let strike = begun + 1; strike < chain.committed; strike += 1) {
+        this.lastBegunKey = { startedAt: chain.startedAt, strike };
+        this.onBegin(strike);
+      }
       const since = timeSec - chain.startedAt;
       const heard = this.lastSwingKey?.startedAt === chain.startedAt ? this.lastSwingKey.strike : -1;
       for (let strike = heard + 1; strike < chain.committed; strike += 1) {

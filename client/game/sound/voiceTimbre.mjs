@@ -82,8 +82,10 @@ export class VoiceTimbre {
     const dry = ctx.createGain();
     dry.gain.value = 1 - timbre.wet;
     const wet = ctx.createGain();
-    // (driven, the voice is louder: brought back to sit where the dry one does)
-    wet.gain.value = timbre.wet / Math.tanh(timbre.drive);
+    // (driven, the voice is louder: brought back to sit where the dry one does through the body of the voice, where
+    // tanh rises `drive` times as steeply; only its peaks are held back and roughened. It is fed the take at its own
+    // level, before any distance: SoundEngine.playBuffer's shape, so he sounds the same near or far)
+    wet.gain.value = timbre.wet / timbre.drive;
     const output = ctx.createGain();
     input.connect(chest).connect(ring).connect(air);
     air.connect(dry).connect(output);

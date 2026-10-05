@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { OTHER_KNIGHTS, TIMBRE, VoiceTimbre } from './voiceTimbre.mjs';
-import { voiceRate } from './voiceRules.mjs';
+import { VOICE_LINES, voiceRate } from './voiceRules.mjs';
 import { VoiceBank } from './VoiceBank.mjs';
 
 // Each other knight is given a timbre of his own: the same knight's tone, as if another man said it behind another
@@ -50,6 +50,35 @@ test('his timbre as nodes: chest and air, his helm\'s ring, and the grit mixed u
   assert.ok(reaches(input, output));
   assert.ok(reaches(shaper, output));
   assert.equal(output.links.length, 0, 'the line connects it on to the voice bus itself');
+  // level-neutral through the body of the voice: the driven half rises as steeply as the clean one there
+  const wet = shaper.links[0];
+  const dry = nodes.find((n) => n.kind === 'gain' && n !== input && n !== output && n !== wet);
+  assert.ok(Math.abs(dry.gain.value + wet.gain.value * t.drive - 1) < 1e-9);
+});
+
+test('another knight\'s line moves with him while he speaks; mine never does', () => {
+  const placed = [];
+  let now = 0;
+  const engine = {
+    running: true, get now() { return now; }, onReady() {},
+    playBuffer: () => ({ stop() {}, place: (to) => placed.push(to) }),
+  };
+  const bank = new VoiceBank(engine, { base: '/nowhere/' });
+  bank.takes.set('chargeDefeat', [{ duration: 5 }]);
+  bank.director.rand = () => 0;
+  assert.ok(bank.say('chargeDefeat', { speaker: 'rival', force: true }));
+  assert.equal(bank.speakingLine('rival'), 'chargeDefeat');
+  bank.place('rival', { pan: 0.3, gain: 0.7 });
+  assert.deepEqual(placed, [{ pan: 0.3, gain: 0.7 * VOICE_LINES.chargeDefeat.gain }]);
+  now = 6;
+  assert.equal(bank.speakingLine('rival'), null, 'said and done: nothing left to move');
+  bank.director.speaking.clear();
+  bank.director.sentence = null;
+  bank.director.lastSpoke.clear();
+  assert.ok(bank.say('chargeDefeat', { speaker: 'me', close: true, force: true }));
+  bank.place('me', { pan: 1, gain: 0.1 });
+  assert.equal(bank.speakingLine('me'), null);
+  assert.equal(placed.length, 1, 'my own voice stays where it is: in my helm');
 });
 
 test('another knight\'s line plays through his timbre; mine plays as recorded', async () => {

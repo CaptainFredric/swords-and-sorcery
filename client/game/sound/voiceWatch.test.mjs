@@ -84,11 +84,11 @@ test('standing ground: drawing back from a foe for a while, then turning to swin
   assert.ok(!tagsOf(fresh.swing({ playerId: 'a', strikeIndex: 0, at: 0.1 }, knights), 'a').includes('standsGround'));
 });
 
-test('swings: the first after a while, and a chain carrying on past its third strike', () => {
+test('swings as they go live: a chain carrying on past its third strike', () => {
   const watch = new VoiceWatch();
   const swing = (strikeIndex, at) => tagsOf(watch.swing({ playerId: 'a', strikeIndex, at }), 'a');
-  assert.ok(swing(0, 20).includes('firstSwing'));
-  assert.ok(!swing(1, 20.7).includes('firstSwing'));
+  assert.ok(!swing(0, 20).includes('firstSwing'), 'the first swing after a while is told as it begins, not here');
+  swing(1, 20.7);
   assert.ok(!swing(2, 21.4).includes('longChain'), 'three strikes are a chain, not a long one');
   assert.ok(swing(0, 22.0).includes('longChain'), 'held on into the next: it carries on');
   assert.ok(!swing(1, 22.7).includes('longChain'), 'once a chain');
@@ -132,7 +132,7 @@ test('a blow taken that filled his Prowess; a foe\'s sword narrowly missing him 
   assert.deepEqual(new VoiceWatch().miss({ playerId: 'b', at: 5 }, far), [], 'nowhere near him');
 });
 
-test('asked at a fall: did the fallen rush the victor; was it a fair fight; did the heavy third strike end it', () => {
+test('asked at a fall: did the fallen rush the victor; was it a fair fight', () => {
   const watch = new VoiceWatch();
   // b sprints at a, closing fast, then falls to a
   watch.step(9.5, [knight('a', 0, 0), knight('b', 0, -6, { sprinting: true, velocity: { x: 0, y: 0, z: 8 } })]);
@@ -147,10 +147,39 @@ test('asked at a fall: did the fallen rush the victor; was it a fair fight; did 
   const oneSided = new VoiceWatch();
   for (const at of [1, 2, 3]) oneSided.damage({ attackerId: 'b', victimId: 'a', amount: 20, at, source: 'sword' });
   assert.equal(oneSided.fair('a', 'b', 4, 'sword'), false);
-  // the final strike
-  const strike = new VoiceWatch();
-  strike.damage({ attackerId: 'a', victimId: 'b', amount: 30, at: 7, source: 'sword', strikeIndex: 2 });
-  assert.equal(strike.finalStrike('a', 'b', 7), true);
-  strike.damage({ attackerId: 'a', victimId: 'c', amount: 26, at: 8, source: 'sword', strikeIndex: 1 });
-  assert.equal(strike.finalStrike('a', 'c', 8), false);
+});
+
+test('a swing as it begins: the first after a while, and the heavy third strike swung at a foe it would fell', () => {
+  const watch = new VoiceWatch();
+  const begin = (strikeIndex, at, knights = []) => tagsOf(watch.begin({ playerId: 'a', strikeIndex, at }, knights), 'a');
+  assert.ok(begin(0, 20).includes('firstSwing'), 'as the chain begins: before the blade goes live');
+  watch.swing({ playerId: 'a', strikeIndex: 0, at: 20.31 });
+  assert.deepEqual(begin(1, 20.72), [], 'the chain\'s later strikes are not its first swing');
+  watch.swing({ playerId: 'a', strikeIndex: 1, at: 21.01 });
+  assert.deepEqual(begin(0, 23), [], 'swinging lately: no first swing');
+  assert.ok(begin(0, 21.01 + WATCH.firstSwing.afterSec + 0.1).includes('firstSwing'));
+  // the heavy third strike, at a foe in reach ahead (a facing -z) that a blow would fell
+  const at = (foe) => [knight('a', 0, 0, { yaw: 0 }), knight('b', foe.x ?? 0, foe.z ?? -2, { health: 25, ...foe })];
+  assert.ok(begin(2, 40, at({})).includes('finalStrike'));
+  assert.deepEqual(begin(1, 40, at({})), [], 'only the heavy third strike');
+  assert.deepEqual(begin(2, 40, at({ health: 60 })), [], 'a blow would not fell them');
+  assert.deepEqual(begin(2, 40, at({ guarding: true })), [], 'they are guarding');
+  assert.deepEqual(begin(2, 40, at({ z: 2 })), [], 'behind him');
+  assert.deepEqual(begin(2, 40, at({ z: -WATCH.finalStrike.reach - 1 })), [], 'out of reach');
+});
+
+test('another knight\'s swings are seen beginning in his chain (mine are told by my own arms)', () => {
+  const watch = new VoiceWatch();
+  const swings = (moments) => tagsOf(moments, 'a').filter((tag) => tag === 'firstSwing' || tag === 'finalStrike');
+  const swinging = (committed, extra = {}) => [knight('a', 0, 0, { yaw: 0, attackActive: true, attackStartedAt: 50, attackCommitted: committed, ...extra }), knight('b', 0, -2, { health: 20 })];
+  assert.ok(swings(watch.step(50.05, swinging(1))).includes('firstSwing'), 'his chain begun');
+  assert.deepEqual(swings(watch.step(50.1, swinging(1))), [], 'once');
+  assert.deepEqual(swings(watch.step(50.8, swinging(2))), []);
+  assert.ok(swings(watch.step(51.5, swinging(3))).includes('finalStrike'), 'the third, at a foe it would fell');
+  // my own knight is left to my arms
+  const mine = new VoiceWatch();
+  assert.deepEqual(swings(mine.step(50.05, swinging(1), { self: 'a' })), []);
+  // seen too late to lead the swing: nothing
+  const late = new VoiceWatch();
+  assert.deepEqual(swings(late.step(50 + WATCH.begunFreshSec + 0.2, swinging(1))), []);
 });

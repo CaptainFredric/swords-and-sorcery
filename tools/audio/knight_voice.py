@@ -18,7 +18,7 @@ The clear helm (the standard chain, --profile clear; see tools/audio/RECORDING.m
   2. dereverb   take out the room it was recorded in: its late reverberation, predicted from the take's own decay,
                 is subtracted band by band, gently (a hard hand leaves a watery warble)
   3. expand     a downward expander: what is left of the room between and after the words sinks away (the soft
-                consonants kept)
+                consonants kept; it opens ahead of a word, so a word after a pause keeps its start)
   4. pitch      two semitones down (a phase vocoder: same length), the voice's formants put back where they were, so
                 every vowel stays the word it was
   5. EQ         a little chest, the mud taken out, a clear presence lift for the consonants
@@ -29,6 +29,9 @@ The clear helm (the standard chain, --profile clear; see tools/audio/RECORDING.m
 Nothing of a castle is baked in: the game adds a touch of the courtyard itself, and only for other knights (your own
 voice is heard close, from inside the helm). --profile close is the earlier, deeper chain (4.5 semitones down, the
 formants going down with it: bigger, but players could not make out the words); --profile classic the one before it.
+
+A line may also declare edits (--edits): small repairs in its recording's own seconds, made before and inside the
+chain (a pause cut, a clearer word spliced in, a buried word lifted, a flat ending raised). See "edits" below.
 
 Each take is written to client/assets/voice as AAC (.m4a) with a small WAV fallback; manifest.json lists what exists.
 --preview also writes a before/after pair to artifacts/voice-preview to listen to here.
@@ -172,14 +175,70 @@ def stretch(x, factor, n_fft=2048, hop=256):
     return out[start:start + int(len(x) * factor)]
 
 
-def pitch_shift(x, semitones, formants=0.0):
+def pitch_shift(x, semitones, formants=0.0, bend=None):
     """Deeper (negative) or higher, same length: stretch in time, then resample back. formants: how much of the
-    voice's own spectral envelope to put back afterwards (1: all of it, so the vowels stay where they were)."""
-    if abs(semitones) < 1e-3:
+    voice's own spectral envelope to put back afterwards (1: all of it, so the vowels stay where they were). bend: a
+    further change for each sample (semitones; an edit's rise), made in the same pass."""
+    if bend is not None and np.any(np.abs(bend) > 1e-3):
+        shifted = bend_shift(x, 2 ** ((semitones + bend) / 12))
+    elif abs(semitones) < 1e-3:
         return x
-    ratio = 2 ** (semitones / 12)
-    shifted = resample(stretch(x, ratio), len(x))
+    else:
+        shifted = resample(stretch(x, 2 ** (semitones / 12)), len(x))
     return keep_formants(x, shifted, formants) if formants > 0 else shifted
+
+
+def bend_shift(x, ratio, n_fft=2048, hop=256):
+    """A pitch change that varies sample by sample (ratio: one for each), same length: the take stretched by the ratio
+    where it is (a phase vocoder whose analysis keeps pace with it), then read back at that ratio."""
+    n = len(x)
+    pad = np.concatenate([np.zeros(n_fft), x, np.zeros(n_fft)])
+    rates = np.concatenate([np.full(n_fft, ratio[0]), ratio, np.full(n_fft, ratio[-1])])
+    # where each padded sample lands in the stretched take, and back
+    landing = np.concatenate([[0.0], np.cumsum(rates)[:-1]])
+    window = np.hanning(n_fft + 1)[:-1]
+    bins = np.arange(n_fft // 2 + 1)
+    omega = 2 * np.pi * bins / n_fft
+    frames = int((landing[-1] - n_fft) / hop)
+    out = np.zeros(frames * hop + n_fft)
+    norm = np.zeros_like(out)
+    last_phase = synth_phase = None
+    last_pos = 0
+    for t in range(frames):
+        centre = np.interp(t * hop + n_fft / 2, landing, np.arange(len(pad)))
+        pos = int(np.clip(round(centre - n_fft / 2), 0, len(pad) - n_fft))
+        frame = np.fft.rfft(pad[pos:pos + n_fft] * window)
+        magnitude = np.abs(frame)
+        phase = np.angle(frame)
+        if last_phase is None:
+            synth_phase = phase.copy()
+        else:
+            delta = phase - last_phase - omega * (pos - last_pos)
+            delta = (delta + np.pi) % (2 * np.pi) - np.pi
+            true_freq = omega + delta / max(1, pos - last_pos)
+            peak_phase = synth_phase + true_freq * hop
+            peaks = np.where((magnitude[1:-1] > magnitude[:-2]) & (magnitude[1:-1] >= magnitude[2:]))[0] + 1
+            if len(peaks):
+                edges = (peaks[1:] + peaks[:-1]) / 2
+                owner = peaks[np.searchsorted(edges, bins)]
+                synth_phase = peak_phase[owner] + (phase - phase[owner])
+            else:
+                synth_phase = peak_phase
+        last_phase = phase
+        last_pos = pos
+        out[t * hop:t * hop + n_fft] += np.fft.irfft(magnitude * np.exp(1j * synth_phase), n_fft) * window
+        norm[t * hop:t * hop + n_fft] += window ** 2
+    out /= np.maximum(norm, 1e-3)
+    return read_cubic(out, landing[n_fft:n_fft + n])
+
+
+def read_cubic(y, positions):
+    """y read at fractional positions (Catmull-Rom)."""
+    i = np.clip(np.floor(positions).astype(int), 0, len(y) - 1)
+    f = positions - np.floor(positions)
+    padded = np.concatenate([[y[0]], y, [y[-1], y[-1]]])
+    p0, p1, p2, p3 = padded[i], padded[i + 1], padded[i + 2], padded[i + 3]
+    return p1 + 0.5 * f * (p2 - p0 + f * (2 * p0 - 5 * p1 + 4 * p2 - p3 + f * (3 * (p1 - p2) + p3 - p0)))
 
 
 def spectral_envelope(magnitude, lifter):
@@ -245,17 +304,29 @@ def frame_levels(x, sr, hop_ms=10):
     return np.array([np.sqrt(np.mean(x[i * hop:(i + 1) * hop] ** 2) + 1e-12) for i in range(frames)]), hop
 
 
-def trim(x, sr, pre=0.03, post=0.14):
+def trim_range(x, sr, pre=0.03, post=0.14):
+    """Where the take's sound begins and ends (samples), with `pre` and `post` seconds kept either side."""
     levels, hop = frame_levels(x, sr)
     if not len(levels):
-        return x
+        return 0, len(x)
     threshold = max(np.max(levels) * 10 ** (-40 / 20), 10 ** (-55 / 20))
     active = np.where(levels > threshold)[0]
     if not len(active):
-        return x
-    start = max(0, active[0] * hop - int(pre * sr))
-    end = min(len(x), (active[-1] + 1) * hop + int(post * sr))
+        return 0, len(x)
+    return max(0, active[0] * hop - int(pre * sr)), min(len(x), (active[-1] + 1) * hop + int(post * sr))
+
+
+def trimmed(x, sr, track, pre, post):
+    """trim(), with a take's edit curves (edit_take) cut to match."""
+    start, end = trim_range(x, sr, pre, post)
+    return trim(x, sr, pre, post), ({name: curve[start:end] for name, curve in track.items()} if track else None)
+
+
+def trim(x, sr, pre=0.03, post=0.14):
+    start, end = trim_range(x, sr, pre, post)
     out = x[start:end].copy()
+    if not len(out):
+        return x
     fade_in = min(len(out), int(0.005 * sr))
     fade_out = min(len(out), int(0.04 * sr))
     out[:fade_in] *= np.linspace(0, 1, fade_in)
@@ -273,6 +344,75 @@ def loudness(x, sr, rms_db):
     over = np.abs(out) > ceiling * 0.8
     knee = ceiling * 0.8
     out[over] = np.sign(out[over]) * (knee + (ceiling - knee) * np.tanh((np.abs(out[over]) - knee) / (ceiling - knee)))
+    return out
+
+
+# --- edits: small repairs to a take, in its own recording's seconds (voiceLines.mjs `voice.edits`) ------------------
+#   { cut: [a, b] }                    that stretch taken out (a pause, dead air), the two sides crossfaded
+#   { splice: [a, b], from: [c, d] }   that stretch replaced by c-d of the same recording (a clearer word), set against
+#                                      the end of the stretch, silence before it
+#   { lift: [a, b], db }               that stretch this much louder in the finished take, eased in and out
+#   { rise: [a, b], semitones }        the pitch rising this far across that stretch (a flat ending made a question),
+#                                      eased, then back over 60 ms; made inside the chain's own pitch change
+# Each may name its take (take: 2); the first otherwise.
+
+LIFT_RAMP = 0.03    # seconds a lift eases in and out over
+SPLICE_FADE = 0.008
+CUT_FADE = 0.012
+
+
+def edit_take(x, sr, edits):
+    """A take's edits made: its cuts and splices at once; its rises and lifts as curves (semitones and dB for every
+    sample) that ride along with the take, cut as it is trimmed, for the chain to apply where they belong."""
+    t = np.arange(len(x)) / sr
+    bend = np.zeros(len(x))
+    lift = np.zeros(len(x))
+    for edit in edits:
+        if 'rise' in edit:
+            a, b = edit['rise']
+            s = np.clip((t - a) / max(b - a, 1e-3), 0, 1)
+            back = np.clip((t - b) / 0.06, 0, 1)
+            bend += edit['semitones'] * s * s * (3 - 2 * s) * (1 - back)
+        if 'lift' in edit:
+            a, b = edit['lift']
+            inside = np.clip(np.minimum(t - (a - LIFT_RAMP), (b + LIFT_RAMP) - t) / LIFT_RAMP, 0, 1)
+            lift += edit['db'] * (0.5 - 0.5 * np.cos(np.pi * inside))
+    # (every splice's word taken from the recording as it was, before anything is moved)
+    pieces = {i: x[int(e['from'][0] * sr):int(e['from'][1] * sr)].copy() for i, e in enumerate(edits) if 'splice' in e}
+    out = x.copy()
+    # the latest first, so each edit's times are still the recording's own
+    span = lambda edit: edit.get('cut') or edit.get('splice') or [-1]
+    for i, edit in sorted(enumerate(edits), key=lambda item: -span(item[1])[0]):
+        if 'splice' in edit:
+            out = splice(out, sr, edit['splice'], pieces[i])
+        elif 'cut' in edit:
+            a, b = (int(round(v * sr)) for v in edit['cut'])
+            out = cut(out, sr, a, b)
+            bend = np.concatenate([bend[:a], bend[b:]])
+            lift = np.concatenate([lift[:a], lift[b:]])
+    return out, {'bend': bend, 'lift': lift}
+
+
+def cut(x, sr, a, b):
+    """x without samples a..b, the two sides crossfaded (equal power: what is cut is pause, room or rustle)."""
+    n = min(int(CUT_FADE * sr), a, len(x) - b)
+    angle = np.linspace(0, np.pi / 2, n)
+    joint = x[a:a + n] * np.cos(angle) + x[b:b + n] * np.sin(angle)
+    return np.concatenate([x[:a], joint, x[b + n:]])
+
+
+def splice(x, sr, span, piece):
+    """x with span (seconds) replaced by piece, set against the span's end (silence before it), every edge faded."""
+    a, b = int(round(span[0] * sr)), int(round(span[1] * sr))
+    n = int(SPLICE_FADE * sr)
+    piece = piece[:b - a].copy()
+    piece[:n] *= np.sin(np.linspace(0, np.pi / 2, n)) ** 2
+    piece[-n:] *= np.cos(np.linspace(0, np.pi / 2, n)) ** 2
+    out = x.copy()
+    out[a - n:a] *= np.cos(np.linspace(0, np.pi / 2, n)) ** 2
+    out[b:b + n] *= np.sin(np.linspace(0, np.pi / 2, n)) ** 2
+    out[a:b] = 0
+    out[b - len(piece):b] = piece
     return out
 
 
@@ -378,26 +518,41 @@ def dereverb(x, sr, t60=0.85, strength=1.35, floor_db=-16, early_ms=45, n_fft=10
     return istft(spec * gain, window, length, len(x), n_fft, hop)
 
 
-def dynamics(x, sr, below_db=None, ratio=2.5, above_db=None, squeeze=3.0, attack_ms=3, release_ms=70, step_ms=2.5):
+def dynamics(x, sr, below_db=None, ratio=2.5, above_db=None, squeeze=3.0, attack_ms=3, release_ms=70, step_ms=2.5,
+             lookahead_ms=12):
     """A downward expander (whatever falls `below_db` under the take's loudest moment sinks further) and/or a
-    compressor (whatever rises above `above_db` under it is held back `squeeze` to one), on a smoothed level."""
+    compressor (whatever rises above `above_db` under it is held back `squeeze` to one), on a smoothed level.
+    Each moves as its job needs: the compressor clamps at once (attack) and lets go slowly (release); the expander opens
+    at once, a little ahead of the sound (lookahead), and closes slowly behind it. (It once opened at the release's
+    pace: a word after a pause lost its first fifth of a second, 5-7 dB down: "One:", "Two:", "There.")"""
     hop = max(1, int(sr * step_ms / 1000))
     frames = len(x) // hop + 1
     level_db = np.array([10 * np.log10(np.mean(x[i * hop:(i + 1) * hop] ** 2) + 1e-12) if len(x[i * hop:(i + 1) * hop]) else -120
                          for i in range(frames)])
     top = level_db.max()
-    target = np.zeros(frames)
-    if below_db is not None:
-        target += np.minimum(0, (level_db - (top + below_db)) * (ratio - 1))
-    if above_db is not None:
-        target -= np.maximum(0, (level_db - (top + above_db)) * (1 - 1 / squeeze))
-    attack = 1 - np.exp(-step_ms / attack_ms)
-    release = 1 - np.exp(-step_ms / release_ms)
+    fast = 1 - np.exp(-step_ms / attack_ms)
+    slow = 1 - np.exp(-step_ms / release_ms)
+
+    def follow(target, quick_when_rising):
+        out = np.zeros(frames)
+        g = target[0]
+        for i in range(frames):
+            rising = target[i] > g
+            g += (target[i] - g) * (fast if rising == quick_when_rising else slow)
+            out[i] = g
+        return out
+
     gain_db = np.zeros(frames)
-    g = target[0]
-    for i in range(frames):
-        g += (target[i] - g) * (attack if target[i] < g else release)
-        gain_db[i] = g
+    if below_db is not None:
+        target = np.minimum(0, (level_db - (top + below_db)) * (ratio - 1))
+        ahead = max(0, int(round(lookahead_ms / step_ms)))
+        if ahead:
+            padded = np.concatenate([target, np.full(ahead, target[-1])])
+            target = np.max(np.stack([padded[k:k + frames] for k in range(ahead + 1)]), axis=0)
+        gain_db += follow(target, quick_when_rising=True)
+    if above_db is not None:
+        target = -np.maximum(0, (level_db - (top + above_db)) * (1 - 1 / squeeze))
+        gain_db += follow(target, quick_when_rising=False)
     gain = np.interp(np.arange(len(x)), np.arange(frames) * hop + hop / 2, 10 ** (gain_db / 20))
     return x * gain
 
@@ -458,11 +613,12 @@ def close_helm(x, sr, preset, report=None):
     return loudness(x, sr, preset['rms_db'])
 
 
-def clear_helm(x, sr, preset, report=None):
-    """The standard chain: the take's room out (gently), then the knight, every word left clear. See the module notes."""
+def clear_helm(x, sr, preset, report=None, track=None):
+    """The standard chain: the take's room out (gently), then the knight, every word left clear. See the module notes.
+    track: the take's edit curves (edit_take), applied where they belong."""
     x = x - np.mean(x)
     x = declip(x)
-    x = trim(x, sr, pre=0.02, post=0.3)
+    x, track = trimmed(x, sr, track, pre=0.02, post=0.3)
     measured = room_decay(x, sr)
     t60 = min(CLEAR['t60'], measured) if measured else CLEAR['t60']
     x = dereverb(x, sr, t60=max(0.3, t60), strength=CLEAR['strength'], floor_db=CLEAR['floor_db'])
@@ -470,10 +626,10 @@ def clear_helm(x, sr, preset, report=None):
     x = gate_pauses(x, sr, open_db=CLEAR['gate_open_db'], hold_ms=CLEAR['gate_hold_ms'])
     x = dynamics(x, sr, below_db=min(preset.get('expand_below_db', CLEAR['expand_below_db']), CLEAR['expand_below_db']),
                  ratio=CLEAR['expand_ratio'])
-    x = trim(x, sr, pre=0.02, post=0.12)
+    x, track = trimmed(x, sr, track, pre=0.02, post=0.12)
     # (a line that must carry weight goes further down, and lets its formants follow part of the way: a bigger chest
-    # and helm behind the same words; `formants` 1 keeps them exactly where they were)
-    x = pitch_shift(x, preset['semitones'], formants=preset.get('formants', 1.0))
+    # and helm behind the same words; `formants` 1 keeps them exactly where they were. An edit's rise rides on it.)
+    x = pitch_shift(x, preset['semitones'], formants=preset.get('formants', 1.0), bend=track['bend'] if track else None)
     chest = preset.get('chest', 0.0)
     x = equalize(x, sr, [
         ('highpass', 85),
@@ -493,6 +649,9 @@ def clear_helm(x, sr, preset, report=None):
     x = saturate(x, preset['drive'] * CLEAR['drive_scale'], wet=CLEAR['grit'])
     x = dynamics(x, sr, below_db=CLEAR['tail_below_db'], ratio=2.0)
     x = gate_pauses(x, sr, open_db=CLEAR['gate_open_db'], hold_ms=CLEAR['gate_hold_ms'])
+    # (an edit's lift: a buried word brought up in the finished take, so it lands exactly as much louder as asked)
+    if track is not None and np.any(track['lift']):
+        x = x * 10 ** (track['lift'] / 20)
     if report is not None:
         report['t60'] = round(t60, 2)
     return loudness(x, sr, preset['rms_db'])
@@ -594,6 +753,7 @@ def publish(line, takes, preview_dir=None, echo='nearby', notes=None):
             save_wav(os.path.join(preview_dir, f'{file_stem(line)}-{number}-nearby.wav'), with_echo(x, SR, echo))
         note = notes[number - 1] if notes else {}
         extra = f", room T60 {note['t60']}s taken out" if 't60' in note else ''
+        extra += f", {note['edits']} edit(s)" if note.get('edits') else ''
         print(f'  {file_stem(line)}-{number}: {len(x) / SR:.2f}s, peak {db(np.max(np.abs(x))):.1f} dBFS{extra}')
 
 
@@ -607,6 +767,7 @@ def main():
     parser.add_argument('--expand-below-db', type=float, help='ease the expander for a line with a soft tail (for example -42)')
     parser.add_argument('--formants', type=float, help='how much of the voice\'s own formants to keep after the pitch change (default 1: all; 0.6 lets them follow part of the way down: bigger)')
     parser.add_argument('--chest', type=float, help='extra chest and body, in dB (default 0)')
+    parser.add_argument('--edits', help='the take\'s repairs, as JSON (see "edits" above): cuts, splices, lifts, rises')
     parser.add_argument('--profile', choices=('clear', 'close', 'classic'), default='clear', help='the chain (default: clear helm)')
     parser.add_argument('--preview', action='store_true', help='also write versions with the in-game echo to artifacts/voice-preview')
     parser.add_argument('--manifest-only', action='store_true', help='only rewrite manifest.json from the takes that are there')
@@ -647,8 +808,18 @@ def main():
             preset['chest'] = args.chest
         print(f'{line}: {len(paths)} take(s), {args.profile} chain')
         notes = [{} for _ in paths]
+        edits = json.loads(args.edits) if args.edits else []
+        if edits and args.profile != 'clear':
+            parser.error('edits are made in the clear chain only')
         if args.profile == 'clear':
-            takes = [clear_helm(load_any(path), SR, preset, report=note) for path, note in zip(paths, notes)]
+            takes = []
+            for number, (path, note) in enumerate(zip(paths, notes), start=1):
+                x, track = load_any(path), None
+                mine = [edit for edit in edits if edit.get('take', 1) == number]
+                if mine:
+                    x, track = edit_take(x, SR, mine)
+                    note['edits'] = len(mine)
+                takes.append(clear_helm(x, SR, preset, report=note, track=track))
         elif args.profile == 'close':
             takes = [close_helm(load_any(path), SR, preset, report=note) for path, note in zip(paths, notes)]
         else:

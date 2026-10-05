@@ -1,14 +1,16 @@
 // What the Spellblade's voice watches for over time: moments that are not one event but a way of moving, or a stretch
 // of quiet. A knight charging a foe, chasing one who runs, a lull, the first foe met in a life, giving ground and then
-// standing it, a sword chain carrying on past its third strike, a first swing after a while, a balance broken and
-// found again before he could punish it, a blow taken that filled his Prowess, a foe's sword missing him as he moves.
-// And, asked at a fall: whether the fallen had just rushed the one who felled them, whether it was a fair fight, and
-// whether the heavy third strike ended it.
+// standing it, a sword chain carrying on past its third strike, a balance broken and found again before he could punish
+// it, a blow taken that filled his Prowess, a foe's sword missing him as he moves. A swing as it begins: the first
+// after a while, and the heavy third strike swung at a foe it would fell (the breath behind them leads the blade, so
+// they are raised as the swing is committed, not when it lands). And, asked at a fall: whether the fallen had just
+// rushed the one who felled them, and whether it was a fair fight.
 //
 // Fed with the host's events and every knight as last seen; returns the moments to raise ([{ speaker, tags }]), which
 // the runtime hands to the voice like any other. Nothing in the game waits on it. Pure but for its memory, so it is
 // tested. Times are the host's (seconds); positions and speeds are on the ground (x, z).
 
+import { GAME, SWORD_CHAIN } from '../../../shared/src/combat.mjs';
 import { PROWESS } from '../../../shared/src/prowess.mjs';
 
 export const WATCH = Object.freeze({
@@ -26,6 +28,11 @@ export const WATCH = Object.freeze({
   // a chain carrying on: strikes following one another (a held chain's restart included) this soon; the fourth is it
   chain: Object.freeze({ gapSec: 0.8, strikes: 4 }),
   firstSwing: Object.freeze({ afterSec: 8 }),
+  // the heavy third strike swung at a foe it would fell: one in reach ahead (within this cone), not guarding, with no
+  // more health than a blow takes
+  finalStrike: Object.freeze({ reach: 3.0, coneDeg: 35 }),
+  // another knight's swing seen beginning (in the snapshots) is only voiced this fresh: a late sighting says nothing
+  begunFreshSec: 0.3,
   // a blow taken that filled his Prowess: the meter full this soon after it
   ready: Object.freeze({ withinSec: 0.6 }),
   // a foe's sword missing him: he the nearest within `reach` of the swing, moving at least this fast (or dashing)
@@ -51,7 +58,7 @@ export class VoiceWatch {
     this.staggers = new Map();    // `${by}>${victim}` -> { until, struck }
     this.blows = [];              // [{ from, to, at }]: blows landed lately, for a fair fight
     this.rushes = new Map();      // `${from}>${to}` -> when `from` last rushed `to`
-    this.strikes = new Map();     // `${from}>${to}` -> { strikeIndex, at }: the last sword blow landed
+    this.begun = new Map();       // another knight -> { chain, count }: the strikes of their chain seen begun
   }
 
   #knight(id, now) {
@@ -65,12 +72,16 @@ export class VoiceWatch {
     return this.knights.get(id);
   }
 
-  /** Time passes: knights as last seen ([{ id, alive, position, velocity, sprinting, dashUntil, prowess }]). */
-  step(now, knights = []) {
+  /**
+   * Time passes: knights as last seen ([{ id, alive, position, velocity, sprinting, dashUntil, prowess, attackActive,
+   * attackStartedAt, attackCommitted }]). self: my own knight (my swings are told as my arms begin them: begin()).
+   */
+  step(now, knights = [], { self = null } = {}) {
     const out = [];
     const living = knights.filter((k) => k && k.alive !== false && k.position);
     for (const knight of knights) {
       if (!knight?.id) continue;
+      if (knight.id !== self) out.push(...this.#begunSeen(knight, now, knights));
       const state = this.#knight(knight.id, now);
       const alive = knight.alive !== false;
       // back on their feet: a new life, a new arrival, a new quiet
@@ -153,13 +164,59 @@ export class VoiceWatch {
     state.lullSaid = false;
   }
 
-  /** A sword swung (a `swordSwing`): a first swing after a while, a chain carrying on, ground stood. */
+  /**
+   * A strike's swing begun (committed): the first swing after a while, and the heavy third strike swung at a foe it
+   * would fell. Mine as my arms begin it; another's as their chain is seen (step). knights: as last seen (mine where I
+   * am now).
+   */
+  begin({ playerId, strikeIndex, at }, knights = []) {
+    if (!playerId) return [];
+    const state = this.#knight(playerId, at);
+    const tags = [];
+    if (strikeIndex === 0 && at - state.lastSwingAt >= WATCH.firstSwing.afterSec) tags.push('firstSwing');
+    if (strikeIndex === 2 && this.#finishing(playerId, knights)) tags.push('finalStrike');
+    return tags.length ? [{ speaker: playerId, tags }] : [];
+  }
+
+  // another knight's strikes as their chain shows them begun (the chain's start, and each strike committed since)
+  #begunSeen(knight, now, knights) {
+    if (!knight.attackActive || !Number.isFinite(knight.attackStartedAt)) return [];
+    const chain = knight.attackStartedAt;
+    const committed = Math.min(SWORD_CHAIN.starts.length, Number.isInteger(knight.attackCommitted) ? knight.attackCommitted : 1);
+    const seen = this.begun.get(knight.id);
+    const from = seen?.chain === chain ? seen.count : 0;
+    if (committed <= from) return [];
+    this.begun.set(knight.id, { chain, count: committed });
+    const out = [];
+    for (let strike = from; strike < committed; strike += 1) {
+      const at = chain + SWORD_CHAIN.starts[strike];
+      if (now - at <= WATCH.begunFreshSec) out.push(...this.begin({ playerId: knight.id, strikeIndex: strike, at }, knights));
+    }
+    return out;
+  }
+
+  // a foe the swing would fell: in reach ahead of the swinger, not guarding, with no more health than a blow takes
+  #finishing(attackerId, knights) {
+    const attacker = knights.find((k) => k?.id === attackerId);
+    if (!attacker?.position) return false;
+    const rule = WATCH.finalStrike;
+    const yaw = attacker.yaw ?? 0;
+    const facing = { x: -Math.sin(yaw), z: -Math.cos(yaw) };
+    return knights.some((foe) => {
+      if (!foe?.position || foe.id === attackerId || foe.alive === false || foe.guarding) return false;
+      if (!((foe.health ?? Infinity) <= GAME.swordDamage)) return false;
+      const to = { x: foe.position.x - attacker.position.x, z: foe.position.z - attacker.position.z };
+      const distance = length(to);
+      return distance <= rule.reach && (distance < 1e-6 || dot(to, facing) / distance >= Math.cos((rule.coneDeg * Math.PI) / 180));
+    });
+  }
+
+  /** A sword swung (a `swordSwing`, as it goes live): a chain carrying on, ground stood. */
   swing(event, knights = []) {
     const { playerId, at } = event;
     if (!playerId) return [];
     const state = this.#knight(playerId, at);
     const tags = [];
-    if (at - state.lastSwingAt >= WATCH.firstSwing.afterSec) tags.push('firstSwing');
     const follows = at - state.lastSwingAt <= WATCH.chain.gapSec
       && (event.strikeIndex === (state.lastStrike ?? -2) + 1 || (event.strikeIndex === 0 && state.lastStrike === 2));
     state.streak = follows ? state.streak + 1 : 1;
@@ -194,7 +251,6 @@ export class VoiceWatch {
     this.blows = [...this.blows.filter((blow) => at - blow.at <= WATCH.fair.withinSec), { from: attackerId, to: victimId, at }];
     const stagger = this.staggers.get(`${attackerId}>${victimId}`);
     if (stagger) stagger.struck = true;
-    if (event.source === 'sword' && Number.isInteger(event.strikeIndex)) this.strikes.set(`${attackerId}>${victimId}`, { strikeIndex: event.strikeIndex, at });
   }
 
   /** A balance broke (a `staggerBreak`): watched until it is found again. */
@@ -226,12 +282,6 @@ export class VoiceWatch {
     const recent = this.blows.filter((blow) => at - blow.at <= WATCH.fair.withinSec);
     const count = (from, to) => recent.filter((blow) => blow.from === from && blow.to === to).length;
     return count(killer, victim) >= WATCH.fair.blows && count(victim, killer) >= WATCH.fair.blows;
-  }
-
-  /** Whether the blow that felled `victim` was `killer`'s heavy third strike. */
-  finalStrike(killer, victim, at) {
-    const strike = this.strikes.get(`${killer}>${victim}`);
-    return Boolean(strike) && strike.strikeIndex === 2 && at - strike.at <= 0.25;
   }
 
   /** A knight fell: what was being watched of them ends (their chases, their quiet). */

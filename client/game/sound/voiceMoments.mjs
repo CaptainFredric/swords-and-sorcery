@@ -164,11 +164,11 @@ export class VoiceMoments {
       practice: practice && victim?.actorKind === 'dummy' && FIGHTING.includes(victim.practiceMode),
       // a kill that arrived late and messily: a burn's last lick, a fall he only set going
       messy: source === 'burn' || (source === 'abyss' && !gale),
-      // what the runtime watched of it (voiceWatch.mjs): the fallen had rushed him; the fallen led the match; the
-      // heavy third strike ended it; and his kills without falling
+      // what the runtime watched of it (voiceWatch.mjs): the fallen had rushed him; the fallen led the match; it was a
+      // fair fight; and his kills without falling
       rushed: Boolean(extra.rushed),
+      fair: Boolean(extra.fair),
       leader: Boolean(extra.leader),
-      finalStrike: Boolean(extra.finalStrike),
       streak: (this.streaks.get(killerId) ?? 0) + 1,
     } : {};
     if (killerId) this.streaks.set(killerId, moment.streak);

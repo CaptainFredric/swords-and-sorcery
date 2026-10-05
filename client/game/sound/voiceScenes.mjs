@@ -15,9 +15,11 @@
 //   longer than the chain's own pace allows, the sentence is dropped for the rest of that Sunder. A foe felled once it
 //   is nearly said gets "Thank. You." in place of whatever was left of it.
 //
-//   The trick. Rarely, badly hurt and a moment short of his health coming back, he says "Wait, wait!!...". If he is hurt
-//   again before it does, that is all there is. If it truly comes back (his health seen to rise), he laughs and says he
-//   tricked them. Felled while waiting, he is likelier to protest that he is a knight (deathMoment `planFailed`).
+//   The trick. Rarely, the moment a blow he survives leaves him low, he says "Wait, wait!!...". If he then gets away
+//   with it (his health seen to come back, well out of danger), he laughs and says he tricked them: the panic was the
+//   plan all along. Felled first, there is no trick, and he is likelier to protest that he is a knight (deathMoment
+//   `planFailed`). Once weighed, it is not weighed again until he has been well clear of low (his health hovering at the
+//   edge never stammers it out twice).
 //
 // say(line, speaker, options) is the voice's (VoiceBank through the runtime): false, or { seconds, delay } when it was
 // said. `earned` marks a part that has earned its turn (no odds, no cooldown; it still gives way to a line of state).
@@ -50,10 +52,10 @@ export const SCENES = Object.freeze({
     thanksFrom: 9,         // "Thank. You." once this many words are said (as far as "For.")
   }),
   regenTrick: Object.freeze({
-    missing: 40,           // at least this much health gone: a recovery worth announcing
-    early: 0.9,            // "Wait, wait!!..." from this long before the health would come back...
-    late: 0.6,             // ...to this long before it
-    giveUpSec: 4,          // the reveal is waited for this long past when it was due
+    low: 30,               // "Wait, wait!!..." as a blow he survives takes him to this or below...
+    rearm: 60,             // ...weighed again only once he has been back above this
+    recovered: 55,         // the reveal: his health come back up to this (regenerated out of danger)
+    giveUpSec: 25,         // the reveal is waited for this long at most
   }),
 });
 
@@ -63,18 +65,16 @@ export class VoiceScenes {
     this.rand = rand;
     this.duels = new Map();       // speaker -> { foe, stage, at, until, hurt }
     this.sentences = new Map();   // speaker -> { state: 'waiting' | 'running' | 'over', index, lastAt }
-    this.hurtAt = new Map();      // knight -> when they were last hurt
-    this.asked = new Map();       // knight -> the hurt (its time) "Wait, wait" was already weighed for
-    this.tricks = new Map();      // knight -> { since, health, saidAt }
+    this.tricks = new Map();      // knight -> { saidAt, hurtAt, lowest, done }: "Wait, wait!!..." said, the reveal waited for
+    this.weighed = new Set();     // knights whose fall to low has been weighed (until they are well clear of it)
   }
 
   /** A new match: nothing carries over. */
   reset() {
     this.duels.clear();
     this.sentences.clear();
-    this.hurtAt.clear();
-    this.asked.clear();
     this.tricks.clear();
+    this.weighed.clear();
   }
 
   // ------------------------------------------------------------------------------------------------ the final duel
@@ -148,10 +148,7 @@ export class VoiceScenes {
   damage(event) {
     const { victimId, attackerId, at } = event;
     if (!(event.amount > 0) || !victimId) return;
-    this.hurtAt.set(victimId, at);
-    // hurt again before it came off: the trick is only "Wait, wait!!..."
-    const trick = this.tricks.get(victimId);
-    if (trick && at > trick.since) this.tricks.set(victimId, { ...trick, spoiled: true });
+    this.#lowBlow(event);
     // the verdict: what he takes while it is open counts against it
     const duel = this.duels.get(victimId);
     if (duel?.stage === 'verdict' && attackerId && attackerId !== victimId) {
@@ -170,8 +167,7 @@ export class VoiceScenes {
     const trick = this.tricks.get(victimId);
     const planFailed = Boolean(trick) && !trick.done;
     this.tricks.delete(victimId);
-    this.hurtAt.delete(victimId);
-    this.asked.delete(victimId);
+    this.weighed.delete(victimId);
     // the fallen's own scenes end with them
     this.duels.delete(victimId);
     this.sentences.delete(victimId);
@@ -238,29 +234,39 @@ export class VoiceScenes {
     }
   }
 
+  // a blow survived that left him low: "Wait, wait!!..." (now and then; once until he is well clear of low)
+  #lowBlow(event) {
+    const { victimId, at } = event;
+    const rules = SCENES.regenTrick;
+    const after = event.health;
+    const trick = this.tricks.get(victimId);
+    if (trick) {
+      trick.lowest = Math.min(trick.lowest, after ?? trick.lowest);
+      trick.hurtAt = at;
+      return;
+    }
+    if (!(after > 0) || after > rules.low || this.weighed.has(victimId)) return;
+    this.weighed.add(victimId);
+    if (this.say(LINES.trick, victimId, { part: 0 })) this.tricks.set(victimId, { saidAt: at, hurtAt: at, lowest: after, done: false });
+  }
+
   #tricks(now, knights) {
     const rules = SCENES.regenTrick;
     for (const knight of knights) {
-      if (!knight || knight.alive === false) continue;
-      const hurt = this.hurtAt.get(knight.id);
-      if (hurt === undefined) continue;
-      const dueAt = hurt + HEALTH_REGEN.delaySec;
+      if (!knight?.id || knight.alive === false) continue;
+      const health = knight.health ?? 0;
+      // well clear of low again: the next fall to it may be weighed
+      if (health > rules.rearm && !this.tricks.has(knight.id)) this.weighed.delete(knight.id);
       const trick = this.tricks.get(knight.id);
-      if (trick) {
-        // it has come off: his health is truly coming back (seen to rise), and nothing has touched him since
-        if (!trick.spoiled && !trick.done && (knight.health ?? 0) > trick.health + 0.5 && now >= dueAt) {
-          this.tricks.set(knight.id, { ...trick, done: true });
-          this.say(LINES.trick, knight.id, { part: 1, earned: true });
-        }
-        if (trick.spoiled || now > trick.due + rules.giveUpSec) this.tricks.delete(knight.id);
-        continue;
+      if (!trick) continue;
+      // he got away with it: his health has come back, out of danger (truly regenerated: never before it could have)
+      if (health >= rules.recovered && health > trick.lowest && now >= trick.hurtAt + HEALTH_REGEN.delaySec) {
+        trick.done = true;
+        this.tricks.delete(knight.id);
+        this.say(LINES.trick, knight.id, { part: 1, earned: true });
+      } else if (now - trick.saidAt > rules.giveUpSec) {
+        this.tricks.delete(knight.id);
       }
-      // weighed once for each time he is hurt: badly hurt, and a moment short of it coming back
-      if (this.asked.get(knight.id) === hurt) continue;
-      if (now < dueAt - rules.early || now > dueAt - rules.late) continue;
-      this.asked.set(knight.id, hurt);
-      if (100 - (knight.health ?? 100) < rules.missing) continue;
-      if (this.say(LINES.trick, knight.id, { part: 0 })) this.tricks.set(knight.id, { since: hurt, health: knight.health ?? 0, due: dueAt });
     }
   }
 }

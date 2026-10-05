@@ -75,6 +75,8 @@ export function serializeSnapshot(room, nowSec) {
       attackActive: p.attackActive,
       attackStartedAt: p.attackStartedAt,
       attackNextStrike: p.attackNextStrike,
+      // how many of the chain's strikes are committed (each swing seen beginning: the breath behind it leads it)
+      attackCommitted: p.attackCommitted ?? 0,
       // a chain begun Sundering: every strike of it a slam (the heavy strike's shape)
       attackSlam: Boolean(p.attackSlam),
       alive: p.alive,

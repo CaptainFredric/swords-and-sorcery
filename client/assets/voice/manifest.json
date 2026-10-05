@@ -4,13 +4,13 @@
     "abolishBattle": [
       {
         "file": "abolish-battle-1",
-        "seconds": 11.99
+        "seconds": 12.03
       }
     ],
     "acceptSaint": [
       {
         "file": "accept-saint-1",
-        "seconds": 3.16
+        "seconds": 3.22
       }
     ],
     "alwaysKnew": [
@@ -22,13 +22,13 @@
     "believeMagic": [
       {
         "file": "believe-magic-1",
-        "seconds": 2.67
+        "seconds": 2.73
       }
     ],
     "bestManWin": [
       {
         "file": "best-man-win-1",
-        "seconds": 3.91
+        "seconds": 3.92
       }
     ],
     "bladeCaught": [
@@ -40,51 +40,51 @@
     "breakTaunt": [
       {
         "file": "break-taunt-1",
-        "seconds": 2.18
+        "seconds": 2.2
       }
     ],
     "chargeDefeat": [
       {
         "file": "charge-defeat-1",
-        "seconds": 5.02
+        "seconds": 5.07
       }
     ],
     "chivalryTest": [
       {
         "file": "chivalry-test-1",
-        "seconds": 5.41
+        "seconds": 5.42
       }
     ],
     "coldHurt": [
       {
         "file": "cold-hurt-1",
-        "seconds": 0.78
+        "seconds": 0.77
       }
     ],
     "constitution": [
       {
         "file": "constitution-1",
-        "seconds": 2.07
+        "seconds": 2.1
       }
     ],
     "death": [
       {
         "file": "death-1",
-        "seconds": 1.93
+        "seconds": 1.99
       },
       {
         "file": "death-2",
-        "seconds": 1.96
+        "seconds": 1.98
       }
     ],
     "defeat": [
       {
         "file": "defeat-1",
-        "seconds": 1.65
+        "seconds": 1.68
       },
       {
         "file": "defeat-2",
-        "seconds": 1.91
+        "seconds": 1.96
       }
     ],
     "deftlyDodge": [
@@ -102,19 +102,19 @@
     "effort": [
       {
         "file": "effort-1",
-        "seconds": 1.08
+        "seconds": 1.1
       }
     ],
     "fairSquare": [
       {
         "file": "fair-square-1",
-        "seconds": 2.8
+        "seconds": 2.85
       }
     ],
     "fightAsMe": [
       {
         "file": "fight-as-me-1",
-        "seconds": 2.85
+        "seconds": 2.91
       }
     ],
     "finalDuel": [
@@ -124,13 +124,13 @@
       },
       {
         "file": "final-duel-2",
-        "seconds": 1.86
+        "seconds": 1.87
       }
     ],
     "firstStrike": [
       {
         "file": "first-strike-1",
-        "seconds": 0.78
+        "seconds": 0.8
       }
     ],
     "fistKill": [
@@ -142,37 +142,37 @@
     "fistThrow": [
       {
         "file": "fist-throw-1",
-        "seconds": 1.95
+        "seconds": 2.04
       }
     ],
     "galeTaunt": [
       {
         "file": "gale-taunt-1",
-        "seconds": 3.23
+        "seconds": 3.29
       }
     ],
     "getThingOff": [
       {
         "file": "get-thing-off-1",
-        "seconds": 1.72
+        "seconds": 1.8
       }
     ],
     "hackSlash": [
       {
         "file": "hack-slash-1",
-        "seconds": 3.02
+        "seconds": 3.04
       }
     ],
     "headOn": [
       {
         "file": "head-on-1",
-        "seconds": 1.95
+        "seconds": 1.97
       }
     ],
     "heavyHurt": [
       {
         "file": "heavy-hurt-1",
-        "seconds": 0.74
+        "seconds": 0.78
       }
     ],
     "heavyHurt2": [
@@ -184,39 +184,39 @@
     "herald": [
       {
         "file": "herald-1",
-        "seconds": 4.14
+        "seconds": 4.15
       }
     ],
     "hurt": [
       {
         "file": "hurt-1",
-        "seconds": 0.89
+        "seconds": 0.9
       }
     ],
     "jump": [
       {
         "file": "jump-1",
-        "seconds": 0.57
+        "seconds": 0.58
       },
       {
         "file": "jump-2",
-        "seconds": 0.53
+        "seconds": 0.51
       },
       {
         "file": "jump-3",
-        "seconds": 0.45
+        "seconds": 0.5
       }
     ],
     "killTaunt": [
       {
         "file": "kill-taunt-1",
-        "seconds": 2.03
+        "seconds": 2.12
       }
     ],
     "knightFallen": [
       {
         "file": "knight-fallen-1",
-        "seconds": 4.75
+        "seconds": 4.74
       }
     ],
     "lateLine": [
@@ -232,7 +232,7 @@
       },
       {
         "file": "laugh-2",
-        "seconds": 1.45
+        "seconds": 1.56
       }
     ],
     "lowerGuard": [
@@ -244,7 +244,7 @@
     "magicDefeat": [
       {
         "file": "magic-defeat-1",
-        "seconds": 2.09
+        "seconds": 2.1
       }
     ],
     "masterBreak": [
@@ -256,7 +256,7 @@
     "masterCall": [
       {
         "file": "master-call-1",
-        "seconds": 6.97
+        "seconds": 6.99
       }
     ],
     "misaddressed": [
@@ -268,13 +268,13 @@
     "neverThought": [
       {
         "file": "never-thought-1",
-        "seconds": 2.07
+        "seconds": 2.13
       }
     ],
     "newKnighthood": [
       {
         "file": "new-knighthood-1",
-        "seconds": 2.47
+        "seconds": 2.5
       }
     ],
     "noSpare": [
@@ -286,37 +286,37 @@
     "noSquire": [
       {
         "file": "no-squire-1",
-        "seconds": 5.22
+        "seconds": 5.23
       }
     ],
     "notFall": [
       {
         "file": "not-fall-1",
-        "seconds": 3.92
+        "seconds": 3.49
       }
     ],
     "offGuard": [
       {
         "file": "off-guard-1",
-        "seconds": 2.3
+        "seconds": 2.31
       }
     ],
     "openUp": [
       {
         "file": "open-up-1",
-        "seconds": 2.75
+        "seconds": 2.84
       }
     ],
     "poorTaste": [
       {
         "file": "poor-taste-1",
-        "seconds": 5.59
+        "seconds": 5.68
       }
     ],
     "preferNoPain": [
       {
         "file": "prefer-no-pain-1",
-        "seconds": 3.22
+        "seconds": 3.23
       }
     ],
     "rebuttal": [
@@ -328,23 +328,23 @@
     "regenTrick": [
       {
         "file": "regen-trick-1",
-        "seconds": 1.27
+        "seconds": 1.32
       },
       {
         "file": "regen-trick-2",
-        "seconds": 3.93
+        "seconds": 4.01
       }
     ],
     "remainStaggered": [
       {
         "file": "remain-staggered-1",
-        "seconds": 2.66
+        "seconds": 2.76
       }
     ],
     "renownDisowned": [
       {
         "file": "renown-disowned-1",
-        "seconds": 5.94
+        "seconds": 5.97
       }
     ],
     "savedFromPeace": [
@@ -360,7 +360,7 @@
       },
       {
         "file": "sorcery-2",
-        "seconds": 1.34
+        "seconds": 1.36
       }
     ],
     "squireSetup": [
@@ -372,19 +372,19 @@
     "staggerDisplay": [
       {
         "file": "stagger-display-1",
-        "seconds": 1.84
+        "seconds": 1.93
       }
     ],
     "standFight": [
       {
         "file": "stand-fight-1",
-        "seconds": 5.3
+        "seconds": 5.37
       }
     ],
     "steelBoast": [
       {
         "file": "steel-boast-1",
-        "seconds": 2.42
+        "seconds": 2.39
       }
     ],
     "steelPolished": [
@@ -396,13 +396,13 @@
     "stopRunning": [
       {
         "file": "stop-running-1",
-        "seconds": 3.91
+        "seconds": 3.93
       }
     ],
     "subparStandard": [
       {
         "file": "subpar-standard-1",
-        "seconds": 2.57
+        "seconds": 2.56
       }
     ],
     "sunderCall": [
@@ -414,19 +414,19 @@
     "sunderLeave": [
       {
         "file": "sunder-leave-1",
-        "seconds": 0.68
+        "seconds": 0.74
       },
       {
         "file": "sunder-leave-2",
-        "seconds": 0.66
+        "seconds": 0.67
       },
       {
         "file": "sunder-leave-3",
-        "seconds": 0.71
+        "seconds": 0.74
       },
       {
         "file": "sunder-leave-4",
-        "seconds": 0.73
+        "seconds": 0.75
       },
       {
         "file": "sunder-leave-5",
@@ -434,7 +434,7 @@
       },
       {
         "file": "sunder-leave-6",
-        "seconds": 0.71
+        "seconds": 0.72
       },
       {
         "file": "sunder-leave-7",
@@ -442,47 +442,47 @@
       },
       {
         "file": "sunder-leave-8",
-        "seconds": 0.65
-      },
-      {
-        "file": "sunder-leave-9",
-        "seconds": 0.65
-      },
-      {
-        "file": "sunder-leave-10",
         "seconds": 0.67
       },
       {
+        "file": "sunder-leave-9",
+        "seconds": 0.66
+      },
+      {
+        "file": "sunder-leave-10",
+        "seconds": 0.7
+      },
+      {
         "file": "sunder-leave-11",
-        "seconds": 0.69
+        "seconds": 0.72
       },
       {
         "file": "sunder-leave-12",
-        "seconds": 2.22
+        "seconds": 2.23
       }
     ],
     "thankYou": [
       {
         "file": "thank-you-1",
-        "seconds": 1.42
+        "seconds": 1.44
       }
     ],
     "thePlan": [
       {
         "file": "the-plan-1",
-        "seconds": 5.6
+        "seconds": 5.65
       }
     ],
     "tinManHeart": [
       {
         "file": "tin-man-heart-1",
-        "seconds": 2.11
+        "seconds": 2.17
       }
     ],
     "toldToWait": [
       {
         "file": "told-to-wait-1",
-        "seconds": 1.01
+        "seconds": 1.03
       }
     ],
     "underworld": [
@@ -494,19 +494,19 @@
     "victory": [
       {
         "file": "victory-1",
-        "seconds": 2.27
+        "seconds": 2.26
       }
     ],
     "vortexDefeat": [
       {
         "file": "vortex-defeat-1",
-        "seconds": 1.66
+        "seconds": 1.67
       }
     ],
     "vortexUse": [
       {
         "file": "vortex-use-1",
-        "seconds": 4.9
+        "seconds": 4.96
       }
     ],
     "workHard": [
