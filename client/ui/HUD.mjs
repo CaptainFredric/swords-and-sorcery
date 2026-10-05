@@ -200,7 +200,7 @@ export class HUD {
       this.preparedOrder = order;
     }
     const activeSec = ultimateFor('chivalry').activeSec;
-    this.preparedHeader.textContent = keyboard && this.preparedSelector ? 'Q HELD · PREPARED SPELLS' : view.phase === 'startup' ? 'Prepare your spells' : 'Spells & Chivalry';
+    this.preparedHeader.textContent = keyboard && this.preparedSelector ? 'CHOOSE A PREPARED SPELL' : view.phase === 'startup' ? 'Prepare your spells' : 'Spells & Chivalry';
     // (docked, the R tile beside it already counts Chivalry down)
     this.preparedTimer.textContent = view.phase === 'active' && !docked ? `${view.left.toFixed(1)}s` : '';
     this.preparedPanel.style.setProperty('--chivalry-left', `${Math.min(100, view.left / activeSec * 100)}%`);
@@ -223,7 +223,7 @@ export class HUD {
     }
     const highlighted = view.spells.find(entry => entry.id === this.preparedSelector?.highlight);
     this.preparedHint.textContent = keyboard
-      ? this.preparedSelector ? 'PRESS 1, 2 OR 3 TO SELECT · ESC TO CANCEL' : 'TAP Q TO CAST · HOLD Q + 1 / 2 / 3 TO SELECT'
+      ? this.preparedSelector ? 'PRESS 1, 2 OR 3 TO SELECT · Q OR ESC TO CLOSE' : 'TAP Q TO CAST · HOLD Q, THEN 1 / 2 / 3 TO SELECT'
       : this.preparedSelector
       ? highlighted ? `${highlighted.available ? 'RELEASE TO CAST' : 'RELEASE TO SELECT'} · ESC TO CANCEL` : 'RELEASE TO CANCEL'
       : view.phase === 'startup' ? 'HOLD Q TO PRESELECT' : 'TAP Q TO CAST · HOLD Q TO CHOOSE';

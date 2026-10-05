@@ -39,8 +39,8 @@ test('Chivalry HUD keeps a cooling spell face and exposes three identities with 
   view.setPreparedSelector({ mode: 'keyboard' });
   assert.equal(view.preparedPanel.classList.contains('selecting'), true);
   assert.equal(view.preparedPanel.classList.contains('cancelled'), false);
-  assert.equal(view.preparedHeader.textContent, 'Q HELD · PREPARED SPELLS');
-  assert.equal(view.preparedHint.textContent, 'PRESS 1, 2 OR 3 TO SELECT · ESC TO CANCEL');
+  assert.equal(view.preparedHeader.textContent, 'CHOOSE A PREPARED SPELL');
+  assert.equal(view.preparedHint.textContent, 'PRESS 1, 2 OR 3 TO SELECT · Q OR ESC TO CLOSE');
   assert.ok(!view.preparedHint.textContent.includes('CAST'));
   assert.deepEqual([...view.preparedSlots.values()].map(tile => tile.querySelector('kbd').textContent), ['1', '2', '3']);
 });

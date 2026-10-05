@@ -120,11 +120,12 @@ test('prepared gesture timers retain the browser host receiver', () => {
     const { input, calls } = setup({ useHostTimers: true });
     input.updatePreparedSpells(chivalry, 10);
     input.beginPreparedGesture();
-    assert.equal(timers[0].milliseconds, 140);
+    assert.equal(timers[0].milliseconds, 200);
     timers[0].callback();
     input.finishPreparedGesture();
-    assert.deepEqual(timers.at(-1), { cancelled: 42 });
     assert.equal(calls.length, 0, 'a held selector release never casts');
+    input.cancelPreparedGesture();
+    assert.deepEqual(timers.at(-1), { cancelled: 42 });
     input.updatePreparedSpells({ alive: false }, 10);
   } finally {
     globalThis.setTimeout = priorSet;
@@ -190,4 +191,31 @@ test('a quick next Q tap predicts the chosen spell without overwriting authorita
   assert.equal(calls.at(-1)[0], 'castCurrentSpell');
   input.updatePreparedSpells({...chivalry,spell:'frostfire',preparedSpellSelected:true},10.1);
   assert.equal(input.pendingPreparedSelection,null);
+});
+
+test('a short hold opens the choice, and it stays open once Q is let go: a number then selects, never casting', () => {
+  const { input, calls, down, up, reveal } = setup();
+  input.updatePreparedSpells(chivalry, 10);
+  down('KeyQ'); reveal(); up('KeyQ');
+  assert.ok(input.preparedGesture?.shown, 'still open after Q is released');
+  assert.deepEqual(calls, []);
+  // gale is cooling (ready at 14): choosing it is still allowed, the host decides
+  down('Digit3'); up('Digit3');
+  assert.deepEqual(calls, [['selectPreparedSlot', 3]]);
+  assert.equal(input.preparedGesture, null, 'choosing closes it');
+  down('KeyQ'); up('KeyQ');
+  assert.equal(calls.at(-1)[0], 'castCurrentSpell', 'a tap after it casts');
+});
+
+test('Q again or Escape puts an open choice away without casting', () => {
+  for (const close of ['KeyQ', 'Escape']) {
+    const { input, calls, down, up, reveal } = setup();
+    input.updatePreparedSpells(chivalry, 10);
+    down('KeyQ'); reveal(); up('KeyQ');
+    down(close); up(close);
+    assert.equal(input.preparedGesture, null, close);
+    assert.deepEqual(calls, [], close);
+    down('Digit1'); up('Digit1');
+    assert.deepEqual(calls, [], `${close}: a number after it is no choice`);
+  }
 });

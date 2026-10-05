@@ -665,7 +665,7 @@ function renderPreparedArmory() {
   // the three slots as the Armory's own cards: the key, the spell's mark and name; the starting spell fixed (★), the
   // others changed one way or the other
   const change = (slot, to, way, label) => to ? `<button type="button" class="prepared-turn" data-prepared-slot="${slot.slot}" data-prepared-to="${to}" data-way="${way}" aria-label="Slot ${slot.key}: ${label} ${escapeHtml(SPELLS[to].label)}">${way === 'previous' ? '‹' : '›'}</button>` : '';
-  root.innerHTML = '<p class="armory-slot">PREPARED SPELLS</p><p class="panel-copy">During Chivalry, hold Q and press 1, 2 or 3 to select. Release Q, then tap it to cast. The starting spell is marked ★.</p>'
+  root.innerHTML = '<p class="armory-slot">PREPARED SPELLS</p><p class="panel-copy">During Chivalry, tap Q to cast. Hold Q briefly to choose, then press 1, 2 or 3 (Q can be let go first). The starting spell is marked ★.</p>'
     + '<div class="prepared-slots">' + preparedArmoryView(starting, prepared).map((slot) => `<div class="prepared-slot spell-card${slot.starting ? ' equipped' : ''}" data-spell="${slot.id}">
       <kbd>${slot.key}</kbd><span class="spell-mark">${slot.mark}</span><span class="spell-name">${escapeHtml(slot.name)}</span>
       ${slot.starting ? '<i>★ STARTING</i>' : `<span class="prepared-turns">${change(slot, slot.previous, 'previous', 'change to')}${change(slot, slot.next, 'next', 'change to')}</span>`}</div>`).join('') + '</div>';

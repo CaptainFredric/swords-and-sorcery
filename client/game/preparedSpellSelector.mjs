@@ -1,6 +1,7 @@
 import { isSpell, spellFor } from '../../shared/src/spells.mjs';
 
-export const PREPARED_HOLD_MS = 140;
+// how long Q is held to open the choice instead of casting (a tap is shorter than this)
+export const PREPARED_HOLD_MS = 200;
 
 /** The repertoire is authoritative; only an unfinished highlight belongs to the client. */
 export function preparedSpellView(local, serverNow = 0) {

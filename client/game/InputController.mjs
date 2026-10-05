@@ -131,7 +131,9 @@ export class InputController {
       if (event.code === 'Escape') this.cancelPreparedGesture();
       if (this.preparedConsumedKeys.has(event.code)) { event.preventDefault(); return; }
       const slot = /^(?:Digit|Numpad)([123])$/.exec(event.code)?.[1];
-      if (this.enabled && this.preparedGesture && this.held('spell') && slot && !event.repeat && !this.keys.has(event.code)) {
+      // a number chooses while Q is held, or once a short hold has opened the choice (it stays open after Q is let go)
+      const choosing = this.preparedGesture && (this.held('spell') || this.preparedGesture.shown);
+      if (this.enabled && choosing && slot && !event.repeat && !this.keys.has(event.code)) {
         event.preventDefault();
         this.preparedConsumedKeys.add(event.code);
         this.pendingPreparedSelection = this.prepared.spells[Number(slot) - 1]?.id;
@@ -235,8 +237,13 @@ export class InputController {
     if (!this.prepared.visible) this.cancelPreparedGesture();
   }
 
+  // Q in Spells & Chivalry: a tap casts the selected spell; a short hold (PREPARED_HOLD_MS) opens the choice, which then
+  // stays open once Q is let go, until a number chooses (choosing never casts), Q is pressed again, or Escape
   beginPreparedGesture() {
-    if (!this.enabled || !this.prepared.visible || this.preparedGesture) return;
+    if (!this.enabled || !this.prepared.visible) return;
+    // (open and waiting for a number: Q again puts it away, without casting)
+    if (this.preparedGesture?.shown) { this.preparedGesture.closing = true; return; }
+    if (this.preparedGesture) return;
     const gesture = { shown: false, slots: this.prepared.spells.map((spell, index) => ({ id: spell.id, slot: index + 1 })) };
     this.preparedGesture = gesture;
     this.preparedTimer = this.setTimer(() => {
@@ -261,6 +268,8 @@ export class InputController {
   finishPreparedGesture() {
     const gesture = this.preparedGesture;
     if (!gesture) return;
+    // held long enough to open the choice: it stays open for a number (Q again closes it)
+    if (gesture.shown && !gesture.closing) return;
     const tap = !gesture.shown;
     this.cancelPreparedGesture();
     if (tap && this.prepared.phase === 'active') this.castCurrentSpell();
