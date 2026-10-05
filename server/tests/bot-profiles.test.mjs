@@ -25,6 +25,8 @@ function botDuel(profile = null) {
   room.provisionModeActors(0);
   room.setArenaReady(human.id, true, 0);
   room.tick(3.1);
+  // (past the opening peace: these are fights already under way)
+  room.peace = null;
   const bot = [...room.players.values()].find((p) => p.actorKind === 'bot');
   if (profile) bot.botProfile = profile;
   human.spawnProtectionUntil = 0;
@@ -175,8 +177,9 @@ test('Mr. Melee hardens as a fight begins, not at nothing', () => {
   assert.ok(fight.steelAt.distance <= 3.5, `as the fight began (${fight.steelAt.distance.toFixed(2)} m)`);
 });
 
-test('a bot never reads its foe\'s buttons: at every moment of a fight, what they hold changes nothing it decides', () => {
+for (const skill of ['squire', 'knight', 'champion', 'spellblade']) test(`a bot never reads its foe's buttons (${skill}): at every moment of a fight, what they hold changes nothing it decides`, () => {
   const { room, human, bot } = botDuel();
+  bot.botSkill = skill;
   Object.assign(human.position, { x: 0, y: 0, z: 0 });
   Object.assign(bot.position, { x: 0, y: 0, z: -3 });
   // what cannot be seen: the buttons under the foe's hands and what they have asked for next

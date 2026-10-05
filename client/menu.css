@@ -302,6 +302,7 @@
 .vote-chip.mine .tally { background: #2a1c10; color: #f1dfae; }
 /* the solo arena choice: the vote chips, one lit */
 .solo-arena { margin: 2px 0 12px; }
+.solo-rival-note { margin: -6px 0 12px; min-height: 1.3em; }
 .vote-chip:hover { border-color: var(--heraldry-brass-light); }
 
 /* --- seeking a duel: a banner in the practice yard --------------------------------------------------------------- */

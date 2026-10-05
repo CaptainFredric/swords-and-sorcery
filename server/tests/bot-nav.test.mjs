@@ -65,6 +65,8 @@ function chase(from, to, seconds = 12, worldId = WORLD_IDS.CASTLEWARD) {
   room.provisionModeActors(0);
   room.setArenaReady(human.id, true, 0);
   room.tick(3.1);
+  // (past the opening peace: these are fights already under way)
+  room.peace = null;
   const bot = [...room.players.values()].find((p) => p.actorKind === 'bot');
   human.connected = true;
   Object.assign(human.position, to);
@@ -99,6 +101,8 @@ test('round something small it steps aside, not off round the waypoints', () => 
   room.provisionModeActors(0);
   room.setArenaReady(human.id, true, 0);
   room.tick(3.1);
+  // (past the opening peace: these are fights already under way)
+  room.peace = null;
   const bot = [...room.players.values()].find((p) => p.actorKind === 'bot');
   // the market well stands between them
   Object.assign(bot.position, { x: -2.8, y: 0, z: 2.5 });
@@ -123,6 +127,9 @@ test('a bot fighting on the terrace never walks itself over the crumbled edge', 
       room.provisionModeActors(0);
       room.setArenaReady(human.id, true, 0);
       room.tick(3.1);
+      room.peace = null;
+  // (past the opening peace: these are fights already under way)
+  room.peace = null;
       const bot = [...room.players.values()].find((p) => p.actorKind === 'bot');
       bot.botProfile = kind;
       human.connected = true;
