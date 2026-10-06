@@ -31,7 +31,7 @@ import { galeRecoil } from '../../shared/src/gale.mjs';
 import { swordDamageFor } from '../../shared/src/combat.mjs';
 import { CROUCH, POSTURES, postureOf } from '../../shared/src/body.mjs';
 import { steelStrength } from '../../shared/src/steel.mjs';
-import { STEEL_RAM, ramContact, ramStrength } from '../../shared/src/steelRam.mjs';
+import { STEEL_RAM, chargeTarget, ramContact, ramStrength } from '../../shared/src/steelRam.mjs';
 import { STEEL_RIPPLE } from './steelSheen.mjs';
 import { chillScale, spellFor } from '../../shared/src/spells.mjs';
 import { cryMoment, gauntletMoment, hearingFor, voicePlacement, voiceRate } from './sound/voiceRules.mjs';
@@ -293,7 +293,10 @@ export class GameRuntime {
       this.weapon.dash();
       this.effects.dash();
       this.#play(dashRecipe(), null, 0.8);
-      this.#sayMoment(this.socket.playerId, ['dash']);
+      // a Steel dash straight at someone near is a charge (head on, as he would put it): its line, if said, is the
+      // only breath of the dash (the same moment: the first said is the only one)
+      const toward = ram > 0 ? chargeTarget(this.localState.position, this.localState.dashDir, this.#chargeable(now)) : null;
+      this.#sayMoment(this.socket.playerId, toward ? ['steelCharge', 'dash'] : ['dash']);
     };
 
     this.localState = null;
@@ -654,7 +657,7 @@ export class GameRuntime {
         this.#sayMoments(this.moments.staggerBreak(event, this.#voiceWorld()), event.at);
       }
       // another knight's dash: its breath, or the wildcard, now and then (mine is said as I press it)
-      if (event.type === 'dash' && event.playerId !== me) this.#sayMoment(event.playerId, ['dash']);
+      if (event.type === 'dash' && event.playerId !== me) this.#sayMoment(event.playerId, event.toward ? ['steelCharge', 'dash'] : ['dash']);
       // the Sunder sentence: a Sunder taken hold may begin it at its first slam into the ground, and every slam swung
       // after that is its next word (voiceScenes.mjs)
       if (event.type === 'ultimateActive' && event.ultimate === 'sunder') this.scenes.sunderBegan(event.playerId);
