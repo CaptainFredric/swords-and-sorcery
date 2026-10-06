@@ -534,10 +534,11 @@ function landRam(room, player, target, met, nowSec, world) {
     y: Math.max(met.at.y, target.position.y) + 1.15,
     z: met.at.z + met.normal.z * STEEL_RAM.reach * 0.5,
   };
-  room.events.push({
+  // (said after what it did: a blow's damage comes first, as a sword's does before its swordHit)
+  const rammed = {
     type: 'steelRam', playerId: player.id, targetId: target.id, point, direction: way, strength: round2(strength), guarded,
     ...(guardBroken ? { guardBroken: true } : {}), steel: round2(plate), amount: armour.amount, push, at: nowSec,
-  });
+  };
   if (guarded) {
     shoveBody(target, push);
     target.lastAttackerId = player.id;
@@ -553,6 +554,7 @@ function landRam(room, player, target, met, nowSec, world) {
     } else {
       staggerBy(room, target, effect.stagger, nowSec, player.id);
     }
+    room.events.push(rammed);
     return;
   }
   // hardened plate on them takes from the hurt only: the shove and the balance are the ram's
@@ -563,6 +565,7 @@ function landRam(room, player, target, met, nowSec, world) {
     contactFacts: challengeContact(player, nowSec, { ram: round2(strength) }),
   });
   staggerBy(room, target, effect.stagger, nowSec, player.id);
+  room.events.push(rammed);
 }
 
 function transformFor(player, atSec) {

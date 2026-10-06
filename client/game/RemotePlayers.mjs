@@ -15,7 +15,7 @@ import {
 import { bufferedServerTime, castPoseWindowFromEvent, resolveSpellbladeState } from './spellbladePose.mjs';
 import { airborneLegFlex, crouchPose, guardTurns, landingStrength, pruneReactions } from './spellbladeMotion.mjs';
 import { gaitFootfall } from './sound/footsteps.mjs';
-import { createSteelSheen } from './steelSheen.mjs';
+import { STEEL_RIPPLE, createSteelSheen } from './steelSheen.mjs';
 import { createSunderBlade } from './sunderBlade.mjs';
 import { VORTEX_BLADES, createVortexBlade } from './vortexBlade.mjs';
 import { ULTIMATES, vortexAngle, vortexWindup } from '../../shared/src/ultimates.mjs';
@@ -218,6 +218,27 @@ export class RemotePlayers {
 
   // queue a short procedural reaction on the body that took the blow, played on the interpolated clock
   #react(event, snapshot) {
+    // a Steel dash ram (its blow, when it landed, came a moment before in the same tick): the one rammed is thrown
+    // through it harder, or braces into a guard; the rammer jolts to a stop; hardened plate on either flashes with it
+    if (event?.type === 'steelRam' && Number.isFinite(event.at)) {
+      const way = { x: event.direction?.x ?? 0, z: event.direction?.z ?? 1 };
+      const victim = this.rigs.get(event.targetId)?.root.userData;
+      if (victim) {
+        if (!event.guarded) {
+          victim.reactions = victim.reactions.map((reaction) => (reaction.kind === 'hit' && reaction.at === event.at ? { ...reaction, push: way, strength: Math.min(1.5, (reaction.strength ?? 1) * 1.6) } : reaction));
+          victim.lastPush = way;
+        } else if (!event.guardBroken) {
+          victim.reactions = [...pruneReactions(victim.reactions, event.at), { kind: 'block', at: event.at, push: way, strength: 1.25 }];
+        }
+        if (event.steel > 0.02) victim.steelFlashAt = event.at;
+      }
+      const rammer = this.rigs.get(event.playerId)?.root.userData;
+      if (rammer) {
+        rammer.reactions = [...pruneReactions(rammer.reactions, event.at), { kind: 'hit', at: event.at, push: { x: -way.x, z: -way.z }, strength: 0.45 }];
+        rammer.steelFlashAt = event.at;
+      }
+      return;
+    }
     // a sword blow says which strike it was (its damage came a moment before, in the same tick): the flinch turns
     // with that blade's travel
     if (event?.type === 'swordHit') {
@@ -514,7 +535,9 @@ export class RemotePlayers {
         shell.steelSheen = createSteelSheen(shell.visualInstance, { ready: true });
         shell.steelSheenOf = shell.visualInstance;
       }
-      shell.steelSheen.set(steel, pb.steel ? serverNow - pb.steel.calledAt : null);
+      // (its glint runs from the gauntlet as it is called, and again as a ram lands: the plate flashing with the blow)
+      const flashed = Number.isFinite(d.steelFlashAt) && serverNow - d.steelFlashAt < STEEL_RIPPLE.seconds ? serverNow - d.steelFlashAt : null;
+      shell.steelSheen.set(steel, flashed ?? (pb.steel ? serverNow - pb.steel.calledAt : null));
       // Sundering: the ember heat in that knight's steel (sunderBlade.mjs)
       const sunder = pb.ultimateState?.id === 'sunder' && pb.ultimateState.phase === 'active' && serverNow < (pb.ultimateState.until ?? 0);
       if (sunder || shell.sunderBlade) {

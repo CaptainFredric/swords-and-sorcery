@@ -16,7 +16,7 @@ import { localPushDirection } from './spellbladeMotion.mjs';
 import { blowDirection, glancing, hitKick, hitstopSeconds, impactPoint, steelHitFeel } from './hitFeel.mjs';
 import {
   blockRecipe, burnLickRecipe, castRecipe, dashRecipe, fireballImpactRecipe, frostImpactRecipe, guardBreakRecipe, hurtRecipe, killRecipe,
-  deniedRecipe, galeReleaseRecipe, preciseRecipe, softStrikeRecipe, strikeSurface, woodThunkRecipe, gauntletHitRecipe, gauntletSwingRecipe, parryRecipe, spatialize, steelCallRecipe, steelClangRecipe, steelTickRecipe,
+  deniedRecipe, galeReleaseRecipe, preciseRecipe, softStrikeRecipe, strikeSurface, woodThunkRecipe, gauntletHitRecipe, gauntletSwingRecipe, parryRecipe, spatialize, steelCallRecipe, steelClangRecipe, steelRamRecipe, steelTickRecipe,
   swingRecipe, swordHitRecipe, wallClangRecipe,
   groundSlamRecipe, ruptureRunRecipe, sunderRingRecipe, staggerBreakRecipe, staggerStrainRecipe, sunderDongRecipe, sunderDropRecipe, sunderForceRecipe,
   ultimateFizzleRecipe, ultimateReadyRecipe,
@@ -31,6 +31,8 @@ import { galeRecoil } from '../../shared/src/gale.mjs';
 import { swordDamageFor } from '../../shared/src/combat.mjs';
 import { CROUCH, POSTURES, postureOf } from '../../shared/src/body.mjs';
 import { steelStrength } from '../../shared/src/steel.mjs';
+import { STEEL_RAM, ramContact, ramStrength } from '../../shared/src/steelRam.mjs';
+import { STEEL_RIPPLE } from './steelSheen.mjs';
 import { chillScale, spellFor } from '../../shared/src/spells.mjs';
 import { cryMoment, gauntletMoment, hearingFor, voicePlacement, voiceRate } from './sound/voiceRules.mjs';
 import { MOMENTS, VoiceMoments } from './sound/voiceMoments.mjs';
@@ -281,6 +283,11 @@ export class GameRuntime {
       const dashed = tryStartDash(this.localState, dir, now);
       this.localState.dashReadyAt = running;
       if (!dashed) return;
+      // Sheathed in Steel (or just called, the host's word still on its way), the dash is a ram as strong as the plate
+      // is now: foreseen here as it lands (#foretellRam)
+      const called = Number.isFinite(this.localSteelAt) && now - this.localSteelAt < 0.6 && !this.localAuth?.steel;
+      const ram = called ? 1 : ramStrength(this.localAuth?.steel, now);
+      this.localRam = ram > 0 ? { strength: ram, armed: true, at: null } : null;
       recordUse(this.localState, 'dash', now, MOVEMENT.dashCooldown, practice);
       if (practice) this.localGate = { ...(this.localGate ?? {}), dash: now + PRACTICE_RECAST.gateSec };
       this.weapon.dash();
@@ -495,7 +502,10 @@ export class GameRuntime {
         if (auth.impulse && this.socket.serverNow() < (this.windOnMeUntil ?? -Infinity)) this.localState.impulse = { ...auth.impulse };
       }
       this.localState.dashReadyAt = auth.dashReadyAt;
-      this.localState.dashUntil = auth.dashUntil ?? this.localState.dashUntil;
+      // (a ram I foresaw has stopped my dash already, whatever the host's word on it says before it has heard)
+      const dashUntil = auth.dashUntil ?? this.localState.dashUntil;
+      const rammedAt = this.localRam?.at;
+      this.localState.dashUntil = Number.isFinite(rammedAt) && dashUntil > rammedAt && dashUntil - rammedAt < MOVEMENT.dashDuration + 0.3 ? rammedAt : dashUntil;
     }
     const released = localWeaponReleaseForSnapshot(auth, this.socket.serverNow());
     this.#applyWeaponRelease(released);
@@ -562,6 +572,7 @@ export class GameRuntime {
       if (event.type === 'galeCatch') this.#galeCaught(event);
       if (event.type === 'gauntletStrike') this.#gauntletStrike(event);
       if (event.type === 'gauntletHit') this.#gauntletHit(event);
+      if (event.type === 'steelRam') this.#steelRam(event);
       // a blow or a blast that shoved me: my own steps carry the shove at once (the server's already do)
       if (event.type === 'damage' && event.victimId === me && event.push && this.localState) shoveBody(this.localState, event.push);
       if (event.type === 'damage') {
@@ -720,7 +731,8 @@ export class GameRuntime {
             this.effects.damageNumber({ x: victim.x, y: victim.y + 1.85, z: victim.z }, event.amount, { heavy: event.amount >= 40 });
           }
         }
-        if (event.victimId === this.socket.playerId && event.source !== 'abyss' && event.amount > 0) {
+        // (a ram knocks me through my own view itself, harder: #steelRam)
+        if (event.victimId === this.socket.playerId && event.source !== 'abyss' && event.source !== 'ram' && event.amount > 0) {
           this.weapon.damage(this.#pushTowardMe(event.attackerId), event.amount);
         }
         // a blow that kills gets the death cry instead
@@ -730,7 +742,8 @@ export class GameRuntime {
         // it landed), never more than one at a time
         if (event.clean && event.source !== 'burn') this.#precise(event);
         // a blow on hardened plate clangs and sparks instead (#steelStruck); otherwise, mine flashes the view red
-        const plated = this.#steelStruck(event);
+        // (a ram on hardened plate rings in its own sound: #steelRam)
+        const plated = event.source === 'ram' ? (event.steel ?? 0) >= 0.02 : this.#steelStruck(event);
         if (event.victimId === this.socket.playerId && this.view.damageFlash && !plated && event.amount > 0 && event.source !== 'abyss') {
           // (the side it came from: the push runs away from whoever struck)
           const push = this.#pushTowardMe(event.attackerId);
@@ -967,6 +980,101 @@ export class GameRuntime {
 
   // the gauntlet lands: a knock on a guard, or a thud into plate; and, rarely, a word from the one who threw it (the
   // rebuttal first, to a foe who has just spoken and is left low enough for a gauntlet to finish)
+  // my Steel dash meeting someone, as I see them: stopped dead there and set back (as the host will have it), with its
+  // KLANG, its sparks and the jolt at once. The host's word on it follows (#steelRam) and is not played twice
+  #foretellRam(from, serverNow) {
+    const players = this.latestSnapshot?.players ?? [];
+    const bodies = this.#chargeable(serverNow);
+    const met = ramContact(from, this.localState.position, bodies);
+    if (!met) return;
+    const target = bodies.find((body) => body.id === met.id);
+    const start = [met.at.x, met.at.y + POSTURES.standing.center, met.at.z];
+    const end = [target.position.x, target.position.y + POSTURES.standing.center, target.position.z];
+    if ((this.activeWorld?.solids ?? []).some((box) => segmentAabbHit(start, end, box))) return;
+    const dash = { ...this.localState.dashDir };
+    this.localState.position = { ...this.localState.position, x: met.at.x, z: met.at.z };
+    this.localState.dashUntil = serverNow;
+    this.localState.velocity.x = 0;
+    this.localState.velocity.z = 0;
+    shoveBody(this.localState, { x: -dash.x * STEEL_RAM.setback, z: -dash.z * STEEL_RAM.setback });
+    const { strength } = this.localRam;
+    this.localRam = { strength, armed: false, at: serverNow, targetId: met.id };
+    // what it met, as I can see it: a guard turned to me, or hardened plate
+    const foe = players.find((p) => p.id === met.id);
+    const toMeX = met.at.x - target.position.x;
+    const toMeZ = met.at.z - target.position.z;
+    const facing = Number.isFinite(foe?.yaw) && (-Math.sin(foe.yaw) * toMeX - Math.cos(foe.yaw) * toMeZ) / (Math.hypot(toMeX, toMeZ) || 1) >= Math.cos((115 * Math.PI / 180) / 2);
+    const kind = foe?.guarding && facing ? 'guard' : steelStrength(foe?.steel, serverNow) >= 0.15 ? 'steel' : 'body';
+    const point = { x: met.at.x + met.normal.x * STEEL_RAM.reach * 0.5, y: Math.max(met.at.y, target.position.y) + 1.15, z: met.at.z + met.normal.z * STEEL_RAM.reach * 0.5 };
+    this.#rammed({ mine: true, strength, kind, point, direction: dash, targetPosition: target.position });
+  }
+
+  // the knights a Steel dash of mine could meet, where I see them: the living, none just risen (as the host has it)
+  #chargeable(serverNow) {
+    const players = this.latestSnapshot?.players ?? [];
+    return this.remotePlayers.bodies()
+      .filter((body) => {
+        const player = players.find((p) => p.id === body.id);
+        return player && player.alive !== false && !((player.spawnProtectionUntil ?? 0) > serverNow);
+      })
+      .map((body) => ({ id: body.id, position: { x: body.x, y: body.y, z: body.z } }));
+  }
+
+  // a Steel dash ram landed (steelRam.mjs): its THUNK, KLANG and rattle from where the two met, sparks there and dust
+  // from under their feet; the rammer jolts to a stop, the one rammed is knocked through their own view. Mine was
+  // foreseen as it landed (#foretellRam), so the host's word only confirms it
+  #steelRam(event) {
+    const me = this.socket.playerId;
+    const kind = event.guarded ? 'guard' : (event.steel ?? 0) >= 0.15 ? 'steel' : 'body';
+    if (event.playerId === me) {
+      const foretold = Number.isFinite(this.localRam?.at) && Math.abs(event.at - this.localRam.at) < 0.45;
+      if (!foretold) {
+        // (not foreseen: my dash stops now that the host has said so)
+        if (this.localState) {
+          this.localState.dashUntil = Math.min(this.localState.dashUntil ?? -Infinity, this.socket.serverNow());
+          shoveBody(this.localState, { x: -event.direction.x * STEEL_RAM.setback, z: -event.direction.z * STEEL_RAM.setback });
+        }
+        this.#rammed({ mine: true, strength: event.strength, kind, broken: event.guardBroken, point: event.point, direction: event.direction, targetPosition: this.#bodyPosition(event.targetId) });
+      }
+      this.localRam = null;
+      // (a guard braced against it: the reticle says it met, more dully than a blow; a blow says so itself)
+      if (event.guarded) this.hud.hit('glance');
+      return;
+    }
+    this.#rammed({
+      mine: false, onMe: event.targetId === me, event, strength: event.strength, kind, broken: event.guardBroken,
+      point: event.point, direction: event.direction, targetPosition: this.#bodyPosition(event.targetId),
+    });
+  }
+
+  #rammed({ mine, onMe = false, event = null, strength, kind, broken = false, point, direction, targetPosition }) {
+    const heard = mine ? 'rammer' : onMe ? 'victim' : 'near';
+    this.#play(steelRamRecipe(Math.random, { strength, kind, broken, heard }), mine || onMe ? null : point, mine || onMe ? 1 : 0.95);
+    // the dust kicked from under them: only with their feet on the ground
+    const ground = targetPosition && this.activeWorld ? surfaceHeightAt(targetPosition.x, targetPosition.z, targetPosition.y + 0.3, this.activeWorld) : null;
+    const feet = targetPosition && ground !== null && Math.abs(targetPosition.y - ground) < 0.08 ? { x: targetPosition.x, y: ground, z: targetPosition.z } : null;
+    if (!onMe && point) this.effects.steelRam(point, direction, { strength, feet, steel: kind === 'steel', close: mine });
+    if (mine) {
+      // the stop, felt: the arms jolt and hold a beat (only the arms: nothing waits), the view kicks, sparks across the
+      // bottom of it, and my plate flashes
+      this.weapon.hitstop(0.06, 0.85);
+      this.cameraKick = Math.max(this.cameraKick, 0.06 + 0.06 * strength);
+      this.effects.steelSparksInView(direction, strength);
+      this.steelFlashAt = this.socket.serverNow();
+      return;
+    }
+    if (!onMe) return;
+    // rammed: knocked through my own view (harder than its blow alone), or braced into my guard and pushed back
+    if (event.guarded) {
+      this.weapon.block(Boolean(event.guardBroken));
+      if (this.localState && event.push) shoveBody(this.localState, event.push);
+    } else {
+      this.weapon.damage(this.#pushTowardMe(event.playerId), 30 + 14 * strength);
+    }
+    this.effects.steelSparksInView({ x: -direction.x, z: -direction.z }, strength * (kind === 'steel' ? 1 : 0.5));
+    if (kind === 'steel') this.steelFlashAt = this.socket.serverNow();
+  }
+
   #gauntletHit(event) {
     const me = this.socket.playerId;
     const involved = event.playerId === me || event.targetId === me;
@@ -1394,12 +1502,13 @@ export class GameRuntime {
     const point = impactPoint(defender, attacker);
     const parry = event.type === 'parry';
     const heavy = event.type === 'guardBreak';
-    if (point && event.defenderId !== me) {
+    // (a guard a ram broke caves in within the ram's own sound and sparks: #steelRam)
+    if (point && event.defenderId !== me && !event.ram) {
       this.effects.blockBurst({ ...point, y: point.y + 0.15 }, blowDirection(defender, attacker), { heavy, parry });
     }
     const recipe = parry ? parryRecipe() : heavy ? guardBreakRecipe() : blockRecipe();
     const involved = event.attackerId === me || event.defenderId === me;
-    this.#play(recipe, involved ? null : point, involved ? 1 : 0.8);
+    if (!event.ram) this.#play(recipe, involved ? null : point, involved ? 1 : 0.8);
     // a Sundering blow lands on a guard as two: CLANG-CLANG, the weight of it under both
     if ((event.impacts ?? 1) >= 2) {
       this.#play(blockRecipe(Math.random, { heavy: true }), involved ? null : point, involved ? 1 : 0.8, 0.09);
@@ -1440,6 +1549,7 @@ export class GameRuntime {
     else if (event.source === 'vortex' && killer) this.hud.addFeed(`${killer.name} spun through ${victim?.name ?? 'someone'}`, 'fire');
     else if (spellFor(event.source).conjured && spellFor(event.source).id === event.source && killer) this.hud.addFeed(`${killer.name} scorched ${victim?.name ?? 'someone'}`, 'fire');
     else if (event.source === 'gauntlet' && killer) this.hud.addFeed(`${killer.name} laid ${victim?.name ?? 'someone'} low with a gauntlet`, 'sword');
+    else if (event.source === 'ram' && killer) this.hud.addFeed(`${killer.name} ran ${victim?.name ?? 'someone'} down in Steel`, 'sword');
     else if (killer) this.hud.addFeed(`${killer.name} slew ${victim?.name ?? 'someone'}`, 'sword');
     else this.hud.addFeed(`${victim?.name ?? 'A spellblade'} fell into the abyss`, 'abyss');
   }
@@ -1573,7 +1683,11 @@ export class GameRuntime {
       const fallSpeed = -this.localState.velocity.y;
       // a chill slows my own steps exactly as the server slows them (it thaws on the same clock)
       this.localState.speedScale = chillScale(this.localAuth.chill, serverNow);
+      // (a Steel dash under way: where it sets off from this step, to see whom it meets)
+      const ramFrom = this.localRam?.armed && serverNow < (this.localState.dashUntil ?? -Infinity) ? { ...this.localState.position } : null;
       this.localState = movePlayer(this.localState, moveInput, dt, serverNow, this.activeWorld);
+      if (ramFrom) this.#foretellRam(ramFrom, serverNow);
+      if (this.localRam?.armed && serverNow >= (this.localState.dashUntil ?? -Infinity)) this.localRam = null;
       // predict the server's body separation so pressing into an opponent does not rubber-band
       separateLocal(this.localState.position, this.remotePlayers.bodies(), this.activeWorld, { crouched: this.localState.crouched });
       // my own jump: now and then a grunt with it
@@ -1595,9 +1709,11 @@ export class GameRuntime {
       const steel = this.localAuth.steel;
       const pressed = Number.isFinite(this.localSteelAt) && serverNow - this.localSteelAt < 0.6 ? this.localSteelAt : null;
       const calledAt = Math.max(steel?.calledAt ?? -Infinity, pressed ?? -Infinity);
+      // (its glint runs again as a ram of mine lands, or one lands on my hardened plate: it flashes with the blow)
+      const flashed = Number.isFinite(this.steelFlashAt) && serverNow - this.steelFlashAt < STEEL_RIPPLE.seconds ? serverNow - this.steelFlashAt : null;
       this.weapon.setSteel(
         Math.max(steelStrength(steel, serverNow), pressed !== null && !steel ? 1 : 0),
-        Number.isFinite(calledAt) ? serverNow - calledAt : null,
+        flashed ?? (Number.isFinite(calledAt) ? serverNow - calledAt : null),
       );
       // my Gale lets go when its breath is drawn; one the server never took is let go of quietly
       // while the spell cools, whether its key would throw the gauntlet now (the hand free of the sword)
