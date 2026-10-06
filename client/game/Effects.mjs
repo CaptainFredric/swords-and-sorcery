@@ -855,6 +855,28 @@ export class Effects {
   }
 
   /**
+   * A Steel dash ram landing at `point`, going `dir` (across the ground): the hardened plate's glint and blue-white
+   * sparks at the contact, as strong as the ram (hardened plate met too: a second, smaller glint off it); and with
+   * `feet` (where the one met stands, on the ground) a little dust kicked from under them the way they were thrown.
+   * No burst of its own, no ring: the spectacle is the bodies'. `close`: the rammer's own view, the contact a forearm
+   * from the eyes: the glint smaller there, or it would fill the view.
+   */
+  steelRam(point, dir, { strength = 1, feet = null, steel = false, close = false } = {}) {
+    const scale = close ? 0.5 : 1;
+    this.steelGlint(point, dir, { strength, ring: false, scale });
+    if (steel) this.steelGlint(point, { x: -(dir?.x ?? 0), z: -(dir?.z ?? 0) }, { strength: strength * 0.7, ring: false, scale: 0.8 * scale });
+    if (!feet) return;
+    const way = new THREE.Vector3(dir?.x ?? 0, 0, dir?.z ?? 0);
+    if (way.lengthSq() < 1e-6) way.set(0, 0, 1);
+    way.normalize();
+    for (let i = 0, n = this.#many(5); i < n; i += 1) {
+      const velocity = way.clone().multiplyScalar(0.8 + Math.random() * 1.4)
+        .add(new THREE.Vector3((Math.random() - 0.5) * 0.9, 0.25 + Math.random() * 0.4, (Math.random() - 0.5) * 0.9));
+      this.#dust(feet, { size: 0.8 + Math.random() * 0.5, life: 0.45 + Math.random() * 0.2, velocity });
+    }
+  }
+
+  /**
    * A blow on my own hardened plate, seen from inside the helm: sparks thrown up across the bottom of the view on the
    * side it came from. `from`: the way to whoever struck (world, across the ground).
    */

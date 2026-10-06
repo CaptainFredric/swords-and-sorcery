@@ -479,6 +479,88 @@ export function steelTickRecipe(rand = Math.random, { strength = 1 } = {}) {
   };
 }
 
+/**
+ * A Steel dash ram: a hardened knight slammed bodily into another. THUNK -> KLANG -> rattle. At the contact a very
+ * short, hard plate-on-plate crack and the plates' crunch; under it the armoured body's THUD (the mass of it); over it
+ * a struck-steel KLANG (the reward: brief, strong, more armour than handbell, gone in about half a second); then the
+ * victim's harness rattling as it is thrown back, and a little scrape as the two come apart.
+ *
+ * kind: 'body' (the full ram), 'guard' (braced: a flatter, broader clash of plate on a guard, the body's thud cut short;
+ * `broken`, it caves in), 'steel' (hardened plate on hardened plate: a double crack and two resonances a little apart,
+ * beating: denser and more metallic, not louder). strength: the ram's (0..1): full plate rings longest and hits
+ * deepest; worn plate is mostly the collision. heard: 'near' (anyone else, from where it happened), 'rammer' (my own:
+ * inside the helm, harder and drier), 'victim' (on me: more of the body blow and the rattle of my own harness).
+ */
+export function steelRamRecipe(rand = Math.random, { strength = 1, kind = 'body', broken = false, heard = 'near' } = {}) {
+  const s = Math.max(0, Math.min(1, Number.isFinite(strength) ? strength : 1));
+  const guard = kind === 'guard';
+  const steel = kind === 'steel';
+  const rammer = heard === 'rammer';
+  const victim = heard === 'victim';
+  const crackGain = (0.42 + 0.22 * s) * (rammer ? 1.25 : 1);
+  const thudGain = (0.45 + 0.4 * s) * (guard ? 0.55 : 1) * (victim ? 1.3 : 1) * (steel ? 0.85 : 1);
+  const bellGain = (0.1 + 0.13 * s) * (guard ? 0.8 : 1) * (victim ? 0.85 : 1) * (steel ? 0.82 : 1);
+  // (the KLANG's length: -40 dB at about half of it)
+  const bellDecay = (0.36 + 0.54 * s) * (guard ? 0.7 : 1);
+  const base = (500 + 230 * s) * jitter(rand, 0.05);
+  const layers = [
+    // the crack: plate meeting plate, over in a hundredth of a second
+    { type: 'noise', filter: 'highpass', freq: 3000 * jitter(rand, 0.1), q: 0.8, attack: 0.0004, decay: 0.013, gain: crackGain },
+    // the plates' crunch, mid-weighted (the physical part of it)
+    { type: 'noise', filter: 'bandpass', freq: 1350 * jitter(rand, 0.08), q: 1.2, attack: 0.001, decay: 0.05, gain: 0.38 + 0.1 * s },
+    ring(rand, 1180 * jitter(rand, 0.05), { decay: 0.09, gain: 0.15, partials: 6, bright: 1.15 }),
+    // THUNK: the armoured body's weight behind it
+    { type: 'tone', wave: 'sine', freq: 98 * jitter(rand, 0.05), slideTo: 40, attack: 0.002, decay: guard ? 0.12 : 0.22, gain: thudGain },
+    { type: 'noise', filter: 'lowpass', freq: 320, q: 0.7, attack: 0.002, decay: guard ? 0.08 : 0.14, gain: thudGain * 0.65 },
+    // KLANG: struck steel, the reward (an armour's ring, not a bell's: its upper modes damped)
+    { ...ring(rand, base, { decay: bellDecay, gain: bellGain, partials: 6, bright: 0.9 + 0.35 * s }), at: 0.004 },
+    { ...ring(rand, base * 2.71, { decay: bellDecay * 0.45, gain: bellGain * 0.32, partials: 3, bright: 1.1 }), at: 0.004 },
+  ];
+  if (steel) {
+    // hardened on hardened: a second crack a breath later, and a second resonance a little apart from the first, the
+    // two beating against each other
+    layers.push({ type: 'noise', filter: 'highpass', freq: 4200 * jitter(rand, 0.1), q: 0.9, attack: 0.0004, decay: 0.01, gain: crackGain * 0.7, at: 0.0045 });
+    layers.push({ ...ring(rand, base * 1.028, { decay: bellDecay * 0.95, gain: bellGain * 0.9, partials: 6, bright: 1.2 }), at: 0.006 });
+    layers.push({ type: 'ring', at: 0.004, partials: [{ freq: 4650 * jitter(rand, 0.04), gain: 0.05 * s, decay: 0.3 * s + 0.05 }, { freq: 4790 * jitter(rand, 0.04), gain: 0.04 * s, decay: 0.28 * s + 0.05 }] });
+  } else if (s > 0.5) {
+    // fresh plate sings a glint over the ring
+    layers.push({ type: 'ring', at: 0.004, partials: [{ freq: 5100 * jitter(rand, 0.06), gain: 0.04 * s, decay: 0.22 * s }] });
+  }
+  if (guard) {
+    // a guard taking it: a broad, flat clash of plate on plate (they stopped me), and the braced arm behind it
+    layers.push({ type: 'noise', filter: 'bandpass', freq: 880 * jitter(rand, 0.08), q: 0.9, attack: 0.001, decay: 0.07, gain: 0.5 });
+    layers.push(ring(rand, 760 * jitter(rand, 0.05), { decay: 0.32, gain: 0.13, partials: 5, bright: 1.1 }));
+    layers.push({ type: 'tone', wave: 'triangle', freq: 260, slideTo: 130, attack: 0.001, decay: 0.06, gain: 0.3 });
+    if (broken) {
+      // and it caves in
+      const give = 0.03 + rand() * 0.01;
+      layers.push({ ...ring(rand, 185 * jitter(rand, 0.05), { decay: 0.9, gain: 0.22, partials: 6, bright: 0.95 }), at: give });
+      layers.push({ type: 'noise', filter: 'bandpass', freq: 1050 * jitter(rand, 0.1), q: 1.4, sweepTo: 260, attack: 0.003, decay: 0.22, gain: 0.55, at: give });
+      layers.push({ type: 'tone', wave: 'sine', freq: 96 * jitter(rand, 0.05), slideTo: 40, attack: 0.003, decay: 0.26, gain: 0.5, at: give });
+    }
+  }
+  // the harness thrown back: an irregular rattle of plate and buckles, thinning
+  const rattles = victim ? 6 : 4;
+  for (let i = 0; i < rattles; i += 1) {
+    const at = 0.045 + i * (0.028 + rand() * 0.03);
+    const fade = (1 - i / (rattles + 1)) * (victim ? 1.4 : 1) * (guard ? 0.7 : 1);
+    layers.push({
+      type: 'ring', at,
+      partials: [
+        { freq: 1900 + rand() * 2200, gain: 0.05 * fade, decay: 0.035 + rand() * 0.04 },
+        { freq: 3300 + rand() * 2000, gain: 0.03 * fade, decay: 0.025 + rand() * 0.03 },
+      ],
+    });
+    layers.push({ type: 'noise', filter: 'bandpass', freq: 2600 * jitter(rand, 0.2), q: 2.2, attack: 0.001, decay: 0.018, gain: 0.08 * fade, at });
+  }
+  // the two coming apart: a short scrape of steel along steel
+  layers.push({ type: 'noise', filter: 'bandpass', freq: 2900 * jitter(rand, 0.1), q: 2.4, sweepTo: 1300, attack: 0.006, decay: 0.16, gain: 0.1 * (0.4 + 0.6 * s), at: 0.08 });
+  // inside my own helm: the jolt in my chest
+  if (rammer || victim) layers.push({ type: 'tone', wave: 'sine', freq: 84 * jitter(rand, 0.05), slideTo: 42, attack: 0.003, decay: 0.16, gain: victim ? 0.5 : 0.38 });
+  // (a little of the courtyard: a ram should be heard once, not ring round the walls)
+  return { layers, reverb: rammer || victim ? 0.12 : 0.16 + 0.06 * s, hall: rammer || victim ? 0 : 0.04 };
+}
+
 // the high, soft notes of wind chimes stirring (a pentatonic handful, so any few of them sit together)
 const CHIMES = Object.freeze([1568, 1760, 2093, 2349, 2637, 3136]);
 

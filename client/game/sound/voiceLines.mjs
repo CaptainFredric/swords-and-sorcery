@@ -141,6 +141,7 @@ export const VOICE_TAGS = Object.freeze({
   hardLanding: { rank: 5, delay: 0.15, about: 'a hard landing' },
   sprintUnderPressure: { rank: 5, about: 'breaking into a sprint with a foe at his heels' },
   charge: { rank: 10, delay: 0.1, about: 'sprinting straight at a foe, closing fast' },
+  steelCharge: { rank: 12, delay: 0.08, about: 'Sheathed in Steel, beginning a dash straight at a foe nearby (said as the dash begins, whether or not it lands)' },
   pursuit: { rank: 10, delay: 0.2, about: 'chasing a foe who is running from him' },
   arrive: { rank: 8, delay: 0.3, about: 'the first foe he meets since he (re)spawned' },
   battleBegins: { rank: 15, delay: 0.6, about: 'a battle beginning: a match (any but the Practice Yard) under way' },
@@ -632,10 +633,11 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
   {
     id: 'headOn',
     text: 'I confront my foes head on!',
-    trigger: 'engage',
+    // most of all as he rams in Steel (the sentence demonstrated); now and then charging, or the first blow of a fight
+    trigger: { steelCharge: 5, charge: 1, engage: 0.5 },
     priority: 'normal', rarity: 0.1, cooldown: 120,
     section: 'Challenges & Pursuit',
-    credits: { title: 'Head On', description: 'When directly committing to an opponent.', note: 'Other orientations have been rejected.' },
+    credits: { title: 'Head On', description: 'When charging straight at an opponent, most of all dashing at one in Steel.', note: 'Other orientations have been rejected.' },
     voice: { drive: 2.2, rmsDb: -16 }, file: 'ConfrontHeadOn.mp3',
   },
   {

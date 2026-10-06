@@ -14,7 +14,7 @@ test('the Armory lists every spell from the shared table, marks the one carried,
   assert.match(view.blade.facts, /19 to 30 damage/);
   // Sheathe in Steel is carried in the same slot, with its own plain words
   const steel = view.spells.find((spell) => spell.id === 'steel');
-  assert.ok(steel && /glancing/.test(steel.line) && /19 sword damage/.test(steel.facts));
+  assert.ok(steel && /glance off/.test(steel.line) && /Dash into a foe to ram/.test(steel.line) && /12 ram damage · heavy shove & Balance/.test(steel.facts));
   for (const spell of view.spells) assert.ok(spell.line.length > 20, `${spell.id} has words`);
 });
 
