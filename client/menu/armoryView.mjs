@@ -4,6 +4,7 @@
 import { GAME } from '../../shared/src/combat.mjs';
 import { SPELLS } from '../../shared/src/spells.mjs';
 import { STEEL } from '../../shared/src/steel.mjs';
+import { STEEL_RAM } from '../../shared/src/steelRam.mjs';
 import { ULTIMATES } from '../../shared/src/ultimates.mjs';
 import { normalizePreparedSpells } from '../../shared/src/preparedSpells.mjs';
 
@@ -26,8 +27,8 @@ const SPELL_WORDS = Object.freeze({
   },
   steel: {
     mark: '⛨',
-    line: 'Harden your armor. While Steel holds, incoming hits land like glancing contacts.',
-    facts: (s) => `${GAME.swordGlance} sword damage · ${STEEL.fullSec}s full strength · ${STEEL.fadeSec}s fade · ${s.cooldownSec}s cooldown`,
+    line: 'Harden your armor. Incoming hits glance off; Dash into a foe to ram them with your hardened plate.',
+    facts: (s) => `${STEEL_RAM.damage} ram damage · heavy shove & Balance · ${STEEL.fullSec}s full strength · ${STEEL.fadeSec}s fade · ${s.cooldownSec}s cooldown`,
   },
 });
 
