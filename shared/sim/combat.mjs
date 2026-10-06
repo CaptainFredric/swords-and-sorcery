@@ -18,10 +18,11 @@ import { callSteel, steelBlunt, steelExposure, steelQuality, steelStrength, stee
 import { galeBend, galeCarry, galeOnBody, galeRecoil, galeShove, galeWindOnBody } from '../src/gale.mjs';
 import { GAUNTLET, gauntletGeometry, gauntletTarget, withinGauntlet } from '../src/gauntlet.mjs';
 import { postureOf } from '../src/body.mjs';
-import { segmentAabbHit, surfaceHeightAt } from '../src/collision.mjs';
+import { resolvePlayerWorld, segmentAabbHit, surfaceHeightAt } from '../src/collision.mjs';
 import { BLADE, aimFrame, aimQuality, bladeDirection, bladeTouches, offAimDegrees, sweepBlade } from '../src/blade.mjs';
 import { MOVEMENT, SPRINT, launchBody, movePlayer, resolveSprint, shoveBody, tryStartDash } from '../src/movement.mjs';
 import { separatePlayers } from '../src/separation.mjs';
+import { STEEL_RAM, chargeTarget, ramContact, ramEffect, ramStrength } from '../src/steelRam.mjs';
 import { chooseSpawn } from './spawns.mjs';
 import { recordTransform, sampleTransform } from './history.mjs';
 
@@ -84,6 +85,7 @@ function resetAtSpawn(player, spawn, nowSec, room) {
   player.burn = null;
   player.chill = null;
   player.steel = null;
+  player.dashRam = null;
   player.speedScale = 1;
   // balance found again; an ultimate still bracing or active is over (the prowess earned is kept)
   player.stagger = freshStagger();
@@ -286,9 +288,16 @@ export function tryDash(room, playerId, direction, nowSec) {
   if (!ok) return false;
   player.dashStartedAt = nowSec;
   recordUse(player, 'dash', nowSec, MOVEMENT.dashCooldown, practice);
-  room.events.push({ type: 'dash', playerId, direction, at: nowSec });
+  // Sheathed in Steel, the dash is a ram, as strong as the plate is now and for all of it (steelRam.mjs); whom it was
+  // begun at goes with it (for the voice)
+  const ram = ramStrength(player.steel, nowSec);
+  player.dashRam = ram > 0 ? { strength: ram } : null;
+  const toward = ram > 0 ? chargeTarget(player.position, player.dashDir, rammable(room, player, nowSec)) : null;
+  room.events.push({ type: 'dash', playerId, direction, ...(ram > 0 ? { ram: round2(ram) } : {}), ...(toward ? { toward } : {}), at: nowSec });
   return true;
 }
+
+const round2 = (value) => Math.round(value * 100) / 100;
 
 /** Identity clocks remain ordinary; the temporary projectile gate is shared across the arsenal. */
 function spellReady(player, spell, nowSec, practice) {
@@ -455,6 +464,105 @@ function landGauntlet(room, player, nowSec, world) {
   });
   staggerBy(room, target, STAGGER.gain.gauntlet, nowSec, player.id);
   room.events.push({ type: 'gauntletHit', playerId: player.id, targetId: target.id, guarded: false, steel: armour.strength, at: nowSec });
+}
+
+// --- the Steel dash ram (steelRam.mjs) -------------------------------------------------------------------------------
+
+// the knights a ram could meet: the living other than the rammer, none just risen
+function rammable(room, player, nowSec) {
+  const bodies = [];
+  for (const other of room.players.values()) {
+    if (other.id === player.id || !other.alive || other.spawnProtectionUntil > nowSec) continue;
+    bodies.push({ id: other.id, position: other.position });
+  }
+  return bodies;
+}
+
+// a Steel dash carried from `from` to where it is now: the first knight it met is rammed (never one through a wall)
+function ramThrough(room, player, from, nowSec, world) {
+  const met = ramContact(from, player.position, rammable(room, player, nowSec));
+  if (!met) return;
+  const target = room.players.get(met.id);
+  const start = [met.at.x, met.at.y + postureOf(player).center, met.at.z];
+  const end = [target.position.x, target.position.y + postureOf(target).center, target.position.z];
+  if ((world.solids ?? []).some((box) => segmentAabbHit(start, end, box))) return;
+  landRam(room, player, target, met, nowSec, world);
+}
+
+/**
+ * A ram lands on `target`: the rammer stops dead where they met (set back a little), the one met takes the momentum
+ * (a light blow, the shove, a part of their balance), or braces against it with a guard facing it.
+ */
+function landRam(room, player, target, met, nowSec, world) {
+  const { strength } = player.dashRam;
+  const dash = { ...player.dashDir };
+  // the rammer: stopped dead where they met, set back a little (the momentum is theirs now)
+  player.position = resolvePlayerWorld({ ...met.at }, MOVEMENT.playerRadius, world.solids ?? [], postureOf(player).height);
+  player.dashUntil = nowSec;
+  player.dashRam = null;
+  player.velocity.x = 0;
+  player.velocity.z = 0;
+  shoveBody(player, { x: -dash.x * STEEL_RAM.setback, z: -dash.z * STEEL_RAM.setback });
+  // (a ram is an attack: a just-risen knight's protection ends with it, as with any other)
+  player.spawnProtectionUntil = Math.min(player.spawnProtectionUntil, nowSec);
+  // the one met: a dash of their own ends there, and nothing else does (unless their balance breaks)
+  if (nowSec < (target.dashUntil ?? -Infinity)) {
+    target.dashUntil = nowSec;
+    target.dashRam = null;
+  }
+  // thrown the way the rammer was going, a little toward where the two met (a glancing ram throws them aside)
+  const wayX = dash.x * 0.6 + met.normal.x * 0.4;
+  const wayZ = dash.z * 0.6 + met.normal.z * 0.4;
+  const length = Math.hypot(wayX, wayZ) || 1;
+  const way = { x: wayX / length, z: wayZ / length };
+  const guarded = Boolean(target.guarding) && isInGuardCone(target, player, nowSec);
+  const effect = ramEffect(strength, { guarded });
+  const plate = steelStrength(target.steel, nowSec);
+  const armour = guarded ? { amount: 0, strength: plate } : steelBlunt(target.steel, effect.damage, nowSec);
+  let guardBroken = false;
+  if (guarded) {
+    guardChallengeContact(room, target, player, nowSec);
+    target.guardStamina = Math.max(0, target.guardStamina - effect.guardStamina);
+    target.lastGuardDrainAt = nowSec;
+    guardBroken = target.guardStamina <= 0;
+  }
+  const scale = staggerShove(target.stagger);
+  const push = { x: way.x * effect.shove * scale, y: effect.lift, z: way.z * effect.shove * scale };
+  // where the two met: between them, chest high
+  const point = {
+    x: met.at.x + met.normal.x * STEEL_RAM.reach * 0.5,
+    y: Math.max(met.at.y, target.position.y) + 1.15,
+    z: met.at.z + met.normal.z * STEEL_RAM.reach * 0.5,
+  };
+  room.events.push({
+    type: 'steelRam', playerId: player.id, targetId: target.id, point, direction: way, strength: round2(strength), guarded,
+    ...(guardBroken ? { guardBroken: true } : {}), steel: round2(plate), amount: armour.amount, push, at: nowSec,
+  });
+  if (guarded) {
+    shoveBody(target, push);
+    target.lastAttackerId = player.id;
+    target.lastKnockbackAt = nowSec;
+    target.lastKnockbackSource = 'ram';
+    target.lastKnockbackBy = player.id;
+    if (guardBroken) {
+      // a guard spent by it breaks, as any guard does
+      breakGuard(target, GAME.guardBreakStaggerMs / 1000, nowSec);
+      if (!combatActionPolicy(player, nowSec).concurrent) gainProwess(room, player, PROWESS.guardBreak);
+      room.events.push({ type: 'guardBreak', attackerId: player.id, defenderId: target.id, ram: true, at: nowSec });
+      staggerBy(room, target, STAGGER.gain.guardBreak, nowSec, player.id);
+    } else {
+      staggerBy(room, target, effect.stagger, nowSec, player.id);
+    }
+    return;
+  }
+  // hardened plate on them takes from the hurt only: the shove and the balance are the ram's
+  target.steel = steelTakes(target.steel, nowSec);
+  applyDamage(room, player.id, target.id, armour.amount, 'ram', nowSec, { x: way.x * effect.shove, y: effect.lift, z: way.z * effect.shove }, {
+    steel: armour.strength, turned: effect.damage - armour.amount, rawDamage: effect.damage,
+    ultimate: combatActionPolicy(player, nowSec).concurrent,
+    contactFacts: challengeContact(player, nowSec, { ram: round2(strength) }),
+  });
+  staggerBy(room, target, effect.stagger, nowSec, player.id);
 }
 
 function transformFor(player, atSec) {
@@ -919,6 +1027,7 @@ export function killPlayer(room, victimId, attackerId, source, nowSec) {
   victim.gauntlet = null;
   victim.guardHeld = false;
   victim.dashUntil = Math.min(victim.dashUntil ?? nowSec, nowSec);
+  victim.dashRam = null;
   victim.chivalryProjectileReadyAt = 0;
   stopSwordChain(victim, {}, room, nowSec);
   // an ultimate still bracing is interrupted (its charge kept); one active is over
@@ -1647,6 +1756,8 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
           ? { ...player.input, sprint: false, crouch: false }
           : player.input;
     player.whirl = whirl;
+    const from = { ...player.position };
+    const dashing = nowSec < (player.dashUntil ?? -Infinity);
     const moved = movePlayer(player, input, dt, nowSec, world);
     player.position = moved.position;
     player.velocity = moved.velocity;
@@ -1660,6 +1771,11 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
     player.crouched = moved.crouched;
     player.yaw = input.yaw ?? player.yaw;
     player.pitch = input.pitch ?? player.pitch;
+    // a Steel dash driven into someone: it meets them, gives them its momentum, and stops there (steelRam.mjs)
+    if (player.dashRam) {
+      if (dashing) ramThrough(room, player, from, nowSec, world);
+      if (nowSec >= (player.dashUntil ?? -Infinity)) player.dashRam = null;
+    }
     recordTransform(player, nowSec);
 
     // A gathered projectile leaves the current hand along the latest authoritative aim. Once released its

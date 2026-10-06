@@ -3,7 +3,7 @@ import { GAME_MODES } from '../src/modes.mjs';
 import { SPELLS } from '../src/spells.mjs';
 
 const MODES = new Set([GAME_MODES.FFA, GAME_MODES.DUEL, GAME_MODES.BOT_DUEL]);
-const CONTACT_SOURCES = new Set(['sword', 'fireball', 'frostfire', 'gale', 'gauntlet', 'vortex', 'rupture']);
+const CONTACT_SOURCES = new Set(['sword', 'fireball', 'frostfire', 'gale', 'gauntlet', 'vortex', 'rupture', 'ram']);
 
 /** Match memory only. Profile settlement owns persistence and rewards. */
 export function resetChallengeTracking(room) {
