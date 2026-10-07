@@ -95,14 +95,14 @@ export function roundRandom(round) {
   };
 }
 
-// the rarer fights: a round now and then stages one in place of one of the three (the Slush: every third round, from
-// the third, at a stop that moves along with each, so it is come upon rather than expected)
-export const RARE_FIGHTS = Object.freeze({ slush: Object.freeze({ every: 3, from: 2 }) });
+// the rarer fights: a round now and then stages one in place of one of the three (the Slush: the first round, so a
+// visit to the front door opens with it, and every third round after, at a stop that moves along with each)
+export const RARE_FIGHTS = Object.freeze({ slush: Object.freeze({ every: 3, from: 0 }) });
 
 /**
- * Which fight each stop stages in round `round`: the first round is the one the fights were written for; after that
+ * Which fight each stop stages in round `round`: the first round is the order the fights were written in; after that
  * the round steps through every other order, so no two rounds running are the same. Now and then a rarer fight takes
- * one stop's place (RARE_FIGHTS). Names from FIGHT_POOL.
+ * one stop's place (RARE_FIGHTS: the Slush has the first round's first stop). Names from FIGHT_POOL.
  */
 export function lineupFor(round, pool = FIGHT_POOL) {
   const names = Object.keys(pool);

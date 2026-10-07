@@ -193,8 +193,8 @@ test('everything the Slush leaves is undone: between rounds, on leaving the fron
   // starting over, and going: from a clean state
   assert.match(director, /restart\(\) \{[\s\S]*?this\.#stageRound\(0\);\s+this\.#resetRivals\(\);/);
   assert.match(director, /dispose\(\) \{\s+this\.#resetRivals\(\);/);
-  // (and the first round, the one a fresh visit begins with, has no Slush in it)
-  assert.ok(!lineupFor(0).includes('slush'));
+  // (and the first round, the one a fresh visit begins with, opens with the Slush at its first stop)
+  assert.equal(lineupFor(0)[0], 'slush');
 });
 
 test('the ice is the rival\'s own: his cloned materials, his own crystals, the heap\'s and the vessel\'s own, all disposed', () => {
