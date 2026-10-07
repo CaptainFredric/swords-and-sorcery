@@ -302,3 +302,6 @@
 .subtitle b { margin-right: 8px; color: #e6c47c; font: 800 11px/1 var(--font-script, system-ui, sans-serif); letter-spacing: .16em; text-transform: uppercase; }
 .subtitle.mine span { color: #fff3d6; }
 .touch-ui .subtitle { bottom: calc(var(--safe-b, 0px) + 16px); max-width: min(440px, 44cqw); padding: 4px 10px 5px; font-size: 14px; }
+/* the front door's: what he says out on his round, under the fight (right of the banner, where it is framed) */
+.subtitle.menu-caption { left: 68%; bottom: 9%; z-index: 3; }
+.touch-ui .subtitle.menu-caption { left: 70%; bottom: calc(var(--safe-b, 0px) + 12px); }

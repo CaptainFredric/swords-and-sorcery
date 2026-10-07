@@ -4,10 +4,12 @@ import { createSpellbladeAsset } from '../../game/SpellbladeAssets.mjs';
 import { THIRD_PERSON_SPELL_ARM, THIRD_PERSON_SWORD_ARM, solveArm } from '../../game/swordArmIK.mjs';
 import { performanceAt } from '../menuReactions.mjs';
 import {
-  blockRecipe, burnLickRecipe, castRecipe, fireballImpactRecipe, parryRecipe, spatialize, swingRecipe, swordHitRecipe, wallClangRecipe,
+  blockRecipe, burnLickRecipe, castRecipe, fireballImpactRecipe, freezeRecipe, frostImpactRecipe, meltHissRecipe, parryRecipe, scoopRecipe,
+  slushCollapseRecipe, spatialize, splashRecipe, swingRecipe, swordHitRecipe, vesselRecipe, wallClangRecipe,
 } from '../../game/sound/soundRecipes.mjs';
 import { buildTourPath, yawFacing } from './tourPath.mjs';
-import { voicePlacement } from '../../game/sound/voiceRules.mjs';
+import { hearingFor, voicePlacement } from '../../game/sound/voiceRules.mjs';
+import { linesFor } from '../../game/sound/voiceLines.mjs';
 import { footstepRecipe, gaitFootfall, surfaceAt, variantPicker } from '../../game/sound/footsteps.mjs';
 import { CASTLEWARD } from '../../../shared/worlds/castleward.mjs';
 import {
@@ -15,13 +17,15 @@ import {
 } from './tourCamera.mjs';
 import { FIGHT_POOL } from './tourFights.mjs';
 import { FIGHT_DISTANCES, buildSchedule, lineupFor, roundRandom, tourMoment } from './tourSchedule.mjs';
-import { Debris, cutSword, dizzyStars, dressRival, mendSword, shatterKnight, whiteFlag } from './tourProps.mjs';
+import { Debris, cutSword, dizzyStars, dressRival, iceCrust, mendSword, shatterKnight, slushPile, vesselProp, whiteFlag } from './tourProps.mjs';
 
 // The Spellblade's round behind the front door, played out: he runs the path, stops at each rival, and they fight to
 // the script in tourFights.mjs; the camera follows him and frames each fight to the right of the menu banner. Three
 // rivals are dressed in their own colours (another Spellblade, but not him), and everything they go through (burned,
-// shattered, disarmed and sent running) is undone out of sight before the next round. Each round stages the pool's
-// fights in a different order at the three stops (lineupFor), each placed where it has room and a clear view.
+// shattered, disarmed and sent running, frozen and melted down into slush and drunk) is undone out of sight before
+// the next round. Each round stages the pool's fights in a different order at the three stops (lineupFor), each placed
+// where it has room and a clear view. What he says on the round is heard from where he stands; `onCaption` is told
+// its words (and their beats) for the menu's subtitle, and `onCaptionCut` when it is cut short.
 
 const RUN_CLIP_SPEED = 7.5;         // the Run clip's own pace (m/s): the stride rate follows the actual pace
 // each rival's colours: steel tint and the glow behind the visor
@@ -72,6 +76,10 @@ export class TourDirector {
     this.ready = false;
     this.projectiles = [];
     this.burns = [];
+    // the Slush's vessel in his hand, while he has it out
+    this.vessel = null;
+    this.onCaption = null;
+    this.onCaptionCut = null;
     this.pause = 0;
     this.performance = null;
     // the front door's own shot: the round starts and ends on it
@@ -142,7 +150,11 @@ export class TourDirector {
       });
       holder.visible = this.visible;
       this.scene.add(holder);
-      this.rivals[index] = { holder, instance, dress: dressRival(instance, RIVAL_DRESS[index]), stub: null, flag: null, shattered: false, charred: 0 };
+      this.rivals[index] = {
+        holder, instance, dress: dressRival(instance, RIVAL_DRESS[index]), stub: null, flag: null, shattered: false, charred: 0,
+        // the Slush: the ice on him, the heap he becomes, and the steam off him as he goes
+        crust: null, pile: null, steam: 0,
+      };
     });
     this.ready = true;
   }
@@ -165,8 +177,19 @@ export class TourDirector {
     this.projectiles = [];
     this.effects.syncProjectiles([]);
     this.burns = [];
-    for (const rival of this.rivals) {
+    this.vessel?.dispose();
+    this.vessel = null;
+    for (const [index, rival] of this.rivals.entries()) {
       if (!rival) continue;
+      // (nothing of the Slush stays: the ice off him, the heap gone, his own shape and colours back)
+      rival.crust?.dispose();
+      rival.crust = null;
+      rival.pile?.dispose();
+      rival.pile = null;
+      rival.steam = 0;
+      rival.heatAt = null;
+      rival.holder.scale.set(1, 1, 1);
+      this.effects.afflict(`tour-frost-${index}`, null);
       rival.flag?.dispose();
       rival.flag = null;
       if (rival.stub) mendSword(rival.instance, rival.stub);
@@ -182,8 +205,18 @@ export class TourDirector {
   /** Show or hide everything the round brings (the rivals and what is left of them). */
   setVisible(visible) {
     this.visible = visible;
-    for (const rival of this.rivals) if (rival) rival.holder.visible = visible && !rival.shattered;
+    for (const rival of this.rivals) {
+      if (!rival) continue;
+      rival.holder.visible = visible && !rival.shattered;
+      if (rival.pile) rival.pile.group.visible = visible;
+    }
     for (const piece of this.debris.pieces) piece.mesh.visible = visible;
+    if (this.vessel) this.vessel.group.visible = visible;
+    // leaving the front door: whatever he was saying out there stops, and its caption with it
+    if (!visible) {
+      this.voice?.cut?.('tour-spellblade');
+      this.onCaptionCut?.();
+    }
   }
 
   /** A reaction on the front door (Seek a Duel's rally): he stops where he is to perform it; the round waits. */
@@ -274,6 +307,26 @@ export class TourDirector {
     this.heroYaw = root.rotation.y;
     instance.animator.apply(plan, dt);
     this.#footfall('hero', instance, root.position, plan.clip);
+    this.#carryVessel(moment.phase === 'fight' ? this.fights[moment.fight].hero(moment.fightTimes[moment.fight]).vessel : null);
+  }
+
+  // the Slush's vessel, held against his spell hand's palm, upright but for how the script tips it (toward his visor
+  // to drink, away into the heap or to pour out)
+  #carryVessel(vessel) {
+    if (!this.vessel) return;
+    if (!vessel?.shown) {
+      this.vessel.update({ visible: false });
+      return;
+    }
+    const { root, instance } = this.hero;
+    const palm = this.#socket(instance, 'socket_sorcery');
+    const yaw = root.rotation.y;
+    const turn = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
+    // (its side against the palm, which faces in toward his middle and a little forward)
+    const inward = new THREE.Vector3(0.85, 0.15, -0.5).normalize().applyQuaternion(turn);
+    const position = palm.addScaledVector(inward, this.vessel.size.rim * 0.95);
+    const quaternion = turn.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), vessel.tilt ?? 0));
+    this.vessel.update({ position, quaternion, fill: vessel.fill ?? 0, visible: this.visible });
   }
 
   // his feet on the ground as the gait clip puts them down (its rate follows his pace), on whatever is underfoot
@@ -330,12 +383,14 @@ export class TourDirector {
       const pose = fight.rival(t);
       if (pose.gone) {
         rival.holder.visible = false;
+        this.effects.afflict(`tour-frost-${index}`, null);
         return;
       }
       rival.holder.visible = true;
       const { position, yaw } = this.#place(this.frames[index], pose);
       rival.holder.position.copy(position);
       rival.holder.rotation.y = yaw;
+      if (Number.isFinite(pose.frozen)) this.#frozen(rival, index, pose, position, dt);
       // one waiting far from the Spellblade casts no shadow: nobody would see it, and each of his pieces is a draw call
       const near = position.distanceTo(this.hero.root.position) < 10;
       if (rival.shadows !== near) {
@@ -346,6 +401,30 @@ export class TourDirector {
       rival.instance.animator.apply(plan, dt);
       this.#footfall(`rival-${index}`, rival.instance, position, plan.clip);
     });
+  }
+
+  // a knight frozen solid (pale ice over him, crystals closing, a cold mist off him), and then, the Fireball in him,
+  // going soft and sinking down into the heap of slush he leaves (a little steam off him as he goes)
+  #frozen(rival, index, pose, position, dt) {
+    const frozen = Math.max(0, Math.min(1, pose.frozen));
+    const melt = Math.max(0, Math.min(1, pose.melt ?? 0));
+    // (the Fireball glowing through the ice as it strikes, fading as the statue goes soft)
+    const heat = Number.isFinite(rival.heatAt) ? Math.max(0, 1 - (this.time - rival.heatAt) / 0.7) : 0;
+    rival.dress.frost(frozen, melt, heat * heat);
+    rival.crust?.grow(frozen);
+    const sink = melt * melt * (3 - 2 * melt);
+    // (it loses its stiffness first: a wobble, then down and out)
+    const wobble = Math.sin(melt * Math.PI * 5) * 0.05 * (1 - melt) * Math.min(1, melt * 6);
+    rival.holder.scale.set(1 + 0.3 * sink + wobble, Math.max(0.04, 1 - 0.94 * sink), 1 + 0.3 * sink - wobble);
+    this.effects.afflict(`tour-frost-${index}`, melt < 0.6 ? position : null, { chill: frozen * (1 - melt / 0.6) }, dt);
+    rival.pile?.grow(Math.max(0, Math.min(1, (melt - 0.12) / 0.88)));
+    if (melt > 0 && melt < 1) {
+      rival.steam += dt * 7;
+      while (rival.steam >= 1) {
+        rival.steam -= 1;
+        this.effects.steam({ x: position.x, y: 0.2 + 1.3 * (1 - sink), z: position.z }, { count: 1, spread: 0.6 });
+      }
+    }
   }
 
   // a point on a knight: his chest, his sword hand's socket, his palm
@@ -397,7 +476,7 @@ export class TourDirector {
         for (let k = 0; k < 3; k += 1) this.#play(swingRecipe(Math.random, { strike: 2 }), this.#chest(heroRoot), 0.45, k * cue.seconds / 3.2);
         break;
       case 'gather':
-        this.#play(castRecipe(Math.random, { spell: cue.spell, release: 0.35 }), this.#chest(actor), 0.55);
+        this.#play(castRecipe(Math.random, { spell: cue.spell, release: cue.release ?? 0.35 }), this.#chest(actor), 0.55);
         break;
       case 'cast': {
         if (!rivalRoot) break;
@@ -419,10 +498,59 @@ export class TourDirector {
         const flight = this.projectiles.find((projectile) => projectile.id.startsWith(`tour-${index}-`));
         const point = flight ? flight.to.clone() : this.#chest(rivalRoot);
         this.projectiles = this.projectiles.filter((projectile) => projectile !== flight);
-        this.effects.impact(point, { spell: cue.spell, radius: 2.2, ground: 0 });
-        this.#play(fireballImpactRecipe(), point, 0.75);
+        this.effects.impact(point, { spell: cue.spell, radius: cue.radius ?? 2.2, ground: 0 });
+        this.#play(cue.spell === 'frostfire' ? frostImpactRecipe() : fireballImpactRecipe(), point, 0.75);
+        // fire into a frozen knight: it glows through the ice
+        if (rival?.crust && cue.spell === 'fireball') rival.heatAt = this.time;
         break;
       }
+      // the Slush: the ice closing over him, his going soft, the heap, the vessel, the scoop, the dregs
+      case 'freeze':
+        if (rival && !rival.crust) {
+          rival.crust = iceCrust(rival.instance, seeded(11 + index));
+          const point = this.#chest(rivalRoot);
+          this.effects.sparks(point, 0xd8f6ff, 10);
+          this.#play(freezeRecipe(Math.random, { seconds: cue.seconds ?? 0.45 }), point, 0.6);
+        }
+        break;
+      case 'melt':
+        if (rival) {
+          const point = this.#chest(rivalRoot);
+          rival.crust?.shed(this.debris, seeded(23 + index));
+          this.effects.steam(point, { count: 5, spread: 0.5 });
+          this.#play(meltHissRecipe(Math.random, { seconds: cue.seconds ?? 1 }), point, 0.6);
+          this.#play(slushCollapseRecipe(), rivalRoot.getWorldPosition(new THREE.Vector3()), 0.65, 0.35);
+        }
+        break;
+      case 'slush':
+        if (rival && !rival.pile) {
+          rival.pile = slushPile(this.scene, { at: rivalRoot.getWorldPosition(new THREE.Vector3()), tint: RIVAL_DRESS[index].tint, random: seeded(31 + index) });
+          rival.pile.group.visible = this.visible;
+        }
+        break;
+      case 'vessel':
+        this.vessel?.dispose();
+        this.vessel = vesselProp(this.scene, { kind: cue.kind, tint: RIVAL_DRESS[index].tint });
+        this.vessel.update({ visible: false });
+        this.#play(vesselRecipe(Math.random, { kind: cue.kind }), this.#chest(heroRoot), 0.5);
+        break;
+      case 'scoop':
+        if (rival?.pile) {
+          rival.pile.scoop(1);
+          this.#play(scoopRecipe(Math.random, { kind: cue.kind }), rival.pile.group.position, 0.6);
+        }
+        break;
+      case 'dregs': {
+        const hand = this.#socket(this.hero.instance, 'socket_sorcery');
+        rival?.pile?.splash({ x: hand.x, z: hand.z });
+        this.#play(splashRecipe(), new THREE.Vector3(hand.x, 0, hand.z), 0.5);
+        break;
+      }
+      case 'stow':
+        this.#play(vesselRecipe(Math.random, { kind: cue.kind }), this.#chest(heroRoot), 0.45);
+        this.vessel?.dispose();
+        this.vessel = null;
+        break;
       case 'burn':
         if (rival) this.burns.push({ rival, index, started: this.time, seconds: cue.seconds, lick: 0 });
         break;
@@ -459,7 +587,11 @@ export class TourDirector {
         this.starsUntil = this.time + (cue.seconds ?? 1.8);
         break;
       case 'voice':
-        if (this.voice && Math.random() < cue.chance) this.#say(cue.line);
+        // a line, or a moment (its lines, the first said the only one: voiceLines.mjs)
+        if (this.voice && Math.random() < cue.chance) {
+          if (cue.moment) linesFor('tour-spellblade', [cue.moment]).some((say) => this.#say(say.line));
+          else this.#say(cue.line);
+        }
         break;
       default:
         break;
@@ -529,10 +661,14 @@ export class TourDirector {
   }
 
   #say(line) {
-    // heard like another knight's voice nearby: from where he stands, a touch of the courtyard, no echo
+    // heard like another knight's voice nearby: from where he stands (his words carry), a touch of the courtyard, no
+    // echo; and written out on the menu's subtitle, beat by beat as he gets to it (onCaption)
     this.camera.getWorldDirection(_p);
-    const place = voicePlacement(this.camera.position, Math.atan2(-_p.x, -_p.z), this.#chest(this.hero.root));
-    if (place) this.voice.say(line, { speaker: 'tour-spellblade', pan: place.pan, gain: 0.8 * place.gain, reverb: place.reverb });
+    const place = voicePlacement(this.camera.position, Math.atan2(-_p.x, -_p.z), this.#chest(this.hero.root), hearingFor(line));
+    if (!place) return false;
+    const said = this.voice.say(line, { speaker: 'tour-spellblade', pan: place.pan, gain: 0.8 * place.gain, reverb: place.reverb });
+    if (said) this.onCaption?.({ line, delay: said.delay ?? 0, seconds: said.seconds ?? 2, beats: said.beats ?? null });
+    return Boolean(said);
   }
 
   // -------------------------------------------------------------------------------------------------- camera
@@ -568,7 +704,7 @@ export class TourDirector {
         // right of the banner (tourCamera.mjs)
         const pair = fightPair(fight, frame.plan, t + FIGHT_SHOT.lead);
         const shot = fightShot(pair.hero, pair.rival, frame.look, {
-          aspect: this.camera.aspect, clear: this.clear, held: pair.held, fov: lens?.fov ?? FIGHT_SHOT.fov, fill: lens?.fill ?? 1,
+          aspect: this.camera.aspect, clear: this.clear, held: pair.held, fov: lens?.fov ?? FIGHT_SHOT.fov, fill: lens?.fill ?? 1, near: pair.near,
         });
         fightView = { position: new THREE.Vector3(...shot.position), target: new THREE.Vector3(...shot.target), fov: shot.fov };
       }

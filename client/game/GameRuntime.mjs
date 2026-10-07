@@ -39,7 +39,7 @@ import { MOMENTS, VoiceMoments, deathPose } from './sound/voiceMoments.mjs';
 import { VoiceScenes } from './sound/voiceScenes.mjs';
 import { VoiceWatch } from './sound/voiceWatch.mjs';
 import { linesFor, voiceLine } from './sound/voiceLines.mjs';
-import { captionsFor, subtitleFor } from '../ui/voiceLibrary.mjs';
+import { captionPlan } from '../ui/voiceLibrary.mjs';
 import { FOOTSTEPS, footfallsCrossed, footstepPlacement, footstepRecipe, surfaceAt, variantPicker } from './sound/footsteps.mjs';
 import { CombatHeat, matchClosing, nearestFoe } from './sound/combatHeat.mjs';
 import { FP_MOTION } from './firstPersonMotion.mjs';
@@ -1227,15 +1227,11 @@ export class GameRuntime {
   // (a line with a pause that carries the joke, a beat at a time as he gets to each: never a word before it is said)
   #subtitle({ line, speaker, delay = 0, seconds = 2, part = null, beats = null }) {
     if (!this.view.subtitles) return;
-    const whole = subtitleFor(line, part);
-    if (!whole) return;
-    const captions = captionsFor(line, part);
-    const timed = captions && beats?.length === captions.length;
-    const text = timed ? captions[0] : whole;
-    const cues = timed ? captions.slice(1).map((words, i) => ({ at: beats[i + 1], text: words })) : [];
+    const plan = captionPlan(line, { part, beats });
+    if (!plan) return;
     const mine = speaker === this.socket.playerId;
     const name = mine ? null : (this.latestSnapshot?.players.find((p) => p.id === speaker)?.name ?? 'A Spellblade');
-    this.hud.subtitle({ text, name, delay, seconds, speaker, cues });
+    this.hud.subtitle({ text: plan.text, name, delay: delay + plan.after, seconds: Math.max(0.5, seconds - plan.after), speaker, cues: plan.cues });
   }
 
   // a Vortex's blade clipping the world as it comes round: the ring of what it clipped and sparks off it (lighter

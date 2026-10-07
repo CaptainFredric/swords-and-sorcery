@@ -146,6 +146,7 @@ try {
 if (new URLSearchParams(location.search).has('debug')) globalThis.__ssMenu = menuScene;
 menuScene?.setPixelRatioCap(viewOptions(settings).pixelRatioCap);
 menuScene?.setParticleDensity(viewOptions(settings).particles);
+menuScene?.setSubtitles(viewOptions(settings).subtitles);
 
 let runtime = null;
 let touchUi = false;
@@ -630,6 +631,7 @@ function applySettings() {
   const view = viewOptions(settings);
   menuScene?.setPixelRatioCap(view.pixelRatioCap);
   menuScene?.setParticleDensity(view.particles);
+  menuScene?.setSubtitles(view.subtitles);
   menuScene?.setTourAllowed(tourAllowed());
   if (router.current === SCREEN_IDS.MAIN_MENU) menuScene?.setTouring(true);
   runtime?.configure({ view, input: inputOptions(settings) });

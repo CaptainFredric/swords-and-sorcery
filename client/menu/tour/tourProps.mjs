@@ -1,13 +1,18 @@
 import * as THREE from 'three';
 
 // What happens to the Spellblade's rivals on his round, made of their own armour: a knight charred black, a knight
-// fallen apart into the pieces he was built from, a sword cut in two, a white flag. Everything here works on a live
-// third-person Spellblade instance (createSpellbladeAsset) and leaves it restorable for the next round.
+// fallen apart into the pieces he was built from, a sword cut in two, a white flag, a knight frozen solid and melted
+// down into slush (and the vessel it is drunk from). Everything here works on a live third-person Spellblade instance
+// (createSpellbladeAsset) and leaves it restorable for the next round.
 
 const _v = new THREE.Vector3();
 const _box = new THREE.Box3();
 const CHAR = new THREE.Color(0x17130f);
 const EMBER = new THREE.Color(0xff5a1a);
+// frozen solid: pale ice over the plate, a cold light in it, glassy; going soft: wet and grey
+const ICE = new THREE.Color(0xd4efff);
+const ICE_LIGHT = new THREE.Color(0x2f7fae);
+const WET = new THREE.Color(0x8aa3b0);
 
 /**
  * Give a rival his own materials (so tinting or charring him never touches anyone else), tinted: every armour colour
@@ -35,7 +40,10 @@ export function dressRival(instance, { tint, visor }) {
           copy.color.multiply(new THREE.Color(...tint));
         }
         clones.set(material, copy);
-        base.set(copy, { color: copy.color?.clone(), emissive: copy.emissive?.clone(), emissiveIntensity: copy.emissiveIntensity ?? 1 });
+        base.set(copy, {
+          color: copy.color?.clone(), emissive: copy.emissive?.clone(), emissiveIntensity: copy.emissiveIntensity ?? 1,
+          roughness: copy.roughness, metalness: copy.metalness,
+        });
       }
       return clones.get(material);
     });
@@ -54,11 +62,31 @@ export function dressRival(instance, { tint, visor }) {
         }
       }
     },
+    /**
+     * 0 untouched .. 1 frozen solid: his plate under pale ice, a cold light in it, glassy. melt (0..1): the ice going
+     * soft, wet and grey as it gives way. heat (0..1): fire on the ice, glowing through it for a moment.
+     */
+    frost(amount, melt = 0, heat = 0) {
+      const a = Math.max(0, Math.min(1, amount));
+      const m = Math.max(0, Math.min(1, melt));
+      const hot = Math.max(0, Math.min(1, heat));
+      for (const [material, original] of base) {
+        if (material.color && original.color) material.color.copy(original.color).lerp(ICE, 0.82 * a).lerp(WET, 0.7 * m);
+        if (material.emissive && original.emissive) {
+          material.emissive.copy(original.emissive).lerp(ICE_LIGHT, 0.55 * a * (1 - m)).lerp(EMBER, 0.85 * hot);
+          material.emissiveIntensity = original.emissiveIntensity + 0.35 * a * (1 - m) + 1.4 * hot;
+        }
+        if (Number.isFinite(original.roughness)) material.roughness = original.roughness + (0.1 - original.roughness) * a * (1 - 0.6 * m);
+        if (Number.isFinite(original.metalness)) material.metalness = original.metalness + (0.08 - original.metalness) * a;
+      }
+    },
     restore() {
       for (const [material, original] of base) {
         if (original.color) material.color.copy(original.color);
         if (original.emissive) material.emissive.copy(original.emissive);
         material.emissiveIntensity = original.emissiveIntensity;
+        if (Number.isFinite(original.roughness)) material.roughness = original.roughness;
+        if (Number.isFinite(original.metalness)) material.metalness = original.metalness;
       }
     },
   };
@@ -391,6 +419,249 @@ export function dizzyStars(scene, instance) {
       scene.remove(group);
       geometry.dispose();
       material.dispose();
+    },
+  };
+}
+
+// ------------------------------------------------------------------------------------------------- the Slush
+
+// where the ice crystals grow on a frozen knight: the bones they ride, how far out, and roughly which way they point
+// (the bone's own frame); the helm and the shoulders first
+const CRUST = Object.freeze([
+  ['head', [0.09, 0.12, 0.02], [0.4, 1, 0]], ['head', [-0.1, 0.08, -0.04], [-0.5, 1, 0.2]],
+  ['chest', [0.17, 0.18, 0.05], [1, 0.6, 0]], ['chest', [-0.18, 0.16, 0.06], [-1, 0.6, 0]], ['chest', [0.02, 0.08, -0.15], [0, 0.4, -1]],
+  ['spine', [0.12, 0.02, -0.12], [0.6, 0.2, -1]], ['pelvis', [-0.14, 0.0, -0.08], [-1, -0.2, -0.4]],
+  ['upper_arm.L', [0.0, 0.12, 0.05], [-0.3, 0.6, 1]], ['upper_arm.R', [0.0, 0.12, 0.05], [0.3, 0.6, 1]],
+  ['forearm.L', [0.0, 0.1, 0.05], [-0.4, 0.2, 1]], ['forearm.R', [0.0, 0.12, -0.05], [0.4, 0.2, -1]],
+  ['thigh.L', [0.04, 0.16, 0.06], [-0.6, 0.1, 1]], ['thigh.R', [-0.04, 0.2, 0.06], [0.6, 0.1, 1]],
+  ['shin.L', [0.0, 0.16, 0.06], [-0.4, 0, 1]], ['shin.R', [0.0, 0.12, 0.06], [0.4, 0, 1]],
+]);
+
+function iceMaterial() {
+  return new THREE.MeshStandardMaterial({
+    color: 0xe8f8ff, roughness: 0.06, metalness: 0.05, emissive: 0x1d5878, emissiveIntensity: 0.45, transparent: true, opacity: 0.86,
+  });
+}
+
+/**
+ * Ice crystals closing over a frozen knight, riding his bones (so they stand where he froze). grow(amount) brings them
+ * out (each in its turn); shed(debris, random) lets them fall to the ground as the statue gives way (they lie in the
+ * slush); dispose() takes away any still on him, and their material.
+ */
+export function iceCrust(instance, random = Math.random) {
+  const material = iceMaterial();
+  const crystals = [];
+  for (const [index, [name, offset, point]] of CRUST.entries()) {
+    const bone = instance.animator.bone(name);
+    if (!bone) continue;
+    const geometry = new THREE.OctahedronGeometry(0.055 + random() * 0.03, 0);
+    geometry.scale(0.7, 2 + random() * 1.2, 0.7);
+    const crystal = new THREE.Mesh(geometry, material);
+    crystal.position.set(...offset);
+    crystal.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(...point).normalize());
+    crystal.scale.setScalar(1e-3);
+    crystal.castShadow = true;
+    crystal.userData.delay = (index / CRUST.length) * 0.45;
+    bone.add(crystal);
+    crystals.push(crystal);
+  }
+  return {
+    crystals,
+    material,
+    grow(amount) {
+      for (const crystal of crystals) {
+        if (!crystal.parent?.isBone) continue;
+        const u = Math.max(0, Math.min(1, (amount - crystal.userData.delay) / 0.55));
+        crystal.scale.setScalar(Math.max(1e-3, u * u * (3 - 2 * u)));
+      }
+    },
+    shed(debris, rand = Math.random) {
+      for (const crystal of crystals) {
+        if (!crystal.parent?.isBone) continue;
+        crystal.updateMatrixWorld(true);
+        const world = crystal.matrixWorld.clone();
+        crystal.parent.remove(crystal);
+        world.decompose(crystal.position, crystal.quaternion, crystal.scale);
+        debris.add(crystal, {
+          velocity: new THREE.Vector3((rand() - 0.5) * 0.9, 0.3 + rand() * 0.6, (rand() - 0.5) * 0.9),
+          spin: new THREE.Vector3((rand() - 0.5) * 6, (rand() - 0.5) * 4, (rand() - 0.5) * 6),
+          delay: rand() * 0.25,
+        });
+      }
+    },
+    dispose() {
+      for (const crystal of crystals) {
+        if (crystal.parent?.isBone) {
+          crystal.parent.remove(crystal);
+          crystal.geometry.dispose();
+        }
+      }
+      material.dispose();
+    },
+  };
+}
+
+// a seeded wobble for the heap's surface
+function lumpy(random) {
+  const phases = Array.from({ length: 6 }, () => random() * Math.PI * 2);
+  return (angle, height) => 1 + 0.09 * Math.sin(angle * 3 + phases[0]) + 0.06 * Math.sin(angle * 5 + phases[1]) + 0.05 * Math.sin(angle * 2 + height * 4 + phases[2]);
+}
+
+/**
+ * The heap of slush a frozen knight melts down into, where he stood: a wet, lumpy mound with chunks of ice in it, in a
+ * puddle; tinted a little by what he was (his armour's colour). grow(amount) brings it up as he comes down;
+ * scoop(amount) takes a vesselful out of it; splash(point) leaves a small wet patch (the dregs, tipped out). dispose()
+ * takes it all away.
+ */
+export function slushPile(scene, { at, tint = [1, 1, 1], random = Math.random } = {}) {
+  const group = new THREE.Group();
+  group.name = 'tour-slush';
+  group.position.set(at.x, 0, at.z);
+  const tone = new THREE.Color(...tint);
+  const slush = new THREE.Color(0xe2ecf1).lerp(new THREE.Color(0xe2ecf1).multiply(tone), 0.55);
+  const moundMaterial = new THREE.MeshStandardMaterial({ color: slush, roughness: 0.3, metalness: 0.02, emissive: 0x0d2230, emissiveIntensity: 0.25 });
+  const puddleMaterial = new THREE.MeshStandardMaterial({
+    color: new THREE.Color(0x56707e).lerp(new THREE.Color(0x56707e).multiply(tone), 0.4), roughness: 0.08, metalness: 0.1,
+    transparent: true, opacity: 0.72, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2,
+  });
+  const ice = iceMaterial();
+  // the mound: a half sphere, lumped and flattened
+  const geometry = new THREE.SphereGeometry(0.48, 24, 10, 0, Math.PI * 2, 0, Math.PI / 2);
+  const wobble = lumpy(random);
+  const position = geometry.attributes.position;
+  for (let i = 0; i < position.count; i += 1) {
+    const x = position.getX(i);
+    const y = position.getY(i);
+    const z = position.getZ(i);
+    const k = wobble(Math.atan2(z, x), y);
+    position.setXYZ(i, x * k, y * k, z * k);
+  }
+  geometry.computeVertexNormals();
+  const mound = new THREE.Mesh(geometry, moundMaterial);
+  mound.castShadow = true;
+  mound.receiveShadow = true;
+  const puddle = new THREE.Mesh(new THREE.CircleGeometry(0.85, 32), puddleMaterial);
+  puddle.rotation.x = -Math.PI / 2;
+  puddle.position.y = 0.006;
+  puddle.receiveShadow = true;
+  const chunks = Array.from({ length: 8 }, (_, i) => {
+    const chunk = new THREE.Mesh(new THREE.IcosahedronGeometry(0.035 + random() * 0.045, 0), ice);
+    const angle = i * 2.3 + random();
+    const out = 0.12 + random() * 0.4;
+    chunk.position.set(Math.cos(angle) * out, 0.05 + (0.52 - out) * 0.28, Math.sin(angle) * out);
+    chunk.rotation.set(random() * 3, random() * 3, random() * 3);
+    chunk.castShadow = true;
+    return chunk;
+  });
+  const splashes = [];
+  group.add(puddle, mound, ...chunks);
+  scene.add(group);
+  let grown = 0;
+  let taken = 0;
+  const shape = () => {
+    const g = Math.max(0.001, grown);
+    const left = 1 - 0.16 * taken;
+    mound.scale.set(g * left, 0.44 * g * left * (0.75 + 0.25 * g), g * left);
+    puddle.scale.setScalar(Math.max(0.001, Math.min(1, grown * 1.3)));
+    chunks.forEach((chunk, i) => { chunk.visible = grown > 0.35 + (i % 4) * 0.12; });
+  };
+  shape();
+  return {
+    group,
+    grow(amount) { grown = Math.max(0, Math.min(1, amount)); shape(); },
+    scoop(amount) { taken = Math.max(0, Math.min(1, amount)); shape(); },
+    splash(point) {
+      const patch = new THREE.Mesh(new THREE.CircleGeometry(0.22 + random() * 0.08, 18), puddleMaterial);
+      patch.rotation.x = -Math.PI / 2;
+      patch.position.set(point.x - at.x, 0.007, point.z - at.z);
+      group.add(patch);
+      splashes.push(patch);
+    },
+    dispose() {
+      scene.remove(group);
+      geometry.dispose();
+      puddle.geometry.dispose();
+      for (const chunk of chunks) chunk.geometry.dispose();
+      for (const patch of splashes) patch.geometry.dispose();
+      moundMaterial.dispose();
+      puddleMaterial.dispose();
+      ice.dispose();
+    },
+  };
+}
+
+// the two vessels: a brass tankard (with a handle; warm against his steel, so it reads in his hand) and a small
+// wooden pail (iron hoops, a bail over the top); their height, their radius at the rim and at the foot
+export const VESSELS = Object.freeze({
+  cup: Object.freeze({ height: 0.21, rim: 0.09, foot: 0.08 }),
+  pail: Object.freeze({ height: 0.22, rim: 0.12, foot: 0.092 }),
+});
+
+/**
+ * A vessel in a knight's hand: `kind` 'cup' or 'pail'. Placed every frame (update: where its middle is, its
+ * orientation, and how full it is of slush, 0..1, the slush tinted `tint`). dispose() takes it away.
+ */
+export function vesselProp(scene, { kind = 'cup', tint = [1, 1, 1] } = {}) {
+  const size = VESSELS[kind] ?? VESSELS.cup;
+  const group = new THREE.Group();
+  group.name = `tour-vessel-${kind}`;
+  const owned = [];
+  const material = (options) => { const m = new THREE.MeshStandardMaterial(options); owned.push(m); return m; };
+  const mesh = (geometry, mat) => { const m = new THREE.Mesh(geometry, mat); m.castShadow = true; group.add(m); return m; };
+  const shell = kind === 'pail'
+    ? material({ color: 0x7a5534, roughness: 0.82, metalness: 0.02, side: THREE.DoubleSide })
+    : material({ color: 0xcaa24c, roughness: 0.28, metalness: 0.85, side: THREE.DoubleSide });
+  const iron = material({ color: kind === 'pail' ? 0x3b3c40 : 0x9b7832, roughness: 0.4, metalness: 0.85 });
+  mesh(new THREE.CylinderGeometry(size.rim, size.foot, size.height, 18, 1, true), shell);
+  const base = mesh(new THREE.CircleGeometry(size.foot, 18), shell);
+  base.rotation.x = Math.PI / 2;
+  base.position.y = -size.height / 2;
+  const rim = mesh(new THREE.TorusGeometry(size.rim, kind === 'pail' ? 0.007 : 0.009, 6, 24), iron);
+  rim.rotation.x = Math.PI / 2;
+  rim.position.y = size.height / 2;
+  if (kind === 'pail') {
+    for (const y of [-0.06, 0.05]) {
+      const r = size.foot + ((y + size.height / 2) / size.height) * (size.rim - size.foot);
+      const hoop = mesh(new THREE.TorusGeometry(r + 0.004, 0.006, 5, 24), iron);
+      hoop.rotation.x = Math.PI / 2;
+      hoop.position.y = y;
+    }
+    // the bail, arching over the top from side to side
+    const bail = mesh(new THREE.TorusGeometry(size.rim + 0.01, 0.005, 4, 20, Math.PI), iron);
+    bail.position.y = size.height / 2;
+  } else {
+    // the tankard's handle, on the side away from the hand that holds it (its right), and a band round its foot
+    const handle = mesh(new THREE.TorusGeometry(0.055, 0.013, 6, 14, Math.PI), iron);
+    handle.rotation.z = -Math.PI / 2;
+    handle.position.set(size.rim + 0.005, 0.01, 0);
+    const band = mesh(new THREE.TorusGeometry(size.foot + 0.003, 0.007, 5, 24), iron);
+    band.rotation.x = Math.PI / 2;
+    band.position.y = -size.height / 2 + 0.02;
+  }
+  // the slush in it, its surface rising and falling with how full it is
+  const tone = new THREE.Color(...tint);
+  const contents = new THREE.Mesh(new THREE.CircleGeometry(1, 18), material({ color: new THREE.Color(0xe2ecf1).lerp(new THREE.Color(0xe2ecf1).multiply(tone), 0.55), roughness: 0.3 }));
+  contents.rotation.x = -Math.PI / 2;
+  group.add(contents);
+  scene.add(group);
+  return {
+    group,
+    size,
+    update({ position, quaternion, fill = 0, visible = true }) {
+      group.visible = visible;
+      if (position) group.position.copy(position);
+      if (quaternion) group.quaternion.copy(quaternion);
+      const f = Math.max(0, Math.min(1, fill));
+      contents.visible = f > 0.02;
+      const y = -size.height / 2 + 0.01 + f * size.height * 0.82;
+      const r = size.foot + ((y + size.height / 2) / size.height) * (size.rim - size.foot);
+      contents.position.y = y;
+      contents.scale.setScalar(Math.max(0.001, r * 0.97));
+    },
+    dispose() {
+      scene.remove(group);
+      group.traverse((object) => object.geometry?.dispose?.());
+      for (const m of owned) m.dispose();
     },
   };
 }

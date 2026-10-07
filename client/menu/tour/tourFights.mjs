@@ -10,7 +10,8 @@
 // A pose: { u, v, lift, heading, clip, time, loop, rate, crouch, rotations, sword, spell } where sword/spell are
 // { target, weight } for the arm solver in the knight's own root space (see swordArmIK.mjs), and a rival may also be
 // { gone: true, u, v } (fled, or lying in pieces there). A rival's `framed` (0..1, 1 if not given) is a note for the
-// camera: how much it keeps him in the shot.
+// camera: how much it keeps him in the shot. The Slush adds a few: the hero's `vessel` ({ kind, shown, tilt, fill })
+// and `near` (0..1: how much closer the camera comes), and the rival's `frozen` and `melt` (0..1).
 
 const clamp01 = (t) => Math.max(0, Math.min(1, t));
 const smooth = (t) => { const s = clamp01(t); return s * s * (3 - 2 * s); };
@@ -306,6 +307,192 @@ export function makeWhiteFlag({ flee = [12.5, 1] } = {}) {
 }
 const WHITE_FLAG = makeWhiteFlag();
 
+// ---------------------------------------------------------------------------------------------------------------
+// 4. The Slush: a short exchange; he freezes his rival solid with Frostfire, regards his work a moment, and puts an
+// ordinary Fireball into the statue, which melts down into a heap of slush. He produces a vessel from his belt on his
+// way over, scoops some up, drinks it, and gives his verdict; puts the vessel away, and walks back to the path. None
+// of it is remarked on. The drinking is the Poor Taste take itself: its slurp, two small smacks, a considered "Ahhh",
+// and then the words (SLUSH.take, in seconds into it), so the take begins as the vessel reaches his visor.
+//
+// What varies from round to round: the vessel (a pewter tankard or a small wooden pail), who presses the opening
+// exchange (the rival comes at him, or he goes at the rival), how deep he drinks, and whether he tips out what is left
+// before putting the vessel away. (The slush takes the colour of whichever knight it was: TourDirector.)
+export const SLUSH = Object.freeze({
+  reach: 3.3,           // where the rival waits: he comes on as the Spellblade arrives
+  meet: 1.95,           // where he stands for the exchange, is frozen, melted and drunk
+  backTo: -0.75,        // the half step the Spellblade gives himself to cast in
+  scoopFrom: 1.2,       // where the Spellblade stands to scoop (the heap three quarters of a metre ahead of him)
+  freezeAt: 3.06,       // the Frostfire lands...
+  frozenBy: 3.5,        // ...and he is solid
+  fireballAt: 4.68,     // the Fireball lands...
+  melt: Object.freeze([4.72, 5.77]),
+  goneAt: 5.8,          // ...and nothing of him is left but the slush
+  drinkAt: 7.7,         // the take begins (its slurp is the drink)
+  // the take, in its own seconds: the slurp, the smacks, the "Ahhh" and the words (client/assets/voice/poor-taste-1)
+  take: Object.freeze({ slurp: Object.freeze([0.08, 1.5]), smacks: Object.freeze([2.02, 2.56]), ahh: Object.freeze([2.92, 3.9]), words: Object.freeze([4.4, 5.5]) }),
+});
+
+export const SLUSH_VARIANTS = Object.freeze({
+  vessel: Object.freeze(['cup', 'pail']),
+  opening: Object.freeze(['charge', 'press']),
+  drink: Object.freeze(['quaff', 'sip']),
+  finish: Object.freeze(['stow', 'dregs']),
+});
+
+export function makeSlush({ vessel = 'cup', opening = 'charge', drink = 'quaff', finish = 'stow' } = {}) {
+  const S = SLUSH;
+  const take = (at) => S.drinkAt + at;
+  const pour = finish === 'dregs';
+  // the vessel away at his hip (after the dregs, if he tips them out), then back to the path
+  const away = pour ? [13.8, 14.05] : [13.3, 13.6];
+  const walk = [away[1], away[1] + 0.85];
+  const duration = walk[1] + 0.1;
+  const deep = drink === 'quaff';
+  return {
+    id: 'slush',
+    key: `slush:${vessel}:${opening}:${drink}:${finish}`,
+    variant: Object.freeze({ vessel, opening, drink, finish }),
+    reach: S.reach,
+    duration,
+    // the rival across the path from where the camera films it: the vessel is in his spell hand (his left), and so it
+    // is on the camera's side of him as he scoops and drinks
+    side: 1,
+    // filmed a little from his side: the Frostfire and the Fireball fly across the frame, and the heap is in view
+    shot: { swing: 0.3 },
+    hero(t) {
+      // he faces his rival as he stops, and the heap as he scoops; to drink he turns three quarters to the camera, his
+      // vessel hand toward it (which way that is depends on the side of the path the stop puts the rival: `side`);
+      // walking back he faces the path, and turns along it as he gets there
+      const drinking = (this.side ?? 1) > 0 ? -1.1 : -2.7;
+      const heading = keyed([
+        [0, Math.PI / 2], [0.35, 0], [7.3, 0], [7.6, drinking], [walk[0], drinking], [walk[0] + 0.3, -2.75], [walk[1] - 0.2, -2.75], [duration, -1.5 * Math.PI],
+      ], t);
+      const press = opening === 'press';
+      const clip = clipAt([
+        [-1, 'Idle', { loop: true }],
+        ...(press
+          ? [[0.6, 'Slash_1'], [1.25, 'Guard'], [1.95, 'Guard']]
+          : [[0.65, 'Guard'], [1.4, 'Slash_2'], [1.95, 'Guard']]),
+        [2.4, 'Cast'],
+        [3.4, 'Idle', { loop: true }],
+        [4.15, 'Cast'],
+        [5.0, 'Idle', { loop: true }],
+        // the hurry over, vessel in hand
+        [6.0, 'Run', { loop: true, rate: 0.55 }],
+        [6.5, 'Idle', { loop: true }],
+        [walk[0], 'Run', { loop: true, rate: 0.3 }],
+        [walk[1], 'Idle', { loop: true }],
+      ], t);
+      // in a step to swing (pressing), back a half step to cast; over to the heap in a hurry; back to the path
+      const u = keyed([
+        [0.5, 0], ...(press ? [[0.75, 0.25], [1.1, 0.25], [1.35, 0]] : []),
+        [1.95, 0], [2.35, S.backTo], [6.0, S.backTo], [6.5, S.scoopFrom], [walk[0], S.scoopFrom], [walk[1], 0],
+      ], t);
+      // the scoop: down quickly, a bend over the heap, and straight back up
+      const down = between(t, 6.55, 6.85) * (1 - between(t, 7.05, 7.35));
+      const crouch = 0.8 * down;
+      const rotations = [];
+      if (down > 1e-3) rotations.push({ bone: 'spine', axis: [-1, 0, 0], angle: 0.55 * down }, { bone: 'chest', axis: [-1, 0, 0], angle: 0.25 * down }, { bone: 'head', axis: [-1, 0, 0], angle: 0.12 * down });
+      // his work regarded: a small settle, his attention on the statue (no more than that)
+      const regard = between(t, 3.55, 3.75) * (1 - between(t, 4.0, 4.2));
+      if (regard > 1e-3) rotations.push({ bone: 'chest', axis: [1, 0, 0], angle: 0.05 * regard }, { bone: 'head', axis: [-1, 0, 0], angle: 0.08 * regard }, { bone: 'head', axis: [0, 0, 1], angle: 0.07 * regard });
+      // watching it go down
+      const watch = between(t, 4.9, 5.3) * (1 - between(t, 5.8, 6.0));
+      if (watch > 1e-3) rotations.push({ bone: 'head', axis: [-1, 0, 0], angle: 0.18 * watch });
+      // the drink: his head back as the vessel tips, then the tasting (a small nod at each smack), the "Ahhh" (a
+      // settle back), and the verdict, with a look down at what is left in the vessel
+      const tip = between(t, take(0.05), take(0.5)) * (1 - between(t, take(S.take.slurp[1] - 0.05), take(S.take.slurp[1] + 0.3)));
+      if (tip > 1e-3) rotations.push({ bone: 'head', axis: [1, 0, 0], angle: (deep ? 0.36 : 0.14) * tip }, { bone: 'neck', axis: [1, 0, 0], angle: (deep ? 0.12 : 0.04) * tip });
+      for (const smack of S.take.smacks) {
+        const nod = Math.sin(Math.PI * between(t, take(smack) - 0.02, take(smack) + 0.16));
+        if (nod > 1e-3) rotations.push({ bone: 'head', axis: [-1, 0, 0], angle: 0.07 * nod });
+      }
+      const ahh = between(t, take(S.take.ahh[0]), take(S.take.ahh[0] + 0.3)) * (1 - between(t, take(S.take.ahh[1] - 0.2), take(S.take.ahh[1] + 0.2)));
+      if (ahh > 1e-3) rotations.push({ bone: 'head', axis: [1, 0, 0], angle: 0.08 * ahh }, { bone: 'chest', axis: [1, 0, 0], angle: 0.04 * ahh });
+      const verdict = between(t, take(S.take.words[0] - 0.25), take(S.take.words[0])) * (1 - between(t, away[0] - 0.1, away[0] + 0.2));
+      if (verdict > 1e-3) rotations.push({ bone: 'head', axis: [-1, 0, 0], angle: 0.13 * verdict });
+      return { u, v: 0, lift: 0, heading, ...clip, crouch, rotations, spell: this.hand(t), sword: null, vessel: this.vessel(t), near: this.near(t) };
+    },
+    // the vessel in his spell hand: where the hand holds it (the knight's root space), and how it is carried:
+    // { shown, tilt (radians: + tips its rim toward him, - away from him), fill (0..1) }
+    vessel(t) {
+      const shown = t >= 5.98 && t < away[1] - 0.05;
+      if (!shown) return { kind: vessel, shown: false, tilt: 0, fill: 0 };
+      // dipped into the heap rim first, then up; tipped back to his visor as he drinks; tipped out (the dregs)
+      const dip = between(t, 6.8, 6.92) * (1 - between(t, 6.98, 7.15));
+      const sup = between(t, take(0.0), take(0.45)) * (1 - between(t, take(S.take.slurp[1] - 0.05), take(S.take.slurp[1] + 0.3)));
+      const drained = between(t, take(0.1), take(S.take.slurp[1]));
+      const tipOut = pour ? between(t, 13.45, 13.65) * (1 - between(t, 13.7, 13.85)) : 0;
+      const tilt = -1.35 * dip + (deep ? 2.1 : 1.45) * sup - 2.3 * tipOut;
+      const filled = between(t, 6.93, 7.0);
+      const fill = filled * (1 - drained * (deep ? 0.85 : 0.55)) * (1 - between(t, 13.5, 13.7) * (pour ? 1 : 0));
+      return { kind: vessel, shown, tilt, fill };
+    },
+    // the spell hand: to the belt for the vessel, out in front with it, down into the heap, up to the visor, down to
+    // the chest for the tasting, out to the side for the dregs, back to the belt
+    hand(t) {
+      if (t < 5.82 || t > walk[0] + 0.1) return null;
+      const keys = [
+        [5.82, [-0.3, 1.0, -0.05]], [5.96, [-0.32, 0.98, 0.04]],
+        [6.2, [-0.24, 1.08, -0.34]], [6.55, [-0.22, 1.08, -0.38]],
+        [6.85, [-0.16, 0.34, -0.62]], [6.95, [-0.14, 0.26, -0.66]], [7.2, [-0.18, 0.95, -0.5]],
+        [take(-0.3), [-0.06, 1.42, -0.36]], [take(0.05), [-0.03, 1.5, -0.27]], [take(S.take.slurp[1]), [-0.03, 1.5, -0.27]],
+        [take(S.take.slurp[1] + 0.35), [-0.14, 1.2, -0.38]],
+        ...(pour ? [[13.4, [-0.14, 1.2, -0.38]], [13.6, [-0.55, 1.12, -0.32]], [13.8, [-0.5, 1.1, -0.3]]] : [[away[0], [-0.14, 1.2, -0.38]]]),
+        [away[1], [-0.32, 0.98, 0.04]],
+      ];
+      const reach = between(t, 5.82, 5.9) * (1 - between(t, away[1], walk[0] + 0.1));
+      const at = [0, 1, 2].map((axis) => keyed(keys.map(([time, point]) => [time, point[axis]]), t));
+      // the palm toward the vessel's side (it is held by its body or its rim, upright)
+      return arm(blade(at, [0.85, 0.15, -0.5], [0, 1, 0]), reach);
+    },
+    // how much closer the camera comes (0..1): in for the scoop and the drink, out again as he walks back
+    near(t) {
+      return between(t, 6.0, 6.7) * (1 - between(t, away[0], walk[1]));
+    },
+    rival(t) {
+      if (t >= S.goneAt) return { gone: true, u: S.meet, v: 0 };
+      const press = opening === 'press';
+      const clip = clipAt([
+        [-99, 'Idle', { loop: true }],
+        [-0.9, 'Guard'],
+        ...(press
+          ? [[0.0, 'Run', { loop: true, rate: 0.32 }], [0.5, 'Guard'], [1.3, 'Slash_2'], [1.95, 'Guard']]
+          : [[0.1, 'Run', { loop: true, rate: 0.6 }], [0.7, 'Slash_1'], [1.35, 'Guard']]),
+        // the Frostfire takes him mid-flinch, and there he stays
+        [S.freezeAt, 'Stagger'],
+        [S.freezeAt + 0.14, 'Stagger', { hold: 0.16 }],
+      ], t);
+      // he comes on at the Spellblade, recoils an inch from the frost, and does not move again
+      const u = keyed([[press ? 0.0 : 0.1, S.reach], [press ? 0.55 : 0.7, S.meet], [S.freezeAt, S.meet], [S.freezeAt + 0.14, S.meet + 0.12]], t);
+      // frozen (0..1): the frost closing over him; melt (0..1): the statue giving way into the heap
+      const frozen = between(t, S.freezeAt, S.frozenBy);
+      const melt = between(t, S.melt[0], S.melt[1]);
+      return { u, v: 0, lift: 0, heading: Math.PI, ...clip, crouch: 0, rotations: [], frozen, melt };
+    },
+    cues: [
+      ...(opening === 'press'
+        ? [{ at: 0.6, type: 'swing', by: 'hero' }, { at: 1.0, type: 'clash' }, { at: 1.3, type: 'swing', by: 'rival' }, { at: 1.72, type: 'clash' }]
+        : [{ at: 0.7, type: 'swing', by: 'rival' }, { at: 1.12, type: 'clash' }, { at: 1.4, type: 'swing', by: 'hero' }, { at: 1.82, type: 'clash' }]),
+      { at: 2.4, type: 'gather', by: 'hero', spell: 'frostfire', release: 0.32 },
+      { at: 2.72, type: 'cast', by: 'hero', spell: 'frostfire', flight: 0.34 },
+      { at: S.freezeAt, type: 'impact', on: 'rival', spell: 'frostfire', radius: 1.6 },
+      { at: S.freezeAt, type: 'freeze', on: 'rival', seconds: S.frozenBy - S.freezeAt },
+      { at: 4.15, type: 'gather', by: 'hero', spell: 'fireball', release: 0.25 },
+      { at: 4.4, type: 'cast', by: 'hero', spell: 'fireball', flight: 0.28 },
+      { at: S.fireballAt, type: 'impact', on: 'rival', spell: 'fireball', radius: 1.4 },
+      { at: S.melt[0], type: 'melt', on: 'rival', seconds: S.melt[1] - S.melt[0] },
+      { at: 4.95, type: 'slush', on: 'rival' },
+      { at: 5.98, type: 'vessel', by: 'hero', kind: vessel },
+      { at: 6.95, type: 'scoop', by: 'hero', kind: vessel },
+      // the drink, and the verdict: the moment the vessel reaches his visor (the take is the drinking)
+      { at: S.drinkAt, type: 'voice', moment: 'slushEnd', chance: 1 },
+      ...(pour ? [{ at: 13.6, type: 'dregs', by: 'hero', kind: vessel }] : []),
+      { at: away[1] - 0.05, type: 'stow', by: 'hero', kind: vessel },
+    ],
+  };
+}
+
 export const FIGHTS = Object.freeze([FIREBALL, WHIRLWIND, WHITE_FLAG]);
 
 // the ways the White Flag's rival can run for it, longest first (a stop on the round takes the first that clears)
@@ -319,4 +506,9 @@ export const FIGHT_POOL = Object.freeze({
   fireball: () => [FIREBALL],
   whirlwind: (random = Math.random) => [makeWhirlwind({ turns: 3 + Math.floor(random() * 3) })],
   whiteFlag: () => FLEE_ROUTES.map((flee) => makeWhiteFlag({ flee })),
+  // (a round's dice choose each of its variations)
+  slush: (random = Math.random) => {
+    const pick = (options) => options[Math.min(options.length - 1, Math.floor(random() * options.length))];
+    return [makeSlush(Object.fromEntries(Object.entries(SLUSH_VARIANTS).map(([name, options]) => [name, pick(options)])))];
+  },
 });

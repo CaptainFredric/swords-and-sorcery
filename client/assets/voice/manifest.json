@@ -415,7 +415,11 @@
     "poorTaste": [
       {
         "file": "poor-taste-1",
-        "seconds": 5.68
+        "seconds": 5.68,
+        "beats": [
+          0.0,
+          4.36
+        ]
       }
     ],
     "preferNoPain": [

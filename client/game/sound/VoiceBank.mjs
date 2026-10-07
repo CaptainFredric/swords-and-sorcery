@@ -124,10 +124,11 @@ export class VoiceBank {
     // a spoken line: the music and the wind give way under it (a grunt does not need them to)
     if (rule.kind === 'sentence') this.engine.duck?.(seconds, { amount: Math.min(1, gain / 0.8), delay });
     // (a line subtitled a beat at a time: where each beat falls, as it is played)
-    const beats = this.takeBeats.get(line)?.[index];
-    this.onSpoken?.({ line, speaker, delay, seconds, close, ...(parts ? { part: index } : {}), ...(beats ? { beats: beats.map((at) => at / Math.max(0.5, played)) } : {}) });
-    // (how long it runs, for whoever times something on its end: the next part, an answer)
-    return { seconds, delay };
+    const beats = this.takeBeats.get(line)?.[index]?.map((at) => at / Math.max(0.5, played)) ?? null;
+    this.onSpoken?.({ line, speaker, delay, seconds, close, ...(parts ? { part: index } : {}), ...(beats ? { beats } : {}) });
+    // (how long it runs, for whoever times something on its end: the next part, an answer; and where its beats fall,
+    // for a subtitle of its own: the menu's)
+    return { seconds, delay, ...(parts ? { part: index } : {}), ...(beats ? { beats } : {}) };
   }
 
   /**

@@ -178,7 +178,7 @@ export const VOICE_TAGS = Object.freeze({
   lateClock: { rank: 20, about: 'the last 25 seconds of a timed match, while he is not the one winning it (once a match)' },
   standoff: { rank: 6, about: 'a foe facing him at a distance, nothing struck or swung for a while: time enough to begin spelling a threat' },
   // --- waiting on what they belong to
-  slushEnd: { rank: 20, future: true, about: 'the end of the frozen-enemy slush sequence' },
+  slushEnd: { rank: 20, about: 'the menu round\'s Slush: the slush he made of a rival, scooped up and drunk (the take is the drinking)' },
   teamEngage: { rank: 20, future: true, about: 'a team engagement beginning' },
   allyDefected: { rank: 20, future: true, about: 'a former ally appearing on the opposing side' },
 });
@@ -1143,10 +1143,13 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     voice: { drive: 2, rmsDb: -17 }, aliases: ['misaddressed', 'riposte'],
   },
   {
-    id: 'poorTaste', coming: 'the frozen-enemy slush',
+    id: 'poorTaste',
     text: 'Poor taste.',
+    // (the take is the drinking: a long slurp, two small smacks and a considered "Ahhh" before the words, so it begins
+    // as the vessel reaches his visor, and nothing is written out until the words come: client/menu/tour/tourFights.mjs)
+    beats: [{ words: '' }, { at: 4.86, words: 'Poor taste.' }],
     trigger: 'slushEnd',
-    priority: 'normal', rarity: 0.3, cooldown: 300,
+    priority: 'normal', rarity: 1, cooldown: 0,
     section: 'Remarks & Oddities',
     credits: { title: 'Poor Taste', description: 'At the end of the frozen-enemy slush sequence.', note: 'The review was unsolicited.' },
     voice: { drive: 2.0, rmsDb: -17 }, file: 'PoorTaste.mp3',
@@ -1297,13 +1300,14 @@ export function linesFor(speaker, tags, { facts = [], force = false, rand = Math
 const isSpan = (span) => Array.isArray(span) && span.length === 2 && span.every(Number.isFinite) && span[0] >= 0 && span[1] > span[0];
 const EDIT_KINDS = Object.freeze({ cut: [], splice: ['from'], lift: ['db'], rise: ['semitones'], glide: ['semitones'] });
 
-// what is wrong with a line's beats, as sentences: two or more, each with its words, every later one at a time in its
-// recording after the one before
+// what is wrong with a line's beats, as sentences: two or more, each with its words (the first may have none: what
+// comes before the words, a slurp, written out as nothing), every later one at a time in its recording after the one
+// before
 function beatProblems(beats) {
   if (!Array.isArray(beats) || beats.length < 2) return ['beats must be two or more'];
   const problems = [];
   beats.forEach((beat, i) => {
-    if (!(typeof beat?.words === 'string' && beat.words)) problems.push(`beat ${i + 1} needs its words`);
+    if (!(typeof beat?.words === 'string' && (beat.words || i === 0))) problems.push(`beat ${i + 1} needs its words`);
     if (i === 0 && beat?.at !== undefined) problems.push('the first beat begins with its recording (no at)');
     if (i > 0 && !(Number.isFinite(beat?.at) && beat.at > (beats[i - 1]?.at ?? 0))) problems.push(`beat ${i + 1} needs an at after the beat before`);
   });

@@ -334,6 +334,103 @@ export function frostImpactRecipe(rand = Math.random) {
   return { layers, reverb: 0.4, hall: 0.18 };
 }
 
+// --- the menu round's Slush (client/menu/tour): a knight frozen, melted down, scooped up and drunk ------------------
+
+/** Ice closing over a knight: a run of small glassy cracks, quickening, over a low creak; a clear ting as it sets. */
+export function freezeRecipe(rand = Math.random, { seconds = 0.45 } = {}) {
+  const layers = [
+    { type: 'noise', filter: 'bandpass', freq: 1400, q: 2.5, sweepTo: 600, attack: 0.05, decay: seconds, gain: 0.12 },
+    { type: 'tone', wave: 'triangle', freq: 96, slideTo: 72, attack: 0.04, decay: seconds * 0.9, gain: 0.08 },
+  ];
+  for (let i = 0; i < 11; i += 1) {
+    // the cracks come faster as the ice closes
+    const at = seconds * (1 - (1 - i / 11) ** 1.6) + rand() * 0.02;
+    layers.push({ type: 'noise', filter: 'highpass', freq: 3000 + rand() * 3500, q: 0.9, at, attack: 0.001, decay: 0.015 + rand() * 0.02, gain: 0.08 + rand() * 0.06 });
+    if (i % 3 === 0) layers.push({ type: 'ring', at, partials: [{ freq: 3200 + rand() * 2800, gain: 0.025, decay: 0.08 + rand() * 0.06 }] });
+  }
+  layers.push({ type: 'ring', at: seconds, partials: [{ freq: 2650 * jitter(rand, 0.04), gain: 0.07, decay: 0.45 }, { freq: 5400 * jitter(rand, 0.04), gain: 0.035, decay: 0.22 }] });
+  return { layers, reverb: 0.3, hall: 0.1 };
+}
+
+/** Fire on ice: a hard sizzle as it lands, a hiss of steam running on while the statue goes soft. */
+export function meltHissRecipe(rand = Math.random, { seconds = 1 } = {}) {
+  const layers = [
+    { type: 'noise', filter: 'highpass', freq: 3600, q: 0.7, sweepTo: 2200, attack: 0.01, decay: seconds, gain: 0.26 },
+    { type: 'noise', filter: 'bandpass', freq: 6200, q: 1.4, attack: 0.004, decay: 0.25, gain: 0.18 },
+  ];
+  // the sizzle: little spits through the hiss
+  for (let i = 0; i < 9; i += 1) {
+    layers.push({ type: 'noise', filter: 'bandpass', freq: 2400 + rand() * 3000, q: 4, at: rand() * seconds * 0.8, attack: 0.001, decay: 0.02 + rand() * 0.02, gain: 0.08 });
+  }
+  return { layers, reverb: 0.2 };
+}
+
+/** The statue giving way: a soft wet slump, chunks of ice knocking down into it, a last slosh. */
+export function slushCollapseRecipe(rand = Math.random) {
+  const layers = [
+    { type: 'noise', filter: 'lowpass', freq: 420, q: 0.9, attack: 0.03, decay: 0.32, gain: 0.42 },
+    { type: 'tone', wave: 'sine', freq: 82, slideTo: 48, attack: 0.02, decay: 0.28, gain: 0.3 },
+    { type: 'noise', filter: 'bandpass', freq: 900, q: 1.2, sweepTo: 500, at: 0.08, attack: 0.02, decay: 0.3, gain: 0.2 },
+    // the slosh as it settles
+    { type: 'noise', filter: 'bandpass', freq: 700, q: 2, sweepTo: 1100, at: 0.42, attack: 0.03, decay: 0.18, gain: 0.14 },
+  ];
+  for (let i = 0; i < 6; i += 1) {
+    const at = 0.04 + rand() * 0.38;
+    layers.push({ type: 'noise', filter: 'bandpass', freq: 1800 + rand() * 2200, q: 3, at, attack: 0.001, decay: 0.03, gain: 0.08 + rand() * 0.05 });
+    layers.push({ type: 'ring', at, partials: [{ freq: 1900 + rand() * 1800, gain: 0.02, decay: 0.06 }] });
+  }
+  return { layers, reverb: 0.22 };
+}
+
+/** A vesselful scooped up: its rim scraped through the slush (pewter rings a little; a pail knocks) and a wet gather. */
+export function scoopRecipe(rand = Math.random, { kind = 'cup' } = {}) {
+  const pewter = kind !== 'pail';
+  return {
+    layers: [
+      { type: 'noise', filter: 'bandpass', freq: pewter ? 2600 : 1300, q: 2.2, sweepTo: pewter ? 1700 : 900, attack: 0.02, decay: 0.2, gain: 0.16 },
+      { type: 'noise', filter: 'lowpass', freq: 650, q: 1.1, at: 0.05, attack: 0.02, decay: 0.2, gain: 0.26 },
+      { type: 'noise', filter: 'bandpass', freq: 1200, q: 2.5, sweepTo: 800, at: 0.15, attack: 0.01, decay: 0.12, gain: 0.12 },
+      pewter
+        ? { type: 'ring', at: 0.01, partials: [{ freq: 1480 * jitter(rand, 0.03), gain: 0.03, decay: 0.25 }, { freq: 3900 * jitter(rand, 0.03), gain: 0.015, decay: 0.12 }] }
+        : { type: 'tone', wave: 'sine', freq: 190, slideTo: 150, at: 0.01, attack: 0.002, decay: 0.07, gain: 0.12 },
+    ],
+    reverb: 0.15,
+  };
+}
+
+/** The vessel taken from his belt, or put back: a pewter clink, or the knock of a little wooden pail. */
+export function vesselRecipe(rand = Math.random, { kind = 'cup' } = {}) {
+  if (kind === 'pail') {
+    return {
+      layers: [
+        { type: 'tone', wave: 'sine', freq: 230 * jitter(rand, 0.05), slideTo: 180, attack: 0.002, decay: 0.08, gain: 0.32 },
+        { type: 'noise', filter: 'bandpass', freq: 1100, q: 2, attack: 0.001, decay: 0.04, gain: 0.2 },
+        { type: 'ring', at: 0.02, partials: [{ freq: 980 * jitter(rand, 0.05), gain: 0.04, decay: 0.12 }] },
+      ],
+      reverb: 0.12,
+    };
+  }
+  return {
+    layers: [
+      { type: 'noise', filter: 'highpass', freq: 3000, q: 0.8, attack: 0.001, decay: 0.012, gain: 0.16 },
+      { type: 'ring', partials: [{ freq: 1720 * jitter(rand, 0.03), gain: 0.12, decay: 0.32 }, { freq: 4300 * jitter(rand, 0.03), gain: 0.06, decay: 0.16 }, { freq: 6900 * jitter(rand, 0.03), gain: 0.024, decay: 0.08 }] },
+    ],
+    reverb: 0.14,
+  };
+}
+
+/** What was left in the vessel, tipped out onto the ground: a small wet splat. */
+export function splashRecipe(rand = Math.random) {
+  return {
+    layers: [
+      { type: 'noise', filter: 'lowpass', freq: 900, q: 1, attack: 0.005, decay: 0.12, gain: 0.38 },
+      { type: 'noise', filter: 'bandpass', freq: 2200 * jitter(rand, 0.15), q: 1.5, at: 0.02, attack: 0.002, decay: 0.08, gain: 0.16 },
+      { type: 'noise', filter: 'bandpass', freq: 1500, q: 3, at: 0.11 + rand() * 0.04, attack: 0.002, decay: 0.03, gain: 0.08 },
+    ],
+    reverb: 0.12,
+  };
+}
+
 /** A lick of the burn a Fireball leaves: a small flare and a crackle. */
 export function burnLickRecipe(rand = Math.random) {
   return {
