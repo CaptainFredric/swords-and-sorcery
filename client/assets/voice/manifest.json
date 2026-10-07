@@ -7,10 +7,30 @@
         "seconds": 12.03
       }
     ],
+    "abyssCalls": [
+      {
+        "file": "abyss-calls-1",
+        "seconds": 3.2,
+        "beats": [
+          0.0,
+          2.53
+        ]
+      }
+    ],
     "acceptSaint": [
       {
         "file": "accept-saint-1",
         "seconds": 3.22
+      }
+    ],
+    "almostThere": [
+      {
+        "file": "almost-there-1",
+        "seconds": 2.99
+      },
+      {
+        "file": "almost-there-2",
+        "seconds": 3.18
       }
     ],
     "alwaysKnew": [
@@ -35,6 +55,27 @@
       {
         "file": "blade-caught-1",
         "seconds": 6.43
+      }
+    ],
+    "bodyWilling": [
+      {
+        "file": "body-willing-1",
+        "seconds": 4.01,
+        "beats": [
+          0.0,
+          1.93,
+          3.11
+        ]
+      }
+    ],
+    "braveFoolish": [
+      {
+        "file": "brave-foolish-1",
+        "seconds": 5.13,
+        "beats": [
+          0.0,
+          3.72
+        ]
       }
     ],
     "breakTaunt": [
@@ -93,6 +134,24 @@
         "seconds": 0.98
       }
     ],
+    "dismissed": [
+      {
+        "file": "dismissed-1",
+        "seconds": 1.98
+      }
+    ],
+    "distanceAdvice": [
+      {
+        "file": "distance-advice-1",
+        "seconds": 3.42
+      }
+    ],
+    "doomCut": [
+      {
+        "file": "doom-cut-1",
+        "seconds": 2.41
+      }
+    ],
     "downUpSideways": [
       {
         "file": "down-up-sideways-1",
@@ -125,6 +184,16 @@
       {
         "file": "final-duel-2",
         "seconds": 1.87
+      }
+    ],
+    "findTombstone": [
+      {
+        "file": "find-tombstone-1",
+        "seconds": 2.65
+      },
+      {
+        "file": "find-tombstone-2",
+        "seconds": 2.42
       }
     ],
     "firstStrike": [
@@ -181,6 +250,12 @@
         "seconds": 1.87
       }
     ],
+    "heavyNow": [
+      {
+        "file": "heavy-now-1",
+        "seconds": 2.48
+      }
+    ],
     "herald": [
       {
         "file": "herald-1",
@@ -217,6 +292,12 @@
       {
         "file": "knight-fallen-1",
         "seconds": 4.74
+      }
+    ],
+    "laidBack": [
+      {
+        "file": "laid-back-1",
+        "seconds": 3.49
       }
     ],
     "lateLine": [
@@ -295,16 +376,40 @@
         "seconds": 3.49
       }
     ],
+    "notTired": [
+      {
+        "file": "not-tired-1",
+        "seconds": 2.13
+      }
+    ],
     "offGuard": [
       {
         "file": "off-guard-1",
         "seconds": 2.31
       }
     ],
+    "oneMoreDefeat": [
+      {
+        "file": "one-more-defeat-1",
+        "seconds": 2.42
+      }
+    ],
     "openUp": [
       {
         "file": "open-up-1",
         "seconds": 2.84
+      }
+    ],
+    "otherSide": [
+      {
+        "file": "other-side-1",
+        "seconds": 2.55
+      }
+    ],
+    "outOfTime": [
+      {
+        "file": "out-of-time-1",
+        "seconds": 2.19
       }
     ],
     "poorTaste": [
@@ -353,6 +458,12 @@
         "seconds": 6.54
       }
     ],
+    "scorchMark": [
+      {
+        "file": "scorch-mark-1",
+        "seconds": 2.32
+      }
+    ],
     "sorcery": [
       {
         "file": "sorcery-1",
@@ -361,6 +472,40 @@
       {
         "file": "sorcery-2",
         "seconds": 1.36
+      }
+    ],
+    "spellBlade": [
+      {
+        "file": "spell-blade-1",
+        "seconds": 6.76,
+        "beats": [
+          0.0,
+          4.46
+        ]
+      }
+    ],
+    "spellDoom": [
+      {
+        "file": "spell-doom-1",
+        "seconds": 12.98,
+        "beats": [
+          0.0,
+          2.08,
+          2.73,
+          3.38,
+          4.08,
+          4.78,
+          5.48,
+          6.18,
+          6.88,
+          7.58,
+          8.28,
+          8.98,
+          9.68,
+          10.38,
+          11.13,
+          11.68
+        ]
       }
     ],
     "squireSetup": [
@@ -393,10 +538,26 @@
         "seconds": 1.35
       }
     ],
+    "stopMoving": [
+      {
+        "file": "stop-moving-1",
+        "seconds": 1.99
+      }
+    ],
     "stopRunning": [
       {
         "file": "stop-running-1",
         "seconds": 3.93
+      }
+    ],
+    "stopYou": [
+      {
+        "file": "stop-you-1",
+        "seconds": 1.71
+      },
+      {
+        "file": "stop-you-2",
+        "seconds": 1.62
       }
     ],
     "subparStandard": [
@@ -467,10 +628,66 @@
         "seconds": 1.44
       }
     ],
+    "theDeceased": [
+      {
+        "file": "the-deceased-1",
+        "seconds": 5.13,
+        "beats": [
+          0.0,
+          1.86
+        ]
+      }
+    ],
     "thePlan": [
       {
         "file": "the-plan-1",
         "seconds": 5.65
+      }
+    ],
+    "theSky": [
+      {
+        "file": "the-sky-1",
+        "seconds": 3.18
+      }
+    ],
+    "thinkAbout": [
+      {
+        "file": "think-about-1",
+        "seconds": 1.89
+      }
+    ],
+    "threeStrikes": [
+      {
+        "file": "three-strikes-1",
+        "seconds": 3.52,
+        "beats": [
+          0.0,
+          1.79
+        ]
+      },
+      {
+        "file": "three-strikes-2",
+        "seconds": 1.75
+      },
+      {
+        "file": "three-strikes-3",
+        "seconds": 1.71
+      },
+      {
+        "file": "three-strikes-4",
+        "seconds": 2.41,
+        "beats": [
+          0.0,
+          1.13
+        ]
+      },
+      {
+        "file": "three-strikes-5",
+        "seconds": 2.26,
+        "beats": [
+          0.0,
+          0.79
+        ]
       }
     ],
     "tinManHeart": [
@@ -483,6 +700,12 @@
       {
         "file": "told-to-wait-1",
         "seconds": 1.03
+      }
+    ],
+    "trapdoor": [
+      {
+        "file": "trapdoor-1",
+        "seconds": 2.17
       }
     ],
     "underworld": [
@@ -513,6 +736,12 @@
       {
         "file": "work-hard-1",
         "seconds": 2.27
+      }
+    ],
+    "wrongRest": [
+      {
+        "file": "wrong-rest-1",
+        "seconds": 2.37
       }
     ]
   }
