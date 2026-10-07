@@ -27,7 +27,8 @@
 //     // must carry weight: semitones further down, formants: how much of them stays put (0.6: a bigger chest), chest dB;
 //     // edits: small repairs in the recording's own seconds: { cut: [a, b] } dead air out, { splice: [a, b], from:
 //     // [c, d] } a clearer word of the same take in its place, { lift: [a, b], db } a buried word up, { rise: [a, b],
-//     // semitones } a flat ending raised; see tools/audio/knight_voice.py);
+//     // semitones } a flat ending raised, { glide: [a, b], semitones } a word's onset begun that far off and swooping
+//     // back by b; see tools/audio/knight_voice.py);
 //     // parts: ['Wait, wait!!...', '...I TRICKED you!'] (a line said in parts, each when the game says so: its
 //     // recordings are its parts in order, one take each, cut from one master with windows: see RECORDING.md);
 //     // reply: true (an ordinary remark fit to be said back at a foe who has just spoken: the final duel's answer);
@@ -177,7 +178,7 @@ export const VOICE_TAGS = Object.freeze({
   lateClock: { rank: 20, about: 'the last 25 seconds of a timed match, while he is not the one winning it (once a match)' },
   standoff: { rank: 6, about: 'a foe facing him at a distance, nothing struck or swung for a while: time enough to begin spelling a threat' },
   // --- waiting on what they belong to
-  slushEnd: { rank: 20, future: true, about: 'the end of the frozen-enemy slush sequence' },
+  slushEnd: { rank: 20, about: 'the menu round\'s Slush: the slush he made of a rival, scooped up and drunk (the take is the drinking)' },
   teamEngage: { rank: 20, future: true, about: 'a team engagement beginning' },
   allyDefected: { rank: 20, future: true, about: 'a former ally appearing on the opposing side' },
 });
@@ -826,7 +827,7 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     trigger: 'lull', order: 2,
     priority: 'normal', rarity: 0.06, cooldown: 1200, perLife: 1,
     section: 'Remarks & Oddities',
-    credits: { title: 'Abolish the Battle', description: 'Very rarely during a genuine lull in combat.', note: 'The proposal was withdrawn immediately.' },
+    credits: { title: 'Abolish the Battle', description: 'Very rarely during a genuine lull in combat.', note: 'Phew. We were nearly threatened with dimensionality.' },
     voice: { drive: 2.0, rmsDb: -17, expandBelowDb: -42 }, file: 'AbolishBattleIsJest.mp3',
   },
   {
@@ -1081,6 +1082,8 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     priority: 'high', rarity: 0.06, cooldown: 300,
     section: 'Defeat & Death',
     credits: { title: 'Not Tired', description: 'Rarely upon being felled.', note: 'Rest remains unauthorized.' },
+    // (it opens on the fabled "What!?" itself, take 2 of 'defeat', before its own "But I'm not tired!": the source is
+    // that join, made across the pause: not-tired-fabled-what.wav; his own "What?" as recorded is kept, not-tired-1.mp3)
     voice: { drive: 2.2, rmsDb: -16 }, file: 'WhatNotTired.mp3',
   },
   {
@@ -1140,10 +1143,13 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     voice: { drive: 2, rmsDb: -17 }, aliases: ['misaddressed', 'riposte'],
   },
   {
-    id: 'poorTaste', coming: 'the frozen-enemy slush',
+    id: 'poorTaste',
     text: 'Poor taste.',
+    // (the take is the drinking: a long slurp, two small smacks and a considered "Ahhh" before the words, so it begins
+    // as the vessel reaches his visor, and nothing is written out until the words come: client/menu/tour/tourFights.mjs)
+    beats: [{ words: '' }, { at: 4.86, words: 'Poor taste.' }],
     trigger: 'slushEnd',
-    priority: 'normal', rarity: 0.3, cooldown: 300,
+    priority: 'normal', rarity: 1, cooldown: 0,
     section: 'Remarks & Oddities',
     credits: { title: 'Poor Taste', description: 'At the end of the frozen-enemy slush sequence.', note: 'The review was unsolicited.' },
     voice: { drive: 2.0, rmsDb: -17 }, file: 'PoorTaste.mp3',
@@ -1292,15 +1298,16 @@ export function linesFor(speaker, tags, { facts = [], force = false, rand = Math
 
 // a span of a recording: [from, to] seconds, in order
 const isSpan = (span) => Array.isArray(span) && span.length === 2 && span.every(Number.isFinite) && span[0] >= 0 && span[1] > span[0];
-const EDIT_KINDS = Object.freeze({ cut: [], splice: ['from'], lift: ['db'], rise: ['semitones'] });
+const EDIT_KINDS = Object.freeze({ cut: [], splice: ['from'], lift: ['db'], rise: ['semitones'], glide: ['semitones'] });
 
-// what is wrong with a line's beats, as sentences: two or more, each with its words, every later one at a time in its
-// recording after the one before
+// what is wrong with a line's beats, as sentences: two or more, each with its words (the first may have none: what
+// comes before the words, a slurp, written out as nothing), every later one at a time in its recording after the one
+// before
 function beatProblems(beats) {
   if (!Array.isArray(beats) || beats.length < 2) return ['beats must be two or more'];
   const problems = [];
   beats.forEach((beat, i) => {
-    if (!(typeof beat?.words === 'string' && beat.words)) problems.push(`beat ${i + 1} needs its words`);
+    if (!(typeof beat?.words === 'string' && (beat.words || i === 0))) problems.push(`beat ${i + 1} needs its words`);
     if (i === 0 && beat?.at !== undefined) problems.push('the first beat begins with its recording (no at)');
     if (i > 0 && !(Number.isFinite(beat?.at) && beat.at > (beats[i - 1]?.at ?? 0))) problems.push(`beat ${i + 1} needs an at after the beat before`);
   });

@@ -17,6 +17,8 @@ import { createGaleOrb } from '../game/galeOrb.mjs';
 import { Effects } from '../game/Effects.mjs';
 import { ArmoryShowcase, armoryGestureMotion } from './ArmoryShowcase.mjs';
 import { hasShowcase } from './showcaseSheets.mjs';
+import { MenuCaption } from './menuCaption.mjs';
+import { captionPlan } from '../ui/voiceLibrary.mjs';
 
 // a drag in the game's own frame (the game may be lying sideways on a screen that stays upright)
 // where an element sits across the page in layout pixels (transforms, like a quarter turn of the shell, ignored)
@@ -67,6 +69,8 @@ export class MenuScene {
     this.armoryPanel = armoryPanel;
     // the Spellblade's round (the main menu): wanted by the front door, running once his model is in
     this.tour = null;
+    // what he says out on it, written out (Settings, Audio, Subtitles)
+    this.caption = new MenuCaption(container);
     this.touringWanted = false;
     this.touring = false;
     this.tourBlend = 0;
@@ -184,6 +188,12 @@ export class MenuScene {
       // his rivals and his round (not on the Smooth quality, nor for anyone who asked the web for less motion)
       if (this.tourAllowed !== false) {
         this.tour = new TourDirector({ scene: this.scene, camera: this.camera, hero: { root: this.characterRoot, instance }, sound: this.sound, voice: this.voice, effects: this.#effects() });
+        // (beat by beat as he says it: never a word before it is said)
+        this.tour.onCaption = ({ line, delay, seconds, beats }) => {
+          const plan = captionPlan(line, { beats });
+          if (plan) this.caption.show({ text: plan.text, delay: delay + plan.after, seconds: Math.max(0.5, seconds - plan.after), cues: plan.cues });
+        };
+        this.tour.onCaptionCut = () => this.caption.cut();
       }
       // the Armory's ultimates, performed
       this.showcase = new ArmoryShowcase({
@@ -615,6 +625,11 @@ export class MenuScene {
     this.effects?.setDensity(density);
   }
 
+  /** Subtitles on the front door (what he says out on his round), as the player has them. */
+  setSubtitles(enabled) {
+    this.caption.setEnabled(enabled);
+  }
+
   #previewParticles(id,age,strength) {
     if(!this.previewBits){
       this.previewBits=new THREE.Group();
@@ -687,6 +702,7 @@ export class MenuScene {
   }
 
   dispose() {
+    this.caption.dispose();
     this.showcase?.dispose();
     this.armoryHand?.dispose();
     this.previewBits?.removeFromParent();

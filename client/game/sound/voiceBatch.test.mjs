@@ -6,7 +6,7 @@ import { VOICE_LINES, VoiceDirector, deathLines, deathMoment } from './voiceRule
 import { MOMENTS, POSE, VoiceMoments, deathPose } from './voiceMoments.mjs';
 import { SCENES, VoiceScenes } from './voiceScenes.mjs';
 import { WATCH, VoiceWatch, lowestGround } from './voiceWatch.mjs';
-import { VOICE_LIBRARY, captionsFor, libraryStatus, statusLabel, subtitleFor } from '../../ui/voiceLibrary.mjs';
+import { VOICE_LIBRARY, captionPlan, captionsFor, libraryStatus, statusLabel, subtitleFor } from '../../ui/voiceLibrary.mjs';
 import { searchShelves, searchTerms } from '../../ui/creditsSearch.mjs';
 import { librarySections } from '../../ui/voiceLibrary.mjs';
 import { HUD } from '../../ui/HUD.mjs';
@@ -532,8 +532,10 @@ test('19. a line with a pause in it is subtitled a beat at a time, never ahead o
   assert.ok(!captionsFor('bodyWilling').slice(0, 2).join(' ').includes('was'), '"was willing" only when it is heard');
   assert.deepEqual(captionsFor('braveFoolish'), ['The difference between bravery or foolishness?...', 'When I do it.']);
   assert.deepEqual(captionsFor('threeStrikes', 3), ['Three!..', 'where’s the flee?']);
-  // the runtime shows them so, from the take's own beats
-  assert.match(runtime, /const captions = captionsFor\(line, part\);\s+const timed = captions && beats\?\.length === captions\.length;/);
+  // the runtime (and the menu) show them so, from the take's own beats
+  assert.match(runtime, /const plan = captionPlan\(line, \{ part, beats \}\);/);
+  assert.deepEqual(captionPlan('abyssCalls', { beats: [0, 2.53] }), { text: 'The Abyss calls me...', after: 0, cues: [{ at: 2.53, text: 'hello?' }] });
+  assert.deepEqual(captionPlan('heavyNow'), { text: 'This sword is heavy now!!', after: 0, cues: [] }, 'a line said whole');
   // the Credits: the whole line, as one work
   const entry = (id) => VOICE_LIBRARY.find((e) => e.line === id);
   assert.equal(entry('spellBlade').words, 'Why do you think I am called the Spellblade?... Because I can spell ‘blade’!');
@@ -602,6 +604,13 @@ test('20. what was there stays as it was: short lines whole, the old scenes, Hea
   assert.ok(!tagsOf(hale.step(5, [body('me', 0, -5), body('foe', 0, -14)]), 'me').includes('recklessSurvived'), 'a whole knight charging one foe is not reckless');
 });
 
+test('Not Tired opens on the fabled "What!?" (the knight\'s own), then its own words', () => {
+  const sources = JSON.parse(readFileSync(new URL('../../../tools/audio/voice-sources.json', import.meta.url), 'utf8'));
+  assert.deepEqual(sources.notTired, ['not-tired-fabled-what.wav']);
+  assert.equal(manifest.lines.notTired.length, 1);
+  assert.equal(voiceLine('notTired').text, 'What!? But I’m not tired!');
+});
+
 test('21. the lines still without a recording stay silent: nothing is made up for them', () => {
   for (const id of ['dash', 'fistEffort', 'neverReach']) {
     assert.ok(voiceLine(id), `${id} declared`);
@@ -617,7 +626,8 @@ test('22. the Credits\' copy as written, and found by its words; what was replac
   assert.deepEqual([entry('fistEffort').title, entry('fistEffort').when, entry('fistEffort').note], ['Gauntlet Effort', 'A short exertion behind the thrown gauntlet.', 'The throw is not effortless.']);
   assert.deepEqual([entry('neverReach').title, entry('neverReach').when, entry('neverReach').note], ['Never Reach Me', 'Rarely, after a Practice Yard victory.', 'Instruction has concluded.']);
   assert.equal(entry('vortexUse').note, 'Speech has become impractical.');
-  assert.equal(entry('abolishBattle').note, 'The proposal was withdrawn immediately.');
+  // (Abolish the Battle keeps its own note: its author's, kept by his word)
+  assert.equal(entry('abolishBattle').note, 'Phew. We were nearly threatened with dimensionality.');
   assert.equal(entry('herald').note, 'A higher authority has been requested.');
   assert.equal(entry('lowerGuard').note, 'The instruction was eventually obeyed.');
   assert.equal(entry('magicDefeat').note, 'His objection does not extend to personal use.');
@@ -632,10 +642,9 @@ test('22. the Credits\' copy as written, and found by its words; what was replac
   const shelves = librarySections(recorded);
   const status = (e) => statusLabel(e, recorded(e.line));
   const found = (query) => searchShelves(shelves, searchTerms(query), status).flatMap((shelf) => shelf.entries.map((e) => e.line));
-  assert.deepEqual(found('proposal withdrawn'), ['abolishBattle']);
+  assert.deepEqual(found('dimensionality'), ['abolishBattle']);
   assert.ok(found('gauntlet effort').includes('fistEffort'));
   assert.deepEqual(found('customer service'), []);
-  assert.deepEqual(found('dimensionality'), []);
   assert.ok(found("don't surrender").includes('almostThere'), 'a straight quote finds the curly one');
   assert.ok(found('no recording').includes('dash'));
   assert.ok(found('trapdoor').includes('trapdoor'));

@@ -99,3 +99,21 @@ export function captionsFor(line, part = null) {
   const beats = beatsOf(line, part);
   return beats ? beats.map((beat) => beat.words) : null;
 }
+
+/**
+ * How a line just said is written out: { text, after, cues } (after: seconds into it before anything is shown; cues:
+ * the later beats' words, [{ at, text }], seconds after that), from where its take's beats fall (`beats`, as the take
+ * has them); the whole line at once for a line said whole. A beat with no words shows nothing (what comes before the
+ * words: Poor Taste's slurp). null for a line with nothing to write, or a line in beats whose take does not say where
+ * they fall and whose first beat is silent (its words are never shown before they are said).
+ */
+export function captionPlan(line, { part = null, beats = null } = {}) {
+  const whole = subtitleFor(line, part);
+  if (!whole) return null;
+  const words = captionsFor(line, part);
+  if (!words) return { text: whole, after: 0, cues: [] };
+  if (!(beats?.length === words.length)) return words[0] ? { text: whole, after: 0, cues: [] } : null;
+  const units = words.map((text, i) => ({ at: beats[i], text })).filter((unit) => unit.text);
+  if (!units.length) return null;
+  return { text: units[0].text, after: units[0].at, cues: units.slice(1).map((unit) => ({ at: unit.at - units[0].at, text: unit.text })) };
+}

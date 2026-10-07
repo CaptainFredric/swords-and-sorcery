@@ -182,6 +182,7 @@ voice: { drive: 2.2, rmsDb: -16, edits: [
   { splice: [3.38, 3.625], from: [5.197, 5.41] }, // a clearer word of the same take in its place
   { lift: [1.665, 1.82], db: 2.5 },           // a buried word up, eased in and out, in the finished take
   { rise: [2.46, 2.83], semitones: 3 },       // the pitch rising across that stretch (inside the chain's own shift)
+  { glide: [0.62, 0.80], semitones: 3 },      // a word's onset begun that far off, swooping back to its own by the end
 ] },
 ```
 

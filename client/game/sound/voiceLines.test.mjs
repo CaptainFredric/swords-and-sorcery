@@ -58,7 +58,7 @@ test('what is wrong with a declaration is said plainly', () => {
 
 test('every moment a line waits for is one the game raises (or is marked as still to come)', () => {
   // the modules that raise moments: a tag nobody raises would leave its lines silent for ever
-  const sources = ['./voiceMoments.mjs', './voiceRules.mjs', './voiceScenes.mjs', './voiceWatch.mjs', '../GameRuntime.mjs', '../../main.mjs']
+  const sources = ['./voiceMoments.mjs', './voiceRules.mjs', './voiceScenes.mjs', './voiceWatch.mjs', '../GameRuntime.mjs', '../../main.mjs', '../../menu/tour/tourFights.mjs']
     .map((path) => readFileSync(new URL(path, import.meta.url), 'utf8')).join('\n');
   for (const [tag, about] of Object.entries(VOICE_TAGS)) {
     assert.ok(about.about, `${tag}: says what it is`);

@@ -128,13 +128,14 @@ test('the library stands in its authored sections: his voice, then the sounds of
 test('the new lines\' words and notes are as written (a few, checked to the letter)', () => {
   const entry = (line) => VOICE_LIBRARY.find((e) => e.line === line);
   assert.equal(entry('abolishBattle').words, 'Could we abolish the battle, for one day? And spend time with those whom we cherish most?... Haha! I jest!');
-  assert.equal(entry('abolishBattle').note, 'The proposal was withdrawn immediately.');
+  assert.equal(entry('abolishBattle').note, 'Phew. We were nearly threatened with dimensionality.');
   assert.equal(entry('renownDisowned').words, 'Your renown has been disowned. AhHAHAHA!!!!!');
   assert.equal(entry('herald').note, 'A higher authority has been requested.');
   assert.equal(entry('neverThought').note, 'It has nevertheless arrived.');
   assert.equal(entry('openUp').note, 'Cooperation would simplify matters.');
   assert.equal(entry('standFight').note, 'Negotiations have concluded.');
-  assert.equal(entry('poorTaste').coming, 'the frozen-enemy slush');
+  // (the frozen-enemy slush is in the game now: the menu round's Slush)
+  assert.equal(entry('poorTaste').coming, null);
   assert.equal(entry('fightAsMe').coming, 'team matches');
   assert.equal(entry('heavyHurt').title, 'Heavy Injury I');
   assert.equal(entry('heavyHurt2').title, 'Heavy Injury II');
