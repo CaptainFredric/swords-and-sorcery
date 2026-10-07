@@ -85,8 +85,8 @@ test('each round stages the fights in another order: the first as written, never
     assert.notDeepEqual(lineup, lineupFor(round - 1), `round ${round} changes the order`);
     assert.equal(new Set(lineup).size, 3, 'three different fights');
     assert.ok(lineup.every((name) => FIGHT_POOL[name]), 'all from the pool');
-    // the three of the first round, each once; now and then the Slush in one of their places
-    const classic = lineup.filter((name) => name !== 'slush');
+    // the three of the first round, each once; now and then a rarer fight (the Slush, Sky-Bait) in one of their places
+    const classic = lineup.filter((name) => ['fireball', 'whirlwind', 'whiteFlag'].includes(name));
     if (classic.length === 3) seen.add(lineup.join());
     if (lineup.includes('slush')) slushAt.push([round, lineup.indexOf('slush')]);
     // and every round can be staged

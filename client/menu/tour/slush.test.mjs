@@ -192,7 +192,7 @@ test('everything the Slush leaves is undone: between rounds, on leaving the fron
   assert.match(hide, /this\.voice\?\.cut\?\.\('tour-spellblade'\);\s+this\.onCaptionCut\?\.\(\);/, 'what he was saying stops, and its caption');
   // starting over, and going: from a clean state
   assert.match(director, /restart\(\) \{[\s\S]*?this\.#stageRound\(0\);\s+this\.#resetRivals\(\);/);
-  assert.match(director, /dispose\(\) \{\s+this\.#resetRivals\(\);/);
+  assert.match(director, /dispose\(\) \{[^}]*?this\.#resetRivals\(\);/);
   // (and the first round, the one a fresh visit begins with, opens with the Slush at its first stop)
   assert.equal(lineupFor(0)[0], 'slush');
 });

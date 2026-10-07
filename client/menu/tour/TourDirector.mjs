@@ -4,7 +4,7 @@ import { createSpellbladeAsset } from '../../game/SpellbladeAssets.mjs';
 import { THIRD_PERSON_SPELL_ARM, THIRD_PERSON_SWORD_ARM, solveArm } from '../../game/swordArmIK.mjs';
 import { performanceAt } from '../menuReactions.mjs';
 import {
-  blockRecipe, burnLickRecipe, castRecipe, fireballImpactRecipe, freezeRecipe, frostImpactRecipe, meltHissRecipe, parryRecipe, scoopRecipe,
+  armourFallRecipe, blockRecipe, burnLickRecipe, castRecipe, fireballImpactRecipe, freezeRecipe, frostImpactRecipe, meltHissRecipe, parryRecipe, scoopRecipe,
   slushCollapseRecipe, spatialize, splashRecipe, swingRecipe, swordHitRecipe, vesselRecipe, wallClangRecipe,
 } from '../../game/sound/soundRecipes.mjs';
 import { buildTourPath, yawFacing } from './tourPath.mjs';
@@ -78,6 +78,11 @@ export class TourDirector {
     this.burns = [];
     // the Slush's vessel in his hand, while he has it out
     this.vessel = null;
+    // What the rivals remember from one round to the next (Sky-Bait): the stop whose rival has been sky-baited (he
+    // watched a Fireball go up into the sky while the Spellblade walked off), until he is paid off. Not what was done to
+    // him (every round puts every rival back as he was: #resetRivals leaves this alone), and kept across a visit's
+    // restart (it is the same menu: he still remembers); only dispose() forgets it.
+    this.memory = { skyBait: null };
     this.onCaption = null;
     this.onCaptionCut = null;
     this.pause = 0;
@@ -103,7 +108,7 @@ export class TourDirector {
     // (each visit to the front door rolls its own dice: the Slush that opens it is another version each time)
     const random = roundRandom(round + (this.visit ?? 0) * 97);
     const first = lineupFor(0);
-    const placed = lineupFor(round).map((name, slot) => this.#placed(name, slot, random) ?? this.#placed(first[slot], slot, random));
+    const placed = lineupFor(round, undefined, { skyBaited: this.memory?.skyBait ?? null }).map((name, slot) => this.#placed(name, slot, random) ?? this.#placed(first[slot], slot, random));
     this.fights = placed.map((each) => each.fight);
     this.frames = placed.map((each) => this.#frame(each));
     this.schedule = buildSchedule(this.path.length, { fights: this.fights });
@@ -493,10 +498,14 @@ export class TourDirector {
           const across = this.frames[index].u;
           to = this.#chest(heroRoot).add(new THREE.Vector3(0, 0.35, 0)).addScaledVector(across, -4.2);
           to.y = 1.2;
+        } else if (cue.up) {
+          // into the sky, a little out over the rival and on up out of the scene (unhurried enough to be seen going): it
+          // hits nothing and never comes back
+          to = from.clone().addScaledVector(this.frames[index].u, 1.6).add(new THREE.Vector3(0, 12, 0));
         } else {
           to = this.#chest(rivalRoot);
         }
-        this.projectiles.push({ id: `tour-${index}-${cue.at}`, spell: cue.spell, from, to, start: this.time, flight: cue.flight });
+        this.projectiles.push({ id: `tour-${index}-${cue.at}`, spell: cue.spell, from, to, start: this.time, flight: cue.flight, vanish: Boolean(cue.up) });
         break;
       }
       case 'impact': {
@@ -553,6 +562,16 @@ export class TourDirector {
         this.#play(splashRecipe(), new THREE.Vector3(hand.x, 0, hand.z), 0.5);
         break;
       }
+      // Sky-Bait: the rival now remembers the Fireball that went up; paid off, he no longer does; flat on the ground
+      case 'remember':
+        this.memory.skyBait = index;
+        break;
+      case 'forget':
+        if (this.memory.skyBait === index) this.memory.skyBait = null;
+        break;
+      case 'fall':
+        if (rivalRoot) this.#play(armourFallRecipe(), rivalRoot.getWorldPosition(new THREE.Vector3()), 0.6);
+        break;
       case 'stow':
         this.#play(vesselRecipe(Math.random, { kind: cue.kind }), this.#chest(heroRoot), 0.45);
         this.vessel?.dispose();
@@ -607,6 +626,8 @@ export class TourDirector {
 
   #stepProjectiles() {
     const live = [];
+    // (one sent up into the sky is gone once it has risen out of the scene: nothing comes back down)
+    this.projectiles = this.projectiles.filter((projectile) => !(projectile.vanish && this.time - projectile.start >= projectile.flight));
     for (const projectile of this.projectiles) {
       const t = Math.min(1, (this.time - projectile.start) / projectile.flight);
       if (t < 0) continue;
@@ -711,7 +732,7 @@ export class TourDirector {
         // right of the banner (tourCamera.mjs)
         const pair = fightPair(fight, frame.plan, t + FIGHT_SHOT.lead);
         const shot = fightShot(pair.hero, pair.rival, frame.look, {
-          aspect: this.camera.aspect, clear: this.clear, held: pair.held, fov: lens?.fov ?? FIGHT_SHOT.fov, fill: lens?.fill ?? 1, near: pair.near,
+          aspect: this.camera.aspect, clear: this.clear, held: pair.held, fov: lens?.fov ?? FIGHT_SHOT.fov, fill: lens?.fill ?? 1, near: pair.near, up: pair.up,
         });
         fightView = { position: new THREE.Vector3(...shot.position), target: new THREE.Vector3(...shot.target), fov: shot.fov };
       }
@@ -752,6 +773,8 @@ export class TourDirector {
   }
 
   dispose() {
+    // (the menu going: everything forgotten, the rivals' memory with it)
+    this.memory.skyBait = null;
     this.#resetRivals();
     for (const rival of this.rivals) {
       if (!rival) continue;

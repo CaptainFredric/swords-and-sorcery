@@ -11,7 +11,8 @@
 // { target, weight } for the arm solver in the knight's own root space (see swordArmIK.mjs), and a rival may also be
 // { gone: true, u, v } (fled, or lying in pieces there). A rival's `framed` (0..1, 1 if not given) is a note for the
 // camera: how much it keeps him in the shot. The Slush adds a few: the hero's `vessel` ({ kind, shown, tilt, fill })
-// and `near` (0..1: how much closer the camera comes), and the rival's `frozen` and `melt` (0..1).
+// and `near` (0..1: how much closer the camera comes), and the rival's `frozen` and `melt` (0..1); Sky-Bait the hero's
+// `up` (0..1: how much the camera looks up) and the rival's `looking` (0..1: his eyes on the sky).
 
 const clamp01 = (t) => Math.max(0, Math.min(1, t));
 const smooth = (t) => { const s = clamp01(t); return s * s * (3 - 2 * s); };
@@ -502,6 +503,190 @@ export function makeSlush({ vessel = 'cup', opening = 'charge', drink = 'quaff',
   };
 }
 
+// ---------------------------------------------------------------------------------------------------------------
+// 5. Sky-Bait: a rival who learns the wrong lesson, in two halves on two rounds. One fight on a later round only
+// happens because of what happened in an earlier one: the rival at that stop remembers (TourDirector `memory`).
+//
+// The setup. He waits behind his Guard, and it works: the Spellblade's two blows ring off it (TINK, TINK). A moment's
+// thought, and the Spellblade puts an ordinary Fireball almost straight up into the sky. The rival lowers his Guard to
+// watch it go, and keeps watching. The Spellblade does nothing at all with the opening: he turns and walks on down the
+// path, and the Fireball is never seen again (it leaves the scene: nothing comes back down).
+//
+// The payoff, the next round, at that same rival. He sees the Spellblade coming and, before anything is done to him,
+// looks up at the sky. The Spellblade notices, and throws a quick, ordinary Fireball straight at him. He snaps his
+// Guard back up (it kept the sword out last time), and the Fireball goes through it as a Fireball does (a Guard is for
+// the sword) and lays him flat. The Spellblade walks on. Neither half says a word.
+export const SKY_BAIT = Object.freeze({
+  reach: 1.9,
+  // the setup: the two blows his Guard meets, the thought, the cast up into the sky, his looking up, the walk away
+  tinks: Object.freeze([0.82, 1.57]),
+  gather: 2.15,
+  release: 2.55,
+  climb: 1.6,           // seconds the upward Fireball is followed for, rising out of the scene, before it is gone
+  lookUp: Object.freeze([2.62, 3.05]),
+  remember: 2.9,        // he has watched it go up: from here, he remembers
+  leave: Object.freeze([3.1, 3.5]),
+  walk: Object.freeze([3.5, 5.2]),
+  away: 2.0,            // metres he walks down the path before he runs on
+  // the payoff: he looks up unprompted, is noticed, a quick Fireball straight at him, his Guard up too late to matter
+  payoff: Object.freeze({
+    looksUp: Object.freeze([0.3, 0.7]),
+    notice: Object.freeze([0.55, 0.8]),
+    gather: 0.75,
+    release: 0.97,
+    flight: 0.38,
+    guardUp: Object.freeze([1.0, 1.28]),
+    impact: 1.35,
+    landed: 1.95,
+    walk: Object.freeze([1.75, 3.15]),
+    away: 1.8,
+  }),
+});
+
+// walking away down the path, from `from` to `to`, `away` metres: eased into, then at his pace (still walking when
+// the round runs on: exit/exitSpeed)
+function walkedAway(t, [from, to], away) {
+  const q = between(t, from, to);
+  return (away * (q < 0.15 ? (q * q) / 0.3 : q - 0.075)) / 0.925;
+}
+const walkSpeed = ([from, to], away) => away / ((to - from) * 0.925);
+
+export function makeSkyBait() {
+  const S = SKY_BAIT;
+  return {
+    id: 'skyBait',
+    reach: S.reach,
+    duration: S.walk[1],
+    side: -1,
+    exit: S.away,
+    exitSpeed: walkSpeed(S.walk, S.away),
+    shot: { swing: 0.35 },
+    hero(t) {
+      const heading = keyed([[0, Math.PI / 2], [0.35, 0], [S.leave[0], 0], [S.leave[1], Math.PI / 2]], t);
+      const clip = clipAt([
+        [-1, 'Idle', { loop: true }],
+        [0.4, 'Slash_1'],
+        [1.15, 'Slash_2'],
+        [1.92, 'Idle', { loop: true }],
+        [S.gather, 'Cast'],
+        [S.leave[0], 'Idle', { loop: true }],
+        [S.walk[0], 'Run', { loop: true, rate: 0.28 }],
+      ], t);
+      // the cast is up into the sky: the spell hand raised high over his head, palm up, his eyes on it a moment
+      const raise = between(t, S.gather + 0.1, S.release - 0.05) * (1 - between(t, S.release + 0.25, S.leave[0]));
+      const spell = arm(blade([-0.2, 1.95, -0.22], [0.05, 1, -0.2]), raise);
+      const rotations = raise > 1e-3 ? [{ bone: 'head', axis: [1, 0, 0], angle: 0.22 * raise }] : [];
+      // and the moment's thought before it: stillness, no more
+      const pose = { u: 0, v: 0, lift: 0, heading, ...clip, crouch: 0, rotations, spell, sword: null, up: this.up(t) };
+      if (t >= S.walk[0]) pose.path = walkedAway(t, S.walk, S.away);
+      return pose;
+    },
+    // how much the camera looks up (0..1): enough headroom to see the Fireball leave, never losing the two of them
+    up(t) {
+      return between(t, S.gather + 0.2, S.release + 0.15) * (1 - between(t, S.release + 0.7, S.leave[1]));
+    },
+    rival(t) {
+      // he waits behind his Guard, and keeps it up through both blows; it comes down as he watches the Fireball go
+      const clip = clipAt([
+        [-99, 'Guard', { hold: 0.55 }],
+        [S.lookUp[0], 'Idle', { loop: true }],
+      ], t);
+      const rotations = [];
+      // each blow met: a small shudder through him, no more
+      for (const tink of S.tinks) {
+        const shudder = Math.sin(Math.PI * between(t, tink, tink + 0.14));
+        if (shudder > 1e-3) rotations.push({ bone: 'chest', axis: [-1, 0, 0], angle: 0.035 * shudder });
+      }
+      // his eyes up after it, his chest following a little, and kept there well after the Spellblade has gone (then,
+      // out of shot, he lowers them, looks about him, and is himself again)
+      const up = between(t, S.lookUp[0], S.lookUp[1]) * (1 - between(t, S.walk[1] + 0.6, S.walk[1] + 1.6));
+      if (up > 1e-3) {
+        rotations.push(
+          { bone: 'head', axis: [1, 0, 0], angle: 0.8 * up },
+          { bone: 'neck', axis: [1, 0, 0], angle: 0.3 * up },
+          { bone: 'chest', axis: [1, 0, 0], angle: 0.2 * up },
+          { bone: 'spine', axis: [1, 0, 0], angle: 0.08 * up },
+        );
+      }
+      const about = Math.sin(Math.PI * between(t, S.walk[1] + 1.4, S.walk[1] + 2.6));
+      if (about > 1e-3) rotations.push({ bone: 'head', axis: [0, 1, 0], angle: 0.35 * Math.sin(Math.PI * 2 * between(t, S.walk[1] + 1.4, S.walk[1] + 2.6)) * about });
+      return { u: S.reach, v: 0, lift: 0, heading: Math.PI, ...clip, crouch: 0, rotations, looking: up };
+    },
+    cues: [
+      { at: 0.4, type: 'swing', by: 'hero' },
+      { at: S.tinks[0], type: 'clash' },
+      { at: 1.15, type: 'swing', by: 'hero' },
+      { at: S.tinks[1], type: 'clash' },
+      { at: S.gather, type: 'gather', by: 'hero', spell: 'fireball', release: S.release - S.gather },
+      { at: S.release, type: 'cast', by: 'hero', spell: 'fireball', flight: S.climb, up: true },
+      { at: S.remember, type: 'remember', on: 'rival' },
+    ],
+  };
+}
+
+export function makeSkyBaitPayoff() {
+  const S = SKY_BAIT;
+  const P = S.payoff;
+  return {
+    id: 'skyBaitPayoff',
+    reach: S.reach,
+    duration: P.walk[1],
+    side: -1,
+    exit: P.away,
+    exitSpeed: walkSpeed(P.walk, P.away),
+    // filmed as the setup was: the same side, the same turn of the camera (the rhyme helps it be remembered)
+    shot: { swing: 0.35 },
+    hero(t) {
+      const heading = keyed([[0, Math.PI / 2], [0.35, 0], [P.walk[0] - 0.15, 0], [P.walk[0] + 0.25, Math.PI / 2]], t);
+      const clip = clipAt([
+        [-1, 'Idle', { loop: true }],
+        // the quick throw: the same spell, cast short
+        [P.gather, 'Cast', { rate: 1.35 }],
+        [P.gather + 0.8, 'Idle', { loop: true }],
+        [P.walk[0], 'Run', { loop: true, rate: 0.28 }],
+      ], t);
+      // he notices: a moment's stillness and a small turn of the visor to the rival (then the spell hand comes up)
+      const notice = Math.sin(Math.PI * between(t, P.notice[0], P.notice[1] + 0.1));
+      const rotations = notice > 1e-3 ? [{ bone: 'head', axis: [0, 0, 1], angle: 0.08 * notice }, { bone: 'head', axis: [1, 0, 0], angle: 0.05 * notice }] : [];
+      const pose = { u: 0, v: 0, lift: 0, heading, ...clip, crouch: 0, rotations, spell: null, sword: null };
+      if (t >= P.walk[0]) pose.path = walkedAway(t, P.walk, P.away);
+      return pose;
+    },
+    rival(t) {
+      // he waits; he sees the Spellblade and looks up at the sky before anything is done to him; then sees the
+      // Fireball is not going up, snaps his Guard back up, and is blasted flat through it
+      const clip = clipAt([
+        [-99, 'Idle', { loop: true }],
+        [P.guardUp[0], 'Guard', { rate: 1.8 }],
+        [P.impact, 'Death'],
+      ], t);
+      const rotations = [];
+      const stiffen = between(t, 0, 0.3) * (1 - between(t, P.guardUp[0], P.impact));
+      if (stiffen > 1e-3) rotations.push({ bone: 'chest', axis: [1, 0, 0], angle: 0.05 * stiffen });
+      const up = between(t, P.looksUp[0], P.looksUp[1]) * (1 - between(t, P.guardUp[0] - 0.05, P.guardUp[0] + 0.15));
+      if (up > 1e-3) {
+        rotations.push(
+          { bone: 'head', axis: [1, 0, 0], angle: 0.8 * up },
+          { bone: 'neck', axis: [1, 0, 0], angle: 0.3 * up },
+          { bone: 'chest', axis: [1, 0, 0], angle: 0.16 * up },
+        );
+      }
+      // blown back a little as he goes down (no launch: flat where he stood, near enough)
+      const u = S.reach + keyed([[P.impact, 0], [P.impact + 0.35, 0.65], [P.impact + 0.8, 0.75]], t);
+      const guarding = t >= P.guardUp[0] && t < P.impact ? between(t, P.guardUp[0], P.guardUp[1]) : 0;
+      return { u, v: 0, lift: 0, heading: Math.PI, ...clip, crouch: 0, rotations, looking: up, guarding, flat: t >= P.impact };
+    },
+    cues: [
+      { at: P.gather, type: 'gather', by: 'hero', spell: 'fireball', release: P.release - P.gather },
+      { at: P.release, type: 'cast', by: 'hero', spell: 'fireball', flight: P.flight },
+      // (no block of any kind: a Guard does nothing against a Fireball)
+      { at: P.impact, type: 'impact', on: 'rival', spell: 'fireball', radius: 1.6 },
+      { at: P.impact, type: 'forget', on: 'rival' },
+      { at: P.landed, type: 'fall', on: 'rival' },
+    ],
+  };
+}
+
 export const FIGHTS = Object.freeze([FIREBALL, WHIRLWIND, WHITE_FLAG]);
 
 // the ways the White Flag's rival can run for it, longest first (a stop on the round takes the first that clears)
@@ -515,6 +700,9 @@ export const FIGHT_POOL = Object.freeze({
   fireball: () => [FIREBALL],
   whirlwind: (random = Math.random) => [makeWhirlwind({ turns: 3 + Math.floor(random() * 3) })],
   whiteFlag: () => FLEE_ROUTES.map((flee) => makeWhiteFlag({ flee })),
+  // the two halves of Sky-Bait: the payoff is only ever staged because its setup was seen (tourSchedule lineupFor)
+  skyBait: () => [makeSkyBait()],
+  skyBaitPayoff: () => [makeSkyBaitPayoff()],
   // (a round's dice choose each of its variations)
   slush: (random = Math.random) => {
     const pick = (options) => options[Math.min(options.length - 1, Math.floor(random() * options.length))];
