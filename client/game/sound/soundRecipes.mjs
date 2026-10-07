@@ -435,6 +435,19 @@ export function splashRecipe(rand = Math.random) {
   };
 }
 
+/** A knight in plate going down flat on the ground: a heavy thump, and his armour settling with a short rattle. */
+export function armourFallRecipe(rand = Math.random) {
+  const layers = [
+    { type: 'noise', filter: 'lowpass', freq: 380, q: 0.9, attack: 0.004, decay: 0.24, gain: 0.5 },
+    { type: 'tone', wave: 'sine', freq: 74, slideTo: 44, attack: 0.003, decay: 0.22, gain: 0.34 },
+  ];
+  for (let i = 0; i < 5; i += 1) {
+    const at = 0.03 + i * 0.045 + rand() * 0.03;
+    layers.push({ type: 'ring', at, partials: [{ freq: 900 + rand() * 900, gain: 0.03 - i * 0.004, decay: 0.07 }, { freq: 2400 + rand() * 1400, gain: 0.015, decay: 0.04 }] });
+  }
+  return { layers, reverb: 0.18 };
+}
+
 /** A lick of the burn a Fireball leaves: a small flare and a crackle. */
 export function burnLickRecipe(rand = Math.random) {
   return {

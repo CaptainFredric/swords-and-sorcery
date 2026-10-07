@@ -25,6 +25,9 @@ export const FIGHT_SHOT = Object.freeze({
   // this, aimed this high, as far as its `near` says
   nearBack: 3.1,
   nearAim: 1.28,
+  // and one that wants headroom (Sky-Bait's Fireball sent up into the sky) aims this much higher, as far as its `up`
+  // says: the two of them stay in the frame
+  upAim: 1.15,
   fov: 46,
   // turns tried in order (radians, positive toward the Spellblade's side of the pair): the least turned clear one wins
   swings: Object.freeze([0, 0.2, -0.2, 0.4, -0.4, 0.6, -0.6, 0.8, -0.8]),
@@ -71,7 +74,10 @@ export function fightPair(fight, frame, t) {
   const hero = placeOnFrame(frame, heroPose);
   const pose = fight.rival(t);
   const rival = placeOnFrame(frame, pose.gone && pose.u === undefined ? { u: fight.reach } : pose);
-  return { hero, rival, rivalHere: !pose.gone, held: pose.framed ?? 1, near: Math.max(0, Math.min(1, heroPose.near ?? 0)) };
+  return {
+    hero, rival, rivalHere: !pose.gone, held: pose.framed ?? 1,
+    near: Math.max(0, Math.min(1, heroPose.near ?? 0)), up: Math.max(0, Math.min(1, heroPose.up ?? 0)),
+  };
 }
 
 /** The way the camera looks at a fight turned by `swing`: along the path, turned toward the rival's side. */
@@ -87,8 +93,9 @@ export function lookFor(frame, swing) {
  * to set them in the middle of it. `held` below 1 lets go of the rival (he is framed that much of the way to him).
  * fov/fill (COMPACT_SHOT on a small screen): the lens, and how much of the clear part the pair may take.
  */
-export function fightShot(hero, rival, look, { aspect = FIGHT_SHOT.aspect, clear = FIGHT_SHOT.clear, held = 1, fov = FIGHT_SHOT.fov, fill = 1, near = 0 } = {}, shot = FIGHT_SHOT) {
+export function fightShot(hero, rival, look, { aspect = FIGHT_SHOT.aspect, clear = FIGHT_SHOT.clear, held = 1, fov = FIGHT_SHOT.fov, fill = 1, near = 0, up = 0 } = {}, shot = FIGHT_SHOT) {
   const closer = Math.max(0, Math.min(1, near));
+  const above = Math.max(0, Math.min(1, up)) * (shot.upAim ?? 0);
   const dx = rival[0] - hero[0];
   const dz = rival[1] - hero[1];
   const apart = Math.hypot(dx, dz);
@@ -128,7 +135,7 @@ export function fightShot(hero, rival, look, { aspect = FIGHT_SHOT.aspect, clear
   const z = middle[1] + right[1] * slide;
   return {
     position: [x - look[0] * back, shot.rise + back * shot.risePerBack, z - look[1] * back],
-    target: [x, shot.aimHeight + ((shot.nearAim ?? shot.aimHeight) - shot.aimHeight) * closer, z],
+    target: [x, shot.aimHeight + ((shot.nearAim ?? shot.aimHeight) - shot.aimHeight) * closer + above, z],
     fov,
   };
 }
@@ -322,10 +329,10 @@ export function blockedMoments(fight, frame, swing, blockers, shot = FIGHT_SHOT)
   const look = lookFor(frame, swing);
   let count = 0;
   for (let t = -0.4; t <= fight.duration; t += 0.15) {
-    const { hero, rival, rivalHere, held, near } = fightPair(fight, frame, t + shot.lead);
+    const { hero, rival, rivalHere, held, near, up } = fightPair(fight, frame, t + shot.lead);
     const inShot = rivalHere && held > 0.5 && Math.hypot(rival[0] - hero[0], rival[1] - hero[1]) <= shot.maxSpread;
     const hidden = CHECKED_ON.some((screen) => {
-      const { position } = fightShot(hero, rival, look, { ...screen, held, near }, shot);
+      const { position } = fightShot(hero, rival, look, { ...screen, held, near, up }, shot);
       return blocked(position, hero, blockers) || (inShot && blocked(position, rival, blockers));
     });
     if (hidden) count += 1;
