@@ -33,6 +33,10 @@ formants going down with it: bigger, but players could not make out the words); 
 A line may also declare edits (--edits): small repairs in its recording's own seconds, made before and inside the
 chain (a pause cut, a clearer word spliced in, a buried word lifted, a flat ending raised). See "edits" below.
 
+A line subtitled a beat at a time (voiceLines.mjs `beats`) gives --beats: for each take, the seconds in its recording
+where each later beat begins. The take's own clock is carried through every cut and trim, and where each beat falls in
+the finished take is written beside it (its .json: "beats", the first at 0), for the subtitles to follow.
+
 Each take is written to client/assets/voice as AAC (.m4a) with a small WAV fallback; manifest.json lists what exists.
 --preview also writes a before/after pair to artifacts/voice-preview to listen to here.
 
@@ -316,10 +320,19 @@ def trim_range(x, sr, pre=0.03, post=0.14):
     return max(0, active[0] * hop - int(pre * sr)), min(len(x), (active[-1] + 1) * hop + int(post * sr))
 
 
-def trimmed(x, sr, track, pre, post):
-    """trim(), with a take's edit curves (edit_take) cut to match."""
+def trimmed(x, sr, track, pre, post, timeline=None):
+    """trim(), with a take's edit curves (edit_take) and its clock (the recording's own seconds at every sample) cut
+    to match."""
     start, end = trim_range(x, sr, pre, post)
-    return trim(x, sr, pre, post), ({name: curve[start:end] for name, curve in track.items()} if track else None)
+    curves = {name: curve[start:end] for name, curve in track.items()} if track else None
+    if timeline is None:
+        return trim(x, sr, pre, post), curves
+    return trim(x, sr, pre, post), curves, timeline[start:end]
+
+
+def beats_in_take(timeline, sr, sources):
+    """Where beats that begin at `sources` (the recording's own seconds) fall in the finished take: [0, ...] seconds."""
+    return [0.0] + [round(float(np.searchsorted(timeline, source)) / sr, 3) for source in sources]
 
 
 def trim(x, sr, pre=0.03, post=0.14):
@@ -361,9 +374,10 @@ SPLICE_FADE = 0.008
 CUT_FADE = 0.012
 
 
-def edit_take(x, sr, edits):
+def edit_take(x, sr, edits, timeline=None):
     """A take's edits made: its cuts and splices at once; its rises and lifts as curves (semitones and dB for every
-    sample) that ride along with the take, cut as it is trimmed, for the chain to apply where they belong."""
+    sample) that ride along with the take, cut as it is trimmed, for the chain to apply where they belong. timeline:
+    the take's clock, cut with it (returned too, when given)."""
     t = np.arange(len(x)) / sr
     bend = np.zeros(len(x))
     lift = np.zeros(len(x))
@@ -390,6 +404,10 @@ def edit_take(x, sr, edits):
             out = cut(out, sr, a, b)
             bend = np.concatenate([bend[:a], bend[b:]])
             lift = np.concatenate([lift[:a], lift[b:]])
+            if timeline is not None:
+                timeline = np.concatenate([timeline[:a], timeline[b:]])
+    if timeline is not None:
+        return out, {'bend': bend, 'lift': lift}, timeline
     return out, {'bend': bend, 'lift': lift}
 
 
@@ -613,12 +631,18 @@ def close_helm(x, sr, preset, report=None):
     return loudness(x, sr, preset['rms_db'])
 
 
-def clear_helm(x, sr, preset, report=None, track=None):
+def clear_helm(x, sr, preset, report=None, track=None, timeline=None, beats=None):
     """The standard chain: the take's room out (gently), then the knight, every word left clear. See the module notes.
-    track: the take's edit curves (edit_take), applied where they belong."""
+    track: the take's edit curves (edit_take), applied where they belong. beats: where its later beats begin in the
+    recording (seconds; timeline: the take's clock, the recording's seconds at each sample), placed in the finished
+    take (report['beats'])."""
     x = x - np.mean(x)
     x = declip(x)
-    x, track = trimmed(x, sr, track, pre=0.02, post=0.3)
+    if beats:
+        timeline = np.arange(len(x)) / sr if timeline is None else timeline
+        x, track, timeline = trimmed(x, sr, track, pre=0.02, post=0.3, timeline=timeline)
+    else:
+        x, track = trimmed(x, sr, track, pre=0.02, post=0.3)
     measured = room_decay(x, sr)
     t60 = min(CLEAR['t60'], measured) if measured else CLEAR['t60']
     x = dereverb(x, sr, t60=max(0.3, t60), strength=CLEAR['strength'], floor_db=CLEAR['floor_db'])
@@ -626,7 +650,12 @@ def clear_helm(x, sr, preset, report=None, track=None):
     x = gate_pauses(x, sr, open_db=CLEAR['gate_open_db'], hold_ms=CLEAR['gate_hold_ms'])
     x = dynamics(x, sr, below_db=min(preset.get('expand_below_db', CLEAR['expand_below_db']), CLEAR['expand_below_db']),
                  ratio=CLEAR['expand_ratio'])
-    x, track = trimmed(x, sr, track, pre=0.02, post=0.12)
+    if beats:
+        x, track, timeline = trimmed(x, sr, track, pre=0.02, post=0.12, timeline=timeline)
+        if report is not None:
+            report['beats'] = beats_in_take(timeline, sr, beats)
+    else:
+        x, track = trimmed(x, sr, track, pre=0.02, post=0.12)
     # (a line that must carry weight goes further down, and lets its formants follow part of the way: a bigger chest
     # and helm behind the same words; `formants` 1 keeps them exactly where they were. An edit's rise rides on it.)
     x = pitch_shift(x, preset['semitones'], formants=preset.get('formants', 1.0), bend=track['bend'] if track else None)
@@ -747,13 +776,14 @@ def publish(line, takes, preview_dir=None, echo='nearby', notes=None):
         # a small fallback for a browser that cannot decode AAC
         save_wav(base + '.wav', resample(x, int(len(x) * 22050 / SR)), sr=22050)
         os.remove(full_wav)
+        note = notes[number - 1] if notes else {}
         with open(base + '.json', 'w') as f:
-            json.dump({'seconds': round(len(x) / SR, 2)}, f)
+            json.dump({'seconds': round(len(x) / SR, 2), **({'beats': note['beats']} if note.get('beats') else {})}, f)
         if preview_dir:
             save_wav(os.path.join(preview_dir, f'{file_stem(line)}-{number}-nearby.wav'), with_echo(x, SR, echo))
-        note = notes[number - 1] if notes else {}
         extra = f", room T60 {note['t60']}s taken out" if 't60' in note else ''
         extra += f", {note['edits']} edit(s)" if note.get('edits') else ''
+        extra += f", beats at {', '.join(f'{b:.2f}' for b in note['beats'])}s" if note.get('beats') else ''
         print(f'  {file_stem(line)}-{number}: {len(x) / SR:.2f}s, peak {db(np.max(np.abs(x))):.1f} dBFS{extra}')
 
 
@@ -768,6 +798,7 @@ def main():
     parser.add_argument('--formants', type=float, help='how much of the voice\'s own formants to keep after the pitch change (default 1: all; 0.6 lets them follow part of the way down: bigger)')
     parser.add_argument('--chest', type=float, help='extra chest and body, in dB (default 0)')
     parser.add_argument('--edits', help='the take\'s repairs, as JSON (see "edits" above): cuts, splices, lifts, rises')
+    parser.add_argument('--beats', help='where each later beat of each take begins in its recording, as JSON: [[s, ...] or null, ...] one per take')
     parser.add_argument('--profile', choices=('clear', 'close', 'classic'), default='clear', help='the chain (default: clear helm)')
     parser.add_argument('--preview', action='store_true', help='also write versions with the in-game echo to artifacts/voice-preview')
     parser.add_argument('--manifest-only', action='store_true', help='only rewrite manifest.json from the takes that are there')
@@ -811,15 +842,22 @@ def main():
         edits = json.loads(args.edits) if args.edits else []
         if edits and args.profile != 'clear':
             parser.error('edits are made in the clear chain only')
+        beats = json.loads(args.beats) if args.beats else []
+        if beats and args.profile != 'clear':
+            parser.error('beats are placed in the clear chain only')
         if args.profile == 'clear':
             takes = []
             for number, (path, note) in enumerate(zip(paths, notes), start=1):
-                x, track = load_any(path), None
+                x, track, timeline = load_any(path), None, None
                 mine = [edit for edit in edits if edit.get('take', 1) == number]
+                placed = beats[number - 1] if number - 1 < len(beats) else None
                 if mine:
-                    x, track = edit_take(x, SR, mine)
+                    if placed:
+                        x, track, timeline = edit_take(x, SR, mine, timeline=np.arange(len(x)) / SR)
+                    else:
+                        x, track = edit_take(x, SR, mine)
                     note['edits'] = len(mine)
-                takes.append(clear_helm(x, SR, preset, report=note, track=track))
+                takes.append(clear_helm(x, SR, preset, report=note, track=track, timeline=timeline, beats=placed))
         elif args.profile == 'close':
             takes = [close_helm(load_any(path), SR, preset, report=note) for path, note in zip(paths, notes)]
         else:

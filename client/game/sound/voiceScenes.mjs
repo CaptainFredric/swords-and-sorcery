@@ -21,9 +21,27 @@
 //   `planFailed`). Once weighed, it is not weighed again until he has been well clear of low (his health hovering at the
 //   edge never stammers it out twice).
 //
+//   Heavy now. Once a Sunder, at its first slam swung after its cry is over (his mouth free), unless its sentence has
+//   begun: one roll, "This sword is heavy now!!". The cry is never cut for it, and it is never weighed twice a Sunder.
+//
+//   The Spellblade. Once a Spells & Chivalry, as soon as that activation has seen both a spell cast and a sword swung
+//   (and his mouth is free): one roll, the setup and its payoff, one recording subtitled a beat at a time.
+//
+//   That should stop you. Raising his guard against a foe close by and swinging at him (never a guard tapped up and
+//   down: it must have been down a moment first), now and then: "There! That should stop you." The claim stands for
+//   a moment; if that same guard is broken while it stands, "That did not stop you!" has been earned. The guard let
+//   down, the threat gone or fallen, or the moment passed: the claim is forgotten, nothing more said.
+//
+//   Three strikes. Rarely, at his first sword blow on a foe in a fresh encounter (both whole), he declares that three
+//   strikes will make them flee. Then each blow of his sword that lands on that same foe, and leaves them standing,
+//   counts: one when the declaration has been said, the next when the count before it has been said ("One! And
+//   done-", "Two!...", "Three!.. where's the flee?"), and a fourth, if they are still standing for it, is his
+//   astonishment. The foe falling, either of them falling, a stretch with no blow landing, or the foe leaving: over.
+//
 // say(line, speaker, options) is the voice's (VoiceBank through the runtime): false, or { seconds, delay } when it was
 // said. `earned` marks a part that has earned its turn (no odds, no cooldown; it still gives way to a line of state).
-// Times are the host's (seconds). Pure but for its memory and `say`, so it is tested.
+// free(speaker): whether he could begin a line now without waiting on anyone (a line weighed once is weighed only
+// then). Times are the host's (seconds). Pure but for its memory and `say`, so it is tested.
 
 import { HEALTH_REGEN } from '../../../shared/src/combat.mjs';
 import { REPLY_LINES, VOICE_LINE_LIST, voiceLine } from './voiceLines.mjs';
@@ -36,6 +54,10 @@ const LINES = Object.freeze({
   sentence: lineFor('sunderSentence'),
   thanks: lineFor('sunderSentenceKill'),
   trick: lineFor('regenWait'),
+  heavy: lineFor('sunderHeavy'),
+  spellblade: lineFor('chivalryShown'),
+  guard: lineFor('guardClaim'),
+  strikes: lineFor('strikeCount'),
 });
 
 export const SCENES = Object.freeze({
@@ -57,16 +79,35 @@ export const SCENES = Object.freeze({
     recovered: 55,         // the reveal: his health come back up to this (regenerated out of danger)
     giveUpSec: 25,         // the reveal is waited for this long at most
   }),
+  guardClaim: Object.freeze({
+    downSec: 0.4,          // the guard down at least this long before it went up (no tapping)
+    reach: 3.5,            // a threat: a foe this near swinging at him (or Sundering)
+    standsSec: 2.5,        // the claim stands this long
+    graceSec: 0.35,        // the guard seen let down this long without a break heard of: let down, not broken
+    gone: 6,               // the threat this far off: gone
+    payoffAfter: 0.25,     // a beat after the break, before "That did not stop you!"
+  }),
+  threeStrikes: Object.freeze({
+    staleSec: 6,           // no counted blow for this long: the confrontation is over
+    gone: 10,              // the foe this far off: gone
+    after: 0.12,           // each count a moment after its blow lands
+  }),
 });
 
 export class VoiceScenes {
-  constructor({ say = () => false, rand = Math.random } = {}) {
+  constructor({ say = () => false, rand = Math.random, free = () => true } = {}) {
     this.say = say;
     this.rand = rand;
+    this.free = free;
     this.duels = new Map();       // speaker -> { foe, stage, at, until, hurt }
     this.sentences = new Map();   // speaker -> { state: 'waiting' | 'running' | 'over', index, lastAt }
     this.tricks = new Map();      // knight -> { saidAt, hurtAt, lowest, done }: "Wait, wait!!..." said, the reveal waited for
     this.weighed = new Set();     // knights whose fall to low has been weighed (until they are well clear of it)
+    this.heavy = new Map();       // speaker -> 'waiting' | 'weighed': this Sunder's "heavy now"
+    this.chivalry = new Map();    // speaker -> { spell, sword, weighed }: what this Chivalry has shown
+    this.guards = new Map();      // speaker -> { foe, until, releasedAt }: "That should stop you." standing
+    this.guarding = new Map();    // knight -> { up, since }: their guard as last seen
+    this.counts = new Map();      // speaker -> { foe, count, freeAt, lastAt }: the strikes being counted
   }
 
   /** A new match: nothing carries over. */
@@ -75,6 +116,11 @@ export class VoiceScenes {
     this.sentences.clear();
     this.tricks.clear();
     this.weighed.clear();
+    this.heavy.clear();
+    this.chivalry.clear();
+    this.guards.clear();
+    this.guarding.clear();
+    this.counts.clear();
   }
 
   // ------------------------------------------------------------------------------------------------ the final duel
@@ -95,7 +141,9 @@ export class VoiceScenes {
 
   /** A Sunder has taken hold: its sentence may begin at its first slam (one roll, there). */
   sunderBegan(speaker) {
-    if (speaker) this.sentences.set(speaker, { state: 'waiting', index: 0, lastAt: null });
+    if (!speaker) return;
+    this.sentences.set(speaker, { state: 'waiting', index: 0, lastAt: null });
+    this.heavy.set(speaker, 'waiting');
   }
 
   /**
@@ -105,6 +153,7 @@ export class VoiceScenes {
   sunderEnded(speaker) {
     const sentence = this.sentences.get(speaker);
     if (sentence && sentence.state !== 'running') this.sentences.delete(speaker);
+    this.heavy.delete(speaker);
   }
 
   /** `speaker`'s Sundering blade was driven into the ground (a genuine slam): the first of them may begin the sentence. */
@@ -117,11 +166,21 @@ export class VoiceScenes {
     sentence.state = said ? 'running' : 'over';
     sentence.index = said ? 1 : 0;
     sentence.lastAt = at;
+    // (a sentence begun is this Sunder's speech: nothing about the weight of it)
+    if (said) this.heavy.set(speaker, 'weighed');
   }
 
-  /** `speaker` swung a Sundering slam (hit or miss): the next word, if the sentence is running and they have kept on. */
+  /**
+   * `speaker` swung a Sundering slam (hit or miss): the next word, if the sentence is running and they have kept on;
+   * or, the sentence never begun, the weight of it remarked on (once a Sunder, at the first slam his mouth is free for).
+   */
   slamSwung(speaker, at) {
     const sentence = this.sentences.get(speaker);
+    if (this.heavy.get(speaker) === 'waiting' && (!sentence || sentence.state === 'over') && this.free(speaker)) {
+      this.heavy.set(speaker, 'weighed');
+      // (its own odds and cooldown; the cry's gap between sentences is the Sunder's own, not a reason to keep quiet)
+      this.say(LINES.heavy, speaker, { opening: true });
+    }
     if (!sentence || sentence.state !== 'running') return;
     if (at - sentence.lastAt > SCENES.sunderSentence.graceSec) {
       sentence.state = 'over';
@@ -142,6 +201,105 @@ export class VoiceScenes {
     return at === null || at - sentence.lastAt <= SCENES.sunderSentence.graceSec;
   }
 
+  // --------------------------------------------------------------------------------------------------- the Spellblade
+
+  /** A Spells & Chivalry has taken hold: what it shows of sword and sorcery is counted from here. */
+  chivalryBegan(speaker) {
+    if (speaker) this.chivalry.set(speaker, { spell: false, sword: false, weighed: false });
+  }
+
+  /** It is over. */
+  chivalryEnded(speaker) {
+    this.chivalry.delete(speaker);
+  }
+
+  /**
+   * `speaker` used one half of his name during it: 'spell' (a spell cast) or 'sword' (a swing). Both shown, the line is
+   * weighed once (when his mouth is free: until then, each use tries again).
+   */
+  chivalryUsed(speaker, half) {
+    const shown = this.chivalry.get(speaker);
+    if (!shown || shown.weighed || !['spell', 'sword'].includes(half)) return;
+    shown[half] = true;
+    if (!shown.spell || !shown.sword || !this.free(speaker)) return;
+    shown.weighed = true;
+    this.say(LINES.spellblade, speaker, { opening: true });
+  }
+
+  // -------------------------------------------------------------------------------------------- that should stop you
+
+  // guards as they go up: one raised against a foe close by and swinging at him (after being down a moment) is the
+  // claim's moment; a claim standing is forgotten if the guard is let down, the threat goes or falls, or time passes
+  #guards(now, knights) {
+    const rule = SCENES.guardClaim;
+    const byId = new Map(knights.filter((k) => k?.id).map((k) => [k.id, k]));
+    for (const knight of byId.values()) {
+      const up = knight.alive !== false && Boolean(knight.guarding);
+      const was = this.guarding.get(knight.id) ?? { up: false, since: -Infinity };
+      if (up !== was.up) this.guarding.set(knight.id, { up, since: now });
+      if (up && !was.up && now - was.since >= rule.downSec && !this.guards.has(knight.id)) {
+        const foe = this.#threat(knight, knights);
+        if (foe && this.say(LINES.guard, knight.id, { part: 0 })) this.guards.set(knight.id, { foe: foe.id, until: now + rule.standsSec, releasedAt: null });
+      }
+    }
+    for (const [speaker, claim] of [...this.guards]) {
+      const me = byId.get(speaker);
+      const foe = byId.get(claim.foe);
+      if (!me || me.alive === false) { this.guards.delete(speaker); continue; }
+      if (!me.guarding) claim.releasedAt ??= now;
+      const away = foe?.position && me.position ? Math.hypot(foe.position.x - me.position.x, foe.position.z - me.position.z) : 0;
+      if (now > claim.until || !foe || foe.alive === false || away > rule.gone || (claim.releasedAt !== null && now - claim.releasedAt > rule.graceSec)) this.guards.delete(speaker);
+    }
+  }
+
+  // a foe close by and swinging at him (or Sundering), as he raises his guard
+  #threat(knight, knights) {
+    if (!knight.position) return null;
+    return knights.find((foe) => foe?.id !== knight.id && foe.alive !== false && foe.position
+      && (foe.attackActive || (foe.ultimateState?.id === 'sunder' && foe.ultimateState.phase === 'active'))
+      && Math.hypot(foe.position.x - knight.position.x, foe.position.z - knight.position.z) <= SCENES.guardClaim.reach) ?? null;
+  }
+
+  /** A guard broke (a `guardBreak`): if its knight had just claimed it would stop the threat, the claim is disproved. */
+  guardBroken(event) {
+    const claim = this.guards.get(event.defenderId);
+    if (!claim || event.at > claim.until) return;
+    this.guards.delete(event.defenderId);
+    this.say(LINES.guard, event.defenderId, { part: 1, earned: true, delay: SCENES.guardClaim.payoffAfter });
+  }
+
+  // --------------------------------------------------------------------------------------------------- three strikes
+
+  /** The count was declared by `speaker` to `foe` (it runs `seconds` from `at`): his blows on them are counted. */
+  strikesDeclared(speaker, foe, at, seconds = 0) {
+    if (!speaker || !foe) return;
+    this.counts.set(speaker, { foe, count: 0, freeAt: at + seconds, lastAt: at });
+  }
+
+  // a blow of his sword on that foe, standing: the next count (once the one before is said); fallen: over
+  #counted(event) {
+    const count = this.counts.get(event.attackerId);
+    if (!count || count.foe !== event.victimId || event.source !== 'sword' || !(event.amount > 0)) return;
+    if (!(event.health > 0)) { this.counts.delete(event.attackerId); return; }
+    if (event.at < count.freeAt) return;
+    const said = this.say(LINES.strikes, event.attackerId, { part: count.count + 1, earned: true, delay: SCENES.threeStrikes.after });
+    if (!said) { this.counts.delete(event.attackerId); return; }
+    count.count += 1;
+    count.lastAt = event.at;
+    count.freeAt = event.at + (said.delay ?? 0) + (said.seconds ?? 0);
+    const parts = voiceLine(LINES.strikes)?.parts?.length ?? 0;
+    if (count.count >= parts - 1) this.counts.delete(event.attackerId);
+  }
+
+  #counts(now, knights) {
+    for (const [speaker, count] of [...this.counts]) {
+      const me = knights.find((k) => k?.id === speaker);
+      const foe = knights.find((k) => k?.id === count.foe);
+      const away = foe?.position && me?.position ? Math.hypot(foe.position.x - me.position.x, foe.position.z - me.position.z) : 0;
+      if (now - Math.max(count.lastAt, count.freeAt) > SCENES.threeStrikes.staleSec || me?.alive === false || foe?.alive === false || away > SCENES.threeStrikes.gone) this.counts.delete(speaker);
+    }
+  }
+
   // ---------------------------------------------------------------------------------------------------- what happens
 
   /** A blow landed (a `damage` event). */
@@ -149,6 +307,7 @@ export class VoiceScenes {
     const { victimId, attackerId, at } = event;
     if (!(event.amount > 0) || !victimId) return;
     this.#lowBlow(event);
+    this.#counted(event);
     // the verdict: what he takes while it is open counts against it
     const duel = this.duels.get(victimId);
     if (duel?.stage === 'verdict' && attackerId && attackerId !== victimId) {
@@ -171,6 +330,11 @@ export class VoiceScenes {
     // the fallen's own scenes end with them
     this.duels.delete(victimId);
     this.sentences.delete(victimId);
+    this.heavy.delete(victimId);
+    this.chivalry.delete(victimId);
+    this.guards.delete(victimId);
+    this.counts.delete(victimId);
+    for (const [speaker, count] of [...this.counts]) if (count.foe === victimId) this.counts.delete(speaker);
     let victor = false;
     for (const [speaker, duel] of [...this.duels]) {
       if (duel.foe !== victimId) continue;
@@ -201,6 +365,8 @@ export class VoiceScenes {
   step(now, knights = []) {
     this.#duels(now, knights);
     this.#tricks(now, knights);
+    this.#guards(now, knights);
+    this.#counts(now, knights);
   }
 
   #duels(now, knights) {

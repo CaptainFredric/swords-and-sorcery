@@ -18,6 +18,8 @@ export class VoiceBank {
     this.base = base;
     this.director = director;
     this.takes = new Map();
+    // where each take's beats fall (a line subtitled a beat at a time: seconds into the take), alongside its takes
+    this.takeBeats = new Map();
     this.lastTake = new Map();
     // what each knight is saying now (the handle to stop it, if a line that matters more cuts it)
     this.playing = new Map();
@@ -55,6 +57,8 @@ export class VoiceBank {
         if (!buffer) continue;
         if (!this.takes.has(name)) this.takes.set(name, []);
         this.takes.get(name).push(buffer);
+        if (!this.takeBeats.has(name)) this.takeBeats.set(name, []);
+        this.takeBeats.get(name).push(Array.isArray(take.beats) ? take.beats : null);
       }
     }
     this.resolveReady();
@@ -119,7 +123,9 @@ export class VoiceBank {
     const seconds = take.duration / Math.max(0.5, played);
     // a spoken line: the music and the wind give way under it (a grunt does not need them to)
     if (rule.kind === 'sentence') this.engine.duck?.(seconds, { amount: Math.min(1, gain / 0.8), delay });
-    this.onSpoken?.({ line, speaker, delay, seconds, close, ...(parts ? { part: index } : {}) });
+    // (a line subtitled a beat at a time: where each beat falls, as it is played)
+    const beats = this.takeBeats.get(line)?.[index];
+    this.onSpoken?.({ line, speaker, delay, seconds, close, ...(parts ? { part: index } : {}), ...(beats ? { beats: beats.map((at) => at / Math.max(0.5, played)) } : {}) });
     // (how long it runs, for whoever times something on its end: the next part, an answer)
     return { seconds, delay };
   }

@@ -1260,7 +1260,11 @@ function explodeSpell(room, projectile, point, nowSec, worldHit = false, directV
     const burn = burnFrom(spell, exposure, projectile.ownerId, nowSec);
     if (burn) player.burn = ultimate ? { ...burn, ultimate: true } : burn;
     const chill = chillFrom(spell, exposure, nowSec);
-    if (chill) player.chill = strongerChill(player.chill, chill, nowSec);
+    if (chill) {
+      player.chill = strongerChill(player.chill, chill, nowSec);
+      // (a chill that took hold, and whose frost it was: how cold, for how long; for the thrower's voice)
+      if (player.chill === chill) room.events.push({ type: 'chilled', playerId: player.id, by: projectile.ownerId, spell: spell.id, slow: chill.slow, until: chill.until, at: nowSec });
+    }
   }
   room.events.push({
     type: 'projectileImpact', projectileId: projectile.id, ownerId: projectile.ownerId, spell: spell.id, radius: spell.radius, point, worldHit, at: nowSec,

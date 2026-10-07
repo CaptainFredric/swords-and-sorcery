@@ -22,7 +22,7 @@ import { spawnSync } from 'node:child_process';
 import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync, writeFileSync } from 'node:fs';
 import { basename, dirname, extname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { VOICE_LINE_LIST, fileStem, validateVoiceLines, voiceLine } from '../../client/game/sound/voiceLines.mjs';
+import { VOICE_LINE_LIST, beatSources, fileStem, validateVoiceLines, voiceLine } from '../../client/game/sound/voiceLines.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '..', '..');
@@ -77,7 +77,8 @@ export function planIngest(given, { line = null, lines = VOICE_LINE_LIST } = {})
 
 /** The processor's arguments for a line's takes: its own settings (voiceLines.mjs `voice`), then the recordings. */
 export function processorArgs(id, sources, lines = VOICE_LINE_LIST) {
-  const voice = lines.find((line) => line.id === id)?.voice ?? {};
+  const line = lines.find((each) => each.id === id);
+  const voice = line?.voice ?? {};
   const args = ['--line', id];
   if (Number.isFinite(voice.drive)) args.push('--drive', String(voice.drive));
   if (Number.isFinite(voice.rmsDb)) args.push('--rms-db', String(voice.rmsDb));
@@ -86,6 +87,9 @@ export function processorArgs(id, sources, lines = VOICE_LINE_LIST) {
   if (Number.isFinite(voice.formants)) args.push('--formants', String(voice.formants));
   if (Number.isFinite(voice.chest)) args.push('--chest', String(voice.chest));
   if (voice.edits?.length) args.push('--edits', JSON.stringify(voice.edits));
+  // (a line subtitled a beat at a time: where each later beat begins in each take's recording)
+  const beats = line ? beatSources(line) : null;
+  if (beats) args.push('--beats', JSON.stringify(beats));
   return [...args, ...sources];
 }
 

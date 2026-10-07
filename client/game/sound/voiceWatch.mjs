@@ -6,12 +6,18 @@
 // they are raised as the swing is committed, not when it lands). And, asked at a fall: whether the fallen had just
 // rushed the one who felled them, and whether it was a fair fight.
 //
+// And from the batch of 2026-10-06: a fall past saving into the Abyss (raised as he falls); a foe a gust moved still
+// alive a moment later and not falling to their end; a reckless commitment (a charge, a dash or a ram at a foe while
+// low, or into two of them) survived; a sprint while low and burning; fleeing at a sprint while looking at the ground;
+// a standoff long enough to begin spelling a threat; and the last seconds of a timed match he is not winning.
+//
 // Fed with the host's events and every knight as last seen; returns the moments to raise ([{ speaker, tags }]), which
 // the runtime hands to the voice like any other. Nothing in the game waits on it. Pure but for its memory, so it is
 // tested. Times are the host's (seconds); positions and speeds are on the ground (x, z).
 
 import { GAME, SWORD_CHAIN } from '../../../shared/src/combat.mjs';
 import { PROWESS } from '../../../shared/src/prowess.mjs';
+import { surfaceHeightAt } from '../../../shared/src/collision.mjs';
 
 export const WATCH = Object.freeze({
   // sprinting straight at a foe: closing this fast, from this far to this near, within this cone of where he runs
@@ -41,7 +47,37 @@ export const WATCH = Object.freeze({
   rushed: Object.freeze({ closing: 6, withinSec: 1.5 }),
   // a fair fight: at least this many blows each way between the two, within this long, the fall by the sword
   fair: Object.freeze({ blows: 2, withinSec: 12, sources: Object.freeze(['sword', 'gauntlet']) }),
+  // past saving: this far under the lowest ground of the arena (nothing left he could land on), falling at least this
+  // fast (once a life)
+  abyss: Object.freeze({ below: 0.7, falling: 2 }),
+  // a gust's foe dismissed: still alive this long after it, and not falling to their end (in the air over nothing,
+  // dropping at least `falling`)
+  dismissal: Object.freeze({ afterSec: 0.9, falling: 3 }),
+  // reckless: a charge, or a dash at a foe (closing at least `closing`, within `near`), while this low, or with a
+  // second foe within `crowd` of the one he goes at; survived this long; weighed again only after `rearmSec`
+  reckless: Object.freeze({ health: 35, closing: 6, near: 8, crowd: 6, surviveSec: 4, rearmSec: 20 }),
+  // his tombstone: sprinting this low, burning, hurt this recently (once a life)
+  tombstone: Object.freeze({ health: 30, hurtSec: 2.5 }),
+  // fleeing and searching the ground: sprinting away from a foe this near (drawing away at least `away`), looking at
+  // least this far down (radians), for this long; likelier this low (once a life)
+  flee: Object.freeze({ near: 10, away: 3, pitch: -0.6, holdSec: 0.6, low: 35, lowScale: 1.5 }),
+  // a standoff: a foe (no training dummy) this far off, nearly straight ahead of him, not closing fast, and nothing
+  // struck or swung by him or at him (nor a foe nearer than `near`) for this long (once a life)
+  standoff: Object.freeze({ near: 6, far: 20, coneDeg: 35, calmSec: 5, closing: 3 }),
+  // the clock: this many seconds of a timed match left (and more than `least`), him not its sole leader (once a match)
+  lateClock: Object.freeze({ within: 25, least: 4 }),
 });
+
+// the arena's lowest ground (a floor, or a ramp's lower end): nothing under it can be landed on (null without one)
+const lowestCache = new WeakMap();
+export function lowestGround(world) {
+  if (!world) return null;
+  if (!lowestCache.has(world)) {
+    const heights = [...(world.floors ?? []).map((floor) => floor.y), ...(world.ramps ?? []).flatMap((ramp) => [ramp.startY, ramp.endY])];
+    lowestCache.set(world, heights.length ? Math.min(...heights) : null);
+  }
+  return lowestCache.get(world);
+}
 
 const flat = (v) => ({ x: v?.x ?? 0, z: v?.z ?? 0 });
 const length = (v) => Math.hypot(v.x, v.z);
@@ -59,6 +95,8 @@ export class VoiceWatch {
     this.blows = [];              // [{ from, to, at }]: blows landed lately, for a fair fight
     this.rushes = new Map();      // `${from}>${to}` -> when `from` last rushed `to`
     this.begun = new Map();       // another knight -> { chain, count }: the strikes of their chain seen begun
+    this.gusts = new Map();       // whose gust -> { victims, at }: foes it moved, to see if they are still about
+    this.clocked = new Set();     // knights the late clock has been raised for, this match
   }
 
   #knight(id, now) {
@@ -66,28 +104,53 @@ export class VoiceWatch {
       this.knights.set(id, {
         alive: true, met: false, quietSince: now, lullSaid: false, chargeArmed: true, chargeAt: -Infinity,
         pursuitSince: null, pursuitAt: -Infinity, giving: new Map(), lastSwingAt: -Infinity, lastStrike: null,
-        streak: 0, prowess: 0, hurtAt: -Infinity,
+        streak: 0, prowess: 0, hurtAt: -Infinity, ...this.#freshLife(now),
       });
     }
     return this.knights.get(id);
   }
 
+  // what is watched once a life (or begun again with it)
+  #freshLife(now) {
+    return { abyssSaid: false, reckless: null, recklessAt: -Infinity, tombstoneSaid: false, fleeDown: 0, fleeAt: now, fleeSaid: false, calmSince: now, standoffSaid: false };
+  }
+
   /**
    * Time passes: knights as last seen ([{ id, alive, position, velocity, sprinting, dashUntil, prowess, attackActive,
-   * attackStartedAt, attackCommitted }]). self: my own knight (my swings are told as my arms begin them: begin()).
+   * attackStartedAt, attackCommitted, health, burningUntil, pitch, yaw, actorKind }]). self: my own knight (my swings
+   * are told as my arms begin them: begin()). world: the arena (its lowest ground: where the Abyss begins).
    */
-  step(now, knights = [], { self = null } = {}) {
+  step(now, knights = [], { self = null, world = null } = {}) {
     const out = [];
     const living = knights.filter((k) => k && k.alive !== false && k.position);
+    out.push(...this.#dismissals(now, knights, world));
+    const lowest = lowestGround(world);
     for (const knight of knights) {
       if (!knight?.id) continue;
       if (knight.id !== self) out.push(...this.#begunSeen(knight, now, knights));
       const state = this.#knight(knight.id, now);
       const alive = knight.alive !== false;
       // back on their feet: a new life, a new arrival, a new quiet
-      if (alive && !state.alive) Object.assign(state, { met: false, quietSince: now, lullSaid: false, chargeArmed: true, streak: 0 });
+      if (alive && !state.alive) Object.assign(state, { met: false, quietSince: now, lullSaid: false, chargeArmed: true, streak: 0, ...this.#freshLife(now) });
       state.alive = alive;
       if (!alive || !knight.position) continue;
+      const health = knight.health ?? 100;
+      // falling past saving: under every ground there is, and going down
+      if (!state.abyssSaid && lowest !== null && knight.position.y < lowest - WATCH.abyss.below && (knight.velocity?.y ?? 0) < -WATCH.abyss.falling) {
+        state.abyssSaid = true;
+        out.push({ speaker: knight.id, tags: ['abyssFall'] });
+      }
+      // a reckless commitment, survived
+      if (state.reckless && now - state.reckless.at >= WATCH.reckless.surviveSec) {
+        state.reckless = null;
+        out.push({ speaker: knight.id, tags: ['recklessSurvived'] });
+      }
+      // a sprint for his tombstone: low, burning, hurt a moment ago
+      const t = WATCH.tombstone;
+      if (!state.tombstoneSaid && knight.sprinting && health <= t.health && (knight.burningUntil ?? 0) > now && now - state.hurtAt <= t.hurtSec) {
+        state.tombstoneSaid = true;
+        out.push({ speaker: knight.id, tags: ['tombstoneSprint'] });
+      }
       // a blow taken that filled the meter
       const prowess = knight.prowess ?? 0;
       if (prowess >= PROWESS.full && state.prowess < PROWESS.full && now - state.hurtAt <= WATCH.ready.withinSec) out.push({ speaker: knight.id, tags: ['hurtToReady'] });
@@ -103,6 +166,8 @@ export class VoiceWatch {
       const v = flat(knight.velocity);
       const closing = dot(v, nearest.toward);
       const away = dot(flat(nearest.foe.velocity), nearest.toward);
+      // (a calm for a standoff: broken by a blow or a swing, his or theirs, and by a foe coming near)
+      if (nearest.distance < WATCH.standoff.near) state.calmSince = now;
       // the first foe met in a life
       if (!state.met && nearest.distance <= WATCH.arrive.meet) {
         state.met = true;
@@ -119,13 +184,43 @@ export class VoiceWatch {
       if (!state.chargeArmed && (nearest.distance > c.rearmFar || now - state.chargeAt > c.rearmSec)) state.chargeArmed = true;
       const speed = length(v);
       const straight = speed > 1e-6 && closing / speed >= Math.cos((c.coneDeg * Math.PI) / 180);
+      let charged = false;
       if (state.chargeArmed && knight.sprinting && closing >= c.closing && straight && nearest.distance <= c.far && nearest.distance >= c.near) {
         state.chargeArmed = false;
         state.chargeAt = now;
+        charged = true;
         out.push({ speaker: knight.id, tags: ['charge'] });
       }
       // rushing a foe (asked about at a fall): running or dashing at them
       const dashing = (knight.dashUntil ?? -Infinity) > now;
+      // reckless: charging or dashing (a Steel ram is one) at a foe while low, or with a second foe beside the first
+      const r = WATCH.reckless;
+      const committing = charged || (dashing && closing >= r.closing && nearest.distance <= r.near);
+      if (committing && !state.reckless && now - state.recklessAt > r.rearmSec) {
+        const crowd = foes.filter((foe) => Math.hypot(foe.position.x - nearest.foe.position.x, foe.position.z - nearest.foe.position.z) <= r.crowd).length;
+        if (health <= r.health || crowd >= 2) {
+          state.reckless = { at: now };
+          state.recklessAt = now;
+        }
+      }
+      // fleeing at a sprint and searching the ground for a way out of it
+      const f = WATCH.flee;
+      const searching = knight.sprinting && -closing >= f.away && nearest.distance <= f.near && (knight.pitch ?? 0) <= f.pitch;
+      state.fleeDown = searching ? state.fleeDown + Math.max(0, Math.min(0.25, now - state.fleeAt)) : 0;
+      state.fleeAt = now;
+      if (!state.fleeSaid && state.fleeDown >= f.holdSec) {
+        state.fleeSaid = true;
+        out.push({ speaker: knight.id, tags: { fleeDownward: health <= f.low ? f.lowScale : 1 } });
+      }
+      // a standoff: a foe ahead at a distance, and a calm long enough to begin spelling a threat at them
+      const so = WATCH.standoff;
+      const yaw = knight.yaw ?? 0;
+      const ahead = dot({ x: -Math.sin(yaw), z: -Math.cos(yaw) }, nearest.toward) >= Math.cos((so.coneDeg * Math.PI) / 180);
+      if (!state.standoffSaid && now - state.calmSince >= so.calmSec && nearest.distance >= so.near && nearest.distance <= so.far
+        && ahead && nearest.foe.actorKind !== 'dummy' && -away < so.closing) {
+        state.standoffSaid = true;
+        out.push({ speaker: knight.id, tags: ['standoff'] });
+      }
       if ((knight.sprinting || dashing) && closing >= WATCH.rushed.closing) this.rushes.set(`${knight.id}>${nearest.foe.id}`, now);
       // a pursuit: he closes on one drawing away from him, for a while
       const p = WATCH.pursuit;
@@ -162,6 +257,57 @@ export class VoiceWatch {
   #busy(state, now) {
     state.quietSince = now;
     state.lullSaid = false;
+  }
+
+  /**
+   * A gust caught knights (a `galeBlast` or `galeCatch`): the foes it really moved (not behind a guard) are looked at
+   * again a moment later (#dismissals).
+   */
+  gale(event) {
+    const moved = (event.affected ?? []).filter((caught) => caught.id !== event.playerId && !caught.guarded && caught.pressure >= 0.5).map((caught) => caught.id);
+    if (!event.playerId || !moved.length) return;
+    const pending = this.gusts.get(event.playerId);
+    this.gusts.set(event.playerId, { victims: [...new Set([...(pending?.victims ?? []), ...moved])], at: pending?.at ?? event.at });
+  }
+
+  // the foes a gust moved, a moment later: one still alive, and not falling to their end, is dismissed (for now)
+  #dismissals(now, knights, world) {
+    const out = [];
+    const rule = WATCH.dismissal;
+    const lowest = lowestGround(world);
+    for (const [speaker, gust] of [...this.gusts]) {
+      if (now < gust.at + rule.afterSec) continue;
+      this.gusts.delete(speaker);
+      const standing = gust.victims.some((id) => {
+        const k = knights.find((knight) => knight?.id === id);
+        if (!k?.position || k.alive === false) return false;
+        const p = k.position;
+        if (lowest !== null && p.y < lowest - WATCH.abyss.below) return false;
+        const overNothing = world ? surfaceHeightAt(p.x, p.z, p.y, world) === null : false;
+        return !(overNothing && (k.velocity?.y ?? 0) < -rule.falling);
+      });
+      if (standing) out.push({ speaker, tags: ['galeDismissal'] });
+    }
+    return out;
+  }
+
+  /**
+   * The match clock (a timed match, never the yard's): `timeLeft` seconds of it, every knight as last seen (with their
+   * kills). In its last stretch, each knight who is not its sole leader is raised once: business left unfinished.
+   */
+  clock(timeLeft, knights = []) {
+    const rule = WATCH.lateClock;
+    if (!(timeLeft <= rule.within && timeLeft > rule.least)) return [];
+    const top = Math.max(0, ...knights.map((k) => k?.kills ?? 0));
+    const leaders = knights.filter((k) => (k?.kills ?? 0) === top);
+    const out = [];
+    for (const knight of knights) {
+      if (!knight?.id || knight.alive === false || knight.actorKind === 'dummy' || this.clocked.has(knight.id)) continue;
+      this.clocked.add(knight.id);
+      if (leaders.length === 1 && leaders[0].id === knight.id) continue;
+      out.push({ speaker: knight.id, tags: ['lateClock'] });
+    }
+    return out;
   }
 
   /**
@@ -224,6 +370,7 @@ export class VoiceWatch {
     state.lastSwingAt = at;
     state.lastStrike = event.strikeIndex;
     this.#busy(state, at);
+    state.calmSince = at;
     // ground given to a foe now within reach of this swing, and stood
     const me = knights.find((k) => k?.id === playerId);
     if (me?.position) {
@@ -246,8 +393,11 @@ export class VoiceWatch {
     const victim = this.#knight(victimId, at);
     victim.hurtAt = at;
     this.#busy(victim, at);
+    victim.calmSince = at;
     if (!attackerId || attackerId === victimId) return;
-    this.#busy(this.#knight(attackerId, at), at);
+    const attacker = this.#knight(attackerId, at);
+    this.#busy(attacker, at);
+    attacker.calmSince = at;
     this.blows = [...this.blows.filter((blow) => at - blow.at <= WATCH.fair.withinSec), { from: attackerId, to: victimId, at }];
     const stagger = this.staggers.get(`${attackerId}>${victimId}`);
     if (stagger) stagger.struck = true;
@@ -284,10 +434,23 @@ export class VoiceWatch {
     return count(killer, victim) >= WATCH.fair.blows && count(victim, killer) >= WATCH.fair.blows;
   }
 
-  /** A knight fell: what was being watched of them ends (their chases, their quiet). */
+  /** Whether `id` charged a foe within the last `withinSec` seconds (asked about at a fall). */
+  charging(id, at, withinSec = 2) {
+    return at - (this.knights.get(id)?.chargeAt ?? -Infinity) <= withinSec;
+  }
+
+  /** A knight fell: what was being watched of them ends (their chases, their quiet, a recklessness not survived). */
   death(victimId) {
     const state = this.knights.get(victimId);
-    if (state) state.alive = false;
+    if (state) {
+      state.alive = false;
+      state.reckless = null;
+    }
+    // (a foe a gust moved who has fallen since is not dismissed)
+    for (const [speaker, gust] of [...this.gusts]) {
+      gust.victims = gust.victims.filter((id) => id !== victimId);
+      if (!gust.victims.length || speaker === victimId) this.gusts.delete(speaker);
+    }
     for (const key of [...this.staggers.keys()]) if (key.endsWith(`>${victimId}`) || key.startsWith(`${victimId}>`)) this.staggers.delete(key);
   }
 }

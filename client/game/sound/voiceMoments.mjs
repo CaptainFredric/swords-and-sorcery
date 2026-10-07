@@ -8,6 +8,7 @@
 // knight(id): the knight as last seen (a snapshot's player: health, alive, staggerUntil, attackActive, guarding,
 // dashUntil, sprinting, pitch, actorKind, practiceMode, cloth, ultimateState). Times are the host's (event.at).
 
+import { surfaceHeightAt } from '../../../shared/src/collision.mjs';
 import { deathMoment, galeTauntScale, isMinorLethal, isOverkill } from './voiceRules.mjs';
 import { VOICE_LINE_LIST, linesFor } from './voiceLines.mjs';
 
@@ -44,7 +45,46 @@ export const MOMENTS = Object.freeze({
   // a foe who will not be hit: this many sword attempts on the same foe blocked, parried or slipped within this long
   // (a miss counts against whoever was within `near` metres of it)
   denied: Object.freeze({ count: 3, withinSec: 5, near: 4 }),
+  // nearly felled: a blow that leaves him this low; felling the one who did it within this long avenges it
+  avenged: Object.freeze({ health: 15, withinSec: 10 }),
+  // a recurring rival: each has felled the other at least this often this match
+  rival: Object.freeze({ kills: 2 }),
+  // a losing run: this many falls in a row without a kill of his own (said as he gets up from the last)
+  losingRun: Object.freeze({ falls: 3 }),
+  // a chill worth remarking on: his Frostfire slowing a living foe at least this much (its full chill is 0.55)
+  chill: Object.freeze({ slow: 0.35 }),
 });
+
+// How a knight lies once felled, for the lines about it: on the ground (not falling, not in the air), and fallen back
+// (the blow came from in front: from within `fromFront` of the way he faced), his eyes level or raised (`skyward`: the
+// pitch at least this), or somewhere inconvenient (torn ground, a ramp, or alight)
+export const POSE = Object.freeze({ fromFront: 0.25, skyward: -0.05, grounded: 0.3 });
+
+const onRamp = (world, x, z) => (world?.ramps ?? []).some((ramp) => x >= ramp.minX && x <= ramp.maxX && z >= ramp.minZ && z <= ramp.maxZ);
+
+/**
+ * How `victim` (as last seen before falling: position, velocity, yaw, pitch, tornGround, burningUntil) lies, felled
+ * by `killer` (where they stood, or null): { back, skyward, inconvenient }, or null when he is not felled on the
+ * ground (a fall into the Abyss, a body in the air). world: the arena (its floors, its ramps).
+ */
+export function deathPose(victim, killer = null, { source = null, world = null, at = 0 } = {}) {
+  const at3 = victim?.position;
+  if (!at3 || source === 'abyss') return null;
+  const ground = world ? surfaceHeightAt(at3.x, at3.z, at3.y, world) : at3.y;
+  if (ground === null || at3.y - ground > POSE.grounded || Math.abs(victim.velocity?.y ?? 0) > 2) return null;
+  let back = false;
+  if (killer && (killer.x !== undefined)) {
+    const to = { x: killer.x - at3.x, z: killer.z - at3.z };
+    const distance = Math.hypot(to.x, to.z);
+    const yaw = victim.yaw ?? 0;
+    back = distance > 1e-6 && (to.x * -Math.sin(yaw) + to.z * -Math.cos(yaw)) / distance >= POSE.fromFront;
+  }
+  return {
+    back,
+    skyward: back && (victim.pitch ?? 0) >= POSE.skyward,
+    inconvenient: Boolean(victim.tornGround) || (victim.burningUntil ?? 0) > at || onRamp(world, at3.x, at3.z),
+  };
+}
 
 // the Practice Yard's opponents that fight (shared/sim/practice.mjs PRACTICE_DUMMY_MODES): not the ones that stand,
 // guard or run
@@ -68,11 +108,17 @@ export class VoiceMoments {
     this.denials = new Map();   // `${attacker}>${defender}` -> when their sword was lately denied
     this.streaks = new Map();   // knight -> kills without falling
     this.lastHurt = new Map();  // knight -> when they were last hurt
+    this.nearlyFelled = new Map(); // knight -> { by, at }: who last left them nearly dead, and when
+    this.felled = new Map();    // `${killer}>${victim}` -> how often this match
+    this.fallsInARow = new Map(); // knight -> falls since their last kill
+    this.matchPoints = new Set(); // knights whose match point has been raised this match
     this.seen = new Map();      // tag -> how often its moment has been raised (for telling why a line is never heard)
   }
 
-  /** A blow landed (a `damage` event). */
-  damage(event, { knight = () => null, saidAgo = () => Infinity, steeled = () => false } = {}) {
+  /**
+   * A blow landed (a `damage` event). matchPoint(id): whether that knight is one kill from winning a scored match.
+   */
+  damage(event, { knight = () => null, saidAgo = () => Infinity, steeled = () => false, matchPoint = () => false } = {}) {
     const { attackerId, victimId, source, at } = event;
     if (!(event.amount > 0)) return [];
     const groups = [];
@@ -108,12 +154,20 @@ export class VoiceMoments {
       if (caught === MOMENTS.massive.caught && before < caught) groups.push(this.#lines(attackerId, ['massiveSunder']));
     }
     const standing = event.health > 0;
+    // (nearly felled: remembered, for felling the one who did it)
+    if (other && standing && event.health <= MOMENTS.avenged.health) this.nearlyFelled.set(victimId, { by: attackerId, at });
+    // one kill from winning, meeting a foe afresh (once a match)
+    const point = other && engaged && !this.matchPoints.has(attackerId) && matchPoint(attackerId);
+    if (point) this.matchPoints.add(attackerId);
     if (other && standing) {
       groups.push(this.#lines(attackerId, [
         // a foe he has all but finished (the squire's question); the cleanest blow, through the foe's own swing
         event.health <= MOMENTS.squire.health && 'squireOpening',
         source === 'sword' && event.clean && knight(victimId)?.attackActive && 'counterHit',
         fresh && 'worthyFoe',
+        // (by the sword: the count of strikes on that same foe may begin)
+        fresh && source === 'sword' && 'strikeCount',
+        point && 'matchPoint',
         // (the first blow of any fresh encounter is him committing to it; his own spell landing is magic helping him)
         engaged && 'engage',
         (source === 'fireball' || source === 'frostfire') && 'magicHelped',
@@ -140,6 +194,8 @@ export class VoiceMoments {
   /**
    * A knight fell (a `death` event): { fallen, victor, rescued } (the fallen first; the victor only if the fallen kept
    * quiet; each rescued group on its own). blow: the killing blow ({ amount, healthBefore, level, ultimate, clean }).
+   * extra: what the runtime watched of it (rushed, fair, leader, chivalry; charging: the fallen charged a foe a moment
+   * ago; pose: how he lies, deathPose; doomCut: he was spelling a threat).
    */
   death(event, { blow = null, knight = () => null, positionOf = () => null, practice = false, planFailed = false, extra = {} } = {}) {
     const { victimId, source, at } = event;
@@ -173,12 +229,26 @@ export class VoiceMoments {
       fair: Boolean(extra.fair),
       leader: Boolean(extra.leader),
       streak: (this.streaks.get(killerId) ?? 0) + 1,
+      // the one who had just left him nearly dead, and him still standing
+      avenged: this.#avenges(killerId, victimId, at, killer),
+      // a rival: each has felled the other again and again this match (this fall counted)
+      rival: (this.felled.get(`${killerId}>${victimId}`) ?? 0) + 1 >= MOMENTS.rival.kills && (this.felled.get(`${victimId}>${killerId}`) ?? 0) >= MOMENTS.rival.kills,
     } : {};
-    if (killerId) this.streaks.set(killerId, moment.streak);
+    if (killerId) {
+      this.streaks.set(killerId, moment.streak);
+      this.felled.set(`${killerId}>${victimId}`, (this.felled.get(`${killerId}>${victimId}`) ?? 0) + 1);
+      this.fallsInARow.set(killerId, 0);
+    }
+    this.fallsInARow.set(victimId, (this.fallsInARow.get(victimId) ?? 0) + 1);
     const minor = Boolean(blow) && isMinorLethal({ ...blow, source });
     const interrupted = Boolean(victim && (victim.attackActive || victim.guarding || victim.sprinting || (victim.dashUntil ?? -Infinity) > at));
     const overkill = Boolean(blow) && isOverkill(blow);
-    const fall = deathMoment({ victimId, killerId, source, overkill, minor, interrupted, decisive: Boolean(event.decisive), dizzy: Boolean(event.dizzy), planFailed, chivalry: Boolean(extra.chivalry), fair: Boolean(extra.fair), moment });
+    // committed to an attack as he fell: mid-swing, dashing, or charging or rushing at a foe
+    const committed = Boolean(victim && (victim.attackActive || (victim.dashUntil ?? -Infinity) > at)) || Boolean(extra.rushed) || Boolean(extra.charging);
+    const fall = deathMoment({
+      victimId, killerId, source, overkill, minor, interrupted, decisive: Boolean(event.decisive), dizzy: Boolean(event.dizzy), planFailed,
+      chivalry: Boolean(extra.chivalry), fair: Boolean(extra.fair), committed, pose: extra.pose ?? null, doomCut: Boolean(extra.doomCut), moment,
+    });
     // (the squire's answer is forced: a line, never a grunt, and nobody talks over it)
     const fallen = this.#lines(victimId, fall.fallen, { facts: fall.facts, force: answer });
     const victor = !answer && fall.victor ? this.#lines(killerId, fall.victor, { facts: fall.victorFacts }) : [];
@@ -186,6 +256,15 @@ export class VoiceMoments {
     const rescued = this.#rescues(victimId, killerId, at, knight);
     this.#forget(victimId);
     return { fallen, victor, rescued, answer };
+  }
+
+  /**
+   * A knight back on their feet (a `respawn`): after a run of falls without a kill of their own, a vow (once a run, as
+   * it reaches its length; a fall after that is simply another fall). Never in the Practice Yard.
+   */
+  respawn(event, { practice = false } = {}) {
+    if (practice || (this.fallsInARow.get(event.playerId) ?? 0) !== MOMENTS.losingRun.falls) return [];
+    return [this.#lines(event.playerId, ['losingRun'])].filter((group) => group.length);
   }
 
   /** A gust caught knights (a `galeBlast`'s `affected`): the jibe, the thrown, and anyone it rescued. */
@@ -229,9 +308,15 @@ export class VoiceMoments {
     return [this.#lines(attackerId, ['deniedOpening'])];
   }
 
-  /** The foe a fresh encounter was opened with by `speaker` (the final duel is declared to them). */
+  /** The foe a fresh encounter was opened with by `speaker` (the final duel is declared to them; the strikes counted). */
   duelFoe(speaker) {
     return this.duelFoes.get(speaker) ?? null;
+  }
+
+  // whether `killerId` felling `victimId` avenges a blow of theirs that had just left him nearly dead (him standing)
+  #avenges(killerId, victimId, at, killer) {
+    const low = this.nearlyFelled.get(killerId);
+    return Boolean(low) && low.by === victimId && at - low.at <= MOMENTS.avenged.withinSec && killer?.alive !== false && (killer?.health ?? 1) > 0;
   }
 
   /**
@@ -306,6 +391,10 @@ export class VoiceMoments {
     this.denials.clear();
     this.streaks.clear();
     this.lastHurt.clear();
+    this.nearlyFelled.clear();
+    this.felled.clear();
+    this.fallsInARow.clear();
+    this.matchPoints.clear();
   }
 
   // 0, or 1 when the killer's blows on the fallen were mostly perfect and aimed high on the whole (2: and the killing
@@ -336,6 +425,8 @@ export class VoiceMoments {
   #forget(id) {
     this.threats.delete(id);
     this.streaks.delete(id);
+    // (nearly felled is about a life: a new one starts whole)
+    this.nearlyFelled.delete(id);
     // (a new life is a new encounter with everyone)
     for (const pair of [...this.met]) if (pair.split('|').includes(id)) this.met.delete(pair);
     this.duelFoes.delete(id);

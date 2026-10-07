@@ -89,7 +89,7 @@ test('the director\'s rules follow from the declarations: rank, rarity, cooldown
 
 test('a moment gives its lines in order: the most particular moment first, the wildcard and the grunt last', () => {
   const said = (tags, options) => linesFor('k', tags, options).map((say) => say.line);
-  assert.deepEqual(said({ death: 1, minorLethal: 1, magicDeath: 1 }), ['lateLine', 'magicDefeat', 'knightFallen', 'defeat', 'underworld', 'laugh', 'death']);
+  assert.deepEqual(said({ death: 1, minorLethal: 1, magicDeath: 1 }), ['lateLine', 'magicDefeat', 'knightFallen', 'defeat', 'underworld', 'notTired', 'laugh', 'death']);
   assert.deepEqual(said(['kill', 'cleanSwordKill', 'subparKill']), ['hackSlash', 'subparStandard', 'killTaunt', 'workHard', 'laugh']);
   assert.deepEqual(said(['guardBreak']), ['lowerGuard', 'breakTaunt', 'offGuard']);
   assert.deepEqual(said(['dash']), ['dash', 'laugh']);
@@ -100,7 +100,8 @@ test('a moment gives its lines in order: the most particular moment first, the w
   assert.deepEqual(said(['riposteOvershoot']), []);
   // the Blazing Vortex's own: its noise as it takes hold, and its excuse for whoever falls spinning (ahead of an
   // ordinary defeat)
-  assert.deepEqual(said(['vortexSpin']), ['vortexUse']);
+  // (and, beside its noise and never in its place, his advice on how near to stand)
+  assert.deepEqual(said(['vortexSpin']), ['distanceAdvice', 'vortexUse']);
   assert.deepEqual(said({ death: 1, vortexDeath: 1 }).slice(0, 2), ['vortexDefeat', 'knightFallen']);
   // how fitting a moment is scales its lines' odds: the moment's own word, the line's share of it, and its boosts
   const fallen = linesFor('v', { death: 1 }, { facts: ['overkill', 'decisive'] });
@@ -125,7 +126,7 @@ test('a cry\'s moment gives exactly one line, by share, and it is always said; a
   }
   assert.ok(cries.victory > 250 && cries.victory < 450 && cries.sunderCall > cries.victory, JSON.stringify(cries));
   const forced = linesFor('v', { death: 1, magicDeath: 1 }, { force: true });
-  assert.deepEqual(forced.map((say) => say.line).sort(), ['defeat', 'knightFallen', 'magicDefeat', 'underworld']);
+  assert.deepEqual(forced.map((say) => say.line).sort(), ['defeat', 'knightFallen', 'magicDefeat', 'notTired', 'underworld']);
   assert.equal(forced[0].line, 'magicDefeat', 'the most particular moment still first');
   assert.ok(forced.every((say) => say.force));
 });

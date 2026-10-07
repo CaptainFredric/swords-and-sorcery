@@ -269,7 +269,8 @@ test('the Sunder sentence begins at that Sunder\'s first slam into the ground, o
 test('the roll is made once for each Sunder, and a sentence dropped is not taken up again in that Sunder', () => {
   // the dice said no at the first slam: no later slam of that Sunder asks again
   let asked = 0;
-  const unlucky = new VoiceScenes({ say: () => { asked += 1; return false; } });
+  // (the sentence's asks: "heavy now" is weighed at a later slam of a Sunder whose sentence never began)
+  const unlucky = new VoiceScenes({ say: (line) => { if (line === 'sunderLeave') asked += 1; return false; } });
   unlucky.sunderBegan('me');
   for (let i = 0; i < 6; i += 1) { unlucky.slamSwung('me', 1 + i * 0.7); unlucky.groundSlam('me', 1.1 + i * 0.7); }
   assert.equal(asked, 1);

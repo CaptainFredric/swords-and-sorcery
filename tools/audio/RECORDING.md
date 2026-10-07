@@ -62,7 +62,30 @@ npm run voice -- Master.mp3:0.80-7.00 Master.mp3:8.85-11.05 --line finalDuel
 
 The check fails if the number recorded is not the number declared. The master is archived whole, as always; the
 windows are remembered in `tools/audio/voice-sources.json`, so `--redo` cuts them again. What decides when each part
-is said is `client/game/sound/voiceScenes.mjs`.
+is said is `client/game/sound/voiceScenes.mjs`. The parts may as well be separate recordings, given in order (the
+guard's claim and its correction, the count of three strikes):
+
+```bash
+npm run voice -- ThereStop.mp3 ThatDidNotStop.mp3 --line stopYou
+```
+
+Each part is subtitled on its own words; `cumulative: true` subtitles the line as far as it has got instead (the Sunder
+sentence, a word to a slam).
+
+### A line with a pause in it
+
+A line whose pause carries the joke ("The Abyss calls me... hello?") stays one take, the pause exactly as performed,
+and is subtitled a beat at a time, so the words never arrive on the screen before he says them. It declares `beats`:
+the words of each beat, and where each later beat begins in its recording (seconds, as edits are timed):
+
+```js
+beats: [{ words: 'The Abyss calls me...' }, { at: 2.90, words: 'hello?' }],
+```
+
+A part of a line in parts may have its own (`parts: [..., { words, beats }]`). The tool carries the take's own clock
+through every cut and trim and writes where each beat falls in the finished take beside it (its `.json`); the check
+fails for a take that does not say. The Credits always show the whole line. Ordinary short lines are subtitled whole:
+beats are for a pause that is the point, never a word at a time.
 
 ### Moments
 
