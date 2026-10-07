@@ -6,7 +6,7 @@ import { VOICE_LINES, VoiceDirector, deathLines, deathMoment } from './voiceRule
 import { MOMENTS, POSE, VoiceMoments, deathPose } from './voiceMoments.mjs';
 import { SCENES, VoiceScenes } from './voiceScenes.mjs';
 import { WATCH, VoiceWatch, lowestGround } from './voiceWatch.mjs';
-import { VOICE_LIBRARY, captionsFor, libraryStatus, statusLabel, subtitleFor } from '../../ui/voiceLibrary.mjs';
+import { VOICE_LIBRARY, captionPlan, captionsFor, libraryStatus, statusLabel, subtitleFor } from '../../ui/voiceLibrary.mjs';
 import { searchShelves, searchTerms } from '../../ui/creditsSearch.mjs';
 import { librarySections } from '../../ui/voiceLibrary.mjs';
 import { HUD } from '../../ui/HUD.mjs';
@@ -532,8 +532,10 @@ test('19. a line with a pause in it is subtitled a beat at a time, never ahead o
   assert.ok(!captionsFor('bodyWilling').slice(0, 2).join(' ').includes('was'), '"was willing" only when it is heard');
   assert.deepEqual(captionsFor('braveFoolish'), ['The difference between bravery or foolishness?...', 'When I do it.']);
   assert.deepEqual(captionsFor('threeStrikes', 3), ['Three!..', 'where’s the flee?']);
-  // the runtime shows them so, from the take's own beats
-  assert.match(runtime, /const captions = captionsFor\(line, part\);\s+const timed = captions && beats\?\.length === captions\.length;/);
+  // the runtime (and the menu) show them so, from the take's own beats
+  assert.match(runtime, /const plan = captionPlan\(line, \{ part, beats \}\);/);
+  assert.deepEqual(captionPlan('abyssCalls', { beats: [0, 2.53] }), { text: 'The Abyss calls me...', after: 0, cues: [{ at: 2.53, text: 'hello?' }] });
+  assert.deepEqual(captionPlan('heavyNow'), { text: 'This sword is heavy now!!', after: 0, cues: [] }, 'a line said whole');
   // the Credits: the whole line, as one work
   const entry = (id) => VOICE_LIBRARY.find((e) => e.line === id);
   assert.equal(entry('spellBlade').words, 'Why do you think I am called the Spellblade?... Because I can spell ‘blade’!');

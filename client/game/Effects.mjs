@@ -366,6 +366,20 @@ export class Effects {
   }
 
   /**
+   * Steam off something hot meeting ice (the menu round's Slush): a few pale puffs rising and spreading from about
+   * `point`, `spread` metres across. Restrained: a puff, never a cloud (fewer at a lower particle density).
+   */
+  steam(point, { count = 6, spread = 0.5, rise = 1.3 } = {}) {
+    for (let i = 0; i < this.#many(count); i += 1) {
+      const at = { x: point.x + (Math.random() - 0.5) * spread, y: point.y + Math.random() * 0.3, z: point.z + (Math.random() - 0.5) * spread };
+      this.#dust(at, {
+        size: 1.1 + Math.random() * 0.9, life: 0.8 + Math.random() * 0.5, color: 0xeef5f8,
+        velocity: new THREE.Vector3((Math.random() - 0.5) * 0.35, rise * (0.7 + Math.random() * 0.6), (Math.random() - 0.5) * 0.35),
+      });
+    }
+  }
+
+  /**
    * A very heavy blow into the ground at `point` (the Armory's Sunder): the ground's own shock, low and brief. A ring
    * of dust driven out along it, and a dull ring of pressure running out over it; no light and no colour of its own.
    */
