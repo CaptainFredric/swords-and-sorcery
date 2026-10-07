@@ -27,7 +27,8 @@
 //     // must carry weight: semitones further down, formants: how much of them stays put (0.6: a bigger chest), chest dB;
 //     // edits: small repairs in the recording's own seconds: { cut: [a, b] } dead air out, { splice: [a, b], from:
 //     // [c, d] } a clearer word of the same take in its place, { lift: [a, b], db } a buried word up, { rise: [a, b],
-//     // semitones } a flat ending raised; see tools/audio/knight_voice.py);
+//     // semitones } a flat ending raised, { glide: [a, b], semitones } a word's onset begun that far off and swooping
+//     // back by b; see tools/audio/knight_voice.py);
 //     // parts: ['Wait, wait!!...', '...I TRICKED you!'] (a line said in parts, each when the game says so: its
 //     // recordings are its parts in order, one take each, cut from one master with windows: see RECORDING.md);
 //     // reply: true (an ordinary remark fit to be said back at a foe who has just spoken: the final duel's answer);
@@ -826,7 +827,7 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     trigger: 'lull', order: 2,
     priority: 'normal', rarity: 0.06, cooldown: 1200, perLife: 1,
     section: 'Remarks & Oddities',
-    credits: { title: 'Abolish the Battle', description: 'Very rarely during a genuine lull in combat.', note: 'The proposal was withdrawn immediately.' },
+    credits: { title: 'Abolish the Battle', description: 'Very rarely during a genuine lull in combat.', note: 'Phew. We were nearly threatened with dimensionality.' },
     voice: { drive: 2.0, rmsDb: -17, expandBelowDb: -42 }, file: 'AbolishBattleIsJest.mp3',
   },
   {
@@ -1081,6 +1082,8 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     priority: 'high', rarity: 0.06, cooldown: 300,
     section: 'Defeat & Death',
     credits: { title: 'Not Tired', description: 'Rarely upon being felled.', note: 'Rest remains unauthorized.' },
+    // (it opens on the fabled "What!?" itself, take 2 of 'defeat', before its own "But I'm not tired!": the source is
+    // that join, made across the pause: not-tired-fabled-what.wav; his own "What?" as recorded is kept, not-tired-1.mp3)
     voice: { drive: 2.2, rmsDb: -16 }, file: 'WhatNotTired.mp3',
   },
   {
@@ -1292,7 +1295,7 @@ export function linesFor(speaker, tags, { facts = [], force = false, rand = Math
 
 // a span of a recording: [from, to] seconds, in order
 const isSpan = (span) => Array.isArray(span) && span.length === 2 && span.every(Number.isFinite) && span[0] >= 0 && span[1] > span[0];
-const EDIT_KINDS = Object.freeze({ cut: [], splice: ['from'], lift: ['db'], rise: ['semitones'] });
+const EDIT_KINDS = Object.freeze({ cut: [], splice: ['from'], lift: ['db'], rise: ['semitones'], glide: ['semitones'] });
 
 // what is wrong with a line's beats, as sentences: two or more, each with its words, every later one at a time in its
 // recording after the one before
