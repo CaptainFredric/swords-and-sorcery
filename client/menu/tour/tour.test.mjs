@@ -76,7 +76,8 @@ test('any fight can be staged at any stop: room around the rival, both knights o
 });
 
 test('each round stages the fights in another order: the first as written, never the same twice running', () => {
-  assert.deepEqual(lineupFor(0), ['fireball', 'whirlwind', 'whiteFlag']);
+  // (the first round as written, but for its first stop: the Slush opens every visit to the front door)
+  assert.deepEqual(lineupFor(0), ['slush', 'whirlwind', 'whiteFlag']);
   const seen = new Set();
   const slushAt = [];
   for (let round = 1; round < 24; round += 1) {
@@ -92,9 +93,9 @@ test('each round stages the fights in another order: the first as written, never
     lineup.forEach((name, slot) => assert.ok(stage(name, slot, roundRandom(round)), `round ${round}: ${name} at stop ${slot + 1}`));
   }
   assert.equal(seen.size, 6, 'every order comes round');
-  // the Slush: a discovery, not a fixture (never the first round, then every third), at each of the stops in turn
-  assert.ok(!lineupFor(0).includes('slush') && !lineupFor(1).includes('slush'));
-  assert.deepEqual(slushAt.map(([round]) => round), [2, 5, 8, 11, 14, 17, 20, 23]);
+  // the Slush: the first round, then every third, at each of the stops in turn
+  assert.ok(!lineupFor(1).includes('slush') && !lineupFor(2).includes('slush'));
+  assert.deepEqual(slushAt.map(([round]) => round), [3, 6, 9, 12, 15, 18, 21]);
   assert.deepEqual(new Set(slushAt.map(([, slot]) => slot)), new Set([0, 1, 2]));
   // what varies within a fight from round to round: how many times the whirlwind goes round
   const turns = new Set(Array.from({ length: 20 }, (_, round) => FIGHT_POOL.whirlwind(roundRandom(round))[0].key));

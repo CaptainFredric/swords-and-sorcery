@@ -100,7 +100,8 @@ export class TourDirector {
   // this round's fights at the three stops, their frames and the schedule they make
   #stageRound(round) {
     this.round = round;
-    const random = roundRandom(round);
+    // (each visit to the front door rolls its own dice: the Slush that opens it is another version each time)
+    const random = roundRandom(round + (this.visit ?? 0) * 97);
     const first = lineupFor(0);
     const placed = lineupFor(round).map((name, slot) => this.#placed(name, slot, random) ?? this.#placed(first[slot], slot, random));
     this.fights = placed.map((each) => each.fight);
@@ -162,6 +163,7 @@ export class TourDirector {
   /** Start the round over (the first round, as the fights were written): the Spellblade at his place, every rival
    * whole and waiting. */
   restart() {
+    this.visit = (this.visit ?? 0) + 1;
     this.time = 0;
     this.lastMoment = null;
     this.pause = 0;
