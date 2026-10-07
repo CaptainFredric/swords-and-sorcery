@@ -2,7 +2,7 @@
 // and a word on why. Shown from the settings' footer (a quiet button, not a menu item). Pure data, drawn from the
 // lines' own declarations, so nothing here can fall out of step with the game.
 
-import { VOICE_LINE_LIST, VOICE_SECTIONS, partText, voiceLine } from '../game/sound/voiceLines.mjs';
+import { VOICE_LINE_LIST, VOICE_SECTIONS, beatsOf, partText, voiceLine } from '../game/sound/voiceLines.mjs';
 
 export const CREDITS = Object.freeze({
   title: 'SWORDS & SORCERY',
@@ -84,6 +84,18 @@ export function subtitleFor(line, part = null) {
   const entry = BY_LINE.get(line);
   if (!entry || entry.kind !== 'sentence' || entry.words.startsWith('(')) return null;
   if (!entry.parts || part === null) return entry.words;
-  // (two parts: each its own words; a sentence said a word at a time: the sentence so far)
-  return entry.parts > 2 ? voiceLine(line).parts.slice(0, part + 1).join(' ') : partText(line, part);
+  // (each part its own words; a sentence said a word at a time: the sentence so far)
+  return voiceLine(line).cumulative ? voiceLine(line).parts.slice(0, part + 1).map((_, i) => partText(line, i)).join(' ') : partText(line, part);
+}
+
+/**
+ * The beats a line (or a part of one) is subtitled in, in order: [words, ...], each shown as he gets to it and in
+ * place of the one before (a pause that carries the joke is never given away in the subtitle). null for a line
+ * subtitled whole. The Credits always show the whole line.
+ */
+export function captionsFor(line, part = null) {
+  const entry = BY_LINE.get(line);
+  if (!entry || entry.kind !== 'sentence') return null;
+  const beats = beatsOf(line, part);
+  return beats ? beats.map((beat) => beat.words) : null;
 }

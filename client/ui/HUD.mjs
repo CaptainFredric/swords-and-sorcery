@@ -397,13 +397,15 @@ export class HUD {
 
   /**
    * A Spellblade's words as he says them: `delay` seconds from now, for as long as he says them (and a breath after).
-   * name: whose they are (none for my own); a new line takes the place of the last.
+   * name: whose they are (none for my own); a new line takes the place of the last. cues: a line said a beat at a time
+   * ([{ at, text }]: seconds into it), each beat's words in place of the last as he gets to it, never before.
    */
-  subtitle({ text, name = null, delay = 0, seconds = 2, speaker = null } = {}) {
+  subtitle({ text, name = null, delay = 0, seconds = 2, speaker = null, cues = [] } = {}) {
     const line = this.subtitleLine;
     if (!line || !text) return;
     clearTimeout(this.subtitleShow);
     clearTimeout(this.subtitleHide);
+    this.#clearCues();
     // (whose words are waiting to be shown, and then whose are up: a speaker cut off takes theirs away)
     this.subtitlePending = speaker;
     this.subtitleShow = setTimeout(() => {
@@ -421,7 +423,14 @@ export class HUD {
       line.classList.toggle('mine', !name);
       line.classList.add('show');
       this.subtitleHide = setTimeout(() => line.classList.remove('show'), (seconds + 0.9) * 1000);
+      this.subtitleCues = cues.map((cue) => setTimeout(() => { words.textContent = cue.text; }, Math.max(0, cue.at) * 1000));
     }, Math.max(0, delay) * 1000);
+  }
+
+  // the beats of a line not yet reached: never shown once it is over or cut off
+  #clearCues() {
+    for (const cue of this.subtitleCues ?? []) clearTimeout(cue);
+    this.subtitleCues = [];
   }
 
   /**
@@ -437,6 +446,7 @@ export class HUD {
     }
     if (this.subtitleSpeaker === speaker && line.classList.contains('show')) {
       clearTimeout(this.subtitleHide);
+      this.#clearCues();
       line.classList.remove('show');
       this.subtitleSpeaker = null;
     }

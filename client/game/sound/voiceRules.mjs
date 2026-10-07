@@ -174,11 +174,19 @@ export function deathLines(fall, rand = Math.random) {
  * A fall as the moments it is (their tags, for linesFor): { fallen, facts } for the one who fell, and { victor,
  * victorFacts } for whoever felled them (victor: null when nobody did, or they fell by their own doing).
  */
-export function deathMoment({ victimId, killerId, source, overkill = false, minor = false, interrupted = false, decisive = false, dizzy = false, planFailed = false, chivalry = false, fair = false, moment = {} }) {
+export function deathMoment({ victimId, killerId, source, overkill = false, minor = false, interrupted = false, decisive = false, dizzy = false, planFailed = false, chivalry = false, fair = false, committed = false, pose = null, doomCut = false, moment = {} }) {
   return {
     // (dizzy: felled spinning in a Blazing Vortex, or in the moment after it)
     // (chivalry: felled during Spells & Chivalry; fair: by the sword, after a real exchange of blows with the victor)
-    fallen: { death: 1, ...(minor ? { minorLethal: 1 } : {}), ...(dizzy ? { vortexDeath: 1 } : {}), ...(chivalry ? { chivalryDeath: 1 } : {}), ...(fair ? { fairLoss: 1 } : {}), ...(MAGIC_SOURCES.includes(source) ? { magicDeath: 1 } : {}) },
+    // (decisive: the blow that won the match against him; committed: felled mid-attack, dashing, or charging a foe;
+    // pose: how he lies (deathPose in voiceMoments.mjs); doomCut: felled while spelling a threat)
+    fallen: {
+      death: 1, ...(minor ? { minorLethal: 1 } : {}), ...(dizzy ? { vortexDeath: 1 } : {}), ...(chivalry ? { chivalryDeath: 1 } : {}), ...(fair ? { fairLoss: 1 } : {}), ...(MAGIC_SOURCES.includes(source) ? { magicDeath: 1 } : {}),
+      ...(decisive && killerId && killerId !== victimId ? { matchDecided: 1 } : {}),
+      ...(committed ? { committedDeath: 1 } : {}),
+      ...(pose?.back ? { fellBack: 1 } : {}), ...(pose?.skyward ? { fellSkyward: 1 } : {}), ...(pose?.inconvenient ? { restingBadly: 1 } : {}),
+      ...(doomCut ? { doomInterrupted: 1 } : {}),
+    },
     // (planFailed: felled waiting on a plan he had just announced: "Wait, wait!!...")
     facts: [overkill && 'overkill', decisive && 'decisive', interrupted && 'interrupted', planFailed && 'planFailed'].filter(Boolean),
     victor: killerId && killerId !== victimId ? victorTags({ source, moment }) : null,
@@ -203,6 +211,9 @@ function victorTags({ source, moment = {} }) {
     ...(moment.rushed ? { rushedKill: 1 } : {}),
     ...(moment.leader ? { leaderFelled: 1 } : {}),
     ...(moment.streak === 3 ? { killStreak3: 1 } : {}),
+    // (the foe who had just left him nearly dead; one each has felled the other again and again this match)
+    ...(moment.avenged ? { avengedLow: 1 } : {}),
+    ...(moment.rival ? { rivalFelled: 1 } : {}),
   };
 }
 
@@ -329,6 +340,23 @@ export class VoiceDirector {
   newLife(speaker = null) {
     if (speaker === null) this.thisLife.clear();
     for (const key of [...this.thisLife.keys()]) if (key.startsWith(`${speaker}:`)) this.thisLife.delete(key);
+  }
+
+  /** The line `speaker` is saying at `now` (its id), or null. */
+  saying(speaker, now) {
+    const own = this.speaking.get(speaker);
+    return own && now < own.until ? own.line : null;
+  }
+
+  /**
+   * Whether `speaker` could begin a line of his own at `now` without waiting on anyone: his mouth free, and nobody
+   * else's sentence being heard. For a scene's line weighed once (voiceScenes.mjs): it is weighed only when it could
+   * be said, so its one roll is never spent on a mouth that was busy.
+   */
+  canBegin(speaker, now) {
+    if (this.saying(speaker, now)) return false;
+    if (now - (this.lastSpoke.get(speaker) ?? -Infinity) < MOUTH_BUSY_SEC) return false;
+    return !(this.sentence && now < this.sentence.until && this.sentence.speaker !== speaker);
   }
 
   /** How long ago `speaker` last said a sentence (Infinity if never): for lines that answer one. */

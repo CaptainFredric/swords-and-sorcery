@@ -209,7 +209,7 @@ test('the Blazing Vortex: no cry as it is lit, its noise once as it takes hold, 
   const { linesFor } = await import('./voiceLines.mjs');
   assert.equal(cryMoment('vortex'), null, 'lit without a word (never Sunder\'s cry)');
   assert.equal(cryMoment('sunder'), 'sunderInvoked');
-  assert.deepEqual(linesFor('k', ['vortexSpin']).map((say) => say.line), ['vortexUse']);
+  assert.deepEqual(linesFor('k', ['vortexSpin']).map((say) => say.line), ['distanceAdvice', 'vortexUse']);
   assert.ok(VOICE_LINES.vortexUse.chance < 1 && VOICE_LINES.vortexUse.cooldown >= 30, 'now and then, not every time');
   // felled spinning (or still dizzy): the host marks the fall, and his excuse comes before an ordinary defeat
   assert.equal(deathMoment({ victimId: 'v', killerId: 'k', source: 'sword', dizzy: true }).fallen.vortexDeath, 1);
