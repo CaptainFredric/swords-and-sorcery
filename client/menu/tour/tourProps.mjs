@@ -241,6 +241,16 @@ export class Debris {
     this.pieces = merged;
   }
 
+  /** Take out the pieces `which(mesh)` says (gathered up: the ice in the slush, scooped with it). */
+  remove(which) {
+    this.pieces = this.pieces.filter((piece) => {
+      if (!which(piece.mesh)) return true;
+      this.scene.remove(piece.mesh);
+      piece.mesh.geometry.dispose();
+      return false;
+    });
+  }
+
   clear() {
     for (const piece of this.pieces) {
       this.scene.remove(piece.mesh);
@@ -475,6 +485,10 @@ export function iceCrust(instance, random = Math.random) {
         crystal.scale.setScalar(Math.max(1e-3, u * u * (3 - 2 * u)));
       }
     },
+    /** The crystals that fell, gathered up off the ground with the slush (none left lying). */
+    collect(debris) {
+      debris.remove((mesh) => mesh.material === material);
+    },
     shed(debris, rand = Math.random) {
       for (const crystal of crystals) {
         if (!crystal.parent?.isBone) continue;
@@ -560,15 +574,19 @@ export function slushPile(scene, { at, tint = [1, 1, 1], random = Math.random } 
   let taken = 0;
   const shape = () => {
     const g = Math.max(0.001, grown);
-    const left = 1 - 0.16 * taken;
-    mound.scale.set(g * left, 0.44 * g * left * (0.75 + 0.25 * g), g * left);
-    puddle.scale.setScalar(Math.max(0.001, Math.min(1, grown * 1.3)));
-    chunks.forEach((chunk, i) => { chunk.visible = grown > 0.35 + (i % 4) * 0.12; });
+    // (scooped: it goes down and in, a vesselful at a time, until there is nothing of it but a damp patch)
+    const left = Math.max(0, 1 - taken);
+    const spread = Math.sqrt(left);
+    mound.visible = left > 0.01;
+    mound.scale.set(Math.max(0.001, g * spread), Math.max(0.001, 0.44 * g * left * (0.75 + 0.25 * g)), Math.max(0.001, g * spread));
+    puddle.scale.setScalar(Math.max(0.001, Math.min(1, grown * 1.3) * (1 - 0.45 * taken)));
+    chunks.forEach((chunk, i) => { chunk.visible = grown > 0.35 + (i % 4) * 0.12 && taken < (i + 1) / chunks.length; });
   };
   shape();
   return {
     group,
     grow(amount) { grown = Math.max(0, Math.min(1, amount)); shape(); },
+    /** How much of it has been scooped up (0..1: at 1, none of it is left). */
     scoop(amount) { taken = Math.max(0, Math.min(1, amount)); shape(); },
     splash(point) {
       const patch = new THREE.Mesh(new THREE.CircleGeometry(0.22 + random() * 0.08, 18), puddleMaterial);
@@ -643,6 +661,10 @@ export function vesselProp(scene, { kind = 'cup', tint = [1, 1, 1] } = {}) {
   const contents = new THREE.Mesh(new THREE.CircleGeometry(1, 18), material({ color: new THREE.Color(0xe2ecf1).lerp(new THREE.Color(0xe2ecf1).multiply(tone), 0.55), roughness: 0.3 }));
   contents.rotation.x = -Math.PI / 2;
   group.add(contents);
+  // fuller than full: the slush heaped over the rim
+  const heaped = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 6, 0, Math.PI * 2, 0, Math.PI / 2), contents.material);
+  heaped.position.y = size.height / 2;
+  group.add(heaped);
   scene.add(group);
   return {
     group,
@@ -651,6 +673,9 @@ export function vesselProp(scene, { kind = 'cup', tint = [1, 1, 1] } = {}) {
       group.visible = visible;
       if (position) group.position.copy(position);
       if (quaternion) group.quaternion.copy(quaternion);
+      const over = Math.max(0, fill - 1);
+      heaped.visible = over > 0.01;
+      heaped.scale.set(size.rim * 0.97, Math.max(0.001, Math.min(0.1, over * 0.6)), size.rim * 0.97);
       const f = Math.max(0, Math.min(1, fill));
       contents.visible = f > 0.02;
       const y = -size.height / 2 + 0.01 + f * size.height * 0.82;

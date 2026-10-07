@@ -310,8 +310,8 @@ const WHITE_FLAG = makeWhiteFlag();
 // ---------------------------------------------------------------------------------------------------------------
 // 4. The Slush: a short exchange; he freezes his rival solid with Frostfire, regards his work a moment, and puts an
 // ordinary Fireball into the statue, which melts down into a heap of slush. He produces a vessel from his belt on his
-// way over, scoops some up, drinks it, and gives his verdict; puts the vessel away, and walks back to the path. None
-// of it is remarked on. The drinking is the Poor Taste take itself: its slurp, two small smacks, a considered "Ahhh",
+// way over and scoops up all of it in one quick, big sweep (his vessel heaped over the rim), drinks it, and gives his
+// verdict; puts the vessel away, and walks back to the path. None of it is remarked on. The drinking is the Poor Taste take itself: its slurp, two small smacks, a considered "Ahhh",
 // and then the words (SLUSH.take, in seconds into it), so the take begins as the vessel reaches his visor.
 //
 // What varies from round to round: the vessel (a pewter tankard or a small wooden pail), who presses the opening
@@ -327,6 +327,10 @@ export const SLUSH = Object.freeze({
   fireballAt: 4.68,     // the Fireball lands...
   melt: Object.freeze([4.72, 5.77]),
   goneAt: 5.8,          // ...and nothing of him is left but the slush
+  // the scoop: one quick, big sweep through the heap, crouched over it, that takes all of it (the vessel heaped over
+  // its rim, `heaped` full)
+  sweep: Object.freeze([6.88, 7.0]),
+  heaped: 1.25,
   drinkAt: 7.7,         // the take begins (its slurp is the drink)
   // the take, in its own seconds: the slurp, the smacks, the "Ahhh" and the words (client/assets/voice/poor-taste-1)
   take: Object.freeze({ slurp: Object.freeze([0.08, 1.5]), smacks: Object.freeze([2.02, 2.56]), ahh: Object.freeze([2.92, 3.9]), words: Object.freeze([4.4, 5.5]) }),
@@ -344,7 +348,7 @@ export function makeSlush({ vessel = 'cup', opening = 'charge', drink = 'quaff',
   const take = (at) => S.drinkAt + at;
   const pour = finish === 'dregs';
   // the vessel away at his hip (after the dregs, if he tips them out), then back to the path
-  const away = pour ? [13.8, 14.05] : [13.3, 13.6];
+  const away = pour ? [take(6.1), take(6.35)] : [take(5.6), take(5.9)];
   const walk = [away[1], away[1] + 0.85];
   const duration = walk[1] + 0.1;
   const deep = drink === 'quaff';
@@ -365,7 +369,7 @@ export function makeSlush({ vessel = 'cup', opening = 'charge', drink = 'quaff',
       // walking back he faces the path, and turns along it as he gets there
       const drinking = (this.side ?? 1) > 0 ? -1.1 : -2.7;
       const heading = keyed([
-        [0, Math.PI / 2], [0.35, 0], [7.3, 0], [7.6, drinking], [walk[0], drinking], [walk[0] + 0.3, -2.75], [walk[1] - 0.2, -2.75], [duration, -1.5 * Math.PI],
+        [0, Math.PI / 2], [0.35, 0], [take(-0.4), 0], [take(-0.1), drinking], [walk[0], drinking], [walk[0] + 0.3, -2.75], [walk[1] - 0.2, -2.75], [duration, -1.5 * Math.PI],
       ], t);
       const press = opening === 'press';
       const clip = clipAt([
@@ -388,7 +392,7 @@ export function makeSlush({ vessel = 'cup', opening = 'charge', drink = 'quaff',
         [0.5, 0], ...(press ? [[0.75, 0.25], [1.1, 0.25], [1.35, 0]] : []),
         [1.95, 0], [2.35, S.backTo], [6.0, S.backTo], [6.5, S.scoopFrom], [walk[0], S.scoopFrom], [walk[1], 0],
       ], t);
-      // the scoop: down quickly, a bend over the heap, and straight back up
+      // the scoop: down quickly, a bend over the heap, one sweep through it, and straight back up
       const down = between(t, 6.55, 6.85) * (1 - between(t, 7.05, 7.35));
       const crouch = 0.8 * down;
       const rotations = [];
@@ -414,19 +418,21 @@ export function makeSlush({ vessel = 'cup', opening = 'charge', drink = 'quaff',
       return { u, v: 0, lift: 0, heading, ...clip, crouch, rotations, spell: this.hand(t), sword: null, vessel: this.vessel(t), near: this.near(t) };
     },
     // the vessel in his spell hand: where the hand holds it (the knight's root space), and how it is carried:
-    // { shown, tilt (radians: + tips its rim toward him, - away from him), fill (0..1) }
+    // { shown, tilt (radians: + tips its rim toward him, - away from him), fill (0..1, over 1 heaped over the rim),
+    // scooped (0..1: how much of the heap it has taken: all of it, in the one sweep) }
     vessel(t) {
       const shown = t >= 5.98 && t < away[1] - 0.05;
-      if (!shown) return { kind: vessel, shown: false, tilt: 0, fill: 0 };
-      // dipped into the heap rim first, then up; tipped back to his visor as he drinks; tipped out (the dregs)
-      const dip = between(t, 6.8, 6.92) * (1 - between(t, 6.98, 7.15));
+      const scooped = between(t, S.sweep[0], S.sweep[1]);
+      if (!shown) return { kind: vessel, shown: false, tilt: 0, fill: 0, scooped };
+      // in rim first and swept through the heap, then up; tipped back to his visor as he drinks; tipped out (the
+      // dregs). Full: heaped over its rim, all of the heap in it
+      const dip = between(t, S.sweep[0] - 0.1, S.sweep[0] - 0.02) * (1 - between(t, S.sweep[1], S.sweep[1] + 0.12));
       const sup = between(t, take(0.0), take(0.45)) * (1 - between(t, take(S.take.slurp[1] - 0.05), take(S.take.slurp[1] + 0.3)));
       const drained = between(t, take(0.1), take(S.take.slurp[1]));
-      const tipOut = pour ? between(t, 13.45, 13.65) * (1 - between(t, 13.7, 13.85)) : 0;
+      const tipOut = pour ? between(t, take(5.75), take(5.95)) * (1 - between(t, take(6.0), take(6.15))) : 0;
       const tilt = -1.35 * dip + (deep ? 2.1 : 1.45) * sup - 2.3 * tipOut;
-      const filled = between(t, 6.93, 7.0);
-      const fill = filled * (1 - drained * (deep ? 0.85 : 0.55)) * (1 - between(t, 13.5, 13.7) * (pour ? 1 : 0));
-      return { kind: vessel, shown, tilt, fill };
+      const fill = S.heaped * scooped * (1 - drained * (deep ? 0.85 : 0.55)) * (1 - between(t, take(5.8), take(6.0)) * (pour ? 1 : 0));
+      return { kind: vessel, shown, tilt, fill, scooped };
     },
     // the spell hand: to the belt for the vessel, out in front with it, down into the heap, up to the visor, down to
     // the chest for the tasting, out to the side for the dregs, back to the belt
@@ -435,10 +441,12 @@ export function makeSlush({ vessel = 'cup', opening = 'charge', drink = 'quaff',
       const keys = [
         [5.82, [-0.3, 1.0, -0.05]], [5.96, [-0.32, 0.98, 0.04]],
         [6.2, [-0.24, 1.08, -0.34]], [6.55, [-0.22, 1.08, -0.38]],
-        [6.85, [-0.16, 0.34, -0.62]], [6.95, [-0.14, 0.26, -0.66]], [7.2, [-0.18, 0.95, -0.5]],
+        // in at the far side of the heap and swept right through it, low, then up with all of it
+        [S.sweep[0] - 0.04, [-0.36, 0.38, -0.76]], [(S.sweep[0] + S.sweep[1]) / 2, [-0.2, 0.22, -0.68]], [S.sweep[1], [-0.0, 0.28, -0.56]],
+        [7.2, [-0.18, 0.95, -0.5]],
         [take(-0.3), [-0.06, 1.42, -0.36]], [take(0.05), [-0.03, 1.5, -0.27]], [take(S.take.slurp[1]), [-0.03, 1.5, -0.27]],
         [take(S.take.slurp[1] + 0.35), [-0.14, 1.2, -0.38]],
-        ...(pour ? [[13.4, [-0.14, 1.2, -0.38]], [13.6, [-0.55, 1.12, -0.32]], [13.8, [-0.5, 1.1, -0.3]]] : [[away[0], [-0.14, 1.2, -0.38]]]),
+        ...(pour ? [[take(5.7), [-0.14, 1.2, -0.38]], [take(5.9), [-0.55, 1.12, -0.32]], [take(6.1), [-0.5, 1.1, -0.3]]] : [[away[0], [-0.14, 1.2, -0.38]]]),
         [away[1], [-0.32, 0.98, 0.04]],
       ];
       const reach = between(t, 5.82, 5.9) * (1 - between(t, away[1], walk[0] + 0.1));
@@ -484,10 +492,11 @@ export function makeSlush({ vessel = 'cup', opening = 'charge', drink = 'quaff',
       { at: S.melt[0], type: 'melt', on: 'rival', seconds: S.melt[1] - S.melt[0] },
       { at: 4.95, type: 'slush', on: 'rival' },
       { at: 5.98, type: 'vessel', by: 'hero', kind: vessel },
-      { at: 6.95, type: 'scoop', by: 'hero', kind: vessel },
+      // (the one sweep takes all of it, and the ice that fell in it; the heap goes as the vessel goes through it)
+      { at: (S.sweep[0] + S.sweep[1]) / 2, type: 'scoop', by: 'hero', kind: vessel, take: 1, last: true },
       // the drink, and the verdict: the moment the vessel reaches his visor (the take is the drinking)
       { at: S.drinkAt, type: 'voice', moment: 'slushEnd', chance: 1 },
-      ...(pour ? [{ at: 13.6, type: 'dregs', by: 'hero', kind: vessel }] : []),
+      ...(pour ? [{ at: take(5.9), type: 'dregs', by: 'hero', kind: vessel }] : []),
       { at: away[1] - 0.05, type: 'stow', by: 'hero', kind: vessel },
     ],
   };

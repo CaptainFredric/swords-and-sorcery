@@ -382,11 +382,15 @@ export function slushCollapseRecipe(rand = Math.random) {
   return { layers, reverb: 0.22 };
 }
 
-/** A vesselful scooped up: its rim scraped through the slush (pewter rings a little; a pail knocks) and a wet gather. */
-export function scoopRecipe(rand = Math.random, { kind = 'cup' } = {}) {
+/**
+ * A vesselful scooped up: its rim scraped through the slush (brass rings a little; a pail knocks) and a wet gather.
+ * last: the last of it scraped up off the ground, a longer scrape after.
+ */
+export function scoopRecipe(rand = Math.random, { kind = 'cup', last = false } = {}) {
   const pewter = kind !== 'pail';
   return {
     layers: [
+      ...(last ? [{ type: 'noise', filter: 'bandpass', freq: pewter ? 2100 : 1100, q: 3, sweepTo: pewter ? 2900 : 1500, at: 0.12, attack: 0.03, decay: 0.22, gain: 0.12 }] : []),
       { type: 'noise', filter: 'bandpass', freq: pewter ? 2600 : 1300, q: 2.2, sweepTo: pewter ? 1700 : 900, attack: 0.02, decay: 0.2, gain: 0.16 },
       { type: 'noise', filter: 'lowpass', freq: 650, q: 1.1, at: 0.05, attack: 0.02, decay: 0.2, gain: 0.26 },
       { type: 'noise', filter: 'bandpass', freq: 1200, q: 2.5, sweepTo: 800, at: 0.15, attack: 0.01, decay: 0.12, gain: 0.12 },

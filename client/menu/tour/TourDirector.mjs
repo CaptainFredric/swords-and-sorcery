@@ -307,7 +307,10 @@ export class TourDirector {
     this.heroYaw = root.rotation.y;
     instance.animator.apply(plan, dt);
     this.#footfall('hero', instance, root.position, plan.clip);
-    this.#carryVessel(moment.phase === 'fight' ? this.fights[moment.fight].hero(moment.fightTimes[moment.fight]).vessel : null);
+    const vessel = moment.phase === 'fight' ? this.fights[moment.fight].hero(moment.fightTimes[moment.fight]).vessel : null;
+    this.#carryVessel(vessel);
+    // (the heap goes as the vessel sweeps through it)
+    if (Number.isFinite(vessel?.scooped)) this.rivals[moment.fight]?.pile?.scoop(vessel.scooped);
   }
 
   // the Slush's vessel, held against his spell hand's palm, upright but for how the script tips it (toward his visor
@@ -536,8 +539,10 @@ export class TourDirector {
         break;
       case 'scoop':
         if (rival?.pile) {
-          rival.pile.scoop(1);
-          this.#play(scoopRecipe(Math.random, { kind: cue.kind }), rival.pile.group.position, 0.6);
+          // all of it in the one sweep (the heap goes as the vessel goes through it: #poseHero), and the ice that fell
+          // in it gathered up too
+          if (cue.last) rival.crust?.collect(this.debris);
+          this.#play(scoopRecipe(Math.random, { kind: cue.kind, last: Boolean(cue.last) }), rival.pile.group.position, 0.65);
         }
         break;
       case 'dregs': {

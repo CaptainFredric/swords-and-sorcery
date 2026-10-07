@@ -79,6 +79,20 @@ test('he melts down into slush that stays to be scooped: no death, no corpse, a 
     assert.ok(SLUSH.meet - SLUSH.scoopFrom > 0.6 && SLUSH.meet - SLUSH.scoopFrom < 1.0);
     assert.ok(fight.hero(scoop).crouch > 0.6, 'down to it');
     assert.ok(fight.hero(scoop).spell.target.wrist[1] < 0.35, 'the vessel down in the heap');
+    // and he takes all of it, in one quick, big sweep right through the heap
+    const [sweepFrom, sweepTo] = SLUSH.sweep;
+    assert.ok(sweepTo - sweepFrom <= 0.2, 'quick');
+    assert.equal(fight.hero(sweepFrom - 0.01).vessel.scooped, 0);
+    assert.ok(fight.hero((sweepFrom + sweepTo) / 2).vessel.scooped > 0.3 && fight.hero((sweepFrom + sweepTo) / 2).vessel.scooped < 0.7, 'the heap going as he goes through it');
+    assert.equal(fight.hero(sweepTo).vessel.scooped, 1, 'all of it');
+    assert.equal(fight.hero(fight.duration).vessel.scooped, 1, 'and none of it comes back');
+    const across = Math.abs(fight.hero(sweepTo).spell.target.wrist[0] - fight.hero(sweepFrom - 0.04).spell.target.wrist[0]);
+    assert.ok(across > 0.25, 'swept across the heap, not dipped');
+    for (let t = sweepFrom; t <= sweepTo; t += 0.02) {
+      assert.ok(fight.hero(t).crouch > 0.6, `${fight.key}: down over it at ${t.toFixed(2)}`);
+      assert.ok(fight.hero(t).spell.target.wrist[1] < 0.4, `${fight.key}: low through it at ${t.toFixed(2)}`);
+    }
+    assert.deepEqual(fight.cues.filter((cue) => cue.type === 'scoop').map((cue) => [cue.take, cue.last]), [[1, true]], 'one scoop');
   }
 });
 
@@ -97,8 +111,8 @@ test('the vessel: out of his belt as he hurries over, filled at the scoop, at hi
     const speed = (a, b) => Math.abs(fight.hero(b).u - fight.hero(a).u) / (b - a);
     assert.ok(speed(6.1, 6.4) > speed(1.95, 2.35), 'faster than any step of the fight');
     assert.ok(fight.hero(scoop - 0.1).vessel.fill < 0.05, 'empty before');
-    assert.ok(fight.hero(scoop + 0.15).vessel.fill > 0.9, 'full after');
-    assert.ok(fight.hero(scoop - 0.05).vessel.tilt < -0.8, 'dipped in, rim first');
+    assert.ok(fight.hero(SLUSH.sweep[1] + 0.1).vessel.fill > 1.1, 'heaped over the rim with all of it');
+    assert.ok(fight.hero(SLUSH.sweep[0]).vessel.tilt < -0.8, 'in rim first');
     // the drink: at his visor, tipped back to him, his head back, as the take's slurp runs
     const sip = SLUSH.drinkAt + 0.8;
     assert.ok(fight.hero(sip).spell.target.wrist[1] > 1.4, 'up at his visor');
@@ -138,7 +152,7 @@ test('"Poor taste." belongs to this and nothing else: live, raised only as he dr
     assert.equal(voiced.length, 1);
     assert.equal(voiced[0].at, SLUSH.drinkAt);
     assert.equal(voiced[0].chance, 1);
-    assert.ok(voiced[0].at > firstAt(fight, (cue) => cue.type === 'scoop'), 'after the scoop');
+    assert.ok(voiced[0].at > Math.max(...fight.cues.filter((cue) => cue.type === 'scoop').map((cue) => cue.at)), 'after the last scoop');
     assert.ok(fight.hero(voiced[0].at).vessel.fill > 0.9, 'with the slush in the vessel');
   }
   // its words come 4.4 s into the take (after the slurp, the smacks and the "Ahhh"), and are written out only then
@@ -154,6 +168,16 @@ test('"Poor taste." belongs to this and nothing else: live, raised only as he dr
   assert.match(scene, /this\.tour\.onCaption = \(\{ line, delay, seconds, beats \}\) => \{\s+const plan = captionPlan\(line, \{ beats \}\);/);
   assert.match(scene, /this\.tour\.onCaptionCut = \(\) => this\.caption\.cut\(\);/);
   assert.match(source('../../main.mjs'), /menuScene\?\.setSubtitles\(view\.subtitles\);/);
+});
+
+test('the heap is scooped away to nothing (a damp patch where it was), and the ice that fell in it with it', () => {
+  const director = source('./TourDirector.mjs');
+  assert.match(director, /if \(Number\.isFinite\(vessel\?\.scooped\)\) this\.rivals\[moment\.fight\]\?\.pile\?\.scoop\(vessel\.scooped\);/, 'it goes as the vessel goes through it');
+  assert.match(director, /if \(cue\.last\) rival\.crust\?\.collect\(this\.debris\);/);
+  const props = source('./tourProps.mjs');
+  assert.match(props, /const left = Math\.max\(0, 1 - taken\);[\s\S]*?mound\.visible = left > 0\.01;/, 'the mound goes entirely');
+  assert.match(props, /collect\(debris\) \{\s+debris\.remove\(\(mesh\) => mesh\.material === material\);/, 'its crystals off the ground');
+  assert.match(props, /heaped\.visible = over > 0\.01;/, 'the vessel heaped over its rim');
 });
 
 test('everything the Slush leaves is undone: between rounds, on leaving the front door, and when the menu goes', () => {
