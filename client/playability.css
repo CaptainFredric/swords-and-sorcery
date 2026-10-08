@@ -305,3 +305,17 @@
 /* the front door's: what he says out on his round, under the fight (right of the banner, where it is framed) */
 .subtitle.menu-caption { left: 68%; bottom: 9%; z-index: 3; }
 .touch-ui .subtitle.menu-caption { left: 70%; bottom: calc(var(--safe-b, 0px) + 12px); }
+/* the defeat screen's: what he says of the lost match, in the medallion's place at the head of the card (the medallion
+   gives way while he says it; the two share a cell, so nothing on the screen moves). On a touch screen, where the
+   medallion is not shown, at the foot of the view as in the arena */
+.end-medallion { grid-row: 1; grid-column: 1; transition: opacity .18s ease; }
+.subtitle.end-caption { position: relative; left: auto; bottom: auto; grid-row: 1; grid-column: 1; width: auto !important; max-width: min(600px, 86cqw); transform: translateY(4px); z-index: 1; }
+.subtitle.end-caption.show { transform: none; }
+.end-screen:has(.end-caption.show) .end-medallion { opacity: 0; }
+.touch-ui .subtitle.end-caption { position: fixed; left: 50%; bottom: calc(var(--safe-b, 0px) + 12px); grid-row: auto; grid-column: auto; transform: translate(-50%, 4px); }
+.touch-ui .subtitle.end-caption.show { transform: translate(-50%, 0); }
+/* (and wherever the medallion is put away for want of height: mobile.css) */
+@container app (max-height: 500px) {
+  .subtitle.end-caption { position: fixed; left: 50%; bottom: calc(var(--safe-b, 0px) + 12px); grid-row: auto; grid-column: auto; transform: translate(-50%, 4px); }
+  .subtitle.end-caption.show { transform: translate(-50%, 0); }
+}

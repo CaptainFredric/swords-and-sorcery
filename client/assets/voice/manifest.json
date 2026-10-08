@@ -23,6 +23,16 @@
         "seconds": 3.22
       }
     ],
+    "accreditedVictory": [
+      {
+        "file": "accredited-victory-1",
+        "seconds": 5.14,
+        "beats": [
+          0.0,
+          3.26
+        ]
+      }
+    ],
     "almostThere": [
       {
         "file": "almost-there-1",
@@ -84,6 +94,16 @@
         "seconds": 2.2
       }
     ],
+    "briefNap": [
+      {
+        "file": "brief-nap-1",
+        "seconds": 1.96
+      },
+      {
+        "file": "brief-nap-2",
+        "seconds": 1.0
+      }
+    ],
     "chargeDefeat": [
       {
         "file": "charge-defeat-1",
@@ -102,10 +122,26 @@
         "seconds": 0.77
       }
     ],
+    "comeback": [
+      {
+        "file": "comeback-1",
+        "seconds": 1.8
+      },
+      {
+        "file": "comeback-2",
+        "seconds": 0.83
+      }
+    ],
     "constitution": [
       {
         "file": "constitution-1",
         "seconds": 2.1
+      }
+    ],
+    "continueToPass": [
+      {
+        "file": "continue-to-pass-1",
+        "seconds": 1.86
       }
     ],
     "death": [
@@ -132,6 +168,16 @@
       {
         "file": "deftly-dodge-1",
         "seconds": 0.98
+      }
+    ],
+    "deservedAnyway": [
+      {
+        "file": "deserved-anyway-1",
+        "seconds": 4.8,
+        "beats": [
+          0.0,
+          2.76
+        ]
       }
     ],
     "dismissed": [
@@ -164,10 +210,26 @@
         "seconds": 1.1
       }
     ],
+    "excuseYou": [
+      {
+        "file": "excuse-you-1",
+        "seconds": 1.27
+      }
+    ],
     "fairSquare": [
       {
         "file": "fair-square-1",
         "seconds": 2.85
+      }
+    ],
+    "feelBad": [
+      {
+        "file": "feel-bad-1",
+        "seconds": 4.52,
+        "beats": [
+          0.0,
+          3.73
+        ]
       }
     ],
     "fightAsMe": [
@@ -226,6 +288,16 @@
         "seconds": 1.8
       }
     ],
+    "goingEasy": [
+      {
+        "file": "going-easy-1",
+        "seconds": 4.21,
+        "beats": [
+          0.0,
+          1.5
+        ]
+      }
+    ],
     "hackSlash": [
       {
         "file": "hack-slash-1",
@@ -280,6 +352,16 @@
       {
         "file": "jump-3",
         "seconds": 0.5
+      }
+    ],
+    "justYou": [
+      {
+        "file": "just-you-1",
+        "seconds": 3.94,
+        "beats": [
+          0.0,
+          3.08
+        ]
       }
     ],
     "killTaunt": [
@@ -344,6 +426,16 @@
       {
         "file": "misaddressed-1",
         "seconds": 1.17
+      }
+    ],
+    "mustBePractice": [
+      {
+        "file": "must-be-practice-1",
+        "seconds": 2.87,
+        "beats": [
+          0.0,
+          1.48
+        ]
       }
     ],
     "neverThought": [
@@ -422,10 +514,30 @@
         ]
       }
     ],
+    "possessed": [
+      {
+        "file": "possessed-1",
+        "seconds": 6.3,
+        "beats": [
+          0.0,
+          1.68
+        ]
+      }
+    ],
     "preferNoPain": [
       {
         "file": "prefer-no-pain-1",
         "seconds": 3.23
+      }
+    ],
+    "realMatch": [
+      {
+        "file": "real-match-1",
+        "seconds": 5.33,
+        "beats": [
+          0.0,
+          3.32
+        ]
       }
     ],
     "rebuttal": [
@@ -466,6 +578,16 @@
       {
         "file": "scorch-mark-1",
         "seconds": 2.32
+      }
+    ],
+    "someError": [
+      {
+        "file": "some-error-1",
+        "seconds": 3.94,
+        "beats": [
+          0.0,
+          2.16
+        ]
       }
     ],
     "sorcery": [
@@ -534,6 +656,12 @@
       {
         "file": "steel-boast-1",
         "seconds": 2.39
+      }
+    ],
+    "steelOof": [
+      {
+        "file": "steel-oof-1",
+        "seconds": 0.67
       }
     ],
     "steelPolished": [
@@ -648,10 +776,22 @@
         "seconds": 5.65
       }
     ],
+    "thePrecursor": [
+      {
+        "file": "the-precursor-1",
+        "seconds": 3.9
+      }
+    ],
     "theSky": [
       {
         "file": "the-sky-1",
         "seconds": 3.18
+      }
+    ],
+    "theoreticalVictory": [
+      {
+        "file": "theoretical-victory-1",
+        "seconds": 7.01
       }
     ],
     "thinkAbout": [

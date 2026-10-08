@@ -158,7 +158,8 @@ export function worldImpactLines(event) {
  * minor: a very small blow proved enough (isMinorLethal), `interrupted` if it cut short something they were doing;
  * decisive: the fall lost the match; answer: it answers the squire's question (every line of the fallen that fits
  * is forced, those of one moment in a random order). moment: what made the kill (for the victor's line): { sunder,
- * knighthood (0, 1, or 2 for a high killing swing), gale, steel, clean, subpar, practice, messy }.
+ * knighthood (0, 1, or 2 for a high killing swing), gale, steel, clean, subpar, practice, messy, passing, thirdParty,
+ * decisive }.
  */
 export function deathLines(fall, rand = Math.random) {
   const moment = deathMoment(fall);
@@ -174,18 +175,20 @@ export function deathLines(fall, rand = Math.random) {
  * A fall as the moments it is (their tags, for linesFor): { fallen, facts } for the one who fell, and { victor,
  * victorFacts } for whoever felled them (victor: null when nobody did, or they fell by their own doing).
  */
-export function deathMoment({ victimId, killerId, source, overkill = false, minor = false, interrupted = false, decisive = false, dizzy = false, planFailed = false, chivalry = false, fair = false, committed = false, pose = null, doomCut = false, moment = {} }) {
+export function deathMoment({ victimId, killerId, source, overkill = false, minor = false, interrupted = false, decisive = false, dizzy = false, planFailed = false, chivalry = false, fair = false, committed = false, pose = null, doomCut = false, nap = false, moment = {} }) {
   return {
     // (dizzy: felled spinning in a Blazing Vortex, or in the moment after it)
     // (chivalry: felled during Spells & Chivalry; fair: by the sword, after a real exchange of blows with the victor)
     // (decisive: the blow that won the match against him; committed: felled mid-attack, dashing, or charging a foe;
-    // pose: how he lies (deathPose in voiceMoments.mjs); doomCut: felled while spelling a threat)
+    // pose: how he lies (deathPose in voiceMoments.mjs); doomCut: felled while spelling a threat; nap: his return is to
+    // come, in a match that goes on)
     fallen: {
       death: 1, ...(minor ? { minorLethal: 1 } : {}), ...(dizzy ? { vortexDeath: 1 } : {}), ...(chivalry ? { chivalryDeath: 1 } : {}), ...(fair ? { fairLoss: 1 } : {}), ...(MAGIC_SOURCES.includes(source) ? { magicDeath: 1 } : {}),
       ...(decisive && killerId && killerId !== victimId ? { matchDecided: 1 } : {}),
       ...(committed ? { committedDeath: 1 } : {}),
       ...(pose?.back ? { fellBack: 1 } : {}), ...(pose?.skyward ? { fellSkyward: 1 } : {}), ...(pose?.inconvenient ? { restingBadly: 1 } : {}),
       ...(doomCut ? { doomInterrupted: 1 } : {}),
+      ...(nap ? { napFall: 1 } : {}),
     },
     // (planFailed: felled waiting on a plan he had just announced: "Wait, wait!!...")
     facts: [overkill && 'overkill', decisive && 'decisive', interrupted && 'interrupted', planFailed && 'planFailed'].filter(Boolean),
@@ -214,6 +217,10 @@ function victorTags({ source, moment = {} }) {
     // (the foe who had just left him nearly dead; one each has felled the other again and again this match)
     ...(moment.avenged ? { avengedLow: 1 } : {}),
     ...(moment.rival ? { rivalFelled: 1 } : {}),
+    // (a shot at a foe running past him; at one busy with someone else; a fair fight won, the match going on)
+    ...(moment.passing ? { passingKill: 1 } : {}),
+    ...(moment.thirdParty ? { thirdPartyKill: 1 } : {}),
+    ...(moment.fair && !moment.decisive ? { fairDuelKill: 1 } : {}),
   };
 }
 
