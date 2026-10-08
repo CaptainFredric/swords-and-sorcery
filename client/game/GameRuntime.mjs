@@ -38,7 +38,7 @@ import { UltimateLines, cryMoment, gauntletMoment, hearingFor, voicePlacement, v
 import { MOMENTS, PROJECTILES, VoiceMoments, deathPose } from './sound/voiceMoments.mjs';
 import { VoiceScenes } from './sound/voiceScenes.mjs';
 import { VoiceWatch } from './sound/voiceWatch.mjs';
-import { linesFor, voiceLine } from './sound/voiceLines.mjs';
+import { VOICE_TAGS, linesFor, voiceLine } from './sound/voiceLines.mjs';
 import { captionPlan } from '../ui/voiceLibrary.mjs';
 import { FOOTSTEPS, footfallsCrossed, footstepPlacement, footstepRecipe, surfaceAt, variantPicker } from './sound/footsteps.mjs';
 import { CombatHeat, matchClosing, nearestFoe } from './sound/combatHeat.mjs';
@@ -862,7 +862,7 @@ export class GameRuntime {
     if (!this.voice || !playerId) return false;
     // (his ultimate's one line for this activation, in turn: none other of it; that one, whatever its odds)
     if (ultimate) {
-      const verdict = this.ultimateLines.verdict(playerId, line, { cry: ultimate === 'cry' });
+      const verdict = this.ultimateLines.verdict(playerId, line);
       if (verdict === 'no') return false;
       if (verdict === 'force') force = true;
     }
@@ -1396,9 +1396,15 @@ export class GameRuntime {
 
   // a moment of an ultimate he is using (ULTIMATE_MOMENTS): the first said of its lines, if this activation has not had
   // its one line already
-  #sayUltimate(speaker, tags, ultimate = true) {
+  #sayUltimate(speaker, tags) {
     if (!this.voice || !speaker) return;
-    for (const say of this.moments.lines(speaker, tags)) if (this.#say(say.line, say.speaker, { ...say, ultimate })) break;
+    for (const say of this.moments.lines(speaker, tags)) if (this.#say(say.line, say.speaker, { ...say, ultimate: true })) break;
+  }
+
+  // an ultimate's cry as it is invoked, if this use's line is one of its cries (a cry: forced, cutting a lesser line)
+  #ultimateCry(speaker, cry, voice) {
+    if (!cry || !voice || !(voiceLine(voice)?.triggers?.[cry] > 0)) return;
+    this.#say(voice, speaker, { cry: true, delay: VOICE_TAGS[cry].delay ?? 0, ultimate: true });
   }
 
   // a moment a knight is in, by its tags (voiceLines.mjs: the lines subscribe to the moments): of the lines that
@@ -1462,8 +1468,8 @@ export class GameRuntime {
   // a knight braces into Sunder: the harness drawn tight, and the cry; mine names it
   #ultimateStart(event) {
     const me = event.playerId === this.socket.playerId;
-    // (a fresh activation: its one line, whichever of his ultimate's lines has the turn)
-    this.ultimateLines.begin(event.playerId, event.ultimate);
+    // (a fresh use: its one line, whichever of his ultimate's lines has the turn)
+    const voice = this.ultimateLines.begin(event.playerId, event.ultimate);
     // a Blazing Vortex is lit, not braced into: the breath drawn up into flame through its startup, and no cry
     if (event.ultimate === 'vortex') {
       this.#play(vortexIgniteRecipe(Math.random, { seconds: ULTIMATES.vortex.startupSec }), me ? null : this.#bodyPosition(event.playerId), me ? 0.9 : 0.7);
@@ -1480,7 +1486,7 @@ export class GameRuntime {
     }
     if (event.ultimate === 'chivalry') {
       const cry = cryMoment(event.ultimate);
-      if (cry) this.#sayUltimate(event.playerId, [cry], 'cry');
+      this.#ultimateCry(event.playerId, cry, voice);
       if (me) this.hud.flashText('SPELLS & CHIVALRY', 'chivalry', 1400);
       return;
     }
@@ -1490,9 +1496,10 @@ export class GameRuntime {
       this.weapon.brace(performance.now() / 1000 + (event.commitAt - this.socket.serverNow()));
       this.braceAskedAt = null;
     }
-    // its cry: most times its own, now and then MIGHT MAKES... KNIGHT! (voiceRules ULTIMATE_CRIES)
+    // its cry, when this use's line is one of its cries (Your integrity will not suffice!, or MIGHT MAKES... KNIGHT!, in
+    // turn: voiceRules ULTIMATE_VOICES)
     const cry = cryMoment(event.ultimate);
-    if (cry) this.#sayUltimate(event.playerId, [cry], 'cry');
+    this.#ultimateCry(event.playerId, cry, voice);
     if (me) {
       this.hud.flashText('SUNDER ALL THAT RUSTS', 'sunder', 1400);
       this.cameraKick = Math.max(this.cameraKick, 0.08);
