@@ -189,7 +189,7 @@ export class VoiceScenes {
     if (!sentence || sentence.state !== 'waiting') return;
     // (the one roll: the line's own odds and cooldown, as any line's; begun, it takes the voice, even from the cry
     // that called the Sunder)
-    const said = this.say(LINES.sentence, speaker, { part: 0, opening: true });
+    const said = this.say(LINES.sentence, speaker, { part: 0, opening: true, ultimate: true });
     sentence.state = said ? 'running' : 'over';
     sentence.index = said ? 1 : 0;
     sentence.lastAt = at;
@@ -206,7 +206,7 @@ export class VoiceScenes {
     if (this.heavy.get(speaker) === 'waiting' && (!sentence || sentence.state === 'over') && this.free(speaker)) {
       this.heavy.set(speaker, 'weighed');
       // (its own odds and cooldown; the cry's gap between sentences is the Sunder's own, not a reason to keep quiet)
-      this.say(LINES.heavy, speaker, { opening: true });
+      this.say(LINES.heavy, speaker, { opening: true, ultimate: true });
     }
     if (!sentence || sentence.state !== 'running') return;
     if (at - sentence.lastAt > SCENES.sunderSentence.graceSec) {
@@ -250,7 +250,7 @@ export class VoiceScenes {
     shown[half] = true;
     if (!shown.spell || !shown.sword || !this.free(speaker)) return;
     shown.weighed = true;
-    this.say(LINES.spellblade, speaker, { opening: true });
+    this.say(LINES.spellblade, speaker, { opening: true, ultimate: true });
   }
 
   // -------------------------------------------------------------------------------------------- that should stop you

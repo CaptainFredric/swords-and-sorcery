@@ -369,9 +369,12 @@ def loudness(x, sr, rms_db):
 #                                      eased, then back over 60 ms; made inside the chain's own pitch change
 #   { glide: [a, b], semitones }       the pitch starting this far off at a (eased in just before it) and gliding back
 #                                      to its own by b: a word's onset lifted into a swoop (or, negative, dropped)
+#   { shift: [a, b], semitones }       that stretch's pitch moved this far throughout, eased in and out: a word set
+#                                      higher (or, negative, deeper) than the rest of the line
 # Each may name its take (take: 2); the first otherwise.
 
 LIFT_RAMP = 0.03    # seconds a lift eases in and out over
+SHIFT_RAMP = 0.04   # seconds a shift eases in and out over
 GLIDE_IN = 0.03     # seconds a glide eases in over, before its start
 SPLICE_FADE = 0.008
 CUT_FADE = 0.012
@@ -395,6 +398,10 @@ def edit_take(x, sr, edits, timeline=None):
             s = np.clip((t - a) / max(b - a, 1e-3), 0, 1)
             into = np.clip((t - (a - GLIDE_IN)) / GLIDE_IN, 0, 1)
             bend += edit['semitones'] * (1 - s * s * (3 - 2 * s)) * into * into * (3 - 2 * into)
+        if 'shift' in edit:
+            a, b = edit['shift']
+            inside = np.clip(np.minimum(t - (a - SHIFT_RAMP), (b + SHIFT_RAMP) - t) / SHIFT_RAMP, 0, 1)
+            bend += edit['semitones'] * (0.5 - 0.5 * np.cos(np.pi * inside))
         if 'lift' in edit:
             a, b = edit['lift']
             inside = np.clip(np.minimum(t - (a - LIFT_RAMP), (b + LIFT_RAMP) - t) / LIFT_RAMP, 0, 1)

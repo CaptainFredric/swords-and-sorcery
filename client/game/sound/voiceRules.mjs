@@ -260,6 +260,43 @@ export function cryMoment(id) {
 // a speaker finishes one line before starting another
 export const MOUTH_BUSY_SEC = 0.8;
 
+// The moments that belong to an ultimate while it lasts: its cry, the word as it takes hold, the Vortex at full spin,
+// the Sunder sentence begun, the weight of the sword, the Spellblade's question. One activation, one of them: whichever
+// is said first is all that is said of it (so nothing cuts the cry, and nothing follows it).
+export const ULTIMATE_MOMENTS = Object.freeze(['sunderInvoked', 'chivalryInvoked', 'ultimateActive', 'vortexSpin', 'sunderSentence', 'sunderHeavy', 'chivalryShown', 'sunderSentenceKill']);
+
+/**
+ * One line for an ultimate: each knight's activation, from its beginning until it ends (or he falls), allows a single
+ * line said of it. begin/end the activation; allows(speaker): whether a line of it may still be said; said(speaker):
+ * one was. Pure, so it is tested.
+ */
+export class UltimateLines {
+  constructor() {
+    this.active = new Map();   // speaker -> { said }
+  }
+
+  begin(speaker) {
+    if (speaker) this.active.set(speaker, { said: false });
+  }
+
+  end(speaker) {
+    this.active.delete(speaker);
+  }
+
+  allows(speaker) {
+    return !this.active.get(speaker)?.said;
+  }
+
+  said(speaker) {
+    const activation = this.active.get(speaker);
+    if (activation) activation.said = true;
+  }
+
+  reset() {
+    this.active.clear();
+  }
+}
+
 export class VoiceDirector {
   constructor({ rand = Math.random } = {}) {
     this.rand = rand;
