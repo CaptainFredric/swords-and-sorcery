@@ -53,7 +53,21 @@ export const MOMENTS = Object.freeze({
   losingRun: Object.freeze({ falls: 3 }),
   // a chill worth remarking on: his Frostfire slowing a living foe at least this much (its full chill is 0.55)
   chill: Object.freeze({ slow: 0.35 }),
+  // a bad stretch's explanations (EXCUSES): once one is made, no other for this long (s): never a wall of excuses
+  excuses: Object.freeze({ apartSec: 300 }),
+  // a foe flailing at him: this many of the same foe's sword swings missing him (he the nearest, within the denied
+  // reach) within this long, none of theirs landing meanwhile; never the yard
+  flailing: Object.freeze({ count: 3, withinSec: 6 }),
+  // possessed: struck while clearly losing, this many falls into a run without a kill
+  possessed: Object.freeze({ falls: 2 }),
 });
+
+// The explanations a bad stretch can draw from him (their line ids): one of them, now and then, never two in one
+// collapse. "I shall quit..." (losingRun), the comeback (its opening), the real match, possession, going easy.
+export const EXCUSES = Object.freeze(['oneMoreDefeat', 'comeback', 'realMatch', 'possessed', 'goingEasy']);
+
+// what flies (a kill by one is a shot from where he stood, not a blade): the Fireball, the Frostfire, the gauntlet
+export const PROJECTILES = Object.freeze(['fireball', 'frostfire', 'gauntlet']);
 
 // How a knight lies once felled, for the lines about it: on the ground (not falling, not in the air), and fallen back
 // (the blow came from in front: from within `fromFront` of the way he faced), his eyes level or raised (`skyward`: the
@@ -112,6 +126,8 @@ export class VoiceMoments {
     this.felled = new Map();    // `${killer}>${victim}` -> how often this match
     this.fallsInARow = new Map(); // knight -> falls since their last kill
     this.matchPoints = new Set(); // knights whose match point has been raised this match
+    this.fellTo = new Map();    // knight -> who felled them in this run of falls, in order (a kill of their own ends it)
+    this.misses = new Map();    // `${swinger}>${target}` -> when the swinger's sword lately missed the target
     this.seen = new Map();      // tag -> how often its moment has been raised (for telling why a line is never heard)
   }
 
@@ -124,8 +140,11 @@ export class VoiceMoments {
     const groups = [];
     const other = Boolean(attackerId) && attackerId !== victimId;
     if (other) this.threats.set(victimId, { by: attackerId, at });
-    // (a sword that lands is no longer being denied)
-    if (other && source === 'sword') this.denials.delete(`${attackerId}>${victimId}`);
+    // (a sword that lands is no longer being denied, nor flailing)
+    if (other && source === 'sword') {
+      this.denials.delete(`${attackerId}>${victimId}`);
+      this.misses.delete(`${attackerId}>${victimId}`);
+    }
     // a fresh encounter: the first blow these two have traded this life, both still whole (a training dummy, who never
     // speaks, is no challenger: nothing is declared to one)
     let fresh = false;
@@ -186,7 +205,11 @@ export class VoiceMoments {
       // badly hurt but standing: his reserves (Sheathe in Steel having taken the blow makes them likelier)
       const low = other && event.health <= MOMENTS.survived.health && event.amount >= MOMENTS.survived.blow;
       const steel = low && ((event.steel ?? 0) > 0 || steeled(victimId, at));
-      groups.push(this.#lines(victimId, [miracle && 'miracle', steel && 'steelSave', stand && 'lastStand', face && 'losingFace', low && 'survivedLow', 'blowTaken']));
+      // clearly losing, deep in a run of falls: something else must be working his strings (unless he has lately
+      // explained himself some other way)
+      const possessed = other && event.health <= MOMENTS.losingFace.health && (this.fallsInARow.get(victimId) ?? 0) >= MOMENTS.possessed.falls
+        && !this.#excused(victimId, saidAgo);
+      groups.push(this.#lines(victimId, [miracle && 'miracle', steel && 'steelSave', possessed && 'possessedStretch', stand && 'lastStand', face && 'losingFace', low && 'survivedLow', 'blowTaken']));
     }
     return groups.filter((group) => group.length);
   }
@@ -198,6 +221,9 @@ export class VoiceMoments {
    * ago; pose: how he lies, deathPose; doomCut: he was spelling a threat).
    */
   death(event, { blow = null, knight = () => null, positionOf = () => null, practice = false, planFailed = false, extra = {} } = {}) {
+    // (extra, from the runtime's watch: passing, the fallen was sprinting across or past the one who shot them;
+    // thirdParty, the fallen was trading blows with someone else and was shot from outside that fight; nap, his return
+    // is to come and no comeback is under way)
     const { victimId, source, at } = event;
     const killerId = event.killerId && event.killerId !== victimId ? event.killerId : null;
     const victim = knight(victimId);
@@ -233,13 +259,20 @@ export class VoiceMoments {
       avenged: this.#avenges(killerId, victimId, at, killer),
       // a rival: each has felled the other again and again this match (this fall counted)
       rival: (this.felled.get(`${killerId}>${victimId}`) ?? 0) + 1 >= MOMENTS.rival.kills && (this.felled.get(`${victimId}>${killerId}`) ?? 0) >= MOMENTS.rival.kills,
+      // a shot, from where he stood: at a foe running past him, or at one busy with someone else
+      passing: PROJECTILES.includes(source) && Boolean(extra.passing),
+      thirdParty: PROJECTILES.includes(source) && Boolean(extra.thirdParty),
+      // the blow that wins him the match
+      decisive: Boolean(event.decisive),
     } : {};
     if (killerId) {
       this.streaks.set(killerId, moment.streak);
       this.felled.set(`${killerId}>${victimId}`, (this.felled.get(`${killerId}>${victimId}`) ?? 0) + 1);
       this.fallsInARow.set(killerId, 0);
+      this.fellTo.delete(killerId);
     }
     this.fallsInARow.set(victimId, (this.fallsInARow.get(victimId) ?? 0) + 1);
+    this.fellTo.set(victimId, [...(this.fellTo.get(victimId) ?? []), killerId]);
     const minor = Boolean(blow) && isMinorLethal({ ...blow, source });
     const interrupted = Boolean(victim && (victim.attackActive || victim.guarding || victim.sprinting || (victim.dashUntil ?? -Infinity) > at));
     const overkill = Boolean(blow) && isOverkill(blow);
@@ -248,6 +281,8 @@ export class VoiceMoments {
     const fall = deathMoment({
       victimId, killerId, source, overkill, minor, interrupted, decisive: Boolean(event.decisive), dizzy: Boolean(event.dizzy), planFailed,
       chivalry: Boolean(extra.chivalry), fair: Boolean(extra.fair), committed, pose: extra.pose ?? null, doomCut: Boolean(extra.doomCut), moment,
+      // (a nap: his return to come (never the fall that ends the match), and never the yard)
+      nap: Boolean(extra.nap) && !practice && !event.decisive && Number.isFinite(event.respawnAt) && event.respawnAt > at,
     });
     // (the squire's answer is forced: a line, never a grunt, and nobody talks over it)
     const fallen = this.#lines(victimId, fall.fallen, { facts: fall.facts, force: answer });
@@ -259,12 +294,42 @@ export class VoiceMoments {
   }
 
   /**
-   * A knight back on their feet (a `respawn`): after a run of falls without a kill of their own, a vow (once a run, as
-   * it reaches its length; a fall after that is simply another fall). Never in the Practice Yard.
+   * A knight back on their feet (a `respawn`), in a bad stretch: one explanation of it now and then, never two in one
+   * collapse (EXCUSES, MOMENTS.excuses). The same foe has felled him twice running (going easy); or a run of falls has
+   * reached its length (once a run: a fall after that is simply another fall): one foe every time (the real match), a
+   * comeback declared, or a vow. Never in the Practice Yard. saidAgo(speaker, line): how long ago he said it.
    */
-  respawn(event, { practice = false } = {}) {
-    if (practice || (this.fallsInARow.get(event.playerId) ?? 0) !== MOMENTS.losingRun.falls) return [];
-    return [this.#lines(event.playerId, ['losingRun'])].filter((group) => group.length);
+  respawn(event, { practice = false, saidAgo = () => Infinity } = {}) {
+    const id = event.playerId;
+    if (practice || !id || this.#excused(id, saidAgo)) return [];
+    const falls = this.fallsInARow.get(id) ?? 0;
+    const by = this.fellTo.get(id) ?? [];
+    const one = by.length === falls && Boolean(by[0]) && by.every((killer) => killer === by[0]);
+    const tags = [];
+    if (falls === 2 && one) tags.push('beatenAgain');
+    if (falls === MOMENTS.losingRun.falls) tags.push(one && 'losingRunToOne', 'comebackRun', 'losingRun');
+    return tags.length ? [this.#lines(id, tags)].filter((group) => group.length) : [];
+  }
+
+  /**
+   * A sword swung at nothing near `targetId` (a `swordMiss`, he the nearest foe to it): the same foe flailing at him
+   * again and again, landing nothing, is a moment of his (once it has come, the count begins again). Never the yard.
+   */
+  flailing(swingerId, targetId, at, { practice = false, knight = () => null } = {}) {
+    if (practice || !swingerId || !targetId || swingerId === targetId || knight(swingerId)?.actorKind === 'dummy') return [];
+    const key = `${swingerId}>${targetId}`;
+    const times = [...(this.misses.get(key) ?? []).filter((t) => at - t <= MOMENTS.flailing.withinSec), at];
+    if (times.length < MOMENTS.flailing.count) {
+      this.misses.set(key, times);
+      return [];
+    }
+    this.misses.delete(key);
+    return [this.#lines(targetId, ['foeFlailing'])];
+  }
+
+  // whether `id` has lately explained a bad stretch one way already (one of EXCUSES, within MOMENTS.excuses)
+  #excused(id, saidAgo) {
+    return EXCUSES.some((line) => saidAgo(id, line) <= MOMENTS.excuses.apartSec);
   }
 
   /** A gust caught knights (a `galeBlast`'s `affected`): the jibe, the thrown, and anyone it rescued. */
@@ -395,6 +460,8 @@ export class VoiceMoments {
     this.felled.clear();
     this.fallsInARow.clear();
     this.matchPoints.clear();
+    this.fellTo.clear();
+    this.misses.clear();
   }
 
   // 0, or 1 when the killer's blows on the fallen were mostly perfect and aimed high on the whole (2: and the killing
@@ -431,6 +498,7 @@ export class VoiceMoments {
     for (const pair of [...this.met]) if (pair.split('|').includes(id)) this.met.delete(pair);
     this.duelFoes.delete(id);
     for (const key of [...this.denials.keys()]) if (key.startsWith(`${id}>`) || key.endsWith(`>${id}`)) this.denials.delete(key);
+    for (const key of [...this.misses.keys()]) if (key.startsWith(`${id}>`) || key.endsWith(`>${id}`)) this.misses.delete(key);
     for (const [victim, threat] of [...this.threats]) if (threat.by === id) this.threats.delete(victim);
     for (const map of [this.strikes, this.gusts]) {
       for (const key of [...map.keys()]) if (key.endsWith(`>${id}`)) map.delete(key);

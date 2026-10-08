@@ -8,6 +8,9 @@
   "acceptSaint": [
     "accept-saint-1.mp3"
   ],
+  "accreditedVictory": [
+    "accredited-victory-1.mp3"
+  ],
   "almostThere": [
     "almost-there-1.mp3",
     "almost-there-2.mp3"
@@ -33,6 +36,10 @@
   "breakTaunt": [
     "recording-2-master.wav:14.2-17.04"
   ],
+  "briefNap": [
+    "brief-nap-1.mp3",
+    "brief-nap-2.mp3"
+  ],
   "chargeDefeat": [
     "charge-defeat-1.mp3"
   ],
@@ -42,8 +49,15 @@
   "coldHurt": [
     "cold-hurt-1.mp3"
   ],
+  "comeback": [
+    "comeback-1.mp3",
+    "comeback-2.mp3"
+  ],
   "constitution": [
     "constitution-1.mp3"
+  ],
+  "continueToPass": [
+    "continue-to-pass-1.mp3"
   ],
   "death": [
     "death-1.mp3",
@@ -55,6 +69,9 @@
   ],
   "deftlyDodge": [
     "deftly-dodge-1.mp3"
+  ],
+  "deservedAnyway": [
+    "deserved-anyway-1.mp3"
   ],
   "dismissed": [
     "dismissed-1.mp3"
@@ -71,8 +88,14 @@
   "effort": [
     "effort-1.mp3"
   ],
+  "excuseYou": [
+    "excuse-you-1.mp3"
+  ],
   "fairSquare": [
     "fair-square-1.mp3"
+  ],
+  "feelBad": [
+    "feel-bad-1.mp3"
   ],
   "fightAsMe": [
     "fight-as-me-1.mp3"
@@ -100,6 +123,9 @@
   "getThingOff": [
     "get-thing-off-1.mp3"
   ],
+  "goingEasy": [
+    "going-easy-1.mp3"
+  ],
   "hackSlash": [
     "hack-slash-1.mp3"
   ],
@@ -125,6 +151,9 @@
     "jump-1.mp3",
     "jump-2.mp3",
     "jump-3.mp3"
+  ],
+  "justYou": [
+    "just-you-1.mp3"
   ],
   "killTaunt": [
     "recording-2-master.wav:23.62-26.42"
@@ -156,6 +185,9 @@
   ],
   "misaddressed": [
     "misaddressed-1.mp3"
+  ],
+  "mustBePractice": [
+    "must-be-practice-1.mp3"
   ],
   "neverThought": [
     "never-thought-1.mp3"
@@ -193,8 +225,14 @@
   "poorTaste": [
     "poor-taste-1.mp3"
   ],
+  "possessed": [
+    "possessed-1.mp3"
+  ],
   "preferNoPain": [
     "prefer-no-pain-1.mp3"
+  ],
+  "realMatch": [
+    "real-match-1.mp3"
   ],
   "rebuttal": [
     "rebuttal-1.mp3"
@@ -214,6 +252,9 @@
   ],
   "scorchMark": [
     "scorch-mark-1.mp3"
+  ],
+  "someError": [
+    "some-error-1.mp3"
   ],
   "sorcery": [
     "recording-2-master.wav:0.38-1.93",
@@ -236,6 +277,9 @@
   ],
   "steelBoast": [
     "steel-boast-1.mp3"
+  ],
+  "steelOof": [
+    "steel-oof-1.mp3"
   ],
   "steelPolished": [
     "steel-polished-1.mp3"
@@ -279,8 +323,14 @@
   "thePlan": [
     "the-plan-1.mp3"
   ],
+  "thePrecursor": [
+    "the-precursor-1.mp3"
+  ],
   "theSky": [
     "the-sky-1.mp3"
+  ],
+  "theoreticalVictory": [
+    "theoretical-victory-1.mp3"
   ],
   "thinkAbout": [
     "think-about-1.mp3"

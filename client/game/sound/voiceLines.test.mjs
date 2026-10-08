@@ -145,7 +145,7 @@ test('the rarer grunts, the likelier charge, the battle\'s opening line, and the
   // May the Best Man Win: one of the lines for any battle beginning
   assert.deepEqual(Object.keys(voiceLine('bestManWin').triggers), ['battleBegins']);
   const runtime = readFileSync(new URL('../GameRuntime.mjs', import.meta.url), 'utf8');
-  assert.match(runtime, /!this\.#inPractice\(\) && knights\.length >= 2\) for \(const knight of knights\) this\.#sayMoment\(knight\.id, \['battleBegins'\]\)/);
+  assert.match(runtime, /!this\.#inPractice\(\) && knights\.length >= 2\) for \(const knight of knights\) this\.#sayMoment\(knight\.id, \['battleBegins', crowded && 'crowdedBattleBegins'\]\)/);
   // the lines that must carry weight go further down, their formants following part of the way, with more chest
   for (const id of ['sunderLeave', 'remainStaggered', 'chargeDefeat', 'masterCall', 'victory', 'sorcery', 'killTaunt', 'breakTaunt', 'noSpare', 'thankYou']) {
     const voice = voiceLine(id).voice;

@@ -275,9 +275,12 @@ test('12. one more defeat: a real run of falls with no kill between, said as he 
   const moments = new VoiceMoments();
   const fall = (at, killerId = 'foe') => moments.death({ type: 'death', victimId: 'me', killerId, source: 'sword', at }, { knight: () => null });
   const rise = (at, practice = false) => moments.respawn({ type: 'respawn', playerId: 'me', at }, { practice }).flatMap(lines);
-  fall(1); assert.deepEqual(rise(5), [], 'one fall is a fall');
-  fall(10); assert.deepEqual(rise(15), []);
-  fall(20); assert.deepEqual(rise(25), ['oneMoreDefeat'], 'the third in a row');
+  // (felled by two different foes: going easy on "you" is for one foe twice running: the batch of 2026-10-07)
+  fall(1, 'foe'); assert.deepEqual(rise(5), [], 'one fall is a fall');
+  fall(10, 'other'); assert.deepEqual(rise(15), []);
+  // (the third in a row: the vow, or now one of the other explanations in its place (the comeback declared): never
+  // two of them, the first said is the only one; the real match only when one foe felled him every time)
+  fall(20); assert.deepEqual(rise(25), ['comeback', 'oneMoreDefeat'], 'the third in a row');
   fall(30); assert.deepEqual(rise(35), [], 'the next fall: nothing (no change of heart is announced)');
   // a kill of his own ends the run
   const answered = new VoiceMoments();

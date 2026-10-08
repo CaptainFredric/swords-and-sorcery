@@ -38,6 +38,15 @@
 //   done-", "Two!...", "Three!.. where's the flee?"), and a fourth, if they are still standing for it, is his
 //   astonishment. The foe falling, either of them falling, a stretch with no blow landing, or the foe leaving: over.
 //
+//   The comeback. Now and then, back on his feet after a losing run, he declares that his comeback begins now. Felled
+//   again without a kill, he restates it as he gets up: "Now..."; and once more if it happens again (the same take).
+//   A kill of his while it stands is what he always knew ("I always knew that I thought this would happen."), and it
+//   is over. Felled a third time, it is not restated again: it simply ends, as it does if nothing comes of it for a
+//   while. Each word only follows one that was really said.
+//
+//   The brief nap. Rarely, felled in a match that goes on (never with a comeback under way), he says he shall return
+//   after a brief nap; on his return from that same fall, "It was brief." Only then: no return, no remark.
+//
 // say(line, speaker, options) is the voice's (VoiceBank through the runtime): false, or { seconds, delay } when it was
 // said. `earned` marks a part that has earned its turn (no odds, no cooldown; it still gives way to a line of state).
 // free(speaker): whether he could begin a line now without waiting on anyone (a line weighed once is weighed only
@@ -58,6 +67,10 @@ const LINES = Object.freeze({
   spellblade: lineFor('chivalryShown'),
   guard: lineFor('guardClaim'),
   strikes: lineFor('strikeCount'),
+  comeback: lineFor('comebackRun'),
+  // (the comeback's payoff is an old line of his, said here as earned: it keeps its own moments too)
+  knew: 'alwaysKnew',
+  nap: lineFor('napFall'),
 });
 
 export const SCENES = Object.freeze({
@@ -92,6 +105,16 @@ export const SCENES = Object.freeze({
     gone: 10,              // the foe this far off: gone
     after: 0.12,           // each count a moment after its blow lands
   }),
+  comeback: Object.freeze({
+    after: 0.9,            // on his feet a moment before "Now..."
+    corrections: 2,        // restated at most this often: felled again after that, it simply ends
+    knewAfter: 0.6,        // a beat after his kill, before "I always knew..."
+    expireSec: 180,        // nothing come of it this long after its last word: it is over
+  }),
+  briefNap: Object.freeze({
+    after: 0.7,            // on his feet a moment before "It was brief."
+    waitSec: 6,            // his return waited for this long past when it was due
+  }),
 });
 
 export class VoiceScenes {
@@ -108,6 +131,8 @@ export class VoiceScenes {
     this.guards = new Map();      // speaker -> { foe, until, releasedAt }: "That should stop you." standing
     this.guarding = new Map();    // knight -> { up, since }: their guard as last seen
     this.counts = new Map();      // speaker -> { foe, count, freeAt, lastAt }: the strikes being counted
+    this.comebacks = new Map();   // speaker -> { corrections, awaiting, lastAt }: a comeback declared, and restated
+    this.naps = new Map();        // speaker -> { until }: a nap announced as he fell, his return waited for
   }
 
   /** A new match: nothing carries over. */
@@ -121,6 +146,8 @@ export class VoiceScenes {
     this.guards.clear();
     this.guarding.clear();
     this.counts.clear();
+    this.comebacks.clear();
+    this.naps.clear();
   }
 
   // ------------------------------------------------------------------------------------------------ the final duel
@@ -300,6 +327,50 @@ export class VoiceScenes {
     }
   }
 
+  // ------------------------------------------------------------------------------------- the comeback, the brief nap
+
+  /** The comeback was declared by `speaker` at `at` (its opening said): his falls are corrected from here. */
+  comebackBegan(speaker, at) {
+    if (speaker) this.comebacks.set(speaker, { corrections: 0, awaiting: false, lastAt: at });
+  }
+
+  /** A nap was announced by `speaker` as he fell at `at`, his return due at `respawnAt`: "It was brief." waits for it. */
+  napTaken(speaker, at, respawnAt = at) {
+    if (speaker) this.naps.set(speaker, { until: Math.max(at, respawnAt ?? at) + SCENES.briefNap.waitSec });
+  }
+
+  /**
+   * A knight is back on their feet (a `respawn`): the word a scene has waiting for it, if any ("It was brief.", or the
+   * comeback's "Now..."). Returns whether one was said (then nothing else is made of the return).
+   */
+  respawn(event) {
+    const id = event.playerId;
+    if (!id) return false;
+    const nap = this.naps.get(id);
+    if (nap) {
+      this.naps.delete(id);
+      if (event.at <= nap.until && this.say(LINES.nap, id, { part: 1, earned: true, delay: SCENES.briefNap.after })) return true;
+    }
+    const comeback = this.comebacks.get(id);
+    if (!comeback?.awaiting) return false;
+    if (!this.say(LINES.comeback, id, { part: 1, earned: true, delay: SCENES.comeback.after })) {
+      this.comebacks.delete(id);
+      return false;
+    }
+    comeback.awaiting = false;
+    comeback.corrections += 1;
+    comeback.lastAt = event.at;
+    return true;
+  }
+
+  #comebacks(now, knights) {
+    for (const [speaker, comeback] of [...this.comebacks]) {
+      const here = knights.some((knight) => knight?.id === speaker);
+      if (!here || now - comeback.lastAt > SCENES.comeback.expireSec) this.comebacks.delete(speaker);
+    }
+    for (const [speaker, nap] of [...this.naps]) if (now > nap.until) this.naps.delete(speaker);
+  }
+
   // ---------------------------------------------------------------------------------------------------- what happens
 
   /** A blow landed (a `damage` event). */
@@ -318,7 +389,8 @@ export class VoiceScenes {
 
   /**
    * A knight fell (a `death` event). Returns what it means for the voice: { planFailed: the fallen was waiting on an
-   * announced plan; victor: true when a scene has the victor's next words (the ordinary victor's lines keep quiet) }.
+   * announced plan; victor: true when a scene has the victor's next words (the ordinary victor's lines keep quiet);
+   * comeback: the fallen has a comeback under way (his fall is its, and he takes no nap) }.
    */
   death(event) {
     const { victimId, at } = event;
@@ -336,6 +408,18 @@ export class VoiceScenes {
     this.counts.delete(victimId);
     for (const [speaker, count] of [...this.counts]) if (count.foe === victimId) this.counts.delete(speaker);
     let victor = false;
+    // the comeback: the fallen restates it as he gets up (not after the last time: then it simply ends); a kill of the
+    // one who declared it, while it stands, is what he always knew
+    const fallenComeback = this.comebacks.get(victimId);
+    if (fallenComeback) {
+      if (fallenComeback.corrections >= SCENES.comeback.corrections) this.comebacks.delete(victimId);
+      else fallenComeback.awaiting = true;
+    }
+    const kept = killerId ? this.comebacks.get(killerId) : null;
+    if (kept && !kept.awaiting) {
+      this.comebacks.delete(killerId);
+      if (this.say(LINES.knew, killerId, { earned: true, delay: SCENES.comeback.knewAfter })) victor = true;
+    }
     for (const [speaker, duel] of [...this.duels]) {
       if (duel.foe !== victimId) continue;
       // the challenger fell: to him, while the verdict was open and at little cost, and he complains; any other way
@@ -355,7 +439,8 @@ export class VoiceScenes {
       // (it cuts whatever word was still in his mouth: nothing more is shouted at the fallen)
       if (this.say(LINES.thanks, killerId, { delay: SCENES.sunderSentence.thanksAfter, force: true })) victor = true;
     }
-    return { planFailed, victor };
+    // (the fall that ends a comeback is still its: it ends quietly, with no nap announced over it)
+    return { planFailed, victor, ...(fallenComeback ? { comeback: true } : {}) };
   }
 
   /**
@@ -367,6 +452,7 @@ export class VoiceScenes {
     this.#tricks(now, knights);
     this.#guards(now, knights);
     this.#counts(now, knights);
+    this.#comebacks(now, knights);
   }
 
   #duels(now, knights) {

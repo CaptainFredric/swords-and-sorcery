@@ -1,15 +1,16 @@
 // The front door's subtitle: what the Spellblade says out on his round, written out as he says it (Settings, Audio,
 // Subtitles), the way the arena's HUD does it (client/ui/HUD.mjs subtitle): shown `delay` seconds from now, a beat's
 // words in place of the last as he reaches each (never before), gone a breath after he is done, or at once when he is
-// cut short. It sits in the part of the screen clear of the banner, where the round's fights are framed.
+// cut short. It sits in the part of the screen clear of the banner, where the round's fights are framed. (The defeat
+// screen has one too, for what he says of a lost match once the arena's HUD is put away: `place` 'end-caption'.)
 
 export class MenuCaption {
-  constructor(container, { document: doc = globalThis.document } = {}) {
+  constructor(container, { document: doc = globalThis.document, place = 'menu-caption' } = {}) {
     this.enabled = true;
     this.timers = [];
     this.element = doc?.createElement?.('div') ?? null;
     if (!this.element) return;
-    this.element.className = 'subtitle menu-caption';
+    this.element.className = `subtitle ${place}`;
     this.element.setAttribute?.('role', 'status');
     this.element.setAttribute?.('aria-live', 'polite');
     this.words = doc.createElement('span');

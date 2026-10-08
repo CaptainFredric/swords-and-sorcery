@@ -13,6 +13,8 @@ import { MusicPlayer } from './game/sound/music/MusicPlayer.mjs';
 import { fightPieceFor } from './game/sound/music/score.mjs';
 import { VoiceBank } from './game/sound/VoiceBank.mjs';
 import { linesFor } from './game/sound/voiceLines.mjs';
+import { captionPlan } from './ui/voiceLibrary.mjs';
+import { MenuCaption } from './menu/menuCaption.mjs';
 import { gateRecipe, uiClankRecipe, warDrumRecipe } from './game/sound/atmosphereRecipes.mjs';
 import { unsheatheRecipe } from './game/sound/soundRecipes.mjs';
 import { arenaGateCopy, challengeCopy, countdownSeconds, romanCount } from './menu/challengeCard.mjs';
@@ -48,6 +50,9 @@ const seekAnotherButton = $('#seek-another');
 const lobby = $('#lobby');
 const howPanel = $('#how-panel');
 const endScreen = $('#end-screen');
+// what he says of a lost match, written out on the defeat screen itself (the arena's HUD, and its subtitle, are put away
+// as the screen comes up): beat by beat as he says it, never a word before it is said (Settings: Subtitles)
+const endCaption = new MenuCaption(endScreen, { place: 'end-caption' });
 const practiceOverlay = $('#practice-overlay');
 const nameInput = $('#player-name');
 const roomInput = $('#room-code');
@@ -147,6 +152,7 @@ if (new URLSearchParams(location.search).has('debug')) globalThis.__ssMenu = men
 menuScene?.setPixelRatioCap(viewOptions(settings).pixelRatioCap);
 menuScene?.setParticleDensity(viewOptions(settings).particles);
 menuScene?.setSubtitles(viewOptions(settings).subtitles);
+endCaption.setEnabled(viewOptions(settings).subtitles);
 
 let runtime = null;
 let touchUi = false;
@@ -446,7 +452,11 @@ function soundTheEnd(snapshot) {
   // is a knight (unless he just said so as he fell). A win is the stinger's (MIGHT MAKES... KNIGHT! is for force)
   if (won) return;
   for (const say of linesFor(socket.playerId, ['matchLost'])) {
-    if (voice.say(say.line, { speaker: say.speaker, gain: 0.85, delay: say.delay, chanceScale: say.chanceScale, close: true })) break;
+    const said = voice.say(say.line, { speaker: say.speaker, gain: 0.85, delay: say.delay, chanceScale: say.chanceScale, close: true });
+    if (!said) continue;
+    const plan = captionPlan(say.line, { beats: said.beats });
+    if (plan) endCaption.show({ text: plan.text, delay: said.delay + plan.after, seconds: Math.max(0.5, said.seconds - plan.after), cues: plan.cues });
+    break;
   }
 }
 
@@ -632,6 +642,7 @@ function applySettings() {
   menuScene?.setPixelRatioCap(view.pixelRatioCap);
   menuScene?.setParticleDensity(view.particles);
   menuScene?.setSubtitles(view.subtitles);
+  endCaption.setEnabled(view.subtitles);
   menuScene?.setTourAllowed(tourAllowed());
   if (router.current === SCREEN_IDS.MAIN_MENU) menuScene?.setTouring(true);
   runtime?.configure({ view, input: inputOptions(settings) });

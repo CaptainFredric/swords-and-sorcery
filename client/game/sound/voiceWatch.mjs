@@ -11,6 +11,10 @@
 // low, or into two of them) survived; a sprint while low and burning; fleeing at a sprint while looking at the ground;
 // a standoff long enough to begin spelling a threat; and the last seconds of a timed match he is not winning.
 //
+// And from the batch of 2026-10-07: two other knights trading blows some way off while he stays out of it; a long
+// timed match he is not winning, well before its last stretch; and, asked at a fall, whether the fallen was sprinting
+// past the one who shot them, or trading blows with someone else when they were shot from outside that fight.
+//
 // Fed with the host's events and every knight as last seen; returns the moments to raise ([{ speaker, tags }]), which
 // the runtime hands to the voice like any other. Nothing in the game waits on it. Pure but for its memory, so it is
 // tested. Times are the host's (seconds); positions and speeds are on the ground (x, z).
@@ -66,6 +70,18 @@ export const WATCH = Object.freeze({
   standoff: Object.freeze({ near: 6, far: 20, coneDeg: 35, calmSec: 5, closing: 3 }),
   // the clock: this many seconds of a timed match left (and more than `least`), him not its sole leader (once a match)
   lateClock: Object.freeze({ within: 25, least: 4 }),
+  // a match dragging on: no more than this share of a timed match left, and more than `least` seconds (well clear of
+  // the late clock's last stretch), him tied or behind (once a match)
+  matchDragging: Object.freeze({ share: 0.45, least: 45 }),
+  // two others at it: blows each way between them within `exchangeSec`; none between him and either of them within
+  // `apartSec`; the middle of their fight `near` to `far` metres off and within `coneDeg` of where he looks (once a match)
+  othersDueling: Object.freeze({ exchangeSec: 4, apartSec: 6, near: 8, far: 24, coneDeg: 60 }),
+  // a shot at one running past: last seen (this fresh) sprinting at least `speed`, at most `far` off, the run at least
+  // `lateral` across the line from the shooter (1: straight across; 0: straight at or away)
+  passing: Object.freeze({ freshSec: 0.6, speed: 4, far: 16, lateral: 0.75 }),
+  // a shot from outside another's fight: the fallen and someone else trading blows each way within `exchangeSec`; the
+  // fallen not at blows with the shooter within `ownSec` (no sword of his on them, none of theirs on him); `far` off
+  thirdParty: Object.freeze({ exchangeSec: 3, ownSec: 4, far: 6 }),
 });
 
 // the arena's lowest ground (a floor, or a ramp's lower end): nothing under it can be landed on (null without one)
@@ -97,6 +113,8 @@ export class VoiceWatch {
     this.begun = new Map();       // another knight -> { chain, count }: the strikes of their chain seen begun
     this.gusts = new Map();       // whose gust -> { victims, at }: foes it moved, to see if they are still about
     this.clocked = new Set();     // knights the late clock has been raised for, this match
+    this.dragged = new Set();     // knights a dragging match has been raised for, this match
+    this.watchedDuels = new Set(); // knights two others' fight has been raised for, this match
   }
 
   #knight(id, now) {
@@ -120,10 +138,11 @@ export class VoiceWatch {
    * attackStartedAt, attackCommitted, health, burningUntil, pitch, yaw, actorKind }]). self: my own knight (my swings
    * are told as my arms begin them: begin()). world: the arena (its lowest ground: where the Abyss begins).
    */
-  step(now, knights = [], { self = null, world = null } = {}) {
+  step(now, knights = [], { self = null, world = null, practice = false } = {}) {
     const out = [];
     const living = knights.filter((k) => k && k.alive !== false && k.position);
     out.push(...this.#dismissals(now, knights, world));
+    if (!practice) out.push(...this.#othersDueling(now, living));
     const lowest = lowestGround(world);
     for (const knight of knights) {
       if (!knight?.id) continue;
@@ -134,6 +153,8 @@ export class VoiceWatch {
       if (alive && !state.alive) Object.assign(state, { met: false, quietSince: now, lullSaid: false, chargeArmed: true, streak: 0, ...this.#freshLife(now) });
       state.alive = alive;
       if (!alive || !knight.position) continue;
+      // (as last seen alive: asked about at their fall)
+      state.seen = { at: now, position: flat(knight.position), velocity: flat(knight.velocity), sprinting: Boolean(knight.sprinting) };
       const health = knight.health ?? 100;
       // falling past saving: under every ground there is, and going down
       if (!state.abyssSaid && lowest !== null && knight.position.y < lowest - WATCH.abyss.below && (knight.velocity?.y ?? 0) < -WATCH.abyss.falling) {
@@ -292,22 +313,106 @@ export class VoiceWatch {
   }
 
   /**
-   * The match clock (a timed match, never the yard's): `timeLeft` seconds of it, every knight as last seen (with their
-   * kills). In its last stretch, each knight who is not its sole leader is raised once: business left unfinished.
+   * The match clock (a timed match, never the yard's): `timeLeft` seconds of it (of `total`), every knight as last seen
+   * (with their kills). Well into it, each knight tied or behind is raised once: the match is taking its time. In its
+   * last stretch, each knight who is not its sole leader is raised once: business left unfinished.
    */
-  clock(timeLeft, knights = []) {
-    const rule = WATCH.lateClock;
-    if (!(timeLeft <= rule.within && timeLeft > rule.least)) return [];
+  clock(timeLeft, knights = [], { total = null } = {}) {
     const top = Math.max(0, ...knights.map((k) => k?.kills ?? 0));
     const leaders = knights.filter((k) => (k?.kills ?? 0) === top);
+    const leads = (knight) => leaders.length === 1 && leaders[0].id === knight.id;
+    const speaking = (knight) => knight?.id && knight.alive !== false && knight.actorKind !== 'dummy';
     const out = [];
+    const drag = WATCH.matchDragging;
+    if (Number.isFinite(total) && timeLeft <= total * drag.share && timeLeft > drag.least) {
+      // (him leading now, it is not dragging for him: he may yet fall level later in the stretch)
+      for (const knight of knights) {
+        if (!speaking(knight) || this.dragged.has(knight.id) || leads(knight)) continue;
+        this.dragged.add(knight.id);
+        out.push({ speaker: knight.id, tags: ['matchDragging'] });
+      }
+    }
+    const rule = WATCH.lateClock;
+    if (!(timeLeft <= rule.within && timeLeft > rule.least)) return out;
     for (const knight of knights) {
-      if (!knight?.id || knight.alive === false || knight.actorKind === 'dummy' || this.clocked.has(knight.id)) continue;
+      if (!speaking(knight) || this.clocked.has(knight.id)) continue;
       this.clocked.add(knight.id);
-      if (leaders.length === 1 && leaders[0].id === knight.id) continue;
+      if (leads(knight)) continue;
       out.push({ speaker: knight.id, tags: ['lateClock'] });
     }
     return out;
+  }
+
+  // two others trading blows some way off, in his sight, him out of it: once a match, he may remark on it
+  #othersDueling(now, living) {
+    const rule = WATCH.othersDueling;
+    const recent = this.blows.filter((blow) => now - blow.at <= rule.exchangeSec);
+    const byId = new Map(living.map((k) => [k.id, k]));
+    // (each pair of the living who have struck each other lately, once)
+    const exchanges = new Map();
+    for (const blow of recent) {
+      if (!byId.has(blow.from) || !byId.has(blow.to) || blow.from === blow.to) continue;
+      if (!recent.some((back) => back.from === blow.to && back.to === blow.from)) continue;
+      const pair = [blow.from, blow.to].sort();
+      exchanges.set(pair.join('|'), pair);
+    }
+    const pairs = [...exchanges.values()];
+    if (!pairs.length) return [];
+    const out = [];
+    for (const me of living) {
+      if (me.actorKind === 'dummy' || this.watchedDuels.has(me.id)) continue;
+      const busy = (id) => this.blows.some((blow) => now - blow.at <= rule.apartSec && ((blow.from === me.id && blow.to === id) || (blow.from === id && blow.to === me.id)));
+      const seen = pairs.find(([a, b]) => {
+        if (a === me.id || b === me.id) return false;
+        const [one, two] = [byId.get(a), byId.get(b)];
+        if (one.actorKind === 'dummy' || two.actorKind === 'dummy' || busy(a) || busy(b)) return false;
+        const to = { x: (one.position.x + two.position.x) / 2 - me.position.x, z: (one.position.z + two.position.z) / 2 - me.position.z };
+        const distance = length(to);
+        if (distance < rule.near || distance > rule.far) return false;
+        const yaw = me.yaw ?? 0;
+        return dot({ x: -Math.sin(yaw), z: -Math.cos(yaw) }, to) / distance >= Math.cos((rule.coneDeg * Math.PI) / 180);
+      });
+      if (!seen) continue;
+      this.watchedDuels.add(me.id);
+      out.push({ speaker: me.id, tags: ['othersDueling'] });
+    }
+    return out;
+  }
+
+  /**
+   * Whether `victim`, felled at `at` by a shot from `shooter` (where they stood), was sprinting across or past them
+   * (as last seen alive): not at them, not away.
+   */
+  passing(victim, shooter, at) {
+    const rule = WATCH.passing;
+    const seen = this.knights.get(victim)?.seen;
+    if (!seen || !shooter || at - seen.at > rule.freshSec || !seen.sprinting) return false;
+    const speed = length(seen.velocity);
+    if (speed < rule.speed) return false;
+    const to = { x: seen.position.x - shooter.x, z: seen.position.z - shooter.z };
+    const distance = length(to);
+    if (distance < 1e-6 || distance > rule.far) return false;
+    const radial = dot(seen.velocity, to) / distance;
+    return Math.sqrt(Math.max(0, speed * speed - radial * radial)) / speed >= rule.lateral;
+  }
+
+  /**
+   * Whether `victim`, felled at `at` by a shot from `killer` (standing at `shooter`), was trading blows with someone
+   * else a moment ago, and shot from outside that fight: not at blows with the killer, and some way off.
+   */
+  thirdParty(victim, killer, at, shooter) {
+    const rule = WATCH.thirdParty;
+    const seen = this.knights.get(victim)?.seen;
+    if (!killer || !shooter || !seen) return false;
+    if (Math.hypot(seen.position.x - shooter.x, seen.position.z - shooter.z) < rule.far) return false;
+    const recent = this.blows.filter((blow) => at - blow.at <= rule.exchangeSec);
+    const exchanged = recent.some((blow) => blow.to === victim && blow.from !== killer && blow.from !== victim
+      && recent.some((back) => back.from === victim && back.to === blow.from));
+    // (the killing shot itself, and any earlier shot of his, are his contribution; a sword of his, or a blow of theirs
+    // on him, is a fight of his own)
+    const own = this.blows.some((blow) => at - blow.at <= rule.ownSec
+      && ((blow.from === victim && blow.to === killer) || (blow.from === killer && blow.to === victim && blow.source === 'sword')));
+    return exchanged && !own;
   }
 
   /**
@@ -398,7 +503,7 @@ export class VoiceWatch {
     const attacker = this.#knight(attackerId, at);
     this.#busy(attacker, at);
     attacker.calmSince = at;
-    this.blows = [...this.blows.filter((blow) => at - blow.at <= WATCH.fair.withinSec), { from: attackerId, to: victimId, at }];
+    this.blows = [...this.blows.filter((blow) => at - blow.at <= WATCH.fair.withinSec), { from: attackerId, to: victimId, at, source: event.source }];
     const stagger = this.staggers.get(`${attackerId}>${victimId}`);
     if (stagger) stagger.struck = true;
   }

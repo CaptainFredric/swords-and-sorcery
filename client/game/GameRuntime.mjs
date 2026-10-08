@@ -35,7 +35,7 @@ import { STEEL_RAM, chargeTarget, ramContact, ramStrength } from '../../shared/s
 import { STEEL_RIPPLE } from './steelSheen.mjs';
 import { chillScale, spellFor } from '../../shared/src/spells.mjs';
 import { cryMoment, gauntletMoment, hearingFor, voicePlacement, voiceRate } from './sound/voiceRules.mjs';
-import { MOMENTS, VoiceMoments, deathPose } from './sound/voiceMoments.mjs';
+import { MOMENTS, PROJECTILES, VoiceMoments, deathPose } from './sound/voiceMoments.mjs';
 import { VoiceScenes } from './sound/voiceScenes.mjs';
 import { VoiceWatch } from './sound/voiceWatch.mjs';
 import { linesFor, voiceLine } from './sound/voiceLines.mjs';
@@ -80,6 +80,8 @@ const FORETOLD_CLANG_MS = 700;
 // soonest; meant to be cut this far before its end (its last word just begun: "Thr—") by my return; and, back on my
 // feet a moment before that word, let run on this long at most to reach it (the take is never hurried to fit)
 const APPEAL = Object.freeze({ leadSec: 0.1, interruptBeforeEnd: 0.4, runOnSec: 0.45 });
+// the paired "Oof!" of a Steel ram: the one rammed a breath behind the rammer (nearly together, not in unison)
+const RAM_OOF_LAG = 0.06;
 
 export class GameRuntime {
   constructor(container, socket, hud, { sound = null, voice = null } = {}) {
@@ -603,7 +605,12 @@ export class GameRuntime {
       }
       // a sword denied by the same foe again and again (their guard, their parry, or simply not being there)
       if ((event.type === 'block' && !event.vortex) || event.type === 'parry') this.#sayMoments(this.moments.denied(event.attackerId, event.defenderId, event.at), event.at);
-      if (event.type === 'swordMiss') this.#sayMoments(this.moments.denied(event.playerId, this.#nearestFoe(event.playerId, MOMENTS.denied.near), event.at), event.at);
+      if (event.type === 'swordMiss') {
+        const near = this.#nearestFoe(event.playerId, MOMENTS.denied.near);
+        this.#sayMoments(this.moments.denied(event.playerId, near, event.at), event.at);
+        // (and the same foe swinging at him and missing, again and again: in a real match, not much of a foe)
+        this.#sayMoments(this.moments.flailing(event.playerId, near, event.at, { practice: this.#inPractice(), ...this.#voiceWorld() }), event.at);
+      }
       // a foe's sword narrowly missing a knight on the move; a swing after a while, a chain carrying on, ground stood
       if (event.type === 'swordMiss') this.#sayWatched(this.watch.miss(event, this.latestSnapshot?.players ?? []));
       if (event.type === 'swordSwing') this.#sayWatched(this.watch.swing(event, this.latestSnapshot?.players ?? []));
@@ -758,7 +765,9 @@ export class GameRuntime {
         }
         // a blow that kills gets the death cry instead
         // (a severe one has its own sounds; a small one after a long while unhurt, its own)
-        if (event.amount >= 8 && event.health > 0 && event.source !== 'abyss') this.#sayMoment(event.victimId, this.moments.hurt(event));
+        // (a ram's: said with the ram itself, which may have the two of them say something else: #steelRam)
+        if (event.source === 'ram') (this.ramBlows ??= new Map()).set(event.victimId, event);
+        else if (event.amount >= 8 && event.health > 0 && event.source !== 'abyss') this.#sayMoment(event.victimId, this.moments.hurt(event));
         // the cleanest contact there is: a short chink over the blow (mine, or on me; others' a little, from where
         // it landed), never more than one at a time
         if (event.clean && event.source !== 'burn') this.#precise(event);
@@ -784,8 +793,11 @@ export class GameRuntime {
       if (event.type === 'respawn' && event.playerId === this.socket.playerId) this.hud.flashText('FIGHT!', 'ready');
       // a life begun again (the wildcard is once a life); a new match forgets everything
       if (event.type === 'respawn') this.voice?.director?.newLife?.(event.playerId);
-      // back on his feet after a run of falls: now and then, a vow (nothing is said of it if he falls again)
-      if (event.type === 'respawn') this.#sayMoments(this.moments.respawn(event, { practice: this.#inPractice() }), event.at);
+      // back on his feet: a scene's word for it first ("It was brief.", the comeback's "Now..."); otherwise, in a bad
+      // stretch, now and then one explanation of it (never two in one collapse)
+      if (event.type === 'respawn' && !this.scenes.respawn(event)) {
+        this.#sayMoments(this.moments.respawn(event, { practice: this.#inPractice(), ...this.#voiceWorld() }), event.at);
+      }
       // back on my feet: whatever case I was still making for not having fallen is cut short (at its last word, if
       // that is only a moment away)
       if (event.type === 'respawn' && event.playerId === me && this.appealing) {
@@ -805,7 +817,9 @@ export class GameRuntime {
         // a battle begins (any match but the yard): now and then a knight certifies the result in advance (one
         // sentence at a time: the first to pass its odds speaks for the field)
         const knights = (this.latestSnapshot?.players ?? []).filter((p) => p.actorKind !== 'dummy');
-        if (!this.#inPractice() && knights.length >= 2) for (const knight of knights) this.#sayMoment(knight.id, ['battleBegins']);
+        // (a crowded field, three others or more: enough of "you" for "each and every single one of you")
+        const crowded = knights.length >= 4;
+        if (!this.#inPractice() && knights.length >= 2) for (const knight of knights) this.#sayMoment(knight.id, ['battleBegins', crowded && 'crowdedBattleBegins']);
       }
     }
   }
@@ -1054,6 +1068,7 @@ export class GameRuntime {
   #steelRam(event) {
     const me = this.socket.playerId;
     const kind = event.guarded ? 'guard' : (event.steel ?? 0) >= 0.15 ? 'steel' : 'body';
+    this.#ramVoices(event);
     if (event.playerId === me) {
       const foretold = Number.isFinite(this.localRam?.at) && Math.abs(event.at - this.localRam.at) < 0.45;
       if (!foretold) {
@@ -1073,6 +1088,32 @@ export class GameRuntime {
       mine: false, onMe: event.targetId === me, event, strength: event.strength, kind, broken: event.guardBroken,
       point: event.point, direction: event.direction, targetPosition: this.#bodyPosition(event.targetId),
     });
+  }
+
+  // A ram met someone (the host's word): what the two of them say of it. The blow it dealt (if any) has come just
+  // before. The rammer, both still standing, now and then assigns the collision to the other ("Excuse you."); very
+  // rarely the two of them say "Oof!" together instead (and the one rammed makes no other sound of it). Otherwise the
+  // one rammed has the hurt of an ordinary blow.
+  #ramVoices(event) {
+    const blow = this.ramBlows?.get(event.targetId) ?? null;
+    this.ramBlows?.delete(event.targetId);
+    const players = this.latestSnapshot?.players ?? [];
+    const target = players.find((p) => p.id === event.targetId);
+    const standing = blow ? blow.health > 0 : target?.alive !== false;
+    let paired = false;
+    if (standing && this.voice) {
+      // (the pair only when the one rammed can say it with him: a knight who speaks, his mouth free)
+      const both = target?.actorKind !== 'dummy' && !this.voice.director?.saying?.(event.targetId, this.voice.engine.now);
+      for (const say of this.moments.lines(event.playerId, ['steelRamHit'])) {
+        if (say.line === 'steelOof' && !both) continue;
+        if (!this.#say(say.line, say.speaker, say)) continue;
+        if (say.line === 'steelOof') paired = Boolean(this.#say('steelOof', event.targetId, { force: true, delay: (say.delay ?? 0) + RAM_OOF_LAG }));
+        break;
+      }
+    }
+    if (!blow) return;
+    const hurt = this.moments.hurt(blow);
+    if (!paired && blow.amount >= 8 && blow.health > 0) this.#sayMoment(blow.victimId, hurt);
   }
 
   #rammed({ mine, onMe = false, event = null, strength, kind, broken = false, point, direction, targetPosition }) {
@@ -1195,11 +1236,19 @@ export class GameRuntime {
       charging: this.watch.charging(victimId, at),
       pose: deathPose(players.find((p) => p.id === victimId), killerId ? this.#bodyPosition(killerId) : null, { source: event.source, world: this.activeWorld, at }),
       doomCut,
+      // a shot from where the victor stood: at one sprinting past him; at one busy fighting someone else
+      passing: Boolean(killerId) && PROJECTILES.includes(event.source) && this.watch.passing(victimId, this.#bodyPosition(killerId), at),
+      thirdParty: Boolean(killerId) && PROJECTILES.includes(event.source) && this.watch.thirdParty(victimId, killerId, at, this.#bodyPosition(killerId)),
+      // his return to come, and no comeback under way: a nap may be announced
+      nap: !scene.comeback,
     };
     this.chivalrous.delete(victimId);
     this.watch.death(victimId);
     const { fallen, victor, rescued } = this.moments.death(event, { ...this.#voiceWorld(), blow, practice: this.#inPractice(), planFailed: scene.planFailed, extra });
-    const spoke = fallen.some((say) => this.#say(say.line, say.speaker, say));
+    const spoken = fallen.find((say) => this.#say(say.line, say.speaker, say));
+    const spoke = Boolean(spoken);
+    // (a nap announced: "It was brief." waits for his return from this fall)
+    if (spoken?.opens === 'nap') this.scenes.napTaken(victimId, at, event.respawnAt);
     if (!spoke && !scene.victor) this.#sayMoments([victor], event.at);
     this.#sayMoments(rescued, event.at);
     // nothing said of my own fall: now and then, I make my case late, and my return cuts it short ("Three—")
@@ -1343,6 +1392,8 @@ export class GameRuntime {
         if (say.opens === 'finalDuel') this.scenes.duelDeclared(say.speaker, this.moments.duelFoe(say.speaker), at, (said.delay ?? 0) + (said.seconds ?? 0));
         // (three strikes declared: his sword's blows on that foe are counted from here)
         if (say.opens === 'threeStrikes') this.scenes.strikesDeclared(say.speaker, this.moments.duelFoe(say.speaker), at, (said.delay ?? 0) + (said.seconds ?? 0));
+        // (the comeback declared: his next falls without a kill are corrected, and a kill is what he always knew)
+        if (say.opens === 'comeback') this.scenes.comebackBegan(say.speaker, at);
         break;
       }
     }
@@ -1840,11 +1891,11 @@ export class GameRuntime {
     if (this.latestSnapshot && this.localAuth) {
       // (the longer scenes' clocks: a part whose moment has come is said)
       this.scenes.step(this.socket.serverNow(), this.latestSnapshot.players);
-      this.#sayWatched(this.watch.step(this.socket.serverNow(), this.latestSnapshot.players, { self: this.socket.playerId, world: this.activeWorld }));
+      this.#sayWatched(this.watch.step(this.socket.serverNow(), this.latestSnapshot.players, { self: this.socket.playerId, world: this.activeWorld, practice: this.#inPractice() }));
       // the last seconds of a timed match (never the yard's, never sudden death)
       const match = this.latestSnapshot;
       if (match.roomState === 'PLAYING' && Number.isFinite(match.matchSeconds) && Number.isFinite(match.matchStartedAt) && !match.suddenDeath && !this.#inPractice()) {
-        this.#sayWatched(this.watch.clock(match.matchStartedAt + match.matchSeconds - this.socket.serverNow(), match.players));
+        this.#sayWatched(this.watch.clock(match.matchStartedAt + match.matchSeconds - this.socket.serverNow(), match.players, { total: match.matchSeconds }));
       }
       this.#placeVoices();
       this.#showCondition(this.socket.serverNow());
