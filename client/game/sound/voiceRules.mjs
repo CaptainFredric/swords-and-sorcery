@@ -261,26 +261,24 @@ export function cryMoment(id) {
 export const MOUTH_BUSY_SEC = 0.8;
 
 // The moments that belong to an ultimate while it lasts: its cry, the word as it takes hold, the Vortex at full spin,
-// the Sunder sentence begun, the weight of the sword, the Spellblade's question. One activation, one line of them, and
-// each knight's activations take their lines in turn (ULTIMATE_VOICES): his cry, then another of the ultimate's own
-// lines, and so on round, so every one of them is heard. Nothing cuts the cry, and nothing follows it.
+// the Sunder sentence begun, the weight of the sword, the Spellblade's question. One use of an ultimate, one line of
+// them; the next use of it, the next line (ULTIMATE_VOICES), and so on round: never the same line twice running, and
+// never two lines in one use. Nothing cuts the cry, and nothing follows it.
 export const ULTIMATE_MOMENTS = Object.freeze(['sunderInvoked', 'chivalryInvoked', 'ultimateActive', 'vortexSpin', 'sunderSentence', 'sunderHeavy', 'chivalryShown', 'sunderSentenceKill']);
 
-// Whose turn each activation of an ultimate is, round and round for each knight: 'cry' (the ultimate's cry, as its
-// moment chooses it: Your integrity will not suffice!, or now and then MIGHT MAKES... KNIGHT!), or one line by its id
-// (said when its moment comes in that activation, whatever its odds: it is that activation's line). The first of every
-// knight's is the cry.
+// Each use's line, round and round for each knight, by its id: a cry (said as the ultimate is invoked) or a line of a
+// later moment of it (said when that moment comes in that use, whatever its own odds). Every knight's first is the cry.
 export const ULTIMATE_VOICES = Object.freeze({
-  sunder: Object.freeze(['cry', 'heavyNow', 'cry', 'sunderLeave']),
-  chivalry: Object.freeze(['cry', 'spellBlade']),
+  sunder: Object.freeze(['sunderCall', 'heavyNow', 'victory', 'sunderLeave']),
+  chivalry: Object.freeze(['masterCall', 'spellBlade']),
   vortex: Object.freeze(['distanceAdvice', 'vortexUse']),
 });
 
 /**
- * One line for an ultimate, in turn: each knight's activation, from its beginning until it ends (or he falls), has one
- * voice (begin returns it). verdict(speaker, line, { cry }): whether a line said of his ultimate may be said now: 'no',
- * 'yes', or 'force' (the line whose turn it is: said whatever its odds when its moment comes); said(speaker): it was.
- * Pure, so it is tested.
+ * One line for an ultimate, in turn: each knight's use of one, from its beginning until it ends (or he falls), has one
+ * line (begin returns it). verdict(speaker, line): whether a line said of his ultimate may be said now: 'yes' (no
+ * ultimate under way), 'force' (that use's line: said whatever its odds when its moment comes), or 'no' (any other, or
+ * a second); said(speaker): it was. Pure, so it is tested.
  */
 export class UltimateLines {
   constructor({ voices = ULTIMATE_VOICES } = {}) {
@@ -291,7 +289,11 @@ export class UltimateLines {
 
   begin(speaker, ultimate) {
     if (!speaker) return null;
-    const order = this.voices[ultimate] ?? ['cry'];
+    const order = this.voices[ultimate] ?? [];
+    if (!order.length) {
+      this.active.set(speaker, { voice: null, said: false });
+      return null;
+    }
     const key = `${speaker}:${ultimate}`;
     const turn = this.turns.get(key) ?? 0;
     this.turns.set(key, turn + 1);
@@ -304,11 +306,10 @@ export class UltimateLines {
     this.active.delete(speaker);
   }
 
-  verdict(speaker, line, { cry = false } = {}) {
+  verdict(speaker, line) {
     const activation = this.active.get(speaker);
     if (!activation) return 'yes';
     if (activation.said) return 'no';
-    if (activation.voice === 'cry') return cry ? 'yes' : 'no';
     return line === activation.voice ? 'force' : 'no';
   }
 
