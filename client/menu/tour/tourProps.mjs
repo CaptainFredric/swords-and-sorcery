@@ -609,9 +609,10 @@ export function slushPile(scene, { at, tint = [1, 1, 1], random = Math.random } 
 }
 
 // the two vessels: a brass tankard (with a handle; warm against his steel, so it reads in his hand) and a small
-// wooden pail (iron hoops, a bail over the top); their height, their radius at the rim and at the foot
+// wooden pail (iron hoops, a bail over the top); their height, their radius at the rim and at the foot, and how far
+// out from the tankard's side the middle of its handle is (where his fist closes on it)
 export const VESSELS = Object.freeze({
-  cup: Object.freeze({ height: 0.21, rim: 0.09, foot: 0.08 }),
+  cup: Object.freeze({ height: 0.21, rim: 0.09, foot: 0.08, handle: 0.06 }),
   pail: Object.freeze({ height: 0.22, rim: 0.12, foot: 0.092 }),
 });
 
@@ -648,8 +649,8 @@ export function vesselProp(scene, { kind = 'cup', tint = [1, 1, 1] } = {}) {
     const bail = mesh(new THREE.TorusGeometry(size.rim + 0.01, 0.005, 4, 20, Math.PI), iron);
     bail.position.y = size.height / 2;
   } else {
-    // the tankard's handle, on the side away from the hand that holds it (its right), and a band round its foot
-    const handle = mesh(new THREE.TorusGeometry(0.055, 0.013, 6, 14, Math.PI), iron);
+    // the tankard's handle, on its right (+x: the hand that holds it closes round it there), and a band round its foot
+    const handle = mesh(new THREE.TorusGeometry(size.handle - 0.005, 0.013, 6, 14, Math.PI), iron);
     handle.rotation.z = -Math.PI / 2;
     handle.position.set(size.rim + 0.005, 0.01, 0);
     const band = mesh(new THREE.TorusGeometry(size.foot + 0.003, 0.007, 5, 24), iron);
