@@ -28,7 +28,7 @@
 //     // edits: small repairs in the recording's own seconds: { cut: [a, b] } dead air out, { splice: [a, b], from:
 //     // [c, d] } a clearer word of the same take in its place, { lift: [a, b], db } a buried word up, { rise: [a, b],
 //     // semitones } a flat ending raised, { glide: [a, b], semitones } a word's onset begun that far off and swooping
-//     // back by b; see tools/audio/knight_voice.py);
+//     // back by b, { shift: [a, b], semitones } a word set higher or deeper throughout; see tools/audio/knight_voice.py);
 //     // parts: ['Wait, wait!!...', '...I TRICKED you!'] (a line said in parts, each when the game says so: its
 //     // recordings are its parts in order, one take each, cut from one master with windows: see RECORDING.md);
 //     // reply: true (an ordinary remark fit to be said back at a foe who has just spoken: the final duel's answer);
@@ -357,7 +357,7 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     priority: 'normal', rarity: 0.35, cooldown: 300,
     section: 'Remarks & Oddities',
     credits: { title: 'Always Knew', description: 'Rarely, after luck or somebody else saves the situation.', note: 'He knew that would happen. Apparently.' },
-    voice: { drive: 2, rmsDb: -17, expandBelowDb: -42 }, aliases: ['always', 'knew'],
+    voice: { drive: 2, rmsDb: -17, expandBelowDb: -42, semitones: -0.5 }, aliases: ['always', 'knew'],
   },
   {
     id: 'tinManHeart',
@@ -384,7 +384,7 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     priority: 'normal', rarity: 0.3, cooldown: 30, gain: 0.95,
     section: 'Kills & Triumphs',
     credits: { title: 'Good Knight', description: 'Now and then, over a fallen foe.', note: 'Sportsmanship, loosely interpreted.' },
-    voice: { drive: 2.3, rmsDb: -16, semitones: -4, formants: 0.65, chest: 2.5 }, reply: true,
+    voice: { drive: 2.3, rmsDb: -16 }, reply: true,
   },
   // --- in the fight
   {
@@ -394,7 +394,7 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     priority: 'normal', rarity: 0.08, cooldown: 45,
     section: 'Battle & Abilities',
     credits: { title: 'Sorcery', description: 'Occasionally, as sorcery leaves his hand.', note: 'Apparently this clarifies matters.' },
-    voice: { drive: 2.2, rmsDb: -16, semitones: -5.5, formants: 0.6, chest: 2.5 }, aliases: ['spell', 'cast', 'fireball'],
+    voice: { drive: 2.2, rmsDb: -16 }, aliases: ['spell', 'cast', 'fireball'],
   },
   {
     id: 'galeTaunt',
@@ -514,7 +514,7 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     priority: 'normal', rarity: 0.3, cooldown: 120,
     section: 'Kills & Triumphs',
     credits: { title: 'Might Makes Knight', description: 'Occasionally, after force has settled the argument. Now and then, as Sunder All That Rusts is invoked.', note: 'The argument is not examined further.' },
-    voice: { drive: 2.3, rmsDb: -16, semitones: -5.5, formants: 0.6, chest: 2.5 }, aliases: ['win', 'might', 'cheer', 'triumph'],
+    voice: { drive: 2.3, rmsDb: -16 }, aliases: ['win', 'might', 'cheer', 'triumph'],
   },
   // --- the wildcard
   {
@@ -534,7 +534,7 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     priority: 'normal', rarity: 0.12, cooldown: 120,
     section: 'Battle & Abilities',
     credits: { title: 'How Many More Times', description: 'Rarely, during Sunder All That Rusts. One word to a slam.', note: 'He would like you to leave.' },
-    voice: { drive: 2.6, rmsDb: -15, semitones: -5.5, formants: 0.55, chest: 3 }, file: 'SunderLeave_1.mp3', aliases: ['sunderleave', 'leave'],
+    voice: { drive: 2.6, rmsDb: -15 }, file: 'SunderLeave_1.mp3', aliases: ['sunderleave', 'leave'],
   },
   {
     id: 'thankYou',
@@ -543,7 +543,7 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     priority: 'high', rarity: 1, cooldown: 0,
     section: 'Kills & Triumphs',
     credits: { title: 'Thank You', description: 'When an opponent dies near the end of that question.', note: 'They left.' },
-    voice: { drive: 2.3, rmsDb: -16, semitones: -5.5, formants: 0.6, chest: 3 }, file: 'ThankYouSunder.mp3', aliases: ['thankyousunder', 'thanks'],
+    voice: { drive: 2.3, rmsDb: -16 }, file: 'ThankYouSunder.mp3', aliases: ['thankyousunder', 'thanks'],
   },
   // --- the longer scenes (each part said when the game has earned it: voiceScenes.mjs)
   {
@@ -618,7 +618,7 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     priority: 'normal', rarity: 0.35, cooldown: 300, perLife: 1,
     section: 'Battle & Abilities',
     credits: { title: 'Sainthood', description: 'Rarely, after surviving a blow that should have finished him.', note: 'The church has not been consulted.' },
-    voice: { drive: 2.0, rmsDb: -17 }, file: 'AcceptSaint.mp3', aliases: ['acceptsaint', 'saint'],
+    voice: { drive: 2.0, rmsDb: -17, edits: [{ shift: [0.48, 1.0], semitones: -1.5 }, { lift: [0.71, 0.82], db: -4 }] }, file: 'AcceptSaint.mp3', aliases: ['acceptsaint', 'saint'],
   },
   {
     id: 'deftlyDodge',
@@ -734,13 +734,13 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
   },
   {
     id: 'downUpSideways',
-    text: 'I strike you down! Then up. Then sideways! And then back down!',
+    text: 'I strike you down! And then up. Then sideways! And then back down!',
     trigger: 'longChain',
     priority: 'normal', rarity: 0.1, cooldown: 180,
     section: 'Battle & Abilities',
     credits: { title: 'Down, Up, Sideways', description: 'Rarely during a continuing sword sequence.', note: 'The lesson now includes direction.' },
     // (the take's "and" before "sideways" replaced by the clear "then" of "and then back down")
-    voice: { drive: 2.2, rmsDb: -16, edits: [{ splice: [3.38, 3.625], from: [5.197, 5.41] }] }, file: 'StrikeUpDownSide.mp3',
+    voice: { drive: 2.2, rmsDb: -16, edits: [{ splice: [3.38, 3.625], from: [5.197, 5.41] }, { lift: [2.17, 2.33], db: 5 }] }, file: 'StrikeUpDownSide.mp3',
   },
   {
     id: 'believeMagic',
@@ -759,7 +759,7 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     section: 'Battle & Abilities',
     credits: { title: 'Remain Staggered', description: 'Rarely when an opponent recovers from Stagger before he approves.', note: 'Recovery was premature.' },
     // (the end of "longer!?" lifted into a question: outrage that it is even possible)
-    voice: { drive: 2.4, rmsDb: -16, semitones: -4.5, formants: 0.6, chest: 3, edits: [{ rise: [2.46, 2.83], semitones: 3 }] }, file: 'YouDareNotStaggered.mp3',
+    voice: { drive: 2.4, rmsDb: -16, edits: [{ shift: [2.0, 2.7], semitones: 2 }, { rise: [2.46, 2.83], semitones: 3 }] }, file: 'YouDareNotStaggered.mp3',
   },
   // --- kills
   {
@@ -1041,7 +1041,7 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     priority: 'normal', rarity: 0.15, cooldown: 180,
     section: 'Battle & Abilities',
     credits: { title: 'That Should Stop You', description: 'When Guard is raised against an immediate threat—and, if it breaks moments later, when the claim is disproved.', note: 'The conclusion was revised promptly.' },
-    voice: { drive: 2.2, rmsDb: -16 },
+    voice: { drive: 2.2, rmsDb: -16, semitones: -0.5 },
   },
   {
     id: 'trapdoor',
@@ -1050,7 +1050,7 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     priority: 'normal', rarity: 0.2, cooldown: 600, perLife: 1,
     section: 'Remarks & Oddities',
     credits: { title: 'Trapdoor', description: 'Very rarely while fleeing under pressure and searching the ground.', note: 'The architecture has failed to cooperate.' },
-    voice: { drive: 2.0, rmsDb: -17 }, file: 'WhereTrapDoor.mp3',
+    voice: { drive: 2.0, rmsDb: -17, semitones: -0.5 }, file: 'WhereTrapDoor.mp3',
   },
   {
     id: 'theDeceased',
@@ -1479,7 +1479,7 @@ export function linesFor(speaker, tags, { facts = [], force = false, rand = Math
 
 // a span of a recording: [from, to] seconds, in order
 const isSpan = (span) => Array.isArray(span) && span.length === 2 && span.every(Number.isFinite) && span[0] >= 0 && span[1] > span[0];
-const EDIT_KINDS = Object.freeze({ cut: [], splice: ['from'], lift: ['db'], rise: ['semitones'], glide: ['semitones'] });
+const EDIT_KINDS = Object.freeze({ cut: [], splice: ['from'], lift: ['db'], rise: ['semitones'], glide: ['semitones'], shift: ['semitones'] });
 
 // what is wrong with a line's beats, as sentences: two or more, each with its words (the first may have none: what
 // comes before the words, a slurp, written out as nothing), every later one at a time in its recording after the one

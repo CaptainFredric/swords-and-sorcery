@@ -147,21 +147,37 @@ test('the rarer grunts, the likelier charge, the battle\'s opening line, and the
   const runtime = readFileSync(new URL('../GameRuntime.mjs', import.meta.url), 'utf8');
   assert.match(runtime, /!this\.#inPractice\(\) && knights\.length >= 2\) for \(const knight of knights\) this\.#sayMoment\(knight\.id, \['battleBegins', crowded && 'crowdedBattleBegins'\]\)/);
   // the lines that must carry weight go further down, their formants following part of the way, with more chest
-  for (const id of ['sunderLeave', 'remainStaggered', 'chargeDefeat', 'masterCall', 'victory', 'sorcery', 'killTaunt', 'breakTaunt', 'noSpare', 'thankYou']) {
+  for (const id of ['chargeDefeat', 'masterCall', 'breakTaunt', 'noSpare']) {
     const voice = voiceLine(id).voice;
     assert.ok(voice.semitones <= -3.5 && voice.formants < 1 && voice.chest > 0, id);
   }
+  // (2026-10-08: these were too deep with it: back to the helm every line has, its formants kept)
+  for (const id of ['killTaunt', 'victory', 'thankYou', 'sunderLeave', 'remainStaggered', 'sorcery']) {
+    const voice = voiceLine(id).voice;
+    assert.ok(voice.semitones === undefined && voice.formants === undefined && voice.chest === undefined, id);
+  }
+  // ...and these, too deep even at the helm's two semitones: half a semitone down only
+  for (const id of ['alwaysKnew', 'trapdoor', 'stopYou']) assert.equal(voiceLine(id).voice.semitones, -0.5, id);
   // and the ones he already carries well are left as they were
   for (const id of ['constitution', 'preferNoPain']) assert.equal(voiceLine(id).voice.semitones, undefined, id);
 });
 
 test('the repaired takes say what their words say, and every repair is a modest one', () => {
-  // "And sideways!" is now "Then sideways!": its words, and the clear "then" of its own take spliced in its place
-  assert.equal(voiceLine('downUpSideways').text, 'I strike you down! Then up. Then sideways! And then back down!');
-  assert.deepEqual(voiceLine('downUpSideways').voice.edits.map((edit) => Object.keys(edit)[0]), ['splice']);
-  // the end of "longer!?" raised a little, never a new performance
+  // "And sideways!" is now "Then sideways!": its words, and the clear "then" of its own take spliced in its place; and
+  // "And then up.": its own soft "and" brought up (it was there, buried under the "then")
+  assert.equal(voiceLine('downUpSideways').text, 'I strike you down! And then up. Then sideways! And then back down!');
+  assert.deepEqual(voiceLine('downUpSideways').voice.edits.map((edit) => Object.keys(edit)[0]), ['splice', 'lift']);
+  const and = voiceLine('downUpSideways').voice.edits.find((edit) => edit.lift);
+  assert.ok(and.db > 0 && and.db <= 6 && and.lift[1] - and.lift[0] < 0.2, 'the one short word');
+  // the end of "longer!?" raised a little, never a new performance; and "for longer" set a little higher
   const rise = voiceLine('remainStaggered').voice.edits.find((edit) => edit.rise);
   assert.ok(rise.semitones > 0 && rise.semitones <= 3.5);
+  const longer = voiceLine('remainStaggered').voice.edits.find((edit) => edit.shift);
+  assert.ok(longer.semitones > 0 && longer.semitones <= 3 && longer.shift[0] >= 1.9);
+  // "accept" a little deeper, its hiss softened
+  const accept = voiceLine('acceptSaint').voice.edits;
+  assert.ok(accept.find((edit) => edit.shift).semitones < 0 && accept.find((edit) => edit.shift).semitones >= -2);
+  assert.ok(accept.find((edit) => edit.lift).db < 0);
   // buried words lifted a touch, never pasted in
   for (const id of ['neverThought', 'notFall']) {
     for (const edit of voiceLine(id).voice.edits.filter((e) => e.lift)) assert.ok(edit.db > 0 && edit.db <= 3, id);
@@ -169,9 +185,9 @@ test('the repaired takes say what their words say, and every repair is a modest 
   // Why I Should Not Fall: only dead air taken out, less than half a second of it (no word hurried)
   const cut = voiceLine('notFall').voice.edits.filter((edit) => edit.cut).reduce((sum, edit) => sum + edit.cut[1] - edit.cut[0], 0);
   assert.ok(cut > 0.2 && cut < 0.5, String(cut));
-  // the Master of Swords & Sorcery: weighted, but lighter than the threats (he was a little too deep)
+  // the Master of Swords & Sorcery: weighted, but lighter than the threats that keep their weight
   const master = voiceLine('masterCall').voice;
-  assert.ok(master.semitones > voiceLine('sunderLeave').voice.semitones && master.formants > voiceLine('sunderLeave').voice.formants);
+  assert.ok(master.semitones > voiceLine('chargeDefeat').voice.semitones && master.formants > voiceLine('chargeDefeat').voice.formants);
 });
 
 test('Fair and Square fits a clean fight either way, and is rarer than it was, behind the more particular lines', () => {
