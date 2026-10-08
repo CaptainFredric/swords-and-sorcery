@@ -38,8 +38,17 @@
 .menu-spellblade canvas { width: 100% !important; height: 100% !important; display: block; opacity: 0; transition: opacity .9s ease; }
 .menu-spellblade.menu-spellblade-ready canvas { opacity: 1; }
 .menu-vignette { position: absolute; inset: 0; z-index: 3; pointer-events: none; background:
-  linear-gradient(90deg, rgba(20, 14, 10, .55) 0%, rgba(20, 14, 10, .18) 32%, transparent 55%),
-  radial-gradient(ellipse at 62% 48%, transparent 38%, rgba(18, 12, 8, .45) 100%); }
+  radial-gradient(ellipse at 62% 48%, transparent 38%, rgba(18, 12, 8, .45) 100%); transition: background-position .42s ease; }
+/* (the shade the crimson banner stands against: lifted, most of the way, when the banner is drawn aside, and the
+   vignette centred, so the newly opened left of the yard is not left dim) */
+.menu-vignette::before { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(20, 14, 10, .55) 0%, rgba(20, 14, 10, .18) 32%, transparent 55%); transition: opacity .42s ease; }
+.menu-vignette::after { content: ""; position: absolute; inset: 0; opacity: 0; background: radial-gradient(ellipse at 50% 50%, transparent 46%, rgba(18, 12, 8, .32) 100%); transition: opacity .42s ease; }
+.menu-world.observing .menu-vignette { background: none; }
+.menu-world.observing .menu-vignette::before { opacity: .18; }
+.menu-world.observing .menu-vignette::after { opacity: 1; }
+/* out on his round he cannot be turned by hand: no grab offered */
+.menu-spellblade.touring { cursor: default; }
+.menu-spellblade.touring:active { cursor: default; }
 .turn-hint { position: absolute; z-index: 5; right: clamp(18px, 3cqw, 44px); bottom: 20px; color: rgba(245, 232, 200, .72); font: 13px/1 var(--font-inscription); letter-spacing: .12em; text-shadow: 0 1px 3px rgba(0, 0, 0, .8); pointer-events: none; white-space: nowrap; }
 
 /* --- banners ------------------------------------------------------------------------------------------------ */
@@ -530,3 +539,150 @@ html[data-turn] .turn-only { display: block !important; }
 .credits-section > .voice-entry { padding-left: 14px; }
 .touch-ui .credits-section > summary { padding: 14px 2px; }
 @media (prefers-reduced-motion: reduce) { .credits-section > summary::before { transition: none; } }
+
+/* --- the yard, watched (menuPresentation.mjs): the banner drawn aside like a hanging standard pulled to the side, its
+   rod with it, quick going and a touch slower coming back; the camera recomposes alongside (MenuScene) ------------ */
+#menu .banner-panel, #menu::after, #menu .herald-tab {
+  transition: transform .26s cubic-bezier(.2, .8, .25, 1), visibility 0s linear 0s;
+}
+#menu.withdrawn .banner-panel, #menu.withdrawn::after, #menu.withdrawn .herald-tab {
+  transform: translateX(calc(-1 * (var(--banner-left) + var(--banner-width) + 80px)));
+  transition: transform .23s cubic-bezier(.55, 0, .8, .35), visibility 0s linear .23s;
+  visibility: hidden;
+}
+/* (the inscription over the opened yard: a breath, then gone) */
+.yard-inscription {
+  position: absolute; z-index: 6; left: 50%; top: calc(var(--safe-t, 0px) + 22px); margin: 0; transform: translate(-50%, -4px);
+  color: rgba(245, 232, 200, .86); font: 400 15px/1 var(--font-inscription); letter-spacing: .32em; white-space: nowrap;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, .85), 0 0 14px rgba(0, 0, 0, .35); opacity: 0; pointer-events: none;
+}
+.yard-inscription span { color: var(--heraldry-brass-light); }
+.yard-inscription.show { animation: yard-inscription 2.6s ease both; }
+@keyframes yard-inscription { 0% { opacity: 0; transform: translate(-50%, -4px); } 18%, 72% { opacity: 1; transform: translate(-50%, 0); } 100% { opacity: 0; transform: translate(-50%, 0); } }
+
+/* the scene's own controls, lower right: an iron plaque with a brass edge (not a command: the yard is not a match) */
+.yard-controls {
+  position: absolute; z-index: 9; right: calc(var(--safe-r, 0px) + clamp(16px, 2.6cqw, 40px)); bottom: calc(var(--safe-b, 0px) + 18px);
+  display: flex; align-items: flex-end; gap: 8px; pointer-events: none;
+}
+.yard-controls > *, .yard-observe > * { pointer-events: auto; }
+.yard-observe { display: flex; align-items: center; gap: 6px; }
+.yard-observe[hidden], .yard-button[hidden] { display: none; }
+.yard-button {
+  display: grid; justify-items: end; gap: 2px; min-height: 40px; padding: 8px 14px 8px 30px; position: relative;
+  border: 1px solid rgba(201, 156, 82, .62); background: linear-gradient(180deg, rgba(42, 36, 30, .86), rgba(24, 20, 17, .9));
+  color: var(--heraldry-cream); cursor: pointer; text-align: right; box-shadow: 0 2px 10px rgba(0, 0, 0, .35);
+  transition: border-color .12s ease, background .12s ease, transform .1s ease;
+}
+.yard-button::before {
+  content: ""; position: absolute; left: 11px; top: 50%; width: 7px; height: 7px; transform: translateY(-50%) rotate(45deg);
+  background: var(--heraldry-brass); transition: background .12s ease;
+}
+.yard-button span { font: 400 14px/1 var(--font-inscription); letter-spacing: .14em; white-space: nowrap; }
+.yard-button small { color: rgba(234, 220, 182, .7); font: 600 10px/1.1 var(--font-script); letter-spacing: .06em; white-space: nowrap; }
+.yard-button:hover { border-color: var(--heraldry-brass-light); background: linear-gradient(180deg, rgba(56, 47, 38, .9), rgba(30, 25, 21, .92)); }
+.yard-button:hover::before { background: var(--heraldry-brass-light); }
+.yard-button:active { transform: translateY(1px); }
+.yard-button:focus-visible, .yard-toggle:focus-visible, .foot-link:focus-visible, .herald-tab:focus-visible, .herald-close:focus-visible { outline: 2px solid var(--heraldry-brass-light); outline-offset: 2px; }
+.yard-toggle {
+  min-height: 34px; padding: 6px 10px; border: 1px solid rgba(201, 156, 82, .38); background: rgba(20, 17, 14, .62); color: rgba(234, 220, 182, .82);
+  font: 700 10px/1 var(--font-script); letter-spacing: .16em; cursor: pointer; transition: border-color .12s ease, color .12s ease;
+}
+.yard-toggle:hover { border-color: rgba(236, 201, 127, .8); color: var(--heraldry-cream); }
+.yard-toggle[aria-pressed="false"] { color: rgba(234, 220, 182, .5); }
+/* the yard given the whole screen: the pointer keeps out of the picture once it has been still a moment */
+body.yard-still, body.yard-still * { cursor: none !important; }
+/* the subtitle with the banner gone: the middle of the screen, low */
+.subtitle.menu-caption { transition: opacity .18s ease, transform .18s ease, left .42s cubic-bezier(.2, .8, .25, 1), bottom .42s cubic-bezier(.2, .8, .25, 1); }
+.subtitle.menu-caption.observing { left: 50%; bottom: calc(var(--safe-b, 0px) + 8%); }
+/* the herald's call that challengers await: over the middle of the yard when the banner is aside */
+body.observing .herald-toast { left: 50cqw; max-width: calc(100cqw - 40px); }
+/* the drag hint is for the stage, not the yard */
+.menu-world.observing .turn-hint { display: none; }
+
+/* --- the banner's foot: the server's state in a word, the Herald (on a narrow screen), the Credits ------------ */
+.banner-foot { display: flex; align-items: center; gap: 4px; margin-top: 6px; padding-top: 7px; border-top: 1px solid rgba(201, 156, 82, .3); }
+.link-mark { display: inline-flex; align-items: center; gap: 6px; margin-right: auto; min-width: 0; color: rgba(234, 220, 182, .72); font: 600 10.5px/1.2 var(--font-script); letter-spacing: .05em; white-space: nowrap; }
+.link-mark b { overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
+.link-mark i { flex: none; width: 7px; height: 7px; border-radius: 50%; background: #d9a441; box-shadow: 0 0 5px rgba(217, 164, 65, .7); }
+.link-mark[data-tone="online"] i { background: #7fc26b; box-shadow: 0 0 5px rgba(127, 194, 107, .7); }
+.link-mark[data-tone="offline"] i { background: #c9564a; box-shadow: 0 0 5px rgba(201, 86, 74, .7); }
+.foot-link { min-height: 30px; padding: 4px 7px; border: 0; background: none; color: rgba(234, 220, 182, .62); font: 700 10px/1 var(--font-script); letter-spacing: .2em; cursor: pointer; }
+.foot-link:hover { color: var(--heraldry-brass-light); }
+/* (the Herald has its tab on the banner's edge; its foot link is for where the tab will not fit) */
+.foot-herald { display: none; }
+/* the plaques' small descriptions: easier to read, the banner no bigger */
+.menu-command small { color: rgba(234, 220, 182, .78); }
+/* a small etched rule between the ways to fight and the knight's kit; the Armory one step quieter than the commands */
+.command-rail .armory-command { margin-top: 7px; border-color: rgba(236, 201, 127, .48); }
+.command-rail .armory-command::after { content: ""; position: absolute; left: 6%; right: 6%; top: -9px; border-top: 1px solid rgba(201, 156, 82, .34); pointer-events: none; }
+
+/* --- the Herald: a wax-sealed tab on the banner's edge, and the notice drawn out from it ---------------------- */
+.herald-tab {
+  position: absolute; z-index: 9; top: 128px; left: calc(var(--banner-left) + var(--banner-width) - 2px); display: grid; justify-items: center; gap: 5px;
+  width: 30px; padding: 10px 0 12px; border: 1px solid rgba(110, 82, 46, .55); border-left: 0; pointer-events: auto; cursor: pointer;
+  background: linear-gradient(90deg, #cdb98b, #e3d4ac 40%, #d8c69a); color: var(--heraldry-ink); box-shadow: 2px 2px 7px rgba(0, 0, 0, .35);
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 8px), 50% 100%, 0 calc(100% - 8px));
+}
+.herald-tab span:last-child { writing-mode: vertical-rl; font: 400 12px/1 var(--font-inscription); letter-spacing: .2em; }
+.herald-seal { width: 14px; height: 14px; border-radius: 50%; background: radial-gradient(circle at 38% 35%, #c2463a, #8d241d 62%, #5c1712); box-shadow: 0 1px 2px rgba(0, 0, 0, .4); }
+.herald-tab:hover { background: linear-gradient(90deg, #d8c597, #ecdcb4 40%, #e1cfa3); }
+.herald-tab[aria-expanded="true"] { background: linear-gradient(90deg, #e1cfa3, #f0e2bb 40%, #e6d4a8); }
+.herald-notice {
+  position: absolute; z-index: 10; top: 64px; left: calc(var(--banner-left) + var(--banner-width) + 36px); width: min(360px, calc(100cqw - var(--banner-left) - var(--banner-width) - 56px));
+  max-height: calc(100% - 96px); display: flex; flex-direction: column; pointer-events: auto; overflow: hidden;
+  border: 1px solid rgba(110, 82, 46, .6); background:
+    radial-gradient(ellipse at 30% 0%, rgba(255, 248, 225, .5), transparent 60%),
+    repeating-linear-gradient(0deg, rgba(90, 64, 34, .045) 0 1px, transparent 1px 3px),
+    linear-gradient(180deg, #ecdfba, #e2d1a6 70%, #d8c497);
+  color: var(--heraldry-ink); box-shadow: 0 2px 0 rgba(255, 255, 255, .25) inset, 0 14px 34px rgba(0, 0, 0, .45);
+  transform-origin: 0 64px; animation: herald-sheet-in .26s cubic-bezier(.2, .8, .25, 1) both;
+}
+.herald-notice.closing { animation: herald-sheet-out .18s cubic-bezier(.5, 0, .75, 0) both; }
+@keyframes herald-sheet-in { from { opacity: 0; transform: translateX(-14px) scaleX(.94); } }
+@keyframes herald-sheet-out { to { opacity: 0; transform: translateX(-12px) scaleX(.95); } }
+.herald-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 14px 16px 10px; border-bottom: 1px solid rgba(110, 82, 46, .35); }
+.herald-head h2 { margin: 0; font: 400 16px/1.1 var(--font-inscription); letter-spacing: .12em; color: #4a2a1c; }
+.herald-close { flex: none; width: 32px; height: 32px; border: 1px solid rgba(110, 82, 46, .4); background: rgba(255, 250, 235, .35); color: #4a2a1c; font: 700 14px/1 var(--font-script); cursor: pointer; }
+.herald-close:hover { background: rgba(255, 250, 235, .7); }
+.herald-body { overflow: auto; padding: 12px 16px 16px; overscroll-behavior: contain; }
+.herald-latest h3 { margin: 0 0 6px; font: 400 18px/1.15 var(--font-inscription); color: #6d2018; }
+.herald-latest p { margin: 0 0 8px; font: 500 13px/1.5 var(--font-script); color: #2f2219; }
+.herald-changes h4 { margin: 12px 0 6px; padding-top: 10px; border-top: 1px solid rgba(110, 82, 46, .3); font: 400 12px/1 var(--font-inscription); letter-spacing: .24em; color: #6b4e2c; }
+.herald-changes ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 7px; }
+.herald-changes li { display: grid; grid-template-columns: 74px 1fr; gap: 8px; font: 500 12.5px/1.4 var(--font-script); color: #2f2219; }
+.herald-changes time { color: #7a5a35; font-weight: 700; font-size: 11px; letter-spacing: .03em; padding-top: 1px; }
+.herald-note { margin-top: 12px; padding-top: 10px; border-top: 1px solid rgba(110, 82, 46, .3); font: italic 500 13px/1.45 var(--font-script); }
+
+/* a narrow screen (the banner across most of it): the Herald from the banner's foot, the notice over the yard */
+@container app (max-width: 760px) {
+  .herald-tab { display: none; }
+  .foot-herald { display: inline-block; }
+  .herald-notice { left: auto; right: 12px; width: min(340px, calc(100cqw - 24px)); top: 12px; max-height: calc(100% - 24px); transform-origin: 100% 0; }
+  .yard-button small { display: none; }
+  /* (the yard's own sound and subtitle switches only where there is room for them: the Settings have both) */
+  .yard-toggle { display: none; }
+}
+/* a short screen (a phone on its side): the controls smaller, the tab nearer the top */
+@container app (max-height: 500px) {
+  .herald-tab { top: 74px; }
+  .yard-controls { bottom: calc(var(--safe-b, 0px) + 10px); }
+  .yard-button { min-height: 38px; padding: 6px 12px 6px 26px; }
+  .yard-button small { display: none; }
+  .banner-foot { margin-top: 2px; padding-top: 3px; }
+  /* (the server's state as its mark alone, its words in the title: the short banner keeps its height for the commands) */
+  .link-mark b { display: none; }
+  .touch-ui .banner-foot .foot-link { min-height: 34px; padding: 4px 9px; }
+  .herald-notice { top: 8px; max-height: calc(100% - 16px); }
+}
+/* touch: targets big enough for a thumb */
+.touch-ui .yard-button { min-height: 46px; }
+.touch-ui .yard-toggle { min-height: 44px; padding: 8px 12px; }
+.touch-ui .foot-link { min-height: 40px; padding: 6px 10px; }
+.touch-ui .herald-close { width: 44px; height: 44px; }
+@media (prefers-reduced-motion: reduce) {
+  #menu .banner-panel, #menu::after, #menu .herald-tab, #menu.withdrawn .banner-panel, #menu.withdrawn::after, #menu.withdrawn .herald-tab { transition: none; }
+  .herald-notice, .herald-notice.closing { animation: none; }
+  .yard-inscription.show { animation: none; opacity: 0; }
+  .menu-vignette::before, .menu-vignette::after { transition: none; }
+}

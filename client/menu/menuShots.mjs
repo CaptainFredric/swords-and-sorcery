@@ -59,6 +59,31 @@ export function lerpShot(a, b, t) {
   };
 }
 
+/**
+ * The same shot turned level about its camera so that `subject` ([x, y, z]) stands `share` of the way across the screen
+ * (0.5: the middle): the front door's own shots set him on the right third, clear of the banner; with the banner drawn
+ * aside (Observation View) he is given the middle of the stage. aspect, fov: the screen's.
+ */
+export function aimAt(shot, subject, { share = 0.5, aspect = 16 / 9 } = {}) {
+  const [cx, , cz] = shot.camera;
+  const look = [shot.target[0] - cx, shot.target[2] - cz];
+  const length = Math.hypot(look[0], look[1]);
+  const to = [subject[0] - cx, subject[2] - cz];
+  if (length < 1e-6 || Math.hypot(to[0], to[1]) < 1e-6) return shot;
+  // the subject's bearing from the look (positive: to the right of it, as the screen shows it), and the bearing it
+  // wants for `share` of the way across
+  const across = to[0] * -look[1] / length + to[1] * look[0] / length;
+  const along = to[0] * look[0] / length + to[1] * look[1] / length;
+  if (along <= 0) return shot;
+  const spread = Math.tan((shot.fov * Math.PI) / 360) * aspect;
+  const turn = Math.atan2(across, along) - Math.atan((share * 2 - 1) * spread);
+  // (turned toward the subject: right of the look is (-z, x), so a positive turn here is a turn to the right)
+  const c = Math.cos(turn);
+  const s = Math.sin(turn);
+  const turned = [look[0] * c - look[1] * s, look[0] * s + look[1] * c];
+  return { camera: [...shot.camera], target: [cx + turned[0], shot.target[1], cz + turned[1]], fov: shot.fov };
+}
+
 export function menuMoveSeconds(from, to) {
   return Math.hypot(...from.camera.map((v,i)=>v-to.camera[i])) > 4 ? 1.05 : .85;
 }
