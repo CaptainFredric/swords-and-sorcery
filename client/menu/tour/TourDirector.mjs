@@ -332,6 +332,16 @@ export class TourDirector {
     const palm = this.#socket(instance, 'socket_sorcery');
     const yaw = root.rotation.y;
     const turn = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
+    if (vessel.grip) {
+      // (the tankard by its handle: the handle in his fist, the tankard beyond it the way his palm faces, and tipped
+      // about the handle's line, as a tankard is drunk from)
+      const grip = new THREE.Vector3(vessel.grip[0], 0, vessel.grip[2]).normalize();
+      const position = palm.addScaledVector(grip.clone().applyQuaternion(turn), this.vessel.size.rim + this.vessel.size.handle);
+      const handleIn = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.atan2(grip.z, -grip.x));
+      const quaternion = turn.multiply(new THREE.Quaternion().setFromAxisAngle(grip, vessel.tilt ?? 0)).multiply(handleIn);
+      this.vessel.update({ position, quaternion, fill: vessel.fill ?? 0, visible: this.visible });
+      return;
+    }
     // (its side against the palm, which faces in toward his middle and a little forward)
     const inward = new THREE.Vector3(0.85, 0.15, -0.5).normalize().applyQuaternion(turn);
     const position = palm.addScaledVector(inward, this.vessel.size.rim * 0.95);

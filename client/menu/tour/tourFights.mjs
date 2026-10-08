@@ -353,6 +353,17 @@ export function makeSlush({ vessel = 'cup', opening = 'charge', drink = 'quaff',
   const walk = [away[1], away[1] + 0.85];
   const duration = walk[1] + 0.1;
   const deep = drink === 'quaff';
+  // the tankard is held by its handle, his fist round it (the pail, which has only its bail, by its rim): the way his
+  // palm faces (the knight's root space), carried a little out in front, and square across him to drink, so it tips
+  // straight back to his visor about the handle's line
+  const handled = vessel === 'cup';
+  const carry = [0.85, 0.15, -0.5];
+  const across = [1, 0.05, -0.12];
+  const grip = (t) => {
+    if (!handled) return carry;
+    const q = between(t, take(-0.6), take(-0.15)) * (1 - between(t, away[0], away[1]));
+    return carry.map((c, i) => c + (across[i] - c) * q);
+  };
   return {
     id: 'slush',
     key: `slush:${vessel}:${opening}:${drink}:${finish}`,
@@ -420,11 +431,13 @@ export function makeSlush({ vessel = 'cup', opening = 'charge', drink = 'quaff',
     },
     // the vessel in his spell hand: where the hand holds it (the knight's root space), and how it is carried:
     // { shown, tilt (radians: + tips its rim toward him, - away from him), fill (0..1, over 1 heaped over the rim),
-    // scooped (0..1: how much of the heap it has taken: all of it, in the one sweep) }
+    // scooped (0..1: how much of the heap it has taken: all of it, in the one sweep), grip (the tankard: held by its
+    // handle, the way his palm faces; it tips about that line) }
     vessel(t) {
       const shown = t >= 5.98 && t < away[1] - 0.05;
       const scooped = between(t, S.sweep[0], S.sweep[1]);
       if (!shown) return { kind: vessel, shown: false, tilt: 0, fill: 0, scooped };
+      const held = handled ? { grip: grip(t) } : {};
       // in rim first and swept through the heap, then up; tipped back to his visor as he drinks; tipped out (the
       // dregs). Full: heaped over its rim, all of the heap in it
       const dip = between(t, S.sweep[0] - 0.1, S.sweep[0] - 0.02) * (1 - between(t, S.sweep[1], S.sweep[1] + 0.12));
@@ -433,27 +446,35 @@ export function makeSlush({ vessel = 'cup', opening = 'charge', drink = 'quaff',
       const tipOut = pour ? between(t, take(5.75), take(5.95)) * (1 - between(t, take(6.0), take(6.15))) : 0;
       const tilt = -1.35 * dip + (deep ? 2.1 : 1.45) * sup - 2.3 * tipOut;
       const fill = S.heaped * scooped * (1 - drained * (deep ? 0.85 : 0.55)) * (1 - between(t, take(5.8), take(6.0)) * (pour ? 1 : 0));
-      return { kind: vessel, shown, tilt, fill, scooped };
+      return { kind: vessel, shown, tilt, fill, scooped, ...held };
     },
     // the spell hand: to the belt for the vessel, out in front with it, down into the heap, up to the visor, down to
-    // the chest for the tasting, out to the side for the dregs, back to the belt
+    // under his chin for the tasting (the vessel up where it is seen), out to the side for the dregs, back to the belt
     hand(t) {
       if (t < 5.82 || t > walk[0] + 0.1) return null;
+      // (where the wrist goes for the vessel's rim to meet the foot of his visor, his head tipped back to drink: the
+      // tankard is out at the side of it, by its handle; the pail, by its rim, under it)
+      const lips = handled ? (deep ? [-0.275, 1.887, -0.318] : [-0.266, 1.731, -0.307]) : (deep ? [-0.204, 1.86, -0.206] : [-0.204, 1.762, -0.25]);
+      const tasting = handled ? [-0.26, 1.47, -0.42] : [-0.14, 1.34, -0.38];
       const keys = [
         [5.82, [-0.3, 1.0, -0.05]], [5.96, [-0.32, 0.98, 0.04]],
         [6.2, [-0.24, 1.08, -0.34]], [6.55, [-0.22, 1.08, -0.38]],
         // in at the far side of the heap and swept right through it, low, then up with all of it
         [S.sweep[0] - 0.04, [-0.36, 0.38, -0.76]], [(S.sweep[0] + S.sweep[1]) / 2, [-0.2, 0.22, -0.68]], [S.sweep[1], [-0.0, 0.28, -0.56]],
         [7.2, [-0.18, 0.95, -0.5]],
-        [take(-0.3), [-0.06, 1.42, -0.36]], [take(0.05), [-0.03, 1.5, -0.27]], [take(S.take.slurp[1]), [-0.03, 1.5, -0.27]],
-        [take(S.take.slurp[1] + 0.35), [-0.14, 1.2, -0.38]],
-        ...(pour ? [[take(5.7), [-0.14, 1.2, -0.38]], [take(5.9), [-0.55, 1.12, -0.32]], [take(6.1), [-0.5, 1.1, -0.3]]] : [[away[0], [-0.14, 1.2, -0.38]]]),
+        [take(-0.3), lips.map((c, i) => c + [-0.03, -0.08, -0.09][i])], [take(0.05), lips], [take(S.take.slurp[1]), lips],
+        [take(S.take.slurp[1] + 0.35), tasting],
+        ...(pour ? [[take(5.7), tasting], [take(5.9), [-0.55, 1.12, -0.32]], [take(6.1), [-0.5, 1.1, -0.3]]] : [[away[0], tasting]]),
         [away[1], [-0.32, 0.98, 0.04]],
       ];
       const reach = between(t, 5.82, 5.9) * (1 - between(t, away[1], walk[0] + 0.1));
       const at = [0, 1, 2].map((axis) => keyed(keys.map(([time, point]) => [time, point[axis]]), t));
-      // the palm toward the vessel's side (it is held by its body or its rim, upright)
-      return arm(blade(at, [0.85, 0.15, -0.5], [0, 1, 0]), reach);
+      // the palm toward the vessel (by its handle, or its rim); across the palm, the line of the handle (tipped with it)
+      const palm = grip(t);
+      const tilt = handled ? this.vessel(t).tilt : 0;
+      const flat = Math.hypot(palm[0], palm[2]);
+      const across = handled ? [(-palm[2] / flat) * Math.sin(tilt), Math.cos(tilt), (palm[0] / flat) * Math.sin(tilt)] : [0, 1, 0];
+      return arm(blade(at, palm, across), reach);
     },
     // how much closer the camera comes (0..1): in for the scoop and the drink, out again as he walks back
     near(t) {
@@ -512,8 +533,9 @@ export function makeSlush({ vessel = 'cup', opening = 'charge', drink = 'quaff',
 // watch it go, and keeps watching. The Spellblade does nothing at all with the opening: he turns and walks on down the
 // path, and the Fireball is never seen again (it leaves the scene: nothing comes back down).
 //
-// The payoff, the next round, at that same rival. He sees the Spellblade coming and, before anything is done to him,
-// looks up at the sky. The Spellblade notices, and throws a quick, ordinary Fireball straight at him. He snaps his
+// He never stops watching for it: the rest of that round and all of the next, his eyes are on the sky. The payoff, the
+// next round, at that same rival: the Spellblade comes back round and finds him still looking up. He notices, and
+// throws a quick, ordinary Fireball straight at him; only then do the rival's eyes come down off the sky. He snaps his
 // Guard back up (it kept the sword out last time), and the Fireball goes through it as a Fireball does (a Guard is for
 // the sword) and lays him flat. The Spellblade walks on. Neither half says a word.
 export const SKY_BAIT = Object.freeze({
@@ -528,13 +550,14 @@ export const SKY_BAIT = Object.freeze({
   leave: Object.freeze([3.1, 3.5]),
   walk: Object.freeze([3.5, 5.2]),
   away: 2.0,            // metres he walks down the path before he runs on
-  // the payoff: he looks up unprompted, is noticed, a quick Fireball straight at him, his Guard up too late to matter
+  // the payoff: found still looking up, and noticed; a quick Fireball straight at him; his eyes come down off the sky
+  // only as it is thrown, and his Guard comes up too late to matter
   payoff: Object.freeze({
-    looksUp: Object.freeze([0.3, 0.7]),
     notice: Object.freeze([0.55, 0.8]),
     gather: 0.75,
     release: 0.97,
     flight: 0.38,
+    looksDown: Object.freeze([0.97, 1.08]),
     guardUp: Object.freeze([1.0, 1.28]),
     impact: 1.35,
     landed: 1.95,
@@ -550,6 +573,19 @@ function walkedAway(t, [from, to], away) {
   return (away * (q < 0.15 ? (q * q) / 0.3 : q - 0.075)) / 0.925;
 }
 const walkSpeed = ([from, to], away) => away / ((to - from) * 0.925);
+
+// Sky-Bait's rival with his eyes on the sky (`up` 0..1: how far): head well back, neck and chest following, and a
+// slow drift of the visor as if tracking something up there, so he stands there watching, not frozen
+function skyGaze(up, t) {
+  if (up <= 1e-3) return [];
+  return [
+    { bone: 'head', axis: [1, 0, 0], angle: (0.8 + 0.05 * Math.sin(t * 0.9)) * up },
+    { bone: 'head', axis: [0, 1, 0], angle: 0.09 * Math.sin(t * 0.37) * up },
+    { bone: 'neck', axis: [1, 0, 0], angle: 0.3 * up },
+    { bone: 'chest', axis: [1, 0, 0], angle: 0.18 * up },
+    { bone: 'spine', axis: [1, 0, 0], angle: 0.08 * up },
+  ];
+}
 
 export function makeSkyBait() {
   const S = SKY_BAIT;
@@ -597,19 +633,10 @@ export function makeSkyBait() {
         const shudder = Math.sin(Math.PI * between(t, tink, tink + 0.14));
         if (shudder > 1e-3) rotations.push({ bone: 'chest', axis: [-1, 0, 0], angle: 0.035 * shudder });
       }
-      // his eyes up after it, his chest following a little, and kept there well after the Spellblade has gone (then,
-      // out of shot, he lowers them, looks about him, and is himself again)
-      const up = between(t, S.lookUp[0], S.lookUp[1]) * (1 - between(t, S.walk[1] + 0.6, S.walk[1] + 1.6));
-      if (up > 1e-3) {
-        rotations.push(
-          { bone: 'head', axis: [1, 0, 0], angle: 0.8 * up },
-          { bone: 'neck', axis: [1, 0, 0], angle: 0.3 * up },
-          { bone: 'chest', axis: [1, 0, 0], angle: 0.2 * up },
-          { bone: 'spine', axis: [1, 0, 0], angle: 0.08 * up },
-        );
-      }
-      const about = Math.sin(Math.PI * between(t, S.walk[1] + 1.4, S.walk[1] + 2.6));
-      if (about > 1e-3) rotations.push({ bone: 'head', axis: [0, 1, 0], angle: 0.35 * Math.sin(Math.PI * 2 * between(t, S.walk[1] + 1.4, S.walk[1] + 2.6)) * about });
+      // his eyes up after it, his chest following a little, and kept there: long after the Spellblade has gone, the
+      // rest of the round, still watching for it (the payoff's sheet keeps him so the next round, until it is thrown)
+      const up = between(t, S.lookUp[0], S.lookUp[1]);
+      rotations.push(...skyGaze(up, t));
       return { u: S.reach, v: 0, lift: 0, heading: Math.PI, ...clip, crouch: 0, rotations, looking: up };
     },
     cues: [
@@ -653,24 +680,16 @@ export function makeSkyBaitPayoff() {
       return pose;
     },
     rival(t) {
-      // he waits; he sees the Spellblade and looks up at the sky before anything is done to him; then sees the
-      // Fireball is not going up, snaps his Guard back up, and is blasted flat through it
+      // he has been looking up since the last round, and still is as the Spellblade comes back round; only when the
+      // Fireball is thrown do his eyes come down off the sky, to see it is not going up: his Guard snaps back up, and
+      // he is blasted flat through it
       const clip = clipAt([
         [-99, 'Idle', { loop: true }],
         [P.guardUp[0], 'Guard', { rate: 1.8 }],
         [P.impact, 'Death'],
       ], t);
-      const rotations = [];
-      const stiffen = between(t, 0, 0.3) * (1 - between(t, P.guardUp[0], P.impact));
-      if (stiffen > 1e-3) rotations.push({ bone: 'chest', axis: [1, 0, 0], angle: 0.05 * stiffen });
-      const up = between(t, P.looksUp[0], P.looksUp[1]) * (1 - between(t, P.guardUp[0] - 0.05, P.guardUp[0] + 0.15));
-      if (up > 1e-3) {
-        rotations.push(
-          { bone: 'head', axis: [1, 0, 0], angle: 0.8 * up },
-          { bone: 'neck', axis: [1, 0, 0], angle: 0.3 * up },
-          { bone: 'chest', axis: [1, 0, 0], angle: 0.16 * up },
-        );
-      }
+      const up = 1 - between(t, P.looksDown[0], P.looksDown[1]);
+      const rotations = skyGaze(up, t);
       // blown back a little as he goes down (no launch: flat where he stood, near enough)
       const u = S.reach + keyed([[P.impact, 0], [P.impact + 0.35, 0.65], [P.impact + 0.8, 0.75]], t);
       const guarding = t >= P.guardUp[0] && t < P.impact ? between(t, P.guardUp[0], P.guardUp[1]) : 0;

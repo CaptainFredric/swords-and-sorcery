@@ -115,8 +115,19 @@ test('the vessel: out of his belt as he hurries over, filled at the scoop, at hi
     assert.ok(fight.hero(SLUSH.sweep[0]).vessel.tilt < -0.8, 'in rim first');
     // the drink: at his visor, tipped back to him, his head back, as the take's slurp runs
     const sip = SLUSH.drinkAt + 0.8;
-    assert.ok(fight.hero(sip).spell.target.wrist[1] > 1.4, 'up at his visor');
+    assert.ok(fight.hero(sip).spell.target.wrist[1] > 1.68, 'up at his visor (it is up past his collar: 1.72-1.87 m)');
     assert.ok(fight.hero(sip).vessel.tilt > 1, 'tipped back to him');
+    // tasting it, the vessel held up under his chin where it is seen (not down at his chest)
+    assert.ok(fight.hero(SLUSH.drinkAt + SLUSH.take.ahh[0]).spell.target.wrist[1] >= 1.34, `${fight.key}: held up to taste`);
+    // the tankard by its handle, the whole time it is out, and tipped about the handle's line (his palm's); the pail,
+    // with only a bail, by its rim
+    for (let t = out + 0.05; t < stow; t += 0.1) {
+      const { grip } = fight.hero(t).vessel;
+      if (fight.variant.vessel === 'cup') {
+        assert.ok(grip && grip.every(Number.isFinite), `${fight.key}: by its handle at ${t.toFixed(1)}`);
+        assert.deepEqual(fight.hero(t).spell.target.aim, grip, 'his palm the way the handle points into it');
+      } else assert.equal(grip, undefined);
+    }
     assert.ok(fight.hero(sip).rotations.some((turn) => turn.bone === 'head' && turn.axis[0] === 1 && turn.angle > 0.1), 'his head back');
     const deep = fight.variant.drink === 'quaff';
     const left = fight.hero(SLUSH.drinkAt + SLUSH.take.slurp[1] + 0.4).vessel.fill;
@@ -130,6 +141,8 @@ test('the vessel: out of his belt as he hurries over, filled at the scoop, at hi
       assert.ok(fight.hero(dregs + 0.2).vessel.fill < 0.05, 'and empty');
     }
   }
+  // (placed with its handle in his fist, the tankard beyond it, tipped about the handle's line)
+  assert.match(source('./TourDirector.mjs'), /if \(vessel\.grip\) \{[\s\S]*?this\.vessel\.size\.rim \+ this\.vessel\.size\.handle\);[\s\S]*?setFromAxisAngle\(grip, vessel\.tilt \?\? 0\)/);
 });
 
 test('"Poor taste." belongs to this and nothing else: live, raised only as he drinks, and never written out before it is said', () => {

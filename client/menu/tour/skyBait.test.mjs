@@ -52,8 +52,10 @@ test('4-6. the Fireball goes up, not at him, and is gone; he looks up only once 
   assert.equal(setup.rival(SKY_BAIT.lookUp[0] + 0.05).clip, 'Idle', 'the Guard lowered');
   const up = setup.rival(SKY_BAIT.lookUp[1]).rotations.find((turn) => turn.bone === 'head');
   assert.ok(up.axis[0] === 1 && up.angle > 0.6, 'well up, not a glance');
-  // and he is still looking up as the Spellblade walks away, and as he goes out of shot
-  for (const t of [SKY_BAIT.leave[1], SKY_BAIT.walk[0] + 0.5, setup.duration]) assert.equal(setup.rival(t).looking, 1, `still looking at ${t}`);
+  // and he is still looking up as the Spellblade walks away, as he goes out of shot, and the rest of the round
+  for (const t of [SKY_BAIT.leave[1], SKY_BAIT.walk[0] + 0.5, setup.duration, setup.duration + 10, setup.duration + 60]) {
+    assert.equal(setup.rival(t).looking, 1, `still looking at ${t}`);
+  }
   // the Spellblade does nothing with the opening: no swing, no spell after the bait; he turns and walks on
   assert.ok(setup.cues.filter((cue) => cue.at > SKY_BAIT.release).every((cue) => cue.type === 'remember'), 'nothing more done to him');
   for (let t = SKY_BAIT.release + 0.1; t <= setup.duration; t += 0.05) assert.ok(!/^Slash/.test(setup.hero(t).clip), `no blow at ${t.toFixed(2)}`);
@@ -107,12 +109,16 @@ test('the pairing: the setup now and then; its payoff the next round at that sam
   assert.equal(lineupFor(1, undefined, { skyBaited: 0 })[0], 'skyBaitPayoff');
 });
 
-test('10-13. the payoff: he looks up before anything is cast; his Guard comes up before the Fireball lands; it goes through, and he is flat', () => {
-  assert.equal(payoff.rival(-5).looking, 0, 'waiting as anyone does');
-  assert.equal(payoff.rival(P.looksUp[1]).looking, 1, 'looking up by himself...');
-  assert.ok(P.looksUp[1] < P.gather, '...before the Spellblade begins anything');
-  assert.ok(P.notice[0] > P.looksUp[0] && P.notice[1] <= P.gather + 0.05, 'and is noticed doing it');
+test('10-13. the payoff: found still looking up; eyes down only as it is thrown; his Guard comes up before the Fireball lands; it goes through, and he is flat', () => {
   const cast = payoff.cues.find((cue) => cue.type === 'cast');
+  // still looking up from the last round, all the while the Spellblade comes back round, and as he is noticed
+  for (const t of [-60, -5, 0, P.notice[0], P.notice[1], P.gather, cast.at - 0.01]) assert.equal(payoff.rival(t).looking, 1, `still up at ${t}`);
+  assert.ok(P.notice[1] <= P.gather + 0.05, 'noticed doing it before the Spellblade begins anything');
+  const up = payoff.rival(-5).rotations.find((turn) => turn.bone === 'head' && turn.axis[0] === 1);
+  assert.ok(up.angle > 0.6, 'the same gaze as the round before, well up');
+  // his eyes come down off the sky only once the Fireball is thrown
+  assert.ok(P.looksDown[0] >= cast.at);
+  assert.equal(payoff.rival(P.looksDown[1]).looking, 0);
   assert.ok(!cast.up && !cast.over, 'straight at him');
   assert.ok(cast.flight < 0.5 && cast.at - P.gather < 0.3, 'quick');
   assert.ok(cast.at + cast.flight <= P.impact + 1e-9);
