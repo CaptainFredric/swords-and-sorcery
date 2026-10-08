@@ -860,7 +860,12 @@ export class GameRuntime {
   // (ultimate: a line said of an ultimate he is using: only the first said in each activation is said at all)
   #say(line, playerId, { chanceScale = 1, delay = 0, force = false, cry = false, earned = false, opening = false, part = null, ultimate = false } = {}) {
     if (!this.voice || !playerId) return false;
-    if (ultimate && !this.ultimateLines.allows(playerId)) return false;
+    // (his ultimate's one line for this activation, in turn: none other of it; that one, whatever its odds)
+    if (ultimate) {
+      const verdict = this.ultimateLines.verdict(playerId, line, { cry: ultimate === 'cry' });
+      if (verdict === 'no') return false;
+      if (verdict === 'force') force = true;
+    }
     const said = this.#speak(line, playerId, { chanceScale, delay, force, cry, earned, opening, part });
     if (said && ultimate) this.ultimateLines.said(playerId);
     return said;
@@ -1391,9 +1396,9 @@ export class GameRuntime {
 
   // a moment of an ultimate he is using (ULTIMATE_MOMENTS): the first said of its lines, if this activation has not had
   // its one line already
-  #sayUltimate(speaker, tags) {
+  #sayUltimate(speaker, tags, ultimate = true) {
     if (!this.voice || !speaker) return;
-    for (const say of this.moments.lines(speaker, tags)) if (this.#say(say.line, say.speaker, { ...say, ultimate: true })) break;
+    for (const say of this.moments.lines(speaker, tags)) if (this.#say(say.line, say.speaker, { ...say, ultimate })) break;
   }
 
   // a moment a knight is in, by its tags (voiceLines.mjs: the lines subscribe to the moments): of the lines that
@@ -1457,8 +1462,8 @@ export class GameRuntime {
   // a knight braces into Sunder: the harness drawn tight, and the cry; mine names it
   #ultimateStart(event) {
     const me = event.playerId === this.socket.playerId;
-    // (a fresh activation: one line may be said of it)
-    this.ultimateLines.begin(event.playerId);
+    // (a fresh activation: its one line, whichever of his ultimate's lines has the turn)
+    this.ultimateLines.begin(event.playerId, event.ultimate);
     // a Blazing Vortex is lit, not braced into: the breath drawn up into flame through its startup, and no cry
     if (event.ultimate === 'vortex') {
       this.#play(vortexIgniteRecipe(Math.random, { seconds: ULTIMATES.vortex.startupSec }), me ? null : this.#bodyPosition(event.playerId), me ? 0.9 : 0.7);
@@ -1475,7 +1480,7 @@ export class GameRuntime {
     }
     if (event.ultimate === 'chivalry') {
       const cry = cryMoment(event.ultimate);
-      if (cry) this.#sayUltimate(event.playerId, [cry]);
+      if (cry) this.#sayUltimate(event.playerId, [cry], 'cry');
       if (me) this.hud.flashText('SPELLS & CHIVALRY', 'chivalry', 1400);
       return;
     }
@@ -1487,7 +1492,7 @@ export class GameRuntime {
     }
     // its cry: most times its own, now and then MIGHT MAKES... KNIGHT! (voiceRules ULTIMATE_CRIES)
     const cry = cryMoment(event.ultimate);
-    if (cry) this.#sayUltimate(event.playerId, [cry]);
+    if (cry) this.#sayUltimate(event.playerId, [cry], 'cry');
     if (me) {
       this.hud.flashText('SUNDER ALL THAT RUSTS', 'sunder', 1400);
       this.cameraKick = Math.max(this.cameraKick, 0.08);
