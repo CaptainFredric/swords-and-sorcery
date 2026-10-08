@@ -7,7 +7,8 @@ import * as THREE from 'three';
 import { createSpellbladeRig } from '../game/SpellbladeFallback.mjs';
 import { createSpellbladeAsset, reportSpellbladeAssetStatus } from '../game/SpellbladeAssets.mjs';
 import { CASTLEWARD_LIGHTING, CastlewardRenderer } from '../worlds/CastlewardRenderer.mjs';
-import { MENU_SHOTS, easeShot, lerpShot, menuShotFor, shotSettled, menuMoveSeconds } from './menuShots.mjs';
+import { MENU_SHOTS, aimAt, easeShot, lerpShot, menuShotFor, shotSettled, menuMoveSeconds } from './menuShots.mjs';
+import { FIGHT_SHOT, mixClear } from './tour/tourCamera.mjs';
 import { REACTIONS, idleMoment, idlePose, reactionMoment } from './menuIdle.mjs';
 import { TourDirector } from './tour/TourDirector.mjs';
 import { performanceAt } from './menuReactions.mjs';
@@ -44,6 +45,10 @@ const STAGE = Object.freeze({ x: -1.0, z: 5.5 });
 const CAMERA_FROM = Object.freeze({ x: MENU_SHOTS.main.camera[0], z: MENU_SHOTS.main.camera[2] });
 // a showcase cut short (another card, another screen): how long the camera takes to come away from it
 const SHOWCASE_RELEASE_SEC = 0.6;
+// The front door's presentation (menuPresentation.mjs): how long the camera takes to recompose when the banner is drawn
+// aside or brought back (overlapping the banner's own move), and where he stands across the stage once it has gone
+const PRESENTATION_SEC = 0.42;
+const OBSERVE_SHARE = 0.54;
 
 // a spell held up in the Armory (a Gale is its own ball of wind, galeOrb.mjs, and lights the hand only softly; glow:
 // the palm light's colour)
@@ -74,6 +79,13 @@ export class MenuScene {
     this.touringWanted = false;
     this.touring = false;
     this.tourBlend = 0;
+    // the front door's presentation: 0 the banner up (the round framed right of it), 1 drawn aside (Observation View),
+    // eased between (setPresentation); and the part of the screen right of the banner, as last measured
+    this.framing = 0;
+    this.framingFrom = 0;
+    this.framingTo = 0;
+    this.framingAge = PRESENTATION_SEC;
+    this.commandClear = FIGHT_SHOT.clear;
     this.ready = false;
     this.visible = true;
     this.dragging = false;
@@ -329,6 +341,12 @@ export class MenuScene {
     if (this.galeOrb?.visible) this.galeOrb.userData.update(t);
     if (this.armoryElemental?.visible) this.armoryElemental.userData.update(t);
 
+    // the presentation eased toward what is wanted: the camera recomposes as the banner moves, not after it
+    this.#stepFraming(dt);
+    if (this.touring) {
+      this.tour.framing = this.framing;
+      this.tour.clear = mixClear(this.commandClear, FIGHT_SHOT.observeClear, this.framing);
+    }
     const round = this.touring ? this.tour.update(dt) : null;
     if (this.touring) {
       // the round moves him (and the sun, so the shadows around him stay crisp)
@@ -416,6 +434,9 @@ export class MenuScene {
     } else {
       let view = this.shot;
       let offset = drift;
+      // with the banner drawn aside, the same shot turned to give him the middle of the stage (he is at his place: the
+      // round is not running on this quality, or for anyone who asked for less motion)
+      if (this.framing > 0) view = lerpShot(view, aimAt(view, this.#stagePoint(), { share: OBSERVE_SHARE, aspect: this.camera.aspect }), this.framing);
       if (this.showcase?.active && this.showcase.framed > 0) {
         // stepped back to keep the showcase in view, and shaken by what it brings down on the ground
         const shake = this.showcase.shakeOffset(t);
@@ -446,6 +467,42 @@ export class MenuScene {
       this.camera.fov = shot.fov;
       this.camera.updateProjectionMatrix();
     }
+  }
+
+  // where he stands at his place, chest high, in the world
+  #stagePoint() {
+    return [STAGE.x, 1.2, STAGE.z];
+  }
+
+  #stepFraming(dt) {
+    if (this.framingAge >= PRESENTATION_SEC) {
+      this.framing = this.framingTo;
+      return;
+    }
+    this.framingAge = Math.min(PRESENTATION_SEC, this.framingAge + dt);
+    const u = this.framingAge / PRESENTATION_SEC;
+    this.framing = this.framingFrom + (this.framingTo - this.framingFrom) * easeShot(u);
+  }
+
+  /**
+   * The front door's presentation (menuPresentation.mjs): observing, the banner is drawn aside and the camera given the
+   * whole stage; not, it frames everything right of the banner again. Eased over PRESENTATION_SEC from wherever it is
+   * (a change of mind halfway is no jolt); immediate for anyone asking for less motion, and when leaving the front door.
+   * Nothing of the round itself is touched: no restart, no pause, nothing moved.
+   */
+  setPresentation(observing, { immediate = false } = {}) {
+    const to = observing ? 1 : 0;
+    this.caption.element?.classList.toggle('observing', Boolean(observing));
+    this.container.classList.toggle('observing', Boolean(observing));
+    if (immediate || globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches) {
+      this.framing = this.framingFrom = this.framingTo = to;
+      this.framingAge = PRESENTATION_SEC;
+      return;
+    }
+    if (to === this.framingTo) return;
+    this.framingFrom = this.framing;
+    this.framingTo = to;
+    this.framingAge = 0;
   }
 
   /** A choice was made on the front door: he answers it (salute, rally, present, look; see menuIdle.mjs). */
@@ -483,11 +540,14 @@ export class MenuScene {
     this.tour.setVisible(true);
     this.tourBlend = 0;
     this.touring = true;
+    // (out on his round he cannot be turned by hand: the cursor does not offer it)
+    this.container.classList.add('touring');
   }
 
   #stopTouring() {
     if (!this.touring) return;
     this.touring = false;
+    this.container.classList.remove('touring');
     // a reaction he was in the middle of out on the round, he finishes at his place
     const performance = this.tour.pause > 0 ? this.tour.performance : null;
     if (performance) this.reaction = { kind: performance.kind, startedAt: this.clock - performance.elapsed };
@@ -511,8 +571,17 @@ export class MenuScene {
     const canvas = this.renderer.domElement;
     if (!this.tour || !banner?.offsetWidth || canvas.clientWidth < 1) return;
     const edge = (layoutLeft(banner) + banner.offsetWidth - layoutLeft(canvas)) / canvas.clientWidth;
-    // a banner across most of a narrow screen leaves nothing clear of it: the fights take the middle
-    this.tour.clear = edge > 0.62 ? [0.1, 0.9] : [Math.max(0.1, edge + 0.03), 0.96];
+    // a banner across most of a narrow screen leaves nothing clear of it: the fights take the middle. (Measured from the
+    // banner's layout, which a transform never changes: its being drawn aside is the presentation's to say, not this)
+    this.commandClear = edge > 0.62 ? [0.1, 0.9] : [Math.max(0.1, edge + 0.03), 0.96];
+    this.tour.clear = mixClear(this.commandClear, FIGHT_SHOT.observeClear, this.framing);
+    // the front door's own shot turned to give him the middle of the stage, for when the banner is drawn aside (for
+    // this screen's shape)
+    const home = this.tour.home;
+    if (home) {
+      const centred = aimAt({ camera: home.position.toArray(), target: home.target.toArray(), fov: home.fov }, this.#stagePoint(), { share: OBSERVE_SHARE, aspect: this.camera.aspect });
+      this.tour.homeObserve = { position: new THREE.Vector3(...centred.camera), target: new THREE.Vector3(...centred.target), fov: centred.fov };
+    }
     // a phone on its side: the knights a little smaller, with room around them
     this.tour.compact = canvas.clientHeight < 520;
   }

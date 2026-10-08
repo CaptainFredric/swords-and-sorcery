@@ -61,6 +61,7 @@ export class SettingsPanel {
   }
 
   open(section = this.section) {
+    if (!this.isOpen) this.opener = document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null;
     this.root.classList.remove('hidden');
     this.show(section);
     this.root.querySelector('[data-settings-done]')?.focus({ preventScroll: true });
@@ -71,6 +72,10 @@ export class SettingsPanel {
     this.capturing = null;
     this.root.classList.add('hidden');
     this.onClose();
+    // (the focus back where it was before the Settings opened)
+    const opener = this.opener;
+    this.opener = null;
+    if (opener?.isConnected && opener.offsetParent !== null && !opener.closest('[inert]')) opener.focus({ preventScroll: true });
   }
 
   show(section) {

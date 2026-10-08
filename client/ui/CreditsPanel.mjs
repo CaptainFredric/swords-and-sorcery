@@ -51,6 +51,8 @@ export class CreditsPanel {
   }
 
   open() {
+    // (whatever opened it, the Settings' foot or the front door's: given the focus back when it closes)
+    if (!this.isOpen) this.opener = document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null;
     this.root.classList.remove('hidden');
     this.#render();
     // the voice may still be loading the first time it is opened: drawn again once it knows what is recorded, and
@@ -64,6 +66,9 @@ export class CreditsPanel {
     if (!this.isOpen) return;
     this.voice?.stopPreview?.();
     this.root.classList.add('hidden');
+    const opener = this.opener;
+    this.opener = null;
+    if (opener?.isConnected && opener.offsetParent !== null && !opener.closest('[inert]')) opener.focus({ preventScroll: true });
   }
 
   #takes(line) {

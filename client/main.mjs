@@ -25,6 +25,8 @@ import { loadArmoryCues, playArmorySound } from './menu/armorySound.mjs';
 import { seekView } from './menu/seekView.mjs';
 import { MenuController, shouldRouteSocketError } from './menu/MenuController.mjs';
 import { MenuScene } from './menu/MenuScene.mjs';
+import { MenuPresentation, PRESENTATION } from './menu/menuPresentation.mjs';
+import { HeraldPanel } from './ui/HeraldPanel.mjs';
 import { SCREEN_IDS, ScreenRouter } from './ui/ScreenRouter.mjs';
 import { isTouchPrimary } from './game/touchControlsModel.mjs';
 import { registry } from './settings/settingsRegistry.mjs';
@@ -53,6 +55,117 @@ const endScreen = $('#end-screen');
 // what he says of a lost match, written out on the defeat screen itself (the arena's HUD, and its subtitle, are put away
 // as the screen comes up): beat by beat as he says it, never a word before it is said (Settings: Subtitles)
 const endCaption = new MenuCaption(endScreen, { place: 'end-caption' });
+
+// --- the front door's two forms (menuPresentation.mjs): the banner up, or drawn aside so the yard has the screen ---
+// (only ever a way of showing the same front door: the Spellblade's round goes on exactly as it was either way)
+const nowSec = () => performance.now() / 1000;
+const yardWatch = $('[data-yard-watch]');
+const yardObserve = $('[data-yard-observe]');
+const yardShow = $('[data-yard-show]');
+const yardInscription = $('[data-yard-inscription]');
+const menuBanner = $('#menu .banner-panel');
+const heraldTab = $('#menu .herald-tab');
+const lessMotion = () => Boolean(globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches);
+// a device with only a finger to point with: the banner never yields on its own there (no reliable way to tell a
+// player watching from a phone set down), only when asked
+const fingerOnly = () => Boolean(globalThis.matchMedia?.('(hover: none) and (pointer: coarse)')?.matches);
+let heraldPanel = null;
+let inscribedAt = -Infinity;
+let stillTimer = null;
+const presentation = new MenuPresentation({ now: nowSec(), onChange: (state, previous, cause) => presentYard(state, previous, cause) });
+
+function presentYard(state, previous, cause) {
+  const observing = state !== PRESENTATION.COMMAND;
+  menu.classList.toggle('withdrawn', observing);
+  menuWorld.classList.toggle('observing', observing);
+  document.body.classList.toggle('observing', observing);
+  // (the banner drawn aside can be neither reached nor read by anything: not a click, not Tab, not a screen reader)
+  menuBanner.inert = observing;
+  heraldTab.inert = observing;
+  if (observing) heraldPanel?.close({ restore: false });
+  yardWatch.hidden = observing;
+  yardObserve.hidden = !observing;
+  menuScene?.setPresentation(observing, { immediate: cause === 'reset' });
+  // the pointer: out of the picture at once when the yard was yielded to; when asked for, once it has been still
+  clearTimeout(stillTimer);
+  document.body.classList.toggle('yard-still', state === PRESENTATION.OBSERVE_IDLE);
+  if (state === PRESENTATION.OBSERVE_MANUAL) settleCursor();
+  // a breath of an inscription over the opened yard (not every time it is opened in quick succession)
+  yardInscription.classList.remove('show');
+  if (observing && nowSec() - inscribedAt > 60 && !lessMotion()) {
+    inscribedAt = nowSec();
+    void yardInscription.offsetWidth;
+    yardInscription.classList.add('show');
+  }
+  // the hand that pressed one control finds the one that took its place
+  if (cause === 'manual') (observing ? yardShow : yardWatch).focus({ preventScroll: true });
+}
+
+// WATCH THE YARD says truthfully what there is to watch: his round, or (when it does not run) him at his place, and why
+function noteYard() {
+  const note = $('#watch-yard-note');
+  if (!note) return;
+  note.textContent = tourAllowed() ? 'Draw the banner aside' : lessMotion() ? 'His round rests for reduced motion' : 'His round runs on Balanced or Sharp';
+}
+
+function settleCursor() {
+  clearTimeout(stillTimer);
+  document.body.classList.remove('yard-still');
+  if (presentation.state === PRESENTATION.OBSERVE_MANUAL) stillTimer = setTimeout(() => document.body.classList.add('yard-still'), 2500);
+}
+
+// what the player does, as the presentation counts it: a real movement, a press, a key, the wheel; the page seen again.
+// Woken from the yard by a press or a key, that press or key does nothing else (never the button under the pointer)
+let pointerAt = null;
+let swallowClick = false;
+function yardActivity(event, kind) {
+  let moved = 0;
+  if (kind === 'pointer') {
+    const point = { x: event.clientX, y: event.clientY };
+    moved = pointerAt ? Math.hypot(point.x - pointerAt.x, point.y - pointerAt.y) : 0;
+    pointerAt = point;
+  }
+  const { swallow } = presentation.activity(nowSec(), { kind, moved });
+  if (swallow) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (kind !== 'key') {
+      swallowClick = true;
+      setTimeout(() => { swallowClick = false; }, 700);
+    }
+  }
+  if (kind === 'pointer' && presentation.state === PRESENTATION.OBSERVE_MANUAL) settleCursor();
+}
+addEventListener('pointermove', (event) => { if (event.pointerType !== 'touch') yardActivity(event, 'pointer'); }, { capture: true, passive: true });
+addEventListener('pointerdown', (event) => yardActivity(event, event.pointerType === 'touch' ? 'touch' : 'press'), { capture: true });
+addEventListener('keydown', (event) => yardActivity(event, 'key'), { capture: true });
+addEventListener('wheel', (event) => yardActivity(event, 'wheel'), { capture: true, passive: true });
+addEventListener('click', (event) => {
+  if (!swallowClick) return;
+  swallowClick = false;
+  event.preventDefault();
+  event.stopPropagation();
+}, { capture: true });
+document.addEventListener('visibilitychange', () => { if (!document.hidden) presentation.activity(nowSec(), { kind: 'visible' }); });
+yardWatch.addEventListener('click', () => presentation.observe());
+yardShow.addEventListener('click', () => presentation.showMenu(nowSec()));
+
+// whether the banner may yield to the yard on its own just now: the front door up and its round running, nothing open
+// or being typed into or navigated by keyboard, nothing waiting on the player, the page seen, a pointer to wake it with
+function yardMayIdle() {
+  if (!veilLifted || router.current !== SCREEN_IDS.MAIN_MENU || document.hidden) return false;
+  if (!menuScene?.touring || touchUi || fingerOnly() || lessMotion()) return false;
+  if (settingsPanel.isOpen || creditsPanel.isOpen || heraldPanel?.isOpen) return false;
+  if (seekStatus?.active || !challengeCard.classList.contains('hidden') || !arenaGate.classList.contains('hidden')) return false;
+  if (menuErrors.some((element) => element.textContent.trim())) return false;
+  const focused = document.activeElement;
+  if (focused && focused !== document.body) {
+    if (focused.matches('input, textarea, select, [contenteditable="true"]')) return false;
+    if (focused.matches(':focus-visible')) return false;
+  }
+  return true;
+}
+setInterval(() => presentation.tick(nowSec(), yardMayIdle()), 1000);
 const practiceOverlay = $('#practice-overlay');
 const nameInput = $('#player-name');
 const roomInput = $('#room-code');
@@ -148,7 +261,10 @@ try {
   menuSpellblade.classList.add('menu-scene-unavailable');
   liftVeil();
 }
-if (new URLSearchParams(location.search).has('debug')) globalThis.__ssMenu = menuScene;
+if (new URLSearchParams(location.search).has('debug')) {
+  globalThis.__ssMenu = menuScene;
+  globalThis.__ssYard = presentation;
+}
 menuScene?.setPixelRatioCap(viewOptions(settings).pixelRatioCap);
 menuScene?.setParticleDensity(viewOptions(settings).particles);
 menuScene?.setSubtitles(viewOptions(settings).subtitles);
@@ -188,6 +304,9 @@ function route(screenId) {
   armoryFeedback.cancel();
   renown?.route(screenId);
   const previous = router.current;
+  // every screen change finds the front door with its banner up (back from a match too), the Herald folded away
+  presentation.reset(nowSec());
+  heraldPanel?.close({ restore: false });
   if (screenId === SCREEN_IDS.PLAYING) router.hideAll();
   else router.show(screenId);
   const menuBacked = isMenuBackedScreen(screenId);
@@ -205,6 +324,7 @@ function route(screenId) {
   // on the front door he is out on his round; every other screen finds him at his place
   menuScene?.setTouring(screenId === SCREEN_IDS.MAIN_MENU);
   $('.turn-hint')?.classList.toggle('hidden', screenId === SCREEN_IDS.MAIN_MENU && tourAllowed());
+  noteYard();
 }
 
 // what you hear follows where you are: the courtyard and the hall theme in the menus, the battle theme in a match
@@ -645,6 +765,7 @@ function applySettings() {
   endCaption.setEnabled(view.subtitles);
   menuScene?.setTourAllowed(tourAllowed());
   if (router.current === SCREEN_IDS.MAIN_MENU) menuScene?.setTouring(true);
+  noteYard();
   runtime?.configure({ view, input: inputOptions(settings) });
   screenTurn?.configure(turnOptions(settings));
   renderSoundToggles();
@@ -686,6 +807,7 @@ for (const button of document.querySelectorAll('[data-open-settings]')) {
 }
 // the credits and the voice library, from a quiet button in the settings' footer (over the settings; Done returns)
 const creditsPanel = new CreditsPanel({ root: $('#credits'), voice });
+heraldPanel = new HeraldPanel({ root: $('#herald'), openers: [...document.querySelectorAll('[data-open-herald]')] });
 // (answered at the document: a tap anywhere on the button, whatever the settings panel has redrawn round it)
 document.addEventListener('click', (event) => {
   if (event.target.closest?.('[data-open-credits]')) creditsPanel.open();
@@ -786,6 +908,11 @@ function renderSoundToggles() {
     button.setAttribute('aria-pressed', String(!musicOff));
     button.disabled = muted;
   }
+  const subtitles = settings.get('audio.subtitles');
+  for (const button of document.querySelectorAll('[data-toggle-subtitles]')) {
+    button.textContent = subtitles ? 'SUBTITLES · ON' : 'SUBTITLES · OFF';
+    button.setAttribute('aria-pressed', String(Boolean(subtitles)));
+  }
 }
 renderSoundToggles();
 document.addEventListener('keydown', (event) => {
@@ -796,6 +923,7 @@ document.addEventListener('keydown', (event) => {
 });
 for (const button of document.querySelectorAll('[data-toggle-sound]')) button.addEventListener('click', () => settings.toggle('audio.muted'));
 for (const button of document.querySelectorAll('[data-toggle-music]')) button.addEventListener('click', () => settings.toggle('audio.musicMuted'));
+for (const button of document.querySelectorAll('[data-toggle-subtitles]')) button.addEventListener('click', () => settings.toggle('audio.subtitles'));
 
 // --- lying sideways on a phone app that will not turn ---
 const turnToast = $('#turn-toast');
@@ -843,6 +971,15 @@ document.addEventListener('keydown', event => {
   }
   if (settingsPanel.isOpen) {
     settingsPanel.close();
+    return;
+  }
+  if (heraldPanel?.isOpen) {
+    heraldPanel.close();
+    return;
+  }
+  // watching the yard: Escape brings the banner back (and goes no further)
+  if (router.current === SCREEN_IDS.MAIN_MENU && presentation.observing) {
+    presentation.showMenu(nowSec());
     return;
   }
   if ([SCREEN_IDS.SOLO_MENU, SCREEN_IDS.PRIVATE_MENU, SCREEN_IDS.ROOMS_MENU, SCREEN_IDS.HOW_TO_PLAY, SCREEN_IDS.ARMORY].includes(router.current)) {
@@ -982,6 +1119,8 @@ socket.on('error', (message) => {
 
 // --- the multiplayer server's state, on the front door: online play waits for it, solo play never does ---
 const linkStatus = $('#link-status');
+const linkMark = $('[data-link-mark]');
+const LINK_MARK = Object.freeze({ online: 'Multiplayer online', waking: 'Multiplayer waking', offline: 'Multiplayer offline', connecting: 'Reaching multiplayer' });
 const ONLINE_COMMANDS = ['#quick-play', '#private-button'];
 const seekDuelCopy = $('#seek-duel small');
 const SEEK_COPY = seekDuelCopy?.textContent ?? '';
@@ -993,6 +1132,10 @@ function renderLinkStatus(status) {
   linkStatus.querySelector('.link-note').textContent = view.note;
   linkStatus.title = view.detail;
   for (const selector of ONLINE_COMMANDS) $(selector)?.classList.toggle('needs-server', !view.online);
+  // (and the server's state in a word at the banner's foot: what the link really is, nothing more)
+  linkMark.dataset.tone = view.tone;
+  linkMark.querySelector('[data-link-mark-label]').textContent = LINK_MARK[view.tone] ?? LINK_MARK.connecting;
+  linkMark.title = LINK_MARK[view.tone] ?? LINK_MARK.connecting;
   if (seekDuelCopy) seekDuelCopy.textContent = view.online ? SEEK_COPY : 'Fight a Reanimated Armor instead (bot)';
 }
 // the herald's banner, when the server answers after keeping everyone waiting

@@ -17,6 +17,9 @@ export const FIGHT_SHOT = Object.freeze({
   reach: 0.55,         // how far a knight and his blade take up room either side of where he stands
   // the part of the screen the pair is kept in, as shares of its width from the left: right of the banner
   clear: Object.freeze([0.4, 0.96]),
+  // and with the banner drawn aside (the front door's Observation View: menuPresentation.mjs): nearly the whole screen,
+  // a margin kept at either side so a blade, a fall or a Fireball has room
+  observeClear: Object.freeze([0.1, 0.9]),
   aspect: 4 / 3,       // the screen's shape, when nobody says (TourDirector passes the real one)
   rise: 1.7,           // the camera's height, a little more the further back it stands
   risePerBack: 0.04,
@@ -321,8 +324,15 @@ export function followPlan(path, blockers, { settings = FOLLOW_SETTINGS, margin 
   };
 }
 
-// the screens a fight is checked on: an old 4:3 monitor, a wide one, and a phone on its side with a wider banner
-const CHECKED_ON = [{ aspect: 4 / 3 }, { aspect: 16 / 9 }, { aspect: 2.16, clear: [0.45, 0.96] }];
+// the screens a fight is checked on: an old 4:3 monitor, a wide one, a phone on its side with a wider banner, and a
+// wide one with the banner drawn aside (the camera then stands elsewhere: it must see the fight from there too)
+const CHECKED_ON = [{ aspect: 4 / 3 }, { aspect: 16 / 9 }, { aspect: 2.16, clear: [0.45, 0.96] }, { aspect: 16 / 9, clear: FIGHT_SHOT.observeClear }];
+
+/** The clear part of the screen between the banner's (`command`) and the whole stage's (`observe`): f 0..1. */
+export function mixClear(command, observe, f) {
+  const t = Math.max(0, Math.min(1, f));
+  return [command[0] + (observe[0] - command[0]) * t, command[1] + (observe[1] - command[1]) * t];
+}
 
 /** How many moments of a fight (every 0.15 s) the camera, turned by `swing`, cannot see a knight. */
 export function blockedMoments(fight, frame, swing, blockers, shot = FIGHT_SHOT) {

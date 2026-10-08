@@ -87,12 +87,17 @@ export class TourDirector {
     this.onCaptionCut = null;
     this.pause = 0;
     this.performance = null;
-    // the front door's own shot: the round starts and ends on it
+    // the front door's own shot: the round starts and ends on it (and, with the banner drawn aside, the same shot
+    // turned to give him the middle of the stage: `homeObserve`)
     this.home = null;
+    this.homeObserve = null;
     // the part of the screen clear of the menu's banner (shares of its width), and whether the screen is a small one
     // (the knights a little smaller: COMPACT_SHOT), both kept up to date by MenuScene
     this.clear = FIGHT_SHOT.clear;
     this.compact = false;
+    // how far the banner is drawn aside (0: up, the round framed right of it; 1: the world has the screen, Observation
+    // View): MenuScene eases it, and the camera composes for the stage it has. Nothing else of the round depends on it
+    this.framing = 0;
     this.visible = false;
     this.blockers = castlewardBlockers();
     // where each version of each fight goes at each stop, worked out once (tourCamera.placeFight)
@@ -721,7 +726,9 @@ export class TourDirector {
     const left = new THREE.Vector3(forward.z, 0, -forward.x);
     const lens = this.compact ? COMPACT_SHOT : null;
     const eye = followEye(here, this.follow.at(onPath));
-    const aim = hero.clone().addScaledVector(forward, 2.6).addScaledVector(left, 1.2).add(new THREE.Vector3(0, 1.1, 0));
+    // (aimed ahead of him and to his left, so he runs on the right of the frame clear of the banner; with the banner
+    // drawn aside, nearly at him: the middle of the stage, a little room kept ahead)
+    const aim = hero.clone().addScaledVector(forward, 2.6).addScaledVector(left, 1.2 - 0.85 * this.framing).add(new THREE.Vector3(0, 1.1, 0));
     const followFov = lens?.followFov ?? FIGHT_SHOT.fov;
     const follow = {
       position: new THREE.Vector3(...eye),
@@ -754,7 +761,13 @@ export class TourDirector {
       fov: follow.fov + (fightView.fov - follow.fov) * eased,
     } : follow;
     // at his place the front door's own shot holds; it lets him go as he sets off and takes him back as he comes home
-    if (this.home) {
+    // (the shot turned to the middle of the stage, as far as the banner is drawn aside)
+    const homeShot = this.home && this.homeObserve && this.framing > 0 ? {
+      position: this.home.position.clone().lerp(this.homeObserve.position, this.framing),
+      target: this.home.target.clone().lerp(this.homeObserve.target, this.framing),
+      fov: this.home.fov + (this.homeObserve.fov - this.home.fov) * this.framing,
+    } : this.home;
+    if (homeShot) {
       const rest = this.schedule.pace.rest;
       const leaving = moment.time <= rest ? 1 : Math.max(0, 1 - (moment.time - rest) / 2.4);
       const arriving = Math.max(0, Math.min(1, (moment.time - (this.schedule.duration - 2.2)) / 1.8));
@@ -762,9 +775,9 @@ export class TourDirector {
       const h = home * home * (3 - 2 * home);
       if (h > 0) {
         want = {
-          position: want.position.clone().lerp(this.home.position, h),
-          target: want.target.clone().lerp(this.home.target, h),
-          fov: want.fov + (this.home.fov - want.fov) * h,
+          position: want.position.clone().lerp(homeShot.position, h),
+          target: want.target.clone().lerp(homeShot.target, h),
+          fov: want.fov + (homeShot.fov - want.fov) * h,
         };
       }
     }

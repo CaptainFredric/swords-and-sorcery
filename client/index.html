@@ -74,8 +74,33 @@
         <p id="menu-error" data-menu-error class="error-copy" aria-live="polite"></p>
         <!-- whether the multiplayer server answers (the game itself never waits for it) -->
         <div id="link-status" class="link-status hidden" aria-live="polite"><p><span class="link-title"></span><small class="link-note"></small></p><button id="link-retry" type="button">SEND ANOTHER</button></div>
+        <!-- the quiet foot of the banner: the server's state in a word, the notices, the credits -->
+        <footer class="banner-foot">
+          <span class="link-mark" data-link-mark data-tone="connecting" role="status"><i aria-hidden="true"></i><b data-link-mark-label>Reaching multiplayer</b></span>
+          <button type="button" class="foot-link foot-herald" data-open-herald aria-controls="herald" aria-expanded="false">HERALD</button>
+          <button type="button" class="foot-link" data-open-credits>CREDITS</button>
+        </footer>
       </aside>
       </div>
+      <!-- the Herald's notices, pinned to the banner's edge (on a narrow screen, its foot) -->
+      <button type="button" class="herald-tab" data-open-herald aria-controls="herald" aria-expanded="false"><span class="herald-seal" aria-hidden="true"></span><span>HERALD</span></button>
+      <section id="herald" class="herald-notice hidden" role="dialog" aria-modal="false" aria-labelledby="herald-title">
+        <header class="herald-head">
+          <h2 id="herald-title">THE CASTLEWARD HERALD</h2>
+          <button type="button" class="herald-close" data-herald-close aria-label="Close the Herald">✕</button>
+        </header>
+        <div class="herald-body" data-herald-body></div>
+      </section>
+      <!-- the yard behind the banner, watched with the banner drawn aside (menuPresentation.mjs) -->
+      <div class="yard-controls">
+        <button type="button" id="watch-yard" class="yard-button" data-yard-watch aria-describedby="watch-yard-note"><span>WATCH THE YARD</span><small id="watch-yard-note">Draw the banner aside</small></button>
+        <div class="yard-observe" data-yard-observe hidden>
+          <button type="button" class="yard-toggle" data-toggle-sound aria-pressed="true">SOUND · ON</button>
+          <button type="button" class="yard-toggle" data-toggle-subtitles aria-pressed="true">SUBTITLES · ON</button>
+          <button type="button" id="show-menu" class="yard-button yard-show" data-yard-show><span>SHOW MENU</span></button>
+        </div>
+      </div>
+      <p class="yard-inscription" data-yard-inscription aria-hidden="true">CASTLEWARD <span>·</span> THE YARD</p>
     </section>
 
     <section id="armory-menu" class="side-screen hidden">
