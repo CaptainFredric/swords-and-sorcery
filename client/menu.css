@@ -345,10 +345,10 @@
 .sound-toggles .wide-button[aria-pressed="false"] { opacity: .7; }
 
 /* --- Settings: an iron-bound ledger over whatever is behind it (the menu, or a match that keeps going) ----------- */
-.command-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
-.command-pair .menu-command { padding-left: 26px; }
+.command-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+.command-pair .menu-command { min-width: 0; padding-left: 20px; padding-right: 8px; }
 .command-pair .menu-command::before { left: 9px; }
-.command-pair .menu-command span { font-size: 16px; white-space: nowrap; }
+.command-pair .menu-command span { font-size: 16px; white-space: normal; text-wrap: balance; }
 .how-settings { margin: 10px 0 4px; }
 .turn-only { display: none !important; }
 html[data-turn] .turn-only { display: block !important; }

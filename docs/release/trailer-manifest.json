@@ -1,0 +1,150 @@
+{
+  "baseline": "aad49e8e46ffeb70da394ec91e3345f8c6f6d888",
+  "productionCharacterSourceRevision": "76cc66a7b7f5b6e25e22d08dd55bd227285dfb99",
+  "sources": [
+    {
+      "file": "yard-take.webm",
+      "sha256": "3a12c82a0bd78e26021e4a0d34304e04b77c8116dd8e2fd8ff93b8f62626f7b4",
+      "assets": {
+        "firstPerson": {
+          "kind": "glb",
+          "sourceRevision": "76cc66a7b7f5b6e25e22d08dd55bd227285dfb99"
+        },
+        "menu": {
+          "kind": "glb",
+          "sourceRevision": "76cc66a7b7f5b6e25e22d08dd55bd227285dfb99"
+        },
+        "remote": {
+          "kind": "glb",
+          "sourceRevision": "76cc66a7b7f5b6e25e22d08dd55bd227285dfb99"
+        }
+      },
+      "bytes": 1368527,
+      "height": 900,
+      "mimeType": "video/webm;codecs=vp9,opus",
+      "seconds": 4,
+      "selector": "#menu-spellblade canvas",
+      "startedAt": "2026-10-09T21:59:34.763Z",
+      "url": "http://127.0.0.1:3134/?debug",
+      "width": 1600
+    },
+    {
+      "file": "melee-contact.webm",
+      "sha256": "e1bb3314e180dbd411814eaa92bdd24aa25fd62d79359e08736308b3dbb5b83b",
+      "assets": {
+        "firstPerson": {
+          "kind": "glb",
+          "sourceRevision": "76cc66a7b7f5b6e25e22d08dd55bd227285dfb99"
+        },
+        "menu": {
+          "kind": "glb",
+          "sourceRevision": "76cc66a7b7f5b6e25e22d08dd55bd227285dfb99"
+        },
+        "remote": {
+          "kind": "glb",
+          "sourceRevision": "76cc66a7b7f5b6e25e22d08dd55bd227285dfb99"
+        }
+      },
+      "bytes": 2676905,
+      "height": 720,
+      "mimeType": "video/webm;codecs=vp9,opus",
+      "seconds": 7,
+      "selector": "#game-canvas canvas",
+      "startedAt": "2026-10-09T21:56:50.010Z",
+      "url": "http://127.0.0.1:3134/?debug",
+      "width": 1280
+    },
+    {
+      "file": "fireball-contact.webm",
+      "sha256": "a8c7cfcbf5835c109d096e86e4248a545234423fe4c70370e81d1dd30567a66f",
+      "assets": {
+        "firstPerson": {
+          "kind": "glb",
+          "sourceRevision": "76cc66a7b7f5b6e25e22d08dd55bd227285dfb99"
+        },
+        "menu": {
+          "kind": "glb",
+          "sourceRevision": "76cc66a7b7f5b6e25e22d08dd55bd227285dfb99"
+        },
+        "remote": {
+          "kind": "glb",
+          "sourceRevision": "76cc66a7b7f5b6e25e22d08dd55bd227285dfb99"
+        }
+      },
+      "bytes": 2474552,
+      "height": 720,
+      "mimeType": "video/webm;codecs=vp9,opus",
+      "seconds": 7,
+      "selector": "#game-canvas canvas",
+      "startedAt": "2026-10-09T21:57:48.878Z",
+      "url": "http://127.0.0.1:3134/?debug",
+      "width": 1280
+    },
+    {
+      "file": "vortex-take.webm",
+      "sha256": "1b04411b7c1e386e53ed9204d9adbcaf3cf7964cf03b258669a5884bafa9bd8f",
+      "assets": {
+        "firstPerson": {
+          "kind": "glb",
+          "sourceRevision": "76cc66a7b7f5b6e25e22d08dd55bd227285dfb99"
+        },
+        "menu": {
+          "kind": "glb",
+          "sourceRevision": "76cc66a7b7f5b6e25e22d08dd55bd227285dfb99"
+        },
+        "remote": {
+          "kind": "glb",
+          "sourceRevision": "76cc66a7b7f5b6e25e22d08dd55bd227285dfb99"
+        }
+      },
+      "bytes": 3199472,
+      "height": 720,
+      "mimeType": "video/webm;codecs=vp9,opus",
+      "seconds": 10,
+      "selector": "#game-canvas canvas",
+      "startedAt": "2026-10-09T22:00:59.063Z",
+      "url": "http://127.0.0.1:3134/?debug",
+      "width": 1280
+    }
+  ],
+  "edit": {
+    "shots": [
+      [
+        "yard-take.webm",
+        0.1,
+        3.4,
+        "WELCOME TO CASTLEWARD"
+      ],
+      [
+        "melee-contact.webm",
+        0.0,
+        6.4,
+        "MEET THE BLADE"
+      ],
+      [
+        "fireball-contact.webm",
+        0.0,
+        5.5,
+        "ANSWER WITH SORCERY"
+      ],
+      [
+        "vortex-take.webm",
+        0.1,
+        8.2,
+        "BLAZING VORTEX"
+      ],
+      [
+        "yard-take.webm",
+        0.7,
+        3.3,
+        "SWORDS & SORCERY"
+      ]
+    ],
+    "seconds": 26.8,
+    "footage": "Production renderer with actual game audio. Menu scene and local authoritative Practice Yard.",
+    "omission": "DOM HUD is outside the canvas recording. No AI footage or simulated combat poses."
+  },
+  "trailerSha256": "481590b102db7aa420269faf6026cf351859d1865c4933221973d28a82c9434b",
+  "audioPeakDbfs": -2.6,
+  "method": "Actual production canvas and existing compressor output. Temporary camera framing and local F attack binding. No simulation values or animation assets edited."
+}

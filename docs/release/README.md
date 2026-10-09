@@ -1,6 +1,8 @@
 # Castleward release preparation
 
-Inspected 9 October 2026. Branch `feat/itch-release`, based on GitHub main `aad49e8e46ffeb70da394ec91e3345f8c6f6d888`. The separate Claude checkout was preserved. No gameplay, animation, voice, music, server or model files changed.
+Inspected 9 October 2026. Branch `feat/itch-release`, based on GitHub main `aad49e8e46ffeb70da394ec91e3345f8c6f6d888`. The separate Claude checkout was preserved. The follow up corrects compact menu command clipping in `client/menu.css`; gameplay, animation, voice, music, server and model files remain unchanged.
+
+The [quality audit](QUALITY_AUDIT.md) ranks observed issues and remaining checks. The [media comparison](media-comparison.html) now includes a 27 second real gameplay trailer, five landscape captures and menu before/after evidence. All 1111 game tests, four export tests, syntax and smoke passed at normal concurrency on the follow up.
 
 ## Distribution
 
@@ -25,7 +27,7 @@ The server currently checks the WebSocket endpoint path without a host origin al
 
 [Private project preview](https://captainfredric.itch.io/swords-and-sorcery) · [Editor](https://itch.io/game/edit/5125729)
 
-Saved title, slug, description, controls, disclosure, free pricing, development status, Action genre, tags, production model cover and four actual game screenshots. Visibility remains Draft. Anonymous access returns 404.
+Saved title, slug, description, controls, disclosure, free pricing, development status, Action genre, tags, production model cover and five actual game screenshots. The new landscape Fireball capture leads the gallery; the original four are retained. Visibility remains Draft. Anonymous access returns 404.
 
 The game ZIP upload was refused with: “Please verify your email address before uploading a file.” The private preview therefore says “No file provided to embed.” It is a preparation page, not a functioning itch game yet. The account owner must verify their email, then upload the ZIP, mark it playable in browser and save. Payment settings and public publication were left alone.
 

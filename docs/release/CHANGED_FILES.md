@@ -1,6 +1,6 @@
 # Changed files
 
-The release branch adds the export pipeline and promotional handoff. Existing game source, assets, server behavior and Claude workspace were preserved. Public profile edits and the private itch project are external changes.
+The release branch adds the export pipeline and promotional handoff, plus a compact menu grid correction. Gameplay source, artist assets, server behavior and the Claude workspace were preserved. Public profile edits and the private itch project are external changes.
 
 1. `package.json`
 2. `scripts/export-html5.mjs`
@@ -26,3 +26,16 @@ The release branch adds the export pipeline and promotional handoff. Existing ga
 22. `docs/release/media-manifest.json`
 23. `docs/release/media-source.html`
 24. `docs/release/CHANGED_FILES.md`
+25. `client/menu.css`
+26. `docs/release/QUALITY_AUDIT.md`
+27. `docs/release/capture-recorder.js`
+28. `docs/release/edit-trailer.py`
+29. `docs/release/trailer-manifest.json`
+30. `docs/release/media/armory-landscape.jpg`
+31. `docs/release/media/castleward-live.jpg`
+32. `docs/release/media/castleward-trailer.mp4`
+33. `docs/release/media/gameplay-contact-sheet.jpg`
+34. `docs/release/media/gameplay-fireball.jpg`
+35. `docs/release/media/gameplay-melee.jpg`
+36. `docs/release/media/gameplay-vortex.jpg`
+37. `docs/release/media/menu-fit-comparison.jpg`

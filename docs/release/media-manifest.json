@@ -2,7 +2,7 @@
   "date": "2026-10-09",
   "baseline": "aad49e8e46ffeb70da394ec91e3345f8c6f6d888",
   "productionCharacterSourceRevision": "76cc66a7b7f5b6e25e22d08dd55bd227285dfb99",
-  "publicProfileArtworkStatus": "Awaiting creator selection and approval",
+  "publicProfileArtworkStatus": "Helmet portrait preferred by creator; public profile upload pending",
   "assets": [
     {
       "file": "media/spellblade-avatar-art.png",
@@ -99,6 +99,76 @@
       "bytes": 100823,
       "sha256": "9800f2f55a25fdf07d6870b8d7f2084fc9e204920b1673f71d49733cfb35f2b8",
       "classification": "Actual GitHub Pages main menu and live Castleward scene; candidate replacement for the tour screenshot"
+    },
+    {
+      "file": "media/armory-landscape.jpg",
+      "bytes": 185585,
+      "sha256": "211a7790eeb6dcd7b263b0d79e49da181a0806a2a3b2b66aa6064e83c5acb096",
+      "classification": "Actual 1280 by 720 Armory screenshot during desktop layout testing",
+      "width": 1280,
+      "height": 720
+    },
+    {
+      "file": "media/castleward-live.jpg",
+      "bytes": 137081,
+      "sha256": "785432f657f2b18cb010d03e7a6f3f17f5bb1269e16bdd19ba5e52b73e5b916f",
+      "classification": "Frame from the actual live menu scene, distinct from playable combat",
+      "width": 1600,
+      "height": 900
+    },
+    {
+      "file": "media/gameplay-melee.jpg",
+      "bytes": 88692,
+      "sha256": "9f2af35e1ea157565d2d7e87e964d5b2b6a4e381b88de88a7e1014576c1179c0",
+      "classification": "Actual local authoritative Practice Yard sword and Guard contact; normal inputs after debug camera framing",
+      "width": 1280,
+      "height": 720
+    },
+    {
+      "file": "media/gameplay-fireball.jpg",
+      "bytes": 91453,
+      "sha256": "95aed4d2f4ef2ecc131ba64031ee76380b98b0bbb38dbf0f68bf28389d92f148",
+      "classification": "Actual local authoritative Practice Yard Fireball; normal inputs after debug camera framing",
+      "width": 1280,
+      "height": 720
+    },
+    {
+      "file": "media/gameplay-vortex.jpg",
+      "bytes": 93921,
+      "sha256": "72434b63044899b076d9e6e665239acc65695270301a73cf4246999d360977ca",
+      "classification": "Actual local authoritative Practice Yard Blazing Vortex with existing chase camera",
+      "width": 1280,
+      "height": 720
+    },
+    {
+      "file": "media/gameplay-contact-sheet.jpg",
+      "bytes": 265359,
+      "sha256": "0c28d4bc8d81afb0ac48c1eb29d8caca5a6dc443cce03be6b60dbb33b8e9cc39",
+      "classification": "Comparison of the five new landscape captures",
+      "width": 1280,
+      "height": 1150
+    },
+    {
+      "file": "media/menu-fit-comparison.jpg",
+      "bytes": 249762,
+      "sha256": "77b5328ead2f7c3f4829559d918ce9f9425d9ddb7de8c15bd7398f8888ac3516",
+      "classification": "Before and after observed command clipping at 714 by 756; background phases differ",
+      "width": 1428,
+      "height": 806
+    },
+    {
+      "file": "media/castleward-trailer.mp4",
+      "bytes": 7934455,
+      "sha256": "481590b102db7aa420269faf6026cf351859d1865c4933221973d28a82c9434b",
+      "classification": "Real production canvas and original game audio; live menu plus local authoritative Practice Yard. DOM HUD omitted",
+      "width": 1280,
+      "height": 720,
+      "seconds": 26.84
     }
-  ]
+  ],
+  "provenance": {
+    "originalDesign": "CaptainFredric original Spellblade character design, per creator supplied provenance",
+    "portrait": "AI assisted promotional refinement of the canonical concept",
+    "production": "Existing authored production GLBs and actions; preserved during this pass"
+  }
 }

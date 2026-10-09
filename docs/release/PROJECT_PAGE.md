@@ -16,6 +16,8 @@ Generative AI disclosure: Yes. Graphics, Text & Dialog, and Code selected. Sound
 
 The exact saved rich description is in [itch-description.html](itch-description.html).
 
+The gallery now leads with the new landscape Fireball gameplay capture. Five images are saved while visibility remains Draft. The [27 second trailer](media/castleward-trailer.mp4) is prepared for creator review and hosting; it has not been published or embedded on itch.
+
 ## Initial devlog draft
 
 Title: Welcome to Castleward
