@@ -1,10 +1,10 @@
 import { CREDITS, LIBRARY_GROUPS, VOICE_LIBRARY, librarySections, libraryStatus, statusLabel } from './voiceLibrary.mjs';
-import { creditMatches, highlight, searchShelves, searchTerms } from './creditsSearch.mjs';
+import { highlight, searchShelves, searchTerms } from './creditsSearch.mjs';
 
 // The credits, and the Spellblade's voice library (voiceLibrary.mjs): who made him, then every line he has or will
 // have (each section folding away) and the sounds he makes in a fight, each with a button per take to hear it as the
-// game plays it (dry, as your own knight is heard). Opened from a quiet button in the settings' footer. A search
-// above it all (creditsSearch.mjs) narrows it to what is asked for, every section with a match unfolded.
+// game plays it (dry, as your own knight is heard). Search belongs to the archive below the creator attribution;
+// each section with a matching recording unfolds.
 
 const escape = (text) => String(text).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
@@ -13,6 +13,8 @@ export class CreditsPanel {
     this.root = root;
     this.voice = voice;
     this.body = root.querySelector('[data-credits-body]');
+    this.attribution = root.querySelector('[data-credits-attribution]');
+    this.library = root.querySelector('[data-credits-library]');
     // which sections are unfolded (kept while the panel is drawn again as the voice loads, and while searching)
     this.unfolded = new Set();
     this.query = '';
@@ -21,7 +23,6 @@ export class CreditsPanel {
     this.search?.addEventListener('input', () => {
       this.query = this.search.value;
       this.#render();
-      this.body.scrollTop = 0;
     });
     // Escape clears a search before it closes the Credits
     this.search?.addEventListener('keydown', (event) => {
@@ -31,6 +32,18 @@ export class CreditsPanel {
       this.search.value = '';
       this.query = '';
       this.#render();
+    });
+    root.addEventListener('keydown', (event) => {
+      if (event.key !== 'Tab' || !this.isOpen) return;
+      const folded = [...root.querySelectorAll('details:not([open])')];
+      const controls = [...root.querySelectorAll('button:not(:disabled), input, summary, a[href]')].filter((el) =>
+        el.getClientRects().length && folded.every((detail) => !detail.contains(el) || detail.firstElementChild === el));
+      const next = event.shiftKey ? controls.at(-1) : controls[0];
+      const edge = event.shiftKey ? controls[0] : controls.at(-1);
+      if (next && (document.activeElement === edge || !root.contains(document.activeElement))) {
+        event.preventDefault();
+        next.focus();
+      }
     });
     root.querySelector('[data-credits-done]')?.addEventListener('click', () => this.close());
     this.body.addEventListener('click', (event) => {
@@ -78,12 +91,12 @@ export class CreditsPanel {
   #render() {
     const terms = searchTerms(this.query);
     const mark = (text) => highlight(text, terms);
-    const creditLines = CREDITS.lines.filter((line) => creditMatches(line, terms));
-    const credits = !terms.length || creditLines.length ? `
+    const creditLines = CREDITS.lines;
+    const credits = `
       <div class="credits-card">
         <h3 class="credits-title">${escape(CREDITS.title)}</h3>
-        ${creditLines.map((line) => `<p class="credits-line"><small>${mark(line.role)}</small><b>${mark(line.name)}</b></p>`).join('')}
-      </div>` : '';
+        ${creditLines.map((line) => `<p class="credits-line"><small>${escape(line.role)}</small><b>${escape(line.name)}</b></p>`).join('')}
+      </div>`;
     // which lines have a recording is the voice bank's to say (from the takes' manifest); until it has it, they load
     const recorded = this.voice?.recorded ?? null;
     const isRecorded = (line) => (recorded?.get(line) ?? 0) > 0;
@@ -118,14 +131,25 @@ export class CreditsPanel {
       return `<h3 class="setting-group">${escape(group.title)}</h3>${sections}`;
     }).join('');
     const found = shelves.reduce((sum, shelf) => sum + shelf.entries.length, 0);
-    const empty = terms.length && !found && !creditLines.length
-      ? `<p class="setting-empty credits-empty">Nothing in the Credits matches \u201c${escape(this.query.trim())}\u201d.</p>` : '';
-    this.body.innerHTML = `${credits}${groups}${empty}`;
+    const empty = terms.length && !found
+      ? `<p class="setting-empty credits-empty">No voice lines match \u201c${escape(this.query.trim())}\u201d.</p>` : '';
+    const focused = document.activeElement;
+    const line = focused?.dataset?.playLine;
+    const take = focused?.dataset?.take;
+    const section = focused?.tagName === 'SUMMARY' ? focused.closest('[data-section]')?.dataset.section : null;
+    this.attribution.innerHTML = credits;
+    this.library.innerHTML = `${groups}${empty}`;
+    // Preserve keyboard position if asynchronously loaded recordings redraw their controls.
+    const replacement = line
+      ? [...this.library.querySelectorAll('[data-play-line]')].find((el) => el.dataset.playLine === line && el.dataset.take === take)
+      : section ? [...this.library.querySelectorAll('[data-section]')].find((el) => el.dataset.section === section)?.querySelector('summary') : null;
+    replacement?.focus({ preventScroll: true });
     if (this.count) this.count.textContent = terms.length ? `${found} of ${VOICE_LIBRARY.length} lines` : '';
   }
 
   // (the voice may still be loading the first time: it is asked again a moment later)
   #play(button, line, take, tries = 0) {
+    if (!this.isOpen || !button.isConnected) return;
     if (this.voice?.preview?.(line, take)) {
       button.classList.add('playing');
       setTimeout(() => button.classList.remove('playing'), 400);

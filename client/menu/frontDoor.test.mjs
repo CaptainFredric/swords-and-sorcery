@@ -143,3 +143,15 @@ test('the banner\'s foot says the server\'s real state in a word; the old detail
   assert.match(html, /<div id="link-status" class="link-status hidden" aria-live="polite">/);
   assert.match(html, /<footer class="banner-foot">[\s\S]*data-open-herald[\s\S]*data-open-credits[\s\S]*<\/footer>/);
 });
+
+
+test('the Herald leads with a welcome, five recent entries, and a folded archive', () => {
+  const markup = heraldMarkup();
+  assert.match(HERALD_NOTICES.latest.title, /GATES OF CASTLEWARD/i);
+  const recent = markup.split('<details')[0];
+  assert.equal((recent.match(/<time /g) ?? []).length, 5);
+  assert.match(markup, /<details class="herald-archive"><summary>Older dispatches/);
+  assert.equal((markup.match(/<time /g) ?? []).length, HERALD_NOTICES.changes.length);
+  const short = heraldMarkup({ changes: HERALD_NOTICES.changes.slice(0, 2) });
+  assert.doesNotMatch(short, /herald-archive/);
+});

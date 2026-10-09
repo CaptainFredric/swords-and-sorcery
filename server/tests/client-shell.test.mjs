@@ -36,9 +36,9 @@ test('front-door copy stays player-facing instead of exposing implementation not
   const menuSlice = html.slice(html.indexOf('id="menu"'), html.indexOf('id="lobby"'));
 
   assert.doesNotMatch(menuSlice, /No second tab|No second device|authoritative|CURRENT GROUND|CALL YOUR RIVALS|MUSTERING|Every route is reachable on foot/i);
-  assert.match(menuSlice, /Find a public match/i);
+  assert.match(menuSlice, /Browse public matches/i);
   assert.match(menuSlice, /Fight a bot or practice/i);
-  assert.match(menuSlice, /Create or join a room/i);
+  assert.match(menuSlice, /Invite friends with a room code/i);
 });
 
 test('front door prioritizes title, play choices and the Spellblade over secondary combat annotations', async () => {

@@ -686,3 +686,37 @@ body.observing .herald-toast { left: 50cqw; max-width: calc(100cqw - 40px); }
   .yard-inscription.show { animation: none; opacity: 0; }
   .menu-vignette::before, .menu-vignette::after { transition: none; }
 }
+
+/* Keep the cloth silhouette and hem outside the scrolling content. */
+.banner-panel:has(> .banner-scroll) { overflow: hidden; padding: 0; }
+.banner-scroll {
+  min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain;
+  margin-bottom: calc(var(--hem) + 10px); padding: 34px 30px 16px;
+  scrollbar-width: thin; scrollbar-color: #c99c52 transparent; scroll-padding-block: 18px;
+}
+.banner-scroll::-webkit-scrollbar { width: 5px; }
+.banner-scroll::-webkit-scrollbar-thumb { background: #b18b51; }
+.menu-command small, .mode-choice small { color: #e6d7b2; font-size: 12px; line-height: 1.4; }
+.primary-command small { color: #3c2914; }
+.credits-shell { grid-template-rows: auto minmax(0, 1fr); }
+.credits-search { position: sticky; top: 0; z-index: 1; flex-wrap: wrap; padding: 12px 0; background: #241e19; border-bottom: 1px solid #655038; }
+.credits-search label { width: 100%; color: #e7c47c; font: 700 12px/1.4 var(--font-script); letter-spacing: .15em; }
+.credits-search .game-input::placeholder { color: #b9ac91; }
+.credits-search small, .credits-line small { color: #c1b59b; }
+.voice-play:focus-visible, .credits-section summary:focus-visible, .herald-archive summary:focus-visible { outline: 2px solid #e7c47c; outline-offset: 2px; }
+.herald-latest p { font-size: 14px; line-height: 1.6; margin-bottom: 12px; }
+.herald-latest h3 { line-height: 1.3; margin-bottom: 10px; }
+.herald-changes ul { gap: 13px; }
+.herald-changes li { font-size: 13px; line-height: 1.55; grid-template-columns: 78px minmax(0, 1fr); }
+.herald-changes time { font-size: 12px; color: #694820; }
+.herald-archive { margin-top: 15px; border-top: 1px solid #b7a27a; padding-top: 10px; }
+.herald-archive summary { cursor: pointer; color: #6d2018; font: 700 13px/1.5 var(--font-script); margin-bottom: 10px; }
+@container app (max-height: 500px) {
+  .banner-scroll { padding: 12px 18px 14px; }
+  #menu .menu-command small { display: block; }
+  .credits-search { padding: 8px 0; }
+}
+@container app (max-width: 640px) {
+  .banner-scroll { padding: 24px 22px 16px; }
+  .herald-changes li { grid-template-columns: 68px minmax(0, 1fr); gap: 10px; }
+}
