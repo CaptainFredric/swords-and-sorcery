@@ -31,7 +31,7 @@ test('Chivalry HUD keeps a cooling spell face and exposes three identities with 
   view.update(local, {}, 10);
   assert.equal(view.spell.dataset.spell, 'gale');
   assert.equal(view.spell.classList.contains('fist'), false);
-  assert.equal(view.spell.querySelector('strong').textContent, '6.0');
+  assert.equal(view.spell.querySelector('strong').textContent, '6.0s');
   assert.equal(view.preparedPanel.hidden, false);
   assert.equal(view.preparedSlots.get('gale').classList.contains('current'),true);
   assert.equal(view.preparedTimer.textContent,'','docked over the R tile, which already counts Chivalry down');
@@ -82,7 +82,7 @@ test('prepared selection retains its spell cooldown face after Chivalry expires'
   assert.equal(view.preparedPanel.hidden, true);
   assert.equal(view.spell.classList.contains('fist'), false);
   assert.equal(view.spellLabel.textContent, 'GALE');
-  assert.equal(view.spell.querySelector('strong').textContent, '5.0');
+  assert.equal(view.spell.querySelector('strong').textContent, '5.0s');
 });
 
 test('with a mouse and keyboard the rack stands on the ability tiles, in their cloth; on touch it keeps its own place', () => {
@@ -133,4 +133,35 @@ test('a caption goes with its speaker: felled or cut off, theirs fades at once; 
     globalThis.setTimeout = realSet;
     globalThis.clearTimeout = realClear;
   }
+});
+
+
+test('Guard meter names current authoritative state without hiding its purpose at rest', () => {
+  const view = hud();
+  const baseline = { ...local, ultimateState: null, spellReadyAt: 0, spellReadyById: {}, guarding: false, sprinting: false, staggerUntil: 0 };
+  const label = () => view.guardBlock.querySelector('span').textContent;
+  view.update(baseline, {}, 10);
+  assert.equal(label(), 'GUARD · STAMINA');
+  view.update({ ...baseline, guarding: true }, {}, 10);
+  assert.equal(label(), 'GUARDING');
+  view.update({ ...baseline, sprinting: true }, {}, 10);
+  assert.equal(label(), 'SPRINTING');
+  view.update({ ...baseline, guarding: true, sprinting: true }, {}, 10);
+  assert.equal(label(), 'GUARD + SPRINT');
+  view.update({ ...baseline, guardStamina: 0, staggerUntil: 11 }, {}, 10);
+  assert.equal(label(), 'GUARD · STAGGERED');
+  view.update({ ...baseline, guardStamina: 0, staggerUntil: 11 }, {}, 11);
+  assert.equal(label(), 'GUARD · WINDED');
+  view.update(baseline, {}, 12);
+  assert.equal(label(), 'GUARD · STAMINA');
+});
+
+test('ordinary ability cooldowns identify seconds and preserve ready state', () => {
+  const view = hud();
+  view.update({ ...local, ultimateState: null, spellReadyAt: 12, dashReadyAt: 10.7 }, { mode: 'PRACTICE' }, 10);
+  assert.equal(view.spell.querySelector('strong').textContent, '2.0s');
+  assert.equal(view.dash.querySelector('strong').textContent, '0.7s');
+  view.update({ ...local, ultimateState: null, spellReadyAt: 12, dashReadyAt: 10.7 }, { mode: 'PRACTICE' }, 12);
+  assert.equal(view.spell.querySelector('strong').textContent, 'READY');
+  assert.equal(view.dash.querySelector('strong').textContent, 'READY');
 });

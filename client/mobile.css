@@ -79,7 +79,7 @@ button, input { touch-action: manipulation; }
 .touch-ui .health-track { height: 10px; }
 .touch-ui .guard-track { height: 7px; }
 .touch-ui .guard-block { position: static; transform: none; width: 150px; margin-top: 6px; }
-.touch-ui .guard-block span { font-size: 8px; }
+.touch-ui .guard-block span { font-size: 10px; letter-spacing: .12em; }
 .touch-ui .abilities { display: none; }
 .touch-ui .match-info { top: 10px; }
 .touch-ui .kill-feed { top: 10px; right: calc(var(--safe-r) + 14px); width: min(260px, 34cqw); font-size: 10px; }
