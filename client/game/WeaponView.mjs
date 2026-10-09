@@ -168,7 +168,8 @@ function clenchRotations(age) {
 }
 
 export class WeaponView {
-  constructor(camera) {
+  constructor(camera, { now = () => performance.now() / 1000 } = {}) {
+    this.now = now;
     this.camera = camera;
     this.group = new THREE.Group();
     this.group.name = 'first-person-spellblade-root';
@@ -319,7 +320,7 @@ export class WeaponView {
       this.productionOffset.add(instance.root);
       // the arms are always in view, and a swung blade leaves the bounds the skinned meshes were measured at rest
       instance.root.traverse((object) => { if (object.isMesh) object.frustumCulled = false; });
-      instance.animator.apply({ clip: 'Idle', loop: true, time: performance.now() / 1000 });
+      instance.animator.apply({ clip: 'Idle', loop: true, time: this.now() });
       reportSpellbladeAssetStatus('firstPerson', instance);
 
       if (instance.sockets.sorcery) {
@@ -351,7 +352,7 @@ export class WeaponView {
   setAttack(held) {
     // (bracing into Sunder, the button is only remembered: the first slam is its, as the brace ends)
     const bracing = this.bracing && !this.bracing.committed;
-    if (held && !this.attackButton && !bracing) this.swordChain.press(performance.now() / 1000);
+    if (held && !this.attackButton && !bracing) this.swordChain.press(this.now());
     if (!held) this.swordChain.release();
     this.attackButton = held;
     if (held && !this.concurrent) this.guard = false;
@@ -364,7 +365,7 @@ export class WeaponView {
    * brace ends (this view's clock, seconds). Called again (the host's own word for when it ends), it only corrects that.
    */
   brace(commitAt, { startupSec = ULTIMATES.sunder.startupSec, lead = ULTIMATES.sunder.firstSlamLead } = {}) {
-    const now = performance.now() / 1000;
+    const now = this.now();
     if (this.bracing && !this.bracing.committed) {
       this.bracing.commitAt = commitAt;
       return;
@@ -382,7 +383,7 @@ export class WeaponView {
 
   /** The brace is broken off (interrupted, or the host never took the key): the arms come back to rest. */
   braceCancel() {
-    if (this.bracing) this.bracing = { ...this.bracing, committed: true, heldUntil: performance.now() / 1000 };
+    if (this.bracing) this.bracing = { ...this.bracing, committed: true, heldUntil: this.now() };
   }
 
   // the brace ends: with the button held, the first slam's chain begins exactly where the brace left the sword (its
@@ -432,7 +433,7 @@ export class WeaponView {
   cancelAttack() {
     // (broken off, not let go: the arms come home a little quicker, and straight)
     if (this.swordChain.active) this.comboBroken = true;
-    this.swordChain.cancel(performance.now() / 1000);
+    this.swordChain.cancel(this.now());
     this.attackButton = false;
   }
 
@@ -449,7 +450,7 @@ export class WeaponView {
    * the spell's colour. A cast already gathering (started on the key press) is not restarted by the server's word.
    */
   cast({ gatherSec = 0.3, spell = 'fireball', accepted = false } = {}) {
-    const now = performance.now() / 1000;
+    const now = this.now();
     const gather = Number.isFinite(gatherSec) ? Math.max(0, gatherSec) : 0.3;
     if (!this.castReleased && now < this.castStartedAt + this.castGather + 0.05) {
       if (accepted) this.castSpell = spell;
@@ -470,12 +471,12 @@ export class WeaponView {
   cancelCast() {
     if (this.castReleased) return;
     this.castReleased = true;
-    this.castUntil = performance.now() / 1000;
+    this.castUntil = this.now();
     this.castStartedAt = 0;
   }
 
   /** Whether the magic hand is free for the gauntlet: the sword does not have it, and the last blow is over. */
-  canJab(now = performance.now() / 1000) {
+  canJab(now = this.now()) {
     return !this.swordChain.busy(now) && now >= this.jabReadyAt && this.castReleased;
   }
 
@@ -484,7 +485,7 @@ export class WeaponView {
    * the server, nothing attacks again before its recovery is over.
    */
   jab() {
-    const now = performance.now() / 1000;
+    const now = this.now();
     if (this.swordChain.active) this.cancelAttack();
     this.jabAt = now;
     this.jabReadyAt = now + GAUNTLET.startup + GAUNTLET.recovery;
@@ -500,7 +501,7 @@ export class WeaponView {
 
   /** The magic hand clenches (Sheathe in Steel): a quick tightening, the palm light flashing to steel. */
   clench() {
-    this.clenchAt = performance.now() / 1000;
+    this.clenchAt = this.now();
   }
 
   /** The armour's hardening on my arms: strength 0..1, and seconds since it was called (for the glint), or null. */
@@ -509,12 +510,12 @@ export class WeaponView {
   }
 
   dash() {
-    this.dashUntil = performance.now() / 1000 + 0.18;
+    this.dashUntil = this.now() + 0.18;
   }
 
   /** My blade rang off something solid: the jolt of it in the arms (the swing itself is the server's to end). */
   clang() {
-    this.recoilUntil = performance.now() / 1000 + 0.23;
+    this.recoilUntil = this.now() + 0.23;
     this.motion.clang();
   }
 
@@ -524,7 +525,7 @@ export class WeaponView {
   }
 
   parry() {
-    this.parryUntil = performance.now() / 1000 + 0.3;
+    this.parryUntil = this.now() + 0.3;
     this.motion.parry();
   }
 
@@ -549,7 +550,7 @@ export class WeaponView {
 
   // the blow connected: freeze the swing for a beat and jolt the arms and view
   hitstop(seconds, kick = 0.5) {
-    this.frozenUntil = Math.max(this.frozenUntil, performance.now() / 1000 + Math.max(0, seconds));
+    this.frozenUntil = Math.max(this.frozenUntil, this.now() + Math.max(0, seconds));
     this.motion.hitConfirm(kick);
   }
 
@@ -578,7 +579,7 @@ export class WeaponView {
 
   reconcileCast(player, serverNow) {
     if (!player) return;
-    const now = performance.now() / 1000;
+    const now = this.now();
     if (player.castingSpell && player.castEndsAt > serverNow) {
       const startedAt = player.castStartedAt ?? player.castEndsAt - this.castGather;
       if (this.acceptedCastStartedAt !== startedAt) {

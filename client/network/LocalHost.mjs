@@ -28,7 +28,11 @@ export class LocalHost {
     cancel = (timer) => clearInterval(timer),
     later = (fn) => setTimeout(fn, 0),
   } = {}) {
-    this.now = now;
+    this.wallNow = now;
+    this.timeOffset = 0;
+    this.frozenAt = null;
+    this.inspectionEnabled = false;
+    this.now = () => this.frozenAt ?? (this.wallNow() - this.timeOffset);
     this.every = every;
     this.cancel = cancel;
     this.later = later;
@@ -112,8 +116,44 @@ export class LocalHost {
     this.timer = this.every(() => this.tick(), 1000 / TICK_RATE);
   }
 
+  startInspectionPractice(name, worldId) {
+    this.startSolo(GAME_MODES.PRACTICE, name, worldId);
+    this.inspectionEnabled = true;
+  }
+
+  get inspectionFrozen() { return this.frozenAt !== null; }
+
+  setInspectionFrozen(frozen) {
+    if (!this.inspectionEnabled || this.room?.state !== 'PLAYING') return false;
+    if (Boolean(frozen) === this.inspectionFrozen) return true;
+    if (frozen) this.frozenAt = this.now();
+    else {
+      this.timeOffset = this.wallNow() - this.frozenAt;
+      this.frozenAt = null;
+      // Held input belongs to the old live frame, never to a resumed inspection.
+      this.attack(false);
+      this.guard(false);
+      this.input({ seq: (this.player?.lastInputSeq ?? 0) + 1, forward: 0, right: 0,
+        jump: false, sprint: false, crouch: false, yaw: this.player?.yaw ?? 0, pitch: this.player?.pitch ?? 0 });
+    }
+    this.#deliver({ type: 'inspectionState', frozen: this.inspectionFrozen });
+    return true;
+  }
+
+  stepInspection() {
+    if (!this.inspectionEnabled || !this.inspectionFrozen) return false;
+    this.frozenAt += 1 / TICK_RATE;
+    this.#step();
+    return true;
+  }
+
   /** One step of the match, as the server's tick does it for each room. */
   tick() {
+    if (this.inspectionFrozen) return;
+    this.#step();
+  }
+
+  #step() {
     const room = this.room;
     if (!room) return;
     const time = this.now();
@@ -131,12 +171,15 @@ export class LocalHost {
     if (this.room) this.rooms.rooms.delete(this.room.code);
     this.room = null;
     this.player = null;
+    this.inspectionEnabled = false;
+    this.frozenAt = null;
+    this.timeOffset = 0;
   }
 
   #command(message) {
     const room = this.room;
     const player = room?.players.get(this.player?.id);
-    if (!room || !player) return;
+    if (!room || !player || this.inspectionFrozen) return;
     const result = applyRoomCommand(room, player, message, this.now());
     if (result.rejected) this.#deliver({ type: 'error', message: result.rejected });
     else if (result.lobby) this.#deliver(serializeLobby(room));

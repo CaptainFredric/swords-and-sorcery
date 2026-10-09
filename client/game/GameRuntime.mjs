@@ -141,7 +141,7 @@ export class GameRuntime {
     this.activeWorld = null;
     this.worldId = null;
     this.worldError = null;
-    this.remotePlayers = new RemotePlayers(this.scene, socket.playerId);
+    this.remotePlayers = new RemotePlayers(this.scene, socket.playerId, { now: () => this.presentationNow() });
     // (a crouched knight's steps are soft and light)
     this.remotePlayers.onFootstep = (id, position, heavy, crouched) => this.#footstep(id, position, crouched ? 0 : heavy, FOOTSTEPS.other * (crouched ? 0.55 : 1));
     // now and then a knight grunts as he jumps (an exertion: never over his other lines)
@@ -166,7 +166,7 @@ export class GameRuntime {
     this.chivalryEndedAt = new Map();
     // my own blade against the world, judged in my own view (localBladeSweep.mjs)
     this.bladeSweep = new LocalBladeSweep();
-    this.weapon = new WeaponView(this.camera);
+    this.weapon = new WeaponView(this.camera, { now: () => this.presentationNow() / 1000 });
     // my own Vortex lit: the star's ting
     this.weapon.onVortexSpark = () => this.#play(vortexStarRecipe(), null, 1);
     this.weapon.onSwing = (strike, { slam = false } = {}) => {
@@ -193,6 +193,7 @@ export class GameRuntime {
       this.onPointer(locked);
     };
     this.input.onAttackLocal = (held) => {
+      if (this.socket.inspectionFrozen) return;
       if (!held) {
         this.weapon.setAttack(false);
         return;
@@ -201,6 +202,7 @@ export class GameRuntime {
       if (canPresentLocalAction('attack', this.localAuth, this.localState, now)) this.weapon.setAttack(true);
     };
     this.input.onGuardLocal = (held) => {
+      if (this.socket.inspectionFrozen) return;
       if (!held) {
         this.weapon.setGuard(false);
         return;
@@ -210,6 +212,7 @@ export class GameRuntime {
     };
     // the palm starts gathering the moment the spell is called (the server's word follows and confirms it)
     this.input.onCastLocal = (metadata = {}) => {
+      if (this.socket.inspectionFrozen) return;
       const now = this.socket.serverNow();
       const practice = this.#inPractice();
       const intendedSpell = metadata.spell ?? this.localAuth?.spell;
@@ -255,11 +258,13 @@ export class GameRuntime {
     // the gauntlet on its own key: the fist at once, spell or no spell (the server's word follows); only while the hand
     // cannot (mid-swing, say), the quiet no
     this.input.onGauntletLocal = () => {
+      if (this.socket.inspectionFrozen) return;
       const now = this.socket.serverNow();
       if (this.localAuth?.alive && !this.#tryLocalJab(now)) this.#play(deniedRecipe(), null, 0.5);
     };
     // the ultimate's key: the host decides; with the meter short (or it already running), the quiet no
     this.input.onUltimateLocal = () => {
+      if (this.socket.inspectionFrozen) return;
       const me = this.localAuth;
       // (in the Practice Yard the key readies it too: only one already under way, or its recovery, says no)
       const now = this.socket.serverNow();
@@ -274,14 +279,15 @@ export class GameRuntime {
       // the host takes the key a moment later, and its word starts the brace
       const free = me?.alive && !((me.staggerUntil ?? -Infinity) > now) && this.weapon.castReleased && this.weapon.canJab();
       if (free && ultimateFor(me.ultimate).id === 'sunder') {
-        this.weapon.brace(performance.now() / 1000 + ULTIMATES.sunder.startupSec);
-        this.braceAskedAt = performance.now();
+        this.weapon.brace(this.presentationNow() / 1000 + ULTIMATES.sunder.startupSec);
+        this.braceAskedAt = this.presentationNow();
       }
     };
     // the meter full: a restrained note, once
     this.input.onPreparedSelector = (view) => this.hud.setPreparedSelector?.(view);
     this.hud.onUltimateReady = () => this.#play(ultimateReadyRecipe(), null, 0.9);
     this.input.onDashLocal = (dir) => {
+      if (this.socket.inspectionFrozen) return;
       const now = this.socket.serverNow();
       const practice = this.#inPractice();
       if (!canPresentLocalAction('dash', this.localAuth, this.localState, now, { practice, gate: this.localGate })) return;
@@ -312,7 +318,7 @@ export class GameRuntime {
     this.latestSnapshot = null;
     this.sequence = 0;
     this.lastInputSentAt = 0;
-    this.lastFrameAt = performance.now();
+    this.lastFrameAt = this.presentationNow();
     this.running = true;
     this.playing = false;
     this.predictionError = 0;
@@ -478,7 +484,7 @@ export class GameRuntime {
     if (!this.#ensureWorld(snapshot.worldId)) return;
     if (snapshot.matchStartedAt !== this.latestSnapshot?.matchStartedAt) this.localGate = null;
     this.latestSnapshot = snapshot;
-    this.remotePlayers.pushSnapshot(snapshot, performance.now());
+    this.remotePlayers.pushSnapshot(snapshot, this.presentationNow());
     this.effects.syncProjectiles(snapshot.projectiles ?? []);
     const auth = snapshot.players.find((p) => p.id === this.socket.playerId);
     this.localAuth = auth ?? null;
@@ -718,7 +724,7 @@ export class GameRuntime {
       // the same strike only ends the swing (#applyWeaponRelease above), it does not ring twice
       if (event.type === 'swordWorldImpact') {
         const mine = shouldPlayWorldClang(event, this.socket.playerId);
-        const foretold = mine && performance.now() - (this.foretoldClangAt ?? -Infinity) < FORETOLD_CLANG_MS;
+        const foretold = mine && this.presentationNow() - (this.foretoldClangAt ?? -Infinity) < FORETOLD_CLANG_MS;
         if (foretold) this.foretoldClangAt = -Infinity;
         else this.#worldClang(event, mine);
       }
@@ -971,7 +977,7 @@ export class GameRuntime {
 
   // the precise ring of the cleanest contact, over the blow's own sound (a cluster of them is one ring)
   #precise(event) {
-    const now = performance.now() / 1000;
+    const now = this.presentationNow() / 1000;
     if (now - (this.preciseAt ?? -Infinity) < 0.2) return;
     this.preciseAt = now;
     const me = this.socket.playerId;
@@ -984,7 +990,7 @@ export class GameRuntime {
   // sparks fly up across the view and the health bar's frame flashes. One full clang per blow: a second within its
   // ring only ticks, and a burn's licks make none. Whether it was shown (the red flash is not, then).
   #steelStruck(event) {
-    const now = performance.now() / 1000;
+    const now = this.presentationNow() / 1000;
     const clangs = (this.steelClangAt ??= new Map());
     const feel = steelHitFeel(event, { lastClangAt: clangs.get(event.victimId) ?? -Infinity, now });
     if (!feel) return false;
@@ -1364,7 +1370,7 @@ export class GameRuntime {
       solids: this.activeWorld?.solids ?? [],
     });
     if (!struck) return;
-    this.foretoldClangAt = performance.now();
+    this.foretoldClangAt = this.presentationNow();
     this.#worldClang({ point: struck.point, material: struck.solid.material ?? 'stone' }, true);
   }
 
@@ -1493,7 +1499,7 @@ export class GameRuntime {
     this.#play(sunderDropRecipe(), me ? null : this.#bodyPosition(event.playerId), me ? 1 : 0.8);
     // my arms brace (already, if I pressed for it): when it ends is the host's to say
     if (me) {
-      this.weapon.brace(performance.now() / 1000 + (event.commitAt - this.socket.serverNow()));
+      this.weapon.brace(this.presentationNow() / 1000 + (event.commitAt - this.socket.serverNow()));
       this.braceAskedAt = null;
     }
     // its cry, when this use's line is one of its cries (Your integrity will not suffice!, or MIGHT MAKES... KNIGHT!, in
@@ -1691,7 +1697,7 @@ export class GameRuntime {
     if (!body) return;
     const from = felledBy ? this.#bodyPosition(felledBy.id) : null;
     this.deathCam = {
-      at: performance.now() / 1000,
+      at: this.presentationNow() / 1000,
       killerId: felledBy?.id ?? null,
       seen: null,
       death: {
@@ -1741,9 +1747,21 @@ export class GameRuntime {
     this.remotePlayers.showSelf(this.localAuth, null, this.socket.serverNow(), nowMs, dt, false);
   }
 
+  presentationNow() {
+    return this.socket.playingLocally ? this.socket.serverNow() * 1000 : performance.now();
+  }
+
   #frame(nowMs) {
     if (!this.running) return;
-    const dt = Math.min(0.05, Math.max(0.001, (nowMs - this.lastFrameAt) / 1000));
+    if (this.socket.playingLocally) nowMs = this.presentationNow();
+    // Keep drawing the exact same scene. A single authoritative step advances this clock once.
+    if (this.socket.inspectionFrozen && nowMs <= this.lastFrameAt) {
+      this.#renderView();
+      requestAnimationFrame(t => this.#frame(t));
+      return;
+    }
+    const elapsed = (nowMs - this.lastFrameAt) / 1000;
+    const dt = this.socket.inspectionFrozen ? Math.max(0, elapsed) : Math.min(0.05, Math.max(0.001, elapsed));
     this.lastFrameAt = nowMs;
     this.fps += ((1 / dt) - this.fps) * 0.05;
     const timeSec = nowMs / 1000;

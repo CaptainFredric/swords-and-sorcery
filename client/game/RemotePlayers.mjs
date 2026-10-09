@@ -134,7 +134,7 @@ function setGlbAccent(instance, visor, sorcery) {
   }
 }
 
-function createRemoteShell(index, player, pendingCast) {
+function createRemoteShell(index, player, pendingCast, nowMs) {
   const root = new THREE.Group();
   root.name = `RemoteSpellblade-${player.id}`;
 
@@ -145,7 +145,7 @@ function createRemoteShell(index, player, pendingCast) {
     fallbackDispose: () => disposeFallbackRig(fallbackRig),
     hideFallbackWhileLoading: true,
   });
-  shell.createdAtMs = performance.now();
+  shell.createdAtMs = nowMs;
   shell.fallbackRig = fallbackRig;
   reportSpellbladeAssetStatus('remote');
 
@@ -181,7 +181,8 @@ function createRemoteShell(index, player, pendingCast) {
 }
 
 export class RemotePlayers {
-  constructor(scene, localId) {
+  constructor(scene, localId, { now = () => performance.now() } = {}) {
+    this.now = now;
     this.scene = scene;
     this.localId = localId;
     // told each time a knight's foot comes down: (id, position, heavy 0..1), from the gait clip's own stride
@@ -292,6 +293,7 @@ export class RemotePlayers {
           this.nextRigIndex++,
           player,
           this.pendingCasts.get(player.id),
+          receivedAtMs,
         );
         this.pendingCasts.delete(player.id);
         this.rigs.set(player.id, shell);
@@ -347,7 +349,7 @@ export class RemotePlayers {
   // a struck opponent glows hot for a moment (the game runtime calls this when a blow lands)
   flashHit(id) {
     const shell = this.rigs.get(id);
-    if (shell) shell.hitGlowAt = performance.now();
+    if (shell) shell.hitGlowAt = this.now();
   }
 
   // where an opponent is drawn right now
@@ -421,7 +423,7 @@ export class RemotePlayers {
   showSelf(player, at, serverNow, nowMs, dt, visible) {
     if (!player) return;
     if (!this.self) {
-      this.self = createRemoteShell(this.nextRigIndex++, player, null);
+      this.self = createRemoteShell(this.nextRigIndex++, player, null, nowMs);
       this.self.root.visible = false;
       this.scene.add(this.self.root);
     }

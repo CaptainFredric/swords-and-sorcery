@@ -171,6 +171,17 @@ export class GameLink {
     this.local.startSolo(...args);
   }
 
+  /** An explicitly local yard for pose and effect inspection, even when online. */
+  startInspectionPractice(name, worldId) {
+    this.hosting = 'local';
+    this.local.startInspectionPractice(name, worldId);
+  }
+
+  get inspectionAvailable() { return this.playingLocally && this.local.inspectionEnabled; }
+  get inspectionFrozen() { return this.inspectionAvailable && this.local.inspectionFrozen; }
+  setInspectionFrozen(frozen) { return this.inspectionAvailable && this.local.setInspectionFrozen(frozen); }
+  stepInspection() { return this.inspectionAvailable && this.local.stepInspection(); }
+
   // online play needs the server; without it, Seek a Duel offers the honest next best thing: a bot, here
   #online(method, args) {
     if (this.status === 'online') {

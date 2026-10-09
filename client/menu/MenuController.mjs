@@ -75,6 +75,10 @@ export class MenuController {
     return this.#withName(rawName, (name) => this.socket.startSolo('PRACTICE', name, this.soloArena()));
   }
 
+  inspectionPractice(rawName) {
+    return this.#withName(rawName, name => this.socket.startInspectionPractice(name, this.soloArena()));
+  }
+
   createPrivate(rawName) {
     return this.#withName(rawName, (name) => this.socket.createRoom(name));
   }

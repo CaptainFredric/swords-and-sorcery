@@ -181,6 +181,10 @@
           <span>PRACTICE YARD</span>
           <small>Untimed training with configurable dummies</small>
         </button>
+        <button id="inspection-mode" class="mode-choice">
+          <span>INSPECTION YARD</span>
+          <small>Local Practice · freeze poses and step through effects</small>
+        </button>
       </div></div>
     </section>
 
@@ -352,6 +356,10 @@
       </div>
       <aside id="practice-overlay" class="practice-tools hidden">
         <div><strong>PRACTICE YARD</strong><small class="practice-tools-unlocked-hint">CLICK ARENA TO RESUME</small><small class="practice-tools-locked-hint">ESC FOR TOOLS</small></div>
+        <h3 class="inspection-control hidden">INSPECTION</h3>
+        <button id="practice-freeze" class="inspection-control hidden">FREEZE · P</button>
+        <button id="practice-step" class="inspection-control hidden" disabled>STEP 1 TICK</button>
+        <small id="inspection-status" class="inspection-control hidden" role="status">Live · P freezes the scene</small>
         <h3>SELF</h3>
         <button id="practice-reset">RESET SELF</button>
         <h3>DUMMIES</h3>

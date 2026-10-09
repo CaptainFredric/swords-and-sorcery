@@ -5,6 +5,7 @@ import { MenuController, shouldRouteSocketError } from './MenuController.mjs';
 function harness() {
   const calls = [];
   const socket = {
+    startInspectionPractice: (name, world) => calls.push(['inspection', name, world]),
     quickPlay: (name) => calls.push(['quickPlay', name]),
     createRoom: (name) => calls.push(['createRoom', name]),
     joinRoom: (code, name) => calls.push(['joinRoom', code, name]),
@@ -76,4 +77,14 @@ test('socket errors during active play stay in the arena instead of routing to a
   assert.equal(shouldRouteSocketError('ABCDE', { roomState: 'PLAYING', mode: 'FFA' }), false);
   assert.equal(shouldRouteSocketError(null, null), true);
   assert.equal(shouldRouteSocketError(null, { roomState: 'WAITING' }), true);
+});
+
+
+test('inspection keeps name validation and the chosen solo arena', () => {
+  const { controller, calls } = harness();
+  assert.equal(controller.inspectionPractice('  ').ok, false);
+  assert.deepEqual(calls, []);
+  controller.chooseSoloArena('ruined-keep');
+  assert.equal(controller.inspectionPractice(' Inspector ').ok, true);
+  assert.deepEqual(calls, [['inspection', 'Inspector', 'ruined-keep']]);
 });

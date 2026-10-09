@@ -47,6 +47,7 @@ export class InputController {
     this.scoreboardHeld = false;
     this.debugVisible = false;
     this.enabled = false;
+    this.suspended = false;
     // TouchControls on phones and tablets; there is no pointer lock there, so entering the arena sets touchFocus
     this.touch = null;
     this.touchFocus = false;
@@ -204,7 +205,7 @@ export class InputController {
 
   // enter the arena: pointer lock with a mouse, the on-screen controls on a touch device
   requestPointerLock() {
-    if (this.enabled) return;
+    if (this.enabled || this.suspended) return;
     if (this.touch) this.#setTouchFocus(true);
     else this.element.requestPointerLock?.();
   }

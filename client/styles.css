@@ -99,3 +99,8 @@ body.took-steel::after{content:"";position:fixed;inset:0;z-index:50;pointer-even
 .practice-tools button:focus-visible { outline: 1px solid #ecc97f; }
 .practice-tools .practice-leave { margin-top: 0; color: #ffc9b6; }
 @container app (max-height: 500px) { .practice-tools { top: 10px; width: 224px; max-height: calc(100% - 20px); padding: 8px 10px; } .practice-tools h3 { margin-top: 5px; } .practice-tools button { min-height: 25px; padding: 4px 3px; } }
+
+/* Inspection controls share the Practice palette and remain available on small screens. */
+.practice-tools #inspection-status { grid-column: 1 / -1; color: #eadcb6; font-size: 9px; }
+.practice-tools button:disabled { opacity: .4; cursor: default; }
+.practice-tools.inspection-frozen { border-color: #f5d489; }
