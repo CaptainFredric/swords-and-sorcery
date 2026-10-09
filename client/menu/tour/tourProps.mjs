@@ -202,7 +202,7 @@ export class Debris {
     for (const piece of this.pieces) {
       const { geometry, material } = piece.mesh;
       const names = Object.keys(geometry.attributes).sort();
-      const key = `${names.join(',')}`;
+      const key = `${names.join(',')}:${Boolean(piece.mesh.userData.tourRetired)}`;
       if (!groups.has(material)) groups.set(material, new Map());
       const shapes = groups.get(material);
       if (!shapes.has(key)) shapes.set(key, []);
@@ -234,6 +234,7 @@ export class Debris {
         mesh.castShadow = true;
         mesh.receiveShadow = true;
         mesh.visible = pieces[0].mesh.visible;
+        mesh.userData.tourRetired = Boolean(pieces[0].mesh.userData.tourRetired);
         this.scene.add(mesh);
         merged.push({ mesh, velocity: new THREE.Vector3(), spin: new THREE.Vector3(), delay: 0, landed: 0, resting: true, merged: true });
       }

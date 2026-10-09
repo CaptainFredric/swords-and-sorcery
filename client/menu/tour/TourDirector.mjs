@@ -99,6 +99,9 @@ export class TourDirector {
     // View): MenuScene eases it, and the camera composes for the stage it has. Nothing else of the round depends on it
     this.framing = 0;
     this.visible = false;
+    this.resetFrustum = new THREE.Frustum();
+    this.resetMatrix = new THREE.Matrix4();
+    this.cleanupDebris = false;
     this.blockers = castlewardBlockers();
     // where each version of each fight goes at each stop, worked out once (tourCamera.placeFight)
     this.placements = new Map();
@@ -191,27 +194,51 @@ export class TourDirector {
     this.burns = [];
     this.vessel?.dispose();
     this.vessel = null;
-    for (const [index, rival] of this.rivals.entries()) {
-      if (!rival) continue;
-      // (nothing of the Slush stays: the ice off him, the heap gone, his own shape and colours back)
-      rival.crust?.dispose();
-      rival.crust = null;
-      rival.pile?.dispose();
-      rival.pile = null;
-      rival.steam = 0;
-      rival.heatAt = null;
-      rival.holder.scale.set(1, 1, 1);
-      this.effects.afflict(`tour-frost-${index}`, null);
-      rival.flag?.dispose();
-      rival.flag = null;
-      if (rival.stub) mendSword(rival.instance, rival.stub);
-      rival.stub = null;
-      rival.dress.restore();
-      rival.charred = 0;
-      rival.shattered = false;
-      rival.instance.root.visible = true;
-      rival.holder.visible = true;
+    this.cleanupDebris = false;
+    for (const [index, rival] of this.rivals.entries()) if (rival) this.#restoreRival(rival, index);
+  }
+
+  #restoreRival(rival, index) {
+    // (nothing of the Slush stays: the ice off him, the heap gone, his own shape and colours back)
+    rival.crust?.dispose();
+    rival.crust = null;
+    rival.pile?.dispose();
+    rival.pile = null;
+    rival.steam = 0;
+    rival.heatAt = null;
+    rival.holder.scale.set(1, 1, 1);
+    this.effects.afflict(`tour-frost-${index}`, null);
+    rival.flag?.dispose();
+    rival.flag = null;
+    if (rival.stub) mendSword(rival.instance, rival.stub);
+    rival.stub = null;
+    rival.dress.restore();
+    rival.charred = 0;
+    rival.shattered = false;
+    rival.instance.root.visible = true;
+    rival.holder.visible = true;
+    rival.resetPending = false;
+    rival.retiredTime = 0;
+  }
+
+  // Retain the outgoing tableau until both its old shape and its incoming location are outside the camera.
+  #retireRound(completedDuration) {
+    if (this.stars) this.starsUntil -= completedDuration;
+    for (const rival of this.rivals) if (rival) {
+      rival.resetPending = true;
+      rival.retiredTime = (rival.retiredTime ?? 0) + completedDuration;
     }
+    for (const piece of this.debris.pieces) piece.mesh.userData.tourRetired = true;
+    this.cleanupDebris = this.debris.pieces.length > 0;
+    this.projectiles = [];
+    this.effects.syncProjectiles([]);
+    this.burns = [];
+  }
+
+  #outsideView(object) {
+    if (!object || !object.visible) return true;
+    const box = new THREE.Box3().setFromObject(object).expandByScalar(0.5);
+    return !this.resetFrustum.intersectsBox(box);
   }
 
   /** Show or hide everything the round brings (the rivals and what is left of them). */
@@ -249,21 +276,29 @@ export class TourDirector {
       this.performance = null;
       this.time += dt;
     }
-    // a new round: another lineup, and everyone back to their places (the Spellblade is home, far from all of them)
+    // Advance the lineup without resetting anything visible through the tracking camera.
     while (this.time >= this.schedule.duration) {
-      this.time -= this.schedule.duration;
+      const completedDuration = this.schedule.duration;
+      this.time -= completedDuration;
       this.#stageRound(this.round + 1);
-      this.#resetRivals();
+      this.#retireRound(completedDuration);
       this.lastMoment = null;
     }
     const moment = tourMoment(this.schedule, this.time);
     this.#poseHero(moment, dt);
+    if (this.rivals.some((rival) => rival?.resetPending) || this.cleanupDebris) {
+      this.camera.updateMatrixWorld();
+      this.resetMatrix.multiplyMatrices(this.camera.projectionMatrix, this.camera.matrixWorldInverse);
+      this.resetFrustum.setFromProjectionMatrix(this.resetMatrix);
+      this.debris.remove((mesh) => mesh.userData.tourRetired && this.#outsideView(mesh));
+      this.cleanupDebris = this.debris.pieces.some((piece) => piece.mesh.userData.tourRetired);
+    }
     this.#poseRivals(moment, dt);
     this.#fireCues(moment);
     this.#stepProjectiles();
     this.#stepBurns(dt);
     this.debris.update(dt);
-    for (const rival of this.rivals) rival?.flag?.update(this.time);
+    for (const rival of this.rivals) rival?.flag?.update(this.time + (rival.retiredTime ?? 0));
     this.#stepStars();
     if (this.ownsEffects) this.effects.update(dt);
     this.lastMoment = moment;
@@ -402,17 +437,25 @@ export class TourDirector {
   // ------------------------------------------------------------------------------------------------------ rivals
   #poseRivals(moment, dt) {
     this.rivals.forEach((rival, index) => {
-      if (!rival || rival.shattered) return;
+      if (!rival) return;
       const fight = this.fights[index];
       const t = moment.fightTimes[index];
       const pose = fight.rival(t);
+      const placed = this.#place(this.frames[index], pose);
+      if (rival.resetPending) {
+        const incoming = new THREE.Sphere(placed.position.clone().add(new THREE.Vector3(0, 1.2, 0)), 2.5);
+        if (this.resetFrustum.intersectsSphere(incoming) || !this.#outsideView(rival.holder)
+          || !this.#outsideView(rival.pile?.group) || !this.#outsideView(rival.flag?.group)) return;
+        this.#restoreRival(rival, index);
+      }
+      if (rival.shattered) return;
       if (pose.gone) {
         rival.holder.visible = false;
         this.effects.afflict(`tour-frost-${index}`, null);
         return;
       }
       rival.holder.visible = true;
-      const { position, yaw } = this.#place(this.frames[index], pose);
+      const { position, yaw } = placed;
       rival.holder.position.copy(position);
       rival.holder.rotation.y = yaw;
       if (Number.isFinite(pose.frozen)) this.#frozen(rival, index, pose, position, dt);
