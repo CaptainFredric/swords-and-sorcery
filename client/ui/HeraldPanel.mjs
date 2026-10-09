@@ -15,8 +15,10 @@ export function heraldMarkup(notices = HERALD_NOTICES, { year = new Date().getFu
   const latest = notices.latest
     ? `<article class="herald-latest"><h3>${escape(notices.latest.title)}</h3>${notices.latest.text.map((p) => `<p>${escape(p)}</p>`).join('')}</article>`
     : '';
-  const changes = notices.changes?.length
-    ? `<section class="herald-changes" aria-label="Recent changes"><h4>LATELY</h4><ul>${notices.changes.map((change) => `<li><time datetime="${escape(change.date)}">${escape(heraldDate(change.date, { year }))}</time><span>${escape(change.text)}</span></li>`).join('')}</ul></section>`
+  const entries = notices.changes ?? [];
+  const list = (items) => `<ul>${items.map((change) => `<li><time datetime="${escape(change.date)}">${escape(heraldDate(change.date, { year }))}</time><span>${escape(change.text)}</span></li>`).join('')}</ul>`;
+  const changes = entries.length
+    ? `<section class="herald-changes" aria-label="Recent changes"><h4>RECENT DISPATCHES</h4>${list(entries.slice(0, 5))}${entries.length > 5 ? `<details class="herald-archive"><summary>Older dispatches</summary>${list(entries.slice(5))}</details>` : ''}</section>`
     : '';
   const note = notices.note ? `<aside class="herald-note"><p>${escape(notices.note)}</p></aside>` : '';
   return latest + changes + note;

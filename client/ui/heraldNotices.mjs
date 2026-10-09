@@ -9,21 +9,22 @@
 
 export const HERALD_NOTICES = Object.freeze({
   latest: Object.freeze({
-    title: 'The front door steps aside',
+    title: 'THE GATES OF CASTLEWARD ARE OPEN',
     text: Object.freeze([
-      'WATCH THE YARD, at the foot of the screen on the right, draws the banner aside and gives the Spellblade’s round the whole screen. SHOW MENU, or Escape, brings it back.',
-      'Left alone on the front door for a minute and a half, the banner yields to the yard by itself. Any movement brings it straight back.',
+      'Welcome to Castleward. Swords & Sorcery is a free fantasy arena game where swordplay meets sorcery.',
+      'The game is still in its early stages. Thank you for playing, sharing feedback, and following its development. Castleward will keep growing through that work.',
+      'The Spellblade is ready. His understanding of honor remains flexible.',
     ]),
   }),
   changes: Object.freeze([
-    Object.freeze({ date: '2026-10-08', text: 'Sixteen new lines for the Spellblade, two of them said over several returns. The defeat screen now writes out what he says.' }),
-    Object.freeze({ date: '2026-10-07', text: 'Two new encounters on the Spellblade’s round behind the front door.' }),
-    Object.freeze({ date: '2026-10-07', text: 'Twenty-five new lines. Where a pause carries the joke, the subtitle waits for it.' }),
-    Object.freeze({ date: '2026-10-06', text: 'Sheathed in Steel, a Dash now rams whoever it meets.' }),
-    Object.freeze({ date: '2026-10-05', text: 'The Credits can be searched.' }),
-    Object.freeze({ date: '2026-10-05', text: 'The Armory performs its ultimates: Sunder’s slam, the Vortex’s spin, Spells & Chivalry.' }),
-    Object.freeze({ date: '2026-10-05', text: 'Return to Menu goes back in place: no reload, no loading screen.' }),
-    Object.freeze({ date: '2026-10-05', text: 'Bot Duel has four difficulties, Squire to The Spellblade, and opens with three seconds of peace.' }),
+    Object.freeze({ date: '2026-10-08', text: 'Added sixteen Spellblade lines, including two with replies across several encounters. Defeat dialogue now has subtitles.' }),
+    Object.freeze({ date: '2026-10-07', text: 'Added two encounters to the Spellblade’s menu tour.' }),
+    Object.freeze({ date: '2026-10-07', text: 'Added twenty-five voice lines and improved subtitle timing for dialogue with pauses.' }),
+    Object.freeze({ date: '2026-10-06', text: 'Dashing while Sheathed in Steel now rams enemies you hit.' }),
+    Object.freeze({ date: '2026-10-05', text: 'Added search to the Credits voice archive.' }),
+    Object.freeze({ date: '2026-10-05', text: 'Added character previews for all three ultimates in the Armory.' }),
+    Object.freeze({ date: '2026-10-05', text: 'Returning to the menu now keeps the game loaded.' }),
+    Object.freeze({ date: '2026-10-05', text: 'Bot Duel now offers four difficulties and a three second opening countdown.' }),
     Object.freeze({ date: '2026-10-05', text: 'Phones and tablets start on Balanced quality.' }),
   ]),
   note: null,
