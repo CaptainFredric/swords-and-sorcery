@@ -31,6 +31,7 @@ export class HUD {
     this.healthFill = document.querySelector('#health-fill');
     this.healthTrail = document.querySelector('#health-trail');
     this.guardBlock = document.querySelector('#guard-block');
+    this.guardLabel = this.guardBlock.querySelector('span');
     this.guardFill = document.querySelector('#guard-fill');
     this.spell = document.querySelector('#spell-ability');
     this.spellLabel = this.spell.querySelector('em');
@@ -104,6 +105,10 @@ export class HUD {
 
     const guard = Math.max(0, Math.min(100, local.guardStamina));
     this.guardFill.style.width = `${guard}%`;
+    this.guardLabel.textContent = (local.staggerUntil ?? 0) > serverNow ? 'GUARD · STAGGERED'
+      : local.guarding && local.sprinting ? 'GUARD + SPRINT'
+        : local.guarding ? 'GUARDING' : local.sprinting ? 'SPRINTING'
+          : guard < SPRINT.restartStamina ? 'GUARD · WINDED' : 'GUARD · STAMINA';
     // balance lost: a thin bar under the stamina, filling toward the break (red and pulsing near it)
     const stagger = Math.max(0, Math.min(1, (local.stagger?.level ?? 0) / STAGGER.max));
     if (this.staggerFill) {
@@ -371,7 +376,7 @@ export class HUD {
     const ready = remaining <= 0.01;
     element.classList.toggle('ready', ready);
     element.classList.toggle('cooling', !ready);
-    value.textContent = ready ? 'READY' : remaining.toFixed(1);
+    value.textContent = ready ? 'READY' : `${remaining.toFixed(1)}s`;
     element.style.setProperty('--cooldown', String(Math.min(1, remaining / cooldownSec)));
   }
 
