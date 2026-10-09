@@ -87,7 +87,7 @@ export class TourDirector {
     this.onCaptionCut = null;
     this.pause = 0;
     this.performance = null;
-    // the front door's own shot: the round starts and ends on it (and, with the banner drawn aside, the same shot
+    // the front door's own shot: only the first departure starts on it (and, with the banner drawn aside, the same shot
     // turned to give him the middle of the stage: `homeObserve`)
     this.home = null;
     this.homeObserve = null;
@@ -116,7 +116,7 @@ export class TourDirector {
     const placed = lineupFor(round, undefined, { skyBaited: this.memory?.skyBait ?? null }).map((name, slot) => this.#placed(name, slot, random) ?? this.#placed(first[slot], slot, random));
     this.fights = placed.map((each) => each.fight);
     this.frames = placed.map((each) => this.#frame(each));
-    this.schedule = buildSchedule(this.path.length, { fights: this.fights });
+    this.schedule = buildSchedule(this.path.length, { fights: this.fights, introduction: round === 0 });
   }
 
   // the first version of a fight from the pool that has room and a clear view at this stop
@@ -250,7 +250,7 @@ export class TourDirector {
       this.time += dt;
     }
     // a new round: another lineup, and everyone back to their places (the Spellblade is home, far from all of them)
-    if (this.time >= this.schedule.duration) {
+    while (this.time >= this.schedule.duration) {
       this.time -= this.schedule.duration;
       this.#stageRound(this.round + 1);
       this.#resetRivals();
@@ -760,18 +760,17 @@ export class TourDirector {
       target: follow.target.clone().lerp(fightView.target, eased),
       fov: follow.fov + (fightView.fov - follow.fov) * eased,
     } : follow;
-    // at his place the front door's own shot holds; it lets him go as he sets off and takes him back as he comes home
+    // The introductory shot lets him go once. Subsequent circuits keep following the closed path.
     // (the shot turned to the middle of the stage, as far as the banner is drawn aside)
     const homeShot = this.home && this.homeObserve && this.framing > 0 ? {
       position: this.home.position.clone().lerp(this.homeObserve.position, this.framing),
       target: this.home.target.clone().lerp(this.homeObserve.target, this.framing),
       fov: this.home.fov + (this.homeObserve.fov - this.home.fov) * this.framing,
     } : this.home;
-    if (homeShot) {
+    if (homeShot && this.round === 0) {
       const rest = this.schedule.pace.rest;
       const leaving = moment.time <= rest ? 1 : Math.max(0, 1 - (moment.time - rest) / 2.4);
-      const arriving = Math.max(0, Math.min(1, (moment.time - (this.schedule.duration - 2.2)) / 1.8));
-      const home = Math.max(leaving, arriving);
+      const home = leaving;
       const h = home * home * (3 - 2 * home);
       if (h > 0) {
         want = {

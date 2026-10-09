@@ -52,6 +52,16 @@ export function buildTourPath(points = TOUR_POINTS, samplesPerSpan = 24) {
     distances.push(distances[i - 1] + Math.hypot(samples[i][0] - samples[i - 1][0], samples[i][1] - samples[i - 1][1]));
   }
   const length = distances[distances.length - 1];
+  // Interpolate the closed curve's heading as well as its position. Segment directions alone
+  // introduce a small turn at every sample, including the circuit seam.
+  const count = samples.length - 1;
+  const tangents = samples.map((_, i) => {
+    const before = samples[(i + count - 1) % count];
+    const after = samples[(i + 1) % count];
+    const dx = after[0] - before[0], dz = after[1] - before[1];
+    const norm = Math.hypot(dx, dz) || 1;
+    return [dx / norm, dz / norm];
+  });
 
   // the point `distance` along the loop (wrapping), and the way the path runs there (unit [x, z])
   function at(distance) {
@@ -66,10 +76,10 @@ export function buildTourPath(points = TOUR_POINTS, samplesPerSpan = 24) {
     const t = (d - distances[lo]) / span;
     const a = samples[lo];
     const b = samples[hi];
-    const dx = b[0] - a[0];
-    const dz = b[1] - a[1];
+    const dx = tangents[lo][0] * (1 - t) + tangents[hi][0] * t;
+    const dz = tangents[lo][1] * (1 - t) + tangents[hi][1] * t;
     const norm = Math.hypot(dx, dz) || 1;
-    return { x: a[0] + dx * t, z: a[1] + dz * t, dir: [dx / norm, dz / norm] };
+    return { x: a[0] + (b[0] - a[0]) * t, z: a[1] + (b[1] - a[1]) * t, dir: [dx / norm, dz / norm] };
   }
 
   // how far along the loop the path passes closest to a point

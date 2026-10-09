@@ -1,5 +1,5 @@
 // When the Spellblade is where on his round: he stands a moment at his place, runs, slows to a stop at each rival,
-// fights (tourFights.mjs), runs on, and comes home, and then it all begins again. Pure: a time on the loop in, where
+// fights (tourFights.mjs), runs on, and continues through the closed route seam. Pure: a time on the loop in, where
 // he is along the path and what he is doing, out.
 
 import { FIGHTS, FIGHT_POOL } from './tourFights.mjs';
@@ -17,7 +17,7 @@ export const FIGHT_DISTANCES = Object.freeze([20.5, 34.5, 70.5]);
  * The loop laid out in time: phases in order, each { kind: 'rest'|'go'|'run'|'stop'|'fight', start, end, from, to,
  * fight? }, and its total length in seconds.
  */
-export function buildSchedule(pathLength, { pace = TOUR_PACE, distances = FIGHT_DISTANCES, fights = FIGHTS } = {}) {
+export function buildSchedule(pathLength, { pace = TOUR_PACE, distances = FIGHT_DISTANCES, fights = FIGHTS, introduction = true } = {}) {
   const { speed, brake, rest } = pace;
   const rampTime = (2 * brake) / speed;
   const phases = [];
@@ -26,10 +26,12 @@ export function buildSchedule(pathLength, { pace = TOUR_PACE, distances = FIGHT_
     phases.push({ kind, start: time, end: time + duration, from, to, ...extra });
     time += duration;
   };
-  push('rest', rest, 0, 0);
   let at = 0;
-  push('go', rampTime, at, at + brake);
-  at += brake;
+  if (introduction) {
+    push('rest', rest, 0, 0);
+    push('go', rampTime, at, at + brake);
+    at += brake;
+  }
   fights.forEach((fight, index) => {
     const anchor = distances[index];
     push('run', (anchor - brake - at) / speed, at, anchor - brake);
@@ -41,8 +43,7 @@ export function buildSchedule(pathLength, { pace = TOUR_PACE, distances = FIGHT_
     push('go', (2 * brake) / (v0 + speed), anchor + exit, anchor + exit + brake, { v0 });
     at = anchor + exit + brake;
   });
-  push('run', (pathLength - brake - at) / speed, at, pathLength - brake);
-  push('stop', rampTime, pathLength - brake, pathLength);
+  push('run', (pathLength - at) / speed, at, pathLength);
   return { phases, duration: time, pace };
 }
 
