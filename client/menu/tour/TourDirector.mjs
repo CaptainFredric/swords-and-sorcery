@@ -87,7 +87,7 @@ export class TourDirector {
     this.onCaptionCut = null;
     this.pause = 0;
     this.performance = null;
-    // the front door's own shot: the round starts and ends on it (and, with the banner drawn aside, the same shot
+    // the front door's own shot: only the first departure starts on it (and, with the banner drawn aside, the same shot
     // turned to give him the middle of the stage: `homeObserve`)
     this.home = null;
     this.homeObserve = null;
@@ -99,6 +99,9 @@ export class TourDirector {
     // View): MenuScene eases it, and the camera composes for the stage it has. Nothing else of the round depends on it
     this.framing = 0;
     this.visible = false;
+    this.resetFrustum = new THREE.Frustum();
+    this.resetMatrix = new THREE.Matrix4();
+    this.cleanupDebris = false;
     this.blockers = castlewardBlockers();
     // where each version of each fight goes at each stop, worked out once (tourCamera.placeFight)
     this.placements = new Map();
@@ -116,7 +119,7 @@ export class TourDirector {
     const placed = lineupFor(round, undefined, { skyBaited: this.memory?.skyBait ?? null }).map((name, slot) => this.#placed(name, slot, random) ?? this.#placed(first[slot], slot, random));
     this.fights = placed.map((each) => each.fight);
     this.frames = placed.map((each) => this.#frame(each));
-    this.schedule = buildSchedule(this.path.length, { fights: this.fights });
+    this.schedule = buildSchedule(this.path.length, { fights: this.fights, introduction: round === 0 });
   }
 
   // the first version of a fight from the pool that has room and a clear view at this stop
@@ -191,27 +194,51 @@ export class TourDirector {
     this.burns = [];
     this.vessel?.dispose();
     this.vessel = null;
-    for (const [index, rival] of this.rivals.entries()) {
-      if (!rival) continue;
-      // (nothing of the Slush stays: the ice off him, the heap gone, his own shape and colours back)
-      rival.crust?.dispose();
-      rival.crust = null;
-      rival.pile?.dispose();
-      rival.pile = null;
-      rival.steam = 0;
-      rival.heatAt = null;
-      rival.holder.scale.set(1, 1, 1);
-      this.effects.afflict(`tour-frost-${index}`, null);
-      rival.flag?.dispose();
-      rival.flag = null;
-      if (rival.stub) mendSword(rival.instance, rival.stub);
-      rival.stub = null;
-      rival.dress.restore();
-      rival.charred = 0;
-      rival.shattered = false;
-      rival.instance.root.visible = true;
-      rival.holder.visible = true;
+    this.cleanupDebris = false;
+    for (const [index, rival] of this.rivals.entries()) if (rival) this.#restoreRival(rival, index);
+  }
+
+  #restoreRival(rival, index) {
+    // (nothing of the Slush stays: the ice off him, the heap gone, his own shape and colours back)
+    rival.crust?.dispose();
+    rival.crust = null;
+    rival.pile?.dispose();
+    rival.pile = null;
+    rival.steam = 0;
+    rival.heatAt = null;
+    rival.holder.scale.set(1, 1, 1);
+    this.effects.afflict(`tour-frost-${index}`, null);
+    rival.flag?.dispose();
+    rival.flag = null;
+    if (rival.stub) mendSword(rival.instance, rival.stub);
+    rival.stub = null;
+    rival.dress.restore();
+    rival.charred = 0;
+    rival.shattered = false;
+    rival.instance.root.visible = true;
+    rival.holder.visible = true;
+    rival.resetPending = false;
+    rival.retiredTime = 0;
+  }
+
+  // Retain the outgoing tableau until both its old shape and its incoming location are outside the camera.
+  #retireRound(completedDuration) {
+    if (this.stars) this.starsUntil -= completedDuration;
+    for (const rival of this.rivals) if (rival) {
+      rival.resetPending = true;
+      rival.retiredTime = (rival.retiredTime ?? 0) + completedDuration;
     }
+    for (const piece of this.debris.pieces) piece.mesh.userData.tourRetired = true;
+    this.cleanupDebris = this.debris.pieces.length > 0;
+    this.projectiles = [];
+    this.effects.syncProjectiles([]);
+    this.burns = [];
+  }
+
+  #outsideView(object) {
+    if (!object || !object.visible) return true;
+    const box = new THREE.Box3().setFromObject(object).expandByScalar(0.5);
+    return !this.resetFrustum.intersectsBox(box);
   }
 
   /** Show or hide everything the round brings (the rivals and what is left of them). */
@@ -249,21 +276,29 @@ export class TourDirector {
       this.performance = null;
       this.time += dt;
     }
-    // a new round: another lineup, and everyone back to their places (the Spellblade is home, far from all of them)
-    if (this.time >= this.schedule.duration) {
-      this.time -= this.schedule.duration;
+    // Advance the lineup without resetting anything visible through the tracking camera.
+    while (this.time >= this.schedule.duration) {
+      const completedDuration = this.schedule.duration;
+      this.time -= completedDuration;
       this.#stageRound(this.round + 1);
-      this.#resetRivals();
+      this.#retireRound(completedDuration);
       this.lastMoment = null;
     }
     const moment = tourMoment(this.schedule, this.time);
     this.#poseHero(moment, dt);
+    if (this.rivals.some((rival) => rival?.resetPending) || this.cleanupDebris) {
+      this.camera.updateMatrixWorld();
+      this.resetMatrix.multiplyMatrices(this.camera.projectionMatrix, this.camera.matrixWorldInverse);
+      this.resetFrustum.setFromProjectionMatrix(this.resetMatrix);
+      this.debris.remove((mesh) => mesh.userData.tourRetired && this.#outsideView(mesh));
+      this.cleanupDebris = this.debris.pieces.some((piece) => piece.mesh.userData.tourRetired);
+    }
     this.#poseRivals(moment, dt);
     this.#fireCues(moment);
     this.#stepProjectiles();
     this.#stepBurns(dt);
     this.debris.update(dt);
-    for (const rival of this.rivals) rival?.flag?.update(this.time);
+    for (const rival of this.rivals) rival?.flag?.update(this.time + (rival.retiredTime ?? 0));
     this.#stepStars();
     if (this.ownsEffects) this.effects.update(dt);
     this.lastMoment = moment;
@@ -402,17 +437,25 @@ export class TourDirector {
   // ------------------------------------------------------------------------------------------------------ rivals
   #poseRivals(moment, dt) {
     this.rivals.forEach((rival, index) => {
-      if (!rival || rival.shattered) return;
+      if (!rival) return;
       const fight = this.fights[index];
       const t = moment.fightTimes[index];
       const pose = fight.rival(t);
+      const placed = this.#place(this.frames[index], pose);
+      if (rival.resetPending) {
+        const incoming = new THREE.Sphere(placed.position.clone().add(new THREE.Vector3(0, 1.2, 0)), 2.5);
+        if (this.resetFrustum.intersectsSphere(incoming) || !this.#outsideView(rival.holder)
+          || !this.#outsideView(rival.pile?.group) || !this.#outsideView(rival.flag?.group)) return;
+        this.#restoreRival(rival, index);
+      }
+      if (rival.shattered) return;
       if (pose.gone) {
         rival.holder.visible = false;
         this.effects.afflict(`tour-frost-${index}`, null);
         return;
       }
       rival.holder.visible = true;
-      const { position, yaw } = this.#place(this.frames[index], pose);
+      const { position, yaw } = placed;
       rival.holder.position.copy(position);
       rival.holder.rotation.y = yaw;
       if (Number.isFinite(pose.frozen)) this.#frozen(rival, index, pose, position, dt);
@@ -760,18 +803,17 @@ export class TourDirector {
       target: follow.target.clone().lerp(fightView.target, eased),
       fov: follow.fov + (fightView.fov - follow.fov) * eased,
     } : follow;
-    // at his place the front door's own shot holds; it lets him go as he sets off and takes him back as he comes home
+    // The introductory shot lets him go once. Subsequent circuits keep following the closed path.
     // (the shot turned to the middle of the stage, as far as the banner is drawn aside)
     const homeShot = this.home && this.homeObserve && this.framing > 0 ? {
       position: this.home.position.clone().lerp(this.homeObserve.position, this.framing),
       target: this.home.target.clone().lerp(this.homeObserve.target, this.framing),
       fov: this.home.fov + (this.homeObserve.fov - this.home.fov) * this.framing,
     } : this.home;
-    if (homeShot) {
+    if (homeShot && this.round === 0) {
       const rest = this.schedule.pace.rest;
       const leaving = moment.time <= rest ? 1 : Math.max(0, 1 - (moment.time - rest) / 2.4);
-      const arriving = Math.max(0, Math.min(1, (moment.time - (this.schedule.duration - 2.2)) / 1.8));
-      const home = Math.max(leaving, arriving);
+      const home = leaving;
       const h = home * home * (3 - 2 * home);
       if (h > 0) {
         want = {

@@ -119,7 +119,7 @@ test('the schedule is one smooth run: he never jumps along the path, and stops d
     if (now.phase === 'fight') assert.equal(now.speed, 0);
     last = now;
   }
-  assert.ok(Math.abs(last.distance - path.length) < 0.05, 'home at the end');
+  assert.ok(Math.abs(last.distance - path.length) < schedule.pace.speed * 0.05 + 1e-6, 'home at the end');
   const fights = schedule.phases.filter((phase) => phase.kind === 'fight');
   assert.deepEqual(fights.map((phase) => phase.from), FIGHT_DISTANCES);
   // every rival's clock: waiting before, fighting at his time, lying where he fell after, and waiting again next round
@@ -284,4 +284,25 @@ test('on a small screen the knights stand a little smaller in the fights, still 
   const size = (shot) => 1 / (Math.hypot(shot.position[0] - shot.target[0], shot.position[2] - shot.target[2]) * Math.tan((shot.fov * Math.PI) / 360));
   assert.ok(size(compact) < size(normal) * 0.95, `smaller: ${size(compact).toFixed(3)} vs ${size(normal).toFixed(3)}`);
   assert.ok(size(compact) > size(normal) * 0.7, 'but only a little');
+});
+
+
+test('later tour circuits keep full running speed across the closed route seam', () => {
+  const intro = buildSchedule(path.length);
+  const loop = buildSchedule(path.length, { introduction: false });
+  assert.equal(tourMoment(intro, 0).phase, 'rest');
+  assert.equal(tourMoment(loop, 0).phase, 'run');
+  assert.ok(!loop.phases.some((phase) => phase.kind === 'rest'));
+  assert.equal(intro.phases.at(-1).kind, 'run');
+  assert.equal(loop.phases.at(-1).kind, 'run');
+  for (const previous of [intro, loop]) {
+    const before = tourMoment(previous, previous.duration - 0.001);
+    const after = tourMoment(loop, 0.001);
+    assert.equal(before.speed, previous.pace.speed);
+    assert.equal(after.speed, before.speed);
+    const a = path.at(before.distance), b = path.at(after.distance);
+    assert.ok(Math.hypot(a.x - b.x, a.z - b.z) < 0.012);
+    assert.ok(Math.hypot(a.dir[0] - b.dir[0], a.dir[1] - b.dir[1]) < 0.01);
+  }
+  assert.deepEqual(loop.phases.filter((phase) => phase.kind === 'fight').map((phase) => phase.from), FIGHT_DISTANCES);
 });
