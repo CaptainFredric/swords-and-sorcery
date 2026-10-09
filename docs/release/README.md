@@ -43,19 +43,22 @@ The game ZIP upload was refused with: “Please verify your email address before
 | GitHub Pages desktop | Scene loaded; pointer lock, movement, casting and Escape menu exercised |
 | itch project metadata and images | Saved and inspected in the private preview |
 | Actual itch loading, input, audio, fullscreen, storage and WS | Blocked by account email verification |
-| Reconnect and cross host matchmaking | Pending explicit browser exercise |
+| Exported client native controls | Pointer capture, movement, Guard, sword attack, Fireball and Escape passed in Chrome after raising the actual game window |
+| Exported client audio and resize | AudioContext running; browser fullscreen exit resized the live renderer correctly |
+| Exported private room and reconnect | Two separate origins joined and started a Render match; brief transport reconnect and reload retained the same player and room |
+| itch versus standalone cross host matchmaking | Pending actual itch upload and launch |
 | Offline fallback | Included unchanged; dedicated release browser test pending |
 | Mobile touch and browser/device matrix | Pending real device and iframe tests |
 
 One final default concurrency run reported 1110 passes and one failure in unchanged `client/game/sound/audioStart.test.mjs:94`. A timer reached the audio mock's buffer before the test's cleanup, causing a conversion error at `MusicPlayer.mjs:153`. The isolated four audio startup tests passed. The entire 1111 test suite then passed with `--test-concurrency=2`, with every test retained. This is evidence of an intermittent test harness failure under load, not evidence of a release change to music. Music source and tests were deliberately left unchanged. Local logs retain both runs, alongside the export and smoke results.
 
-The raw input automation required bringing the game tab to the foreground before pointer lock. Native Escape correctly opened the match menu. No source change was warranted by that automation focus issue. The Mac locked during the final native browser checks. Browser DOM controls still allowed saving the private project's images, but further native game input requires the owner to unlock it.
+The owner unlocked the Mac and the exported client checks resumed. Native input required raising the actual Chrome game window, rather than only selecting the tab through automation. Pointer capture, movement, Guard, attack, Fireball and Escape then worked. Brief WebSocket disconnects and browser reloads recovered the same sessions in Practice and the two player private match, with both private players connected. The audio context ran after input, and browser fullscreen exit resized the renderer without a world error. See [structured browser results](browser-verification.json). Input, networking and audio code stayed unchanged. Longer outages, physical mobile controls and actual itch iframe behavior remain pending.
 
 Before publication, test the actual itch launch against the standalone Render game in one private room. Confirm both players join and start, aim/cast/Guard work, reconnect retains the appropriate session, and leaving and returning works. Test blocked multiplayer with local practice. Exercise audio activation, voice playback, storage persistence, fullscreen exit and landscape touch controls. Compare fullscreen launch with an embedded window at a short desktop height. Record device/browser and observed failures. A local static test does not establish iframe compatibility.
 
 ## Media and creator support
 
-See [media manifest](media-manifest.json), [comparison](media-comparison.html) and [project copy](PROJECT_PAGE.md). Generated portrait artwork, staged production model renders and gameplay captures are explicitly distinguished. Five captures show a Practice Yard Fireball, a training dummy encounter, the Armory, the main menu and the menu's Castleward tour. Four were saved to the Draft; the cleaner main menu capture is a candidate replacement for the tour image when browser work resumes. The tour is not described as a separate game mode.
+See [media manifest](media-manifest.json), [comparison](media-comparison.html) and [project copy](PROJECT_PAGE.md). Generated portrait artwork, staged production model renders and gameplay captures are explicitly distinguished. The newer landscape candidates show melee, Fireball, Vortex, Armory and the live Castleward courtyard. The Fireball image leads the private Draft gallery alongside its four retained original screenshots. The tour is labeled as a live menu scene.
 
 The helmet avatar is the recommended creator image. It keeps the cyan visor and red crest recognizable at small sizes. The existing Castleward crest is the quieter alternative. New public profile images await the creator's selection; the current images were preserved.
 
@@ -73,17 +76,17 @@ Creator display: “CaptainFredric · Swords & Sorcery”. Short description: �
 
 | Proposal | Purpose | Cost and risk | Release placement |
 | :--- | :--- | :--- | :--- |
-| A 25 second actual gameplay trailer | Show sword, Guard and magic within the first ten seconds | One capture/edit session; footage must represent real play | After the iframe passes |
+| A 27 second actual gameplay trailer | Show sword, Guard and magic quickly | Completed from real Practice Yard footage; creator listening and publication approval pending | Ready as a local candidate |
 | A short “first duel” challenge | Help a new player connect practice to a match | Small instruction change; avoid another blocking tutorial | Separate gameplay onboarding pass |
 | A matching social preview | Make a shared link identify the game immediately | A separate tested metadata change; verify the public crawler image | After choosing the final cover |
 | A focused feedback prompt on the project page | Collect reproducible browser and combat issues | Already included in the Draft; no extra tracking | This release |
 
-Trailer storyboard: 0 to 3 seconds title over Castleward, 3 to 9 seconds approach and sword/Guard exchange, 9 to 15 seconds Fireball and Frostfire, 15 to 20 seconds one ultimate and recovery, 20 to 25 seconds room code and playable URL. Capture real combat. Keep any Spellblade line audible and brief. No trailer was fabricated or recorded in this pass.
+The completed 26.84 second trailer opens on Castleward, shows melee contact and Fireball, follows Blazing Vortex, and closes on the title and playable link. It retains the actual game audio, including incidental creator voice. The recording contains the WebGL canvas; DOM HUD panels and captions are outside the capture. [Edit manifest](trailer-manifest.json), `capture-recorder.js` and `edit-trailer.py` document its reproduction. A hosted video destination is still needed for the itch trailer embed.
 
 ## Review and publication
 
 1. Choose the avatar and approve the finished public profile artwork.
-2. Verify the itch account email and unlock the Mac for native play tests.
+2. Resolve the itch account email verification upload blocker. Native exported client checks are complete within the scope recorded above.
 3. Complete the actual itch compatibility matrix above. Apply the banner/theme and inspect desktop and mobile previews.
 4. Review the export/media PR and the separate Credits PR. Neither is merged automatically.
 5. Explicitly approve publication once the embedded game works. Keep Pages as the fallback play link.

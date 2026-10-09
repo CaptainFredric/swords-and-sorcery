@@ -39,3 +39,4 @@ The release branch adds the export pipeline and promotional handoff, plus a comp
 35. `docs/release/media/gameplay-melee.jpg`
 36. `docs/release/media/gameplay-vortex.jpg`
 37. `docs/release/media/menu-fit-comparison.jpg`
+38. `docs/release/browser-verification.json`

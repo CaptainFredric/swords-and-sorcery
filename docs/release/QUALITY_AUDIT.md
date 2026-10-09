@@ -60,10 +60,16 @@ The trailer records the WebGL canvas and existing final audio mix. DOM HUD panel
 | Layout | Checked 1280 × 720, 714 × 756 and 844 × 390 |
 | Exported clients on two separate localhost origins | Both connected to `wss://swords-and-sorcery.onrender.com/ws` |
 | Private room creation, code join and readiness | Two distinct players joined KWEP8 and reached the live match |
-| Exported match native pointer capture | Failed during a locked Mac session; retry unlocked before attributing the failure to game code |
+| Exported client native input | Pointer capture, movement, Guard, sword attack and Fireball passed after raising the actual Chrome game window |
+| Exported client audio and resize | AudioContext running after input; browser fullscreen exit resized the renderer from 714 × 756 to 1180 × 557 without a world error |
+| Transport reconnect and reload | Practice and private match resumed the same player and room; both private players remained connected |
 | itch game upload | Refused: email verification required |
 
-This is Chrome evidence from this Mac. The adapter based semantic render harness was unavailable. Recordings are observational evidence, rather than deterministic geometry comparisons. Low health, exact perfect parry timing, every action, death/respawn camera, rare encounters, reduced graphics, storage denial, reconnect and physical touch controls need further appropriate coverage. The Mac locked during the exported two client test. Native control checks paused for the owner to unlock it; input code was preserved.
+This is Chrome evidence from this Mac. The adapter based semantic render harness was unavailable. Recordings are observational evidence, rather than deterministic geometry comparisons. Low health, exact perfect parry timing, every action, death/respawn camera, rare encounters, reduced graphics, storage denial, extended network outages and physical touch controls need further appropriate coverage.
+
+The owner unlocked the Mac and the native checks resumed. The earlier pointer failure reproduced while automation focused another Chrome window. Raising the real game window allowed pointer capture. A 45 snapshot sample included raised Guard and its release; sword input started an attack; Fireball entered gather, emitted one owned projectile and started its cooldown. Audio reached the running state and the original SORCERY line appeared. The browser fullscreen exit resized the live canvas correctly. No input, audio or rendering source change was necessary.
+
+Closing the actual WebSocket simulated a brief transport disconnect. A new connection recovered the same player and room within the 2.3 second observation in both Practice and the two player private match WEQQ8. Reloading each client also resumed its session; the private snapshot retained two distinct connected players. This establishes brief transport and reload recovery, rather than recovery from an extended outage or itch iframe compatibility. The structured results are in `browser-verification.json`. Early browser reattachment and native accessibility failures are automation limitations retained in that report.
 
 ## Release and first player checks
 
