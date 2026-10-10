@@ -30,3 +30,10 @@
 .tutorial-actions .tutorial-practice { background: linear-gradient(#e6c77d, #a87e37); border-color: #eacb84; color: #2e2115; }
 .tutorial-actions button:focus-visible { outline: 2px solid #7cdbef; outline-offset: 3px; }
 @media (prefers-reduced-motion: reduce) { .tutorial-notice { scroll-behavior: auto; } }
+/* Keep both actions visible in short landscape windows without shrinking touch targets. */
+@media (max-height: 480px) {
+  .tutorial-notice { padding: 16px; }
+  .tutorial-notice h2 { margin: 8px 0 14px; font-size: 30px; }
+  .tutorial-notice p { margin: 8px 0; }
+  .tutorial-actions { margin-top: 16px; }
+}

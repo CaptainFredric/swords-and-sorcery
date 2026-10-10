@@ -51,3 +51,27 @@ test('skip and reset never advance combat', () => {
   assert.equal(director.start().id, 'a');
   assert.throws(() => new TutorialDirector({ beats: [{ id: 'x', line: 'Hello', advanceOn: 'continue' }, { id: 'x', line: 'Again', advanceOn: 'continue' }] }), /unique/);
 });
+
+test('late audio completion cannot skip dialogue after a restart or advance an action gate', () => {
+  const director = new TutorialDirector();
+  director.start();
+  const oldCue = director.cue;
+  director.skip();
+  director.start();
+  assert.equal(director.completeDialogue(oldCue), false);
+  assert.equal(director.completeDialogue(director.cue), true);
+  assert.equal(director.completeDialogue(oldCue), false);
+  while (director.current.kind === 'dialogue') director.completeDialogue(director.cue);
+  assert.equal(director.current.id, 'attack-prompt');
+  assert.equal(director.cue, null);
+  assert.equal(director.completeDialogue(oldCue), false);
+});
+
+test('construction does not notify before the owner can install its director reference', () => {
+  const changes = [];
+  let director;
+  director = new TutorialDirector({ onChange: () => changes.push(director.cue) });
+  assert.equal(changes.length, 0);
+  director.start();
+  assert.equal(changes[0].recordingKey, 'tutorial.greeting');
+});

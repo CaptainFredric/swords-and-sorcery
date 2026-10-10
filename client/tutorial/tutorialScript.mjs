@@ -41,6 +41,7 @@ export const TUTORIAL_BEATS = Object.freeze([
   { id: 'blocked-message', speaker: 'rival', line: 'You blocked my message!' },
   { id: 'guarded', speaker: 'spellblade', line: 'No, I had guarded.' },
   { id: 'technically-correct', speaker: 'narrator', line: 'You are technically correct.' },
+  { id: 'lower-guard', kind: 'stage', advanceOn: 'guard-lowered', direction: 'Wait until the player actually lowers Guard. Never force it down or bypass a held Guard.' },
   { id: 'postscript-hit', kind: 'stage', advanceOn: 'player-damaged', direction: 'After the first guard succeeds, the player has lowered Guard. Rival abruptly lands an ordinary sword strike. Show existing 100-HP damage feedback. NOT an unblockable attack.' },
   { id: 'extra', speaker: 'rival', line: 'There was an extra.' },
   { id: 'hint', speaker: 'rival', line: 'May you receive the hint.' },
