@@ -1,0 +1,121 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-10",
+  "branch": "polish/public-release-candidate",
+  "baseline": "ce2f6caa72d7b1bbb383f25ba804238198cf7964",
+  "applicationRevision": "0afc44de5e9c496ec3fd61c5e45223bf7decbdf1",
+  "privateUpload": {
+    "projectUrl": "https://captainfredric.itch.io/swords-and-sorcery",
+    "iframeUrl": "https://html-classic.itch.zone/html/19667346/index.html",
+    "visibility": "Draft",
+    "browserPlayable": true,
+    "pricing": "No payments",
+    "zipPath": "dist/html5/swords-and-sorcery-html5.zip",
+    "zipBytes": 22871235,
+    "extractedBytes": 29843000,
+    "fileCount": 510,
+    "sha256": "e58d86de26d00f9283e9039de0c2c0559ea8ab7357d35377edef5d3e1aca5ccc",
+    "gameplayServer": "wss://swords-and-sorcery.onrender.com/ws"
+  },
+  "verification": {
+    "focusedNetworkTests": {
+      "passed": 22,
+      "failed": 0
+    },
+    "npmRunVerify": {
+      "syntax": "passed",
+      "gameTestsPassed": 1127,
+      "gameTestsFailed": 0,
+      "html5TestsPassed": 4,
+      "httpWebSocketSmoke": "passed"
+    },
+    "archiveIntegrity": "unzip -t passed",
+    "recorderSyntax": "node --check passed",
+    "videoDecode": "Full FFmpeg decode passed"
+  },
+  "observedBrowserChecks": [
+    "Actual itch assets and WebGL scene",
+    "Native desktop Pointer Lock, movement, Guard, sword input, Fireball, Dash and Escape",
+    "Fullscreen exit and resize",
+    "Audio activation reported by Chrome and original subtitles",
+    "Itch and GitHub Pages clients joined the same Render private match",
+    "Clean active match reload and saved name",
+    "Already loaded iframe network offline: Practice, movement and Fireball",
+    "Landscape 844 x 390 browser touch emulation: stick, Guard, sword input, Fireball cooldown, Dash and menu"
+  ],
+  "unverifiedOrLimited": [
+    "Physical phone performance and controls",
+    "Another desktop browser",
+    "Fresh uncached offline load",
+    "Longer reconnect outages",
+    "Conflicting simultaneous itch game instances: an earlier reload showed an expired session",
+    "Creator listening review of final audio mix",
+    "A complete defend, counter and winning finish trailer sequence"
+  ],
+  "capture": {
+    "source": "output/release/final-pass/take-fight.mp4",
+    "trimStartSeconds": 2,
+    "durationSeconds": 8,
+    "outputWidth": 1280,
+    "outputHeight": 720,
+    "outputFrames": 239,
+    "outputFrameRate": 30,
+    "editing": "Trim and letterbox without stretching; no invented gameplay or substituted HUD.",
+    "controls": "Native keyboard and browser mouse input through the ordinary UI. F temporarily added as secondary sword binding through Settings, then cleared.",
+    "authority": "No simulation transforms, health, hit windows, bot tuning, action timing or gameplay balance were changed."
+  },
+  "originalTrailer": {
+    "path": "media/castleward-trailer.mp4",
+    "preserved": true,
+    "gitBlob": "64a9486163879ebf9d1802d4355fdb2ba107b8a9"
+  },
+  "assets": [
+    {
+      "path": "media/credits-support-before.jpg",
+      "bytes": 64353,
+      "sha256": "f37694e7a4b21aa4875a73f8df41f472153dcf4e6346a1ac802ee679b1e8c417",
+      "description": "Actual local Credits UI before the change at 1180 x 613."
+    },
+    {
+      "path": "media/credits-support-after.jpg",
+      "bytes": 67348,
+      "sha256": "e5ca0e18c929013aab52ca1a3d23f7419213ef75d4f0eca6750700f1cf9e8877",
+      "description": "Actual local Credits UI after the change at 1180 x 613."
+    },
+    {
+      "path": "media/credits-scroll-after.jpg",
+      "bytes": 67466,
+      "sha256": "000a7d5eec0134932755c596f0d2534801e1fd4df0c119ab643a5bc10b71fb97",
+      "description": "Actual local expanded Voice Archive after the header gap correction."
+    },
+    {
+      "path": "media/itch-practice-verified.jpg",
+      "bytes": 91055,
+      "sha256": "dda8654b319bd8c18248de278d04a58178d20c08b815216522707e7c6a500220",
+      "description": "Actual privately uploaded itch build, native controls and original game HUD."
+    },
+    {
+      "path": "media/castleward-combat-capture.mp4",
+      "bytes": 1667438,
+      "sha256": "ca41d7608a46cc8f31e501f525f52e184daecfe6fc54d96b50a70e34acda8992",
+      "description": "Eight continuous seconds of actual local Practice combat against Fights Back. The player is defeated. Original HUD and game audio; review footage, not a replacement trailer."
+    }
+  ],
+  "sourceChanges": [
+    "client/menu.css",
+    "client/index.html",
+    "client/network/inspection.test.mjs"
+  ],
+  "releaseChanges": [
+    "docs/release/README.md",
+    "docs/release/media-comparison.html",
+    "docs/release/FINAL_PASS.md",
+    "docs/release/capture-tab-recorder.js",
+    "docs/release/final-pass-manifest.json",
+    "docs/release/media/credits-support-before.jpg",
+    "docs/release/media/credits-support-after.jpg",
+    "docs/release/media/credits-scroll-after.jpg",
+    "docs/release/media/itch-practice-verified.jpg",
+    "docs/release/media/castleward-combat-capture.mp4"
+  ]
+}
