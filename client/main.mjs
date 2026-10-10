@@ -1010,11 +1010,13 @@ function updateInspectionControls() {
   const available = socket.inspectionAvailable && latestSnapshot?.mode === 'PRACTICE';
   for (const node of document.querySelectorAll('.inspection-control')) node.classList.toggle('hidden', !available);
   $('#practice-freeze').textContent = socket.inspectionFrozen ? 'RESUME · P' : 'FREEZE · P';
-  $('#practice-step').disabled = !socket.inspectionFrozen;
-  $('#inspection-status').textContent = socket.inspectionFrozen ? 'Frozen · one step advances 1/30 second' : 'Live · P freezes the scene';
+  $('#practice-step').disabled = !socket.inspectionFrozen || socket.inspectionFramesPlaying;
+  $('#practice-play-frames').disabled = !socket.inspectionFrozen;
+  $('#practice-play-frames').textContent = socket.inspectionFramesPlaying ? 'STOP FRAMES' : 'PLAY FRAMES';
+  $('#inspection-status').textContent = socket.inspectionFramesPlaying ? 'Playing frames · 5 ticks/s · ⅙ speed' : socket.inspectionFrozen ? 'Frozen · one step advances 1/30 second' : 'Live · P freezes the scene';
   practiceOverlay.classList.toggle('inspection-frozen', socket.inspectionFrozen);
   for (const button of practiceOverlay.querySelectorAll('button')) {
-    if (button.matches('#practice-freeze, #practice-step, #practice-leave, [data-open-settings]')) continue;
+    if (button.matches('#practice-freeze, #practice-step, #practice-play-frames, #practice-leave, [data-open-settings]')) continue;
     button.disabled = socket.inspectionFrozen;
   }
   practiceOverlay.querySelector('.practice-tools-unlocked-hint').textContent = socket.inspectionFrozen ? 'P OR RESUME TO CONTINUE' : 'CLICK ARENA TO RESUME';
@@ -1034,6 +1036,7 @@ function toggleInspectionFreeze() {
 }
 $('#practice-freeze').addEventListener('click', toggleInspectionFreeze);
 $('#practice-step').addEventListener('click', () => socket.stepInspection());
+$('#practice-play-frames').addEventListener('click', () => socket.playInspectionFrames(!socket.inspectionFramesPlaying));
 document.addEventListener('keydown', event => {
   if (event.code !== 'KeyP' || event.repeat || event.ctrlKey || event.metaKey || event.altKey ||
       /INPUT|TEXTAREA|SELECT/.test(event.target?.tagName)) return;

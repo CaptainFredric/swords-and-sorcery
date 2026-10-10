@@ -32,6 +32,8 @@ export class LocalHost {
     this.timeOffset = 0;
     this.frozenAt = null;
     this.inspectionEnabled = false;
+    this.inspectionFramesPlaying = false;
+    this.inspectionNextBeat = null;
     this.now = () => this.frozenAt ?? (this.wallNow() - this.timeOffset);
     this.every = every;
     this.cancel = cancel;
@@ -128,6 +130,8 @@ export class LocalHost {
     if (Boolean(frozen) === this.inspectionFrozen) return true;
     if (frozen) this.frozenAt = this.now();
     else {
+      this.inspectionFramesPlaying = false;
+      this.inspectionNextBeat = null;
       this.timeOffset = this.wallNow() - this.frozenAt;
       this.frozenAt = null;
       // Held input belongs to the old live frame, never to a resumed inspection.
@@ -136,8 +140,21 @@ export class LocalHost {
       this.input({ seq: (this.player?.lastInputSeq ?? 0) + 1, forward: 0, right: 0,
         jump: false, sprint: false, crouch: false, yaw: this.player?.yaw ?? 0, pitch: this.player?.pitch ?? 0 });
     }
-    this.#deliver({ type: 'inspectionState', frozen: this.inspectionFrozen });
+    this.#inspectionState();
     return true;
+  }
+
+  playInspectionFrames(playing) {
+    if (!this.inspectionEnabled || !this.inspectionFrozen) return false;
+    if (Boolean(playing) === this.inspectionFramesPlaying) return true;
+    this.inspectionFramesPlaying = Boolean(playing);
+    this.inspectionNextBeat = playing ? this.wallNow() + 0.2 : null;
+    this.#inspectionState();
+    return true;
+  }
+
+  #inspectionState() {
+    this.#deliver({ type: 'inspectionState', frozen: this.inspectionFrozen, playingFrames: this.inspectionFramesPlaying });
   }
 
   stepInspection() {
@@ -149,7 +166,15 @@ export class LocalHost {
 
   /** One step of the match, as the server's tick does it for each room. */
   tick() {
-    if (this.inspectionFrozen) return;
+    if (this.inspectionFrozen) {
+      if (this.inspectionFramesPlaying && this.wallNow() + 1e-9 >= this.inspectionNextBeat) {
+        this.stepInspection();
+        // One visible frame per beat. Background stalls never create a catch-up burst.
+        const nextBeat = this.inspectionNextBeat + 0.2;
+        this.inspectionNextBeat = nextBeat > this.wallNow() ? nextBeat : this.wallNow() + 0.2;
+      }
+      return;
+    }
     this.#step();
   }
 
@@ -172,6 +197,8 @@ export class LocalHost {
     this.room = null;
     this.player = null;
     this.inspectionEnabled = false;
+    this.inspectionFramesPlaying = false;
+    this.inspectionNextBeat = null;
     this.frozenAt = null;
     this.timeOffset = 0;
   }

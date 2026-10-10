@@ -114,3 +114,40 @@ test('successive freezes preserve phase and a newly cast spell starts on the res
   host.cast({ x: 0, y: 0, z: -1 });
   assert.ok(Math.abs(host.player.castEndsAt - host.serverNow() - 0.3) < 1e-9);
 });
+
+test('Play Frames advances one tick per inspection beat, stops immediately and preserves frozen time', () => {
+  const { host, advance } = yard();
+  assert.equal(typeof host.playInspectionFrames, 'function');
+  assert.equal(host.playInspectionFrames(true), false, 'freeze first');
+  host.setInspectionFrozen(true);
+  const time = host.serverNow();
+  const tick = host.latestSnapshot.tick;
+  assert.equal(host.playInspectionFrames(true), true);
+  advance(0.19);
+  assert.equal(host.latestSnapshot.tick, tick);
+  advance(0.04); // polling can arrive a little after the scheduled beat
+  assert.equal(host.latestSnapshot.tick, tick + 1);
+  advance(0.17); // preserve cadence instead of adding the polling delay each time
+  assert.equal(host.latestSnapshot.tick, tick + 2);
+  assert.equal(host.inspectionFrozen, true);
+  host.playInspectionFrames(false);
+  advance(10);
+  assert.equal(host.latestSnapshot.tick, tick + 2);
+  assert.ok(Math.abs(host.serverNow() - time - 2 / 30) < 1e-9);
+});
+
+test('continuous stepping never catches up a background stall and clears on resume or leave', () => {
+  const { host, advance } = yard();
+  host.setInspectionFrozen(true);
+  host.playInspectionFrames(true);
+  const tick = host.latestSnapshot.tick;
+  advance(12);
+  assert.equal(host.latestSnapshot.tick, tick + 1, 'one visible step, no backlog');
+  host.setInspectionFrozen(false);
+  assert.equal(host.inspectionFramesPlaying, false);
+  host.setInspectionFrozen(true);
+  host.playInspectionFrames(true);
+  host.leaveRoom();
+  assert.equal(host.inspectionFramesPlaying, false);
+  assert.equal(host.playInspectionFrames(true), false);
+});
