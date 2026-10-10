@@ -40,8 +40,8 @@ test('Chivalry HUD keeps a cooling spell face and exposes three identities with 
   assert.equal(view.preparedPanel.classList.contains('selecting'), true);
   assert.equal(view.preparedPanel.classList.contains('cancelled'), false);
   assert.equal(view.preparedHeader.textContent, 'CHOOSE A PREPARED SPELL');
-  assert.equal(view.preparedHint.textContent, 'PRESS 1, 2 OR 3 TO SELECT · Q OR ESC TO CLOSE');
-  assert.ok(!view.preparedHint.textContent.includes('CAST'));
+  assert.equal(view.preparedHint.textContent, 'PRESS 1, 2 OR 3 TO CAST · Q OR ESC TO CLOSE');
+  assert.ok(view.preparedHint.textContent.includes('CAST'));
   assert.deepEqual([...view.preparedSlots.values()].map(tile => tile.querySelector('kbd').textContent), ['1', '2', '3']);
 });
 
@@ -65,7 +65,7 @@ test('spell selection preserves card identity through cooldown ticks and equippe
   assert.deepEqual(view.preparedOrder,['fireball','frostfire','gale'],'keyboard slots never move when the current spell changes');
   view.setPreparedSelector({highlight:'frostfire'});
   assert.equal(view.preparedSlots.get('frostfire').classList.contains('highlighted'),true);
-  assert.ok(view.preparedHint.textContent.includes('SELECT'),'a cooling choice selects without claiming to cast');
+  assert.ok(view.preparedHint.textContent.includes('CAST'),'keyboard selection attempts a cast while cooldown remains visible on the card');
 });
 
 test('mobile HUD retains current centered fan order and cancellation feedback', () => {

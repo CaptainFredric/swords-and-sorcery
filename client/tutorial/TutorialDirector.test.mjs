@@ -62,7 +62,7 @@ test('late audio completion cannot skip dialogue after a restart or advance an a
   assert.equal(director.completeDialogue(director.cue), true);
   assert.equal(director.completeDialogue(oldCue), false);
   while (director.current.kind === 'dialogue') director.completeDialogue(director.cue);
-  assert.equal(director.current.id, 'attack-prompt');
+  assert.equal(director.current.id, 'look-prompt');
   assert.equal(director.cue, null);
   assert.equal(director.completeDialogue(oldCue), false);
 });

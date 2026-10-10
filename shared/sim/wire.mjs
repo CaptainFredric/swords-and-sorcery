@@ -174,15 +174,17 @@ export function applyRoomCommand(room, player, message, time) {
       }
       return {};
     }
+    case 'castPreparedSlot':
     case 'castCurrentSpell':
     case 'castPreparedSpell': {
+      if (message.type === 'castPreparedSlot' && (!Number.isInteger(message.slot) || message.slot < 1 || message.slot > 3)) return {};
       // Aim is current input intent. Only finite angles enter the authoritative state.
       const yaw = Number.isFinite(message.yaw) ? message.yaw : player.input?.yaw ?? player.yaw;
       const pitch = Number.isFinite(message.pitch) ? Math.max(-1.45, Math.min(1.45, message.pitch)) : player.input?.pitch ?? player.pitch;
       player.input = { ...player.input, yaw, pitch };
       player.yaw = yaw; player.pitch = pitch;
       if (message.type === 'castCurrentSpell') tryCastSpell(room, player.id, message.direction || { x: 0, y: 0, z: -1 }, time);
-      else castPreparedSpell(room, player.id, message.spell ?? message.id, message.direction || { x: 0, y: 0, z: -1 }, time);
+      else castPreparedSpell(room, player.id, message.type === 'castPreparedSlot' ? player.preparedSpells?.[message.slot - 1] : message.spell ?? message.id, message.direction || { x: 0, y: 0, z: -1 }, time);
       return {};
     }
     // the gauntlet on its own key: the fist, whether or not the spell is ready

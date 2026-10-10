@@ -393,3 +393,35 @@ test('a selected cooling spell never falls back to a gauntlet after expiry or sa
   room.startMatch(40); assert.equal(a.spell,'fireball'); assert.equal(a.preparedSpellSelected,false);
   command(room,a,'selectPreparedSlot',null,40.1,{slot:2}); assert.equal(a.spell,'fireball');
 });
+
+
+test('atomic prepared slot selects authoritative repertoire and gathers with current aim', () => {
+  const { room, a } = duel(['gale', 'frostfire', 'fireball']); active(room, a);
+  command(room, a, 'castPreparedSlot', null, 10.7, { slot: 2, yaw: Math.PI / 2, pitch: .3 });
+  assert.equal(a.spell, 'frostfire');
+  assert.equal(a.pendingSpell?.spell, 'frostfire');
+  assert.equal(a.yaw, Math.PI / 2);
+  tick(room, 11.02);
+  const shot = room.events.find(e => e.type === 'projectileSpawned')?.projectile;
+  assert.ok(shot.velocity.x < 0 && shot.velocity.y > 0);
+});
+
+test('atomic slot respects startup, individual cooldown, ongoing gather and ultimate expiry', () => {
+  const { room, a } = duel();
+  a.prowess = 100; combat.tryUltimate(room, 'a', 10);
+  command(room, a, 'castPreparedSlot', null, 10.1, { slot: 2 });
+  assert.equal(a.spell, 'frostfire'); assert.equal(a.pendingSpell, null);
+  tick(room, 10.65);
+  a.spellReadyById.gale = 30;
+  command(room, a, 'castPreparedSlot', null, 10.7, { slot: 3 });
+  assert.equal(a.spell, 'gale'); assert.equal(a.pendingSpell, null); assert.equal(a.gauntlet, null);
+  command(room, a, 'castPreparedSlot', null, 10.71, { slot: 2 });
+  const pending = a.pendingSpell, ends = a.castEndsAt;
+  command(room, a, 'castPreparedSlot', null, 10.72, { slot: 1 });
+  assert.equal(a.spell, 'fireball'); assert.equal(a.pendingSpell, pending); assert.equal(a.castEndsAt, ends);
+  for (const slot of [0, 4, 1.5, '2', null]) command(room, a, 'castPreparedSlot', null, 10.73, { slot });
+  assert.equal(a.spell, 'fireball');
+  a.ultimateState.until = 11; tick(room, 11.02);
+  command(room, a, 'castPreparedSlot', null, 11.03, { slot: 3 });
+  assert.equal(a.spell, 'fireball');
+});

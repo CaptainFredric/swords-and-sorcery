@@ -1,3 +1,4 @@
+import { appendRemoteSample } from './remoteSnapshots.mjs';
 import { chivalryTellState, chivalryVisorAccent } from './chivalryPresentation.mjs';
 import { createChivalryLink } from './chivalryLink.mjs';
 import * as THREE from 'three';
@@ -154,7 +155,6 @@ function createRemoteShell(index, player, pendingCast, nowMs) {
   d.airborne = false;
   d.fastestFall = 0;
   d.lastAlive = player.alive;
-  d.deathStartedAt = null;
   d.castPoseStartAt = -Infinity;
   d.castPoseUntil = 0;
   applyCastWindow(shell, pendingCast);
@@ -305,9 +305,16 @@ export class RemotePlayers {
       shell.visualInstance?.setCloth(shell.cloth);
       const d = shell.root.userData;
 
-      if (d.lastAlive && !player.alive) d.deathStartedAt = receivedAtMs;
       if (!d.lastAlive && player.alive) {
-        d.deathStartedAt = null;
+        d.reactions = [];
+        d.lastPush = null;
+        d.jabAt = -Infinity;
+        d.guardAmount = 0;
+        d.crouchAmount = 0;
+        d.airborne = false;
+        d.fastestFall = 0;
+        d.lastGait = null;
+        shell.visualInstance?.animator?.cloth?.reset();
         d.castPoseStartAt = -Infinity;
         d.castPoseUntil = 0;
         if (shell.visualKind === 'fallback') {
@@ -323,9 +330,7 @@ export class RemotePlayers {
       // a jump: leaving the ground upward (for the grunt some jumps get)
       const before = list[list.length - 1]?.player;
       if (before && player.alive && (before.velocity?.y ?? 0) < 2 && (player.velocity?.y ?? 0) > 4) this.onJump?.(player.id);
-      list.push({ at: receivedAtMs, serverTime: snapshot.serverTime, player });
-      while (list.length > 5) list.shift();
-      this.samples.set(player.id, list);
+      this.samples.set(player.id, appendRemoteSample(list, player, snapshot.serverTime, receivedAtMs));
     }
 
     for (const [id, shell] of this.rigs) {
@@ -473,13 +478,9 @@ export class RemotePlayers {
       d.vortexTurn = null;
     }
 
-    if (state === 'dead') {
-      if (d.deathStartedAt === null) d.deathStartedAt = nowMs;
-      shell.root.visible = nowMs - d.deathStartedAt < 1050;
-    } else {
-      shell.root.visible = true;
-      d.deathStartedAt = null;
-    }
+    // Dead bodies keep the ordinary authoritative position, including abyss falls.
+    // Visibility ends only when the room removes this player, never on a death timer.
+    shell.root.visible = true;
 
     // landing: remember the fastest fall while airborne and absorb it on touch-down
     const verticalVelocity = pb.velocity?.y ?? 0;

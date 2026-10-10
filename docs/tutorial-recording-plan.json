@@ -1,0 +1,450 @@
+[
+  {
+    "key": "tutorial.greeting",
+    "beatId": "greeting",
+    "speaker": "narrator",
+    "text": "Greetings, Spellblade. You are a knight. And a mage. A master of swords and... wizardry.",
+    "sourceFile": "tutorial.greeting.wav",
+    "fileBase": "narrator/tutorial.greeting-1"
+  },
+  {
+    "key": "tutorial.exemplary",
+    "beatId": "exemplary",
+    "speaker": "spellblade",
+    "text": "That is quite exemplary of me! If I do say so myself.",
+    "sourceFile": "tutorial.exemplary.wav",
+    "fileBase": "spellblade/tutorial.exemplary-1"
+  },
+  {
+    "key": "tutorial.you-did",
+    "beatId": "you-did",
+    "speaker": "narrator",
+    "text": "You did.",
+    "sourceFile": "tutorial.you-did.wav",
+    "fileBase": "narrator/tutorial.you-did-1"
+  },
+  {
+    "key": "tutorial.another-like-you",
+    "beatId": "another-like-you",
+    "speaker": "narrator",
+    "text": "Oh look! There is another just like you!",
+    "sourceFile": "tutorial.another-like-you.wav",
+    "fileBase": "narrator/tutorial.another-like-you-1"
+  },
+  {
+    "key": "tutorial.introduce-yourself",
+    "beatId": "introduce-yourself",
+    "speaker": "narrator",
+    "text": "Go on. Introduce yourself now. You can do it.",
+    "sourceFile": "tutorial.introduce-yourself.wav",
+    "fileBase": "narrator/tutorial.introduce-yourself-1"
+  },
+  {
+    "key": "tutorial.he-may-introduce",
+    "beatId": "he-may-introduce",
+    "speaker": "spellblade",
+    "text": "I am a Knight. And a mage. He may choose to do so himself.",
+    "sourceFile": "tutorial.he-may-introduce.wav",
+    "fileBase": "spellblade/tutorial.he-may-introduce-1"
+  },
+  {
+    "key": "tutorial.also-walk",
+    "beatId": "also-walk",
+    "speaker": "narrator",
+    "text": "You can also walk.",
+    "sourceFile": "tutorial.also-walk.wav",
+    "fileBase": "narrator/tutorial.also-walk-1"
+  },
+  {
+    "key": "tutorial.quite-a-distance",
+    "beatId": "quite-a-distance",
+    "speaker": "spellblade",
+    "text": "He is quite a distance away. Is there any way of moving faster",
+    "sourceFile": "tutorial.quite-a-distance.wav",
+    "fileBase": "spellblade/tutorial.quite-a-distance-1"
+  },
+  {
+    "key": "tutorial.run-faster",
+    "beatId": "run-faster",
+    "speaker": "narrator",
+    "text": "Yes... you can run faster.",
+    "sourceFile": "tutorial.run-faster.wav",
+    "fileBase": "narrator/tutorial.run-faster-1"
+  },
+  {
+    "key": "tutorial.reminding-me",
+    "beatId": "reminding-me",
+    "speaker": "spellblade",
+    "text": "Aha! Thank you for reminding me.",
+    "sourceFile": "tutorial.reminding-me.wav",
+    "fileBase": "spellblade/tutorial.reminding-me-1"
+  },
+  {
+    "key": "tutorial.what-is-below",
+    "beatId": "what-is-below",
+    "speaker": "spellblade",
+    "text": "This is indeed much faster. Wait, what is that below?",
+    "sourceFile": "tutorial.what-is-below.wav",
+    "fileBase": "spellblade/tutorial.what-is-below-1"
+  },
+  {
+    "key": "tutorial.your-stamina",
+    "beatId": "your-stamina",
+    "speaker": "narrator",
+    "text": "That is your stamina",
+    "sourceFile": "tutorial.your-stamina.wav",
+    "fileBase": "narrator/tutorial.your-stamina-1"
+  },
+  {
+    "key": "tutorial.did-not-order",
+    "beatId": "did-not-order",
+    "speaker": "spellblade",
+    "text": "Why is it going down? I did not order it to.",
+    "sourceFile": "tutorial.did-not-order.wav",
+    "fileBase": "spellblade/tutorial.did-not-order-1"
+  },
+  {
+    "key": "tutorial.consumes-energy",
+    "beatId": "consumes-energy",
+    "speaker": "narrator",
+    "text": "Sprinting typically consumes more energy",
+    "sourceFile": "tutorial.consumes-energy.wav",
+    "fileBase": "narrator/tutorial.consumes-energy-1"
+  },
+  {
+    "key": "tutorial.not-typical",
+    "beatId": "not-typical",
+    "speaker": "spellblade",
+    "text": "I am not typical!",
+    "sourceFile": "tutorial.not-typical.wav",
+    "fileBase": "spellblade/tutorial.not-typical-1"
+  },
+  {
+    "key": "tutorial.clearly",
+    "beatId": "clearly",
+    "speaker": "narrator",
+    "text": "Clearly.",
+    "sourceFile": "tutorial.clearly.wav",
+    "fileBase": "narrator/tutorial.clearly-1"
+  },
+  {
+    "key": "tutorial.cannot-sprint",
+    "beatId": "cannot-sprint",
+    "speaker": "spellblade",
+    "text": "Hello? I can no longer sprint!",
+    "sourceFile": "tutorial.cannot-sprint.wav",
+    "fileBase": "spellblade/tutorial.cannot-sprint-1"
+  },
+  {
+    "key": "tutorial.time-to-recover",
+    "beatId": "time-to-recover",
+    "speaker": "narrator",
+    "text": "You need time to recover",
+    "sourceFile": "tutorial.time-to-recover.wav",
+    "fileBase": "narrator/tutorial.time-to-recover-1"
+  },
+  {
+    "key": "tutorial.sound-recover",
+    "beatId": "sound-recover",
+    "speaker": "spellblade",
+    "text": "Do I SOUND as though I need to recover!?",
+    "sourceFile": "tutorial.sound-recover.wav",
+    "fileBase": "spellblade/tutorial.sound-recover-1"
+  },
+  {
+    "key": "tutorial.good-question",
+    "beatId": "good-question",
+    "speaker": "narrator",
+    "text": "... Good question.",
+    "sourceFile": "tutorial.good-question.wav",
+    "fileBase": "narrator/tutorial.good-question-1"
+  },
+  {
+    "key": "tutorial.say-hello",
+    "beatId": "say-hello",
+    "speaker": "narrator",
+    "text": "Say hello.",
+    "sourceFile": "tutorial.say-hello.wav",
+    "fileBase": "narrator/tutorial.say-hello-1"
+  },
+  {
+    "key": "tutorial.admire-me",
+    "beatId": "admire-me",
+    "speaker": "spellblade",
+    "text": "Admire me.",
+    "sourceFile": "tutorial.admire-me.wav",
+    "fileBase": "spellblade/tutorial.admire-me-1"
+  },
+  {
+    "key": "tutorial.one-job",
+    "beatId": "one-job",
+    "speaker": "narrator",
+    "text": "You had one job.",
+    "sourceFile": "tutorial.one-job.wav",
+    "fileBase": "narrator/tutorial.one-job-1"
+  },
+  {
+    "key": "tutorial.resemblance",
+    "beatId": "resemblance",
+    "speaker": "rival",
+    "text": "You resemble me.",
+    "sourceFile": "tutorial.resemblance.wav",
+    "fileBase": "rival/tutorial.resemblance-1"
+  },
+  {
+    "key": "tutorial.likewise",
+    "beatId": "likewise",
+    "speaker": "spellblade",
+    "text": "Likewise.",
+    "sourceFile": "tutorial.likewise.wav",
+    "fileBase": "spellblade/tutorial.likewise-1"
+  },
+  {
+    "key": "tutorial.despise-this",
+    "beatId": "despise-this",
+    "speaker": "rival",
+    "text": "I despise this.",
+    "sourceFile": "tutorial.despise-this.wav",
+    "fileBase": "rival/tutorial.despise-this-1"
+  },
+  {
+    "key": "tutorial.worth-speaking",
+    "beatId": "worth-speaking",
+    "speaker": "spellblade",
+    "text": "When am I to find someone worth speaking to?",
+    "sourceFile": "tutorial.worth-speaking.wav",
+    "fileBase": "spellblade/tutorial.worth-speaking-1"
+  },
+  {
+    "key": "tutorial.seem-certain",
+    "beatId": "seem-certain",
+    "speaker": "rival",
+    "text": "You seem certain that you will be able to",
+    "sourceFile": "tutorial.seem-certain.wav",
+    "fileBase": "rival/tutorial.seem-certain-1"
+  },
+  {
+    "key": "tutorial.name-matters",
+    "beatId": "name-matters",
+    "speaker": "spellblade",
+    "text": "Of course. I have a name.",
+    "sourceFile": "tutorial.name-matters.wav",
+    "fileBase": "spellblade/tutorial.name-matters-1"
+  },
+  {
+    "key": "tutorial.properly-defeat",
+    "beatId": "properly-defeat",
+    "speaker": "rival",
+    "text": "I only give my name to those who I properly defeat!",
+    "sourceFile": "tutorial.properly-defeat.wav",
+    "fileBase": "rival/tutorial.properly-defeat-1"
+  },
+  {
+    "key": "tutorial.remain-strangers",
+    "beatId": "remain-strangers",
+    "speaker": "spellblade",
+    "text": "Then it seems best we remain strangers!",
+    "sourceFile": "tutorial.remain-strangers.wav",
+    "fileBase": "spellblade/tutorial.remain-strangers-1"
+  },
+  {
+    "key": "tutorial.negotiations",
+    "beatId": "negotiations",
+    "speaker": "narrator",
+    "text": "Woah. It appears negotiations have gone hostile.",
+    "sourceFile": "tutorial.negotiations.wav",
+    "fileBase": "narrator/tutorial.negotiations-1"
+  },
+  {
+    "key": "tutorial.placate",
+    "beatId": "placate",
+    "speaker": "narrator",
+    "text": "Try placating him.",
+    "sourceFile": "tutorial.placate.wav",
+    "fileBase": "narrator/tutorial.placate-1"
+  },
+  {
+    "key": "tutorial.stand-down",
+    "beatId": "stand-down",
+    "speaker": "spellblade",
+    "text": "Stand down where you belong. Please?",
+    "sourceFile": "tutorial.stand-down.wav",
+    "fileBase": "spellblade/tutorial.stand-down-1"
+  },
+  {
+    "key": "tutorial.sword-pen",
+    "beatId": "sword-pen",
+    "speaker": "rival",
+    "text": "The sword is mightier than the pen!",
+    "sourceFile": "tutorial.sword-pen.wav",
+    "fileBase": "rival/tutorial.sword-pen-1"
+  },
+  {
+    "key": "tutorial.own-pen",
+    "beatId": "own-pen",
+    "speaker": "narrator",
+    "text": "Oh brother. Tell him off. With your own 'pen'...",
+    "sourceFile": "tutorial.own-pen.wav",
+    "fileBase": "narrator/tutorial.own-pen-1"
+  },
+  {
+    "key": "tutorial.teach-you",
+    "beatId": "teach-you",
+    "speaker": "spellblade",
+    "text": "That should teach you.",
+    "sourceFile": "tutorial.teach-you.wav",
+    "fileBase": "spellblade/tutorial.teach-you-1"
+  },
+  {
+    "key": "tutorial.harsh-lesson",
+    "beatId": "harsh-lesson",
+    "speaker": "narrator",
+    "text": "A harsh lesson.",
+    "sourceFile": "tutorial.harsh-lesson.wav",
+    "fileBase": "narrator/tutorial.harsh-lesson-1"
+  },
+  {
+    "key": "tutorial.opinion",
+    "beatId": "opinion",
+    "speaker": "rival",
+    "text": "Ow! I was simply stating my opinion on the comparative qualities between swords and pens!",
+    "sourceFile": "tutorial.opinion.wav",
+    "fileBase": "rival/tutorial.opinion-1"
+  },
+  {
+    "key": "tutorial.revise",
+    "beatId": "revise",
+    "speaker": "rival",
+    "text": "You have taught me to revise my response.",
+    "sourceFile": "tutorial.revise.wav",
+    "fileBase": "rival/tutorial.revise-1"
+  },
+  {
+    "key": "tutorial.good-health",
+    "beatId": "good-health",
+    "speaker": "rival",
+    "text": "May you receive my message in good health.",
+    "sourceFile": "tutorial.good-health.wav",
+    "fileBase": "rival/tutorial.good-health-1"
+  },
+  {
+    "key": "tutorial.mixed-message",
+    "beatId": "mixed-message",
+    "speaker": "narrator",
+    "text": "Your health will receive a more mixed message.",
+    "sourceFile": "tutorial.mixed-message.wav",
+    "fileBase": "narrator/tutorial.mixed-message-1"
+  },
+  {
+    "key": "tutorial.disallow",
+    "beatId": "disallow",
+    "speaker": "narrator",
+    "text": "Disallow this.",
+    "sourceFile": "tutorial.disallow.wav",
+    "fileBase": "narrator/tutorial.disallow-1"
+  },
+  {
+    "key": "tutorial.interception",
+    "beatId": "interception",
+    "speaker": "spellblade",
+    "text": "Interception!",
+    "sourceFile": "tutorial.interception.wav",
+    "fileBase": "spellblade/tutorial.interception-1"
+  },
+  {
+    "key": "tutorial.blocked-message",
+    "beatId": "blocked-message",
+    "speaker": "rival",
+    "text": "You blocked my message!",
+    "sourceFile": "tutorial.blocked-message.wav",
+    "fileBase": "rival/tutorial.blocked-message-1"
+  },
+  {
+    "key": "tutorial.guarded",
+    "beatId": "guarded",
+    "speaker": "spellblade",
+    "text": "No, I had guarded.",
+    "sourceFile": "tutorial.guarded.wav",
+    "fileBase": "spellblade/tutorial.guarded-1"
+  },
+  {
+    "key": "tutorial.technically-correct",
+    "beatId": "technically-correct",
+    "speaker": "narrator",
+    "text": "You are technically correct.",
+    "sourceFile": "tutorial.technically-correct.wav",
+    "fileBase": "narrator/tutorial.technically-correct-1"
+  },
+  {
+    "key": "tutorial.extra",
+    "beatId": "extra",
+    "speaker": "rival",
+    "text": "There was an extra.",
+    "sourceFile": "tutorial.extra.wav",
+    "fileBase": "rival/tutorial.extra-1"
+  },
+  {
+    "key": "tutorial.hint",
+    "beatId": "hint",
+    "speaker": "rival",
+    "text": "May you receive the hint.",
+    "sourceFile": "tutorial.hint.wav",
+    "fileBase": "rival/tutorial.hint-1"
+  },
+  {
+    "key": "tutorial.no-hints",
+    "beatId": "no-hints",
+    "speaker": "spellblade",
+    "text": "I do not get hints.",
+    "sourceFile": "tutorial.no-hints.wav",
+    "fileBase": "spellblade/tutorial.no-hints-1"
+  },
+  {
+    "key": "tutorial.imminent-demise",
+    "beatId": "imminent-demise",
+    "speaker": "rival",
+    "text": "Of your imminent demise?",
+    "sourceFile": "tutorial.imminent-demise.wav",
+    "fileBase": "rival/tutorial.imminent-demise-1"
+  },
+  {
+    "key": "tutorial.not-my-plan",
+    "beatId": "not-my-plan",
+    "speaker": "spellblade",
+    "text": "Ah... no, that was not my plan today.",
+    "sourceFile": "tutorial.not-my-plan.wav",
+    "fileBase": "spellblade/tutorial.not-my-plan-1"
+  },
+  {
+    "key": "tutorial.plans-change",
+    "beatId": "plans-change",
+    "speaker": "rival",
+    "text": "Well, things do not always go according to plan.",
+    "sourceFile": "tutorial.plans-change.wav",
+    "fileBase": "rival/tutorial.plans-change-1"
+  },
+  {
+    "key": "tutorial.indeed",
+    "beatId": "indeed",
+    "speaker": "narrator",
+    "text": "Indeed.",
+    "sourceFile": "tutorial.indeed.wav",
+    "fileBase": "narrator/tutorial.indeed-1"
+  },
+  {
+    "key": "tutorial.frolic-fields",
+    "beatId": "frolic-fields",
+    "speaker": "narrator",
+    "text": "The Spellblade decides to frolic in the fields, as he may one day never do so again",
+    "sourceFile": "tutorial.frolic-fields.wav",
+    "fileBase": "narrator/tutorial.frolic-fields-1"
+  },
+  {
+    "key": "tutorial.remembering-move",
+    "beatId": "remembering-move",
+    "speaker": "spellblade",
+    "text": "I am not frolicking. I am remembering how to move!",
+    "sourceFile": "tutorial.remembering-move.wav",
+    "fileBase": "spellblade/tutorial.remembering-move-1"
+  }
+]

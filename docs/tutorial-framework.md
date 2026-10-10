@@ -1,102 +1,107 @@
-# Castleward tutorial — draft framework
+# Castleward tutorial preview
 
-**Status:** The player-facing Solo menu offers a clearly labeled *Tutorial — in development* notice. It is not yet a playable scripted tutorial. The notice can send players into the real, existing Practice Yard rather than faking a completed feature. This branch changes no combat mechanics, HP, Guard behavior, bot balance, or VO assets.
+Solo now launches a playable local caption driven preview. Its intentional endpoint follows chapter III, immediately after YOU says “Then it seems best we remain strangers!” The creator’s “Is this a joke? Technically.” notice appears there, with Continue in Practice, Restart and Return to Solo. Reaching this boundary records neither full tutorial completion nor server Renown.
 
-## What is ready
+## Chapters and current availability
 
-- `client/tutorial/tutorialScript.mjs`: one editable sequence with stable IDs and speaker attribution for future voice takes; written from the creator's preliminary draft, not final approved dialogue.
-- `client/tutorial/TutorialDirector.mjs`: an isolated, testable progression state machine. Dialogue waits for `continue`; action prompts require the appropriate real gameplay cue rather than just time elapsed.
-- Solo menu entry + accessible native dialog with the temporary joke: **“Is this a joke?” “Technically.”** followed by an honest under-development notice and a link to Practice.
-- Tests verifying cue order, distinct sword contact / successful Guard / damage events, and skip/restart safety.
+| Chapter | Current playable content |
+| :--- | :--- |
+| I. THE SPELLBLADE | Existing introduction and sighting of Rival |
+| II. THE APPROACH | Look, genuine progress toward Rival, sprint, real stamina drain, winded state, recovery and conversational proximity |
+| III. INTRODUCTIONS | Greeting, resemblance and the creator’s new naming exchange |
+| IV. NEGOTIATIONS | Script and genuine contact cue foundation retained; staging remains unfinished |
+| V. CORRESPONDENCE | Script and Guard/postscript cue foundation retained; staging remains unfinished |
+| VI. ACTUAL DUEL | Script and real outcome tracking retained; responsive duel handoff and endings remain unfinished |
 
-## Deferred — do not imply these are implemented
+`TUTORIAL_CHAPTERS` owns stable beat IDs, availability and chapter titles. `TUTORIAL_BEATS` remains a flattened compatibility export. `TUTORIAL_PREVIEW_STOP` currently selects `introductions`; the director can stop after any implemented chapter and rejects an unimplemented boundary. Extending the cutoff requires completing that chapter’s session choreography and control permissions first.
 
-1. Connect the director to an actual **local** solo tutorial encounter and its HUD/subtitle display, with no remote dependency or server-verified Renown.
-2. Create a staged rival using existing Spellblade assets and ordinary shared combat rules. He begins in a conversational pose, then draws his sword. He should not be replaced by a generic nonreactive target.
-3. Align narrator, Spellblade and rival dialogue to recorded takes using the stable `tutorial.<beat-id>` recording keys. Editing lines is expected; don't script artificial pauses over unrecorded dialogue.
-4. Advance `attack-prompt` on sword **contact**, not a button press; advance `guard-prompt` on a **successful Guard**. The postscript strike happens **after Guard has visibly come down**, then triggers the **normal** player-damaged event and current health presentation (the player has 100 HP at full health). There is **no** unblockable or arbitrary forced-damage rule.
-5. Transition from the instructor-controlled setup to a real responsive duel. Let the ending dialogue adapt to the encounter outcome. Never override player competence just to force a scripted exchange.
-6. Retain optional skip, replay, caption accessibility and a reliable return to Solo. Test desktop Pointer Lock, touch, local game flow, and actual itch.io iframe after the implementation.
+The optional frolic exchange is separate from the main progression. It can appear once per run after substantial wandering away from Rival. Its separate cue and Continue Aside control never replace or block the main action gate. Restart resets its eligibility and rejects audio callbacks from the earlier run.
 
-## Recording session
+## Genuine movement and control protection
 
-Separate voices/performances: `narrator`, `spellblade`, `rival`. Stage/prompt entries do not require recordings. The script's `recordingKey` values are intended as asset identifiers, not claims that the files exist. Keep alternative readings and pauses where useful, particularly **“You did,” “There was an extra,”** and **“Indeed.”**
+`TutorialMovementCues` reads ordered local snapshots. It remembers genuine actions performed during dialogue rather than forcing players to repeat them later. Current gates use aim changes, four metres of approach progress, real forward sprint movement, a five point stamina decrease, actual exhaustion, the existing 25 point sprint recovery threshold, and current proximity within 3.4 metres. Passing Rival during earlier dialogue does not allow a later distant conversation. Teleport/death discontinuities do not count as walking. The frolic threshold requires 35 metres of travel and at least six metres farther from Rival than the starting distance.
 
-This framework intentionally leaves the script and scene choreography open for further editing before production.
+All stamina comes from the normal `guardStamina` and `sprinting` fields. Sprint remains 11 m/s, costs 10 stamina/s and uses the existing combat implementation. Narration advances with explicit Continue or Enter while recordings are missing. Action gates never depend on an invented narration timer.
 
-## Hardening pass on 10 October
+`TutorialSession` stages an ordinary local Castleward Practice session, with a passive production Spellblade named Rival and normal 100 HP. During chapters I through III, looking, walking and sprinting are available. Sword, Guard, spells, Dash, Ultimate, jump and crouch are visibly deferred. Protection exists both before local prediction and at LocalHost’s tutorial command filter; shared combat rules are unchanged. Practice mutation tools are hidden during guidance. Trying an unavailable control shows an explanation.
 
-The original announcement, native modal, creator dialogue and all 33 recording keys were retained. The unfinished entry now follows Bot Duel and Practice, keeping playable activities first. The draft remains unpublished.
+Restart resets staging, movement facts, dialogue, camera aim and optional branch eligibility. Skip offers the development endpoint and Practice. Leaving disposes session listeners and the command filter. Continue in Practice starts the ordinary Yard and restores incidental combat voice. It deliberately begins a fresh Practice session rather than silently turning the scripted conversation into combat.
 
-`TutorialDirector.cue` captures the current dialogue with a run token. Pass that token back to `completeDialogue(cue)` on playback completion. A prior line, skipped take or earlier run cannot advance a restarted scene. Construction no longer calls the owner before it can install the director reference.
+## Existing combat foundation preserved
 
-`TutorialCombatCues` observes existing Room events for a specific local player and rival. Sword swings alone and another pair's fight cannot complete the contact gates. Guard breaks and Vortex or ram blocks cannot satisfy the successful defense gate. Burns and ultimate damage cannot satisfy the ordinary postscript damage gate; forfeits cannot finish the duel. A normal block or parry can satisfy Guard instruction. A new silent `lower-guard` staging beat waits for Guard to actually come down before the postscript strike; it never issues a Guard command. Reasserting Guard prevents the damage gate from succeeding. Ordinary rival sword damage then advances the scene. A genuine duel death in untimed Practice or a normal scored match ending can complete the duel, and the outcome is retained for the eventual ending.
+`TutorialCombatCues` retains genuine sword contact, successful ordinary Guard/parry, natural Guard lowering, ordinary sword damage, and real duel outcomes. Sword swings alone, unrelated fighters, burns, Vortex contacts, ram blocks and forfeits cannot satisfy the wrong gates. The postscript still requires an ordinary strike after Guard lowers; held Guard is never bypassed. These foundations remain tested for future chapters, but the preview ends before their choreography.
 
-There are 39 beats: the original 38 plus that silent staging gate. The creator's dialogue remains editable in `tutorialScript.mjs`. No additional spoken lines were written.
+The player remains YOU in captions and `spellblade` in the audio plan. The other actor remains RIVAL. Naming and movement dialogue are the creator’s exact editable draft, with no narrator explanation of the naming joke.
 
-## Recording and playback insertion points
+## Recording plan
 
-Generate tomorrow's recording list from the editable script:
+All 33 established recording keys remain. The generated plan currently requests 56 spoken keys, including 23 new lines; this is a dated inventory, not a fixed final count. Prompt and stage beats have no spoken recording keys.
+
+Regenerate after editing the script:
 
 ```sh
-node --input-type=module -e "import { tutorialRecordingPlan } from './client/tutorial/tutorialRecordings.mjs'; console.log(JSON.stringify(tutorialRecordingPlan(), null, 2));" > output/tutorial-recording-plan.json
+node --input-type=module -e "import { tutorialRecordingPlan } from './client/tutorial/tutorialRecordings.mjs'; console.log(JSON.stringify(tutorialRecordingPlan(), null, 2));" > docs/tutorial-recording-plan.json
 ```
 
-The list identifies each speaker, line, source filename and output file base. Examples are `tutorial.greeting.wav`, `tutorial.you-did.wav`, `tutorial.admire-me.wav`, `tutorial.technically-correct.wav`, `tutorial.extra.wav` and `tutorial.indeed.wav`. Keep additional takes as separate originals. Preserve narrator, player and rival attribution while processing; the narrator should not automatically receive the knight's gruff helmet treatment.
+[Full recording plan](tutorial-recording-plan.json)
 
-The future tutorial asset manifest can retain the existing voice manifest's `lines` structure, under a separate tutorial asset base:
+| New recording key | Audio speaker | Exact creator text |
+| :--- | :--- | :--- |
+| `tutorial.introduce-yourself` | narrator | Go on. Introduce yourself now. You can do it. |
+| `tutorial.he-may-introduce` | spellblade | I am a Knight. And a mage. He may choose to do so himself. |
+| `tutorial.also-walk` | narrator | You can also walk. |
+| `tutorial.quite-a-distance` | spellblade | He is quite a distance away. Is there any way of moving faster |
+| `tutorial.run-faster` | narrator | Yes... you can run faster. |
+| `tutorial.reminding-me` | spellblade | Aha! Thank you for reminding me. |
+| `tutorial.what-is-below` | spellblade | This is indeed much faster. Wait, what is that below? |
+| `tutorial.your-stamina` | narrator | That is your stamina |
+| `tutorial.did-not-order` | spellblade | Why is it going down? I did not order it to. |
+| `tutorial.consumes-energy` | narrator | Sprinting typically consumes more energy |
+| `tutorial.not-typical` | spellblade | I am not typical! |
+| `tutorial.clearly` | narrator | Clearly. |
+| `tutorial.cannot-sprint` | spellblade | Hello? I can no longer sprint! |
+| `tutorial.time-to-recover` | narrator | You need time to recover |
+| `tutorial.sound-recover` | spellblade | Do I SOUND as though I need to recover!? |
+| `tutorial.good-question` | narrator | ... Good question. |
+| `tutorial.worth-speaking` | spellblade | When am I to find someone worth speaking to? |
+| `tutorial.seem-certain` | rival | You seem certain that you will be able to |
+| `tutorial.name-matters` | spellblade | Of course. I have a name. |
+| `tutorial.properly-defeat` | rival | I only give my name to those who I properly defeat! |
+| `tutorial.remain-strangers` | spellblade | Then it seems best we remain strangers! |
+| `tutorial.frolic-fields` | narrator | The Spellblade decides to frolic in the fields, as he may one day never do so again |
+| `tutorial.remembering-move` | spellblade | I am not frolicking. I am remembering how to move! |
 
-```json
-{
-  "lines": {
-    "tutorial.you-did": [{ "file": "narrator/tutorial.you-did-1" }]
-  }
-}
-```
+Keep original takes and distinguish narrator, spellblade and rival processing. The narrator does not receive the knights’ helmet treatment. The current preview has captions and explicit Continue, with incidental runtime combat chatter suppressed. It adds no synthetic voice or guessed audio durations.
 
-The future loader should use `appUrl` for subdirectory deployments and decode M4A with WAV fallback using the existing audio context. Supply the decoded take to `playTutorialCue`. It uses `SoundEngine.playBuffer` on the existing voice bus, displays the supplied caption and completes on the audio source's actual `ended` event. Stop its handle when skipping, leaving or replacing the scene. Missing, suspended or muted audio can retain captions and explicit Continue; the helper invents no narration durations.
+`playTutorialCue` remains the insertion point for decoded takes on the existing voice bus. It captions immediately, advances on the source’s actual `ended` event, and prevents stopped/stale audio from advancing restart or skip. A future loader must use `appUrl`, decode the creator’s takes and stop active playback when replacing or leaving a scene. Ordinary `VoiceBank.say` rules remain separate.
 
-Do not pass tutorial keys to `VoiceBank.say` unregistered. That method requires ordinary combat voice rules and would fail for these new keys. The helper deliberately uses the existing audio engine without changing the combat voice director, Credits archive, menu music or existing VO.
+## Remaining production work
 
-A future local session can compose these adapters:
+1. Recorded take ingestion, asset manifest, decoding and connection to live caption playback.
+2. Rival conversational posing, sword drawing, controlled Attack and Guard demonstrations, and the abrupt ordinary postscript.
+3. Camera and first person staging beyond the existing gameplay camera and production idle pose.
+4. Release into normal responsive bot control and genuine duel outcome endings. The retained “Well, things do not always go according to plan.” / “Indeed.” exchange requires an appropriate defeat branch; a victory counterpart remains creator authored work.
+5. Creator dialogue for Dash, one spell, the Guard/Sprint stamina connection and a true completion beat.
+6. Progressive control permissions for the later chapters and authored responses where appropriate for refused actions.
+7. Actual itch.io iframe checks after the candidate is approved and uploaded. Browser emulation does not prove hardware touch compatibility.
 
-```js
-let playback;
-const director = new TutorialDirector({ onChange(progress) {
-  playback?.stop();
-  if (progress.current?.kind === 'dialogue') {
-    const cue = director.cue;
-    playback = playTutorialCue({ cue, buffer: decodedTakes.get(cue.recordingKey), engine,
-      onCaption: showTutorialCaption, onComplete: cue => director.completeDialogue(cue) });
-  } else {
-    // Dispatch the creator's staging direction or show the ordinary input prompt.
-  }
-} });
-const cues = new TutorialCombatCues(director, { local: true, playerId, rivalId });
-const offEvents = localHost.on('events', batch => cues.accept(batch.events));
-const offSnapshot = localHost.on('snapshot', snapshot => cues.snapshot(snapshot));
-director.start();
-// On leave: playback?.stop(); director.skip(); offEvents(); offSnapshot();
-```
+There is no separate combat simulator, tutorial damage tuning, unblockable postscript, Rival rename or premature completion award.
 
-Bind to the actual local host/session, not background multiplayer events. LocalHost delivers ordered combat events before the new snapshot. Keep that order; using its previous snapshot to reinterpret a fresh hit would misclassify Guard transitions. The snapshot adapter handles a lowered Guard that occurred while dialogue was still running.
+## Validation and observed limitation
 
-## Intentionally unfinished
+The preview was walked through in the actual desktop browser from Solo to chapter III and its endpoint, using the production scene and models. Native mouse look, keyboard walking, Enter/Continue, early attack protection, real exhaustion/recovery, conversational proximity and Practice handoff were inspected. The automation tool supplied Shift only as a modifier flag, so the sprint exercise explicitly held the existing input controller’s Shift binding while native W drove movement. Stamina and progression still came from normal authoritative simulation; this is not a claim of an independently verified physical Shift chord.
 
-Recorded take ingestion and decoding, live tutorial subtitles/Continue UI, the staged rival, camera choreography, temporary suppression of incidental chatter and the transition to normal bot control remain production work. These adapters are tested foundations, not a connected playable tutorial. Existing Practice fallback still starts ordinary Practice. HP, damage, hit windows, Guard rules, bot behavior and rewards remain unchanged.
+Touch controls, captions, Continue, blocked attack feedback, skip, restart and Return to Solo were exercised in the browser. Direct viewport measurements covered 844 × 390 and 390 × 844 with 44 px actions inside the viewport. These are emulated touch checks. Desktop Pointer Lock succeeded in the foreground Chrome window; a background automation tab rejected it with WrongDocumentError.
 
-Let the player keep Guard up during the postscript setup if they choose. The staging director can wait or acknowledge the defense once the creator writes that branch. If the player wins the final duel, use the observed outcome to revise the ending rather than forcing the rival's victory line after he has fallen.
+A full stamina bar requires ten seconds of sprinting. Rival starts 25 metres away, so a player following the dialogue will often pass him before exhaustion and then turn back. This follows the creator’s required genuine winded sequence, but its pacing deserves playtesting before recording. A future authored suggestion to circle the Yard could clarify that exercise without changing movement or teleporting Rival.
 
-## Verification and browser evidence
+The preview has no automatic checkpoint saving. Players can restart or leave at every step.
 
-All 12 focused tutorial tests passed. Full `npm run verify` passed with 1,139 game tests, 4 HTML5 export tests, syntax validation of 364 modules, and the HTTP/WebSocket smoke check.
+## Visual evidence
 
-Actual browser checks covered 1440 × 756 desktop, 844 × 390 short landscape and 390 × 844 narrow portrait. The landscape check exposed clipped action buttons; reduced vertical spacing now keeps both 44 px actions inside the notice. Escape dismisses the notice and restores focus to the Tutorial entry. The Practice action honors existing name validation, starts the actual Practice Yard, and permits returning to the main menu. These checks validate the announcement and fallback, not a scripted encounter.
-
-Desktop notice:
-
-![Tutorial notice on desktop](tutorial-media/notice-desktop.png)
-
-Short landscape after the spacing correction:
-
-![Tutorial notice in short landscape](tutorial-media/notice-landscape.png)
+![Opening](tutorial-media/preview/opening.png)
+![Actual proximity reached](tutorial-media/preview/rival.png)
+![Final authored line](tutorial-media/preview/naming.png)
+![Intentional endpoint](tutorial-media/preview/cutoff.png)
+![Touch landscape](tutorial-media/preview/touch-landscape.png)
+![Touch portrait](tutorial-media/preview/touch-portrait.png)
