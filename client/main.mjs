@@ -653,6 +653,7 @@ function fromLeftRoom(message) {
 
 function setPracticeVisible(visible) {
   practiceOverlay.classList.toggle('hidden', !visible);
+  updateInspectionControls();
 }
 
 $('#seek-duel').addEventListener('click', () => runMenuAction(menuController.seekDuel(nameInput.value), SCREEN_IDS.MAIN_MENU));
@@ -713,6 +714,7 @@ soloRival.addEventListener('click', (event) => {
 });
 showSoloRival();
 $('#bot-duel').addEventListener('click', () => runMenuAction(menuController.botDuel(nameInput.value), SCREEN_IDS.SOLO_MENU));
+$('#inspection-mode').addEventListener('click', () => runMenuAction(menuController.inspectionPractice(nameInput.value), SCREEN_IDS.SOLO_MENU));
 $('#practice-mode').addEventListener('click', () => runMenuAction(menuController.practice(nameInput.value), SCREEN_IDS.SOLO_MENU));
 $('#create-room').addEventListener('click', () => runMenuAction(menuController.createPrivate(nameInput.value), SCREEN_IDS.PRIVATE_MENU));
 $('#join-room').addEventListener('click', () => runMenuAction(menuController.joinPrivate(roomInput.value, nameInput.value), SCREEN_IDS.PRIVATE_MENU));
@@ -1003,6 +1005,47 @@ rematchButton.addEventListener('click', () => {
   rematchCopy.textContent = 'Rematch vote cast. Waiting for the others…';
 });
 $('#leave').addEventListener('click', () => returnToMenu());
+
+function updateInspectionControls() {
+  const available = socket.inspectionAvailable && latestSnapshot?.mode === 'PRACTICE';
+  for (const node of document.querySelectorAll('.inspection-control')) node.classList.toggle('hidden', !available);
+  $('#practice-freeze').textContent = socket.inspectionFrozen ? 'RESUME · P' : 'FREEZE · P';
+  $('#practice-step').disabled = !socket.inspectionFrozen || socket.inspectionFramesPlaying;
+  $('#practice-play-frames').disabled = !socket.inspectionFrozen;
+  $('#practice-play-frames').textContent = socket.inspectionFramesPlaying ? 'STOP FRAMES' : 'PLAY FRAMES';
+  $('#inspection-status').textContent = socket.inspectionFramesPlaying ? 'Playing frames · 5 ticks/s · ⅙ speed' : socket.inspectionFrozen ? 'Frozen · one step advances 1/30 second' : 'Live · P freezes the scene';
+  practiceOverlay.classList.toggle('inspection-frozen', socket.inspectionFrozen);
+  for (const button of practiceOverlay.querySelectorAll('button')) {
+    if (button.matches('#practice-freeze, #practice-step, #practice-play-frames, #practice-leave, [data-open-settings]')) continue;
+    button.disabled = socket.inspectionFrozen;
+  }
+  practiceOverlay.querySelector('.practice-tools-unlocked-hint').textContent = socket.inspectionFrozen ? 'P OR RESUME TO CONTINUE' : 'CLICK ARENA TO RESUME';
+  practiceOverlay.querySelector('.practice-tools-locked-hint').textContent = available ? 'P TO FREEZE · ESC FOR TOOLS' : 'ESC FOR TOOLS';
+  $('#pointer-hint').textContent = socket.inspectionFrozen ? 'SCENE FROZEN · P TO RESUME' : 'CLICK TO ENTER THE ARENA';
+}
+
+function toggleInspectionFreeze() {
+  if (!socket.inspectionAvailable || latestSnapshot?.roomState !== 'PLAYING') return;
+  const frozen = !socket.inspectionFrozen;
+  // Freeze before releasing focus so a frozen Guard or sword pose remains intact.
+  if (!socket.setInspectionFrozen(frozen)) return;
+  runtime.input.suspended = frozen;
+  if (frozen) runtime.input.releaseFocus();
+  else runtime.input.releaseInputs();
+  updateInspectionControls();
+}
+$('#practice-freeze').addEventListener('click', toggleInspectionFreeze);
+$('#practice-step').addEventListener('click', () => socket.stepInspection());
+$('#practice-play-frames').addEventListener('click', () => socket.playInspectionFrames(!socket.inspectionFramesPlaying));
+document.addEventListener('keydown', event => {
+  if (event.code !== 'KeyP' || event.repeat || event.ctrlKey || event.metaKey || event.altKey ||
+      /INPUT|TEXTAREA|SELECT/.test(event.target?.tagName)) return;
+  if (!socket.inspectionAvailable || !runtime?.playing || router.current !== null) return;
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  toggleInspectionFreeze();
+}, { capture: true });
+socket.on('inspectionState', updateInspectionControls);
 
 $('#practice-reset').addEventListener('click', () => socket.practiceResetPlayer());
 $('#practice-passive').addEventListener('click', () => socket.practiceSpawnDummy('PASSIVE'));

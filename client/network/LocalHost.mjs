@@ -28,7 +28,13 @@ export class LocalHost {
     cancel = (timer) => clearInterval(timer),
     later = (fn) => setTimeout(fn, 0),
   } = {}) {
-    this.now = now;
+    this.wallNow = now;
+    this.timeOffset = 0;
+    this.frozenAt = null;
+    this.inspectionEnabled = false;
+    this.inspectionFramesPlaying = false;
+    this.inspectionNextBeat = null;
+    this.now = () => this.frozenAt ?? (this.wallNow() - this.timeOffset);
     this.every = every;
     this.cancel = cancel;
     this.later = later;
@@ -112,8 +118,67 @@ export class LocalHost {
     this.timer = this.every(() => this.tick(), 1000 / TICK_RATE);
   }
 
+  startInspectionPractice(name, worldId) {
+    this.startSolo(GAME_MODES.PRACTICE, name, worldId);
+    this.inspectionEnabled = true;
+  }
+
+  get inspectionFrozen() { return this.frozenAt !== null; }
+
+  setInspectionFrozen(frozen) {
+    if (!this.inspectionEnabled || this.room?.state !== 'PLAYING') return false;
+    if (Boolean(frozen) === this.inspectionFrozen) return true;
+    if (frozen) this.frozenAt = this.now();
+    else {
+      this.inspectionFramesPlaying = false;
+      this.inspectionNextBeat = null;
+      this.timeOffset = this.wallNow() - this.frozenAt;
+      this.frozenAt = null;
+      // Held input belongs to the old live frame, never to a resumed inspection.
+      this.attack(false);
+      this.guard(false);
+      this.input({ seq: (this.player?.lastInputSeq ?? 0) + 1, forward: 0, right: 0,
+        jump: false, sprint: false, crouch: false, yaw: this.player?.yaw ?? 0, pitch: this.player?.pitch ?? 0 });
+    }
+    this.#inspectionState();
+    return true;
+  }
+
+  playInspectionFrames(playing) {
+    if (!this.inspectionEnabled || !this.inspectionFrozen) return false;
+    if (Boolean(playing) === this.inspectionFramesPlaying) return true;
+    this.inspectionFramesPlaying = Boolean(playing);
+    this.inspectionNextBeat = playing ? this.wallNow() + 0.2 : null;
+    this.#inspectionState();
+    return true;
+  }
+
+  #inspectionState() {
+    this.#deliver({ type: 'inspectionState', frozen: this.inspectionFrozen, playingFrames: this.inspectionFramesPlaying });
+  }
+
+  stepInspection() {
+    if (!this.inspectionEnabled || !this.inspectionFrozen) return false;
+    this.frozenAt += 1 / TICK_RATE;
+    this.#step();
+    return true;
+  }
+
   /** One step of the match, as the server's tick does it for each room. */
   tick() {
+    if (this.inspectionFrozen) {
+      if (this.inspectionFramesPlaying && this.wallNow() + 1e-9 >= this.inspectionNextBeat) {
+        this.stepInspection();
+        // One visible frame per beat. Background stalls never create a catch-up burst.
+        const nextBeat = this.inspectionNextBeat + 0.2;
+        this.inspectionNextBeat = nextBeat > this.wallNow() ? nextBeat : this.wallNow() + 0.2;
+      }
+      return;
+    }
+    this.#step();
+  }
+
+  #step() {
     const room = this.room;
     if (!room) return;
     const time = this.now();
@@ -131,12 +196,17 @@ export class LocalHost {
     if (this.room) this.rooms.rooms.delete(this.room.code);
     this.room = null;
     this.player = null;
+    this.inspectionEnabled = false;
+    this.inspectionFramesPlaying = false;
+    this.inspectionNextBeat = null;
+    this.frozenAt = null;
+    this.timeOffset = 0;
   }
 
   #command(message) {
     const room = this.room;
     const player = room?.players.get(this.player?.id);
-    if (!room || !player) return;
+    if (!room || !player || this.inspectionFrozen) return;
     const result = applyRoomCommand(room, player, message, this.now());
     if (result.rejected) this.#deliver({ type: 'error', message: result.rejected });
     else if (result.lobby) this.#deliver(serializeLobby(room));
