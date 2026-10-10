@@ -10,7 +10,7 @@ function setup({ useHostTimers = false } = {}) {
   globalThis.window = win;
   doc.pointerLockElement = element;
   const calls = [];
-  const socket = Object.fromEntries(['guard', 'attack', 'cast', 'castPreparedSpell', 'selectPreparedSpell', 'selectPreparedSlot', 'castCurrentSpell'].map((action) => [action, (...args) => calls.push([action, ...args])]));
+  const socket = Object.fromEntries(['guard', 'attack', 'cast', 'castPreparedSpell', 'selectPreparedSpell', 'selectPreparedSlot', 'castPreparedSlot', 'castCurrentSpell'].map((action) => [action, (...args) => calls.push([action, ...args])]));
   let timer;
   const input = new InputController(element, socket, useHostTimers ? undefined : { setTimer: (fn) => { timer = fn; return 1; }, clearTimer: () => { timer = null; } });
   doc.dispatchEvent(new Event('pointerlockchange'));
@@ -134,14 +134,14 @@ test('prepared gesture timers retain the browser host receiver', () => {
 });
 
 
-for (const [key, slot] of [['Digit1',1],['Digit2',2],['Digit3',3],['Numpad2',2]]) test(`Q plus ${key} selects slot ${slot} once without casting`, () => {
+for (const [key, slot] of [['Digit1',1],['Digit2',2],['Digit3',3],['Numpad2',2]]) test(`Q plus ${key} selects slot ${slot} and casts once`, () => {
   const { input, calls, down, up, reveal, send } = setup();
   input.updatePreparedSpells({ ...chivalry, spell: 'gale' }, 10);
   down('KeyQ'); reveal(); down(key);
-  assert.deepEqual(calls, [['selectPreparedSlot', slot]], 'slot order comes from the repertoire, not current spell');
+  assert.deepEqual(calls, [['castPreparedSlot', slot, input.lookDirection(), {yaw:input.yaw,pitch:input.pitch}]], 'slot order comes from the repertoire, not current spell');
   assert.equal(input.preparedGesture, null, 'valid choice closes immediately');
   send('keydown', { code:key, repeat:true }); up(key); up('KeyQ');
-  assert.deepEqual(calls, [['selectPreparedSlot', slot]], 'release and autorepeat stay quiet');
+  assert.deepEqual(calls, [['castPreparedSlot', slot, input.lookDirection(), {yaw:input.yaw,pitch:input.pitch}]], 'release and autorepeat stay quiet');
   down('KeyQ'); up('KeyQ');
   assert.equal(calls.at(-1)[0], 'castCurrentSpell', 'a quick later tap uses server current identity');
 });
@@ -149,7 +149,7 @@ for (const [key, slot] of [['Digit1',1],['Digit2',2],['Digit3',3],['Numpad2',2]]
 test('quick Q plus a number works before the informational panel hold timer', () => {
   const { input, calls, down, up, reveal } = setup();
   input.updatePreparedSpells(chivalry, 10); down('KeyQ'); down('Digit3'); reveal(); up('Digit3'); up('KeyQ');
-  assert.deepEqual(calls, [['selectPreparedSlot', 3]]);
+  assert.deepEqual(calls, [['castPreparedSlot', 3, input.lookDirection(), {yaw:input.yaw,pitch:input.pitch}]]);
 });
 
 test('numeric bindings retain ordinary actions outside selection and consumed releases never reach them', () => {
@@ -159,7 +159,7 @@ test('numeric bindings retain ordinary actions outside selection and consumed re
   down('Digit2'); up('Digit2'); assert.deepEqual(calls, [['attack',true],['attack',false]]);
   calls.length=0; down('KeyQ'); reveal(); down('Digit2'); up('KeyQ');
   send('keydown',{code:'Digit2',repeat:true}); up('Digit2');
-  assert.deepEqual(calls, [['selectPreparedSlot',2]], 'selection consumes the complete numeric press');
+  assert.deepEqual(calls, [['castPreparedSlot',2,input.lookDirection(),{yaw:input.yaw,pitch:input.pitch}]], 'selection consumes the complete numeric press');
   calls.length=0; down('KeyQ'); down('Digit1'); assert.equal(input.movement().forward,0);
   up('Digit1'); up('KeyQ'); down('Digit1'); assert.equal(input.movement().forward,1); up('Digit1');
 });
@@ -184,16 +184,16 @@ test('a quick next Q tap predicts the chosen spell without overwriting authorita
   input.onCastLocal = metadata => presentations.push(metadata);
   input.updatePreparedSpells(chivalry, 10);
   down('KeyQ'); down('Digit2'); up('Digit2'); up('KeyQ');
-  assert.deepEqual(presentations, []);
+  assert.deepEqual(presentations, [{spell:'frostfire',prepared:true}]);
   down('KeyQ'); up('KeyQ');
-  assert.deepEqual(presentations, [{spellOnly:true,spell:'frostfire'}]);
+  assert.deepEqual(presentations, [{spell:'frostfire',prepared:true},{spellOnly:true,spell:'frostfire'}]);
   assert.equal(input.prepared.current, 'fireball', 'only snapshots change authoritative current');
   assert.equal(calls.at(-1)[0], 'castCurrentSpell');
   input.updatePreparedSpells({...chivalry,spell:'frostfire',preparedSpellSelected:true},10.1);
   assert.equal(input.pendingPreparedSelection,null);
 });
 
-test('a short hold opens the choice, and it stays open once Q is let go: a number then selects, never casting', () => {
+test('a short hold opens the choice, and it stays open once Q is let go: a number then selects and attempts casting', () => {
   const { input, calls, down, up, reveal } = setup();
   input.updatePreparedSpells(chivalry, 10);
   down('KeyQ'); reveal(); up('KeyQ');
@@ -201,7 +201,7 @@ test('a short hold opens the choice, and it stays open once Q is let go: a numbe
   assert.deepEqual(calls, []);
   // gale is cooling (ready at 14): choosing it is still allowed, the host decides
   down('Digit3'); up('Digit3');
-  assert.deepEqual(calls, [['selectPreparedSlot', 3]]);
+  assert.deepEqual(calls, [['castPreparedSlot', 3, input.lookDirection(), {yaw:input.yaw,pitch:input.pitch}]]);
   assert.equal(input.preparedGesture, null, 'choosing closes it');
   down('KeyQ'); up('KeyQ');
   assert.equal(calls.at(-1)[0], 'castCurrentSpell', 'a tap after it casts');
@@ -229,4 +229,31 @@ test('a controller put away takes its listeners off the page: keys and buttons r
   down('Mouse0'); up('Mouse0'); down('KeyG'); send('blur', {}, win);
   assert.deepEqual(calls, [], 'nothing after it was put away');
   assert.equal(input.enabled, false);
+});
+
+test('numeric startup selection remains preselection, while an active unavailable choice still sends one cast attempt', () => {
+  const { input, calls, down, up } = setup();
+  input.updatePreparedSpells({...chivalry, ultimateState:{id:'chivalry',phase:'startup',commitAt:10.65}},10);
+  down('KeyQ'); down('Digit2'); up('Digit2'); up('KeyQ');
+  assert.deepEqual(calls,[['selectPreparedSlot',2]]);
+  calls.length=0; input.updatePreparedSpells(chivalry,10);
+  down('KeyQ'); down('Digit3'); up('Digit3'); up('KeyQ');
+  assert.equal(calls.length,1); assert.equal(calls[0][0],'castPreparedSlot');
+});
+
+test('tutorial control gate blocks keyboard and touch predictions while retaining real movement and aim', () => {
+  const {input,calls,down}=setup();
+  const blocked=[];
+  input.allowAction=action=>{blocked.push(action); return !['spell','attack','guard','dash','ultimate','gauntlet','jump','crouch'].includes(action);};
+  let predicted=0;
+  input.onAttackLocal=input.onGuardLocal=input.onCastLocal=input.onDashLocal=()=>predicted++;
+  input.updatePreparedSpells(chivalry,10);
+  down('Mouse0');down('Mouse2');down('KeyQ');down('Space');down('KeyC');
+  input.setAttack(true);input.setGuard(true);input.usePreparedSpell('fireball');input.castCurrentSpell();
+  input.dash();input.ultimate();input.gauntlet();down('KeyW');down('ShiftLeft');input.turn(.4,.1);
+  assert.deepEqual(calls,[]);assert.equal(predicted,0);
+  const move=input.movement(); assert.equal(move.forward,1);assert.equal(move.sprint,true);
+  assert.equal(move.jump,false);assert.equal(move.crouch,false);assert.equal(move.guard,false);assert.equal(move.attack,false);
+  assert.equal(move.yaw,.4);assert.ok(blocked.includes('spell'));
+  input.allowAction=null; input.castCurrentSpell(); assert.equal(calls.at(-1)[0],'castCurrentSpell');
 });

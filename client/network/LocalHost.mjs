@@ -203,6 +203,7 @@ export class LocalHost {
     if (this.room) this.rooms.rooms.delete(this.room.code);
     this.room = null;
     this.player = null;
+    this.commandFilter = null;
     this.inspectionEnabled = false;
     this.inspectionFramesPlaying = false;
     this.inspectionNextBeat = null;
@@ -214,6 +215,10 @@ export class LocalHost {
     const room = this.room;
     const player = room?.players.get(this.player?.id);
     if (!room || !player || this.inspectionFrozen) return;
+    if (this.commandFilter) {
+      message = this.commandFilter(message);
+      if (!message) return;
+    }
     const result = applyRoomCommand(room, player, message, this.now());
     if (result.rejected) this.#deliver({ type: 'error', message: result.rejected });
     else if (result.lobby) this.#deliver(serializeLobby(room));
@@ -268,6 +273,11 @@ export class LocalHost {
       ...(Number.isFinite(input.pitch) ? { pitch: input.pitch } : {}), clientTime: this.now() });
   }
   selectPreparedSlot(slot) { this.#command({ type: 'selectPreparedSlot', slot }); }
+  castPreparedSlot(slot, direction, input = {}) {
+    this.#command({ type: 'castPreparedSlot', slot, direction,
+      ...(Number.isFinite(input.yaw) ? { yaw: input.yaw } : {}),
+      ...(Number.isFinite(input.pitch) ? { pitch: input.pitch } : {}), clientTime: this.now() });
+  }
   castCurrentSpell(direction, input = {}) {
     this.#command({ type: 'castCurrentSpell', direction,
       ...(Number.isFinite(input.yaw) ? { yaw: input.yaw } : {}),

@@ -1,3 +1,5 @@
+import { TutorialSession } from './tutorial/TutorialSession.mjs';
+import { TutorialView } from './tutorial/TutorialView.mjs';
 import { ChallengesController } from './menu/ChallengesController.mjs';
 import { normalizePreparedSpells, replacePreparedSpell } from '../shared/src/preparedSpells.mjs';
 import { SPELLS } from '../shared/src/spells.mjs';
@@ -271,6 +273,7 @@ menuScene?.setSubtitles(viewOptions(settings).subtitles);
 endCaption.setEnabled(viewOptions(settings).subtitles);
 
 let runtime = null;
+let tutorialSession = null;
 let touchUi = false;
 let latestLobby = null;
 let latestSnapshot = null;
@@ -436,9 +439,10 @@ $('#rotate-dismiss').addEventListener('click', () => document.body.classList.add
 
 function ensureRuntime() {
   if (!runtime) {
-    runtime = new GameRuntime($('#game-canvas'), socket, hud, { sound, voice });
+    runtime = new GameRuntime($('#game-canvas'), socket, hud, { sound, voice: tutorialSession ? null : voice });
     if (new URLSearchParams(location.search).has('debug')) globalThis.__ssRuntime = runtime;
     runtime.configure({ view: viewOptions(settings), input: inputOptions(settings) });
+    if (tutorialSession) runtime.input.allowAction = (action, notify = true) => tutorialSession?.allows(action, notify) ?? true;
     if (touchUi) runtime.enableTouch();
     runtime.onPointer = (locked) => {
       const mode = latestLobby?.mode ?? latestSnapshot?.mode;
@@ -623,6 +627,10 @@ function returnToMenu({ then = null } = {}) {
 }
 
 function putAwayMatch() {
+  const endingTutorial = tutorialSession;
+  tutorialSession = null;
+  endingTutorial?.stop();
+  tutorialView.hide();
   paused = false;
   pauseMenu.classList.add('hidden');
   hideChallenge();
@@ -652,6 +660,7 @@ function fromLeftRoom(message) {
 }
 
 function setPracticeVisible(visible) {
+  if (tutorialSession) visible = false;
   practiceOverlay.classList.toggle('hidden', !visible);
   updateInspectionControls();
 }
@@ -713,13 +722,33 @@ soloRival.addEventListener('click', (event) => {
   showSoloRival();
 });
 showSoloRival();
-// The authored duel tutorial is not yet playable. Keep the menu honest until its VO and choreography are ready.
-const tutorialNotice = $('#tutorial-notice');
-$('#tutorial-mode').addEventListener('click', () => { showMenuError(''); tutorialNotice.showModal(); });
-$('#tutorial-close').addEventListener('click', () => tutorialNotice.close());
-$('#tutorial-practice').addEventListener('click', () => {
-  tutorialNotice.close();
-  runMenuAction(menuController.practice(nameInput.value), SCREEN_IDS.SOLO_MENU);
+// The caption driven preview stops at the last fully staged chapter.
+const tutorialView = new TutorialView($('#tutorial-lesson'), {
+  context: () => ({touch:touchUi,bindings:settings.allBindings()}),
+  onContinue: () => {
+    const director = tutorialSession?.director;
+    if (director?.completeDialogue(director.cue) && director.current?.kind === 'prompt') runtime?.input.requestPointerLock();
+  },
+  onOptionalContinue: () => tutorialSession?.director.completeOptionalDialogue(tutorialSession.director.optionalCue),
+  onRestart: () => {
+    runtime?.input.releaseInputs(); tutorialSession?.restart();
+    if (runtime && tutorialSession) { runtime.input.yaw = tutorialSession.host.player.yaw; runtime.input.pitch = 0; }
+  },
+  onSkip: () => { runtime?.input.releaseInputs(); tutorialSession?.director.skip(); runtime?.input.releaseFocus(); },
+  onPractice: () => returnToMenu({then:() => runMenuAction(menuController.practice(nameInput.value),SCREEN_IDS.SOLO_MENU)}),
+  onLeave: () => returnToMenu({then:() => route(SCREEN_IDS.SOLO_MENU)}),
+});
+$('#tutorial-mode').addEventListener('click', () => {
+  showMenuError('');
+  const name = nameInput.value.trim().slice(0,18);
+  if (!name) { showMenuError('Enter a Spellblade name.'); nameFields.find(field => field.offsetParent !== null)?.focus(); return; }
+  localStorage.setItem('ss-player-name',name);
+  socket.startSolo('PRACTICE',name,'castleward');
+  tutorialSession = new TutorialSession(socket.local, {
+    onChange: progress => { tutorialView.show(progress,tutorialSession?.interrupted); if(progress.state !== 'running') runtime?.input.releaseFocus(); },
+    onBlocked: () => tutorialView.denied(),
+  });
+  tutorialSession.start();
 });
 $('#bot-duel').addEventListener('click', () => runMenuAction(menuController.botDuel(nameInput.value), SCREEN_IDS.SOLO_MENU));
 $('#inspection-mode').addEventListener('click', () => runMenuAction(menuController.inspectionPractice(nameInput.value), SCREEN_IDS.SOLO_MENU));
@@ -871,7 +900,7 @@ function renderPreparedArmory() {
   // the three slots as the Armory's own cards: the key, the spell's mark and name; the starting spell fixed (★), the
   // others changed one way or the other
   const change = (slot, to, way, label) => to ? `<button type="button" class="prepared-turn" data-prepared-slot="${slot.slot}" data-prepared-to="${to}" data-way="${way}" aria-label="Slot ${slot.key}: ${label} ${escapeHtml(SPELLS[to].label)}">${way === 'previous' ? '‹' : '›'}</button>` : '';
-  root.innerHTML = '<p class="armory-slot">PREPARED SPELLS</p><p class="panel-copy">During Chivalry, tap Q to cast. Hold Q briefly to choose, then press 1, 2 or 3 (Q can be let go first). The starting spell is marked ★.</p>'
+  root.innerHTML = '<p class="armory-slot">PREPARED SPELLS</p><p class="panel-copy">During Chivalry, tap Q to cast. Hold Q briefly, then press 1, 2 or 3 to choose and cast (Q can be let go first). During startup, choosing only preselects. The starting spell is marked ★.</p>'
     + '<div class="prepared-slots">' + preparedArmoryView(starting, prepared).map((slot) => `<div class="prepared-slot spell-card${slot.starting ? ' equipped' : ''}" data-spell="${slot.id}">
       <kbd>${slot.key}</kbd><span class="spell-mark">${slot.mark}</span><span class="spell-name">${escapeHtml(slot.name)}</span>
       ${slot.starting ? '<i>★ STARTING</i>' : `<span class="prepared-turns">${change(slot, slot.previous, 'previous', 'change to')}${change(slot, slot.next, 'next', 'change to')}</span>`}</div>`).join('') + '</div>';
@@ -975,7 +1004,6 @@ document.addEventListener('click', (event) => {
 }, { capture: true });
 document.addEventListener('keydown', event => {
   if (event.key !== 'Escape' || event.repeat) return;
-  if (tutorialNotice.open) { event.preventDefault(); tutorialNotice.close(); return; }
   if (creditsPanel.isOpen) {
     creditsPanel.close();
     return;

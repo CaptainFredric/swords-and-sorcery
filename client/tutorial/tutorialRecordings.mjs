@@ -1,8 +1,8 @@
-import { TUTORIAL_BEATS } from './tutorialScript.mjs';
+import { TUTORIAL_BEATS, TUTORIAL_BRANCHES } from './tutorialScript.mjs';
 
 // Stable filenames and actor attribution for tomorrow's source recordings.
 // These are requested recordings, not assertions that any audio exists.
-export function tutorialRecordingPlan(beats = TUTORIAL_BEATS) {
+export function tutorialRecordingPlan(beats = [...TUTORIAL_BEATS, ...Object.values(TUTORIAL_BRANCHES).flat()]) {
   return beats.filter(beat => beat.recordingKey).map(beat => ({
     key: beat.recordingKey, beatId: beat.id, speaker: beat.speaker,
     text: beat.line, sourceFile: `${beat.recordingKey}.wav`,

@@ -87,6 +87,7 @@ export class InputController {
 
   #press(code, repeat = false) {
     const action = this.actionOf.get(code);
+    if (action && !repeat && this.allowAction?.(action) === false) return;
     if (!action || repeat || HELD.has(action) || MENU_ACTIONS.has(action)) return;
     if (action === 'guard') this.setGuard(this.held('guard'), 'desktop');
     else if (action === 'attack') this.setAttack(this.held('attack'));
@@ -150,9 +151,15 @@ export class InputController {
       const choosing = this.preparedGesture && (this.held('spell') || this.preparedGesture.shown);
       if (this.enabled && choosing && slot && !event.repeat && !this.keys.has(event.code)) {
         event.preventDefault();
+        if (this.allowAction?.('spell') === false) return;
         this.preparedConsumedKeys.add(event.code);
         this.pendingPreparedSelection = this.prepared.spells[Number(slot) - 1]?.id;
-        this.socket.selectPreparedSlot(Number(slot));
+        if (this.prepared.phase === 'startup') this.socket.selectPreparedSlot(Number(slot));
+        else {
+          this.socket.castPreparedSlot(Number(slot), this.lookDirection(), { yaw: this.yaw, pitch: this.pitch });
+          const chosen = this.prepared.spells[Number(slot) - 1];
+          if (chosen?.available) this.onCastLocal({ spell: chosen.id, prepared: true });
+        }
         this.cancelPreparedGesture();
         return;
       }
@@ -222,6 +229,7 @@ export class InputController {
   }
 
   setAttack(held) {
+    if (held && this.allowAction?.('attack') === false) return;
     if (Boolean(held) === this.attackHeld) return;
     this.attackHeld = Boolean(held);
     this.socket.attack(this.attackHeld);
@@ -229,6 +237,7 @@ export class InputController {
   }
 
   setGuard(held, source = 'touch') {
+    if (held && this.allowAction?.('guard') === false) return;
     if (held) this.guardSources.add(source);
     else this.guardSources.delete(source);
     const logical = this.guardSources.size > 0;
@@ -253,9 +262,9 @@ export class InputController {
   }
 
   // Q in Spells & Chivalry: a tap casts the selected spell; a short hold (PREPARED_HOLD_MS) opens the choice, which then
-  // stays open once Q is let go, until a number chooses (choosing never casts), Q is pressed again, or Escape
+  // stays open once Q is let go, until a number chooses and casts, Q is pressed again, or Escape
   beginPreparedGesture() {
-    if (!this.enabled || !this.prepared.visible) return;
+    if (!this.enabled || !this.prepared.visible || this.allowAction?.('spell') === false) return;
     // (open and waiting for a number: Q again puts it away, without casting)
     if (this.preparedGesture?.shown) { this.preparedGesture.closing = true; return; }
     if (this.preparedGesture) return;
@@ -291,7 +300,7 @@ export class InputController {
   }
 
   usePreparedSpell(id) {
-    if (!this.enabled || !this.prepared.visible) return;
+    if (!this.enabled || !this.prepared.visible || this.allowAction?.('spell') === false) return;
     const spell = this.prepared.spells.find((entry) => entry.id === id);
     if (!spell) return;
     if (this.prepared.phase === 'startup') {
@@ -303,13 +312,14 @@ export class InputController {
   }
 
   castCurrentSpell() {
+    if (!this.enabled || this.allowAction?.('spell') === false) return;
     this.socket.castCurrentSpell(this.lookDirection(), { yaw: this.yaw, pitch: this.pitch });
     // Predict the ordered selection intent without sending a stale identity back to authority.
     this.onCastLocal({ spellOnly: true, ...(this.pendingPreparedSelection ? { spell: this.pendingPreparedSelection } : {}) });
   }
 
   cast() {
-    if (!this.enabled) return;
+    if (!this.enabled || this.allowAction?.('spell') === false) return;
     if (this.prepared.visible) { if (this.prepared.phase === 'active') this.castCurrentSpell(); return; }
     if (this.spellOnly) { this.castCurrentSpell(); return; }
     this.socket.cast(this.lookDirection());
@@ -318,20 +328,20 @@ export class InputController {
 
   // the gauntlet on its own key (unbound unless chosen): the fist whether or not the spell is ready
   gauntlet() {
-    if (!this.enabled) return;
+    if (!this.enabled || this.allowAction?.('gauntlet') === false) return;
     this.socket.gauntlet();
     this.onGauntletLocal();
   }
 
   // the ultimate's key (the host decides whether the meter is full)
   ultimate() {
-    if (!this.enabled) return;
+    if (!this.enabled || this.allowAction?.('ultimate') === false) return;
     this.socket.ultimate?.();
     this.onUltimateLocal?.();
   }
 
   dash() {
-    if (!this.enabled) return;
+    if (!this.enabled || this.allowAction?.('dash') === false) return;
     const dir = this.dashDirection();
     this.socket.dash(dir);
     this.onDashLocal(dir);
@@ -342,12 +352,12 @@ export class InputController {
     return {
       forward: (this.held('forward') ? 1 : 0) - (this.held('back') ? 1 : 0) + (touch?.forward ?? 0),
       right: (this.held('right') ? 1 : 0) - (this.held('left') ? 1 : 0) + (touch?.right ?? 0),
-      jump: this.held('jump') || Boolean(touch?.jump),
+      jump: (this.held('jump') || Boolean(touch?.jump)) && this.allowAction?.('jump', false) !== false,
       // hold Sprint (Shift unless rebound; or push the touch stick all the way forward, or latch the touch button)
       sprint: this.held('sprint') || Boolean(touch?.sprint),
       // hold Crouch (C unless rebound), or toggle the touch button: the wish; the body crouches and stands by the
       // server's rule (it cannot stand up under something)
-      crouch: this.held('crouch') || Boolean(touch?.crouch),
+      crouch: (this.held('crouch') || Boolean(touch?.crouch)) && this.allowAction?.('crouch', false) !== false,
       // what is held, beside the presses themselves (a Blazing Vortex is steered by it: the attack for its fire, the
       // guard for its blade; on a touch screen, the same two buttons)
       attack: this.attackHeld,

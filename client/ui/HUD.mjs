@@ -228,9 +228,9 @@ export class HUD {
     }
     const highlighted = view.spells.find(entry => entry.id === this.preparedSelector?.highlight);
     this.preparedHint.textContent = keyboard
-      ? this.preparedSelector ? 'PRESS 1, 2 OR 3 TO SELECT · Q OR ESC TO CLOSE' : 'TAP Q TO CAST · HOLD Q, THEN 1 / 2 / 3 TO SELECT'
+      ? this.preparedSelector ? view.phase === 'startup' ? 'PRESS 1, 2 OR 3 TO PRESELECT' : 'PRESS 1, 2 OR 3 TO CAST · Q OR ESC TO CLOSE' : view.phase === 'startup' ? 'HOLD Q, THEN 1 / 2 / 3 TO PRESELECT' : 'TAP Q TO CAST · HOLD Q, THEN 1 / 2 / 3 TO CHOOSE AND CAST'
       : this.preparedSelector
-      ? highlighted ? `${highlighted.available ? 'RELEASE TO CAST' : 'RELEASE TO SELECT'} · ESC TO CANCEL` : 'RELEASE TO CANCEL'
+      ? highlighted ? `${view.phase === 'startup' ? 'RELEASE TO PRESELECT' : highlighted.available ? 'RELEASE TO CAST' : 'RELEASE TO CHOOSE · UNAVAILABLE'} · ESC TO CANCEL` : 'RELEASE TO CANCEL'
       : view.phase === 'startup' ? 'HOLD Q TO PRESELECT' : 'TAP Q TO CAST · HOLD Q TO CHOOSE';
   }
 

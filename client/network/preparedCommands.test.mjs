@@ -86,3 +86,19 @@ test('offline host selects then casts its current identity without a client snap
   assert.equal(local.player.pendingSpell.spell, 'frostfire', 'selection preserves an accepted gather');
   local.close();
 });
+
+test('atomic slot cast carries current aim through socket and local authority', () => {
+  const socket = Object.create(GameSocket.prototype), messages=[];
+  socket.send = message => messages.push(message); socket.serverNow = () => 10;
+  socket.castPreparedSlot(2,{x:-1,y:0,z:0},{yaw:Math.PI/2,pitch:0});
+  assert.deepEqual(messages,[{type:'castPreparedSlot',slot:2,direction:{x:-1,y:0,z:0},yaw:Math.PI/2,pitch:0,clientTime:10}]);
+  let now = 10;
+  const local = new LocalHost({now:()=>now,every:()=>1,cancel:()=>{},later:()=>{}});
+  const link = new GameLink({remote:{on:()=>{}},local});
+  link.startSolo('PRACTICE','Knight'); local.room.startMatch(now);
+  local.player.ultimate='chivalry'; local.player.prowess=100; local.ultimate();
+  now=10.65; local.tick();
+  link.castPreparedSlot(2,{x:-1,y:0,z:0},{yaw:Math.PI/2,pitch:0});
+  assert.equal(local.player.spell,'frostfire'); assert.equal(local.player.pendingSpell.spell,'frostfire');
+  assert.equal(local.player.yaw,Math.PI/2); link.leaveRoom();
+});

@@ -44,7 +44,7 @@ test('real host broadcasts atomic requested casts, startup selection, live aim a
   assert.equal(pre.players.find(p=>p.id===player.id).ultimateState.phase,'startup');
   assert.equal(player.pendingSpell,null);
   await b.next('events',m=>m.events.some(e=>e.type==='ultimateActive' && e.ultimate==='chivalry'));
-  send(a.ws,{type:'castPreparedSpell',spell:'fireball',direction:{x:0,y:0,z:-1}});
+  send(a.ws,{type:'castPreparedSlot',slot:1,direction:{x:0,y:0,z:-1}});
   send(a.ws,{type:'input',seq:1,yaw:Math.PI/2,pitch:0,forward:0,right:0,jump:false,sprint:false,guard:false,attack:false});
   await a.next('events',m=>m.events.some(e=>e.type==='spellCast' && e.spell==='fireball'));
   const released=await b.next('events',m=>m.events.some(e=>e.type==='projectileSpawned' && e.projectile.ownerId===player.id));
