@@ -1,5 +1,7 @@
 # Castleward release preparation
 
+Current update, 10 October 2026: PRs 145 through 148 are merged. The integrated candidate at `0afc44d` was uploaded successfully and saved as browser playable in the private itch.io Draft. Desktop itch loading, native controls, offline Practice, cross-host multiplayer and a clean reload were exercised. Read [the final pass results](FINAL_PASS.md) for evidence and remaining checks. The account upload restriction is cleared. The older preparation record below describes the preceding session.
+
 Inspected 9 October 2026. Branch `feat/itch-release`, based on GitHub main `aad49e8e46ffeb70da394ec91e3345f8c6f6d888`. The separate Claude checkout was preserved. The follow up corrects compact menu command clipping in `client/menu.css`; gameplay, animation, voice, music, server and model files remain unchanged.
 
 The [quality audit](QUALITY_AUDIT.md) ranks observed issues and remaining checks. The [media comparison](media-comparison.html) now includes a 27 second real gameplay trailer, five landscape captures and menu before/after evidence. All 1111 game tests, four export tests, syntax and smoke passed at normal concurrency on the follow up.

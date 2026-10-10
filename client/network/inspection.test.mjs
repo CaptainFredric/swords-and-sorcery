@@ -77,7 +77,9 @@ test('inspection is explicitly local even online and freeze never sends a remote
   assert.equal(link.inspectionAvailable, false);
   assert.equal(link.stepInspection(), false);
   link.startSolo('PRACTICE', 'Ordinary');
-  assert.equal(remote.calls.length, 1);
+  assert.equal(remote.calls.length, 0, 'ordinary solo stays local after leaving Inspection');
+  assert.equal(link.playingLocally, true);
+  assert.equal(link.inspectionAvailable, false, 'ordinary Practice still cannot be frozen');
 });
 
 

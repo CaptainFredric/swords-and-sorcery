@@ -699,17 +699,25 @@ body.observing .herald-toast { left: 50cqw; max-width: calc(100cqw - 40px); }
 .menu-command small, .mode-choice small { color: #e6d7b2; font-size: 12px; line-height: 1.4; }
 .primary-command small { color: #3c2914; }
 .credits-shell { grid-template-rows: auto minmax(0, 1fr); }
+.credits-body { min-height: 0; padding-top: 0; scroll-padding-top: 100px; }
+.credits-body .credits-card { margin-top: 18px; }
 .credits-search { position: sticky; top: 0; z-index: 1; flex-wrap: wrap; padding: 12px 0; background: #241e19; border-bottom: 1px solid #655038; }
 .credits-search label { width: 100%; color: #e7c47c; font: 700 12px/1.4 var(--font-script); letter-spacing: .15em; }
 .credits-search .game-input::placeholder { color: #b9ac91; }
 .credits-search small, .credits-line small { color: #c1b59b; }
-.credits-support { margin: 12px 0 18px; padding: 14px; border: 1px solid #655038; background: rgba(78, 28, 26, .18); text-align: center; }
-.credits-support h3 { margin: 0 0 8px; color: #e7c47c; font: 600 14px/1.3 var(--font-script); letter-spacing: .1em; }
-.credits-support p { margin: 0 0 10px; color: #e6d7b2; font: 500 14px/1.5 var(--font-script); }
-.credits-support a { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 8px 16px; border: 1px solid #8f7348; color: #f1dfae; text-decoration: none; font: 600 14px/1.3 var(--font-script); }
+.credits-support { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 14px; margin: 12px 0; padding: 10px 12px; border: 1px solid #655038; background: rgba(78, 28, 26, .18); }
+.credits-support h3 { grid-column: 1; margin: 0 0 4px; color: #e7c47c; font: 600 12px/1.3 var(--font-script); letter-spacing: .1em; }
+.credits-support p { grid-column: 1; margin: 0; color: #e6d7b2; font: 500 14px/1.4 var(--font-script); }
+.credits-support a { grid-column: 2; grid-row: 1 / span 2; align-self: center; display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 8px 12px; border: 1px solid #8f7348; color: #f1dfae; text-decoration: none; font: 600 14px/1.3 var(--font-script); }
 .credits-support a:hover { background: rgba(201, 156, 82, .12); border-color: #c99c52; }
 .credits-support a:focus-visible { outline: 2px solid #e7c47c; outline-offset: 3px; }
-.credits-support small { display: block; margin: 10px auto 0; color: #c1b59b; font: 500 12px/1.5 var(--font-script); }
+.credits-support small { grid-column: 1 / -1; margin-top: 6px; color: #c1b59b; font: 500 12px/1.5 var(--font-script); }
+@container app (max-width: 480px) {
+  .credits-support { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  .credits-support h3 { margin: 0; }
+  .credits-support a { grid-column: 1; grid-row: auto; justify-self: start; }
+  .credits-support small { margin: 0; }
+}
 .voice-play:focus-visible, .credits-section summary:focus-visible, .herald-archive summary:focus-visible { outline: 2px solid #e7c47c; outline-offset: 2px; }
 .herald-latest p { font-size: 14px; line-height: 1.6; margin-bottom: 12px; }
 .herald-latest h3 { line-height: 1.3; margin-bottom: 10px; }
