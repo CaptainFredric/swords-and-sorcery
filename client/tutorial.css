@@ -1,0 +1,32 @@
+/* Tutorial announcement: quiet Castleward heraldry; no fake playable tutorial. */
+.tutorial-entry { border-color: #9e7c44; }
+.tutorial-entry small { color: var(--heraldry-cream, #eadcb6); }
+.tutorial-notice {
+  box-sizing: border-box;
+  width: min(480px, calc(100vw - 36px));
+  max-height: calc(100vh - 36px);
+  max-height: calc(100dvh - 36px);
+  overflow: auto;
+  padding: clamp(20px, 4vw, 32px);
+  border: 1px solid #b18a4e;
+  outline: 5px solid #251c17;
+  background: linear-gradient(155deg, #33271f, #1e1916 77%);
+  color: #eadcb6;
+  box-shadow: 0 22px 70px #0009;
+  font: 500 17px/1.45 var(--font-script, sans-serif);
+}
+.tutorial-notice:not([open]) { display: none; }
+.tutorial-notice::backdrop { background: rgba(9, 7, 5, .78); }
+.tutorial-notice .eyebrow { color: #e5bd74; font: 800 11px/1.5 var(--font-script, sans-serif); letter-spacing: .2em; }
+.tutorial-notice h2 { margin: 12px 0 22px; font: 36px/1.05 var(--font-inscription, Georgia, serif); letter-spacing: .035em; color: #ffedc3; }
+.tutorial-exchange { border-left: 3px solid #bb995d; padding: 6px 0 6px 16px; margin: 0 0 20px; }
+.tutorial-exchange span, .tutorial-exchange strong { display: block; }
+.tutorial-exchange span { font-style: italic; }
+.tutorial-exchange strong { margin-top: 5px; color: #f4d391; font: 700 27px/1.3 var(--font-inscription, Georgia, serif); }
+.tutorial-notice p { margin: 12px 0; }
+.tutorial-notice .tutorial-note { color: #cfc0a1; font-size: 14px; }
+.tutorial-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; }
+.tutorial-actions button { flex: 1 1 170px; min-height: 44px; padding: 9px 12px; cursor: pointer; border: 1px solid #9a774a; background: #2b241c; color: #eedbb0; font: 700 15px var(--font-script, sans-serif); }
+.tutorial-actions .tutorial-practice { background: linear-gradient(#e6c77d, #a87e37); border-color: #eacb84; color: #2e2115; }
+.tutorial-actions button:focus-visible { outline: 2px solid #7cdbef; outline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) { .tutorial-notice { scroll-behavior: auto; } }
