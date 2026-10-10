@@ -143,19 +143,28 @@ function fakeTimers() {
   };
 }
 
-test('with the server there, everything goes to it, and every connection carries the Armory\'s spell', async () => {
+test('online solo stays local, carries the chosen arena and returns to the server for multiplayer', async () => {
   const remote = fakeRemote();
   const timers = fakeTimers();
-  const link = new GameLink({ remote, local: new LocalHost({ every: () => 1, cancel: () => {}, later: () => {} }), timers });
+  const local = new LocalHost({ every: () => 1, cancel: () => {}, later: (fn) => fn() });
+  const link = new GameLink({ remote, local, timers });
   const heard = [];
   link.on('connection', (payload) => heard.push(payload));
   assert.equal(await link.connect(), true);
   assert.equal(link.status, 'online');
   assert.deepEqual(heard, [{ connected: true }]);
+  link.loadout('frostfire', 'chivalry', ['frostfire', 'gale', 'steel']);
   link.startSolo('PRACTICE', 'Aden', 'ruined-keep');
-  assert.deepEqual(remote.calls.at(-1), ['startSolo', 'PRACTICE', 'Aden', 'ruined-keep']);
-  assert.equal(link.playingLocally, false);
+  assert.equal(link.playingLocally, true);
+  assert.equal(local.room.worldId, 'ruined-keep');
+  assert.equal(local.player.spell, 'frostfire');
+  assert.equal(local.player.ultimate, 'chivalry');
+  assert.deepEqual(local.player.preparedSpells, ['frostfire', 'gale', 'steel']);
+  assert.equal(remote.calls.some(c => c[0] === 'startSolo'), false);
+  link.leaveRoom();
+  link.seekDuel('Aden');
   assert.equal(link.playerId, 'remote-player');
+  assert.equal(local.room, null);
   assert.equal(link.serverNow(), 7);
 });
 
@@ -192,7 +201,71 @@ test('with the server gone, solo play runs in the browser, online play waits, an
   assert.equal(link.playingLocally, true, 'nobody is pulled out of the match');
   link.leaveRoom();
   link.startSolo('BOT_DUEL', 'Aden');
-  assert.deepEqual(remote.calls.at(-1), ['startSolo', 'BOT_DUEL', 'Aden', undefined]);
+  assert.equal(link.playingLocally, true);
+  assert.equal(local.room.mode, 'BOT_DUEL');
+});
+
+test('remote reconnect, stale room messages and profile updates cannot replace a local match', async () => {
+  const remote = fakeRemote();
+  const local = new LocalHost({ every: () => 1, cancel: () => {}, later: fn => fn() });
+  const link = new GameLink({ remote, local, timers: fakeTimers() });
+  await link.connect();
+  remote.emit('profile', { profile: { equipped: 'violet' } });
+  link.startSolo('BOT_DUEL', 'Aden', 'castleward', 'CHAMPION');
+  const room = local.room;
+  const received = [];
+  for (const type of ['joined','left','snapshot','events','connection','error']) link.on(type, message => received.push(message));
+  remote.emit('connection', { connected: false });
+  remote.emit('joined', { playerId: 'someone-else' });
+  remote.emit('snapshot', { roomCode: 'OLD', roomState: 'PLAYING' });
+  remote.emit('events', { events: [{ type: 'death' }] });
+  remote.emit('left', {});
+  remote.emit('error', { message: 'old room' });
+  remote.emit('connection', { connected: true });
+  assert.equal(local.room, room);
+  assert.equal(link.playingLocally, true);
+  assert.equal(local.player.cloth, 'violet');
+  assert.equal(received.length, 0);
+});
+
+test('queued bootstrap from an abandoned solo room cannot enter a restarted match', () => {
+  const { host, heard, flush } = handHost();
+  host.startSolo('PRACTICE', 'Old');
+  host.startSolo('BOT_DUEL', 'New');
+  const currentId = host.player.id;
+  flush();
+  assert.equal(heard.filter(m => m.type === 'joined').length, 1);
+  assert.equal(host.playerId, currentId);
+  assert.equal(heard.find(m => m.type === 'joined').payload.mode, 'BOT_DUEL');
+});
+
+test('local tick delivers detached facts immediately without a queued network-style delay', () => {
+  const { host, flush } = handHost();
+  host.startSolo('PRACTICE', 'Aden');
+  flush();
+  host.arenaReady(true);
+  flush();
+  host.tick(); // no delivery queue flush
+  assert.equal(host.latestSnapshot.tick, 1);
+  const snapshot = host.latestSnapshot;
+  const initial = snapshot.players[0].position.x;
+  host.player.position.x += 1;
+  assert.equal(snapshot.players[0].position.x, initial, 'the presentation history never aliases live simulation');
+  snapshot.players[0].velocity.x = 999;
+  assert.notEqual(host.player.velocity.x, 999, 'a consumer cannot edit authority');
+});
+
+test('leaving from a synchronous local event suppresses the abandoned room snapshot', () => {
+  const { host, flush } = handHost();
+  host.startSolo('PRACTICE', 'Aden');
+  flush();
+  host.arenaReady(true);
+  flush();
+  host.room.events.push({ type: 'testLeave' });
+  host.on('events', () => host.leaveRoom());
+  host.tick();
+  assert.equal(host.room, null);
+  assert.equal(host.latestSnapshot, null);
 });
 
 test('a server that is slow to answer is waking; one that never answers is given up on and retried', async () => {

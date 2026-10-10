@@ -13,7 +13,7 @@ test('preview leaves ownership and equipped state alone; actions follow balance 
   assert.equal(renownView(profile, 'azure', false).disabled, true);
   assert.equal(renownView({ ...profile, owned: ['crimson', 'azure'] }, 'azure', true).action, 'equip');
   assert.equal(rewardText({ lastReward: { matchId: 'old', amount: 30 } }, { rewardMatchId: 'new' }, false), 'Confirming your match reward…');
-  assert.match(rewardText({}, {}, true), /Offline/);
+  assert.match(rewardText({}, {}, true), /Solo training/);
 });
 
 test('dye isolates cloth, keeps shared armor untouched, and releases only its own materials', () => {

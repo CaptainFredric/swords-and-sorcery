@@ -1,0 +1,15 @@
+{
+  "browser": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36",
+  "dpr": 2,
+  "hosting": "local",
+  "physicalPointerLock": "unverified; automated request returned WrongDocumentError",
+  "pixelRatio": 1.6,
+  "remoteStatus": "online",
+  "shadows": true,
+  "viewport": [
+    714,
+    756
+  ],
+  "webgl": "WebGL 2.0 (OpenGL ES 3.0 Chromium)",
+  "zipRevision": "aad49e8+solo-local-working-tree"
+}

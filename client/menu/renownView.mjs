@@ -16,7 +16,7 @@ export function renownView(profile, preview, online) {
     disabled: !online || !profile || equipped || (!owned && remaining > 0) };
 }
 export function rewardText(profile, snapshot, local) {
-  if (local) return 'Offline training complete. Renown is earned in server hosted matches.';
+  if (local) return 'Solo training complete. Renown is earned in server hosted matches.';
   const reward = profile?.lastReward;
   if (!reward || !snapshot?.rewardMatchId || reward.matchId !== snapshot.rewardMatchId) return 'Confirming your match reward…';
   if (reward.amount > 0) {

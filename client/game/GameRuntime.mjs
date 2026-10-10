@@ -5,6 +5,7 @@ import { MOVEMENT, createMovementState, launchBody, movePlayer, resolveSprint, s
 import { separateLocal } from '../../shared/src/separation.mjs';
 import { segmentAabbHit, surfaceHeightAt } from '../../shared/src/collision.mjs';
 import { InputController } from './InputController.mjs';
+import { sendMovementInput } from './movementInput.mjs';
 import { TouchControls } from './TouchControls.mjs';
 import { RemotePlayers } from './RemotePlayers.mjs';
 import { WeaponView } from './WeaponView.mjs';
@@ -1788,6 +1789,8 @@ export class GameRuntime {
       // my own steps as the host takes them: bracing into an ultimate I move only a little (and do not jump); spinning
       // in a Vortex, at its pace, with its slow fall, no sprint and no crouch
       const wanted = this.input.movement();
+      // A browser-hosted match receives the current render frame's intent before its next combat tick.
+      if (this.socket.playingLocally) sendMovementInput(this.socket, { ...wanted, ...(this.chaseAim ? { pitch: this.chaseAim.pitch } : {}) }, nowMs, this);
       const bracing = ultimateStartup(this.localAuth, serverNow);
       const whirl = ultimateWhirl(this.localAuth, serverNow);
       // (staggered, or reeling from a Sundering blow, my feet are not my own for that moment: as the host has it)
@@ -1845,11 +1848,8 @@ export class GameRuntime {
         // both feet down at once, heavier the further he fell
         if (fallSpeed > 2.5) this.#footstep(null, this.localState.position, Math.min(1, fallSpeed / 10), FOOTSTEPS.landing);
       }
-      if (nowMs - this.lastInputSentAt >= 50) {
-        this.lastInputSentAt = nowMs;
-        // (with the view out behind me, the aim is from my own eyes to what the reticle is on: this.chaseAim)
-        this.socket.input({ seq: ++this.sequence, ...wanted, ...(this.chaseAim ? { pitch: this.chaseAim.pitch } : {}), clientTime: this.socket.serverNow() });
-      }
+      // With the view out behind me, the aim is from my own eyes to what the reticle is on.
+      if (!this.socket.playingLocally) sendMovementInput(this.socket, { ...wanted, ...(this.chaseAim ? { pitch: this.chaseAim.pitch } : {}) }, nowMs, this);
       // the weapon's procedural motion also returns small camera offsets (purely visual: aim uses input yaw/pitch)
       // Sheathed in Steel on my own arms: the server's word, or my own press while that word is on the way
       const steel = this.localAuth.steel;
