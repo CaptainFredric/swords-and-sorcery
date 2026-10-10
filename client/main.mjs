@@ -713,6 +713,14 @@ soloRival.addEventListener('click', (event) => {
   showSoloRival();
 });
 showSoloRival();
+// The authored duel tutorial is not yet playable. Keep the menu honest until its VO and choreography are ready.
+const tutorialNotice = $('#tutorial-notice');
+$('#tutorial-mode').addEventListener('click', () => { showMenuError(''); tutorialNotice.showModal(); });
+$('#tutorial-close').addEventListener('click', () => tutorialNotice.close());
+$('#tutorial-practice').addEventListener('click', () => {
+  tutorialNotice.close();
+  runMenuAction(menuController.practice(nameInput.value), SCREEN_IDS.SOLO_MENU);
+});
 $('#bot-duel').addEventListener('click', () => runMenuAction(menuController.botDuel(nameInput.value), SCREEN_IDS.SOLO_MENU));
 $('#inspection-mode').addEventListener('click', () => runMenuAction(menuController.inspectionPractice(nameInput.value), SCREEN_IDS.SOLO_MENU));
 $('#practice-mode').addEventListener('click', () => runMenuAction(menuController.practice(nameInput.value), SCREEN_IDS.SOLO_MENU));
@@ -967,6 +975,7 @@ document.addEventListener('click', (event) => {
 }, { capture: true });
 document.addEventListener('keydown', event => {
   if (event.key !== 'Escape' || event.repeat) return;
+  if (tutorialNotice.open) { event.preventDefault(); tutorialNotice.close(); return; }
   if (creditsPanel.isOpen) {
     creditsPanel.close();
     return;

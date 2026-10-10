@@ -18,6 +18,7 @@
   <link rel="stylesheet" href="client/styles.css" />
   <link rel="stylesheet" href="client/playability.css" />
   <link rel="stylesheet" href="client/menu.css" />
+  <link rel="stylesheet" href="client/tutorial.css" />
   <link rel="stylesheet" href="client/mobile.css" />
   <link rel="stylesheet" href="client/renown.css" />
   <link rel="stylesheet" href="client/ui/preparedSpells.css" />
@@ -179,6 +180,10 @@
         <button id="practice-mode" class="mode-choice">
           <span>PRACTICE YARD</span>
           <small>Untimed training with configurable dummies</small>
+        </button>
+        <button id="tutorial-mode" class="mode-choice tutorial-entry" type="button">
+          <span>TUTORIAL</span>
+          <small>IN DEVELOPMENT · A LESSON IS BEING PREPARED</small>
         </button>
         <button id="inspection-mode" class="mode-choice">
           <span>INSPECTION YARD</span>
@@ -388,6 +393,18 @@
         <small class="seek-hint">ESC FOR OPTIONS</small>
       </div>
     </section>
+
+    <dialog id="tutorial-notice" class="tutorial-notice" aria-labelledby="tutorial-title" aria-describedby="tutorial-description">
+      <p class="eyebrow">CASTLEWARD · LESSONS</p>
+      <h2 id="tutorial-title">THE TUTORIAL</h2>
+      <p class="tutorial-exchange"><span>Is this a joke?</span><strong>Technically.</strong></p>
+      <p id="tutorial-description">The tutorial is still in progress. Coming shortly.</p>
+      <p class="tutorial-note">In the meantime, the Practice Yard is open. It even has opponents who fight back.</p>
+      <div class="tutorial-actions">
+        <button id="tutorial-practice" class="tutorial-practice" type="button">ENTER PRACTICE YARD</button>
+        <button id="tutorial-close" type="button">RETURN TO SOLO</button>
+      </div>
+    </dialog>
 
     <section id="end-screen" class="end-screen hidden">
       <div class="end-medallion">⚔</div>
