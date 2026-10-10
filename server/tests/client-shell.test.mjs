@@ -6,12 +6,17 @@ async function read(path) {
   return readFile(new URL(`../../${path}`, import.meta.url), 'utf8');
 }
 
-test('the client wears its own icon: a sword and a fireball crossed behind a knight\'s great helm', async () => {
+test('browser and installed app portrait icons exist at their declared PNG sizes', async () => {
   const html = await read('client/index.html');
-  assert.match(html, /<link\s+rel=["']icon["']\s+href=["']client\/assets\/icons\/icon\.svg["']\s+type=["']image\/svg\+xml["']/i);
-  assert.match(html, /<link\s+rel=["']icon["']\s+href=["']client\/assets\/icons\/icon-32\.png["']/i);
-  const svg = await read('client/assets/icons/icon.svg');
-  assert.match(svg, /the sword[\s\S]*the fireball[\s\S]*the great helm/);
+  assert.match(html, /<link\s+rel=["']icon["']\s+href=["']client\/assets\/icons\/portrait-32\.png["']/i);
+  const manifest = JSON.parse(await read('client/manifest.webmanifest'));
+  const icons = [{ src: 'assets/icons/portrait-32.png', sizes: '32x32' },
+    { src: 'assets/icons/portrait-180.png', sizes: '180x180' }, ...manifest.icons];
+  for (const icon of icons) {
+    const png = await readFile(new URL(`../../client/${icon.src}`, import.meta.url));
+    assert.deepEqual([...png.subarray(0, 8)], [137, 80, 78, 71, 13, 10, 26, 10]);
+    assert.equal(`${png.readUInt32BE(16)}x${png.readUInt32BE(20)}`, icon.sizes, icon.src);
+  }
 });
 
 test('main menu exposes multiplayer, solo and private flows without presenting a web-dashboard card stack', async () => {
