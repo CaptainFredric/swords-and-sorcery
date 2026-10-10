@@ -1,7 +1,5 @@
-// Who the client plays through: the game server when it can be reached, the browser itself (LocalHost) when it
-// cannot. The website never depends on the server: it loads from its own static host, asks the server whether it
-// is there, and meanwhile the Practice Yard and Bot Duel are always open. Everything online (Seek a Duel, rooms)
-// waits for the server, which is tried again in the background until it answers.
+// Solo always uses the browser's shared authoritative simulation. Multiplayer uses the game server.
+// The server connection stays available in the background for profiles and the next multiplayer match.
 //
 //   connecting  just asked
 //   waking      no answer yet after a moment: probably asleep (a free server naps when nobody plays)
@@ -89,6 +87,7 @@ export class GameLink {
 
   #fromRemote(type, payload) {
     if (type === 'connection') this.#setStatus(payload.connected ? 'online' : 'offline');
+    if (type === 'profile') this.local.setProfileCloth(payload.profile?.equipped);
     if (this.hosting === 'remote' || type === 'profile' || type === 'profileError') this.#emit(type, payload);
   }
 
@@ -158,15 +157,11 @@ export class GameLink {
     }
   }
 
-  /** A solo mode: on the server when it is there, otherwise here. */
+  /** Solo has its own host regardless of the multiplayer connection's availability. */
   startSolo(mode, name, worldId, botSkill) {
     // (how well a Bot Duel's rival plays, when it was chosen)
     const args = [mode, name, worldId, ...(botSkill ? [botSkill] : [])];
-    if (this.status === 'online') {
-      this.hosting = 'remote';
-      this.remote.startSolo(...args);
-      return;
-    }
+    if (this.hosting === 'remote' && this.remote.roomCode) this.remote.leaveRoom();
     this.hosting = 'local';
     this.local.startSolo(...args);
   }
@@ -174,6 +169,7 @@ export class GameLink {
   // online play needs the server; without it, Seek a Duel offers the honest next best thing: a bot, here
   #online(method, args) {
     if (this.status === 'online') {
+      if (this.hosting === 'local') this.local.leaveRoom();
       this.hosting = 'remote';
       this.remote[method](...args);
       return;

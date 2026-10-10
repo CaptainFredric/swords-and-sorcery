@@ -1,0 +1,22 @@
+[
+  {
+    "path": "shared/sim/combat.mjs",
+    "matches_main": true,
+    "remote_sha256": "3f5db2f426a26b90c89e108008280cd1bf487ddf87e1d05ba9c4dd7ba46b132f"
+  },
+  {
+    "path": "shared/sim/practice.mjs",
+    "matches_main": true,
+    "remote_sha256": "2b9e4b0c5c97dfbea32e9993d90d4b94ec70f9d1f3009d136bfd538526077fd1"
+  },
+  {
+    "path": "shared/src/movement.mjs",
+    "matches_main": true,
+    "remote_sha256": "730af94959b0edd4c1afa25f5cdb5023498a8d162f7733b232dc1aa6f5d89d7b"
+  },
+  {
+    "path": "shared/sim/wire.mjs",
+    "matches_main": true,
+    "remote_sha256": "b1f3ed38a9afe9e7c5a232f6c64e1574989fb97772141a68554a1a6073ea7de1"
+  }
+]

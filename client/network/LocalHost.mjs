@@ -1,5 +1,4 @@
-// The browser as its own host: when the game server cannot be reached (asleep, restarting, gone for the month), the
-// Practice Yard and Bot Duel run right here, on the same simulation the server runs (shared/sim), a room with you,
+// The browser hosts Practice Yard and Bot Duel on the same simulation the server runs (shared/sim), a room with you,
 // its bots and its dummies. It speaks exactly like GameSocket (the same messages, the same methods), so the rest of
 // the client plays it without knowing the difference. Nothing online lives here: no rooms to join, no matchmaking.
 
@@ -12,6 +11,7 @@ import { DEFAULT_SPELL, isSpell } from '../../shared/src/spells.mjs';
 import { GAME_MODES, arenaOrDefault } from '../../shared/src/modes.mjs';
 import { normalizePreparedSpells, DEFAULT_PREPARED_SPELLS } from '../../shared/src/preparedSpells.mjs';
 import { DEFAULT_ULTIMATE, isUltimate } from '../../shared/src/ultimates.mjs';
+import { clothChoice } from '../../shared/src/cosmetics.mjs';
 
 const TICK_RATE = 30;
 const SOLO_MODES = new Set([GAME_MODES.BOT_DUEL, GAME_MODES.PRACTICE]);
@@ -47,6 +47,8 @@ export class LocalHost {
     this.snapshotReceivedAt = 0;
     this.pingMs = 0;
     this.local = true;
+    this.generation = 0;
+    this.cloth = 'crimson';
   }
 
   on(type, handler) {
@@ -60,10 +62,13 @@ export class LocalHost {
     for (const handler of this.handlers.get('*') ?? []) handler({ type, payload });
   }
 
-  // as if it came over the wire: a moment later, in order, and never sharing objects with the simulation
-  #deliver(message) {
+  // Bootstrap remains queued so listeners can finish setup. Tick facts need no transport delay.
+  // Both paths detach their data: interpolation history and consumers never share live authority.
+  #deliver(message, immediate = false) {
     const copy = structuredClone(message);
-    this.later(() => this.#receive(copy));
+    const generation = this.generation;
+    if (immediate) this.#receive(copy);
+    else this.later(() => { if (generation === this.generation) this.#receive(copy); });
   }
 
   #receive(message) {
@@ -99,6 +104,7 @@ export class LocalHost {
     const time = this.now();
     const room = this.rooms.createSoloRoom(mode, time, arenaOrDefault(worldId));
     const player = room.addPlayer({ id: randomId(), token: randomId(), name: String(name || 'Spellblade').slice(0, 18), spell: this.spell, ultimate: this.ultimateId, preparedSpells: this.preparedSpells }, time);
+    player.cloth = this.cloth;
     room.setBotSkill(botSkill);
     room.provisionModeActors(time);
     room.armAutoStart(time);
@@ -121,11 +127,12 @@ export class LocalHost {
     stepPracticeActors(room, time, room.world);
     stepRoom(room, 1 / TICK_RATE, time, room.world);
     const events = room.events.splice(0);
-    if (events.length) this.#deliver({ type: 'events', events });
-    this.#deliver(serializeSnapshot(room, time));
+    if (events.length) this.#deliver({ type: 'events', events }, true);
+    if (this.room === room) this.#deliver(serializeSnapshot(room, time), true);
   }
 
   #stop() {
+    this.generation += 1;
     if (this.timer !== null) this.cancel(this.timer);
     this.timer = null;
     if (this.room) this.rooms.rooms.delete(this.room.code);
@@ -165,6 +172,12 @@ export class LocalHost {
       player.ultimate = this.ultimateId;
       player.spellReadyAt = player.spellReadyById?.[this.spell] ?? -Infinity;
     }
+  }
+
+  // Carry the server-confirmed cosmetic into solo without granting currency or reward authority locally.
+  setProfileCloth(cloth) {
+    this.cloth = clothChoice(cloth).id;
+    if (this.player) this.player.cloth = this.cloth;
   }
 
   send(message) { this.#command(message); }
