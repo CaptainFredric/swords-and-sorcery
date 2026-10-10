@@ -19,7 +19,7 @@ The optional frolic exchange is separate from the main progression. It can appea
 
 ## Genuine movement and control protection
 
-`TutorialMovementCues` reads ordered local snapshots. It remembers genuine actions performed during dialogue rather than forcing players to repeat them later. Current gates use aim changes, four metres of approach progress, real forward sprint movement, a five point stamina decrease, actual exhaustion, the existing 25 point sprint recovery threshold, and proximity within 3.4 metres. Teleport/death discontinuities do not count as walking. The frolic threshold requires 35 metres of travel and at least six metres farther from Rival than the starting distance.
+`TutorialMovementCues` reads ordered local snapshots. It remembers genuine actions performed during dialogue rather than forcing players to repeat them later. Current gates use aim changes, four metres of approach progress, real forward sprint movement, a five point stamina decrease, actual exhaustion, the existing 25 point sprint recovery threshold, and current proximity within 3.4 metres. Passing Rival during earlier dialogue does not allow a later distant conversation. Teleport/death discontinuities do not count as walking. The frolic threshold requires 35 metres of travel and at least six metres farther from Rival than the starting distance.
 
 All stamina comes from the normal `guardStamina` and `sprinting` fields. Sprint remains 11 m/s, costs 10 stamina/s and uses the existing combat implementation. Narration advances with explicit Continue or Enter while recordings are missing. Action gates never depend on an invented narration timer.
 

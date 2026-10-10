@@ -31,3 +31,19 @@ test('early genuine actions are remembered across narration; death or respawn ca
  assert.equal(cues.facts.has('sprint-started'),false);
  assert.throws(()=>new TutorialMovementCues(director,{playerId:'you',rivalId:'rival'}),/local/);
 });
+
+test('passing Rival during earlier dialogue cannot start a later distant conversation',()=>{
+ const director=new TutorialDirector({beats:[
+  {id:'talk',kind:'dialogue',line:'Talk',advanceOn:'continue'},
+  {id:'meet',kind:'prompt',line:'Approach',advanceOn:'rival-reached'},
+ ]});director.start();
+ const cues=new TutorialMovementCues(director,{local:true,playerId:'you',rivalId:'rival'});
+ const send=x=>cues.snapshot({players:[
+  {id:'you',alive:true,position:{x,y:0,z:0},yaw:0,pitch:0,guardStamina:100,sprinting:false},
+  {id:'rival',alive:true,position:{x:20,y:0,z:0}},
+ ]});
+ for(let x=0;x<=18;x++)send(x);
+ for(let x=17;x>=10;x--)send(x);
+ director.completeDialogue(director.cue);send(10);assert.equal(director.current.id,'meet');
+ for(let x=11;x<=18;x++)send(x);assert.equal(director.state,'complete');
+});

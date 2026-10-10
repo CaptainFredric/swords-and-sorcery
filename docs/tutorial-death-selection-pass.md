@@ -31,8 +31,8 @@ Damage, hit windows, durations, movement speed, stamina costs, Guard rules, bot 
 
 ## Verification
 
-Final focused suite: 101 passing tests, including real two client Chivalry broadcast.
-Full `npm run verify`: 1,158 passing game tests, 4 passing HTML5 export tests, syntax validation of 373 modules and HTTP/WebSocket smoke pass.
+Final focused suite: 102 passing tests, including real two client Chivalry broadcast.
+Full `npm run verify`: 1,159 passing game tests, 4 passing HTML5 export tests, syntax validation of 373 modules and HTTP/WebSocket smoke pass.
 
 The actual itch.io iframe and hardware touch remain release checks after approval. No game publication, deployment or main merge was performed.
 

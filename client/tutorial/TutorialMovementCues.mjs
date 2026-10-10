@@ -40,7 +40,9 @@ export class TutorialMovementCues {
     if (this.sprinted && player.guardStamina <= 1e-6) this.exhausted = true;
     if (this.exhausted && !player.sprinting) this.facts.add('player-winded');
     if (this.exhausted && !player.sprinting && player.guardStamina >= SPRINT.restartStamina) this.facts.add('stamina-recovered');
+    // Conversation requires proximity now, not a remembered pass during earlier narration.
     if (remaining <= 3.4 && Math.abs(player.position.y - rival.position.y) <= 2) this.facts.add('rival-reached');
+    else this.facts.delete('rival-reached');
     if (this.director.current?.chapter === 'approach' && this.travel >= 35 && remaining > this.start.distance + 6) this.director.offerBranch('frolic');
     const cue = this.director.current?.advanceOn;
     if (this.facts.has(cue)) this.director.accept(cue);
