@@ -15,7 +15,7 @@ test('the page is set up for phones: safe-area viewport, home-screen app, landsc
   assert.match(html, /name=["']viewport["'][^>]*viewport-fit=cover/);
   // page-relative, so the same page works at the server's root and from a sub-path (GitHub Pages)
   assert.match(html, /rel=["']manifest["']\s+href=["']client\/manifest\.webmanifest["']/);
-  assert.match(html, /rel=["']apple-touch-icon["']\s+href=["']client\/assets\/icons\/icon-180\.png["']/);
+  assert.match(html, /rel=["']apple-touch-icon["']\s+href=["']client\/assets\/icons\/portrait-180\.png["']/);
   assert.match(html, /href=["']client\/mobile\.css["']/);
   const manifest = JSON.parse(await read('client/manifest.webmanifest'));
   assert.equal(manifest.orientation, 'landscape');
