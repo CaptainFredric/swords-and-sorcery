@@ -8,7 +8,9 @@
     "check": "node scripts/check-syntax.mjs",
     "start": "node server/src/server.mjs",
     "dev": "node server/src/server.mjs",
-    "verify": "npm run check && npm test && npm run smoke",
+    "verify": "npm run check && npm test && npm run test:html5 && npm run smoke",
+    "test:html5": "node --test scripts/export-html5.test.mjs",
+    "export:html5": "node scripts/export-html5.mjs",
     "smoke": "node scripts/smoke.mjs",
     "voice": "node tools/audio/voice-ingest.mjs"
   },

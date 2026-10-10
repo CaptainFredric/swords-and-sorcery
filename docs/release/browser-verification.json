@@ -1,0 +1,29 @@
+{
+  "observedDate": "2026-10-09",
+  "timezone": "America/Chicago",
+  "testedRuntimeRevision": "b8f08a8a4ad101eabb13233bc4a22d29b6392cc6",
+  "environment": "Chrome on the creator's unlocked Mac; exported static clients on separate localhost origins connected to the authoritative Render server",
+  "server": "wss://swords-and-sorcery.onrender.com/ws",
+  "checks": {
+    "nativePointerCapture": { "passed": true, "pointerLocked": true, "controllerEnabled": true },
+    "nativeMovement": { "passed": true, "authoritativePositionChanged": true, "connected": true },
+    "nativeGuard": { "passed": true, "samples": 45, "guardObserved": true, "guardReleasedAfterKeyUp": true },
+    "nativeSword": { "passed": true, "samples": 48, "attackObserved": true, "strikeIndicesObserved": [0, 1] },
+    "nativeFireball": { "passed": true, "samples": 60, "gatherObserved": true, "ownedProjectilesObserved": 1, "cooldownStarted": true },
+    "escape": { "passed": true, "pointerReleased": true, "privateMatchArenaMenuObserved": true, "practiceToolsObserved": true },
+    "audioActivation": { "passed": true, "contextState": "running", "originalSorcerySubtitleObserved": true, "acousticMixAssessment": "Creator listening required" },
+    "browserFullscreenExitResize": { "passed": true, "beforeViewport": [714, 756], "afterViewport": [1180, 557], "afterCanvas": [1888, 891], "worldError": null },
+    "practiceTransportReconnect": { "passed": true, "method": "Close the actual WebSocket and observe the existing automatic reconnect", "observationSeconds": 2.3, "newSocket": true, "readyState": 1, "sameRoom": true, "samePlayer": true, "phase": "PLAYING" },
+    "practiceReload": { "passed": true, "sameRoom": true, "samePlayer": true, "connected": true, "phase": "PLAYING" },
+    "privateTransportReconnect": { "passed": true, "observationSeconds": 2.3, "newSocket": true, "readyState": 1, "sameRoom": true, "samePlayer": true, "connectedPlayers": 2, "phase": "PLAYING" },
+    "privateReload": { "passed": true, "sameRoom": true, "samePlayer": true, "connectedDistinctPlayers": 2, "phase": "PLAYING" }
+  },
+  "limitations": [
+    "Actual itch iframe launch remains untested; email verification blocked the last ZIP upload attempt.",
+    "A brief gracefully closed WebSocket establishes transport recovery; extended outages are outside this observation.",
+    "Browser fullscreen exit establishes native resize behavior; itch embedded fullscreen must be tested after upload.",
+    "Physical mobile and touch controls, storage denial and the broader browser/device matrix remain pending.",
+    "Early pointer attempts targeted a background Chrome window. Browser reattachment and native accessibility also failed intermittently. Raising the actual game window resolved native pointer input; no game input code changed.",
+    "No persistent instrumentation, key binding, simulation alteration or gameplay source change was left by these checks."
+  ]
+}
