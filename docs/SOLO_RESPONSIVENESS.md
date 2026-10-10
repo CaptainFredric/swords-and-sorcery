@@ -77,6 +77,8 @@ The current evidence does not show simulation saturating the main thread. A Work
 
 Offline Practice was entered through ordinary menu buttons, configured with a responding dummy, reset and left. Offline Bot Duel was restarted into a new room, advanced through its existing countdown, ran with a responding rival, and returned to the menu. LocalHost was empty afterward.
 
+These offline checks used an already loaded client with its game server connection closed. Cold loading uncached game assets without Internet access was outside this pass.
+
 Bot Duel arena readiness was supplied through the existing authoritative `arenaReady(true)` command because physical Pointer Lock could not be verified in this browser control session. This is a test harness action, not an application workaround.
 
 After solo, the browser reconnected to the local game server, created a private multiplayer room through the menu, and a second real WebSocket client joined. The room reached `PLAYING` with two players, acknowledged a valid movement input sequence, and kept LocalHost empty. Existing server combat tests cover damage, counters, spells and authoritative rules.
