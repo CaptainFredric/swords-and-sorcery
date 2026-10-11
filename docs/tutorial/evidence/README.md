@@ -12,7 +12,10 @@ These captures document development testing. They are not promotional screenshot
 | corpse-regression.json | Actual authored Death clip sampled at its 1.2 second settled end, still visible over 170 seconds after death. |
 | touch-look.png | Actual compact touch entry and device specific LOOK instruction at 667 × 375. |
 | touch-early-feedback.png | Early touch Fireball rejection while Rival remains healthy. |
-| html5-iframe.png | Exported HTML5 assets and local tutorial rendering inside a sandboxed local iframe. Physical Pointer Lock remains pending. |
+| html5-iframe.png | Exported HTML5 assets and local tutorial rendering inside a sandboxed local iframe. Local Pointer Lock and native keyboard input passed in the follow up check. |
+| html5-native-input.json | Native window focus, capture, held W movement, Escape, recapture and Return to Solo. Relative mouse motion used the trusted browser protocol because native automation drag emitted zero deltas. |
+| html5-native-input.png | Actual exported tutorial after the real LOOK cue and keyboard movement. |
+| first-visit-choice.png | Actual optional first visit invitation on a normal exported landing. Skip Tutorial then permitted Bot Duel pointer capture. |
 | destination-preview.png | Static production world renderer preview of the complaint destination, not a live combat screenshot. |
 
 ## Reproduce the real input run

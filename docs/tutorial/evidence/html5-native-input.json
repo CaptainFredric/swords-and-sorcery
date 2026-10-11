@@ -1,0 +1,59 @@
+{
+  "buildRevision": "28030f5d8c1dd1c64abcd104d6b8449ce01cc5c3",
+  "url": "http://127.0.0.1:3168/frame.html",
+  "environment": "Chrome on macOS; local exported HTML5 build in sandboxed iframe; window raised through native accessibility API",
+  "captureBefore": {
+    "beat": "look-prompt",
+    "enabled": true,
+    "locked": true,
+    "pitch": 0,
+    "position": {
+      "x": 0,
+      "y": 0,
+      "z": 120
+    },
+    "yaw": 0
+  },
+  "lookAfterProtocolMouse": {
+    "yaw": -1.8988,
+    "beatAtInitialMotion": "look-prompt",
+    "beatAfterSustainedMotion": "look-ah",
+    "source": "trusted browser mouseMoved protocol events; observed real snapshot progression"
+  },
+  "keyboard": {
+    "before": {
+      "beat": "look-ah",
+      "enabled": true,
+      "locked": true,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": 120
+      }
+    },
+    "after": {
+      "beat": "look-ah",
+      "enabled": true,
+      "locked": true,
+      "position": {
+        "x": 1.714575104535,
+        "y": 0,
+        "z": 125.4884180062116
+      }
+    }
+  },
+  "escape": {
+    "enabled": false,
+    "locked": false
+  },
+  "recapture": {
+    "beat": "look-ah",
+    "enabled": true,
+    "locked": true
+  },
+  "limitations": [
+    "Native drag emitted movementX/movementY zero; relative mouse turning exercised with trusted browser protocol input instead.",
+    "Actual itch.io host and physical touch remain unverified."
+  ],
+  "returnToSolo": true
+}

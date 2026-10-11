@@ -54,7 +54,7 @@ Current evidence is saved under `output/tutorial-one/refined/`. Selected capture
 
 ## Desktop and touch
 
-Desktop Continue and Restart were exercised through actual UI buttons. The full rendered route used the input harness because native physical mouse dragging was unavailable. Pointer capture itself had succeeded in an earlier desktop check; a complete physical mouse/keyboard playthrough remains pending.
+Desktop Continue and Restart were exercised through actual UI buttons. The exported HTML5 tutorial was then checked inside a local sandboxed iframe with Chrome raised to the foreground: Pointer Lock, native held W movement, Escape release, native canvas recapture and Return to Solo all succeeded. The 800 ms W check moved the ordinary player about 5.75 m. Native automation drag reported zero relative movement; trusted browser mouse protocol events exercised turning and advanced the real LOOK cue instead. The complete rendered route used the input harness, so a complete human mouse/keyboard playthrough remains pending.
 
 Touch emulation at 667 × 375 verified device specific prompts, Continue activating on screen controls, and an early Fireball tap producing truthful unavailable feedback with Rival still at 100 HP. A bridge checkpoint advanced through real movement/Dash using the same input harness. This verifies device UI integration rather than thumb proficiency.
 
@@ -93,7 +93,7 @@ The [published official rules](https://go.joinhandshake.com/rs/390-ZTF-353/image
 
 | Dimension | Strongest aspect | Remaining weakness |
 | --- | --- | --- |
-| Execution | Genuine local combat and movement drive a complete playable route, with checkpoints and preserved multiplayer access. | Physical touch, iframe behavior and complete human control testing remain pending. |
+| Execution | Genuine local combat and movement drive a complete playable route, with checkpoints and preserved multiplayer access. | Physical touch, actual itch.io hosting and complete human control testing remain pending. Local sandboxed iframe capture and native keyboard input passed. |
 | Creativity | Authored comedy becomes gameplay: the stamina boast, surprise postscript, running argument and final title exchange. | The opening's caption rehearsal has less personality than the eventual performed VO and choreography. |
 | Usefulness / Value | New players practice real skills under increasing pressure, while experienced players can enter multiplayer immediately. | One unfamiliar player's first encounter has yet to establish actual teaching effectiveness and difficulty. |
 | Polish & Thoughtfulness | Continuous later play, truthful cooldowns, early action feedback, current bindings, first miss handling and checkpoint recovery. | Compact fullscreen fit and authored unsheathing need further presentation work. |
@@ -124,7 +124,9 @@ Backward Fireball aiming now uses the correct vertical sign toward the pursuing 
 
 The final `npm run verify` passed: syntax checks, all 1,232 repository tests, four HTML5 export tests and the HTTP/WebSocket smoke check. The focused final regressions passed 35 tests. The ordinary simulation playthrough covers the complete route, genuine first Fireball miss and omission of the optional final exchange. Input, world geometry, scene compilation and checkpoint tests cover the surrounding contracts.
 
-The HTML5 export contains 530 files, 22.71 MB zipped and 29.45 MB extracted; `unzip -t` passed. A local sandboxed iframe loaded WebGL, production models and the local Greener Pastures session through actual menu controls. Chrome reported WrongDocumentError for Pointer Lock while the Mac was locked; physical focus/input verification remains pending. This local frame is not a claim that the actual itch.io iframe is verified.
+The HTML5 export contains 530 files, 22.71 MB zipped and 29.45 MB extracted; `unzip -t` passed. A local sandboxed iframe loaded WebGL, production models and the local Greener Pastures session through actual menu controls. The initial WrongDocumentError persisted after unlocking until the actual Chrome game window was raised. Capture then succeeded both in top level Practice and inside the sandboxed tutorial iframe. Native keyboard movement, Escape, recapture and Return to Solo passed; browser protocol mouse movement advanced LOOK. Native automated drag produced zero relative movement, so physical mouse motion remains a human test. This local frame is not a claim that the actual itch.io iframe is verified.
+
+The GitHub Chrome capture initially timed out at Bot Duel Pointer Lock because its synthetic menu clicks bypassed the new first visit invitation. The capture script now waits for the loading veil, captures the invitation and chooses Skip Tutorial through its visible button before proceeding. A normal exported landing reproduced the invitation, saved the skip choice and successfully captured the pointer through Start Bot Duel. The complete CI capture result is recorded below when available.
 
 The final corpse checkpoint replay killed Rival through four ordinary 30 damage sword contacts. His actual Death clip remained visible and sampled its settled 1.2 second end more than 170 seconds after the kill. A fresh compact touch replay again verified Continue, LOOK, ordinary controls and early Fireball rejection.
 
@@ -212,3 +214,14 @@ shared/src/modes.mjs
 shared/worlds/greenerPastures.mjs
 shared/worlds/registry.mjs
 ```
+
+## Desktop input follow up files
+
+```text
+scripts/capture-public-arena.mjs
+docs/tutorial/evidence/html5-native-input.json
+docs/tutorial/evidence/html5-native-input.png
+docs/tutorial/evidence/first-visit-choice.png
+```
+
+The report and evidence index were updated alongside these files. This follow up changes validation and documentation; game code and combat behavior remain as tested in 28030f5.
