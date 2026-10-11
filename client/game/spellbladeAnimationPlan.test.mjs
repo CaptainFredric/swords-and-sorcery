@@ -81,6 +81,15 @@ test('death derives clip progress from the authoritative respawn deadline', () =
   assert.equal(plan.loop, false);
 });
 
+test('an indefinitely retained corpse advances Death from its actual death time, without looping or resetting', () => {
+  const player = {alive:false,deathAt:30,respawnAt:null};
+  for (const serverNow of [30.45,33,45]) {
+    const plan = resolveSpellbladeAnimationPlan({state:'dead',player,serverNow});
+    assert.equal(plan.clip,'Death'); close(plan.time,serverNow-30); assert.equal(plan.loop,false);
+  }
+  assert.equal(resolveSpellbladeAnimationPlan({state:'idle',player:{...player,alive:true},serverNow:46}).clip,'Idle');
+});
+
 test('guard loops its breathing hold section on the local clock', () => {
   const at = (localTime) => resolveSpellbladeAnimationPlan({ state: 'guard', player: {}, serverNow: 1, localTime });
   const guard = at(4.25);

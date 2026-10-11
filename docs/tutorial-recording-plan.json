@@ -5,7 +5,11 @@
     "speaker": "narrator",
     "text": "Greetings, Spellblade. You are a knight. And a mage. A master of swords and... wizardry.",
     "sourceFile": "tutorial.greeting.wav",
-    "fileBase": "narrator/tutorial.greeting-1"
+    "fileBase": "narrator/tutorial.greeting-1",
+    "chapter": "spellblade",
+    "segment": "greener-introduction",
+    "presentation": "blocking",
+    "optionalBranch": null
   },
   {
     "key": "tutorial.exemplary",
@@ -13,7 +17,11 @@
     "speaker": "spellblade",
     "text": "That is quite exemplary of me! If I do say so myself.",
     "sourceFile": "tutorial.exemplary.wav",
-    "fileBase": "spellblade/tutorial.exemplary-1"
+    "fileBase": "spellblade/tutorial.exemplary-1",
+    "chapter": "spellblade",
+    "segment": "greener-introduction",
+    "presentation": "blocking",
+    "optionalBranch": null
   },
   {
     "key": "tutorial.you-did",
@@ -21,7 +29,95 @@
     "speaker": "narrator",
     "text": "You did.",
     "sourceFile": "tutorial.you-did.wav",
-    "fileBase": "narrator/tutorial.you-did-1"
+    "fileBase": "narrator/tutorial.you-did-1",
+    "chapter": "spellblade",
+    "segment": "greener-introduction",
+    "presentation": "blocking",
+    "optionalBranch": null
+  },
+  {
+    "key": "tutorial.greener-pastures",
+    "beatId": "greener-pastures",
+    "speaker": "narrator",
+    "text": "This is Greener Pastures, a land fertile of hope and opportunity.",
+    "sourceFile": "tutorial.greener-pastures.wav",
+    "fileBase": "narrator/tutorial.greener-pastures-1",
+    "chapter": "spellblade",
+    "segment": "greener-introduction",
+    "presentation": "blocking",
+    "optionalBranch": null
+  },
+  {
+    "key": "tutorial.much-to-do",
+    "beatId": "much-to-do",
+    "speaker": "spellblade",
+    "text": "Yes... there is...much to do here..",
+    "sourceFile": "tutorial.much-to-do.wav",
+    "fileBase": "spellblade/tutorial.much-to-do-1",
+    "chapter": "spellblade",
+    "segment": "greener-introduction",
+    "presentation": "blocking",
+    "optionalBranch": null
+  },
+  {
+    "key": "tutorial.need-look-around",
+    "beatId": "need-look-around",
+    "speaker": "narrator",
+    "text": "You need to look around",
+    "sourceFile": "tutorial.need-look-around.wav",
+    "fileBase": "narrator/tutorial.need-look-around-1",
+    "chapter": "spellblade",
+    "segment": "greener-introduction",
+    "presentation": "blocking",
+    "optionalBranch": null
+  },
+  {
+    "key": "tutorial.nothing-of-value",
+    "beatId": "nothing-of-value",
+    "speaker": "spellblade",
+    "text": "I have. I see nothing of value",
+    "sourceFile": "tutorial.nothing-of-value.wav",
+    "fileBase": "spellblade/tutorial.nothing-of-value-1",
+    "chapter": "spellblade",
+    "segment": "greener-introduction",
+    "presentation": "blocking",
+    "optionalBranch": null
+  },
+  {
+    "key": "tutorial.truly-look-around",
+    "beatId": "truly-look-around",
+    "speaker": "narrator",
+    "text": "No. Truly look around.",
+    "sourceFile": "tutorial.truly-look-around.wav",
+    "fileBase": "narrator/tutorial.truly-look-around-1",
+    "chapter": "spellblade",
+    "segment": "greener-introduction",
+    "presentation": "blocking",
+    "optionalBranch": null
+  },
+  {
+    "key": "tutorial.look-ah",
+    "beatId": "look-ah",
+    "speaker": "spellblade",
+    "text": "Ah...",
+    "sourceFile": "tutorial.look-ah.wav",
+    "fileBase": "spellblade/tutorial.look-ah-1",
+    "chapter": "spellblade",
+    "segment": "meaningful-look",
+    "presentation": "blocking",
+    "optionalBranch": null
+  },
+  {
+    "key": "tutorial.still-nothing",
+    "beatId": "still-nothing",
+    "speaker": "spellblade",
+    "text": "Still nothing",
+    "sourceFile": "tutorial.still-nothing.wav",
+    "fileBase": "spellblade/tutorial.still-nothing-1",
+    "chapter": "spellblade",
+    "segment": "meaningful-look",
+    "presentation": "blocking",
+    "optionalBranch": null
   },
   {
     "key": "tutorial.another-like-you",
@@ -29,7 +125,11 @@
     "speaker": "narrator",
     "text": "Oh look! There is another just like you!",
     "sourceFile": "tutorial.another-like-you.wav",
-    "fileBase": "narrator/tutorial.another-like-you-1"
+    "fileBase": "narrator/tutorial.another-like-you-1",
+    "chapter": "spellblade",
+    "segment": "meaningful-look",
+    "presentation": "blocking",
+    "optionalBranch": null
   },
   {
     "key": "tutorial.introduce-yourself",
@@ -37,7 +137,11 @@
     "speaker": "narrator",
     "text": "Go on. Introduce yourself now. You can do it.",
     "sourceFile": "tutorial.introduce-yourself.wav",
-    "fileBase": "narrator/tutorial.introduce-yourself-1"
+    "fileBase": "narrator/tutorial.introduce-yourself-1",
+    "chapter": "approach",
+    "segment": "approach",
+    "presentation": "blocking",
+    "optionalBranch": null
   },
   {
     "key": "tutorial.he-may-introduce",
@@ -45,7 +149,11 @@
     "speaker": "spellblade",
     "text": "I am a Knight. And a mage. He may choose to do so himself.",
     "sourceFile": "tutorial.he-may-introduce.wav",
-    "fileBase": "spellblade/tutorial.he-may-introduce-1"
+    "fileBase": "spellblade/tutorial.he-may-introduce-1",
+    "chapter": "approach",
+    "segment": "approach",
+    "presentation": "blocking",
+    "optionalBranch": null
   },
   {
     "key": "tutorial.also-walk",
@@ -53,23 +161,35 @@
     "speaker": "narrator",
     "text": "You can also walk.",
     "sourceFile": "tutorial.also-walk.wav",
-    "fileBase": "narrator/tutorial.also-walk-1"
+    "fileBase": "narrator/tutorial.also-walk-1",
+    "chapter": "approach",
+    "segment": "approach",
+    "presentation": "blocking",
+    "optionalBranch": null
   },
   {
     "key": "tutorial.quite-a-distance",
     "beatId": "quite-a-distance",
     "speaker": "spellblade",
-    "text": "He is quite a distance away. Is there any way of moving faster",
+    "text": "He is quite a distance away. Is there any way of moving faster?",
     "sourceFile": "tutorial.quite-a-distance.wav",
-    "fileBase": "spellblade/tutorial.quite-a-distance-1"
+    "fileBase": "spellblade/tutorial.quite-a-distance-1",
+    "chapter": "approach",
+    "segment": "approach",
+    "presentation": "blocking",
+    "optionalBranch": null
   },
   {
     "key": "tutorial.run-faster",
     "beatId": "run-faster",
     "speaker": "narrator",
-    "text": "Yes... you can run faster.",
+    "text": "Yes... you can sprint.",
     "sourceFile": "tutorial.run-faster.wav",
-    "fileBase": "narrator/tutorial.run-faster-1"
+    "fileBase": "narrator/tutorial.run-faster-1",
+    "chapter": "approach",
+    "segment": "approach",
+    "presentation": "blocking",
+    "optionalBranch": null
   },
   {
     "key": "tutorial.reminding-me",
@@ -77,7 +197,23 @@
     "speaker": "spellblade",
     "text": "Aha! Thank you for reminding me.",
     "sourceFile": "tutorial.reminding-me.wav",
-    "fileBase": "spellblade/tutorial.reminding-me-1"
+    "fileBase": "spellblade/tutorial.reminding-me-1",
+    "chapter": "approach",
+    "segment": "approach",
+    "presentation": "blocking",
+    "optionalBranch": null
+  },
+  {
+    "key": "tutorial.think-more",
+    "beatId": "think-more",
+    "speaker": "narrator",
+    "text": "Mhm. Remember to think more often as well.",
+    "sourceFile": "tutorial.think-more.wav",
+    "fileBase": "narrator/tutorial.think-more-1",
+    "chapter": "approach",
+    "segment": "approach",
+    "presentation": "blocking",
+    "optionalBranch": null
   },
   {
     "key": "tutorial.what-is-below",
@@ -85,7 +221,12 @@
     "speaker": "spellblade",
     "text": "This is indeed much faster. Wait, what is that below?",
     "sourceFile": "tutorial.what-is-below.wav",
-    "fileBase": "spellblade/tutorial.what-is-below-1"
+    "fileBase": "spellblade/tutorial.what-is-below-1",
+    "chapter": "approach",
+    "segment": "stamina",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "rehearsalSec": 3.33
   },
   {
     "key": "tutorial.your-stamina",
@@ -93,7 +234,12 @@
     "speaker": "narrator",
     "text": "That is your stamina",
     "sourceFile": "tutorial.your-stamina.wav",
-    "fileBase": "narrator/tutorial.your-stamina-1"
+    "fileBase": "narrator/tutorial.your-stamina-1",
+    "chapter": "approach",
+    "segment": "stamina",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "rehearsalSec": 1.5
   },
   {
     "key": "tutorial.did-not-order",
@@ -101,7 +247,12 @@
     "speaker": "spellblade",
     "text": "Why is it going down? I did not order it to.",
     "sourceFile": "tutorial.did-not-order.wav",
-    "fileBase": "spellblade/tutorial.did-not-order-1"
+    "fileBase": "spellblade/tutorial.did-not-order-1",
+    "chapter": "approach",
+    "segment": "stamina",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "rehearsalSec": 3.67
   },
   {
     "key": "tutorial.consumes-energy",
@@ -109,7 +260,12 @@
     "speaker": "narrator",
     "text": "Sprinting typically consumes more energy",
     "sourceFile": "tutorial.consumes-energy.wav",
-    "fileBase": "narrator/tutorial.consumes-energy-1"
+    "fileBase": "narrator/tutorial.consumes-energy-1",
+    "chapter": "approach",
+    "segment": "stamina",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "rehearsalSec": 1.67
   },
   {
     "key": "tutorial.not-typical",
@@ -117,7 +273,12 @@
     "speaker": "spellblade",
     "text": "I am not typical!",
     "sourceFile": "tutorial.not-typical.wav",
-    "fileBase": "spellblade/tutorial.not-typical-1"
+    "fileBase": "spellblade/tutorial.not-typical-1",
+    "chapter": "approach",
+    "segment": "stamina",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "rehearsalSec": 1.5
   },
   {
     "key": "tutorial.clearly",
@@ -125,7 +286,25 @@
     "speaker": "narrator",
     "text": "Clearly.",
     "sourceFile": "tutorial.clearly.wav",
-    "fileBase": "narrator/tutorial.clearly-1"
+    "fileBase": "narrator/tutorial.clearly-1",
+    "chapter": "approach",
+    "segment": "stamina",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "rehearsalSec": 1.5
+  },
+  {
+    "key": "tutorial.can-do-all-day",
+    "beatId": "can-do-all-day",
+    "speaker": "spellblade",
+    "text": "Ah, hahaha! I can do this all day!",
+    "sourceFile": "tutorial.can-do-all-day.wav",
+    "fileBase": "spellblade/tutorial.can-do-all-day-1",
+    "chapter": "approach",
+    "segment": "stamina",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "rehearsalSec": 2.67
   },
   {
     "key": "tutorial.cannot-sprint",
@@ -133,7 +312,12 @@
     "speaker": "spellblade",
     "text": "Hello? I can no longer sprint!",
     "sourceFile": "tutorial.cannot-sprint.wav",
-    "fileBase": "spellblade/tutorial.cannot-sprint-1"
+    "fileBase": "spellblade/tutorial.cannot-sprint-1",
+    "chapter": "approach",
+    "segment": "stamina",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "rehearsalSec": 2
   },
   {
     "key": "tutorial.time-to-recover",
@@ -141,7 +325,12 @@
     "speaker": "narrator",
     "text": "You need time to recover",
     "sourceFile": "tutorial.time-to-recover.wav",
-    "fileBase": "narrator/tutorial.time-to-recover-1"
+    "fileBase": "narrator/tutorial.time-to-recover-1",
+    "chapter": "approach",
+    "segment": "stamina",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "rehearsalSec": 1.67
   },
   {
     "key": "tutorial.sound-recover",
@@ -149,15 +338,25 @@
     "speaker": "spellblade",
     "text": "Do I SOUND as though I need to recover!?",
     "sourceFile": "tutorial.sound-recover.wav",
-    "fileBase": "spellblade/tutorial.sound-recover-1"
+    "fileBase": "spellblade/tutorial.sound-recover-1",
+    "chapter": "approach",
+    "segment": "stamina",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "rehearsalSec": 3
   },
   {
     "key": "tutorial.good-question",
     "beatId": "good-question",
     "speaker": "narrator",
-    "text": "... Good question.",
+    "text": "...A sound argument...",
     "sourceFile": "tutorial.good-question.wav",
-    "fileBase": "narrator/tutorial.good-question-1"
+    "fileBase": "narrator/tutorial.good-question-1",
+    "chapter": "approach",
+    "segment": "stamina",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "rehearsalSec": 1.5
   },
   {
     "key": "tutorial.say-hello",
@@ -165,7 +364,11 @@
     "speaker": "narrator",
     "text": "Say hello.",
     "sourceFile": "tutorial.say-hello.wav",
-    "fileBase": "narrator/tutorial.say-hello-1"
+    "fileBase": "narrator/tutorial.say-hello-1",
+    "chapter": "introductions",
+    "segment": "introductions",
+    "presentation": "blocking",
+    "optionalBranch": null
   },
   {
     "key": "tutorial.admire-me",
@@ -173,7 +376,11 @@
     "speaker": "spellblade",
     "text": "Admire me.",
     "sourceFile": "tutorial.admire-me.wav",
-    "fileBase": "spellblade/tutorial.admire-me-1"
+    "fileBase": "spellblade/tutorial.admire-me-1",
+    "chapter": "introductions",
+    "segment": "introductions",
+    "presentation": "blocking",
+    "optionalBranch": null
   },
   {
     "key": "tutorial.one-job",
@@ -181,7 +388,11 @@
     "speaker": "narrator",
     "text": "You had one job.",
     "sourceFile": "tutorial.one-job.wav",
-    "fileBase": "narrator/tutorial.one-job-1"
+    "fileBase": "narrator/tutorial.one-job-1",
+    "chapter": "introductions",
+    "segment": "introductions",
+    "presentation": "blocking",
+    "optionalBranch": null
   },
   {
     "key": "tutorial.resemblance",
@@ -189,7 +400,11 @@
     "speaker": "rival",
     "text": "You resemble me.",
     "sourceFile": "tutorial.resemblance.wav",
-    "fileBase": "rival/tutorial.resemblance-1"
+    "fileBase": "rival/tutorial.resemblance-1",
+    "chapter": "introductions",
+    "segment": "introductions",
+    "presentation": "blocking",
+    "optionalBranch": null
   },
   {
     "key": "tutorial.likewise",
@@ -197,7 +412,11 @@
     "speaker": "spellblade",
     "text": "Likewise.",
     "sourceFile": "tutorial.likewise.wav",
-    "fileBase": "spellblade/tutorial.likewise-1"
+    "fileBase": "spellblade/tutorial.likewise-1",
+    "chapter": "introductions",
+    "segment": "introductions",
+    "presentation": "blocking",
+    "optionalBranch": null
   },
   {
     "key": "tutorial.despise-this",
@@ -205,7 +424,11 @@
     "speaker": "rival",
     "text": "I despise this.",
     "sourceFile": "tutorial.despise-this.wav",
-    "fileBase": "rival/tutorial.despise-this-1"
+    "fileBase": "rival/tutorial.despise-this-1",
+    "chapter": "introductions",
+    "segment": "introductions",
+    "presentation": "blocking",
+    "optionalBranch": null
   },
   {
     "key": "tutorial.worth-speaking",
@@ -213,7 +436,11 @@
     "speaker": "spellblade",
     "text": "When am I to find someone worth speaking to?",
     "sourceFile": "tutorial.worth-speaking.wav",
-    "fileBase": "spellblade/tutorial.worth-speaking-1"
+    "fileBase": "spellblade/tutorial.worth-speaking-1",
+    "chapter": "introductions",
+    "segment": "introductions",
+    "presentation": "blocking",
+    "optionalBranch": null
   },
   {
     "key": "tutorial.seem-certain",
@@ -221,7 +448,11 @@
     "speaker": "rival",
     "text": "You seem certain that you will be able to",
     "sourceFile": "tutorial.seem-certain.wav",
-    "fileBase": "rival/tutorial.seem-certain-1"
+    "fileBase": "rival/tutorial.seem-certain-1",
+    "chapter": "introductions",
+    "segment": "introductions",
+    "presentation": "blocking",
+    "optionalBranch": null
   },
   {
     "key": "tutorial.name-matters",
@@ -229,7 +460,11 @@
     "speaker": "spellblade",
     "text": "Of course. I have a name.",
     "sourceFile": "tutorial.name-matters.wav",
-    "fileBase": "spellblade/tutorial.name-matters-1"
+    "fileBase": "spellblade/tutorial.name-matters-1",
+    "chapter": "introductions",
+    "segment": "introductions",
+    "presentation": "blocking",
+    "optionalBranch": null
   },
   {
     "key": "tutorial.properly-defeat",
@@ -237,7 +472,11 @@
     "speaker": "rival",
     "text": "I only give my name to those who I properly defeat!",
     "sourceFile": "tutorial.properly-defeat.wav",
-    "fileBase": "rival/tutorial.properly-defeat-1"
+    "fileBase": "rival/tutorial.properly-defeat-1",
+    "chapter": "introductions",
+    "segment": "introductions",
+    "presentation": "blocking",
+    "optionalBranch": null
   },
   {
     "key": "tutorial.remain-strangers",
@@ -245,7 +484,11 @@
     "speaker": "spellblade",
     "text": "Then it seems best we remain strangers!",
     "sourceFile": "tutorial.remain-strangers.wav",
-    "fileBase": "spellblade/tutorial.remain-strangers-1"
+    "fileBase": "spellblade/tutorial.remain-strangers-1",
+    "chapter": "introductions",
+    "segment": "introductions",
+    "presentation": "blocking",
+    "optionalBranch": null
   },
   {
     "key": "tutorial.negotiations",
@@ -253,7 +496,11 @@
     "speaker": "narrator",
     "text": "Woah. It appears negotiations have gone hostile.",
     "sourceFile": "tutorial.negotiations.wav",
-    "fileBase": "narrator/tutorial.negotiations-1"
+    "fileBase": "narrator/tutorial.negotiations-1",
+    "chapter": "negotiations",
+    "segment": "first-attack",
+    "presentation": "blocking",
+    "optionalBranch": null
   },
   {
     "key": "tutorial.placate",
@@ -261,7 +508,11 @@
     "speaker": "narrator",
     "text": "Try placating him.",
     "sourceFile": "tutorial.placate.wav",
-    "fileBase": "narrator/tutorial.placate-1"
+    "fileBase": "narrator/tutorial.placate-1",
+    "chapter": "negotiations",
+    "segment": "first-attack",
+    "presentation": "blocking",
+    "optionalBranch": null
   },
   {
     "key": "tutorial.stand-down",
@@ -269,7 +520,11 @@
     "speaker": "spellblade",
     "text": "Stand down where you belong. Please?",
     "sourceFile": "tutorial.stand-down.wav",
-    "fileBase": "spellblade/tutorial.stand-down-1"
+    "fileBase": "spellblade/tutorial.stand-down-1",
+    "chapter": "negotiations",
+    "segment": "first-attack",
+    "presentation": "blocking",
+    "optionalBranch": null
   },
   {
     "key": "tutorial.sword-pen",
@@ -277,15 +532,23 @@
     "speaker": "rival",
     "text": "The sword is mightier than the pen!",
     "sourceFile": "tutorial.sword-pen.wav",
-    "fileBase": "rival/tutorial.sword-pen-1"
+    "fileBase": "rival/tutorial.sword-pen-1",
+    "chapter": "negotiations",
+    "segment": "first-attack",
+    "presentation": "blocking",
+    "optionalBranch": null
   },
   {
     "key": "tutorial.own-pen",
     "beatId": "own-pen",
     "speaker": "narrator",
-    "text": "Oh brother. Tell him off. With your own 'pen'...",
+    "text": "Oh brother. Tell him off. With your own ‘pen’...",
     "sourceFile": "tutorial.own-pen.wav",
-    "fileBase": "narrator/tutorial.own-pen-1"
+    "fileBase": "narrator/tutorial.own-pen-1",
+    "chapter": "negotiations",
+    "segment": "first-attack",
+    "presentation": "blocking",
+    "optionalBranch": null
   },
   {
     "key": "tutorial.teach-you",
@@ -293,7 +556,11 @@
     "speaker": "spellblade",
     "text": "That should teach you.",
     "sourceFile": "tutorial.teach-you.wav",
-    "fileBase": "spellblade/tutorial.teach-you-1"
+    "fileBase": "spellblade/tutorial.teach-you-1",
+    "chapter": "negotiations",
+    "segment": "first-attack",
+    "presentation": "blocking",
+    "optionalBranch": null
   },
   {
     "key": "tutorial.harsh-lesson",
@@ -301,7 +568,11 @@
     "speaker": "narrator",
     "text": "A harsh lesson.",
     "sourceFile": "tutorial.harsh-lesson.wav",
-    "fileBase": "narrator/tutorial.harsh-lesson-1"
+    "fileBase": "narrator/tutorial.harsh-lesson-1",
+    "chapter": "negotiations",
+    "segment": "first-attack",
+    "presentation": "blocking",
+    "optionalBranch": null
   },
   {
     "key": "tutorial.opinion",
@@ -309,7 +580,11 @@
     "speaker": "rival",
     "text": "Ow! I was simply stating my opinion on the comparative qualities between swords and pens!",
     "sourceFile": "tutorial.opinion.wav",
-    "fileBase": "rival/tutorial.opinion-1"
+    "fileBase": "rival/tutorial.opinion-1",
+    "chapter": "negotiations",
+    "segment": "first-attack",
+    "presentation": "blocking",
+    "optionalBranch": null
   },
   {
     "key": "tutorial.revise",
@@ -317,7 +592,11 @@
     "speaker": "rival",
     "text": "You have taught me to revise my response.",
     "sourceFile": "tutorial.revise.wav",
-    "fileBase": "rival/tutorial.revise-1"
+    "fileBase": "rival/tutorial.revise-1",
+    "chapter": "negotiations",
+    "segment": "first-attack",
+    "presentation": "blocking",
+    "optionalBranch": null
   },
   {
     "key": "tutorial.good-health",
@@ -325,7 +604,11 @@
     "speaker": "rival",
     "text": "May you receive my message in good health.",
     "sourceFile": "tutorial.good-health.wav",
-    "fileBase": "rival/tutorial.good-health-1"
+    "fileBase": "rival/tutorial.good-health-1",
+    "chapter": "correspondence",
+    "segment": "first-guard",
+    "presentation": "blocking",
+    "optionalBranch": null
   },
   {
     "key": "tutorial.mixed-message",
@@ -333,7 +616,11 @@
     "speaker": "narrator",
     "text": "Your health will receive a more mixed message.",
     "sourceFile": "tutorial.mixed-message.wav",
-    "fileBase": "narrator/tutorial.mixed-message-1"
+    "fileBase": "narrator/tutorial.mixed-message-1",
+    "chapter": "correspondence",
+    "segment": "first-guard",
+    "presentation": "blocking",
+    "optionalBranch": null
   },
   {
     "key": "tutorial.disallow",
@@ -341,7 +628,11 @@
     "speaker": "narrator",
     "text": "Disallow this.",
     "sourceFile": "tutorial.disallow.wav",
-    "fileBase": "narrator/tutorial.disallow-1"
+    "fileBase": "narrator/tutorial.disallow-1",
+    "chapter": "correspondence",
+    "segment": "first-guard",
+    "presentation": "blocking",
+    "optionalBranch": null
   },
   {
     "key": "tutorial.interception",
@@ -349,23 +640,35 @@
     "speaker": "spellblade",
     "text": "Interception!",
     "sourceFile": "tutorial.interception.wav",
-    "fileBase": "spellblade/tutorial.interception-1"
+    "fileBase": "spellblade/tutorial.interception-1",
+    "chapter": "correspondence",
+    "segment": "first-guard",
+    "presentation": "blocking",
+    "optionalBranch": null
   },
   {
     "key": "tutorial.blocked-message",
     "beatId": "blocked-message",
     "speaker": "rival",
-    "text": "You blocked my message!",
+    "text": "You blocked me!",
     "sourceFile": "tutorial.blocked-message.wav",
-    "fileBase": "rival/tutorial.blocked-message-1"
+    "fileBase": "rival/tutorial.blocked-message-1",
+    "chapter": "correspondence",
+    "segment": "first-guard",
+    "presentation": "blocking",
+    "optionalBranch": null
   },
   {
     "key": "tutorial.guarded",
     "beatId": "guarded",
     "speaker": "spellblade",
-    "text": "No, I had guarded.",
+    "text": "No. I was guarding.",
     "sourceFile": "tutorial.guarded.wav",
-    "fileBase": "spellblade/tutorial.guarded-1"
+    "fileBase": "spellblade/tutorial.guarded-1",
+    "chapter": "correspondence",
+    "segment": "first-guard",
+    "presentation": "blocking",
+    "optionalBranch": null
   },
   {
     "key": "tutorial.technically-correct",
@@ -373,7 +676,11 @@
     "speaker": "narrator",
     "text": "You are technically correct.",
     "sourceFile": "tutorial.technically-correct.wav",
-    "fileBase": "narrator/tutorial.technically-correct-1"
+    "fileBase": "narrator/tutorial.technically-correct-1",
+    "chapter": "correspondence",
+    "segment": "first-guard",
+    "presentation": "blocking",
+    "optionalBranch": null
   },
   {
     "key": "tutorial.extra",
@@ -381,7 +688,11 @@
     "speaker": "rival",
     "text": "There was an extra.",
     "sourceFile": "tutorial.extra.wav",
-    "fileBase": "rival/tutorial.extra-1"
+    "fileBase": "rival/tutorial.extra-1",
+    "chapter": "correspondence",
+    "segment": "first-guard",
+    "presentation": "blocking",
+    "optionalBranch": null
   },
   {
     "key": "tutorial.hint",
@@ -389,7 +700,23 @@
     "speaker": "rival",
     "text": "May you receive the hint.",
     "sourceFile": "tutorial.hint.wav",
-    "fileBase": "rival/tutorial.hint-1"
+    "fileBase": "rival/tutorial.hint-1",
+    "chapter": "correspondence",
+    "segment": "first-guard",
+    "presentation": "blocking",
+    "optionalBranch": null
+  },
+  {
+    "key": "tutorial.need-a-moment",
+    "beatId": "need-a-moment",
+    "speaker": "spellblade",
+    "text": "I need a moment.",
+    "sourceFile": "tutorial.need-a-moment.wav",
+    "fileBase": "spellblade/tutorial.need-a-moment-1",
+    "chapter": "correspondence",
+    "segment": "health-regen",
+    "presentation": "blocking",
+    "optionalBranch": null
   },
   {
     "key": "tutorial.no-hints",
@@ -397,7 +724,11 @@
     "speaker": "spellblade",
     "text": "I do not get hints.",
     "sourceFile": "tutorial.no-hints.wav",
-    "fileBase": "spellblade/tutorial.no-hints-1"
+    "fileBase": "spellblade/tutorial.no-hints-1",
+    "chapter": "correspondence",
+    "segment": "health-regen",
+    "presentation": "blocking",
+    "optionalBranch": null
   },
   {
     "key": "tutorial.imminent-demise",
@@ -405,7 +736,11 @@
     "speaker": "rival",
     "text": "Of your imminent demise?",
     "sourceFile": "tutorial.imminent-demise.wav",
-    "fileBase": "rival/tutorial.imminent-demise-1"
+    "fileBase": "rival/tutorial.imminent-demise-1",
+    "chapter": "correspondence",
+    "segment": "health-regen",
+    "presentation": "blocking",
+    "optionalBranch": null
   },
   {
     "key": "tutorial.not-my-plan",
@@ -413,15 +748,43 @@
     "speaker": "spellblade",
     "text": "Ah... no, that was not my plan today.",
     "sourceFile": "tutorial.not-my-plan.wav",
-    "fileBase": "spellblade/tutorial.not-my-plan-1"
+    "fileBase": "spellblade/tutorial.not-my-plan-1",
+    "chapter": "correspondence",
+    "segment": "health-regen",
+    "presentation": "blocking",
+    "optionalBranch": null
+  },
+  {
+    "key": "tutorial.well",
+    "beatId": "well",
+    "speaker": "rival",
+    "text": "Well.",
+    "sourceFile": "tutorial.well.wav",
+    "fileBase": "rival/tutorial.well-1",
+    "chapter": "duel",
+    "segment": "real-duel",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "rehearsalSec": 1.5
   },
   {
     "key": "tutorial.plans-change",
     "beatId": "plans-change",
     "speaker": "rival",
-    "text": "Well, things do not always go according to plan.",
+    "text": "Things do not always go according to plan.",
     "sourceFile": "tutorial.plans-change.wav",
-    "fileBase": "rival/tutorial.plans-change-1"
+    "fileBase": "rival/tutorial.plans-change-1",
+    "chapter": "duel",
+    "segment": "real-duel",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "rehearsalSec": 2.67,
+    "performanceCue": {
+      "at": "onset",
+      "action": "rival-attack",
+      "stageBeat": "duel-onset",
+      "precedingBeat": "well"
+    }
   },
   {
     "key": "tutorial.indeed",
@@ -429,7 +792,577 @@
     "speaker": "narrator",
     "text": "Indeed.",
     "sourceFile": "tutorial.indeed.wav",
-    "fileBase": "narrator/tutorial.indeed-1"
+    "fileBase": "narrator/tutorial.indeed-1",
+    "chapter": "duel",
+    "segment": "real-duel",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "rehearsalSec": 1.5
+  },
+  {
+    "key": "tutorial.strike-you-first",
+    "beatId": "strike-you-first",
+    "speaker": "spellblade",
+    "text": "If I strike you down first, will you cease attacking me?",
+    "sourceFile": "tutorial.strike-you-first.wav",
+    "fileBase": "spellblade/tutorial.strike-you-first-1",
+    "chapter": "duel",
+    "segment": "real-duel",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "rehearsalSec": 3.67
+  },
+  {
+    "key": "tutorial.depends-go-down",
+    "beatId": "depends-go-down",
+    "speaker": "rival",
+    "text": "That depends, if you go down, I will cease as well",
+    "sourceFile": "tutorial.depends-go-down.wav",
+    "fileBase": "rival/tutorial.depends-go-down-1",
+    "chapter": "duel",
+    "segment": "real-duel",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "rehearsalSec": 3.67
+  },
+  {
+    "key": "tutorial.prevent-arrangement",
+    "beatId": "prevent-arrangement",
+    "speaker": "narrator",
+    "text": "Prevent this arrangement.",
+    "sourceFile": "tutorial.prevent-arrangement.wav",
+    "fileBase": "narrator/tutorial.prevent-arrangement-1",
+    "chapter": "duel",
+    "segment": "real-duel",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "rehearsalSec": 1.5
+  },
+  {
+    "key": "tutorial.taking-a-while",
+    "beatId": "taking-a-while",
+    "speaker": "spellblade",
+    "text": "You are taking a while to go down!",
+    "sourceFile": "tutorial.taking-a-while.wav",
+    "fileBase": "spellblade/tutorial.taking-a-while-1",
+    "chapter": "duel",
+    "segment": "real-duel",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "rehearsalSec": 2.67
+  },
+  {
+    "key": "tutorial.not-yet",
+    "beatId": "not-yet",
+    "speaker": "rival",
+    "text": "Haha! I do not feel like it yet!",
+    "sourceFile": "tutorial.not-yet.wav",
+    "fileBase": "rival/tutorial.not-yet-1",
+    "chapter": "duel",
+    "segment": "real-duel",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "rehearsalSec": 2.67
+  },
+  {
+    "key": "tutorial.informative",
+    "beatId": "informative",
+    "speaker": "narrator",
+    "text": "How informative.",
+    "sourceFile": "tutorial.informative.wav",
+    "fileBase": "narrator/tutorial.informative-1",
+    "chapter": "duel",
+    "segment": "real-duel",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "rehearsalSec": 1.5
+  },
+  {
+    "key": "tutorial.overstayed-welcome",
+    "beatId": "overstayed-welcome",
+    "speaker": "rival",
+    "text": "I believe I have overstayed my welcome!",
+    "sourceFile": "tutorial.overstayed-welcome.wav",
+    "fileBase": "rival/tutorial.overstayed-welcome-1",
+    "chapter": "pursuit",
+    "segment": "rival-escape",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "rehearsalSec": 2.33
+  },
+  {
+    "key": "tutorial.never-welcome",
+    "beatId": "never-welcome",
+    "speaker": "spellblade",
+    "text": "You were never welcome!",
+    "sourceFile": "tutorial.never-welcome.wav",
+    "fileBase": "spellblade/tutorial.never-welcome-1",
+    "chapter": "pursuit",
+    "segment": "rival-escape",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "rehearsalSec": 1.5
+  },
+  {
+    "key": "tutorial.say-hello-reminder",
+    "beatId": "say-hello-reminder",
+    "speaker": "narrator",
+    "text": "I told you to say hello...",
+    "sourceFile": "tutorial.say-hello-reminder.wav",
+    "fileBase": "narrator/tutorial.say-hello-reminder-1",
+    "chapter": "pursuit",
+    "segment": "rival-escape",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "rehearsalSec": 2
+  },
+  {
+    "key": "tutorial.escape-made-fun",
+    "beatId": "escape-made-fun",
+    "speaker": "rival",
+    "text": "If I manage to successfully escape alive, you will be made fun of!",
+    "sourceFile": "tutorial.escape-made-fun.wav",
+    "fileBase": "rival/tutorial.escape-made-fun-1",
+    "chapter": "pursuit",
+    "segment": "rival-escape",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "rehearsalSec": 4.33
+  },
+  {
+    "key": "tutorial.hardly-wellbeing",
+    "beatId": "hardly-wellbeing",
+    "speaker": "narrator",
+    "text": "Oh dear, that hardly seems conducive toward your wellbeing, Spellblade",
+    "sourceFile": "tutorial.hardly-wellbeing.wav",
+    "fileBase": "narrator/tutorial.hardly-wellbeing-1",
+    "chapter": "pursuit",
+    "segment": "rival-escape",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "rehearsalSec": 3.33
+  },
+  {
+    "key": "tutorial.remains-ahead",
+    "beatId": "remains-ahead",
+    "speaker": "spellblade",
+    "text": "I would like to keep attacking, but he remains ahead!",
+    "sourceFile": "tutorial.remains-ahead.wav",
+    "fileBase": "spellblade/tutorial.remains-ahead-1",
+    "chapter": "pursuit",
+    "segment": "rival-escape",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "rehearsalSec": 3.33
+  },
+  {
+    "key": "tutorial.few-steps",
+    "beatId": "few-steps",
+    "speaker": "narrator",
+    "text": "A few steps ahead.",
+    "sourceFile": "tutorial.few-steps.wav",
+    "fileBase": "narrator/tutorial.few-steps-1",
+    "chapter": "pursuit",
+    "segment": "rival-escape",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "rehearsalSec": 1.5
+  },
+  {
+    "key": "tutorial.why-spellblade",
+    "beatId": "why-spellblade",
+    "speaker": "narrator",
+    "text": "Why are you called the Spellblade?",
+    "sourceFile": "tutorial.why-spellblade.wav",
+    "fileBase": "narrator/tutorial.why-spellblade-1",
+    "chapter": "fireball",
+    "segment": "fireball",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "rehearsalSec": 2
+  },
+  {
+    "key": "tutorial.spell-blade",
+    "beatId": "spell-blade",
+    "speaker": "spellblade",
+    "text": "Because I can spell ‘blade’!",
+    "sourceFile": "tutorial.spell-blade.wav",
+    "fileBase": "spellblade/tutorial.spell-blade-1",
+    "chapter": "fireball",
+    "segment": "fireball",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "rehearsalSec": 1.67
+  },
+  {
+    "key": "tutorial.impressive",
+    "beatId": "impressive",
+    "speaker": "narrator",
+    "text": "Impressive.",
+    "sourceFile": "tutorial.impressive.wav",
+    "fileBase": "narrator/tutorial.impressive-1",
+    "chapter": "fireball",
+    "segment": "fireball",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "rehearsalSec": 1.5
+  },
+  {
+    "key": "tutorial.magic-disposal",
+    "beatId": "magic-disposal",
+    "speaker": "narrator",
+    "text": "But also, you have magic at your disposal",
+    "sourceFile": "tutorial.magic-disposal.wav",
+    "fileBase": "narrator/tutorial.magic-disposal-1",
+    "chapter": "fireball",
+    "segment": "fireball",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "rehearsalSec": 2.67
+  },
+  {
+    "key": "tutorial.waiting-reminder",
+    "beatId": "waiting-reminder",
+    "speaker": "spellblade",
+    "text": "I knew that! I had just been waiting for you to remind me!",
+    "sourceFile": "tutorial.waiting-reminder.wav",
+    "fileBase": "spellblade/tutorial.waiting-reminder-1",
+    "chapter": "fireball",
+    "segment": "fireball",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "rehearsalSec": 4.33
+  },
+  {
+    "key": "tutorial.almost-there",
+    "beatId": "almost-there",
+    "speaker": "rival",
+    "text": "I am almost there!",
+    "sourceFile": "tutorial.almost-there.wav",
+    "fileBase": "rival/tutorial.almost-there-1",
+    "chapter": "fireball",
+    "segment": "fireball",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "rehearsalSec": 1.5
+  },
+  {
+    "key": "tutorial.rival-cold",
+    "beatId": "rival-cold",
+    "speaker": "rival",
+    "text": "That was cold of you, ow!",
+    "sourceFile": "tutorial.rival-cold.wav",
+    "fileBase": "rival/tutorial.rival-cold-1",
+    "chapter": "fireball",
+    "segment": "fireball",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "rehearsalSec": 2
+  },
+  {
+    "key": "tutorial.warm-feelings",
+    "beatId": "warm-feelings",
+    "speaker": "spellblade",
+    "text": "I am developing warm feelings about this!",
+    "sourceFile": "tutorial.warm-feelings.wav",
+    "fileBase": "spellblade/tutorial.warm-feelings-1",
+    "chapter": "fireball",
+    "segment": "fireball",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "rehearsalSec": 2.33
+  },
+  {
+    "key": "tutorial.concerning",
+    "beatId": "concerning",
+    "speaker": "narrator",
+    "text": "Concerning.",
+    "sourceFile": "tutorial.concerning.wav",
+    "fileBase": "narrator/tutorial.concerning-1",
+    "chapter": "fireball",
+    "segment": "fireball",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "rehearsalSec": 1.5
+  },
+  {
+    "key": "tutorial.get-over-this",
+    "beatId": "get-over-this",
+    "speaker": "rival",
+    "text": "Aha, try getting over this!",
+    "sourceFile": "tutorial.get-over-this.wav",
+    "fileBase": "rival/tutorial.get-over-this-1",
+    "chapter": "bridge",
+    "segment": "bridge-dash",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "rehearsalSec": 1.67
+  },
+  {
+    "key": "tutorial.decent-suggestion",
+    "beatId": "decent-suggestion",
+    "speaker": "narrator",
+    "text": "He makes a decent suggestion, sir",
+    "sourceFile": "tutorial.decent-suggestion.wav",
+    "fileBase": "narrator/tutorial.decent-suggestion-1",
+    "chapter": "bridge",
+    "segment": "bridge-dash",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "rehearsalSec": 2
+  },
+  {
+    "key": "tutorial.get-over-it",
+    "beatId": "get-over-it",
+    "speaker": "spellblade",
+    "text": "I will get over it! But not in the way you think!",
+    "sourceFile": "tutorial.get-over-it.wav",
+    "fileBase": "spellblade/tutorial.get-over-it-1",
+    "chapter": "bridge",
+    "segment": "bridge-dash",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "rehearsalSec": 4
+  },
+  {
+    "key": "tutorial.surpass-obstacle",
+    "beatId": "surpass-obstacle",
+    "speaker": "spellblade",
+    "text": "I can find it within myself to surpass this obstacle",
+    "sourceFile": "tutorial.surpass-obstacle.wav",
+    "fileBase": "spellblade/tutorial.surpass-obstacle-1",
+    "chapter": "bridge",
+    "segment": "bridge-dash",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "rehearsalSec": 3.33
+  },
+  {
+    "key": "tutorial.grow-maturity",
+    "beatId": "grow-maturity",
+    "speaker": "narrator",
+    "text": "You have grown, maturity awaits you after all, Spellblade",
+    "sourceFile": "tutorial.grow-maturity.wav",
+    "fileBase": "narrator/tutorial.grow-maturity-1",
+    "chapter": "bridge",
+    "segment": "bridge-dash",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "rehearsalSec": 3
+  },
+  {
+    "key": "tutorial.but-knight",
+    "beatId": "but-knight",
+    "speaker": "spellblade",
+    "text": "What? But I am a knight!",
+    "sourceFile": "tutorial.but-knight.wav",
+    "fileBase": "spellblade/tutorial.but-knight-1",
+    "chapter": "bridge",
+    "segment": "bridge-dash",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "rehearsalSec": 2
+  },
+  {
+    "key": "tutorial.cease-singeing",
+    "beatId": "cease-singeing",
+    "speaker": "rival",
+    "text": "Cease this singeing, I insist",
+    "sourceFile": "tutorial.cease-singeing.wav",
+    "fileBase": "rival/tutorial.cease-singeing-1",
+    "chapter": "counterfire",
+    "segment": "counterfire",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "rehearsalSec": 1.67
+  },
+  {
+    "key": "tutorial.follow-footsteps",
+    "beatId": "follow-footsteps",
+    "speaker": "narrator",
+    "text": "I recommend following in his footsteps.",
+    "sourceFile": "tutorial.follow-footsteps.wav",
+    "fileBase": "narrator/tutorial.follow-footsteps-1",
+    "chapter": "counterfire",
+    "segment": "counterfire",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "rehearsalSec": 2
+  },
+  {
+    "key": "tutorial.legend-ends",
+    "beatId": "legend-ends",
+    "speaker": "narrator",
+    "text": "This is not where your legend ends, Spellblade. Knights are not supposed to get made fun of.",
+    "sourceFile": "tutorial.legend-ends.wav",
+    "fileBase": "narrator/tutorial.legend-ends-1",
+    "chapter": "final-guard",
+    "segment": "complaint-approach",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "rehearsalSec": 5.67
+  },
+  {
+    "key": "tutorial.knight-help",
+    "beatId": "knight-help",
+    "speaker": "spellblade",
+    "text": "A real knight never asks for help!",
+    "sourceFile": "tutorial.knight-help.wav",
+    "fileBase": "spellblade/tutorial.knight-help-1",
+    "chapter": "final-guard",
+    "segment": "pride-stop",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "rehearsalSec": 2.33
+  },
+  {
+    "key": "tutorial.final-hello",
+    "beatId": "final-hello",
+    "speaker": "spellblade",
+    "text": "Hello!",
+    "sourceFile": "tutorial.final-hello.wav",
+    "fileBase": "spellblade/tutorial.final-hello-1",
+    "chapter": "final-guard",
+    "segment": "final-confrontation",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "optionalSegment": "final-confrontation",
+    "rehearsalSec": 1.5
+  },
+  {
+    "key": "tutorial.too-late-hello",
+    "beatId": "too-late-hello",
+    "speaker": "rival",
+    "text": "It is too late for that!",
+    "sourceFile": "tutorial.too-late-hello.wav",
+    "fileBase": "rival/tutorial.too-late-hello-1",
+    "chapter": "final-guard",
+    "segment": "final-confrontation",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "optionalSegment": "final-confrontation",
+    "rehearsalSec": 2
+  },
+  {
+    "key": "tutorial.reconsider-meeting",
+    "beatId": "reconsider-meeting",
+    "speaker": "spellblade",
+    "text": "Then allow me to reconsider ever meeting you!",
+    "sourceFile": "tutorial.reconsider-meeting.wav",
+    "fileBase": "spellblade/tutorial.reconsider-meeting-1",
+    "chapter": "final-guard",
+    "segment": "final-confrontation",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "optionalSegment": "final-confrontation",
+    "rehearsalSec": 2.67
+  },
+  {
+    "key": "tutorial.sword-remains",
+    "beatId": "sword-remains",
+    "speaker": "rival",
+    "text": "The sword remains mightier than the pen...",
+    "sourceFile": "tutorial.sword-remains.wav",
+    "fileBase": "rival/tutorial.sword-remains-1",
+    "chapter": "final-guard",
+    "segment": "final-confrontation",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "optionalSegment": "final-confrontation",
+    "rehearsalSec": 2.33
+  },
+  {
+    "key": "tutorial.remain-mightier",
+    "beatId": "remain-mightier",
+    "speaker": "rival",
+    "text": "...and I remain mightier than anything that is not me!",
+    "sourceFile": "tutorial.remain-mightier.wav",
+    "fileBase": "rival/tutorial.remain-mightier-1",
+    "chapter": "final-guard",
+    "segment": "final-confrontation",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "optionalSegment": "final-confrontation",
+    "rehearsalSec": 3.33
+  },
+  {
+    "key": "tutorial.lot-of-things",
+    "beatId": "lot-of-things",
+    "speaker": "narrator",
+    "text": "That is a lot of things.",
+    "sourceFile": "tutorial.lot-of-things.wav",
+    "fileBase": "narrator/tutorial.lot-of-things-1",
+    "chapter": "final-guard",
+    "segment": "final-confrontation",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "optionalSegment": "final-confrontation",
+    "rehearsalSec": 2
+  },
+  {
+    "key": "tutorial.who-are-you",
+    "beatId": "who-are-you",
+    "speaker": "rival",
+    "text": "Who are you?",
+    "sourceFile": "tutorial.who-are-you.wav",
+    "fileBase": "rival/tutorial.who-are-you-1",
+    "chapter": "ending",
+    "segment": "title-ending",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "rehearsalSec": 1.5
+  },
+  {
+    "key": "tutorial.i-am",
+    "beatId": "i-am",
+    "speaker": "spellblade",
+    "text": "I am...",
+    "sourceFile": "tutorial.i-am.wav",
+    "fileBase": "spellblade/tutorial.i-am-1",
+    "chapter": "ending",
+    "segment": "title-ending",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "rehearsalSec": 1.5
+  },
+  {
+    "key": "tutorial.strange-name",
+    "beatId": "strange-name",
+    "speaker": "rival",
+    "text": "What a strange name.",
+    "sourceFile": "tutorial.strange-name.wav",
+    "fileBase": "rival/tutorial.strange-name-1",
+    "chapter": "ending",
+    "segment": "title-ending",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "rehearsalSec": 1.5
+  },
+  {
+    "key": "tutorial.true-master",
+    "beatId": "true-master",
+    "speaker": "spellblade",
+    "text": "If I see ANYONE else who dares to resemble me, as you did... I shall correct their ignorance... and show who is the true master of",
+    "sourceFile": "tutorial.true-master.wav",
+    "fileBase": "spellblade/tutorial.true-master-1",
+    "chapter": "ending",
+    "segment": "title-ending",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "rehearsalSec": 6
+  },
+  {
+    "key": "tutorial.closing-hope",
+    "beatId": "closing-hope",
+    "speaker": "narrator",
+    "text": "Let us hope there are not many like him.",
+    "sourceFile": "tutorial.closing-hope.wav",
+    "fileBase": "narrator/tutorial.closing-hope-1",
+    "chapter": "ending",
+    "segment": "title-ending",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "rehearsalSec": 3
   },
   {
     "key": "tutorial.frolic-fields",
@@ -437,7 +1370,12 @@
     "speaker": "narrator",
     "text": "The Spellblade decides to frolic in the fields, as he may one day never do so again",
     "sourceFile": "tutorial.frolic-fields.wav",
-    "fileBase": "narrator/tutorial.frolic-fields-1"
+    "fileBase": "narrator/tutorial.frolic-fields-1",
+    "chapter": "approach",
+    "segment": "approach",
+    "presentation": "reactive",
+    "optionalBranch": "frolic",
+    "rehearsalSec": 5.67
   },
   {
     "key": "tutorial.remembering-move",
@@ -445,6 +1383,119 @@
     "speaker": "spellblade",
     "text": "I am not frolicking. I am remembering how to move!",
     "sourceFile": "tutorial.remembering-move.wav",
-    "fileBase": "spellblade/tutorial.remembering-move-1"
+    "fileBase": "spellblade/tutorial.remembering-move-1",
+    "chapter": "approach",
+    "segment": "approach",
+    "presentation": "reactive",
+    "optionalBranch": "frolic",
+    "rehearsalSec": 3.33
+  },
+  {
+    "key": "tutorial.rival-over-there",
+    "beatId": "rival-over-there",
+    "speaker": "narrator",
+    "text": "Your rival is over there",
+    "sourceFile": "tutorial.rival-over-there.wav",
+    "fileBase": "narrator/tutorial.rival-over-there-1",
+    "chapter": "fireball",
+    "segment": "fireball",
+    "presentation": "reactive",
+    "optionalBranch": "first-fireball-miss",
+    "rehearsalSec": 1.67
+  },
+  {
+    "key": "tutorial.scorch-mark",
+    "beatId": "scorch-mark",
+    "speaker": "spellblade",
+    "text": "And I wanted a scorch mark, over there.",
+    "sourceFile": "tutorial.scorch-mark.wav",
+    "fileBase": "spellblade/tutorial.scorch-mark-1",
+    "chapter": "fireball",
+    "segment": "fireball",
+    "presentation": "reactive",
+    "optionalBranch": "first-fireball-miss",
+    "rehearsalSec": 2.67
+  },
+  {
+    "key": "tutorial.burn-subsided",
+    "beatId": "burn-subsided",
+    "speaker": "spellblade",
+    "text": "AHH, AH AH- Oh it has subsided.",
+    "sourceFile": "tutorial.burn-subsided.wav",
+    "fileBase": "spellblade/tutorial.burn-subsided-1",
+    "chapter": "counterfire",
+    "segment": "counterfire",
+    "presentation": "reactive",
+    "optionalBranch": "burned",
+    "rehearsalSec": 2.33,
+    "performanceCue": {
+      "at": "burn-ended",
+      "action": "continue-reaction"
+    }
+  },
+  {
+    "key": "tutorial.reforged",
+    "beatId": "reforged",
+    "speaker": "spellblade",
+    "text": "I have been reforged!",
+    "sourceFile": "tutorial.reforged.wav",
+    "fileBase": "spellblade/tutorial.reforged-1",
+    "chapter": "counterfire",
+    "segment": "counterfire",
+    "presentation": "reactive",
+    "optionalBranch": "burned",
+    "rehearsalSec": 1.5
+  },
+  {
+    "key": "tutorial.not-too-many",
+    "beatId": "not-too-many",
+    "speaker": "narrator",
+    "text": "Not too many times, now",
+    "sourceFile": "tutorial.not-too-many.wav",
+    "fileBase": "narrator/tutorial.not-too-many-1",
+    "chapter": "counterfire",
+    "segment": "counterfire",
+    "presentation": "reactive",
+    "optionalBranch": "burned",
+    "rehearsalSec": 1.67
+  },
+  {
+    "key": "tutorial.stop-you",
+    "beatId": "stop-you",
+    "speaker": "rival",
+    "text": "This should stop you!",
+    "sourceFile": "tutorial.stop-you.wav",
+    "fileBase": "rival/tutorial.stop-you-1",
+    "chapter": "final-guard",
+    "segment": "rival-defeat",
+    "presentation": "reactive",
+    "optionalBranch": "final-guard-reaction",
+    "rehearsalSec": 1.5
+  },
+  {
+    "key": "tutorial.convince-unblock",
+    "beatId": "convince-unblock",
+    "speaker": "narrator",
+    "text": "Convince him to unblock you.",
+    "sourceFile": "tutorial.convince-unblock.wav",
+    "fileBase": "narrator/tutorial.convince-unblock-1",
+    "chapter": "final-guard",
+    "segment": "rival-defeat",
+    "presentation": "reactive",
+    "optionalBranch": "final-guard-reaction",
+    "rehearsalSec": 1.67
+  },
+  {
+    "key": "tutorial.did-not-stop",
+    "beatId": "did-not-stop",
+    "speaker": "rival",
+    "text": "That did not stop you!!",
+    "sourceFile": "tutorial.did-not-stop.wav",
+    "fileBase": "rival/tutorial.did-not-stop-1",
+    "chapter": "final-guard",
+    "segment": "rival-defeat",
+    "presentation": "reactive",
+    "optionalBranch": "final-guard-broken",
+    "rehearsalSec": 1.67
   }
 ]

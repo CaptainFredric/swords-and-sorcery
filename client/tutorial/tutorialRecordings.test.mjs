@@ -1,17 +1,67 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { tutorialRecordingPlan, playTutorialCue } from './tutorialRecordings.mjs';
 import { TutorialDirector } from './TutorialDirector.mjs';
 
 test('recording plan includes dialogue only with stable keys, filenames and distinct speakers', () => {
   const plan = tutorialRecordingPlan();
-  assert.ok(plan.length > 33); // authored additions keep growing; no fixed final count
   assert.equal(new Set(plan.map(take => take.key)).size, plan.length);
   assert.deepEqual(plan.find(take => take.key === 'tutorial.you-did'), {
     key: 'tutorial.you-did', beatId: 'you-did', speaker: 'narrator', text: 'You did.',
     sourceFile: 'tutorial.you-did.wav', fileBase: 'narrator/tutorial.you-did-1',
+    chapter: 'spellblade', segment: 'greener-introduction', presentation: 'blocking', optionalBranch: null,
   });
   assert.equal(plan.find(take => take.key === 'tutorial.extra').speaker, 'rival');
+});
+
+test('all established recording keys survive the full route and generated plan matches actual data', () => {
+  const established = [
+    'greeting', 'exemplary', 'you-did', 'another-like-you', 'introduce-yourself',
+    'he-may-introduce', 'also-walk', 'quite-a-distance', 'run-faster', 'reminding-me',
+    'what-is-below', 'your-stamina', 'did-not-order', 'consumes-energy', 'not-typical',
+    'clearly', 'cannot-sprint', 'time-to-recover', 'sound-recover', 'good-question',
+    'say-hello', 'admire-me', 'one-job', 'resemblance', 'likewise', 'despise-this',
+    'worth-speaking', 'seem-certain', 'name-matters', 'properly-defeat', 'remain-strangers',
+    'negotiations', 'placate', 'stand-down', 'sword-pen', 'own-pen', 'teach-you',
+    'harsh-lesson', 'opinion', 'revise', 'good-health', 'mixed-message', 'disallow',
+    'interception', 'blocked-message', 'guarded', 'technically-correct', 'extra', 'hint',
+    'no-hints', 'imminent-demise', 'not-my-plan', 'plans-change', 'indeed',
+    'frolic-fields', 'remembering-move',
+  ];
+  const plan = tutorialRecordingPlan();
+  const keys = new Set(plan.map(take => take.key));
+  for (const id of established) assert.ok(keys.has(`tutorial.${id}`), id);
+  const generated = JSON.parse(readFileSync(new URL('../../docs/tutorial-recording-plan.json', import.meta.url), 'utf8'));
+  assert.deepEqual(generated, plan);
+  assert.ok(plan.every(take => ['narrator', 'spellblade', 'rival'].includes(take.speaker)));
+  assert.deepEqual(plan.filter(take => take.optionalBranch).map(take => take.beatId), [
+    'frolic-fields', 'remembering-move', 'rival-over-there', 'scorch-mark',
+    'burn-subsided', 'reforged', 'not-too-many', 'stop-you', 'convince-unblock', 'did-not-stop',
+  ]);
+  const report = JSON.parse(readFileSync(new URL('../../docs/tutorial-one-recording-changes.json', import.meta.url), 'utf8'));
+  assert.equal(report.total, plan.length);
+  assert.equal(report.priorTotal, established.length);
+  assert.deepEqual(report.added, plan.filter(take => !established.includes(take.beatId)).map(take => take.key));
+  assert.deepEqual(report.optional, plan.filter(take => take.optionalBranch).map(take => take.key));
+  assert.deepEqual(report.optionalSegments, plan.filter(take => take.optionalSegment).map(take => take.key));
+  assert.deepEqual(report.missing, []);
+});
+
+test('recording plan carries onset synchronization and reactive rehearsal metadata', () => {
+  const plan = tutorialRecordingPlan();
+  const well = plan.find(take => take.key === 'tutorial.well');
+  const plans = plan.find(take => take.key === 'tutorial.plans-change');
+  assert.equal(well.text, 'Well.');
+  assert.equal(well.stageCue, undefined);
+  assert.equal(plans.text, 'Things do not always go according to plan.');
+  assert.deepEqual(plans.performanceCue, { at: 'onset', action: 'rival-attack', stageBeat: 'duel-onset', precedingBeat: 'well' });
+  assert.equal(plans.stageCue, undefined);
+  assert.equal(plans.presentation, 'reactive');
+  assert.ok(plans.rehearsalSec > 1.5);
+  assert.equal(plan.find(take => take.key === 'tutorial.greeting').rehearsalSec, undefined);
+  assert.equal(plan.find(take => take.key === 'tutorial.burn-subsided').optionalBranch, 'burned');
+  assert.equal(plan.find(take => take.key === 'tutorial.final-hello').optionalSegment, 'final-confrontation');
 });
 
 test('missing or muted takes leave captions available without inventing completion timing', () => {

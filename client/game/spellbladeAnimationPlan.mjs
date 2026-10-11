@@ -109,7 +109,8 @@ export function resolveSpellbladeAnimationPlan({ state, player = {}, serverNow =
   }
 
   if (state === 'dead') {
-    const deathAt = finite(player.respawnAt, serverNow + RESPAWN_SEC) - RESPAWN_SEC;
+    // A staged corpse can remain indefinitely; its death clock must survive a missing respawn deadline.
+    const deathAt = finite(player.deathAt, finite(player.respawnAt, serverNow + RESPAWN_SEC) - RESPAWN_SEC);
     return fixed('Death', serverNow - deathAt);
   }
 

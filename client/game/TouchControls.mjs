@@ -48,8 +48,10 @@ export class TouchControls {
     this.active = false;
     this.stick = null;
     this.look = null;
+    this.deniedButtons = new Set();
     this.held = new Map();   // pointerId -> action for held buttons
     this.stickState = { forward: 0, right: 0, sprint: false };
+    this.stickSprintRequested = false;
     this.sprintLatched = false;
     this.jumpHeld = false;
     this.jumpUntil = 0;
@@ -109,7 +111,7 @@ export class TouchControls {
 
   reset() {
     this.#cancelPreparedTouch();
-    for (const action of this.held.values()) this.#release(action);
+    for (const [pointerId, action] of this.held) this.#release(action, pointerId);
     this.held.clear();
     this.#endStick();
     this.look = null;
@@ -124,12 +126,13 @@ export class TouchControls {
 
   movement() {
     if (!this.active) return null;
+    this.stickState.sprint = this.#gateHeld('sprint', this.stickSprintRequested, 'touch-stick', false);
     const moving = Math.abs(this.stickState.forward) + Math.abs(this.stickState.right) > 0;
     return {
       forward: this.stickState.forward,
       right: this.stickState.right,
       jump: this.jumpHeld || performance.now() < this.jumpUntil,
-      sprint: this.stickState.sprint || (this.sprintLatched && moving),
+      sprint: this.stickState.sprint || this.#gateHeld('sprint', this.sprintLatched && moving, 'touch-latch', false),
       crouch: Boolean(this.crouchLatched),
     };
   }
@@ -311,22 +314,31 @@ export class TouchControls {
     if (action) {
       this.held.delete(event.pointerId);
       this.aim?.delete(event.pointerId);
-      this.#release(action);
+      this.#release(action, event.pointerId);
       // the menu opens on release, so the lifting finger cannot land on the arena and re-enter it
       if (action === 'pause' && event.type === 'pointerup') this.input.releaseFocus();
     }
   };
 
+  #gateHeld(action, requested, source, notify = true) {
+    if (this.input.gateHeldAction) return this.input.gateHeldAction(action, requested, source, notify);
+    return requested && this.input.allowAction?.(action, notify) !== false;
+  }
+
   #press(action, event) {
-    const element = this.buttons[action];
-    element?.classList.add('pressed');
     this.held.set(event.pointerId, action);
-    if (action === 'attack') this.input.setAttack(true);
-    if (action === 'guard') this.input.setGuard(true);
     if (action === 'attack' || action === 'guard') {
       this.aim ??= new Map();
       this.aim.set(event.pointerId, gamePoint(event));
     }
+    if (!this.#gateHeld(action, true, `touch-button:${event.pointerId}`)) {
+      this.deniedButtons.add(event.pointerId);
+      return;
+    }
+    const element = this.buttons[action];
+    element?.classList.add('pressed');
+    if (action === 'attack') this.input.setAttack(true);
+    if (action === 'guard') this.input.setGuard(true);
     if (action === 'spell') {
       if (this.prepared?.visible) {
         if (!this.preparedTouch) {
@@ -345,6 +357,7 @@ export class TouchControls {
     }
     if (action === 'sprint') {
       this.sprintLatched = !this.sprintLatched;
+      if (!this.sprintLatched) this.#gateHeld('sprint', false, 'touch-latch');
       this.buttons.sprint.classList.toggle('on', this.sprintLatched);
     }
     if (action === 'crouch') {
@@ -354,7 +367,9 @@ export class TouchControls {
     if (action === 'scores') this.input.scoreboardHeld = !this.input.scoreboardHeld;
   }
 
-  #release(action) {
+  #release(action, pointerId) {
+    this.#gateHeld(action, false, `touch-button:${pointerId}`);
+    if (this.deniedButtons.delete(pointerId)) return;
     this.buttons[action]?.classList.remove('pressed');
     if (action === 'attack') this.input.setAttack(false);
     if (action === 'guard') this.input.setGuard(false);
@@ -396,13 +411,18 @@ export class TouchControls {
   #moveStick(event) {
     const point = gamePoint(event);
     const vector = stickVector(point.x - this.stick.x, point.y - this.stick.y);
-    this.stickState = { forward: vector.forward, right: vector.right, sprint: vector.sprint };
+    this.stickSprintRequested = vector.sprint;
+    const sprint = this.#gateHeld('sprint', vector.sprint, 'touch-stick');
+    this.stickState = { forward: vector.forward, right: vector.right, sprint };
     this.stickKnob.style.transform = `translate(${vector.knob.x}px, ${vector.knob.y}px)`;
-    this.stickBase.classList.toggle('sprint', vector.sprint);
+    this.stickBase.classList.toggle('sprint', sprint);
   }
 
   #endStick() {
     this.stick = null;
+    this.stickSprintRequested = false;
+    this.#gateHeld('sprint', false, 'touch-stick');
+    this.#gateHeld('sprint', false, 'touch-latch');
     this.stickState = { forward: 0, right: 0, sprint: false };
     this.stickBase.classList.remove('held', 'sprint');
     this.stickBase.style.left = '';

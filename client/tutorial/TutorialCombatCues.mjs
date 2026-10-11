@@ -57,7 +57,8 @@ export class TutorialCombatCues {
         this.outcome = { winnerId: event.winnerId, reason: 'score' };
         cue = 'duel-complete';
       }
-      if (cue && this.director.accept(cue)) advanced += 1;
+      if (cue && (['sword-contact','successful-guard','player-damaged'].includes(cue)
+        ? this.director.fact?.(cue) ?? this.director.accept(cue) : this.director.accept(cue))) advanced += 1;
     }
     return advanced;
   }

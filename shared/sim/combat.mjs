@@ -272,7 +272,7 @@ function inPractice(room) {
 // that leave is the knight's who came to practise: the yard's own opponents keep their real cooldowns (or they would
 // throw a spell every time the gate opened: a fireball every half second)
 function practising(room, player) {
-  return inPractice(room) && player?.actorKind === 'human';
+  return inPractice(room) && !room.localTutorial && player?.actorKind === 'human';
 }
 
 export function tryDash(room, playerId, direction, nowSec) {
@@ -974,6 +974,9 @@ export function applyDamage(room, attackerId, victimId, amount, source, nowSec, 
   const healthBefore = victim.health;
   const taken = Math.min(victim.health, amount);
   victim.health = Math.max(0, victim.health - amount);
+  // Only the locally staged Tutorial Rival survives until its final fight begins.
+  // Contact, damage events, afflictions and physical response still resolve normally.
+  if (room.localTutorial && room.tutorialRival?.id === victimId && room.tutorialRival.protected) victim.health = Math.max(1, victim.health);
   victim.lastDamageAt = nowSec;
   victim.lastAttackerId = attackerId;
   prowessForDamage(room, room.players.get(attackerId), victim, taken, { ultimate });

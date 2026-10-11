@@ -509,7 +509,12 @@ export class RemotePlayers {
       animationPlayer.castPoseUntil = pb.castEndsAt + 0.06;
       animationPlayer.castPoseStartAt = pb.castStartedAt ?? pb.castEndsAt - (pb.castingSpell === 'gale' ? 0.5 : 0.3);
     }
-    const plan = resolveSpellbladeAnimationPlan({ state, player: animationPlayer, serverNow, localTime });
+    const drawing = Number.isFinite(pb.tutorialDrawAt) && serverNow - pb.tutorialDrawAt >= 0 && serverNow - pb.tutorialDrawAt < .7;
+    const plan = resolveSpellbladeAnimationPlan({ state: drawing ? 'guard' : state, player: drawing ? {...animationPlayer,guarding:true} : animationPlayer, serverNow, localTime });
+    if (typeof pb.tutorialSwordDrawn === 'boolean') {
+      const sword = shell.visualInstance?.root?.getObjectByName('HeroSword') ?? shell.fallbackRig?.userData.sword;
+      if (sword) sword.visible = pb.tutorialSwordDrawn;
+    }
     plan.motion = {
       // the killing blow's flinch plays on into the death, and the body gives way under it
       reactions: d.reactions,

@@ -1,0 +1,3283 @@
+{
+  "kind": "developer driven real input run",
+  "world": "greener-pastures",
+  "fullRunState": "complete",
+  "durationSec": 296.165,
+  "frameSamples": 17760,
+  "medianFrameMs": 16.7,
+  "p95FrameMs": 18.6,
+  "maxFrameMs": 98.5,
+  "framesOver50ms": 2,
+  "checkpointRetries": 1,
+  "includesLateCanvasCapture": true,
+  "progression": [
+    {
+      "at": 0.03,
+      "beat": "greeting",
+      "mode": "idle",
+      "run": 1,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": 120
+      },
+      "rival": {
+        "x": 0,
+        "y": 0,
+        "z": -15
+      }
+    },
+    {
+      "at": 4.35,
+      "beat": "exemplary",
+      "mode": "idle",
+      "run": 1,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": 120
+      },
+      "rival": {
+        "x": 0,
+        "y": 0,
+        "z": -15
+      }
+    },
+    {
+      "at": 7.83,
+      "beat": "you-did",
+      "mode": "idle",
+      "run": 1,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": 120
+      },
+      "rival": {
+        "x": 0,
+        "y": 0,
+        "z": -15
+      }
+    },
+    {
+      "at": 9.68,
+      "beat": "greener-pastures",
+      "mode": "idle",
+      "run": 1,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": 120
+      },
+      "rival": {
+        "x": 0,
+        "y": 0,
+        "z": -15
+      }
+    },
+    {
+      "at": 12.85,
+      "beat": "much-to-do",
+      "mode": "idle",
+      "run": 1,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": 120
+      },
+      "rival": {
+        "x": 0,
+        "y": 0,
+        "z": -15
+      }
+    },
+    {
+      "at": 14.68,
+      "beat": "need-look-around",
+      "mode": "idle",
+      "run": 1,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": 120
+      },
+      "rival": {
+        "x": 0,
+        "y": 0,
+        "z": -15
+      }
+    },
+    {
+      "at": 16.53,
+      "beat": "nothing-of-value",
+      "mode": "idle",
+      "run": 1,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": 120
+      },
+      "rival": {
+        "x": 0,
+        "y": 0,
+        "z": -15
+      }
+    },
+    {
+      "at": 18.58,
+      "beat": "truly-look-around",
+      "mode": "idle",
+      "run": 1,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": 120
+      },
+      "rival": {
+        "x": 0,
+        "y": 0,
+        "z": -15
+      }
+    },
+    {
+      "at": 20.43,
+      "beat": "look-prompt",
+      "mode": "idle",
+      "run": 1,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": 120
+      },
+      "rival": {
+        "x": 0,
+        "y": 0,
+        "z": -15
+      }
+    },
+    {
+      "at": 21.65,
+      "beat": "look-ah",
+      "mode": "idle",
+      "run": 1,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": 120
+      },
+      "rival": {
+        "x": 0,
+        "y": 0,
+        "z": -15
+      }
+    },
+    {
+      "at": 23.48,
+      "beat": "still-nothing",
+      "mode": "idle",
+      "run": 1,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": 120
+      },
+      "rival": {
+        "x": 0,
+        "y": 0,
+        "z": -15
+      }
+    },
+    {
+      "at": 25.33,
+      "beat": "another-like-you",
+      "mode": "idle",
+      "run": 1,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": 120
+      },
+      "rival": {
+        "x": 0,
+        "y": 0,
+        "z": -15
+      }
+    },
+    {
+      "at": 27.65,
+      "beat": "introduce-yourself",
+      "mode": "idle",
+      "run": 1,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": 120
+      },
+      "rival": {
+        "x": 0,
+        "y": 0,
+        "z": -15
+      }
+    },
+    {
+      "at": 30.25,
+      "beat": "he-may-introduce",
+      "mode": "idle",
+      "run": 1,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": 120
+      },
+      "rival": {
+        "x": 0,
+        "y": 0,
+        "z": -15
+      }
+    },
+    {
+      "at": 34.3,
+      "beat": "also-walk",
+      "mode": "idle",
+      "run": 1,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": 120
+      },
+      "rival": {
+        "x": 0,
+        "y": 0,
+        "z": -15
+      }
+    },
+    {
+      "at": 36.15,
+      "beat": "walk-prompt",
+      "mode": "idle",
+      "run": 1,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": 120
+      },
+      "rival": {
+        "x": 0,
+        "y": 0,
+        "z": -15
+      }
+    },
+    {
+      "at": 36.68,
+      "beat": "quite-a-distance",
+      "mode": "idle",
+      "run": 1,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": 116
+      },
+      "rival": {
+        "x": 0,
+        "y": 0,
+        "z": -15
+      }
+    },
+    {
+      "at": 40.43,
+      "beat": "run-faster",
+      "mode": "idle",
+      "run": 1,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": 115.75
+      },
+      "rival": {
+        "x": 0,
+        "y": 0,
+        "z": -15
+      }
+    },
+    {
+      "at": 42.28,
+      "beat": "reminding-me",
+      "mode": "idle",
+      "run": 1,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": 115.75
+      },
+      "rival": {
+        "x": 0,
+        "y": 0,
+        "z": -15
+      }
+    },
+    {
+      "at": 44.1,
+      "beat": "think-more",
+      "mode": "idle",
+      "run": 1,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": 115.75
+      },
+      "rival": {
+        "x": 0,
+        "y": 0,
+        "z": -15
+      }
+    },
+    {
+      "at": 46.43,
+      "beat": "sprint-prompt",
+      "mode": "idle",
+      "run": 1,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": 115.75
+      },
+      "rival": {
+        "x": 0,
+        "y": 0,
+        "z": -15
+      }
+    },
+    {
+      "at": 46.48,
+      "beat": "what-is-below",
+      "mode": "idle",
+      "run": 1,
+      "health": 100,
+      "stamina": 99.66666666666667,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": 115.48496296296297
+      },
+      "rival": {
+        "x": 0,
+        "y": 0,
+        "z": -15
+      }
+    },
+    {
+      "at": 48.35,
+      "beat": "your-stamina",
+      "mode": "idle",
+      "run": 1,
+      "health": 100,
+      "stamina": 80.66666666666694,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": 95.00962962962927
+      },
+      "rival": {
+        "x": 0,
+        "y": 0,
+        "z": -15
+      }
+    },
+    {
+      "at": 49.4,
+      "beat": "did-not-order",
+      "mode": "idle",
+      "run": 1,
+      "health": 100,
+      "stamina": 70.00000000000043,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": 83.2762962962957
+      },
+      "rival": {
+        "x": 0,
+        "y": 0,
+        "z": -15
+      }
+    },
+    {
+      "at": 51.5,
+      "beat": "consumes-energy",
+      "mode": "idle",
+      "run": 1,
+      "health": 100,
+      "stamina": 49.000000000000405,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": 60.17629629629537
+      },
+      "rival": {
+        "x": 0,
+        "y": 0,
+        "z": -15
+      }
+    },
+    {
+      "at": 52.55,
+      "beat": "not-typical",
+      "mode": "idle",
+      "run": 1,
+      "health": 100,
+      "stamina": 38.33333333333366,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": 48.44296296296225
+      },
+      "rival": {
+        "x": 0,
+        "y": 0,
+        "z": -15
+      }
+    },
+    {
+      "at": 53.6,
+      "beat": "clearly",
+      "mode": "idle",
+      "run": 1,
+      "health": 100,
+      "stamina": 27.666666666666966,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": 36.70962962962913
+      },
+      "rival": {
+        "x": 0,
+        "y": 0,
+        "z": -15
+      }
+    },
+    {
+      "at": 54.65,
+      "beat": "can-do-all-day",
+      "mode": "idle",
+      "run": 1,
+      "health": 100,
+      "stamina": 17.000000000000338,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": 24.976296296295867
+      },
+      "rival": {
+        "x": 0,
+        "y": 0,
+        "z": -15
+      }
+    },
+    {
+      "at": 56.18,
+      "beat": "winded-prompt",
+      "mode": "idle",
+      "run": 1,
+      "health": 100,
+      "stamina": 1.6666666666669963,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": 8.109629629629179
+      },
+      "rival": {
+        "x": 0,
+        "y": 0,
+        "z": -15
+      }
+    },
+    {
+      "at": 56.4,
+      "beat": "cannot-sprint",
+      "mode": "idle",
+      "run": 1,
+      "health": 100,
+      "stamina": 0,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": 5.544403292180617
+      },
+      "rival": {
+        "x": 0,
+        "y": 0,
+        "z": -15
+      }
+    },
+    {
+      "at": 57.58,
+      "beat": "time-to-recover",
+      "mode": "idle",
+      "run": 1,
+      "health": 100,
+      "stamina": 7.999999999999999,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": -3.7298765432103322
+      },
+      "rival": {
+        "x": 0,
+        "y": 0,
+        "z": -15
+      }
+    },
+    {
+      "at": 58.63,
+      "beat": "sound-recover",
+      "mode": "idle",
+      "run": 1,
+      "health": 100,
+      "stamina": 19.333333333333346,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": -12.803580246914036
+      },
+      "rival": {
+        "x": 0,
+        "y": 0,
+        "z": -15
+      }
+    },
+    {
+      "at": 60.33,
+      "beat": "good-question",
+      "mode": "idle",
+      "run": 1,
+      "health": 100,
+      "stamina": 51.33333333333337,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": -12.803580246914036
+      },
+      "rival": {
+        "x": 0,
+        "y": 0,
+        "z": -15
+      }
+    },
+    {
+      "at": 61.4,
+      "beat": "reach-rival",
+      "mode": "idle",
+      "run": 1,
+      "health": 100,
+      "stamina": 93.99999999999996,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": -12.803580246914036
+      },
+      "rival": {
+        "x": 0,
+        "y": 0,
+        "z": -15
+      }
+    },
+    {
+      "at": 61.43,
+      "beat": "say-hello",
+      "mode": "idle",
+      "run": 1,
+      "health": 100,
+      "stamina": 95.33333333333329,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": -12.803580246914036
+      },
+      "rival": {
+        "x": 0,
+        "y": 0,
+        "z": -15
+      }
+    },
+    {
+      "at": 63.28,
+      "beat": "admire-me",
+      "mode": "idle",
+      "run": 1,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": -12.803580246914036
+      },
+      "rival": {
+        "x": 0,
+        "y": 0,
+        "z": -15
+      }
+    },
+    {
+      "at": 65.1,
+      "beat": "one-job",
+      "mode": "idle",
+      "run": 1,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": -12.803580246914036
+      },
+      "rival": {
+        "x": 0,
+        "y": 0,
+        "z": -15
+      }
+    },
+    {
+      "at": 66.95,
+      "beat": "resemblance",
+      "mode": "idle",
+      "run": 1,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": -12.803580246914036
+      },
+      "rival": {
+        "x": 0,
+        "y": 0,
+        "z": -15
+      }
+    },
+    {
+      "at": 68.8,
+      "beat": "likewise",
+      "mode": "idle",
+      "run": 1,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": -12.803580246914036
+      },
+      "rival": {
+        "x": 0,
+        "y": 0,
+        "z": -15
+      }
+    },
+    {
+      "at": 70.65,
+      "beat": "despise-this",
+      "mode": "idle",
+      "run": 1,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": -12.803580246914036
+      },
+      "rival": {
+        "x": 0,
+        "y": 0,
+        "z": -15
+      }
+    },
+    {
+      "at": 72.48,
+      "beat": "worth-speaking",
+      "mode": "idle",
+      "run": 1,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": -12.803580246914036
+      },
+      "rival": {
+        "x": 0,
+        "y": 0,
+        "z": -15
+      }
+    },
+    {
+      "at": 75.08,
+      "beat": "seem-certain",
+      "mode": "idle",
+      "run": 1,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": -12.803580246914036
+      },
+      "rival": {
+        "x": 0,
+        "y": 0,
+        "z": -15
+      }
+    },
+    {
+      "at": 77.68,
+      "beat": "name-matters",
+      "mode": "idle",
+      "run": 1,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": -12.803580246914036
+      },
+      "rival": {
+        "x": 0,
+        "y": 0,
+        "z": -15
+      }
+    },
+    {
+      "at": 79.5,
+      "beat": "properly-defeat",
+      "mode": "idle",
+      "run": 1,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": -12.803580246914036
+      },
+      "rival": {
+        "x": 0,
+        "y": 0,
+        "z": -15
+      }
+    },
+    {
+      "at": 82.68,
+      "beat": "remain-strangers",
+      "mode": "idle",
+      "run": 1,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": -12.803580246914036
+      },
+      "rival": {
+        "x": 0,
+        "y": 0,
+        "z": -15
+      }
+    },
+    {
+      "at": 84.73,
+      "beat": "negotiations",
+      "mode": "idle",
+      "run": 1,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": -12.803580246914036
+      },
+      "rival": {
+        "x": 0,
+        "y": 0,
+        "z": -15
+      }
+    },
+    {
+      "at": 86.78,
+      "beat": "placate",
+      "mode": "idle",
+      "run": 1,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": -12.803580246914036
+      },
+      "rival": {
+        "x": 0,
+        "y": 0,
+        "z": -15
+      }
+    },
+    {
+      "at": 88.63,
+      "beat": "stand-down",
+      "mode": "idle",
+      "run": 1,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": -12.803580246914036
+      },
+      "rival": {
+        "x": 0,
+        "y": 0,
+        "z": -15
+      }
+    },
+    {
+      "at": 90.45,
+      "beat": "sword-pen",
+      "mode": "idle",
+      "run": 1,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": -12.803580246914036
+      },
+      "rival": {
+        "x": 0,
+        "y": 0,
+        "z": -15
+      }
+    },
+    {
+      "at": 92.51,
+      "beat": "own-pen",
+      "mode": "idle",
+      "run": 1,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": -12.803580246914036
+      },
+      "rival": {
+        "x": 0,
+        "y": 0,
+        "z": -15
+      }
+    },
+    {
+      "at": 95.13,
+      "beat": "attack-prompt",
+      "mode": "idle",
+      "run": 1,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": -12.803580246914036
+      },
+      "rival": {
+        "x": 0,
+        "y": 0,
+        "z": -15
+      }
+    },
+    {
+      "at": 95.58,
+      "beat": "teach-you",
+      "mode": "idle",
+      "run": 1,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": -13.253580246914037
+      },
+      "rival": {
+        "x": 0,
+        "y": 0,
+        "z": -15.056666666666667
+      }
+    },
+    {
+      "at": 97.43,
+      "beat": "harsh-lesson",
+      "mode": "idle",
+      "run": 1,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": -13.253580246914037
+      },
+      "rival": {
+        "x": 0,
+        "y": 0,
+        "z": -15.349788203659978
+      }
+    },
+    {
+      "at": 99.28,
+      "beat": "opinion",
+      "mode": "idle",
+      "run": 1,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": -13.253580246914037
+      },
+      "rival": {
+        "x": 0,
+        "y": 0,
+        "z": -15.349788203659978
+      }
+    },
+    {
+      "at": 103.6,
+      "beat": "revise",
+      "mode": "idle",
+      "run": 1,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": -13.253580246914037
+      },
+      "rival": {
+        "x": 0,
+        "y": 0,
+        "z": -15.349788203659978
+      }
+    },
+    {
+      "at": 105.93,
+      "beat": "draw-sword",
+      "mode": "draw",
+      "run": 1,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": -13.253580246914037
+      },
+      "rival": {
+        "x": 0,
+        "y": 0,
+        "z": -15.349788203659978
+      }
+    },
+    {
+      "at": 106.78,
+      "beat": "good-health",
+      "mode": "idle",
+      "run": 1,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": -13.553580246914038
+      },
+      "rival": {
+        "x": 0,
+        "y": 0,
+        "z": -15.349788203659978
+      }
+    },
+    {
+      "at": 109.1,
+      "beat": "mixed-message",
+      "mode": "idle",
+      "run": 1,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": -13.553580246914038
+      },
+      "rival": {
+        "x": 0,
+        "y": 0,
+        "z": -15.349788203659978
+      }
+    },
+    {
+      "at": 111.43,
+      "beat": "disallow",
+      "mode": "idle",
+      "run": 1,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": -13.553580246914038
+      },
+      "rival": {
+        "x": 0,
+        "y": 0,
+        "z": -15.349788203659978
+      }
+    },
+    {
+      "at": 113.28,
+      "beat": "guard-prompt",
+      "mode": "guard-lesson",
+      "run": 1,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": -13.553580246914038
+      },
+      "rival": {
+        "x": 0,
+        "y": 0,
+        "z": -15.349788203659978
+      }
+    },
+    {
+      "at": 113.68,
+      "beat": "interception",
+      "mode": "idle",
+      "run": 1,
+      "health": 100,
+      "stamina": 78.0000000901585,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": -13.553580246914038
+      },
+      "rival": {
+        "x": 0,
+        "y": 0,
+        "z": -15.349788203659978
+      }
+    },
+    {
+      "at": 115.53,
+      "beat": "blocked-message",
+      "mode": "idle",
+      "run": 1,
+      "health": 100,
+      "stamina": 98.80000009015842,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": -13.553580246914038
+      },
+      "rival": {
+        "x": 0,
+        "y": 0,
+        "z": -15.349788203659978
+      }
+    },
+    {
+      "at": 117.38,
+      "beat": "guarded",
+      "mode": "idle",
+      "run": 1,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": -13.553580246914038
+      },
+      "rival": {
+        "x": 0,
+        "y": 0,
+        "z": -15.349788203659978
+      }
+    },
+    {
+      "at": 119.23,
+      "beat": "technically-correct",
+      "mode": "idle",
+      "run": 1,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": -13.553580246914038
+      },
+      "rival": {
+        "x": 0,
+        "y": 0,
+        "z": -15.349788203659978
+      }
+    },
+    {
+      "at": 121.05,
+      "beat": "lower-guard",
+      "mode": "idle",
+      "run": 1,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": -13.553580246914038
+      },
+      "rival": {
+        "x": 0,
+        "y": 0,
+        "z": -15.349788203659978
+      }
+    },
+    {
+      "at": 121.1,
+      "beat": "postscript-hit",
+      "mode": "postscript",
+      "run": 1,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": -13.553580246914038
+      },
+      "rival": {
+        "x": 0,
+        "y": 0,
+        "z": -15.349788203659978
+      }
+    },
+    {
+      "at": 121.53,
+      "beat": "extra",
+      "mode": "idle",
+      "run": 1,
+      "health": 70,
+      "stamina": 100,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": -13.553580246914038
+      },
+      "rival": {
+        "x": 0,
+        "y": 0,
+        "z": -15.349788203659978
+      }
+    },
+    {
+      "at": 123.38,
+      "beat": "hint",
+      "mode": "idle",
+      "run": 1,
+      "health": 70,
+      "stamina": 100,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": -13.20379204325406
+      },
+      "rival": {
+        "x": 0,
+        "y": 0,
+        "z": -15.349788203659978
+      }
+    },
+    {
+      "at": 125.2,
+      "beat": "need-a-moment",
+      "mode": "rest",
+      "run": 1,
+      "health": 70,
+      "stamina": 100,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": -13.20379204325406
+      },
+      "rival": {
+        "x": 0,
+        "y": 0,
+        "z": -15.349788203659978
+      }
+    },
+    {
+      "at": 127.05,
+      "beat": "no-hints",
+      "mode": "rest",
+      "run": 1,
+      "health": 81.33333333333341,
+      "stamina": 100,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": -13.20379204325406
+      },
+      "rival": {
+        "x": 0,
+        "y": 0,
+        "z": -19.224788203659976
+      }
+    },
+    {
+      "at": 128.9,
+      "beat": "imminent-demise",
+      "mode": "rest",
+      "run": 1,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": -13.20379204325406
+      },
+      "rival": {
+        "x": 0,
+        "y": 0,
+        "z": -19.224788203659976
+      }
+    },
+    {
+      "at": 130.73,
+      "beat": "not-my-plan",
+      "mode": "rest",
+      "run": 1,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": -13.20379204325406
+      },
+      "rival": {
+        "x": 0,
+        "y": 0,
+        "z": -19.224788203659976
+      }
+    },
+    {
+      "at": 133.05,
+      "beat": "well",
+      "mode": "idle",
+      "run": 1,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": -13.20379204325406
+      },
+      "rival": {
+        "x": 0,
+        "y": 0,
+        "z": -19.224788203659976
+      }
+    },
+    {
+      "at": 134.58,
+      "beat": "plans-change",
+      "mode": "duel",
+      "run": 1,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": -17.403792043254054
+      },
+      "rival": {
+        "x": -0.07500000000000001,
+        "y": 0,
+        "z": -19.224788203659976
+      }
+    },
+    {
+      "at": 137.3,
+      "beat": "indeed",
+      "mode": "duel",
+      "run": 1,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": -0.5904144381003226,
+        "y": 0,
+        "z": -17.892739274495415
+      },
+      "rival": {
+        "x": -2.3034701931742916,
+        "y": 0,
+        "z": -17.23048540450669
+      }
+    },
+    {
+      "at": 138.85,
+      "beat": "strike-you-first",
+      "mode": "escape",
+      "run": 1,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": -1.3009113906959793,
+        "y": 0,
+        "z": -17.33135105149962
+      },
+      "rival": {
+        "x": -2.0604556880011726,
+        "y": 0,
+        "z": -15.810036900851122
+      }
+    },
+    {
+      "at": 142.55,
+      "beat": "depends-go-down",
+      "mode": "escape",
+      "run": 1,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": 8.822939719633167,
+        "y": 0,
+        "z": -28.027706844662774
+      },
+      "rival": {
+        "x": 22.43059411295796,
+        "y": 0,
+        "z": -43.22550800628661
+      }
+    },
+    {
+      "at": 146.28,
+      "beat": "prevent-arrangement",
+      "mode": "escape",
+      "run": 1,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": 20.09864971201822,
+        "y": 0,
+        "z": -40.683163023278524
+      },
+      "rival": {
+        "x": 41.93356911153123,
+        "y": 0,
+        "z": -65.24654211498591
+      }
+    },
+    {
+      "at": 147.83,
+      "beat": "taking-a-while",
+      "mode": "duel",
+      "run": 1,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": 24.7815065136561,
+        "y": 0,
+        "z": -45.953205867605476
+      },
+      "rival": {
+        "x": 46.78395578790429,
+        "y": 0,
+        "z": -70.72351960853173
+      }
+    },
+    {
+      "at": 150.53,
+      "beat": "not-yet",
+      "mode": "duel",
+      "run": 1,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": 33.69701504964943,
+        "y": 0,
+        "z": -55.83449163325741
+      },
+      "rival": {
+        "x": 35.905281433386385,
+        "y": 0,
+        "z": -57.73437004250426
+      }
+    },
+    {
+      "at": 153.23,
+      "beat": "informative",
+      "mode": "escape",
+      "run": 1,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": 41.168788364069286,
+        "y": 0,
+        "z": -63.11501788413092
+      },
+      "rival": {
+        "x": 50.50912615544274,
+        "y": 0,
+        "z": -74.37103877629266
+      }
+    },
+    {
+      "at": 154.78,
+      "beat": "overstayed-welcome",
+      "mode": "escape",
+      "run": 1,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": 44.67987611589694,
+        "y": 0,
+        "z": -69.10254196315037
+      },
+      "rival": {
+        "x": 47.08832084626461,
+        "y": 0,
+        "z": -85.0720074203659
+      }
+    },
+    {
+      "at": 157.15,
+      "beat": "never-welcome",
+      "mode": "escape",
+      "run": 1,
+      "health": 100,
+      "stamina": 76.00000000000034,
+      "position": {
+        "x": 36.02598287596165,
+        "y": 0,
+        "z": -92.6569138857311
+      },
+      "rival": {
+        "x": 29.602291404365047,
+        "y": 0,
+        "z": -100.36790877847554
+      }
+    },
+    {
+      "at": 158.7,
+      "beat": "say-hello-reminder",
+      "mode": "escape",
+      "run": 1,
+      "health": 100,
+      "stamina": 67.00000000000047,
+      "position": {
+        "x": 24.736101661198127,
+        "y": 0,
+        "z": -104.22843837901091
+      },
+      "rival": {
+        "x": 17.392980443038503,
+        "y": 0,
+        "z": -111.04800151968078
+      }
+    },
+    {
+      "at": 160.75,
+      "beat": "escape-made-fun",
+      "mode": "escape",
+      "run": 1,
+      "health": 100,
+      "stamina": 80.66666666666711,
+      "position": {
+        "x": 11.991400338523226,
+        "y": 0,
+        "z": -115.70464205898013
+      },
+      "rival": {
+        "x": 4.5162834971949595,
+        "y": 0,
+        "z": -122.31189004030367
+      }
+    },
+    {
+      "at": 165.15,
+      "beat": "hardly-wellbeing",
+      "mode": "escape",
+      "run": 1,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": -13.002067547136276,
+        "y": 0,
+        "z": -137.63377881233205
+      },
+      "rival": {
+        "x": -20.509994005524284,
+        "y": 0,
+        "z": -144.20362214073123
+      }
+    },
+    {
+      "at": 168.5,
+      "beat": "remains-ahead",
+      "mode": "escape",
+      "run": 1,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": -32.1941034587648,
+        "y": 0,
+        "z": -154.42412592835848
+      },
+      "rival": {
+        "x": -39.70307900760977,
+        "y": 0,
+        "z": -160.99277006737492
+      }
+    },
+    {
+      "at": 171.9,
+      "beat": "few-steps",
+      "mode": "escape",
+      "run": 1,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": -45.65427777919662,
+        "y": 0,
+        "z": -174.73606180025897
+      },
+      "rival": {
+        "x": -45.13447936438884,
+        "y": 0,
+        "z": -181.86181779360086
+      }
+    },
+    {
+      "at": 173.45,
+      "beat": "why-spellblade",
+      "mode": "escape",
+      "run": 1,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": -43.44034650621849,
+        "y": 0,
+        "z": -186.25715676231434
+      },
+      "rival": {
+        "x": -41.60772826477688,
+        "y": 0,
+        "z": -193.07005256458024
+      }
+    },
+    {
+      "at": 175.5,
+      "beat": "spell-blade",
+      "mode": "escape",
+      "run": 1,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": -39.05897513003499,
+        "y": 0,
+        "z": -200.8628555928443
+      },
+      "rival": {
+        "x": -36.69557156896366,
+        "y": 0,
+        "z": -208.42025133784594
+      }
+    },
+    {
+      "at": 177.23,
+      "beat": "impressive",
+      "mode": "escape",
+      "run": 1,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": -35.16998230181994,
+        "y": 0,
+        "z": -213.2675206727656
+      },
+      "rival": {
+        "x": -32.79787336325285,
+        "y": 0,
+        "z": -220.82218460234904
+      }
+    },
+    {
+      "at": 178.78,
+      "beat": "magic-disposal",
+      "mode": "escape",
+      "run": 1,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": -31.6483746637734,
+        "y": 0,
+        "z": -224.47737252737548
+      },
+      "rival": {
+        "x": -29.00347794642345,
+        "y": 0,
+        "z": -232.89248666407974
+      }
+    },
+    {
+      "at": 181.48,
+      "beat": "waiting-reminder",
+      "mode": "escape",
+      "run": 1,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": -25.501879669318228,
+        "y": 0,
+        "z": -244.03422808401874
+      },
+      "rival": {
+        "x": -22.84723082277861,
+        "y": 0,
+        "z": -252.48100551904008
+      }
+    },
+    {
+      "at": 185.88,
+      "beat": "almost-there",
+      "mode": "escape",
+      "run": 1,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": -15.532908518327243,
+        "y": 0,
+        "z": -275.75460188682024
+      },
+      "rival": {
+        "x": -12.579979238616552,
+        "y": 0,
+        "z": -285.15055958580155
+      }
+    },
+    {
+      "at": 187.43,
+      "beat": "rival-cold",
+      "mode": "escape",
+      "run": 1,
+      "health": 100,
+      "stamina": 96.66666666666671,
+      "position": {
+        "x": -11.800424401943308,
+        "y": 0,
+        "z": -287.6310299924948
+      },
+      "rival": {
+        "x": -8.766828409965182,
+        "y": 0,
+        "z": -297.2836570551297
+      }
+    },
+    {
+      "at": 189.48,
+      "beat": "warm-feelings",
+      "mode": "escape",
+      "run": 1,
+      "health": 100,
+      "stamina": 83.00000000000024,
+      "position": {
+        "x": -5.495476981979834,
+        "y": 0,
+        "z": -307.69279994790537
+      },
+      "rival": {
+        "x": -2.4910781762663325,
+        "y": 0,
+        "z": -317.2525239329813
+      }
+    },
+    {
+      "at": 191.85,
+      "beat": "concerning",
+      "mode": "escape",
+      "run": 1,
+      "health": 100,
+      "stamina": 64.66666666666717,
+      "position": {
+        "x": 1.8650868507251526,
+        "y": 0,
+        "z": -331.1134451277998
+      },
+      "rival": {
+        "x": 4.858982213520355,
+        "y": 0,
+        "z": -340.63974807051164
+      }
+    },
+    {
+      "at": 193.4,
+      "beat": "bridge-arrival",
+      "mode": "escape",
+      "run": 1,
+      "health": 100,
+      "stamina": 55.33333333333378,
+      "position": {
+        "x": 6.643310145818729,
+        "y": 0,
+        "z": -346.31731738660636
+      },
+      "rival": {
+        "x": 9.643290718305005,
+        "y": 0,
+        "z": -355.8629829186678
+      }
+    },
+    {
+      "at": 205.38,
+      "beat": "get-over-this",
+      "mode": "escape",
+      "run": 1,
+      "health": 100,
+      "stamina": 93.0000000000001,
+      "position": {
+        "x": 31.91128293182187,
+        "y": 0,
+        "z": -446.22019759266686
+      },
+      "rival": {
+        "x": 31.98664956414574,
+        "y": 0,
+        "z": -459.35573339297605
+      }
+    },
+    {
+      "at": 207.08,
+      "beat": "decent-suggestion",
+      "mode": "escape",
+      "run": 1,
+      "health": 100,
+      "stamina": 89.00000000000016,
+      "position": {
+        "x": 31.716485823626293,
+        "y": 0,
+        "z": -466.49071229654436
+      },
+      "rival": {
+        "x": 30.535038821392572,
+        "y": 0,
+        "z": -476.39101566725697
+      }
+    },
+    {
+      "at": 209.13,
+      "beat": "get-over-it",
+      "mode": "escape",
+      "run": 1,
+      "health": 100,
+      "stamina": 76.33333333333367,
+      "position": {
+        "x": 26.992229686758847,
+        "y": 0,
+        "z": -486.7931163327358
+      },
+      "rival": {
+        "x": 24.159363833713936,
+        "y": 0,
+        "z": -496.4179742205657
+      }
+    },
+    {
+      "at": 213.2,
+      "beat": "surpass-obstacle",
+      "mode": "escape",
+      "run": 1,
+      "health": 100,
+      "stamina": 50.66666666666708,
+      "position": {
+        "x": 14.562459278050273,
+        "y": 0,
+        "z": -526.5531888879749
+      },
+      "rival": {
+        "x": 11.532590899288614,
+        "y": 0,
+        "z": -536.080576016997
+      }
+    },
+    {
+      "at": 216.55,
+      "beat": "grow-maturity",
+      "mode": "escape",
+      "run": 1,
+      "health": 100,
+      "stamina": 97.00000000000028,
+      "position": {
+        "x": 5.8088688498083245,
+        "y": 0,
+        "z": -554.0591317180814
+      },
+      "rival": {
+        "x": 2.8034419878490784,
+        "y": 0,
+        "z": -563.5001517941371
+      }
+    },
+    {
+      "at": 219.6,
+      "beat": "but-knight",
+      "mode": "escape",
+      "run": 1,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": -1.1681180918926135,
+        "y": 0,
+        "z": -575.9753734854679
+      },
+      "rival": {
+        "x": -4.173681246145261,
+        "y": 0,
+        "z": -585.4163501729092
+      }
+    },
+    {
+      "at": 221.65,
+      "beat": "counterfire-hit",
+      "mode": "counter-pursuit",
+      "run": 1,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": -5.870081236061299,
+        "y": 0,
+        "z": -590.744989004867
+      },
+      "rival": {
+        "x": -8.875655599489404,
+        "y": 0,
+        "z": -600.1859621238209
+      }
+    },
+    {
+      "at": 222.48,
+      "beat": "cease-singeing",
+      "mode": "counter-pursuit",
+      "run": 1,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": -7.766037279619956,
+        "y": 0,
+        "z": -596.700478126752
+      },
+      "rival": {
+        "x": -10.77161300003147,
+        "y": 0,
+        "z": -606.1414508137046
+      }
+    },
+    {
+      "at": 224.18,
+      "beat": "follow-footsteps",
+      "mode": "counterfire",
+      "run": 1,
+      "health": 100,
+      "stamina": 90.6666666666668,
+      "position": {
+        "x": -9.374047430421886,
+        "y": 0,
+        "z": -611.9317345874832
+      },
+      "rival": {
+        "x": -8.303549199302486,
+        "y": 0,
+        "z": -621.8502888606482
+      }
+    },
+    {
+      "at": 226.23,
+      "beat": "counterfire-pursuit",
+      "mode": "counterfire",
+      "run": 1,
+      "health": 100,
+      "stamina": 78.33333333333364,
+      "position": {
+        "x": -3.8794119584658717,
+        "y": 0,
+        "z": -629.494435616289
+      },
+      "rival": {
+        "x": -3.4344140307986812,
+        "y": 0,
+        "z": -640.7149810568716
+      }
+    },
+    {
+      "at": 228.2,
+      "beat": "complaint-arrival",
+      "mode": "complaint",
+      "run": 1,
+      "health": 100,
+      "stamina": 58.333333333333805,
+      "position": {
+        "x": 0.7102081595226661,
+        "y": 0,
+        "z": -647.9618614831708
+      },
+      "rival": {
+        "x": 1.4036785856663103,
+        "y": 0,
+        "z": -659.4594038070974
+      }
+    },
+    {
+      "at": 246.93,
+      "beat": "legend-ends",
+      "mode": "complaint",
+      "run": 1,
+      "health": 72,
+      "stamina": 33.33333333333332,
+      "position": {
+        "x": 33.394297259140934,
+        "y": 0,
+        "z": -806.7002702297923
+      },
+      "rival": {
+        "x": 34.260397662395064,
+        "y": 0,
+        "z": -814.376988578729
+      }
+    },
+    {
+      "at": 252.63,
+      "beat": "knight-help",
+      "mode": "complaint",
+      "run": 1,
+      "health": 51.333333333333385,
+      "stamina": 100,
+      "position": {
+        "x": 36.49321363214552,
+        "y": 0,
+        "z": -834.7911138561009
+      },
+      "rival": {
+        "x": 35.75567306164025,
+        "y": 0,
+        "z": -836.401251138387
+      }
+    },
+    {
+      "at": 255,
+      "beat": "pride-turn",
+      "mode": "pride",
+      "run": 1,
+      "health": 25.333333333333385,
+      "stamina": 100,
+      "position": {
+        "x": 37.06647289714999,
+        "y": 0,
+        "z": -843.8332033282883
+      },
+      "rival": {
+        "x": 35.96059496285042,
+        "y": 0,
+        "z": -845.0358142146687
+      }
+    },
+    {
+      "at": 257.75,
+      "beat": "final-hello",
+      "mode": "final-fight",
+      "run": 1,
+      "health": 23.333333333333385,
+      "stamina": 100,
+      "position": {
+        "x": 36.108527124622256,
+        "y": 0,
+        "z": -847.1444276795713
+      },
+      "rival": {
+        "x": 35.99155166151221,
+        "y": 0,
+        "z": -848.9356913515545
+      }
+    },
+    {
+      "at": 259.3,
+      "beat": "too-late-hello",
+      "mode": "final-fight",
+      "run": 1,
+      "health": 0,
+      "stamina": 100,
+      "position": {
+        "x": 35.831332008300905,
+        "y": 0,
+        "z": -847.2783586038987
+      },
+      "rival": {
+        "x": 35.12923460612314,
+        "y": 0,
+        "z": -845.6564569721126
+      }
+    },
+    {
+      "at": 259.33,
+      "beat": "knight-help",
+      "mode": "complaint",
+      "run": 2,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": 36,
+        "y": 0,
+        "z": -841
+      },
+      "rival": {
+        "x": 36,
+        "y": 0,
+        "z": -850
+      }
+    },
+    {
+      "at": 261.7,
+      "beat": "pride-turn",
+      "mode": "pride",
+      "run": 2,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": 35.8098592653919,
+        "y": 0,
+        "z": -848.1843141774542
+      },
+      "rival": {
+        "x": 36,
+        "y": 0,
+        "z": -850
+      }
+    },
+    {
+      "at": 262.53,
+      "beat": "final-hello",
+      "mode": "final-fight",
+      "run": 2,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": 35.997767700782106,
+        "y": 0,
+        "z": -848.6443012248167
+      },
+      "rival": {
+        "x": 36,
+        "y": 0,
+        "z": -850
+      }
+    },
+    {
+      "at": 264.08,
+      "beat": "too-late-hello",
+      "mode": "final-fight",
+      "run": 2,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": 35.997767700782106,
+        "y": 0,
+        "z": -848.6443012248167
+      },
+      "rival": {
+        "x": 34.38357838131945,
+        "y": 0,
+        "z": -847.6152623583639
+      }
+    },
+    {
+      "at": 266.13,
+      "beat": "reconsider-meeting",
+      "mode": "final-fight",
+      "run": 2,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": 35.862970298599635,
+        "y": 0,
+        "z": -848.084084976174
+      },
+      "rival": {
+        "x": 37.40316673506606,
+        "y": 0,
+        "z": -847.1028084420161
+      }
+    },
+    {
+      "at": 268.83,
+      "beat": "sword-remains",
+      "mode": "final-fight",
+      "run": 2,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": 35.862970298599635,
+        "y": 0,
+        "z": -848.084084976174
+      },
+      "rival": {
+        "x": 37.40316673506606,
+        "y": 0,
+        "z": -847.1028084420161
+      }
+    },
+    {
+      "at": 271.2,
+      "beat": "remain-mightier",
+      "mode": "final-fight",
+      "run": 2,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": 35.862970298599635,
+        "y": 0,
+        "z": -848.084084976174
+      },
+      "rival": {
+        "x": 37.40316673506606,
+        "y": 0,
+        "z": -847.1028084420161
+      }
+    },
+    {
+      "at": 274.6,
+      "beat": "lot-of-things",
+      "mode": "final-fight",
+      "run": 2,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": 35.862970298599635,
+        "y": 0,
+        "z": -848.084084976174
+      },
+      "rival": {
+        "x": 37.40316673506606,
+        "y": 0,
+        "z": -847.1028084420161
+      }
+    },
+    {
+      "at": 276.65,
+      "beat": "who-are-you",
+      "mode": "final-fight",
+      "run": 2,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": 35.862970298599635,
+        "y": 0,
+        "z": -848.084084976174
+      },
+      "rival": {
+        "x": 37.40316673506606,
+        "y": 0,
+        "z": -847.1028084420161
+      }
+    },
+    {
+      "at": 278.2,
+      "beat": "i-am",
+      "mode": "final-fight",
+      "run": 2,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": 35.862970298599635,
+        "y": 0,
+        "z": -848.084084976174
+      },
+      "rival": {
+        "x": 37.40316673506606,
+        "y": 0,
+        "z": -847.1028084420161
+      }
+    },
+    {
+      "at": 279.75,
+      "beat": "title-first",
+      "mode": "final-fight",
+      "run": 2,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": 35.862970298599635,
+        "y": 0,
+        "z": -848.084084976174
+      },
+      "rival": {
+        "x": 37.40316673506606,
+        "y": 0,
+        "z": -847.1028084420161
+      }
+    },
+    {
+      "at": 282.3,
+      "beat": "strange-name",
+      "mode": "final-fight",
+      "run": 2,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": 35.862970298599635,
+        "y": 0,
+        "z": -848.084084976174
+      },
+      "rival": {
+        "x": 37.40316673506606,
+        "y": 0,
+        "z": -847.1028084420161
+      }
+    },
+    {
+      "at": 283.86,
+      "beat": "true-master",
+      "mode": "final-fight",
+      "run": 2,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": 35.862970298599635,
+        "y": 0,
+        "z": -848.084084976174
+      },
+      "rival": {
+        "x": 37.40316673506606,
+        "y": 0,
+        "z": -847.1028084420161
+      }
+    },
+    {
+      "at": 289.88,
+      "beat": "title-final",
+      "mode": "final-fight",
+      "run": 2,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": 35.862970298599635,
+        "y": 0,
+        "z": -848.084084976174
+      },
+      "rival": {
+        "x": 37.40316673506606,
+        "y": 0,
+        "z": -847.1028084420161
+      }
+    },
+    {
+      "at": 292.43,
+      "beat": "player-departure",
+      "mode": "final-fight",
+      "run": 2,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": 35.862970298599635,
+        "y": 0,
+        "z": -848.084084976174
+      },
+      "rival": {
+        "x": 37.40316673506606,
+        "y": 0,
+        "z": -847.1028084420161
+      }
+    },
+    {
+      "at": 293.13,
+      "beat": "closing-hope",
+      "mode": "final-fight",
+      "run": 2,
+      "health": 100,
+      "stamina": 100,
+      "position": {
+        "x": 30.612978400106748,
+        "y": 0,
+        "z": -848.0748618660972
+      },
+      "rival": {
+        "x": 37.40316673506606,
+        "y": 0,
+        "z": -847.1028084420161
+      }
+    }
+  ],
+  "combatEvents": [
+    {
+      "type": "damage",
+      "attackerId": "378a5686-75f4-4293-9326-0293204b218c",
+      "victimId": "practice-dummy-ZHLD5",
+      "source": "sword",
+      "amount": 30,
+      "health": 70,
+      "push": {
+        "x": 0,
+        "y": 0.2,
+        "z": -1.7
+      },
+      "at": 145.87109999990463,
+      "clean": true
+    },
+    {
+      "type": "damage",
+      "attackerId": "practice-dummy-ZHLD5",
+      "victimId": "378a5686-75f4-4293-9326-0293204b218c",
+      "source": "sword",
+      "amount": 30,
+      "health": 70,
+      "push": {
+        "x": 0,
+        "y": 0.2,
+        "z": 1.7
+      },
+      "at": 171.84569999980926,
+      "clean": true
+    },
+    {
+      "type": "damage",
+      "attackerId": "378a5686-75f4-4293-9326-0293204b218c",
+      "victimId": "practice-dummy-ZHLD5",
+      "source": "sword",
+      "amount": 30,
+      "health": 70,
+      "push": {
+        "x": -0.8629641733780359,
+        "y": 0.2,
+        "z": -1.4646818205555645
+      },
+      "at": 185.7015,
+      "clean": true
+    },
+    {
+      "type": "damage",
+      "attackerId": "378a5686-75f4-4293-9326-0293204b218c",
+      "victimId": "practice-dummy-ZHLD5",
+      "source": "sword",
+      "amount": 30,
+      "health": 40,
+      "push": {
+        "x": -1.6203320435761919,
+        "y": 0.2,
+        "z": -0.5143190338303667
+      },
+      "at": 186.72519999980926,
+      "clean": true
+    },
+    {
+      "type": "damage",
+      "attackerId": "378a5686-75f4-4293-9326-0293204b218c",
+      "victimId": "practice-dummy-ZHLD5",
+      "source": "sword",
+      "amount": 30,
+      "health": 10,
+      "push": {
+        "x": -1.5856349976859196,
+        "y": 0.2,
+        "z": 0.6129940082199601
+      },
+      "at": 187.6837999997139,
+      "clean": true
+    },
+    {
+      "type": "damage",
+      "attackerId": "378a5686-75f4-4293-9326-0293204b218c",
+      "victimId": "practice-dummy-ZHLD5",
+      "source": "sword",
+      "amount": 30,
+      "health": 1,
+      "push": {
+        "x": -0.7593729605087911,
+        "y": 0.2,
+        "z": 1.5209709750182987
+      },
+      "at": 188.70540000009538,
+      "clean": true
+    },
+    {
+      "type": "damage",
+      "attackerId": "378a5686-75f4-4293-9326-0293204b218c",
+      "victimId": "practice-dummy-ZHLD5",
+      "source": "sword",
+      "amount": 30,
+      "health": 70,
+      "push": {
+        "x": 1.6803269079499619,
+        "y": 0.2,
+        "z": -0.25787881343631175
+      },
+      "at": 201.34559999990464,
+      "clean": true
+    },
+    {
+      "type": "spellCast",
+      "playerId": "378a5686-75f4-4293-9326-0293204b218c",
+      "spell": "fireball",
+      "at": 223.7987999997139,
+      "castEndsAt": 224.09879999971392
+    },
+    {
+      "type": "damage",
+      "attackerId": "378a5686-75f4-4293-9326-0293204b218c",
+      "victimId": "practice-dummy-ZHLD5",
+      "source": "fireball",
+      "amount": 18,
+      "health": 82,
+      "push": {
+        "x": 1.6210385242060061,
+        "y": 0.5457251763773681,
+        "z": -3.8498422905934917
+      },
+      "at": 224.4115,
+      "clean": true
+    },
+    {
+      "type": "damage",
+      "attackerId": "378a5686-75f4-4293-9326-0293204b218c",
+      "victimId": "practice-dummy-ZHLD5",
+      "source": "burn",
+      "amount": 2,
+      "health": 80,
+      "push": null,
+      "at": 224.94509999990464
+    },
+    {
+      "type": "damage",
+      "attackerId": "378a5686-75f4-4293-9326-0293204b218c",
+      "victimId": "practice-dummy-ZHLD5",
+      "source": "burn",
+      "amount": 2,
+      "health": 78,
+      "push": null,
+      "at": 225.4342999997139
+    },
+    {
+      "type": "damage",
+      "attackerId": "378a5686-75f4-4293-9326-0293204b218c",
+      "victimId": "practice-dummy-ZHLD5",
+      "source": "burn",
+      "amount": 2,
+      "health": 76,
+      "push": null,
+      "at": 225.92890000009535
+    },
+    {
+      "type": "damage",
+      "attackerId": "378a5686-75f4-4293-9326-0293204b218c",
+      "victimId": "practice-dummy-ZHLD5",
+      "source": "burn",
+      "amount": 2,
+      "health": 74,
+      "push": null,
+      "at": 226.4235
+    },
+    {
+      "type": "damage",
+      "attackerId": "378a5686-75f4-4293-9326-0293204b218c",
+      "victimId": "practice-dummy-ZHLD5",
+      "source": "burn",
+      "amount": 2,
+      "health": 72,
+      "push": null,
+      "at": 226.9207999997139
+    },
+    {
+      "type": "spellCast",
+      "playerId": "378a5686-75f4-4293-9326-0293204b218c",
+      "spell": "fireball",
+      "at": 227.8962999997139,
+      "castEndsAt": 228.19629999971391
+    },
+    {
+      "type": "damage",
+      "attackerId": "378a5686-75f4-4293-9326-0293204b218c",
+      "victimId": "practice-dummy-ZHLD5",
+      "source": "fireball",
+      "amount": 18,
+      "health": 54,
+      "push": {
+        "x": 1.2014778925117509,
+        "y": 0.8511402835884255,
+        "z": -3.8097684003167527
+      },
+      "at": 228.572,
+      "clean": true
+    },
+    {
+      "type": "damage",
+      "attackerId": "378a5686-75f4-4293-9326-0293204b218c",
+      "victimId": "practice-dummy-ZHLD5",
+      "source": "burn",
+      "amount": 2,
+      "health": 52,
+      "push": null,
+      "at": 229.09769999980927
+    },
+    {
+      "type": "damage",
+      "attackerId": "378a5686-75f4-4293-9326-0293204b218c",
+      "victimId": "practice-dummy-ZHLD5",
+      "source": "burn",
+      "amount": 2,
+      "health": 50,
+      "push": null,
+      "at": 229.5952999997139
+    },
+    {
+      "type": "damage",
+      "attackerId": "378a5686-75f4-4293-9326-0293204b218c",
+      "victimId": "practice-dummy-ZHLD5",
+      "source": "burn",
+      "amount": 2,
+      "health": 48,
+      "push": null,
+      "at": 230.08709999990464
+    },
+    {
+      "type": "damage",
+      "attackerId": "378a5686-75f4-4293-9326-0293204b218c",
+      "victimId": "practice-dummy-ZHLD5",
+      "source": "burn",
+      "amount": 2,
+      "health": 46,
+      "push": null,
+      "at": 230.5837999997139
+    },
+    {
+      "type": "damage",
+      "attackerId": "378a5686-75f4-4293-9326-0293204b218c",
+      "victimId": "practice-dummy-ZHLD5",
+      "source": "burn",
+      "amount": 2,
+      "health": 44,
+      "push": null,
+      "at": 231.0772999997139
+    },
+    {
+      "type": "spellCast",
+      "playerId": "378a5686-75f4-4293-9326-0293204b218c",
+      "spell": "fireball",
+      "at": 232.02109999990464,
+      "castEndsAt": 232.32109999990465
+    },
+    {
+      "type": "damage",
+      "attackerId": "378a5686-75f4-4293-9326-0293204b218c",
+      "victimId": "practice-dummy-ZHLD5",
+      "source": "fireball",
+      "amount": 18,
+      "health": 26,
+      "push": {
+        "x": 1.055008031101153,
+        "y": 1.321694317915688,
+        "z": -3.3572530536610654
+      },
+      "at": 232.7602999997139,
+      "clean": true
+    },
+    {
+      "type": "damage",
+      "attackerId": "378a5686-75f4-4293-9326-0293204b218c",
+      "victimId": "practice-dummy-ZHLD5",
+      "source": "burn",
+      "amount": 2,
+      "health": 24,
+      "push": null,
+      "at": 233.261
+    },
+    {
+      "type": "damage",
+      "attackerId": "378a5686-75f4-4293-9326-0293204b218c",
+      "victimId": "practice-dummy-ZHLD5",
+      "source": "burn",
+      "amount": 2,
+      "health": 22,
+      "push": null,
+      "at": 233.7832999997139
+    },
+    {
+      "type": "damage",
+      "attackerId": "378a5686-75f4-4293-9326-0293204b218c",
+      "victimId": "practice-dummy-ZHLD5",
+      "source": "burn",
+      "amount": 2,
+      "health": 20,
+      "push": null,
+      "at": 234.27790000009537
+    },
+    {
+      "type": "damage",
+      "attackerId": "378a5686-75f4-4293-9326-0293204b218c",
+      "victimId": "practice-dummy-ZHLD5",
+      "source": "burn",
+      "amount": 2,
+      "health": 18,
+      "push": null,
+      "at": 234.77329999971388
+    },
+    {
+      "type": "damage",
+      "attackerId": "378a5686-75f4-4293-9326-0293204b218c",
+      "victimId": "practice-dummy-ZHLD5",
+      "source": "burn",
+      "amount": 2,
+      "health": 16,
+      "push": null,
+      "at": 235.27109999990464
+    },
+    {
+      "type": "spellCast",
+      "playerId": "378a5686-75f4-4293-9326-0293204b218c",
+      "spell": "fireball",
+      "at": 236.14569999980927,
+      "castEndsAt": 236.44569999980928
+    },
+    {
+      "type": "damage",
+      "attackerId": "378a5686-75f4-4293-9326-0293204b218c",
+      "victimId": "practice-dummy-ZHLD5",
+      "source": "fireball",
+      "amount": 18,
+      "health": 1,
+      "push": {
+        "x": 1.257090062007453,
+        "y": 0.510309351244067,
+        "z": -3.9999375688653145
+      },
+      "at": 236.921,
+      "clean": true
+    },
+    {
+      "type": "damage",
+      "attackerId": "378a5686-75f4-4293-9326-0293204b218c",
+      "victimId": "practice-dummy-ZHLD5",
+      "source": "burn",
+      "amount": 2,
+      "health": 1,
+      "push": null,
+      "at": 237.44609999990465
+    },
+    {
+      "type": "damage",
+      "attackerId": "378a5686-75f4-4293-9326-0293204b218c",
+      "victimId": "practice-dummy-ZHLD5",
+      "source": "burn",
+      "amount": 2,
+      "health": 1,
+      "push": null,
+      "at": 237.94669999980925
+    },
+    {
+      "type": "damage",
+      "attackerId": "378a5686-75f4-4293-9326-0293204b218c",
+      "victimId": "practice-dummy-ZHLD5",
+      "source": "burn",
+      "amount": 2,
+      "health": 1,
+      "push": null,
+      "at": 238.43609999990463
+    },
+    {
+      "type": "damage",
+      "attackerId": "378a5686-75f4-4293-9326-0293204b218c",
+      "victimId": "practice-dummy-ZHLD5",
+      "source": "burn",
+      "amount": 2,
+      "health": 1,
+      "push": null,
+      "at": 238.93290000009537
+    },
+    {
+      "type": "damage",
+      "attackerId": "378a5686-75f4-4293-9326-0293204b218c",
+      "victimId": "practice-dummy-ZHLD5",
+      "source": "burn",
+      "amount": 2,
+      "health": 1,
+      "push": null,
+      "at": 239.42540000009538
+    },
+    {
+      "type": "spellCast",
+      "playerId": "378a5686-75f4-4293-9326-0293204b218c",
+      "spell": "fireball",
+      "at": 240.24669999980927,
+      "castEndsAt": 240.54669999980928
+    },
+    {
+      "type": "damage",
+      "attackerId": "378a5686-75f4-4293-9326-0293204b218c",
+      "victimId": "practice-dummy-ZHLD5",
+      "source": "fireball",
+      "amount": 18,
+      "health": 1,
+      "push": {
+        "x": 1.128000330152728,
+        "y": 1.1137016938685933,
+        "z": -3.5891944520764865
+      },
+      "at": 241.14659999990462,
+      "clean": true
+    },
+    {
+      "type": "damage",
+      "attackerId": "378a5686-75f4-4293-9326-0293204b218c",
+      "victimId": "practice-dummy-ZHLD5",
+      "source": "burn",
+      "amount": 2,
+      "health": 1,
+      "push": null,
+      "at": 241.67119999980926
+    },
+    {
+      "type": "damage",
+      "attackerId": "378a5686-75f4-4293-9326-0293204b218c",
+      "victimId": "practice-dummy-ZHLD5",
+      "source": "burn",
+      "amount": 2,
+      "health": 1,
+      "push": null,
+      "at": 242.1707999997139
+    },
+    {
+      "type": "damage",
+      "attackerId": "378a5686-75f4-4293-9326-0293204b218c",
+      "victimId": "practice-dummy-ZHLD5",
+      "source": "burn",
+      "amount": 2,
+      "health": 1,
+      "push": null,
+      "at": 242.66069999980925
+    },
+    {
+      "type": "damage",
+      "attackerId": "378a5686-75f4-4293-9326-0293204b218c",
+      "victimId": "practice-dummy-ZHLD5",
+      "source": "burn",
+      "amount": 2,
+      "health": 1,
+      "push": null,
+      "at": 243.155
+    },
+    {
+      "type": "damage",
+      "attackerId": "378a5686-75f4-4293-9326-0293204b218c",
+      "victimId": "practice-dummy-ZHLD5",
+      "source": "burn",
+      "amount": 2,
+      "health": 1,
+      "push": null,
+      "at": 243.65059999990464
+    },
+    {
+      "type": "dash",
+      "playerId": "practice-dummy-ZHLD5",
+      "direction": {
+        "x": 0,
+        "z": -1
+      },
+      "at": 254.87040000009537
+    },
+    {
+      "type": "dash",
+      "playerId": "378a5686-75f4-4293-9326-0293204b218c",
+      "direction": {
+        "x": 0,
+        "z": -1
+      },
+      "at": 255.8715
+    },
+    {
+      "type": "spellCast",
+      "playerId": "378a5686-75f4-4293-9326-0293204b218c",
+      "spell": "fireball",
+      "at": 271.99609999990463,
+      "castEndsAt": 272.29609999990464
+    },
+    {
+      "type": "damage",
+      "attackerId": "378a5686-75f4-4293-9326-0293204b218c",
+      "victimId": "practice-dummy-ZHLD5",
+      "source": "fireball",
+      "amount": 18,
+      "health": 82,
+      "push": {
+        "x": -1.2768570999369506,
+        "y": 0.4703427534562211,
+        "z": -4.010785876898005
+      },
+      "at": 272.7955,
+      "clean": true
+    },
+    {
+      "type": "damage",
+      "attackerId": "378a5686-75f4-4293-9326-0293204b218c",
+      "victimId": "practice-dummy-ZHLD5",
+      "source": "burn",
+      "amount": 2,
+      "health": 80,
+      "push": null,
+      "at": 273.3665
+    },
+    {
+      "type": "damage",
+      "attackerId": "378a5686-75f4-4293-9326-0293204b218c",
+      "victimId": "practice-dummy-ZHLD5",
+      "source": "burn",
+      "amount": 2,
+      "health": 78,
+      "push": null,
+      "at": 273.812
+    },
+    {
+      "type": "damage",
+      "attackerId": "378a5686-75f4-4293-9326-0293204b218c",
+      "victimId": "practice-dummy-ZHLD5",
+      "source": "burn",
+      "amount": 2,
+      "health": 76,
+      "push": null,
+      "at": 274.30690000009537
+    },
+    {
+      "type": "spellCast",
+      "playerId": "practice-dummy-ZHLD5",
+      "spell": "fireball",
+      "at": 274.5055,
+      "castEndsAt": 274.8055
+    },
+    {
+      "type": "damage",
+      "attackerId": "378a5686-75f4-4293-9326-0293204b218c",
+      "victimId": "practice-dummy-ZHLD5",
+      "source": "burn",
+      "amount": 2,
+      "health": 74,
+      "push": null,
+      "at": 274.8015
+    },
+    {
+      "type": "damage",
+      "attackerId": "378a5686-75f4-4293-9326-0293204b218c",
+      "victimId": "practice-dummy-ZHLD5",
+      "source": "burn",
+      "amount": 2,
+      "health": 72,
+      "push": null,
+      "at": 275.29859999990464
+    },
+    {
+      "type": "spellCast",
+      "playerId": "378a5686-75f4-4293-9326-0293204b218c",
+      "spell": "fireball",
+      "at": 276.09619999980924,
+      "castEndsAt": 276.39619999980926
+    },
+    {
+      "type": "spellCast",
+      "playerId": "practice-dummy-ZHLD5",
+      "spell": "fireball",
+      "at": 278.53209999990463,
+      "castEndsAt": 278.83209999990464
+    },
+    {
+      "type": "spellCast",
+      "playerId": "practice-dummy-ZHLD5",
+      "spell": "fireball",
+      "at": 282.557,
+      "castEndsAt": 282.857
+    },
+    {
+      "type": "spellCast",
+      "playerId": "practice-dummy-ZHLD5",
+      "spell": "fireball",
+      "at": 286.5824000000954,
+      "castEndsAt": 286.8824000000954
+    },
+    {
+      "type": "spellCast",
+      "playerId": "practice-dummy-ZHLD5",
+      "spell": "fireball",
+      "at": 290.6092999997139,
+      "castEndsAt": 290.90929999971394
+    },
+    {
+      "type": "damage",
+      "attackerId": "practice-dummy-ZHLD5",
+      "victimId": "378a5686-75f4-4293-9326-0293204b218c",
+      "source": "fireball",
+      "amount": 18,
+      "health": 82,
+      "push": {
+        "x": -4.147001882329458,
+        "y": 0.472339437352797,
+        "z": 0.7159356486313738
+      },
+      "at": 291.2035,
+      "clean": true
+    },
+    {
+      "type": "damage",
+      "attackerId": "practice-dummy-ZHLD5",
+      "victimId": "378a5686-75f4-4293-9326-0293204b218c",
+      "source": "burn",
+      "amount": 2,
+      "health": 80,
+      "push": null,
+      "at": 291.7322999997139
+    },
+    {
+      "type": "damage",
+      "attackerId": "practice-dummy-ZHLD5",
+      "victimId": "378a5686-75f4-4293-9326-0293204b218c",
+      "source": "burn",
+      "amount": 2,
+      "health": 78,
+      "push": null,
+      "at": 292.2255
+    },
+    {
+      "type": "damage",
+      "attackerId": "practice-dummy-ZHLD5",
+      "victimId": "378a5686-75f4-4293-9326-0293204b218c",
+      "source": "burn",
+      "amount": 2,
+      "health": 76,
+      "push": null,
+      "at": 292.72159999990464
+    },
+    {
+      "type": "damage",
+      "attackerId": "practice-dummy-ZHLD5",
+      "victimId": "378a5686-75f4-4293-9326-0293204b218c",
+      "source": "burn",
+      "amount": 2,
+      "health": 74,
+      "push": null,
+      "at": 293.22090000009536
+    },
+    {
+      "type": "damage",
+      "attackerId": "practice-dummy-ZHLD5",
+      "victimId": "378a5686-75f4-4293-9326-0293204b218c",
+      "source": "burn",
+      "amount": 2,
+      "health": 72,
+      "push": null,
+      "at": 293.7115
+    },
+    {
+      "type": "spellCast",
+      "playerId": "practice-dummy-ZHLD5",
+      "spell": "fireball",
+      "at": 294.6356999998093,
+      "castEndsAt": 294.9356999998093
+    },
+    {
+      "type": "spellCast",
+      "playerId": "practice-dummy-ZHLD5",
+      "spell": "fireball",
+      "at": 298.66140000009534,
+      "castEndsAt": 298.96140000009535
+    },
+    {
+      "type": "damage",
+      "attackerId": "practice-dummy-ZHLD5",
+      "victimId": "378a5686-75f4-4293-9326-0293204b218c",
+      "source": "fireball",
+      "amount": 18,
+      "health": 61.333333333333385,
+      "push": {
+        "x": 0.5515771154564164,
+        "y": 1.4198253164610042,
+        "z": 3.337607809415249
+      },
+      "at": 299.05740000009536,
+      "clean": true
+    },
+    {
+      "type": "damage",
+      "attackerId": "practice-dummy-ZHLD5",
+      "victimId": "378a5686-75f4-4293-9326-0293204b218c",
+      "source": "burn",
+      "amount": 2,
+      "health": 59.333333333333385,
+      "push": null,
+      "at": 299.5851999998093
+    },
+    {
+      "type": "damage",
+      "attackerId": "practice-dummy-ZHLD5",
+      "victimId": "378a5686-75f4-4293-9326-0293204b218c",
+      "source": "burn",
+      "amount": 2,
+      "health": 57.333333333333385,
+      "push": null,
+      "at": 300.0817999997139
+    },
+    {
+      "type": "damage",
+      "attackerId": "practice-dummy-ZHLD5",
+      "victimId": "378a5686-75f4-4293-9326-0293204b218c",
+      "source": "burn",
+      "amount": 2,
+      "health": 55.333333333333385,
+      "push": null,
+      "at": 300.57459999990465
+    },
+    {
+      "type": "damage",
+      "attackerId": "practice-dummy-ZHLD5",
+      "victimId": "378a5686-75f4-4293-9326-0293204b218c",
+      "source": "burn",
+      "amount": 2,
+      "health": 53.333333333333385,
+      "push": null,
+      "at": 301.071
+    },
+    {
+      "type": "damage",
+      "attackerId": "practice-dummy-ZHLD5",
+      "victimId": "378a5686-75f4-4293-9326-0293204b218c",
+      "source": "burn",
+      "amount": 2,
+      "health": 51.333333333333385,
+      "push": null,
+      "at": 301.571
+    },
+    {
+      "type": "spellCast",
+      "playerId": "practice-dummy-ZHLD5",
+      "spell": "fireball",
+      "at": 302.68790000009534,
+      "castEndsAt": 302.98790000009535
+    },
+    {
+      "type": "damage",
+      "attackerId": "practice-dummy-ZHLD5",
+      "victimId": "378a5686-75f4-4293-9326-0293204b218c",
+      "source": "fireball",
+      "amount": 18,
+      "health": 33.333333333333385,
+      "push": {
+        "x": 2.70822744353189,
+        "y": 0.8456405757107294,
+        "z": 2.9421090564291887
+      },
+      "at": 303.02,
+      "clean": true
+    },
+    {
+      "type": "damage",
+      "attackerId": "practice-dummy-ZHLD5",
+      "victimId": "378a5686-75f4-4293-9326-0293204b218c",
+      "source": "burn",
+      "amount": 2,
+      "health": 31.333333333333385,
+      "push": null,
+      "at": 303.54559999990465
+    },
+    {
+      "type": "damage",
+      "attackerId": "practice-dummy-ZHLD5",
+      "victimId": "378a5686-75f4-4293-9326-0293204b218c",
+      "source": "burn",
+      "amount": 2,
+      "health": 29.333333333333385,
+      "push": null,
+      "at": 304.04809999990465
+    },
+    {
+      "type": "damage",
+      "attackerId": "practice-dummy-ZHLD5",
+      "victimId": "378a5686-75f4-4293-9326-0293204b218c",
+      "source": "burn",
+      "amount": 2,
+      "health": 27.333333333333385,
+      "push": null,
+      "at": 304.5347999997139
+    },
+    {
+      "type": "damage",
+      "attackerId": "practice-dummy-ZHLD5",
+      "victimId": "378a5686-75f4-4293-9326-0293204b218c",
+      "source": "burn",
+      "amount": 2,
+      "health": 25.333333333333385,
+      "push": null,
+      "at": 305.0315
+    },
+    {
+      "type": "damage",
+      "attackerId": "practice-dummy-ZHLD5",
+      "victimId": "378a5686-75f4-4293-9326-0293204b218c",
+      "source": "burn",
+      "amount": 2,
+      "health": 23.333333333333385,
+      "push": null,
+      "at": 305.5251999998093
+    },
+    {
+      "type": "damage",
+      "attackerId": "378a5686-75f4-4293-9326-0293204b218c",
+      "victimId": "practice-dummy-ZHLD5",
+      "source": "sword",
+      "amount": 30,
+      "health": 70,
+      "push": {
+        "x": -1.1468126980048694,
+        "y": 0.2,
+        "z": -1.2549185773167884
+      },
+      "at": 308.4955,
+      "clean": true
+    },
+    {
+      "type": "damage",
+      "attackerId": "practice-dummy-ZHLD5",
+      "victimId": "378a5686-75f4-4293-9326-0293204b218c",
+      "source": "sword",
+      "amount": 29,
+      "health": 0,
+      "push": {
+        "x": 0.7113045415408266,
+        "y": 0.2,
+        "z": -1.544035572512303
+      },
+      "at": 309.6207999997139,
+      "clean": true
+    },
+    {
+      "type": "death",
+      "victimId": "378a5686-75f4-4293-9326-0293204b218c",
+      "killerId": "practice-dummy-ZHLD5",
+      "source": "sword",
+      "respawnAt": 312.6207999997139,
+      "at": 309.6207999997139
+    },
+    {
+      "type": "spellCast",
+      "playerId": "practice-dummy-ZHLD5",
+      "spell": "fireball",
+      "at": 309.6892999997139,
+      "castEndsAt": 309.9892999997139
+    },
+    {
+      "type": "damage",
+      "attackerId": "378a5686-75f4-4293-9326-0293204b218c",
+      "victimId": "practice-dummy-ZHLD5",
+      "source": "sword",
+      "amount": 30,
+      "health": 70,
+      "push": {
+        "x": -1.2349154895431833,
+        "y": 0.2,
+        "z": -1.1683251831944392
+      },
+      "at": 313.2484000000954,
+      "clean": true
+    },
+    {
+      "type": "damage",
+      "attackerId": "378a5686-75f4-4293-9326-0293204b218c",
+      "victimId": "practice-dummy-ZHLD5",
+      "source": "sword",
+      "amount": 30,
+      "health": 40,
+      "push": {
+        "x": -1.4801452033487636,
+        "y": 0.2,
+        "z": 0.8361639653821776
+      },
+      "at": 314.37,
+      "clean": true
+    },
+    {
+      "type": "damage",
+      "attackerId": "378a5686-75f4-4293-9326-0293204b218c",
+      "victimId": "practice-dummy-ZHLD5",
+      "source": "sword",
+      "amount": 30,
+      "health": 10,
+      "push": {
+        "x": 0.11324030458353206,
+        "y": 0.2,
+        "z": 1.6962242285198703
+      },
+      "at": 315.0652999997139,
+      "clean": true
+    },
+    {
+      "type": "damage",
+      "attackerId": "378a5686-75f4-4293-9326-0293204b218c",
+      "victimId": "practice-dummy-ZHLD5",
+      "source": "sword",
+      "amount": 30,
+      "health": 0,
+      "push": {
+        "x": 1.43373880225541,
+        "y": 0.2,
+        "z": 0.9134511737948677
+      },
+      "at": 316.0205999999046,
+      "clean": true
+    },
+    {
+      "type": "death",
+      "victimId": "practice-dummy-ZHLD5",
+      "killerId": "378a5686-75f4-4293-9326-0293204b218c",
+      "source": "sword",
+      "respawnAt": 319.0205999999046,
+      "at": 316.0205999999046
+    }
+  ]
+}

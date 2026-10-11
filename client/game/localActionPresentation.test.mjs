@@ -71,16 +71,31 @@ test('a Blazing Vortex has both hands from the moment it is lit to the end of it
 });
 
 test('what is held is sent with the movement, for a Vortex to be steered by: the attack and the guard, on keys and on a touch screen alike', async () => {
-  const { readFileSync } = await import('node:fs');
-  const input = readFileSync(new URL('./InputController.mjs', import.meta.url), 'utf8');
-  assert.match(input, /attack: this\.attackHeld,/);
-  assert.match(input, /guard: this\.guardHeld,/);
-  // the touch buttons are the same two holds (they set the same two states), so a phone steers it the same way
-  const touch = readFileSync(new URL('./TouchControls.mjs', import.meta.url), 'utf8');
-  assert.match(touch, /if \(action === 'attack'\) this\.input\.setAttack\(true\);/);
-  assert.match(touch, /if \(action === 'guard'\) this\.input\.setGuard\(true\);/);
-  assert.match(touch, /if \(action === 'attack'\) this\.input\.setAttack\(false\);/);
-  assert.match(touch, /if \(action === 'guard'\) this\.input\.setGuard\(false\);/);
+  const { InputController } = await import('./InputController.mjs');
+  const priorDocument = globalThis.document, priorWindow = globalThis.window;
+  globalThis.document = new EventTarget(); globalThis.window = new EventTarget();
+  const element = new EventTarget();
+  const socket = {attack() {}, guard() {}};
+  const input = new InputController(element, socket);
+  try {
+    document.pointerLockElement = element;
+    document.dispatchEvent(new Event('pointerlockchange'));
+    const mouse = (type, button) => {
+      const event = new Event(type); Object.defineProperty(event, 'button', {value:button});
+      document.dispatchEvent(event);
+    };
+    mouse('mousedown', 0); mouse('mousedown', 2);
+    assert.equal(input.movement().attack, true); assert.equal(input.movement().guard, true);
+    mouse('mouseup', 0); mouse('mouseup', 2);
+    assert.equal(input.movement().attack, false); assert.equal(input.movement().guard, false);
+    // TouchControls uses the same public holds, so both sources reach the ordinary movement packet.
+    input.setAttack(true); input.setGuard(true);
+    assert.equal(input.movement().attack, true); assert.equal(input.movement().guard, true);
+    input.setAttack(false); input.setGuard(false);
+    assert.equal(input.movement().attack, false); assert.equal(input.movement().guard, false);
+  } finally {
+    input.dispose(); globalThis.document = priorDocument; globalThis.window = priorWindow;
+  }
 });
 
 test('bracing into an ultimate, nothing but the attack is shown in the hands: the host takes no guard, spell or dash then', () => {

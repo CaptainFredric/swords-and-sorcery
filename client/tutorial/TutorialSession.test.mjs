@@ -7,7 +7,7 @@ import { TUTORIAL_CHAPTERS } from './tutorialScript.mjs';
 function start(){
  let now=10;
  const host=new LocalHost({now:()=>now,every:()=>1,cancel:()=>{},later:()=>{}});
- host.startSolo('PRACTICE','CaptainFredric','castleward');
+ host.startTutorial('CaptainFredric');
  const notes=[];
  const session=new TutorialSession(host,{onBlocked:action=>notes.push(action)});
  session.start(); return {host,session,notes,tick:()=>{now+=1/30;host.tick();}};
@@ -23,11 +23,11 @@ test('local preview stages a living Rival with normal health and prevents early 
  host.attack(true); assert.equal(host.player.attackActive,true);
  host.close();
 });
-test('preview ends after the naming chapter, remains partial and can restart without old listeners',()=>{
+test('full route ends at the authored title payoff and can restart without old listeners',()=>{
  const {host,session,tick}=start();
  while(session.director.current) session.director.accept(session.director.current.advanceOn);
- assert.equal(session.director.state,'prototype-ended');
- assert.equal(session.director.progress.chapter.id,'introductions');
+ assert.equal(session.director.state,'complete');
+ assert.equal(session.director.progress.chapter.id,'ending');
  session.restart(); assert.equal(session.director.current.id,'greeting');
  tick(); assert.equal(host.room.players.size,2);
  session.stop(); session.stop(); host.close();

@@ -1,5 +1,6 @@
 import { TutorialSession } from './tutorial/TutorialSession.mjs';
 import { TutorialView } from './tutorial/TutorialView.mjs';
+import { TutorialProgress } from './tutorial/TutorialProgress.mjs';
 import { ChallengesController } from './menu/ChallengesController.mjs';
 import { normalizePreparedSpells, replacePreparedSpell } from '../shared/src/preparedSpells.mjs';
 import { SPELLS } from '../shared/src/spells.mjs';
@@ -246,6 +247,7 @@ function liftVeil() {
   loadingVeil.classList.add('done');
   // the establishing shot settles on the Spellblade as the veil lifts
   menuScene?.setShot(router.current ?? SCREEN_IDS.MAIN_MENU, 2.8);
+  offerTutorial();
 }
 // never keep the menu hostage: lift after a while even on a very slow connection
 setTimeout(liftVeil, 12000);
@@ -631,6 +633,7 @@ function putAwayMatch() {
   tutorialSession = null;
   endingTutorial?.stop();
   tutorialView.hide();
+  document.querySelectorAll('.tutorial-unlearned').forEach(tile=>tile.classList.remove('tutorial-unlearned'));
   paused = false;
   pauseMenu.classList.add('hidden');
   hideChallenge();
@@ -722,7 +725,22 @@ soloRival.addEventListener('click', (event) => {
   showSoloRival();
 });
 showSoloRival();
-// The caption driven preview stops at the last fully staged chapter.
+const tutorialProgress = new TutorialProgress();
+const tutorialOffer = $('#tutorial-onboarding');
+function offerTutorial() {
+  if (!tutorialProgress.shouldOfferFirstRun({params:new URLSearchParams(location.search)})) return;
+  tutorialOffer.hidden = false;
+  $('[data-tutorial-begin]').focus();
+}
+function closeTutorialOffer() { tutorialOffer.hidden = true; }
+$('[data-tutorial-onboarding-skip]').addEventListener('click', () => {
+  tutorialProgress.recordSkipped(); closeTutorialOffer(); $('#solo-button')?.focus();
+});
+$('[data-tutorial-begin]').addEventListener('click', () => {
+  closeTutorialOffer();
+  if (!nameInput.value.trim()) nameFields.forEach(field=>{field.value='Spellblade';});
+  startTutorial();
+});
 const tutorialView = new TutorialView($('#tutorial-lesson'), {
   context: () => ({touch:touchUi,bindings:settings.allBindings()}),
   onContinue: () => {
@@ -734,22 +752,35 @@ const tutorialView = new TutorialView($('#tutorial-lesson'), {
     runtime?.input.releaseInputs(); tutorialSession?.restart();
     if (runtime && tutorialSession) { runtime.input.yaw = tutorialSession.host.player.yaw; runtime.input.pitch = 0; }
   },
-  onSkip: () => { runtime?.input.releaseInputs(); tutorialSession?.director.skip(); runtime?.input.releaseFocus(); },
+  onSkip: () => { tutorialProgress.recordSkipped(); runtime?.input.releaseInputs(); tutorialSession?.director.skip(); runtime?.input.releaseFocus(); },
   onPractice: () => returnToMenu({then:() => runMenuAction(menuController.practice(nameInput.value),SCREEN_IDS.SOLO_MENU)}),
   onLeave: () => returnToMenu({then:() => route(SCREEN_IDS.SOLO_MENU)}),
 });
-$('#tutorial-mode').addEventListener('click', () => {
+function startTutorial() {
   showMenuError('');
   const name = nameInput.value.trim().slice(0,18);
   if (!name) { showMenuError('Enter a Spellblade name.'); nameFields.find(field => field.offsetParent !== null)?.focus(); return; }
   localStorage.setItem('ss-player-name',name);
-  socket.startSolo('PRACTICE',name,'castleward');
+  socket.startTutorial(name);
   tutorialSession = new TutorialSession(socket.local, {
-    onChange: progress => { tutorialView.show(progress,tutorialSession?.interrupted); if(progress.state !== 'running') runtime?.input.releaseFocus(); },
-    onBlocked: () => tutorialView.denied(),
+    onChange: progress => {
+      tutorialView.show(progress);
+      const permissions=progress.segment?.permissions ?? [];
+      for (const [action,tile] of [['spell',hud.spell],['dash',hud.dash],['ultimate',hud.ultimate]]) tile?.classList.toggle('tutorial-unlearned',progress.state==='running' && !permissions.includes(action));
+      for (const button of document.querySelectorAll('.touch-btn[data-action]')) {
+        const action=button.dataset.action;
+        button.classList.toggle('tutorial-unlearned',['attack','guard','spell','dash','ultimate','sprint'].includes(action) && !permissions.includes(action));
+      }
+      if (progress.state === 'complete') tutorialProgress.recordCompleted();
+      if(progress.state !== 'running') runtime?.input.releaseFocus();
+    },
+    onBlocked: action => tutorialView.denied(action),
+    onRestore: player => { if(runtime) {runtime.input.releaseInputs(); runtime.input.yaw=player.yaw;runtime.input.pitch=0;} },
   });
+  if (new URLSearchParams(location.search).has('debug')) globalThis.__ssTutorial = tutorialSession;
   tutorialSession.start();
-});
+}
+$('#tutorial-mode').addEventListener('click',startTutorial);
 $('#bot-duel').addEventListener('click', () => runMenuAction(menuController.botDuel(nameInput.value), SCREEN_IDS.SOLO_MENU));
 $('#inspection-mode').addEventListener('click', () => runMenuAction(menuController.inspectionPractice(nameInput.value), SCREEN_IDS.SOLO_MENU));
 $('#practice-mode').addEventListener('click', () => runMenuAction(menuController.practice(nameInput.value), SCREEN_IDS.SOLO_MENU));

@@ -6,7 +6,8 @@ export const GAME_MODES = Object.freeze({
   DUEL: 'DUEL',
 });
 
-// the arenas a match can be fought in (the old greybox Shattered Keep stays only as a fixture for tests)
+// The tutorial world Greener Pastures is registered separately and deliberately absent from arena choices.
+// The old greybox Shattered Keep stays only as a fixture for tests.
 export const ARENAS = Object.freeze(['castleward', 'ruined-keep']);
 
 /** An arena by id, or Castleward for anything that is not one. */

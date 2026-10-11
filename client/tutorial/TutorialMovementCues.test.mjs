@@ -12,7 +12,7 @@ function setup(){
  return {director,cues,send};
 }
 test('movement lessons follow real aim, forward distance, sprint and shared stamina snapshots',()=>{
- const {director,send}=setup(); send(); send(0,{yaw:.5}); assert.equal(director.current.id,'approach-progress');
+ const {director,send}=setup(); send(); send(0,{yaw:.4}); send(0,{yaw:.8}); send(0,{yaw:1.3}); assert.equal(director.current.id,'approach-progress');
  for(const x of [-1,-2,-3,-4]) send(x); assert.equal(director.current.id,'approach-progress');
  for(let x=-3;x<=4;x++) send(x); assert.equal(director.current.id,'sprint-started');
  send(5,{sprinting:true,guardStamina:98}); assert.equal(director.current.id,'stamina-decreased');
@@ -24,7 +24,7 @@ test('movement lessons follow real aim, forward distance, sprint and shared stam
  for(let x=9;x<=18;x++) send(x); assert.equal(director.state,'complete');
 });
 test('early genuine actions are remembered across narration; death or respawn cannot count as walking',()=>{
- const {director,cues,send}=setup(); send(); send(0,{yaw:.5});
+ const {director,cues,send}=setup(); send(); send(0,{yaw:.4}); send(0,{yaw:.8}); send(0,{yaw:1.3});
  send(15,{alive:false}); assert.equal(director.current.id,'approach-progress');
  send(15); assert.equal(director.current.id,'approach-progress');
  director.start(); send(15); send(15,{yaw:.5});

@@ -257,3 +257,70 @@ test('tutorial control gate blocks keyboard and touch predictions while retainin
   assert.equal(move.yaw,.4);assert.ok(blocked.includes('spell'));
   input.allowAction=null; input.castCurrentSpell(); assert.equal(calls.at(-1)[0],'castCurrentSpell');
 });
+
+test('a denied desktop Sprint hold stays inactive after unlock until physical release and a fresh press', () => {
+  const { input, down, up, send } = setup();
+  let unlocked = false;
+  const feedback = [];
+  input.allowAction = (action, notify = true) => {
+    if (action !== 'sprint' || unlocked) return true;
+    if (notify) feedback.push(action);
+    return false;
+  };
+  down('KeyW'); down('ShiftLeft');
+  assert.equal(input.movement().forward, 1);
+  assert.equal(input.movement().sprint, false);
+  unlocked = true;
+  send('keydown', { code: 'ShiftLeft', repeat: true });
+  assert.equal(input.movement().sprint, false);
+  assert.deepEqual(feedback, ['sprint']);
+  up('ShiftLeft'); down('ShiftLeft');
+  assert.equal(input.movement().sprint, true);
+});
+
+test('denied desktop Attack and Guard presses cannot activate through a later held repeat', () => {
+  for (const [code, action] of [['Mouse0', 'attack'], ['KeyG', 'guard']]) {
+    const { input, calls, down, up, send } = setup();
+    let unlocked = false;
+    input.allowAction = requested => requested !== action || unlocked;
+    down(code);
+    assert.equal(input.movement()[action], false);
+    unlocked = true;
+    if (code.startsWith('Mouse')) down(code);
+    else send('keydown', { code, repeat: true });
+    assert.equal(input.movement()[action], false);
+    assert.deepEqual(calls, []);
+    up(code); down(code);
+    assert.equal(input.movement()[action], true);
+    assert.deepEqual(calls, [[action, true]]);
+  }
+});
+
+test('held action sources remember an unavailable request until that source releases', () => {
+  for (const action of ['attack', 'guard']) {
+    const { input, calls } = setup();
+    let unlocked = false;
+    input.allowAction = requested => requested !== action || unlocked;
+    const request = held => action === 'attack' ? input.setAttack(held) : input.setGuard(held);
+    request(true);
+    unlocked = true;
+    request(true);
+    assert.deepEqual(calls, []);
+    assert.equal(input.movement()[action], false);
+    request(false); request(true);
+    assert.deepEqual(calls, [[action, true]]);
+  }
+});
+
+test('a sampled permission withdrawal still accepts a release and fresh press in the same input frame', () => {
+  for (const [code, action] of [['ShiftLeft', 'sprint'], ['Mouse0', 'attack'], ['KeyG', 'guard']]) {
+    const { input, down, up } = setup();
+    let unlocked = true;
+    input.allowAction = requested => requested !== action || unlocked;
+    down(code); assert.equal(input.movement()[action], true);
+    unlocked = false; assert.equal(input.movement()[action], false);
+    unlocked = true; assert.equal(input.movement()[action], false);
+    up(code); down(code);
+    assert.equal(input.movement()[action], true);
+  }
+});
