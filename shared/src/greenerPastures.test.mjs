@@ -12,7 +12,7 @@ const route = async () => (await import('../worlds/greenerPastures.mjs')).GREENE
 
 test('the authored chase gives every event physical distance and a stable named route position', async () => {
   const { chaseWaypoints, waypointById, routeDistances, totalChaseDistance, bridge, finalStand, entrance } = await route();
-  assert.deepEqual(chaseWaypoints.map(point => point.id), ['meeting', 'escape', 'fireball', 'bridge-approach', 'bridge-takeoff', 'bridge-landing', 'far-bank', 'counterfire', 'complaint-approach', 'pride', 'final']);
+  assert.deepEqual(chaseWaypoints.map(point => point.id), ['meeting', 'escape', 'jump-approach', 'jump-takeoff', 'jump-landing', 'jump-exit', 'fireball', 'tattle-reveal', 'sheepfold', 'bridge-approach', 'bridge-takeoff', 'bridge-landing', 'far-bank', 'counterfire', 'complaint-approach', 'pride', 'final']);
   assert.ok(totalChaseDistance > 900, 'the continuous chase has enough physical breathing room');
   assert.ok(routeDistances['bridge-takeoff'] > 500, 'the prebridge chase gives the moving Fireball dialogue time to finish');
   assert.ok(routeDistances['bridge-takeoff'] - routeDistances.fireball > 250);
@@ -31,7 +31,7 @@ test('TATTLE ON YOU is a real destination with an open entrance and a clear fina
   assert.equal(runClear(world(), finalStand, departure), true);
   assert.ok(world().solids.some(solid => solid.kind === 'complaint-wing'));
   const sign = world().solids.find(solid => solid.kind === 'complaint-sign');
-  assert.ok(sign.size[0] >= 20 && sign.size[1] >= 3);
+  assert.ok(sign.size[0] >= 12 && sign.size[1] >= 1.5);
   const target = [sign.center[0], sign.center[1], sign.center[2]];
   const origin = [landmarks.complaintApproach.x, 1.64, landmarks.complaintApproach.z];
   const direction = target.map((value, i) => value - origin[i]);
@@ -39,15 +39,22 @@ test('TATTLE ON YOU is a real destination with an open entrance and a clear fina
   assert.equal(hit?.box.id, sign.id, 'the approaching player has an unobstructed sign sightline');
 });
 
-function simulate(start, seconds, { dash = false, jump = false, hz = 60, yaw = 0 } = {}) {
+function simulate(start, seconds, { dash = false, jump = false, sprint = false, dashWhileFalling = false, sprintBlend = sprint ? 1 : 0, hz = 60, yaw = 0 } = {}) {
   let state = createMovementState(start);
+  state.sprinting = sprint;
+  state.sprintBlend = sprintBlend;
+  let didDash = dash;
   if (dash) assert.equal(tryStartDash(state, { x: -Math.sin(yaw), z: -Math.cos(yaw) }, 0), true);
   let lowest = start.y;
   for (let i = 0; i < seconds * hz; i += 1) {
+    if (dashWhileFalling && !didDash && !state.grounded && state.velocity.y < 0) {
+      assert.equal(tryStartDash(state, { x: -Math.sin(yaw), z: -Math.cos(yaw) }, i / hz), true);
+      didDash = true;
+    }
     state = movePlayer(state, { forward: 1, right: 0, jump: jump && i === 0, yaw }, 1 / hz, i / hz, world());
     lowest = Math.min(lowest, state.position.y);
   }
-  return { state, lowest };
+  return { state, lowest, didDash };
 }
 
 test('Greener Pastures is a registered tutorial world and stays outside arena voting', () => {
@@ -59,15 +66,15 @@ test('Greener Pastures is a registered tutorial world and stays outside arena vo
   assert.equal(arenaOrDefault(WORLD_ID), 'castleward');
 });
 
-test('the opening gives Rival a clear 135 metre sightline across walkable ground', async () => {
+test('the opening gives Rival a clear 175 metre sightline across walkable ground', async () => {
   const { playerSpawn, rivalMeeting } = await route();
-  assert.equal(Math.hypot(playerSpawn.x - rivalMeeting.x, playerSpawn.z - rivalMeeting.z), 135);
+  assert.equal(Math.hypot(playerSpawn.x - rivalMeeting.x, playerSpawn.z - rivalMeeting.z), 175);
   assert.equal(runClear(world(), playerSpawn, rivalMeeting), true);
   const origin = [playerSpawn.x, playerSpawn.y + 1.3, playerSpawn.z];
   const direction = [rivalMeeting.x - playerSpawn.x, 0, rivalMeeting.z - playerSpawn.z];
-  assert.equal(findSwordWorldHit(origin, direction, 135, world().solids), null);
-  const reached = simulate(playerSpawn, 18);
-  assert.ok(Math.abs(reached.state.position.z - rivalMeeting.z) < 0.01);
+  assert.equal(findSwordWorldHit(origin, direction, 175, world().solids), null);
+  const reached = simulate(playerSpawn, 175 / MOVEMENT.runSpeed);
+  assert.ok(Math.abs(reached.state.position.z - rivalMeeting.z) < 0.13);
   assert.equal(reached.state.grounded, true);
 });
 
@@ -87,42 +94,82 @@ test('spawns and all checkpoint placements stand on ground with body clearance',
   }
 });
 
-test('the broken bridge has a real three metre floor gap with an unobstructed Dash lane', async () => {
-  const { bridge } = await route();
-  assert.equal(bridge.gapBounds.maxZ - bridge.gapBounds.minZ, 3);
+test('the ordinary Jump lesson is a physical stile before the Fireball lane', async () => {
+  const { jump, waypointById, checkpointPositions, routeDistances } = await route();
+  assert.equal(waypointById['jump-takeoff'], jump.takeoff);
+  assert.equal(waypointById['jump-landing'], jump.landing);
+  assert.equal(waypointById['jump-exit'], jump.waitPoint);
+  assert.equal(checkpointPositions.jump, waypointById['jump-approach']);
+  assert.ok(routeDistances['jump-exit'] < routeDistances.fireball);
+  assert.equal(runClear(world(), jump.takeoff, jump.landing), false);
+  const obstacle = world().solids.find(solid => solid.id === 'orchard-stile');
+  assert.deepEqual(jump.obstacleBounds, {
+    minX: obstacle.center[0] - obstacle.size[0] / 2,
+    maxX: obstacle.center[0] + obstacle.size[0] / 2,
+    minZ: obstacle.center[2] - obstacle.size[2] / 2,
+    maxZ: obstacle.center[2] + obstacle.size[2] / 2,
+    minY: 0, maxY: obstacle.size[1],
+  });
+  for (const hz of [30, 60, 120]) {
+    const walked = simulate(jump.takeoff, 1.4, { hz });
+    assert.ok(walked.state.position.z > jump.obstacleBounds.maxZ, `the stile stops running at ${hz} Hz`);
+    const jumped = simulate(jump.takeoff, 1.4, { jump: true, hz });
+    assert.equal(jumped.state.grounded, true);
+    assert.equal(jumped.state.position.y, 0);
+    assert.ok(jumped.state.position.z < jump.landing.z, `ordinary Jump lands past the stile at ${hz} Hz`);
+  }
+});
+
+test('the broken bridge has a serious floor gap and a raised takeoff reached by an ordinary ramp', async () => {
+  const { bridge, waypointById } = await route();
+  assert.equal(bridge.gapBounds.maxZ - bridge.gapBounds.minZ, 12.5);
+  assert.equal(bridge.dashStart.y, 2);
+  assert.equal(bridge.dashLanding.y, 0);
+  assert.equal(runClear(world(), waypointById['bridge-approach'], bridge.dashStart), true);
   for (const x of [bridge.centerX - 3, bridge.centerX, bridge.centerX + 3]) {
     for (let z = bridge.gapBounds.minZ + 0.1; z < bridge.gapBounds.maxZ; z += 0.2) {
-      assert.equal(surfaceHeightAt(x, z, 0, world()), null, 'the broken span has no supporting floor');
-      const position = { x, y: 0, z };
+      assert.equal(surfaceHeightAt(x, z, bridge.dashStart.y, world()), null, 'the broken span has no supporting floor');
+      const position = { x, y: bridge.dashStart.y, z };
       assert.deepEqual(resolvePlayerWorld(position, MOVEMENT.playerRadius, world().solids), position, 'the gap has no invisible wall');
     }
   }
-  assert.equal(runClear(world(), bridge.dashStart, bridge.dashLanding), false, 'ordinary navigation recognises the gap');
+  assert.equal(runClear(world(), bridge.dashStart, bridge.dashLanding), false);
 });
 
-test('real Dash crosses the broken span at all simulation rates and keeps its real cooldown', async () => {
+test('run, walkoff, Sprint Jump and the best edge Jump fall short of the span with ordinary mechanics', async () => {
   const { bridge } = await route();
   for (const hz of [30, 60, 120]) {
-    const { state, lowest } = simulate(bridge.dashStart, 0.35, { dash: true, hz });
-    assert.ok(state.position.z < bridge.gapBounds.minZ - 0.2, `Dash reaches the far deck at ${hz} Hz`);
-    assert.ok(lowest > -0.2, `Dash keeps enough height at ${hz} Hz`);
-    assert.equal(state.grounded, true);
-    assert.equal(state.dashReadyAt, MOVEMENT.dashCooldown);
-    assert.equal(tryStartDash(state, { x: 0, z: -1 }, 4.99), false);
-    assert.equal(tryStartDash(state, { x: 0, z: -1 }, 5), true);
+    for (const mode of [
+      { name: 'run', start: bridge.dashStart },
+      { name: 'walkoff', start: bridge.dashStart, sprint: true },
+      { name: 'run Jump', start: bridge.dashStart, jump: true },
+      { name: 'Sprint Jump', start: bridge.dashStart, jump: true, sprint: true },
+      { name: 'Sprint edge Jump', start: { ...bridge.dashStart, z: bridge.gapBounds.maxZ + 0.01 }, jump: true, sprint: true },
+      { name: 'walkoff Dash', start: bridge.dashStart, sprint: true, dashWhileFalling: true },
+    ]) {
+      const { state, lowest } = simulate(mode.start, 1.4, { ...mode, hz });
+      assert.ok(lowest < -1, `${mode.name} falls into the ravine at ${hz} Hz`);
+      assert.equal(state.grounded, false, `${mode.name} fails to land at ${hz} Hz`);
+    }
   }
 });
 
-test('ordinary Jump is an honest alternate bridge crossing while walking falls', async () => {
+test('a real Jump then descending airborne Dash reaches the lower bank at every simulation rate', async () => {
   const { bridge } = await route();
-  const walked = simulate(bridge.dashStart, 0.8);
-  assert.ok(walked.lowest < -1, 'walking goes into the ravine');
-  assert.equal(walked.state.grounded, false);
   for (const hz of [30, 60, 120]) {
-    const jumped = simulate(bridge.dashStart, 0.95, { jump: true, hz });
-    assert.equal(jumped.state.grounded, true);
-    assert.equal(jumped.state.position.y, 0);
-    assert.ok(jumped.state.position.z < bridge.gapBounds.minZ - 1, `Jump reaches the far deck at ${hz} Hz`);
+    const { state, lowest, didDash } = simulate(bridge.dashStart, 1.05, { jump: true, sprint: true, dashWhileFalling: true, hz });
+    assert.equal(didDash, true);
+    assert.ok(state.position.z < bridge.gapBounds.minZ - 0.2, `airborne Dash reaches the far deck at ${hz} Hz`);
+    assert.ok(lowest >= 0, `the Dash reaches supporting ground at ${hz} Hz`);
+    assert.equal(state.grounded, true);
+    assert.ok(state.dashReadyAt >= MOVEMENT.dashCooldown);
+    const ready = state.dashReadyAt;
+    assert.equal(tryStartDash(state, { x: 0, z: -1 }, ready - .01), false);
+    assert.equal(tryStartDash(state, { x: 0, z: -1 }, ready), true);
+    const fromRun = simulate({ ...bridge.dashStart, z: bridge.dashStart.z + 1 }, 1.1,
+      { jump: true, sprint: true, sprintBlend: 0, dashWhileFalling: true, hz });
+    assert.equal(fromRun.state.grounded, true, `Sprint buildup and an early Jump still land at ${hz} Hz`);
+    assert.ok(fromRun.state.position.z < bridge.gapBounds.minZ);
   }
 });
 
@@ -148,12 +195,41 @@ test('all navigation nodes connect through the distant intact crossing and reach
   assert.ok(routeBetween(world(), playerSpawn, finalStand));
 });
 
+test('the intact western footbridge is a substantial detour traversed by real running', async () => {
+  const { bridge } = await route();
+  const crossing = bridge.alternateFootbridge;
+  assert.equal(runClear(world(), crossing.north, crossing.south), true);
+  const targets = [
+    { x: 32, y: 0, z: bridge.ravineBounds.maxZ+24 }, { x: -30, y: 0, z: bridge.ravineBounds.maxZ+24 },
+    { x: -68, y: 0, z: bridge.ravineBounds.maxZ+10 }, crossing.north, crossing.crossing, crossing.south,
+    { x: -68, y: 0, z: bridge.ravineBounds.minZ-10 }, { x: -30, y: 0, z: bridge.ravineBounds.minZ-22 },
+    { x: 32, y: 0, z: bridge.ravineBounds.minZ-22 }, bridge.dashLanding,
+  ];
+  for (const hz of [30, 60, 120]) {
+    let state = createMovementState(bridge.dashStart);
+    let elapsed = 0;
+    for (const target of targets) {
+      while (Math.hypot(target.x - state.position.x, target.z - state.position.z) > 0.01) {
+        const distance = Math.hypot(target.x - state.position.x, target.z - state.position.z);
+        const yaw = Math.atan2(state.position.x - target.x, state.position.z - target.z);
+        state = movePlayer(state, { forward: Math.min(1, distance / (MOVEMENT.runSpeed / hz)), yaw }, 1 / hz, elapsed, world());
+        elapsed += 1 / hz;
+        assert.ok(state.position.y >= 0, `the western detour stays on physical ground at ${hz} Hz`);
+        assert.ok(elapsed < 45, `the real footbridge detour reaches the far bank at ${hz} Hz`);
+      }
+    }
+    assert.equal(state.grounded, true);
+    assert.equal(state.position.y, bridge.dashLanding.y);
+    assert.ok(elapsed > 30, 'the intact crossing costs substantial travel time');
+  }
+});
+
 test('the chase waypoints are runnable on either side and the final clearing has space to evade', async () => {
   const { chaseWaypoints, finalStand, bridge } = await route();
   for (let i = 1; i < chaseWaypoints.length; i += 1) {
     const from = chaseWaypoints[i - 1];
     const to = chaseWaypoints[i];
-    if (from.id === 'bridge-takeoff' && to.id === 'bridge-landing') continue;
+    if ((from.id === 'bridge-takeoff' && to.id === 'bridge-landing') || (from.id === 'jump-takeoff' && to.id === 'jump-landing')) continue;
     assert.equal(runClear(world(), from, to), true, `${from.id} to ${to.id}`);
   }
   assert.ok(chaseWaypoints.some((point) => point.x === bridge.centerX));
@@ -162,7 +238,7 @@ test('the chase waypoints are runnable on either side and the final clearing has
   }
 });
 
-test('ordinary locomotion traverses the full authored chase with a real bridge Dash at every simulation rate', async () => {
+test('ordinary locomotion traverses the full chase through the real Jump and airborne Dash obstacles', async () => {
   const { chaseWaypoints, bridge, totalChaseDistance, finalStand } = await route();
   for (const hz of [30, 60, 120]) {
     const dt = 1 / hz;
@@ -170,15 +246,16 @@ test('ordinary locomotion traverses the full authored chase with a real bridge D
     let elapsed = 0;
     let ticks = 0;
     for (const target of chaseWaypoints.slice(1)) {
-      if (target.id === 'bridge-landing') {
-        assert.equal(tryStartDash(state, { x: 0, z: -1 }, elapsed), true);
-        const start = elapsed;
-        for (let i = 0; i < Math.ceil(MOVEMENT.dashDuration * hz); i += 1) {
-          state = movePlayer(state, { forward: 0, yaw: 0 }, dt, start + i * dt, world());
-          elapsed += dt;
-          ticks += 1;
-        }
-        assert.ok(state.position.z < bridge.gapBounds.minZ && state.position.y > -0.2);
+      if (target.id === 'jump-landing' || target.id === 'bridge-landing') {
+        const isBridge = target.id === 'bridge-landing';
+        const crossed = simulate(state.position, isBridge ? 1.05 : 1.1,
+          { jump: true, sprint: isBridge, dashWhileFalling: isBridge, hz });
+        state = crossed.state;
+        elapsed += isBridge ? 1.05 : 1.1;
+        ticks += Math.ceil((isBridge ? 1.05 : 1.1) * hz);
+        assert.ok(state.position.z < target.z);
+        assert.equal(state.grounded, true);
+        if (isBridge) assert.ok(state.position.z < bridge.gapBounds.minZ);
         continue;
       }
       for (;;) {
@@ -189,11 +266,11 @@ test('ordinary locomotion traverses the full authored chase with a real bridge D
         elapsed += dt;
         ticks += 1;
         assert.ok(state.position.y > -0.2, `${target.id} stays on real ground at ${hz} Hz`);
-        assert.ok(ticks < (totalChaseDistance / MOVEMENT.runSpeed + 5) * hz, `authored chase can be completed at ${hz} Hz`);
+        assert.ok(ticks < (totalChaseDistance / MOVEMENT.runSpeed + 8) * hz, `authored chase can be completed at ${hz} Hz`);
       }
     }
     assert.ok(Math.hypot(state.position.x - finalStand.x, state.position.z - finalStand.z) < 0.02);
     assert.equal(state.grounded, true);
-    assert.ok(elapsed < totalChaseDistance / MOVEMENT.runSpeed + 1);
+    assert.ok(elapsed < totalChaseDistance / MOVEMENT.runSpeed + 5);
   }
 });

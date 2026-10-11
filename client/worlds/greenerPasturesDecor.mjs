@@ -3,12 +3,12 @@ import { seededRandom, valueNoise } from './kit/kitRandom.mjs';
 
 export const GREENER_PRESENTATION = Object.freeze({
   background: 0xdce8dc,
-  cameraFar: 700,
-  fog: Object.freeze({ color: 0xdce8dc, density: 0.0018 }),
+  cameraFar: 900,
+  fog: Object.freeze({ color: 0xdce8dc, density: 0.0016 }),
   hemisphere: Object.freeze({ skyColor: 0xf0eee0, groundColor: 0x617342, intensity: 1.75 }),
   sun: Object.freeze({ color: 0xffedc5, intensity: 2.7, position: Object.freeze([-28, 34, 18]) }),
   sky: Object.freeze({ zenith: 0x80abc9, horizon: 0xe8eedc, below: 0x91a576 }),
-  groundCell: 5,
+  groundCell: 6,
   geometryBudget: 155000,
   drawCallBudget: 9,
 });
@@ -44,7 +44,7 @@ export function buildGreenerPasturesDecor(seed = 5713) {
     { x: -119, z: -79, sx: 5, sy: 3.7, sz: 6 },
     { x: 144, z: 65, sx: 6, sy: 4.5, sz: 6 },
     { x: 154, z: 78, sx: 7, sy: 4, sz: 6 },
-    { x: -130, z: -410, sx: 6, sy: 4, sz: 7 },
+    { x: -130, z: -630, sx: 6, sy: 4, sz: 7 },
     { x: 143, z: GREENER_ROUTE.finalStand.z + 25, sx: 7, sy: 4.5, sz: 6 },
   ];
   const clouds = Array.from({ length: 16 }, (_, i) => ({
@@ -55,11 +55,17 @@ export function buildGreenerPasturesDecor(seed = 5713) {
     id: `cloud-${i}`,
   }));
   return {
-    // A faint path leads out of the opening meadow; no solid hedges squeeze the player into its line.
+    // Worn cart paths join the farm gates and both real bridge approaches.
     paths: [
-      [[0, 145], [0, 90], [0, 32], ...GREENER_ROUTE.chaseWaypoints.slice(0, 5).map(point => [point.x, point.z])],
-      [...GREENER_ROUTE.chaseWaypoints.slice(5).map(point => [point.x, point.z]), [GREENER_ROUTE.entrance.x, GREENER_ROUTE.entrance.z]],
-      [[-68, GREENER_ROUTE.bridge.ravineBounds.maxZ + 14], [-68, GREENER_ROUTE.bridge.ravineBounds.minZ - 14]],
+      [[0, b.maxZ - 10], [0, 110], [0, 32], ...GREENER_ROUTE.chaseWaypoints
+        .slice(0, GREENER_ROUTE.chaseWaypoints.findIndex(point => point.id === 'bridge-takeoff') + 1)
+        .map(point => [point.x, point.z])],
+      [...GREENER_ROUTE.chaseWaypoints
+        .slice(GREENER_ROUTE.chaseWaypoints.findIndex(point => point.id === 'bridge-landing'))
+        .map(point => [point.x, point.z]), [GREENER_ROUTE.entrance.x, GREENER_ROUTE.entrance.z]],
+      [[32, -637], [-30, -637], [-68, -651], [-68, -670], [-68, -689], [-30, -701], [32, -701]],
+      [[-8, -191], [-22, -215], [-22, -281], [0, -290]],
+      [[0, -400], [68, -298], [68, -318]],
     ],
     trees: GREENER_TREES,
     forest,

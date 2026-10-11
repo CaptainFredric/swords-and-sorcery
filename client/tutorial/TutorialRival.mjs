@@ -2,11 +2,13 @@ import { GREENER_ROUTE } from '../../shared/worlds/greenerPastures.mjs';
 import { beginAttack, cancelAttack, endAttack, setGuard, tryCastSpell, tryDash } from '../../shared/sim/combat.mjs';
 import { stepBotControllers } from '../../shared/sim/BotController.mjs';
 import { BOT_SKILLS } from '../../shared/sim/botSkill.mjs';
+import { SPRINT } from '../../shared/src/movement.mjs';
+import { combatBlocksSprint } from '../../shared/src/combatActionPolicy.mjs';
 
 const distance = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 const yawTo = (a, b) => Math.atan2(-(b.x - a.x), -(b.z - a.z));
 const angle = (a, b) => Math.atan2(Math.sin(b - a), Math.cos(b - a));
-const CHASE_MODES = new Set(['escape', 'counter-pursuit', 'counterfire', 'complaint']);
+const CHASE_MODES = new Set(['escape', 'jump', 'counter-pursuit', 'counterfire', 'complaint']);
 
 // Decision quality only. Health, contacts, movement, stamina and cooldowns remain ordinary.
 export const TUTORIAL_RIVAL_POLICIES = Object.freeze({
@@ -20,6 +22,7 @@ const MODES = Object.freeze({
   'first-attack': 'idle', 'rival-draw-sword': 'draw', 'rival-guard-lesson': 'guard-lesson',
   'rival-postscript': 'postscript', 'rival-give-space': 'rest', 'rival-idle': 'idle',
   'rival-attack': 'duel', 'rival-real-duel': 'duel', 'rival-escape': 'escape',
+  'rival-jump': 'jump',
   'rival-bridge': 'escape', 'rival-pursuit': 'counter-pursuit', 'rival-counterfire': 'counterfire',
   'rival-combined-pursuit': 'counterfire', 'rival-complaint-approach': 'complaint',
   'rival-pride': 'pride', 'rival-final-fight': 'final-fight', 'rival-final-guard': 'final-fight',
@@ -36,6 +39,9 @@ export class TutorialRival {
     this.mode = 'idle'; this.waypoint = 1; this.lastStrike = -Infinity; this.counterShots = 0;
     this.enteredAt = 0; this.lastStepAt = null; this.sprintReactionAt = null; this.sprintWanted = false;
     this.dashReactionAt = null; this.previousGap = null; this.guardOpeningUntil = -Infinity; this.prideAt = null;
+    this.jumpWaiting = false;
+    this.bridgeInFlight = false;
+    this.bridgePrepared = false;
   }
   enter(cue, now) {
     if (!cue || !this.actor) return;
@@ -86,7 +92,7 @@ export class TutorialRival {
     } else {
       stepBotControllers(room, now, room.world, { actorKinds: ['dummy'], aggression: final ? .85 : .75, random: this.session.random });
       // This encounter defends the entrance instead of chasing a backpedalling player into the meadow again.
-      if (final && distance(actor.position, GREENER_ROUTE.finalStand) > 10) this.inputToward(GREENER_ROUTE.finalStand, .65, false, player.position);
+      if (final && distance(actor.position, GREENER_ROUTE.finalStand) > 5) this.inputToward(GREENER_ROUTE.finalStand, .65, false, player.position);
     }
   }
   chase(now, apart) {
@@ -102,13 +108,41 @@ export class TutorialRival {
     if (now - this.enteredAt < 1.4 && this.mode === 'escape') this.sprintWanted = true;
     // Choosing an ordinary walk or run keeps him readable to a learner; the player can still gain and catch him.
     let scale = apart > 45 ? .38 : apart > 30 ? .65 : apart < 10 ? 1 : .88;
+    const jump = GREENER_ROUTE.jump;
+    if (jump && actor.position.z > jump.waitPoint.z - 1) {
+      if (actor.position.z <= jump.takeoff.z + 1 && actor.position.z > jump.obstacleBounds.minZ - .5) {
+        this.waypoint = Math.max(this.waypoint,route.findIndex(point=>point.id==='jump-landing'));
+        this.inputToward(jump.landing, 1, false);
+        actor.input.jump = actor.grounded;
+        return;
+      }
+      const teachingJump = this.session.director.beats.some(beat=>beat.advanceOn==='jump-crossed');
+      if (teachingJump && actor.position.z <= jump.landing.z && !this.session.director.facts.has('jump-crossed')) {
+        this.jumpWaiting = distance(actor.position,jump.waitPoint) < 1.4;
+        this.inputToward(this.jumpWaiting ? player.position : jump.waitPoint,this.jumpWaiting ? 0 : .8,false,this.jumpWaiting ? player.position : jump.waitPoint);
+        return;
+      }
+    }
+    this.jumpWaiting = false;
     if (this.mode === 'complaint' && distance(actor.position,GREENER_ROUTE.entrance) < 50) scale = Math.min(scale, .48);
     const gap = GREENER_ROUTE.bridge;
-    const crossing = actor.position.z < gap.dashStart.z + .8 && actor.position.z > gap.gapBounds.maxZ;
+    const crossing = actor.position.z < gap.dashStart.z + 35 && actor.position.z > gap.gapBounds.minZ;
     if (crossing && this.waypoint <= route.findIndex(p => p.id === 'bridge-landing')) {
-      this.inputToward(gap.dashLanding, 1, false);
-      if (tryDash(room, actor.id, { x: 0, z: -1 }, now)) this.waypoint = route.findIndex(p => p.id === 'bridge-landing');
-      else if (actor.position.z > gap.gapBounds.maxZ + .25) this.inputToward(gap.dashLanding, 0);
+      // Plan the real traversal before leaving supported ground. Sprint needs
+      // enough stamina for the approach and flight; Dash keeps its normal cooldown.
+      const ready = actor.guardStamina >= SPRINT.restartStamina + SPRINT.staminaPerSec * 2
+        && now >= actor.dashReadyAt && !combatBlocksSprint(actor,now) && !actor.tornGround;
+      if (!this.bridgeInFlight && !this.bridgePrepared && !ready) {
+        this.inputToward(gap.waitPoint, distance(actor.position,gap.waitPoint) > .4 ? .65 : 0, false, player.position);
+        return;
+      }
+      this.bridgePrepared = true;
+      this.inputToward(gap.dashLanding, 1, true);
+      if (this.bridgeInFlight || actor.position.z < gap.dashStart.z + 1) {
+        actor.input.jump = actor.grounded;
+        this.bridgeInFlight = true;
+      }
+      if (!actor.grounded && actor.velocity.y <= 0 && tryDash(room, actor.id, { x: 0, z: -1 }, now)) this.waypoint = route.findIndex(p => p.id === 'bridge-landing');
       return;
     }
     if (this.dashReactionAt !== null && now >= this.dashReactionAt) {

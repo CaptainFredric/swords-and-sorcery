@@ -20,15 +20,16 @@ function playthrough({ missFirst = false, omitSegments = [] } = {}) {
   for (let i = 0; i < 30 * 700 && session.director.state === 'running'; i++) {
     now += 1 / 30;
     const beat = session.director.current, p = host.player, r = host.room.players.get(session.rivalId);
-    if (beat.id !== lastBeat) { log.push([+(now - 10).toFixed(1), beat.id, +p.health.toFixed(1), +p.position.z.toFixed(1), +r.position.z.toFixed(1), +Math.hypot(r.position.x-p.position.x,r.position.z-p.position.z).toFixed(1)]); lastBeat = beat.id; }
-    let forward = 0, right = 0, sprint = false, yaw = p.yaw, pitch = 0;
+    const freshBeat = beat.id !== lastBeat;
+    if (freshBeat) { log.push([+(now - 10).toFixed(1), beat.id, +p.health.toFixed(1), +p.position.z.toFixed(1), +r.position.z.toFixed(1), +Math.hypot(r.position.x-p.position.x,r.position.z-p.position.z).toFixed(1)]); lastBeat = beat.id; }
+    let forward = 0, right = 0, sprint = false, jump = false, yaw = p.yaw, pitch = 0;
     let target = r.position, dx = target.x - p.position.x, dz = target.z - p.position.z, dist = Math.hypot(dx, dz);
     if (beat.kind === 'dialogue' && beat.presentation !== 'reactive') { session.director.completeDialogue(session.director.cue); }
     if (beat.id === 'look-prompt') yaw += .03;
     else if (['approach', 'stamina'].includes(beat.segment)) {
       yaw = Math.atan2(-dx, -dz); forward = dist > 2.5 ? 1 : 0;
       sprint = beat.segment === 'stamina' && !['recover-prompt', 'reach-rival'].includes(beat.id);
-      if (beat.id === 'recover-prompt') forward = 0;
+      if (beat.id === 'recover-prompt' || !session.allows('move',false) || freshBeat && beat.id==='walk-prompt') forward = 0;
     } else if (['first-attack', 'first-guard', 'health-regen', 'real-duel'].includes(beat.segment)) {
       yaw = Math.atan2(-dx, -dz); forward = dist > 1.8 ? .6 : 0;
       if (session.rival.mode !== 'duel') guard(['guard-attack-start', 'guard-prompt'].includes(beat.id));
@@ -36,13 +37,22 @@ function playthrough({ missFirst = false, omitSegments = [] } = {}) {
     } else if (session.allows('attack', false) && beat.segment !== 'title-ending') {
       if (session.rival.mode !== 'final-fight') { guard(false); attack(false); }
       const bridge = GREENER_ROUTE.bridge;
+      const stile=GREENER_ROUTE.jump;
+      if(p.position.z > stile.landing.z && r.position.z <= stile.takeoff.z){
+        target=p.position.z>stile.takeoff.z+1?stile.takeoff:stile.waitPoint;dx=target.x-p.position.x;dz=target.z-p.position.z;dist=Math.hypot(dx,dz);
+        if(p.position.z<=stile.takeoff.z+1&&session.allows('jump',false))jump=p.grounded;
+      }
       if (p.position.z > bridge.ravineBounds.minZ && r.position.z < bridge.ravineBounds.maxZ) {
         target = p.position.z > bridge.gapBounds.minZ ? bridge.dashStart : GREENER_ROUTE.waypointById['far-bank']; dx = target.x - p.position.x; dz = target.z - p.position.z; dist = Math.hypot(dx, dz);
       }
-      yaw = Math.atan2(-dx, -dz); forward = dist > (target === bridge.dashStart ? .15 : 1.8) ? 1 : 0; sprint = dist > 10;
+      yaw = Math.atan2(-dx, -dz); forward = dist > (target === bridge.dashStart || target === stile.takeoff ? .1 : 1.8) ? 1 : 0; sprint = dist > 10;
       if (['counterfire', 'complaint'].includes(session.rival.mode)) right = Math.cos(now * 2.8) * .8;
-      if (p.position.z <= bridge.dashStart.z + .6 && p.position.z > bridge.gapBounds.maxZ) {
-        if (session.allows('dash', false)) { yaw = 0; host.dash({ x: 0, z: -1 }); forward = 1; } else forward = 0;
+      if (p.position.z <= bridge.dashStart.z + 1 && p.position.z > bridge.gapBounds.minZ) {
+        yaw = 0; sprint = true;
+        if (session.allows('dash',false)) {
+          forward=1; jump=p.grounded;
+          if(!p.grounded && p.velocity.y<=0)host.dash({x:0,z:-1});
+        } else forward=0;
       }
       if (['fireball', 'counterfire'].includes(beat.segment) && now - lastCast > 4.1) {
         const a = { x: r.position.x - p.position.x, y: -.04, z: r.position.z - p.position.z };
@@ -72,7 +82,7 @@ function playthrough({ missFirst = false, omitSegments = [] } = {}) {
       right = Math.sin(delta)*scale + Math.cos(delta)*side;
     }
     if (now < missUntil) { yaw = -Math.PI / 2; pitch = -.5; }
-    host.input({ seq: ++seq, forward, right, yaw, pitch, sprint, jump: false, crouch: false, guard: guardHeld, attack: attackHeld }); host.tick();
+    host.input({ seq: ++seq, forward, right, yaw, pitch, sprint, jump, crouch: false, guard: guardHeld, attack: attackHeld }); host.tick();
     for (const fact of [...session.director.facts, ...session.movement.facts]) allFacts.add(fact);
   }
   const result = { state: session.director.state, log, mode: session.rival.mode,
@@ -108,4 +118,10 @@ test('removing the optional final exchange still reaches ordinary Rival defeat a
   assert.equal(state, 'complete', JSON.stringify({ mode, tail: log.slice(-10) }));
   assert.equal(log.some(row => row[1] === 'final-hello'), false);
   assert.ok(facts.has('rival-defeated'));
+});
+
+test('removing optional chase exchanges and the Jump lesson leaves a traversable route and ordinary ending',()=>{
+  const {state,log,mode}=playthrough({omitSegments:['jump-obstacle','tattle-reveal','final-confrontation']});
+  assert.equal(state,'complete',JSON.stringify({mode,tail:log.slice(-8)}));
+  assert.equal(log.some(row=>['minor-obstacle-gloat','matter-settled','final-hello'].includes(row[1])),false);
 });

@@ -194,3 +194,92 @@ test('touch stick release clears a denied Sprint source for the next gesture', (
   send('pointerdown', 100, 400, stick); send('pointermove', 100, 344, stick);
   assert.equal(controls.movement().sprint, true);
 });
+
+test('a touch look finger placed before Look requires lifting even when unlock precedes its first drag', () => {
+  for (const action of [null, 'attack', 'guard']) {
+    const { input, controls, send } = setup({ alive: true, spell: 'fireball' });
+    let unlocked = false;
+    input.allowAction = requested => requested !== 'look' || unlocked;
+    const finger = action ? { action } : { target: controls.layer };
+    send('pointerdown', 600, 300, finger);
+    unlocked = true;
+    send('pointermove', 620, 310, finger);
+    assert.equal(input.yaw, 0, action ?? 'look area');
+    assert.equal(input.pitch, 0, action ?? 'look area');
+    send('pointerup', 620, 310, finger);
+    send('pointerdown', 600, 300, finger);
+    send('pointermove', 620, 310, finger);
+    assert.ok(input.yaw < 0, action ?? 'look area');
+    assert.ok(input.pitch < 0, action ?? 'look area');
+  }
+});
+
+test('a touch look permission withdrawal requires a new finger after unlock', () => {
+  const { input, controls, send } = setup({ alive: true, spell: 'fireball' });
+  let unlocked = true;
+  input.allowAction = action => action !== 'look' || unlocked;
+  const finger = { target: controls.layer };
+  send('pointerdown', 600, 300, finger);
+  send('pointermove', 620, 300, finger);
+  const yaw = input.yaw;
+  unlocked = false;
+  send('pointermove', 640, 300, finger);
+  unlocked = true;
+  send('pointermove', 660, 300, finger);
+  assert.equal(input.yaw, yaw);
+  send('pointercancel', 660, 300, finger);
+  send('pointerdown', 600, 300, finger);
+  send('pointermove', 620, 300, finger);
+  assert.ok(input.yaw < yaw);
+});
+
+test('a touch stick planted before Walk requires lifting even when unlock precedes its first movement sample', () => {
+  const { input, controls, send } = setup({ alive: true, spell: 'fireball' });
+  input.touch = controls;
+  let unlocked = false;
+  input.allowAction = action => action !== 'move' || unlocked;
+  const finger = { target: controls.layer };
+  send('pointerdown', 100, 400, finger);
+  unlocked = true;
+  send('pointermove', 100, 344, finger);
+  assert.equal(input.movement().forward, 0);
+  assert.equal(input.movement().right, 0);
+  assert.equal(input.movement().sprint, false);
+  send('pointermove', 100, 400, finger);
+  send('pointermove', 156, 400, finger);
+  assert.equal(controls.movement().right, 0);
+  send('pointerup', 156, 400, finger);
+  send('pointerdown', 100, 400, finger);
+  send('pointermove', 100, 344, finger);
+  assert.equal(input.movement().forward, 1);
+  assert.equal(input.movement().sprint, true);
+});
+
+test('touch movement permission withdrawal blocks a held stick until release', () => {
+  const { input, controls, send } = setup({ alive: true, spell: 'fireball' });
+  let unlocked = true;
+  input.allowAction = action => action !== 'move' || unlocked;
+  const finger = { target: controls.layer };
+  send('pointerdown', 100, 400, finger);
+  send('pointermove', 100, 344, finger);
+  assert.equal(controls.movement().forward, 1);
+  unlocked = false;
+  assert.equal(controls.movement().forward, 0);
+  unlocked = true;
+  assert.equal(controls.movement().forward, 0);
+  send('pointerup', 100, 344, finger);
+  send('pointerdown', 100, 400, finger);
+  send('pointermove', 100, 344, finger);
+  assert.equal(controls.movement().forward, 1);
+});
+
+test('the touch Menu remains available while opening Look and Walk are locked', () => {
+  const { input, send } = setup({ alive: true, spell: 'fireball' });
+  input.allowAction = action => !['look', 'move'].includes(action);
+  let releases = 0;
+  input.releaseFocus = () => releases++;
+  const button = { action: 'pause' };
+  send('pointerdown', 600, 300, button);
+  send('pointerup', 600, 300, button);
+  assert.equal(releases, 1);
+});

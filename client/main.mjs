@@ -412,7 +412,8 @@ function openArenaGate(info) {
   // once per opening (a countdown ending and the route change can both ask for it)
   if (performance.now() - gateOpenedAt < 1500) return;
   gateOpenedAt = performance.now();
-  const copy = arenaGateCopy({ mode: info.mode, worldId: info.worldId, scoreToWin: info.scoreToWin });
+  const copy = tutorialSession ? { title: 'GREENER PASTURES', sub: 'TUTORIAL 1' }
+    : arenaGateCopy({ mode: info.mode, worldId: info.worldId, scoreToWin: info.scoreToWin });
   $('#arena-gate-title').textContent = copy.title;
   $('#arena-gate-sub').textContent = copy.sub;
   arenaGate.classList.remove('hidden');
@@ -765,7 +766,7 @@ function startTutorial() {
   tutorialSession = new TutorialSession(socket.local, {
     onChange: progress => {
       tutorialView.show(progress);
-      const permissions=progress.segment?.permissions ?? [];
+      const permissions=progress.permissions ?? progress.current?.permissions ?? progress.segment?.permissions ?? [];
       for (const [action,tile] of [['spell',hud.spell],['dash',hud.dash],['ultimate',hud.ultimate]]) tile?.classList.toggle('tutorial-unlearned',progress.state==='running' && !permissions.includes(action));
       for (const button of document.querySelectorAll('.touch-btn[data-action]')) {
         const action=button.dataset.action;
@@ -775,6 +776,7 @@ function startTutorial() {
       if(progress.state !== 'running') runtime?.input.releaseFocus();
     },
     onBlocked: action => tutorialView.denied(action),
+    onResumeMovement: () => runtime?.input.resumeHeldMovement(),
     onRestore: player => { if(runtime) {runtime.input.releaseInputs(); runtime.input.yaw=player.yaw;runtime.input.pitch=0;} },
   });
   if (new URLSearchParams(location.search).has('debug')) globalThis.__ssTutorial = tutorialSession;

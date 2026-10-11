@@ -29,6 +29,8 @@ export class TutorialDirector {
     this.facts = new Set();
     this.enteredAt = null;
     this.optionalAt = null;
+    this.optionalActive = false;
+    this.lastTickAt = null;
   }
 
   get current() { return this.state === 'running' ? this.beats[this.index] : null; }
@@ -48,6 +50,7 @@ export class TutorialDirector {
     this.index = 0;
     this.state = 'running';
     this.facts.clear(); this.enteredAt = null; this.optionalAt = null;
+    this.optionalActive = false; this.lastTickAt = null;
     this.onChange(this.progress);
     return this.current;
   }
@@ -55,24 +58,29 @@ export class TutorialDirector {
   // Keep this token with the audio handle. A late completion from an old run or
   // previous line cannot advance the current dialogue after skip/restart.
   get cue() {
-    return this.current?.kind === 'dialogue'
+    return !this.optionalActive && this.current?.kind === 'dialogue'
       ? Object.freeze({ ...this.current, runId: this.runId }) : null;
   }
 
   get optionalCue() {
-    return this.state === 'running' && this.branchQueue.length
+    return this.state === 'running' && this.optionalActive && this.branchQueue.length
       ? Object.freeze({ ...this.branchQueue[0], runId: this.runId }) : null;
   }
 
   completeOptionalDialogue(cue) {
     if (!cue || cue.runId !== this.runId || cue.id !== this.optionalCue?.id) return false;
     this.branchQueue.shift();
+    this.optionalAt = null;
+    if (!this.branchQueue.length) {
+      this.optionalActive = false;
+      this.enteredAt = this.lastTickAt;
+    }
     this.onChange(this.progress);
     return true;
   }
 
   completeDialogue(cue) {
-    if (!cue || cue.runId !== this.runId || cue.id !== this.current?.id
+    if (this.optionalActive || !cue || cue.runId !== this.runId || cue.id !== this.current?.id
       || this.current.kind !== 'dialogue') return false;
     return this.accept('continue');
   }
@@ -86,6 +94,9 @@ export class TutorialDirector {
     this.enteredAt = null;
     if (chapter === this.prototypeStop && this.beats[this.index]?.chapter !== chapter) this.state = 'prototype-ended';
     else if (this.index === this.beats.length) this.state = 'complete';
+    if (this.state !== 'running' || this.current?.chapter === 'ending') {
+      this.branchQueue = []; this.optionalActive = false; this.optionalAt = null;
+    } else if (this.branchQueue.length && this.canPresentOptional()) this.optionalActive = true;
     this.onChange(this.progress);
     if (this.current && this.facts.has(this.current.advanceOn)) this.accept(this.current.advanceOn);
     return true;
@@ -102,6 +113,15 @@ export class TutorialDirector {
   // A decoded take calls completeDialogue with its actual ended token instead.
   tick(now) {
     if (!this.current || !Number.isFinite(now)) return;
+    this.lastTickAt = now;
+    // Reactions take the next clean caption boundary. Movement and factual
+    // progression continue while a reaction is displayed, but the next spoken
+    // main line gets its full reading time after the reaction ends.
+    if (this.optionalCue) {
+      this.optionalAt ??= now;
+      if (now - this.optionalAt >= (this.optionalCue.rehearsalSec ?? 3)) this.completeOptionalDialogue(this.optionalCue);
+      return;
+    }
     this.enteredAt ??= now;
     const caption = this.progress.segment?.captionRehearsal;
     const rehearsal = Math.max(caption?.minSec ?? 0, (this.current.rehearsalSec ?? 3) * (caption?.scale ?? 1));
@@ -110,9 +130,6 @@ export class TutorialDirector {
     else if (this.current.presentation === 'title' && now - this.enteredAt >= (this.current.rehearsalSec ?? 2.5)) this.accept(this.current.advanceOn);
     if (this.optionalCue) {
       this.optionalAt ??= now;
-      if (now - this.optionalAt >= (this.optionalCue.rehearsalSec ?? 3)) {
-        this.completeOptionalDialogue(this.optionalCue); this.optionalAt = null;
-      }
     } else this.optionalAt = null;
   }
 
@@ -121,15 +138,25 @@ export class TutorialDirector {
     if (index < 0) throw new Error(`Unknown tutorial checkpoint: ${id}`);
     this.runId += 1; this.index = index; this.state = 'running';
     this.facts.clear(); this.branchQueue = []; this.enteredAt = null; this.optionalAt = null;
+    this.optionalActive = false; this.lastTickAt = null;
     this.onChange(this.progress);
   }
 
   offerBranch(id) {
-    if (this.state !== 'running' || this.branchesSeen.has(id) || !this.branches[id]?.length) return false;
+    if (this.state !== 'running' || this.current?.chapter === 'ending' || this.branchesSeen.has(id) || !this.branches[id]?.length) return false;
     this.branchesSeen.add(id);
     this.branchQueue.push(...this.branches[id]);
+    // A pending reply cannot replace a main line halfway through its take.
+    // Prompts and factual stage gates are already safe gaps in the dialogue.
+    if (this.current.kind !== 'dialogue' && this.canPresentOptional()) this.optionalActive = true;
     this.onChange(this.progress);
     return true;
+  }
+
+  canPresentOptional() {
+    const beat = this.current;
+    return beat && beat.chapter !== 'ending' && beat.presentation !== 'title'
+      && (beat.kind !== 'dialogue' || beat.presentation === 'reactive');
   }
 
   skip() {
@@ -146,6 +173,7 @@ export class TutorialDirector {
     this.index = 0;
     this.state = 'idle';
     this.facts.clear(); this.enteredAt = null; this.optionalAt = null;
+    this.optionalActive = false; this.lastTickAt = null;
     this.onChange(this.progress);
   }
 }

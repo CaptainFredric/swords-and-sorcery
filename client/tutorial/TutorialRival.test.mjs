@@ -49,3 +49,13 @@ test('the pride challenge slows and turns a moving Rival near the entrance befor
  tick(140);assert.ok(session.director.facts.has('rival-turned'));assert.equal(session.rival.mode,'final-fight');
  assert.ok(Math.abs(actor().position.z-GREENER_ROUTE.finalStand.z)<10);assert.equal(actor().alive,true);host.close();
 });
+
+test('Rival waits for real Sprint stamina and Dash cooldown before committing to the broken span',()=>{
+ const {host,session,tick,actor,now}=fixture();session.stage('bridge-dash');session.director.resumeAt('bridge-arrival');
+ actor().position={...GREENER_ROUTE.bridge.dashStart};actor().guardStamina=0;actor().sprinting=false;actor().sprintBlend=0;
+ actor().lastGuardDrainAt=now();actor().dashReadyAt=now()+5;
+ session.rival.waypoint=GREENER_ROUTE.chaseWaypoints.findIndex(p=>p.id==='bridge-takeoff');
+ tick(30);assert.equal(actor().alive,true);assert.ok(actor().position.z>GREENER_ROUTE.bridge.gapBounds.maxZ,'wait on the supported bank');
+ tick(330);assert.equal(actor().alive,true);assert.ok(actor().position.z<GREENER_ROUTE.bridge.ravineBounds.minZ,'cross once ordinary resources recover');
+ host.close();
+});

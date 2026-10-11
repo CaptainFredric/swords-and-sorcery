@@ -49,7 +49,7 @@ function fieldWall(batch, random, solid) {
   for (let row = 0; row < rows; row += 1) {
     let along = -run.length / 2;
     while (along < run.length / 2 - 0.01) {
-      const length = Math.min(1.25 + random() * 0.7, run.length / 2 - along);
+      const length = Math.min(1.8 + random() * 1.0, run.length / 2 - along);
       const [cx, cz] = run.at(along + length / 2);
       batch.stone.block({ cx, cy: run.bottom + row * height, cz, sx: Math.max(0.01, length - 0.025), sy: height - 0.018, sz: run.thickness,
         rotY: run.rotY, chamfer: 0.05, jitter: 0.018, color: shadeColor(P.stone, 0.9 + random() * 0.15), rand: random });
@@ -60,11 +60,11 @@ function fieldWall(batch, random, solid) {
 
 function pastureHedge(batch, random, solid) {
   const run = runOf(solid);
-  const count = Math.ceil(run.length / 1.35);
+  const count = Math.ceil(run.length / 2.2);
   for (let i = 0; i < count; i += 1) {
     const [x, z] = run.at(-run.length / 2 + (i + 0.5) * run.length / count);
-    batch.foliage.lump({ cx: x, cy: solid.center[1], cz: z, rx: run.alongX ? 0.82 : run.thickness * 0.6,
-      ry: run.height * 0.53, rz: run.alongX ? run.thickness * 0.6 : 0.82,
+    batch.foliage.lump({ cx: x, cy: solid.center[1], cz: z, rx: run.alongX ? 1.3 : run.thickness * 0.6,
+      ry: run.height * 0.53, rz: run.alongX ? run.thickness * 0.6 : 1.3,
       color: shadeColor(P.hedge, 0.92 + random() * 0.16), rand: random, squash: 0.12 });
   }
 }
@@ -93,6 +93,7 @@ export class GreenerPasturesRenderer {
       if (floor.material === 'stone') floorTile(batch, floor, this.decor.paths, random);
       else meadowSurface(batch, floor, this.decor.paths, random);
     }
+    for (const ramp of GREENER_PASTURES.ramps) this.#ramp(batch, ramp, random);
     this.groundDetail = scatterGroundDetail(batch, {
       floors: GREENER_PASTURES.floors,
       paths: this.decor.paths,
@@ -103,7 +104,11 @@ export class GreenerPasturesRenderer {
     for (const solid of GREENER_PASTURES.solids) {
       if (solid.kind === 'tree' || solid.kind.startsWith('complaint-')) continue;
       if (solid.kind === 'hedge') pastureHedge(batch, random, solid);
-      else if (solid.kind === 'waystone') {
+      else if (solid.kind === 'bridge-footing') {
+        const [cx, cy, cz] = solid.center;
+        const [sx, sy, sz] = solid.size;
+        batch.stone.block({ cx, cy: cy - sy / 2, cz, sx, sy, sz, color: P.stoneDark, rand: random, chamfer: 0.02, jitter: 0 });
+      } else if (solid.kind === 'waystone') {
         const [cx, cy, cz] = solid.center;
         const [sx, sy, sz] = solid.size;
         batch.stone.block({ cx, cy: cy - sy / 2, cz, sx, sy, sz, color: P.stoneLight, rand: random, chamfer: 0.15, jitter: 0.04 });
@@ -132,6 +137,26 @@ export class GreenerPasturesRenderer {
     this.#sky(random);
   }
 
+  #ramp(batch, ramp, random) {
+    const { minX, maxX, minZ, maxZ, startY, endY } = ramp;
+    const strips = Math.ceil((maxZ - minZ) / 1.2);
+    for (let i = 0; i < strips; i += 1) {
+      const t0 = i / strips;
+      const t1 = (i + 1) / strips;
+      const z0 = minZ + (maxZ - minZ) * t0;
+      const z1 = minZ + (maxZ - minZ) * t1;
+      const y0 = startY + (endY - startY) * t0;
+      const y1 = startY + (endY - startY) * t1;
+      batch.ground.quad([minX, y0, z0], [minX, y1, z1], [maxX, y1, z1], [maxX, y0, z0],
+        shadeColor(P.paving, 0.88 + random() * 0.12));
+    }
+    for (const x of [minX, maxX]) {
+      const side = [[x, -0.4, minZ], [x, -0.4, maxZ], [x, endY, maxZ], [x, startY, minZ]];
+      if (x === maxX) side.reverse();
+      batch.stone.quad(...side, P.stoneDark);
+    }
+  }
+
   #ravine(batch, random) {
     const { minX, maxX } = GREENER_ROUTE.bounds;
     const ravine = GREENER_ROUTE.bridge.ravineBounds;
@@ -149,8 +174,8 @@ export class GreenerPasturesRenderer {
       }
     }
     batch.stone.quad([minX, -13, ravine.minZ], [minX, -13, ravine.maxZ], [maxX, -13, ravine.maxZ], [maxX, -13, ravine.minZ], P.cliffDark);
-    // The old bridge retains masonry abutments beneath each deck; no geometry fills the missing three metres.
-    for (const floor of GREENER_PASTURES.floors.filter((floor) => /bridge/.test(floor.id))) {
+    // The old bridge retains masonry abutments beneath each deck; no geometry fills the missing twelve and a half metres.
+    for (const floor of GREENER_PASTURES.floors.filter((floor) => floor.id === 'old-footbridge' || floor.id === 'bridge-south-deck')) {
       for (const x of [floor.center[0] - floor.size[0] / 2 + 0.8, floor.center[0] + floor.size[0] / 2 - 0.8]) {
         batch.stone.block({ cx: x, cy: -12.5, cz: floor.center[2], sx: 1.6, sy: 12.1, sz: floor.size[2], color: P.stoneDark, rand: random, chamfer: 0.12, jitter: 0.015 });
       }

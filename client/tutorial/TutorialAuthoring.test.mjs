@@ -14,13 +14,13 @@ function fixture(route, omitSegments = []) {
 }
 
 test('edited dialogue, an inserted scene and a disabled joke keep scene policies and route metadata live',()=>{
-  const original = TUTORIAL_SEGMENTS.find(s=>s.id==='rival-escape');
+  const original = TUTORIAL_SEGMENTS.find(s=>s.id==='escape-head-start');
   const edited = {...original,beats:original.beats.filter(b=>b.id!=='never-welcome').map(b=>b.id==='overstayed-welcome'?{...b,line:'An editable creator draft.'}:b)};
   const insert = {id:'new-exchange',chapter:'pursuit',permissions:edited.permissions,scene:{},beats:[
     {id:'new-authored-key',kind:'dialogue',line:'Another draft.',advanceOn:'continue',presentation:'reactive',segment:'new-exchange',chapter:'pursuit'}]};
-  const route = [edited,insert,...TUTORIAL_SEGMENTS.filter(s=>!['rival-escape','final-confrontation'].includes(s.id))];
+  const route = [edited,insert,...TUTORIAL_SEGMENTS.filter(s=>!['escape-head-start','final-confrontation'].includes(s.id))];
   const {host,session,tick}=fixture(route);
-  assert.equal(session.director.progress.segment.id,'rival-escape');
+  assert.equal(session.director.progress.segment.id,'escape-head-start');
   assert.equal(session.rival.mode,'escape');
   assert.equal(session.director.beats.some(b=>b.id==='never-welcome'),false);
   assert.equal(session.director.beats.some(b=>b.id==='final-hello'),false);
@@ -47,6 +47,7 @@ test('disabled Guard teaching drops only its explicitly dependent recovery scene
 
 test('unavailable held session inputs require release before a newly learned action can start',()=>{
   const {host,session,tick}=fixture(TUTORIAL_SEGMENTS);
+  session.director.resumeAt('walk-prompt');
   host.input({seq:1,forward:1,right:0,yaw:0,pitch:0,sprint:true});tick();assert.equal(host.player.sprinting,false);
   session.director.resumeAt('sprint-prompt');
   host.input({seq:2,forward:1,right:0,yaw:0,pitch:0,sprint:true});tick();assert.equal(host.player.sprinting,false);
