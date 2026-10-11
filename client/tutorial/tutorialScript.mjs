@@ -74,7 +74,7 @@ const segments = [
       { id: 'he-may-introduce', speaker: 'spellblade', line: 'I am a Knight. And a mage. He may choose to do so himself.' },
       { id: 'also-walk', speaker: 'narrator', line: 'You can also walk.' },
       { id: 'walk-prompt', kind: 'prompt', speaker: 'instruction', line: 'WALK TOWARD RIVAL', advanceOn: 'approach-progress', mechanic: 'move', permissions: MOVE },
-      { id: 'quite-a-distance', speaker: 'spellblade', line: 'He is quite a distance away. Is there any way of moving faster?', permissions: MOVE },
+      { id: 'quite-a-distance', speaker: 'spellblade', line: 'He is quite a distance away. Do I have any method of moving faster?', permissions: MOVE },
       { id: 'run-faster', speaker: 'narrator', line: 'Yes... you can sprint.', permissions: MOVE },
       { id: 'reminding-me', speaker: 'spellblade', line: 'Aha! Thank you for reminding me.', permissions: MOVE },
       { id: 'think-more', speaker: 'narrator', line: 'Mhm. Remember to think more often as well.', permissions: MOVE },
