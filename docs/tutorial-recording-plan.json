@@ -171,7 +171,7 @@
     "key": "tutorial.quite-a-distance",
     "beatId": "quite-a-distance",
     "speaker": "spellblade",
-    "text": "He is quite a distance away. Is there any way of moving faster?",
+    "text": "He is quite a distance away. Do I have any method of moving faster?",
     "sourceFile": "tutorial.quite-a-distance.wav",
     "fileBase": "spellblade/tutorial.quite-a-distance-1",
     "chapter": "approach",
