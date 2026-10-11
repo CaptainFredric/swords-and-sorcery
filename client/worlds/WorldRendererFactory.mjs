@@ -5,6 +5,7 @@ const WORLD_RENDERER_KEYS = Object.freeze({
   'castleward': 'castleward',
   'shattered-keep': 'shattered-keep',
   'ruined-keep': 'ruined-keep',
+  'greener-pastures': 'greener-pastures',
 });
 
 export function rendererKeyForWorld(worldId) {

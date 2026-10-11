@@ -182,8 +182,8 @@
           <small>Untimed training with configurable dummies</small>
         </button>
         <button id="tutorial-mode" class="mode-choice tutorial-entry" type="button">
-          <span>TUTORIAL PREVIEW</span>
-          <small>Meet Rival · movement and stamina · captions</small>
+          <span>TUTORIAL</span>
+          <small>Greener Pastures · movement, stamina and combat fundamentals</small>
         </button>
         <button id="inspection-mode" class="mode-choice">
           <span>INSPECTION YARD</span>
@@ -394,22 +394,38 @@
       </div>
     </section>
 
-    <aside id="tutorial-lesson" class="tutorial-lesson" aria-label="Tutorial preview" hidden>
-      <small data-tutorial-chapter></small>
-      <strong data-tutorial-speaker></strong>
-      <p data-tutorial-line aria-live="polite"></p>
-      <p data-tutorial-prompt></p>
-      <p class="tutorial-exchange" data-tutorial-exchange hidden><span>Is this a joke?</span><strong>Technically.</strong></p>
-      <div data-tutorial-optional hidden><p data-tutorial-optional-line></p><button data-tutorial-optional-continue type="button">CONTINUE ASIDE</button></div>
-      <p class="tutorial-locks">Movement and looking are available. Combat unlocks in later chapters.</p>
-      <p data-tutorial-blocked role="status"></p>
-      <div class="tutorial-lesson-actions">
-        <button data-tutorial-continue type="button">CONTINUE</button>
-        <button data-tutorial-practice type="button" hidden>CONTINUE IN PRACTICE</button>
-        <button data-tutorial-restart type="button">RESTART</button>
-        <button data-tutorial-skip type="button">SKIP GUIDANCE</button>
-        <button data-tutorial-leave type="button">RETURN TO SOLO</button>
+    <section id="tutorial-onboarding" class="tutorial-onboarding" role="dialog" aria-modal="true" aria-labelledby="tutorial-onboarding-title" aria-describedby="tutorial-onboarding-note" hidden>
+      <div class="tutorial-onboarding-card">
+        <h2 id="tutorial-onboarding-title">NEW SPELLBLADE?</h2>
+        <p id="tutorial-onboarding-note">Recommended for first-time players.</p>
+        <div class="tutorial-onboarding-actions">
+          <button data-tutorial-begin type="button">BEGIN TUTORIAL</button>
+          <button data-tutorial-onboarding-skip type="button">SKIP TUTORIAL</button>
+        </div>
+        <small>Skip to the menu and enter multiplayer immediately. Tutorial is always available from Solo.</small>
       </div>
+    </section>
+
+    <aside id="tutorial-lesson" class="tutorial-lesson" aria-label="Greener Pastures tutorial" hidden>
+      <div class="tutorial-caption">
+        <small data-tutorial-chapter></small>
+        <strong data-tutorial-speaker></strong>
+        <p data-tutorial-line aria-live="polite"></p>
+        <div class="game-brand tutorial-brand" data-tutorial-title hidden><h1>SWORDS <span>&amp;</span> SORCERY</h1></div>
+        <p data-tutorial-prompt></p>
+        <div data-tutorial-optional hidden><p data-tutorial-optional-line aria-live="polite"></p><button data-tutorial-optional-continue type="button" hidden>CONTINUE ASIDE</button></div>
+        <p data-tutorial-blocked role="status" hidden></p>
+        <button data-tutorial-continue type="button">CONTINUE</button>
+      </div>
+      <details class="tutorial-options" data-tutorial-options>
+        <summary><span>TUTORIAL </span>OPTIONS</summary>
+        <div class="tutorial-lesson-actions">
+          <button data-tutorial-practice type="button" hidden>CONTINUE IN PRACTICE</button>
+          <button data-tutorial-restart type="button">RESTART TUTORIAL</button>
+          <button data-tutorial-skip type="button">SKIP TUTORIAL</button>
+          <button data-tutorial-leave type="button">RETURN TO SOLO</button>
+        </div>
+      </details>
     </aside>
 
 

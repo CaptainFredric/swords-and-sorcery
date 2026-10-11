@@ -15,6 +15,7 @@ export class TutorialMovementCues {
     this.runId = this.director.runId;
     this.facts = new Set(); this.start = null; this.previous = null;
     this.travel = 0; this.sprinted = false; this.exhausted = false;
+    this.lookTravel = 0; this.sprintSince = null;
   }
   snapshot(snapshot) {
     if (this.runId !== this.director.runId) this.reset();
@@ -32,10 +33,15 @@ export class TutorialMovementCues {
     if (step > 3) { this.previous = null; return; }
     const remaining = distance(player.position, rival.position);
     this.travel += step;
-    if (angle(player.yaw, this.start.yaw) >= .2 || Math.abs(player.pitch - this.start.pitch) >= .15) this.facts.add('player-looked');
+    this.lookTravel += Math.min(.5, angle(player.yaw, this.previous.yaw) + Math.abs(player.pitch - this.previous.pitch));
+    if (this.lookTravel >= 1.2 && (angle(player.yaw, this.start.yaw) >= .7 || Math.abs(player.pitch - this.start.pitch) >= .45)) this.facts.add('player-looked');
     if (this.travel >= 1) this.facts.add('player-moved');
     if (this.start.distance - remaining >= 4) this.facts.add('approach-progress');
     if (player.sprinting && step > .01) { this.sprinted = true; this.facts.add('sprint-started'); }
+    if (player.sprinting && step > .01) this.sprintSince ??= snapshot.serverTime;
+    else this.sprintSince = null;
+    if (this.sprintSince !== null && snapshot.serverTime - this.sprintSince >= 2.5 && player.guardStamina >= 10) this.facts.add('sprint-sustained');
+    else this.facts.delete('sprint-sustained');
     if (this.sprinted && this.start.stamina - player.guardStamina >= 5) this.facts.add('stamina-decreased');
     if (this.sprinted && player.guardStamina <= 1e-6) this.exhausted = true;
     if (this.exhausted && !player.sprinting) this.facts.add('player-winded');
@@ -43,7 +49,7 @@ export class TutorialMovementCues {
     // Conversation requires proximity now, not a remembered pass during earlier narration.
     if (remaining <= 3.4 && Math.abs(player.position.y - rival.position.y) <= 2) this.facts.add('rival-reached');
     else this.facts.delete('rival-reached');
-    if (this.director.current?.chapter === 'approach' && this.travel >= 35 && remaining > this.start.distance + 6) this.director.offerBranch('frolic');
+    if (this.director.current?.chapter === 'approach' && this.travel >= 45 && this.start.distance - remaining < this.travel * .2) this.director.offerBranch('frolic');
     const cue = this.director.current?.advanceOn;
     if (this.facts.has(cue)) this.director.accept(cue);
     this.previous = player;

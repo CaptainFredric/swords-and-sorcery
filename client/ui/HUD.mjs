@@ -13,6 +13,7 @@ import { ultimateFor } from '../../shared/src/ultimates.mjs';
 export const PREPARED_HINT_SEC = 2.5;
 
 export function matchInfoText(snapshot, serverNow) {
+  if (snapshot?.tutorial) return 'GREENER PASTURES  ·  TUTORIAL';
   if (snapshot?.mode === 'PRACTICE') return 'PRACTICE YARD  ·  UNTIMED';
   if (snapshot?.suddenDeath) return 'SUDDEN DEATH';
   const startedAt = Number.isFinite(snapshot?.matchStartedAt) ? snapshot.matchStartedAt : serverNow;
@@ -125,7 +126,7 @@ export class HUD {
     // fist on the tile, the spell's own mark small in its corner, its cooldown still counting down)
     const spell = spellFor(local.spell);
     // (in the Practice Yard the key stays the spell's while it cools: it comes back after a moment)
-    const practice = snapshot?.mode === 'PRACTICE';
+    const practice = snapshot?.mode === 'PRACTICE' && !snapshot.tutorial;
     const prepared = preparedSpellView(local, serverNow);
     const currentPrepared = prepared.spells.find((entry) => entry.current);
     const cooling = !prepared.visible && !local.preparedSpellSelected && (local.spellReadyAt ?? 0) - serverNow > 0.01 && !practice;

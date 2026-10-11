@@ -304,6 +304,18 @@ try {
   await waitVisible('#menu');
   await waitForMenuScene();
   evidence.menuSpellblade = await waitForSpellbladeAsset('menu');
+  // A fresh visitor chooses whether to take the tutorial before entering the menus.
+  await poll(() => evaluate(`Boolean(document.querySelector('#loading-veil')?.classList.contains('done'))`), {
+    timeoutMs: 20000, label: 'loading veil lifted',
+  });
+  if (await evaluate(`Boolean(document.querySelector('#tutorial-onboarding') && !document.querySelector('#tutorial-onboarding').hidden)`)) {
+    await capture('public-game-first-visit.png');
+    await trustedClick('[data-tutorial-onboarding-skip]');
+    await poll(() => evaluate(`document.querySelector('#tutorial-onboarding').hidden`), {
+      timeoutMs: 5000, label: 'first visit tutorial choice',
+    });
+    evidence.firstVisitTutorialChoice = 'skipped through the visible button';
+  }
   evidence.menu = await snapshotUi();
   await capture('public-game-menu.png');
 

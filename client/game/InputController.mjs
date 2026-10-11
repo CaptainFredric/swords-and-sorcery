@@ -19,6 +19,7 @@ const RELEASE = {
   scoreboard: (input) => { input.scoreboardHeld = false; },
 };
 const HELD = new Set(['forward', 'back', 'left', 'right', 'jump', 'sprint']);
+const GATED_ACTIONS = new Set(['sprint', 'attack', 'guard', 'jump', 'crouch', 'spell', 'dash', 'gauntlet', 'ultimate']);
 // the menus handle these themselves (they work outside the arena too)
 const MENU_ACTIONS = new Set(['toggleSound', 'toggleMusic']);
 
@@ -39,6 +40,8 @@ export class InputController {
     this.spellOnly = false;
     this.onPreparedSelector = () => {};
     this.keys = new Set();
+    this.blockedKeys = new Set();
+    this.blockedHolds = new Set();
     this.yaw = 0;
     this.pitch = 0;
     this.pointerLocked = false;
@@ -87,10 +90,9 @@ export class InputController {
 
   #press(code, repeat = false) {
     const action = this.actionOf.get(code);
-    if (action && !repeat && this.allowAction?.(action) === false) return;
     if (!action || repeat || HELD.has(action) || MENU_ACTIONS.has(action)) return;
     if (action === 'guard') this.setGuard(this.held('guard'), 'desktop');
-    else if (action === 'attack') this.setAttack(this.held('attack'));
+    else if (action === 'attack') this.setAttack(this.held('attack'), 'desktop');
     else if (action === 'spell' && this.prepared.visible) this.beginPreparedGesture();
     else if (PRESS[action]) PRESS[action](this);
     else if (!RELEASE[action]) this.onAction(action, true);
@@ -98,9 +100,10 @@ export class InputController {
 
   #release(code) {
     const action = this.actionOf.get(code);
+    if (HELD.has(action) && !this.held(action)) this.gateHeldAction(action, false, 'desktop');
     if (!action || HELD.has(action) || MENU_ACTIONS.has(action)) return;
     if (action === 'guard') this.setGuard(this.held('guard'), 'desktop');
-    else if (action === 'attack') this.setAttack(this.held('attack'));
+    else if (action === 'attack') this.setAttack(this.held('attack'), 'desktop');
     else if (action === 'spell') { if (!this.held('spell')) this.finishPreparedGesture(); }
     else if (RELEASE[action]) RELEASE[action](this);
     else if (!PRESS[action]) this.onAction(action, false);
@@ -163,9 +166,15 @@ export class InputController {
         this.cancelPreparedGesture();
         return;
       }
+      const action = this.actionOf.get(event.code);
+      if (this.enabled && action) {
+        event.preventDefault();
+        if (this.blockedKeys.has(event.code)) return;
+        if (this.allowAction?.(action, !event.repeat) === false) { this.blockedKeys.add(event.code); return; }
+      }
       if (!recordArenaKey(this.keys, event.code, this.enabled)) return;
       // a bound key belongs to the game while in the arena (Space would scroll, Tab would move focus)
-      if (this.actionOf.has(event.code)) event.preventDefault();
+      if (action) event.preventDefault();
       this.#press(event.code, event.repeat);
       if (event.code === 'F3' && !event.repeat) {
         event.preventDefault();
@@ -174,6 +183,7 @@ export class InputController {
     });
 
     this.#listen(document, 'keyup', (event) => {
+      this.blockedKeys.delete(event.code);
       if (this.preparedConsumedKeys.delete(event.code)) { event.preventDefault(); return; }
       if (!this.keys.delete(event.code)) return;
       this.#release(event.code);
@@ -183,6 +193,9 @@ export class InputController {
     this.#listen(document, 'mousedown', (event) => {
       if (!this.pointerLocked) return;
       const code = `Mouse${event.button}`;
+      if (this.blockedKeys.has(code)) return;
+      const action = this.actionOf.get(code);
+      if (action && this.allowAction?.(action) === false) { this.blockedKeys.add(code); return; }
       this.keys.add(code);
       this.#press(code);
     });
@@ -190,6 +203,7 @@ export class InputController {
     this.#listen(document, 'mouseup', (event) => {
       if (this.touchFocus) return;
       const code = `Mouse${event.button}`;
+      this.blockedKeys.delete(code);
       if (!this.keys.delete(code)) return;
       this.#release(code);
     });
@@ -228,8 +242,19 @@ export class InputController {
     this.pitch = Math.max(-1.45, Math.min(1.45, this.pitch + pitchDelta));
   }
 
-  setAttack(held) {
-    if (held && this.allowAction?.('attack') === false) return;
+  /** A denied held source must release before it may request the newly available action. */
+  gateHeldAction(action, requested, source = 'default', notify = true) {
+    const key = `${action}:${source}`;
+    if (!requested) { this.blockedHolds.delete(key); return false; }
+    if (this.blockedHolds.has(key)) return false;
+    if (this.allowAction?.(action, notify) === false) { this.blockedHolds.add(key); return false; }
+    return true;
+  }
+
+  setAttack(held, source = 'touch') {
+    const accepted = this.gateHeldAction('attack', Boolean(held), source);
+    if (held && !accepted) return;
+    if (!held) this.gateHeldAction('attack', false, 'logical');
     if (Boolean(held) === this.attackHeld) return;
     this.attackHeld = Boolean(held);
     this.socket.attack(this.attackHeld);
@@ -237,10 +262,12 @@ export class InputController {
   }
 
   setGuard(held, source = 'touch') {
-    if (held && this.allowAction?.('guard') === false) return;
+    const accepted = this.gateHeldAction('guard', Boolean(held), source);
+    if (held && !accepted) return;
     if (held) this.guardSources.add(source);
     else this.guardSources.delete(source);
     const logical = this.guardSources.size > 0;
+    if (!logical) this.gateHeldAction('guard', false, 'logical');
     if (logical === this.guardHeld) return;
     this.guardHeld = logical;
     this.socket.guard(this.guardHeld);
@@ -251,7 +278,11 @@ export class InputController {
     this.cancelPreparedGesture();
     this.guardSources.clear();
     this.preparedConsumedKeys.clear();
+    if (this.allowAction) {
+      for (const code of this.keys) if (GATED_ACTIONS.has(this.actionOf.get(code))) this.blockedKeys.add(code);
+    } else this.blockedKeys.clear();
     releaseHeldInputs(this);
+    this.blockedHolds.clear();
   }
 
   updatePreparedSpells(local, serverNow) {
@@ -354,14 +385,14 @@ export class InputController {
       right: (this.held('right') ? 1 : 0) - (this.held('left') ? 1 : 0) + (touch?.right ?? 0),
       jump: (this.held('jump') || Boolean(touch?.jump)) && this.allowAction?.('jump', false) !== false,
       // hold Sprint (Shift unless rebound; or push the touch stick all the way forward, or latch the touch button)
-      sprint: this.held('sprint') || Boolean(touch?.sprint),
+      sprint: this.gateHeldAction('sprint', this.held('sprint'), 'desktop', false) || Boolean(touch?.sprint),
       // hold Crouch (C unless rebound), or toggle the touch button: the wish; the body crouches and stands by the
       // server's rule (it cannot stand up under something)
       crouch: (this.held('crouch') || Boolean(touch?.crouch)) && this.allowAction?.('crouch', false) !== false,
       // what is held, beside the presses themselves (a Blazing Vortex is steered by it: the attack for its fire, the
       // guard for its blade; on a touch screen, the same two buttons)
-      attack: this.attackHeld,
-      guard: this.guardHeld,
+      attack: this.gateHeldAction('attack', this.attackHeld, 'logical', false),
+      guard: this.gateHeldAction('guard', this.guardHeld, 'logical', false),
       yaw: this.yaw,
       pitch: this.pitch,
     };

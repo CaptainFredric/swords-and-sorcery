@@ -6,5 +6,6 @@ test('world renderer selection is explicit', () => {
   assert.equal(rendererKeyForWorld('castleward'), 'castleward');
   assert.equal(rendererKeyForWorld('shattered-keep'), 'shattered-keep');
   assert.equal(rendererKeyForWorld('ruined-keep'), 'ruined-keep');
+  assert.equal(rendererKeyForWorld('greener-pastures'), 'greener-pastures');
   assert.throws(() => rendererKeyForWorld('unknown'), /Unsupported world/);
 });

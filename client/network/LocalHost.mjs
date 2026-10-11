@@ -101,14 +101,15 @@ export class LocalHost {
   }
 
   // --- a solo room: you, and the bots or dummies the mode brings ---
-  startSolo(mode, name, worldId, botSkill) {
+  startSolo(mode, name, worldId, botSkill, tutorial = false) {
     if (!SOLO_MODES.has(mode)) {
       this.#deliver({ type: 'error', message: 'Unknown solo mode' });
       return;
     }
     this.#stop();
     const time = this.now();
-    const room = this.rooms.createSoloRoom(mode, time, arenaOrDefault(worldId));
+    const room = this.rooms.createSoloRoom(mode, time, tutorial ? 'greener-pastures' : arenaOrDefault(worldId));
+    room.localTutorial = tutorial;
     const player = room.addPlayer({ id: randomId(), token: randomId(), name: String(name || 'Spellblade').slice(0, 18), spell: this.spell, ultimate: this.ultimateId, preparedSpells: this.preparedSpells }, time);
     player.cloth = this.cloth;
     room.setBotSkill(botSkill);
@@ -127,6 +128,10 @@ export class LocalHost {
   startInspectionPractice(name, worldId) {
     this.startSolo(GAME_MODES.PRACTICE, name, worldId);
     this.inspectionEnabled = true;
+  }
+
+  startTutorial(name) {
+    this.startSolo(GAME_MODES.PRACTICE, name, 'greener-pastures', undefined, true);
   }
 
   get inspectionFrozen() { return this.frozenAt !== null; }
@@ -189,7 +194,8 @@ export class LocalHost {
     if (!room) return;
     const time = this.now();
     stepBotControllers(room, time, room.world);
-    stepPracticeActors(room, time, room.world);
+    if (this.sessionController) this.sessionController.beforeStep(time);
+    else stepPracticeActors(room, time, room.world);
     stepRoom(room, 1 / TICK_RATE, time, room.world);
     const events = room.events.splice(0);
     if (events.length) this.#deliver({ type: 'events', events }, true);
@@ -204,6 +210,7 @@ export class LocalHost {
     this.room = null;
     this.player = null;
     this.commandFilter = null;
+    this.sessionController = null;
     this.inspectionEnabled = false;
     this.inspectionFramesPlaying = false;
     this.inspectionNextBeat = null;

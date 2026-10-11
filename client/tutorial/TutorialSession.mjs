@@ -1,73 +1,241 @@
 import { TutorialDirector } from './TutorialDirector.mjs';
 import { TutorialMovementCues } from './TutorialMovementCues.mjs';
 import { TutorialCombatCues } from './TutorialCombatCues.mjs';
-import { TUTORIAL_PREVIEW_STOP } from './tutorialScript.mjs';
-import { resetPracticePlayer, spawnPracticeDummy } from '../../shared/sim/practice.mjs';
+import { TutorialRival } from './TutorialRival.mjs';
+import { tutorialSceneCue } from './TutorialSceneCues.mjs';
+import { TUTORIAL_SEGMENTS, TUTORIAL_BRANCHES, tutorialRouteSegments, tutorialRouteBeats } from './tutorialScript.mjs';
+import { GREENER_ROUTE } from '../../shared/worlds/greenerPastures.mjs';
+import { resetPracticePlayer, spawnPracticeDummy, removePracticeDummy } from '../../shared/sim/practice.mjs';
+import { cancelAttack, setGuard } from '../../shared/sim/combat.mjs';
+import { HEALTH_REGEN } from '../../shared/src/combat.mjs';
 import { keyLabel } from '../settings/settingsRegistry.mjs';
 
-const LOCKED = new Set(['attack', 'guard', 'spell', 'cast', 'castCurrentSpell', 'castPreparedSpell',
-  'castPreparedSlot', 'gauntlet', 'dash', 'ultimate', 'jump', 'crouch']);
+const distance = (a,b) => Math.hypot(a.x-b.x,a.z-b.z);
+const ACTION = Object.freeze({cast:'spell',castCurrentSpell:'spell',castPreparedSpell:'prepared',castPreparedSlot:'prepared',selectPreparedSlot:'prepared',selectPreparedSpell:'prepared'});
+const CONTROLLED = new Set(['sprint','attack','guard','spell','dash','jump','crouch','ultimate','gauntlet','prepared']);
 
 export function tutorialPrompt(beat, { touch = false, bindings = {} } = {}) {
   const keys = action => (bindings[action] ?? []).map(keyLabel).join(' / ');
-  if (beat?.mechanic === 'look') return touch ? 'Drag the look area to turn toward Rival.' : 'Move the mouse to look. Click the arena to capture the pointer.';
-  if (beat?.mechanic === 'move') return touch ? 'Use the left stick to approach Rival.' : `Move toward Rival: ${['forward', 'back', 'left', 'right'].map(keys).filter(Boolean).join(' · ')}`;
-  if (beat?.mechanic === 'sprint') return touch ? 'Move forward with the stick and hold Sprint. The Guard stamina bar shows your energy.' : `Move forward and hold ${keys('sprint')} to sprint. Watch Guard stamina.`;
-  if (beat?.mechanic === 'recover') return touch ? 'Release Sprint and Guard. Wait for the real stamina bar to recover.' : `Release ${keys('sprint')} and Guard to recover stamina.`;
-  return '';
+  const use = action => touch ? ({attack:'Attack',guard:'Guard',spell:'Spell',dash:'Dash'}[action] ?? action) : keys(action);
+  switch (beat?.mechanic) {
+    case 'look': return touch ? 'Drag the look area to scan the field.' : 'Move the mouse to scan the field. Click the arena to capture the pointer.';
+    case 'move': return touch ? 'Use the left stick to approach Rival.' : `Approach Rival: ${['forward','back','left','right'].map(keys).filter(Boolean).join(' · ')}`;
+    case 'sprint': return touch ? 'Push the stick fully forward to Sprint, or tap Sprint while moving. Watch Guard stamina.' : `Move forward and hold ${keys('sprint')} to Sprint. Watch Guard stamina.`;
+    case 'recover': return touch ? 'Release the movement stick to stop Sprinting. Let stamina recover.' : `Stop Sprinting and lower Guard to recover stamina. Release ${keys('sprint')}.`;
+    case 'attack': return `Strike Rival with your sword: ${use('attack')}. Move closer if your swing misses.`;
+    case 'guard': return `Face Rival and Guard against his sword: ${use('guard')}.`;
+    case 'lower-guard': return touch ? 'Release Guard when ready.' : `Release ${keys('guard')} to lower Guard.`;
+    case 'health-regen': return `Health regenerates after ${HEALTH_REGEN.delaySec} seconds without damage.`;
+    case 'fireball': return `Aim at Rival and cast Fireball: ${use('spell')}. Missed? Wait for the real cooldown and try again.`;
+    case 'dash': return `Aim across the broken span and Dash: ${use('dash')}. Jump also crosses; use Dash on the far bank if you jumped.`;
+    case 'guard-break': return `Keep striking Rival's Guard with ${use('attack')}. Fireball passes through Guard; sword pressure breaks it.`;
+    default: return ({'duel-damage-threshold':'Fight Rival. Attack, Guard and move.', 'rival-escaping':'Chase Rival.',
+      'bridge-reached':'Follow Rival to the broken stone bridge.', 'bridge-crossed':`Cross to the far bank. Dash: ${use('dash')}.`,
+      'subsequent-fireball-hit':`Aim at Rival and cast Fireball again: ${use('spell')}.`,
+      'counterfire-complete':'Keep chasing. Evade his Fireballs and return fire.', 'rival-final-stand':'Close the distance to Rival.',
+      'rival-defeated':'Finish Rival with your sword.', 'departure-complete':'Leave the clearing. Move forward.'})[beat?.advanceOn] ?? '';
+  }
 }
 
-// A local Practice session, with input restrictions and staging owned here.
-// No tutorial damage, health, collision, stamina or combat rules exist.
+// Local orchestration owns permissions, checkpoints and choreography. Normal combat resolves all contacts.
 export class TutorialSession {
-  constructor(host, { onChange = () => {}, onBlocked = () => {} } = {}) {
-    if (!host.local || host.room?.mode !== 'PRACTICE' || host.room.worldId !== 'castleward') throw new Error('Tutorial requires local Castleward Practice');
-    this.host = host; this.onBlocked = onBlocked;
-    this.director = new TutorialDirector({ prototypeStop: TUTORIAL_PREVIEW_STOP, onChange });
-    this.active = false; this.off = [];
+  constructor(host, { onChange = () => {}, onBlocked = () => {}, onRestore = () => {}, random = Math.random,
+    route = TUTORIAL_SEGMENTS, omitSegments = [] } = {}) {
+    if (!host.local || !host.room?.localTutorial || host.room.worldId !== 'greener-pastures') throw new Error('Tutorial requires local Greener Pastures');
+    this.host = host; this.onChange = onChange; this.onBlocked = onBlocked; this.onRestore = onRestore; this.random = random;
+    this.route = tutorialRouteSegments(route, {omitSegments});
+    const enabledBranches = new Set(this.route.flatMap(segment => segment.branches ?? []));
+    const branches = Object.fromEntries(Object.entries(TUTORIAL_BRANCHES).filter(([id]) => enabledBranches.has(id)));
+    this.director = new TutorialDirector({segments:this.route,beats:tutorialRouteBeats(this.route),branches,
+      onChange:progress => this.changed(progress)});
+    this.active = false; this.off = []; this.lastBeat = null; this.lastSegment = null;
+    this.checkpoint = this.route[0].id; this.blockedHeld = new Set();
   }
+  get requiresFinalGuard() { return this.director.beats.some(beat=>beat.advanceOn==='rival-guard-broken'); }
   start() {
     if (this.active) return;
-    this.active = true;
-    this.stage();
-    this.movement = new TutorialMovementCues(this.director, {local:true,playerId:this.host.player.id,rivalId:this.rivalId});
-    this.combat = new TutorialCombatCues(this.director, {local:true,playerId:this.host.player.id,rivalId:this.rivalId});
+    this.active = true; this.stage(this.route[0].id);
+    this.movement = new TutorialMovementCues(this.director,{local:true,playerId:this.host.player.id,rivalId:this.rivalId});
+    this.combat = new TutorialCombatCues(this.director,{local:true,playerId:this.host.player.id,rivalId:this.rivalId});
+    this.rival = new TutorialRival(this);
     this.host.commandFilter = message => this.filter(message);
-    this.off = [this.host.on('events', batch => this.combat.accept(batch.events)), this.host.on('snapshot', snapshot => {
-      const me = snapshot.players.find(player => player.id === this.host.player.id);
-      if (!me?.alive && this.director.state === 'running') { this.interrupted = true; this.director.skip(); return; }
-      this.combat.snapshot(snapshot); this.movement.snapshot(snapshot);
-    })];
+    this.host.sessionController = this;
+    this.off = [this.host.on('events',batch=>this.events(batch.events)), this.host.on('snapshot',snapshot=>this.snapshot(snapshot))];
     this.director.start();
   }
-  stage() {
-    resetPracticePlayer(this.host.room, this.host.player.id, this.host.now());
-    const rival = spawnPracticeDummy(this.host.room, 'PASSIVE', this.host.now());
-    rival.name = 'Rival'; rival.position = {x:19,y:0,z:-4.5}; rival.velocity = {x:0,y:0,z:0};
-    rival.yaw = Math.PI / 2; rival.input = {...rival.input,yaw:rival.yaw};
-    this.host.player.yaw = -Math.PI / 2;
-    this.host.player.input = {...this.host.player.input,yaw:this.host.player.yaw};
-    this.rivalId = rival.id;
+  stage(segment = this.route[0].id) {
+    const room = this.host.room, now = this.host.now();
+    resetPracticePlayer(room,this.host.player.id,now); removePracticeDummy(room);
+    const rival = spawnPracticeDummy(room,'PASSIVE',now);
+    const scene = this.route.find(x=>x.id===segment)?.scene;
+    const key = scene?.checkpoint ?? 'opening';
+    const at = GREENER_ROUTE.checkpointPositions[key];
+    const rivalAt = ({pursuit:GREENER_ROUTE.waypointById.escape,fireball:GREENER_ROUTE.waypointById.fireball,
+      bridge:GREENER_ROUTE.bridge.dashLanding,counterfire:GREENER_ROUTE.waypointById.counterfire,
+      complaint:GREENER_ROUTE.waypointById.pride,final:GREENER_ROUTE.finalStand})[key] ?? GREENER_ROUTE.rivalMeeting;
+    this.host.player.position = {x:at.x,y:at.y,z:at.z};
+    this.host.player.yaw = at.yaw; this.host.player.input = {...this.host.player.input,yaw:at.yaw};
+    // The saved Armory and host defaults stay intact. Only this room's actor carries Fireball.
+    this.host.player.spell = this.host.player.startingSpell = 'fireball';
+    this.host.player.preparedSpells = ['fireball']; this.host.player.preparedSpellSelected = true;
+    rival.name = 'Rival'; rival.position = {x:rivalAt.x,y:rivalAt.y,z:rivalAt.z};
+    rival.yaw = rivalAt.yaw; rival.input = {...rival.input,yaw:rival.yaw};
+    rival.spell = 'fireball'; rival.botSkill = 'squire'; rival.tutorialSwordDrawn = key !== 'opening' && key !== 'introductions';
+    rival.spawnProtectionUntil = now; this.rivalId = rival.id;
+    room.tutorialRival = {id:rival.id,protected:true}; room.projectiles.clear();
+    this.duelDamage = 0; this.finalBroken = false; this.damageBaseline = null; this.departureStart = null;
+    this.firstFireballHit = ['bridge','counterfire','complaint','final'].includes(key);
+    this.subsequentHit = ['complaint','final'].includes(key); this.burnSeen = false;
+    this.learnerProjectiles = new Set();
+    this.lastBeat = null; this.lastSegment = null; this.blockedHeld.clear(); this.rival?.reset();
+    if (this.rival) this.rival.waypoint = Math.max(1,GREENER_ROUTE.chaseWaypoints.findIndex(p=>p.id===rivalAt.id));
+  }
+  changed(progress) {
+    const beat = progress.current;
+    if (beat && beat.id !== this.lastBeat) {
+      this.lastBeat = beat.id;
+      const segment = progress.segment;
+      if (segment?.id !== this.lastSegment) {
+        this.lastSegment = segment?.id;
+        if (segment?.checkpoint) this.checkpoint = segment.id;
+        this.rival?.enter(segment?.scene?.enter,this.host.now());
+      }
+      this.rival?.enter(beat.stageCue,this.host.now());
+      if (beat.stageCue === 'player-departure') this.departureStart = {...this.host.player.position};
+      if (beat.stageCue === 'tutorial-complete') { this.director.fact('title-ended'); return; }
+    }
+    this.onChange({...progress,rivalHint:this.rivalHint()});
+  }
+  rivalHint() {
+    if (!['look','move'].includes(this.director.current?.mechanic)) return '';
+    const me=this.host.player, actor=this.host.room.players.get(this.rivalId);
+    if (!actor) return '';
+    const yaw=Math.atan2(-(actor.position.x-me.position.x),-(actor.position.z-me.position.z));
+    const angle=Math.atan2(Math.sin(yaw-me.yaw),Math.cos(yaw-me.yaw));
+    const direction=Math.abs(angle)>2.3?'behind you':angle>.45?'to your left':angle<-.45?'to your right':'ahead';
+    return `Rival is ${direction} · ${Math.round(distance(me.position,actor.position))} m.`;
   }
   allows(action, notify = true) {
-    const allowed = !this.active || (!LOCKED.has(action) && (!action.startsWith('practice') && !action.startsWith('selectPrepared')));
+    const normal = ACTION[action] ?? action;
+    const permissions = this.director.progress.segment?.permissions ?? [];
+    const allowed = !this.active || !action.startsWith('practice') && (!CONTROLLED.has(normal) || permissions.includes(normal));
     if (!allowed && notify) this.onBlocked(action);
     return allowed;
   }
   filter(message) {
-    if (message.type === 'input') return {...message, attack:false, guard:false, jump:false, crouch:false};
-    if (['attack','guard'].includes(message.type) && !message.down) return message;
+    if (message.type === 'input') {
+      const copy = {...message};
+      for (const action of ['attack','guard','jump','crouch','sprint']) {
+        if (!message[action]) this.blockedHeld.delete(action);
+        if (!this.allows(action,false)) {
+          if (message[action]) this.blockedHeld.add(action);
+          copy[action] = false;
+        } else if (this.blockedHeld.has(action)) copy[action] = false;
+      }
+      return copy;
+    }
+    if (['attack','guard'].includes(message.type)) {
+      if (!message.down) { this.blockedHeld.delete(message.type); return message; }
+      if (!this.allows(message.type)) { this.blockedHeld.add(message.type); return null; }
+      if (this.blockedHeld.has(message.type)) return null;
+    }
     return this.allows(message.type) ? message : null;
+  }
+  beforeStep(now) {
+    if (!this.active || this.director.state !== 'running') return;
+    this.director.tick(now);
+    const actor = this.host.room.players.get(this.rivalId), me = this.host.player;
+    if (!me.alive) { this.retry(); return; }
+    if (!actor.alive) actor.respawnAt = Infinity;
+    this.rival.beforeStep(now);
+    if (this.rival.mode === 'draw' && now - actor.tutorialDrawAt >= .85) this.director.fact('rival-sword-drawn');
+    if (this.rival.mode === 'duel' && actor.attackActive) this.director.fact('rival-attack-started');
+    if (this.rival.mode === 'guard-lesson' && actor.attackActive) this.director.fact('guard-attack-started');
+    if (['escape','counter-pursuit','counterfire'].includes(this.rival.mode) && Math.hypot(actor.velocity.x,actor.velocity.z) > 1) this.director.fact('rival-escaping');
+    const bridge = GREENER_ROUTE.bridge;
+    if (me.position.z <= GREENER_ROUTE.waypointById['bridge-approach'].z && actor.position.z < bridge.ravineBounds.minZ) this.director.fact('bridge-reached');
+    if (me.position.z < bridge.ravineBounds.minZ && me.grounded) this.director.fact('bridge-crossed');
+    if (['counterfire','complaint'].includes(this.rival.mode) && this.rival.counterShots > 0) this.director.fact('rival-counterfire-started');
+    if (this.rival.counterShots >= 2 && me.position.z < GREENER_ROUTE.landmarks.counterfire.z) this.director.fact('counterfire-complete');
+    // Scene gates compose observations. The dialogue may be freely replaced or removed.
+    for (const segment of this.route) for (const gate of segment.scene?.gates ?? []) {
+      if (tutorialSceneCue(gate,{player:me,rival:actor,route:GREENER_ROUTE})) this.director.fact(gate.cue);
+    }
+    if (this.rival.mode === 'final-fight' && actor.guarding) this.director.fact('rival-final-stand');
+    if (this.departureStart && distance(me.position,this.departureStart) >= 5) this.director.fact('departure-complete');
+  }
+  events(events) {
+    if (!this.active || this.director.state !== 'running') return;
+    this.combat.accept(events);
+    const hits = events.some(e=>e.type==='damage' && e.attackerId===this.host.player.id && e.victimId===this.rivalId && e.source==='fireball' && e.amount>0);
+    for (const event of events) {
+      if (event.type==='projectileSpawned' && event.projectile.ownerId===this.host.player.id && event.projectile.spell==='fireball' && !this.firstFireballHit) this.learnerProjectiles.add(event.projectile.id);
+      if (event.type==='projectileImpact') this.learnerProjectiles.delete(event.projectileId);
+      if (['block','parry'].includes(event.type) && event.defenderId===this.host.player.id && event.attackerId===this.rivalId && this.rival.mode==='guard-lesson') {
+        this.rival.enter('rival-idle',this.host.now());
+      }
+      if (event.type === 'damage' && event.victimId === this.host.player.id && event.source === 'sword') {
+        this.damageBaseline = event.health;
+        if (this.rival.mode === 'postscript') this.rival.enter('rival-idle',this.host.now());
+      }
+      if (event.type === 'damage' && event.victimId === this.rivalId && event.attackerId === this.host.player.id && event.amount > 0) {
+        if (this.rival.mode === 'duel') {
+          this.duelDamage += event.amount;
+          if (this.duelDamage >= 100) { this.rival.enter('rival-escape',this.host.now()); this.director.fact('duel-damage-threshold'); }
+        }
+        if (event.source === 'fireball') {
+          if (this.firstFireballHit && ['counter-pursuit','counterfire','complaint'].includes(this.rival.mode)) { this.subsequentHit = true; this.director.fact('subsequent-fireball-hit'); }
+          else { this.firstFireballHit = true; this.director.fact('fireball-hit'); }
+        }
+      }
+      if (event.type==='projectileImpact' && event.ownerId===this.host.player.id && event.spell==='fireball' && !hits && !this.firstFireballHit) this.director.offerBranch('first-fireball-miss');
+      if (event.type==='dash' && event.playerId===this.host.player.id) {
+        this.rival.observePlayerDash(this.host.now(),event.direction ?? this.host.player.dashDir);
+        this.director.fact('dash-used');
+      }
+      if (event.type==='guardBreak' && event.defenderId===this.rivalId && event.attackerId===this.host.player.id && this.rival.mode==='final-fight') {
+        this.finalBroken = true; this.host.room.tutorialRival.protected = false; this.director.fact('rival-guard-broken');
+        this.director.offerBranch('final-guard-broken');
+      }
+      if (event.type==='guardStarted' && event.playerId===this.rivalId && this.rival.mode==='final-fight') this.director.offerBranch('final-guard-reaction');
+      if (event.type==='death' && event.victimId===this.rivalId) {
+        const actor = this.host.room.players.get(this.rivalId);
+        actor.deathAt = event.at; actor.respawnAt = Infinity;
+        this.director.fact('rival-defeated');
+      }
+    }
+  }
+  snapshot(snapshot) {
+    if (!this.active || this.director.state !== 'running') return;
+    const me = snapshot.players.find(x=>x.id===this.host.player.id);
+    if (!me?.alive) return;
+    this.combat.snapshot(snapshot); this.movement.snapshot(snapshot);
+    // A shot that expires into open sky is also a genuine miss. Impacts are handled by events.
+    for (const id of this.learnerProjectiles) if (!this.host.room.projectiles.has(id)) {
+      this.learnerProjectiles.delete(id);
+      if (!this.firstFireballHit) this.director.offerBranch('first-fireball-miss');
+    }
+    if (this.rivalHint() && snapshot.serverTime-(this.hintAt??0)>=.5) {this.hintAt=snapshot.serverTime;this.onChange({...this.director.progress,rivalHint:this.rivalHint()});}
+    if (this.damageBaseline !== null && me.health > this.damageBaseline + .5) this.director.fact('health-regenerated');
+    if (me.burningUntil > snapshot.serverTime) this.burnSeen = true;
+    if (this.burnSeen && me.burningUntil <= snapshot.serverTime) this.director.offerBranch('burned');
+  }
+  retry() {
+    const segment = this.checkpoint;
+    this.stage(segment); this.director.resumeAt(this.route.find(x=>x.id===segment).beats[0].id);
+    this.onRestore(this.host.player);
   }
   restart() {
     if (!this.active) return;
-    this.interrupted = false; this.stage(); this.director.start();
+    this.checkpoint = this.route[0].id; this.stage(); this.director.start(); this.onRestore(this.host.player);
   }
   stop() {
     if (!this.active) return;
-    this.active = false;
-    this.host.commandFilter = null;
-    this.off.splice(0).forEach(off => off());
-    this.director.skip();
+    this.active = false; this.host.commandFilter = null; this.host.sessionController = null;
+    if (this.host.room) {
+      delete this.host.room.tutorialRival;
+      cancelAttack(this.host.room,this.rivalId,this.host.now()); setGuard(this.host.room,this.rivalId,false,this.host.now());
+    }
+    this.off.splice(0).forEach(off=>off()); this.director.skip();
   }
 }

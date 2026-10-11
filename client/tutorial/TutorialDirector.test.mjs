@@ -4,14 +4,14 @@ import { TUTORIAL_BEATS, TUTORIAL_STATUS } from './tutorialScript.mjs';
 import { TutorialDirector } from './TutorialDirector.mjs';
 
 test('draft has stable unique recording cues and explicit combat gates', () => {
-  assert.equal(TUTORIAL_STATUS.phase, 'in-development');
+  assert.equal(TUTORIAL_STATUS.phase, 'ready');
   assert.equal(new Set(TUTORIAL_BEATS.map(x => x.id)).size, TUTORIAL_BEATS.length);
   assert.equal(TUTORIAL_BEATS.find(x => x.id === 'attack-prompt').advanceOn, 'sword-contact');
   assert.equal(TUTORIAL_BEATS.find(x => x.id === 'guard-prompt').advanceOn, 'successful-guard');
   const postscript = TUTORIAL_BEATS.find(x => x.id === 'postscript-hit');
   assert.equal(postscript.advanceOn, 'player-damaged');
   assert.match(postscript.direction, /ordinary sword strike/);
-  assert.match(postscript.direction, /lowered Guard/);
+  assert.match(postscript.direction, /Guard lowers/);
   assert.ok(TUTORIAL_BEATS.some(x => x.recordingKey === 'tutorial.technically-correct'));
 });
 

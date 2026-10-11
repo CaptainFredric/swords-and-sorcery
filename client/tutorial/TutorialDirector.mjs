@@ -1,17 +1,23 @@
-import { TUTORIAL_BEATS, TUTORIAL_CHAPTERS, TUTORIAL_BRANCHES } from './tutorialScript.mjs';
+import * as script from './tutorialScript.mjs';
+const { TUTORIAL_CHAPTERS, TUTORIAL_BRANCHES, TUTORIAL_SEGMENTS, tutorialRouteBeats } = script;
 
-// Rehearsal/recording-ready state machine. Production combat cues will come from
-// local Practice/Room events when the scripted rival encounter is implemented.
+// Rehearsal/recording-ready state machine. The local session supplies genuine
+// movement and combat facts from the ordinary simulator.
 // It never alters health, hits, stamina, movement or the shared combat simulator.
 export class TutorialDirector {
-  constructor({ beats = TUTORIAL_BEATS, prototypeStop = null, onChange = () => {} } = {}) {
+  constructor({ beats = null, segments = TUTORIAL_SEGMENTS, chapters = TUTORIAL_CHAPTERS,
+    branches = TUTORIAL_BRANCHES, prototypeStop = null, onChange = () => {} } = {}) {
+    beats ??= tutorialRouteBeats(segments);
     if (!Array.isArray(beats) || beats.length === 0) throw new Error('Tutorial needs beats');
     if (new Set(beats.map(beat => beat.id)).size !== beats.length ||
         beats.some(beat => !beat.id || !beat.advanceOn || (beat.kind !== 'stage' && !beat.line))) {
       throw new Error('Tutorial beats need unique IDs, cues and authored text');
     }
     if (prototypeStop && !beats.some(beat => beat.chapter === prototypeStop)) throw new Error('Unknown prototype chapter');
-    if (prototypeStop && TUTORIAL_CHAPTERS.find(chapter => chapter.id === prototypeStop)?.implemented === false) throw new Error('Prototype stop must be implemented');
+    if (prototypeStop && chapters.find(chapter => chapter.id === prototypeStop)?.implemented === false) throw new Error('Prototype stop must be implemented');
+    this.segments = segments;
+    this.chapters = chapters;
+    this.branches = branches;
     this.prototypeStop = prototypeStop;
     this.branchesSeen = new Set();
     this.branchQueue = [];
@@ -20,14 +26,18 @@ export class TutorialDirector {
     this.runId = 0;
     this.index = 0;
     this.state = 'idle';
+    this.facts = new Set();
+    this.enteredAt = null;
+    this.optionalAt = null;
   }
 
   get current() { return this.state === 'running' ? this.beats[this.index] : null; }
   get progress() {
     const finished = ['prototype-ended', 'complete'].includes(this.state);
     const beat = this.beats[Math.max(0, this.index - (finished ? 1 : 0))];
-    return { chapter: TUTORIAL_CHAPTERS.find(chapter => chapter.id === beat?.chapter),
+    return { chapter: this.chapters.find(chapter => chapter.id === beat?.chapter),
       state: this.state, index: this.index, total: this.beats.length,
+      segment: this.segments.find(segment => segment.id === beat?.segment),
       current: this.current, optional: this.optionalCue };
   }
 
@@ -37,6 +47,7 @@ export class TutorialDirector {
     this.branchQueue = [];
     this.index = 0;
     this.state = 'running';
+    this.facts.clear(); this.enteredAt = null; this.optionalAt = null;
     this.onChange(this.progress);
     return this.current;
   }
@@ -72,16 +83,51 @@ export class TutorialDirector {
     if (!this.current || this.current.advanceOn !== cue) return false;
     const chapter = this.current.chapter;
     this.index += 1;
+    this.enteredAt = null;
     if (chapter === this.prototypeStop && this.beats[this.index]?.chapter !== chapter) this.state = 'prototype-ended';
     else if (this.index === this.beats.length) this.state = 'complete';
     this.onChange(this.progress);
+    if (this.current && this.facts.has(this.current.advanceOn)) this.accept(this.current.advanceOn);
     return true;
   }
 
+  // Remember authentic actions through intervening captions, never through a retry.
+  fact(cue) {
+    if (this.state !== 'running') return false;
+    this.facts.add(cue);
+    return this.accept(cue);
+  }
+
+  // This clock controls caption rehearsal only. Combat remains event driven.
+  // A decoded take calls completeDialogue with its actual ended token instead.
+  tick(now) {
+    if (!this.current || !Number.isFinite(now)) return;
+    this.enteredAt ??= now;
+    const caption = this.progress.segment?.captionRehearsal;
+    const rehearsal = Math.max(caption?.minSec ?? 0, (this.current.rehearsalSec ?? 3) * (caption?.scale ?? 1));
+    if (this.current.presentation === 'reactive' && this.current.advanceOn === 'continue'
+      && now - this.enteredAt >= rehearsal) this.completeDialogue(this.cue);
+    else if (this.current.presentation === 'title' && now - this.enteredAt >= (this.current.rehearsalSec ?? 2.5)) this.accept(this.current.advanceOn);
+    if (this.optionalCue) {
+      this.optionalAt ??= now;
+      if (now - this.optionalAt >= (this.optionalCue.rehearsalSec ?? 3)) {
+        this.completeOptionalDialogue(this.optionalCue); this.optionalAt = null;
+      }
+    } else this.optionalAt = null;
+  }
+
+  resumeAt(id) {
+    const index = this.beats.findIndex(beat => beat.id === id);
+    if (index < 0) throw new Error(`Unknown tutorial checkpoint: ${id}`);
+    this.runId += 1; this.index = index; this.state = 'running';
+    this.facts.clear(); this.branchQueue = []; this.enteredAt = null; this.optionalAt = null;
+    this.onChange(this.progress);
+  }
+
   offerBranch(id) {
-    if (this.state !== 'running' || this.branchesSeen.has(id) || !TUTORIAL_BRANCHES[id]) return false;
+    if (this.state !== 'running' || this.branchesSeen.has(id) || !this.branches[id]?.length) return false;
     this.branchesSeen.add(id);
-    this.branchQueue.push(...TUTORIAL_BRANCHES[id]);
+    this.branchQueue.push(...this.branches[id]);
     this.onChange(this.progress);
     return true;
   }
@@ -99,6 +145,7 @@ export class TutorialDirector {
     this.branchQueue = [];
     this.index = 0;
     this.state = 'idle';
+    this.facts.clear(); this.enteredAt = null; this.optionalAt = null;
     this.onChange(this.progress);
   }
 }

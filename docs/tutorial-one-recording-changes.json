@@ -1,0 +1,163 @@
+{
+  "total": 118,
+  "priorTotal": 56,
+  "added": [
+    "tutorial.greener-pastures",
+    "tutorial.much-to-do",
+    "tutorial.need-look-around",
+    "tutorial.nothing-of-value",
+    "tutorial.truly-look-around",
+    "tutorial.look-ah",
+    "tutorial.still-nothing",
+    "tutorial.think-more",
+    "tutorial.can-do-all-day",
+    "tutorial.need-a-moment",
+    "tutorial.well",
+    "tutorial.strike-you-first",
+    "tutorial.depends-go-down",
+    "tutorial.prevent-arrangement",
+    "tutorial.taking-a-while",
+    "tutorial.not-yet",
+    "tutorial.informative",
+    "tutorial.overstayed-welcome",
+    "tutorial.never-welcome",
+    "tutorial.say-hello-reminder",
+    "tutorial.escape-made-fun",
+    "tutorial.hardly-wellbeing",
+    "tutorial.remains-ahead",
+    "tutorial.few-steps",
+    "tutorial.why-spellblade",
+    "tutorial.spell-blade",
+    "tutorial.impressive",
+    "tutorial.magic-disposal",
+    "tutorial.waiting-reminder",
+    "tutorial.almost-there",
+    "tutorial.rival-cold",
+    "tutorial.warm-feelings",
+    "tutorial.concerning",
+    "tutorial.get-over-this",
+    "tutorial.decent-suggestion",
+    "tutorial.get-over-it",
+    "tutorial.surpass-obstacle",
+    "tutorial.grow-maturity",
+    "tutorial.but-knight",
+    "tutorial.cease-singeing",
+    "tutorial.follow-footsteps",
+    "tutorial.legend-ends",
+    "tutorial.knight-help",
+    "tutorial.final-hello",
+    "tutorial.too-late-hello",
+    "tutorial.reconsider-meeting",
+    "tutorial.sword-remains",
+    "tutorial.remain-mightier",
+    "tutorial.lot-of-things",
+    "tutorial.who-are-you",
+    "tutorial.i-am",
+    "tutorial.strange-name",
+    "tutorial.true-master",
+    "tutorial.closing-hope",
+    "tutorial.rival-over-there",
+    "tutorial.scorch-mark",
+    "tutorial.burn-subsided",
+    "tutorial.reforged",
+    "tutorial.not-too-many",
+    "tutorial.stop-you",
+    "tutorial.convince-unblock",
+    "tutorial.did-not-stop"
+  ],
+  "changed": [
+    {
+      "key": "tutorial.quite-a-distance",
+      "before": "He is quite a distance away. Is there any way of moving faster",
+      "after": "He is quite a distance away. Is there any way of moving faster?"
+    },
+    {
+      "key": "tutorial.run-faster",
+      "before": "Yes... you can run faster.",
+      "after": "Yes... you can sprint."
+    },
+    {
+      "key": "tutorial.good-question",
+      "before": "... Good question.",
+      "after": "...A sound argument..."
+    },
+    {
+      "key": "tutorial.own-pen",
+      "before": "Oh brother. Tell him off. With your own 'pen'...",
+      "after": "Oh brother. Tell him off. With your own ‘pen’..."
+    },
+    {
+      "key": "tutorial.blocked-message",
+      "before": "You blocked my message!",
+      "after": "You blocked me!"
+    },
+    {
+      "key": "tutorial.guarded",
+      "before": "No, I had guarded.",
+      "after": "No. I was guarding."
+    },
+    {
+      "key": "tutorial.plans-change",
+      "before": "Well, things do not always go according to plan.",
+      "after": "Things do not always go according to plan."
+    }
+  ],
+  "optional": [
+    "tutorial.frolic-fields",
+    "tutorial.remembering-move",
+    "tutorial.rival-over-there",
+    "tutorial.scorch-mark",
+    "tutorial.burn-subsided",
+    "tutorial.reforged",
+    "tutorial.not-too-many",
+    "tutorial.stop-you",
+    "tutorial.convince-unblock",
+    "tutorial.did-not-stop"
+  ],
+  "missing": [],
+  "beats": 145,
+  "optionalSegments": [
+    "tutorial.final-hello",
+    "tutorial.too-late-hello",
+    "tutorial.reconsider-meeting",
+    "tutorial.sword-remains",
+    "tutorial.remain-mightier",
+    "tutorial.lot-of-things"
+  ],
+  "segments": [
+    "greener-introduction",
+    "meaningful-look",
+    "approach",
+    "stamina",
+    "introductions",
+    "first-attack",
+    "first-guard",
+    "health-regen",
+    "real-duel",
+    "rival-escape",
+    "fireball",
+    "bridge-dash",
+    "counterfire",
+    "complaint-approach",
+    "pride-stop",
+    "final-confrontation",
+    "final-guard",
+    "rival-defeat",
+    "title-ending"
+  ],
+  "refinement": {
+    "priorTotal": 110,
+    "added": [
+      "tutorial.legend-ends",
+      "tutorial.knight-help",
+      "tutorial.final-hello",
+      "tutorial.too-late-hello",
+      "tutorial.reconsider-meeting",
+      "tutorial.sword-remains",
+      "tutorial.remain-mightier",
+      "tutorial.lot-of-things"
+    ],
+    "changed": [],
+    "missing": []
+  }
+}

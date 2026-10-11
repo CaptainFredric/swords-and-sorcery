@@ -172,6 +172,12 @@ export class GameLink {
     this.local.startInspectionPractice(name, worldId);
   }
 
+  startTutorial(name) {
+    if (this.hosting === 'remote' && this.remote.roomCode) this.remote.leaveRoom();
+    this.hosting = 'local';
+    this.local.startTutorial(name);
+  }
+
   get inspectionAvailable() { return this.playingLocally && this.local.inspectionEnabled; }
   get inspectionFrozen() { return this.inspectionAvailable && this.local.inspectionFrozen; }
   setInspectionFrozen(frozen) { return this.inspectionAvailable && this.local.setInspectionFrozen(frozen); }

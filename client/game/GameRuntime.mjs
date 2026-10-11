@@ -49,6 +49,7 @@ import { createWorldRenderer, rendererKeyForWorld } from '../worlds/WorldRendere
 import { CastlewardRenderer } from '../worlds/CastlewardRenderer.mjs';
 import { ShatteredKeepRenderer } from '../worlds/ShatteredKeepRenderer.mjs';
 import { RuinedKeepRenderer } from '../worlds/RuinedKeepRenderer.mjs';
+import { GreenerPasturesRenderer } from '../worlds/GreenerPasturesRenderer.mjs';
 import {
   canPresentLocalAction,
   handsTaken,
@@ -72,6 +73,7 @@ const WORLD_RENDERERS = Object.freeze({
   castleward: CastlewardRenderer,
   'shattered-keep': ShatteredKeepRenderer,
   'ruined-keep': RuinedKeepRenderer,
+  'greener-pastures': GreenerPasturesRenderer,
 });
 
 // the server's word for a clang my own view already foretold arrives within this long (a round trip and a tick or two)
@@ -391,6 +393,8 @@ export class GameRuntime {
 
   // a world may bring its own time of day; otherwise the default moonlit presentation applies
   #applyLighting(lighting) {
+    this.camera.far = lighting?.cameraFar ?? 180;
+    this.camera.updateProjectionMatrix();
     const hemisphere = lighting?.hemisphere ?? SCENE_PRESENTATION.hemisphere;
     this.hemi.color.set(hemisphere.skyColor);
     this.hemi.groundColor.set(hemisphere.groundColor);
@@ -1462,7 +1466,7 @@ export class GameRuntime {
   // play a sound at a world position (null: mine, centred) with extra gain
   // the Practice Yard (abilities come back after a short gate: practiceRecast.mjs)
   #inPractice() {
-    return this.latestSnapshot?.mode === 'PRACTICE';
+    return this.latestSnapshot?.mode === 'PRACTICE' && !this.latestSnapshot.tutorial;
   }
 
   #play(recipe, source = null, gain = 1, delay = 0) {
