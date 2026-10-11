@@ -95,7 +95,7 @@
     {
       "key": "tutorial.quite-a-distance",
       "before": "He is quite a distance away. Is there any way of moving faster",
-      "after": "He is quite a distance away. Is there any way of moving faster?"
+      "after": "He is quite a distance away. Do I have any method of moving faster?"
     },
     {
       "key": "tutorial.run-faster",
