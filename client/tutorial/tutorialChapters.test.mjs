@@ -36,7 +36,7 @@ test('creator wording retains intentional punctuation and revised stable recordi
     'truly-look-around': 'No. Truly look around.',
     'look-ah': 'Ah...',
     'still-nothing': 'Still nothing',
-    'quite-a-distance': 'He is quite a distance away. Is there any way of moving faster?',
+    'quite-a-distance': 'He is quite a distance away. Do I have any method of moving faster?',
     'run-faster': 'Yes... you can sprint.',
     'think-more': 'Mhm. Remember to think more often as well.',
     'can-do-all-day': 'Ah, hahaha! I can do this all day!',
