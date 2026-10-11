@@ -114,6 +114,7 @@ export class TouchControls {
     for (const [pointerId, action] of this.held) this.#release(action, pointerId);
     this.held.clear();
     this.#endStick();
+    if (this.look) this.#gateHeld('look', false, `touch-look:${this.look.id}`, false);
     this.look = null;
     this.sprintLatched = false;
     this.crouchLatched = false;
@@ -126,13 +127,14 @@ export class TouchControls {
 
   movement() {
     if (!this.active) return null;
+    const moveAllowed = this.#gateHeld('move', Boolean(this.stick), 'touch-stick', false);
     this.stickState.sprint = this.#gateHeld('sprint', this.stickSprintRequested, 'touch-stick', false);
     const moving = Math.abs(this.stickState.forward) + Math.abs(this.stickState.right) > 0;
     return {
-      forward: this.stickState.forward,
-      right: this.stickState.right,
+      forward: moveAllowed ? this.stickState.forward : 0,
+      right: moveAllowed ? this.stickState.right : 0,
       jump: this.jumpHeld || performance.now() < this.jumpUntil,
-      sprint: this.stickState.sprint || this.#gateHeld('sprint', this.sprintLatched && moving, 'touch-latch', false),
+      sprint: moveAllowed && (this.stickState.sprint || this.#gateHeld('sprint', this.sprintLatched && moving, 'touch-latch', false)),
       crouch: Boolean(this.crouchLatched),
     };
   }
@@ -261,6 +263,7 @@ export class TouchControls {
       if (!this.stick) this.#startStick(event, point);
     } else if (!this.look) {
       this.look = { id: event.pointerId, x: point.x, y: point.y };
+      this.#gateHeld('look', true, `touch-look:${event.pointerId}`, false);
     }
   };
 
@@ -285,11 +288,13 @@ export class TouchControls {
     const { yaw, pitch } = lookDelta(point.x - tracker.x, point.y - tracker.y);
     tracker.x = point.x;
     tracker.y = point.y;
+    if (!this.#gateHeld('look', true, `touch-look:${event.pointerId}`, false)) return;
     const look = this.input.look ?? { touch: 1, invertY: false };
     this.input.turn(yaw * look.touch, pitch * look.touch * (look.invertY ? -1 : 1));
   };
 
   #up = (event) => {
+    this.#gateHeld('look', false, `touch-look:${event.pointerId}`, false);
     if (this.preparedTouch?.id === event.pointerId) {
       const point = gamePoint(event);
       const gesture = this.preparedTouch;
@@ -330,6 +335,7 @@ export class TouchControls {
     if (action === 'attack' || action === 'guard') {
       this.aim ??= new Map();
       this.aim.set(event.pointerId, gamePoint(event));
+      this.#gateHeld('look', true, `touch-look:${event.pointerId}`, false);
     }
     if (!this.#gateHeld(action, true, `touch-button:${event.pointerId}`)) {
       this.deniedButtons.add(event.pointerId);
@@ -368,6 +374,7 @@ export class TouchControls {
   }
 
   #release(action, pointerId) {
+    if (action === 'attack' || action === 'guard') this.#gateHeld('look', false, `touch-look:${pointerId}`, false);
     this.#gateHeld(action, false, `touch-button:${pointerId}`);
     if (this.deniedButtons.delete(pointerId)) return;
     this.buttons[action]?.classList.remove('pressed');
@@ -402,6 +409,7 @@ export class TouchControls {
     const x = Math.max(margin, Math.min(this.layer.clientWidth - margin, point.x));
     const y = Math.max(margin, Math.min(this.layer.clientHeight - margin, point.y));
     this.stick = { id: event.pointerId, x, y };
+    this.#gateHeld('move', true, 'touch-stick');
     this.stickBase.style.left = `${x}px`;
     this.stickBase.style.top = `${y}px`;
     this.stickBase.classList.add('held');
@@ -412,6 +420,7 @@ export class TouchControls {
     const point = gamePoint(event);
     const vector = stickVector(point.x - this.stick.x, point.y - this.stick.y);
     this.stickSprintRequested = vector.sprint;
+    this.#gateHeld('move', true, 'touch-stick', false);
     const sprint = this.#gateHeld('sprint', vector.sprint, 'touch-stick');
     this.stickState = { forward: vector.forward, right: vector.right, sprint };
     this.stickKnob.style.transform = `translate(${vector.knob.x}px, ${vector.knob.y}px)`;
@@ -420,6 +429,7 @@ export class TouchControls {
 
   #endStick() {
     this.stick = null;
+    this.#gateHeld('move', false, 'touch-stick', false);
     this.stickSprintRequested = false;
     this.#gateHeld('sprint', false, 'touch-stick');
     this.#gateHeld('sprint', false, 'touch-latch');

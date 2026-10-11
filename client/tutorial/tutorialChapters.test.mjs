@@ -15,7 +15,7 @@ test('the complete declared route preserves chapter identifiers and reaches the 
   ]);
   assert.deepEqual(TUTORIAL_SEGMENTS.map(item => item.id), [
     'greener-introduction', 'meaningful-look', 'approach', 'stamina', 'introductions',
-    'first-attack', 'first-guard', 'health-regen', 'real-duel', 'rival-escape', 'fireball',
+    'first-attack', 'first-guard', 'health-regen', 'real-duel', 'escape-head-start', 'rival-escape', 'jump-obstacle', 'fireball', 'tattle-reveal',
     'bridge-dash', 'counterfire', 'complaint-approach', 'pride-stop', 'final-confrontation',
     'rival-defeat', 'title-ending',
   ]);
@@ -49,7 +49,7 @@ test('creator wording retains intentional punctuation and revised stable recordi
     'depends-go-down': 'That depends, if you go down, I will cease as well',
     'spell-blade': 'Because I can spell ‘blade’!',
     'rival-cold': 'That was cold of you, ow!',
-    'grow-maturity': 'You have grown, maturity awaits you after all, Spellblade',
+    'grow-maturity': 'You have grown, maturity awaits you after all, Spellblade.',
     'cease-singeing': 'Cease this singeing, I insist',
     'true-master': 'If I see ANYONE else who dares to resemble me, as you did... I shall correct their ignorance... and show who is the true master of',
     'closing-hope': 'Let us hope there are not many like him.',
@@ -77,7 +77,7 @@ test('gameplay phases declare genuine gates and progressively available actions'
     'tutorial-ended': 'title-ended',
   };
   for (const [id, cue] of Object.entries(expected)) assert.equal(beat(id)?.advanceOn, cue, id);
-  const permitted = new Set(['sprint', 'attack', 'guard', 'spell', 'dash', 'jump', 'crouch']);
+  const permitted = new Set(['look', 'move', 'sprint', 'attack', 'guard', 'spell', 'dash', 'jump', 'crouch']);
   for (const segment of TUTORIAL_SEGMENTS) {
     assert.ok(segment.permissions.every(action => permitted.has(action)), segment.id);
     assert.ok(segment.beats.every(item => item.segment === segment.id && item.chapter === segment.chapter));
@@ -91,7 +91,8 @@ test('gameplay phases declare genuine gates and progressively available actions'
   assert.equal(actions('first-attack').includes('guard'), false);
   assert.equal(actions('first-guard').includes('guard'), true);
   assert.equal(actions('fireball').includes('spell'), true);
-  assert.equal(actions('bridge-dash').includes('dash'), true);
+  assert.equal(actions('bridge-dash').includes('dash'), false);
+  assert.equal(beat('dash-prompt').permissions.includes('dash'), true);
   assert.equal(beat('duel-onset').stageCue, 'rival-attack');
   assert.equal(beat('plans-change').stageCue, undefined);
   assert.equal(beat('well').stageCue, undefined);
@@ -118,7 +119,7 @@ test('only stationary rehearsal blocks; gameplay captions carry presentation tim
 });
 
 test('optional exchanges stay outside progression, are attached to segments, and play once', () => {
-  assert.deepEqual(Object.keys(TUTORIAL_BRANCHES), ['frolic', 'first-fireball-miss', 'burned', 'final-guard-reaction', 'final-guard-broken']);
+  assert.deepEqual(Object.keys(TUTORIAL_BRANCHES), ['frolic', 'rival-constitution', 'first-fireball-miss', 'burned', 'final-guard-reaction', 'final-guard-broken']);
   const plan = tutorialRecordingPlan();
   for (const [id, branch] of Object.entries(TUTORIAL_BRANCHES)) {
     const metadata = TUTORIAL_BRANCH_METADATA[id];
@@ -178,7 +179,7 @@ test('complaint, pride and final confrontation preserve the exact new authored a
 });
 
 test('scene actions and checkpoint destinations are explicit data separate from spoken sentences', () => {
-  const allowedCheckpoints = new Set(['opening', 'introductions', 'duel', 'pursuit', 'bridge', 'counterfire', 'final']);
+  const allowedCheckpoints = new Set(['opening', 'introductions', 'duel', 'pursuit', 'jump', 'bridge', 'counterfire', 'final']);
   for (const segment of TUTORIAL_SEGMENTS) {
     assert.equal(segment.enabled, true);
     assert.ok(allowedCheckpoints.has(segment.scene.checkpoint), segment.id);
@@ -269,7 +270,7 @@ test('raw inserted scenes normalize authored beats and inherit the active permis
   assert.ok(Object.isFrozen(caption));
   assert.equal(inserted.beats[0].segment, undefined);
   assert.equal(inserted.permissions, undefined);
-  assert.equal(fireball.next, 'bridge-dash');
+  assert.equal(fireball.next, 'tattle-reveal');
 });
 
 test('normalization preserves explicit stable keys and inherits from selected scenes only', () => {

@@ -14,6 +14,8 @@ export class TutorialView {
     this.context = context;
     const select = selector => root.querySelector(selector);
     this.chapter = select('[data-tutorial-chapter]');
+    this.objective = select('[data-tutorial-objective]');
+    this.objectiveText = select('[data-tutorial-objective-text]');
     this.speaker = select('[data-tutorial-speaker]');
     this.line = select('[data-tutorial-line]');
     this.prompt = select('[data-tutorial-prompt]');
@@ -58,8 +60,11 @@ export class TutorialView {
     this.root.classList.toggle('tutorial-title', title);
     this.root.classList.toggle('tutorial-touch', !!context.touch);
     this.chapter.textContent = ended ? completed ? 'TUTORIAL 1 COMPLETE' : 'TUTORIAL PAUSED' : progress.chapter?.title ?? 'GREENER PASTURES';
+    const objective = progress.segment?.objective;
+    this.objective.hidden = ended || title || !objective;
+    this.objectiveText.textContent = objective?.text ?? objective ?? '';
     this.speaker.textContent = ended || title ? '' : TUTORIAL_SPEAKER_LABELS[beat?.speaker] ?? '';
-    this.speaker.hidden = !this.speaker.textContent;
+    this.speaker.hidden = !this.speaker.textContent || reactive && !!optional;
     this.line.textContent = ended
       ? completed ? 'Greener Pastures complete. Return to Solo to play again or enter a match.'
         : interrupted ? 'The lesson was interrupted. Restart the tutorial or return to Solo.'
@@ -85,8 +90,9 @@ export class TutorialView {
   }
 
   denied(action) {
-    const labels = { attack: 'Attack', guard: 'Guard', spell: 'Fireball', cast: 'Fireball', castCurrentSpell: 'Fireball', dash: 'Dash', jump: 'Jump', crouch: 'Crouch' };
-    this.blocked.textContent = ['jump', 'crouch'].includes(action) ? `${labels[action]} is deferred during this lesson.`
+    const labels = { look: 'Looking', move: 'Walking', sprint: 'Sprint', attack: 'Attack', guard: 'Guard', spell: 'Fireball', cast: 'Fireball', castCurrentSpell: 'Fireball', dash: 'Dash', jump: 'Jump', crouch: 'Crouch' };
+    this.blocked.textContent = action === 'rival-fall' ? 'Rival fell at the crossing. Restoring the nearby checkpoint.'
+      : ['jump', 'crouch'].includes(action) ? `${labels[action]} is deferred during this lesson.`
       : action === 'ultimate' || action?.startsWith('selectPrepared') || action?.startsWith('castPrepared')
         ? 'This ability belongs to a later tutorial.' : `${labels[action] ?? 'This action'} becomes available later in the tutorial.`;
     this.blocked.hidden = false;

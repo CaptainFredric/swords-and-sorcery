@@ -8,12 +8,13 @@
  const off=host.on('events',batch=>events.push(...batch.events.filter(e=>['dash','spellCast','damage','guardBreak','death'].includes(e.type))));
  input.movement=()=>({...state,attack:input.attackHeld,guard:input.guardHeld,yaw:input.yaw,pitch:input.pitch});
  function frame(t){if(!running)return;frames.push(t-priorFrame);priorFrame=t;requestAnimationFrame(frame);}requestAnimationFrame(frame);
- const stop=()=>{if(!running)return;running=false;clearInterval(timer);off();input.releaseInputs();input.movement=originalMovement;};
+ const stop=()=>{if(!running)return;running=false;clearInterval(timer);off();input.releaseInputs();input.movement=originalMovement;input.enabled=Boolean(input.pointerLocked||input.touchFocus);};
  const timer=setInterval(()=>{
   const now=host.now(),beat=session.director.current,p=host.player,r=host.room?.players.get(session.rivalId);
   if(!beat||!p||!r){stop();return;}
-  if(beat.id!==current){current=beat.id;since=now;log.push({at:+(now-began).toFixed(2),beat:current,mode:session.rival.mode,run:session.director.runId,health:p.health,stamina:p.guardStamina,position:{...p.position},rival:{...r.position}});}
-  state.forward=0;state.right=0;state.sprint=false;input.pitch=0;
+  const freshBeat=beat.id!==current;
+  if(freshBeat){current=beat.id;since=now;log.push({at:+(now-began).toFixed(2),beat:current,mode:session.rival.mode,run:session.director.runId,health:p.health,stamina:p.guardStamina,position:{...p.position},rival:{...r.position}});}
+  state.forward=0;state.right=0;state.sprint=false;state.jump=false;input.pitch=0;
   if(beat.kind==='dialogue'&&beat.presentation!=='reactive'){
    if(now-since>=Math.max(1.8,beat.line.split(/\s+/).length/3.5))session.director.completeDialogue(session.director.cue);
    return;
@@ -22,7 +23,7 @@
   if(beat.id==='look-prompt')input.turn(.026,0);
   else if(['approach','stamina'].includes(beat.segment)){
    input.yaw=yaw;state.forward=dist>2.5?1:0;state.sprint=beat.segment==='stamina'&&!['recover-prompt','reach-rival'].includes(beat.id);
-   if(beat.id==='recover-prompt')state.forward=0;
+   if(beat.id==='recover-prompt'||!session.allows('move',false)||freshBeat&&beat.id==='walk-prompt')state.forward=0;
   }else if(['first-attack','first-guard','health-regen','real-duel'].includes(beat.segment)){
    input.yaw=yaw;state.forward=dist>1.85?.6:0;
    if(session.rival.mode!=='duel'){
@@ -33,11 +34,17 @@
   }else if(session.allows('attack',false)&&beat.segment!=='title-ending'){
    if(session.rival.mode!=='final-fight'){input.setGuard(false,'playtest');input.setAttack(false);}
    const bridge=GREENER_ROUTE.bridge;
+   const stile=GREENER_ROUTE.jump;
+   if(p.position.z>stile.landing.z&&r.position.z<=stile.takeoff.z){
+    target=p.position.z>stile.takeoff.z+1?stile.takeoff:stile.waitPoint;dx=target.x-p.position.x;dz=target.z-p.position.z;dist=Math.hypot(dx,dz);yaw=Math.atan2(-dx,-dz);
+    if(p.position.z<=stile.takeoff.z+1&&session.allows('jump',false))state.jump=p.grounded;
+   }
    if(p.position.z>bridge.ravineBounds.minZ&&r.position.z<bridge.ravineBounds.maxZ){target=p.position.z>bridge.gapBounds.minZ?bridge.dashStart:GREENER_ROUTE.waypointById['far-bank'];dx=target.x-p.position.x;dz=target.z-p.position.z;dist=Math.hypot(dx,dz);yaw=Math.atan2(-dx,-dz);}
-   input.yaw=yaw;state.forward=dist>(target === bridge.dashStart ? .15 : 1.8)?1:0;state.sprint=dist>10;
+   input.yaw=yaw;state.forward=dist>(target===bridge.dashStart||target===stile.takeoff?.1:1.8)?1:0;state.sprint=dist>10;
    if(['counterfire','complaint'].includes(session.rival.mode))state.right=Math.cos(now*2.8)*.8;
-   if(p.position.z<=bridge.dashStart.z+.6&&p.position.z>bridge.gapBounds.maxZ){
-    if(session.allows('dash',false)){input.yaw=0;state.forward=1;if(now-lastDash>5.1){input.dash();lastDash=now;}}else state.forward=0;
+   if(p.position.z<=bridge.dashStart.z+1&&p.position.z>bridge.gapBounds.minZ){
+    input.yaw=0;state.sprint=true;
+    if(session.allows('dash',false)){state.forward=1;state.jump=p.grounded;if(!p.grounded&&p.velocity.y<=0&&now-lastDash>5.1){input.dash();lastDash=now;}}else state.forward=0;
    }
    if(['fireball','counterfire'].includes(beat.segment)&&now-lastCast>4.1){input.yaw=Math.atan2(-(r.position.x-p.position.x),-(r.position.z-p.position.z));input.pitch=-.04;input.cast();lastCast=now;}
   }

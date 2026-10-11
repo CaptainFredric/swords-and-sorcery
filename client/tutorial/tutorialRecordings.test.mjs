@@ -36,7 +36,9 @@ test('all established recording keys survive the full route and generated plan m
   assert.deepEqual(generated, plan);
   assert.ok(plan.every(take => ['narrator', 'spellblade', 'rival'].includes(take.speaker)));
   assert.deepEqual(plan.filter(take => take.optionalBranch).map(take => take.beatId), [
-    'frolic-fields', 'remembering-move', 'rival-over-there', 'scorch-mark',
+    'frolic-fields', 'remembering-move', 'constitution-strange', 'not-strange', 'not-fallen',
+    'thank-noticing', 'what-condition', 'current-constitution', 'constitution-amended', 'cannot-settled',
+    'rival-over-there', 'scorch-mark',
     'burn-subsided', 'reforged', 'not-too-many', 'stop-you', 'convince-unblock', 'did-not-stop',
   ]);
   const report = JSON.parse(readFileSync(new URL('../../docs/tutorial-one-recording-changes.json', import.meta.url), 'utf8'));
@@ -46,6 +48,10 @@ test('all established recording keys survive the full route and generated plan m
   assert.deepEqual(report.optional, plan.filter(take => take.optionalBranch).map(take => take.key));
   assert.deepEqual(report.optionalSegments, plan.filter(take => take.optionalSegment).map(take => take.key));
   assert.deepEqual(report.missing, []);
+  assert.deepEqual(report.refinement.missing, []);
+  assert.equal(report.refinement.priorTotal + report.refinement.added.length, plan.length);
+  assert.ok(report.refinement.added.every(key => keys.has(key)));
+  for (const change of report.refinement.changed) assert.equal(plan.find(take => take.key === change.key).text, change.after);
 });
 
 test('recording plan carries onset synchronization and reactive rehearsal metadata', () => {

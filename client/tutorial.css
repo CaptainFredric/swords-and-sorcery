@@ -25,6 +25,16 @@
 .tutorial-onboarding [data-tutorial-begin], .tutorial-lesson [data-tutorial-continue], .tutorial-lesson [data-tutorial-practice] { background: #bc9756; color: #251a14; }
 .tutorial-onboarding button:focus-visible, .tutorial-lesson button:focus-visible, .tutorial-options summary:focus-visible { outline: 2px solid #8fd4e4; outline-offset: 2px; }
 .tutorial-lesson { position: absolute; inset: 0; z-index: 45; color: #eadcb6; font: 16px/1.35 var(--font-script, sans-serif); pointer-events: none; }
+.tutorial-objective {
+  position: absolute; top: 54px; left: calc(var(--safe-l, 0px) + 14px); max-width: min(290px, 50cqw);
+  padding: 7px 10px; border-left: 2px solid #a47e43; background: rgba(23, 20, 14, .72);
+}
+.tutorial-objective small { display: block; color: #bea77c; font-size: 9px; letter-spacing: .12em; }
+.tutorial-objective strong { display: block; margin-top: 3px; font-size: 11px; line-height: 1.35; font-weight: 600; }
+@container app (max-height: 500px) {
+  .tutorial-objective { top: 36px; max-width: min(250px, 32cqw); padding: 5px 8px; }
+  .tutorial-objective strong { font-size: 10px; }
+}
 .tutorial-caption {
   position: absolute; left: 50%; bottom: 112px; transform: translateX(-50%); width: min(590px, calc(100cqw - 48px));
   box-sizing: border-box; padding: 12px 16px; border: 1px solid #ac884d; border-top: 3px solid #8e2932;
@@ -56,6 +66,7 @@
 .tutorial-brand h1 { color: #f1dfae; font-size: clamp(28px, 5.2cqw, 66px); line-height: 1.05; text-shadow: 0 2px 0 #3a120e, 0 6px 22px #000; }
 
 /* On touch, upper left bars and lower corner controls stay clear of gameplay captions. */
+.tutorial-touch .tutorial-objective { top: calc(var(--safe-t, 0px) + 90px); }
 .tutorial-touch .tutorial-options summary span { display: none; }
 .tutorial-touch.tutorial-reactive .tutorial-caption {
   bottom: calc(var(--safe-b, 0px) + 12px); width: min(460px, calc(100cqw - 448px - var(--safe-l, 0px) - var(--safe-r, 0px)));

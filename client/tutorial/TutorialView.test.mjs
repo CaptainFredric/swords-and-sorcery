@@ -60,10 +60,23 @@ test('touch blocking captions use Continue and a reactive aside preserves the ac
   display.show({ state: 'running', prompt: 'Watch Guard stamina.', current: { kind: 'prompt', speaker: 'instruction', line: 'SPRINT' },
     optional: { speaker: 'narrator', line: 'The Spellblade decides to frolic' } });
   assert.equal(get('optional-line').textContent, 'NARRATOR: The Spellblade decides to frolic');
+  assert.equal(get('speaker').hidden, true);
   assert.equal(get('optional-continue').hidden, true);
   assert.equal(get('prompt').textContent, 'Watch Guard stamina.');
   assert.equal(get('line').textContent, 'SPRINT');
   assert.equal(get('continue').hidden, true);
+});
+
+test('the pursuit objective persists independently of Jump and Dash prompts and ends with the lesson',()=>{
+  const {display,get}=view();
+  for(const mechanic of ['jump','dash']){
+    display.show({state:'running',segment:{objective:{text:'STOP THE RIVAL FROM TELLING ON YOU'}},
+      current:{kind:'prompt',mechanic,line:mechanic.toUpperCase()}});
+    assert.equal(get('objective').hidden,false);
+    assert.equal(get('objective-text').textContent,'STOP THE RIVAL FROM TELLING ON YOU');
+    assert.equal(get('line').textContent,mechanic.toUpperCase());
+  }
+  display.show({state:'complete'});assert.equal(get('objective').hidden,true);
 });
 
 test('title beats show the existing brand while completion has the proper final notice', () => {

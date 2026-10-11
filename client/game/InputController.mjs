@@ -19,7 +19,8 @@ const RELEASE = {
   scoreboard: (input) => { input.scoreboardHeld = false; },
 };
 const HELD = new Set(['forward', 'back', 'left', 'right', 'jump', 'sprint']);
-const GATED_ACTIONS = new Set(['sprint', 'attack', 'guard', 'jump', 'crouch', 'spell', 'dash', 'gauntlet', 'ultimate']);
+const MOVE_ACTIONS = new Set(['forward', 'back', 'left', 'right']);
+const GATED_ACTIONS = new Set([...MOVE_ACTIONS, 'sprint', 'attack', 'guard', 'jump', 'crouch', 'spell', 'dash', 'gauntlet', 'ultimate']);
 // the menus handle these themselves (they work outside the arena too)
 const MENU_ACTIONS = new Set(['toggleSound', 'toggleMusic']);
 
@@ -45,6 +46,7 @@ export class InputController {
     this.yaw = 0;
     this.pitch = 0;
     this.pointerLocked = false;
+    this.mouseLookBlocked = false;
     this.attackHeld = false;
     this.guardHeld = false;
     this.scoreboardHeld = false;
@@ -142,6 +144,10 @@ export class InputController {
 
     this.#listen(document, 'mousemove', (event) => {
       if (!this.pointerLocked) return;
+      if (!this.allowAction) this.mouseLookBlocked = false;
+      else if (this.allowAction('look', false) === false) { this.mouseLookBlocked = true; return; }
+      // The first event after Look opens can contain motion from before the permission changed.
+      if (this.mouseLookBlocked) { this.mouseLookBlocked = false; return; }
       const invert = this.look.invertY ? -1 : 1;
       this.turn(-event.movementX * 0.00235 * this.look.mouse, -event.movementY * 0.0021 * this.look.mouse * invert);
     });
@@ -170,7 +176,7 @@ export class InputController {
       if (this.enabled && action) {
         event.preventDefault();
         if (this.blockedKeys.has(event.code)) return;
-        if (this.allowAction?.(action, !event.repeat) === false) { this.blockedKeys.add(event.code); return; }
+        if (this.allowAction?.(MOVE_ACTIONS.has(action) ? 'move' : action, !event.repeat) === false) { this.blockedKeys.add(event.code); return; }
       }
       if (!recordArenaKey(this.keys, event.code, this.enabled)) return;
       // a bound key belongs to the game while in the arena (Space would scroll, Tab would move focus)
@@ -195,7 +201,7 @@ export class InputController {
       const code = `Mouse${event.button}`;
       if (this.blockedKeys.has(code)) return;
       const action = this.actionOf.get(code);
-      if (action && this.allowAction?.(action) === false) { this.blockedKeys.add(code); return; }
+      if (action && this.allowAction?.(MOVE_ACTIONS.has(action) ? 'move' : action) === false) { this.blockedKeys.add(code); return; }
       this.keys.add(code);
       this.#press(code);
     });
@@ -238,6 +244,7 @@ export class InputController {
 
   turn(yawDelta, pitchDelta) {
     if (!this.enabled) return;
+    if (this.allowAction?.('look', false) === false) { this.mouseLookBlocked = true; return; }
     this.yaw += yawDelta;
     this.pitch = Math.max(-1.45, Math.min(1.45, this.pitch + pitchDelta));
   }
@@ -249,6 +256,17 @@ export class InputController {
     if (this.blockedHolds.has(key)) return false;
     if (this.allowAction?.(action, notify) === false) { this.blockedHolds.add(key); return false; }
     return true;
+  }
+
+  // An authored head start suspends already taught travel; it is not another WALK lesson.
+  resumeHeldMovement() {
+    for (const code of this.blockedKeys) {
+      const action = this.actionOf.get(code);
+      if (MOVE_ACTIONS.has(action) || action === 'sprint') {
+        this.blockedKeys.delete(code); this.keys.add(code);
+      }
+    }
+    for (const key of this.blockedHolds) if (key.startsWith('move:') || key.startsWith('sprint:')) this.blockedHolds.delete(key);
   }
 
   setAttack(held, source = 'touch') {
@@ -379,10 +397,16 @@ export class InputController {
   }
 
   movement() {
+    if (this.allowAction?.('look', false) === false) this.mouseLookBlocked = true;
     const touch = this.touch?.movement?.() ?? null;
+    const moveAllowed = this.allowAction?.('move', false) !== false;
+    if (!moveAllowed) {
+      for (const code of this.keys) if (MOVE_ACTIONS.has(this.actionOf.get(code))) this.blockedKeys.add(code);
+    }
+    const moving = action => (this.bindings[action] ?? []).some(code => this.keys.has(code) && !this.blockedKeys.has(code));
     return {
-      forward: (this.held('forward') ? 1 : 0) - (this.held('back') ? 1 : 0) + (touch?.forward ?? 0),
-      right: (this.held('right') ? 1 : 0) - (this.held('left') ? 1 : 0) + (touch?.right ?? 0),
+      forward: moveAllowed ? (moving('forward') ? 1 : 0) - (moving('back') ? 1 : 0) + (touch?.forward ?? 0) : 0,
+      right: moveAllowed ? (moving('right') ? 1 : 0) - (moving('left') ? 1 : 0) + (touch?.right ?? 0) : 0,
       jump: (this.held('jump') || Boolean(touch?.jump)) && this.allowAction?.('jump', false) !== false,
       // hold Sprint (Shift unless rebound; or push the touch stick all the way forward, or latch the touch button)
       sprint: this.gateHeldAction('sprint', this.held('sprint'), 'desktop', false) || Boolean(touch?.sprint),

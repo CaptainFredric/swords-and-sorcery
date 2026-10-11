@@ -324,3 +324,117 @@ test('a sampled permission withdrawal still accepts a release and fresh press in
     assert.equal(input.movement()[action], true);
   }
 });
+
+test('tutorial Look freezes direct rotation and drops the first desktop delta after unlock', () => {
+  const { input, send } = setup();
+  let unlocked = false;
+  const feedback = [];
+  input.allowAction = (action, notify = true) => {
+    if (action !== 'look' || unlocked) return true;
+    if (notify) feedback.push(action);
+    return false;
+  };
+  input.turn(.4, .1);
+  assert.equal(input.yaw, 0);
+  assert.equal(input.pitch, 0);
+  send('mousemove', { movementX: -100, movementY: -100 });
+  unlocked = true;
+  send('mousemove', { movementX: -500, movementY: -500 });
+  assert.equal(input.yaw, 0);
+  assert.equal(input.pitch, 0);
+  send('mousemove', { movementX: -100, movementY: -100 });
+  assert.ok(Math.abs(input.yaw - .235) < 1e-12);
+  assert.ok(Math.abs(input.pitch - .21) < 1e-12);
+  assert.deepEqual(feedback, []);
+});
+
+test('a sampled Look lock discards the unlock delta even before the first mouse event', () => {
+  const { input, send } = setup();
+  let unlocked = false;
+  input.allowAction = action => action !== 'look' || unlocked;
+  input.movement();
+  unlocked = true;
+  send('mousemove', { movementX: -100, movementY: -100 });
+  assert.equal(input.yaw, 0);
+  assert.equal(input.pitch, 0);
+  send('mousemove', { movementX: -100, movementY: -100 });
+  assert.ok(Math.abs(input.yaw - .235) < 1e-12);
+});
+
+test('removing the tutorial gate restores immediate ordinary mouse input', () => {
+  const { input, send } = setup();
+  input.allowAction = action => action !== 'look';
+  send('mousemove', { movementX: -100, movementY: -100 });
+  input.allowAction = null;
+  send('mousemove', { movementX: -100, movementY: -100 });
+  assert.ok(Math.abs(input.yaw - .235) < 1e-12);
+});
+
+test('direction key presses denied before Walk require release even when unlock precedes the next sample', () => {
+  for (const [code, axis, value] of [['KeyW', 'forward', 1], ['KeyS', 'forward', -1], ['KeyA', 'right', -1], ['KeyD', 'right', 1]]) {
+    const { input, down, up, send } = setup();
+    let unlocked = false;
+    const feedback = [];
+    input.allowAction = (action, notify = true) => {
+      if (action !== 'move' || unlocked) return true;
+      if (notify) feedback.push(action);
+      return false;
+    };
+    down(code);
+    unlocked = true;
+    send('keydown', { code, repeat: true });
+    assert.equal(input.movement()[axis], 0, code);
+    assert.deepEqual(feedback, ['move'], code);
+    up(code); down(code);
+    assert.equal(input.movement()[axis], value, code);
+  }
+});
+
+test('a movement permission withdrawal blocks each held direction while a fresh direction remains usable', () => {
+  const { input, down, up } = setup();
+  let unlocked = true;
+  input.allowAction = action => action !== 'move' || unlocked;
+  down('KeyW'); down('KeyA');
+  assert.equal(input.movement().forward, 1);
+  unlocked = false;
+  assert.equal(input.movement().forward, 0);
+  assert.equal(input.movement().right, 0);
+  unlocked = true;
+  assert.equal(input.movement().forward, 0);
+  down('KeyD');
+  assert.equal(input.movement().right, 1);
+  up('KeyW'); down('KeyW');
+  assert.equal(input.movement().forward, 1);
+});
+
+test('tutorial input release keeps preheld movement blocked through an opening unlock', () => {
+  const { input, down, up, send } = setup();
+  input.allowAction = () => true;
+  down('KeyW');
+  input.releaseInputs();
+  send('keydown', { code: 'KeyW', repeat: true });
+  assert.equal(input.movement().forward, 0);
+  up('KeyW'); down('KeyW');
+  assert.equal(input.movement().forward, 1);
+});
+
+test('ordinary mouse and movement controls accept their first input without a tutorial gate', () => {
+  const { input, down, send } = setup();
+  send('mousemove', { movementX: -100, movementY: -100 });
+  down('KeyW'); down('KeyD');
+  const move = input.movement();
+  assert.ok(Math.abs(move.yaw - .235) < 1e-12);
+  assert.ok(Math.abs(move.pitch - .21) < 1e-12);
+  assert.equal(move.forward, 1);
+  assert.equal(move.right, 1);
+});
+
+test('an authored pursuit release resumes suspended movement while first WALK retains fresh input gating',()=>{
+  const {input,down,up}=setup();let allowed=false;
+  input.allowAction=()=>allowed;down('KeyW');down('ShiftLeft');
+  assert.equal(input.movement().forward,0);allowed=true;
+  assert.equal(input.movement().forward,0);
+  input.resumeHeldMovement();
+  assert.equal(input.movement().forward,1);assert.equal(input.movement().sprint,true);
+  up('KeyW');up('ShiftLeft');assert.equal(input.movement().forward,0);
+});
