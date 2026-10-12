@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { GREENER_PASTURES, GREENER_ROUTE } from '../../shared/worlds/greenerPastures.mjs';
-import { GREENER_PRESENTATION, buildGreenerPasturesDecor, greenerBackdropHeight } from './greenerPasturesDecor.mjs';
+import { GREENER_PRESENTATION, buildGreenerPasturesDecor, greenerBackdropHeight, greenerBackdropMeshHeight } from './greenerPasturesDecor.mjs';
 import { FacetBuilder, KIT_PALETTE as P, facetMesh, kitMaterials, seededRandom, shadeColor, valueNoise } from './kit/facetKit.mjs';
 import { cottage, createBatch, masonry, runOf, tree } from './kit/kitPieces.mjs';
 import { floorColor, floorTile, outerTerrain, scatterGroundDetail } from './kit/kitTerrain.mjs';
@@ -93,6 +93,7 @@ export class GreenerPasturesRenderer {
       if (floor.material === 'stone') floorTile(batch, floor, this.decor.paths, random);
       else meadowSurface(batch, floor, this.decor.paths, random);
     }
+    this.#fieldPatches(batch, random);
     for (const ramp of GREENER_PASTURES.ramps) this.#ramp(batch, ramp, random);
     this.groundDetail = scatterGroundDetail(batch, {
       floors: GREENER_PASTURES.floors,
@@ -121,9 +122,13 @@ export class GreenerPasturesRenderer {
     for (const item of this.decor.trees) tree(batch, random, item);
     this.#ravine(batch, random);
     this.#landscape(batch, random);
-    for (const item of this.decor.forest) tree(batch, random, { ...item, y: greenerBackdropHeight(item.x, item.z) });
+    for (const item of this.decor.forest) tree(batch, random, { ...item, y: greenerBackdropMeshHeight(item.x, item.z) });
     for (const house of this.decor.houses) {
-      const y = greenerBackdropHeight(house.x, house.z);
+      const xs = [house.x - house.sx * 0.42, house.x, house.x + house.sx * 0.42];
+      const zs = [house.z - house.sz * 0.42, house.z, house.z + house.sz * 0.42];
+      // Set the cottage floor to the lowest visible terrain under its footprint. On a slope, masonry may
+      // disappear slightly into the hill; it must never hover above it.
+      const y = Math.min(...xs.flatMap(x => zs.map(z => greenerBackdropMeshHeight(x, z)))) - 0.08;
       cottage(batch, random, { center: [house.x, y + house.sy / 2, house.z], size: [house.sx, house.sy, house.sz] });
     }
     this.#distantCastle(batch, random);
@@ -135,6 +140,24 @@ export class GreenerPasturesRenderer {
       this.group.add(facetMesh(builder, this.materials[name], { castShadow: name !== 'ground', receiveShadow: true, name: `greener-pastures-${name}` }));
     }
     this.#sky(random);
+  }
+
+  #fieldPatches(batch, random) {
+    for (const patch of this.decor.fieldPatches ?? []) {
+      const x0 = patch.x - patch.sx / 2;
+      const z0 = patch.z - patch.sz / 2;
+      const row = patch.sx / patch.rows;
+      for (let i = 0; i < patch.rows; i += 1) {
+        const inset = Math.min(0.42, row * 0.18);
+        const xa = x0 + i * row + inset;
+        const xb = x0 + (i + 1) * row - inset;
+        const stagger = ((i % 3) - 1) * 1.4;
+        const za = z0 + 1.8 + Math.max(0, stagger);
+        const zb = z0 + patch.sz - 1.8 + Math.min(0, stagger);
+        const tone = shadeColor(patch.color, 0.9 + random() * 0.14);
+        batch.ground.quad([xa, 0.028, za], [xa, 0.028, zb], [xb, 0.028, zb], [xb, 0.028, za], tone);
+      }
+    }
   }
 
   #ramp(batch, ramp, random) {
@@ -213,7 +236,7 @@ export class GreenerPasturesRenderer {
   #distantCastle(batch, random) {
     const x = 182;
     const z = GREENER_ROUTE.finalStand.z - 65;
-    const y = greenerBackdropHeight(x, z);
+    const y = greenerBackdropMeshHeight(x, z);
     const stone = 0x9eac99;
     batch.stone.block({ cx: x, cy: y, cz: z, sx: 23, sy: 12, sz: 17, color: stone, rand: random });
     for (const dx of [-11, 11]) {
