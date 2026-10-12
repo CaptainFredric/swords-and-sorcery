@@ -1,14 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { GREENER_PASTURES, GREENER_ROUTE, GREENER_TREES } from '../../shared/worlds/greenerPastures.mjs';
-import { buildGreenerPasturesDecor, greenerBackdropHeight, GREENER_PRESENTATION } from './greenerPasturesDecor.mjs';
+import { buildGreenerPasturesDecor, greenerBackdropHeight, greenerBackdropMeshHeight, GREENER_PRESENTATION } from './greenerPasturesDecor.mjs';
 
 test('pastoral scenery is deterministic and bounded for phones', () => {
   const decor = buildGreenerPasturesDecor();
   assert.deepEqual(decor, buildGreenerPasturesDecor());
   assert.equal(decor.trees.length, GREENER_TREES.length);
   assert.ok(decor.forest.length <= 130);
-  assert.ok(decor.houses.length <= 8);
+  assert.ok(decor.houses.length <= 14);
+  assert.equal(decor.fieldPatches.length, 3);
   assert.ok(decor.clouds.length <= 16);
   assert.equal(decor.pointLights, 0);
   for (const spec of decor.forest) {
@@ -38,6 +39,16 @@ test('the enlarged real meadows retain a bounded ground mesh and world draw budg
   assert.ok(groundTriangles <= 18000, 'the larger chase fields avoid a dense ground grid');
   assert.ok(GREENER_PRESENTATION.geometryBudget <= 155000);
   assert.ok(GREENER_PRESENTATION.drawCallBudget <= 9);
+});
+
+test('backdrop props can sample the same coarse surface that is actually rendered', () => {
+  const b = GREENER_ROUTE.bounds;
+  const gridX = b.minX - 250 + 14 * 4;
+  const gridZ = b.minZ - 220 + 14 * 20;
+  assert.equal(greenerBackdropMeshHeight(gridX, gridZ), greenerBackdropHeight(gridX, gridZ));
+  for (const house of buildGreenerPasturesDecor().houses) {
+    assert.ok(Number.isFinite(greenerBackdropMeshHeight(house.x, house.z)));
+  }
 });
 
 test('backdrop hills sit outside the real playable surface and the ravine is visibly deep', () => {
