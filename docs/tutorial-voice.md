@@ -16,23 +16,24 @@ and pyworld (`tools/audio/requirements-tutorial-voice.txt`).
 
 | To | Edit | Then |
 | --- | --- | --- |
-| Change Rival's pitch or formants | `roles.rival.presets.creator-2026-10-12` in `tools/audio/tutorial-voice-chains.json` (`pitch.semitones`, `formants`) | `python3 tools/audio/tutorial_voice.py --speaker rival` |
+| Change Rival's pitch or formants | `roles.rival.presets.declarative-2026-10-12` in `tools/audio/tutorial-voice-chains.json` (`pitch.semitones`, `formants`) | `python3 tools/audio/tutorial_voice.py --speaker rival` |
 | Change how much helm the Spellblade has | `helm.amount` in his preset (1 the established knight; it scales the helm's ring, reflections and grit together) | `--speaker spellblade` |
-| Revert a character's treatment | its `use`: the earlier presets are kept by name (`pilot-2026-10-12`) | `--speaker <name>` |
+| Revert a character's treatment | its `use`: the earlier presets are kept by name (Spellblade `established-helm`, Rival `creator-2026-10-12`, Narrator `cleanup`, and the pilots) | `--speaker <name>` |
 | Change one take only | its row in `tools/audio/tutorial-voice-sources.json`: `chain` (a preset of its own, `pitchEngine`, `gainDb`) or `repairs`, each with `why` | `python3 tools/audio/tutorial_voice.py <key>` |
+| Master the staged takes (lines the script has not placed yet) | | `--staged`: masters, and review files in `artifacts/tutorial-voice/staged/` (not served) |
 | Check the sources | | `--check` |
 
 ## The characters
 
 | Character | Treatment (preset in use) |
 | --- | --- |
-| Spellblade | **The established helm** (`established-helm`), the chain of every combat line: gentle room removal, pauses gated, two semitones down with every vowel kept, chest, presence, the helm's ring, reflections and grit, 3:1. Quiet lines get exactly the same helm as shouts. The pitch moves by the established phase vocoder; a take it cannot follow (over 8% of voiced frames a semitone off) moves by PSOLA or Rubber Band instead, under the same helm. |
-| Rival | **Formants 6% down, pitch 1.5 semitones down** (`creator-2026-10-12`). PSOLA moves the whole contour together, every rise and fall of it, then the formants are warped. Body and chest in the EQ, the rasp eased, a light helm, no grit. |
-| Narrator | **Cleanup only** (`cleanup`): rumble and the room's boom eased, a gentle 2:1, sibilance tamed only where it stands out. No pitch, no formants, no helm. "Jump." uses `direct`: no compression, so it stays abrupt. |
+| Spellblade | **The established helm, session-matched** (`session-matched`): the chain of every combat line (gentle room removal, pauses gated, two semitones down with every vowel kept, chest, presence, the helm's ring, reflections and grit, 3:1), plus four bells that put back three quarters of the difference between the tutorial and combat recording sessions (below). Quiet lines get exactly the same helm as shouts. The pitch moves by the established phase vocoder; a take it cannot follow (over 8% of voiced frames a semitone off) moves by PSOLA or Rubber Band instead, under the same helm. |
+| Rival | **Formants 6% down, pitch 1.5 semitones down, declarative** (`declarative-2026-10-12`). PSOLA moves the whole contour together, every rise and fall of it, then the formants are warped. Body and chest in the EQ, consonants defined at 2.8 kHz, a little less breath above 7 kHz, a light helm, no grit. The compressor only catches peaks (−14 dB, 2:1, 15 ms attack) and onsets are lifted up to 3.5 dB, so his statements land. |
+| Narrator | **Settled** (`settled`): formants 2.5% down with the pitch untouched, warmth at 240 Hz, the upper mids eased (1.5 dB at 3.2 kHz, up to 3 dB more only where they stand out), the top softened above 7.5 kHz, a smoother 2.5:1, de-essed. Distinct from the performer and from both knights (pitched down), his own intonation and timing kept. "Jump." uses `settled-direct`: no compression, so it stays abrupt. |
 
-Measured over all their takes, the Spellblade's long-term spectrum is within 1.3 dB RMS of the 142 combat lines (the
-first tutorial pass was 2.5 dB off, missing up to 6 dB of the helm's 5–10 kHz edge). Rival and the Narrator are 5.9 and
-6.4 dB from it. Rival's pitch moved 1.36–1.45 semitones down at the median on every line checked. His intonation
+Measured over all their takes, the Spellblade's long-term spectrum (third octaves, 150 Hz–6 kHz, level-matched) is
+0.87 dB from the 114 combat lines; with `established-helm` it was 1.55 dB (the first tutorial pass was further still,
+missing up to 6 dB of the helm's 5–10 kHz edge). Rival's pitch moved 1.36–1.45 semitones down at the median on every line checked. His intonation
 range is unchanged ("If you lose, you lie on the ground…": 12.8 → 12.7 semitones).
 
 Levels: the knights around −16.8 LUFS (the combat lines' level), the Narrator around −19.5. Each take keeps half of
@@ -43,13 +44,13 @@ mutter. True peaks stay under −1.5 dBFS.
 
 | Take | Exception | Why |
 | --- | --- | --- |
-| "Ah..." | `mend` 0.665–0.825 s | The voice breaks mid-"Ah..." (a creak with an octave-up flicker). Every pitch change made it a stray note. That stretch is resynthesized (WORLD) from the steady "Ah" on either side; the onset and decay are untouched. |
+| "Ah..." | `splice` 0.675–0.83 s | The voice breaks mid-"Ah...": a creak, then an aperiodic break with a 40 ms flip up an octave (about 330 Hz). Every pitch change made the flip a stray note. The break is refilled with the take's own glottal cycles from just after it (no resynthesis), so the voice's own jitter and shimmer run through; the creak is kept. The earlier WORLD `mend` made it a machine-steady vowel (below). |
 | "There was an extra." | `release` +80 ms | The recorder stopped while the last syllable was still releasing. Its breath continues 80 ms, falling 30 dB, from the release's own spectrum: no stretched vowel, no loop. |
-| "Jump." | preset `direct`, +1 dB | Terse on purpose. |
+| "Jump." | preset `settled-direct`, +1 dB | Terse on purpose. |
 
-The pitch engine is chosen automatically, per take, by the contour check. 12 Spellblade takes use PSOLA and 1 uses
-Rubber Band ("I do not get hints." in the jump scene), all under the same helm. One Rival take uses Rubber Band
-("That was not part of the terms").
+The pitch engine is chosen automatically, per take, by the contour check. 11 Spellblade takes use PSOLA and 1 uses
+Rubber Band ("I do not get hints." in the jump scene), all under the same helm; "Ah..." passes the established vocoder
+since its repair. One Rival take uses Rubber Band ("That was not part of the terms").
 
 ## What the recordings needed
 
@@ -74,6 +75,47 @@ whose end is never heard is let go 1.5 s late. The first take waits for the aren
 Recorded from the game (Chrome, default levels), each line's caption and take started together, with the director's
 pauses exactly as authored. The clips are on the review page (`artifacts/tutorial-voice/review/`, the `vo-review`
 preview).
+
+Every voice plays dry (`reverb: 0`). The Credits library plays combat lines with `VOICE_HEARING.own`, 0.02 into the
+courtyard convolver, but the convolver normalises its impulse: rendered through the game's own SoundEngine in Chrome,
+that send is 45–48 dB under the voice and its tail never rises above about −65 dBFS. It is inaudible, so the tutorial
+does not copy it.
+
+## Round 4 (2026-10-12): "Ah...", a glitch scan, three treatments, new takes
+
+- **"Ah..."**: the digital glitch the creator heard was the WORLD `mend` itself. It replaced the voice break with a vowel
+  resynthesized from one 5 ms frame either side: 0.06% jitter and 28 dB HNR inside a voice of about 1.5% and 5 dB. It
+  reached the shipped file unchanged (0.18% and 25.6 dB at 0.17–0.34 s, which is the raw's 0.665–0.825 s less the
+  0.49 s the trim removes); the pitch engine, helm, grit and both codecs added nothing. The `splice` refill measures
+  3.2% jitter, 15.6% shimmer and 7.5 dB HNR, the voice either side's range, with the pitch straight through at 141 Hz.
+- **Glitch scan**: every master against its own cleaned raw take (the same timeline) for pitch jumps, notes only in
+  the master, machine-steady stretches, clicks, dropouts, spectral jumps, bitten onsets and tails, sibilance, clipping,
+  room steps and codec error, then every flag looked at again. One real defect ("Ah..."). The rest: the performer's
+  vocal fry read as octave jumps, plosive bursts the raw has too, the established helm's silenced pauses, stop
+  closures, the MP3 fallback's ordinary 20–22 dB SNR. The Spellblade's sibilance is within the combat lines' own range.
+  No re-records. A 5 ms end fade now makes every take end on silence (the worst before ended 60 dB down).
+- **Narrator**: `cleanup` was too close to the untreated performer; `settled` (above). Intelligibility against the raw
+  (STOI) 0.94–0.98, against 0.97–0.99 before.
+- **Rival**: the old compressor squashed the emphatic word his lines end on (statements fell 6.9 dB under the line,
+  3.1 dB as recorded) and PSOLA softened his onsets (a 12.2 dB rise in the first 15 ms as recorded, 9.9 shipped).
+  `declarative-2026-10-12`: 4.0 dB and 11.5 dB.
+- **Spellblade against Credits**: the chains are the same (the tutorial and combat chains run on the same raw takes
+  differ by under 0.5 dB); the recording sessions are not (through the same chain, the combat session has up to 3 dB
+  more at 500–800 Hz and 4–6 kHz and less at 1.26 kHz). The decay after the last word, and the early reflections
+  (cepstra 0.3–20 ms), match within 3%: the difference is tone, not room. `session-matched` puts three quarters of it
+  back: 0.87 dB from the combat lines, against 1.55 dB. No reverb added.
+- **Timing**: every take's length and onset are exactly as before; the processing never changes a take's length.
+- **In the game** (Chrome, real input, Codex's #159 playtest driver, the processed AAC through the real AudioContext):
+  the whole route in 7 min 49 s, 152 takes, none repeated, each to its real end except "Convince him to unblock you."
+  (dropped as designed when Rival falls mid-line). Gaps between lines: median 0.35 s; "No I am not!" to the
+  clarification 0.16 s; sustained Sprint 2.5 s after it began; "That was cold of you, ow!" 2.5 s after the Fireball hit;
+  all eight duel terms in order; the ending to its last line. The permission exchange needs three later Fireballs and
+  did not come up, so it was played on its own: "No." to "Then no." 0.081 s.
+- **Staged takes**: "Argh!... Perhaps I had the wrong address!!" and "Yes! Alas we have reached the end of your story.
+  Your dead-end!" (Rival), "You have more pages, Spellblade." (Narrator), "The dead-end is a LIE—ve!" (Spellblade).
+  Archived and hashed; mastered with the presets above (`--staged`), not served until the script places them. In
+  "LIE—ve" the pause before "—ve" keeps its time (2.13–2.28 s) and nearly its depth (20.1 dB under "LIE", 21.5 dB as
+  recorded); the /v/ lands at 2.30 s.
 
 ## Full route, in the game (2026-10-12, PR #157 at 9975864)
 
@@ -111,7 +153,8 @@ Spacing problems the recorded durations cause (reported, not changed: they are t
 
 ## Discrepancy report (2026-10-12, against PR #157's recording plan at 9975864)
 
-Sources: five Google Drive ZIPs and two loose takes (181 files). Every supplied file is a row of the manifest.
+Sources: six Google Drive ZIPs and two loose takes (183 recordings since round 4; the four newest are staged, see
+above). Every supplied file is a row of the manifest.
 
 1. **Keys with a final take: 159 of 159.** The last two arrived on 2026-10-12: "Woah, it appears negotiations have gone
    hostile!" and "Aha! Try getting over this!".

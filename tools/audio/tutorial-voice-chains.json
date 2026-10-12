@@ -1,5 +1,5 @@
 {
-  "about": "Tutorial 1's three voices: every setting tools/audio/tutorial_voice.py uses, in one place. Each character names the preset it uses ('use'); the others are kept so a treatment can be reverted by naming it again. Change a value, then rebuild that character from the raw takes: python3 tools/audio/tutorial_voice.py --speaker rival. Per-take exceptions and repairs are in tools/audio/tutorial-voice-sources.json. EQ bands: [\"highpass\", hz], [\"lowpass\", hz], [\"bell\", hz, dB, octaves].",
+  "about": "Tutorial 1's three voices: every setting tools/audio/tutorial_voice.py uses, in one place. Each character names the preset it uses ('use'); the others are kept so a treatment can be reverted by naming it again. Change a value, then rebuild that character from the raw takes: python3 tools/audio/tutorial_voice.py --speaker rival. Per-take exceptions and repairs are in tools/audio/tutorial-voice-sources.json. EQ bands: [\"highpass\", hz], [\"lowpass\", hz], [\"bell\", hz, dB, octaves], [\"lowshelf\", hz, dB], [\"highshelf\", hz, dB]. Optional steps: attack {boostDb} (firmer onsets), deharsh {maxCutDb, overDb} (the upper mids eased only where they stand out).",
   "trim": {
     "about": "The recorder's padding off, the performance kept. preSec: kept before the first sound of the line; decay kept after its last, at most fwdMaxSec; pauses inside a line are never touched.",
     "skipSec": 0.12, "belowPeakDb": 38, "overRoomDb": 14, "breathDb": 6, "decayDb": 6,
@@ -11,10 +11,25 @@
   },
   "roles": {
     "spellblade": {
-      "use": "established-helm",
+      "use": "session-matched",
       "presets": {
+        "session-matched": {
+          "about": "The established helm, with three quarters of the measured difference between the tutorial and combat recording sessions put back (2026-10-12: the same chain run on both sessions' raw takes differs by under 0.5 dB, the sessions by up to 3 dB; the courtyard send the Credits library plays with is 45 dB under the voice, inaudible, so it is not the difference): a little less 160 Hz, more 600 Hz, less 1.26 kHz, more 5.5 kHz. The four bells after the lowpass are the session's; everything else is established-helm.",
+          "lufs": -16.8,
+          "highpassHz": 75,
+          "room": { "dereverb": true, "t60MaxSec": 0.85, "strength": 1.0, "floorDb": -12 },
+          "gate": { "openDb": -30, "holdMs": 120 },
+          "expand": { "belowDb": -42, "ratio": 2.0, "tailBelowDb": -46 },
+          "pitch": { "semitones": -2.0, "engine": "vocoder", "fallback": ["psola", "rubberband"], "contourLimitPct": 8 },
+          "eq": [["highpass", 85], ["bell", 150, 2.0, 1.2], ["bell", 260, 1.0, 1.0], ["bell", 420, -1.5, 1.0], ["bell", 620, -1.0, 1.2],
+                 ["bell", 2600, 3.0, 1.4], ["bell", 5000, 1.0, 1.5], ["lowpass", 11000],
+                 ["bell", 160, -1.0, 1.5], ["bell", 600, 1.5, 1.0], ["bell", 1260, -1.8, 0.6], ["bell", 5500, 2.4, 1.2]],
+          "helm": { "amount": 1.0, "ringDb": 0.5, "ringHz": 1250, "reflections": [[1.1, 0.06], [2.3, 0.03], [3.7, 0.01]], "drive": 1.6, "grit": 0.3 },
+          "compress": { "aboveDb": -18, "ratio": 3.0, "attackMs": 4, "releaseMs": 80 },
+          "deess": null
+        },
         "established-helm": {
-          "about": "The Spellblade as he sounds in combat: the clear helm of tools/audio/knight_voice.py (gentle room removal, pauses gated, two semitones down with every vowel kept, chest, presence, the helm's ring and reflections, 3:1, grit). helm.amount scales what is the helm's own (its ring, its reflections, its grit): 1 is the established knight, 0 none of it, 1.3 more.",
+          "about": "(Superseded 2026-10-12 by session-matched, which is this plus the recording session's difference.) The Spellblade as he sounds in combat: the clear helm of tools/audio/knight_voice.py (gentle room removal, pauses gated, two semitones down with every vowel kept, chest, presence, the helm's ring and reflections, 3:1, grit). helm.amount scales what is the helm's own (its ring, its reflections, its grit): 1 is the established knight, 0 none of it, 1.3 more.",
           "lufs": -16.8,
           "highpassHz": 75,
           "room": { "dereverb": true, "t60MaxSec": 0.85, "strength": 1.0, "floorDb": -12 },
@@ -45,10 +60,24 @@
       }
     },
     "rival": {
-      "use": "creator-2026-10-12",
+      "use": "declarative-2026-10-12",
       "presets": {
+        "declarative-2026-10-12": {
+          "about": "The creator's Rival (pitch 1.5 st down, formants 6% down, light helm, no grit), more certain. At -18 dB, 2.5:1 the compressor squashed the emphatic word his lines end on (statements fell 6.9 dB under the line, 3.1 dB as recorded); now it only catches peaks, and lets them through 15 ms first. Onsets lifted up to 3.5 dB (PSOLA had softened them), a touch more chest at 200 Hz, consonants defined at 2.8 kHz, a little less breath above 7 kHz.",
+          "lufs": -16.8,
+          "highpassHz": 70,
+          "evenRoom": true,
+          "pitch": { "semitones": -1.5, "engine": "psola", "fallback": ["rubberband"], "contourLimitPct": 8 },
+          "formants": 0.94,
+          "eq": [["highpass", 75], ["bell", 140, 2.5, 1.3], ["bell", 200, 1.0, 1.0], ["bell", 300, 1.5, 1.0], ["bell", 520, -1.0, 1.0],
+                 ["bell", 2800, 2.0, 1.2], ["bell", 4200, -1.0, 1.2], ["highshelf", 7000, -1.5], ["lowpass", 11500]],
+          "helm": { "amount": 1.0, "reflections": [[0.8, 0.04], [1.9, 0.02]], "grit": 0 },
+          "compress": { "aboveDb": -14, "ratio": 2.0, "attackMs": 15, "releaseMs": 120 },
+          "attack": { "boostDb": 3.5 },
+          "deess": { "maxCutDb": 6 }
+        },
         "creator-2026-10-12": {
-          "about": "The creator's setting: formants 6% down and the pitch 1.5 semitones down, the whole contour moved together (PSOLA: every rise and fall kept). Cleaner and chestier than the Spellblade: body in the EQ, the edge where rasp lives eased, a light helm, no grit.",
+          "about": "(Superseded 2026-10-12 by declarative-2026-10-12: its compressor flattened his emphasis.) The creator's setting: formants 6% down and the pitch 1.5 semitones down, the whole contour moved together (PSOLA: every rise and fall kept). Cleaner and chestier than the Spellblade: body in the EQ, the edge where rasp lives eased, a light helm, no grit.",
           "lufs": -16.8,
           "highpassHz": 70,
           "evenRoom": true,
@@ -76,10 +105,31 @@
       }
     },
     "narrator": {
-      "use": "cleanup",
+      "use": "settled",
       "presets": {
+        "settled": {
+          "about": "A distinct, composed presence that is still the performer (2026-10-12): formants 2.5% down with the pitch untouched (a slightly larger, calmer speaker, his own intonation and timing, clear of the knights, who are both pitched down), warmth at 240 Hz, the upper mids eased (1.5 dB at 3.2 kHz, up to 3 dB more where they stand out), the top softened above 7.5 kHz, a smoother 2.5:1, de-essed.",
+          "lufs": -19.5,
+          "highpassHz": 70,
+          "evenRoom": true,
+          "formants": 0.975,
+          "eq": [["bell", 120, -1.5, 1.0], ["bell", 240, 1.0, 1.2], ["bell", 3200, -1.5, 1.2], ["highshelf", 7500, -1.5]],
+          "compress": { "aboveDb": -22, "ratio": 2.5, "attackMs": 12, "releaseMs": 160 },
+          "deharsh": { "maxCutDb": 3, "overDb": 2.5 },
+          "deess": { "maxCutDb": 6 }
+        },
+        "settled-direct": {
+          "about": "settled for a line terse on purpose ('Jump.'): no compression, no deharsh, no de-essing, so its attack is the attack it was.",
+          "lufs": -19.5,
+          "highpassHz": 70,
+          "evenRoom": true,
+          "formants": 0.975,
+          "eq": [["bell", 120, -1.5, 1.0], ["bell", 240, 1.0, 1.2], ["bell", 3200, -1.5, 1.2], ["highshelf", 7500, -1.5]],
+          "compress": null,
+          "deess": null
+        },
         "cleanup": {
-          "about": "The performer himself, cleaned: rumble and the room's boom eased, a gentle 2:1, sibilance tamed only where it stands out. No pitch, no formants, no helm.",
+          "about": "(Superseded 2026-10-12 by settled: too close to the untreated performer, the creator said.) The performer himself, cleaned: rumble and the room's boom eased, a gentle 2:1, sibilance tamed only where it stands out. No pitch, no formants, no helm.",
           "lufs": -19.5,
           "highpassHz": 70,
           "evenRoom": true,
@@ -88,7 +138,7 @@
           "deess": { "maxCutDb": 5 }
         },
         "direct": {
-          "about": "For a line terse on purpose ('Jump.'): the cleanup without compression or de-essing, so its attack is the attack it was.",
+          "about": "(Superseded by settled-direct.) For a line terse on purpose ('Jump.'): the cleanup without compression or de-essing, so its attack is the attack it was.",
           "lufs": -19.5,
           "highpassHz": 70,
           "evenRoom": true,

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { FIRST_PERSON_OFF_ARM, FIRST_PERSON_SWORD_ARM, elbowAngleFor, normalize, rotateVector, solveArm, solveSwordArm } from './swordArmIK.mjs';
-import { CHAIN, COMBO, COMBO_CONTACTS, COMBO_END, REST_ARM, RECOVERY, SLAM, blendPoses, comboPose, counterRotations, offHandOnGrip, recoveryPose, slamPose } from './fpSlash.mjs';
+import { CHAIN, COMBO, COMBO_CONTACTS, COMBO_END, REST_ARM, REST_EDGE_TURN, RECOVERY, SLAM, blendPoses, comboPose, counterRotations, offHandOnGrip, recoveryPose, slamPose } from './fpSlash.mjs';
 import { MELEE_CONTACT, SWORD_CHAIN } from '../../shared/src/combat.mjs';
 
 // a toy arm with the first-person rig's proportions: each bone a pivot and an orientation (three axes), turning a
@@ -316,4 +316,16 @@ test('Sundering, every strike is the heavy slam: raised in both hands, driven do
     assert.ok(-seen(pose.arm).tip[2] > 0.6, `the point near the eye at ${t.toFixed(2)} s`);
     assert.ok(size(pose.arm) < 1.6 * size(REST_ARM), `the blade looms at ${t.toFixed(2)} s`);
   }
+});
+
+test('at rest the sword shows a little more of its edge: turned about its own length, the far edge to the right', () => {
+  const measured = [0.94, 0.304, 0.155];   // the Idle's edge before the turn (measured from the rig)
+  const edge = REST_ARM.edge;
+  const blade = normalize(REST_ARM.blade);
+  assert.ok(Math.abs(Math.hypot(...edge) - 1) < 1e-3, 'still a direction');
+  assert.ok(Math.abs(edge[0] * blade[0] + edge[1] * blade[1] + edge[2] * blade[2]) < 1e-3, 'still across the blade');
+  const turn = Math.acos(Math.min(1, edge[0] * measured[0] + edge[1] * measured[1] + edge[2] * measured[2]));
+  assert.ok(Math.abs(turn - REST_EDGE_TURN) < 0.01, `turned ${(turn * 180 / Math.PI).toFixed(1)} degrees`);
+  assert.ok(REST_EDGE_TURN > 0.4 && REST_EDGE_TURN < 0.8, 'a modest turn, not the blade edge-on');
+  assert.ok(edge[2] > measured[2] + 0.3, 'its right edge toward the eye, the far edge round to the right');
 });
