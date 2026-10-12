@@ -51,7 +51,7 @@ const segments = [
       { id: 'much-to-do', speaker: 'spellblade', line: 'Yes... there is...much to do here..' },
       { id: 'need-look-around', speaker: 'narrator', line: 'You need to look around' },
       { id: 'nothing-of-value', speaker: 'spellblade', line: 'I have. I see nothing of value' },
-      { id: 'truly-look-around', speaker: 'narrator', line: 'No. Truly look around.' },
+      { id: 'truly-look-around', speaker: 'narrator', line: 'With your eyes' },
     ],
   },
   {
