@@ -153,7 +153,7 @@ test('segments can be removed, inserted, reordered and enabled without changing 
 
 test('complaint, pride and final confrontation preserve the exact new authored arc', () => {
   const exact = {
-    'legend-ends': 'This is not where your legend ends, Spellblade. Knights are not supposed to get made fun of.',
+    'legend-ends': 'This is not where your legend ends, Spellblade. Knights are not made to be made fun of.',
     'knight-help': 'A real knight never asks for help!',
     'final-hello': 'Hello!',
     'too-late-hello': 'It is too late for that!',
