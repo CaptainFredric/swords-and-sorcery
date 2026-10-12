@@ -281,7 +281,7 @@
       {
         "key": "tutorial.what-condition",
         "before": "This one is tougher than usual. What is his condition?",
-        "after": "Perhaps his armor is better tailored than yours...? What is his condition?"
+        "after": "Perhaps his armor is better tailored than yours... What is his condition?"
       }
     ],
     "missing": []
