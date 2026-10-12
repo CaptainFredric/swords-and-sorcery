@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { tutorialRecordingPlan, playTutorialCue } from './tutorialRecordings.mjs';
+import { tutorialRecordingPlan, tutorialCueForDevice, playTutorialCue } from './tutorialRecordings.mjs';
 import { TutorialDirector } from './TutorialDirector.mjs';
 
 test('recording plan includes dialogue only with stable keys, filenames and distinct speakers', () => {
@@ -13,6 +13,13 @@ test('recording plan includes dialogue only with stable keys, filenames and dist
     chapter: 'spellblade', segment: 'greener-introduction', presentation: 'blocking', optionalBranch: null,
   });
   assert.equal(plan.find(take => take.key === 'tutorial.extra').speaker, 'rival');
+  const desktopStamina = plan.find(take => take.key === 'tutorial.what-is-below');
+  const touchStamina = plan.find(take => take.key === 'tutorial.what-is-above');
+  assert.equal(desktopStamina.device, 'desktop');
+  assert.equal(desktopStamina.text, 'This is indeed much faster. Wait, what is that down there?');
+  assert.equal(touchStamina.device, 'touch');
+  assert.equal(touchStamina.beatId, 'what-is-above');
+  assert.equal(touchStamina.text, 'This is indeed much faster. Wait, what is that up there?');
 });
 
 test('all established recording keys survive the full route and generated plan matches actual data', () => {
@@ -49,7 +56,7 @@ test('all established recording keys survive the full route and generated plan m
   assert.deepEqual(report.optionalSegments, plan.filter(take => take.optionalSegment).map(take => take.key));
   assert.deepEqual(report.missing, []);
   assert.deepEqual(report.refinement.missing, []);
-  assert.equal(report.refinement.priorTotal + report.refinement.added.length, plan.length);
+  assert.equal(report.refinement.priorTotal + report.refinement.added.length + (report.postRefinement?.added.length ?? 0), plan.length);
   assert.ok(report.refinement.added.every(key => keys.has(key)));
   for (const change of report.refinement.changed) assert.equal(plan.find(take => take.key === change.key).text, change.after);
 });
@@ -68,6 +75,17 @@ test('recording plan carries onset synchronization and reactive rehearsal metada
   assert.equal(plan.find(take => take.key === 'tutorial.greeting').rehearsalSec, undefined);
   assert.equal(plan.find(take => take.key === 'tutorial.burn-subsided').optionalBranch, 'burned');
   assert.equal(plan.find(take => take.key === 'tutorial.final-hello').optionalSegment, 'final-confrontation');
+});
+
+test('tutorial voice selection follows the HUD device without changing the authored beat', () => {
+  const cue = { id: 'what-is-below', speaker: 'spellblade',
+    line: 'This is indeed much faster. Wait, what is that down there?', recordingKey: 'tutorial.what-is-below',
+    touchLine: 'This is indeed much faster. Wait, what is that up there?', touchRecordingKey: 'tutorial.what-is-above' };
+  assert.equal(tutorialCueForDevice(cue, { touch: false }), cue);
+  const touch = tutorialCueForDevice(cue, { touch: true });
+  assert.equal(touch.line, 'This is indeed much faster. Wait, what is that up there?');
+  assert.equal(touch.recordingKey, 'tutorial.what-is-above');
+  assert.equal(cue.line, 'This is indeed much faster. Wait, what is that down there?');
 });
 
 test('missing or muted takes leave captions available without inventing completion timing', () => {
