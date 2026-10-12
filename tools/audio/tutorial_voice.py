@@ -17,13 +17,15 @@ and it writes:
     artifacts/tutorial-voice/masters/<speaker>/<key>-1.wav      the processed master, kept out of git
     client/assets/tutorial-voice/<speaker>/<key>-1.m4a (+ .mp3)  what the game loads
     client/assets/tutorial-voice/manifest.json                   key -> file, speaker, seconds, where the speech starts
+    artifacts/tutorial-voice/staged/<speaker>/<raw name>.m4a     a staged take (a line not placed yet), for review only
     artifacts/tutorial-voice/qc.json                             every take's report: preset, engine, repairs, levels
     docs/tutorial-voice-manifest.md                              every raw take, one row each
 
     python3 tools/audio/tutorial_voice.py                        every take with a key
     python3 tools/audio/tutorial_voice.py --speaker rival        one character (after changing his preset)
     python3 tools/audio/tutorial_voice.py tutorial.us tutorial.jump-instruction    some takes
-    python3 tools/audio/tutorial_voice.py --all                  also the unplaced, alternate and general takes (masters)
+    python3 tools/audio/tutorial_voice.py --all                  also the unplaced, alternate, general and staged takes
+    python3 tools/audio/tutorial_voice.py --staged               only the staged takes (masters, and review files)
     python3 tools/audio/tutorial_voice.py --check                the sources against the archive and the plan
 
 It needs numpy, scipy, praat-parselmouth, pedalboard, pyloudnorm and pyworld (tools/audio/requirements-tutorial-voice.txt).
@@ -32,7 +34,8 @@ Every take: 48 kHz; the recorder's broken final MP3 frame never decoded into the
 trimmed (the performance kept); rumble off. Then its character's chain, every step of which a preset turns on and sets:
 room removal, pause gate, expander, pitch (PSOLA, the established vocoder or Rubber Band, with a fallback when the
 pitch cannot be followed), formants, EQ, the helm (its ring, reflections and grit, scaled together by helm.amount),
-compression, de-essing, the room between words evened; then the character's level.
+compression, firmer onsets, the upper mids eased, de-essing, the room between words evened; then the character's
+level, and a 5 ms fade so no take ever stops on a click.
 """
 
 import argparse
@@ -63,9 +66,11 @@ ARCHIVE = os.path.join(ROOT, 'artifacts', 'tutorial-voice', 'raw')
 MASTERS = os.path.join(ROOT, 'artifacts', 'tutorial-voice', 'masters')
 QC = os.path.join(ROOT, 'artifacts', 'tutorial-voice', 'qc.json')
 GAME = os.path.join(ROOT, 'client', 'assets', 'tutorial-voice')
+STAGED = os.path.join(ROOT, 'artifacts', 'tutorial-voice', 'staged')
 PLAN = os.path.join(ROOT, 'docs', 'tutorial-recording-plan.json')
 TABLE = os.path.join(ROOT, 'docs', 'tutorial-voice-manifest.md')
 SR = 48000
+END_FADE_SEC = 0.005
 
 
 def read_raw(path):
@@ -248,6 +253,66 @@ def deess(x, sr, low=4800, max_cut_db=6.0, over_db=-14, n_fft=1024, hop=256):
     return out, round(float(eased.max()) if len(eased) else 0.0, 1)
 
 
+def equalize(x, sr, bands):
+    """The EQ of knight_voice (highpass, lowpass, bell) plus shelves: ["lowshelf", hz, dB] and ["highshelf", hz, dB],
+    each a smooth step about an octave wide around hz. Zero-phase, like the rest."""
+    plain = [tuple(b) for b in bands if b[0] not in ('lowshelf', 'highshelf')]
+    y = kv.equalize(x, sr, plain) if plain else x
+    shelves = [b for b in bands if b[0] in ('lowshelf', 'highshelf')]
+    if not shelves:
+        return y
+    pad = int(0.25 * sr)
+    padded = np.concatenate([y, np.zeros(pad)])
+    f = np.maximum(np.fft.rfftfreq(len(padded), 1 / sr), 1)
+    response = np.ones_like(f)
+    for kind, hz, gain_db in shelves:
+        step = 1 / (1 + (hz / f) ** 2) if kind == 'highshelf' else 1 / (1 + (f / hz) ** 2)
+        response *= 10 ** (gain_db * step / 20)
+    return np.fft.irfft(np.fft.rfft(padded) * response, len(padded))[:len(y)]
+
+
+def deharsh(x, sr, low=2200, high=5500, max_cut_db=3.0, over_db=3.0, n_fft=1024, hop=256):
+    """The upper mids (where a voice turns hard) eased only where they stand out: a frame whose 2.2-5.5 kHz share
+    rises more than over_db above the take's usual share is brought down by the excess (at most max_cut_db), eased in
+    time and across the band. Soft delivery is left exactly as it was."""
+    X, window, length = kv.stft(x, n_fft, hop)
+    f = np.fft.rfftfreq(n_fft, 1 / sr)
+    p = np.abs(X) ** 2
+    total = 10 * np.log10(p.sum(1) + 1e-12)
+    share = 10 * np.log10(p[:, (f >= low) & (f < high)].sum(1) + 1e-12) - total
+    loud = total > total.max() - 35
+    usual = np.median(share[loud]) if loud.any() else 0.0
+    cut = np.clip(share - usual - over_db, 0, max_cut_db) * loud
+    letting_go = np.exp(-hop / sr / 0.06)
+    eased, held = np.zeros_like(cut), 0.0
+    for i, c in enumerate(cut):
+        held = c if c > held else held * letting_go + c * (1 - letting_go)
+        eased[i] = held
+    shape = np.exp(-(np.log2(np.maximum(f, 1) / np.sqrt(low * high)) ** 2) / (2 * (np.log2(high / low) / 2) ** 2))
+    out = kv.istft(X * 10 ** (-eased[:, None] * shape[None, :] / 20), window, length, len(x), n_fft, hop)
+    return out, round(float(eased.max()) if len(eased) else 0.0, 1)
+
+
+def attack(x, sr, boost_db=2.0, fast_ms=4, slow_ms=60, step_ms=1):
+    """Firmer onsets: where a fast envelope outruns a slow one (a word or a stressed syllable beginning), a little more
+    level (at most boost_db), falling back as the slow envelope catches up. Sustained sound and decays are untouched,
+    and nothing quieter than 30 dB under the take's loudest is touched at all (breaths, room)."""
+    hop = max(1, int(sr * step_ms / 1000))
+    n = len(x) // hop + 1
+    lv = np.array([np.sqrt(np.mean(x[i * hop:(i + 1) * hop] ** 2)) if len(x[i * hop:(i + 1) * hop]) else 0.0 for i in range(n)])
+    quick, slow = 1 - np.exp(-step_ms / fast_ms), 1 - np.exp(-step_ms / slow_ms)
+    fast_env, slow_env = np.zeros(n), np.zeros(n)
+    f = s = lv[0]
+    for i in range(n):
+        f += (lv[i] - f) * quick
+        s += (lv[i] - s) * (slow if lv[i] > s else quick * 0.5)
+        fast_env[i], slow_env[i] = f, s
+    lead_db = 20 * np.log10((fast_env + 1e-9) / (slow_env + 1e-9))
+    present = 20 * np.log10(fast_env + 1e-9) > 20 * np.log10(lv.max() + 1e-9) - 30
+    gain_db = np.minimum(np.clip(lead_db, 0, None) * 0.6, boost_db) * present
+    return x * np.interp(np.arange(len(x)), np.arange(n) * hop + hop / 2, 10 ** (gain_db / 20))
+
+
 def lufs(x, sr):
     """Integrated loudness (BS.1770), with the gating blocks shortened for a take under half a second."""
     meter = pyloudnorm.Meter(sr, block_size=min(0.4, max(0.1, len(x) / sr * 0.8)))
@@ -336,11 +401,62 @@ def preset_for(take, chains):
 
 
 # --- repairs: a take's own fixes, in its recording's seconds (sources: repairs) --------------------------------------
-#   { kind: 'mend', span: [a, b], why }          a stretch the voice breaks in (a creak that a pitch change turns into
-#                                                a stray note) resynthesized (WORLD) with the pitch and spectrum of the
-#                                                steady voice either side, crossfaded into the take at both ends
+#   { kind: 'splice', span: [a, b], why }        a stretch the voice breaks in (a crack that a pitch change turns into
+#                                                a stray note) refilled with the take's own glottal cycles from the
+#                                                steady voice just after it (TD-PSOLA, no pitch change, nothing
+#                                                synthesized): every cycle keeps its own length and shape, so the
+#                                                voice's own jitter and shimmer carry straight through
+#   { kind: 'mend', span: [a, b], why }          the same stretch resynthesized (WORLD) from the voice either side.
+#                                                Superseded for "Ah..." (2026-10-12): WORLD made it a machine-steady
+#                                                vowel (jitter 0.06 %, HNR 28 dB inside a voice of 1.5 % and 5 dB),
+#                                                which the creator heard as a digital glitch. Kept for reference.
 #   { kind: 'release', extendSec, decayDb, why } the last word's breath continued past where the recorder cut it off,
 #                                                decaying decayDb over extendSec, with the release's own spectrum
+
+def glottal_pulses(x, a, b, f0_floor=75, f0_ceiling=300):
+    snd = parselmouth.Sound(x, sampling_frequency=SR)
+    points = call(snd, 'To PointProcess (periodic, cc)', f0_floor, f0_ceiling)
+    t = np.array([call(points, 'Get time from index', i + 1) for i in range(call(points, 'Get number of points'))])
+    return t[(t >= a) & (t <= b)]
+
+
+def splice(x, span, source_sec=0.09, edge_sec=0.012):
+    """The break [g0, g1] refilled from the steady voice after it: its cycles laid back from g1 in mirrored order (the
+    one nearest g1 first; back and forth through them when the break is longer than they are), each at its own
+    length, their level ramped from the voice before the break to the voice after it; 12 ms crossfades at the edges.
+    Returns the take and the span actually refilled (g1 moves to the first glottal pulse after it)."""
+    g0, g1 = span
+    src = glottal_pulses(x, g1, g1 + source_sec)
+    if len(src) < 3:
+        raise ValueError(f'splice: no steady voice after {g1:.3f} s to refill {g0:.3f}-{g1:.3f} from')
+    last = len(src) - 1
+
+    def level(a, b):
+        seg = x[int(a * SR):int(b * SR)]
+        return 10 * np.log10(np.mean(seg ** 2) + 1e-12)
+
+    before, after = level(g0 - 0.03, g0), level(src[0], src[0] + 0.03)
+    # (the first cycle after the break is laid in its own place, so the fill hands over to the take seamlessly)
+    targets, sources, periods = [src[0]], [src[0]], [src[1] - src[0]]
+    t, k, step = src[0], 1, 1
+    while t > g0 - edge_sec:
+        period = src[k] - src[k - 1]
+        t -= period
+        targets.append(t), sources.append(src[k]), periods.append(period)
+        if not 1 <= k + step <= last:
+            step = -step
+        k += step
+    fill = np.zeros(len(x))
+    for at, source, period in zip(targets, sources, periods):
+        half, c, d = int(period * SR), int(source * SR), int(at * SR)
+        ramp = np.clip((at - g0) / max(1e-3, src[0] - g0), 0, 1)
+        fill[d - half:d + half] += x[c - half:c + half] * np.hanning(2 * half) * 10 ** ((before - after) * (1 - ramp) / 20)
+    a, b, e = int(g0 * SR), int(src[0] * SR), int(edge_sec * SR)
+    g = np.zeros(len(x))
+    g[a:b] = 1
+    fade_in = np.sin(np.linspace(0, np.pi / 2, e)) ** 2
+    g[a - e:a], g[b:b + e] = fade_in, fade_in[::-1]
+    return x * (1 - g) + fill * g, [round(g0, 3), round(float(src[0]), 3)]
 
 def world_analysis(x, period=5.0):
     with warnings.catch_warnings():
@@ -408,7 +524,9 @@ def shift_pitch(x, pitch, report):
 
 
 def chain(x, p, report):
-    """A character's treatment, every step of it set (or left out) by its preset, in this order."""
+    """A character's treatment, every step of it set (or left out) by its preset, in this order: room removal, pause
+    gate, expander, pitch, formants, EQ (with the helm's ring), the helm's reflections, compression, firmer onsets
+    (attack), grit, the upper mids eased (deharsh), de-essing, the tail's expander, the gate again, the room evened."""
     room = p.get('room') or {}
     if room.get('dereverb'):
         x = kv.declip(x)
@@ -433,14 +551,18 @@ def chain(x, p, report):
     if helm.get('ringDb'):
         bands.append(('bell', helm.get('ringHz', 1250), helm['ringDb'] * amount, 0.9))
     if bands:
-        x = kv.equalize(x, SR, bands)
+        x = equalize(x, SR, bands)
     if helm.get('reflections') and amount:
         x = kv.helm(x, SR, reflections=tuple((delay, gain * amount) for delay, gain in helm['reflections']))
     if p.get('compress'):
         c = p['compress']
         x = kv.dynamics(x, SR, above_db=c['aboveDb'], squeeze=c['ratio'], attack_ms=c['attackMs'], release_ms=c['releaseMs'])
+    if p.get('attack'):
+        x = attack(x, SR, boost_db=p['attack']['boostDb'], fast_ms=p['attack'].get('fastMs', 4), slow_ms=p['attack'].get('slowMs', 60))
     if helm.get('grit') and amount:
         x = kv.saturate(x, helm.get('drive', 1.6), wet=helm['grit'] * amount)
+    if p.get('deharsh'):
+        x, report['deharshed_db'] = deharsh(x, SR, max_cut_db=p['deharsh']['maxCutDb'], over_db=p['deharsh'].get('overDb', 3.0))
     if p.get('deess'):
         x, report['deessed_db'] = deess(x, SR, max_cut_db=p['deess']['maxCutDb'])
     if (p.get('expand') or {}).get('tailBelowDb') is not None:
@@ -462,7 +584,10 @@ def prepare(raw, sr, path, take, preset, trim, report):
         x = x[:int(damaged * SR)]
     cut_at_damage = damaged is not None
     for fix in take.get('repairs', []):
-        if fix['kind'] == 'mend':
+        if fix['kind'] == 'splice':
+            x, span = splice(x, fix['span'])
+            report.setdefault('repairs', []).append({'splice': span})
+        elif fix['kind'] == 'mend':
             x, span = mend(x, fix['span'])
             report.setdefault('repairs', []).append({'mend': span})
         elif fix['kind'] == 'release':
@@ -492,6 +617,9 @@ def process(take, chains, medians):
     keep = np.clip(lv['keepDynamics'] * (report['raw_lufs'] - medians[take['speaker']]), -lv['keepClampDb'], lv['keepClampDb'])
     report['lufs'] = round(preset['lufs'] + float(keep) + preset.get('gainDb', 0), 2)
     y = level_to(y, SR, report['lufs'], lv['ceilingDb'])
+    # (whatever the chain left in the last few milliseconds goes to silence: a take must never stop on a click. The
+    # trim's fade comes before the chain, and a step after it can leave a little there: up to -60 dB so far)
+    y = fade(y, SR, 0, END_FADE_SEC)
     report['seconds'] = round(len(y) / SR, 3)
     report['onset'] = round(report['speech'][0] - report['kept'][0], 3) if report.get('speech') else 0.0
     report['true_peak_db'] = round(20 * np.log10(np.max(np.abs(resample_poly(y, 4, 1))) + 1e-12), 2)
@@ -530,6 +658,8 @@ def destination(take):
             return os.path.join(MASTERS, 'alternates', take['key'], stem + '.wav'), None
         game = f"{take['speaker']}/{take['key']}-1"
         return os.path.join(MASTERS, game + '.wav'), game
+    if take.get('status') == 'staged':
+        return os.path.join(MASTERS, 'staged', take['speaker'], stem + '.wav'), None
     return os.path.join(MASTERS, 'general' if take.get('status') == 'general' else 'unplaced', stem + '.wav'), None
 
 
@@ -550,7 +680,7 @@ def check(sources, chains):
         elif take.get('chain', {}).get('preset') and take['chain']['preset'] not in role['presets']:
             errors.append(f"{take['raw']}: no preset {take['chain']['preset']} for {take['speaker']}")
         for fix in take.get('repairs', []):
-            if fix.get('kind') not in ('mend', 'release') or not fix.get('why'):
+            if fix.get('kind') not in ('splice', 'mend', 'release') or not fix.get('why'):
                 errors.append(f"{take['raw']}: a repair needs a known kind and its reason: {fix}")
         if take.get('status') == 'duplicate':
             same = next((t for t in sources['takes'] if t['raw'] == take.get('sameAs')), None)
@@ -591,6 +721,8 @@ def write_table(sources, chains):
         name, _ = preset_for(take, chains)
         treatment = name + ''.join(f"; {fix['kind']}" for fix in take.get('repairs', [])) + (f"; {take['chain']['pitchEngine']}" if take.get('chain', {}).get('pitchEngine') else '')
         files = f"client/assets/tutorial-voice/{game[key]['file']}.m4a, .mp3" if key in game and plays(take) else ''
+        if take['status'] == 'staged':
+            files = f"artifacts/tutorial-voice/staged/{take['speaker']}/{os.path.basename(take['raw']).rsplit('.', 1)[0]}.m4a, .mp3 (review only)"
         status = take['status'] + (f": {take['note']}" if take.get('note') else '') + (f" Same file as {take['sameAs'].split('/', 1)[1]}." if take.get('sameAs') else '')
         master = '' if take['status'] in SET_ASIDE else os.path.relpath(destination(take)[0], ROOT)
         rows.append(f"| {cell(take['raw'].split('/', 1)[1])} | {take['speaker']} | {cell(words)} | {key or ''} | {cell(status)} | {cell(treatment)} "
@@ -610,7 +742,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('keys', nargs='*', help='only these recording keys (or raw names)')
     parser.add_argument('--speaker', choices=('spellblade', 'rival', 'narrator'), help='only this character')
-    parser.add_argument('--all', action='store_true', help='also master the takes that do not play (unplaced, alternate, general)')
+    parser.add_argument('--all', action='store_true', help='also master the takes that do not play (unplaced, alternate, general, staged)')
+    parser.add_argument('--staged', action='store_true', help='only the staged takes (lines the script has not placed yet): '
+                        'masters, and game-ready files in artifacts/tutorial-voice/staged/ for review (not served)')
     parser.add_argument('--check', action='store_true', help='only check the sources')
     parser.add_argument('--table', action='store_true', help='only rewrite docs/tutorial-voice-manifest.md')
     args = parser.parse_args()
@@ -626,6 +760,8 @@ def main():
         write_table(sources, chains)
         return 0
     takes = [t for t in sources['takes'] if plays(t) or (args.all and t.get('status') not in SET_ASIDE)]
+    if args.staged:
+        takes = [t for t in sources['takes'] if t.get('status') == 'staged']
     if args.speaker:
         takes = [t for t in takes if t['speaker'] == args.speaker]
     if args.keys:
@@ -642,6 +778,8 @@ def main():
         if stem:
             encode(master, os.path.join(GAME, stem))
             entries[take['key']] = {'file': stem, 'speaker': take['speaker'], 'seconds': report['seconds'], 'onset': report['onset']}
+        elif take.get('status') == 'staged':
+            encode(master, os.path.join(STAGED, take['speaker'], os.path.basename(master)[:-4]))
         qc['takes'][take['raw']] = {'key': take.get('key'), 'speaker': take['speaker'], 'master': os.path.relpath(master, ROOT), **report}
         print(f"{(take.get('key') or os.path.basename(take['raw'])):38s} {take['speaker']:10s} {report['preset']:18s} {report['seconds']:5.2f}s "
               f"onset {report['onset']:.3f}s  {report['raw_lufs']:6.1f} -> {report['lufs']:6.1f} LUFS  tp {report['true_peak_db']:5.1f}"
