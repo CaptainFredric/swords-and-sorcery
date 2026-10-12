@@ -32,8 +32,7 @@ export function tutorialRecordingPlan(beats = [...TUTORIAL_BEATS, ...Object.valu
 // The existing SoundEngine already routes the voice bus and honors sound settings.
 // A future tutorial loader supplies a decoded take; do not add these keys to
 // ordinary VoiceBank.say(), whose random combat rules require registered lines.
-export function playTutorialCue({ cue, buffer, engine, context = {}, onCaption = () => {}, onComplete = () => {} }) {
-  cue = tutorialCueForDevice(cue, context);
+export function playTutorialCue({ cue, buffer, engine, onCaption = () => {}, onComplete = () => {} }) {
   if (!cue?.recordingKey) return null;
   onCaption({ speaker: cue.speaker, text: cue.line, recordingKey: cue.recordingKey });
   if (!buffer || !engine.running) return null; // caption presentation is owned by the director
