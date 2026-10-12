@@ -53,6 +53,20 @@ test('reactive combat and pursuit lines remain captions and never intercept Ente
   assert.equal(calls.continued, 0);
 });
 
+test('stamina sightline follows the actual desktop and touch HUD positions', () => {
+  const beat = { kind: 'dialogue', presentation: 'reactive', speaker: 'spellblade',
+    line: 'This is indeed much faster. Wait, what is that down there?',
+    touchLine: 'This is indeed much faster. Wait, what is that up there?',
+    recordingKey: 'tutorial.what-is-below', touchRecordingKey: 'tutorial.what-is-above' };
+  const desktop = view({ touch: false });
+  desktop.display.show({ state: 'running', current: beat });
+  assert.equal(desktop.get('line').textContent, 'This is indeed much faster. Wait, what is that down there?');
+  const touch = view({ touch: true });
+  touch.display.show({ state: 'running', current: beat });
+  assert.equal(touch.get('line').textContent, 'This is indeed much faster. Wait, what is that up there?');
+});
+
+
 test('touch blocking captions use Continue and a reactive aside preserves the active mechanic prompt', () => {
   const { display, get } = view({ touch: true });
   display.show({ state: 'running', current: { kind: 'dialogue', speaker: 'narrator', line: 'You did.' } });
