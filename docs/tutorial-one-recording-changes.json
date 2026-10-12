@@ -277,6 +277,11 @@
         "key": "tutorial.legend-ends",
         "before": "This is not where your legend ends, Spellblade. Knights are not supposed to get made fun of.",
         "after": "This is not where your legend ends, Spellblade. Knights are not made to be made fun of."
+      },
+      {
+        "key": "tutorial.what-condition",
+        "before": "This one is tougher than usual. What is his condition?",
+        "after": "Perhaps his armor is better tailored than yours...? What is his condition?"
       }
     ],
     "missing": []
