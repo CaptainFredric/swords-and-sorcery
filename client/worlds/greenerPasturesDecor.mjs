@@ -28,6 +28,32 @@ export function greenerBackdropHeight(x, z) {
   return -0.12 + hills * rise * rise;
 }
 
+const BACKDROP_CELL = 14;
+
+// Distant props must sit on the triangles players actually see, not the smoother analytic height function.
+// outerTerrain splits each cell along a->c; this reproduces that interpolation at an arbitrary x/z.
+export function greenerBackdropMeshHeight(x, z) {
+  const b = GREENER_ROUTE.bounds;
+  const minZ = b.minZ - 220;
+  let originX = b.minX;
+  let originZ = minZ;
+  if (x < b.minX) originX = b.minX - 250;
+  else if (x > b.maxX) originX = b.maxX;
+  else if (z > b.maxZ) originZ = b.maxZ;
+
+  const x0 = originX + Math.floor((x - originX) / BACKDROP_CELL) * BACKDROP_CELL;
+  const z0 = originZ + Math.floor((z - originZ) / BACKDROP_CELL) * BACKDROP_CELL;
+  const u = (x - x0) / BACKDROP_CELL;
+  const v = (z - z0) / BACKDROP_CELL;
+  const a = greenerBackdropHeight(x0, z0);
+  const b1 = greenerBackdropHeight(x0, z0 + BACKDROP_CELL);
+  const c1 = greenerBackdropHeight(x0 + BACKDROP_CELL, z0 + BACKDROP_CELL);
+  const d = greenerBackdropHeight(x0 + BACKDROP_CELL, z0);
+  return v >= u
+    ? a * (1 - v) + b1 * (v - u) + c1 * u
+    : a * (1 - u) + c1 * v + d * (u - v);
+}
+
 export function buildGreenerPasturesDecor(seed = 5713) {
   const random = seededRandom(seed);
   const b = GREENER_ROUTE.bounds;
@@ -44,8 +70,19 @@ export function buildGreenerPasturesDecor(seed = 5713) {
     { x: -119, z: -79, sx: 5, sy: 3.7, sz: 6 },
     { x: 144, z: 65, sx: 6, sy: 4.5, sz: 6 },
     { x: 154, z: 78, sx: 7, sy: 4, sz: 6 },
+    { x: -132, z: -260, sx: 6.5, sy: 4.1, sz: 7 },
+    { x: -149, z: -276, sx: 5.5, sy: 3.8, sz: 6 },
+    { x: 139, z: -392, sx: 7, sy: 4.3, sz: 6.5 },
+    { x: 156, z: -407, sx: 5.5, sy: 3.8, sz: 6 },
     { x: -130, z: -630, sx: 6, sy: 4, sz: 7 },
+    { x: -145, z: -855, sx: 7, sy: 4.2, sz: 6 },
+    { x: 146, z: -935, sx: 6.5, sy: 4.1, sz: 7 },
     { x: 143, z: GREENER_ROUTE.finalStand.z + 25, sx: 7, sy: 4.5, sz: 6 },
+  ];
+  const fieldPatches = [
+    { id: 'east-furrows', x: 70, z: -410, sx: 34, sz: 96, rows: 9, color: 0x7f8b49 },
+    { id: 'west-furrows', x: -64, z: -575, sx: 30, sz: 82, rows: 8, color: 0x788449 },
+    { id: 'south-furrows', x: 68, z: -880, sx: 36, sz: 92, rows: 9, color: 0x84904d },
   ];
   const clouds = Array.from({ length: 16 }, (_, i) => ({
     x: -240 + random() * 480,
@@ -70,6 +107,7 @@ export function buildGreenerPasturesDecor(seed = 5713) {
     trees: GREENER_TREES,
     forest,
     houses,
+    fieldPatches,
     clouds,
     destination: GREENER_ROUTE.landmarks.destination,
     pointLights: 0,
