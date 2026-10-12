@@ -33,7 +33,7 @@ test('creator wording retains intentional punctuation and revised stable recordi
     'much-to-do': 'Yes... there is...much to do here..',
     'need-look-around': 'You need to look around',
     'nothing-of-value': 'I have. I see nothing of value',
-    'truly-look-around': 'No. Truly look around.',
+    'truly-look-around': 'With your eyes',
     'look-ah': 'Ah...',
     'still-nothing': 'Still nothing',
     'quite-a-distance': 'He is quite a distance away. Do I have any method of moving faster?',
