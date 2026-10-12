@@ -1,4 +1,5 @@
 import { tutorialPrompt } from './TutorialSession.mjs';
+import { tutorialCueForDevice } from './tutorialRecordings.mjs';
 
 export const TUTORIAL_SPEAKER_LABELS = Object.freeze({ narrator: 'NARRATOR', spellblade: 'YOU', rival: 'RIVAL', instruction: 'INSTRUCTION' });
 
@@ -48,9 +49,10 @@ export class TutorialView {
     const ended = progress.state !== 'running';
     const completed = ['complete', 'completed'].includes(progress.state);
     const beat = progress.current;
+    const context = this.context();
+    const presentedBeat = tutorialCueForDevice(beat, context);
     const title = !ended && isTitle(beat);
     const blocking = !ended && isBlocking(beat);
-    const context = this.context();
     const optional = ended ? null : progress.optional;
     const reactive = !ended && !blocking && !title;
     this.root.hidden = false;
@@ -69,7 +71,7 @@ export class TutorialView {
       ? completed ? 'Greener Pastures complete. Return to Solo to play again or enter a match.'
         : interrupted ? 'The lesson was interrupted. Restart the tutorial or return to Solo.'
         : 'Tutorial skipped. Return to Solo or continue in Practice.'
-      : beat?.line ?? '';
+      : presentedBeat?.line ?? '';
     // An optional gameplay reply may occupy the caption while the mechanic prompt stays visible.
     this.line.hidden = title || reactive && !!optional;
     this.brand.hidden = !title;

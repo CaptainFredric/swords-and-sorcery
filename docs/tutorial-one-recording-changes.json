@@ -1,5 +1,5 @@
 {
-  "total": 144,
+  "total": 145,
   "priorTotal": 56,
   "added": [
     "tutorial.greener-pastures",
@@ -10,6 +10,7 @@
     "tutorial.look-ah",
     "tutorial.still-nothing",
     "tutorial.think-more",
+    "tutorial.what-is-above",
     "tutorial.can-do-all-day",
     "tutorial.need-a-moment",
     "tutorial.well",
@@ -96,6 +97,11 @@
       "key": "tutorial.quite-a-distance",
       "before": "He is quite a distance away. Is there any way of moving faster",
       "after": "He is quite a distance away. Do I have any method of moving faster?"
+    },
+    {
+      "key": "tutorial.what-is-below",
+      "before": "This is indeed much faster. Wait, what is that below?",
+      "after": "This is indeed much faster. Wait, what is that down there?"
     },
     {
       "key": "tutorial.run-faster",
@@ -236,6 +242,21 @@
         "key": "tutorial.but-knight",
         "before": "What? But I am a knight!",
         "after": "Never! I am a knight!"
+      }
+    ],
+    "missing": []
+  },
+  "postRefinement": {
+    "priorTotal": 144,
+    "added": [
+      "tutorial.what-is-above"
+    ],
+    "changed": [
+      {
+        "key": "tutorial.what-is-below",
+        "before": "This is indeed much faster. Wait, what is that below?",
+        "after": "This is indeed much faster. Wait, what is that down there?",
+        "note": "Desktop stamina remains below; touch HUD stamina is above and uses tutorial.what-is-above."
       }
     ],
     "missing": []

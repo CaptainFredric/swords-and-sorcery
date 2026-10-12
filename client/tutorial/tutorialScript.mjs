@@ -87,7 +87,8 @@ const segments = [
     scene: { checkpoint: 'opening', gates: ['sprint-started', 'stamina-decreased', 'sprint-sustained', 'player-winded', 'stamina-recovered', 'rival-reached'] },
     beats: [
       { id: 'sprint-prompt', kind: 'prompt', speaker: 'instruction', line: 'SPRINT', advanceOn: 'sprint-started', mechanic: 'sprint' },
-      { id: 'what-is-below', speaker: 'spellblade', line: 'This is indeed much faster. Wait, what is that below?' },
+      { id: 'what-is-below', speaker: 'spellblade', line: 'This is indeed much faster. Wait, what is that down there?',
+        touchLine: 'This is indeed much faster. Wait, what is that up there?', touchBeatId: 'what-is-above', touchRecordingKey: 'tutorial.what-is-above' },
       { id: 'your-stamina', speaker: 'narrator', line: 'That is your stamina' },
       { id: 'stamina-prompt', kind: 'prompt', speaker: 'instruction', line: 'SPRINT USES GUARD STAMINA', advanceOn: 'stamina-decreased', mechanic: 'sprint' },
       { id: 'did-not-order', speaker: 'spellblade', line: 'Why is it going down? I did not order it to.' },

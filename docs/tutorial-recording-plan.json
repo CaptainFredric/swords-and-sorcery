@@ -219,14 +219,29 @@
     "key": "tutorial.what-is-below",
     "beatId": "what-is-below",
     "speaker": "spellblade",
-    "text": "This is indeed much faster. Wait, what is that below?",
+    "text": "This is indeed much faster. Wait, what is that down there?",
     "sourceFile": "tutorial.what-is-below.wav",
     "fileBase": "spellblade/tutorial.what-is-below-1",
     "chapter": "approach",
     "segment": "stamina",
     "presentation": "reactive",
     "optionalBranch": null,
-    "rehearsalSec": 3.33
+    "rehearsalSec": 3.67,
+    "device": "desktop"
+  },
+  {
+    "key": "tutorial.what-is-above",
+    "beatId": "what-is-above",
+    "speaker": "spellblade",
+    "text": "This is indeed much faster. Wait, what is that up there?",
+    "sourceFile": "tutorial.what-is-above.wav",
+    "fileBase": "spellblade/tutorial.what-is-above-1",
+    "chapter": "approach",
+    "segment": "stamina",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "device": "touch",
+    "rehearsalSec": 3.67
   },
   {
     "key": "tutorial.your-stamina",
