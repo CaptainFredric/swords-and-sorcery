@@ -34,18 +34,31 @@ export const COMBO_CONTACTS = SWORD_STRIKE_TIMES;
 export const COMBO_STRIKES = SWORD_CHAIN.starts;
 export const COMBO_CYCLE = SWORD_STRIKE_TIMES[SWORD_STRIKE_TIMES.length - 1] + SWORD_CHAIN.restart;
 
-// the sword hand at rest: the first-person Idle with its neutral grip (measured from the rig)
-export const REST_ARM = Object.freeze({
-  wrist: Object.freeze([0.398, -0.31, -0.649]),
-  blade: Object.freeze([-0.172, 0.815, -0.554]),
-  edge: Object.freeze([0.94, 0.304, 0.155]),
-});
-
 const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 const scale = (a, s) => [a[0] * s, a[1] * s, a[2] * s];
 const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+
+// The sword is turned about its own length in the hand (radians), the far edge round toward the right: a little more
+// of the blade's edge to the eye and less of its flat (35 degrees: at rest its face 11% narrower on screen, the sword
+// itself the same). The view turns it so in every pose the hand is in (WeaponView); a chain sets its own turn, and
+// begins and ends on the rest it makes (REST_ARM.edge).
+export const REST_EDGE_TURN = 35 * DEG;
+
+// v turned about the unit axis k by angle (right hand)
+function turned(v, k, angle) {
+  const c = Math.cos(angle), s = Math.sin(angle);
+  return add(add(scale(v, c), scale(cross(k, v), s)), scale(k, dot(k, v) * (1 - c)));
+}
+
+// the sword hand at rest: the first-person Idle with its neutral grip (measured from the rig), its edge turned
+const REST_BLADE = [-0.172, 0.815, -0.554];
+export const REST_ARM = Object.freeze({
+  wrist: Object.freeze([0.398, -0.31, -0.649]),
+  blade: Object.freeze(REST_BLADE),
+  edge: Object.freeze(turned([0.94, 0.304, 0.155], normalize(REST_BLADE), -REST_EDGE_TURN).map((v) => +v.toFixed(4))),
+});
 const mix = (a, b, t) => a.map((v, i) => v + (b[i] - v) * t);
 const smooth = (t) => { const s = Math.max(0, Math.min(1, t)); return s * s * (3 - 2 * s); };
 

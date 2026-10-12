@@ -12,8 +12,8 @@ import { createSpellbladeAsset, reportSpellbladeAssetStatus } from './Spellblade
 import { resolveFirstPersonAnimationPlan } from './spellbladeAnimationPlan.mjs';
 import { FIRST_PERSON_WEAPON_SCALE, resolveWeaponPose } from './weaponPose.mjs';
 import { FP_MOTION, FirstPersonMotion } from './firstPersonMotion.mjs';
-import { blendPoses, comboPose, counterRotations, recoveryPose, slamPose } from './fpSlash.mjs';
-import { FIRST_PERSON_OFF_ARM, solveArm, solveSwordArm } from './swordArmIK.mjs';
+import { REST_EDGE_TURN, blendPoses, comboPose, counterRotations, recoveryPose, slamPose } from './fpSlash.mjs';
+import { FIRST_PERSON_OFF_ARM, FIRST_PERSON_SWORD_ARM, solveArm, solveSwordArm } from './swordArmIK.mjs';
 import { everywhere, onViewLayer } from './viewLayers.mjs';
 import { createSunderBlade } from './sunderBlade.mjs';
 import { VORTEX_BLADES, createVortexBlade } from './vortexBlade.mjs';
@@ -314,6 +314,10 @@ export class WeaponView {
 
       this.productionInstance = instance;
       this.visualKind = 'production';
+      // the blade's length in the hand's own frame (the socket is the hand's child, turned at rest): the axis the
+      // sword is turned about in every pose
+      const socket = instance.sockets.sword;
+      this.bladeInHand = socket ? new THREE.Vector3(...FIRST_PERSON_SWORD_ARM.aim).normalize().applyQuaternion(socket.quaternion).normalize().toArray() : null;
       // the plate's steel readied with the arms (its shader built now, not the first time it is called)
       this.steelSheen?.dispose();
       this.steelSheen = createSteelSheen(instance, { ready: true });
@@ -747,6 +751,10 @@ export class WeaponView {
           { bone: 'hand.R', axis: [1, 0, 0], angle: FP_MOTION.swordWristFlex * motion.neutral, space: 'local' },
           { bone: 'forearm.R', axis: [0, 1, 0], angle: FP_MOTION.swordForearmTurn * motion.neutral, space: 'local' },
           { bone: 'hand.R', axis: [0, 0, 1], angle: FP_MOTION.swordWristLean * motion.neutral, space: 'local' },
+          // the sword turned about its own length in the hand, the far edge round to the right: less of its flat to
+          // the eye, in every pose the hand is in (so nothing unwinds as the guard comes up); a chain sets its own
+          // turn, beginning and ending on this same rest (fpSlash.mjs REST_ARM)
+          ...(this.bladeInHand ? [{ bone: 'hand.R', axis: this.bladeInHand, angle: -REST_EDGE_TURN, space: 'local' }] : []),
           { bone: 'forearm.L', axis: [0, 1, 0], angle: FP_MOTION.magicForearmTwist * motion.neutral, space: 'local' },
           { bone: 'upper_arm.L', axis: [1, 0, 0], angle: -FP_MOTION.magicArmDrop * motion.neutral, space: 'local' },
           ...castGestureRotations(gesture),
