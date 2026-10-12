@@ -1,6 +1,6 @@
 {
   "session": "2026-10-11",
-  "about": "Tutorial 1 recordings: the Google Drive ZIPs of 2026-10-11/12 and one loose take, archived untouched in artifacts/tutorial-voice/raw/<zip or loose-date>/. One row per raw take: its character, the recording key it serves (null: no place yet). status: mapped; inferred (the key is reasoned, see note); intended (its words differ from older script history but are the intended script wording, per the creator); alternate (a second take of a key, mastered, not played); unplaced (no beat yet); general (Spellblade VO outside the tutorial). Captions come from the script; words is given where the plan does not have them yet. chain: this take's exceptions to its character's preset (a preset of its own, pitchEngine, gainDb), with why. repairs: its own fixes, with why (tools/audio/tutorial_voice.py: mend, release). Character presets: tools/audio/tutorial-voice-chains.json.",
+  "about": "Tutorial 1 recordings: the Google Drive ZIPs of 2026-10-11/12 and one loose take, archived untouched in artifacts/tutorial-voice/raw/<zip or loose-date>/. One row per raw take: its character, the recording key it serves (null: no place yet). status: mapped; inferred (the key is reasoned, see note); intended (its words differ from older script history but are the intended script wording, per the creator); alternate (a second take of a key, mastered, not played); dropped (set aside by the creator: not processed, the raw take kept); duplicate (the same file supplied again: sameAs names the row used); unplaced (no beat yet); general (Spellblade VO outside the tutorial). Captions come from the script; words is given where the plan does not have them yet. chain: this take's exceptions to its character's preset (a preset of its own, pitchEngine, gainDb), with why. repairs: its own fixes, with why (tools/audio/tutorial_voice.py: mend, release). Character presets: tools/audio/tutorial-voice-chains.json.",
   "takes": [
     {
       "raw": "drive-download-20261012T044301Z-1-001/GreetingsSpellblade.mp3",
@@ -302,6 +302,13 @@
       "sha256": "5e36d8ca63246a271797a0f1df60885e93c1d455c7c56612ac4286eb19f70c1d",
       "speaker": "spellblade",
       "key": "tutorial.remain-strangers",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T123309Z-1-001/WoahAppearsNegotiations.mp3",
+      "sha256": "93da783ef49e9bbbe2fbfbec1ee9c3a72801abeaacd40d8db5950d51659cb001",
+      "speaker": "narrator",
+      "key": "tutorial.negotiations",
       "status": "mapped"
     },
     {
@@ -666,6 +673,48 @@
       "status": "mapped"
     },
     {
+      "raw": "drive-download-20261012T044301Z-1-001/Hello!.mp3",
+      "sha256": "b593606c9a4aa6aff1297eb9328a5e25abb7e9d5a2116b8c4306f04a0405e8d2",
+      "speaker": "spellblade",
+      "key": "tutorial.final-hello",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/ItIsTooLateForThat.mp3",
+      "sha256": "40dba0fff233c9c63d66ab9719112a73fbd05beeaa289b2962d998b1234e31fa",
+      "speaker": "rival",
+      "key": "tutorial.too-late-hello",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/ReconsiderMeetingYou.mp3",
+      "sha256": "820ec35d51705f16e9868eb410a81bd9333133fcaf226a830e007bd3a5b464fb",
+      "speaker": "spellblade",
+      "key": "tutorial.reconsider-meeting",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/TheSwordRemainsMightidr.mp3",
+      "sha256": "143a79740a547c70ba954ef7571b8f8b6ce95b24dee3b37c041593117f11ba07",
+      "speaker": "rival",
+      "key": "tutorial.sword-remains",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/AndIRemainMightier.mp3",
+      "sha256": "28677d93aa2675a371e6f1661a3d63427bddafcba95834db3dca0cdea744e4c8",
+      "speaker": "rival",
+      "key": "tutorial.remain-mightier",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/ThatIsALotOfThings.mp3",
+      "sha256": "a262cfcc135ba94f7890fc5dea5a61ca8f0b0d4088fbee876fa15aa66343bacb",
+      "speaker": "narrator",
+      "key": "tutorial.lot-of-things",
+      "status": "mapped"
+    },
+    {
       "raw": "drive-download-20261012T044301Z-1-001/WhyCalledSpell.mp3",
       "sha256": "eee5a1f7a089d4340f341cd1b6af61a6f22d04d057816b342db94bf0066e47f8",
       "speaker": "narrator",
@@ -769,6 +818,14 @@
       "speaker": "spellblade",
       "key": "tutorial.acquired-attention",
       "status": "mapped"
+    },
+    {
+      "raw": "loose-2026-10-12/AhaTryGettingOverThis.mp3",
+      "sha256": "ce62f20c17962bdb164cdf4c5ccb8d54b0878238adef14f09db0ab5007627b93",
+      "speaker": "rival",
+      "key": "tutorial.get-over-this",
+      "status": "mapped",
+      "note": "Supplied on its own (Downloads, 2026-10-12)."
     },
     {
       "raw": "drive-download-20261012T044301Z-1-001/HeMakesDecentSuggestion.mp3",
@@ -888,48 +945,6 @@
       "sha256": "ac6893bcf7a49568f4f12a3117a45e5333c6e39195e336da23f6f0e9ca39a20b",
       "speaker": "rival",
       "key": "tutorial.come-prove-it",
-      "status": "mapped"
-    },
-    {
-      "raw": "drive-download-20261012T044301Z-1-001/Hello!.mp3",
-      "sha256": "b593606c9a4aa6aff1297eb9328a5e25abb7e9d5a2116b8c4306f04a0405e8d2",
-      "speaker": "spellblade",
-      "key": "tutorial.final-hello",
-      "status": "mapped"
-    },
-    {
-      "raw": "drive-download-20261012T044301Z-1-001/ItIsTooLateForThat.mp3",
-      "sha256": "40dba0fff233c9c63d66ab9719112a73fbd05beeaa289b2962d998b1234e31fa",
-      "speaker": "rival",
-      "key": "tutorial.too-late-hello",
-      "status": "mapped"
-    },
-    {
-      "raw": "drive-download-20261012T044301Z-1-001/ReconsiderMeetingYou.mp3",
-      "sha256": "820ec35d51705f16e9868eb410a81bd9333133fcaf226a830e007bd3a5b464fb",
-      "speaker": "spellblade",
-      "key": "tutorial.reconsider-meeting",
-      "status": "mapped"
-    },
-    {
-      "raw": "drive-download-20261012T044301Z-1-001/TheSwordRemainsMightidr.mp3",
-      "sha256": "143a79740a547c70ba954ef7571b8f8b6ce95b24dee3b37c041593117f11ba07",
-      "speaker": "rival",
-      "key": "tutorial.sword-remains",
-      "status": "mapped"
-    },
-    {
-      "raw": "drive-download-20261012T044301Z-1-001/AndIRemainMightier.mp3",
-      "sha256": "28677d93aa2675a371e6f1661a3d63427bddafcba95834db3dca0cdea744e4c8",
-      "speaker": "rival",
-      "key": "tutorial.remain-mightier",
-      "status": "mapped"
-    },
-    {
-      "raw": "drive-download-20261012T044301Z-1-001/ThatIsALotOfThings.mp3",
-      "sha256": "a262cfcc135ba94f7890fc5dea5a61ca8f0b0d4088fbee876fa15aa66343bacb",
-      "speaker": "narrator",
-      "key": "tutorial.lot-of-things",
       "status": "mapped"
     },
     {
@@ -1146,44 +1161,63 @@
       "sha256": "7c002fef3d8bc1b0aba09251a008c09002127257400a97c567be7da5974ba837",
       "speaker": "narrator",
       "key": "tutorial.another-like-you",
-      "status": "alternate",
+      "status": "dropped",
       "alternateOf": "drive-download-20261012T044301Z-1-001/2026_10_11_19_56_53.mp3",
-      "note": "says \"there's\""
+      "note": "says \"there's\" Dropped by the creator (2026-10-12): not processed, the raw take kept."
     },
     {
       "raw": "drive-download-20261012T044301Z-1-001/SoundArgument_1.mp3",
       "sha256": "6d6772fbf89244bf1291c46a665453e3b669fe8a0c208ba8a343624e6b5400bc",
       "speaker": "narrator",
       "key": "tutorial.good-question",
-      "status": "alternate",
-      "alternateOf": "drive-download-20261012T044301Z-1-001/SoundArgument.mp3"
+      "status": "dropped",
+      "alternateOf": "drive-download-20261012T044301Z-1-001/SoundArgument.mp3",
+      "note": "Dropped by the creator (2026-10-12): not processed, the raw take kept."
+    },
+    {
+      "raw": "drive-download-20261012T123309Z-1-001/TryPlacating.mp3",
+      "sha256": "00b96944f8531e0bb60751a47c7de569cb23a842338d117c861f71def6dfbc20",
+      "speaker": "narrator",
+      "key": "tutorial.placate",
+      "status": "duplicate",
+      "sameAs": "drive-download-20261012T044301Z-1-001/TryPlacating.mp3",
+      "note": "Supplied again (2026-10-12); byte-identical to the take already used."
     },
     {
       "raw": "drive-download-20261012T044301Z-1-001/MyReputationWillBecomeDead.mp3",
       "sha256": "8ab63b9fc0643ed4b5a4945505ae8d9ef7e12beee51d8953619758bde61abf8c",
       "speaker": "spellblade",
       "key": "tutorial.remains-ahead",
-      "status": "alternate",
+      "status": "dropped",
       "alternateOf": "drive-download-20261012T044301Z-1-001/ReputationDeadAhead.mp3",
-      "note": "The other take of the intended line."
+      "note": "The other take of the intended line. Dropped by the creator (2026-10-12): not processed, the raw take kept."
     },
     {
       "raw": "drive-download-20261012T044301Z-1-001/2026_10_11_19_30_58.mp3",
       "sha256": "4a8256484d855cffa9e0aecb5ffec78aa60cbb837ca8d3687d607685f3f727de",
       "speaker": "spellblade",
       "key": "tutorial.took-us-long",
-      "status": "alternate",
+      "status": "dropped",
       "alternateOf": "drive-download-20261012T044301Z-1-001/HahaTookUSLong.mp3",
-      "note": "opens \"Aha!\" rather than \"Haha!\""
+      "note": "opens \"Aha!\" rather than \"Haha!\" Dropped by the creator (2026-10-12): not processed, the raw take kept."
+    },
+    {
+      "raw": "drive-download-20261012T123309Z-1-001/HahaTookUSLong.mp3",
+      "sha256": "575164b80b16ee2fd11b26076a18f8dd5f49fa89d188b257604f8cffcc760e43",
+      "speaker": "spellblade",
+      "key": "tutorial.took-us-long",
+      "status": "duplicate",
+      "sameAs": "drive-download-20261012T044301Z-1-001/HahaTookUSLong.mp3",
+      "note": "Supplied again (2026-10-12); byte-identical to the take already used."
     },
     {
       "raw": "drive-download-20261012T044301Z-1-001/NotWhereLegendEndsSpellblade.mp3",
       "sha256": "7a3ae0c6dfb56f9dfaf74fe333ddc649f2d35772ce4c10077dea7cd4ae19f3dc",
       "speaker": "narrator",
       "key": "tutorial.legend-ends",
-      "status": "alternate",
+      "status": "dropped",
       "alternateOf": "drive-download-20261012T044301Z-1-001/2026_10_11_20_26_17.mp3",
-      "note": "omits \"your\"; \"not made to be made fun of\""
+      "note": "omits \"your\"; \"not made to be made fun of\" Dropped by the creator (2026-10-12): not processed, the raw take kept."
     },
     {
       "raw": "drive-download-20261012T044301Z-1-001/NoYourSwordHasWorkedOnMeThisTime.mp3",
