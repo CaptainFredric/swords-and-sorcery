@@ -22,6 +22,11 @@ export class TutorialDirector {
     this.branchesSeen = new Set();
     this.branchQueue = [];
     this.beats = beats;
+    this.reactions = new Map();
+    beats.forEach((beat, index) => {
+      if (beat.reactionFor && !this.reactions.has(beat.reactionFor)) this.reactions.set(beat.reactionFor, index);
+    });
+    this.completedReactions = new Set(); this.pendingReaction = null; this.reactionResume = null;
     this.onChange = onChange;
     this.runId = 0;
     this.index = 0;
@@ -53,6 +58,7 @@ export class TutorialDirector {
     this.facts.clear(); this.enteredAt = null; this.optionalAt = null;
     this.optionalActive = false; this.lastTickAt = null;
     this.audioCue = null; this.pendingCompletion = null;
+    this.completedReactions.clear(); this.pendingReaction = null; this.reactionResume = null;
     this.onChange(this.progress);
     return this.current;
   }
@@ -100,9 +106,16 @@ export class TutorialDirector {
   }
 
   finishOptional() {
-    this.branchQueue.shift();
+    const finished = this.branchQueue.shift();
+    const connectedReply = finished?.replyGroup && finished.replyGroup === this.branchQueue[0]?.replyGroup;
     this.optionalAt = null;
-    if (!this.branchQueue.length) {
+    // Urgent event feedback waits for this take's real end, then pauses the
+    // remaining aside rather than cutting or dropping its recordings.
+    if (!connectedReply && (this.pendingReaction || this.current?.reactionFor)) {
+      this.optionalActive = false;
+      this.beginReaction();
+      this.enteredAt = this.lastTickAt;
+    } else if (!this.branchQueue.length) {
       this.optionalActive = false;
       this.enteredAt = this.lastTickAt;
     }
@@ -119,8 +132,16 @@ export class TutorialDirector {
   // and lowering Guard isn't the same as suffering a scripted postscript hit.
   accept(cue) {
     if (!this.current || this.current.advanceOn !== cue) return false;
-    const chapter = this.current.chapter;
+    const previous = this.current, chapter = previous.chapter;
     this.index += 1;
+    if (previous.reactionFor && this.beats[this.index]?.reactionFor !== previous.reactionFor) {
+      this.completedReactions.add(previous.reactionFor);
+      if (this.reactionResume !== null) this.index = this.reactionResume;
+      this.reactionResume = null;
+    }
+    // A reaction performed ahead of its ordinary route position never plays twice.
+    while (this.completedReactions.has(this.beats[this.index]?.reactionFor)) this.index += 1;
+    if (!this.optionalActive) this.beginReaction();
     this.enteredAt = null;
     if (chapter === this.prototypeStop && this.beats[this.index]?.chapter !== chapter) this.state = 'prototype-ended';
     else if (this.index === this.beats.length) this.state = 'complete';
@@ -136,7 +157,25 @@ export class TutorialDirector {
   fact(cue) {
     if (this.state !== 'running') return false;
     this.facts.add(cue);
-    return this.accept(cue);
+    if (this.reactions.has(cue) && !this.completedReactions.has(cue)) this.pendingReaction = cue;
+    const accepted = this.accept(cue);
+    if (this.pendingReaction && this.current?.kind !== 'dialogue' && !this.audioCue && !this.pendingCompletion) {
+      this.optionalActive = false; this.optionalAt = null;
+      this.beginReaction(); this.enteredAt = null; this.onChange(this.progress);
+    }
+    return accepted;
+  }
+
+  // reactionFor is authored on a contiguous main-route response. The next clean
+  // boundary visits it first, then returns to the remaining lesson. Existing
+  // stable keys and the normal audio completion path are used throughout.
+  beginReaction() {
+    const event = this.pendingReaction;
+    if (!event || this.state !== 'running') return;
+    this.pendingReaction = null;
+    if (this.current?.reactionFor === event || this.completedReactions.has(event)) return;
+    this.reactionResume = this.index;
+    this.index = this.reactions.get(event);
   }
 
   // This clock controls caption rehearsal only. Combat remains event driven.
@@ -181,6 +220,7 @@ export class TutorialDirector {
     this.facts.clear(); this.branchQueue = []; this.enteredAt = null; this.optionalAt = null;
     this.optionalActive = false; this.lastTickAt = null;
     this.audioCue = null; this.pendingCompletion = null;
+    this.completedReactions.clear(); this.pendingReaction = null; this.reactionResume = null;
     this.onChange(this.progress);
   }
 
@@ -197,7 +237,7 @@ export class TutorialDirector {
 
   canPresentOptional() {
     const beat = this.current;
-    return beat && beat.chapter !== 'ending' && beat.presentation !== 'title'
+    return beat && !beat.reactionFor && beat.chapter !== 'ending' && beat.presentation !== 'title'
       && (beat.kind !== 'dialogue' || beat.presentation === 'reactive');
   }
 
@@ -218,6 +258,7 @@ export class TutorialDirector {
     this.facts.clear(); this.enteredAt = null; this.optionalAt = null;
     this.optionalActive = false; this.lastTickAt = null;
     this.audioCue = null; this.pendingCompletion = null;
+    this.completedReactions.clear(); this.pendingReaction = null; this.reactionResume = null;
     this.onChange(this.progress);
   }
 }

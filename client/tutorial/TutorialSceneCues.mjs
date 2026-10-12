@@ -1,6 +1,9 @@
 // Reusable spatial observations for authored scenes. Dialogue is never consulted.
-export function tutorialSceneCue(gate, {player, rival, route}) {
+export function tutorialSceneCue(gate, {player, rival, route, elapsedSec = 0}) {
   if (gate.kind === 'fact') return false; // Combat and movement adapters own these facts.
+  if (gate.kind === 'separation') return Boolean(player?.alive && rival?.alive)
+    && elapsedSec >= (gate.minSec ?? 0)
+    && Math.hypot(player.position.x-rival.position.x,player.position.z-rival.position.z) >= gate.distance;
   const actor = gate.actor === 'player' ? player : rival;
   if (!actor?.alive) return false;
   const target = gate.kind === 'near-entrance' ? route.entrance
