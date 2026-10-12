@@ -227,7 +227,7 @@ const segments = [
     branches: ['rival-constitution'],
     scene: { enter: 'rival-escape', checkpoint: 'pursuit', gates: [] },
     beats: [
-      { id: 'remains-ahead', speaker: 'spellblade', line: 'I would like to keep attacking, but he remains ahead!' },
+      { id: 'remains-ahead', speaker: 'spellblade', line: 'My reputation will become dead if he remains ahead!' },
       { id: 'few-steps', speaker: 'narrator', line: 'A few steps ahead.' },
     ],
   },
