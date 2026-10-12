@@ -262,6 +262,11 @@
         "key": "tutorial.remains-ahead",
         "before": "I would like to keep attacking, but he remains ahead!",
         "after": "My reputation will become dead if he remains ahead!"
+      },
+      {
+        "key": "tutorial.truly-look-around",
+        "before": "No. Truly look around.",
+        "after": "With your eyes"
       }
     ],
     "missing": []
