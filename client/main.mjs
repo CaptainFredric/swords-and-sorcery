@@ -1,6 +1,7 @@
 import { TutorialSession } from './tutorial/TutorialSession.mjs';
 import { TutorialView } from './tutorial/TutorialView.mjs';
 import { TutorialProgress } from './tutorial/TutorialProgress.mjs';
+import { TutorialVoice } from './tutorial/tutorialVoice.mjs';
 import { ChallengesController } from './menu/ChallengesController.mjs';
 import { normalizePreparedSpells, replacePreparedSpell } from '../shared/src/preparedSpells.mjs';
 import { SPELLS } from '../shared/src/spells.mjs';
@@ -276,6 +277,8 @@ endCaption.setEnabled(viewOptions(settings).subtitles);
 
 let runtime = null;
 let tutorialSession = null;
+// Tutorial 1's recorded voices: the takes load once, the first time the tutorial starts, and stay decoded
+let tutorialVoice = null;
 let touchUi = false;
 let latestLobby = null;
 let latestSnapshot = null;
@@ -412,6 +415,7 @@ function openArenaGate(info) {
   // once per opening (a countdown ending and the route change can both ask for it)
   if (performance.now() - gateOpenedAt < 1500) return;
   gateOpenedAt = performance.now();
+  if (tutorialSession) tutorialVoice?.quietFor(1.35);
   const copy = tutorialSession ? { title: 'GREENER PASTURES', sub: 'TUTORIAL 1' }
     : arenaGateCopy({ mode: info.mode, worldId: info.worldId, scoreToWin: info.scoreToWin });
   $('#arena-gate-title').textContent = copy.title;
@@ -632,6 +636,7 @@ function returnToMenu({ then = null } = {}) {
 function putAwayMatch() {
   const endingTutorial = tutorialSession;
   tutorialSession = null;
+  tutorialVoice?.stop();
   endingTutorial?.stop();
   tutorialView.hide();
   document.querySelectorAll('.tutorial-unlearned').forEach(tile=>tile.classList.remove('tutorial-unlearned'));
@@ -763,9 +768,11 @@ function startTutorial() {
   if (!name) { showMenuError('Enter a Spellblade name.'); nameFields.find(field => field.offsetParent !== null)?.focus(); return; }
   localStorage.setItem('ss-player-name',name);
   socket.startTutorial(name);
+  tutorialVoice ??= new TutorialVoice({ engine: sound, context: () => ({ touch: touchUi }) });
   tutorialSession = new TutorialSession(socket.local, {
     onChange: progress => {
       tutorialView.show(progress);
+      tutorialVoice.sync(tutorialSession?.director);
       const permissions=progress.permissions ?? progress.current?.permissions ?? progress.segment?.permissions ?? [];
       for (const [action,tile] of [['spell',hud.spell],['dash',hud.dash],['ultimate',hud.ultimate]]) tile?.classList.toggle('tutorial-unlearned',progress.state==='running' && !permissions.includes(action));
       for (const button of document.querySelectorAll('.touch-btn[data-action]')) {
@@ -779,8 +786,12 @@ function startTutorial() {
     onResumeMovement: () => runtime?.input.resumeHeldMovement(),
     onRestore: player => { if(runtime) {runtime.input.releaseInputs(); runtime.input.yaw=player.yaw;runtime.input.pitch=0;} },
   });
-  if (new URLSearchParams(location.search).has('debug')) globalThis.__ssTutorial = tutorialSession;
+  if (new URLSearchParams(location.search).has('debug')) { globalThis.__ssTutorial = tutorialSession; globalThis.__ssTutorialVoice = tutorialVoice; }
+  // (no one speaks over the arena gate's title and drum: the first take waits for it to lift; the takes decode
+  // behind it, in the route's order)
+  tutorialVoice.quietFor(1.35);
   tutorialSession.start();
+  tutorialVoice.preload([...tutorialSession.director.beats, ...Object.values(tutorialSession.director.branches).flat()]);
 }
 $('#tutorial-mode').addEventListener('click',startTutorial);
 $('#bot-duel').addEventListener('click', () => runMenuAction(menuController.botDuel(nameInput.value), SCREEN_IDS.SOLO_MENU));
