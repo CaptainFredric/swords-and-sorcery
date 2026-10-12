@@ -1695,7 +1695,7 @@
     "key": "tutorial.what-condition",
     "beatId": "what-condition",
     "speaker": "narrator",
-    "text": "This one is tougher than usual. What is his condition?",
+    "text": "Perhaps his armor is better tailored than yours...? What is his condition?",
     "sourceFile": "tutorial.what-condition.wav",
     "fileBase": "narrator/tutorial.what-condition-1",
     "chapter": "pursuit",
