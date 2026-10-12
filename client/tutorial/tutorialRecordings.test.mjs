@@ -45,7 +45,7 @@ test('all established recording keys survive the full route and generated plan m
   assert.deepEqual(plan.filter(take => take.optionalBranch).map(take => take.beatId), [
     'frolic-fields', 'remembering-move', 'constitution-strange', 'not-strange', 'not-fallen',
     'thank-noticing', 'what-condition', 'current-constitution', 'constitution-amended', 'cannot-settled',
-    'rival-over-there', 'scorch-mark',
+    'rival-over-there', 'scorch-mark', 'bridge-senses-failure', 'hence-i-crossed', 'permission-stop', 'no-longer-ruin', 'permission-no', 'then-no',
     'burn-subsided', 'reforged', 'not-too-many', 'stop-you', 'convince-unblock', 'did-not-stop',
   ]);
   const report = JSON.parse(readFileSync(new URL('../../docs/tutorial-one-recording-changes.json', import.meta.url), 'utf8'));
@@ -56,9 +56,14 @@ test('all established recording keys survive the full route and generated plan m
   assert.deepEqual(report.optionalSegments, plan.filter(take => take.optionalSegment).map(take => take.key));
   assert.deepEqual(report.missing, []);
   assert.deepEqual(report.refinement.missing, []);
-  assert.equal(report.refinement.priorTotal + report.refinement.added.length + (report.postRefinement?.added.length ?? 0), plan.length);
-  assert.ok(report.refinement.added.every(key => keys.has(key)));
-  for (const change of report.refinement.changed) assert.equal(plan.find(take => take.key === change.key).text, change.after);
+  const polish = JSON.parse(readFileSync(new URL('../../docs/tutorial-polish-recording-changes.json', import.meta.url), 'utf8'));
+  assert.equal(report.refinement.priorTotal + report.refinement.added.length + (report.postRefinement?.added.length ?? 0) + polish.added.length - polish.replaced.length, plan.length);
+  assert.ok(report.refinement.added.every(key => keys.has(key) || polish.replaced.some(take => take.key === key)));
+  for (const change of report.refinement.changed) {
+    const take = plan.find(take => take.key === change.key);
+    if (take) assert.equal(take.text, change.after);
+    else assert.equal(polish.replaced.find(take => take.key === change.key)?.text, change.after);
+  }
 });
 
 test('recording plan carries onset synchronization and reactive rehearsal metadata', () => {

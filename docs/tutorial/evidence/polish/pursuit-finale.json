@@ -1,0 +1,668 @@
+{
+  "events": [
+    {
+      "at": 39.077200000286105,
+      "castEndsAt": 39.3772000002861,
+      "playerId": "41db4bd6-c4f0-4f72-8c1c-5ab0386d11d4",
+      "spell": "fireball",
+      "type": "spellCast"
+    },
+    {
+      "at": 43.1965,
+      "castEndsAt": 43.4965,
+      "playerId": "41db4bd6-c4f0-4f72-8c1c-5ab0386d11d4",
+      "spell": "fireball",
+      "type": "spellCast"
+    },
+    {
+      "at": 47.327200000286105,
+      "castEndsAt": 47.6272000002861,
+      "playerId": "41db4bd6-c4f0-4f72-8c1c-5ab0386d11d4",
+      "spell": "fireball",
+      "type": "spellCast"
+    },
+    {
+      "at": 51.44580000019074,
+      "castEndsAt": 51.745800000190734,
+      "playerId": "41db4bd6-c4f0-4f72-8c1c-5ab0386d11d4",
+      "spell": "fireball",
+      "type": "spellCast"
+    },
+    {
+      "at": 51.94580000019074,
+      "castEndsAt": 52.245800000190734,
+      "playerId": "practice-dummy-FQJD9",
+      "spell": "fireball",
+      "type": "spellCast"
+    },
+    {
+      "at": 55.546800000190736,
+      "castEndsAt": 55.84680000019073,
+      "playerId": "41db4bd6-c4f0-4f72-8c1c-5ab0386d11d4",
+      "spell": "fireball",
+      "type": "spellCast"
+    },
+    {
+      "at": 55.97940000009537,
+      "castEndsAt": 56.27940000009536,
+      "playerId": "practice-dummy-FQJD9",
+      "spell": "fireball",
+      "type": "spellCast"
+    },
+    {
+      "at": 59.99610000038147,
+      "castEndsAt": 60.296100000381465,
+      "playerId": "practice-dummy-FQJD9",
+      "spell": "fireball",
+      "type": "spellCast"
+    },
+    {
+      "at": 64.02560000038147,
+      "castEndsAt": 64.32560000038147,
+      "playerId": "practice-dummy-FQJD9",
+      "spell": "fireball",
+      "type": "spellCast"
+    },
+    {
+      "at": 68.0462000002861,
+      "castEndsAt": 68.3462000002861,
+      "playerId": "practice-dummy-FQJD9",
+      "spell": "fireball",
+      "type": "spellCast"
+    },
+    {
+      "at": 72.07680000019073,
+      "castEndsAt": 72.37680000019073,
+      "playerId": "practice-dummy-FQJD9",
+      "spell": "fireball",
+      "type": "spellCast"
+    },
+    {
+      "amount": 30,
+      "at": 101.90690000009536,
+      "attackerId": "41db4bd6-c4f0-4f72-8c1c-5ab0386d11d4",
+      "clean": true,
+      "health": 70,
+      "push": {
+        "x": 1.2111739923944216,
+        "y": 0.2,
+        "z": -1.1929197626610757
+      },
+      "source": "sword",
+      "type": "damage",
+      "victimId": "practice-dummy-FQJD9"
+    },
+    {
+      "amount": 29,
+      "at": 103.02570000028612,
+      "attackerId": "practice-dummy-FQJD9",
+      "clean": true,
+      "health": 71,
+      "push": {
+        "x": -1.0017310444921816,
+        "y": 0.2,
+        "z": -1.373511890920717
+      },
+      "source": "sword",
+      "type": "damage",
+      "victimId": "41db4bd6-c4f0-4f72-8c1c-5ab0386d11d4"
+    },
+    {
+      "amount": 29,
+      "at": 105.99610000038147,
+      "attackerId": "practice-dummy-FQJD9",
+      "clean": true,
+      "health": 42,
+      "push": {
+        "x": -1.6541954699391257,
+        "y": 0.2,
+        "z": 0.39196600264930426
+      },
+      "source": "sword",
+      "type": "damage",
+      "victimId": "41db4bd6-c4f0-4f72-8c1c-5ab0386d11d4"
+    },
+    {
+      "amount": 30,
+      "at": 107.80640000009537,
+      "attackerId": "41db4bd6-c4f0-4f72-8c1c-5ab0386d11d4",
+      "clean": true,
+      "health": 58.00000000000013,
+      "push": {
+        "x": -1.653134653206957,
+        "y": 0.2,
+        "z": 0.3964162185964566
+      },
+      "source": "sword",
+      "type": "damage",
+      "victimId": "practice-dummy-FQJD9"
+    },
+    {
+      "amount": 30,
+      "at": 108.54130000019072,
+      "attackerId": "41db4bd6-c4f0-4f72-8c1c-5ab0386d11d4",
+      "clean": true,
+      "health": 28.000000000000128,
+      "push": {
+        "x": -1.6511119680756403,
+        "y": 0.2,
+        "z": -0.40475828450741413
+      },
+      "source": "sword",
+      "type": "damage",
+      "victimId": "practice-dummy-FQJD9"
+    },
+    {
+      "amount": 29,
+      "at": 109.225,
+      "attackerId": "41db4bd6-c4f0-4f72-8c1c-5ab0386d11d4",
+      "clean": true,
+      "health": 0,
+      "push": {
+        "x": -0.4766089427094053,
+        "y": 0.2,
+        "z": -1.631822268425524
+      },
+      "source": "sword",
+      "type": "damage",
+      "victimId": "practice-dummy-FQJD9"
+    },
+    {
+      "at": 109.225,
+      "killerId": "41db4bd6-c4f0-4f72-8c1c-5ab0386d11d4",
+      "respawnAt": 112.225,
+      "source": "sword",
+      "type": "death",
+      "victimId": "practice-dummy-FQJD9"
+    }
+  ],
+  "log": [
+    {
+      "at": 0.03,
+      "beat": "counterfire-pursuit",
+      "health": 100,
+      "mode": "counterfire",
+      "position": {
+        "x": 30,
+        "y": 0,
+        "z": -698
+      },
+      "rival": {
+        "x": -11.903723431101682,
+        "y": 0,
+        "z": -830.3676014448847
+      },
+      "run": 2,
+      "stamina": 100
+    },
+    {
+      "at": 16.96,
+      "beat": "complaint-arrival",
+      "health": 100,
+      "mode": "complaint",
+      "position": {
+        "x": 0.688099080917425,
+        "y": 0,
+        "z": -846.417436626419
+      },
+      "rival": {
+        "x": 1.585763988817393,
+        "y": 0,
+        "z": -881.8729170482288
+      },
+      "run": 2,
+      "stamina": 0
+    },
+    {
+      "at": 25.23,
+      "beat": "legend-ends",
+      "health": 100,
+      "mode": "complaint",
+      "position": {
+        "x": 10.454502681269858,
+        "y": 0,
+        "z": -916.7687038951316
+      },
+      "rival": {
+        "x": 17.484065826633774,
+        "y": 0,
+        "z": -942.5755240653334
+      },
+      "run": 2,
+      "stamina": 0
+    },
+    {
+      "at": 30.94,
+      "beat": "knight-help",
+      "health": 100,
+      "mode": "complaint",
+      "position": {
+        "x": 26.466547918807095,
+        "y": 0,
+        "z": -962.832447071564
+      },
+      "rival": {
+        "x": 30.952588538851153,
+        "y": 0,
+        "z": -994.000792602886
+      },
+      "run": 2,
+      "stamina": 15.666666666666693
+    },
+    {
+      "at": 33.35,
+      "beat": "pride-turn",
+      "health": 100,
+      "mode": "pride",
+      "position": {
+        "x": 30.093203678028345,
+        "y": 0,
+        "z": -984.1359694385797
+      },
+      "rival": {
+        "x": 32.690974529054685,
+        "y": 0,
+        "z": -1011.8754270818952
+      },
+      "run": 2,
+      "stamina": 0
+    },
+    {
+      "at": 43.87,
+      "beat": "blast-not-considered",
+      "health": 100,
+      "mode": "ready",
+      "position": {
+        "x": 35.88169986394318,
+        "y": 0,
+        "z": -1069.8791433359634
+      },
+      "rival": {
+        "x": 35.98106546891089,
+        "y": 0,
+        "z": -1071.655961972752
+      },
+      "run": 2,
+      "stamina": 77.33333333333333
+    },
+    {
+      "at": 45.6,
+      "beat": "fine-we-duel",
+      "health": 100,
+      "mode": "ready",
+      "position": {
+        "x": 35.88169986394318,
+        "y": 0,
+        "z": -1069.8791433359634
+      },
+      "rival": {
+        "x": 35.98106546891089,
+        "y": 0,
+        "z": -1071.655961972752
+      },
+      "run": 2,
+      "stamina": 100
+    },
+    {
+      "at": 47.6,
+      "beat": "if-i-win-tell",
+      "health": 100,
+      "mode": "ready",
+      "position": {
+        "x": 35.88169986394318,
+        "y": 0,
+        "z": -1069.8791433359634
+      },
+      "rival": {
+        "x": 35.98106546891089,
+        "y": 0,
+        "z": -1071.655961972752
+      },
+      "run": 2,
+      "stamina": 100
+    },
+    {
+      "at": 49.98,
+      "beat": "if-you-lose-told",
+      "health": 100,
+      "mode": "ready",
+      "position": {
+        "x": 35.88169986394318,
+        "y": 0,
+        "z": -1069.8791433359634
+      },
+      "rival": {
+        "x": 35.98106546891089,
+        "y": 0,
+        "z": -1071.655961972752
+      },
+      "run": 2,
+      "stamina": 100
+    },
+    {
+      "at": 54.7,
+      "beat": "when-i-win",
+      "health": 100,
+      "mode": "ready",
+      "position": {
+        "x": 35.88169986394318,
+        "y": 0,
+        "z": -1069.8791433359634
+      },
+      "rival": {
+        "x": 35.98106546891089,
+        "y": 0,
+        "z": -1071.655961972752
+      },
+      "run": 2,
+      "stamina": 100
+    },
+    {
+      "at": 56.25,
+      "beat": "not-part-terms",
+      "health": 100,
+      "mode": "ready",
+      "position": {
+        "x": 35.88169986394318,
+        "y": 0,
+        "z": -1069.8791433359634
+      },
+      "rival": {
+        "x": 35.98106546891089,
+        "y": 0,
+        "z": -1071.655961972752
+      },
+      "run": 2,
+      "stamina": 100
+    },
+    {
+      "at": 58.63,
+      "beat": "scripted-against-you",
+      "health": 100,
+      "mode": "ready",
+      "position": {
+        "x": 35.88169986394318,
+        "y": 0,
+        "z": -1069.8791433359634
+      },
+      "rival": {
+        "x": 35.98106546891089,
+        "y": 0,
+        "z": -1071.655961972752
+      },
+      "run": 2,
+      "stamina": 100
+    },
+    {
+      "at": 60.33,
+      "beat": "come-prove-it",
+      "health": 100,
+      "mode": "ready",
+      "position": {
+        "x": 35.88169986394318,
+        "y": 0,
+        "z": -1069.8791433359634
+      },
+      "rival": {
+        "x": 35.98106546891089,
+        "y": 0,
+        "z": -1071.655961972752
+      },
+      "run": 2,
+      "stamina": 100
+    },
+    {
+      "at": 62.07,
+      "beat": "final-hello",
+      "health": 100,
+      "mode": "final-fight",
+      "position": {
+        "x": 35.88169986394318,
+        "y": 0,
+        "z": -1069.8791433359634
+      },
+      "rival": {
+        "x": 36.0829063437234,
+        "y": 0,
+        "z": -1071.650266692476
+      },
+      "run": 2,
+      "stamina": 100
+    },
+    {
+      "at": 63.6,
+      "beat": "too-late-hello",
+      "health": 100,
+      "mode": "final-fight",
+      "position": {
+        "x": 36.11909291116072,
+        "y": 0,
+        "z": -1070.100945588992
+      },
+      "rival": {
+        "x": 37.871046151207054,
+        "y": 0,
+        "z": -1069.581822768432
+      },
+      "run": 2,
+      "stamina": 100
+    },
+    {
+      "at": 68.83,
+      "beat": "reconsider-meeting",
+      "health": 42,
+      "mode": "final-fight",
+      "position": {
+        "x": 36.0360528471513,
+        "y": 0,
+        "z": -1069.947037394542
+      },
+      "rival": {
+        "x": 34.131170741403075,
+        "y": 0,
+        "z": -1069.6998790410864
+      },
+      "run": 2,
+      "stamina": 55.06141256532311
+    },
+    {
+      "at": 71.53,
+      "beat": "sword-remains",
+      "health": 42,
+      "mode": "final-fight",
+      "position": {
+        "x": 35.33753341720224,
+        "y": 0,
+        "z": -1070.1972520957247
+      },
+      "rival": {
+        "x": 34.86016232695342,
+        "y": 0,
+        "z": -1071.8316838186006
+      },
+      "run": 2,
+      "stamina": 100
+    },
+    {
+      "at": 73.9,
+      "beat": "remain-mightier",
+      "health": 81.33333333333337,
+      "mode": "final-fight",
+      "position": {
+        "x": 35.33753341720224,
+        "y": 0,
+        "z": -1070.1972520957247
+      },
+      "rival": {
+        "x": 34.86016232695342,
+        "y": 0,
+        "z": -1071.8316838186006
+      },
+      "run": 2,
+      "stamina": 100
+    },
+    {
+      "at": 77.25,
+      "beat": "lot-of-things",
+      "health": 100,
+      "mode": "final-fight",
+      "position": {
+        "x": 35.33753341720224,
+        "y": 0,
+        "z": -1070.1972520957247
+      },
+      "rival": {
+        "x": 34.86016232695342,
+        "y": 0,
+        "z": -1071.8316838186006
+      },
+      "run": 2,
+      "stamina": 100
+    },
+    {
+      "at": 79.3,
+      "beat": "who-are-you",
+      "health": 100,
+      "mode": "final-fight",
+      "position": {
+        "x": 35.33753341720224,
+        "y": 0,
+        "z": -1070.1972520957247
+      },
+      "rival": {
+        "x": 34.86016232695342,
+        "y": 0,
+        "z": -1071.8316838186006
+      },
+      "run": 2,
+      "stamina": 100
+    },
+    {
+      "at": 80.86,
+      "beat": "i-am",
+      "health": 100,
+      "mode": "final-fight",
+      "position": {
+        "x": 35.33753341720224,
+        "y": 0,
+        "z": -1070.1972520957247
+      },
+      "rival": {
+        "x": 34.86016232695342,
+        "y": 0,
+        "z": -1071.8316838186006
+      },
+      "run": 2,
+      "stamina": 100
+    },
+    {
+      "at": 82.41,
+      "beat": "title-first",
+      "health": 100,
+      "mode": "final-fight",
+      "position": {
+        "x": 35.33753341720224,
+        "y": 0,
+        "z": -1070.1972520957247
+      },
+      "rival": {
+        "x": 34.86016232695342,
+        "y": 0,
+        "z": -1071.8316838186006
+      },
+      "run": 2,
+      "stamina": 100
+    },
+    {
+      "at": 84.96,
+      "beat": "strange-name",
+      "health": 100,
+      "mode": "final-fight",
+      "position": {
+        "x": 35.33753341720224,
+        "y": 0,
+        "z": -1070.1972520957247
+      },
+      "rival": {
+        "x": 34.86016232695342,
+        "y": 0,
+        "z": -1071.8316838186006
+      },
+      "run": 2,
+      "stamina": 100
+    },
+    {
+      "at": 86.5,
+      "beat": "true-master",
+      "health": 100,
+      "mode": "final-fight",
+      "position": {
+        "x": 35.33753341720224,
+        "y": 0,
+        "z": -1070.1972520957247
+      },
+      "rival": {
+        "x": 34.86016232695342,
+        "y": 0,
+        "z": -1071.8316838186006
+      },
+      "run": 2,
+      "stamina": 100
+    },
+    {
+      "at": 92.56,
+      "beat": "title-final",
+      "health": 100,
+      "mode": "final-fight",
+      "position": {
+        "x": 35.33753341720224,
+        "y": 0,
+        "z": -1070.1972520957247
+      },
+      "rival": {
+        "x": 34.86016232695342,
+        "y": 0,
+        "z": -1071.8316838186006
+      },
+      "run": 2,
+      "stamina": 100
+    },
+    {
+      "at": 95.08,
+      "beat": "player-departure",
+      "health": 100,
+      "mode": "final-fight",
+      "position": {
+        "x": 35.33753341720224,
+        "y": 0,
+        "z": -1070.1972520957247
+      },
+      "rival": {
+        "x": 34.86016232695342,
+        "y": 0,
+        "z": -1071.8316838186006
+      },
+      "run": 2,
+      "stamina": 100
+    },
+    {
+      "at": 95.78,
+      "beat": "closing-hope",
+      "health": 100,
+      "mode": "final-fight",
+      "position": {
+        "x": 30.09317988370706,
+        "y": 0,
+        "z": -1069.9538265101385
+      },
+      "rival": {
+        "x": 34.86016232695342,
+        "y": 0,
+        "z": -1071.8316838186006
+      },
+      "run": 2,
+      "stamina": 100
+    }
+  ],
+  "state": "complete"
+}

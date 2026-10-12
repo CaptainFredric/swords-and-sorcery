@@ -287,3 +287,16 @@ export const GREENER_PASTURES = Object.freeze({
   ]),
   abyssY: -9,
 });
+
+// A local tutorial overlay. The canonical world is never mutated by retries.
+export const BRIDGE_RETRY = Object.freeze({ metresPerFailure: 1.2, maxFailures: 3 });
+export function greenerBridgeRetryFloor(failures = 0) {
+  const count = Math.min(BRIDGE_RETRY.maxFailures, Math.max(0, Math.trunc(failures) || 0));
+  if (!count) return null;
+  const start = GREENER_ROUTE.bridge.gapBounds.minZ;
+  return floor('bridge-retry-deck', 26, 38, start, start + count * BRIDGE_RETRY.metresPerFailure, 'stone');
+}
+export function greenerPasturesWithBridgeRetries(failures = 0) {
+  const extension = greenerBridgeRetryFloor(failures);
+  return extension ? { ...GREENER_PASTURES, floors: [...GREENER_PASTURES.floors, extension] } : GREENER_PASTURES;
+}

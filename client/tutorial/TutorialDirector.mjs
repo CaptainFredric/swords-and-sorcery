@@ -31,6 +31,7 @@ export class TutorialDirector {
     this.optionalAt = null;
     this.optionalActive = false;
     this.lastTickAt = null;
+    this.audioCue = null; this.pendingCompletion = null;
   }
 
   get current() { return this.state === 'running' ? this.beats[this.index] : null; }
@@ -51,6 +52,7 @@ export class TutorialDirector {
     this.state = 'running';
     this.facts.clear(); this.enteredAt = null; this.optionalAt = null;
     this.optionalActive = false; this.lastTickAt = null;
+    this.audioCue = null; this.pendingCompletion = null;
     this.onChange(this.progress);
     return this.current;
   }
@@ -58,7 +60,7 @@ export class TutorialDirector {
   // Keep this token with the audio handle. A late completion from an old run or
   // previous line cannot advance the current dialogue after skip/restart.
   get cue() {
-    return !this.optionalActive && this.current?.kind === 'dialogue'
+    return !this.pendingCompletion && !this.optionalActive && this.current?.kind === 'dialogue'
       ? Object.freeze({ ...this.current, runId: this.runId }) : null;
   }
 
@@ -69,6 +71,35 @@ export class TutorialDirector {
 
   completeOptionalDialogue(cue) {
     if (!cue || cue.runId !== this.runId || cue.id !== this.optionalCue?.id) return false;
+    return this.completeSpoken(cue, true);
+  }
+
+  beginAudio(cue) {
+    const active = cue?.branch ? this.optionalCue : this.cue;
+    if (!active || cue?.runId !== this.runId || active.id !== cue.id) return false;
+    this.audioCue = { id: cue.id, runId: cue.runId };
+    return true;
+  }
+
+  stopAudio(cue) {
+    if (this.audioCue?.id !== cue.id || this.audioCue.runId !== cue.runId) return;
+    this.audioCue = null;
+    this.enteredAt = this.optionalAt = this.lastTickAt;
+  }
+
+  completeSpoken(cue, optional) {
+    if (this.pendingCompletion) return false;
+    const recorded = this.audioCue?.id === cue.id && this.audioCue.runId === cue.runId;
+    const pause = cue.pauseAfterSec ?? (recorded ? .35 : 0);
+    this.audioCue = null;
+    if (pause > 0) {
+      this.pendingCompletion = { cue, optional, at: (this.lastTickAt ?? 0) + pause };
+    } else if (optional) this.finishOptional();
+    else this.accept('continue');
+    return true;
+  }
+
+  finishOptional() {
     this.branchQueue.shift();
     this.optionalAt = null;
     if (!this.branchQueue.length) {
@@ -76,13 +107,12 @@ export class TutorialDirector {
       this.enteredAt = this.lastTickAt;
     }
     this.onChange(this.progress);
-    return true;
   }
 
   completeDialogue(cue) {
     if (this.optionalActive || !cue || cue.runId !== this.runId || cue.id !== this.current?.id
       || this.current.kind !== 'dialogue') return false;
-    return this.accept('continue');
+    return this.completeSpoken(cue, false);
   }
 
   // Wrong inputs are ignored. In particular, a sword swing isn't a sword hit,
@@ -114,6 +144,14 @@ export class TutorialDirector {
   tick(now) {
     if (!this.current || !Number.isFinite(now)) return;
     this.lastTickAt = now;
+    if (this.pendingCompletion) {
+      if (now < this.pendingCompletion.at) return;
+      const pending = this.pendingCompletion; this.pendingCompletion = null;
+      if (pending.cue.runId !== this.runId) return;
+      if (pending.optional) this.finishOptional(); else this.accept('continue');
+      return;
+    }
+    if (this.audioCue) return; // A real source's ended event owns duration.
     // Reactions take the next clean caption boundary. Movement and factual
     // progression continue while a reaction is displayed, but the next spoken
     // main line gets its full reading time after the reaction ends.
@@ -139,6 +177,7 @@ export class TutorialDirector {
     this.runId += 1; this.index = index; this.state = 'running';
     this.facts.clear(); this.branchQueue = []; this.enteredAt = null; this.optionalAt = null;
     this.optionalActive = false; this.lastTickAt = null;
+    this.audioCue = null; this.pendingCompletion = null;
     this.onChange(this.progress);
   }
 
@@ -162,6 +201,7 @@ export class TutorialDirector {
   skip() {
     if (this.state !== 'running') return false;
     this.state = 'skipped';
+    this.audioCue = null; this.pendingCompletion = null;
     this.onChange(this.progress);
     return true;
   }
@@ -174,6 +214,7 @@ export class TutorialDirector {
     this.state = 'idle';
     this.facts.clear(); this.enteredAt = null; this.optionalAt = null;
     this.optionalActive = false; this.lastTickAt = null;
+    this.audioCue = null; this.pendingCompletion = null;
     this.onChange(this.progress);
   }
 }

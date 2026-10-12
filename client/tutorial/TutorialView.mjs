@@ -15,6 +15,9 @@ export class TutorialView {
     this.context = context;
     const select = selector => root.querySelector(selector);
     this.chapter = select('[data-tutorial-chapter]');
+    this.caption = select('[data-tutorial-caption]');
+    this.instruction = select('[data-tutorial-instruction]');
+    this.mechanic = select('[data-tutorial-mechanic]');
     this.objective = select('[data-tutorial-objective]');
     this.objectiveText = select('[data-tutorial-objective-text]');
     this.speaker = select('[data-tutorial-speaker]');
@@ -54,6 +57,7 @@ export class TutorialView {
     const title = !ended && isTitle(beat);
     const blocking = !ended && isBlocking(beat);
     const optional = ended ? null : progress.optional;
+    const spoken = optional ?? (beat?.kind === 'dialogue' ? presentedBeat : null);
     const reactive = !ended && !blocking && !title;
     this.root.hidden = false;
     this.root.classList.toggle('tutorial-end', ended);
@@ -65,20 +69,22 @@ export class TutorialView {
     const objective = progress.segment?.objective;
     this.objective.hidden = ended || title || !objective;
     this.objectiveText.textContent = objective?.text ?? objective ?? '';
-    this.speaker.textContent = ended || title ? '' : TUTORIAL_SPEAKER_LABELS[beat?.speaker] ?? '';
-    this.speaker.hidden = !this.speaker.textContent || reactive && !!optional;
+    this.speaker.textContent = ended || title ? '' : TUTORIAL_SPEAKER_LABELS[spoken?.speaker] ?? '';
+    this.speaker.hidden = !this.speaker.textContent;
     this.line.textContent = ended
       ? completed ? 'Greener Pastures complete. Return to Solo to play again or enter a match.'
         : interrupted ? 'The lesson was interrupted. Restart the tutorial or return to Solo.'
         : 'Tutorial skipped. Return to Solo or continue in Practice.'
-      : presentedBeat?.line ?? '';
-    // An optional gameplay reply may occupy the caption while the mechanic prompt stays visible.
-    this.line.hidden = title || reactive && !!optional;
+      : spoken?.line ?? presentedBeat?.line ?? '';
+    this.line.hidden = title || !ended && !spoken;
     this.brand.hidden = !title;
     this.prompt.textContent = ended ? '' : [progress.prompt ?? tutorialPrompt(beat, context),progress.rivalHint].filter(Boolean).join(' ');
     this.prompt.hidden = !this.prompt.textContent;
-    this.optional.hidden = !optional;
-    this.optionalLine.textContent = optional ? `${TUTORIAL_SPEAKER_LABELS[optional.speaker] ?? ''}: ${optional.line}` : '';
+    this.mechanic.textContent = !ended && beat?.kind === 'prompt' ? beat.line ?? '' : '';
+    this.mechanic.hidden = !this.mechanic.textContent;
+    // Every spoken take uses the same label and text. Instructions have their own panel.
+    this.optional.hidden = true;
+    this.optionalLine.textContent = '';
     this.optionalContinue.hidden = !optional || optional.presentation !== 'blocking';
     this.continue.hidden = !blocking;
     this.continue.textContent = context.touch ? 'CONTINUE' : 'CONTINUE · ENTER';
@@ -89,7 +95,11 @@ export class TutorialView {
     if (this.lastBeat !== beat?.id || this.ended !== ended) { this.blocked.textContent = ''; this.blocked.hidden = true; }
     this.ended = ended;
     this.lastBeat = beat?.id;
+    this.caption.hidden = !ended && !title && !spoken;
+    this.updateInstruction();
   }
+
+  updateInstruction() { this.instruction.hidden = this.prompt.hidden && this.mechanic.hidden && this.blocked.hidden; }
 
   denied(action) {
     const labels = { look: 'Looking', move: 'Walking', sprint: 'Sprint', attack: 'Attack', guard: 'Guard', spell: 'Fireball', cast: 'Fireball', castCurrentSpell: 'Fireball', dash: 'Dash', jump: 'Jump', crouch: 'Crouch' };
@@ -98,8 +108,12 @@ export class TutorialView {
       : action === 'ultimate' || action?.startsWith('selectPrepared') || action?.startsWith('castPrepared')
         ? 'This ability belongs to a later tutorial.' : `${labels[action] ?? 'This action'} becomes available later in the tutorial.`;
     this.blocked.hidden = false;
+    this.updateInstruction();
+    clearTimeout(this.feedbackTimer);
+    this.feedbackTimer = setTimeout(() => { this.blocked.hidden = true; this.updateInstruction(); }, 2500);
+    this.feedbackTimer.unref?.();
   }
 
   hide() { this.root.hidden = true; this.options.open = false; }
-  destroy() { document.removeEventListener('keydown', this.keydown, { capture: true }); this.hide(); }
+  destroy() { clearTimeout(this.feedbackTimer); document.removeEventListener('keydown', this.keydown, { capture: true }); this.hide(); }
 }

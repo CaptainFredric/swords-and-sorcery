@@ -1,0 +1,98 @@
+{
+  "base": "25a6d6b",
+  "total": 159,
+  "added": [
+    {
+      "key": "tutorial.small-gaps",
+      "speaker": "spellblade",
+      "text": "Small gaps have never stopped anybody important."
+    },
+    {
+      "key": "tutorial.blast-not-considered",
+      "speaker": "rival",
+      "text": "Blast! I hadn't considered that!"
+    },
+    {
+      "key": "tutorial.fine-we-duel",
+      "speaker": "rival",
+      "text": "Fine then, we duel!"
+    },
+    {
+      "key": "tutorial.if-i-win-tell",
+      "speaker": "rival",
+      "text": "If I win! I tell on you!"
+    },
+    {
+      "key": "tutorial.if-you-lose-told",
+      "speaker": "rival",
+      "text": "If you lose, you lie on the ground and wait to be told on!"
+    },
+    {
+      "key": "tutorial.when-i-win",
+      "speaker": "spellblade",
+      "text": "And when I win?"
+    },
+    {
+      "key": "tutorial.not-part-terms",
+      "speaker": "rival",
+      "text": "That was not part of the terms"
+    },
+    {
+      "key": "tutorial.scripted-against-you",
+      "speaker": "narrator",
+      "text": "This seems scripted against you."
+    },
+    {
+      "key": "tutorial.come-prove-it",
+      "speaker": "rival",
+      "text": "Come here and prove it!"
+    },
+    {
+      "key": "tutorial.bridge-senses-failure",
+      "speaker": "narrator",
+      "text": "The bridge grows longer when it senses failure"
+    },
+    {
+      "key": "tutorial.hence-i-crossed",
+      "speaker": "rival",
+      "text": "Hence why I crossed it!"
+    },
+    {
+      "key": "tutorial.permission-stop",
+      "speaker": "rival",
+      "text": "I give you permission to stop"
+    },
+    {
+      "key": "tutorial.no-longer-ruin",
+      "speaker": "spellblade",
+      "text": "Will you no longer ruin my reputation, honor, status and therefore livelihood? And health?"
+    },
+    {
+      "key": "tutorial.permission-no",
+      "speaker": "rival",
+      "text": "No."
+    },
+    {
+      "key": "tutorial.then-no",
+      "speaker": "spellblade",
+      "text": "Then no."
+    }
+  ],
+  "replaced": [
+    {
+      "key": "tutorial.surpass-obstacle",
+      "text": "I can find it within myself to surpass this obstacle.",
+      "replacement": "tutorial.small-gaps"
+    }
+  ],
+  "timing": [
+    {
+      "key": "tutorial.not-strange",
+      "pauseAfterSec": 0.15
+    },
+    {
+      "key": "tutorial.permission-no",
+      "pauseAfterSec": 0.08
+    }
+  ]
+}

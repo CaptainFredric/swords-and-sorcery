@@ -1,6 +1,7 @@
 import { combatActionPolicy, combatBlocksSprint } from '../../shared/src/combatActionPolicy.mjs';
 import * as THREE from 'three';
 import { getWorld } from '../../shared/worlds/registry.mjs';
+import { greenerPasturesWithBridgeRetries } from '../../shared/worlds/greenerPastures.mjs';
 import { MOVEMENT, createMovementState, launchBody, movePlayer, resolveSprint, shoveBody, tryStartDash } from '../../shared/src/movement.mjs';
 import { separateLocal } from '../../shared/src/separation.mjs';
 import { segmentAabbHit, surfaceHeightAt } from '../../shared/src/collision.mjs';
@@ -487,6 +488,10 @@ export class GameRuntime {
 
   onSnapshot(snapshot) {
     if (!this.#ensureWorld(snapshot.worldId)) return;
+    if (snapshot.tutorial && snapshot.worldId === 'greener-pastures') {
+      const failures = snapshot.tutorialBridgeFailures ?? 0;
+      if (this.world.setBridgeRetries(failures)) this.activeWorld = greenerPasturesWithBridgeRetries(failures);
+    }
     if (snapshot.matchStartedAt !== this.latestSnapshot?.matchStartedAt) this.localGate = null;
     this.latestSnapshot = snapshot;
     this.remotePlayers.pushSnapshot(snapshot, this.presentationNow());

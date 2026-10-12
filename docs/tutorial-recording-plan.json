@@ -226,8 +226,8 @@
     "segment": "stamina",
     "presentation": "reactive",
     "optionalBranch": null,
-    "rehearsalSec": 3.67,
-    "device": "desktop"
+    "device": "desktop",
+    "rehearsalSec": 3.67
   },
   {
     "key": "tutorial.what-is-above",
@@ -1374,17 +1374,17 @@
     "rehearsalSec": 4
   },
   {
-    "key": "tutorial.surpass-obstacle",
+    "key": "tutorial.small-gaps",
     "beatId": "surpass-obstacle",
     "speaker": "spellblade",
-    "text": "I can find it within myself to surpass this obstacle.",
-    "sourceFile": "tutorial.surpass-obstacle.wav",
-    "fileBase": "spellblade/tutorial.surpass-obstacle-1",
+    "text": "Small gaps have never stopped anybody important.",
+    "sourceFile": "tutorial.small-gaps.wav",
+    "fileBase": "spellblade/tutorial.small-gaps-1",
     "chapter": "bridge",
     "segment": "bridge-dash",
     "presentation": "reactive",
     "optionalBranch": null,
-    "rehearsalSec": 3.33
+    "rehearsalSec": 2.33
   },
   {
     "key": "tutorial.grow-maturity",
@@ -1463,6 +1463,110 @@
     "presentation": "reactive",
     "optionalBranch": null,
     "rehearsalSec": 2.33
+  },
+  {
+    "key": "tutorial.blast-not-considered",
+    "beatId": "blast-not-considered",
+    "speaker": "rival",
+    "text": "Blast! I hadn't considered that!",
+    "sourceFile": "tutorial.blast-not-considered.wav",
+    "fileBase": "rival/tutorial.blast-not-considered-1",
+    "chapter": "final-guard",
+    "segment": "duel-terms",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "rehearsalSec": 1.67
+  },
+  {
+    "key": "tutorial.fine-we-duel",
+    "beatId": "fine-we-duel",
+    "speaker": "rival",
+    "text": "Fine then, we duel!",
+    "sourceFile": "tutorial.fine-we-duel.wav",
+    "fileBase": "rival/tutorial.fine-we-duel-1",
+    "chapter": "final-guard",
+    "segment": "duel-terms",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "rehearsalSec": 1.5
+  },
+  {
+    "key": "tutorial.if-i-win-tell",
+    "beatId": "if-i-win-tell",
+    "speaker": "rival",
+    "text": "If I win! I tell on you!",
+    "sourceFile": "tutorial.if-i-win-tell.wav",
+    "fileBase": "rival/tutorial.if-i-win-tell-1",
+    "chapter": "final-guard",
+    "segment": "duel-terms",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "rehearsalSec": 2.33
+  },
+  {
+    "key": "tutorial.if-you-lose-told",
+    "beatId": "if-you-lose-told",
+    "speaker": "rival",
+    "text": "If you lose, you lie on the ground and wait to be told on!",
+    "sourceFile": "tutorial.if-you-lose-told.wav",
+    "fileBase": "rival/tutorial.if-you-lose-told-1",
+    "chapter": "final-guard",
+    "segment": "duel-terms",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "rehearsalSec": 4.67
+  },
+  {
+    "key": "tutorial.when-i-win",
+    "beatId": "when-i-win",
+    "speaker": "spellblade",
+    "text": "And when I win?",
+    "sourceFile": "tutorial.when-i-win.wav",
+    "fileBase": "spellblade/tutorial.when-i-win-1",
+    "chapter": "final-guard",
+    "segment": "duel-terms",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "rehearsalSec": 1.5
+  },
+  {
+    "key": "tutorial.not-part-terms",
+    "beatId": "not-part-terms",
+    "speaker": "rival",
+    "text": "That was not part of the terms",
+    "sourceFile": "tutorial.not-part-terms.wav",
+    "fileBase": "rival/tutorial.not-part-terms-1",
+    "chapter": "final-guard",
+    "segment": "duel-terms",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "rehearsalSec": 2.33
+  },
+  {
+    "key": "tutorial.scripted-against-you",
+    "beatId": "scripted-against-you",
+    "speaker": "narrator",
+    "text": "This seems scripted against you.",
+    "sourceFile": "tutorial.scripted-against-you.wav",
+    "fileBase": "narrator/tutorial.scripted-against-you-1",
+    "chapter": "final-guard",
+    "segment": "duel-terms",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "rehearsalSec": 1.67
+  },
+  {
+    "key": "tutorial.come-prove-it",
+    "beatId": "come-prove-it",
+    "speaker": "rival",
+    "text": "Come here and prove it!",
+    "sourceFile": "tutorial.come-prove-it.wav",
+    "fileBase": "rival/tutorial.come-prove-it-1",
+    "chapter": "final-guard",
+    "segment": "duel-terms",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "rehearsalSec": 1.67
   },
   {
     "key": "tutorial.final-hello",
@@ -1663,7 +1767,8 @@
     "segment": "rival-escape",
     "presentation": "reactive",
     "optionalBranch": "rival-constitution",
-    "rehearsalSec": 1.5
+    "rehearsalSec": 1.5,
+    "pauseAfterSec": 0.15
   },
   {
     "key": "tutorial.not-fallen",
@@ -1768,6 +1873,85 @@
     "presentation": "reactive",
     "optionalBranch": "first-fireball-miss",
     "rehearsalSec": 2.67
+  },
+  {
+    "key": "tutorial.bridge-senses-failure",
+    "beatId": "bridge-senses-failure",
+    "speaker": "narrator",
+    "text": "The bridge grows longer when it senses failure",
+    "sourceFile": "tutorial.bridge-senses-failure.wav",
+    "fileBase": "narrator/tutorial.bridge-senses-failure-1",
+    "chapter": "bridge",
+    "segment": "bridge-dash",
+    "presentation": "reactive",
+    "optionalBranch": "bridge-growth",
+    "rehearsalSec": 2.67
+  },
+  {
+    "key": "tutorial.hence-i-crossed",
+    "beatId": "hence-i-crossed",
+    "speaker": "rival",
+    "text": "Hence why I crossed it!",
+    "sourceFile": "tutorial.hence-i-crossed.wav",
+    "fileBase": "rival/tutorial.hence-i-crossed-1",
+    "chapter": "bridge",
+    "segment": "bridge-dash",
+    "presentation": "reactive",
+    "optionalBranch": "bridge-growth",
+    "rehearsalSec": 1.67
+  },
+  {
+    "key": "tutorial.permission-stop",
+    "beatId": "permission-stop",
+    "speaker": "rival",
+    "text": "I give you permission to stop",
+    "sourceFile": "tutorial.permission-stop.wav",
+    "fileBase": "rival/tutorial.permission-stop-1",
+    "chapter": "counterfire",
+    "segment": "counterfire",
+    "presentation": "reactive",
+    "optionalBranch": "permission-to-stop",
+    "rehearsalSec": 2
+  },
+  {
+    "key": "tutorial.no-longer-ruin",
+    "beatId": "no-longer-ruin",
+    "speaker": "spellblade",
+    "text": "Will you no longer ruin my reputation, honor, status and therefore livelihood? And health?",
+    "sourceFile": "tutorial.no-longer-ruin.wav",
+    "fileBase": "spellblade/tutorial.no-longer-ruin-1",
+    "chapter": "counterfire",
+    "segment": "counterfire",
+    "presentation": "reactive",
+    "optionalBranch": "permission-to-stop",
+    "rehearsalSec": 4.67
+  },
+  {
+    "key": "tutorial.permission-no",
+    "beatId": "permission-no",
+    "speaker": "rival",
+    "text": "No.",
+    "sourceFile": "tutorial.permission-no.wav",
+    "fileBase": "rival/tutorial.permission-no-1",
+    "chapter": "counterfire",
+    "segment": "counterfire",
+    "presentation": "reactive",
+    "optionalBranch": "permission-to-stop",
+    "rehearsalSec": 1.5,
+    "pauseAfterSec": 0.08
+  },
+  {
+    "key": "tutorial.then-no",
+    "beatId": "then-no",
+    "speaker": "spellblade",
+    "text": "Then no.",
+    "sourceFile": "tutorial.then-no.wav",
+    "fileBase": "spellblade/tutorial.then-no-1",
+    "chapter": "counterfire",
+    "segment": "counterfire",
+    "presentation": "reactive",
+    "optionalBranch": "permission-to-stop",
+    "rehearsalSec": 1.5
   },
   {
     "key": "tutorial.burn-subsided",

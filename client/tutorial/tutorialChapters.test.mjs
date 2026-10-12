@@ -16,7 +16,7 @@ test('the complete declared route preserves chapter identifiers and reaches the 
   assert.deepEqual(TUTORIAL_SEGMENTS.map(item => item.id), [
     'greener-introduction', 'meaningful-look', 'approach', 'stamina', 'introductions',
     'first-attack', 'first-guard', 'health-regen', 'real-duel', 'escape-head-start', 'rival-escape', 'jump-obstacle', 'fireball', 'tattle-reveal',
-    'bridge-dash', 'counterfire', 'complaint-approach', 'pride-stop', 'final-confrontation',
+    'bridge-dash', 'counterfire', 'complaint-approach', 'pride-stop', 'duel-terms', 'final-confrontation',
     'rival-defeat', 'title-ending',
   ]);
   assert.deepEqual(TUTORIAL_BEATS, TUTORIAL_CHAPTERS.flatMap(item => item.beats));
@@ -119,7 +119,7 @@ test('only stationary rehearsal blocks; gameplay captions carry presentation tim
 });
 
 test('optional exchanges stay outside progression, are attached to segments, and play once', () => {
-  assert.deepEqual(Object.keys(TUTORIAL_BRANCHES), ['frolic', 'rival-constitution', 'first-fireball-miss', 'burned', 'final-guard-reaction', 'final-guard-broken']);
+  assert.deepEqual(Object.keys(TUTORIAL_BRANCHES), ['frolic', 'rival-constitution', 'first-fireball-miss', 'bridge-growth', 'permission-to-stop', 'burned', 'final-guard-reaction', 'final-guard-broken']);
   const plan = tutorialRecordingPlan();
   for (const [id, branch] of Object.entries(TUTORIAL_BRANCHES)) {
     const metadata = TUTORIAL_BRANCH_METADATA[id];
@@ -193,7 +193,7 @@ test('scene actions and checkpoint destinations are explicit data separate from 
   assert.equal(scene('final-confrontation').enter, 'rival-final-fight');
   assert.equal(scene('rival-defeat').enter, 'rival-final-fight');
   assert.deepEqual(scene('complaint-approach').gates[0], {
-    cue: 'complaint-approached', kind: 'near-entrance', actor: 'rival', distance: 42, playerDistance: 70,
+    cue: 'complaint-approached', kind: 'near-entrance', actor: 'rival', distance: 100,
   });
   assert.ok(TUTORIAL_BEATS.filter(item => item.kind === 'dialogue').every(item => !item.stageCue));
   const onset = TUTORIAL_BEATS.indexOf(beat('duel-onset'));
@@ -207,7 +207,8 @@ test('scene actions and checkpoint destinations are explicit data separate from 
 test('compiled scene routes recompute links and can remove the optional final exchange without removing combat', () => {
   const reduced = tutorialRouteSegments(TUTORIAL_SEGMENTS, { omitSegments: ['final-confrontation'] });
   const pride = reduced.find(segment => segment.id === 'pride-stop');
-  assert.equal(pride.next, 'rival-defeat');
+  assert.equal(pride.next, 'duel-terms');
+  assert.equal(reduced.find(segment => segment.id === 'duel-terms').next, 'rival-defeat');
   assert.equal(reduced.some(segment => segment.id === 'final-confrontation'), false);
   assert.equal(reduced.find(segment => segment.id === 'rival-defeat').scene.enter, 'rival-final-fight');
   const beats = tutorialRouteBeats(reduced);
@@ -215,7 +216,7 @@ test('compiled scene routes recompute links and can remove the optional final ex
   assert.equal(beats.some(item => item.id === 'final-guard-prompt'), false);
   assert.ok(beats.some(item => item.id === 'defeat-rival'));
   const original = TUTORIAL_SEGMENTS.find(segment => segment.id === 'pride-stop');
-  assert.equal(original.next, 'final-confrontation');
+  assert.equal(original.next, 'duel-terms');
   const reversed = tutorialRouteSegments([TUTORIAL_SEGMENTS[1], TUTORIAL_SEGMENTS[0]]);
   assert.equal(reversed[0].next, 'greener-introduction');
   assert.equal(reversed[1].next, null);

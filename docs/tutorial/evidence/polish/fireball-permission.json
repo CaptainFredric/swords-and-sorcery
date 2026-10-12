@@ -1,0 +1,36 @@
+{
+  "observed": [
+    {
+      "at": 222.83389999961852,
+      "casts": 3,
+      "cue": {
+        "advanceOn": "continue",
+        "branch": "permission-to-stop",
+        "chapter": "counterfire",
+        "id": "permission-stop",
+        "kind": "dialogue",
+        "line": "I give you permission to stop",
+        "presentation": "reactive",
+        "recordingKey": "tutorial.permission-stop",
+        "rehearsalSec": 2,
+        "runId": 8,
+        "segment": "counterfire",
+        "speaker": "rival"
+      },
+      "player": {
+        "x": 15.102559058719118,
+        "y": 0,
+        "z": -904.5839151484888
+      },
+      "rival": {
+        "x": 13.647422660778846,
+        "y": 0,
+        "z": -927.9265228866168
+      },
+      "seen": [
+        "permission-to-stop"
+      ]
+    }
+  ],
+  "once": false
+}

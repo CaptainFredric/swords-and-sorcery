@@ -4,7 +4,7 @@ import { TutorialCombatCues } from './TutorialCombatCues.mjs';
 import { TutorialRival } from './TutorialRival.mjs';
 import { tutorialSceneCue } from './TutorialSceneCues.mjs';
 import { TUTORIAL_SEGMENTS, TUTORIAL_BRANCHES, tutorialRouteSegments, tutorialRouteBeats } from './tutorialScript.mjs';
-import { GREENER_ROUTE } from '../../shared/worlds/greenerPastures.mjs';
+import { GREENER_ROUTE, BRIDGE_RETRY, greenerPasturesWithBridgeRetries, greenerBridgeRetryFloor } from '../../shared/worlds/greenerPastures.mjs';
 import { resetPracticePlayer, spawnPracticeDummy, removePracticeDummy } from '../../shared/sim/practice.mjs';
 import { cancelAttack, setGuard } from '../../shared/sim/combat.mjs';
 import { HEALTH_REGEN } from '../../shared/src/combat.mjs';
@@ -52,6 +52,8 @@ export class TutorialSession {
       onChange:progress => this.changed(progress)});
     this.active = false; this.off = []; this.lastBeat = null; this.lastSegment = null;
     this.checkpoint = this.route[0].id; this.blockedHeld = new Set();
+    this.bridgeFailures = 0;
+    this.laterFireballs = 0;
   }
   get requiresFinalGuard() { return this.director.beats.some(beat=>beat.advanceOn==='rival-guard-broken'); }
   start() {
@@ -157,11 +159,11 @@ export class TutorialSession {
   }
   beforeStep(now) {
     if (!this.active || this.director.state !== 'running') return;
-    if (this.rivalFell) { this.retry(); this.onBlocked('rival-fall'); return; }
+    if (this.rivalFell) { this.retry({ automatic: true }); this.onBlocked('rival-fall'); return; }
     this.director.tick(now);
     if (this.director.facts.has('rival-survived-lethal') && this.director.progress.segment?.branches?.includes('rival-constitution')) this.director.offerBranch('rival-constitution');
     const actor = this.host.room.players.get(this.rivalId), me = this.host.player;
-    if (!me.alive) { this.retry(); return; }
+    if (!me.alive) { this.retry({ automatic: true, bridgeFall: this.bridgeFall }); return; }
     if (!actor.alive) actor.respawnAt = Infinity;
     this.rival.beforeStep(now);
     if (this.rival.mode === 'draw' && now - actor.tutorialDrawAt >= .85) this.director.fact('rival-sword-drawn');
@@ -176,7 +178,9 @@ export class TutorialSession {
     if (jump && this.jumpAttempt && me.grounded && me.position.z <= jump.landing.z && Math.abs(me.position.x-jump.landing.x) < 15) this.director.fact('jump-crossed');
     const bridge = GREENER_ROUTE.bridge;
     if (me.position.z <= GREENER_ROUTE.waypointById['bridge-approach'].z && actor.position.z <= GREENER_ROUTE.waypointById['bridge-approach'].z+5) this.director.fact('bridge-reached');
-    if (this.bridgeDash && me.position.z < bridge.gapBounds.minZ && me.grounded) this.director.fact('bridge-crossed');
+    const farEdge = greenerBridgeRetryFloor(this.bridgeFailures);
+    const landingZ = farEdge ? farEdge.center[2] + farEdge.size[2] / 2 : bridge.gapBounds.minZ;
+    if (this.bridgeDash && me.position.z < landingZ && me.grounded) this.director.fact('bridge-crossed');
     if (['counterfire','complaint'].includes(this.rival.mode) && this.rival.counterShots > 0) this.director.fact('rival-counterfire-started');
     if (this.rival.counterShots >= 2 && me.position.z < GREENER_ROUTE.landmarks.counterfire.z) this.director.fact('counterfire-complete');
     // Scene gates compose observations. The dialogue may be freely replaced or removed.
@@ -191,6 +195,22 @@ export class TutorialSession {
     this.combat.accept(events);
     const hits = events.some(e=>e.type==='damage' && e.attackerId===this.host.player.id && e.victimId===this.rivalId && e.source==='fireball' && e.amount>0);
     for (const event of events) {
+      if (event.type === 'death' && event.victimId === this.host.player.id && event.source === 'abyss') {
+        const p = this.host.player.position, b = GREENER_ROUTE.bridge;
+        this.bridgeFall = this.director.current?.chapter === 'bridge'
+          && Math.abs(p.x - b.centerX) < b.width / 2
+          && p.z < b.ravineBounds.maxZ && p.z > b.ravineBounds.minZ;
+      }
+      if (event.type === 'projectileSpawned' && event.projectile.ownerId === this.host.player.id && event.projectile.spell === 'fireball'
+        && this.firstFireballHit && ['counterfire', 'complaint'].includes(this.rival.mode)) {
+        const projectile = event.projectile, actor = this.host.room.players.get(this.rivalId);
+        const dx = actor.position.x - projectile.position.x, dz = actor.position.z - projectile.position.z;
+        const speed = Math.hypot(projectile.velocity.x, projectile.velocity.z);
+        const apart = Math.hypot(dx, dz);
+        const aimedAtRival = (dx * projectile.velocity.x + dz * projectile.velocity.z) / (apart * speed || 1) > .7;
+        if (apart <= 70 && aimedAtRival) this.laterFireballs += 1;
+        if (this.laterFireballs >= 3 && this.director.progress.segment?.branches?.includes('permission-to-stop')) this.director.offerBranch('permission-to-stop');
+      }
       if (event.type==='projectileSpawned' && event.projectile.ownerId===this.host.player.id && event.projectile.spell==='fireball' && !this.firstFireballHit) this.learnerProjectiles.add(event.projectile.id);
       if (event.type==='projectileImpact') this.learnerProjectiles.delete(event.projectileId);
       if (['block','parry'].includes(event.type) && event.defenderId===this.host.player.id && event.attackerId===this.rivalId && this.rival.mode==='guard-lesson') {
@@ -249,13 +269,21 @@ export class TutorialSession {
     if (me.burningUntil > snapshot.serverTime) this.burnSeen = true;
     if (this.burnSeen && me.burningUntil <= snapshot.serverTime) this.director.offerBranch('burned');
   }
-  retry() {
+  retry({ automatic = false, bridgeFall = false } = {}) {
+    const previous = this.bridgeFailures;
+    this.bridgeFailures = automatic ? Math.min(BRIDGE_RETRY.maxFailures, previous + (bridgeFall ? 1 : 0)) : 0;
+    this.host.room.world = greenerPasturesWithBridgeRetries(this.bridgeFailures);
+    this.host.room.tutorialBridgeFailures = this.bridgeFailures;
+    this.bridgeFall = false;
     const segment = this.checkpoint;
     this.stage(segment); this.director.resumeAt(this.route.find(x=>x.id===segment).beats[0].id);
+    if (previous === 0 && this.bridgeFailures > 0) this.director.offerBranch('bridge-growth');
     this.onRestore(this.host.player);
   }
   restart() {
     if (!this.active) return;
+    this.bridgeFailures = 0; this.bridgeFall = false; this.laterFireballs = 0;
+    this.host.room.world = greenerPasturesWithBridgeRetries(); this.host.room.tutorialBridgeFailures = 0;
     this.checkpoint = this.route[0].id; this.stage(); this.director.start(); this.onRestore(this.host.player);
   }
   stop() {
