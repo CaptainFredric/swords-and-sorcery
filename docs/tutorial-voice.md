@@ -54,10 +54,10 @@ Rubber Band ("I do not get hints." in the jump scene), all under the same helm. 
 ## What the recordings needed
 
 - **Every MP3 ends on a broken frame.** The recorder stopped mid-frame. These frames decode as a garbled drop in level,
-  then silence, in the last 52–131 ms. Each take ends before them. In eight played takes the last word was still
+  then silence, in the last 52–131 ms. Each take ends before them. In nine played takes the last word was still
   decaying there, and ends on a 30 ms fade: "That is your stamina", "I despise this.", "Interception!",
-  "Impressive.", "That was cold of you, ow!", "Fine then, we duel!", "The sword remains mightier than the pen..." and
-  "No I am not!".
+  "Impressive.", "That was cold of you, ow!", "Fine then, we duel!", "The sword remains mightier than the pen...",
+  "No I am not!" and "Aha! Try getting over this!".
 - **The recording app's noise suppression and gain.** The room steps up as each line starts. The room is quiet
   (−50 to −55 dBFS), so it is evened between the words rather than denoised.
 - **Recorder padding.** Trimmed to 40 ms before the first sound, the word's own decay after the last. Pauses inside a
@@ -75,22 +75,55 @@ Recorded from the game (Chrome, default levels), each line's caption and take st
 pauses exactly as authored. The clips are on the review page (`artifacts/tutorial-voice/review/`, the `vo-review`
 preview).
 
+## Full route, in the game (2026-10-12, PR #157 at 9975864)
+
+The whole of Tutorial 1, from the arena gate to "Let us hope there are not many like him.", played in Chrome with real
+input (Codex's playtest driver, changed only to let recorded lines finish and to fail the bridge once): 9 min 26 s,
+148 takes, recorded from the game's own output (`artifacts/tutorial-voice/review/in-game/full-route.m4a`).
+
+- **Every take played to its real end but one:** Rival's "This should stop you!" is cut halfway when he dies in the
+  final fight and the ending begins (the narrator's "Convince him to unblock you." is dropped with it).
+- **Between lines:** 0.3–0.4 s (the director's 0.35 s) everywhere, except the two authored beats: "Your rival appears
+  not to have fallen yet." 0.14 s after "No I am not!", and "Then no." 0.08 s after Rival's "No." (checked again during
+  a live counterfire chase, Rival moving throughout).
+- **Pursuit banter** ("Hello!" to "That is a lot of things."): 13.7 s, Rival fleeing at about 7.5 m/s the whole time,
+  the player 10 m behind; Fireball is introduced 2.9 s after it ends.
+- **Bridge failure:** after a real fall, "The bridge grows longer when it senses failure" plays 1.6 s into the restored
+  checkpoint, then "Hence why I crossed it!"; the second crossing is followed 0.56 s later by "Small gaps have never
+  stopped anybody important."
+- **Final approach and duel terms:** "This is not where your legend ends…", "A real knight never asks for help!", then
+  all eight terms (18.5 s) while Rival stands ready 2 m away; the title ending follows the defeat as written.
+
+Spacing problems the recorded durations cause (reported, not changed: they are the script's and the encounter's):
+
+1. **Stamina (real, blocking).** From the SPRINT prompt to "Clearly." the voiced exchange takes 14.2 s (the takes alone
+   are 12.0 s); a full bar is 10 s of sprint. The player runs out during "Sprinting typically consumes more energy",
+   before the `sprint-sustained` gate and "Ah, hahaha! I can do this all day!". After that, holding Sprint as told
+   never passes the gate: Sprint restarts at 25 stamina, 2.5 s of it ends at 0, and the gate wants 2.5 s ending with at
+   least 10 left. The player has to stop until the bar is past about 35, and nothing tells them so. No cadence change
+   fits 12 s of speech into 10 s of stamina; the choices are the gate (for example, remembering a sustained sprint made
+   during the exchange) or where the exchange begins.
+2. **The hit reaction waits behind a branch.** When Fireball hits bring Rival to 1 HP before the Fireball prompt, the
+   constitution exchange (eight lines, 21 s) plays first, and "That was cold of you, ow!" follows 35 s after the
+   first hit. This is the order of the dialogue, not its length; the branch could follow the hit's three-line reaction.
+3. **The escape head start** is 20.3 s of recorded dialogue in which the player may only look (about 8 s of caption
+   timing before). Rival is leashed and stays catchable (up to 74 m ahead).
+
 ## Discrepancy report (2026-10-12, against PR #157's recording plan at 9975864)
 
-Sources: the four Google Drive ZIPs (175 takes with the loose "Remember to think more often") and Downloads. The three
-earlier ZIPs, supplied again, are byte-identical to the first archive.
+Sources: five Google Drive ZIPs and two loose takes (181 files). Every supplied file is a row of the manifest.
 
-1. **Keys with a final take: 157 of 159.**
-2. **Still missing:** `tutorial.negotiations` (narrator, "Woah. It appears negotiations have gone hostile.") and
-   `tutorial.get-over-this` (rival, "Aha, try getting over this!"). Neither is in any ZIP or in Downloads.
-3. **Alternate takes not used (5):** "Oh look, there's another…" (`OhLookAnotherJustLikeYou`), "Aha! Took us long enough"
-   (`2026_10_11_19_30_58`), the legend line without "your" (`NotWhereLegendEndsSpellblade`), the shorter
-   "A sound argument" (`SoundArgument_1`), and the second "My reputation…" (`MyReputationWillBecomeDead`).
-4. **Intended wording that differs from older script history:** "With your eyes." (`tutorial.truly-look-around`),
-   "Perhaps his armor is better tailored than yours. What is his condition?" (`tutorial.what-condition`), "My reputation
-   will become dead if he remains ahead!" (`tutorial.remains-ahead`), and "Small gaps have never stopped anybody
-   important." (`tutorial.small-gaps`). PR #157 (9975864) now captions all four with this wording.
+1. **Keys with a final take: 159 of 159.** The last two arrived on 2026-10-12: "Woah, it appears negotiations have gone
+   hostile!" and "Aha! Try getting over this!".
+2. **Still missing:** none.
+3. **Takes not used:** the five alternates, dropped by the creator (2026-10-12): "Oh look, there's another…", "Aha!
+   Took us long enough", the legend line without "your", the shorter "A sound argument", the second "My reputation…".
+   The raw takes stay archived. The latest ZIP's "Try placating him" and "Haha! Took US long enough!" are the same files
+   as the takes already used (byte-identical), listed as duplicates.
+4. **Intended wording that differs from older script history:** "With your eyes.", "Perhaps his armor is better
+   tailored than yours. What is his condition?", "My reputation will become dead if he remains ahead!", "Small gaps
+   have never stopped anybody important." PR #157 captions all four this way.
 5. **Ambiguous:** "No! Your sword has worked on me this time!" (Rival) and a Rival hurt grunt have no place in the
    script. The two "I do not get hints." takes were told apart by recording time. "Hence why I crossed it!" and
-   "I give you permission to stop" are Rival's because PR #157 says so; they were first guessed as the Spellblade's.
-   Eleven general Spellblade lines (the long Fireball and Ice Ball calls and others) are mastered but declared nowhere.
+   "I give you permission to stop" are Rival's because PR #157 says so. Eleven general Spellblade lines are mastered
+   but declared nowhere.

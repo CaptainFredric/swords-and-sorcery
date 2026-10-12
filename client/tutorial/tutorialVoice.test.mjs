@@ -13,8 +13,9 @@ const sources = JSON.parse(read('tools/audio/tutorial-voice-sources.json')).take
 const chains = JSON.parse(read('tools/audio/tutorial-voice-chains.json'));
 const plan = tutorialRecordingPlan();
 
-// The keys with no take yet (named in docs/tutorial-voice.md; captions only until they are recorded).
-const NOT_RECORDED = ['tutorial.get-over-this', 'tutorial.negotiations'];
+// The keys with no take yet (named in docs/tutorial-voice.md; captions only until they are recorded): none since
+// 2026-10-12.
+const NOT_RECORDED = [];
 
 test('every recorded key of the plan has its take on disk, with its speaker, and nothing else is shipped', () => {
   const recorded = plan.filter(take => !NOT_RECORDED.includes(take.key));
@@ -44,7 +45,10 @@ test('each raw take is accounted for once, and every exception or repair says wh
       // (a caption is the script's: a take carries words only where the script is catching up with it)
       if (take.status === 'intended') assert.ok(take.words && take.note, take.raw);
       else assert.equal(take.words, undefined, take.raw);
-      if (take.status !== 'alternate') served.set(take.key, [...(served.get(take.key) ?? []), take.raw]);
+      // (a take set aside by the creator, or the same file supplied twice, is listed and never played)
+      if (take.status === 'duplicate') assert.equal(sources.find(other => other.raw === take.sameAs)?.sha256, take.sha256, take.raw);
+      if (take.status === 'dropped' || take.status === 'duplicate') assert.ok(take.note, take.raw);
+      if (!['alternate', 'dropped', 'duplicate'].includes(take.status)) served.set(take.key, [...(served.get(take.key) ?? []), take.raw]);
     } else {
       assert.ok(['unplaced', 'general'].includes(take.status), take.raw);
       assert.ok(take.words && take.note, `${take.raw}: what it says and why it has no place`);

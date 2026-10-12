@@ -229,6 +229,12 @@
       "seconds": 2.95,
       "onset": 0.04
     },
+    "tutorial.get-over-this": {
+      "file": "rival/tutorial.get-over-this-1",
+      "speaker": "rival",
+      "seconds": 2.228,
+      "onset": 0.04
+    },
     "tutorial.good-health": {
       "file": "rival/tutorial.good-health-1",
       "speaker": "rival",
@@ -455,6 +461,12 @@
       "file": "narrator/tutorial.need-look-around-1",
       "speaker": "narrator",
       "seconds": 1.38,
+      "onset": 0.04
+    },
+    "tutorial.negotiations": {
+      "file": "narrator/tutorial.negotiations-1",
+      "speaker": "narrator",
+      "seconds": 3.06,
       "onset": 0.04
     },
     "tutorial.never-welcome": {
