@@ -257,6 +257,11 @@
         "before": "This is indeed much faster. Wait, what is that below?",
         "after": "This is indeed much faster. Wait, what is that down there?",
         "note": "Desktop stamina remains below; touch HUD stamina is above and uses tutorial.what-is-above."
+      },
+      {
+        "key": "tutorial.remains-ahead",
+        "before": "I would like to keep attacking, but he remains ahead!",
+        "after": "My reputation will become dead if he remains ahead!"
       }
     ],
     "missing": []
