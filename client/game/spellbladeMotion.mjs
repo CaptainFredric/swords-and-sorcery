@@ -296,3 +296,20 @@ export function guardTurns(amount, pose = GUARD_POSE) {
     { bone: 'hand.R', axis: [0, 0, 1], angle: pose.across * a, space: 'local' },
   ];
 }
+
+// Recoverable heavy reaction: buckle into a supported crouch, brace, then regain the feet.
+// Pure presentation, usable by any actor. It never enters Death or changes combat timing.
+export const NONLETHAL_RECOVERY = Object.freeze({ duration: 2.6, buckle: .28, braceUntil: 1.2 });
+export function nonlethalRecovery(age, duration = NONLETHAL_RECOVERY.duration) {
+  const rotations=[],pelvis=[0,0,0];
+  if(!(age>=0) || !(duration>0) || age>=duration)return {rotations,pelvis,legFlex:0};
+  const t=age*NONLETHAL_RECOVERY.duration/duration;
+  const weight=t<NONLETHAL_RECOVERY.buckle ? smoothstep(t/NONLETHAL_RECOVERY.buckle)
+    : 1-smoothstep((t-NONLETHAL_RECOVERY.braceUntil)/(NONLETHAL_RECOVERY.duration-NONLETHAL_RECOVERY.braceUntil));
+  for(const [bone,axis,amount] of [
+    ['spine',[-1,0,0],.24],['chest',[-1,0,0],.32],['head',[-1,0,0],.2],
+    ['upper_arm.L',[1,0,0],.42],['forearm.L',[1,0,0],-.65],
+    ['upper_arm.R',[0,0,1],-.22],['hand.R',[1,0,0],.18],
+  ])rotations.push({bone,axis,angle:amount*weight});
+  return {rotations,pelvis,legFlex:.82*weight};
+}

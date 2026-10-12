@@ -1,3 +1,5 @@
+import { GREENER_NAVIGATION } from './greenerNavigation.mjs';
+import { GREENER_FARM_SOLIDS } from './greenerFarm.mjs';
 function point(id, x, z, yaw = 0, y = 0) {
   return Object.freeze({ id, x, y, z, yaw });
 }
@@ -10,12 +12,12 @@ function solid(id, center, size, kind = 'field-wall', material = 'stone') {
   return Object.freeze({ id, center: Object.freeze(center), size: Object.freeze(size), kind, material });
 }
 
-const PLAYER = point('opening', 0, 160);
+const PLAYER = point('opening', 0, 210);
 const MEETING = point('meeting', 0, -15, Math.PI);
-const JUMP_APPROACH = point('jump-approach', 55, -91);
-const JUMP_TAKEOFF = point('jump-takeoff', 55, -97.8);
-const JUMP_LANDING = point('jump-landing', 55, -104.2);
-const JUMP_EXIT = point('jump-exit', 55, -114);
+const JUMP_APPROACH = point('jump-approach', 55, -213);
+const JUMP_TAKEOFF = point('jump-takeoff', 55, -226.8);
+const JUMP_LANDING = point('jump-landing', 55, -233.2);
+const JUMP_EXIT = point('jump-exit', 55, -243);
 const TATTLE_REVEAL = point('tattle-reveal', 30, -400);
 const BRIDGE_TAKEOFF = point('bridge-takeoff', 32, -662.4, 0, 2);
 const BRIDGE_LANDING = point('bridge-landing', 32, -676.1);
@@ -23,11 +25,16 @@ const FINAL = point('final', 36, -1072);
 const ENTRANCE = point('complaint-entrance', 36, -1076);
 const CHASE = Object.freeze([
   MEETING,
-  point('escape', 55, -80),
+  point('escape', 12, -38),
+  point('cart-gap',30,-55), point('wall-gap-west',12,-80),
+  point('wall-gap-east',31,-112), point('byre-lane',31,-170),
   JUMP_APPROACH, JUMP_TAKEOFF, JUMP_LANDING, JUMP_EXIT,
-  point('fireball', -50, -170),
+  point('orchard-gap',-20,-302),
+  point('fireball', -50, -320),
   TATTLE_REVEAL,
   point('sheepfold', 15, -486),
+  point('dead-end-approach',15,-514), point('dead-end-takeoff',15,-516.8),
+  point('dead-end-landing',15,-523.2), point('dead-end-exit',15,-530),
   point('bridge-approach', 32, -572),
   BRIDGE_TAKEOFF,
   BRIDGE_LANDING,
@@ -57,9 +64,9 @@ const DESTINATION = Object.freeze({
 export const GREENER_ROUTE = Object.freeze({
   playerSpawn: PLAYER,
   rivalMeeting: MEETING,
-  initialDistance: 175,
-  bounds: Object.freeze({ minX: -85, maxX: 100, minZ: -1125, maxZ: 195 }),
-  dimensions: Object.freeze({ width: 185, depth: 1320 }),
+  initialDistance: 225,
+  bounds: Object.freeze({ minX: -85, maxX: 100, minZ: -1125, maxZ: 245 }),
+  dimensions: Object.freeze({ width: 185, depth: 1370 }),
   chaseWaypoints: CHASE,
   waypointById: WAYPOINTS,
   routeDistances: DISTANCES,
@@ -68,7 +75,13 @@ export const GREENER_ROUTE = Object.freeze({
     takeoff: JUMP_TAKEOFF,
     landing: JUMP_LANDING,
     waitPoint: JUMP_EXIT,
-    obstacleBounds: Object.freeze({ minX: 45, maxX: 65, minZ: -101.35, maxZ: -100.65, minY: 0, maxY: 0.8 }),
+    obstacleBounds: Object.freeze({ minX: 45, maxX: 65, minZ: -230.35, maxZ: -229.65, minY: 0, maxY: 0.8 }),
+  }),
+  jumpReuse: Object.freeze({
+    approach: WAYPOINTS['dead-end-approach'], takeoff: WAYPOINTS['dead-end-takeoff'],
+    landing: WAYPOINTS['dead-end-landing'], exit: WAYPOINTS['dead-end-exit'],
+    obstacleBounds: Object.freeze({minX:5,maxX:25,minZ:-520.375,maxZ:-519.625,minY:0,maxY:.8}),
+    detour: point('dead-end-side-gate',26,-520),
   }),
   bridge: Object.freeze({
     centerX: 32,
@@ -94,9 +107,11 @@ export const GREENER_ROUTE = Object.freeze({
   landmarks: Object.freeze({
     jump: JUMP_APPROACH,
     'jump-approach': JUMP_APPROACH,
-    'pursuit-banter': point('pursuit-banter', -30, -220),
+    'pursuit-banter': point('pursuit-banter', -30, -365),
     'tattle-reveal': TATTLE_REVEAL,
     sheepfold: WAYPOINTS.sheepfold,
+    'dead-end-approach': WAYPOINTS['dead-end-approach'],
+    'dead-end-exit': WAYPOINTS['dead-end-exit'],
     fireball: WAYPOINTS.fireball,
     counterfire: WAYPOINTS.counterfire,
     complaintApproach: WAYPOINTS['complaint-approach'],
@@ -110,7 +125,7 @@ export const GREENER_ROUTE = Object.freeze({
     duel: point('duel-checkpoint', 0, -12.2),
     pursuit: point('pursuit-checkpoint', 12, -38),
     jump: JUMP_APPROACH,
-    fireball: point('fireball-checkpoint', -44, -162),
+    fireball: point('fireball-checkpoint', -44, -312),
     bridge: point('bridge-checkpoint', 32, -572),
     counterfire: point('counterfire-checkpoint', 30, -698),
     complaint: point('complaint-checkpoint', 32, -990),
@@ -129,12 +144,13 @@ export const GREENER_TREES = Object.freeze([
   { x: 72, z: -690, scale: 1.7 }, { x: -39, z: -745, scale: 1.7 },
   { x: 4, z: -1030, scale: 1.8 }, { x: 77, z: -1060, scale: 1.9 },
   { x: -38, z: -1099, scale: 1.7 },
+  ...[-46, 35].flatMap(x=>[185,210,228].map(z=>({x,z,scale:1.4,kind:'oak'}))),
   ...[-70, -54, -38].flatMap(x => [-226, -247, -268].map(z => ({ x, z, scale: 1.35, kind: 'oak' }))),
   ...[-66, -50].flatMap(x => [98, 121, 144].map(z => ({ x, z, scale: 1.3, kind: 'oak' }))),
 ].map((tree, index) => Object.freeze({ id: `pasture-oak-${index}`, ...tree })));
 
 const FLOORS = Object.freeze([
-  floor('opening-meadow', -85, 100, 40, 195),
+  floor('opening-meadow', -85, 100, 40, 245),
   floor('meeting-meadow', -85, 100, -35, 40),
   floor('fireball-meadow', -85, 100, -205, -35),
   floor('bridge-meadow', -85, 100, -641, -205),
@@ -160,9 +176,9 @@ const RAMPS = Object.freeze([
 ]);
 
 const SOLIDS = Object.freeze([
-  solid('west-hedgerow', [-85, 1.1, -465], [1.2, 2.2, 1320], 'hedge', 'hedge'),
-  solid('east-hedgerow', [100, 1.1, -465], [1.2, 2.2, 1320], 'hedge', 'hedge'),
-  solid('north-hedgerow', [7.5, 1.1, 195], [185, 2.2, 1.2], 'hedge', 'hedge'),
+  solid('west-hedgerow', [-85, 1.1, -440], [1.2, 2.2, 1370], 'hedge', 'hedge'),
+  solid('east-hedgerow', [100, 1.1, -440], [1.2, 2.2, 1370], 'hedge', 'hedge'),
+  solid('north-hedgerow', [7.5, 1.1, 245], [185, 2.2, 1.2], 'hedge', 'hedge'),
   solid('south-field-wall', [7.5, 1, -1125], [185, 2, 0.8]),
   // Old field boundaries on the ravine rim. Every opening is a real bridge approach; the broken span itself
   // has no lip or invisible collision across its lane. Walking into the missing span is an actual fall.
@@ -186,11 +202,11 @@ const SOLIDS = Object.freeze([
   solid('opening-east-return', [68, 0.85, 95], [38, 1.7, 0.7]),
   solid('meeting-waystone', [11, 1.15, -23], [1.4, 2.3, 1.1], 'waystone'),
   solid('escape-east-hedge', [80, 1.1, -74], [1.1, 2.2, 44], 'hedge', 'hedge'),
-  solid('orchard-stile', [55, 0.4, -101], [20, 0.8, 0.7]),
-  solid('stile-west-post', [44.4, 1, -101], [1.2, 2, 1.2]),
-  solid('stile-east-post', [65.6, 1, -101], [1.2, 2, 1.2]),
-  solid('stile-west-hedge', [37, 1.1, -101], [13.6, 2.2, 1.1], 'hedge', 'hedge'),
-  solid('stile-east-hedge', [78, 1.1, -101], [23.6, 2.2, 1.1], 'hedge', 'hedge'),
+  solid('orchard-stile', [55, 0.4, -230], [20, 0.8, 0.7]),
+  solid('stile-west-post', [44.4, 1, -230], [1.2, 2, 1.2]),
+  solid('stile-east-post', [65.6, 1, -230], [1.2, 2, 1.2]),
+  solid('stile-west-hedge', [37, 1.1, -230], [13.6, 2.2, 1.1], 'hedge', 'hedge'),
+  solid('stile-east-hedge', [78, 1.1, -230], [23.6, 2.2, 1.1], 'hedge', 'hedge'),
   solid('fireball-west-field-wall', [-72, 0.85, -166], [0.7, 1.7, 52]),
   solid('fireball-field-wall', [58, 0.85, -159], [30, 1.7, 0.7]),
   solid('orchard-west-hedge', [-78, 1.1, -246], [1.1, 2.2, 82], 'hedge', 'hedge'),
@@ -220,6 +236,7 @@ const SOLIDS = Object.freeze([
   solid('complaint-roof', [36, 8.8, -1080], [28, 1.4, 9], 'complaint-roof', 'timber'),
   solid('complaint-rear-wall', [36, 3.5, -1091], [26, 7, 0.8], 'complaint-wing', 'plaster'),
   solid('complaint-sign', DESTINATION.sign.center, [DESTINATION.sign.width, DESTINATION.sign.height, 0.22], 'complaint-sign', 'timber'),
+  ...GREENER_FARM_SOLIDS,
   ...GREENER_TREES.map((tree) => solid(tree.id, [tree.x, 1.05 * tree.scale, tree.z], [0.52 * tree.scale, 2.1 * tree.scale, 0.52 * tree.scale], 'tree', 'timber')),
 ]);
 
@@ -239,7 +256,7 @@ function navigationHeight(x, z) {
 }
 
 const NODES = [];
-for (let z = 184; z > GREENER_ROUTE.bounds.minZ + 5; z -= 16) {
+for (let z = 232; z > GREENER_ROUTE.bounds.minZ + 5; z -= 16) {
   if (z < GREENER_ROUTE.bridge.ravineBounds.maxZ + 2 && z > GREENER_ROUTE.bridge.ravineBounds.minZ - 2) continue;
   for (const x of [-68, -52, -36, -20, -4, 12, 28, 44, 60, 76, 92]) {
     const y = navigationHeight(x, z);
@@ -253,7 +270,8 @@ for (let z = 184; z > GREENER_ROUTE.bounds.minZ + 5; z -= 16) {
 }
 NODES.push(point('west-crossing-north', -68, -659), point('west-crossing', -68, -670), point('west-crossing-south', -68, -681));
 for (const z of [-640, -647, -653, -658, -662]) NODES.push(point(`north-bridge-${z}`, 32, z, 0, navigationHeight(32, z)));
-NODES.push(point('granary-front', 68, -298), point('granary-gate', 68, -305), point('granary-court', 68, -316));
+NODES.push(point('granary-front', 68, -298), point('granary-gate', 68, -305), point('granary-court', 73, -315));
+NODES.push(point('fold-gate-north',-27,-463),point('fold-gate',-27,-467),point('fold-lane',-27,-476),point('fold-court',-26,-485));
 NODES.push(point('broken-south', 32, -677), point('broken-south-exit', 32, -684));
 NODES.push(point('complaint-front', 36, -1068), ENTRANCE, point('complaint-court', 36, -1085));
 
@@ -262,9 +280,9 @@ export const GREENER_PASTURES = Object.freeze({
   name: 'Greener Pastures',
   tutorialOnly: true,
   zones: Object.freeze([
-    Object.freeze({ id: 'opening-vista', name: 'Opening Meadow', center: Object.freeze([0, 0, 160]), radius: 35 }),
+    Object.freeze({ id: 'opening-vista', name: 'Opening Meadow', center: Object.freeze([0, 0, 210]), radius: 35 }),
     Object.freeze({ id: 'meeting-clearing', name: 'Meeting Clearing', center: Object.freeze([0, 0, -15]), radius: 20 }),
-    Object.freeze({ id: 'orchard-stile', name: 'Orchard Stile', center: Object.freeze([55, 0, -101]), radius: 24 }),
+    Object.freeze({ id: 'orchard-stile', name: 'Orchard Stile', center: Object.freeze([55, 0, -230]), radius: 24 }),
     Object.freeze({ id: 'fireball-clearing', name: 'Lower Hayfield', center: Object.freeze([-50, 0, -170]), radius: 28 }),
     Object.freeze({ id: 'western-orchard', name: 'Western Orchard', center: Object.freeze([-55, 0, -247]), radius: 32 }),
     Object.freeze({ id: 'granary-remnants', name: 'Old Granary', center: Object.freeze([68, 0, -318]), radius: 22 }),
@@ -278,10 +296,10 @@ export const GREENER_PASTURES = Object.freeze({
   solids: SOLIDS,
   props: Object.freeze([]),
   spawnPoints: Object.freeze([PLAYER, MEETING, point('west-field-spawn', -28, 60), point('east-field-spawn', 48, -44), point('far-field-spawn', -8, -815), point('final-spawn', 36, -1061)]),
-  navigation: Object.freeze({ nodes: Object.freeze(NODES) }),
+  navigation: Object.freeze({ nodes: Object.freeze(NODES), precomputed: GREENER_NAVIGATION }),
   navigationHints: Object.freeze([
-    Object.freeze({ id: 'opening-to-meeting', from: Object.freeze([0, 0, 160]), to: Object.freeze([0, 0, -15]), kind: 'run' }),
-    Object.freeze({ id: 'orchard-stile', from: Object.freeze([55, 0, -97.8]), to: Object.freeze([55, 0, -104.2]), kind: 'jump' }),
+    Object.freeze({ id: 'opening-to-meeting', from: Object.freeze([0, 0, 210]), to: Object.freeze([0, 0, -15]), kind: 'run' }),
+    Object.freeze({ id: 'orchard-stile', from: Object.freeze([55, 0, -226.8]), to: Object.freeze([55, 0, -233.2]), kind: 'jump' }),
     Object.freeze({ id: 'broken-span', from: Object.freeze([32, 2, -662.4]), to: Object.freeze([32, 0, -676.1]), kind: 'jump-and-airborne-dash' }),
     Object.freeze({ id: 'old-crossing', from: Object.freeze([-68, 0, -659]), to: Object.freeze([-68, 0, -681]), kind: 'run' }),
     Object.freeze({ id: 'far-bank-to-final', from: Object.freeze([32, 0, -693]), to: Object.freeze([36, 0, -1070]), kind: 'run' }),

@@ -154,3 +154,17 @@ test('after the Death clip topples him, the body carries on down to lie on the g
   const knees = (age) => Math.abs(deathSlump(age, null, 0).rotations.find((r) => r.bone === 'shin.L')?.angle ?? 0);
   assert.ok(knees(3) < knees(0.8) && knees(3) > 0.3 * knees(0.8));
 });
+
+test('nonlethal recovery buckles, braces and smoothly returns to neutral without a death pose', async()=>{
+  const {nonlethalRecovery,NONLETHAL_RECOVERY}=await import('./spellbladeMotion.mjs');
+  assert.equal(nonlethalRecovery(-1).legFlex,0);
+  assert.equal(nonlethalRecovery(0).legFlex,0);
+  assert.ok(nonlethalRecovery(.35).legFlex>.7);
+  assert.ok(nonlethalRecovery(1.3).legFlex>nonlethalRecovery(2.3).legFlex);
+  assert.deepEqual(nonlethalRecovery(NONLETHAL_RECOVERY.duration),{rotations:[],pelvis:[0,0,0],legFlex:0});
+  for(let t=0;t<NONLETHAL_RECOVERY.duration;t+=1/120){
+    const a=nonlethalRecovery(t),b=nonlethalRecovery(t+1/120);
+    assert.ok(Math.abs(a.legFlex-b.legFlex)<.05);
+    assert.ok(a.rotations.every(r=>Number.isFinite(r.angle)));
+  }
+});

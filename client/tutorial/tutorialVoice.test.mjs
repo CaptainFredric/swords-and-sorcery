@@ -250,7 +250,7 @@ test('a take whose end is never heard is let go, and the director paces the line
 test('the game plays the takes: the tutorial voice follows the director, stops with the lesson and waits for the gate', () => {
   const main = read('client/main.mjs');
   assert.match(main, /tutorialVoice \?\?= new TutorialVoice\(\{ engine: sound, context: \(\) => \(\{ touch: touchUi \}\) \}\);/);
-  assert.match(main, /tutorialView\.show\(progress\);\n\s+tutorialVoice\.sync\(tutorialSession\?\.director\);/);
+  assert.match(main, /tutorialView\.show\(progress\);\n\s+if \(\!tutorialOpening\.waiting && \(tutorialOpening\.audioReady \|\| progress\.current\?\.id !== tutorialOpening\.cueId\)\) tutorialVoice\.sync\(tutorialSession\?\.director\);/);
   assert.match(main, /tutorialVoice\?\.stop\(\);\n\s+endingTutorial\?\.stop\(\);/);
-  assert.match(main, /if \(tutorialSession\) tutorialVoice\?\.quietFor\(1\.35\);/);
+  assert.match(main, /if \(tutorialSession\) tutorialOpening\.begin\(\);/);
 });

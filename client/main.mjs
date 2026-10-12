@@ -1,6 +1,7 @@
 import { TutorialSession } from './tutorial/TutorialSession.mjs';
 import { TutorialView } from './tutorial/TutorialView.mjs';
 import { TutorialProgress } from './tutorial/TutorialProgress.mjs';
+import { TutorialOpening } from './tutorial/TutorialOpening.mjs';
 import { TutorialVoice } from './tutorial/tutorialVoice.mjs';
 import { ChallengesController } from './menu/ChallengesController.mjs';
 import { normalizePreparedSpells, replacePreparedSpell } from '../shared/src/preparedSpells.mjs';
@@ -411,11 +412,11 @@ function syncChallenge(message) {
 }
 
 // black opens onto the arena with its name
-function openArenaGate(info) {
+function openArenaGate(info, force = false) {
   // once per opening (a countdown ending and the route change can both ask for it)
-  if (performance.now() - gateOpenedAt < 1500) return;
+  if (!force && performance.now() - gateOpenedAt < 1500) return;
   gateOpenedAt = performance.now();
-  if (tutorialSession) tutorialVoice?.quietFor(1.35);
+  if (tutorialSession) tutorialOpening.begin();
   const copy = tutorialSession ? { title: 'GREENER PASTURES', sub: 'TUTORIAL 1' }
     : arenaGateCopy({ mode: info.mode, worldId: info.worldId, scoreToWin: info.scoreToWin });
   $('#arena-gate-title').textContent = copy.title;
@@ -636,6 +637,7 @@ function returnToMenu({ then = null } = {}) {
 function putAwayMatch() {
   const endingTutorial = tutorialSession;
   tutorialSession = null;
+  tutorialOpening.stop();
   tutorialVoice?.stop();
   endingTutorial?.stop();
   tutorialView.hide();
@@ -755,12 +757,28 @@ const tutorialView = new TutorialView($('#tutorial-lesson'), {
   },
   onOptionalContinue: () => tutorialSession?.director.completeOptionalDialogue(tutorialSession.director.optionalCue),
   onRestart: () => {
-    runtime?.input.releaseInputs(); tutorialSession?.restart();
+    runtime?.input.releaseInputs(); tutorialVoice?.stop(); tutorialOpening.begin(); tutorialSession?.restart();
+    if (tutorialSession) openArenaGate(latestSnapshot ?? {}, true);
     if (runtime && tutorialSession) { runtime.input.yaw = tutorialSession.host.player.yaw; runtime.input.pitch = 0; }
   },
   onSkip: () => { tutorialProgress.recordSkipped(); runtime?.input.releaseInputs(); tutorialSession?.director.skip(); runtime?.input.releaseFocus(); },
   onPractice: () => returnToMenu({then:() => runMenuAction(menuController.practice(nameInput.value),SCREEN_IDS.SOLO_MENU)}),
   onLeave: () => returnToMenu({then:() => route(SCREEN_IDS.SOLO_MENU)}),
+});
+const tutorialOpening = new TutorialOpening({
+  hold: () => tutorialView.holdOpening(),
+  ready: async () => {
+    const first = tutorialSession?.director.beats.find(beat => beat.recordingKey);
+    tutorialOpening.cueId = first?.id;
+    if (!first || !sound.running || sound.muted || !tutorialVoice || !tutorialSession) return true;
+    await tutorialVoice.load();
+    return Boolean(await tutorialVoice.buffer(first.recordingKey));
+  },
+  reveal: () => {
+    if (!tutorialSession?.active) return;
+    tutorialView.revealOpening();
+    if (tutorialOpening.audioReady) tutorialVoice.sync(tutorialSession.director);
+  },
 });
 function startTutorial() {
   showMenuError('');
@@ -772,7 +790,7 @@ function startTutorial() {
   tutorialSession = new TutorialSession(socket.local, {
     onChange: progress => {
       tutorialView.show(progress);
-      tutorialVoice.sync(tutorialSession?.director);
+      if (!tutorialOpening.waiting && (tutorialOpening.audioReady || progress.current?.id !== tutorialOpening.cueId)) tutorialVoice.sync(tutorialSession?.director);
       const permissions=progress.permissions ?? progress.current?.permissions ?? progress.segment?.permissions ?? [];
       for (const [action,tile] of [['spell',hud.spell],['dash',hud.dash],['ultimate',hud.ultimate]]) tile?.classList.toggle('tutorial-unlearned',progress.state==='running' && !permissions.includes(action));
       for (const button of document.querySelectorAll('.touch-btn[data-action]')) {
@@ -789,7 +807,7 @@ function startTutorial() {
   if (new URLSearchParams(location.search).has('debug')) { globalThis.__ssTutorial = tutorialSession; globalThis.__ssTutorialVoice = tutorialVoice; }
   // (no one speaks over the arena gate's title and drum: the first take waits for it to lift; the takes decode
   // behind it, in the route's order)
-  tutorialVoice.quietFor(1.35);
+  tutorialOpening.begin();
   tutorialSession.start();
   tutorialVoice.preload([...tutorialSession.director.beats, ...Object.values(tutorialSession.director.branches).flat()]);
 }

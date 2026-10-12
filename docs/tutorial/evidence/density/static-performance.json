@@ -1,0 +1,66 @@
+[
+  {
+    "build": "candidate",
+    "viewport": [
+      1440,
+      812
+    ],
+    "visible": "visible",
+    "seconds": 60,
+    "frames": 3600,
+    "median": 16.7,
+    "p95": 18.4,
+    "over33": 1,
+    "over50": 0,
+    "triangles": 154934,
+    "batches": 9
+  },
+  {
+    "build": "candidate",
+    "viewport": [
+      844,
+      390
+    ],
+    "visible": "visible",
+    "seconds": 60,
+    "frames": 3597,
+    "median": 16.699999999953434,
+    "p95": 18.300000000046566,
+    "over33": 2,
+    "over50": 1,
+    "triangles": 154934,
+    "batches": 9
+  },
+  {
+    "build": "baseline",
+    "viewport": [
+      1440,
+      812
+    ],
+    "visible": "visible",
+    "seconds": 60,
+    "frames": 3597,
+    "median": 16.69999999999709,
+    "p95": 18.599999999998545,
+    "over33": 1,
+    "over50": 1,
+    "triangles": 155621,
+    "batches": 9
+  },
+  {
+    "build": "baseline",
+    "viewport": [
+      844,
+      390
+    ],
+    "visible": "visible",
+    "seconds": 60,
+    "frames": 3602,
+    "median": 16.699999999982538,
+    "p95": 18.5,
+    "over33": 0,
+    "over50": 0,
+    "triangles": 155621,
+    "batches": 9
+  }
+]

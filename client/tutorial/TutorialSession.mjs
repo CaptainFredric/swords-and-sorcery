@@ -175,7 +175,7 @@ export class TutorialSession {
     if (this.rival.mode === 'guard-lesson' && actor.attackActive) this.director.fact('guard-attack-started');
     if (['escape','counter-pursuit','counterfire'].includes(this.rival.mode) && Math.hypot(actor.velocity.x,actor.velocity.z) > 1) this.director.fact('rival-escaping');
     const jump = GREENER_ROUTE.jump;
-    if (jump && this.rival.jumpWaiting && distance(me.position,jump.takeoff) <= 14) this.director.fact('jump-reached');
+    if (jump && this.rival.jumpWaiting) this.director.fact('jump-reached');
     if (jump && !me.grounded && me.jumpHeld && me.velocity.y > 0 && distance(me.position,jump.takeoff) < 12) {
       this.jumpAttempt ??= {...me.position}; this.director.fact('jump-used');
     }
@@ -189,6 +189,7 @@ export class TutorialSession {
     if (this.rival.counterShots >= 2 && me.position.z < GREENER_ROUTE.landmarks.counterfire.z) this.director.fact('counterfire-complete');
     // Scene gates compose observations. The dialogue may be freely replaced or removed.
     for (const segment of this.route) for (const gate of segment.scene?.gates ?? []) {
+      if (gate.activeBeat && gate.activeBeat !== this.director.current?.id) continue;
       if (gate.activeOnly && segment.id !== this.lastSegment) continue;
       const earned = !this.director.facts.has(gate.cue);
       if (tutorialSceneCue(gate,{player:me,rival:actor,route:GREENER_ROUTE,elapsedSec:now-this.segmentStartedAt})) {
@@ -235,7 +236,7 @@ export class TutorialSession {
       if (event.type === 'damage' && event.victimId === this.rivalId && event.attackerId === this.host.player.id && event.amount > 0) {
         if (this.rival.mode === 'duel') {
           this.duelDamage += event.amount;
-          if (this.duelDamage >= 100) this.director.fact('duel-damage-threshold');
+          if (this.duelDamage >= 100) { this.rival.beginRecovery(this.host.now()); this.director.fact('duel-damage-threshold'); }
         }
         if (event.source === 'fireball') {
           if (this.firstFireballHit && ['counter-pursuit','counterfire','complaint'].includes(this.rival.mode)) { this.subsequentHit = true; this.director.fact('subsequent-fireball-hit'); }

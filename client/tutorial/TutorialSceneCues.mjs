@@ -10,7 +10,9 @@ export function tutorialSceneCue(gate, {player, rival, route, elapsedSec = 0}) {
     : route.waypointById[gate.landmark] ?? route.landmarks[gate.landmark];
   if (!target) throw new Error(`Unknown tutorial landmark: ${gate.landmark ?? gate.kind}`);
   if (gate.kind === 'near-entrance' || gate.kind === 'near-landmark') {
-    return Math.hypot(actor.position.x-target.x,actor.position.z-target.z) <= gate.distance
+    const window=gate.axisWindow,delta=window ? actor.position[window.axis]-target[window.axis] : 0;
+    return (!window || delta>=window.min && delta<=window.max)
+      && Math.hypot(actor.position.x-target.x,actor.position.z-target.z) <= gate.distance
       && (gate.playerDistance === undefined || Math.hypot(player.position.x-rival.position.x,player.position.z-rival.position.z) <= gate.playerDistance);
   }
   if (gate.kind === 'past-landmark') {

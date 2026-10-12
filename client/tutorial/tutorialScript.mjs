@@ -183,7 +183,7 @@ const segments = [
   {
     id: 'real-duel', chapter: 'duel', permissions: GUARD, checkpoint: true, presentation: 'reactive',
     entryCondition: 'health-regenerated', completionCue: 'duel-damage-threshold',
-    scene: { enter: 'rival-idle', checkpoint: 'duel', gates: ['rival-attack-started', 'duel-damage-threshold'] },
+    scene: { insertionSlots: [{id:'wrong-address-recovery',afterCue:'rival-recovery-started',beforeCue:'rival-recovered',role:'rival',status:'awaiting-creator-recording'}], enter: 'rival-idle', checkpoint: 'duel', gates: ['rival-attack-started', 'duel-damage-threshold'] },
     beats: [
       { id: 'well', speaker: 'rival', line: 'Well.' },
       { id: 'duel-onset', kind: 'stage', advanceOn: 'rival-attack-started', stageCue: 'rival-attack',
@@ -202,12 +202,11 @@ const segments = [
     ],
   },
   {
-    id: 'escape-head-start', chapter: 'pursuit', permissions: LOOK, checkpoint: true, presentation: 'reactive',
+    id: 'escape-head-start', chapter: 'pursuit', permissions: GUARD, checkpoint: true, presentation: 'reactive',
     entryCondition: 'duel-damage-threshold', completionCue: 'rival-escaping',
     captionRehearsal: Object.freeze({ scale: 0.45, minSec: 0.8 }),
     objective: PURSUIT_OBJECTIVE,
     scene: { enter: 'rival-escape', checkpoint: 'pursuit',
-      releaseControls: { afterCue: 'pursuit-head-start', permissions: GUARD },
       gates: ['rival-escaping', { cue: 'pursuit-head-start', kind: 'separation', distance: 26, minSec: 2, activeOnly: true }],
     },
     beats: [
@@ -235,22 +234,23 @@ const segments = [
     ],
   },
   {
-    id: 'jump-obstacle', chapter: 'pursuit', permissions: GUARD, presentation: 'reactive', checkpoint: true,
+    id: 'jump-obstacle', chapter: 'pursuit', permissions: JUMP, presentation: 'reactive', checkpoint: true,
     entryCondition: 'rival-escaping', completionCue: 'jump-crossed', objective: PURSUIT_OBJECTIVE,
     branches: ['rival-constitution'],
-    scene: { enter: 'rival-jump', checkpoint: 'jump', gates: ['jump-reached', 'jump-used', 'jump-crossed'] },
+    scene: { enter: 'rival-jump', checkpoint: 'jump', gates: ['jump-reached', {cue:'jump-approach-ready',kind:'near-landmark',actor:'player',landmark:'jump-takeoff',distance:8,axisWindow:{axis:'z',min:-3.5,max:.6},activeBeat:'jump-near-approach'}, 'jump-used', 'jump-crossed'] },
     beats: [
       { id: 'jump-arrival', kind: 'stage', advanceOn: 'jump-reached',
         direction: 'Pursue Rival to the low field stile. Rival crosses and stops on its far side to gloat.' },
       { id: 'minor-obstacle-gloat', speaker: 'rival', line: 'Ahahaha! You cannot overcome this!' },
-      { id: 'what-should-do', speaker: 'spellblade', line: 'What should I do?' },
-      { id: 'minor-ledges', speaker: 'narrator', line: "The Spellblade's journey is not impeded by minor ledges." },
-      { id: 'what-does-mean', speaker: 'spellblade', line: 'What does that mean?' },
-      { id: 'rises-occasion', speaker: 'narrator', line: 'He rises to the occasion, climbs the ranks, and bounds onward toward greater glory.' },
-      { id: 'jump-no-hints', speaker: 'spellblade', line: 'I do not get hints.' },
-      { id: 'jump-instruction', speaker: 'narrator', line: 'Jump.' },
-      { id: 'jump-prompt', kind: 'prompt', speaker: 'instruction', line: 'JUMP', advanceOn: 'jump-used', mechanic: 'jump', permissions: JUMP },
-      { id: 'jump-crossing', kind: 'stage', advanceOn: 'jump-crossed', mechanic: 'jump', permissions: JUMP,
+      { id: 'what-should-do', skipWhen:'jump-crossed', speaker: 'spellblade', line: 'What should I do?' },
+      { id: 'minor-ledges', skipWhen:'jump-crossed', speaker: 'narrator', line: "The Spellblade's journey is not impeded by minor ledges." },
+      { id: 'what-does-mean', skipWhen:'jump-crossed', speaker: 'spellblade', line: 'What does that mean?' },
+      { id: 'rises-occasion', skipWhen:'jump-crossed', speaker: 'narrator', line: 'He rises to the occasion, climbs the ranks, and bounds onward toward greater glory.' },
+      { id: 'jump-no-hints', skipWhen:'jump-crossed', speaker: 'spellblade', line: 'I do not get hints.' },
+      { id: 'jump-near-approach', skipWhen:'jump-crossed', kind:'stage', advanceOn:'jump-approach-ready', direction:'Only the final keypress hint waits for nearby takeoff. Earlier dialogue follows the real Rival landing.' },
+      { id: 'jump-instruction', skipWhen:'jump-crossed', speaker: 'narrator', line: 'Jump.' },
+      { id: 'jump-prompt', skipWhen:'jump-crossed', kind: 'prompt', speaker: 'instruction', line: 'JUMP', advanceOn: 'jump-used', mechanic: 'jump', permissions: JUMP },
+      { id: 'jump-crossing', skipWhen:'jump-crossed', kind: 'stage', advanceOn: 'jump-crossed', mechanic: 'jump', permissions: JUMP,
         direction: 'Observe the player cross the named stile through an ordinary Jump.' },
       { id: 'took-us-long', speaker: 'spellblade', line: 'Haha! Took US long enough.', permissions: JUMP },
       { id: 'us', speaker: 'narrator', line: 'Us?', permissions: JUMP },
@@ -298,7 +298,7 @@ const segments = [
     id: 'tattle-reveal', chapter: 'fireball', permissions: FIREBALL, presentation: 'reactive',
     entryCondition: 'fireball-hit', completionCue: 'continue', objective: PURSUIT_OBJECTIVE,
     branches: ['rival-constitution'],
-    scene: { checkpoint: 'pursuit', gates: [
+    scene: { checkpoint: 'pursuit', insertionSlots: [{id:'sheepfold-dead-end',landmark:'dead-end-approach',through:'dead-end-exit',status:'awaiting-creator-recordings'}], gates: [
       { cue: 'tattle-reveal-reached', kind: 'past-landmark', actor: 'player', landmark: 'tattle-reveal' },
     ] },
     beats: [

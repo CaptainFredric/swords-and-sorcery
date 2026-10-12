@@ -31,3 +31,12 @@ test('removing dialogue leaves the same reusable landmark observation and dead a
   assert.equal(tutorialSceneCue({kind:'fact',cue:'rival-died'},ctx),false);
   assert.throws(()=>tutorialSceneCue({...gate,landmark:'missing'},ctx),/Unknown tutorial landmark/);
 });
+
+test('the final Jump instruction waits for the live takeoff region, including a player already at the wall',()=>{
+ const point=GREENER_ROUTE.jump.takeoff;
+ const gate={kind:'near-landmark',actor:'player',landmark:'jump-takeoff',distance:8,axisWindow:{axis:'z',min:-3.5,max:.6}};
+ assert.equal(tutorialSceneCue(gate,context(actor(point.x,point.z+15),actor(0,0))),false);
+ assert.equal(tutorialSceneCue(gate,context(actor(point.x,point.z+.5),actor(0,0))),true);
+ assert.equal(tutorialSceneCue(gate,context(actor(point.x,point.z-2.4),actor(0,0))),true);
+ assert.equal(tutorialSceneCue(gate,context(actor(point.x,point.z-7),actor(0,0))),false);
+});

@@ -1,3 +1,4 @@
+import { navigationSignature } from '../worlds/navigationSignature.mjs';
 // How a bot finds its way round what stands between it and its foe. A world names a handful of waypoints (its
 // `navigation.nodes`: the middle of each open space, each gate, each end of a ramp or stair); two waypoints are linked
 // wherever a knight could run straight from one to the other (nothing solid in the way at knee or chest height, across
@@ -70,6 +71,13 @@ export function navGraph(world, nav = NAV) {
   if (graph) return graph;
   const nodes = world.navigation.nodes;
   const links = nodes.map(() => []);
+  const prepared = world.navigation.precomputed;
+  if (nav === NAV && prepared && prepared.policy === JSON.stringify(nav) && prepared.signature === navigationSignature(world)) {
+    for (const [a,b,cost] of prepared.edges) {
+      links[a].push({to:b,cost}); links[b].push({to:a,cost});
+    }
+    graph = {nodes,links}; GRAPHS.set(world,graph); return graph;
+  }
   for (let a = 0; a < nodes.length; a += 1) {
     for (let b = a + 1; b < nodes.length; b += 1) {
       const cost = Math.hypot(nodes[a].x - nodes[b].x, nodes[a].y - nodes[b].y, nodes[a].z - nodes[b].z);

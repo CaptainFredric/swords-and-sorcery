@@ -78,6 +78,7 @@ export function serializeSnapshot(room, nowSec) {
         tutorialSwordDrawn:Boolean(p.tutorialSwordDrawn), tutorialDrawAt:p.tutorialDrawAt ?? null,
         ...(Number.isFinite(p.deathAt) ? {deathAt:p.deathAt} : {}),
       } : {}),
+      ...(p.presentationRecovery ? { presentationRecovery: {...p.presentationRecovery} } : {}),
       attackActive: p.attackActive,
       attackStartedAt: p.attackStartedAt,
       attackNextStrike: p.attackNextStrike,

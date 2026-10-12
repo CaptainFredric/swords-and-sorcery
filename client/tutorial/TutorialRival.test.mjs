@@ -59,3 +59,39 @@ test('Rival waits for real Sprint stamina and Dash cooldown before committing to
  tick(330);assert.equal(actor().alive,true);assert.ok(actor().position.z<GREENER_ROUTE.bridge.ravineBounds.minZ,'cross once ordinary resources recover');
  host.close();
 });
+
+test('a living recovery preserves learner movement, uses no corpse, then resumes physical escape',()=>{
+  const {host,session,tick,actor,now}=fixture();
+  session.stage('real-duel');session.director.resumeAt('real-duel');
+  const start={...host.player.position},rivalStart={...actor().position};
+  session.rival.beginRecovery(now());
+  assert.equal(actor().alive,true);assert.ok(actor().presentationRecovery);
+  assert.equal(session.director.facts.has('rival-recovery-started'),true);
+  assert.equal(session.allows('move',false),true);
+  host.input({forward:0,right:1,yaw:0,pitch:0,sprint:false});tick(20);
+  assert.ok(host.player.position.x>start.x+1);assert.equal(session.rival.mode,'recover');
+  assert.equal(actor().alive,true);assert.equal(actor().deathAt,undefined);
+  tick(100);assert.equal(actor().presentationRecovery,null);
+  assert.equal(session.rival.mode,'escape');assert.ok(session.director.facts.has('rival-recovered'));
+  assert.ok(Math.hypot(actor().position.x-rivalStart.x,actor().position.z-rivalStart.z)>1);
+  host.close();
+});
+
+test('Rival performs real Jump at the reused sheepfold wall and stays alive',()=>{
+  const {host,session,tick,actor}=fixture();session.stage('tattle-reveal');session.director.resumeAt('matter-settled');session.rival.enter('rival-escape',host.now());
+  actor().position={...GREENER_ROUTE.jumpReuse.takeoff};
+  host.player.position={x:15,y:0,z:-493};
+  session.rival.waypoint=GREENER_ROUTE.chaseWaypoints.findIndex(p=>p.id==='dead-end-takeoff');
+  let airborne=false;
+  for(let i=0;i<80;i++){tick();airborne ||= !actor().grounded;}
+  assert.equal(airborne,true);assert.equal(actor().alive,true);assert.ok(actor().position.z<-523);
+  host.close();
+});
+
+test('a displaced Rival navigates around the real cart instead of snagging on a direct authored segment',()=>{
+  const {host,session,tick,actor}=fixture();session.stage('rival-escape');session.director.resumeAt('overstayed-welcome');
+  actor().position={x:17,y:0,z:-55};host.player.position={x:12,y:0,z:-38};
+  session.rival.waypoint=GREENER_ROUTE.chaseWaypoints.findIndex(p=>p.id==='cart-gap');
+  tick(500);assert.equal(actor().alive,true);assert.ok(actor().position.z<-80,JSON.stringify(actor().position));
+  host.close();
+});

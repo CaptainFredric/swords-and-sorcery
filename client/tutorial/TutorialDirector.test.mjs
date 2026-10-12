@@ -75,3 +75,20 @@ test('construction does not notify before the owner can install its director ref
   director.start();
   assert.equal(changes[0].recordingKey, 'tutorial.greeting');
 });
+
+test('a demonstrated mechanic skips obsolete authored hints at a clean spoken boundary',()=>{
+  const d=new TutorialDirector({beats:[
+    {id:'gloat',kind:'dialogue',line:'Test gloat',advanceOn:'continue',chapter:'pursuit'},
+    {id:'hint',kind:'dialogue',line:'Test hint',advanceOn:'continue',chapter:'pursuit',skipWhen:'crossed'},
+    {id:'near',kind:'stage',advanceOn:'near-wall',chapter:'pursuit',skipWhen:'crossed'},
+    {id:'regret',kind:'dialogue',line:'Test regret',advanceOn:'continue',chapter:'pursuit'},
+  ]});d.start();d.tick(1);const cue=d.cue;d.beginAudio(cue);d.fact('crossed');
+  assert.equal(d.cue.id,'gloat');d.completeDialogue(cue);d.tick(1.4);
+  assert.equal(d.cue.id,'regret');assert.equal(d.facts.has('crossed'),true);
+});
+
+test('a spatial wait can become obsolete after real completion without inventing its missing fact',()=>{
+  const d=new TutorialDirector({beats:[{id:'near',kind:'stage',advanceOn:'near-wall',skipWhen:'crossed'},
+    {id:'regret',kind:'dialogue',line:'Test regret',advanceOn:'continue'}]});d.start();d.fact('crossed');
+  assert.equal(d.cue.id,'regret');assert.equal(d.facts.has('near-wall'),false);
+});

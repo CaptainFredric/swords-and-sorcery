@@ -29,12 +29,12 @@ test('opening permissions follow LOOK and WALK prompts and the local boundary re
   assert.equal(session.allows('sprint',false),false);host.close();
 });
 
-test('escaping Rival physically gains distance while the authored head start permits look but holds travel',()=>{
+test('escaping Rival physically gains distance while the authored escape preserves player travel',()=>{
   const {host,session,tick,actor}=fixture();session.director.resumeAt('escape-start');
   host.player.position={x:0,y:0,z:-12};actor().position={...GREENER_ROUTE.rivalMeeting};
   const origin={...host.player.position},rivalOrigin={...actor().position};
   host.input({seq:1,forward:1,right:0,yaw:1,pitch:0,sprint:true});tick(30);
-  assert.deepEqual(host.player.position,origin);assert.equal(host.player.yaw,1);
+  assert.notDeepEqual(host.player.position,origin);assert.equal(host.player.yaw,1);
   assert.ok(Math.hypot(actor().position.x-rivalOrigin.x,actor().position.z-rivalOrigin.z)>5);
   session.director.resumeAt('pursuit-release');
   assert.equal(session.allows('move',false),true);

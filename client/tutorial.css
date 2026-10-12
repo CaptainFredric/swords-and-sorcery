@@ -109,3 +109,11 @@
   .tutorial-title .tutorial-caption { width: calc(100cqw - 32px); }
   .tutorial-end .tutorial-caption { top: 35%; }
 }
+
+/* The title owns the opening. Visibility prevents a one-frame caption or Continue flash. */
+.tutorial-opening-held .tutorial-caption,
+.tutorial-opening-held .tutorial-instruction,
+.tutorial-opening-held .tutorial-objective { visibility: hidden; opacity: 0; pointer-events: none; }
+.tutorial-opening-reveal .tutorial-caption { animation: tutorial-dialogue-reveal .18s ease-out both; }
+@keyframes tutorial-dialogue-reveal { from { opacity: 0; translate: 0 6px; } to { opacity: 1; translate: 0 0; } }
+@media (prefers-reduced-motion: reduce) { .tutorial-opening-reveal .tutorial-caption { animation: none; } }

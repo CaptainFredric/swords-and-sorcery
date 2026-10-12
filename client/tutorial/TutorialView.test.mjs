@@ -159,3 +159,12 @@ test('destroy removes the keyboard listener and closes tutorial options', () => 
   assert.equal(calls.continued, 0);
   assert.equal(get('options').open, false);
 });
+
+test('opening hold prevents Enter advancing an internally ready cue and reveal preserves the same line',()=>{
+  const {display,get,classes,calls}=view();
+  display.holdOpening();
+  display.show({state:'running',current:{id:'greeting',kind:'dialogue',speaker:'narrator',line:'Greetings, Spellblade.'}});
+  enter();assert.equal(calls.continued,0);assert.equal(classes.get('tutorial-opening-held'),true);
+  display.revealOpening();assert.equal(get('line').textContent,'Greetings, Spellblade.');
+  enter();assert.equal(calls.continued,1);display.hide();assert.equal(classes.get('tutorial-opening-held'),false);
+});

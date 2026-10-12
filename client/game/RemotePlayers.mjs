@@ -510,7 +510,9 @@ export class RemotePlayers {
       animationPlayer.castPoseStartAt = pb.castStartedAt ?? pb.castEndsAt - (pb.castingSpell === 'gale' ? 0.5 : 0.3);
     }
     const drawing = Number.isFinite(pb.tutorialDrawAt) && serverNow - pb.tutorialDrawAt >= 0 && serverNow - pb.tutorialDrawAt < .7;
+    const recovering = pb.alive && pb.presentationRecovery && serverNow >= pb.presentationRecovery.at && serverNow < pb.presentationRecovery.at + pb.presentationRecovery.duration;
     const plan = resolveSpellbladeAnimationPlan({ state: drawing ? 'guard' : state, player: drawing ? {...animationPlayer,guarding:true} : animationPlayer, serverNow, localTime });
+    if (recovering) Object.assign(plan, {clip:'Idle',time:localTime,loop:true,concurrent:null});
     if (typeof pb.tutorialSwordDrawn === 'boolean') {
       const sword = shell.visualInstance?.root?.getObjectByName('HeroSword') ?? shell.fallbackRig?.userData.sword;
       if (sword) sword.visible = pb.tutorialSwordDrawn;
@@ -522,9 +524,10 @@ export class RemotePlayers {
       yaw: shell.root.rotation.y,
       airFlex: state === 'air' ? airborneLegFlex(verticalVelocity) : 0,
       death: plan.clip === 'Death' ? { age: plan.time, push: d.lastPush ?? null } : null,
+      recovery: recovering ? {age:serverNow-pb.presentationRecovery.at,duration:pb.presentationRecovery.duration} : null,
       crouch: crouch.flex,
       // the gauntlet's jab, if one is under way, and the crouch's lean
-      extra: state === 'dead' ? [] : [...crouch.turns, ...guardTurns(plan.concurrent?.attack ? 0 : d.guardAmount), ...jabTurns(serverNow - (d.jabAt ?? -Infinity))],
+      extra: state === 'dead' || recovering ? [] : [...crouch.turns, ...guardTurns(plan.concurrent?.attack ? 0 : d.guardAmount), ...jabTurns(serverNow - (d.jabAt ?? -Infinity))],
     };
     setRemoteVisualPlan(shell, plan, dt);
     // a foot comes down where the gait clip puts it (its rate follows the knight's speed)
