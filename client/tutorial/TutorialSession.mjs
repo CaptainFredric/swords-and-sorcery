@@ -102,7 +102,7 @@ export class TutorialSession {
       this.lastBeat = beat.id;
       const segment = progress.segment;
       if (segment?.id !== this.lastSegment) {
-        this.lastSegment = segment?.id;
+        this.lastSegment = segment?.id; this.segmentStartedAt = this.host.now();
         if (segment?.checkpoint) this.checkpoint = segment.id;
         this.rival?.enter(segment?.scene?.enter,this.host.now());
       }
@@ -132,7 +132,11 @@ export class TutorialSession {
     if (!allowed && notify) this.onBlocked(action);
     return allowed;
   }
-  get permissions() { return this.director.current?.permissions ?? this.director.progress.segment?.permissions ?? []; }
+  get permissions() {
+    const progress = this.director.progress, release = progress.segment?.scene?.releaseControls;
+    if (release && this.director.facts.has(release.afterCue)) return release.permissions;
+    return progress.current?.permissions ?? progress.segment?.permissions ?? [];
+  }
   filter(message) {
     if (message.type === 'input') {
       const copy = {...message};
@@ -185,7 +189,15 @@ export class TutorialSession {
     if (this.rival.counterShots >= 2 && me.position.z < GREENER_ROUTE.landmarks.counterfire.z) this.director.fact('counterfire-complete');
     // Scene gates compose observations. The dialogue may be freely replaced or removed.
     for (const segment of this.route) for (const gate of segment.scene?.gates ?? []) {
-      if (tutorialSceneCue(gate,{player:me,rival:actor,route:GREENER_ROUTE})) this.director.fact(gate.cue);
+      if (gate.activeOnly && segment.id !== this.lastSegment) continue;
+      const earned = !this.director.facts.has(gate.cue);
+      if (tutorialSceneCue(gate,{player:me,rival:actor,route:GREENER_ROUTE,elapsedSec:now-this.segmentStartedAt})) {
+        this.director.fact(gate.cue);
+        if (earned && segment.scene?.releaseControls?.afterCue === gate.cue) {
+          this.blockedHeld.delete('move'); this.blockedHeld.delete('sprint'); this.onResumeMovement();
+          this.onChange({...this.director.progress,permissions:this.permissions,rivalHint:this.rivalHint()});
+        }
+      }
     }
     if (this.rival.mode === 'final-fight' && actor.guarding) this.director.fact('rival-final-stand');
     if (this.departureStart && distance(me.position,this.departureStart) >= 5) this.director.fact('departure-complete');
@@ -225,13 +237,13 @@ export class TutorialSession {
           this.duelDamage += event.amount;
           if (this.duelDamage >= 100) this.director.fact('duel-damage-threshold');
         }
-        if (event.health <= 1 && this.host.room.tutorialRival.protected && ['escape','counter-pursuit','counterfire','complaint','jump'].includes(this.rival.mode)) {
-          this.director.fact('rival-survived-lethal');
-          if (this.director.progress.segment?.branches?.includes('rival-constitution')) this.director.offerBranch('rival-constitution');
-        }
         if (event.source === 'fireball') {
           if (this.firstFireballHit && ['counter-pursuit','counterfire','complaint'].includes(this.rival.mode)) { this.subsequentHit = true; this.director.fact('subsequent-fireball-hit'); }
           else { this.firstFireballHit = true; this.director.fact('fireball-hit'); }
+        }
+        if (event.health <= 1 && this.host.room.tutorialRival.protected && ['escape','counter-pursuit','counterfire','complaint','jump'].includes(this.rival.mode)) {
+          this.director.fact('rival-survived-lethal');
+          if (this.director.progress.segment?.branches?.includes('rival-constitution')) this.director.offerBranch('rival-constitution');
         }
       }
       if (event.type==='projectileImpact' && event.ownerId===this.host.player.id && event.spell==='fireball' && !hits && !this.firstFireballHit) this.director.offerBranch('first-fireball-miss');

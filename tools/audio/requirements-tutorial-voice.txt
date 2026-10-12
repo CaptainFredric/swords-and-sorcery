@@ -1,0 +1,7 @@
+numpy
+scipy
+praat-parselmouth
+pedalboard
+pyloudnorm
+pyworld
+setuptools<81

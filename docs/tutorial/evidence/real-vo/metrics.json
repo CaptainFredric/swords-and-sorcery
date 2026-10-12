@@ -1,0 +1,85 @@
+{
+  "routeDurationSec": 469.7225999999047,
+  "takesEncountered": 160,
+  "duplicateSameKeyAndRun": 0,
+  "firstSprint": {
+    "sustainedAfterSec": 2.4994000000953633,
+    "exhaustedAfterSec": 10.010099999904625
+  },
+  "escape": {
+    "firstNarratorDurationSec": 6.85,
+    "releaseAfterNarratorStartSec": 3.3170000000000073,
+    "releaseGapMeters": 27.131498369409538,
+    "remainingEscapeVOStartsMoving": true
+  },
+  "fireball": {
+    "impactAt": 355.0289000000954,
+    "responseAfterImpactSec": 1.5856999998092078,
+    "responseGapAfterPreviousTakeSec": 0.3464999999999918
+  },
+  "rapidReplies": {
+    "constitutionPauseSec": 0.14359999990466576,
+    "permissionPauseSec": null
+  },
+  "pursuit": {
+    "durationSec": 13.67129999971388,
+    "nextLessonQuietSec": 2.8941000003814565,
+    "allSamplesFleeing": true,
+    "minRivalSpeed": 7.499999999999998
+  },
+  "bridge": {
+    "failures": 1,
+    "extensionMeters": 1.2,
+    "voGrowth": "tutorial.bridge-senses-failure",
+    "success": "tutorial.small-gaps"
+  },
+  "finale": {
+    "allEightTerms": true,
+    "termsDurationSec": 18.4783000001907,
+    "guardReactionEncountered": true
+  },
+  "earlyStops": [
+    {
+      "key": "tutorial.not-yet",
+      "beat": "not-yet",
+      "run": 1,
+      "at": 225.40709999990463,
+      "seconds": 2.15,
+      "optional": false,
+      "stopAt": 226.4,
+      "endedAt": 226.498
+    }
+  ],
+  "deaths": [
+    {
+      "type": "death",
+      "victimId": "686d6da2-07bd-4226-89e4-85806c3c527c",
+      "killerId": "practice-dummy-EYZB7",
+      "source": "sword",
+      "respawnAt": 246.655,
+      "at": 243.655
+    },
+    {
+      "type": "death",
+      "victimId": "686d6da2-07bd-4226-89e4-85806c3c527c",
+      "killerId": null,
+      "source": "abyss",
+      "respawnAt": 418.84880000019075,
+      "at": 415.84880000019075
+    },
+    {
+      "type": "death",
+      "victimId": "practice-dummy-EYZB7",
+      "killerId": "686d6da2-07bd-4226-89e4-85806c3c527c",
+      "source": "sword",
+      "respawnAt": 506.2991999998093,
+      "at": 503.2991999998093
+    }
+  ],
+  "branches": [
+    "rival-constitution",
+    "bridge-growth",
+    "burned",
+    "final-guard-reaction"
+  ]
+}

@@ -41,7 +41,6 @@ export class TutorialMovementCues {
     if (player.sprinting && step > .01) this.sprintSince ??= snapshot.serverTime;
     else this.sprintSince = null;
     if (this.sprintSince !== null && snapshot.serverTime - this.sprintSince >= 2.5 && player.guardStamina >= 10) this.facts.add('sprint-sustained');
-    else this.facts.delete('sprint-sustained');
     if (this.sprinted && this.start.stamina - player.guardStamina >= 5) this.facts.add('stamina-decreased');
     if (this.sprinted && player.guardStamina <= 1e-6) this.exhausted = true;
     if (this.exhausted && !player.sprinting) this.facts.add('player-winded');
@@ -50,6 +49,9 @@ export class TutorialMovementCues {
     if (remaining <= 3.4 && Math.abs(player.position.y - rival.position.y) <= 2) this.facts.add('rival-reached');
     else this.facts.delete('rival-reached');
     if (this.director.current?.chapter === 'approach' && this.travel >= 45 && this.start.distance - remaining < this.travel * .2) this.director.offerBranch('frolic');
+    // Milestones describe actions already performed, even if their lesson gate arrives after a long take.
+    // Proximity remains a live condition and must never be remembered from a passing encounter.
+    for (const fact of this.facts) if (fact !== 'rival-reached' && !this.director.facts.has(fact)) this.director.fact(fact);
     const cue = this.director.current?.advanceOn;
     if (this.facts.has(cue)) this.director.accept(cue);
     this.previous = player;

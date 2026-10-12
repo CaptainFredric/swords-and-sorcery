@@ -1,0 +1,1845 @@
+{
+  "fixture": "Recently wounded Rival at 10 HP on the straight escape lane. Ordinary first Fireball, live AAC playback, unchanged physics and damage.",
+  "tutorialAt": 59.5212999997139,
+  "endedAt": 88.55009999990463,
+  "takes": [
+    {
+      "key": "tutorial.rival-cold",
+      "beat": "rival-cold",
+      "run": 2,
+      "at": 61.20290000009537,
+      "seconds": 1.7042708333333334,
+      "optional": false,
+      "endedAt": 62.91359999990463
+    },
+    {
+      "key": "tutorial.warm-feelings",
+      "beat": "warm-feelings",
+      "run": 2,
+      "at": 63.27309999990463,
+      "seconds": 2.57,
+      "optional": false,
+      "endedAt": 65.84719999980926
+    },
+    {
+      "key": "tutorial.concerning",
+      "beat": "concerning",
+      "run": 2,
+      "at": 66.21169999980927,
+      "seconds": 0.99,
+      "optional": false,
+      "endedAt": 67.20819999980927
+    },
+    {
+      "key": "tutorial.constitution-strange",
+      "beat": "constitution-strange",
+      "run": 2,
+      "at": 67.5637999997139,
+      "seconds": 1.79,
+      "optional": true,
+      "endedAt": 69.356
+    },
+    {
+      "key": "tutorial.not-strange",
+      "beat": "not-strange",
+      "run": 2,
+      "at": 69.70959999990463,
+      "seconds": 1.2395833333333333,
+      "optional": true,
+      "endedAt": 70.95519999980927
+    },
+    {
+      "key": "tutorial.not-fallen",
+      "beat": "not-fallen",
+      "run": 2,
+      "at": 71.09369999980926,
+      "seconds": 2.14,
+      "optional": true,
+      "endedAt": 73.23819999980927
+    },
+    {
+      "key": "tutorial.thank-noticing",
+      "beat": "thank-noticing",
+      "run": 2,
+      "at": 73.60529999971389,
+      "seconds": 1.57,
+      "optional": true,
+      "endedAt": 75.1795
+    },
+    {
+      "key": "tutorial.what-condition",
+      "beat": "what-condition",
+      "run": 2,
+      "at": 75.516,
+      "seconds": 4.07,
+      "optional": true,
+      "endedAt": 79.59019999980927
+    },
+    {
+      "key": "tutorial.current-constitution",
+      "beat": "current-constitution",
+      "run": 2,
+      "at": 79.9377999997139,
+      "seconds": 2.23,
+      "optional": true,
+      "endedAt": 82.173
+    },
+    {
+      "key": "tutorial.constitution-amended",
+      "beat": "constitution-amended",
+      "run": 2,
+      "at": 82.5175,
+      "seconds": 3.21,
+      "optional": true,
+      "endedAt": 85.73029999971389
+    },
+    {
+      "key": "tutorial.cannot-settled",
+      "beat": "cannot-settled",
+      "run": 2,
+      "at": 86.0767999997139,
+      "seconds": 2.45,
+      "optional": true,
+      "endedAt": 88.53
+    }
+  ],
+  "speech": [
+    {
+      "at": 61.09209999990463,
+      "id": "rival-cold",
+      "optional": false
+    },
+    {
+      "at": 63.03319999980926,
+      "id": null,
+      "optional": false
+    },
+    {
+      "at": 63.31609999990463,
+      "id": "warm-feelings",
+      "optional": false
+    },
+    {
+      "at": 65.9005,
+      "id": null,
+      "optional": false
+    },
+    {
+      "at": 66.2117999997139,
+      "id": "concerning",
+      "optional": false
+    },
+    {
+      "at": 67.2082999997139,
+      "id": null,
+      "optional": false
+    },
+    {
+      "at": 67.60640000009536,
+      "id": "constitution-strange",
+      "optional": true
+    },
+    {
+      "at": 69.7097999997139,
+      "id": "not-strange",
+      "optional": true
+    },
+    {
+      "at": 71.1007999997139,
+      "id": "not-fallen",
+      "optional": true
+    },
+    {
+      "at": 73.6055,
+      "id": "thank-noticing",
+      "optional": true
+    },
+    {
+      "at": 75.60140000009537,
+      "id": "what-condition",
+      "optional": true
+    },
+    {
+      "at": 80.0032999997139,
+      "id": "current-constitution",
+      "optional": true
+    },
+    {
+      "at": 82.6007999997139,
+      "id": "constitution-amended",
+      "optional": true
+    },
+    {
+      "at": 86.1087999997139,
+      "id": "cannot-settled",
+      "optional": true
+    }
+  ],
+  "events": [
+    {
+      "type": "matchStarted",
+      "at": 62.115900000095365
+    },
+    {
+      "type": "practicePlayerReset",
+      "playerId": "243a38f2-abce-4381-8df0-cb2aa8e8b355",
+      "at": 62.122299999713896
+    },
+    {
+      "type": "practiceDummyMode",
+      "playerId": "practice-dummy-HELW6",
+      "mode": "PASSIVE",
+      "at": 62.122299999713896
+    },
+    {
+      "type": "practiceDummySpawned",
+      "playerId": "practice-dummy-HELW6",
+      "mode": "PASSIVE",
+      "at": 62.122299999713896
+    },
+    {
+      "type": "practicePlayerReset",
+      "playerId": "243a38f2-abce-4381-8df0-cb2aa8e8b355",
+      "at": 66.06790000009536
+    },
+    {
+      "type": "practiceDummyRemoved",
+      "playerId": "practice-dummy-HELW6"
+    },
+    {
+      "type": "practiceDummyMode",
+      "playerId": "practice-dummy-HELW6",
+      "mode": "PASSIVE",
+      "at": 66.06790000009536
+    },
+    {
+      "type": "practiceDummySpawned",
+      "playerId": "practice-dummy-HELW6",
+      "mode": "PASSIVE",
+      "at": 66.06790000009536
+    },
+    {
+      "type": "spellCast",
+      "playerId": "243a38f2-abce-4381-8df0-cb2aa8e8b355",
+      "spell": "fireball",
+      "at": 68.536,
+      "castEndsAt": 68.836
+    },
+    {
+      "type": "projectileSpawned",
+      "projectile": {
+        "id": "f1",
+        "ownerId": "243a38f2-abce-4381-8df0-cb2aa8e8b355",
+        "spell": "fireball",
+        "position": {
+          "x": 55,
+          "y": 1.25,
+          "z": -70.7
+        },
+        "velocity": {
+          "x": 0,
+          "y": 0,
+          "z": -24
+        },
+        "bornAt": 69.18390000009536
+      },
+      "at": 69.18390000009536
+    },
+    {
+      "type": "damage",
+      "attackerId": "243a38f2-abce-4381-8df0-cb2aa8e8b355",
+      "victimId": "practice-dummy-HELW6",
+      "source": "fireball",
+      "amount": 18,
+      "health": 1,
+      "push": {
+        "x": 0,
+        "y": 1.0876739811546854,
+        "z": -3.78879525557861
+      },
+      "at": 69.4455,
+      "clean": true
+    },
+    {
+      "type": "projectileImpact",
+      "projectileId": "f1",
+      "ownerId": "243a38f2-abce-4381-8df0-cb2aa8e8b355",
+      "spell": "fireball",
+      "radius": 2.6,
+      "point": {
+        "x": 55,
+        "y": 1.25,
+        "z": -75.49999999999999
+      },
+      "worldHit": false,
+      "at": 69.4455
+    },
+    {
+      "type": "damage",
+      "attackerId": "243a38f2-abce-4381-8df0-cb2aa8e8b355",
+      "victimId": "practice-dummy-HELW6",
+      "source": "burn",
+      "amount": 2,
+      "health": 1,
+      "push": null,
+      "at": 70.0517999997139
+    },
+    {
+      "type": "damage",
+      "attackerId": "243a38f2-abce-4381-8df0-cb2aa8e8b355",
+      "victimId": "practice-dummy-HELW6",
+      "source": "burn",
+      "amount": 2,
+      "health": 1,
+      "push": null,
+      "at": 70.4692999997139
+    },
+    {
+      "type": "damage",
+      "attackerId": "243a38f2-abce-4381-8df0-cb2aa8e8b355",
+      "victimId": "practice-dummy-HELW6",
+      "source": "burn",
+      "amount": 2,
+      "health": 1,
+      "push": null,
+      "at": 70.96319999980926
+    },
+    {
+      "type": "damage",
+      "attackerId": "243a38f2-abce-4381-8df0-cb2aa8e8b355",
+      "victimId": "practice-dummy-HELW6",
+      "source": "burn",
+      "amount": 2,
+      "health": 1,
+      "push": null,
+      "at": 71.45890000009537
+    },
+    {
+      "type": "damage",
+      "attackerId": "243a38f2-abce-4381-8df0-cb2aa8e8b355",
+      "victimId": "practice-dummy-HELW6",
+      "source": "burn",
+      "amount": 2,
+      "health": 1,
+      "push": null,
+      "at": 71.958
+    }
+  ],
+  "samples": [
+    {
+      "at": 59.5212999997139,
+      "beat": "fireball-prompt",
+      "spoken": null,
+      "mode": "idle",
+      "move": true,
+      "stamina": 100,
+      "sprinting": false,
+      "player": {
+        "x": 55,
+        "y": 0,
+        "z": -70
+      },
+      "rival": {
+        "x": 55,
+        "y": 0,
+        "z": -74
+      },
+      "rivalVelocity": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "audioState": "running",
+      "bridgeFailures": 0,
+      "run": 2
+    },
+    {
+      "at": 61.125099999904634,
+      "beat": "rival-cold",
+      "spoken": "rival-cold",
+      "mode": "escape",
+      "move": true,
+      "stamina": 100,
+      "sprinting": false,
+      "player": {
+        "x": 55,
+        "y": 0,
+        "z": -70
+      },
+      "rival": {
+        "x": 55,
+        "y": 0.016255799371822848,
+        "z": -76.23925613814893
+      },
+      "rivalVelocity": {
+        "x": 0,
+        "y": 0.4876739811546854,
+        "z": -13.793239700023054
+      },
+      "audioState": "running",
+      "bridgeFailures": 0,
+      "run": 2
+    },
+    {
+      "at": 61.6017999997139,
+      "beat": "rival-cold",
+      "spoken": "rival-cold",
+      "mode": "escape",
+      "move": true,
+      "stamina": 100,
+      "sprinting": false,
+      "player": {
+        "x": 55,
+        "y": 0,
+        "z": -70
+      },
+      "rival": {
+        "x": 55,
+        "y": 0,
+        "z": -81.55142465119036
+      },
+      "rivalVelocity": {
+        "x": 0,
+        "y": 0,
+        "z": -10.139345832018794
+      },
+      "audioState": "running",
+      "bridgeFailures": 0,
+      "run": 2
+    },
+    {
+      "at": 62.10569999980927,
+      "beat": "rival-cold",
+      "spoken": "rival-cold",
+      "mode": "escape",
+      "move": true,
+      "stamina": 100,
+      "sprinting": false,
+      "player": {
+        "x": 55,
+        "y": 0,
+        "z": -70
+      },
+      "rival": {
+        "x": 55,
+        "y": 0,
+        "z": -86.13025207888282
+      },
+      "rivalVelocity": {
+        "x": 0,
+        "y": 0,
+        "z": -9.680000000000001
+      },
+      "audioState": "running",
+      "bridgeFailures": 0,
+      "run": 2
+    },
+    {
+      "at": 62.602400000095365,
+      "beat": "rival-cold",
+      "spoken": "rival-cold",
+      "mode": "escape",
+      "move": true,
+      "stamina": 100,
+      "sprinting": false,
+      "player": {
+        "x": 55,
+        "y": 0,
+        "z": -70
+      },
+      "rival": {
+        "x": 55,
+        "y": 0,
+        "z": -90.97025207888277
+      },
+      "rivalVelocity": {
+        "x": 0,
+        "y": 0,
+        "z": -9.68
+      },
+      "audioState": "running",
+      "bridgeFailures": 0,
+      "run": 2
+    },
+    {
+      "at": 63.117199999809266,
+      "beat": "rival-cold",
+      "spoken": null,
+      "mode": "escape",
+      "move": true,
+      "stamina": 100,
+      "sprinting": false,
+      "player": {
+        "x": 55,
+        "y": 0,
+        "z": -70
+      },
+      "rival": {
+        "x": 55,
+        "y": 0,
+        "z": -96.13291874554938
+      },
+      "rivalVelocity": {
+        "x": 0,
+        "y": 0,
+        "z": -9.68
+      },
+      "audioState": "running",
+      "bridgeFailures": 0,
+      "run": 2
+    },
+    {
+      "at": 63.6035,
+      "beat": "warm-feelings",
+      "spoken": "warm-feelings",
+      "mode": "escape",
+      "move": true,
+      "stamina": 100,
+      "sprinting": false,
+      "player": {
+        "x": 55,
+        "y": 0,
+        "z": -70
+      },
+      "rival": {
+        "x": 55,
+        "y": 1.3200000000000005,
+        "z": -100.74042491838885
+      },
+      "rivalVelocity": {
+        "x": 0,
+        "y": 1.5543122344752192e-15,
+        "z": -7.5
+      },
+      "audioState": "running",
+      "bridgeFailures": 0,
+      "run": 2
+    },
+    {
+      "at": 64.10640000009536,
+      "beat": "warm-feelings",
+      "spoken": "warm-feelings",
+      "mode": "escape",
+      "move": true,
+      "stamina": 100,
+      "sprinting": false,
+      "player": {
+        "x": 55,
+        "y": 0,
+        "z": -70
+      },
+      "rival": {
+        "x": 55,
+        "y": 0,
+        "z": -103.6154249183888
+      },
+      "rivalVelocity": {
+        "x": 0,
+        "y": 0,
+        "z": -4.875
+      },
+      "audioState": "running",
+      "bridgeFailures": 0,
+      "run": 2
+    },
+    {
+      "at": 64.70169999980926,
+      "beat": "warm-feelings",
+      "spoken": "warm-feelings",
+      "mode": "escape",
+      "move": true,
+      "stamina": 100,
+      "sprinting": false,
+      "player": {
+        "x": 55,
+        "y": 0,
+        "z": -70
+      },
+      "rival": {
+        "x": 55,
+        "y": 0,
+        "z": -106.4654249183888
+      },
+      "rivalVelocity": {
+        "x": 0,
+        "y": 0,
+        "z": -6
+      },
+      "audioState": "running",
+      "bridgeFailures": 0,
+      "run": 2
+    },
+    {
+      "at": 65.20169999980926,
+      "beat": "warm-feelings",
+      "spoken": "warm-feelings",
+      "mode": "escape",
+      "move": true,
+      "stamina": 100,
+      "sprinting": false,
+      "player": {
+        "x": 55,
+        "y": 0,
+        "z": -70
+      },
+      "rival": {
+        "x": 55,
+        "y": 0,
+        "z": -109.46542491838885
+      },
+      "rivalVelocity": {
+        "x": 0,
+        "y": 0,
+        "z": -6
+      },
+      "audioState": "running",
+      "bridgeFailures": 0,
+      "run": 2
+    },
+    {
+      "at": 65.70119999980926,
+      "beat": "warm-feelings",
+      "spoken": "warm-feelings",
+      "mode": "escape",
+      "move": true,
+      "stamina": 100,
+      "sprinting": false,
+      "player": {
+        "x": 55,
+        "y": 0,
+        "z": -70
+      },
+      "rival": {
+        "x": 55,
+        "y": 0,
+        "z": -112.46542491838889
+      },
+      "rivalVelocity": {
+        "x": 0,
+        "y": 0,
+        "z": -6
+      },
+      "audioState": "running",
+      "bridgeFailures": 0,
+      "run": 2
+    },
+    {
+      "at": 66.2117999997139,
+      "beat": "concerning",
+      "spoken": "concerning",
+      "mode": "escape",
+      "move": true,
+      "stamina": 100,
+      "sprinting": false,
+      "player": {
+        "x": 55,
+        "y": 0,
+        "z": -70
+      },
+      "rival": {
+        "x": 55,
+        "y": 0,
+        "z": -112.6654249183889
+      },
+      "rivalVelocity": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "audioState": "running",
+      "bridgeFailures": 0,
+      "run": 2
+    },
+    {
+      "at": 66.7117999997139,
+      "beat": "concerning",
+      "spoken": "concerning",
+      "mode": "escape",
+      "move": true,
+      "stamina": 100,
+      "sprinting": false,
+      "player": {
+        "x": 55,
+        "y": 0,
+        "z": -70
+      },
+      "rival": {
+        "x": 55,
+        "y": 0,
+        "z": -112.6654249183889
+      },
+      "rivalVelocity": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "audioState": "running",
+      "bridgeFailures": 0,
+      "run": 2
+    },
+    {
+      "at": 67.2082999997139,
+      "beat": "concerning",
+      "spoken": null,
+      "mode": "escape",
+      "move": true,
+      "stamina": 100,
+      "sprinting": false,
+      "player": {
+        "x": 55,
+        "y": 0,
+        "z": -70
+      },
+      "rival": {
+        "x": 55,
+        "y": 0,
+        "z": -112.6654249183889
+      },
+      "rivalVelocity": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "audioState": "running",
+      "bridgeFailures": 0,
+      "run": 2
+    },
+    {
+      "at": 67.70069999980926,
+      "beat": "tattle-reveal-arrival",
+      "spoken": "constitution-strange",
+      "mode": "escape",
+      "move": true,
+      "stamina": 100,
+      "sprinting": false,
+      "player": {
+        "x": 55,
+        "y": 0,
+        "z": -70
+      },
+      "rival": {
+        "x": 55,
+        "y": 0,
+        "z": -112.6654249183889
+      },
+      "rivalVelocity": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "audioState": "running",
+      "bridgeFailures": 0,
+      "run": 2
+    },
+    {
+      "at": 68.20109999990463,
+      "beat": "tattle-reveal-arrival",
+      "spoken": "constitution-strange",
+      "mode": "escape",
+      "move": true,
+      "stamina": 100,
+      "sprinting": false,
+      "player": {
+        "x": 55,
+        "y": 0,
+        "z": -70
+      },
+      "rival": {
+        "x": 55,
+        "y": 0,
+        "z": -112.6654249183889
+      },
+      "rivalVelocity": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "audioState": "running",
+      "bridgeFailures": 0,
+      "run": 2
+    },
+    {
+      "at": 68.70659999990463,
+      "beat": "tattle-reveal-arrival",
+      "spoken": "constitution-strange",
+      "mode": "escape",
+      "move": true,
+      "stamina": 100,
+      "sprinting": false,
+      "player": {
+        "x": 55,
+        "y": 0,
+        "z": -70
+      },
+      "rival": {
+        "x": 55,
+        "y": 0,
+        "z": -112.6654249183889
+      },
+      "rivalVelocity": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "audioState": "running",
+      "bridgeFailures": 0,
+      "run": 2
+    },
+    {
+      "at": 69.20329999971389,
+      "beat": "tattle-reveal-arrival",
+      "spoken": "constitution-strange",
+      "mode": "escape",
+      "move": true,
+      "stamina": 100,
+      "sprinting": false,
+      "player": {
+        "x": 55,
+        "y": 0,
+        "z": -70
+      },
+      "rival": {
+        "x": 55,
+        "y": 0,
+        "z": -112.6654249183889
+      },
+      "rivalVelocity": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "audioState": "running",
+      "bridgeFailures": 0,
+      "run": 2
+    },
+    {
+      "at": 69.7097999997139,
+      "beat": "tattle-reveal-arrival",
+      "spoken": "not-strange",
+      "mode": "escape",
+      "move": true,
+      "stamina": 100,
+      "sprinting": false,
+      "player": {
+        "x": 55,
+        "y": 0,
+        "z": -70
+      },
+      "rival": {
+        "x": 55,
+        "y": 0,
+        "z": -112.6654249183889
+      },
+      "rivalVelocity": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "audioState": "running",
+      "bridgeFailures": 0,
+      "run": 2
+    },
+    {
+      "at": 70.20169999980926,
+      "beat": "tattle-reveal-arrival",
+      "spoken": "not-strange",
+      "mode": "escape",
+      "move": true,
+      "stamina": 100,
+      "sprinting": false,
+      "player": {
+        "x": 55,
+        "y": 0,
+        "z": -70
+      },
+      "rival": {
+        "x": 55,
+        "y": 0,
+        "z": -112.6654249183889
+      },
+      "rivalVelocity": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "audioState": "running",
+      "bridgeFailures": 0,
+      "run": 2
+    },
+    {
+      "at": 70.70069999980926,
+      "beat": "tattle-reveal-arrival",
+      "spoken": "not-strange",
+      "mode": "escape",
+      "move": true,
+      "stamina": 100,
+      "sprinting": false,
+      "player": {
+        "x": 55,
+        "y": 0,
+        "z": -70
+      },
+      "rival": {
+        "x": 55,
+        "y": 0,
+        "z": -112.6654249183889
+      },
+      "rivalVelocity": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "audioState": "running",
+      "bridgeFailures": 0,
+      "run": 2
+    },
+    {
+      "at": 71.20109999990463,
+      "beat": "tattle-reveal-arrival",
+      "spoken": "not-fallen",
+      "mode": "escape",
+      "move": true,
+      "stamina": 100,
+      "sprinting": false,
+      "player": {
+        "x": 55,
+        "y": 0,
+        "z": -70
+      },
+      "rival": {
+        "x": 55,
+        "y": 0,
+        "z": -112.6654249183889
+      },
+      "rivalVelocity": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "audioState": "running",
+      "bridgeFailures": 0,
+      "run": 2
+    },
+    {
+      "at": 71.70059999990464,
+      "beat": "tattle-reveal-arrival",
+      "spoken": "not-fallen",
+      "mode": "escape",
+      "move": true,
+      "stamina": 100,
+      "sprinting": false,
+      "player": {
+        "x": 55,
+        "y": 0,
+        "z": -70
+      },
+      "rival": {
+        "x": 55,
+        "y": 0,
+        "z": -112.6654249183889
+      },
+      "rivalVelocity": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "audioState": "running",
+      "bridgeFailures": 0,
+      "run": 2
+    },
+    {
+      "at": 72.20069999980926,
+      "beat": "tattle-reveal-arrival",
+      "spoken": "not-fallen",
+      "mode": "escape",
+      "move": true,
+      "stamina": 100,
+      "sprinting": false,
+      "player": {
+        "x": 55,
+        "y": 0,
+        "z": -70
+      },
+      "rival": {
+        "x": 55,
+        "y": 0,
+        "z": -112.6654249183889
+      },
+      "rivalVelocity": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "audioState": "running",
+      "bridgeFailures": 0,
+      "run": 2
+    },
+    {
+      "at": 72.70040000009537,
+      "beat": "tattle-reveal-arrival",
+      "spoken": "not-fallen",
+      "mode": "escape",
+      "move": true,
+      "stamina": 100,
+      "sprinting": false,
+      "player": {
+        "x": 55,
+        "y": 0,
+        "z": -70
+      },
+      "rival": {
+        "x": 55,
+        "y": 0,
+        "z": -112.6654249183889
+      },
+      "rivalVelocity": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "audioState": "running",
+      "bridgeFailures": 0,
+      "run": 2
+    },
+    {
+      "at": 73.206,
+      "beat": "tattle-reveal-arrival",
+      "spoken": "not-fallen",
+      "mode": "escape",
+      "move": true,
+      "stamina": 100,
+      "sprinting": false,
+      "player": {
+        "x": 55,
+        "y": 0,
+        "z": -70
+      },
+      "rival": {
+        "x": 55,
+        "y": 0,
+        "z": -112.6654249183889
+      },
+      "rivalVelocity": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "audioState": "running",
+      "bridgeFailures": 0,
+      "run": 2
+    },
+    {
+      "at": 73.7015,
+      "beat": "tattle-reveal-arrival",
+      "spoken": "thank-noticing",
+      "mode": "escape",
+      "move": true,
+      "stamina": 100,
+      "sprinting": false,
+      "player": {
+        "x": 55,
+        "y": 0,
+        "z": -70
+      },
+      "rival": {
+        "x": 55,
+        "y": 0,
+        "z": -112.6654249183889
+      },
+      "rivalVelocity": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "audioState": "running",
+      "bridgeFailures": 0,
+      "run": 2
+    },
+    {
+      "at": 74.20140000009536,
+      "beat": "tattle-reveal-arrival",
+      "spoken": "thank-noticing",
+      "mode": "escape",
+      "move": true,
+      "stamina": 100,
+      "sprinting": false,
+      "player": {
+        "x": 55,
+        "y": 0,
+        "z": -70
+      },
+      "rival": {
+        "x": 55,
+        "y": 0,
+        "z": -112.6654249183889
+      },
+      "rivalVelocity": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "audioState": "running",
+      "bridgeFailures": 0,
+      "run": 2
+    },
+    {
+      "at": 74.70069999980926,
+      "beat": "tattle-reveal-arrival",
+      "spoken": "thank-noticing",
+      "mode": "escape",
+      "move": true,
+      "stamina": 100,
+      "sprinting": false,
+      "player": {
+        "x": 55,
+        "y": 0,
+        "z": -70
+      },
+      "rival": {
+        "x": 55,
+        "y": 0,
+        "z": -112.6654249183889
+      },
+      "rivalVelocity": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "audioState": "running",
+      "bridgeFailures": 0,
+      "run": 2
+    },
+    {
+      "at": 75.20059999990464,
+      "beat": "tattle-reveal-arrival",
+      "spoken": "thank-noticing",
+      "mode": "escape",
+      "move": true,
+      "stamina": 100,
+      "sprinting": false,
+      "player": {
+        "x": 55,
+        "y": 0,
+        "z": -70
+      },
+      "rival": {
+        "x": 55,
+        "y": 0,
+        "z": -112.6654249183889
+      },
+      "rivalVelocity": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "audioState": "running",
+      "bridgeFailures": 0,
+      "run": 2
+    },
+    {
+      "at": 75.70140000009536,
+      "beat": "tattle-reveal-arrival",
+      "spoken": "what-condition",
+      "mode": "escape",
+      "move": true,
+      "stamina": 100,
+      "sprinting": false,
+      "player": {
+        "x": 55,
+        "y": 0,
+        "z": -70
+      },
+      "rival": {
+        "x": 55,
+        "y": 0,
+        "z": -112.6654249183889
+      },
+      "rivalVelocity": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "audioState": "running",
+      "bridgeFailures": 0,
+      "run": 2
+    },
+    {
+      "at": 76.21,
+      "beat": "tattle-reveal-arrival",
+      "spoken": "what-condition",
+      "mode": "escape",
+      "move": true,
+      "stamina": 100,
+      "sprinting": false,
+      "player": {
+        "x": 55,
+        "y": 0,
+        "z": -70
+      },
+      "rival": {
+        "x": 55,
+        "y": 0,
+        "z": -112.6654249183889
+      },
+      "rivalVelocity": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "audioState": "running",
+      "bridgeFailures": 0,
+      "run": 2
+    },
+    {
+      "at": 76.705,
+      "beat": "tattle-reveal-arrival",
+      "spoken": "what-condition",
+      "mode": "escape",
+      "move": true,
+      "stamina": 100,
+      "sprinting": false,
+      "player": {
+        "x": 55,
+        "y": 0,
+        "z": -70
+      },
+      "rival": {
+        "x": 55,
+        "y": 0,
+        "z": -112.6654249183889
+      },
+      "rivalVelocity": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "audioState": "running",
+      "bridgeFailures": 0,
+      "run": 2
+    },
+    {
+      "at": 77.2015,
+      "beat": "tattle-reveal-arrival",
+      "spoken": "what-condition",
+      "mode": "escape",
+      "move": true,
+      "stamina": 100,
+      "sprinting": false,
+      "player": {
+        "x": 55,
+        "y": 0,
+        "z": -70
+      },
+      "rival": {
+        "x": 55,
+        "y": 0,
+        "z": -112.6654249183889
+      },
+      "rivalVelocity": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "audioState": "running",
+      "bridgeFailures": 0,
+      "run": 2
+    },
+    {
+      "at": 77.70140000009536,
+      "beat": "tattle-reveal-arrival",
+      "spoken": "what-condition",
+      "mode": "escape",
+      "move": true,
+      "stamina": 100,
+      "sprinting": false,
+      "player": {
+        "x": 55,
+        "y": 0,
+        "z": -70
+      },
+      "rival": {
+        "x": 55,
+        "y": 0,
+        "z": -112.6654249183889
+      },
+      "rivalVelocity": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "audioState": "running",
+      "bridgeFailures": 0,
+      "run": 2
+    },
+    {
+      "at": 78.201,
+      "beat": "tattle-reveal-arrival",
+      "spoken": "what-condition",
+      "mode": "escape",
+      "move": true,
+      "stamina": 100,
+      "sprinting": false,
+      "player": {
+        "x": 55,
+        "y": 0,
+        "z": -70
+      },
+      "rival": {
+        "x": 55,
+        "y": 0,
+        "z": -112.6654249183889
+      },
+      "rivalVelocity": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "audioState": "running",
+      "bridgeFailures": 0,
+      "run": 2
+    },
+    {
+      "at": 78.70140000009536,
+      "beat": "tattle-reveal-arrival",
+      "spoken": "what-condition",
+      "mode": "escape",
+      "move": true,
+      "stamina": 100,
+      "sprinting": false,
+      "player": {
+        "x": 55,
+        "y": 0,
+        "z": -70
+      },
+      "rival": {
+        "x": 55,
+        "y": 0,
+        "z": -112.6654249183889
+      },
+      "rivalVelocity": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "audioState": "running",
+      "bridgeFailures": 0,
+      "run": 2
+    },
+    {
+      "at": 79.20059999990464,
+      "beat": "tattle-reveal-arrival",
+      "spoken": "what-condition",
+      "mode": "escape",
+      "move": true,
+      "stamina": 100,
+      "sprinting": false,
+      "player": {
+        "x": 55,
+        "y": 0,
+        "z": -70
+      },
+      "rival": {
+        "x": 55,
+        "y": 0,
+        "z": -112.6654249183889
+      },
+      "rivalVelocity": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "audioState": "running",
+      "bridgeFailures": 0,
+      "run": 2
+    },
+    {
+      "at": 79.70629999971389,
+      "beat": "tattle-reveal-arrival",
+      "spoken": "what-condition",
+      "mode": "escape",
+      "move": true,
+      "stamina": 100,
+      "sprinting": false,
+      "player": {
+        "x": 55,
+        "y": 0,
+        "z": -70
+      },
+      "rival": {
+        "x": 55,
+        "y": 0,
+        "z": -112.6654249183889
+      },
+      "rivalVelocity": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "audioState": "running",
+      "bridgeFailures": 0,
+      "run": 2
+    },
+    {
+      "at": 80.201,
+      "beat": "tattle-reveal-arrival",
+      "spoken": "current-constitution",
+      "mode": "escape",
+      "move": true,
+      "stamina": 100,
+      "sprinting": false,
+      "player": {
+        "x": 55,
+        "y": 0,
+        "z": -70
+      },
+      "rival": {
+        "x": 55,
+        "y": 0,
+        "z": -112.6654249183889
+      },
+      "rivalVelocity": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "audioState": "running",
+      "bridgeFailures": 0,
+      "run": 2
+    },
+    {
+      "at": 80.70119999980926,
+      "beat": "tattle-reveal-arrival",
+      "spoken": "current-constitution",
+      "mode": "escape",
+      "move": true,
+      "stamina": 100,
+      "sprinting": false,
+      "player": {
+        "x": 55,
+        "y": 0,
+        "z": -70
+      },
+      "rival": {
+        "x": 55,
+        "y": 0,
+        "z": -112.6654249183889
+      },
+      "rivalVelocity": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "audioState": "running",
+      "bridgeFailures": 0,
+      "run": 2
+    },
+    {
+      "at": 81.20069999980926,
+      "beat": "tattle-reveal-arrival",
+      "spoken": "current-constitution",
+      "mode": "escape",
+      "move": true,
+      "stamina": 100,
+      "sprinting": false,
+      "player": {
+        "x": 55,
+        "y": 0,
+        "z": -70
+      },
+      "rival": {
+        "x": 55,
+        "y": 0,
+        "z": -112.6654249183889
+      },
+      "rivalVelocity": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "audioState": "running",
+      "bridgeFailures": 0,
+      "run": 2
+    },
+    {
+      "at": 81.70169999980926,
+      "beat": "tattle-reveal-arrival",
+      "spoken": "current-constitution",
+      "mode": "escape",
+      "move": true,
+      "stamina": 100,
+      "sprinting": false,
+      "player": {
+        "x": 55,
+        "y": 0,
+        "z": -70
+      },
+      "rival": {
+        "x": 55,
+        "y": 0,
+        "z": -112.6654249183889
+      },
+      "rivalVelocity": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "audioState": "running",
+      "bridgeFailures": 0,
+      "run": 2
+    },
+    {
+      "at": 82.20140000009536,
+      "beat": "tattle-reveal-arrival",
+      "spoken": "current-constitution",
+      "mode": "escape",
+      "move": true,
+      "stamina": 100,
+      "sprinting": false,
+      "player": {
+        "x": 55,
+        "y": 0,
+        "z": -70
+      },
+      "rival": {
+        "x": 55,
+        "y": 0,
+        "z": -112.6654249183889
+      },
+      "rivalVelocity": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "audioState": "running",
+      "bridgeFailures": 0,
+      "run": 2
+    },
+    {
+      "at": 82.70890000009537,
+      "beat": "tattle-reveal-arrival",
+      "spoken": "constitution-amended",
+      "mode": "escape",
+      "move": true,
+      "stamina": 100,
+      "sprinting": false,
+      "player": {
+        "x": 55,
+        "y": 0,
+        "z": -70
+      },
+      "rival": {
+        "x": 55,
+        "y": 0,
+        "z": -112.6654249183889
+      },
+      "rivalVelocity": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "audioState": "running",
+      "bridgeFailures": 0,
+      "run": 2
+    },
+    {
+      "at": 83.20790000009536,
+      "beat": "tattle-reveal-arrival",
+      "spoken": "constitution-amended",
+      "mode": "escape",
+      "move": true,
+      "stamina": 100,
+      "sprinting": false,
+      "player": {
+        "x": 55,
+        "y": 0,
+        "z": -70
+      },
+      "rival": {
+        "x": 55,
+        "y": 0,
+        "z": -112.6654249183889
+      },
+      "rivalVelocity": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "audioState": "running",
+      "bridgeFailures": 0,
+      "run": 2
+    },
+    {
+      "at": 83.70140000009536,
+      "beat": "tattle-reveal-arrival",
+      "spoken": "constitution-amended",
+      "mode": "escape",
+      "move": true,
+      "stamina": 100,
+      "sprinting": false,
+      "player": {
+        "x": 55,
+        "y": 0,
+        "z": -70
+      },
+      "rival": {
+        "x": 55,
+        "y": 0,
+        "z": -112.6654249183889
+      },
+      "rivalVelocity": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "audioState": "running",
+      "bridgeFailures": 0,
+      "run": 2
+    },
+    {
+      "at": 84.2007999997139,
+      "beat": "tattle-reveal-arrival",
+      "spoken": "constitution-amended",
+      "mode": "escape",
+      "move": true,
+      "stamina": 100,
+      "sprinting": false,
+      "player": {
+        "x": 55,
+        "y": 0,
+        "z": -70
+      },
+      "rival": {
+        "x": 55,
+        "y": 0,
+        "z": -112.6654249183889
+      },
+      "rivalVelocity": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "audioState": "running",
+      "bridgeFailures": 0,
+      "run": 2
+    },
+    {
+      "at": 84.7015,
+      "beat": "tattle-reveal-arrival",
+      "spoken": "constitution-amended",
+      "mode": "escape",
+      "move": true,
+      "stamina": 100,
+      "sprinting": false,
+      "player": {
+        "x": 55,
+        "y": 0,
+        "z": -70
+      },
+      "rival": {
+        "x": 55,
+        "y": 0,
+        "z": -112.6654249183889
+      },
+      "rivalVelocity": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "audioState": "running",
+      "bridgeFailures": 0,
+      "run": 2
+    },
+    {
+      "at": 85.2005,
+      "beat": "tattle-reveal-arrival",
+      "spoken": "constitution-amended",
+      "mode": "escape",
+      "move": true,
+      "stamina": 100,
+      "sprinting": false,
+      "player": {
+        "x": 55,
+        "y": 0,
+        "z": -70
+      },
+      "rival": {
+        "x": 55,
+        "y": 0,
+        "z": -112.6654249183889
+      },
+      "rivalVelocity": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "audioState": "running",
+      "bridgeFailures": 0,
+      "run": 2
+    },
+    {
+      "at": 85.7012999997139,
+      "beat": "tattle-reveal-arrival",
+      "spoken": "constitution-amended",
+      "mode": "escape",
+      "move": true,
+      "stamina": 100,
+      "sprinting": false,
+      "player": {
+        "x": 55,
+        "y": 0,
+        "z": -70
+      },
+      "rival": {
+        "x": 55,
+        "y": 0,
+        "z": -112.6654249183889
+      },
+      "rivalVelocity": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "audioState": "running",
+      "bridgeFailures": 0,
+      "run": 2
+    },
+    {
+      "at": 86.20709999990463,
+      "beat": "tattle-reveal-arrival",
+      "spoken": "cannot-settled",
+      "mode": "escape",
+      "move": true,
+      "stamina": 100,
+      "sprinting": false,
+      "player": {
+        "x": 55,
+        "y": 0,
+        "z": -70
+      },
+      "rival": {
+        "x": 55,
+        "y": 0,
+        "z": -112.6654249183889
+      },
+      "rivalVelocity": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "audioState": "running",
+      "bridgeFailures": 0,
+      "run": 2
+    },
+    {
+      "at": 86.70169999980926,
+      "beat": "tattle-reveal-arrival",
+      "spoken": "cannot-settled",
+      "mode": "escape",
+      "move": true,
+      "stamina": 100,
+      "sprinting": false,
+      "player": {
+        "x": 55,
+        "y": 0,
+        "z": -70
+      },
+      "rival": {
+        "x": 55,
+        "y": 0,
+        "z": -112.6654249183889
+      },
+      "rivalVelocity": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "audioState": "running",
+      "bridgeFailures": 0,
+      "run": 2
+    },
+    {
+      "at": 87.20309999990464,
+      "beat": "tattle-reveal-arrival",
+      "spoken": "cannot-settled",
+      "mode": "escape",
+      "move": true,
+      "stamina": 100,
+      "sprinting": false,
+      "player": {
+        "x": 55,
+        "y": 0,
+        "z": -70
+      },
+      "rival": {
+        "x": 55,
+        "y": 0,
+        "z": -112.6654249183889
+      },
+      "rivalVelocity": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "audioState": "running",
+      "bridgeFailures": 0,
+      "run": 2
+    },
+    {
+      "at": 87.7022999997139,
+      "beat": "tattle-reveal-arrival",
+      "spoken": "cannot-settled",
+      "mode": "escape",
+      "move": true,
+      "stamina": 100,
+      "sprinting": false,
+      "player": {
+        "x": 55,
+        "y": 0,
+        "z": -70
+      },
+      "rival": {
+        "x": 55,
+        "y": 0,
+        "z": -112.6654249183889
+      },
+      "rivalVelocity": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "audioState": "running",
+      "bridgeFailures": 0,
+      "run": 2
+    },
+    {
+      "at": 88.20059999990464,
+      "beat": "tattle-reveal-arrival",
+      "spoken": "cannot-settled",
+      "mode": "escape",
+      "move": true,
+      "stamina": 100,
+      "sprinting": false,
+      "player": {
+        "x": 55,
+        "y": 0,
+        "z": -70
+      },
+      "rival": {
+        "x": 55,
+        "y": 0,
+        "z": -112.6654249183889
+      },
+      "rivalVelocity": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "audioState": "running",
+      "bridgeFailures": 0,
+      "run": 2
+    }
+  ],
+  "firstFacts": {
+    "fireball-hit": 61.09209999990463
+  }
+}

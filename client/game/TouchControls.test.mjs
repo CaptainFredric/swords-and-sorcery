@@ -2,6 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { TouchControls } from './TouchControls.mjs';
 import { InputController } from './InputController.mjs';
+import { LocalHost } from '../network/LocalHost.mjs';
+import { TutorialSession } from '../tutorial/TutorialSession.mjs';
 
 // DOM event plumbing only. Gesture and controller code are the production implementations.
 class Node extends EventTarget {
@@ -131,6 +133,33 @@ test('an early touch Sprint button gives feedback and never latches until a fres
   send('pointerup', 50, 180, button);
   send('pointerdown', 50, 180, button);
   assert.equal(controls.sprintLatched, true);
+});
+
+test('one held full stick or Sprint latch earns tutorial stamina milestones while a long take is playing', () => {
+  for (const style of ['full-stick','latched']) {
+    let now=10;
+    const host=new LocalHost({now:()=>now,every:()=>1,cancel:()=>{},later:()=>{}});
+    host.startTutorial('You'); const session=new TutorialSession(host); session.start();
+    session.stage('stamina'); session.director.resumeAt('sprint-prompt');
+    const {input,controls,send}=setup(host.player);
+    input.touch=controls; input.allowAction=(action,notify=true)=>session.allows(action,notify);
+    const stick={target:controls.layer};
+    send('pointerdown',100,400,stick);
+    send('pointermove',100,style==='full-stick'?344:370,stick);
+    if(style==='latched')send('pointerdown',50,180,{action:'sprint',pointerId:2});
+    let recorded=null;
+    for(let i=0;i<30*14;i++) {
+      host.input(input.movement()); now+=1/30; host.tick(); controls.update(host.player,now);
+      if(!recorded&&session.director.cue){recorded=session.director.cue;session.director.beginAudio(recorded);}
+    }
+    for(const fact of ['sprint-started','stamina-decreased','sprint-sustained','player-winded'])assert.ok(session.director.facts.has(fact),`${style}: ${fact}`);
+    assert.equal(session.director.cue.id,recorded.id,'real take continues without forcing its end');
+    if(style==='latched')assert.equal(controls.sprintLatched,true);
+    send('pointerup',100,344,stick);
+    assert.equal(input.movement().sprint,false);
+    assert.equal(controls.sprintLatched,false);
+    host.close();
+  }
 });
 
 test('early held touch Attack and Guard buttons require release and a fresh press', () => {

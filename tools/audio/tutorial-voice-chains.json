@@ -1,0 +1,102 @@
+{
+  "about": "Tutorial 1's three voices: every setting tools/audio/tutorial_voice.py uses, in one place. Each character names the preset it uses ('use'); the others are kept so a treatment can be reverted by naming it again. Change a value, then rebuild that character from the raw takes: python3 tools/audio/tutorial_voice.py --speaker rival. Per-take exceptions and repairs are in tools/audio/tutorial-voice-sources.json. EQ bands: [\"highpass\", hz], [\"lowpass\", hz], [\"bell\", hz, dB, octaves].",
+  "trim": {
+    "about": "The recorder's padding off, the performance kept. preSec: kept before the first sound of the line; decay kept after its last, at most fwdMaxSec; pauses inside a line are never touched.",
+    "skipSec": 0.12, "belowPeakDb": 38, "overRoomDb": 14, "breathDb": 6, "decayDb": 6,
+    "backMaxSec": 0.4, "fwdMaxSec": 0.35, "preSec": 0.04, "postSec": 0.06, "fadeInSec": 0.012, "fadeOutSec": 0.03
+  },
+  "levels": {
+    "about": "Each character around its own preset's lufs, keeping keepDynamics of each take's difference from that character's usual delivery (at most keepClampDb either way): a shout stays louder than a mutter. True peaks under ceilingDb.",
+    "keepDynamics": 0.5, "keepClampDb": 2.5, "ceilingDb": -1.5
+  },
+  "roles": {
+    "spellblade": {
+      "use": "established-helm",
+      "presets": {
+        "established-helm": {
+          "about": "The Spellblade as he sounds in combat: the clear helm of tools/audio/knight_voice.py (gentle room removal, pauses gated, two semitones down with every vowel kept, chest, presence, the helm's ring and reflections, 3:1, grit). helm.amount scales what is the helm's own (its ring, its reflections, its grit): 1 is the established knight, 0 none of it, 1.3 more.",
+          "lufs": -16.8,
+          "highpassHz": 75,
+          "room": { "dereverb": true, "t60MaxSec": 0.85, "strength": 1.0, "floorDb": -12 },
+          "gate": { "openDb": -30, "holdMs": 120 },
+          "expand": { "belowDb": -42, "ratio": 2.0, "tailBelowDb": -46 },
+          "pitch": { "semitones": -2.0, "engine": "vocoder", "fallback": ["psola", "rubberband"], "contourLimitPct": 8 },
+          "eq": [["highpass", 85], ["bell", 150, 2.0, 1.2], ["bell", 260, 1.0, 1.0], ["bell", 420, -1.5, 1.0], ["bell", 620, -1.0, 1.2],
+                 ["bell", 2600, 3.0, 1.4], ["bell", 5000, 1.0, 1.5], ["lowpass", 11000]],
+          "helm": { "amount": 1.0, "ringDb": 0.5, "ringHz": 1250, "reflections": [[1.1, 0.06], [2.3, 0.03], [3.7, 0.01]], "drive": 1.6, "grit": 0.3 },
+          "compress": { "aboveDb": -18, "ratio": 3.0, "attackMs": 4, "releaseMs": 80 },
+          "deess": null
+        },
+        "pilot-2026-10-12": {
+          "about": "The first tutorial pass (superseded 2026-10-12: the creator wants the established helm on every tutorial line): PSOLA, no room removal, slightly less grit, a de-esser.",
+          "lufs": -16.8,
+          "highpassHz": 75,
+          "room": { "dereverb": false },
+          "gate": null,
+          "expand": null,
+          "evenRoom": true,
+          "pitch": { "semitones": -2.0, "engine": "psola", "fallback": ["rubberband"], "contourLimitPct": 8 },
+          "eq": [["highpass", 85], ["bell", 150, 2.0, 1.2], ["bell", 260, 1.0, 1.0], ["bell", 420, -1.5, 1.0],
+                 ["bell", 2600, 3.0, 1.4], ["bell", 5000, 1.0, 1.5], ["lowpass", 11000]],
+          "helm": { "amount": 1.0, "ringDb": 0.5, "ringHz": 1250, "reflections": [[1.1, 0.06], [2.3, 0.03], [3.7, 0.01]], "drive": 1.6, "grit": 0.25 },
+          "compress": { "aboveDb": -18, "ratio": 3.0, "attackMs": 4, "releaseMs": 80 },
+          "deess": { "maxCutDb": 6 }
+        }
+      }
+    },
+    "rival": {
+      "use": "creator-2026-10-12",
+      "presets": {
+        "creator-2026-10-12": {
+          "about": "The creator's setting: formants 6% down and the pitch 1.5 semitones down, the whole contour moved together (PSOLA: every rise and fall kept). Cleaner and chestier than the Spellblade: body in the EQ, the edge where rasp lives eased, a light helm, no grit.",
+          "lufs": -16.8,
+          "highpassHz": 70,
+          "evenRoom": true,
+          "pitch": { "semitones": -1.5, "engine": "psola", "fallback": ["rubberband"], "contourLimitPct": 8 },
+          "formants": 0.94,
+          "eq": [["highpass", 75], ["bell", 140, 2.5, 1.3], ["bell", 300, 1.5, 1.0], ["bell", 520, -1.0, 1.0],
+                 ["bell", 2800, 1.0, 1.2], ["bell", 4200, -1.5, 1.2], ["lowpass", 11500]],
+          "helm": { "amount": 1.0, "reflections": [[0.8, 0.04], [1.9, 0.02]], "grit": 0 },
+          "compress": { "aboveDb": -18, "ratio": 2.5, "attackMs": 6, "releaseMs": 90 },
+          "deess": { "maxCutDb": 6 }
+        },
+        "pilot-2026-10-12": {
+          "about": "The first tutorial pass (superseded by the creator's setting): formants 7% down, pitch untouched.",
+          "lufs": -16.8,
+          "highpassHz": 70,
+          "evenRoom": true,
+          "pitch": { "semitones": 0 },
+          "formants": 0.93,
+          "eq": [["highpass", 75], ["bell", 140, 2.5, 1.3], ["bell", 300, 1.5, 1.0], ["bell", 520, -1.0, 1.0],
+                 ["bell", 2800, 1.0, 1.2], ["bell", 4200, -1.5, 1.2], ["lowpass", 11500]],
+          "helm": { "amount": 1.0, "reflections": [[0.8, 0.04], [1.9, 0.02]], "grit": 0 },
+          "compress": { "aboveDb": -18, "ratio": 2.5, "attackMs": 6, "releaseMs": 90 },
+          "deess": { "maxCutDb": 6 }
+        }
+      }
+    },
+    "narrator": {
+      "use": "cleanup",
+      "presets": {
+        "cleanup": {
+          "about": "The performer himself, cleaned: rumble and the room's boom eased, a gentle 2:1, sibilance tamed only where it stands out. No pitch, no formants, no helm.",
+          "lufs": -19.5,
+          "highpassHz": 70,
+          "evenRoom": true,
+          "eq": [["bell", 120, -1.5, 1.0]],
+          "compress": { "aboveDb": -20, "ratio": 2.0, "attackMs": 8, "releaseMs": 120 },
+          "deess": { "maxCutDb": 5 }
+        },
+        "direct": {
+          "about": "For a line terse on purpose ('Jump.'): the cleanup without compression or de-essing, so its attack is the attack it was.",
+          "lufs": -19.5,
+          "highpassHz": 70,
+          "evenRoom": true,
+          "eq": [["bell", 120, -1.5, 1.0]],
+          "compress": null,
+          "deess": null
+        }
+      }
+    }
+  }
+}

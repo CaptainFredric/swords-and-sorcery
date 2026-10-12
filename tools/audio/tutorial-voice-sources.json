@@ -1,0 +1,1340 @@
+{
+  "session": "2026-10-11",
+  "about": "Tutorial 1 recordings: the Google Drive ZIPs of 2026-10-11/12 and one loose take, archived untouched in artifacts/tutorial-voice/raw/<zip or loose-date>/. One row per raw take: its character, the recording key it serves (null: no place yet). status: mapped; inferred (the key is reasoned, see note); intended (its words differ from older script history but are the intended script wording, per the creator); alternate (a second take of a key, mastered, not played); dropped (set aside by the creator: not processed, the raw take kept); duplicate (the same file supplied again: sameAs names the row used); unplaced (no beat yet); general (Spellblade VO outside the tutorial). Captions come from the script; words is given where the plan does not have them yet. chain: this take's exceptions to its character's preset (a preset of its own, pitchEngine, gainDb), with why. repairs: its own fixes, with why (tools/audio/tutorial_voice.py: mend, release). Character presets: tools/audio/tutorial-voice-chains.json.",
+  "takes": [
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/GreetingsSpellblade.mp3",
+      "sha256": "5b2488076f6937b433e912547fb5d8627c8049769531348dd70fba305923fb5a",
+      "speaker": "narrator",
+      "key": "tutorial.greeting",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/QuiteExemplar.mp3",
+      "sha256": "4f9ad7fb89b4ca961c6737250ef25d9da99006ed3919981e19905b7a9c7c7046",
+      "speaker": "spellblade",
+      "key": "tutorial.exemplary",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/YouDid.mp3",
+      "sha256": "8f88e2be7a64718647b6d03d799470b79b693abdc5617a8a98d4939865c26280",
+      "speaker": "narrator",
+      "key": "tutorial.you-did",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/GreenerPastures.mp3",
+      "sha256": "4e7902cc6d25016725d7d7ccbdc23d5dfa9584fded77f9a38d46cadf1f331978",
+      "speaker": "narrator",
+      "key": "tutorial.greener-pastures",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/YesMuchToDo.mp3",
+      "sha256": "7b36075733ea96424f09d5fe6d5c2455f1c4f6e578e1e0bbb6aa17a35f491e03",
+      "speaker": "spellblade",
+      "key": "tutorial.much-to-do",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/YouNeedToLook.mp3",
+      "sha256": "d5ed4c966a7cc01c614b22c30a77666fe541646ebd17e93cdfc795e19fa7e195",
+      "speaker": "narrator",
+      "key": "tutorial.need-look-around",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/IHaveSeeNothingValue.mp3",
+      "sha256": "337a005dbac347246fa08b1994557a83870a5af02b0bfbd34aef01407c164eb8",
+      "speaker": "spellblade",
+      "key": "tutorial.nothing-of-value",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/WithYourEyes.mp3",
+      "sha256": "9f327282cdd50d8c2e203c836f8c29cbaf8791d737e17e9fb7cf2f6caf59c9e5",
+      "speaker": "narrator",
+      "key": "tutorial.truly-look-around",
+      "status": "intended",
+      "note": "Replaces \"No. Truly look around.\" The intended script wording (creator, 2026-10-12); the script is being updated to match.",
+      "words": "With your eyes."
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/Ah...mp3",
+      "sha256": "df26459797e90eb756c2befbaa07eaa57d4d80ab418fe9906074b2210cff15d0",
+      "speaker": "spellblade",
+      "key": "tutorial.look-ah",
+      "status": "mapped",
+      "repairs": [
+        {
+          "kind": "mend",
+          "span": [
+            0.665,
+            0.825
+          ],
+          "why": "The voice breaks in the middle of the \"Ah...\" (a creak with an octave-up flicker, 0.665-0.825 s); every pitch change turned it into a stray note. Resynthesized from the steady \"Ah\" either side; onset and decay untouched (creator, 2026-10-12)."
+        }
+      ]
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/StillNothing.mp3",
+      "sha256": "cf862ecac44ab37b3e8a6e72677bebb04b43f11ff0a69f14ca866d2e11adcd96",
+      "speaker": "spellblade",
+      "key": "tutorial.still-nothing",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/2026_10_11_19_56_53.mp3",
+      "sha256": "b880db136e78396fbfd9fccf68ae9d76b4672decfcb0763155ba20a1fcfd5a52",
+      "speaker": "narrator",
+      "key": "tutorial.another-like-you",
+      "status": "mapped",
+      "note": "says \"there is\", as written; chosen"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/GoOnIntroduce.mp3",
+      "sha256": "34d527675849a1b24942435dcd039adcd81e3c686688f48f75e0889298edd74a",
+      "speaker": "narrator",
+      "key": "tutorial.introduce-yourself",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/HeMayChoose.mp3",
+      "sha256": "9bd52657871aeb8a12bec1d35f536d36a3e0d118bc9d0cfc27786783e453033d",
+      "speaker": "spellblade",
+      "key": "tutorial.he-may-introduce",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/YouCanAlsoWalk.mp3",
+      "sha256": "dbe13f3e2325b1de1fe21980fe779dc2d65e41a5b5a7bb2e995f82fea14fcd5a",
+      "speaker": "narrator",
+      "key": "tutorial.also-walk",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/HeIsQuiteDistance.mp3",
+      "sha256": "e5de85b2d4172453cff1fd477ac2e5e65cddf20fa1ec549dca417a1e1fae756c",
+      "speaker": "spellblade",
+      "key": "tutorial.quite-a-distance",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/YesYouCanSprint.mp3",
+      "sha256": "b0e0d85249bb7539c26895600c7461519bedb7947353afdefc865e1071fe63f2",
+      "speaker": "narrator",
+      "key": "tutorial.run-faster",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/AhaThankYouremindingMe.mp3",
+      "sha256": "c83cda0e30239bae50fe524a5c99563f6c99df5d0d010e934d539c610e038b89",
+      "speaker": "spellblade",
+      "key": "tutorial.reminding-me",
+      "status": "mapped"
+    },
+    {
+      "raw": "loose-2026-10-12/RememberToThinkMoreOften.mp3",
+      "sha256": "8e072fa49586304e18f22426a7d21755078d2ae3bb6f166480ee3ef9438f5ddf",
+      "speaker": "narrator",
+      "key": "tutorial.think-more",
+      "status": "mapped",
+      "note": "Supplied on its own (Downloads, 2026-10-12)."
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/IndeedMuchFaster(Desktop).mp3",
+      "sha256": "ad76600999db0dd6aa3e2ac29c611411125c0831853871475d52d93b61451455",
+      "speaker": "spellblade",
+      "key": "tutorial.what-is-below",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/IndeedMuchFasterWait(mobile).mp3",
+      "sha256": "5e9346b2d1904b64f3e5ad34d58b0c9a46ea9fa099a1305af9aa7f5f40ec1a1d",
+      "speaker": "spellblade",
+      "key": "tutorial.what-is-above",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/ThatIsStamina.mp3",
+      "sha256": "180345cdcb230cc99d6555264d997f367d98771ab6d147338496b4f421777f17",
+      "speaker": "narrator",
+      "key": "tutorial.your-stamina",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/WhyGoingDownOrder.mp3",
+      "sha256": "459d9519e9d3ebef7aa19ac554ce4d703335afe9347b347b3353be5187fad328",
+      "speaker": "spellblade",
+      "key": "tutorial.did-not-order",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/SprintingTypicallyConsumes.mp3",
+      "sha256": "1e375417a994c54aef6d8ad0777c591c73e5027efc22de2973064ba9c896e130",
+      "speaker": "narrator",
+      "key": "tutorial.consumes-energy",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/IAmNotTypical.mp3",
+      "sha256": "aeed825fad8f44e13f9bf05bf36e0f762658fc66483d227e3dd5f7ade13a3335",
+      "speaker": "spellblade",
+      "key": "tutorial.not-typical",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/Clearly.mp3",
+      "sha256": "3afab0ee9a939ee64cb74b4cbea6f9bb33a2a1f21def90242dd45976ea428bde",
+      "speaker": "narrator",
+      "key": "tutorial.clearly",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/ICanDoAllDay.mp3",
+      "sha256": "5e4f3566a3b23760a7ba9e53db43013b7024c656f9358e8a60aa64aeaa5d0ba7",
+      "speaker": "spellblade",
+      "key": "tutorial.can-do-all-day",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/HelloCantSprint.mp3",
+      "sha256": "aea14ad822093c7e57e79c094551e44160f8013ecc702d812578bfc664b77aad",
+      "speaker": "spellblade",
+      "key": "tutorial.cannot-sprint",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/YouNeedTimeRecover.mp3",
+      "sha256": "d49c6b3aa71d33910aafa7c2fc35986297c3d531052ba6a533f68a60c8b86a44",
+      "speaker": "narrator",
+      "key": "tutorial.time-to-recover",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/DoISoundRecover.mp3",
+      "sha256": "54993dc928f406bb039939c611f0da4f1c3608088762235a89f0e0d1b221bd88",
+      "speaker": "spellblade",
+      "key": "tutorial.sound-recover",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/SoundArgument.mp3",
+      "sha256": "be829e03356bd7efb398f21b8ac2e6d59570f8210b0a46d8f677f1aa4a969246",
+      "speaker": "narrator",
+      "key": "tutorial.good-question",
+      "status": "mapped",
+      "note": "longer take with its lead-in pause (the \"...\" of the line); chosen pending listening"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/SayHello.mp3",
+      "sha256": "6fb3b58f5ae54318e3d5bf46c7e2e953aaaef4960502be3f0773d959bc5a7d04",
+      "speaker": "narrator",
+      "key": "tutorial.say-hello",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/AdmireMe.mp3",
+      "sha256": "c8bd7e7f9153ac9ab64ae81bac0e7ff0632fdeeb57ffefaf4b3e9d2eaeb91ac3",
+      "speaker": "spellblade",
+      "key": "tutorial.admire-me",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/YouHadOneJob.mp3",
+      "sha256": "142000d9cfb106c1d5fe98c8a48b6bc2efa4adfee5ca175b1f3a9e00f940e51c",
+      "speaker": "narrator",
+      "key": "tutorial.one-job",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/YouResembleMs.mp3",
+      "sha256": "fa533073d1b96f77c3fbe71a50d6a4731d4f44e1a793aca650c35f5cc6489d88",
+      "speaker": "rival",
+      "key": "tutorial.resemblance",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/LikeWise.mp3",
+      "sha256": "74633e96b4d080f037ee591db0f9c29bafb66a917bce07a9043126b7edebfcf0",
+      "speaker": "spellblade",
+      "key": "tutorial.likewise",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/IDespiseThis.mp3",
+      "sha256": "37626bcace407a4f01368ebb29a722b3ddc7db210ba2d9bd0aa675d4e2443f1a",
+      "speaker": "rival",
+      "key": "tutorial.despise-this",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/WhenFindSpeak.mp3",
+      "sha256": "e575c6ff2603f299568c24d238711cb7a43ace54bb537aba7527f1a3905ceba5",
+      "speaker": "spellblade",
+      "key": "tutorial.worth-speaking",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/YouSeemCertain.mp3",
+      "sha256": "2e8bf03a96f467c1a3c610205d9ae82c8d1384c0659031346c0dfef293b6e959",
+      "speaker": "rival",
+      "key": "tutorial.seem-certain",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/OfCourseName.mp3",
+      "sha256": "eba5cb8c56dee210a900e0a4e38eb59bdba62ed8ba8637de1cc2b3a83313923e",
+      "speaker": "spellblade",
+      "key": "tutorial.name-matters",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/IOnlyGiveMyName.mp3",
+      "sha256": "a498a5c370e0edebd036732fac5dc792e44490459c1eb97a50ff8c2643bb2cd9",
+      "speaker": "rival",
+      "key": "tutorial.properly-defeat",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/ThenBestStrangers.mp3",
+      "sha256": "5e36d8ca63246a271797a0f1df60885e93c1d455c7c56612ac4286eb19f70c1d",
+      "speaker": "spellblade",
+      "key": "tutorial.remain-strangers",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T123309Z-1-001/WoahAppearsNegotiations.mp3",
+      "sha256": "93da783ef49e9bbbe2fbfbec1ee9c3a72801abeaacd40d8db5950d51659cb001",
+      "speaker": "narrator",
+      "key": "tutorial.negotiations",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/TryPlacating.mp3",
+      "sha256": "00b96944f8531e0bb60751a47c7de569cb23a842338d117c861f71def6dfbc20",
+      "speaker": "narrator",
+      "key": "tutorial.placate",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/StandDownPlease.mp3",
+      "sha256": "4a8f426e7dbf814834edbb61a441a3cd96136e9b391bb1fff5b20b42a3b8ac14",
+      "speaker": "spellblade",
+      "key": "tutorial.stand-down",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/TheSwordIsMightier.mp3",
+      "sha256": "2f1f4f411f48b71f17a765d1f3cd571df4752b8ecbab1a1add20af2ebd40af24",
+      "speaker": "rival",
+      "key": "tutorial.sword-pen",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/OhBrotherTellHimOff.mp3",
+      "sha256": "bf495f7bc05dfd2a789a53d9e5b8b7b953584d27a0177f8a4d63c8ceab9a7de0",
+      "speaker": "narrator",
+      "key": "tutorial.own-pen",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/ThatShouldTeachYou.mp3",
+      "sha256": "4dfd78b067cee03418ddbb44e028bf4d1277f82730e289fc2091806c0d348a36",
+      "speaker": "spellblade",
+      "key": "tutorial.teach-you",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/RatherHarshLesson..mp3",
+      "sha256": "0758aea19f2365e9c31be7fd21591c7b662731ae0028b3d2c55b20651e9c37d1",
+      "speaker": "narrator",
+      "key": "tutorial.harsh-lesson",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/OwIWasSimplyStating.mp3",
+      "sha256": "5d3c74ab5692d10041be51e2928fc1b54e6dd35dc9840d4d65de5c512f0ad221",
+      "speaker": "rival",
+      "key": "tutorial.opinion",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/YouHaveTaughtMe.mp3",
+      "sha256": "8e073c9c3b250c70e31d9848c8cf15e568db1ef7c8fa92a6fb044f27d0896db4",
+      "speaker": "rival",
+      "key": "tutorial.revise",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/MayYouReceiveMyMessage.mp3",
+      "sha256": "c97211f8990b5c37af0c40b20491953ce40959b0d84ff590e12d85c0c27094f7",
+      "speaker": "rival",
+      "key": "tutorial.good-health",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/YourHealthMixed.mp3",
+      "sha256": "a8a7459ea79d8567ad70f1ad88ef54e11dce254cedb81fd43582496b6e7d6b0e",
+      "speaker": "narrator",
+      "key": "tutorial.mixed-message",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/DisallowThis.mp3",
+      "sha256": "c6e6e350170b179153a0971090da02a0129da438d8814dd0a11fa6a8d4bc25e6",
+      "speaker": "narrator",
+      "key": "tutorial.disallow",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/Interception.mp3",
+      "sha256": "d811a17a120344d203928d4ab331f98f194c4e2aa11d71b87eb2baa5b7b1ec57",
+      "speaker": "spellblade",
+      "key": "tutorial.interception",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/YouBlockedMe.mp3",
+      "sha256": "f724f82ba2bb1a62b709fafb8181023628eab0645e25cac007e35fe20e2f5461",
+      "speaker": "rival",
+      "key": "tutorial.blocked-message",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/NoIWasGuarding.mp3",
+      "sha256": "4f6d90c50c1356ba61aa9ab7dff3c858117a65bfe410493b52afa112ea87e6b7",
+      "speaker": "spellblade",
+      "key": "tutorial.guarded",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/YouAreTechnicallyCorrect.mp3",
+      "sha256": "e59de17a001e2c1a3fee8d4c9c9f628ca7b77df21a10e1eabee3d1e2f300a99e",
+      "speaker": "narrator",
+      "key": "tutorial.technically-correct",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/ThereWasAnExtra.mp3",
+      "sha256": "c39cb82bfabd8867b2a2cce1001dbec6755799c52933a3c61b5abd8c844ffc8d",
+      "speaker": "rival",
+      "key": "tutorial.extra",
+      "status": "mapped",
+      "repairs": [
+        {
+          "kind": "release",
+          "extendSec": 0.08,
+          "decayDb": 30,
+          "why": "The recorder stopped (its broken final frame) while the last syllable was still releasing; its breath continued 80 ms, falling 30 dB, from its own spectrum (creator, 2026-10-12: the ending sounded slightly clipped)."
+        }
+      ]
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/MayYouReceiveTheHint.mp3",
+      "sha256": "66fdaf4586842898964ea48eb25a3314046e1e16365568798cac065ad077450c",
+      "speaker": "rival",
+      "key": "tutorial.hint",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/INeedAMoment.mp3",
+      "sha256": "e85b11a41d7e020abc75cb8717f9a2f558a94e221ec70e3492a5d04255858234",
+      "speaker": "spellblade",
+      "key": "tutorial.need-a-moment",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/IDoNotGetHints.mp3",
+      "sha256": "fb2d03921f99ad58c98773498ae49d9c21df45f562bdb738faa806de1338252e",
+      "speaker": "spellblade",
+      "key": "tutorial.no-hints",
+      "status": "inferred",
+      "note": "Same words as tutorial.jump-no-hints; the named take, given to the health-regeneration scene."
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/OfYourImminentDemise.mp3",
+      "sha256": "7896e6778d98debce2291e2a9b83946c5e6681e175d7604f009ed61c5ea6c94e",
+      "speaker": "rival",
+      "key": "tutorial.imminent-demise",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/AhNotMyPlan.mp3",
+      "sha256": "a3624fd1bd12f042afe1735b52a4bf40738a8d7a5146073b14d8bedddff3262b",
+      "speaker": "spellblade",
+      "key": "tutorial.not-my-plan",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/Well.mp3",
+      "sha256": "8cef5af0fdad16220e8a5dbd8cb529dcbba7aab984059a7f017d470351c89785",
+      "speaker": "rival",
+      "key": "tutorial.well",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/ThingsDoNotAlwaysPlan.mp3",
+      "sha256": "43b3f4efaa0f6d6f15d87a29ba1930468b705fc47d35abeafe24ea8c505528b6",
+      "speaker": "rival",
+      "key": "tutorial.plans-change",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/Indeed.mp3",
+      "sha256": "9a4a780b6d1944faf68e209fdefbc1bacd1b146222c03df060c3aee88b9edb49",
+      "speaker": "narrator",
+      "key": "tutorial.indeed",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/IfIStrikeFirstCease.mp3",
+      "sha256": "69641c68a968dbab8dc6ef364ff889ce40ede6bee191b135c715a9538e73d3b2",
+      "speaker": "spellblade",
+      "key": "tutorial.strike-you-first",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/ThatDependsIfYouGoDown.mp3",
+      "sha256": "c1861402762195b59de92b9d5f4f23b3868b1e7b7c0f70f56150c5060d5163cf",
+      "speaker": "rival",
+      "key": "tutorial.depends-go-down",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/PreventThisArrangement.mp3",
+      "sha256": "cbcb389f31231963485c6fb3d471a2c8f0cb5b1c0ac5d41ad2fa66a14a7b78cc",
+      "speaker": "narrator",
+      "key": "tutorial.prevent-arrangement",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/YouAreTakingWhileDown.mp3",
+      "sha256": "367ab3a53687300b957f7946d660ed465010161f0708542f382aa2d7224634da",
+      "speaker": "spellblade",
+      "key": "tutorial.taking-a-while",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/HahaIDoNotFeelLikeIt.mp3",
+      "sha256": "619cf6911d74a620f0053e1be834e225ca75190cd8e540079bbf88d1932422bf",
+      "speaker": "rival",
+      "key": "tutorial.not-yet",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/HowInformative.mp3",
+      "sha256": "33f4874924499363552255da3e12e7744b963f6bb2926d25785ecea9eb6ab554",
+      "speaker": "narrator",
+      "key": "tutorial.informative",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/AndThusSpellbladeConvinced.mp3",
+      "sha256": "e66e891b5968c789d48165a56ce4887b29c6823fabe938951690f25ff25daac1",
+      "speaker": "narrator",
+      "key": "tutorial.successful-expulsion",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/DidNotAdmireMe.mp3",
+      "sha256": "f45208690c83c2a8660bc1e437dae2012656d6ec56862c4c7717ae8afed4f89f",
+      "speaker": "spellblade",
+      "key": "tutorial.not-admired",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/IBelieveIOverstayed.mp3",
+      "sha256": "6f67888581d832ecd103d3a897a1d1ab57d6d4c473ed505b481d0d39c600ea59",
+      "speaker": "rival",
+      "key": "tutorial.overstayed-welcome",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/YouNeverWelcome.mp3",
+      "sha256": "10eb6e0152e0db9be56b15fd7d1e4a4eeed1bedf7eddca227da6b2caa52a3fbb",
+      "speaker": "spellblade",
+      "key": "tutorial.never-welcome",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/IToldYouYoSayHello.mp3",
+      "sha256": "d277cbeaa36fb45512664ad7b8f103f2fd3e7e8e38a4b6343c54e660f4128ea1",
+      "speaker": "narrator",
+      "key": "tutorial.say-hello-reminder",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/IfIManageToSuccessfullyEscape.mp3",
+      "sha256": "bd730cd98f435d02d308ed194843840c76c3c706f51a6cd3172ebf6e5a209d5a",
+      "speaker": "rival",
+      "key": "tutorial.escape-made-fun",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/OhDearThatHardly.mp3",
+      "sha256": "1d13727fa1a5910f788e8ea3e6be033d36ccc0c3b990640bca93fde709cc0fd2",
+      "speaker": "narrator",
+      "key": "tutorial.hardly-wellbeing",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/ReputationDeadAhead.mp3",
+      "sha256": "6dec3c50fec1dbc46105b516da3414a3c817ef73928e94b70d02e89866ea78d2",
+      "speaker": "spellblade",
+      "key": "tutorial.remains-ahead",
+      "status": "intended",
+      "note": "Replaces \"I would like to keep attacking, but he remains ahead!\" The intended script wording (creator, 2026-10-12); the script is being updated to match. Chosen of two takes.",
+      "words": "My reputation will become dead if he remains ahead!"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/AFewStepsAhead.mp3",
+      "sha256": "eb3d924ce4134670108425998a31bcfe716ff5255cb64c9879e77b34751a8337",
+      "speaker": "narrator",
+      "key": "tutorial.few-steps",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/AhahaYouCannotOvercome.mp3",
+      "sha256": "8f330fadebf7da49303408fb2d32df5b40e6e8ecc0742bfd3854fb587e505db1",
+      "speaker": "rival",
+      "key": "tutorial.minor-obstacle-gloat",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/WhatShouldDo.mp3",
+      "sha256": "54199c5e4e47043f698f2eb75aa6f576c16860b95d2af98e76d8842680bdf256",
+      "speaker": "spellblade",
+      "key": "tutorial.what-should-do",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/TheSpellbladesJourneyNotImp..mp3",
+      "sha256": "bbf0f2d84e2400fe0e564ebb1d85000104f0648bd904f1b6cca9ad516f4a451a",
+      "speaker": "narrator",
+      "key": "tutorial.minor-ledges",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/WhatThatMean.mp3",
+      "sha256": "ec015e1ed237b0a8b4c9136fe88c9088657c8281237a5b91a76760ac59031411",
+      "speaker": "spellblade",
+      "key": "tutorial.what-does-mean",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/RisesOcc.ClimbsRank.BoundsOn.mp3",
+      "sha256": "abb9e33444ce12f526d5574867bf7b52bb8e50b12c047bd976f9e03ae5441947",
+      "speaker": "narrator",
+      "key": "tutorial.rises-occasion",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/2026_10_11_19_30_50.mp3",
+      "sha256": "9ee73823d9762390886cfb70cb12e6987fa0f440bc7ee15d0b553c01eaf8cad5",
+      "speaker": "spellblade",
+      "key": "tutorial.jump-no-hints",
+      "status": "inferred",
+      "note": "Same words as tutorial.no-hints. Recorded 19:30:50, eight seconds before \"Took us long enough\" (19:30:58): the jump scene."
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/Jump..mp3",
+      "sha256": "adb6038460c757ad6af155fff0433cbb5ca434660a090f61219bb0003d75bfe1",
+      "speaker": "narrator",
+      "key": "tutorial.jump-instruction",
+      "status": "mapped",
+      "chain": {
+        "preset": "direct",
+        "gainDb": 1.0,
+        "why": "Terse on purpose: no compression, so its attack stays abrupt; a dB forward of the narrator's usual level."
+      }
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/HahaTookUSLong.mp3",
+      "sha256": "575164b80b16ee2fd11b26076a18f8dd5f49fa89d188b257604f8cffcc760e43",
+      "speaker": "spellblade",
+      "key": "tutorial.took-us-long",
+      "status": "mapped",
+      "note": "\"Haha!\" as written; chosen over the \"Aha!\" take"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/Us..mp3",
+      "sha256": "1f46ffd4b3cfcf3a922872e7a002ede7fa79caff58cc414acea2a41a86d801d7",
+      "speaker": "narrator",
+      "key": "tutorial.us",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/NoIshouldNotHaveStoppedRunning.mp3",
+      "sha256": "555bf6c8a1132a2c2591ef249d6fdc0dcd31ce1e941dd555f06693baca477514",
+      "speaker": "rival",
+      "key": "tutorial.minor-tactical-regret",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/Hello!.mp3",
+      "sha256": "b593606c9a4aa6aff1297eb9328a5e25abb7e9d5a2116b8c4306f04a0405e8d2",
+      "speaker": "spellblade",
+      "key": "tutorial.final-hello",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/ItIsTooLateForThat.mp3",
+      "sha256": "40dba0fff233c9c63d66ab9719112a73fbd05beeaa289b2962d998b1234e31fa",
+      "speaker": "rival",
+      "key": "tutorial.too-late-hello",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/ReconsiderMeetingYou.mp3",
+      "sha256": "820ec35d51705f16e9868eb410a81bd9333133fcaf226a830e007bd3a5b464fb",
+      "speaker": "spellblade",
+      "key": "tutorial.reconsider-meeting",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/TheSwordRemainsMightidr.mp3",
+      "sha256": "143a79740a547c70ba954ef7571b8f8b6ce95b24dee3b37c041593117f11ba07",
+      "speaker": "rival",
+      "key": "tutorial.sword-remains",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/AndIRemainMightier.mp3",
+      "sha256": "28677d93aa2675a371e6f1661a3d63427bddafcba95834db3dca0cdea744e4c8",
+      "speaker": "rival",
+      "key": "tutorial.remain-mightier",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/ThatIsALotOfThings.mp3",
+      "sha256": "a262cfcc135ba94f7890fc5dea5a61ca8f0b0d4088fbee876fa15aa66343bacb",
+      "speaker": "narrator",
+      "key": "tutorial.lot-of-things",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/WhyCalledSpell.mp3",
+      "sha256": "eee5a1f7a089d4340f341cd1b6af61a6f22d04d057816b342db94bf0066e47f8",
+      "speaker": "narrator",
+      "key": "tutorial.why-spellblade",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/BecauseISpellBlade.mp3",
+      "sha256": "e5eaac27de013183d8a5b2f1891197abc54cd8b2f1a9e3f0073a05679db84eae",
+      "speaker": "spellblade",
+      "key": "tutorial.spell-blade",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/Impressive.mp3",
+      "sha256": "083d0cb49bd9665dfac071ae20522b9dc795420421e564be9891fa2ab49d3b67",
+      "speaker": "narrator",
+      "key": "tutorial.impressive",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/ButAlsoMagic.mp3",
+      "sha256": "bb692bd3778e221e61e5832323016d1b1b9b27c8bfcc9cb28b89c7b6c44188eb",
+      "speaker": "narrator",
+      "key": "tutorial.magic-disposal",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/IKnewThatIHadJustWait.mp3",
+      "sha256": "d78abfec9362efece50c68e89aa06840b791a0dcd6a30ea5d5333122161e9985",
+      "speaker": "spellblade",
+      "key": "tutorial.waiting-reminder",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/IAmAlmostThere.mp3",
+      "sha256": "4f17f0e3de37f4cb3082bc9a470cb254c222d3a8e5a156d2d16ffe8513f78862",
+      "speaker": "rival",
+      "key": "tutorial.almost-there",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/ThatWasColdOfYouOw.mp3",
+      "sha256": "b24262f416768e880015ae8a1cd1e35da7da4ab6e0ec8b804aa75633dd27b8bc",
+      "speaker": "rival",
+      "key": "tutorial.rival-cold",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/DevelopWarmFeelings.mp3",
+      "sha256": "a546eeb1e455a92b512900cdf01fe169043936c02915207e31217064348282bc",
+      "speaker": "spellblade",
+      "key": "tutorial.warm-feelings",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/Concerning.mp3",
+      "sha256": "d76611f27030c0709a7f373616d6bd631dc536c2db93e364dbf0538bcbbc44b7",
+      "speaker": "narrator",
+      "key": "tutorial.concerning",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/IKnowExactlyHowSettled.mp3",
+      "sha256": "e81c1340c34283f4f97cbaa1c935d4ecb8364533119ca50d95a93eec000df8b9",
+      "speaker": "rival",
+      "key": "tutorial.matter-settled",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/How..mp3",
+      "sha256": "d62a64b4606a4bc452243c05b56cc252d234726a3129da42dba5f162b1c78854",
+      "speaker": "narrator",
+      "key": "tutorial.how-settled",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/ItWillBeAtAPlaceDignity.mp3",
+      "sha256": "b0bd558789ddfb13c1525157794800fbcbfb34f4aa22a012bfb8329fdac5e9f6",
+      "speaker": "rival",
+      "key": "tutorial.utmost-dignity",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/WhereYouWillBeRightfullyCondemned.mp3",
+      "sha256": "711f1d0ac09892e2b72b413efddb0b876a616b5ce18774c2b7fc327fe52abb15",
+      "speaker": "rival",
+      "key": "tutorial.rightfully-condemned",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/andtoldon.mp3",
+      "sha256": "7d1c0ce4ab043b76a712469e636bd8f6a1c121553b5694ccdbb07139b1960ea3",
+      "speaker": "rival",
+      "key": "tutorial.told-on",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/NowAcquiredAttention.mp3",
+      "sha256": "7c66bb5e2b56a8a634719cc8e71bb1a5a0b7e63adac63be378a30926c870df18",
+      "speaker": "spellblade",
+      "key": "tutorial.acquired-attention",
+      "status": "mapped"
+    },
+    {
+      "raw": "loose-2026-10-12/AhaTryGettingOverThis.mp3",
+      "sha256": "ce62f20c17962bdb164cdf4c5ccb8d54b0878238adef14f09db0ab5007627b93",
+      "speaker": "rival",
+      "key": "tutorial.get-over-this",
+      "status": "mapped",
+      "note": "Supplied on its own (Downloads, 2026-10-12)."
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/HeMakesDecentSuggestion.mp3",
+      "sha256": "8c995d8a09a416f9e911dfcf929813e5cf339a01fc2b2db007ec8dbafff944a5",
+      "speaker": "narrator",
+      "key": "tutorial.decent-suggestion",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/IWillGetOverIt.mp3",
+      "sha256": "bdf7a2c780bb700412dfd38fa97cf88121b579673162ec5933af972300c2e7cd",
+      "speaker": "spellblade",
+      "key": "tutorial.get-over-it",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/SmallGapsNeverStopImportant.mp3",
+      "sha256": "11c5dda9c5e5d72e510596c0cfa39b6abf91b196c86a9c5e84ebf7288b4cc45e",
+      "speaker": "spellblade",
+      "key": "tutorial.small-gaps",
+      "status": "mapped",
+      "note": "The bridge-success line, replacing \"I can find it within myself to surpass this obstacle.\" (PR #157)."
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/YouHaveGrownMaturityAwaits.mp3",
+      "sha256": "6fcc754f9744c89e48377295123b896dcbfbc85742e3bb931557841c7c93fd8d",
+      "speaker": "narrator",
+      "key": "tutorial.grow-maturity",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/NeverIAmAKnight.mp3",
+      "sha256": "3d1e444886fcffdca1d2cb71a929b56a257c8c79709065d4145a1effb4ef23d1",
+      "speaker": "spellblade",
+      "key": "tutorial.but-knight",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/CeaseThisSingingIInsist.mp3",
+      "sha256": "5e2bb31bbca447ad4da5ab64da73bd1d8e3757838b10f4d32f0cc663e47fea1b",
+      "speaker": "rival",
+      "key": "tutorial.cease-singeing",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/IRecommendFollowingFootsteps.mp3",
+      "sha256": "edd3d9a35ba9cedbd0645e6cef5bfac060ee28e40505b9a1b1bd7a2c9b99d478",
+      "speaker": "narrator",
+      "key": "tutorial.follow-footsteps",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/2026_10_11_20_26_17.mp3",
+      "sha256": "0bf606cf563bc1a6666b68b2b31aa0d2796c8f3e8b11bc75bb802267ed6d5921",
+      "speaker": "narrator",
+      "key": "tutorial.legend-ends",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/RealKnightNeverAsks_1.mp3",
+      "sha256": "b2897714efca3feae723bf55fa18d7c7bf99ad57f7769b111a1b94083fd564f2",
+      "speaker": "spellblade",
+      "key": "tutorial.knight-help",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T063557Z-1-001/BlastHadntConsidered.mp3",
+      "sha256": "6cd8ac1c7fdcbad6d3130916d35e95bd5e8495e67db152d9727ac167e88cb993",
+      "speaker": "rival",
+      "key": "tutorial.blast-not-considered",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T063557Z-1-001/FineThenWeDuel.mp3",
+      "sha256": "096695cf16bb50319ab8b8bfdd03d8a488b2dbf1838a889c8cb1d9633ebbc8bc",
+      "speaker": "rival",
+      "key": "tutorial.fine-we-duel",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T063557Z-1-001/IfIWinITellOnYou.mp3",
+      "sha256": "e53f41593a6a4c57fc5da640d514d3d24b9528f6255b0f1eef35e30b044fece5",
+      "speaker": "rival",
+      "key": "tutorial.if-i-win-tell",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T063557Z-1-001/IfYouLiseYouLie.mp3",
+      "sha256": "c97395dbbd7335bafbf1ddc56d9170946564fa083f1b330d2b005d58bf1f330e",
+      "speaker": "rival",
+      "key": "tutorial.if-you-lose-told",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T063557Z-1-001/AndWhenIWin.mp3",
+      "sha256": "210b7d588e5afe387952359c5b765ec592eb077ee53676179725da4b2aa55b86",
+      "speaker": "spellblade",
+      "key": "tutorial.when-i-win",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T063557Z-1-001/ThatWasNotPartOfTheTerms.mp3",
+      "sha256": "cc020885cb2ac55f945c1beaf41d0ba2ebc64f19506b7aac9f70aef6066699c4",
+      "speaker": "rival",
+      "key": "tutorial.not-part-terms",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T063557Z-1-001/ThisSeemsScriptedAgaimstYou.mp3",
+      "sha256": "bccd5d199ce0d299c4d9cfb1b60ed9268214132cce272e89ff16c8b4f27aac2c",
+      "speaker": "narrator",
+      "key": "tutorial.scripted-against-you",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T063557Z-1-001/ComeHereAndProve.mp3",
+      "sha256": "ac6893bcf7a49568f4f12a3117a45e5333c6e39195e336da23f6f0e9ca39a20b",
+      "speaker": "rival",
+      "key": "tutorial.come-prove-it",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/WhoAreYou.mp3",
+      "sha256": "34593cf78fb30be737de8a8b94edc2323d23dd8cfe2d071265d9223465effc90",
+      "speaker": "rival",
+      "key": "tutorial.who-are-you",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/IAm....mp3",
+      "sha256": "3de6dc0368ef75f229b754f3bc20dfa2dd1288abb1b65dc048afb699288fc058",
+      "speaker": "spellblade",
+      "key": "tutorial.i-am",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/WhatAStrangeName.mp3",
+      "sha256": "369d459d282476dd226713bfbd628a5db3ed28d542829bd82bc7ddd238a94eae",
+      "speaker": "rival",
+      "key": "tutorial.strange-name",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/IfANYONEElseResemblesMe....mp3",
+      "sha256": "2d2b08ea720e5f9977e0863cf980896834425fe502e53de855c3413933f22662",
+      "speaker": "spellblade",
+      "key": "tutorial.true-master",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/LetUsHopeNotMany.mp3",
+      "sha256": "3b443c210b079d7003f3464e56ccfabe14bfec1208d2e943e7b6276db55dcc15",
+      "speaker": "narrator",
+      "key": "tutorial.closing-hope",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/TheSpellbladeFrolicsInTheFields.mp3",
+      "sha256": "d9eeb09976d712ea65fd1b25bc16e68d6bcee312096bda45c32a1ca621b8b7c3",
+      "speaker": "narrator",
+      "key": "tutorial.frolic-fields",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/NotFrolickingRememberMove.mp3",
+      "sha256": "f3c0f3296b7cc1854d5c415508350329eadc8d0ae73a147fd47bdcfb809362d6",
+      "speaker": "spellblade",
+      "key": "tutorial.remembering-move",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/HmmThisIsStrange.mp3",
+      "sha256": "414bae21e69ea007cb026c5776ce1522dd2019e9d2b4921e28b256a623aa791f",
+      "speaker": "narrator",
+      "key": "tutorial.constitution-strange",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/NoIAmNot.mp3",
+      "sha256": "68a97e313750c4b4f71221f5d387d1e96b5c8e72fdca1ae20381006e732616f3",
+      "speaker": "spellblade",
+      "key": "tutorial.not-strange",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/YourRivalNotFallen.mp3",
+      "sha256": "4b3092008bb111d88ae655269ae3a4a3eacfc1e0afde3b6452f79bee4e129e1c",
+      "speaker": "narrator",
+      "key": "tutorial.not-fallen",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/ThankYiuForNoticng.mp3",
+      "sha256": "d38bf25fe3456ff873d23f356f489fb81b735f313582f259550d2b222878b8da",
+      "speaker": "rival",
+      "key": "tutorial.thank-noticing",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/PerhapsArmorBetterTailored.mp3",
+      "sha256": "139f43961bd371d2697895abc40627c7d3c8b0037ac363c405e5e0d2aabf1b35",
+      "speaker": "narrator",
+      "key": "tutorial.what-condition",
+      "status": "intended",
+      "note": "Replaces \"This one is tougher than usual. What is his condition?\" The intended script wording (creator, 2026-10-12); the script is being updated to match.",
+      "words": "Perhaps his armor is better tailored than yours. What is his condition?"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/WhatIsYourCurrentConstit...mp3",
+      "sha256": "25386246ab665cac1b3b1e9b5cc998047998dcb31f5c64cac485370c6b3c509c",
+      "speaker": "spellblade",
+      "key": "tutorial.current-constitution",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/MyConstitutionHasBeenAmended.mp3",
+      "sha256": "e3545729969ea077d5a2093a373043d56d2a85ba8a2c854871426f09be83b6c8",
+      "speaker": "rival",
+      "key": "tutorial.constitution-amended",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/AhThenItAppears.mp3",
+      "sha256": "f4104c3ad5bb60679c3fd27d6d4bdb1c36d15e7d7724043a1a7733caf61eb8fe",
+      "speaker": "narrator",
+      "key": "tutorial.cannot-settled",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/YourRivalisOverThere.mp3",
+      "sha256": "01f75de0a0cd43889da22613b3ed538a91b580b31ca3467589981014171956e9",
+      "speaker": "narrator",
+      "key": "tutorial.rival-over-there",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/WantedScorchMarkThere.mp3",
+      "sha256": "aa247c2e1c86eeb0c98f4812b94791905d7bdc87c9816e5cf46ea5b4e6cb2638",
+      "speaker": "spellblade",
+      "key": "tutorial.scorch-mark",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044308Z-1-001/TheBridgeGrowsLonger.mp3",
+      "sha256": "37d202ff4f82e610938d86723925f34f4c0f41b5bb4c59d4a50555f2628c4d3d",
+      "speaker": "narrator",
+      "key": "tutorial.bridge-senses-failure",
+      "status": "mapped",
+      "note": "The bridge-growth branch (PR #157)."
+    },
+    {
+      "raw": "drive-download-20261012T044308Z-1-001/HenceWhyICrossedIt.mp3",
+      "sha256": "5f46565cd2582e3ccc19af7f1005cf5af0ab015207ef7d60b37ccb90326f73dd",
+      "speaker": "rival",
+      "key": "tutorial.hence-i-crossed",
+      "status": "mapped",
+      "note": "Rival's, as the script has it (PR #157; first guessed as the Spellblade's)."
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/IGiveYouPermissionToStop.mp3",
+      "sha256": "f049bb5ba38c2ada28b37cc25533878e4d486d670f1ea7b06aed22eea277c928",
+      "speaker": "rival",
+      "key": "tutorial.permission-stop",
+      "status": "mapped",
+      "note": "Rival's, as the script has it (PR #157; first guessed as the Spellblade's)."
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/WillYouNoLongerRuin.mp3",
+      "sha256": "4a8ff0961fc3eb381d69d9446749314823c6c7f8eeed5c1f6c2845ffd6a1b43d",
+      "speaker": "spellblade",
+      "key": "tutorial.no-longer-ruin",
+      "status": "mapped",
+      "note": "The permission-to-stop branch (PR #157)."
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/RivalNo.mp3",
+      "sha256": "ba78468eff49a76ff92f9841d9d21e0c96d91523f38add2073c520a69d5fc079",
+      "speaker": "rival",
+      "key": "tutorial.permission-no",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/ThenNo.Spellblade.mp3",
+      "sha256": "9daa59cfe5e76648089bef3a20b66447dc64d6ada71d7c18a15476bffabfcbba",
+      "speaker": "spellblade",
+      "key": "tutorial.then-no",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/AHHHOhithassubsided.mp3",
+      "sha256": "f1f26d394a098eb5cafc096dfbe5e29862394255f7adf3bdbbd36824291bf75a",
+      "speaker": "spellblade",
+      "key": "tutorial.burn-subsided",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/IHaveBeenReforged.mp3",
+      "sha256": "ba795b52830c0b937204bb12b3335a6f460a0b1c82b2bd9555fea5b68b48076b",
+      "speaker": "spellblade",
+      "key": "tutorial.reforged",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/NotTooManyTimes.mp3",
+      "sha256": "aa2e4be492f658cd0394ce3de45d86339fa41b00fb97b1bd4fc5e79a2a9dd59c",
+      "speaker": "narrator",
+      "key": "tutorial.not-too-many",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/ThisShouldStopYou.mp3",
+      "sha256": "51770a29e3b38045f0a1d313efb7492a7cd02a355738f7ea1dbe1145cace61f1",
+      "speaker": "rival",
+      "key": "tutorial.stop-you",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/ConvinceUnblock.mp3",
+      "sha256": "62c11f8486c81fca1effc9257b1c05e448f1a24d0d1ebe5e488c6b448b71c300",
+      "speaker": "narrator",
+      "key": "tutorial.convince-unblock",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/ThatDidNOTstopYou.mp3",
+      "sha256": "3c6026efe24d98df75e131c8ed0601a915c2dc32c4ea2c00ae85594bc0f028f7",
+      "speaker": "rival",
+      "key": "tutorial.did-not-stop",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/OhLookAnotherJustLikeYou.mp3",
+      "sha256": "7c002fef3d8bc1b0aba09251a008c09002127257400a97c567be7da5974ba837",
+      "speaker": "narrator",
+      "key": "tutorial.another-like-you",
+      "status": "dropped",
+      "alternateOf": "drive-download-20261012T044301Z-1-001/2026_10_11_19_56_53.mp3",
+      "note": "says \"there's\" Dropped by the creator (2026-10-12): not processed, the raw take kept."
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/SoundArgument_1.mp3",
+      "sha256": "6d6772fbf89244bf1291c46a665453e3b669fe8a0c208ba8a343624e6b5400bc",
+      "speaker": "narrator",
+      "key": "tutorial.good-question",
+      "status": "dropped",
+      "alternateOf": "drive-download-20261012T044301Z-1-001/SoundArgument.mp3",
+      "note": "Dropped by the creator (2026-10-12): not processed, the raw take kept."
+    },
+    {
+      "raw": "drive-download-20261012T123309Z-1-001/TryPlacating.mp3",
+      "sha256": "00b96944f8531e0bb60751a47c7de569cb23a842338d117c861f71def6dfbc20",
+      "speaker": "narrator",
+      "key": "tutorial.placate",
+      "status": "duplicate",
+      "sameAs": "drive-download-20261012T044301Z-1-001/TryPlacating.mp3",
+      "note": "Supplied again (2026-10-12); byte-identical to the take already used."
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/MyReputationWillBecomeDead.mp3",
+      "sha256": "8ab63b9fc0643ed4b5a4945505ae8d9ef7e12beee51d8953619758bde61abf8c",
+      "speaker": "spellblade",
+      "key": "tutorial.remains-ahead",
+      "status": "dropped",
+      "alternateOf": "drive-download-20261012T044301Z-1-001/ReputationDeadAhead.mp3",
+      "note": "The other take of the intended line. Dropped by the creator (2026-10-12): not processed, the raw take kept."
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/2026_10_11_19_30_58.mp3",
+      "sha256": "4a8256484d855cffa9e0aecb5ffec78aa60cbb837ca8d3687d607685f3f727de",
+      "speaker": "spellblade",
+      "key": "tutorial.took-us-long",
+      "status": "dropped",
+      "alternateOf": "drive-download-20261012T044301Z-1-001/HahaTookUSLong.mp3",
+      "note": "opens \"Aha!\" rather than \"Haha!\" Dropped by the creator (2026-10-12): not processed, the raw take kept."
+    },
+    {
+      "raw": "drive-download-20261012T123309Z-1-001/HahaTookUSLong.mp3",
+      "sha256": "575164b80b16ee2fd11b26076a18f8dd5f49fa89d188b257604f8cffcc760e43",
+      "speaker": "spellblade",
+      "key": "tutorial.took-us-long",
+      "status": "duplicate",
+      "sameAs": "drive-download-20261012T044301Z-1-001/HahaTookUSLong.mp3",
+      "note": "Supplied again (2026-10-12); byte-identical to the take already used."
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/NotWhereLegendEndsSpellblade.mp3",
+      "sha256": "7a3ae0c6dfb56f9dfaf74fe333ddc649f2d35772ce4c10077dea7cd4ae19f3dc",
+      "speaker": "narrator",
+      "key": "tutorial.legend-ends",
+      "status": "dropped",
+      "alternateOf": "drive-download-20261012T044301Z-1-001/2026_10_11_20_26_17.mp3",
+      "note": "omits \"your\"; \"not made to be made fun of\" Dropped by the creator (2026-10-12): not processed, the raw take kept."
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/NoYourSwordHasWorkedOnMeThisTime.mp3",
+      "sha256": "64f65a4268999f3a815603fb2718f493b1be197fa770ff58da9dbcd4d125734e",
+      "speaker": "rival",
+      "key": null,
+      "status": "unplaced",
+      "note": "Not in the script. Reads as Rival's defeat, the answer to \"That did not stop you!!\"",
+      "words": "No! Your sword has worked on me this time!"
+    },
+    {
+      "raw": "drive-download-20261012T044301Z-1-001/RivalHurt(1)OOUugh.mp3",
+      "sha256": "28d38b8d51a9d5bfb5857e59806cd9f384492322ef4e27e0ed24ccfc9de4333b",
+      "speaker": "rival",
+      "key": null,
+      "status": "unplaced",
+      "note": "A hurt sound for Rival; nothing in the tutorial plays one yet.",
+      "words": "(hurt) Oough!"
+    },
+    {
+      "raw": "drive-download-20261012T044212Z-1-001/AllCannonFodderMove.mp3",
+      "sha256": "27ae48c0da788592542dbfaf6fd86285452f4e23c133f7aaad379ddbe4441ce4",
+      "speaker": "spellblade",
+      "key": null,
+      "status": "general",
+      "note": "General Spellblade VO: no line declared for it yet.",
+      "words": "All cannon fodder, move over here. That is everyone else."
+    },
+    {
+      "raw": "drive-download-20261012T044212Z-1-001/FaceDefeatIDefeat.mp3",
+      "sha256": "8c479b6c92b1fc12b25769298b56cd8f45f35ac37c37108c3974fe05a5f62bf3",
+      "speaker": "spellblade",
+      "key": null,
+      "status": "general",
+      "note": "General Spellblade VO: no line declared for it yet.",
+      "words": "Are you ready to face defeat I am defeat"
+    },
+    {
+      "raw": "drive-download-20261012T044212Z-1-001/FollowMeForVictory.mp3",
+      "sha256": "e47b0bd116af206bb1efde8779b1c73857262f738667ebeea5e6ef8cf9e9d8a0",
+      "speaker": "spellblade",
+      "key": null,
+      "status": "general",
+      "note": "General Spellblade VO: no line declared for it yet.",
+      "words": "Follow me if you'd like to obtain a victory!"
+    },
+    {
+      "raw": "drive-download-20261012T044212Z-1-001/IceLongBall.mp3",
+      "sha256": "fb59a17eba55ae5846b136960a4bc41893b6b100934b62122c9edcd701454ceb",
+      "speaker": "spellblade",
+      "key": null,
+      "status": "general",
+      "note": "General Spellblade VO: no line declared for it yet.",
+      "words": "Cold freezing killing rhyme, frost snow, frigid bitter, ice ball!"
+    },
+    {
+      "raw": "drive-download-20261012T044212Z-1-001/LongFireBall.mp3",
+      "sha256": "b33745311e51edc96e53051b81d61da22f5afbbf092b07208ec65ae4b9278396",
+      "speaker": "spellblade",
+      "key": null,
+      "status": "general",
+      "note": "General Spellblade VO: no line declared for it yet.",
+      "words": "Fire Cane Magic Sorcery Flame Ball!"
+    },
+    {
+      "raw": "drive-download-20261012T044212Z-1-001/OohWhatDownThere.mp3",
+      "sha256": "cfe1eccb156d95465c9bdfc5c78ea5b70b99ca9c6b8b7d086b4d0f1a787b4079",
+      "speaker": "spellblade",
+      "key": null,
+      "status": "general",
+      "note": "General Spellblade VO: no line declared for it yet.",
+      "words": "Ooh, what is down there?"
+    },
+    {
+      "raw": "drive-download-20261012T044212Z-1-001/Sweet release.mp3",
+      "sha256": "b559184cb89f17ec64ab92ac90f8f74e78f13dfabae7ddaa0ba25121deb604a9",
+      "speaker": "spellblade",
+      "key": null,
+      "status": "general",
+      "note": "General Spellblade VO: no line declared for it yet.",
+      "words": "That one over there is begging for the sweet release of defeat. May no one else but I be allowed to bring it"
+    },
+    {
+      "raw": "drive-download-20261012T044212Z-1-001/TeamPurposeMeGood.mp3",
+      "sha256": "f8a52723054fcfe908a98827fcd6a75033214082555fde932b4bc22a39958ac1",
+      "speaker": "spellblade",
+      "key": null,
+      "status": "general",
+      "note": "General Spellblade VO: no line declared for it yet.",
+      "words": "My team is adequately fulfilling their purpose making me look good"
+    },
+    {
+      "raw": "drive-download-20261012T044212Z-1-001/ThankDishonorable.mp3",
+      "sha256": "bdf9bbf605c40a7678b510da7e918bd7c69702428849758d38a1640c118843eb",
+      "speaker": "spellblade",
+      "key": null,
+      "status": "general",
+      "note": "General Spellblade VO: no line declared for it yet.",
+      "words": "Thank goodness it was I who did this, otherwise it would have been dishonorable."
+    },
+    {
+      "raw": "drive-download-20261012T044212Z-1-001/ThankGoodnessWasIDoneThis.mp3",
+      "sha256": "e522ebc467c11f0fcd6ee06c02d166a0bacd7c0e6ebbf31c6ed990bedfedc102",
+      "speaker": "spellblade",
+      "key": null,
+      "status": "general",
+      "note": "General Spellblade VO: no line declared for it yet.",
+      "words": "Thank goodness it was I who had done this, otherwise this would have been dishonorable."
+    },
+    {
+      "raw": "drive-download-20261012T044212Z-1-001/WhatWasEquipment.mp3",
+      "sha256": "2bfaacbfb5a8a704be60afc12bb0ff5cd94e9aefb9af4e012cba417b046b976c",
+      "speaker": "spellblade",
+      "key": null,
+      "status": "general",
+      "note": "General Spellblade VO: no line declared for it yet.",
+      "words": "What was my equipment again?"
+    }
+  ]
+}
