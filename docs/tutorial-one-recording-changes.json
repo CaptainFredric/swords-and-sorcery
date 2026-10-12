@@ -267,6 +267,11 @@
         "key": "tutorial.truly-look-around",
         "before": "No. Truly look around.",
         "after": "With your eyes"
+      },
+      {
+        "key": "tutorial.harsh-lesson",
+        "before": "A harsh lesson.",
+        "after": "Rather harsh lesson."
       }
     ],
     "missing": []
