@@ -1,3 +1,5 @@
+import { wayToward } from '../../shared/sim/botNav.mjs';
+import { NONLETHAL_RECOVERY } from '../game/spellbladeMotion.mjs';
 import { GREENER_ROUTE } from '../../shared/worlds/greenerPastures.mjs';
 import { beginAttack, cancelAttack, endAttack, setGuard, tryCastSpell, tryDash } from '../../shared/sim/combat.mjs';
 import { stepBotControllers } from '../../shared/sim/BotController.mjs';
@@ -40,12 +42,16 @@ export class TutorialRival {
     this.enteredAt = 0; this.lastStepAt = null; this.sprintReactionAt = null; this.sprintWanted = false;
     this.dashReactionAt = null; this.previousGap = null; this.guardOpeningUntil = -Infinity; this.prideAt = null;
     this.jumpWaiting = false;
+    this.recoveryAt = null;
+    this.gloatTurnUntil = -Infinity;
+    this.routeMind = {strafeDirection:1};
     this.bridgeInFlight = false;
     this.bridgePrepared = false;
   }
   enter(cue, now) {
     if (!cue || !this.actor) return;
     const next = MODES[cue];
+    if (next === 'escape' && this.mode === 'recover' || next === 'duel' && this.recoveryAt !== null) return;
     if (next && next !== this.mode) {
       this.mode = next; this.enteredAt = now;
       cancelAttack(this.room, this.actor.id, now); setGuard(this.room, this.actor.id, false, now);
@@ -62,15 +68,30 @@ export class TutorialRival {
     }
     if (next === 'final-fight' && !this.session.requiresFinalGuard) this.room.tutorialRival.protected = false;
   }
+  beginRecovery(now) {
+    if (this.recoveryAt !== null || !this.actor?.alive) return;
+    this.recoveryAt = now;
+    this.mode = 'recover'; this.enteredAt = now;
+    cancelAttack(this.room,this.actor.id,now); setGuard(this.room,this.actor.id,false,now);
+    this.actor.ai = null;
+    this.actor.presentationRecovery = {at:now,duration:NONLETHAL_RECOVERY.duration};
+    // Retain the actual blow's existing displacement. This is a recoverable reaction, never a corpse.
+    this.inputToward(this.player.position,0);
+    this.session.director.fact('rival-recovery-started');
+  }
   inputToward(point, scale = 1, sprint = false, face = point, pitch = 0) {
     const actor = this.actor;
     const yaw = typeof face === 'number' ? face : yawTo(actor.position, face);
     const dx = point.x - actor.position.x, dz = point.z - actor.position.z;
     const length = Math.hypot(dx, dz) || 1;
-    actor.yaw = yaw; actor.pitch = pitch;
-    actor.input = { forward: scale * (-Math.sin(yaw) * dx - Math.cos(yaw) * dz) / length,
-      right: scale * (Math.cos(yaw) * dx - Math.sin(yaw) * dz) / length,
-      yaw, pitch, sprint, jump: false, crouch: false };
+    const recoveringTurn = this.recoveryAt !== null && this.session.host.now() - this.recoveryAt < NONLETHAL_RECOVERY.duration + .5;
+    const turning = recoveringTurn || this.jumpWaiting || this.session.host.now()<this.gloatTurnUntil;
+    const wantedYaw = turning ? actor.yaw + Math.max(-.16,Math.min(.16,angle(actor.yaw,yaw))) : yaw;
+    actor.yaw = wantedYaw; actor.pitch = pitch;
+    if(turning && scale>0)scale*=Math.max(0,Math.cos(angle(wantedYaw,yaw)));
+    actor.input = { forward: scale * (-Math.sin(wantedYaw) * dx - Math.cos(wantedYaw) * dz) / length,
+      right: scale * (Math.cos(wantedYaw) * dx - Math.sin(wantedYaw) * dz) / length,
+      yaw: wantedYaw, pitch, sprint, jump: false, crouch: false };
   }
   strike(now) {
     if (now - this.lastStrike < 1.15 || !this.player.alive) return;
@@ -124,7 +145,15 @@ export class TutorialRival {
         return;
       }
     }
+    if(this.jumpWaiting)this.gloatTurnUntil=now+.65;
     this.jumpWaiting = false;
+    const reuse=GREENER_ROUTE.jumpReuse;
+    if(reuse && actor.position.z<reuse.approach.z+1 && actor.position.z>reuse.obstacleBounds.minZ-.5) {
+      this.inputToward(reuse.landing,1,false);
+      if(actor.position.z<=reuse.takeoff.z+1)actor.input.jump=actor.grounded;
+      this.waypoint=Math.max(this.waypoint,route.findIndex(p=>p.id==='dead-end-landing'));
+      return;
+    }
     // The final approach has no artificial proximity slowdown. The taunt owns the stop.
     if (this.mode === 'complaint') scale = 1;
     const gap = GREENER_ROUTE.bridge;
@@ -163,7 +192,8 @@ export class TutorialRival {
     const lookingBack = actor.pendingSpell || now < actor.castEndsAt + .15;
     const pitch = lookingBack ? Math.atan2(player.position.y + .9 - actor.position.y - 1.55, apart) : 0;
     // Reproject movement onto the current aim. Turning back to gather must not reverse the chase.
-    this.inputToward(target, scale, this.sprintWanted, lookingBack ? player.position : target, pitch);
+    const travel = wayToward(room.world,actor,{position:target},this.routeMind,now) ?? target;
+    this.inputToward(travel, scale, this.sprintWanted, lookingBack ? player.position : travel, pitch);
   }
   pride(now, dt) {
     const { actor, player } = this;
@@ -185,6 +215,15 @@ export class TutorialRival {
     this.lastStepAt = now;
     if (!actor || !player?.alive || !actor.alive) return;
     const apart = distance(actor.position, player.position);
+    if (this.mode === 'recover') {
+      this.inputToward(player.position,0);
+      if(now-this.recoveryAt>=NONLETHAL_RECOVERY.duration) {
+        this.actor.presentationRecovery=null;
+        this.session.director.fact('rival-recovered');
+        this.mode='idle'; this.enter('rival-escape',now);
+      }
+      return;
+    }
     if (['duel', 'final-fight'].includes(this.mode)) { this.combat(now, this.mode === 'final-fight'); return; }
     if (['guard-lesson', 'postscript'].includes(this.mode)) {
       this.inputToward(player.position, apart > 1.95 ? .65 : 0);

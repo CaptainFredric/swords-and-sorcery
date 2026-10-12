@@ -1,3 +1,5 @@
+import { GREENER_FARM_PROPS } from '../../shared/worlds/greenerFarm.mjs';
+import { farmPiece } from './kit/farmPieces.mjs';
 import * as THREE from 'three';
 import { GREENER_PASTURES, GREENER_ROUTE, greenerBridgeRetryFloor } from '../../shared/worlds/greenerPastures.mjs';
 import { GREENER_PRESENTATION, buildGreenerPasturesDecor, greenerBackdropHeight, greenerBackdropMeshHeight } from './greenerPasturesDecor.mjs';
@@ -60,11 +62,11 @@ function fieldWall(batch, random, solid) {
 
 function pastureHedge(batch, random, solid) {
   const run = runOf(solid);
-  const count = Math.ceil(run.length / 2.2);
+  const count = Math.ceil(run.length / 3.2);
   for (let i = 0; i < count; i += 1) {
     const [x, z] = run.at(-run.length / 2 + (i + 0.5) * run.length / count);
-    batch.foliage.lump({ cx: x, cy: solid.center[1], cz: z, rx: run.alongX ? 1.3 : run.thickness * 0.6,
-      ry: run.height * 0.53, rz: run.alongX ? run.thickness * 0.6 : 1.3,
+    batch.foliage.lump({ cx: x, cy: solid.center[1], cz: z, rx: run.alongX ? 1.8 : run.thickness * 0.6,
+      ry: run.height * 0.53, rz: run.alongX ? run.thickness * 0.6 : 1.8,
       color: shadeColor(P.hedge, 0.92 + random() * 0.16), rand: random, squash: 0.12 });
   }
 }
@@ -117,10 +119,10 @@ export class GreenerPasturesRenderer {
       paths: this.decor.paths,
       solids: GREENER_PASTURES.solids,
       seed: 108,
-      density: { tufts: 0.016, flowers: 0.0015, pebbles: 0.004, clearOfPaths: 1.4, clearOfSolids: 0.5, clearOfEdges: 0.6 },
+      density: { tufts: 0.010, flowers: 0.0015, pebbles: 0.003, clearOfPaths: 1.4, clearOfSolids: 0.5, clearOfEdges: 0.6 },
     });
     for (const solid of GREENER_PASTURES.solids) {
-      if (solid.kind === 'tree' || solid.kind.startsWith('complaint-')) continue;
+      if (solid.kind.startsWith('farm-') || solid.kind === 'tree' || solid.kind.startsWith('complaint-')) continue;
       if (solid.kind === 'hedge') pastureHedge(batch, random, solid);
       else if (solid.kind === 'bridge-footing') {
         const [cx, cy, cz] = solid.center;
@@ -136,6 +138,8 @@ export class GreenerPasturesRenderer {
       } else if (solid.kind === 'field-wall') fieldWall(batch, random, solid);
       else masonry(batch, random, solid, { style: 'drystone', color: solid.kind === 'parapet' ? P.stoneLight : P.stone, coping: true });
     }
+    for (const item of GREENER_FARM_PROPS) farmPiece(batch, random, item);
+    this.#cartLanes(batch);
     for (const item of this.decor.trees) tree(batch, random, item);
     this.#ravine(batch, random);
     this.#landscape(batch, random);
@@ -165,6 +169,24 @@ export class GreenerPasturesRenderer {
       this.group.add(facetMesh(builder, this.materials[name], { castShadow: name !== 'ground', receiveShadow: true, name: `greener-pastures-${name}` }));
     }
     this.#sky(random);
+  }
+
+  #cartLanes(batch) {
+    // Precise worn strips complement the coarse meadow facets, with wheel ruts on each side.
+    for (const path of this.decor.paths) for (let i=1;i<path.length;i++) {
+      const [ax,az]=path[i-1], [bx,bz]=path[i], length=Math.hypot(bx-ax,bz-az);
+      if(!length)continue;
+      const nx=-(bz-az)/length,nz=(bx-ax)/length;
+      // Never draw earth across a missing ravine floor or over the elevated deck.
+      if(Math.min(az,bz)<-637 && Math.max(az,bz)>-695)continue;
+      const strip=(offset,width,color)=>{
+        const a=offset-width/2,b=offset+width/2;
+        const y = offset ? .023 : .018;
+        batch.ground.quad([ax+nx*a,y,az+nz*a],[ax+nx*b,y,az+nz*b],
+          [bx+nx*b,y,bz+nz*b],[bx+nx*a,y,bz+nz*a],color);
+      };
+      strip(0,3.6,0x7c7e46);strip(-.85,.2,0x726344);strip(.85,.2,0x726344);
+    }
   }
 
   #fieldPatches(batch, random) {

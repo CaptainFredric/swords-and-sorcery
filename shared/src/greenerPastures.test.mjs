@@ -12,7 +12,7 @@ const route = async () => (await import('../worlds/greenerPastures.mjs')).GREENE
 
 test('the authored chase gives every event physical distance and a stable named route position', async () => {
   const { chaseWaypoints, waypointById, routeDistances, totalChaseDistance, bridge, finalStand, entrance } = await route();
-  assert.deepEqual(chaseWaypoints.map(point => point.id), ['meeting', 'escape', 'jump-approach', 'jump-takeoff', 'jump-landing', 'jump-exit', 'fireball', 'tattle-reveal', 'sheepfold', 'bridge-approach', 'bridge-takeoff', 'bridge-landing', 'far-bank', 'counterfire', 'complaint-approach', 'pride', 'final']);
+  assert.deepEqual(chaseWaypoints.map(point => point.id), ['meeting', 'escape', 'cart-gap', 'wall-gap-west', 'wall-gap-east', 'byre-lane', 'jump-approach', 'jump-takeoff', 'jump-landing', 'jump-exit', 'orchard-gap', 'fireball', 'tattle-reveal', 'sheepfold', 'dead-end-approach', 'dead-end-takeoff', 'dead-end-landing', 'dead-end-exit', 'bridge-approach', 'bridge-takeoff', 'bridge-landing', 'far-bank', 'counterfire', 'complaint-approach', 'pride', 'final']);
   assert.ok(totalChaseDistance > 900, 'the continuous chase has enough physical breathing room');
   assert.ok(routeDistances['bridge-takeoff'] > 500, 'the prebridge chase gives the moving Fireball dialogue time to finish');
   assert.ok(routeDistances['bridge-takeoff'] - routeDistances.fireball > 250);
@@ -66,14 +66,14 @@ test('Greener Pastures is a registered tutorial world and stays outside arena vo
   assert.equal(arenaOrDefault(WORLD_ID), 'castleward');
 });
 
-test('the opening gives Rival a clear 175 metre sightline across walkable ground', async () => {
+test('the opening gives Rival a clear 225 metre sightline across walkable ground', async () => {
   const { playerSpawn, rivalMeeting } = await route();
-  assert.equal(Math.hypot(playerSpawn.x - rivalMeeting.x, playerSpawn.z - rivalMeeting.z), 175);
+  assert.equal(Math.hypot(playerSpawn.x - rivalMeeting.x, playerSpawn.z - rivalMeeting.z), 225);
   assert.equal(runClear(world(), playerSpawn, rivalMeeting), true);
   const origin = [playerSpawn.x, playerSpawn.y + 1.3, playerSpawn.z];
   const direction = [rivalMeeting.x - playerSpawn.x, 0, rivalMeeting.z - playerSpawn.z];
-  assert.equal(findSwordWorldHit(origin, direction, 175, world().solids), null);
-  const reached = simulate(playerSpawn, 175 / MOVEMENT.runSpeed);
+  assert.equal(findSwordWorldHit(origin, direction, 225, world().solids), null);
+  const reached = simulate(playerSpawn, 225 / MOVEMENT.runSpeed);
   assert.ok(Math.abs(reached.state.position.z - rivalMeeting.z) < 0.13);
   assert.equal(reached.state.grounded, true);
 });
@@ -229,7 +229,7 @@ test('the chase waypoints are runnable on either side and the final clearing has
   for (let i = 1; i < chaseWaypoints.length; i += 1) {
     const from = chaseWaypoints[i - 1];
     const to = chaseWaypoints[i];
-    if ((from.id === 'bridge-takeoff' && to.id === 'bridge-landing') || (from.id === 'jump-takeoff' && to.id === 'jump-landing')) continue;
+    if ((from.id === 'bridge-takeoff' && to.id === 'bridge-landing') || (from.id.endsWith('takeoff') && to.id.endsWith('landing'))) continue;
     assert.equal(runClear(world(), from, to), true, `${from.id} to ${to.id}`);
   }
   assert.ok(chaseWaypoints.some((point) => point.x === bridge.centerX));
@@ -246,7 +246,7 @@ test('ordinary locomotion traverses the full chase through the real Jump and air
     let elapsed = 0;
     let ticks = 0;
     for (const target of chaseWaypoints.slice(1)) {
-      if (target.id === 'jump-landing' || target.id === 'bridge-landing') {
+      if (target.id === 'jump-landing' || target.id === 'dead-end-landing' || target.id === 'bridge-landing') {
         const isBridge = target.id === 'bridge-landing';
         const crossed = simulate(state.position, isBridge ? 1.05 : 1.1,
           { jump: true, sprint: isBridge, dashWhileFalling: isBridge, hz });
@@ -273,4 +273,23 @@ test('ordinary locomotion traverses the full chase through the real Jump and air
     assert.equal(state.grounded, true);
     assert.ok(elapsed < totalChaseDistance / MOVEMENT.runSpeed + 5);
   }
+});
+
+test('the prepared navigation graph exactly matches physics and rejects stale geometry',async()=>{
+  const {navigationSignature}=await import('../worlds/navigationSignature.mjs');
+  const base=world();assert.equal(base.navigation.precomputed.signature,navigationSignature(base));
+  const prepared=navGraph({...base}),calculated=navGraph({...base,navigation:{nodes:base.navigation.nodes}});
+  assert.deepEqual(prepared.links,calculated.links);
+  const changed={...base,solids:[...base.solids,{id:'changed-wall',center:[12,1,-54],size:[20,2,1]}]};
+  assert.notEqual(navigationSignature(changed),base.navigation.precomputed.signature);
+  const fallback=navGraph(changed),expected=navGraph({...changed,navigation:{nodes:changed.navigation.nodes}});
+  assert.deepEqual(fallback.links,expected.links);
+});
+
+test('the reused Jump has a genuine low wall and an ordinary side gate',async()=>{
+  const {jumpReuse}=await route();
+  assert.equal(runClear(world(),jumpReuse.takeoff,jumpReuse.landing),false);
+  const cleared=simulate(jumpReuse.takeoff,1.1,{jump:true});assert.ok(cleared.state.position.z<jumpReuse.landing.z);
+  const around=[jumpReuse.approach,{x:26,y:0,z:-514},{x:26,y:0,z:-526},jumpReuse.exit];
+  for(let i=1;i<around.length;i++)assert.equal(runClear(world(),around[i-1],around[i]),true);
 });

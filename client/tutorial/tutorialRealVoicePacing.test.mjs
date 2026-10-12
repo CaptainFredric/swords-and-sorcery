@@ -6,6 +6,7 @@ import { TutorialSession } from './TutorialSession.mjs';
 import { TutorialDirector } from './TutorialDirector.mjs';
 import { TutorialVoice } from './tutorialVoice.mjs';
 import { TUTORIAL_BRANCHES } from './tutorialScript.mjs';
+import { GREENER_ROUTE } from '../../shared/worlds/greenerPastures.mjs';
 import { SPRINT } from '../../shared/src/movement.mjs';
 
 const takes = JSON.parse(readFileSync(new URL('../assets/tutorial-voice/manifest.json', import.meta.url))).takes;
@@ -62,7 +63,8 @@ test('one uninterrupted Sprint request earns sustained Sprint and exhaustion dur
 test('the same genuine first Fireball hit completes the lesson before its queued constitution aside', () => {
   const { host, session, tick, now, rival } = fixture();
   session.stage('fireball'); session.director.resumeAt('fireball-prompt'); session.rival.enter('rival-escape',now());
-  host.player.position = { x: 55, y: 0, z: -70 }; rival().position = { x: 55, y: 0, z: -74 }; rival().health = 10; rival().lastDamageAt = now();
+  session.rival.waypoint=GREENER_ROUTE.chaseWaypoints.findIndex(p=>p.id==='cart-gap');
+  host.player.position = { x: 30, y: 0, z: -42 }; rival().position = { x: 30, y: 0, z: -46 }; rival().health = 10; rival().lastDamageAt = now();
   host.cast({ x: 0, y: 0, z: -1 });
   for (let i = 0; i < 45 && !session.firstFireballHit; i++) {
     const p=host.player.position,r=rival().position;
@@ -134,7 +136,7 @@ test('urgent feedback cannot split either authored rapid reply pair', () => {
   }
 });
 
-test('a physical head start releases held pursuit before long VO finishes and never grants opening controls', () => {
+test('pursuit remains available from escape onset through long VO and never grants opening controls', () => {
   const { host,session,tick,now,rival }=fixture();
   assert.equal(session.allows('move',false),false);
   session.stage('real-duel'); session.director.resumeAt('escape-start');
@@ -145,8 +147,8 @@ test('a physical head start releases held pursuit before long VO finishes and ne
     host.input({forward:1,right:0,yaw:0,pitch:0,sprint:true});tick();
     if(session.allows('move',false)&&released===null)released={after:now()-started,gap:Math.hypot(rival().position.x-host.player.position.x,rival().position.z-host.player.position.z)};
   }
-  assert.ok(released&&released.after>=2&&released.after<7,JSON.stringify(released));
-  assert.ok(released.gap>=25);
+  assert.ok(released&&released.after<.2,JSON.stringify(released));
+  assert.equal(session.director.progress.segment.scene.releaseControls,undefined);
   assert.equal(session.director.cue.id,cue.id,'movement must not cut off the recording');
   assert.ok(host.player.position.z < -12);
   assert.equal(session.allows('spell',false),false);

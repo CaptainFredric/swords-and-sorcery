@@ -39,7 +39,7 @@ export class TutorialView {
     this.skip.addEventListener('click', onSkip);
     select('[data-tutorial-leave]').addEventListener('click', onLeave);
     this.keydown = event => {
-      if (root.hidden || this.continue.hidden || event.repeat || event.code !== 'Enter' ||
+      if (this.openingHeld || root.hidden || this.continue.hidden || event.repeat || event.code !== 'Enter' ||
           event.target?.closest?.('button, summary, input, select, textarea, [contenteditable="true"]')) return;
       event.preventDefault();
       event.stopImmediatePropagation();
@@ -114,6 +114,8 @@ export class TutorialView {
     this.feedbackTimer.unref?.();
   }
 
-  hide() { this.root.hidden = true; this.options.open = false; }
+  holdOpening() { this.openingHeld = true; this.root.classList.toggle('tutorial-opening-held',true); this.root.classList.toggle('tutorial-opening-reveal',false); }
+  revealOpening() { this.openingHeld = false; this.root.classList.toggle('tutorial-opening-held',false); this.root.classList.toggle('tutorial-opening-reveal',true); }
+  hide() { this.openingHeld = false; this.root.classList.toggle('tutorial-opening-held',false); this.root.classList.toggle('tutorial-opening-reveal',false); this.root.hidden = true; this.options.open = false; }
   destroy() { clearTimeout(this.feedbackTimer); document.removeEventListener('keydown', this.keydown, { capture: true }); this.hide(); }
 }

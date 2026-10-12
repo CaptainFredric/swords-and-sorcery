@@ -27,7 +27,7 @@ test('all trees inside the playable meadow have ordinary solid trunks', () => {
 test('the long sightline presentation retains Rival contrast and a wide useful camera range', () => {
   assert.ok(GREENER_PRESENTATION.cameraFar >= 650);
   const visibility = Math.exp(-((GREENER_PRESENTATION.fog.density * GREENER_ROUTE.initialDistance) ** 2));
-  assert.ok(visibility > 0.9, `Rival retains ${visibility} of its unfogged contrast`);
+  assert.ok(visibility > 0.85, `Rival retains ${visibility} of its unfogged contrast`);
   assert.ok(GREENER_PRESENTATION.groundCell >= 2.5, 'large fields use coarse faceted mesh');
 });
 

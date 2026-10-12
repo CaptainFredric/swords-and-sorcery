@@ -22,7 +22,8 @@ test('opening look, walk and sprint become available at their actual prompts', (
 });
 
 test('the escape head start ends at an independent stage while the larger objective persists', () => {
-  assert.deepEqual(segment('escape-head-start').permissions, ['look']);
+  assert.ok(segment('escape-head-start').permissions.includes('move'));
+  assert.equal(segment('escape-head-start').scene.releaseControls,undefined);
   assert.equal(beat('successful-expulsion').line, 'And thus the Spellblade had successfully convinced the meddlesome miscommunication Rival to return to sender');
   assert.equal(beat('not-admired').line, 'He did not admire me.');
   assert.equal(beat('pursuit-release').stageCue, 'pursuit-release');

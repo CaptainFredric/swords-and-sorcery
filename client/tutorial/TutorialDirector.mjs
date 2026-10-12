@@ -140,7 +140,8 @@ export class TutorialDirector {
       this.reactionResume = null;
     }
     // A reaction performed ahead of its ordinary route position never plays twice.
-    while (this.completedReactions.has(this.beats[this.index]?.reactionFor)) this.index += 1;
+    while (this.completedReactions.has(this.beats[this.index]?.reactionFor)
+      || this.beats[this.index]?.skipWhen && this.facts.has(this.beats[this.index].skipWhen)) this.index += 1;
     if (!this.optionalActive) this.beginReaction();
     this.enteredAt = null;
     if (chapter === this.prototypeStop && this.beats[this.index]?.chapter !== chapter) this.state = 'prototype-ended';
@@ -158,7 +159,8 @@ export class TutorialDirector {
     if (this.state !== 'running') return false;
     this.facts.add(cue);
     if (this.reactions.has(cue) && !this.completedReactions.has(cue)) this.pendingReaction = cue;
-    const accepted = this.accept(cue);
+    const accepted = this.accept(cue) || this.current?.skipWhen === cue && this.current.kind !== 'dialogue'
+      && !this.audioCue && !this.pendingCompletion && this.accept(this.current.advanceOn);
     if (this.pendingReaction && this.current?.kind !== 'dialogue' && !this.audioCue && !this.pendingCompletion) {
       this.optionalActive = false; this.optionalAt = null;
       this.beginReaction(); this.enteredAt = null; this.onChange(this.progress);

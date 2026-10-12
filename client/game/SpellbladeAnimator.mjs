@@ -3,7 +3,7 @@ import { SpellbladeComposition } from './spellbladeComposition.mjs';
 import { bootSide, soleContactOffset } from './spellbladeContact.mjs';
 import { SpellbladeClothRig } from './SpellbladeClothRig.mjs';
 import { blendProgressFor, blendSeconds, blendWeights } from './spellbladeBlend.mjs';
-import { DEATH_REST, GAIT_CLIPS, deathRest, deathSlump, gaitTime, reactionPose } from './spellbladeMotion.mjs';
+import { DEATH_REST, GAIT_CLIPS, deathRest, deathSlump, gaitTime, nonlethalRecovery, reactionPose } from './spellbladeMotion.mjs';
 
 // three.js strips '.', ':', '/' and brackets from glTF node names ("thigh.L" loads as "thighL")
 function sanitize(name) {
@@ -284,6 +284,11 @@ export class SpellbladeAnimator {
       pose.rotations.push(...slump.rotations);
       pose.pelvis = pose.pelvis.map((v, i) => v + slump.pelvis[i]);
       pose.legFlex = Math.max(pose.legFlex, slump.legFlex);
+    }
+    if (motion.recovery && !motion.death) {
+      const recovering = nonlethalRecovery(motion.recovery.age, motion.recovery.duration);
+      pose.rotations.push(...recovering.rotations);
+      pose.legFlex = Math.max(pose.legFlex, recovering.legFlex);
     }
     // extra: caller-supplied rotations (first person uses them for the neutral spread and the sprint arm pump)
     if (Array.isArray(motion.extra)) pose.rotations.push(...motion.extra);
