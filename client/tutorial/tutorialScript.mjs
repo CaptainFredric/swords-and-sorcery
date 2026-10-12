@@ -507,7 +507,7 @@ const branchDeclarations = {
       { id: 'burn-subsided', speaker: 'spellblade', line: 'AHH, AH AH- Oh it has subsided.',
         performanceCue: Object.freeze({ at: 'burn-ended', action: 'continue-reaction' }) },
       { id: 'reforged', speaker: 'spellblade', line: 'I have been reforged!' },
-      { id: 'not-too-many', speaker: 'narrator', line: 'Not too many times, now' },
+      { id: 'not-too-many', speaker: 'narrator', line: 'Quite the tempering.' },
     ],
   },
   'final-guard-reaction': {
