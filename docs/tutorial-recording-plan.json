@@ -987,7 +987,7 @@
     "key": "tutorial.remains-ahead",
     "beatId": "remains-ahead",
     "speaker": "spellblade",
-    "text": "I would like to keep attacking, but he remains ahead!",
+    "text": "My reputation will become dead if he remains ahead!",
     "sourceFile": "tutorial.remains-ahead.wav",
     "fileBase": "spellblade/tutorial.remains-ahead-1",
     "chapter": "pursuit",
