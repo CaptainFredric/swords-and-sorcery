@@ -43,8 +43,15 @@
 .tutorial-caption > small { display: block; font-size: 10px; letter-spacing: .1em; color: #cbb184; }
 .tutorial-caption > strong { display: block; margin-top: 6px; color: #f2d38e; font-size: 11px; letter-spacing: .1em; }
 .tutorial-caption p { margin: 6px 0; }
-.tutorial-caption [data-tutorial-prompt] { color: #bce7ef; font-size: 13px; }
-.tutorial-caption [data-tutorial-blocked] { color: #edcf9c; font-size: 12px; }
+.tutorial-instruction {
+  position: absolute; top: 80px; left: 50%; transform: translateX(-50%);
+  width: min(460px, calc(100cqw - 48px)); padding: 7px 12px; box-sizing: border-box;
+  background: rgba(12, 10, 8, .78); text-align: center; border-bottom: 1px solid #8d7144;
+}
+.tutorial-instruction strong { color: #f2d38e; font-size: 12px; letter-spacing: .08em; }
+.tutorial-instruction p { margin: 3px 0; font-size: 13px; line-height: 1.35; }
+.tutorial-instruction [data-tutorial-prompt] { color: #bce7ef; }
+.tutorial-instruction [data-tutorial-blocked] { color: #edcf9c; font-size: 12px; }
 .tutorial-caption button { pointer-events: auto; }
 .tutorial-caption [data-tutorial-continue] { position: sticky; bottom: 0; margin-top: 5px; }
 .tutorial-options { position: absolute; right: calc(var(--safe-r, 0px) + 12px); top: 8px; pointer-events: auto; }
@@ -53,7 +60,7 @@
 .tutorial-options[open] { width: 220px; max-height: calc(100cqh - 24px); overflow: auto; background: #241c17; border: 1px solid #ac884d; }
 .tutorial-options[open] summary { border: 0; border-bottom: 1px solid #ac884d; }
 .tutorial-lesson-actions { display: grid; gap: 6px; padding: 8px; }
-.tutorial-reactive .tutorial-caption { border: 0; padding: 6px 12px; background: rgba(12, 10, 8, .7); text-align: center; font: 400 17px/1.3 var(--font-inscription, Georgia, serif); }
+.tutorial-reactive .tutorial-caption { border: 0; padding: 10px 16px; background: rgba(12, 10, 8, .85); text-align: left; font: 400 16px/1.35 var(--font-script, sans-serif); }
 .tutorial-reactive .tutorial-caption > small { display: none; }
 .tutorial-reactive .tutorial-caption > strong { margin-top: 0; font: 800 10px/1.2 var(--font-script, sans-serif); }
 .tutorial-reactive .tutorial-caption [data-tutorial-prompt] { font-family: var(--font-script, sans-serif); }
@@ -66,8 +73,10 @@
 .tutorial-brand h1 { color: #f1dfae; font-size: clamp(28px, 5.2cqw, 66px); line-height: 1.05; text-shadow: 0 2px 0 #3a120e, 0 6px 22px #000; }
 
 /* On touch, upper left bars and lower corner controls stay clear of gameplay captions. */
-.tutorial-touch .tutorial-objective { top: calc(var(--safe-t, 0px) + 90px); }
+.tutorial-touch .tutorial-objective { top: calc(var(--safe-t, 0px) + 90px); max-width: min(200px, 30cqw); }
 .tutorial-touch .tutorial-options summary span { display: none; }
+.tutorial-touch .tutorial-instruction { top: calc(var(--safe-t, 0px) + 90px); width: min(350px, calc(100cqw - 448px)); min-width: 180px; }
+.tutorial-touch .tutorial-instruction p { font-size: 12px; }
 .tutorial-touch.tutorial-reactive .tutorial-caption {
   bottom: calc(var(--safe-b, 0px) + 12px); width: min(460px, calc(100cqw - 448px - var(--safe-l, 0px) - var(--safe-r, 0px)));
   min-width: 180px; max-height: calc(50cqh - 28px); padding: 5px 8px; font-size: 14px;

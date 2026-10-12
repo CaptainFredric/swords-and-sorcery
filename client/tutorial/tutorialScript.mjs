@@ -51,7 +51,7 @@ const segments = [
       { id: 'much-to-do', speaker: 'spellblade', line: 'Yes... there is...much to do here..' },
       { id: 'need-look-around', speaker: 'narrator', line: 'You need to look around' },
       { id: 'nothing-of-value', speaker: 'spellblade', line: 'I have. I see nothing of value' },
-      { id: 'truly-look-around', speaker: 'narrator', line: 'No. Truly look around.' },
+      { id: 'truly-look-around', speaker: 'narrator', line: 'With your eyes.' },
     ],
   },
   {
@@ -227,7 +227,7 @@ const segments = [
     branches: ['rival-constitution'],
     scene: { enter: 'rival-escape', checkpoint: 'pursuit', gates: [] },
     beats: [
-      { id: 'remains-ahead', speaker: 'spellblade', line: 'I would like to keep attacking, but he remains ahead!' },
+      { id: 'remains-ahead', speaker: 'spellblade', line: 'My reputation will become dead if he remains ahead!' },
       { id: 'few-steps', speaker: 'narrator', line: 'A few steps ahead.' },
     ],
   },
@@ -252,6 +252,26 @@ const segments = [
       { id: 'took-us-long', speaker: 'spellblade', line: 'Haha! Took US long enough.', permissions: JUMP },
       { id: 'us', speaker: 'narrator', line: 'Us?', permissions: JUMP },
       { id: 'minor-tactical-regret', speaker: 'rival', line: 'No! I should not have stopped running for such a minor tactical advantage!', permissions: JUMP },
+    ],
+  },
+  {
+    id: 'pursuit-banter', chapter: 'pursuit', permissions: JUMP, presentation: 'reactive', required: false,
+    branches: [],
+    entryCondition: 'jump-crossed', completionCue: 'pursuit-banter-ended', objective: PURSUIT_OBJECTIVE,
+    scene: { enter: 'rival-escape', checkpoint: 'fireball', gates: [
+      { cue: 'pursuit-banter-reached', kind: 'past-landmark', actor: 'player', landmark: 'pursuit-banter' },
+    ] },
+    beats: [
+      { id: 'pursuit-banter-arrival', kind: 'stage', advanceOn: 'pursuit-banter-reached',
+        direction: 'Continue through the orchard lane before shouting another exchange at the fleeing Rival.' },
+      { id: 'final-hello', speaker: 'spellblade', line: 'Hello!' },
+      { id: 'too-late-hello', speaker: 'rival', line: 'It is too late for that!' },
+      { id: 'reconsider-meeting', speaker: 'spellblade', line: 'Then allow me to reconsider ever meeting you!' },
+      { id: 'sword-remains', speaker: 'rival', line: 'The sword remains mightier than the pen...' },
+      { id: 'remain-mightier', speaker: 'rival', line: '...and I remain mightier than anything that is not me!' },
+      { id: 'lot-of-things', speaker: 'narrator', line: 'That is a lot of things.' },
+      { id: 'pursuit-banter-clear', kind: 'stage', advanceOn: 'pursuit-banter-ended', advanceAfterSec: 2.5,
+        direction: 'Let the exchange land during continued pursuit before introducing Fireball.' },
     ],
   },
   {
@@ -292,7 +312,7 @@ const segments = [
   {
     id: 'bridge-dash', chapter: 'bridge', permissions: FIREBALL, checkpoint: true, presentation: 'reactive',
     entryCondition: 'fireball-hit', completionCue: 'bridge-crossed', objective: PURSUIT_OBJECTIVE,
-    branches: ['rival-constitution'],
+    branches: ['rival-constitution', 'bridge-growth'],
     scene: { enter: 'rival-bridge', checkpoint: 'bridge', gates: ['bridge-reached', 'dash-used', 'bridge-crossed'] },
     beats: [
       { id: 'bridge-arrival', kind: 'stage', advanceOn: 'bridge-reached',
@@ -301,15 +321,15 @@ const segments = [
       { id: 'decent-suggestion', speaker: 'narrator', line: 'He makes a decent suggestion, sir.' },
       { id: 'get-over-it', speaker: 'spellblade', line: 'I will get over it! But not in the way you think!' },
       { id: 'dash-prompt', kind: 'prompt', speaker: 'instruction', line: 'DASH', advanceOn: 'dash-used', mechanic: 'dash', permissions: DASH },
-      { id: 'surpass-obstacle', speaker: 'spellblade', line: 'I can find it within myself to surpass this obstacle.', permissions: DASH },
       { id: 'bridge-crossing', kind: 'stage', advanceOn: 'bridge-crossed', stageCue: 'observe-bridge-crossing', permissions: DASH,
         direction: 'Observe genuine bridge traversal and a genuine Dash opportunity.' },
+      { id: 'surpass-obstacle', speaker: 'spellblade', recordingKey: 'tutorial.small-gaps', line: 'Small gaps have never stopped anybody important.', permissions: DASH },
       { id: 'grow-maturity', speaker: 'narrator', line: 'You have grown, maturity awaits you after all, Spellblade.', permissions: DASH },
       { id: 'but-knight', speaker: 'spellblade', line: 'Never! I am a knight!', permissions: DASH },
     ],
   },
   {
-    id: 'counterfire', chapter: 'counterfire', permissions: DASH, presentation: 'reactive', branches: ['burned', 'rival-constitution'],
+    id: 'counterfire', chapter: 'counterfire', permissions: DASH, presentation: 'reactive', branches: ['burned', 'rival-constitution', 'permission-to-stop'],
     entryCondition: 'bridge-crossed', completionCue: 'counterfire-complete', objective: PURSUIT_OBJECTIVE,
     scene: { enter: 'rival-pursuit', checkpoint: 'counterfire', gates: ['subsequent-fireball-hit', 'rival-counterfire-started', 'counterfire-complete'] },
     beats: [
@@ -326,9 +346,9 @@ const segments = [
   {
     id: 'complaint-approach', chapter: 'final-guard', permissions: DASH, presentation: 'reactive', checkpoint: true,
     entryCondition: 'counterfire-complete', completionCue: 'complaint-approached', objective: PURSUIT_OBJECTIVE,
-    branches: ['rival-constitution'],
+    branches: ['rival-constitution', 'permission-to-stop'],
     scene: { enter: 'rival-complaint-approach', checkpoint: 'counterfire', gates: [
-      { cue: 'complaint-approached', kind: 'near-entrance', actor: 'rival', distance: 42, playerDistance: 70 },
+      { cue: 'complaint-approached', kind: 'near-entrance', actor: 'rival', distance: 100 },
     ] },
     beats: [
       { id: 'complaint-arrival', kind: 'stage', advanceOn: 'complaint-approached',
@@ -348,17 +368,18 @@ const segments = [
     ],
   },
   {
-    id: 'final-confrontation', chapter: 'final-guard', permissions: DASH, presentation: 'reactive', required: false,
-    branches: ['final-guard-reaction', 'final-guard-broken'],
+    id: 'duel-terms', chapter: 'final-guard', permissions: DASH, presentation: 'reactive',
     entryCondition: 'rival-turned', completionCue: 'continue', objective: PURSUIT_OBJECTIVE,
-    scene: { enter: 'rival-final-fight', checkpoint: 'final', gates: [] },
+    scene: { enter: 'rival-ready', checkpoint: 'final', gates: [] },
     beats: [
-      { id: 'final-hello', speaker: 'spellblade', line: 'Hello!' },
-      { id: 'too-late-hello', speaker: 'rival', line: 'It is too late for that!' },
-      { id: 'reconsider-meeting', speaker: 'spellblade', line: 'Then allow me to reconsider ever meeting you!' },
-      { id: 'sword-remains', speaker: 'rival', line: 'The sword remains mightier than the pen...' },
-      { id: 'remain-mightier', speaker: 'rival', line: '...and I remain mightier than anything that is not me!' },
-      { id: 'lot-of-things', speaker: 'narrator', line: 'That is a lot of things.' },
+      { id: 'blast-not-considered', speaker: 'rival', line: "Blast! I hadn't considered that!" },
+      { id: 'fine-we-duel', speaker: 'rival', line: 'Fine then, we duel!' },
+      { id: 'if-i-win-tell', speaker: 'rival', line: 'If I win! I tell on you!' },
+      { id: 'if-you-lose-told', speaker: 'rival', line: 'If you lose, you lie on the ground and wait to be told on!' },
+      { id: 'when-i-win', speaker: 'spellblade', line: 'And when I win?' },
+      { id: 'not-part-terms', speaker: 'rival', line: 'That was not part of the terms' },
+      { id: 'scripted-against-you', speaker: 'narrator', line: 'This seems scripted against you.' },
+      { id: 'come-prove-it', speaker: 'rival', line: 'Come here and prove it!' },
     ],
   },
   {
@@ -485,10 +506,10 @@ const branchDeclarations = {
     segment: 'rival-escape', chapter: 'pursuit', triggerCue: 'rival-survived-lethal',
     beats: [
       { id: 'constitution-strange', speaker: 'narrator', line: 'Hmm. This is strange.' },
-      { id: 'not-strange', speaker: 'spellblade', line: 'No I am not!' },
+      { id: 'not-strange', speaker: 'spellblade', line: 'No I am not!', pauseAfterSec: .15 },
       { id: 'not-fallen', speaker: 'narrator', line: 'Your rival appears not to have fallen yet.' },
       { id: 'thank-noticing', speaker: 'rival', line: 'Thank you for noticing!!' },
-      { id: 'what-condition', speaker: 'narrator', line: 'This one is tougher than usual. What is his condition?' },
+      { id: 'what-condition', speaker: 'narrator', line: 'Perhaps his armor is better tailored than yours. What is his condition?' },
       { id: 'current-constitution', speaker: 'spellblade', line: 'What is your current constitution!?' },
       { id: 'constitution-amended', speaker: 'rival', line: 'My constitution... has been amended many times.' },
       { id: 'cannot-settled', speaker: 'narrator', line: 'Ah... then it appears it cannot be settled.' },
@@ -499,6 +520,22 @@ const branchDeclarations = {
     beats: [
       { id: 'rival-over-there', speaker: 'narrator', line: 'Your rival is over there' },
       { id: 'scorch-mark', speaker: 'spellblade', line: 'And I wanted a scorch mark, over there.' },
+    ],
+  },
+  'bridge-growth': {
+    segment: 'bridge-dash', chapter: 'bridge', triggerCue: 'bridge-retry-extended',
+    beats: [
+      { id: 'bridge-senses-failure', speaker: 'narrator', line: 'The bridge grows longer when it senses failure' },
+      { id: 'hence-i-crossed', speaker: 'rival', line: 'Hence why I crossed it!' },
+    ],
+  },
+  'permission-to-stop': {
+    segment: 'counterfire', chapter: 'counterfire', triggerCue: 'repeated-pursuit-fireballs',
+    beats: [
+      { id: 'permission-stop', speaker: 'rival', line: 'I give you permission to stop' },
+      { id: 'no-longer-ruin', speaker: 'spellblade', line: 'Will you no longer ruin my reputation, honor, status and therefore livelihood? And health?' },
+      { id: 'permission-no', speaker: 'rival', line: 'No.', pauseAfterSec: .08 },
+      { id: 'then-no', speaker: 'spellblade', line: 'Then no.' },
     ],
   },
   burned: {

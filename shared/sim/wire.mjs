@@ -40,6 +40,7 @@ export function serializeSnapshot(room, nowSec) {
     type: 'snapshot',
     tick: room.tickNumber,
     tutorial: Boolean(room.localTutorial),
+    ...(room.localTutorial ? { tutorialBridgeFailures: room.tutorialBridgeFailures ?? 0 } : {}),
     serverTime: nowSec,
     roomCode: room.code,
     hostId: room.hostId(),

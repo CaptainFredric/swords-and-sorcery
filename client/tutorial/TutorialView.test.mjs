@@ -73,12 +73,29 @@ test('touch blocking captions use Continue and a reactive aside preserves the ac
   assert.equal(get('continue').textContent, 'CONTINUE');
   display.show({ state: 'running', prompt: 'Watch Guard stamina.', current: { kind: 'prompt', speaker: 'instruction', line: 'SPRINT' },
     optional: { speaker: 'narrator', line: 'The Spellblade decides to frolic' } });
-  assert.equal(get('optional-line').textContent, 'NARRATOR: The Spellblade decides to frolic');
-  assert.equal(get('speaker').hidden, true);
+  assert.equal(get('speaker').textContent, 'NARRATOR');
+  assert.equal(get('speaker').hidden, false);
   assert.equal(get('optional-continue').hidden, true);
   assert.equal(get('prompt').textContent, 'Watch Guard stamina.');
-  assert.equal(get('line').textContent, 'SPRINT');
+  assert.equal(get('line').textContent, 'The Spellblade decides to frolic');
   assert.equal(get('continue').hidden, true);
+});
+
+test('empty speech and instruction panels disappear without hiding an independent objective', () => {
+  const { display, get } = view();
+  const progress = { state: 'running', segment: { objective: 'STOP THE RIVAL FROM TELLING ON YOU' },
+    current: { id: 'wait', kind: 'stage', advanceOn: 'unknown-gate' } };
+  display.show(progress);
+  assert.equal(get('caption').hidden, true);
+  assert.equal(get('instruction').hidden, true);
+  assert.equal(get('objective').hidden, false);
+  display.denied('jump');
+  assert.equal(get('instruction').hidden, false);
+  display.show({ ...progress, current: { id: 'next', kind: 'stage' } });
+  assert.equal(get('instruction').hidden, true);
+  display.show({ ...progress, prompt: 'Cross the bridge.' });
+  assert.equal(get('caption').hidden, true);
+  assert.equal(get('instruction').hidden, false);
 });
 
 test('the pursuit objective persists independently of Jump and Dash prompts and ends with the lesson',()=>{

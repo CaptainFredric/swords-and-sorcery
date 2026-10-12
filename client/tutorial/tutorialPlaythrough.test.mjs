@@ -104,7 +104,7 @@ test('the complete continuous route uses ordinary movement and combat through an
   assert.ok(at('can-do-all-day') < at('cannot-sprint'));
   assert.ok(at('plans-change') < at('overstayed-welcome'));
   assert.ok(at('why-spellblade') < at('get-over-this'));
-  assert.ok(at('knight-help') < at('final-hello'));
+  assert.ok(at('minor-tactical-regret') < at('final-hello') && at('final-hello') < at('why-spellblade') && at('come-prove-it') < at('defeat-rival'));
 });
 
 test('a genuine first Fireball miss remains recoverable and fires its optional branch once', () => {
@@ -113,15 +113,15 @@ test('a genuine first Fireball miss remains recoverable and fires its optional b
   assert.ok(branches.has('first-fireball-miss')); assert.ok(facts.has('fireball-hit'));
 });
 
-test('removing the optional final exchange still reaches ordinary Rival defeat and completion', () => {
-  const { state, facts, log, mode } = playthrough({ omitSegments: ['final-confrontation'] });
+test('removing the optional pursuit exchange still reaches ordinary Rival defeat and completion', () => {
+  const { state, facts, log, mode } = playthrough({ omitSegments: ['pursuit-banter'] });
   assert.equal(state, 'complete', JSON.stringify({ mode, tail: log.slice(-10) }));
   assert.equal(log.some(row => row[1] === 'final-hello'), false);
   assert.ok(facts.has('rival-defeated'));
 });
 
 test('removing optional chase exchanges and the Jump lesson leaves a traversable route and ordinary ending',()=>{
-  const {state,log,mode}=playthrough({omitSegments:['jump-obstacle','tattle-reveal','final-confrontation']});
+  const {state,log,mode}=playthrough({omitSegments:['jump-obstacle','tattle-reveal','pursuit-banter']});
   assert.equal(state,'complete',JSON.stringify({mode,tail:log.slice(-8)}));
   assert.equal(log.some(row=>['minor-obstacle-gloat','matter-settled','final-hello'].includes(row[1])),false);
 });

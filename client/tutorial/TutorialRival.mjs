@@ -25,7 +25,7 @@ const MODES = Object.freeze({
   'rival-jump': 'jump',
   'rival-bridge': 'escape', 'rival-pursuit': 'counter-pursuit', 'rival-counterfire': 'counterfire',
   'rival-combined-pursuit': 'counterfire', 'rival-complaint-approach': 'complaint',
-  'rival-pride': 'pride', 'rival-final-fight': 'final-fight', 'rival-final-guard': 'final-fight',
+  'rival-pride': 'pride', 'rival-ready': 'ready', 'rival-final-fight': 'final-fight', 'rival-final-guard': 'final-fight',
   'rival-defeat': 'final-fight',
 });
 
@@ -52,6 +52,7 @@ export class TutorialRival {
       this.actor.ai = null;
       if (next === 'escape') this.sprintWanted = true;
       if (next === 'pride') this.prideAt = null;
+      if (next === 'ready') setGuard(this.room, this.actor.id, true, now);
     }
     if (cue === 'rival-draw-sword') { this.actor.tutorialSwordDrawn = true; this.actor.tutorialDrawAt = now; }
     if (cue === 'rival-attack') this.strike(now);
@@ -124,7 +125,8 @@ export class TutorialRival {
       }
     }
     this.jumpWaiting = false;
-    if (this.mode === 'complaint' && distance(actor.position,GREENER_ROUTE.entrance) < 50) scale = Math.min(scale, .48);
+    // The final approach has no artificial proximity slowdown. The taunt owns the stop.
+    if (this.mode === 'complaint') scale = 1;
     const gap = GREENER_ROUTE.bridge;
     const crossing = actor.position.z < gap.dashStart.z + 35 && actor.position.z > gap.gapBounds.minZ;
     if (crossing && this.waypoint <= route.findIndex(p => p.id === 'bridge-landing')) {
@@ -165,20 +167,17 @@ export class TutorialRival {
   }
   pride(now, dt) {
     const { actor, player } = this;
-    if (distance(actor.position, GREENER_ROUTE.entrance) > 18) {
-      this.inputToward(GREENER_ROUTE.finalStand, .6); return;
-    }
     this.prideAt ??= now;
     const age = now - this.prideAt;
     const remaining = distance(actor.position, GREENER_ROUTE.finalStand);
-    if (remaining > 1.1) {
-      this.inputToward(GREENER_ROUTE.finalStand, age < .45 ? .48 : .24); return;
+    if (remaining > .35) {
+      this.inputToward(GREENER_ROUTE.finalStand, Math.min(1, remaining / 6)); return;
     }
     const wanted = yawTo(actor.position, player.position);
     const turn = angle(actor.yaw, wanted);
     const yaw = actor.yaw + Math.max(-dt * 3, Math.min(dt * 3, turn));
     this.inputToward(player.position, 0, false, yaw);
-    if (age > .8 && Math.abs(turn) < .15) this.session.director.fact('rival-turned');
+    if (age > .8 && Math.abs(turn) < .15 && Math.hypot(actor.velocity.x, actor.velocity.z) < .3) this.session.director.fact('rival-turned');
   }
   beforeStep(now) {
     const { actor, player } = this;

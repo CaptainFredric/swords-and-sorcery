@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { GREENER_PASTURES, GREENER_ROUTE } from '../../shared/worlds/greenerPastures.mjs';
+import { GREENER_PASTURES, GREENER_ROUTE, greenerBridgeRetryFloor } from '../../shared/worlds/greenerPastures.mjs';
 import { GREENER_PRESENTATION, buildGreenerPasturesDecor, greenerBackdropHeight, greenerBackdropMeshHeight } from './greenerPasturesDecor.mjs';
 import { FacetBuilder, KIT_PALETTE as P, facetMesh, kitMaterials, seededRandom, shadeColor, valueNoise } from './kit/facetKit.mjs';
 import { cottage, createBatch, masonry, runOf, tree } from './kit/kitPieces.mjs';
@@ -84,6 +84,23 @@ export class GreenerPasturesRenderer {
     scene.fog = new THREE.FogExp2(this.lighting.fog.color, this.lighting.fog.density);
     scene.add(this.group);
     this.#build();
+    this.bridgeRetries = 0;
+  }
+
+  setBridgeRetries(failures) {
+    const floor = greenerBridgeRetryFloor(failures);
+    const length = floor?.size[2] ?? 0;
+    if (length === this.bridgeRetries) return false;
+    if (this.retryDeck) { this.group.remove(this.retryDeck); this.retryDeck.geometry.dispose(); this.retryDeck = null; }
+    this.bridgeRetries = length;
+    if (floor) {
+      const batch = createBatch();
+      floorTile(batch, floor, [], seededRandom(5713));
+      this.retryDeck = facetMesh(batch.ground, this.materials.ground, { receiveShadow: true, name: 'bridge-retry-deck' });
+      this.retryDeck.userData.floor = floor;
+      this.group.add(this.retryDeck);
+    }
+    return true;
   }
 
   #build() {

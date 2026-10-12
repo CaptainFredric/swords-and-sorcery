@@ -46,7 +46,7 @@ test('the pride challenge slows and turns a moving Rival near the entrance befor
  actor().position={x:GREENER_ROUTE.finalStand.x,y:0,z:GREENER_ROUTE.finalStand.z+7};actor().yaw=0;
  host.player.position={x:actor().position.x,y:0,z:actor().position.z+12};
  const origin={...actor().position};tick(5);assert.equal(session.rival.mode,'pride');assert.ok(actor().position.z<origin.z);
- tick(140);assert.ok(session.director.facts.has('rival-turned'));assert.equal(session.rival.mode,'final-fight');
+ tick(140);assert.ok(session.director.facts.has('rival-turned'));assert.equal(session.rival.mode,'ready');
  assert.ok(Math.abs(actor().position.z-GREENER_ROUTE.finalStand.z)<10);assert.equal(actor().alive,true);host.close();
 });
 

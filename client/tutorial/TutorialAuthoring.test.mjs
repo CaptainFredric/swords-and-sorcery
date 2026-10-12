@@ -18,7 +18,7 @@ test('edited dialogue, an inserted scene and a disabled joke keep scene policies
   const edited = {...original,beats:original.beats.filter(b=>b.id!=='never-welcome').map(b=>b.id==='overstayed-welcome'?{...b,line:'An editable creator draft.'}:b)};
   const insert = {id:'new-exchange',chapter:'pursuit',permissions:edited.permissions,scene:{},beats:[
     {id:'new-authored-key',kind:'dialogue',line:'Another draft.',advanceOn:'continue',presentation:'reactive',segment:'new-exchange',chapter:'pursuit'}]};
-  const route = [edited,insert,...TUTORIAL_SEGMENTS.filter(s=>!['escape-head-start','final-confrontation'].includes(s.id))];
+  const route = [edited,insert,...TUTORIAL_SEGMENTS.filter(s=>!['escape-head-start','pursuit-banter'].includes(s.id))];
   const {host,session,tick}=fixture(route);
   assert.equal(session.director.progress.segment.id,'escape-head-start');
   assert.equal(session.rival.mode,'escape');
@@ -30,9 +30,9 @@ test('edited dialogue, an inserted scene and a disabled joke keep scene policies
   host.close();
 });
 
-test('optional final dialogue cannot hold the Rival above ordinary lethal damage',()=>{
+test('ordinary final combat removes Rival protection independently of optional pursuit dialogue',()=>{
   const {host,session,now}=fixture(TUTORIAL_SEGMENTS);
-  session.director.resumeAt('final-hello');
+  session.director.resumeAt('defeat-rival');
   assert.equal(session.requiresFinalGuard,false);assert.equal(host.room.tutorialRival.protected,false);
   const rival=host.room.players.get(session.rivalId);
   applyDamage(host.room,host.player.id,rival.id,100,'sword',now());assert.equal(rival.alive,false);

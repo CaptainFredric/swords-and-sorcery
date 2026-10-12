@@ -61,7 +61,7 @@ test('Jump and tattle are independently authored named-landmark scenes before th
 test('constitution is an optional lethal-survival response and existing Dash recording keys survive', () => {
   assert.deepEqual(TUTORIAL_BRANCHES['rival-constitution'].map(item => item.line), [
     'Hmm. This is strange.', 'No I am not!', 'Your rival appears not to have fallen yet.',
-    'Thank you for noticing!!', 'This one is tougher than usual. What is his condition?',
+    'Thank you for noticing!!', 'Perhaps his armor is better tailored than yours. What is his condition?',
     'What is your current constitution!?', 'My constitution... has been amended many times.',
     'Ah... then it appears it cannot be settled.',
   ]);
