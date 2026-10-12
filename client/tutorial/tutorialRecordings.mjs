@@ -2,9 +2,9 @@ import { TUTORIAL_BEATS, TUTORIAL_BRANCHES } from './tutorialScript.mjs';
 
 // Stable filenames and actor attribution for the creator's future recordings.
 // These are requested recordings, not assertions that any audio exists.
-function recordingTake(beat, { key = beat.recordingKey, text = beat.line, device = null } = {}) {
+function recordingTake(beat, { key = beat.recordingKey, text = beat.line, beatId = beat.id, device = null } = {}) {
   return {
-    key, beatId: beat.id, speaker: beat.speaker, text,
+    key, beatId, speaker: beat.speaker, text,
     sourceFile: `${key}.wav`, fileBase: `${beat.speaker}/${key}-1`,
     chapter: beat.chapter, segment: beat.segment,
     presentation: beat.presentation, optionalBranch: beat.branch ?? null,
@@ -25,7 +25,7 @@ export function tutorialRecordingPlan(beats = [...TUTORIAL_BEATS, ...Object.valu
   return beats.filter(beat => beat.recordingKey).flatMap(beat => {
     const base = recordingTake(beat, beat.touchLine ? { device: 'desktop' } : {});
     if (!beat.touchLine || !beat.touchRecordingKey) return [base];
-    return [base, recordingTake(beat, { key: beat.touchRecordingKey, text: beat.touchLine, device: 'touch' })];
+    return [base, recordingTake(beat, { key: beat.touchRecordingKey, text: beat.touchLine, beatId: beat.touchBeatId ?? beat.id, device: 'touch' })];
   });
 }
 
