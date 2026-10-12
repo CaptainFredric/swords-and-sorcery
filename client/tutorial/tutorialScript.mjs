@@ -460,12 +460,12 @@ export function tutorialRouteBeats(route = TUTORIAL_SEGMENTS, options = {}) {
 export const TUTORIAL_BEATS = tutorialRouteBeats();
 
 const chapterTitles = [
-  ['spellblade', 'I. THE SPELLBLADE'], ['approach', 'II. THE APPROACH'],
-  ['introductions', 'III. INTRODUCTIONS'], ['negotiations', 'IV. NEGOTIATIONS'],
-  ['correspondence', 'V. CORRESPONDENCE'], ['duel', 'VI. THE ARRANGEMENT'],
-  ['pursuit', 'VII. THE PURSUIT'], ['fireball', 'VIII. FIREBALL'],
-  ['bridge', 'IX. THE BRIDGE'], ['counterfire', 'X. COUNTERFIRE'],
-  ['final-guard', 'XI. FINAL STAND'], ['ending', 'ENDING'],
+  ['spellblade', 'I. KNIGHT AND MAGE'], ['approach', 'II. THE DISTANCE'],
+  ['introductions', 'III. FIRST IMPRESSIONS'], ['negotiations', 'IV. FAILED DIPLOMACY'],
+  ['correspondence', 'V. CORRESPONDENCE'], ['duel', 'VI. TERMS OF ENGAGEMENT'],
+  ['pursuit', 'VII. REPUTATION AT RISK'], ['fireball', 'VIII. SORCERY'],
+  ['bridge', 'IX. GETTING OVER IT'], ['counterfire', 'X. RETURN FIRE'],
+  ['final-guard', 'XI. THE COMPLAINT'], ['ending', 'EPILOGUE: A STRANGE NAME'],
 ];
 export const TUTORIAL_CHAPTERS = Object.freeze(chapterTitles.map(([id, title]) => Object.freeze({
   id, title, implemented: true,
