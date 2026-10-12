@@ -488,7 +488,7 @@ const branchDeclarations = {
       { id: 'not-strange', speaker: 'spellblade', line: 'No I am not!' },
       { id: 'not-fallen', speaker: 'narrator', line: 'Your rival appears not to have fallen yet.' },
       { id: 'thank-noticing', speaker: 'rival', line: 'Thank you for noticing!!' },
-      { id: 'what-condition', speaker: 'narrator', line: 'Perhaps his armor is better tailored than yours...? What is his condition?' },
+      { id: 'what-condition', speaker: 'narrator', line: 'Perhaps his armor is better tailored than yours... What is his condition?' },
       { id: 'current-constitution', speaker: 'spellblade', line: 'What is your current constitution!?' },
       { id: 'constitution-amended', speaker: 'rival', line: 'My constitution... has been amended many times.' },
       { id: 'cannot-settled', speaker: 'narrator', line: 'Ah... then it appears it cannot be settled.' },
