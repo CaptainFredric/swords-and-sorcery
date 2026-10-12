@@ -124,11 +124,19 @@ export class GreenerPasturesRenderer {
     this.#landscape(batch, random);
     for (const item of this.decor.forest) tree(batch, random, { ...item, y: greenerBackdropMeshHeight(item.x, item.z) });
     for (const house of this.decor.houses) {
-      const xs = [house.x - house.sx * 0.42, house.x, house.x + house.sx * 0.42];
-      const zs = [house.z - house.sz * 0.42, house.z, house.z + house.sz * 0.42];
-      // Set the cottage floor to the lowest visible terrain under its footprint. On a slope, masonry may
-      // disappear slightly into the hill; it must never hover above it.
-      const y = Math.min(...xs.flatMap(x => zs.map(z => greenerBackdropMeshHeight(x, z)))) - 0.08;
+      const samples = [];
+      for (const fx of [-0.48, -0.24, 0, 0.24, 0.48]) {
+        for (const fz of [-0.48, -0.24, 0, 0.24, 0.48]) {
+          samples.push(greenerBackdropMeshHeight(house.x + house.sx * fx, house.z + house.sz * fz));
+        }
+      }
+      const low = Math.min(...samples);
+      const high = Math.max(...samples);
+      // A short stone terrace bridges the coarse hillside beneath each distant cottage. The floor sits low
+      // into the slope and the foundation reaches the visible mesh, so side settlements cannot levitate.
+      const y = low + Math.min(0.42, (high - low) * 0.18);
+      batch.stone.block({ cx: house.x, cy: low - 0.2, cz: house.z, sx: house.sx * 0.94,
+        sy: Math.max(0.55, y - low + 0.4), sz: house.sz * 0.94, color: P.stoneDark, rand: random, chamfer: 0.04, jitter: 0.01 });
       cottage(batch, random, { center: [house.x, y + house.sy / 2, house.z], size: [house.sx, house.sy, house.sz] });
     }
     this.#distantCastle(batch, random);
