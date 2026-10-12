@@ -333,7 +333,7 @@ const segments = [
     beats: [
       { id: 'complaint-arrival', kind: 'stage', advanceOn: 'complaint-approached',
         direction: 'Continue the moving chase until TATTLE ON YOU is readable and Rival is approaching its entrance.' },
-      { id: 'legend-ends', speaker: 'narrator', line: 'This is not where your legend ends, Spellblade. Knights are not supposed to get made fun of.' },
+      { id: 'legend-ends', speaker: 'narrator', line: 'This is not where your legend ends, Spellblade. Knights are not made to be made fun of.' },
     ],
   },
   {
