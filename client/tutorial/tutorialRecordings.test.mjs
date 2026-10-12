@@ -64,6 +64,15 @@ test('all established recording keys survive the full route and generated plan m
     if (take) assert.equal(take.text, change.after);
     else assert.equal(polish.replaced.find(take => take.key === change.key)?.text, change.after);
   }
+  for (const change of polish.followup.changed) {
+    assert.equal(plan.find(take => take.key === change.key).text, change.after);
+  }
+  for (const moved of polish.followup.relocated) {
+    const take = plan.find(take => take.key === moved.key);
+    assert.equal(take.segment, moved.toSegment);
+    assert.equal(take.chapter, moved.chapter);
+    assert.equal(take.sourceFile, `${moved.key}.wav`);
+  }
 });
 
 test('recording plan carries onset synchronization and reactive rehearsal metadata', () => {
@@ -79,7 +88,7 @@ test('recording plan carries onset synchronization and reactive rehearsal metada
   assert.ok(plans.rehearsalSec > 1.5);
   assert.equal(plan.find(take => take.key === 'tutorial.greeting').rehearsalSec, undefined);
   assert.equal(plan.find(take => take.key === 'tutorial.burn-subsided').optionalBranch, 'burned');
-  assert.equal(plan.find(take => take.key === 'tutorial.final-hello').optionalSegment, 'final-confrontation');
+  assert.equal(plan.find(take => take.key === 'tutorial.final-hello').optionalSegment, 'pursuit-banter');
 });
 
 test('tutorial voice selection follows the HUD device without changing the authored beat', () => {

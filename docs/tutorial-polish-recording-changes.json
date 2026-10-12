@@ -94,5 +94,63 @@
       "key": "tutorial.permission-no",
       "pauseAfterSec": 0.08
     }
-  ]
+  ],
+  "followup": {
+    "base": "c5b3340",
+    "changed": [
+      {
+        "key": "tutorial.truly-look-around",
+        "before": "No. Truly look around.",
+        "after": "With your eyes."
+      },
+      {
+        "key": "tutorial.remains-ahead",
+        "before": "I would like to keep attacking, but he remains ahead!",
+        "after": "My reputation will become dead if he remains ahead!"
+      },
+      {
+        "key": "tutorial.what-condition",
+        "before": "This one is tougher than usual. What is his condition?",
+        "after": "Perhaps his armor is better tailored than yours. What is his condition?"
+      }
+    ],
+    "relocated": [
+      {
+        "key": "tutorial.final-hello",
+        "fromSegment": "final-confrontation",
+        "toSegment": "pursuit-banter",
+        "chapter": "pursuit"
+      },
+      {
+        "key": "tutorial.too-late-hello",
+        "fromSegment": "final-confrontation",
+        "toSegment": "pursuit-banter",
+        "chapter": "pursuit"
+      },
+      {
+        "key": "tutorial.reconsider-meeting",
+        "fromSegment": "final-confrontation",
+        "toSegment": "pursuit-banter",
+        "chapter": "pursuit"
+      },
+      {
+        "key": "tutorial.sword-remains",
+        "fromSegment": "final-confrontation",
+        "toSegment": "pursuit-banter",
+        "chapter": "pursuit"
+      },
+      {
+        "key": "tutorial.remain-mightier",
+        "fromSegment": "final-confrontation",
+        "toSegment": "pursuit-banter",
+        "chapter": "pursuit"
+      },
+      {
+        "key": "tutorial.lot-of-things",
+        "fromSegment": "final-confrontation",
+        "toSegment": "pursuit-banter",
+        "chapter": "pursuit"
+      }
+    ]
+  }
 }

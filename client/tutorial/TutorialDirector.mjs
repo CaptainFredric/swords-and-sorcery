@@ -165,6 +165,9 @@ export class TutorialDirector {
     const rehearsal = Math.max(caption?.minSec ?? 0, (this.current.rehearsalSec ?? 3) * (caption?.scale ?? 1));
     if (this.current.presentation === 'reactive' && this.current.advanceOn === 'continue'
       && now - this.enteredAt >= rehearsal) this.completeDialogue(this.cue);
+    // Authored quiet travel belongs to a beat, so removing its segment leaves no timer behind.
+    else if (this.current.kind === 'stage' && Number.isFinite(this.current.advanceAfterSec)
+      && now - this.enteredAt >= this.current.advanceAfterSec) this.accept(this.current.advanceOn);
     else if (this.current.presentation === 'title' && now - this.enteredAt >= (this.current.rehearsalSec ?? 2.5)) this.accept(this.current.advanceOn);
     if (this.optionalCue) {
       this.optionalAt ??= now;

@@ -94,6 +94,7 @@ export const GREENER_ROUTE = Object.freeze({
   landmarks: Object.freeze({
     jump: JUMP_APPROACH,
     'jump-approach': JUMP_APPROACH,
+    'pursuit-banter': point('pursuit-banter', -30, -220),
     'tattle-reveal': TATTLE_REVEAL,
     sheepfold: WAYPOINTS.sheepfold,
     fireball: WAYPOINTS.fireball,

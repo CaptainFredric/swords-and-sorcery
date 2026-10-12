@@ -50,6 +50,8 @@ test('tutorial Rival survival is local and ends when the final fight commits, in
  assert.equal(rival().alive,true);assert.equal(rival().health,1);
  assert.equal(host.room.events.find(e=>e.type==='damage').amount,150);
  host.room.events.length=0;goto('final-hello');
+ assert.equal(host.room.tutorialRival.protected,true);
+ goto('defeat-rival');
  assert.equal(host.room.tutorialRival.protected,false);
  applyDamage(host.room,host.player.id,rival().id,150,'sword',now());assert.equal(rival().alive,false);
  const killedAt=now(); tick(130);assert.equal(rival().alive,false);assert.equal(rival().respawnAt,Infinity);

@@ -15,8 +15,8 @@ test('the complete declared route preserves chapter identifiers and reaches the 
   ]);
   assert.deepEqual(TUTORIAL_SEGMENTS.map(item => item.id), [
     'greener-introduction', 'meaningful-look', 'approach', 'stamina', 'introductions',
-    'first-attack', 'first-guard', 'health-regen', 'real-duel', 'escape-head-start', 'rival-escape', 'jump-obstacle', 'fireball', 'tattle-reveal',
-    'bridge-dash', 'counterfire', 'complaint-approach', 'pride-stop', 'duel-terms', 'final-confrontation',
+    'first-attack', 'first-guard', 'health-regen', 'real-duel', 'escape-head-start', 'rival-escape', 'jump-obstacle', 'pursuit-banter', 'fireball', 'tattle-reveal',
+    'bridge-dash', 'counterfire', 'complaint-approach', 'pride-stop', 'duel-terms',
     'rival-defeat', 'title-ending',
   ]);
   assert.deepEqual(TUTORIAL_BEATS, TUTORIAL_CHAPTERS.flatMap(item => item.beats));
@@ -33,7 +33,7 @@ test('creator wording retains intentional punctuation and revised stable recordi
     'much-to-do': 'Yes... there is...much to do here..',
     'need-look-around': 'You need to look around',
     'nothing-of-value': 'I have. I see nothing of value',
-    'truly-look-around': 'No. Truly look around.',
+    'truly-look-around': 'With your eyes.',
     'look-ah': 'Ah...',
     'still-nothing': 'Still nothing',
     'quite-a-distance': 'He is quite a distance away. Do I have any method of moving faster?',
@@ -151,7 +151,7 @@ test('segments can be removed, inserted, reordered and enabled without changing 
   assert.equal(reversed.at(-1).id, 'truly-look-around');
 });
 
-test('complaint, pride and final confrontation preserve the exact new authored arc', () => {
+test('complaint, pride and pursuit banter preserve the exact new authored arc', () => {
   const exact = {
     'legend-ends': 'This is not where your legend ends, Spellblade. Knights are not supposed to get made fun of.',
     'knight-help': 'A real knight never asks for help!',
@@ -179,7 +179,7 @@ test('complaint, pride and final confrontation preserve the exact new authored a
 });
 
 test('scene actions and checkpoint destinations are explicit data separate from spoken sentences', () => {
-  const allowedCheckpoints = new Set(['opening', 'introductions', 'duel', 'pursuit', 'jump', 'bridge', 'counterfire', 'final']);
+  const allowedCheckpoints = new Set(['opening', 'introductions', 'duel', 'pursuit', 'jump', 'fireball', 'bridge', 'counterfire', 'final']);
   for (const segment of TUTORIAL_SEGMENTS) {
     assert.equal(segment.enabled, true);
     assert.ok(allowedCheckpoints.has(segment.scene.checkpoint), segment.id);
@@ -190,7 +190,7 @@ test('scene actions and checkpoint destinations are explicit data separate from 
   assert.equal(scene('real-duel').enter, 'rival-idle');
   assert.equal(scene('rival-escape').enter, 'rival-escape');
   assert.equal(scene('health-regen').enter, 'rival-give-space');
-  assert.equal(scene('final-confrontation').enter, 'rival-final-fight');
+  assert.equal(scene('pursuit-banter').enter, 'rival-escape');
   assert.equal(scene('rival-defeat').enter, 'rival-final-fight');
   assert.deepEqual(scene('complaint-approach').gates[0], {
     cue: 'complaint-approached', kind: 'near-entrance', actor: 'rival', distance: 100,
@@ -204,12 +204,12 @@ test('scene actions and checkpoint destinations are explicit data separate from 
   assert.deepEqual(TUTORIAL_SEGMENTS.find(segment => segment.id === 'stamina').captionRehearsal, { scale: 0.55, minSec: 1 });
 });
 
-test('compiled scene routes recompute links and can remove the optional final exchange without removing combat', () => {
-  const reduced = tutorialRouteSegments(TUTORIAL_SEGMENTS, { omitSegments: ['final-confrontation'] });
+test('compiled scene routes recompute links and can remove the optional pursuit exchange without removing combat', () => {
+  const reduced = tutorialRouteSegments(TUTORIAL_SEGMENTS, { omitSegments: ['pursuit-banter'] });
   const pride = reduced.find(segment => segment.id === 'pride-stop');
   assert.equal(pride.next, 'duel-terms');
   assert.equal(reduced.find(segment => segment.id === 'duel-terms').next, 'rival-defeat');
-  assert.equal(reduced.some(segment => segment.id === 'final-confrontation'), false);
+  assert.equal(reduced.some(segment => segment.id === 'pursuit-banter'), false);
   assert.equal(reduced.find(segment => segment.id === 'rival-defeat').scene.enter, 'rival-final-fight');
   const beats = tutorialRouteBeats(reduced);
   assert.equal(beats.some(item => item.id === 'final-hello'), false);
@@ -237,9 +237,9 @@ test('removing a provider removes only explicitly dependent scenes and preserves
   assert.ok(withoutAttack.some(segment => segment.id === 'first-guard'));
   const withoutFireball = tutorialRouteSegments(TUTORIAL_SEGMENTS, { omitSegments: ['fireball'] });
   assert.ok(withoutFireball.some(segment => segment.id === 'counterfire'));
-  const withoutFinalGuard = tutorialRouteSegments(TUTORIAL_SEGMENTS, { omitSegments: ['final-confrontation'] });
-  assert.ok(withoutFinalGuard.some(segment => segment.id === 'rival-defeat'));
-  assert.ok(withoutFinalGuard.some(segment => segment.id === 'title-ending'));
+  const withoutBanter = tutorialRouteSegments(TUTORIAL_SEGMENTS, { omitSegments: ['pursuit-banter'] });
+  assert.ok(withoutBanter.some(segment => segment.id === 'rival-defeat'));
+  assert.ok(withoutBanter.some(segment => segment.id === 'title-ending'));
 });
 
 test('raw inserted scenes normalize authored beats and inherit the active permissions', () => {
