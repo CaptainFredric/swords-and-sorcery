@@ -1,0 +1,50 @@
+{
+  "status": "LEFT_TO_RIGHT_PROVENANCE_OK",
+  "canonical_components": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    30,
+    31,
+    32
+  ],
+  "counts": {
+    "vertex": 832,
+    "face": 896,
+    "corner": 3328
+  },
+  "source_bone": "hand.L",
+  "target_bone": "hand.R",
+  "source_file_sha256": {
+    "output/right-from-left/baseline/spellblade-third-person.blend": "cb9bbe1062e4476075fb0cdb8be549bdc3f26313d97c9adb511e3c37b0423a26",
+    "output/right-from-left/final/spellblade-third-person.blend": "aea5c21b423c6d5b6f9f60b7199f8825b9196a1211170340bf5c9841e1e382ed"
+  },
+  "verified": "Exact topology, material assignments, flat/smooth shading, and color corner incidence; independent of source-coordinate curling and mesh vertex insertion order.",
+  "read_only": true
+}
