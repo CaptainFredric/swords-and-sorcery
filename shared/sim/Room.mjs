@@ -30,6 +30,11 @@ function freshCombatState(spawn, nowSec = 0) {
     guardStamina: guardProfile().capacity,
     guarding: false,
     guardHeld: false,
+    // the player's own buttons, held or not, and when each was last pressed (heldActions.mjs)
+    guardButton: false,
+    guardPressedAt: -Infinity,
+    attackButton: false,
+    attackPressedAt: -Infinity,
     guardStartedAt: -Infinity,
     lastGuardDrainAt: -Infinity,
     attackActive: false,
@@ -356,6 +361,8 @@ export class Room {
     player.attackCommitted = 0;
     player.guarding = false;
     player.guardHeld = false;
+    player.attackButton = false;
+    player.guardButton = false;
     player.pendingSpell = null;
     player.gauntlet = null;
     player.castEndsAt = 0;

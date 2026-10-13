@@ -62,6 +62,8 @@ function resetActorAtSpawn(player, spawn, nowSec) {
   player.guardStamina = guardProfile(player.knightClass).capacity;
   player.guarding = false;
   player.guardHeld = false;
+  player.attackButton = false;
+  player.guardButton = false;
   player.guardStartedAt = -Infinity;
   player.lastGuardDrainAt = -Infinity;
   player.attackActive = false;

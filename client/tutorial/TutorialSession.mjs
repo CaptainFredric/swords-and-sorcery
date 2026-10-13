@@ -209,6 +209,11 @@ export class TutorialSession {
   }
   beforeStep(now) {
     if (!this.active || this.director.state !== 'running') return;
+    // a held Attack or Guard comes back by itself (heldActions.mjs) only while it is the Spellblade's: one the lesson has
+    // not given, or has taken away, is let go (pressed again once it is given)
+    const hands = this.host.player;
+    if (hands?.attackButton && !this.allows('attack', false)) hands.attackButton = false;
+    if (hands?.guardButton && !this.allows('guard', false)) hands.guardButton = false;
     if (this.rivalFell) { this.retry({ automatic: true }); this.onBlocked('rival-fall'); return; }
     this.director.tick(now);
     if (this.director.facts.has('rival-survived-lethal') && this.director.progress.segment?.branches?.includes('rival-constitution')) this.director.offerBranch('rival-constitution');

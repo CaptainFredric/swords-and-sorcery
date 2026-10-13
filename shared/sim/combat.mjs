@@ -8,6 +8,7 @@ import {
   ULTIMATES, ULTIMATE_PRESS_KEPT_SEC, dizzy, stepVortexEmphasis, sundering, ultimateFor, ultimateStartup, ultimateWhirl, vortexEmphasisWanted, vortexTune, vortexing,
 } from '../src/ultimates.mjs';
 import { combatActionPolicy, combatBlocksSprint } from '../src/combatActionPolicy.mjs';
+import { heldActions } from '../src/heldActions.mjs';
 import { recordChallengeFact } from './challenges.mjs';
 import { preparedSpellMember } from '../src/preparedSpells.mjs';
 import { RUPTURE, fissureCatches, onTornGround, planRupture } from '../src/rupture.mjs';
@@ -66,6 +67,7 @@ function resetAtSpawn(player, spawn, nowSec, room) {
   player.guardStamina = guardProfile(player.knightClass).capacity;
   player.guarding = false;
   player.guardHeld = false;
+  releaseButtons(player);
   player.sprinting = false;
   player.sprintBlend = 0;
   player.guardStartedAt = -Infinity;
@@ -257,6 +259,46 @@ export function setGuard(room, playerId, guarding, nowSec, { auto = false } = {}
   }
   room.events.push({ type: guarding ? 'guardStarted' : 'guardEnded', playerId, at: nowSec });
   return true;
+}
+
+/**
+ * The player's own buttons, as their presses and releases arrive (heldActions.mjs): an attack or a guard still held
+ * comes back by itself as soon as it can. Only a player's own presses set these; a bot presses for itself.
+ */
+export function pressButton(room, playerId, button, down, atSec) {
+  const player = room.players.get(playerId);
+  if (!player) return;
+  if (button === 'attack') {
+    player.attackButton = Boolean(down);
+    if (down) player.attackPressedAt = atSec;
+  } else if (button === 'guard') {
+    player.guardButton = Boolean(down);
+    if (down) player.guardPressedAt = atSec;
+  }
+}
+
+/** The buttons let go (a death, a reset, a match over, an action taken away): nothing held comes back. */
+export function releaseButtons(player) {
+  player.attackButton = false;
+  player.guardButton = false;
+}
+
+// a held button's action, broken off, taken up again the moment it may be (not before: the reel, the cast, the fist
+// and the chain's own restart all run their course first). The sword comes round exactly when it could have (at most a
+// tick back), as a held chain does; a guard comes back up as a held one, so it blocks and cannot Parry.
+function resumeHeldActions(room, player, nowSec, dt) {
+  if (!player.attackButton && !player.guardButton) return;
+  if (nowSec < player.staggerUntil || player.pendingSpell || player.gauntlet) return;
+  const concurrent = combatActionPolicy(player, nowSec).concurrent;
+  const wanted = heldActions({ attack: player.attackButton, guard: player.guardButton,
+    attackPressedAt: player.attackPressedAt, guardPressedAt: player.guardPressedAt, concurrent });
+  const swinging = player.attackActive || player.attackHeld || player.attackQueued;
+  if (wanted.attack && !swinging && (concurrent || !player.guarding)) {
+    beginAttack(room, player.id, Math.min(nowSec, Math.max(nowSec - dt, player.staggerUntil)));
+  }
+  if (wanted.guard && !player.guarding && (concurrent || !(swinging || player.attackSweep))) {
+    if (setGuard(room, player.id, true, nowSec) && player.guarding) player.guardStartedAt = -Infinity;
+  }
 }
 
 // both hands are the Vortex's while it spins, and for a moment after it ends (its recovery): no spell, no fist
@@ -1032,6 +1074,7 @@ export function killPlayer(room, victimId, attackerId, source, nowSec) {
   victim.castEndsAt = 0;
   victim.gauntlet = null;
   victim.guardHeld = false;
+  releaseButtons(victim);
   victim.dashUntil = Math.min(victim.dashUntil ?? nowSec, nowSec);
   victim.dashRam = null;
   victim.chivalryProjectileReadyAt = 0;
@@ -1797,6 +1840,7 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
       continue;
     }
 
+    resumeHeldActions(room, player, nowSec, dt);
     if (player.attackActive && nowSec >= player.staggerUntil) {
       // the chain in time order: committed strikes land; as each next swing would begin, it is committed if the
       // button is still held (or was pressed again), or the chain ends there, the swing before it having landed

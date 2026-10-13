@@ -1,4 +1,5 @@
 import { combatActionPolicy, combatBlocksSprint } from '../../shared/src/combatActionPolicy.mjs';
+import { heldActions } from '../../shared/src/heldActions.mjs';
 import * as THREE from 'three';
 import { getWorld } from '../../shared/worlds/registry.mjs';
 import { greenerPasturesWithBridgeRetries } from '../../shared/worlds/greenerPastures.mjs';
@@ -196,7 +197,10 @@ export class GameRuntime {
       hud.setPointerLocked(locked);
       this.onPointer(locked);
     };
+    // when each of the two was last pressed: of the two held together, the one pressed last has the hands
+    this.pressedAt = { attack: -Infinity, guard: -Infinity };
     this.input.onAttackLocal = (held) => {
+      if (held) this.pressedAt.attack = this.socket.serverNow();
       if (this.socket.inspectionFrozen) return;
       if (!held) {
         this.weapon.setAttack(false);
@@ -206,6 +210,7 @@ export class GameRuntime {
       if (canPresentLocalAction('attack', this.localAuth, this.localState, now)) this.weapon.setAttack(true);
     };
     this.input.onGuardLocal = (held) => {
+      if (held) this.pressedAt.guard = this.socket.serverNow();
       if (this.socket.inspectionFrozen) return;
       if (!held) {
         this.weapon.setGuard(false);
@@ -1030,6 +1035,22 @@ export class GameRuntime {
 
   // the gauntlet, thrown from my own hand on command (the local rule: the sword does not have the hand): the magic
   // hand drives out at once, with a grunt, whether or not anyone is there to meet it
+  // a held Attack or Guard, broken off, taken up again by itself the moment it may be (heldActions.mjs): the arms show
+  // it at once, as they show a press (the host's word follows)
+  #resumeHeld(now) {
+    const auth = this.localAuth;
+    if (!this.playing || this.socket.inspectionFrozen || !auth?.alive) return;
+    const concurrent = combatActionPolicy(auth, now).concurrent;
+    const wanted = heldActions({ attack: this.input.attackHeld, guard: this.input.guardHeld,
+      attackPressedAt: this.pressedAt.attack, guardPressedAt: this.pressedAt.guard, concurrent });
+    if (!wanted.attack && !wanted.guard) return;
+    if ((auth.castEndsAt ?? 0) > now || this.weapon.handsBusy()) return;
+    if (wanted.attack && !this.weapon.attackButton && (concurrent || !this.weapon.guard)
+      && canPresentLocalAction('attack', auth, this.localState, now)) this.weapon.setAttack(true);
+    if (wanted.guard && !this.weapon.guard && (concurrent || !this.weapon.attackHeld)
+      && canPresentLocalAction('guard', auth, this.localState, now)) this.weapon.setGuard(true);
+  }
+
   #tryLocalJab(now) {
     const auth = this.localAuth;
     if (!this.localState || (auth.staggerUntil ?? -Infinity) > now || auth.pendingSpell || handsTaken(auth, now)) return false;
@@ -1781,6 +1802,7 @@ export class GameRuntime {
       this.input.updatePreparedSpells?.(this.localAuth, now);
       this.weapon.setCombatPolicy(combatActionPolicy(this.localAuth, now), this.localAuth, now);
       this.#spin(now);
+      this.#resumeHeld(now);
     }
     // (a brace begun on my own key that the host never took: the arms are let down again)
     if (this.braceAskedAt && nowMs - this.braceAskedAt > 400) {
