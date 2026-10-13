@@ -47,6 +47,7 @@ docs/art/right-gauntlet/browser-live.js
 docs/art/right-gauntlet/browser-poses.js
 docs/art/right-gauntlet/build-report.json
 docs/art/right-gauntlet/changed-files.txt
+docs/art/right-gauntlet/comparison-grip.jpg
 docs/art/right-gauntlet/comparison.html
 docs/art/right-gauntlet/live-actions.webm
 docs/art/right-gauntlet/live-results.json
