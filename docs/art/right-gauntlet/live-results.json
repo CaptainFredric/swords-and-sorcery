@@ -1,0 +1,2631 @@
+{
+  "sourceRevision": "1048debe477eef37d2d86bd784c971ec134547c3",
+  "rows": [
+    {
+      "at": 0.14959999990463257,
+      "position": {
+        "x": -6,
+        "y": 0,
+        "z": -4.5
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 0.22119999980926514,
+      "position": {
+        "x": -6,
+        "y": 0,
+        "z": -4.5
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 0.25209999990463255,
+      "position": {
+        "x": -6,
+        "y": 0,
+        "z": -4.5
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 0.30690000009536744,
+      "position": {
+        "x": -6,
+        "y": 0,
+        "z": -4.5
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 0.3505,
+      "position": {
+        "x": -6,
+        "y": 0,
+        "z": -4.5
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 0.4,
+      "position": {
+        "x": -6,
+        "y": 0,
+        "z": -4.5
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 0.451,
+      "position": {
+        "x": -6,
+        "y": 0,
+        "z": -4.5
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 0.5011999998092651,
+      "position": {
+        "x": -6,
+        "y": 0,
+        "z": -4.5
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 0.555,
+      "position": {
+        "x": -5.8,
+        "y": 0,
+        "z": -4.35
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 0.6009000000953675,
+      "position": {
+        "x": -5.6,
+        "y": 0,
+        "z": -4.199999999999999
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 0.6514000000953675,
+      "position": {
+        "x": -5.199999999999999,
+        "y": 0,
+        "z": -3.899999999999999
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 0.7006999998092651,
+      "position": {
+        "x": -4.999999999999999,
+        "y": 0,
+        "z": -3.749999999999999
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 0.7560999999046326,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 0.8009000000953674,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "attack",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 0.8500999999046326,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "attack",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 0.9084000000953675,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "attack",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 0.952,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "attack",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 1.0005,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "attack",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 1.0510999999046327,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "attack",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 1.1060999999046326,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "attack",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 1.2354000000953673,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 1.2505,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 1.3030999999046327,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 1.3539000000953674,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 1.4009000000953675,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 1.451,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 1.5004000000953674,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 1.559300000190735,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 1.6011999998092652,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 1.655800000190735,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 1.7010999999046326,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 1.7526999998092652,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 1.8055,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 1.8534000000953674,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 1.9003000001907349,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 1.9513000001907348,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 2.0054000000953676,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 2.0514000000953674,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 2.1009000000953675,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 2.150800000190735,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 2.200199999809265,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 2.2514000000953676,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 2.304699999809265,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 2.351199999809265,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 2.400800000190735,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 2.4525999999046326,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 2.5004000000953672,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 2.556699999809265,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 2.6000999999046326,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 2.650699999809265,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 2.7038000001907347,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 2.750699999809265,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 2.800699999809265,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 2.8524000000953675,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 2.9009000000953673,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 2.9510999999046326,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 3.0003000001907347,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 3.053800000190735,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 3.100199999809265,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 3.1504000000953676,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 3.2009000000953676,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 3.2510999999046324,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 3.3014000000953674,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 3.3514000000953676,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 3.4004000000953676,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": true,
+      "spell": "fireball",
+      "weaponState": "guard",
+      "framePlan": "Guard"
+    },
+    {
+      "at": 3.450800000190735,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": true,
+      "spell": "fireball",
+      "weaponState": "guard",
+      "framePlan": "Guard"
+    },
+    {
+      "at": 3.500699999809265,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": true,
+      "spell": "fireball",
+      "weaponState": "guard",
+      "framePlan": "Guard"
+    },
+    {
+      "at": 3.5510999999046327,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": true,
+      "spell": "fireball",
+      "weaponState": "guard",
+      "framePlan": "Guard"
+    },
+    {
+      "at": 3.604199999809265,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": true,
+      "spell": "fireball",
+      "weaponState": "guard",
+      "framePlan": "Guard"
+    },
+    {
+      "at": 3.6515,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": true,
+      "spell": "fireball",
+      "weaponState": "guard",
+      "framePlan": "Guard"
+    },
+    {
+      "at": 3.7031999998092653,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": true,
+      "spell": "fireball",
+      "weaponState": "guard",
+      "framePlan": "Guard"
+    },
+    {
+      "at": 3.7510999999046324,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": true,
+      "spell": "fireball",
+      "weaponState": "guard",
+      "framePlan": "Guard"
+    },
+    {
+      "at": 3.8029000000953674,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": true,
+      "spell": "fireball",
+      "weaponState": "guard",
+      "framePlan": "Guard"
+    },
+    {
+      "at": 3.851800000190735,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": true,
+      "spell": "fireball",
+      "weaponState": "guard",
+      "framePlan": "Guard"
+    },
+    {
+      "at": 3.9049000000953673,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": true,
+      "spell": "fireball",
+      "weaponState": "guard",
+      "framePlan": "Guard"
+    },
+    {
+      "at": 3.951199999809265,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": true,
+      "spell": "fireball",
+      "weaponState": "guard",
+      "framePlan": "Guard"
+    },
+    {
+      "at": 4.0000999999046325,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": true,
+      "spell": "fireball",
+      "weaponState": "guard",
+      "framePlan": "Guard"
+    },
+    {
+      "at": 4.0503000001907346,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": true,
+      "spell": "fireball",
+      "weaponState": "guard",
+      "framePlan": "Guard"
+    },
+    {
+      "at": 4.103599999904633,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": true,
+      "spell": "fireball",
+      "weaponState": "guard",
+      "framePlan": "Guard"
+    },
+    {
+      "at": 4.1513000001907345,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": true,
+      "spell": "fireball",
+      "weaponState": "guard",
+      "framePlan": "Guard"
+    },
+    {
+      "at": 4.200599999904632,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": true,
+      "spell": "fireball",
+      "weaponState": "guard",
+      "framePlan": "Guard"
+    },
+    {
+      "at": 4.251,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": true,
+      "spell": "fireball",
+      "weaponState": "guard",
+      "framePlan": "Guard"
+    },
+    {
+      "at": 4.302099999904633,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": true,
+      "spell": "fireball",
+      "weaponState": "guard",
+      "framePlan": "Guard"
+    },
+    {
+      "at": 4.350800000190735,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": true,
+      "spell": "fireball",
+      "weaponState": "guard",
+      "framePlan": "Guard"
+    },
+    {
+      "at": 4.401,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": true,
+      "spell": "fireball",
+      "weaponState": "guard",
+      "framePlan": "Guard"
+    },
+    {
+      "at": 4.451599999904633,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": true,
+      "spell": "fireball",
+      "weaponState": "guard",
+      "framePlan": "Guard"
+    },
+    {
+      "at": 4.501099999904633,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": true,
+      "spell": "fireball",
+      "weaponState": "guard",
+      "framePlan": "Guard"
+    },
+    {
+      "at": 4.5515,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": true,
+      "spell": "fireball",
+      "weaponState": "guard",
+      "framePlan": "Guard"
+    },
+    {
+      "at": 4.603800000190735,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": true,
+      "spell": "fireball",
+      "weaponState": "guard",
+      "framePlan": "Guard"
+    },
+    {
+      "at": 4.6531999998092655,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": true,
+      "spell": "fireball",
+      "weaponState": "guard",
+      "framePlan": "Guard"
+    },
+    {
+      "at": 4.700900000095367,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": true,
+      "spell": "fireball",
+      "weaponState": "guard",
+      "framePlan": "Guard"
+    },
+    {
+      "at": 4.752,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": true,
+      "spell": "fireball",
+      "weaponState": "guard",
+      "framePlan": "Guard"
+    },
+    {
+      "at": 4.800699999809265,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": true,
+      "spell": "fireball",
+      "weaponState": "guard",
+      "framePlan": "Guard"
+    },
+    {
+      "at": 4.850099999904632,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": true,
+      "spell": "fireball",
+      "weaponState": "guard",
+      "framePlan": "Guard"
+    },
+    {
+      "at": 4.904599999904632,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 4.9535,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 5.0000999999046325,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 5.053400000095367,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 5.100300000190735,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 5.1505,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 5.201,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 5.251300000190735,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 5.3003000001907346,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 5.4595,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "cast",
+      "framePlan": "Cast"
+    },
+    {
+      "at": 5.500900000095368,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "cast",
+      "framePlan": "Cast"
+    },
+    {
+      "at": 5.550800000190735,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "cast",
+      "framePlan": "Cast"
+    },
+    {
+      "at": 5.601300000190735,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "cast",
+      "framePlan": "Cast"
+    },
+    {
+      "at": 5.650900000095367,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "cast",
+      "framePlan": "Cast"
+    },
+    {
+      "at": 5.785099999904633,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 5.801400000095367,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 5.850400000095368,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 5.900900000095367,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 5.950599999904632,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 6.000599999904632,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 6.050400000095367,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 6.108300000190735,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 6.150800000190735,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 6.2005,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 6.250699999809265,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 6.3003000001907346,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 6.352900000095367,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 6.401,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 6.450900000095367,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 6.500199999809265,
+      "position": {
+        "x": -4.599999999999999,
+        "y": 0,
+        "z": -3.4499999999999993
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 6.551199999809265,
+      "position": {
+        "x": -4.387970370370369,
+        "y": 0,
+        "z": -3.290977777777777
+      },
+      "sprinting": true,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 6.6009000000953675,
+      "position": {
+        "x": -4.16474074074074,
+        "y": 0,
+        "z": -3.123555555555555
+      },
+      "sprinting": true,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 6.650400000095368,
+      "position": {
+        "x": -3.687999999999999,
+        "y": 0,
+        "z": -2.7659999999999996
+      },
+      "sprinting": true,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 6.700599999904632,
+      "position": {
+        "x": -3.4361481481481473,
+        "y": 0,
+        "z": -2.5771111111111105
+      },
+      "sprinting": true,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 6.757199999809266,
+      "position": {
+        "x": -2.909629629629629,
+        "y": 0,
+        "z": -2.35
+      },
+      "sprinting": true,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 6.801199999809265,
+      "position": {
+        "x": -2.636622222222222,
+        "y": 0,
+        "z": -2.35
+      },
+      "sprinting": true,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 6.8566999998092655,
+      "position": {
+        "x": -2.0752592592592585,
+        "y": 0,
+        "z": -2.35
+      },
+      "sprinting": true,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 6.900699999809265,
+      "position": {
+        "x": -1.760766458660959,
+        "y": 0,
+        "z": -2.327918240983239
+      },
+      "sprinting": true,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 6.954699999809265,
+      "position": {
+        "x": -1.1644474531609452,
+        "y": 0,
+        "z": -1.9088766069877783
+      },
+      "sprinting": true,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 7.0005,
+      "position": {
+        "x": -0.8715289346424266,
+        "y": 0,
+        "z": -1.6891877180988895
+      },
+      "sprinting": true,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 7.0515,
+      "position": {
+        "x": -0.28486226797575975,
+        "y": 0,
+        "z": -1.24918771809889
+      },
+      "sprinting": true,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 7.1024000000953675,
+      "position": {
+        "x": 0.008471065357573637,
+        "y": 0,
+        "z": -1.0291877180988902
+      },
+      "sprinting": true,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 7.155699999809265,
+      "position": {
+        "x": 0.5951377320242405,
+        "y": 0,
+        "z": -0.5891877180988903
+      },
+      "sprinting": true,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 7.200400000095367,
+      "position": {
+        "x": 0.8884710653575739,
+        "y": 0,
+        "z": -0.3691877180988903
+      },
+      "sprinting": true,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 7.250699999809265,
+      "position": {
+        "x": 1.4751377320242407,
+        "y": 0,
+        "z": 0.07081228190110964
+      },
+      "sprinting": true,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 7.300800000190735,
+      "position": {
+        "x": 1.7684710653575741,
+        "y": 0,
+        "z": 0.2908122819011096
+      },
+      "sprinting": true,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 7.351599999904632,
+      "position": {
+        "x": 2.3551377320242404,
+        "y": 0,
+        "z": 0.7308122819011095
+      },
+      "sprinting": true,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 7.401099999904632,
+      "position": {
+        "x": 2.9418043986909064,
+        "y": 0,
+        "z": 1.1708122819011093
+      },
+      "sprinting": true,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 7.451800000190735,
+      "position": {
+        "x": 3.2351377320242394,
+        "y": 0,
+        "z": 1.390812281901109
+      },
+      "sprinting": true,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 7.5005,
+      "position": {
+        "x": 3.8218043986909054,
+        "y": 0,
+        "z": 1.8308122819011086
+      },
+      "sprinting": true,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 7.551099999904633,
+      "position": {
+        "x": 4.115137732024238,
+        "y": 0,
+        "z": 2.0508122819011083
+      },
+      "sprinting": true,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 7.6009000000953675,
+      "position": {
+        "x": 4.701804398690904,
+        "y": 0,
+        "z": 2.4499999999999997
+      },
+      "sprinting": true,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 7.653800000190735,
+      "position": {
+        "x": 4.995137732024237,
+        "y": 0,
+        "z": 2.4499999999999997
+      },
+      "sprinting": true,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 7.7011999998092655,
+      "position": {
+        "x": 5.581804398690903,
+        "y": 0,
+        "z": 2.4499999999999997
+      },
+      "sprinting": true,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 7.751699999809265,
+      "position": {
+        "x": 5.875137732024236,
+        "y": 0,
+        "z": 2.4499999999999997
+      },
+      "sprinting": true,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 7.800599999904633,
+      "position": {
+        "x": 6.504719234477734,
+        "y": 0,
+        "z": 2.5688713420144618
+      },
+      "sprinting": true,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 7.850800000190735,
+      "position": {
+        "x": 6.798052567811067,
+        "y": 0,
+        "z": 2.7888713420144615
+      },
+      "sprinting": true,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 7.900800000190735,
+      "position": {
+        "x": 7.384719234477733,
+        "y": 0,
+        "z": 3.228871342014461
+      },
+      "sprinting": true,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 7.951400000095368,
+      "position": {
+        "x": 8.125459975218474,
+        "y": 0,
+        "z": 3.7844268975700164
+      },
+      "sprinting": true,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "dash",
+      "framePlan": "Dash"
+    },
+    {
+      "at": 8.000199999809265,
+      "position": {
+        "x": 9.606941456699955,
+        "y": 0,
+        "z": 4.89553800868113
+      },
+      "sprinting": true,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "dash",
+      "framePlan": "Dash"
+    },
+    {
+      "at": 8.051199999809265,
+      "position": {
+        "x": 10.347682197440696,
+        "y": 0,
+        "z": 5.451093564236687
+      },
+      "sprinting": true,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "dash",
+      "framePlan": "Dash"
+    },
+    {
+      "at": 8.102099999904633,
+      "position": {
+        "x": 11.829163678922177,
+        "y": 0,
+        "z": 6.562204675347801
+      },
+      "sprinting": true,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "dash",
+      "framePlan": "Dash"
+    },
+    {
+      "at": 8.151300000190735,
+      "position": {
+        "x": 12.12249701225551,
+        "y": 0,
+        "z": 6.782204675347802
+      },
+      "sprinting": true,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 8.207900000095368,
+      "position": {
+        "x": 12.709163678922176,
+        "y": 0,
+        "z": 7.222204675347803
+      },
+      "sprinting": true,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 8.267099999904632,
+      "position": {
+        "x": 13.002497012255509,
+        "y": 0,
+        "z": 7.442204675347804
+      },
+      "sprinting": true,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 8.300300000190735,
+      "position": {
+        "x": 13.589163678922175,
+        "y": 0,
+        "z": 7.882204675347805
+      },
+      "sprinting": true,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 8.351900000095368,
+      "position": {
+        "x": 13.882497012255508,
+        "y": 0,
+        "z": 8.102204675347805
+      },
+      "sprinting": true,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 8.400800000190735,
+      "position": {
+        "x": 14.237941091845537,
+        "y": 0,
+        "z": 8.640821170323548
+      },
+      "sprinting": true,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 8.475099999904632,
+      "position": {
+        "x": 14.53127442517887,
+        "y": 0,
+        "z": 8.860821170323547
+      },
+      "sprinting": true,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 8.501900000095368,
+      "position": {
+        "x": 15.117941091845536,
+        "y": 0,
+        "z": 9.300821170323545
+      },
+      "sprinting": true,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 8.565300000190735,
+      "position": {
+        "x": 15.411274425178869,
+        "y": 0,
+        "z": 9.520821170323543
+      },
+      "sprinting": true,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 8.602699999809266,
+      "position": {
+        "x": 15.997941091845535,
+        "y": 0,
+        "z": 9.960821170323541
+      },
+      "sprinting": true,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 8.652400000095367,
+      "position": {
+        "x": 16.29127442517887,
+        "y": 0,
+        "z": 10.18082117032354
+      },
+      "sprinting": true,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 8.700699999809265,
+      "position": {
+        "x": 16.872179774973112,
+        "y": 0.42000000000000004,
+        "z": 10.61650018266922
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 8.761099999904632,
+      "position": {
+        "x": 17.155142737936075,
+        "y": 0.6000000000000001,
+        "z": 10.828722404891444
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 8.801300000190734,
+      "position": {
+        "x": 17.694566606248834,
+        "y": 0.9000000000000001,
+        "z": 11.150000000000002
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 8.850599999904633,
+      "position": {
+        "x": 17.946418458100688,
+        "y": 1.0200000000000002,
+        "z": 11.150000000000002
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 8.909300000190735,
+      "position": {
+        "x": 18.40287936345048,
+        "y": 1.2000000000000004,
+        "z": 11.150000000000002
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 8.952199999809265,
+      "position": {
+        "x": 18.60287936345048,
+        "y": 1.2600000000000005,
+        "z": 11.150000000000002
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 9.000800000190734,
+      "position": {
+        "x": 19.00287936345048,
+        "y": 1.3200000000000005,
+        "z": 11.150000000000002
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 9.050699999809265,
+      "position": {
+        "x": 19.402879363450477,
+        "y": 1.3000000000000005,
+        "z": 11.150000000000002
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 9.101699999809265,
+      "position": {
+        "x": 19.602879363450477,
+        "y": 1.2600000000000005,
+        "z": 11.150000000000002
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 9.15,
+      "position": {
+        "x": 20.002879363450475,
+        "y": 1.1200000000000006,
+        "z": 11.150000000000002
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 9.208800000190735,
+      "position": {
+        "x": 20.202879363450474,
+        "y": 1.0200000000000007,
+        "z": 11.150000000000002
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 9.250800000190734,
+      "position": {
+        "x": 20.602879363450473,
+        "y": 0.7600000000000007,
+        "z": 11.150000000000002
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 9.309199999809264,
+      "position": {
+        "x": 20.802879363450472,
+        "y": 0.6000000000000008,
+        "z": 11.150000000000002
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 9.351199999809266,
+      "position": {
+        "x": 21.20287936345047,
+        "y": 0.22000000000000092,
+        "z": 11.150000000000002
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 9.401099999904632,
+      "position": {
+        "x": 21.40287936345047,
+        "y": 1.0269562977782698e-15,
+        "z": 11.150000000000002
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 9.453800000190736,
+      "position": {
+        "x": 21.80287936345047,
+        "y": 0,
+        "z": 11.150000000000002
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 9.501099999904632,
+      "position": {
+        "x": 22.002879363450468,
+        "y": 0,
+        "z": 11.150000000000002
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 9.550300000190735,
+      "position": {
+        "x": 22.402879363450467,
+        "y": 0,
+        "z": 11.150000000000002
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 9.600099999904632,
+      "position": {
+        "x": 22.602879363450466,
+        "y": 0,
+        "z": 11.150000000000002
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 9.657099999904633,
+      "position": {
+        "x": 23.002879363450464,
+        "y": 0,
+        "z": 11.150000000000002
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 9.701400000095367,
+      "position": {
+        "x": 23.05,
+        "y": 0,
+        "z": 11.150000000000002
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 9.751099999904632,
+      "position": {
+        "x": 23.05,
+        "y": 0,
+        "z": 11.150000000000002
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 9.800900000095368,
+      "position": {
+        "x": 23.05,
+        "y": 0,
+        "z": 11.150000000000002
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 9.850800000190734,
+      "position": {
+        "x": 23.05,
+        "y": 0,
+        "z": 11.150000000000002
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 9.900099999904633,
+      "position": {
+        "x": 23.05,
+        "y": 0,
+        "z": 11.150000000000002
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 9.951400000095367,
+      "position": {
+        "x": 23.05,
+        "y": 0,
+        "z": 11.150000000000002
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 10.000099999904632,
+      "position": {
+        "x": 23.05,
+        "y": 0,
+        "z": 11.150000000000002
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 10.051,
+      "position": {
+        "x": 23.05,
+        "y": 0,
+        "z": 11.150000000000002
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 10.1005,
+      "position": {
+        "x": 23.05,
+        "y": 0,
+        "z": 11.150000000000002
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 10.152,
+      "position": {
+        "x": 23.05,
+        "y": 0,
+        "z": 11.150000000000002
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 10.200599999904632,
+      "position": {
+        "x": 23.05,
+        "y": 0,
+        "z": 11.150000000000002
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 10.253099999904633,
+      "position": {
+        "x": 23.05,
+        "y": 0,
+        "z": 11.150000000000002
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 10.3005,
+      "position": {
+        "x": 23.05,
+        "y": 0,
+        "z": 11.150000000000002
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 10.353900000095367,
+      "position": {
+        "x": 23.05,
+        "y": 0,
+        "z": 11.150000000000002
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    },
+    {
+      "at": 10.400400000095367,
+      "position": {
+        "x": 23.05,
+        "y": 0,
+        "z": 11.150000000000002
+      },
+      "sprinting": false,
+      "guarding": false,
+      "spell": "fireball",
+      "weaponState": "idle",
+      "framePlan": "Idle"
+    }
+  ]
+}

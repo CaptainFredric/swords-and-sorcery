@@ -1,41 +1,11 @@
-# First-person sword gauntlet: deferred to a source-art pass
+# First person sword gauntlet source candidate
 
-Status (2026-10-12): **deferred**. The right gauntlet in first person stays exactly as the established model exports
-it. It is a modelling problem, to be solved in the first-person source, not at load time.
+Status, October 12: rebuilt in the editable Blender source and exported for creator review. The candidate has separated dark armored fingers, aligned knuckle protection, a faceted hand plate, supported thumb and a layered wrist transition fitted around the physical sword grip.
 
-## What is wrong with it
+See [the source diagnosis, Blender handoff and verification](art/right-gauntlet/README.md), [matched comparisons](art/right-gauntlet/comparison.html) and [the live controller recording](art/right-gauntlet/live-actions.webm).
 
-From the player's camera only the top of the sword fist shows, and the armour kit builds that top from small separate
-boxes (`tools/blender/characters/spellblade/kit/arms.py`, `arm_fist`): two back plates stepped one over the other, a
-brass strip, a knuckle guard with four studs along it, the leather palm block beside them; the fingers wrapping the
-grip are hidden behind it. Seen edge-on from above at arm's length, that reads as a pile of overlapping boxes, not as
-a gauntlet. The rig, the socket, the pose and the camera are not the cause: the left hand, built the same way but seen
-from its open side, reads clearly.
+The rig, authored action curves, sword dimensions and approved 35 degree roll remain preserved. The right forearm, left hand and third person source are unchanged. The exported source revision is `1048debe477eef37d2d86bd784c971ec134547c3`.
 
-A load-time simplification (the plates merged, the studs removed) was tried on 2026-10-12 and withdrawn by the creator:
-the hand should be rebuilt as coherent armour, not have details deleted from it.
+Future geometry edits belong in `tools/blender/characters/spellblade/source/spellblade-first-person.blend`, on `Arm.R`. Use `scripts/export-spellblade-first-person.py` for the established authored export pipeline. Save artistic edits directly in the source; the historical whole kit builder would reconstruct geometry and actions.
 
-## The direction (the concept art is the visual target)
-
-- a chunky, articulated armoured glove
-- dark segmented fingers
-- distinct knuckle and back-of-hand armour
-- a layered wrist and cuff transition
-- the forearm armour flowing naturally into the hand
-- a readable sword grip
-- stylised low-poly construction: no pile of overlapping boxes, no generic realistic glove
-
-Exact replication is not required; the lineage to the concept should be clear.
-
-## How to do it
-
-- Edit the hand in `tools/blender/characters/spellblade/source/spellblade-first-person.blend` (first person only; the
-  third-person knight is its own file), then export and review with `build.py --mode review` and
-  `scripts/preview-spellblade.mjs` (see the source README). Promote only after visual acceptance.
-- Do not regenerate that file from the kit (`build_kit.sh`): it is hand-edited since the kit last built it (the fitted
-  first-person gauntlet, the authored sword grip, the Guard tangents), and a rebuild would throw that work away. Graft
-  the new hand into it instead.
-- Judge it from the game's camera (the first-person harness: `WeaponView` with the real rig at 78 degrees), at rest,
-  walking, sprinting, in Guard, through the three strikes, Dash and a cast. The sword is turned 35 degrees about its
-  own length in the hand (`REST_EDGE_TURN`, client/game/fpSlash.mjs), so the fist is seen a little from its
-  thumb side at rest.
+Creator review determines artistic acceptance. The focused tests establish source preservation, grip surface clearance, animation compatibility and asset budgets.

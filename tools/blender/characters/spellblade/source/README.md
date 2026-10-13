@@ -317,3 +317,9 @@ Run `scripts/test-spellblade-combat-presentation.py` in Blender for endpoint pos
 The focused utility is `kit/guarded_technique.py`. Open the accepted source in Blender, run it with a separate output path after `--`, then export through `build.py`. The utility only replaces upper body curves in the existing three guarded actions. It preserves geometry, skin weights, rest bones, ordinary actions and guarded lower body curves. Contacts remain at 0.40, 0.38 and 0.36 seconds within the existing combo slots. Each cut finishes in the exact existing Guard hold.
 
 Run `scripts/test-spellblade-guarded-technique.py` in Blender with `-- BASELINE.blend CANDIDATE.blend` for source preservation, sampled defensive lines, natural arm reach, contact silhouettes and head tracking. `docs/CHIVALRY_GUARDED_TECHNIQUE.md` records the focused checks and exported motion proof. The first person source and solver remain as previously accepted.
+
+## October 12 first person sword gauntlet
+
+The first person `Arm.R` hand now uses a tapered faceted steel back, organized knuckle caps, four separated three scale fingers, dark joint cores and a supported thumb. Its geometry follows the actual `HeroSword` handle. The right forearm, left arm, sword, rest rig, sockets, material definitions and action curves remain preserved. Third person geometry is independent and unchanged.
+
+See `docs/art/right-gauntlet/README.md` for the source handoff and comparisons. `scripts/export-spellblade-first-person.py` exports this saved source through the existing authored pipeline without rebuilding third person. The `GauntletPart` face attribute identifies the hand pieces for later Blender edits.
