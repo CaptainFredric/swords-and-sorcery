@@ -1,6 +1,10 @@
 import * as script from './tutorialScript.mjs';
 const { TUTORIAL_CHAPTERS, TUTORIAL_BRANCHES, TUTORIAL_SEGMENTS, tutorialRouteBeats } = script;
 
+// a recorded line's own pause after it (completeSpoken), and the room an aside leaves before its place (seconds)
+const OPTIONAL_PAUSE_SEC = .35;
+const ROOM_MARGIN_SEC = 1;
+
 // Rehearsal/recording-ready state machine. The local session supplies genuine
 // movement and combat facts from the ordinary simulator.
 // It never alters health, hits, stamina, movement or the shared combat simulator.
@@ -37,6 +41,10 @@ export class TutorialDirector {
     this.optionalActive = false;
     this.lastTickAt = null;
     this.audioCue = null; this.pendingCompletion = null;
+    // An aside is had in the story's room: the seconds before its next place can come (the session's measure of
+    // the ground still to cover), and each line's own length (its recording's, when known).
+    this.optionalRoom = () => Infinity;
+    this.lineSeconds = () => null;
   }
 
   get current() { return this.state === 'running' ? this.beats[this.index] : null; }
@@ -108,12 +116,18 @@ export class TutorialDirector {
   finishOptional() {
     const finished = this.branchQueue.shift();
     const connectedReply = finished?.replyGroup && finished.replyGroup === this.branchQueue[0]?.replyGroup;
+    const sameExchange = connectedReply || finished?.exchange && finished.exchange === this.branchQueue[0]?.exchange;
     this.optionalAt = null;
     // Urgent event feedback waits for this take's real end, then pauses the
     // remaining aside rather than cutting or dropping its recordings.
     if (!connectedReply && (this.pendingReaction || this.current?.reactionFor)) {
       this.optionalActive = false;
       this.beginReaction();
+      this.enteredAt = this.lastTickAt;
+    } else if (this.branchQueue.length && !sameExchange && (this.placeBound || !this.optionalFits())) {
+      // Between two of the aside's exchanges: a place's lines are due (or the next exchange would not be over before
+      // its place comes). The rest waits, every recording kept, for the next stretch with room for it.
+      this.optionalActive = false;
       this.enteredAt = this.lastTickAt;
     } else if (!this.branchQueue.length) {
       this.optionalActive = false;
@@ -132,6 +146,8 @@ export class TutorialDirector {
   // and lowering Guard isn't the same as suffering a scripted postscript hit.
   accept(cue) {
     if (!this.current || this.current.advanceOn !== cue) return false;
+    // a live beat is taken only as its state holds, and only while nothing is being said
+    if (this.current.live && (this.optionalActive || this.audioCue || this.pendingCompletion)) return false;
     const previous = this.current, chapter = previous.chapter;
     this.index += 1;
     if (previous.reactionFor && this.beats[this.index]?.reactionFor !== previous.reactionFor) {
@@ -149,7 +165,7 @@ export class TutorialDirector {
       this.branchQueue = []; this.optionalActive = false; this.optionalAt = null;
     } else if (this.branchQueue.length && this.canPresentOptional()) this.optionalActive = true;
     this.onChange(this.progress);
-    if (this.current && this.facts.has(this.current.advanceOn)) this.accept(this.current.advanceOn);
+    if (this.current && !this.current.live && this.facts.has(this.current.advanceOn)) this.accept(this.current.advanceOn);
     return true;
   }
 
@@ -157,6 +173,7 @@ export class TutorialDirector {
   fact(cue) {
     if (this.state !== 'running') return false;
     this.facts.add(cue);
+    this.dropStale(cue);
     if (this.reactions.has(cue) && !this.completedReactions.has(cue)) this.pendingReaction = cue;
     const accepted = this.accept(cue) || this.skips(this.current, cue) && this.current.kind !== 'dialogue'
       && !this.audioCue && !this.pendingCompletion && this.accept(this.current.advanceOn);
@@ -165,6 +182,18 @@ export class TutorialDirector {
       this.beginReaction(); this.enteredAt = null; this.onChange(this.progress);
     }
     return accepted;
+  }
+
+  // An aside overtaken by events (its `until` has happened) is dropped where it has not begun: an exchange under way
+  // is heard to its end, never cut.
+  dropStale(cue) {
+    const head = this.optionalActive ? this.branchQueue[0] : null;
+    const playing = line => head && (line === head || head.exchange && line.exchange === head.exchange
+      || head.replyGroup && line.replyGroup === head.replyGroup);
+    const kept = this.branchQueue.filter(line => line.until !== cue || playing(line));
+    if (kept.length === this.branchQueue.length) return;
+    this.branchQueue = kept;
+    if (!kept.length) this.optionalActive = false;
   }
 
   // A beat made obsolete by what has happened (skipWhen: one fact or several): by any fact so far, or by this one.
@@ -199,6 +228,12 @@ export class TutorialDirector {
       return;
     }
     if (this.audioCue) return; // A real source's ended event owns duration.
+    // An aside kept waiting (for room, or for a place's lines to be over) begins once the main route is only waiting
+    // on the player and there is room for its next exchange.
+    if (!this.optionalActive && this.branchQueue.length && this.current.kind !== 'dialogue' && this.canPresentOptional()) {
+      this.optionalActive = true; this.optionalAt = now;
+      this.onChange(this.progress);
+    }
     // Reactions take the next clean caption boundary. Movement and factual
     // progression continue while a reaction is displayed, but the next spoken
     // main line gets its full reading time after the reaction ends.
@@ -245,8 +280,42 @@ export class TutorialDirector {
 
   canPresentOptional() {
     const beat = this.current;
-    return beat && !beat.reactionFor && beat.chapter !== 'ending' && beat.presentation !== 'title'
-      && (beat.kind !== 'dialogue' || beat.presentation === 'reactive');
+    return Boolean(beat) && !beat.reactionFor && beat.chapter !== 'ending' && beat.presentation !== 'title'
+      && (beat.kind !== 'dialogue' || beat.presentation === 'reactive')
+      && !this.placeBound && this.optionalFits();
+  }
+
+  /**
+   * Whether the main route is in a place's lines: the dialogue that follows a stage beat marked `place` (Rival over the
+   * sheepfold wall, the Spellblade at the bridge...), up to its next stage or prompt. Those lines belong to where they
+   * are said: no aside begins in them, and one under way gives them the floor at its next pause.
+   */
+  get placeBound() {
+    const beat = this.current;
+    if (!beat || beat.kind !== 'dialogue' || beat.reactionFor) return false;
+    for (let i = this.index - 1; i >= 0; i -= 1) {
+      const before = this.beats[i];
+      if (before.kind !== 'dialogue') return Boolean(before.place);
+    }
+    return false;
+  }
+
+  /** The aside's next exchange (lines that belong together: one exchange, or one reply), in seconds. */
+  optionalExchangeSec() {
+    const [first] = this.branchQueue;
+    if (!first) return 0;
+    let total = 0;
+    for (const line of this.branchQueue) {
+      const together = line === first || line.exchange && line.exchange === first.exchange || line.replyGroup && line.replyGroup === first.replyGroup;
+      if (!together) break;
+      total += (this.lineSeconds(line) ?? line.rehearsalSec ?? 3) + (line.pauseAfterSec ?? OPTIONAL_PAUSE_SEC);
+    }
+    return total;
+  }
+
+  /** Whether the aside's next exchange is over before the story's next place can come. */
+  optionalFits() {
+    return !this.branchQueue.length || this.optionalRoom() >= this.optionalExchangeSec() + ROOM_MARGIN_SEC;
   }
 
   skip() {

@@ -17,6 +17,8 @@ export class TutorialMovementCues {
     this.facts = new Set(); this.start = null; this.previous = null;
     this.travel = 0; this.sprinted = false; this.exhausted = false;
     this.lookTravel = 0; this.sprintSince = null;
+    // winded now: run out of stamina by a Sprint, and not yet back to where a Sprint may start again
+    this.winded = false;
   }
   snapshot(snapshot) {
     if (this.runId !== this.director.runId) this.reset();
@@ -45,7 +47,8 @@ export class TutorialMovementCues {
     else this.sprintSince = null;
     if (this.sprintSince !== null && snapshot.serverTime - this.sprintSince >= 2.5 && player.guardStamina >= 10) this.facts.add('sprint-sustained');
     if (this.sprinted && this.start.stamina - player.guardStamina >= 5) this.facts.add('stamina-decreased');
-    if (this.sprinted && player.guardStamina <= 1e-6) this.exhausted = true;
+    if (this.sprinted && player.guardStamina <= 1e-6) { this.exhausted = true; this.winded = true; }
+    if (player.guardStamina >= SPRINT.restartStamina) this.winded = false;
     if (this.exhausted && !player.sprinting) this.facts.add('player-winded');
     if (this.exhausted && !player.sprinting && player.guardStamina >= SPRINT.restartStamina) this.facts.add('stamina-recovered');
     // Conversation requires proximity now, not a remembered pass during earlier narration.
@@ -56,7 +59,9 @@ export class TutorialMovementCues {
     // Proximity remains a live condition and must never be remembered from a passing encounter.
     for (const fact of this.facts) if (fact !== 'rival-reached' && !this.director.facts.has(fact)) this.director.fact(fact);
     const cue = this.director.current?.advanceOn;
-    if (this.facts.has(cue)) this.director.accept(cue);
+    // (a live beat: the state itself, now, not a milestone from before)
+    const live = this.director.current?.live;
+    if (live ? cue === 'player-winded' && this.winded && !player.sprinting : this.facts.has(cue)) this.director.accept(cue);
     this.previous = player;
   }
 }
