@@ -23,6 +23,13 @@ const BRIDGE_TAKEOFF = point('bridge-takeoff', 32, -662.4, 0, 2);
 const BRIDGE_LANDING = point('bridge-landing', 32, -676.1);
 const FINAL = point('final', 36, -1072);
 const ENTRANCE = point('complaint-entrance', 36, -1076);
+// The opening is a slalom of staggered field boundaries: a gateway east, then west, then east again, so the shortest
+// legal way from the opening to Rival is over 430 m (two full Sprints and two full recoveries still fall short of him;
+// movement and stamina are unchanged). Its ways through are the gateways' centres.
+const OPENING_PATH = Object.freeze([PLAYER, point('opening-gate-a', 68, 168), point('opening-gate-b', -68, 110),
+  point('opening-gate-c', 68, 52), MEETING]);
+// The apparent way out: a closed field gate in the western hedgerow under a sign, LEAVE GREENER PASTURES.
+const EXIT = point('exit', -80, 10, -Math.PI / 2);
 const CHASE = Object.freeze([
   MEETING,
   point('escape', 12, -38),
@@ -65,6 +72,10 @@ export const GREENER_ROUTE = Object.freeze({
   playerSpawn: PLAYER,
   rivalMeeting: MEETING,
   initialDistance: 225,
+  openingPath: OPENING_PATH,
+  exit: EXIT,
+  // where Rival waits, looking back, while the Spellblade makes for the exit
+  rivalHold: point('rival-hold', 14, -46, Math.PI),
   bounds: Object.freeze({ minX: -85, maxX: 100, minZ: -1125, maxZ: 245 }),
   dimensions: Object.freeze({ width: 185, depth: 1370 }),
   chaseWaypoints: CHASE,
@@ -102,6 +113,8 @@ export const GREENER_ROUTE = Object.freeze({
   }),
   counterfire: WAYPOINTS.counterfire,
   finalStand: FINAL,
+  // the final Rival's post: directly before TATTLE ON YOU, guarding its door
+  finalDefense: FINAL,
   entrance: ENTRANCE,
   departure: point('departure', -12, -1068, Math.PI / 2),
   landmarks: Object.freeze({
@@ -109,6 +122,7 @@ export const GREENER_ROUTE = Object.freeze({
     'jump-approach': JUMP_APPROACH,
     'pursuit-banter': point('pursuit-banter', -30, -365),
     'tattle-reveal': TATTLE_REVEAL,
+    exit: EXIT,
     sheepfold: WAYPOINTS.sheepfold,
     'dead-end-approach': WAYPOINTS['dead-end-approach'],
     'dead-end-exit': WAYPOINTS['dead-end-exit'],
@@ -130,8 +144,24 @@ export const GREENER_ROUTE = Object.freeze({
     counterfire: point('counterfire-checkpoint', 30, -698),
     complaint: point('complaint-checkpoint', 32, -990),
     final: point('final-checkpoint', 36, -1061),
+    // after a final defeat: far enough back to walk up to Rival again, never nose to nose
+    rematch: point('rematch-checkpoint', 34, -1036),
   }),
 });
+
+/** How far along the opening's way to Rival a position is (metres along OPENING_PATH, at its nearest point). */
+export function greenerOpeningProgress(position) {
+  let best = Infinity, progress = 0, along = 0;
+  for (let i = 1; i < OPENING_PATH.length; i += 1) {
+    const a = OPENING_PATH[i - 1], b = OPENING_PATH[i];
+    const dx = b.x - a.x, dz = b.z - a.z, length = Math.hypot(dx, dz);
+    const t = Math.max(0, Math.min(1, ((position.x - a.x) * dx + (position.z - a.z) * dz) / (length * length)));
+    const gap = Math.hypot(position.x - (a.x + dx * t), position.z - (a.z + dz * t));
+    if (gap < best) { best = gap; progress = along + t * length; }
+    along += length;
+  }
+  return progress;
+}
 
 export const GREENER_TREES = Object.freeze([
   { x: -28, z: 95, scale: 1.5 }, { x: 43, z: 78, scale: 1.7 },
@@ -175,8 +205,32 @@ const RAMPS = Object.freeze([
   Object.freeze({ id: 'bridge-north-ramp', minX: 26, maxX: 38, minZ: -653, maxZ: -641, axis: 'z', startY: 2, endY: 0, material: 'stone' }),
 ]);
 
+// One staggered field boundary across the opening, west to east at about z, leaving one gateway [gate0, gate1]:
+// low drystone walls (they keep the view over them), hedge stretches, rail fences; pieces meet with no gap.
+function barrier(name, z, gate, pieces) {
+  const out = [];
+  for (const [kind, a, b, dz = 0] of pieces) {
+    if (b <= a) continue;
+    const id = `opening-${name}-${kind}-${out.length}`;
+    if (kind === 'hedge') out.push(solid(id, [(a + b) / 2, 1.1, z + dz], [b - a + 0.6, 2.2, 1.1], 'hedge', 'hedge'));
+    else if (kind === 'fence') out.push(solid(id, [(a + b) / 2, 0.6, z + dz], [b - a + 0.4, 1.2, 0.45], 'opening-fence', 'timber'));
+    else out.push(solid(id, [(a + b) / 2, 0.6, z + dz], [b - a + 0.5, 1.2, 0.7]));
+  }
+  return out;
+}
+const OPENING_BARRIERS = Object.freeze([
+  ...barrier('a', 168, [61, 75], [['wall', -85, -40], ['hedge', -40, -18], ['wall', -18, 26], ['fence', 26, 61], ['hedge', 75, 100]]),
+  ...barrier('b', 110, [-75, -61], [['hedge', -85, -75], ['wall', -61, -20], ['fence', -20, 14], ['wall', 14, 60], ['hedge', 60, 100]]),
+  ...barrier('c', 52, [61, 75], [['hedge', -85, -50], ['wall', -50, -10], ['fence', -10, 26], ['wall', 26, 61], ['wall', 75, 100]]),
+]);
+// stone gateposts mark each way through
+const OPENING_GATEPOSTS = Object.freeze([[168, 61, 75], [110, -75, -61], [52, 61, 75]].flatMap(([z, a, b], i) => [a, b].map((x, side) =>
+  solid(`opening-gatepost-${i}-${side}`, [x + (side ? 0.45 : -0.45), 0.9, z], [0.9, 1.8, 0.9], 'gatepost'))));
+
 const SOLIDS = Object.freeze([
-  solid('west-hedgerow', [-85, 1.1, -440], [1.2, 2.2, 1370], 'hedge', 'hedge'),
+  // (the western hedgerow is broken once, for the exit's field gate)
+  solid('west-hedgerow', [-85, 1.1, -559.4], [1.2, 2.2, 1131.2], 'hedge', 'hedge'),
+  solid('west-hedgerow-north', [-85, 1.1, 129.4], [1.2, 2.2, 231.2], 'hedge', 'hedge'),
   solid('east-hedgerow', [100, 1.1, -440], [1.2, 2.2, 1370], 'hedge', 'hedge'),
   solid('north-hedgerow', [7.5, 1.1, 245], [185, 2.2, 1.2], 'hedge', 'hedge'),
   solid('south-field-wall', [7.5, 1, -1125], [185, 2, 0.8]),
@@ -196,10 +250,8 @@ const SOLIDS = Object.freeze([
   solid('footbridge-west-parapet', [-71.7, 0.65, -670], [0.6, 1.3, 18], 'parapet'),
   solid('footbridge-east-parapet', [-64.3, 0.65, -670], [0.6, 1.3, 18], 'parapet'),
   // Field boundaries frame useful open lanes, an orchard and the remains of a farm courtyard.
-  solid('opening-west-field-wall', [-29, 0.85, 103], [0.7, 1.7, 82]),
-  solid('opening-west-return', [-53, 0.85, 62], [48, 1.7, 0.7]),
-  solid('opening-east-hedge', [49, 1.1, 124], [1.1, 2.2, 58], 'hedge', 'hedge'),
-  solid('opening-east-return', [68, 0.85, 95], [38, 1.7, 0.7]),
+  ...OPENING_BARRIERS,
+  ...OPENING_GATEPOSTS,
   solid('meeting-waystone', [11, 1.15, -23], [1.4, 2.3, 1.1], 'waystone'),
   solid('escape-east-hedge', [80, 1.1, -74], [1.1, 2.2, 44], 'hedge', 'hedge'),
   solid('orchard-stile', [55, 0.4, -230], [20, 0.8, 0.7]),
@@ -233,8 +285,23 @@ const SOLIDS = Object.freeze([
   solid('complaint-west-wing', [28, 3.9, -1080], [10, 7.8, 6], 'complaint-wing', 'plaster'),
   solid('complaint-east-wing', [44, 3.9, -1080], [10, 7.8, 6], 'complaint-wing', 'plaster'),
   solid('complaint-lintel', [36, 7, -1080], [6, 2.2, 6], 'complaint-lintel', 'timber'),
-  solid('complaint-roof', [36, 8.8, -1080], [28, 1.4, 9], 'complaint-roof', 'timber'),
-  solid('complaint-rear-wall', [36, 3.5, -1091], [26, 7, 0.8], 'complaint-wing', 'plaster'),
+  solid('complaint-roof', [36, 8.8, -1083.5], [28, 1.4, 16], 'complaint-roof', 'timber'),
+  solid('complaint-rear-wall', [36, 3.5, -1091], [26, 7, 0.8], 'complaint-rear', 'plaster'),
+  // the office behind the facade: a small room, closed at both sides, roofed, entered through the doorway
+  solid('complaint-room-west', [23.4, 3.5, -1087], [0.8, 7, 8.8], 'complaint-room', 'plaster'),
+  solid('complaint-room-east', [48.6, 3.5, -1087], [0.8, 7, 8.8], 'complaint-room', 'plaster'),
+  solid('complaint-room-roof', [36, 7.25, -1087.4], [26, 0.5, 8.6], 'complaint-ceiling', 'timber'),
+  solid('complaint-counter', [36, 0.55, -1088.2], [7, 1.1, 1.1], 'complaint-counter', 'timber'),
+  solid('complaint-bench-west', [27.5, 0.25, -1085.2], [4.4, 0.5, 1], 'complaint-bench', 'timber'),
+  solid('complaint-bench-east', [44.5, 0.25, -1085.2], [4.4, 0.5, 1], 'complaint-bench', 'timber'),
+  solid('complaint-shelf', [36, 1.4, -1090.3], [9, 2.8, 0.6], 'complaint-shelf', 'timber'),
+  solid('complaint-desk', [45.4, 0.39, -1089.1], [2.4, 0.78, 1.1], 'complaint-desk', 'timber'),
+  // the notice board out front, on its two posts, clear of where the final fight is had
+  solid('complaint-notice-board', [55, 1.15, -1074.5], [2.6, 2.3, 0.35], 'complaint-notice', 'timber'),
+  // the way out, closed: a tall field gate in the western hedgerow's one gap, its posts, and the arch carrying its sign
+  solid('exit-gate', [-85, 0.85, 10], [0.35, 1.7, 6.7], 'exit-gate', 'timber'),
+  solid('exit-post-north', [-85, 4.3, 6.2], [0.95, 8.6, 0.95], 'exit-post', 'timber'),
+  solid('exit-post-south', [-85, 4.3, 13.8], [0.95, 8.6, 0.95], 'exit-post', 'timber'),
   solid('complaint-sign', DESTINATION.sign.center, [DESTINATION.sign.width, DESTINATION.sign.height, 0.22], 'complaint-sign', 'timber'),
   ...GREENER_FARM_SOLIDS,
   ...GREENER_TREES.map((tree) => solid(tree.id, [tree.x, 1.05 * tree.scale, tree.z], [0.52 * tree.scale, 2.1 * tree.scale, 0.52 * tree.scale], 'tree', 'timber')),
@@ -268,6 +335,8 @@ for (let z = 232; z > GREENER_ROUTE.bounds.minZ + 5; z -= 16) {
     if (!obstructed) NODES.push(point(`field-${x}-${z}`, x, z, 0, y));
   }
 }
+// the opening's gateways: through each, and a few metres either side of it (the field grid misses the western one)
+for (const gate of OPENING_PATH.slice(1, -1)) for (const dz of [8, 0, -8]) NODES.push(point(`${gate.id}${dz ? (dz > 0 ? '-north' : '-south') : ''}`, gate.x, gate.z + dz));
 NODES.push(point('west-crossing-north', -68, -659), point('west-crossing', -68, -670), point('west-crossing-south', -68, -681));
 for (const z of [-640, -647, -653, -658, -662]) NODES.push(point(`north-bridge-${z}`, 32, z, 0, navigationHeight(32, z)));
 NODES.push(point('granary-front', 68, -298), point('granary-gate', 68, -305), point('granary-court', 73, -315));

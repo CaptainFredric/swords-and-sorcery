@@ -286,7 +286,7 @@ export class SpellbladeAnimator {
       pose.legFlex = Math.max(pose.legFlex, slump.legFlex);
     }
     if (motion.recovery && !motion.death) {
-      const recovering = nonlethalRecovery(motion.recovery.age, motion.recovery.duration);
+      const recovering = nonlethalRecovery(motion.recovery.age, motion.recovery.duration, motion.recovery.hold ?? 0);
       pose.rotations.push(...recovering.rotations);
       pose.legFlex = Math.max(pose.legFlex, recovering.legFlex);
     }

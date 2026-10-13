@@ -22,7 +22,7 @@ test('the first duel uses readable footwork and gives ground under pressure thro
 });
 
 test('pursuit reacts to visible Sprint after a delay and respects ordinary stamina',()=>{
- const {host,session,tick,actor}=fixture();session.stage('rival-escape');session.director.resumeAt('overstayed-welcome');
+ const {host,session,tick,actor}=fixture();session.stage('rival-escape');session.director.resumeAt('hardly-wellbeing');
  actor().position={x:0,y:0,z:-60};host.player.position={x:0,y:0,z:-42};
  session.rival.enteredAt=host.now()-2;session.rival.sprintWanted=false;
  host.player.input={forward:1,right:0,yaw:0,pitch:0,sprint:true};tick();
@@ -60,7 +60,7 @@ test('Rival waits for real Sprint stamina and Dash cooldown before committing to
  host.close();
 });
 
-test('a living recovery preserves learner movement, uses no corpse, then resumes physical escape',()=>{
+test('a living knockdown preserves learner movement, uses no corpse, holds him down for his line, then he walks off',()=>{
   const {host,session,tick,actor,now}=fixture();
   session.stage('real-duel');session.director.resumeAt('real-duel');
   const start={...host.player.position},rivalStart={...actor().position};
@@ -71,8 +71,16 @@ test('a living recovery preserves learner movement, uses no corpse, then resumes
   host.input({forward:0,right:1,yaw:0,pitch:0,sprint:false});tick(20);
   assert.ok(host.player.position.x>start.x+1);assert.equal(session.rival.mode,'recover');
   assert.equal(actor().alive,true);assert.equal(actor().deathAt,undefined);
-  tick(100);assert.equal(actor().presentationRecovery,null);
-  assert.equal(session.rival.mode,'escape');assert.ok(session.director.facts.has('rival-recovered'));
+  // down, and kept down while his line plays (well past the old fixed reaction)
+  tick(100);assert.equal(session.rival.mode,'recover');assert.ok(actor().presentationRecovery.hold>0);
+  // the line over, he gets up: the rise plays out, then he is on his feet and the scene moves on
+  session.rival.enter('rival-rise',now());
+  const rise=actor().presentationRecovery;assert.ok(Math.abs(rise.duration-(now()-rise.at)-1.4)<1e-6);
+  tick(50);assert.equal(actor().presentationRecovery,null);
+  assert.ok(session.director.facts.has('rival-recovered'));
+  session.rival.enter('rival-depart',now());tick(60);
+  assert.equal(session.director.facts.has('rival-departing'),true);
+  assert.equal(actor().sprinting,false,'he walks off; the narration is of a departure, not a sprint');
   assert.ok(Math.hypot(actor().position.x-rivalStart.x,actor().position.z-rivalStart.z)>1);
   host.close();
 });
@@ -89,7 +97,7 @@ test('Rival performs real Jump at the reused sheepfold wall and stays alive',()=
 });
 
 test('a displaced Rival navigates around the real cart instead of snagging on a direct authored segment',()=>{
-  const {host,session,tick,actor}=fixture();session.stage('rival-escape');session.director.resumeAt('overstayed-welcome');
+  const {host,session,tick,actor}=fixture();session.stage('rival-escape');session.director.resumeAt('hardly-wellbeing');
   actor().position={x:17,y:0,z:-55};host.player.position={x:12,y:0,z:-38};
   session.rival.waypoint=GREENER_ROUTE.chaseWaypoints.findIndex(p=>p.id==='cart-gap');
   tick(500);assert.equal(actor().alive,true);assert.ok(actor().position.z<-80,JSON.stringify(actor().position));

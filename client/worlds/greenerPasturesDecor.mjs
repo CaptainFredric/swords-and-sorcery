@@ -94,7 +94,7 @@ export function buildGreenerPasturesDecor(seed = 5713) {
   return {
     // Worn cart paths join the farm gates and both real bridge approaches.
     paths: [
-      [[0, b.maxZ - 10], [0, 110], [0, 32], ...GREENER_ROUTE.chaseWaypoints
+      [[0, b.maxZ - 10], ...GREENER_ROUTE.openingPath.map(point => [point.x, point.z]), ...GREENER_ROUTE.chaseWaypoints
         .slice(0, GREENER_ROUTE.chaseWaypoints.findIndex(point => point.id === 'bridge-takeoff') + 1)
         .map(point => [point.x, point.z])],
       [...GREENER_ROUTE.chaseWaypoints
@@ -103,6 +103,8 @@ export function buildGreenerPasturesDecor(seed = 5713) {
       [[32, -637], [-30, -637], [-68, -651], [-68, -670], [-68, -689], [-30, -701], [32, -701]],
       [[-8, -191], [-22, -215], [-22, -281], [0, -290]],
       [[0, -400], [68, -298], [68, -318]],
+      // the track to the apparent way out
+      [[GREENER_ROUTE.rivalMeeting.x, GREENER_ROUTE.rivalMeeting.z], [-40, -2], [GREENER_ROUTE.exit.x, GREENER_ROUTE.exit.z], [-84, GREENER_ROUTE.exit.z]],
     ],
     trees: GREENER_TREES,
     forest,

@@ -1,6 +1,6 @@
 import { LocalHost } from '../network/LocalHost.mjs';
 import { TutorialSession } from './TutorialSession.mjs';
-import { GREENER_ROUTE } from '../../shared/worlds/greenerPastures.mjs';
+import { GREENER_ROUTE, greenerOpeningProgress } from '../../shared/worlds/greenerPastures.mjs';
 import { SWORD_STRIKE_TIMES } from '../../shared/src/combat.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -17,6 +17,9 @@ function playthrough({ missFirst = false, omitSegments = [] } = {}) {
   const attack = down => { if (attackHeld !== down) { host.attack(down); attackHeld = down; } };
   const log = [], events = [], allFacts = new Set();
   host.on('events', batch => events.push(...batch.events));
+  // the opening's way to Rival runs through its gateways (how far along it each one is)
+  const path = GREENER_ROUTE.openingPath;
+  const along = path.map((point, k) => path.slice(1, k + 1).reduce((sum, next, j) => sum + Math.hypot(next.x - path[j].x, next.z - path[j].z), 0));
   for (let i = 0; i < 30 * 700 && session.director.state === 'running'; i++) {
     now += 1 / 30;
     const beat = session.director.current, p = host.player, r = host.room.players.get(session.rivalId);
@@ -27,6 +30,8 @@ function playthrough({ missFirst = false, omitSegments = [] } = {}) {
     if (beat.kind === 'dialogue' && beat.presentation !== 'reactive') { session.director.completeDialogue(session.director.cue); }
     if (beat.id === 'look-prompt') yaw += .03;
     else if (['approach', 'stamina'].includes(beat.segment)) {
+      const gate = path.find((point, k) => k > 0 && k < path.length - 1 && along[k] > greenerOpeningProgress(p.position) + 2.5);
+      if (gate) { dx = gate.x - p.position.x; dz = gate.z - p.position.z; }
       yaw = Math.atan2(-dx, -dz); forward = dist > 2.5 ? 1 : 0;
       sprint = beat.segment === 'stamina' && !['recover-prompt', 'reach-rival'].includes(beat.id);
       if (beat.id === 'recover-prompt' || !session.allows('move',false) || freshBeat && beat.id==='walk-prompt') forward = 0;
@@ -34,8 +39,15 @@ function playthrough({ missFirst = false, omitSegments = [] } = {}) {
       yaw = Math.atan2(-dx, -dz); forward = dist > 1.8 ? .6 : 0;
       if (session.rival.mode !== 'duel') guard(['guard-attack-start', 'guard-prompt'].includes(beat.id));
       if (beat.id === 'attack-prompt' && now - lastAttack > 1.5) { attack(true); attack(false); lastAttack = now; }
+    } else if (['duel-knockdown', 'escape-head-start'].includes(beat.segment) || beat.segment === 'tattle-threat' && beat.id !== 'pursuit-release') {
+      // he is downed, gets up and walks off; then the threat: watch, and stand
+      guard(false); attack(false); yaw = Math.atan2(-dx, -dz);
+    } else if (beat.segment === 'false-exit') {
+      guard(false); attack(false);
+      const exit = GREENER_ROUTE.exit; dx = exit.x - p.position.x; dz = exit.z - p.position.z;
+      yaw = Math.atan2(-dx, -dz); forward = Math.hypot(dx, dz) > 3 ? 1 : 0;
     } else if (session.allows('attack', false) && beat.segment !== 'title-ending') {
-      if (session.rival.mode !== 'final-fight') { guard(false); attack(false); }
+      if (!['final-opening', 'final-guard', 'final-fight'].includes(session.rival.mode)) { guard(false); attack(false); }
       const bridge = GREENER_ROUTE.bridge;
       const stile=GREENER_ROUTE.jump;
       if(p.position.z > stile.landing.z && r.position.z <= stile.takeoff.z){
@@ -61,14 +73,16 @@ function playthrough({ missFirst = false, omitSegments = [] } = {}) {
         host.cast(a); lastCast = now;
       }
     }
-    if (['duel', 'final-fight'].includes(session.rival.mode)) {
+    if (['duel', 'final-opening', 'final-guard', 'final-fight'].includes(session.rival.mode)) {
       dx = r.position.x - p.position.x; dz = r.position.z - p.position.z; dist = Math.hypot(dx, dz);
       yaw = Math.atan2(-dx, -dz); forward = dist > 1.8 ? .65 : 0; sprint = false;
       const mine = p.attackActive ? p.attackStartedAt + (SWORD_STRIKE_TIMES[p.attackNextStrike] ?? Infinity) : Infinity;
       const theirs = r.attackActive ? r.attackStartedAt + (SWORD_STRIKE_TIMES[r.attackNextStrike] ?? Infinity) : Infinity;
       const guarding = now >= p.staggerUntil && r.attackActive && now - r.attackStartedAt > .27 && theirs < mine && dist < 3.2;
       guard(guarding);
-      attack(!guarding);
+      // (a Parry stops the chain: let go and press again, as anyone would)
+      if (attackHeld && !p.attackActive && now >= p.staggerUntil) attack(false);
+      else attack(!guarding);
     }
     if (beat.id === 'player-departure') {
       const at = GREENER_ROUTE.departure;
@@ -97,12 +111,20 @@ test('the complete continuous route uses ordinary movement and combat through an
   assert.equal(player.alive, true); assert.equal(rival.alive, false);
   assert.ok(Math.hypot(rival.position.x - GREENER_ROUTE.entrance.x, rival.position.z - GREENER_ROUTE.entrance.z) < 18);
   for (const gate of ['player-winded', 'stamina-recovered', 'sword-contact', 'successful-guard', 'player-damaged',
-    'health-regenerated', 'duel-damage-threshold', 'fireball-hit', 'dash-used', 'bridge-crossed', 'subsequent-fireball-hit',
-    'complaint-approached', 'rival-turned', 'rival-defeated', 'departure-complete']) assert.ok(facts.has(gate), gate);
+    'health-regenerated', 'health-settled', 'duel-damage-threshold', 'rival-downed', 'rival-recovered', 'rival-departing',
+    'exit-walk-started', 'exit-near', 'player-halted', 'rival-jumped', 'jump-crossed', 'fireball-hit', 'dead-end-crossed',
+    'dash-used', 'bridge-crossed', 'subsequent-fireball-hit', 'complaint-approached', 'rival-turned', 'final-first-parry',
+    'rival-guard-broken', 'rival-defeated', 'departure-complete']) assert.ok(facts.has(gate), gate);
   const at = id => log.find(x => x[1] === id)?.[0];
   assert.ok(at('winded-prompt') < at('cannot-sprint'));
   assert.ok(at('can-do-all-day') < at('cannot-sprint'));
   assert.ok(at('plans-change') < at('overstayed-welcome'));
+  // the blow that brings him down is answered while he is down; the departure is narrated as he walks off
+  // (a stage passed within one step leaves no row: the spoken lines carry the order)
+  assert.ok(at('plans-change') < at('wrong-address') && at('wrong-address') < at('successful-expulsion'));
+  assert.ok(at('successful-expulsion') < at('time-to-exit') && at('time-to-exit') < at('barely-did-anything') && at('barely-did-anything') < at('escape-made-fun'));
+  assert.ok(at('escape-made-fun') < at('hardly-wellbeing'));
+  assert.ok(at('come-prove-it') < at('stop-you') && at('stop-you') < at('convince-unblock') && at('convince-unblock') < at('did-not-stop'));
   assert.ok(at('why-spellblade') < at('get-over-this'));
   assert.ok(at('minor-tactical-regret') < at('final-hello') && at('final-hello') < at('why-spellblade') && at('come-prove-it') < at('defeat-rival'));
 });

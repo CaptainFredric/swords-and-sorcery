@@ -893,6 +893,19 @@
     "rehearsalSec": 1.5
   },
   {
+    "key": "tutorial.wrong-address",
+    "beatId": "wrong-address",
+    "speaker": "rival",
+    "text": "Argh!... Perhaps I had the wrong address!!",
+    "sourceFile": "tutorial.wrong-address.wav",
+    "fileBase": "rival/tutorial.wrong-address-1",
+    "chapter": "duel",
+    "segment": "duel-knockdown",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "rehearsalSec": 2.33
+  },
+  {
     "key": "tutorial.successful-expulsion",
     "beatId": "successful-expulsion",
     "speaker": "narrator",
@@ -958,6 +971,32 @@
     "rehearsalSec": 2
   },
   {
+    "key": "tutorial.time-to-exit",
+    "beatId": "time-to-exit",
+    "speaker": "spellblade",
+    "text": "Time to exit like a proper Spellblade.",
+    "sourceFile": "tutorial.time-to-exit.wav",
+    "fileBase": "spellblade/tutorial.time-to-exit-1",
+    "chapter": "pursuit",
+    "segment": "false-exit",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "rehearsalSec": 2.33
+  },
+  {
+    "key": "tutorial.barely-did-anything",
+    "beatId": "barely-did-anything",
+    "speaker": "narrator",
+    "text": "You barely did anything.",
+    "sourceFile": "tutorial.barely-did-anything.wav",
+    "fileBase": "narrator/tutorial.barely-did-anything-1",
+    "chapter": "pursuit",
+    "segment": "false-exit",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "rehearsalSec": 1.5
+  },
+  {
     "key": "tutorial.escape-made-fun",
     "beatId": "escape-made-fun",
     "speaker": "rival",
@@ -965,7 +1004,7 @@
     "sourceFile": "tutorial.escape-made-fun.wav",
     "fileBase": "rival/tutorial.escape-made-fun-1",
     "chapter": "pursuit",
-    "segment": "escape-head-start",
+    "segment": "tattle-threat",
     "presentation": "reactive",
     "optionalBranch": null,
     "rehearsalSec": 4.33
@@ -978,7 +1017,7 @@
     "sourceFile": "tutorial.hardly-wellbeing.wav",
     "fileBase": "narrator/tutorial.hardly-wellbeing-1",
     "chapter": "pursuit",
-    "segment": "escape-head-start",
+    "segment": "rival-escape",
     "presentation": "reactive",
     "optionalBranch": null,
     "rehearsalSec": 3.33
@@ -1419,6 +1458,45 @@
     "rehearsalSec": 2
   },
   {
+    "key": "tutorial.your-dead-end",
+    "beatId": "your-dead-end",
+    "speaker": "rival",
+    "text": "Yes! Alas we have reached the end of your story. Your dead-end!",
+    "sourceFile": "tutorial.your-dead-end.wav",
+    "fileBase": "rival/tutorial.your-dead-end-1",
+    "chapter": "fireball",
+    "segment": "dead-end",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "rehearsalSec": 4
+  },
+  {
+    "key": "tutorial.more-pages",
+    "beatId": "more-pages",
+    "speaker": "narrator",
+    "text": "You have more pages, Spellblade.",
+    "sourceFile": "tutorial.more-pages.wav",
+    "fileBase": "narrator/tutorial.more-pages-1",
+    "chapter": "fireball",
+    "segment": "dead-end",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "rehearsalSec": 1.67
+  },
+  {
+    "key": "tutorial.dead-end-alive",
+    "beatId": "dead-end-alive",
+    "speaker": "spellblade",
+    "text": "The dead-end is a LIE—ve!",
+    "sourceFile": "tutorial.dead-end-alive.wav",
+    "fileBase": "spellblade/tutorial.dead-end-alive-1",
+    "chapter": "fireball",
+    "segment": "dead-end",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "rehearsalSec": 1.67
+  },
+  {
     "key": "tutorial.get-over-this",
     "beatId": "get-over-this",
     "speaker": "rival",
@@ -1648,6 +1726,45 @@
     "fileBase": "rival/tutorial.come-prove-it-1",
     "chapter": "final-guard",
     "segment": "duel-terms",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "rehearsalSec": 1.67
+  },
+  {
+    "key": "tutorial.stop-you",
+    "beatId": "stop-you",
+    "speaker": "rival",
+    "text": "This should stop you!",
+    "sourceFile": "tutorial.stop-you.wav",
+    "fileBase": "rival/tutorial.stop-you-1",
+    "chapter": "final-guard",
+    "segment": "rival-defeat",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "rehearsalSec": 1.5
+  },
+  {
+    "key": "tutorial.convince-unblock",
+    "beatId": "convince-unblock",
+    "speaker": "narrator",
+    "text": "Convince him to unblock you.",
+    "sourceFile": "tutorial.convince-unblock.wav",
+    "fileBase": "narrator/tutorial.convince-unblock-1",
+    "chapter": "final-guard",
+    "segment": "rival-defeat",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "rehearsalSec": 1.67
+  },
+  {
+    "key": "tutorial.did-not-stop",
+    "beatId": "did-not-stop",
+    "speaker": "rival",
+    "text": "That did not stop you!!",
+    "sourceFile": "tutorial.did-not-stop.wav",
+    "fileBase": "rival/tutorial.did-not-stop-1",
+    "chapter": "final-guard",
+    "segment": "rival-defeat",
     "presentation": "reactive",
     "optionalBranch": null,
     "rehearsalSec": 1.67
@@ -1997,42 +2114,42 @@
     "rehearsalSec": 1.67
   },
   {
-    "key": "tutorial.stop-you",
-    "beatId": "stop-you",
+    "key": "tutorial.fight-yourself",
+    "beatId": "fight-yourself",
     "speaker": "rival",
-    "text": "This should stop you!",
-    "sourceFile": "tutorial.stop-you.wav",
-    "fileBase": "rival/tutorial.stop-you-1",
+    "text": "How will you fight yourself, if you cannot defeat your Rival?",
+    "sourceFile": "tutorial.fight-yourself.wav",
+    "fileBase": "rival/tutorial.fight-yourself-1",
     "chapter": "final-guard",
     "segment": "rival-defeat",
     "presentation": "reactive",
-    "optionalBranch": "final-guard-reaction",
-    "rehearsalSec": 1.5
+    "optionalBranch": "final-loss-1",
+    "rehearsalSec": 3.67
   },
   {
-    "key": "tutorial.convince-unblock",
-    "beatId": "convince-unblock",
-    "speaker": "narrator",
-    "text": "Convince him to unblock you.",
-    "sourceFile": "tutorial.convince-unblock.wav",
-    "fileBase": "narrator/tutorial.convince-unblock-1",
+    "key": "tutorial.already-told",
+    "beatId": "already-told",
+    "speaker": "rival",
+    "text": "Perhaps I won’t tell on you. You have already done so for me.",
+    "sourceFile": "tutorial.already-told.wav",
+    "fileBase": "rival/tutorial.already-told-1",
     "chapter": "final-guard",
     "segment": "rival-defeat",
     "presentation": "reactive",
-    "optionalBranch": "final-guard-reaction",
-    "rehearsalSec": 1.67
+    "optionalBranch": "final-loss-2",
+    "rehearsalSec": 4.33
   },
   {
-    "key": "tutorial.did-not-stop",
-    "beatId": "did-not-stop",
+    "key": "tutorial.feelings-health",
+    "beatId": "feelings-health",
     "speaker": "rival",
-    "text": "That did not stop you!!",
-    "sourceFile": "tutorial.did-not-stop.wav",
-    "fileBase": "rival/tutorial.did-not-stop-1",
+    "text": "Your feelings shall not affect my health.",
+    "sourceFile": "tutorial.feelings-health.wav",
+    "fileBase": "rival/tutorial.feelings-health-1",
     "chapter": "final-guard",
     "segment": "rival-defeat",
     "presentation": "reactive",
-    "optionalBranch": "final-guard-broken",
-    "rehearsalSec": 1.67
+    "optionalBranch": "final-feelings",
+    "rehearsalSec": 2.33
   }
 ]

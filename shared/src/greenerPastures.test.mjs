@@ -66,16 +66,32 @@ test('Greener Pastures is a registered tutorial world and stays outside arena vo
   assert.equal(arenaOrDefault(WORLD_ID), 'castleward');
 });
 
-test('the opening gives Rival a clear 225 metre sightline across walkable ground', async () => {
-  const { playerSpawn, rivalMeeting } = await route();
+test('the opening keeps Rival in sight 225 metres off, but the way to him is a slalom of over 430 metres', async () => {
+  const { playerSpawn, rivalMeeting, openingPath } = await route();
   assert.equal(Math.hypot(playerSpawn.x - rivalMeeting.x, playerSpawn.z - rivalMeeting.z), 225);
-  assert.equal(runClear(world(), playerSpawn, rivalMeeting), true);
+  // seen the whole way, over the low walls and rail fences...
   const origin = [playerSpawn.x, playerSpawn.y + 1.3, playerSpawn.z];
   const direction = [rivalMeeting.x - playerSpawn.x, 0, rivalMeeting.z - playerSpawn.z];
   assert.equal(findSwordWorldHit(origin, direction, 225, world().solids), null);
-  const reached = simulate(playerSpawn, 225 / MOVEMENT.runSpeed);
-  assert.ok(Math.abs(reached.state.position.z - rivalMeeting.z) < 0.13);
-  assert.equal(reached.state.grounded, true);
+  // ...but not reached straight: three staggered field boundaries each leave one gateway, east, west, east
+  assert.equal(runClear(world(), playerSpawn, rivalMeeting), false);
+  assert.deepEqual(openingPath.map(point => point.id), ['opening', 'opening-gate-a', 'opening-gate-b', 'opening-gate-c', 'meeting']);
+  for (let i = 1; i < openingPath.length; i += 1) assert.equal(runClear(world(), openingPath[i - 1], openingPath[i]), true, openingPath[i].id);
+  // the shortest legal way hugs each gateway's inner post: two full Sprints, each walked off to full stamina, cover
+  // about 365 metres (after the walk before Sprint is taught) and still leave well over 50 metres to go
+  const posts = world().solids.filter(solid => solid.kind === 'gatepost');
+  const inner = openingPath.slice(1, -1).map(gate => {
+    const post = posts.filter(solid => solid.center[2] === gate.z).sort((a, b) => Math.abs(a.center[0]) - Math.abs(b.center[0]))[0];
+    return { x: post.center[0] + Math.sign(post.center[0]) * (post.size[0] / 2 + 0.45), z: gate.z };
+  });
+  const way = [playerSpawn, ...inner, rivalMeeting];
+  const shortest = way.slice(1).reduce((sum, point, i) => sum + Math.hypot(point.x - way[i].x, point.z - way[i].z), 0);
+  // (a lower bound: the carts, troughs and hay about the lanes only lengthen it)
+  assert.ok(shortest > 430, `shortest legal way ${shortest.toFixed(1)} m`);
+  // and a straight run toward him is stopped by the first boundary, on the ground
+  const stopped = simulate(playerSpawn, 225 / MOVEMENT.runSpeed);
+  assert.ok(stopped.state.position.z > 160);
+  assert.equal(stopped.state.grounded, true);
 });
 
 test('spawns and all checkpoint placements stand on ground with body clearance', async () => {

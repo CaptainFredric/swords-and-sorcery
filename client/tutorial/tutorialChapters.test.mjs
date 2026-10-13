@@ -15,7 +15,8 @@ test('the complete declared route preserves chapter identifiers and reaches the 
   ]);
   assert.deepEqual(TUTORIAL_SEGMENTS.map(item => item.id), [
     'greener-introduction', 'meaningful-look', 'approach', 'stamina', 'introductions',
-    'first-attack', 'first-guard', 'health-regen', 'real-duel', 'escape-head-start', 'rival-escape', 'jump-obstacle', 'pursuit-banter', 'fireball', 'tattle-reveal',
+    'first-attack', 'first-guard', 'health-regen', 'real-duel', 'duel-knockdown', 'escape-head-start', 'false-exit', 'tattle-threat',
+    'rival-escape', 'jump-obstacle', 'pursuit-banter', 'fireball', 'tattle-reveal', 'dead-end',
     'bridge-dash', 'counterfire', 'complaint-approach', 'pride-stop', 'duel-terms',
     'rival-defeat', 'title-ending',
   ]);
@@ -69,11 +70,14 @@ test('gameplay phases declare genuine gates and progressively available actions'
     'recover-prompt': 'stamina-recovered', 'reach-rival': 'rival-reached',
     'attack-prompt': 'sword-contact', 'guard-prompt': 'successful-guard',
     'lower-guard': 'guard-lowered', 'postscript-hit': 'player-damaged',
-    'health-regen-prompt': 'health-regenerated', 'real-duel': 'duel-damage-threshold',
-    'escape-start': 'rival-escaping', 'fireball-prompt': 'fireball-hit',
+    'health-regen-prompt': 'health-settled', 'duel-midway': 'duel-damage-midway', 'real-duel': 'duel-damage-threshold',
+    'rival-downed': 'rival-downed', 'rival-rising': 'rival-recovered', 'departure-start': 'rival-departing',
+    'leave-prompt': 'exit-walk-started', 'exit-approach': 'exit-near', 'threat-halt': 'player-halted',
+    'pursuit-release': 'rival-escaping', 'jump-near-approach': 'jump-approach-ready', 'jump-prompt': 'jump-used',
+    'dead-end-arrival': 'dead-end-rival-over', 'dead-end-crossing': 'dead-end-crossed', 'fireball-prompt': 'fireball-hit',
     'dash-prompt': 'dash-used', 'bridge-crossing': 'bridge-crossed',
     'counterfire-hit': 'subsequent-fireball-hit', 'counterfire-pursuit': 'counterfire-complete',
-    'defeat-rival': 'rival-defeated',
+    'final-opening': 'final-first-parry', 'final-guard': 'rival-guard-broken', 'defeat-rival': 'rival-defeated',
     'tutorial-ended': 'title-ended',
   };
   for (const [id, cue] of Object.entries(expected)) assert.equal(beat(id)?.advanceOn, cue, id);
@@ -119,7 +123,7 @@ test('only stationary rehearsal blocks; gameplay captions carry presentation tim
 });
 
 test('optional exchanges stay outside progression, are attached to segments, and play once', () => {
-  assert.deepEqual(Object.keys(TUTORIAL_BRANCHES), ['frolic', 'rival-constitution', 'first-fireball-miss', 'bridge-growth', 'permission-to-stop', 'burned', 'final-guard-reaction', 'final-guard-broken']);
+  assert.deepEqual(Object.keys(TUTORIAL_BRANCHES), ['frolic', 'rival-constitution', 'first-fireball-miss', 'bridge-growth', 'permission-to-stop', 'burned', 'final-loss-1', 'final-loss-2', 'final-feelings']);
   const plan = tutorialRecordingPlan();
   for (const [id, branch] of Object.entries(TUTORIAL_BRANCHES)) {
     const metadata = TUTORIAL_BRANCH_METADATA[id];
@@ -172,10 +176,16 @@ test('complaint, pride and pursuit banter preserve the exact new authored arc', 
   assert.equal(beat('pride-turn').advanceOn, 'rival-turned');
   assert.equal(TUTORIAL_BEATS[TUTORIAL_BEATS.indexOf(beat('pride-turn')) - 1].id, 'knight-help');
   assert.equal(beat('final-guard-prompt'), undefined);
-  assert.equal(TUTORIAL_BRANCH_METADATA['final-guard-broken'].triggerCue, 'rival-guard-broken');
+  // the final duel: his first Parry, his held Guard, then the fight to the end, each line in its place
+  assert.deepEqual(TUTORIAL_SEGMENTS.find(segment => segment.id === 'rival-defeat').beats.map(item => item.id),
+    ['final-opening', 'stop-you', 'convince-unblock', 'final-guard', 'did-not-stop', 'defeat-rival']);
+  assert.equal(beat('did-not-stop').recordingKey, 'tutorial.did-not-stop');
   assert.equal(beat('defeat-rival').advanceOn, 'rival-defeated');
   assert.equal(beat('defeat-rival').stageCue, 'rival-final-fight');
-  assert.equal(TUTORIAL_BRANCHES['final-guard-broken'][0].recordingKey, 'tutorial.did-not-stop');
+  assert.equal(TUTORIAL_BRANCH_METADATA['final-loss-1'].triggerCue, 'player-defeated-final');
+  assert.equal(TUTORIAL_BRANCHES['final-loss-1'][0].recordingKey, 'tutorial.fight-yourself');
+  assert.equal(TUTORIAL_BRANCHES['final-loss-2'][0].recordingKey, 'tutorial.already-told');
+  assert.equal(TUTORIAL_BRANCHES['final-feelings'][0].recordingKey, 'tutorial.feelings-health');
 });
 
 test('scene actions and checkpoint destinations are explicit data separate from spoken sentences', () => {
@@ -191,7 +201,9 @@ test('scene actions and checkpoint destinations are explicit data separate from 
   assert.equal(scene('rival-escape').enter, 'rival-escape');
   assert.equal(scene('health-regen').enter, 'rival-give-space');
   assert.equal(scene('pursuit-banter').enter, 'rival-escape');
-  assert.equal(scene('rival-defeat').enter, 'rival-final-fight');
+  assert.equal(scene('rival-defeat').enter, 'rival-final-opening');
+  assert.equal(scene('escape-head-start').enter, 'rival-depart');
+  assert.equal(scene('false-exit').enter, 'rival-hold-afar');
   assert.deepEqual(scene('complaint-approach').gates[0], {
     cue: 'complaint-approached', kind: 'near-entrance', actor: 'rival', distance: 100,
   });
@@ -210,7 +222,7 @@ test('compiled scene routes recompute links and can remove the optional pursuit 
   assert.equal(pride.next, 'duel-terms');
   assert.equal(reduced.find(segment => segment.id === 'duel-terms').next, 'rival-defeat');
   assert.equal(reduced.some(segment => segment.id === 'pursuit-banter'), false);
-  assert.equal(reduced.find(segment => segment.id === 'rival-defeat').scene.enter, 'rival-final-fight');
+  assert.equal(reduced.find(segment => segment.id === 'rival-defeat').scene.enter, 'rival-final-opening');
   const beats = tutorialRouteBeats(reduced);
   assert.equal(beats.some(item => item.id === 'final-hello'), false);
   assert.equal(beats.some(item => item.id === 'final-guard-prompt'), false);

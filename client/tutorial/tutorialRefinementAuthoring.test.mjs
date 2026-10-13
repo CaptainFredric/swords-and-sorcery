@@ -21,15 +21,28 @@ test('opening look, walk and sprint become available at their actual prompts', (
   assert.equal(permissions('dash-prompt').includes('dash'), true);
 });
 
-test('the escape head start ends at an independent stage while the larger objective persists', () => {
+test('the departure, the false exit and the threat come before the pursuit, whose objective then persists', () => {
   assert.ok(segment('escape-head-start').permissions.includes('move'));
   assert.equal(segment('escape-head-start').scene.releaseControls,undefined);
   assert.equal(beat('successful-expulsion').line, 'And thus the Spellblade had successfully convinced the meddlesome miscommunication Rival to return to sender');
   assert.equal(beat('not-admired').line, 'He did not admire me.');
+  // the narration of his departure starts as he walks off (never once he is already sprinting)
+  assert.equal(segment('escape-head-start').beats[0].advanceOn, 'rival-departing');
+  assert.equal(segment('escape-head-start').scene.enter, 'rival-depart');
+  // the false exit: its own objective, a quiet instruction, the two lines, a moment's quiet
+  assert.deepEqual(segment('false-exit').objective, { title: 'OBJECTIVE', text: 'LEAVE GREENER PASTURES' });
+  assert.deepEqual(segment('false-exit').beats.map(item => item.id), ['leave-prompt', 'time-to-exit', 'barely-did-anything', 'exit-quiet', 'exit-approach']);
+  assert.equal(beat('time-to-exit').line, 'Time to exit like a proper Spellblade.');
+  assert.equal(beat('barely-did-anything').line, 'You barely did anything.');
+  assert.ok(beat('exit-quiet').advanceAfterSec >= 1.5);
+  // the threat stops him dead at its first word; then the pursuit and its objective
+  assert.deepEqual(segment('tattle-threat').beats.map(item => item.id), ['threat-halt', 'escape-made-fun', 'realization', 'pursuit-release']);
+  assert.equal(beat('threat-halt').stageCue, 'player-halt');
   assert.equal(beat('pursuit-release').stageCue, 'pursuit-release');
-  assert.equal(beat('pursuit-release').advanceOn, 'pursuit-released');
+  assert.equal(beat('pursuit-release').advanceOn, 'rival-escaping');
+  assert.deepEqual(beat('pursuit-release').objective, { title: 'OBJECTIVE', text: 'STOP THE RIVAL FROM TELLING ON YOU' });
   assert.equal(permissions('hardly-wellbeing').includes('move'), true);
-  for (const id of ['escape-head-start', 'rival-escape', 'jump-obstacle', 'fireball', 'tattle-reveal', 'bridge-dash', 'counterfire']) {
+  for (const id of ['rival-escape', 'jump-obstacle', 'fireball', 'tattle-reveal', 'dead-end', 'bridge-dash', 'counterfire']) {
     assert.deepEqual(segment(id).objective, { title: 'OBJECTIVE', text: 'STOP THE RIVAL FROM TELLING ON YOU' });
   }
 });
