@@ -11,4 +11,7 @@ BREATHING_SEAM_OK spellblade-first-person.blend Idle
 BREATHING_SEAM_OK spellblade-first-person.blend Guard
 SECOND_STRIKE_CLEARANCE_OK spellblade-first-person.blend
 SPELLBLADE_COMBAT_PRESENTATION_OK
-SPELLBLADE_CHARACTER_ASSETS_OK report=output/right-from-left/export-final/spellblade-build-report.json thirdPerson=output/right-from-left/export-final/spellblade.glb firstPerson=output/right-from-left/export-final/spellblade-fp.glb tpTriangles=13124 fpTriangles=4832 tpBytes=2311316 fpBytes=734152
+SPELLBLADE_CHARACTER_ASSETS_OK report=output/right-from-left/export-main/spellblade-build-report.json thirdPerson=output/right-from-left/export-main/spellblade.glb firstPerson=output/right-from-left/export-main/spellblade-fp.glb tpTriangles=13124 fpTriangles=4832 tpBytes=2311316 fpBytes=734152
+
+Latest main integration verification: npm run verify
+1335 game tests passed; 4 HTML5 tests passed; syntax checks passed; HTTP assets/private paths/health/WebSocket smoke passed.
