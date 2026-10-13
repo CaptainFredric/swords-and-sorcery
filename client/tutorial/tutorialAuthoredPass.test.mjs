@@ -235,3 +235,58 @@ test('a Fireball in the final duel gets his one answer about feelings', () => {
   assert.equal(session.director.optionalCue, null, 'once');
   host.close();
 });
+
+test('the health instruction stands from the hit itself, under the lines that follow, until health has settled', () => {
+  const t = fixture();
+  const { host, session, tick, now } = t;
+  const shown = [];
+  const original = session.onChange;
+  session.onChange = progress => { shown.push({ beat: progress.current?.id, standing: progress.standing?.line ?? null }); original(progress); };
+  session.stage('first-guard'); session.director.resumeAt('postscript-hit');
+  applyDamage(host.room, session.rivalId, host.player.id, 25, 'sword', now());
+  session.events([{ type: 'damage', victimId: host.player.id, attackerId: session.rivalId, source: 'sword', amount: 25, health: 75 }]);
+  session.director.fact('player-damaged'); tick();
+  // the Rival's two lines and "I need a moment." are said with it standing
+  for (const id of ['extra', 'hint', 'need-a-moment']) {
+    assert.equal(session.director.current.id, id);
+    assert.equal(session.standing()?.line, 'HEALTH REGENERATES', id);
+    session.director.completeDialogue(session.director.cue); tick();
+  }
+  assert.equal(session.director.current.id, 'health-regen-prompt');
+  for (let i = 0; i < 30 * 12 && session.director.current.id === 'health-regen-prompt'; i += 1) tick();
+  assert.equal(session.director.current.id, 'no-hints');
+  assert.equal(session.standing(), null, 'gone once settled');
+  assert.ok(shown.some(row => row.beat === 'extra' && row.standing === 'HEALTH REGENERATES'));
+  host.close();
+});
+
+test('the duel counts from the fight proper: a quick start lands hits, but he goes down only after the banter begins', () => {
+  const { host, session } = fixture();
+  session.stage('real-duel'); session.director.resumeAt('plans-change'); session.rival.enter('rival-attack', host.now());
+  const hit = { type: 'damage', victimId: session.rivalId, attackerId: host.player.id, source: 'sword', amount: 30, health: 1 };
+  for (let i = 0; i < 5; i += 1) session.events([hit]);
+  assert.equal(session.director.facts.has('duel-damage-threshold'), false, 'no knockdown during the opening exchange');
+  assert.equal(session.rival.mode, 'duel');
+  session.director.resumeAt('duel-midway');
+  for (let i = 0; i < 2; i += 1) session.events([hit]);
+  assert.ok(session.director.facts.has('duel-damage-midway'));
+  for (let i = 0; i < 2; i += 1) session.events([hit]);
+  assert.ok(session.director.facts.has('duel-damage-threshold'));
+  assert.equal(session.rival.mode, 'recover');
+  host.close();
+});
+
+test('a final defeat\'s taunt is heard first: an aside still waiting is dropped, and burns only speak in the counterfire', () => {
+  const { host, session, tick, now } = fixture();
+  session.stage('rival-defeat'); session.director.resumeAt('final-guard'); tick(3);
+  // a burn ending in the final duel offers nothing (its aside belongs to the counterfire)
+  host.player.burningUntil = now() + .2; tick(2); tick(10);
+  assert.equal(session.director.branchesSeen.has('burned'), false);
+  // an aside already waiting is dropped for the taunt
+  session.director.branchQueue.push({ id: 'queued-aside', speaker: 'narrator', line: 'Waiting.', branch: 'permission-to-stop' });
+  host.player.spawnProtectionUntil = 0;
+  applyDamage(host.room, session.rivalId, host.player.id, 500, 'sword', now()); tick();
+  assert.equal(session.director.optionalCue?.id, 'fight-yourself');
+  assert.equal(session.director.branchQueue.some(beat => beat.id === 'queued-aside'), false);
+  host.close();
+});

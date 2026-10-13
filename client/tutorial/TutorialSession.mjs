@@ -105,7 +105,7 @@ export class TutorialSession {
     rival.spell = 'fireball'; rival.botSkill = 'squire'; rival.tutorialSwordDrawn = key !== 'opening' && key !== 'introductions';
     rival.spawnProtectionUntil = now; this.rivalId = rival.id;
     room.tutorialRival = {id:rival.id,protected:true}; room.projectiles.clear();
-    this.duelDamage = 0; this.finalBroken = false; this.damageBaseline = null; this.departureStart = null;
+    this.duelDamage = 0; this.duelCounting = false; this.finalBroken = false; this.damageBaseline = null; this.departureStart = null;
     this.firstFireballHit = ['bridge','counterfire','complaint','final'].includes(key);
     this.subsequentHit = ['complaint','final'].includes(key); this.burnSeen = false;
     this.learnerProjectiles = new Set(); this.jumpAttempt = null; this.bridgeDash = false;
@@ -129,12 +129,24 @@ export class TutorialSession {
       this.rival?.enter(beat.stageCue,this.host.now());
       // (halt() states its fact at once, which moves the director on and shows the next beat itself)
       if (beat.stageCue === 'player-halt') { this.halt(); return; }
+      if (beat.id === 'duel-midway' || beat.id === 'real-duel') this.duelCounting = true;
       if (beat.id === 'final-guard') this.finalPhase = 'guard';
       if (beat.id === 'defeat-rival') this.finalPhase = 'fight';
       if (beat.stageCue === 'player-departure') this.departureStart = {...this.host.player.position};
       if (beat.stageCue === 'tutorial-complete') { this.director.fact('title-ended'); return; }
     }
-    this.onChange({...progress,permissions:this.permissions,taught:this.taught,rivalHint:this.rivalHint()});
+    this.onChange(this.present(progress));
+  }
+  /** What the view is given: the director's progress, and what is allowed, taught, standing and where Rival is. */
+  present(progress = this.director.progress) {
+    return {...progress,permissions:this.permissions,taught:this.taught,standing:this.standing(progress),rivalHint:this.rivalHint()};
+  }
+  // A segment's standing instruction (from one fact until another), shown under whatever is being said meanwhile:
+  // health regenerates, from the hit itself until it has settled
+  standing(progress = this.director.progress) {
+    const standing = progress.segment?.standingPrompt;
+    const facts = this.director.facts;
+    return standing && facts.has(standing.from) && !facts.has(standing.until) ? standing : null;
   }
   // The threat's first word stops the Spellblade where he stands: a short hold on his feet (look stays free), then
   // whatever movement he is still holding carries on.
@@ -216,7 +228,7 @@ export class TutorialSession {
     if (this.haltUntil !== null && now >= this.haltUntil) {
       this.haltUntil = null;
       this.blockedHeld.delete('move'); this.blockedHeld.delete('sprint'); this.onResumeMovement();
-      this.onChange({...this.director.progress,permissions:this.permissions,taught:this.taught,rivalHint:this.rivalHint()});
+      this.onChange(this.present());
     }
     this.rival.beforeStep(now);
     // the threshold blow has him down (buckled and braced): the line he says there may begin
@@ -258,7 +270,7 @@ export class TutorialSession {
         this.director.fact(gate.cue);
         if (earned && segment.scene?.releaseControls?.afterCue === gate.cue) {
           this.blockedHeld.delete('move'); this.blockedHeld.delete('sprint'); this.onResumeMovement();
-          this.onChange({...this.director.progress,permissions:this.permissions,taught:this.taught,rivalHint:this.rivalHint()});
+          this.onChange(this.present());
         }
       }
     }
@@ -286,6 +298,7 @@ export class TutorialSession {
         if (this.laterFireballs >= 3 && this.director.progress.segment?.branches?.includes('permission-to-stop')) this.director.offerBranch('permission-to-stop');
       }
       if (event.type==='projectileSpawned' && event.projectile.ownerId===this.host.player.id && event.projectile.spell==='fireball' && !this.firstFireballHit) this.learnerProjectiles.add(event.projectile.id);
+      if (event.type==='projectileSpawned' && event.projectile.ownerId===this.host.player.id && FINAL_MODES.has(this.rival.mode)) this.rival.lastPlayerCastAt = this.host.now();
       if (event.type==='projectileImpact') this.learnerProjectiles.delete(event.projectileId);
       if (['block','parry'].includes(event.type) && event.defenderId===this.host.player.id && event.attackerId===this.rivalId && this.rival.mode==='guard-lesson') {
         this.rival.enter('rival-idle',this.host.now());
@@ -301,7 +314,9 @@ export class TutorialSession {
       }
       if (event.type === 'death' && event.victimId === this.host.player.id) this.loseFinal();
       if (event.type === 'damage' && event.victimId === this.rivalId && event.attackerId === this.host.player.id && event.amount > 0) {
-        if (this.rival.mode === 'duel') {
+        // (the duel's damage counts from the fight proper: hits during its opening exchange land, but he does not go
+        // down until the banter has been had)
+        if (this.rival.mode === 'duel' && this.duelCounting) {
           this.duelDamage += event.amount;
           if (this.duelDamage >= 45) this.director.fact('duel-damage-midway');
         if (this.duelDamage >= 100) { this.rival.beginRecovery(this.host.now()); this.director.fact('duel-damage-threshold'); }
@@ -348,7 +363,7 @@ export class TutorialSession {
       this.learnerProjectiles.delete(id);
       if (!this.firstFireballHit) this.director.offerBranch('first-fireball-miss');
     }
-    if (this.rivalHint() && snapshot.serverTime-(this.hintAt??0)>=.5) {this.hintAt=snapshot.serverTime;this.onChange({...this.director.progress,permissions:this.permissions,rivalHint:this.rivalHint()});}
+    if (this.rivalHint() && snapshot.serverTime-(this.hintAt??0)>=.5) {this.hintAt=snapshot.serverTime;this.onChange(this.present());}
     if (this.damageBaseline !== null && me.health > this.damageBaseline + .5) this.director.fact('health-regenerated');
     // Settled: back at full health, and kept there a moment (a new hit starts it over)
     if (this.damageBaseline !== null && me.health >= (me.maxHealth ?? 100) - 1e-6) {
@@ -356,7 +371,7 @@ export class TutorialSession {
       if (snapshot.serverTime - this.healthFullSince >= HEALTH_SETTLED_SEC) this.director.fact('health-settled');
     } else this.healthFullSince = null;
     if (me.burningUntil > snapshot.serverTime) this.burnSeen = true;
-    if (this.burnSeen && me.burningUntil <= snapshot.serverTime) this.director.offerBranch('burned');
+    if (this.burnSeen && me.burningUntil <= snapshot.serverTime && this.director.progress.segment?.branches?.includes('burned')) this.director.offerBranch('burned');
   }
   // Rival has won the final duel. (A rematch, not a replay: the chase and the terms stand. His taunt for the first
   // defeat, another for the second, and quiet after that.) True once the loss is in hand.
@@ -369,6 +384,8 @@ export class TutorialSession {
     this.host.player.respawnAt = Infinity;
     cancelAttack(this.host.room,this.rivalId,this.host.now());
     if (branch) this.director.fact('player-defeated-final');
+    // (his taunt is what is heard over the fallen Spellblade: an aside still waiting its turn is dropped for it)
+    if (branch) this.director.branchQueue.splice(this.director.optionalActive ? 1 : 0);
     if (branch && !this.director.offerBranch(branch)) this.finalLoss.branch = null;
     return true;
   }

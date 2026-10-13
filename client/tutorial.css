@@ -85,8 +85,10 @@
 .tutorial-brand h1 { color: #f1dfae; font-size: clamp(28px, 5.2cqw, 66px); line-height: 1.05; text-shadow: 0 2px 0 #3a120e, 0 6px 22px #000; }
 
 /* On touch, upper left bars and lower corner controls stay clear of gameplay captions. */
-.tutorial-touch .tutorial-objective { top: calc(var(--safe-t, 0px) + 90px); max-width: min(200px, 30cqw); }
-.tutorial-touch .tutorial-objective.tutorial-objective-compact { top: calc(var(--safe-t, 0px) + 62px); }
+/* (on touch it sits under the health and stamina bars, right of the left thumb's Sprint and Crouch) */
+.tutorial-touch .tutorial-objective { top: calc(var(--safe-t, 0px) + 82px); left: calc(var(--safe-l, 0px) + 104px); max-width: min(220px, 32cqw); padding: 5px 8px; }
+.tutorial-touch .tutorial-objective strong { font-size: 10px; }
+.tutorial-touch .tutorial-objective.tutorial-objective-compact { top: calc(var(--safe-t, 0px) + 80px); padding: 3px 7px; }
 .tutorial-touch .tutorial-options summary span { display: none; }
 .tutorial-touch .tutorial-instruction { top: calc(var(--safe-t, 0px) + 90px); width: min(350px, calc(100cqw - 448px)); min-width: 180px; }
 .tutorial-touch .tutorial-instruction p { font-size: 12px; }

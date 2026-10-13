@@ -34,10 +34,10 @@ function incomingStrike(player, now) {
 export const TUTORIAL_RIVAL_POLICIES = Object.freeze({
   duel: Object.freeze({ ...BOT_SKILLS.squire, reaction: [.4, .2], spacing: .2, yields: true,
     retreat: 18, guard: .85, punish: .12, mistakes: .15, chain: [1.25, .4] }),
-  // the final Rival has learned: quicker to answer, keeps his distance, times some Guards into Parries, punishes an
-  // opening and seldom swings from out of reach (decisions only: his health, damage and cooldowns are a knight's)
-  final: Object.freeze({ ...BOT_SKILLS.squire, reaction: [.26, .14], think: .22, spacing: .3, yields: true,
-    guard: 1, guardFloor: 10, parry: .35, punish: .4, mistakes: .05, chain: [1.3, .4] }),
+  // the final Rival has learned: he fights as the game's Champion does (quicker to answer, keeps his distance, times
+  // Guards into Parries, punishes an opening, never swings from out of reach). Decisions only: his health, damage and
+  // cooldowns are a knight's. He holds his door rather than backing off to heal.
+  final: Object.freeze({ ...BOT_SKILLS.champion, retreat: 0, smartUltimate: false, chain: [1.3, .4] }),
 });
 
 const MODES = Object.freeze({
@@ -64,7 +64,7 @@ export class TutorialRival {
     this.jumpWaiting = false;
     this.recoveryAt = null; this.risingAt = null;
     this.parryRaisedAt = null;
-    this.counterAt = null; this.lastCounterAt = -Infinity; this.lastBlockedAt = -Infinity;
+    this.counterAt = null; this.lastCounterAt = -Infinity; this.lastBlockedAt = -Infinity; this.lastPlayerCastAt = -Infinity;
     this.jumped = false; this.deadEndCrossed = false;
     this.gloatTurnUntil = -Infinity;
     this.routeMind = {strafeDirection:1};
@@ -160,11 +160,13 @@ export class TutorialRival {
     actor.botProfile = { spells: false, dash: 0, guard: final ? .9 : .8, footwork: final ? .6 : .5 };
     const post = GREENER_ROUTE.finalDefense;
     // The final Rival defends the door: with the Spellblade standing off he goes back to his post and Guards there
-    // (and answers a long-range duel in kind, his Fireball on its ordinary cooldown); close in and he fights.
+    // (and answers a long-range duel in kind, his Fireball on its ordinary cooldown, only once the Spellblade has
+    // started one: a Spellblade walking back up to him is let come); close in and he fights.
     if (final && distance(player.position, post) > 7.5) {
       this.holdPost(now, true);
       const apart = distance(actor.position, player.position);
-      if (apart > 10 && apart < 45 && now >= actor.spellReadyAt && !actor.pendingSpell && distance(actor.position, post) < 1.5) {
+      const answering = now - this.lastPlayerCastAt < 6;
+      if (answering && apart > 10 && apart < 45 && now >= actor.spellReadyAt && !actor.pendingSpell && distance(actor.position, post) < 1.5) {
         const dx = player.position.x - actor.position.x, dz = player.position.z - actor.position.z;
         const dy = (player.position.y + .9) - (actor.position.y + 1.55), length = Math.hypot(dx, dy, dz) || 1;
         setGuard(room, actor.id, false, now);
@@ -244,19 +246,22 @@ export class TutorialRival {
     const jump = GREENER_ROUTE.jump;
     // Before the stile he makes sure of his lead, so that he is over it and gloating while the Spellblade is still
     // on his way (his own Sprint and stamina, nothing more).
+    // (in the last stretch he no longer slows to let the Spellblade catch up, and sprints from forty metres)
     const toStile = jump ? actor.position.z - jump.takeoff.z : -1;
-    if (jump && !this.jumped && toStile > 0 && toStile < 80 && apart < 30) {
+    if (jump && !this.jumped && toStile > 0 && toStile < 150) {
       scale = 1;
-      if (actor.guardStamina > SPRINT.restartStamina) this.sprintWanted = true;
+      if (apart < 40 && actor.guardStamina > SPRINT.restartStamina) this.sprintWanted = true;
     }
     const teachingJump = jump && this.session.director.beats.some(beat=>beat.advanceOn==='jump-crossed');
     // (over the stile with his lead, he comes back to his gloating spot if his run carried him past it)
     const gloating = teachingJump && this.jumped && !this.session.director.facts.has('jump-crossed');
     if (jump && (actor.position.z > jump.waitPoint.z - 1 || gloating)) {
-      if (actor.position.z <= jump.takeoff.z + 1 && actor.position.z > jump.obstacleBounds.minZ - .5) {
+      // (lined up from a little further out than the takeoff waypoint's own reach: past that, the landing beyond the
+      // stile would be his next waypoint, and the way round the hedge would take him there instead of the jump)
+      if (actor.position.z <= jump.takeoff.z + 1.6 && actor.position.z > jump.obstacleBounds.minZ - .5) {
         this.waypoint = Math.max(this.waypoint,route.findIndex(point=>point.id==='jump-landing'));
         this.inputToward(jump.landing, 1, false);
-        actor.input.jump = actor.grounded;
+        actor.input.jump = actor.grounded && actor.position.z <= jump.takeoff.z + 1;
         return;
       }
       if (!this.jumped && actor.grounded && actor.position.z < jump.obstacleBounds.minZ - .3) {
@@ -350,7 +355,8 @@ export class TutorialRival {
       }
       return;
     }
-    if (!HITTABLE.has(this.mode) && this.parry(now)) return;
+    const riposte = ['guard-lesson', 'postscript'].includes(this.mode) && this.parryRaisedAt !== null && now < player.staggerUntil;
+    if (!HITTABLE.has(this.mode) && !riposte && this.parry(now)) return;
     if (this.mode === 'duel' || this.mode === 'final-fight') { this.combat(now, this.mode === 'final-fight'); return; }
     if (this.mode === 'final-opening') { this.finalOpening(now); return; }
     if (this.mode === 'final-guard') { this.finalGuard(now); return; }
@@ -358,6 +364,13 @@ export class TutorialRival {
     if (this.mode === 'hold-afar') { this.holdAfar(now); return; }
     if (this.mode === 'ready') { this.holdPost(now, false); return; }
     if (['guard-lesson', 'postscript'].includes(this.mode)) {
+      // a strike of the Spellblade's turned away, he answers it at once, into the reel: the lesson is Guard, and a
+      // player who only swings still meets his sword
+      if (this.parryRaisedAt !== null && now < player.staggerUntil && now - this.parryRaisedAt >= .12) {
+        setGuard(this.room, actor.id, false, now); this.parryRaisedAt = null;
+        this.lastStrike = -Infinity; this.strike(now);
+        return;
+      }
       this.inputToward(player.position, apart > 1.95 ? .65 : 0);
       if (apart < 2.4) this.strike(now);
       return;

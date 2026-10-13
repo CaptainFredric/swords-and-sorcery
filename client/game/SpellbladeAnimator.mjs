@@ -288,6 +288,7 @@ export class SpellbladeAnimator {
     if (motion.recovery && !motion.death) {
       const recovering = nonlethalRecovery(motion.recovery.age, motion.recovery.duration, motion.recovery.hold ?? 0);
       pose.rotations.push(...recovering.rotations);
+      pose.pelvis = pose.pelvis.map((v, i) => v + recovering.pelvis[i]);
       pose.legFlex = Math.max(pose.legFlex, recovering.legFlex);
     }
     // extra: caller-supplied rotations (first person uses them for the neutral spread and the sprint arm pump)

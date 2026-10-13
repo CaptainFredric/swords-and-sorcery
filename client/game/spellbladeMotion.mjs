@@ -309,10 +309,23 @@ export function nonlethalRecovery(age, duration = NONLETHAL_RECOVERY.duration, h
   const t=hold>0 ? (age<brace ? age : Math.max(brace,age-hold)) : age*NONLETHAL_RECOVERY.duration/duration;
   const weight=t<NONLETHAL_RECOVERY.buckle ? smoothstep(t/NONLETHAL_RECOVERY.buckle)
     : 1-smoothstep((t-NONLETHAL_RECOVERY.braceUntil)/(NONLETHAL_RECOVERY.duration-NONLETHAL_RECOVERY.braceUntil));
-  for(const [bone,axis,amount] of [
-    ['spine',[-1,0,0],.24],['chest',[-1,0,0],.32],['head',[-1,0,0],.2],
-    ['upper_arm.L',[1,0,0],.42],['forearm.L',[1,0,0],-.65],
-    ['upper_arm.R',[0,0,1],-.22],['hand.R',[1,0,0],.18],
-  ])rotations.push({bone,axis,angle:amount*weight});
-  return {rotations,pelvis,legFlex:.82*weight};
+  // (held down, it is a knockdown: onto his backside, until he gets up)
+  const pose=hold>0 ? KNOCKDOWN_POSE : RECOVERY_POSE;
+  for(const [bone,axis,amount] of pose.rotations)rotations.push({bone,axis,angle:amount*weight});
+  const drop=pose.pelvis ?? pelvis;
+  return {rotations,pelvis:drop.map(v=>v*weight),legFlex:pose.legFlex*weight};
 }
+const RECOVERY_POSE = Object.freeze({ legFlex: .82, rotations: [
+  ['spine',[-1,0,0],.24],['chest',[-1,0,0],.32],['head',[-1,0,0],.2],
+  ['upper_arm.L',[1,0,0],.42],['forearm.L',[1,0,0],-.65],
+  ['upper_arm.R',[0,0,1],-.22],['hand.R',[1,0,0],.18],
+] });
+// Knocked onto his backside: the hips tipped back and lowered to the ground, knees up, feet down, the trunk brought
+// back up to lean a little behind him, one arm propped back, head bowed, the sword arm loose.
+export const KNOCKDOWN_POSE = Object.freeze({ legFlex: 0, pelvis: Object.freeze([0, -.5, 0]), rotations: [
+  ['pelvis',[-1,0,0],-1.1],['pelvis',[0,0,1],.12],
+  ['thigh.L',[1,0,0],.7],['thigh.R',[1,0,0],.6],['shin.L',[1,0,0],-1.6],['shin.R',[1,0,0],-1.35],
+  ['spine',[-1,0,0],.05],['chest',[-1,0,0],0],['head',[-1,0,0],.55],
+  ['upper_arm.L',[1,0,0],-1.6],['upper_arm.L',[0,0,1],.45],['forearm.L',[1,0,0],.25],
+  ['upper_arm.R',[1,0,0],-1.2],['upper_arm.R',[0,0,1],-.45],['hand.R',[1,0,0],.6],
+] });

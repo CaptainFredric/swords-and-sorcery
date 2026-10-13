@@ -80,9 +80,11 @@ export class TutorialView {
       : spoken?.line ?? presentedBeat?.line ?? '';
     this.line.hidden = title || !ended && !spoken;
     this.brand.hidden = !title;
-    this.prompt.textContent = ended ? '' : [progress.prompt ?? tutorialPrompt(beat, context),progress.rivalHint].filter(Boolean).join(' ');
+    // (a standing instruction stays up under the lines spoken meanwhile, when the beat has none of its own)
+    const standing = !ended && beat?.kind !== 'prompt' ? progress.standing : null;
+    this.prompt.textContent = ended ? '' : [progress.prompt ?? (tutorialPrompt(beat, context) || tutorialPrompt(standing, context)),progress.rivalHint].filter(Boolean).join(' ');
     this.prompt.hidden = !this.prompt.textContent;
-    this.mechanic.textContent = !ended && beat?.kind === 'prompt' ? beat.line ?? '' : '';
+    this.mechanic.textContent = !ended && beat?.kind === 'prompt' ? beat.line ?? '' : standing?.line ?? '';
     this.mechanic.hidden = !this.mechanic.textContent;
     // Every spoken take uses the same label and text. Instructions have their own panel.
     this.optional.hidden = true;

@@ -39,6 +39,8 @@ const DASH = [...FIREBALL, 'dash'];
 const PURSUIT_OBJECTIVE = Object.freeze({ title: 'OBJECTIVE', text: 'STOP THE RIVAL FROM TELLING ON YOU' });
 const EXIT_OBJECTIVE = Object.freeze({ title: 'OBJECTIVE', text: 'LEAVE GREENER PASTURES' });
 const FINAL_OBJECTIVE = Object.freeze({ title: 'OBJECTIVE', text: 'Defeat The Rival', compact: true });
+// health regenerates: shown from the hit itself, under the lines that follow it, until health is back and settled
+const HEALTH_STANDING = Object.freeze({ from: 'player-damaged', until: 'health-settled', line: 'HEALTH REGENERATES', mechanic: 'health-regen' });
 // metres before the stile's takeoff at which the hints give way to "Jump." (about two seconds at a run)
 export const JUMP_HINT_DISTANCE = 16;
 
@@ -150,7 +152,7 @@ const segments = [
   },
   {
     id: 'first-guard', chapter: 'correspondence', permissions: GUARD,
-    entryCondition: 'sword-contact', completionCue: 'player-damaged',
+    entryCondition: 'sword-contact', completionCue: 'player-damaged', standingPrompt: HEALTH_STANDING,
     scene: { enter: 'rival-idle', checkpoint: 'introductions', gates: ['guard-attack-started', 'successful-guard', 'guard-lowered', 'player-damaged'] },
     beats: [
       { id: 'good-health', speaker: 'rival', line: 'May you receive my message in good health.' },
@@ -173,7 +175,7 @@ const segments = [
   },
   {
     id: 'health-regen', chapter: 'correspondence', permissions: GUARD,
-    entryCondition: 'player-damaged', completionCue: 'health-settled',
+    entryCondition: 'player-damaged', completionCue: 'health-settled', standingPrompt: HEALTH_STANDING,
     requiresSegments: ['first-guard'],
     scene: { enter: 'rival-give-space', checkpoint: 'introductions', gates: ['health-regenerated', 'health-settled'] },
     beats: [
@@ -293,16 +295,17 @@ const segments = [
     scene: { enter: 'rival-jump', checkpoint: 'jump', releaseControls: { afterCue: 'rival-jumped', permissions: JUMP },
       gates: ['rival-jumped', 'jump-reached', {cue:'jump-approach-ready',kind:'near-landmark',actor:'player',landmark:'jump-takeoff',distance:JUMP_HINT_DISTANCE,axisWindow:{axis:'z',min:-3.5,max:JUMP_HINT_DISTANCE}}, 'jump-used', 'jump-crossed'] },
     beats: [
-      { id: 'jump-arrival', kind: 'stage', advanceOn: 'jump-reached', skipWhen: 'jump-crossed',
+      // (the gloat begins as he lands, while he turns back to face the Spellblade still coming)
+      { id: 'jump-arrival', kind: 'stage', advanceOn: 'rival-jumped', skipWhen: 'jump-crossed',
         direction: 'Pursue Rival to the low field stile. Rival jumps it for real and stops on its far side to gloat.' },
       { id: 'minor-obstacle-gloat', skipWhen:'jump-crossed', speaker: 'rival', line: 'Ahahaha! You cannot overcome this!' },
-      { id: 'what-should-do', skipWhen:['jump-crossed','jump-approach-ready'], speaker: 'spellblade', line: 'What should I do?' },
-      { id: 'minor-ledges', skipWhen:['jump-crossed','jump-approach-ready'], speaker: 'narrator', line: "The Spellblade's journey is not impeded by minor ledges." },
-      { id: 'what-does-mean', skipWhen:['jump-crossed','jump-approach-ready'], speaker: 'spellblade', line: 'What does that mean?' },
-      { id: 'rises-occasion', skipWhen:['jump-crossed','jump-approach-ready'], speaker: 'narrator', line: 'He rises to the occasion, climbs the ranks, and bounds onward toward greater glory.' },
-      { id: 'jump-no-hints', skipWhen:['jump-crossed','jump-approach-ready'], speaker: 'spellblade', line: 'I do not get hints.' },
-      { id: 'jump-near-approach', skipWhen:'jump-crossed', kind:'stage', advanceOn:'jump-approach-ready', direction:'Only the final hint waits for the player nearing the takeoff.' },
-      { id: 'jump-instruction', skipWhen:'jump-crossed', speaker: 'narrator', line: 'Jump.' },
+      { id: 'what-should-do', skipWhen:['jump-crossed','jump-used','jump-approach-ready'], speaker: 'spellblade', line: 'What should I do?' },
+      { id: 'minor-ledges', skipWhen:['jump-crossed','jump-used','jump-approach-ready'], speaker: 'narrator', line: "The Spellblade's journey is not impeded by minor ledges." },
+      { id: 'what-does-mean', skipWhen:['jump-crossed','jump-used','jump-approach-ready'], speaker: 'spellblade', line: 'What does that mean?' },
+      { id: 'rises-occasion', skipWhen:['jump-crossed','jump-used','jump-approach-ready'], speaker: 'narrator', line: 'He rises to the occasion, climbs the ranks, and bounds onward toward greater glory.' },
+      { id: 'jump-no-hints', skipWhen:['jump-crossed','jump-used','jump-approach-ready'], speaker: 'spellblade', line: 'I do not get hints.' },
+      { id: 'jump-near-approach', skipWhen:['jump-crossed','jump-used'], kind:'stage', advanceOn:'jump-approach-ready', direction:'Only the final hint waits for the player nearing the takeoff.' },
+      { id: 'jump-instruction', skipWhen:['jump-crossed','jump-used'], speaker: 'narrator', line: 'Jump.' },
       { id: 'jump-prompt', skipWhen:'jump-crossed', kind: 'prompt', speaker: 'instruction', line: 'JUMP', advanceOn: 'jump-used', mechanic: 'jump', permissions: JUMP },
       { id: 'jump-crossing', skipWhen:'jump-crossed', kind: 'stage', advanceOn: 'jump-crossed', mechanic: 'jump', permissions: JUMP,
         direction: 'Observe the player cross the named stile through an ordinary Jump.' },

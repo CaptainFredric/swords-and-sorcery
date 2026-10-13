@@ -448,6 +448,11 @@ function useTouchUi() {
   const turnHint = $('.turn-hint');
   if (turnHint) turnHint.textContent = 'DRAG TO TURN · DOUBLE-TAP TO RESET';
   runtime?.enableTouch();
+  tutorialTouchControls();
+}
+// (the touch controls may be made after the tutorial's first word: whatever it has not taught yet is absent from the start)
+function tutorialTouchControls() {
+  if (tutorialSession?.director.state === 'running') revealTouchControls(tutorialSession.taught);
 }
 if (isTouchPrimary()) useTouchUi();
 addEventListener('pointerdown', (event) => { if (event.pointerType === 'touch') useTouchUi(); }, { capture: true, passive: true });
@@ -459,7 +464,7 @@ function ensureRuntime() {
     if (new URLSearchParams(location.search).has('debug')) globalThis.__ssRuntime = runtime;
     runtime.configure({ view: viewOptions(settings), input: inputOptions(settings) });
     if (tutorialSession) runtime.input.allowAction = (action, notify = true) => tutorialSession?.allows(action, notify) ?? true;
-    if (touchUi) runtime.enableTouch();
+    if (touchUi) { runtime.enableTouch(); tutorialTouchControls(); }
     runtime.onPointer = (locked) => {
       const mode = latestLobby?.mode ?? latestSnapshot?.mode;
       if (mode === 'BOT_DUEL') socket.arenaReady(locked);
