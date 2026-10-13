@@ -21,6 +21,13 @@ const PARRY_REACH = 3.6;
 const DOWNED_HOLD_MAX = 30;
 // the final Rival keeps to his post before the door: this far from it at most, and never back toward the building
 const FINAL_TETHER = 5;
+// The first Fireball lesson's meadow, short of the TATTLE landmark: until a Fireball has found him, he goes no further
+// than this (the reveal, the sheepfold's dead end and the broken bridge all lie beyond, and the story waits on the hit)
+export const FIREBALL_MEADOW = Object.freeze({ minX: 8, maxX: 40, minZ: -396, maxZ: -382 });
+// there he keeps his distance by giving ground straight away from the Spellblade (along the line a Fireball comes
+// in on, so an aimed one still finds him: it flies at 24 m/s and bursts on contact), never sideways, and stands at
+// the meadow's far edge
+const LINGER = Object.freeze({ near: 22, retreat: .6, drift: .22, step: 4 });
 
 /** The player's next committed strike, if one is coming: when its contact is due (absolute seconds). */
 function incomingStrike(player, now) {
@@ -230,8 +237,27 @@ export class TutorialRival {
     const hold = GREENER_ROUTE.rivalHold, away = distance(this.actor.position, hold);
     this.inputToward(away > .8 ? hold : this.player.position, away > .8 ? .45 : 0, false, away > .8 ? hold : this.player.position);
   }
+  // The first Fireball has not found him yet, and the story waits on it (it is not past the prompt for one): the
+  // lesson holds him in its meadow
+  get fireballLesson() {
+    const { director } = this.session;
+    const prompt = director.beats.findIndex(beat => beat.advanceOn === 'fireball-hit');
+    return !this.session.firstFireballHit && this.mode === 'escape' && prompt >= 0 && director.index <= prompt;
+  }
+  // In the meadow, turned to the Spellblade (a taunting backward walk): giving ground straight away from him, quicker
+  // when he is pressed, and standing once the meadow's far edge is at his back. No sprint, no dash, no sidestep.
+  linger(now, apart) {
+    const { actor, player } = this, box = FIREBALL_MEADOW;
+    const dx = actor.position.x - player.position.x, dz = actor.position.z - player.position.z, length = Math.hypot(dx, dz) || 1;
+    const pressed = apart < LINGER.near;
+    const target = { x: actor.position.x + dx / length * LINGER.step, z: actor.position.z + dz / length * LINGER.step };
+    const inside = target.x >= box.minX && target.x <= box.maxX && target.z >= box.minZ && target.z <= box.maxZ;
+    this.sprintWanted = false;
+    this.inputToward(inside ? target : player.position, inside ? (pressed ? LINGER.retreat : LINGER.drift) : 0, false, player.position);
+  }
   chase(now, apart) {
     const { actor, player, room } = this;
+    if (this.fireballLesson && actor.position.z <= FIREBALL_MEADOW.maxZ) { this.linger(now, apart); return; }
     const route = GREENER_ROUTE.chaseWaypoints;
     while (this.waypoint < route.length - 1 && distance(actor.position, route[this.waypoint]) < 1.4) this.waypoint += 1;
     const target = route[this.waypoint];

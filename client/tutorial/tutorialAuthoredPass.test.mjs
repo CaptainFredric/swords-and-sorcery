@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { LocalHost } from '../network/LocalHost.mjs';
 import { TutorialSession, THREAT_HALT_SEC, HEALTH_SETTLED_SEC } from './TutorialSession.mjs';
+import { FIREBALL_MEADOW } from './TutorialRival.mjs';
 import { GREENER_ROUTE } from '../../shared/worlds/greenerPastures.mjs';
 import { applyDamage } from '../../shared/sim/combat.mjs';
 import { GAME, HEALTH_REGEN, SWORD_STRIKE_TIMES } from '../../shared/src/combat.mjs';
@@ -288,5 +289,35 @@ test('a final defeat\'s taunt is heard first: an aside still waiting is dropped,
   applyDamage(host.room, session.rivalId, host.player.id, 500, 'sword', now()); tick();
   assert.equal(session.director.optionalCue?.id, 'fight-yourself');
   assert.equal(session.director.branchQueue.some(beat => beat.id === 'queued-aside'), false);
+  host.close();
+});
+
+test('missed Fireballs: Rival keeps to the meadow, facing the Spellblade, until one lands; then the chase goes on', () => {
+  const t = fixture();
+  const { host, session, tick, rival } = t;
+  session.stage('fireball'); session.director.resumeAt('fireball-prompt'); session.rival.enter('rival-escape', host.now());
+  const box = FIREBALL_MEADOW;
+  rival().position = { x: 24, y: 0, z: -386 };
+  session.rival.waypoint = GREENER_ROUTE.chaseWaypoints.findIndex(point => point.id === 'tattle-reveal');
+  host.player.position = { x: 22, y: 0, z: -362 };
+  const inMeadow = () => rival().position.x >= box.minX - .5 && rival().position.x <= box.maxX + .5
+    && rival().position.z >= box.minZ - .5 && rival().position.z <= box.maxZ + .5;
+  // the Spellblade misses, and misses, and wanders: he gives ground but never leaves for the landmarks the next lines name
+  for (let i = 0; i < 30 * 20; i += 1) {
+    if (i === 30 * 8) host.player.position = { x: 30, y: 0, z: -374 };
+    tick();
+    assert.ok(inMeadow(), `left the meadow at ${rival().position.x.toFixed(1)}, ${rival().position.z.toFixed(1)}`);
+  }
+  assert.equal(session.director.current.id, 'fireball-prompt');
+  // aimed, it finds him: he stood still enough to be hit
+  const r = rival().position, p = host.player.position;
+  const yaw = facing(p, r);
+  host.input({ forward: 0, right: 0, yaw, pitch: 0, sprint: false }); tick();
+  const length = Math.hypot(r.x - p.x, r.z - p.z);
+  host.cast({ x: (r.x - p.x) / length, y: 0, z: (r.z - p.z) / length });
+  for (let i = 0; i < 30 * 3 && !session.director.facts.has('fireball-hit'); i += 1) tick();
+  assert.ok(session.director.facts.has('fireball-hit'));
+  for (let i = 0; i < 30 * 8 && rival().position.z >= box.minZ - 2; i += 1) tick();
+  assert.ok(rival().position.z < box.minZ - 2, 'the chase resumes past the meadow');
   host.close();
 });

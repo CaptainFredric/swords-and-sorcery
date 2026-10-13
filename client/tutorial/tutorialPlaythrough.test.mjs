@@ -95,7 +95,8 @@ function playthrough({ missFirst = false, omitSegments = [] } = {}) {
       forward = Math.cos(delta)*scale - Math.sin(delta)*side;
       right = Math.sin(delta)*scale + Math.cos(delta)*side;
     }
-    if (now < missUntil) { yaw = -Math.PI / 2; pitch = -.5; }
+    // (the miss goes the other way from him: at the ground, out of the burst's reach of him however close he stands)
+    if (now < missUntil) { yaw = Math.atan2(r.position.x - p.position.x, r.position.z - p.position.z); pitch = -.5; }
     host.input({ seq: ++seq, forward, right, yaw, pitch, sprint, jump, crouch: false, guard: guardHeld, attack: attackHeld }); host.tick();
     for (const fact of [...session.director.facts, ...session.movement.facts]) allFacts.add(fact);
   }
