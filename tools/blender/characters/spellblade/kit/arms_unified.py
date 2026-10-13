@@ -141,6 +141,38 @@ def sculpt_open(parts):
   if c['id']<=3:apply(c,lambda v:Vector((v.x, min(v.y,.02)+.82*max(0,v.y-.02),v.z)))
   elif c['id']<28:apply(c,lambda v:v-Vector((0,.025,0)))
   else:apply(c,lambda v:v-Vector((0,.012,0)))
+ # Shape the metacarpal silhouette in the actual palm frame, rather than
+ # leaving a rectangular leather box between the cuff and the fingers.
+ N=Vector((-.226853713,0,.973928869));Y=Vector((0,1,0));W=Y.cross(N).normalized()
+ origin=Vector((.002416162,0,-.010372875))
+ for c in parts[:4]:
+  for y in (.045,.095):ridge_cut(c,Vector((0,y,0)),Y)
+  if c['id']==0:ridge_cut(c,Vector((0,.065,0)),Y)
+  def palm_shape(v,c=c):
+   q=v-origin;w=q.dot(W);n=q.dot(N);y=v.y
+   if y<.045:k=.82+.10*max(0,min(1,(y+.02)/.065))
+   elif y<.095:k=.92+.06*(y-.045)/.05
+   else:k=.98-.12*max(0,min(1,(y-.095)/.04))
+   # A shallow hollow palm and the arched heel create broad readable planes.
+   # Keep the centre under the existing PalmRune in the same place.
+   cup=.009*min(1,(abs(w)/.065)**2)
+   # The pivot is expressed relative to origin, so the existing rune-facing
+   # surface remains in place. Retain sleeve volume inside the wrist cuff.
+   compression=1-.40*max(0,min(1,(y-.012)/.04))
+   n=.0311703+(n-.0311703)*compression
+   # Grow the inherited glove into the thumb root. The metal backplate
+   # remains separate from this leather web, as on a real plated glove.
+   web=.020*max(0,1-abs((y-.068)/.038))*max(0,min(1,-w/.04)) if c['id']==0 else 0
+   return origin+W*(w*k-web)+Y*(y-.012*max(0,min(1,(y-.08)/.04)))+N*(n+cup)
+  apply(c,palm_shape)
+ for finger,start in enumerate((4,10,16,22)):
+  pivot=center(parts[start]);pivot.y-=.012
+  angle=math.radians((5,8,11,14)[finger]);length=(.99,1.02,.98,.91)[finger]
+  for c in parts[start:start+6]:
+   def curl(v):
+    v=v-Vector((0,.012,0));q=v-pivot;y=q.dot(Y)*length;n=q.dot(N)
+    return pivot+W*q.dot(W)+Y*(y*math.cos(angle)-n*math.sin(angle))+N*(y*math.sin(angle)+n*math.cos(angle))
+   apply(c,curl)
 
 def grip_info(rig,sword,side='R'):
  inv=(rig.matrix_world@rig.data.bones['hand.'+side].matrix_local).inverted()
