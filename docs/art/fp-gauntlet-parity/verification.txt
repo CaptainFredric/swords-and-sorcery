@@ -1,0 +1,19 @@
+Final source commit: 75c73dfdacf24a1c18faddcf0e7d8e556b4211d9
+Blender nonhand/source/rig/actions/reference preservation: PASS
+Handle clearance: PASS, 200 evaluated poses
+Complete sword clearance: PASS, 200 evaluated poses
+Accepted TP topology/materials/flat shading/corner colors: PASS, all 37 components
+Source save/export/reimport and packed reference protection: PASS
+Idle/Guard seams and authored second strike offhand clearance: PASS
+GLB budget/contract validation: PASS, 4,572 triangles, 705,700 bytes
+Exported slash sword visibility: PASS, 14,043 pixels
+Focused repository tests: PASS, 43 tests
+Final full npm run verify after corrected cap relief and final asset: PASS, exit 0
+Syntax OK (401 modules)
+ℹ tests 1313
+ℹ pass 1313
+ℹ fail 0
+ℹ tests 4
+ℹ pass 4
+ℹ fail 0
+Smoke OK: Castleward/solo shell, HTTP assets, private-path isolation, health, and WebSocket handshake on port 57847

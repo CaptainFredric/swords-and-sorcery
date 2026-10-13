@@ -1,0 +1,268 @@
+{
+  "iteration": 3,
+  "referenceSourceSha256": "740301e4e9632d71f61861edacd516937deb85abe32e8cc838b39d358c38dc53",
+  "baselineSourceSha256": "1b375fc91b4a95c3624a967cc958dbe5cc3f9a5b31a9b18a4367d2652fb30063",
+  "copiedComponents": [
+    {
+      "tpComponent": 0,
+      "piece": "dark glove palm",
+      "vertices": 24,
+      "faces": 26,
+      "topologyAndCornerColors": "copied"
+    },
+    {
+      "tpComponent": 1,
+      "piece": "proximal steel dorsal plate",
+      "vertices": 24,
+      "faces": 26,
+      "topologyAndCornerColors": "copied"
+    },
+    {
+      "tpComponent": 2,
+      "piece": "distal steel dorsal plate",
+      "vertices": 24,
+      "faces": 26,
+      "topologyAndCornerColors": "copied"
+    },
+    {
+      "tpComponent": 3,
+      "piece": "brass distal backplate edge",
+      "vertices": 24,
+      "faces": 26,
+      "topologyAndCornerColors": "copied"
+    },
+    {
+      "tpComponent": 4,
+      "piece": "steel knuckle bar",
+      "vertices": 24,
+      "faces": 26,
+      "topologyAndCornerColors": "copied"
+    },
+    {
+      "tpComponent": 5,
+      "piece": "finger 1 steel knuckle stud",
+      "vertices": 24,
+      "faces": 26,
+      "topologyAndCornerColors": "copied"
+    },
+    {
+      "tpComponent": 6,
+      "piece": "finger 1 proximal dark core",
+      "vertices": 24,
+      "faces": 26,
+      "topologyAndCornerColors": "copied"
+    },
+    {
+      "tpComponent": 7,
+      "piece": "finger 1 proximal steel scale",
+      "vertices": 24,
+      "faces": 26,
+      "topologyAndCornerColors": "copied"
+    },
+    {
+      "tpComponent": 8,
+      "piece": "finger 1 middle dark core",
+      "vertices": 24,
+      "faces": 26,
+      "topologyAndCornerColors": "copied"
+    },
+    {
+      "tpComponent": 9,
+      "piece": "finger 1 middle steel scale",
+      "vertices": 24,
+      "faces": 26,
+      "topologyAndCornerColors": "copied"
+    },
+    {
+      "tpComponent": 10,
+      "piece": "finger 1 distal dark core",
+      "vertices": 24,
+      "faces": 26,
+      "topologyAndCornerColors": "copied"
+    },
+    {
+      "tpComponent": 11,
+      "piece": "finger 1 distal steel scale",
+      "vertices": 24,
+      "faces": 26,
+      "topologyAndCornerColors": "copied"
+    },
+    {
+      "tpComponent": 12,
+      "piece": "finger 2 steel knuckle stud",
+      "vertices": 24,
+      "faces": 26,
+      "topologyAndCornerColors": "copied"
+    },
+    {
+      "tpComponent": 13,
+      "piece": "finger 2 proximal dark core",
+      "vertices": 24,
+      "faces": 26,
+      "topologyAndCornerColors": "copied"
+    },
+    {
+      "tpComponent": 14,
+      "piece": "finger 2 proximal steel scale",
+      "vertices": 24,
+      "faces": 26,
+      "topologyAndCornerColors": "copied"
+    },
+    {
+      "tpComponent": 15,
+      "piece": "finger 2 middle dark core",
+      "vertices": 24,
+      "faces": 26,
+      "topologyAndCornerColors": "copied"
+    },
+    {
+      "tpComponent": 16,
+      "piece": "finger 2 middle steel scale",
+      "vertices": 24,
+      "faces": 26,
+      "topologyAndCornerColors": "copied"
+    },
+    {
+      "tpComponent": 17,
+      "piece": "finger 2 distal dark core",
+      "vertices": 24,
+      "faces": 26,
+      "topologyAndCornerColors": "copied"
+    },
+    {
+      "tpComponent": 18,
+      "piece": "finger 2 distal steel scale",
+      "vertices": 24,
+      "faces": 26,
+      "topologyAndCornerColors": "copied"
+    },
+    {
+      "tpComponent": 19,
+      "piece": "finger 3 steel knuckle stud",
+      "vertices": 24,
+      "faces": 26,
+      "topologyAndCornerColors": "copied"
+    },
+    {
+      "tpComponent": 20,
+      "piece": "finger 3 proximal dark core",
+      "vertices": 24,
+      "faces": 26,
+      "topologyAndCornerColors": "copied"
+    },
+    {
+      "tpComponent": 21,
+      "piece": "finger 3 proximal steel scale",
+      "vertices": 24,
+      "faces": 26,
+      "topologyAndCornerColors": "copied"
+    },
+    {
+      "tpComponent": 22,
+      "piece": "finger 3 middle dark core",
+      "vertices": 24,
+      "faces": 26,
+      "topologyAndCornerColors": "copied"
+    },
+    {
+      "tpComponent": 23,
+      "piece": "finger 3 middle steel scale",
+      "vertices": 24,
+      "faces": 26,
+      "topologyAndCornerColors": "copied"
+    },
+    {
+      "tpComponent": 24,
+      "piece": "finger 3 distal dark core",
+      "vertices": 24,
+      "faces": 26,
+      "topologyAndCornerColors": "copied"
+    },
+    {
+      "tpComponent": 25,
+      "piece": "finger 3 distal steel scale",
+      "vertices": 24,
+      "faces": 26,
+      "topologyAndCornerColors": "copied"
+    },
+    {
+      "tpComponent": 26,
+      "piece": "finger 4 steel knuckle stud",
+      "vertices": 24,
+      "faces": 26,
+      "topologyAndCornerColors": "copied"
+    },
+    {
+      "tpComponent": 27,
+      "piece": "finger 4 proximal dark core",
+      "vertices": 24,
+      "faces": 26,
+      "topologyAndCornerColors": "copied"
+    },
+    {
+      "tpComponent": 28,
+      "piece": "finger 4 proximal steel scale",
+      "vertices": 24,
+      "faces": 26,
+      "topologyAndCornerColors": "copied"
+    },
+    {
+      "tpComponent": 29,
+      "piece": "finger 4 middle dark core",
+      "vertices": 24,
+      "faces": 26,
+      "topologyAndCornerColors": "copied"
+    },
+    {
+      "tpComponent": 30,
+      "piece": "finger 4 middle steel scale",
+      "vertices": 24,
+      "faces": 26,
+      "topologyAndCornerColors": "copied"
+    },
+    {
+      "tpComponent": 31,
+      "piece": "finger 4 distal dark core",
+      "vertices": 24,
+      "faces": 26,
+      "topologyAndCornerColors": "copied"
+    },
+    {
+      "tpComponent": 32,
+      "piece": "finger 4 distal steel scale",
+      "vertices": 24,
+      "faces": 26,
+      "topologyAndCornerColors": "copied"
+    },
+    {
+      "tpComponent": 33,
+      "piece": "thumb proximal dark core",
+      "vertices": 24,
+      "faces": 26,
+      "topologyAndCornerColors": "copied"
+    },
+    {
+      "tpComponent": 34,
+      "piece": "thumb proximal steel scale",
+      "vertices": 24,
+      "faces": 26,
+      "topologyAndCornerColors": "copied"
+    },
+    {
+      "tpComponent": 35,
+      "piece": "thumb distal dark core",
+      "vertices": 24,
+      "faces": 26,
+      "topologyAndCornerColors": "copied"
+    },
+    {
+      "tpComponent": 36,
+      "piece": "thumb distal steel scale",
+      "vertices": 24,
+      "faces": 26,
+      "topologyAndCornerColors": "copied"
+    }
+  ],
+  "changedRig": false,
+  "changedActions": false
+}

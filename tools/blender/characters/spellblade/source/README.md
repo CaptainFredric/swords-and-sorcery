@@ -323,3 +323,9 @@ Run `scripts/test-spellblade-guarded-technique.py` in Blender with `-- BASELINE.
 The first person `Arm.R` hand now uses a tapered faceted steel back, organized knuckle caps, four separated three scale fingers, dark joint cores and a supported thumb. Its geometry follows the actual `HeroSword` handle. The right forearm, left arm, sword, rest rig, sockets, material definitions and action curves remain preserved. Third person geometry is independent and unchanged.
 
 See `docs/art/right-gauntlet/README.md` for the source handoff and comparisons. `scripts/export-spellblade-first-person.py` exports this saved source through the existing authored pipeline without rebuilding third person. The `GauntletPart` face attribute identifies the hand pieces for later Blender edits.
+
+## October 12 right hand parity candidate
+
+The current review branch copies all 37 accepted third person hand components into first person, with matching topology, materials and ArmorColor corner values. Local placement, taper, hidden palm fit and thumb opposition adapt them to the unchanged FP handle, cuff and gameplay eye direction. The body rig, all actions, sword, left arm and forearm geometry remain preserved.
+
+See `docs/art/fp-gauntlet-parity/README.md` for the measured correspondence, deliberate deviations, iteration evidence and future parity phases. `GauntletPart` now uses 1000 plus the accepted TP component index. The exporter accepts an optional source path so candidate files can be reviewed separately. This model remains a candidate pending creator artistic acceptance.
