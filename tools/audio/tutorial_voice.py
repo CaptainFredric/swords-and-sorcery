@@ -401,6 +401,10 @@ def preset_for(take, chains):
 
 
 # --- repairs: a take's own fixes, in its recording's seconds (sources: repairs) --------------------------------------
+#   { kind: 'excise', span: [a, b], why }        a stretch the voice breaks in cut out, the voice joined cycle to cycle
+#                                                either side of it: only the performance, nothing made or repeated
+#                                                (the take is shorter by the span). "Ah..." since 2026-10-13: the
+#                                                splice's refill, a few cycles played back and forth, read as a stutter
 #   { kind: 'splice', span: [a, b], why }        a stretch the voice breaks in (a crack that a pitch change turns into
 #                                                a stray note) refilled with the take's own glottal cycles from the
 #                                                steady voice just after it (TD-PSOLA, no pitch change, nothing
@@ -418,6 +422,25 @@ def glottal_pulses(x, a, b, f0_floor=75, f0_ceiling=300):
     points = call(snd, 'To PointProcess (periodic, cc)', f0_floor, f0_ceiling)
     t = np.array([call(points, 'Get time from index', i + 1) for i in range(call(points, 'Get number of points'))])
     return t[(t >= a) & (t <= b)]
+
+
+def excise(x, span, f0_floor=75, f0_ceiling=300):
+    """The break [a, b] cut out of the take: from the glottal pulse nearest a to the first pulse at or after b, the two
+    pulses laid on each other and crossfaded over one period, so the voice runs on cycle to cycle with nothing
+    synthesized and nothing repeated. The take is that much shorter. Returns the take and the span removed."""
+    a, b = span
+    before = glottal_pulses(x, a - 0.03, a + 0.01, f0_floor, f0_ceiling)
+    after = glottal_pulses(x, b, b + 0.03, f0_floor, f0_ceiling)
+    if not len(before) or not len(after):
+        raise ValueError(f'excise: no glottal pulse to join at {a:.3f} or {b:.3f}')
+    p0 = before[np.argmin(np.abs(before - a))]
+    p1 = after[0]
+    period = float(np.median(np.diff(glottal_pulses(x, b, b + 0.06, f0_floor, f0_ceiling)))) if len(after) else 0.006
+    i0, i1, n = int(round(p0 * SR)), int(round(p1 * SR)), max(8, int(period * SR))
+    fall = np.cos(np.linspace(0, np.pi / 2, n)) ** 2
+    joined = x[i0 - n // 2:i0 - n // 2 + n] * fall + x[i1 - n // 2:i1 - n // 2 + n] * (1 - fall)
+    y = np.concatenate([x[:i0 - n // 2], joined, x[i1 - n // 2 + n:]])
+    return y, [round(float(p0), 3), round(float(p1), 3)]
 
 
 def splice(x, span, source_sec=0.09, edge_sec=0.012):
@@ -584,7 +607,12 @@ def prepare(raw, sr, path, take, preset, trim, report):
         x = x[:int(damaged * SR)]
     cut_at_damage = damaged is not None
     for fix in take.get('repairs', []):
-        if fix['kind'] == 'splice':
+        if fix['kind'] == 'excise':
+            x, span = excise(x, fix['span'])
+            report.setdefault('repairs', []).append({'excise': span})
+            if damaged is not None:
+                damaged -= span[1] - span[0]
+        elif fix['kind'] == 'splice':
             x, span = splice(x, fix['span'])
             report.setdefault('repairs', []).append({'splice': span})
         elif fix['kind'] == 'mend':
@@ -680,7 +708,7 @@ def check(sources, chains):
         elif take.get('chain', {}).get('preset') and take['chain']['preset'] not in role['presets']:
             errors.append(f"{take['raw']}: no preset {take['chain']['preset']} for {take['speaker']}")
         for fix in take.get('repairs', []):
-            if fix.get('kind') not in ('splice', 'mend', 'release') or not fix.get('why'):
+            if fix.get('kind') not in ('excise', 'splice', 'mend', 'release') or not fix.get('why'):
                 errors.append(f"{take['raw']}: a repair needs a known kind and its reason: {fix}")
         if take.get('status') == 'duplicate':
             same = next((t for t in sources['takes'] if t['raw'] == take.get('sameAs')), None)
