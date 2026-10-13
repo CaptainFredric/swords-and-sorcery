@@ -14,3 +14,13 @@ Smoke OK: Castleward/solo shell, HTTP assets, private-path isolation, health, an
 
 Initial full run during concurrent Blender/browser work: WebSocket flood test timed out.
 Focused server integration rerun: PASS, 5 tests.
+
+After integrating main 071a502 (PR #161): full npm run verify PASS, exit 0
+Syntax OK (401 modules)
+ℹ tests 1313
+ℹ pass 1313
+ℹ fail 0
+ℹ tests 4
+ℹ pass 4
+ℹ fail 0
+Smoke OK: Castleward/solo shell, HTTP assets, private-path isolation, health, and WebSocket handshake on port 55843
