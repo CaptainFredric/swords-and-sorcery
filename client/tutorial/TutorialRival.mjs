@@ -1,6 +1,7 @@
 import { wayToward } from '../../shared/sim/botNav.mjs';
 import { NONLETHAL_RECOVERY } from '../game/spellbladeMotion.mjs';
 import { GREENER_ROUTE } from '../../shared/worlds/greenerPastures.mjs';
+import { inMillLane, millLaneStep } from '../../shared/worlds/greenerParkour.mjs';
 import { beginAttack, cancelAttack, endAttack, setGuard, tryCastSpell, tryDash } from '../../shared/sim/combat.mjs';
 import { stepBotControllers } from '../../shared/sim/BotController.mjs';
 import { BOT_SKILLS } from '../../shared/sim/botSkill.mjs';
@@ -95,6 +96,7 @@ export class TutorialRival {
     this.routeMind = {strafeDirection:1};
     this.bridgeInFlight = false;
     this.bridgePrepared = false;
+    this.laneMind = null;
   }
   enter(cue, now) {
     if (!cue || !this.actor) return;
@@ -309,6 +311,23 @@ export class TutorialRival {
     if (stung || hold && actor.position.z <= hold.z + 1 && apart > hold.slip) {
       this.sprintWanted = false;
       this.inputToward(player.position, 0, false, player.position);
+      return;
+    }
+    // the mill lane: its jumps, the wain and its fence, and the brook, on the one line through it (greenerParkour.mjs)
+    if (inMillLane(actor.position)) {
+      this.laneMind ??= {};
+      const step = millLaneStep(actor, this.laneMind);
+      if (!step.done) {
+        actor.yaw = step.yaw; actor.pitch = 0;
+        actor.input = { forward: step.forward, right: 0, yaw: step.yaw, pitch: 0, sprint: step.sprint, jump: step.jump, crouch: false };
+        this.waypoint = Math.max(this.waypoint, GREENER_ROUTE.chaseWaypoints.findIndex(point => point.id === 'mill-lane-exit'));
+        return;
+      }
+    }
+    // making for the lane: in by its mouth (the running graph knows only the long way round, by the wall's far end)
+    const lane = GREENER_ROUTE.millLane;
+    if (GREENER_ROUTE.chaseWaypoints[this.waypoint]?.id === 'mill-lane-exit' && actor.position.z > lane.entryZ - 0.5) {
+      this.inputToward({ x: lane.centerX, z: lane.entryZ - 2 }, 1, this.sprintWanted);
       return;
     }
     const route = GREENER_ROUTE.chaseWaypoints;

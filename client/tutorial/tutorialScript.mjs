@@ -41,8 +41,18 @@ const EXIT_OBJECTIVE = Object.freeze({ title: 'OBJECTIVE', text: 'LEAVE GREENER 
 const FINAL_OBJECTIVE = Object.freeze({ title: 'OBJECTIVE', text: 'Defeat The Rival', compact: true });
 // health regenerates: shown from the hit itself, under the lines that follow it, until health is back and settled
 const HEALTH_STANDING = Object.freeze({ from: 'player-damaged', until: 'health-settled', line: 'HEALTH REGENERATES', mechanic: 'health-regen' });
-// metres before the stile's takeoff at which the hints give way to "Jump." (about two seconds at a run)
-export const JUMP_HINT_DISTANCE = 16;
+// the mill lane's brook (between the sheepfold and the bridge): wanted from over the wain's fence until it is crossed
+const BROOK_STANDING = Object.freeze({ from: 'mill-brook-near', until: 'mill-brook-crossed', line: 'SPRINT, THEN JUMP', mechanic: 'sprint-jump' });
+// "Jump." is called at the stile's immediate approach, by the Spellblade's own pace (metres from the wall's near face,
+// at an approach speed in m/s). A Jump from too far out lands short of the wall (one more hop clears it); one from right
+// at it always clears. So the call is placed for the quickest answer to the JUMP prompt that appears with it (a third
+// of a second) to leave the ground at the far edge of the clearance window: a slow walk 4.6 m out (window 1.2-2.6 m), a
+// run 6.5 m (1.4-3.9 m), a Sprint 10 m (1.9-6.2 m). Answered on hearing the word, the takeoff is nearer: still clear.
+export function jumpCallDistance(speed) {
+  return Math.max(2.5, Math.min(11, speed - 1));
+}
+// the stile's JUMP prompt stays up from the call until the Spellblade is over (a failed attempt keeps it)
+const STILE_STANDING = Object.freeze({ from: 'jump-approach-ready', until: 'jump-crossed', line: 'JUMP', mechanic: 'jump' });
 
 const segments = [
   {
@@ -287,24 +297,27 @@ const segments = [
     ],
   },
   {
-    // Rival gets ahead, really jumps the stile, lands and gloats while the player is still coming. Jump is the
-    // player's from the moment Rival demonstrates it. The hints give way to "Jump." as the player nears the
-    // takeoff, and a player who jumps on their own skips whatever hint is left.
+    // Rival gets ahead, really jumps the stile, lands and gloats while the player is still coming: the wall, and his
+    // whole plan, are what the Spellblade "cannot overcome". Jump is the player's from the moment Rival demonstrates it.
+    // The hints are had on the move, each pair only if it is over before the Spellblade is at the wall ("jump-call":
+    // TutorialSession), and give way to the narrator's one direct word there. A player who jumps on their own is
+    // spared whatever is left; one who tries and fails keeps the JUMP prompt.
     id: 'jump-obstacle', chapter: 'pursuit', permissions: GUARD, presentation: 'reactive', checkpoint: true,
-    entryCondition: 'rival-escaping', completionCue: 'jump-crossed', objective: PURSUIT_OBJECTIVE,
+    entryCondition: 'rival-escaping', completionCue: 'jump-crossed', objective: PURSUIT_OBJECTIVE, standingPrompt: STILE_STANDING,
     branches: ['rival-constitution'],
     scene: { enter: 'rival-jump', checkpoint: 'jump', releaseControls: { afterCue: 'rival-jumped', permissions: JUMP },
-      gates: ['rival-jumped', 'jump-reached', {cue:'jump-approach-ready',kind:'near-landmark',actor:'player',landmark:'jump-takeoff',distance:JUMP_HINT_DISTANCE,axisWindow:{axis:'z',min:-3.5,max:JUMP_HINT_DISTANCE}}, 'jump-used', 'jump-crossed'] },
+      gates: ['rival-jumped', 'jump-reached', 'jump-approach-ready', 'jump-used', 'jump-crossed'] },
     beats: [
       // (the gloat begins as he lands, while he turns back to face the Spellblade still coming)
       { id: 'jump-arrival', place: 'jump', kind: 'stage', advanceOn: 'rival-jumped', skipWhen: 'jump-crossed',
         direction: 'Pursue Rival to the low field stile. Rival jumps it for real and stops on its far side to gloat.' },
       { id: 'minor-obstacle-gloat', skipWhen:'jump-crossed', speaker: 'rival', line: 'Ahahaha! You cannot overcome this!' },
-      { id: 'what-should-do', skipWhen:['jump-crossed','jump-used','jump-approach-ready'], speaker: 'spellblade', line: 'What should I do?' },
-      { id: 'minor-ledges', skipWhen:['jump-crossed','jump-used','jump-approach-ready'], speaker: 'narrator', line: "The Spellblade's journey is not impeded by minor ledges." },
-      { id: 'what-does-mean', skipWhen:['jump-crossed','jump-used','jump-approach-ready'], speaker: 'spellblade', line: 'What does that mean?' },
-      { id: 'rises-occasion', skipWhen:['jump-crossed','jump-used','jump-approach-ready'], speaker: 'narrator', line: 'He rises to the occasion, climbs the ranks, and bounds onward toward greater glory.' },
-      { id: 'jump-no-hints', skipWhen:['jump-crossed','jump-used','jump-approach-ready'], speaker: 'spellblade', line: 'I do not get hints.' },
+      // (each question goes with its answer, or neither is had; "I do not get hints." only after a hint has been given)
+      { id: 'what-should-do', fitsBefore: 'jump-call', unit: 'ledges', skipWhen:['jump-crossed','jump-used','jump-approach-ready'], speaker: 'spellblade', line: 'What should I do?' },
+      { id: 'minor-ledges', fitsBefore: 'jump-call', unit: 'ledges', skipWhen:['jump-crossed','jump-used','jump-approach-ready'], speaker: 'narrator', line: "The Spellblade's journey is not impeded by minor ledges." },
+      { id: 'what-does-mean', fitsBefore: 'jump-call', unit: 'occasion', skipWhen:['jump-crossed','jump-used','jump-approach-ready'], speaker: 'spellblade', line: 'What does that mean?' },
+      { id: 'rises-occasion', fitsBefore: 'jump-call', unit: 'occasion', skipWhen:['jump-crossed','jump-used','jump-approach-ready'], speaker: 'narrator', line: 'He rises to the occasion, climbs the ranks, and bounds onward toward greater glory.' },
+      { id: 'jump-no-hints', fitsBefore: 'jump-call', skipWhen:['jump-crossed','jump-used','jump-approach-ready','ledges-cut'], speaker: 'spellblade', line: 'I do not get hints.' },
       { id: 'jump-near-approach', skipWhen:['jump-crossed','jump-used'], kind:'stage', advanceOn:'jump-approach-ready', direction:'Only the final hint waits for the player nearing the takeoff.' },
       { id: 'jump-instruction', skipWhen:['jump-crossed','jump-used'], speaker: 'narrator', line: 'Jump.' },
       { id: 'jump-prompt', skipWhen:'jump-crossed', kind: 'prompt', speaker: 'instruction', line: 'JUMP', advanceOn: 'jump-used', mechanic: 'jump', permissions: JUMP },
@@ -391,7 +404,7 @@ const segments = [
   },
   {
     id: 'bridge-dash', chapter: 'bridge', permissions: FIREBALL, checkpoint: true, presentation: 'reactive',
-    entryCondition: 'fireball-hit', completionCue: 'bridge-crossed', objective: PURSUIT_OBJECTIVE,
+    entryCondition: 'fireball-hit', completionCue: 'bridge-crossed', objective: PURSUIT_OBJECTIVE, standingPrompt: BROOK_STANDING,
     branches: ['rival-constitution', 'bridge-growth'],
     scene: { enter: 'rival-bridge', checkpoint: 'bridge', gates: ['bridge-reached', 'dash-used', 'bridge-crossed'] },
     beats: [

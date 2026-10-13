@@ -3,12 +3,12 @@ import { TutorialMovementCues } from './TutorialMovementCues.mjs';
 import { TutorialCombatCues } from './TutorialCombatCues.mjs';
 import { TutorialRival } from './TutorialRival.mjs';
 import { tutorialSceneCue } from './TutorialSceneCues.mjs';
-import { TUTORIAL_SEGMENTS, TUTORIAL_BRANCHES, tutorialRouteSegments, tutorialRouteBeats } from './tutorialScript.mjs';
+import { TUTORIAL_SEGMENTS, TUTORIAL_BRANCHES, jumpCallDistance, tutorialRouteSegments, tutorialRouteBeats } from './tutorialScript.mjs';
 import { GREENER_ROUTE, BRIDGE_RETRY, greenerOpeningProgress, greenerPasturesWithBridgeRetries, greenerBridgeRetryFloor } from '../../shared/worlds/greenerPastures.mjs';
 import { resetPracticePlayer, spawnPracticeDummy, removePracticeDummy } from '../../shared/sim/practice.mjs';
 import { cancelAttack, setGuard } from '../../shared/sim/combat.mjs';
 import { HEALTH_REGEN } from '../../shared/src/combat.mjs';
-import { SPRINT } from '../../shared/src/movement.mjs';
+import { MOVEMENT, SPRINT } from '../../shared/src/movement.mjs';
 import { keyLabel } from '../settings/settingsRegistry.mjs';
 
 const distance = (a,b) => Math.hypot(a.x-b.x,a.z-b.z);
@@ -60,6 +60,9 @@ export function tutorialPrompt(beat, { touch = false, bindings = {} } = {}) {
     case 'fireball': return `Aim at Rival and cast Fireball: ${use('spell')}. Missed? Wait for the real cooldown and try again.`;
     case 'jump': return `Jump over the low stone wall: ${use('jump')}. Keep moving toward Rival.`;
     case 'dash': return `Sprint and Jump from the high broken deck. Dash toward the lower bank while airborne: ${use('dash')}.`;
+    case 'sprint-jump': return touch
+      ? 'A running Jump falls short of the brook. Push the stick fully forward to Sprint, then tap Jump at the edge. Fell in? Wade up the ford on the right.'
+      : `A running Jump falls short of the brook. Hold ${keys('sprint')} and Jump at the edge: ${use('jump')}. Fell in? Wade up the ford on the right.`;
     case 'guard-break': return `Keep striking Rival's Guard with ${use('attack')}. Fireball passes through Guard; sword pressure breaks it.`;
     case 'exit': return 'The gate is in the west hedge.';
     default: return ({'duel-damage-threshold':'Fight Rival. Attack, Guard and move.', 'rival-escaping':'Chase Rival.',
@@ -86,6 +89,7 @@ export class TutorialSession {
     // an aside is fitted into the story's room, by its recordings' own lengths
     this.director.optionalRoom = () => this.storyRoom();
     this.director.lineSeconds = lineSeconds;
+    this.director.mainRoom = moment => this.momentRoom(moment);
     this.active = false; this.off = []; this.lastBeat = null; this.lastSegment = null;
     this.checkpoint = this.route[0].id; this.blockedHeld = new Set();
     this.bridgeFailures = 0;
@@ -110,6 +114,16 @@ export class TutorialSession {
     if (place) room = director.facts.has(place.advanceOn) ? 0 : placeReach(place.place, this.host.player, this.host.room.players.get(this.rivalId));
     if (current.kind === 'prompt' && !director.facts.has(current.advanceOn)) room = Math.max(room, PROMPT_ROOM_SEC);
     return room;
+  }
+  /** Seconds, at the Spellblade's pace, before a moment a main line must be over by. */
+  momentRoom(moment) {
+    const me = this.host.player;
+    if (moment !== 'jump-call' || !me || !GREENER_ROUTE.jump) return Infinity;
+    const toWall = me.position.z - GREENER_ROUTE.jump.obstacleBounds.maxZ;
+    if (toWall < 0) return 0;
+    // (at his own pace once he is on his way; standing, as if he set off at a run)
+    const pace = -me.velocity.z, speed = pace > 2.5 ? pace : MOVEMENT.runSpeed;
+    return Math.max(0, toWall - jumpCallDistance(speed)) / speed;
   }
   get requiresFinalGuard() { return this.director.beats.some(beat=>beat.advanceOn==='rival-guard-broken'); }
   start() {
@@ -187,9 +201,12 @@ export class TutorialSession {
   // A segment's standing instruction (from one fact until another), shown under whatever is being said meanwhile:
   // health regenerates, from the hit itself until it has settled
   standing(progress = this.director.progress) {
-    const standing = progress.segment?.standingPrompt;
     const facts = this.director.facts;
-    return standing && facts.has(standing.from) && !facts.has(standing.until) ? standing : null;
+    for (const segment of this.nearSegments(progress)) {
+      const standing = segment.standingPrompt;
+      if (standing && facts.has(standing.from) && !facts.has(standing.until)) return standing;
+    }
+    return null;
   }
   // The threat's first word stops the Spellblade where he stands: a short hold on his feet (look stays free), then
   // whatever movement he is still holding carries on.
@@ -217,10 +234,21 @@ export class TutorialSession {
     return allowed;
   }
   // What has been taught so far (the touch controls show exactly these); permissions are these less any hold.
+  // A control released by something that has already happened is the Spellblade's from that moment (Rival really over
+  // the stile: Jump), even while the last lines of the scene before are still being said.
   get taught() {
-    const progress = this.director.progress, release = progress.segment?.scene?.releaseControls;
-    if (release && this.director.facts.has(release.afterCue)) return release.permissions;
-    return progress.current?.permissions ?? progress.segment?.permissions ?? [];
+    const progress = this.director.progress;
+    const base = progress.current?.permissions ?? progress.segment?.permissions ?? [];
+    for (const segment of this.nearSegments(progress)) {
+      const release = segment.scene?.releaseControls;
+      if (release && this.director.facts.has(release.afterCue)) return [...new Set([...base, ...release.permissions])];
+    }
+    return base;
+  }
+  // the current segment, and the next (what has already happened may belong to it)
+  nearSegments(progress = this.director.progress) {
+    const index = this.route.findIndex(segment => segment.id === progress.segment?.id);
+    return index < 0 ? [] : this.route.slice(index, index + 2);
   }
   get permissions() {
     const taught = this.taught;
@@ -301,8 +329,20 @@ export class TutorialSession {
         this.director.fact('dead-end-crossed');
       }
     }
+    // the mill lane's brook: over the wain's fence, a Sprint-Jump is wanted (in it, still wanted); over it, done
+    const lane = GREENER_ROUTE.millLane;
+    if (lane && me.position.x > lane.minX - 1 && me.position.x < lane.maxX + 1) {
+      if (me.position.z < lane.fence.minZ && me.position.z > lane.brook.minZ) this.director.fact('mill-brook-near');
+      if (me.grounded && me.position.y > -0.1 && me.position.z < lane.brook.minZ - 0.3 && me.position.z > lane.exitZ - 8) this.director.fact('mill-brook-crossed');
+    }
     const jump = GREENER_ROUTE.jump;
     if (jump && this.rival.jumpWaiting) this.director.fact('jump-reached');
+    // the stile's immediate approach, at the Spellblade's own pace: "Jump." is called (jumpCallDistance)
+    if (jump && !this.director.facts.has('jump-approach-ready')) {
+      const wall = jump.obstacleBounds, toWall = me.position.z - wall.maxZ;
+      const inLine = me.position.x > wall.minX - 2 && me.position.x < wall.maxX + 2;
+      if (inLine && toWall > -0.5 && toWall <= jumpCallDistance(Math.max(0, -me.velocity.z))) this.director.fact('jump-approach-ready');
+    }
     if (jump && !me.grounded && me.jumpHeld && me.velocity.y > 0 && distance(me.position,jump.takeoff) < 12) {
       this.jumpAttempt ??= {...me.position}; this.director.fact('jump-used');
     }
@@ -419,6 +459,9 @@ export class TutorialSession {
       if (!this.firstFireballHit) this.director.offerBranch('first-fireball-miss');
     }
     if (this.rivalHint() && snapshot.serverTime-(this.hintAt??0)>=.5) {this.hintAt=snapshot.serverTime;this.onChange(this.present());}
+    // a control released, or a standing instruction raised or lowered, by a fact that moved no line on: shown now
+    const shown = `${this.taught.join()}|${this.standing()?.line ?? ''}`;
+    if (shown !== this.shownControls) { const first = this.shownControls === undefined; this.shownControls = shown; if (!first) this.onChange(this.present()); }
     if (this.damageBaseline !== null && me.health > this.damageBaseline + .5) this.director.fact('health-regenerated');
     // Settled: back at full health, and kept there a moment (a new hit starts it over)
     if (this.damageBaseline !== null && me.health >= (me.maxHealth ?? 100) - 1e-6) {

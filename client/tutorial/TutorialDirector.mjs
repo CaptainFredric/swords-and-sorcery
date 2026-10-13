@@ -45,6 +45,9 @@ export class TutorialDirector {
     // the ground still to cover), and each line's own length (its recording's, when known).
     this.optionalRoom = () => Infinity;
     this.lineSeconds = () => null;
+    // and a main line fitted before a moment (fitsBefore: the session's measure of the seconds until it comes)
+    this.mainRoom = () => Infinity;
+    this.cutUnits = new Set();
   }
 
   get current() { return this.state === 'running' ? this.beats[this.index] : null; }
@@ -66,7 +69,7 @@ export class TutorialDirector {
     this.facts.clear(); this.enteredAt = null; this.optionalAt = null;
     this.optionalActive = false; this.lastTickAt = null;
     this.audioCue = null; this.pendingCompletion = null;
-    this.completedReactions.clear(); this.pendingReaction = null; this.reactionResume = null;
+    this.completedReactions.clear(); this.pendingReaction = null; this.reactionResume = null; this.cutUnits?.clear();
     this.onChange(this.progress);
     return this.current;
   }
@@ -156,7 +159,7 @@ export class TutorialDirector {
       this.reactionResume = null;
     }
     // A reaction performed ahead of its ordinary route position never plays twice.
-    while (this.completedReactions.has(this.beats[this.index]?.reactionFor) || this.skips(this.beats[this.index])) this.index += 1;
+    while (this.completedReactions.has(this.beats[this.index]?.reactionFor) || this.skips(this.beats[this.index]) || this.cut(this.beats[this.index])) this.index += 1;
     if (!this.optionalActive) this.beginReaction();
     this.enteredAt = null;
     if (chapter === this.prototypeStop && this.beats[this.index]?.chapter !== chapter) this.state = 'prototype-ended';
@@ -194,6 +197,24 @@ export class TutorialDirector {
     if (kept.length === this.branchQueue.length) return;
     this.branchQueue = kept;
     if (!kept.length) this.optionalActive = false;
+  }
+
+  // A line fitted before a moment (fitsBefore) that would not be over by then is not begun, nor the rest of its unit
+  // (a question goes with its answer). The second of a pair whose first was said is always finished. A unit cut is
+  // remembered as the fact `${unit}-cut` (a later line can be had only if it was not).
+  cut(beat) {
+    if (!beat?.fitsBefore || beat.kind !== 'dialogue' || this.skips(beat)) return false;
+    if (beat.unit && this.cutUnits.has(beat.unit)) return true;
+    if (beat.unit && this.beats[this.index - 1]?.unit === beat.unit) return false;
+    let need = 0;
+    for (let i = this.index; i < this.beats.length; i += 1) {
+      const line = this.beats[i];
+      if (i > this.index && (!beat.unit || line.unit !== beat.unit)) break;
+      need += (this.lineSeconds(line) ?? line.rehearsalSec ?? 3) + (line.pauseAfterSec ?? OPTIONAL_PAUSE_SEC);
+    }
+    if (this.mainRoom(beat.fitsBefore) >= need) return false;
+    if (beat.unit) { this.cutUnits.add(beat.unit); this.facts.add(`${beat.unit}-cut`); }
+    return true;
   }
 
   // A beat made obsolete by what has happened (skipWhen: one fact or several): by any fact so far, or by this one.
@@ -263,7 +284,7 @@ export class TutorialDirector {
     this.facts.clear(); this.branchQueue = []; this.enteredAt = null; this.optionalAt = null;
     this.optionalActive = false; this.lastTickAt = null;
     this.audioCue = null; this.pendingCompletion = null;
-    this.completedReactions.clear(); this.pendingReaction = null; this.reactionResume = null;
+    this.completedReactions.clear(); this.pendingReaction = null; this.reactionResume = null; this.cutUnits?.clear();
     this.onChange(this.progress);
   }
 
@@ -335,7 +356,7 @@ export class TutorialDirector {
     this.facts.clear(); this.enteredAt = null; this.optionalAt = null;
     this.optionalActive = false; this.lastTickAt = null;
     this.audioCue = null; this.pendingCompletion = null;
-    this.completedReactions.clear(); this.pendingReaction = null; this.reactionResume = null;
+    this.completedReactions.clear(); this.pendingReaction = null; this.reactionResume = null; this.cutUnits?.clear();
     this.onChange(this.progress);
   }
 }

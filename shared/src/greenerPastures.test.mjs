@@ -5,6 +5,7 @@ import { ARENAS, VOTE_OPTIONS, arenaOrDefault } from './modes.mjs';
 import { findSwordWorldHit, resolvePlayerWorld, surfaceHeightAt } from './collision.mjs';
 import { MOVEMENT, createMovementState, movePlayer, tryStartDash } from './movement.mjs';
 import { navGraph, routeBetween, runClear } from '../sim/botNav.mjs';
+import { millLaneStep } from '../worlds/greenerParkour.mjs';
 
 const WORLD_ID = 'greener-pastures';
 const world = () => getWorld(WORLD_ID);
@@ -12,7 +13,7 @@ const route = async () => (await import('../worlds/greenerPastures.mjs')).GREENE
 
 test('the authored chase gives every event physical distance and a stable named route position', async () => {
   const { chaseWaypoints, waypointById, routeDistances, totalChaseDistance, bridge, finalStand, entrance } = await route();
-  assert.deepEqual(chaseWaypoints.map(point => point.id), ['meeting', 'escape', 'cart-gap', 'wall-gap-west', 'wall-gap-east', 'byre-lane', 'jump-approach', 'jump-takeoff', 'jump-landing', 'jump-exit', 'orchard-gap', 'fireball', 'tattle-reveal', 'sheepfold', 'dead-end-approach', 'dead-end-takeoff', 'dead-end-landing', 'dead-end-exit', 'bridge-approach', 'bridge-takeoff', 'bridge-landing', 'far-bank', 'counterfire', 'complaint-approach', 'pride', 'final']);
+  assert.deepEqual(chaseWaypoints.map(point => point.id), ['meeting', 'escape', 'cart-gap', 'wall-gap-west', 'wall-gap-east', 'byre-lane', 'jump-approach', 'jump-takeoff', 'jump-landing', 'jump-exit', 'orchard-gap', 'fireball', 'tattle-reveal', 'sheepfold', 'dead-end-approach', 'dead-end-takeoff', 'dead-end-landing', 'dead-end-exit', 'mill-lane-entry', 'mill-lane-exit', 'bridge-approach', 'bridge-takeoff', 'bridge-landing', 'far-bank', 'counterfire', 'complaint-approach', 'pride', 'final']);
   assert.ok(totalChaseDistance > 900, 'the continuous chase has enough physical breathing room');
   assert.ok(routeDistances['bridge-takeoff'] > 500, 'the prebridge chase gives the moving Fireball dialogue time to finish');
   assert.ok(routeDistances['bridge-takeoff'] - routeDistances.fireball > 250);
@@ -246,6 +247,8 @@ test('the chase waypoints are runnable on either side and the final clearing has
     const from = chaseWaypoints[i - 1];
     const to = chaseWaypoints[i];
     if ((from.id === 'bridge-takeoff' && to.id === 'bridge-landing') || (from.id.endsWith('takeoff') && to.id.endsWith('landing'))) continue;
+    // (the mill lane is jumped through: its own test below)
+    if (from.id === 'mill-lane-entry' && to.id === 'mill-lane-exit') continue;
     assert.equal(runClear(world(), from, to), true, `${from.id} to ${to.id}`);
   }
   assert.ok(chaseWaypoints.some((point) => point.x === bridge.centerX));
@@ -273,6 +276,19 @@ test('ordinary locomotion traverses the full chase through the real Jump and air
         assert.equal(state.grounded, true);
         if (isBridge) assert.ok(state.position.z < bridge.gapBounds.minZ);
         continue;
+      }
+      if (target.id === 'mill-lane-exit') {
+        // through the lane on its line: a Jump at each thing in the way, a Sprint-Jump over the brook, never in it
+        const mind = {};
+        for (let step = millLaneStep(state, mind); !step.done; step = millLaneStep(state, mind)) {
+          // (Sprint as the room's step resolves it: wanted, and stamina enough)
+          state.sprinting = step.sprint;
+          state = movePlayer(state, step, dt, elapsed, world());
+          elapsed += dt; ticks += 1;
+          assert.ok(state.position.y > -0.2, `the mill lane is crossed without a fall into the brook at ${hz} Hz`);
+          assert.ok(elapsed < 600, 'the lane is got through');
+        }
+        assert.equal(mind.retry ?? false, false);
       }
       for (;;) {
         const distance = Math.hypot(target.x - state.position.x, target.z - state.position.z);
@@ -308,4 +324,36 @@ test('the reused Jump has a genuine low wall and an ordinary side gate',async()=
   const cleared=simulate(jumpReuse.takeoff,1.1,{jump:true});assert.ok(cleared.state.position.z<jumpReuse.landing.z);
   const around=[jumpReuse.approach,{x:26,y:0,z:-514},{x:26,y:0,z:-526},jumpReuse.exit];
   for(let i=1;i<around.length;i++)assert.equal(runClear(world(),around[i-1],around[i]),true);
+});
+
+test('the mill lane wants its jumps: walked, it stops at the trunk; the fence only from the wain; the brook a Sprint-Jump', async () => {
+  const { millLane: lane } = await route();
+  const hz = 60, dt = 1 / hz;
+  const run = (from, ticks, input) => {
+    let state = createMovementState(from);
+    for (let i = 0; i < ticks; i += 1) { state.sprinting = Boolean(input(state).sprint); state = movePlayer(state, input(state), dt, i * dt, world()); }
+    return state;
+  };
+  // walked (no Jump), the felled trunk stops the Spellblade where it lies
+  const walked = run({ x: lane.centerX, y: 0, z: lane.entryZ - 1 }, hz * 3, () => ({ forward: 1, yaw: 0 }));
+  assert.ok(walked.position.z > lane.log.maxZ, 'stopped at the trunk');
+  // beside the wain, a Jump from the ground does not clear the fence
+  const fenced = run({ x: lane.minX + 2, y: 0, z: lane.fence.maxZ + 3 }, hz * 2, (s) => ({ forward: 1, yaw: 0, jump: s.grounded }));
+  assert.ok(fenced.position.z > lane.fence.minZ, 'the fence is too tall to be jumped from the ground');
+  // a running Jump at the brook's very lip falls short: into the brook, and out again only by the ford
+  const lip = { x: lane.centerX, y: 0, z: lane.brook.maxZ + 6 };
+  const short = run(lip, hz * 2, (s) => ({ forward: 1, yaw: 0, jump: s.grounded && s.position.z <= lane.brook.maxZ + 0.15 && s.position.y > -0.1 }));
+  assert.equal(short.position.y, lane.brook.bed, 'a running Jump lands in the brook');
+  let wading = short;
+  const mind = {};
+  for (let i = 0; i < hz * 20 && wading.position.y < -0.01; i += 1) { const step = millLaneStep(wading, mind); wading.sprinting = false; wading = movePlayer(wading, step, dt, i * dt, world()); }
+  assert.equal(wading.position.y, 0);
+  assert.ok(wading.position.z > lane.brook.maxZ, 'the ford comes up on the near bank');
+  // a Sprint-Jump from the same lip clears it
+  const cleared = run(lip, hz * 2, (s) => ({ forward: 1, yaw: 0, sprint: true, jump: s.grounded && s.position.z <= lane.brook.maxZ + 0.6 && s.position.z > lane.brook.maxZ - 1 }));
+  assert.ok(cleared.position.z < lane.brook.minZ && cleared.position.y === 0, 'a Sprint-Jump carries over the brook');
+  // and the long way round, at a run, through the wall's open western end
+  const gap = (lane.wall.gapMinX + lane.wall.gapMaxX) / 2;
+  assert.equal(runClear(world(), { x: gap, y: 0, z: lane.wall.z + 8 }, { x: gap, y: 0, z: lane.wall.z - 8 }), true);
+  assert.equal(runClear(world(), { x: lane.centerX, y: 0, z: lane.wall.z + 4 }, { x: lane.centerX, y: 0, z: lane.exitZ - 4 }), false);
 });
