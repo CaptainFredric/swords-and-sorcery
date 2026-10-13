@@ -882,6 +882,14 @@
       "sha256": "0bf606cf563bc1a6666b68b2b31aa0d2796c8f3e8b11bc75bb802267ed6d5921",
       "speaker": "narrator",
       "key": "tutorial.legend-ends",
+      "status": "dropped",
+      "note": "Replaced by the creator (2026-10-13) with loose-2026-10-13/NotWhereLegendEnds.mp3, the line reworded: \"Knights are not made to be made fun of.\" The raw take kept."
+    },
+    {
+      "raw": "loose-2026-10-13/NotWhereLegendEnds.mp3",
+      "sha256": "3ac74bd109c8e01eb117f46120801397d19b4474432b0cff59dfb6389bafb55a",
+      "speaker": "narrator",
+      "key": "tutorial.legend-ends",
       "status": "mapped"
     },
     {

@@ -1604,7 +1604,7 @@
     "key": "tutorial.legend-ends",
     "beatId": "legend-ends",
     "speaker": "narrator",
-    "text": "This is not where your legend ends, Spellblade. Knights are not supposed to get made fun of.",
+    "text": "This is not where your legend ends, Spellblade. Knights are not made to be made fun of.",
     "sourceFile": "tutorial.legend-ends.wav",
     "fileBase": "narrator/tutorial.legend-ends-1",
     "chapter": "final-guard",

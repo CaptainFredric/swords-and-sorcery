@@ -412,8 +412,8 @@
     "tutorial.legend-ends": {
       "file": "narrator/tutorial.legend-ends-1",
       "speaker": "narrator",
-      "seconds": 4.64,
-      "onset": 0.05
+      "seconds": 4.39,
+      "onset": 0.04
     },
     "tutorial.likewise": {
       "file": "spellblade/tutorial.likewise-1",

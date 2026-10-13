@@ -63,6 +63,7 @@ test('all established recording keys survive the full route and generated plan m
   // the final duel's own beats now)
   for (const take of polish.authoredPass.added) assert.equal(plan.find(other => other.key === take.key)?.text, take.text, take.key);
   for (const moved of polish.authoredPass.promoted) assert.equal(plan.find(take => take.key === moved.key)?.segment, moved.to);
+  for (const change of polish.authoredPass.changed ?? []) assert.equal(plan.find(take => take.key === change.key)?.text, change.after);
   assert.ok(report.refinement.added.every(key => keys.has(key) || polish.replaced.some(take => take.key === key)));
   for (const change of report.refinement.changed) {
     const take = plan.find(take => take.key === change.key);

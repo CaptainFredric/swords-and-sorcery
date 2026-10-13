@@ -219,6 +219,14 @@
         "from": "optional branch",
         "to": "rival-defeat"
       }
+    ],
+    "changed": [
+      {
+        "key": "tutorial.legend-ends",
+        "before": "This is not where your legend ends, Spellblade. Knights are not supposed to get made fun of.",
+        "after": "This is not where your legend ends, Spellblade. Knights are not made to be made fun of.",
+        "note": "The creator’s new take (2026-10-13), the line reworded with it."
+      }
     ]
   }
 }
