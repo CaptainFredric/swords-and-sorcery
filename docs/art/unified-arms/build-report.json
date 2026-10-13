@@ -18,7 +18,7 @@
   ],
   "authoredSource": {
     "file": "spellblade-third-person.blend",
-    "sha256": "2bdc2b15659dec95b67c123a7d18404b16501d0a0923f175c49cbdf148799135"
+    "sha256": "cb9bbe1062e4476075fb0cdb8be549bdc3f26313d97c9adb511e3c37b0423a26"
   },
   "blenderVersion": "4.5.14 LTS",
   "contractVersion": 1,
@@ -34,11 +34,11 @@
       "Stagger"
     ],
     "triangleBudget": 16000,
-    "triangles": 5420
+    "triangles": 5356
   },
   "firstPersonSource": {
     "file": "spellblade-first-person.blend",
-    "sha256": "1d94fd5940109b831b57afe337f480395c2e5d6fd05d70a3e5788dc21c9a7b35"
+    "sha256": "89172b8a1b977f4d6876e6ec2964b5acf86d10d4dd7fa16f087ceb62db95fa8d"
   },
   "mode": "review",
   "model": {
@@ -72,7 +72,7 @@
     ],
     "meshCount": 17,
     "triangleBudget": 35000,
-    "triangles": 13712
+    "triangles": 13648
   },
   "outputs": {
     "actionRenders": {
@@ -116,12 +116,12 @@
   },
   "schemaVersion": 1,
   "sizes": {
-    "firstPersonGlbBytes": 822408,
+    "firstPersonGlbBytes": 806280,
     "firstPersonTargetBytes": 1000000,
-    "thirdPersonGlbBytes": 2399956,
+    "thirdPersonGlbBytes": 2383952,
     "thirdPersonTargetBytes": 2400000
   },
-  "sourceRevision": "feb292b606ea0b07163ef938c0bf00b9b3d9cef9",
+  "sourceRevision": "4495b55ada6472078db65b5ed3185ecb521e2f39",
   "visualStage": "authored-third-person-animated-with-first-person",
   "workerReady": true
 }
