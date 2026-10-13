@@ -1,0 +1,127 @@
+{
+  "animations": [
+    "Air",
+    "Cast",
+    "Dash",
+    "Death",
+    "Guard",
+    "GuardCut_1",
+    "GuardCut_2",
+    "GuardCut_3",
+    "Idle",
+    "Run",
+    "Slash_1",
+    "Slash_2",
+    "Slash_3",
+    "Sprint",
+    "Stagger"
+  ],
+  "authoredSource": {
+    "file": "spellblade-third-person.blend",
+    "sha256": "edd6f129cc168aa3de1066b5add8ff3800ad5aa60cb7d1851a9b175fa16243ec"
+  },
+  "blenderVersion": "4.5.14 LTS",
+  "contractVersion": 1,
+  "firstPerson": {
+    "animations": [
+      "Cast",
+      "Dash",
+      "Guard",
+      "Idle",
+      "Slash_1",
+      "Slash_2",
+      "Slash_3",
+      "Stagger"
+    ],
+    "triangleBudget": 16000,
+    "triangles": 5328
+  },
+  "firstPersonSource": {
+    "file": "spellblade-first-person.blend",
+    "sha256": "cca93f88ff7153ad6b24303f220d863047ac32c8a920a7154e7f0e71cd5d8857"
+  },
+  "mode": "review",
+  "model": {
+    "groundZ": 0.0,
+    "heightMeters": 2.2338,
+    "heroPieces": [
+      "HelmetShell",
+      "HelmetJaw",
+      "Visor",
+      "Crest",
+      "Breastplate",
+      "Pauldron.L",
+      "Pauldron.R",
+      "Gauntlet.L",
+      "Gauntlet.R",
+      "Greave.L",
+      "Greave.R",
+      "Boot.L",
+      "Boot.R",
+      "TabardFront",
+      "TabardBack",
+      "HeroSword"
+    ],
+    "materialCount": 5,
+    "materials": [
+      "KitBanner",
+      "KitMatte",
+      "KitMetal",
+      "SorceryAccent",
+      "VisorGlow"
+    ],
+    "meshCount": 17,
+    "triangleBudget": 35000,
+    "triangles": 13620
+  },
+  "outputs": {
+    "actionRenders": {
+      "action-cast": "spellblade-action-cast.png",
+      "action-dash": "spellblade-action-dash.png",
+      "action-death": "spellblade-action-death.png",
+      "action-guard": "spellblade-action-guard.png",
+      "action-slash-1": "spellblade-action-slash-1.png",
+      "action-slash-2": "spellblade-action-slash-2.png",
+      "action-slash-3": "spellblade-action-slash-3.png",
+      "action-stagger": "spellblade-action-stagger.png"
+    },
+    "backRender": "spellblade-neutral-back.png",
+    "blend": "spellblade-third-person.blend",
+    "firstPersonBlend": "spellblade-first-person.blend",
+    "firstPersonGlb": "spellblade-fp.glb",
+    "firstPersonRenders": {
+      "fp-cast": "spellblade-fp-cast.png",
+      "fp-guard": "spellblade-fp-guard.png",
+      "fp-neutral": "spellblade-fp-neutral.png",
+      "fp-slash": "spellblade-fp-slash.png"
+    },
+    "frontRender": "spellblade-neutral-front.png",
+    "quarterRender": "spellblade-neutral-quarter.png",
+    "sideRender": "spellblade-neutral-side.png",
+    "thirdPersonGlb": "spellblade.glb"
+  },
+  "rig": {
+    "armature": "SpellbladeRig",
+    "authoringAxes": {
+      "forward": "+Y",
+      "up": "+Z"
+    },
+    "boneCount": 27,
+    "proxy": "RigValidationProxy",
+    "proxyHeightMeters": 2.04,
+    "runtimeAxes": {
+      "forward": "-Z",
+      "up": "+Y"
+    }
+  },
+  "schemaVersion": 1,
+  "sizes": {
+    "firstPersonGlbBytes": 810080,
+    "firstPersonTargetBytes": 1000000,
+    "thirdPersonGlbBytes": 2387628,
+    "thirdPersonTargetBytes": 2400000
+  },
+  "sourceRevision": "3c4b3605c343403424a9d610f5eecee57d578e09",
+  "visualStage": "authored-third-person-animated-with-first-person",
+  "workerReady": true
+}

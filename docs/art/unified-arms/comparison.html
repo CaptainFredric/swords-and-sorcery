@@ -1,0 +1,25 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Spellblade arm comparison</title>
+<style>
+body{margin:0;background:#181c22;color:#e9dfca;font:16px system-ui,sans-serif}main{max-width:1900px;margin:auto;padding:24px}h1{font:32px Georgia,serif;margin:0 0 8px}p{color:#b9b5ae;line-height:1.45;margin:8px 0 20px}nav{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px}button{background:#292e37;color:#e5d5b0;border:1px solid #626264;border-radius:5px;padding:10px 16px;cursor:pointer}button[aria-pressed=true]{border-color:#c3a066;background:#62373b}section{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}figure{margin:0;background:#20262d;border:1px solid #434748;padding:10px}figcaption{margin:2px 0 10px;font-weight:600;font-size:16px}img{display:block;width:100%;height:auto}aside{margin-top:28px}a{color:#d7bb82}details{margin:20px 0}summary{cursor:pointer}#armor{max-height:800px;object-fit:contain;background:#10161a}small{color:#aaa}@media(max-width:850px){section{grid-template-columns:1fr}main{padding:16px}}
+</style>
+<main>
+<h1>One Spellblade, both perspectives</h1>
+<p>Both hands, wrist cuffs and forearms share the edited third person construction. These are real game renders. Inspection close views use the same review camera in each candidate.</p>
+<nav aria-label="Compare pose">
+<button data-pose="idle" aria-pressed="true">Normal idle</button><button data-pose="chivalry" aria-pressed="false">Chivalry</button><button data-pose="guard" aria-pressed="false">Guard</button><button data-pose="grip-side" aria-pressed="false">Sword grip detail</button>
+</nav>
+<section>
+<figure><figcaption>Before · PR 162 scaffold</figcaption><img id="before" src="before-idle.jpg" alt="Earlier technical hand scaffold"></figure>
+<figure><figcaption>Previous candidate · PR 164</figcaption><img id="current" src="current-idle.jpg" alt="Previous right hand candidate with legacy forearms"></figure>
+<figure><figcaption>After · unified arms</figcaption><img id="after" src="after-idle.jpg" alt="Unified gauntlets and forearms"></figure>
+</section>
+<aside><h2>Concept, third person and first person</h2><img id="armor" src="final-comparison.png" alt="Concept reference and the actual Blender source arms in their Idle poses"><p><a href="final-comparison.blend">Open editable Blender comparison</a> · <a href="final-right-dorsal.png">Sword arm detail</a> · <a href="final-left-open-palm.png">Spell arm detail</a></p><details><summary>Both perspectives together in the game</summary><img src="after-tp-fp.jpg" alt="Final full Spellblade model alongside both first person arms in the real game renderer"></details></aside>
+<details><summary>Spellcasting, Sprint and second strike</summary><section style="grid-template-columns:repeat(2,minmax(0,1fr))"><figure><figcaption>Fireball</figcaption><img src="after-fireball.jpg" alt="Fireball gathering in the copied spell palm"></figure><figure><figcaption>Frostfire</figcaption><img src="after-frostfire.jpg" alt="Frostfire gathering in the copied spell palm"></figure><figure><figcaption>Sprint</figcaption><img src="after-sprint.jpg" alt="Sprint arm presentation"></figure><figure><figcaption>Second strike</figcaption><img src="after-attack-2.jpg" alt="Second sword strike presentation"></figure></section></details>
+<small>Source revision 3c4b360. Gameplay, sword dimensions, rig and action curves are unchanged.</small>
+</main>
+<script>
+document.querySelectorAll('button[data-pose]').forEach(button=>button.addEventListener('click',()=>{document.querySelectorAll('button[data-pose]').forEach(b=>b.setAttribute('aria-pressed',String(b===button)));['before','current','after'].forEach(name=>document.getElementById(name).src=name+'-'+button.dataset.pose+'.jpg')}));
+</script>
