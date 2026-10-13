@@ -1,8 +1,10 @@
 """Preservation and sword clearance for an isolated hand or unified arms pass.
-Run in Blender with -- [--arms | --forearms] BASELINE.blend CANDIDATE.blend.
+Run in Blender with -- [--arms | --forearms | --right-hand] BASELINE.blend CANDIDATE.blend.
 The original mode preserves the FP forearm. --arms permits both hands and
 forearms in either source, while preserving the upper arms and unrelated data.
 --forearms permits only forearm geometry; both accepted hands stay preserved.
+--right-hand permits only hand.R geometry in either source; the left hand and
+both forearms stay preserved.
 Source inspection is read only.
 """
 import argparse, sys, math, json
@@ -38,9 +40,9 @@ def object_contract(obj):
   matrix(obj.matrix_basis),matrix(obj.matrix_parent_inverse),matrix(obj.matrix_world),
   tuple((m.name,m.type,m.object.name if m.type=='ARMATURE' and m.object else None)for m in obj.modifiers))
 
-def snapshot(path, arms=False, forearms=False):
+def snapshot(path, arms=False, forearms=False, right_hand=False):
  bpy.ops.wm.open_mainfile(filepath=str(path))
- scoped=arms or forearms
+ scoped=arms or forearms or right_hand
  rig,arm_objects=source_objects(scoped);arm=arm_objects[0]
  result={'meshes':{o.name:mesh_snapshot(o,strict=scoped)for o in bpy.data.objects if o.type=='MESH'and o not in arm_objects},'arm_rest':mesh_snapshot(arm,True),
   'bones':[(b.name,b.parent.name if b.parent else None,tuple(tuple(row)for row in b.matrix_local))for b in rig.data.bones],
@@ -48,7 +50,7 @@ def snapshot(path, arms=False, forearms=False):
   'groups':[g.name for g in arm.vertex_groups], 'materials':[m.name for m in arm.data.materials],
   'reference':bytes(bpy.data.images['CANONICAL_SPELLBLADE_KEEP'].packed_file.data)}
  if scoped:
-  excluded={'forearm.R','forearm.L'} if forearms else {'hand.R','hand.L','forearm.R','forearm.L'}
+  excluded={'hand.R'} if right_hand else {'forearm.R','forearm.L'} if forearms else {'hand.R','hand.L','forearm.R','forearm.L'}
   result['arm_rest']={o.name:mesh_snapshot(o,exclude_bones=excluded,strict=True)for o in arm_objects}
   result['groups']={o.name:tuple(g.name for g in o.vertex_groups)for o in arm_objects}
   result['materials']={o.name:tuple(m.name if m else None for m in o.data.materials)for o in arm_objects}
@@ -60,10 +62,11 @@ def snapshot(path, arms=False, forearms=False):
 parser=argparse.ArgumentParser(description=__doc__)
 scope=parser.add_mutually_exclusive_group()
 scope.add_argument('--arms',action='store_true');scope.add_argument('--forearms',action='store_true')
+scope.add_argument('--right-hand',action='store_true')
 parser.add_argument('baseline',type=Path);parser.add_argument('candidate',type=Path)
 args=parser.parse_args(sys.argv[sys.argv.index('--')+1:]);baseline=args.baseline;candidate=args.candidate
-scoped=args.arms or args.forearms
-before=snapshot(baseline,args.arms,args.forearms);after=snapshot(candidate,args.arms,args.forearms)
+scoped=args.arms or args.forearms or args.right_hand
+before=snapshot(baseline,args.arms,args.forearms,args.right_hand);after=snapshot(candidate,args.arms,args.forearms,args.right_hand)
 for key in before:assert before[key]==after[key],f'Unrelated source data changed: {key}'
 rig,arm_objects=source_objects(scoped);arm=arm_objects[0];sword=bpy.data.objects['HeroSword'];M=(rig.matrix_world@rig.data.bones['hand.R'].matrix_local).inverted()
 ids={v.index for v in arm.data.vertices if any(arm.vertex_groups[g.group].name=='hand.R' and g.weight>.5 for g in v.groups)}
@@ -104,7 +107,9 @@ for action in bpy.data.actions:
   overlap=posed_bvh(evaluated[0],ids).overlap(posed_bvh(evaluated[1],sword_ids))
   assert not overlap,f'{action.name} frame {frame}: hand cuts through physical {"sword" if scoped else "grip"}: {len(overlap)} face pairs'
   checks+=1
-if args.forearms:
+if args.right_hand:
+ print('RIGHT_HAND_SOURCE_OK left hand, both forearms, upper arms, unrelated meshes, object hierarchy and matrices, rig, actions, reference, material slots and vertex groups preserved; entire sword surface overlap zero; sampled poses',checks)
+elif args.forearms:
  print('FOREARMS_SOURCE_OK both hands, upper arms, unrelated meshes, object hierarchy and matrices, rig, actions, reference, material slots and vertex groups preserved; entire sword surface overlap zero; sampled poses',checks)
 elif args.arms:
  print('ARMS_SOURCE_OK both upper arms, unrelated meshes, object hierarchy and matrices, rig, actions, reference, material slots and vertex groups preserved; entire sword surface overlap zero; sampled poses',checks)
