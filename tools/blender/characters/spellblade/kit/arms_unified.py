@@ -246,19 +246,65 @@ def sculpt_fist(parts,G,g,r,D,N):
    apply(c,shape)
 
 def forearm_shape(parts,side):
+ shell_id=41 if side=='R' else 36
+ cuff_id=shell_id+2
+ front=center(parts[shell_id+4]);dorsal=Vector((front.x,0,front.z)).normalized()
  for c in parts:
   if c['bone']!='forearm.'+side:continue
-  cuff=c['id']==(43 if side=='R'else 38)
+  cuff=c['id']==cuff_id
   def shape(v):
    t=max(0,min(1,v.y/.28));k=1-.23*t
    v=Vector((v.x*k,v.y,v.z*k))
    if cuff:
-    # More restrained gold band and a lowered lip on the palm side.
-    v.y=.238+(v.y-.244)*.74
-    v.y-=.018*max(0,(v.z/.11))**2
+    # A steel wrist shield rises over the back of the hand; its palm lip
+    # stays shallow so the glove can articulate inside the open collar.
+    back=max(-1,min(1,v.dot(dorsal)/.085))
+    v.y=.238+(v.y-.244)*.48+.012*max(0,back)-.006*max(0,-back)
+    v.x*=.92;v.z*=.92
    return v
   apply(c,shape)
   if cuff:open_cuff(c)
+ # Sculpt the actual shell and raised plates into a fitted, faceted sleeve.
+ # Their original bevels, rigid attachment and individual construction remain.
+ def profile(y):
+  points=[(.02,.985),(.07,1.035),(.14,1.045),(.195,.935),(.222,.90)]
+  for (a,ka),(b,kb) in zip(points,points[1:]):
+   if y<=b:return ka+(kb-ka)*max(0,min(1,(y-a)/(b-a)))
+  return points[-1][1]
+ shell=parts[shell_id]
+ for y in (.07,.14,.195):ridge_cut(shell,Vector((0,y,0)),Vector((0,1,0)))
+ apply(shell,lambda v:Vector((v.x*profile(v.y),.02+(v.y-.02)*1.12,v.z*profile(v.y))))
+ for f in shell['faces']:
+  for col in f['colors']:col[:3]=[value*.88 for value in col[:3]]
+ for c in parts[shell_id+3:shell_id+5]:
+  C=center(c);N=Vector((C.x,0,C.z)).normalized();W=Vector((0,1,0)).cross(N).normalized()
+  for y in (.083,.15,.18):ridge_cut(c,Vector((0,y,0)),Vector((0,1,0)))
+  ridge_cut(c,Vector(),W)
+  def plate(v):
+   t=max(0,min(1,(v.y-.06)/.138));w=v.dot(W);n=v.dot(N)
+   width=.80+4*t if t<.15 else 1.40 if t<.65 else 1.40-2.06*(t-.65)
+   crown=.004*max(0,1-abs(w/.034))*math.sin(math.pi*t)
+   return W*(w*width*profile(v.y))+N*(n*profile(v.y)+crown)+Vector((0,.048+(v.y-.06)*1.37,0))
+  apply(c,plate)
+ # The brass is a perimeter treatment, rather than the entire collar.
+ steel=np.mean([color[:3]for f in parts[shell_id+4]['faces']for color in f['colors']],axis=0)
+ for c in (parts[shell_id+1],parts[cuff_id]):
+  if c['id']==shell_id+1:
+   apply(c,lambda v:Vector((v.x*.96,.009+(v.y-.009)*.52,v.z*.96)))
+  rim_normal=Vector((0,1,0))-dorsal*(.009/.085)
+  if c['id']==cuff_id:ridge_cut(c,Vector((0,.248,0)),rim_normal)
+  old=np.mean([color[:3]for f in c['faces']for color in f['colors']],axis=0)
+  ratio=steel/old
+  for f in c['faces']:
+   vertices=[Vector(c['verts'][i])for i in f['verts']];normal=sum((a.cross(b)for a,b in zip(vertices,vertices[1:]+vertices[:1])),Vector()).normalized()
+   rim=c['id']==cuff_id and (sum(vertices,Vector())/len(vertices)-Vector((0,.248,0))).dot(rim_normal)>0
+   if abs(normal.y)<.32 and not rim:
+    f['tag']=TAGS.index('steel');f['material']='KitMetal'
+    for col in f['colors']:col[:3]=[col[i]*float(ratio[i]) for i in range(3)]
+ # The armor has volume, but the accepted hands should remain substantial
+ # beside it. Use the same slimmer transverse construction in both views.
+ for c in parts[shell_id:shell_id+5]:
+  apply(c,lambda v:Vector((v.x*.88,v.y,v.z*.88)))
 
 bpy.ops.wm.open_mainfile(filepath=str(args.third_person_source))
 rig=bpy.data.objects['SpellbladeRig'];right=bpy.data.objects['Gauntlet.R'];left=bpy.data.objects['Gauntlet.L']
