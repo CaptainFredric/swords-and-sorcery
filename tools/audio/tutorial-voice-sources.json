@@ -1,6 +1,6 @@
 {
   "session": "2026-10-11",
-  "about": "Tutorial 1 recordings: the Google Drive ZIPs of 2026-10-11/12 and one loose take, archived untouched in artifacts/tutorial-voice/raw/<zip or loose-date>/. One row per raw take: its character, the recording key it serves (null: no place yet). status: mapped; inferred (the key is reasoned, see note); intended (its words differ from older script history but are the intended script wording, per the creator); alternate (a second take of a key, mastered, not played); dropped (set aside by the creator: not processed, the raw take kept); duplicate (the same file supplied again: sameAs names the row used); unplaced (no beat yet); general (Spellblade VO outside the tutorial). Captions come from the script; words is given where the plan does not have them yet. chain: this take's exceptions to its character's preset (a preset of its own, pitchEngine, gainDb), with why. repairs: its own fixes, with why (tools/audio/tutorial_voice.py: mend, release). Character presets: tools/audio/tutorial-voice-chains.json.",
+  "about": "Tutorial 1 recordings: the Google Drive ZIPs of 2026-10-11/12 and the loose takes, archived untouched in artifacts/tutorial-voice/raw/<zip or loose-date>/. One row per raw take: its character, the recording key it serves (null: no place yet). status: mapped; inferred (the key is reasoned, see note); intended (its words differ from older script history but are the intended script wording, per the creator); alternate (a second take of a key, mastered, not played); dropped (set aside by the creator: not processed, the raw take kept); duplicate (the same file supplied again: sameAs names the row used); unplaced (no beat yet); staged (recorded for a line the script has not placed yet: mastered for review, not served); general (Spellblade VO outside the tutorial). Captions come from the script; words is given where the plan does not have them yet. chain: this take's exceptions to its character's preset (a preset of its own, pitchEngine, gainDb), with why. repairs: its own fixes, with why (tools/audio/tutorial_voice.py: splice, mend, release). Character presets: tools/audio/tutorial-voice-chains.json.",
   "takes": [
     {
       "raw": "drive-download-20261012T044301Z-1-001/GreetingsSpellblade.mp3",
@@ -68,12 +68,12 @@
       "status": "mapped",
       "repairs": [
         {
-          "kind": "mend",
+          "kind": "splice",
           "span": [
-            0.665,
-            0.825
+            0.675,
+            0.83
           ],
-          "why": "The voice breaks in the middle of the \"Ah...\" (a creak with an octave-up flicker, 0.665-0.825 s); every pitch change turned it into a stray note. Resynthesized from the steady \"Ah\" either side; onset and decay untouched (creator, 2026-10-12)."
+          "why": "The voice breaks in the middle of the \"Ah...\": a creak, then an aperiodic break with a 40 ms flip up an octave (about 330 Hz, 0.74-0.79 s), steady voice again from 0.83 s; every pitch change turned the flip into a stray note (creator, 2026-10-12). The break is refilled with the take's own glottal cycles from just after it (no resynthesis), so the voice's own jitter and shimmer run straight through; the creak before it is kept. The earlier WORLD mend made it a machine-steady vowel (jitter 0.06 %, HNR 28 dB), which the creator heard as a digital glitch."
         }
       ]
     },
@@ -645,9 +645,9 @@
       "key": "tutorial.jump-instruction",
       "status": "mapped",
       "chain": {
-        "preset": "direct",
+        "preset": "settled-direct",
         "gainDb": 1.0,
-        "why": "Terse on purpose: no compression, so its attack stays abrupt; a dB forward of the narrator's usual level."
+        "why": "Terse on purpose: the Narrator's settled voice without compression, deharsh or de-essing, so its attack stays abrupt; a dB forward of his usual level."
       }
     },
     {
@@ -1335,6 +1335,42 @@
       "status": "general",
       "note": "General Spellblade VO: no line declared for it yet.",
       "words": "What was my equipment again?"
+    },
+    {
+      "raw": "drive-download-20261012T210814Z-1-001/TheDeadEndIsALIEve.mp3",
+      "sha256": "3aff0f4f98100061a2e81bfa805af3f4944b002f13c206acd7fe402f75dbebee",
+      "speaker": "spellblade",
+      "key": null,
+      "status": "staged",
+      "note": "Recorded 2026-10-12 for a beat the script has not placed yet: mastered for review with its character's preset, not served. A phonetic joke: for a moment it is \"The dead-end is a LIE!\", then the final /v/ makes it \"alive\". The pause and the /v/ are kept exactly as performed.",
+      "words": "The dead-end is a LIE\u2014ve!"
+    },
+    {
+      "raw": "drive-download-20261012T210814Z-1-001/YesAlasWeHaveReached.mp3",
+      "sha256": "9b0df42916deb82cf1aedac6629517a973969c76dbe1a600ed7c4d1493ca4447",
+      "speaker": "rival",
+      "key": null,
+      "status": "staged",
+      "note": "Recorded 2026-10-12 for a beat the script has not placed yet: mastered for review with its character's preset, not served.",
+      "words": "Yes! Alas we have reached the end of your story. Your dead-end!"
+    },
+    {
+      "raw": "drive-download-20261012T210814Z-1-001/YouHaveMorePages.mp3",
+      "sha256": "f6fab020a17bea31eda806522a4c1557eb9e9f9e062883580a10e29a63f6ed06",
+      "speaker": "narrator",
+      "key": null,
+      "status": "staged",
+      "note": "Recorded 2026-10-12 for a beat the script has not placed yet: mastered for review with its character's preset, not served.",
+      "words": "You have more pages, Spellblade."
+    },
+    {
+      "raw": "drive-download-20261012T210814Z-1-001/ArghPerhapsIHadWrong.mp3",
+      "sha256": "21b1481da583322ffbbaea781a89f3920aa402214985ef5c81d6e13681abc5b5",
+      "speaker": "rival",
+      "key": null,
+      "status": "staged",
+      "note": "Recorded 2026-10-12 for a beat the script has not placed yet: mastered for review with its character's preset, not served.",
+      "words": "Argh!... Perhaps I had the wrong address!!"
     }
   ]
 }

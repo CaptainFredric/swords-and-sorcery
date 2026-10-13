@@ -39,7 +39,7 @@ test('each raw take is accounted for once, and every exception or repair says wh
     assert.ok(chains.roles[take.speaker], take.raw);
     if (take.chain?.preset) assert.ok(chains.roles[take.speaker].presets[take.chain.preset], `${take.raw}: ${take.chain.preset}`);
     if (take.chain) assert.ok(take.chain.why, `${take.raw}: why its own treatment`);
-    for (const fix of take.repairs ?? []) assert.ok(['mend', 'release'].includes(fix.kind) && fix.why, `${take.raw}: ${JSON.stringify(fix)}`);
+    for (const fix of take.repairs ?? []) assert.ok(['splice', 'mend', 'release'].includes(fix.kind) && fix.why, `${take.raw}: ${JSON.stringify(fix)}`);
     if (take.key) {
       assert.ok(keys.has(take.key), `${take.raw}: ${take.key} is in the plan`);
       // (a caption is the script's: a take carries words only where the script is catching up with it)
@@ -50,12 +50,15 @@ test('each raw take is accounted for once, and every exception or repair says wh
       if (take.status === 'dropped' || take.status === 'duplicate') assert.ok(take.note, take.raw);
       if (!['alternate', 'dropped', 'duplicate'].includes(take.status)) served.set(take.key, [...(served.get(take.key) ?? []), take.raw]);
     } else {
-      assert.ok(['unplaced', 'general'].includes(take.status), take.raw);
+      // (staged: recorded for a line the script has not placed yet, mastered for review and never served)
+      assert.ok(['unplaced', 'general', 'staged'].includes(take.status), take.raw);
       assert.ok(take.words && take.note, `${take.raw}: what it says and why it has no place`);
     }
   }
   for (const [key, raws] of served) assert.equal(raws.length, 1, `${key}: ${raws}`);
   assert.deepEqual([...keys].filter(key => !served.has(key)).sort(), [...NOT_RECORDED].sort());
+  // (the WORLD mend made "Ah..." a machine-steady vowel the creator heard as a digital glitch: its own cycles refill it)
+  assert.deepEqual(sources.find(take => take.key === 'tutorial.look-ah').repairs.map(fix => fix.kind), ['splice']);
 });
 
 test('each character\'s treatment is one named preset, its earlier ones kept to go back to', () => {
