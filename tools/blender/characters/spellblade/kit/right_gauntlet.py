@@ -85,6 +85,12 @@ R=radius+.018
 # Four separate plated fingers. Every phalanx follows an arc around the actual handle; joint gaps stay visible.
 # The cross section's inner flat remains outside the physical grip even between ring samples.
 for index,offset in enumerate((-.0465,-.0155,.0155,.0465)):
+ # A continuous dark finger core supports the plated phalanges and remains visible at each articulation.
+ core=[]
+ for step in range(10):
+  theta=math.radians(8+(224-8)*step/9);normal=b*math.cos(theta)+a*math.sin(theta);c=G+g*offset+normal*R
+  core.append([c+g*x+normal*y for x,y in octagon(.0104,.0075,.002)])
+ loft(core,['joint']*len(core),109+index*10,False)
  for segment,(start,end)in enumerate(((8,77),(81,150),(154,224))):
   rr=R+(.002 if segment==0 else 0);width=.0134 if segment==0 else .0126;depth=.0105
   rings=[]
@@ -94,7 +100,20 @@ for index,offset in enumerate((-.0465,-.0155,.0155,.0465)):
   # Broad knuckle caps sit in line with the phalanges rather than as studs on a separate bar.
   tag='steel'if segment==0 else'dark'
   loft(rings,[['dark',tag,tag,tag,'dark','dark','dark','dark']]*3,100+index*10+segment)
-# Opposing thumb, on the guard side. A shaped web meets the dorsal plate; two plates curl onto the handle.
+# Opposing thumb, on the guard side. Its web joins the hand shell; the continuous core supports both scales.
+thumb_start=G+g*.060+(b*math.cos(math.radians(-55))+a*math.sin(math.radians(-55)))*(R+.001)
+web_start=point(-.035,.042,.041);direction=(thumb_start-web_start).normalized()
+normal=(b-direction*b.dot(direction)).normalized();across=direction.cross(normal).normalized()
+web=[]
+for t in(0,.5,1):
+ c=web_start.lerp(thumb_start,t)
+ web.append([c+across*x+normal*y for x,y in octagon(.011,.010,.003)])
+loft(web,['joint']*3,199,False)
+core=[]
+for step in range(7):
+ t=step/6;theta=math.radians(-55+92*t);normal=b*math.cos(theta)+a*math.sin(theta);c=G+g*(.060+.019*t)+normal*(R+.001)
+ core.append([c+g*x+normal*y for x,y in octagon(.010,.008,.002)])
+loft(core,['joint']*len(core),209,False)
 for segment,(start,end,s0,s1)in enumerate(((-55,-9,.060,.071),(-5,37,.071,.079))):
  rings=[]
  for t in (0,.5,1):
