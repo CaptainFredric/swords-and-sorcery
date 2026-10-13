@@ -1,0 +1,10 @@
+LEFT_TO_RIGHT_PROVENANCE_OK CanonicalArmPart 1..32: 32 of 32 exact baseline TP left hand constructions copied into final TP right hand
+Exact preserved construction counts: {'vertex': 832, 'face': 896, 'corner': 3328}
+Exact topology, materials, shading and color corner association verified; coordinate curling excluded from construction identity
+READ_ONLY_OK Both source file SHA256 hashes unchanged
+Evidence: output/right-from-left/left-to-right-provenance.json
+Blender 4.5.14 LTS (hash 62c1db4208e8 built 2026-09-15 01:30:44)
+Read blend: "output/right-from-left/baseline/spellblade-third-person.blend"
+Read blend: "output/right-from-left/final/spellblade-third-person.blend"
+
+Blender quit
