@@ -54,7 +54,7 @@ for finger,start in enumerate((5,12,19,26)):
  # Accepted knuckle caps stay organized on their existing bar.
  # Across coordinate is the handle axis, measured directly from the source center.
  cap_center=Vector(T[start]['center']);cap_s=(cap_center-tG).dot(tg)
- graft(start,lambda v,cap_s=cap_s,offset=offset:xyz(coords(v)[0]*.68+.027,offset+(coords(v)[1]-cap_s)*.75,coords(v)[2]*.6+.035))
+ graft(start,lambda v,cap_s=cap_s,offset=offset:xyz(coords(v)[0]*.68+.027,offset+(coords(v)[1]-cap_s)*.75,coords(v)[2]*.6+(.042 if args.iteration==3 else .035)))
  for segment,angle in enumerate((50,108,157)):
   core=start+1+segment*2;scale=core+1;c0=Vector(T[core]['center']);c1=Vector(T[scale]['center']);normal=c1-c0;normal=(normal-tg*normal.dot(tg)).normalized();direction=tg.cross(normal).normalized()
   theta=math.radians(angle);N=b*math.cos(theta)+a*math.sin(theta);D=a*math.cos(theta)-b*math.sin(theta);W=g
