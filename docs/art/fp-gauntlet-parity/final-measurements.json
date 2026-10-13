@@ -1,0 +1,40 @@
+{
+  "sourceSha256": "cea940936f3507ab86749edaf97bde51fe4be76f12337b51ff79ee2b0d066130",
+  "hand": {
+    "vertices": 888,
+    "faces": 962,
+    "area": 0.14988497024339043,
+    "tags_area": {
+      "steel": 0.07029861573479824,
+      "steel_dark": 0.045500216552682105,
+      "brass": 0.0046453325458060135,
+      "leather_dark": 0.029440805410104076
+    },
+    "materials_area": {
+      "KitMetal": 0.12044416483328636,
+      "KitMatte": 0.029440805410104076
+    },
+    "min": [
+      -0.11416815221309662,
+      -0.033455587923526764,
+      -0.08407855033874512
+    ],
+    "max": [
+      0.05860062316060066,
+      0.14113380014896393,
+      0.09459688514471054
+    ],
+    "bone_axis_bounds_size": [
+      0.17276877537369728,
+      0.1745893880724907,
+      0.17867543548345566
+    ]
+  },
+  "surfacePalettePercent": {
+    "steel": 46.9,
+    "steel_dark": 30.36,
+    "brass": 3.1,
+    "leather_dark": 19.64
+  },
+  "scope": "Includes hidden surfaces; not a screen coverage measure"
+}

@@ -1,11 +1,11 @@
-# First person sword gauntlet source candidate
+# First person Spellblade hand parity candidate
 
-Status, October 12: rebuilt in the editable Blender source and exported for creator review. The candidate has separated dark armored fingers, aligned knuckle protection, a faceted hand plate, supported thumb and a layered wrist transition fitted around the physical sword grip.
+PR #162 remains a technically validated fallback rather than an artistically accepted model. The new `art/fp-gauntlet-parity-ultra` branch transfers the accepted third person gauntlet's actual components, topology, materials and colors into the dedicated first person rig, with local grip and camera facing adaptations.
 
-See [the source diagnosis, Blender handoff and verification](art/right-gauntlet/README.md), [matched comparisons](art/right-gauntlet/comparison.html) and [the live controller recording](art/right-gauntlet/live-actions.webm).
+[Parity diagnosis and source handoff](art/fp-gauntlet-parity/README.md) · [Visual comparison](art/fp-gauntlet-parity/comparison.html) · [Premodel correspondence](art/fp-gauntlet-parity/PARITY_MAP.md).
 
-The rig, authored action curves, sword dimensions and approved 35 degree roll remain preserved. The right forearm, left hand and third person source are unchanged. The exported source revision is `1048debe477eef37d2d86bd784c971ec134547c3`.
+The normal idle view is the primary acceptance view. All required action poses, the concept hand panel, and normalized third person/candidate source crops are available in the comparison. Source commit: `75c73dfdacf24a1c18faddcf0e7d8e556b4211d9`.
 
-Future geometry edits belong in `tools/blender/characters/spellblade/source/spellblade-first-person.blend`, on `Arm.R`. Use `scripts/export-spellblade-first-person.py` for the established authored export pipeline. Save artistic edits directly in the source; the historical whole kit builder would reconstruct geometry and actions.
+The sword, approved 35 degree roll, rig, actions, left hand and first person forearm remain preserved. The third person source and export remain unchanged. Forearm/cuff disparity is documented for a future separate pass.
 
-Creator review determines artistic acceptance. The focused tests establish source preservation, grip surface clearance, animation compatibility and asset budgets.
+Creator artistic acceptance remains pending. The source file and focused exporter remain editable. The earlier [technical gauntlet report](art/right-gauntlet/README.md) is retained as history.

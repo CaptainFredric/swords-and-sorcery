@@ -1,0 +1,290 @@
+[
+  {
+    "fov": 78,
+    "hand": [
+      -5.655466959891418,
+      1.2287774968568794,
+      -3.780066903779177
+    ],
+    "name": "idle",
+    "production": "production",
+    "sourceRevision": "1048debe477eef37d2d86bd784c971ec134547c3",
+    "time": 101.49999999999991,
+    "viewport": [
+      1440,
+      812
+    ]
+  },
+  {
+    "fov": 78,
+    "hand": [
+      -5.655466959891418,
+      1.2287774968568794,
+      -3.780066903779177
+    ],
+    "name": "close",
+    "production": "production",
+    "sourceRevision": "1048debe477eef37d2d86bd784c971ec134547c3",
+    "time": 101.49999999999991,
+    "viewport": [
+      1440,
+      812
+    ]
+  },
+  {
+    "fov": 78,
+    "hand": [
+      -5.655466959891418,
+      1.2287774968568794,
+      -3.780066903779177
+    ],
+    "name": "grip-above",
+    "production": "production",
+    "sourceRevision": "1048debe477eef37d2d86bd784c971ec134547c3",
+    "time": 101.49999999999991,
+    "viewport": [
+      1440,
+      812
+    ]
+  },
+  {
+    "fov": 78,
+    "hand": [
+      -5.655466959891418,
+      1.2287774968568794,
+      -3.780066903779177
+    ],
+    "name": "grip-side",
+    "production": "production",
+    "sourceRevision": "1048debe477eef37d2d86bd784c971ec134547c3",
+    "time": 101.49999999999991,
+    "viewport": [
+      1440,
+      812
+    ]
+  },
+  {
+    "fov": 78,
+    "hand": [
+      -5.560100913021484,
+      1.131873976547277,
+      -4.059653082808231
+    ],
+    "name": "guard",
+    "production": "production",
+    "sourceRevision": "1048debe477eef37d2d86bd784c971ec134547c3",
+    "time": 101.49999999999991,
+    "viewport": [
+      1440,
+      812
+    ]
+  },
+  {
+    "fov": 78,
+    "hand": [
+      -5.625922269699009,
+      1.2784731905422466,
+      -3.9228844528588342
+    ],
+    "name": "attack-1",
+    "production": "production",
+    "sourceRevision": "1048debe477eef37d2d86bd784c971ec134547c3",
+    "time": 100.89999999999996,
+    "viewport": [
+      1440,
+      812
+    ]
+  },
+  {
+    "fov": 78,
+    "hand": [
+      -5.445930237733866,
+      1.2608789316977351,
+      -4.096881032242094
+    ],
+    "name": "attack-2",
+    "production": "production",
+    "sourceRevision": "1048debe477eef37d2d86bd784c971ec134547c3",
+    "time": 101.57999999999996,
+    "viewport": [
+      1440,
+      812
+    ]
+  },
+  {
+    "fov": 78,
+    "hand": [
+      -5.497989344625509,
+      1.2397746126226596,
+      -3.99717360881111
+    ],
+    "name": "attack-3",
+    "production": "production",
+    "sourceRevision": "1048debe477eef37d2d86bd784c971ec134547c3",
+    "time": 102.29999999999988,
+    "viewport": [
+      1440,
+      812
+    ]
+  },
+  {
+    "fov": 78,
+    "hand": [
+      -5.602273511614628,
+      1.1175809228426463,
+      -4.014586002327759
+    ],
+    "name": "parry",
+    "production": "production",
+    "sourceRevision": "1048debe477eef37d2d86bd784c971ec134547c3",
+    "time": 100.61999999999998,
+    "viewport": [
+      1440,
+      812
+    ]
+  },
+  {
+    "fov": 83.90639838325741,
+    "hand": [
+      -5.6173454474989475,
+      1.0480305606186755,
+      -3.87508136927067
+    ],
+    "name": "sprint",
+    "production": "production",
+    "sourceRevision": "1048debe477eef37d2d86bd784c971ec134547c3",
+    "time": 101.49999999999991,
+    "viewport": [
+      1440,
+      812
+    ]
+  },
+  {
+    "fov": 85.53403036058391,
+    "hand": [
+      -5.6834652514040345,
+      1.3977207999406016,
+      -3.863617394866019
+    ],
+    "name": "dash",
+    "production": "production",
+    "sourceRevision": "1048debe477eef37d2d86bd784c971ec134547c3",
+    "time": 100.59999999999997,
+    "viewport": [
+      1440,
+      812
+    ]
+  },
+  {
+    "fov": 78,
+    "hand": [
+      -5.656189758039289,
+      1.226398232081338,
+      -3.777365866438922
+    ],
+    "name": "air",
+    "production": "production",
+    "sourceRevision": "1048debe477eef37d2d86bd784c971ec134547c3",
+    "time": 100.74999999999996,
+    "viewport": [
+      1440,
+      812
+    ]
+  },
+  {
+    "fov": 78,
+    "hand": [
+      -5.652599246442819,
+      1.2312744601186756,
+      -3.777471800425194
+    ],
+    "name": "landing",
+    "production": "production",
+    "sourceRevision": "1048debe477eef37d2d86bd784c971ec134547c3",
+    "time": 100.99333333333328,
+    "viewport": [
+      1440,
+      812
+    ]
+  },
+  {
+    "fov": 78,
+    "hand": [
+      -5.625875932454326,
+      1.2612941807605496,
+      -3.8295216037331112
+    ],
+    "name": "fireball",
+    "production": "production",
+    "sourceRevision": "1048debe477eef37d2d86bd784c971ec134547c3",
+    "time": 100.69999999999996,
+    "viewport": [
+      1440,
+      812
+    ]
+  },
+  {
+    "fov": 78,
+    "hand": [
+      -5.625875932454326,
+      1.2612941807605496,
+      -3.8295216037331112
+    ],
+    "name": "frostfire",
+    "production": "production",
+    "sourceRevision": "1048debe477eef37d2d86bd784c971ec134547c3",
+    "time": 100.69999999999996,
+    "viewport": [
+      1440,
+      812
+    ]
+  },
+  {
+    "fov": 78,
+    "hand": [
+      -5.625875932454326,
+      1.2612941807605496,
+      -3.8295216037331112
+    ],
+    "name": "gale",
+    "production": "production",
+    "sourceRevision": "1048debe477eef37d2d86bd784c971ec134547c3",
+    "time": 100.69999999999996,
+    "viewport": [
+      1440,
+      812
+    ]
+  },
+  {
+    "fov": 78,
+    "hand": [
+      -5.656459405648633,
+      1.2255327460304375,
+      -3.776391048902703
+    ],
+    "name": "steel",
+    "production": "production",
+    "sourceRevision": "1048debe477eef37d2d86bd784c971ec134547c3",
+    "time": 100.64999999999996,
+    "viewport": [
+      1440,
+      812
+    ]
+  },
+  {
+    "fov": 82.24724051849924,
+    "hand": [
+      -5.614768087734672,
+      1.2061451433868255,
+      -3.948499593770997
+    ],
+    "name": "chivalry",
+    "production": "production",
+    "sourceRevision": "1048debe477eef37d2d86bd784c971ec134547c3",
+    "time": 100.89999999999996,
+    "viewport": [
+      1440,
+      812
+    ]
+  }
+]

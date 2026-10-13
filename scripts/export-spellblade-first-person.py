@@ -8,11 +8,11 @@ ROOT=Path(__file__).resolve().parents[1];sys.path.insert(0,str(ROOT))
 from tools.blender.characters.spellblade.first_person import build_first_person_asset
 from tools.blender.characters.spellblade.validate import load_contract
 args=sys.argv[sys.argv.index('--')+1:]if '--'in sys.argv else[]
-parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--out',type=Path,required=True);parser.add_argument('--source-revision',required=True);options=parser.parse_args(args)
+parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--out',type=Path,required=True);parser.add_argument('--source',type=Path);parser.add_argument('--source-revision',required=True);options=parser.parse_args(args)
 if not re.fullmatch('[0-9a-f]{40}',options.source_revision):raise ValueError('Use a real 40 character source commit SHA')
 options.out.mkdir(parents=True,exist_ok=True)
-result=build_first_person_asset(options.out,load_contract(),'review')
-source=ROOT/'tools/blender/characters/spellblade/source/spellblade-first-person.blend'
+result=build_first_person_asset(options.out,load_contract(),'review',source=options.source)
+source=options.source or ROOT/'tools/blender/characters/spellblade/source/spellblade-first-person.blend'
 report={'schemaVersion':1,'reviewOnly':True,'sourceRevision':options.source_revision,'blenderVersion':bpy.app.version_string,
  'firstPersonSource':{'file':source.name,'sha256':hashlib.sha256(source.read_bytes()).hexdigest()},
  'firstPerson':{'triangles':result.triangles,'triangleBudget':result.triangle_budget,'animations':list(result.animations)},

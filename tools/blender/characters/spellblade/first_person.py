@@ -69,8 +69,8 @@ def _render_reviews(
     return paths
 
 
-def build_first_person_asset(out: Path, contract: dict, mode: str) -> FirstPersonBuild:
-    source = Path(__file__).with_name("source") / "spellblade-first-person.blend"
+def build_first_person_asset(out: Path, contract: dict, mode: str, *, source: Path | None = None) -> FirstPersonBuild:
+    source = source or Path(__file__).with_name("source") / "spellblade-first-person.blend"
     validate_output_paths((source, source.with_name("spellblade-third-person.blend")), out)
     armature, model, actions = load_authored_source(source, "SpellbladeFirstPersonExport")
     if set(actions) != set(contract["firstPersonClips"]):
