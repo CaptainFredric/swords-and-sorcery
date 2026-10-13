@@ -636,7 +636,11 @@
       "speaker": "spellblade",
       "key": "tutorial.jump-no-hints",
       "status": "inferred",
-      "note": "Same words as tutorial.no-hints. Recorded 19:30:50, eight seconds before \"Took us long enough\" (19:30:58): the jump scene."
+      "note": "Same words as tutorial.no-hints. Recorded 19:30:50, eight seconds before \"Took us long enough\" (19:30:58): the jump scene.",
+      "chain": {
+        "preset": "forged-helm-shallow-2026-10-13",
+        "why": "The 2.5 semitone shift loses this take's contour (9.1% of voiced frames a semitone off, against 3.6% at 2 semitones): the same helm at the old depth."
+      }
     },
     {
       "raw": "drive-download-20261012T044301Z-1-001/Jump..mp3",
@@ -645,9 +649,9 @@
       "key": "tutorial.jump-instruction",
       "status": "mapped",
       "chain": {
-        "preset": "settled-direct",
+        "preset": "storied-direct",
         "gainDb": 1.0,
-        "why": "Terse on purpose: the Narrator's settled voice without compression, deharsh or de-essing, so its attack stays abrupt; a dB forward of his usual level."
+        "why": "Terse on purpose: the Narrator's voice (storied) without compression, deharsh or de-essing, so its attack stays abrupt; a dB forward of his usual level."
       }
     },
     {
