@@ -1,6 +1,6 @@
 {
   "session": "2026-10-11",
-  "about": "Tutorial 1 recordings: the Google Drive ZIPs of 2026-10-11/12 and the loose takes, archived untouched in artifacts/tutorial-voice/raw/<zip or loose-date>/. One row per raw take: its character, the recording key it serves (null: no place yet). status: mapped; inferred (the key is reasoned, see note); intended (its words differ from older script history but are the intended script wording, per the creator); alternate (a second take of a key, mastered, not played); dropped (set aside by the creator: not processed, the raw take kept); duplicate (the same file supplied again: sameAs names the row used); unplaced (no beat yet); staged (recorded for a line the script has not placed yet: mastered for review, not served); general (Spellblade VO outside the tutorial). Captions come from the script; words is given where the plan does not have them yet. chain: this take's exceptions to its character's preset (a preset of its own, pitchEngine, gainDb), with why. repairs: its own fixes, with why (tools/audio/tutorial_voice.py: splice, mend, release). Character presets: tools/audio/tutorial-voice-chains.json.",
+  "about": "Tutorial 1 recordings: the Google Drive ZIPs of 2026-10-11/12 and the loose takes, archived untouched in artifacts/tutorial-voice/raw/<zip or loose-date>/. One row per raw take: its character, the recording key it serves (null: no place yet). status: mapped; inferred (the key is reasoned, see note); intended (its words differ from older script history but are the intended script wording, per the creator); alternate (a second take of a key, mastered, not played); dropped (set aside by the creator: not processed, the raw take kept); duplicate (the same file supplied again: sameAs names the row used); unplaced (no beat yet); staged (recorded for a line the script has not placed yet: mastered for review, not served); general (Spellblade VO outside the tutorial). Captions come from the script; words is given where the plan does not have them yet. chain: this take's exceptions to its character's preset (a preset of its own, pitchEngine, gainDb), with why. repairs: its own fixes, with why (tools/audio/tutorial_voice.py: excise, splice, mend, release). Character presets: tools/audio/tutorial-voice-chains.json.",
   "takes": [
     {
       "raw": "drive-download-20261012T044301Z-1-001/GreetingsSpellblade.mp3",
@@ -68,12 +68,12 @@
       "status": "mapped",
       "repairs": [
         {
-          "kind": "splice",
+          "kind": "excise",
           "span": [
             0.675,
             0.83
           ],
-          "why": "The voice breaks in the middle of the \"Ah...\": a creak, then an aperiodic break with a 40 ms flip up an octave (about 330 Hz, 0.74-0.79 s), steady voice again from 0.83 s; every pitch change turned the flip into a stray note (creator, 2026-10-12). The break is refilled with the take's own glottal cycles from just after it (no resynthesis), so the voice's own jitter and shimmer run straight through; the creak before it is kept. The earlier WORLD mend made it a machine-steady vowel (jitter 0.06 %, HNR 28 dB), which the creator heard as a digital glitch."
+          "why": "The voice breaks in the middle of the \"Ah...\": a creak, then an aperiodic break with a 40 ms flip up an octave (about 330 Hz, 0.74-0.79 s), steady voice again from 0.83 s; every pitch change turned the flip into a stray note (creator, 2026-10-12). The break is cut out and the voice joined cycle to cycle either side of it: only the performance, nothing made or repeated; the take is 0.16 s shorter. Two earlier repairs were heard as glitches: a WORLD mend (a machine-steady vowel) and a splice (the take's own cycles played back and forth to fill the gap, a stutter) (creator, 2026-10-12/13)."
         }
       ]
     },

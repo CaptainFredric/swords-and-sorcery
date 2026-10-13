@@ -39,7 +39,7 @@ test('each raw take is accounted for once, and every exception or repair says wh
     assert.ok(chains.roles[take.speaker], take.raw);
     if (take.chain?.preset) assert.ok(chains.roles[take.speaker].presets[take.chain.preset], `${take.raw}: ${take.chain.preset}`);
     if (take.chain) assert.ok(take.chain.why, `${take.raw}: why its own treatment`);
-    for (const fix of take.repairs ?? []) assert.ok(['splice', 'mend', 'release'].includes(fix.kind) && fix.why, `${take.raw}: ${JSON.stringify(fix)}`);
+    for (const fix of take.repairs ?? []) assert.ok(['excise', 'splice', 'mend', 'release'].includes(fix.kind) && fix.why, `${take.raw}: ${JSON.stringify(fix)}`);
     if (take.key) {
       assert.ok(keys.has(take.key), `${take.raw}: ${take.key} is in the plan`);
       // (a caption is the script's: a take carries words only where the script is catching up with it)
@@ -57,8 +57,9 @@ test('each raw take is accounted for once, and every exception or repair says wh
   }
   for (const [key, raws] of served) assert.equal(raws.length, 1, `${key}: ${raws}`);
   assert.deepEqual([...keys].filter(key => !served.has(key)).sort(), [...NOT_RECORDED].sort());
-  // (the WORLD mend made "Ah..." a machine-steady vowel the creator heard as a digital glitch: its own cycles refill it)
-  assert.deepEqual(sources.find(take => take.key === 'tutorial.look-ah').repairs.map(fix => fix.kind), ['splice']);
+  // ("Ah...": a WORLD mend made it a machine-steady vowel, a splice refilled it with its own cycles played back and
+  // forth, and the creator heard both as glitches; the break is cut out, the voice joined cycle to cycle)
+  assert.deepEqual(sources.find(take => take.key === 'tutorial.look-ah').repairs.map(fix => fix.kind), ['excise']);
 });
 
 test('each character\'s treatment is one named preset, its earlier ones kept to go back to', () => {

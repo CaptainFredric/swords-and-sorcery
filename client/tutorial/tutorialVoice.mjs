@@ -76,6 +76,12 @@ export class TutorialVoice {
     return this.buffers.get(key);
   }
 
+  /** The list of takes and one take (the tutorial's first line) fetched and decoded now, well before they are needed. */
+  async warm(key) {
+    await this.load();
+    return key ? this.buffer(key) : null;
+  }
+
   /** Decode the takes of these beats ahead of time, a few at once, in order. */
   async preload(beats) {
     await this.load();

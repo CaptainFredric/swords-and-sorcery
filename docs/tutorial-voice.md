@@ -44,7 +44,7 @@ mutter. True peaks stay under −1.5 dBFS.
 
 | Take | Exception | Why |
 | --- | --- | --- |
-| "Ah..." | `splice` 0.675–0.83 s | The voice breaks mid-"Ah...": a creak, then an aperiodic break with a 40 ms flip up an octave (about 330 Hz). Every pitch change made the flip a stray note. The break is refilled with the take's own glottal cycles from just after it (no resynthesis), so the voice's own jitter and shimmer run through; the creak is kept. The earlier WORLD `mend` made it a machine-steady vowel (below). |
+| "Ah..." | `excise` 0.675–0.83 s | The voice breaks mid-"Ah...": a creak, then an aperiodic break with a 40 ms flip up an octave (about 330 Hz). Every pitch change made the flip a stray note. The break is cut out and the voice joined cycle to cycle either side of it: only the performance, nothing made or repeated; the take is 0.16 s shorter (0.54 s). Two earlier repairs were heard as glitches: a WORLD `mend` (a machine-steady vowel) and a `splice` (the take's own cycles played back and forth to fill the gap: a stutter). |
 | "There was an extra." | `release` +80 ms | The recorder stopped while the last syllable was still releasing. Its breath continues 80 ms, falling 30 dB, from the release's own spectrum: no stretched vowel, no loop. |
 | "Jump." | preset `settled-direct`, +1 dB | Terse on purpose. |
 
@@ -104,7 +104,11 @@ does not copy it.
   more at 500–800 Hz and 4–6 kHz and less at 1.26 kHz). The decay after the last word, and the early reflections
   (cepstra 0.3–20 ms), match within 3%: the difference is tone, not room. `session-matched` puts three quarters of it
   back: 0.87 dB from the combat lines, against 1.55 dB. No reverb added.
-- **Timing**: every take's length and onset are exactly as before; the processing never changes a take's length.
+- **Timing**: every take's length and onset are exactly as before; the processing never changes a take's length
+  (except "Ah..." since 2026-10-13: its break is cut out, 0.16 s).
+- **The opening** (2026-10-13): the list of takes and the first line's take decode at the menu as soon as the sound is
+  up. When the tutorial's world was being built they took 3.2–3.4 s, past the opening's 2.5 s limit, and the first
+  line then played silent for good; if the opening ever gives up again, the first line is voiced as its take arrives.
 - **In the game** (Chrome, real input, Codex's #159 playtest driver, the processed AAC through the real AudioContext):
   the whole route in 7 min 49 s, 152 takes, none repeated, each to its real end except "Convince him to unblock you."
   (dropped as designed when Rival falls mid-line). Gaps between lines: median 0.35 s; "No I am not!" to the

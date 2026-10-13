@@ -3,6 +3,7 @@ import { TutorialView } from './tutorial/TutorialView.mjs';
 import { TutorialProgress } from './tutorial/TutorialProgress.mjs';
 import { TutorialOpening } from './tutorial/TutorialOpening.mjs';
 import { TutorialVoice } from './tutorial/tutorialVoice.mjs';
+import { TUTORIAL_BEATS } from './tutorial/tutorialScript.mjs';
 import { ChallengesController } from './menu/ChallengesController.mjs';
 import { normalizePreparedSpells, replacePreparedSpell } from '../shared/src/preparedSpells.mjs';
 import { SPELLS } from '../shared/src/spells.mjs';
@@ -278,9 +279,16 @@ endCaption.setEnabled(viewOptions(settings).subtitles);
 
 let runtime = null;
 let tutorialSession = null;
-// Tutorial 1's recorded voices: the takes load once, the first time the tutorial starts, and stay decoded
+// Tutorial 1's recorded voices: the list of takes and the first line's take are fetched and decoded as soon as the
+// sound is up (at the menu, long before the tutorial's world is being built: the opening never waits on them); the
+// rest decode when the tutorial starts, and stay decoded
 let tutorialVoice = null;
 let touchUi = false;
+const FIRST_TUTORIAL_TAKE = TUTORIAL_BEATS.find(beat => beat.recordingKey)?.recordingKey;
+sound.onReady(() => {
+  tutorialVoice ??= new TutorialVoice({ engine: sound, context: () => ({ touch: touchUi }) });
+  tutorialVoice.warm(FIRST_TUTORIAL_TAKE).catch(() => {});
+});
 let latestLobby = null;
 let latestSnapshot = null;
 let pendingFailureScreen = SCREEN_IDS.MAIN_MENU;
@@ -778,8 +786,20 @@ const tutorialOpening = new TutorialOpening({
     if (!tutorialSession?.active) return;
     tutorialView.revealOpening();
     if (tutorialOpening.audioReady) tutorialVoice.sync(tutorialSession.director);
+    else voiceFirstLineLate(tutorialSession);
   },
 });
+// (the opening gave up waiting on the first line's take: it still voices that line when it arrives, if the line is
+// still the one showing; otherwise the line would stay silent for good)
+function voiceFirstLineLate(session) {
+  const cue = session.director.cue;
+  if (!cue || cue.id !== tutorialOpening.cueId || !tutorialVoice) return;
+  tutorialVoice.buffer(tutorialVoice.keyFor(cue)).then(buffer => {
+    if (!buffer || tutorialSession !== session || tutorialOpening.waiting || session.director.cue?.id !== cue.id) return;
+    tutorialOpening.audioReady = true;
+    tutorialVoice.sync(session.director);
+  });
+}
 function startTutorial() {
   showMenuError('');
   const name = nameInput.value.trim().slice(0,18);
