@@ -91,7 +91,7 @@ def ridge_cut(c,G,g):
 
 def open_cuff(c):
  # Retain the authored outer bevel and rim. Open its two solid end caps and
- # give the remaining armor a six millimetre inner wall in Blender.
+ # give the remaining armor a six millimetre octagonal lining in Blender.
  bm=bmesh.new();ca=bm.loops.layers.float_color.new('ArmorColor')
  vs=[bm.verts.new(Vector(v))for v in c['verts']]
  for p in c['faces']:
@@ -99,11 +99,60 @@ def open_cuff(c):
   for l,col in zip(f.loops,p['colors']):l[ca]=col
  bm.normal_update()
  caps=[f for f in bm.faces if abs(f.normal.y)>.95]
+ # Keep the actual outer chamfers. A plain hidden liner avoids duplicating
+ # every exterior bevel inside the cuff, where it serves no visual purpose.
+ groups=[];remaining=set(caps)
+ while remaining:
+  group={remaining.pop()};todo=list(group)
+  while todo:
+   f=todo.pop()
+   for e in f.edges:
+    for other in e.link_faces:
+     if other in remaining:remaining.remove(other);group.add(other);todo.append(other)
+  boundary={v for f in group for e in f.edges if sum(other in group for other in e.link_faces)==1 for v in e.verts}
+  groups.append(sorted(boundary,key=lambda v:math.atan2(v.co.z,v.co.x)))
+ assert len(groups)==2 and len(groups[0])==len(groups[1])==8,'Expected the authored octagonal cuff caps'
+ groups.sort(key=lambda ring:sum(v.co.y for v in ring)/len(ring))
+ color=list(caps[0].loops[0][ca])
  bmesh.ops.delete(bm,geom=caps,context='FACES_ONLY')
- bmesh.ops.solidify(bm,geom=list(bm.faces),thickness=.006)
+ inner=[]
+ for ring in groups:
+  inner.append([bm.verts.new(Vector((v.co.x*(1-.006/math.hypot(v.co.x,v.co.z)),v.co.y,v.co.z*(1-.006/math.hypot(v.co.x,v.co.z)))))for v in ring])
+ for i in range(8):
+  j=(i+1)%8
+  for vertices in ([inner[0][i],inner[1][i],inner[1][j],inner[0][j]],*[ [ring[i],ring[j],liner[j],liner[i]]for ring,liner in zip(groups,inner)]):
+   f=bm.faces.new(vertices);f.material_index=1
+   for loop in f.loops:loop[ca]=color
+ bmesh.ops.recalc_face_normals(bm,faces=list(bm.faces))
  bm.verts.ensure_lookup_table();bm.verts.index_update()
  c['verts']=[list(v.co)for v in bm.verts]
  c['faces']=[{'verts':[v.index for v in f.verts],'material':'KitMetal','tag':TAGS.index('brass'),'edge':1,'colors':[list(l[ca])for l in f.loops]}for f in bm.faces]
+ bm.free()
+
+def simplify_armor_planes(c):
+ # Remove the inherited triangulation and redundant cuts on nearly flat
+ # armor planes. Keep the steel/brass boundary and the visible bevels.
+ bm=bmesh.new();ca=bm.loops.layers.float_color.new('ArmorColor')
+ tag=bm.faces.layers.int.new('sourceTag');edge=bm.faces.layers.int.new('sourceEdge')
+ # Give each painted plane family a consistent metal tone. This removes
+ # inherited per-triangle jitter while retaining the brighter chamfers.
+ families={}
+ for p in c['faces']:
+  families.setdefault((p['tag'],p['edge']),[]).extend(col[:3]for col in p['colors'])
+ colors={key:list(np.mean(values,axis=0))+[1.0]for key,values in families.items()}
+ vs=[bm.verts.new(Vector(v))for v in c['verts']]
+ for p in c['faces']:
+  f=bm.faces.new([vs[i]for i in p['verts']]);f.material_index=int(p['material']=='KitMetal');f[tag]=p['tag'];f[edge]=p['edge']
+  for l in f.loops:l[ca]=colors[(p['tag'],p['edge'])]
+ bm.normal_update()
+ for e in bm.edges:
+  if len(e.link_faces)==2:
+   a,b=e.link_faces
+   e.seam=a[tag]!=b[tag]
+ bmesh.ops.dissolve_limit(bm,angle_limit=math.radians(10),use_dissolve_boundaries=False,verts=list(bm.verts),edges=list(bm.edges),delimit={'SEAM','MATERIAL'})
+ bm.verts.ensure_lookup_table();bm.verts.index_update()
+ c['verts']=[list(v.co)for v in bm.verts]
+ c['faces']=[{'verts':[v.index for v in f.verts],'material':'KitMetal'if f.material_index else 'KitMatte','tag':f[tag],'edge':f[edge],'colors':[list(l[ca])for l in f.loops]}for f in bm.faces]
  bm.free()
 
 def sculpt_open(parts):
@@ -272,13 +321,13 @@ def forearm_shape(parts,side):
    if y<=b:return ka+(kb-ka)*max(0,min(1,(y-a)/(b-a)))
   return points[-1][1]
  shell=parts[shell_id]
- for y in (.07,.14,.195):ridge_cut(shell,Vector((0,y,0)),Vector((0,1,0)))
+ for y in (.14,):ridge_cut(shell,Vector((0,y,0)),Vector((0,1,0)))
  apply(shell,lambda v:Vector((v.x*profile(v.y),.02+(v.y-.02)*1.12,v.z*profile(v.y))))
  for f in shell['faces']:
   for col in f['colors']:col[:3]=[value*.88 for value in col[:3]]
  for c in parts[shell_id+3:shell_id+5]:
   C=center(c);N=Vector((C.x,0,C.z)).normalized();W=Vector((0,1,0)).cross(N).normalized()
-  for y in (.083,.15,.18):ridge_cut(c,Vector((0,y,0)),Vector((0,1,0)))
+  for y in (.15,):ridge_cut(c,Vector((0,y,0)),Vector((0,1,0)))
   ridge_cut(c,Vector(),W)
   def plate(v):
    t=max(0,min(1,(v.y-.06)/.138));w=v.dot(W);n=v.dot(N)
@@ -286,13 +335,20 @@ def forearm_shape(parts,side):
    crown=.004*max(0,1-abs(w/.034))*math.sin(math.pi*t)
    return W*(w*width*profile(v.y))+N*(n*profile(v.y)+crown)+Vector((0,.048+(v.y-.06)*1.37,0))
   apply(c,plate)
+  # Use the concept's brass chamfer around the real raised steel shield.
+  gold=np.mean([color[:3]for f in parts[cuff_id]['faces']for color in f['colors']],axis=0)
+  for f in c['faces']:
+   vertices=[Vector(c['verts'][i])for i in f['verts']]
+   normal=sum((a.cross(b)for a,b in zip(vertices,vertices[1:]+vertices[:1])),Vector()).normalized()
+   if .15<abs(normal.dot(N))<.94:
+    f['tag']=TAGS.index('brass');f['material']='KitMetal'
+    for col in f['colors']:col[:3]=list(gold)
  # The brass is a perimeter treatment, rather than the entire collar.
- steel=np.mean([color[:3]for f in parts[shell_id+4]['faces']for color in f['colors']],axis=0)
+ steel=np.mean([color[:3]for f in parts[shell_id+4]['faces']if f['tag']==TAGS.index('steel')for color in f['colors']],axis=0)
  for c in (parts[shell_id+1],parts[cuff_id]):
   if c['id']==shell_id+1:
    apply(c,lambda v:Vector((v.x*.96,.009+(v.y-.009)*.52,v.z*.96)))
   rim_normal=Vector((0,1,0))-dorsal*(.009/.085)
-  if c['id']==cuff_id:ridge_cut(c,Vector((0,.248,0)),rim_normal)
   old=np.mean([color[:3]for f in c['faces']for color in f['colors']],axis=0)
   ratio=steel/old
   for f in c['faces']:
@@ -305,6 +361,7 @@ def forearm_shape(parts,side):
  # beside it. Use the same slimmer transverse construction in both views.
  for c in parts[shell_id:shell_id+5]:
   apply(c,lambda v:Vector((v.x*.88,v.y,v.z*.88)))
+  simplify_armor_planes(c)
 
 bpy.ops.wm.open_mainfile(filepath=str(args.third_person_source))
 rig=bpy.data.objects['SpellbladeRig'];right=bpy.data.objects['Gauntlet.R'];left=bpy.data.objects['Gauntlet.L']
