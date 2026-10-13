@@ -1,0 +1,14 @@
+FOREARMS_SOURCE_OK both hands, upper arms, unrelated meshes, object hierarchy and matrices, rig, actions, reference, material slots and vertex groups preserved; entire sword surface overlap zero; sampled poses 375
+FOREARMS_SOURCE_OK both hands, upper arms, unrelated meshes, object hierarchy and matrices, rig, actions, reference, material slots and vertex groups preserved; entire sword surface overlap zero; sampled poses 200
+ARMS_PARITY_OK canonical hand and forearm components on both sides 79 ; topology, rigid bone attachments, material/shading assignments and exact vertex color corners; entire sword clearance poses 200
+SOURCE_ROUNDTRIP_OK spellblade-third-person.blend 17
+SOURCE_ROUNDTRIP_OK spellblade-first-person.blend 4
+SPELLBLADE_SOURCE_TESTS_OK
+BREATHING_SEAM_OK spellblade-third-person.blend Idle
+BREATHING_SEAM_OK spellblade-third-person.blend Guard
+SECOND_STRIKE_CLEARANCE_OK spellblade-third-person.blend
+BREATHING_SEAM_OK spellblade-first-person.blend Idle
+BREATHING_SEAM_OK spellblade-first-person.blend Guard
+SECOND_STRIKE_CLEARANCE_OK spellblade-first-person.blend
+SPELLBLADE_COMBAT_PRESENTATION_OK
+SPELLBLADE_CHARACTER_ASSETS_OK report=output/cuff-forearm/export-accepted/spellblade-build-report.json thirdPerson=output/cuff-forearm/export-accepted/spellblade.glb firstPerson=output/cuff-forearm/export-accepted/spellblade-fp.glb tpTriangles=13648 fpTriangles=5356 tpBytes=2383952 fpBytes=806280

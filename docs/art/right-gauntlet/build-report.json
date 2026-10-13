@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "reviewOnly": true,
+  "sourceRevision": "1048debe477eef37d2d86bd784c971ec134547c3",
+  "blenderVersion": "4.5.14 LTS",
+  "firstPersonSource": {
+    "file": "spellblade-first-person.blend",
+    "sha256": "1b375fc91b4a95c3624a967cc958dbe5cc3f9a5b31a9b18a4367d2652fb30063"
+  },
+  "firstPerson": {
+    "triangles": 4440,
+    "triangleBudget": 16000,
+    "animations": [
+      "Cast",
+      "Dash",
+      "Guard",
+      "Idle",
+      "Slash_1",
+      "Slash_2",
+      "Slash_3",
+      "Stagger"
+    ]
+  },
+  "sizes": {
+    "firstPersonGlbBytes": 645528,
+    "firstPersonTargetBytes": 1000000
+  },
+  "outputs": {
+    "firstPersonGlb": "spellblade-fp.glb",
+    "firstPersonBlend": "spellblade-first-person.blend",
+    "renders": {
+      "fp-neutral": "spellblade-fp-neutral.png",
+      "fp-guard": "spellblade-fp-guard.png",
+      "fp-slash": "spellblade-fp-slash.png",
+      "fp-cast": "spellblade-fp-cast.png"
+    }
+  },
+  "firstPersonGlbSha256": "f908add3a413024bdeabc38363fcc733287515f277b5b5cb002026e3997b6abd"
+}

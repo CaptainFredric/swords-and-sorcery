@@ -1,0 +1,26 @@
+Candidate source: 1048debe477eef37d2d86bd784c971ec134547c3
+Blender source preservation: PASS, 200 sampled poses, zero grip overlaps
+GLB budget and first person slash visibility: PASS
+32 focused asset/presentation tests: PASS before final joint core refinement
+Final full npm run verify: PASS, exit 0
+Syntax OK (401 modules)
+ℹ tests 1313
+ℹ pass 1313
+ℹ fail 0
+ℹ tests 4
+ℹ pass 4
+ℹ fail 0
+Smoke OK: Castleward/solo shell, HTTP assets, private-path isolation, health, and WebSocket handshake on port 55730
+
+Initial full run during concurrent Blender/browser work: WebSocket flood test timed out.
+Focused server integration rerun: PASS, 5 tests.
+
+After integrating main 071a502 (PR #161): full npm run verify PASS, exit 0
+Syntax OK (401 modules)
+ℹ tests 1313
+ℹ pass 1313
+ℹ fail 0
+ℹ tests 4
+ℹ pass 4
+ℹ fail 0
+Smoke OK: Castleward/solo shell, HTTP assets, private-path isolation, health, and WebSocket handshake on port 55843

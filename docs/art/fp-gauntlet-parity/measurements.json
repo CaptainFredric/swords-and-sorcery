@@ -1,0 +1,1872 @@
+{
+  "third_person": {
+    "source": "/Users/erendiracisneros/swords-and-sorcery-polish/tools/blender/characters/spellblade/source/spellblade-third-person.blend",
+    "sha256": "740301e4e9632d71f61861edacd516937deb85abe32e8cc838b39d358c38dc53",
+    "rig": "SpellbladeRig",
+    "arm": "Gauntlet.R",
+    "materials": [
+      "KitMatte",
+      "KitMetal"
+    ],
+    "bones": {
+      "upper_arm.R": {
+        "head": [
+          0.2800000011920929,
+          0.0,
+          1.5499999523162842
+        ],
+        "tail": [
+          0.42839667201042175,
+          0.059973783791065216,
+          1.2962647676467896
+        ],
+        "length": 0.2999999523162842,
+        "parent": "clavicle.R"
+      },
+      "forearm.R": {
+        "head": [
+          0.42839667201042175,
+          0.059973783791065216,
+          1.2962647676467896
+        ],
+        "tail": [
+          0.561905026435852,
+          0.0751047357916832,
+          1.0506093502044678
+        ],
+        "length": 0.2799999713897705,
+        "parent": "upper_arm.R"
+      },
+      "hand.R": {
+        "head": [
+          0.561905026435852,
+          0.0751047357916832,
+          1.0506093502044678
+        ],
+        "tail": [
+          0.5151969790458679,
+          0.012827356345951557,
+          0.9223912358283997
+        ],
+        "length": 0.14999999105930328,
+        "parent": "forearm.R"
+      },
+      "socket_sword": {
+        "head": [
+          0.5431997776031494,
+          0.0397239588201046,
+          0.9572105407714844
+        ],
+        "tail": [
+          0.5264860391616821,
+          0.16316485404968262,
+          0.8736461997032166
+        ],
+        "length": 0.15000002086162567,
+        "parent": "hand.R"
+      }
+    },
+    "grip": {
+      "grip_component_index": 10,
+      "grip_center_hand_local": [
+        0.007084664423018694,
+        0.05336179956793785,
+        0.016228191554546356
+      ],
+      "grip_axis_toward_guard_hand_local": [
+        0.09536350518465042,
+        0.9892284870147705,
+        -0.11105316132307053
+      ],
+      "forearm_projection_axis_a_hand_local": [
+        0.6827228665351868,
+        0.01619165576994419,
+        0.7304980158805847
+      ],
+      "dorsal_axis_b_hand_local": [
+        0.7244275808334351,
+        -0.14548137784004211,
+        -0.6738247871398926
+      ],
+      "grip_length": 0.24500025331333447,
+      "grip_radius": 0.05044374865926257,
+      "grip_basis_components": []
+    },
+    "rigid_groups": {
+      "hand.R": {
+        "vertices": 888,
+        "faces": 962,
+        "area": 0.294587446131487,
+        "tags_area": {
+          "leather_dark": 0.07843299726664554,
+          "steel": 0.12635221492965323,
+          "brass": 0.009276691449485952,
+          "steel_dark": 0.08052554248570232
+        },
+        "materials_area": {
+          "KitMatte": 0.07843299726664554,
+          "KitMetal": 0.21615444886484148
+        },
+        "min": [
+          -0.05077292025089264,
+          -0.036087021231651306,
+          -0.13677209615707397
+        ],
+        "max": [
+          0.10960815846920013,
+          0.12738221883773804,
+          0.06901763379573822
+        ],
+        "bone_axis_bounds_size": [
+          0.16038107872009277,
+          0.16346924006938934,
+          0.2057897299528122
+        ],
+        "palette_surface_area_percent": {
+          "leather_dark": 26.6247,
+          "steel": 42.8912,
+          "brass": 3.149,
+          "steel_dark": 27.335
+        }
+      },
+      "upper_arm.R": {
+        "vertices": 192,
+        "faces": 200,
+        "area": 0.6698833173031744,
+        "tags_area": {
+          "steel_dark": 0.40954935382615076,
+          "under": 0.26033396347702364
+        },
+        "materials_area": {
+          "KitMetal": 0.40954935382615076,
+          "KitMatte": 0.26033396347702364
+        },
+        "min": [
+          -0.14038829505443573,
+          -0.019999947398900986,
+          -0.1457865834236145
+        ],
+        "max": [
+          0.1403883993625641,
+          0.33000022172927856,
+          0.14578667283058167
+        ],
+        "bone_axis_bounds_size": [
+          0.2807766944169998,
+          0.35000016912817955,
+          0.29157325625419617
+        ],
+        "palette_surface_area_percent": {
+          "steel_dark": 61.1374,
+          "under": 38.8626
+        }
+      },
+      "forearm.R": {
+        "vertices": 192,
+        "faces": 202,
+        "area": 0.45119216634778303,
+        "tags_area": {
+          "steel": 0.22156150200756264,
+          "brass": 0.2296306643402204
+        },
+        "materials_area": {
+          "KitMetal": 0.45119216634778303
+        },
+        "min": [
+          -0.12312877178192139,
+          -0.07249120622873306,
+          -0.12052646279335022
+        ],
+        "max": [
+          0.1231287494301796,
+          0.2740000784397125,
+          0.12052655220031738
+        ],
+        "bone_axis_bounds_size": [
+          0.24625752121210098,
+          0.3464912846684456,
+          0.2410530149936676
+        ],
+        "palette_surface_area_percent": {
+          "steel": 49.1058,
+          "brass": 50.8942
+        }
+      }
+    },
+    "grip_surface_intersection_face_pairs": 218,
+    "grip_surface_intersections": [
+      {
+        "component_index": 0,
+        "semantic_piece": "dark glove palm",
+        "face_pairs": 12
+      },
+      {
+        "component_index": 4,
+        "semantic_piece": "steel knuckle bar",
+        "face_pairs": 8
+      },
+      {
+        "component_index": 6,
+        "semantic_piece": "finger 1 proximal dark core",
+        "face_pairs": 8
+      },
+      {
+        "component_index": 7,
+        "semantic_piece": "finger 1 proximal steel scale",
+        "face_pairs": 6
+      },
+      {
+        "component_index": 8,
+        "semantic_piece": "finger 1 middle dark core",
+        "face_pairs": 6
+      },
+      {
+        "component_index": 9,
+        "semantic_piece": "finger 1 middle steel scale",
+        "face_pairs": 8
+      },
+      {
+        "component_index": 11,
+        "semantic_piece": "finger 1 distal steel scale",
+        "face_pairs": 12
+      },
+      {
+        "component_index": 13,
+        "semantic_piece": "finger 2 proximal dark core",
+        "face_pairs": 8
+      },
+      {
+        "component_index": 14,
+        "semantic_piece": "finger 2 proximal steel scale",
+        "face_pairs": 6
+      },
+      {
+        "component_index": 15,
+        "semantic_piece": "finger 2 middle dark core",
+        "face_pairs": 10
+      },
+      {
+        "component_index": 17,
+        "semantic_piece": "finger 2 distal dark core",
+        "face_pairs": 8
+      },
+      {
+        "component_index": 18,
+        "semantic_piece": "finger 2 distal steel scale",
+        "face_pairs": 18
+      },
+      {
+        "component_index": 20,
+        "semantic_piece": "finger 3 proximal dark core",
+        "face_pairs": 8
+      },
+      {
+        "component_index": 21,
+        "semantic_piece": "finger 3 proximal steel scale",
+        "face_pairs": 6
+      },
+      {
+        "component_index": 22,
+        "semantic_piece": "finger 3 middle dark core",
+        "face_pairs": 10
+      },
+      {
+        "component_index": 24,
+        "semantic_piece": "finger 3 distal dark core",
+        "face_pairs": 8
+      },
+      {
+        "component_index": 25,
+        "semantic_piece": "finger 3 distal steel scale",
+        "face_pairs": 18
+      },
+      {
+        "component_index": 27,
+        "semantic_piece": "finger 4 proximal dark core",
+        "face_pairs": 8
+      },
+      {
+        "component_index": 28,
+        "semantic_piece": "finger 4 proximal steel scale",
+        "face_pairs": 6
+      },
+      {
+        "component_index": 29,
+        "semantic_piece": "finger 4 middle dark core",
+        "face_pairs": 4
+      },
+      {
+        "component_index": 30,
+        "semantic_piece": "finger 4 middle steel scale",
+        "face_pairs": 12
+      },
+      {
+        "component_index": 32,
+        "semantic_piece": "finger 4 distal steel scale",
+        "face_pairs": 12
+      },
+      {
+        "component_index": 35,
+        "semantic_piece": "thumb distal dark core",
+        "face_pairs": 6
+      },
+      {
+        "component_index": 36,
+        "semantic_piece": "thumb distal steel scale",
+        "face_pairs": 10
+      }
+    ],
+    "components": [
+      {
+        "index": 0,
+        "piece": "dark glove palm",
+        "group": "hand.R",
+        "vertices": 24,
+        "faces": 26,
+        "principal_dimensions_m": [
+          0.15660004350836973,
+          0.13630011172390186,
+          0.06960003642882309
+        ],
+        "material_surface_area_m2": {
+          "KitMatte": 0.07843299726664554
+        },
+        "palette_surface_area_m2": {
+          "leather_dark": 0.07843299726664554
+        }
+      },
+      {
+        "index": 1,
+        "piece": "proximal steel dorsal plate",
+        "group": "hand.R",
+        "vertices": 24,
+        "faces": 26,
+        "principal_dimensions_m": [
+          0.13920012342939447,
+          0.07540012010372743,
+          0.023200050586151107
+        ],
+        "material_surface_area_m2": {
+          "KitMetal": 0.02761566200388188
+        },
+        "palette_surface_area_m2": {
+          "steel": 0.02761566200388188
+        }
+      },
+      {
+        "index": 2,
+        "piece": "distal steel dorsal plate",
+        "group": "hand.R",
+        "vertices": 24,
+        "faces": 26,
+        "principal_dimensions_m": [
+          0.14210005728048947,
+          0.06380004499388575,
+          0.023200036627423277
+        ],
+        "material_surface_area_m2": {
+          "KitMetal": 0.024470823913361528
+        },
+        "palette_surface_area_m2": {
+          "steel": 0.024470823913361528
+        }
+      },
+      {
+        "index": 3,
+        "piece": "brass distal backplate edge",
+        "group": "hand.R",
+        "vertices": 24,
+        "faces": 26,
+        "principal_dimensions_m": [
+          0.14210008877899127,
+          0.024650079682304107,
+          0.01450000957358423
+        ],
+        "material_surface_area_m2": {
+          "KitMetal": 0.009276691449485952
+        },
+        "palette_surface_area_m2": {
+          "brass": 0.009276691449485952
+        }
+      },
+      {
+        "index": 4,
+        "piece": "steel knuckle bar",
+        "group": "hand.R",
+        "vertices": 24,
+        "faces": 26,
+        "principal_dimensions_m": [
+          0.14500016163719986,
+          0.04640011442413562,
+          0.03480003608666462
+        ],
+        "material_surface_area_m2": {
+          "KitMetal": 0.023601995677381638
+        },
+        "palette_surface_area_m2": {
+          "steel": 0.023601995677381638
+        }
+      },
+      {
+        "index": 5,
+        "piece": "finger 1 steel knuckle stud",
+        "group": "hand.R",
+        "vertices": 24,
+        "faces": 26,
+        "principal_dimensions_m": [
+          0.024650006127455885,
+          0.020300050249203755,
+          0.014500090045328397
+        ],
+        "material_surface_area_m2": {
+          "KitMetal": 0.0013950461125205038
+        },
+        "palette_surface_area_m2": {
+          "steel": 0.0013950461125205038
+        }
+      },
+      {
+        "index": 6,
+        "piece": "finger 1 proximal dark core",
+        "group": "hand.R",
+        "vertices": 24,
+        "faces": 26,
+        "principal_dimensions_m": [
+          0.04640020760637858,
+          0.03364042735950683,
+          0.031900408248494
+        ],
+        "material_surface_area_m2": {
+          "KitMetal": 0.006605712027521804
+        },
+        "palette_surface_area_m2": {
+          "steel_dark": 0.006605712027521804
+        }
+      },
+      {
+        "index": 7,
+        "piece": "finger 1 proximal steel scale",
+        "group": "hand.R",
+        "vertices": 24,
+        "faces": 26,
+        "principal_dimensions_m": [
+          0.044400145704732386,
+          0.037240071548795606,
+          0.011600026862519132
+        ],
+        "material_surface_area_m2": {
+          "KitMetal": 0.0038324510459663286
+        },
+        "palette_surface_area_m2": {
+          "steel": 0.0038324510459663286
+        }
+      },
+      {
+        "index": 8,
+        "piece": "finger 1 middle dark core",
+        "group": "hand.R",
+        "vertices": 24,
+        "faces": 26,
+        "principal_dimensions_m": [
+          0.034801299490249196,
+          0.03364135830767902,
+          0.031900497917682555
+        ],
+        "material_surface_area_m2": {
+          "KitMetal": 0.0052428337312449
+        },
+        "palette_surface_area_m2": {
+          "steel_dark": 0.0052428337312449
+        }
+      },
+      {
+        "index": 9,
+        "piece": "finger 1 middle steel scale",
+        "group": "hand.R",
+        "vertices": 24,
+        "faces": 26,
+        "principal_dimensions_m": [
+          0.03724014620634293,
+          0.032800130034582216,
+          0.011600174172820946
+        ],
+        "material_surface_area_m2": {
+          "KitMetal": 0.002857020876671834
+        },
+        "palette_surface_area_m2": {
+          "steel": 0.002857020876671834
+        }
+      },
+      {
+        "index": 10,
+        "piece": "finger 1 distal dark core",
+        "group": "hand.R",
+        "vertices": 24,
+        "faces": 26,
+        "principal_dimensions_m": [
+          0.03364020187525371,
+          0.03190003507118595,
+          0.027550107737681337
+        ],
+        "material_surface_area_m2": {
+          "KitMetal": 0.004391011916595744
+        },
+        "palette_surface_area_m2": {
+          "steel_dark": 0.004391011916595744
+        }
+      },
+      {
+        "index": 11,
+        "piece": "finger 1 distal steel scale",
+        "group": "hand.R",
+        "vertices": 24,
+        "faces": 26,
+        "principal_dimensions_m": [
+          0.03724010090150298,
+          0.025550106621964032,
+          0.01159997852854636
+        ],
+        "material_surface_area_m2": {
+          "KitMetal": 0.002247364075667564
+        },
+        "palette_surface_area_m2": {
+          "steel": 0.002247364075667564
+        }
+      },
+      {
+        "index": 12,
+        "piece": "finger 2 steel knuckle stud",
+        "group": "hand.R",
+        "vertices": 24,
+        "faces": 26,
+        "principal_dimensions_m": [
+          0.024650118177150928,
+          0.020300054306589342,
+          0.014500061835040068
+        ],
+        "material_surface_area_m2": {
+          "KitMetal": 0.0013950522406958044
+        },
+        "palette_surface_area_m2": {
+          "steel": 0.0013950522406958044
+        }
+      },
+      {
+        "index": 13,
+        "piece": "finger 2 proximal dark core",
+        "group": "hand.R",
+        "vertices": 24,
+        "faces": 26,
+        "principal_dimensions_m": [
+          0.05220014994825538,
+          0.03364012943943423,
+          0.03190012409918272
+        ],
+        "material_surface_area_m2": {
+          "KitMetal": 0.007287151214768528
+        },
+        "palette_surface_area_m2": {
+          "steel_dark": 0.007287151214768528
+        }
+      },
+      {
+        "index": 14,
+        "piece": "finger 2 proximal steel scale",
+        "group": "hand.R",
+        "vertices": 24,
+        "faces": 26,
+        "principal_dimensions_m": [
+          0.05019996435771685,
+          0.03724005255852837,
+          0.011600064416975675
+        ],
+        "material_surface_area_m2": {
+          "KitMetal": 0.004320177459361613
+        },
+        "palette_surface_area_m2": {
+          "steel": 0.004320177459361613
+        }
+      },
+      {
+        "index": 15,
+        "piece": "finger 2 middle dark core",
+        "group": "hand.R",
+        "vertices": 24,
+        "faces": 26,
+        "principal_dimensions_m": [
+          0.03915006257792643,
+          0.033640665281041995,
+          0.031900641256401005
+        ],
+        "material_surface_area_m2": {
+          "KitMetal": 0.005753901894422597
+        },
+        "palette_surface_area_m2": {
+          "steel_dark": 0.005753901894422597
+        }
+      },
+      {
+        "index": 16,
+        "piece": "finger 2 middle steel scale",
+        "group": "hand.R",
+        "vertices": 24,
+        "faces": 26,
+        "principal_dimensions_m": [
+          0.03724822743669452,
+          0.03715828452145446,
+          0.011600134864195
+        ],
+        "material_surface_area_m2": {
+          "KitMetal": 0.0032228120332018495
+        },
+        "palette_surface_area_m2": {
+          "steel": 0.0032228120332018495
+        }
+      },
+      {
+        "index": 17,
+        "piece": "finger 2 distal dark core",
+        "group": "hand.R",
+        "vertices": 24,
+        "faces": 26,
+        "principal_dimensions_m": [
+          0.03364022695524016,
+          0.0319003588607467,
+          0.030450433071039083
+        ],
+        "material_surface_area_m2": {
+          "KitMetal": 0.004731737448310014
+        },
+        "palette_surface_area_m2": {
+          "steel_dark": 0.004731737448310014
+        }
+      },
+      {
+        "index": 18,
+        "piece": "finger 2 distal steel scale",
+        "group": "hand.R",
+        "vertices": 24,
+        "faces": 26,
+        "principal_dimensions_m": [
+          0.03724001239006705,
+          0.028450108875362534,
+          0.011600027355743144
+        ],
+        "material_surface_area_m2": {
+          "KitMetal": 0.002491222182415667
+        },
+        "palette_surface_area_m2": {
+          "steel": 0.002491222182415667
+        }
+      },
+      {
+        "index": 19,
+        "piece": "finger 3 steel knuckle stud",
+        "group": "hand.R",
+        "vertices": 24,
+        "faces": 26,
+        "principal_dimensions_m": [
+          0.02465006505447054,
+          0.020300034847769217,
+          0.014500025069866744
+        ],
+        "material_surface_area_m2": {
+          "KitMetal": 0.0013950502234365558
+        },
+        "palette_surface_area_m2": {
+          "steel": 0.0013950502234365558
+        }
+      },
+      {
+        "index": 20,
+        "piece": "finger 3 proximal dark core",
+        "group": "hand.R",
+        "vertices": 24,
+        "faces": 26,
+        "principal_dimensions_m": [
+          0.05220007819944017,
+          0.03364009621861986,
+          0.03190001922774906
+        ],
+        "material_surface_area_m2": {
+          "KitMetal": 0.00728714904289518
+        },
+        "palette_surface_area_m2": {
+          "steel_dark": 0.00728714904289518
+        }
+      },
+      {
+        "index": 21,
+        "piece": "finger 3 proximal steel scale",
+        "group": "hand.R",
+        "vertices": 24,
+        "faces": 26,
+        "principal_dimensions_m": [
+          0.050200033524867786,
+          0.03724001719830494,
+          0.011600024871015557
+        ],
+        "material_surface_area_m2": {
+          "KitMetal": 0.004320172635155238
+        },
+        "palette_surface_area_m2": {
+          "steel": 0.004320172635155238
+        }
+      },
+      {
+        "index": 22,
+        "piece": "finger 3 middle dark core",
+        "group": "hand.R",
+        "vertices": 24,
+        "faces": 26,
+        "principal_dimensions_m": [
+          0.03915011280765722,
+          0.03364025313916103,
+          0.031900122005529545
+        ],
+        "material_surface_area_m2": {
+          "KitMetal": 0.005753906543759513
+        },
+        "palette_surface_area_m2": {
+          "steel_dark": 0.005753906543759513
+        }
+      },
+      {
+        "index": 23,
+        "piece": "finger 3 middle steel scale",
+        "group": "hand.R",
+        "vertices": 24,
+        "faces": 26,
+        "principal_dimensions_m": [
+          0.03724936179033099,
+          0.03715935275891871,
+          0.011600087488911455
+        ],
+        "material_surface_area_m2": {
+          "KitMetal": 0.00322280312979515
+        },
+        "palette_surface_area_m2": {
+          "steel": 0.00322280312979515
+        }
+      },
+      {
+        "index": 24,
+        "piece": "finger 3 distal dark core",
+        "group": "hand.R",
+        "vertices": 24,
+        "faces": 26,
+        "principal_dimensions_m": [
+          0.033640363180418284,
+          0.031900389433175705,
+          0.030450456254724232
+        ],
+        "material_surface_area_m2": {
+          "KitMetal": 0.00473173639147717
+        },
+        "palette_surface_area_m2": {
+          "steel_dark": 0.00473173639147717
+        }
+      },
+      {
+        "index": 25,
+        "piece": "finger 3 distal steel scale",
+        "group": "hand.R",
+        "vertices": 24,
+        "faces": 26,
+        "principal_dimensions_m": [
+          0.0372400260688064,
+          0.028450081096942748,
+          0.011600050757209605
+        ],
+        "material_surface_area_m2": {
+          "KitMetal": 0.0024912292943315394
+        },
+        "palette_surface_area_m2": {
+          "steel": 0.0024912292943315394
+        }
+      },
+      {
+        "index": 26,
+        "piece": "finger 4 steel knuckle stud",
+        "group": "hand.R",
+        "vertices": 24,
+        "faces": 26,
+        "principal_dimensions_m": [
+          0.024649966603275293,
+          0.020300046045199097,
+          0.014500054359084108
+        ],
+        "material_surface_area_m2": {
+          "KitMetal": 0.0013950441880297149
+        },
+        "palette_surface_area_m2": {
+          "steel": 0.0013950441880297149
+        }
+      },
+      {
+        "index": 27,
+        "piece": "finger 4 proximal dark core",
+        "group": "hand.R",
+        "vertices": 24,
+        "faces": 26,
+        "principal_dimensions_m": [
+          0.0464001267115417,
+          0.033640212537105404,
+          0.031900143621201846
+        ],
+        "material_surface_area_m2": {
+          "KitMetal": 0.006605715372643317
+        },
+        "palette_surface_area_m2": {
+          "steel_dark": 0.006605715372643317
+        }
+      },
+      {
+        "index": 28,
+        "piece": "finger 4 proximal steel scale",
+        "group": "hand.R",
+        "vertices": 24,
+        "faces": 26,
+        "principal_dimensions_m": [
+          0.044400036264659576,
+          0.037240053167784504,
+          0.011600031288412423
+        ],
+        "material_surface_area_m2": {
+          "KitMetal": 0.003832451532762987
+        },
+        "palette_surface_area_m2": {
+          "steel": 0.003832451532762987
+        }
+      },
+      {
+        "index": 29,
+        "piece": "finger 4 middle dark core",
+        "group": "hand.R",
+        "vertices": 24,
+        "faces": 26,
+        "principal_dimensions_m": [
+          0.03480020425775125,
+          0.03364025619519612,
+          0.03190024419819057
+        ],
+        "material_surface_area_m2": {
+          "KitMetal": 0.005242834928139928
+        },
+        "palette_surface_area_m2": {
+          "steel_dark": 0.005242834928139928
+        }
+      },
+      {
+        "index": 30,
+        "piece": "finger 4 middle steel scale",
+        "group": "hand.R",
+        "vertices": 24,
+        "faces": 26,
+        "principal_dimensions_m": [
+          0.037240079102293544,
+          0.03280007644817869,
+          0.011600076888724234
+        ],
+        "material_surface_area_m2": {
+          "KitMetal": 0.002857015901365445
+        },
+        "palette_surface_area_m2": {
+          "steel": 0.002857015901365445
+        }
+      },
+      {
+        "index": 31,
+        "piece": "finger 4 distal dark core",
+        "group": "hand.R",
+        "vertices": 24,
+        "faces": 26,
+        "principal_dimensions_m": [
+          0.03364038118833788,
+          0.03190031933073337,
+          0.027550151600895953
+        ],
+        "material_surface_area_m2": {
+          "KitMetal": 0.004391015942019294
+        },
+        "palette_surface_area_m2": {
+          "steel_dark": 0.004391015942019294
+        }
+      },
+      {
+        "index": 32,
+        "piece": "finger 4 distal steel scale",
+        "group": "hand.R",
+        "vertices": 24,
+        "faces": 26,
+        "principal_dimensions_m": [
+          0.03724009391987925,
+          0.025550033414794095,
+          0.01160010130709445
+        ],
+        "material_surface_area_m2": {
+          "KitMetal": 0.0022473670859817635
+        },
+        "palette_surface_area_m2": {
+          "steel": 0.0022473670859817635
+        }
+      },
+      {
+        "index": 33,
+        "piece": "thumb proximal dark core",
+        "group": "hand.R",
+        "vertices": 24,
+        "faces": 26,
+        "principal_dimensions_m": [
+          0.04640007506304911,
+          0.0348002383084859,
+          0.03190018168486688
+        ],
+        "material_surface_area_m2": {
+          "KitMetal": 0.006771591692086076
+        },
+        "palette_surface_area_m2": {
+          "steel_dark": 0.006771591692086076
+        }
+      },
+      {
+        "index": 34,
+        "piece": "thumb proximal steel scale",
+        "group": "hand.R",
+        "vertices": 24,
+        "faces": 26,
+        "principal_dimensions_m": [
+          0.04440008131191799,
+          0.03840012129267218,
+          0.011600107384567283
+        ],
+        "material_surface_area_m2": {
+          "KitMetal": 0.003946613485360739
+        },
+        "palette_surface_area_m2": {
+          "steel": 0.003946613485360739
+        }
+      },
+      {
+        "index": 35,
+        "piece": "thumb distal dark core",
+        "group": "hand.R",
+        "vertices": 24,
+        "faces": 26,
+        "principal_dimensions_m": [
+          0.03770020529173457,
+          0.034800171753274114,
+          0.03190001783325161
+        ],
+        "material_surface_area_m2": {
+          "KitMetal": 0.005729244339818251
+        },
+        "palette_surface_area_m2": {
+          "steel_dark": 0.005729244339818251
+        }
+      },
+      {
+        "index": 36,
+        "piece": "thumb distal steel scale",
+        "group": "hand.R",
+        "vertices": 24,
+        "faces": 26,
+        "principal_dimensions_m": [
+          0.03840020399015483,
+          0.035700253689928754,
+          0.011600049112935246
+        ],
+        "material_surface_area_m2": {
+          "KitMetal": 0.003194839832307908
+        },
+        "palette_surface_area_m2": {
+          "steel": 0.003194839832307908
+        }
+      },
+      {
+        "index": 37,
+        "piece": "upper arm proximal lame",
+        "group": "upper_arm.R",
+        "vertices": 48,
+        "faces": 50,
+        "principal_dimensions_m": [
+          0.2593802381252231,
+          0.23938014292597262,
+          0.05800018448134715
+        ],
+        "material_surface_area_m2": {
+          "KitMetal": 0.15794525530873216
+        },
+        "palette_surface_area_m2": {
+          "steel_dark": 0.15794525530873216
+        }
+      },
+      {
+        "index": 38,
+        "piece": "upper arm distal lame",
+        "group": "upper_arm.R",
+        "vertices": 48,
+        "faces": 50,
+        "principal_dimensions_m": [
+          0.2391745069452461,
+          0.2191745208526676,
+          0.05800013206703542
+        ],
+        "material_surface_area_m2": {
+          "KitMetal": 0.13527119322679937
+        },
+        "palette_surface_area_m2": {
+          "steel_dark": 0.13527119322679937
+        }
+      },
+      {
+        "index": 39,
+        "piece": "upper arm undersuit",
+        "group": "upper_arm.R",
+        "vertices": 48,
+        "faces": 50,
+        "principal_dimensions_m": [
+          0.3500001914863119,
+          0.19207844543044889,
+          0.19207833127748394
+        ],
+        "material_surface_area_m2": {
+          "KitMatte": 0.26033396347702364
+        },
+        "palette_surface_area_m2": {
+          "under": 0.26033396347702364
+        }
+      },
+      {
+        "index": 40,
+        "piece": "upper arm dark band",
+        "group": "upper_arm.R",
+        "vertices": 48,
+        "faces": 50,
+        "principal_dimensions_m": [
+          0.2264958626352216,
+          0.2264958566210844,
+          0.07000013136481079
+        ],
+        "material_surface_area_m2": {
+          "KitMetal": 0.11633290529061924
+        },
+        "palette_surface_area_m2": {
+          "steel_dark": 0.11633290529061924
+        }
+      },
+      {
+        "index": 41,
+        "piece": "forearm steel flared shell",
+        "group": "forearm.R",
+        "vertices": 48,
+        "faces": 50,
+        "principal_dimensions_m": [
+          0.20200014751045936,
+          0.19911755673714543,
+          0.19111752351714406
+        ],
+        "material_surface_area_m2": {
+          "KitMetal": 0.1810768715058657
+        },
+        "palette_surface_area_m2": {
+          "steel": 0.1810768715058657
+        }
+      },
+      {
+        "index": 42,
+        "piece": "elbow brass chevron rim",
+        "group": "forearm.R",
+        "vertices": 48,
+        "faces": 50,
+        "principal_dimensions_m": [
+          0.1925766996345628,
+          0.1717936383896738,
+          0.10651114382635987
+        ],
+        "material_surface_area_m2": {
+          "KitMetal": 0.10473447209551523
+        },
+        "palette_surface_area_m2": {
+          "brass": 0.10473447209551523
+        }
+      },
+      {
+        "index": 43,
+        "piece": "wrist brass cuff",
+        "group": "forearm.R",
+        "vertices": 48,
+        "faces": 50,
+        "principal_dimensions_m": [
+          0.21940445712825885,
+          0.2114044838863295,
+          0.0600001367756004
+        ],
+        "material_surface_area_m2": {
+          "KitMetal": 0.12489619224470516
+        },
+        "palette_surface_area_m2": {
+          "brass": 0.12489619224470516
+        }
+      },
+      {
+        "index": 44,
+        "piece": "forearm outer raised steel panel",
+        "group": "forearm.R",
+        "vertices": 24,
+        "faces": 26,
+        "principal_dimensions_m": [
+          0.1386792765458721,
+          0.06800004069601664,
+          0.008975631004670657
+        ],
+        "material_surface_area_m2": {
+          "KitMetal": 0.020242309224265065
+        },
+        "palette_surface_area_m2": {
+          "steel": 0.020242309224265065
+        }
+      },
+      {
+        "index": 45,
+        "piece": "forearm front raised steel panel",
+        "group": "forearm.R",
+        "vertices": 24,
+        "faces": 26,
+        "principal_dimensions_m": [
+          0.1386791834414772,
+          0.0680000584888327,
+          0.008975604447666449
+        ],
+        "material_surface_area_m2": {
+          "KitMetal": 0.020242321277431863
+        },
+        "palette_surface_area_m2": {
+          "steel": 0.020242321277431863
+        }
+      }
+    ]
+  },
+  "first_person": {
+    "source": "/Users/erendiracisneros/swords-and-sorcery-polish/tools/blender/characters/spellblade/source/spellblade-first-person.blend",
+    "sha256": "1b375fc91b4a95c3624a967cc958dbe5cc3f9a5b31a9b18a4367d2652fb30063",
+    "rig": "SpellbladeFirstPersonRig",
+    "arm": "Arm.R",
+    "materials": [
+      "KitMatte",
+      "KitMetal"
+    ],
+    "bones": {
+      "upper_arm.R": {
+        "head": [
+          0.4399999976158142,
+          0.07999999821186066,
+          -0.49000000953674316
+        ],
+        "tail": [
+          0.38999998569488525,
+          0.36000001430511475,
+          -0.4000000059604645
+        ],
+        "length": 0.298328697681427,
+        "parent": "root"
+      },
+      "forearm.R": {
+        "head": [
+          0.38999998569488525,
+          0.36000001430511475,
+          -0.4000000059604645
+        ],
+        "tail": [
+          0.33000001311302185,
+          0.6399999856948853,
+          -0.3100000023841858
+        ],
+        "length": 0.3001665771007538,
+        "parent": "upper_arm.R"
+      },
+      "hand.R": {
+        "head": [
+          0.33000001311302185,
+          0.6399999856948853,
+          -0.3100000023841858
+        ],
+        "tail": [
+          0.30000001192092896,
+          0.7599999904632568,
+          -0.2549999952316284
+        ],
+        "length": 0.13536986708641052,
+        "parent": "forearm.R"
+      },
+      "socket_sword": {
+        "head": [
+          0.30000001192092896,
+          0.7200000286102295,
+          -0.27000001072883606
+        ],
+        "tail": [
+          0.30000001192092896,
+          0.8700000047683716,
+          -0.27000001072883606
+        ],
+        "length": 0.1499999463558197,
+        "parent": "hand.R"
+      }
+    },
+    "grip": {
+      "grip_component_index": 10,
+      "grip_center_hand_local": [
+        -0.02591349370777607,
+        0.059113405644893646,
+        -0.006558433175086975
+      ],
+      "grip_axis_toward_guard_hand_local": [
+        0.41427913308143616,
+        0.8802433609962463,
+        0.23139680922031403
+      ],
+      "forearm_projection_axis_a_hand_local": [
+        -0.6419287323951721,
+        0.46282318234443665,
+        -0.6113281846046448
+      ],
+      "dorsal_axis_b_hand_local": [
+        -0.6452133655548096,
+        0.10472026467323303,
+        0.7567914724349976
+      ],
+      "grip_length": 0.20335012357100674,
+      "grip_radius": 0.042372719339136534,
+      "grip_basis_components": []
+    },
+    "rigid_groups": {
+      "upper_arm.R": {
+        "vertices": 96,
+        "faces": 100,
+        "area": 0.3756625222231378,
+        "tags_area": {
+          "under": 0.2593295600527199,
+          "steel_dark": 0.11633296217041789
+        },
+        "materials_area": {
+          "KitMatte": 0.2593295600527199,
+          "KitMetal": 0.11633296217041789
+        },
+        "min": [
+          -0.10128765553236008,
+          -0.019999999552965164,
+          -0.10128770768642426
+        ],
+        "max": [
+          0.10128768533468246,
+          0.3283286988735199,
+          0.10128770768642426
+        ],
+        "bone_axis_bounds_size": [
+          0.20257534086704254,
+          0.34832869842648506,
+          0.2025754153728485
+        ],
+        "palette_surface_area_percent": {
+          "under": 69.0326,
+          "steel_dark": 30.9674
+        }
+      },
+      "forearm.R": {
+        "vertices": 168,
+        "faces": 176,
+        "area": 0.25766345239279254,
+        "tags_area": {
+          "steel": 0.13290456317443677,
+          "brass": 0.12475888921835576
+        },
+        "materials_area": {
+          "KitMetal": 0.25766345239279254
+        },
+        "min": [
+          -0.0750468447804451,
+          -0.07255309075117111,
+          -0.07244756817817688
+        ],
+        "max": [
+          0.07504675537347794,
+          0.2941666543483734,
+          0.07244764268398285
+        ],
+        "bone_axis_bounds_size": [
+          0.15009360015392303,
+          0.3667197450995445,
+          0.14489521086215973
+        ],
+        "palette_surface_area_percent": {
+          "steel": 51.5807,
+          "brass": 48.4193
+        }
+      },
+      "hand.R": {
+        "vertices": 792,
+        "faces": 660,
+        "area": 0.23437591894253273,
+        "tags_area": {
+          "steel_dark": 0.12317318170244107,
+          "steel": 0.04081214980396908,
+          "under": 0.07039058743612259
+        },
+        "materials_area": {
+          "KitMetal": 0.16398533150641015,
+          "KitMatte": 0.07039058743612259
+        },
+        "min": [
+          -0.11575513333082199,
+          -0.05425579100847244,
+          -0.08765299618244171
+        ],
+        "max": [
+          0.06182519346475601,
+          0.1652202308177948,
+          0.08254652470350266
+        ],
+        "bone_axis_bounds_size": [
+          0.177580326795578,
+          0.21947602182626724,
+          0.17019952088594437
+        ],
+        "palette_surface_area_percent": {
+          "steel_dark": 52.5537,
+          "steel": 17.4131,
+          "under": 30.0332
+        }
+      }
+    },
+    "grip_surface_intersection_face_pairs": 0,
+    "grip_surface_intersections": [],
+    "components": [
+      {
+        "index": 0,
+        "piece": null,
+        "group": "upper_arm.R",
+        "vertices": 48,
+        "faces": 50,
+        "principal_dimensions_m": [
+          0.34832871404831095,
+          0.1822441834799525,
+          0.18224413128472428
+        ],
+        "material_surface_area_m2": {
+          "KitMatte": 0.2593295600527199
+        },
+        "palette_surface_area_m2": {
+          "under": 0.2593295600527199
+        }
+      },
+      {
+        "index": 1,
+        "piece": null,
+        "group": "upper_arm.R",
+        "vertices": 48,
+        "faces": 50,
+        "principal_dimensions_m": [
+          0.23431263733566543,
+          0.23431270585245487,
+          0.07000002735764121
+        ],
+        "material_surface_area_m2": {
+          "KitMetal": 0.11633296217041789
+        },
+        "palette_surface_area_m2": {
+          "steel_dark": 0.11633296217041789
+        }
+      },
+      {
+        "index": 2,
+        "piece": null,
+        "group": "forearm.R",
+        "vertices": 48,
+        "faces": 50,
+        "principal_dimensions_m": [
+          0.22216669009132134,
+          0.13394265509732384,
+          0.12856659644263
+        ],
+        "material_surface_area_m2": {
+          "KitMetal": 0.11745956760205445
+        },
+        "palette_surface_area_m2": {
+          "steel": 0.11745956760205445
+        }
+      },
+      {
+        "index": 3,
+        "piece": null,
+        "group": "forearm.R",
+        "vertices": 48,
+        "faces": 50,
+        "principal_dimensions_m": [
+          0.15226848653263336,
+          0.11546537793957365,
+          0.107891749834316
+        ],
+        "material_surface_area_m2": {
+          "KitMetal": 0.05872420932246314
+        },
+        "palette_surface_area_m2": {
+          "brass": 0.05872420932246314
+        }
+      },
+      {
+        "index": 4,
+        "piece": null,
+        "group": "forearm.R",
+        "vertices": 48,
+        "faces": 50,
+        "principal_dimensions_m": [
+          0.14750096095434193,
+          0.1421249960697595,
+          0.060000095752744856
+        ],
+        "material_surface_area_m2": {
+          "KitMetal": 0.06603467989589262
+        },
+        "palette_surface_area_m2": {
+          "brass": 0.06603467989589262
+        }
+      },
+      {
+        "index": 5,
+        "piece": null,
+        "group": "forearm.R",
+        "vertices": 24,
+        "faces": 26,
+        "principal_dimensions_m": [
+          0.15845678680211775,
+          0.045696029336974794,
+          0.0063775904849967795
+        ],
+        "material_surface_area_m2": {
+          "KitMetal": 0.015444995572382325
+        },
+        "palette_surface_area_m2": {
+          "steel": 0.015444995572382325
+        }
+      },
+      {
+        "index": 6,
+        "piece": null,
+        "group": "hand.R",
+        "vertices": 24,
+        "faces": 18,
+        "principal_dimensions_m": [
+          0.05761803604995268,
+          0.031135993427274467,
+          0.025345778640412903
+        ],
+        "material_surface_area_m2": {
+          "KitMetal": 0.005086353769002017
+        },
+        "palette_surface_area_m2": {
+          "steel_dark": 0.0038126102735986933,
+          "steel": 0.0012737434954033233
+        }
+      },
+      {
+        "index": 7,
+        "piece": null,
+        "group": "hand.R",
+        "vertices": 24,
+        "faces": 18,
+        "principal_dimensions_m": [
+          0.06341428546829916,
+          0.031201105936718525,
+          0.026004394705872128
+        ],
+        "material_surface_area_m2": {
+          "KitMetal": 0.0054713870922569185
+        },
+        "palette_surface_area_m2": {
+          "steel_dark": 0.004077496436366346,
+          "steel": 0.0013938906558905728
+        }
+      },
+      {
+        "index": 8,
+        "piece": null,
+        "group": "hand.R",
+        "vertices": 56,
+        "faces": 50,
+        "principal_dimensions_m": [
+          0.10506698104973457,
+          0.03229693190137395,
+          0.022354715551414148
+        ],
+        "material_surface_area_m2": {
+          "KitMetal": 0.00031200042576529086,
+          "KitMatte": 0.0069533398309431504
+        },
+        "palette_surface_area_m2": {
+          "steel_dark": 0.00031200042576529086,
+          "under": 0.0069533398309431504
+        }
+      },
+      {
+        "index": 9,
+        "piece": null,
+        "group": "hand.R",
+        "vertices": 24,
+        "faces": 18,
+        "principal_dimensions_m": [
+          0.024308814379903905,
+          0.022000427671364946,
+          0.020000072073927858
+        ],
+        "material_surface_area_m2": {
+          "KitMetal": 0.00042199972085654736,
+          "KitMatte": 0.002293034893227741
+        },
+        "palette_surface_area_m2": {
+          "steel_dark": 0.00042199972085654736,
+          "under": 0.002293034893227741
+        }
+      },
+      {
+        "index": 10,
+        "piece": null,
+        "group": "hand.R",
+        "vertices": 24,
+        "faces": 18,
+        "principal_dimensions_m": [
+          0.08130187634416888,
+          0.02520015686505973,
+          0.030019444051549465
+        ],
+        "material_surface_area_m2": {
+          "KitMetal": 0.007092807063600048
+        },
+        "palette_surface_area_m2": {
+          "steel_dark": 0.007092807063600048
+        }
+      },
+      {
+        "index": 11,
+        "piece": null,
+        "group": "hand.R",
+        "vertices": 24,
+        "faces": 18,
+        "principal_dimensions_m": [
+          0.08028551544962312,
+          0.025200098651566083,
+          0.029771345859039997
+        ],
+        "material_surface_area_m2": {
+          "KitMetal": 0.007012310947175138
+        },
+        "palette_surface_area_m2": {
+          "steel_dark": 0.007012310947175138
+        }
+      },
+      {
+        "index": 12,
+        "piece": null,
+        "group": "hand.R",
+        "vertices": 24,
+        "faces": 18,
+        "principal_dimensions_m": [
+          0.0825511311305911,
+          0.026800067861845238,
+          0.03012308293801437
+        ],
+        "material_surface_area_m2": {
+          "KitMetal": 0.007514696873840876
+        },
+        "palette_surface_area_m2": {
+          "steel_dark": 0.004305714479414746,
+          "steel": 0.0032089823944261298
+        }
+      },
+      {
+        "index": 13,
+        "piece": null,
+        "group": "hand.R",
+        "vertices": 80,
+        "faces": 74,
+        "principal_dimensions_m": [
+          0.13500182004591174,
+          0.08736334114154393,
+          0.02080006317395309
+        ],
+        "material_surface_area_m2": {
+          "KitMatte": 0.015286055604519788,
+          "KitMetal": 0.0003039991424884647
+        },
+        "palette_surface_area_m2": {
+          "under": 0.015286055604519788,
+          "steel_dark": 0.0003039991424884647
+        }
+      },
+      {
+        "index": 14,
+        "piece": null,
+        "group": "hand.R",
+        "vertices": 24,
+        "faces": 18,
+        "principal_dimensions_m": [
+          0.08130186543386977,
+          0.02520006236282004,
+          0.030019444211883455
+        ],
+        "material_surface_area_m2": {
+          "KitMetal": 0.007092803658451885
+        },
+        "palette_surface_area_m2": {
+          "steel_dark": 0.007092803658451885
+        }
+      },
+      {
+        "index": 15,
+        "piece": null,
+        "group": "hand.R",
+        "vertices": 24,
+        "faces": 18,
+        "principal_dimensions_m": [
+          0.08028552671658429,
+          0.025200136322248892,
+          0.02977137387119353
+        ],
+        "material_surface_area_m2": {
+          "KitMetal": 0.007012312868027948
+        },
+        "palette_surface_area_m2": {
+          "steel_dark": 0.007012312868027948
+        }
+      },
+      {
+        "index": 16,
+        "piece": null,
+        "group": "hand.R",
+        "vertices": 24,
+        "faces": 18,
+        "principal_dimensions_m": [
+          0.08255115359087634,
+          0.026800032392370696,
+          0.030123067570958045
+        ],
+        "material_surface_area_m2": {
+          "KitMetal": 0.007514693163102493
+        },
+        "palette_surface_area_m2": {
+          "steel_dark": 0.004305713315261528,
+          "steel": 0.003208979847840965
+        }
+      },
+      {
+        "index": 17,
+        "piece": null,
+        "group": "hand.R",
+        "vertices": 80,
+        "faces": 74,
+        "principal_dimensions_m": [
+          0.13500182663468724,
+          0.0873634146852633,
+          0.020800085880265128
+        ],
+        "material_surface_area_m2": {
+          "KitMatte": 0.01528604541090317,
+          "KitMetal": 0.0003040003648493439
+        },
+        "palette_surface_area_m2": {
+          "under": 0.01528604541090317,
+          "steel_dark": 0.0003040003648493439
+        }
+      },
+      {
+        "index": 18,
+        "piece": null,
+        "group": "hand.R",
+        "vertices": 24,
+        "faces": 18,
+        "principal_dimensions_m": [
+          0.08130190011705457,
+          0.025200048897686372,
+          0.030019437529914803
+        ],
+        "material_surface_area_m2": {
+          "KitMetal": 0.007092804473359138
+        },
+        "palette_surface_area_m2": {
+          "steel_dark": 0.007092804473359138
+        }
+      },
+      {
+        "index": 19,
+        "piece": null,
+        "group": "hand.R",
+        "vertices": 24,
+        "faces": 18,
+        "principal_dimensions_m": [
+          0.08028549822178295,
+          0.025200059527351416,
+          0.02977131626461056
+        ],
+        "material_surface_area_m2": {
+          "KitMetal": 0.007012308677076362
+        },
+        "palette_surface_area_m2": {
+          "steel_dark": 0.007012308677076362
+        }
+      },
+      {
+        "index": 20,
+        "piece": null,
+        "group": "hand.R",
+        "vertices": 24,
+        "faces": 18,
+        "principal_dimensions_m": [
+          0.08255116545991788,
+          0.026800050962893514,
+          0.03012307370940246
+        ],
+        "material_surface_area_m2": {
+          "KitMetal": 0.007514696611906402
+        },
+        "palette_surface_area_m2": {
+          "steel_dark": 0.004305715847294778,
+          "steel": 0.003208980764611624
+        }
+      },
+      {
+        "index": 21,
+        "piece": null,
+        "group": "hand.R",
+        "vertices": 80,
+        "faces": 74,
+        "principal_dimensions_m": [
+          0.13500184392041154,
+          0.08736340423257555,
+          0.020800071609669846
+        ],
+        "material_surface_area_m2": {
+          "KitMatte": 0.015286055866454262,
+          "KitMetal": 0.0003039999573957175
+        },
+        "palette_surface_area_m2": {
+          "under": 0.015286055866454262,
+          "steel_dark": 0.0003039999573957175
+        }
+      },
+      {
+        "index": 22,
+        "piece": null,
+        "group": "hand.R",
+        "vertices": 24,
+        "faces": 18,
+        "principal_dimensions_m": [
+          0.08130187886325846,
+          0.02520006801031313,
+          0.030019404566489338
+        ],
+        "material_surface_area_m2": {
+          "KitMetal": 0.007092805972206406
+        },
+        "palette_surface_area_m2": {
+          "steel_dark": 0.007092805972206406
+        }
+      },
+      {
+        "index": 23,
+        "piece": null,
+        "group": "hand.R",
+        "vertices": 24,
+        "faces": 18,
+        "principal_dimensions_m": [
+          0.08028546267725464,
+          0.02520007345745765,
+          0.02977134706458313
+        ],
+        "material_surface_area_m2": {
+          "KitMetal": 0.007012317742919549
+        },
+        "palette_surface_area_m2": {
+          "steel_dark": 0.007012317742919549
+        }
+      },
+      {
+        "index": 24,
+        "piece": null,
+        "group": "hand.R",
+        "vertices": 24,
+        "faces": 18,
+        "principal_dimensions_m": [
+          0.08255111470544169,
+          0.026800046822134885,
+          0.030123098356828415
+        ],
+        "material_surface_area_m2": {
+          "KitMetal": 0.007514698285376653
+        },
+        "palette_surface_area_m2": {
+          "steel_dark": 0.004305717549868859,
+          "steel": 0.0032089807355077937
+        }
+      },
+      {
+        "index": 25,
+        "piece": null,
+        "group": "hand.R",
+        "vertices": 80,
+        "faces": 74,
+        "principal_dimensions_m": [
+          0.13500183448508907,
+          0.08736343059305601,
+          0.02080008250792833
+        ],
+        "material_surface_area_m2": {
+          "KitMatte": 0.015286055830074474,
+          "KitMetal": 0.0003040008305106312
+        },
+        "palette_surface_area_m2": {
+          "under": 0.015286055830074474,
+          "steel_dark": 0.0003040008305106312
+        }
+      },
+      {
+        "index": 26,
+        "piece": null,
+        "group": "hand.R",
+        "vertices": 16,
+        "faces": 10,
+        "principal_dimensions_m": [
+          0.1142055348083015,
+          0.07337588835191329,
+          0.010050136407381241
+        ],
+        "material_surface_area_m2": {
+          "KitMetal": 0.01834483271522913
+        },
+        "palette_surface_area_m2": {
+          "steel": 0.007768000941723585,
+          "steel_dark": 0.010576831773505546
+        }
+      },
+      {
+        "index": 27,
+        "piece": null,
+        "group": "hand.R",
+        "vertices": 40,
+        "faces": 34,
+        "principal_dimensions_m": [
+          0.18076780093271078,
+          0.1503102581730067,
+          0.05960062364479127
+        ],
+        "material_surface_area_m2": {
+          "KitMetal": 0.04665350115101319
+        },
+        "palette_surface_area_m2": {
+          "steel_dark": 0.029112910182448104,
+          "steel": 0.017540590968565084
+        }
+      }
+    ]
+  },
+  "method_note": "Connected components of saved editable source meshes, rest bone local space. Surface areas include interior and occluded faces. TP palette uses existing FACE tag; PR162 new faces have stale default tag, so palette is inferred from exact ArmorColor against known calibrated colors. BVH values count intersecting face pairs against physical handle component, not distinct visible defects."
+}

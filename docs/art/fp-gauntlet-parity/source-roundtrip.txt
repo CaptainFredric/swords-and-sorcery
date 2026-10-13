@@ -1,0 +1,88 @@
+Info: Saved as "spellblade-third-person.blend"
+INFO Draco mesh compression is available, use library at /Applications/Blender.app/Contents/Resources/4.5/scripts/addons_core/io_scene_gltf2/libextern_draco.dylib
+22:44:20 | INFO: Starting glTF 2.0 export
+22:44:20 | INFO: Extracting primitive: Boot.L
+22:44:20 | INFO: Primitives created: 2
+22:44:20 | INFO: Extracting primitive: Boot.R
+22:44:20 | INFO: Primitives created: 2
+22:44:20 | INFO: Extracting primitive: Breastplate
+22:44:20 | INFO: Primitives created: 2
+22:44:20 | INFO: Extracting primitive: CrestCanonical
+22:44:20 | INFO: Primitives created: 1
+22:44:20 | INFO: Extracting primitive: Gauntlet.L.001
+22:44:20 | INFO: Primitives created: 2
+22:44:20 | INFO: Extracting primitive: Gauntlet.R.001
+22:44:20 | INFO: Primitives created: 2
+22:44:20 | INFO: Extracting primitive: Greave.L
+22:44:20 | INFO: Primitives created: 2
+22:44:20 | INFO: Extracting primitive: Greave.R
+22:44:20 | INFO: Primitives created: 2
+22:44:20 | INFO: Extracting primitive: HelmetJawCanonical
+22:44:20 | INFO: Primitives created: 2
+22:44:20 | INFO: Extracting primitive: HelmetShellCanonical
+22:44:20 | INFO: Primitives created: 1
+22:44:20 | INFO: Extracting primitive: HeroSword
+22:44:20 | INFO: Primitives created: 2
+22:44:20 | INFO: Extracting primitive: PalmRune.001
+22:44:20 | INFO: Primitives created: 1
+22:44:20 | INFO: Extracting primitive: Pauldron.L
+22:44:20 | INFO: Primitives created: 1
+22:44:20 | INFO: Extracting primitive: Pauldron.R
+22:44:20 | INFO: Primitives created: 1
+22:44:20 | INFO: Extracting primitive: TabardBack
+22:44:20 | INFO: Primitives created: 1
+22:44:20 | INFO: Extracting primitive: TabardFront
+22:44:20 | INFO: Primitives created: 1
+22:44:20 | INFO: Extracting primitive: VisorCanonical
+22:44:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+22:44:20 | INFO: Primitives created: 1
+22:44:20 | WARNING: Baking animation because there are keyframes with different interpolation methods in one channel
+22:44:20 | INFO: Finished glTF 2.0 export in 0.31281304359436035 s
+
+22:44:20 | INFO: Data are loaded, start creating Blender stuff
+22:44:20 | INFO: Blender create Mesh node Boot.L
+22:44:20 | INFO: Blender create Mesh node Boot.R
+22:44:20 | INFO: Blender create Mesh node Breastplate
+22:44:20 | INFO: Blender create Mesh node CrestCanonical
+22:44:20 | INFO: Blender create Mesh node Gauntlet.L.001
+22:44:20 | INFO: Blender create Mesh node Gauntlet.R.001
+22:44:20 | INFO: Blender create Mesh node Greave.L
+22:44:20 | INFO: Blender create Mesh node Greave.R
+22:44:20 | INFO: Blender create Mesh node HelmetJawCanonical
+22:44:20 | INFO: Blender create Mesh node HelmetShellCanonical
+22:44:20 | INFO: Blender create Mesh node HeroSword
+22:44:20 | INFO: Blender create Mesh node PalmRune.001
+22:44:20 | INFO: Blender create Mesh node Pauldron.L
+22:44:20 | INFO: Blender create Mesh node Pauldron.R
+22:44:20 | INFO: Blender create Mesh node TabardBack
+22:44:20 | INFO: Blender create Mesh node TabardFront
+22:44:20 | INFO: Blender create Mesh node VisorCanonical
+22:44:20 | INFO: glTF import finished in 0.12s
+SOURCE_ROUNDTRIP_OK spellblade-third-person.blend 17
+Info: Saved as "spellblade-first-person.blend"
+22:44:20 | INFO: Starting glTF 2.0 export
+22:44:20 | INFO: Extracting primitive: Arm.L
+22:44:20 | INFO: Primitives created: 2
+22:44:20 | INFO: Extracting primitive: Arm.R
+22:44:20 | INFO: Primitives created: 2
+22:44:20 | INFO: Extracting primitive: HeroSword.001
+22:44:20 | INFO: Primitives created: 2
+22:44:20 | INFO: Extracting primitive: PalmRune
+22:44:20 | INFO: Primitives created: 1
+22:44:20 | INFO: Finished glTF 2.0 export in 0.04173398017883301 s
+
+22:44:20 | INFO: Data are loaded, start creating Blender stuff
+22:44:20 | INFO: Blender create Mesh node Arm.L
+22:44:20 | INFO: Blender create Mesh node Arm.R
+22:44:20 | INFO: Blender create Mesh node HeroSword.001
+22:44:20 | INFO: Blender create Mesh node PalmRune
+22:44:20 | INFO: glTF import finished in 0.03s
+SOURCE_ROUNDTRIP_OK spellblade-first-person.blend 4
+SPELLBLADE_SOURCE_TESTS_OK
+Blender 4.5.14 LTS (hash 62c1db4208e8 built 2026-09-15 01:30:44)
+Read blend: "/Users/erendiracisneros/swords-and-sorcery-polish/tools/blender/characters/spellblade/source/spellblade-third-person.blend"
+Read blend: "/private/var/folders/ww/t_z00l_x5cxdyg6595_5bw5h0000gn/T/tmp6ix178ze/spellblade-third-person.blend"
+Read blend: "/Users/erendiracisneros/swords-and-sorcery-polish/tools/blender/characters/spellblade/source/spellblade-first-person.blend"
+Read blend: "/private/var/folders/ww/t_z00l_x5cxdyg6595_5bw5h0000gn/T/tmp6ix178ze/spellblade-first-person.blend"
+
+Blender quit
