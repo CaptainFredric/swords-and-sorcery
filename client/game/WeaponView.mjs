@@ -479,6 +479,12 @@ export class WeaponView {
     this.castStartedAt = 0;
   }
 
+  /** Whether a spell gathering or the fist going out has the hands (a held Attack or Guard waits for them, as on the
+   * server: heldActions.mjs). */
+  handsBusy(now = this.now()) {
+    return !this.castReleased || now < this.jabAt + GAUNTLET.startup;
+  }
+
   /** Whether the magic hand is free for the gauntlet: the sword does not have it, and the last blow is over. */
   canJab(now = this.now()) {
     return !this.swordChain.busy(now) && now >= this.jabReadyAt && this.castReleased;

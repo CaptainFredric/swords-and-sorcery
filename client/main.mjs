@@ -452,7 +452,7 @@ function useTouchUi() {
 }
 // (the touch controls may be made after the tutorial's first word: whatever it has not taught yet is absent from the start)
 function tutorialTouchControls() {
-  if (tutorialSession?.director.state === 'running') revealTouchControls(tutorialSession.taught);
+  if (tutorialSession?.director.state === 'running') revealTutorialControls(tutorialSession.taught);
 }
 if (isTouchPrimary()) useTouchUi();
 addEventListener('pointerdown', (event) => { if (event.pointerType === 'touch') useTouchUi(); }, { capture: true, passive: true });
@@ -654,8 +654,7 @@ function putAwayMatch() {
   tutorialVoice?.stop();
   endingTutorial?.stop();
   tutorialView.hide();
-  document.querySelectorAll('.tutorial-unlearned').forEach(tile=>tile.classList.remove('tutorial-unlearned'));
-  revealTouchControls(null);
+  revealTutorialControls(null);
   paused = false;
   pauseMenu.classList.add('hidden');
   hideChallenge();
@@ -807,16 +806,21 @@ function voiceFirstLineLate(session) {
   });
 }
 const TUTORIAL_TOUCH_ACTIONS = new Set(['attack','guard','spell','dash','jump','sprint','crouch','ultimate','gauntlet','prepared']);
-// taught: the actions taught so far, or null for everything (the tutorial over or left)
-function revealTouchControls(taught) {
+// taught: the actions taught so far, or null for everything (the tutorial over or left). In Tutorial 1 an ability not
+// taught yet is not on the screen at all, touch buttons and desktop tiles alike: it arrives, in the place it will keep,
+// when it is taught.
+function revealTutorialControls(taught) {
+  const absent = (element, action) => {
+    const gone = taught!==null && !taught.includes(action);
+    element.classList.toggle('tutorial-absent',gone);
+    if (gone) element.setAttribute('aria-hidden','true'); else element.removeAttribute('aria-hidden');
+  };
   for (const button of document.querySelectorAll('.touch-btn[data-action]')) {
-    const action=button.dataset.action;
-    const absent=taught!==null && TUTORIAL_TOUCH_ACTIONS.has(action) && !taught.includes(action);
-    button.classList.toggle('tutorial-absent',absent);
-    if (absent) button.setAttribute('aria-hidden','true'); else button.removeAttribute('aria-hidden');
+    if (TUTORIAL_TOUCH_ACTIONS.has(button.dataset.action)) absent(button,button.dataset.action);
   }
   const stick=document.querySelector('.touch-stick');
   stick?.classList.toggle('tutorial-absent',taught!==null && !taught.includes('move'));
+  for (const [action,tile] of [['spell',hud.spell],['dash',hud.dash],['ultimate',hud.ultimate]]) if (tile) absent(tile,action);
 }
 function startTutorial() {
   showMenuError('');
@@ -831,9 +835,8 @@ function startTutorial() {
       if (!tutorialOpening.waiting && (tutorialOpening.audioReady || progress.current?.id !== tutorialOpening.cueId)) tutorialVoice.sync(tutorialSession?.director);
       const permissions=progress.permissions ?? progress.current?.permissions ?? progress.segment?.permissions ?? [];
       const taught=progress.taught ?? permissions;
-      for (const [action,tile] of [['spell',hud.spell],['dash',hud.dash],['ultimate',hud.ultimate]]) tile?.classList.toggle('tutorial-unlearned',progress.state==='running' && !permissions.includes(action));
-      // On touch, a control not yet taught is not there at all: it arrives (in the place it will keep) when taught.
-      revealTouchControls(progress.state==='running' ? taught : null);
+      // A control not yet taught is not there at all, on any screen: it arrives (in the place it will keep) when taught.
+      revealTutorialControls(progress.state==='running' ? taught : null);
       if (progress.state === 'complete') tutorialProgress.recordCompleted();
       if(progress.state !== 'running') runtime?.input.releaseFocus();
     },

@@ -2,7 +2,7 @@
 // Spellblades and does with what they send. The same shapes either way, so the client cannot tell who is hosting
 // except by asking.
 
-import { tryCastSpell, castPreparedSpell, selectPreparedSpell, beginAttack, endAttack, setGuard, tryCastOrGauntlet, tryDash, tryGauntletStrike, tryUltimate } from './combat.mjs';
+import { tryCastSpell, castPreparedSpell, selectPreparedSpell, beginAttack, endAttack, pressButton, setGuard, tryCastOrGauntlet, tryDash, tryGauntletStrike, tryUltimate } from './combat.mjs';
 import { compensatedInputTime } from './history.mjs';
 import { readyPracticeUltimate, removePracticeDummy, resetPracticePlayer, setPracticeDummyMode, spawnPracticeDummy } from './practice.mjs';
 import { spellFor } from '../src/spells.mjs';
@@ -167,11 +167,17 @@ export function applyRoomCommand(room, player, message, time) {
     }
     case 'attack': {
       const inputTime = compensatedInputTime(message.clientTime, time);
+      pressButton(room, player.id, 'attack', message.down, inputTime);
       if (message.down) beginAttack(room, player.id, inputTime);
       else endAttack(room, player.id, time, inputTime);
       return {};
     }
-    case 'guard': setGuard(room, player.id, Boolean(message.down), compensatedInputTime(message.clientTime, time)); return {};
+    case 'guard': {
+      const inputTime = compensatedInputTime(message.clientTime, time);
+      pressButton(room, player.id, 'guard', message.down, inputTime);
+      setGuard(room, player.id, Boolean(message.down), inputTime);
+      return {};
+    }
     // the spell's key: the spell when it is ready; on its cooldown, the gauntlet if a foe is in reach
     case 'cast': tryCastOrGauntlet(room, player.id, message.direction || { x: 0, y: 0, z: -1 }, time, compensatedInputTime(message.clientTime, time)); return {};
     case 'selectPreparedSpell': selectPreparedSpell(room, player.id, message.spell ?? message.id, time); return {};

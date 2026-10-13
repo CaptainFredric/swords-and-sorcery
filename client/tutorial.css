@@ -1,16 +1,16 @@
 /* The tutorial uses the shell container so manual screen rotation follows the arena. */
 .tutorial-entry { border-color: #9e7c44; }
 .tutorial-entry small { color: var(--heraldry-cream, #eadcb6); }
-.tutorial-unlearned { opacity: .38; }
-/* Tutorial 1 on touch: a control not taught yet is absent (no dimmed promise of later, nothing to press). Taught, it
-   fades and settles into the place it held all along, so nothing else moves. */
+/* Tutorial 1: a control not taught yet is absent (no dimmed promise of later, nothing to press), on touch and on the
+   desktop ability tiles alike. Taught, it fades and settles into the place it held all along, so nothing else moves. */
 .touch-controls .touch-btn { transition: opacity .32s ease, scale .32s ease, transform .06s ease, background .06s ease; }
 .touch-controls .touch-stick { transition: opacity .12s ease, scale .32s ease; }
+.abilities .ability { transition: opacity .32s ease, scale .32s ease; }
+.abilities .ability.tutorial-absent,
 .touch-controls .touch-btn.tutorial-absent, .touch-controls .touch-stick.tutorial-absent {
   opacity: 0; scale: .82; pointer-events: none; visibility: hidden;
   transition: opacity .2s ease, scale .2s ease, visibility 0s linear .2s;
 }
-.ability.tutorial-unlearned::after { content: 'LATER'; position: absolute; inset: auto 8px 6px auto; font-size: 9px; color: #eadcb6; }
 .tutorial-onboarding[hidden], .tutorial-lesson[hidden], .tutorial-lesson [hidden] { display: none; }
 .tutorial-onboarding {
   position: absolute; inset: 0; z-index: 100; display: grid; place-items: center;
