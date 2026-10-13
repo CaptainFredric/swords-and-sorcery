@@ -67,15 +67,23 @@ test('each character\'s treatment is one named preset, its earlier ones kept to 
     assert.ok(presets[use], `${role} uses ${use}`);
     for (const [name, preset] of Object.entries(presets)) assert.ok(preset.about && Number.isFinite(preset.lufs), `${role}/${name}`);
   }
-  // the creator's settings (2026-10-12)
+  // the creator's settings (2026-10-12), then more distortion, properly (2026-10-13): each character a step further
+  // from the performer's own voice, the earlier treatments kept to go back to
   const rival = chains.roles.rival.presets[chains.roles.rival.use];
-  assert.equal(rival.formants, 0.94);
-  assert.equal(rival.pitch.semitones, -1.5);
+  assert.equal(chains.roles.rival.use, 'darker-2026-10-13');
+  assert.equal(rival.formants, 0.91);
+  assert.equal(rival.pitch.semitones, -2.5);
   assert.equal(rival.helm.grit, 0, 'no grit for Rival');
+  assert.ok(chains.roles.rival.presets['declarative-2026-10-12']);
   const knight = chains.roles.spellblade.presets[chains.roles.spellblade.use];
+  assert.equal(chains.roles.spellblade.use, 'forged-helm-2026-10-13');
   assert.equal(knight.helm.amount, 1, 'the established helm');
   assert.equal(knight.pitch.engine, 'vocoder');
+  assert.equal(knight.pitch.semitones, -2.5);
+  assert.ok(knight.helm.reflections[0][1] > chains.roles.spellblade.presets['session-matched'].helm.reflections[0][1]);
+  assert.ok(chains.roles.spellblade.presets['session-matched']);
   assert.equal(chains.roles.narrator.presets[chains.roles.narrator.use].pitch, undefined, 'the narrator is not pitched');
+  assert.ok(chains.roles.narrator.presets[chains.roles.narrator.use].formants < chains.roles.narrator.presets.settled.formants);
 });
 
 // (an engine, a page and a clock, in miniature: a take plays until the test says it has ended)

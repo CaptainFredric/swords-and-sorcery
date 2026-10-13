@@ -30,15 +30,14 @@ test('opening permissions follow LOOK and WALK prompts and the local boundary re
 });
 
 test('escaping Rival physically gains distance while the authored escape preserves player travel',()=>{
-  const {host,session,tick,actor}=fixture();session.director.resumeAt('escape-start');
+  const {host,session,tick,actor}=fixture();session.director.resumeAt('pursuit-release');
   host.player.position={x:0,y:0,z:-12};actor().position={...GREENER_ROUTE.rivalMeeting};
   const origin={...host.player.position},rivalOrigin={...actor().position};
   host.input({seq:1,forward:1,right:0,yaw:1,pitch:0,sprint:true});tick(30);
   assert.notDeepEqual(host.player.position,origin);assert.equal(host.player.yaw,1);
   assert.ok(Math.hypot(actor().position.x-rivalOrigin.x,actor().position.z-rivalOrigin.z)>5);
-  session.director.resumeAt('pursuit-release');
   assert.equal(session.allows('move',false),true);
-  assert.ok(session.director.facts.has('pursuit-released'));host.close();
+  assert.ok(session.director.facts.has('rival-escaping'));host.close();
 });
 
 test('a grounded walk around the stile cannot earn the ordinary Jump crossing fact',()=>{
@@ -57,12 +56,15 @@ test('constitutional survivability is offered once for real otherwise lethal pur
   assert.equal(session.director.branchQueue.filter(x=>x.id==='constitution-strange').length,1);host.close();
 });
 
-test('a trailing sword contact during the escape head start defers the constitution aside until movement is released',()=>{
+test('a sword contact as Rival walks off is no pursuit punishment; one in the pursuit offers the constitution aside',()=>{
   const {host,session,tick}=fixture();session.director.resumeAt('successful-expulsion');
-  session.events([{type:'damage',victimId:session.rivalId,attackerId:host.player.id,source:'sword',amount:22,health:1}]);
+  const lethal={type:'damage',victimId:session.rivalId,attackerId:host.player.id,source:'sword',amount:22,health:1};
+  session.events([lethal]);
   assert.equal(session.director.branchesSeen.has('rival-constitution'),false);
+  assert.equal(session.director.facts.has('rival-survived-lethal'),false);
+  session.director.resumeAt('hardly-wellbeing');tick();
+  session.events([lethal]);
   assert.ok(session.director.facts.has('rival-survived-lethal'));
-  // Advance the authored release without erasing the observed combat fact.
   while(session.director.current.id!=='remains-ahead')session.director.completeDialogue(session.director.cue);
   tick();assert.equal(session.director.branchesSeen.has('rival-constitution'),true);
   assert.equal(session.allows('move',false),true);host.close();

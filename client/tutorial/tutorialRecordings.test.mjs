@@ -46,7 +46,7 @@ test('all established recording keys survive the full route and generated plan m
     'frolic-fields', 'remembering-move', 'constitution-strange', 'not-strange', 'not-fallen',
     'thank-noticing', 'what-condition', 'current-constitution', 'constitution-amended', 'cannot-settled',
     'rival-over-there', 'scorch-mark', 'bridge-senses-failure', 'hence-i-crossed', 'permission-stop', 'no-longer-ruin', 'permission-no', 'then-no',
-    'burn-subsided', 'reforged', 'not-too-many', 'stop-you', 'convince-unblock', 'did-not-stop',
+    'burn-subsided', 'reforged', 'not-too-many', 'fight-yourself', 'already-told', 'feelings-health',
   ]);
   const report = JSON.parse(readFileSync(new URL('../../docs/tutorial-one-recording-changes.json', import.meta.url), 'utf8'));
   assert.equal(report.total, plan.length);
@@ -57,7 +57,13 @@ test('all established recording keys survive the full route and generated plan m
   assert.deepEqual(report.missing, []);
   assert.deepEqual(report.refinement.missing, []);
   const polish = JSON.parse(readFileSync(new URL('../../docs/tutorial-polish-recording-changes.json', import.meta.url), 'utf8'));
-  assert.equal(report.refinement.priorTotal + report.refinement.added.length + (report.postRefinement?.added.length ?? 0) + polish.added.length - polish.replaced.length, plan.length);
+  assert.equal(report.refinement.priorTotal + report.refinement.added.length + (report.postRefinement?.added.length ?? 0) + polish.added.length - polish.replaced.length
+    + (polish.authoredPass?.added.length ?? 0), plan.length);
+  // (the Greener Pastures authored pass: its recordings each have their place, and the final Guard's three lines are
+  // the final duel's own beats now)
+  for (const take of polish.authoredPass.added) assert.equal(plan.find(other => other.key === take.key)?.text, take.text, take.key);
+  for (const moved of polish.authoredPass.promoted) assert.equal(plan.find(take => take.key === moved.key)?.segment, moved.to);
+  for (const change of polish.authoredPass.changed ?? []) assert.equal(plan.find(take => take.key === change.key)?.text, change.after);
   assert.ok(report.refinement.added.every(key => keys.has(key) || polish.replaced.some(take => take.key === key)));
   for (const change of report.refinement.changed) {
     const take = plan.find(take => take.key === change.key);

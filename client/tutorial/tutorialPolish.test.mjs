@@ -54,7 +54,8 @@ test('Rival runs through the approach and only brakes for the completed pride ta
   tick(240);
   assert.equal(session.rival.mode, 'ready');
   assert.ok(session.director.facts.has('rival-turned'));
-  assert.equal(rival().guarding, true);
+  // (ready, sword drawn, Guard down: a strike swung before the duel begins is met by a real Parry, not a held Guard)
+  assert.equal(rival().guarding, false);
   assert.ok(rival().position.z <= -1069 && rival().position.z > GREENER_ROUTE.entrance.z);
   const at = { ...rival().position }; tick(30);
   assert.ok(Math.hypot(rival().position.x-at.x, rival().position.z-at.z) < .1);

@@ -66,8 +66,10 @@ export class TutorialView {
     this.root.classList.toggle('tutorial-title', title);
     this.root.classList.toggle('tutorial-touch', !!context.touch);
     this.chapter.textContent = ended ? completed ? 'TUTORIAL 1 COMPLETE' : 'TUTORIAL PAUSED' : progress.chapter?.title ?? 'GREENER PASTURES';
-    const objective = progress.segment?.objective;
+    // (a beat may bring its objective in before its segment does: the pursuit's, as the threat sinks in)
+    const objective = beat?.objective ?? progress.segment?.objective;
     this.objective.hidden = ended || title || !objective;
+    this.objective.classList.toggle('tutorial-objective-compact', Boolean(objective?.compact));
     this.objectiveText.textContent = objective?.text ?? objective ?? '';
     this.speaker.textContent = ended || title ? '' : TUTORIAL_SPEAKER_LABELS[spoken?.speaker] ?? '';
     this.speaker.hidden = !this.speaker.textContent;
@@ -78,9 +80,11 @@ export class TutorialView {
       : spoken?.line ?? presentedBeat?.line ?? '';
     this.line.hidden = title || !ended && !spoken;
     this.brand.hidden = !title;
-    this.prompt.textContent = ended ? '' : [progress.prompt ?? tutorialPrompt(beat, context),progress.rivalHint].filter(Boolean).join(' ');
+    // (a standing instruction stays up under the lines spoken meanwhile, when the beat has none of its own)
+    const standing = !ended && beat?.kind !== 'prompt' ? progress.standing : null;
+    this.prompt.textContent = ended ? '' : [progress.prompt ?? (tutorialPrompt(beat, context) || tutorialPrompt(standing, context)),progress.rivalHint].filter(Boolean).join(' ');
     this.prompt.hidden = !this.prompt.textContent;
-    this.mechanic.textContent = !ended && beat?.kind === 'prompt' ? beat.line ?? '' : '';
+    this.mechanic.textContent = !ended && beat?.kind === 'prompt' ? beat.line ?? '' : standing?.line ?? '';
     this.mechanic.hidden = !this.mechanic.textContent;
     // Every spoken take uses the same label and text. Instructions have their own panel.
     this.optional.hidden = true;

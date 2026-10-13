@@ -21,19 +21,23 @@ test('edited dialogue, an inserted scene and a disabled joke keep scene policies
   const route = [edited,insert,...TUTORIAL_SEGMENTS.filter(s=>!['escape-head-start','pursuit-banter'].includes(s.id))];
   const {host,session,tick}=fixture(route);
   assert.equal(session.director.progress.segment.id,'escape-head-start');
-  assert.equal(session.rival.mode,'escape');
+  // (he walks off first: the escape proper waits for the false exit and the threat)
+  assert.equal(session.rival.mode,'depart');
   assert.equal(session.director.beats.some(b=>b.id==='never-welcome'),false);
   assert.equal(session.director.beats.some(b=>b.id==='final-hello'),false);
   session.director.resumeAt('overstayed-welcome');assert.equal(session.director.current.line,'An editable creator draft.');
   session.director.resumeAt('new-authored-key');tick();
-  assert.equal(session.director.progress.segment.id,'new-exchange');assert.equal(session.rival.mode,'escape');
+  assert.equal(session.director.progress.segment.id,'new-exchange');assert.ok(['depart','hold-afar'].includes(session.rival.mode));
   host.close();
 });
 
 test('ordinary final combat removes Rival protection independently of optional pursuit dialogue',()=>{
   const {host,session,now}=fixture(TUTORIAL_SEGMENTS);
+  session.director.resumeAt('final-guard');
+  // (his held Guard is the final duel's own lesson: he cannot be beaten until it is broken)
+  assert.equal(session.requiresFinalGuard,true);assert.equal(host.room.tutorialRival.protected,true);
   session.director.resumeAt('defeat-rival');
-  assert.equal(session.requiresFinalGuard,false);assert.equal(host.room.tutorialRival.protected,false);
+  assert.equal(host.room.tutorialRival.protected,false);
   const rival=host.room.players.get(session.rivalId);
   applyDamage(host.room,host.player.id,rival.id,100,'sword',now());assert.equal(rival.alive,false);
   host.close();

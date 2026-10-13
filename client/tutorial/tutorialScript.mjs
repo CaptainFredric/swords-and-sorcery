@@ -37,6 +37,12 @@ const JUMP = [...GUARD, 'jump', 'crouch'];
 const FIREBALL = [...JUMP, 'spell'];
 const DASH = [...FIREBALL, 'dash'];
 const PURSUIT_OBJECTIVE = Object.freeze({ title: 'OBJECTIVE', text: 'STOP THE RIVAL FROM TELLING ON YOU' });
+const EXIT_OBJECTIVE = Object.freeze({ title: 'OBJECTIVE', text: 'LEAVE GREENER PASTURES' });
+const FINAL_OBJECTIVE = Object.freeze({ title: 'OBJECTIVE', text: 'Defeat The Rival', compact: true });
+// health regenerates: shown from the hit itself, under the lines that follow it, until health is back and settled
+const HEALTH_STANDING = Object.freeze({ from: 'player-damaged', until: 'health-settled', line: 'HEALTH REGENERATES', mechanic: 'health-regen' });
+// metres before the stile's takeoff at which the hints give way to "Jump." (about two seconds at a run)
+export const JUMP_HINT_DISTANCE = 16;
 
 const segments = [
   {
@@ -146,7 +152,7 @@ const segments = [
   },
   {
     id: 'first-guard', chapter: 'correspondence', permissions: GUARD,
-    entryCondition: 'sword-contact', completionCue: 'player-damaged',
+    entryCondition: 'sword-contact', completionCue: 'player-damaged', standingPrompt: HEALTH_STANDING,
     scene: { enter: 'rival-idle', checkpoint: 'introductions', gates: ['guard-attack-started', 'successful-guard', 'guard-lowered', 'player-damaged'] },
     beats: [
       { id: 'good-health', speaker: 'rival', line: 'May you receive my message in good health.' },
@@ -169,12 +175,13 @@ const segments = [
   },
   {
     id: 'health-regen', chapter: 'correspondence', permissions: GUARD,
-    entryCondition: 'player-damaged', completionCue: 'health-regenerated',
+    entryCondition: 'player-damaged', completionCue: 'health-settled', standingPrompt: HEALTH_STANDING,
     requiresSegments: ['first-guard'],
-    scene: { enter: 'rival-give-space', checkpoint: 'introductions', gates: ['health-regenerated'] },
+    scene: { enter: 'rival-give-space', checkpoint: 'introductions', gates: ['health-regenerated', 'health-settled'] },
     beats: [
       { id: 'need-a-moment', speaker: 'spellblade', line: 'I need a moment.' },
-      { id: 'health-regen-prompt', kind: 'prompt', speaker: 'instruction', line: 'HEALTH REGENERATES', advanceOn: 'health-regenerated', mechanic: 'health-regen' },
+      // (the reminder stays through the real delay and the real regeneration, and a second at full health)
+      { id: 'health-regen-prompt', kind: 'prompt', speaker: 'instruction', line: 'HEALTH REGENERATES', advanceOn: 'health-settled', mechanic: 'health-regen' },
       { id: 'no-hints', speaker: 'spellblade', line: 'I do not get hints.' },
       { id: 'imminent-demise', speaker: 'rival', line: 'Of your imminent demise?' },
       { id: 'not-my-plan', speaker: 'spellblade', line: 'Ah... no, that was not my plan today.' },
@@ -182,8 +189,8 @@ const segments = [
   },
   {
     id: 'real-duel', chapter: 'duel', permissions: GUARD, checkpoint: true, presentation: 'reactive',
-    entryCondition: 'health-regenerated', completionCue: 'duel-damage-threshold',
-    scene: { insertionSlots: [{id:'wrong-address-recovery',afterCue:'rival-recovery-started',beforeCue:'rival-recovered',role:'rival',status:'awaiting-creator-recording'}], enter: 'rival-idle', checkpoint: 'duel', gates: ['rival-attack-started', 'duel-damage-threshold'] },
+    entryCondition: 'health-settled', completionCue: 'duel-damage-threshold',
+    scene: { enter: 'rival-idle', checkpoint: 'duel', gates: ['rival-attack-started', 'duel-damage-threshold'] },
     beats: [
       { id: 'well', speaker: 'rival', line: 'Well.' },
       { id: 'duel-onset', kind: 'stage', advanceOn: 'rival-attack-started', stageCue: 'rival-attack',
@@ -194,33 +201,77 @@ const segments = [
       { id: 'strike-you-first', speaker: 'spellblade', line: 'If I strike you down first, will you cease attacking me?' },
       { id: 'depends-go-down', speaker: 'rival', line: 'That depends, if you go down, I will cease as well' },
       { id: 'prevent-arrangement', speaker: 'narrator', line: 'Prevent this arrangement.' },
+      // (the banter is had mid-fight, once he has taken some real punishment; the blow that brings him down is
+      // answered at once, so a fight won before the banter is over leaves the rest of it unsaid)
+      { id: 'duel-midway', kind: 'stage', advanceOn: 'duel-damage-midway', stageCue: 'rival-real-duel',
+        direction: 'Responsive ordinary combat until Rival has taken real punishment.' },
+      { id: 'taking-a-while', skipWhen: 'duel-damage-threshold', speaker: 'spellblade', line: 'You are taking a while to go down!' },
+      { id: 'not-yet', skipWhen: 'duel-damage-threshold', speaker: 'rival', line: 'Haha! I do not feel like it yet!' },
+      { id: 'informative', skipWhen: 'duel-damage-threshold', speaker: 'narrator', line: 'How informative.' },
       { id: 'real-duel', kind: 'stage', advanceOn: 'duel-damage-threshold', stageCue: 'rival-real-duel',
         direction: 'Observe cumulative legitimate Rival damage during responsive ordinary combat.' },
-      { id: 'taking-a-while', speaker: 'spellblade', line: 'You are taking a while to go down!' },
-      { id: 'not-yet', speaker: 'rival', line: 'Haha! I do not feel like it yet!' },
-      { id: 'informative', speaker: 'narrator', line: 'How informative.' },
     ],
   },
   {
-    id: 'escape-head-start', chapter: 'pursuit', permissions: GUARD, checkpoint: true, presentation: 'reactive',
-    entryCondition: 'duel-damage-threshold', completionCue: 'rival-escaping',
-    captionRehearsal: Object.freeze({ scale: 0.45, minSec: 0.8 }),
-    objective: PURSUIT_OBJECTIVE,
-    scene: { enter: 'rival-escape', checkpoint: 'pursuit',
-      gates: ['rival-escaping', { cue: 'pursuit-head-start', kind: 'separation', distance: 26, minSec: 2, activeOnly: true }],
-    },
+    // The threshold blow brings Rival down. He is still down for his excuse, then rises and turns to go.
+    id: 'duel-knockdown', chapter: 'duel', permissions: GUARD, presentation: 'reactive',
+    entryCondition: 'duel-damage-threshold', completionCue: 'rival-recovered',
+    scene: { checkpoint: 'duel', gates: ['rival-downed', 'rival-recovered'] },
     beats: [
-      { id: 'escape-start', kind: 'stage', advanceOn: 'rival-escaping',
-        direction: 'Rival disengages and runs along the authored pursuit route.' },
+      { id: 'rival-downed', kind: 'stage', advanceOn: 'rival-downed',
+        direction: 'The legitimate threshold blow buckles Rival to the ground: a brief, readable downed hold.' },
+      { id: 'wrong-address', speaker: 'rival', line: 'Argh!... Perhaps I had the wrong address!!' },
+      { id: 'rival-rising', kind: 'stage', advanceOn: 'rival-recovered', stageCue: 'rival-rise',
+        direction: 'Rival gets up, reaches his feet and turns away.' },
+    ],
+  },
+  {
+    // The narration starts as Rival starts to walk away: it narrates the departure, never a sprint already under way.
+    id: 'escape-head-start', chapter: 'pursuit', permissions: GUARD, checkpoint: true, presentation: 'reactive',
+    entryCondition: 'rival-recovered', completionCue: 'rival-departed',
+    captionRehearsal: Object.freeze({ scale: 0.45, minSec: 0.8 }),
+    scene: { enter: 'rival-depart', checkpoint: 'pursuit', gates: [] },
+    beats: [
+      { id: 'departure-start', kind: 'stage', advanceOn: 'rival-departing', stageCue: 'rival-depart',
+        direction: 'Rival begins walking away toward the far wall.' },
       { id: 'successful-expulsion', speaker: 'narrator', line: 'And thus the Spellblade had successfully convinced the meddlesome miscommunication Rival to return to sender' },
       { id: 'not-admired', speaker: 'spellblade', line: 'He did not admire me.' },
       { id: 'overstayed-welcome', speaker: 'rival', line: 'I believe I have overstayed my welcome!' },
       { id: 'never-welcome', speaker: 'spellblade', line: 'You were never welcome!' },
       { id: 'say-hello-reminder', speaker: 'narrator', line: 'I told you to say hello...' },
+    ],
+  },
+  {
+    // The apparent end: a quiet instruction to the way out, a joke on the way there, and a moment of quiet.
+    id: 'false-exit', chapter: 'pursuit', permissions: GUARD, presentation: 'reactive',
+    entryCondition: 'rival-departed', completionCue: 'exit-near', objective: EXIT_OBJECTIVE,
+    scene: { enter: 'rival-hold-afar', checkpoint: 'pursuit', gates: [
+      { cue: 'exit-walk-started', kind: 'toward-landmark', actor: 'player', landmark: 'exit', distance: 4, activeOnly: true },
+      { cue: 'exit-near', kind: 'near-landmark', actor: 'player', landmark: 'exit', distance: 16, activeOnly: true },
+    ] },
+    beats: [
+      { id: 'leave-prompt', kind: 'prompt', speaker: 'instruction', line: 'LEAVE GREENER PASTURES', advanceOn: 'exit-walk-started', mechanic: 'exit' },
+      { id: 'time-to-exit', speaker: 'spellblade', line: 'Time to exit like a proper Spellblade.' },
+      { id: 'barely-did-anything', speaker: 'narrator', line: 'You barely did anything.' },
+      { id: 'exit-quiet', kind: 'stage', advanceOn: 'exit-quiet-ended', advanceAfterSec: 1.8,
+        direction: 'Leave the joke alone for a moment while the Spellblade walks on.' },
+      { id: 'exit-approach', kind: 'stage', advanceOn: 'exit-near',
+        direction: 'The Spellblade nears the way out.' },
+    ],
+  },
+  {
+    // Near the way out, Rival threatens his reputation. The Spellblade stops dead at the threat's first word.
+    id: 'tattle-threat', chapter: 'pursuit', permissions: GUARD, presentation: 'reactive',
+    entryCondition: 'exit-near', completionCue: 'rival-escaping',
+    scene: { enter: 'rival-hold-afar', checkpoint: 'pursuit', gates: ['rival-escaping'] },
+    beats: [
+      { id: 'threat-halt', kind: 'stage', advanceOn: 'player-halted', stageCue: 'player-halt',
+        direction: 'Hold the Spellblade’s locomotion for a moment as the threat begins. Look stays free.' },
       { id: 'escape-made-fun', speaker: 'rival', line: 'If I manage to successfully escape alive, you will be made fun of!' },
-      { id: 'pursuit-release', kind: 'stage', advanceOn: 'pursuit-released', stageCue: 'pursuit-release', permissions: GUARD,
-        direction: 'Release ordinary pursuit while Rival continues fleeing. The temporary escape head start ends here.' },
-      { id: 'hardly-wellbeing', speaker: 'narrator', line: 'Oh dear, that hardly seems conducive toward your wellbeing, Spellblade.', permissions: GUARD },
+      { id: 'realization', kind: 'stage', advanceOn: 'realized', advanceAfterSec: 0.7,
+        direction: 'A brief realization before the new objective.' },
+      { id: 'pursuit-release', kind: 'stage', advanceOn: 'rival-escaping', stageCue: 'pursuit-release', objective: PURSUIT_OBJECTIVE,
+        direction: 'STOP THE RIVAL FROM TELLING ON YOU: Rival flees for real and the pursuit begins.' },
     ],
   },
   {
@@ -229,26 +280,32 @@ const segments = [
     branches: ['rival-constitution'],
     scene: { enter: 'rival-escape', checkpoint: 'pursuit', gates: [] },
     beats: [
+      { id: 'hardly-wellbeing', speaker: 'narrator', line: 'Oh dear, that hardly seems conducive toward your wellbeing, Spellblade.' },
       { id: 'remains-ahead', speaker: 'spellblade', line: 'My reputation will become dead if he remains ahead!' },
       { id: 'few-steps', speaker: 'narrator', line: 'A few steps ahead.' },
     ],
   },
   {
-    id: 'jump-obstacle', chapter: 'pursuit', permissions: JUMP, presentation: 'reactive', checkpoint: true,
+    // Rival gets ahead, really jumps the stile, lands and gloats while the player is still coming. Jump is the
+    // player's from the moment Rival demonstrates it. The hints give way to "Jump." as the player nears the
+    // takeoff, and a player who jumps on their own skips whatever hint is left.
+    id: 'jump-obstacle', chapter: 'pursuit', permissions: GUARD, presentation: 'reactive', checkpoint: true,
     entryCondition: 'rival-escaping', completionCue: 'jump-crossed', objective: PURSUIT_OBJECTIVE,
     branches: ['rival-constitution'],
-    scene: { enter: 'rival-jump', checkpoint: 'jump', gates: ['jump-reached', {cue:'jump-approach-ready',kind:'near-landmark',actor:'player',landmark:'jump-takeoff',distance:8,axisWindow:{axis:'z',min:-3.5,max:.6},activeBeat:'jump-near-approach'}, 'jump-used', 'jump-crossed'] },
+    scene: { enter: 'rival-jump', checkpoint: 'jump', releaseControls: { afterCue: 'rival-jumped', permissions: JUMP },
+      gates: ['rival-jumped', 'jump-reached', {cue:'jump-approach-ready',kind:'near-landmark',actor:'player',landmark:'jump-takeoff',distance:JUMP_HINT_DISTANCE,axisWindow:{axis:'z',min:-3.5,max:JUMP_HINT_DISTANCE}}, 'jump-used', 'jump-crossed'] },
     beats: [
-      { id: 'jump-arrival', kind: 'stage', advanceOn: 'jump-reached',
-        direction: 'Pursue Rival to the low field stile. Rival crosses and stops on its far side to gloat.' },
-      { id: 'minor-obstacle-gloat', speaker: 'rival', line: 'Ahahaha! You cannot overcome this!' },
-      { id: 'what-should-do', skipWhen:'jump-crossed', speaker: 'spellblade', line: 'What should I do?' },
-      { id: 'minor-ledges', skipWhen:'jump-crossed', speaker: 'narrator', line: "The Spellblade's journey is not impeded by minor ledges." },
-      { id: 'what-does-mean', skipWhen:'jump-crossed', speaker: 'spellblade', line: 'What does that mean?' },
-      { id: 'rises-occasion', skipWhen:'jump-crossed', speaker: 'narrator', line: 'He rises to the occasion, climbs the ranks, and bounds onward toward greater glory.' },
-      { id: 'jump-no-hints', skipWhen:'jump-crossed', speaker: 'spellblade', line: 'I do not get hints.' },
-      { id: 'jump-near-approach', skipWhen:'jump-crossed', kind:'stage', advanceOn:'jump-approach-ready', direction:'Only the final keypress hint waits for nearby takeoff. Earlier dialogue follows the real Rival landing.' },
-      { id: 'jump-instruction', skipWhen:'jump-crossed', speaker: 'narrator', line: 'Jump.' },
+      // (the gloat begins as he lands, while he turns back to face the Spellblade still coming)
+      { id: 'jump-arrival', kind: 'stage', advanceOn: 'rival-jumped', skipWhen: 'jump-crossed',
+        direction: 'Pursue Rival to the low field stile. Rival jumps it for real and stops on its far side to gloat.' },
+      { id: 'minor-obstacle-gloat', skipWhen:'jump-crossed', speaker: 'rival', line: 'Ahahaha! You cannot overcome this!' },
+      { id: 'what-should-do', skipWhen:['jump-crossed','jump-used','jump-approach-ready'], speaker: 'spellblade', line: 'What should I do?' },
+      { id: 'minor-ledges', skipWhen:['jump-crossed','jump-used','jump-approach-ready'], speaker: 'narrator', line: "The Spellblade's journey is not impeded by minor ledges." },
+      { id: 'what-does-mean', skipWhen:['jump-crossed','jump-used','jump-approach-ready'], speaker: 'spellblade', line: 'What does that mean?' },
+      { id: 'rises-occasion', skipWhen:['jump-crossed','jump-used','jump-approach-ready'], speaker: 'narrator', line: 'He rises to the occasion, climbs the ranks, and bounds onward toward greater glory.' },
+      { id: 'jump-no-hints', skipWhen:['jump-crossed','jump-used','jump-approach-ready'], speaker: 'spellblade', line: 'I do not get hints.' },
+      { id: 'jump-near-approach', skipWhen:['jump-crossed','jump-used'], kind:'stage', advanceOn:'jump-approach-ready', direction:'Only the final hint waits for the player nearing the takeoff.' },
+      { id: 'jump-instruction', skipWhen:['jump-crossed','jump-used'], speaker: 'narrator', line: 'Jump.' },
       { id: 'jump-prompt', skipWhen:'jump-crossed', kind: 'prompt', speaker: 'instruction', line: 'JUMP', advanceOn: 'jump-used', mechanic: 'jump', permissions: JUMP },
       { id: 'jump-crossing', skipWhen:'jump-crossed', kind: 'stage', advanceOn: 'jump-crossed', mechanic: 'jump', permissions: JUMP,
         direction: 'Observe the player cross the named stile through an ordinary Jump.' },
@@ -298,7 +355,7 @@ const segments = [
     id: 'tattle-reveal', chapter: 'fireball', permissions: FIREBALL, presentation: 'reactive',
     entryCondition: 'fireball-hit', completionCue: 'continue', objective: PURSUIT_OBJECTIVE,
     branches: ['rival-constitution'],
-    scene: { checkpoint: 'pursuit', insertionSlots: [{id:'sheepfold-dead-end',landmark:'dead-end-approach',through:'dead-end-exit',status:'awaiting-creator-recordings'}], gates: [
+    scene: { checkpoint: 'pursuit', gates: [
       { cue: 'tattle-reveal-reached', kind: 'past-landmark', actor: 'player', landmark: 'tattle-reveal' },
     ] },
     beats: [
@@ -310,6 +367,23 @@ const segments = [
       { id: 'rightfully-condemned', speaker: 'rival', line: 'Where you will be rightfully condemned!' },
       { id: 'told-on', speaker: 'rival', line: '...and be told on.' },
       { id: 'acquired-attention', speaker: 'spellblade', line: 'NOW this has acquired my attention!' },
+    ],
+  },
+  {
+    // The sheepfold's low wall: Rival vaults it and calls it the end of the story; the Spellblade's own leap answers.
+    id: 'dead-end', chapter: 'fireball', permissions: FIREBALL, presentation: 'reactive',
+    entryCondition: 'tattle-reveal-reached', completionCue: 'continue', objective: PURSUIT_OBJECTIVE,
+    branches: ['rival-constitution'],
+    scene: { checkpoint: 'pursuit', gates: ['dead-end-rival-over', 'dead-end-crossed'] },
+    beats: [
+      { id: 'dead-end-arrival', kind: 'stage', advanceOn: 'dead-end-rival-over', skipWhen: 'dead-end-crossed',
+        direction: 'Rival vaults the sheepfold wall and calls it the end of the road.' },
+      { id: 'your-dead-end', skipWhen: 'dead-end-crossed', speaker: 'rival', line: 'Yes! Alas we have reached the end of your story. Your dead-end!' },
+      { id: 'more-pages', skipWhen: 'dead-end-crossed', speaker: 'narrator', line: 'You have more pages, Spellblade.' },
+      { id: 'dead-end-crossing', kind: 'stage', advanceOn: 'dead-end-crossed',
+        direction: 'The Spellblade leaps the wall (or takes the side gate).' },
+      // (a phonetic joke: "a LIE!" for a moment, then the last /v/ makes it "alive": nothing may clip its pause)
+      { id: 'dead-end-alive', speaker: 'spellblade', line: 'The dead-end is a LIE—ve!' },
     ],
   },
   {
@@ -356,7 +430,7 @@ const segments = [
     beats: [
       { id: 'complaint-arrival', kind: 'stage', advanceOn: 'complaint-approached',
         direction: 'Continue the moving chase until TATTLE ON YOU is readable and Rival is approaching its entrance.' },
-      { id: 'legend-ends', speaker: 'narrator', line: 'This is not where your legend ends, Spellblade. Knights are not supposed to get made fun of.' },
+      { id: 'legend-ends', speaker: 'narrator', line: 'This is not where your legend ends, Spellblade. Knights are not made to be made fun of.' },
     ],
   },
   {
@@ -386,11 +460,20 @@ const segments = [
     ],
   },
   {
+    // The final Rival has learned something: he turns the first strike away with a real Parry, holds his Guard,
+    // and only once it is genuinely broken does the fight become an ordinary one to the end.
     id: 'rival-defeat', chapter: 'final-guard', permissions: DASH, presentation: 'reactive',
-    branches: ['final-guard-reaction', 'final-guard-broken'],
-    entryCondition: 'rival-turned', completionCue: 'rival-defeated', objective: PURSUIT_OBJECTIVE,
-    scene: { enter: 'rival-final-fight', checkpoint: 'final', gates: ['rival-defeated'] },
+    branches: ['final-feelings', 'final-loss-1', 'final-loss-2'],
+    entryCondition: 'rival-turned', completionCue: 'rival-defeated', objective: FINAL_OBJECTIVE,
+    scene: { enter: 'rival-final-opening', checkpoint: 'final', gates: ['final-first-parry', 'rival-guard-broken', 'rival-defeated'] },
     beats: [
+      { id: 'final-opening', kind: 'stage', advanceOn: 'final-first-parry', stageCue: 'rival-final-opening',
+        direction: 'Rival holds his post in Guard and turns the first sword strike away with a genuine Parry.' },
+      { id: 'stop-you', speaker: 'rival', line: 'This should stop you!' },
+      { id: 'convince-unblock', speaker: 'narrator', line: 'Convince him to unblock you.' },
+      { id: 'final-guard', kind: 'stage', advanceOn: 'rival-guard-broken', stageCue: 'rival-final-guard', mechanic: 'guard-break',
+        direction: 'Ordinary combat against a purposeful Guard until the player genuinely breaks it.' },
+      { id: 'did-not-stop', speaker: 'rival', line: 'That did not stop you!!' },
       { id: 'defeat-rival', kind: 'stage', advanceOn: 'rival-defeated', stageCue: 'rival-final-fight',
         direction: 'Observe a genuine Rival defeat during responsive ordinary combat.' },
     ],
@@ -550,16 +633,19 @@ const branchDeclarations = {
       { id: 'not-too-many', speaker: 'narrator', line: 'Not too many times, now' },
     ],
   },
-  'final-guard-reaction': {
-    segment: 'rival-defeat', chapter: 'final-guard', triggerCue: 'rival-guard-started',
-    beats: [
-      { id: 'stop-you', speaker: 'rival', line: 'This should stop you!' },
-      { id: 'convince-unblock', speaker: 'narrator', line: 'Convince him to unblock you.' },
-    ],
+  // When Rival wins the final duel: the first loss and the second each have their line; after that, quiet.
+  'final-loss-1': {
+    segment: 'rival-defeat', chapter: 'final-guard', triggerCue: 'player-defeated-final',
+    beats: [{ id: 'fight-yourself', speaker: 'rival', line: 'How will you fight yourself, if you cannot defeat your Rival?' }],
   },
-  'final-guard-broken': {
-    segment: 'rival-defeat', chapter: 'final-guard', triggerCue: 'rival-guard-broken',
-    beats: [{ id: 'did-not-stop', speaker: 'rival', line: 'That did not stop you!!' }],
+  'final-loss-2': {
+    segment: 'rival-defeat', chapter: 'final-guard', triggerCue: 'player-defeated-final',
+    beats: [{ id: 'already-told', speaker: 'rival', line: 'Perhaps I won’t tell on you. You have already done so for me.' }],
+  },
+  // A Fireball in the final duel ("I am developing warm feelings about this!" earlier)
+  'final-feelings': {
+    segment: 'rival-defeat', chapter: 'final-guard', triggerCue: 'final-fireball-hit',
+    beats: [{ id: 'feelings-health', speaker: 'rival', line: 'Your feelings shall not affect my health.' }],
   },
 };
 

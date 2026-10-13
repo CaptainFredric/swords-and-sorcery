@@ -168,3 +168,20 @@ test('nonlethal recovery buckles, braces and smoothly returns to neutral without
     assert.ok(a.rotations.every(r=>Number.isFinite(r.angle)));
   }
 });
+
+test('a held knockdown sits him on the ground until the hold ends, then the ordinary rise', async () => {
+  const { nonlethalRecovery, NONLETHAL_RECOVERY, KNOCKDOWN_POSE } = await import('./spellbladeMotion.mjs');
+  const hold = 4, duration = NONLETHAL_RECOVERY.duration + hold;
+  // down: hips lowered and tipped back, held at full through the hold
+  for (const age of [.5, 1.2, 2.5, 1.2 + hold - .01]) {
+    const pose = nonlethalRecovery(age, duration, hold);
+    close(pose.pelvis[1], KNOCKDOWN_POSE.pelvis[1]);
+    assert.ok(pose.rotations.some(r => r.bone === 'pelvis' && Math.abs(r.angle) > 1));
+  }
+  // then up over the ordinary rise, and standing at the end
+  const rising = nonlethalRecovery(1.2 + hold + .7, duration, hold);
+  assert.ok(rising.pelvis[1] > KNOCKDOWN_POSE.pelvis[1] && rising.pelvis[1] < 0);
+  assert.deepEqual(nonlethalRecovery(duration, duration, hold).pelvis, [0, 0, 0]);
+  // without a hold it is the old buckle-and-brace, feet planted
+  assert.deepEqual(nonlethalRecovery(.8).pelvis, [0, 0, 0]);
+});

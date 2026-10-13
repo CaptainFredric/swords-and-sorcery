@@ -112,10 +112,10 @@ test('a playing aside is allowed to finish its current recording before an urgen
   assert.equal(TUTORIAL_BRANCHES['rival-constitution'].find(b=>b.id==='not-strange').pauseAfterSec,.15);
 });
 
-test('ordinary Rival defeat cancels the obsolete optional Guard instruction and ignores the old take', () => {
+test('ordinary Rival defeat cancels a final-duel aside still playing and ignores its old take', () => {
   const d=new TutorialDirector();d.start();d.resumeAt('defeat-rival');
-  d.offerBranch('final-guard-reaction'); const old=d.optionalCue;d.beginAudio(old);
-  assert.equal(old.id,'stop-you');
+  d.offerBranch('final-feelings'); const old=d.optionalCue;d.beginAudio(old);
+  assert.equal(old.id,'feelings-health');
   d.fact('rival-defeated');
   assert.equal(d.current.id,'who-are-you');
   assert.equal(d.optionalCue,null);
@@ -139,7 +139,7 @@ test('urgent feedback cannot split either authored rapid reply pair', () => {
 test('pursuit remains available from escape onset through long VO and never grants opening controls', () => {
   const { host,session,tick,now,rival }=fixture();
   assert.equal(session.allows('move',false),false);
-  session.stage('real-duel'); session.director.resumeAt('escape-start');
+  session.stage('real-duel'); session.director.resumeAt('pursuit-release');
   host.player.position={x:0,y:0,z:-12};rival().position={x:0,y:0,z:-15};
   const started=now();tick();tick();const cue=session.director.cue;session.director.beginAudio(cue);
   let released=null;

@@ -1,5 +1,5 @@
 {
-  "total": 159,
+  "total": 168,
   "priorTotal": 56,
   "added": [
     "tutorial.greener-pastures",
@@ -20,11 +20,14 @@
     "tutorial.taking-a-while",
     "tutorial.not-yet",
     "tutorial.informative",
+    "tutorial.wrong-address",
     "tutorial.successful-expulsion",
     "tutorial.not-admired",
     "tutorial.overstayed-welcome",
     "tutorial.never-welcome",
     "tutorial.say-hello-reminder",
+    "tutorial.time-to-exit",
+    "tutorial.barely-did-anything",
     "tutorial.escape-made-fun",
     "tutorial.hardly-wellbeing",
     "tutorial.remains-ahead",
@@ -60,6 +63,9 @@
     "tutorial.rightfully-condemned",
     "tutorial.told-on",
     "tutorial.acquired-attention",
+    "tutorial.your-dead-end",
+    "tutorial.more-pages",
+    "tutorial.dead-end-alive",
     "tutorial.get-over-this",
     "tutorial.decent-suggestion",
     "tutorial.get-over-it",
@@ -78,6 +84,9 @@
     "tutorial.not-part-terms",
     "tutorial.scripted-against-you",
     "tutorial.come-prove-it",
+    "tutorial.stop-you",
+    "tutorial.convince-unblock",
+    "tutorial.did-not-stop",
     "tutorial.who-are-you",
     "tutorial.i-am",
     "tutorial.strange-name",
@@ -102,9 +111,9 @@
     "tutorial.burn-subsided",
     "tutorial.reforged",
     "tutorial.not-too-many",
-    "tutorial.stop-you",
-    "tutorial.convince-unblock",
-    "tutorial.did-not-stop"
+    "tutorial.fight-yourself",
+    "tutorial.already-told",
+    "tutorial.feelings-health"
   ],
   "changed": [
     {
@@ -170,9 +179,9 @@
     "tutorial.burn-subsided",
     "tutorial.reforged",
     "tutorial.not-too-many",
-    "tutorial.stop-you",
-    "tutorial.convince-unblock",
-    "tutorial.did-not-stop"
+    "tutorial.fight-yourself",
+    "tutorial.already-told",
+    "tutorial.feelings-health"
   ],
   "missing": [],
   "beats": 173,

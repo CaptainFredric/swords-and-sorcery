@@ -448,6 +448,11 @@ function useTouchUi() {
   const turnHint = $('.turn-hint');
   if (turnHint) turnHint.textContent = 'DRAG TO TURN · DOUBLE-TAP TO RESET';
   runtime?.enableTouch();
+  tutorialTouchControls();
+}
+// (the touch controls may be made after the tutorial's first word: whatever it has not taught yet is absent from the start)
+function tutorialTouchControls() {
+  if (tutorialSession?.director.state === 'running') revealTouchControls(tutorialSession.taught);
 }
 if (isTouchPrimary()) useTouchUi();
 addEventListener('pointerdown', (event) => { if (event.pointerType === 'touch') useTouchUi(); }, { capture: true, passive: true });
@@ -459,7 +464,7 @@ function ensureRuntime() {
     if (new URLSearchParams(location.search).has('debug')) globalThis.__ssRuntime = runtime;
     runtime.configure({ view: viewOptions(settings), input: inputOptions(settings) });
     if (tutorialSession) runtime.input.allowAction = (action, notify = true) => tutorialSession?.allows(action, notify) ?? true;
-    if (touchUi) runtime.enableTouch();
+    if (touchUi) { runtime.enableTouch(); tutorialTouchControls(); }
     runtime.onPointer = (locked) => {
       const mode = latestLobby?.mode ?? latestSnapshot?.mode;
       if (mode === 'BOT_DUEL') socket.arenaReady(locked);
@@ -650,6 +655,7 @@ function putAwayMatch() {
   endingTutorial?.stop();
   tutorialView.hide();
   document.querySelectorAll('.tutorial-unlearned').forEach(tile=>tile.classList.remove('tutorial-unlearned'));
+  revealTouchControls(null);
   paused = false;
   pauseMenu.classList.add('hidden');
   hideChallenge();
@@ -800,6 +806,18 @@ function voiceFirstLineLate(session) {
     tutorialVoice.sync(session.director);
   });
 }
+const TUTORIAL_TOUCH_ACTIONS = new Set(['attack','guard','spell','dash','jump','sprint','crouch','ultimate','gauntlet','prepared']);
+// taught: the actions taught so far, or null for everything (the tutorial over or left)
+function revealTouchControls(taught) {
+  for (const button of document.querySelectorAll('.touch-btn[data-action]')) {
+    const action=button.dataset.action;
+    const absent=taught!==null && TUTORIAL_TOUCH_ACTIONS.has(action) && !taught.includes(action);
+    button.classList.toggle('tutorial-absent',absent);
+    if (absent) button.setAttribute('aria-hidden','true'); else button.removeAttribute('aria-hidden');
+  }
+  const stick=document.querySelector('.touch-stick');
+  stick?.classList.toggle('tutorial-absent',taught!==null && !taught.includes('move'));
+}
 function startTutorial() {
   showMenuError('');
   const name = nameInput.value.trim().slice(0,18);
@@ -812,11 +830,10 @@ function startTutorial() {
       tutorialView.show(progress);
       if (!tutorialOpening.waiting && (tutorialOpening.audioReady || progress.current?.id !== tutorialOpening.cueId)) tutorialVoice.sync(tutorialSession?.director);
       const permissions=progress.permissions ?? progress.current?.permissions ?? progress.segment?.permissions ?? [];
+      const taught=progress.taught ?? permissions;
       for (const [action,tile] of [['spell',hud.spell],['dash',hud.dash],['ultimate',hud.ultimate]]) tile?.classList.toggle('tutorial-unlearned',progress.state==='running' && !permissions.includes(action));
-      for (const button of document.querySelectorAll('.touch-btn[data-action]')) {
-        const action=button.dataset.action;
-        button.classList.toggle('tutorial-unlearned',['attack','guard','spell','dash','ultimate','sprint'].includes(action) && !permissions.includes(action));
-      }
+      // On touch, a control not yet taught is not there at all: it arrives (in the place it will keep) when taught.
+      revealTouchControls(progress.state==='running' ? taught : null);
       if (progress.state === 'complete') tutorialProgress.recordCompleted();
       if(progress.state !== 'running') runtime?.input.releaseFocus();
     },

@@ -1,5 +1,6 @@
-// Reusable spatial observations for authored scenes. Dialogue is never consulted.
-export function tutorialSceneCue(gate, {player, rival, route, elapsedSec = 0}) {
+// Reusable spatial observations for authored scenes. Dialogue is never consulted. `memory` is the gate's own (kept by
+// the session for as long as the gate's segment is current): a 'toward-landmark' gate remembers where it was begun.
+export function tutorialSceneCue(gate, {player, rival, route, elapsedSec = 0, memory = {}}) {
   if (gate.kind === 'fact') return false; // Combat and movement adapters own these facts.
   if (gate.kind === 'separation') return Boolean(player?.alive && rival?.alive)
     && elapsedSec >= (gate.minSec ?? 0)
@@ -14,6 +15,12 @@ export function tutorialSceneCue(gate, {player, rival, route, elapsedSec = 0}) {
     return (!window || delta>=window.min && delta<=window.max)
       && Math.hypot(actor.position.x-target.x,actor.position.z-target.z) <= gate.distance
       && (gate.playerDistance === undefined || Math.hypot(player.position.x-rival.position.x,player.position.z-rival.position.z) <= gate.playerDistance);
+  }
+  if (gate.kind === 'toward-landmark') {
+    // set out for it: this much closer to it than when the gate began
+    const away = Math.hypot(actor.position.x-target.x,actor.position.z-target.z);
+    memory.start ??= away;
+    return memory.start - away >= gate.distance;
   }
   if (gate.kind === 'past-landmark') {
     const axis = gate.axis ?? 'z';

@@ -11,8 +11,50 @@
   },
   "roles": {
     "spellblade": {
-      "use": "session-matched",
+      "use": "forged-helm-2026-10-13",
       "presets": {
+        "forged-helm-2026-10-13": {
+          "about": "The creator asked for more distortion, done properly (2026-10-13): session-matched, with the helm pressed closer: pitch 2.5 st down (from 2), formants 4% down, the helm's reflections about 2.3x as strong (1.1/2.3/3.7 ms), its 1.25 kHz ring at 2 dB (from 0.5), more parallel drive (grit 0.45 at 2.0, from 0.3 at 1.6). Against session-matched on sample lines: no harsher at 2.5-5 kHz, still comprehensible (an intelligibility estimate of 0.67-0.70 from 0.74-0.76; subtitles are always on).",
+          "lufs": -16.8,
+          "highpassHz": 75,
+          "room": { "dereverb": true, "t60MaxSec": 0.85, "strength": 1.0, "floorDb": -12 },
+          "gate": { "openDb": -30, "holdMs": 120 },
+          "expand": { "belowDb": -42, "ratio": 2.0, "tailBelowDb": -46 },
+          "pitch": { "semitones": -2.5, "engine": "vocoder", "fallback": ["psola", "rubberband"], "contourLimitPct": 8 },
+          "eq": [["highpass", 85], ["bell", 150, 2.0, 1.2], ["bell", 260, 1.0, 1.0], ["bell", 420, -1.5, 1.0], ["bell", 620, -1.0, 1.2], ["bell", 2600, 3.0, 1.4], ["bell", 5000, 1.0, 1.5], ["lowpass", 11000], ["bell", 160, -1.0, 1.5], ["bell", 600, 1.5, 1.0], ["bell", 1260, -1.8, 0.6], ["bell", 5500, 2.4, 1.2]],
+          "helm": { "amount": 1.0, "ringDb": 2.0, "ringHz": 1250, "reflections": [[1.1, 0.14], [2.3, 0.08], [3.7, 0.035]], "drive": 2.0, "grit": 0.45 },
+          "compress": { "aboveDb": -18, "ratio": 3.0, "attackMs": 4, "releaseMs": 80 },
+          "deess": null,
+          "formants": 0.96
+        },
+        "forged-helm-shallow-2026-10-13": {
+          "about": "forged-helm at the old depth (2 semitones), for a take the 2.5 semitone shift cannot follow (its contour lost); everything else as forged-helm.",
+          "lufs": -16.8,
+          "highpassHz": 75,
+          "room": { "dereverb": true, "t60MaxSec": 0.85, "strength": 1.0, "floorDb": -12 },
+          "gate": { "openDb": -30, "holdMs": 120 },
+          "expand": { "belowDb": -42, "ratio": 2.0, "tailBelowDb": -46 },
+          "pitch": { "semitones": -2.0, "engine": "vocoder", "fallback": ["psola", "rubberband"], "contourLimitPct": 8 },
+          "eq": [["highpass", 85], ["bell", 150, 2.0, 1.2], ["bell", 260, 1.0, 1.0], ["bell", 420, -1.5, 1.0], ["bell", 620, -1.0, 1.2], ["bell", 2600, 3.0, 1.4], ["bell", 5000, 1.0, 1.5], ["lowpass", 11000], ["bell", 160, -1.0, 1.5], ["bell", 600, 1.5, 1.0], ["bell", 1260, -1.8, 0.6], ["bell", 5500, 2.4, 1.2]],
+          "helm": { "amount": 1.0, "ringDb": 2.0, "ringHz": 1250, "reflections": [[1.1, 0.14], [2.3, 0.08], [3.7, 0.035]], "drive": 2.0, "grit": 0.45 },
+          "compress": { "aboveDb": -18, "ratio": 3.0, "attackMs": 4, "releaseMs": 80 },
+          "deess": null,
+          "formants": 0.96
+        },
+        "forged-helm-heavy-2026-10-13": {
+          "about": "A heavier step of forged-helm, not in use: pitch 3 st down, formants 7% down, the reflections about 4x session-matched, a 3 dB ring, grit 0.6 at 2.4. Clearly muddier (estimate 0.61-0.65); kept to try.",
+          "lufs": -16.8,
+          "highpassHz": 75,
+          "room": { "dereverb": true, "t60MaxSec": 0.85, "strength": 1.0, "floorDb": -12 },
+          "gate": { "openDb": -30, "holdMs": 120 },
+          "expand": { "belowDb": -42, "ratio": 2.0, "tailBelowDb": -46 },
+          "pitch": { "semitones": -3.0, "engine": "vocoder", "fallback": ["psola", "rubberband"], "contourLimitPct": 8 },
+          "eq": [["highpass", 85], ["bell", 150, 2.0, 1.2], ["bell", 260, 1.0, 1.0], ["bell", 420, -1.5, 1.0], ["bell", 620, -1.0, 1.2], ["bell", 2600, 3.0, 1.4], ["bell", 5000, 1.0, 1.5], ["lowpass", 11000], ["bell", 160, -1.0, 1.5], ["bell", 600, 1.5, 1.0], ["bell", 1260, -1.8, 0.6], ["bell", 5500, 2.4, 1.2]],
+          "helm": { "amount": 1.0, "ringDb": 3.0, "ringHz": 1250, "reflections": [[1.1, 0.24], [2.3, 0.13], [3.7, 0.06]], "drive": 2.4, "grit": 0.6 },
+          "compress": { "aboveDb": -18, "ratio": 3.0, "attackMs": 4, "releaseMs": 80 },
+          "deess": null,
+          "formants": 0.93
+        },
         "session-matched": {
           "about": "The established helm, with three quarters of the measured difference between the tutorial and combat recording sessions put back (2026-10-12: the same chain run on both sessions' raw takes differs by under 0.5 dB, the sessions by up to 3 dB; the courtyard send the Credits library plays with is 45 dB under the voice, inaudible, so it is not the difference): a little less 160 Hz, more 600 Hz, less 1.26 kHz, more 5.5 kHz. The four bells after the lowpass are the session's; everything else is established-helm.",
           "lufs": -16.8,
@@ -60,8 +102,34 @@
       }
     },
     "rival": {
-      "use": "declarative-2026-10-12",
+      "use": "darker-2026-10-13",
       "presets": {
+        "darker-2026-10-13": {
+          "about": "The creator asked for more distortion, done properly (2026-10-13): declarative, darker and more enclosed: pitch 2.5 st down (from 1.5), formants 9% down (from 6%), the helm's reflections 2.5x as strong, a 1.5 dB ring at 900 Hz (lower than the Spellblade's 1.25 kHz, so the two helms differ), still no grit (the creator's rule). Estimate 0.72-0.74 from 0.80-0.86.",
+          "lufs": -16.8,
+          "highpassHz": 70,
+          "evenRoom": true,
+          "pitch": { "semitones": -2.5, "engine": "psola", "fallback": ["rubberband"], "contourLimitPct": 8 },
+          "formants": 0.91,
+          "eq": [["highpass", 75], ["bell", 140, 2.5, 1.3], ["bell", 200, 1.0, 1.0], ["bell", 300, 1.5, 1.0], ["bell", 520, -1.0, 1.0], ["bell", 2800, 2.0, 1.2], ["bell", 4200, -1.0, 1.2], ["highshelf", 7000, -1.5], ["lowpass", 11500]],
+          "helm": { "amount": 1.0, "reflections": [[0.8, 0.1], [1.9, 0.05]], "grit": 0, "ringDb": 1.5, "ringHz": 900 },
+          "compress": { "aboveDb": -14, "ratio": 2.0, "attackMs": 15, "releaseMs": 120 },
+          "attack": { "boostDb": 3.5 },
+          "deess": { "maxCutDb": 6 }
+        },
+        "darker-heavy-2026-10-13": {
+          "about": "A heavier step of darker, not in use: pitch 3 st down, formants 12% down, a third reflection, a 2.5 dB ring. Kept to try.",
+          "lufs": -16.8,
+          "highpassHz": 70,
+          "evenRoom": true,
+          "pitch": { "semitones": -3.0, "engine": "psola", "fallback": ["rubberband"], "contourLimitPct": 8 },
+          "formants": 0.88,
+          "eq": [["highpass", 75], ["bell", 140, 2.5, 1.3], ["bell", 200, 1.0, 1.0], ["bell", 300, 1.5, 1.0], ["bell", 520, -1.0, 1.0], ["bell", 2800, 2.0, 1.2], ["bell", 4200, -1.0, 1.2], ["highshelf", 7000, -1.5], ["lowpass", 11500]],
+          "helm": { "amount": 1.0, "reflections": [[0.8, 0.16], [1.9, 0.08], [3.1, 0.03]], "grit": 0, "ringDb": 2.5, "ringHz": 900 },
+          "compress": { "aboveDb": -14, "ratio": 2.0, "attackMs": 15, "releaseMs": 120 },
+          "attack": { "boostDb": 3.5 },
+          "deess": { "maxCutDb": 6 }
+        },
         "declarative-2026-10-12": {
           "about": "The creator's Rival (pitch 1.5 st down, formants 6% down, light helm, no grit), more certain. At -18 dB, 2.5:1 the compressor squashed the emphatic word his lines end on (statements fell 6.9 dB under the line, 3.1 dB as recorded); now it only catches peaks, and lets them through 15 ms first. Onsets lifted up to 3.5 dB (PSOLA had softened them), a touch more chest at 200 Hz, consonants defined at 2.8 kHz, a little less breath above 7 kHz.",
           "lufs": -16.8,
@@ -105,8 +173,32 @@
       }
     },
     "narrator": {
-      "use": "settled",
+      "use": "storied-2026-10-13",
       "presets": {
+        "storied-2026-10-13": {
+          "about": "The creator asked for more distortion, done properly (2026-10-13): settled, further from the performer's own voice and still natural (no radio, no announcer): formants 7% down (from 2.5%), the pitch still untouched (the knights are the pitched-down ones), a little warm drive (grit 0.25 at 1.5).",
+          "lufs": -19.5,
+          "highpassHz": 70,
+          "evenRoom": true,
+          "formants": 0.93,
+          "eq": [["bell", 120, -1.5, 1.0], ["bell", 240, 1.0, 1.2], ["bell", 3200, -1.5, 1.2], ["highshelf", 7500, -1.5]],
+          "compress": { "aboveDb": -22, "ratio": 2.5, "attackMs": 12, "releaseMs": 160 },
+          "deharsh": { "maxCutDb": 3, "overDb": 2.5 },
+          "deess": { "maxCutDb": 6 },
+          "helm": { "amount": 1.0, "grit": 0.25, "drive": 1.5 }
+        },
+        "storied-light-2026-10-13": {
+          "about": "A lighter step of storied, not in use: formants 5% down, grit 0.15.",
+          "lufs": -19.5,
+          "highpassHz": 70,
+          "evenRoom": true,
+          "formants": 0.95,
+          "eq": [["bell", 120, -1.5, 1.0], ["bell", 240, 1.0, 1.2], ["bell", 3200, -1.5, 1.2], ["highshelf", 7500, -1.5]],
+          "compress": { "aboveDb": -22, "ratio": 2.5, "attackMs": 12, "releaseMs": 160 },
+          "deharsh": { "maxCutDb": 3, "overDb": 2.5 },
+          "deess": { "maxCutDb": 6 },
+          "helm": { "amount": 1.0, "grit": 0.15, "drive": 1.5 }
+        },
         "settled": {
           "about": "A distinct, composed presence that is still the performer (2026-10-12): formants 2.5% down with the pitch untouched (a slightly larger, calmer speaker, his own intonation and timing, clear of the knights, who are both pitched down), warmth at 240 Hz, the upper mids eased (1.5 dB at 3.2 kHz, up to 3 dB more where they stand out), the top softened above 7.5 kHz, a smoother 2.5:1, de-essed.",
           "lufs": -19.5,
@@ -117,6 +209,17 @@
           "compress": { "aboveDb": -22, "ratio": 2.5, "attackMs": 12, "releaseMs": 160 },
           "deharsh": { "maxCutDb": 3, "overDb": 2.5 },
           "deess": { "maxCutDb": 6 }
+        },
+        "storied-direct": {
+          "about": "storied for a line terse on purpose ('Jump.'): no compression, no deharsh, no de-essing, so its attack is the attack it was (settled-direct, a step further, 2026-10-13).",
+          "lufs": -19.5,
+          "highpassHz": 70,
+          "evenRoom": true,
+          "formants": 0.93,
+          "eq": [["bell", 120, -1.5, 1.0], ["bell", 240, 1.0, 1.2], ["bell", 3200, -1.5, 1.2], ["highshelf", 7500, -1.5]],
+          "helm": { "amount": 1.0, "grit": 0.25, "drive": 1.5 },
+          "compress": null,
+          "deess": null
         },
         "settled-direct": {
           "about": "settled for a line terse on purpose ('Jump.'): no compression, no deharsh, no de-essing, so its attack is the attack it was.",

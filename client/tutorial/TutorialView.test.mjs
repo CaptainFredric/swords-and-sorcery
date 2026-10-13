@@ -7,7 +7,11 @@ function view(context = {}) {
   const elements = new Map();
   const classes = new Map();
   const root = { hidden: true, classList: { toggle(name, value) { classes.set(name, value); } }, querySelector(selector) {
-    if (!elements.has(selector)) elements.set(selector, Object.assign(new EventTarget(), { hidden: false, textContent: '', open: false }));
+    if (!elements.has(selector)) {
+      const own = new Set();
+      elements.set(selector, Object.assign(new EventTarget(), { hidden: false, textContent: '', open: false,
+        classList: { toggle(name, value) { if (value) own.add(name); else own.delete(name); }, contains: name => own.has(name) } }));
+    }
     return elements.get(selector);
   } };
   const calls = { continued: 0, optional: 0, restart: 0, skip: 0, practice: 0, leave: 0 };
@@ -167,4 +171,18 @@ test('opening hold prevents Enter advancing an internally ready cue and reveal p
   enter();assert.equal(calls.continued,0);assert.equal(classes.get('tutorial-opening-held'),true);
   display.revealOpening();assert.equal(get('line').textContent,'Greetings, Spellblade.');
   enter();assert.equal(calls.continued,1);display.hide();assert.equal(classes.get('tutorial-opening-held'),false);
+});
+
+test('the final duel objective is the compact one, and a beat may bring the pursuit objective in early', () => {
+  const { display, get } = view();
+  display.show({ state: 'running', segment: { objective: { text: 'Defeat The Rival', compact: true } }, current: { kind: 'stage', advanceOn: 'rival-defeated' } });
+  assert.equal(get('objective').hidden, false);
+  assert.equal(get('objective-text').textContent, 'Defeat The Rival');
+  assert.equal(get('objective').classList.contains('tutorial-objective-compact'), true);
+  // the old "Finish Rival with your sword." instruction is gone: the objective says it, out of the fight's way
+  assert.equal(get('prompt').hidden, true);
+  display.show({ state: 'running', segment: {}, current: { kind: 'stage', advanceOn: 'rival-escaping', objective: { text: 'STOP THE RIVAL FROM TELLING ON YOU' } } });
+  assert.equal(get('objective').hidden, false);
+  assert.equal(get('objective').classList.contains('tutorial-objective-compact'), false);
+  assert.equal(get('objective-text').textContent, 'STOP THE RIVAL FROM TELLING ON YOU');
 });

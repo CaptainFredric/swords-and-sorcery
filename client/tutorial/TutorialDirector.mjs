@@ -140,8 +140,7 @@ export class TutorialDirector {
       this.reactionResume = null;
     }
     // A reaction performed ahead of its ordinary route position never plays twice.
-    while (this.completedReactions.has(this.beats[this.index]?.reactionFor)
-      || this.beats[this.index]?.skipWhen && this.facts.has(this.beats[this.index].skipWhen)) this.index += 1;
+    while (this.completedReactions.has(this.beats[this.index]?.reactionFor) || this.skips(this.beats[this.index])) this.index += 1;
     if (!this.optionalActive) this.beginReaction();
     this.enteredAt = null;
     if (chapter === this.prototypeStop && this.beats[this.index]?.chapter !== chapter) this.state = 'prototype-ended';
@@ -159,13 +158,20 @@ export class TutorialDirector {
     if (this.state !== 'running') return false;
     this.facts.add(cue);
     if (this.reactions.has(cue) && !this.completedReactions.has(cue)) this.pendingReaction = cue;
-    const accepted = this.accept(cue) || this.current?.skipWhen === cue && this.current.kind !== 'dialogue'
+    const accepted = this.accept(cue) || this.skips(this.current, cue) && this.current.kind !== 'dialogue'
       && !this.audioCue && !this.pendingCompletion && this.accept(this.current.advanceOn);
     if (this.pendingReaction && this.current?.kind !== 'dialogue' && !this.audioCue && !this.pendingCompletion) {
       this.optionalActive = false; this.optionalAt = null;
       this.beginReaction(); this.enteredAt = null; this.onChange(this.progress);
     }
     return accepted;
+  }
+
+  // A beat made obsolete by what has happened (skipWhen: one fact or several): by any fact so far, or by this one.
+  skips(beat, cue = null) {
+    const when = beat?.skipWhen;
+    if (!when) return false;
+    return [].concat(when).some(fact => cue === null ? this.facts.has(fact) : fact === cue);
   }
 
   // reactionFor is authored on a contiguous main-route response. The next clean

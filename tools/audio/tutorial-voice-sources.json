@@ -636,7 +636,11 @@
       "speaker": "spellblade",
       "key": "tutorial.jump-no-hints",
       "status": "inferred",
-      "note": "Same words as tutorial.no-hints. Recorded 19:30:50, eight seconds before \"Took us long enough\" (19:30:58): the jump scene."
+      "note": "Same words as tutorial.no-hints. Recorded 19:30:50, eight seconds before \"Took us long enough\" (19:30:58): the jump scene.",
+      "chain": {
+        "preset": "forged-helm-shallow-2026-10-13",
+        "why": "The 2.5 semitone shift loses this take's contour (9.1% of voiced frames a semitone off, against 3.6% at 2 semitones): the same helm at the old depth."
+      }
     },
     {
       "raw": "drive-download-20261012T044301Z-1-001/Jump..mp3",
@@ -645,9 +649,9 @@
       "key": "tutorial.jump-instruction",
       "status": "mapped",
       "chain": {
-        "preset": "settled-direct",
+        "preset": "storied-direct",
         "gainDb": 1.0,
-        "why": "Terse on purpose: the Narrator's settled voice without compression, deharsh or de-essing, so its attack stays abrupt; a dB forward of his usual level."
+        "why": "Terse on purpose: the Narrator's voice (storied) without compression, deharsh or de-essing, so its attack stays abrupt; a dB forward of his usual level."
       }
     },
     {
@@ -880,6 +884,14 @@
     {
       "raw": "drive-download-20261012T044301Z-1-001/2026_10_11_20_26_17.mp3",
       "sha256": "0bf606cf563bc1a6666b68b2b31aa0d2796c8f3e8b11bc75bb802267ed6d5921",
+      "speaker": "narrator",
+      "key": "tutorial.legend-ends",
+      "status": "dropped",
+      "note": "Replaced by the creator (2026-10-13) with loose-2026-10-13/NotWhereLegendEnds.mp3, the line reworded: \"Knights are not made to be made fun of.\" The raw take kept."
+    },
+    {
+      "raw": "loose-2026-10-13/NotWhereLegendEnds.mp3",
+      "sha256": "3ac74bd109c8e01eb117f46120801397d19b4474432b0cff59dfb6389bafb55a",
       "speaker": "narrator",
       "key": "tutorial.legend-ends",
       "status": "mapped"
@@ -1340,37 +1352,101 @@
       "raw": "drive-download-20261012T210814Z-1-001/TheDeadEndIsALIEve.mp3",
       "sha256": "3aff0f4f98100061a2e81bfa805af3f4944b002f13c206acd7fe402f75dbebee",
       "speaker": "spellblade",
-      "key": null,
-      "status": "staged",
-      "note": "Recorded 2026-10-12 for a beat the script has not placed yet: mastered for review with its character's preset, not served. A phonetic joke: for a moment it is \"The dead-end is a LIE!\", then the final /v/ makes it \"alive\". The pause and the /v/ are kept exactly as performed.",
-      "words": "The dead-end is a LIE\u2014ve!"
+      "key": "tutorial.dead-end-alive",
+      "status": "mapped",
+      "note": "A phonetic joke: for a moment it is \"The dead-end is a LIE!\", then the final /v/ makes it \"alive\". The pause and the /v/ are kept exactly as performed."
     },
     {
       "raw": "drive-download-20261012T210814Z-1-001/YesAlasWeHaveReached.mp3",
       "sha256": "9b0df42916deb82cf1aedac6629517a973969c76dbe1a600ed7c4d1493ca4447",
       "speaker": "rival",
-      "key": null,
-      "status": "staged",
-      "note": "Recorded 2026-10-12 for a beat the script has not placed yet: mastered for review with its character's preset, not served.",
-      "words": "Yes! Alas we have reached the end of your story. Your dead-end!"
+      "key": "tutorial.your-dead-end",
+      "status": "mapped"
     },
     {
       "raw": "drive-download-20261012T210814Z-1-001/YouHaveMorePages.mp3",
       "sha256": "f6fab020a17bea31eda806522a4c1557eb9e9f9e062883580a10e29a63f6ed06",
       "speaker": "narrator",
-      "key": null,
-      "status": "staged",
-      "note": "Recorded 2026-10-12 for a beat the script has not placed yet: mastered for review with its character's preset, not served.",
-      "words": "You have more pages, Spellblade."
+      "key": "tutorial.more-pages",
+      "status": "mapped"
     },
     {
       "raw": "drive-download-20261012T210814Z-1-001/ArghPerhapsIHadWrong.mp3",
       "sha256": "21b1481da583322ffbbaea781a89f3920aa402214985ef5c81d6e13681abc5b5",
       "speaker": "rival",
-      "key": null,
-      "status": "staged",
-      "note": "Recorded 2026-10-12 for a beat the script has not placed yet: mastered for review with its character's preset, not served.",
-      "words": "Argh!... Perhaps I had the wrong address!!"
+      "key": "tutorial.wrong-address",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261013T024434Z-1-001/HowWillYouFightYourselr.mp3",
+      "sha256": "cc024de67325192f5fe3cf1fe0adbb61bbb10b423d3608e0c9de329966468d88",
+      "speaker": "rival",
+      "key": "tutorial.fight-yourself",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261013T024434Z-1-001/PerhapsIWon_tTellOnYou.mp3",
+      "sha256": "ff06c4b17c2106a67ac1efe5bc424edac99fe2a4e2241eb395d55faba73dceab",
+      "speaker": "rival",
+      "key": "tutorial.already-told",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261013T024434Z-1-001/TimeToExit.mp3",
+      "sha256": "58870de04212234652c28aec29a0c4a75586f7961fd01a1bc6df87134097efea",
+      "speaker": "spellblade",
+      "key": "tutorial.time-to-exit",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261013T024434Z-1-001/YouBarelyDidAnything.mp3",
+      "sha256": "ed72beb4aae8557703ee6a794b2469b8c315b21ca9ecd782f167648d13011eb1",
+      "speaker": "narrator",
+      "key": "tutorial.barely-did-anything",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261013T024434Z-1-001/YourFeelingsShallNotAffect.mp3",
+      "sha256": "6a12eeca0e7dc81f6634a69cefd4d165f1a341a28c640824efc84bea28ec7d84",
+      "speaker": "rival",
+      "key": "tutorial.feelings-health",
+      "status": "mapped"
+    },
+    {
+      "raw": "drive-download-20261013T024434Z-1-001/ArghPerhapsIHadWrong.mp3",
+      "sha256": "21b1481da583322ffbbaea781a89f3920aa402214985ef5c81d6e13681abc5b5",
+      "speaker": "rival",
+      "key": "tutorial.wrong-address",
+      "status": "duplicate",
+      "sameAs": "drive-download-20261012T210814Z-1-001/ArghPerhapsIHadWrong.mp3",
+      "note": "Supplied again on 2026-10-13: the same file as the take used."
+    },
+    {
+      "raw": "drive-download-20261013T024434Z-1-001/YesAlasWeHaveReached.mp3",
+      "sha256": "9b0df42916deb82cf1aedac6629517a973969c76dbe1a600ed7c4d1493ca4447",
+      "speaker": "rival",
+      "key": "tutorial.your-dead-end",
+      "status": "duplicate",
+      "sameAs": "drive-download-20261012T210814Z-1-001/YesAlasWeHaveReached.mp3",
+      "note": "Supplied again on 2026-10-13: the same file as the take used."
+    },
+    {
+      "raw": "drive-download-20261013T024434Z-1-001/YouHaveMorePages.mp3",
+      "sha256": "f6fab020a17bea31eda806522a4c1557eb9e9f9e062883580a10e29a63f6ed06",
+      "speaker": "narrator",
+      "key": "tutorial.more-pages",
+      "status": "duplicate",
+      "sameAs": "drive-download-20261012T210814Z-1-001/YouHaveMorePages.mp3",
+      "note": "Supplied again on 2026-10-13: the same file as the take used."
+    },
+    {
+      "raw": "drive-download-20261013T024434Z-1-001/TheDeadEndIsALIEve.mp3",
+      "sha256": "3aff0f4f98100061a2e81bfa805af3f4944b002f13c206acd7fe402f75dbebee",
+      "speaker": "spellblade",
+      "key": "tutorial.dead-end-alive",
+      "status": "duplicate",
+      "sameAs": "drive-download-20261012T210814Z-1-001/TheDeadEndIsALIEve.mp3",
+      "note": "Supplied again on 2026-10-13: the same file as the take used."
     }
   ]
 }

@@ -19,6 +19,12 @@
       "seconds": 1.41,
       "onset": 0.05
     },
+    "tutorial.already-told": {
+      "file": "rival/tutorial.already-told-1",
+      "speaker": "rival",
+      "seconds": 3.82,
+      "onset": 0.04
+    },
     "tutorial.also-walk": {
       "file": "narrator/tutorial.also-walk-1",
       "speaker": "narrator",
@@ -30,6 +36,12 @@
       "speaker": "narrator",
       "seconds": 2.54,
       "onset": 0.05
+    },
+    "tutorial.barely-did-anything": {
+      "file": "narrator/tutorial.barely-did-anything-1",
+      "speaker": "narrator",
+      "seconds": 1.57,
+      "onset": 0.07
     },
     "tutorial.blast-not-considered": {
       "file": "rival/tutorial.blast-not-considered-1",
@@ -139,6 +151,12 @@
       "seconds": 2.23,
       "onset": 0.04
     },
+    "tutorial.dead-end-alive": {
+      "file": "spellblade/tutorial.dead-end-alive-1",
+      "speaker": "spellblade",
+      "seconds": 2.7,
+      "onset": 0.04
+    },
     "tutorial.decent-suggestion": {
       "file": "narrator/tutorial.decent-suggestion-1",
       "speaker": "narrator",
@@ -193,11 +211,23 @@
       "seconds": 1.0,
       "onset": 0.04
     },
+    "tutorial.feelings-health": {
+      "file": "rival/tutorial.feelings-health-1",
+      "speaker": "rival",
+      "seconds": 2.54,
+      "onset": 0.08
+    },
     "tutorial.few-steps": {
       "file": "narrator/tutorial.few-steps-1",
       "speaker": "narrator",
       "seconds": 1.31,
       "onset": 0.04
+    },
+    "tutorial.fight-yourself": {
+      "file": "rival/tutorial.fight-yourself-1",
+      "speaker": "rival",
+      "seconds": 3.1,
+      "onset": 0.07
     },
     "tutorial.final-hello": {
       "file": "spellblade/tutorial.final-hello-1",
@@ -382,8 +412,8 @@
     "tutorial.legend-ends": {
       "file": "narrator/tutorial.legend-ends-1",
       "speaker": "narrator",
-      "seconds": 4.64,
-      "onset": 0.05
+      "seconds": 4.39,
+      "onset": 0.04
     },
     "tutorial.likewise": {
       "file": "spellblade/tutorial.likewise-1",
@@ -438,6 +468,12 @@
       "speaker": "narrator",
       "seconds": 2.7,
       "onset": 0.05
+    },
+    "tutorial.more-pages": {
+      "file": "narrator/tutorial.more-pages-1",
+      "speaker": "narrator",
+      "seconds": 1.68,
+      "onset": 0.04
     },
     "tutorial.much-to-do": {
       "file": "spellblade/tutorial.much-to-do-1",
@@ -823,6 +859,12 @@
       "seconds": 2.79,
       "onset": 0.05
     },
+    "tutorial.time-to-exit": {
+      "file": "spellblade/tutorial.time-to-exit-1",
+      "speaker": "spellblade",
+      "seconds": 2.87,
+      "onset": 0.04
+    },
     "tutorial.time-to-recover": {
       "file": "narrator/tutorial.time-to-recover-1",
       "speaker": "narrator",
@@ -943,11 +985,23 @@
       "seconds": 2.92,
       "onset": 0.04
     },
+    "tutorial.wrong-address": {
+      "file": "rival/tutorial.wrong-address-1",
+      "speaker": "rival",
+      "seconds": 3.59,
+      "onset": 0.04
+    },
     "tutorial.you-did": {
       "file": "narrator/tutorial.you-did-1",
       "speaker": "narrator",
       "seconds": 0.65,
       "onset": 0.05
+    },
+    "tutorial.your-dead-end": {
+      "file": "rival/tutorial.your-dead-end-1",
+      "speaker": "rival",
+      "seconds": 4.82,
+      "onset": 0.06
     },
     "tutorial.your-stamina": {
       "file": "narrator/tutorial.your-stamina-1",

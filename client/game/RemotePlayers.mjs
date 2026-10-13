@@ -524,7 +524,7 @@ export class RemotePlayers {
       yaw: shell.root.rotation.y,
       airFlex: state === 'air' ? airborneLegFlex(verticalVelocity) : 0,
       death: plan.clip === 'Death' ? { age: plan.time, push: d.lastPush ?? null } : null,
-      recovery: recovering ? {age:serverNow-pb.presentationRecovery.at,duration:pb.presentationRecovery.duration} : null,
+      recovery: recovering ? {age:serverNow-pb.presentationRecovery.at,duration:pb.presentationRecovery.duration,hold:pb.presentationRecovery.hold ?? 0} : null,
       crouch: crouch.flex,
       // the gauntlet's jab, if one is under way, and the crouch's lean
       extra: state === 'dead' || recovering ? [] : [...crouch.turns, ...guardTurns(plan.concurrent?.attack ? 0 : d.guardAmount), ...jabTurns(serverNow - (d.jabAt ?? -Infinity))],
