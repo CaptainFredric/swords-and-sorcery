@@ -106,10 +106,13 @@ export class FacetBuilder {
     const M = corners.map(([u, v]) => at(u * hx, top - ch, v * hz));
     const T = corners.map(([u, v]) => at(u * (hx - ch), top + j(), v * (hz - ch)));
     const tone = (factor) => shadeColor(color, factor + (rand() - 0.5) * shade);
+    // (a block with neither chamfer nor jitter has no chamfer faces: they would be zero-area triangles)
+    const chamfered = ch > 0 || jitter > 0;
     for (let i = 0; i < 4; i += 1) {
       const k = (i + 1) % 4;
       this.quad(B[k], B[i], M[i], M[k], tone(0.94));   // side
-      this.quad(M[k], M[i], T[i], T[k], tone(1.04));   // chamfer
+      if (chamfered) this.quad(M[k], M[i], T[i], T[k], tone(1.04));   // chamfer
+      else rand();                                       // (the same draws either way: every seeded layout stays as it was)
     }
     this.quad(T[3], T[2], T[1], T[0], tone(1.08));     // top (winding toward +y)
     if (bottom) this.quad(B[0], B[1], B[2], B[3], tone(0.7));
