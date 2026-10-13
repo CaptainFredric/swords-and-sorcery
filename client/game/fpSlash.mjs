@@ -188,13 +188,15 @@ const apart = (a, b) => 2 * Math.acos(Math.min(1, Math.abs(dotQuat(a, b))));
 // through, take the one that turns the hand least in all, beginning and ending as the rig holds it at rest (the
 // first and last keys are the rest's own turn). Then each is signed the same way round as the one before, for the
 // spline.
-function settle(keys, restTurn) {
+function settle(keys, restTurn, startTurn = restTurn) {
   const options = keys.map((k) => {
     const b = normalize(k.blade);
     const e = leading(k.lead, b);
     return [quatFromFrame(e, b), quatFromFrame(scale(e, -1), b)];
   });
-  const fixed = (i) => (i === 0 || i === keys.length - 1 ? (apart(options[i][0], restTurn) < apart(options[i][1], restTurn) ? 0 : 1) : null);
+  // (the first key lies as the hand already does where the chain begins: at rest, or where the last chain handed over)
+  const nearest = (i, turn) => (apart(options[i][0], turn) < apart(options[i][1], turn) ? 0 : 1);
+  const fixed = (i) => (i === 0 ? nearest(i, startTurn) : i === keys.length - 1 ? nearest(i, restTurn) : null);
   // cost[i][c]: the least turning to reach key i lying way c
   let cost = [0, 1].map((c) => (fixed(0) === null || fixed(0) === c ? 0 : Infinity));
   const back = [];
@@ -312,14 +314,41 @@ const bite = (c) => [
     { shoulder: [-0.18, -0.06, -0.12], body: [-0.02, -0.04, -0.018], look: [-2.0, -1.4, -1.0], grip: 1, counter: [0, -0.04, -0.04], ease: 0.2 }),
 ];
 
+// (hauled straight back up out of the ground with both hands, as before each slam: where a held Sunder's next chain
+// takes over, at the chain's own restart)
+const HAUL = C3 + SWORD_CHAIN.restart;
+const haul = (t) => key(t, [0.2, -0.3, -0.64], dir(-12, 15), [-0.15, -0.95, -0.25],
+  { shoulder: [-0.06, 0.06, -0.08], body: [0.005, 0.005, -0.005], look: [0.3, 0.4, 0.3], grip: 1, counter: HELD });
+// After the last slam the blade bites in like the others and is hauled back up, both hands on it still: a held Sunder
+// carries straight on from there (SLAM_AGAIN), the hands kept on through the handing over (0.18 s). Let go, only then
+// does the magic hand leave the grip, on the way home (a Sundering chain settles a little longer: SLAM_END).
+export const SLAM_END = C3 + 0.8;
+const slamTail = () => [
+  ...bite(C3),
+  haul(HAUL),
+  key(HAUL + 0.2, [0.2, -0.34, -0.63], dir(-4, 11), [-0.05, -0.6, -0.5],
+    { shoulder: [-0.05, 0.04, -0.06], body: [0.003, 0, -0.004], look: [0.15, 0.15, 0.1], grip: 1, counter: HELD }),
+  key(HAUL + 0.36, [0.2, -0.38, -0.62], dir(4, 6), [0.1, 0.4, -0.6],
+    { shoulder: [-0.03, 0.01, -0.03], body: [0, -0.004, -0.003], look: [0, -0.1, -0.1], grip: 0.3, counter: [0.02, 0.01, 0] }),
+  rest(SLAM_END, { ease: 0 }),
+];
+
 export const SLAM = settle([
   rest(0, { ease: 0 }),
   ...slam(C1, { raise: 0.24, grip: 0.8, first: true }), ...bite(C1),
   ...slam(C2), ...bite(C2),
   ...slam(C3),
-  // the last spends itself low, the magic hand letting go, and the arms come heavily back to rest
-  ...COMBO.filter((k) => k.t > C3).map(({ turn, ...k }) => k),
+  ...slamTail(),
 ], REST_TURN);
+
+// A held Sunder's next chain: from the haul back up (both hands already on the grip, the hand lying as the last chain
+// left it), straight into the first slam's raise. No let-go and reach between chains: the hands never leave the sword.
+export const SLAM_AGAIN = settle([
+  ...slam(C1), ...bite(C1),
+  ...slam(C2), ...bite(C2),
+  ...slam(C3),
+  ...slamTail(),
+], REST_TURN, SLAM.find((k) => k.t === HAUL).turn);
 
 // the kinetic chain's delays (seconds): the body leads the hand by a beat, and the blade trails it a touch
 export const CHAIN = Object.freeze({ body: 0.03, blade: 0.012 });
@@ -401,8 +430,15 @@ export function comboPose(time) {
 /** The Sundering chain `time` seconds in: every strike a slam (SLAM), posed as comboPose's. */
 export function slamPose(time) {
   if (!Number.isFinite(time)) return null;
-  const t = Math.max(0, Math.min(COMBO_END, time));
+  const t = Math.max(0, Math.min(SLAM_END, time));
   return present(poseFrom(SLAM, t), t);
+}
+
+/** A held Sunder's next chain `time` seconds in (SLAM_AGAIN): both hands kept on the grip from the last. */
+export function slamAgainPose(time) {
+  if (!Number.isFinite(time)) return null;
+  const t = Math.max(0, Math.min(SLAM_END, time));
+  return present(poseFrom(SLAM_AGAIN, t), t);
 }
 
 /** Author a separate sword path with the same continuous hand frame and natural recovery as the ordinary chain. */
@@ -468,7 +504,7 @@ const recoveries = new Map();
 function recoveryKeys(from, quick, slammed) {
   const id = `${from.toFixed(4)}:${quick}:${slammed}`;
   if (recoveries.has(id)) return recoveries.get(id);
-  const chain = slammed ? SLAM : COMBO;
+  const chain = slammed === 'again' ? SLAM_AGAIN : slammed ? SLAM : COMBO;
   const start = poseFrom(chain, from);
   const moving = velocityAt(chain, from);
   const seconds = quick ? RECOVERY.quickSeconds : RECOVERY.seconds;
@@ -501,13 +537,15 @@ function recoveryKeys(from, quick, slammed) {
 /**
  * The arms on their way home after a chain ended `from` seconds in, `elapsed` seconds ago: a pose like comboPose's,
  * or null once they are at rest. quick: the chain was broken off (a parry, a wall), not let go. slam: it was a
- * Sundering chain (SLAM).
+ * Sundering chain (SLAM; 'again': a held Sunder's next, SLAM_AGAIN).
  */
 export function recoveryPose(from, elapsed, { quick = false, slam: slammed = false } = {}) {
   if (!Number.isFinite(from) || !Number.isFinite(elapsed)) return null;
   // after the heavy strike the chain's own settle is the way home
-  if (!quick && from >= C3 - 1e-9) return from + elapsed >= COMBO_END ? null : (slammed ? slamPose : comboPose)(from + elapsed);
-  const keys = recoveryKeys(Math.max(0, Math.min(COMBO_END, from)), quick, Boolean(slammed));
+  const own = slammed === 'again' ? slamAgainPose : slammed ? slamPose : comboPose;
+  const end = slammed ? SLAM_END : COMBO_END;
+  if (!quick && from >= C3 - 1e-9) return from + elapsed >= end ? null : own(from + elapsed);
+  const keys = recoveryKeys(Math.max(0, Math.min(end, from)), quick, slammed === 'again' ? 'again' : Boolean(slammed));
   const last = keys[keys.length - 1].t;
   if (elapsed >= last) return null;
   const t = Math.max(0, elapsed);

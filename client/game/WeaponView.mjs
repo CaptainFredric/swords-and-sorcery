@@ -12,7 +12,7 @@ import { createSpellbladeAsset, reportSpellbladeAssetStatus } from './Spellblade
 import { resolveFirstPersonAnimationPlan } from './spellbladeAnimationPlan.mjs';
 import { FIRST_PERSON_WEAPON_SCALE, resolveWeaponPose } from './weaponPose.mjs';
 import { FP_MOTION, FirstPersonMotion } from './firstPersonMotion.mjs';
-import { REST_EDGE_TURN, blendPoses, comboPose, counterRotations, recoveryPose, slamPose } from './fpSlash.mjs';
+import { REST_EDGE_TURN, blendPoses, comboPose, counterRotations, recoveryPose, slamAgainPose, slamPose } from './fpSlash.mjs';
 import { FIRST_PERSON_OFF_ARM, FIRST_PERSON_SWORD_ARM, solveArm, solveSwordArm } from './swordArmIK.mjs';
 import { everywhere, onViewLayer } from './viewLayers.mjs';
 import { createSunderBlade } from './sunderBlade.mjs';
@@ -875,9 +875,11 @@ export class WeaponView {
         // from rest the chain's first pose is the rest's own, so it takes the arms at once; out of a guard, a cast or
         // a dash it takes a beat to take hold of them
         const fadeIn = !previous && stateBefore !== 'idle';
-        // (a chain begun Sundering is slams to its end, as the server swings it)
-        const slam = Boolean(this.sunderActive);
-        const chain = slam ? slamPose : comboPose;
+        // (a chain begun Sundering is slams to its end, as the server swings it; one that follows straight on from a
+        // slam, both hands still on the grip, carries on from there with them: they never leave the sword between)
+        const onGrip = Boolean(previous?.slam) && (this.comboShown?.offHand?.weight ?? 0) > 0.5;
+        const slam = this.sunderActive ? (onGrip ? 'again' : true) : false;
+        const chain = slam === 'again' ? slamAgainPose : slam ? slamPose : comboPose;
         this.comboSource = { chainAt: startedAt, fadeIn, slam, pose: (t) => chain(t - startedAt) };
         this.comboLetGo = null;
         this.comboBroken = false;
@@ -898,7 +900,7 @@ export class WeaponView {
       // the chain is over: home from where it had got to, carrying on from the last frame it was shown
       const { since, at } = this.comboLast;
       const quick = this.comboBroken;
-      const slam = Boolean(this.comboSource.slam);
+      const slam = this.comboSource.slam === 'again' ? 'again' : Boolean(this.comboSource.slam);
       this.comboSource = { home: true, pose: (t) => recoveryPose(since, t - at, { quick, slam }) };
     }
     const pose = this.comboSource.pose(timeSec);
