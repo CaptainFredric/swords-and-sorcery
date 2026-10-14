@@ -2,7 +2,11 @@ import { surfaceHeightAt } from './collision.mjs';
 
 // A rupture: what the ground does when a Sundering blade is driven into it (only then: a real blade meeting the real
 // ground, never a knight merely looking down and swinging). From where the blade struck, a few fissures split the
-// ground outward, fanned about the way the blow was going, and run along it at a pace you can see and step out of.
+// ground outward, fanned unevenly about the way the blow was going (four arms, the same lopsided star every time: a
+// knight can learn which side of a Sundering blade is the safer one), and run along it at a pace you can see and step
+// out of. Each arm splits wide and hot
+// near the blow, its dangerous core, and runs on beyond it as a thin trailing crack that bites far less: the worst of
+// it is where it looks worst.
 // Each runs only as far as the ground carries it: it stops at anything solid in its way, where the ground drops away
 // or rises, and at its reach. It catches a knight standing on the ground it splits as its head passes them (a knight
 // in the air clears it), once per rupture, for a little damage and a hard jolt to their balance. Sundering, every
@@ -11,17 +15,31 @@ import { surfaceHeightAt } from './collision.mjs';
 // caught by its rupture too: the sword and the ground are two consequences of one slam. Current tuning (provisional).
 
 export const RUPTURE = Object.freeze({
-  count: 3,             // fissures, fanned about the blow's way
-  spreadDeg: 24,        // between neighbours
+  // its arms: each at an angle to the blow's way (degrees, toward the right) and running at most so far (metres);
+  // unevenly, so the star is lopsided. The longest runs nearly straight on, down the line the blow was driven along:
+  // whoever it was aimed at is in its path
+  arms: Object.freeze([
+    Object.freeze({ angle: -27, reach: 6.9 }),
+    Object.freeze({ angle: -3, reach: 8.0 }),
+    Object.freeze({ angle: 15, reach: 7.3 }),
+    Object.freeze({ angle: 38, reach: 5.9 }),
+  ]),
+  count: 4,             // fissures (the arms)
+  core: 0.7,            // the share of each arm's reach that is its dangerous core (wide, hot); beyond it, the trailing crack
   speed: 8.5,           // m/s along the ground
-  reach: 6.5,           // metres, at most
+  reach: 8,             // metres, at most (the longest arm)
   step: 0.25,           // the ground is followed this finely
-  width: 0.55,          // how near the fissure's line a knight's feet must be (from their middle)
+  width: 0.55,          // how near the core's line a knight's feet must be (from their middle)
+  trailWidth: 0.4,      // ...and the trailing crack's (thinner)
   rise: 0.35,           // the ground may rise or fall this much along it before it stops
   airborne: 0.45,       // feet this far over the ground clear it
   damage: 12,
   stagger: 38,          // a Sundering blow and the ground it split are most of a balance between them; the next blow tips it
   jolt: 3.6,            // the upward jolt (m/s)
+  // caught only by a trailing crack: a sting and a stumble, not the core's blow
+  trailDamage: 5,
+  trailStagger: 14,
+  trailJolt: 1.6,
   throughReach: 1.6,    // the knight a slam was driven through is caught by its rupture within this of its impact
   // the split ground stays torn this long after its fissures stop running (seen, and felt: a knight other than the
   // one who split it cannot sprint with their feet on it; no further hurt comes of standing there)
@@ -47,21 +65,22 @@ function blockedAt(world, x, z, level) {
 }
 
 /**
- * The fissures a rupture at `origin` (where the blade struck: its ground level is origin.y) opens, fanned about
- * `forward` ({x, z}): [{ dir: {x, z}, length }], each as far as the ground carries it. Empty where the blade struck no
- * ground to split.
+ * The fissures a rupture at `origin` (where the blade struck: its ground level is origin.y) opens, its arms fanned
+ * about `forward` ({x, z}): [{ dir: {x, z}, length, core, level }], each as far as the ground carries it, its
+ * dangerous core the first `core` metres of it. Empty where the blade struck no ground to split.
  */
 export function planRupture(world, origin, forward, rules = RUPTURE) {
   const base = groundAt(world, origin.x, origin.z, origin.y, rules);
   if (base === null) return [];
   const heading = Math.atan2(forward.x, forward.z);
   const fissures = [];
-  for (let i = 0; i < rules.count; i += 1) {
-    const angle = heading + (i - (rules.count - 1) / 2) * rules.spreadDeg * (Math.PI / 180);
+  for (const arm of rules.arms) {
+    // (the angle toward the right of the blow's way: the heading turns the other way about +y)
+    const angle = heading - arm.angle * (Math.PI / 180);
     const dir = { x: Math.sin(angle), z: Math.cos(angle) };
     let length = 0;
     let level = base;
-    for (let d = rules.step; d <= rules.reach + 1e-9; d += rules.step) {
+    for (let d = rules.step; d <= arm.reach + 1e-9; d += rules.step) {
       const x = origin.x + dir.x * d;
       const z = origin.z + dir.z * d;
       const ground = groundAt(world, x, z, level, rules);
@@ -69,7 +88,7 @@ export function planRupture(world, origin, forward, rules = RUPTURE) {
       level = ground;
       length = d;
     }
-    if (length > 0) fissures.push({ dir, length, level });
+    if (length > 0) fissures.push({ dir, length, core: Math.min(length, arm.reach * rules.core), level });
   }
   return fissures;
 }
@@ -88,13 +107,25 @@ export function onTornGround(rupture, position, reached = Infinity, rules = RUPT
  * `toDistance` along it (from `origin`): near its line within that stretch, and on the ground it splits.
  */
 export function fissureCatches(origin, fissure, fromDistance, toDistance, position, rules = RUPTURE) {
+  return fissureHit(origin, fissure, fromDistance, toDistance, position, rules) !== null;
+}
+
+/**
+ * Which part of a fissure catches a body standing at `position` as its head runs from `fromDistance` to `toDistance`:
+ * 'core' (its dangerous first stretch, the wide hot split), 'trail' (the thin crack beyond it, narrower), or null.
+ */
+export function fissureHit(origin, fissure, fromDistance, toDistance, position, rules = RUPTURE) {
   const dx = position.x - origin.x;
   const dz = position.z - origin.z;
   const along = dx * fissure.dir.x + dz * fissure.dir.z;
-  if (along < fromDistance - rules.width || along > Math.min(toDistance, fissure.length) + rules.width) return false;
+  if (along < fromDistance - rules.width || along > Math.min(toDistance, fissure.length) + rules.width) return null;
+  const core = fissure.core ?? fissure.length;
+  const inCore = along <= core + rules.width * 0.5;
+  const width = inCore ? rules.width : rules.trailWidth ?? rules.width;
   const across = Math.abs(dx * fissure.dir.z - dz * fissure.dir.x);
-  if (across > rules.width) return false;
+  if (across > width) return null;
   const low = Math.min(origin.y, fissure.level ?? origin.y);
   const high = Math.max(origin.y, fissure.level ?? origin.y);
-  return position.y - high <= rules.airborne && position.y >= low - rules.rise;
+  if (!(position.y - high <= rules.airborne && position.y >= low - rules.rise)) return null;
+  return inCore ? 'core' : 'trail';
 }

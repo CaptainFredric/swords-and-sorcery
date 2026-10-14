@@ -11,7 +11,7 @@ import { combatActionPolicy, combatBlocksSprint } from '../src/combatActionPolic
 import { heldActions } from '../src/heldActions.mjs';
 import { recordChallengeFact } from './challenges.mjs';
 import { preparedSpellMember } from '../src/preparedSpells.mjs';
-import { RUPTURE, fissureCatches, onTornGround, planRupture } from '../src/rupture.mjs';
+import { RUPTURE, fissureHit, onTornGround, planRupture } from '../src/rupture.mjs';
 import { recastReady, recordUse } from '../src/practiceRecast.mjs';
 import { GAME_MODES } from '../src/modes.mjs';
 import { blastDamage, blastDistance, burnFrom, chillFrom, chillScale, spellExposure, spellFor, strongerChill } from '../src/spells.mjs';
@@ -1691,7 +1691,7 @@ function groundStrike(room, player, strikeIndex, met, nowSec, world, { through =
   (room.ruptures ??= []).push(rupture);
   room.events.push({
     type: 'rupture', id: rupture.id, ownerId: player.id, origin: point, speed: RUPTURE.speed,
-    fissures: fissures.map((fissure) => ({ dir: fissure.dir, length: fissure.length })), at: nowSec,
+    fissures: fissures.map((fissure) => ({ dir: fissure.dir, length: fissure.length, core: fissure.core })), at: nowSec,
   });
 }
 
@@ -1706,10 +1706,19 @@ function stepRuptures(room, nowSec) {
     for (const target of room.players.values()) {
       if (target.id === rupture.ownerId || !target.alive || rupture.caught.includes(target.id) || target.spawnProtectionUntil > nowSec) continue;
       const struck = target.id === rupture.through && Math.hypot(target.position.x - rupture.origin.x, target.position.z - rupture.origin.z) <= RUPTURE.throughReach;
-      if (!struck && !rupture.fissures.some((fissure) => fissureCatches(rupture.origin, fissure, rupture.reached, reached, target.position))) continue;
+      // (the worst of the arms that reach them: a core over a trailing crack; the knight it was driven through, the core)
+      let hit = struck ? 'core' : null;
+      for (const fissure of rupture.fissures) {
+        const part = fissureHit(rupture.origin, fissure, rupture.reached, reached, target.position);
+        if (part === 'core') { hit = 'core'; break; }
+        hit ??= part;
+      }
+      if (!hit) continue;
       rupture.caught.push(target.id);
-      applyDamage(room, rupture.ownerId, target.id, RUPTURE.damage, 'rupture', nowSec, { x: 0, y: RUPTURE.jolt, z: 0 }, { ultimate: true });
-      staggerBy(room, target, RUPTURE.stagger, nowSec, rupture.ownerId);
+      const core = hit === 'core';
+      applyDamage(room, rupture.ownerId, target.id, core ? RUPTURE.damage : RUPTURE.trailDamage, 'rupture', nowSec,
+        { x: 0, y: core ? RUPTURE.jolt : RUPTURE.trailJolt, z: 0 }, { ultimate: true });
+      staggerBy(room, target, core ? RUPTURE.stagger : RUPTURE.trailStagger, nowSec, rupture.ownerId);
     }
     rupture.reached = reached;
     // its fissures have stopped: the ground stays torn a while (markTornGround), then it is only ground again

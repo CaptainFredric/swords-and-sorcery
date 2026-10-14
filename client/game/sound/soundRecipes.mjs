@@ -836,13 +836,18 @@ export function sunderRingRecipe(rand = Math.random, { light = false } = {}) {
   };
 }
 
-/** A fissure running: a gravelly crackle and a low grumble as it goes. */
-export function ruptureRunRecipe(rand = Math.random, { seconds = 0.7 } = {}) {
+/**
+ * A fissure running: a gravelly crackle and a low grumble as it goes; the grumble only while its core is splitting
+ * (the first `coreSeconds`), the crackle thinning to small ticks out along the trailing crack.
+ */
+export function ruptureRunRecipe(rand = Math.random, { seconds = 0.7, coreSeconds = seconds } = {}) {
   const layers = [
-    { type: 'noise', filter: 'lowpass', freq: 260, q: 0.6, attack: 0.05, decay: seconds, gain: 0.45 },
+    { type: 'noise', filter: 'lowpass', freq: 260, q: 0.6, attack: 0.05, decay: coreSeconds, gain: 0.45 },
   ];
   for (let i = 0; i < 7; i += 1) {
-    layers.push({ type: 'noise', filter: 'bandpass', freq: (1100 + rand() * 1400), q: 3, attack: 0.001, decay: 0.03, gain: 0.18 + rand() * 0.12, at: (i / 7) * seconds + rand() * 0.04 });
+    const at = (i / 7) * seconds + rand() * 0.04;
+    const trail = at > coreSeconds;
+    layers.push({ type: 'noise', filter: 'bandpass', freq: (trail ? 1900 : 1100) + rand() * 1400, q: 3, attack: 0.001, decay: trail ? 0.02 : 0.03, gain: (0.18 + rand() * 0.12) * (trail ? 0.45 : 1), at });
   }
   return { layers, reverb: 0.3 };
 }

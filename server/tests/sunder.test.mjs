@@ -8,7 +8,7 @@ import { BLADE, aimFrame, aimQuality, bladeDirection, sweepBlade } from '../../s
 import { STAGGER } from '../../shared/src/stagger.mjs';
 import { PROWESS } from '../../shared/src/prowess.mjs';
 import { ULTIMATES } from '../../shared/src/ultimates.mjs';
-import { RUPTURE, fissureCatches, planRupture } from '../../shared/src/rupture.mjs';
+import { RUPTURE, fissureCatches, fissureHit, planRupture } from '../../shared/src/rupture.mjs';
 import { steelStrength } from '../../shared/src/steel.mjs';
 import { serializeSnapshot } from '../../shared/sim/wire.mjs';
 import { MOVEMENT, SPRINT } from '../../shared/src/movement.mjs';
@@ -326,7 +326,7 @@ test('a knight who stays where the ground splits again and again is caught by ev
   const caught = room.events.filter((e) => e.type === 'damage' && e.source === 'rupture');
   assert.ok(ruptures >= 3, `every strike ruptured (${ruptures})`);
   assert.equal(caught.length, ruptures, `caught by ${caught.length} of ${ruptures}: none passes over them`);
-  // (but each rupture once: its three fissures are one rupture)
+  // (but each rupture once: its four fissures are one rupture)
   assert.equal(new Set(caught.map((e) => e.at)).size, caught.length);
 });
 
@@ -369,7 +369,10 @@ test('a rupture runs along the ground, never through what stands on it, and catc
   for (const fissure of fissures) assert.ok(fissure.dir.x * fissure.length <= 2.75, `stopped at the wall's foot (${fissure.length.toFixed(2)})`);
   // over a drop it stops at the edge
   const edge = { ...openWorld, floors: [{ id: 'ledge', center: [0, -0.1, 0], size: [4, 0.2, 4], y: 0 }] };
-  for (const fissure of planRupture(edge, { x: 0, y: 0, z: 0 }, { x: 1, z: 0 })) assert.ok(fissure.length <= 2.3);
+  for (const fissure of planRupture(edge, { x: 0, y: 0, z: 0 }, { x: 1, z: 0 })) {
+    const out = Math.max(Math.abs(fissure.dir.x), Math.abs(fissure.dir.z)) * fissure.length;
+    assert.ok(out <= 2.3, `stopped at the edge (${out.toFixed(2)} m out)`);
+  }
   // live: a knight beyond the wall is untouched, one in the open is caught (and one in the air clears it)
   const strike = (world, target) => {
     const { room, a, b } = duel();
@@ -387,9 +390,78 @@ test('a rupture runs along the ground, never through what stands on it, and catc
   assert.equal(strike(openWorld, { x: 4.5, y: 0, z: 0 }).length, 1, 'caught in the open');
   assert.equal(strike(walled, { x: 4.5, y: 0, z: 0 }).length, 0, 'not through the wall');
   // one in the air as it passes clears it (a jump is the counter)
-  const fissure = planRupture(openWorld, { x: 0, y: 0, z: 0 }, { x: 1, z: 0 })[1];   // (the middle one: straight on)
-  assert.ok(fissureCatches({ x: 0, y: 0, z: 0 }, fissure, 2, 3, { x: 2.5, y: 0, z: 0 }), 'on the ground');
-  assert.ok(!fissureCatches({ x: 0, y: 0, z: 0 }, fissure, 2, 3, { x: 2.5, y: RUPTURE.airborne + 0.1, z: 0 }), 'in the air');
+  // (the arm nearest straight on)
+  const fissure = planRupture(openWorld, { x: 0, y: 0, z: 0 }, { x: 1, z: 0 }).reduce((best, f) => (f.dir.x > best.dir.x ? f : best));
+  const on = { x: fissure.dir.x * 2.5, y: 0, z: fissure.dir.z * 2.5 };
+  assert.ok(fissureCatches({ x: 0, y: 0, z: 0 }, fissure, 2, 3, on), 'on the ground');
+  assert.ok(!fissureCatches({ x: 0, y: 0, z: 0 }, fissure, 2, 3, { ...on, y: RUPTURE.airborne + 0.1 }), 'in the air');
+});
+
+test('a rupture is a lopsided star of four arms, a little longer than it was', () => {
+  const forward = { x: 1, z: 0 };
+  const star = planRupture(openWorld, { x: 0, y: 0, z: 0 }, forward);
+  assert.equal(star.length, 4);
+  const angles = star.map((f) => Math.atan2(-f.dir.z, f.dir.x) * 180 / Math.PI);   // (toward the right of +x: -z)
+  const gaps = angles.slice(1).map((a, i) => Math.abs(a - angles[i]));
+  assert.ok(gaps.every((g) => g > 10), `fanned apart (${gaps.map((g) => g.toFixed(0))})`);
+  assert.ok(Math.max(...gaps) - Math.min(...gaps) >= 5, 'not evenly');
+  assert.ok(Math.abs(angles.reduce((s, a) => s + a, 0)) > 10, 'not balanced about the blow');
+  const lengths = star.map((f) => f.length);
+  assert.ok(new Set(lengths.map((l) => l.toFixed(2))).size === 4, 'every arm its own length');
+  assert.ok(Math.max(...lengths) > 6.5 + 1 && Math.max(...lengths) <= 8.5, `a modestly longer reach (${Math.max(...lengths)})`);
+  // the longest runs nearly straight on: whoever the blow was aimed at is on it
+  const longest = star.reduce((best, f) => (f.length > best.length ? f : best));
+  assert.ok(longest.dir.x > Math.cos(6 * Math.PI / 180));
+  for (const f of star) assert.ok(f.core > 0.6 * f.length && f.core < f.length, 'a core, and a trailing crack beyond it');
+});
+
+test('the worst of a rupture is where it looks worst: its core bites hard, the trailing crack beyond it only stings', () => {
+  const fissure = planRupture(openWorld, { x: 0, y: 0, z: 0 }, { x: 1, z: 0 }).reduce((best, f) => (f.length > best.length ? f : best));
+  const at = (d, across = 0) => ({ x: fissure.dir.x * d - fissure.dir.z * across, y: 0, z: fissure.dir.z * d + fissure.dir.x * across });
+  assert.equal(fissureHit({ x: 0, y: 0, z: 0 }, fissure, 0, Infinity, at(fissure.core * 0.5)), 'core');
+  assert.equal(fissureHit({ x: 0, y: 0, z: 0 }, fissure, 0, Infinity, at(fissure.core * 0.5, 0.5)), 'core', 'the core is wide');
+  assert.equal(fissureHit({ x: 0, y: 0, z: 0 }, fissure, 0, Infinity, at(fissure.core + 1)), 'trail');
+  assert.equal(fissureHit({ x: 0, y: 0, z: 0 }, fissure, 0, Infinity, at(fissure.core + 1, 0.5)), null, 'the trailing crack is thin');
+  assert.equal(fissureHit({ x: 0, y: 0, z: 0 }, fissure, 0, Infinity, at(fissure.length + 1)), null, 'and it ends');
+  assert.ok(RUPTURE.trailDamage < RUPTURE.damage / 2 && RUPTURE.trailStagger < RUPTURE.stagger / 2 && RUPTURE.trailJolt < RUPTURE.jolt);
+  // live: a knight out on the trailing crack takes its sting; one on the core, its blow
+  const struckAt = (d) => {
+    const { room, a, b } = duel();
+    sunder(room, a);
+    Object.assign(b.position, { x: 0, y: 0, z: 30 });
+    b.history = [];
+    room.events.length = 0;
+    beginAttack(room, 'a', 10);
+    run(room, 10, 10.55);
+    endAttack(room, 'a', 10.55);
+    const rupture = room.events.find((e) => e.type === 'rupture');
+    const arm = rupture.fissures.reduce((best, f) => (f.length > best.length ? f : best));
+    Object.assign(b.position, { x: rupture.origin.x + arm.dir.x * d(arm), y: 0, z: rupture.origin.z + arm.dir.z * d(arm) });
+    b.velocity = { x: 0, y: 0, z: 0 };
+    const level = b.stagger?.level ?? 0;
+    run(room, 10.56, 12);
+    return { damage: room.events.filter((e) => e.type === 'damage' && e.source === 'rupture' && e.victimId === 'b'), stagger: (b.stagger?.level ?? 0) - level };
+  };
+  const core = struckAt((arm) => arm.core * 0.7), trail = struckAt((arm) => (arm.core + arm.length) / 2 + 0.2);
+  assert.deepEqual(core.damage.map((e) => e.amount), [RUPTURE.damage]);
+  assert.deepEqual(trail.damage.map((e) => e.amount), [RUPTURE.trailDamage]);
+  assert.ok(trail.stagger > 0 && trail.stagger < core.stagger, `${trail.stagger} < ${core.stagger}`);
+});
+
+test('slam after slam, the same lopsided star (its safer side can be learned)', () => {
+  const { room, a, b } = duel();
+  sunder(room, a);
+  Object.assign(b.position, { x: 0, y: 0, z: 30 });
+  room.events.length = 0;
+  beginAttack(room, 'a', 10);
+  for (let now = 10; now <= 14 + 1e-9; now += 0.01) { a.yaw = -Math.PI / 2; stepRoom(room, 0.01, now, openWorld); }
+  const stars = room.events.filter((e) => e.type === 'rupture');
+  assert.ok(stars.length >= 4, `${stars.length}`);
+  const shape = (star) => star.fissures.map((f) => `${f.dir.x.toFixed(3)},${f.dir.z.toFixed(3)}`).join(' ');
+  for (const star of stars) assert.equal(shape(star), shape(stars[0]));
+  // lopsided: no arm has a twin the other side of the blow's way
+  const fans = stars[0].fissures.map((f) => Math.atan2(f.dir.z, f.dir.x));
+  for (const fan of fans) assert.ok(fans.every((other) => Math.abs(other + fan) > 3 * Math.PI / 180), 'no mirrored arm');
 });
 
 test('nothing is left to chance: no random roll anywhere in how a blow, a stagger, a rupture or an ultimate resolves', () => {
@@ -794,7 +866,7 @@ test('a perfect guard still turns a Sundering blow; the Sundering knight is stag
 
 // --- torn ground ----------------------------------------------------------------------------------------------------
 
-// a's Sundering slam at 10 s splits the ground along +x (its middle fissure runs from about x = 2 out to its reach);
+// a's Sundering slam at 10 s splits the ground along +x (its arm nearest straight on runs out from about x = 2);
 // b far off to the side until asked for. Returns once the fissures have stopped running
 function tornGround() {
   const { room, a, b } = duel({ third: true });
@@ -807,10 +879,10 @@ function tornGround() {
   endAttack(room, 'a', 10.55);
   const rupture = room.events.find((e) => e.type === 'rupture');
   assert.ok(rupture, 'the ground split');
-  const middle = rupture.fissures.find((f) => Math.abs(f.dir.z) < 1e-6);
+  const middle = rupture.fissures.reduce((best, f) => (f.dir.x > best.dir.x ? f : best));
   run(room, 10.56, rupture.at + middle.length / RUPTURE.speed + 0.1);
-  // a place well along the middle fissure
-  const on = { x: rupture.origin.x + middle.length * 0.6, y: 0, z: rupture.origin.z };
+  // a place well along that arm
+  const on = { x: rupture.origin.x + middle.dir.x * middle.length * 0.6, y: 0, z: rupture.origin.z + middle.dir.z * middle.length * 0.6 };
   return { room, a, b, rupture, middle, on, stoppedBy: rupture.at + middle.length / RUPTURE.speed + 0.1 };
 }
 

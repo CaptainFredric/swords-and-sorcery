@@ -400,10 +400,13 @@ export class Effects {
 
   /**
    * A Sundering blade driven into the ground: broken stone thrown up and a burst of dust where it struck; then each
-   * fissure runs out along the ground at `speed` (a dark jagged split drawn as it goes, dust kicked up at its head), and
-   * the split ground lingers a moment before it fades. fissures: [{ dir: {x, z}, length }] (as the host planned them).
+   * fissure runs out along the ground at `speed`, drawn as it goes, and the split ground lingers a moment before it
+   * fades. Each is drawn as it hurts: its core (the first `core` metres) a wide dark split, hot down its middle, in a
+   * glow as wide as it catches (`width`), heavy dust and a spit of embers at its head; beyond, the trailing crack a cold
+   * hairline, its glow faint and as narrow as it catches (`trailWidth`), a little dust. fissures: [{ dir: {x, z}, length, core }]
+   * (as the host planned them; without a core, the whole of it is core).
    */
-  rupture(origin, fissures, { speed = 8.5, lastsSec = 2.5, tornWidth = 0.45 } = {}) {
+  rupture(origin, fissures, { speed = 8.5, lastsSec = 2.5, width = 0.55, trailWidth = 0.4 } = {}) {
     // the ground stays torn (no sprinting over it for anyone but whoever split it) until every fissure has stopped and
     // `lastsSec` more has passed: for that long the crack is seen to be live (a dull ember light in it, the torn
     // strip either side of it); then it settles and fades, and is only ground again
@@ -420,81 +423,151 @@ export class Effects {
     }
     for (let i = 0, n = this.#many(6); i < n; i += 1) this.#dust(at, { size: 1.6, rise: 1.1, life: 0.9 });
     this.#flashLight({ x: at.x, y: at.y + 0.3, z: at.z }, 0xffb070, 3, 0.18, 5);
-    const crackMaterial = new THREE.MeshBasicMaterial({ color: 0x1a120c, transparent: true, opacity: 0.88, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, side: THREE.DoubleSide });
-    for (const fissure of fissures) {
-      const segments = Math.max(2, Math.round(fissure.length / 0.3));
-      const positions = new Float32Array(segments * 6 * 3);
+    // (the core's split dark and deep; the trailing crack only a line scratched in the turf)
+    const splitMaterial = new THREE.MeshBasicMaterial({ color: 0x160e09, transparent: true, opacity: 0.9, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, side: THREE.DoubleSide });
+    // (the glow is brightest on the crack's line and dies away to nothing at the edge of the ground it catches)
+    const glowMaterial = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, side: THREE.DoubleSide });
+    const EMBER = [1, 0.48, 0.16];
+    // a rupture opened on ground another is still glowing on takes its light over (the cracks stay; the light does not
+    // pile up into a blaze under a held Sunder)
+    const here = { x: at.x, z: at.z, superseded: false };
+    this.ruptureGlows = (this.ruptureGlows ?? []).filter((other) => {
+      if (Math.hypot(other.x - here.x, other.z - here.z) < 1.5) other.superseded = true;
+      return !other.superseded && !other.done;
+    });
+    this.ruptureGlows.push(here);
+    const handedOver = (mesh, age) => {
+      if (!here.superseded) return 1;
+      mesh.userData.handedOverAt ??= age;
+      return Math.max(0, 1 - (age - mesh.userData.handedOverAt) / 0.3);
+    };
+    const STEP = 0.3;
+    for (const [index, fissure] of fissures.entries()) {
+      const core = Math.min(fissure.length, fissure.core ?? fissure.length);
       const across = { x: -fissure.dir.z, z: fissure.dir.x };
+      const segments = Math.max(2, Math.round(fissure.length / STEP));
+      // its one jagged path (the core and the crack beyond it are one split), and how wide it is split along it. Each
+      // arm's jag is its own and the same every time (a slam on the same ground opens the same crack again, rather
+      // than smearing a new one beside it)
+      const path = [];
       let wander = 0;
-      const point = (k) => {
-        const t = k / segments;
-        const d = t * fissure.length;
-        return { x: at.x + fissure.dir.x * d + across.x * wander, z: at.z + fissure.dir.z * d + across.z * wander, w: 0.13 * (1 - 0.55 * t) + 0.03 };
-      };
-      let prev = point(0);
-      for (let k = 1; k <= segments; k += 1) {
-        wander = Math.max(-0.25, Math.min(0.25, wander + (Math.random() - 0.5) * 0.16));
-        const next = point(k);
-        const y = at.y + 0.015;
-        const quad = [
-          [prev.x - across.x * prev.w, y, prev.z - across.z * prev.w], [next.x - across.x * next.w, y, next.z - across.z * next.w], [next.x + across.x * next.w, y, next.z + across.z * next.w],
-          [prev.x - across.x * prev.w, y, prev.z - across.z * prev.w], [next.x + across.x * next.w, y, next.z + across.z * next.w], [prev.x + across.x * prev.w, y, prev.z + across.z * prev.w],
-        ];
-        quad.forEach((v, j) => positions.set(v, ((k - 1) * 6 + j) * 3));
-        prev = next;
+      let seed = 0x9e3779b9 ^ (index * 0x85ebca6b);
+      const jag = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 0x100000000; };
+      for (let k = 0; k <= segments; k += 1) {
+        if (k) wander = Math.max(-0.2, Math.min(0.2, wander + (jag() - 0.5) * 0.16));
+        const d = (k / segments) * fissure.length;
+        path.push({ d, x: at.x + fissure.dir.x * d + across.x * wander, z: at.z + fissure.dir.z * d + across.z * wander });
       }
-      const geometry = new THREE.BufferGeometry();
-      geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-      geometry.setDrawRange(0, 0);
-      const crack = new THREE.Mesh(geometry, crackMaterial.clone());
-      crack.renderOrder = 2;
+      const halfWidth = (d) => {
+        if (d <= core) return 0.11 - 0.03 * (d / Math.max(core, 1e-6));
+        // (the split pinches to a hairline over half a metre past the core)
+        const pinch = Math.min(1, (d - core) / 0.5);
+        const thin = 0.028 - 0.016 * ((d - core) / Math.max(fissure.length - core, 1e-6));
+        return 0.08 + (thin - 0.08) * pinch;
+      };
+      const ribbon = (y, half) => {
+        const positions = new Float32Array(segments * 18);
+        for (let k = 1; k <= segments; k += 1) {
+          const a = path[k - 1], b = path[k], wa = half(a.d), wb = half(b.d);
+          [[a, -wa], [b, -wb], [b, wb], [a, -wa], [b, wb], [a, wa]]
+            .forEach(([p, w], j) => positions.set([p.x + across.x * w, y, p.z + across.z * w], ((k - 1) * 6 + j) * 3));
+        }
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        geometry.setDrawRange(0, 0);
+        return geometry;
+      };
+      // a band either side of the path, its light at the line and none at its edges (12 vertices a segment)
+      const glowRibbon = (y, half) => {
+        const positions = new Float32Array(segments * 36);
+        const colors = new Float32Array(segments * 36);
+        for (let k = 1; k <= segments; k += 1) {
+          const a = path[k - 1], b = path[k], wa = half(a.d), wb = half(b.d);
+          const corners = [[a, -wa, 0], [b, -wb, 0], [b, 0, 1], [a, -wa, 0], [b, 0, 1], [a, 0, 1],
+            [a, 0, 1], [b, 0, 1], [b, wb, 0], [a, 0, 1], [b, wb, 0], [a, wa, 0]];
+          corners.forEach(([p, w, lit], j) => {
+            positions.set([p.x + across.x * w, y, p.z + across.z * w], ((k - 1) * 12 + j) * 3);
+            colors.set(EMBER.map((c) => c * lit), ((k - 1) * 12 + j) * 3);
+          });
+        }
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+        geometry.setDrawRange(0, 0);
+        return geometry;
+      };
       const runSec = fissure.length / speed;
-      let dustAt = 0;
-      // the torn strip: as wide as the ground that is torn (where a sprint is broken), faint, breathing with an ember
-      // light while it is live
-      const strip = new Float32Array(18);
-      const far = { x: at.x + fissure.dir.x * fissure.length, z: at.z + fissure.dir.z * fissure.length };
-      const sy = at.y + 0.012;
-      const corner = (p, side) => [p.x + across.x * tornWidth * side, sy, p.z + across.z * tornWidth * side];
-      [corner(at, -1), corner(far, -1), corner(far, 1), corner(at, -1), corner(far, 1), corner(at, 1)].forEach((v, j) => strip.set(v, j * 3));
-      const stripGeometry = new THREE.BufferGeometry();
-      stripGeometry.setAttribute('position', new THREE.BufferAttribute(strip, 3));
-      const torn = new THREE.Mesh(stripGeometry, new THREE.MeshBasicMaterial({ color: 0xff7a2a, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, side: THREE.DoubleSide }));
-      torn.renderOrder = 1;
+      const coreSegments = Math.round((core / fissure.length) * segments);
+      const shown = (age) => Math.ceil(Math.min(1, age / runSec) * segments);
+      // (no glow where the arms all meet at the blow: there it would only pile up; the blow has its own flash)
+      const glowFrom = Math.min(coreSegments, Math.ceil(0.5 / (fissure.length / segments)));
+      // the glow: over the core as wide as the core catches, bright; over the trailing crack as narrow as it catches,
+      // and faint (the strength of the light is the strength of the bite)
+      const glowGeometry = glowRibbon(at.y + 0.012, () => width);
+      const glow = new THREE.Mesh(glowGeometry, glowMaterial.clone());
+      glow.renderOrder = 1;
+      const trailGlowGeometry = glowRibbon(at.y + 0.012, () => trailWidth);
+      const trailGlow = new THREE.Mesh(trailGlowGeometry, glowMaterial.clone());
+      trailGlow.renderOrder = 1;
+      const splitGeometry = ribbon(at.y + 0.015, halfWidth);
+      const split = new THREE.Mesh(splitGeometry, splitMaterial.clone());
+      split.renderOrder = 2;
+      // the core's seam: the split is hot down its middle (only the core: the trailing crack is cold), cooling as it lies
+      const seamGeometry = glowRibbon(at.y + 0.018, (d) => halfWidth(d) * 0.5);
+      const seam = new THREE.Mesh(seamGeometry, glowMaterial.clone());
+      seam.renderOrder = 3;
       const phase = Math.random() * 6;
-      this.#addTransient(torn, {
-        life: activeSec + settleSec,
-        own: true,
-        ownGeometry: true,
+      const live = (age) => (age < activeSec ? 1 : Math.max(0, 1 - (age - activeSec) / (settleSec * 0.5)));
+      this.#addTransient(glow, {
+        life: activeSec + settleSec, own: true, ownGeometry: true,
         tick: (age) => {
-          const reached = Math.min(1, age / runSec);
-          // (it grows out with the fissure's head: the far corners follow it)
-          const head = { x: at.x + fissure.dir.x * fissure.length * reached, z: at.z + fissure.dir.z * fissure.length * reached };
-          [corner(at, -1), corner(head, -1), corner(head, 1), corner(at, -1), corner(head, 1), corner(at, 1)].forEach((v, j) => strip.set(v, j * 3));
-          stripGeometry.attributes.position.needsUpdate = true;
-          const live = age < activeSec ? 1 : Math.max(0, 1 - (age - activeSec) / (settleSec * 0.5));
-          torn.material.opacity = (0.075 + 0.045 * Math.sin(age * 5.2 + phase)) * live;
+          glowGeometry.setDrawRange(glowFrom * 12, Math.max(0, Math.min(shown(age), coreSegments) - glowFrom) * 12);
+          glow.material.opacity = (0.32 + 0.08 * Math.sin(age * 5.2 + phase)) * live(age) * handedOver(glow, age);
+          if (age >= activeSec + settleSec * 0.5) here.done = true;
         },
       });
-      this.#addTransient(crack, {
-        life: activeSec + settleSec,
-        own: true,
-        ownGeometry: true,
+      this.#addTransient(trailGlow, {
+        life: activeSec + settleSec, own: true, ownGeometry: true,
+        tick: (age) => {
+          const n = shown(age);
+          trailGlowGeometry.setDrawRange(coreSegments * 12, Math.max(0, n - coreSegments) * 12);
+          trailGlow.material.opacity = (0.1 + 0.03 * Math.sin(age * 5.2 + phase)) * live(age) * handedOver(trailGlow, age);
+        },
+      });
+      this.#addTransient(seam, {
+        life: activeSec + settleSec, own: true, ownGeometry: true,
+        tick: (age) => {
+          seamGeometry.setDrawRange(0, Math.min(shown(age), coreSegments) * 12);
+          const cooling = 1 - 0.55 * Math.min(1, age / activeSec);
+          seam.material.opacity = (0.85 + 0.15 * Math.sin(age * 7.1 + phase)) * cooling * live(age) * handedOver(seam, age);
+        },
+      });
+      let dustAt = 0, sparkAt = 0;
+      this.#addTransient(split, {
+        life: activeSec + settleSec, own: true, ownGeometry: true,
         tick: (age) => {
           const reached = Math.min(1, age / runSec);
-          geometry.setDrawRange(0, Math.ceil(reached * segments) * 6);
-          // live: the crack dark and whole; settled: it closes over and fades
-          crack.material.opacity = 0.88 * (age < activeSec ? 1 : Math.max(0, 1 - (age - activeSec) / settleSec));
-          // dust kicked up at the running head
-          if (reached < 1 && age >= dustAt) {
-            dustAt = age + 0.07;
-            const d = reached * fissure.length;
-            this.#dust({ x: at.x + fissure.dir.x * d, y: at.y, z: at.z + fissure.dir.z * d }, { size: 1.1, rise: 0.9, life: 0.55 });
+          splitGeometry.setDrawRange(0, shown(age) * 6);
+          // live: the split dark and whole; settled: it closes over and fades
+          split.material.opacity = 0.9 * (age < activeSec ? 1 : Math.max(0, 1 - (age - activeSec) / settleSec));
+          if (reached >= 1) return;
+          // at the running head: in the core, heavy dust and a spit of embers; out on the trailing crack, a little dust
+          const d = reached * fissure.length;
+          const head = { x: at.x + fissure.dir.x * d, y: at.y, z: at.z + fissure.dir.z * d };
+          const inCore = d <= core;
+          if (age >= dustAt) {
+            dustAt = age + (inCore ? 0.06 : 0.12);
+            this.#dust(head, inCore ? { size: 1.25, rise: 1.0, life: 0.6 } : { size: 0.55, rise: 0.45, life: 0.4 });
+          }
+          if (inCore && age >= sparkAt) {
+            sparkAt = age + 0.13;
+            this.sparks({ x: head.x, y: head.y + 0.05, z: head.z }, 0xff9a40, 3);
           }
         },
       });
     }
-    crackMaterial.dispose();
+    splitMaterial.dispose();
+    glowMaterial.dispose();
   }
 
   /** A Sundering blow landing: heavier sparks and a dull shock ring round the point, the blow's weight made visible. */
