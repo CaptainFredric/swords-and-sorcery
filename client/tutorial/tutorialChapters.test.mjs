@@ -15,7 +15,8 @@ test('the complete declared route preserves chapter identifiers and reaches the 
   ]);
   assert.deepEqual(TUTORIAL_SEGMENTS.map(item => item.id), [
     'greener-introduction', 'meaningful-look', 'approach', 'stamina', 'introductions',
-    'first-attack', 'first-guard', 'health-regen', 'real-duel', 'duel-knockdown', 'escape-head-start', 'false-exit', 'tattle-threat',
+    'first-attack', 'first-guard', 'health-regen', 'real-duel', 'duel-constitution', 'duel-arrangement', 'duel-knockdown',
+    'escape-head-start', 'false-exit', 'tattle-threat',
     'rival-escape', 'jump-obstacle', 'pursuit-banter', 'fireball', 'tattle-reveal', 'dead-end',
     'bridge-dash', 'counterfire', 'complaint-approach', 'pride-stop', 'duel-terms',
     'rival-defeat', 'title-ending',

@@ -38,7 +38,9 @@ test('creator corrections retain semantic recording keys and the approved small-
     const b = TUTORIAL_BEATS.find(b => b.id === id);
     assert.equal(b.line, line); assert.equal(b.recordingKey, `tutorial.${id}`);
   }
-  const condition = TUTORIAL_BRANCHES['rival-constitution'].find(b => b.id === 'what-condition');
+  // (asked at the first duel's knockdown now: a main line of the duel's)
+  const condition = TUTORIAL_BEATS.find(b => b.id === 'what-condition');
+  assert.equal(condition.segment, 'duel-constitution');
   assert.equal(condition.line, 'Perhaps his armor is better tailored than yours. What is his condition?');
   assert.equal(condition.recordingKey, 'tutorial.what-condition');
   const bridge = TUTORIAL_BEATS.find(b => b.id === 'surpass-obstacle');

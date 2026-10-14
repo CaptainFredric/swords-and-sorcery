@@ -14,7 +14,13 @@ const say = (director, cue) => { director.beginAudio(cue); return cue.branch ? d
 function speak(director, at) { const cue = director.optionalCue ?? director.cue; say(director, cue); director.tick(at + .4); return cue.id; }
 
 test('an aside never begins inside a place\'s lines; one under way gives them the floor at its next pause, then resumes', () => {
-  const d = new TutorialDirector(); d.start(); d.resumeAt('tattle-reveal-arrival');
+  // (an aside of two exchanges: the constitution's, with a second exchange after it)
+  const later = [
+    { id: 'later-question', exchange: 'later', speaker: 'narrator', line: 'A later question.', presentation: 'reactive', rehearsalSec: 1 },
+    { id: 'later-answer', exchange: 'later', speaker: 'rival', line: 'A later answer.', presentation: 'reactive', rehearsalSec: 1 },
+  ].map(line => ({ ...line, branch: 'rival-constitution', kind: 'dialogue' }));
+  const d = new TutorialDirector({ branches: { ...TUTORIAL_BRANCHES, 'rival-constitution': [...TUTORIAL_BRANCHES['rival-constitution'], ...later] } });
+  d.start(); d.resumeAt('tattle-reveal-arrival');
   // the aside is offered while the route waits on the landmark: it begins
   d.offerBranch('rival-constitution'); d.tick(10);
   assert.equal(d.optionalCue.id, 'constitution-strange');
@@ -32,7 +38,7 @@ test('an aside never begins inside a place\'s lines; one under way gives them th
   assert.deepEqual(reveal, ['matter-settled', 'how-settled', 'utmost-dignity', 'rightfully-condemned', 'told-on', 'acquired-attention']);
   // the route waits at the sheepfold now: the aside's second exchange comes back (every recording kept)
   d.tick(t + 1);
-  assert.equal(d.optionalCue?.id, 'what-condition');
+  assert.equal(d.optionalCue?.id, 'later-question');
 });
 
 test('an aside waits for room: its next exchange must be over before the story\'s next place can come', () => {

@@ -75,10 +75,11 @@ test('Jump and tattle are independently authored named-landmark scenes before th
 test('constitution is an optional lethal-survival response and existing Dash recording keys survive', () => {
   assert.deepEqual(TUTORIAL_BRANCHES['rival-constitution'].map(item => item.line), [
     'Hmm. This is strange.', 'No I am not!', 'Your rival appears not to have fallen yet.',
-    'Thank you for noticing!!', 'Perhaps his armor is better tailored than yours. What is his condition?',
-    'What is your current constitution!?', 'My constitution... has been amended many times.',
-    'Ah... then it appears it cannot be settled.',
+    'Thank you for noticing!!',
   ]);
+  // (his condition is asked after where he is first knocked down, in the first duel: never twice)
+  assert.deepEqual(['what-condition', 'current-constitution', 'constitution-amended', 'cannot-settled'].map(id => beat(id).segment),
+    ['duel-constitution', 'duel-constitution', 'duel-constitution', 'duel-constitution']);
   assert.ok(TUTORIAL_BRANCHES['rival-constitution'].every(item => item.presentation === 'reactive'));
   assert.equal(beat('but-knight').line, 'Never! I am a knight!');
   assert.equal(beat('but-knight').recordingKey, 'tutorial.but-knight');

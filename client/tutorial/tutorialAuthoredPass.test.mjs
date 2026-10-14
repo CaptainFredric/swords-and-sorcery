@@ -261,19 +261,33 @@ test('the health instruction stands from the hit itself, under the lines that fo
   host.close();
 });
 
-test('the duel counts from the fight proper: a quick start lands hits, but he goes down only after the banter begins', () => {
+test('the duel counts from its first swing, and each knockdown follows its line: the boast, then the terms', () => {
   const { host, session } = fixture();
-  session.stage('real-duel'); session.director.resumeAt('plans-change'); session.rival.enter('rival-attack', host.now());
+  session.stage('real-duel'); session.director.resumeAt('well'); session.rival.enter('rival-attack', host.now());
   const hit = { type: 'damage', victimId: session.rivalId, attackerId: host.player.id, source: 'sword', amount: 30, health: 1 };
+  session.events([hit]);
+  assert.equal(session.duelDamage, 0, 'before the fight: nothing counts');
+  session.director.resumeAt('plans-change'); session.changed(session.director.progress);
+  // a quick start: the punishment is real from the first swing, but he does not go down before he has boasted
   for (let i = 0; i < 5; i += 1) session.events([hit]);
-  assert.equal(session.director.facts.has('duel-damage-threshold'), false, 'no knockdown during the opening exchange');
-  assert.equal(session.rival.mode, 'duel');
-  session.director.resumeAt('duel-midway');
-  for (let i = 0; i < 2; i += 1) session.events([hit]);
   assert.ok(session.director.facts.has('duel-damage-midway'));
-  for (let i = 0; i < 2; i += 1) session.events([hit]);
-  assert.ok(session.director.facts.has('duel-damage-threshold'));
+  assert.equal(session.director.facts.has('duel-first-knockdown'), false, 'no knockdown during the opening exchange');
+  assert.equal(session.rival.mode, 'duel');
+  assert.equal(session.director.facts.has('duel-first-knockdown'), false, 'not before "...not feel like it yet!"');
+  assert.equal(session.rival.mode, 'duel');
+  session.director.resumeAt('informative'); session.director.fact('duel-damage-midway');
+  session.events([hit]);
+  assert.ok(session.director.facts.has('duel-first-knockdown'), 'the next real blow after it');
   assert.equal(session.rival.mode, 'recover');
+  // up again: the second round counts from the terms; down for good once they have been put
+  session.rival.mode = 'duel'; session.rival.recoveryAt = null;
+  session.director.resumeAt('strike-you-first'); session.termsDamage = 0;
+  for (let i = 0; i < 3; i += 1) session.events([hit]);
+  assert.equal(session.director.facts.has('duel-damage-threshold'), false, 'not before "Prevent this arrangement."');
+  session.director.resumeAt('real-duel');
+  session.events([hit]);
+  assert.ok(session.director.facts.has('duel-damage-threshold'));
+  assert.equal(session.rival.mode, 'recover'); assert.equal(session.rival.knockdowns, 2);
   host.close();
 });
 

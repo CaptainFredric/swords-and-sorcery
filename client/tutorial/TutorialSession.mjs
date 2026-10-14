@@ -19,6 +19,9 @@ export const THREAT_HALT_SEC = 1.2;
 const HALTED = new Set(['move','sprint','jump','dash','crouch']);
 // Health counts as settled after this long at full (the regeneration lesson's prompt stays until then).
 export const HEALTH_SETTLED_SEC = 1;
+// The first duel's punishment (legitimate damage to Rival): the boast is had at `midway`; he goes down at `first`
+// (once he has boasted), and, up again, for good at `second` more (once the terms have been put).
+export const DUEL_DAMAGE = Object.freeze({ midway: 40, first: 70, second: 60 });
 // After a final defeat, the taunt (if there is one this time) has this long at most before the rematch.
 const FINAL_LOSS_MAX_SEC = 6.5;
 const FINAL_LOSS_QUIET_SEC = 2.4;
@@ -65,7 +68,7 @@ export function tutorialPrompt(beat, { touch = false, bindings = {} } = {}) {
       : `A running Jump falls short of the brook. Hold ${keys('sprint')} and Jump at the edge: ${use('jump')}. Fell in? Wade up the ford on the right.`;
     case 'guard-break': return `Keep striking Rival's Guard with ${use('attack')}. Fireball passes through Guard; sword pressure breaks it.`;
     case 'exit': return 'The gate is in the west hedge.';
-    default: return ({'duel-damage-threshold':'Fight Rival. Attack, Guard and move.', 'rival-escaping':'Chase Rival.',
+    default: return ({'duel-first-knockdown':'Fight Rival. Attack, Guard and move.', 'duel-damage-threshold':'Fight Rival. Attack, Guard and move.', 'rival-escaping':'Chase Rival.',
       'final-first-parry':`Strike Rival: ${use('attack')}.`,
       'bridge-reached':'Follow Rival to the broken stone bridge.', 'bridge-crossed':`Cross to the far bank. Dash: ${use('dash')}.`,
       'subsequent-fireball-hit':`Aim at Rival and cast Fireball again: ${use('spell')}.`,
@@ -162,7 +165,8 @@ export class TutorialSession {
     rival.spell = 'fireball'; rival.botSkill = 'squire'; rival.tutorialSwordDrawn = key !== 'opening' && key !== 'introductions';
     rival.spawnProtectionUntil = now; this.rivalId = rival.id;
     room.tutorialRival = {id:rival.id,protected:true}; room.projectiles.clear();
-    this.duelDamage = 0; this.duelCounting = false; this.finalBroken = false; this.damageBaseline = null; this.departureStart = null;
+    this.duelDamage = 0; this.duelCounting = false; this.termsDamage = 0; this.during = null;
+    this.finalBroken = false; this.damageBaseline = null; this.departureStart = null;
     this.firstFireballHit = ['bridge','counterfire','complaint','final'].includes(key);
     this.subsequentHit = ['complaint','final'].includes(key); this.burnSeen = false;
     this.learnerProjectiles = new Set(); this.jumpAttempt = null; this.bridgeDash = false;
@@ -186,7 +190,11 @@ export class TutorialSession {
       this.rival?.enter(beat.stageCue,this.host.now());
       // (halt() states its fact at once, which moves the director on and shows the next beat itself)
       if (beat.stageCue === 'player-halt') { this.halt(); return; }
-      if (beat.id === 'duel-midway' || beat.id === 'real-duel') this.duelCounting = true;
+      // (the first duel's punishment counts from its first swing: what lands while he says "Things do not always go
+      // according to plan." is real; the lines still come before each knockdown, whatever the pace)
+      if (['plans-change', 'duel-midway', 'real-duel'].includes(beat.id)) this.duelCounting = true;
+      // (the second round's damage counts from its first word: what was dealt before his fall was the first round's)
+      if (beat.id === 'strike-you-first') this.termsDamage = 0;
       if (beat.id === 'final-guard') this.finalPhase = 'guard';
       if (beat.id === 'defeat-rival') this.finalPhase = 'fight';
       if (beat.stageCue === 'player-departure') this.departureStart = {...this.host.player.position};
@@ -207,6 +215,21 @@ export class TutorialSession {
       if (standing && facts.has(standing.from) && !facts.has(standing.until)) return standing;
     }
     return null;
+  }
+  /** Whether a main line has been had (the director is past it). */
+  said(id) {
+    const index = this.director.beats.findIndex(beat => beat.id === id);
+    return index >= 0 && (this.director.index > index || this.director.state !== 'running');
+  }
+  // A cue given partway into a line (stageDuring: { cue, atSec }), timed from its take's start (or, unheard, from the
+  // line's own start): Rival getting up on "...has been amended".
+  stageDuring(now) {
+    const beat = this.director.current, during = beat?.stageDuring;
+    if (!during) { this.during = null; return; }
+    const heard = this.director.audioCue?.id === beat.id;
+    if (this.during?.id !== beat.id) this.during = { id: beat.id, at: now, heard, done: false };
+    else if (heard && !this.during.heard) Object.assign(this.during, { at: now, heard: true });
+    if (!this.during.done && now - this.during.at >= during.atSec) { this.during.done = true; this.rival.enter(during.cue, now); }
   }
   // The threat's first word stops the Spellblade where he stands: a short hold on his feet (look stays free), then
   // whatever movement he is still holding carries on.
@@ -308,9 +331,10 @@ export class TutorialSession {
       this.blockedHeld.delete('move'); this.blockedHeld.delete('sprint'); this.onResumeMovement();
       this.onChange(this.present());
     }
+    this.stageDuring(now);
     this.rival.beforeStep(now);
-    // the threshold blow has him down (buckled and braced): the line he says there may begin
-    if (this.rival.mode === 'recover' && now - this.rival.recoveryAt >= .45) this.director.fact('rival-downed');
+    // the blow has him down (buckled and braced): the lines had there may begin
+    if (this.rival.mode === 'recover' && now - this.rival.recoveryAt >= .45) this.director.fact(this.rival.knockdowns > 1 ? 'rival-downed' : 'rival-first-downed');
     if (this.rival.mode === 'draw' && now - actor.tutorialDrawAt >= .85) this.director.fact('rival-sword-drawn');
     if (this.rival.mode === 'duel' && actor.attackActive) this.director.fact('rival-attack-started');
     if (this.rival.mode === 'guard-lesson' && actor.attackActive) this.director.fact('guard-attack-started');
@@ -411,10 +435,24 @@ export class TutorialSession {
       if (event.type === 'damage' && event.victimId === this.rivalId && event.attackerId === this.host.player.id && event.amount > 0) {
         // (the duel's damage counts from the fight proper: hits during its opening exchange land, but he does not go
         // down until the banter has been had)
+        // Two rounds: he goes down once he has had real punishment and has boasted he will not (after "...not feel
+        // like it yet!"), and for good once he has had more and the terms have been put (after "Prevent this
+        // arrangement."). The blow that brings him down is always a real one: earned before the line is over, it is
+        // the next one after it.
         if (this.rival.mode === 'duel' && this.duelCounting) {
-          this.duelDamage += event.amount;
-          if (this.duelDamage >= 45) this.director.fact('duel-damage-midway');
-        if (this.duelDamage >= 100) { this.rival.beginRecovery(this.host.now()); this.director.fact('duel-damage-threshold'); }
+          const round = this.rival.knockdowns;
+          if (round === 0) {
+            this.duelDamage += event.amount;
+            if (this.duelDamage >= DUEL_DAMAGE.midway) this.director.fact('duel-damage-midway');
+            if (this.duelDamage >= DUEL_DAMAGE.first && this.said('not-yet')) {
+              this.rival.beginRecovery(this.host.now()); this.director.fact('duel-first-knockdown');
+            }
+          } else if (round === 1) {
+            this.termsDamage += event.amount;
+            if (this.termsDamage >= DUEL_DAMAGE.second && this.said('prevent-arrangement')) {
+              this.rival.beginRecovery(this.host.now()); this.director.fact('duel-damage-threshold');
+            }
+          }
         }
         if (event.source === 'fireball' && FINAL_MODES.has(this.rival.mode)) {
           this.director.fact('final-fireball-hit'); this.director.offerBranch('final-feelings');
