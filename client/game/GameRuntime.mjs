@@ -719,9 +719,10 @@ export class GameRuntime {
         if (event.playerId === me) this.cameraKick = Math.max(this.cameraKick, 0.2);
       }
       if (event.type === 'rupture') {
-        this.effects.rupture(event.origin, event.fissures, { speed: event.speed, lastsSec: RUPTURE.lastsSec, tornWidth: RUPTURE.tornWidth });
+        this.effects.rupture(event.origin, event.fissures, { speed: event.speed, lastsSec: RUPTURE.lastsSec, width: RUPTURE.width, trailWidth: RUPTURE.trailWidth });
         const runs = Math.max(...event.fissures.map((fissure) => fissure.length)) / event.speed;
-        this.#play(ruptureRunRecipe(Math.random, { seconds: runs }), event.origin, 0.85);
+        const cores = Math.max(...event.fissures.map((fissure) => fissure.core ?? fissure.length)) / event.speed;
+        this.#play(ruptureRunRecipe(Math.random, { seconds: runs, coreSeconds: cores }), event.origin, 0.85);
       }
 
       // my own swings whoosh from the local swing (no network delay); others' from the server's strike

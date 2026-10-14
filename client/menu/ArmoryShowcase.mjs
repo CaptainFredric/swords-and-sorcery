@@ -352,19 +352,22 @@ export class ArmoryShowcase {
     const forward = this.#facing();
     let fissures = planRupture(this.world, origin, { x: forward.x, z: forward.z });
     if (!fissures.length) {
-      // (no ground there to plan on: the fan as it would run on open ground)
+      // (no ground there to plan on: the star as it would run on open ground)
       const heading = Math.atan2(forward.x, forward.z);
-      fissures = [-1, 0, 1].map((i) => {
-        const angle = heading + i * RUPTURE.spreadDeg * (Math.PI / 180);
-        return { dir: { x: Math.sin(angle), z: Math.cos(angle) }, length: RUPTURE.reach, level: ground };
+      fissures = RUPTURE.arms.map((arm) => {
+        const angle = heading - arm.angle * (Math.PI / 180);
+        return { dir: { x: Math.sin(angle), z: Math.cos(angle) }, length: arm.reach, core: arm.reach * RUPTURE.core, level: ground };
       });
     }
     const effects = this.effects();
-    effects.rupture(origin, fissures, { speed: RUPTURE.speed, lastsSec: RUPTURE.lastsSec, tornWidth: RUPTURE.tornWidth });
+    effects.rupture(origin, fissures, { speed: RUPTURE.speed, lastsSec: RUPTURE.lastsSec, width: RUPTURE.width, trailWidth: RUPTURE.trailWidth });
     effects.groundShock(origin);
     this.#play(groundSlamRecipe(), origin, 1);
     this.#play(sunderForceRecipe(), origin, 0.9);
-    this.#play(ruptureRunRecipe(Math.random, { seconds: Math.max(...fissures.map((f) => f.length)) / RUPTURE.speed }), origin, 0.85);
+    this.#play(ruptureRunRecipe(Math.random, {
+      seconds: Math.max(...fissures.map((f) => f.length)) / RUPTURE.speed,
+      coreSeconds: Math.max(...fissures.map((f) => f.core ?? f.length)) / RUPTURE.speed,
+    }), origin, 0.85);
     this.shake = SLAM_SHAKE.size;
   }
 
