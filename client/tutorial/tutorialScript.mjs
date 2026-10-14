@@ -154,7 +154,7 @@ const segments = [
       { id: 'own-pen', speaker: 'narrator', line: 'Oh brother. Tell him off. With your own ‘pen’...' },
       { id: 'attack-prompt', kind: 'prompt', speaker: 'instruction', line: 'ATTACK', advanceOn: 'sword-contact', mechanic: 'attack' },
       { id: 'teach-you', speaker: 'spellblade', line: 'That should teach you.' },
-      { id: 'harsh-lesson', speaker: 'narrator', line: 'A harsh lesson.' },
+      { id: 'harsh-lesson', speaker: 'narrator', line: 'Rather harsh lesson.' },
       { id: 'opinion', speaker: 'rival', line: 'Ow! I was simply stating my opinion on the comparative qualities between swords and pens!' },
       { id: 'revise', speaker: 'rival', line: 'You have taught me to revise my response.' },
       { id: 'draw-sword', kind: 'stage', advanceOn: 'rival-sword-drawn', stageCue: 'rival-draw-sword',
