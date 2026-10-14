@@ -36,4 +36,6 @@ The archive uses stable timestamps and order; no tests or private files are incl
 
 Publication and social posts remain separate final actions. The saved page, refreshed archive, source branch and copy can be reviewed before those actions. The contest field and two distinct social drafts are in [public posts](PUBLIC_POSTS.md).
 
+The introductory [Welcome to Castleward devlog](https://captainfredric.itch.io/swords-and-sorcery/devlog/1707848/welcome-to-castleward) is saved as an unpublished Draft. Its [editable source](DEVLOG_DRAFT.md) accompanies the social drafts.
+
 The optional Buy Me a Coffee destination remains `https://buymeacoffee.com/captainarm1`. A Ko fi destination has not been supplied; no generic platform link is substituted.

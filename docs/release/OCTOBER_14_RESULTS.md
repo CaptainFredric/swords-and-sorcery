@@ -12,7 +12,9 @@ The playable browser upload is the current main archive, displayed as 32 MB in t
 
 The saved tagline and description were checked after navigation to a fresh editor and page. The description leads with first person multiplayer, room codes, optional voiced Tutorial and local Solo. The five curated images are embedded in the body. Fireball, sword/Guard and Tutorial are visible immediately; live Castleward menu and Armory are expandable. The native screenshot sidebar is Hidden, confirmed after reload. Previous uploaded images are retained for recovery.
 
-The saved theme uses charcoal, warm cream and brass. The initial action illustration was saved as the banner. A further creator requested edit now shows the Fireball leaving the open palm, with a detached core and a short trailing flame; its upload is pending browser access. The launcher background and cover use actual current Fireball imagery. The helmet portrait remains the avatar. Optional support remains a compact Buy Me a Coffee link. No Ko fi destination was supplied.
+The saved theme uses charcoal, warm cream and brass. The revised action banner shows the Fireball leaving the open palm, with a detached core and a short trailing flame. Its new uploaded URL and 2172 by 724 dimensions were confirmed after save and reload. The launcher background and cover use actual current Fireball imagery. The helmet portrait remains the avatar. Optional support remains a compact Buy Me a Coffee link. No Ko fi destination was supplied.
+
+The existing Mobile friendly option was disabled. It is now enabled and saved. This is an itch.io frame configuration change, not a new game input system. Click to launch in fullscreen remains the launch setting.
 
 ## Actual uploaded client checks
 
@@ -25,10 +27,14 @@ The saved theme uses charcoal, warm cream and brass. The initial action illustra
 | Tutorial exit | Return to Solo opened the current Solo menu with Tutorial, Bot Duel, Practice and Inspection. |
 | Multiplayer availability | Main menu reported Multiplayer online. |
 | Server connectivity | Private Match created room UUNB7 through the deployed server. The test client then returned to menu. |
+| Two client match | Two copies of the uploaded itch build joined room TRVG7 as Release Host and Release Guest, then entered the same active Castleward match. Incoming server snapshots confirmed two distinct player IDs. |
+| Reconnection | Reloading the guest iframe resumed the same active room. Subsequent authoritative snapshots preserved both player IDs. |
+| Landscape touch | Chrome touch emulation at 844 by 390 loaded Practice. Actual emulated finger events exercised movement and look together, Fireball, held Guard, Dash, arena options and leaving Practice. Fireball and Dash showed their normal cooldowns. |
+| Mobile page | With mobile browser emulation at 390 pixels, document width equaled viewport width. Desktop narrow windows still use itch.io's 600 pixel game column; landscape is the supported play orientation. |
 | Page gallery | Actual current captures rendered in the body; the expandable Castleward and Armory section opened correctly. |
 | Saved layout | Screenshots Hidden persisted after reload. |
 
-Browser automation repeatedly lost its debugger connection. Native Chrome interaction completed the checks above. Sustained mouse look, a full tutorial run, combat input, two client private match/start/reconnection, fullscreen exit and physical mobile/touch remain unverified in this refreshed itch build. The attempted responsive override failed before applying; narrow page layout remains an explicit follow up.
+The earlier browser attachment failures were resolved by opening a fresh owned tab. Native interaction completed the first checks; the later checks used ordinary UI controls, actual emulated touch events and read only incoming server snapshot inspection. No gameplay outcomes were injected. The two client match test established join/start/resume rather than a full human duel or prolonged load test. A complete tutorial run, sustained desktop mouse/keyboard combat, physical mobile testing and platform fullscreen exit remain unverified in this refreshed itch build. All temporary device, touch and user agent overrides were cleared. Test clients left the room or closed.
 
 Screenshots of the actual saved page and uploaded tutorial are retained locally in the chat's `output/release-proof-2026-10-14` directory. They are proof of the private page rather than public availability.
 
@@ -50,4 +56,6 @@ The melee and Fireball captures use normal input and authoritative contacts in l
 
 Public itch publication, merge/deployment and social posting remain separate creator decisions. LinkedIn and Handshake drafts and the 479 character submission description are in `PUBLIC_POSTS.md`.
 
-The local trailer remains a review candidate. No hosted trailer destination is available, so an embed was not fabricated. Finish a two player itch match and physical touch check, then approve the saved page for publication. Character reconstruction can continue separately without delaying this documentation branch.
+The introductory [Welcome to Castleward devlog](https://captainfredric.itch.io/swords-and-sorcery/devlog/1707848/welcome-to-castleward) was saved as a private Draft with current gameplay cover art. Its visible Draft badge and saved authored line were verified. Older images and the ZIP were removed from the post's attachment selection, preserving the original project uploads. The editable source is `DEVLOG_DRAFT.md` and `devlog-draft.html`.
+
+The local trailer remains a review candidate. No hosted trailer destination is available, so an embed was not fabricated. A physical phone check and creator approval remain before broad public release. Character reconstruction can continue separately without delaying this documentation branch. GitHub main was rechecked after the browser tests and remains `3e4c368`, matching the uploaded runtime baseline.
