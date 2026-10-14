@@ -1,8 +1,8 @@
 {
-  "date": "2026-10-09",
-  "baseline": "aad49e8e46ffeb70da394ec91e3345f8c6f6d888",
-  "productionCharacterSourceRevision": "76cc66a7b7f5b6e25e22d08dd55bd227285dfb99",
-  "publicProfileArtworkStatus": "Helmet portrait preferred by creator; public profile upload pending",
+  "date": "2026-10-14",
+  "baseline": "3e4c3687d4acdc79ba8bdcab9eb3072c3c4ba516",
+  "productionCharacterSourceRevision": "359f24af1f618cfa0f58d6d3f704dc069e083a23",
+  "publicProfileArtworkStatus": "Preferred helmet portrait preserved; broader model reconstruction is unpublished",
   "assets": [
     {
       "file": "media/spellblade-avatar-art.png",
@@ -164,11 +164,67 @@
       "width": 1280,
       "height": 720,
       "seconds": 26.84
+    },
+    {
+      "file": "media/itch-cover-current.jpg",
+      "width": 1260,
+      "height": 1000,
+      "bytes": 115300,
+      "sha256": "74d3e459b9c1ae7af1e75a2a9c2b40904c668a51aabf21f796227bd796e323b2",
+      "classification": "Code authored typography over the actual current Inspection Yard Fireball capture; no AI generated gameplay. Source layout: cover-current.html"
+    },
+    {
+      "file": "media/itch-banner-action.png",
+      "width": 2172,
+      "height": 724,
+      "bytes": 1865067,
+      "sha256": "a47abf009e3221cbcc9aed79e31c9239f3b01bdb4ab8f3e91f36dd9b8db3e692",
+      "classification": "AI assisted promotional illustration using the production cover and actual Fireball frame as references; original character design by CaptainFredric; not a screenshot; revised release gesture and detached Fireball projectile, edit prompt recorded separately"
+    },
+    {
+      "file": "media/gameplay-fireball-current.jpg",
+      "width": 1440,
+      "height": 812,
+      "bytes": 99183,
+      "sha256": "cc632821422f06f6234ac7aab12390067c26387ff2245a4630ca3f9f69b34c87",
+      "classification": "Actual current Inspection Yard ordinary Fireball gather. Local camera and actor framing staged; frozen using existing controls; inspection tools and freeze notice hidden for capture. No injected effects or altered damage."
+    },
+    {
+      "file": "media/gameplay-melee-current.jpg",
+      "width": 1440,
+      "height": 812,
+      "bytes": 91658,
+      "sha256": "c82ad1f0a26789b76cc2d71e4ba10a15660d2149c743c9bd2bdde391023c855f",
+      "classification": "Actual current Inspection Yard ordinary sword contact against a Guarding dummy. Same staging and freeze method; no injected contacts or altered timing."
+    },
+    {
+      "file": "media/tutorial-current.jpg",
+      "width": 1440,
+      "height": 812,
+      "bytes": 70531,
+      "sha256": "4a1d8faf943b5411789756801a46a0236d4d5323896f18f999463ab3b4d80027",
+      "classification": "Actual current Greener Pastures chapter replay, recorded dialogue and normal captions; current production model. Replay uses existing TutorialSession.beginChapter."
+    },
+    {
+      "file": "media/armory-current.jpg",
+      "width": 1440,
+      "height": 756,
+      "bytes": 119945,
+      "sha256": "cf906e6b6dd3eab2691b8de9ac2bbfce9097f8f434eebc7bc9476db108c6eef6",
+      "classification": "Actual current Armory UI and production character at the normal desktop viewport."
     }
   ],
   "provenance": {
     "originalDesign": "CaptainFredric original Spellblade character design, per creator supplied provenance",
     "portrait": "AI assisted promotional refinement of the canonical concept",
     "production": "Existing authored production GLBs and actions; preserved during this pass"
-  }
+  },
+  "primaryCover": "media/itch-cover-current.jpg",
+  "gallery": [
+    "media/gameplay-fireball-current.jpg",
+    "media/gameplay-melee-current.jpg",
+    "media/tutorial-current.jpg",
+    "media/castleward-live.jpg",
+    "media/armory-current.jpg"
+  ]
 }
