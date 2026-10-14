@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { FIRST_PERSON_OFF_ARM, FIRST_PERSON_SWORD_ARM, elbowAngleFor, normalize, rotateVector, solveArm, solveSwordArm } from './swordArmIK.mjs';
-import { CHAIN, COMBO, COMBO_CONTACTS, COMBO_END, REST_ARM, REST_EDGE_TURN, RECOVERY, SLAM, blendPoses, comboPose, counterRotations, offHandOnGrip, recoveryPose, slamPose } from './fpSlash.mjs';
-import { MELEE_CONTACT, SWORD_CHAIN } from '../../shared/src/combat.mjs';
+import { CHAIN, COMBO, COMBO_CONTACTS, COMBO_END, REST_ARM, REST_EDGE_TURN, RECOVERY, SLAM, blendPoses, comboPose, counterRotations, offHandOnGrip, recoveryPose, slamAgainPose, slamPose, SLAM_END } from './fpSlash.mjs';
+import { MELEE_CONTACT, SWORD_CHAIN, SWORD_STRIKE_TIMES } from '../../shared/src/combat.mjs';
 
 // a toy arm with the first-person rig's proportions: each bone a pivot and an orientation (three axes), turning a
 // bone carries everything after it in the chain
@@ -297,7 +297,7 @@ test('Sundering, every strike is the heavy slam: raised in both hands, driven do
   // held: the next chain of slams takes over from the last one's settle
   const cycle = C3 + SWORD_CHAIN.restart;
   smoothly(frames((t) => (t < cycle ? slamPose(t) : blendPoses(slamPose(t), slamPose(t - cycle), (t - cycle) / 0.18)), C3, cycle + 0.8), 'slams again');
-  for (const pose of [slamPose(0), slamPose(COMBO_END)]) assert.ok(distance(pose.arm.wrist, REST_ARM.wrist) < 1e-6, 'from rest, and home to it');
+  for (const pose of [slamPose(0), slamPose(SLAM_END)]) assert.ok(distance(pose.arm.wrist, REST_ARM.wrist) < 1e-6, 'from rest, and home to it');
   for (const contact of COMBO_CONTACTS) {
     assert.ok(slamPose(contact - 0.2).arm.blade[1] > 0.8, `raised high before ${contact}`);
     assert.ok(slamPose(contact).offHand?.weight > 0.99, 'both hands on the grip');
@@ -328,4 +328,37 @@ test('at rest the sword shows a little more of its edge: turned about its own le
   assert.ok(Math.abs(turn - REST_EDGE_TURN) < 0.01, `turned ${(turn * 180 / Math.PI).toFixed(1)} degrees`);
   assert.ok(REST_EDGE_TURN > 0.4 && REST_EDGE_TURN < 0.8, 'a modest turn, not the blade edge-on');
   assert.ok(edge[2] > measured[2] + 0.3, 'its right edge toward the eye, the far edge round to the right');
+});
+
+test('a held Sunder keeps both hands on the sword: through every slam, the bite, the haul back up and the next chain', () => {
+  const hz = 120, haul = SWORD_STRIKE_TIMES[2] + SWORD_CHAIN.restart, handover = 0.18;
+  const smoothstep = (x) => x * x * (3 - 2 * x);
+  // three chains held, as the view streams them: each next chain takes over at the haul, blended in over 0.18 s
+  const shownAt = (t) => {
+    if (t < haul) return slamPose(t);
+    const k = Math.floor((t - haul) / haul), since = t - haul - k * haul;
+    const previous = k === 0 ? slamPose(haul + since) : slamAgainPose(haul + since);
+    const next = slamAgainPose(since);
+    return since >= handover ? next : blendPoses(previous, next, since / handover);
+  };
+  let before = null;
+  for (let n = 0; n <= hz * (haul * 3 - 0.01); n += 1) {
+    const t = n / hz, pose = shownAt(t);
+    // (from the first raise's top: the magic hand has taken the grip and keeps it)
+    if (t >= SWORD_STRIKE_TIMES[0] - 0.14) assert.ok((pose.offHand?.weight ?? 0) > 0.97, `both hands on the grip at ${t.toFixed(3)} s`);
+    if (before) {
+      assert.ok(distance(pose.arm.wrist, before.arm.wrist) < 0.08, `the sword hand jumps at ${t.toFixed(3)} s`);
+      const edgeTurn = Math.acos(Math.max(-1, Math.min(1, dot(normalize(pose.arm.edge), normalize(before.arm.edge)))));
+      assert.ok(edgeTurn < 0.35, `the edge flips at ${t.toFixed(3)} s (${(edgeTurn * 180 / Math.PI).toFixed(1)}°)`);
+    }
+    if (pose.offHand && n % 6 === 0) {
+      const off = toyArm('L');
+      solveArm(off.api, FIRST_PERSON_OFF_ARM, pose.offHand, 1);
+      assert.ok(distance(off.api.position('hand.L'), pose.offHand.wrist) < 0.02, `the magic hand reaches the grip at ${t.toFixed(3)} s`);
+    }
+    before = pose;
+  }
+  // let go after the last slam, it leaves the grip only on the way home
+  assert.ok(slamPose(haul).offHand.weight > 0.99);
+  assert.ok((slamPose(SLAM_END - 0.02).offHand?.weight ?? 0) < 0.1);
 });
