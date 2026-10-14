@@ -1,37 +1,21 @@
-# Swords & Sorcery project copy
+# Current itch.io project
 
-## Saved itch metadata
+Prepared October 14, 2026. Title: Swords & Sorcery. Slug: swords-and-sorcery.
 
-Title: Swords & Sorcery
+Tagline: Free first person sword combat and sorcery. Duel friends in your browser or learn through a voiced knightly feud.
 
-Slug: swords-and-sorcery
+Game · HTML · Action · In development · Free · Draft.
 
-Tagline: Sword in one hand. Sorcery in the other. Duel friends, fight bots, or learn your craft in Castleward.
+The current main HTML5 build is uploaded as playable in browser. The archive identifies `3e4c368`. The description is [itch-description.html](itch-description.html). The new [cover](media/itch-cover-current.jpg) uses an actual current game frame. The [banner](media/itch-banner-action.png) is separately classified promotional illustration, based on the creator's design.
 
-Game · HTML · Action · In development · Free · Draft
+The saved five image gallery shows Fireball, sword/Guard and Tutorial in the body, with the live Castleward menu scene and current Armory in an expandable section. The native screenshot sidebar is hidden and older uploads are retained for recovery. Publication is a separate final action; GitHub Pages is the public playable link meanwhile.
 
-Selected tags: fantasy, first-person, magic, medieval, multiplayer, pvp, swords.
+The revised Fireball release banner is saved. Mobile friendly is enabled; landscape touch and two client join/start/reconnect were exercised in the actual uploaded build. Physical phone testing remains distinct from Chrome emulation.
 
-Generative AI disclosure: Yes. Graphics, Text & Dialog, and Code selected. Sounds left unselected because the creator's recorded voice and the procedural sound engine are identified separately. Recheck this distinction if later music or sound assets use generated recordings.
+Generative AI disclosure remains Yes: Graphics, Text & Dialog and Code. Recorded creator voices and procedural game audio are credited separately. The optional support link remains compact. No payment or identity settings are changed.
 
-The exact saved rich description is in [itch-description.html](itch-description.html).
+The existing local trailer remains a review candidate. A YouTube or Vimeo destination is required before an itch trailer embed; no hosted URL is invented.
 
-The gallery now leads with the new landscape Fireball gameplay capture. Five images are saved while visibility remains Draft. The [27 second trailer](media/castleward-trailer.mp4) is prepared for creator review and hosting; it has not been published or embedded on itch.
+The introductory [Welcome to Castleward devlog](https://captainfredric.itch.io/swords-and-sorcery/devlog/1707848/welcome-to-castleward) is saved as an unpublished Draft. [Editable source](DEVLOG_DRAFT.md).
 
-## Initial devlog draft
-
-Title: Welcome to Castleward
-
-Swords & Sorcery started with a knight who could carry a sword in one hand and gather a spell in the other. I wanted the duel to stay physical: close the distance, meet a strike with Guard, then find the moment for sorcery. The Spellblade developed a few opinions along the way. His understanding of chivalry remains flexible.
-
-You can now duel a friend with a room code, find an open room, fight bots or try your moves in the Practice Yard. The Armory lets you choose spells, an ultimate and your knight's appearance.
-
-![Fireball in the Practice Yard](media/practice-fireball.jpg)
-
-This is a playable pre alpha. I am still refining combat, animations, presentation and browser compatibility. I created the concepts, mechanics and dialogue, and perform the Spellblade's voice. AI tools have helped build and revise the game through a great deal of direction, testing and iteration.
-
-[Play in your browser](https://captainfredric.github.io/swords-and-sorcery/). If you run into a problem, tell me your device and browser, what you tried and what happened. A short clip is especially helpful.
-
-Thank you for visiting Castleward.
-
-This devlog is prepared copy, not a published post. Once the itch client passes its actual iframe tests, the primary play link can point to the working itch launch. The standalone URL remains available.
+See [public post drafts](PUBLIC_POSTS.md) and [verification evidence](OCTOBER_14_RESULTS.md).

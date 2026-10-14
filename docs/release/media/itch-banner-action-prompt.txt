@@ -1,0 +1,4 @@
+Built in image generation, October 14, 2026.
+References: itch-cover.jpg (production model render), gameplay-fireball.jpg (actual Practice capture).
+Original character design: CaptainFredric. This is promotional illustration, not gameplay.
+Prompt: Wide 3:1 itch.io header; preserve the faceted steel Spellblade, brass ridge, crimson crest and cloth, cyan T visor, broad sword and armored spell palm. Left title SWORDS & SORCERY with CASTLEWARD above; right dynamic sword and Fireball pose, second knight, Castleward stone walls and standards. Restrained iron, crimson, brass, cyan and ember palette. No extra copy, realistic ornate armor, robot hands or simulated game UI.

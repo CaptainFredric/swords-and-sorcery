@@ -1,250 +1,114 @@
 # Swords & Sorcery
 
-**Fast sword-and-magic arena combat in your browser.**
+**Free first person multiplayer sword combat and sorcery in your browser.**
 
-Swords & Sorcery is a compact first-person fantasy arena game built around four readable verbs: **swing, guard, cast, dash**. The default arena is **Castleward**, a grassy medieval hill-town built around a market green, village lanes, chapel meadow, roads, walls, and an old castle bailey. The older **Shattered Keep** remains available as a regression/debug world.
+[Play now](https://captainfredric.github.io/swords-and-sorcery/) · [Report a problem](https://github.com/CaptainFredric/swords-and-sorcery/issues) · [Release preparation](docs/release/README.md)
 
-> Pre-alpha. Multiplayer, solo modes, authoritative combat, Castleward, and the browser client are live and under active visual/gamefeel tuning.
+Duel a friend with a room code, find an open match, or train alone. No game account or installation is required. Castleward combines physical sword contacts, Guard and parries, spells, Dash and ultimates with a voiced Spellblade whose understanding of honor remains flexible.
 
-## Play
+This is a playable pre alpha under active development.
 
-Public build: **https://swords-and-sorcery.onrender.com**
+## Choose a mode
 
-The front door offers:
+| Mode | What you play |
+| :--- | :--- |
+| Seek a Duel | Match with another player, one on one |
+| Open Rooms | Browse or raise a public match |
+| Private Match | Create or join with a five character room code |
+| Tutorial | Greener Pastures: an optional voiced introduction that becomes a feud, duel and pursuit |
+| Bot Duel | Fight a Squire, Knight, Champion or the Spellblade |
+| Practice Yard | Untimed training with configurable dummies |
+| Inspection Yard | Local Practice with freeze, single step and consecutive frame playback |
 
-- **Quick Match** — public 2–8 player free-for-all.
-- **Fight Bot** — one-player duel against a server-controlled Spellblade using the same combat authority as PvP.
-- **Practice Yard** — untimed one-player training with reset controls and Passive / Guarding / Fights Back dummies.
-- **Private Match** — create a five-character room code or join a friend's room.
+Solo modes use the browser's local authoritative simulation, even while multiplayer is online. A remote server connection cannot take over an active local session. Multiplayer uses the authoritative Render server. Both hosts use the same shared combat, movement and collision rules at 30 Hz.
 
-The Render free tier may cold start after inactivity. The first load can therefore take longer than later loads.
+Initial browser assets still require connectivity. Multiplayer may need time to wake after inactivity; solo play does not wait for remote match hosting. Locally generated accomplishments remain distinct from server verified multiplayer Renown.
 
-## Core rules
+## Combat and character
 
-- Free-for-all and Bot Duel: first to 10 kills, six-minute timer, sudden death on a tie.
-- 100 health; regeneration begins after roughly five seconds without damage.
-- Sword combo: committed hits at 0.40 / 1.10 / 1.80 seconds while attack is held. A hit centred on the target lands hardest; one caught at the edge of the swing glances for less, but still counts.
-- Guard blocks frontal sword attacks; raising Guard inside the 180 ms timing window can Parry and stagger the attacker.
-- Fireball ignores sword Guard, deals 28 direct damage, and has splash falloff.
-- Arcane Dash moves roughly 5 m and has a five-second cooldown; it gives no invulnerability.
-- Respawn takes three seconds and grants one second of spawn protection.
-- Sword strikes test world geometry before enemy hits. Hitting solid geometry cancels the strike and produces recoil, sparks, and **CLANG** feedback.
+Sword swings resolve physical contacts against players and the world. Guard can block frontal sword attacks; a timely raise can parry. Guard and Sprint share stamina. Spells and ultimates obey their own cooldown and activation rules.
 
-## Controls
+The Armory offers Fireball, Frostfire, Gale Garner and Sheathe in Steel, plus Sunder All That Rusts, Blazing Vortex and Spells & Chivalry. Renown, challenges and heraldry support continuing play and visual customization.
+
+Ordinary arena choices are Castleward and The Ruined Keep. Greener Pastures is a dedicated tutorial world. The tutorial uses ordinary game mechanics, recorded dialogue, captions, device aware prompts, checkpoints and restart controls. It is recommended, never mandatory.
+
+## Default desktop controls
 
 | Input | Action |
-| --- | --- |
-| WASD | Move |
-| Mouse | Aim |
-| Left Mouse | Hold sword combo |
-| Right Mouse | Guard / timed parry |
-| Q | The spell or ward carried from the Armory (Fireball, Frostfire, Gale Garner or Sheathe in Steel); on its cooldown, the gauntlet at a foe in reach |
-| E | Arcane Dash |
+| :--- | :--- |
+| WASD / arrows | Move |
+| Mouse | Look and aim |
+| Shift | Sprint |
 | Space | Jump |
-| Tab | Hold scoreboard |
-| F3 | Network/debug overlay |
-| Esc | Release pointer lock / access Practice controls |
+| C | Crouch |
+| Left mouse | Sword attack / combo |
+| Right mouse / G | Guard and timed parry |
+| Q | Equipped spell or ward; ordinary cooldown gauntlet behavior is explained in How to Play |
+| E | Dash |
+| R | Charged ultimate |
+| Tab | Scoreboard |
+| Escape | Match options / release Pointer Lock |
 
-## World structure
-
-### Castleward — default
-
-Castleward is designed as a compact arena rather than an open world. Its main combat regions are:
-
-- Town Green / market — readable central crossing space.
-- Castle Gate & Bailey — elevation, stairs, walls, and tighter sword fighting.
-- West Village Lane — houses, fences, short cover, and bends.
-- East Meadow / Ruined Chapel — longer Fireball sightlines and mild elevation.
-- South Road / Outer Gate — broader approach connecting both sides.
-
-The gameplay geometry is shared with the authoritative server. Client-side medieval decoration is deliberately bounded for ordinary student laptops.
-
-### Shattered Keep — regression world
-
-The original ruined-fortress arena remains in the world registry for regression tests and development. New public, private, Bot Duel, and Practice rooms default to Castleward.
-
-## Modes and authority
-
-The browser sends inputs and requested actions; the server owns outcomes.
-
-```text
-Browser client
-  ├─ Three.js rendering
-  ├─ first-person input
-  ├─ local movement prediction
-  ├─ remote-player interpolation
-  └─ local effects / HUD / audio
-             │
-             │ WebSocket
-             ▼
-Authoritative Node server @ 30 Hz
-  ├─ FFA / Bot Duel / Practice room policies
-  ├─ Castleward or explicit alternate world selection
-  ├─ movement validation
-  ├─ sword timing and hit resolution
-  ├─ Guard / parry / stagger
-  ├─ Fireball projectiles
-  ├─ Dash cooldowns
-  ├─ damage / death / respawn
-  ├─ bots and training actors issuing normal combat intentions
-  └─ score / victory / reconnect / rematch
-             │
-             ▼
-Shared deterministic movement, combat, world and collision rules
-```
-
-Bots and Practice dummies do **not** have a private damage API. Their controller selects movement/combat intentions, and the same authoritative sword, Guard, projectile, cooldown, damage, death, and respawn systems resolve the result.
-
-## Repository layout
-
-```text
-client/                 Browser UI, menu scene, Three.js runtime, worlds, effects and HUD
-server/                 Native Node HTTP/WebSocket authoritative game server
-shared/                 Deterministic movement, modes, worlds and collision rules
-server/tests/           Room, networking, combat, deployment and structural regressions
-docs/superpowers/       Approved design specifications and implementation plans
-docs/ideas/             Experimental mechanics outside the base build
-scripts/                 Dependency-light verification and smoke checks
-site/                    GitHub Pages front door
-```
-
-## Requirements
-
-- Node.js 22 or newer
-- A modern desktop browser with WebGL and Pointer Lock support
-- Internet access in the browser for the current Three.js CDN import
-
-There are currently no runtime npm package dependencies. The server uses Node's built-in HTTP APIs plus the WebSocket implementation in this repository.
+Controls can be rebound in Settings. Touch controls are available; landscape is recommended. During active Chivalry, prepared spell selection chooses and attempts the cast immediately. Startup selection only preselects. See in game How to Play for current advanced controls and numeric tuning.
 
 ## Run locally
 
-```bash
+Requires Node.js 22 or newer and a modern WebGL browser. Desktop play uses Pointer Lock. The browser currently imports Three.js from its CDN. There are no runtime npm package dependencies.
+
+```sh
 git clone https://github.com/CaptainFredric/swords-and-sorcery.git
 cd swords-and-sorcery
 npm run verify
 npm start
 ```
 
-Open:
+Open `http://localhost:3001`. Choose Solo for a one browser test. To exercise multiplayer, create a private room and join its code from a second browser.
+
+`PORT` defaults to 3001. `HOST` can be set explicitly. Production uses the host supplied port.
+
+## Project structure
 
 ```text
-http://localhost:3001
+client/     Browser UI, Three.js rendering, audio, tutorial and local host
+shared/     Shared simulation, movement, combat, worlds and collision
+server/     Node HTTP/WebSocket multiplayer host and tests
+scripts/    Syntax, smoke and HTML5 export verification
+kit/        Authored character sources and asset production tools
+docs/       Design, evidence, release preparation and media provenance
 ```
 
-For a one-browser test, choose **Solo → Fight Bot** or **Practice Yard**. A second tab/device is needed only when you explicitly want to test multiplayer.
+Bots and dummies issue ordinary movement and combat intentions. The simulation resolves damage, Guard, projectiles, cooldowns, death and respawn. Their controllers have no separate damage model.
 
-For a private multiplayer test, create a private room in one browser and join its five-character code from another.
+## Verification and HTML5 export
 
-Environment variables:
-
-```text
-PORT=3001
-HOST=0.0.0.0
+```sh
+npm run check         # JavaScript syntax
+npm test              # Simulation, network, client and presentation tests
+npm run test:html5    # Archive configuration, dependency coverage and limits
+npm run smoke         # HTTP, assets, health and WebSocket smoke
+npm run verify        # All of the above
+npm run export:html5  # Build dist/html5/swords-and-sorcery-html5.zip
 ```
 
-`PORT` is normally supplied by the production host.
+The static HTML5 export contains the same client and shared rules, with a secure WebSocket destination. `release.json` and the export report identify the source commit and archive checksum. See [release preparation](docs/release/README.md) for the actual itch.io status and browser checks.
 
-## Verification
+## Deployment
 
-```bash
-npm run check   # syntax-check every .mjs module
-npm test        # deterministic + integration + structural tests
-npm run smoke   # launch an ephemeral server and verify the shipped shell, assets, health and WebSocket path
-npm run verify  # all three
-```
+GitHub Pages serves the **playable client**, not merely a landing page. Render serves the multiplayer WebSocket endpoint and an alternate playable client:
 
-Coverage includes real WebSocket clients for multiplayer and one-tab solo flows, reconnect behavior, world/mode identity, bot/dummy authority, cooldown/combat rules, path isolation, oversized messages, flood protection, Castleward route contracts, and the shipped menu shell.
+1. [GitHub Pages](https://captainfredric.github.io/swords-and-sorcery/)
+2. [Render](https://swords-and-sorcery.onrender.com/)
 
-## The Spellblade's voice
+The repository includes a Render Blueprint for a free web service with Docker, `/health`, and deployment after CI passes. [Deploy a copy to Render](https://render.com/deploy?repo=https://github.com/CaptainFredric/swords-and-sorcery). An idle free service can incur a cold start.
 
-Every line is declared once, in `client/game/sound/voiceLines.mjs` (its words, the moment it belongs to, how rare it is, its Credits copy). To add one, declare it, drop its recording in `tools/audio/inbox/` and run:
+The itch.io project is being prepared separately. Its saved build, page and publication status are recorded in the release documentation. Local validation does not establish compatibility with every embedded browser or physical phone.
 
-```bash
-npm run voice             # process what is in the inbox, register it, and check everything
-npm run voice -- --check  # only the check: what is declared, recorded, still silent, or wrong
-```
+## Authorship and voice
 
-`tools/audio/RECORDING.md` has the whole of it.
+CaptainFredric created the character concepts, game design, combat rules and dialogue, and performs the Spellblade's voice. AI tools assist implementation, debugging, networking, testing, visual development and Blender tooling under creator direction.
 
-## Docker
-
-```bash
-docker build -t swords-and-sorcery .
-docker run --rm -p 3001:3001 swords-and-sorcery
-```
-
-Then visit `http://localhost:3001`.
-
-## Public deployment
-
-The playable game is one Node web service because the same process serves both browser assets and the authoritative `/ws` WebSocket endpoint. GitHub Pages is only the static front door.
-
-The repository includes a Render Blueprint configured as a **free web service** and set to auto-deploy after GitHub CI checks pass:
-
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/CaptainFredric/swords-and-sorcery)
-
-Current verified public target:
-
-```text
-https://swords-and-sorcery.onrender.com
-```
-
-Render's free web service can spin down while idle, so the first request may incur a **cold start**. Development/public verification is intentionally batched so normal CI does most validation without repeatedly waking the free service.
-
-Blueprint settings:
-
-- Docker runtime from the repository `Dockerfile`
-- Free compute plan
-- Health endpoint: `/health`
-- `HOST=0.0.0.0`
-- Auto-deploy after checks pass
-- Platform-provided `PORT`
-- Persistent WebSocket support from the web-service host
-
-## Current status
-
-Implemented:
-
-- Quick Match and private rooms
-- Fight Bot and untimed Practice Yard without a second browser
-- Passive, Guarding, and Fights Back Practice dummies
-- reconnect grace and solo-session resume
-- authoritative 30 Hz combat simulation
-- server-owned Bot Duel AI issuing normal player intentions
-- Castleward authoritative geometry + deterministic medieval renderer
-- Shattered Keep retained as a regression world
-- sword combo / Guard / Parry / Guard Break
-- Fireball / splash / Arcane Dash
-- death / respawn / scoring / sudden death / rematch
-- latency-aware melee transform history
-- first-person Spellblade weapon/off-hand view
-- remote Spellblade rig and combat states
-- character-centered menu scene and distinct solo/multiplayer/private routes
-- HUD, kill feed, scoreboard and debug overlay
-- sword/world collision recoil and CLANG feedback
-- automated deterministic, real-WebSocket, structural, deployment and smoke tests
-- inbound WebSocket size/rate hardening and static-file allowlisting
-
-Current base-game tuning priorities:
-
-- first-person Guard, sword-combo, and Fireball animation readability
-- Castleward collision/visual honesty and terrain presentation
-- bot navigation/obstacle recovery before adding difficulty levels
-- Practice-tool screen-space behavior
-- menu layout/copy simplification
-- movement/camera/combat feel under real human latency
-- several-player spawn fairness and two-device internet testing
-
-Deferred until the base is stable: classes, experimental ability variants, progression/economy, elaborate injury reactions, third-person switching, cosmetic systems, and menu/music production.
-
-## Design docs
-
-- [`Swords & Sorcery design specification`](docs/superpowers/specs/2026-09-18-swords-and-sorcery-design.md)
-- [`Core implementation plan`](docs/superpowers/plans/2026-09-18-swords-and-sorcery-core.md)
-- [`Solo / world / menu architecture`](docs/superpowers/specs/2026-09-18-solo-world-menu-design.md)
-- [`Solo / world / menu implementation plan`](docs/superpowers/plans/2026-09-18-solo-world-menu-implementation.md)
-- [`Experimental sorcery variants`](docs/ideas/experimental-sorcery-variants.md)
+Ordinary voice definitions live in `client/game/sound/voiceLines.mjs`; tutorial recordings have separate stable authored keys and role processing. [Recording instructions](tools/audio/RECORDING.md) describe ingestion. Promotional illustrations, staged model renders and actual gameplay captures are distinguished in the [media manifest](docs/release/media-manifest.json).
 
 ## License
 
-No license has been selected yet. Until one is added, the repository is source-visible but should not be assumed to grant reuse rights.
+No license has been selected. The repository is source visible; it does not currently grant general reuse rights.
