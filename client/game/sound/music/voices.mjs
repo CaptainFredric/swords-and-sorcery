@@ -1,5 +1,5 @@
-// Sustained voices built live from oscillators (a note can last any length): a bowed drone, a choir, a wooden flute
-// and a horn. Each function schedules one note into `dest` and returns { end, stop(at) } so a fading cue can cut it.
+// Sustained voices built live from oscillators (a note can last any length): a bowed drone, a choir, a wooden flute,
+// a horn and a string section. Each function schedules one note into `dest` and returns { end, stop(at) } so a fading cue can cut it.
 
 const cents = (value) => Math.pow(2, value / 1200);
 
@@ -163,5 +163,66 @@ export function horn(ctx, dest, { freq, start, duration, gain = 0.09 }) {
     sources.push(osc);
   }
   tone.connect(amp).connect(dest);
+  return handle(ctx, sources, amp, end);
+}
+
+/**
+ * A string section on a chord (or one line of it): three bows to each note, a few cents apart and each with its own
+ * vibrato, through a body that brightens as the bows dig in. It swells: from pianissimo (`from` of it) to `gain` over `swell` seconds
+ * (the tone opening with it, `bright` from..to), holds, and is let go over `release`. With `noise`, a breath of rosin
+ * at the front of the stroke.
+ */
+export function strings(ctx, dest, { freqs, start, duration, gain = 0.03, swell = 0.8, release = 0.8, bright = [0.45, 1.6], from = 0.04, noise = null }) {
+  const end = start + duration;
+  const peak = start + Math.min(swell, Math.max(0.05, duration - 0.05));
+  const hold = Math.max(peak, end - release);
+  const amp = ctx.createGain();
+  // (the bows come in pianissimo, `from` of the peak, heard from the first: then the crescendo)
+  const entry = Math.min(start + 0.12, peak);
+  amp.gain.setValueAtTime(0.0001, start);
+  amp.gain.linearRampToValueAtTime(Math.max(0.0001, gain * from), entry);
+  amp.gain.exponentialRampToValueAtTime(gain, Math.max(entry + 0.01, peak));
+  amp.gain.setValueAtTime(gain, hold);
+  amp.gain.exponentialRampToValueAtTime(0.0001, Math.max(hold + 0.02, end));
+  const body = ctx.createBiquadFilter();
+  body.type = 'lowpass';
+  body.Q.value = 0.8;
+  const top = Math.max(...[].concat(freqs));
+  body.frequency.setValueAtTime(Math.min(9000, 700 + top * bright[0]), start);
+  body.frequency.exponentialRampToValueAtTime(Math.min(12000, 1400 + top * bright[1] * 2.2), peak);
+  const floor = ctx.createBiquadFilter();
+  floor.type = 'highpass';
+  floor.frequency.value = 90;
+  const sources = [];
+  for (const freq of [].concat(freqs)) {
+    for (const [detune, rate] of [[-9, 5.1], [2, 5.6], [11, 6.0]]) {
+      const osc = ctx.createOscillator();
+      osc.type = 'sawtooth';
+      osc.frequency.value = freq * cents(detune);
+      sources.push(wander(ctx, osc.detune, { rate: rate + Math.random() * 0.3, depth: 7, start, end, delay: 0.25 }));
+      osc.connect(body);
+      osc.start(start);
+      osc.stop(end + 0.05);
+      sources.push(osc);
+    }
+  }
+  if (noise) {
+    const rosin = ctx.createBufferSource();
+    rosin.buffer = noise;
+    rosin.loop = true;
+    const band = ctx.createBiquadFilter();
+    band.type = 'bandpass';
+    band.frequency.value = 2600;
+    band.Q.value = 0.9;
+    const bite = ctx.createGain();
+    bite.gain.setValueAtTime(0.0001, start);
+    bite.gain.linearRampToValueAtTime(0.05, start + 0.04);
+    bite.gain.exponentialRampToValueAtTime(0.0001, start + 0.35);
+    rosin.connect(band).connect(bite).connect(amp);
+    rosin.start(start, Math.random() * 0.5);
+    rosin.stop(start + 0.4);
+    sources.push(rosin);
+  }
+  body.connect(floor).connect(amp).connect(dest);
   return handle(ctx, sources, amp, end);
 }

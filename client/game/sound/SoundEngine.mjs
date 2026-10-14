@@ -9,7 +9,8 @@
 // (setLevels); until then the defaults below.
 
 // each bus's own level, before the player's volume for it
-export const BUS_LEVELS = Object.freeze({ sfx: 1, ui: 0.5, ambience: 0.55, music: 1, voice: 0.9 });
+// (stinger: the music's own level, for a phrase written to sound with a spoken line: it does not give way to it)
+export const BUS_LEVELS = Object.freeze({ sfx: 1, ui: 0.5, ambience: 0.55, music: 1, voice: 0.9, stinger: 1 });
 // under a spoken line the music and the wind give way (to these shares of their level, for a line said right beside
 // you; less for one further off), so every word is heard; they come back as it ends
 export const VOICE_DUCK = Object.freeze({ music: 0.5, ambience: 0.65, attack: 0.08, release: 0.5 });
@@ -83,6 +84,7 @@ export class SoundEngine {
     set(this.buses.ambience.gain, BUS_LEVELS.ambience * levels.ambience);
     set(this.buses.voice.gain, BUS_LEVELS.voice * levels.voice);
     set(this.buses.music.gain, levels.musicMuted ? 0 : BUS_LEVELS.music * levels.music);
+    set(this.buses.stinger.gain, levels.musicMuted ? 0 : BUS_LEVELS.stinger * levels.music);
   }
 
   /**

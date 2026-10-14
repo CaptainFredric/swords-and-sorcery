@@ -460,7 +460,7 @@ $('#rotate-dismiss').addEventListener('click', () => document.body.classList.add
 
 function ensureRuntime() {
   if (!runtime) {
-    runtime = new GameRuntime($('#game-canvas'), socket, hud, { sound, voice: tutorialSession ? null : voice });
+    runtime = new GameRuntime($('#game-canvas'), socket, hud, { sound, voice: tutorialSession ? null : voice, music });
     if (new URLSearchParams(location.search).has('debug')) globalThis.__ssRuntime = runtime;
     runtime.configure({ view: viewOptions(settings), input: inputOptions(settings) });
     if (tutorialSession) runtime.input.allowAction = (action, notify = true) => tutorialSession?.allows(action, notify) ?? true;

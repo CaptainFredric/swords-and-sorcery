@@ -1,4 +1,4 @@
-// The music of Castleward, written out. Three pieces and three stingers, all in D so they sit with the bell of the keep:
+// The music of Castleward, written out. Three pieces and four stingers, all in D so they sit with the bell of the keep:
 //
 //   The Castleward Hall (menus): D dorian, 3/4, slow. A lute and a drone; the melody passes between harp and flute;
 //     a choir and a frame drum join in the second strain, and a quiet strain lets it breathe before it comes round.
@@ -312,6 +312,31 @@ export const STINGERS = Object.freeze({
       { inst: 'horn', midi: n('A5'), beat: 1, beats: 2.5, vel: 1 },
       { inst: 'choir', midi: [...CHORDS.D.choir, n('D4')], beat: 0.9, beats: 3.5, vel: 1.2, attack: 0.6, release: 2 },
       ...['D5', 'F#5', 'A5', 'D6'].map((note, i) => ({ inst: 'harp', midi: n(note), beat: 1 + i * 0.16, beats: 2, vel: 0.6, pan: 0.35 })),
+    ],
+  },
+  // Spells & Chivalry taken up: a string swell out of the dark into the light, timed to its cry ("I am the master...
+  // of SWORDS & SORCERY!!!": master-call-1). B-flat swells from nothing under "I am the master..." and the held breath
+  // after it, the violins climbing into it; D major breaks on "...of SWORDS" (the bright third revealed, after all that
+  // minor) with the choir, a scatter of harp and a soft drum; the horn's call comes on "SORCERY!!!", and the strings
+  // let go after it. At 60 to the minute a beat is a second. The piece playing steps back under it.
+  chivalry: {
+    bpm: 60,
+    hall: 0.65,
+    // (it sounds with the cry, rather than giving way to it as the music does)
+    withVoice: true,
+    duck: { depth: 0.45, beats: 5.6 },
+    events: [
+      { inst: 'strings', midi: [n('Bb2'), n('F3'), n('Bb3'), n('D4')], beat: 0, beats: 2.95, vel: 1.6, swell: 2.6, release: 0.25, from: 0.1, pan: -0.15 },
+      { inst: 'strings', midi: n('F5'), beat: 0.7, beats: 1.9, vel: 0.9, swell: 1.7, release: 0.2, from: 0.12, pan: 0.2 },
+      { inst: 'strings', midi: n('G5'), beat: 2.45, beats: 0.25, vel: 0.85, swell: 0.08, release: 0.06, pan: 0.2 },
+      { inst: 'strings', midi: n('A5'), beat: 2.65, beats: 0.25, vel: 0.95, swell: 0.08, release: 0.06, pan: 0.2 },
+      { inst: 'strings', midi: [n('D3'), n('A3'), n('D4'), n('F#4'), n('A4')], beat: 2.85, beats: 2.6, vel: 1, swell: 0.3, release: 1.4, pan: -0.15 },
+      { inst: 'strings', midi: [n('F#5'), n('A5')], beat: 2.85, beats: 2.5, vel: 0.62, swell: 0.25, release: 1.3, pan: 0.2 },
+      { inst: 'choir', midi: CHORDS.D.choir, beat: 2.85, beats: 2.6, vel: 0.85, attack: 0.35, release: 1.4 },
+      ...['D5', 'F#5', 'A5', 'D6'].map((note, i) => ({ inst: 'harp', midi: n(note), beat: 2.85 + i * 0.1, beats: 2, vel: 0.5, pan: 0.35 })),
+      { inst: 'war', beat: 2.85, beats: 2, vel: 0.4 },
+      { inst: 'horn', midi: n('A4'), beat: 2.95, beats: 0.35, vel: 0.6 },
+      { inst: 'horn', midi: n('D5'), beat: 4.6, beats: 1.1, vel: 0.75 },
     ],
   },
   // defeat: a low choir and the lute walking down to D
