@@ -21,7 +21,7 @@ import {
   blockRecipe, burnLickRecipe, castRecipe, dashRecipe, fireballImpactRecipe, frostImpactRecipe, guardBreakRecipe, hurtRecipe, killRecipe,
   deniedRecipe, galeReleaseRecipe, preciseRecipe, softStrikeRecipe, strikeSurface, woodThunkRecipe, gauntletHitRecipe, gauntletSwingRecipe, parryRecipe, spatialize, steelCallRecipe, steelClangRecipe, steelRamRecipe, steelTickRecipe,
   swingRecipe, swordHitRecipe, wallClangRecipe,
-  groundSlamRecipe, ruptureRunRecipe, sunderRingRecipe, staggerBreakRecipe, staggerStrainRecipe, sunderDongRecipe, sunderDropRecipe, sunderForceRecipe,
+  groundSlamRecipe, ruptureRunRecipe, swordDrawRecipe, palmRevealRecipe, sunderRingRecipe, staggerBreakRecipe, staggerStrainRecipe, sunderDongRecipe, sunderDropRecipe, sunderForceRecipe,
   ultimateFizzleRecipe, ultimateReadyRecipe,
   emberImpactRecipe, emberRecipe, vortexCatchRecipe, vortexCutRecipe, vortexEndRecipe, vortexIgniteRecipe, vortexScrapeRecipe, vortexStarRecipe, vortexWhooshRecipe,
 } from './sound/soundRecipes.mjs';
@@ -176,6 +176,11 @@ export class GameRuntime {
     this.weapon = new WeaponView(this.camera, { now: () => this.presentationNow() / 1000 });
     // my own Vortex lit: the star's ting
     this.weapon.onVortexSpark = () => this.#play(vortexStarRecipe(), null, 1);
+    // my sword drawn, my magic hand raised (the tutorial brings them out): heard as my own
+    this.weapon.onEquip = (what, { quick = false } = {}) => {
+      if (what === 'sword') this.#play(swordDrawRecipe(Math.random, { clearSec: quick ? 0.07 : 0.16 }), null, quick ? 0.6 : 0.85);
+      else this.#play(palmRevealRecipe(Math.random, { quick }), null, quick ? 0.6 : 0.9);
+    };
     this.weapon.onSwing = (strike, { slam = false } = {}) => {
       // (Sundering, every strike is swung as the heavy one)
       const heavy = slam || strike >= 2;

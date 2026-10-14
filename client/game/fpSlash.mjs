@@ -350,6 +350,28 @@ export const SLAM_AGAIN = settle([
   ...slamTail(),
 ], REST_TURN, SLAM.find((k) => k.t === HAUL).turn);
 
+// The draw: the sword from the hip (its arm down out of sight, the blade still in the scabbard pointing down and back)
+// pulled up along the scabbard until it clears, swept forward and up under the hand with a little flourish past
+// upright, and settled into the hand's rest (the last key the rest itself, so the idle takes over without a seam).
+export const DRAW_END = 0.8;
+// when the blade clears the scabbard (its ring)
+export const DRAW_CLEARS = 0.16;
+const DRAW = settle([
+  key(0, [0.34, -1.0, -0.2], [0.1, -0.55, 0.83], [0, 0.6, -0.8], { ease: 0 }),
+  key(0.12, [0.36, -0.82, -0.3], [0.1, -0.5, 0.86], [0, 0.6, -0.8], { look: [-0.3, 0, 0] }),
+  key(DRAW_CLEARS, [0.38, -0.72, -0.36], [0.12, -0.35, 0.93], [0, 0.8, -0.6], { look: [-0.4, 0.3, 0] }),
+  key(0.34, [0.44, -0.5, -0.52], dir(-8, -10), [0, 0.9, 0.4], { look: [-0.2, 0.6, 0.3], body: [0.005, 0, 0] }),
+  key(0.52, [0.42, -0.3, -0.63], dir(8, 66), [-0.8, 0.2, -0.5], { look: [0.4, 0.4, 0.2], body: [0.008, 0.004, 0] }),
+  rest(DRAW_END, { ease: 0 }),
+], REST_TURN);
+
+/** The draw `time` seconds in (0: the arm down at the hip, out of sight; DRAW_END: at rest), posed as comboPose's. */
+export function drawPose(time) {
+  if (!Number.isFinite(time)) return null;
+  const t = Math.max(0, Math.min(DRAW_END, time));
+  return present(poseFrom(DRAW, t), t);
+}
+
 // the kinetic chain's delays (seconds): the body leads the hand by a beat, and the blade trails it a touch
 export const CHAIN = Object.freeze({ body: 0.03, blade: 0.012 });
 // where the magic hand comes up from to take the grip (and falls back to), relative to the grip: below and left
