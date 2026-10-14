@@ -155,6 +155,21 @@ export class LocalHost {
     return true;
   }
 
+  /**
+   * A local match paused (the tutorial's transcript open): time stops for everything in it, as an inspection freeze
+   * stops it, and goes on from where it stopped. Nothing is stepped meanwhile.
+   */
+  setPaused(paused) {
+    if (this.room?.state !== 'PLAYING') return false;
+    if (Boolean(paused) === this.inspectionFrozen) return true;
+    if (paused) this.frozenAt = this.now();
+    else {
+      this.timeOffset = this.wallNow() - this.frozenAt;
+      this.frozenAt = null;
+    }
+    return true;
+  }
+
   playInspectionFrames(playing) {
     if (!this.inspectionEnabled || !this.inspectionFrozen) return false;
     if (Boolean(playing) === this.inspectionFramesPlaying) return true;

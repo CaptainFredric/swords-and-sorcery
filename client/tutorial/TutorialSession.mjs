@@ -546,6 +546,18 @@ export class TutorialSession {
     if (previous === 0 && this.bridgeFailures > 0) this.director.offerBranch('bridge-growth');
     this.onRestore(this.host.player);
   }
+  /** The tutorial from the beginning of a chapter (the transcript's choice): staged as a retry from there would be. */
+  beginChapter(chapter) {
+    const segment = this.route.find(x => x.chapter === chapter);
+    if (!this.active || !segment) return false;
+    if (segment === this.route[0]) { this.restart(); return true; }
+    this.bridgeFailures = 0; this.bridgeFall = false; this.laterFireballs = 0; this.finalLosses = 0;
+    this.host.room.world = greenerPasturesWithBridgeRetries(); this.host.room.tutorialBridgeFailures = 0;
+    this.checkpoint = segment.id;
+    this.stage(segment.id); this.director.resumeAt(segment.beats[0].id);
+    this.onRestore(this.host.player);
+    return true;
+  }
   restart() {
     if (!this.active) return;
     this.bridgeFailures = 0; this.bridgeFall = false; this.laterFireballs = 0; this.finalLosses = 0;

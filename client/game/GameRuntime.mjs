@@ -1819,6 +1819,9 @@ export class GameRuntime {
       const serverNow = this.socket.serverNow();
       // my own steps as the host takes them: bracing into an ultimate I move only a little (and do not jump); spinning
       // in a Vortex, at its pace, with its slow fall, no sprint and no crouch
+      // (a guided look, where something asks for one: the tutorial turning the Spellblade's head; the player's own look
+      // always wins)
+      this.viewGuide?.(dt, this.input);
       const wanted = this.input.movement();
       // A browser-hosted match receives the current render frame's intent before its next combat tick.
       if (this.socket.playingLocally) sendMovementInput(this.socket, { ...wanted, ...(this.chaseAim ? { pitch: this.chaseAim.pitch } : {}) }, nowMs, this);

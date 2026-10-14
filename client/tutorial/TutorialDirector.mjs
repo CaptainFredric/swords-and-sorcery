@@ -277,6 +277,34 @@ export class TutorialDirector {
     } else this.optionalAt = null;
   }
 
+  /**
+   * The line a Back would return to: the one before this, when going back to it is only reading it again (the same
+   * conversation, both lines waiting on Continue, nothing happening between them), or null.
+   */
+  previousLine() {
+    const current = this.current;
+    const waits = beat => beat?.kind === 'dialogue' && beat.presentation !== 'reactive' && beat.advanceOn === 'continue';
+    if (!waits(current) || this.optionalActive || this.reactionResume !== null) return null;
+    for (let i = this.index - 1; i >= 0; i -= 1) {
+      const beat = this.beats[i];
+      if (beat.segment !== current.segment || !waits(beat)) return null;
+      // (a line that was passed over is not gone back to)
+      if (this.skips(beat) || beat.unit && this.cutUnits.has(beat.unit)) continue;
+      return i;
+    }
+    return null;
+  }
+
+  /** Back one line in a conversation (previousLine): it is current again, said again, and Continue goes on from it. */
+  back() {
+    const index = this.previousLine();
+    if (index === null) return false;
+    this.index = index;
+    this.audioCue = null; this.pendingCompletion = null; this.enteredAt = null;
+    this.onChange(this.progress);
+    return true;
+  }
+
   resumeAt(id) {
     const index = this.beats.findIndex(beat => beat.id === id);
     if (index < 0) throw new Error(`Unknown tutorial checkpoint: ${id}`);
