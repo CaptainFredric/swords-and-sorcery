@@ -3,6 +3,8 @@ import { TutorialView } from './tutorial/TutorialView.mjs';
 import { TutorialProgress } from './tutorial/TutorialProgress.mjs';
 import { TutorialOpening } from './tutorial/TutorialOpening.mjs';
 import { TutorialVoice } from './tutorial/tutorialVoice.mjs';
+import { TutorialLookGuide } from './tutorial/TutorialLookGuide.mjs';
+import { tutorialTranscript } from './tutorial/tutorialTranscript.mjs';
 import { TUTORIAL_BEATS } from './tutorial/tutorialScript.mjs';
 import { ChallengesController } from './menu/ChallengesController.mjs';
 import { normalizePreparedSpells, replacePreparedSpell } from '../shared/src/preparedSpells.mjs';
@@ -279,6 +281,8 @@ endCaption.setEnabled(viewOptions(settings).subtitles);
 
 let runtime = null;
 let tutorialSession = null;
+const tutorialLookGuide = new TutorialLookGuide({ session: () => tutorialSession,
+  rival: () => tutorialSession?.host.room.players.get(tutorialSession.rivalId), player: () => tutorialSession?.host.player });
 // Tutorial 1's recorded voices: the list of takes and the first line's take are fetched and decoded as soon as the
 // sound is up (at the menu, long before the tutorial's world is being built: the opening never waits on them); the
 // rest decode when the tutorial starts, and stay decoded
@@ -464,6 +468,8 @@ function ensureRuntime() {
     if (new URLSearchParams(location.search).has('debug')) globalThis.__ssRuntime = runtime;
     runtime.configure({ view: viewOptions(settings), input: inputOptions(settings) });
     if (tutorialSession) runtime.input.allowAction = (action, notify = true) => tutorialSession?.allows(action, notify) ?? true;
+    // (a tutorial line may turn the Spellblade's head toward something: "Oh dear..." toward Rival running off)
+    runtime.viewGuide = (dt, input) => tutorialLookGuide.step(dt, input);
     if (touchUi) { runtime.enableTouch(); tutorialTouchControls(); }
     runtime.onPointer = (locked) => {
       const mode = latestLobby?.mode ?? latestSnapshot?.mode;
@@ -762,18 +768,55 @@ $('[data-tutorial-begin]').addEventListener('click', () => {
   if (!nameInput.value.trim()) nameFields.forEach(field=>{field.value='Spellblade';});
   startTutorial();
 });
+// The transcript: the asides heard (an aside is listed once it has been), the take being heard again, and the lesson
+// paused while it is open (time stopped, the line being said stopped, and said again from its start on closing)
+const tutorialHeardAsides = new Set();
+let transcriptTake = null;
+function stopTranscriptTake() { transcriptTake?.stop?.(0.05); transcriptTake = null; }
+async function playTranscriptTake(line) {
+  stopTranscriptTake();
+  if (!tutorialVoice || !line.recordingKey || !sound.running || sound.muted) return;
+  const buffer = await tutorialVoice.buffer(line.recordingKey);
+  if (!buffer || !tutorialView.transcriptShown) return;
+  stopTranscriptTake();
+  transcriptTake = sound.playBuffer(buffer, { bus: 'voice', gain: 1, reverb: 0 });
+}
+function pauseTutorialForTranscript(open) {
+  if (!tutorialSession) return;
+  if (open) {
+    runtime?.input.releaseInputs();
+    socket.local.setPaused(true);
+    tutorialVoice?.stop();
+  } else {
+    stopTranscriptTake();
+    socket.local.setPaused(false);
+    tutorialVoice?.sync(tutorialSession.director);
+  }
+}
+function restartTutorialFrom(chapter = null) {
+  runtime?.input.releaseInputs(); tutorialVoice?.stop(); stopTranscriptTake(); tutorialHeardAsides.clear();
+  socket.local.setPaused?.(false);
+  if (!tutorialSession) return;
+  if (!chapter || chapter === tutorialSession.route[0].chapter) {
+    tutorialOpening.begin(); tutorialSession.restart();
+    openArenaGate(latestSnapshot ?? {}, true);
+  } else tutorialSession.beginChapter(chapter);
+  if (runtime) { runtime.input.yaw = tutorialSession.host.player.yaw; runtime.input.pitch = 0; }
+}
 const tutorialView = new TutorialView($('#tutorial-lesson'), {
   context: () => ({touch:touchUi,bindings:settings.allBindings()}),
+  onBack: () => tutorialSession?.director.back(),
+  canGoBack: () => (tutorialSession?.director.previousLine() ?? null) !== null,
+  transcript: () => tutorialSession ? tutorialTranscript(tutorialSession.director, { touch: touchUi }, tutorialHeardAsides) : [],
+  onTranscript: open => pauseTutorialForTranscript(open),
+  onPlayLine: line => playTranscriptTake(line),
+  onBeginChapter: chapter => restartTutorialFrom(chapter),
   onContinue: () => {
     const director = tutorialSession?.director;
     if (director?.completeDialogue(director.cue) && director.current?.kind === 'prompt') runtime?.input.requestPointerLock();
   },
   onOptionalContinue: () => tutorialSession?.director.completeOptionalDialogue(tutorialSession.director.optionalCue),
-  onRestart: () => {
-    runtime?.input.releaseInputs(); tutorialVoice?.stop(); tutorialOpening.begin(); tutorialSession?.restart();
-    if (tutorialSession) openArenaGate(latestSnapshot ?? {}, true);
-    if (runtime && tutorialSession) { runtime.input.yaw = tutorialSession.host.player.yaw; runtime.input.pitch = 0; }
-  },
+  onRestart: () => restartTutorialFrom(),
   onSkip: () => { tutorialProgress.recordSkipped(); runtime?.input.releaseInputs(); tutorialSession?.director.skip(); runtime?.input.releaseFocus(); },
   onPractice: () => returnToMenu({then:() => runMenuAction(menuController.practice(nameInput.value),SCREEN_IDS.SOLO_MENU)}),
   onLeave: () => returnToMenu({then:() => route(SCREEN_IDS.SOLO_MENU)}),
@@ -831,6 +874,7 @@ function startTutorial() {
   tutorialVoice ??= new TutorialVoice({ engine: sound, context: () => ({ touch: touchUi }) });
   tutorialSession = new TutorialSession(socket.local, {
     onChange: progress => {
+      if (progress.optional) tutorialHeardAsides.add(progress.optional.id);
       tutorialView.show(progress);
       if (!tutorialOpening.waiting && (tutorialOpening.audioReady || progress.current?.id !== tutorialOpening.cueId)) tutorialVoice.sync(tutorialSession?.director);
       const permissions=progress.permissions ?? progress.current?.permissions ?? progress.segment?.permissions ?? [];

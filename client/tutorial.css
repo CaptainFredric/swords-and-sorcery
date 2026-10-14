@@ -65,7 +65,49 @@
 .tutorial-instruction [data-tutorial-prompt] { color: #bce7ef; }
 .tutorial-instruction [data-tutorial-blocked] { color: #edcf9c; font-size: 12px; }
 .tutorial-caption button { pointer-events: auto; }
-.tutorial-caption [data-tutorial-continue] { position: sticky; bottom: 0; margin-top: 5px; }
+.tutorial-caption-actions { position: sticky; bottom: 0; display: flex; gap: 6px; margin-top: 5px; }
+/* Back: there, and small, and plain (the line before, read again) */
+.tutorial-lesson .tutorial-back {
+  min-width: 34px; padding: 0 10px; border-color: rgba(172, 136, 77, .45); background: rgba(36, 28, 23, .6);
+  color: #b9a37c; font: 600 16px/1 var(--font-script, sans-serif);
+}
+.tutorial-lesson .tutorial-back:hover { color: #eadcb6; border-color: #ac884d; }
+/* The transcript: a slip of parchment under the options, and the page it opens */
+.tutorial-lesson .tutorial-transcript-open {
+  position: absolute; right: calc(var(--safe-r, 0px) + 12px); top: 58px; pointer-events: auto;
+  min-height: 30px; padding: 5px 10px; border: 1px solid #9c7c4a; border-radius: 1px 3px 2px 3px;
+  background: linear-gradient(176deg, #efe3c4, #e2d1a6 70%, #d8c495); color: #3b2a19;
+  font: 700 10px/1.2 var(--font-script, sans-serif); letter-spacing: .1em; box-shadow: 0 1px 0 rgba(0, 0, 0, .35);
+}
+.tutorial-lesson .tutorial-transcript-open:hover { background: linear-gradient(176deg, #f5ebd2, #e8d8b0 70%, #dccb9e); }
+.tutorial-transcript {
+  position: absolute; left: 50%; top: 50%; translate: -50% -50%; z-index: 2; pointer-events: auto;
+  display: flex; flex-direction: column; width: min(640px, calc(100cqw - 32px)); max-height: calc(100cqh - 32px);
+  box-sizing: border-box; border: 1px solid #8f6f3f; box-shadow: 0 10px 40px rgba(0, 0, 0, .55);
+  background: radial-gradient(120% 90% at 50% 40%, #f3e8cc, #e6d5ab 75%, #d9c391); color: #2e2116;
+  font: 15px/1.4 var(--font-script, sans-serif);
+}
+.tutorial-transcript-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; border-bottom: 1px solid rgba(110, 80, 40, .4); }
+.tutorial-transcript-head h2 { margin: 0; color: #5a1c1f; font: 400 18px/1.1 var(--font-inscription, Georgia, serif); letter-spacing: .12em; }
+.tutorial-lesson .tutorial-transcript button { border-color: rgba(110, 80, 40, .55); background: rgba(255, 250, 235, .45); color: #3b2a19; }
+.tutorial-lesson .tutorial-transcript button:hover { background: rgba(255, 250, 235, .8); }
+.tutorial-lesson .tutorial-transcript-close { min-height: 34px; padding: 6px 12px; }
+.tutorial-transcript-list { overflow: auto; padding: 4px 14px 14px; overscroll-behavior: contain; }
+.tutorial-transcript-chapter header { position: sticky; top: 0; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 10px 0 6px; background: linear-gradient(#ecdfbf 75%, rgba(236, 223, 191, 0)); }
+.tutorial-transcript-chapter h3 { margin: 0; color: #5a1c1f; font: 400 14px/1.2 var(--font-inscription, Georgia, serif); letter-spacing: .08em; }
+.tutorial-lesson .tutorial-transcript-begin { min-height: 28px; padding: 3px 9px; font-size: 10px; letter-spacing: .06em; }
+.tutorial-transcript-chapter.not-reached h3 { color: #7a6448; }
+.tutorial-transcript-line { display: grid; grid-template-columns: 30px 64px 1fr; align-items: baseline; gap: 6px; margin: 0; padding: 4px 6px 4px 0; opacity: .55; }
+.tutorial-transcript-line.heard { opacity: 1; }
+.tutorial-transcript-line.current { background: rgba(142, 41, 50, .1); box-shadow: inset 2px 0 #8e2932; }
+.tutorial-transcript-line.aside span { font-style: italic; }
+.tutorial-transcript-line b { color: #6a4a24; font: 800 9px/1.2 var(--font-script, sans-serif); letter-spacing: .08em; }
+.tutorial-lesson .tutorial-transcript-play { min-height: 26px; width: 26px; padding: 0; font-size: 10px; line-height: 1; align-self: center; }
+.tutorial-lesson .tutorial-transcript-play:disabled { opacity: .35; cursor: default; }
+/* (the transcript open, the lesson's own captions and slips keep out of its way) */
+.tutorial-lesson.tutorial-transcript-open .tutorial-caption,
+.tutorial-lesson.tutorial-transcript-open .tutorial-instruction, .tutorial-lesson.tutorial-transcript-open .tutorial-transcript-open { visibility: hidden; }
 .tutorial-options { position: absolute; right: calc(var(--safe-r, 0px) + 12px); top: 8px; pointer-events: auto; }
 .tutorial-options summary { display: grid; place-content: center; list-style: none; user-select: none; background: rgba(36, 28, 23, .88); }
 .tutorial-options summary::-webkit-details-marker { display: none; }
@@ -84,9 +126,28 @@
 .tutorial-brand { margin: 10px 0; }
 .tutorial-brand h1 { color: #f1dfae; font-size: clamp(28px, 5.2cqw, 66px); line-height: 1.05; text-shadow: 0 2px 0 #3a120e, 0 6px 22px #000; }
 
+/* On touch, the conversation and the instruction are one column at the top centre (over the mode's label), as wide
+   as the room between the bars on the left and the options on the right; the thumbs' controls below stay clear. */
+.tutorial-lesson.tutorial-touch { --tutorial-stack-w: max(260px, min(420px, calc(100cqw - 2 * (var(--safe-l, 0px) + 264px)))); }
+.tutorial-lesson.tutorial-touch:not([hidden]):not(.tutorial-title):not(.tutorial-end) {
+  display: flex; flex-direction: column; align-items: center; gap: 6px; box-sizing: border-box;
+  padding-top: calc(var(--safe-t, 0px) + 6px);
+}
+.tutorial-touch:not(.tutorial-title):not(.tutorial-end) .tutorial-caption,
+.tutorial-touch:not(.tutorial-title):not(.tutorial-end) .tutorial-instruction {
+  position: relative; left: auto; right: auto; top: auto; bottom: auto; transform: none;
+  width: var(--tutorial-stack-w); min-width: 0;
+}
+.tutorial-touch .tutorial-transcript-open { top: calc(var(--safe-t, 0px) + 58px); min-height: 34px; font-size: 11px; }
+/* (the column covers the mode's label: it is not seen through the card, and is back when nothing is there) */
+.touch-ui:has(.tutorial-lesson.tutorial-touch:not([hidden]) :is([data-tutorial-caption], [data-tutorial-instruction]):not([hidden])) .match-info { visibility: hidden; }
 /* On touch, upper left bars and lower corner controls stay clear of gameplay captions. */
 /* (on touch it sits under the health and stamina bars, right of the left thumb's Sprint and Crouch) */
 .tutorial-touch .tutorial-objective { top: calc(var(--safe-t, 0px) + 82px); left: calc(var(--safe-l, 0px) + 104px); max-width: min(220px, 32cqw); padding: 5px 8px; }
+/* (beside the centre column, never under it) */
+.tutorial-touch:not(.tutorial-title):not(.tutorial-end) .tutorial-objective {
+  max-width: max(110px, min(220px, calc(50cqw - var(--tutorial-stack-w) / 2 - var(--safe-l, 0px) - 112px)));
+}
 .tutorial-touch .tutorial-objective strong { font-size: 10px; }
 .tutorial-touch .tutorial-objective.tutorial-objective-compact { top: calc(var(--safe-t, 0px) + 80px); padding: 3px 7px; }
 .tutorial-touch .tutorial-options summary span { display: none; }
@@ -121,6 +182,10 @@
     top: 104px; left: 16px; right: 16px; bottom: auto; transform: none;
     width: auto; min-width: 0; max-height: calc(35cqh - 24px);
   }
+  /* (upright: the column under the bars, the screen's width) */
+  .tutorial-lesson.tutorial-touch { --tutorial-stack-w: calc(100cqw - 32px); }
+  .tutorial-lesson.tutorial-touch:not([hidden]):not(.tutorial-title):not(.tutorial-end) { padding-top: 104px; }
+  .tutorial-touch:not(.tutorial-title):not(.tutorial-end) .tutorial-caption { top: auto; }
   .tutorial-title .tutorial-caption { width: calc(100cqw - 32px); }
   .tutorial-end .tutorial-caption { top: 35%; }
 }

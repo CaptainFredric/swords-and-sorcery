@@ -321,7 +321,9 @@ const segments = [
     branches: ['rival-constitution'],
     scene: { enter: 'rival-escape', checkpoint: 'pursuit', gates: [] },
     beats: [
-      { id: 'hardly-wellbeing', speaker: 'narrator', line: 'Oh dear, that hardly seems conducive toward your wellbeing, Spellblade.' },
+      // (stopped dead by the threat, the Spellblade's head turns slowly after Rival as he runs off, and is let go)
+      { id: 'hardly-wellbeing', speaker: 'narrator', line: 'Oh dear, that hardly seems conducive toward your wellbeing, Spellblade.',
+        lookGuide: Object.freeze({ at: 'rival', leadSec: .8, turnSec: 1.6, holdSec: .9 }) },
       { id: 'remains-ahead', speaker: 'spellblade', line: 'My reputation will become dead if he remains ahead!' },
       { id: 'few-steps', speaker: 'narrator', line: 'A few steps ahead.' },
     ],

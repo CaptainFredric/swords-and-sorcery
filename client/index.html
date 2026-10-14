@@ -416,13 +416,24 @@
         <p data-tutorial-line aria-live="polite"></p>
         <div class="game-brand tutorial-brand" data-tutorial-title hidden><h1>SWORDS <span>&amp;</span> SORCERY</h1></div>
         <div data-tutorial-optional hidden><p data-tutorial-optional-line aria-live="polite"></p><button data-tutorial-optional-continue type="button" hidden>CONTINUE ASIDE</button></div>
-        <button data-tutorial-continue type="button">CONTINUE</button>
+        <div class="tutorial-caption-actions">
+          <button data-tutorial-back class="tutorial-back" type="button" aria-label="Back to the previous line" hidden>‹</button>
+          <button data-tutorial-continue type="button">CONTINUE</button>
+        </div>
       </div>
       <div class="tutorial-instruction" data-tutorial-instruction hidden>
         <strong data-tutorial-mechanic hidden></strong>
         <p data-tutorial-prompt hidden></p>
         <p data-tutorial-blocked role="status" hidden></p>
       </div>
+      <button class="tutorial-transcript-open" data-tutorial-transcript-open type="button" aria-haspopup="dialog">TRANSCRIPT</button>
+      <section class="tutorial-transcript" data-tutorial-transcript role="dialog" aria-modal="true" aria-label="Transcript" hidden>
+        <header class="tutorial-transcript-head">
+          <h2>TRANSCRIPT</h2>
+          <button class="tutorial-transcript-close" data-tutorial-transcript-close type="button" aria-label="Close the transcript">CLOSE</button>
+        </header>
+        <div class="tutorial-transcript-list" data-tutorial-transcript-list></div>
+      </section>
       <details class="tutorial-options" data-tutorial-options>
         <summary><span>TUTORIAL </span>OPTIONS</summary>
         <div class="tutorial-lesson-actions">
