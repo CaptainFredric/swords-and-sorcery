@@ -837,6 +837,46 @@ export function sunderRingRecipe(rand = Math.random, { light = false } = {}) {
 }
 
 /**
+ * The sword drawn (the tutorial's first draw): the blade's run up the scabbard's throat, then a small clean ring as it
+ * clears (at `clearSec`), bright and brief: a knight's steel, not a cymbal.
+ */
+export function swordDrawRecipe(rand = Math.random, { clearSec = 0.16 } = {}) {
+  const pitch = jitter(rand, 0.015);
+  return {
+    layers: [
+      { type: 'noise', filter: 'bandpass', freq: 2300 * pitch, sweepTo: 5600 * pitch, q: 5, attack: 0.03, decay: clearSec - 0.02, gain: 0.07 },
+      { type: 'noise', filter: 'bandpass', freq: 7200, q: 2.5, attack: 0.001, decay: 0.025, gain: 0.05, at: clearSec },
+      { type: 'ring', at: clearSec, partials: [
+        { freq: 2960 * pitch, gain: 0.045, decay: 0.55 },
+        { freq: 4410 * pitch, gain: 0.03, decay: 0.38 },
+        { freq: 6230 * pitch, gain: 0.016, decay: 0.24 },
+        { freq: 1490 * pitch, gain: 0.014, decay: 0.7 },
+      ] },
+    ],
+    reverb: 0.16,
+  };
+}
+
+/**
+ * The magic hand raised, its rune waking: soft and cool, a little uncanny (two glassy tones a few hertz apart, so they
+ * beat, a fifth over them, and a breath of air turning down through it). Quiet: the palm, not the spell.
+ */
+export function palmRevealRecipe(rand = Math.random, { quick = false } = {}) {
+  const base = 660 * jitter(rand, 0.01), length = quick ? 0.5 : 1.3;
+  return {
+    layers: [
+      { type: 'tone', wave: 'sine', freq: base, slideTo: base * 1.035, attack: quick ? 0.06 : 0.28, decay: length, gain: 0.045 },
+      { type: 'tone', wave: 'sine', freq: base * 1.011, slideTo: base * 1.04, attack: quick ? 0.08 : 0.34, decay: length, gain: 0.035 },
+      { type: 'tone', wave: 'sine', freq: base * 1.5, attack: quick ? 0.1 : 0.45, decay: length * 0.8, gain: 0.016, at: quick ? 0.03 : 0.12 },
+      { type: 'tone', wave: 'triangle', freq: base / 2, slideTo: base / 2 * 0.97, attack: quick ? 0.08 : 0.4, decay: length, gain: 0.02 },
+      { type: 'noise', filter: 'bandpass', freq: 3400, sweepTo: 1700, q: 6, attack: quick ? 0.05 : 0.3, decay: length * 0.7, gain: 0.018 },
+    ],
+    reverb: 0.5,
+    hall: 0.3,
+  };
+}
+
+/**
  * A fissure running: a gravelly crackle and a low grumble as it goes; the grumble only while its core is splitting
  * (the first `coreSeconds`), the crackle thinning to small ticks out along the trailing crack.
  */

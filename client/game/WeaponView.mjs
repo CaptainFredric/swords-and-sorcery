@@ -12,8 +12,27 @@ import { createSpellbladeAsset, reportSpellbladeAssetStatus } from './Spellblade
 import { resolveFirstPersonAnimationPlan } from './spellbladeAnimationPlan.mjs';
 import { FIRST_PERSON_WEAPON_SCALE, resolveWeaponPose } from './weaponPose.mjs';
 import { FP_MOTION, FirstPersonMotion } from './firstPersonMotion.mjs';
-import { REST_EDGE_TURN, blendPoses, comboPose, counterRotations, recoveryPose, slamAgainPose, slamPose } from './fpSlash.mjs';
+import { DRAW_END, REST_EDGE_TURN, blendPoses, comboPose, counterRotations, drawPose, recoveryPose, slamAgainPose, slamPose } from './fpSlash.mjs';
 import { FIRST_PERSON_OFF_ARM, FIRST_PERSON_SWORD_ARM, solveArm, solveSwordArm } from './swordArmIK.mjs';
+
+// What the arms have out (a lesson brings them in one by one; everywhere else both are always out): the sword drawn,
+// or still at the hip with its arm down out of sight; the magic hand raised, or down out of sight. A draw and a
+// reveal are played (drawSword, revealHand); an action that needs one before it is out brings it out quickly.
+const QUICK_DRAW_SEC = 0.32;
+const QUICK_REVEAL_SEC = 0.3;
+// the magic hand: down out of sight; raised palm up, its rune shown, a little above and in from where it rests; at rest
+// (the first-person Idle's own, measured from the rig: where the reveal hands back to it)
+const HAND_AWAY = Object.freeze({ wrist: [-0.36, -1.0, -0.22], aim: [0.1, -0.5, -0.86], roll: [0.387, 0.856, 0.344] });
+const HAND_SHOWN = Object.freeze({ wrist: [-0.35, -0.29, -0.62], aim: [0.2, 0.45, -0.87], roll: [0.3, 0.92, 0.25] });
+const HAND_REST = Object.freeze({ wrist: [-0.399, -0.38, -0.667], aim: [0.153, 0.308, -0.939], roll: [0.387, 0.856, 0.344] });
+// the reveal: up into view by RISE, held showing the palm, handed back to rest from HOLD to END (seconds)
+export const HAND_REVEAL = Object.freeze({ rise: 0.7, hold: 1.6, end: 2.5 });
+const easeInOut = (t) => { const x = Math.max(0, Math.min(1, t)); return x * x * (3 - 2 * x); };
+const mixVec = (a, b, t) => a.map((v, i) => v + (b[i] - v) * t);
+const unit = (v) => { const l = Math.hypot(...v) || 1; return v.map((x) => x / l); };
+function handBetween(a, b, t) {
+  return { wrist: mixVec(a.wrist, b.wrist, t), aim: unit(mixVec(a.aim, b.aim, t)), roll: unit(mixVec(a.roll, b.roll, t)) };
+}
 import { everywhere, onViewLayer } from './viewLayers.mjs';
 import { createSunderBlade } from './sunderBlade.mjs';
 import { VORTEX_BLADES, createVortexBlade } from './vortexBlade.mjs';
@@ -296,6 +315,11 @@ export class WeaponView {
     // the gauntlet strike: when the magic hand was last thrown, and when it is free to strike again
     this.jabAt = -Infinity;
     this.jabReadyAt = -Infinity;
+    // what the arms have out (see HAND_AWAY): 'away', 'drawing' / 'revealing', or 'out'; told when one is brought out
+    this.equipment = { sword: 'out', swordAt: -Infinity, swordQuick: false, hand: 'out', handAt: -Infinity, handQuick: false };
+    this.onEquip = () => {};
+    // asked each frame, before the arms are posed (the tutorial bringing them out with its lines)
+    this.guide = null;
 
     this.#upgradeVisual();
   }
@@ -352,8 +376,67 @@ export class WeaponView {
     });
   }
 
+  /** Both arms as they are to be, at once (no draw, no reveal): sword and hand out (true) or away (false). */
+  setEquipment({ sword = true, hand = true } = {}) {
+    const e = this.equipment;
+    e.sword = sword ? 'out' : 'away'; e.swordAt = -Infinity;
+    e.hand = hand ? 'out' : 'away'; e.handAt = -Infinity;
+  }
+
+  /** The sword drawn from the hip (quick: in a hurry, for an action that needs it). */
+  drawSword({ quick = false } = {}) {
+    const e = this.equipment;
+    if (e.sword !== 'away') return false;
+    Object.assign(e, { sword: 'drawing', swordAt: this.now(), swordQuick: quick });
+    this.onEquip('sword', { quick });
+    return true;
+  }
+
+  /** The magic hand raised into view, its rune shown (quick: straight to rest, for a spell or a strike). */
+  revealHand({ quick = false } = {}) {
+    const e = this.equipment;
+    if (e.hand !== 'away') return false;
+    Object.assign(e, { hand: 'revealing', handAt: this.now(), handQuick: quick });
+    this.onEquip('hand', { quick });
+    return true;
+  }
+
+  // The arms still being brought out, this frame: the sword arm's draw pose (or held at the hip) and its weight, the
+  // magic hand's target and weight, and how bright its rune and light are (1: as ever; 0: down out of sight).
+  #equipmentPose(timeSec) {
+    const e = this.equipment;
+    let sword = null, hand = null, rune = 1;
+    if (e.sword === 'away') sword = { pose: drawPose(0), weight: 1 };
+    else if (e.sword === 'drawing') {
+      const t = timeSec - e.swordAt, length = e.swordQuick ? QUICK_DRAW_SEC : DRAW_END;
+      if (t >= length) e.sword = 'out';
+      else sword = { pose: drawPose(Math.max(0, t) * DRAW_END / length), weight: 1 };
+    }
+    if (e.hand === 'away') { hand = { target: HAND_AWAY, weight: 1 }; rune = 0; }
+    else if (e.hand === 'revealing') {
+      const t = Math.max(0, timeSec - e.handAt);
+      if (e.handQuick) {
+        if (t >= QUICK_REVEAL_SEC) e.hand = 'out';
+        else { const w = 1 - easeInOut(t / QUICK_REVEAL_SEC); hand = { target: HAND_AWAY, weight: w }; rune = 1 - w; }
+      } else if (t >= HAND_REVEAL.end) e.hand = 'out';
+      else if (t < HAND_REVEAL.rise) {
+        hand = { target: handBetween(HAND_AWAY, HAND_SHOWN, easeInOut(t / HAND_REVEAL.rise)), weight: 1 };
+        rune = easeInOut(t / HAND_REVEAL.rise);
+      } else if (t < HAND_REVEAL.hold) {
+        hand = { target: HAND_SHOWN, weight: 1 };
+        // (the rune wakes as the palm turns up, restrained: a breath brighter, then down to its rest)
+        rune = 1 + 0.8 * Math.sin(Math.PI * (t - HAND_REVEAL.rise) / (HAND_REVEAL.hold - HAND_REVEAL.rise));
+      } else {
+        const k = easeInOut((t - HAND_REVEAL.hold) / (HAND_REVEAL.end - HAND_REVEAL.hold));
+        hand = { target: handBetween(HAND_SHOWN, HAND_REST, k), weight: 1 - k };
+      }
+    }
+    return { sword, hand, rune };
+  }
+
   /** The attack button: a press starts a chain (or asks for its next strike); a release lets go (the swing plays out). */
   setAttack(held) {
+    if (held) this.drawSword({ quick: true });
     // (bracing into Sunder, the button is only remembered: the first slam is its, as the brace ends)
     const bracing = this.bracing && !this.bracing.committed;
     if (held && !this.attackButton && !bracing) this.swordChain.press(this.now());
@@ -445,6 +528,7 @@ export class WeaponView {
   get attackHeld() { return this.swordChain.active; }
 
   setGuard(guard) {
+    if (guard) this.drawSword({ quick: true });
     this.guard = guard;
     if (guard && !this.concurrent) this.cancelAttack();
   }
@@ -454,6 +538,7 @@ export class WeaponView {
    * the spell's colour. A cast already gathering (started on the key press) is not restarted by the server's word.
    */
   cast({ gatherSec = 0.3, spell = 'fireball', accepted = false } = {}) {
+    this.revealHand({ quick: true });
     const now = this.now();
     const gather = Number.isFinite(gatherSec) ? Math.max(0, gatherSec) : 0.3;
     if (!this.castReleased && now < this.castStartedAt + this.castGather + 0.05) {
@@ -495,6 +580,7 @@ export class WeaponView {
    * the server, nothing attacks again before its recovery is over.
    */
   jab() {
+    this.revealHand({ quick: true });
     const now = this.now();
     if (this.swordChain.active) this.cancelAttack();
     this.jabAt = now;
@@ -656,6 +742,7 @@ export class WeaponView {
     // everything on my arms is drawn in the view's own pass, over the world (viewLayers.mjs): whatever has been
     // put on them since the last frame included
     onViewLayer(this.group);
+    this.guide?.(dt, this);
     const movingAmount = Math.min(1, speed / 7.5);
     this.#braceCommit(timeSec);
     const chain = this.swordChain.step(timeSec);
@@ -719,6 +806,12 @@ export class WeaponView {
       }
       if (this.concurrentGuardBlend <= 0) this.guardedCutAt = undefined;
       const combo = vortexPose ? sourceCombo : guardedSwordPose(sourceCombo, this.concurrentGuardBlend, defended);
+      // the arms still being brought out (or not out yet): over whatever else has them
+      const away = this.#equipmentPose(timeSec);
+      if (away.sword) {
+        const { look } = away.sword.pose;
+        motion.camera.pitch += look.pitch; motion.camera.roll += look.roll; motion.camera.yaw += look.yaw;
+      }
       if (combo) {
         plan = resolveFirstPersonAnimationPlan({ state: 'idle' }, this, timeSec);
         // the view leans with the body into each cut (purely visual: aim is the input's)
@@ -769,13 +862,15 @@ export class WeaponView {
           // pull against each other)
           ...(combo ? counterRotations(combo.counter, combo.weight * swordOffhand * (1 - (combo.offHand?.weight ?? 0))) : []),
         ],
-        solve: combo || jab ? (bones) => {
+        solve: combo || jab || away.sword || away.hand ? (bones) => {
           if (combo) {
             solveSwordArm(bones, combo.arm, combo.weight);
             if (combo.offHand) solveArm(bones, FIRST_PERSON_OFF_ARM, combo.offHand, combo.offHand.weight * combo.weight * swordOffhand);
           }
           // the gauntlet strike has the magic hand
           if (jab) solveArm(bones, FIRST_PERSON_OFF_ARM, jab, jab.weight);
+          if (away.sword) solveSwordArm(bones, away.sword.pose.arm, away.sword.weight);
+          if (away.hand) solveArm(bones, FIRST_PERSON_OFF_ARM, away.hand.target, away.hand.weight);
         } : undefined,
       };
       const shown = frozen && this.lastPlan ? this.lastPlan : plan;
@@ -816,8 +911,8 @@ export class WeaponView {
       }
       // gauntlet runes and palm light follow the palm sorcery: dim at rest, bright only while a cast gathers
       const level = Math.max(this.productionInstance.sorceryLevel?.() ?? 0, gesture.draw);
-      for (const material of this.productionInstance.materials.SorceryAccent ?? []) material.emissiveIntensity = 0.7 + 2.1 * level;
-      this.magicLight.intensity = 0.12 + 2.6 * level;
+      for (const material of this.productionInstance.materials.SorceryAccent ?? []) material.emissiveIntensity = (0.7 + 2.1 * level) * away.rune;
+      this.magicLight.intensity = (0.12 + 2.6 * level) * away.rune;
       this.#chargeGlow(gesture, timeSec);
       // (the hand on a burning sword is lit by it)
       if (fire > 0.01) {

@@ -4,6 +4,7 @@ import { TutorialProgress } from './tutorial/TutorialProgress.mjs';
 import { TutorialOpening } from './tutorial/TutorialOpening.mjs';
 import { TutorialVoice } from './tutorial/tutorialVoice.mjs';
 import { TutorialLookGuide } from './tutorial/TutorialLookGuide.mjs';
+import { TutorialEquipment } from './tutorial/TutorialEquipment.mjs';
 import { tutorialTranscript } from './tutorial/tutorialTranscript.mjs';
 import { TUTORIAL_BEATS } from './tutorial/tutorialScript.mjs';
 import { ChallengesController } from './menu/ChallengesController.mjs';
@@ -281,6 +282,8 @@ endCaption.setEnabled(viewOptions(settings).subtitles);
 
 let runtime = null;
 let tutorialSession = null;
+// (what the Spellblade has out: both arms come in with the lesson's lines; out everywhere else)
+const tutorialEquipment = new TutorialEquipment({ session: () => tutorialSession });
 const tutorialLookGuide = new TutorialLookGuide({ session: () => tutorialSession,
   rival: () => tutorialSession?.host.room.players.get(tutorialSession.rivalId), player: () => tutorialSession?.host.player });
 // Tutorial 1's recorded voices: the list of takes and the first line's take are fetched and decoded as soon as the
@@ -470,6 +473,7 @@ function ensureRuntime() {
     if (tutorialSession) runtime.input.allowAction = (action, notify = true) => tutorialSession?.allows(action, notify) ?? true;
     // (a tutorial line may turn the Spellblade's head toward something: "Oh dear..." toward Rival running off)
     runtime.viewGuide = (dt, input) => tutorialLookGuide.step(dt, input);
+    runtime.weapon.guide = (dt, weapon) => tutorialEquipment.step(dt, weapon);
     if (touchUi) { runtime.enableTouch(); tutorialTouchControls(); }
     runtime.onPointer = (locked) => {
       const mode = latestLobby?.mode ?? latestSnapshot?.mode;
