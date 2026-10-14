@@ -27,17 +27,17 @@ test('local input reaches the next combat tick without a network send interval',
   assert.equal(host.latestSnapshot.tick, 2, 'combat still stepped only at its existing tick rate');
 });
 
-test('remote movement retains the 50 ms cadence and monotonic input sequence', () => {
+test('remote movement retains the 30 Hz cadence and monotonic input sequence', () => {
   const sent = [];
   const socket = { playingLocally: false, serverNow: () => 7, input: input => sent.push(input) };
   const stream = { sequence: 4, lastInputSentAt: 1000 };
   const input = { forward: 1, yaw: .7, pitch: -.2 };
   sendMovementInput(socket, input, 1016, stream);
-  sendMovementInput(socket, input, 1049, stream);
+  sendMovementInput(socket, input, 1030, stream);
   assert.equal(sent.length, 0);
-  sendMovementInput(socket, input, 1050, stream);
+  sendMovementInput(socket, input, 1034, stream);
   assert.deepEqual(sent, [{ seq: 5, forward: 1, yaw: .7, pitch: -.2, clientTime: 7 }]);
-  sendMovementInput(socket, input, 1066, stream);
+  sendMovementInput(socket, input, 1045, stream);
   assert.equal(sent.length, 1);
 });
 

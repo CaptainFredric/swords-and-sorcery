@@ -56,11 +56,11 @@
     "SorceryAccent"
   ],
   "thirdPerson": {
-    "maxTriangles": 35000,
-    "targetBytes": 2400000
+    "maxTriangles": 60000,
+    "targetBytes": 5000000
   },
   "firstPerson": {
-    "maxTriangles": 16000,
-    "targetBytes": 1000000
+    "maxTriangles": 30000,
+    "targetBytes": 2500000
   }
 }

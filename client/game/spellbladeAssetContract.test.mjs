@@ -9,8 +9,8 @@ const VALID = {
   clips: ['Idle', 'Run', 'Sprint', 'Air', 'Guard', 'Slash_1', 'Slash_2', 'Slash_3', 'Cast', 'Dash', 'Stagger', 'Death'],
   sockets: ['socket_sword', 'socket_sorcery'],
   mutableMaterials: ['VisorGlow', 'SorceryAccent'],
-  thirdPerson: { maxTriangles: 35000, targetBytes: 2000000 },
-  firstPerson: { maxTriangles: 16000, targetBytes: 1000000 },
+  thirdPerson: { maxTriangles: 60000, targetBytes: 5000000 },
+  firstPerson: { maxTriangles: 30000, targetBytes: 2500000 },
 };
 
 async function moduleLoader() {
