@@ -4,7 +4,7 @@
 
 import { frameDrum, jingles, pluck, warDrum } from './instruments.mjs';
 import { midiToFreq, PIECES, STINGERS } from './score.mjs';
-import { choir, drone, flute, horn } from './voices.mjs';
+import { choir, drone, flute, horn, strings } from './voices.mjs';
 
 const LOOKAHEAD = 0.6;
 const TICK_MS = 100;
@@ -12,7 +12,7 @@ const TICK_MS = 100;
 // how loud each instrument sits in the mix (the music bus is the overall level)
 // (balanced by measuring each instrument alone: melody on top, lute under it, the drone felt more than heard)
 export const INSTRUMENT_LEVELS = Object.freeze({
-  lute: 0.42, harp: 0.85, drone: 0.015, choir: 0.022, flute: 0.11, horn: 0.085,
+  lute: 0.42, harp: 0.85, drone: 0.015, choir: 0.022, flute: 0.11, horn: 0.085, strings: 0.018,
   dum: 0.21, tek: 0.15, ghost: 0.11, war: 0.14, jingle: 0.5,
 });
 
@@ -61,9 +61,17 @@ export class MusicPlayer {
     if (!stinger || !engine.running || !engine.musicOn) return;
     const ctx = engine.ctx;
     const start = at ?? ctx.currentTime + 0.05;
-    const bus = this.#bus(stinger.hall ?? 0.5);
+    // (one written to sound with a spoken line, the Chivalry swell under its cry, does not give way to the voice)
+    const bus = this.#bus(stinger.hall ?? 0.5, stinger.withVoice ? 'stinger' : 'music');
     bus.gain.value = gain;
     const beat = 60 / stinger.bpm;
+    // (one that asks for it has the floor: the piece playing steps back under it for a moment, then returns)
+    if (stinger.duck && this.cue?.bars) {
+      const level = this.cue.bus.gain;
+      level.cancelScheduledValues(start);
+      level.setTargetAtTime(1 - stinger.duck.depth, start, 0.08);
+      level.setTargetAtTime(1, start + stinger.duck.beats * beat, 0.45);
+    }
     let end = start;
     for (const event of stinger.events) {
       const note = this.#note(bus, event, start + event.beat * beat, event.beats * beat, []);
@@ -72,10 +80,10 @@ export class MusicPlayer {
     setTimeout(() => { try { bus.disconnect(); } catch { /* gone */ } }, (end - ctx.currentTime + 5) * 1000);
   }
 
-  #bus(hallSend) {
+  #bus(hallSend, name = 'music') {
     const ctx = this.engine.ctx;
     const bus = ctx.createGain();
-    bus.connect(this.engine.buses.music);
+    bus.connect(this.engine.buses[name] ?? this.engine.buses.music);
     const send = ctx.createGain();
     send.gain.value = hallSend;
     bus.connect(send).connect(this.engine.hall);
@@ -158,6 +166,8 @@ export class MusicPlayer {
     else if (event.inst === 'choir') voice = choir(ctx, panned, { freqs: [].concat(freq), start, duration, gain: level, attack: event.attack ?? 1.4, release: event.release ?? 1.8 });
     else if (event.inst === 'flute') voice = flute(ctx, panned, { freq, start, duration, gain: level, noise: engine.noise });
     else if (event.inst === 'horn') voice = horn(ctx, panned, { freq, start, duration, gain: level });
+    else if (event.inst === 'strings') voice = strings(ctx, panned, { freqs: [].concat(freq), start, duration, gain: level,
+      swell: event.swell ?? 0.8, release: event.release ?? 0.8, from: event.from ?? 0.04, noise: engine.noise });
     if (voice) voices.push(voice);
     return voice?.end ?? start;
   }

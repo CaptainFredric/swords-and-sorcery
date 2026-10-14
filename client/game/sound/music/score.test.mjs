@@ -142,3 +142,23 @@ test('the march fills its bars, keeps to D minor, and builds in layers like the 
   assert.equal(fightPieceFor(match), fightPieceFor({ ...match }));
   assert.ok(FIGHT_MUSIC.castleward.includes(fightPieceFor({ worldId: 'nowhere' })));
 });
+
+test('Spells & Chivalry taken up: strings swell from B-flat into D major on the cry\'s "...of SWORDS", the horn on "SORCERY"', () => {
+  const swell = STINGERS.chivalry;
+  assert.equal(swell.bpm, 60);
+  assert.equal(swell.withVoice, true);
+  const strings = swell.events.filter((event) => event.inst === 'strings');
+  assert.ok(strings.length >= 4);
+  // the build: B-flat from the first, swelling for most of the cry's first phrase and its breath (0-2.8 s)
+  const build = strings.find((event) => event.beat === 0);
+  assert.deepEqual([].concat(build.midi).map((m) => m % 12).sort((a, b) => a - b), [2, 5, 10, 10]);
+  assert.ok(build.swell > 2);
+  // the reveal: a D major chord (the bright third) where master-call-1's "...of SWORDS" begins (2.82 s, +0.05 s delay)
+  const reveal = strings.find((event) => [].concat(event.midi).length >= 4 && event.beat > 2);
+  assert.ok(Math.abs(reveal.beat - 2.85) < 0.05);
+  assert.ok([].concat(reveal.midi).some((m) => m % 12 === 6), 'the major third (F#)');
+  assert.ok(swell.events.some((event) => event.inst === 'horn' && Math.abs(event.beat - 4.6) < 0.05), 'the horn on "SORCERY"');
+  // brief: over by the end of the cry
+  const end = Math.max(...swell.events.map((event) => event.beat + event.beats));
+  assert.ok(end < 7);
+});

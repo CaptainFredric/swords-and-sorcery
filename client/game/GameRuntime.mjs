@@ -89,12 +89,14 @@ const APPEAL = Object.freeze({ leadSec: 0.1, interruptBeforeEnd: 0.4, runOnSec: 
 const RAM_OOF_LAG = 0.06;
 
 export class GameRuntime {
-  constructor(container, socket, hud, { sound = null, voice = null } = {}) {
+  constructor(container, socket, hud, { sound = null, voice = null, music = null } = {}) {
     this.container = container;
     this.socket = socket;
     this.hud = hud;
     this.sound = sound;
     this.voice = voice;
+    // the score (for its stingers: my Spells & Chivalry taken up)
+    this.music = music;
     this.heat = new CombatHeat();
     // the player's view settings (see configure)
     this.view = { fov: FP_MOTION.baseFov, pixelRatioCap: 1.6, cameraMotion: 1, damageNumbers: true, damageFlash: true, subtitles: true };
@@ -1524,7 +1526,11 @@ export class GameRuntime {
     if (event.ultimate === 'chivalry') {
       const cry = cryMoment(event.ultimate);
       this.#ultimateCry(event.playerId, cry, voice);
-      if (me) this.hud.flashText('SPELLS & CHIVALRY', 'chivalry', 1400);
+      if (me) {
+        this.hud.flashText('SPELLS & CHIVALRY', 'chivalry', 1400);
+        // my own Chivalry, taken up: the strings swell into the light under the cry (the music is mine alone to hear)
+        this.music?.stinger('chivalry');
+      }
       return;
     }
     this.#play(sunderDropRecipe(), me ? null : this.#bodyPosition(event.playerId), me ? 1 : 0.8);

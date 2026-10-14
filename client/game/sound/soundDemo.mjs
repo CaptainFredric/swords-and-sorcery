@@ -77,12 +77,39 @@ export const DEMOS = {
     },
   },
   stingers: {
-    seconds: 20,
+    seconds: 26,
     script(engine) {
       const music = new MusicPlayer(engine);
       music.stinger('challenge', { at: 0.3 });
       music.stinger('victory', { at: 7 });
       music.stinger('defeat', { at: 13.5 });
+      music.stinger('chivalry', { at: 20.5 });
+    },
+  },
+  // Spells & Chivalry taken up in the thick of a fight, as I hear it: the fight music, my cry, and the strings' swell
+  // (the cry ducks the music as any line does; the piece steps back under the swell), then the fight again
+  chivalry: {
+    seconds: 16,
+    async script(engine) {
+      const music = new MusicPlayer(engine);
+      music.setIntensity(2);
+      music.play('battle');
+      music.scheduleUntil(15.5);
+      const at = 6;
+      const data = await (await fetch(appUrl('/client/assets/voice/master-call-1.m4a'))).arrayBuffer();
+      const cry = await engine.ctx.decodeAudioData(data);
+      engine.playBuffer(cry, { bus: 'voice', at: at + 0.05, gain: 0.95, reverb: VOICE_HEARING.own });
+      engine.duck(cry.duration, { delay: at + 0.05 - engine.now });
+      music.stinger('chivalry', { at });
+    },
+  },
+  // the swell alone, twice (as it is heard over silence)
+  'chivalry-swell': {
+    seconds: 9,
+    script(engine) {
+      const music = new MusicPlayer(engine);
+      music.stinger('chivalry', { at: 0.3 });
+      music.stinger('chivalry', { at: 4.8 });
     },
   },
 };
