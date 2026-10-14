@@ -37,12 +37,12 @@ function playthrough({ missFirst = false, omitSegments = [] } = {}) {
       yaw = Math.atan2(-dx, -dz); forward = dist > 2.5 ? 1 : 0;
       sprint = beat.segment === 'stamina' && !['recover-prompt', 'reach-rival'].includes(beat.id);
       if (beat.id === 'recover-prompt' || !session.allows('move',false) || freshBeat && beat.id==='walk-prompt') forward = 0;
-    } else if (['first-attack', 'first-guard', 'health-regen', 'real-duel'].includes(beat.segment)) {
+    } else if (['first-attack', 'first-guard', 'health-regen', 'real-duel', 'duel-arrangement'].includes(beat.segment)) {
       yaw = Math.atan2(-dx, -dz); forward = dist > 1.8 ? .6 : 0;
       if (session.rival.mode !== 'duel') guard(['guard-attack-start', 'guard-prompt'].includes(beat.id));
       if (beat.id === 'attack-prompt' && now - lastAttack > 1.5) { attack(true); attack(false); lastAttack = now; }
-    } else if (['duel-knockdown', 'escape-head-start'].includes(beat.segment) || beat.segment === 'tattle-threat' && beat.id !== 'pursuit-release') {
-      // he is downed, gets up and walks off; then the threat: watch, and stand
+    } else if (['duel-constitution', 'duel-knockdown', 'escape-head-start'].includes(beat.segment) || beat.segment === 'tattle-threat' && beat.id !== 'pursuit-release') {
+      // he is downed (and up again, the first time), gets up and walks off; then the threat: watch, and stand
       guard(false); attack(false); yaw = Math.atan2(-dx, -dz);
     } else if (beat.segment === 'false-exit') {
       guard(false); attack(false);
@@ -122,7 +122,8 @@ test('the complete continuous route uses ordinary movement and combat through an
   assert.equal(player.alive, true); assert.equal(rival.alive, false);
   assert.ok(Math.hypot(rival.position.x - GREENER_ROUTE.entrance.x, rival.position.z - GREENER_ROUTE.entrance.z) < 18);
   for (const gate of ['player-winded', 'stamina-recovered', 'sword-contact', 'successful-guard', 'player-damaged',
-    'health-regenerated', 'health-settled', 'duel-damage-threshold', 'rival-downed', 'rival-recovered', 'rival-departing',
+    'health-regenerated', 'health-settled', 'duel-first-knockdown', 'rival-first-downed', 'rival-first-recovered',
+    'duel-damage-threshold', 'rival-downed', 'rival-recovered', 'rival-departing',
     'exit-walk-started', 'exit-near', 'player-halted', 'rival-jumped', 'jump-crossed', 'fireball-hit', 'dead-end-crossed',
     'dash-used', 'bridge-crossed', 'subsequent-fireball-hit', 'complaint-approached', 'rival-turned', 'final-first-parry',
     'rival-guard-broken', 'rival-defeated', 'departure-complete']) assert.ok(facts.has(gate), gate);
@@ -133,6 +134,10 @@ test('the complete continuous route uses ordinary movement and combat through an
   // the blow that brings him down is answered while he is down; the departure is narrated as he walks off
   // (a stage passed within one step leaves no row: the spoken lines carry the order)
   assert.ok(at('plans-change') < at('wrong-address') && at('wrong-address') < at('successful-expulsion'));
+  // two rounds: the boast, down, his condition asked (he gets up answering), the terms, down for good
+  const order = ['taking-a-while', 'not-yet', 'what-condition', 'current-constitution', 'constitution-amended', 'cannot-settled',
+    'strike-you-first', 'depends-go-down', 'prevent-arrangement', 'wrong-address'];
+  for (const [i, id] of order.entries()) assert.ok(at(id) !== undefined && (i === 0 || at(order[i - 1]) < at(id)), id);
   assert.ok(at('successful-expulsion') < at('time-to-exit') && at('time-to-exit') < at('barely-did-anything') && at('barely-did-anything') < at('escape-made-fun'));
   assert.ok(at('escape-made-fun') < at('hardly-wellbeing'));
   assert.ok(at('come-prove-it') < at('stop-you') && at('stop-you') < at('convince-unblock') && at('convince-unblock') < at('did-not-stop'));

@@ -12,12 +12,13 @@ function fixture() {
  return {host,session,tick,now:()=>now,actor:()=>host.room.players.get(session.rivalId)};
 }
 
-test('the first duel uses readable footwork and gives ground under pressure through ordinary bot decisions',()=>{
+test('the first duel uses readable footwork and holds its ground: low on health, he does not run off to heal',()=>{
  const {host,session,tick,actor}=fixture();session.director.resumeAt('real-duel');
  host.player.position={x:0,y:0,z:-12};actor().position={x:0,y:0,z:-15};tick();
  assert.equal(session.rival.mode,'duel');assert.ok(Math.abs(actor().input.right)>0);
- actor().health=15;host.player.position.z=-10;tick(20);
- assert.ok(actor().ai.retreatUntil>host.now());assert.ok(actor().input.forward>0);
+ actor().health=15;host.player.position.z=-10;tick(90);
+ assert.equal(actor().botSkill.retreat,0);assert.ok(!(actor().ai.retreatUntil>host.now()),'no retreat to heal');
+ assert.ok(Math.hypot(actor().position.x-host.player.position.x,actor().position.z-host.player.position.z)<6,'still at it, within reach');
  assert.equal(actor().speedScale,1);assert.equal(actor().botSkill.parry,0);host.close();
 });
 
@@ -60,10 +61,27 @@ test('Rival waits for real Sprint stamina and Dash cooldown before committing to
  host.close();
 });
 
+test('the first knockdown is temporary: he is held down, gets up on the cue, and can be fought (and knocked down) again',()=>{
+  const {host,session,tick,actor,now}=fixture();
+  session.stage('real-duel');session.director.resumeAt('real-duel');
+  session.rival.beginRecovery(now());
+  assert.equal(session.rival.knockdowns,1);assert.equal(session.rival.mode,'recover');
+  tick(30);assert.ok(session.director.facts.has('rival-first-downed'));assert.equal(session.director.facts.has('rival-downed'),false);
+  tick(100);assert.equal(session.rival.mode,'recover');
+  session.rival.enter('rival-rise',now());tick(50);
+  assert.equal(actor().presentationRecovery,null);
+  assert.ok(session.director.facts.has('rival-first-recovered'));assert.equal(session.director.facts.has('rival-recovered'),false);
+  session.rival.enter('rival-real-duel',now());assert.equal(session.rival.mode,'duel','back in the fight');
+  session.rival.beginRecovery(now());assert.equal(session.rival.knockdowns,2);assert.equal(session.rival.mode,'recover');
+  host.close();
+});
+
 test('a living knockdown preserves learner movement, uses no corpse, holds him down for his line, then he walks off',()=>{
   const {host,session,tick,actor,now}=fixture();
   session.stage('real-duel');session.director.resumeAt('real-duel');
   const start={...host.player.position},rivalStart={...actor().position};
+  // (the second knockdown: the one he goes off after)
+  session.rival.knockdowns=1;
   session.rival.beginRecovery(now());
   assert.equal(actor().alive,true);assert.ok(actor().presentationRecovery);
   assert.equal(session.director.facts.has('rival-recovery-started'),true);

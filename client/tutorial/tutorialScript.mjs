@@ -200,8 +200,8 @@ const segments = [
   },
   {
     id: 'real-duel', chapter: 'duel', permissions: GUARD, checkpoint: true, presentation: 'reactive',
-    entryCondition: 'health-settled', completionCue: 'duel-damage-threshold',
-    scene: { enter: 'rival-idle', checkpoint: 'duel', gates: ['rival-attack-started', 'duel-damage-threshold'] },
+    entryCondition: 'health-settled', completionCue: 'duel-first-knockdown',
+    scene: { enter: 'rival-idle', checkpoint: 'duel', gates: ['rival-attack-started', 'duel-first-knockdown'] },
     beats: [
       { id: 'well', speaker: 'rival', line: 'Well.' },
       { id: 'duel-onset', kind: 'stage', advanceOn: 'rival-attack-started', stageCue: 'rival-attack',
@@ -209,16 +209,46 @@ const segments = [
       { id: 'plans-change', speaker: 'rival', line: 'Things do not always go according to plan.',
         performanceCue: Object.freeze({ at: 'onset', action: 'rival-attack', stageBeat: 'duel-onset', precedingBeat: 'well' }) },
       { id: 'indeed', speaker: 'narrator', line: 'Indeed.' },
+      // (the fight goes on; the boast is had once he has taken some real punishment, and he does not go down until
+      // he has made it: the blow after "...not feel like it yet!" that has earned it brings him down)
+      { id: 'duel-midway', kind: 'stage', advanceOn: 'duel-damage-midway', stageCue: 'rival-real-duel',
+        direction: 'Responsive ordinary combat until Rival has taken real punishment.' },
+      { id: 'taking-a-while', speaker: 'spellblade', line: 'You are taking a while to go down!' },
+      { id: 'not-yet', speaker: 'rival', line: 'Haha! I do not feel like it yet!' },
+      { id: 'informative', skipWhen: 'duel-first-knockdown', speaker: 'narrator', line: 'How informative.' },
+      { id: 'first-knockdown', kind: 'stage', advanceOn: 'duel-first-knockdown', stageCue: 'rival-real-duel',
+        direction: 'Observe cumulative legitimate Rival damage: the blow that has earned it, once he has boasted, knocks him down.' },
+    ],
+  },
+  {
+    // Down for the first time, he is asked about it; he gets up as he answers (his health has come back meanwhile, by
+    // the ordinary rule), and the fight is on again.
+    id: 'duel-constitution', chapter: 'duel', permissions: GUARD, presentation: 'reactive',
+    entryCondition: 'duel-first-knockdown', completionCue: 'rival-first-recovered',
+    scene: { checkpoint: 'duel', gates: ['rival-first-downed', 'rival-first-recovered'] },
+    beats: [
+      { id: 'rival-first-downed', kind: 'stage', advanceOn: 'rival-first-downed',
+        direction: 'The legitimate blow puts Rival on the ground: a real, temporary knockdown.' },
+      { id: 'what-condition', speaker: 'narrator', line: 'Perhaps his armor is better tailored than yours. What is his condition?' },
+      { id: 'current-constitution', speaker: 'spellblade', line: 'What is your current constitution!?' },
+      // (he begins to get up on "...has been amended": the pause after "My constitution..." in the take)
+      { id: 'constitution-amended', speaker: 'rival', line: 'My constitution... has been amended many times.',
+        stageDuring: Object.freeze({ cue: 'rival-rise', atSec: 1.15 }) },
+      { id: 'cannot-settled', speaker: 'narrator', line: 'Ah... then it appears it cannot be settled.' },
+      { id: 'rival-first-rising', kind: 'stage', advanceOn: 'rival-first-recovered', stageCue: 'rival-rise',
+        direction: 'Rival is back on his feet.' },
+    ],
+  },
+  {
+    // Up again, he comes at the Spellblade again, and terms are discussed mid-fight; down he goes for good only once
+    // they have been (the blow that has earned it, after "Prevent this arrangement.").
+    id: 'duel-arrangement', chapter: 'duel', permissions: GUARD, presentation: 'reactive',
+    entryCondition: 'rival-first-recovered', completionCue: 'duel-damage-threshold',
+    scene: { enter: 'rival-real-duel', checkpoint: 'duel', gates: ['duel-damage-threshold'] },
+    beats: [
       { id: 'strike-you-first', speaker: 'spellblade', line: 'If I strike you down first, will you cease attacking me?' },
       { id: 'depends-go-down', speaker: 'rival', line: 'That depends, if you go down, I will cease as well' },
       { id: 'prevent-arrangement', speaker: 'narrator', line: 'Prevent this arrangement.' },
-      // (the banter is had mid-fight, once he has taken some real punishment; the blow that brings him down is
-      // answered at once, so a fight won before the banter is over leaves the rest of it unsaid)
-      { id: 'duel-midway', kind: 'stage', advanceOn: 'duel-damage-midway', stageCue: 'rival-real-duel',
-        direction: 'Responsive ordinary combat until Rival has taken real punishment.' },
-      { id: 'taking-a-while', skipWhen: 'duel-damage-threshold', speaker: 'spellblade', line: 'You are taking a while to go down!' },
-      { id: 'not-yet', skipWhen: 'duel-damage-threshold', speaker: 'rival', line: 'Haha! I do not feel like it yet!' },
-      { id: 'informative', skipWhen: 'duel-damage-threshold', speaker: 'narrator', line: 'How informative.' },
       { id: 'real-duel', kind: 'stage', advanceOn: 'duel-damage-threshold', stageCue: 'rival-real-duel',
         direction: 'Observe cumulative legitimate Rival damage during responsive ordinary combat.' },
     ],
@@ -612,10 +642,7 @@ const branchDeclarations = {
       { id: 'not-strange', exchange: 'constitution-strange', replyGroup: 'constitution-correction', speaker: 'spellblade', line: 'No I am not!', pauseAfterSec: .15 },
       { id: 'not-fallen', exchange: 'constitution-strange', replyGroup: 'constitution-correction', speaker: 'narrator', line: 'Your rival appears not to have fallen yet.' },
       { id: 'thank-noticing', exchange: 'constitution-strange', speaker: 'rival', line: 'Thank you for noticing!!' },
-      { id: 'what-condition', exchange: 'constitution-condition', speaker: 'narrator', line: 'Perhaps his armor is better tailored than yours. What is his condition?' },
-      { id: 'current-constitution', exchange: 'constitution-condition', speaker: 'spellblade', line: 'What is your current constitution!?' },
-      { id: 'constitution-amended', exchange: 'constitution-condition', speaker: 'rival', line: 'My constitution... has been amended many times.' },
-      { id: 'cannot-settled', exchange: 'constitution-condition', speaker: 'narrator', line: 'Ah... then it appears it cannot be settled.' },
+      // (his condition was asked after at the first duel's knockdown: the pursuit only notices he has not fallen)
     ],
   },
   // (until: an aside not yet begun is dropped once this has happened: after the hit, a miss is no longer news)

@@ -58,8 +58,9 @@ function incomingStrike(player, now) {
 
 // Decision quality only. Health, contacts, movement, stamina and cooldowns remain ordinary.
 export const TUTORIAL_RIVAL_POLICIES = Object.freeze({
+  // (he never backs off to heal: the duel stays where it is, and his recoveries are its knockdowns)
   duel: Object.freeze({ ...BOT_SKILLS.squire, reaction: [.4, .2], spacing: .2, yields: true,
-    retreat: 18, guard: .85, punish: .12, mistakes: .15, chain: [1.25, .4] }),
+    retreat: 0, guard: .85, punish: .12, mistakes: .15, chain: [1.25, .4] }),
   // the final Rival has learned: he fights as the game's Champion does (quicker to answer, keeps his distance, times
   // Guards into Parries, punishes an opening, never swings from out of reach). Decisions only: his health, damage and
   // cooldowns are a knight's. He holds his door rather than backing off to heal.
@@ -88,7 +89,7 @@ export class TutorialRival {
     this.enteredAt = 0; this.lastStepAt = null; this.sprintReactionAt = null; this.sprintWanted = false;
     this.dashReactionAt = null; this.previousGap = null; this.guardOpeningUntil = -Infinity; this.prideAt = null;
     this.jumpWaiting = false;
-    this.recoveryAt = null; this.risingAt = null;
+    this.recoveryAt = null; this.risingAt = null; this.knockdowns = 0;
     this.parryRaisedAt = null;
     this.counterAt = null; this.lastCounterAt = -Infinity; this.lastBlockedAt = -Infinity; this.lastPlayerCastAt = -Infinity;
     this.jumped = false; this.deadEndCrossed = false;
@@ -119,7 +120,7 @@ export class TutorialRival {
   }
   beginRecovery(now) {
     if (this.recoveryAt !== null || !this.actor?.alive) return;
-    this.recoveryAt = now;
+    this.recoveryAt = now; this.knockdowns += 1;
     this.mode = 'recover'; this.enteredAt = now; this.risingAt = null;
     cancelAttack(this.room,this.actor.id,now); setGuard(this.room,this.actor.id,false,now);
     this.actor.ai = null;
@@ -448,10 +449,12 @@ export class TutorialRival {
       this.inputToward(player.position,0);
       const recovery = actor.presentationRecovery;
       if(!recovery || now-recovery.at>=recovery.duration) {
-        // (on his feet first: the fact moves the scene on, and its next cue must find him standing)
+        // (on his feet first: the fact moves the scene on, and its next cue must find him standing). Up from the
+        // first duel's first knockdown, the fight is not over: he can be fought, and knocked down, again
         this.actor.presentationRecovery=null;
         this.mode='idle'; this.enteredAt=now;
-        this.session.director.fact('rival-recovered');
+        if (this.knockdowns === 1) { this.recoveryAt = null; this.risingAt = null; this.session.director.fact('rival-first-recovered'); }
+        else this.session.director.fact('rival-recovered');
       }
       return;
     }

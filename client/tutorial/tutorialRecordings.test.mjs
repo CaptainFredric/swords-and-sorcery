@@ -44,7 +44,7 @@ test('all established recording keys survive the full route and generated plan m
   assert.ok(plan.every(take => ['narrator', 'spellblade', 'rival'].includes(take.speaker)));
   assert.deepEqual(plan.filter(take => take.optionalBranch).map(take => take.beatId), [
     'frolic-fields', 'remembering-move', 'constitution-strange', 'not-strange', 'not-fallen',
-    'thank-noticing', 'what-condition', 'current-constitution', 'constitution-amended', 'cannot-settled',
+    'thank-noticing',
     'rival-over-there', 'scorch-mark', 'bridge-senses-failure', 'hence-i-crossed', 'permission-stop', 'no-longer-ruin', 'permission-no', 'then-no',
     'burn-subsided', 'reforged', 'not-too-many', 'fight-yourself', 'already-told', 'feelings-health',
   ]);
