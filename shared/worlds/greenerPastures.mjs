@@ -28,6 +28,27 @@ const ENTRANCE = point('complaint-entrance', 36, -1076);
 // movement and stamina are unchanged). Its ways through are the gateways' centres.
 const OPENING_PATH = Object.freeze([PLAYER, point('opening-gate-a', 68, 168), point('opening-gate-b', -68, 110),
   point('opening-gate-c', 68, 52), MEETING]);
+// The mill lane, between the sheepfold and the broken bridge: the field is walled across (1.7 m: no Jump clears it)
+// but for a hedged lane run through with things to be jumped, one after another: a felled trunk, a row of bales, a hay
+// wain backed against a tall fence (onto the wain, then over), and the mill brook, too wide for a running Jump (run:
+// 6.0 m in the air; Sprint: 8.8 m): Sprint, then Jump. A short jump is a wade back up the cattle ford on the near
+// side. The wall's far western end is open: the long way round, at a run, as every obstacle here has one.
+// Spaced so that every landing, at a run or a Sprint, leaves a fair takeoff for the next (faces >= 8.5 m apart); the
+// brook is 6.8 m: a running Jump falls short from anywhere, a Sprint-Jump clears it from up to 2 m back; off the wain,
+// seven metres to get a Sprint going for it.
+const MILL_LANE = Object.freeze({
+  minX: 19, maxX: 33, centerX: 26,
+  entryZ: -533, exitZ: -580.8,
+  wall: Object.freeze({ z: -533, height: 1.7, thickness: 0.7, gapMinX: -84.4, gapMaxX: -78 }),
+  log: Object.freeze({ minZ: -537.9, maxZ: -537, height: 0.75 }),
+  bales: Object.freeze({ minZ: -547.4, maxZ: -546, height: 0.95 }),
+  // the wain's bed (a floor) reaches a little past its body at the tail: one lands on the tailboard
+  wain: Object.freeze({ minX: 24.3, maxX: 27.7, minZ: -559.4, maxZ: -555, bodyMaxZ: -555.6, height: 1.25 }),
+  fence: Object.freeze({ minZ: -559.7, maxZ: -559.4, height: 1.75 }),
+  brook: Object.freeze({ minZ: -580.8, maxZ: -574, bed: -2.2, water: -1.85 }),
+  ford: Object.freeze({ minX: 29.4, maxX: 33 }),
+});
+
 // The apparent way out: a closed field gate in the western hedgerow under a sign, LEAVE GREENER PASTURES.
 const EXIT = point('exit', -80, 10, -Math.PI / 2);
 const CHASE = Object.freeze([
@@ -42,7 +63,8 @@ const CHASE = Object.freeze([
   point('sheepfold', 15, -486),
   point('dead-end-approach',15,-514), point('dead-end-takeoff',15,-516.8),
   point('dead-end-landing',15,-523.2), point('dead-end-exit',15,-530),
-  point('bridge-approach', 32, -572),
+  point('mill-lane-entry', MILL_LANE.centerX, MILL_LANE.entryZ + 1.5), point('mill-lane-exit', MILL_LANE.centerX, MILL_LANE.exitZ - 1.8),
+  point('bridge-approach', 32, -586),
   BRIDGE_TAKEOFF,
   BRIDGE_LANDING,
   point('far-bank', 32, -693),
@@ -94,6 +116,7 @@ export const GREENER_ROUTE = Object.freeze({
     obstacleBounds: Object.freeze({minX:5,maxX:25,minZ:-520.375,maxZ:-519.625,minY:0,maxY:.8}),
     detour: point('dead-end-side-gate',26,-520),
   }),
+  millLane: MILL_LANE,
   bridge: Object.freeze({
     centerX: 32,
     width: 12,
@@ -140,7 +163,7 @@ export const GREENER_ROUTE = Object.freeze({
     pursuit: point('pursuit-checkpoint', 12, -38),
     jump: JUMP_APPROACH,
     fireball: point('fireball-checkpoint', -44, -312),
-    bridge: point('bridge-checkpoint', 32, -572),
+    bridge: point('bridge-checkpoint', 32, -586),
     counterfire: point('counterfire-checkpoint', 30, -698),
     complaint: point('complaint-checkpoint', 32, -990),
     final: point('final-checkpoint', 36, -1061),
@@ -183,7 +206,13 @@ const FLOORS = Object.freeze([
   floor('opening-meadow', -85, 100, 40, 245),
   floor('meeting-meadow', -85, 100, -35, 40),
   floor('fireball-meadow', -85, 100, -205, -35),
-  floor('bridge-meadow', -85, 100, -641, -205),
+  floor('bridge-meadow', -85, 100, MILL_LANE.brook.maxZ, -205),
+  // (the meadow is open for the mill brook across the lane; its bed lies 2.2 m down)
+  floor('mill-brook-west', -85, MILL_LANE.minX, MILL_LANE.brook.minZ, MILL_LANE.brook.maxZ),
+  floor('mill-brook-east', MILL_LANE.maxX, 100, MILL_LANE.brook.minZ, MILL_LANE.brook.maxZ),
+  floor('bridge-meadow-south', -85, 100, -641, MILL_LANE.brook.minZ),
+  floor('mill-brook-bed', MILL_LANE.minX, MILL_LANE.ford.minX, MILL_LANE.brook.minZ, MILL_LANE.brook.maxZ, 'earth', MILL_LANE.brook.bed),
+  floor('mill-wain-bed', MILL_LANE.wain.minX, MILL_LANE.wain.maxX, MILL_LANE.wain.minZ, MILL_LANE.wain.maxZ, 'wood', MILL_LANE.wain.height),
   floor('bridge-bank-west', -85, 26, -661, -641),
   floor('bridge-bank-east', 38, 100, -661, -641),
   floor('bridge-north-deck', 26, 38, -663, -653, 'stone', 2),
@@ -203,6 +232,9 @@ const FLOORS = Object.freeze([
 
 const RAMPS = Object.freeze([
   Object.freeze({ id: 'bridge-north-ramp', minX: 26, maxX: 38, minZ: -653, maxZ: -641, axis: 'z', startY: 2, endY: 0, material: 'stone' }),
+  // the cattle ford: up out of the mill brook, back to its near bank
+  Object.freeze({ id: 'mill-ford', minX: MILL_LANE.ford.minX, maxX: MILL_LANE.ford.maxX, minZ: MILL_LANE.brook.minZ, maxZ: MILL_LANE.brook.maxZ,
+    axis: 'z', startY: MILL_LANE.brook.bed, endY: 0, material: 'earth' }),
 ]);
 
 // One staggered field boundary across the opening, west to east at about z, leaving one gateway [gate0, gate1]:
@@ -226,6 +258,26 @@ const OPENING_BARRIERS = Object.freeze([
 // stone gateposts mark each way through
 const OPENING_GATEPOSTS = Object.freeze([[168, 61, 75], [110, -75, -61], [52, 61, 75]].flatMap(([z, a, b], i) => [a, b].map((x, side) =>
   solid(`opening-gatepost-${i}-${side}`, [x + (side ? 0.45 : -0.45), 0.9, z], [0.9, 1.8, 0.9], 'gatepost'))));
+
+const L = MILL_LANE, span = (a, b) => [(a + b) / 2, b - a];
+const MILL_LANE_SOLIDS = Object.freeze([
+  // the wall across the field (its far western end open), and the lane's hedges, down past the brook
+  solid('mill-wall-west', [span(L.wall.gapMaxX, L.minX - 0.6)[0], L.wall.height / 2, L.wall.z], [span(L.wall.gapMaxX, L.minX - 0.6)[1], L.wall.height, L.wall.thickness]),
+  solid('mill-wall-east', [span(L.maxX + 0.6, 99.4)[0], L.wall.height / 2, L.wall.z], [span(L.maxX + 0.6, 99.4)[1], L.wall.height, L.wall.thickness]),
+  solid('mill-lane-west-hedge', [L.minX - 0.3, 1.1, span(L.brook.minZ - 0.4, L.wall.z + 0.35)[0]], [0.6, 2.2, span(L.brook.minZ - 0.4, L.wall.z + 0.35)[1]], 'hedge', 'hedge'),
+  solid('mill-lane-east-hedge', [L.maxX + 0.3, 1.1, span(L.brook.minZ - 0.4, L.wall.z + 0.35)[0]], [0.6, 2.2, span(L.brook.minZ - 0.4, L.wall.z + 0.35)[1]], 'hedge', 'hedge'),
+  // the things to be jumped
+  solid('mill-log', [L.centerX, L.log.height / 2, span(L.log.minZ, L.log.maxZ)[0]], [L.maxX - L.minX, L.log.height, span(L.log.minZ, L.log.maxZ)[1]], 'mill-log', 'timber'),
+  solid('mill-bales', [L.centerX, L.bales.height / 2, span(L.bales.minZ, L.bales.maxZ)[0]], [L.maxX - L.minX, L.bales.height, span(L.bales.minZ, L.bales.maxZ)[1]], 'mill-bales', 'thatch'),
+  solid('mill-wain', [span(L.wain.minX, L.wain.maxX)[0], L.wain.height / 2, span(L.wain.minZ, L.wain.bodyMaxZ)[0]],
+    [span(L.wain.minX, L.wain.maxX)[1], L.wain.height, span(L.wain.minZ, L.wain.bodyMaxZ)[1]], 'mill-wain', 'timber'),
+  solid('mill-fence', [L.centerX, L.fence.height / 2, span(L.fence.minZ, L.fence.maxZ)[0]], [L.maxX - L.minX, L.fence.height, span(L.fence.minZ, L.fence.maxZ)[1]], 'mill-fence', 'timber'),
+  // the brook's banks, below the field: a body in the brook stays in it (but for the ford, which comes up the near bank)
+  solid('mill-bank-north', [span(L.minX, L.ford.minX)[0], L.brook.bed / 2 - 0.1, L.brook.maxZ + 0.2], [span(L.minX, L.ford.minX)[1], -L.brook.bed + 0.2, 0.4], 'mill-bank', 'earth'),
+  solid('mill-bank-south', [L.centerX, L.brook.bed / 2 - 0.1, L.brook.minZ - 0.2], [L.maxX - L.minX + 0.8, -L.brook.bed + 0.2, 0.4], 'mill-bank', 'earth'),
+  solid('mill-bank-west', [L.minX - 0.2, L.brook.bed / 2 - 0.1, span(L.brook.minZ, L.brook.maxZ)[0]], [0.4, -L.brook.bed + 0.2, span(L.brook.minZ, L.brook.maxZ)[1]], 'mill-bank', 'earth'),
+  solid('mill-bank-east', [L.maxX + 0.2, L.brook.bed / 2 - 0.1, span(L.brook.minZ, L.brook.maxZ)[0]], [0.4, -L.brook.bed + 0.2, span(L.brook.minZ, L.brook.maxZ)[1]], 'mill-bank', 'earth'),
+]);
 
 const SOLIDS = Object.freeze([
   // (the western hedgerow is broken once, for the exit's field gate)
@@ -274,6 +326,7 @@ const SOLIDS = Object.freeze([
   solid('sheepfold-gate-west', [-36, 0.55, -467], [14, 1.1, 0.7]),
   solid('sheepfold-gate-east', [-15, 0.55, -467], [8, 1.1, 0.7]),
   solid('far-field-wall', [-53, 0.85, -332], [28, 1.7, 0.7]),
+  ...MILL_LANE_SOLIDS,
   solid('counterfire-west-hedge', [-56, 1.1, -859], [1.1, 2.2, 84], 'hedge', 'hedge'),
   solid('counterfire-east-wall', [60, 0.85, -853], [0.7, 1.7, 66]),
   solid('complaint-field-wall', [-30, 0.85, -940], [36, 1.7, 0.7]),
@@ -332,12 +385,15 @@ for (let z = 232; z > GREENER_ROUTE.bounds.minZ + 5; z -= 16) {
       && item.center[1] + item.size[1] / 2 > y + 0.01
       && Math.abs(x - item.center[0]) < item.size[0] / 2 + 0.65
       && Math.abs(z - item.center[2]) < item.size[2] / 2 + 0.65);
-    if (!obstructed) NODES.push(point(`field-${x}-${z}`, x, z, 0, y));
+    const inLane = x > MILL_LANE.minX - 1 && x < MILL_LANE.maxX + 1 && z < MILL_LANE.wall.z + 1 && z > MILL_LANE.brook.minZ - 1;
+    if (!obstructed && !inLane) NODES.push(point(`field-${x}-${z}`, x, z, 0, y));
   }
 }
 // the opening's gateways: through each, and a few metres either side of it (the field grid misses the western one)
 for (const gate of OPENING_PATH.slice(1, -1)) for (const dz of [8, 0, -8]) NODES.push(point(`${gate.id}${dz ? (dz > 0 ? '-north' : '-south') : ''}`, gate.x, gate.z + dz));
 NODES.push(point('west-crossing-north', -68, -659), point('west-crossing', -68, -670), point('west-crossing-south', -68, -681));
+// the mill wall's open western end: the way round the lane for a body that cannot Jump
+NODES.push(point('mill-gap-north', -81.2, MILL_LANE.wall.z + 6), point('mill-gap', -81.2, MILL_LANE.wall.z), point('mill-gap-south', -81.2, MILL_LANE.wall.z - 6));
 for (const z of [-640, -647, -653, -658, -662]) NODES.push(point(`north-bridge-${z}`, 32, z, 0, navigationHeight(32, z)));
 NODES.push(point('granary-front', 68, -298), point('granary-gate', 68, -305), point('granary-court', 73, -315));
 NODES.push(point('fold-gate-north',-27,-463),point('fold-gate',-27,-467),point('fold-lane',-27,-476),point('fold-court',-26,-485));
@@ -369,6 +425,7 @@ export const GREENER_PASTURES = Object.freeze({
   navigationHints: Object.freeze([
     Object.freeze({ id: 'opening-to-meeting', from: Object.freeze([0, 0, 210]), to: Object.freeze([0, 0, -15]), kind: 'run' }),
     Object.freeze({ id: 'orchard-stile', from: Object.freeze([55, 0, -226.8]), to: Object.freeze([55, 0, -233.2]), kind: 'jump' }),
+    Object.freeze({ id: 'mill-lane', from: Object.freeze([MILL_LANE.centerX, 0, MILL_LANE.entryZ + 1.5]), to: Object.freeze([MILL_LANE.centerX, 0, MILL_LANE.exitZ - 1.8]), kind: 'jumps-and-sprint-jump' }),
     Object.freeze({ id: 'broken-span', from: Object.freeze([32, 2, -662.4]), to: Object.freeze([32, 0, -676.1]), kind: 'jump-and-airborne-dash' }),
     Object.freeze({ id: 'old-crossing', from: Object.freeze([-68, 0, -659]), to: Object.freeze([-68, 0, -681]), kind: 'run' }),
     Object.freeze({ id: 'far-bank-to-final', from: Object.freeze([32, 0, -693]), to: Object.freeze([36, 0, -1070]), kind: 'run' }),

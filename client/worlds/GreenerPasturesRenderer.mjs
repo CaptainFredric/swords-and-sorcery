@@ -176,21 +176,23 @@ export class GreenerPasturesRenderer {
     const random = seededRandom(5713);
     const batch = { ...createBatch(), interior: new FacetBuilder(), lamp: new FacetBuilder() };
     for (const floor of GREENER_PASTURES.floors) {
+      if (floor.id === 'mill-wain-bed') continue;
       if (floor.id === 'complaint-court') floorTile(batch, floor, this.decor.paths, random, officeFootprint());
       else if (floor.material === 'stone') floorTile(batch, floor, this.decor.paths, random);
       else meadowSurface(batch, floor, this.decor.paths, random);
     }
     this.#fieldPatches(batch, random);
-    for (const ramp of GREENER_PASTURES.ramps) this.#ramp(batch, ramp, random);
+    for (const ramp of GREENER_PASTURES.ramps) if (ramp.id !== 'mill-ford') this.#ramp(batch, ramp, random);
     this.groundDetail = scatterGroundDetail(batch, {
-      floors: GREENER_PASTURES.floors,
+      floors: GREENER_PASTURES.floors.filter((floor) => floor.id !== 'mill-wain-bed'),
       paths: this.decor.paths,
       solids: GREENER_PASTURES.solids,
       seed: 108,
       density: { tufts: 0.010, flowers: 0.0015, pebbles: 0.003, clearOfPaths: 1.4, clearOfSolids: 0.5, clearOfEdges: 0.6 },
     });
     for (const solid of GREENER_PASTURES.solids) {
-      if (solid.kind.startsWith('farm-') || solid.kind === 'tree' || solid.kind.startsWith('complaint-') || solid.kind.startsWith('exit-')) continue;
+      if (solid.kind.startsWith('farm-') || solid.kind === 'tree' || solid.kind.startsWith('complaint-') || solid.kind.startsWith('exit-')
+        || solid.kind.startsWith('mill-')) continue;
       if (solid.kind === 'hedge') pastureHedge(batch, random, solid);
       else if (solid.kind === 'opening-fence') farmPiece(batch, random, { kind: 'fence', center: solid.center, size: solid.size });
       else if (solid.kind === 'gatepost') gatepost(batch, random, solid);
@@ -212,6 +214,7 @@ export class GreenerPasturesRenderer {
     this.#cartLanes(batch);
     for (const item of this.decor.trees) tree(batch, random, item);
     this.#ravine(batch, random);
+    this.#millLane(batch, random);
     this.#landscape(batch, random);
     for (const item of this.decor.forest) tree(batch, random, { ...item, y: greenerBackdropMeshHeight(item.x, item.z) });
     for (const house of this.decor.houses) {
@@ -326,6 +329,98 @@ export class GreenerPasturesRenderer {
     water.name = 'greener-pastures-stream';
     water.rotation.x = -Math.PI / 2;
     water.position.set((minX + maxX) / 2, -12.25, (ravine.minZ + ravine.maxZ) / 2);
+    this.group.add(water);
+  }
+
+  // The mill lane (GREENER_ROUTE.millLane): the felled trunk, the row of bales, the hay wain backed against its tall
+  // fence, and the mill brook, a stone-lined race with water in it and a cobbled cattle ford up its near bank. The wall
+  // across the field and the lane's hedges are ordinary field boundaries, drawn with the rest.
+  #millLane(batch, random) {
+    const L = GREENER_ROUTE.millLane;
+    // a face turned outward, whatever order its corners came in
+    const facing = (builder, points, outward, color) => {
+      const [a, b, , d] = points;
+      const u = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], v = [d[0] - a[0], d[1] - a[1], d[2] - a[2]];
+      const n = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]];
+      const ordered = n[0] * outward[0] + n[1] * outward[1] + n[2] * outward[2] >= 0 ? points : [...points].reverse();
+      builder.quad(...ordered, color);
+    };
+    // the felled trunk: eight-sided, lying across the lane, bark darkening toward the ground, its sawn ends pale
+    const ry = L.log.height / 2, rz = (L.log.maxZ - L.log.minZ) / 2, cz = (L.log.minZ + L.log.maxZ) / 2, sides = 8;
+    const ring = (x, k) => { const t = (k / sides) * Math.PI * 2; return [x, ry + Math.sin(t) * ry, cz + Math.cos(t) * rz]; };
+    for (let k = 0; k < sides; k += 1) {
+      const mid = ((k + .5) / sides) * Math.PI * 2;
+      const tone = shadeColor(P.timberDark, 0.78 + (Math.sin(mid) + 1) * 0.16 + random() * 0.06);
+      for (let x = L.minX; x < L.maxX; x += 3.5) {
+        const end = Math.min(L.maxX, x + 3.5);
+        facing(batch.wood, [ring(x, k), ring(end, k), ring(end, k + 1), ring(x, k + 1)], [0, Math.sin(mid), Math.cos(mid)], tone);
+      }
+    }
+    for (const [x, out] of [[L.minX, -1], [L.maxX, 1]]) {
+      for (let k = 0; k < sides; k += 1) {
+        const [a, b] = [ring(x, k), ring(x, k + 1)];
+        const pts = out > 0 ? [[x, ry, cz], a, b] : [[x, ry, cz], b, a];
+        batch.wood.tri(...pts, shadeColor(P.timber, 1.18));
+      }
+    }
+    for (const [x, up] of [[L.minX + 3.2, .7], [L.maxX - 4.6, .55]]) {
+      batch.wood.prism({ cx: x, cy: ry * 1.6, cz: cz - .1, radiusBottom: .12, radiusTop: .07, height: up, sides: 5, color: P.timberDark, rand: random });
+    }
+    // the bales: a row of them, each its own, two cords round it; one or two a little out of line
+    const count = 9, width = (L.maxX - L.minX) / count, bz = (L.bales.minZ + L.bales.maxZ) / 2, depth = L.bales.maxZ - L.bales.minZ;
+    for (let i = 0; i < count; i += 1) {
+      const cx = L.minX + width * (i + .5), h = L.bales.height - random() * .06, dz = (random() - .5) * .18;
+      batch.foliage.block({ cx, cy: 0, cz: bz + dz, sx: width - .07, sy: h, sz: depth - Math.abs(dz) * 2, color: shadeColor(P.thatch, .88 + random() * .2), rand: random, chamfer: .08, jitter: .03 });
+      for (const side of [-1, 1]) batch.wood.block({ cx: cx + side * width * .26, cy: 0, cz: bz + dz, sx: .05, sy: h + .02, sz: depth - Math.abs(dz) * 2 + .03, color: 0x7d7145, rand: random, chamfer: 0, jitter: 0 });
+    }
+    // the hay wain, backed against the fence: its bed (the floor one stands on) a little proud of its body at the tail
+    const wx = (L.wain.minX + L.wain.maxX) / 2, wz = (L.wain.minZ + L.wain.maxZ) / 2;
+    farmPiece(batch, random, { kind: 'cart', center: [wx, L.wain.height / 2, (L.wain.minZ + L.wain.bodyMaxZ) / 2], size: [L.wain.maxX - L.wain.minX, L.wain.height, L.wain.bodyMaxZ - L.wain.minZ] });
+    batch.wood.block({ cx: wx, cy: L.wain.height - .12, cz: wz, sx: L.wain.maxX - L.wain.minX + .06, sy: .12, sz: L.wain.maxZ - L.wain.minZ, color: P.timber, rand: random, chamfer: .02, jitter: 0 });
+    for (let x = L.wain.minX + .4; x < L.wain.maxX - .2; x += .55) batch.wood.block({ cx: x, cy: L.wain.height - .005, cz: wz, sx: .04, sy: .012, sz: L.wain.maxZ - L.wain.minZ - .1, color: P.timberDark, rand: random, chamfer: 0, jitter: 0 });
+    // the tall fence across the lane: too tall to be jumped from the ground, four rails, posts every metre and three quarters
+    const fz = (L.fence.minZ + L.fence.maxZ) / 2;
+    for (let x = L.minX + .1; x <= L.maxX - .05; x += (L.maxX - L.minX - .2) / 8) {
+      batch.wood.block({ cx: x, cy: 0, cz: fz, sx: .17, sy: L.fence.height + .05, sz: .17, color: P.timberDark, rand: random, chamfer: .03, jitter: .01 });
+    }
+    for (const h of [.35, .8, 1.25, L.fence.height - .14]) batch.wood.block({ cx: (L.minX + L.maxX) / 2, cy: h, cz: fz, sx: L.maxX - L.minX, sy: .11, sz: .1, color: shadeColor(P.timber, .9 + random() * .15), rand: random, chamfer: 0, jitter: 0 });
+    // the mill brook: courses of dressed stone down its walls, a dark bed, water standing in it, a cobbled ford
+    const { minZ, maxZ, bed, water: surface } = L.brook;
+    const course = (-bed) / 3;
+    for (let row = 0; row < 3; row += 1) {
+      const y0 = bed + row * course;
+      for (const [z, face] of [[maxZ, -1], [minZ, 1]]) {
+        const right = face < 0 ? L.ford.minX : L.maxX;
+        for (let x = L.minX; x < right - .05; x += 1.15) {
+          const len = Math.min(1.15, right - x);
+          batch.stone.block({ cx: x + len / 2, cy: y0, cz: z - face * .2, sx: len - .03, sy: course - .03, sz: .4, color: shadeColor(P.stone, .74 + random() * .2), rand: random, chamfer: .04, jitter: .01 });
+        }
+      }
+      for (const x of [L.minX, L.maxX]) {
+        for (let z = minZ; z < maxZ - .05; z += 1.15) {
+          const len = Math.min(1.15, maxZ - z);
+          batch.stone.block({ cx: x + (x === L.minX ? -.2 : .2), cy: y0, cz: z + len / 2, sx: .4, sy: course - .03, sz: len - .03, color: shadeColor(P.stone, .74 + random() * .2), rand: random, chamfer: .04, jitter: .01 });
+        }
+      }
+    }
+    // (copings flush with the field at the lip, so the edge reads from a run)
+    for (const [z, right] of [[maxZ + .2, L.ford.minX], [minZ - .2, L.maxX]]) batch.stone.block({ cx: (L.minX + right) / 2, cy: -.06, cz: z, sx: right - L.minX, sy: .08, sz: .42, color: P.stoneLight, rand: random, chamfer: .02, jitter: 0 });
+    const strips = Math.ceil((maxZ - minZ) / .9);
+    for (let i = 0; i < strips; i += 1) {
+      const z0 = minZ + (maxZ - minZ) * i / strips, z1 = minZ + (maxZ - minZ) * (i + 1) / strips;
+      const y0 = bed + (0 - bed) * i / strips, y1 = bed + (0 - bed) * (i + 1) / strips;
+      facing(batch.ground, [[L.ford.minX, y0, z0], [L.ford.minX, y1, z1], [L.ford.maxX, y1, z1], [L.ford.maxX, y0, z0]], [0, 1, 0], shadeColor(P.paving, .8 + random() * .16));
+    }
+    // the ford's open side above the bed
+    for (let i = 0; i < strips; i += 1) {
+      const z0 = minZ + (maxZ - minZ) * i / strips, z1 = minZ + (maxZ - minZ) * (i + 1) / strips;
+      const y1 = bed + (0 - bed) * (i + 1) / strips, y0 = bed + (0 - bed) * i / strips;
+      facing(batch.stone, [[L.ford.minX, bed, z0], [L.ford.minX, bed, z1], [L.ford.minX, y1, z1], [L.ford.minX, y0, z0]], [-1, 0, 0], P.stoneDark);
+    }
+    const water = new THREE.Mesh(new THREE.PlaneGeometry(L.ford.minX - L.minX, maxZ - minZ), new THREE.MeshStandardMaterial({ color: 0x5f8790, roughness: 0.32, metalness: 0.06, transparent: true, opacity: 0.8 }));
+    water.name = 'greener-pastures-mill-brook';
+    water.rotation.x = -Math.PI / 2;
+    water.position.set((L.minX + L.ford.minX) / 2, surface, (minZ + maxZ) / 2);
     this.group.add(water);
   }
 

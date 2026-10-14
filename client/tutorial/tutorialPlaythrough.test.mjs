@@ -2,11 +2,13 @@ import { LocalHost } from '../network/LocalHost.mjs';
 import { TutorialSession } from './TutorialSession.mjs';
 import { GREENER_ROUTE, greenerOpeningProgress } from '../../shared/worlds/greenerPastures.mjs';
 import { SWORD_STRIKE_TIMES } from '../../shared/src/combat.mjs';
+import { inMillLane, millLaneStep } from '../../shared/worlds/greenerParkour.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
 function playthrough({ missFirst = false, omitSegments = [] } = {}) {
   let now = 10, seq = 0, lastBeat = '', lastAttack = -10, lastCast = -10, missed = false, missUntil = -Infinity;
+  const laneMind = {};
   const host = new LocalHost({ now: () => now, every: () => 1, cancel: () => {}, later: () => {} });
   host.startTutorial('You');
   let seed = 123456;
@@ -65,6 +67,8 @@ function playthrough({ missFirst = false, omitSegments = [] } = {}) {
       }
       yaw = Math.atan2(-dx, -dz); forward = dist > (target === bridge.dashStart || target === stile.takeoff || target === wall.takeoff ? .1 : 1.8) ? 1 : 0; sprint = dist > 10;
       if (['counterfire', 'complaint'].includes(session.rival.mode)) right = Math.cos(now * 2.8) * .8;
+      // the mill lane: its line, as a player who has learned Jump takes it (a Sprint-Jump for the brook)
+      if (inMillLane(p.position)) { const step = millLaneStep(p, laneMind); if (!step.done) ({ yaw, forward, sprint, jump } = step); }
       if (p.position.z <= bridge.dashStart.z + 1 && p.position.z > bridge.gapBounds.minZ) {
         yaw = 0; sprint = true;
         if (session.allows('dash',false)) {
