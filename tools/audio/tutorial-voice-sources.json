@@ -66,16 +66,11 @@
       "speaker": "spellblade",
       "key": "tutorial.look-ah",
       "status": "mapped",
-      "repairs": [
-        {
-          "kind": "excise",
-          "span": [
-            0.675,
-            0.83
-          ],
-          "why": "The voice breaks in the middle of the \"Ah...\": a creak, then an aperiodic break with a 40 ms flip up an octave (about 330 Hz, 0.74-0.79 s), steady voice again from 0.83 s; every pitch change turned the flip into a stray note (creator, 2026-10-12). The break is cut out and the voice joined cycle to cycle either side of it: only the performance, nothing made or repeated; the take is 0.16 s shorter. Two earlier repairs were heard as glitches: a WORLD mend (a machine-steady vowel) and a splice (the take's own cycles played back and forth to fill the gap, a stutter) (creator, 2026-10-12/13)."
-        }
-      ]
+      "chain": {
+        "preset": "forged-helm-held-2026-10-13",
+        "pitchEngine": "rubberband",
+        "why": "The whole take, nothing cut or made (since 2026-10-13). The voice breaks in the middle of the \"Ah...\" (a creak, 0.65-0.79 s, steady voice either side). Every repair was heard: a WORLD mend as a machine-steady vowel, a splice (the take's own cycles played back and forth) as a stutter, and the excise (the break cut out, the two sides joined) as \"still a spliced together sound, or glitched out a little\": its master had a 425 Hz stray point at the join (creator, 2026-10-12/13). The break was only ever a stray note because the pitch engines read the creak as one: through the held preset with Rubber Band (no pitch marks) the creak stays the voice's own, 98-149 Hz throughout, no stray note."
+      }
     },
     {
       "raw": "drive-download-20261012T044301Z-1-001/StillNothing.mp3",
@@ -600,7 +595,16 @@
       "sha256": "8f330fadebf7da49303408fb2d32df5b40e6e8ecc0742bfd3854fb587e505db1",
       "speaker": "rival",
       "key": "tutorial.minor-obstacle-gloat",
-      "status": "mapped"
+      "status": "dropped",
+      "note": "Replaced (2026-10-13) by loose-2026-10-13/AhHahaYouCannotOvercome(real).mp3, which the creator sent as \"wrong mp3, whoops, here\". The raw take kept."
+    },
+    {
+      "raw": "loose-2026-10-13/AhHahaYouCannotOvercome(real).mp3",
+      "sha256": "5cbb17e03b09445ffde38677a064996eb7c5fd649e9fef3ff1f9718b244f7af3",
+      "speaker": "rival",
+      "key": "tutorial.minor-obstacle-gloat",
+      "status": "inferred",
+      "note": "Its name's \"(real)\" and \"wrong mp3, whoops, here\" (creator, 2026-10-13): the take this line was meant to have. Same words as the line."
     },
     {
       "raw": "drive-download-20261012T044301Z-1-001/WhatShouldDo.mp3",
@@ -943,7 +947,16 @@
       "sha256": "cc020885cb2ac55f945c1beaf41d0ba2ebc64f19506b7aac9f70aef6066699c4",
       "speaker": "rival",
       "key": "tutorial.not-part-terms",
-      "status": "mapped"
+      "status": "dropped",
+      "note": "Replaced by the creator (2026-10-13) with loose-2026-10-13/ThatWasNotPartTerm.mp3 (\"replace that was not part of the terms voiceline with this one... This one is for rival\"). The raw take kept."
+    },
+    {
+      "raw": "loose-2026-10-13/ThatWasNotPartTerm.mp3",
+      "sha256": "24b8d052828902ccf5232de447236fc9f2b063e862933319b1124e23ed2e4796",
+      "speaker": "rival",
+      "key": "tutorial.not-part-terms",
+      "status": "mapped",
+      "note": "Supplied on its own (Downloads, 2026-10-13); processed as the Rival's other lines."
     },
     {
       "raw": "drive-download-20261012T063557Z-1-001/ThisSeemsScriptedAgaimstYou.mp3",
@@ -971,7 +984,13 @@
       "sha256": "3de6dc0368ef75f229b754f3bc20dfa2dd1288abb1b65dc048afb699288fc058",
       "speaker": "spellblade",
       "key": "tutorial.i-am",
-      "status": "mapped"
+      "status": "mapped",
+      "chain": {
+        "preset": "forged-helm-held-2026-10-13",
+        "pitchEngine": "rubberband",
+        "gainDb": -3,
+        "why": "Heard as \"way too warbled and glitchy and loud\" through forged-helm (creator, 2026-10-13). The take begins in creak (about 61 Hz, no harmonic structure) and flips up an octave for 80 ms (raw 0.98-1.06 s) before the rising \"am...\": PSOLA's pitch marks lost the creak (jitter 2.6 %, two pitch jumps the raw does not have) and the full helm's reflections and grit roughened the held vowel. Now the held preset (the helm at round-4 strength, 2 semitones) with Rubber Band, which needs no pitch marks: jitter 1.6 % (raw 1.9 %), the raw's own three jumps and no more; 3 dB down (it was mastered louder than the lines about it, -16.1 LUFS, from a loud take)."
+      }
     },
     {
       "raw": "drive-download-20261012T044301Z-1-001/WhatAStrangeName.mp3",
@@ -1447,6 +1466,15 @@
       "status": "duplicate",
       "sameAs": "drive-download-20261012T210814Z-1-001/TheDeadEndIsALIEve.mp3",
       "note": "Supplied again on 2026-10-13: the same file as the take used."
+    },
+    {
+      "raw": "loose-2026-10-13/GetOffHighHorse_1.mp3",
+      "sha256": "4bc95aa2330ff5de1978a2d00eac4f3d5132c1da22cd1b52320c5868dfcda880",
+      "speaker": "rival",
+      "key": null,
+      "status": "unplaced",
+      "note": "Supplied on its own (Downloads, 2026-10-13) with no line named; not in the script. The speaker is not stated (listed as Rival's: it reads as his, to the Spellblade's pride). Awaiting the creator.",
+      "words": "Get off your high horse!"
     }
   ]
 }

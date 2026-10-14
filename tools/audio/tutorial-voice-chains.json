@@ -41,6 +41,20 @@
           "deess": null,
           "formants": 0.96
         },
+        "forged-helm-held-2026-10-13": {
+          "about": "For a drawn-out, creaky take the forged helm breaks up (\"I am...\": a creaky onset and an octave flip, which the full helm and grit turned to warble and crackle; creator, 2026-10-13): the round-4 helm's strength (ring 0.5 dB, reflections 0.06/0.03/0.01, grit 0.3 at 1.6) at the old 2 semitone depth, forged-helm's formants and EQ. Still the helm, only not pressed so close.",
+          "lufs": -16.8,
+          "highpassHz": 75,
+          "room": { "dereverb": true, "t60MaxSec": 0.85, "strength": 1.0, "floorDb": -12 },
+          "gate": { "openDb": -30, "holdMs": 120 },
+          "expand": { "belowDb": -42, "ratio": 2.0, "tailBelowDb": -46 },
+          "pitch": { "semitones": -2.0, "engine": "vocoder", "fallback": ["psola", "rubberband"], "contourLimitPct": 8 },
+          "eq": [["highpass", 85], ["bell", 150, 2.0, 1.2], ["bell", 260, 1.0, 1.0], ["bell", 420, -1.5, 1.0], ["bell", 620, -1.0, 1.2], ["bell", 2600, 3.0, 1.4], ["bell", 5000, 1.0, 1.5], ["lowpass", 11000], ["bell", 160, -1.0, 1.5], ["bell", 600, 1.5, 1.0], ["bell", 1260, -1.8, 0.6], ["bell", 5500, 2.4, 1.2]],
+          "helm": { "amount": 1.0, "ringDb": 0.5, "ringHz": 1250, "reflections": [[1.1, 0.06], [2.3, 0.03], [3.7, 0.01]], "drive": 1.6, "grit": 0.3 },
+          "compress": { "aboveDb": -18, "ratio": 3.0, "attackMs": 4, "releaseMs": 80 },
+          "deess": null,
+          "formants": 0.96
+        },
         "forged-helm-heavy-2026-10-13": {
           "about": "A heavier step of forged-helm, not in use: pitch 3 st down, formants 7% down, the reflections about 4x session-matched, a 3 dB ring, grit 0.6 at 2.4. Clearly muddier (estimate 0.61-0.65); kept to try.",
           "lufs": -16.8,

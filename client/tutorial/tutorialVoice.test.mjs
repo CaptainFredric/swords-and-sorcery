@@ -57,9 +57,15 @@ test('each raw take is accounted for once, and every exception or repair says wh
   }
   for (const [key, raws] of served) assert.equal(raws.length, 1, `${key}: ${raws}`);
   assert.deepEqual([...keys].filter(key => !served.has(key)).sort(), [...NOT_RECORDED].sort());
-  // ("Ah...": a WORLD mend made it a machine-steady vowel, a splice refilled it with its own cycles played back and
-  // forth, and the creator heard both as glitches; the break is cut out, the voice joined cycle to cycle)
-  assert.deepEqual(sources.find(take => take.key === 'tutorial.look-ah').repairs.map(fix => fix.kind), ['excise']);
+  // ("Ah..." and "I am...": every repair of "Ah..." was heard as a glitch (a mend, a splice, then the excise's join),
+  // and both creaky takes broke up under the forged helm. Each is the whole take, nothing cut, through the held
+  // preset with Rubber Band, which reads no pitch marks off a creak)
+  const played = key => sources.find(take => take.key === key && !['alternate', 'dropped', 'duplicate'].includes(take.status));
+  for (const key of ['tutorial.look-ah', 'tutorial.i-am']) {
+    assert.equal(played(key).repairs, undefined, key);
+    assert.equal(played(key).chain.preset, 'forged-helm-held-2026-10-13', key);
+    assert.equal(played(key).chain.pitchEngine, 'rubberband', key);
+  }
 });
 
 test('each character\'s treatment is one named preset, its earlier ones kept to go back to', () => {

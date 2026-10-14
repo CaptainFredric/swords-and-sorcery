@@ -424,7 +424,7 @@
     "tutorial.look-ah": {
       "file": "spellblade/tutorial.look-ah-1",
       "speaker": "spellblade",
-      "seconds": 0.54,
+      "seconds": 0.7,
       "onset": 0.04
     },
     "tutorial.lot-of-things": {
@@ -454,8 +454,8 @@
     "tutorial.minor-obstacle-gloat": {
       "file": "rival/tutorial.minor-obstacle-gloat-1",
       "speaker": "rival",
-      "seconds": 3.07,
-      "onset": 0.04
+      "seconds": 3.51,
+      "onset": 0.05
     },
     "tutorial.minor-tactical-regret": {
       "file": "rival/tutorial.minor-tactical-regret-1",
@@ -544,8 +544,8 @@
     "tutorial.not-part-terms": {
       "file": "rival/tutorial.not-part-terms-1",
       "speaker": "rival",
-      "seconds": 1.69,
-      "onset": 0.04
+      "seconds": 2.48,
+      "onset": 0.05
     },
     "tutorial.not-strange": {
       "file": "spellblade/tutorial.not-strange-1",
