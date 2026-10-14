@@ -54,10 +54,16 @@ function playthrough({ missFirst = false, omitSegments = [] } = {}) {
         target=p.position.z>stile.takeoff.z+1?stile.takeoff:stile.waitPoint;dx=target.x-p.position.x;dz=target.z-p.position.z;dist=Math.hypot(dx,dz);
         if(p.position.z<=stile.takeoff.z+1&&session.allows('jump',false))jump=p.grounded;
       }
+      // the sheepfold's low wall, with Rival gloating just beyond it: jumped, as the stile taught
+      const wall=GREENER_ROUTE.jumpReuse;
+      if(p.position.z > wall.landing.z && r.position.z <= wall.takeoff.z && p.position.z < wall.approach.z+40){
+        target=p.position.z>wall.takeoff.z+1?wall.takeoff:wall.exit;dx=target.x-p.position.x;dz=target.z-p.position.z;dist=Math.hypot(dx,dz);
+        if(p.position.z<=wall.takeoff.z+1)jump=p.grounded;
+      }
       if (p.position.z > bridge.ravineBounds.minZ && r.position.z < bridge.ravineBounds.maxZ) {
         target = p.position.z > bridge.gapBounds.minZ ? bridge.dashStart : GREENER_ROUTE.waypointById['far-bank']; dx = target.x - p.position.x; dz = target.z - p.position.z; dist = Math.hypot(dx, dz);
       }
-      yaw = Math.atan2(-dx, -dz); forward = dist > (target === bridge.dashStart || target === stile.takeoff ? .1 : 1.8) ? 1 : 0; sprint = dist > 10;
+      yaw = Math.atan2(-dx, -dz); forward = dist > (target === bridge.dashStart || target === stile.takeoff || target === wall.takeoff ? .1 : 1.8) ? 1 : 0; sprint = dist > 10;
       if (['counterfire', 'complaint'].includes(session.rival.mode)) right = Math.cos(now * 2.8) * .8;
       if (p.position.z <= bridge.dashStart.z + 1 && p.position.z > bridge.gapBounds.minZ) {
         yaw = 0; sprint = true;

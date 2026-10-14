@@ -109,3 +109,25 @@ The browser evidence uses desktop Chrome and the browser input driver. Physical 
 8. This report and the evidence files listed above.
 
 The preceding two integration commits contain Claude's original assets and tooling, preserved rather than regenerated. This branch is prepared for a fresh draft PR against main. Merge, deployment and publication await creator approval.
+
+## Places keep their lines; asides fit the room between them
+
+The pursuit's landmark exchanges (the TATTLE reveal, the sheepfold wall, the broken bridge and its crossing, the office) belong where they are said. Their stage beats carry `place`. The dialogue after a place, up to its next stage or prompt, is that place's.
+
+- No aside begins inside a place's lines. An aside already under way gives them the floor at its next pause between exchanges. The aside keeps its remaining recordings and resumes in the next quiet stretch.
+- An aside's lines are grouped into `exchange`s (setup and punchline: "Hmm. This is strange." through "Thank you for noticing!!"). An exchange is never split for a place. `replyGroup` is still the narrower unit that an urgent reaction cannot split.
+- An exchange begins only when it fits. `TutorialSession.storyRoom()` measures the ground to the next place, by whoever must reach it, at a full Sprint. The exchange needs that room, by its recordings' real lengths (from the voice manifest), plus a second. A prompt the player has not answered yet gives a short aside six seconds (the miss's two lines, the bridge's growth).
+- An aside overtaken by events (`until`) is dropped if it has not begun. A miss is no news after the hit; the bridge's growth is moot once over it. The pursuit's asides end when Rival turns at his door.
+- A Fireball that finds Rival before the lesson's prompt skips its now-obsolete lead-in ("But also, you have magic at your disposal"). A joke already begun is still finished.
+
+Rival keeps pace with the story:
+- After the first Fireball hit, he stops to complain of it while its three reactions are said.
+- He backs against the sheepfold wall for the reveal and goes over during "NOW this has acquired my attention!".
+- He gloats just beyond the wall until the Spellblade is over. Following him straight over still hears "Your dead-end!"; only being over first skips it.
+- He waits at the bridge's lip until its exchange begins and leaps as he says it.
+- He waits on the far bank until the Spellblade crosses.
+- He holds short of the office's hundred metres until the counterfire is done.
+
+Waiting, he turns to face the Spellblade. He never holds in mid-air, never leaps the gap into an incoming Fireball, and drives on to the landing until he has landed.
+
+"Hello? I can no longer sprint!" is `live`. It plays only while the Spellblade is winded now and nothing else is being said, never on an earlier bout already recovered from.

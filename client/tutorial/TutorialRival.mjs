@@ -28,6 +28,24 @@ export const FIREBALL_MEADOW = Object.freeze({ minX: 8, maxX: 40, minZ: -396, ma
 // in on, so an aimed one still finds him: it flies at 24 m/s and bursts on contact), never sideways, and stands at
 // the meadow's far edge
 const LINGER = Object.freeze({ near: 22, retreat: .6, drift: .22, step: 4 });
+// The story's places along the pursuit, and where he waits for each: he does not run on past one before the story has
+// caught up with him there (its lines would otherwise be said a hundred metres behind him), unless the Spellblade comes
+// near enough to catch him (slip, metres). Waiting, he turns to face him: a taunt, not a rest. until: 'reached' (its
+// stage begun) or 'passed' (its stage done: the lines it waits for are under way, or the Spellblade has done what it asks).
+const STORY_HOLDS = Object.freeze([
+  // backed against the sheepfold wall, the TATTLE reveal said to the Spellblade's face (however close he comes), and only
+  // then over it: "Your dead-end!"
+  // (he goes over as the Spellblade answers the reveal, and lands gloating the moment the answer is done)
+  Object.freeze({ place: 'dead-end', until: 'reached', release: 'acquired-attention', z: GREENER_ROUTE.jumpReuse.approach.z + 1.5, slip: 0 }),
+  // just over the wall, gloating ("Your dead-end!") however close the Spellblade lands, until he is over it too
+  Object.freeze({ place: 'dead-end-crossing', until: 'passed', z: GREENER_ROUTE.jumpReuse.landing.z - 3, slip: 0 }),
+  // at the broken bridge's lip, until its exchange begins: he leaps as he says it
+  Object.freeze({ place: 'bridge', until: 'passed', z: GREENER_ROUTE.bridge.waitPoint.z, slip: 0 }),
+  // on the far bank, until the Spellblade is over
+  Object.freeze({ place: 'bridge-crossing', until: 'passed', z: GREENER_ROUTE.waypointById['far-bank'].z, slip: 0 }),
+  // short of the office's hundred metres, until the counterfire is over
+  Object.freeze({ place: 'complaint', until: 'reached', z: GREENER_ROUTE.entrance.z + 106, slip: 8 }),
+]);
 
 /** The player's next committed strike, if one is coming: when its contact is due (absolute seconds). */
 function incomingStrike(player, now) {
@@ -246,6 +264,30 @@ export class TutorialRival {
   }
   // In the meadow, turned to the Spellblade (a taunting backward walk): giving ground straight away from him, quicker
   // when he is pressed, and standing once the meadow's far edge is at his back. No sprint, no dash, no sidestep.
+  // the story's place he must wait at now (one he has not passed, whose lines the story has yet to reach), or null
+  storyHold() {
+    const director = this.session.director;
+    for (const hold of STORY_HOLDS) {
+      if (this.actor.position.z < hold.z - 2) continue;
+      const index = director.beats.findIndex(beat => beat.place === hold.place);
+      if (index < 0) continue;
+      const release = hold.release ? director.beats.findIndex(beat => beat.id === hold.release) : -1;
+      if (release >= 0 && director.index >= release) continue;
+      if (hold.until === 'reached' ? director.index < index : director.index <= index) return hold;
+    }
+    return null;
+  }
+  // a Fireball of the Spellblade's on its way to him (he does not leap a gap into one)
+  shotIncoming() {
+    const { actor, room } = this;
+    for (const projectile of room.projectiles.values()) {
+      if (projectile.ownerId !== this.player.id) continue;
+      const dx = actor.position.x - projectile.position.x, dz = actor.position.z - projectile.position.z;
+      const apart = Math.hypot(dx, dz), speed = Math.hypot(projectile.velocity.x, projectile.velocity.z) || 1;
+      if (apart < 60 && (dx * projectile.velocity.x + dz * projectile.velocity.z) / (apart * speed || 1) > .5) return true;
+    }
+    return false;
+  }
   linger(now, apart) {
     const { actor, player } = this, box = FIREBALL_MEADOW;
     const dx = actor.position.x - player.position.x, dz = actor.position.z - player.position.z, length = Math.hypot(dx, dz) || 1;
@@ -258,6 +300,17 @@ export class TutorialRival {
   chase(now, apart) {
     const { actor, player, room } = this;
     if (this.fireballLesson && actor.position.z <= FIREBALL_MEADOW.maxZ) { this.linger(now, apart); return; }
+    // ahead of the story: he waits at its place, turned to the Spellblade, until it catches up (or he is about to be
+    // caught). Never once committed to a leap: a hold in mid-air is a fall.
+    const committed = !actor.grounded || this.bridgePrepared || this.bridgeInFlight;
+    const hold = committed ? null : this.storyHold();
+    // the first Fireball's sting: he stops to complain of it ("That was cold of you, ow!") while its lines are said
+    const stung = !committed && this.session.director.current?.reactionFor === 'fireball-hit';
+    if (stung || hold && actor.position.z <= hold.z + 1 && apart > hold.slip) {
+      this.sprintWanted = false;
+      this.inputToward(player.position, 0, false, player.position);
+      return;
+    }
     const route = GREENER_ROUTE.chaseWaypoints;
     while (this.waypoint < route.length - 1 && distance(actor.position, route[this.waypoint]) < 1.4) this.waypoint += 1;
     const target = route[this.waypoint];
@@ -313,11 +366,13 @@ export class TutorialRival {
     if (this.mode === 'complaint') scale = 1;
     const gap = GREENER_ROUTE.bridge;
     const crossing = actor.position.z < gap.dashStart.z + 35 && actor.position.z > gap.gapBounds.minZ;
-    if (crossing && this.waypoint <= route.findIndex(p => p.id === 'bridge-landing')) {
+    // (still in the air over the gap, he drives on to the landing: no pacing to the Spellblade's distance mid-flight)
+    const airborne = this.bridgeInFlight && !actor.grounded;
+    if (crossing && (this.waypoint <= route.findIndex(p => p.id === 'bridge-landing') || airborne)) {
       // Plan the real traversal before leaving supported ground. Sprint needs
       // enough stamina for the approach and flight; Dash keeps its normal cooldown.
       const ready = actor.guardStamina >= SPRINT.restartStamina + SPRINT.staminaPerSec * 2
-        && now >= actor.dashReadyAt && !combatBlocksSprint(actor,now) && !actor.tornGround;
+        && now >= actor.dashReadyAt && !combatBlocksSprint(actor,now) && !actor.tornGround && !this.shotIncoming();
       if (!this.bridgeInFlight && !this.bridgePrepared && !ready) {
         this.inputToward(gap.waitPoint, distance(actor.position,gap.waitPoint) > .4 ? .65 : 0, false, player.position);
         return;

@@ -8,6 +8,7 @@ import { GREENER_ROUTE, BRIDGE_RETRY, greenerOpeningProgress, greenerPasturesWit
 import { resetPracticePlayer, spawnPracticeDummy, removePracticeDummy } from '../../shared/sim/practice.mjs';
 import { cancelAttack, setGuard } from '../../shared/sim/combat.mjs';
 import { HEALTH_REGEN } from '../../shared/src/combat.mjs';
+import { SPRINT } from '../../shared/src/movement.mjs';
 import { keyLabel } from '../settings/settingsRegistry.mjs';
 
 const distance = (a,b) => Math.hypot(a.x-b.x,a.z-b.z);
@@ -22,6 +23,27 @@ export const HEALTH_SETTLED_SEC = 1;
 const FINAL_LOSS_MAX_SEC = 6.5;
 const FINAL_LOSS_QUIET_SEC = 2.4;
 const FINAL_MODES = new Set(['final-opening','final-guard','final-fight']);
+// a prompt not yet answered: the moment it gives a short aside (seconds; the miss's two lines, the bridge's growth)
+const PROMPT_ROOM_SEC = 6;
+// How soon (seconds) a place's lines can be due: by whoever must reach it (the pursuit runs toward -z), at a Sprint.
+function placeReach(place, player, rival) {
+  const route = GREENER_ROUTE, reuse = route.jumpReuse, bridge = route.bridge;
+  const along = (actor, z) => actor ? Math.max(0, actor.position.z - z) / SPRINT.speed : 0;
+  const toward = (actor, point, within = 0) => actor ? Math.max(0, distance(actor.position, point) - within) / SPRINT.speed : 0;
+  const landmark = id => route.waypointById[id] ?? route.landmarks[id];
+  switch (place) {
+    case 'jump': return along(rival, route.jump.takeoff.z);
+    case 'jump-crossing': return along(player, route.jump.landing.z);
+    case 'pursuit-banter': case 'tattle-reveal': return along(player, landmark(place).z);
+    case 'dead-end': return along(rival, reuse.obstacleBounds.minZ);
+    case 'dead-end-crossing': return along(player, reuse.obstacleBounds.minZ);
+    case 'bridge': return Math.max(along(player, route.waypointById['bridge-approach'].z), along(rival, route.waypointById['bridge-approach'].z + 5));
+    case 'bridge-crossing': return along(player, bridge.gapBounds.minZ);
+    case 'complaint': return toward(rival, route.entrance, 100);
+    case 'pride': return toward(rival, route.finalStand);
+    default: return Infinity;
+  }
+}
 
 export function tutorialPrompt(beat, { touch = false, bindings = {} } = {}) {
   const keys = action => (bindings[action] ?? []).map(keyLabel).join(' / ');
@@ -52,7 +74,7 @@ export function tutorialPrompt(beat, { touch = false, bindings = {} } = {}) {
 // Local orchestration owns permissions, checkpoints and choreography. Normal combat resolves all contacts.
 export class TutorialSession {
   constructor(host, { onChange = () => {}, onBlocked = () => {}, onRestore = () => {}, random = Math.random,
-    route = TUTORIAL_SEGMENTS, omitSegments = [], onResumeMovement = () => {} } = {}) {
+    route = TUTORIAL_SEGMENTS, omitSegments = [], onResumeMovement = () => {}, lineSeconds = () => null } = {}) {
     if (!host.local || !host.room?.localTutorial || host.room.worldId !== 'greener-pastures') throw new Error('Tutorial requires local Greener Pastures');
     this.host = host; this.onChange = onChange; this.onBlocked = onBlocked; this.onRestore = onRestore; this.random = random;
     this.onResumeMovement = onResumeMovement;
@@ -61,12 +83,33 @@ export class TutorialSession {
     const branches = Object.fromEntries(Object.entries(TUTORIAL_BRANCHES).filter(([id]) => enabledBranches.has(id)));
     this.director = new TutorialDirector({segments:this.route,beats:tutorialRouteBeats(this.route),branches,
       onChange:progress => this.changed(progress)});
+    // an aside is fitted into the story's room, by its recordings' own lengths
+    this.director.optionalRoom = () => this.storyRoom();
+    this.director.lineSeconds = lineSeconds;
     this.active = false; this.off = []; this.lastBeat = null; this.lastSegment = null;
     this.checkpoint = this.route[0].id; this.blockedHeld = new Set();
     this.bridgeFailures = 0;
     this.laterFireballs = 0;
     this.finalLosses = 0;
     this.gateMemory = new Map();
+  }
+  /**
+   * The story's room for an aside (seconds): how soon, at the quickest, its next place can come, its lines due there
+   * (the ground still to cover by whoever has to reach it, at a full Sprint). A prompt the Spellblade has yet to answer
+   * gives a short aside its moment; a place already reached has none to give.
+   */
+  storyRoom() {
+    const director = this.director, current = director.current;
+    if (!current || !this.host.player) return Infinity;
+    let place = null;
+    for (let i = director.index; i < director.beats.length && !place; i += 1) {
+      const beat = director.beats[i];
+      if (beat.place && !director.skips(beat)) place = beat;
+    }
+    let room = Infinity;
+    if (place) room = director.facts.has(place.advanceOn) ? 0 : placeReach(place.place, this.host.player, this.host.room.players.get(this.rivalId));
+    if (current.kind === 'prompt' && !director.facts.has(current.advanceOn)) room = Math.max(room, PROMPT_ROOM_SEC);
+    return room;
   }
   get requiresFinalGuard() { return this.director.beats.some(beat=>beat.advanceOn==='rival-guard-broken'); }
   start() {
@@ -215,6 +258,8 @@ export class TutorialSession {
     if (hands?.attackButton && !this.allows('attack', false)) hands.attackButton = false;
     if (hands?.guardButton && !this.allows('guard', false)) hands.guardButton = false;
     if (this.rivalFell) { this.retry({ automatic: true }); this.onBlocked('rival-fall'); return; }
+    // (a fall in the final duel is taken before anything waiting to be said may begin: his taunt comes first)
+    if (!this.host.player.alive) this.loseFinal();
     this.director.tick(now);
     if (this.director.facts.has('rival-survived-lethal') && this.director.progress.segment?.branches?.includes('rival-constitution')) this.director.offerBranch('rival-constitution');
     const actor = this.host.room.players.get(this.rivalId), me = this.host.player;
@@ -247,9 +292,14 @@ export class TutorialSession {
     if (reuse) {
       const wall = reuse.obstacleBounds;
       if (actor.grounded && actor.position.z < wall.minZ - .3 && actor.position.z > reuse.exit.z - 60) this.rival.deadEndCrossed = true;
-      const coming = me.position.z > wall.maxZ && me.position.z - wall.maxZ < 70;
-      if (this.rival.deadEndCrossed && coming) this.director.fact('dead-end-rival-over');
-      if (me.grounded && me.position.z < wall.minZ - .3 && me.position.z > reuse.exit.z - 40) this.director.fact('dead-end-crossed');
+      // Rival over it with the Spellblade on his way (still coming, or already leaping after him: "Your dead-end!" is
+      // his gloat either way); over it before him, the Spellblade has taken the line from him
+      const near = me.position.z - wall.maxZ < 70;
+      if (this.rival.deadEndCrossed && near && !this.director.facts.has('dead-end-first')) this.director.fact('dead-end-rival-over');
+      if (me.grounded && me.position.z < wall.minZ - .3 && me.position.z > reuse.exit.z - 40) {
+        if (!this.rival.deadEndCrossed) this.director.fact('dead-end-first');
+        this.director.fact('dead-end-crossed');
+      }
     }
     const jump = GREENER_ROUTE.jump;
     if (jump && this.rival.jumpWaiting) this.director.fact('jump-reached');

@@ -842,6 +842,8 @@ function startTutorial() {
     },
     onBlocked: action => tutorialView.denied(action),
     onResumeMovement: () => runtime?.input.resumeHeldMovement(),
+    // (an aside is fitted to the room the story has, by its recordings' real lengths)
+    lineSeconds: cue => tutorialVoice?.seconds(cue) ?? null,
     onRestore: player => { if(runtime) {runtime.input.releaseInputs(); runtime.input.yaw=player.yaw;runtime.input.pitch=0;} },
   });
   if (new URLSearchParams(location.search).has('debug')) { globalThis.__ssTutorial = tutorialSession; globalThis.__ssTutorialVoice = tutorialVoice; }
