@@ -403,7 +403,7 @@ export class TutorialSession {
       if (event.type === 'death' && event.victimId === this.host.player.id && event.source === 'abyss') {
         const p = this.host.player.position, b = GREENER_ROUTE.bridge;
         this.bridgeFall = this.director.current?.chapter === 'bridge'
-          && Math.abs(p.x - b.centerX) < b.width / 2
+          && Math.abs(p.x - b.centerX) < b.width / 2 + 10
           && p.z < b.ravineBounds.maxZ && p.z > b.ravineBounds.minZ;
       }
       if (event.type === 'projectileSpawned' && event.projectile.ownerId === this.host.player.id && event.projectile.spell === 'fireball'

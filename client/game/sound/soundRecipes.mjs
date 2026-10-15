@@ -168,6 +168,21 @@ export function swingRecipe(rand = Math.random, { strike = 0 } = {}) {
   };
 }
 
+/** The gauntlet and harness shifting as an attack commits: a subtle, immediate tension in the grip and plate before the blade cuts air. */
+export function attackWindupRecipe(rand = Math.random, { strike = 0 } = {}) {
+  const pitch = jitter(rand, 0.06);
+  const heavy = strike >= 2;
+  return {
+    layers: [
+      // leather grip tightening and glove friction
+      { type: 'noise', filter: 'bandpass', freq: (950 + strike * 100) * pitch, sweepTo: 600 * pitch, q: 1.3, attack: 0.003, decay: 0.055, gain: heavy ? 0.18 : 0.14 },
+      // faint chink of arm plate sliding as the wrist cocks
+      ring(rand, (heavy ? 1900 : 2500) * pitch, { decay: 0.035, gain: 0.022, partials: 2, bright: 0.4 }),
+    ],
+    reverb: 0.02,
+  };
+}
+
 /** The gauntlet thrown: a short, low rush of a fist through the air (no blade to sing). */
 export function gauntletSwingRecipe(rand = Math.random) {
   const low = 280 * jitter(rand, 0.08);

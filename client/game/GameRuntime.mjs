@@ -20,7 +20,7 @@ import { blowDirection, glancing, hitKick, hitstopSeconds, impactPoint, steelHit
 import {
   blockRecipe, burnLickRecipe, castRecipe, dashRecipe, fireballImpactRecipe, frostImpactRecipe, guardBreakRecipe, hurtRecipe, killRecipe,
   deniedRecipe, galeReleaseRecipe, preciseRecipe, softStrikeRecipe, strikeSurface, woodThunkRecipe, gauntletHitRecipe, gauntletSwingRecipe, parryRecipe, spatialize, steelCallRecipe, steelClangRecipe, steelRamRecipe, steelTickRecipe,
-  swingRecipe, swordHitRecipe, wallClangRecipe,
+  swingRecipe, swordHitRecipe, wallClangRecipe, attackWindupRecipe,
   groundSlamRecipe, ruptureRunRecipe, swordDrawRecipe, palmRevealRecipe, sunderRingRecipe, staggerBreakRecipe, staggerStrainRecipe, sunderDongRecipe, sunderDropRecipe, sunderForceRecipe,
   ultimateFizzleRecipe, ultimateReadyRecipe,
   emberImpactRecipe, emberRecipe, vortexCatchRecipe, vortexCutRecipe, vortexEndRecipe, vortexIgniteRecipe, vortexScrapeRecipe, vortexStarRecipe, vortexWhooshRecipe,
@@ -192,6 +192,7 @@ export class GameRuntime {
     // my own strike committed, its swing beginning: the breath behind it leads the blade (a first swing after a while;
     // the heavy third swung at a foe it would fell)
     this.weapon.onBegin = (strike) => {
+      this.#play(attackWindupRecipe(Math.random, { strike }), null, 0.45);
       const me = this.socket.playerId;
       const knights = (this.latestSnapshot?.players ?? []).map((p) => (p.id === me && this.localState
         ? { ...p, position: this.localState.position, yaw: this.input.yaw ?? p.yaw } : p));
