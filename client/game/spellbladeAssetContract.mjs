@@ -35,10 +35,23 @@ function requireStringList(value, required, label) {
 
 function freezeBudget(raw, label) {
   const value = requireObject(raw, label);
-  return Object.freeze({
+  const budget = {
     maxTriangles: requirePositiveNumber(value.maxTriangles, `${label}.maxTriangles`),
     targetBytes: requirePositiveNumber(value.targetBytes, `${label}.targetBytes`),
-  });
+  };
+  if (Number.isFinite(value.targetTriangles) && value.targetTriangles > 0) {
+    if (value.targetTriangles > budget.maxTriangles) {
+      throw new Error(`${label}.targetTriangles cannot exceed maxTriangles`);
+    }
+    budget.targetTriangles = value.targetTriangles;
+  }
+  if (Number.isFinite(value.maxBytes) && value.maxBytes > 0) {
+    if (budget.targetBytes > value.maxBytes) {
+      throw new Error(`${label}.targetBytes cannot exceed maxBytes`);
+    }
+    budget.maxBytes = value.maxBytes;
+  }
+  return Object.freeze(budget);
 }
 
 export function loadSpellbladeContract(raw) {

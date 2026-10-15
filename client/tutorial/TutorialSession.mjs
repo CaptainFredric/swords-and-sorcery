@@ -402,8 +402,11 @@ export class TutorialSession {
     for (const event of events) {
       if (event.type === 'death' && event.victimId === this.host.player.id && event.source === 'abyss') {
         const p = this.host.player.position, b = GREENER_ROUTE.bridge;
+        const inCorridor = b.failureCorridor
+          ? (p.x >= b.failureCorridor.minX && p.x <= b.failureCorridor.maxX)
+          : Math.abs(p.x - b.centerX) <= b.width;
         this.bridgeFall = this.director.current?.chapter === 'bridge'
-          && Math.abs(p.x - b.centerX) < b.width / 2
+          && inCorridor
           && p.z < b.ravineBounds.maxZ && p.z > b.ravineBounds.minZ;
       }
       if (event.type === 'projectileSpawned' && event.projectile.ownerId === this.host.player.id && event.projectile.spell === 'fireball'

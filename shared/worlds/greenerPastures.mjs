@@ -120,6 +120,7 @@ export const GREENER_ROUTE = Object.freeze({
   bridge: Object.freeze({
     centerX: 32,
     width: 12,
+    failureCorridor: Object.freeze({ minX: 20, maxX: 44 }),
     ravineBounds: Object.freeze({ minZ: -679, maxZ: -661 }),
     gapBounds: Object.freeze({ minX: 26, maxX: 38, minZ: -675.5, maxZ: -663 }),
     dashStart: BRIDGE_TAKEOFF,

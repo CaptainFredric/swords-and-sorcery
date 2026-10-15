@@ -28,3 +28,42 @@ test('revisioned character assets are cached for good; other files revalidate; t
   assert.equal(serverModule.cacheControlFor(path.join(ROOT, 'client', 'main.mjs'), new URLSearchParams('v=1')), 'public, max-age=60');
   assert.equal(serverModule.cacheControlFor(path.join(ROOT, 'client', 'index.html'), new URLSearchParams('')), 'no-store');
 });
+
+test('static server serves precompressed .glb.gz with content-encoding gzip when accepted', async (t) => {
+  const game = serverModule.createGameServer({ port: 0, host: '127.0.0.1' });
+  await game.start();
+  t.after(async () => game.stop());
+  const { port } = game.address();
+  const http = await import('node:http');
+
+  const rawHeaders = await new Promise((resolve, reject) => {
+    const req = http.get(`http://127.0.0.1:${port}/client/assets/characters/spellblade/spellblade.glb`, {
+      headers: { 'Accept-Encoding': 'identity' },
+      agent: false,
+    }, (res) => {
+      res.on('data', () => {});
+      res.on('end', () => resolve(res.headers));
+    });
+    req.on('error', reject);
+  });
+  assert.equal(rawHeaders['content-type'], 'model/gltf-binary');
+  assert.equal(rawHeaders['content-encoding'], undefined);
+  const rawLen = Number(rawHeaders['content-length']);
+  assert.ok(rawLen > 2000000);
+
+  const gzHeaders = await new Promise((resolve, reject) => {
+    const req = http.get(`http://127.0.0.1:${port}/client/assets/characters/spellblade/spellblade.glb`, {
+      headers: { 'Accept-Encoding': 'gzip' },
+      agent: false,
+    }, (res) => {
+      res.on('data', () => {});
+      res.on('end', () => resolve(res.headers));
+    });
+    req.on('error', reject);
+  });
+
+  assert.equal(gzHeaders['content-encoding'], 'gzip');
+  assert.equal(gzHeaders['content-type'], 'model/gltf-binary');
+  const gzLen = Number(gzHeaders['content-length']);
+  assert.ok(gzLen < 800000, `compressed size ${gzLen} must be well under 800KB (was ${rawLen})`);
+});

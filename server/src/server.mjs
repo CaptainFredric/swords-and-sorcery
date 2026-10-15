@@ -100,8 +100,27 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
     const stat = fs.statSync(filePath);
     const lastModified = new Date(Math.floor(stat.mtimeMs / 1000) * 1000).toUTCString();
     const etag = `W/"${stat.size.toString(16)}-${Math.floor(stat.mtimeMs).toString(16)}"`;
+
+    let servePath = filePath;
+    let serveSize = stat.size;
+    let contentEncoding = null;
+    const acceptEncoding = req.headers['accept-encoding'] || '';
+    if (/\bgzip\b/i.test(acceptEncoding)) {
+      const gzPath = `${filePath}.gz`;
+      if (fs.existsSync(gzPath)) {
+        servePath = gzPath;
+        serveSize = fs.statSync(gzPath).size;
+        contentEncoding = 'gzip';
+      }
+    }
+
     // content-length lets the page show real download progress for the character models
-    const headers = { 'content-type': mimeFor(filePath), 'cache-control': cacheControlFor(filePath, url.searchParams), 'content-length': stat.size };
+    const headers = {
+      'content-type': mimeFor(filePath),
+      'cache-control': cacheControlFor(filePath, url.searchParams),
+      'content-length': serveSize,
+    };
+    if (contentEncoding) headers['content-encoding'] = contentEncoding;
     if (!filePath.endsWith('.html')) Object.assign(headers, { 'last-modified': lastModified, etag });
     if (!filePath.endsWith('.html') && (req.headers['if-none-match'] === etag
       || (!req.headers['if-none-match'] && req.headers['if-modified-since'] === lastModified))) {
@@ -111,7 +130,7 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
       return;
     }
     res.writeHead(200, headers);
-    fs.createReadStream(filePath).pipe(res);
+    fs.createReadStream(servePath).pipe(res);
   });
 
   function send(session, message) {

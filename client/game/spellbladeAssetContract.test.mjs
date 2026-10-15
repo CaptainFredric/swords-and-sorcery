@@ -9,8 +9,8 @@ const VALID = {
   clips: ['Idle', 'Run', 'Sprint', 'Air', 'Guard', 'Slash_1', 'Slash_2', 'Slash_3', 'Cast', 'Dash', 'Stagger', 'Death'],
   sockets: ['socket_sword', 'socket_sorcery'],
   mutableMaterials: ['VisorGlow', 'SorceryAccent'],
-  thirdPerson: { maxTriangles: 35000, targetBytes: 2000000 },
-  firstPerson: { maxTriangles: 16000, targetBytes: 1000000 },
+  thirdPerson: { targetTriangles: 35000, maxTriangles: 60000, targetBytes: 2500000, maxBytes: 5000000 },
+  firstPerson: { targetTriangles: 18000, maxTriangles: 30000, targetBytes: 1200000, maxBytes: 2500000 },
 };
 
 async function moduleLoader() {
@@ -36,6 +36,10 @@ test('normalizes and freezes the Spellblade asset contract', async () => {
   assert.ok(Object.isFrozen(value));
   assert.ok(Object.isFrozen(value.clips));
   assert.ok(Object.isFrozen(value.thirdPerson));
+  assert.equal(value.thirdPerson.targetTriangles, 35000);
+  assert.equal(value.thirdPerson.maxTriangles, 60000);
+  assert.equal(value.thirdPerson.targetBytes, 2500000);
+  assert.equal(value.thirdPerson.maxBytes, 5000000);
 });
 
 test('rejects a contract that drops a timing-critical clip', async () => {
@@ -50,6 +54,24 @@ test('rejects wrong runtime axis conventions', async () => {
   const loadSpellbladeContract = await loader();
   assert.throws(() => loadSpellbladeContract({ ...VALID, facing: '+Z' }), /-Z/);
   assert.throws(() => loadSpellbladeContract({ ...VALID, up: '+Z' }), /\+Y/);
+});
+
+test('rejects budget targets that exceed maximum ceilings', async () => {
+  const loadSpellbladeContract = await loader();
+  assert.throws(
+    () => loadSpellbladeContract({
+      ...VALID,
+      thirdPerson: { ...VALID.thirdPerson, targetTriangles: 70000, maxTriangles: 60000 },
+    }),
+    /targetTriangles cannot exceed maxTriangles/,
+  );
+  assert.throws(
+    () => loadSpellbladeContract({
+      ...VALID,
+      thirdPerson: { ...VALID.thirdPerson, targetBytes: 6000000, maxBytes: 5000000 },
+    }),
+    /targetBytes cannot exceed maxBytes/,
+  );
 });
 
 test('runtime manifest cache-busts both production GLBs with the reviewed source revision', async () => {

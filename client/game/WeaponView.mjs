@@ -625,13 +625,28 @@ export class WeaponView {
     this.motion.parry();
   }
 
+  /** My swing was parried by an opponent: blade deflected, attack cancelled, arms reel. */
+  parryReel() {
+    this.cancelAttack();
+    this.recoilUntil = this.now() + 0.32;
+    this.motion.parryReel();
+  }
+
   // a blow caught on my guard (heavy: it broke the guard)
   block(heavy = false) {
     this.motion.block(heavy);
   }
 
+  /** My guard stamina broke: guard drops, arms blown backward and outward. */
+  guardBreak(push) {
+    this.guard = false;
+    this.recoilUntil = this.now() + 0.38;
+    this.motion.guardBreak(push);
+  }
+
   // my swing was caught on someone's guard
   rebound() {
+    this.recoilUntil = this.now() + 0.22;
     this.motion.rebound();
   }
 

@@ -15,6 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from tools.blender.characters.spellblade.authored_source import load_authored_source, validate_output_paths
 from tools.blender.characters.spellblade.build import build_character_assets
+from tools.blender.characters.spellblade.first_person import build_first_person_asset
 from tools.blender.characters.spellblade.validate import load_contract, validate_production_model
 from tools.blender.common.export import export_glb
 
@@ -86,6 +87,13 @@ with tempfile.TemporaryDirectory() as tmp:
         for point in expected:
             assert any(sum((point[i]-v[i])**2 for i in range(3)) < 1e-10 for v in imported), f'Edited vertex missing: {point}'
         print('SOURCE_ROUNDTRIP_OK', filename, count)
+    # Directly verify first-person asset exporter execution.
+    fp_test_dir = Path(tmp) / 'fp_test'
+    fp_test_dir.mkdir()
+    fp_build = build_first_person_asset(fp_test_dir, contract, 'preview', source=SOURCE / 'spellblade-first-person.blend')
+    assert fp_build.glb.exists() and fp_build.glb_bytes > 0
+    assert fp_build.triangles > 0
+    print('FIRST_PERSON_BUILD_OK', fp_build.triangles, fp_build.glb_bytes)
     # Exercise the public build entrypoint against a disposable source copy.
     collision = Path(tmp) / 'collision'
     collision.mkdir()
