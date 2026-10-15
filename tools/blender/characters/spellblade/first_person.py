@@ -87,6 +87,7 @@ def build_first_person_asset(out: Path, contract: dict, mode: str, *, source: Pa
 
     glb = out / "spellblade-fp.glb"
     export_glb(glb, objects=(armature, *objects))
+    glb_bytes = glb.stat().st_size
     max_bytes = int(contract["firstPerson"].get("maxBytes", contract["firstPerson"]["targetBytes"]))
     target_bytes = int(contract["firstPerson"]["targetBytes"])
     if glb_bytes > max_bytes:
@@ -96,8 +97,11 @@ def build_first_person_asset(out: Path, contract: dict, mode: str, *, source: Pa
 
     triangles = _triangle_count(objects)
     triangle_budget = int(contract["firstPerson"]["maxTriangles"])
+    target_triangles = int(contract["firstPerson"].get("targetTriangles", triangle_budget))
     if triangles > triangle_budget:
         raise ValueError(f"First-person Spellblade exceeds triangle budget: {triangles} > {triangle_budget}")
+    if triangles > target_triangles:
+        print(f"NOTICE: First-person Spellblade ({triangles} triangles) exceeds soft target budget ({target_triangles} triangles)")
 
     camera = bpy.data.objects.get("SpellbladeFirstPersonCamera")
     if camera is None:

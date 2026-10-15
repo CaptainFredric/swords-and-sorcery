@@ -46,6 +46,17 @@ def validate_contract(value: dict) -> None:
             amount = budget.get(field)
             if not isinstance(amount, (int, float)) or amount <= 0:
                 raise ValueError(f"{label}.{field} must be positive")
+        target_triangles = budget.get("targetTriangles", budget["maxTriangles"])
+        if not isinstance(target_triangles, (int, float)) or target_triangles <= 0:
+            raise ValueError(f"{label}.targetTriangles must be positive")
+        if target_triangles > budget["maxTriangles"]:
+            raise ValueError(f"{label}.targetTriangles cannot exceed maxTriangles")
+
+        max_bytes = budget.get("maxBytes", budget["targetBytes"])
+        if not isinstance(max_bytes, (int, float)) or max_bytes <= 0:
+            raise ValueError(f"{label}.maxBytes must be positive")
+        if budget["targetBytes"] > max_bytes:
+            raise ValueError(f"{label}.targetBytes cannot exceed maxBytes")
 
 
 def validate_rig_scene(armature: bpy.types.Object, proxy: bpy.types.Object) -> dict:
@@ -127,8 +138,11 @@ def validate_production_model(armature: bpy.types.Object, model: ModelParts, con
 
     triangles = sum(_triangle_count(obj) for obj in mesh_objects)
     budget = int(contract["thirdPerson"]["maxTriangles"])
+    target_triangles = int(contract["thirdPerson"].get("targetTriangles", budget))
     if triangles > budget:
         raise ValueError(f"Spellblade model exceeds triangle budget: {triangles} > {budget}")
+    if triangles > target_triangles:
+        print(f"NOTICE: Spellblade model ({triangles} triangles) exceeds soft target budget ({target_triangles} triangles)")
 
     world_vertices = [obj.matrix_world @ vertex.co for obj in mesh_objects for vertex in obj.data.vertices]
     min_z = min(vertex.z for vertex in world_vertices)

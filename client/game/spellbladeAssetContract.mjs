@@ -40,9 +40,15 @@ function freezeBudget(raw, label) {
     targetBytes: requirePositiveNumber(value.targetBytes, `${label}.targetBytes`),
   };
   if (Number.isFinite(value.targetTriangles) && value.targetTriangles > 0) {
+    if (value.targetTriangles > budget.maxTriangles) {
+      throw new Error(`${label}.targetTriangles cannot exceed maxTriangles`);
+    }
     budget.targetTriangles = value.targetTriangles;
   }
   if (Number.isFinite(value.maxBytes) && value.maxBytes > 0) {
+    if (budget.targetBytes > value.maxBytes) {
+      throw new Error(`${label}.targetBytes cannot exceed maxBytes`);
+    }
     budget.maxBytes = value.maxBytes;
   }
   return Object.freeze(budget);

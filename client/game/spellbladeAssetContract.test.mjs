@@ -56,6 +56,24 @@ test('rejects wrong runtime axis conventions', async () => {
   assert.throws(() => loadSpellbladeContract({ ...VALID, up: '+Z' }), /\+Y/);
 });
 
+test('rejects budget targets that exceed maximum ceilings', async () => {
+  const loadSpellbladeContract = await loader();
+  assert.throws(
+    () => loadSpellbladeContract({
+      ...VALID,
+      thirdPerson: { ...VALID.thirdPerson, targetTriangles: 70000, maxTriangles: 60000 },
+    }),
+    /targetTriangles cannot exceed maxTriangles/,
+  );
+  assert.throws(
+    () => loadSpellbladeContract({
+      ...VALID,
+      thirdPerson: { ...VALID.thirdPerson, targetBytes: 6000000, maxBytes: 5000000 },
+    }),
+    /targetBytes cannot exceed maxBytes/,
+  );
+});
+
 test('runtime manifest cache-busts both production GLBs with the reviewed source revision', async () => {
   const module = await moduleLoader();
   assert.equal(typeof module.runtimeSpellbladeManifest, 'function');
