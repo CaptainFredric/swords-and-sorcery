@@ -16,6 +16,8 @@ test('opening look, walk and sprint become available at their actual prompts', (
   assert.deepEqual(permissions('quite-a-distance'), ['look', 'move']);
   assert.equal(permissions('sprint-prompt').includes('sprint'), true);
   assert.equal(permissions('sprint-prompt').includes('jump'), false);
+  assert.equal(permissions('negotiations').includes('attack'), false);
+  assert.equal(permissions('placate').includes('attack'), true);
   assert.equal(permissions('jump-prompt').includes('jump'), true);
   assert.equal(permissions('get-over-it').includes('dash'), false);
   assert.equal(permissions('dash-prompt').includes('dash'), true);

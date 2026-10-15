@@ -147,8 +147,8 @@ const segments = [
     entryCondition: 'introductions', completionCue: 'sword-contact',
     scene: { enter: 'first-attack', checkpoint: 'introductions', gates: ['sword-contact', 'rival-sword-drawn'] },
     beats: [
-      { id: 'negotiations', speaker: 'narrator', line: 'Woah. It appears negotiations have gone hostile.' },
-      { id: 'placate', speaker: 'narrator', line: 'Try placating him.' },
+      { id: 'negotiations', speaker: 'narrator', line: 'Woah. It appears negotiations have gone hostile.', permissions: SPRINT },
+      { id: 'placate', speaker: 'narrator', line: 'Try placating him.', permissions: ATTACK },
       { id: 'stand-down', speaker: 'spellblade', line: 'Stand down where you belong. Please?' },
       { id: 'sword-pen', speaker: 'rival', line: 'The sword is mightier than the pen!' },
       { id: 'own-pen', speaker: 'narrator', line: 'Oh brother. Tell him off. With your own ‘pen’...' },

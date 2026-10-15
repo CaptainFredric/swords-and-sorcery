@@ -370,3 +370,55 @@ test('Fireball lesson stand: Rival parries sword attacks, offers first-fireball-
   assert.equal(session.rival.fireballLesson, false, 'fireball lesson ended');
   host.close();
 });
+
+test('attack and magic(fireball) controls appear when the sword and magic hand are introduced', () => {
+  const t = fixture();
+  const { session, host } = t;
+
+  // Negotiations: before sword draw ("Try placating him."), attack is absent and disbarred
+  session.stage('first-attack');
+  session.director.resumeAt('negotiations');
+  assert.equal(session.allows('attack', false), false);
+  assert.equal(session.taught.includes('attack'), false);
+
+  // On placate: sword is drawn, attack is taught and allowed
+  session.director.resumeAt('placate');
+  assert.equal(session.allows('attack', false), true);
+  assert.equal(session.taught.includes('attack'), true);
+
+  // Client equipment gating: buttons appear and actions are allowed only when weapons are drawn
+  const weapon = { equipment: { sword: 'away', hand: 'away' } };
+  const allowAction = (action) => {
+    if (action === 'attack' && weapon.equipment.sword === 'away') return false;
+    if (action === 'spell' && weapon.equipment.hand === 'away') return false;
+    return session.allows(action, false);
+  };
+  const isVisible = (action) => {
+    if (action === 'attack' && weapon.equipment.sword === 'away') return false;
+    if (action === 'spell' && weapon.equipment.hand === 'away') return false;
+    return session.taught.includes(action);
+  };
+
+  // Initially arms are stowed: attack and spell are hidden and disbarred
+  assert.equal(isVisible('attack'), false);
+  assert.equal(allowAction('attack'), false);
+  assert.equal(isVisible('spell'), false);
+  assert.equal(allowAction('spell'), false);
+
+  // Sword drawn on placate: attack button appears and is allowed
+  weapon.equipment.sword = 'drawing';
+  assert.equal(isVisible('attack'), true);
+  assert.equal(allowAction('attack'), true);
+  assert.equal(isVisible('spell'), false);
+  assert.equal(allowAction('spell'), false);
+
+  // Magic hand revealed on waiting-reminder: spell button appears and is allowed
+  session.stage('fireball');
+  session.director.resumeAt('waiting-reminder');
+  weapon.equipment.hand = 'revealing';
+  assert.equal(isVisible('spell'), true);
+  assert.equal(allowAction('spell'), true);
+
+  host.close();
+});
+
