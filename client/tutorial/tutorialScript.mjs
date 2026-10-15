@@ -231,10 +231,9 @@ const segments = [
         direction: 'The legitimate blow puts Rival on the ground: a real, temporary knockdown.' },
       { id: 'what-condition', speaker: 'narrator', line: 'Perhaps his armor is better tailored than yours. What is his condition?' },
       { id: 'current-constitution', speaker: 'spellblade', line: 'What is your current constitution!?' },
-      // (he begins to get up on "...has been amended": the pause after "My constitution..." in the take)
-      { id: 'constitution-amended', speaker: 'rival', line: 'My constitution... has been amended many times.',
-        stageDuring: Object.freeze({ cue: 'rival-rise', atSec: 1.15 }) },
-      { id: 'cannot-settled', speaker: 'narrator', line: 'Ah... then it appears it cannot be settled.' },
+      { id: 'constitution-amended', speaker: 'rival', line: 'My constitution... has been amended many times.' },
+      { id: 'cannot-settled', speaker: 'narrator', line: 'Ah... then it appears it cannot be settled.',
+        stageDuring: Object.freeze({ cue: 'rival-rise', atSec: 0 }) },
       { id: 'rival-first-rising', kind: 'stage', advanceOn: 'rival-first-recovered', stageCue: 'rival-rise',
         direction: 'Rival is back on his feet.' },
     ],

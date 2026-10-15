@@ -178,8 +178,9 @@ export class TutorialDirector {
     this.facts.add(cue);
     this.dropStale(cue);
     if (this.reactions.has(cue) && !this.completedReactions.has(cue)) this.pendingReaction = cue;
-    const accepted = this.accept(cue) || this.skips(this.current, cue) && this.current.kind !== 'dialogue'
-      && !this.audioCue && !this.pendingCompletion && this.accept(this.current.advanceOn);
+    const canSkipCurrent = (this.skips(this.current, cue) || this.skips(this.current))
+      && !this.audioCue && !this.pendingCompletion;
+    const accepted = this.accept(cue) || (canSkipCurrent && this.accept(this.current.advanceOn));
     if (this.pendingReaction && this.current?.kind !== 'dialogue' && !this.audioCue && !this.pendingCompletion) {
       this.optionalActive = false; this.optionalAt = null;
       this.beginReaction(); this.enteredAt = null; this.onChange(this.progress);

@@ -291,6 +291,44 @@ test('the duel counts from its first swing, and each knockdown follows its line:
   host.close();
 });
 
+test('constitution exchange plays while Rival is physically down, rising corresponds to cannot-settled, and arrangement resumes combat', () => {
+  const { host, session, tick, rival } = fixture();
+  session.stage('duel-constitution');
+  session.rival.beginRecovery(host.now());
+  assert.equal(session.rival.mode, 'recover');
+  assert.equal(session.rival.risingAt, null);
+
+  session.director.resumeAt('what-condition'); session.changed(session.director.progress);
+  tick(10);
+  assert.equal(session.rival.mode, 'recover');
+  assert.equal(session.rival.risingAt, null, 'still held down on grass during what-condition');
+
+  session.director.resumeAt('current-constitution'); session.changed(session.director.progress);
+  tick(10);
+  assert.equal(session.rival.mode, 'recover');
+  assert.equal(session.rival.risingAt, null, 'still held down on grass during current-constitution');
+
+  session.director.resumeAt('constitution-amended'); session.changed(session.director.progress);
+  tick(20);
+  assert.equal(session.rival.mode, 'recover');
+  assert.equal(session.rival.risingAt, null, 'constitution exchange has room to play while physically down');
+
+  session.director.resumeAt('cannot-settled'); session.changed(session.director.progress);
+  tick(2);
+  assert.equal(session.rival.mode, 'recover');
+  assert.ok(session.rival.risingAt !== null, 'Rival visibly begins recovery on cannot-settled');
+
+  tick(50);
+  assert.ok(session.director.facts.has('rival-first-recovered'), 'Rival reached his feet and recovered');
+  assert.equal(rival().presentationRecovery, null);
+
+  session.stage('duel-arrangement');
+  session.director.resumeAt('strike-you-first');
+  session.changed(session.director.progress);
+  assert.equal(session.rival.mode, 'duel', 'terms exchange leads naturally back into active combat');
+  host.close();
+});
+
 test('a final defeat\'s taunt is heard first: an aside still waiting is dropped, and burns only speak in the counterfire', () => {
   const { host, session, tick, now } = fixture();
   session.stage('rival-defeat'); session.director.resumeAt('final-guard'); tick(3);
