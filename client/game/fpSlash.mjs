@@ -235,7 +235,7 @@ const rest = (t, extra = {}) => key(t, REST_ARM.wrist, REST_ARM.blade, REST_ARM.
 export const COMBO_END = C3 + 0.55;
 
 export const COMBO = settle([
-  rest(0, { ease: 0 }),
+  rest(0, { ease: 0.6 }),
   // 1. the forehand: a small cock out to the right, the body coiling a touch (out in front, still in view)...
   key(C1 - 0.25, [0.46, -0.25, -0.6], dir(-38, 40), [-0.8, -0.3, -0.5],
     { shoulder: [0.03, 0.03, 0.03], body: [0.01, 0.005, 0.01], look: [0.4, 0.9, 0.9], counter: [-0.04, -0.05, 0] }),
