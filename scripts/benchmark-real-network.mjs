@@ -1,5 +1,5 @@
 import { createGameServer } from '../server/src/server.mjs';
-import { movePlayer, createMovementState, resolveSprint } from '../shared/src/movement.mjs';
+import { movePlayer, createMovementState } from '../shared/src/movement.mjs';
 import { getWorld } from '../shared/worlds/registry.mjs';
 import { GAME_MODES } from '../shared/src/modes.mjs';
 
@@ -7,7 +7,14 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function runScenario({ sendIntervalMs, latencyMs = 0, jitterMs = 0 }) {
+async function runScenario({
+  strategy = 'periodic', // 'periodic' or 'immediate_on_change'
+  sendIntervalMs = 50,
+  heartbeatMs = 50,
+  oneWayLatencyMs = 0,
+  jitterMs = 0,
+  seed = 42,
+}) {
   const game = createGameServer({ port: 0, host: '127.0.0.1' });
   await game.start();
   const { port } = game.address();
@@ -40,13 +47,13 @@ async function runScenario({ sendIntervalMs, latencyMs = 0, jitterMs = 0 }) {
   let dashPressTime = null;
   let dashAckTime = null;
 
-  // Pseudo-random jitter generator
-  let seed = 42;
+  // Pseudo-random jitter generator (deterministic Park-Miller LCG)
+  let currentSeed = seed;
   function sampleDelay() {
-    if (latencyMs === 0) return 0;
-    seed = (seed * 16807) % 2147483647;
-    const j = ((seed - 1) / 2147483646 * 2 - 1) * jitterMs;
-    return Math.max(1, latencyMs + j);
+    if (oneWayLatencyMs === 0) return 0;
+    currentSeed = (currentSeed * 16807) % 2147483647;
+    const j = ((currentSeed - 1) / 2147483646 * 2 - 1) * jitterMs;
+    return Math.max(1, oneWayLatencyMs + j);
   }
 
   function sendDelayed(payload) {
@@ -55,10 +62,10 @@ async function runScenario({ sendIntervalMs, latencyMs = 0, jitterMs = 0 }) {
     sentPackets++;
     const delay = sampleDelay();
     if (delay <= 0) {
-      if (ws.readyState === WebSocket.OPEN) ws.send(raw);
+      if (!closed && ws.readyState === WebSocket.OPEN) ws.send(raw);
     } else {
       setTimeout(() => {
-        if (ws.readyState === WebSocket.OPEN) ws.send(raw);
+        if (!closed && ws.readyState === WebSocket.OPEN) ws.send(raw);
       }, delay);
     }
   }
@@ -79,12 +86,20 @@ async function runScenario({ sendIntervalMs, latencyMs = 0, jitterMs = 0 }) {
   let currentYaw = 0;
   let currentPitch = 0;
 
+  let lastSentInput = {
+    forward: currentForward,
+    right: currentRight,
+    sprint: currentSprint,
+    yaw: currentYaw,
+  };
+
   let lastSendTime = performance.now();
   const startTime = performance.now();
 
-  ws.onmessage = (event) => {
+  function handleMessage(data) {
+    if (closed) return;
     const now = performance.now();
-    const msg = JSON.parse(event.data);
+    const msg = JSON.parse(data);
     if (msg.type === 'snapshot') {
       receivedSnapshots++;
       snapshotArrivalTimes.push(now);
@@ -126,6 +141,18 @@ async function runScenario({ sendIntervalMs, latencyMs = 0, jitterMs = 0 }) {
           dashAckTime = now;
         }
       }
+    }
+  }
+
+  // Bidirectional simulation: delay incoming snapshots with downlink latency
+  ws.onmessage = (event) => {
+    const delay = sampleDelay();
+    if (delay <= 0) {
+      handleMessage(event.data);
+    } else {
+      setTimeout(() => {
+        handleMessage(event.data);
+      }, delay);
     }
   };
 
@@ -181,9 +208,29 @@ async function runScenario({ sendIntervalMs, latencyMs = 0, jitterMs = 0 }) {
       localState = movePlayer(localState, moveInput, Math.min(0.05, dt), now / 1000, world);
     }
 
-    // Network input send cadence
-    if (now - lastSendTime >= sendIntervalMs) {
+    // Network input send strategy
+    let shouldSend = false;
+    if (strategy === 'periodic') {
+      shouldSend = (now - lastSendTime >= sendIntervalMs);
+    } else if (strategy === 'immediate_on_change') {
+      const inputChanged = (
+        currentForward !== lastSentInput.forward ||
+        currentRight !== lastSentInput.right ||
+        currentSprint !== lastSentInput.sprint ||
+        Math.abs(currentYaw - lastSentInput.yaw) > 0.03
+      );
+      const heartbeatExpired = (now - lastSendTime >= heartbeatMs);
+      shouldSend = inputChanged || heartbeatExpired;
+    }
+
+    if (shouldSend) {
       lastSendTime = now;
+      lastSentInput = {
+        forward: currentForward,
+        right: currentRight,
+        sprint: currentSprint,
+        yaw: currentYaw,
+      };
       clientSeq++;
       sendDelayed({
         type: 'input',
@@ -202,6 +249,7 @@ async function runScenario({ sendIntervalMs, latencyMs = 0, jitterMs = 0 }) {
     await sleep(4); // ~250 Hz client poll
   }
 
+  closed = true;
   ws.close();
   await game.stop();
 
@@ -218,42 +266,55 @@ async function runScenario({ sendIntervalMs, latencyMs = 0, jitterMs = 0 }) {
   const avgErr = predictionErrors.length ? (predictionErrors.reduce((a, b) => a + b, 0) / predictionErrors.length) : 0;
   predictionErrors.sort((a, b) => a - b);
   const p95Err = predictionErrors.length ? predictionErrors[Math.floor(predictionErrors.length * 0.95)] : 0;
-  const maxErr = predictionErrors.length ? predictionErrors[predictionErrors.length - 1] : 0;
 
   return {
-    sendIntervalMs: sendIntervalMs.toFixed(1),
+    strategy: strategy === 'periodic' ? `Periodic ${sendIntervalMs.toFixed(1)}ms` : `Immediate + ${heartbeatMs}ms hb`,
     bandwidthKbps: ((sentBytes * 8) / (DURATION_MS / 1000) / 1000).toFixed(2),
     packetsPerSec: (sentPackets / (DURATION_MS / 1000)).toFixed(1),
-    receivedSnapshotsPerSec: (receivedSnapshots / (DURATION_MS / 1000)).toFixed(1),
     sprintLatencyMs: sprintLatency !== null ? sprintLatency.toFixed(1) : 'N/A',
     turnLatencyMs: turnLatency !== null ? turnLatency.toFixed(1) : 'N/A',
-    dashLatencyMs: dashLatency !== null ? dashLatency.toFixed(1) : 'N/A',
     stopLatencyMs: stopLatency !== null ? stopLatency.toFixed(1) : 'N/A',
-    stopOvershootMeters: stopOvershoot !== null ? stopOvershoot.toFixed(3) : 'N/A',
-    avgPredictionErrMeters: avgErr.toFixed(3),
-    p95PredictionErrMeters: p95Err.toFixed(3),
+    stopOvershootM: stopOvershoot !== null ? stopOvershoot.toFixed(3) : 'N/A',
+    avgPredErrM: avgErr.toFixed(3),
+    p95PredErrM: p95Err.toFixed(3),
   };
 }
 
 console.log('========================================================================================');
 console.log('REAL SERVER + REAL WEBSOCKET + REAL 30 Hz ROOM SIMULATION BENCHMARK');
-console.log('Comparing 50 ms (20 Hz) vs 33.3 ms (30 Hz)');
+console.log('True Bidirectional Delay (Uplink + Downlink) across Deterministic Seeds');
+console.log('Comparing:');
+console.log('  1. Periodic 50 ms (20 Hz)');
+console.log('  2. Periodic 33.3 ms (30 Hz)');
+console.log('  3. Immediate-on-Change + 50 ms Heartbeat');
+console.log('  4. Immediate-on-Change + 100 ms Heartbeat');
 console.log('========================================================================================\n');
 
-const conditions = [
-  { name: 'Direct Loopback (Localhost, 0ms latency)', latencyMs: 0, jitterMs: 0 },
-  { name: 'Broadband Profile (RTT ~40ms, jitter 3ms)', latencyMs: 20, jitterMs: 3 },
-  { name: 'Mobile Profile (RTT ~100ms, jitter 12ms)', latencyMs: 50, jitterMs: 12 },
+const profiles = [
+  { name: 'Direct Loopback (0ms uplink / 0ms downlink)', oneWayLatencyMs: 0, jitterMs: 0 },
+  { name: 'Broadband Profile (20ms uplink / 20ms downlink, RTT ~40ms, jitter 3ms)', oneWayLatencyMs: 20, jitterMs: 3 },
+  { name: 'Mobile Profile (50ms uplink / 50ms downlink, RTT ~100ms, jitter 12ms)', oneWayLatencyMs: 50, jitterMs: 12 },
 ];
 
-for (const cond of conditions) {
-  console.log(`--- Condition: ${cond.name} ---`);
-  const res50 = await runScenario({ sendIntervalMs: 50, ...cond });
-  const res33 = await runScenario({ sendIntervalMs: 1000 / 30, ...cond });
+const seeds = [42, 1001, 7777];
 
-  console.table([
-    { Cadence: '50 ms (20 Hz)', ...res50 },
-    { Cadence: '33.3 ms (30 Hz)', ...res33 },
-  ]);
-  console.log('');
+for (const prof of profiles) {
+  console.log(`\n################################################################################`);
+  console.log(`### Profile: ${prof.name}`);
+  console.log(`################################################################################`);
+
+  for (const seed of seeds) {
+    console.log(`\n--- Seed: ${seed} ---`);
+    const res50 = await runScenario({ strategy: 'periodic', sendIntervalMs: 50, seed, ...prof });
+    const res33 = await runScenario({ strategy: 'periodic', sendIntervalMs: 1000 / 30, seed, ...prof });
+    const resImm50 = await runScenario({ strategy: 'immediate_on_change', heartbeatMs: 50, seed, ...prof });
+    const resImm100 = await runScenario({ strategy: 'immediate_on_change', heartbeatMs: 100, seed, ...prof });
+
+    console.table([
+      { Strategy: '1. Periodic 50 ms', ...res50 },
+      { Strategy: '2. Periodic 33.3 ms', ...res33 },
+      { Strategy: '3. Immediate + 50ms hb', ...resImm50 },
+      { Strategy: '4. Immediate + 100ms hb', ...resImm100 },
+    ]);
+  }
 }
