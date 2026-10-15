@@ -24,7 +24,9 @@ test('only actual player bridge abyss failures grow a capped local floor and res
   session.stage('bridge-dash'); session.director.resumeAt('dash-prompt');
   assert.equal(host.room.world, GREENER_PASTURES);
   for (let failure = 1; failure <= 5; failure++) {
-    host.player.position = { x: 32, y: -8.99, z: -669 };
+    // Tests straight falls (x = 32) and diagonal falls off the ramp edge into the ravine (x = 24, x = 40)
+    const testX = failure === 1 ? 24 : failure === 2 ? 40 : 32;
+    host.player.position = { x: testX, y: -8.99, z: -669 };
     host.player.velocity.y = -5; host.player.grounded = false;
     tick(3);
     assert.equal(host.player.alive, true);
