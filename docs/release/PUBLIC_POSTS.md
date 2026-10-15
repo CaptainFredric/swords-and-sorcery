@@ -14,7 +14,7 @@ The Spellblade’s response to discovering his stamina bar:
 
 “Why is it going down? I did not order it to.”
 
-I designed the combat rules, character, abilities and dialogue, and perform the Spellblade’s voice. AI has helped with implementation, networking, debugging, testing and Blender tooling. Getting the result to feel like the game I intended has meant a great deal of playing, questioning and revising.
+I designed the combat rules, character, abilities and dialogue, and perform the Spellblade’s voice. AI has helped with implementation, networking, debugging, testing and Blender tooling. Getting the game to feel right has taken a lot of playtesting and revision.
 
 One important technical change: solo combat now runs locally in the browser, while multiplayer keeps the server in charge of combat. Both use the same rules.
 
