@@ -18,7 +18,7 @@ test('first-person Spellblade uses the faceted armor vocabulary and shared palet
 
 test('first-person rebuild preserves the existing combat presentation API', async () => {
   const text = await source();
-  for (const method of ['setAttack', 'setGuard', 'cast', 'dash', 'wallImpact', 'parry', 'update']) {
+  for (const method of ['setAttack', 'setGuard', 'cast', 'dash', 'wallImpact', 'parry', 'parryReel', 'guardBreak', 'rebound', 'update']) {
     assert.match(text, new RegExp(`\\b${method}\\s*\\(`), `missing WeaponView.${method}`);
   }
   assert.match(text, /resolveWeaponPose/);

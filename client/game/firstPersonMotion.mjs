@@ -138,6 +138,35 @@ export class FirstPersonMotion {
     this.camera.roll.impulse(0.25);
   }
 
+  /**
+   * My swing was parried by an opponent: the blade is violently deflected off line
+   * and the arms reel back from the impact.
+   */
+  parryReel() {
+    this.impact.z.impulse(2.4);
+    this.impact.x.impulse(1.6);
+    this.impact.rx.impulse(3.4);
+    this.impact.ry.impulse(-3.2);
+    this.impact.rz.impulse(-4.2);
+    this.camera.pitch.impulse(0.55);
+    this.camera.roll.impulse(-0.35);
+  }
+
+  /**
+   * My guard was broken: plate clatters, the arms are blown open, and posture collapses.
+   */
+  guardBreak(push) {
+    const x = push?.x ?? 0;
+    const z = push?.z ?? 1;
+    this.impact.z.impulse(2.8 * Math.max(0.5, z));
+    this.impact.x.impulse(1.2 + 0.8 * x);
+    this.impact.rx.impulse(4.8);
+    this.impact.ry.impulse(-2.6);
+    this.impact.rz.impulse(-4.5);
+    this.camera.pitch.impulse(0.7);
+    this.camera.roll.impulse(-0.4);
+  }
+
   /** My blade bit into someone: the arms jolt against the resistance and the view punches (strength 0..1). */
   hitConfirm(strength = 0.5) {
     const k = Math.max(0, Math.min(1, strength));
@@ -148,11 +177,12 @@ export class FirstPersonMotion {
     this.camera.roll.impulse((Math.random() - 0.5) * 0.5 * k);
   }
 
-  /** My swing met someone's guard: a smaller rebound than a wall. */
+  /** My swing met someone's guard: deflected back off the metal surface. */
   rebound() {
-    this.impact.z.impulse(0.8);
-    this.impact.rz.impulse(1.4);
-    this.impact.rx.impulse(1.2);
+    this.impact.z.impulse(1.4);
+    this.impact.x.impulse(0.8);
+    this.impact.rz.impulse(2.2);
+    this.impact.rx.impulse(1.8);
   }
 
   /** A spell leaves the palm: the arms push out after it and the view nods with the throw. */

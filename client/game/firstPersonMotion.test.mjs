@@ -96,6 +96,63 @@ test('landing, damage, blocks and parries kick briefly and recover', () => {
   assert.ok(Math.abs(rest.camera.y) < 1e-3 && Math.abs(rest.camera.roll) < 1e-3 && Math.abs(rest.weapon.z) < 1e-3);
 });
 
+test('parryReel and guardBreak produce visceral deflection and stagger responses', () => {
+  const motion = new FirstPersonMotion();
+  run(motion, 10, () => ({}));
+
+  // Parry reel on attacker
+  motion.parryReel();
+  let reelZ = 0, reelRy = 0, reelRz = 0, reelPitch = 0;
+  for (let i = 0; i < 20; i += 1) {
+    const out = motion.step({ dt: 1 / 60 });
+    if (Math.abs(out.weapon.z) > Math.abs(reelZ)) reelZ = out.weapon.z;
+    if (Math.abs(out.weapon.ry) > Math.abs(reelRy)) reelRy = out.weapon.ry;
+    if (Math.abs(out.weapon.rz) > Math.abs(reelRz)) reelRz = out.weapon.rz;
+    if (Math.abs(out.camera.pitch) > Math.abs(reelPitch)) reelPitch = out.camera.pitch;
+  }
+  assert.ok(reelZ > 0.05, `parry reel drives weapon backward: ${reelZ}`);
+  assert.ok(reelRy < -0.05, `parry reel deflects blade off line: ${reelRy}`);
+  assert.ok(reelRz < -0.07, `parry reel twists weapon outward: ${reelRz}`);
+  assert.ok(reelPitch > 0.01, `parry reel provides subtle head pitch: ${reelPitch}`);
+
+  run(motion, 90, () => ({}));
+
+  // Guard break on defender
+  motion.guardBreak({ x: 0.5, z: 1.0 });
+  let breakZ = 0, breakRx = 0, breakRz = 0, breakPitch = 0;
+  for (let i = 0; i < 20; i += 1) {
+    const out = motion.step({ dt: 1 / 60 });
+    if (Math.abs(out.weapon.z) > Math.abs(breakZ)) breakZ = out.weapon.z;
+    if (Math.abs(out.weapon.rx) > Math.abs(breakRx)) breakRx = out.weapon.rx;
+    if (Math.abs(out.weapon.rz) > Math.abs(breakRz)) breakRz = out.weapon.rz;
+    if (Math.abs(out.camera.pitch) > Math.abs(breakPitch)) breakPitch = out.camera.pitch;
+  }
+  assert.ok(breakZ > 0.06, `guard break throws arms backward: ${breakZ}`);
+  assert.ok(breakRx > 0.08, `guard break pitches weapon up and open: ${breakRx}`);
+  assert.ok(breakRz < -0.08, `guard break tilts guard posture open: ${breakRz}`);
+  assert.ok(breakPitch > 0.015, `guard break gives concussive camera pitch: ${breakPitch}`);
+
+  // Rebound off ordinary guard
+  run(motion, 90, () => ({}));
+  motion.rebound();
+  let reboundZ = 0, reboundRz = 0;
+  for (let i = 0; i < 20; i += 1) {
+    const out = motion.step({ dt: 1 / 60 });
+    if (Math.abs(out.weapon.z) > Math.abs(reboundZ)) reboundZ = out.weapon.z;
+    if (Math.abs(out.weapon.rz) > Math.abs(reboundRz)) reboundRz = out.weapon.rz;
+  }
+  assert.ok(reboundZ > 0.025, `rebound jars blade backward: ${reboundZ}`);
+  assert.ok(reboundRz > 0.035, `rebound rotates blade away from contact: ${reboundRz}`);
+
+  // All settle back to 0
+  const settled = run(motion, 90, () => ({}));
+  assert.ok(Math.abs(settled.camera.pitch) < 1e-3);
+  assert.ok(Math.abs(settled.weapon.z) < 1e-3);
+  assert.ok(Math.abs(settled.weapon.rx) < 1e-3);
+  assert.ok(Math.abs(settled.weapon.ry) < 1e-3);
+  assert.ok(Math.abs(settled.weapon.rz) < 1e-3);
+});
+
 test('actions take the arms: the relaxed neutral offset and the sprint pump fade out while attacking', () => {
   const motion = new FirstPersonMotion();
   run(motion, 60, () => ({ speed: SPRINT.speed }));

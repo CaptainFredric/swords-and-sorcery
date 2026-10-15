@@ -109,3 +109,61 @@ test('onBegin triggers exactly once on strike commitment and does not repeat whi
   stepChain(chain2, 3.5);
   assert.deepEqual(begunCalls, [0, 1, 2, 0]);
 });
+
+test('WeaponView parryReel, guardBreak, and rebound trigger visceral physical deflection states', () => {
+  const calls = [];
+  const fakeMotion = {
+    parryReel: () => calls.push('parryReel'),
+    guardBreak: (push) => calls.push({ type: 'guardBreak', push }),
+    rebound: () => calls.push('rebound'),
+  };
+
+  let canceled = false;
+  const view = {
+    now: () => 10.0,
+    recoilUntil: 0,
+    guard: true,
+    swordChain: { active: true, cancel: () => { canceled = true; } },
+    comboBroken: false,
+    attackButton: true,
+    motion: fakeMotion,
+    cancelAttack() {
+      if (this.swordChain.active) this.comboBroken = true;
+      this.swordChain.cancel(this.now());
+      this.attackButton = false;
+    },
+    parryReel() {
+      this.cancelAttack();
+      this.recoilUntil = this.now() + 0.32;
+      this.motion.parryReel();
+    },
+    guardBreak(push) {
+      this.guard = false;
+      this.recoilUntil = this.now() + 0.38;
+      this.motion.guardBreak(push);
+    },
+    rebound() {
+      this.recoilUntil = this.now() + 0.22;
+      this.motion.rebound();
+    },
+  };
+
+  // Test parryReel
+  view.parryReel();
+  assert.equal(canceled, true, 'parryReel must cancel active sword attack');
+  assert.equal(view.comboBroken, true, 'parryReel must mark combo as broken');
+  assert.equal(view.attackButton, false);
+  assert.equal(view.recoilUntil, 10.32, 'recoil timer must be active for 320ms');
+  assert.deepEqual(calls, ['parryReel']);
+
+  // Test guardBreak
+  view.guardBreak({ x: 0.2, z: 1.0 });
+  assert.equal(view.guard, false, 'guardBreak must drop guard stance');
+  assert.equal(view.recoilUntil, 10.38, 'guardBreak recoil timer active for 380ms');
+  assert.deepEqual(calls[1], { type: 'guardBreak', push: { x: 0.2, z: 1.0 } });
+
+  // Test rebound
+  view.rebound();
+  assert.equal(view.recoilUntil, 10.22, 'rebound sets recoil timer for 220ms');
+  assert.equal(calls[2], 'rebound');
+});

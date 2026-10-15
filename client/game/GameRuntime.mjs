@@ -760,16 +760,27 @@ export class GameRuntime {
       if (event.type === 'guardBreak') this.scenes.guardBroken(event);
       if (event.type === 'parry') {
         if (event.defenderId === me) { this.weapon.parry(); this.hud.flashText('PARRY', 'parry'); this.hud.hit('parry'); }
-        if (event.attackerId === me && !(event.suppressParryReel ?? combatActionPolicy(this.localAuth, event.at ?? this.socket.serverNow()).suppressParryReel)) this.weapon.rebound();
+        if (event.attackerId === me && !(event.suppressParryReel ?? combatActionPolicy(this.localAuth, event.at ?? this.socket.serverNow()).suppressParryReel)) {
+          this.hud.flashText('PARRIED', 'danger');
+          this.weapon.parryReel();
+          this.cameraKick = Math.max(this.cameraKick, 0.16);
+        }
       }
       if (event.type === 'block') {
         if (event.defenderId === me) this.weapon.block(false);
         // (a Vortex's blade is not thrown back by a guard: it is already coming round again)
         if (event.attackerId === me && !event.vortex) this.weapon.rebound();
       }
-      if (event.type === 'guardBreak' && event.defenderId === me) {
-        this.hud.flashText('GUARD BROKEN', 'danger');
-        this.weapon.block(true);
+      if (event.type === 'guardBreak') {
+        if (event.defenderId === me) {
+          this.hud.flashText('GUARD BROKEN', 'danger');
+          this.weapon.guardBreak(this.#pushTowardMe(event.attackerId));
+          this.cameraKick = Math.max(this.cameraKick, 0.24);
+        }
+        if (event.attackerId === me) {
+          this.hud.flashText('GUARD CRUSH', 'kill', 900);
+          this.weapon.hitstop(0.09, 0.9);
+        }
       }
       if (event.type === 'projectileImpact') {
         const spell = spellFor(event.spell);

@@ -11,10 +11,14 @@ test('CLANG is an impact-frame cue rather than a lingering subtitle', () => {
 test('important combat messages remain visible longer than CLANG', () => {
   const clang = combatStatusDurationMs('CLANG!');
   const parry = combatStatusDurationMs('PARRY');
+  const parried = combatStatusDurationMs('PARRIED');
+  const guardCrush = combatStatusDurationMs('GUARD CRUSH');
   const broken = combatStatusDurationMs('GUARD BROKEN');
   const kill = combatStatusDurationMs('SLAIN  +1');
   assert.ok(parry > clang);
-  assert.ok(broken > parry);
+  assert.ok(parried > parry);
+  assert.ok(guardCrush > parried);
+  assert.ok(broken > guardCrush);
   assert.ok(kill >= broken);
 });
 
