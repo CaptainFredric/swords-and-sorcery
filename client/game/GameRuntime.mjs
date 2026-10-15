@@ -761,9 +761,7 @@ export class GameRuntime {
       if (event.type === 'parry') {
         if (event.defenderId === me) { this.weapon.parry(); this.hud.flashText('PARRY', 'parry'); this.hud.hit('parry'); }
         if (event.attackerId === me && !(event.suppressParryReel ?? combatActionPolicy(this.localAuth, event.at ?? this.socket.serverNow()).suppressParryReel)) {
-          this.hud.flashText('PARRIED', 'danger');
           this.weapon.parryReel();
-          this.cameraKick = Math.max(this.cameraKick, 0.16);
         }
       }
       if (event.type === 'block') {
@@ -775,10 +773,8 @@ export class GameRuntime {
         if (event.defenderId === me) {
           this.hud.flashText('GUARD BROKEN', 'danger');
           this.weapon.guardBreak(this.#pushTowardMe(event.attackerId));
-          this.cameraKick = Math.max(this.cameraKick, 0.24);
         }
         if (event.attackerId === me) {
-          this.hud.flashText('GUARD CRUSH', 'kill', 900);
           this.weapon.hitstop(0.09, 0.9);
         }
       }

@@ -148,8 +148,8 @@ export class FirstPersonMotion {
     this.impact.rx.impulse(3.4);
     this.impact.ry.impulse(-3.2);
     this.impact.rz.impulse(-4.2);
-    this.camera.pitch.impulse(0.55);
-    this.camera.roll.impulse(-0.35);
+    this.camera.pitch.impulse(0.35);
+    this.camera.roll.impulse(-0.25);
   }
 
   /**
@@ -163,8 +163,8 @@ export class FirstPersonMotion {
     this.impact.rx.impulse(4.8);
     this.impact.ry.impulse(-2.6);
     this.impact.rz.impulse(-4.5);
-    this.camera.pitch.impulse(0.7);
-    this.camera.roll.impulse(-0.4);
+    this.camera.pitch.impulse(0.45);
+    this.camera.roll.impulse(-0.25);
   }
 
   /** My blade bit into someone: the arms jolt against the resistance and the view punches (strength 0..1). */

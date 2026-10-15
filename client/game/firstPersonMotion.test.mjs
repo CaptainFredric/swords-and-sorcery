@@ -113,7 +113,7 @@ test('parryReel and guardBreak produce visceral deflection and stagger responses
   assert.ok(reelZ > 0.05, `parry reel drives weapon backward: ${reelZ}`);
   assert.ok(reelRy < -0.05, `parry reel deflects blade off line: ${reelRy}`);
   assert.ok(reelRz < -0.07, `parry reel twists weapon outward: ${reelRz}`);
-  assert.ok(reelPitch > 0.01, `parry reel provides subtle head pitch: ${reelPitch}`);
+  assert.ok(reelPitch > 0.008, `parry reel provides subtle head pitch: ${reelPitch}`);
 
   run(motion, 90, () => ({}));
 
@@ -130,7 +130,7 @@ test('parryReel and guardBreak produce visceral deflection and stagger responses
   assert.ok(breakZ > 0.06, `guard break throws arms backward: ${breakZ}`);
   assert.ok(breakRx > 0.08, `guard break pitches weapon up and open: ${breakRx}`);
   assert.ok(breakRz < -0.08, `guard break tilts guard posture open: ${breakRz}`);
-  assert.ok(breakPitch > 0.015, `guard break gives concussive camera pitch: ${breakPitch}`);
+  assert.ok(breakPitch > 0.01, `guard break gives concussive camera pitch: ${breakPitch}`);
 
   // Rebound off ordinary guard
   run(motion, 90, () => ({}));
