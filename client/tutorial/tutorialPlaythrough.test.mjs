@@ -6,7 +6,7 @@ import { inMillLane, millLaneStep } from '../../shared/worlds/greenerParkour.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-function playthrough({ missFirst = false, omitSegments = [] } = {}) {
+export function playthrough({ missFirst = false, omitSegments = [] } = {}) {
   let now = 10, seq = 0, lastBeat = '', lastAttack = -10, lastCast = -10, missed = false, missUntil = -Infinity;
   const laneMind = {};
   const host = new LocalHost({ now: () => now, every: () => 1, cancel: () => {}, later: () => {} });

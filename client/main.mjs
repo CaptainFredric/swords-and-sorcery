@@ -470,10 +470,33 @@ function ensureRuntime() {
     runtime = new GameRuntime($('#game-canvas'), socket, hud, { sound, voice: tutorialSession ? null : voice, music });
     if (new URLSearchParams(location.search).has('debug')) globalThis.__ssRuntime = runtime;
     runtime.configure({ view: viewOptions(settings), input: inputOptions(settings) });
-    if (tutorialSession) runtime.input.allowAction = (action, notify = true) => tutorialSession?.allows(action, notify) ?? true;
+    if (tutorialSession) {
+      runtime.input.allowAction = (action, notify = true) => {
+        if (tutorialSession?.director.state === 'running' && runtime?.weapon) {
+          if (action === 'attack' && runtime.weapon.equipment.sword === 'away') return false;
+          if (action === 'spell' && runtime.weapon.equipment.hand === 'away') return false;
+        }
+        return tutorialSession?.allows(action, notify) ?? true;
+      };
+      runtime.weapon.setEquipment({ sword: false, hand: false });
+    }
     // (a tutorial line may turn the Spellblade's head toward something: "Oh dear..." toward Rival running off)
     runtime.viewGuide = (dt, input) => tutorialLookGuide.step(dt, input);
-    runtime.weapon.guide = (dt, weapon) => tutorialEquipment.step(dt, weapon);
+    runtime.weapon.guide = (dt, weapon) => {
+      const prevSword = weapon.equipment.sword, prevHand = weapon.equipment.hand;
+      tutorialEquipment.step(dt, weapon);
+      if (tutorialSession?.director.state === 'running' &&
+          (prevSword !== weapon.equipment.sword || prevHand !== weapon.equipment.hand)) {
+        revealTutorialControls(tutorialSession.taught);
+      }
+    };
+    const baseOnEquip = runtime.weapon.onEquip;
+    runtime.weapon.onEquip = (what, options) => {
+      baseOnEquip?.(what, options);
+      if (tutorialSession?.director.state === 'running') {
+        revealTutorialControls(tutorialSession.taught);
+      }
+    };
     if (touchUi) { runtime.enableTouch(); tutorialTouchControls(); }
     runtime.onPointer = (locked) => {
       const mode = latestLobby?.mode ?? latestSnapshot?.mode;
@@ -800,12 +823,17 @@ function pauseTutorialForTranscript(open) {
 function restartTutorialFrom(chapter = null) {
   runtime?.input.releaseInputs(); tutorialVoice?.stop(); stopTranscriptTake(); tutorialHeardAsides.clear();
   socket.local.setPaused?.(false);
+  tutorialEquipment.reset();
   if (!tutorialSession) return;
   if (!chapter || chapter === tutorialSession.route[0].chapter) {
+    runtime?.weapon.setEquipment({ sword: false, hand: false });
     tutorialOpening.begin(); tutorialSession.restart();
     openArenaGate(latestSnapshot ?? {}, true);
   } else tutorialSession.beginChapter(chapter);
-  if (runtime) { runtime.input.yaw = tutorialSession.host.player.yaw; runtime.input.pitch = 0; }
+  if (runtime) {
+    runtime.input.yaw = tutorialSession.host.player.yaw; runtime.input.pitch = 0;
+    revealTutorialControls(tutorialSession.taught);
+  }
 }
 const tutorialView = new TutorialView($('#tutorial-lesson'), {
   context: () => ({touch:touchUi,bindings:settings.allBindings()}),
@@ -858,22 +886,28 @@ const TUTORIAL_TOUCH_ACTIONS = new Set(['attack','guard','spell','dash','jump','
 // when it is taught.
 function revealTutorialControls(taught) {
   const absent = (element, action) => {
-    const gone = taught!==null && !taught.includes(action);
-    element.classList.toggle('tutorial-absent',gone);
-    if (gone) element.setAttribute('aria-hidden','true'); else element.removeAttribute('aria-hidden');
+    let gone = taught !== null && !taught.includes(action);
+    if (!gone && runtime?.weapon && tutorialSession?.director.state === 'running') {
+      if (action === 'attack' && runtime.weapon.equipment.sword === 'away') gone = true;
+      if (action === 'spell' && runtime.weapon.equipment.hand === 'away') gone = true;
+    }
+    element.classList.toggle('tutorial-absent', gone);
+    if (gone) element.setAttribute('aria-hidden', 'true'); else element.removeAttribute('aria-hidden');
   };
   for (const button of document.querySelectorAll('.touch-btn[data-action]')) {
-    if (TUTORIAL_TOUCH_ACTIONS.has(button.dataset.action)) absent(button,button.dataset.action);
+    if (TUTORIAL_TOUCH_ACTIONS.has(button.dataset.action)) absent(button, button.dataset.action);
   }
-  const stick=document.querySelector('.touch-stick');
-  stick?.classList.toggle('tutorial-absent',taught!==null && !taught.includes('move'));
-  for (const [action,tile] of [['spell',hud.spell],['dash',hud.dash],['ultimate',hud.ultimate]]) if (tile) absent(tile,action);
+  const stick = document.querySelector('.touch-stick');
+  stick?.classList.toggle('tutorial-absent', taught !== null && !taught.includes('move'));
+  for (const [action, tile] of [['spell', hud.spell], ['dash', hud.dash], ['ultimate', hud.ultimate]]) if (tile) absent(tile, action);
 }
 function startTutorial() {
   showMenuError('');
   const name = nameInput.value.trim().slice(0,18);
   if (!name) { showMenuError('Enter a Spellblade name.'); nameFields.find(field => field.offsetParent !== null)?.focus(); return; }
   localStorage.setItem('ss-player-name',name);
+  tutorialEquipment.reset();
+  runtime?.weapon.setEquipment({ sword: false, hand: false });
   socket.startTutorial(name);
   tutorialVoice ??= new TutorialVoice({ engine: sound, context: () => ({ touch: touchUi }) });
   tutorialSession = new TutorialSession(socket.local, {
@@ -1258,7 +1292,7 @@ socket.on('joined', (message) => {
   ensureRuntime();
   if (drawnFor !== message.roomCode) {
     drawnFor = message.roomCode;
-    sound.play(unsheatheRecipe(), { gain: 0.95 });
+    if (!tutorialSession && message.mode !== 'TUTORIAL') sound.play(unsheatheRecipe(), { gain: 0.95 });
   }
   latestLobby = { ...(latestLobby ?? {}), mode: message.mode, worldId: message.worldId, roomCode: message.roomCode };
   currentRoomState = message.roomState;
