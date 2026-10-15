@@ -228,10 +228,14 @@ def build_character_assets(args: argparse.Namespace) -> None:
     glb_path = args.out / "spellblade.glb"
     export_glb(glb_path, objects=(armature, *model.objects))
     glb_bytes = glb_path.stat().st_size
-    if glb_bytes > int(contract["thirdPerson"]["targetBytes"]):
+    max_bytes = int(contract["thirdPerson"].get("maxBytes", contract["thirdPerson"]["targetBytes"]))
+    target_bytes = int(contract["thirdPerson"]["targetBytes"])
+    if glb_bytes > max_bytes:
         raise ValueError(
-            f"Spellblade GLB exceeds target byte budget: {glb_bytes} > {contract['thirdPerson']['targetBytes']}"
+            f"Spellblade GLB exceeds hard maximum byte ceiling: {glb_bytes} > {max_bytes}"
         )
+    if glb_bytes > target_bytes:
+        print(f"NOTICE: Spellblade GLB ({glb_bytes} bytes) exceeds soft target budget ({target_bytes} bytes)")
 
     cameras = {label: bpy.data.objects.get(f"SpellbladeReviewCamera.{label}") for label in ("front", "back", "side", "quarter")}
     if not all(cameras.values()):

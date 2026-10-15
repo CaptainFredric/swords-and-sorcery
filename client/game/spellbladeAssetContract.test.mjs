@@ -9,8 +9,8 @@ const VALID = {
   clips: ['Idle', 'Run', 'Sprint', 'Air', 'Guard', 'Slash_1', 'Slash_2', 'Slash_3', 'Cast', 'Dash', 'Stagger', 'Death'],
   sockets: ['socket_sword', 'socket_sorcery'],
   mutableMaterials: ['VisorGlow', 'SorceryAccent'],
-  thirdPerson: { maxTriangles: 60000, targetBytes: 5000000 },
-  firstPerson: { maxTriangles: 30000, targetBytes: 2500000 },
+  thirdPerson: { targetTriangles: 35000, maxTriangles: 60000, targetBytes: 2500000, maxBytes: 5000000 },
+  firstPerson: { targetTriangles: 18000, maxTriangles: 30000, targetBytes: 1200000, maxBytes: 2500000 },
 };
 
 async function moduleLoader() {
@@ -36,6 +36,10 @@ test('normalizes and freezes the Spellblade asset contract', async () => {
   assert.ok(Object.isFrozen(value));
   assert.ok(Object.isFrozen(value.clips));
   assert.ok(Object.isFrozen(value.thirdPerson));
+  assert.equal(value.thirdPerson.targetTriangles, 35000);
+  assert.equal(value.thirdPerson.maxTriangles, 60000);
+  assert.equal(value.thirdPerson.targetBytes, 2500000);
+  assert.equal(value.thirdPerson.maxBytes, 5000000);
 });
 
 test('rejects a contract that drops a timing-critical clip', async () => {

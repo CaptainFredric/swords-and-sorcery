@@ -35,10 +35,17 @@ function requireStringList(value, required, label) {
 
 function freezeBudget(raw, label) {
   const value = requireObject(raw, label);
-  return Object.freeze({
+  const budget = {
     maxTriangles: requirePositiveNumber(value.maxTriangles, `${label}.maxTriangles`),
     targetBytes: requirePositiveNumber(value.targetBytes, `${label}.targetBytes`),
-  });
+  };
+  if (Number.isFinite(value.targetTriangles) && value.targetTriangles > 0) {
+    budget.targetTriangles = value.targetTriangles;
+  }
+  if (Number.isFinite(value.maxBytes) && value.maxBytes > 0) {
+    budget.maxBytes = value.maxBytes;
+  }
+  return Object.freeze(budget);
 }
 
 export function loadSpellbladeContract(raw) {
