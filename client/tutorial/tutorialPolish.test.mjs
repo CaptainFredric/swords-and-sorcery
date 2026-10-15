@@ -86,8 +86,24 @@ test('ordinary defeat, a fall elsewhere and Rival falling never extend the bridg
   killPlayer(host.room, host.player.id, null, 'sword', host.now());
   session.events(host.room.events.splice(0)); tick();
   assert.equal(session.bridgeFailures, 0);
+
+  // Fall just outside west edge of corridor (x = 18, corridor is 20..44)
+  host.player.position = { x: 18, y: -8.99, z: -669 }; host.player.grounded = false; host.player.velocity.y = -5;
+  tick(3); assert.equal(session.bridgeFailures, 0);
+
+  // Fall just outside east edge of corridor (x = 46, corridor is 20..44)
+  host.player.position = { x: 46, y: -8.99, z: -669 }; host.player.grounded = false; host.player.velocity.y = -5;
+  tick(3); assert.equal(session.bridgeFailures, 0);
+
+  // Fall well outside corridor (x = 70)
   host.player.position = { x: 70, y: -8.99, z: -669 }; host.player.grounded = false; host.player.velocity.y = -5;
   tick(3); assert.equal(session.bridgeFailures, 0);
+
+  // Fall beyond ravine on far bank (z = -685, ravineBounds minZ is -679)
+  host.player.position = { x: 32, y: -8.99, z: -685 }; host.player.grounded = false; host.player.velocity.y = -5;
+  tick(3); assert.equal(session.bridgeFailures, 0);
+
+  // Rival falling in abyss never counts as player bridge failure
   rival().position = { x: 32, y: -8.99, z: -669 }; rival().grounded = false; rival().velocity.y = -5;
   tick(3); assert.equal(session.bridgeFailures, 0);
   host.close();
