@@ -405,7 +405,7 @@ export class WeaponView {
   // magic hand's target and weight, and how bright its rune and light are (1: as ever; 0: down out of sight).
   #equipmentPose(timeSec) {
     const e = this.equipment;
-    let sword = null, hand = null, rune = 1;
+    let sword = null, hand = null, rune = 1, wake = 0;
     if (e.sword === 'away') sword = { pose: drawPose(0), weight: 1 };
     else if (e.sword === 'drawing') {
       const t = timeSec - e.swordAt, length = e.swordQuick ? QUICK_DRAW_SEC : DRAW_END;
@@ -424,14 +424,15 @@ export class WeaponView {
         rune = easeInOut(t / HAND_REVEAL.rise);
       } else if (t < HAND_REVEAL.hold) {
         hand = { target: HAND_SHOWN, weight: 1 };
-        // (the rune wakes as the palm turns up, restrained: a breath brighter, then down to its rest)
-        rune = 1 + 0.8 * Math.sin(Math.PI * (t - HAND_REVEAL.rise) / (HAND_REVEAL.hold - HAND_REVEAL.rise));
+        // (the rune wakes as the palm turns up: clear cyan magic readiness bloom, then settles to rest)
+        wake = Math.sin(Math.PI * (t - HAND_REVEAL.rise) / (HAND_REVEAL.hold - HAND_REVEAL.rise));
+        rune = 1 + 0.8 * wake;
       } else {
         const k = easeInOut((t - HAND_REVEAL.hold) / (HAND_REVEAL.end - HAND_REVEAL.hold));
         hand = { target: handBetween(HAND_SHOWN, HAND_REST, k), weight: 1 - k };
       }
     }
-    return { sword, hand, rune };
+    return { sword, hand, rune, wake };
   }
 
   /** The attack button: a press starts a chain (or asks for its next strike); a release lets go (the swing plays out). */
@@ -924,10 +925,14 @@ export class WeaponView {
         this.chivalryLink ??= createChivalryLink(this.group, () => this.productionInstance?.sockets, { firstPerson: true });
         this.chivalryLink.set(this.combatPlayer, this.combatServerNow, pose.concurrent);
       }
-      // gauntlet runes and palm light follow the palm sorcery: dim at rest, bright only while a cast gathers
+      // gauntlet runes and palm light follow the palm sorcery: dim at rest, bright only while a cast gathers;
+      // during the authored tutorial hand reveal, the cyan PalmRune readiness wakes clearly
       const level = Math.max(this.productionInstance.sorceryLevel?.() ?? 0, gesture.draw);
-      for (const material of this.productionInstance.materials.SorceryAccent ?? []) material.emissiveIntensity = (0.7 + 2.1 * level) * away.rune;
-      this.magicLight.intensity = (0.12 + 2.6 * level) * away.rune;
+      const wake = away.wake ?? 0;
+      for (const material of this.productionInstance.materials.SorceryAccent ?? []) {
+        material.emissiveIntensity = (0.7 + 2.1 * level + 2.4 * wake) * away.rune;
+      }
+      this.magicLight.intensity = (0.12 + 2.6 * level + 1.8 * wake) * away.rune;
       this.#chargeGlow(gesture, timeSec);
       // (the hand on a burning sword is lit by it)
       if (fire > 0.01) {
@@ -948,6 +953,10 @@ export class WeaponView {
       return motion;
     }
 
+    const away = this.#equipmentPose(timeSec);
+    this.weaponGroup.visible = this.equipment.sword !== 'away';
+    this.leftHandGroup.visible = this.equipment.hand !== 'away';
+
     const groupSnap = pose.state === 'attack' ? 0.40 : pose.state === 'guard' || pose.state === 'cast' ? 0.34 : 0.27;
     const swordSnap = pose.state === 'attack' ? 0.58 : pose.state === 'guard' ? 0.42 : 0.32;
     dampTransform(this.weaponGroup, pose.group, groupSnap);
@@ -967,7 +976,8 @@ export class WeaponView {
       wisp.rotation.x += 0.012 + i * 0.003;
       wisp.rotation.y = timeSec * (1.1 + i * 0.22);
     }
-    this.magicLight.intensity = pose.state === 'cast' ? 3.2 : 0.95 * Math.max(0.4, magicScale);
+    const wake = away.wake ?? 0;
+    this.magicLight.intensity = (pose.state === 'cast' ? 3.2 : 0.95 * Math.max(0.4, magicScale)) * away.rune + 1.8 * wake;
     return motion;
   }
 

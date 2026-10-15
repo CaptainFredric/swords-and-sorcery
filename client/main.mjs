@@ -470,7 +470,10 @@ function ensureRuntime() {
     runtime = new GameRuntime($('#game-canvas'), socket, hud, { sound, voice: tutorialSession ? null : voice, music });
     if (new URLSearchParams(location.search).has('debug')) globalThis.__ssRuntime = runtime;
     runtime.configure({ view: viewOptions(settings), input: inputOptions(settings) });
-    if (tutorialSession) runtime.input.allowAction = (action, notify = true) => tutorialSession?.allows(action, notify) ?? true;
+    if (tutorialSession) {
+      runtime.input.allowAction = (action, notify = true) => tutorialSession?.allows(action, notify) ?? true;
+      runtime.weapon.setEquipment({ sword: false, hand: false });
+    }
     // (a tutorial line may turn the Spellblade's head toward something: "Oh dear..." toward Rival running off)
     runtime.viewGuide = (dt, input) => tutorialLookGuide.step(dt, input);
     runtime.weapon.guide = (dt, weapon) => tutorialEquipment.step(dt, weapon);
@@ -800,8 +803,10 @@ function pauseTutorialForTranscript(open) {
 function restartTutorialFrom(chapter = null) {
   runtime?.input.releaseInputs(); tutorialVoice?.stop(); stopTranscriptTake(); tutorialHeardAsides.clear();
   socket.local.setPaused?.(false);
+  tutorialEquipment.reset();
   if (!tutorialSession) return;
   if (!chapter || chapter === tutorialSession.route[0].chapter) {
+    runtime?.weapon.setEquipment({ sword: false, hand: false });
     tutorialOpening.begin(); tutorialSession.restart();
     openArenaGate(latestSnapshot ?? {}, true);
   } else tutorialSession.beginChapter(chapter);
@@ -874,6 +879,8 @@ function startTutorial() {
   const name = nameInput.value.trim().slice(0,18);
   if (!name) { showMenuError('Enter a Spellblade name.'); nameFields.find(field => field.offsetParent !== null)?.focus(); return; }
   localStorage.setItem('ss-player-name',name);
+  tutorialEquipment.reset();
+  runtime?.weapon.setEquipment({ sword: false, hand: false });
   socket.startTutorial(name);
   tutorialVoice ??= new TutorialVoice({ engine: sound, context: () => ({ touch: touchUi }) });
   tutorialSession = new TutorialSession(socket.local, {
@@ -1258,7 +1265,7 @@ socket.on('joined', (message) => {
   ensureRuntime();
   if (drawnFor !== message.roomCode) {
     drawnFor = message.roomCode;
-    sound.play(unsheatheRecipe(), { gain: 0.95 });
+    if (!tutorialSession && message.mode !== 'TUTORIAL') sound.play(unsheatheRecipe(), { gain: 0.95 });
   }
   latestLobby = { ...(latestLobby ?? {}), mode: message.mode, worldId: message.worldId, roomCode: message.roomCode };
   currentRoomState = message.roomState;

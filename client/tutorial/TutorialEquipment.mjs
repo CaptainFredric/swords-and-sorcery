@@ -20,6 +20,14 @@ export class TutorialEquipment {
     this.active = false;
   }
 
+  /** Reset internal tracking clock and line state for a clean restart or chapter jump. */
+  reset() {
+    this.clock = 0;
+    this.line = null;
+    this.last = null;
+    this.active = false;
+  }
+
   /** One frame: the arms brought to what the lesson has out, played or at once. */
   step(dt, weapon) {
     this.clock += dt;

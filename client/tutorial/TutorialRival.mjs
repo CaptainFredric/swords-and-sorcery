@@ -292,6 +292,7 @@ export class TutorialRival {
     return false;
   }
   linger(now, apart) {
+    if (this.parry(now)) return;
     const { actor, player } = this, box = FIREBALL_MEADOW;
     const dx = actor.position.x - player.position.x, dz = actor.position.z - player.position.z, length = Math.hypot(dx, dz) || 1;
     const pressed = apart < LINGER.near;
@@ -459,7 +460,7 @@ export class TutorialRival {
       return;
     }
     const riposte = ['guard-lesson', 'postscript'].includes(this.mode) && this.parryRaisedAt !== null && now < player.staggerUntil;
-    if (!HITTABLE.has(this.mode) && !riposte && this.parry(now)) return;
+    if ((!HITTABLE.has(this.mode) || this.fireballLesson) && !riposte && this.parry(now)) return;
     if (this.mode === 'duel' || this.mode === 'final-fight') { this.combat(now, this.mode === 'final-fight'); return; }
     if (this.mode === 'final-opening') { this.finalOpening(now); return; }
     if (this.mode === 'final-guard') { this.finalGuard(now); return; }

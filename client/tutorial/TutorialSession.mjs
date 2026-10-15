@@ -431,8 +431,12 @@ export class TutorialSession {
       }
       if (event.type === 'damage' && event.victimId === this.host.player.id && event.amount > 0) this.healthFullSince = null;
       if (event.type === 'block' && event.defenderId === this.rivalId && event.attackerId === this.host.player.id) this.rival.lastBlockedAt = this.host.now();
-      if (event.type === 'parry' && event.defenderId === this.rivalId && event.attackerId === this.host.player.id && this.rival.mode === 'final-opening') {
-        this.finalPhase = 'guard'; this.director.fact('final-first-parry');
+      if (event.type === 'parry' && event.defenderId === this.rivalId && event.attackerId === this.host.player.id) {
+        if (this.rival.mode === 'final-opening') {
+          this.finalPhase = 'guard'; this.director.fact('final-first-parry');
+        } else if (this.rival.fireballLesson && !this.firstFireballHit) {
+          this.director.offerBranch('first-fireball-miss');
+        }
       }
       if (event.type === 'death' && event.victimId === this.host.player.id) this.loseFinal();
       if (event.type === 'damage' && event.victimId === this.rivalId && event.attackerId === this.host.player.id && event.amount > 0) {

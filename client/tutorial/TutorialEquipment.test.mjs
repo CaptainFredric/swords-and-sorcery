@@ -70,3 +70,16 @@ test('a Fireball cast before its line raises the hand, and it stays raised', () 
   for (let i = 0; i < 30; i += 1) equipment.step(1 / 60, w);
   assert.notEqual(w.equipment.hand, 'away');
 });
+
+test('reset() clears active, clock, last and line state cleanly', () => {
+  const { director, equipment, w } = rig();
+  equipment.step(1 / 60, w);
+  assert.equal(equipment.active, true);
+  assert.ok(equipment.clock > 0);
+  assert.ok(equipment.last !== null);
+  equipment.reset();
+  assert.equal(equipment.active, false);
+  assert.equal(equipment.clock, 0);
+  assert.equal(equipment.last, null);
+  assert.equal(equipment.line, null);
+});

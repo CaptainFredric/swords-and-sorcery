@@ -335,3 +335,38 @@ test('missed Fireballs: Rival keeps to the meadow, facing the Spellblade, until 
   assert.ok(rival().position.z < box.minZ - 2, 'the chase resumes past the meadow');
   host.close();
 });
+
+test('Fireball lesson stand: Rival parries sword attacks, offers first-fireball-miss once, and fireball cleanly breaks the stand', () => {
+  const t = fixture();
+  const { host, session, tick, events, rival } = t;
+  session.stage('fireball'); session.director.resumeAt('fireball-prompt'); session.rival.enter('rival-escape', host.now());
+  rival().position = { x: 24, y: 0, z: -386 };
+  host.player.position = { x: 24, y: 0, z: -384 };
+  faceOff(t); tick();
+
+  // Sword strike at Rival in the meadow stand
+  const initialHealth = rival().health;
+  host.attack(true); host.attack(false);
+  tick(Math.round(30 * (SWORD_STRIKE_TIMES[0] + .3)));
+
+  // Rival turns away the strike with a real Parry, taking no damage
+  const parry = events.find(e => e.type === 'parry' && e.defenderId === session.rivalId && e.attackerId === host.player.id);
+  assert.ok(parry, 'strike was parried by Rival');
+  assert.equal(events.some(e => e.type === 'damage' && e.victimId === session.rivalId && e.source === 'sword'), false);
+  assert.equal(rival().health, initialHealth);
+  assert.ok(host.player.staggerUntil > parry.at, 'attacker staggered by parry');
+  // Dialogue branch offered once as diegetic reminder
+  assert.ok(session.director.branchesSeen.has('first-fireball-miss'));
+
+  // Fireball cleanly breaks the stand and damages him
+  tick(30);
+  faceOff(t); tick();
+  const r = rival().position, p = host.player.position;
+  const length = Math.hypot(r.x - p.x, r.z - p.z);
+  host.cast({ x: (r.x - p.x) / length, y: 0, z: (r.z - p.z) / length });
+  for (let i = 0; i < 30 * 3 && !session.director.facts.has('fireball-hit'); i += 1) tick();
+  assert.ok(session.director.facts.has('fireball-hit'), 'fireball hit landed');
+  assert.ok(rival().health < initialHealth, 'fireball dealt genuine damage');
+  assert.equal(session.rival.fireballLesson, false, 'fireball lesson ended');
+  host.close();
+});
