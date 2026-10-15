@@ -376,6 +376,19 @@ export class TutorialSession {
     const farEdge = greenerBridgeRetryFloor(this.bridgeFailures);
     const landingZ = farEdge ? farEdge.center[2] + farEdge.size[2] / 2 : bridge.gapBounds.minZ;
     if (this.bridgeDash && me.position.z < landingZ && me.grounded) this.director.fact('bridge-crossed');
+    if (this.director.facts.has('bridge-crossed')
+      && !this.subsequentHit
+      && !this.director.facts.has('subsequent-fireball-hit')
+      && !this.director.facts.has('counterfire-pressure')
+      && !this.director.facts.has('rival-counterfire-started')
+      && this.rival?.mode === 'counter-pursuit'
+      && (me.position.z <= GREENER_ROUTE.landmarks.counterfire.z + 40 || actor.position.z <= GREENER_ROUTE.entrance.z + 120)) {
+      const apart = Math.hypot(me.position.x - actor.position.x, me.position.z - actor.position.z);
+      if (apart <= 18 || (actor.position.z <= GREENER_ROUTE.entrance.z + 120 && apart <= 25)) {
+        this.director.fact('counterfire-pressure');
+        this.rival.enter('rival-counterfire', now);
+      }
+    }
     if (['counterfire','complaint'].includes(this.rival.mode) && this.rival.counterShots > 0) this.director.fact('rival-counterfire-started');
     if (this.rival.counterShots >= 2 && me.position.z < GREENER_ROUTE.landmarks.counterfire.z) this.director.fact('counterfire-complete');
     // Scene gates compose observations. The dialogue may be freely replaced or removed.
@@ -468,7 +481,10 @@ export class TutorialSession {
           // (the first hit is the Fireball lesson's, its reactions with it; later ones are the pursuit's, or the final
           // duel's own aside: never the first lesson's reactions again)
           if (!this.firstFireballHit) { this.firstFireballHit = true; this.director.fact('fireball-hit'); }
-          else if (['counter-pursuit','counterfire','complaint'].includes(this.rival.mode)) { this.subsequentHit = true; this.director.fact('subsequent-fireball-hit'); }
+          else if (['counter-pursuit','counterfire','complaint'].includes(this.rival.mode)) {
+            this.subsequentHit = true;
+            if (!this.director.facts.has('counterfire-pressure')) this.director.fact('subsequent-fireball-hit');
+          }
         }
         if (event.health <= 1 && this.host.room.tutorialRival.protected && ['escape','counter-pursuit','counterfire','complaint','jump'].includes(this.rival.mode)) {
           this.director.fact('rival-survived-lethal');

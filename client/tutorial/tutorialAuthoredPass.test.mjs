@@ -460,3 +460,155 @@ test('attack and magic(fireball) controls appear when the sword and magic hand a
   host.close();
 });
 
+test('counterfire: second Fireball path works and retains singeing line', () => {
+  const t = fixture();
+  const { host, session, tick, rival } = t;
+  session.stage('counterfire');
+  session.director.resumeAt('counterfire-hit');
+  session.rival.enter('rival-pursuit', host.now());
+  host.player.position = { x: 30, y: 0, z: -700 };
+  rival().position = { x: 30, y: 0, z: -740 };
+  faceOff(t); tick();
+
+  assert.equal(session.director.current.id, 'counterfire-hit');
+
+  // Player lands fireball on Rival
+  applyDamage(host.room, host.player.id, session.rivalId, 20, 'fireball', host.now());
+  tick();
+  assert.ok(session.director.facts.has('subsequent-fireball-hit'), 'subsequent fireball hit recorded');
+  assert.equal(session.director.facts.has('counterfire-pressure'), false, 'pressure not emitted on fireball path');
+  assert.equal(session.director.current.id, 'cease-singeing', 'retains cease-singeing beat');
+  assert.equal(session.director.current.line, 'Cease this singeing, I insist');
+
+  // Let dialogue finish: advances to counterfire-response
+  session.director.completeDialogue(session.director.cue);
+  assert.equal(session.director.current.id, 'counterfire-response');
+
+  // Next tick Rival enters counterfire, casts, and advances to follow-footsteps
+  tick();
+  assert.equal(session.rival.mode, 'counterfire', 'rival enters counterfire mode');
+  assert.equal(session.director.current.id, 'follow-footsteps');
+
+  host.close();
+});
+
+test('counterfire: proximity/chase path progresses without second Fireball', () => {
+  const t = fixture();
+  const { host, session, tick, rival } = t;
+  session.stage('counterfire');
+  session.director.resumeAt('counterfire-hit');
+  session.rival.enter('rival-pursuit', host.now());
+  session.director.fact('bridge-crossed');
+
+  // Place player and rival past far-bank in the counterfire corridor
+  host.player.position = { x: 30, y: 0, z: -800 };
+  rival().position = { x: 30, y: 0, z: -812 }; // apart = 12 <= 18
+  tick();
+
+  assert.ok(session.director.facts.has('counterfire-pressure'), 'counterfire-pressure emitted on pursuit proximity');
+  assert.equal(session.director.facts.has('subsequent-fireball-hit'), false, 'subsequent-fireball-hit not emitted');
+  assert.equal(session.rival.mode, 'counterfire', 'rival turns hostile with counterfire');
+  assert.equal(session.director.current.id, 'counterfire-response');
+
+  // Rival shoots counterfire projectile at player
+  for (let i = 0; i < 30 * 3 && !session.director.facts.has('rival-counterfire-started'); i += 1) tick();
+  assert.ok(session.rival.counterShots >= 1, 'rival has cast counterfire');
+  assert.ok(session.director.facts.has('rival-counterfire-started'), 'rival-counterfire-started fact emitted');
+
+  // Progresses toward counterfire-complete
+  assert.notEqual(session.director.current.id, 'counterfire-hit');
+  assert.notEqual(session.director.current.id, 'cease-singeing');
+
+  host.close();
+});
+
+test('counterfire: proximity path does not play singeing line', () => {
+  const t = fixture();
+  const { host, session, tick, rival } = t;
+  session.stage('counterfire');
+  session.director.resumeAt('counterfire-hit');
+  session.rival.enter('rival-pursuit', host.now());
+  session.director.fact('bridge-crossed');
+
+  const linesSpoken = [];
+  session.director.onChange = (progress) => {
+    if (progress.current?.line) linesSpoken.push(progress.current.line);
+  };
+
+  // Close the distance on foot without casting
+  host.player.position = { x: 30, y: 0, z: -800 };
+  rival().position = { x: 30, y: 0, z: -814 };
+  tick();
+
+  assert.ok(session.director.facts.has('counterfire-pressure'));
+  assert.equal(session.director.current.id, 'counterfire-response');
+  assert.equal(linesSpoken.includes('Cease this singeing, I insist'), false, 'cease singeing line never played');
+
+  host.close();
+});
+
+test('counterfire: neither path double-triggers counterfire', () => {
+  // Subcase A: Fireball hit first, then proximity
+  {
+    const t = fixture();
+    const { host, session, tick, rival } = t;
+    session.stage('counterfire');
+    session.director.resumeAt('counterfire-hit');
+    session.rival.enter('rival-pursuit', host.now());
+    session.director.fact('bridge-crossed');
+
+    host.player.position = { x: 30, y: 0, z: -700 };
+    rival().position = { x: 30, y: 0, z: -740 };
+    faceOff(t); tick();
+
+    // Fireball lands
+    applyDamage(host.room, host.player.id, session.rivalId, 20, 'fireball', host.now());
+    tick();
+
+    assert.ok(session.director.facts.has('subsequent-fireball-hit'));
+    session.director.completeDialogue(session.director.cue); tick();
+    assert.equal(session.rival.mode, 'counterfire');
+    const enteredAt = session.rival.enteredAt;
+
+    // Now player moves into close proximity (e.g. apart = 5m in counterfire zone)
+    host.player.position = { x: 30, y: 0, z: -800 };
+    rival().position = { x: 30, y: 0, z: -805 };
+    tick(5);
+
+    assert.equal(session.director.facts.has('counterfire-pressure'), false, 'pressure not emitted after fireball path');
+    assert.equal(session.rival.mode, 'counterfire');
+    assert.equal(session.rival.enteredAt, enteredAt, 'rival mode did not re-enter or reset');
+    host.close();
+  }
+
+  // Subcase B: Proximity first, then fireball hit
+  {
+    const t = fixture();
+    const { host, session, tick, rival } = t;
+    session.stage('counterfire');
+    session.director.resumeAt('counterfire-hit');
+    session.rival.enter('rival-pursuit', host.now());
+    session.director.fact('bridge-crossed');
+
+    // Trigger proximity
+    host.player.position = { x: 30, y: 0, z: -800 };
+    rival().position = { x: 30, y: 0, z: -814 };
+    tick();
+
+    assert.ok(session.director.facts.has('counterfire-pressure'));
+    assert.equal(session.rival.mode, 'counterfire');
+    const enteredAt = session.rival.enteredAt;
+
+    // Now player lands a fireball on Rival
+    applyDamage(host.room, host.player.id, session.rivalId, 20, 'fireball', host.now());
+    tick(5);
+
+    assert.equal(session.director.facts.has('subsequent-fireball-hit'), false, 'subsequent-fireball-hit not emitted after pressure');
+    assert.equal(session.rival.mode, 'counterfire');
+    assert.equal(session.rival.enteredAt, enteredAt, 'counterfire did not re-trigger');
+    assert.notEqual(session.director.current.id, 'cease-singeing', 'singeing line was not resurrected');
+    host.close();
+  }
+});
+
+

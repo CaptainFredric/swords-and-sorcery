@@ -455,11 +455,11 @@ const segments = [
   {
     id: 'counterfire', chapter: 'counterfire', permissions: DASH, presentation: 'reactive', branches: ['burned', 'rival-constitution', 'permission-to-stop'],
     entryCondition: 'bridge-crossed', completionCue: 'counterfire-complete', objective: PURSUIT_OBJECTIVE,
-    scene: { enter: 'rival-pursuit', checkpoint: 'counterfire', gates: ['subsequent-fireball-hit', 'rival-counterfire-started', 'counterfire-complete'] },
+    scene: { enter: 'rival-pursuit', checkpoint: 'counterfire', gates: ['subsequent-fireball-hit', 'counterfire-pressure', 'rival-counterfire-started', 'counterfire-complete'] },
     beats: [
-      { id: 'counterfire-hit', kind: 'stage', advanceOn: 'subsequent-fireball-hit',
+      { id: 'counterfire-hit', kind: 'stage', advanceOn: 'subsequent-fireball-hit', skipWhen: 'counterfire-pressure',
         direction: 'Observe another genuine Fireball hit while the chase continues.' },
-      { id: 'cease-singeing', speaker: 'rival', line: 'Cease this singeing, I insist' },
+      { id: 'cease-singeing', skipWhen: 'counterfire-pressure', speaker: 'rival', line: 'Cease this singeing, I insist' },
       { id: 'counterfire-response', kind: 'stage', advanceOn: 'rival-counterfire-started', stageCue: 'rival-counterfire',
         direction: 'Rival answers with ordinary Fireball while continuing to flee.' },
       { id: 'follow-footsteps', speaker: 'narrator', line: 'I recommend following in his footsteps.' },
