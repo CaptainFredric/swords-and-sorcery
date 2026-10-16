@@ -117,9 +117,11 @@ export class CreditsPanel {
         </article>`;
     };
     // each group under its title, each of its sections folding away (with how many lines it holds); searching, only
-    // what was found, each section with a match unfolded (and how many of its lines matched)
+    // what was found, each section with a match unfolded (and how many of its lines matched).
+    // Unrecorded placeholders are omitted from the credits display once what is recorded is known.
     const statusOf = (entry) => (recorded ? statusLabel(entry, isRecorded(entry.line)) : '');
-    const shelves = searchShelves(librarySections(isRecorded), terms, statusOf);
+    const baseShelves = librarySections(isRecorded, { includeUnrecorded: !recorded });
+    const shelves = searchShelves(baseShelves, terms, statusOf);
     const groups = LIBRARY_GROUPS.map((group) => {
       const mine = shelves.filter((shelf) => shelf.group === group.id);
       if (!mine.length) return '';
@@ -131,6 +133,7 @@ export class CreditsPanel {
       return `<h3 class="setting-group">${escape(group.title)}</h3>${sections}`;
     }).join('');
     const found = shelves.reduce((sum, shelf) => sum + shelf.entries.length, 0);
+    const totalLines = baseShelves.reduce((sum, shelf) => sum + shelf.entries.length, 0);
     const empty = terms.length && !found
       ? `<p class="setting-empty credits-empty">No voice lines match \u201c${escape(this.query.trim())}\u201d.</p>` : '';
     const focused = document.activeElement;
@@ -144,7 +147,7 @@ export class CreditsPanel {
       ? [...this.library.querySelectorAll('[data-play-line]')].find((el) => el.dataset.playLine === line && el.dataset.take === take)
       : section ? [...this.library.querySelectorAll('[data-section]')].find((el) => el.dataset.section === section)?.querySelector('summary') : null;
     replacement?.focus({ preventScroll: true });
-    if (this.count) this.count.textContent = terms.length ? `${found} of ${VOICE_LIBRARY.length} lines` : '';
+    if (this.count) this.count.textContent = terms.length ? `${found} of ${totalLines} lines` : '';
   }
 
   // (the voice may still be loading the first time: it is asked again a moment later)

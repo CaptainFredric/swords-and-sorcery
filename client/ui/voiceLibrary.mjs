@@ -36,9 +36,12 @@ export const LIBRARY_GROUPS = Object.freeze([
   Object.freeze({ id: 'sounds', title: 'Combat Sounds', sections: VOICE_SECTIONS.sounds }),
 ]);
 
-/** The library by section (in its group's order), each section's lines in the order the Credits show them. */
-export function librarySections(isRecorded) {
-  const ordered = libraryInOrder(isRecorded);
+/**
+ * The library by section (in its group's order), each section's lines in the order the Credits show them.
+ * When includeUnrecorded is false, unrecorded line placeholders are omitted.
+ */
+export function librarySections(isRecorded, { includeUnrecorded = true } = {}) {
+  const ordered = libraryInOrder(isRecorded).filter((entry) => includeUnrecorded || isRecorded(entry.line));
   return LIBRARY_GROUPS.filter((group) => group.sections.length).flatMap((group) => group.sections.map((section) => ({
     group: group.id, section, entries: ordered.filter((entry) => entry.section === section),
   }))).filter((shelf) => shelf.entries.length);
