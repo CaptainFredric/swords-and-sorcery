@@ -340,16 +340,16 @@ const segments = [
     scene: { enter: 'rival-jump', checkpoint: 'jump', releaseControls: { afterCue: 'rival-jumped', permissions: JUMP },
       gates: ['rival-jumped', 'jump-reached', 'jump-approach-ready', 'jump-used', 'jump-crossed'] },
     beats: [
-      // (the gloat begins as he lands, while he turns back to face the Spellblade still coming)
-      { id: 'jump-arrival', place: 'jump', kind: 'stage', advanceOn: 'rival-jumped', skipWhen: 'jump-crossed',
-        direction: 'Pursue Rival to the low field stile. Rival jumps it for real and stops on its far side to gloat.' },
-      { id: 'minor-obstacle-gloat', skipWhen:'jump-crossed', speaker: 'rival', line: 'Ahahaha! You cannot overcome this!' },
-      // (each question goes with its answer, or neither is had; "I do not get hints." only after a hint has been given)
+      // (hints begin on the move during meadow approach travel; each pair only if it fits before takeoff)
       { id: 'what-should-do', fitsBefore: 'jump-call', unit: 'ledges', skipWhen:['jump-crossed','jump-used','jump-approach-ready'], speaker: 'spellblade', line: 'What should I do?' },
       { id: 'minor-ledges', fitsBefore: 'jump-call', unit: 'ledges', skipWhen:['jump-crossed','jump-used','jump-approach-ready'], speaker: 'narrator', line: "The Spellblade's journey is not impeded by minor ledges." },
       { id: 'what-does-mean', fitsBefore: 'jump-call', unit: 'occasion', skipWhen:['jump-crossed','jump-used','jump-approach-ready'], speaker: 'spellblade', line: 'What does that mean?' },
       { id: 'rises-occasion', fitsBefore: 'jump-call', unit: 'occasion', skipWhen:['jump-crossed','jump-used','jump-approach-ready'], speaker: 'narrator', line: 'He rises to the occasion, climbs the ranks, and bounds onward toward greater glory.' },
       { id: 'jump-no-hints', fitsBefore: 'jump-call', skipWhen:['jump-crossed','jump-used','jump-approach-ready','ledges-cut'], speaker: 'spellblade', line: 'I do not get hints.' },
+      // (Rival reaches the stile, leaps it, and gloats from the far side)
+      { id: 'jump-arrival', place: 'jump', kind: 'stage', advanceOn: 'rival-jumped', skipWhen: 'jump-crossed',
+        direction: 'Pursue Rival to the low field stile. Rival jumps it for real and stops on its far side to gloat.' },
+      { id: 'minor-obstacle-gloat', skipWhen:'jump-crossed', speaker: 'rival', line: 'Ahahaha! You cannot overcome this!' },
       { id: 'jump-near-approach', skipWhen:['jump-crossed','jump-used'], kind:'stage', advanceOn:'jump-approach-ready', direction:'Only the final hint waits for the player nearing the takeoff.' },
       { id: 'jump-instruction', skipWhen:['jump-crossed','jump-used'], speaker: 'narrator', line: 'Jump.' },
       { id: 'jump-prompt', skipWhen:'jump-crossed', kind: 'prompt', speaker: 'instruction', line: 'JUMP', advanceOn: 'jump-used', mechanic: 'jump', permissions: JUMP },
@@ -363,21 +363,15 @@ const segments = [
   {
     id: 'pursuit-banter', chapter: 'pursuit', permissions: JUMP, presentation: 'reactive', required: false,
     branches: [],
-    entryCondition: 'jump-crossed', completionCue: 'pursuit-banter-ended', objective: PURSUIT_OBJECTIVE,
-    scene: { enter: 'rival-escape', checkpoint: 'fireball', gates: [
-      { cue: 'pursuit-banter-reached', kind: 'past-landmark', actor: 'player', landmark: 'pursuit-banter' },
-    ] },
+    entryCondition: 'jump-crossed', completionCue: 'continue', objective: PURSUIT_OBJECTIVE,
+    scene: { enter: 'rival-escape', checkpoint: 'fireball', gates: [] },
     beats: [
-      { id: 'pursuit-banter-arrival', place: 'pursuit-banter', kind: 'stage', advanceOn: 'pursuit-banter-reached',
-        direction: 'Continue through the orchard lane before shouting another exchange at the fleeing Rival.' },
       { id: 'final-hello', speaker: 'spellblade', line: 'Hello!' },
       { id: 'too-late-hello', speaker: 'rival', line: 'It is too late for that!' },
       { id: 'reconsider-meeting', speaker: 'spellblade', line: 'Then allow me to reconsider ever meeting you!' },
       { id: 'sword-remains', speaker: 'rival', line: 'The sword remains mightier than the pen...' },
       { id: 'remain-mightier', speaker: 'rival', line: '...and I remain mightier than anything that is not me!' },
       { id: 'lot-of-things', speaker: 'narrator', line: 'That is a lot of things.' },
-      { id: 'pursuit-banter-clear', kind: 'stage', advanceOn: 'pursuit-banter-ended', advanceAfterSec: 2.5,
-        direction: 'Let the exchange land during continued pursuit before introducing Fireball.' },
     ],
   },
   {
@@ -385,15 +379,16 @@ const segments = [
     entryCondition: 'rival-escaping', completionCue: 'fireball-hit', objective: PURSUIT_OBJECTIVE,
     scene: { checkpoint: 'pursuit', gates: ['fireball-hit'] },
     beats: [
-      // (a Fireball that has found him already: the lesson's lead-in and its hints are not had; a joke begun is finished)
+      // (setup conversation while fleeing through the orchard toward the clearing)
       { id: 'why-spellblade', skipWhen: 'fireball-hit', speaker: 'narrator', line: 'Why are you called the Spellblade?' },
       { id: 'spell-blade', speaker: 'spellblade', line: 'Because I can spell ‘blade’!' },
       { id: 'impressive', speaker: 'narrator', line: 'Impressive.' },
-      { id: 'halt-order', speaker: 'rival', line: 'Halt! I tell you to halt!' },
-      { id: 'tell-on-me', speaker: 'spellblade', line: 'I tell you to not tell on me!' },
+      { id: 'almost-there', skipWhen: 'fireball-hit', speaker: 'rival', line: 'I am almost there!' },
       { id: 'magic-disposal', skipWhen: 'fireball-hit', speaker: 'narrator', line: 'But also, you have magic at your disposal' },
       { id: 'waiting-reminder', skipWhen: 'fireball-hit', speaker: 'spellblade', line: 'I knew that! I had just been waiting for you to remind me!' },
-      { id: 'almost-there', skipWhen: 'fireball-hit', speaker: 'rival', line: 'I am almost there!' },
+      // (Rival reaches the clearing, halts dead, turns to face the Spellblade)
+      { id: 'halt-order', speaker: 'rival', line: 'Halt! I tell you to halt!' },
+      { id: 'tell-on-me', speaker: 'spellblade', line: 'I tell you to not tell on me!' },
       { id: 'fireball-prompt', kind: 'prompt', speaker: 'instruction', line: 'CAST FIREBALL', advanceOn: 'fireball-hit', mechanic: 'fireball' },
       { id: 'rival-cold', reactionFor: 'fireball-hit', speaker: 'rival', line: 'That was cold of you, ow!' },
       { id: 'warm-feelings', reactionFor: 'fireball-hit', speaker: 'spellblade', line: 'I am developing warm feelings about this!' },
@@ -404,12 +399,8 @@ const segments = [
     id: 'tattle-reveal', chapter: 'fireball', permissions: FIREBALL, presentation: 'reactive',
     entryCondition: 'fireball-hit', completionCue: 'continue', objective: PURSUIT_OBJECTIVE,
     branches: ['rival-constitution'],
-    scene: { checkpoint: 'pursuit', gates: [
-      { cue: 'tattle-reveal-reached', kind: 'past-landmark', actor: 'player', landmark: 'tattle-reveal' },
-    ] },
+    scene: { checkpoint: 'pursuit', gates: [] },
     beats: [
-      { id: 'tattle-reveal-arrival', place: 'tattle-reveal', kind: 'stage', advanceOn: 'tattle-reveal-reached',
-        direction: 'Reach the named pursuit landmark while the complaint office remains a distant destination.' },
       { id: 'matter-settled', speaker: 'rival', line: 'I know exactly how this matter must be settled.' },
       { id: 'how-settled', speaker: 'narrator', line: 'How?' },
       { id: 'utmost-dignity', speaker: 'rival', line: 'It will be at a place of utmost dignity!' },
@@ -421,8 +412,8 @@ const segments = [
   {
     // The sheepfold's low wall: Rival vaults it and calls it the end of the story; the Spellblade's own leap answers.
     id: 'dead-end', chapter: 'fireball', permissions: FIREBALL, presentation: 'reactive',
-    entryCondition: 'tattle-reveal-reached', completionCue: 'continue', objective: PURSUIT_OBJECTIVE,
-    branches: ['rival-constitution'],
+    entryCondition: 'fireball-hit', completionCue: 'continue', objective: PURSUIT_OBJECTIVE,
+    branches: ['rival-constitution', 'permission-to-stop'],
     scene: { checkpoint: 'pursuit', gates: ['dead-end-rival-over', 'dead-end-crossed'] },
     beats: [
       // (skipped only if the Spellblade was over first: one leaping after him still hears the gloat, and answers it)
@@ -439,7 +430,7 @@ const segments = [
   {
     id: 'bridge-dash', chapter: 'bridge', permissions: FIREBALL, checkpoint: true, presentation: 'reactive',
     entryCondition: 'fireball-hit', completionCue: 'bridge-crossed', objective: PURSUIT_OBJECTIVE, standingPrompt: BROOK_STANDING,
-    branches: ['rival-constitution', 'bridge-growth'],
+    branches: ['rival-constitution', 'bridge-growth', 'permission-to-stop'],
     scene: { enter: 'rival-bridge', checkpoint: 'bridge', gates: ['bridge-reached', 'dash-used', 'bridge-crossed'] },
     beats: [
       { id: 'bridge-arrival', place: 'bridge', kind: 'stage', advanceOn: 'bridge-reached',
@@ -641,6 +632,7 @@ const branchDeclarations = {
   // (the pursuit's own asides: one not yet begun when he turns at his door to fight is not had)
   'rival-constitution': {
     segment: 'rival-escape', chapter: 'pursuit', triggerCue: 'rival-survived-lethal', until: 'rival-turned',
+    dialogueType: 'travel',
     beats: [
       { id: 'constitution-strange', exchange: 'constitution-strange', speaker: 'narrator', line: 'Hmm. This is strange.' },
       { id: 'not-strange', exchange: 'constitution-strange', replyGroup: 'constitution-correction', speaker: 'spellblade', line: 'No I am not!', pauseAfterSec: .15 },
@@ -652,6 +644,7 @@ const branchDeclarations = {
   // (until: an aside not yet begun is dropped once this has happened: after the hit, a miss is no longer news)
   'first-fireball-miss': {
     segment: 'fireball', chapter: 'fireball', triggerCue: 'fireball-missed', until: 'fireball-hit',
+    dialogueType: 'reaction',
     beats: [
       { id: 'rival-over-there', exchange: 'scorch-mark', replyGroup: 'scorch-mark', speaker: 'narrator', line: 'Your rival is over there' },
       { id: 'scorch-mark', exchange: 'scorch-mark', replyGroup: 'scorch-mark', speaker: 'spellblade', line: 'And I wanted a scorch mark, over there.' },
@@ -659,6 +652,7 @@ const branchDeclarations = {
   },
   scratch: {
     segment: 'fireball', chapter: 'fireball', triggerCue: 'meadow-parried', until: 'fireball-hit',
+    dialogueType: 'reaction',
     beats: [
       { id: 'scratch-taunt', exchange: 'scratch', speaker: 'rival', line: 'You cannot even scratch me, can you?' },
       { id: 'scratch-forget', exchange: 'scratch', speaker: 'narrator', line: 'Let us forget what just happened.' },
@@ -669,6 +663,7 @@ const branchDeclarations = {
   },
   'mutual-clash': {
     segment: 'real-duel', chapter: 'duel', triggerCue: 'mutual-clash', until: 'duel-damage-threshold',
+    dialogueType: 'reaction',
     beats: [
       { id: 'clash-simultaneous', exchange: 'mutual-clash', speaker: 'rival', line: 'We struck at the same time!' },
       { id: 'clash-peculiar', exchange: 'mutual-clash', speaker: 'spellblade', line: 'That was peculiar. I prefer my engagements one-sided.' },
@@ -677,6 +672,7 @@ const branchDeclarations = {
   },
   'bridge-growth': {
     segment: 'bridge-dash', chapter: 'bridge', triggerCue: 'bridge-retry-extended', until: 'bridge-crossed',
+    dialogueType: 'retry',
     beats: [
       { id: 'bridge-senses-failure', exchange: 'bridge-growth', speaker: 'narrator', line: 'The bridge grows longer when it senses failure' },
       { id: 'hence-i-crossed', exchange: 'bridge-growth', speaker: 'rival', line: 'Hence why I crossed it!' },
@@ -684,6 +680,7 @@ const branchDeclarations = {
   },
   'permission-to-stop': {
     segment: 'counterfire', chapter: 'counterfire', triggerCue: 'repeated-pursuit-fireballs', until: 'rival-turned',
+    dialogueType: 'travel',
     beats: [
       { id: 'permission-stop', exchange: 'permission', speaker: 'rival', line: 'I give you permission to stop' },
       { id: 'no-longer-ruin', exchange: 'permission', speaker: 'spellblade', line: 'Will you no longer ruin my reputation, honor, status and therefore livelihood? And health?' },
@@ -693,6 +690,7 @@ const branchDeclarations = {
   },
   burned: {
     segment: 'counterfire', chapter: 'counterfire', triggerCue: 'player-burned', until: 'rival-turned',
+    dialogueType: 'reaction',
     beats: [
       { id: 'burn-subsided', exchange: 'burned', speaker: 'spellblade', line: 'AHH, AH AH- Oh it has subsided.',
         performanceCue: Object.freeze({ at: 'burn-ended', action: 'continue-reaction' }) },
@@ -703,24 +701,30 @@ const branchDeclarations = {
   // When Rival wins the final duel: the first loss and the second each have their line; after that, quiet.
   'final-loss-1': {
     segment: 'rival-defeat', chapter: 'final-guard', triggerCue: 'player-defeated-final',
+    dialogueType: 'reaction',
     beats: [{ id: 'fight-yourself', speaker: 'rival', line: 'How will you fight yourself, if you cannot defeat your Rival?' }],
   },
   'final-loss-2': {
     segment: 'rival-defeat', chapter: 'final-guard', triggerCue: 'player-defeated-final',
+    dialogueType: 'reaction',
     beats: [{ id: 'already-told', speaker: 'rival', line: 'Perhaps I won’t tell on you. You have already done so for me.' }],
   },
   // A Fireball in the final duel ("I am developing warm feelings about this!" earlier)
   'final-feelings': {
     segment: 'rival-defeat', chapter: 'final-guard', triggerCue: 'final-fireball-hit',
+    dialogueType: 'reaction',
     beats: [{ id: 'feelings-health', speaker: 'rival', line: 'Your feelings shall not affect my health.' }],
   },
 };
 
 export const TUTORIAL_BRANCH_METADATA = Object.freeze(Object.fromEntries(Object.entries(branchDeclarations)
   .map(([id, branch]) => [id, Object.freeze({ id, segment: branch.segment, chapter: branch.chapter,
-    triggerCue: branch.triggerCue, oncePerRun: true, required: false, blocking: false })])));
+    triggerCue: branch.triggerCue, oncePerRun: true, required: false, blocking: false,
+    dialogueType: branch.dialogueType ?? 'travel' })])));
 export const TUTORIAL_BRANCHES = Object.freeze(Object.fromEntries(Object.entries(branchDeclarations)
-  .map(([id, branch]) => [id, Object.freeze(branch.beats.map(beat => authored({ ...beat, ...(branch.until ? { until: branch.until } : {}) },
+  .map(([id, branch]) => [id, Object.freeze(branch.beats.map(beat => authored({ ...beat,
+    dialogueType: branch.dialogueType ?? 'travel',
+    ...(branch.until ? { until: branch.until } : {}) },
     branch.chapter, branch.segment, 'reactive', id)))])));
 
 // Retained for consumers of the former preview boundary. The full route has no cutoff.

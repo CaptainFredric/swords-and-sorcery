@@ -20,23 +20,23 @@ test('an aside never begins inside a place\'s lines; one under way gives them th
     { id: 'later-answer', exchange: 'later', speaker: 'rival', line: 'A later answer.', presentation: 'reactive', rehearsalSec: 1 },
   ].map(line => ({ ...line, branch: 'rival-constitution', kind: 'dialogue' }));
   const d = new TutorialDirector({ branches: { ...TUTORIAL_BRANCHES, 'rival-constitution': [...TUTORIAL_BRANCHES['rival-constitution'], ...later] } });
-  d.start(); d.resumeAt('tattle-reveal-arrival');
+  d.start(); d.resumeAt('bridge-arrival');
   // the aside is offered while the route waits on the landmark: it begins
   d.offerBranch('rival-constitution'); d.tick(10);
   assert.equal(d.optionalCue.id, 'constitution-strange');
-  // the Spellblade reaches the TATTLE landmark mid-exchange: the exchange is heard to its end, not cut
-  d.fact('tattle-reveal-reached');
+  // the Spellblade reaches the bridge mid-exchange: the exchange is heard to its end, not cut
+  d.fact('bridge-reached');
   const heard = [];
   let t = 10;
   for (let i = 0; i < 4; i += 1) { heard.push(speak(d, t)); t += 1; }
   assert.deepEqual(heard, ['constitution-strange', 'not-strange', 'not-fallen', 'thank-noticing']);
   // then the place's lines, every one, before the rest of the aside
   assert.equal(d.optionalCue, null);
-  assert.equal(d.cue.id, 'matter-settled');
-  const reveal = [];
-  while (d.cue && d.current.segment === 'tattle-reveal') { reveal.push(speak(d, t)); t += 1; }
-  assert.deepEqual(reveal, ['matter-settled', 'how-settled', 'utmost-dignity', 'rightfully-condemned', 'told-on', 'acquired-attention']);
-  // the route waits at the sheepfold now: the aside's second exchange comes back (every recording kept)
+  assert.equal(d.cue.id, 'get-over-this');
+  const bridgeLines = [];
+  while (d.cue && d.current.kind === 'dialogue') { bridgeLines.push(speak(d, t)); t += 1; }
+  assert.deepEqual(bridgeLines, ['get-over-this', 'decent-suggestion', 'get-over-it']);
+  // the route waits at the dash prompt now: the aside's second exchange comes back (every recording kept)
   d.tick(t + 1);
   assert.equal(d.optionalCue?.id, 'later-question');
 });

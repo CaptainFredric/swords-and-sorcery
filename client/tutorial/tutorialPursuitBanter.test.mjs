@@ -9,7 +9,7 @@ import { GREENER_ROUTE } from '../../shared/worlds/greenerPastures.mjs';
 const lines = ['final-hello', 'too-late-hello', 'reconsider-meeting', 'sword-remains', 'remain-mightier', 'lot-of-things'];
 const segment = () => TUTORIAL_SEGMENTS.find(s => s.id === 'pursuit-banter');
 
-test('stable greeting takes belong to optional moving pursuit, with a spatial entry and a quiet exit', () => {
+test('stable greeting takes belong to optional moving pursuit, without artificial gates or dead air', () => {
   const s = segment();
   assert.ok(s);
   assert.equal(s.chapter, 'pursuit');
@@ -21,9 +21,8 @@ test('stable greeting takes belong to optional moving pursuit, with a spatial en
   assert.equal(TUTORIAL_SEGMENTS.find(s => s.id === 'jump-obstacle').next, s.id);
   assert.equal(s.next, 'fireball');
   assert.equal(TUTORIAL_SEGMENTS.find(s => s.id === 'duel-terms').next, 'rival-defeat');
-  assert.equal(s.beats[0].advanceOn, 'pursuit-banter-reached');
-  assert.ok(GREENER_ROUTE.landmarks['pursuit-banter'].z < GREENER_ROUTE.jump.waitPoint.z - 80);
-  assert.ok(s.beats.at(-1).advanceAfterSec >= 2);
+  assert.equal(s.beats[0].id, 'final-hello');
+  assert.deepEqual(s.scene.gates, []);
   assert.deepEqual(s.branches, []);
   const reduced = tutorialRouteSegments(TUTORIAL_SEGMENTS, { omitSegments: [s.id] });
   assert.equal(reduced.find(s => s.id === 'jump-obstacle').next, 'fireball');
@@ -53,10 +52,10 @@ test('genuine movement reaches the banter and both knights keep travelling throu
   const host = new LocalHost({ now: () => now, every: () => 1, cancel: () => {}, later: () => {} });
   host.startTutorial('You');
   const session = new TutorialSession(host, { random: () => .25 }); session.start();
-  session.stage('pursuit-banter'); session.director.resumeAt('pursuit-banter-arrival');
+  session.stage('pursuit-banter'); session.director.resumeAt('final-hello');
   const rival = host.room.players.get(session.rivalId), seen = new Set();
   const starts = { player: host.player.position.z, rival: rival.position.z };
-  assert.equal(session.director.current.id, 'pursuit-banter-arrival');
+  assert.equal(session.director.current.id, 'final-hello');
   for (let i = 0; i < 30 * 45 && session.director.current.segment === 'pursuit-banter'; i++) {
     const p = host.player, r = rival;
     const dx = r.position.x-p.position.x, dz = r.position.z-p.position.z;
@@ -73,15 +72,11 @@ test('genuine movement reaches the banter and both knights keep travelling throu
   host.close();
 });
 
-test('quiet travel starts after the last real take completes and has no orphan timer when omitted', () => {
+test('conversational travel proceeds directly to the next scene without an orphan quiet stage', () => {
   const d = new TutorialDirector(); d.start(); d.resumeAt('lot-of-things'); d.tick(10);
   d.beginAudio(d.cue); d.tick(30);
   assert.equal(d.current.id, 'lot-of-things');
   d.completeDialogue(d.cue); d.tick(30.36);
-  assert.equal(d.current.id, 'pursuit-banter-clear');
-  d.tick(30.4); d.tick(32.89);
-  assert.equal(d.current.id, 'pursuit-banter-clear');
-  d.tick(32.91);
   assert.equal(d.current.id, 'why-spellblade');
   const omitted = new TutorialDirector({ segments: tutorialRouteSegments(TUTORIAL_SEGMENTS, { omitSegments: ['pursuit-banter'] }) });
   omitted.start(); omitted.resumeAt('minor-tactical-regret');
@@ -90,12 +85,12 @@ test('quiet travel starts after the last real take completes and has no orphan t
 });
 
 test('a queued constitution reaction finishes before banter and leaves each main caption its full reading time', () => {
-  const d = new TutorialDirector(); d.start(); d.resumeAt('pursuit-banter-arrival'); d.tick(10);
+  const d = new TutorialDirector(); d.start(); d.resumeAt('minor-tactical-regret'); d.tick(10);
   assert.equal(d.offerBranch('rival-constitution'), true);
-  d.fact('pursuit-banter-reached');
+  d.completeDialogue(d.cue); d.tick(10.4);
   assert.equal(d.current.id, 'final-hello');
   assert.equal(d.cue, null);
-  for (let now = 10; d.optionalCue; now++) {
+  for (let now = 11; d.optionalCue; now++) {
     d.tick(now); d.completeOptionalDialogue(d.optionalCue);
   }
   assert.equal(d.offerBranch('rival-constitution'), false);

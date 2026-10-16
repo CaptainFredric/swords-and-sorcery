@@ -96,6 +96,7 @@ export class TutorialSession {
     this.active = false; this.off = []; this.lastBeat = null; this.lastSegment = null;
     this.checkpoint = this.route[0].id; this.blockedHeld = new Set();
     this.bridgeFailures = 0;
+    this.bridgeFall = false;
     this.laterFireballs = 0;
     this.finalLosses = 0;
     this.duelClashOccurred = false;
@@ -378,6 +379,29 @@ export class TutorialSession {
     const farEdge = greenerBridgeRetryFloor(this.bridgeFailures);
     const landingZ = farEdge ? farEdge.center[2] + farEdge.size[2] / 2 : bridge.gapBounds.minZ;
     if (this.bridgeDash && me.position.z < landingZ && me.grounded) this.director.fact('bridge-crossed');
+
+    const inBridgeCorridor = bridge.failureCorridor
+      ? (me.position.x >= bridge.failureCorridor.minX && me.position.x <= bridge.failureCorridor.maxX)
+      : Math.abs(me.position.x - bridge.centerX) <= bridge.width;
+    const inRavine = inBridgeCorridor && me.position.z < bridge.ravineBounds.maxZ && me.position.z > bridge.ravineBounds.minZ;
+    if (inRavine && me.position.y < -0.8 && this.director.progress.segment?.chapter === 'bridge') {
+      this.bridgeFall = true;
+    }
+
+    if (this.firstFireballHit && ['escape', 'counter-pursuit', 'counterfire', 'complaint'].includes(this.rival.mode)) {
+      const dt = this.lastTickAt !== null && now > this.lastTickAt ? Math.min(0.1, now - this.lastTickAt) : (1 / 30);
+      const apart = Math.hypot(me.position.x - actor.position.x, me.position.z - actor.position.z);
+      if (apart < 16 && me.sprinting) {
+        this.closePursuitDuration = (this.closePursuitDuration ?? 0) + dt;
+        if (this.closePursuitDuration >= 3.5 && this.director.progress.segment?.branches?.includes('permission-to-stop')) {
+          this.director.offerBranch('permission-to-stop');
+        }
+      } else {
+        this.closePursuitDuration = 0;
+      }
+    } else {
+      this.closePursuitDuration = 0;
+    }
     if (this.director.facts.has('bridge-crossed')
       && !this.subsequentHit
       && !this.director.facts.has('subsequent-fireball-hit')
@@ -425,14 +449,14 @@ export class TutorialSession {
           && p.z < b.ravineBounds.maxZ && p.z > b.ravineBounds.minZ;
       }
       if (event.type === 'projectileSpawned' && event.projectile.ownerId === this.host.player.id && event.projectile.spell === 'fireball'
-        && this.firstFireballHit && ['counterfire', 'complaint'].includes(this.rival.mode)) {
+        && this.firstFireballHit && ['escape', 'counter-pursuit', 'counterfire', 'complaint'].includes(this.rival.mode)) {
         const projectile = event.projectile, actor = this.host.room.players.get(this.rivalId);
         const dx = actor.position.x - projectile.position.x, dz = actor.position.z - projectile.position.z;
         const speed = Math.hypot(projectile.velocity.x, projectile.velocity.z);
         const apart = Math.hypot(dx, dz);
         const aimedAtRival = (dx * projectile.velocity.x + dz * projectile.velocity.z) / (apart * speed || 1) > .7;
         if (apart <= 70 && aimedAtRival) this.laterFireballs += 1;
-        if (this.laterFireballs >= 3 && this.director.progress.segment?.branches?.includes('permission-to-stop')) this.director.offerBranch('permission-to-stop');
+        if (this.laterFireballs >= 2 && this.director.progress.segment?.branches?.includes('permission-to-stop')) this.director.offerBranch('permission-to-stop');
       }
       if (event.type==='projectileSpawned' && event.projectile.ownerId===this.host.player.id && event.projectile.spell==='fireball' && !this.firstFireballHit) this.learnerProjectiles.add(event.projectile.id);
       if (event.type==='projectileSpawned' && event.projectile.ownerId===this.host.player.id && FINAL_MODES.has(this.rival.mode)) this.rival.lastPlayerCastAt = this.host.now();
@@ -590,6 +614,7 @@ export class TutorialSession {
     this.host.room.world = greenerPasturesWithBridgeRetries(this.bridgeFailures);
     this.host.room.tutorialBridgeFailures = this.bridgeFailures;
     this.bridgeFall = false;
+    this.abyssFallAt = null; this.closePursuitDuration = 0;
     const segment = this.checkpoint;
     this.stage(segment); this.director.resumeAt(this.route.find(x=>x.id===segment).beats[0].id);
     if (previous === 0 && this.bridgeFailures > 0) this.director.offerBranch('bridge-growth');
@@ -601,6 +626,7 @@ export class TutorialSession {
     if (!this.active || !segment) return false;
     if (segment === this.route[0]) { this.restart(); return true; }
     this.bridgeFailures = 0; this.bridgeFall = false; this.laterFireballs = 0; this.finalLosses = 0;
+    this.abyssFallAt = null; this.closePursuitDuration = 0;
     this.host.room.world = greenerPasturesWithBridgeRetries(); this.host.room.tutorialBridgeFailures = 0;
     this.checkpoint = segment.id;
     this.stage(segment.id); this.director.resumeAt(segment.beats[0].id);
@@ -610,6 +636,7 @@ export class TutorialSession {
   restart() {
     if (!this.active) return;
     this.bridgeFailures = 0; this.bridgeFall = false; this.laterFireballs = 0; this.finalLosses = 0;
+    this.abyssFallAt = null; this.closePursuitDuration = 0;
     this.host.room.world = greenerPasturesWithBridgeRetries(); this.host.room.tutorialBridgeFailures = 0;
     this.checkpoint = this.route[0].id; this.stage(); this.director.start(); this.onRestore(this.host.player);
   }

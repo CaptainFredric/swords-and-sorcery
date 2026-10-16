@@ -291,14 +291,25 @@ export class TutorialRival {
     }
     return false;
   }
+  get standingConfrontation() {
+    const director = this.session.director;
+    const currentId = director.current?.id;
+    const confrontationBeats = new Set(['halt-order', 'tell-on-me', 'fireball-prompt']);
+    return confrontationBeats.has(currentId);
+  }
   linger(now, apart) {
     if (this.parry(now)) return;
     const { actor, player } = this, box = FIREBALL_MEADOW;
+    this.sprintWanted = false;
+    if (this.standingConfrontation) {
+      // Rival demanded "Halt!", so he physically stops, turns, and faces the Spellblade during the confrontation.
+      this.inputToward(player.position, 0, false, player.position);
+      return;
+    }
     const dx = actor.position.x - player.position.x, dz = actor.position.z - player.position.z, length = Math.hypot(dx, dz) || 1;
     const pressed = apart < LINGER.near;
     const target = { x: actor.position.x + dx / length * LINGER.step, z: actor.position.z + dz / length * LINGER.step };
     const inside = target.x >= box.minX && target.x <= box.maxX && target.z >= box.minZ && target.z <= box.maxZ;
-    this.sprintWanted = false;
     this.inputToward(inside ? target : player.position, inside ? (pressed ? LINGER.retreat : LINGER.drift) : 0, false, player.position);
   }
   chase(now, apart) {

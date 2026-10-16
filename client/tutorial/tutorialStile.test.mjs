@@ -43,18 +43,24 @@ test('"Jump." is called by the Spellblade\'s pace: answered quickly or on hearin
 
 test('the hints are had in pairs that are over before the call; "I do not get hints." only after a hint', () => {
   const play = (room) => {
-    const d = new TutorialDirector(); d.start(); d.resumeAt('minor-obstacle-gloat');
+    const d = new TutorialDirector(); d.start();
     d.mainRoom = () => room;
+    d.resumeAt('what-should-do');
     const heard = [];
-    for (let i = 0; i < 12 && d.current?.kind === 'dialogue'; i += 1) {
-      const cue = d.cue; heard.push(cue.id); d.beginAudio(cue); d.completeDialogue(cue); d.tick(10 + i);
+    for (let i = 0; i < 15 && d.current && d.current.id !== 'jump-near-approach'; i += 1) {
+      if (d.current.kind === 'dialogue') {
+        const cue = d.cue; heard.push(cue.id); d.beginAudio(cue); d.completeDialogue(cue);
+      } else if (d.current.advanceOn === 'rival-jumped') {
+        d.fact('rival-jumped');
+      }
+      d.tick(10 + i);
     }
     return heard;
   };
-  assert.deepEqual(play(60), ['minor-obstacle-gloat', 'what-should-do', 'minor-ledges', 'what-does-mean', 'rises-occasion', 'jump-no-hints']);
+  assert.deepEqual(play(60), ['what-should-do', 'minor-ledges', 'what-does-mean', 'rises-occasion', 'jump-no-hints', 'minor-obstacle-gloat']);
   // room for the first pair and the last word, not the long answer: the question that wants it is not asked either
-  assert.deepEqual(play(6.5), ['minor-obstacle-gloat', 'what-should-do', 'minor-ledges', 'jump-no-hints']);
-  // no room for the first pair: nothing but the gloat (no "I do not get hints." out of nowhere)
+  assert.deepEqual(play(6.5), ['what-should-do', 'minor-ledges', 'jump-no-hints', 'minor-obstacle-gloat']);
+  // no room for the hints before the call: hints are skipped, gloat plays
   assert.deepEqual(play(1), ['minor-obstacle-gloat']);
 });
 
