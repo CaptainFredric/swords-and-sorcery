@@ -121,3 +121,43 @@ test('a displaced Rival navigates around the real cart instead of snagging on a 
   tick(500);assert.equal(actor().alive,true);assert.ok(actor().position.z<-80,JSON.stringify(actor().position));
   host.close();
 });
+
+
+test('Rival runs again as soon as his first Fireball complaint is over',()=>{
+  const {host,session,actor,now}=fixture();
+  session.stage('fireball');
+  session.firstFireballHit=true;
+  session.rival.enter('rival-escape',now());
+  actor().position={x:20,y:0,z:-390};
+  host.player.position={x:20,y:0,z:-375};
+  session.rival.waypoint=GREENER_ROUTE.chaseWaypoints.findIndex(p=>p.id==='sheepfold');
+
+  session.director.resumeAt('rival-cold');
+  session.rival.chase(now(),15);
+  assert.equal(actor().input.forward,0,'he holds still for "That was cold of you, ow!"');
+
+  session.director.resumeAt('warm-feelings');
+  session.rival.chase(now(),15);
+  assert.ok(Math.hypot(actor().input.forward,actor().input.right)>.1,'he is already fleeing under the following reactions');
+  host.close();
+});
+
+test('counterfire leads a moving player while Rival keeps fleeing',()=>{
+  const {host,session,actor,now}=fixture();
+  session.stage('counterfire');
+  session.firstFireballHit=true;
+  session.rival.enter('rival-counterfire',now());
+  actor().position={x:32,y:0,z:-720};
+  actor().spell='fireball';
+  actor().spellReadyAt=0;
+  actor().pendingSpell=null;
+  host.player.position={x:32,y:0,z:-700};
+  host.player.velocity={x:6,y:0,z:0};
+  session.rival.waypoint=GREENER_ROUTE.chaseWaypoints.findIndex(p=>p.id==='counterfire');
+
+  session.rival.chase(now(),20);
+  assert.ok(actor().pendingSpell,'Rival begins a real Fireball cast while escaping');
+  assert.ok(actor().pendingSpell.direction.x>.12,'the shot leads the player laterally instead of aiming at the old position');
+  assert.ok(Math.hypot(actor().input.forward,actor().input.right)>.1,'casting does not make him stop running away');
+  host.close();
+});

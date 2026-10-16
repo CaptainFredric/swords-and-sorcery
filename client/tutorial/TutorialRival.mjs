@@ -8,6 +8,7 @@ import { BOT_SKILLS } from '../../shared/sim/botSkill.mjs';
 import { SPRINT } from '../../shared/src/movement.mjs';
 import { MELEE_CONTACT, SWORD_STRIKE_TIMES } from '../../shared/src/combat.mjs';
 import { combatBlocksSprint } from '../../shared/src/combatActionPolicy.mjs';
+import { SPELLS } from '../../shared/src/spells.mjs';
 
 const distance = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 const yawTo = (a, b) => Math.atan2(-(b.x - a.x), -(b.z - a.z));
@@ -54,6 +55,28 @@ function incomingStrike(player, now) {
   const next = player.attackNextStrike ?? 0;
   if (next >= (player.attackCommitted ?? 1) || next >= SWORD_STRIKE_TIMES.length) return null;
   return { contact: player.attackStartedAt + SWORD_STRIKE_TIMES[next] };
+}
+
+// Counterfire is thrown while both knights are moving. Aim a little ahead of the player's current travel rather than
+// at the position already being left behind. The lead is deliberately capped: Rival is better at judging a running
+// target, not clairvoyant when the player changes direction.
+function runningFireballAim(actor, player) {
+  const spell = SPELLS.fireball;
+  const from = { x: actor.position.x, y: actor.position.y + 1.55, z: actor.position.z };
+  const at = { x: player.position.x, y: player.position.y + .9, z: player.position.z };
+  const vx = Number.isFinite(player.velocity?.x) ? player.velocity.x : 0;
+  const vy = Number.isFinite(player.velocity?.y) ? player.velocity.y : 0;
+  const vz = Number.isFinite(player.velocity?.z) ? player.velocity.z : 0;
+  const flight = Math.hypot(at.x - from.x, at.y - from.y, at.z - from.z) / spell.speed;
+  const lead = Math.min(1.5, spell.gatherSec + flight * .85);
+  const aimed = {
+    x: at.x + vx * lead,
+    y: at.y + Math.max(-1.25, Math.min(1.25, vy * lead)),
+    z: at.z + vz * lead,
+  };
+  const dx = aimed.x - from.x, dy = aimed.y - from.y, dz = aimed.z - from.z;
+  const length = Math.hypot(dx, dy, dz) || 1;
+  return { x: dx / length, y: dy / length, z: dz / length };
 }
 
 // Decision quality only. Health, contacts, movement, stamina and cooldowns remain ordinary.
@@ -319,8 +342,9 @@ export class TutorialRival {
     // caught). Never once committed to a leap: a hold in mid-air is a fall.
     const committed = !actor.grounded || this.bridgePrepared || this.bridgeInFlight;
     const hold = committed ? null : this.storyHold();
-    // the first Fireball's sting: he stops to complain of it ("That was cold of you, ow!") while its lines are said
-    const stung = !committed && this.session.director.current?.reactionFor === 'fireball-hit';
+    // He only holds still for his own complaint. The instant "That was cold of you, ow!" is over, he runs again
+    // underneath Spellblade and Narrator's reactions instead of waiting for the whole three-line exchange.
+    const stung = !committed && this.session.director.current?.id === 'rival-cold';
     if (stung || hold && actor.position.z <= hold.z + 1 && apart > hold.slip) {
       this.sprintWanted = false;
       this.inputToward(player.position, 0, false, player.position);
@@ -427,9 +451,7 @@ export class TutorialRival {
       this.dashReactionAt = null;
     }
     if (['counterfire', 'complaint'].includes(this.mode) && apart < 55 && apart > 1 && now >= actor.spellReadyAt && !actor.pendingSpell) {
-      const dx = player.position.x - actor.position.x, dz = player.position.z - actor.position.z;
-      const dy = (player.position.y + .9) - (actor.position.y + 1.55), length = Math.hypot(dx, dy, dz) || 1;
-      if (tryCastSpell(room, actor.id, { x: dx / length, y: dy / length, z: dz / length }, now)) this.counterShots += 1;
+      if (tryCastSpell(room, actor.id, runningFireballAim(actor, player), now)) this.counterShots += 1;
     }
     const lookingBack = actor.pendingSpell || now < actor.castEndsAt + .15;
     const pitch = lookingBack ? Math.atan2(player.position.y + .9 - actor.position.y - 1.55, apart) : 0;
