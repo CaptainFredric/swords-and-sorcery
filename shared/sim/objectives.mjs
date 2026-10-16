@@ -48,6 +48,9 @@ export function createObjectiveState(worldObjectives = []) {
     wasContested: false,
     lastContestedAt: -Infinity,
     lastCaptureProgressAt: -Infinity,
+    lastCapturedId: null,
+    lastCapturedName: null,
+    lastCapturedAt: -Infinity,
   };
 }
 
@@ -105,9 +108,13 @@ export function stepObjectives(room, dt, nowSec) {
 
     if (state.progress >= 1) {
       state.progress = 1;
+      state.lastCapturedId = currentObj.id;
+      state.lastCapturedName = currentObj.name;
+      state.lastCapturedAt = nowSec;
       room.events.push({
         type: 'objectiveCaptured',
         objectiveId: currentObj.id,
+        objectiveName: currentObj.name,
         index: state.index,
         at: nowSec,
       });
@@ -117,10 +124,12 @@ export function stepObjectives(room, dt, nowSec) {
         state.phase += 1;
         state.progress = 0;
         state.capturing = false;
+        const nextObj = state.objectives[state.index];
         room.events.push({
           type: 'objectiveAdvanced',
           nextIndex: state.index,
-          nextObjectiveId: state.objectives[state.index].id,
+          nextObjectiveId: nextObj.id,
+          nextObjectiveName: nextObj.name,
           at: nowSec,
         });
       } else {

@@ -1087,6 +1087,22 @@ export function killPlayer(room, victimId, attackerId, source, nowSec) {
   stepUltimate(room, victim, nowSec);
   victim.respawnAt = nowSec + RESPAWN_SEC;
   const playing = room.state === 'PLAYING';
+  if (playing && room.policy?.teamMode && credited && credited !== victimId) {
+    const killer = room.players.get(credited);
+    const wasMarked = room.teamMarks?.some((m) => m.kind === 'enemy' && m.targetId === victimId && m.team === killer?.team && m.expiresAt > nowSec);
+    if (wasMarked) {
+      room.teamMarks = room.teamMarks.filter((m) => !(m.kind === 'enemy' && m.targetId === victimId));
+      room.events.push({ type: 'markedTargetFelled', killerId: credited, victimId, at: nowSec });
+    }
+    if (killer?.team) {
+      for (const ally of room.players.values()) {
+        if (ally.id !== credited && ally.alive && ally.team === killer.team && ally.lastAttackerId === victimId && nowSec - (ally.lastDamageAt ?? -Infinity) <= 3.5 && ally.health <= 50) {
+          room.events.push({ type: 'allySaved', saviorId: credited, allyId: ally.id, enemyId: victimId, at: nowSec });
+          break;
+        }
+      }
+    }
+  }
   if (credited && credited !== victimId) {
     room.recordKill(credited, victimId, nowSec);
     if (source === 'abyss') {
@@ -1757,7 +1773,10 @@ function respawnPlayer(room, player, nowSec, world) {
   }
   const choice = chooseSpawn(spawnPoints, enemies, room.recentSpawnUse, nowSec);
   const spawn = choice?.spawn ?? spawnPoints[0];
-  if (choice) room.recentSpawnUse.set(choice.index, nowSec);
+  if (choice) {
+    const globalIdx = allSpawns.indexOf(spawn);
+    room.recentSpawnUse.set(globalIdx >= 0 ? globalIdx : choice.index, nowSec);
+  }
   resetAtSpawn(player, spawn, nowSec, room);
   room.events.push({ type: 'respawn', playerId: player.id, position: { ...player.position }, at: nowSec });
 }

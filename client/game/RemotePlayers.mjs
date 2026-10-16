@@ -83,31 +83,64 @@ function setHitGlow(shell, amount) {
   });
 }
 
-function createBadge(isAlly) {
+function createBadge({ isAlly, name = '', hpBucket = 10, isMarked = false } = {}) {
   if (typeof document === 'undefined') return null;
   const canvas = document.createElement('canvas');
   if (!canvas.getContext) return null;
-  canvas.width = 128;
-  canvas.height = 36;
+  canvas.width = 256;
+  canvas.height = 68;
   const ctx = canvas.getContext('2d');
-  ctx.fillStyle = isAlly ? 'rgba(34, 110, 220, 0.85)' : 'rgba(210, 40, 40, 0.85)';
-  if (ctx.roundRect) ctx.roundRect(4, 4, 120, 28, 6);
-  else ctx.fillRect(4, 4, 120, 28);
-  ctx.fill();
-  ctx.strokeStyle = isAlly ? 'rgba(120, 210, 255, 0.95)' : 'rgba(255, 120, 120, 0.95)';
-  ctx.lineWidth = 2.5;
-  ctx.stroke();
-  ctx.fillStyle = '#ffffff';
-  ctx.font = 'bold 15px system-ui, -apple-system, sans-serif';
-  ctx.textAlign = 'center';
+
+  const bg = isMarked
+    ? 'rgba(72, 24, 14, 0.92)'
+    : isAlly
+      ? 'rgba(20, 44, 82, 0.88)'
+      : 'rgba(64, 20, 18, 0.86)';
+  const border = isMarked
+    ? '#f7dd98'
+    : isAlly
+      ? '#74b6ff'
+      : '#e26a5f';
+
+  ctx.fillStyle = bg;
+  ctx.fillRect(8, 6, 240, isAlly || isMarked ? 54 : 42);
+  ctx.strokeStyle = border;
+  ctx.lineWidth = isMarked ? 3.5 : 2.2;
+  ctx.strokeRect(8, 6, 240, isAlly || isMarked ? 54 : 42);
+
+  ctx.save();
+  ctx.translate(28, 26);
+  ctx.rotate(Math.PI / 4);
+  ctx.fillStyle = border;
+  ctx.fillRect(-6, -6, 12, 12);
+  ctx.restore();
+
+  const shortName = String(name || (isAlly ? 'ALLY' : 'ENEMY')).toUpperCase().slice(0, 16);
+  const tag = isMarked ? `⌖ ${shortName}` : isAlly ? `ALLY · ${shortName}` : shortName;
+  ctx.fillStyle = isMarked ? '#ffe9a8' : '#f4ead2';
+  ctx.font = 'bold 17px Georgia, serif';
+  ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
-  ctx.fillText(isAlly ? 'ALLY' : 'ENEMY', 64, 18);
+  ctx.fillText(tag, 44, 26);
+
+  if (isAlly || isMarked) {
+    ctx.fillStyle = 'rgba(12, 14, 12, 0.85)';
+    ctx.fillRect(44, 42, 188, 8);
+    const fillW = Math.max(0, Math.min(188, Math.round((hpBucket / 10) * 188)));
+    ctx.fillStyle = isAlly ? '#68cee1' : '#e98243';
+    ctx.fillRect(44, 42, fillW, 8);
+  }
 
   const texture = new THREE.CanvasTexture(canvas);
-  const material = new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false, depthWrite: false });
+  const material = new THREE.SpriteMaterial({
+    map: texture,
+    transparent: true,
+    depthTest: !(isAlly || isMarked),
+    depthWrite: false,
+  });
   const sprite = new THREE.Sprite(material);
-  sprite.scale.set(0.85, 0.24, 1);
-  sprite.position.set(0, 2.15, 0);
+  sprite.scale.set(1.45, 0.38, 1);
+  sprite.position.set(0, 2.22, 0);
   return sprite;
 }
 
@@ -312,6 +345,8 @@ export class RemotePlayers {
   }
 
   pushSnapshot(snapshot, receivedAtMs) {
+    this.latestSnapshot = snapshot;
+    this.localTeam = snapshot.players?.find((p) => p.id === this.localId)?.team ?? null;
     const seen = new Set();
     for (const player of snapshot.players) {
       if (player.id === this.localId) continue;
@@ -651,10 +686,13 @@ export class RemotePlayers {
       const sorcery = shell.visualInstance?.sorceryLevel?.() ?? 0;
       setGlbAccent(shell.visualInstance, accentIntensity, (protectedNow ? 1.6 : 0.6) + 1.8 * sorcery);
     }
-    if (pb.team && snapshot?.players) {
-      const local = snapshot.players.find((p) => p.id === this.localId);
-      const isAlly = local?.team ? pb.team === local.team : false;
-      const badgeKey = `${pb.team}:${isAlly}`;
+    if (pb.team && this.latestSnapshot?.players) {
+      const local = this.latestSnapshot.players.find((p) => p.id === this.localId);
+      const myTeam = local?.team ?? this.localTeam;
+      const isAlly = myTeam ? pb.team === myTeam : false;
+      const isMarked = !isAlly && (this.latestSnapshot.marks ?? []).some((m) => m.kind === 'enemy' && m.targetId === pb.id && (!myTeam || m.team === myTeam));
+      const hpBucket = Math.max(0, Math.min(10, Math.ceil((pb.health ?? 100) / 10)));
+      const badgeKey = `${pb.team}:${isAlly}:${pb.name}:${(isAlly || isMarked) ? hpBucket : 10}:${isMarked ? 1 : 0}`;
       if (shell.badgeKey !== badgeKey) {
         if (shell.teamBadge) {
           shell.root.remove(shell.teamBadge);
@@ -662,12 +700,20 @@ export class RemotePlayers {
           shell.teamBadge.material?.dispose?.();
           shell.teamBadge = null;
         }
-        shell.teamBadge = createBadge(isAlly);
+        shell.teamBadge = createBadge({ isAlly, name: pb.name, hpBucket, isMarked });
         if (shell.teamBadge) shell.root.add(shell.teamBadge);
         shell.badgeKey = badgeKey;
       }
       if (shell.teamBadge) {
-        shell.teamBadge.visible = pb.alive;
+        if (!pb.alive) {
+          shell.teamBadge.visible = false;
+        } else if (isAlly || isMarked) {
+          shell.teamBadge.visible = true;
+        } else {
+          const mePos = local?.position;
+          const dist = mePos ? Math.hypot(pb.position.x - mePos.x, pb.position.z - mePos.z) : 0;
+          shell.teamBadge.visible = dist <= 26;
+        }
       }
     } else if (shell.teamBadge) {
       shell.teamBadge.visible = false;

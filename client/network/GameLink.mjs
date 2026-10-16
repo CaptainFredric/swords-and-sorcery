@@ -43,9 +43,9 @@ export const LINK_RESTORED = Object.freeze({ title: 'WORTHY CHALLENGERS AWAIT YO
 
 const FORWARDED = ['playerId', 'token', 'roomCode', 'latestSnapshot', 'snapshotReceivedAt', 'pingMs'];
 const PLAY = ['startMatch', 'ready', 'arenaReady', 'practiceResetPlayer', 'practiceSpawnDummy', 'practiceRemoveDummy',
-  'practiceSetDummyMode', 'practiceReadyUltimate', 'input', 'attack', 'guard', 'cast', 'castCurrentSpell', 'selectPreparedSlot', 'castPreparedSlot', 'castPreparedSpell', 'selectPreparedSpell', 'gauntlet', 'ultimate', 'dash', 'rematch', 'vote',
+  'practiceSetDummyMode', 'practiceReadyUltimate', 'input', 'attack', 'guard', 'cast', 'castCurrentSpell', 'selectPreparedSlot', 'castPreparedSlot', 'castPreparedSpell', 'selectPreparedSpell', 'gauntlet', 'ultimate', 'dash', 'rematch', 'switchTeam', 'markTarget', 'vote',
   'ping', 'send'];
-const ONLINE = ['createRoom', 'quickPlay', 'joinRoom', 'seekDuel', 'cancelSeek', 'seekBotDuel', 'listRooms', 'createPublicRoom'];
+const ONLINE = ['createRoom', 'createBreakthroughRoom', 'quickPlay', 'joinRoom', 'seekDuel', 'cancelSeek', 'seekBotDuel', 'listRooms', 'createPublicRoom'];
 
 export class GameLink {
   constructor({ remote = new GameSocket(), local = new LocalHost(), timing = LINK_TIMING, timers = globalThis } = {}) {
@@ -158,12 +158,14 @@ export class GameLink {
   }
 
   /** Solo has its own host regardless of the multiplayer connection's availability. */
-  startSolo(mode, name, worldId, botSkill) {
-    // (how well a Bot Duel's rival plays, when it was chosen)
-    const args = [mode, name, worldId, ...(botSkill ? [botSkill] : [])];
+  startSolo(mode, name, worldId, botSkill, team = null) {
     if (this.hosting === 'remote' && this.remote.roomCode) this.remote.leaveRoom();
     this.hosting = 'local';
-    this.local.startSolo(...args);
+    if (team) this.local.startSolo(mode, name, worldId, botSkill, false, team);
+    else {
+      const args = [mode, name, worldId, ...(botSkill ? [botSkill] : [])];
+      this.local.startSolo(...args);
+    }
   }
 
   /** An explicitly local yard for pose and effect inspection, even when online. */

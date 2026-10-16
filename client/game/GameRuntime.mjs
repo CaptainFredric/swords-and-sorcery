@@ -853,8 +853,48 @@ export class GameRuntime {
         if (wait > 0 && wait <= APPEAL.runOnSec) this.appealCut = setTimeout(() => this.voice?.cut?.(me), wait * 1000);
         else this.voice?.cut?.(me);
       }
+      if (event.type === 'objectiveCaptured') {
+        this.#play(gateRecipe(), null, 0.9);
+        const myTeam = this.localAuth?.team;
+        const objName = (event.objectiveName ?? 'OBJECTIVE').toUpperCase();
+        this.hud.addFeed(`${objName} CAPTURED BY ATTACKERS`, 'fire');
+        if (event.index === 0) {
+          this.hud.flashText(
+            myTeam === 'DEFENDERS' ? `${objName} LOST` : `${objName} TAKEN`,
+            myTeam === 'DEFENDERS' ? 'danger' : 'kill',
+            3100,
+            myTeam === 'DEFENDERS' ? 'Fall back and defend The High Sanctum!' : 'Advance through the breach to The High Sanctum!',
+          );
+        }
+      }
+      if (event.type === 'objectiveContested') {
+        const myTeam = this.localAuth?.team;
+        if (myTeam === 'DEFENDERS') this.hud.flashText('OBJECTIVE CONTESTED', 'metal', 1600);
+      }
+      if (event.type === 'teamMark') {
+        const myTeam = this.localAuth?.team;
+        if (!myTeam || event.team === myTeam) {
+          const prefix = event.kind === 'enemy' ? 'TARGET MARKED' : 'RALLY POINT';
+          this.hud.addFeed(`${event.playerName || 'Ally'}: ${prefix} —${event.label}`, 'fire');
+          if (event.playerId === me) {
+            this.hud.flashText(`${prefix}:${String(event.label).toUpperCase()}`, 'metal', 1400);
+          }
+        }
+      }
       if (event.type === 'matchStarted') {
         this.moments.reset();
+        if (this.latestSnapshot?.mode === 'BREAKTHROUGH') {
+          const myTeam = this.localAuth?.team ?? this.latestSnapshot?.players?.find((p) => p.id === me)?.team;
+          const firstObj = this.latestSnapshot?.objective?.name ?? 'The Outer Gate';
+          setTimeout(() => {
+            if (!this.running || this.latestSnapshot?.mode !== 'BREAKTHROUGH') return;
+            if (myTeam === 'DEFENDERS') {
+              this.hud.flashText('DEFENDERS', 'parry', 3000, `Hold ${firstObj} · Repel the attackers`);
+            } else {
+              this.hud.flashText('ATTACKERS', 'ready', 3000, `Capture ${firstObj} · Advance with your Spellblades`);
+            }
+          }, 450);
+        }
         this.scenes.reset();
         this.watch.reset();
         this.chivalrous.clear();
@@ -1999,6 +2039,7 @@ export class GameRuntime {
     }
     this.remotePlayers.update(nowMs, dt);
     this.#showAfflictions(dt);
+    this.world?.setObjectiveState?.(this.latestSnapshot?.objective ?? null, this.localAuth?.team ?? null);
     this.world?.update?.(timeSec, this.camera);
     this.#followGusts();
     this.effects.update(dt);
@@ -2016,6 +2057,23 @@ export class GameRuntime {
       this.#placeVoices();
       this.#showCondition(this.socket.serverNow());
       this.hud.update(this.localAuth, this.latestSnapshot, this.socket.serverNow());
+      if (this.latestSnapshot.mode === 'BREAKTHROUGH' && this.latestSnapshot.objective?.position) {
+        const pos = this.latestSnapshot.objective.position;
+        const proj = new THREE.Vector3(pos.x, (pos.y ?? 0) + 2.6, pos.z).project(this.camera);
+        const behind = proj.z > 1;
+        let sx = (proj.x * 0.5) + 0.5;
+        let sy = (-proj.y * 0.5) + 0.5;
+        if (behind) {
+          sx = 1 - sx;
+          sy = 0.88;
+        }
+        const clamped = behind || sx < 0.08 || sx > 0.92 || sy < 0.12 || sy > 0.88;
+        sx = Math.max(0.08, Math.min(0.92, sx));
+        sy = Math.max(0.14, Math.min(0.86, sy));
+        this.hud.updateObjectiveWaypoint?.({ x: sx, y: sy, clamped }, this.localState ?? this.localAuth, this.latestSnapshot);
+      } else {
+        this.hud.updateObjectiveWaypoint?.(null, null, null);
+      }
       this.touch?.update(this.localAuth, this.socket.serverNow(), { practice: this.#inPractice() });
       this.hud.setScoreboard(this.latestSnapshot, this.input.scoreboardHeld);
       this.hud.setDebug({

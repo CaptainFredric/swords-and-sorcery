@@ -119,6 +119,8 @@ export class Room {
     // how well the mode's bots play (botSkill.mjs), and the peace a match opens in (peace.mjs)
     this.botSkill = botSkillId(null);
     this.peace = null;
+    this.botsProvisioned = false;
+    this.teamMarks = [];
     if (this.policy.teamMode) {
       this.objectiveState = createObjectiveState(this.world.objectives ?? []);
     }
@@ -249,20 +251,23 @@ export class Room {
     }
 
     if (this.policy.teamMode) {
+      this.botsProvisioned = true;
       const teamSize = this.policy.teamSize ?? 3;
       const attackers = [...this.players.values()].filter((p) => p.team === TEAMS.ATTACKERS);
       const defenders = [...this.players.values()].filter((p) => p.team === TEAMS.DEFENDERS);
 
       let serial = 1;
       while (attackers.length < teamSize) {
+        while (this.players.has(`bot-att-${this.code}-${serial}`)) serial += 1;
+        const slotIndex = attackers.length;
         const actor = this.addServerActor({
           id: `bot-att-${this.code}-${serial}`,
-          name: `Squire ${['Vance', 'Rowan', 'Garrick', 'Thorne'][serial - 1] ?? serial}`,
+          name: `Squire ${['Vance', 'Rowan', 'Garrick', 'Thorne'][(serial - 1) % 4]}`,
           actorKind: 'bot',
           team: TEAMS.ATTACKERS,
         }, nowSec);
         actor.team = TEAMS.ATTACKERS;
-        actor.rivalIndex = serial - 1;
+        actor.rivalIndex = slotIndex;
         this.#skilled(actor);
         attackers.push(actor);
         serial += 1;
@@ -270,14 +275,16 @@ export class Room {
 
       serial = 1;
       while (defenders.length < teamSize) {
+        while (this.players.has(`bot-def-${this.code}-${serial}`)) serial += 1;
+        const slotIndex = defenders.length;
         const actor = this.addServerActor({
           id: `bot-def-${this.code}-${serial}`,
-          name: `Warden ${['Alden', 'Kaelen', 'Bryce', 'Merrick'][serial - 1] ?? serial}`,
+          name: `Warden ${['Alden', 'Kaelen', 'Bryce', 'Merrick'][(serial - 1) % 4]}`,
           actorKind: 'bot',
           team: TEAMS.DEFENDERS,
         }, nowSec);
         actor.team = TEAMS.DEFENDERS;
-        actor.rivalIndex = serial - 1;
+        actor.rivalIndex = slotIndex;
         this.#skilled(actor);
         defenders.push(actor);
         serial += 1;
@@ -353,14 +360,126 @@ export class Room {
     this.autoStartAt = null;
   }
 
-  /** Ready check: when every connected Spellblade (at least two) is ready, the countdown begins. */
+  /** Ready check: when every connected Spellblade is ready, the countdown begins. */
   setReady(playerId, ready, nowSec) {
-    if (!this.policy.readyCheck || this.state !== 'WAITING') return false;
+    if ((!this.policy.readyCheck && !this.policy.teamMode) || this.state !== 'WAITING') return false;
     const player = this.players.get(playerId);
     if (!player || player.actorKind !== 'human' || !player.connected) return false;
     player.lobbyReady = Boolean(ready);
     const humans = [...this.players.values()].filter((p) => p.actorKind === 'human' && p.connected);
-    if (humans.length >= this.policy.minHumansToStart && humans.every((p) => p.lobbyReady)) this.#beginCountdown(nowSec);
+    if (humans.length >= this.policy.minHumansToStart && humans.every((p) => p.lobbyReady)) {
+      if (this.policy.teamMode) this.provisionModeActors(nowSec);
+      this.#beginCountdown(nowSec);
+    }
+    return true;
+  }
+
+  /** Switch a human player's team in a waiting/lobby team room, swapping with a bot to keep teams 3v3. */
+  switchTeam(playerId, requestedTeam = null, nowSec = 0) {
+    if (!this.policy.teamMode || this.state === 'PLAYING') return false;
+    const player = this.players.get(playerId);
+    if (!player || player.actorKind !== 'human') return false;
+    const nextTeam = (requestedTeam === TEAMS.ATTACKERS || requestedTeam === TEAMS.DEFENDERS)
+      ? requestedTeam
+      : (player.team === TEAMS.ATTACKERS ? TEAMS.DEFENDERS : TEAMS.ATTACKERS);
+    if (nextTeam === player.team) return true;
+    const oldTeam = player.team;
+    const swapBot = [...this.players.values()].find((p) => p.actorKind === 'bot' && p.team === nextTeam);
+    player.team = nextTeam;
+    if (swapBot) {
+      swapBot.team = oldTeam;
+      const prefix = oldTeam === TEAMS.ATTACKERS ? 'Squire' : 'Warden';
+      const names = oldTeam === TEAMS.ATTACKERS ? ['Vance', 'Rowan', 'Garrick', 'Thorne'] : ['Alden', 'Kaelen', 'Bryce', 'Merrick'];
+      swapBot.name = `${prefix}${names[(swapBot.rivalIndex ?? 0) % names.length]}`;
+    }
+    const spawn = this.initialSpawnFor(player, 0, nowSec);
+    player.position = { x: spawn.x, y: spawn.y, z: spawn.z };
+    player.yaw = spawn.yaw ?? 0;
+    return true;
+  }
+
+  /** Contextual team target or objective ping/mark (max 2 active per team, 6s duration). */
+  markTarget(playerId, { targetId = null } = {}, nowSec = 0) {
+    if (!this.policy.teamMode || this.state !== 'PLAYING') return false;
+    const player = this.players.get(playerId);
+    if (!player || !player.alive || !player.team) return false;
+    if (nowSec < (player.nextMarkAt ?? -Infinity)) return false;
+    player.nextMarkAt = nowSec + 1.2;
+
+    this.teamMarks = (this.teamMarks ?? []).filter((m) => m.expiresAt > nowSec);
+
+    let chosenTarget = null;
+    if (targetId && this.players.has(targetId)) {
+      const candidate = this.players.get(targetId);
+      if (candidate.alive && candidate.team && candidate.team !== player.team) chosenTarget = candidate;
+    }
+    if (!chosenTarget) {
+      const lookX = -Math.sin(player.yaw);
+      const lookZ = -Math.cos(player.yaw);
+      let bestScore = 0.965;
+      for (const other of this.players.values()) {
+        if (!other.alive || !other.team || other.team === player.team) continue;
+        const dx = other.position.x - player.position.x;
+        const dz = other.position.z - player.position.z;
+        const dist = Math.hypot(dx, dz);
+        if (dist < 0.5 || dist > 32) continue;
+        const dot = (dx * lookX + dz * lookZ) / dist;
+        if (dot > bestScore) {
+          bestScore = dot;
+          chosenTarget = other;
+        }
+      }
+    }
+
+    const activeObj = this.objectiveState?.objectives?.[this.objectiveState.index] ?? null;
+    const mark = chosenTarget
+      ? {
+          id: `mark-${this.tickNumber}-${player.id}`,
+          team: player.team,
+          byId: player.id,
+          byName: player.name,
+          kind: 'enemy',
+          targetId: chosenTarget.id,
+          label: chosenTarget.name,
+          position: { ...chosenTarget.position },
+          createdAt: nowSec,
+          expiresAt: nowSec + 6.0,
+        }
+      : activeObj
+        ? {
+            id: `mark-${this.tickNumber}-${player.id}`,
+            team: player.team,
+            byId: player.id,
+            byName: player.name,
+            kind: 'objective',
+            targetId: activeObj.id,
+            label: activeObj.name,
+            position: { ...activeObj.position },
+            createdAt: nowSec,
+            expiresAt: nowSec + 6.0,
+          }
+        : null;
+
+    if (!mark) return false;
+    this.teamMarks = this.teamMarks.filter((m) => !(m.team === player.team && (m.byId === player.id || m.targetId === mark.targetId)));
+    const teamActive = this.teamMarks.filter((m) => m.team === player.team);
+    if (teamActive.length >= 2) {
+      const oldest = teamActive[0];
+      this.teamMarks = this.teamMarks.filter((m) => m !== oldest);
+    }
+    this.teamMarks.push(mark);
+    this.events.push({
+      type: 'teamMark',
+      playerId: player.id,
+      playerName: player.name,
+      team: player.team,
+      kind: mark.kind,
+      targetId: mark.targetId,
+      label: mark.label,
+      position: mark.position,
+      expiresAt: mark.expiresAt,
+      at: nowSec,
+    });
     return true;
   }
 
@@ -419,7 +538,11 @@ export class Room {
     if (!player || player.actorKind !== 'human') return false;
     this.players.delete(id);
     this.rematchVotes.delete(id);
-    if (this.humanActorCount() === 0 && this.emptySince === null) this.emptySince = nowSec;
+    if (this.humanActorCount() === 0) {
+      if (this.emptySince === null) this.emptySince = nowSec;
+    } else if (this.policy.teamMode && this.botsProvisioned) {
+      this.provisionModeActors(nowSec);
+    }
     return true;
   }
 
@@ -474,6 +597,7 @@ export class Room {
   }
 
   tick(nowSec) {
+    let expiredHuman = false;
     for (const [id, player] of this.players) {
       if (player.actorKind === 'human'
         && !player.connected
@@ -481,7 +605,22 @@ export class Room {
         && nowSec > player.disconnectExpiresAt) {
         this.players.delete(id);
         this.rematchVotes.delete(id);
+        expiredHuman = true;
       }
+    }
+    if (expiredHuman && this.policy.teamMode && this.botsProvisioned && this.humanActorCount() > 0) {
+      this.provisionModeActors(nowSec);
+    }
+    if (this.teamMarks?.length) {
+      this.teamMarks = this.teamMarks.filter((m) => {
+        if (m.expiresAt <= nowSec) return false;
+        if (m.kind === 'enemy') {
+          const target = this.players.get(m.targetId);
+          if (!target || !target.alive) return false;
+          m.position = { ...target.position };
+        }
+        return true;
+      });
     }
 
     if (this.humanActorCount() === 0) {
@@ -559,7 +698,9 @@ export class Room {
     this.suddenDeath = false;
     this.suddenDeathLeaders = [];
     this.rematchVotes.clear();
+    this.teamMarks = [];
     if (this.policy.teamMode) {
+      if (this.botsProvisioned) this.provisionModeActors(nowSec);
       this.objectiveState = createObjectiveState(this.world.objectives ?? []);
     }
     let i = 0;
@@ -614,7 +755,8 @@ export class Room {
     const connectedIds = [...this.players.values()]
       .filter((p) => p.actorKind === 'human' && p.connected)
       .map((p) => p.id);
-    const unanimous = connectedIds.length >= 2 && connectedIds.every((id) => this.rematchVotes.has(id));
+    const minForRematch = this.policy.teamMode ? 1 : 2;
+    const unanimous = connectedIds.length >= minForRematch && connectedIds.every((id) => this.rematchVotes.has(id));
     if (!unanimous) return false;
     for (const p of this.players.values()) Object.assign(p, scoreFields());
     this.state = 'REMATCH_COUNTDOWN';

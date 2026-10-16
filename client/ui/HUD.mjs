@@ -12,6 +12,60 @@ import { ultimateFor } from '../../shared/src/ultimates.mjs';
 // how long after Spells & Chivalry takes hold its prepared spells still say how to use them (s)
 export const PREPARED_HINT_SEC = 2.5;
 
+export function breakthroughHudView(local, snapshot, serverNow) {
+  if (snapshot?.mode !== 'BREAKTHROUGH' || !snapshot.objective) return { visible: false };
+  const obj = snapshot.objective;
+  const myTeam = local?.team ?? 'ATTACKERS';
+  const isAttacker = myTeam === 'ATTACKERS';
+  const pct = Math.max(0, Math.min(100, Math.round((obj.progress ?? 0) * 100)));
+
+  const startedAt = Number.isFinite(snapshot.matchStartedAt) ? snapshot.matchStartedAt : serverNow;
+  const elapsed = Math.max(0, serverNow - startedAt);
+  const length = Number.isFinite(snapshot.matchSeconds) ? snapshot.matchSeconds : 300;
+  const left = Math.max(0, length - elapsed);
+  const mins = Math.floor(left / 60);
+  const secs = Math.floor(left % 60).toString().padStart(2, '0');
+
+  let stateKey = 'idle';
+  let stateLabel = isAttacker ? 'CAPTURE' : 'DEFEND';
+  if (obj.completed) {
+    stateKey = 'captured';
+    stateLabel = 'CAPTURED';
+  } else if (obj.contested) {
+    stateKey = 'contested';
+    stateLabel = 'CONTESTED';
+  } else if (obj.capturing) {
+    stateKey = 'capturing';
+    stateLabel = isAttacker ? 'CAPTURING' : 'LOSING GROUND';
+  } else if (obj.decaying) {
+    stateKey = 'decaying';
+    stateLabel = isAttacker ? 'DECAYING' : 'RECLAIMING';
+  } else if ((obj.defendersCount ?? 0) > 0) {
+    stateKey = 'holding';
+    stateLabel = isAttacker ? 'FORTIFIED' : 'HOLDING';
+  }
+
+  const dist = (local?.position && obj.position)
+    ? Math.max(0, Math.round(Math.hypot(obj.position.x - local.position.x, obj.position.z - local.position.z)))
+    : null;
+
+  return {
+    visible: true,
+    team: myTeam,
+    teamLabel: isAttacker ? 'ATTACKERS · AZURE' : 'DEFENDERS · CRIMSON',
+    directive: isAttacker ? `Capture ${obj.name ?? 'the Objective'}` : `Defend ${obj.name ?? 'the Objective'}`,
+    phaseLabel: `OBJECTIVE ${(obj.index ?? 0) + 1} OF ${obj.total ?? 2}`,
+    objectiveName: (obj.name ?? 'OBJECTIVE').toUpperCase(),
+    progressPct: pct,
+    stateKey,
+    stateLabel,
+    attackersCount: obj.attackersCount ?? 0,
+    defendersCount: obj.defendersCount ?? 0,
+    clock: `${mins}:${secs}`,
+    distanceMeters: dist,
+  };
+}
+
 export function matchInfoText(snapshot, serverNow) {
   if (snapshot?.tutorial) return 'GREENER PASTURES  ·  TUTORIAL';
   if (snapshot?.mode === 'PRACTICE') return 'PRACTICE YARD  ·  UNTIMED';
@@ -63,6 +117,40 @@ export class HUD {
     this.armourPlates = [...(this.armour?.querySelectorAll('.armour-plate') ?? [])];
     this.armourShown = -1;
     this.matchInfo = document.querySelector('#match-info');
+    this.breakthroughHud = document.createElement('div');
+    this.breakthroughHud.id = 'breakthrough-hud';
+    this.breakthroughHud.className = 'breakthrough-hud hidden';
+    this.breakthroughHud.innerHTML = `
+      <div class="bt-header">
+        <span class="bt-team-badge" data-bt-team>ATTACKERS</span>
+        <span class="bt-phase" data-bt-phase>OBJECTIVE 1 OF 2</span>
+        <span class="bt-clock" data-bt-clock>5:00</span>
+      </div>
+      <div class="bt-main">
+        <strong class="bt-obj-name" data-bt-name>THE OUTER GATE</strong>
+        <em class="bt-state-pill" data-bt-state>CAPTURE</em>
+      </div>
+      <div class="bt-bar-track"><div class="bt-bar-fill" data-bt-fill></div></div>
+      <div class="bt-footer">
+        <small data-bt-directive>Capture The Outer Gate</small>
+        <small data-bt-counts></small>
+      </div>
+    `;
+    if (this.root?.append) {
+      this.root.append(this.breakthroughHud);
+    } else {
+      this.root?.appendChild?.(this.breakthroughHud);
+    }
+
+    this.objectiveWaypoint = document.createElement('div');
+    this.objectiveWaypoint.id = 'objective-waypoint';
+    this.objectiveWaypoint.className = 'objective-waypoint hidden';
+    this.objectiveWaypoint.innerHTML = `<i class="wp-diamond"></i><b data-wp-name>OUTER GATE</b><span data-wp-meta>24m</span>`;
+    if (this.root?.append) {
+      this.root.append(this.objectiveWaypoint);
+    } else {
+      this.root?.appendChild?.(this.objectiveWaypoint);
+    }
     this.feed = document.querySelector('#kill-feed');
     this.crosshair = document.querySelector('#crosshair');
     this.flash = document.querySelector('#status-flash');
@@ -157,6 +245,26 @@ export class HUD {
     this.#ultimate(local, serverNow, practice);
     this.#armour(steelStrength(local.steel, serverNow), local.steel?.calledAt);
     this.matchInfo.textContent = matchInfoText(snapshot, serverNow);
+    const btView = breakthroughHudView(local, snapshot, serverNow);
+    this.matchInfo.classList.toggle('hidden', btView.visible);
+    this.breakthroughHud.classList.toggle('hidden', !btView.visible);
+    if (btView.visible) {
+      this.breakthroughHud.dataset.team = btView.team;
+      this.breakthroughHud.dataset.state = btView.stateKey;
+      this.breakthroughHud.querySelector('[data-bt-team]').textContent = btView.teamLabel;
+      this.breakthroughHud.querySelector('[data-bt-phase]').textContent = btView.phaseLabel;
+      this.breakthroughHud.querySelector('[data-bt-clock]').textContent = btView.clock;
+      this.breakthroughHud.querySelector('[data-bt-name]').textContent = btView.objectiveName;
+      this.breakthroughHud.querySelector('[data-bt-state]').textContent = `${btView.stateLabel} ·${btView.progressPct}%`;
+      this.breakthroughHud.querySelector('[data-bt-fill]').style.width = `${btView.progressPct}%`;
+      this.breakthroughHud.querySelector('[data-bt-directive]').textContent = `${btView.directive} · [V] Mark`;
+      const counts = [];
+      if (btView.attackersCount > 0) counts.push(`▲ ${btView.attackersCount} ATT`);
+      if (btView.defendersCount > 0) counts.push(`⛨ ${btView.defendersCount} DEF`);
+      this.breakthroughHud.querySelector('[data-bt-counts]').textContent = counts.join(' · ') || (btView.distanceMeters !== null ? `${btView.distanceMeters}m away` : '');
+    } else {
+      this.objectiveWaypoint.classList.add('hidden');
+    }
 
     this.deathCard.classList.toggle('hidden', local.alive);
     if (!local.alive) this.deathTimer.textContent = Math.max(0, local.respawnAt - serverNow).toFixed(1);
@@ -490,9 +598,43 @@ export class HUD {
     }
   }
 
+  updateObjectiveWaypoint(screenPos, local, snapshot) {
+    if (!this.objectiveWaypoint) return;
+    if (!screenPos || snapshot?.mode !== 'BREAKTHROUGH' || !snapshot.objective || !local?.alive) {
+      this.objectiveWaypoint.classList.add('hidden');
+      return;
+    }
+    const obj = snapshot.objective;
+    const dist = Math.max(0, Math.round(Math.hypot(obj.position.x - local.position.x, obj.position.z - local.position.z)));
+    if (dist <= obj.radius && !screenPos.clamped) {
+      this.objectiveWaypoint.classList.add('hidden');
+      return;
+    }
+    this.objectiveWaypoint.classList.remove('hidden');
+    this.objectiveWaypoint.style.left = `${(screenPos.x * 100).toFixed(1)}%`;
+    this.objectiveWaypoint.style.top = `${(screenPos.y * 100).toFixed(1)}%`;
+    this.objectiveWaypoint.dataset.state = obj.contested ? 'contested' : obj.capturing ? 'capturing' : 'idle';
+    this.objectiveWaypoint.querySelector('[data-wp-name]').textContent = (obj.name ?? 'OBJECTIVE').toUpperCase();
+    const pct = Math.round((obj.progress ?? 0) * 100);
+    this.objectiveWaypoint.querySelector('[data-wp-meta]').textContent = obj.contested
+      ? `CONTESTED · ${dist}m`
+      : pct > 0
+        ? `${pct}% · ${dist}m`
+        : `${dist}m`;
+  }
+
   setScoreboard(snapshot, visible) {
     this.scoreboard.classList.toggle('hidden', !visible);
     if (!visible) return;
+    if (snapshot.mode === 'BREAKTHROUGH') {
+      const attackers = snapshot.players.filter((p) => p.team === 'ATTACKERS').sort((a, b) => b.kills - a.kills || a.deaths - b.deaths);
+      const defenders = snapshot.players.filter((p) => p.team === 'DEFENDERS').sort((a, b) => b.kills - a.kills || a.deaths - b.deaths);
+      const renderTeam = (title, list, cls) => `<h4 class="sb-team-head ${cls}">${title}</h4>` + list.map((p) =>
+        `<div class="sb-row ${cls}"><span>${escapeHtml(p.name)}${p.actorKind === 'bot' ? ' <small>[BOT]</small>' : ''}</span><b>${p.kills} K</b><em>${p.deaths} D · ${p.parries ?? 0} P</em></div>`
+      ).join('');
+      this.scoreboard.innerHTML = `<h3>BREAKTHROUGH · BASTION BREACH</h3>${renderTeam('ATTACKERS · AZURE HOST', attackers, 'team-att')}${renderTeam('DEFENDERS · CRIMSON GUARD', defenders, 'team-def')}`;
+      return;
+    }
     const sorted = [...snapshot.players].sort((a, b) => b.kills - a.kills || a.deaths - b.deaths);
     this.scoreboard.innerHTML = `<h3>SCOREBOARD</h3>${sorted.map((p) => `<div><span>${escapeHtml(p.name)}</span><b>${p.kills}</b><em>${p.deaths} deaths</em></div>`).join('')}`;
   }
