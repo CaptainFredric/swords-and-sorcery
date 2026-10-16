@@ -1318,8 +1318,10 @@
       "raw": "drive-download-20261012T044212Z-1-001/OohWhatDownThere.mp3",
       "sha256": "cfe1eccb156d95465c9bdfc5c78ea5b70b99ca9c6b8b7d086b4d0f1a787b4079",
       "speaker": "spellblade",
-      "key": "tutorial.what-down-there",
-      "status": "mapped"
+      "key": null,
+      "status": "general",
+      "note": "General Spellblade VO: no line declared for it yet.",
+      "words": "Ooh, what is down there?"
     },
     {
       "raw": "drive-download-20261012T044212Z-1-001/Sweet release.mp3",

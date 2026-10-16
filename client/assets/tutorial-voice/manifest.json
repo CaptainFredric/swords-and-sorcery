@@ -1003,12 +1003,6 @@
       "seconds": 1.23,
       "onset": 0.04
     },
-    "tutorial.what-down-there": {
-      "file": "spellblade/tutorial.what-down-there-1",
-      "speaker": "spellblade",
-      "seconds": 1.81,
-      "onset": 0.09
-    },
     "tutorial.what-is-above": {
       "file": "spellblade/tutorial.what-is-above-1",
       "speaker": "spellblade",

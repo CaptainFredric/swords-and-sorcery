@@ -96,6 +96,7 @@ export class TutorialSession {
     this.active = false; this.off = []; this.lastBeat = null; this.lastSegment = null;
     this.checkpoint = this.route[0].id; this.blockedHeld = new Set();
     this.bridgeFailures = 0;
+    this.bridgeFall = false;
     this.laterFireballs = 0;
     this.finalLosses = 0;
     this.duelClashOccurred = false;
@@ -385,18 +386,21 @@ export class TutorialSession {
     const inRavine = inBridgeCorridor && me.position.z < bridge.ravineBounds.maxZ && me.position.z > bridge.ravineBounds.minZ;
     if (inRavine && me.position.y < -0.8 && this.director.progress.segment?.chapter === 'bridge') {
       this.bridgeFall = true;
-      this.director.fact('bridge-fallen');
-      this.director.offerBranch('bridge-fall');
     }
 
     if (this.firstFireballHit && ['escape', 'counter-pursuit', 'counterfire', 'complaint'].includes(this.rival.mode)) {
+      const dt = this.lastTickAt !== null && now > this.lastTickAt ? Math.min(0.1, now - this.lastTickAt) : (1 / 30);
       const apart = Math.hypot(me.position.x - actor.position.x, me.position.z - actor.position.z);
       if (apart < 16 && me.sprinting) {
-        this.closePursuitDuration = (this.closePursuitDuration ?? 0) + 1/30;
+        this.closePursuitDuration = (this.closePursuitDuration ?? 0) + dt;
         if (this.closePursuitDuration >= 3.5 && this.director.progress.segment?.branches?.includes('permission-to-stop')) {
           this.director.offerBranch('permission-to-stop');
         }
+      } else {
+        this.closePursuitDuration = 0;
       }
+    } else {
+      this.closePursuitDuration = 0;
     }
     if (this.director.facts.has('bridge-crossed')
       && !this.subsequentHit

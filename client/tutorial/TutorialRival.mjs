@@ -294,9 +294,7 @@ export class TutorialRival {
   get standingConfrontation() {
     const director = this.session.director;
     const currentId = director.current?.id;
-    const confrontationBeats = new Set([
-      'halt-order', 'tell-on-me', 'magic-disposal', 'waiting-reminder', 'almost-there', 'fireball-prompt'
-    ]);
+    const confrontationBeats = new Set(['halt-order', 'tell-on-me', 'fireball-prompt']);
     return confrontationBeats.has(currentId);
   }
   linger(now, apart) {

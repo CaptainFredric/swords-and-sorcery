@@ -49,23 +49,27 @@ test('the departure, the false exit and the threat come before the pursuit, whos
   }
 });
 
-test('Jump and tattle are independently authored named-landmark scenes before the bridge', () => {
+test('Jump and tattle are independently authored scenes before the bridge', () => {
   const ids = TUTORIAL_SEGMENTS.map(item => item.id);
   assert.ok(ids.indexOf('jump-obstacle') < ids.indexOf('fireball'));
   assert.ok(ids.indexOf('tattle-reveal') < ids.indexOf('bridge-dash'));
   assert.equal(segment('jump-obstacle').scene.enter, 'rival-jump');
   assert.equal(beat('jump-prompt').advanceOn, 'jump-used');
   assert.equal(beat('jump-crossing').advanceOn, 'jump-crossed');
-  assert.deepEqual(segment('tattle-reveal').scene.gates[0], {
-    cue: 'tattle-reveal-reached', kind: 'past-landmark', actor: 'player', landmark: 'tattle-reveal',
-  });
+  assert.equal(segment('tattle-reveal').entryCondition, 'fireball-hit');
+  assert.deepEqual(segment('tattle-reveal').scene.gates, []);
   assert.equal(tutorialRouteBeats(TUTORIAL_SEGMENTS, { omitSegments: ['jump-obstacle', 'tattle-reveal'] }).some(item => item.id === 'jump-prompt'), false);
   assert.ok(tutorialRouteBeats(TUTORIAL_SEGMENTS, { omitSegments: ['jump-obstacle', 'tattle-reveal'] }).some(item => item.id === 'dash-prompt'));
   assert.deepEqual(segment('jump-obstacle').beats.filter(item => item.kind === 'dialogue').map(item => item.line), [
-    'Ahahaha! You cannot overcome this!', 'What should I do?',
-    "The Spellblade's journey is not impeded by minor ledges.", 'What does that mean?',
+    'What should I do?',
+    "The Spellblade's journey is not impeded by minor ledges.",
+    'What does that mean?',
     'He rises to the occasion, climbs the ranks, and bounds onward toward greater glory.',
-    'I do not get hints.', 'Jump.', 'Haha! Took US long enough.', 'Us?',
+    'I do not get hints.',
+    'Ahahaha! You cannot overcome this!',
+    'Jump.',
+    'Haha! Took US long enough.',
+    'Us?',
     'No! I should not have stopped running for such a minor tactical advantage!',
   ]);
   assert.deepEqual(segment('tattle-reveal').beats.filter(item => item.kind === 'dialogue').map(item => item.line), [

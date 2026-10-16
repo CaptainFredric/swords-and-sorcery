@@ -1,6 +1,6 @@
 {
   "base": "25a6d6b",
-  "total": 179,
+  "total": 178,
   "added": [
     {
       "key": "tutorial.small-gaps",
@@ -280,11 +280,6 @@
         "key": "tutorial.clash-agreed",
         "speaker": "rival",
         "text": "Agreed. May our blades never decide to do so again."
-      },
-      {
-        "key": "tutorial.what-down-there",
-        "speaker": "spellblade",
-        "text": "Ooh, what is down there?"
       }
     ]
   }

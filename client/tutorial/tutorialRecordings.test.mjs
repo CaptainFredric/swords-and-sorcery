@@ -48,7 +48,6 @@ test('all established recording keys survive the full route and generated plan m
     'rival-over-there', 'scorch-mark',
     'scratch-taunt', 'scratch-forget', 'scratch-yes', 'scratch-truth', 'scratch-predicted',
     'clash-simultaneous', 'clash-peculiar', 'clash-agreed',
-    'what-down-there',
     'bridge-senses-failure', 'hence-i-crossed', 'permission-stop', 'no-longer-ruin', 'permission-no', 'then-no',
     'burn-subsided', 'reforged', 'not-too-many', 'fight-yourself', 'already-told', 'feelings-health',
   ]);

@@ -1101,19 +1101,6 @@
     "rehearsalSec": 1.5
   },
   {
-    "key": "tutorial.minor-obstacle-gloat",
-    "beatId": "minor-obstacle-gloat",
-    "speaker": "rival",
-    "text": "Ahahaha! You cannot overcome this!",
-    "sourceFile": "tutorial.minor-obstacle-gloat.wav",
-    "fileBase": "rival/tutorial.minor-obstacle-gloat-1",
-    "chapter": "pursuit",
-    "segment": "jump-obstacle",
-    "presentation": "reactive",
-    "optionalBranch": null,
-    "rehearsalSec": 1.67
-  },
-  {
     "key": "tutorial.what-should-do",
     "beatId": "what-should-do",
     "speaker": "spellblade",
@@ -1172,6 +1159,19 @@
     "text": "I do not get hints.",
     "sourceFile": "tutorial.jump-no-hints.wav",
     "fileBase": "spellblade/tutorial.jump-no-hints-1",
+    "chapter": "pursuit",
+    "segment": "jump-obstacle",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "rehearsalSec": 1.67
+  },
+  {
+    "key": "tutorial.minor-obstacle-gloat",
+    "beatId": "minor-obstacle-gloat",
+    "speaker": "rival",
+    "text": "Ahahaha! You cannot overcome this!",
+    "sourceFile": "tutorial.minor-obstacle-gloat.wav",
+    "fileBase": "rival/tutorial.minor-obstacle-gloat-1",
     "chapter": "pursuit",
     "segment": "jump-obstacle",
     "presentation": "reactive",
@@ -1354,30 +1354,17 @@
     "rehearsalSec": 1.5
   },
   {
-    "key": "tutorial.halt-order",
-    "beatId": "halt-order",
+    "key": "tutorial.almost-there",
+    "beatId": "almost-there",
     "speaker": "rival",
-    "text": "Halt! I tell you to halt!",
-    "sourceFile": "tutorial.halt-order.wav",
-    "fileBase": "rival/tutorial.halt-order-1",
+    "text": "I am almost there!",
+    "sourceFile": "tutorial.almost-there.wav",
+    "fileBase": "rival/tutorial.almost-there-1",
     "chapter": "fireball",
     "segment": "fireball",
     "presentation": "reactive",
     "optionalBranch": null,
-    "rehearsalSec": 2
-  },
-  {
-    "key": "tutorial.tell-on-me",
-    "beatId": "tell-on-me",
-    "speaker": "spellblade",
-    "text": "I tell you to not tell on me!",
-    "sourceFile": "tutorial.tell-on-me.wav",
-    "fileBase": "spellblade/tutorial.tell-on-me-1",
-    "chapter": "fireball",
-    "segment": "fireball",
-    "presentation": "reactive",
-    "optionalBranch": null,
-    "rehearsalSec": 2.67
+    "rehearsalSec": 1.5
   },
   {
     "key": "tutorial.magic-disposal",
@@ -1406,17 +1393,30 @@
     "rehearsalSec": 4.33
   },
   {
-    "key": "tutorial.almost-there",
-    "beatId": "almost-there",
+    "key": "tutorial.halt-order",
+    "beatId": "halt-order",
     "speaker": "rival",
-    "text": "I am almost there!",
-    "sourceFile": "tutorial.almost-there.wav",
-    "fileBase": "rival/tutorial.almost-there-1",
+    "text": "Halt! I tell you to halt!",
+    "sourceFile": "tutorial.halt-order.wav",
+    "fileBase": "rival/tutorial.halt-order-1",
     "chapter": "fireball",
     "segment": "fireball",
     "presentation": "reactive",
     "optionalBranch": null,
-    "rehearsalSec": 1.5
+    "rehearsalSec": 2
+  },
+  {
+    "key": "tutorial.tell-on-me",
+    "beatId": "tell-on-me",
+    "speaker": "spellblade",
+    "text": "I tell you to not tell on me!",
+    "sourceFile": "tutorial.tell-on-me.wav",
+    "fileBase": "spellblade/tutorial.tell-on-me-1",
+    "chapter": "fireball",
+    "segment": "fireball",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "rehearsalSec": 2.67
   },
   {
     "key": "tutorial.rival-cold",
@@ -2120,19 +2120,6 @@
     "presentation": "reactive",
     "optionalBranch": "mutual-clash",
     "rehearsalSec": 3.33
-  },
-  {
-    "key": "tutorial.what-down-there",
-    "beatId": "what-down-there",
-    "speaker": "spellblade",
-    "text": "Ooh, what is down there?",
-    "sourceFile": "tutorial.what-down-there.wav",
-    "fileBase": "spellblade/tutorial.what-down-there-1",
-    "chapter": "bridge",
-    "segment": "bridge-dash",
-    "presentation": "reactive",
-    "optionalBranch": "bridge-fall",
-    "rehearsalSec": 1.67
   },
   {
     "key": "tutorial.bridge-senses-failure",

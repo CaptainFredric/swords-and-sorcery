@@ -318,6 +318,7 @@ export class TutorialDirector {
     this.optionalActive = false; this.lastTickAt = null;
     this.audioCue = null; this.pendingCompletion = null;
     this.completedReactions.clear(); this.pendingReaction = null; this.reactionResume = null; this.cutUnits?.clear();
+    while (this.completedReactions.has(this.beats[this.index]?.reactionFor) || this.skips(this.beats[this.index]) || this.cut(this.beats[this.index])) this.index += 1;
     this.onChange(this.progress);
   }
 
@@ -328,15 +329,10 @@ export class TutorialDirector {
     const isUrgent = beats[0]?.dialogueType === 'reaction' || beats[0]?.dialogueType === 'retry';
     if (isUrgent) {
       if (this.optionalActive) {
-        // Keep the currently playing line and its exchange together, but insert urgent branch right after it
+        // Finish the currently playing line, preserving a genuinely inseparable rapid reply if present
         const head = this.branchQueue[0];
-        let insertIndex = 1;
-        while (insertIndex < this.branchQueue.length) {
-          const item = this.branchQueue[insertIndex];
-          const together = item === head || (item.exchange && item.exchange === head.exchange) || (item.replyGroup && item.replyGroup === head.replyGroup);
-          if (!together) break;
-          insertIndex += 1;
-        }
+        const rapidReply = Boolean(head?.replyGroup && this.branchQueue[1]?.replyGroup === head.replyGroup);
+        const insertIndex = rapidReply ? 2 : 1;
         this.branchQueue.splice(insertIndex, 0, ...beats);
       } else {
         this.branchQueue.unshift(...beats);
@@ -371,6 +367,7 @@ export class TutorialDirector {
     if (!beat || beat.kind !== 'dialogue' || beat.reactionFor) return false;
     for (let i = this.index - 1; i >= 0; i -= 1) {
       const before = this.beats[i];
+      if (before.segment !== beat.segment) return false;
       if (before.kind !== 'dialogue') return Boolean(before.place);
     }
     return false;
