@@ -1354,19 +1354,6 @@
     "rehearsalSec": 1.5
   },
   {
-    "key": "tutorial.almost-there",
-    "beatId": "almost-there",
-    "speaker": "rival",
-    "text": "I am almost there!",
-    "sourceFile": "tutorial.almost-there.wav",
-    "fileBase": "rival/tutorial.almost-there-1",
-    "chapter": "fireball",
-    "segment": "fireball",
-    "presentation": "reactive",
-    "optionalBranch": null,
-    "rehearsalSec": 1.5
-  },
-  {
     "key": "tutorial.magic-disposal",
     "beatId": "magic-disposal",
     "speaker": "narrator",
@@ -1391,6 +1378,19 @@
     "presentation": "reactive",
     "optionalBranch": null,
     "rehearsalSec": 4.33
+  },
+  {
+    "key": "tutorial.almost-there",
+    "beatId": "almost-there",
+    "speaker": "rival",
+    "text": "I am almost there!",
+    "sourceFile": "tutorial.almost-there.wav",
+    "fileBase": "rival/tutorial.almost-there-1",
+    "chapter": "fireball",
+    "segment": "fireball",
+    "presentation": "reactive",
+    "optionalBranch": null,
+    "rehearsalSec": 1.5
   },
   {
     "key": "tutorial.halt-order",
