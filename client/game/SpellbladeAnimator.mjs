@@ -401,6 +401,20 @@ export class SpellbladeAnimator {
     settleOn(Object.keys(DEATH_REST.clearance), 0);
   }
 
+  #keepGroundedBodyClear() {
+    const pelvis = this.bone('pelvis');
+    const skeleton = pelvis?.parent;
+    if (!skeleton?.isBone) return;
+    const samples = {};
+    for (const name of Object.keys(BODY_GROUND_CLEARANCE)) {
+      const bone = this.bone(name);
+      if (!bone) continue;
+      samples[name] = _v.setFromMatrixPosition(bone.matrixWorld).applyMatrix4(_rootInv).y;
+    }
+    const lift = bodyGroundLift(samples);
+    if (lift > 1e-5) this.#offsetInRootSpace(skeleton, [0, lift, 0]);
+  }
+
   #soleY(name) {
     const bone = this.bone(name);
     _m.multiplyMatrices(_rootInv, bone.matrixWorld);
