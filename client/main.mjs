@@ -628,7 +628,7 @@ function soundTheEnd(snapshot) {
   recordMatchResult({
     winnerId: snapshot.winnerId,
     players: snapshot.players,
-    isScored: snapshot.mode !== 'PRACTICE',
+    isScored: snapshot.mode !== 'PRACTICE' && !snapshot.tutorial,
   });
   const won = snapshot.winnerId === socket.playerId;
   music.stinger(won ? 'victory' : 'defeat');
