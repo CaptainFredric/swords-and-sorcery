@@ -42,6 +42,7 @@ import { MOMENTS, PROJECTILES, VoiceMoments, deathPose } from './sound/voiceMome
 import { VoiceScenes } from './sound/voiceScenes.mjs';
 import { VoiceWatch } from './sound/voiceWatch.mjs';
 import { VOICE_TAGS, linesFor, voiceLine } from './sound/voiceLines.mjs';
+import { TeamVoiceEvents } from './sound/teamVoiceEvents.mjs';
 import { captionPlan } from '../ui/voiceLibrary.mjs';
 import { FOOTSTEPS, footfallsCrossed, footstepPlacement, footstepRecipe, surfaceAt, variantPicker } from './sound/footsteps.mjs';
 import { getWinStreak } from './sound/matchStreak.mjs';
@@ -174,6 +175,10 @@ export class GameRuntime {
     // the knights in Spells & Chivalry now, and when each one's last ended (it ends the moment a knight falls)
     this.chivalrous = new Set();
     this.chivalryEndedAt = new Map();
+    this.teamVoiceEvents = new TeamVoiceEvents({
+      sayMoment: (speaker, tags, options) => this.#sayMoment(speaker, tags, options),
+      nowSec: () => this.presentationNow() / 1000,
+    });
     this.lastTeamVoiceAt = -Infinity;
     // my own blade against the world, judged in my own view (localBladeSweep.mjs)
     this.bladeSweep = new LocalBladeSweep();
@@ -568,6 +573,7 @@ export class GameRuntime {
 
   onEvents(events) {
     for (const event of events) {
+      this.teamVoiceEvents.onEvent(event);
       this.remotePlayers.onEvent(event, this.latestSnapshot);
       this.#applyWeaponRelease(localWeaponReleaseForEvent(event, this.socket.playerId, this.localAuth, event.at ?? this.socket.serverNow()));
 
@@ -906,6 +912,7 @@ export class GameRuntime {
         this.voice?.director?.newLife?.();
         this.ultimateLines.reset();
         this.lastTeamVoiceAt = -Infinity;
+        this.teamVoiceEvents.reset();
         // a battle begins (any match but the yard): now and then a knight certifies the result in advance (one
         // sentence at a time: the first to pass its odds speaks for the field)
         const knights = (this.latestSnapshot?.players ?? []).filter((p) => p.actorKind !== 'dummy');
@@ -926,6 +933,9 @@ export class GameRuntime {
             for (const say of teamLines) {
               if (this.#say(say.line, say.speaker, say)) {
                 openingSaid = true;
+                const nowSec = this.presentationNow() / 1000;
+                this.lastTeamVoiceAt = nowSec;
+                this.teamVoiceEvents.lastTeamVoiceAt = nowSec;
                 break;
               }
             }
@@ -934,6 +944,9 @@ export class GameRuntime {
             for (const say of beginLines) {
               if (this.#say(say.line, say.speaker, say)) {
                 openingSaid = true;
+                const nowSec = this.presentationNow() / 1000;
+                this.lastTeamVoiceAt = nowSec;
+                this.teamVoiceEvents.lastTeamVoiceAt = nowSec;
                 break;
               }
             }
@@ -1397,9 +1410,9 @@ export class GameRuntime {
     this.chivalrous.delete(victimId);
     this.watch.death(victimId, at, this.#bodyPosition(victimId));
     const { fallen, victor, rescued } = this.moments.death(event, { ...this.#voiceWorld(), blow, practice: this.#inPractice(), planFailed: scene.planFailed, extra });
-    const wasMarked = (this.latestSnapshot?.marks ?? []).some((m) => m.targetId === victimId && m.kind === 'enemy');
+    const wasMarked = this.teamVoiceEvents.consumeMarkedPayoff(victimId, at);
     const candidateFallen = wasMarked
-      ? fallen.map((say) => ({ ...say, chanceScale: (say.chanceScale ?? 1) * 4.0 }))
+      ? this.teamVoiceEvents.biasDefeatCandidates(fallen)
       : fallen;
     const spoken = candidateFallen.find((say) => this.#say(say.line, say.speaker, say));
     const spoke = Boolean(spoken);
@@ -1408,34 +1421,20 @@ export class GameRuntime {
     if (!spoke && !scene.victor) this.#sayMoments([victor], event.at);
     this.#sayMoments(rescued, event.at);
 
-    // team battle reactions: ally blunder or ally saved me
+    // team battle reactions: ally blunder
     const myId = this.socket.playerId;
     const myPlayer = players.find((p) => p.id === myId);
     const myTeam = this.localAuth?.team ?? myPlayer?.team;
     const victimPlayer = players.find((p) => p.id === victimId);
-    const killerPlayer = killerId ? players.find((p) => p.id === killerId) : null;
     const nowSec = this.presentationNow() / 1000;
-    const canTeamVoice = (nowSec - (this.lastTeamVoiceAt ?? -Infinity)) >= 3.5;
+    const canTeamVoice = (nowSec - Math.max(this.lastTeamVoiceAt ?? -Infinity, this.teamVoiceEvents.lastTeamVoiceAt ?? -Infinity)) >= 3.5;
 
-    if (canTeamVoice && myTeam && victimPlayer?.team) {
-      if (victimPlayer.team === myTeam && victimId !== myId) {
-        // Ally blunder: abyss fall, suicide/self-damage, or helpless blunder
-        const isBlunder = event.source === 'abyss' || !killerId || killerId === victimId || Boolean(event.helpless);
-        if (isBlunder && this.#sayMoment(myId, ['allyBlunder'])) {
-          this.lastTeamVoiceAt = nowSec;
-        }
-      } else if (victimPlayer.team !== myTeam && killerId && killerId !== myId && killerPlayer?.team === myTeam) {
-        // Meaningful save or assist: victim was threatening me, or I was fighting/low near the fight
-        const myThreat = this.moments.threats.get(myId);
-        const threatenedMe = myThreat?.by === victimId && (at - myThreat.at <= 4.0);
-        const myPos = this.#bodyPosition(myId);
-        const victimPos = this.#bodyPosition(victimId);
-        const dist = (myPos && victimPos) ? Math.hypot(myPos.x - victimPos.x, myPos.z - victimPos.z) : Infinity;
-        const myHealth = this.localAuth?.health ?? myPlayer?.health ?? 100;
-        const inFight = threatenedMe || (dist <= 15 && (myHealth <= 50 || this.moments.strikes?.has?.(`${myId}>${victimId}`)));
-        if (inFight && this.#sayMoment(myId, ['allySavedMe'])) {
-          this.lastTeamVoiceAt = nowSec;
-        }
+    if (canTeamVoice && myTeam && victimPlayer?.team && victimPlayer.team === myTeam && victimId !== myId) {
+      // Ally blunder: abyss fall, suicide/self-damage, or helpless blunder
+      const isBlunder = event.source === 'abyss' || !killerId || killerId === victimId || Boolean(event.helpless);
+      if (isBlunder && this.#sayMoment(myId, ['allyBlunder'])) {
+        this.lastTeamVoiceAt = nowSec;
+        this.teamVoiceEvents.lastTeamVoiceAt = nowSec;
       }
     }
 

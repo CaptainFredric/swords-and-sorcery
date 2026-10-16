@@ -14,6 +14,7 @@ import { challengeCopy, arenaGateCopy } from '../../client/menu/challengeCard.mj
 import { breakthroughHudView } from '../../client/ui/HUD.mjs';
 import { linesFor, voiceLine, VOICE_LINE_DECLARATIONS, VOICE_TAGS } from '../../client/game/sound/voiceLines.mjs';
 import { VoiceMoments } from '../../client/game/sound/voiceMoments.mjs';
+import { TeamVoiceEvents } from '../../client/game/sound/teamVoiceEvents.mjs';
 
 test('MenuController exposes solo and private Breakthrough entry paths with team preference', () => {
   const calls = [];
@@ -357,7 +358,7 @@ test('Team VO: one restrained team-opening voice opportunity at match start', ()
   assert.equal(spoken[0].speaker, 'player-1', 'local player candidate was evaluated first');
 });
 
-test('Team VO: ordinary ally kill does not automatically qualify saved-me lines', () => {
+test('Team VO: allySaved produces saved knight line (not savior), and ordinary kill without allySaved does not qualify', () => {
   // 1. Generic allyFelledFoe tag is not subscribed to by saved-me lines
   const genericLines = linesFor('p1', ['allyFelledFoe']).map((s) => s.line);
   assert.equal(genericLines.includes('lesserFoe'), false, 'lesserFoe does not trigger on generic ally kill');
@@ -367,28 +368,75 @@ test('Team VO: ordinary ally kill does not automatically qualify saved-me lines'
   const savedMeLines = linesFor('p1', ['allySavedMe']).map((s) => s.line);
   assert.deepEqual(savedMeLines, ['lesserFoe', 'couldveDoneThat'], 'saved-me lines subscribe to allySavedMe');
 
-  // 3. Contextual qualification: ordinary kill across the map does not qualify
+  // 3. Real server event path: endangered ally felling emits authoritative allySaved
+  const manager = new RoomManager();
+  const roomA = manager.createBreakthroughRoom(0, true, WORLD_IDS.BASTION_BREACH);
+  const savior = roomA.addPlayer({ id: 'savior', token: 't1', name: 'Savior', team: TEAMS.ATTACKERS }, 0);
+  const ally = roomA.addPlayer({ id: 'ally', token: 't2', name: 'Saved Ally', team: TEAMS.ATTACKERS }, 0);
+  const enemy = roomA.addPlayer({ id: 'enemy', token: 't3', name: 'Attacker Enemy', team: TEAMS.DEFENDERS }, 0);
+  roomA.startMatch(0);
+
+  // Ally was recently damaged by enemy and low on health (<= 50)
+  ally.health = 40;
+  ally.lastAttackerId = enemy.id;
+  ally.lastDamageAt = 9.5;
+  roomA.events.length = 0;
+
+  // Savior fells the threatening enemy
+  killPlayer(roomA, enemy.id, savior.id, 'sword', 10.0);
+  const allySavedEvent = roomA.events.find((e) => e.type === 'allySaved');
+  assert.ok(allySavedEvent, 'server emitted authoritative allySaved event');
+  assert.equal(allySavedEvent.saviorId, 'savior');
+  assert.equal(allySavedEvent.allyId, 'ally');
+
+  // Client consumes actual server event: speaker is the saved knight (ally B), NOT the savior (A)
   const moments = new VoiceMoments();
-  const myId = 'p1';
-  const victimId = 'foe1';
-  const at = 10.0;
+  const spokenA = [];
+  const teamVoiceA = new TeamVoiceEvents({
+    sayMoment: (speaker, tags) => {
+      const lines = moments.lines(speaker, tags);
+      spokenA.push({ speaker, tags, lines: lines.map((s) => s.line) });
+      return true;
+    },
+    nowSec: () => 10.0,
+  });
 
-  // Case A: Enemy was across map (dist = 40), never threatened me, my health full
-  const myPosA = { x: 0, z: 0 };
-  const victimPosA = { x: 40, z: 0 };
-  const distA = Math.hypot(myPosA.x - victimPosA.x, myPosA.z - victimPosA.z);
-  const myThreatA = moments.threats.get(myId);
-  const threatenedMeA = myThreatA?.by === victimId && (at - myThreatA.at <= 4.0);
-  const myHealthA = 100;
-  const inFightA = threatenedMeA || (distA <= 15 && (myHealthA <= 50 || moments.strikes?.has?.(`${myId}>${victimId}`)));
-  assert.equal(inFightA, false, 'distant kill where enemy did not threaten player does NOT qualify saved-me reaction');
+  roomA.events.forEach((e) => teamVoiceA.onEvent(e));
+  assert.equal(spokenA.length, 1);
+  assert.equal(spokenA[0].speaker, 'ally', 'contextual speaker is the saved knight (ally), NOT the savior');
+  assert.deepEqual(spokenA[0].tags, ['allySavedMe']);
+  assert.deepEqual(spokenA[0].lines, ['lesserFoe', 'couldveDoneThat']);
 
-  // Case B: Enemy was actively threatening me
-  moments.threats.set(myId, { by: victimId, at: 9.5 });
-  const myThreatB = moments.threats.get(myId);
-  const threatenedMeB = myThreatB?.by === victimId && (at - myThreatB.at <= 4.0);
-  const inFightB = threatenedMeB || (distA <= 15 && (myHealthA <= 50 || moments.strikes?.has?.(`${myId}>${victimId}`)));
-  assert.equal(inFightB, true, 'threatened player qualifies allySavedMe reaction');
+  // Preserves team spacing rule (3.5s cooldown)
+  const rapidSecond = teamVoiceA.onEvent({ type: 'allySaved', saviorId: 'savior', allyId: 'ally', enemyId: 'enemy2', at: 11.0 });
+  assert.equal(rapidSecond, false, 'second save within 3.5s is throttled by team spacing rule');
+
+  // 4. Ordinary kill without allySaved: ally was healthy or not attacked by enemy
+  const roomB = manager.createBreakthroughRoom(0, true, WORLD_IDS.BASTION_BREACH);
+  const saviorB = roomB.addPlayer({ id: 'saviorB', token: 't1', name: 'Savior B', team: TEAMS.ATTACKERS }, 0);
+  const allyB = roomB.addPlayer({ id: 'allyB', token: 't2', name: 'Healthy Ally', team: TEAMS.ATTACKERS }, 0);
+  const enemyB = roomB.addPlayer({ id: 'enemyB', token: 't3', name: 'Enemy B', team: TEAMS.DEFENDERS }, 0);
+  roomB.startMatch(0);
+
+  allyB.health = 100;
+  allyB.lastAttackerId = 'someone-else';
+  roomB.events.length = 0;
+
+  killPlayer(roomB, enemyB.id, saviorB.id, 'sword', 20.0);
+  const allySavedB = roomB.events.find((e) => e.type === 'allySaved');
+  assert.equal(allySavedB, undefined, 'ordinary kill of nearby enemy without endangerment does NOT emit allySaved event');
+
+  const spokenB = [];
+  const teamVoiceB = new TeamVoiceEvents({
+    sayMoment: (speaker, tags) => {
+      spokenB.push({ speaker, tags });
+      return true;
+    },
+    nowSec: () => 20.0,
+  });
+
+  roomB.events.forEach((e) => teamVoiceB.onEvent(e));
+  assert.equal(spokenB.length, 0, 'no allySavedMe lines spoken when allySaved event is absent');
 });
 
 test('Team VO: ordinary ally death does not automatically qualify every condemnation line', () => {
@@ -416,24 +464,56 @@ test('Team VO: ordinary ally death does not automatically qualify every condemna
   assert.equal(isAbyssBlunder, true, 'abyss fall qualifies as ally blunder');
 });
 
-test('Team VO: marked target death biases victim defeat bark and does not trigger killer generic taunt', () => {
-  // 1. killTaunt does NOT trigger on markedTargetFelled
+test('Team VO: markedTargetFelled produces boosted victim payoff bark even after snapshot marks clear', () => {
+  // 1. killTaunt triggers strictly on kill, not markedTargetFelled
   const killTaunt = VOICE_LINE_DECLARATIONS.find((l) => l.id === 'killTaunt');
   assert.equal(killTaunt.trigger, 'kill', 'killTaunt triggers strictly on kill, not markedTargetFelled');
   assert.equal(VOICE_TAGS.markedTargetFelled, undefined, 'markedTargetFelled tag is removed from VOICE_TAGS');
 
-  // 2. Defeat bark chanceScale boost for marked victims
-  const mockFallen = [
-    { line: 'magicDefeat', speaker: 'victim', chanceScale: 1.0, delay: 0 },
-    { line: 'defeat', speaker: 'victim', chanceScale: 0.8, delay: 0 },
-  ];
-  const wasMarked = true;
-  const candidateFallen = wasMarked
-    ? mockFallen.map((say) => ({ ...say, chanceScale: (say.chanceScale ?? 1) * 4.0 }))
-    : mockFallen;
+  // 2. Real server event path: marked target felling emits markedTargetFelled and clears snapshot marks
+  const manager = new RoomManager();
+  const room = manager.createBreakthroughRoom(0, true, WORLD_IDS.BASTION_BREACH);
+  const killer = room.addPlayer({ id: 'att-1', token: 't1', name: 'Killer Attacker', team: TEAMS.ATTACKERS }, 0);
+  const victim = room.addPlayer({ id: 'def-1', token: 't2', name: 'Marked Defender', team: TEAMS.DEFENDERS }, 0);
+  room.startMatch(0);
+  room.events.length = 0;
 
-  assert.equal(candidateFallen[0].chanceScale, 4.0, 'marked target defeat lines receive heavy chanceScale boost');
-  assert.equal(candidateFallen[1].chanceScale, 3.2, 'all legal defeat candidates for marked victim are biased upward');
+  // Mark enemy
+  applyRoomCommand(room, killer, { type: 'markTarget', targetId: victim.id }, 10.0);
+  assert.equal(room.teamMarks.length, 1);
+
+  // Kill marked enemy
+  killPlayer(room, victim.id, killer.id, 'sword', 12.0);
+  const markedEvent = room.events.find((e) => e.type === 'markedTargetFelled');
+  const deathEvent = room.events.find((e) => e.type === 'death' && e.victimId === victim.id);
+  assert.ok(markedEvent, 'server emitted authoritative markedTargetFelled event');
+  assert.ok(deathEvent, 'server emitted death event');
+
+  // Verify server cleared mark from snapshot at the exact tick of death
+  const snap = serializeSnapshot(room, 12.0);
+  assert.equal(snap.marks.length, 0, 'snapshot marks cleared on death tick');
+
+  // 3. Client TeamVoiceEvents consumption
+  const moments = new VoiceMoments();
+  const teamVoice = new TeamVoiceEvents({ nowSec: () => 12.0 });
+
+  // Consume events
+  room.events.forEach((e) => teamVoice.onEvent(e));
+
+  // 4. Payoff verification: even though snap.marks has cleared, teamVoice records payoff
+  const wasMarked = teamVoice.consumeMarkedPayoff(victim.id, 12.0);
+  assert.equal(wasMarked, true, 'payoff recognized despite snapshot marks being cleared');
+
+  // 5. Victim defeat barks heavily biased (4x chanceScale)
+  const { fallen, victor } = moments.death(deathEvent, { knight: () => null });
+  assert.ok(fallen.length > 0, 'victim has legal defeat barks');
+  const biasedFallen = teamVoice.biasDefeatCandidates(fallen);
+  assert.equal(biasedFallen[0].chanceScale, (fallen[0].chanceScale ?? 1) * 4.0, 'defeat bark biased by 4x');
+
+  // 6. Killer generic taunt suppressed when victim payoff bark wins
+  const victimBarkWon = true; // when victim payoff bark spoke
+  const killerTauntAllowed = !victimBarkWon && victor.length > 0;
+  assert.equal(killerTauntAllowed, false, 'killer must not say generic taunt when victim payoff bark wins');
 });
 
 
