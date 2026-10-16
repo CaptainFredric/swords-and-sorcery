@@ -37,7 +37,7 @@ test('new combat voice lines: exact declarations, Credits metadata, and manifest
   assert.equal(armor.text, 'How did you do that? Was my armor holding back?');
   assert.deepEqual(Object.keys(armor.triggers), ['heavyHurt']);
   assert.equal(armor.priority, 'normal');
-  assert.equal(armor.rarity, 0.22);
+  assert.equal(armor.rarity, 0.08);
   assert.equal(armor.cooldown, 120);
   assert.equal(armor.section, 'Battle & Abilities');
   assert.equal(armor.credits.title, 'Holding Back');
