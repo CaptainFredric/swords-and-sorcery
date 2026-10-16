@@ -44,6 +44,7 @@ import { VoiceWatch } from './sound/voiceWatch.mjs';
 import { VOICE_TAGS, linesFor, voiceLine } from './sound/voiceLines.mjs';
 import { captionPlan } from '../ui/voiceLibrary.mjs';
 import { FOOTSTEPS, footfallsCrossed, footstepPlacement, footstepRecipe, surfaceAt, variantPicker } from './sound/footsteps.mjs';
+import { getWinStreak } from './sound/matchStreak.mjs';
 import { CombatHeat, matchClosing, nearestFoe } from './sound/combatHeat.mjs';
 import { FP_MOTION } from './firstPersonMotion.mjs';
 import { DEATH_CAM, deathCamera, deathCardText, killerCamPolicy } from './deathCam.mjs';
@@ -1312,11 +1313,13 @@ export class GameRuntime {
       // a shot from where the victor stood: at one sprinting past him; at one busy fighting someone else
       passing: Boolean(killerId) && PROJECTILES.includes(event.source) && this.watch.passing(victimId, this.#bodyPosition(killerId), at),
       thirdParty: Boolean(killerId) && PROJECTILES.includes(event.source) && this.watch.thirdParty(victimId, killerId, at, this.#bodyPosition(killerId)),
+      // fleeing: sprinting away from the killer
+      fleeing: Boolean(killerId) && this.watch.fleeing(victimId, this.#bodyPosition(killerId), at),
       // his return to come, and no comeback under way: a nap may be announced
       nap: !scene.comeback,
     };
     this.chivalrous.delete(victimId);
-    this.watch.death(victimId);
+    this.watch.death(victimId, at, this.#bodyPosition(victimId));
     const { fallen, victor, rescued } = this.moments.death(event, { ...this.#voiceWorld(), blow, practice: this.#inPractice(), planFailed: scene.planFailed, extra });
     const spoken = fallen.find((say) => this.#say(say.line, say.speaker, say));
     const spoke = Boolean(spoken);
@@ -1436,6 +1439,8 @@ export class GameRuntime {
         const goal = this.latestSnapshot?.scoreToWin;
         return Number.isFinite(goal) && !this.#inPractice() && (players.find((p) => p.id === id)?.kills ?? -1) === goal - 1;
       },
+      practice: this.#inPractice(),
+      winStreak: (id) => getWinStreak(id),
     };
   }
 
@@ -1999,7 +2004,8 @@ export class GameRuntime {
     if (this.latestSnapshot && this.localAuth) {
       // (the longer scenes' clocks: a part whose moment has come is said)
       this.scenes.step(this.socket.serverNow(), this.latestSnapshot.players);
-      this.#sayWatched(this.watch.step(this.socket.serverNow(), this.latestSnapshot.players, { self: this.socket.playerId, world: this.activeWorld, practice: this.#inPractice() }));
+      const players = this.latestSnapshot.players.map((p) => (p.id === this.socket.playerId && this.localState ? { ...p, crouched: Boolean(this.localState.crouched) } : p));
+      this.#sayWatched(this.watch.step(this.socket.serverNow(), players, { self: this.socket.playerId, world: this.activeWorld, practice: this.#inPractice() }));
       // the last seconds of a timed match (never the yard's, never sudden death)
       const match = this.latestSnapshot;
       if (match.roomState === 'PLAYING' && Number.isFinite(match.matchSeconds) && Number.isFinite(match.matchStartedAt) && !match.suddenDeath && !this.#inPractice()) {

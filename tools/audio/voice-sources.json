@@ -18,6 +18,12 @@
   "alwaysKnew": [
     "always-knew-1.mp3"
   ],
+  "anybodyThere": [
+    "anybody-there-1.mp3"
+  ],
+  "armorHoldingBack": [
+    "armor-holding-back-1.mp3"
+  ],
   "believeMagic": [
     "believe-magic-1.mp3"
   ],
@@ -42,6 +48,9 @@
   ],
   "chargeDefeat": [
     "charge-defeat-1.mp3"
+  ],
+  "chivalryItinerary": [
+    "chivalry-itinerary-1.mp3"
   ],
   "chivalryTest": [
     "chivalry-test-1.mp3"
@@ -90,6 +99,9 @@
   ],
   "excuseYou": [
     "excuse-you-1.mp3"
+  ],
+  "exercise": [
+    "exercise-1.mp3"
   ],
   "fairSquare": [
     "fair-square-1.mp3"
@@ -244,6 +256,9 @@
   "remainStaggered": [
     "remain-staggered-1.mp3"
   ],
+  "rememberThis": [
+    "remember-this-1.mp3"
+  ],
   "renownDisowned": [
     "renown-disowned-1.mp3"
   ],
@@ -313,6 +328,9 @@
     "SunderLeave_1.mp3:6.50-7.20",
     "SunderLeave_1.mp3:7.20-7.95",
     "SunderLeave_1.mp3:7.95-10.20"
+  ],
+  "surviveInSpirit": [
+    "survive-in-spirit-1.mp3"
   ],
   "thankYou": [
     "thank-you-1.mp3"

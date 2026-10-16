@@ -200,6 +200,7 @@ const segments = [
   },
   {
     id: 'real-duel', chapter: 'duel', permissions: GUARD, checkpoint: true, presentation: 'reactive',
+    branches: ['mutual-clash'],
     entryCondition: 'health-settled', completionCue: 'duel-first-knockdown',
     scene: { enter: 'rival-idle', checkpoint: 'duel', gates: ['rival-attack-started', 'duel-first-knockdown'] },
     beats: [
@@ -380,7 +381,7 @@ const segments = [
     ],
   },
   {
-    id: 'fireball', chapter: 'fireball', permissions: FIREBALL, presentation: 'reactive', branches: ['first-fireball-miss', 'rival-constitution'],
+    id: 'fireball', chapter: 'fireball', permissions: FIREBALL, presentation: 'reactive', branches: ['first-fireball-miss', 'scratch', 'rival-constitution'],
     entryCondition: 'rival-escaping', completionCue: 'fireball-hit', objective: PURSUIT_OBJECTIVE,
     scene: { checkpoint: 'pursuit', gates: ['fireball-hit'] },
     beats: [
@@ -388,6 +389,8 @@ const segments = [
       { id: 'why-spellblade', skipWhen: 'fireball-hit', speaker: 'narrator', line: 'Why are you called the Spellblade?' },
       { id: 'spell-blade', speaker: 'spellblade', line: 'Because I can spell ‘blade’!' },
       { id: 'impressive', speaker: 'narrator', line: 'Impressive.' },
+      { id: 'halt-order', speaker: 'rival', line: 'Halt! I tell you to halt!' },
+      { id: 'tell-on-me', speaker: 'spellblade', line: 'I tell you to not tell on me!' },
       { id: 'magic-disposal', skipWhen: 'fireball-hit', speaker: 'narrator', line: 'But also, you have magic at your disposal' },
       { id: 'waiting-reminder', skipWhen: 'fireball-hit', speaker: 'spellblade', line: 'I knew that! I had just been waiting for you to remind me!' },
       { id: 'almost-there', skipWhen: 'fireball-hit', speaker: 'rival', line: 'I am almost there!' },
@@ -652,6 +655,24 @@ const branchDeclarations = {
     beats: [
       { id: 'rival-over-there', exchange: 'scorch-mark', replyGroup: 'scorch-mark', speaker: 'narrator', line: 'Your rival is over there' },
       { id: 'scorch-mark', exchange: 'scorch-mark', replyGroup: 'scorch-mark', speaker: 'spellblade', line: 'And I wanted a scorch mark, over there.' },
+    ],
+  },
+  scratch: {
+    segment: 'fireball', chapter: 'fireball', triggerCue: 'meadow-parried', until: 'fireball-hit',
+    beats: [
+      { id: 'scratch-taunt', exchange: 'scratch', speaker: 'rival', line: 'You cannot even scratch me, can you?' },
+      { id: 'scratch-forget', exchange: 'scratch', speaker: 'narrator', line: 'Let us forget what just happened.' },
+      { id: 'scratch-yes', exchange: 'scratch', speaker: 'spellblade', line: 'Yes.' },
+      { id: 'scratch-truth', exchange: 'scratch', speaker: 'spellblade', line: 'And yes, you are correct. I never leave a scratch.' },
+      { id: 'scratch-predicted', exchange: 'scratch', speaker: 'rival', line: 'Hahaha! I predicted as such!' },
+    ],
+  },
+  'mutual-clash': {
+    segment: 'real-duel', chapter: 'duel', triggerCue: 'mutual-clash', until: 'duel-damage-threshold',
+    beats: [
+      { id: 'clash-simultaneous', exchange: 'mutual-clash', speaker: 'rival', line: 'We struck at the same time!' },
+      { id: 'clash-peculiar', exchange: 'mutual-clash', speaker: 'spellblade', line: 'That was peculiar. I prefer my engagements one-sided.' },
+      { id: 'clash-agreed', exchange: 'mutual-clash', speaker: 'rival', line: 'Agreed. May our blades never decide to do so again.' },
     ],
   },
   'bridge-growth': {

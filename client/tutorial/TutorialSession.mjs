@@ -98,6 +98,7 @@ export class TutorialSession {
     this.bridgeFailures = 0;
     this.laterFireballs = 0;
     this.finalLosses = 0;
+    this.duelClashOccurred = false;
     this.gateMemory = new Map();
   }
   /**
@@ -166,6 +167,7 @@ export class TutorialSession {
     rival.spawnProtectionUntil = now; this.rivalId = rival.id;
     room.tutorialRival = {id:rival.id,protected:true}; room.projectiles.clear();
     this.duelDamage = 0; this.duelCounting = false; this.termsDamage = 0; this.during = null;
+    this.duelClashOccurred = false;
     this.finalBroken = false; this.damageBaseline = null; this.departureStart = null;
     this.firstFireballHit = ['bridge','counterfire','complaint','final'].includes(key);
     this.subsequentHit = ['complaint','final'].includes(key); this.burnSeen = false;
@@ -444,11 +446,17 @@ export class TutorialSession {
       }
       if (event.type === 'damage' && event.victimId === this.host.player.id && event.amount > 0) this.healthFullSince = null;
       if (event.type === 'block' && event.defenderId === this.rivalId && event.attackerId === this.host.player.id) this.rival.lastBlockedAt = this.host.now();
-      if (event.type === 'parry' && event.defenderId === this.rivalId && event.attackerId === this.host.player.id) {
-        if (this.rival.mode === 'final-opening') {
-          this.finalPhase = 'guard'; this.director.fact('final-first-parry');
-        } else if (this.rival.fireballLesson && !this.firstFireballHit) {
-          this.director.offerBranch('first-fireball-miss');
+      if (event.type === 'parry') {
+        if (event.defenderId === this.rivalId && event.attackerId === this.host.player.id) {
+          if (this.rival.mode === 'final-opening') {
+            this.finalPhase = 'guard'; this.director.fact('final-first-parry');
+          } else if (this.rival.fireballLesson && !this.firstFireballHit) {
+            this.director.offerBranch('scratch');
+          }
+        } else if (event.defenderId === this.host.player.id && event.attackerId === this.rivalId) {
+          if (this.rival.fireballLesson && !this.firstFireballHit) {
+            this.director.offerBranch('scratch');
+          }
         }
       }
       if (event.type === 'death' && event.victimId === this.host.player.id) this.loseFinal();
@@ -531,6 +539,24 @@ export class TutorialSession {
     } else this.healthFullSince = null;
     if (me.burningUntil > snapshot.serverTime) this.burnSeen = true;
     if (this.burnSeen && me.burningUntil <= snapshot.serverTime && this.director.progress.segment?.branches?.includes('burned')) this.director.offerBranch('burned');
+    if (this.rival.mode === 'duel' && !this.duelClashOccurred && me?.alive) {
+      const rivalPlayer = snapshot.players.find(x => x.id === this.rivalId);
+      if (rivalPlayer?.alive) {
+        const d = Math.hypot(me.position.x - rivalPlayer.position.x, me.position.z - rivalPlayer.position.z);
+        if (d <= 3.0 && me.attackActive && rivalPlayer.attackActive) {
+          const timeDiff = Math.abs((me.attackStartedAt ?? 0) - (rivalPlayer.attackStartedAt ?? 0));
+          if (timeDiff <= 0.15) {
+            this.duelClashOccurred = true;
+            cancelAttack(this.host.room, me.id, snapshot.serverTime);
+            cancelAttack(this.host.room, rivalPlayer.id, snapshot.serverTime);
+            this.host.player.staggerUntil = Math.max(this.host.player.staggerUntil ?? 0, snapshot.serverTime + 0.45);
+            const rivalActor = this.host.room.players.get(this.rivalId);
+            if (rivalActor) rivalActor.staggerUntil = Math.max(rivalActor.staggerUntil ?? 0, snapshot.serverTime + 0.45);
+            this.director.offerBranch('mutual-clash');
+          }
+        }
+      }
+    }
   }
   // Rival has won the final duel. (A rematch, not a replay: the chase and the terms stand. His taunt for the first
   // defeat, another for the second, and quiet after that.) True once the loss is in hand.

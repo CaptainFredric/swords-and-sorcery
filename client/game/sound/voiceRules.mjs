@@ -198,12 +198,14 @@ export function deathMoment({ victimId, killerId, source, overkill = false, mino
 }
 
 // a kill as the moments it is, for whoever made it (see deathLines' moment)
-function victorTags({ source, moment = {} }) {
+export function victorTags({ source, moment = {} }) {
   return {
     kill: 1,
     ...(moment.sunder ? { sunderKill: 1 } : {}),
     ...(moment.knighthood ? { knighthoodKill: 1 } : {}),
     ...(moment.gale ? { galeKill: 1 } : {}),
+    ...(moment.fleeing ? { fleeingKill: 1 } : {}),
+    ...(moment.sameFoeAgain ? { sameFoeAgain: 1 } : {}),
     ...(moment.practice ? { practiceWin: 1 } : {}),
     ...(moment.steel ? { steelKill: 1 } : {}),
     ...(source === 'gauntlet' ? { gauntletKill: 1 } : {}),

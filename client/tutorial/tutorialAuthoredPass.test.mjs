@@ -374,7 +374,7 @@ test('missed Fireballs: Rival keeps to the meadow, facing the Spellblade, until 
   host.close();
 });
 
-test('Fireball lesson stand: Rival parries sword attacks, offers first-fireball-miss once, and fireball cleanly breaks the stand', () => {
+test('Fireball lesson stand: Rival parries sword attacks, offers scratch once, and fireball cleanly breaks the stand', () => {
   const t = fixture();
   const { host, session, tick, events, rival } = t;
   session.stage('fireball'); session.director.resumeAt('fireball-prompt'); session.rival.enter('rival-escape', host.now());
@@ -393,8 +393,8 @@ test('Fireball lesson stand: Rival parries sword attacks, offers first-fireball-
   assert.equal(events.some(e => e.type === 'damage' && e.victimId === session.rivalId && e.source === 'sword'), false);
   assert.equal(rival().health, initialHealth);
   assert.ok(host.player.staggerUntil > parry.at, 'attacker staggered by parry');
-  // Dialogue branch offered once as diegetic reminder
-  assert.ok(session.director.branchesSeen.has('first-fireball-miss'));
+  // Dialogue branch offered once as diegetic reminder (scratch, decoupled from missed fireball)
+  assert.ok(session.director.branchesSeen.has('scratch'));
 
   // Fireball cleanly breaks the stand and damages him
   tick(30);

@@ -82,6 +82,10 @@ export const WATCH = Object.freeze({
   // a shot from outside another's fight: the fallen and someone else trading blows each way within `exchangeSec`; the
   // fallen not at blows with the shooter within `ownSec` (no sword of his on them, none of theirs on him); `far` off
   thirdParty: Object.freeze({ exchangeSec: 3, ownSec: 4, far: 6 }),
+  // fleeing: sprinting away from the killer (radial velocity away from killer >= 0.6 of speed, distance <= 20)
+  fleeing: Object.freeze({ freshSec: 0.6, speed: 4, far: 20, away: 0.6 }),
+  // corpse exercise: repeatedly crouching (>=3 times in 4.0s) directly over/beside a recently defeated player's corpse (reach <= 2.5m)
+  corpseExercise: Object.freeze({ windowSec: 4.0, repetitions: 3, reach: 2.5, bodyFreshSec: 12.0 }),
 });
 
 // the arena's lowest ground (a floor, or a ramp's lower end): nothing under it can be landed on (null without one)
@@ -115,6 +119,7 @@ export class VoiceWatch {
     this.clocked = new Set();     // knights the late clock has been raised for, this match
     this.dragged = new Set();     // knights a dragging match has been raised for, this match
     this.watchedDuels = new Set(); // knights two others' fight has been raised for, this match
+    this.defeatedBodies = new Map(); // victimId -> { position: {x, z}, at, exercised: false }
   }
 
   #knight(id, now) {
@@ -130,7 +135,7 @@ export class VoiceWatch {
 
   // what is watched once a life (or begun again with it)
   #freshLife(now) {
-    return { abyssSaid: false, reckless: null, recklessAt: -Infinity, tombstoneSaid: false, fleeDown: 0, fleeAt: now, fleeSaid: false, calmSince: now, standoffSaid: false };
+    return { abyssSaid: false, reckless: null, recklessAt: -Infinity, tombstoneSaid: false, fleeDown: 0, fleeAt: now, fleeSaid: false, calmSince: now, standoffSaid: false, crouches: [], crouched: false };
   }
 
   /**
@@ -155,6 +160,30 @@ export class VoiceWatch {
       if (!alive || !knight.position) continue;
       // (as last seen alive: asked about at their fall)
       state.seen = { at: now, position: flat(knight.position), velocity: flat(knight.velocity), sprinting: Boolean(knight.sprinting) };
+      const isCrouched = Boolean(knight.crouched);
+      if (isCrouched && !state.crouched) {
+        state.crouches.push({ at: now, position: flat(knight.position) });
+      }
+      state.crouched = isCrouched;
+      const ce = WATCH.corpseExercise;
+      state.crouches = (state.crouches ?? []).filter((c) => now - c.at <= ce.windowSec);
+      if (state.crouches.length >= ce.repetitions) {
+        for (const [bodyVictimId, body] of this.defeatedBodies) {
+          if (now - body.at > ce.bodyFreshSec) {
+            this.defeatedBodies.delete(bodyVictimId);
+            continue;
+          }
+          if (bodyVictimId !== knight.id && !body.exercised) {
+            const d = Math.hypot(knight.position.x - body.position.x, knight.position.z - body.position.z);
+            if (d <= ce.reach) {
+              body.exercised = true;
+              state.crouches = [];
+              out.push({ speaker: knight.id, tags: ['corpseExercise'] });
+              break;
+            }
+          }
+        }
+      }
       const health = knight.health ?? 100;
       // falling past saving: under every ground there is, and going down
       if (!state.abyssSaid && lowest !== null && knight.position.y < lowest - WATCH.abyss.below && (knight.velocity?.y ?? 0) < -WATCH.abyss.falling) {
@@ -416,6 +445,23 @@ export class VoiceWatch {
   }
 
   /**
+   * Whether `victim`, felled at `at` by `killer` standing at `killerPos`, was sprinting away from them
+   * (radial velocity away >= 0.6 of speed, distance <= 20).
+   */
+  fleeing(victim, killerPos, at) {
+    const rule = WATCH.fleeing;
+    const seen = this.knights.get(victim)?.seen;
+    if (!seen || !killerPos || at - seen.at > rule.freshSec || !seen.sprinting) return false;
+    const speed = length(seen.velocity);
+    if (speed < rule.speed) return false;
+    const to = { x: seen.position.x - killerPos.x, z: seen.position.z - killerPos.z };
+    const distance = length(to);
+    if (distance < 1e-6 || distance > rule.far) return false;
+    const radial = dot(seen.velocity, to) / distance;
+    return radial / speed >= rule.away;
+  }
+
+  /**
    * A strike's swing begun (committed): the first swing after a while, and the heavy third strike swung at a foe it
    * would fell. Mine as my arms begin it; another's as their chain is seen (step). knights: as last seen (mine where I
    * am now).
@@ -545,11 +591,15 @@ export class VoiceWatch {
   }
 
   /** A knight fell: what was being watched of them ends (their chases, their quiet, a recklessness not survived). */
-  death(victimId) {
+  death(victimId, at = 0, victimPos = null) {
     const state = this.knights.get(victimId);
     if (state) {
       state.alive = false;
       state.reckless = null;
+    }
+    const pos = victimPos ? flat(victimPos) : (state?.seen?.position ?? null);
+    if (pos) {
+      this.defeatedBodies.set(victimId, { position: pos, at, exercised: false });
     }
     // (a foe a gust moved who has fallen since is not dismissed)
     for (const [speaker, gust] of [...this.gusts]) {
