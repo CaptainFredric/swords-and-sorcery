@@ -17,10 +17,13 @@ export const MENU_SHOTS = Object.freeze({
   lobby: shot([0.6, 2.4, -2.4], [2.15, 3.0, 13.52], 44),
   // the Armory: close on the Spellblade and the spell in his palm, still on the right third
   armory: shot([0.9, 1.55, 1.6], [-0.55, 1.3, 7.42], 40),
+  // Breakthrough deployment banner: wider view framing the Spellblade angled toward battle plan
+  breakthrough: shot([2.1, 1.4, -0.4], [0.1, 2.9, 13.0], 43),
 });
 
 const SCREEN_SHOTS = Object.freeze({
   MAIN_MENU: 'main',
+  BREAKTHROUGH_MENU: 'breakthrough',
   SOLO_MENU: 'solo',
   ROOMS_MENU: 'lobby',
   PRIVATE_MENU: 'private',

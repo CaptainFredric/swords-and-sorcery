@@ -240,6 +240,27 @@ export class SpellbladeAnimator {
     if (!this.touched.has(bone)) this.touched.set(bone, { q: bone.quaternion.clone(), p: bone.position.clone() });
   }
 
+  /** Fully reset all touched bones, compositional tracks, fading actions, and mixer channels to clean baseline. */
+  reset() {
+    this.#restoreTouched();
+    if (this.composing) {
+      this.composition.release(0);
+      this.composing = false;
+    }
+    for (const entry of this.fading) entry.action?.stop?.();
+    this.fading = [];
+    if (this.activeAction) {
+      this.activeAction.stop();
+      this.activeAction = null;
+    }
+    this.activeClip = null;
+    this.activeBlend = { elapsed: 0, duration: 0 };
+    this.gaitPhase = 0;
+    this.mixer.stopAllAction();
+    this.composition.restoreBase();
+    this.cloth?.reset?.();
+  }
+
   #restoreTouched() {
     for (const [bone, saved] of this.touched) {
       bone.quaternion.copy(saved.q);

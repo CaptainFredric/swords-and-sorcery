@@ -30,6 +30,9 @@
   "bestManWin": [
     "best-man-win-1.mp3"
   ],
+  "bestStrategy": [
+    "best-strategy-1.mp3"
+  ],
   "bladeCaught": [
     "blade-caught-1.mp3"
   ],
@@ -45,6 +48,12 @@
   "briefNap": [
     "brief-nap-1.mp3",
     "brief-nap-2.mp3"
+  ],
+  "cannonFodder": [
+    "cannon-fodder-1.mp3"
+  ],
+  "certainlyAWay": [
+    "certainly-a-way-1.mp3"
   ],
   "chargeDefeat": [
     "charge-defeat-1.mp3"
@@ -67,6 +76,9 @@
   ],
   "continueToPass": [
     "continue-to-pass-1.mp3"
+  ],
+  "couldveDoneThat": [
+    "couldve-done-that-1.mp3"
   ],
   "death": [
     "death-1.mp3",
@@ -135,6 +147,9 @@
   "getThingOff": [
     "get-thing-off-1.mp3"
   ],
+  "gleanHope": [
+    "glean-hope-1.mp3"
+  ],
   "goingEasy": [
     "going-easy-1.mp3"
   ],
@@ -143,6 +158,9 @@
   ],
   "headOn": [
     "head-on-1.mp3"
+  ],
+  "hearDefeat": [
+    "hear-defeat-1.mp3"
   ],
   "heavyHurt": [
     "heavy-hurt-1.mp3"
@@ -173,6 +191,9 @@
   "knightFallen": [
     "knight-fallen-1.mp3"
   ],
+  "knightsLost": [
+    "knights-lost-1.mp3"
+  ],
   "laidBack": [
     "laid-back-1.mp3"
   ],
@@ -182,6 +203,9 @@
   "laugh": [
     "recording-2-master.wav:11.87-13.91",
     "laugh-2.mp3"
+  ],
+  "lesserFoe": [
+    "lesser-foe-1.mp3"
   ],
   "lowerGuard": [
     "lower-guard-1.mp3"
@@ -262,6 +286,9 @@
   "renownDisowned": [
     "renown-disowned-1.mp3"
   ],
+  "runAwayFromSafety": [
+    "run-away-from-safety-1.mp3"
+  ],
   "savedFromPeace": [
     "saved-from-peace-1.mp3"
   ],
@@ -283,6 +310,9 @@
   ],
   "squireSetup": [
     "squire-setup-1.mp3"
+  ],
+  "squiresNearby": [
+    "squires-nearby-1.mp3"
   ],
   "staggerDisplay": [
     "stagger-display-1.mp3"
@@ -335,6 +365,10 @@
   "thankYou": [
     "thank-you-1.mp3"
   ],
+  "thatOneBegging": [
+    "that-one-begging-1.mp3",
+    "that-one-begging-2.mp3"
+  ],
   "theDeceased": [
     "the-deceased-1.mp3"
   ],
@@ -380,6 +414,12 @@
   ],
   "vortexUse": [
     "vortex-use-1.mp3"
+  ],
+  "whatNotToDo": [
+    "what-not-to-do-1.mp3"
+  ],
+  "whereAncillary": [
+    "where-ancillary-1.mp3"
   ],
   "workHard": [
     "work-hard-1.mp3"

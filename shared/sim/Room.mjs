@@ -90,12 +90,16 @@ function scoreFields() {
 }
 
 export class Room {
-  constructor(code, { isPrivate = true, mode = GAME_MODES.FFA, worldId = WORLD_IDS.SHATTERED_KEEP } = {}) {
+  constructor(code, { isPrivate = true, mode = GAME_MODES.FFA, worldId = WORLD_IDS.SHATTERED_KEEP, teamSize = null } = {}) {
     this.code = code;
     resetChallengeTracking(this);
     this.isPrivate = isPrivate;
     this.mode = mode;
-    this.policy = getModePolicy(mode);
+    this.policy = { ...getModePolicy(mode) };
+    if (this.policy.teamMode && (teamSize === 2 || teamSize === 3)) {
+      this.policy.teamSize = teamSize;
+      this.policy.botCount = teamSize * 2 - 1;
+    }
     this.worldId = worldId;
     this.world = getWorld(worldId);
     this.state = 'WAITING';
@@ -155,25 +159,28 @@ export class Room {
   }
 
   addPlayer({ id, token, name, spell = DEFAULT_SPELL, ultimate = DEFAULT_ULTIMATE, preparedSpells = [], team = null }, nowSec) {
-    const assigned = this.policy.teamMode ? assignTeam(this, team, true) : null;
-    if (this.players.size >= 8) {
-      if (this.policy.teamMode) {
-        const replaceableBot = [...this.players.values()].find((p) => p.actorKind === 'bot' && p.team === assigned)
-          || [...this.players.values()].find((p) => p.actorKind === 'bot');
-        if (replaceableBot) this.players.delete(replaceableBot.id);
-        else throw new Error('Room is full');
-      } else {
+    let assigned = null;
+    if (this.policy.teamMode) {
+      const teamSize = this.policy.teamSize ?? 3;
+      if (this.humanActorCount() >= 2 * teamSize) {
         throw new Error('Room is full');
       }
-    } else if (this.policy.teamMode) {
-      const targetTotal = (this.policy.teamSize ?? 3) * 2;
-      if (this.players.size >= targetTotal) {
-        const replaceableBot = [...this.players.values()].find((p) => p.actorKind === 'bot' && p.team === assigned)
-          || [...this.players.values()].find((p) => p.actorKind === 'bot');
+      assigned = assignTeam(this, team, true);
+      const humansOnAssigned = [...this.players.values()].filter((p) => p.actorKind === 'human' && p.team === assigned).length;
+      if (humansOnAssigned >= teamSize) {
+        throw new Error('Room is full');
+      }
+      const targetTotal = teamSize * 2;
+      if (this.players.size >= targetTotal || this.botsProvisioned) {
+        const replaceableBot = [...this.players.values()].find((p) => p.actorKind === 'bot' && p.team === assigned);
         if (replaceableBot) this.players.delete(replaceableBot.id);
       }
+    } else {
+      if (this.players.size >= 8) {
+        throw new Error('Room is full');
+      }
     }
-    const spawn = this.initialSpawnFor({ team: assigned }, this.players.size, nowSec);
+    const spawn = this.initialSpawnFor(assigned ? { team: assigned } : {}, this.players.size, nowSec);
     const player = {
       id,
       token,
@@ -255,6 +262,21 @@ export class Room {
       const teamSize = this.policy.teamSize ?? 3;
       const attackers = [...this.players.values()].filter((p) => p.team === TEAMS.ATTACKERS);
       const defenders = [...this.players.values()].filter((p) => p.team === TEAMS.DEFENDERS);
+
+      while (attackers.length > teamSize) {
+        const extraBot = attackers.find((p) => p.actorKind === 'bot');
+        if (!extraBot) break;
+        this.players.delete(extraBot.id);
+        const idx = attackers.indexOf(extraBot);
+        if (idx >= 0) attackers.splice(idx, 1);
+      }
+      while (defenders.length > teamSize) {
+        const extraBot = defenders.find((p) => p.actorKind === 'bot');
+        if (!extraBot) break;
+        this.players.delete(extraBot.id);
+        const idx = defenders.indexOf(extraBot);
+        if (idx >= 0) defenders.splice(idx, 1);
+      }
 
       let serial = 1;
       while (attackers.length < teamSize) {
@@ -374,7 +396,7 @@ export class Room {
     return true;
   }
 
-  /** Switch a human player's team in a waiting/lobby team room, swapping with a bot to keep teams 3v3. */
+  /** Switch a human player's team in a waiting/lobby team room, swapping with a bot to maintain team slots. */
   switchTeam(playerId, requestedTeam = null, nowSec = 0) {
     if (!this.policy.teamMode || this.state === 'PLAYING') return false;
     const player = this.players.get(playerId);
@@ -383,6 +405,10 @@ export class Room {
       ? requestedTeam
       : (player.team === TEAMS.ATTACKERS ? TEAMS.DEFENDERS : TEAMS.ATTACKERS);
     if (nextTeam === player.team) return true;
+    const teamSize = this.policy.teamSize ?? 3;
+    const humansOnNextTeam = [...this.players.values()].filter((p) => p.actorKind === 'human' && p.team === nextTeam).length;
+    if (humansOnNextTeam >= teamSize) return false;
+
     const oldTeam = player.team;
     const swapBot = [...this.players.values()].find((p) => p.actorKind === 'bot' && p.team === nextTeam);
     player.team = nextTeam;
@@ -390,7 +416,7 @@ export class Room {
       swapBot.team = oldTeam;
       const prefix = oldTeam === TEAMS.ATTACKERS ? 'Squire' : 'Warden';
       const names = oldTeam === TEAMS.ATTACKERS ? ['Vance', 'Rowan', 'Garrick', 'Thorne'] : ['Alden', 'Kaelen', 'Bryce', 'Merrick'];
-      swapBot.name = `${prefix}${names[(swapBot.rivalIndex ?? 0) % names.length]}`;
+      swapBot.name = `${prefix} ${names[(swapBot.rivalIndex ?? 0) % names.length]}`;
     }
     const spawn = this.initialSpawnFor(player, 0, nowSec);
     player.position = { x: spawn.x, y: spawn.y, z: spawn.z };

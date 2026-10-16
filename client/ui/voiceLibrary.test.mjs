@@ -136,7 +136,7 @@ test('the new lines\' words and notes are as written (a few, checked to the lett
   assert.equal(entry('standFight').note, 'Negotiations have concluded.');
   // (the frozen-enemy slush is in the game now: the menu round's Slush)
   assert.equal(entry('poorTaste').coming, null);
-  assert.equal(entry('fightAsMe').coming, 'team matches');
+  assert.equal(entry('fightAsMe').coming, null);
   assert.equal(entry('heavyHurt').title, 'Heavy Injury I');
   assert.equal(entry('heavyHurt2').title, 'Heavy Injury II');
 });

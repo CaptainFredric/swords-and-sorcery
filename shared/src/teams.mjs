@@ -71,22 +71,42 @@ export function getTeamCounts(room) {
  * Balances or assigns a team to a joining player/bot.
  */
 export function assignTeam(room, requestedTeam = null, isHuman = false) {
-  if (requestedTeam && (requestedTeam === TEAMS.ATTACKERS || requestedTeam === TEAMS.DEFENDERS)) {
-    return requestedTeam;
-  }
-  if (isHuman && room?.players) {
-    let humanAttackers = 0;
-    let humanDefenders = 0;
+  const teamSize = room?.policy?.teamSize ?? 3;
+  let humanAttackers = 0;
+  let humanDefenders = 0;
+  if (room?.players) {
     for (const player of room.players.values()) {
       if (player.actorKind === 'human') {
         if (player.team === TEAMS.ATTACKERS) humanAttackers += 1;
         else if (player.team === TEAMS.DEFENDERS) humanDefenders += 1;
       }
     }
-    if (humanAttackers !== humanDefenders) {
-      return humanAttackers < humanDefenders ? TEAMS.ATTACKERS : TEAMS.DEFENDERS;
-    }
   }
+
+  if (isHuman) {
+    if (requestedTeam === TEAMS.ATTACKERS) {
+      if (humanAttackers < teamSize) return TEAMS.ATTACKERS;
+      if (humanDefenders < teamSize) return TEAMS.DEFENDERS;
+      return TEAMS.ATTACKERS;
+    }
+    if (requestedTeam === TEAMS.DEFENDERS) {
+      if (humanDefenders < teamSize) return TEAMS.DEFENDERS;
+      if (humanAttackers < teamSize) return TEAMS.ATTACKERS;
+      return TEAMS.DEFENDERS;
+    }
+    if (humanAttackers !== humanDefenders) {
+      if (humanAttackers < humanDefenders && humanAttackers < teamSize) return TEAMS.ATTACKERS;
+      if (humanDefenders < humanAttackers && humanDefenders < teamSize) return TEAMS.DEFENDERS;
+    }
+  } else if (requestedTeam === TEAMS.ATTACKERS || requestedTeam === TEAMS.DEFENDERS) {
+    return requestedTeam;
+  }
+
   const { attackers, defenders } = getTeamCounts(room);
+  if (isHuman) {
+    if (attackers <= defenders && humanAttackers < teamSize) return TEAMS.ATTACKERS;
+    if (humanDefenders < teamSize) return TEAMS.DEFENDERS;
+    if (humanAttackers < teamSize) return TEAMS.ATTACKERS;
+  }
   return attackers <= defenders ? TEAMS.ATTACKERS : TEAMS.DEFENDERS;
 }

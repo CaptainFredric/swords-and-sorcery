@@ -196,6 +196,7 @@ export class TourDirector {
     this.vessel = null;
     this.cleanupDebris = false;
     for (const [index, rival] of this.rivals.entries()) if (rival) this.#restoreRival(rival, index);
+    this.hero?.instance?.root?.traverse?.((object) => { if (object.isMesh && /^HeroSword/i.test(object.name)) object.visible = true; });
   }
 
   #restoreRival(rival, index) {
@@ -212,6 +213,7 @@ export class TourDirector {
     rival.flag = null;
     if (rival.stub) mendSword(rival.instance, rival.stub);
     rival.stub = null;
+    rival.instance?.root?.traverse?.((object) => { if (object.isMesh && /^HeroSword/i.test(object.name)) object.visible = true; });
     rival.dress.restore();
     rival.charred = 0;
     rival.shattered = false;
@@ -253,6 +255,7 @@ export class TourDirector {
     if (this.vessel) this.vessel.group.visible = visible;
     // leaving the front door: whatever he was saying out there stops, and its caption with it
     if (!visible) {
+      this.#resetRivals();
       this.voice?.cut?.('tour-spellblade');
       this.onCaptionCut?.();
     }

@@ -41,7 +41,29 @@ export function playTutorialCue({ cue, buffer, engine, director = null, onCaptio
   }
   onCaption({ speaker: cue.speaker, text: cue.line, recordingKey: cue.recordingKey });
   if (!buffer || !engine.running) return null; // caption presentation is owned by the director
-  const handle = engine.playBuffer(buffer, { bus: 'voice', gain: 1, reverb: 0 });
+  const isNarrator = cue.speaker === 'narrator';
+  // Lift tutorial voice volume for greater audibility; ease room boxiness/echo on narrator
+  const gain = isNarrator ? 1.25 : 1.2;
+  const shape = isNarrator ? (ctx => {
+    if (!ctx?.createGain || !ctx?.createBiquadFilter) return null;
+    const input = ctx.createGain();
+    const hp = ctx.createBiquadFilter();
+    hp.type = 'highpass';
+    hp.frequency.value = 90;
+    const deecho = ctx.createBiquadFilter();
+    deecho.type = 'peaking';
+    deecho.frequency.value = 350;
+    deecho.gain.value = -3.5;
+    deecho.Q.value = 1.0;
+    const air = ctx.createBiquadFilter();
+    air.type = 'peaking';
+    air.frequency.value = 3200;
+    air.gain.value = 1.2;
+    air.Q.value = 0.9;
+    input.connect(hp).connect(deecho).connect(air);
+    return { input, output: air, nodes: [input, hp, deecho, air] };
+  }) : null;
+  const handle = engine.playBuffer(buffer, { bus: 'voice', gain, reverb: 0, echo: null, ...(shape ? { shape } : {}) });
   if (!handle) return null;
   director?.beginAudio(cue);
   let stopped = false;

@@ -101,7 +101,7 @@ export class LocalHost {
   }
 
   // --- a solo room: you, and the bots or dummies the mode brings ---
-  startSolo(mode, name, worldId, botSkill, tutorial = false, team = null) {
+  startSolo(mode, name, worldId, botSkill, tutorial = false, team = null, teamSize = null) {
     if (!SOLO_MODES.has(mode)) {
       this.#deliver({ type: 'error', message: 'Unknown solo mode' });
       return;
@@ -109,7 +109,7 @@ export class LocalHost {
     this.#stop();
     const time = this.now();
     const resolvedWorld = tutorial ? 'greener-pastures' : (mode === GAME_MODES.BREAKTHROUGH ? 'bastion-breach' : arenaOrDefault(worldId));
-    const room = this.rooms.createSoloRoom(mode, time, resolvedWorld);
+    const room = this.rooms.createSoloRoom(mode, time, resolvedWorld, { teamSize });
     room.localTutorial = tutorial;
     const player = room.addPlayer({ id: randomId(), token: randomId(), name: String(name || 'Spellblade').slice(0, 18), spell: this.spell, ultimate: this.ultimateId, preparedSpells: this.preparedSpells, team }, time);
     player.cloth = this.cloth;

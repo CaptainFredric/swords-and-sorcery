@@ -183,8 +183,10 @@
 .banner-panel .room-input { text-transform: uppercase; letter-spacing: .2em; font-weight: 800; }
 .banner-panel .join-button { min-height: 42px; padding: 8px 10px 8px 24px; font: 15px/1 var(--font-inscription); letter-spacing: .1em; }
 .banner-panel .join-button::before { left: 9px; }
-#solo-name, #private-name { margin: 6px 0 10px; width: 100%; }
+#solo-name, #private-name, #breakthrough-name { margin: 6px 0 10px; width: 100%; }
 .manual-inner { --banner-width: min(440px, 40cqw); width: var(--banner-width); }
+.breakthrough-inner { --banner-width: min(530px, 44cqw); width: var(--banner-width); }
+.scenario-subtitle { margin: -6px 0 10px; font: 700 11px/1.2 var(--font-inscription); letter-spacing: .25em; color: var(--heraldry-brass-light); text-transform: uppercase; }
 .key-controls-grid { display: grid; }
 .banner-panel .controls-grid { grid-template-columns: 96px 1fr; align-items: baseline; gap: 7px 14px; padding: 12px 0; border-top: 1px solid rgba(201, 156, 82, .45); border-bottom: 1px solid rgba(201, 156, 82, .45); }
 .banner-panel .controls-grid span { color: var(--heraldry-brass-light); font: 12px/1.2 var(--font-inscription); letter-spacing: .1em; }
@@ -258,10 +260,12 @@
 @container app (max-width: 900px) {
   :where(#game-shell) > * { --banner-width: min(330px, 44cqw); }
   .manual-inner { --banner-width: min(420px, 52cqw); }
+  .breakthrough-inner { --banner-width: min(460px, 54cqw); }
 }
 @container app (max-width: 640px) {
   :where(#game-shell) > * { --banner-left: 12px; --banner-width: calc(100cqw - 24px); }
   .manual-inner { --banner-width: calc(100cqw - 24px); }
+  .breakthrough-inner { --banner-width: calc(100cqw - 24px); }
   .banner-panel { max-height: 72%; }
   .turn-hint { display: none; }
 }
