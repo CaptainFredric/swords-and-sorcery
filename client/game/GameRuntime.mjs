@@ -1439,7 +1439,7 @@ export class GameRuntime {
         const goal = this.latestSnapshot?.scoreToWin;
         return Number.isFinite(goal) && !this.#inPractice() && (players.find((p) => p.id === id)?.kills ?? -1) === goal - 1;
       },
-      practice: this.#inPractice(),
+      practice: this.#inPractice() || Boolean(this.latestSnapshot?.tutorial),
       winStreak: (id) => getWinStreak(id),
     };
   }

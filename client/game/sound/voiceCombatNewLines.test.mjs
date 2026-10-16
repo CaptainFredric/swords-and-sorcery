@@ -5,7 +5,7 @@ import {
   VOICE_LINE_LIST, linesFor, validateVoiceLines, voiceLine,
 } from './voiceLines.mjs';
 import { victorLines, victorTags } from './voiceRules.mjs';
-import { VoiceMoments } from './voiceMoments.mjs';
+import { MOMENTS, VoiceMoments } from './voiceMoments.mjs';
 import { VoiceWatch } from './voiceWatch.mjs';
 import { captionPlan, captionsFor } from '../../ui/voiceLibrary.mjs';
 import {
@@ -16,40 +16,108 @@ const voiceDir = new URL('../../assets/voice/', import.meta.url);
 const manifest = JSON.parse(readFileSync(new URL('manifest.json', voiceDir), 'utf8'));
 const files = readdirSync(voiceDir);
 
-test('new combat voice lines: declarations, manifest, and audio files are fully valid', () => {
+test('new combat voice lines: exact declarations, Credits metadata, and manifest validity', () => {
   const { errors } = validateVoiceLines({ manifest, files });
   assert.deepEqual(errors, []);
 
-  const newLines = ['rememberThis', 'armorHoldingBack', 'chivalryItinerary', 'exercise', 'anybodyThere', 'surviveInSpirit'];
-  for (const id of newLines) {
-    const line = voiceLine(id);
-    assert.ok(line, `${id} must be declared`);
+  // 1. rememberThis
+  const remember = voiceLine('rememberThis');
+  assert.equal(remember.text, 'Remember this!... I forgot.');
+  assert.deepEqual(Object.keys(remember.triggers), ['blowTaken']);
+  assert.equal(remember.priority, 'normal');
+  assert.equal(remember.rarity, 0.16);
+  assert.equal(remember.cooldown, 120);
+  assert.equal(remember.section, 'Battle & Abilities');
+  assert.equal(remember.credits.title, 'Remember This');
+  assert.equal(remember.credits.description, 'Occasionally after taking a hit and remaining standing.');
+  assert.equal(remember.credits.note, 'He did not.');
+
+  // 2. armorHoldingBack
+  const armor = voiceLine('armorHoldingBack');
+  assert.equal(armor.text, 'How did you do that? Was my armor holding back?');
+  assert.deepEqual(Object.keys(armor.triggers), ['heavyHurt']);
+  assert.equal(armor.priority, 'normal');
+  assert.equal(armor.rarity, 0.22);
+  assert.equal(armor.cooldown, 120);
+  assert.equal(armor.section, 'Battle & Abilities');
+  assert.equal(armor.credits.title, 'Holding Back');
+  assert.equal(armor.credits.description, 'Sometimes after surviving a particularly heavy blow.');
+  assert.equal(armor.credits.note, 'The armor has been accused.');
+
+  // 3. chivalryItinerary
+  const itinerary = voiceLine('chivalryItinerary');
+  assert.equal(itinerary.text, 'Was this on my itinerary? ...No!?');
+  assert.deepEqual(Object.keys(itinerary.triggers), ['chivalryDeath']);
+  assert.equal(itinerary.priority, 'high');
+  assert.equal(itinerary.rarity, 0.45);
+  assert.equal(itinerary.cooldown, 180);
+  assert.equal(itinerary.section, 'Defeat & Death');
+  assert.equal(itinerary.credits.title, 'Itinerary');
+  assert.equal(itinerary.credits.description, 'Sometimes when he is felled during Spells & Chivalry.');
+  assert.equal(itinerary.credits.note, 'Defeat was not scheduled.');
+
+  // 4. exercise
+  const exercise = voiceLine('exercise');
+  assert.equal(exercise.text, 'It is never too late for exercise! Except you.');
+  assert.ok(exercise.triggers.corpseExercise > 0, 'exercise has corpseExercise trigger');
+  assert.ok(exercise.triggers.fleeingKill > 0, 'exercise has fleeingKill trigger');
+  assert.equal(exercise.priority, 'normal');
+  assert.equal(exercise.rarity, 0.4);
+  assert.equal(exercise.cooldown, 120);
+  assert.equal(exercise.section, 'Kills & Triumphs');
+  assert.equal(exercise.credits.title, 'Exercise');
+  assert.equal(exercise.credits.description, 'Sometimes after catching a fleeing sprinter, or after repeated crouches beside someone already down.');
+  assert.equal(exercise.credits.note, 'One participant is no longer improving.');
+
+  // 5. anybodyThere
+  const anybody = voiceLine('anybodyThere');
+  assert.equal(anybody.text, 'Is anybody there? You keep falling over!');
+  assert.deepEqual(Object.keys(anybody.triggers), ['sameFoeAgain']);
+  assert.equal(anybody.priority, 'normal');
+  assert.equal(anybody.rarity, 0.45);
+  assert.equal(anybody.cooldown, 150);
+  assert.equal(anybody.section, 'Kills & Triumphs');
+  assert.equal(anybody.credits.title, 'Anybody There?');
+  assert.equal(anybody.credits.description, 'Sometimes after repeatedly felling the same opponent.');
+  assert.equal(anybody.credits.note, 'Their attendance is becoming difficult to verify.');
+
+  // 6. surviveInSpirit
+  const spirit = voiceLine('surviveInSpirit');
+  assert.equal(spirit.text, 'I was willing to let you survive, but now that you have scratched me, you may survive in spirit only.');
+  assert.deepEqual(Object.keys(spirit.triggers), ['winStreakFirstHurt']);
+  assert.equal(spirit.priority, 'normal');
+  assert.equal(spirit.rarity, 0.6);
+  assert.equal(spirit.cooldown, 300);
+  assert.equal(spirit.section, 'Challenges & Pursuit');
+  assert.equal(spirit.credits.title, 'Survive in Spirit');
+  assert.equal(spirit.credits.description, 'Sometimes on the first hit of a match entered on a winning streak.');
+  assert.equal(spirit.credits.note, 'The terms of survival have narrowed.');
+
+  // Verify all files on disk
+  for (const id of ['rememberThis', 'armorHoldingBack', 'chivalryItinerary', 'exercise', 'anybodyThere', 'surviveInSpirit']) {
     const takes = manifest.lines[id];
     assert.ok(takes?.length > 0, `${id} must have manifest entries`);
     for (const take of takes) {
       assert.ok(files.includes(`${take.file}.wav`), `${take.file}.wav must exist`);
       assert.ok(files.includes(`${take.file}.m4a`), `${take.file}.m4a must exist`);
     }
-    assert.ok(line.credits?.title, `${id} must have Credits title`);
-    assert.ok(line.credits?.description, `${id} must have Credits description`);
-    assert.ok(line.credits?.note, `${id} must have Credits note`);
   }
 });
 
-test('new combat lines: comedic beat timing and caption plan', () => {
+test('comedic beat timing and caption plan for punchlines', () => {
   // rememberThis: punchline delayed until 2.58s
   const remember = voiceLine('rememberThis');
   assert.equal(remember.beats.length, 2);
-  assert.equal(remember.beats[0].words, 'Remember this.');
+  assert.equal(remember.beats[0].words, 'Remember this!...');
   assert.equal(remember.beats[1].at, 2.58);
-  assert.equal(remember.beats[1].words, "...because I won't.");
+  assert.equal(remember.beats[1].words, 'I forgot.');
 
   const rememberCaptions = captionsFor('rememberThis');
-  assert.deepEqual(rememberCaptions, ['Remember this.', "...because I won't."]);
+  assert.deepEqual(rememberCaptions, ['Remember this!...', 'I forgot.']);
   const rememberPlan = captionPlan('rememberThis', { beats: [0, 2.58] });
-  assert.equal(rememberPlan.text, 'Remember this.');
+  assert.equal(rememberPlan.text, 'Remember this!...');
   assert.equal(rememberPlan.after, 0);
-  assert.deepEqual(rememberPlan.cues, [{ at: 2.58, text: "...because I won't." }]);
+  assert.deepEqual(rememberPlan.cues, [{ at: 2.58, text: 'I forgot.' }]);
 
   // chivalryItinerary: punchline delayed until 2.48s
   const itinerary = voiceLine('chivalryItinerary');
@@ -64,160 +132,209 @@ test('new combat lines: comedic beat timing and caption plan', () => {
   assert.equal(itineraryPlan.text, 'Was this on my itinerary?');
   assert.equal(itineraryPlan.after, 0);
   assert.deepEqual(itineraryPlan.cues, [{ at: 2.48, text: '...No!?' }]);
+
+  // exercise: pause before "Except you." at 2.80s
+  const exercise = voiceLine('exercise');
+  assert.equal(exercise.beats.length, 2);
+  assert.equal(exercise.beats[0].words, 'It is never too late for exercise!');
+  assert.equal(exercise.beats[1].at, 2.80);
+  assert.equal(exercise.beats[1].words, 'Except you.');
+
+  const exerciseCaptions = captionsFor('exercise');
+  assert.deepEqual(exerciseCaptions, ['It is never too late for exercise!', 'Except you.']);
+  const exercisePlan = captionPlan('exercise', { beats: [0, 2.80] });
+  assert.equal(exercisePlan.text, 'It is never too late for exercise!');
+  assert.equal(exercisePlan.after, 0);
+  assert.deepEqual(exercisePlan.cues, [{ at: 2.80, text: 'Except you.' }]);
 });
 
-test('fleeing kill detection: sprinting away vs lateral vs approaching', () => {
+test('rememberThis: arises from a survived ordinary hit, NOT from same-foe kills', () => {
+  const moments = new VoiceMoments({ rand: () => 0.01 });
+
+  // 1. Surviving an ordinary hit
+  const damageResult = moments.damage({
+    type: 'damage',
+    attackerId: 'attacker',
+    victimId: 'victim',
+    source: 'sword',
+    amount: 15,
+    health: 85,
+    at: 5.0,
+  });
+  const victimLines = damageResult.flatMap((group) => group.map((say) => say.line));
+  assert.ok(victimLines.includes('rememberThis'), 'rememberThis is eligible when surviving an ordinary blow (blowTaken)');
+
+  // 2. NOT in victor lines for sameFoeAgain kills
+  const deathResult = moments.death({
+    type: 'death',
+    victimId: 'victim',
+    killerId: 'attacker',
+    source: 'sword',
+    at: 10.0,
+  });
+  const victorCandidateLines = deathResult.victor.map((say) => say.line);
+  assert.equal(victorCandidateLines.includes('rememberThis'), false, 'rememberThis does not trigger on kill');
+
+  // Consecutive kill of same victim
+  const secondDeath = moments.death({
+    type: 'death',
+    victimId: 'victim',
+    killerId: 'attacker',
+    source: 'sword',
+    at: 20.0,
+  });
+  const secondVictorLines = secondDeath.victor.map((say) => say.line);
+  assert.equal(secondVictorLines.includes('rememberThis'), false, 'rememberThis does not trigger on sameFoeAgain');
+});
+
+test('armorHoldingBack: arises from a heavy survived hit, NOT from fleeing kills', () => {
+  const moments = new VoiceMoments({ rand: () => 0.01 });
+
+  // 1. Heavy hit taken and survived (amount >= 24)
+  const heavyDamage = moments.damage({
+    type: 'damage',
+    attackerId: 'attacker',
+    victimId: 'victim',
+    source: 'sword',
+    amount: 28,
+    health: 72,
+    at: 5.0,
+  });
+  const heavyLines = heavyDamage.flatMap((group) => group.map((say) => say.line));
+  assert.ok(heavyLines.includes('armorHoldingBack'), 'armorHoldingBack arises from a heavy survived hit (heavyHurt)');
+
+  // moments.hurt() also yields heavyHurt
+  const hurtTags = moments.hurt({ victimId: 'victim', amount: 28, at: 5.0 });
+  assert.ok(hurtTags.includes('heavyHurt'));
+  const linesFromHurt = linesFor('victim', hurtTags).map((l) => l.line);
+  assert.ok(linesFromHurt.includes('armorHoldingBack'));
+
+  // 2. Light hit (amount < 24) does not yield armorHoldingBack
+  const lightHurtTags = moments.hurt({ victimId: 'victim', amount: 12, at: 6.0 });
+  assert.ok(!lightHurtTags.includes('heavyHurt'));
+  const linesFromLightHurt = linesFor('victim', lightHurtTags).map((l) => l.line);
+  assert.equal(linesFromLightHurt.includes('armorHoldingBack'), false, 'armorHoldingBack is not triggered on light hits');
+
+  // 3. NOT from fleeing kills
+  const fleeingTags = victorTags({ source: 'sword', moment: { fleeing: true } });
+  const fleeingLines = linesFor('killer', fleeingTags).map((l) => l.line);
+  assert.equal(fleeingLines.includes('armorHoldingBack'), false, 'armorHoldingBack does not trigger on fleeingKill');
+});
+
+test('chivalryItinerary: occurs only on death during Spells & Chivalry', () => {
+  const moments = new VoiceMoments({ rand: () => 0.01 });
+
+  // 1. Death during Chivalry
+  const chivalryFall = moments.death({
+    type: 'death',
+    victimId: 'victim',
+    killerId: 'attacker',
+    source: 'sword',
+    at: 10.0,
+  }, { extra: { chivalry: true } });
+  const fallenChivalry = chivalryFall.fallen.map((say) => say.line);
+  assert.ok(fallenChivalry.includes('chivalryItinerary'), 'chivalryItinerary triggers on death during Chivalry');
+
+  // 2. Ordinary death outside Chivalry
+  const normalFall = moments.death({
+    type: 'death',
+    victimId: 'victim',
+    killerId: 'attacker',
+    source: 'sword',
+    at: 20.0,
+  }, { extra: { chivalry: false } });
+  const fallenNormal = normalFall.fallen.map((say) => say.line);
+  assert.equal(fallenNormal.includes('chivalryItinerary'), false, 'chivalryItinerary does not trigger outside Chivalry');
+
+  // 3. NOT on fleeing kills
+  const fleeingTags = victorTags({ source: 'sword', moment: { fleeing: true } });
+  const fleeingLines = linesFor('killer', fleeingTags).map((l) => l.line);
+  assert.equal(fleeingLines.includes('chivalryItinerary'), false, 'chivalryItinerary is not a kill line');
+});
+
+test('exercise: available from both corpse crouching and a true fleeing kill', () => {
+  // 1. Corpse crouching
   const watch = new VoiceWatch();
+  watch.death('corpse', 10.0, { x: 0, y: 0, z: 0 });
+
+  // 3 crouches within 4.0s at reach <= 2.5m
+  watch.step(10.5, [{ id: 'hero', alive: true, position: { x: 1, y: 0, z: 1 }, crouched: true }]);
+  watch.step(11.0, [{ id: 'hero', alive: true, position: { x: 1, y: 0, z: 1 }, crouched: false }]);
+  watch.step(11.5, [{ id: 'hero', alive: true, position: { x: 1, y: 0, z: 1 }, crouched: true }]);
+  watch.step(12.0, [{ id: 'hero', alive: true, position: { x: 1, y: 0, z: 1 }, crouched: false }]);
+  const heard = watch.step(12.5, [{ id: 'hero', alive: true, position: { x: 1, y: 0, z: 1 }, crouched: true }]);
+
+  const exerciseTag = heard.find((m) => m.tags.includes('corpseExercise'));
+  assert.ok(exerciseTag, 'repeated crouching over corpse yields corpseExercise');
+  const crouchLines = linesFor('hero', ['corpseExercise']).map((l) => l.line);
+  assert.ok(crouchLines.includes('exercise'), 'exercise is available from corpse crouching');
+
+  // 2. True fleeing kill
+  const fleeingTags = victorTags({ source: 'sword', moment: { fleeing: true } });
+  assert.equal(fleeingTags.fleeingKill, 1);
+  const killLines = linesFor('hero', fleeingTags).map((l) => l.line);
+  assert.ok(killLines.includes('exercise'), 'exercise is available from fleeingKill');
+
+  // 3. Fleeing discriminator: away vs lateral vs approaching
   const killerPos = { x: 0, z: 0 };
-  const now = 10.0;
+  const now = 20.0;
+  // Sprinting directly away: +z away from (0,0)
+  watch.step(now, [{ id: 'runnerAway', alive: true, position: { x: 0, y: 0, z: 10 }, velocity: { x: 0, y: 0, z: 6 }, sprinting: true }]);
+  assert.equal(watch.fleeing('runnerAway', killerPos, now + 0.1), true, 'sprinting directly away is fleeing');
 
-  // Victim at (0, 10), moving along +z (directly away from killer at origin) at 6 m/s, sprinting
-  const fleeingVictim = {
-    id: 'fleeingKnight',
-    alive: true,
-    position: { x: 0, y: 0, z: 10 },
-    velocity: { x: 0, y: 0, z: 6 },
-    sprinting: true,
-  };
-  watch.step(now, [fleeingVictim]);
-  assert.equal(watch.fleeing('fleeingKnight', killerPos, now + 0.1), true);
+  // Sprinting laterally: +x across from (0,0)
+  watch.step(now, [{ id: 'runnerLateral', alive: true, position: { x: 0, y: 0, z: 10 }, velocity: { x: 6, y: 0, z: 0 }, sprinting: true }]);
+  assert.equal(watch.fleeing('runnerLateral', killerPos, now + 0.1), false, 'lateral sprint is not fleeing');
 
-  // Victim at (0, 10), moving laterally along +x at 6 m/s (passing, not fleeing)
-  const lateralVictim = {
-    id: 'lateralKnight',
-    alive: true,
-    position: { x: 0, y: 0, z: 10 },
-    velocity: { x: 6, y: 0, z: 0 },
-    sprinting: true,
-  };
-  watch.step(now, [lateralVictim]);
-  assert.equal(watch.fleeing('lateralKnight', killerPos, now + 0.1), false);
+  // Sprinting toward killer: -z toward (0,0)
+  watch.step(now, [{ id: 'runnerToward', alive: true, position: { x: 0, y: 0, z: 10 }, velocity: { x: 0, y: 0, z: -6 }, sprinting: true }]);
+  assert.equal(watch.fleeing('runnerToward', killerPos, now + 0.1), false, 'sprinting toward killer is not fleeing');
 
-  // Victim at (0, 10), moving toward killer along -z at 6 m/s (approaching/rushing)
-  const approachingVictim = {
-    id: 'approachingKnight',
-    alive: true,
-    position: { x: 0, y: 0, z: 10 },
-    velocity: { x: 0, y: 0, z: -6 },
-    sprinting: true,
-  };
-  watch.step(now, [approachingVictim]);
-  assert.equal(watch.fleeing('approachingKnight', killerPos, now + 0.1), false);
-
-  // Victim moving away but NOT sprinting
-  const walkingVictim = {
-    id: 'walkingKnight',
-    alive: true,
-    position: { x: 0, y: 0, z: 10 },
-    velocity: { x: 0, y: 0, z: 6 },
-    sprinting: false,
-  };
-  watch.step(now, [walkingVictim]);
-  assert.equal(watch.fleeing('walkingKnight', killerPos, now + 0.1), false);
-
-  // Victim too far (> 20m)
-  const farVictim = {
-    id: 'farKnight',
-    alive: true,
-    position: { x: 0, y: 0, z: 25 },
-    velocity: { x: 0, y: 0, z: 6 },
-    sprinting: true,
-  };
-  watch.step(now, [farVictim]);
-  assert.equal(watch.fleeing('farKnight', killerPos, now + 0.1), false);
-
-  // In victor tags and lines:
-  const tags = victorTags({ source: 'sword', moment: { fleeing: true } });
-  assert.equal(tags.fleeingKill, 1);
-  const candidateLines = linesFor('killer', tags).map((l) => l.line);
-  assert.ok(candidateLines.includes('armorHoldingBack'));
-  assert.ok(candidateLines.includes('chivalryItinerary'));
+  // Walking away (not sprinting)
+  watch.step(now, [{ id: 'walkerAway', alive: true, position: { x: 0, y: 0, z: 10 }, velocity: { x: 0, y: 0, z: 6 }, sprinting: false }]);
+  assert.equal(watch.fleeing('walkerAway', killerPos, now + 0.1), false, 'walking is not fleeing');
 });
 
-test('same foe again detection: consecutive kills and 3+ match kills', () => {
+test('anybodyThere: belongs to repeated consecutive kills of same opponent, reset on other kill or death', () => {
   const moments = new VoiceMoments({ rand: () => 0.01 });
 
   // Kill 1: Player A kills Player B
   const d1 = moments.death({ victimId: 'b', killerId: 'a', source: 'sword', at: 10 }, {
     knight: (id) => ({ id, actorKind: 'human' }),
   });
-  assert.equal(d1.victor.some((l) => l.line === 'rememberThis' || l.line === 'anybodyThere'), false, 'First kill is not same foe again');
+  assert.equal(d1.victor.some((l) => l.line === 'anybodyThere'), false, 'First kill is not same foe again');
 
   // Kill 2: Player A kills Player B again consecutively
   const d2 = moments.death({ victimId: 'b', killerId: 'a', source: 'sword', at: 20 }, {
     knight: (id) => ({ id, actorKind: 'human' }),
   });
-  assert.ok(d2.victor.some((l) => l.line === 'rememberThis' || l.line === 'anybodyThere'), 'Consecutive kill of same foe triggers sameFoeAgain');
+  assert.ok(d2.victor.some((l) => l.line === 'anybodyThere'), 'Second consecutive kill of same opponent triggers anybodyThere');
 
-  // Kill 3: Player C kills Player D in between
-  moments.death({ victimId: 'd', killerId: 'c', source: 'sword', at: 30 }, {
+  // Killing somebody else resets the consecutive run
+  moments.death({ victimId: 'c', killerId: 'a', source: 'sword', at: 30 }, {
     knight: (id) => ({ id, actorKind: 'human' }),
   });
-
-  // Kill 4: Player A kills Player B for the 3rd time in match (interrupted sequence)
-  const d4 = moments.death({ victimId: 'b', killerId: 'a', source: 'sword', at: 40 }, {
+  const dAfterOther = moments.death({ victimId: 'b', killerId: 'a', source: 'sword', at: 40 }, {
     knight: (id) => ({ id, actorKind: 'human' }),
   });
-  assert.ok(d4.victor.some((l) => l.line === 'rememberThis' || l.line === 'anybodyThere'), '3rd kill of same foe in match triggers sameFoeAgain');
+  assert.equal(dAfterOther.victor.some((l) => l.line === 'anybodyThere'), false, 'Run was reset after killing someone else');
+
+  // Killer being felled resets the run
+  moments.death({ victimId: 'b', killerId: 'a', source: 'sword', at: 50 }, {
+    knight: (id) => ({ id, actorKind: 'human' }),
+  });
+  // Killer A is felled by Player C
+  moments.death({ victimId: 'a', killerId: 'c', source: 'sword', at: 55 }, {
+    knight: (id) => ({ id, actorKind: 'human' }),
+  });
+  // Killer A respawns and kills Player B
+  const dAfterDeath = moments.death({ victimId: 'b', killerId: 'a', source: 'sword', at: 65 }, {
+    knight: (id) => ({ id, actorKind: 'human' }),
+  });
+  assert.equal(dAfterDeath.victor.some((l) => l.line === 'anybodyThere'), false, 'Run was reset after killer was felled');
 });
 
-test('corpse exercise detection: repeatedly crouching beside defeated opponent', () => {
-  const watch = new VoiceWatch();
-  const victimPos = { x: 5, y: 0, z: 5 };
-  const atDeath = 10.0;
-
-  // Victim dies at (5, 5)
-  watch.death('fallenFoe', atDeath, victimPos);
-
-  // Killer starts crouching beside the body at distance ~1.41m (reach <= 2.5m)
-  const killerPos = { x: 6, y: 0, z: 6 };
-
-  // Crouch 1 at t=10.5
-  let heard = watch.step(10.5, [
-    { id: 'killer', alive: true, position: killerPos, velocity: { x: 0, y: 0, z: 0 }, crouched: true },
-  ]);
-  assert.equal(heard.some((m) => m.tags.includes('corpseExercise')), false);
-
-  // Stand up at t=10.8
-  watch.step(10.8, [
-    { id: 'killer', alive: true, position: killerPos, velocity: { x: 0, y: 0, z: 0 }, crouched: false },
-  ]);
-
-  // Crouch 2 at t=11.2
-  heard = watch.step(11.2, [
-    { id: 'killer', alive: true, position: killerPos, velocity: { x: 0, y: 0, z: 0 }, crouched: true },
-  ]);
-  assert.equal(heard.some((m) => m.tags.includes('corpseExercise')), false);
-
-  // Stand up at t=11.5
-  watch.step(11.5, [
-    { id: 'killer', alive: true, position: killerPos, velocity: { x: 0, y: 0, z: 0 }, crouched: false },
-  ]);
-
-  // Crouch 3 at t=12.0 (3rd repetition within 4.0s)
-  heard = watch.step(12.0, [
-    { id: 'killer', alive: true, position: killerPos, velocity: { x: 0, y: 0, z: 0 }, crouched: true },
-  ]);
-  const exerciseMoment = heard.find((m) => m.tags.includes('corpseExercise'));
-  assert.ok(exerciseMoment, '3 crouches beside corpse emits corpseExercise tag');
-  assert.equal(exerciseMoment.speaker, 'killer');
-
-  // Verify exercise line is found for corpseExercise
-  const lines = linesFor('killer', ['corpseExercise']).map((l) => l.line);
-  assert.ok(lines.includes('exercise'), 'exercise line is selected by corpseExercise');
-
-  // Non-trigger case: crouching too far from body (> 2.5m)
-  const watchFar = new VoiceWatch();
-  watchFar.death('fallenFoe2', 10.0, { x: 0, y: 0, z: 0 });
-  for (let t = 11.0; t <= 12.0; t += 0.4) {
-    const out = watchFar.step(t, [
-      { id: 'killerFar', alive: true, position: { x: 10, y: 0, z: 10 }, velocity: { x: 0, y: 0, z: 0 }, crouched: t % 0.8 < 0.4 },
-    ]);
-    assert.equal(out.some((m) => m.tags.includes('corpseExercise')), false);
-  }
-});
-
-test('win streak first hurt detection: surviveInSpirit', () => {
+test('surviveInSpirit: requires 2+ prior scored wins, first survived hit, once per match', () => {
   resetWinStreaks();
   const moments = new VoiceMoments({ rand: () => 0.01 });
 
@@ -231,7 +348,7 @@ test('win streak first hurt detection: surviveInSpirit', () => {
     'Win streak >= 2 first hit triggers surviveInSpirit'
   );
 
-  // 2. Second hit on the same player does not trigger surviveInSpirit
+  // 2. Second hit on the same player does not trigger surviveInSpirit (once per match)
   const damage2 = moments.damage(
     { attackerId: 'foe', victimId: 'streaker', amount: 15, health: 70, source: 'sword', at: 8.0 },
     { practice: false, winStreak: (id) => (id === 'streaker' ? 2 : 0) }
@@ -279,11 +396,11 @@ test('win streak first hurt detection: surviveInSpirit', () => {
   );
 });
 
-test('matchStreak session tracking: updates and resets correctly across matches', () => {
+test('matchStreak session tracking: Practice and Tutorial do not advance streaks', () => {
   resetWinStreaks();
   assert.equal(getWinStreak('knightA'), 0);
 
-  // Match 1: knightA wins
+  // 1. Scored match 1: knightA wins
   recordMatchResult({
     winnerId: 'knightA',
     players: [{ id: 'knightA' }, { id: 'knightB' }],
@@ -292,7 +409,7 @@ test('matchStreak session tracking: updates and resets correctly across matches'
   assert.equal(getWinStreak('knightA'), 1);
   assert.equal(getWinStreak('knightB'), 0);
 
-  // Match 2: knightA wins again
+  // 2. Scored match 2: knightA wins
   recordMatchResult({
     winnerId: 'knightA',
     players: [{ id: 'knightA' }, { id: 'knightB' }],
@@ -301,16 +418,24 @@ test('matchStreak session tracking: updates and resets correctly across matches'
   assert.equal(getWinStreak('knightA'), 2);
   assert.equal(getWinStreak('knightB'), 0);
 
-  // Practice match: should not change scored streaks
+  // 3. Practice match (isScored: false): does not advance or reset streaks
   recordMatchResult({
     winnerId: 'knightB',
     players: [{ id: 'knightA' }, { id: 'knightB' }],
     isScored: false,
   });
-  assert.equal(getWinStreak('knightA'), 2);
-  assert.equal(getWinStreak('knightB'), 0);
+  assert.equal(getWinStreak('knightA'), 2, 'knightA streak unchanged after practice');
+  assert.equal(getWinStreak('knightB'), 0, 'knightB streak unchanged after practice');
 
-  // Match 3: knightB wins scored match -> knightA streak resets to 0, knightB becomes 1
+  // 4. Tutorial match (isScored: false): does not advance streaks
+  recordMatchResult({
+    winnerId: 'knightA',
+    players: [{ id: 'knightA' }],
+    isScored: false,
+  });
+  assert.equal(getWinStreak('knightA'), 2, 'knightA streak unchanged after tutorial');
+
+  // 5. Scored match 3: knightB wins -> knightA resets to 0, knightB becomes 1
   recordMatchResult({
     winnerId: 'knightB',
     players: [{ id: 'knightA' }, { id: 'knightB' }],
