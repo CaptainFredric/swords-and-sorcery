@@ -127,11 +127,15 @@ export class TutorialDirector {
       this.optionalActive = false;
       this.beginReaction();
       this.enteredAt = this.lastTickAt;
-    } else if (this.branchQueue.length && !sameExchange && (this.placeBound || !this.optionalFits())) {
-      // Between two of the aside's exchanges: a place's lines are due (or the next exchange would not be over before
-      // its place comes). The rest waits, every recording kept, for the next stretch with room for it.
-      this.optionalActive = false;
-      this.enteredAt = this.lastTickAt;
+    } else if (this.branchQueue.length && !sameExchange) {
+      const nextBranch = this.branchQueue[0];
+      const isUrgent = nextBranch?.dialogueType === 'reaction' || nextBranch?.dialogueType === 'retry';
+      if (!isUrgent && (this.placeBound || !this.optionalFits())) {
+        // Between two of the aside's exchanges: a place's lines are due (or the next exchange would not be over before
+        // its place comes). The rest waits, every recording kept, for the next stretch with room for it.
+        this.optionalActive = false;
+        this.enteredAt = this.lastTickAt;
+      }
     } else if (!this.branchQueue.length) {
       this.optionalActive = false;
       this.enteredAt = this.lastTickAt;
@@ -191,7 +195,7 @@ export class TutorialDirector {
   // An aside overtaken by events (its `until` has happened) is dropped where it has not begun: an exchange under way
   // is heard to its end, never cut.
   dropStale(cue) {
-    const head = this.optionalActive ? this.branchQueue[0] : null;
+    const head = (this.optionalActive && this.optionalAt !== null) ? this.branchQueue[0] : null;
     const playing = line => head && (line === head || head.exchange && line.exchange === head.exchange
       || head.replyGroup && line.replyGroup === head.replyGroup);
     const kept = this.branchQueue.filter(line => line.until !== cue || playing(line));
@@ -320,7 +324,26 @@ export class TutorialDirector {
   offerBranch(id) {
     if (this.state !== 'running' || this.current?.chapter === 'ending' || this.branchesSeen.has(id) || !this.branches[id]?.length) return false;
     this.branchesSeen.add(id);
-    this.branchQueue.push(...this.branches[id]);
+    const beats = this.branches[id];
+    const isUrgent = beats[0]?.dialogueType === 'reaction' || beats[0]?.dialogueType === 'retry';
+    if (isUrgent) {
+      if (this.optionalActive) {
+        // Keep the currently playing line and its exchange together, but insert urgent branch right after it
+        const head = this.branchQueue[0];
+        let insertIndex = 1;
+        while (insertIndex < this.branchQueue.length) {
+          const item = this.branchQueue[insertIndex];
+          const together = item === head || (item.exchange && item.exchange === head.exchange) || (item.replyGroup && item.replyGroup === head.replyGroup);
+          if (!together) break;
+          insertIndex += 1;
+        }
+        this.branchQueue.splice(insertIndex, 0, ...beats);
+      } else {
+        this.branchQueue.unshift(...beats);
+      }
+    } else {
+      this.branchQueue.push(...beats);
+    }
     // A pending reply cannot replace a main line halfway through its take.
     // Prompts and factual stage gates are already safe gaps in the dialogue.
     if (this.current.kind !== 'dialogue' && this.canPresentOptional()) this.optionalActive = true;
@@ -330,9 +353,12 @@ export class TutorialDirector {
 
   canPresentOptional() {
     const beat = this.current;
-    return Boolean(beat) && !beat.reactionFor && beat.chapter !== 'ending' && beat.presentation !== 'title'
-      && (beat.kind !== 'dialogue' || beat.presentation === 'reactive')
-      && !this.placeBound && this.optionalFits();
+    if (!beat || beat.reactionFor || beat.chapter === 'ending' || beat.presentation === 'title') return false;
+    if (beat.kind === 'dialogue' && beat.presentation !== 'reactive') return false;
+    const nextBranch = this.branchQueue[0];
+    const isUrgent = nextBranch?.dialogueType === 'reaction' || nextBranch?.dialogueType === 'retry';
+    if (isUrgent) return true;
+    return !this.placeBound && this.optionalFits();
   }
 
   /**

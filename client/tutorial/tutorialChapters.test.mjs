@@ -124,7 +124,7 @@ test('only stationary rehearsal blocks; gameplay captions carry presentation tim
 });
 
 test('optional exchanges stay outside progression, are attached to segments, and play once', () => {
-  assert.deepEqual(Object.keys(TUTORIAL_BRANCHES), ['frolic', 'rival-constitution', 'first-fireball-miss', 'scratch', 'mutual-clash', 'bridge-growth', 'permission-to-stop', 'burned', 'final-loss-1', 'final-loss-2', 'final-feelings']);
+  assert.deepEqual(Object.keys(TUTORIAL_BRANCHES), ['frolic', 'rival-constitution', 'first-fireball-miss', 'scratch', 'mutual-clash', 'bridge-fall', 'bridge-growth', 'permission-to-stop', 'burned', 'final-loss-1', 'final-loss-2', 'final-feelings']);
   const plan = tutorialRecordingPlan();
   for (const [id, branch] of Object.entries(TUTORIAL_BRANCHES)) {
     const metadata = TUTORIAL_BRANCH_METADATA[id];

@@ -344,7 +344,7 @@ const segments = [
       { id: 'jump-arrival', place: 'jump', kind: 'stage', advanceOn: 'rival-jumped', skipWhen: 'jump-crossed',
         direction: 'Pursue Rival to the low field stile. Rival jumps it for real and stops on its far side to gloat.' },
       { id: 'minor-obstacle-gloat', skipWhen:'jump-crossed', speaker: 'rival', line: 'Ahahaha! You cannot overcome this!' },
-      // (each question goes with its answer, or neither is had; "I do not get hints." only after a hint has been given)
+      // (each question goes with its answer, or neither is had; hints play during meadow approach travel)
       { id: 'what-should-do', fitsBefore: 'jump-call', unit: 'ledges', skipWhen:['jump-crossed','jump-used','jump-approach-ready'], speaker: 'spellblade', line: 'What should I do?' },
       { id: 'minor-ledges', fitsBefore: 'jump-call', unit: 'ledges', skipWhen:['jump-crossed','jump-used','jump-approach-ready'], speaker: 'narrator', line: "The Spellblade's journey is not impeded by minor ledges." },
       { id: 'what-does-mean', fitsBefore: 'jump-call', unit: 'occasion', skipWhen:['jump-crossed','jump-used','jump-approach-ready'], speaker: 'spellblade', line: 'What does that mean?' },
@@ -421,8 +421,8 @@ const segments = [
   {
     // The sheepfold's low wall: Rival vaults it and calls it the end of the story; the Spellblade's own leap answers.
     id: 'dead-end', chapter: 'fireball', permissions: FIREBALL, presentation: 'reactive',
-    entryCondition: 'tattle-reveal-reached', completionCue: 'continue', objective: PURSUIT_OBJECTIVE,
-    branches: ['rival-constitution'],
+    entryCondition: 'fireball-hit', completionCue: 'continue', objective: PURSUIT_OBJECTIVE,
+    branches: ['rival-constitution', 'permission-to-stop'],
     scene: { checkpoint: 'pursuit', gates: ['dead-end-rival-over', 'dead-end-crossed'] },
     beats: [
       // (skipped only if the Spellblade was over first: one leaping after him still hears the gloat, and answers it)
@@ -439,7 +439,7 @@ const segments = [
   {
     id: 'bridge-dash', chapter: 'bridge', permissions: FIREBALL, checkpoint: true, presentation: 'reactive',
     entryCondition: 'fireball-hit', completionCue: 'bridge-crossed', objective: PURSUIT_OBJECTIVE, standingPrompt: BROOK_STANDING,
-    branches: ['rival-constitution', 'bridge-growth'],
+    branches: ['rival-constitution', 'bridge-growth', 'bridge-fall', 'permission-to-stop'],
     scene: { enter: 'rival-bridge', checkpoint: 'bridge', gates: ['bridge-reached', 'dash-used', 'bridge-crossed'] },
     beats: [
       { id: 'bridge-arrival', place: 'bridge', kind: 'stage', advanceOn: 'bridge-reached',
@@ -641,6 +641,7 @@ const branchDeclarations = {
   // (the pursuit's own asides: one not yet begun when he turns at his door to fight is not had)
   'rival-constitution': {
     segment: 'rival-escape', chapter: 'pursuit', triggerCue: 'rival-survived-lethal', until: 'rival-turned',
+    dialogueType: 'travel',
     beats: [
       { id: 'constitution-strange', exchange: 'constitution-strange', speaker: 'narrator', line: 'Hmm. This is strange.' },
       { id: 'not-strange', exchange: 'constitution-strange', replyGroup: 'constitution-correction', speaker: 'spellblade', line: 'No I am not!', pauseAfterSec: .15 },
@@ -652,6 +653,7 @@ const branchDeclarations = {
   // (until: an aside not yet begun is dropped once this has happened: after the hit, a miss is no longer news)
   'first-fireball-miss': {
     segment: 'fireball', chapter: 'fireball', triggerCue: 'fireball-missed', until: 'fireball-hit',
+    dialogueType: 'reaction',
     beats: [
       { id: 'rival-over-there', exchange: 'scorch-mark', replyGroup: 'scorch-mark', speaker: 'narrator', line: 'Your rival is over there' },
       { id: 'scorch-mark', exchange: 'scorch-mark', replyGroup: 'scorch-mark', speaker: 'spellblade', line: 'And I wanted a scorch mark, over there.' },
@@ -659,6 +661,7 @@ const branchDeclarations = {
   },
   scratch: {
     segment: 'fireball', chapter: 'fireball', triggerCue: 'meadow-parried', until: 'fireball-hit',
+    dialogueType: 'reaction',
     beats: [
       { id: 'scratch-taunt', exchange: 'scratch', speaker: 'rival', line: 'You cannot even scratch me, can you?' },
       { id: 'scratch-forget', exchange: 'scratch', speaker: 'narrator', line: 'Let us forget what just happened.' },
@@ -669,14 +672,23 @@ const branchDeclarations = {
   },
   'mutual-clash': {
     segment: 'real-duel', chapter: 'duel', triggerCue: 'mutual-clash', until: 'duel-damage-threshold',
+    dialogueType: 'reaction',
     beats: [
       { id: 'clash-simultaneous', exchange: 'mutual-clash', speaker: 'rival', line: 'We struck at the same time!' },
       { id: 'clash-peculiar', exchange: 'mutual-clash', speaker: 'spellblade', line: 'That was peculiar. I prefer my engagements one-sided.' },
       { id: 'clash-agreed', exchange: 'mutual-clash', speaker: 'rival', line: 'Agreed. May our blades never decide to do so again.' },
     ],
   },
+  'bridge-fall': {
+    segment: 'bridge-dash', chapter: 'bridge', triggerCue: 'bridge-fallen', until: 'bridge-crossed',
+    dialogueType: 'reaction',
+    beats: [
+      { id: 'what-down-there', exchange: 'bridge-fall', speaker: 'spellblade', line: 'Ooh, what is down there?' },
+    ],
+  },
   'bridge-growth': {
     segment: 'bridge-dash', chapter: 'bridge', triggerCue: 'bridge-retry-extended', until: 'bridge-crossed',
+    dialogueType: 'retry',
     beats: [
       { id: 'bridge-senses-failure', exchange: 'bridge-growth', speaker: 'narrator', line: 'The bridge grows longer when it senses failure' },
       { id: 'hence-i-crossed', exchange: 'bridge-growth', speaker: 'rival', line: 'Hence why I crossed it!' },
@@ -684,6 +696,7 @@ const branchDeclarations = {
   },
   'permission-to-stop': {
     segment: 'counterfire', chapter: 'counterfire', triggerCue: 'repeated-pursuit-fireballs', until: 'rival-turned',
+    dialogueType: 'travel',
     beats: [
       { id: 'permission-stop', exchange: 'permission', speaker: 'rival', line: 'I give you permission to stop' },
       { id: 'no-longer-ruin', exchange: 'permission', speaker: 'spellblade', line: 'Will you no longer ruin my reputation, honor, status and therefore livelihood? And health?' },
@@ -693,6 +706,7 @@ const branchDeclarations = {
   },
   burned: {
     segment: 'counterfire', chapter: 'counterfire', triggerCue: 'player-burned', until: 'rival-turned',
+    dialogueType: 'reaction',
     beats: [
       { id: 'burn-subsided', exchange: 'burned', speaker: 'spellblade', line: 'AHH, AH AH- Oh it has subsided.',
         performanceCue: Object.freeze({ at: 'burn-ended', action: 'continue-reaction' }) },
@@ -703,24 +717,30 @@ const branchDeclarations = {
   // When Rival wins the final duel: the first loss and the second each have their line; after that, quiet.
   'final-loss-1': {
     segment: 'rival-defeat', chapter: 'final-guard', triggerCue: 'player-defeated-final',
+    dialogueType: 'reaction',
     beats: [{ id: 'fight-yourself', speaker: 'rival', line: 'How will you fight yourself, if you cannot defeat your Rival?' }],
   },
   'final-loss-2': {
     segment: 'rival-defeat', chapter: 'final-guard', triggerCue: 'player-defeated-final',
+    dialogueType: 'reaction',
     beats: [{ id: 'already-told', speaker: 'rival', line: 'Perhaps I won’t tell on you. You have already done so for me.' }],
   },
   // A Fireball in the final duel ("I am developing warm feelings about this!" earlier)
   'final-feelings': {
     segment: 'rival-defeat', chapter: 'final-guard', triggerCue: 'final-fireball-hit',
+    dialogueType: 'reaction',
     beats: [{ id: 'feelings-health', speaker: 'rival', line: 'Your feelings shall not affect my health.' }],
   },
 };
 
 export const TUTORIAL_BRANCH_METADATA = Object.freeze(Object.fromEntries(Object.entries(branchDeclarations)
   .map(([id, branch]) => [id, Object.freeze({ id, segment: branch.segment, chapter: branch.chapter,
-    triggerCue: branch.triggerCue, oncePerRun: true, required: false, blocking: false })])));
+    triggerCue: branch.triggerCue, oncePerRun: true, required: false, blocking: false,
+    dialogueType: branch.dialogueType ?? 'travel' })])));
 export const TUTORIAL_BRANCHES = Object.freeze(Object.fromEntries(Object.entries(branchDeclarations)
-  .map(([id, branch]) => [id, Object.freeze(branch.beats.map(beat => authored({ ...beat, ...(branch.until ? { until: branch.until } : {}) },
+  .map(([id, branch]) => [id, Object.freeze(branch.beats.map(beat => authored({ ...beat,
+    dialogueType: branch.dialogueType ?? 'travel',
+    ...(branch.until ? { until: branch.until } : {}) },
     branch.chapter, branch.segment, 'reactive', id)))])));
 
 // Retained for consumers of the former preview boundary. The full route has no cutoff.
