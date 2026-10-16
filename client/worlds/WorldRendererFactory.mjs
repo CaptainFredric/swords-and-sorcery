@@ -6,6 +6,7 @@ const WORLD_RENDERER_KEYS = Object.freeze({
   'shattered-keep': 'shattered-keep',
   'ruined-keep': 'ruined-keep',
   'greener-pastures': 'greener-pastures',
+  'bastion-breach': 'bastion-breach',
 });
 
 export function rendererKeyForWorld(worldId) {

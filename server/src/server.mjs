@@ -21,7 +21,7 @@ import { DEFAULT_ULTIMATE, isUltimate } from '../../shared/src/ultimates.mjs';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '../..');
 const TICK_RATE = 30;
-const SOLO_MODES = new Set([GAME_MODES.BOT_DUEL, GAME_MODES.PRACTICE]);
+const SOLO_MODES = new Set([GAME_MODES.BOT_DUEL, GAME_MODES.PRACTICE, GAME_MODES.BREAKTHROUGH]);
 const IS_DIRECT_EXECUTION = typeof process.argv[1] === 'string'
   && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 
@@ -373,7 +373,7 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
     if (message.type === 'joinRoom' && !session.roomCode) {
       const room = roomManager.findByCode(message.code);
       if (!room) { send(session, { type: 'error', message: 'Room not found' }); return; }
-      if (room.mode !== GAME_MODES.FFA) { send(session, { type: 'error', message: 'Room is not joinable' }); return; }
+      if (room.mode !== GAME_MODES.FFA && room.mode !== GAME_MODES.BREAKTHROUGH) { send(session, { type: 'error', message: 'Room is not joinable' }); return; }
       try { joinNew(session, room, message.name); } catch (error) { send(session, { type: 'error', message: error.message }); }
       return;
     }

@@ -3,7 +3,7 @@ import { WORLD_IDS } from '../worlds/registry.mjs';
 import { Room } from './Room.mjs';
 
 const LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
-const SOLO_MODES = new Set([GAME_MODES.BOT_DUEL, GAME_MODES.PRACTICE]);
+const SOLO_MODES = new Set([GAME_MODES.BOT_DUEL, GAME_MODES.PRACTICE, GAME_MODES.BREAKTHROUGH]);
 
 export function generateRoomCode(random = Math.random) {
   let code = '';
@@ -34,12 +34,16 @@ export class RoomManager {
     return this.#createRoom({ isPrivate: false, mode: GAME_MODES.FFA, worldId }, nowSec);
   }
 
+  createBreakthroughRoom(nowSec = 0, isPrivate = true, worldId = WORLD_IDS.BASTION_BREACH) {
+    return this.#createRoom({ isPrivate, mode: GAME_MODES.BREAKTHROUGH, worldId }, nowSec);
+  }
+
   // a matchmade one-on-one: never listed, never joinable by code or Quick Play
   createDuelRoom(nowSec = 0, worldId = this.nextDuelArena()) {
     return this.#createRoom({ isPrivate: true, mode: GAME_MODES.DUEL, worldId }, nowSec);
   }
 
-  createSoloRoom(mode, nowSec = 0, worldId = WORLD_IDS.CASTLEWARD) {
+  createSoloRoom(mode, nowSec = 0, worldId = (mode === GAME_MODES.BREAKTHROUGH ? WORLD_IDS.BASTION_BREACH : WORLD_IDS.CASTLEWARD)) {
     if (!SOLO_MODES.has(mode)) throw new Error('Unknown solo mode');
     return this.#createRoom({ isPrivate: true, mode, worldId }, nowSec);
   }

@@ -53,6 +53,7 @@ import { CastlewardRenderer } from '../worlds/CastlewardRenderer.mjs';
 import { ShatteredKeepRenderer } from '../worlds/ShatteredKeepRenderer.mjs';
 import { RuinedKeepRenderer } from '../worlds/RuinedKeepRenderer.mjs';
 import { GreenerPasturesRenderer } from '../worlds/GreenerPasturesRenderer.mjs';
+import { BastionBreachRenderer } from '../worlds/BastionBreachRenderer.mjs';
 import {
   canPresentLocalAction,
   handsTaken,
@@ -77,6 +78,7 @@ const WORLD_RENDERERS = Object.freeze({
   'shattered-keep': ShatteredKeepRenderer,
   'ruined-keep': RuinedKeepRenderer,
   'greener-pastures': GreenerPasturesRenderer,
+  'bastion-breach': BastionBreachRenderer,
 });
 
 // the server's word for a clang my own view already foretold arrives within this long (a round trip and a tick or two)

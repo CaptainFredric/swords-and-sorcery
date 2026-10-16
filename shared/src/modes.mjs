@@ -4,6 +4,8 @@ export const GAME_MODES = Object.freeze({
   PRACTICE: 'PRACTICE',
   // server-wide random one-on-one, made by the matchmaker
   DUEL: 'DUEL',
+  // objective-based team battle (attackers advance through sequential objectives)
+  BREAKTHROUGH: 'BREAKTHROUGH',
 });
 
 // The tutorial world Greener Pastures is registered separately and deliberately absent from arena choices.
@@ -12,7 +14,7 @@ export const ARENAS = Object.freeze(['castleward', 'ruined-keep']);
 
 /** An arena by id, or Castleward for anything that is not one. */
 export function arenaOrDefault(worldId) {
-  return ARENAS.includes(worldId) ? worldId : ARENAS[0];
+  return (ARENAS.includes(worldId) || worldId === 'bastion-breach') ? worldId : ARENAS[0];
 }
 
 // what a room's players may vote on before a match (majority of connected Spellblades; a tie keeps the current)
@@ -79,6 +81,22 @@ const POLICIES = Object.freeze({
     countdownSec: 5,
     // a duellist who leaves forfeits
     forfeit: true,
+  }),
+  [GAME_MODES.BREAKTHROUGH]: Object.freeze({
+    id: GAME_MODES.BREAKTHROUGH,
+    teamMode: true,
+    teamSize: 3,
+    minHumansToStart: 1,
+    botCount: 5,
+    scored: false,
+    timed: true,
+    scoreToWin: null,
+    matchSeconds: 300,
+    autoStart: true,
+    allowRematchVote: true,
+    countdownSec: 3,
+    // the rival team opens in peace for a moment so players orient
+    openingPeaceSec: 2,
   }),
 });
 

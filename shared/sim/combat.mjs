@@ -26,6 +26,8 @@ import { separatePlayers } from '../src/separation.mjs';
 import { STEEL_RAM, chargeTarget, ramContact, ramEffect, ramStrength } from '../src/steelRam.mjs';
 import { chooseSpawn } from './spawns.mjs';
 import { recordTransform, sampleTransform } from './history.mjs';
+import { TEAMS, areAllies, areEnemies } from '../src/teams.mjs';
+import { stepObjectives } from './objectives.mjs';
 
 const SWORD_ARC_COS = Math.cos((110 * Math.PI / 180) / 2);
 const RESPAWN_SEC = 3;
@@ -478,7 +480,7 @@ function landGauntlet(room, player, nowSec, world) {
   let target = null;
   let g = null;
   for (const other of room.players.values()) {
-    if (other.id === player.id || !other.alive) continue;
+    if (other.id === player.id || !other.alive || areAllies(room, player.id, other.id)) continue;
     const to = transformFor(other, at);
     const placed = gauntletGeometry(from.position, from.yaw, to.position);
     if (!withinGauntlet(placed, GAUNTLET.landSlack) || targetBlockedByWorld(from, to, world)) continue;
@@ -514,7 +516,7 @@ function landGauntlet(room, player, nowSec, world) {
 function rammable(room, player, nowSec) {
   const bodies = [];
   for (const other of room.players.values()) {
-    if (other.id === player.id || !other.alive || other.spawnProtectionUntil > nowSec) continue;
+    if (other.id === player.id || !other.alive || other.spawnProtectionUntil > nowSec || areAllies(room, player.id, other.id)) continue;
     bodies.push({ id: other.id, position: other.position });
   }
   return bodies;
@@ -754,7 +756,7 @@ function sweepStrike(room, player, nowSec, world) {
     const to = bladeDirection(blade, at - window.contact, frame);
     const bodies = [];
     for (const target of live.struck ? [] : room.players.values()) {
-      if (target.id === player.id || !target.alive) continue;
+      if (target.id === player.id || !target.alive || areAllies(room, player.id, target.id)) continue;
       const placed = transformFor(target, at);
       bodies.push({ id: target.id, base: placed.position, top: postureOf(placed).crown });
     }
@@ -973,6 +975,7 @@ function interruptOrdinaryActions(room, player, nowSec) {
  */
 export function staggerBy(room, player, amount, nowSec, by = null) {
   if (!player?.alive || !(amount > 0)) return false;
+  if (by && areAllies(room, player.id, by)) return false;
   const bracing = ultimateStartup(player, nowSec);
   player.stagger ??= freshStagger();
   if (!addStagger(player.stagger, amount * (bracing ? bracing.startupStagger : 1), nowSec)) return false;
@@ -1011,6 +1014,7 @@ function guardChallengeContact(room, defender, attacker, nowSec) {
 export function applyDamage(room, attackerId, victimId, amount, source, nowSec, knockback = null, {
   steel = 0, turned = 0, clean = false, level = DAMAGE_LEVELS.normal, ultimate = false, rawDamage = amount, contactFacts = null,
 } = {}) {
+  if (attackerId && areAllies(room, attackerId, victimId)) return false;
   const victim = room.players.get(victimId);
   if (!victim || !victim.alive || victim.spawnProtectionUntil > nowSec) return false;
   const healthBefore = victim.health;
@@ -1183,7 +1187,7 @@ function blowGale(room, player, nowSec, world, dt = 0) {
   const origin = galeOrigin(eye, direction);
   const sheltered = (at) => (world.solids ?? []).some((box) => segmentAabbHit([origin.x, origin.y, origin.z], [at.x, at.y, at.z], box));
   for (const target of room.players.values()) {
-    if (target.id === player.id || !target.alive || target.spawnProtectionUntil > nowSec) continue;
+    if (target.id === player.id || !target.alive || target.spawnProtectionUntil > nowSec || areAllies(room, player.id, target.id)) continue;
     const caught = galeOnBody(spell, origin, direction, target.position, postureOf(target).crown);
     const pressure = caught.pressure * strength;
     const blown = galeWindOnBody(spell, origin, direction, target.position, postureOf(target).crown);
@@ -1275,7 +1279,7 @@ function explodeSpell(room, projectile, point, nowSec, worldHit = false, directV
   // (an ultimate's own fire earns its thrower no prowess)
   const ultimate = Boolean(projectile.ultimate);
   for (const player of room.players.values()) {
-    if (!player.alive || player.id === projectile.ownerId) continue;
+    if (!player.alive || player.id === projectile.ownerId || areAllies(room, projectile.ownerId, player.id)) continue;
     const center = playerCenter(player);
     const direct = player.id === directVictimId;
     const distance = direct ? 0 : blastDistance(point, player.position, postureOf(player).crown);
@@ -1362,7 +1366,7 @@ function stepProjectiles(room, dt, nowSec, world) {
 
     let direct = null;
     for (const target of room.players.values()) {
-      if (!target.alive || target.id === projectile.ownerId || target.spawnProtectionUntil > nowSec) continue;
+      if (!target.alive || target.id === projectile.ownerId || target.spawnProtectionUntil > nowSec || areAllies(room, projectile.ownerId, target.id)) continue;
       // (the body as a ball about its middle: a crouched one is smaller, and a spell can fly over it)
       const c = playerCenter(target);
       const d = Math.hypot(c.x - after.x, c.y - after.y, c.z - after.z);
@@ -1563,7 +1567,7 @@ function stepVortex(room, player, dt, nowSec, world) {
     for (;;) {
       const bodies = [];
       for (const target of room.players.values()) {
-        if (target.id === player.id || !target.alive || nowSec < (hits[target.id] ?? -Infinity) + vortex.contact.everySec - 1e-9) continue;
+        if (target.id === player.id || !target.alive || nowSec < (hits[target.id] ?? -Infinity) + vortex.contact.everySec - 1e-9 || areAllies(room, player.id, target.id)) continue;
         bodies.push({ id: target.id, base: target.position, top: postureOf(target).crown });
       }
       const met = bodies.length ? sweepBlade(eye, a, b, bodies, world.solids ?? [], { world: false }) : null;
@@ -1704,7 +1708,7 @@ function stepRuptures(room, nowSec) {
     const longest = Math.max(...rupture.fissures.map((fissure) => fissure.length));
     const reached = Math.min(longest, (nowSec - rupture.bornAt) * RUPTURE.speed);
     for (const target of room.players.values()) {
-      if (target.id === rupture.ownerId || !target.alive || rupture.caught.includes(target.id) || target.spawnProtectionUntil > nowSec) continue;
+      if (target.id === rupture.ownerId || !target.alive || rupture.caught.includes(target.id) || target.spawnProtectionUntil > nowSec || areAllies(room, rupture.ownerId, target.id)) continue;
       const struck = target.id === rupture.through && Math.hypot(target.position.x - rupture.origin.x, target.position.z - rupture.origin.z) <= RUPTURE.throughReach;
       // (the worst of the arms that reach them: a core over a trailing crack; the knight it was driven through, the core)
       let hit = struck ? 'core' : null;
@@ -1733,14 +1737,24 @@ function stepRuptures(room, nowSec) {
 function markTornGround(room) {
   for (const player of room.players.values()) {
     player.tornGround = Boolean(player.alive && player.grounded
-      && room.ruptures?.some((rupture) => rupture.ownerId !== player.id && onTornGround(rupture, player.position, rupture.reached)));
+      && room.ruptures?.some((rupture) => rupture.ownerId !== player.id && !areAllies(room, rupture.ownerId, player.id) && onTornGround(rupture, player.position, rupture.reached)));
   }
 }
 
 function respawnPlayer(room, player, nowSec, world) {
-  const enemies = [...room.players.values()].filter((p) => p.id !== player.id && p.alive);
-  const spawnPoints = world?.spawnPoints ?? room.world?.spawnPoints ?? [];
-  if (spawnPoints.length === 0) throw new Error(`World ${room.worldId ?? 'unknown'} has no spawn points`);
+  const enemies = [...room.players.values()].filter((p) => p.id !== player.id && p.alive && areEnemies(room, player, p));
+  const allSpawns = world?.spawnPoints ?? room.world?.spawnPoints ?? [];
+  if (allSpawns.length === 0) throw new Error(`World ${room.worldId ?? 'unknown'} has no spawn points`);
+  let spawnPoints = allSpawns;
+  if (room.policy?.teamMode && player.team) {
+    const currentPhase = room.objectiveState?.phase ?? 0;
+    const matching = allSpawns.filter((s) => s.team === player.team && (s.phase === undefined || s.phase === currentPhase));
+    if (matching.length) spawnPoints = matching;
+    else {
+      const anyTeamSpawns = allSpawns.filter((s) => s.team === player.team);
+      if (anyTeamSpawns.length) spawnPoints = anyTeamSpawns;
+    }
+  }
   const choice = chooseSpawn(spawnPoints, enemies, room.recentSpawnUse, nowSec);
   const spawn = choice?.spawn ?? spawnPoints[0];
   if (choice) room.recentSpawnUse.set(choice.index, nowSec);
@@ -1751,6 +1765,9 @@ function respawnPlayer(room, player, nowSec, world) {
 export function stepRoom(room, dt, nowSec, world = room.world) {
   if (!world) throw new Error(`Room ${room.code ?? 'unknown'} has no world`);
   room.tick(nowSec);
+  if (room.state !== 'PLAYING') return room.events;
+
+  stepObjectives(room, dt, nowSec);
   if (room.state !== 'PLAYING') return room.events;
 
   markTornGround(room);

@@ -83,6 +83,34 @@ function setHitGlow(shell, amount) {
   });
 }
 
+function createBadge(isAlly) {
+  if (typeof document === 'undefined') return null;
+  const canvas = document.createElement('canvas');
+  if (!canvas.getContext) return null;
+  canvas.width = 128;
+  canvas.height = 36;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = isAlly ? 'rgba(34, 110, 220, 0.85)' : 'rgba(210, 40, 40, 0.85)';
+  if (ctx.roundRect) ctx.roundRect(4, 4, 120, 28, 6);
+  else ctx.fillRect(4, 4, 120, 28);
+  ctx.fill();
+  ctx.strokeStyle = isAlly ? 'rgba(120, 210, 255, 0.95)' : 'rgba(255, 120, 120, 0.95)';
+  ctx.lineWidth = 2.5;
+  ctx.stroke();
+  ctx.fillStyle = '#ffffff';
+  ctx.font = 'bold 15px system-ui, -apple-system, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(isAlly ? 'ALLY' : 'ENEMY', 64, 18);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  const material = new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false, depthWrite: false });
+  const sprite = new THREE.Sprite(material);
+  sprite.scale.set(0.85, 0.24, 1);
+  sprite.position.set(0, 2.15, 0);
+  return sprite;
+}
+
 function applyCastWindow(shell, window) {
   if (!window) return;
   const d = shell.root.userData;
@@ -623,12 +651,38 @@ export class RemotePlayers {
       const sorcery = shell.visualInstance?.sorceryLevel?.() ?? 0;
       setGlbAccent(shell.visualInstance, accentIntensity, (protectedNow ? 1.6 : 0.6) + 1.8 * sorcery);
     }
+    if (pb.team && snapshot?.players) {
+      const local = snapshot.players.find((p) => p.id === this.localId);
+      const isAlly = local?.team ? pb.team === local.team : false;
+      const badgeKey = `${pb.team}:${isAlly}`;
+      if (shell.badgeKey !== badgeKey) {
+        if (shell.teamBadge) {
+          shell.root.remove(shell.teamBadge);
+          shell.teamBadge.material?.map?.dispose?.();
+          shell.teamBadge.material?.dispose?.();
+          shell.teamBadge = null;
+        }
+        shell.teamBadge = createBadge(isAlly);
+        if (shell.teamBadge) shell.root.add(shell.teamBadge);
+        shell.badgeKey = badgeKey;
+      }
+      if (shell.teamBadge) {
+        shell.teamBadge.visible = pb.alive;
+      }
+    } else if (shell.teamBadge) {
+      shell.teamBadge.visible = false;
+    }
   }
 
   dispose() {
     for (const shell of [...this.rigs.values(), ...(this.self ? [this.self] : [])]) {
       setHitGlow(shell, 0);
       this.scene.remove(shell.root);
+      if (shell.teamBadge) {
+        shell.teamBadge.material?.map?.dispose?.();
+        shell.teamBadge.material?.dispose?.();
+        shell.teamBadge = null;
+      }
       shell.steelSheen?.dispose();
       shell.sunderBlade?.dispose();
       shell.vortexBlade?.dispose();

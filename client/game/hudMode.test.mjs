@@ -9,4 +9,12 @@ test('Practice HUD is explicitly untimed instead of showing the FFA six-minute c
 test('timed modes keep the normal first-to-ten clock and sudden-death label', () => {
   assert.equal(matchInfoText({ mode: 'FFA', matchStartedAt: 10, suddenDeath: false }, 70), 'FIRST TO 10  ·  5:00');
   assert.equal(matchInfoText({ mode: 'BOT_DUEL', matchStartedAt: 10, suddenDeath: true }, 70), 'SUDDEN DEATH');
+  assert.equal(matchInfoText({
+    mode: 'BREAKTHROUGH', matchStartedAt: 0, matchSeconds: 300,
+    objective: { name: 'The Outer Gate', progress: 0.45, contested: false },
+  }, 60), 'BREAKTHROUGH  ·  THE OUTER GATE [45%]  ·  4:00');
+  assert.equal(matchInfoText({
+    mode: 'BREAKTHROUGH', matchStartedAt: 0, matchSeconds: 300,
+    objective: { name: 'The Outer Gate', progress: 0.7, contested: true },
+  }, 60), 'BREAKTHROUGH  ·  THE OUTER GATE [CONTESTED]  ·  4:00');
 });
