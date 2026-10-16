@@ -433,8 +433,9 @@ function openArenaGate(info, force = false) {
   if (!force && performance.now() - gateOpenedAt < 1500) return;
   gateOpenedAt = performance.now();
   if (tutorialSession) tutorialOpening.begin();
+  const myTeam = (info.players ?? latestSnapshot?.players ?? latestLobby?.players ?? []).find((p) => p.id === socket.playerId)?.team ?? null;
   const copy = tutorialSession ? { title: 'GREENER PASTURES', sub: 'TUTORIAL 1' }
-    : arenaGateCopy({ mode: info.mode, worldId: info.worldId, scoreToWin: info.scoreToWin });
+    : arenaGateCopy({ mode: info.mode, worldId: info.worldId, scoreToWin: info.scoreToWin, team: myTeam });
   $('#arena-gate-title').textContent = copy.title;
   $('#arena-gate-sub').textContent = copy.sub;
   arenaGate.classList.remove('hidden');
@@ -536,6 +537,13 @@ function renderLobby() {
   startMatchButton.classList.toggle('pressed', view.ready.pressed);
   startMatchButton.textContent = view.ready.label;
   startMatchButton.disabled = view.ready.disabled;
+  const switchTeamBtn = $('#switch-team');
+  if (switchTeamBtn) {
+    const canSwitch = message.mode === 'BREAKTHROUGH' && message.roomState === 'WAITING';
+    switchTeamBtn.classList.toggle('hidden', !canSwitch);
+    const meInLobby = (message.players ?? []).find((p) => p.id === socket.playerId);
+    switchTeamBtn.textContent = meInLobby?.team === 'DEFENDERS' ? 'SWITCH TO ATTACKERS' : 'SWITCH TO DEFENDERS';
+  }
   copyLinkButton.classList.toggle('hidden', !view.action.visible);
   copyLinkButton.classList.toggle('primary-command', view.action.primary);
   copyLinkButton.disabled = view.action.disabled;
@@ -625,12 +633,15 @@ function soundTheEnd(snapshot) {
   const key = `${snapshot.roomCode}:${snapshot.matchStartedAt}`;
   if (endHeardFor === key) return;
   endHeardFor = key;
+  const me = snapshot.players?.find((p) => p.id === socket.playerId);
+  const won = snapshot.winnerTeam
+    ? Boolean(me?.team && snapshot.winnerTeam === me.team)
+    : snapshot.winnerId === socket.playerId;
   recordMatchResult({
-    winnerId: snapshot.winnerId,
+    winnerId: won ? socket.playerId : snapshot.winnerId,
     players: snapshot.players,
     isScored: snapshot.mode !== 'PRACTICE' && !snapshot.tutorial,
   });
-  const won = snapshot.winnerId === socket.playerId;
   music.stinger(won ? 'victory' : 'defeat');
   // the defeat made official: now and then, that he never thought this day would come; if not, the protest that he
   // is a knight (unless he just said so as he fell). A win is the stinger's (MIGHT MAKES... KNIGHT! is for force)
@@ -646,13 +657,36 @@ function soundTheEnd(snapshot) {
 
 function updateEnd(snapshot) {
   soundTheEnd(snapshot);
+  if (snapshot.mode === 'BREAKTHROUGH') {
+    const me = snapshot.players.find((player) => player.id === socket.playerId);
+    const won = Boolean(me?.team && snapshot.winnerTeam === me.team);
+    winnerTitle.textContent = won ? 'VICTORY' : 'DEFEAT';
+    const heldObj = snapshot.objective?.name ?? 'the Bastion';
+    const outcomeSummary = snapshot.winnerTeam === 'ATTACKERS'
+      ? 'ATTACKERS TRIUMPH · THE HIGH SANCTUM HAS FALLEN'
+      : `DEFENDERS STAND FAST · HELD ${heldObj.toUpperCase()}`;
+    const roleSummary = me?.team === 'DEFENDERS' ? 'You fought for the Defenders' : 'You fought for the Attackers';
+    const sorted = [...snapshot.players].sort((a, b) => (a.team === me?.team ? -1 : 1) - (b.team === me?.team ? -1 : 1) || b.kills - a.kills || a.deaths - b.deaths);
+    finalBoard.innerHTML = `<div class="bt-end-summary"><strong>${escapeHtml(outcomeSummary)}</strong><small>${escapeHtml(roleSummary)}</small></div>`
+      + sorted.map((player) => {
+        const sideTag = player.team === 'DEFENDERS' ? 'DEF' : 'ATT';
+        return `<div class="final-row ${player.id === socket.playerId ? 'you' : ''}"><span class="bt-side-tag ${player.team === 'DEFENDERS' ? 'def' : 'att'}">${sideTag}</span><b>${escapeHtml(player.name)}</b><strong>${player.kills} K</strong><em>${player.deaths} D</em><small>${player.parries} parries</small></div>`;
+      }).join('');
+    seekAnotherButton.classList.add('hidden');
+    rematchButton.classList.remove('hidden');
+    rematchButton.textContent = 'PLAY AGAIN';
+    const humanCount = snapshot.players.filter((p) => p.actorKind === 'human').length;
+    rematchCopy.textContent = humanCount <= 1
+      ? 'Fight another round of Breakthrough at Bastion Breach.'
+      : 'All remaining players vote to rematch in this room.';
+    return;
+  }
   const winner = snapshot.players.find((player) => player.id === snapshot.winnerId);
   winnerTitle.textContent = winner?.id === socket.playerId ? 'VICTORY' : `${winner?.name ?? 'A SPELLBLADE'} WINS`;
   const sorted = [...snapshot.players].sort((a, b) => b.kills - a.kills || a.deaths - b.deaths);
   finalBoard.innerHTML = sorted.map((player, index) => `<div class="final-row ${player.id === socket.playerId ? 'you' : ''}"><span>${index + 1}</span><b>${escapeHtml(player.name)}</b><strong>${player.kills} K</strong><em>${player.deaths} D</em><small>${player.parries} parries</small></div>`).join('');
 
   const duel = snapshot.mode === 'DUEL';
-  // a forfeit, or a challenger who has since walked off to seek another: nobody is left to rematch
   const alone = duel && (snapshot.finishReason === 'forfeit' || snapshot.players.filter((p) => p.actorKind === 'human').length < 2);
   seekAnotherButton.classList.toggle('hidden', !(duel || seekStatus?.active));
   rematchButton.classList.toggle('hidden', alone);
@@ -729,6 +763,7 @@ function setPracticeVisible(visible) {
 }
 
 $('#seek-duel').addEventListener('click', () => runMenuAction(menuController.seekDuel(nameInput.value), SCREEN_IDS.MAIN_MENU));
+$('#breakthrough-button')?.addEventListener('click', () => runMenuAction(menuController.breakthrough(nameInput.value), SCREEN_IDS.MAIN_MENU));
 $('#quick-play').addEventListener('click', () => openRooms());
 $('#rooms-back').addEventListener('click', () => route(SCREEN_IDS.MAIN_MENU));
 $('#quick-join').addEventListener('click', () => runMenuAction(menuController.quickPlay(nameInput.value), SCREEN_IDS.ROOMS_MENU));
@@ -739,7 +774,7 @@ $('#private-button').addEventListener('click', () => { showMenuError(''); route(
 $('#how-button').addEventListener('click', () => route(SCREEN_IDS.HOW_TO_PLAY));
 // the Spellblade answers a choice on the front door: a salute before going it alone, his blade raised high when
 // calling for others, the blade presented on the way to the Armory
-const MENU_REACTIONS = { 'solo-button': 'salute', 'seek-duel': 'rally', 'quick-play': 'rally', 'private-button': 'rally', 'armory-button': 'present', 'how-button': 'look' };
+const MENU_REACTIONS = { 'solo-button': 'salute', 'breakthrough-button': 'rally', 'seek-duel': 'rally', 'quick-play': 'rally', 'private-button': 'rally', 'armory-button': 'present', 'how-button': 'look' };
 for (const [id, reaction] of Object.entries(MENU_REACTIONS)) $(`#${id}`)?.addEventListener('click', () => menuScene?.react(reaction));
 $('#solo-back').addEventListener('click', () => route(SCREEN_IDS.MAIN_MENU));
 $('#private-back').addEventListener('click', () => route(SCREEN_IDS.MAIN_MENU));
@@ -783,6 +818,23 @@ soloRival.addEventListener('click', (event) => {
   if (!chip) return;
   menuController.chooseBotSkill(chip.dataset.skill);
   showSoloRival();
+const soloTeam = $('#solo-team');
+function showSoloTeam() {
+  if (!soloTeam) return;
+  const chosen = menuController.soloTeam();
+  for (const chip of soloTeam.querySelectorAll('[data-team]')) {
+    const on = chip.dataset.team === chosen;
+    chip.classList.toggle('mine', on);
+    chip.setAttribute('aria-checked', String(on));
+  }
+}
+soloTeam?.addEventListener('click', (event) => {
+  const chip = event.target.closest?.('[data-team]');
+  if (!chip) return;
+  menuController.chooseSoloTeam(chip.dataset.team);
+  showSoloTeam();
+});
+showSoloTeam();
 });
 showSoloRival();
 const tutorialProgress = new TutorialProgress();
@@ -942,9 +994,11 @@ function startTutorial() {
   tutorialVoice.preload([...tutorialSession.director.beats, ...Object.values(tutorialSession.director.branches).flat()]);
 }
 $('#tutorial-mode').addEventListener('click',startTutorial);
+$('#solo-breakthrough')?.addEventListener('click', () => runMenuAction(menuController.breakthrough(nameInput.value), SCREEN_IDS.SOLO_MENU));
 $('#bot-duel').addEventListener('click', () => runMenuAction(menuController.botDuel(nameInput.value), SCREEN_IDS.SOLO_MENU));
 $('#inspection-mode').addEventListener('click', () => runMenuAction(menuController.inspectionPractice(nameInput.value), SCREEN_IDS.SOLO_MENU));
 $('#practice-mode').addEventListener('click', () => runMenuAction(menuController.practice(nameInput.value), SCREEN_IDS.SOLO_MENU));
+$('#create-breakthrough-room')?.addEventListener('click', () => runMenuAction(menuController.createBreakthroughPrivate(nameInput.value), SCREEN_IDS.PRIVATE_MENU));
 $('#create-room').addEventListener('click', () => runMenuAction(menuController.createPrivate(nameInput.value), SCREEN_IDS.PRIVATE_MENU));
 $('#join-room').addEventListener('click', () => runMenuAction(menuController.joinPrivate(roomInput.value, nameInput.value), SCREEN_IDS.PRIVATE_MENU));
 roomInput.addEventListener('keydown', event => { if (event.key === 'Enter') $('#join-room').click(); });
@@ -982,6 +1036,7 @@ $('#pause-leave').addEventListener('click', () => returnToMenu());
 $('#lobby-leave').addEventListener('click', () => returnToMenu());
 // the ready check: each Spellblade says they are ready (press again to take it back)
 startMatchButton.addEventListener('click', () => socket.ready(!startMatchButton.classList.contains('pressed')));
+$('#switch-team')?.addEventListener('click', () => socket.switchTeam());
 // --- settings: every change reaches what it belongs to, at once ---
 function applySettings() {
   sound.setLevels(soundLevels(settings));
@@ -1465,7 +1520,9 @@ const reached = await Promise.race([
     });
   }),
 ]);
-if (!(reached && hadSession) && autoSolo === 'BOT_DUEL' && nameInput.value) {
+if (!(reached && hadSession) && autoSolo === 'BREAKTHROUGH' && nameInput.value) {
+  runMenuAction(menuController.breakthrough(nameInput.value), SCREEN_IDS.SOLO_MENU);
+} else if (!(reached && hadSession) && autoSolo === 'BOT_DUEL' && nameInput.value) {
   runMenuAction(menuController.botDuel(nameInput.value), SCREEN_IDS.SOLO_MENU);
 } else if (!(reached && hadSession) && autoSolo === 'PRACTICE' && nameInput.value) {
   runMenuAction(menuController.practice(nameInput.value), SCREEN_IDS.SOLO_MENU);

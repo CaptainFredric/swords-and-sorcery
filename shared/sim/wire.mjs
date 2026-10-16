@@ -66,12 +66,35 @@ export function serializeSnapshot(room, nowSec) {
       position: room.objectiveState.objectives[room.objectiveState.index]?.position ?? null,
       radius: room.objectiveState.objectives[room.objectiveState.index]?.radius ?? 0,
       progress: room.objectiveState.progress,
+      completed: Boolean(room.objectiveState.completed),
       contested: room.objectiveState.contested,
       capturing: room.objectiveState.capturing,
       decaying: room.objectiveState.decaying,
       attackersCount: room.objectiveState.attackersCount,
       defendersCount: room.objectiveState.defendersCount,
+      lastCapturedId: room.objectiveState.lastCapturedId ?? null,
+      lastCapturedName: room.objectiveState.lastCapturedName ?? null,
+      lastCapturedAt: Number.isFinite(room.objectiveState.lastCapturedAt) ? room.objectiveState.lastCapturedAt : null,
+      objectives: room.objectiveState.objectives.map((o, idx) => ({
+        id: o.id,
+        name: o.name,
+        position: o.position,
+        radius: o.radius,
+        captured: room.objectiveState.completed || idx < room.objectiveState.index,
+        active: !room.objectiveState.completed && idx === room.objectiveState.index,
+      })),
     } : null,
+    marks: (room.teamMarks ?? []).filter((m) => m.expiresAt > nowSec).map((m) => ({
+      id: m.id,
+      team: m.team,
+      byId: m.byId,
+      byName: m.byName,
+      kind: m.kind,
+      targetId: m.targetId,
+      label: m.label,
+      position: m.position,
+      expiresAt: m.expiresAt,
+    })),
     players: [...room.players.values()].map((p) => ({
       id: p.id,
       name: p.name,
@@ -224,6 +247,8 @@ export function applyRoomCommand(room, player, message, time) {
     // the ultimate's key (a full prowess meter): the brace begins
     case 'ultimate': tryUltimate(room, player.id, time); return {};
     case 'rematch': room.requestRematch(player.id, time); return {};
+    case 'switchTeam': return { lobby: room.switchTeam(player.id, message.team ?? null, time) };
+    case 'markTarget': room.markTarget(player.id, { targetId: message.targetId ?? null }, time); return {};
     case 'practiceResetPlayer':
       return room.mode === GAME_MODES.PRACTICE && resetPracticePlayer(room, player.id, time) ? {} : { rejected: PRACTICE_REJECTED };
     case 'practiceSpawnDummy':

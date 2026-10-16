@@ -101,16 +101,17 @@ export class LocalHost {
   }
 
   // --- a solo room: you, and the bots or dummies the mode brings ---
-  startSolo(mode, name, worldId, botSkill, tutorial = false) {
+  startSolo(mode, name, worldId, botSkill, tutorial = false, team = null) {
     if (!SOLO_MODES.has(mode)) {
       this.#deliver({ type: 'error', message: 'Unknown solo mode' });
       return;
     }
     this.#stop();
     const time = this.now();
-    const room = this.rooms.createSoloRoom(mode, time, tutorial ? 'greener-pastures' : arenaOrDefault(worldId));
+    const resolvedWorld = tutorial ? 'greener-pastures' : (mode === GAME_MODES.BREAKTHROUGH ? 'bastion-breach' : arenaOrDefault(worldId));
+    const room = this.rooms.createSoloRoom(mode, time, resolvedWorld);
     room.localTutorial = tutorial;
-    const player = room.addPlayer({ id: randomId(), token: randomId(), name: String(name || 'Spellblade').slice(0, 18), spell: this.spell, ultimate: this.ultimateId, preparedSpells: this.preparedSpells }, time);
+    const player = room.addPlayer({ id: randomId(), token: randomId(), name: String(name || 'Spellblade').slice(0, 18), spell: this.spell, ultimate: this.ultimateId, preparedSpells: this.preparedSpells, team }, time);
     player.cloth = this.cloth;
     room.setBotSkill(botSkill);
     room.provisionModeActors(time);
@@ -134,8 +135,8 @@ export class LocalHost {
     this.startSolo(GAME_MODES.PRACTICE, name, 'greener-pastures', undefined, true);
   }
 
-  startBreakthrough(name) {
-    this.startSolo(GAME_MODES.BREAKTHROUGH, name, 'bastion-breach');
+  startBreakthrough(name, botSkill = null, team = null) {
+    this.startSolo(GAME_MODES.BREAKTHROUGH, name, 'bastion-breach', botSkill, false, team);
   }
 
   get inspectionFrozen() { return this.frozenAt !== null; }
@@ -315,12 +316,15 @@ export class LocalHost {
   practiceReadyUltimate() { this.#command({ type: 'practiceReadyUltimate' }); }
   dash(direction) { this.#command({ type: 'dash', direction }); }
   rematch() { this.#command({ type: 'rematch' }); }
+  switchTeam(team = null) { this.#command({ type: 'switchTeam', team }); }
+  markTarget(targetId = null) { this.#command({ type: 'markTarget', targetId }); }
   vote(key, value) { this.#command({ type: 'vote', key, value }); }
   ping() { this.#deliver({ type: 'pong', sentAt: performance.now(), serverTime: this.now() }); }
 
   // everything else needs other people, and so the game server
   #online() { this.#deliver({ type: 'error', message: OFFLINE_MESSAGE }); }
   createRoom() { this.#online(); }
+  createBreakthroughRoom() { this.#online(); }
   quickPlay() { this.#online(); }
   joinRoom() { this.#online(); }
   seekDuel() { this.#online(); }

@@ -47,6 +47,18 @@ export class MenuController {
     return chosen;
   }
 
+  /** Preferred side for Solo Breakthrough ('AUTO', 'ATTACKERS', 'DEFENDERS'). */
+  soloTeam() {
+    const raw = this.storage?.getItem?.('ss-solo-team');
+    return (raw === 'ATTACKERS' || raw === 'DEFENDERS') ? raw : 'AUTO';
+  }
+
+  chooseSoloTeam(team) {
+    const chosen = (team === 'ATTACKERS' || team === 'DEFENDERS') ? team : 'AUTO';
+    this.storage?.setItem?.('ss-solo-team', chosen);
+    return chosen;
+  }
+
   #withName(rawName, action) {
     const name = normalizeName(rawName);
     if (!name) return { ok: false, error: 'Enter a Spellblade name.' };
@@ -69,6 +81,18 @@ export class MenuController {
 
   botDuel(rawName) {
     return this.#withName(rawName, (name) => this.socket.startSolo('BOT_DUEL', name, this.soloArena(), this.botSkill()));
+  }
+
+  breakthrough(rawName, teamOverride = null) {
+    const teamPref = teamOverride ?? this.soloTeam();
+    const team = (teamPref === 'ATTACKERS' || teamPref === 'DEFENDERS') ? teamPref : null;
+    return this.#withName(rawName, (name) => this.socket.startSolo('BREAKTHROUGH', name, 'bastion-breach', this.botSkill(), team));
+  }
+
+  createBreakthroughPrivate(rawName, teamOverride = null) {
+    const teamPref = teamOverride ?? this.soloTeam();
+    const team = (teamPref === 'ATTACKERS' || teamPref === 'DEFENDERS') ? teamPref : null;
+    return this.#withName(rawName, (name) => this.socket.createBreakthroughRoom(name, team, this.botSkill()));
   }
 
   practice(rawName) {

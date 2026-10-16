@@ -62,8 +62,9 @@
           <input id="player-name" class="game-input" maxlength="18" autocomplete="nickname" placeholder="Enter a name" />
         </div>
         <button id="seek-duel" class="menu-command primary-command"><span>SEEK A DUEL</span><small>Match with another player, one on one</small></button>
+        <button id="breakthrough-button" class="menu-command"><span>BREAKTHROUGH</span><small>3v3 siege battle at Bastion Breach</small></button>
         <button id="quick-play" class="menu-command"><span>OPEN ROOMS</span><small>Browse public matches</small></button>
-        <button id="solo-button" class="menu-command"><span>SOLO</span><small>Fight a bot or practice</small></button>
+        <button id="solo-button" class="menu-command"><span>SOLO</span><small>3v3 Breakthrough, Bot Duel or practice</small></button>
         <button id="private-button" class="menu-command"><span>PRIVATE MATCH</span><small>Invite friends with a room code</small></button>
         <!-- the knight's kit, and the quieter doors -->
         <button id="armory-button" class="menu-command armory-command" type="button"><span>ARMORY</span><small id="armory-equipped">Fireball · Sunder</small></button>
@@ -173,7 +174,17 @@
           <button type="button" class="vote-chip" role="radio" data-skill="spellblade">THE SPELLBLADE</button>
         </div>
         <p class="panel-copy solo-rival-note" id="solo-rival-note" aria-live="polite"></p>
-        <button id="bot-duel" class="mode-choice primary-command">
+        <div id="solo-team" class="vote-row solo-arena" role="radiogroup" aria-label="Breakthrough Side">
+          <span>ALLEGIANCE</span>
+          <button type="button" class="vote-chip" role="radio" data-team="AUTO">AUTO</button>
+          <button type="button" class="vote-chip" role="radio" data-team="ATTACKERS">ATTACKERS</button>
+          <button type="button" class="vote-chip" role="radio" data-team="DEFENDERS">DEFENDERS</button>
+        </div>
+        <button id="solo-breakthrough" class="mode-choice primary-command">
+          <span>BREAKTHROUGH · 3V3</span>
+          <small>Bastion Breach · capture or defend with 5 Spellblade bots</small>
+        </button>
+        <button id="bot-duel" class="mode-choice">
           <span>BOT DUEL</span>
           <small>One Spellblade · first to 10</small>
         </button>
@@ -215,7 +226,8 @@
         <input id="private-name" class="game-input" data-name-copy maxlength="18" autocomplete="nickname" placeholder="Enter a name" />
         <p class="error-copy" data-menu-error aria-live="polite"></p>
         <p class="panel-copy">Create a room or join with a five-character code.</p>
-        <button id="create-room" class="mode-choice primary-command"><span>CREATE ROOM</span><small>Start a private Castleward match</small></button>
+        <button id="create-breakthrough-room" class="mode-choice primary-command"><span>CREATE BREAKTHROUGH ROOM</span><small>3v3 siege at Bastion Breach · bots fill open slots</small></button>
+        <button id="create-room" class="mode-choice"><span>CREATE FREE-FOR-ALL ROOM</span><small>Start a private Castleward match</small></button>
         <div class="private-divider"><span>OR JOIN</span></div>
         <label class="field-label" for="room-code">ROOM CODE</label>
         <div class="join-row">
@@ -275,6 +287,7 @@
         <div id="lobby-players" class="player-list"></div>
         <div id="lobby-votes" class="lobby-votes"></div>
         <button id="start-match" class="wide-button primary-command hidden">START MATCH</button>
+        <button id="switch-team" class="wide-button hidden">SWITCH ALLEGIANCE</button>
         <button id="copy-link" class="wide-button">COPY INVITE LINK</button>
         <button id="lobby-leave" class="wide-button">RETURN TO MENU</button>
         <p id="lobby-copy" class="small-copy">Two players are enough. New players can join an active match.</p>

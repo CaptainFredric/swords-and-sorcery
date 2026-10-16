@@ -115,8 +115,9 @@ export class GameSocket {
   }
 
   createRoom(name) { this.send({ type: 'createRoom', name }); }
+  createBreakthroughRoom(name, team = null, botSkill = null) { this.send({ type: 'createBreakthroughRoom', name, isPrivate: true, ...(team ? { team } : {}), ...(botSkill ? { botSkill } : {}) }); }
   quickPlay(name) { this.send({ type: 'quickPlay', name }); }
-  startSolo(mode, name, worldId, botSkill) { this.send({ type: 'startSolo', mode, name, worldId, ...(botSkill ? { botSkill } : {}) }); }
+  startSolo(mode, name, worldId, botSkill, team = null) { this.send({ type: 'startSolo', mode, name, worldId, ...(botSkill ? { botSkill } : {}), ...(team ? { team } : {}) }); }
   joinRoom(code, name) { this.send({ type: 'joinRoom', code: code.trim().toUpperCase(), name }); }
   startMatch() { this.send({ type: 'startMatch' }); }
   arenaReady(ready) { this.send({ type: 'arenaReady', ready: Boolean(ready) }); }
@@ -150,6 +151,8 @@ export class GameSocket {
   practiceReadyUltimate() { this.send({ type: 'practiceReadyUltimate' }); }
   dash(direction) { this.send({ type: 'dash', direction }); }
   rematch() { this.send({ type: 'rematch' }); }
+  switchTeam(team = null) { this.send({ type: 'switchTeam', team }); }
+  markTarget(targetId = null) { this.send({ type: 'markTarget', targetId }); }
   seekDuel(name) { this.send({ type: 'seekDuel', name }); }
   cancelSeek() { this.send({ type: 'cancelSeek' }); }
   seekBotDuel() { this.send({ type: 'seekBotDuel' }); }

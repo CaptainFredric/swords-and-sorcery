@@ -166,14 +166,14 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
   }
 
   // a new Spellblade in a room, carrying the spell its player chose in the Armory
-  function createNetworkPlayer(session, room, name) {
+  function createNetworkPlayer(session, room, name, team = null) {
     const id = crypto.randomUUID();
     const token = crypto.randomUUID();
-    return room.addPlayer({ id, token, name, spell: session.spell, ultimate: session.ultimate, preparedSpells: session.preparedSpells }, now());
+    return room.addPlayer({ id, token, name, spell: session.spell, ultimate: session.ultimate, preparedSpells: session.preparedSpells, team }, now());
   }
 
-  function joinNew(session, room, name) {
-    const player = createNetworkPlayer(session, room, name);
+  function joinNew(session, room, name, team = null) {
+    const player = createNetworkPlayer(session, room, name, team);
     attachPlayer(session, room, player);
   }
 
@@ -351,6 +351,14 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
       joinNew(session, room, message.name);
       return;
     }
+    if (message.type === 'createBreakthroughRoom' && !session.roomCode) {
+      const room = roomManager.createBreakthroughRoom(time, Boolean(message.isPrivate ?? true));
+      room.setBotSkill(message.botSkill);
+      const player = createNetworkPlayer(session, room, message.name, message.team ?? null);
+      room.provisionModeActors(time);
+      attachPlayer(session, room, player);
+      return;
+    }
     if (message.type === 'quickPlay' && !session.roomCode) {
       const room = roomManager.quickPlay(time);
       joinNew(session, room, message.name);
@@ -361,8 +369,9 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
         send(session, { type: 'error', message: 'Unknown solo mode' });
         return;
       }
-      const room = roomManager.createSoloRoom(message.mode, time, arenaOrDefault(message.worldId));
-      const player = createNetworkPlayer(session, room, message.name);
+      const defaultWorld = message.mode === GAME_MODES.BREAKTHROUGH ? 'bastion-breach' : arenaOrDefault(message.worldId);
+      const room = roomManager.createSoloRoom(message.mode, time, defaultWorld);
+      const player = createNetworkPlayer(session, room, message.name, message.team ?? null);
       // (how well the rival plays: the player's choice, the Knight's otherwise)
       room.setBotSkill(message.botSkill);
       room.provisionModeActors(time);

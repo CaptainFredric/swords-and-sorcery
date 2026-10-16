@@ -107,3 +107,57 @@ body.took-steel::after{content:"";position:fixed;inset:0;z-index:50;pointer-even
 
 .practice-tools #practice-play-frames { grid-column: 1 / -1; text-align: center; border: 1px solid rgba(236,201,127,.4); background: rgba(236,201,127,.06); margin-top: 4px; }
 .practice-tools #practice-play-frames:not(:disabled):hover { background: rgba(236,201,127,.14); }
+
+
+/* --- Breakthrough Objective HUD, World Waypoint & Team End Screen --- */
+.breakthrough-hud {
+  position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
+  width: min(390px, 88cqw); padding: 8px 14px 9px;
+  background: linear-gradient(180deg, rgba(22, 23, 19, .88), rgba(14, 15, 12, .92));
+  border: 1px solid rgba(201, 156, 82, .45);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, .45);
+  display: grid; gap: 5px; pointer-events: none;
+}
+.breakthrough-hud[data-team="ATTACKERS"] { border-top: 2px solid #5294ff; }
+.breakthrough-hud[data-team="DEFENDERS"] { border-top: 2px solid #de4840; }
+.bt-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 9px; font-weight: 800; letter-spacing: .16em; color: rgba(234, 220, 182, .75); }
+.bt-team-badge { padding: 2px 6px; font-weight: 900; letter-spacing: .14em; background: rgba(61, 126, 237, .22); color: #8ec0ff; border: 1px solid rgba(116, 182, 255, .45); }
+.breakthrough-hud[data-team="DEFENDERS"] .bt-team-badge { background: rgba(222, 56, 56, .22); color: #ff9c94; border-color: rgba(226, 106, 95, .45); }
+.bt-clock { font-variant-numeric: tabular-nums; color: #f1dfae; font-size: 11px; }
+.bt-main { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.bt-obj-name { font-family: Georgia, serif; font-size: 15px; letter-spacing: .08em; color: #f4ead2; }
+.bt-state-pill { font-style: normal; font-size: 10px; font-weight: 900; letter-spacing: .14em; color: #d5b76f; }
+.breakthrough-hud[data-state="capturing"] .bt-state-pill { color: #74b6ff; }
+.breakthrough-hud[data-state="contested"] .bt-state-pill { color: #ff9a52; animation: bt-pulse .75s ease-in-out infinite alternate; }
+.bt-bar-track { height: 7px; background: #121410; border: 1px solid rgba(201, 156, 82, .38); overflow: hidden; }
+.bt-bar-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #3d7eed, #68cee1); transition: width .12s linear; }
+.breakthrough-hud[data-state="contested"] .bt-bar-fill { background: linear-gradient(90deg, #c9564a, #e98243); }
+.bt-footer { display: flex; align-items: center; justify-content: space-between; font-size: 10px; color: rgba(234, 220, 182, .68); letter-spacing: .04em; }
+@keyframes bt-pulse { from { opacity: .65; } to { opacity: 1; } }
+
+.objective-waypoint {
+  position: absolute; transform: translate(-50%, -50%);
+  display: grid; justify-items: center; gap: 2px;
+  padding: 4px 8px; background: rgba(18, 20, 16, .78);
+  border: 1px solid rgba(201, 156, 82, .65);
+  pointer-events: none; transition: border-color .15s;
+}
+.objective-waypoint .wp-diamond {
+  width: 8px; height: 8px; transform: rotate(45deg);
+  background: #d5b76f; margin-bottom: 2px;
+}
+.objective-waypoint[data-state="capturing"] { border-color: #68cee1; }
+.objective-waypoint[data-state="capturing"] .wp-diamond { background: #68cee1; }
+.objective-waypoint[data-state="contested"] { border-color: #e98243; }
+.objective-waypoint[data-state="contested"] .wp-diamond { background: #e98243; }
+.objective-waypoint b { font: 700 9px/1.1 Georgia, serif; letter-spacing: .12em; color: #f4ead2; white-space: nowrap; }
+.objective-waypoint span { font: 800 9px/1 ui-sans-serif, system-ui, sans-serif; color: #d5b76f; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+.sb-team-head { margin: 10px 0 4px; font-size: 11px; letter-spacing: .16em; color: #8ec0ff; }
+.sb-team-head.team-def { color: #ff9c94; }
+.bt-end-summary { padding: 8px 12px; margin-bottom: 8px; background: rgba(28, 24, 19, .75); border: 1px solid rgba(201, 156, 82, .38); display: grid; gap: 3px; }
+.bt-end-summary strong { font-family: Georgia, serif; font-size: 13px; letter-spacing: .1em; color: #f1dfae; }
+.bt-end-summary small { font-size: 11px; color: rgba(234, 220, 182, .72); }
+.bt-side-tag { font-size: 9px; font-weight: 900; letter-spacing: .1em; padding: 2px 4px; text-align: center; }
+.bt-side-tag.att { color: #74b6ff; }
+.bt-side-tag.def { color: #ff9c94; }

@@ -61,6 +61,7 @@ export class InputController {
     this.onCastLocal = () => {};
     this.onGauntletLocal = () => {};
     this.onDashLocal = () => {};
+    this.onMarkLocal = () => {};
     this.onPointer = () => {};
     this.onAction = () => {};
     // look speed (multipliers) and the key bindings, from the settings
@@ -179,6 +180,12 @@ export class InputController {
         if (this.allowAction?.(MOVE_ACTIONS.has(action) ? 'move' : action, !event.repeat) === false) { this.blockedKeys.add(event.code); return; }
       }
       if (!recordArenaKey(this.keys, event.code, this.enabled)) return;
+      if (event.code === 'KeyV' && !event.repeat && this.enabled && !this.suspended) {
+        event.preventDefault();
+        this.socket.markTarget?.();
+        this.onMarkLocal();
+        return;
+      }
       // a bound key belongs to the game while in the arena (Space would scroll, Tab would move focus)
       if (action) event.preventDefault();
       this.#press(event.code, event.repeat);

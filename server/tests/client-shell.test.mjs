@@ -42,7 +42,7 @@ test('front-door copy stays player-facing instead of exposing implementation not
 
   assert.doesNotMatch(menuSlice, /No second tab|No second device|authoritative|CURRENT GROUND|CALL YOUR RIVALS|MUSTERING|Every route is reachable on foot/i);
   assert.match(menuSlice, /Browse public matches/i);
-  assert.match(menuSlice, /Fight a bot or practice/i);
+  assert.match(menuSlice, /3v3 Breakthrough, Bot Duel or practice|Fight a bot or practice/i);
   assert.match(menuSlice, /Invite friends with a room code/i);
 });
 

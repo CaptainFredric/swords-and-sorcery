@@ -814,62 +814,112 @@ function patrol(actor, ai, nowSec, random, world) {
  */
 function selectTeamGoal(room, actor, ai, nowSec) {
   if (!room.policy?.teamMode || !room.objectiveState || room.objectiveState.completed) {
-    return { target: null, goalPos: null };
+    return { target: null, goalPos: null, holdRing: false };
   }
 
   const enemies = foesOf(room, actor);
   const activeObj = room.objectiveState.objectives[room.objectiveState.index];
-  if (!activeObj) return { target: null, goalPos: null };
+  if (!activeObj) return { target: null, goalPos: null, holdRing: false };
   const objPos = activeObj.position;
   const rivalIndex = actor.rivalIndex ?? 0;
-  // Tactical spread around the objective to avoid stacking directly on top of each other
-  const angle = (rivalIndex * 2.1) % (2 * Math.PI);
-  const offset = Math.min(activeObj.radius * 0.45, 2.5);
+  const teamOffset = actor.team === TEAMS.DEFENDERS ? 0.9 : 0.0;
+  // Role-based spatial spread inside the objective ring so teammates never stack on the exact same point
+  const angle = (rivalIndex * 2.09 + teamOffset) % (2 * Math.PI);
+  const spreadRadius = rivalIndex === 0 ? Math.min(1.6, activeObj.radius * 0.3) : Math.min(activeObj.radius * 0.68, 3.6);
   const goalPos = {
-    x: objPos.x + Math.sin(angle) * offset,
+    x: objPos.x + Math.sin(angle) * spreadRadius,
     y: objPos.y,
-    z: objPos.z + Math.cos(angle) * offset,
+    z: objPos.z + Math.cos(angle) * spreadRadius,
   };
 
-  // 1. Immediate Danger: enemy close (< 3.5m) and actively threatening
-  const immediate = enemies.find((e) => distance2d(actor, e) <= 3.5 && (e.attackActive || distance2d(actor, e) <= 2.2));
-  if (immediate) return { target: immediate, goalPos };
+  const allies = [...room.players.values()].filter((p) => p !== actor && p.alive && areAllies(room, actor, p) && (p.actorKind !== 'human' || p.connected));
+  const distToObj = distance2d(actor, { position: objPos });
+  const allyInRing = allies.some((a) => distance2d(a, { position: objPos }) <= activeObj.radius - 0.3);
 
-  // 2. Disengage check: if targeting a distant fleeing enemy while objective needs attention
+  // Disengage check first: drop distant fleeing enemies when the objective needs attention
   if (ai.targetId) {
     const currentTarget = room.players.get(ai.targetId);
     if (currentTarget && currentTarget.alive) {
       const targetDistFromObj = distance2d(currentTarget, { position: objPos });
       const objectiveNeedsAttention = (actor.team === TEAMS.DEFENDERS && (room.objectiveState.attackersCount > 0 || room.objectiveState.progress > 0.05))
         || (actor.team === TEAMS.ATTACKERS && room.objectiveState.progress < 1);
-      if (objectiveNeedsAttention && targetDistFromObj > activeObj.radius + 8 && distance2d(actor, currentTarget) > 4.0) {
+      if (objectiveNeedsAttention && targetDistFromObj > activeObj.radius + 6.5 && distance2d(actor, currentTarget) > 3.8) {
         ai.targetId = null;
       }
     }
   }
 
-  // 3. Useful Ally Support: ally fighting an enemy nearby (< 12m)
-  const allies = [...room.players.values()].filter((p) => p !== actor && p.alive && areAllies(room, actor, p) && (p.actorKind !== 'human' || p.connected));
-  for (const ally of allies) {
-    const enemyFightingAlly = enemies.find((e) => distance2d(ally, e) <= 3.8 && distance2d(actor, e) <= 12.0);
-    if (enemyFightingAlly) return { target: enemyFightingAlly, goalPos };
+  // Urgent objective duty:
+  // - Defenders must step into the ring if attackers are capturing and no defender is contesting
+  // - Attackers need at least one knight inside the capture ring
+  const mustContest = actor.team === TEAMS.DEFENDERS && room.objectiveState.attackersCount > 0 && room.objectiveState.defendersCount === 0;
+  const mustCapture = actor.team === TEAMS.ATTACKERS && room.objectiveState.attackersCount === 0 && !allyInRing && rivalIndex === 0;
+  const holdRing = (mustContest || mustCapture) && distToObj > activeObj.radius - 0.6;
+
+  const pickDistributedTarget = (candidates) => {
+    if (!candidates.length) return null;
+    const markedIds = new Set(
+      (room.teamMarks ?? [])
+        .filter((m) => m.team === actor.team && m.kind === 'enemy' && m.expiresAt > nowSec)
+        .map((m) => m.targetId),
+    );
+    let best = null;
+    let bestScore = Infinity;
+    for (const foe of candidates) {
+      const d = distance2d(actor, foe);
+      const alliesOnFoe = allies.filter((a) => a.ai?.targetId === foe.id || distance2d(a, foe) <= 2.4).length;
+      const markedBonus = markedIds.has(foe.id) ? -4.5 : 0;
+      const crowdPenalty = alliesOnFoe * 3.2;
+      const score = d + crowdPenalty + markedBonus;
+      if (score < bestScore) {
+        bestScore = score;
+        best = foe;
+      }
+    }
+    return best;
+  };
+
+  // 1. Immediate self-defense: enemy right in melee reach
+  const immediate = enemies.filter((e) => distance2d(actor, e) <= 3.2 && (e.attackActive || distance2d(actor, e) <= 2.2));
+  if (immediate.length) return { target: pickDistributedTarget(immediate), goalPos, holdRing: false };
+
+  // 2. If urgent ring entry is needed, ignore side bait outside the ring and rush into the ring (or attack the capper inside it)
+  if (holdRing) {
+    const enemyInRing = enemies.filter((e) => distance2d(e, { position: objPos }) <= activeObj.radius && distance2d(actor, e) <= 4.5);
+    return { target: pickDistributedTarget(enemyInRing), goalPos, holdRing: true };
   }
 
-  // 4. Enemies in or near the objective zone
-  const enemiesAtObj = enemies.filter((e) => distance2d(e, { position: objPos }) <= activeObj.radius + 4.0);
+  // 3. Team-marked enemy near the objective or ally
+  const markedEnemies = enemies.filter((e) => (room.teamMarks ?? []).some((m) => m.team === actor.team && m.kind === 'enemy' && m.targetId === e.id && m.expiresAt > nowSec)
+    && distance2d(e, { position: objPos }) <= activeObj.radius + 10.0);
+  if (markedEnemies.length) return { target: markedEnemies[0], goalPos, holdRing: false };
+
+  // 4. Useful Ally Support: help an ally fighting nearby (< 11m), prioritizing human teammates
+  for (const ally of [...allies].sort((a, b) => (a.actorKind === 'human' ? -1 : 1) - (b.actorKind === 'human' ? -1 : 1))) {
+    const enemyFightingAlly = enemies.filter((e) => distance2d(ally, e) <= 3.8 && distance2d(actor, e) <= 11.0);
+    if (enemyFightingAlly.length) return { target: pickDistributedTarget(enemyFightingAlly), goalPos, holdRing: false };
+  }
+
+  // 5. Enemies inside or contesting the objective zone
+  const enemiesAtObj = enemies.filter((e) => distance2d(e, { position: objPos }) <= activeObj.radius + 3.5);
   if (enemiesAtObj.length) {
-    enemiesAtObj.sort((a, b) => distance2d(actor, a) - distance2d(actor, b));
-    return { target: enemiesAtObj[0], goalPos };
+    return { target: pickDistributedTarget(enemiesAtObj), goalPos, holdRing: false };
   }
 
-  // 5. Nearest enemy within reasonable pursuit range
-  const sorted = [...enemies].sort((a, b) => distance2d(actor, a) - distance2d(actor, b));
-  if (sorted.length && distance2d(sorted[0], { position: objPos }) <= activeObj.radius + 12.0) {
-    return { target: sorted[0], goalPos };
+  // 6. If this bot is the sole point capper inside the ring, stay in the ring rather than chasing enemies far outside
+  if (actor.team === TEAMS.ATTACKERS && distToObj <= activeObj.radius && room.objectiveState.attackersCount <= 1) {
+    return { target: null, goalPos, holdRing: true };
   }
 
-  // 6. No immediate enemies: proceed to capture or defend objective
-  return { target: null, goalPos };
+  // 7. Flankers / vanguards engage enemies approaching the objective within a disciplined leash
+  const leash = rivalIndex === 0 ? activeObj.radius + 5.5 : activeObj.radius + 10.0;
+  const nearbyEnemies = enemies.filter((e) => distance2d(e, { position: objPos }) <= leash);
+  if (nearbyEnemies.length) {
+    return { target: pickDistributedTarget(nearbyEnemies), goalPos, holdRing: false };
+  }
+
+  // 8. No immediate enemies: proceed to capture or defend objective
+  return { target: null, goalPos, holdRing: false };
 }
 
 /**
@@ -915,7 +965,10 @@ export function stepBotControllers(
         continue;
       }
     }
-    if (!target || (!room.policy?.teamMode && !targetKinds.includes(target.actorKind)) || (target.actorKind === 'human' && !target.connected) || !target.alive) {
+    if (room.policy?.teamMode && room.objectiveState && !room.objectiveState.completed) {
+      target = teamGoal.target;
+      ai.targetId = target?.id ?? null;
+    } else if (!target || (!room.policy?.teamMode && !targetKinds.includes(target.actorKind)) || (target.actorKind === 'human' && !target.connected) || !target.alive) {
       target = teamGoal.target ?? nearestHuman(room, actor, targetKinds);
       ai.targetId = target?.id ?? null;
     } else if (teamGoal.target && teamGoal.target !== target) {
