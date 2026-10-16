@@ -140,3 +140,21 @@ test('the new lines\' words and notes are as written (a few, checked to the lett
   assert.equal(entry('heavyHurt').title, 'Heavy Injury I');
   assert.equal(entry('heavyHurt2').title, 'Heavy Injury II');
 });
+
+test('unrecorded placeholders are omitted when building sections for the Credits display', async () => {
+  const { librarySections } = await import('./voiceLibrary.mjs');
+  const isRecorded = (line) => recorded.has(line);
+  const all = librarySections(isRecorded, { includeUnrecorded: true });
+  const credits = librarySections(isRecorded, { includeUnrecorded: false });
+  assert.equal(all.flatMap((s) => s.entries).length, VOICE_LIBRARY.length);
+  assert.equal(credits.flatMap((s) => s.entries).length, VOICE_LIBRARY.length - 3);
+  const unrecordedIds = ['dash', 'fistEffort', 'neverReach'];
+  for (const id of unrecordedIds) {
+    assert.ok(all.some((s) => s.entries.some((e) => e.line === id)), `${id} is kept in full library`);
+    assert.ok(!credits.some((s) => s.entries.some((e) => e.line === id)), `${id} is omitted from credits`);
+  }
+  // Coming lines with recordings remain in credits
+  assert.ok(credits.some((s) => s.entries.some((e) => e.line === 'fightAsMe')));
+  assert.ok(credits.some((s) => s.entries.some((e) => e.line === 'misaddressed')));
+});
+
