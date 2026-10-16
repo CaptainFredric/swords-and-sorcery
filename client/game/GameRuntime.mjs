@@ -875,9 +875,12 @@ export class GameRuntime {
         const myTeam = this.localAuth?.team;
         if (!myTeam || event.team === myTeam) {
           const prefix = event.kind === 'enemy' ? 'TARGET MARKED' : 'RALLY POINT';
-          this.hud.addFeed(`${event.playerName || 'Ally'}: ${prefix} —${event.label}`, 'fire');
+          this.hud.addFeed(`${event.playerName || 'Ally'}: ${prefix} — ${event.label}`, 'fire');
           if (event.playerId === me) {
-            this.hud.flashText(`${prefix}:${String(event.label).toUpperCase()}`, 'metal', 1400);
+            this.hud.flashText(`${prefix}: ${String(event.label).toUpperCase()}`, 'metal', 1400);
+          }
+          if (event.kind === 'enemy') {
+            this.#sayMoment(event.playerId, ['markEnemy']);
           }
         }
       }
@@ -907,6 +910,8 @@ export class GameRuntime {
         // (a crowded field, three others or more: enough of "you" for "each and every single one of you")
         const crowded = knights.length >= 4;
         if (!this.#inPractice() && knights.length >= 2) for (const knight of knights) this.#sayMoment(knight.id, ['battleBegins', crowded && 'crowdedBattleBegins']);
+        const isTeamMode = Boolean(this.latestSnapshot?.teamMode || this.latestSnapshot?.mode === 'BREAKTHROUGH');
+        if (isTeamMode) for (const knight of knights) this.#sayMoment(knight.id, ['teamEngage']);
       }
     }
   }
@@ -1369,6 +1374,28 @@ export class GameRuntime {
     if (spoken?.opens === 'nap') this.scenes.napTaken(victimId, at, event.respawnAt);
     if (!spoke && !scene.victor) this.#sayMoments([victor], event.at);
     this.#sayMoments(rescued, event.at);
+
+    // team battle reactions: ally fallen, ally felled foe, or marked target felled
+    const myId = this.socket.playerId;
+    const myPlayer = players.find((p) => p.id === myId);
+    const myTeam = this.localAuth?.team ?? myPlayer?.team;
+    const victimPlayer = players.find((p) => p.id === victimId);
+    const killerPlayer = killerId ? players.find((p) => p.id === killerId) : null;
+    const wasMarked = (this.latestSnapshot?.marks ?? []).some((m) => m.targetId === victimId && m.kind === 'enemy');
+
+    if (myTeam && victimPlayer?.team) {
+      if (victimPlayer.team === myTeam && victimId !== myId) {
+        this.#sayMoment(myId, ['allyFallen']);
+      } else if (victimPlayer.team !== myTeam) {
+        if (wasMarked) {
+          if (killerId === myId) this.#sayMoment(myId, ['markedTargetFelled']);
+          else if (killerPlayer?.team === myTeam) this.#sayMoment(killerId, ['markedTargetFelled']);
+        } else if (killerId && killerId !== myId && killerPlayer?.team === myTeam) {
+          this.#sayMoment(myId, ['allyFelledFoe']);
+        }
+      }
+    }
+
     // nothing said of my own fall: now and then, I make my case late, and my return cuts it short ("Three—")
     if (!spoke && victimId === this.socket.playerId) this.#appeal(event);
   }

@@ -158,14 +158,10 @@ export class GameLink {
   }
 
   /** Solo has its own host regardless of the multiplayer connection's availability. */
-  startSolo(mode, name, worldId, botSkill, team = null) {
+  startSolo(mode, name, worldId, botSkill, team = null, teamSize = null) {
     if (this.hosting === 'remote' && this.remote.roomCode) this.remote.leaveRoom();
     this.hosting = 'local';
-    if (team) this.local.startSolo(mode, name, worldId, botSkill, false, team);
-    else {
-      const args = [mode, name, worldId, ...(botSkill ? [botSkill] : [])];
-      this.local.startSolo(...args);
-    }
+    this.local.startSolo(mode, name, worldId, botSkill, false, team, teamSize);
   }
 
   /** An explicitly local yard for pose and effect inspection, even when online. */

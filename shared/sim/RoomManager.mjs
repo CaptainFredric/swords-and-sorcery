@@ -34,8 +34,8 @@ export class RoomManager {
     return this.#createRoom({ isPrivate: false, mode: GAME_MODES.FFA, worldId }, nowSec);
   }
 
-  createBreakthroughRoom(nowSec = 0, isPrivate = true, worldId = WORLD_IDS.BASTION_BREACH) {
-    return this.#createRoom({ isPrivate, mode: GAME_MODES.BREAKTHROUGH, worldId }, nowSec);
+  createBreakthroughRoom(nowSec = 0, isPrivate = true, worldId = WORLD_IDS.BASTION_BREACH, { teamSize = null } = {}) {
+    return this.#createRoom({ isPrivate, mode: GAME_MODES.BREAKTHROUGH, worldId, teamSize }, nowSec);
   }
 
   // a matchmade one-on-one: never listed, never joinable by code or Quick Play
@@ -43,15 +43,15 @@ export class RoomManager {
     return this.#createRoom({ isPrivate: true, mode: GAME_MODES.DUEL, worldId }, nowSec);
   }
 
-  createSoloRoom(mode, nowSec = 0, worldId = (mode === GAME_MODES.BREAKTHROUGH ? WORLD_IDS.BASTION_BREACH : WORLD_IDS.CASTLEWARD)) {
+  createSoloRoom(mode, nowSec = 0, worldId = (mode === GAME_MODES.BREAKTHROUGH ? WORLD_IDS.BASTION_BREACH : WORLD_IDS.CASTLEWARD), { teamSize = null } = {}) {
     if (!SOLO_MODES.has(mode)) throw new Error('Unknown solo mode');
-    return this.#createRoom({ isPrivate: true, mode, worldId }, nowSec);
+    return this.#createRoom({ isPrivate: true, mode, worldId, teamSize }, nowSec);
   }
 
-  #createRoom({ isPrivate, mode, worldId }, nowSec) {
+  #createRoom({ isPrivate, mode, worldId, teamSize = null }, nowSec) {
     let code;
     do code = generateRoomCode(this.random); while (this.rooms.has(code));
-    const room = new Room(code, { isPrivate, mode, worldId });
+    const room = new Room(code, { isPrivate, mode, worldId, teamSize });
     room.createdAt = nowSec;
     this.rooms.set(code, room);
     return room;

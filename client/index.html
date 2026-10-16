@@ -174,17 +174,7 @@
           <button type="button" class="vote-chip" role="radio" data-skill="spellblade">THE SPELLBLADE</button>
         </div>
         <p class="panel-copy solo-rival-note" id="solo-rival-note" aria-live="polite"></p>
-        <div id="solo-team" class="vote-row solo-arena" role="radiogroup" aria-label="Breakthrough Side">
-          <span>ALLEGIANCE</span>
-          <button type="button" class="vote-chip" role="radio" data-team="AUTO">AUTO</button>
-          <button type="button" class="vote-chip" role="radio" data-team="ATTACKERS">ATTACKERS</button>
-          <button type="button" class="vote-chip" role="radio" data-team="DEFENDERS">DEFENDERS</button>
-        </div>
-        <button id="solo-breakthrough" class="mode-choice primary-command">
-          <span>BREAKTHROUGH · 3V3</span>
-          <small>Bastion Breach · capture or defend with 5 Spellblade bots</small>
-        </button>
-        <button id="bot-duel" class="mode-choice">
+        <button id="bot-duel" class="mode-choice primary-command">
           <span>BOT DUEL</span>
           <small>One Spellblade · first to 10</small>
         </button>
@@ -199,6 +189,50 @@
         <button id="inspection-mode" class="mode-choice">
           <span>INSPECTION YARD</span>
           <small>Local Practice · freeze poses and step through effects</small>
+        </button>
+      </div></div>
+    </section>
+
+    <section id="breakthrough-menu" class="side-screen hidden">
+      <div class="side-screen-inner banner-panel breakthrough-inner"><div class="banner-scroll">
+        <button class="back-button" id="breakthrough-back">← BACK</button>
+        <p class="eyebrow">TEAM BATTLE</p>
+        <h2>BREAKTHROUGH</h2>
+        <p class="scenario-subtitle">BASTION BREACH</p>
+        <label class="field-label" for="breakthrough-name">SPELLBLADE NAME</label>
+        <input id="breakthrough-name" class="game-input" data-name-copy maxlength="18" autocomplete="nickname" placeholder="Enter a name" />
+        <p class="error-copy" data-menu-error aria-live="polite"></p>
+        <p class="panel-copy">A multi-phase fortress siege. Attackers capture sequential objectives to breach the stronghold; Defenders stand fast to hold the line.</p>
+
+        <div id="breakthrough-size" class="vote-row solo-arena" role="radiogroup" aria-label="Battle Size">
+          <span>BATTLE SIZE</span>
+          <button type="button" class="vote-chip" role="radio" data-size="2">2V2</button>
+          <button type="button" class="vote-chip mine" role="radio" data-size="3">3V3 <small>(RECOMMENDED)</small></button>
+        </div>
+
+        <div id="breakthrough-team" class="vote-row solo-arena" role="radiogroup" aria-label="Allegiance">
+          <span>ALLEGIANCE</span>
+          <button type="button" class="vote-chip mine" role="radio" data-team="AUTO">AUTO</button>
+          <button type="button" class="vote-chip" role="radio" data-team="ATTACKERS">ATTACKERS</button>
+          <button type="button" class="vote-chip" role="radio" data-team="DEFENDERS">DEFENDERS</button>
+        </div>
+
+        <div id="breakthrough-rival" class="vote-row solo-arena" role="radiogroup" aria-label="Bot Difficulty">
+          <span>BOT DIFFICULTY</span>
+          <button type="button" class="vote-chip" role="radio" data-skill="squire">SQUIRE</button>
+          <button type="button" class="vote-chip mine" role="radio" data-skill="knight">KNIGHT</button>
+          <button type="button" class="vote-chip" role="radio" data-skill="champion">CHAMPION</button>
+          <button type="button" class="vote-chip" role="radio" data-skill="spellblade">THE SPELLBLADE</button>
+        </div>
+        <p class="panel-copy solo-rival-note" id="breakthrough-rival-note" aria-live="polite"></p>
+
+        <button id="breakthrough-play-bots" class="mode-choice primary-command">
+          <span>PLAY WITH BOTS</span>
+          <small>Launch offline team battle · fill remaining slots with bots</small>
+        </button>
+        <button id="breakthrough-create-private" class="mode-choice">
+          <span>CREATE PRIVATE TEAM MATCH</span>
+          <small>Host a joinable lobby with a room code · friends replace bots</small>
         </button>
       </div></div>
     </section>

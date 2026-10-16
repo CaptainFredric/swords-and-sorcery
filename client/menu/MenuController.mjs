@@ -47,16 +47,48 @@ export class MenuController {
     return chosen;
   }
 
-  /** Preferred side for Solo Breakthrough ('AUTO', 'ATTACKERS', 'DEFENDERS'). */
-  soloTeam() {
-    const raw = this.storage?.getItem?.('ss-solo-team');
+  /** Preferred side for Breakthrough ('AUTO', 'ATTACKERS', 'DEFENDERS'). */
+  breakthroughTeam() {
+    const raw = this.storage?.getItem?.('ss-breakthrough-team') ?? this.storage?.getItem?.('ss-solo-team');
     return (raw === 'ATTACKERS' || raw === 'DEFENDERS') ? raw : 'AUTO';
   }
 
-  chooseSoloTeam(team) {
+  chooseBreakthroughTeam(team) {
     const chosen = (team === 'ATTACKERS' || team === 'DEFENDERS') ? team : 'AUTO';
-    this.storage?.setItem?.('ss-solo-team', chosen);
+    this.storage?.setItem?.('ss-breakthrough-team', chosen);
     return chosen;
+  }
+
+  /** Team battle size (2 or 3, default 3). Architected so 5v5 can be added later. */
+  breakthroughSize() {
+    const raw = Number(this.storage?.getItem?.('ss-breakthrough-size'));
+    return (raw === 2 || raw === 3) ? raw : 3;
+  }
+
+  chooseBreakthroughSize(size) {
+    const chosen = Number(size) === 2 ? 2 : 3;
+    this.storage?.setItem?.('ss-breakthrough-size', String(chosen));
+    return chosen;
+  }
+
+  /** Bot difficulty for Breakthrough (defaults to Knight). */
+  breakthroughSkill() {
+    return botSkillId(this.storage?.getItem?.('ss-breakthrough-skill') ?? 'knight');
+  }
+
+  chooseBreakthroughSkill(skill) {
+    const chosen = botSkillId(skill);
+    this.storage?.setItem?.('ss-breakthrough-skill', chosen);
+    return chosen;
+  }
+
+  /** Preferred side for Solo Breakthrough ('AUTO', 'ATTACKERS', 'DEFENDERS'). */
+  soloTeam() {
+    return this.breakthroughTeam();
+  }
+
+  chooseSoloTeam(team) {
+    return this.chooseBreakthroughTeam(team);
   }
 
   #withName(rawName, action) {
@@ -83,16 +115,20 @@ export class MenuController {
     return this.#withName(rawName, (name) => this.socket.startSolo('BOT_DUEL', name, this.soloArena(), this.botSkill()));
   }
 
-  breakthrough(rawName, teamOverride = null) {
-    const teamPref = teamOverride ?? this.soloTeam();
+  breakthrough(rawName, options = null) {
+    const teamPref = (typeof options === 'string' ? options : options?.team) ?? this.breakthroughTeam();
     const team = (teamPref === 'ATTACKERS' || teamPref === 'DEFENDERS') ? teamPref : null;
-    return this.#withName(rawName, (name) => this.socket.startSolo('BREAKTHROUGH', name, 'bastion-breach', this.botSkill(), team));
+    const skill = (typeof options === 'object' && options?.botSkill) ? options.botSkill : this.breakthroughSkill();
+    const size = (typeof options === 'object' && options?.teamSize) ? Number(options.teamSize) : this.breakthroughSize();
+    return this.#withName(rawName, (name) => this.socket.startSolo('BREAKTHROUGH', name, 'bastion-breach', skill, team, size));
   }
 
-  createBreakthroughPrivate(rawName, teamOverride = null) {
-    const teamPref = teamOverride ?? this.soloTeam();
+  createBreakthroughPrivate(rawName, options = null) {
+    const teamPref = (typeof options === 'string' ? options : options?.team) ?? this.breakthroughTeam();
     const team = (teamPref === 'ATTACKERS' || teamPref === 'DEFENDERS') ? teamPref : null;
-    return this.#withName(rawName, (name) => this.socket.createBreakthroughRoom(name, team, this.botSkill()));
+    const skill = (typeof options === 'object' && options?.botSkill) ? options.botSkill : this.breakthroughSkill();
+    const size = (typeof options === 'object' && options?.teamSize) ? Number(options.teamSize) : this.breakthroughSize();
+    return this.#withName(rawName, (name) => this.socket.createBreakthroughRoom(name, team, skill, size));
   }
 
   practice(rawName) {

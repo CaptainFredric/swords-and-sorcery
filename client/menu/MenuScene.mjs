@@ -90,6 +90,8 @@ export class MenuScene {
     this.visible = true;
     this.dragging = false;
     this.dragStart = { x: 0, y: 0, yaw: 0, pitch: 0 };
+    this.targetPosition = new THREE.Vector3(0, 0, 0);
+    this.breakthroughActive = false;
     this.targetYaw = Math.PI - 0.22;
     this.targetPitch = 0;
     this.frameHandle = null;
@@ -303,7 +305,7 @@ export class MenuScene {
   #pointerUp = () => { this.dragging = false; };
 
   #resetView = () => {
-    this.targetYaw = Math.PI - 0.22;
+    this.targetYaw = this.breakthroughActive ? Math.PI - 0.72 : Math.PI - 0.22;
     this.targetPitch = 0;
   };
 
@@ -321,6 +323,7 @@ export class MenuScene {
     const settled = shotSettled({ to: this.shotTo, duration: this.shotDuration, elapsed: this.shotElapsed });
     if (this.touringWanted && !this.touring && this.tour?.ready && settled) this.#startTouring();
     if (!this.touring) {
+      this.characterRoot.position.lerp(this.targetPosition, 0.08);
       this.characterRoot.rotation.y += (this.targetYaw - this.characterRoot.rotation.y) * 0.09;
       this.characterRoot.rotation.x += (this.targetPitch - this.characterRoot.rotation.x) * 0.09;
     }
@@ -364,10 +367,11 @@ export class MenuScene {
     } else if (this.visualKind === 'production' && this.assetInstance) {
       // between stretches of breathing he looks around, shifts, presents the blade, guards or kindles sorcery
       // a reaction to a choice on the front door takes over from the idle life while it lasts
-      const reaction = this.ready ? reactionMoment(this.reaction, this.clock) : null;
+      const isRepositioning = !this.touring && this.characterRoot.position.distanceTo(this.targetPosition) > 0.04;
+      const reaction = this.ready && !isRepositioning ? reactionMoment(this.reaction, this.clock) : null;
       const performance = reaction ? performanceAt(reaction.kind, reaction.elapsed) : null;
       const moment = reaction ?? (this.ready ? idleMoment(this.clock) : null);
-      let plan = resolveSpellbladeAnimationPlan({ state: 'idle', localTime: t });
+      let plan = resolveSpellbladeAnimationPlan({ state: isRepositioning ? 'run' : 'idle', localTime: t });
       if (performance) {
         // a performed flourish: the body bends as keyed, and the arm solver puts each hand where it belongs
         plan.motion = {
@@ -505,6 +509,50 @@ export class MenuScene {
     this.framingAge = 0;
   }
 
+  setBreakthroughPresentation(active, { immediate = false } = {}) {
+    this.breakthroughActive = Boolean(active);
+    const desktop = (globalThis.innerWidth ?? 1000) >= 900;
+    const reducedMotion = Boolean(globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches);
+    if (this.breakthroughActive && desktop) {
+      this.targetPosition.set(0.85, 0, -0.2);
+      this.targetYaw = Math.PI - 0.72;
+    } else {
+      this.targetPosition.set(0, 0, 0);
+      this.targetYaw = Math.PI - 0.22;
+    }
+    this.targetPitch = 0;
+    if (immediate || reducedMotion) {
+      this.characterRoot.position.copy(this.targetPosition);
+      this.characterRoot.rotation.set(0, this.targetYaw, 0);
+    }
+    this.ensureSwordVisible();
+  }
+
+  ensureSwordVisible() {
+    if (this.assetInstance?.root) {
+      this.assetInstance.root.traverse((object) => {
+        if (object.isMesh && /^HeroSword/i.test(object.name)) {
+          object.visible = true;
+        }
+      });
+    }
+  }
+
+  resetCanonicalHeroState({ immediate = false } = {}) {
+    this.reaction = null;
+    if (this.showcase?.active) {
+      this.showcase.stop();
+    }
+    this.armoryPreview = null;
+    this.showSpell(null);
+    this.assetInstance?.animator?.reset?.();
+    this.ensureSwordVisible();
+    if (immediate) {
+      this.characterRoot.position.copy(this.targetPosition);
+      this.characterRoot.rotation.set(0, this.targetYaw, 0);
+    }
+  }
+
   /** A choice was made on the front door: he answers it (salute, rally, present, look; see menuIdle.mjs). */
   react(kind) {
     // out on his round, he stops where he is to answer, and the round waits for him
@@ -555,9 +603,10 @@ export class MenuScene {
     this.tour.pause = 0;
     // back on his stage (the other screens' shots are framed on it), rivals and their remains out of sight
     this.stage.add(this.characterRoot);
-    this.characterRoot.position.set(0, 0, 0);
+    this.characterRoot.position.copy(this.targetPosition);
     this.characterRoot.rotation.set(0, this.targetYaw, 0);
     this.tour.setVisible(false);
+    this.ensureSwordVisible();
     this.assetInstance?.animator.cloth?.reset();
     this.sun.position.set(STAGE.x + CASTLEWARD_LIGHTING.sun.position[0], CASTLEWARD_LIGHTING.sun.position[1], STAGE.z + CASTLEWARD_LIGHTING.sun.position[2]);
     this.sun.target.position.set(STAGE.x, 0, STAGE.z);
@@ -764,6 +813,9 @@ export class MenuScene {
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(width, height, false);
     if (this.touring) this.#measureBanner();
+    if (this.breakthroughActive) {
+      this.setBreakthroughPresentation(true, { immediate: true });
+    }
   }
 
   setVisible(visible) {

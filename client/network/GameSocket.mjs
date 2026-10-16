@@ -115,9 +115,9 @@ export class GameSocket {
   }
 
   createRoom(name) { this.send({ type: 'createRoom', name }); }
-  createBreakthroughRoom(name, team = null, botSkill = null) { this.send({ type: 'createBreakthroughRoom', name, isPrivate: true, ...(team ? { team } : {}), ...(botSkill ? { botSkill } : {}) }); }
+  createBreakthroughRoom(name, team = null, botSkill = null, teamSize = null) { this.send({ type: 'createBreakthroughRoom', name, isPrivate: true, ...(team ? { team } : {}), ...(botSkill ? { botSkill } : {}), ...(teamSize ? { teamSize } : {}) }); }
   quickPlay(name) { this.send({ type: 'quickPlay', name }); }
-  startSolo(mode, name, worldId, botSkill, team = null) { this.send({ type: 'startSolo', mode, name, worldId, ...(botSkill ? { botSkill } : {}), ...(team ? { team } : {}) }); }
+  startSolo(mode, name, worldId, botSkill, team = null, teamSize = null) { this.send({ type: 'startSolo', mode, name, worldId, ...(botSkill ? { botSkill } : {}), ...(team ? { team } : {}), ...(teamSize ? { teamSize } : {}) }); }
   joinRoom(code, name) { this.send({ type: 'joinRoom', code: code.trim().toUpperCase(), name }); }
   startMatch() { this.send({ type: 'startMatch' }); }
   arenaReady(ready) { this.send({ type: 'arenaReady', ready: Boolean(ready) }); }

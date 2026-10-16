@@ -31,11 +31,11 @@ test('MenuController exposes solo and private Breakthrough entry paths with team
 
   const resSolo = menu.breakthrough('Aldric');
   assert.equal(resSolo.ok, true);
-  assert.deepEqual(calls[0], ['startSolo', 'BREAKTHROUGH', 'Aldric', 'bastion-breach', 'knight', 'DEFENDERS']);
+  assert.deepEqual(calls[0], ['startSolo', 'BREAKTHROUGH', 'Aldric', 'bastion-breach', 'knight', 'DEFENDERS', 3]);
 
   const resPriv = menu.createBreakthroughPrivate('Aldric', 'ATTACKERS');
   assert.equal(resPriv.ok, true);
-  assert.deepEqual(calls[1], ['createBreakthroughRoom', 'Aldric', 'ATTACKERS', 'knight']);
+  assert.deepEqual(calls[1], ['createBreakthroughRoom', 'Aldric', 'ATTACKERS', 'knight', 3]);
 });
 
 test('LocalHost starts a bot-filled 3v3 Breakthrough match and supports preferred team assignment', () => {
@@ -204,3 +204,108 @@ test('Bot urgency: Defender bot rushes into uncontested ring when Attackers are 
   assert.equal(defBot.ai.targetId, null, 'defender bot ignores side bait to contest objective ring first');
   assert.ok(defBot.input.forward > 0.5, 'defender bot moves forward toward objective');
 });
+
+test('3v3 team slots: 4th, 5th, 6th human arrivals replace bots and 7th is rejected', () => {
+  const manager = new RoomManager();
+  const room = manager.createBreakthroughRoom(0, true, WORLD_IDS.BASTION_BREACH, { teamSize: 3 });
+  room.addPlayer({ id: 'h1', token: 't1', name: 'Player 1' }, 0);
+  room.provisionModeActors(0);
+  assert.equal(room.players.size, 6);
+
+  // 2nd, 3rd, 4th, 5th, 6th human arrivals
+  room.addPlayer({ id: 'h2', token: 't2', name: 'Player 2' }, 1);
+  room.addPlayer({ id: 'h3', token: 't3', name: 'Player 3' }, 2);
+  room.addPlayer({ id: 'h4', token: 't4', name: 'Player 4' }, 3);
+  room.addPlayer({ id: 'h5', token: 't5', name: 'Player 5' }, 4);
+  room.addPlayer({ id: 'h6', token: 't6', name: 'Player 6' }, 5);
+
+  assert.equal(room.players.size, 6, 'exactly 6 combatants');
+  assert.equal(room.humanActorCount(), 6, 'all 6 slots filled by humans');
+  const attackers = [...room.players.values()].filter((p) => p.team === TEAMS.ATTACKERS);
+  const defenders = [...room.players.values()].filter((p) => p.team === TEAMS.DEFENDERS);
+  assert.equal(attackers.length, 3, '3 attackers');
+  assert.equal(defenders.length, 3, '3 defenders');
+
+  // Attempted 7th human is rejected
+  assert.throws(() => {
+    room.addPlayer({ id: 'h7', token: 't7', name: 'Player 7' }, 6);
+  }, /Room is full/);
+  assert.equal(room.players.size, 6);
+  assert.equal(room.humanActorCount(), 6);
+});
+
+test('2v2 team slots: 4 humans cap properly and reject 5th human', () => {
+  const manager = new RoomManager();
+  const room = manager.createBreakthroughRoom(0, true, WORLD_IDS.BASTION_BREACH, { teamSize: 2 });
+  assert.equal(room.policy.teamSize, 2);
+  assert.equal(room.policy.botCount, 3);
+
+  room.addPlayer({ id: 'h1', token: 't1', name: 'Player 1' }, 0);
+  room.provisionModeActors(0);
+  assert.equal(room.players.size, 4, '2v2 provisions 4 total combatants (1 human + 3 bots)');
+
+  room.addPlayer({ id: 'h2', token: 't2', name: 'Player 2' }, 1);
+  room.addPlayer({ id: 'h3', token: 't3', name: 'Player 3' }, 2);
+  room.addPlayer({ id: 'h4', token: 't4', name: 'Player 4' }, 3);
+
+  assert.equal(room.players.size, 4, 'exactly 4 combatants once full');
+  assert.equal(room.humanActorCount(), 4, '4 humans');
+  const attackers = [...room.players.values()].filter((p) => p.team === TEAMS.ATTACKERS);
+  const defenders = [...room.players.values()].filter((p) => p.team === TEAMS.DEFENDERS);
+  assert.equal(attackers.length, 2, '2 attackers');
+  assert.equal(defenders.length, 2, '2 defenders');
+
+  // Attempted 5th human is rejected
+  assert.throws(() => {
+    room.addPlayer({ id: 'h5', token: 't5', name: 'Player 5' }, 4);
+  }, /Room is full/);
+  assert.equal(room.players.size, 4);
+});
+
+test('Team switching into an already full side is rejected without corrupting match state', () => {
+  const manager = new RoomManager();
+  const room = manager.createBreakthroughRoom(0, true, WORLD_IDS.BASTION_BREACH, { teamSize: 2 });
+  // Add 2 humans on DEFENDERS
+  const d1 = room.addPlayer({ id: 'd1', token: 't1', name: 'Def 1', team: TEAMS.DEFENDERS }, 0);
+  const d2 = room.addPlayer({ id: 'd2', token: 't2', name: 'Def 2', team: TEAMS.DEFENDERS }, 0);
+  // Add 1 human on ATTACKERS
+  const a1 = room.addPlayer({ id: 'a1', token: 't3', name: 'Att 1', team: TEAMS.ATTACKERS }, 0);
+  room.provisionModeActors(0);
+
+  assert.equal(d1.team, TEAMS.DEFENDERS);
+  assert.equal(d2.team, TEAMS.DEFENDERS);
+  assert.equal(a1.team, TEAMS.ATTACKERS);
+
+  // Attempt to switch a1 to DEFENDERS which already has maximum (2) humans
+  const switched = room.switchTeam(a1.id, TEAMS.DEFENDERS);
+  assert.equal(switched, false, 'switchTeam rejected because target team has full human roster');
+  assert.equal(a1.team, TEAMS.ATTACKERS, 'player team remains ATTACKERS');
+
+  const defenders = [...room.players.values()].filter((p) => p.team === TEAMS.DEFENDERS);
+  assert.equal(defenders.length, 2, 'defenders remain exactly 2');
+});
+
+test('Bot backfill maintains exact team size when humans disconnect', () => {
+  const manager = new RoomManager();
+  const room = manager.createBreakthroughRoom(0, true, WORLD_IDS.BASTION_BREACH, { teamSize: 3 });
+  for (let i = 1; i <= 6; i += 1) {
+    room.addPlayer({ id: `h${i}`, token: `t${i}`, name: `Player ${i}` }, 0);
+  }
+  room.provisionModeActors(0);
+  assert.equal(room.players.size, 6);
+  assert.equal(room.humanActorCount(), 6);
+
+  // h1 leaves
+  const h1Team = room.players.get('h1').team;
+  room.removePlayer('h1', 1.0);
+  assert.equal(room.players.size, 6, 'bot immediately backfills vacated slot');
+  assert.equal(room.humanActorCount(), 5);
+
+  const attackers = [...room.players.values()].filter((p) => p.team === TEAMS.ATTACKERS);
+  const defenders = [...room.players.values()].filter((p) => p.team === TEAMS.DEFENDERS);
+  assert.equal(attackers.length, 3);
+  assert.equal(defenders.length, 3);
+  const backfilledBot = (h1Team === TEAMS.ATTACKERS ? attackers : defenders).find((p) => p.actorKind === 'bot');
+  assert.ok(backfilledBot, 'backfilled bot is on the same team as departed human');
+});
+

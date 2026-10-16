@@ -87,60 +87,145 @@ function createBadge({ isAlly, name = '', hpBucket = 10, isMarked = false } = {}
   if (typeof document === 'undefined') return null;
   const canvas = document.createElement('canvas');
   if (!canvas.getContext) return null;
-  canvas.width = 256;
-  canvas.height = 68;
   const ctx = canvas.getContext('2d');
 
-  const bg = isMarked
-    ? 'rgba(72, 24, 14, 0.92)'
-    : isAlly
-      ? 'rgba(20, 44, 82, 0.88)'
-      : 'rgba(64, 20, 18, 0.86)';
-  const border = isMarked
-    ? '#f7dd98'
-    : isAlly
-      ? '#74b6ff'
-      : '#e26a5f';
+  if (isMarked) {
+    // 1. Prominent tactical focus for explicitly marked targets
+    canvas.width = 256;
+    canvas.height = 64;
+    ctx.fillStyle = 'rgba(56, 16, 12, 0.94)';
+    ctx.fillRect(6, 4, 244, 56);
+    ctx.strokeStyle = '#f7dd98';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(6, 4, 244, 56);
 
-  ctx.fillStyle = bg;
-  ctx.fillRect(8, 6, 240, isAlly || isMarked ? 54 : 42);
-  ctx.strokeStyle = border;
-  ctx.lineWidth = isMarked ? 3.5 : 2.2;
-  ctx.strokeRect(8, 6, 240, isAlly || isMarked ? 54 : 42);
+    // Tactical reticle diamond pip
+    ctx.save();
+    ctx.translate(26, 24);
+    ctx.rotate(Math.PI / 4);
+    ctx.fillStyle = '#f7dd98';
+    ctx.fillRect(-6, -6, 12, 12);
+    ctx.restore();
 
+    const shortName = String(name || 'ENEMY').toUpperCase().slice(0, 16);
+    ctx.fillStyle = '#ffe9a8';
+    ctx.font = 'bold 16px Georgia, serif';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(`⌖ ${shortName}`, 42, 24);
+
+    // High visibility health bar
+    ctx.fillStyle = 'rgba(16, 12, 10, 0.88)';
+    ctx.fillRect(42, 40, 196, 8);
+    const fillW = Math.max(0, Math.min(196, Math.round((hpBucket / 10) * 196)));
+    ctx.fillStyle = '#e98243';
+    ctx.fillRect(42, 40, fillW, 8);
+
+    const texture = new THREE.CanvasTexture(canvas);
+    const material = new THREE.SpriteMaterial({
+      map: texture,
+      transparent: true,
+      depthTest: false,
+      depthWrite: false,
+    });
+    const sprite = new THREE.Sprite(material);
+    sprite.scale.set(1.4, 0.35, 1);
+    sprite.position.set(0, 2.24, 0);
+    return sprite;
+  }
+
+  if (isAlly) {
+    // 2. Subtle restrained indicator for allies
+    const damaged = hpBucket < 10;
+    canvas.width = 210;
+    canvas.height = damaged ? 46 : 34;
+    ctx.fillStyle = 'rgba(18, 38, 68, 0.82)';
+    ctx.fillRect(4, 3, 202, damaged ? 40 : 28);
+    ctx.strokeStyle = '#62a8ed';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(4, 3, 202, damaged ? 40 : 28);
+
+    // Small azure pip
+    ctx.save();
+    ctx.translate(18, damaged ? 16 : 17);
+    ctx.rotate(Math.PI / 4);
+    ctx.fillStyle = '#74b6ff';
+    ctx.fillRect(-4, -4, 8, 8);
+    ctx.restore();
+
+    const shortName = String(name || 'ALLY').toUpperCase().slice(0, 15);
+    ctx.fillStyle = '#e6f2ff';
+    ctx.font = 'bold 13px Georgia, serif';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(shortName, 32, damaged ? 16 : 17);
+
+    // Health bar only if damaged
+    if (damaged) {
+      ctx.fillStyle = 'rgba(10, 18, 30, 0.82)';
+      ctx.fillRect(32, 28, 162, 5);
+      const fillW = Math.max(0, Math.min(162, Math.round((hpBucket / 10) * 162)));
+      ctx.fillStyle = '#54c4db';
+      ctx.fillRect(32, 28, fillW, 5);
+    }
+
+    const texture = new THREE.CanvasTexture(canvas);
+    const material = new THREE.SpriteMaterial({
+      map: texture,
+      transparent: true,
+      depthTest: true,
+      depthWrite: false,
+    });
+    const sprite = new THREE.Sprite(material);
+    sprite.scale.set(1.05, damaged ? 0.23 : 0.17, 1);
+    sprite.position.set(0, 2.16, 0);
+    return sprite;
+  }
+
+  // 3. Minimal compact crimson tag/pip for ordinary enemies (no permanent giant health boxes)
+  const damaged = hpBucket < 10;
+  canvas.width = 160;
+  canvas.height = damaged ? 38 : 28;
+  ctx.fillStyle = 'rgba(44, 14, 12, 0.78)';
+  ctx.fillRect(3, 2, 154, damaged ? 34 : 24);
+  ctx.strokeStyle = '#b84840';
+  ctx.lineWidth = 1.2;
+  ctx.strokeRect(3, 2, 154, damaged ? 34 : 24);
+
+  // Tiny diamond pip
   ctx.save();
-  ctx.translate(28, 26);
+  ctx.translate(14, damaged ? 13 : 14);
   ctx.rotate(Math.PI / 4);
-  ctx.fillStyle = border;
-  ctx.fillRect(-6, -6, 12, 12);
+  ctx.fillStyle = '#e26a5f';
+  ctx.fillRect(-3, -3, 6, 6);
   ctx.restore();
 
-  const shortName = String(name || (isAlly ? 'ALLY' : 'ENEMY')).toUpperCase().slice(0, 16);
-  const tag = isMarked ? `⌖ ${shortName}` : isAlly ? `ALLY · ${shortName}` : shortName;
-  ctx.fillStyle = isMarked ? '#ffe9a8' : '#f4ead2';
-  ctx.font = 'bold 17px Georgia, serif';
+  const shortName = String(name || 'ENEMY').toUpperCase().slice(0, 14);
+  ctx.fillStyle = '#f7deda';
+  ctx.font = 'bold 12px Georgia, serif';
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
-  ctx.fillText(tag, 44, 26);
+  ctx.fillText(shortName, 26, damaged ? 13 : 14);
 
-  if (isAlly || isMarked) {
-    ctx.fillStyle = 'rgba(12, 14, 12, 0.85)';
-    ctx.fillRect(44, 42, 188, 8);
-    const fillW = Math.max(0, Math.min(188, Math.round((hpBucket / 10) * 188)));
-    ctx.fillStyle = isAlly ? '#68cee1' : '#e98243';
-    ctx.fillRect(44, 42, fillW, 8);
+  // Health bar only if damaged
+  if (damaged) {
+    ctx.fillStyle = 'rgba(18, 8, 8, 0.85)';
+    ctx.fillRect(26, 23, 120, 4);
+    const fillW = Math.max(0, Math.min(120, Math.round((hpBucket / 10) * 120)));
+    ctx.fillStyle = '#e26a5f';
+    ctx.fillRect(26, 23, fillW, 4);
   }
 
   const texture = new THREE.CanvasTexture(canvas);
   const material = new THREE.SpriteMaterial({
     map: texture,
     transparent: true,
-    depthTest: !(isAlly || isMarked),
+    depthTest: true,
     depthWrite: false,
   });
   const sprite = new THREE.Sprite(material);
-  sprite.scale.set(1.45, 0.38, 1);
-  sprite.position.set(0, 2.22, 0);
+  sprite.scale.set(0.8, damaged ? 0.19 : 0.14, 1);
+  sprite.position.set(0, 2.12, 0);
   return sprite;
 }
 
@@ -692,7 +777,8 @@ export class RemotePlayers {
       const isAlly = myTeam ? pb.team === myTeam : false;
       const isMarked = !isAlly && (this.latestSnapshot.marks ?? []).some((m) => m.kind === 'enemy' && m.targetId === pb.id && (!myTeam || m.team === myTeam));
       const hpBucket = Math.max(0, Math.min(10, Math.ceil((pb.health ?? 100) / 10)));
-      const badgeKey = `${pb.team}:${isAlly}:${pb.name}:${(isAlly || isMarked) ? hpBucket : 10}:${isMarked ? 1 : 0}`;
+      const showHealth = isMarked || (hpBucket < 10);
+      const badgeKey = `${pb.team}:${isAlly ? 'A' : 'E'}:${pb.name}:${showHealth ? hpBucket : 10}:${isMarked ? 1 : 0}`;
       if (shell.badgeKey !== badgeKey) {
         if (shell.teamBadge) {
           shell.root.remove(shell.teamBadge);
@@ -707,12 +793,28 @@ export class RemotePlayers {
       if (shell.teamBadge) {
         if (!pb.alive) {
           shell.teamBadge.visible = false;
-        } else if (isAlly || isMarked) {
-          shell.teamBadge.visible = true;
         } else {
           const mePos = local?.position;
           const dist = mePos ? Math.hypot(pb.position.x - mePos.x, pb.position.z - mePos.z) : 0;
-          shell.teamBadge.visible = dist <= 26;
+          if (isMarked) {
+            shell.teamBadge.visible = true;
+            shell.teamBadge.material.opacity = 1.0;
+          } else if (isAlly) {
+            if (dist > 38) {
+              shell.teamBadge.visible = false;
+            } else {
+              shell.teamBadge.visible = true;
+              shell.teamBadge.material.opacity = dist <= 22 ? 0.9 : Math.max(0.15, 0.9 * (1 - (dist - 22) / 16));
+            }
+          } else {
+            // Ordinary enemies: compact tag, fades between 15m and 24m, culled beyond 24m
+            if (dist > 24) {
+              shell.teamBadge.visible = false;
+            } else {
+              shell.teamBadge.visible = true;
+              shell.teamBadge.material.opacity = dist <= 15 ? 0.85 : Math.max(0.1, 0.85 * (1 - (dist - 15) / 9));
+            }
+          }
         }
       }
     } else if (shell.teamBadge) {

@@ -73,6 +73,12 @@
         "seconds": 3.92
       }
     ],
+    "bestStrategy": [
+      {
+        "file": "best-strategy-1",
+        "seconds": 2.89
+      }
+    ],
     "bladeCaught": [
       {
         "file": "blade-caught-1",
@@ -114,6 +120,18 @@
       {
         "file": "brief-nap-2",
         "seconds": 1.0
+      }
+    ],
+    "cannonFodder": [
+      {
+        "file": "cannon-fodder-1",
+        "seconds": 4.05
+      }
+    ],
+    "certainlyAWay": [
+      {
+        "file": "certainly-a-way-1",
+        "seconds": 3.65
       }
     ],
     "chargeDefeat": [
@@ -164,6 +182,12 @@
       {
         "file": "continue-to-pass-1",
         "seconds": 1.86
+      }
+    ],
+    "couldveDoneThat": [
+      {
+        "file": "couldve-done-that-1",
+        "seconds": 3.67
       }
     ],
     "death": [
@@ -320,6 +344,12 @@
         "seconds": 1.8
       }
     ],
+    "gleanHope": [
+      {
+        "file": "glean-hope-1",
+        "seconds": 4.31
+      }
+    ],
     "goingEasy": [
       {
         "file": "going-easy-1",
@@ -340,6 +370,12 @@
       {
         "file": "head-on-1",
         "seconds": 1.97
+      }
+    ],
+    "hearDefeat": [
+      {
+        "file": "hear-defeat-1",
+        "seconds": 4.83
       }
     ],
     "heavyHurt": [
@@ -408,6 +444,12 @@
         "seconds": 4.74
       }
     ],
+    "knightsLost": [
+      {
+        "file": "knights-lost-1",
+        "seconds": 3.31
+      }
+    ],
     "laidBack": [
       {
         "file": "laid-back-1",
@@ -428,6 +470,12 @@
       {
         "file": "laugh-2",
         "seconds": 1.56
+      }
+    ],
+    "lesserFoe": [
+      {
+        "file": "lesser-foe-1",
+        "seconds": 3.6
       }
     ],
     "lowerGuard": [
@@ -610,6 +658,12 @@
         "seconds": 5.97
       }
     ],
+    "runAwayFromSafety": [
+      {
+        "file": "run-away-from-safety-1",
+        "seconds": 3.09
+      }
+    ],
     "savedFromPeace": [
       {
         "file": "saved-from-peace-1",
@@ -680,6 +734,12 @@
       {
         "file": "squire-setup-1",
         "seconds": 3.34
+      }
+    ],
+    "squiresNearby": [
+      {
+        "file": "squires-nearby-1",
+        "seconds": 4.73
       }
     ],
     "staggerDisplay": [
@@ -808,6 +868,16 @@
         "seconds": 1.44
       }
     ],
+    "thatOneBegging": [
+      {
+        "file": "that-one-begging-1",
+        "seconds": 6.08
+      },
+      {
+        "file": "that-one-begging-2",
+        "seconds": 6.07
+      }
+    ],
     "theDeceased": [
       {
         "file": "the-deceased-1",
@@ -922,6 +992,18 @@
       {
         "file": "vortex-use-1",
         "seconds": 4.96
+      }
+    ],
+    "whatNotToDo": [
+      {
+        "file": "what-not-to-do-1",
+        "seconds": 2.57
+      }
+    ],
+    "whereAncillary": [
+      {
+        "file": "where-ancillary-1",
+        "seconds": 3.57
       }
     ],
     "workHard": [

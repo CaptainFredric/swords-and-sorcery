@@ -52,6 +52,7 @@ const menuWorld = $('#menu-world');
 const menuSpellblade = $('#menu-spellblade');
 const menu = $('#menu');
 const soloMenu = $('#solo-menu');
+const breakthroughMenu = $('#breakthrough-menu');
 const armoryMenu = $('#armory-menu');
 const privateMenu = $('#private-menu');
 const roomsMenu = $('#rooms-menu');
@@ -229,6 +230,7 @@ const menuController = new MenuController(socket, localStorage);
 const router = new ScreenRouter({
   [SCREEN_IDS.MAIN_MENU]: menu,
   [SCREEN_IDS.SOLO_MENU]: soloMenu,
+  [SCREEN_IDS.BREAKTHROUGH_MENU]: breakthroughMenu,
   [SCREEN_IDS.PRIVATE_MENU]: privateMenu,
   [SCREEN_IDS.ROOMS_MENU]: roomsMenu,
   [SCREEN_IDS.LOBBY]: lobby,
@@ -317,7 +319,7 @@ if (invitedRoom && localStorage.getItem('ss-room-code') !== roomInput.value) {
 }
 
 function isMenuBackedScreen(screenId) {
-  return [SCREEN_IDS.MAIN_MENU, SCREEN_IDS.SOLO_MENU, SCREEN_IDS.PRIVATE_MENU, SCREEN_IDS.ROOMS_MENU, SCREEN_IDS.HOW_TO_PLAY, SCREEN_IDS.LOBBY, SCREEN_IDS.ARMORY].includes(screenId);
+  return [SCREEN_IDS.MAIN_MENU, SCREEN_IDS.SOLO_MENU, SCREEN_IDS.BREAKTHROUGH_MENU, SCREEN_IDS.PRIVATE_MENU, SCREEN_IDS.ROOMS_MENU, SCREEN_IDS.HOW_TO_PLAY, SCREEN_IDS.LOBBY, SCREEN_IDS.ARMORY].includes(screenId);
 }
 
 // the Spellblade's round behind the front door: for capable settings, and not for anyone who asked for less motion
@@ -337,6 +339,10 @@ function route(screenId) {
   const menuBacked = isMenuBackedScreen(screenId);
   menuWorld.classList.toggle('hidden', !menuBacked);
   menuScene?.setVisible(menuBacked);
+  if (menuBacked && previous !== screenId) {
+    menuScene?.resetCanonicalHeroState();
+  }
+  menuScene?.setBreakthroughPresentation(screenId === SCREEN_IDS.BREAKTHROUGH_MENU);
   // the camera glides to each screen's shot (the veil's establishing shot is started when it lifts)
   if (menuBacked && veilLifted && previous !== screenId) menuScene?.setShot(screenId);
   // leaving any menu screen for a match in progress opens the gate (a duel's countdown opens it at the start)
@@ -763,7 +769,8 @@ function setPracticeVisible(visible) {
 }
 
 $('#seek-duel').addEventListener('click', () => runMenuAction(menuController.seekDuel(nameInput.value), SCREEN_IDS.MAIN_MENU));
-$('#breakthrough-button')?.addEventListener('click', () => runMenuAction(menuController.breakthrough(nameInput.value), SCREEN_IDS.MAIN_MENU));
+$('#breakthrough-button')?.addEventListener('click', () => { showMenuError(''); route(SCREEN_IDS.BREAKTHROUGH_MENU); });
+$('#breakthrough-back')?.addEventListener('click', () => route(SCREEN_IDS.MAIN_MENU));
 $('#quick-play').addEventListener('click', () => openRooms());
 $('#rooms-back').addEventListener('click', () => route(SCREEN_IDS.MAIN_MENU));
 $('#quick-join').addEventListener('click', () => runMenuAction(menuController.quickPlay(nameInput.value), SCREEN_IDS.ROOMS_MENU));
@@ -818,25 +825,65 @@ soloRival.addEventListener('click', (event) => {
   if (!chip) return;
   menuController.chooseBotSkill(chip.dataset.skill);
   showSoloRival();
-const soloTeam = $('#solo-team');
-function showSoloTeam() {
-  if (!soloTeam) return;
-  const chosen = menuController.soloTeam();
-  for (const chip of soloTeam.querySelectorAll('[data-team]')) {
+});
+showSoloRival();
+
+// --- Breakthrough setup controls -------------------------------------------------------------------------------
+const breakthroughSize = $('#breakthrough-size');
+function showBreakthroughSize() {
+  if (!breakthroughSize) return;
+  const chosen = menuController.breakthroughSize();
+  for (const chip of breakthroughSize.querySelectorAll('[data-size]')) {
+    const on = Number(chip.dataset.size) === chosen;
+    chip.classList.toggle('mine', on);
+    chip.setAttribute('aria-checked', String(on));
+  }
+}
+breakthroughSize?.addEventListener('click', (event) => {
+  const chip = event.target.closest?.('[data-size]');
+  if (!chip) return;
+  menuController.chooseBreakthroughSize(Number(chip.dataset.size));
+  showBreakthroughSize();
+});
+showBreakthroughSize();
+
+const breakthroughTeam = $('#breakthrough-team');
+function showBreakthroughTeam() {
+  if (!breakthroughTeam) return;
+  const chosen = menuController.breakthroughTeam();
+  for (const chip of breakthroughTeam.querySelectorAll('[data-team]')) {
     const on = chip.dataset.team === chosen;
     chip.classList.toggle('mine', on);
     chip.setAttribute('aria-checked', String(on));
   }
 }
-soloTeam?.addEventListener('click', (event) => {
+breakthroughTeam?.addEventListener('click', (event) => {
   const chip = event.target.closest?.('[data-team]');
   if (!chip) return;
-  menuController.chooseSoloTeam(chip.dataset.team);
-  showSoloTeam();
+  menuController.chooseBreakthroughTeam(chip.dataset.team);
+  showBreakthroughTeam();
 });
-showSoloTeam();
+showBreakthroughTeam();
+
+const breakthroughRival = $('#breakthrough-rival');
+function showBreakthroughRival() {
+  if (!breakthroughRival) return;
+  const chosen = menuController.breakthroughSkill();
+  for (const chip of breakthroughRival.querySelectorAll('[data-skill]')) {
+    const on = chip.dataset.skill === chosen;
+    chip.classList.toggle('mine', on);
+    chip.setAttribute('aria-checked', String(on));
+  }
+  const noteEl = $('#breakthrough-rival-note');
+  if (noteEl) noteEl.textContent = RIVAL_NOTES[chosen] ?? '';
+}
+breakthroughRival?.addEventListener('click', (event) => {
+  const chip = event.target.closest?.('[data-skill]');
+  if (!chip) return;
+  menuController.chooseBreakthroughSkill(chip.dataset.skill);
+  showBreakthroughRival();
 });
-showSoloRival();
+showBreakthroughRival();
 const tutorialProgress = new TutorialProgress();
 const tutorialOffer = $('#tutorial-onboarding');
 function offerTutorial() {
@@ -994,7 +1041,16 @@ function startTutorial() {
   tutorialVoice.preload([...tutorialSession.director.beats, ...Object.values(tutorialSession.director.branches).flat()]);
 }
 $('#tutorial-mode').addEventListener('click',startTutorial);
-$('#solo-breakthrough')?.addEventListener('click', () => runMenuAction(menuController.breakthrough(nameInput.value), SCREEN_IDS.SOLO_MENU));
+$('#breakthrough-play-bots')?.addEventListener('click', () => runMenuAction(menuController.breakthrough(nameInput.value, {
+  team: menuController.breakthroughTeam(),
+  botSkill: menuController.breakthroughSkill(),
+  teamSize: menuController.breakthroughSize(),
+}), SCREEN_IDS.BREAKTHROUGH_MENU));
+$('#breakthrough-create-private')?.addEventListener('click', () => runMenuAction(menuController.createBreakthroughPrivate(nameInput.value, {
+  team: menuController.breakthroughTeam(),
+  botSkill: menuController.breakthroughSkill(),
+  teamSize: menuController.breakthroughSize(),
+}), SCREEN_IDS.BREAKTHROUGH_MENU));
 $('#bot-duel').addEventListener('click', () => runMenuAction(menuController.botDuel(nameInput.value), SCREEN_IDS.SOLO_MENU));
 $('#inspection-mode').addEventListener('click', () => runMenuAction(menuController.inspectionPractice(nameInput.value), SCREEN_IDS.SOLO_MENU));
 $('#practice-mode').addEventListener('click', () => runMenuAction(menuController.practice(nameInput.value), SCREEN_IDS.SOLO_MENU));
@@ -1268,7 +1324,7 @@ document.addEventListener('keydown', event => {
     presentation.showMenu(nowSec());
     return;
   }
-  if ([SCREEN_IDS.SOLO_MENU, SCREEN_IDS.PRIVATE_MENU, SCREEN_IDS.ROOMS_MENU, SCREEN_IDS.HOW_TO_PLAY, SCREEN_IDS.ARMORY].includes(router.current)) {
+  if ([SCREEN_IDS.SOLO_MENU, SCREEN_IDS.BREAKTHROUGH_MENU, SCREEN_IDS.PRIVATE_MENU, SCREEN_IDS.ROOMS_MENU, SCREEN_IDS.HOW_TO_PLAY, SCREEN_IDS.ARMORY].includes(router.current)) {
     route(SCREEN_IDS.MAIN_MENU);
   } else if (router.current === SCREEN_IDS.LOBBY || router.current === SCREEN_IDS.END_SCREEN) {
     returnToMenu();

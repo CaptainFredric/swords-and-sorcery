@@ -352,7 +352,12 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
       return;
     }
     if (message.type === 'createBreakthroughRoom' && !session.roomCode) {
-      const room = roomManager.createBreakthroughRoom(time, Boolean(message.isPrivate ?? true));
+      const teamSize = message.teamSize !== undefined ? Number(message.teamSize) : 3;
+      if (teamSize !== 2 && teamSize !== 3) {
+        send(session, { type: 'error', message: 'Invalid team size: must be 2 or 3' });
+        return;
+      }
+      const room = roomManager.createBreakthroughRoom(time, Boolean(message.isPrivate ?? true), undefined, { teamSize });
       room.setBotSkill(message.botSkill);
       const player = createNetworkPlayer(session, room, message.name, message.team ?? null);
       room.provisionModeActors(time);
@@ -369,8 +374,16 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
         send(session, { type: 'error', message: 'Unknown solo mode' });
         return;
       }
+      let teamSize = null;
+      if (message.mode === GAME_MODES.BREAKTHROUGH && message.teamSize !== undefined) {
+        teamSize = Number(message.teamSize);
+        if (teamSize !== 2 && teamSize !== 3) {
+          send(session, { type: 'error', message: 'Invalid team size: must be 2 or 3' });
+          return;
+        }
+      }
       const defaultWorld = message.mode === GAME_MODES.BREAKTHROUGH ? 'bastion-breach' : arenaOrDefault(message.worldId);
-      const room = roomManager.createSoloRoom(message.mode, time, defaultWorld);
+      const room = roomManager.createSoloRoom(message.mode, time, defaultWorld, { teamSize });
       const player = createNetworkPlayer(session, room, message.name, message.team ?? null);
       // (how well the rival plays: the player's choice, the Knight's otherwise)
       room.setBotSkill(message.botSkill);
