@@ -1371,7 +1371,7 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     id: 'armorHoldingBack',
     text: 'How did you do that? Was my armor holding back?',
     trigger: 'heavyHurt',
-    priority: 'normal', rarity: 0.22, cooldown: 120,
+    priority: 'normal', rarity: 0.08, cooldown: 120,
     section: 'Battle & Abilities',
     credits: { title: 'Holding Back', description: 'Sometimes after surviving a particularly heavy blow.', note: 'The armor has been accused.' },
     file: 'armorHoldingBack.mp3',
