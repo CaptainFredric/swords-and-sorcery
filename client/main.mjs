@@ -22,6 +22,7 @@ import { MusicPlayer } from './game/sound/music/MusicPlayer.mjs';
 import { fightPieceFor } from './game/sound/music/score.mjs';
 import { VoiceBank } from './game/sound/VoiceBank.mjs';
 import { linesFor } from './game/sound/voiceLines.mjs';
+import { recordMatchResult } from './game/sound/matchStreak.mjs';
 import { captionPlan } from './ui/voiceLibrary.mjs';
 import { MenuCaption } from './menu/menuCaption.mjs';
 import { gateRecipe, uiClankRecipe, warDrumRecipe } from './game/sound/atmosphereRecipes.mjs';
@@ -624,6 +625,11 @@ function soundTheEnd(snapshot) {
   const key = `${snapshot.roomCode}:${snapshot.matchStartedAt}`;
   if (endHeardFor === key) return;
   endHeardFor = key;
+  recordMatchResult({
+    winnerId: snapshot.winnerId,
+    players: snapshot.players,
+    isScored: snapshot.mode !== 'PRACTICE',
+  });
   const won = snapshot.winnerId === socket.playerId;
   music.stinger(won ? 'victory' : 'defeat');
   // the defeat made official: now and then, that he never thought this day would come; if not, the protest that he

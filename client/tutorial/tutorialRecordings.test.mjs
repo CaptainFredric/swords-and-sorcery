@@ -45,7 +45,10 @@ test('all established recording keys survive the full route and generated plan m
   assert.deepEqual(plan.filter(take => take.optionalBranch).map(take => take.beatId), [
     'frolic-fields', 'remembering-move', 'constitution-strange', 'not-strange', 'not-fallen',
     'thank-noticing',
-    'rival-over-there', 'scorch-mark', 'bridge-senses-failure', 'hence-i-crossed', 'permission-stop', 'no-longer-ruin', 'permission-no', 'then-no',
+    'rival-over-there', 'scorch-mark',
+    'scratch-taunt', 'scratch-forget', 'scratch-yes', 'scratch-truth', 'scratch-predicted',
+    'clash-simultaneous', 'clash-peculiar', 'clash-agreed',
+    'bridge-senses-failure', 'hence-i-crossed', 'permission-stop', 'no-longer-ruin', 'permission-no', 'then-no',
     'burn-subsided', 'reforged', 'not-too-many', 'fight-yourself', 'already-told', 'feelings-health',
   ]);
   const report = JSON.parse(readFileSync(new URL('../../docs/tutorial-one-recording-changes.json', import.meta.url), 'utf8'));
@@ -58,7 +61,8 @@ test('all established recording keys survive the full route and generated plan m
   assert.deepEqual(report.refinement.missing, []);
   const polish = JSON.parse(readFileSync(new URL('../../docs/tutorial-polish-recording-changes.json', import.meta.url), 'utf8'));
   assert.equal(report.refinement.priorTotal + report.refinement.added.length + (report.postRefinement?.added.length ?? 0) + polish.added.length - polish.replaced.length
-    + (polish.authoredPass?.added.length ?? 0), plan.length);
+    + (polish.authoredPass?.added.length ?? 0) + (polish.octoberBatch?.added?.length ?? 0), plan.length);
+  for (const take of polish.octoberBatch?.added ?? []) assert.equal(plan.find(other => other.key === take.key)?.text, take.text, take.key);
   // (the Greener Pastures authored pass: its recordings each have their place, and the final Guard's three lines are
   // the final duel's own beats now)
   for (const take of polish.authoredPass.added) assert.equal(plan.find(other => other.key === take.key)?.text, take.text, take.key);

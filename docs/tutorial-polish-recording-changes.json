@@ -1,6 +1,6 @@
 {
   "base": "25a6d6b",
-  "total": 168,
+  "total": 178,
   "added": [
     {
       "key": "tutorial.small-gaps",
@@ -226,6 +226,60 @@
         "before": "This is not where your legend ends, Spellblade. Knights are not supposed to get made fun of.",
         "after": "This is not where your legend ends, Spellblade. Knights are not made to be made fun of.",
         "note": "The creator’s new take (2026-10-13), the line reworded with it."
+      }
+    ]
+  },
+  "octoberBatch": {
+    "added": [
+      {
+        "key": "tutorial.halt-order",
+        "speaker": "rival",
+        "text": "Halt! I tell you to halt!"
+      },
+      {
+        "key": "tutorial.tell-on-me",
+        "speaker": "spellblade",
+        "text": "I tell you to not tell on me!"
+      },
+      {
+        "key": "tutorial.scratch-taunt",
+        "speaker": "rival",
+        "text": "You cannot even scratch me, can you?"
+      },
+      {
+        "key": "tutorial.scratch-forget",
+        "speaker": "narrator",
+        "text": "Let us forget what just happened."
+      },
+      {
+        "key": "tutorial.scratch-yes",
+        "speaker": "spellblade",
+        "text": "Yes."
+      },
+      {
+        "key": "tutorial.scratch-truth",
+        "speaker": "spellblade",
+        "text": "And yes, you are correct. I never leave a scratch."
+      },
+      {
+        "key": "tutorial.scratch-predicted",
+        "speaker": "rival",
+        "text": "Hahaha! I predicted as such!"
+      },
+      {
+        "key": "tutorial.clash-simultaneous",
+        "speaker": "rival",
+        "text": "We struck at the same time!"
+      },
+      {
+        "key": "tutorial.clash-peculiar",
+        "speaker": "spellblade",
+        "text": "That was peculiar. I prefer my engagements one-sided."
+      },
+      {
+        "key": "tutorial.clash-agreed",
+        "speaker": "rival",
+        "text": "Agreed. May our blades never decide to do so again."
       }
     ]
   }

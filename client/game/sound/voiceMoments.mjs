@@ -129,17 +129,23 @@ export class VoiceMoments {
     this.fellTo = new Map();    // knight -> who felled them in this run of falls, in order (a kill of their own ends it)
     this.misses = new Map();    // `${swinger}>${target}` -> when the swinger's sword lately missed the target
     this.seen = new Map();      // tag -> how often its moment has been raised (for telling why a line is never heard)
+    this.lastDeathKiller = null;
+    this.lastDeathVictim = null;
+    this.hurtInMatch = new Set();
   }
 
   /**
    * A blow landed (a `damage` event). matchPoint(id): whether that knight is one kill from winning a scored match.
    */
-  damage(event, { knight = () => null, saidAgo = () => Infinity, steeled = () => false, matchPoint = () => false } = {}) {
+  damage(event, { knight = () => null, saidAgo = () => Infinity, steeled = () => false, matchPoint = () => false, practice = false, winStreak = () => 0 } = {}) {
     const { attackerId, victimId, source, at } = event;
     if (!(event.amount > 0)) return [];
     const groups = [];
     const other = Boolean(attackerId) && attackerId !== victimId;
     if (other) this.threats.set(victimId, { by: attackerId, at });
+    const firstHurt = other && !this.hurtInMatch.has(victimId);
+    if (other) this.hurtInMatch.add(victimId);
+    const winStreakFirstHurt = firstHurt && !practice && (winStreak(victimId) >= 2);
     // (a sword that lands is no longer being denied, nor flailing)
     if (other && source === 'sword') {
       this.denials.delete(`${attackerId}>${victimId}`);
@@ -209,7 +215,7 @@ export class VoiceMoments {
       // explained himself some other way)
       const possessed = other && event.health <= MOMENTS.losingFace.health && (this.fallsInARow.get(victimId) ?? 0) >= MOMENTS.possessed.falls
         && !this.#excused(victimId, saidAgo);
-      groups.push(this.#lines(victimId, [miracle && 'miracle', steel && 'steelSave', possessed && 'possessedStretch', stand && 'lastStand', face && 'losingFace', low && 'survivedLow', 'blowTaken']));
+      groups.push(this.#lines(victimId, [winStreakFirstHurt && 'winStreakFirstHurt', miracle && 'miracle', steel && 'steelSave', possessed && 'possessedStretch', stand && 'lastStand', face && 'losingFace', low && 'survivedLow', 'blowTaken']));
     }
     return groups.filter((group) => group.length);
   }
@@ -262,14 +268,23 @@ export class VoiceMoments {
       // a shot, from where he stood: at a foe running past him, or at one busy with someone else
       passing: PROJECTILES.includes(source) && Boolean(extra.passing),
       thirdParty: PROJECTILES.includes(source) && Boolean(extra.thirdParty),
+      // fleeing: sprinting away from the killer
+      fleeing: Boolean(extra.fleeing),
+      // same foe again: same killer felled same victim consecutively, OR 3+ times this match
+      sameFoeAgain: (this.lastDeathKiller === killerId && this.lastDeathVictim === victimId) || ((this.felled.get(`${killerId}>${victimId}`) ?? 0) + 1 >= 3),
       // the blow that wins him the match
       decisive: Boolean(event.decisive),
     } : {};
     if (killerId) {
+      this.lastDeathKiller = killerId;
+      this.lastDeathVictim = victimId;
       this.streaks.set(killerId, moment.streak);
       this.felled.set(`${killerId}>${victimId}`, (this.felled.get(`${killerId}>${victimId}`) ?? 0) + 1);
       this.fallsInARow.set(killerId, 0);
       this.fellTo.delete(killerId);
+    } else {
+      this.lastDeathKiller = null;
+      this.lastDeathVictim = victimId;
     }
     this.fallsInARow.set(victimId, (this.fallsInARow.get(victimId) ?? 0) + 1);
     this.fellTo.set(victimId, [...(this.fellTo.get(victimId) ?? []), killerId]);
@@ -462,6 +477,9 @@ export class VoiceMoments {
     this.matchPoints.clear();
     this.fellTo.clear();
     this.misses.clear();
+    this.lastDeathKiller = null;
+    this.lastDeathVictim = null;
+    this.hurtInMatch.clear();
   }
 
   // 0, or 1 when the killer's blows on the fallen were mostly perfect and aimed high on the whole (2: and the killing

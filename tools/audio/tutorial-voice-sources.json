@@ -603,8 +603,8 @@
       "sha256": "5cbb17e03b09445ffde38677a064996eb7c5fd649e9fef3ff1f9718b244f7af3",
       "speaker": "rival",
       "key": "tutorial.minor-obstacle-gloat",
-      "status": "inferred",
-      "note": "Its name's \"(real)\" and \"wrong mp3, whoops, here\" (creator, 2026-10-13): the take this line was meant to have. Same words as the line."
+      "status": "dropped",
+      "note": "Replaced (2026-10-15) by loose-2026-10-15/AhHaHaHaHaYouCannotOvercomeThis.mp3"
     },
     {
       "raw": "drive-download-20261012T044301Z-1-001/WhatShouldDo.mp3",
@@ -692,7 +692,8 @@
       "sha256": "40dba0fff233c9c63d66ab9719112a73fbd05beeaa289b2962d998b1234e31fa",
       "speaker": "rival",
       "key": "tutorial.too-late-hello",
-      "status": "mapped"
+      "status": "dropped",
+      "note": "Replaced (2026-10-15) by loose-2026-10-15/ItIsTooLate(real)ForThat.mp3"
     },
     {
       "raw": "drive-download-20261012T044301Z-1-001/ReconsiderMeetingYou.mp3",
@@ -1475,6 +1476,90 @@
       "status": "unplaced",
       "note": "Supplied on its own (Downloads, 2026-10-13) with no line named; not in the script. The speaker is not stated (listed as Rival's: it reads as his, to the Spellblade's pride). Awaiting the creator.",
       "words": "Get off your high horse!"
+    },
+    {
+      "raw": "loose-2026-10-15/AhHaHaHaHaYouCannotOvercomeThis.mp3",
+      "sha256": "e2da21d2ea48fbfdad073e0fda098de9ad9c668a1900e81679e4f1c04c06a3da",
+      "speaker": "rival",
+      "key": "tutorial.minor-obstacle-gloat",
+      "status": "mapped"
+    },
+    {
+      "raw": "loose-2026-10-15/ItIsTooLate(real)ForThat.mp3",
+      "sha256": "2c882ed3f91b05140d0c5c17c77888601ce2fbb7d0e2f290336a61e744f9d34f",
+      "speaker": "rival",
+      "key": "tutorial.too-late-hello",
+      "status": "mapped"
+    },
+    {
+      "raw": "loose-2026-10-15/HaltITellYouToHalt...mp3",
+      "sha256": "80b8c0f2bd1cbb8fcc9a828d16a683241697456bd3457e878dbfc6f081014da0",
+      "speaker": "rival",
+      "key": "tutorial.halt-order",
+      "status": "mapped"
+    },
+    {
+      "raw": "loose-2026-10-15/ITellYouToNotTellOnMe.mp3",
+      "sha256": "dcebf19e955760e33474c44b043b2d96a0ae88a03c5457046c2cf24a385e6356",
+      "speaker": "spellblade",
+      "key": "tutorial.tell-on-me",
+      "status": "mapped"
+    },
+    {
+      "raw": "loose-2026-10-15/YouCannotEvenScratchMe.mp3",
+      "sha256": "5c6e8be8d41a9d06a645d82a108bc8b96be0b8ba0657865c4ed07099aeb8d693",
+      "speaker": "rival",
+      "key": "tutorial.scratch-taunt",
+      "status": "mapped"
+    },
+    {
+      "raw": "loose-2026-10-15/LetUsForgetWhatJustHappened(real).mp3",
+      "sha256": "d247a254a0d70a9d0cf34970b825cf0924c209cb4dd1125d1107ad8cdecf6abd",
+      "speaker": "narrator",
+      "key": "tutorial.scratch-forget",
+      "status": "mapped"
+    },
+    {
+      "raw": "loose-2026-10-15/Yes..(real).mp3",
+      "sha256": "06d9d8a53890ea4bdbb82d114daab200f63b0050f0b549856caf67d29c088ef8",
+      "speaker": "spellblade",
+      "key": "tutorial.scratch-yes",
+      "status": "mapped"
+    },
+    {
+      "raw": "loose-2026-10-15/AndYesYouAreCorrectINever.mp3",
+      "sha256": "6c07b3915d3b3c6a774450fd8d9d278e29e4cf99bcba9c7831b300c9b1e29d72",
+      "speaker": "spellblade",
+      "key": "tutorial.scratch-truth",
+      "status": "mapped"
+    },
+    {
+      "raw": "loose-2026-10-15/HaHaHaIPredictedSuch.mp3",
+      "sha256": "bf0b4c3c6673940707ffaf7cb72e9cce3191b90f1eab5bfabff8e410d69ee833",
+      "speaker": "rival",
+      "key": "tutorial.scratch-predicted",
+      "status": "mapped"
+    },
+    {
+      "raw": "loose-2026-10-15/WeStruckAtTheSameTime!.mp3",
+      "sha256": "12cd517d936a206134aafa7178c60e99159cf5eb66b128ba63487a15471928f0",
+      "speaker": "rival",
+      "key": "tutorial.clash-simultaneous",
+      "status": "mapped"
+    },
+    {
+      "raw": "loose-2026-10-15/ThatWasPeculiarIPrefer.mp3",
+      "sha256": "ac3bf2dea8037e6394d904a8ae06174f51bb07f699ac151eab3d8e40a9427f15",
+      "speaker": "spellblade",
+      "key": "tutorial.clash-peculiar",
+      "status": "mapped"
+    },
+    {
+      "raw": "loose-2026-10-15/AgreedMayOurBladesNever.mp3",
+      "sha256": "696511757b04165460fb72e92e85e616f87e8c4909f3442bdd7b77104cc63c99",
+      "speaker": "rival",
+      "key": "tutorial.clash-agreed",
+      "status": "mapped"
     }
   ]
 }
