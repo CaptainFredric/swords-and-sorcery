@@ -58,15 +58,15 @@ test('1. every new line is declared, recorded and live at a moment the game rais
   }
 });
 
-test('2. "I had hoped to see you on the other side." is recorded and waits for team matches: declared, never said', () => {
+test('2. "I had hoped to see you on the other side." is recorded and waits for former ally defection: declared, never said', () => {
   const line = voiceLine('otherSide');
-  assert.equal(line.coming, 'team matches');
+  assert.equal(line.coming, 'former ally defected');
   assert.ok(VOICE_TAGS.allyDefected.future, 'no team switch exists to raise it');
   assert.equal(VOICE_LINES.otherSide, undefined, 'it has no rule: it cannot be said yet');
   assert.ok(manifest.lines.otherSide?.length === 1, 'its take is there');
   const entry = VOICE_LIBRARY.find((e) => e.line === 'otherSide');
   assert.equal(libraryStatus(entry, true), 'coming');
-  assert.equal(statusLabel(entry, true), 'WITH TEAM MATCHES');
+  assert.equal(statusLabel(entry, true), 'WITH FORMER ALLY DEFECTED');
   assert.equal(entry.section, 'Team');
   assert.deepEqual(said(['allyDefected']), [], 'not even if it were raised');
 });

@@ -174,6 +174,7 @@ export class GameRuntime {
     // the knights in Spells & Chivalry now, and when each one's last ended (it ends the moment a knight falls)
     this.chivalrous = new Set();
     this.chivalryEndedAt = new Map();
+    this.lastTeamVoiceAt = -Infinity;
     // my own blade against the world, judged in my own view (localBladeSweep.mjs)
     this.bladeSweep = new LocalBladeSweep();
     this.weapon = new WeaponView(this.camera, { now: () => this.presentationNow() / 1000 });
@@ -904,14 +905,42 @@ export class GameRuntime {
         this.chivalryEndedAt.clear();
         this.voice?.director?.newLife?.();
         this.ultimateLines.reset();
+        this.lastTeamVoiceAt = -Infinity;
         // a battle begins (any match but the yard): now and then a knight certifies the result in advance (one
         // sentence at a time: the first to pass its odds speaks for the field)
         const knights = (this.latestSnapshot?.players ?? []).filter((p) => p.actorKind !== 'dummy');
         // (a crowded field, three others or more: enough of "you" for "each and every single one of you")
         const crowded = knights.length >= 4;
-        if (!this.#inPractice() && knights.length >= 2) for (const knight of knights) this.#sayMoment(knight.id, ['battleBegins', crowded && 'crowdedBattleBegins']);
         const isTeamMode = Boolean(this.latestSnapshot?.teamMode || this.latestSnapshot?.mode === 'BREAKTHROUGH');
-        if (isTeamMode) for (const knight of knights) this.#sayMoment(knight.id, ['teamEngage']);
+        if (!isTeamMode) {
+          if (!this.#inPractice() && knights.length >= 2) for (const knight of knights) this.#sayMoment(knight.id, ['battleBegins', crowded && 'crowdedBattleBegins']);
+        } else if (!this.#inPractice() && knights.length >= 2) {
+          // Field-level restraint: at most one team-opening sentence wins around match start across all knights
+          const candidates = [
+            ...knights.filter((k) => k.id === this.socket.playerId),
+            ...knights.filter((k) => k.id !== this.socket.playerId),
+          ];
+          let openingSaid = false;
+          for (const knight of candidates) {
+            const teamLines = this.moments.lines(knight.id, ['teamEngage']);
+            for (const say of teamLines) {
+              if (this.#say(say.line, say.speaker, say)) {
+                openingSaid = true;
+                break;
+              }
+            }
+            if (openingSaid) break;
+            const beginLines = this.moments.lines(knight.id, ['battleBegins', crowded && 'crowdedBattleBegins']);
+            for (const say of beginLines) {
+              if (this.#say(say.line, say.speaker, say)) {
+                openingSaid = true;
+                break;
+              }
+            }
+            if (openingSaid) break;
+          }
+          if (openingSaid) this.lastTeamVoiceAt = this.presentationNow() / 1000;
+        }
       }
     }
   }
@@ -1368,30 +1397,44 @@ export class GameRuntime {
     this.chivalrous.delete(victimId);
     this.watch.death(victimId, at, this.#bodyPosition(victimId));
     const { fallen, victor, rescued } = this.moments.death(event, { ...this.#voiceWorld(), blow, practice: this.#inPractice(), planFailed: scene.planFailed, extra });
-    const spoken = fallen.find((say) => this.#say(say.line, say.speaker, say));
+    const wasMarked = (this.latestSnapshot?.marks ?? []).some((m) => m.targetId === victimId && m.kind === 'enemy');
+    const candidateFallen = wasMarked
+      ? fallen.map((say) => ({ ...say, chanceScale: (say.chanceScale ?? 1) * 4.0 }))
+      : fallen;
+    const spoken = candidateFallen.find((say) => this.#say(say.line, say.speaker, say));
     const spoke = Boolean(spoken);
     // (a nap announced: "It was brief." waits for his return from this fall)
     if (spoken?.opens === 'nap') this.scenes.napTaken(victimId, at, event.respawnAt);
     if (!spoke && !scene.victor) this.#sayMoments([victor], event.at);
     this.#sayMoments(rescued, event.at);
 
-    // team battle reactions: ally fallen, ally felled foe, or marked target felled
+    // team battle reactions: ally blunder or ally saved me
     const myId = this.socket.playerId;
     const myPlayer = players.find((p) => p.id === myId);
     const myTeam = this.localAuth?.team ?? myPlayer?.team;
     const victimPlayer = players.find((p) => p.id === victimId);
     const killerPlayer = killerId ? players.find((p) => p.id === killerId) : null;
-    const wasMarked = (this.latestSnapshot?.marks ?? []).some((m) => m.targetId === victimId && m.kind === 'enemy');
+    const nowSec = this.presentationNow() / 1000;
+    const canTeamVoice = (nowSec - (this.lastTeamVoiceAt ?? -Infinity)) >= 3.5;
 
-    if (myTeam && victimPlayer?.team) {
+    if (canTeamVoice && myTeam && victimPlayer?.team) {
       if (victimPlayer.team === myTeam && victimId !== myId) {
-        this.#sayMoment(myId, ['allyFallen']);
-      } else if (victimPlayer.team !== myTeam) {
-        if (wasMarked) {
-          if (killerId === myId) this.#sayMoment(myId, ['markedTargetFelled']);
-          else if (killerPlayer?.team === myTeam) this.#sayMoment(killerId, ['markedTargetFelled']);
-        } else if (killerId && killerId !== myId && killerPlayer?.team === myTeam) {
-          this.#sayMoment(myId, ['allyFelledFoe']);
+        // Ally blunder: abyss fall, suicide/self-damage, or helpless blunder
+        const isBlunder = event.source === 'abyss' || !killerId || killerId === victimId || Boolean(event.helpless);
+        if (isBlunder && this.#sayMoment(myId, ['allyBlunder'])) {
+          this.lastTeamVoiceAt = nowSec;
+        }
+      } else if (victimPlayer.team !== myTeam && killerId && killerId !== myId && killerPlayer?.team === myTeam) {
+        // Meaningful save or assist: victim was threatening me, or I was fighting/low near the fight
+        const myThreat = this.moments.threats.get(myId);
+        const threatenedMe = myThreat?.by === victimId && (at - myThreat.at <= 4.0);
+        const myPos = this.#bodyPosition(myId);
+        const victimPos = this.#bodyPosition(victimId);
+        const dist = (myPos && victimPos) ? Math.hypot(myPos.x - victimPos.x, myPos.z - victimPos.z) : Infinity;
+        const myHealth = this.localAuth?.health ?? myPlayer?.health ?? 100;
+        const inFight = threatenedMe || (dist <= 15 && (myHealth <= 50 || this.moments.strikes?.has?.(`${myId}>${victimId}`)));
+        if (inFight && this.#sayMoment(myId, ['allySavedMe'])) {
+          this.lastTeamVoiceAt = nowSec;
         }
       }
     }
@@ -1537,16 +1580,18 @@ export class GameRuntime {
   // a moment a knight is in, by its tags (voiceLines.mjs: the lines subscribe to the moments): of the lines that
   // belong to it, the first that is said is the only one
   #sayMoment(speaker, tags, options) {
-    if (!this.voice || !speaker) return;
-    this.#sayMoments([this.moments.lines(speaker, tags, options)], this.socket.serverNow());
+    if (!this.voice || !speaker) return false;
+    return this.#sayMoments([this.moments.lines(speaker, tags, options)], this.socket.serverNow());
   }
 
   // each group of lines: the first that is said is the only one (a squire's question asked opens its window)
   #sayMoments(groups, at) {
+    let anySaid = false;
     for (const group of groups) {
       for (const say of group) {
         const said = this.#say(say.line, say.speaker, say);
         if (!said) continue;
+        anySaid = true;
         if (say.opens === 'squire') this.moments.squireAsked(say.speaker, at, this.#bodyPosition(say.speaker));
         // (the final duel declared: his foe answers, and the scene goes on from there)
         if (say.opens === 'finalDuel') this.scenes.duelDeclared(say.speaker, this.moments.duelFoe(say.speaker), at, (said.delay ?? 0) + (said.seconds ?? 0));
@@ -1557,6 +1602,7 @@ export class GameRuntime {
         break;
       }
     }
+    return anySaid;
   }
 
   // steel anywhere stirs the music; blows that involve me put it on the fight

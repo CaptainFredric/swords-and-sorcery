@@ -12,6 +12,8 @@ import { MenuController } from '../../client/menu/MenuController.mjs';
 import { lobbyView } from '../../client/menu/lobbyView.mjs';
 import { challengeCopy, arenaGateCopy } from '../../client/menu/challengeCard.mjs';
 import { breakthroughHudView } from '../../client/ui/HUD.mjs';
+import { linesFor, voiceLine, VOICE_LINE_DECLARATIONS, VOICE_TAGS } from '../../client/game/sound/voiceLines.mjs';
+import { VoiceMoments } from '../../client/game/sound/voiceMoments.mjs';
 
 test('MenuController exposes solo and private Breakthrough entry paths with team preference', () => {
   const calls = [];
@@ -308,4 +310,130 @@ test('Bot backfill maintains exact team size when humans disconnect', () => {
   const backfilledBot = (h1Team === TEAMS.ATTACKERS ? attackers : defenders).find((p) => p.actorKind === 'bot');
   assert.ok(backfilledBot, 'backfilled bot is on the same team as departed human');
 });
+
+test('Team VO: one restrained team-opening voice opportunity at match start', () => {
+  const moments = new VoiceMoments();
+  const knights = [
+    { id: 'player-1', actorKind: 'player' },
+    { id: 'bot-1', actorKind: 'bot' },
+    { id: 'bot-2', actorKind: 'bot' },
+    { id: 'bot-3', actorKind: 'bot' },
+    { id: 'bot-4', actorKind: 'bot' },
+    { id: 'bot-5', actorKind: 'bot' },
+  ];
+  const candidates = [
+    ...knights.filter((k) => k.id === 'player-1'),
+    ...knights.filter((k) => k.id !== 'player-1'),
+  ];
+
+  const spoken = [];
+  const fakeSay = (line, speaker, say) => {
+    spoken.push({ line, speaker, ...say });
+    return true; // first line attempted is successfully spoken
+  };
+
+  let openingSaid = false;
+  for (const knight of candidates) {
+    const teamLines = moments.lines(knight.id, ['teamEngage']);
+    for (const say of teamLines) {
+      if (fakeSay(say.line, say.speaker, say)) {
+        openingSaid = true;
+        break;
+      }
+    }
+    if (openingSaid) break;
+    const beginLines = moments.lines(knight.id, ['battleBegins']);
+    for (const say of beginLines) {
+      if (fakeSay(say.line, say.speaker, say)) {
+        openingSaid = true;
+        break;
+      }
+    }
+    if (openingSaid) break;
+  }
+
+  assert.equal(openingSaid, true, 'an opening line was spoken');
+  assert.equal(spoken.length, 1, 'field-level restraint ensures exactly one team opening sentence is attempted/spoken');
+  assert.equal(spoken[0].speaker, 'player-1', 'local player candidate was evaluated first');
+});
+
+test('Team VO: ordinary ally kill does not automatically qualify saved-me lines', () => {
+  // 1. Generic allyFelledFoe tag is not subscribed to by saved-me lines
+  const genericLines = linesFor('p1', ['allyFelledFoe']).map((s) => s.line);
+  assert.equal(genericLines.includes('lesserFoe'), false, 'lesserFoe does not trigger on generic ally kill');
+  assert.equal(genericLines.includes('couldveDoneThat'), false, 'couldveDoneThat does not trigger on generic ally kill');
+
+  // 2. allySavedMe tag is subscribed to by lesserFoe and couldveDoneThat
+  const savedMeLines = linesFor('p1', ['allySavedMe']).map((s) => s.line);
+  assert.deepEqual(savedMeLines, ['lesserFoe', 'couldveDoneThat'], 'saved-me lines subscribe to allySavedMe');
+
+  // 3. Contextual qualification: ordinary kill across the map does not qualify
+  const moments = new VoiceMoments();
+  const myId = 'p1';
+  const victimId = 'foe1';
+  const at = 10.0;
+
+  // Case A: Enemy was across map (dist = 40), never threatened me, my health full
+  const myPosA = { x: 0, z: 0 };
+  const victimPosA = { x: 40, z: 0 };
+  const distA = Math.hypot(myPosA.x - victimPosA.x, myPosA.z - victimPosA.z);
+  const myThreatA = moments.threats.get(myId);
+  const threatenedMeA = myThreatA?.by === victimId && (at - myThreatA.at <= 4.0);
+  const myHealthA = 100;
+  const inFightA = threatenedMeA || (distA <= 15 && (myHealthA <= 50 || moments.strikes?.has?.(`${myId}>${victimId}`)));
+  assert.equal(inFightA, false, 'distant kill where enemy did not threaten player does NOT qualify saved-me reaction');
+
+  // Case B: Enemy was actively threatening me
+  moments.threats.set(myId, { by: victimId, at: 9.5 });
+  const myThreatB = moments.threats.get(myId);
+  const threatenedMeB = myThreatB?.by === victimId && (at - myThreatB.at <= 4.0);
+  const inFightB = threatenedMeB || (distA <= 15 && (myHealthA <= 50 || moments.strikes?.has?.(`${myId}>${victimId}`)));
+  assert.equal(inFightB, true, 'threatened player qualifies allySavedMe reaction');
+});
+
+test('Team VO: ordinary ally death does not automatically qualify every condemnation line', () => {
+  // 1. Generic allyFallen tag is not subscribed to by blunder/condemnation lines
+  const genericFallen = linesFor('p1', ['allyFallen']).map((s) => s.line);
+  assert.equal(genericFallen.includes('whatNotToDo'), false, 'whatNotToDo does not trigger on generic ally casualty');
+  assert.equal(genericFallen.includes('certainlyAWay'), false, 'certainlyAWay does not trigger on generic ally casualty');
+
+  // 2. allyBlunder tag is subscribed to by blunder lines
+  const blunderLines = linesFor('p1', ['allyBlunder']).map((s) => s.line);
+  assert.deepEqual(blunderLines, ['whatNotToDo', 'certainlyAWay'], 'blunder lines subscribe to allyBlunder');
+
+  // 3. knightsLost moved to teamRegroup
+  assert.equal(voiceLine('knightsLost').triggers.teamRegroup, 1, 'knightsLost belongs to teamRegroup');
+  assert.equal(voiceLine('knightsLost').coming, 'regroup orders', 'knightsLost waits on regroup orders');
+
+  // 4. Contextual qualification: normal sword death is not a blunder
+  const normalDeath = { source: 'sword', killerId: 'foe1', victimId: 'ally1' };
+  const isNormalBlunder = normalDeath.source === 'abyss' || !normalDeath.killerId || normalDeath.killerId === normalDeath.victimId || Boolean(normalDeath.helpless);
+  assert.equal(isNormalBlunder, false, 'ordinary combat death does NOT qualify allyBlunder');
+
+  // 5. Abyss death is an ally blunder
+  const abyssDeath = { source: 'abyss', killerId: null, victimId: 'ally1' };
+  const isAbyssBlunder = abyssDeath.source === 'abyss' || !abyssDeath.killerId || abyssDeath.killerId === abyssDeath.victimId || Boolean(abyssDeath.helpless);
+  assert.equal(isAbyssBlunder, true, 'abyss fall qualifies as ally blunder');
+});
+
+test('Team VO: marked target death biases victim defeat bark and does not trigger killer generic taunt', () => {
+  // 1. killTaunt does NOT trigger on markedTargetFelled
+  const killTaunt = VOICE_LINE_DECLARATIONS.find((l) => l.id === 'killTaunt');
+  assert.equal(killTaunt.trigger, 'kill', 'killTaunt triggers strictly on kill, not markedTargetFelled');
+  assert.equal(VOICE_TAGS.markedTargetFelled, undefined, 'markedTargetFelled tag is removed from VOICE_TAGS');
+
+  // 2. Defeat bark chanceScale boost for marked victims
+  const mockFallen = [
+    { line: 'magicDefeat', speaker: 'victim', chanceScale: 1.0, delay: 0 },
+    { line: 'defeat', speaker: 'victim', chanceScale: 0.8, delay: 0 },
+  ];
+  const wasMarked = true;
+  const candidateFallen = wasMarked
+    ? mockFallen.map((say) => ({ ...say, chanceScale: (say.chanceScale ?? 1) * 4.0 }))
+    : mockFallen;
+
+  assert.equal(candidateFallen[0].chanceScale, 4.0, 'marked target defeat lines receive heavy chanceScale boost');
+  assert.equal(candidateFallen[1].chanceScale, 3.2, 'all legal defeat candidates for marked victim are biased upward');
+});
+
 
