@@ -14,7 +14,7 @@ import { DEFAULT_ULTIMATE, isUltimate } from '../../shared/src/ultimates.mjs';
 import { clothChoice } from '../../shared/src/cosmetics.mjs';
 
 const TICK_RATE = 30;
-const SOLO_MODES = new Set([GAME_MODES.BOT_DUEL, GAME_MODES.PRACTICE]);
+const SOLO_MODES = new Set([GAME_MODES.BOT_DUEL, GAME_MODES.PRACTICE, GAME_MODES.BREAKTHROUGH]);
 export const OFFLINE_MESSAGE = 'Multiplayer is offline right now. Practice and Bot Duel still work.';
 
 function randomId() {
@@ -132,6 +132,10 @@ export class LocalHost {
 
   startTutorial(name) {
     this.startSolo(GAME_MODES.PRACTICE, name, 'greener-pastures', undefined, true);
+  }
+
+  startBreakthrough(name) {
+    this.startSolo(GAME_MODES.BREAKTHROUGH, name, 'bastion-breach');
   }
 
   get inspectionFrozen() { return this.frozenAt !== null; }

@@ -10,6 +10,7 @@ import { botProfile, nextCycledSpell } from './botBehavior.mjs';
 import { botSkill, reactionDelay } from './botSkill.mjs';
 import { wayToward } from './botNav.mjs';
 import { peaceHolds } from './peace.mjs';
+import { TEAMS, areAllies, areEnemies } from '../src/teams.mjs';
 
 const MELEE_RANGE = 2.25;
 const FIREBALL_RANGE = 11;
@@ -70,6 +71,14 @@ function clamp(value, min, max) {
 
 // the foes a bot fights: players (connected and alive) unless it is told otherwise (a bot against a bot, in a test)
 function foesOf(room, actor, targetKinds = ['human']) {
+  if (room.policy?.teamMode && actor.team) {
+    return [...room.players.values()].filter((player) => (
+      player !== actor
+      && areEnemies(room, actor, player)
+      && (player.actorKind !== 'human' || player.connected)
+      && player.alive
+    ));
+  }
   return [...room.players.values()].filter((player) => (
     player !== actor
     && targetKinds.includes(player.actorKind)
@@ -800,6 +809,70 @@ function patrol(actor, ai, nowSec, random, world) {
 }
 
 /**
+ * Decision hierarchy for team objective matches:
+ * objective -> immediate danger -> useful ally support -> enemy pursuit -> reposition
+ */
+function selectTeamGoal(room, actor, ai, nowSec) {
+  if (!room.policy?.teamMode || !room.objectiveState || room.objectiveState.completed) {
+    return { target: null, goalPos: null };
+  }
+
+  const enemies = foesOf(room, actor);
+  const activeObj = room.objectiveState.objectives[room.objectiveState.index];
+  if (!activeObj) return { target: null, goalPos: null };
+  const objPos = activeObj.position;
+  const rivalIndex = actor.rivalIndex ?? 0;
+  // Tactical spread around the objective to avoid stacking directly on top of each other
+  const angle = (rivalIndex * 2.1) % (2 * Math.PI);
+  const offset = Math.min(activeObj.radius * 0.45, 2.5);
+  const goalPos = {
+    x: objPos.x + Math.sin(angle) * offset,
+    y: objPos.y,
+    z: objPos.z + Math.cos(angle) * offset,
+  };
+
+  // 1. Immediate Danger: enemy close (< 3.5m) and actively threatening
+  const immediate = enemies.find((e) => distance2d(actor, e) <= 3.5 && (e.attackActive || distance2d(actor, e) <= 2.2));
+  if (immediate) return { target: immediate, goalPos };
+
+  // 2. Disengage check: if targeting a distant fleeing enemy while objective needs attention
+  if (ai.targetId) {
+    const currentTarget = room.players.get(ai.targetId);
+    if (currentTarget && currentTarget.alive) {
+      const targetDistFromObj = distance2d(currentTarget, { position: objPos });
+      const objectiveNeedsAttention = (actor.team === TEAMS.DEFENDERS && (room.objectiveState.attackersCount > 0 || room.objectiveState.progress > 0.05))
+        || (actor.team === TEAMS.ATTACKERS && room.objectiveState.progress < 1);
+      if (objectiveNeedsAttention && targetDistFromObj > activeObj.radius + 8 && distance2d(actor, currentTarget) > 4.0) {
+        ai.targetId = null;
+      }
+    }
+  }
+
+  // 3. Useful Ally Support: ally fighting an enemy nearby (< 12m)
+  const allies = [...room.players.values()].filter((p) => p !== actor && p.alive && areAllies(room, actor, p) && (p.actorKind !== 'human' || p.connected));
+  for (const ally of allies) {
+    const enemyFightingAlly = enemies.find((e) => distance2d(ally, e) <= 3.8 && distance2d(actor, e) <= 12.0);
+    if (enemyFightingAlly) return { target: enemyFightingAlly, goalPos };
+  }
+
+  // 4. Enemies in or near the objective zone
+  const enemiesAtObj = enemies.filter((e) => distance2d(e, { position: objPos }) <= activeObj.radius + 4.0);
+  if (enemiesAtObj.length) {
+    enemiesAtObj.sort((a, b) => distance2d(actor, a) - distance2d(actor, b));
+    return { target: enemiesAtObj[0], goalPos };
+  }
+
+  // 5. Nearest enemy within reasonable pursuit range
+  const sorted = [...enemies].sort((a, b) => distance2d(actor, a) - distance2d(actor, b));
+  if (sorted.length && distance2d(sorted[0], { position: objPos }) <= activeObj.radius + 12.0) {
+    return { target: sorted[0], goalPos };
+  }
+
+  // 6. No immediate enemies: proceed to capture or defend objective
+  return { target: null, goalPos };
+}
+
+/**
  * Every bot's decisions for this tick. actorKinds: who is played (bots; the Practice Yard's fighting dummies);
  * targetKinds: who they fight (players; a bot against a bot in a test); aggression: how readily they press (the
  * yard's opponents press less). How well each plays is its own (botSkill.mjs); the room's opening peace (peace.mjs)
@@ -822,7 +895,12 @@ export function stepBotControllers(
     const ai = ensureAi(actor, nowSec, random, skill);
     releaseExpiredActions(room, actor, ai, nowSec);
 
+    const teamGoal = selectTeamGoal(room, actor, ai, nowSec);
     let target = ai.targetId ? room.players.get(ai.targetId) : null;
+    if (target && room.policy?.teamMode && areAllies(room, actor, target)) {
+      target = null;
+      ai.targetId = null;
+    }
     // its foe has just fallen: stop, be sure, and move on (POST_KILL)
     if (target && !target.alive && !ai.postKill) beginPostKill(room, actor, target, ai, nowSec, random);
     if (ai.postKill) {
@@ -837,12 +915,38 @@ export function stepBotControllers(
         continue;
       }
     }
-    if (!target || !targetKinds.includes(target.actorKind) || (target.actorKind === 'human' && !target.connected) || !target.alive) {
-      target = nearestHuman(room, actor, targetKinds);
+    if (!target || (!room.policy?.teamMode && !targetKinds.includes(target.actorKind)) || (target.actorKind === 'human' && !target.connected) || !target.alive) {
+      target = teamGoal.target ?? nearestHuman(room, actor, targetKinds);
       ai.targetId = target?.id ?? null;
+    } else if (teamGoal.target && teamGoal.target !== target) {
+      target = teamGoal.target;
+      ai.targetId = target.id;
     }
 
     if (!target) {
+      if (teamGoal.goalPos) {
+        ai.patrol = null;
+        const dist = distance2d(actor, { position: teamGoal.goalPos });
+        if (dist > 1.2) {
+          const way = wayToward(world, actor, { position: teamGoal.goalPos }, ai, nowSec);
+          const aimAt = way ?? teamGoal.goalPos;
+          actor.input.yaw = yawToward(actor, { position: aimAt });
+          actor.yaw = actor.input.yaw;
+          actor.input.forward = 1;
+          actor.input.right = 0;
+          actor.input.sprint = dist > BOT_SPRINT_DISTANCE && (actor.guardStamina ?? 100) > BOT_SPRINT_STAMINA_RESERVE;
+        } else {
+          actor.input.forward = 0;
+          actor.input.right = 0;
+          actor.input.sprint = false;
+          const faceYaw = actor.team === TEAMS.ATTACKERS ? 0 : Math.PI;
+          actor.input.yaw = faceYaw;
+          actor.yaw = faceYaw;
+        }
+        if (actor.attackHeld) endAttack(room, actor.id, nowSec);
+        if (actor.guarding) setGuard(room, actor.id, false, nowSec);
+        continue;
+      }
       patrol(actor, ai, nowSec, random, world);
       ai.avoidUntil = -Infinity;
       ai.escapeUntil = -Infinity;

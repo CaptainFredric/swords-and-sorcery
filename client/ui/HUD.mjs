@@ -22,6 +22,13 @@ export function matchInfoText(snapshot, serverNow) {
   const left = Math.max(0, length - elapsed);
   const mins = Math.floor(left / 60);
   const secs = Math.floor(left % 60).toString().padStart(2, '0');
+  if (snapshot?.mode === 'BREAKTHROUGH') {
+    const obj = snapshot.objective;
+    const objName = obj?.name ?? 'OBJECTIVE';
+    const pct = Math.round((obj?.progress ?? 0) * 100);
+    const status = obj?.contested ? 'CONTESTED' : `${pct}%`;
+    return `BREAKTHROUGH  ·  ${objName.toUpperCase()} [${status}]  ·  ${mins}:${secs}`;
+  }
   return `FIRST TO ${snapshot?.scoreToWin ?? 10}  ·  ${mins}:${secs}`;
 }
 

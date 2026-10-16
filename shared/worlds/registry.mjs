@@ -2,12 +2,14 @@ import { CASTLEWARD } from './castleward.mjs';
 import { SHATTERED_KEEP } from './shatteredKeep.mjs';
 import { RUINED_KEEP } from './ruinedKeep.mjs';
 import { GREENER_PASTURES } from './greenerPastures.mjs';
+import { BASTION_BREACH } from './bastionBreach.mjs';
 
 export const WORLD_IDS = Object.freeze({
   SHATTERED_KEEP: 'shattered-keep',
   CASTLEWARD: 'castleward',
   RUINED_KEEP: 'ruined-keep',
   GREENER_PASTURES: 'greener-pastures',
+  BASTION_BREACH: 'bastion-breach',
 });
 
 const WORLDS = new Map([
@@ -15,6 +17,7 @@ const WORLDS = new Map([
   [WORLD_IDS.CASTLEWARD, CASTLEWARD],
   [WORLD_IDS.RUINED_KEEP, RUINED_KEEP],
   [WORLD_IDS.GREENER_PASTURES, GREENER_PASTURES],
+  [WORLD_IDS.BASTION_BREACH, BASTION_BREACH],
 ]);
 
 export function getWorld(id) {

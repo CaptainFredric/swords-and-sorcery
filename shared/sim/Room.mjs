@@ -9,6 +9,8 @@ import { freshStagger } from '../src/stagger.mjs';
 import { DEFAULT_ULTIMATE, ULTIMATES, isUltimate } from '../src/ultimates.mjs';
 import { BOT_SKILLS, botSkillId } from './botSkill.mjs';
 import { beginPeace } from './peace.mjs';
+import { TEAMS, areAllies, assignTeam } from '../src/teams.mjs';
+import { createObjectiveState } from './objectives.mjs';
 
 const COUNTDOWN_SEC = 3;
 const MATCH_SEC = 360;
@@ -104,6 +106,7 @@ export class Room {
     this.countdownEndsAt = null;
     this.matchStartedAt = null;
     this.winnerId = null;
+    this.winnerTeam = null;
     this.suddenDeath = false;
     this.suddenDeathLeaders = [];
     this.rematchVotes = new Set();
@@ -116,6 +119,9 @@ export class Room {
     // how well the mode's bots play (botSkill.mjs), and the peace a match opens in (peace.mjs)
     this.botSkill = botSkillId(null);
     this.peace = null;
+    if (this.policy.teamMode) {
+      this.objectiveState = createObjectiveState(this.world.objectives ?? []);
+    }
   }
 
   /** How well this room's bots play (a Bot Duel's rival): one of BOT_SKILLS, the Knight's otherwise. */
@@ -127,12 +133,45 @@ export class Room {
   // a bot given the room's skill, and the name that goes with it (its first rival only: a second keeps its number)
   #skilled(actor) {
     actor.botSkill = this.botSkill;
-    if (actor.rivalIndex === 0) actor.name = BOT_SKILLS[this.botSkill].name;
+    if (actor.rivalIndex === 0 && !this.policy.teamMode) actor.name = BOT_SKILLS[this.botSkill].name;
   }
 
-  addPlayer({ id, token, name, spell = DEFAULT_SPELL, ultimate = DEFAULT_ULTIMATE, preparedSpells = [] }, nowSec) {
-    if (this.players.size >= 8) throw new Error('Room is full');
-    const spawn = this.world.spawnPoints[this.players.size % this.world.spawnPoints.length];
+  initialSpawnFor(player, index = 0, nowSec = 0) {
+    if (!this.world?.spawnPoints?.length) return { x: 0, y: 0, z: 0, yaw: 0 };
+    if (this.policy.teamMode && player?.team) {
+      const currentPhase = this.objectiveState?.phase ?? 0;
+      const phaseMatching = this.world.spawnPoints.filter((s) => s.team === player.team && s.phase === currentPhase);
+      if (phaseMatching.length) {
+        return phaseMatching[index % phaseMatching.length];
+      }
+      const matching = this.world.spawnPoints.filter((s) => s.team === player.team && (s.phase === undefined || s.phase === 0));
+      if (matching.length) {
+        return matching[index % matching.length];
+      }
+    }
+    return this.world.spawnPoints[index % this.world.spawnPoints.length];
+  }
+
+  addPlayer({ id, token, name, spell = DEFAULT_SPELL, ultimate = DEFAULT_ULTIMATE, preparedSpells = [], team = null }, nowSec) {
+    const assigned = this.policy.teamMode ? assignTeam(this, team, true) : null;
+    if (this.players.size >= 8) {
+      if (this.policy.teamMode) {
+        const replaceableBot = [...this.players.values()].find((p) => p.actorKind === 'bot' && p.team === assigned)
+          || [...this.players.values()].find((p) => p.actorKind === 'bot');
+        if (replaceableBot) this.players.delete(replaceableBot.id);
+        else throw new Error('Room is full');
+      } else {
+        throw new Error('Room is full');
+      }
+    } else if (this.policy.teamMode) {
+      const targetTotal = (this.policy.teamSize ?? 3) * 2;
+      if (this.players.size >= targetTotal) {
+        const replaceableBot = [...this.players.values()].find((p) => p.actorKind === 'bot' && p.team === assigned)
+          || [...this.players.values()].find((p) => p.actorKind === 'bot');
+        if (replaceableBot) this.players.delete(replaceableBot.id);
+      }
+    }
+    const spawn = this.initialSpawnFor({ team: assigned }, this.players.size, nowSec);
     const player = {
       id,
       token,
@@ -148,6 +187,7 @@ export class Room {
       votes: {},
       disconnectedAt: null,
       disconnectExpiresAt: null,
+      ...(this.policy.teamMode ? { team: assigned } : {}),
       ...scoreFields(),
       ...freshCombatState(spawn, nowSec),
     };
@@ -160,11 +200,12 @@ export class Room {
     return player;
   }
 
-  addServerActor({ id, name, actorKind, spell = null, ultimate = null }, nowSec) {
+  addServerActor({ id, name, actorKind, spell = null, ultimate = null, team = null }, nowSec) {
     if (!['bot', 'dummy'].includes(actorKind)) throw new Error('Server actor must be bot or dummy');
     if (this.players.size >= 8) throw new Error('Room is full');
     if (this.players.has(id)) return this.players.get(id);
-    const spawn = this.world.spawnPoints[this.players.size % this.world.spawnPoints.length];
+    const assigned = this.policy.teamMode ? assignTeam(this, team) : null;
+    const spawn = this.initialSpawnFor({ team: assigned }, this.players.size, nowSec);
     // (a bot brings a spell it throws, never a ward)
     const spells = Object.values(SPELLS).filter((s) => s.kind !== 'ward').map((s) => s.id);
     const ultimates = Object.keys(ULTIMATES);
@@ -180,6 +221,7 @@ export class Room {
       connected: false,
       disconnectedAt: null,
       disconnectExpiresAt: null,
+      ...(this.policy.teamMode ? { team: assigned } : {}),
       ...scoreFields(),
       ...freshCombatState(spawn, nowSec),
     };
@@ -192,16 +234,54 @@ export class Room {
   }
 
   provisionModeActors(nowSec) {
-    if (this.mode !== GAME_MODES.BOT_DUEL) return;
-    const existingBots = [...this.players.values()].filter((p) => p.actorKind === 'bot');
-    for (let i = existingBots.length; i < this.policy.botCount; i += 1) {
-      const actor = this.addServerActor({
-        id: `bot-${this.code}-${i + 1}`,
-        name: i === 0 ? BOT_SKILLS[this.botSkill].name : `Rival ${i + 1}`,
-        actorKind: 'bot',
-      }, nowSec);
-      actor.rivalIndex = i;
-      this.#skilled(actor);
+    if (this.mode === GAME_MODES.BOT_DUEL) {
+      const existingBots = [...this.players.values()].filter((p) => p.actorKind === 'bot');
+      for (let i = existingBots.length; i < this.policy.botCount; i += 1) {
+        const actor = this.addServerActor({
+          id: `bot-${this.code}-${i + 1}`,
+          name: i === 0 ? BOT_SKILLS[this.botSkill].name : `Rival ${i + 1}`,
+          actorKind: 'bot',
+        }, nowSec);
+        actor.rivalIndex = i;
+        this.#skilled(actor);
+      }
+      return;
+    }
+
+    if (this.policy.teamMode) {
+      const teamSize = this.policy.teamSize ?? 3;
+      const attackers = [...this.players.values()].filter((p) => p.team === TEAMS.ATTACKERS);
+      const defenders = [...this.players.values()].filter((p) => p.team === TEAMS.DEFENDERS);
+
+      let serial = 1;
+      while (attackers.length < teamSize) {
+        const actor = this.addServerActor({
+          id: `bot-att-${this.code}-${serial}`,
+          name: `Squire ${['Vance', 'Rowan', 'Garrick', 'Thorne'][serial - 1] ?? serial}`,
+          actorKind: 'bot',
+          team: TEAMS.ATTACKERS,
+        }, nowSec);
+        actor.team = TEAMS.ATTACKERS;
+        actor.rivalIndex = serial - 1;
+        this.#skilled(actor);
+        attackers.push(actor);
+        serial += 1;
+      }
+
+      serial = 1;
+      while (defenders.length < teamSize) {
+        const actor = this.addServerActor({
+          id: `bot-def-${this.code}-${serial}`,
+          name: `Warden ${['Alden', 'Kaelen', 'Bryce', 'Merrick'][serial - 1] ?? serial}`,
+          actorKind: 'bot',
+          team: TEAMS.DEFENDERS,
+        }, nowSec);
+        actor.team = TEAMS.DEFENDERS;
+        actor.rivalIndex = serial - 1;
+        this.#skilled(actor);
+        defenders.push(actor);
+        serial += 1;
+      }
     }
   }
 
@@ -235,8 +315,13 @@ export class Room {
     }
     this.provisionModeActors(nowSec);
     if (this.mode === GAME_MODES.BOT_DUEL && this.readyHumanCount() < this.policy.minHumansToStart) return false;
-    const botCount = [...this.players.values()].filter((p) => p.actorKind === 'bot').length;
-    if (botCount < this.policy.botCount) return false;
+    if (this.policy.teamMode) {
+      const targetTotal = (this.policy.teamSize ?? 3) * 2;
+      if (this.players.size < targetTotal) return false;
+    } else {
+      const botCount = [...this.players.values()].filter((p) => p.actorKind === 'bot').length;
+      if (botCount < this.policy.botCount) return false;
+    }
     this.#beginCountdown(nowSec);
     return true;
   }
@@ -440,20 +525,25 @@ export class Room {
       && !this.suddenDeath
       && this.matchStartedAt !== null
       && nowSec >= this.matchStartedAt + this.policy.matchSeconds) {
-      let max = -1;
-      let leaders = [];
-      for (const p of this.players.values()) {
-        if (p.kills > max) {
-          max = p.kills;
-          leaders = [p.id];
-        } else if (p.kills === max) {
-          leaders.push(p.id);
+      if (this.policy.teamMode) {
+        // Defenders hold until round end
+        this.finish(TEAMS.DEFENDERS, nowSec, 'defense');
+      } else {
+        let max = -1;
+        let leaders = [];
+        for (const p of this.players.values()) {
+          if (p.kills > max) {
+            max = p.kills;
+            leaders = [p.id];
+          } else if (p.kills === max) {
+            leaders.push(p.id);
+          }
         }
-      }
-      if (leaders.length === 1) this.finish(leaders[0], nowSec);
-      else {
-        this.suddenDeath = true;
-        this.suddenDeathLeaders = leaders;
+        if (leaders.length === 1) this.finish(leaders[0], nowSec);
+        else {
+          this.suddenDeath = true;
+          this.suddenDeathLeaders = leaders;
+        }
       }
     }
   }
@@ -465,12 +555,16 @@ export class Room {
     this.matchStartedAt = nowSec;
     this.countdownEndsAt = null;
     this.winnerId = null;
+    this.winnerTeam = null;
     this.suddenDeath = false;
     this.suddenDeathLeaders = [];
     this.rematchVotes.clear();
+    if (this.policy.teamMode) {
+      this.objectiveState = createObjectiveState(this.world.objectives ?? []);
+    }
     let i = 0;
     for (const player of this.players.values()) {
-      const spawn = this.world.spawnPoints[i % this.world.spawnPoints.length];
+      const spawn = this.initialSpawnFor(player, i, nowSec);
       player.spell = isSpell(player.startingSpell) ? player.startingSpell : player.spell;
       player.preparedSpells = normalizePreparedSpells(player.spell, player.startingPreparedSpells ?? player.preparedSpells);
       player.ultimate = isUltimate(player.startingUltimate) ? player.startingUltimate : player.ultimate;
@@ -489,6 +583,7 @@ export class Room {
     const killer = this.players.get(killerId);
     const victim = this.players.get(victimId);
     if (!killer || !victim || this.state !== 'PLAYING') return;
+    if (areAllies(this, killerId, victimId)) return;
     killer.kills += 1;
     victim.deaths += 1;
     if (this.policy.scored && Number.isFinite(this.scoreToWin) && killer.kills >= this.scoreToWin) {
@@ -503,8 +598,13 @@ export class Room {
   finish(winnerId, nowSec, reason = 'score') {
     this.state = 'FINISHED';
     this.winnerId = winnerId;
+    if (this.policy.teamMode) {
+      this.winnerTeam = (winnerId === TEAMS.ATTACKERS || winnerId === TEAMS.DEFENDERS)
+        ? winnerId
+        : (this.players.get(winnerId)?.team ?? null);
+    }
     this.finishReason = reason;
-    this.events.push({ type: 'matchEnded', winnerId, reason, at: nowSec });
+    this.events.push({ type: 'matchEnded', winnerId, winnerTeam: this.winnerTeam ?? null, reason, at: nowSec });
     recordChallengeFact(this, { type: 'matchFinished', winnerId, reason, at: nowSec });
   }
 
