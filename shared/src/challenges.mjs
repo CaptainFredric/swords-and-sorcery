@@ -11,6 +11,7 @@ export const CHALLENGES = Object.freeze({
   against_better_judgment:feat('against_better_judgment','chivalry','AGAINST BETTER JUDGMENT','Win a Duel after reaching 15 HP or less during that Duel.',20),
   both_hands_full:feat('both_hands_full','chivalry','BOTH HANDS FULL','During Chivalry, damage the same enemy with sword and a prepared spell within 1.5 seconds, with Guard active during at least one contact.',25,{hint:'A knight need not choose one thing at a time.'}),
   passing_remark:feat('passing_remark','chivalry','PASSING REMARK','During Chivalry, land an ordinary sword contact while in Dash.',15,{hint:'Momentum is an argument too.'}),
+  well_balanced:feat('well_balanced','oddities','WELL BALANCED','Be defeated shortly after initiating Blazing Vortex without damaging anybody.',15,{hint:'Spinning is not the same as winning.',flavor:'A blazing commitment, cut abruptly short.'}),
 });
 
 /** Never transmit numeric progress for an unrevealed hinted feat. Unknown IDs are retained on disk only. */

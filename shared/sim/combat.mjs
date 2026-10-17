@@ -1489,6 +1489,7 @@ export function tryUltimate(room, playerId, nowSec) {
     player.grounded = false;
   }
   room.events.push({ type: 'ultimateStart', playerId, ultimate: ultimate.id, commitAt: player.ultimateState.commitAt, ...(hop ? { hop } : {}), at: nowSec });
+  recordChallengeFact(room, { type: 'ultimateStart', playerId, ultimate: ultimate.id, at: nowSec });
   return true;
 }
 

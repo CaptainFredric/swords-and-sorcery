@@ -201,3 +201,29 @@ test('malformed raw contact data and nondamaging contact claims cannot progress 
     assert.equal(progress(r).passing_remark??0,0);assert.equal(progress(r).three_part_argument??0,0);
   }
 });
+
+test('Well Balanced requires dying shortly after initiating Blazing Vortex without damaging anybody',()=>{
+  for(const [delta,damageDealt,ultimate,yes] of [
+    [1.5, false, 'vortex', true],
+    [5.0, false, 'vortex', true],
+    [5.0001, false, 'vortex', false],
+    [2.0, true, 'vortex', false],
+    [1.5, false, 'sunder', false],
+  ]){
+    const r=roomFor();
+    fact(r,{type:'ultimateStart',playerId:'b',ultimate,at:10});
+    if(damageDealt) fact(r,damage({attackerId:'b',victimId:'a',at:10.5}));
+    fact(r,{type:'death',killerId:'a',victimId:'b',source:'sword',at:10+delta});
+    assert.equal(progress(r,'b').well_balanced??0,yes?1:0,`delta=${delta}, damage=${damageDealt}, ult=${ultimate}`);
+  }
+});
+
+test('actual Blazing Vortex startup defeat awards Well Balanced to the fallen knight',()=>{
+  const r=roomFor();const b=r.players.get('b');b.ultimate='vortex';b.prowess=100;
+  tryUltimate(r,'b',10);
+  assert.equal(b.ultimateState?.id,'vortex');
+  killPlayer(r,'b','a','sword',10.4);
+  assert.equal(b.alive,false);
+  assert.equal(progress(r,'b').well_balanced,1);
+});
+

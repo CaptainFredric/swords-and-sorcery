@@ -24,7 +24,7 @@ function stateFor(room, id) {
   if (!knight(room, id) || room.players.get(id).actorKind !== 'human') return null;
   let state = room.challengeTracking.players.get(id);
   if (!state) {
-    state = { progress: {}, chains: new Map(), parried: new Map(), mixed: new Map(), lowHealth: false };
+    state = { progress: {}, chains: new Map(), parried: new Map(), mixed: new Map(), lowHealth: false, vortexStartedAt: null, vortexDealtDamage: false };
     room.challengeTracking.players.set(id, state);
   }
   return state;
@@ -84,6 +84,9 @@ function observeDamage(room, f) {
     advance(victim, 'polished_under_pressure');
   }
   const attacker = stateFor(room, f.attackerId);
+  if (attacker && Number.isFinite(attacker.vortexStartedAt) && f.at >= attacker.vortexStartedAt) {
+    attacker.vortexDealtDamage = true;
+  }
   chainContact(attacker, f);
   if (f.contact === true && f.source === 'sword' && f.ordinary === true && f.chivalry === true && f.dashing === true) advance(attacker, 'passing_remark');
   if (f.contact === true && f.chivalry === true) {
@@ -118,7 +121,22 @@ export function observeChallengeFacts(room) {
       case 'parry':
         if (enemies(room, f.defenderId, f.attackerId)) stateFor(room, f.defenderId)?.parried.set(f.attackerId, f.at);
         break;
+      case 'ultimateStart': {
+        const state = stateFor(room, f.playerId);
+        if (state && f.ultimate === 'vortex') {
+          state.vortexStartedAt = f.at;
+          state.vortexDealtDamage = false;
+        }
+        break;
+      }
       case 'death': {
+        const victim = stateFor(room, f.victimId);
+        if (victim && Number.isFinite(victim.vortexStartedAt)
+          && f.at >= victim.vortexStartedAt
+          && f.at - victim.vortexStartedAt <= 5
+          && !victim.vortexDealtDamage) {
+          advance(victim, 'well_balanced');
+        }
         if (!enemies(room, f.killerId, f.victimId)) break;
         const state = stateFor(room, f.killerId);
         const parriedAt = state?.parried.get(f.victimId);
