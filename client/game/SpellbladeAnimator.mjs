@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { SpellbladeComposition } from './spellbladeComposition.mjs';
-import { bootSide, soleContactOffset } from './spellbladeContact.mjs';
+import { BODY_GROUND_CLEARANCE, bodyGroundLift, bootSide, soleContactOffset } from './spellbladeContact.mjs';
 import { SpellbladeClothRig } from './SpellbladeClothRig.mjs';
 import { blendProgressFor, blendSeconds, blendWeights } from './spellbladeBlend.mjs';
 import { DEATH_REST, GAIT_CLIPS, deathRest, deathSlump, gaitTime, nonlethalRecovery, reactionPose } from './spellbladeMotion.mjs';
@@ -354,6 +354,9 @@ export class SpellbladeAnimator {
     }
     if (pelvisBone && Math.hypot(...pose.pelvis) > 1e-5) this.#offsetInRootSpace(pelvisBone, pose.pelvis);
     if (motion.death) this.#lieDown(motion.death.age);
+    // Downed and dead poses put much more than a boot near the floor. After all authored rotations and pelvis motion,
+    // lift the whole skeleton only if a sampled arm/leg/torso point has actually gone through the ground.
+    if (motion.death || motion.recovery) this.#keepGroundedBodyClear();
     // last, a solver that places bones by where they should end up (reads the pose everything above has made)
     solve?.(this.boneApi);
   }
@@ -417,6 +420,20 @@ export class SpellbladeAnimator {
     }
     // and nothing left in the ground
     settleOn(Object.keys(DEATH_REST.clearance), 0);
+  }
+
+  #keepGroundedBodyClear() {
+    const pelvis = this.bone('pelvis');
+    const skeleton = pelvis?.parent;
+    if (!skeleton?.isBone) return;
+    const samples = {};
+    for (const name of Object.keys(BODY_GROUND_CLEARANCE)) {
+      const bone = this.bone(name);
+      if (!bone) continue;
+      samples[name] = _v.setFromMatrixPosition(bone.matrixWorld).applyMatrix4(_rootInv).y;
+    }
+    const lift = bodyGroundLift(samples);
+    if (lift > 1e-5) this.#offsetInRootSpace(skeleton, [0, lift, 0]);
   }
 
   #soleY(name) {
