@@ -344,7 +344,7 @@ test('a final defeat\'s taunt is heard first: an aside still waiting is dropped,
   host.close();
 });
 
-test('missed Fireballs: Rival keeps to the meadow, facing the Spellblade, until one lands; then the chase goes on', () => {
+test('missed Fireballs: Rival holds the Halt standoff until one lands; then the chase goes on', () => {
   const t = fixture();
   const { host, session, tick, rival } = t;
   session.stage('fireball'); session.director.resumeAt('fireball-prompt'); session.rival.enter('rival-escape', host.now());
@@ -354,7 +354,7 @@ test('missed Fireballs: Rival keeps to the meadow, facing the Spellblade, until 
   host.player.position = { x: 22, y: 0, z: -362 };
   const inMeadow = () => rival().position.x >= box.minX - .5 && rival().position.x <= box.maxX + .5
     && rival().position.z >= box.minZ - .5 && rival().position.z <= box.maxZ + .5;
-  // the Spellblade misses, and misses, and wanders: he gives ground but never leaves for the landmarks the next lines name
+  // the Spellblade misses, and misses, and wanders: Halt remains a real stationary standoff until a Fireball lands
   for (let i = 0; i < 30 * 20; i += 1) {
     if (i === 30 * 8) host.player.position = { x: 30, y: 0, z: -374 };
     tick();
