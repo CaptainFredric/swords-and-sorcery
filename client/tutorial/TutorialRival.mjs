@@ -128,7 +128,10 @@ export class TutorialRival {
       this.mode = next; this.enteredAt = now;
       cancelAttack(this.room, this.actor.id, now); setGuard(this.room, this.actor.id, false, now);
       this.actor.ai = null; this.parryRaisedAt = null; this.counterAt = null;
-      if (next === 'escape') this.sprintWanted = true;
+      if (next === 'escape') {
+        this.sprintWanted = true;
+        if (!this.session.firstFireballHit && !['halt-order', 'tell-on-me', 'fireball-prompt'].includes(this.session.director.current?.id)) this.fireballHalted = false;
+      }
       if (next === 'pride') this.prideAt = null;
       // (the final Guard is raised by his own hand at his post: an ordinary held Guard, its time its own)
       if (next === 'final-guard' && !this.session.finalBroken) setGuard(this.room, this.actor.id, true, now);
@@ -278,8 +281,8 @@ export class TutorialRival {
     const hold = GREENER_ROUTE.rivalHold, away = distance(this.actor.position, hold);
     this.inputToward(away > .8 ? hold : this.player.position, away > .8 ? .45 : 0, false, away > .8 ? hold : this.player.position);
   }
-  // The first Fireball has not found him yet, and the story waits on it (it is not past the prompt for one): the
-  // lesson holds him in its meadow
+  // The first Fireball has not found him yet, and the story is still before/presenting its prompt. This controls
+  // protective Parry behavior; movement is no longer spatially frozen by an invisible meadow boundary.
   get fireballLesson() {
     const { director } = this.session;
     const prompt = director.beats.findIndex(beat => beat.advanceOn === 'fireball-hit');
