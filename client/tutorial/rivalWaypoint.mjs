@@ -7,7 +7,10 @@ const COMBAT_CLOSE_DIST = 3.5;
 const COMBAT_MODES = new Set(['duel', 'guard-lesson', 'final-fight', 'final-guard']);
 
 /**
- * Calculates screen projection and metadata for the Rival objective marker.
+ * Calculates screen projection and metadata for the Rival / Passage objective marker.
+ *
+ * Distinguishes between tracking Rival directly (labeled 'RIVAL' with distance to Rival)
+ * and guiding through impassable terrain/barriers (labeled 'PASSAGE' with distance to the passage).
  *
  * @param {object} params
  * @param {object} [params.session] Active TutorialSession if any
@@ -45,11 +48,10 @@ export function computeRivalWaypoint({ session, local, snapshot, camera, THREE }
   if (!rivalPos) return null;
 
   const playerPos = local.position;
-  const dist = Math.hypot(rivalPos.x - playerPos.x, rivalPos.z - playerPos.z);
-
   let targetPos = rivalPos;
   let heightOffset = 2.3;
   let name = 'RIVAL';
+  let isPassage = false;
 
   // Obstacle-aware navigation:
   // 1. Opening Slalom (gates A, B, C)
@@ -57,31 +59,54 @@ export function computeRivalWaypoint({ session, local, snapshot, camera, THREE }
     if (playerPos.z > 168) {
       targetPos = { x: 68, y: 0, z: 168 };
       heightOffset = 1.6;
+      name = 'PASSAGE';
+      isPassage = true;
     } else if (playerPos.z > 110) {
       targetPos = { x: -68, y: 0, z: 110 };
       heightOffset = 1.6;
+      name = 'PASSAGE';
+      isPassage = true;
     } else if (playerPos.z > 52) {
       targetPos = { x: 68, y: 0, z: 52 };
       heightOffset = 1.6;
+      name = 'PASSAGE';
+      isPassage = true;
     }
   }
-  // 2. Broken Bridge Ravine (guide to takeoff ramp before chasm)
+  // 2. Mill Lane entrance through 1.7m stone field wall
+  else if (rivalPos.z < -533 && playerPos.z > -533 && playerPos.z < -500) {
+    targetPos = { x: 26, y: 0, z: -531.5 };
+    heightOffset = 1.6;
+    name = 'PASSAGE';
+    isPassage = true;
+  }
+  // 3. Broken Bridge Ravine (guide to takeoff ramp before chasm)
   else if (rivalPos.z < -676 && playerPos.z > -663 && playerPos.z < -580) {
     targetPos = { x: 32, y: 2, z: -662.4 };
     heightOffset = 1.6;
+    name = 'PASSAGE';
+    isPassage = true;
   }
+
+  const dist = Math.hypot(targetPos.x - playerPos.x, targetPos.z - playerPos.z);
+  const rivalDist = Math.hypot(rivalPos.x - playerPos.x, rivalPos.z - playerPos.z);
 
   const projected = projectToScreen(targetPos, camera, { heightOffset, THREE });
   if (!projected) return null;
 
-  // Proximity suppression: hide when Rival is in close view to prevent obscuring face/action
-  if (!projected.clamped && dist <= PROXIMITY_SUPPRESS_DIST) {
+  // Proximity suppression:
+  // For direct Rival tracking, hide when Rival is in close view to prevent obscuring face/action
+  if (!isPassage && !projected.clamped && rivalDist <= PROXIMITY_SUPPRESS_DIST) {
+    return null;
+  }
+  // For passage guidance, hide when the player is right at the threshold
+  if (isPassage && !projected.clamped && dist <= 2.0) {
     return null;
   }
 
   // Close combat suppression
   const inCombat = COMBAT_MODES.has(session?.rival?.mode);
-  if (inCombat && dist <= COMBAT_CLOSE_DIST) {
+  if (inCombat && rivalDist <= COMBAT_CLOSE_DIST) {
     return null;
   }
 

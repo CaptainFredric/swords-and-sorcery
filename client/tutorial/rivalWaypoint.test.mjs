@@ -81,12 +81,12 @@ test('computeRivalWaypoint guides through slalom gates in the opening', () => {
     ],
   };
 
-  // Player at z = 200 (> 168): should target Gate A (68, 0, 168)
+  // Player at z = 200 (> 168): should target Gate A (68, 0, 168) as PASSAGE
   const localA = { id: 'p1', alive: true, health: 100, position: { x: 0, y: 0, z: 200 } };
   const resA = computeRivalWaypoint({ local: localA, snapshot, camera });
   assert.ok(resA);
-  assert.equal(resA.name, 'RIVAL');
-  assert.equal(Math.round(resA.dist), 215); // Distance to Rival (200 - (-15))
+  assert.equal(resA.name, 'PASSAGE');
+  assert.equal(Math.round(resA.dist), 75); // Distance to Gate A (hypot(68, -32) ~ 75.15m)
 
   // Gate A (68, 0, 168) is to the right (+X) and in front (-Z relative to z=200):
   // Since camera yaw=0 faces -Z, +X is to screen right (x > 0.5)
@@ -96,6 +96,7 @@ test('computeRivalWaypoint guides through slalom gates in the opening', () => {
   const localB = { id: 'p1', alive: true, health: 100, position: { x: 0, y: 0, z: 140 } };
   const resB = computeRivalWaypoint({ local: localB, snapshot, camera });
   assert.ok(resB);
+  assert.equal(resB.name, 'PASSAGE');
   // Gate B (-68, 0, 110) is to the left (-X): x < 0.5
   assert.ok(resB.x < 0.5, `Expected x < 0.5 for Gate B to the left, got ${resB.x}`);
 
@@ -103,12 +104,14 @@ test('computeRivalWaypoint guides through slalom gates in the opening', () => {
   const localC = { id: 'p1', alive: true, health: 100, position: { x: 0, y: 0, z: 80 } };
   const resC = computeRivalWaypoint({ local: localC, snapshot, camera });
   assert.ok(resC);
+  assert.equal(resC.name, 'PASSAGE');
   assert.ok(resC.x > 0.5, `Expected x > 0.5 for Gate C to the right, got ${resC.x}`);
 
   // Player at z = 30 (<= 52): direct path to Rival at (0, 0, -15)
   const localCleared = { id: 'p1', alive: true, health: 100, position: { x: 0, y: 0, z: 30 } };
   const resCleared = computeRivalWaypoint({ local: localCleared, snapshot, camera });
   assert.ok(resCleared);
+  assert.equal(resCleared.name, 'RIVAL');
   // Rival is at x=0, player is at x=0: x should be centered around 0.5
   assert.ok(Math.abs(resCleared.x - 0.5) < 0.05, `Expected x ~ 0.5, got ${resCleared.x}`);
 });
@@ -129,6 +132,7 @@ test('computeRivalWaypoint guides to bridge takeoff ramp before chasm', () => {
   const localApproaching = { id: 'p1', alive: true, health: 100, position: { x: 10, y: 0, z: -640 } };
   const resApproaching = computeRivalWaypoint({ local: localApproaching, snapshot, camera });
   assert.ok(resApproaching);
+  assert.equal(resApproaching.name, 'PASSAGE');
   // Bridge takeoff ramp is at x=32, which is to the right of x=10:
   assert.ok(resApproaching.x > 0.5, `Expected x > 0.5 toward ramp, got ${resApproaching.x}`);
 
@@ -136,6 +140,7 @@ test('computeRivalWaypoint guides to bridge takeoff ramp before chasm', () => {
   const localCrossed = { id: 'p1', alive: true, health: 100, position: { x: 32, y: 0, z: -678 } };
   const resCrossed = computeRivalWaypoint({ local: localCrossed, snapshot, camera });
   assert.ok(resCrossed);
+  assert.equal(resCrossed.name, 'RIVAL');
   assert.equal(Math.round(resCrossed.dist), 12);
 });
 

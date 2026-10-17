@@ -2228,6 +2228,10 @@ export class GameRuntime {
     });
   }
 
+  calculateRivalWaypoint() {
+    return this.#calculateRivalWaypoint();
+  }
+
   dispose() {
     this.running = false;
     clearTimeout(this.appealCut);

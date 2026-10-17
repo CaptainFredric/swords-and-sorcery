@@ -31,7 +31,9 @@ export function projectToScreen(worldPos, camera, { bounds = DEFAULT_BOUNDS, hei
   let camX = 0;
   let camY = 0;
 
-  if (camera.project && THREE?.Vector3) {
+  const canUseThree = Boolean(THREE?.Vector3 && (camera.matrixWorldInverse || camera.isCamera || camera.projectionMatrix));
+  if (canUseThree) {
+    camera.updateMatrixWorld?.();
     const p = new THREE.Vector3(worldPos.x, targetY, worldPos.z);
     if (camera.matrixWorldInverse) {
       const camPos = p.clone().applyMatrix4(camera.matrixWorldInverse);
@@ -46,7 +48,10 @@ export function projectToScreen(worldPos, camera, { bounds = DEFAULT_BOUNDS, hei
     sx = (ndc.x * 0.5) + 0.5;
     sy = (-ndc.y * 0.5) + 0.5;
   } else {
-    // Pure trigonometric camera model
+    // Pure trigonometric camera model matching Three.js YXZ Euler order:
+    // yaw is rotation around +Y (positive yaw turns left towards -X)
+    // pitch is rotation around local +X (positive pitch tilts up towards +Y)
+    // Camera looks down -Z; +X is right, +Y is up, -Z is forward
     const camPos = camera.position ?? { x: 0, y: 1.7, z: 0 };
     const yaw = camera.yaw ?? camera.rotation?.y ?? 0;
     const pitch = camera.pitch ?? camera.rotation?.x ?? 0;
@@ -57,19 +62,21 @@ export function projectToScreen(worldPos, camera, { bounds = DEFAULT_BOUNDS, hei
     const dy = targetY - camPos.y;
     const dz = worldPos.z - camPos.z;
 
-    // Rotate by -yaw around Y
-    const cosY = Math.cos(-yaw);
-    const sinY = Math.sin(-yaw);
+    // Inverse Y rotation (by -yaw around +Y):
+    const cosY = Math.cos(yaw);
+    const sinY = Math.sin(yaw);
     const x1 = dx * cosY - dz * sinY;
+    const y1 = dy;
     const z1 = dx * sinY + dz * cosY;
 
-    // Rotate by -pitch around X
-    const cosP = Math.cos(-pitch);
-    const sinP = Math.sin(-pitch);
-    const y2 = dy * cosP - z1 * sinP;
-    const z2 = dy * sinP + z1 * cosP;
+    // Inverse X rotation (by -pitch around local X):
+    const cosP = Math.cos(pitch);
+    const sinP = Math.sin(pitch);
+    const y2 = y1 * cosP + z1 * sinP;
+    const z2 = -y1 * sinP + z1 * cosP;
 
-    // Camera looks down -Z, so target is in front if z2 < 0
+    // Camera looks down -Z:
+    // target is in front if z2 < 0, behind if z2 >= 0
     isBehind = z2 >= 0;
     camX = x1;
     camY = y2;
