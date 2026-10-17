@@ -31,3 +31,9 @@ test('first-person sorcery hand uses irregular energy shards instead of only a c
     assert.match(text, new RegExp(name), `missing ${name}`);
   }
 });
+
+test('attack combo initiates cleanly on active chain even when dashing without waiting for dash expiry', async () => {
+  const text = await source();
+  assert.match(text, /this\.#combo\(\s*chain\s*\?\s*['"]attack['"]\s*:\s*pose\.state/);
+});
+

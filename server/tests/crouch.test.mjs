@@ -119,11 +119,12 @@ test('a sword aimed at a crouched knight lands as on anyone: no crouch is a dodg
     run(room, 10, 10.5);
     return 100 - b.health;
   };
-  // aimed down at them: caught dead centre, as anyone would be
-  assert.equal(blow(-0.3), 30);
-  // swung level, over the crouched head: it still catches them, less cleanly (the aim was over them)
+  // aimed down at them: caught on the ordinary curve, as anyone would be
+  const aimed = blow(-0.3);
+  assert.ok(aimed >= 22 && aimed <= 25, `aimed contact: ${aimed}`);
+  // swung level, over the crouched head: it still catches them, no crouch is a dodge
   const level = blow(0);
-  assert.ok(level >= 19 && level < 30, `a level swing: ${level}`);
+  assert.ok(level >= 19 && level <= 27, `a level swing: ${level}`);
 });
 
 test('a swing aimed high passes over a crouched knight, and meets a standing one', () => {

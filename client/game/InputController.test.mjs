@@ -438,3 +438,81 @@ test('an authored pursuit release resumes suspended movement while first WALK re
   assert.equal(input.movement().forward,1);assert.equal(input.movement().sprint,true);
   up('KeyW');up('ShiftLeft');assert.equal(input.movement().forward,0);
 });
+
+test('mouse attack and release work when touchFocus is active (hybrid iPad / touchscreen PC with mouse)', () => {
+  const { input, calls, down, up, send } = setup();
+  // Simulate touch device with pointer unlocked and touchFocus enabled
+  globalThis.document.pointerLockElement = null;
+  send('pointerlockchange');
+  assert.equal(input.pointerLocked, false);
+  assert.equal(input.enabled, false);
+
+  input.touch = { setActive() {}, enterImmersive() {} };
+  input.requestPointerLock();
+  assert.equal(input.touchFocus, true);
+  assert.equal(input.enabled, true);
+  assert.equal(input.pointerLocked, false);
+
+  down('Mouse0');
+  assert.deepEqual(calls, [['attack', true]]);
+  assert.equal(input.attackHeld, true);
+  assert.equal(input.movement().attack, true);
+
+  up('Mouse0');
+  assert.deepEqual(calls, [['attack', true], ['attack', false]]);
+  assert.equal(input.attackHeld, false);
+  assert.equal(input.movement().attack, false);
+});
+
+test('default keyboard attack key KeyF attacks and holds alongside Mouse0', () => {
+  const { input, calls, down, up } = setup();
+  down('KeyF');
+  assert.deepEqual(calls, [['attack', true]]);
+  assert.equal(input.movement().attack, true);
+  up('KeyF');
+  assert.deepEqual(calls, [['attack', true], ['attack', false]]);
+  assert.equal(input.movement().attack, false);
+});
+
+test('holding both Mouse0 and KeyF sustains attack until all sources release', () => {
+  for (const [first, second] of [['Mouse0', 'KeyF'], ['KeyF', 'Mouse0']]) {
+    const { input, calls, down, up } = setup();
+    down(first);
+    assert.deepEqual(calls, [['attack', true]]);
+    down(second);
+    assert.deepEqual(calls, [['attack', true]], 'second attack source does not re-trigger attack');
+    up(first);
+    assert.equal(input.attackHeld, true, 'attack remains sustained while second source is held');
+    assert.deepEqual(calls, [['attack', true]]);
+    up(second);
+    assert.deepEqual(calls, [['attack', true], ['attack', false]]);
+    assert.equal(input.attackHeld, false);
+  }
+});
+
+test('pointer lock acquisition and release transition cleanly while touchFocus is active', () => {
+  const { input, send } = setup();
+  globalThis.document.pointerLockElement = null;
+  send('pointerlockchange');
+  input.touch = { setActive() {}, enterImmersive() {} };
+  input.requestPointerLock();
+  assert.equal(input.touchFocus, true);
+  assert.equal(input.enabled, true);
+  assert.equal(input.pointerLocked, false);
+
+  // Pointer lock acquired while touchFocus active
+  globalThis.document.pointerLockElement = input.element;
+  send('pointerlockchange');
+  assert.equal(input.pointerLocked, true);
+  assert.equal(input.enabled, true);
+
+  // Pointer lock released (e.g. user toggles back to touch)
+  globalThis.document.pointerLockElement = null;
+  send('pointerlockchange');
+  assert.equal(input.pointerLocked, false);
+  assert.equal(input.enabled, true, 'touchFocus keeps input enabled when pointer lock releases');
+
+  input.releaseFocus();
+  assert.equal(input.touchFocus, false);
+  assert.equal(input.enabled, false);
+});

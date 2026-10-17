@@ -158,7 +158,7 @@ export class MusicPlayer {
       amp.gain.value = level * humanVel;
       source.connect(amp).connect(panned);
       source.start(Math.max(ctx.currentTime, start));
-      return start + buffer.duration;
+      return start + (Number.isFinite(buffer?.duration) ? buffer.duration : 0);
     }
     const freq = Array.isArray(event.midi) ? event.midi.map(midiToFreq) : midiToFreq(event.midi);
     let voice = null;

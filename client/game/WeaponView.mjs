@@ -528,6 +528,12 @@ export class WeaponView {
   /** Whether the arms are in the sword chain. */
   get attackHeld() { return this.swordChain.active; }
 
+  /** The active strike index (0, 1, or 2) in the running sword chain. */
+  get strike() {
+    if (this.comboSource?.slam) return 2;
+    return this.swordChain?.currentStrike ?? 0;
+  }
+
   setGuard(guard) {
     if (guard) this.drawSword({ quick: true });
     this.guard = guard;
@@ -806,7 +812,7 @@ export class WeaponView {
       // (a Vortex has both arms outright: the chain's path gives way to it)
       const vortexPose = this.#vortexPose(timeSec, dt);
       // (and the brace into Sunder has them through its startup, handing over to the first slam's chain)
-      const sourceCombo = vortexPose ?? this.#bracePose(timeSec) ?? this.#combo(this.concurrent && chain ? 'attack' : pose.state, timeSec, stateBefore);
+      const sourceCombo = vortexPose ?? this.#bracePose(timeSec) ?? this.#combo(chain ? 'attack' : pose.state, timeSec, stateBefore);
       this.concurrentGuardBlend = approach(this.concurrentGuardBlend ?? 0, this.concurrent && this.guard ? 1 : 0, dt / 0.18);
       // Guard owns a complete defensive path, including the way home when a committed chain ends.
       // The ordinary chain keeps its own handover bookkeeping and remains unchanged outside Chivalry.

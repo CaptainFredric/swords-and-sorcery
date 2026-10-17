@@ -369,6 +369,7 @@ export class MenuScene {
       // a reaction to a choice on the front door takes over from the idle life while it lasts
       const isRepositioning = !this.touring && this.characterRoot.position.distanceTo(this.targetPosition) > 0.04;
       const reaction = this.ready && !isRepositioning ? reactionMoment(this.reaction, this.clock) : null;
+      if (this.reaction && !reaction) this.reaction = null;
       const performance = reaction ? performanceAt(reaction.kind, reaction.elapsed) : null;
       const moment = reaction ?? (this.ready ? idleMoment(this.clock) : null);
       let plan = resolveSpellbladeAnimationPlan({ state: isRepositioning ? 'run' : 'idle', localTime: t });
@@ -531,8 +532,13 @@ export class MenuScene {
   ensureSwordVisible() {
     if (this.assetInstance?.root) {
       this.assetInstance.root.traverse((object) => {
-        if (object.isMesh && /^HeroSword/i.test(object.name)) {
+        if (/^HeroSword/i.test(object.name)) {
           object.visible = true;
+          let p = object.parent;
+          while (p && p !== this.assetInstance.root) {
+            p.visible = true;
+            p = p.parent;
+          }
         }
       });
     }
@@ -545,6 +551,9 @@ export class MenuScene {
     }
     this.armoryPreview = null;
     this.showSpell(null);
+    if (!this.touring && this.characterRoot.parent !== this.stage) {
+      this.stage.add(this.characterRoot);
+    }
     this.assetInstance?.animator?.reset?.();
     this.ensureSwordVisible();
     if (immediate) {
@@ -596,16 +605,15 @@ export class MenuScene {
     if (!this.touring) return;
     this.touring = false;
     this.container.classList.remove('touring');
-    // a reaction he was in the middle of out on the round, he finishes at his place
-    const performance = this.tour.pause > 0 ? this.tour.performance : null;
-    if (performance) this.reaction = { kind: performance.kind, startedAt: this.clock - performance.elapsed };
     this.tour.performance = null;
     this.tour.pause = 0;
+    this.reaction = null;
     // back on his stage (the other screens' shots are framed on it), rivals and their remains out of sight
     this.stage.add(this.characterRoot);
     this.characterRoot.position.copy(this.targetPosition);
     this.characterRoot.rotation.set(0, this.targetYaw, 0);
     this.tour.setVisible(false);
+    this.assetInstance?.animator?.reset?.();
     this.ensureSwordVisible();
     this.assetInstance?.animator.cloth?.reset();
     this.sun.position.set(STAGE.x + CASTLEWARD_LIGHTING.sun.position[0], CASTLEWARD_LIGHTING.sun.position[1], STAGE.z + CASTLEWARD_LIGHTING.sun.position[2]);

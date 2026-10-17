@@ -116,7 +116,7 @@ test('actual Guard cancellation prevents combining interrupted chains',()=>{
 });
 
 test('actual Steel damage fact captures health and unrounded lethal contact rather than mitigated damage',()=>{
-  const r=roomFor();const a=r.players.get('a'),b=r.players.get('b');b.health=20;b.steel=callSteel(10);
+  const r=roomFor();const a=r.players.get('a'),b=r.players.get('b');b.health=20;b.lastDamageAt=10;b.steel=callSteel(10);
   beginAttack(r,'a',10);run(r,10,10.5);assert.ok(b.health>0);assert.equal(progress(r,'b').polished_under_pressure,1);
 });
 
@@ -129,7 +129,7 @@ test('actual Balance break identifies the enemy who interrupts startup without a
 });
 
 test('winning kill and final chain contact remain available after immediate room finish',()=>{
-  const r=roomFor();r.scoreToWin=1;const b=r.players.get('b');b.health=90;b.lastDamageAt=10;beginAttack(r,'a',10);run(r,10,11.82,true);
+  const r=roomFor();r.scoreToWin=1;const b=r.players.get('b');b.health=65;b.lastDamageAt=10;beginAttack(r,'a',10);run(r,10,11.82,true);
   assert.equal(r.state,'FINISHED');assert.equal(progress(r).three_part_argument,3);
 });
 
@@ -137,7 +137,7 @@ test('winning kill and final chain contact remain available after immediate room
 test('actual perfect parry followed by a kill supplies Turnabout without a client outcome',()=>{
   const r=roomFor();const b=r.players.get('b');beginAttack(r,'b',10);setGuard(r,'a',true,10.34);run(r,10.34,10.5);
   assert.ok(r.events.some(e=>e.type==='parry'&&e.defenderId==='a'));
-  setGuard(r,'a',false,10.6);b.health=30;b.lastDamageAt=11;beginAttack(r,'a',11);run(r,11,11.5,true);
+  setGuard(r,'a',false,10.6);b.health=20;b.lastDamageAt=11;beginAttack(r,'a',11);run(r,11,11.5,true);
   assert.equal(b.alive,false);assert.equal(progress(r).turnabout,1);
 });
 

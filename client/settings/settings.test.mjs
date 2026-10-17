@@ -142,7 +142,7 @@ test('each part of the game gets what it needs from the settings', () => {
   assert.equal(viewOptions(store).cameraMotion, 0.3);
   assert.equal(viewOptions(store).fov, 78);
   assert.equal(inputOptions(store).touchScale, 1.2);
-  assert.deepEqual(inputOptions(store).bindings.attack, ['Mouse0']);
+  assert.deepEqual(inputOptions(store).bindings.attack, ['Mouse0', 'KeyF']);
   assert.deepEqual(turnOptions(store), { mode: 'sideways', side: 'left' });
 });
 

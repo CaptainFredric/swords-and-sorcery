@@ -63,6 +63,7 @@ import {
 } from './localActionPresentation.mjs';
 import { VIEW_LAYER, everywhere } from './viewLayers.mjs';
 import { LocalBladeSweep } from './localBladeSweep.mjs';
+import { BladeHeatmapDebug } from './BladeHeatmapDebug.mjs';
 import { aimVector, chaseAim, chaseCamera, chaseLimit, chaseWanted, reticleDistance, stepChase } from './vortexCamera.mjs';
 import { vortexHint } from '../ui/ultimateView.mjs';
 
@@ -182,6 +183,7 @@ export class GameRuntime {
     this.lastTeamVoiceAt = -Infinity;
     // my own blade against the world, judged in my own view (localBladeSweep.mjs)
     this.bladeSweep = new LocalBladeSweep();
+    this.bladeHeatmapDebug = new BladeHeatmapDebug(this.scene);
     this.weapon = new WeaponView(this.camera, { now: () => this.presentationNow() / 1000 });
     // my own Vortex lit: the star's ting
     this.weapon.onVortexSpark = () => this.#play(vortexStarRecipe(), null, 1);
@@ -1770,7 +1772,7 @@ export class GameRuntime {
     const impact = Number.isFinite(event.impact) ? event.impact : 0;
     const attacker = this.#bodyPosition(event.playerId);
     const victim = this.#bodyPosition(event.targetId);
-    const point = impactPoint(victim, attacker);
+    const point = event.point ? { x: event.point.x, y: event.point.y, z: event.point.z } : impactPoint(victim, attacker);
     if (event.targetId !== me) {
       if (point) this.effects.hitBurst(point, blowDirection(victim, attacker), { strike, quality });
       this.remotePlayers.flashHit(event.targetId);
@@ -1788,6 +1790,7 @@ export class GameRuntime {
       this.hud.hit(glancing(quality) ? 'glance' : 'hit');
       this.weapon.hitstop(hitstopSeconds({ strike, quality }), hitKick({ strike, quality }));
       this.#play(swordHitRecipe(Math.random, { strike, quality, impact }), null, 1);
+      if (point) this.bladeHeatmapDebug?.recordContact({ point, quality, damage: swordDamageFor(quality), strike, at: performance.now() });
     } else if (event.targetId === me) {
       // (on hardened plate, the clang is the whole of it: #steelStruck)
       if (!(event.steel >= 0.02)) {
@@ -1803,7 +1806,7 @@ export class GameRuntime {
     const me = this.socket.playerId;
     const attacker = this.#bodyPosition(event.attackerId);
     const defender = this.#bodyPosition(event.defenderId);
-    const point = impactPoint(defender, attacker);
+    const point = event.point ? { x: event.point.x, y: event.point.y, z: event.point.z } : impactPoint(defender, attacker);
     const parry = event.type === 'parry';
     const heavy = event.type === 'guardBreak';
     // (a guard a ram broke caves in within the ram's own sound and sparks: #steelRam)
@@ -2162,6 +2165,15 @@ export class GameRuntime {
       }, this.input.debugVisible);
     }
 
+    this.bladeHeatmapDebug?.update({
+      camera: this.camera,
+      strikeIndex: this.weapon?.strike ?? 0,
+      isSwinging: this.weapon?.attackHeld ?? false,
+      debugVisible: this.input.debugVisible,
+      nowSec: this.presentationNow() / 1000,
+      attackStartedAt: this.weapon?.attackStartedAt ?? 0,
+    });
+
     if (nowMs - this.lastPingAt > 2000) { this.lastPingAt = nowMs; this.socket.ping(); }
     this.#followSun(this.localState?.position ?? this.camera.position);
     this.weapon.syncPalmLight();
@@ -2212,6 +2224,7 @@ export class GameRuntime {
     this.touch?.dispose();
     this.world?.dispose?.();
     this.remotePlayers.dispose();
+    this.bladeHeatmapDebug?.dispose();
     this.weapon.dispose();
     this.renderer.dispose();
     // (its drawing context let go now, not whenever the browser gets round to it: the next match makes its own)

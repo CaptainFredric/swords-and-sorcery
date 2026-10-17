@@ -44,23 +44,26 @@ function playingRoom() {
   return room;
 }
 
-test('held sword lands 30 damage (caught square) at 0.40, 1.10 and 1.80 seconds, and the fourth blow fells', () => {
+test('held sword combo: ordinary contact lands 22-25 damage requiring 5 hits to fell, while deliberate sweet-spot contact fells in 4', () => {
   const room = playingRoom();
   beginAttack(room, 'a', 10);
   // (the blade meets the near side of the body a moment before it crosses the aim)
   stepRoom(room, 0.01, 10.3, openWorld);
   assert.equal(room.players.get('b').health, 100);
   stepRoom(room, 0.01, 10.40, openWorld);
-  assert.equal(room.players.get('b').health, 70);
+  assert.equal(room.players.get('b').health, 76, 'first ordinary hit: 24 damage');
   stepRoom(room, 0.01, 11.10, openWorld);
-  assert.equal(room.players.get('b').health, 40);
+  assert.equal(room.players.get('b').health, 53, 'second hit lands');
   stepRoom(room, 0.01, 11.80, openWorld);
-  assert.equal(room.players.get('b').health, 10);
+  assert.equal(room.players.get('b').health, 29, 'third hit lands');
   assert.equal(room.players.get('b').alive, true, 'three blows are not enough');
-  // still holding: the combo comes round again and its first strike fells them
+  // still holding: the combo comes round again and its fourth strike lands
   stepRoom(room, 0.01, 12.09, openWorld);
   stepRoom(room, 0.01, 12.49, openWorld);
-  assert.equal(room.players.get('b').alive, false);
+  assert.equal(room.players.get('b').alive, true, 'four ordinary hits (93 dmg) do not fell 100 HP');
+  // fifth hit fells
+  stepRoom(room, 0.01, 13.19, openWorld);
+  assert.equal(room.players.get('b').alive, false, 'fifth hit fells');
 });
 
 test('each committed sword strike emits one authoritative swing cue as it goes live, before its contact', () => {
@@ -83,7 +86,7 @@ test('releasing attack prevents later combo strikes', () => {
   stepRoom(room, 0.01, 10.4, openWorld);
   endAttack(room, 'a', 10.5);
   stepRoom(room, 0.01, 12, openWorld);
-  assert.equal(room.players.get('b').health, 70);
+  assert.equal(room.players.get('b').health, 76);
 });
 
 test('perfect guard parries, damages nobody and staggers attacker 450ms', () => {
@@ -101,10 +104,13 @@ test('perfect guard parries, damages nobody and staggers attacker 450ms', () => 
 
 test('a normal guard drains 22 stamina a blow and the fifth block guard-breaks for 700ms', () => {
   const room = playingRoom();
+  placeB(room, 14 * Math.PI / 180, 1.85);
   const b = room.players.get('b');
   setGuard(room, 'b', true, 9);
   const left = [];
   for (const now of [10, 10.8, 11.6, 12.4, 13.2]) {
+    placeB(room, 14 * Math.PI / 180, 1.85);
+    b.velocity = { x: 0, y: 0, z: 0 };
     const a = room.players.get('a');
     a.attackActive = false; a.attackHeld = false; a.attackRestartAt = -Infinity;
     beginAttack(room, 'a', now - 0.4);
@@ -123,12 +129,12 @@ test('a tap is exactly one strike: let go before it lands and it still lands, th
   beginAttack(room, 'a', 10);
   endAttack(room, 'a', 10.1);
   stepRoom(room, 0.01, 10.4, openWorld);
-  assert.equal(room.players.get('b').health, 70, 'the committed swing lands');
+  assert.equal(room.players.get('b').health, 76, 'the committed swing lands');
   assert.equal(a.attackActive, true, 'its follow-through is still under way');
   stepRoom(room, 0.01, 10.72, openWorld);
   assert.equal(a.attackActive, false, 'the chain ends where the next swing would have begun');
   for (const now of [11.1, 11.8, 12.5, 13.2]) stepRoom(room, 0.01, now, openWorld);
-  assert.equal(room.players.get('b').health, 70);
+  assert.equal(room.players.get('b').health, 76);
   assert.deepEqual(room.events.filter((e) => e.type === 'swordSwing').map((e) => e.strikeIndex), [0]);
 });
 
@@ -139,10 +145,10 @@ test('holding chains each strike as it becomes due; letting go mid-swing finishe
   stepRoom(room, 0.01, 10.8, openWorld);          // still held as the second swing begins: committed
   endAttack(room, 'a', 10.9);                      // let go in the middle of it
   stepRoom(room, 0.01, 11.1, openWorld);
-  assert.equal(room.players.get('b').health, 40, 'the second strike still lands');
+  assert.equal(room.players.get('b').health, 53, 'the second strike still lands');
   stepRoom(room, 0.01, 11.5, openWorld);
   stepRoom(room, 0.01, 11.9, openWorld);
-  assert.equal(room.players.get('b').health, 40, 'no third');
+  assert.equal(room.players.get('b').health, 53, 'no third');
   assert.equal(room.players.get('a').attackActive, false);
 });
 
@@ -154,7 +160,7 @@ test('quick taps chain the combo too: a press during a swing asks for the next s
   endAttack(room, 'a', 10.58);                     // and let go before the second would begin
   for (const now of [10.4, 10.72, 11.1, 11.44, 11.8, 12.5]) stepRoom(room, 0.01, now, openWorld);
   assert.deepEqual(room.events.filter((e) => e.type === 'swordSwing').map((e) => e.strikeIndex), [0, 1]);
-  assert.equal(room.players.get('b').health, 40);
+  assert.equal(room.players.get('b').health, 53);
 });
 
 test('spells and dash reject use during cooldown', () => {
@@ -298,7 +304,7 @@ test('sword resolution can use recent transform history for latency compensation
   ];
   beginAttack(room, 'a', 10);
   stepRoom(room, 0.01, 10.50, openWorld);
-  assert.equal(b.health, 70);
+  assert.equal(b.health, 76);
 });
 
 function sprintInput(player, overrides = {}) {
@@ -369,7 +375,7 @@ test('let go just before the next swing, but the word arrives after it began: th
   assert.equal(room.players.get('a').attackCommitted, 2);
   endAttack(room, 'a', 10.8, 10.69);                 // it was let go at 10.69, before the second began
   for (const now of [11.1, 11.5, 12.2]) stepRoom(room, 0.01, now, openWorld);
-  assert.equal(room.players.get('b').health, 70, 'only the first landed');
+  assert.equal(room.players.get('b').health, 76, 'only the first landed');
   assert.equal(room.players.get('a').attackActive, false);
 });
 
@@ -382,7 +388,7 @@ test('but a second swing asked for by a fresh press stands, whenever the button 
   stepRoom(room, 0.01, 10.74, openWorld);            // committed by the tap
   endAttack(room, 'a', 10.8, 10.6);                  // that tap let go before the second began
   for (const now of [11.1, 11.5]) stepRoom(room, 0.01, now, openWorld);
-  assert.equal(room.players.get('b').health, 40, 'the second lands');
+  assert.equal(room.players.get('b').health, 53, 'the second lands');
 });
 
 // b placed at `angle` (radians, + to a's left) and `distance` from a, who faces +x
@@ -395,7 +401,7 @@ function placeB(room, angle, distance) {
 
 test('a sword caught cleanly does its full damage; one at the fringe of the arc glances, weaker but real', () => {
   const clean = playingRoom();
-  placeB(clean, 0, 1.6);
+  placeB(clean, 14 * Math.PI / 180, 1.85);
   beginAttack(clean, 'a', 10);
   for (const now of [10.3, 10.4, 10.5, 10.6]) stepRoom(clean, 0.01, now, openWorld);
   assert.equal(clean.players.get('b').health, 100 - GAME.swordDamage);
@@ -498,8 +504,9 @@ test('Sheathed in Steel: a square Fireball lands like a glancing one (less damag
   assert.equal(steeled.b.steel.struck, true);
 });
 
-// a's first strike, square into b (2 m in front), landing at 10.40; returns what it did
+// a's first strike into b, landing cleanly in the sweet spot (30 dmg) at 10.40; returns what it did
 function swordInto(room, at = 10) {
+  placeB(room, 14 * Math.PI / 180, 1.85);
   const b = room.players.get('b');
   const before = { health: b.health, vx: b.velocity.x };
   beginAttack(room, 'a', at);
@@ -743,15 +750,14 @@ function forehandAt(deg, distance = 1.8, world = openWorld) {
 }
 
 // (a faces +x, its right is +z: a negative angle is on a's right, the side the forehand comes in from)
-test('the closer to the aim the blade meets a knight, the cleaner: dead centre 30, then less and less out to the fringe', () => {
-  const byAngle = [0, -8, -16, -30, -55].map((deg) => ({ deg, damage: forehandAt(deg).damage }));
-  assert.equal(byAngle[0].damage, 30, 'dead centre');
-  for (let i = 1; i < byAngle.length; i += 1) {
-    assert.ok(byAngle[i].damage < byAngle[i - 1].damage, `less at ${byAngle[i].deg} degrees: ${JSON.stringify(byAngle)}`);
-  }
-  assert.ok(byAngle[4].damage >= 19 && byAngle[4].damage <= 21, `the fringe: ${byAngle[4].damage}`);
-  // (on either side alike)
-  assert.equal(forehandAt(-16).damage, forehandAt(16).damage);
+test('curved heatmap: centered contact produces ordinary damage, sweet spot produces peak 29-30, and fringe glances', () => {
+  // centered contact at 1.8m is ordinary (24 damage)
+  assert.equal(forehandAt(0, 1.8).damage, 24, 'dead centre');
+  // deliberate sweet spot (developed cut at 14 deg, 1.85m) reaches peak cutting drive (30)
+  assert.equal(forehandAt(14, 1.85).damage, 30, 'sweet spot cut');
+  // peripheral early cut (-20 deg) and fringe (-55 deg) drop to marginal (19-21)
+  assert.ok(forehandAt(-20, 1.8).damage <= 20, 'early peripheral contact');
+  assert.ok(forehandAt(-55, 1.8).damage >= 19 && forehandAt(-55, 1.8).damage <= 21, 'fringe glance');
 });
 
 test('a wall at the corner stops the blade: it rings off the stone and nobody behind the corner is hurt', () => {
@@ -781,7 +787,7 @@ test('a wall the slash only grazes at its edge does not spoil it: the knight ahe
   // (a faces +x: its right is +z) a wall close on a's right, far out in the forehand's incoming side
   const wall = { id: 'side-wall', center: [0.5, 1.5, 1.25], size: [0.7, 3, 0.4], material: 'limestone' };
   const struck = forehandAt(0, 2, { ...openWorld, solids: [wall] });
-  assert.equal(struck.damage, 30, 'the blow lands, clean');
+  assert.ok(struck.damage >= 24, 'the blow lands');
   assert.ok(!struck.events.some((e) => e.type === 'swordWorldImpact'), 'and the grazed wall does not ring');
 });
 
@@ -802,9 +808,9 @@ test('ordinary fighting among barrels and posts: blow after blow lands, none spo
     { id: 'barrel-right', center: [0.7, 0.42, 1.15], size: [0.64, 0.84, 0.64], material: 'timber', kind: 'prop' },
     { id: 'post', center: [1.3, 1.2, -1.35], size: [0.14, 2.4, 0.14], material: 'timber' },
   ] };
-  for (const deg of [-10, 0, 10]) {
-    const struck = forehandAt(deg, 1.9, clutter);
-    assert.ok(struck.damage >= 25, `aimed ${deg} degrees off: ${struck.damage}`);
+  for (const deg of [0, 5, 10]) {
+    const struck = forehandAt(deg, 1.8, clutter);
+    assert.ok(struck.damage >= 24, `aimed ${deg} degrees: ${struck.damage}`);
     assert.ok(!struck.events.some((e) => e.type === 'swordWorldImpact'));
   }
 });
@@ -829,11 +835,13 @@ test('past its contact the sword is only swinging through: leaning away to the s
   assert.ok(blocked.events.some((e) => e.type === 'swordWorldImpact'), 'still stopped by what is in its way');
 });
 
-test('only the cleanest contact is marked clean: a sword blow dead centre, a spell square on; never an ordinary blow', () => {
+test('only the cleanest contact is marked clean: a sword blow in the sweet spot, a spell square on; never an ordinary blow', () => {
   const centre = forehandAt(0).events.find((e) => e.type === 'damage');
-  assert.equal(centre.clean, true, 'dead centre');
-  const off = forehandAt(12).events.find((e) => e.type === 'damage');
-  assert.ok(off.amount <= 28 && !off.clean, `a good blow off the middle (${off.amount}) is not`);
+  assert.ok(!centre.clean, 'dead centre is ordinary, not marked clean');
+  const sweet = forehandAt(14, 1.85).events.find((e) => e.type === 'damage');
+  assert.equal(sweet.clean, true, 'sweet spot cut is marked clean');
+  const off = forehandAt(-10).events.find((e) => e.type === 'damage');
+  assert.ok(off.amount <= 21 && !off.clean, `an early peripheral blow (${off.amount}) is not`);
   const room = playingRoom();
   fireballInto(room);
   const direct = room.events.find((e) => e.type === 'damage' && e.source === 'fireball');

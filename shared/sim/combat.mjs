@@ -20,7 +20,7 @@ import { galeBend, galeCarry, galeOnBody, galeRecoil, galeShove, galeWindOnBody 
 import { GAUNTLET, gauntletGeometry, gauntletTarget, withinGauntlet } from '../src/gauntlet.mjs';
 import { postureOf } from '../src/body.mjs';
 import { resolvePlayerWorld, segmentAabbHit, surfaceHeightAt } from '../src/collision.mjs';
-import { BLADE, aimFrame, aimQuality, bladeDirection, bladeTouches, offAimDegrees, sweepBlade } from '../src/blade.mjs';
+import { BLADE, aimFrame, aimQuality, bladeDirection, bladeTouches, evaluateBladeHeatmap, offAimDegrees, sweepBlade } from '../src/blade.mjs';
 import { MOVEMENT, SPRINT, launchBody, movePlayer, resolveSprint, shoveBody, tryStartDash } from '../src/movement.mjs';
 import { separatePlayers } from '../src/separation.mjs';
 import { STEEL_RAM, chargeTarget, ramContact, ramEffect, ramStrength } from '../src/steelRam.mjs';
@@ -766,10 +766,14 @@ function sweepStrike(room, player, nowSec, world) {
     const driven = live.sampledTo < window.contact + MELEE_CONTACT.worldFollow - 1e-9;
     // (and a Sundering blade only where it is driven straight into something: SUNDER_SWEEP)
     const met = sweepBlade(eye, from, to, bodies, solids, { aim: frame.forward, ground, world: driven, ...(live.ruptures ? SUNDER_SWEEP : {}) });
+    const prevSampled = live.sampledTo;
     live.sampledTo = at;
     live.direction = to;
     if (met?.kind === 'body') {
-      const outcome = landStrike(room, player, live.strike, room.players.get(met.id), at, nowSec);
+      const contactAt = Number.isFinite(met.stepFraction)
+        ? prevSampled + (at - prevSampled) * met.stepFraction
+        : at;
+      const outcome = landStrike(room, player, live.slam ? SLAM_STRIKE : live.strike, room.players.get(met.id), contactAt, nowSec, met, window.contact);
       if (!live.slam || outcome === 'parry' || player.attackSweep !== live) {
         if (player.attackSweep === live) player.attackSweep = null;
         return;
@@ -799,20 +803,42 @@ function sweepStrike(room, player, nowSec, world) {
 }
 
 /** The blow lands on `target`: parried, blocked or a hit, as cleanly and as hard as it was met. */
-function landStrike(room, attacker, strikeIndex, target, atSec, nowSec) {
+function landStrike(room, attacker, strikeIndex, target, atSec, nowSec, met = null, contactSec = null) {
   if (target.spawnProtectionUntil > nowSec) {
     room.events.push({ type: 'swordProtected', playerId: attacker.id, targetId: target.id, strikeIndex, at: nowSec });
     return 'protected';
   }
   const attackerTransform = transformFor(attacker, atSec);
   const targetTransform = transformFor(target, atSec);
-  const { view, frame } = bladeOrigin(attackerTransform);
-  // how cleanly: how far off the aim they were as the blade met them
-  const offAim = offAimDegrees(view, frame.forward, targetTransform.position, postureOf(targetTransform).crown);
-  const quality = aimQuality(offAim);
+  const { view, eye, frame: viewFrame } = bladeOrigin(attackerTransform);
+  const frame = strikeFrame(attackerTransform, Boolean(attacker.attackSweep?.slam));
   const dx = targetTransform.position.x - attackerTransform.position.x;
   const dz = targetTransform.position.z - attackerTransform.position.z;
   const horizontal = Math.hypot(dx, dz);
+  // how cleanly: continuous curved heatmap when met contact geometry is known;
+  // falling back to legacy aim quality if called directly without sweep contact.
+  let quality;
+  if (met && Number.isFinite(contactSec)) {
+    const dt = atSec - contactSec;
+    // Accurate physical contact distance along the blade ray.
+    // We strictly use met.along to measure cutting node reach rather than allowing
+    // center-to-center horizontal body distance to artificially promote cramped or hilt contact.
+    const along = met.along;
+    const evalRes = evaluateBladeHeatmap(strikeIndex, {
+      dt,
+      along,
+      point: met.point,
+      direction: met.direction,
+      eye,
+      frame: viewFrame,
+      targetBase: targetTransform.position,
+      targetTop: postureOf(targetTransform).crown,
+    });
+    quality = evalRes.quality;
+  } else {
+    const offAim = offAimDegrees(view, frame.forward, targetTransform.position, postureOf(targetTransform).crown);
+    quality = aimQuality(offAim);
+  }
   const f = forwardFromYaw(attackerTransform.yaw);
   const g = { direction: horizontal > 1e-6 ? { x: dx / horizontal, z: dz / horizontal } : { x: f.x, z: f.z } };
   // how hard they were closing on each other along the line between them
@@ -835,15 +861,19 @@ function landStrike(room, attacker, strikeIndex, target, atSec, nowSec) {
     guardChallengeContact(room, target, attacker, nowSec);
     // a Sundering blow lands on a guard as two (the guard pays for both; it is still one blow)
     const impacts = empowered ? ultimateFor('sunder').guardImpacts : 1;
-    const guardResult = resolveSwordVsGuard({
-      guarding: true,
-      guardAgeMs: (nowSec - target.guardStartedAt) * 1000,
-      stamina: target.guardStamina,
-      profile: guardProfile(target.knightClass),
-      // a glancing blow bears less on the guard, a collision more
-      pressure: (0.6 + 0.4 * physical.quality) * (1 + MELEE_CONTACT.impactGuard * physical.impact),
-      impacts,
-    });
+    // a glancing blow bears less on the guard, a collision more.
+    // Ordinary contact (quality >= 0.35) applies full baseline pressure (22 stamina, 5 blocks to break),
+    // while marginal/glancing contact scales smoothly down to 0.6 pressure (13 stamina).
+    const guardQuality = Math.min(1, physical.quality / 0.35);
+    const pressure = (0.6 + 0.4 * guardQuality) * (1 + MELEE_CONTACT.impactGuard * physical.impact);
+      const guardResult = resolveSwordVsGuard({
+        guarding: true,
+        guardAgeMs: (nowSec - target.guardStartedAt) * 1000,
+        stamina: target.guardStamina,
+        profile: guardProfile(target.knightClass),
+        pressure,
+        impacts,
+      });
     target.guardStamina = guardResult.staminaAfter;
     if (guardResult.kind === 'parry') {
       target.parries += 1;
@@ -855,7 +885,10 @@ function landStrike(room, attacker, strikeIndex, target, atSec, nowSec) {
         stopSwordChain(attacker, {}, room, nowSec);
       }
       gainProwess(room, target, PROWESS.parry);
-      room.events.push({ type: 'parry', attackerId: attacker.id, defenderId: target.id, suppressParryReel, at: nowSec });
+      room.events.push({
+        type: 'parry', attackerId: attacker.id, defenderId: target.id, suppressParryReel,
+        ...(met?.point ? { point: { x: met.point.x, y: met.point.y, z: met.point.z } } : {}), at: nowSec,
+      });
       recordChallengeFact(room, { type: 'parry', attackerId: attacker.id, defenderId: target.id, at: nowSec });
       staggerBy(room, attacker, STAGGER.gain.parried, nowSec, target.id);
       return 'parry';
@@ -864,10 +897,16 @@ function landStrike(room, attacker, strikeIndex, target, atSec, nowSec) {
     if (guardResult.kind === 'guardBreak') {
       breakGuard(target, (GAME.guardBreakStaggerMs / 1000) * (1 + MELEE_CONTACT.impactBreakStagger * physical.impact), nowSec);
       if (!combatActionPolicy(attacker, nowSec).concurrent && !attacker.attackChivalry) gainProwess(room, attacker, PROWESS.guardBreak);
-      room.events.push({ type: 'guardBreak', attackerId: attacker.id, defenderId: target.id, impact: physical.impact, impacts, at: nowSec });
+      room.events.push({
+        type: 'guardBreak', attackerId: attacker.id, defenderId: target.id, impact: physical.impact, impacts,
+        ...(met?.point ? { point: { x: met.point.x, y: met.point.y, z: met.point.z } } : {}), at: nowSec,
+      });
       staggerBy(room, target, STAGGER.gain.guardBreak, nowSec, attacker.id);
     } else {
-      room.events.push({ type: 'block', attackerId: attacker.id, defenderId: target.id, quality, impact: physical.impact, impacts, at: nowSec });
+      room.events.push({
+        type: 'block', attackerId: attacker.id, defenderId: target.id, quality, impact: physical.impact, impacts,
+        ...(met?.point ? { point: { x: met.point.x, y: met.point.y, z: met.point.z } } : {}), at: nowSec,
+      });
       staggerBy(room, target, STAGGER.gain.sword * force * STAGGER.gain.blocked * impacts, nowSec, attacker.id);
     }
     return guardResult.kind === 'guardBreak' ? 'guardBreak' : 'block';
@@ -896,7 +935,8 @@ function landStrike(room, attacker, strikeIndex, target, atSec, nowSec) {
   if (empowered) cutShort(room, target, attacker, nowSec);
   room.events.push({
     type: 'swordHit', playerId: attacker.id, targetId: target.id, strikeIndex, quality: armour.quality, impact: physical.impact, steel: armour.strength,
-    ...(level !== DAMAGE_LEVELS.normal ? { level } : {}), ...(cancelled ? { sunderMet: true } : {}), at: nowSec,
+    ...(level !== DAMAGE_LEVELS.normal ? { level } : {}), ...(cancelled ? { sunderMet: true } : {}),
+    ...(met?.point ? { point: { x: met.point.x, y: met.point.y, z: met.point.z } } : {}), at: nowSec,
   });
   return 'hit';
 }

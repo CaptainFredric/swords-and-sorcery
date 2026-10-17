@@ -205,7 +205,7 @@ registry
   .defineAction({ id: 'jump', label: 'Jump', group: 'Movement', keys: ['Space'] })
   .defineAction({ id: 'sprint', label: 'Sprint (hold)', group: 'Movement', keys: ['ShiftLeft', 'ShiftRight'] })
   .defineAction({ id: 'crouch', label: 'Crouch (hold)', group: 'Movement', keys: ['KeyC'] })
-  .defineAction({ id: 'attack', label: 'Sword combo (hold)', group: 'Combat', keys: ['Mouse0'] })
+  .defineAction({ id: 'attack', label: 'Sword combo (hold)', group: 'Combat', keys: ['Mouse0', 'KeyF'] })
   .defineAction({ id: 'guard', label: 'Guard (hold)', group: 'Combat', keys: ['Mouse2', 'KeyG'] })
   .defineAction({ id: 'spell', label: 'Cast spell', group: 'Abilities', keys: ['KeyQ'] })
   .defineAction({ id: 'dash', label: 'Dash', group: 'Abilities', keys: ['KeyE'] })

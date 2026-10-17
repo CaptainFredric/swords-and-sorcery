@@ -376,8 +376,8 @@ const segments = [
   },
   {
     id: 'fireball', chapter: 'fireball', permissions: FIREBALL, presentation: 'reactive', branches: ['first-fireball-miss', 'scratch', 'rival-constitution'],
-    entryCondition: 'rival-escaping', completionCue: 'fireball-hit', objective: PURSUIT_OBJECTIVE,
-    scene: { checkpoint: 'pursuit', gates: ['fireball-hit'] },
+    entryCondition: 'rival-escaping', completionCue: 'fireball-hit', objective: PURSUIT_OBJECTIVE, checkpoint: true,
+    scene: { enter: 'rival-escape', checkpoint: 'fireball', gates: ['fireball-hit'] },
     beats: [
       // (setup conversation while fleeing through the orchard toward the clearing)
       { id: 'why-spellblade', skipWhen: 'fireball-hit', speaker: 'narrator', line: 'Why are you called the Spellblade?' },
@@ -400,7 +400,7 @@ const segments = [
     id: 'tattle-reveal', chapter: 'fireball', permissions: FIREBALL, presentation: 'reactive',
     entryCondition: 'fireball-hit', completionCue: 'continue', objective: PURSUIT_OBJECTIVE,
     branches: ['rival-constitution'],
-    scene: { checkpoint: 'pursuit', gates: [] },
+    scene: { checkpoint: 'fireball', gates: [] },
     beats: [
       { id: 'matter-settled', speaker: 'rival', line: 'I know exactly how this matter must be settled.' },
       { id: 'how-settled', speaker: 'narrator', line: 'How?' },
@@ -415,7 +415,7 @@ const segments = [
     id: 'dead-end', chapter: 'fireball', permissions: FIREBALL, presentation: 'reactive',
     entryCondition: 'fireball-hit', completionCue: 'continue', objective: PURSUIT_OBJECTIVE,
     branches: ['rival-constitution', 'permission-to-stop'],
-    scene: { checkpoint: 'pursuit', gates: ['dead-end-rival-over', 'dead-end-crossed'] },
+    scene: { checkpoint: 'fireball', gates: ['dead-end-rival-over', 'dead-end-crossed'] },
     beats: [
       // (skipped only if the Spellblade was over first: one leaping after him still hears the gloat, and answers it)
       { id: 'dead-end-arrival', place: 'dead-end', kind: 'stage', advanceOn: 'dead-end-rival-over', skipWhen: 'dead-end-first',

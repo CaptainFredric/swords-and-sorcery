@@ -250,7 +250,7 @@ export function sweepBlade(eye, fromDirection, toDirection, bodies, solids, {
       // the way from the eyes to where the blade meets them must be open (checked a hand's breadth short of the
       // contact: the far side of a knight leaning on a wall is not the wall between)
       if (occluded(eye, add(eye, scale(direction, Math.max(0, along - 0.2))), stopping)) continue;
-      best = { kind: 'body', id: body.id, point: add(start, scale(sub(end, start), near.s)), along, direction };
+      best = { kind: 'body', id: body.id, point: add(start, scale(sub(end, start), near.s)), along, direction, stepFraction: i / steps };
     }
     // the world stops the blade only where the swing is driven
     const driven = !aim || dot(direction, aim) >= corridor;
@@ -259,7 +259,7 @@ export function sweepBlade(eye, fromDirection, toDirection, bodies, solids, {
       const t = segmentFloor(start, end, floor);
       if (t === null) continue;
       const along = blade.from + t * length;
-      if (!best || along < best.along) best = { kind: 'ground', floor, point: add(start, scale(sub(end, start), t)), along, direction };
+      if (!best || along < best.along) best = { kind: 'ground', floor, point: add(start, scale(sub(end, start), t)), along, direction, stepFraction: i / steps };
     }
     for (const solid of driven && world ? stopping : []) {
       // (what this blade is spared by never stops it, though it still hides a knight behind it)
@@ -272,12 +272,12 @@ export function sweepBlade(eye, fromDirection, toDirection, bodies, solids, {
       const top = solid.center[1] + solid.size[1] / 2;
       // driven down onto its top (or over its top edge): the ground, there
       if (topsAreGround && direction.y < 0 && (hit.normal[1] > 0 || top - point.y <= corner)) {
-        best = { kind: 'ground', floor: { y: top, solid }, point: { x: point.x, y: top, z: point.z }, along, direction };
+        best = { kind: 'ground', floor: { y: top, solid }, point: { x: point.x, y: top, z: point.z }, along, direction, stepFraction: i / steps };
         continue;
       }
       // met only glancingly: scraped along, not driven into
       if (stopIncidence > 0 && -(direction.x * hit.normal[0] + direction.y * hit.normal[1] + direction.z * hit.normal[2]) < stopIncidence) continue;
-      best = { kind: 'solid', solid, point, normal: hit.normal, along, direction };
+      best = { kind: 'solid', solid, point, normal: hit.normal, along, direction, stepFraction: i / steps };
     }
     if (best) return best;
   }
@@ -318,3 +318,6 @@ export function offAimDegrees(eye, forward, base, top) {
   const toward = normalize(sub(point, eye));
   return Math.acos(Math.max(-1, Math.min(1, dot(toward, forward)))) / DEG;
 }
+
+export { STRIKE_HEATMAPS, evaluateBladeHeatmap, qualityColor, sampleStrikeHeatmap } from './bladeHeatmap.mjs';
+
