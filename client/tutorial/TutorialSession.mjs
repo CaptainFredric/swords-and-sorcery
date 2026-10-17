@@ -474,7 +474,7 @@ export class TutorialSession {
         if (event.defenderId === this.rivalId && event.attackerId === this.host.player.id) {
           if (this.rival.mode === 'final-opening') {
             this.finalPhase = 'guard'; this.director.fact('final-first-parry');
-          } else if (this.rival.fireballLesson && !this.firstFireballHit) {
+          } else if (this.rival.standingConfrontation && !this.firstFireballHit) {
             this.director.offerBranch('scratch');
           }
         } else if (event.defenderId === this.host.player.id && event.attackerId === this.rivalId) {
