@@ -121,6 +121,7 @@ export class TutorialRival {
     this.bridgeInFlight = false;
     this.bridgePrepared = false;
     this.laneMind = null;
+    this.fireballHalted = false;
   }
   enter(cue, now) {
     if (!cue || !this.actor) return;
@@ -315,10 +316,7 @@ export class TutorialRival {
     return false;
   }
   get standingConfrontation() {
-    const director = this.session.director;
-    const currentId = director.current?.id;
-    const confrontationBeats = new Set(['halt-order', 'tell-on-me', 'fireball-prompt']);
-    return confrontationBeats.has(currentId);
+    return this.fireballHalted && !this.session.firstFireballHit;
   }
   linger(now, apart) {
     if (this.parry(now)) return;
@@ -337,7 +335,9 @@ export class TutorialRival {
   }
   chase(now, apart) {
     const { actor, player, room } = this;
-    if (this.fireballLesson && actor.position.z <= FIREBALL_MEADOW.maxZ) { this.linger(now, apart); return; }
+    // The words cause the stop, not an invisible meadow boundary: he keeps fleeing until the instant he says "Halt!".
+    if (!this.session.firstFireballHit && this.session.director.current?.id === 'halt-order') this.fireballHalted = true;
+    if (this.standingConfrontation) { this.linger(now, apart); return; }
     // ahead of the story: he waits at its place, turned to the Spellblade, until it catches up (or he is about to be
     // caught). Never once committed to a leap: a hold in mid-air is a fall.
     const committed = !actor.grounded || this.bridgePrepared || this.bridgeInFlight;
@@ -372,12 +372,15 @@ export class TutorialRival {
     const target = route[this.waypoint];
     const closing = this.previousGap !== null && apart < this.previousGap - .015;
     this.previousGap = apart;
-    if (player.sprinting && (closing || apart < 16) && apart < 26 && this.sprintReactionAt === null) this.sprintReactionAt = now + .45;
+    // A beelining player used to erase the chase's dialogue by catching the winding route too easily. Rival now notices
+    // Sprint sooner and spends his ordinary stamina to preserve a useful lead, without gaining any extra movement stat.
+    if (player.sprinting && (closing || apart < 22) && apart < 36 && this.sprintReactionAt === null) this.sprintReactionAt = now + .25;
     if (this.sprintReactionAt !== null && now >= this.sprintReactionAt) { this.sprintWanted = true; this.sprintReactionAt = null; }
-    if (apart > 32 || actor.guardStamina <= 2) this.sprintWanted = false;
+    if (player.sprinting && apart < 18 && actor.guardStamina > SPRINT.restartStamina) this.sprintWanted = true;
+    if (apart > 48 || actor.guardStamina <= 2) this.sprintWanted = false;
     if (now - this.enteredAt < 1.4 && this.mode === 'escape') this.sprintWanted = true;
-    // Choosing an ordinary walk or run keeps him readable to a learner; the player can still gain and catch him.
-    let scale = apart > 45 ? .38 : apart > 30 ? .65 : apart < 10 ? 1 : .88;
+    // He still yields enough ground for an unfamiliar player, but no longer jogs at half speed simply because he has a lead.
+    let scale = apart > 45 ? .72 : apart > 30 ? .84 : apart < 10 ? 1 : .94;
     const jump = GREENER_ROUTE.jump;
     // Before the stile he makes sure of his lead, so that he is over it and gloating while the Spellblade is still
     // on his way (his own Sprint and stamina, nothing more).
@@ -479,6 +482,7 @@ export class TutorialRival {
     this.lastStepAt = now;
     if (!actor || !player?.alive || !actor.alive) return;
     const apart = distance(actor.position, player.position);
+    if (!this.session.firstFireballHit && this.session.director.current?.id === 'halt-order') this.fireballHalted = true;
     if (this.mode === 'recover') {
       this.inputToward(player.position,0);
       const recovery = actor.presentationRecovery;
