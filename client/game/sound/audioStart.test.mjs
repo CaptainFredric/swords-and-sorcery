@@ -9,7 +9,12 @@ import { MusicPlayer } from './music/MusicPlayer.mjs';
 // an audio node, a parameter, anything the engine builds: takes whatever is done to it
 function anything() {
   const self = new Proxy(function () {}, {
-    get: (target, key) => (key === 'then' ? undefined : key in target ? target[key] : anything()),
+    get: (target, key) => {
+      if (key === 'then') return undefined;
+      if (key === Symbol.toPrimitive) return () => 0;
+      if (key === 'valueOf') return () => 0;
+      return key in target ? target[key] : anything();
+    },
     set: (target, key, value) => { target[key] = value; return true; },
     apply: () => anything(),
     construct: () => anything(),

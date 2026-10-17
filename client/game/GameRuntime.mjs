@@ -63,6 +63,7 @@ import {
 } from './localActionPresentation.mjs';
 import { VIEW_LAYER, everywhere } from './viewLayers.mjs';
 import { LocalBladeSweep } from './localBladeSweep.mjs';
+import { BladeHeatmapDebug } from './BladeHeatmapDebug.mjs';
 import { aimVector, chaseAim, chaseCamera, chaseLimit, chaseWanted, reticleDistance, stepChase } from './vortexCamera.mjs';
 import { vortexHint } from '../ui/ultimateView.mjs';
 
@@ -182,6 +183,7 @@ export class GameRuntime {
     this.lastTeamVoiceAt = -Infinity;
     // my own blade against the world, judged in my own view (localBladeSweep.mjs)
     this.bladeSweep = new LocalBladeSweep();
+    this.bladeHeatmapDebug = new BladeHeatmapDebug(this.scene);
     this.weapon = new WeaponView(this.camera, { now: () => this.presentationNow() / 1000 });
     // my own Vortex lit: the star's ting
     this.weapon.onVortexSpark = () => this.#play(vortexStarRecipe(), null, 1);
@@ -2162,6 +2164,12 @@ export class GameRuntime {
       }, this.input.debugVisible);
     }
 
+    this.bladeHeatmapDebug?.update({
+      camera: this.camera,
+      strikeIndex: this.weapon?.strike ?? 0,
+      debugVisible: this.input.debugVisible,
+    });
+
     if (nowMs - this.lastPingAt > 2000) { this.lastPingAt = nowMs; this.socket.ping(); }
     this.#followSun(this.localState?.position ?? this.camera.position);
     this.weapon.syncPalmLight();
@@ -2212,6 +2220,7 @@ export class GameRuntime {
     this.touch?.dispose();
     this.world?.dispose?.();
     this.remotePlayers.dispose();
+    this.bladeHeatmapDebug?.dispose();
     this.weapon.dispose();
     this.renderer.dispose();
     // (its drawing context let go now, not whenever the browser gets round to it: the next match makes its own)

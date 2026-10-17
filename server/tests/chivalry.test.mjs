@@ -266,7 +266,7 @@ test('concurrent sword contacts keep ordinary damage and cadence and earn no nex
   combat.setGuard(room, 'a', true, 10.8);
   run(room, 10.8, 11.15);
   const hits = room.events.filter((e) => e.type === 'damage' && e.source === 'sword');
-  assert.equal(hits.length, 1); assert.equal(hits[0].amount, 30); assert.equal(hits[0].ultimate, true);
+  assert.equal(hits.length, 1); assert.equal(hits[0].amount, 24); assert.equal(hits[0].ultimate, true);
   assert.equal(a.prowess, 0); assert.ok(b.prowess > 0);
   assert.equal(room.events.filter((e) => e.type === 'swordSwing').length, 1);
 });
@@ -318,8 +318,8 @@ test('the real sword sweeps during Dash and its contact is spent exactly once', 
   assert.equal(combat.tryDash(room, 'a', { x: 1, z: 0 }, 11.02), true);
   run(room, 11.03, 11.12);
   const hits = room.events.filter((e) => e.type === 'damage' && e.source === 'sword');
-  assert.equal(hits.length, 1); assert.ok(hits[0].at < a.dashUntil); assert.equal(hits[0].amount, 30);
-  assert.equal(b.health, 70);
+  assert.equal(hits.length, 1); assert.ok(hits[0].at < a.dashUntil); assert.equal(hits[0].amount, 19);
+  assert.equal(b.health, 81);
 });
 
 test('the Gale concurrency opportunity earns no damage or displacement charge', () => {

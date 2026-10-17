@@ -82,17 +82,17 @@ test('let go during the reel, the sword stays down', () => {
 test('Guard held through a broken guard comes back up by itself, as a held guard: it blocks, it cannot Parry', () => {
   const { room, a, b } = playingRoom();
   press(room, 'b', 'guard', true, 9);
-  for (const now of [10, 10.8, 11.6, 12.4, 13.2]) {
+  for (const now of [10, 10.8, 11.6, 12.4, 13.2, 14.0]) {
     a.attackActive = false; a.attackHeld = false; a.attackRestartAt = -Infinity;
     beginAttack(room, 'a', now - 0.4);
     stepRoom(room, 0.01, now, openWorld);
   }
   assert.equal(b.guarding, false, 'broken');
   // (the attacker lets go: nothing more comes at it)
-  endAttack(room, 'a', 13.2);
+  endAttack(room, 'a', 14.0);
   const reel = b.staggerUntil;
   let raisedAt = null;
-  run(room, 13.2, 16, (now) => { if (raisedAt === null && b.guarding) raisedAt = now; });
+  run(room, 14.0, 17, (now) => { if (raisedAt === null && b.guarding) raisedAt = now; });
   assert.ok(raisedAt !== null, 'the held guard came back up');
   assert.ok(raisedAt >= reel, 'not before the reel was over');
   assert.ok(raisedAt - Math.max(reel, b.lastGuardDrainAt + 1) <= 2 * DT + 1e-6, 'as soon as it had stamina again');
@@ -101,8 +101,8 @@ test('Guard held through a broken guard comes back up by itself, as a held guard
   const parries = b.parries;
   a.attackActive = false; a.attackHeld = false; a.attackRestartAt = -Infinity; a.staggerUntil = -Infinity;
   room.events.length = 0;
-  beginAttack(room, 'a', 16 - 0.35);
-  run(room, 16, 16.2);
+  beginAttack(room, 'a', 17 - 0.35);
+  run(room, 17, 17.2);
   assert.equal(b.parries, parries);
   assert.equal(room.events.some(event => event.type === 'parry'), false);
 });

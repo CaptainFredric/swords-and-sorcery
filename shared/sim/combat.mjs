@@ -20,7 +20,7 @@ import { galeBend, galeCarry, galeOnBody, galeRecoil, galeShove, galeWindOnBody 
 import { GAUNTLET, gauntletGeometry, gauntletTarget, withinGauntlet } from '../src/gauntlet.mjs';
 import { postureOf } from '../src/body.mjs';
 import { resolvePlayerWorld, segmentAabbHit, surfaceHeightAt } from '../src/collision.mjs';
-import { BLADE, aimFrame, aimQuality, bladeDirection, bladeTouches, offAimDegrees, sweepBlade } from '../src/blade.mjs';
+import { BLADE, aimFrame, aimQuality, bladeDirection, bladeTouches, evaluateBladeHeatmap, offAimDegrees, sweepBlade } from '../src/blade.mjs';
 import { MOVEMENT, SPRINT, launchBody, movePlayer, resolveSprint, shoveBody, tryStartDash } from '../src/movement.mjs';
 import { separatePlayers } from '../src/separation.mjs';
 import { STEEL_RAM, chargeTarget, ramContact, ramEffect, ramStrength } from '../src/steelRam.mjs';
@@ -766,10 +766,14 @@ function sweepStrike(room, player, nowSec, world) {
     const driven = live.sampledTo < window.contact + MELEE_CONTACT.worldFollow - 1e-9;
     // (and a Sundering blade only where it is driven straight into something: SUNDER_SWEEP)
     const met = sweepBlade(eye, from, to, bodies, solids, { aim: frame.forward, ground, world: driven, ...(live.ruptures ? SUNDER_SWEEP : {}) });
+    const prevSampled = live.sampledTo;
     live.sampledTo = at;
     live.direction = to;
     if (met?.kind === 'body') {
-      const outcome = landStrike(room, player, live.strike, room.players.get(met.id), at, nowSec);
+      const contactAt = Number.isFinite(met.stepFraction)
+        ? prevSampled + (at - prevSampled) * met.stepFraction
+        : at;
+      const outcome = landStrike(room, player, live.slam ? SLAM_STRIKE : live.strike, room.players.get(met.id), contactAt, nowSec, met, window.contact);
       if (!live.slam || outcome === 'parry' || player.attackSweep !== live) {
         if (player.attackSweep === live) player.attackSweep = null;
         return;
@@ -799,20 +803,39 @@ function sweepStrike(room, player, nowSec, world) {
 }
 
 /** The blow lands on `target`: parried, blocked or a hit, as cleanly and as hard as it was met. */
-function landStrike(room, attacker, strikeIndex, target, atSec, nowSec) {
+function landStrike(room, attacker, strikeIndex, target, atSec, nowSec, met = null, contactSec = null) {
   if (target.spawnProtectionUntil > nowSec) {
     room.events.push({ type: 'swordProtected', playerId: attacker.id, targetId: target.id, strikeIndex, at: nowSec });
     return 'protected';
   }
   const attackerTransform = transformFor(attacker, atSec);
   const targetTransform = transformFor(target, atSec);
-  const { view, frame } = bladeOrigin(attackerTransform);
-  // how cleanly: how far off the aim they were as the blade met them
-  const offAim = offAimDegrees(view, frame.forward, targetTransform.position, postureOf(targetTransform).crown);
-  const quality = aimQuality(offAim);
+  const { view, eye, frame: viewFrame } = bladeOrigin(attackerTransform);
+  const frame = strikeFrame(attackerTransform, Boolean(attacker.attackSweep?.slam));
   const dx = targetTransform.position.x - attackerTransform.position.x;
   const dz = targetTransform.position.z - attackerTransform.position.z;
   const horizontal = Math.hypot(dx, dz);
+  // how cleanly: continuous curved heatmap when met contact geometry is known;
+  // falling back to legacy aim quality if called directly without sweep contact.
+  let quality;
+  if (met && Number.isFinite(contactSec)) {
+    const dt = atSec - contactSec;
+    const effectiveAlong = Math.max(met.along, Math.min(BLADE.to, horizontal));
+    const evalRes = evaluateBladeHeatmap(strikeIndex, {
+      dt,
+      along: effectiveAlong,
+      point: met.point,
+      direction: met.direction,
+      eye,
+      frame: viewFrame,
+      targetBase: targetTransform.position,
+      targetTop: postureOf(targetTransform).crown,
+    });
+    quality = evalRes.quality;
+  } else {
+    const offAim = offAimDegrees(view, frame.forward, targetTransform.position, postureOf(targetTransform).crown);
+    quality = aimQuality(offAim);
+  }
   const f = forwardFromYaw(attackerTransform.yaw);
   const g = { direction: horizontal > 1e-6 ? { x: dx / horizontal, z: dz / horizontal } : { x: f.x, z: f.z } };
   // how hard they were closing on each other along the line between them
