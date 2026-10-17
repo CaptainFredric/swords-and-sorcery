@@ -40,9 +40,9 @@ function setup(local) {
   const controls = new TouchControls(new Node(), input);
   controls.active = true;
   controls.update(local, 10);
-  const send = (type, x = 600, y = 300, { action = 'spell', pointerId = 1, target = controls.buttons[action] } = {}) => {
+  const send = (type, x = 600, y = 300, { action = 'spell', pointerId = 1, target = controls.buttons[action], pointerType = 'touch', button = 0, ...rest } = {}) => {
     const event = new Event(type);
-    for (const [key, value] of Object.entries({ pointerId, clientX: x, clientY: y, target })) Object.defineProperty(event, key, { value });
+    for (const [key, value] of Object.entries({ pointerId, pointerType, button, clientX: x, clientY: y, target, ...rest })) Object.defineProperty(event, key, { value });
     controls.layer.dispatchEvent(event);
   };
   return { input, controls, calls, send };
@@ -311,4 +311,33 @@ test('the touch Menu remains available while opening Look and Walk are locked', 
   send('pointerdown', 600, 300, button);
   send('pointerup', 600, 300, button);
   assert.equal(releases, 1);
+});
+
+test('mouse pointerdown in TouchControls viewport attacks directly and requests pointer lock without creating touch stick', () => {
+  const { input, controls, calls, send } = setup({ alive: true, spell: 'fireball' });
+  let pointerLockRequested = false;
+  input.requestPointerLock = () => { pointerLockRequested = true; };
+  send('pointerdown', 200, 300, { pointerType: 'mouse', button: 0, target: controls.layer });
+  assert.equal(pointerLockRequested, true);
+  assert.equal(controls.stick, null, 'mouse click does not create a touch stick');
+  assert.equal(controls.look, null, 'mouse click does not create a touch look tracker');
+  assert.deepEqual(calls, [['attack', true]]);
+  send('pointerup', 200, 300, { pointerType: 'mouse', button: 0, target: controls.layer });
+  assert.deepEqual(calls, [['attack', true], ['attack', false]]);
+});
+
+test('mouse right-click in TouchControls viewport guards directly', () => {
+  const { controls, calls, send } = setup({ alive: true, spell: 'fireball' });
+  send('pointerdown', 500, 300, { pointerType: 'mouse', button: 2, target: controls.layer });
+  assert.deepEqual(calls, [['guard', true]]);
+  send('pointerup', 500, 300, { pointerType: 'mouse', button: 2, target: controls.layer });
+  assert.deepEqual(calls, [['guard', true], ['guard', false]]);
+});
+
+test('mouse click on TouchControls button still activates the button', () => {
+  const { controls, calls, send } = setup({ alive: true, spell: 'fireball' });
+  send('pointerdown', 600, 300, { action: 'attack', pointerType: 'mouse', button: 0 });
+  assert.deepEqual(calls, [['attack', true]]);
+  send('pointerup', 600, 300, { action: 'attack', pointerType: 'mouse', button: 0 });
+  assert.deepEqual(calls, [['attack', true], ['attack', false]]);
 });

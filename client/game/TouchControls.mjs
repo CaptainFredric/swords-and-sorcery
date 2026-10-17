@@ -250,14 +250,24 @@ export class TouchControls {
 
   #down = (event) => {
     if (!this.active) return;
-    event.preventDefault();
-    // keep the finger's moves and release even when it slides off its button (the pointer may already be gone)
-    try { this.layer.setPointerCapture?.(event.pointerId); } catch { /* released before we could capture it */ }
+    const isMouse = event.pointerType === 'mouse';
     const button = event.target.closest?.('[data-action]');
     if (button) {
+      event.preventDefault();
+      // keep the finger's moves and release even when it slides off its button (the pointer may already be gone)
+      try { this.layer.setPointerCapture?.(event.pointerId); } catch { /* released before we could capture it */ }
       this.#press(button.dataset.action, event);
       return;
     }
+    if (isMouse) {
+      this.input.requestPointerLock?.();
+      const code = `Mouse${event.button ?? 0}`;
+      this.input.handleMouseButtonDown?.(code);
+      return;
+    }
+    event.preventDefault();
+    // keep the finger's moves and release even when it slides off its button (the pointer may already be gone)
+    try { this.layer.setPointerCapture?.(event.pointerId); } catch { /* released before we could capture it */ }
     const point = gamePoint(event);
     if (point.x < this.layer.clientWidth * STICK_ZONE) {
       if (!this.stick) this.#startStick(event, point);
@@ -268,6 +278,7 @@ export class TouchControls {
   };
 
   #move = (event) => {
+    if (event.pointerType === 'mouse' && !this.held.has(event.pointerId)) return;
     if (this.preparedTouch?.id === event.pointerId) {
       const point = gamePoint(event);
       const gesture = this.preparedTouch;
@@ -294,6 +305,11 @@ export class TouchControls {
   };
 
   #up = (event) => {
+    if (event.pointerType === 'mouse' && !this.held.has(event.pointerId)) {
+      const button = typeof event.button === 'number' && event.button >= 0 ? event.button : 0;
+      this.input.handleMouseButtonUp?.(`Mouse${button}`);
+      return;
+    }
     this.#gateHeld('look', false, `touch-look:${event.pointerId}`, false);
     if (this.preparedTouch?.id === event.pointerId) {
       const point = gamePoint(event);

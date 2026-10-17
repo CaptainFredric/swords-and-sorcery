@@ -33,6 +33,7 @@ export class InputController {
     this.socket = socket;
     this.setTimer = setTimer;
     this.clearTimer = clearTimer;
+    this.attackSources = new Set();
     this.guardSources = new Set();
     this.prepared = { visible: false };
     this.preparedGesture = null;
@@ -129,8 +130,11 @@ export class InputController {
   #bind() {
     this.#listen(document, 'pointerlockchange', () => {
       this.pointerLocked = document.pointerLockElement === this.element;
-      if (this.touchFocus) return;
-      this.#setEnabled(this.pointerLocked);
+      if (this.pointerLocked) {
+        this.#setEnabled(true);
+      } else if (!this.touchFocus) {
+        this.#setEnabled(false);
+      }
     });
 
     this.#listen(window, 'blur', () => this.releaseInputs());
@@ -204,23 +208,32 @@ export class InputController {
 
     // mouse buttons are bindings like keys: Mouse0 is the left button, Mouse2 the right
     this.#listen(document, 'mousedown', (event) => {
-      if (!this.pointerLocked) return;
-      const code = `Mouse${event.button}`;
-      if (this.blockedKeys.has(code)) return;
-      const action = this.actionOf.get(code);
-      if (action && this.allowAction?.(MOVE_ACTIONS.has(action) ? 'move' : action) === false) { this.blockedKeys.add(code); return; }
-      this.keys.add(code);
-      this.#press(code);
+      if (!this.enabled && !this.pointerLocked) return;
+      this.handleMouseButtonDown(`Mouse${event.button}`);
     });
 
     this.#listen(document, 'mouseup', (event) => {
-      if (this.touchFocus) return;
-      const code = `Mouse${event.button}`;
-      this.blockedKeys.delete(code);
-      if (!this.keys.delete(code)) return;
-      this.#release(code);
+      this.handleMouseButtonUp(`Mouse${event.button}`);
     });
     this.#listen(document, 'contextmenu', (event) => event.preventDefault());
+  }
+
+  handleMouseButtonDown(code) {
+    if (!this.enabled && !this.pointerLocked) return;
+    if (this.blockedKeys.has(code)) return;
+    const action = this.actionOf.get(code);
+    if (action && this.allowAction?.(MOVE_ACTIONS.has(action) ? 'move' : action) === false) {
+      this.blockedKeys.add(code);
+      return;
+    }
+    this.keys.add(code);
+    this.#press(code);
+  }
+
+  handleMouseButtonUp(code) {
+    this.blockedKeys.delete(code);
+    if (!this.keys.delete(code)) return;
+    this.#release(code);
   }
 
   #setEnabled(enabled) {
@@ -239,14 +252,21 @@ export class InputController {
 
   // enter the arena: pointer lock with a mouse, the on-screen controls on a touch device
   requestPointerLock() {
-    if (this.enabled || this.suspended) return;
+    if (this.suspended) return;
     if (this.touch) this.#setTouchFocus(true);
-    else this.element.requestPointerLock?.();
+    if (!this.pointerLocked && typeof this.element.requestPointerLock === 'function') {
+      try {
+        const promise = this.element.requestPointerLock();
+        promise?.catch?.(() => {});
+      } catch {
+        /* pointer lock not allowed or unavailable */
+      }
+    }
   }
 
   releaseFocus() {
+    if (this.pointerLocked) document.exitPointerLock?.();
     if (this.touchFocus) this.#setTouchFocus(false);
-    else if (this.pointerLocked) document.exitPointerLock?.();
   }
 
   turn(yawDelta, pitchDelta) {
@@ -279,9 +299,12 @@ export class InputController {
   setAttack(held, source = 'touch') {
     const accepted = this.gateHeldAction('attack', Boolean(held), source);
     if (held && !accepted) return;
-    if (!held) this.gateHeldAction('attack', false, 'logical');
-    if (Boolean(held) === this.attackHeld) return;
-    this.attackHeld = Boolean(held);
+    if (held) this.attackSources.add(source);
+    else this.attackSources.delete(source);
+    const logical = this.attackSources.size > 0;
+    if (!logical) this.gateHeldAction('attack', false, 'logical');
+    if (logical === this.attackHeld) return;
+    this.attackHeld = logical;
     this.socket.attack(this.attackHeld);
     this.onAttackLocal(this.attackHeld);
   }
@@ -301,6 +324,7 @@ export class InputController {
 
   releaseInputs() {
     this.cancelPreparedGesture();
+    this.attackSources.clear();
     this.guardSources.clear();
     this.preparedConsumedKeys.clear();
     if (this.allowAction) {
