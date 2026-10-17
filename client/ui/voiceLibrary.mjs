@@ -8,7 +8,7 @@ export const CREDITS = Object.freeze({
   title: 'SWORDS & SORCERY',
   lines: Object.freeze([
     Object.freeze({ role: 'Created and designed by', name: 'CaptainFredric' }),
-    Object.freeze({ role: 'The Spellblade — performed by', name: 'CaptainFredric' }),
+    Object.freeze({ role: 'The Spellblade: performed by', name: 'CaptainFredric' }),
   ]),
 });
 

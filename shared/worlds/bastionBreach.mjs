@@ -130,28 +130,28 @@ const OBJECTIVES = Object.freeze([
 ]);
 
 const SPAWN_POINTS = Object.freeze([
-  // Attackers initial staging spawns (Phase 0 — South Staging Camp)
+  // Attackers initial staging spawns (Phase 0 - South Staging Camp)
   spawn(-4, 0, -33, 0, -2, 'ATTACKERS', 0),
   spawn(0, 0, -34, 0, -2, 'ATTACKERS', 0),
   spawn(4, 0, -33, 0, -2, 'ATTACKERS', 0),
   spawn(-2, 0, -31, 0, -2, 'ATTACKERS', 0),
   spawn(2, 0, -31, 0, -2, 'ATTACKERS', 0),
 
-  // Attackers forward spawns (Phase 1 — Captured Outer Courtyard)
+  // Attackers forward spawns (Phase 1 - Captured Outer Courtyard)
   spawn(-2.5, 0, -1.0, 0, 25, 'ATTACKERS', 1),
   spawn(0, 0, -1.5, 0, 25, 'ATTACKERS', 1),
   spawn(2.5, 0, -1.0, 0, 25, 'ATTACKERS', 1),
   spawn(-2.5, 0, 0.5, 0, 25, 'ATTACKERS', 1),
   spawn(2.5, 0, 0.5, 0, 25, 'ATTACKERS', 1),
 
-  // Defenders Phase 0 spawns (Gatehouse Inner Ward & Gallery — 15m behind Outer Gate)
+  // Defenders Phase 0 spawns (Gatehouse Inner Ward & Gallery - 15m behind Outer Gate)
   spawn(-2.5, 0, 12.5, 0, -2, 'DEFENDERS', 0),
   spawn(0, 0, 13.5, 0, -2, 'DEFENDERS', 0),
   spawn(2.5, 0, 12.5, 0, -2, 'DEFENDERS', 0),
   spawn(-2, 0, 15.0, 0, -2, 'DEFENDERS', 0),
   spawn(11.5, BASTION_GALLERY_Y, 11.0, 0, -2, 'DEFENDERS', 0),
 
-  // Defenders Phase 1 spawns (Sanctum Rear Bastion — defending High Sanctum)
+  // Defenders Phase 1 spawns (Sanctum Rear Bastion - defending High Sanctum)
   spawn(-4, 0, 33.5, 0, 25, 'DEFENDERS', 1),
   spawn(0, 0, 34.2, 0, 25, 'DEFENDERS', 1),
   spawn(4, 0, 33.5, 0, 25, 'DEFENDERS', 1),

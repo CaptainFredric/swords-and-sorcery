@@ -1565,7 +1565,7 @@
     "key": "tutorial.dead-end-alive",
     "beatId": "dead-end-alive",
     "speaker": "spellblade",
-    "text": "The dead-end is a LIE—ve!",
+    "text": "The dead-end is a LIE-ve!",
     "sourceFile": "tutorial.dead-end-alive.wav",
     "fileBase": "spellblade/tutorial.dead-end-alive-1",
     "chapter": "fireball",

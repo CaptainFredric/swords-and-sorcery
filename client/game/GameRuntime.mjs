@@ -88,8 +88,8 @@ const WORLD_RENDERERS = Object.freeze({
 // the server's word for a clang my own view already foretold arrives within this long (a round trip and a tick or two)
 const FORETOLD_CLANG_MS = 700;
 
-// my case for not having fallen ("Why I should not fall. One... Two... Three—"): begun this long after the fall at the
-// soonest; meant to be cut this far before its end (its last word just begun: "Thr—") by my return; and, back on my
+// my case for not having fallen ("Why I should not fall. One... Two... Three-"): begun this long after the fall at the
+// soonest; meant to be cut this far before its end (its last word just begun: "Thr-") by my return; and, back on my
 // feet a moment before that word, let run on this long at most to reach it (the take is never hurried to fit)
 const APPEAL = Object.freeze({ leadSec: 0.1, interruptBeforeEnd: 0.4, runOnSec: 0.45 });
 // the paired "Oof!" of a Steel ram: the one rammed a breath behind the rammer (nearly together, not in unison)
@@ -875,7 +875,7 @@ export class GameRuntime {
             myTeam === 'DEFENDERS' ? 'THE OUTER GATE HAS FALLEN' : 'THE OUTER GATE IS BREACHED',
             myTeam === 'DEFENDERS' ? 'danger' : 'kill',
             3600,
-            myTeam === 'DEFENDERS' ? 'Fall back to The High Sanctum — Defend the inner sanctuary!' : 'The breach is open — Advance to The High Sanctum!',
+            myTeam === 'DEFENDERS' ? 'Fall back to The High Sanctum: Defend the inner sanctuary!' : 'The breach is open: Advance to The High Sanctum!',
           );
         }
       }
@@ -898,7 +898,7 @@ export class GameRuntime {
         const myTeam = this.localAuth?.team;
         if (!myTeam || event.team === myTeam) {
           const prefix = event.kind === 'enemy' ? 'TARGET MARKED' : 'RALLY POINT';
-          this.hud.addFeed(`${event.playerName || 'Ally'}: ${prefix} — ${event.label}`, 'fire');
+          this.hud.addFeed(`${event.playerName || 'Ally'}: ${prefix} · ${event.label}`, 'fire');
           if (event.playerId === me) {
             this.hud.flashText(`${prefix}: ${String(event.label).toUpperCase()}`, 'metal', 1400);
           }
@@ -1454,7 +1454,7 @@ export class GameRuntime {
       }
     }
 
-    // nothing said of my own fall: now and then, I make my case late, and my return cuts it short ("Three—")
+    // nothing said of my own fall: now and then, I make my case late, and my return cuts it short ("Three-")
     if (!spoke && victimId === this.socket.playerId) this.#appeal(event);
   }
 
