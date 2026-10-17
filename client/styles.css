@@ -156,6 +156,41 @@ body.took-steel::after{content:"";position:fixed;inset:0;z-index:50;pointer-even
 .objective-waypoint b { font: 700 9px/1.1 Georgia, serif; letter-spacing: .12em; color: #f4ead2; white-space: nowrap; }
 .objective-waypoint span { font: 800 9px/1 ui-sans-serif, system-ui, sans-serif; color: #d5b76f; font-variant-numeric: tabular-nums; white-space: nowrap; }
 
+.rival-waypoint {
+  position: absolute; transform: translate(-50%, -50%);
+  display: grid; justify-items: center; gap: 2px;
+  padding: 3px 8px; background: rgba(18, 20, 16, .82);
+  border: 1px solid rgba(201, 156, 82, .65);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, .45);
+  pointer-events: none; transition: opacity .15s ease-out, border-color .15s;
+  z-index: 10;
+}
+.rival-waypoint.hidden { display: none; }
+.rival-waypoint .rival-wp-pointer {
+  display: block; width: 6px; height: 6px;
+  background: #d5b76f; transform: rotate(45deg);
+  margin-bottom: 1px; transition: transform .08s ease-out;
+}
+.rival-waypoint[data-clamped="true"] {
+  opacity: 0.92; transform: translate(-50%, -50%) scale(0.95);
+  border-color: rgba(226, 187, 108, .85);
+}
+.rival-waypoint[data-clamped="true"] .rival-wp-pointer {
+  width: 0; height: 0; background: transparent;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-bottom: 7px solid #e5c378;
+  transform: rotate(calc(var(--wp-angle, 0deg) + 90deg));
+}
+.rival-waypoint b {
+  font: 700 8.5px/1.1 Georgia, serif; letter-spacing: .12em;
+  color: #f4ead2; white-space: nowrap;
+}
+.rival-waypoint span {
+  font: 800 8.5px/1 ui-sans-serif, system-ui, sans-serif;
+  color: #d5b76f; font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+
 .sb-team-head { margin: 10px 0 4px; font-size: 11px; letter-spacing: .16em; color: #8ec0ff; }
 .sb-team-head.team-def { color: #ff9c94; }
 .bt-end-summary { padding: 8px 12px; margin-bottom: 8px; background: rgba(28, 24, 19, .75); border: 1px solid rgba(201, 156, 82, .38); display: grid; gap: 3px; }

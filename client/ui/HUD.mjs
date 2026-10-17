@@ -151,6 +151,16 @@ export class HUD {
     } else {
       this.root?.appendChild?.(this.objectiveWaypoint);
     }
+
+    this.rivalWaypoint = document.createElement('div');
+    this.rivalWaypoint.id = 'rival-waypoint';
+    this.rivalWaypoint.className = 'rival-waypoint hidden';
+    this.rivalWaypoint.innerHTML = `<i class="rival-wp-pointer"></i><b data-rival-name>RIVAL</b><span data-rival-dist>34 m</span>`;
+    if (this.root?.append) {
+      this.root.append(this.rivalWaypoint);
+    } else {
+      this.root?.appendChild?.(this.rivalWaypoint);
+    }
     this.feed = document.querySelector('#kill-feed');
     this.crosshair = document.querySelector('#crosshair');
     this.flash = document.querySelector('#status-flash');
@@ -625,6 +635,25 @@ export class HUD {
       : pct > 0
         ? `${isAttacker ? 'CAPTURING' : 'LOSING'} ${pct}% · ${dist}m`
         : `${dist}m`;
+  }
+
+  updateRivalWaypoint(marker) {
+    if (!this.rivalWaypoint) return;
+    if (!marker) {
+      this.rivalWaypoint.classList.add('hidden');
+      return;
+    }
+    this.rivalWaypoint.classList.remove('hidden');
+    this.rivalWaypoint.style.left = `${(marker.x * 100).toFixed(1)}%`;
+    this.rivalWaypoint.style.top = `${(marker.y * 100).toFixed(1)}%`;
+    this.rivalWaypoint.dataset.clamped = marker.clamped ? 'true' : 'false';
+    if (Number.isFinite(marker.angle)) {
+      this.rivalWaypoint.style.setProperty('--wp-angle', `${marker.angle.toFixed(1)}deg`);
+    }
+    const nameEl = this.rivalWaypoint.querySelector('[data-rival-name]');
+    if (nameEl) nameEl.textContent = marker.name ?? 'RIVAL';
+    const distEl = this.rivalWaypoint.querySelector('[data-rival-dist]');
+    if (distEl) distEl.textContent = Number.isFinite(marker.dist) ? `${Math.round(marker.dist)} m` : '';
   }
 
   setScoreboard(snapshot, visible) {

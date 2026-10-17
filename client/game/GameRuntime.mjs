@@ -3,6 +3,7 @@ import { heldActions } from '../../shared/src/heldActions.mjs';
 import * as THREE from 'three';
 import { getWorld } from '../../shared/worlds/registry.mjs';
 import { greenerPasturesWithBridgeRetries } from '../../shared/worlds/greenerPastures.mjs';
+import { computeRivalWaypoint } from '../tutorial/rivalWaypoint.mjs';
 import { MOVEMENT, createMovementState, launchBody, movePlayer, resolveSprint, shoveBody, tryStartDash } from '../../shared/src/movement.mjs';
 import { separateLocal } from '../../shared/src/separation.mjs';
 import { segmentAabbHit, surfaceHeightAt } from '../../shared/src/collision.mjs';
@@ -2149,6 +2150,11 @@ export class GameRuntime {
       } else {
         this.hud.updateObjectiveWaypoint?.(null, null, null);
       }
+      if (this.latestSnapshot.tutorial) {
+        this.hud.updateRivalWaypoint?.(this.#calculateRivalWaypoint());
+      } else {
+        this.hud.updateRivalWaypoint?.(null);
+      }
       this.touch?.update(this.localAuth, this.socket.serverNow(), { practice: this.#inPractice() });
       this.hud.setScoreboard(this.latestSnapshot, this.input.scoreboardHeld);
       this.hud.setDebug({
@@ -2210,6 +2216,20 @@ export class GameRuntime {
     if (Math.abs(this.camera.fov - fov) < 1e-3) return;
     this.camera.fov = fov;
     this.camera.updateProjectionMatrix();
+  }
+
+  #calculateRivalWaypoint() {
+    return computeRivalWaypoint({
+      session: this.getTutorialSession?.(),
+      local: this.localState ?? this.localAuth,
+      snapshot: this.latestSnapshot,
+      camera: this.camera,
+      THREE,
+    });
+  }
+
+  calculateRivalWaypoint() {
+    return this.#calculateRivalWaypoint();
   }
 
   dispose() {
