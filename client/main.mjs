@@ -340,10 +340,12 @@ function route(screenId) {
   const menuBacked = isMenuBackedScreen(screenId);
   menuWorld.classList.toggle('hidden', !menuBacked);
   menuScene?.setVisible(menuBacked);
+  // on the front door he is out on his round; every other screen finds him at his place
+  menuScene?.setTouring(screenId === SCREEN_IDS.MAIN_MENU);
+  menuScene?.setBreakthroughPresentation(screenId === SCREEN_IDS.BREAKTHROUGH_MENU, { immediate: previous !== screenId });
   if (menuBacked && previous !== screenId) {
-    menuScene?.resetCanonicalHeroState();
+    menuScene?.resetCanonicalHeroState({ immediate: true });
   }
-  menuScene?.setBreakthroughPresentation(screenId === SCREEN_IDS.BREAKTHROUGH_MENU);
   // the camera glides to each screen's shot (the veil's establishing shot is started when it lifts)
   if (menuBacked && veilLifted && previous !== screenId) menuScene?.setShot(screenId);
   // leaving any menu screen for a match in progress opens the gate (a duel's countdown opens it at the start)
@@ -353,8 +355,6 @@ function route(screenId) {
   // in the Armory he holds the chosen spell up in his palm (and its cards' sounds are made ready for the first press)
   menuScene?.showSpell(screenId === SCREEN_IDS.ARMORY ? settings.get('loadout.spell') : null);
   if (screenId === SCREEN_IDS.ARMORY) loadArmoryCues(sound);
-  // on the front door he is out on his round; every other screen finds him at his place
-  menuScene?.setTouring(screenId === SCREEN_IDS.MAIN_MENU);
   $('.turn-hint')?.classList.toggle('hidden', screenId === SCREEN_IDS.MAIN_MENU && tourAllowed());
   noteYard();
 }
