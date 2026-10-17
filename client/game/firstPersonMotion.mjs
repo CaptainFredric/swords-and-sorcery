@@ -26,11 +26,11 @@ export const FP_MOTION = Object.freeze({
   magicArmDrop: 0.12,
   // the magic hand turned a little outward, open and ready, instead of a clawed fist seen from above
   magicForearmTwist: 0.4,
-  // the guard: the sword arm brought in toward the middle of the view and a little lower (the blade held across the
-  // body, not upright at the edge, and never over the sightline)
-  guardInward: 0.55,
-  guardDrop: 0.18,
-  guardAcross: 0.6,
+  // the guard: the sword arm brought in toward the middle of the view in a protective ward (the blade held diagonally
+  // across the body, not sagging into the lower screen or obscuring the crosshair)
+  guardInward: 0.22,
+  guardDrop: 0.0,
+  guardAcross: 0.0,
   guardBlendRate: 14,  // how quickly the arm comes in and goes back (per second)
 });
 
