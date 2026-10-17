@@ -19,18 +19,23 @@ export function breakthroughHudView(local, snapshot, serverNow) {
   const isAttacker = myTeam === 'ATTACKERS';
   const pct = Math.max(0, Math.min(100, Math.round((obj.progress ?? 0) * 100)));
 
-  const startedAt = Number.isFinite(snapshot.matchStartedAt) ? snapshot.matchStartedAt : serverNow;
+  const isOvertime = Boolean(snapshot?.overtime || obj.overtime);
+  const startedAt = Number.isFinite(snapshot?.matchStartedAt) ? snapshot.matchStartedAt : serverNow;
   const elapsed = Math.max(0, serverNow - startedAt);
-  const length = Number.isFinite(snapshot.matchSeconds) ? snapshot.matchSeconds : 300;
+  const length = Number.isFinite(snapshot?.matchSeconds) ? snapshot.matchSeconds : 300;
   const left = Math.max(0, length - elapsed);
   const mins = Math.floor(left / 60);
   const secs = Math.floor(left % 60).toString().padStart(2, '0');
+  const clock = isOvertime ? 'OVERTIME' : `${mins}:${secs}`;
 
   let stateKey = 'idle';
   let stateLabel = isAttacker ? 'CAPTURE' : 'DEFEND';
   if (obj.completed) {
     stateKey = 'captured';
     stateLabel = 'CAPTURED';
+  } else if (isOvertime) {
+    stateKey = 'overtime';
+    stateLabel = isAttacker ? 'OVERTIME · CAPTURE' : 'OVERTIME · DEFEND';
   } else if (obj.contested) {
     stateKey = 'contested';
     stateLabel = 'CONTESTED';
@@ -61,7 +66,7 @@ export function breakthroughHudView(local, snapshot, serverNow) {
     stateLabel,
     attackersCount: obj.attackersCount ?? 0,
     defendersCount: obj.defendersCount ?? 0,
-    clock: `${mins}:${secs}`,
+    clock,
     distanceMeters: dist,
   };
 }
@@ -76,12 +81,13 @@ export function matchInfoText(snapshot, serverNow) {
   const left = Math.max(0, length - elapsed);
   const mins = Math.floor(left / 60);
   const secs = Math.floor(left % 60).toString().padStart(2, '0');
+  const clockStr = (snapshot?.overtime || snapshot?.objective?.overtime) ? 'OVERTIME' : `${mins}:${secs}`;
   if (snapshot?.mode === 'BREAKTHROUGH') {
     const obj = snapshot.objective;
     const objName = obj?.name ?? 'OBJECTIVE';
     const pct = Math.round((obj?.progress ?? 0) * 100);
-    const status = obj?.contested ? 'CONTESTED' : `${pct}%`;
-    return `BREAKTHROUGH  ·  ${objName.toUpperCase()} [${status}]  ·  ${mins}:${secs}`;
+    const status = (snapshot?.overtime || obj?.overtime) ? 'OVERTIME' : obj?.contested ? 'CONTESTED' : `${pct}%`;
+    return `BREAKTHROUGH  ·  ${objName.toUpperCase()} [${status}]  ·  ${clockStr}`;
   }
   return `FIRST TO ${snapshot?.scoreToWin ?? 10}  ·  ${mins}:${secs}`;
 }

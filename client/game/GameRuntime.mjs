@@ -26,6 +26,7 @@ import {
   ultimateFizzleRecipe, ultimateReadyRecipe,
   emberImpactRecipe, emberRecipe, vortexCatchRecipe, vortexCutRecipe, vortexEndRecipe, vortexIgniteRecipe, vortexScrapeRecipe, vortexStarRecipe, vortexWhooshRecipe,
 } from './sound/soundRecipes.mjs';
+import { bellTollRecipe, gateRecipe, warDrumRecipe } from './sound/atmosphereRecipes.mjs';
 import { ULTIMATES, ultimateFor, ultimateStartup, ultimateWhirl, vortexAngle, vortexWindup } from '../../shared/src/ultimates.mjs';
 import { PROWESS } from '../../shared/src/prowess.mjs';
 import { PRACTICE_RECAST, recordUse } from '../../shared/src/practiceRecast.mjs';
@@ -864,18 +865,30 @@ export class GameRuntime {
         else this.voice?.cut?.(me);
       }
       if (event.type === 'objectiveCaptured') {
-        this.#play(gateRecipe(), null, 0.9);
+        this.#play(bellTollRecipe(), null, 1.0);
+        this.#play(gateRecipe(), null, 0.95);
         const myTeam = this.localAuth?.team;
         const objName = (event.objectiveName ?? 'OBJECTIVE').toUpperCase();
         this.hud.addFeed(`${objName} CAPTURED BY ATTACKERS`, 'fire');
         if (event.index === 0) {
           this.hud.flashText(
-            myTeam === 'DEFENDERS' ? `${objName} LOST` : `${objName} TAKEN`,
+            myTeam === 'DEFENDERS' ? 'THE OUTER GATE HAS FALLEN' : 'THE OUTER GATE IS BREACHED',
             myTeam === 'DEFENDERS' ? 'danger' : 'kill',
-            3100,
-            myTeam === 'DEFENDERS' ? 'Fall back and defend The High Sanctum!' : 'Advance through the breach to The High Sanctum!',
+            3600,
+            myTeam === 'DEFENDERS' ? 'Fall back to The High Sanctum — Defend the inner sanctuary!' : 'The breach is open — Advance to The High Sanctum!',
           );
         }
+      }
+      if (event.type === 'overtimeStarted') {
+        this.#play(warDrumRecipe(), null, 1.0);
+        const myTeam = this.localAuth?.team;
+        this.hud.flashText(
+          'OVERTIME',
+          'danger',
+          2800,
+          myTeam === 'ATTACKERS' ? 'Maintain capture pressure on the objective!' : 'Drive the attackers out of the zone!',
+        );
+        this.hud.addFeed('OVERTIME · BATTLE FOR THE BASTION', 'fire');
       }
       if (event.type === 'objectiveContested') {
         const myTeam = this.localAuth?.team;

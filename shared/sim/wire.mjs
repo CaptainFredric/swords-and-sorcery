@@ -57,6 +57,7 @@ export function serializeSnapshot(room, nowSec) {
     winnerTeam: room.winnerTeam ?? null,
     rewardMatchId: room.rewardMatchId ?? null,
     suddenDeath: room.suddenDeath,
+    overtime: Boolean(room.overtime),
     objective: room.objectiveState ? {
       index: room.objectiveState.index,
       phase: room.objectiveState.phase,
@@ -70,6 +71,7 @@ export function serializeSnapshot(room, nowSec) {
       contested: room.objectiveState.contested,
       capturing: room.objectiveState.capturing,
       decaying: room.objectiveState.decaying,
+      overtime: Boolean(room.objectiveState.overtime),
       attackersCount: room.objectiveState.attackersCount,
       defendersCount: room.objectiveState.defendersCount,
       lastCapturedId: room.objectiveState.lastCapturedId ?? null,

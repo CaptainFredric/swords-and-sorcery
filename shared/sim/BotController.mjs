@@ -826,11 +826,63 @@ function selectTeamGoal(room, actor, ai, nowSec) {
   // Role-based spatial spread inside the objective ring so teammates never stack on the exact same point
   const angle = (rivalIndex * 2.09 + teamOffset) % (2 * Math.PI);
   const spreadRadius = rivalIndex === 0 ? Math.min(1.6, activeObj.radius * 0.3) : Math.min(activeObj.radius * 0.68, 3.6);
-  const goalPos = {
+  let goalPos = {
     x: objPos.x + Math.sin(angle) * spreadRadius,
     y: objPos.y,
     z: objPos.z + Math.cos(angle) * spreadRadius,
   };
+
+  // Phase-specific tactical positioning and approach lanes
+  if (room.objectiveState.index === 0) {
+    // Stage 1: Outer Gate
+    if (actor.team === TEAMS.ATTACKERS) {
+      if (actor.position.z < -4) {
+        if (rivalIndex === 1) {
+          // West Flank Route
+          if (actor.position.z < -22) goalPos = { x: -12, y: 0, z: -22 };
+          else if (actor.position.z < -10) goalPos = { x: -12, y: 0, z: -10 };
+          else if (actor.position.z < 1) goalPos = { x: -12, y: 0, z: 2 };
+          else goalPos = { x: -4.5, y: 0, z: -1.0 };
+        } else if (rivalIndex === 2) {
+          // Eastern approach lane
+          if (actor.position.z < -14) goalPos = { x: 3.5, y: 0, z: -14 };
+          else if (actor.position.z < -2) goalPos = { x: 5.5, y: 0, z: 0.5 };
+          else goalPos = { x: 4.0, y: 0, z: -1.0 };
+        } else {
+          // Central Vanguard lane
+          if (actor.position.z < -16) goalPos = { x: 0, y: 0, z: -16 };
+          else goalPos = { x: 0, y: 0, z: -2.0 };
+        }
+      }
+    } else {
+      // Defenders holding the Outer Gate
+      if (room.objectiveState.attackersCount === 0 && (room.objectiveState.progress ?? 0) < 0.05) {
+        if (rivalIndex === 1) goalPos = { x: -5.5, y: 0, z: 0.5 };
+        else if (rivalIndex === 2) goalPos = { x: 5.5, y: 0, z: 0.5 };
+        else goalPos = { x: 0, y: 0, z: -1.0 };
+      }
+    }
+  } else if (room.objectiveState.index === 1) {
+    // Stage 2: High Sanctum
+    if (actor.team === TEAMS.DEFENDERS) {
+      const outsideSanctum = actor.position.z < 16;
+      if (outsideSanctum) {
+        const immediateThreat = enemies.some((e) => distance2d(actor, e) <= 2.5 && e.attackActive);
+        if (!immediateThreat) {
+          ai.targetId = null;
+        }
+        goalPos = { x: rivalIndex === 1 ? -4.5 : rivalIndex === 2 ? 4.5 : 0, y: 0.3, z: 25 };
+      } else if (room.objectiveState.attackersCount === 0 && (room.objectiveState.progress ?? 0) < 0.05) {
+        if (rivalIndex === 1) goalPos = { x: -4.8, y: 0, z: 25.0 };
+        else if (rivalIndex === 2) goalPos = { x: 0, y: 0, z: 30.5 };
+        else goalPos = { x: 0, y: 0.3, z: 25.0 };
+      }
+    } else if (actor.position.z < 20) {
+      if (rivalIndex === 1) goalPos = { x: -4.5, y: 0, z: 22.0 };
+      else if (rivalIndex === 2) goalPos = { x: 4.5, y: 0, z: 22.0 };
+      else goalPos = { x: 0, y: 0.3, z: 25.0 };
+    }
+  }
 
   const allies = [...room.players.values()].filter((p) => p !== actor && p.alive && areAllies(room, actor, p) && (p.actorKind !== 'human' || p.connected));
   const distToObj = distance2d(actor, { position: objPos });
@@ -909,8 +961,12 @@ function selectTeamGoal(room, actor, ai, nowSec) {
     return { target: pickDistributedTarget(enemiesAtObj), goalPos, holdRing: false };
   }
 
-  // 6. If this bot is the sole point capper inside the ring, stay in the ring rather than chasing enemies far outside
-  if (actor.team === TEAMS.ATTACKERS && distToObj <= activeObj.radius && room.objectiveState.attackersCount <= 1) {
+  // 6. If this bot is inside the ring while capturing, stay in the ring rather than chasing enemies far outside
+  if (actor.team === TEAMS.ATTACKERS && distToObj <= activeObj.radius && (room.objectiveState.capturing || room.objectiveState.attackersCount <= 1)) {
+    const enemyInRing = enemies.filter((e) => distance2d(e, { position: objPos }) <= activeObj.radius + 1.2);
+    if (enemyInRing.length) {
+      return { target: pickDistributedTarget(enemyInRing), goalPos, holdRing: true };
+    }
     return { target: null, goalPos, holdRing: true };
   }
 
@@ -990,7 +1046,7 @@ export function stepBotControllers(
           actor.yaw = actor.input.yaw;
           actor.input.forward = 1;
           actor.input.right = 0;
-          actor.input.sprint = dist > BOT_SPRINT_DISTANCE && (actor.guardStamina ?? 100) > BOT_SPRINT_STAMINA_RESERVE;
+          actor.input.sprint = (dist > BOT_SPRINT_DISTANCE && (actor.guardStamina ?? 100) > BOT_SPRINT_STAMINA_RESERVE) || (Boolean(room.overtime) && dist > 2.0);
         } else {
           actor.input.forward = 0;
           actor.input.right = 0;

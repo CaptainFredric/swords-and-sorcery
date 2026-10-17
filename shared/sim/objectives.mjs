@@ -45,6 +45,7 @@ export function createObjectiveState(worldObjectives = []) {
     contested: false,
     capturing: false,
     decaying: false,
+    overtime: false,
     wasContested: false,
     lastContestedAt: -Infinity,
     lastCaptureProgressAt: -Infinity,
@@ -124,17 +125,33 @@ export function stepObjectives(room, dt, nowSec) {
         state.phase += 1;
         state.progress = 0;
         state.capturing = false;
+        // Stage transition bonus: breaches grant stage time (+150s) to assault High Sanctum
+        const bonusSec = 150;
+        if (room.overtime) {
+          room.overtime = false;
+          state.overtime = false;
+          room.overtimeClearedAt = null;
+          room.policy.matchSeconds = Math.max(room.policy.matchSeconds ?? 0, (nowSec - room.matchStartedAt) + bonusSec);
+        } else if (Number.isFinite(room.policy.matchSeconds) && Number.isFinite(room.matchStartedAt)) {
+          const remaining = (room.matchStartedAt + room.policy.matchSeconds) - nowSec;
+          if (remaining < bonusSec) {
+            room.policy.matchSeconds += (bonusSec - remaining);
+          }
+        }
         const nextObj = state.objectives[state.index];
         room.events.push({
           type: 'objectiveAdvanced',
           nextIndex: state.index,
           nextObjectiveId: nextObj.id,
           nextObjectiveName: nextObj.name,
+          stageBonusSec: bonusSec,
           at: nowSec,
         });
       } else {
         state.completed = true;
         state.capturing = false;
+        room.overtime = false;
+        state.overtime = false;
         room.finish(TEAMS.ATTACKERS, nowSec, 'objective');
       }
     }
