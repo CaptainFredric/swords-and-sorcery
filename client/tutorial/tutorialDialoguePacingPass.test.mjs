@@ -63,6 +63,14 @@ test('post-Jump banter begins without >80m landmark gate or 2.5s quiet stage tim
   assert.equal(d.current.segment, 'pursuit-banter');
 });
 
+test('Fireball setup orders the magic reminder before almost-there and Halt', () => {
+  const ids = segment('fireball').beats.map((beat) => beat.id);
+  const from = ids.indexOf('impressive');
+  assert.deepEqual(ids.slice(from, from + 6), [
+    'impressive', 'magic-disposal', 'waiting-reminder', 'almost-there', 'halt-order', 'tell-on-me',
+  ]);
+});
+
 test('Rival keeps fleeing through setup, then Halt itself owns the standoff', () => {
   const { host, session, tick, rival } = fixture();
 
