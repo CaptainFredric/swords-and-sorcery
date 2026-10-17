@@ -850,10 +850,13 @@ function selectTeamGoal(room, actor, ai, nowSec) {
   }
 
   // Urgent objective duty:
-  // - Defenders must step into the ring if attackers are capturing and no defender is contesting
-  // - Attackers need at least one knight inside the capture ring
-  const mustContest = actor.team === TEAMS.DEFENDERS && room.objectiveState.attackersCount > 0 && room.objectiveState.defendersCount === 0;
-  const mustCapture = actor.team === TEAMS.ATTACKERS && room.objectiveState.attackersCount === 0 && !allyInRing && rivalIndex === 0;
+  // - Defenders must step into the ring if attackers are capturing and no defender is contesting (closest defender or anyone nearby)
+  // - Attackers need at least one knight inside the capture ring (closest living attacker takes point)
+  const isClosestTeammate = !allies.some((a) => distance2d(a, { position: objPos }) < distToObj);
+  const mustContest = actor.team === TEAMS.DEFENDERS && room.objectiveState.attackersCount > 0 && room.objectiveState.defendersCount === 0
+    && (isClosestTeammate || distToObj <= activeObj.radius + 6.0);
+  const mustCapture = actor.team === TEAMS.ATTACKERS && room.objectiveState.attackersCount === 0 && !allyInRing
+    && (rivalIndex === 0 || isClosestTeammate);
   const holdRing = (mustContest || mustCapture) && distToObj > activeObj.radius - 0.6;
 
   const pickDistributedTarget = (candidates) => {

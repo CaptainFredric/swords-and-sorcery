@@ -885,7 +885,10 @@ function landStrike(room, attacker, strikeIndex, target, atSec, nowSec, met = nu
         stopSwordChain(attacker, {}, room, nowSec);
       }
       gainProwess(room, target, PROWESS.parry);
-      room.events.push({ type: 'parry', attackerId: attacker.id, defenderId: target.id, suppressParryReel, at: nowSec });
+      room.events.push({
+        type: 'parry', attackerId: attacker.id, defenderId: target.id, suppressParryReel,
+        ...(met?.point ? { point: { x: met.point.x, y: met.point.y, z: met.point.z } } : {}), at: nowSec,
+      });
       recordChallengeFact(room, { type: 'parry', attackerId: attacker.id, defenderId: target.id, at: nowSec });
       staggerBy(room, attacker, STAGGER.gain.parried, nowSec, target.id);
       return 'parry';
@@ -894,10 +897,16 @@ function landStrike(room, attacker, strikeIndex, target, atSec, nowSec, met = nu
     if (guardResult.kind === 'guardBreak') {
       breakGuard(target, (GAME.guardBreakStaggerMs / 1000) * (1 + MELEE_CONTACT.impactBreakStagger * physical.impact), nowSec);
       if (!combatActionPolicy(attacker, nowSec).concurrent && !attacker.attackChivalry) gainProwess(room, attacker, PROWESS.guardBreak);
-      room.events.push({ type: 'guardBreak', attackerId: attacker.id, defenderId: target.id, impact: physical.impact, impacts, at: nowSec });
+      room.events.push({
+        type: 'guardBreak', attackerId: attacker.id, defenderId: target.id, impact: physical.impact, impacts,
+        ...(met?.point ? { point: { x: met.point.x, y: met.point.y, z: met.point.z } } : {}), at: nowSec,
+      });
       staggerBy(room, target, STAGGER.gain.guardBreak, nowSec, attacker.id);
     } else {
-      room.events.push({ type: 'block', attackerId: attacker.id, defenderId: target.id, quality, impact: physical.impact, impacts, at: nowSec });
+      room.events.push({
+        type: 'block', attackerId: attacker.id, defenderId: target.id, quality, impact: physical.impact, impacts,
+        ...(met?.point ? { point: { x: met.point.x, y: met.point.y, z: met.point.z } } : {}), at: nowSec,
+      });
       staggerBy(room, target, STAGGER.gain.sword * force * STAGGER.gain.blocked * impacts, nowSec, attacker.id);
     }
     return guardResult.kind === 'guardBreak' ? 'guardBreak' : 'block';
@@ -926,7 +935,8 @@ function landStrike(room, attacker, strikeIndex, target, atSec, nowSec, met = nu
   if (empowered) cutShort(room, target, attacker, nowSec);
   room.events.push({
     type: 'swordHit', playerId: attacker.id, targetId: target.id, strikeIndex, quality: armour.quality, impact: physical.impact, steel: armour.strength,
-    ...(level !== DAMAGE_LEVELS.normal ? { level } : {}), ...(cancelled ? { sunderMet: true } : {}), at: nowSec,
+    ...(level !== DAMAGE_LEVELS.normal ? { level } : {}), ...(cancelled ? { sunderMet: true } : {}),
+    ...(met?.point ? { point: { x: met.point.x, y: met.point.y, z: met.point.z } } : {}), at: nowSec,
   });
   return 'hit';
 }

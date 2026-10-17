@@ -610,16 +610,20 @@ export class HUD {
       this.objectiveWaypoint.classList.add('hidden');
       return;
     }
+    const myTeam = local?.team ?? 'ATTACKERS';
+    const isAttacker = myTeam === 'ATTACKERS';
     this.objectiveWaypoint.classList.remove('hidden');
     this.objectiveWaypoint.style.left = `${(screenPos.x * 100).toFixed(1)}%`;
     this.objectiveWaypoint.style.top = `${(screenPos.y * 100).toFixed(1)}%`;
+    this.objectiveWaypoint.dataset.team = myTeam;
+    this.objectiveWaypoint.dataset.clamped = screenPos.clamped ? 'true' : 'false';
     this.objectiveWaypoint.dataset.state = obj.contested ? 'contested' : obj.capturing ? 'capturing' : 'idle';
     this.objectiveWaypoint.querySelector('[data-wp-name]').textContent = (obj.name ?? 'OBJECTIVE').toUpperCase();
     const pct = Math.round((obj.progress ?? 0) * 100);
     this.objectiveWaypoint.querySelector('[data-wp-meta]').textContent = obj.contested
       ? `CONTESTED · ${dist}m`
       : pct > 0
-        ? `${pct}% · ${dist}m`
+        ? `${isAttacker ? 'CAPTURING' : 'LOSING'} ${pct}% · ${dist}m`
         : `${dist}m`;
   }
 

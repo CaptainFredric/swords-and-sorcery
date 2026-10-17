@@ -155,3 +155,10 @@ test('the Herald leads with a welcome, five recent entries, and a folded archive
   const short = heraldMarkup({ changes: HERALD_NOTICES.changes.slice(0, 2) });
   assert.doesNotMatch(short, /herald-archive/);
 });
+
+test('the menu tour restores pending rivals before combat approach so repeated circuits animate cleanly', () => {
+  assert.match(director, /const mustRestore = t >= -2\.0;/);
+  assert.match(director, /if \(!mustRestore && \(this\.resetFrustum\.intersectsSphere\(incoming\)/);
+  assert.match(director, /this\.#restoreRival\(rival, index\);/);
+});
+

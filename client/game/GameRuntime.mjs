@@ -1772,7 +1772,7 @@ export class GameRuntime {
     const impact = Number.isFinite(event.impact) ? event.impact : 0;
     const attacker = this.#bodyPosition(event.playerId);
     const victim = this.#bodyPosition(event.targetId);
-    const point = impactPoint(victim, attacker);
+    const point = event.point ? { x: event.point.x, y: event.point.y, z: event.point.z } : impactPoint(victim, attacker);
     if (event.targetId !== me) {
       if (point) this.effects.hitBurst(point, blowDirection(victim, attacker), { strike, quality });
       this.remotePlayers.flashHit(event.targetId);
@@ -1806,7 +1806,7 @@ export class GameRuntime {
     const me = this.socket.playerId;
     const attacker = this.#bodyPosition(event.attackerId);
     const defender = this.#bodyPosition(event.defenderId);
-    const point = impactPoint(defender, attacker);
+    const point = event.point ? { x: event.point.x, y: event.point.y, z: event.point.z } : impactPoint(defender, attacker);
     const parry = event.type === 'parry';
     const heavy = event.type === 'guardBreak';
     // (a guard a ram broke caves in within the ram's own sound and sparks: #steelRam)

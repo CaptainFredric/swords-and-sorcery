@@ -144,10 +144,26 @@ To enable direct developer inspection:
 
 ---
 
-## 6. Test Suite & Verification Status
+## 6. Authoritative Contact Point & Visualizer Alignment
+
+In `shared/sim/combat.mjs`, when blade intersection ray-casts detect collision (`met`), the simulation emits authoritative 3D Cartesian coordinates (`point: { x: met.point.x, y: met.point.y, z: met.point.z }`) on:
+- `type: 'swordHit'`
+- `type: 'block'`
+- `type: 'parry'`
+- `type: 'guardBreak'`
+
+`GameRuntime.mjs` consumes `event.point` directly in `#swordHit` and `#guardContact`, ensuring that:
+- `BladeHeatmapDebug` marks the exact physical intersection on the blade ribbon and target body.
+- Particle effects (`hitBurst`, `blockBurst`, spark showers) emanate from the actual blade-on-armor impact coordinates rather than falling back to center-of-mass proxies.
+- Audio spatialization aligns precisely with the point of blade contact.
+
+---
+
+## 7. Test Suite & Verification Status
 
 - **Unit Tests**: `shared/src/bladeHeatmap.test.mjs` (7 test suites, 100% passing).
   - Covers mathematical continuity, resolution/viewport invariance, strike parameter validity, Scenarios A–D bounds, and 3D ribbon sampling.
-- **Full Test Suite**: **1,455 / 1,455 tests passing** (`npm test`).
-  - Updated legacy expectations in `combat.test.mjs`, `challenges.test.mjs`, `chivalry.test.mjs`, `crouch.test.mjs`, and `held-buttons.test.mjs` where centered torso hits previously dealt 28–30 unearned damage or where guard breaks occurred under non-scaled pressure.
-- **Verification Command**: `npm run verify` passed cleanly (HTML5 export verified, headless smoke test passed on live port).
+- **Skill Differentiation Benchmark**: `server/tests/combat-skill-differentiation.test.mjs` (3 test suites, 100% passing).
+  - Verifies centered static strikes (24 dmg, 5-hit defeat), cramped hilt rushes (glancing damage $\le 20$), sweet-spot cut leading, authoritative event points, and guard stamina drain scaling.
+- **Full Test Suite**: **1,460 / 1,460 tests passing** (`npm test`).
+- **Verification Command**: `npm run verify` passed cleanly (syntax check, 1,460 tests, HTML5 export verified, headless smoke test passed on live port).

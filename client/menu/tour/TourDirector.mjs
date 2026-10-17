@@ -235,6 +235,8 @@ export class TourDirector {
     this.projectiles = [];
     this.effects.syncProjectiles([]);
     this.burns = [];
+    this.vessel?.dispose();
+    this.vessel = null;
   }
 
   #outsideView(object) {
@@ -447,8 +449,9 @@ export class TourDirector {
       const placed = this.#place(this.frames[index], pose);
       if (rival.resetPending) {
         const incoming = new THREE.Sphere(placed.position.clone().add(new THREE.Vector3(0, 1.2, 0)), 2.5);
-        if (this.resetFrustum.intersectsSphere(incoming) || !this.#outsideView(rival.holder)
-          || !this.#outsideView(rival.pile?.group) || !this.#outsideView(rival.flag?.group)) return;
+        const mustRestore = t >= -2.0;
+        if (!mustRestore && (this.resetFrustum.intersectsSphere(incoming) || !this.#outsideView(rival.holder)
+          || !this.#outsideView(rival.pile?.group) || !this.#outsideView(rival.flag?.group))) return;
         this.#restoreRival(rival, index);
       }
       if (rival.shattered) return;

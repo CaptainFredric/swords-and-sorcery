@@ -148,6 +148,9 @@ body.took-steel::after{content:"";position:fixed;inset:0;z-index:50;pointer-even
 }
 .objective-waypoint[data-state="capturing"] { border-color: #68cee1; }
 .objective-waypoint[data-state="capturing"] .wp-diamond { background: #68cee1; }
+.objective-waypoint[data-state="capturing"][data-team="DEFENDERS"] { border-color: #ff6e63; }
+.objective-waypoint[data-state="capturing"][data-team="DEFENDERS"] .wp-diamond { background: #ff6e63; }
+.objective-waypoint[data-clamped="true"] { opacity: 0.88; transform: translate(-50%, -50%) scale(0.92); }
 .objective-waypoint[data-state="contested"] { border-color: #e98243; }
 .objective-waypoint[data-state="contested"] .wp-diamond { background: #e98243; }
 .objective-waypoint b { font: 700 9px/1.1 Georgia, serif; letter-spacing: .12em; color: #f4ead2; white-space: nowrap; }
