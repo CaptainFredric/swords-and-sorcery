@@ -22,6 +22,13 @@ export class LocalSwordChain {
   /** Whether a chain is under way (the arms are in the combo). */
   get active() { return this.chain !== null; }
 
+  /** The active strike index (0, 1, or 2) in the running chain. */
+  get currentStrike() {
+    const chain = this.chain;
+    if (!chain) return 0;
+    return Math.max(0, Math.min(2, chain.landed));
+  }
+
   /** When the chain under way began (for the combo's pose), or null. */
   get startedAt() { return this.chain?.startedAt ?? null; }
 

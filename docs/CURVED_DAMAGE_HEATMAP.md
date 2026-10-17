@@ -15,11 +15,13 @@ This engineering and design implementation replaces simplistic crosshair/off-aim
    - **Sweet-spot contact** requires intentional spatial spacing, phase timing, and sweep tracking to earn **28–30 damage** (4 hits to kill, breaking the 25-damage threshold).
    - **Cramped collisions** (<1.0m) and **tip grazes** (>2.3m) yield marginal **19–21 damage** (requires 5–6 hits).
 3. **Guard & Stamina Dynamics**:
-   - Guard integrity is preserved. Guard pressure dynamically scales with strike quality: glancing hits drain ~17 stamina (6 hits to guard-break 100 stamina), while peak sweet-spot blows deliver 22 stamina pressure (5 hits to guard-break).
-4. **Sub-Step Continuous Arc Interpolation**:
-   - `shared/src/blade.mjs` and `shared/sim/combat.mjs` now track `stepFraction` during blade sweep ray-casts and capture the exact continuous time-of-contact `contactAt`, preventing discrete tick jitter.
-5. **Client Debug Visualizer**:
-   - Implemented `BladeHeatmapDebug.mjs` in Three.js, rendering a colored ribbon across the blade arc and contact indicators. Invisible during normal gameplay; toggleable via `F3`, URL query `?debugHeatmap`, or `window.__ssRuntime.debugBladeHeatmap = true`.
+   - The authoritative 5th-block rule ($100 \to 78 \to 56 \to 34 \to 12 \to 0$ guard break) is strictly preserved for ordinary hits ($\text{guardQuality} = \min(1, \text{physical.quality} / 0.35)$). Glancing hits scale down to $0.6$ pressure (13.2 stamina cost), rewarding tight timing while preventing unintended early guard survivals.
+4. **True Physical Contact Reach**:
+   - Discontinued the previous proxy `Math.max(met.along, Math.min(BLADE.to, horizontal))` which allowed horizontal center-to-center distance to artificially promote cramped or hilt collisions into sweet-spot reach. The simulation now strictly uses `along = met.along` from the blade intersection ray.
+5. **Sub-Step Continuous Arc Interpolation**:
+   - `shared/src/blade.mjs` and `shared/sim/combat.mjs` track `stepFraction` during blade sweep ray-casts and capture the exact continuous time-of-contact `contactAt`, preventing discrete tick jitter.
+6. **Client Debug Visualizer**:
+   - Implemented `BladeHeatmapDebug.mjs` with cached camera-frame Three.js geometry (zero per-frame allocations), active cutting slice indicator line, and authoritative impact point marker. Invisible during normal gameplay; toggleable via `F3` or `?debugHeatmap=1`.
 
 ---
 

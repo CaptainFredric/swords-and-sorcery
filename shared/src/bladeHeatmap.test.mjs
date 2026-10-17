@@ -126,6 +126,18 @@ test('blade heatmap: Scenarios A-D (Melee distance, sweet spot, cramped, and tip
   assert.ok(scenarioD.damage >= 19 && scenarioD.damage <= 21, `Scenario D damage: ${scenarioD.damage}`);
 });
 
+test('blade heatmap: physical reach distance is strictly met.along and not promoted by horizontal distance', () => {
+  const frame = aimFrame(0, 0);
+  const dir0 = bladeDirection(0, -0.004, frame);
+  // Hilt contact (along = 0.55m):
+  // Even with optimal timing (dt = -0.004) and perfect direction, hilt contact cannot be promoted
+  // by any external distance proxy to sweet-spot reach and remains strictly marginal (<= 20 damage).
+  const hiltContact = evaluateBladeHeatmap(0, { dt: -0.004, along: 0.55, direction: dir0, frame });
+  assert.ok(hiltContact.damage <= 20, `hilt damage: ${hiltContact.damage}`);
+  assert.ok(hiltContact.quality <= 0.10, `hilt quality: ${hiltContact.quality}`);
+  assert.equal(hiltContact.category, 'marginal');
+});
+
 test('blade heatmap: visual color mapping gradient and debug sample ribbon generator', () => {
   // Quality color mapping: Blue (weak) -> Green (ordinary) -> Yellow (solid) -> Orange (strong) -> Red (peak)
   const weakColor = qualityColor(0.05);

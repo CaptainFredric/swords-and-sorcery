@@ -28,9 +28,9 @@ export const STRIKE_HEATMAPS = Object.freeze([
     id: 'forehand',
     optimalDt: -0.004,
     dtSigma: 0.028,
-    optimalReach: 0.74,          // along ~1.84m (sweet spot on outer third)
+    optimalReach: 0.72,          // along ~1.81m
     reachSigmaIn: 0.22,
-    reachSigmaOut: 0.12,
+    reachSigmaOut: 0.11,
     epicenterYawDeg: 2.0,        // peak cutting sector centers around +2 deg
     epicenterPitchDeg: -3.0,     // slightly downward along the cutting plane
     yawSigmaDeg: 11.0,
@@ -42,9 +42,9 @@ export const STRIKE_HEATMAPS = Object.freeze([
     id: 'backhand',
     optimalDt: -0.004,
     dtSigma: 0.028,
-    optimalReach: 0.72,          // along ~1.80m
+    optimalReach: 0.70,          // along ~1.79m
     reachSigmaIn: 0.22,
-    reachSigmaOut: 0.12,
+    reachSigmaOut: 0.11,
     epicenterYawDeg: -2.0,       // peak cutting sector centers around -2 deg
     epicenterPitchDeg: 4.0,      // rising cut
     yawSigmaDeg: 11.0,
@@ -56,13 +56,13 @@ export const STRIKE_HEATMAPS = Object.freeze([
     id: 'chop',
     optimalDt: -0.025,
     dtSigma: 0.042,
-    optimalReach: 0.74,          // along ~1.84m
-    reachSigmaIn: 0.24,
+    optimalReach: 0.70,          // along ~1.79m
+    reachSigmaIn: 0.22,
     reachSigmaOut: 0.12,
     epicenterYawDeg: 0.0,        // centered horizontally
-    epicenterPitchDeg: 4.0,      // descending cut driving through high-chest to mid-torso
+    epicenterPitchDeg: 6.0,      // descending cut driving through high-chest to mid-torso
     yawSigmaDeg: 11.0,
-    pitchSigmaDeg: 16.0,
+    pitchSigmaDeg: 14.0,
   }),
 ]);
 

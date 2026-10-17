@@ -1790,6 +1790,7 @@ export class GameRuntime {
       this.hud.hit(glancing(quality) ? 'glance' : 'hit');
       this.weapon.hitstop(hitstopSeconds({ strike, quality }), hitKick({ strike, quality }));
       this.#play(swordHitRecipe(Math.random, { strike, quality, impact }), null, 1);
+      if (point) this.bladeHeatmapDebug?.recordContact({ point, quality, damage: swordDamageFor(quality), strike, at: performance.now() });
     } else if (event.targetId === me) {
       // (on hardened plate, the clang is the whole of it: #steelStruck)
       if (!(event.steel >= 0.02)) {
@@ -2167,7 +2168,10 @@ export class GameRuntime {
     this.bladeHeatmapDebug?.update({
       camera: this.camera,
       strikeIndex: this.weapon?.strike ?? 0,
+      isSwinging: this.weapon?.attackHeld ?? false,
       debugVisible: this.input.debugVisible,
+      nowSec: this.presentationNow() / 1000,
+      attackStartedAt: this.weapon?.attackStartedAt ?? 0,
     });
 
     if (nowMs - this.lastPingAt > 2000) { this.lastPingAt = nowMs; this.socket.ping(); }

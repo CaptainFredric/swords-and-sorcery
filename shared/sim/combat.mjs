@@ -820,10 +820,13 @@ function landStrike(room, attacker, strikeIndex, target, atSec, nowSec, met = nu
   let quality;
   if (met && Number.isFinite(contactSec)) {
     const dt = atSec - contactSec;
-    const effectiveAlong = Math.max(met.along, Math.min(BLADE.to, horizontal));
+    // Accurate physical contact distance along the blade ray.
+    // We strictly use met.along to measure cutting node reach rather than allowing
+    // center-to-center horizontal body distance to artificially promote cramped or hilt contact.
+    const along = met.along;
     const evalRes = evaluateBladeHeatmap(strikeIndex, {
       dt,
-      along: effectiveAlong,
+      along,
       point: met.point,
       direction: met.direction,
       eye,
@@ -858,15 +861,19 @@ function landStrike(room, attacker, strikeIndex, target, atSec, nowSec, met = nu
     guardChallengeContact(room, target, attacker, nowSec);
     // a Sundering blow lands on a guard as two (the guard pays for both; it is still one blow)
     const impacts = empowered ? ultimateFor('sunder').guardImpacts : 1;
-    const guardResult = resolveSwordVsGuard({
-      guarding: true,
-      guardAgeMs: (nowSec - target.guardStartedAt) * 1000,
-      stamina: target.guardStamina,
-      profile: guardProfile(target.knightClass),
-      // a glancing blow bears less on the guard, a collision more
-      pressure: (0.6 + 0.4 * physical.quality) * (1 + MELEE_CONTACT.impactGuard * physical.impact),
-      impacts,
-    });
+    // a glancing blow bears less on the guard, a collision more.
+    // Ordinary contact (quality >= 0.35) applies full baseline pressure (22 stamina, 5 blocks to break),
+    // while marginal/glancing contact scales smoothly down to 0.6 pressure (13 stamina).
+    const guardQuality = Math.min(1, physical.quality / 0.35);
+    const pressure = (0.6 + 0.4 * guardQuality) * (1 + MELEE_CONTACT.impactGuard * physical.impact);
+      const guardResult = resolveSwordVsGuard({
+        guarding: true,
+        guardAgeMs: (nowSec - target.guardStartedAt) * 1000,
+        stamina: target.guardStamina,
+        profile: guardProfile(target.knightClass),
+        pressure,
+        impacts,
+      });
     target.guardStamina = guardResult.staminaAfter;
     if (guardResult.kind === 'parry') {
       target.parries += 1;

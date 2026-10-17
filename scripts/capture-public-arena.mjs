@@ -264,6 +264,7 @@ try {
     '--headless=new',
     '--no-sandbox',
     '--hide-scrollbars',
+    '--disable-features=MacAppCodeSignClone',
     '--window-size=1440,900',
     `--remote-debugging-port=${debugPort}`,
     '--remote-allow-origins=*',

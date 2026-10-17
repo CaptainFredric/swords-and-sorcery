@@ -118,7 +118,7 @@ test('a normal guard drains 22 stamina a blow and the fifth block guard-breaks f
     // (the guard does not get its breath back between blows this close together)
     left.push(Math.round(b.guardStamina));
   }
-  assert.deepEqual(left, [78, 56, 35, 13, 0]);
+  assert.deepEqual(left, [78, 56, 34, 12, 0]);
   assert.equal(b.guarding, false);
   assert.ok(b.staggerUntil >= 13.9 - 1e-6);
 });

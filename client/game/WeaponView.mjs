@@ -528,6 +528,12 @@ export class WeaponView {
   /** Whether the arms are in the sword chain. */
   get attackHeld() { return this.swordChain.active; }
 
+  /** The active strike index (0, 1, or 2) in the running sword chain. */
+  get strike() {
+    if (this.comboSource?.slam) return 2;
+    return this.swordChain?.currentStrike ?? 0;
+  }
+
   setGuard(guard) {
     if (guard) this.drawSword({ quick: true });
     this.guard = guard;
