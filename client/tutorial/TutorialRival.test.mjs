@@ -161,3 +161,40 @@ test('counterfire leads a moving player while Rival keeps fleeing',()=>{
   assert.ok(Math.hypot(actor().input.forward,actor().input.right)>.1,'casting does not make him stop running away');
   host.close();
 });
+
+
+test('Rival spends ordinary Sprint sooner when a beelining player closes the chase',()=>{
+  const {host,session,tick,actor}=fixture();
+  session.stage('rival-escape');
+  session.director.resumeAt('hardly-wellbeing');
+  session.rival.enter('rival-escape',host.now());
+  actor().position={x:0,y:0,z:-85};
+  host.player.position={x:0,y:0,z:-55};
+  host.player.input={forward:1,right:0,yaw:0,pitch:0,sprint:true};
+  actor().guardStamina=100;
+  session.rival.enteredAt=host.now()-2;
+  session.rival.sprintWanted=false;
+
+  tick(12);
+  assert.equal(actor().input.sprint,true,'he answers the closing Sprint before the player can erase the dialogue lead');
+  assert.ok(Math.hypot(actor().input.forward,actor().input.right)>.8,'he no longer jogs at half speed simply because he has a lead');
+  host.close();
+});
+
+test('an early chase parry does not launch the Scratch exchange before the Halt standoff',()=>{
+  const {host,session,tick,actor}=fixture();
+  session.stage('fireball');
+  session.director.resumeAt('magic-disposal');
+  session.rival.enter('rival-escape',host.now());
+  assert.equal(session.rival.standingConfrontation,false);
+
+  session.events([{type:'parry',defenderId:actor().id,attackerId:host.player.id,at:host.now()}]);
+  assert.notEqual(session.director.optionalCue?.id,'scratch-taunt','pre-Halt chase defense does not steal the Fireball dialogue');
+
+  session.director.resumeAt('halt-order');
+  tick(2);
+  assert.equal(session.rival.standingConfrontation,true);
+  session.events([{type:'parry',defenderId:actor().id,attackerId:host.player.id,at:host.now()}]);
+  assert.equal(session.director.optionalCue?.id,'scratch-taunt','Scratch remains available when the player attacks the actual lesson stand');
+  host.close();
+});
