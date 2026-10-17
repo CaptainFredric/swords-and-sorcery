@@ -4,6 +4,7 @@ import { LocalHost } from '../network/LocalHost.mjs';
 import { TutorialDirector } from './TutorialDirector.mjs';
 import { TutorialSession } from './TutorialSession.mjs';
 import { TUTORIAL_BEATS, TUTORIAL_BRANCHES, TUTORIAL_SEGMENTS } from './tutorialScript.mjs';
+import { GREENER_ROUTE } from '../../shared/worlds/greenerPastures.mjs';
 
 const segment = id => TUTORIAL_SEGMENTS.find(s => s.id === id);
 const beat = id => TUTORIAL_BEATS.find(b => b.id === id);
@@ -76,6 +77,7 @@ test('Rival keeps fleeing through setup, then Halt itself owns the standoff', ()
 
   session.stage('fireball');
   session.rival.enter('rival-escape', host.now());
+  session.rival.waypoint = GREENER_ROUTE.chaseWaypoints.findIndex(p => p.id === 'tattle-reveal');
   rival().position = { x: 24, y: 0, z: -385 }; // already inside the old meadow boundary
   host.player.position = { x: 24, y: 0, z: -367 };
 

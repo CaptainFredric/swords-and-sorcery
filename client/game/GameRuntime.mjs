@@ -935,7 +935,7 @@ export class GameRuntime {
                 openingSaid = true;
                 const nowSec = this.presentationNow() / 1000;
                 this.lastTeamVoiceAt = nowSec;
-                this.teamVoiceEvents.lastTeamVoiceAt = nowSec;
+                this.teamVoiceEvents.lastTeamVoicePresentationAt = nowSec;
                 break;
               }
             }
@@ -946,7 +946,7 @@ export class GameRuntime {
                 openingSaid = true;
                 const nowSec = this.presentationNow() / 1000;
                 this.lastTeamVoiceAt = nowSec;
-                this.teamVoiceEvents.lastTeamVoiceAt = nowSec;
+                this.teamVoiceEvents.lastTeamVoicePresentationAt = nowSec;
                 break;
               }
             }
@@ -1427,14 +1427,14 @@ export class GameRuntime {
     const myTeam = this.localAuth?.team ?? myPlayer?.team;
     const victimPlayer = players.find((p) => p.id === victimId);
     const nowSec = this.presentationNow() / 1000;
-    const canTeamVoice = (nowSec - Math.max(this.lastTeamVoiceAt ?? -Infinity, this.teamVoiceEvents.lastTeamVoiceAt ?? -Infinity)) >= 3.5;
+    const canTeamVoice = (nowSec - Math.max(this.lastTeamVoiceAt ?? -Infinity, this.teamVoiceEvents.lastTeamVoicePresentationAt ?? -Infinity)) >= 3.5;
 
     if (canTeamVoice && myTeam && victimPlayer?.team && victimPlayer.team === myTeam && victimId !== myId) {
       // Ally blunder: abyss fall, suicide/self-damage, or helpless blunder
       const isBlunder = event.source === 'abyss' || !killerId || killerId === victimId || Boolean(event.helpless);
       if (isBlunder && this.#sayMoment(myId, ['allyBlunder'])) {
         this.lastTeamVoiceAt = nowSec;
-        this.teamVoiceEvents.lastTeamVoiceAt = nowSec;
+        this.teamVoiceEvents.lastTeamVoicePresentationAt = nowSec;
       }
     }
 

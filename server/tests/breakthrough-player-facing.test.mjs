@@ -516,4 +516,86 @@ test('Team VO: markedTargetFelled produces boosted victim payoff bark even after
   assert.equal(killerTauntAllowed, false, 'killer must not say generic taunt when victim payoff bark wins');
 });
 
+test('Team VO: clock-domain separation preserves local presentation spacing and server simulation payoff correlation across mismatched clocks', () => {
+  // Scenario: Server simulation clock is at 5000s (e.g. server uptime or long-running room),
+  // while client presentation clock is at 12.0s (local session playback time).
+  let clientPresentationTime = 12.0;
+  const spoken = [];
+  const teamVoice = new TeamVoiceEvents({
+    sayMoment: (speaker, tags) => {
+      spoken.push({ speaker, tags, clientAt: clientPresentationTime });
+      return true;
+    },
+    nowSec: () => clientPresentationTime,
+  });
+
+  // 1. allySaved server event arrives with server clock at = 5000.0
+  const allySavedEvent = {
+    type: 'allySaved',
+    saviorId: 'savior1',
+    allyId: 'ally1',
+    enemyId: 'enemy1',
+    at: 5000.0,
+  };
+  const lineSaid = teamVoice.onEvent(allySavedEvent);
+  assert.equal(lineSaid, true, 'allySaved triggers line for ally1');
+  assert.equal(spoken.length, 1);
+  assert.equal(spoken[0].speaker, 'ally1');
+  assert.equal(teamVoice.lastTeamVoicePresentationAt, 12.0, 'lastTeamVoicePresentationAt must record local presentation time (12.0), NOT server event.at (5000.0)');
+  assert.equal(teamVoice.lastTeamVoiceAt, 12.0, 'backwards-compatible lastTeamVoiceAt reflects presentation time');
+
+  // 2. Next allySaved arrives 2 seconds later in presentation time (client at 14.0s, server at 5002.0s)
+  clientPresentationTime = 14.0;
+  const rapidEvent = {
+    type: 'allySaved',
+    saviorId: 'savior1',
+    allyId: 'ally2',
+    enemyId: 'enemy2',
+    at: 5002.0,
+  };
+  const throttled = teamVoice.onEvent(rapidEvent);
+  assert.equal(throttled, false, 'second save at client 14.0s (within 3.5s of 12.0s) is throttled by presentation spacing rule');
+
+  // 3. Third allySaved arrives 4 seconds later in presentation time (client at 16.0s, server at 5004.0s)
+  clientPresentationTime = 16.0;
+  const validEvent = {
+    type: 'allySaved',
+    saviorId: 'savior1',
+    allyId: 'ally3',
+    enemyId: 'enemy3',
+    at: 5004.0,
+  };
+  const allowed = teamVoice.onEvent(validEvent);
+  assert.equal(allowed, true, 'third save at client 16.0s (>= 3.5s since 12.0s) triggers voice');
+  assert.equal(teamVoice.lastTeamVoicePresentationAt, 16.0, 'updated to 16.0s');
+
+  // 4. markedTargetFelled correlation in server simulation clock domain:
+  // Server event emitted at server simulation time 5000.0
+  teamVoice.onEvent({
+    type: 'markedTargetFelled',
+    killerId: 'killer1',
+    victimId: 'victim1',
+    at: 5000.0,
+  });
+
+  // Client presentation clock could be anything (e.g. 16.5s)
+  clientPresentationTime = 16.5;
+
+  // Death event arrives with server simulation timestamp 5001.0
+  const deathServerAt = 5001.0;
+  const wasMarked = teamVoice.consumeMarkedPayoff('victim1', deathServerAt);
+  assert.equal(wasMarked, true, 'markedTargetFelled correlates correctly using server simulation timestamps (5000.0 vs 5001.0) regardless of client clock (16.5)');
+
+  // 5. Expired payoff beyond window (4.0s window in server time):
+  teamVoice.onEvent({
+    type: 'markedTargetFelled',
+    killerId: 'killer2',
+    victimId: 'victim2',
+    at: 5000.0,
+  });
+  const expiredServerAt = 5005.0; // 5.0s later in server time
+  const wasExpired = teamVoice.consumeMarkedPayoff('victim2', expiredServerAt);
+  assert.equal(wasExpired, false, 'payoff expired when server simulation death time exceeds window');
+});
+
 

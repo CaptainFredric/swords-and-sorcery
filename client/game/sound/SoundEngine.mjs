@@ -13,8 +13,8 @@
 export const BUS_LEVELS = Object.freeze({ sfx: 1, ui: 0.5, ambience: 0.55, music: 1, voice: 0.9, stinger: 1 });
 // under a spoken line the music and the wind give way (to these shares of their level, for a line said right beside
 // you; less for one further off), so every word is heard; they come back as it ends
-export const VOICE_DUCK = Object.freeze({ music: 0.45, ambience: 0.55, attack: 0.08, release: 0.5 });
-export const DEFAULT_LEVELS = Object.freeze({ muted: false, master: 0.8, effects: 1, voice: 1, ambience: 0.75, music: 0.45, musicMuted: false });
+export const VOICE_DUCK = Object.freeze({ music: 0.5, ambience: 0.65, attack: 0.08, release: 0.5 });
+export const DEFAULT_LEVELS = Object.freeze({ muted: false, master: 0.8, effects: 1, voice: 1, ambience: 1, music: 0.55, musicMuted: false });
 
 // What counts as the player touching the page, anywhere on it: the first of these resumes the sound if the browser
 // held it back (it need not be on a button, or on the menu at all). A press and its release are both listened for:

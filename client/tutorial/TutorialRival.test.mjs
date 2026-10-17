@@ -191,7 +191,7 @@ test('an early chase parry does not launch the Scratch exchange before the Halt 
   session.events([{type:'parry',defenderId:actor().id,attackerId:host.player.id,at:host.now()}]);
   assert.notEqual(session.director.optionalCue?.id,'scratch-taunt','pre-Halt chase defense does not steal the Fireball dialogue');
 
-  session.director.resumeAt('halt-order');
+  session.director.resumeAt('fireball-prompt');
   tick(2);
   assert.equal(session.rival.standingConfrontation,true);
   session.events([{type:'parry',defenderId:actor().id,attackerId:host.player.id,at:host.now()}]);

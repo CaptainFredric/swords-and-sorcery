@@ -190,8 +190,8 @@ export class TutorialRival {
     const wantedYaw = turning ? actor.yaw + Math.max(-.16,Math.min(.16,angle(actor.yaw,yaw))) : yaw;
     actor.yaw = wantedYaw; actor.pitch = pitch;
     if(turning && scale>0)scale*=Math.max(0,Math.cos(angle(wantedYaw,yaw)));
-    actor.input = { forward: scale * (-Math.sin(wantedYaw) * dx - Math.cos(wantedYaw) * dz) / length,
-      right: scale * (Math.cos(wantedYaw) * dx - Math.sin(wantedYaw) * dz) / length,
+    actor.input = { forward: scale === 0 ? 0 : scale * (-Math.sin(wantedYaw) * dx - Math.cos(wantedYaw) * dz) / length,
+      right: scale === 0 ? 0 : scale * (Math.cos(wantedYaw) * dx - Math.sin(wantedYaw) * dz) / length,
       yaw: wantedYaw, pitch, sprint, jump: false, crouch: false };
   }
   strike(now) {

@@ -10,12 +10,20 @@ export class TeamVoiceEvents {
   constructor({ sayMoment = () => false, nowSec = () => 0 } = {}) {
     this.sayMoment = sayMoment;
     this.nowSec = nowSec;
-    this.lastTeamVoiceAt = -Infinity;
+    this.lastTeamVoicePresentationAt = -Infinity;
     this.markedVictimPayoffs = new Map();
   }
 
+  get lastTeamVoiceAt() {
+    return this.lastTeamVoicePresentationAt;
+  }
+
+  set lastTeamVoiceAt(val) {
+    this.lastTeamVoicePresentationAt = val;
+  }
+
   reset() {
-    this.lastTeamVoiceAt = -Infinity;
+    this.lastTeamVoicePresentationAt = -Infinity;
     this.markedVictimPayoffs.clear();
   }
 
@@ -27,22 +35,22 @@ export class TeamVoiceEvents {
     if (!event) return false;
 
     if (event.type === 'markedTargetFelled') {
-      const at = event.at ?? this.nowSec();
+      const serverAt = event.at ?? 0;
       this.markedVictimPayoffs.set(event.victimId, {
         killerId: event.killerId,
-        at,
+        serverAt,
       });
       return false;
     }
 
     if (event.type === 'allySaved') {
-      const now = event.at ?? this.nowSec();
-      const canTeamVoice = (now - this.lastTeamVoiceAt) >= TEAM_VOICE_SPACING_SEC;
+      const nowPresentation = this.nowSec();
+      const canTeamVoice = (nowPresentation - this.lastTeamVoicePresentationAt) >= TEAM_VOICE_SPACING_SEC;
       if (canTeamVoice && event.allyId) {
         // Authoritative speaker is allyId (the saved knight B), NOT saviorId (knight A)
         const said = this.sayMoment(event.allyId, ['allySavedMe']);
         if (said) {
-          this.lastTeamVoiceAt = now;
+          this.lastTeamVoicePresentationAt = nowPresentation;
           return true;
         }
       }
@@ -56,10 +64,11 @@ export class TeamVoiceEvents {
    * Check if victim had an authoritative markedTargetFelled payoff within the valid window.
    * Cleans up the payoff record upon consumption so subsequent deaths or events do not reuse it.
    */
-  consumeMarkedPayoff(victimId, at = this.nowSec()) {
+  consumeMarkedPayoff(victimId, serverAt) {
     const payoff = this.markedVictimPayoffs.get(victimId);
     if (!payoff) return false;
-    const withinWindow = Math.abs(at - (payoff.at ?? at)) <= MARKED_PAYOFF_WINDOW_SEC;
+    const at = serverAt ?? payoff.serverAt;
+    const withinWindow = Math.abs(at - (payoff.serverAt ?? at)) <= MARKED_PAYOFF_WINDOW_SEC;
     this.markedVictimPayoffs.delete(victimId);
     return withinWindow;
   }
