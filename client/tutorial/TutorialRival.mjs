@@ -316,7 +316,9 @@ export class TutorialRival {
     return false;
   }
   get standingConfrontation() {
-    return this.fireballHalted && !this.session.firstFireballHit;
+    const currentId = this.session.director.current?.id;
+    const confrontationBeats = new Set(['halt-order', 'tell-on-me', 'fireball-prompt']);
+    return !this.session.firstFireballHit && (this.fireballHalted || confrontationBeats.has(currentId));
   }
   linger(now, apart) {
     if (this.parry(now)) return;
@@ -482,7 +484,7 @@ export class TutorialRival {
     this.lastStepAt = now;
     if (!actor || !player?.alive || !actor.alive) return;
     const apart = distance(actor.position, player.position);
-    if (!this.session.firstFireballHit && this.session.director.current?.id === 'halt-order') this.fireballHalted = true;
+    if (!this.session.firstFireballHit && ['halt-order', 'tell-on-me', 'fireball-prompt'].includes(this.session.director.current?.id)) this.fireballHalted = true;
     if (this.mode === 'recover') {
       this.inputToward(player.position,0);
       const recovery = actor.presentationRecovery;
