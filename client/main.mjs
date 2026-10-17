@@ -6,6 +6,7 @@ import { TutorialVoice } from './tutorial/tutorialVoice.mjs';
 import { TutorialLookGuide } from './tutorial/TutorialLookGuide.mjs';
 import { TutorialEquipment } from './tutorial/TutorialEquipment.mjs';
 import { tutorialTranscript } from './tutorial/tutorialTranscript.mjs';
+import { tutorialVoiceOptions } from './tutorial/tutorialRecordings.mjs';
 import { TUTORIAL_BEATS } from './tutorial/tutorialScript.mjs';
 import { ChallengesController } from './menu/ChallengesController.mjs';
 import { normalizePreparedSpells, replacePreparedSpell } from '../shared/src/preparedSpells.mjs';
@@ -911,28 +912,7 @@ async function playTranscriptTake(line) {
   const buffer = await tutorialVoice.buffer(line.recordingKey);
   if (!buffer || !tutorialView.transcriptShown) return;
   stopTranscriptTake();
-  const isNarrator = line.speaker === 'narrator';
-  const gain = isNarrator ? 1.25 : 1.2;
-  const shape = isNarrator ? (ctx => {
-    if (!ctx?.createGain || !ctx?.createBiquadFilter) return null;
-    const input = ctx.createGain();
-    const hp = ctx.createBiquadFilter();
-    hp.type = 'highpass';
-    hp.frequency.value = 90;
-    const deecho = ctx.createBiquadFilter();
-    deecho.type = 'peaking';
-    deecho.frequency.value = 350;
-    deecho.gain.value = -3.5;
-    deecho.Q.value = 1.0;
-    const air = ctx.createBiquadFilter();
-    air.type = 'peaking';
-    air.frequency.value = 3200;
-    air.gain.value = 1.2;
-    air.Q.value = 0.9;
-    input.connect(hp).connect(deecho).connect(air);
-    return { input, output: air, nodes: [input, hp, deecho, air] };
-  }) : null;
-  transcriptTake = sound.playBuffer(buffer, { bus: 'voice', gain, reverb: 0, echo: null, ...(shape ? { shape } : {}) });
+  transcriptTake = sound.playBuffer(buffer, tutorialVoiceOptions(line.speaker));
 }
 function pauseTutorialForTranscript(open) {
   if (!tutorialSession) return;

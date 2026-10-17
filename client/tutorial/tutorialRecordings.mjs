@@ -30,6 +30,46 @@ export function tutorialRecordingPlan(beats = [...TUTORIAL_BEATS, ...Object.valu
   });
 }
 
+/**
+ * De-boxing / presence shaping for Narrator voice takes.
+ * Cleans up room low-mid boxiness around 350Hz (-3.5dB) and gently lifts speech presence around 3.2kHz (+1.2dB)
+ * above a 90Hz highpass rumble filter.
+ */
+export function narratorTonalShape(ctx) {
+  if (!ctx?.createGain || !ctx?.createBiquadFilter) return null;
+  const input = ctx.createGain();
+  const hp = ctx.createBiquadFilter();
+  hp.type = 'highpass';
+  hp.frequency.value = 90;
+  const debox = ctx.createBiquadFilter();
+  debox.type = 'peaking';
+  debox.frequency.value = 350;
+  debox.gain.value = -3.5;
+  debox.Q.value = 1.0;
+  const air = ctx.createBiquadFilter();
+  air.type = 'peaking';
+  air.frequency.value = 3200;
+  air.gain.value = 1.2;
+  air.Q.value = 0.9;
+  input.connect(hp).connect(debox).connect(air);
+  return { input, output: air, nodes: [input, hp, debox, air] };
+}
+
+/**
+ * Shared tutorial voice playback options for SoundEngine.playBuffer().
+ * Lifts tutorial dialogue slightly for audibility and applies Narrator de-boxing / presence shaping.
+ */
+export function tutorialVoiceOptions(speaker) {
+  const isNarrator = speaker === 'narrator';
+  return {
+    bus: 'voice',
+    gain: isNarrator ? 1.25 : 1.2,
+    reverb: 0,
+    echo: null,
+    ...(isNarrator ? { shape: narratorTonalShape } : {}),
+  };
+}
+
 // The existing SoundEngine already routes the voice bus and honors sound settings.
 // A future tutorial loader supplies a decoded take; do not add these keys to
 // ordinary VoiceBank.say(), whose random combat rules require registered lines.
@@ -41,29 +81,8 @@ export function playTutorialCue({ cue, buffer, engine, director = null, onCaptio
   }
   onCaption({ speaker: cue.speaker, text: cue.line, recordingKey: cue.recordingKey });
   if (!buffer || !engine.running) return null; // caption presentation is owned by the director
-  const isNarrator = cue.speaker === 'narrator';
-  // Lift tutorial voice volume for greater audibility; ease room boxiness/echo on narrator
-  const gain = isNarrator ? 1.25 : 1.2;
-  const shape = isNarrator ? (ctx => {
-    if (!ctx?.createGain || !ctx?.createBiquadFilter) return null;
-    const input = ctx.createGain();
-    const hp = ctx.createBiquadFilter();
-    hp.type = 'highpass';
-    hp.frequency.value = 90;
-    const deecho = ctx.createBiquadFilter();
-    deecho.type = 'peaking';
-    deecho.frequency.value = 350;
-    deecho.gain.value = -3.5;
-    deecho.Q.value = 1.0;
-    const air = ctx.createBiquadFilter();
-    air.type = 'peaking';
-    air.frequency.value = 3200;
-    air.gain.value = 1.2;
-    air.Q.value = 0.9;
-    input.connect(hp).connect(deecho).connect(air);
-    return { input, output: air, nodes: [input, hp, deecho, air] };
-  }) : null;
-  const handle = engine.playBuffer(buffer, { bus: 'voice', gain, reverb: 0, echo: null, ...(shape ? { shape } : {}) });
+  const options = tutorialVoiceOptions(cue.speaker);
+  const handle = engine.playBuffer(buffer, options);
   if (!handle) return null;
   director?.beginAudio(cue);
   let stopped = false;

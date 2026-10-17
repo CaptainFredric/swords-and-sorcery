@@ -23,13 +23,9 @@ const PARRY_REACH = 3.6;
 const DOWNED_HOLD_MAX = 30;
 // the final Rival keeps to his post before the door: this far from it at most, and never back toward the building
 const FINAL_TETHER = 5;
-// The first Fireball lesson's meadow, short of the TATTLE landmark: until a Fireball has found him, he goes no further
-// than this (the reveal, the sheepfold's dead end and the broken bridge all lie beyond, and the story waits on the hit)
+// The first Fireball confrontation happens around this clearing. It is a staging/reference region only now: reaching
+// its edge does not stop Rival. His spoken "Halt!" is what physically ends the chase and starts the stationary lesson.
 export const FIREBALL_MEADOW = Object.freeze({ minX: 8, maxX: 40, minZ: -396, maxZ: -382 });
-// there he keeps his distance by giving ground straight away from the Spellblade (along the line a Fireball comes
-// in on, so an aimed one still finds him: it flies at 24 m/s and bursts on contact), never sideways, and stands at
-// the meadow's far edge
-const LINGER = Object.freeze({ near: 22, retreat: .6, drift: .22, step: 4 });
 // The story's places along the pursuit, and where he waits for each: he does not run on past one before the story has
 // caught up with him there (its lines would otherwise be said a hundred metres behind him), unless the Spellblade comes
 // near enough to catch him (slip, metres). Waiting, he turns to face him: a taunt, not a rest. until: 'reached' (its
@@ -121,6 +117,7 @@ export class TutorialRival {
     this.bridgeInFlight = false;
     this.bridgePrepared = false;
     this.laneMind = null;
+    this.fireballHalted = false;
   }
   enter(cue, now) {
     if (!cue || !this.actor) return;
@@ -131,7 +128,10 @@ export class TutorialRival {
       this.mode = next; this.enteredAt = now;
       cancelAttack(this.room, this.actor.id, now); setGuard(this.room, this.actor.id, false, now);
       this.actor.ai = null; this.parryRaisedAt = null; this.counterAt = null;
-      if (next === 'escape') this.sprintWanted = true;
+      if (next === 'escape') {
+        this.sprintWanted = true;
+        if (!this.session.firstFireballHit && !['halt-order', 'tell-on-me', 'fireball-prompt'].includes(this.session.director.current?.id)) this.fireballHalted = false;
+      }
       if (next === 'pride') this.prideAt = null;
       // (the final Guard is raised by his own hand at his post: an ordinary held Guard, its time its own)
       if (next === 'final-guard' && !this.session.finalBroken) setGuard(this.room, this.actor.id, true, now);
@@ -190,8 +190,8 @@ export class TutorialRival {
     const wantedYaw = turning ? actor.yaw + Math.max(-.16,Math.min(.16,angle(actor.yaw,yaw))) : yaw;
     actor.yaw = wantedYaw; actor.pitch = pitch;
     if(turning && scale>0)scale*=Math.max(0,Math.cos(angle(wantedYaw,yaw)));
-    actor.input = { forward: scale * (-Math.sin(wantedYaw) * dx - Math.cos(wantedYaw) * dz) / length,
-      right: scale * (Math.cos(wantedYaw) * dx - Math.sin(wantedYaw) * dz) / length,
+    actor.input = { forward: scale === 0 ? 0 : scale * (-Math.sin(wantedYaw) * dx - Math.cos(wantedYaw) * dz) / length,
+      right: scale === 0 ? 0 : scale * (Math.cos(wantedYaw) * dx - Math.sin(wantedYaw) * dz) / length,
       yaw: wantedYaw, pitch, sprint, jump: false, crouch: false };
   }
   strike(now) {
@@ -281,8 +281,8 @@ export class TutorialRival {
     const hold = GREENER_ROUTE.rivalHold, away = distance(this.actor.position, hold);
     this.inputToward(away > .8 ? hold : this.player.position, away > .8 ? .45 : 0, false, away > .8 ? hold : this.player.position);
   }
-  // The first Fireball has not found him yet, and the story waits on it (it is not past the prompt for one): the
-  // lesson holds him in its meadow
+  // The first Fireball has not found him yet, and the story is still before/presenting its prompt. This controls
+  // protective Parry behavior; movement is no longer spatially frozen by an invisible meadow boundary.
   get fireballLesson() {
     const { director } = this.session;
     const prompt = director.beats.findIndex(beat => beat.advanceOn === 'fireball-hit');
@@ -315,29 +315,21 @@ export class TutorialRival {
     return false;
   }
   get standingConfrontation() {
-    const director = this.session.director;
-    const currentId = director.current?.id;
+    const currentId = this.session.director.current?.id;
     const confrontationBeats = new Set(['halt-order', 'tell-on-me', 'fireball-prompt']);
-    return confrontationBeats.has(currentId);
+    return !this.session.firstFireballHit && (this.fireballHalted || confrontationBeats.has(currentId));
   }
   linger(now, apart) {
     if (this.parry(now)) return;
-    const { actor, player } = this, box = FIREBALL_MEADOW;
     this.sprintWanted = false;
-    if (this.standingConfrontation) {
-      // Rival demanded "Halt!", so he physically stops, turns, and faces the Spellblade during the confrontation.
-      this.inputToward(player.position, 0, false, player.position);
-      return;
-    }
-    const dx = actor.position.x - player.position.x, dz = actor.position.z - player.position.z, length = Math.hypot(dx, dz) || 1;
-    const pressed = apart < LINGER.near;
-    const target = { x: actor.position.x + dx / length * LINGER.step, z: actor.position.z + dz / length * LINGER.step };
-    const inside = target.x >= box.minX && target.x <= box.maxX && target.z >= box.minZ && target.z <= box.maxZ;
-    this.inputToward(inside ? target : player.position, inside ? (pressed ? LINGER.retreat : LINGER.drift) : 0, false, player.position);
+    // Rival demanded "Halt!", so he physically stops, turns, and faces the Spellblade until the first Fireball lands.
+    this.inputToward(this.player.position, 0, false, this.player.position);
   }
   chase(now, apart) {
     const { actor, player, room } = this;
-    if (this.fireballLesson && actor.position.z <= FIREBALL_MEADOW.maxZ) { this.linger(now, apart); return; }
+    // The words cause the stop, not an invisible meadow boundary: he keeps fleeing until the instant he says "Halt!".
+    if (!this.session.firstFireballHit && this.session.director.current?.id === 'halt-order') this.fireballHalted = true;
+    if (this.standingConfrontation) { this.linger(now, apart); return; }
     // ahead of the story: he waits at its place, turned to the Spellblade, until it catches up (or he is about to be
     // caught). Never once committed to a leap: a hold in mid-air is a fall.
     const committed = !actor.grounded || this.bridgePrepared || this.bridgeInFlight;
@@ -372,12 +364,15 @@ export class TutorialRival {
     const target = route[this.waypoint];
     const closing = this.previousGap !== null && apart < this.previousGap - .015;
     this.previousGap = apart;
-    if (player.sprinting && (closing || apart < 16) && apart < 26 && this.sprintReactionAt === null) this.sprintReactionAt = now + .45;
+    // A beelining player used to erase the chase's dialogue by catching the winding route too easily. Rival now notices
+    // Sprint sooner and spends his ordinary stamina to preserve a useful lead, without gaining any extra movement stat.
+    if (player.sprinting && (closing || apart < 22) && apart < 36 && this.sprintReactionAt === null) this.sprintReactionAt = now + .25;
     if (this.sprintReactionAt !== null && now >= this.sprintReactionAt) { this.sprintWanted = true; this.sprintReactionAt = null; }
-    if (apart > 32 || actor.guardStamina <= 2) this.sprintWanted = false;
+    if (player.sprinting && apart < 18 && actor.guardStamina > SPRINT.restartStamina) this.sprintWanted = true;
+    if (apart > 48 || actor.guardStamina <= 2) this.sprintWanted = false;
     if (now - this.enteredAt < 1.4 && this.mode === 'escape') this.sprintWanted = true;
-    // Choosing an ordinary walk or run keeps him readable to a learner; the player can still gain and catch him.
-    let scale = apart > 45 ? .38 : apart > 30 ? .65 : apart < 10 ? 1 : .88;
+    // He still yields enough ground for an unfamiliar player, but no longer jogs at half speed simply because he has a lead.
+    let scale = apart > 45 ? .72 : apart > 30 ? .84 : apart < 10 ? 1 : .94;
     const jump = GREENER_ROUTE.jump;
     // Before the stile he makes sure of his lead, so that he is over it and gloating while the Spellblade is still
     // on his way (his own Sprint and stamina, nothing more).
@@ -479,6 +474,7 @@ export class TutorialRival {
     this.lastStepAt = now;
     if (!actor || !player?.alive || !actor.alive) return;
     const apart = distance(actor.position, player.position);
+    if (!this.session.firstFireballHit && ['halt-order', 'tell-on-me', 'fireball-prompt'].includes(this.session.director.current?.id)) this.fireballHalted = true;
     if (this.mode === 'recover') {
       this.inputToward(player.position,0);
       const recovery = actor.presentationRecovery;

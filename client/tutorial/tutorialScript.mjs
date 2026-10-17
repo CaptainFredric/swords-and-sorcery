@@ -383,10 +383,11 @@ const segments = [
       { id: 'why-spellblade', skipWhen: 'fireball-hit', speaker: 'narrator', line: 'Why are you called the Spellblade?' },
       { id: 'spell-blade', speaker: 'spellblade', line: 'Because I can spell ‘blade’!' },
       { id: 'impressive', speaker: 'narrator', line: 'Impressive.' },
-      { id: 'almost-there', skipWhen: 'fireball-hit', speaker: 'rival', line: 'I am almost there!' },
       { id: 'magic-disposal', skipWhen: 'fireball-hit', speaker: 'narrator', line: 'But also, you have magic at your disposal' },
       { id: 'waiting-reminder', skipWhen: 'fireball-hit', speaker: 'spellblade', line: 'I knew that! I had just been waiting for you to remind me!' },
-      // (Rival reaches the clearing, halts dead, turns to face the Spellblade)
+      // His last fleeing line lands immediately before he abruptly orders the pursuer to stop.
+      { id: 'almost-there', skipWhen: 'fireball-hit', speaker: 'rival', line: 'I am almost there!' },
+      // The line itself owns the physical halt: he does not stop early merely because he reached an invisible clearing edge.
       { id: 'halt-order', speaker: 'rival', line: 'Halt! I tell you to halt!' },
       { id: 'tell-on-me', speaker: 'spellblade', line: 'I tell you to not tell on me!' },
       { id: 'fireball-prompt', kind: 'prompt', speaker: 'instruction', line: 'CAST FIREBALL', advanceOn: 'fireball-hit', mechanic: 'fireball' },

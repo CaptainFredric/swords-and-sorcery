@@ -4,6 +4,7 @@ import { LocalHost } from '../network/LocalHost.mjs';
 import { TutorialDirector } from './TutorialDirector.mjs';
 import { TutorialSession } from './TutorialSession.mjs';
 import { TUTORIAL_BEATS, TUTORIAL_BRANCHES, TUTORIAL_SEGMENTS } from './tutorialScript.mjs';
+import { GREENER_ROUTE } from '../../shared/worlds/greenerPastures.mjs';
 
 const segment = id => TUTORIAL_SEGMENTS.find(s => s.id === id);
 const beat = id => TUTORIAL_BEATS.find(b => b.id === id);
@@ -63,31 +64,47 @@ test('post-Jump banter begins without >80m landmark gate or 2.5s quiet stage tim
   assert.equal(d.current.segment, 'pursuit-banter');
 });
 
-test('Rival flees during almost-there and halts dead to face Spellblade during standoff', () => {
+test('Fireball setup orders the magic reminder before almost-there and Halt', () => {
+  const ids = segment('fireball').beats.map((beat) => beat.id);
+  const from = ids.indexOf('impressive');
+  assert.deepEqual(ids.slice(from, from + 6), [
+    'impressive', 'magic-disposal', 'waiting-reminder', 'almost-there', 'halt-order', 'tell-on-me',
+  ]);
+});
+
+test('Rival keeps fleeing through setup, then Halt itself owns the standoff', () => {
   const { host, session, tick, rival } = fixture();
 
-  // 1. During almost-there, Rival is escaping and moving forward
   session.stage('fireball');
-  session.director.resumeAt('almost-there');
   session.rival.enter('rival-escape', host.now());
+  session.rival.waypoint = GREENER_ROUTE.chaseWaypoints.findIndex(p => p.id === 'tattle-reveal');
+  rival().position = { x: 24, y: 0, z: -385 }; // already inside the old meadow boundary
+  host.player.position = { x: 24, y: 0, z: -367 };
+
+  // Reaching the old clearing boundary no longer stops him before the words do.
+  session.director.resumeAt('almost-there');
   assert.equal(session.rival.standingConfrontation, false);
   const startZ = rival().position.z;
-  tick(30);
+  tick(6);
   assert.equal(session.rival.mode, 'escape');
-  assert.ok(rival().position.z < startZ, 'Rival is running forward during setup');
+  assert.ok(rival().position.z < startZ, 'Rival is still fleeing while saying almost-there');
 
-  // 2. When reaching the clearing during halt-order, tell-on-me, fireball-prompt, Rival halts dead to face player
-  rival().position = { x: 24, y: 0, z: -385 }; // inside FIREBALL_MEADOW
-  for (const standoffBeat of ['halt-order', 'tell-on-me', 'fireball-prompt']) {
+  // The instant Halt becomes current, the standoff latches and persists through the reply/prompt.
+  session.director.resumeAt('halt-order');
+  tick(2);
+  assert.equal(session.rival.standingConfrontation, true);
+  assert.equal(rival().input.forward, 0, 'Halt line stops forward movement');
+  assert.equal(rival().input.right, 0, 'Halt line stops lateral movement');
+
+  for (const standoffBeat of ['tell-on-me', 'fireball-prompt']) {
     session.director.resumeAt(standoffBeat);
     tick(2);
-    assert.equal(session.rival.standingConfrontation, true, `standingConfrontation is true during ${standoffBeat}`);
-    assert.equal(rival().input.forward, 0, `Rival forward input is 0 during ${standoffBeat}`);
-    assert.equal(rival().input.right, 0, `Rival right input is 0 during ${standoffBeat}`);
+    assert.equal(session.rival.standingConfrontation, true, `standoff remains latched during ${standoffBeat}`);
+    assert.equal(rival().input.forward, 0);
+    assert.equal(rival().input.right, 0);
   }
   host.close();
 });
-
 test('Scratch urgent reaction preempts an active multi-line exchange at the next clean line boundary', () => {
   const d = new TutorialDirector();
   d.start();
