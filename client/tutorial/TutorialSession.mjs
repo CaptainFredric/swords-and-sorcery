@@ -478,7 +478,7 @@ export class TutorialSession {
             this.director.offerBranch('scratch');
           }
         } else if (event.defenderId === this.host.player.id && event.attackerId === this.rivalId) {
-          if (this.rival.fireballLesson && !this.firstFireballHit) {
+          if (this.rival.standingConfrontation && !this.firstFireballHit) {
             this.director.offerBranch('scratch');
           }
         }
