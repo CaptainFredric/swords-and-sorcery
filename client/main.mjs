@@ -479,6 +479,7 @@ function ensureRuntime() {
     runtime = new GameRuntime($('#game-canvas'), socket, hud, { sound, voice: tutorialSession ? null : voice, music });
     if (new URLSearchParams(location.search).has('debug')) globalThis.__ssRuntime = runtime;
     runtime.configure({ view: viewOptions(settings), input: inputOptions(settings) });
+    runtime.getTutorialSession = () => tutorialSession;
     if (tutorialSession) {
       runtime.input.allowAction = (action, notify = true) => {
         if (tutorialSession?.director.state === 'running' && runtime?.weapon) {

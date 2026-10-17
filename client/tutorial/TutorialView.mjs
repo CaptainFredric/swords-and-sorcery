@@ -3,8 +3,8 @@ import { tutorialCueForDevice } from './tutorialRecordings.mjs';
 
 export const TUTORIAL_SPEAKER_LABELS = Object.freeze({ narrator: 'NARRATOR', spellblade: 'YOU', rival: 'RIVAL', instruction: 'INSTRUCTION' });
 
-function isTitle(beat) { return beat?.kind === 'title' || beat?.mechanic === 'title' || beat?.presentation === 'title'; }
-function isBlocking(beat) {
+export function isTitle(beat) { return beat?.kind === 'title' || beat?.mechanic === 'title' || beat?.presentation === 'title'; }
+export function isBlocking(beat) {
   return beat?.presentation !== 'reactive' && beat?.kind === 'dialogue' && !isTitle(beat);
 }
 
