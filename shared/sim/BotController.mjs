@@ -832,57 +832,20 @@ function selectTeamGoal(room, actor, ai, nowSec) {
     z: objPos.z + Math.cos(angle) * spreadRadius,
   };
 
-  // Phase-specific tactical positioning and approach lanes
-  if (room.objectiveState.index === 0) {
-    // Stage 1: Outer Gate
-    if (actor.team === TEAMS.ATTACKERS) {
-      if (actor.position.z < -4) {
-        if (rivalIndex === 1) {
-          // West Flank Route
-          if (actor.position.z < -22) goalPos = { x: -12, y: 0, z: -22 };
-          else if (actor.position.z < -10) goalPos = { x: -12, y: 0, z: -10 };
-          else if (actor.position.z < 1) goalPos = { x: -12, y: 0, z: 2 };
-          else goalPos = { x: -4.5, y: 0, z: -1.0 };
-        } else if (rivalIndex === 2) {
-          // Eastern approach lane
-          if (actor.position.z < -14) goalPos = { x: 3.5, y: 0, z: -14 };
-          else if (actor.position.z < -2) goalPos = { x: 5.5, y: 0, z: 0.5 };
-          else goalPos = { x: 4.0, y: 0, z: -1.0 };
-        } else {
-          // Central Vanguard lane
-          if (actor.position.z < -16) goalPos = { x: 0, y: 0, z: -16 };
-          else goalPos = { x: 0, y: 0, z: -2.0 };
-        }
-      }
-    } else {
-      // Defenders holding the Outer Gate
-      if (room.objectiveState.attackersCount === 0 && (room.objectiveState.progress ?? 0) < 0.05) {
-        if (rivalIndex === 1) goalPos = { x: -5.5, y: 0, z: 0.5 };
-        else if (rivalIndex === 2) goalPos = { x: 5.5, y: 0, z: 0.5 };
-        else goalPos = { x: 0, y: 0, z: -1.0 };
-      }
-    }
-  } else if (room.objectiveState.index === 1) {
-    // Stage 2: High Sanctum
-    if (actor.team === TEAMS.DEFENDERS) {
-      const outsideSanctum = actor.position.z < 16;
-      if (outsideSanctum) {
-        const immediateThreat = enemies.some((e) => distance2d(actor, e) <= 2.5 && e.attackActive);
-        if (!immediateThreat) {
-          ai.targetId = null;
-        }
-        goalPos = { x: rivalIndex === 1 ? -4.5 : rivalIndex === 2 ? 4.5 : 0, y: 0.3, z: 25 };
-      } else if (room.objectiveState.attackersCount === 0 && (room.objectiveState.progress ?? 0) < 0.05) {
-        if (rivalIndex === 1) goalPos = { x: -4.8, y: 0, z: 25.0 };
-        else if (rivalIndex === 2) goalPos = { x: 0, y: 0, z: 30.5 };
-        else goalPos = { x: 0, y: 0.3, z: 25.0 };
-      }
-    } else if (actor.position.z < 20) {
-      if (rivalIndex === 1) goalPos = { x: -4.5, y: 0, z: 22.0 };
-      else if (rivalIndex === 2) goalPos = { x: 4.5, y: 0, z: 22.0 };
-      else goalPos = { x: 0, y: 0.3, z: 25.0 };
-    }
+  // World-specific tactical positioning, approach lanes, and defensive retreats
+  if (typeof room.world?.tactics?.getTacticalGoal === 'function') {
+    const tactical = room.world.tactics.getTacticalGoal({
+      actor,
+      rivalIndex,
+      objectiveState: room.objectiveState,
+      activeObj,
+      enemies,
+      defaultGoal: goalPos,
+      disengageTarget: () => { ai.targetId = null; },
+    });
+    if (tactical) goalPos = tactical;
   }
+
 
   const allies = [...room.players.values()].filter((p) => p !== actor && p.alive && areAllies(room, actor, p) && (p.actorKind !== 'human' || p.connected));
   const distToObj = distance2d(actor, { position: objPos });

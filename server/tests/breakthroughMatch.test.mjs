@@ -203,3 +203,36 @@ test('Defender retreat: Defender bots in outer courtyard fall back to High Sanct
   assert.ok(Math.abs(Math.abs(dy) - Math.PI) < 0.6, `retreating defender should aim toward Sanctum, got yaw=${dy}`);
   assert.ok(defBot.input.forward > 0.8, 'retreating defender moves forward toward Sanctum');
 });
+
+test('Blackbell Foundry Breakthrough: Chain Winch capture advances to The Great Bell with time bonus', () => {
+  const manager = new RoomManager();
+  const room = manager.createBreakthroughRoom(0, true, WORLD_IDS.BLACKBELL_FOUNDRY);
+  const att = room.addPlayer({ id: 'att-1', token: 't1', name: 'Attacker 1', team: TEAMS.ATTACKERS }, 0);
+  const def = room.addPlayer({ id: 'def-1', token: 't2', name: 'Defender 1', team: TEAMS.DEFENDERS }, 0);
+  room.startMatch(0);
+
+  assert.equal(room.objectiveState.index, 0);
+  assert.equal(room.objectiveState.objectives[0].name, 'The Chain Winch');
+  assert.equal(room.objectiveState.objectives[1].name, 'The Great Bell');
+
+  // Attacker captures Chain Winch
+  att.position = { x: 0, y: 0, z: -2 };
+  def.position = { x: 0, y: 0, z: 20 };
+  room.objectiveState.progress = 0.99;
+  stepRoom(room, 0.2, 20.0);
+
+  assert.equal(room.objectiveState.index, 1, 'advanced to Stage 2: The Great Bell');
+  const advanceEv = room.events.find((e) => e.type === 'objectiveAdvanced');
+  assert.ok(advanceEv);
+  assert.equal(advanceEv.nextObjectiveId, 'blackbell');
+  assert.equal(advanceEv.stageBonusSec, 150);
+
+  const snap = serializeSnapshot(room, 20.0);
+  assert.equal(snap.objective.name, 'The Great Bell');
+  assert.equal(snap.objective.index, 1);
+  const hud = breakthroughHudView(att, snap, 20.0);
+  assert.equal(hud.phaseLabel, 'OBJECTIVE 2 OF 2');
+});
+
+
+

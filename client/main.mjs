@@ -849,7 +849,36 @@ breakthroughSize?.addEventListener('click', (event) => {
 });
 showBreakthroughSize();
 
+const breakthroughArena = $('#breakthrough-arena');
+const breakthroughSubtitle = $('#breakthrough-scenario-subtitle');
+const breakthroughCopy = $('#breakthrough-panel-copy');
+function showBreakthroughArena() {
+  if (!breakthroughArena) return;
+  const chosen = menuController.breakthroughArena();
+  for (const chip of breakthroughArena.querySelectorAll('[data-arena]')) {
+    const on = chip.dataset.arena === chosen;
+    chip.classList.toggle('mine', on);
+    chip.setAttribute('aria-checked', String(on));
+  }
+  if (breakthroughSubtitle) {
+    breakthroughSubtitle.textContent = chosen === 'blackbell-foundry' ? 'BLACKBELL FOUNDRY' : 'BASTION BREACH';
+  }
+  if (breakthroughCopy) {
+    breakthroughCopy.textContent = chosen === 'blackbell-foundry'
+      ? 'A brutal clash across a medieval industrial foundry. Contest the Chain Winch yard, breach the blast portal, and assault the monumental Great Bell.'
+      : 'A multi-phase fortress siege. Attackers capture sequential objectives to breach the stronghold; Defenders stand fast to hold the line.';
+  }
+}
+breakthroughArena?.addEventListener('click', (event) => {
+  const chip = event.target.closest?.('[data-arena]');
+  if (!chip) return;
+  menuController.chooseBreakthroughArena(chip.dataset.arena);
+  showBreakthroughArena();
+});
+showBreakthroughArena();
+
 const breakthroughTeam = $('#breakthrough-team');
+
 function showBreakthroughTeam() {
   if (!breakthroughTeam) return;
   const chosen = menuController.breakthroughTeam();
@@ -1047,12 +1076,15 @@ $('#breakthrough-play-bots')?.addEventListener('click', () => runMenuAction(menu
   team: menuController.breakthroughTeam(),
   botSkill: menuController.breakthroughSkill(),
   teamSize: menuController.breakthroughSize(),
+  worldId: menuController.breakthroughArena(),
 }), SCREEN_IDS.BREAKTHROUGH_MENU));
 $('#breakthrough-create-private')?.addEventListener('click', () => runMenuAction(menuController.createBreakthroughPrivate(nameInput.value, {
   team: menuController.breakthroughTeam(),
   botSkill: menuController.breakthroughSkill(),
   teamSize: menuController.breakthroughSize(),
+  worldId: menuController.breakthroughArena(),
 }), SCREEN_IDS.BREAKTHROUGH_MENU));
+
 $('#bot-duel').addEventListener('click', () => runMenuAction(menuController.botDuel(nameInput.value), SCREEN_IDS.SOLO_MENU));
 $('#inspection-mode').addEventListener('click', () => runMenuAction(menuController.inspectionPractice(nameInput.value), SCREEN_IDS.SOLO_MENU));
 $('#practice-mode').addEventListener('click', () => runMenuAction(menuController.practice(nameInput.value), SCREEN_IDS.SOLO_MENU));
@@ -1567,28 +1599,31 @@ route(invitedRoom ? SCREEN_IDS.PRIVATE_MENU : SCREEN_IDS.MAIN_MENU);
 
 // reach for the server (resuming a session if there was one); solo play is open whether or not it answers, and a
 // solo mode asked for in the address starts as soon as it is clear the server is there, napping or gone
-const hadSession = Boolean(socket.token);
-const reached = await Promise.race([
-  socket.connect(),
-  new Promise((resolve) => {
-    const off = socket.on('status', ({ status }) => {
-      if (status === 'connecting') return;
-      off();
-      resolve(status === 'online');
-    });
-  }),
-]);
-if (!(reached && hadSession) && autoSolo === 'BREAKTHROUGH' && nameInput.value) {
-  runMenuAction(menuController.breakthrough(nameInput.value), SCREEN_IDS.SOLO_MENU);
-} else if (!(reached && hadSession) && autoSolo === 'BOT_DUEL' && nameInput.value) {
-  runMenuAction(menuController.botDuel(nameInput.value), SCREEN_IDS.SOLO_MENU);
-} else if (!(reached && hadSession) && autoSolo === 'PRACTICE' && nameInput.value) {
-  runMenuAction(menuController.practice(nameInput.value), SCREEN_IDS.SOLO_MENU);
-} else if (reached && hadSession) {
-  setTimeout(() => {
-    if (!socket.playerId) route(invitedRoom ? SCREEN_IDS.PRIVATE_MENU : SCREEN_IDS.MAIN_MENU);
-  }, 500);
+async function connectInitialSession() {
+  const hadSession = Boolean(socket.token);
+  const reached = await Promise.race([
+    socket.connect(),
+    new Promise((resolve) => {
+      const off = socket.on('status', ({ status }) => {
+        if (status === 'connecting') return;
+        off();
+        resolve(status === 'online');
+      });
+    }),
+  ]);
+  if (!(reached && hadSession) && autoSolo === 'BREAKTHROUGH' && nameInput.value) {
+    runMenuAction(menuController.breakthrough(nameInput.value), SCREEN_IDS.SOLO_MENU);
+  } else if (!(reached && hadSession) && autoSolo === 'BOT_DUEL' && nameInput.value) {
+    runMenuAction(menuController.botDuel(nameInput.value), SCREEN_IDS.SOLO_MENU);
+  } else if (!(reached && hadSession) && autoSolo === 'PRACTICE' && nameInput.value) {
+    runMenuAction(menuController.practice(nameInput.value), SCREEN_IDS.SOLO_MENU);
+  } else if (reached && hadSession) {
+    setTimeout(() => {
+      if (!socket.playerId) route(invitedRoom ? SCREEN_IDS.PRIVATE_MENU : SCREEN_IDS.MAIN_MENU);
+    }, 500);
+  }
 }
+void connectInitialSession();
 
 function escapeHtml(value) {
   return String(value).replace(/[&<>'"]/g, (character) => ({

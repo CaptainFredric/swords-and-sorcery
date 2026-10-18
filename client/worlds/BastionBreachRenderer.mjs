@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { BASTION_BREACH } from '../../shared/worlds/bastionBreach.mjs';
+import { BASTION_BREACH, BASTION_GALLERY_Y } from '../../shared/worlds/bastionBreach.mjs';
 import { everywhere } from '../game/viewLayers.mjs';
 
 export const BASTION_BREACH_LIGHTING = Object.freeze({
@@ -158,19 +158,130 @@ export class BastionBreachRenderer {
       });
     }
 
+    // --- Architectural Fortress Elements ---
+    // Gatehouse Breach Broken Arch & Portcullis Remnants
+    box(this.group, [2.5, 0.7, 1.2], this.materials.stone, [-4.5, 6.0, 8.8], [0, 0, 0.15]);
+    box(this.group, [2.5, 0.7, 1.2], this.materials.stone, [4.5, 6.0, 8.8], [0, 0, -0.15]);
+    box(this.group, [2.8, 0.45, 0.4], this.materials.iron, [0, 5.4, 8.8]);
+
+    // Wall Battlements & Crenellations (Merlons along fortress parapets)
+    for (let x = -14; x <= 14; x += 3.5) {
+      // South camp wall merlons
+      box(this.group, [1.8, 0.9, 0.9], this.materials.stone, [x, 4.95, -38.0]);
+    }
+    for (let z = 8; z <= 22; z += 3.2) {
+      // Eastern gallery outer merlons
+      box(this.group, [0.8, 0.8, 1.6], this.materials.stone, [15.1, BASTION_GALLERY_Y + 1.6, z]);
+    }
+    for (let z = -24; z <= 6; z += 4.5) {
+      // Western courtyard wall merlons
+      box(this.group, [0.9, 0.8, 2.0], this.materials.stone, [-16.0, 4.9, z]);
+    }
+
+    // High Sanctum Gothic Vault Arch Ribs (pointed stone ceiling arches spanning the chapel nave)
+    this.#buildSanctumVaultArches();
+
+    // Stone Knight Effigies (carved sarcophagi tops in side aisles)
+    this.#buildKnightEffigy([-9.5, 1.1, 24.0]);
+    this.#buildKnightEffigy([9.5, 1.1, 24.0]);
+
+    // Heraldic Wall Banners along Sanctum walls
+    this.#buildSanctumBanners();
+
+    // Torches & Wall Sconces
     this.#addTorch([-4.5, 2.2, -1.5]);
     this.#addTorch([4.5, 2.2, -1.5]);
     this.#addTorch([0, 2.8, 11]);
     this.#addTorch([-5.0, 2.5, 20.2]);
     this.#addTorch([5.0, 2.5, 20.2]);
+    this.#addTorch([-2.2, 2.2, 31.0]);
+    this.#addTorch([2.2, 2.2, 31.0]);
+    this.#addTorch([0, 2.2, -36.5]);
+    this.#addTorch([-7.5, 2.2, -18.0]);
+  }
+
+  #buildSanctumVaultArches() {
+    // Stone ribs connecting the 4 main chapel pillars to the ceiling apex
+    const ribMat = this.materials.stone;
+    // Arch spanning South pillars (sw to se)
+    box(this.group, [4.8, 0.45, 0.45], ribMat, [-2.4, 6.2, 20.25], [0, 0, 0.22]);
+    box(this.group, [4.8, 0.45, 0.45], ribMat, [2.4, 6.2, 20.25], [0, 0, -0.22]);
+    box(this.group, [0.8, 0.6, 0.6], this.materials.stoneDais, [0, 6.7, 20.25]);
+
+    // Arch spanning North pillars (nw to ne)
+    box(this.group, [4.8, 0.45, 0.45], ribMat, [-2.4, 6.2, 29.75], [0, 0, 0.22]);
+    box(this.group, [4.8, 0.45, 0.45], ribMat, [2.4, 6.2, 29.75], [0, 0, -0.22]);
+    box(this.group, [0.8, 0.6, 0.6], this.materials.stoneDais, [0, 6.7, 29.75]);
+
+    // Longitudinal longitudinal rib beams running sw-nw and se-ne
+    box(this.group, [0.45, 0.45, 9.5], ribMat, [-4.75, 5.8, 25.0]);
+    box(this.group, [0.45, 0.45, 9.5], ribMat, [4.75, 5.8, 25.0]);
+
+    // Central Vault Ridge Beam
+    box(this.group, [0.4, 0.4, 12.0], ribMat, [0, 6.7, 25.0]);
+  }
+
+  #buildKnightEffigy([x, y, z]) {
+    const effigyGroup = new THREE.Group();
+    effigyGroup.position.set(x, y, z);
+    const mat = this.materials.stoneDais;
+
+    // Headrest stone pillow
+    box(effigyGroup, [1.2, 0.18, 0.55], mat, [0, 0.09, -1.0]);
+    // Helm / head
+    const helm = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.26, 0.42, 8), mat);
+    helm.position.set(0, 0.24, -1.0);
+    helm.rotation.x = Math.PI / 2;
+    effigyGroup.add(helm);
+
+    // Torso in plate armor
+    box(effigyGroup, [0.95, 0.24, 1.1], mat, [0, 0.12, -0.2]);
+    // Legs
+    box(effigyGroup, [0.38, 0.22, 1.1], mat, [-0.25, 0.11, 0.8]);
+    box(effigyGroup, [0.38, 0.22, 1.1], mat, [0.25, 0.11, 0.8]);
+
+    // Stone broadsword lying along knight's center
+    box(effigyGroup, [0.12, 0.14, 2.1], this.materials.stone, [0, 0.28, 0.1]);
+    box(effigyGroup, [0.55, 0.12, 0.12], this.materials.stone, [0, 0.28, -0.7]);
+
+    this.group.add(effigyGroup);
+  }
+
+  #buildSanctumBanners() {
+    const bannerColors = [0x8b2520, 0x22487a, 0x8b2520, 0x22487a];
+    const bannerZs = [20.5, 24.5, 28.5, 32.5];
+
+    for (let i = 0; i < bannerZs.length; i++) {
+      const bZ = bannerZs[i];
+      const color = bannerColors[i];
+
+      // West Wall Banner
+      const rodW = box(this.group, [0.8, 0.08, 0.08], this.materials.iron, [-13.7, 4.8, bZ]);
+      const matW = new THREE.MeshStandardMaterial({ color, roughness: 0.8, metalness: 0.05, side: THREE.DoubleSide });
+      const clothW = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 2.4), matW);
+      clothW.position.set(-13.85, 3.5, bZ);
+      clothW.rotation.y = Math.PI / 2;
+      this.group.add(clothW);
+
+      // East Wall Banner
+      const rodE = box(this.group, [0.8, 0.08, 0.08], this.materials.iron, [13.7, 4.8, bZ]);
+      const matE = new THREE.MeshStandardMaterial({ color, roughness: 0.8, metalness: 0.05, side: THREE.DoubleSide });
+      const clothE = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 2.4), matE);
+      clothE.position.set(13.85, 3.5, bZ);
+      clothE.rotation.y = -Math.PI / 2;
+      this.group.add(clothE);
+    }
   }
 
   #addTorch(position) {
+    // Sconce bracket on wall / column
+    box(this.group, [0.1, 0.4, 0.25], this.materials.iron, [position[0], position[1] - 0.2, position[2]]);
     const torchLight = everywhere(new THREE.PointLight(0xff9944, 1.8, 14, 1.6));
     torchLight.position.set(...position);
     this.group.add(torchLight);
     this.torches.push({ light: torchLight, baseY: position[1], phase: Math.random() * Math.PI * 2 });
   }
+
 
   setObjectiveState(objective, localTeam = null) {
     this.currentObjective = objective ?? null;

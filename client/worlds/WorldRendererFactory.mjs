@@ -7,7 +7,9 @@ const WORLD_RENDERER_KEYS = Object.freeze({
   'ruined-keep': 'ruined-keep',
   'greener-pastures': 'greener-pastures',
   'bastion-breach': 'bastion-breach',
+  'blackbell-foundry': 'blackbell-foundry',
 });
+
 
 export function rendererKeyForWorld(worldId) {
   const key = WORLD_RENDERER_KEYS[worldId];
