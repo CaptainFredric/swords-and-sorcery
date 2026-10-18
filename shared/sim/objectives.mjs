@@ -30,6 +30,8 @@ export function createObjectiveState(worldObjectives = []) {
     name: obj.name || `Objective ${i + 1}`,
     position: Object.freeze({ x: obj.x, y: obj.y ?? 0, z: obj.z }),
     radius: obj.radius ?? 6.0,
+    verticalBelow: obj.verticalBelow ?? 1.2,
+    verticalAbove: obj.verticalAbove ?? 2.5,
     captureSec: obj.captureSec ?? 15,
     decayRate: obj.decayRate ?? 0.5,
   }));
@@ -66,6 +68,8 @@ export function stepObjectives(room, dt, nowSec) {
 
   const center = currentObj.position;
   const radiusSq = currentObj.radius * currentObj.radius;
+  const vBelow = currentObj.verticalBelow ?? 1.2;
+  const vAbove = currentObj.verticalAbove ?? 2.5;
 
   let attackers = 0;
   let defenders = 0;
@@ -74,8 +78,11 @@ export function stepObjectives(room, dt, nowSec) {
     const dx = player.position.x - center.x;
     const dz = player.position.z - center.z;
     if (dx * dx + dz * dz <= radiusSq) {
-      if (player.team === TEAMS.ATTACKERS) attackers += 1;
-      else if (player.team === TEAMS.DEFENDERS) defenders += 1;
+      const dy = player.position.y - center.y;
+      if (dy >= -vBelow && dy <= vAbove) {
+        if (player.team === TEAMS.ATTACKERS) attackers += 1;
+        else if (player.team === TEAMS.DEFENDERS) defenders += 1;
+      }
     }
   }
 

@@ -60,14 +60,16 @@ export class BlackbellFoundryRenderer {
       stone: new THREE.MeshStandardMaterial({ color: 0x5a544e, roughness: 0.88, metalness: 0.05 }),
       brick: new THREE.MeshStandardMaterial({ color: 0x4f362c, roughness: 0.90, metalness: 0.04 }),
       stoneFloor: new THREE.MeshStandardMaterial({ color: 0x484440, roughness: 0.85, metalness: 0.06 }),
+      refractoryStone: new THREE.MeshStandardMaterial({ color: 0x2e2723, roughness: 0.94, metalness: 0.04 }),
       timber: new THREE.MeshStandardMaterial({ color: 0x4a3424, roughness: 0.92, metalness: 0.02 }),
       iron: new THREE.MeshStandardMaterial({ color: 0x222428, roughness: 0.55, metalness: 0.82 }),
       rustedIron: new THREE.MeshStandardMaterial({ color: 0x543628, roughness: 0.82, metalness: 0.45 }),
-      bronzeBell: new THREE.MeshStandardMaterial({ color: 0x826032, roughness: 0.38, metalness: 0.88 }),
+      bronzeBell: new THREE.MeshStandardMaterial({ color: 0x8e6836, roughness: 0.40, metalness: 0.86 }),
+      bronzeDark: new THREE.MeshStandardMaterial({ color: 0x583e20, roughness: 0.52, metalness: 0.80 }),
       moltenGlow: new THREE.MeshStandardMaterial({
         color: 0xff5511,
         emissive: new THREE.Color(0xff4400),
-        emissiveIntensity: 2.2,
+        emissiveIntensity: 2.3,
         roughness: 0.3,
         metalness: 0.1,
       }),
@@ -125,7 +127,6 @@ export class BlackbellFoundryRenderer {
 
     // --- Architectural Scenery: Gantry Trestles ---
     for (const z of [-14, -8, -2, 4]) {
-      // Wood cross-struts beneath the gantry
       box(this.group, [0.25, 2.7, 0.25], this.materials.timber, [15.2, 1.35, z], [0, 0, 0], true);
       box(this.group, [0.25, 2.7, 0.25], this.materials.timber, [9.8, 1.35, z], [0, 0, 0], true);
       box(this.group, [5.4, 0.2, 0.2], this.materials.timber, [12.5, 2.4, z], [0, 0, 0], true);
@@ -137,11 +138,8 @@ export class BlackbellFoundryRenderer {
     // --- The Great Bell ("Blackbell") (Centerpiece of Stage 2) ---
     this.#buildGreatBell();
 
-    // --- Molten Metal Casting Sluice Radiance ---
-    const sluice1 = box(this.group, [0.75, 0.08, 11], this.materials.moltenGlow, [-2.2, 0.52, 26], [0, 0, 0], false);
-    sluice1.receiveShadow = false;
-    const sluice2 = box(this.group, [0.75, 0.08, 11], this.materials.moltenGlow, [2.2, 0.52, 26], [0, 0, 0], false);
-    sluice2.receiveShadow = false;
+    // --- Molten Metal Casting Channel Network (Flanking the Dais) ---
+    this.#buildMoltenCastingNetwork();
 
     // --- Build Objective Markers / Standards ---
     for (let i = 0; i < BLACKBELL_FOUNDRY.objectives.length; i++) {
@@ -206,7 +204,9 @@ export class BlackbellFoundryRenderer {
     // --- Furnace Lights & Forge Sconces ---
     this.#addFurnaceLight([-11.8, 2.2, 24], 0xff5511, 2.8, 16);
     this.#addFurnaceLight([-11.8, 2.2, 28], 0xff6622, 2.6, 16);
-    this.#addFurnaceLight([0, 4.5, 26], 0xff7733, 2.2, 18);
+    this.#addFurnaceLight([0, 5.2, 26], 0xff7733, 2.5, 20); // Dais under Great Bell
+    this.#addFurnaceLight([-5.5, 1.2, 26], 0xff6622, 2.0, 10); // West Casting Channel
+    this.#addFurnaceLight([5.5, 1.2, 26], 0xff6622, 2.0, 10); // East Casting Channel
     this.#addFurnaceLight([-4.0, 2.5, -2.0], 0xff8844, 1.8, 12);
     this.#addFurnaceLight([4.0, 2.5, -2.0], 0xff8844, 1.8, 12);
     this.#addFurnaceLight([0, 3.2, 11], 0xff7733, 2.0, 14);
@@ -216,63 +216,238 @@ export class BlackbellFoundryRenderer {
     const winchGroup = new THREE.Group();
     winchGroup.position.set(0, 0, -2);
 
-    // Massive central geared drum
-    const drum = cylinder(winchGroup, 0.9, 0.9, 3.2, 16, this.materials.rustedIron, [0, 1.8, 0], [0, 0, Math.PI / 2]);
+    // --- Timber A-Frame Derrick & Foundation ---
+    // Ground sill timbers
+    box(winchGroup, [0.45, 0.35, 3.4], this.materials.timber, [-2.6, 0.18, 0]);
+    box(winchGroup, [0.45, 0.35, 3.4], this.materials.timber, [2.6, 0.18, 0]);
+    box(winchGroup, [5.2, 0.35, 0.45], this.materials.timber, [0, 0.18, -1.5]);
+    box(winchGroup, [5.2, 0.35, 0.45], this.materials.timber, [0, 0.18, 1.5]);
+
+    // Heavy inclined A-frame uprights
+    box(winchGroup, [0.38, 4.4, 0.38], this.materials.timber, [-2.6, 2.2, 1.1], [0.18, 0, 0.08]);
+    box(winchGroup, [0.38, 4.4, 0.38], this.materials.timber, [-2.6, 2.2, -1.1], [-0.18, 0, 0.08]);
+    box(winchGroup, [0.38, 4.4, 0.38], this.materials.timber, [2.6, 2.2, 1.1], [0.18, 0, -0.08]);
+    box(winchGroup, [0.38, 4.4, 0.38], this.materials.timber, [2.6, 2.2, -1.1], [-0.18, 0, -0.08]);
+
+    // Overhead crown cross-beam
+    box(winchGroup, [5.8, 0.5, 0.5], this.materials.timber, [0, 4.2, 0]);
+    box(winchGroup, [5.8, 0.12, 0.52], this.materials.iron, [0, 4.5, 0]); // iron top cap
+
+    // Overhead sheave pulley block
+    cylinder(winchGroup, 0.65, 0.65, 0.22, 16, this.materials.iron, [0, 4.2, 0], [0, 0, Math.PI / 2]);
+
+    // --- Main Hoist Axle & Bearings ---
+    // Bronze journal pillow blocks on timber struts at y = 1.8
+    box(winchGroup, [0.55, 0.5, 0.6], this.materials.iron, [-2.4, 1.8, 0]);
+    box(winchGroup, [0.55, 0.5, 0.6], this.materials.iron, [2.4, 1.8, 0]);
+    // Heavy forged main shaft
+    cylinder(winchGroup, 0.18, 0.18, 5.2, 12, this.materials.iron, [0, 1.8, 0], [0, 0, Math.PI / 2]);
+
+    // Heavy winding barrel (drum) with ribbed spiral guides
+    const drum = cylinder(winchGroup, 0.85, 0.85, 3.2, 16, this.materials.rustedIron, [0, 1.8, 0], [0, 0, Math.PI / 2]);
     drum.castShadow = true;
 
-    // Cog gear wheels on both sides of drum
-    cylinder(winchGroup, 1.4, 1.4, 0.25, 16, this.materials.iron, [-1.7, 1.8, 0], [0, 0, Math.PI / 2]);
-    cylinder(winchGroup, 1.4, 1.4, 0.25, 16, this.materials.iron, [1.7, 1.8, 0], [0, 0, Math.PI / 2]);
+    // --- Dual Monumental Spoked Cogwheels with Teeth ---
+    for (const side of [-1.75, 1.75]) {
+      const cogGroup = new THREE.Group();
+      cogGroup.position.set(side, 1.8, 0);
 
-    // Heavy iron chains wrapped around drum and hanging downward
-    for (let c = -1.2; c <= 1.2; c += 0.8) {
-      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.96, 0.08, 8, 24), this.materials.iron);
-      ring.position.set(c, 1.8, 0);
-      ring.rotation.y = Math.PI / 2;
-      winchGroup.add(ring);
+      // Central hub
+      cylinder(cogGroup, 0.38, 0.38, 0.28, 12, this.materials.iron, [0, 0, 0], [0, 0, Math.PI / 2]);
+      // Outer rim
+      const cogRim = new THREE.Mesh(new THREE.TorusGeometry(1.35, 0.12, 10, 24), this.materials.iron);
+      cogRim.rotation.y = Math.PI / 2;
+      cogGroup.add(cogRim);
+
+      // 6 radial structural spokes
+      for (let s = 0; s < 3; s++) {
+        const spoke = box(cogGroup, [0.1, 2.5, 0.1], this.materials.iron, [0, 0, 0], [0, 0, (s * Math.PI) / 3]);
+        cogGroup.add(spoke);
+      }
+
+      // 16 individually modeled gear teeth projecting from the rim
+      for (let t = 0; t < 16; t++) {
+        const theta = (t / 16) * Math.PI * 2;
+        const tooth = box(cogGroup, [0.18, 0.22, 0.26], this.materials.iron, [0, Math.sin(theta) * 1.45, Math.cos(theta) * 1.45]);
+        tooth.rotation.x = theta;
+      }
+      winchGroup.add(cogGroup);
     }
 
-    // Heavy timber tripod A-frame
-    box(winchGroup, [0.35, 4.2, 0.35], this.materials.timber, [-3.2, 2.1, 0.8], [0.15, 0, 0.1]);
-    box(winchGroup, [0.35, 4.2, 0.35], this.materials.timber, [-3.2, 2.1, -0.8], [-0.15, 0, 0.1]);
-    box(winchGroup, [0.35, 4.2, 0.35], this.materials.timber, [3.2, 2.1, 0.8], [0.15, 0, -0.1]);
-    box(winchGroup, [0.35, 4.2, 0.35], this.materials.timber, [3.2, 2.1, -0.8], [-0.15, 0, -0.1]);
+    // Locking Ratchet Wheel & Gravity Pawl on West Side
+    cylinder(winchGroup, 0.65, 0.65, 0.18, 16, this.materials.iron, [-1.98, 1.8, 0], [0, 0, Math.PI / 2]);
+    box(winchGroup, [0.12, 0.75, 0.22], this.materials.iron, [-2.1, 2.3, 0.35], [-0.55, 0, 0]);
+
+    // Driven Pinion Shaft & Operator Turning Capstan
+    cylinder(winchGroup, 0.10, 0.10, 5.6, 8, this.materials.iron, [0, 0.7, -1.2], [0, 0, Math.PI / 2]);
+    cylinder(winchGroup, 0.35, 0.35, 0.24, 12, this.materials.iron, [-1.75, 0.7, -1.2], [0, 0, Math.PI / 2]);
+    cylinder(winchGroup, 0.35, 0.35, 0.24, 12, this.materials.iron, [1.75, 0.7, -1.2], [0, 0, Math.PI / 2]);
+
+    // Operator Spoked Turning Wheel on East End
+    box(winchGroup, [0.12, 2.2, 0.12], this.materials.timber, [2.9, 0.7, -1.2]);
+    box(winchGroup, [0.12, 0.12, 2.2], this.materials.timber, [2.9, 0.7, -1.2]);
+    cylinder(winchGroup, 0.08, 0.08, 0.35, 8, this.materials.timber, [3.05, 1.6, -1.2], [0, 0, Math.PI / 2]);
+    cylinder(winchGroup, 0.08, 0.08, 0.35, 8, this.materials.timber, [3.05, -0.2, -1.2], [0, 0, Math.PI / 2]);
+
+    // Tensioned Heavy Chains wrapped around drum and rising to the overhead crown pulley
+    for (let c = -1.1; c <= 1.1; c += 0.55) {
+      const coil = new THREE.Mesh(new THREE.TorusGeometry(0.92, 0.09, 8, 20), this.materials.iron);
+      coil.position.set(c, 1.8, 0);
+      coil.rotation.y = Math.PI / 2;
+      winchGroup.add(coil);
+    }
+    cylinder(winchGroup, 0.08, 0.08, 2.6, 8, this.materials.iron, [-0.2, 3.0, 0.25]);
+    cylinder(winchGroup, 0.08, 0.08, 2.6, 8, this.materials.iron, [0.2, 3.0, 0.25]);
 
     this.group.add(winchGroup);
   }
 
   #buildGreatBell() {
-    this.bellGroup = new THREE.Group();
-    this.bellGroup.position.set(0, 7.8, 26);
+    // --- 1. Stationary Overhead Roof Truss & Bearing Brackets ---
+    const stationary = new THREE.Group();
 
-    // Massive suspended iron roof truss yoke
-    box(this.bellGroup, [6.5, 0.5, 0.8], this.materials.iron, [0, 2.6, 0]);
-    cylinder(this.bellGroup, 0.45, 0.6, 1.2, 12, this.materials.rustedIron, [0, 1.8, 0]);
+    // Massive timber tie-beam spanning across the furnace hall
+    box(stationary, [18, 0.85, 0.85], this.materials.timber, [0, 11.2, 26]);
+    box(stationary, [16, 0.22, 0.7], this.materials.iron, [0, 11.75, 26]); // top iron cap plate
+    // Kingpost timber braces anchoring into high roof masonry
+    box(stationary, [0.42, 4.4, 0.42], this.materials.timber, [-5.8, 12.6, 26], [0, 0, -0.42]);
+    box(stationary, [0.42, 4.4, 0.42], this.materials.timber, [5.8, 12.6, 26], [0, 0, 0.42]);
 
-    // High heavy suspension chains reaching up into the shadowy roof rafters
-    cylinder(this.bellGroup, 0.12, 0.12, 5.0, 8, this.materials.iron, [-2.2, 5.0, 0]);
-    cylinder(this.bellGroup, 0.12, 0.12, 5.0, 8, this.materials.iron, [2.2, 5.0, 0]);
+    // Pillow block journal bearings beneath the beam
+    box(stationary, [0.95, 0.7, 0.8], this.materials.iron, [-2.6, 10.4, 26]);
+    box(stationary, [0.95, 0.7, 0.8], this.materials.iron, [2.6, 10.4, 26]);
 
-    // Monumental War Bell Geometry
-    // Crown / Shoulder (top dome of the bell)
-    cylinder(this.bellGroup, 1.0, 1.6, 1.2, 24, this.materials.bronzeBell, [0, 1.0, 0]);
-    // Waist (tapering mid section)
-    cylinder(this.bellGroup, 1.6, 2.2, 1.6, 24, this.materials.bronzeBell, [0, -0.3, 0]);
-    // Sound Bow & Flared Lip (heavy lower rim)
-    cylinder(this.bellGroup, 2.2, 2.9, 1.1, 24, this.materials.bronzeBell, [0, -1.5, 0]);
-    // Decorative relief rim band
-    const rim = new THREE.Mesh(new THREE.TorusGeometry(2.85, 0.16, 12, 32), this.materials.rustedIron);
-    rim.position.set(0, -2.0, 0);
-    rim.rotation.x = Math.PI / 2;
-    this.bellGroup.add(rim);
+    // Heavy vertical iron suspension rods reaching into roof rafters
+    cylinder(stationary, 0.09, 0.09, 3.5, 8, this.materials.iron, [-2.6, 12.2, 26]);
+    cylinder(stationary, 0.09, 0.09, 3.5, 8, this.materials.iron, [2.6, 12.2, 26]);
+    this.group.add(stationary);
 
-    // Giant Iron Clapper
-    cylinder(this.bellGroup, 0.15, 0.15, 3.2, 8, this.materials.iron, [0, -0.5, 0]);
-    const clapperBall = new THREE.Mesh(new THREE.SphereGeometry(0.55, 12, 12), this.materials.iron);
-    clapperBall.position.set(0, -2.1, 0);
-    this.bellGroup.add(clapperBall);
+    // --- 2. Articulated Hanging Bell Assembly (Pivots at Axle: y = 10.2) ---
+    this.bellAssembly = new THREE.Group();
+    this.bellAssembly.position.set(0, 10.2, 26);
 
-    this.group.add(this.bellGroup);
+    // Forged steel axle
+    cylinder(this.bellAssembly, 0.22, 0.22, 6.0, 12, this.materials.iron, [0, 0, 0], [0, 0, Math.PI / 2]);
+
+    // Massive oak headstock (yoke) with iron straps and bolts
+    box(this.bellAssembly, [5.0, 0.95, 0.95], this.materials.timber, [0, 0.38, 0]);
+    box(this.bellAssembly, [5.2, 0.15, 0.98], this.materials.iron, [0, 0.88, 0]); // top strap
+    box(this.bellAssembly, [0.18, 1.0, 0.98], this.materials.iron, [-1.85, 0.38, 0]);
+    box(this.bellAssembly, [0.18, 1.0, 0.98], this.materials.iron, [1.85, 0.38, 0]);
+
+    // Iron counterweights atop yoke
+    cylinder(this.bellAssembly, 0.38, 0.48, 1.15, 12, this.materials.rustedIron, [-1.85, 1.05, 0]);
+    cylinder(this.bellAssembly, 0.38, 0.48, 1.15, 12, this.materials.rustedIron, [1.85, 1.05, 0]);
+
+    // Cast Canons (arched suspension loops connecting bell crown to headstock)
+    for (const ang of [0, Math.PI / 2, Math.PI, (3 * Math.PI) / 2]) {
+      const rx = Math.sin(ang) * 0.72;
+      const rz = Math.cos(ang) * 0.72;
+      const canon = new THREE.Mesh(new THREE.TorusGeometry(0.38, 0.11, 8, 16, Math.PI), this.materials.bronzeDark);
+      canon.position.set(rx, -0.22, rz);
+      canon.rotation.y = ang;
+      canon.rotation.z = Math.PI / 2;
+      this.bellAssembly.add(canon);
+    }
+
+    // --- Hollow Monumental War Bell Profile (LatheGeometry) ---
+    // Defined with a hollow internal cavity visible from underneath
+    const bellProfile = [
+      new THREE.Vector2(0.08, -0.6),   // internal crown apex
+      new THREE.Vector2(0.85, -0.9),   // inner shoulder
+      new THREE.Vector2(1.25, -1.8),   // inner waist
+      new THREE.Vector2(1.95, -3.2),   // inner sound bow
+      new THREE.Vector2(2.55, -4.15),  // inner lip edge
+      new THREE.Vector2(2.72, -4.25),  // bottom rim lip
+      new THREE.Vector2(2.98, -4.05),  // outer sound bow (thickest bronze rim)
+      new THREE.Vector2(2.42, -3.0),   // lower waist
+      new THREE.Vector2(1.78, -1.8),   // waist
+      new THREE.Vector2(1.42, -0.8),   // shoulder
+      new THREE.Vector2(1.12, -0.3),   // crown band
+      new THREE.Vector2(0.12, -0.2),   // crown top
+    ];
+    const bellGeom = new THREE.LatheGeometry(bellProfile, 28);
+    const bellMesh = new THREE.Mesh(bellGeom, this.materials.bronzeBell);
+    bellMesh.castShadow = true;
+    bellMesh.receiveShadow = true;
+    this.bellAssembly.add(bellMesh);
+
+    // Raised decorative relief bands
+    const soundBowRelief = new THREE.Mesh(new THREE.TorusGeometry(2.94, 0.12, 10, 32), this.materials.bronzeDark);
+    soundBowRelief.position.y = -3.95;
+    soundBowRelief.rotation.x = Math.PI / 2;
+    this.bellAssembly.add(soundBowRelief);
+
+    const shoulderRelief = new THREE.Mesh(new THREE.TorusGeometry(1.50, 0.08, 8, 28), this.materials.bronzeDark);
+    shoulderRelief.position.y = -0.95;
+    shoulderRelief.rotation.x = Math.PI / 2;
+    this.bellAssembly.add(shoulderRelief);
+
+    // --- 3. Articulated Internal Clapper Assembly ---
+    // Suspended from interior eyelet at (0, -0.6, 0)
+    this.clapperAssembly = new THREE.Group();
+    this.clapperAssembly.position.set(0, -0.6, 0);
+
+    // Forged suspension eyelet
+    const clapperEye = new THREE.Mesh(new THREE.TorusGeometry(0.24, 0.07, 8, 16), this.materials.iron);
+    clapperEye.rotation.x = Math.PI / 2;
+    this.clapperAssembly.add(clapperEye);
+
+    // Tapered forged iron clapper shank
+    const clapperShank = cylinder(this.clapperAssembly, 0.12, 0.17, 3.4, 8, this.materials.iron, [0, -1.7, 0]);
+    clapperShank.castShadow = true;
+
+    // Heavy spherical strike ball positioned at sound bow height
+    const strikeBall = new THREE.Mesh(new THREE.SphereGeometry(0.64, 16, 14), this.materials.iron);
+    strikeBall.position.set(0, -3.4, 0);
+    strikeBall.castShadow = true;
+    this.clapperAssembly.add(strikeBall);
+
+    // Lower teardrop flight
+    const clapperFlight = cylinder(this.clapperAssembly, 0.22, 0.06, 0.8, 8, this.materials.rustedIron, [0, -4.1, 0]);
+    this.clapperAssembly.add(clapperFlight);
+
+    this.bellAssembly.add(this.clapperAssembly);
+    this.group.add(this.bellAssembly);
+  }
+
+  #buildMoltenCastingNetwork() {
+    // Recessed refractory stone troughs flanking the central Great Bell dais (which sits at x: [-4, 4], z: [22, 30], y = 1.0)
+    // The molten conduits run at y = 0.12 alongside the platform curbs (y = 0.28) without penetrating the player's walkway!
+
+    // West Arterial Channel (x = -5.4, z = 20 to 32)
+    box(this.group, [0.22, 0.32, 12], this.materials.refractoryStone, [-6.0, 0.16, 26]); // outer curb
+    box(this.group, [0.22, 0.32, 12], this.materials.refractoryStone, [-4.8, 0.16, 26]); // inner curb
+    const westMolten = box(this.group, [0.95, 0.08, 11.8], this.materials.moltenGlow, [-5.4, 0.12, 26], [0, 0, 0], false);
+    westMolten.receiveShadow = false;
+
+    // East Arterial Channel (x = 5.4, z = 20 to 32)
+    box(this.group, [0.22, 0.32, 12], this.materials.refractoryStone, [4.8, 0.16, 26]); // inner curb
+    box(this.group, [0.22, 0.32, 12], this.materials.refractoryStone, [6.0, 0.16, 26]); // outer curb
+    const eastMolten = box(this.group, [0.95, 0.08, 11.8], this.materials.moltenGlow, [5.4, 0.12, 26], [0, 0, 0], false);
+    eastMolten.receiveShadow = false;
+
+    // Feeder Channels from Western Wall Furnaces (x = -11.5 to -5.4 at z = 24 and z = 28)
+    for (const z of [24, 28]) {
+      box(this.group, [5.8, 0.28, 0.22], this.materials.refractoryStone, [-8.5, 0.14, z - 0.5]);
+      box(this.group, [5.8, 0.28, 0.22], this.materials.refractoryStone, [-8.5, 0.14, z + 0.5]);
+      const feeder = box(this.group, [5.8, 0.08, 0.75], this.materials.moltenGlow, [-8.5, 0.10, z], [0, 0, 0], false);
+      feeder.receiveShadow = false;
+      // Iron control sluice gate at tap-hole
+      box(this.group, [0.18, 0.9, 0.85], this.materials.iron, [-6.0, 0.45, z]);
+      cylinder(this.group, 0.04, 0.04, 0.7, 6, this.materials.iron, [-6.0, 0.95, z]);
+    }
+
+    // Refractory Stone Bell Casting Basins at center dais flanks
+    for (const x of [-5.4, 5.4]) {
+      const basinRing = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.4, 0.35, 16, 1, true), this.materials.refractoryStone);
+      basinRing.position.set(x, 0.18, 26);
+      this.group.add(basinRing);
+      const basinMolten = new THREE.Mesh(new THREE.CircleGeometry(1.15, 16), this.materials.moltenGlow);
+      basinMolten.rotation.x = -Math.PI / 2;
+      basinMolten.position.set(x, 0.14, 26);
+      this.group.add(basinMolten);
+    }
   }
 
   #addFurnaceLight(position, colorHex, intensity, distance) {
@@ -300,9 +475,13 @@ export class BlackbellFoundryRenderer {
         + Math.sin(timeSec * 13.8) * (fl.baseIntensity * 0.08);
     }
 
-    // Majestic subtle war bell resonance sway
-    if (this.bellGroup) {
-      this.bellGroup.rotation.z = Math.sin(timeSec * 0.8) * 0.015;
+    // Physically separated bell resonance sway and independent clapper oscillation
+    if (this.bellAssembly) {
+      this.bellAssembly.rotation.z = Math.sin(timeSec * 1.35) * 0.045;
+    }
+    if (this.clapperAssembly) {
+      // Clapper lags behind the bell with trailing pendulum physics
+      this.clapperAssembly.rotation.z = Math.sin(timeSec * 1.35 - 0.48) * 0.075;
     }
 
     const objState = this.currentObjective;

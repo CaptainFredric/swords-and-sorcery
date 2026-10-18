@@ -1,0 +1,76 @@
+{
+  "bastionBreach": {
+    "staging": {
+      "drawCalls": 9,
+      "triangles": 4848,
+      "geometries": 296,
+      "textures": 151,
+      "meshCount": 459,
+      "pointLightCount": 14,
+      "sampleCount": 97,
+      "avgFps": 48.1,
+      "minFps": 20,
+      "avgFrameMs": 20.79,
+      "maxFrameMs": 50.1,
+      "p99FrameMs": 50.1
+    },
+    "combat": {
+      "drawCalls": 9,
+      "triangles": 4848,
+      "geometries": 321,
+      "textures": 151,
+      "meshCount": 463,
+      "pointLightCount": 14,
+      "sampleCount": 91,
+      "avgFps": 36.6,
+      "minFps": 15,
+      "avgFrameMs": 27.29,
+      "maxFrameMs": 66.7,
+      "p99FrameMs": 66.7
+    }
+  },
+  "blackbellFoundry": {
+    "staging": {
+      "drawCalls": 9,
+      "triangles": 4848,
+      "geometries": 243,
+      "textures": 149,
+      "meshCount": 417,
+      "pointLightCount": 13,
+      "sampleCount": 78,
+      "avgFps": 39,
+      "minFps": 10,
+      "avgFrameMs": 25.64,
+      "maxFrameMs": 100,
+      "p99FrameMs": 100
+    },
+    "combat": {
+      "drawCalls": 9,
+      "triangles": 4848,
+      "geometries": 283,
+      "textures": 151,
+      "meshCount": 484,
+      "pointLightCount": 13,
+      "sampleCount": 72,
+      "avgFps": 29,
+      "minFps": 10,
+      "avgFrameMs": 34.49,
+      "maxFrameMs": 100,
+      "p99FrameMs": 100
+    }
+  },
+  "mobileConstraints": {
+    "drawCalls": 9,
+    "triangles": 4848,
+    "geometries": 285,
+    "textures": 153,
+    "meshCount": 672,
+    "pointLightCount": 13,
+    "sampleCount": 89,
+    "avgFps": 44.5,
+    "minFps": 20,
+    "avgFrameMs": 22.47,
+    "maxFrameMs": 50,
+    "p99FrameMs": 50
+  }
+}

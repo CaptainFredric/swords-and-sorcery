@@ -92,9 +92,12 @@ const SOLIDS = [
   solid('cover-approach-crates-right', [2.5, 4.5], [0, 1.4], [-19, -17], { material: 'timber' }),
   solid('cover-approach-breastwork', [-1.8, 1.8], [0, 0.95], [-14.5, -13.7]),
 
-  // --- Courtyard (Objective 1) Structures & Cover ---
-  solid('gate-pillar-left', [-5.5, -3.8], [0, 4.0], [-3.5, -1.5]),
-  solid('gate-pillar-right', [3.8, 5.5], [0, 4.0], [-3.5, -1.5]),
+  // --- Barbican Gatehouse (Objective 1) Defensive Bulwarks ---
+  solid('tower-barbican-west', [-6.0, -3.8], [0, 5.8], [-3.5, -0.5]),
+  solid('tower-barbican-east', [3.8, 6.0], [0, 5.8], [-3.5, -0.5]),
+  solid('arch-barbican-overhead', [-3.8, 3.8], [4.6, 5.8], [-2.6, -1.4]),
+  solid('breastwork-barbican-west', [-8.5, -6.0], [0, 1.2], [-2.5, -1.5]),
+  solid('breastwork-barbican-east', [6.0, 8.5], [0, 1.2], [-2.5, -1.5]),
   solid('rubble-courtyard-sw', [-6.5, -4.5], [0, 1.1], [3, 4.5]),
   solid('rubble-courtyard-se', [4.5, 6.5], [0, 1.1], [3, 4.5]),
   solid('wreckage-courtyard-mid', [-1.5, 1.5], [0, 1.1], [-6.5, -5.2], { material: 'timber' }),
@@ -141,6 +144,8 @@ const OBJECTIVES = Object.freeze([
     y: 0,
     z: -2,
     radius: 6.0,
+    verticalBelow: 1.2,
+    verticalAbove: 2.5,
     captureSec: 15,
     decayRate: 0.5,
   },
@@ -151,6 +156,8 @@ const OBJECTIVES = Object.freeze([
     y: 0.3,
     z: 25,
     radius: 5.5,
+    verticalBelow: 1.2,
+    verticalAbove: 2.5,
     captureSec: 20,
     decayRate: 0.5,
   },
