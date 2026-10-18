@@ -372,7 +372,11 @@ test('left-side swipes still move even above the former 35% dead strip', () => {
   send('pointermove', 125, 370, finger);
   assert.ok(controls.movement().forward > 0, 'lower-left movement remains unchanged');
   globalThis.window.dispatchEvent(new Event('blur'));
-  assert.equal(controls.stick, null, 'app focus loss clears captured movement');
+  assert.ok(controls.stick, 'transient browser blur while visible must not discard a held stick');
+  assert.ok(controls.movement().forward > 0, 'movement survives a non-hidden Android system overlay');
+  globalThis.document.hidden = true;
+  globalThis.document.dispatchEvent(new Event('visibilitychange'));
+  assert.equal(controls.stick, null, 'backgrounding the app releases the held stick');
   assert.equal(controls.movement().forward, 0);
 });
 
