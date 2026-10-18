@@ -329,7 +329,7 @@ export class TouchControls {
       return;
     }
     if (isMouse) {
-      this.input.requestPointerLock?.();
+      this.input.requestPointerLock?.({ mouse: true });
       const code = `Mouse${event.button ?? 0}`;
       this.input.handleMouseButtonDown?.(code);
       return;
