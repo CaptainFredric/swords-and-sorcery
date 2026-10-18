@@ -359,17 +359,54 @@ test('floating joystick plants in game-layer coordinates despite mobile viewport
   assert.equal(controls.stickBase.style.top, '');
 });
 
-test('upper-left HUD touch never drags the floating joystick into the menu and health bars', () => {
+test('left-side swipes still move even above the former 35% dead strip', () => {
   const { controls, send } = setup({ alive: true, spell: 'fireball' });
   const finger = { target: controls.layer };
-  send('pointerdown', 40, 42, finger);
-  assert.equal(controls.stick, null, 'HUD region does not plant a movement stick');
-  send('pointerup', 40, 42, finger);
+  send('pointerdown', 125, 120, finger);
+  assert.deepEqual({ x: controls.stick.x, y: controls.stick.y }, { x: 125, y: 120 });
+  send('pointermove', 125, 70, finger);
+  assert.ok(controls.movement().forward > 0.8, 'a swipe near the visible ring must steer');
+  send('pointerup', 125, 70, finger);
+  assert.equal(controls.movement().forward, 0);
   send('pointerdown', 125, 420, finger);
-  assert.deepEqual({ x: controls.stick.x, y: controls.stick.y }, { x: 125, y: 420 });
   send('pointermove', 125, 370, finger);
-  assert.ok(controls.movement().forward > 0, 'normal lower-left play area still works');
+  assert.ok(controls.movement().forward > 0, 'lower-left movement remains unchanged');
   globalThis.window.dispatchEvent(new Event('blur'));
   assert.equal(controls.stick, null, 'app focus loss clears captured movement');
+  assert.equal(controls.movement().forward, 0);
+});
+
+test('touches on the displayed ring work directly and can recover a lost pointer release', () => {
+  const { controls, send } = setup({ alive: true, spell: 'fireball' });
+  const ring = { closest: (selector) => selector === '.touch-stick' ? controls.stickBase : null };
+  send('pointerdown', 120, 112, { target: ring, pointerId: 15 });
+  send('pointermove', 120, 62, { target: ring, pointerId: 15 });
+  assert.ok(controls.movement().forward > 0.7);
+  // No pointerup arrived for the first finger. A fresh touch on the visible
+  // joystick must not remain inert because a stale pointer ID owns the stick.
+  send('pointerdown', 118, 120, { target: ring, pointerId: 16 });
+  assert.equal(controls.stick.id, 16);
+  send('pointermove', 118, 68, { target: ring, pointerId: 16 });
+  assert.ok(controls.movement().forward > 0.7);
+  send('pointerup', 118, 68, { target: ring, pointerId: 16 });
+  assert.equal(controls.stick, null);
+  assert.equal(controls.movement().forward, 0);
+});
+
+test('a held joystick still updates and releases when browser sends events beyond its overlay', () => {
+  const { controls, send } = setup({ alive: true, spell: 'fireball' });
+  send('pointerdown', 118, 460, { target: controls.layer, pointerId: 26 });
+  const outside = {};
+  const windowPointer = (type, x, y) => {
+    const event = new Event(type);
+    for (const [key, value] of Object.entries({
+      pointerId: 26, pointerType: 'touch', clientX: x, clientY: y, target: outside,
+    })) Object.defineProperty(event, key, { value });
+    globalThis.window.dispatchEvent(event);
+  };
+  windowPointer('pointermove', 118, 405);
+  assert.ok(controls.movement().forward > 0.8, 'off-layer drag should still move');
+  windowPointer('pointerup', 118, 405);
+  assert.equal(controls.stick, null, 'off-layer release must not strand the joystick');
   assert.equal(controls.movement().forward, 0);
 });
