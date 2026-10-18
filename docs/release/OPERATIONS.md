@@ -22,6 +22,8 @@ node scripts/release/candidate.mjs seal dist/html5
 unzip -t dist/html5/swords-and-sorcery-html5.zip
 ```
 
+The HTML entry retains the existing external pinned Three.js CDN imports and Google Fonts stylesheet. A fresh uncached load needs those services; this is not an offline installation package. Browser validation exercises their actual load.
+
 Local candidates cannot be published through the workflow. Publication requires a successful candidate workflow run on repository main, a matching source SHA and ZIP checksum, and ancestry within current main.
 
 ## One time owner setup

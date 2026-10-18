@@ -92,8 +92,11 @@ try {
   await until(() => evaluate('!!document.pointerLockElement'), 'desktop Pointer Lock');
   await until(()=>evaluate('!!window.__ssRuntime?.sound?.running'),'audio gesture activation');
   const before = await state();
-  await key('KeyW', true); await sleep(650); await key('KeyW', false);
-  const moved = await state();
+  await key('KeyW', true);
+  let moved;
+  try { await until(async()=>{moved=await state();return Math.hypot(moved.position.x-before.position.x,moved.position.z-before.position.z)>.5;},'authoritative movement while key held',15_000); }
+  finally { await key('KeyW',false); }
+
   assert(Math.hypot(moved.position.x - before.position.x, moved.position.z - before.position.z) > .5, 'Ordinary movement did not reach authority'); checks.movement = true;
   await key('KeyG', true); await until(async () => (await state()).guard, 'Guard'); checks.guard = true; await key('KeyG', false);
   await cdp.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: 640, y: 400, button: 'left', buttons: 1, clickCount: 1 });
@@ -124,7 +127,9 @@ try {
   const preTouch = await state();
   await tap('touchStart', [{ ...stick, id: 1 }, { x: 610, y: 145, id: 2 }]);
   await tap('touchMove', [{ x: stick.x, y: stick.y - 45, id: 1 }, { x: 680, y: 160, id: 2 }]);
-  await sleep(650); const postTouch = await state(); await tap('touchEnd', []);
+  let postTouch;
+  try { await until(async()=>{postTouch=await state();return Math.hypot(postTouch.position.x-preTouch.position.x,postTouch.position.z-preTouch.position.z)>.5 && Math.abs(postTouch.yaw-preTouch.yaw)>.05;},'simultaneous authoritative touch look and movement',15_000); }
+  finally {await tap('touchEnd',[]);}
   assert(Math.hypot(postTouch.position.x - preTouch.position.x, postTouch.position.z - preTouch.position.z) > .5, 'Landscape movement failed');
   assert(Math.abs(postTouch.yaw - preTouch.yaw) > .05, 'Simultaneous landscape look failed'); checks.mobileLookAndMove = true;
   await screenshot('candidate-touch.png');
@@ -139,7 +144,7 @@ try {
   if (cdp) {
     const shot=await cdp.send('Page.captureScreenshot',{format:'png'}).catch(()=>null);
     if(shot) await fs.writeFile(path.join(directory,'candidate-failure.png'),Buffer.from(shot.data,'base64'));
-    const state=await cdp.send('Runtime.evaluate',{expression:'JSON.stringify({text:document.body.innerText.slice(-12000),debug:!!window.__ssRuntime,errors:window.__ssRuntime?.worldError,playing:window.__ssRuntime?.playing})',returnByValue:true}).catch(()=>null);
+    const state=await cdp.send('Runtime.evaluate',{expression:'JSON.stringify({text:document.body.innerText.slice(-12000),debug:!!window.__ssRuntime,errors:window.__ssRuntime?.worldError,playing:window.__ssRuntime?.playing,position:window.__ssRuntime?.localAuth?.position,input:window.__ssRuntime?.lastSentInput,enabled:window.__ssRuntime?.input.enabled,locked:!!document.pointerLockElement})',returnByValue:true}).catch(()=>null);
     console.error(JSON.stringify({failure:error.message,state,errors,resources:resources.filter(r=>r.status>=400)},null,2));
   }
   throw error;
