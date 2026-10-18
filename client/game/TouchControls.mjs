@@ -91,6 +91,17 @@ export class TouchControls {
     this.layer.addEventListener('pointercancel', this.#up);
     this.layer.addEventListener('lostpointercapture', this.#up);
     this.layer.addEventListener('contextmenu', (event) => event.preventDefault());
+    // Embedded mobile browsers may fail pointer capture when a drag crosses an overlay
+    // or browser chrome. Recover movement/end events delivered outside the touch layer.
+    this.onWindowStickMove = (event) => {
+      if (this.stick?.id === event.pointerId && !this.layer.contains?.(event.target)) this.#moveStick(event);
+    };
+    this.onWindowStickEnd = (event) => {
+      if (this.stick?.id === event.pointerId && !this.layer.contains?.(event.target)) this.#up(event);
+    };
+    window.addEventListener('pointermove', this.onWindowStickMove, { capture: true });
+    window.addEventListener('pointerup', this.onWindowStickEnd, { capture: true });
+    window.addEventListener('pointercancel', this.onWindowStickEnd, { capture: true });
 
     // A cancelled gesture is usually reported by pointercancel/lostpointercapture; leaving
     // the app or rotating it can also strand a captured thumb on some mobile browsers.
@@ -260,6 +271,9 @@ export class TouchControls {
 
   dispose() {
     this.reset();
+    window.removeEventListener('pointermove', this.onWindowStickMove, { capture: true });
+    window.removeEventListener('pointerup', this.onWindowStickEnd, { capture: true });
+    window.removeEventListener('pointercancel', this.onWindowStickEnd, { capture: true });
     window.removeEventListener('blur', this.onBlur);
     document.removeEventListener('visibilitychange', this.onVisibilityChange);
     this.offScreenTurn?.();
@@ -293,6 +307,9 @@ export class TouchControls {
     const onStick = event.target.closest?.('.touch-stick');
     if ((onStick || (point.x >= 0 && point.x < this.layer.clientWidth * STICK_ZONE))
       && point.y >= 0 && point.y <= this.layer.clientHeight) {
+      // If the browser lost a previous finger's release, a fresh press on the visible
+      // ring can reclaim movement instead of leaving the joystick stranded.
+      if (onStick && this.stick && this.stick.id !== event.pointerId) this.#endStick();
       if (!this.stick) this.#startStick(event, point);
     } else if (!this.look) {
       this.look = { id: event.pointerId, x: point.x, y: point.y };
