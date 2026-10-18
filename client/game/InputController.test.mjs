@@ -516,3 +516,34 @@ test('pointer lock acquisition and release transition cleanly while touchFocus i
   assert.equal(input.touchFocus, false);
   assert.equal(input.enabled, false);
 });
+
+
+test('mobile focus does not invoke native pointer lock or fullscreen and ignores non-hidden browser blur', () => {
+  const { input, send, win } = setup();
+  globalThis.document.pointerLockElement = null;
+  send('pointerlockchange');
+  let pointerLocks = 0;
+  let immersiveCalls = 0;
+  let resets = 0;
+  input.element.requestPointerLock = () => { pointerLocks += 1; };
+  input.touch = {
+    setActive() {},
+    enterImmersive() { immersiveCalls += 1; },
+    reset() { resets += 1; },
+    movement() { return { forward: .9, right: 0, jump: false, sprint: false, crouch: false }; },
+  };
+  input.requestPointerLock();
+  assert.equal(input.touchFocus, true);
+  assert.equal(input.enabled, true);
+  assert.equal(pointerLocks, 0, 'touch focus must not activate mouse pointer lock');
+  assert.equal(immersiveCalls, 0, 'entering touch focus must not request fullscreen');
+  assert.ok(input.movement().forward > .8);
+  send('blur', {}, win);
+  assert.equal(resets, 0, 'temporary system overlay blur should not release touch input');
+  assert.ok(input.movement().forward > .8, 'touch movement survives visible-window blur');
+  globalThis.document.hidden = true;
+  send('visibilitychange');
+  assert.equal(input.touchFocus, false);
+  assert.equal(input.enabled, false);
+  assert.ok(resets > 0, 'backgrounding the page must clear touch input');
+});
