@@ -14,8 +14,6 @@ import { practiceOverride } from '../../shared/src/practiceRecast.mjs';
 // while held, so a thumb can swing and aim in one motion.
 
 const STICK_ZONE = 0.42;
-// The upper-left HUD/menu is never a valid place to plant the movement joystick.
-const STICK_MIN_Y = 0.35;
 // a quick tap must stay pressed for at least two input sends (50 ms apart) to reach the server
 const JUMP_LATCH_MS = 150;
 
@@ -93,6 +91,17 @@ export class TouchControls {
     this.layer.addEventListener('pointercancel', this.#up);
     this.layer.addEventListener('lostpointercapture', this.#up);
     this.layer.addEventListener('contextmenu', (event) => event.preventDefault());
+    // Embedded mobile browsers may fail pointer capture when a drag crosses an overlay
+    // or browser chrome. Recover movement/end events delivered outside the touch layer.
+    this.onWindowStickMove = (event) => {
+      if (this.stick?.id === event.pointerId && !this.layer.contains?.(event.target)) this.#moveStick(event);
+    };
+    this.onWindowStickEnd = (event) => {
+      if (this.stick?.id === event.pointerId && !this.layer.contains?.(event.target)) this.#up(event);
+    };
+    window.addEventListener('pointermove', this.onWindowStickMove, { capture: true });
+    window.addEventListener('pointerup', this.onWindowStickEnd, { capture: true });
+    window.addEventListener('pointercancel', this.onWindowStickEnd, { capture: true });
 
     // A cancelled gesture is usually reported by pointercancel/lostpointercapture; leaving
     // the app or rotating it can also strand a captured thumb on some mobile browsers.
@@ -262,6 +271,9 @@ export class TouchControls {
 
   dispose() {
     this.reset();
+    window.removeEventListener('pointermove', this.onWindowStickMove, { capture: true });
+    window.removeEventListener('pointerup', this.onWindowStickEnd, { capture: true });
+    window.removeEventListener('pointercancel', this.onWindowStickEnd, { capture: true });
     window.removeEventListener('blur', this.onBlur);
     document.removeEventListener('visibilitychange', this.onVisibilityChange);
     this.offScreenTurn?.();
@@ -289,11 +301,16 @@ export class TouchControls {
     // keep the finger's moves and release even when it slides off its button (the pointer may already be gone)
     try { this.layer.setPointerCapture?.(event.pointerId); } catch { /* released before we could capture it */ }
     const point = gamePoint(event, this.layer);
-    if (point.x < this.layer.clientWidth * STICK_ZONE) {
-      // Keep the joystick away from the pause, scores, health and objective HUD.
-      if (point.x >= 0 && point.y >= this.layer.clientHeight * STICK_MIN_Y && point.y <= this.layer.clientHeight && !this.stick) {
-        this.#startStick(event, point);
-      }
+    // The ring is a real touch target, not decoration. In particular do not impose a
+    // screen-height cutoff: a previously floated stick can remain near the top of the
+    // play area, and a gesture begun over its visible ring must still be able to steer.
+    const onStick = event.target.closest?.('.touch-stick');
+    if (onStick || (point.x >= 0 && point.x < this.layer.clientWidth * STICK_ZONE
+      && point.y >= 0 && point.y <= this.layer.clientHeight)) {
+      // If the browser lost a previous finger's release, a fresh press on the visible
+      // ring can reclaim movement instead of leaving the joystick stranded.
+      if (onStick && this.stick && this.stick.id !== event.pointerId) this.#endStick();
+      if (!this.stick) this.#startStick(event, point);
     } else if (!this.look) {
       this.look = { id: event.pointerId, x: point.x, y: point.y };
       this.#gateHeld('look', true, `touch-look:${event.pointerId}`, false);
@@ -447,7 +464,9 @@ export class TouchControls {
     const margin = TOUCH.stickRadius + 10;
     const x = Math.max(margin, Math.min(this.layer.clientWidth - margin, point.x));
     const y = Math.max(margin, Math.min(this.layer.clientHeight - margin, point.y));
-    this.stick = { id: event.pointerId, x, y };
+    // The visible base is clamped clear of the edges, but input displacement is measured
+    // from the real touchdown. Otherwise a near-edge tap starts with a phantom tilt.
+    this.stick = { id: event.pointerId, x, y, originX: point.x, originY: point.y };
     this.#gateHeld('move', true, 'touch-stick');
     this.stickBase.style.left = `${x}px`;
     this.stickBase.style.top = `${y}px`;
@@ -457,7 +476,7 @@ export class TouchControls {
 
   #moveStick(event) {
     const point = gamePoint(event, this.layer);
-    const vector = stickVector(point.x - this.stick.x, point.y - this.stick.y);
+    const vector = stickVector(point.x - this.stick.originX, point.y - this.stick.originY);
     this.stickSprintRequested = vector.sprint;
     this.#gateHeld('move', true, 'touch-stick', false);
     const sprint = this.#gateHeld('sprint', vector.sprint, 'touch-stick');
