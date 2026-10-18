@@ -258,9 +258,9 @@ export class InputController {
   }
 
   // enter the arena: pointer lock with a mouse, the on-screen controls on a touch device
-  requestPointerLock() {
+  requestPointerLock({ mouse = false } = {}) {
     if (this.suspended) return;
-    if (this.touch) {
+    if (this.touch && !mouse) {
       this.#setTouchFocus(true);
       return; // Mobile touch needs neither browser pointer lock nor forced fullscreen.
     }
