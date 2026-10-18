@@ -20,6 +20,22 @@ A Spellblade might count, display, guard, boast about, and obsessively collect R
 
 The contradiction between grand institutions for conferring honor and the possessive triviality of actually collecting it is fertile ground for comedy. The setting need not announce a critique or explain why it is silly.
 
+### Death, wills and ownership
+
+Some fallen Spellblades **insist on keeping their Renown to themselves even after death**, explicitly specifying this in their wills. Their passing is apparently no reason to relinquish something they have accumulated.
+
+Possible scene: a solemn reading of a knight's will leaves his sword to one heir, his armor to another, and his Renown **to himself**. The solicitor treats the arrangement with appropriate gravity. It need not be explained how the deceased intends to use it.
+
+### Theft and the arithmetic of honor
+
+**Creator's rule:** “Stealing Renown is acceptable, if you end up with more.”
+
+This is deliberately self-serving moral reasoning, not a principled exception to a well-defined theft law. Success at retaining more Renown supplies its own justification. The same knight may demand permanent ownership of his own Renown while regarding somebody else's collection as an attractive acquisition.
+
+A Spellblade might scold a thief for ending up with *less* Renown, rather than for stealing. Avoid resolving that contradiction through a detailed legal code or economic simulation: the circular logic and absolute sincerity are the worldbuilding.
+
+Neither premise requires changes to the existing progression wallet or a new player-versus-player stealing feature. They can stand as character beliefs and sources of scenes.
+
 **Distinction:** This is an *in-fiction cultural disposition*, not a request to rewrite the game's presently implemented, spendable Renown balance and cosmetic unlocks. If a physical Renown coin is depicted in a scene, that does not by itself establish a full currency or trading system.
 
 ## The Rightful Renowner
