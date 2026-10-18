@@ -342,21 +342,21 @@ test('mouse click on TouchControls button still activates the button', () => {
   assert.deepEqual(calls, [['attack', true], ['attack', false]]);
 });
 
-test('floating joystick plants in game-layer coordinates despite mobile viewport offset and scale', () => {
+test('joystick stays anchored while fullscreen scale and viewport offsets affect touch geometry', () => {
   const { controls, send } = setup({ alive: true, spell: 'fireball' });
-  // This game layer is offset and displayed at half its CSS layout size.
+  // The game layer is offset and displayed at half its CSS layout size.
   controls.layer.getBoundingClientRect = () => ({ left: 50, top: 30, width: 400, height: 300 });
   const finger = { target: controls.layer };
-  send('pointerdown', 130, 255, finger); // game-layer point (160, 450), not (130, 255)
+  send('pointerdown', 130, 255, finger);
   assert.deepEqual({ x: controls.stick.x, y: controls.stick.y }, { x: 160, y: 450 });
-  assert.equal(controls.stickBase.style.left, '160px');
-  assert.equal(controls.stickBase.style.top, '450px');
+  assert.equal(controls.stickBase.style.left, undefined, 'touch never overwrites the CSS ring anchor');
+  assert.equal(controls.stickBase.style.top, undefined, 'touch never overwrites the CSS ring anchor');
   send('pointermove', 130, 225, finger);
-  assert.ok(controls.movement().forward > 0.9, 'drag up moves forward in the corrected local frame');
+  assert.ok(controls.movement().forward > 0.5, 'steering uses screen-space thumb movement');
   send('pointerup', 130, 225, finger);
   assert.equal(controls.stick, null);
-  assert.equal(controls.stickBase.style.left, '');
-  assert.equal(controls.stickBase.style.top, '');
+  assert.equal(controls.stickBase.style.left, undefined);
+  assert.equal(controls.stickBase.style.top, undefined);
 });
 
 test('left-side swipes still move even above the former 35% dead strip', () => {
@@ -411,17 +411,56 @@ test('a held joystick still updates and releases when browser sends events beyon
   assert.equal(controls.movement().forward, 0);
 });
 
-test('near-edge stick touchdown does not create movement before the thumb moves', () => {
+test('near-edge touch starts neutral and steers without moving the visual ring', () => {
   const { controls, send } = setup({ alive: true, spell: 'fireball' });
   const finger = { target: controls.layer };
   send('pointerdown', 10, 12, finger);
-  assert.deepEqual({ x: controls.stick.x, y: controls.stick.y }, { x: 66, y: 66 },
-    'the visual ring remains fully onscreen');
-  assert.equal(controls.movement().forward, 0,
-    'clamping the ring must not create phantom movement');
+  assert.deepEqual({ x: controls.stick.x, y: controls.stick.y }, { x: 10, y: 12 },
+    'record the actual touch, without snapping it to a 66px anchor');
+  assert.equal(controls.stickBase.style.left, undefined);
+  assert.equal(controls.stickBase.style.top, undefined);
+  assert.equal(controls.movement().forward, 0);
   assert.equal(controls.movement().right, 0);
   send('pointermove', 10, 0, finger);
-  assert.ok(controls.movement().forward > 0, 'movement follows real thumb displacement');
+  assert.ok(controls.movement().forward > 0, 'movement follows the actual touch delta');
   send('pointerup', 10, 0, finger);
+  assert.equal(controls.movement().forward, 0);
+});
+
+test('fullscreen layout temporarily reporting zero dimensions never teleports the joystick', () => {
+  const { input, controls, send } = setup({ alive: true, spell: 'fireball' });
+  input.touch = controls;
+  // Reproduces the geometry the old clamp mishandled: x/y were forced to (66,66).
+  controls.layer.clientWidth = 0;
+  controls.layer.clientHeight = 0;
+  controls.layer.getBoundingClientRect = () => ({ left: 0, top: 0, width: 0, height: 0 });
+  const ring = { closest: (selector) => selector === '.touch-stick' ? controls.stickBase : null };
+  send('pointerdown', 118, 475, { target: ring, pointerId: 33 });
+  assert.equal(controls.stickBase.style.left, undefined, 'ring left remains defined exclusively by CSS');
+  assert.equal(controls.stickBase.style.top, undefined, 'ring top remains defined exclusively by CSS');
+  assert.equal(input.movement().forward, 0, 'touching alone does not propel the player');
+  send('pointermove', 118, 420, { target: ring, pointerId: 33 });
+  assert.ok(input.movement().forward > 0.9, 'steering does not depend on valid layer dimensions');
+  assert.equal(input.movement().right, 0);
+  send('pointerup', 118, 420, { target: ring, pointerId: 33 });
+  assert.equal(input.movement().forward, 0, 'release restores neutral movement');
+  assert.equal(controls.stickBase.style.left, undefined);
+  assert.equal(controls.stickBase.style.top, undefined);
+});
+
+test('joystick survives a layer resize during the same drag without reversing or jumping', () => {
+  const { controls, send } = setup({ alive: true, spell: 'fireball' });
+  const finger = { target: controls.layer };
+  send('pointerdown', 120, 460, finger);
+  send('pointermove', 120, 430, finger);
+  const before = controls.movement().forward;
+  assert.ok(before > 0);
+  controls.layer.clientWidth = 400;
+  controls.layer.clientHeight = 0;
+  controls.layer.getBoundingClientRect = () => ({ left: 10, top: 80, width: 400, height: 0 });
+  send('pointermove', 120, 410, finger);
+  assert.ok(controls.movement().forward > before, 'screen-space delta survives layout changes');
+  assert.equal(controls.stickBase.style.top, undefined);
+  send('pointercancel', 120, 410, finger);
   assert.equal(controls.movement().forward, 0);
 });

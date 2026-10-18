@@ -1,7 +1,7 @@
 // Touch input math, kept free of the DOM so it runs in node tests.
 //
-// The left half of the screen is a floating joystick: it appears where the thumb lands. Tilt beyond the dead zone
-// moves, as fast as the stick is tilted (a full run from about four-fifths of the way out); pushing it to the rim
+// The left-side joystick has a fixed visual ring and tracks thumb displacement from touchdown. Tilt beyond the dead
+// zone moves, as fast as the thumb is displaced (a full run from about four-fifths of the way out); pushing it to the rim
 // straight ahead sprints (like holding Shift), so a thumb can sprint without letting go of the stick. The right half
 // turns the view.
 
