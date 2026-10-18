@@ -10,7 +10,7 @@ import { practiceOverride } from '../../shared/src/practiceRecast.mjs';
 // On-screen controls for phones and tablets. They drive the same InputController actions as the mouse and
 // keyboard, so the server, prediction and animation see no difference between the two.
 //
-// Left of STICK_ZONE: a floating movement stick. Everywhere else: drag to look. Attack and Guard also turn the view
+// Left of STICK_ZONE: a fixed visual movement stick, steered by thumb displacement. Everywhere else: drag to look. Attack and Guard also turn the view
 // while held, so a thumb can swing and aim in one motion.
 
 const STICK_ZONE = 0.42;
@@ -301,9 +301,8 @@ export class TouchControls {
     // keep the finger's moves and release even when it slides off its button (the pointer may already be gone)
     try { this.layer.setPointerCapture?.(event.pointerId); } catch { /* released before we could capture it */ }
     const point = gamePoint(event, this.layer);
-    // The ring is a real touch target, not decoration. In particular do not impose a
-    // screen-height cutoff: a previously floated stick can remain near the top of the
-    // play area, and a gesture begun over its visible ring must still be able to steer.
+    // The ring is a real touch target. It does not float when pressed; a
+    // resized/fullscreen mobile viewport cannot teleport the player's control.
     const onStick = event.target.closest?.('.touch-stick');
     if (onStick || (point.x >= 0 && point.x < this.layer.clientWidth * STICK_ZONE
       && point.y >= 0 && point.y <= this.layer.clientHeight)) {
@@ -460,23 +459,28 @@ export class TouchControls {
   }
 
   #startStick(event, point) {
-    // plant the stick under the thumb, far enough from the edges for the whole ring to show
-    const margin = TOUCH.stickRadius + 10;
-    const x = Math.max(margin, Math.min(this.layer.clientWidth - margin, point.x));
-    const y = Math.max(margin, Math.min(this.layer.clientHeight - margin, point.y));
-    // The visible base is clamped clear of the edges, but input displacement is measured
-    // from the real touchdown. Otherwise a near-edge tap starts with a phantom tilt.
-    this.stick = { id: event.pointerId, x, y, originX: point.x, originY: point.y };
+    // The joystick's outer ring stays anchored in the lower left. Never write its CSS
+    // left/top from touch-layer dimensions: on mobile fullscreen/resize transitions
+    // they can be stale and clamp both axes to the upper-left minimum (66, 66).
+    // Capture the starting screen point; only *relative* thumb movement steers.
+    this.stick = {
+      id: event.pointerId,
+      x: point.x, y: point.y,
+      clientX: event.clientX, clientY: event.clientY,
+    };
     this.#gateHeld('move', true, 'touch-stick');
-    this.stickBase.style.left = `${x}px`;
-    this.stickBase.style.top = `${y}px`;
     this.stickBase.classList.add('held');
     this.#moveStick(event);
   }
 
   #moveStick(event) {
-    const point = gamePoint(event, this.layer);
-    const vector = stickVector(point.x - this.stick.originX, point.y - this.stick.originY);
+    // Use client-space deltas rather than gamePoint()/getBoundingClientRect() for
+    // steering. The latter is useful for picking a touch zone, but a fullscreen
+    // resize or transformed mobile shell can change its dimensions mid-gesture.
+    const dx = event.clientX - this.stick.clientX;
+    const dy = event.clientY - this.stick.clientY;
+    const delta = screenTurn?.vector(dx, dy) ?? { x: dx, y: dy };
+    const vector = stickVector(delta.x, delta.y);
     this.stickSprintRequested = vector.sprint;
     this.#gateHeld('move', true, 'touch-stick', false);
     const sprint = this.#gateHeld('sprint', vector.sprint, 'touch-stick');
@@ -493,8 +497,6 @@ export class TouchControls {
     this.#gateHeld('sprint', false, 'touch-latch');
     this.stickState = { forward: 0, right: 0, sprint: false };
     this.stickBase.classList.remove('held', 'sprint');
-    this.stickBase.style.left = '';
-    this.stickBase.style.top = '';
     this.stickKnob.style.transform = '';
     // the sprint toggle lasts until the thumb lets go of the stick
     if (this.sprintLatched) {
