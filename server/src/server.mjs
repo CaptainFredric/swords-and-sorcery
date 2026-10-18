@@ -357,7 +357,8 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
         send(session, { type: 'error', message: 'Invalid team size: must be 2 or 3' });
         return;
       }
-      const room = roomManager.createBreakthroughRoom(time, Boolean(message.isPrivate ?? true), undefined, { teamSize });
+      const resolvedWorld = message.worldId === 'blackbell-foundry' ? 'blackbell-foundry' : 'bastion-breach';
+      const room = roomManager.createBreakthroughRoom(time, Boolean(message.isPrivate ?? true), resolvedWorld, { teamSize });
       room.setBotSkill(message.botSkill);
       const player = createNetworkPlayer(session, room, message.name, message.team ?? null);
       room.provisionModeActors(time);
@@ -382,8 +383,11 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
           return;
         }
       }
-      const defaultWorld = message.mode === GAME_MODES.BREAKTHROUGH ? 'bastion-breach' : arenaOrDefault(message.worldId);
-      const room = roomManager.createSoloRoom(message.mode, time, defaultWorld, { teamSize });
+      const resolvedWorld = message.mode === GAME_MODES.BREAKTHROUGH
+        ? (message.worldId === 'blackbell-foundry' ? 'blackbell-foundry' : 'bastion-breach')
+        : arenaOrDefault(message.worldId);
+      const room = roomManager.createSoloRoom(message.mode, time, resolvedWorld, { teamSize });
+
       const player = createNetworkPlayer(session, room, message.name, message.team ?? null);
       // (how well the rival plays: the player's choice, the Knight's otherwise)
       room.setBotSkill(message.botSkill);

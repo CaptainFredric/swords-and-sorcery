@@ -6,7 +6,9 @@ export const WORLD_NAMES = Object.freeze({
   'ruined-keep': 'The Ruined Keep',
   'shattered-keep': 'The Shattered Keep',
   'bastion-breach': 'Bastion Breach',
+  'blackbell-foundry': 'Blackbell Foundry',
 });
+
 
 export function worldLabel(worldId) {
   return (WORLD_NAMES[worldId] ?? String(worldId || 'Unknown')).toUpperCase();

@@ -832,13 +832,13 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
   },
   {
     id: 'notFall',
-    text: 'Why I should not fall. One: I am a knight. Two: Knights do not fall. Three—',
+    text: 'Why I should not fall. One: I am a knight. Two: Knights do not fall. Three-',
     trigger: 'appeal',
     priority: 'normal', rarity: 0.06, cooldown: 600,
     section: 'Defeat & Death',
     credits: { title: 'Why I Should Not Fall', description: 'Very rarely after defeat, to the rustle of his notes, interrupted by respawn.', note: 'The appeal is supported by documentation.' },
     // (dead air out, never the words: a stretch of the rustle after the title, the silence before "One", a little
-    // before "Two", so "Three—" arrives with the respawn; no word is hurried. "One:" and "Two:" a touch up: the list)
+    // before "Two", so "Three-" arrives with the respawn; no word is hurried. "One:" and "Two:" a touch up: the list)
     voice: {
       drive: 2.0, rmsDb: -17, expandBelowDb: -44,
       edits: [{ cut: [1.2, 1.36] }, { cut: [1.425, 1.58] }, { cut: [2.335, 2.445] }, { lift: [1.6, 1.86], db: 2.5 }, { lift: [2.53, 2.73], db: 2.5 }],
@@ -880,7 +880,7 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     trigger: 'coldHurt',
     priority: 'low', rarity: 0.7, cooldown: 15, gain: 0.8,
     section: 'Injury',
-    credits: { title: 'Minor Injury — Cold Start', description: 'A minor hit after enough time without being hurt.', note: 'Pain has resumed.' },
+    credits: { title: 'Minor Injury', description: 'A minor hit after enough time without being hurt.', note: 'Pain has resumed.' },
     voice: { drive: 2.0, rmsDb: -17 }, file: 'MinorHitAfterHiatus1.mp3',
   },
   {
@@ -989,7 +989,7 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     trigger: { avengedLow: 1, matchDecided: 1 },
     priority: 'normal', rarity: 0.3, cooldown: 240,
     section: 'Remarks & Oddities',
-    credits: { title: 'Think About It', description: 'Rarely after avenging a near-fatal attack—or receiving the final blow that loses the match.', note: 'Responsibility has been assigned outward.' },
+    credits: { title: 'Think About It', description: 'Rarely after avenging a near-fatal attack or receiving the final blow that loses the match.', note: 'Responsibility has been assigned outward.' },
     voice: { drive: 2.2, rmsDb: -16 }, file: 'NowThinkDone.mp3',
   },
   {
@@ -1051,7 +1051,7 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
     trigger: 'guardClaim',
     priority: 'normal', rarity: 0.15, cooldown: 180,
     section: 'Battle & Abilities',
-    credits: { title: 'That Should Stop You', description: 'When Guard is raised against an immediate threat—and, if it breaks moments later, when the claim is disproved.', note: 'The conclusion was revised promptly.' },
+    credits: { title: 'That Should Stop You', description: 'When Guard is raised against an immediate threat and, if it breaks moments later, when the claim is disproved.', note: 'The conclusion was revised promptly.' },
     voice: { drive: 2.2, rmsDb: -16, semitones: -0.5 },
   },
   {
@@ -1131,7 +1131,7 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
   },
   {
     id: 'doomCut',
-    text: 'OHHHH—',
+    text: 'OHHHH-',
     trigger: 'doomInterrupted',
     priority: 'high', rarity: 1, cooldown: 0,
     section: 'Remarks & Oddities',
@@ -1141,15 +1141,15 @@ export const VOICE_LINE_DECLARATIONS = Object.freeze([
   },
   {
     id: 'threeStrikes',
-    text: 'Strikes I count Three! And you will be forced to Flee! One! And done— Two! You will be through! Three!.. where’s the flee? Wha—!? A fourth strike!?',
+    text: 'Strikes I count Three! And you will be forced to Flee! One! And done- Two! You will be through! Three!.. where’s the flee? Wha-!? A fourth strike!?',
     // (the count is of his sword's blows landing on that same foe, each word when its blow has landed and the last
     // word is said: voiceScenes.mjs. Five recordings, the five parts)
     parts: [
       { words: 'Strikes I count Three! And you will be forced to Flee!', beats: [{ words: 'Strikes I count Three!' }, { at: 2.21, words: 'And you will be forced to Flee!' }] },
-      'One! And done—',
+      'One! And done-',
       'Two! You will be through!',
       { words: 'Three!.. where’s the flee?', beats: [{ words: 'Three!..' }, { at: 1.62, words: 'where’s the flee?' }] },
-      { words: 'Wha—!? A fourth strike!?', beats: [{ words: 'Wha—!?' }, { at: 1.14, words: 'A fourth strike!?' }] },
+      { words: 'Wha-!? A fourth strike!?', beats: [{ words: 'Wha-!?' }, { at: 1.14, words: 'A fourth strike!?' }] },
     ],
     trigger: 'strikeCount',
     priority: 'normal', rarity: 0.1, cooldown: 300, perLife: 1,

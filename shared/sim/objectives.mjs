@@ -30,6 +30,8 @@ export function createObjectiveState(worldObjectives = []) {
     name: obj.name || `Objective ${i + 1}`,
     position: Object.freeze({ x: obj.x, y: obj.y ?? 0, z: obj.z }),
     radius: obj.radius ?? 6.0,
+    verticalBelow: obj.verticalBelow ?? 1.2,
+    verticalAbove: obj.verticalAbove ?? 2.5,
     captureSec: obj.captureSec ?? 15,
     decayRate: obj.decayRate ?? 0.5,
   }));
@@ -45,6 +47,7 @@ export function createObjectiveState(worldObjectives = []) {
     contested: false,
     capturing: false,
     decaying: false,
+    overtime: false,
     wasContested: false,
     lastContestedAt: -Infinity,
     lastCaptureProgressAt: -Infinity,
@@ -65,6 +68,8 @@ export function stepObjectives(room, dt, nowSec) {
 
   const center = currentObj.position;
   const radiusSq = currentObj.radius * currentObj.radius;
+  const vBelow = currentObj.verticalBelow ?? 1.2;
+  const vAbove = currentObj.verticalAbove ?? 2.5;
 
   let attackers = 0;
   let defenders = 0;
@@ -73,8 +78,11 @@ export function stepObjectives(room, dt, nowSec) {
     const dx = player.position.x - center.x;
     const dz = player.position.z - center.z;
     if (dx * dx + dz * dz <= radiusSq) {
-      if (player.team === TEAMS.ATTACKERS) attackers += 1;
-      else if (player.team === TEAMS.DEFENDERS) defenders += 1;
+      const dy = player.position.y - center.y;
+      if (dy >= -vBelow && dy <= vAbove) {
+        if (player.team === TEAMS.ATTACKERS) attackers += 1;
+        else if (player.team === TEAMS.DEFENDERS) defenders += 1;
+      }
     }
   }
 
@@ -124,17 +132,33 @@ export function stepObjectives(room, dt, nowSec) {
         state.phase += 1;
         state.progress = 0;
         state.capturing = false;
+        // Stage transition bonus: breaches grant stage time (+150s) to assault High Sanctum
+        const bonusSec = 150;
+        if (room.overtime) {
+          room.overtime = false;
+          state.overtime = false;
+          room.overtimeClearedAt = null;
+          room.policy.matchSeconds = Math.max(room.policy.matchSeconds ?? 0, (nowSec - room.matchStartedAt) + bonusSec);
+        } else if (Number.isFinite(room.policy.matchSeconds) && Number.isFinite(room.matchStartedAt)) {
+          const remaining = (room.matchStartedAt + room.policy.matchSeconds) - nowSec;
+          if (remaining < bonusSec) {
+            room.policy.matchSeconds += (bonusSec - remaining);
+          }
+        }
         const nextObj = state.objectives[state.index];
         room.events.push({
           type: 'objectiveAdvanced',
           nextIndex: state.index,
           nextObjectiveId: nextObj.id,
           nextObjectiveName: nextObj.name,
+          stageBonusSec: bonusSec,
           at: nowSec,
         });
       } else {
         state.completed = true;
         state.capturing = false;
+        room.overtime = false;
+        state.overtime = false;
         room.finish(TEAMS.ATTACKERS, nowSec, 'objective');
       }
     }

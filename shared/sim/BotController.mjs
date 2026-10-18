@@ -826,11 +826,26 @@ function selectTeamGoal(room, actor, ai, nowSec) {
   // Role-based spatial spread inside the objective ring so teammates never stack on the exact same point
   const angle = (rivalIndex * 2.09 + teamOffset) % (2 * Math.PI);
   const spreadRadius = rivalIndex === 0 ? Math.min(1.6, activeObj.radius * 0.3) : Math.min(activeObj.radius * 0.68, 3.6);
-  const goalPos = {
+  let goalPos = {
     x: objPos.x + Math.sin(angle) * spreadRadius,
     y: objPos.y,
     z: objPos.z + Math.cos(angle) * spreadRadius,
   };
+
+  // World-specific tactical positioning, approach lanes, and defensive retreats
+  if (typeof room.world?.tactics?.getTacticalGoal === 'function') {
+    const tactical = room.world.tactics.getTacticalGoal({
+      actor,
+      rivalIndex,
+      objectiveState: room.objectiveState,
+      activeObj,
+      enemies,
+      defaultGoal: goalPos,
+      disengageTarget: () => { ai.targetId = null; },
+    });
+    if (tactical) goalPos = tactical;
+  }
+
 
   const allies = [...room.players.values()].filter((p) => p !== actor && p.alive && areAllies(room, actor, p) && (p.actorKind !== 'human' || p.connected));
   const distToObj = distance2d(actor, { position: objPos });
@@ -909,8 +924,12 @@ function selectTeamGoal(room, actor, ai, nowSec) {
     return { target: pickDistributedTarget(enemiesAtObj), goalPos, holdRing: false };
   }
 
-  // 6. If this bot is the sole point capper inside the ring, stay in the ring rather than chasing enemies far outside
-  if (actor.team === TEAMS.ATTACKERS && distToObj <= activeObj.radius && room.objectiveState.attackersCount <= 1) {
+  // 6. If this bot is inside the ring while capturing, stay in the ring rather than chasing enemies far outside
+  if (actor.team === TEAMS.ATTACKERS && distToObj <= activeObj.radius && (room.objectiveState.capturing || room.objectiveState.attackersCount <= 1)) {
+    const enemyInRing = enemies.filter((e) => distance2d(e, { position: objPos }) <= activeObj.radius + 1.2);
+    if (enemyInRing.length) {
+      return { target: pickDistributedTarget(enemyInRing), goalPos, holdRing: true };
+    }
     return { target: null, goalPos, holdRing: true };
   }
 
@@ -990,7 +1009,7 @@ export function stepBotControllers(
           actor.yaw = actor.input.yaw;
           actor.input.forward = 1;
           actor.input.right = 0;
-          actor.input.sprint = dist > BOT_SPRINT_DISTANCE && (actor.guardStamina ?? 100) > BOT_SPRINT_STAMINA_RESERVE;
+          actor.input.sprint = (dist > BOT_SPRINT_DISTANCE && (actor.guardStamina ?? 100) > BOT_SPRINT_STAMINA_RESERVE) || (Boolean(room.overtime) && dist > 2.0);
         } else {
           actor.input.forward = 0;
           actor.input.right = 0;

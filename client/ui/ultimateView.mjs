@@ -43,5 +43,5 @@ export function vortexHint({ touch = false, bindings = {} } = {}) {
     const code = touch ? null : bindings[action]?.[0];
     return code ? HELD_WORDS[code] ?? keyLabel(code).toUpperCase() : fallback;
   };
-  return `${word('attack', 'ATTACK')} — FIRE   ·   ${word('guard', 'GUARD')} — BLADE`;
+  return `${word('attack', 'ATTACK')} - FIRE   ·   ${word('guard', 'GUARD')} - BLADE`;
 }

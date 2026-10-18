@@ -113,7 +113,7 @@ const KEY_LABELS = {
 
 /** How a key code reads on a key chip: KeyQ -> Q, Digit1 -> 1, Mouse0 -> LMB. */
 export function keyLabel(code) {
-  if (!code) return '—';
+  if (!code) return '-';
   if (KEY_LABELS[code]) return KEY_LABELS[code];
   if (/^Key[A-Z]$/.test(code)) return code.slice(3);
   if (/^Digit\d$/.test(code)) return code.slice(5);

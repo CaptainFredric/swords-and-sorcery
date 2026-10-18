@@ -636,7 +636,7 @@ test('22. the Credits\' copy as written, and found by its words; what was replac
   assert.equal(entry('magicDefeat').note, 'His objection does not extend to personal use.');
   // a few of the new ones, to the letter
   assert.deepEqual([entry('thinkAbout').title, entry('thinkAbout').when, entry('thinkAbout').note],
-    ['Think About It', 'Rarely after avenging a near-fatal attack—or receiving the final blow that loses the match.', 'Responsibility has been assigned outward.']);
+    ['Think About It', 'Rarely after avenging a near-fatal attack or receiving the final blow that loses the match.', 'Responsibility has been assigned outward.']);
   assert.deepEqual([entry('stopYou').title, entry('stopYou').note], ['That Should Stop You', 'The conclusion was revised promptly.']);
   assert.equal(entry('theDeceased').note, 'The rivalry has been granted an unusually long maintenance period.');
   assert.equal(entry('spellDoom').when, 'Very rarely, when he has enough uninterrupted time to begin spelling a threat.');

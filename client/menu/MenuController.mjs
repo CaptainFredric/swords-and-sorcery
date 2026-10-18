@@ -82,6 +82,18 @@ export class MenuController {
     return chosen;
   }
 
+  /** Selected battlefield for Breakthrough ('bastion-breach', 'blackbell-foundry'). */
+  breakthroughArena() {
+    const raw = this.storage?.getItem?.('ss-breakthrough-arena');
+    return raw === 'blackbell-foundry' ? 'blackbell-foundry' : 'bastion-breach';
+  }
+
+  chooseBreakthroughArena(arena) {
+    const chosen = arena === 'blackbell-foundry' ? 'blackbell-foundry' : 'bastion-breach';
+    this.storage?.setItem?.('ss-breakthrough-arena', chosen);
+    return chosen;
+  }
+
   /** Preferred side for Solo Breakthrough ('AUTO', 'ATTACKERS', 'DEFENDERS'). */
   soloTeam() {
     return this.breakthroughTeam();
@@ -120,7 +132,8 @@ export class MenuController {
     const team = (teamPref === 'ATTACKERS' || teamPref === 'DEFENDERS') ? teamPref : null;
     const skill = (typeof options === 'object' && options?.botSkill) ? options.botSkill : this.breakthroughSkill();
     const size = (typeof options === 'object' && options?.teamSize) ? Number(options.teamSize) : this.breakthroughSize();
-    return this.#withName(rawName, (name) => this.socket.startSolo('BREAKTHROUGH', name, 'bastion-breach', skill, team, size));
+    const arena = (typeof options === 'object' && options?.worldId) ? options.worldId : this.breakthroughArena();
+    return this.#withName(rawName, (name) => this.socket.startSolo('BREAKTHROUGH', name, arena, skill, team, size));
   }
 
   createBreakthroughPrivate(rawName, options = null) {
@@ -128,8 +141,16 @@ export class MenuController {
     const team = (teamPref === 'ATTACKERS' || teamPref === 'DEFENDERS') ? teamPref : null;
     const skill = (typeof options === 'object' && options?.botSkill) ? options.botSkill : this.breakthroughSkill();
     const size = (typeof options === 'object' && options?.teamSize) ? Number(options.teamSize) : this.breakthroughSize();
-    return this.#withName(rawName, (name) => this.socket.createBreakthroughRoom(name, team, skill, size));
+    const worldId = (typeof options === 'object' && options?.worldId) ? options.worldId : null;
+    return this.#withName(rawName, (name) => {
+      if (worldId) {
+        return this.socket.createBreakthroughRoom(name, team, skill, size, worldId);
+      }
+      return this.socket.createBreakthroughRoom(name, team, skill, size);
+    });
   }
+
+
 
   practice(rawName) {
     return this.#withName(rawName, (name) => this.socket.startSolo('PRACTICE', name, this.soloArena()));
