@@ -480,7 +480,8 @@ test('opt-in mobile touch diagnostics report gesture state without intercepting 
     send('pointermove', 120, 380, finger);
     assert.ok(controls.movement().forward > 0.5);
     assert.match(controls.touchDebug.textContent, /held 1/);
-    assert.match(controls.touchDebug.textContent, /raw F0\.[5-9]/);
+    const raw = /raw F(-?\d+\.\d+)/.exec(controls.touchDebug.textContent);
+    assert.ok(raw && Number(raw[1]) > 0.5, 'diagnostics show the actual nonzero movement strength');
     send('pointerup', 120, 380, finger);
     assert.equal(controls.movement().forward, 0);
     assert.match(controls.touchDebug.textContent, /held 0/);
