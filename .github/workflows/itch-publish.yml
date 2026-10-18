@@ -1,0 +1,121 @@
+name: Publish approved itch candidate
+
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_run:
+        description: Successful MAIN candidate workflow run ID
+        type: string
+        required: true
+      candidate_sha:
+        description: Full 40 character source revision from candidate summary
+        type: string
+        required: true
+      candidate_sha256:
+        description: Exact ZIP SHA256 from candidate summary
+        type: string
+        required: true
+      operation:
+        description: First upload uses hidden migration; rollback requires a reason
+        type: choice
+        options: [release, migrate, rollback]
+        required: true
+      rollback_reason:
+        description: Required only for rollback
+        type: string
+      recovery_run:
+        description: Optional original publication run ID for rollback from a preserved recovery draft
+        type: string
+      approved:
+        description: I authorize this exact candidate and operation to change the itch channel
+        type: boolean
+        default: false
+        required: true
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: itch-release
+  cancel-in-progress: false
+
+env:
+  CANDIDATE_RUN: ${{ inputs.candidate_run }}
+  CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+  CANDIDATE_SHA256: ${{ inputs.candidate_sha256 }}
+  RELEASE_OPERATION: ${{ inputs.operation }}
+  RELEASE_APPROVED: ${{ inputs.approved }}
+  ROLLBACK_REASON: ${{ inputs.rollback_reason }}
+  RECOVERY_RUN: ${{ inputs.recovery_run }}
+
+jobs:
+  reject:
+    if: github.ref != 'refs/heads/main' || !inputs.approved
+    runs-on: ubuntu-latest
+    steps:
+      - name: Reject unapproved or non main publication
+        run: |
+          echo '::error::Dispatch from main and explicitly authorize the exact candidate. No upload attempted.'
+          exit 1
+
+  preflight:
+    if: github.ref == 'refs/heads/main' && inputs.approved
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+      - name: Validate protected environment configuration
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/release/environment.mjs
+      - name: Download and verify exact successful main candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/release/candidate.mjs download dist/approved
+      - name: Verify deployed server compatibility
+        run: node scripts/release/server-check.mjs dist/approved
+
+  publish:
+    needs: preflight
+    if: github.ref == 'refs/heads/main' && inputs.approved
+    environment: itch-release
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: write # draft recovery archive only; no Pages or Render deployment
+      actions: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+      - name: Install pinned official Butler distribution
+        run: node scripts/release/install-butler.mjs
+      - name: Revalidate, preserve recovery archive, push and verify channel processing
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
+          ITCH_HTML5_CHANNEL_READY: ${{ vars.ITCH_HTML5_CHANNEL_READY }}
+        run: node scripts/release/publish.mjs dist/approved
+      - name: Preserve publication receipt
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: itch-publication-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            dist/approved/publication.json
+            dist/approved/server-check.json
+          if-no-files-found: ignore
+          retention-days: 90
