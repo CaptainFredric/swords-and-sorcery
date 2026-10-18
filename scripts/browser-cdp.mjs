@@ -53,4 +53,3 @@ export class CdpClient {
 
   close() { this.socket?.close(); }
 }
-
