@@ -468,3 +468,23 @@ test('joystick survives a layer resize during the same drag without reversing or
   send('pointercancel', 120, 410, finger);
   assert.equal(controls.movement().forward, 0);
 });
+
+test('opt-in mobile touch diagnostics report gesture state without intercepting controls', () => {
+  const previousLocation = globalThis.location;
+  globalThis.location = { search: '?touchDebug=1' };
+  try {
+    const { controls, send } = setup({ alive: true, spell: 'fireball' });
+    assert.ok(controls.touchDebug, 'diagnostic readout is present only when requested');
+    const finger = { target: controls.layer };
+    send('pointerdown', 120, 430, finger);
+    send('pointermove', 120, 380, finger);
+    assert.ok(controls.movement().forward > 0.5);
+    assert.match(controls.touchDebug.textContent, /held 1/);
+    assert.match(controls.touchDebug.textContent, /raw F0\.[5-9]/);
+    send('pointerup', 120, 380, finger);
+    assert.equal(controls.movement().forward, 0);
+    assert.match(controls.touchDebug.textContent, /held 0/);
+  } finally {
+    globalThis.location = previousLocation;
+  }
+});
