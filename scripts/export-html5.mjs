@@ -20,6 +20,10 @@ export function configuredHtml(html, server) {
   return html.replace(/<meta charset="UTF-8"\s*\/>/, (charset) => `${charset}\n  ${meta}`);
 }
 
+export function archiveWarnings(count) {
+  return count >= 900 ? [`HTML5 file budget: ${count} of 1000 files used; review growth before adding assets.`] : [];
+}
+
 export function checkLimits(entries) {
   if (entries.length > 1000) throw new Error('itch.io limit: 1000 files');
   for (const entry of entries) {
@@ -37,7 +41,7 @@ export async function exportHtml5({ root = path.resolve(import.meta.dirname, '..
   await mkdir(out, { recursive: true });
   const staging = await mkdtemp(path.join(out, '.stage-'));
   const files = [];
-  const record = async (relative) => files.push({ path: relative, size: (await stat(path.join(staging, relative))).size });
+  const record = async (relative) => files.push({ path: relative, size: (await stat(path.join(staging, relative))).size, sha256: createHash('sha256').update(await readFile(path.join(staging, relative))).digest('hex') });
   try {
     const copy = async (directory) => {
       for (const entry of (await readdir(path.join(root, directory), { withFileTypes: true })).sort((a, b) => a.name.localeCompare(b.name))) {
@@ -71,6 +75,7 @@ export async function exportHtml5({ root = path.resolve(import.meta.dirname, '..
       extractedBytes: files.reduce((total, f) => total + f.size, 0),
       archiveBytes: (await stat(zip)).size,
       sha256: createHash('sha256').update(await readFile(zip)).digest('hex'),
+      warnings: archiveWarnings(files.length),
       entries: files,
     };
     await writeFile(path.join(out, 'export-report.json'), `${JSON.stringify(report, null, 2)}\n`);
@@ -80,5 +85,6 @@ export async function exportHtml5({ root = path.resolve(import.meta.dirname, '..
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
   const report = await exportHtml5({ server: process.env.GAME_SERVER || DEFAULT_GAME_SERVER });
+  for (const warning of report.warnings) console.warn(warning);
   console.log(`${report.zip}\n${report.files} files, ${(report.archiveBytes / 1024 ** 2).toFixed(2)} MB zipped, ${(report.extractedBytes / 1024 ** 2).toFixed(2)} MB extracted\nRevision ${report.revision}\nSHA256 ${report.sha256}`);
 }

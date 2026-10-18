@@ -1,5 +1,7 @@
 # Castleward release
 
+Release automation: [operations guide](OPERATIONS.md). Automatic candidate preparation and explicitly approved Butler publication are separate. Historical observations below identify their dates and do not describe the current uploaded revision.
+
 Current release pass: October 14, 2026. Runtime baseline: `3e4c3687d4acdc79ba8bdcab9eb3072c3c4ba516`.
 
 [Play the current game](https://captainfredric.github.io/swords-and-sorcery/) · [itch.io project](https://captainfredric.itch.io/swords-and-sorcery) · [Page copy](PROJECT_PAGE.md) · [Media provenance](media-manifest.json)

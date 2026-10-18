@@ -12,3 +12,6 @@ artifacts/
 
 # Guest wallet storage, private server data
 .data/
+
+# Local pinned release tooling
+.butler/
