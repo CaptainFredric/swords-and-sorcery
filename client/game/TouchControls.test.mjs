@@ -410,3 +410,18 @@ test('a held joystick still updates and releases when browser sends events beyon
   assert.equal(controls.stick, null, 'off-layer release must not strand the joystick');
   assert.equal(controls.movement().forward, 0);
 });
+
+test('near-edge stick touchdown does not create movement before the thumb moves', () => {
+  const { controls, send } = setup({ alive: true, spell: 'fireball' });
+  const finger = { target: controls.layer };
+  send('pointerdown', 10, 12, finger);
+  assert.deepEqual({ x: controls.stick.x, y: controls.stick.y }, { x: 66, y: 66 },
+    'the visual ring remains fully onscreen');
+  assert.equal(controls.movement().forward, 0,
+    'clamping the ring must not create phantom movement');
+  assert.equal(controls.movement().right, 0);
+  send('pointermove', 10, 0, finger);
+  assert.ok(controls.movement().forward > 0, 'movement follows real thumb displacement');
+  send('pointerup', 10, 0, finger);
+  assert.equal(controls.movement().forward, 0);
+});
