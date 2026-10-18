@@ -71,7 +71,7 @@ test('touch play enters the arena without pointer lock and leaves it through the
   const input = await read('client/game/InputController.mjs');
   const runtime = await read('client/game/GameRuntime.mjs');
   const main = await read('client/main.mjs');
-  assert.match(input, /requestPointerLock\(\) \{[\s\S]*if \(this\.touch\) this\.#setTouchFocus\(true\)/);
+  assert.match(input, /requestPointerLock\(\{ mouse = false \} = \{\}\) \{[\s\S]*if \(this\.touch && !mouse\) \{[\s\S]*this\.#setTouchFocus\(true\);[\s\S]*return;/);
   assert.match(input, /releaseFocus\(\) \{/);
   assert.match(runtime, /enableTouch\(\) \{[\s\S]*new TouchControls/);
   assert.match(runtime, /!preservePointerLock\) this\.input\.releaseFocus\(\)/);
