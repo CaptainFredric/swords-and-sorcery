@@ -372,7 +372,11 @@ test('left-side swipes still move even above the former 35% dead strip', () => {
   send('pointermove', 125, 370, finger);
   assert.ok(controls.movement().forward > 0, 'lower-left movement remains unchanged');
   globalThis.window.dispatchEvent(new Event('blur'));
-  assert.equal(controls.stick, null, 'app focus loss clears captured movement');
+  assert.ok(controls.stick, 'transient browser blur while visible must not discard a held stick');
+  assert.ok(controls.movement().forward > 0, 'movement survives a non-hidden Android system overlay');
+  globalThis.document.hidden = true;
+  globalThis.document.dispatchEvent(new Event('visibilitychange'));
+  assert.equal(controls.stick, null, 'backgrounding the app releases the held stick');
   assert.equal(controls.movement().forward, 0);
 });
 
@@ -463,4 +467,25 @@ test('joystick survives a layer resize during the same drag without reversing or
   assert.equal(controls.stickBase.style.top, undefined);
   send('pointercancel', 120, 410, finger);
   assert.equal(controls.movement().forward, 0);
+});
+
+test('opt-in mobile touch diagnostics report gesture state without intercepting controls', () => {
+  const previousLocation = globalThis.location;
+  globalThis.location = { search: '?touchDebug=1' };
+  try {
+    const { controls, send } = setup({ alive: true, spell: 'fireball' });
+    assert.ok(controls.touchDebug, 'diagnostic readout is present only when requested');
+    const finger = { target: controls.layer };
+    send('pointerdown', 120, 430, finger);
+    send('pointermove', 120, 380, finger);
+    assert.ok(controls.movement().forward > 0.5);
+    assert.match(controls.touchDebug.textContent, /held 1/);
+    const raw = /raw F(-?\d+\.\d+)/.exec(controls.touchDebug.textContent);
+    assert.ok(raw && Number(raw[1]) > 0.5, 'diagnostics show the actual nonzero movement strength');
+    send('pointerup', 120, 380, finger);
+    assert.equal(controls.movement().forward, 0);
+    assert.match(controls.touchDebug.textContent, /held 0/);
+  } finally {
+    globalThis.location = previousLocation;
+  }
 });

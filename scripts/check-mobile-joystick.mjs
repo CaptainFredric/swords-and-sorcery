@@ -97,6 +97,38 @@ try {
   await touch('touchEnd', x, y - 54);
   assert.equal(await evaluate('window.__stickProbe.controls.movement().forward'), 0);
   console.log('Mobile Chromium touch PASS', JSON.stringify({ info, dragging, invalid }));
+
+  // This probe alone is not sufficient: it bypasses InputController, GameRuntime,
+  // and the host's movement transport. Drive an actual local Practice session.
+  await evaluate("window.__stickProbe.controls.dispose(); window.__stickProbe.root.remove(); window.__stickProbe = null");
+  await until(() => evaluate("Boolean(document.querySelector('#menu'))"), 'menu loaded');
+  await until(() => evaluate("Boolean(document.querySelector('#loading-veil')?.classList.contains('done'))"), 'menu ready');
+  await evaluate("(() => { const offer=document.querySelector('#tutorial-onboarding'); if (offer && !offer.hidden) document.querySelector('[data-tutorial-onboarding-skip]').click(); const field=document.querySelector('#player-name');field.value='Mobile Inspector';field.dispatchEvent(new Event('input',{bubbles:true}));document.querySelector('#solo-button').click(); })()");
+  await until(() => evaluate("Boolean(document.querySelector('#solo-menu') && !document.querySelector('#solo-menu').classList.contains('hidden'))"), 'Solo menu');
+  await evaluate("document.querySelector('#practice-mode').click()");
+  await until(() => evaluate("Boolean(window.__ssRuntime?.touch && window.__ssRuntime?.localAuth && !document.querySelector('#hud').classList.contains('hidden'))"), 'live local Practice runtime');
+  const preFocus = await evaluate("(() => { const r=window.__ssRuntime; return {playing:r.playing,touchFocus:r.input.touchFocus,touchActive:r.touch.active,inputEnabled:r.input.enabled,suspended:r.input.suspended,world:r.worldId}; })()");
+  // Focus without issuing browser pointer lock; mobile touch uses touchFocus instead.
+  await evaluate("window.__ssRuntime.input.requestPointerLock()");
+  await until(() => evaluate("Boolean(window.__ssRuntime.input.enabled && window.__ssRuntime.touch.active)"), 'arena touch focus');
+  const pre = await evaluate("(() => { const r=window.__ssRuntime;const t=r.touch;const b=t.stickBase.getBoundingClientRect();return {ring:{left:b.left,top:b.top,width:b.width,height:b.height},position:{...r.localState.position},playing:r.playing,inputEnabled:r.input.enabled,touchFocus:r.input.touchFocus};})()");
+  const tx = pre.ring.left + pre.ring.width*.7;
+  const ty = pre.ring.top + pre.ring.height*.5;
+  assert.ok(tx > 0 && ty > 0, 'live gameplay ring must be onscreen');
+  await touch('touchStart', tx, ty);
+  await until(() => evaluate('Boolean(window.__ssRuntime.touch.stick)'), 'live input press');
+  await touch('touchMove', tx, ty-54);
+  const live = await evaluate("(() => {const r=window.__ssRuntime;const t=r.touch;return {movement:r.input.movement(),raw:t.stickState,stick:t.stick,enabled:r.input.enabled,focus:r.input.touchFocus,active:t.active,blocked:[...(r.input.blockedHolds||[])],last:r.lastSentInput,position:{...r.localState.position}};})()");
+  assert.ok(live.raw.forward > .7, 'raw joystick must produce directional input: '+JSON.stringify(live));
+  assert.ok(live.movement.forward > .7, 'game input must pass movement intent: '+JSON.stringify(live));
+  await wait(350);
+  const network = await evaluate("(() => {const r=window.__ssRuntime;return {last:r.lastSentInput,position:{...r.localState.position},movement:r.input.movement(),playing:r.playing};})()");
+  assert.ok(network.last?.forward > .7, 'actual game loop must transmit forward intent: '+JSON.stringify(network));
+  await touch('touchEnd', tx, ty-54);
+  await until(() => evaluate('window.__ssRuntime.input.movement().forward===0'), 'live joystick release');
+  const post = await evaluate("(() => {const r=window.__ssRuntime;return {touchFocus:r.input.touchFocus,enabled:r.input.enabled,last:r.lastSentInput,position:{...r.localState.position}};})()");
+  console.log('Full game mobile movement PASS', JSON.stringify({preFocus,pre,live,network,post}));
+
 } finally {
   try { socket?.close(); } catch { /* no socket */ }
   chrome.kill('SIGTERM');
