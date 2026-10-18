@@ -305,8 +305,8 @@ export class TouchControls {
     // screen-height cutoff: a previously floated stick can remain near the top of the
     // play area, and a gesture begun over its visible ring must still be able to steer.
     const onStick = event.target.closest?.('.touch-stick');
-    if ((onStick || (point.x >= 0 && point.x < this.layer.clientWidth * STICK_ZONE))
-      && point.y >= 0 && point.y <= this.layer.clientHeight) {
+    if (onStick || (point.x >= 0 && point.x < this.layer.clientWidth * STICK_ZONE
+      && point.y >= 0 && point.y <= this.layer.clientHeight)) {
       // If the browser lost a previous finger's release, a fresh press on the visible
       // ring can reclaim movement instead of leaving the joystick stranded.
       if (onStick && this.stick && this.stick.id !== event.pointerId) this.#endStick();
@@ -464,7 +464,9 @@ export class TouchControls {
     const margin = TOUCH.stickRadius + 10;
     const x = Math.max(margin, Math.min(this.layer.clientWidth - margin, point.x));
     const y = Math.max(margin, Math.min(this.layer.clientHeight - margin, point.y));
-    this.stick = { id: event.pointerId, x, y };
+    // The visible base is clamped clear of the edges, but input displacement is measured
+    // from the real touchdown. Otherwise a near-edge tap starts with a phantom tilt.
+    this.stick = { id: event.pointerId, x, y, originX: point.x, originY: point.y };
     this.#gateHeld('move', true, 'touch-stick');
     this.stickBase.style.left = `${x}px`;
     this.stickBase.style.top = `${y}px`;
@@ -474,7 +476,7 @@ export class TouchControls {
 
   #moveStick(event) {
     const point = gamePoint(event, this.layer);
-    const vector = stickVector(point.x - this.stick.x, point.y - this.stick.y);
+    const vector = stickVector(point.x - this.stick.originX, point.y - this.stick.originY);
     this.stickSprintRequested = vector.sprint;
     this.#gateHeld('move', true, 'touch-stick', false);
     const sprint = this.#gateHeld('sprint', vector.sprint, 'touch-stick');
