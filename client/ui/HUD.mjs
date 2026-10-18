@@ -9,6 +9,22 @@ import { STAGGER } from '../../shared/src/stagger.mjs';
 import { practiceOverride } from '../../shared/src/practiceRecast.mjs';
 import { ultimateFor } from '../../shared/src/ultimates.mjs';
 
+const HIT_MARKERS = Object.freeze({
+  hit: { priority: 1, milliseconds: 160 },
+  glance: { priority: 1, milliseconds: 160 },
+  block: { priority: 2, milliseconds: 200 },
+  break: { priority: 3, milliseconds: 240 },
+  parry: { priority: 3, milliseconds: 240 },
+  kill: { priority: 4, milliseconds: 320 },
+});
+
+export function duelScoreView(local, snapshot) {
+  if (!local || snapshot?.tutorial || !['BOT_DUEL', 'DUEL'].includes(snapshot?.mode) || snapshot.players?.length !== 2) return null;
+  const rival = snapshot.players.find(player => player.id !== local.id);
+  if (!rival || !snapshot.players.some(player => player.id === local.id)) return null;
+  return { mine: Math.max(0, local.kills ?? 0), theirs: Math.max(0, rival.kills ?? 0), rival: rival.name ?? 'Rival' };
+}
+
 // how long after Spells & Chivalry takes hold its prepared spells still say how to use them (s)
 export const PREPARED_HINT_SEC = 2.5;
 
@@ -123,6 +139,9 @@ export class HUD {
     this.armourPlates = [...(this.armour?.querySelectorAll('.armour-plate') ?? [])];
     this.armourShown = -1;
     this.matchInfo = document.querySelector('#match-info');
+    this.duelScore = document.querySelector('#duel-score');
+    this.duelMine = this.duelScore?.querySelector('[data-duel-mine]');
+    this.duelTheirs = this.duelScore?.querySelector('[data-duel-theirs]');
     this.breakthroughHud = document.createElement('div');
     this.breakthroughHud.id = 'breakthrough-hud';
     this.breakthroughHud.className = 'breakthrough-hud hidden';
@@ -193,7 +212,7 @@ export class HUD {
   }
 
   show() { this.root.classList.remove('hidden'); this.root.setAttribute('aria-hidden', 'false'); }
-  hide() { this.root.classList.add('hidden'); this.root.setAttribute('aria-hidden', 'true'); }
+  hide() { this.root.classList.add('hidden'); this.root.setAttribute('aria-hidden', 'true'); this.clearHit(); }
   setPointerLocked(locked) {
     this.pointerHint.classList.toggle('hidden', locked);
     this.root.classList.toggle('pointer-locked', Boolean(locked));
@@ -261,6 +280,15 @@ export class HUD {
     this.#ultimate(local, serverNow, practice);
     this.#armour(steelStrength(local.steel, serverNow), local.steel?.calledAt);
     this.matchInfo.textContent = matchInfoText(snapshot, serverNow);
+    const duel = duelScoreView(local, snapshot);
+    if (this.duelScore) {
+      this.duelScore.classList.toggle('hidden', !duel);
+      if (duel) {
+        this.duelMine.textContent = String(duel.mine);
+        this.duelTheirs.textContent = String(duel.theirs);
+        this.duelScore.setAttribute('aria-label', `You ${duel.mine}, ${duel.rival} ${duel.theirs}`);
+      }
+    }
     const btView = breakthroughHudView(local, snapshot, serverNow);
     this.matchInfo.classList.toggle('hidden', btView.visible);
     this.breakthroughHud.classList.toggle('hidden', !btView.visible);
@@ -370,12 +398,14 @@ export class HUD {
   denied(ability) {
     const element = ability === 'spell' ? this.spell : ability === 'dash' ? this.dash : ability === 'ultimate' ? this.ultimate : null;
     if (!element) return;
-    element.classList.remove('denied');
-    // (restart the shake if it is already playing)
-    void element.offsetWidth;
-    element.classList.add('denied');
-    clearTimeout(element.deniedTimer);
-    element.deniedTimer = setTimeout(() => element.classList.remove('denied'), 320);
+    const touch = document.querySelector(`.touch-btn[data-action="${ability}"]`);
+    for (const tile of [element, touch].filter(Boolean)) {
+      tile.classList.remove('denied');
+      void tile.offsetWidth;
+      tile.classList.add('denied');
+      clearTimeout(tile.deniedTimer);
+      tile.deniedTimer = setTimeout(() => tile.classList.remove('denied'), 320);
+    }
   }
 
   /** While the spell cools, whether its key would throw the gauntlet now (dimmed while the sword has the hand). */
@@ -590,8 +620,19 @@ export class HUD {
   }
 
   hit(kind = 'hit') {
+    const marker = HIT_MARKERS[kind];
+    if (!marker || (HIT_MARKERS[this.hitKind]?.priority ?? 0) > marker.priority) return;
+    this.clearHit();
+    this.hitKind = kind;
     this.crosshair.classList.add(kind);
-    setTimeout(() => this.crosshair.classList.remove(kind), 130);
+    this.hitTimer = setTimeout(() => this.clearHit(), marker.milliseconds);
+  }
+
+  clearHit() {
+    clearTimeout(this.hitTimer);
+    this.hitTimer = null;
+    this.hitKind = null;
+    this.crosshair.classList.remove(...Object.keys(HIT_MARKERS));
   }
 
   addFeed(text, kind = '') {

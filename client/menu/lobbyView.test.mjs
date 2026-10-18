@@ -51,6 +51,12 @@ test('duels and bot duels keep their own wording and actions', () => {
   assert.equal(worldLabel('shattered-keep'), 'THE SHATTERED KEEP');
 });
 
+test('a focused Bot Duel countdown no longer asks for another Start press', () => {
+  const view = lobbyView({ mode: 'BOT_DUEL', roomState: 'COUNTDOWN', players: [human('me')] });
+  assert.equal(view.action.disabled, true);
+  assert.doesNotMatch(view.footer, /press.*start/i);
+});
+
 test('the seeking banner counts the wait, the other seekers and offers a bot once the server does', () => {
   assert.equal(seekView(null, 0).visible, false);
   assert.equal(seekView({ active: false }, 0).visible, false);

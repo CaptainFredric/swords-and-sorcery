@@ -14,7 +14,7 @@ import { RemotePlayers } from './RemotePlayers.mjs';
 import { WeaponView } from './WeaponView.mjs';
 import { Effects } from './Effects.mjs';
 import { SCENE_PRESENTATION } from './scenePresentation.mjs';
-import { localCombatFeedback, shouldPlayWorldClang } from './combatFeedback.mjs';
+import { damageHitMarker, localCombatFeedback, shouldPlayWorldClang } from './combatFeedback.mjs';
 import { castVisualDuration } from './weaponPose.mjs';
 import { localPushDirection } from './spellbladeMotion.mjs';
 import { blowDirection, glancing, hitKick, hitstopSeconds, impactPoint, steelHitFeel } from './hitFeel.mjs';
@@ -324,7 +324,13 @@ export class GameRuntime {
       if (this.socket.inspectionFrozen) return;
       const now = this.socket.serverNow();
       const practice = this.#inPractice();
-      if (!canPresentLocalAction('dash', this.localAuth, this.localState, now, { practice, gate: this.localGate })) return;
+      if (!canPresentLocalAction('dash', this.localAuth, this.localState, now, { practice, gate: this.localGate })) {
+        if (this.localAuth?.alive && this.localState) {
+          this.hud.denied?.('dash');
+          this.#play(deniedRecipe(), null, 0.45);
+        }
+        return;
+      }
       // (as the host does it: the dash itself as ever, its real cooldown as the yard's rule has it)
       const running = this.localState.dashReadyAt;
       this.localState.dashReadyAt = -Infinity;
@@ -783,6 +789,7 @@ export class GameRuntime {
         }
       }
       if (event.type === 'block') {
+        if (event.attackerId === me) this.hud.hit('block');
         if (event.defenderId === me) this.weapon.block(false);
         // (a Vortex's blade is not thrown back by a guard: it is already coming round again)
         if (event.attackerId === me && !event.vortex) this.weapon.rebound();
@@ -793,6 +800,8 @@ export class GameRuntime {
           this.weapon.guardBreak(this.#pushTowardMe(event.attackerId));
         }
         if (event.attackerId === me) {
+          this.hud.hit('break');
+          this.hud.flashText('GUARD BROKEN', 'metal', 340);
           this.weapon.hitstop(0.09, 0.9);
         }
       }
@@ -811,7 +820,8 @@ export class GameRuntime {
       }
       if (event.type === 'damage') {
         if (event.attackerId === me) {
-          this.hud.hit('hit');
+          const marker = damageHitMarker(event, me);
+          if (marker) this.hud.hit(marker);
           // my numbers only: the blow's weight, rising off the body
           const victim = this.#bodyPosition(event.victimId);
           if (victim && event.amount > 0 && event.victimId !== me && this.view.damageNumbers) {

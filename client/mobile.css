@@ -82,6 +82,8 @@ button, input { touch-action: manipulation; }
 .touch-ui .guard-block span { font-size: 10px; letter-spacing: .12em; }
 .touch-ui .abilities { display: none; }
 .touch-ui .match-info { top: 10px; }
+.touch-ui .duel-score { top:39px; padding:3px 9px; gap:8px; }
+.touch-btn.denied { border-color:#f1aa7e; box-shadow:0 0 0 2px #d28b5b99,0 2px 10px #0006; }
 .touch-ui .kill-feed { top: 10px; right: calc(var(--safe-r) + 14px); width: min(260px, 34cqw); font-size: 10px; }
 .touch-ui .hud.pointer-locked .practice-tools { display: none; }
 .touch-ui .pointer-hint { top: 62%; padding: 12px 16px; font-size: 11px; }

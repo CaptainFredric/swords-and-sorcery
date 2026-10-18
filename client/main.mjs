@@ -199,6 +199,19 @@ const winnerTitle = $('#winner-title');
 const rematchButton = $('#rematch');
 const rematchCopy = $('#rematch-copy');
 
+const menuOptions = $('#menu-options');
+const menuMore = $('#menu-more');
+function updateMenuScrollCue() {
+  menuMore.hidden = menuOptions.clientHeight === 0 || menuOptions.scrollHeight - menuOptions.clientHeight - menuOptions.scrollTop < 12;
+}
+menuOptions.addEventListener('scroll', updateMenuScrollCue, { passive: true });
+const menuScrollObserver = new ResizeObserver(updateMenuScrollCue);
+for (const element of [menuOptions, $('#menu .game-brand'), $('#menu .command-rail')]) menuScrollObserver.observe(element);
+menuMore.addEventListener('click', () => menuOptions.scrollBy({
+  top: menuOptions.clientHeight * 0.65,
+  behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+}));
+
 const hud = new HUD();
 // one sound engine for the whole page; it unlocks on the first click or key press. Around it: the wind and bell of
 // the courtyard, the music, and the Spellblade's voice.
@@ -357,6 +370,7 @@ function route(screenId) {
   if (screenId === SCREEN_IDS.ARMORY) loadArmoryCues(sound);
   $('.turn-hint')?.classList.toggle('hidden', screenId === SCREEN_IDS.MAIN_MENU && tourAllowed());
   noteYard();
+  if (screenId === SCREEN_IDS.MAIN_MENU) requestAnimationFrame(updateMenuScrollCue);
 }
 
 // what you hear follows where you are: the courtyard and the hall theme in the menus, the battle theme in a match
@@ -1084,8 +1098,14 @@ $('#breakthrough-create-private')?.addEventListener('click', () => runMenuAction
   teamSize: menuController.breakthroughSize(),
   worldId: menuController.breakthroughArena(),
 }), SCREEN_IDS.BREAKTHROUGH_MENU));
-
-$('#bot-duel').addEventListener('click', () => runMenuAction(menuController.botDuel(nameInput.value), SCREEN_IDS.SOLO_MENU));
+function startBotDuel() {
+  if (!runMenuAction(menuController.botDuel(nameInput.value), SCREEN_IDS.SOLO_MENU)) return;
+  // Use this deliberate click to focus the arena. Joined/readiness still owns the countdown.
+  // If the browser refuses Pointer Lock, the existing Start Bot Duel button remains a fallback.
+  ensureRuntime();
+  runtime.requestPointerLock();
+}
+$('#bot-duel').addEventListener('click', startBotDuel);
 $('#inspection-mode').addEventListener('click', () => runMenuAction(menuController.inspectionPractice(nameInput.value), SCREEN_IDS.SOLO_MENU));
 $('#practice-mode').addEventListener('click', () => runMenuAction(menuController.practice(nameInput.value), SCREEN_IDS.SOLO_MENU));
 $('#create-breakthrough-room')?.addEventListener('click', () => runMenuAction(menuController.createBreakthroughPrivate(nameInput.value), SCREEN_IDS.PRIVATE_MENU));
@@ -1372,7 +1392,7 @@ document.addEventListener('keydown', event => {
 rematchButton.addEventListener('click', () => {
   if (latestSnapshot?.mode === 'BOT_DUEL') {
     // another Bot Duel straight away (the same rival), without a reload
-    returnToMenu({ then: () => runMenuAction(menuController.botDuel(nameInput.value), SCREEN_IDS.SOLO_MENU) });
+    returnToMenu({ then: startBotDuel });
     return;
   }
   socket.rematch();
