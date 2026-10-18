@@ -105,7 +105,10 @@ export class TouchControls {
 
     // A cancelled gesture is usually reported by pointercancel/lostpointercapture; leaving
     // the app or rotating it can also strand a captured thumb on some mobile browsers.
-    this.onBlur = () => this.reset();
+    // Android's fullscreen UI can briefly blur a still-visible page as the thumb
+    // presses. Do not discard the gesture; pointercancel/lost capture and a genuinely
+    // hidden document still end it safely.
+    this.onBlur = () => { if (document.hidden) this.reset(); };
     this.onVisibilityChange = () => { if (document.hidden) this.reset(); };
     window.addEventListener('blur', this.onBlur);
     document.addEventListener('visibilitychange', this.onVisibilityChange);
