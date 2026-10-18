@@ -76,6 +76,19 @@ export class TouchControls {
     this.preparedFan.className = 'touch-prepared-fan';
     this.preparedFan.hidden = true;
     this.layer.append(this.preparedFan);
+    // Opt-in, read-only mobile diagnostics (?touchDebug=1): no control interception.
+    // If hardware-specific pointer cancellation persists, screenshots show which
+    // boundary lost the input rather than only showing a highlighted joystick.
+    this.touchDebug = new URLSearchParams(globalThis.location?.search ?? '').has('touchDebug')
+      ? document.createElement('pre') : null;
+    this.touchDebugEvent = 'waiting';
+    this.touchDebugMoves = 0;
+    if (this.touchDebug) {
+      this.touchDebug.style.cssText = 'position:absolute;left:42%;bottom:80px;z-index:30;pointer-events:none;'
+        + 'background:#080a09dd;color:#bdedb8;border:1px solid #7aa277;padding:7px;'
+        + 'font:12px/1.3 monospace;white-space:pre;max-width:55%;user-select:none';
+      this.layer.append(this.touchDebug);
+    }
     this.stickBase = this.layer.querySelector('.touch-stick');
     this.stickKnob = this.layer.querySelector('.touch-stick-knob');
     this.buttons = Object.fromEntries(BUTTONS.map(({ action }) => [action, this.layer.querySelector(`[data-action="${action}"]`)]));
@@ -108,11 +121,17 @@ export class TouchControls {
     // Android's fullscreen UI can briefly blur a still-visible page as the thumb
     // presses. Do not discard the gesture; pointercancel/lost capture and a genuinely
     // hidden document still end it safely.
-    this.onBlur = () => { if (document.hidden) this.reset(); };
-    this.onVisibilityChange = () => { if (document.hidden) this.reset(); };
+    this.onBlur = () => {
+      this.touchDebugEvent = document.hidden ? 'blur-hidden' : 'blur-visible';
+      if (document.hidden) this.reset();
+    };
+    this.onVisibilityChange = () => {
+      this.touchDebugEvent = document.hidden ? 'visibility-hidden' : 'visibility-visible';
+      if (document.hidden) this.reset();
+    };
     window.addEventListener('blur', this.onBlur);
     document.addEventListener('visibilitychange', this.onVisibilityChange);
-    this.offScreenTurn = screenTurn?.onChange(() => this.reset());
+    this.offScreenTurn = screenTurn?.onChange(() => { this.touchDebugEvent = 'rotation'; this.reset(); });
 
     // the prompts name taps instead of clicks and Esc
     const hints = [
@@ -155,17 +174,31 @@ export class TouchControls {
   }
 
   movement() {
-    if (!this.active) return null;
+    if (!this.active) {
+      this.#showTouchDebug(null);
+      return null;
+    }
     const moveAllowed = this.#gateHeld('move', Boolean(this.stick), 'touch-stick', false);
     this.stickState.sprint = this.#gateHeld('sprint', this.stickSprintRequested, 'touch-stick', false);
     const moving = Math.abs(this.stickState.forward) + Math.abs(this.stickState.right) > 0;
-    return {
+    const result = {
       forward: moveAllowed ? this.stickState.forward : 0,
       right: moveAllowed ? this.stickState.right : 0,
       jump: this.jumpHeld || performance.now() < this.jumpUntil,
       sprint: moveAllowed && (this.stickState.sprint || this.#gateHeld('sprint', this.sprintLatched && moving, 'touch-latch', false)),
       crouch: Boolean(this.crouchLatched),
     };
+    this.#showTouchDebug(result);
+    return result;
+  }
+
+  #showTouchDebug(result) {
+    if (!this.touchDebug) return;
+    const num = value => Number(value ?? 0).toFixed(2);
+    this.touchDebug.textContent =
+      `TOUCH ${this.touchDebugEvent} | moves ${this.touchDebugMoves}\n`
+      + `active ${Number(this.active)} focus ${Number(Boolean(this.input.touchFocus))} enabled ${Number(Boolean(this.input.enabled))} held ${Number(Boolean(this.stick))}\n`
+      + `raw F${num(this.stickState.forward)} R${num(this.stickState.right)} | output F${num(result?.forward)} R${num(result?.right)}`;
   }
 
   // best effort: full screen hides the browser bars, and Android can then hold landscape
@@ -284,6 +317,7 @@ export class TouchControls {
   }
 
   #down = (event) => {
+    this.touchDebugEvent = 'down';
     if (!this.active) return;
     const isMouse = event.pointerType === 'mouse';
     const button = event.target.closest?.('[data-action]');
@@ -347,6 +381,7 @@ export class TouchControls {
   };
 
   #up = (event) => {
+    this.touchDebugEvent = event.type;
     if (event.pointerType === 'mouse' && !this.held.has(event.pointerId)) {
       const button = typeof event.button === 'number' && event.button >= 0 ? event.button : 0;
       this.input.handleMouseButtonUp?.(`Mouse${button}`);
@@ -477,6 +512,8 @@ export class TouchControls {
   }
 
   #moveStick(event) {
+    this.touchDebugEvent = 'pointermove';
+    this.touchDebugMoves += 1;
     // Use client-space deltas rather than gamePoint()/getBoundingClientRect() for
     // steering. The latter is useful for picking a touch zone, but a fullscreen
     // resize or transformed mobile shell can change its dimensions mid-gesture.
