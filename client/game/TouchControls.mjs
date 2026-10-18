@@ -14,8 +14,6 @@ import { practiceOverride } from '../../shared/src/practiceRecast.mjs';
 // while held, so a thumb can swing and aim in one motion.
 
 const STICK_ZONE = 0.42;
-// The upper-left HUD/menu is never a valid place to plant the movement joystick.
-const STICK_MIN_Y = 0.35;
 // a quick tap must stay pressed for at least two input sends (50 ms apart) to reach the server
 const JUMP_LATCH_MS = 150;
 
@@ -289,11 +287,13 @@ export class TouchControls {
     // keep the finger's moves and release even when it slides off its button (the pointer may already be gone)
     try { this.layer.setPointerCapture?.(event.pointerId); } catch { /* released before we could capture it */ }
     const point = gamePoint(event, this.layer);
-    if (point.x < this.layer.clientWidth * STICK_ZONE) {
-      // Keep the joystick away from the pause, scores, health and objective HUD.
-      if (point.x >= 0 && point.y >= this.layer.clientHeight * STICK_MIN_Y && point.y <= this.layer.clientHeight && !this.stick) {
-        this.#startStick(event, point);
-      }
+    // The ring is a real touch target, not decoration. In particular do not impose a
+    // screen-height cutoff: a previously floated stick can remain near the top of the
+    // play area, and a gesture begun over its visible ring must still be able to steer.
+    const onStick = event.target.closest?.('.touch-stick');
+    if ((onStick || (point.x >= 0 && point.x < this.layer.clientWidth * STICK_ZONE))
+      && point.y >= 0 && point.y <= this.layer.clientHeight) {
+      if (!this.stick) this.#startStick(event, point);
     } else if (!this.look) {
       this.look = { id: event.pointerId, x: point.x, y: point.y };
       this.#gateHeld('look', true, `touch-look:${event.pointerId}`, false);
