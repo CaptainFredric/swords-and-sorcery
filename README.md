@@ -66,6 +66,23 @@ Open `http://localhost:3001`. Choose Solo for a one browser test. To exercise mu
 
 `PORT` defaults to 3001. `HOST` can be set explicitly. Production uses the host supplied port.
 
+## Castleward: next 3D models
+
+The [Castleward 3D asset roadmap](docs/art/castleward-3d-asset-roadmap.md) tracks upcoming **authored models** and the difference between source candidates, review exports and assets actually integrated into the game.
+
+| Priority | Model | Production status / next work |
+| :--- | :--- | :--- |
+| Existing candidate | **Spellblade armored-fist battering ram** | Already modeled, with an external Argon animation-ready revision reported; **review and integrate**, not redesign from scratch. Independent forward-fired fist. |
+| Finish first | **Standby / Travel Tent** | Existing source concept; verify actual doorway, interior and signage (`STANDBY, SPELLBLADE` / `ENTER` at entry; `EXIT` on destination doorway). |
+| Next | **Wardstone / Renown Dispenser** | Build an in-world ceremonial reward apparatus. |
+| Next | **Outer Gate / gatehouse objective set** | Construct a believable gate with readable stage-transition/breach states and matching collision. |
+| Next | **Bi-Bye-llista** (*Two-Bolt Ballista*) | A tiny enchanted conditioning bolt fires immediately **while the enormous finisher makes its final draw**, then the heavy bolt fires almost at once. Marketed with complete sincerity as a weapon that “fires TWO shots instead of one.” |
+| Supporting | **Siege ladders, barricade/cover modules, supply wagon, training-yard target props, heraldic notice board, objective standards, camp dressing kit and reinforcement tent** | Additional authored siege/camp props; distinguish these from already working Practice and heraldic game systems. |
+
+These are **production intentions, not a claim that the assets are already in this repository or shipped**. Model briefs, technical constraints, and acceptance checklist: [full asset roadmap](docs/art/castleward-3d-asset-roadmap.md).
+
+**Worldbuilding and future animated gags:** [Renown hoarding, the Rightful Renowner, and its two judgment scenes](docs/ideas/renown-renowner-worldbuilding.md). These are creative concepts, not new gameplay requirements.
+
 ## Project structure
 
 ```text
