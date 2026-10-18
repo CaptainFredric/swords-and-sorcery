@@ -128,7 +128,9 @@ export function lobbyView(message, { localId = null, serverNow = 0, myVotes = {}
   if (ffa) footer = message.isPrivate === false
     ? 'A public room: anyone can walk in, even mid-match.'
     : 'Share the room code. The match starts when everyone is ready.';
-  if (botDuel) footer = 'Press Start Bot Duel when ready. A short countdown follows.';
+  if (botDuel) footer = message.roomState === 'COUNTDOWN'
+    ? 'Get ready. The duel begins after the countdown.'
+    : 'Press Start Bot Duel when ready. A short countdown follows.';
   if (breakthrough) {
     const mySide = me?.team === 'DEFENDERS' ? 'Defenders (Hold the Outer Gate)' : 'Attackers (Capture the Outer Gate)';
     footer = `Your side: ${mySide}. Empty 3v3 slots are filled by bots; friends joining by code replace bots.`;

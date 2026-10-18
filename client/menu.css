@@ -739,3 +739,14 @@ body.observing .herald-toast { left: 50cqw; max-width: calc(100cqw - 40px); }
   .banner-scroll { padding: 24px 22px 16px; }
   .herald-changes li { grid-template-columns: 68px minmax(0, 1fr); gap: 10px; }
 }
+.menu-scroll-cue { position:absolute; z-index:2; left:24px; right:24px; bottom:calc(var(--hem) + 12px); min-height:30px; border:1px solid #c99c5266; background:#5a211d; color:#f1dfae; font:700 10px/1 var(--font-script); letter-spacing:.12em; cursor:pointer; box-shadow:0 -8px 14px #69251e; }
+.menu-scroll-cue:hover { background:#742b24; border-color:#e7c47c; }
+.menu-scroll-cue:focus-visible { outline:2px solid #e7c47c; outline-offset:2px; }
+.menu-scroll-cue[hidden] { display:none; }
+@container app (max-height:640px) {
+  #menu .banner-scroll { padding-top:16px; }
+  #menu .crest { width:26px; height:31px; margin-bottom:4px; }
+  #menu .game-brand { margin-bottom:12px; }
+  #menu .eyebrow { font-size:10px; margin-bottom:4px; }
+  #menu h1 { font-size:24px; white-space:nowrap; letter-spacing:.015em; }
+}
