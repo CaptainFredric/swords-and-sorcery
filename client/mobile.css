@@ -66,8 +66,8 @@ button, input { touch-action: manipulation; }
 .touch-timer { position: absolute; inset: 0; display: grid; place-items: center; font-size: 15px; font-weight: 900; color: #f3ead2; text-shadow: 0 1px 3px #000; pointer-events: none; }
 .touch-btn.cooling svg, .touch-btn.cooling span { opacity: .4; }
 
-/* the stick rests at the lower left and jumps to wherever the thumb lands */
-.touch-stick { position: absolute; left: calc(var(--safe-l) + 118px); top: calc(100% - var(--safe-b) - 110px); width: 112px; height: 112px; margin: -56px 0 0 -56px; border-radius: 50%; border: 1.5px solid rgba(222, 204, 160, .38); background: radial-gradient(circle, rgba(20, 21, 17, .16), rgba(20, 21, 17, .4)); opacity: .5; pointer-events: none; transition: opacity .12s ease; }
+/* fixed lower-left movement ring: only its thumb knob moves; no layout snap during fullscreen/resize */
+.touch-stick { position: absolute; left: calc(var(--safe-l) + 118px); top: calc(100% - var(--safe-b) - 110px); width: 112px; height: 112px; margin: -56px 0 0 -56px; border-radius: 50%; border: 1.5px solid rgba(222, 204, 160, .38); background: radial-gradient(circle, rgba(20, 21, 17, .16), rgba(20, 21, 17, .4)); opacity: .5; pointer-events: auto; touch-action: none; transition: opacity .12s ease; }
 .touch-stick.held { opacity: 1; }
 .touch-stick.sprint { border-color: #e6c46a; box-shadow: 0 0 16px rgba(230, 196, 106, .4); }
 .touch-stick-knob { position: absolute; left: 50%; top: 50%; width: 50px; height: 50px; margin: -25px 0 0 -25px; border-radius: 50%; border: 1px solid rgba(240, 230, 205, .6); background: radial-gradient(circle at 45% 38%, rgba(240, 230, 205, .55), rgba(140, 128, 100, .45)); }

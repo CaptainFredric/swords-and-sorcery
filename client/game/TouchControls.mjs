@@ -1,7 +1,7 @@
 import { PreparedSpellSelector, preparedSpellView } from './preparedSpellSelector.mjs';
 import { MOVEMENT } from '../../shared/src/movement.mjs';
 import { spellFor } from '../../shared/src/spells.mjs';
-import { isDeliberateTap, lookDelta, stickVector, TOUCH } from './touchControlsModel.mjs';
+import { isDeliberateTap, lookDelta, stickVector, touchLayerPoint, TOUCH } from './touchControlsModel.mjs';
 import { screenTurn } from '../ui/screenTurn.mjs';
 import { ICONS, iconSvg } from '../ui/icons.mjs';
 import { ultimateView } from '../ui/ultimateView.mjs';
@@ -10,7 +10,7 @@ import { practiceOverride } from '../../shared/src/practiceRecast.mjs';
 // On-screen controls for phones and tablets. They drive the same InputController actions as the mouse and
 // keyboard, so the server, prediction and animation see no difference between the two.
 //
-// Left of STICK_ZONE: a floating movement stick. Everywhere else: drag to look. Attack and Guard also turn the view
+// Left of STICK_ZONE: a fixed visual movement stick, steered by thumb displacement. Everywhere else: drag to look. Attack and Guard also turn the view
 // while held, so a thumb can swing and aim in one motion.
 
 const STICK_ZONE = 0.42;
@@ -38,8 +38,15 @@ const BUTTONS = [
 const svg = (icon) => iconSvg(icon);
 
 // where a finger is in the game's own frame (the game may be lying sideways on a screen that stays upright)
-function gamePoint(event) {
-  return screenTurn ? screenTurn.point(event.clientX, event.clientY) : { x: event.clientX, y: event.clientY };
+function gamePoint(event, layer) {
+  const point = touchLayerPoint(
+    event.clientX, event.clientY,
+    layer.getBoundingClientRect?.(),
+    { width: layer.clientWidth, height: layer.clientHeight },
+    screenTurn?.angle ?? 0,
+  );
+  // A minimal non-DOM test harness has no element rect. Real browsers always provide one.
+  return point ?? (screenTurn ? screenTurn.point(event.clientX, event.clientY) : { x: event.clientX, y: event.clientY });
 }
 
 export class TouchControls {
@@ -69,6 +76,19 @@ export class TouchControls {
     this.preparedFan.className = 'touch-prepared-fan';
     this.preparedFan.hidden = true;
     this.layer.append(this.preparedFan);
+    // Opt-in, read-only mobile diagnostics (?touchDebug=1): no control interception.
+    // If hardware-specific pointer cancellation persists, screenshots show which
+    // boundary lost the input rather than only showing a highlighted joystick.
+    this.touchDebug = new URLSearchParams(globalThis.location?.search ?? '').has('touchDebug')
+      ? document.createElement('pre') : null;
+    this.touchDebugEvent = 'waiting';
+    this.touchDebugMoves = 0;
+    if (this.touchDebug) {
+      this.touchDebug.style.cssText = 'position:absolute;left:42%;bottom:80px;z-index:30;pointer-events:none;'
+        + 'background:#080a09dd;color:#bdedb8;border:1px solid #7aa277;padding:7px;'
+        + 'font:12px/1.3 monospace;white-space:pre;max-width:55%;user-select:none';
+      this.layer.append(this.touchDebug);
+    }
     this.stickBase = this.layer.querySelector('.touch-stick');
     this.stickKnob = this.layer.querySelector('.touch-stick-knob');
     this.buttons = Object.fromEntries(BUTTONS.map(({ action }) => [action, this.layer.querySelector(`[data-action="${action}"]`)]));
@@ -84,6 +104,34 @@ export class TouchControls {
     this.layer.addEventListener('pointercancel', this.#up);
     this.layer.addEventListener('lostpointercapture', this.#up);
     this.layer.addEventListener('contextmenu', (event) => event.preventDefault());
+    // Embedded mobile browsers may fail pointer capture when a drag crosses an overlay
+    // or browser chrome. Recover movement/end events delivered outside the touch layer.
+    this.onWindowStickMove = (event) => {
+      if (this.stick?.id === event.pointerId && !this.layer.contains?.(event.target)) this.#moveStick(event);
+    };
+    this.onWindowStickEnd = (event) => {
+      if (this.stick?.id === event.pointerId && !this.layer.contains?.(event.target)) this.#up(event);
+    };
+    window.addEventListener('pointermove', this.onWindowStickMove, { capture: true });
+    window.addEventListener('pointerup', this.onWindowStickEnd, { capture: true });
+    window.addEventListener('pointercancel', this.onWindowStickEnd, { capture: true });
+
+    // A cancelled gesture is usually reported by pointercancel/lostpointercapture; leaving
+    // the app or rotating it can also strand a captured thumb on some mobile browsers.
+    // Android's fullscreen UI can briefly blur a still-visible page as the thumb
+    // presses. Do not discard the gesture; pointercancel/lost capture and a genuinely
+    // hidden document still end it safely.
+    this.onBlur = () => {
+      this.touchDebugEvent = document.hidden ? 'blur-hidden' : 'blur-visible';
+      if (document.hidden) this.reset();
+    };
+    this.onVisibilityChange = () => {
+      this.touchDebugEvent = document.hidden ? 'visibility-hidden' : 'visibility-visible';
+      if (document.hidden) this.reset();
+    };
+    window.addEventListener('blur', this.onBlur);
+    document.addEventListener('visibilitychange', this.onVisibilityChange);
+    this.offScreenTurn = screenTurn?.onChange(() => { this.touchDebugEvent = 'rotation'; this.reset(); });
 
     // the prompts name taps instead of clicks and Esc
     const hints = [
@@ -126,17 +174,31 @@ export class TouchControls {
   }
 
   movement() {
-    if (!this.active) return null;
+    if (!this.active) {
+      this.#showTouchDebug(null);
+      return null;
+    }
     const moveAllowed = this.#gateHeld('move', Boolean(this.stick), 'touch-stick', false);
     this.stickState.sprint = this.#gateHeld('sprint', this.stickSprintRequested, 'touch-stick', false);
     const moving = Math.abs(this.stickState.forward) + Math.abs(this.stickState.right) > 0;
-    return {
+    const result = {
       forward: moveAllowed ? this.stickState.forward : 0,
       right: moveAllowed ? this.stickState.right : 0,
       jump: this.jumpHeld || performance.now() < this.jumpUntil,
       sprint: moveAllowed && (this.stickState.sprint || this.#gateHeld('sprint', this.sprintLatched && moving, 'touch-latch', false)),
       crouch: Boolean(this.crouchLatched),
     };
+    this.#showTouchDebug(result);
+    return result;
+  }
+
+  #showTouchDebug(result) {
+    if (!this.touchDebug) return;
+    const num = value => Number(value ?? 0).toFixed(2);
+    this.touchDebug.textContent =
+      `TOUCH ${this.touchDebugEvent} | moves ${this.touchDebugMoves}\n`
+      + `active ${Number(this.active)} focus ${Number(Boolean(this.input.touchFocus))} enabled ${Number(Boolean(this.input.enabled))} held ${Number(Boolean(this.stick))}\n`
+      + `raw F${num(this.stickState.forward)} R${num(this.stickState.right)} | output F${num(result?.forward)} R${num(result?.right)}`;
   }
 
   // best effort: full screen hides the browser bars, and Android can then hold landscape
@@ -245,10 +307,17 @@ export class TouchControls {
 
   dispose() {
     this.reset();
+    window.removeEventListener('pointermove', this.onWindowStickMove, { capture: true });
+    window.removeEventListener('pointerup', this.onWindowStickEnd, { capture: true });
+    window.removeEventListener('pointercancel', this.onWindowStickEnd, { capture: true });
+    window.removeEventListener('blur', this.onBlur);
+    document.removeEventListener('visibilitychange', this.onVisibilityChange);
+    this.offScreenTurn?.();
     this.layer.remove();
   }
 
   #down = (event) => {
+    this.touchDebugEvent = 'down';
     if (!this.active) return;
     const isMouse = event.pointerType === 'mouse';
     const button = event.target.closest?.('[data-action]');
@@ -260,7 +329,7 @@ export class TouchControls {
       return;
     }
     if (isMouse) {
-      this.input.requestPointerLock?.();
+      this.input.requestPointerLock?.({ mouse: true });
       const code = `Mouse${event.button ?? 0}`;
       this.input.handleMouseButtonDown?.(code);
       return;
@@ -268,8 +337,15 @@ export class TouchControls {
     event.preventDefault();
     // keep the finger's moves and release even when it slides off its button (the pointer may already be gone)
     try { this.layer.setPointerCapture?.(event.pointerId); } catch { /* released before we could capture it */ }
-    const point = gamePoint(event);
-    if (point.x < this.layer.clientWidth * STICK_ZONE) {
+    const point = gamePoint(event, this.layer);
+    // The ring is a real touch target. It does not float when pressed; a
+    // resized/fullscreen mobile viewport cannot teleport the player's control.
+    const onStick = event.target.closest?.('.touch-stick');
+    if (onStick || (point.x >= 0 && point.x < this.layer.clientWidth * STICK_ZONE
+      && point.y >= 0 && point.y <= this.layer.clientHeight)) {
+      // If the browser lost a previous finger's release, a fresh press on the visible
+      // ring can reclaim movement instead of leaving the joystick stranded.
+      if (onStick && this.stick && this.stick.id !== event.pointerId) this.#endStick();
       if (!this.stick) this.#startStick(event, point);
     } else if (!this.look) {
       this.look = { id: event.pointerId, x: point.x, y: point.y };
@@ -280,7 +356,7 @@ export class TouchControls {
   #move = (event) => {
     if (event.pointerType === 'mouse' && !this.held.has(event.pointerId)) return;
     if (this.preparedTouch?.id === event.pointerId) {
-      const point = gamePoint(event);
+      const point = gamePoint(event, this.layer);
       const gesture = this.preparedTouch;
       gesture.selector.move(point.x - gesture.x, point.y - gesture.y);
       this.#showPreparedTouch();
@@ -295,7 +371,7 @@ export class TouchControls {
     const aiming = held === 'attack' || held === 'guard' ? this.aim?.get(event.pointerId) : null;
     const tracker = looking ?? aiming;
     if (!tracker) return;
-    const point = gamePoint(event);
+    const point = gamePoint(event, this.layer);
     const { yaw, pitch } = lookDelta(point.x - tracker.x, point.y - tracker.y);
     tracker.x = point.x;
     tracker.y = point.y;
@@ -305,6 +381,7 @@ export class TouchControls {
   };
 
   #up = (event) => {
+    this.touchDebugEvent = event.type;
     if (event.pointerType === 'mouse' && !this.held.has(event.pointerId)) {
       const button = typeof event.button === 'number' && event.button >= 0 ? event.button : 0;
       this.input.handleMouseButtonUp?.(`Mouse${button}`);
@@ -312,7 +389,7 @@ export class TouchControls {
     }
     this.#gateHeld('look', false, `touch-look:${event.pointerId}`, false);
     if (this.preparedTouch?.id === event.pointerId) {
-      const point = gamePoint(event);
+      const point = gamePoint(event, this.layer);
       const gesture = this.preparedTouch;
       const chosen = gesture.selector.move(point.x - gesture.x, point.y - gesture.y);
       this.#cancelPreparedTouch();
@@ -324,7 +401,7 @@ export class TouchControls {
     // crouch toggles only for a deliberate tap: pressed on the button and lifted soon after, without sliding off it (a
     // finger passing over it while steering or looking belongs to the stick or the view, and never reaches it at all)
     if (action === 'crouch' && this.crouchTap?.id === event.pointerId) {
-      const point = gamePoint(event);
+      const point = gamePoint(event, this.layer);
       const tap = this.crouchTap;
       this.crouchTap = null;
       if (isDeliberateTap(tap, { at: performance.now(), x: point.x, y: point.y, lifted: event.type === 'pointerup' })) {
@@ -350,7 +427,7 @@ export class TouchControls {
     this.held.set(event.pointerId, action);
     if (action === 'attack' || action === 'guard') {
       this.aim ??= new Map();
-      this.aim.set(event.pointerId, gamePoint(event));
+      this.aim.set(event.pointerId, gamePoint(event, this.layer));
       this.#gateHeld('look', true, `touch-look:${event.pointerId}`, false);
     }
     if (!this.#gateHeld(action, true, `touch-button:${event.pointerId}`)) {
@@ -364,7 +441,7 @@ export class TouchControls {
     if (action === 'spell') {
       if (this.prepared?.visible) {
         if (!this.preparedTouch) {
-          const point = gamePoint(event);
+          const point = gamePoint(event, this.layer);
           this.preparedTouch = { id: event.pointerId, ...point, selector: new PreparedSpellSelector(this.prepared.spells.map((spell) => spell.id), this.prepared.current, { touch: true }) };
           this.#showPreparedTouch();
         }
@@ -383,7 +460,7 @@ export class TouchControls {
       this.buttons.sprint.classList.toggle('on', this.sprintLatched);
     }
     if (action === 'crouch') {
-      const point = gamePoint(event);
+      const point = gamePoint(event, this.layer);
       this.crouchTap = { id: event.pointerId, at: performance.now(), x: point.x, y: point.y };
     }
     if (action === 'scores') this.input.scoreboardHeld = !this.input.scoreboardHeld;
@@ -420,21 +497,30 @@ export class TouchControls {
   }
 
   #startStick(event, point) {
-    // plant the stick under the thumb, far enough from the edges for the whole ring to show
-    const margin = TOUCH.stickRadius + 10;
-    const x = Math.max(margin, Math.min(this.layer.clientWidth - margin, point.x));
-    const y = Math.max(margin, Math.min(this.layer.clientHeight - margin, point.y));
-    this.stick = { id: event.pointerId, x, y };
+    // The joystick's outer ring stays anchored in the lower left. Never write its CSS
+    // left/top from touch-layer dimensions: on mobile fullscreen/resize transitions
+    // they can be stale and clamp both axes to the upper-left minimum (66, 66).
+    // Capture the starting screen point; only *relative* thumb movement steers.
+    this.stick = {
+      id: event.pointerId,
+      x: point.x, y: point.y,
+      clientX: event.clientX, clientY: event.clientY,
+    };
     this.#gateHeld('move', true, 'touch-stick');
-    this.stickBase.style.left = `${x}px`;
-    this.stickBase.style.top = `${y}px`;
     this.stickBase.classList.add('held');
     this.#moveStick(event);
   }
 
   #moveStick(event) {
-    const point = gamePoint(event);
-    const vector = stickVector(point.x - this.stick.x, point.y - this.stick.y);
+    this.touchDebugEvent = 'pointermove';
+    this.touchDebugMoves += 1;
+    // Use client-space deltas rather than gamePoint()/getBoundingClientRect() for
+    // steering. The latter is useful for picking a touch zone, but a fullscreen
+    // resize or transformed mobile shell can change its dimensions mid-gesture.
+    const dx = event.clientX - this.stick.clientX;
+    const dy = event.clientY - this.stick.clientY;
+    const delta = screenTurn?.vector(dx, dy) ?? { x: dx, y: dy };
+    const vector = stickVector(delta.x, delta.y);
     this.stickSprintRequested = vector.sprint;
     this.#gateHeld('move', true, 'touch-stick', false);
     const sprint = this.#gateHeld('sprint', vector.sprint, 'touch-stick');
@@ -451,8 +537,6 @@ export class TouchControls {
     this.#gateHeld('sprint', false, 'touch-latch');
     this.stickState = { forward: 0, right: 0, sprint: false };
     this.stickBase.classList.remove('held', 'sprint');
-    this.stickBase.style.left = '';
-    this.stickBase.style.top = '';
     this.stickKnob.style.transform = '';
     // the sprint toggle lasts until the thumb lets go of the stick
     if (this.sprintLatched) {

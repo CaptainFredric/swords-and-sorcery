@@ -1,7 +1,7 @@
 // Touch input math, kept free of the DOM so it runs in node tests.
 //
-// The left half of the screen is a floating joystick: it appears where the thumb lands. Tilt beyond the dead zone
-// moves, as fast as the stick is tilted (a full run from about four-fifths of the way out); pushing it to the rim
+// The left-side joystick has a fixed visual ring and tracks thumb displacement from touchdown. Tilt beyond the dead
+// zone moves, as fast as the thumb is displaced (a full run from about four-fifths of the way out); pushing it to the rim
 // straight ahead sprints (like holding Shift), so a thumb can sprint without letting go of the stick. The right half
 // turns the view.
 
@@ -34,6 +34,30 @@ export function stickVector(dx, dy, { radius = TOUCH.stickRadius, deadZone = TOU
   const right = unitX * magnitude;
   const sprint = raw >= TOUCH.sprintAt && -unitY >= TOUCH.sprintForward;
   return { forward, right, magnitude, sprint, knob };
+}
+
+/**
+ * Client pointer coordinates -> local game-layer coordinates.
+ *
+ * getBoundingClientRect() already includes CSS scaling and the rotated shell's position.
+ * Divide by its displayed dimensions rather than assuming the game always begins at
+ * window (0, 0). For a quarter-turned game, swap the axes before applying the ratios.
+ * Keep out-of-bounds values: a captured finger may legitimately drag past an edge.
+ */
+export function touchLayerPoint(clientX, clientY, rect, size, angle = 0) {
+  if (!rect || !(rect.width > 0) || !(rect.height > 0) || !(size?.width > 0) || !(size?.height > 0)) return null;
+  if (angle === 90) return {
+    x: (clientY - rect.top) * size.width / rect.height,
+    y: (rect.left + rect.width - clientX) * size.height / rect.width,
+  };
+  if (angle === -90) return {
+    x: (rect.top + rect.height - clientY) * size.width / rect.height,
+    y: (clientX - rect.left) * size.height / rect.width,
+  };
+  return {
+    x: (clientX - rect.left) * size.width / rect.width,
+    y: (clientY - rect.top) * size.height / rect.height,
+  };
 }
 
 export function lookDelta(dx, dy) {

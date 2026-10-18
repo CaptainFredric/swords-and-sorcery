@@ -137,7 +137,13 @@ export class InputController {
       }
     });
 
-    this.#listen(window, 'blur', () => this.releaseInputs());
+    // An Android fullscreen/permission overlay may blur the window without hiding it.
+    // Cancelling touch holds on that transient blur made the joystick light briefly,
+    // then return to neutral. Pointer cancellation and document visibility still
+    // release touch input when the gesture really ends or the page is backgrounded.
+    this.#listen(window, 'blur', () => {
+      if (!this.touchFocus || document.hidden) this.releaseInputs();
+    });
     this.#listen(document, 'visibilitychange', () => {
       if (!document.hidden) return;
       this.releaseInputs();
@@ -246,14 +252,18 @@ export class InputController {
     if (this.touchFocus === focused) return;
     this.touchFocus = focused;
     this.touch?.setActive(focused);
-    if (focused) this.touch?.enterImmersive();
+    // Entering touch focus must not launch Android's fullscreen/pointer-lock UI.
+    // ScreenTurn's explicit PLAY SIDEWAYS control owns optional immersive mode.
     this.#setEnabled(focused);
   }
 
   // enter the arena: pointer lock with a mouse, the on-screen controls on a touch device
-  requestPointerLock() {
+  requestPointerLock({ mouse = false } = {}) {
     if (this.suspended) return;
-    if (this.touch) this.#setTouchFocus(true);
+    if (this.touch && !mouse) {
+      this.#setTouchFocus(true);
+      return; // Mobile touch needs neither browser pointer lock nor forced fullscreen.
+    }
     if (!this.pointerLocked && typeof this.element.requestPointerLock === 'function') {
       try {
         const promise = this.element.requestPointerLock();

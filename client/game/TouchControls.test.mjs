@@ -341,3 +341,151 @@ test('mouse click on TouchControls button still activates the button', () => {
   send('pointerup', 600, 300, { action: 'attack', pointerType: 'mouse', button: 0 });
   assert.deepEqual(calls, [['attack', true], ['attack', false]]);
 });
+
+test('joystick stays anchored while fullscreen scale and viewport offsets affect touch geometry', () => {
+  const { controls, send } = setup({ alive: true, spell: 'fireball' });
+  // The game layer is offset and displayed at half its CSS layout size.
+  controls.layer.getBoundingClientRect = () => ({ left: 50, top: 30, width: 400, height: 300 });
+  const finger = { target: controls.layer };
+  send('pointerdown', 130, 255, finger);
+  assert.deepEqual({ x: controls.stick.x, y: controls.stick.y }, { x: 160, y: 450 });
+  assert.equal(controls.stickBase.style.left, undefined, 'touch never overwrites the CSS ring anchor');
+  assert.equal(controls.stickBase.style.top, undefined, 'touch never overwrites the CSS ring anchor');
+  send('pointermove', 130, 225, finger);
+  assert.ok(controls.movement().forward > 0.5, 'steering uses screen-space thumb movement');
+  send('pointerup', 130, 225, finger);
+  assert.equal(controls.stick, null);
+  assert.equal(controls.stickBase.style.left, undefined);
+  assert.equal(controls.stickBase.style.top, undefined);
+});
+
+test('left-side swipes still move even above the former 35% dead strip', () => {
+  const { controls, send } = setup({ alive: true, spell: 'fireball' });
+  const finger = { target: controls.layer };
+  send('pointerdown', 125, 120, finger);
+  assert.deepEqual({ x: controls.stick.x, y: controls.stick.y }, { x: 125, y: 120 });
+  send('pointermove', 125, 70, finger);
+  assert.ok(controls.movement().forward > 0.8, 'a swipe near the visible ring must steer');
+  send('pointerup', 125, 70, finger);
+  assert.equal(controls.movement().forward, 0);
+  send('pointerdown', 125, 420, finger);
+  send('pointermove', 125, 370, finger);
+  assert.ok(controls.movement().forward > 0, 'lower-left movement remains unchanged');
+  globalThis.window.dispatchEvent(new Event('blur'));
+  assert.ok(controls.stick, 'transient browser blur while visible must not discard a held stick');
+  assert.ok(controls.movement().forward > 0, 'movement survives a non-hidden Android system overlay');
+  globalThis.document.hidden = true;
+  globalThis.document.dispatchEvent(new Event('visibilitychange'));
+  assert.equal(controls.stick, null, 'backgrounding the app releases the held stick');
+  assert.equal(controls.movement().forward, 0);
+});
+
+test('touches on the displayed ring work directly and can recover a lost pointer release', () => {
+  const { controls, send } = setup({ alive: true, spell: 'fireball' });
+  const ring = { closest: (selector) => selector === '.touch-stick' ? controls.stickBase : null };
+  send('pointerdown', 120, 112, { target: ring, pointerId: 15 });
+  send('pointermove', 120, 62, { target: ring, pointerId: 15 });
+  assert.ok(controls.movement().forward > 0.7);
+  // No pointerup arrived for the first finger. A fresh touch on the visible
+  // joystick must not remain inert because a stale pointer ID owns the stick.
+  send('pointerdown', 118, 120, { target: ring, pointerId: 16 });
+  assert.equal(controls.stick.id, 16);
+  send('pointermove', 118, 68, { target: ring, pointerId: 16 });
+  assert.ok(controls.movement().forward > 0.7);
+  send('pointerup', 118, 68, { target: ring, pointerId: 16 });
+  assert.equal(controls.stick, null);
+  assert.equal(controls.movement().forward, 0);
+});
+
+test('a held joystick still updates and releases when browser sends events beyond its overlay', () => {
+  const { controls, send } = setup({ alive: true, spell: 'fireball' });
+  send('pointerdown', 118, 460, { target: controls.layer, pointerId: 26 });
+  const outside = {};
+  const windowPointer = (type, x, y) => {
+    const event = new Event(type);
+    for (const [key, value] of Object.entries({
+      pointerId: 26, pointerType: 'touch', clientX: x, clientY: y, target: outside,
+    })) Object.defineProperty(event, key, { value });
+    globalThis.window.dispatchEvent(event);
+  };
+  windowPointer('pointermove', 118, 405);
+  assert.ok(controls.movement().forward > 0.8, 'off-layer drag should still move');
+  windowPointer('pointerup', 118, 405);
+  assert.equal(controls.stick, null, 'off-layer release must not strand the joystick');
+  assert.equal(controls.movement().forward, 0);
+});
+
+test('near-edge touch starts neutral and steers without moving the visual ring', () => {
+  const { controls, send } = setup({ alive: true, spell: 'fireball' });
+  const finger = { target: controls.layer };
+  send('pointerdown', 10, 12, finger);
+  assert.deepEqual({ x: controls.stick.x, y: controls.stick.y }, { x: 10, y: 12 },
+    'record the actual touch, without snapping it to a 66px anchor');
+  assert.equal(controls.stickBase.style.left, undefined);
+  assert.equal(controls.stickBase.style.top, undefined);
+  assert.equal(controls.movement().forward, 0);
+  assert.equal(controls.movement().right, 0);
+  send('pointermove', 10, 0, finger);
+  assert.ok(controls.movement().forward > 0, 'movement follows the actual touch delta');
+  send('pointerup', 10, 0, finger);
+  assert.equal(controls.movement().forward, 0);
+});
+
+test('fullscreen layout temporarily reporting zero dimensions never teleports the joystick', () => {
+  const { input, controls, send } = setup({ alive: true, spell: 'fireball' });
+  input.touch = controls;
+  // Reproduces the geometry the old clamp mishandled: x/y were forced to (66,66).
+  controls.layer.clientWidth = 0;
+  controls.layer.clientHeight = 0;
+  controls.layer.getBoundingClientRect = () => ({ left: 0, top: 0, width: 0, height: 0 });
+  const ring = { closest: (selector) => selector === '.touch-stick' ? controls.stickBase : null };
+  send('pointerdown', 118, 475, { target: ring, pointerId: 33 });
+  assert.equal(controls.stickBase.style.left, undefined, 'ring left remains defined exclusively by CSS');
+  assert.equal(controls.stickBase.style.top, undefined, 'ring top remains defined exclusively by CSS');
+  assert.equal(input.movement().forward, 0, 'touching alone does not propel the player');
+  send('pointermove', 118, 420, { target: ring, pointerId: 33 });
+  assert.ok(input.movement().forward > 0.9, 'steering does not depend on valid layer dimensions');
+  assert.equal(input.movement().right, 0);
+  send('pointerup', 118, 420, { target: ring, pointerId: 33 });
+  assert.equal(input.movement().forward, 0, 'release restores neutral movement');
+  assert.equal(controls.stickBase.style.left, undefined);
+  assert.equal(controls.stickBase.style.top, undefined);
+});
+
+test('joystick survives a layer resize during the same drag without reversing or jumping', () => {
+  const { controls, send } = setup({ alive: true, spell: 'fireball' });
+  const finger = { target: controls.layer };
+  send('pointerdown', 120, 460, finger);
+  send('pointermove', 120, 430, finger);
+  const before = controls.movement().forward;
+  assert.ok(before > 0);
+  controls.layer.clientWidth = 400;
+  controls.layer.clientHeight = 0;
+  controls.layer.getBoundingClientRect = () => ({ left: 10, top: 80, width: 400, height: 0 });
+  send('pointermove', 120, 410, finger);
+  assert.ok(controls.movement().forward > before, 'screen-space delta survives layout changes');
+  assert.equal(controls.stickBase.style.top, undefined);
+  send('pointercancel', 120, 410, finger);
+  assert.equal(controls.movement().forward, 0);
+});
+
+test('opt-in mobile touch diagnostics report gesture state without intercepting controls', () => {
+  const previousLocation = globalThis.location;
+  globalThis.location = { search: '?touchDebug=1' };
+  try {
+    const { controls, send } = setup({ alive: true, spell: 'fireball' });
+    assert.ok(controls.touchDebug, 'diagnostic readout is present only when requested');
+    const finger = { target: controls.layer };
+    send('pointerdown', 120, 430, finger);
+    send('pointermove', 120, 380, finger);
+    assert.ok(controls.movement().forward > 0.5);
+    assert.match(controls.touchDebug.textContent, /held 1/);
+    const raw = /raw F(-?\d+\.\d+)/.exec(controls.touchDebug.textContent);
+    assert.ok(raw && Number(raw[1]) > 0.5, 'diagnostics show the actual nonzero movement strength');
+    send('pointerup', 120, 380, finger);
+    assert.equal(controls.movement().forward, 0);
+    assert.match(controls.touchDebug.textContent, /held 0/);
+  } finally {
+    globalThis.location = previousLocation;
+  }
+});

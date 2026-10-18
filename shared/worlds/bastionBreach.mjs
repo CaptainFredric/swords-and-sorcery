@@ -36,6 +36,9 @@ const FLOORS = [
   // Attacker Camp & Approach
   floor('floor-camp', [-15, 15], [-38, -26], 0, 'stone'),
   floor('floor-approach', [-8, 8], [-26, -10], 0, 'stone'),
+  // The east side is bounded by a wall but was missing its ground tile, exposing the sky/abyss while moving.
+  // Keep this separate from the central approach so the intended lane geometry remains explicit.
+  floor('floor-approach-east', [8, 15.5], [-26, -10], 0, 'stone'),
 
   // Flank West Route
   floor('floor-flank-west', [-16, -8], [-26, 6], 0, 'stone'),

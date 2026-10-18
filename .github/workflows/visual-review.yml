@@ -7,6 +7,7 @@ on:
       - 'client/menu/**'
       - 'client/assets/characters/spellblade/**'
       - 'scripts/capture-public-arena.mjs'
+      - 'scripts/check-mobile-joystick.mjs'
       - '.github/workflows/visual-review.yml'
 
 permissions:
@@ -53,6 +54,12 @@ jobs:
             exit 1
           fi
           echo "path=$CHROME" >> "$GITHUB_OUTPUT"
+
+      - name: Verify real mobile pointer events and joystick position in Chromium
+        env:
+          PUBLIC_URL: http://127.0.0.1:3001
+          CHROME_BIN: ${{ steps.chrome.outputs.path }}
+        run: node scripts/check-mobile-joystick.mjs
 
       - name: Capture current branch in Chrome
         env:
