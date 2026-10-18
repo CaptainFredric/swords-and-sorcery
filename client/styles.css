@@ -140,6 +140,10 @@ body.took-steel::after{content:"";position:fixed;inset:0;z-index:50;pointer-even
 .bt-state-pill { font-style: normal; font-size: 10px; font-weight: 900; letter-spacing: .14em; color: #d5b76f; }
 .breakthrough-hud[data-state="capturing"] .bt-state-pill { color: #74b6ff; }
 .breakthrough-hud[data-state="contested"] .bt-state-pill { color: #ff9a52; animation: bt-pulse .75s ease-in-out infinite alternate; }
+.breakthrough-hud[data-state="overtime"] { border-top: 2px solid #ffbe4a; box-shadow: 0 0 18px rgba(255, 190, 74, .32); }
+.breakthrough-hud[data-state="overtime"] .bt-clock { color: #ffbe4a; font-weight: 900; letter-spacing: .12em; animation: bt-pulse .6s ease-in-out infinite alternate; }
+.breakthrough-hud[data-state="overtime"] .bt-state-pill { color: #ffbe4a; animation: bt-pulse .6s ease-in-out infinite alternate; }
+.breakthrough-hud[data-state="overtime"] .bt-bar-fill { background: linear-gradient(90deg, #e98243, #ffbe4a); }
 .bt-bar-track { height: 7px; background: #121410; border: 1px solid rgba(201, 156, 82, .38); overflow: hidden; }
 .bt-bar-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #3d7eed, #68cee1); transition: width .12s linear; }
 .breakthrough-hud[data-state="contested"] .bt-bar-fill { background: linear-gradient(90deg, #c9564a, #e98243); }
@@ -164,6 +168,8 @@ body.took-steel::after{content:"";position:fixed;inset:0;z-index:50;pointer-even
 .objective-waypoint[data-clamped="true"] { opacity: 0.88; transform: translate(-50%, -50%) scale(0.92); }
 .objective-waypoint[data-state="contested"] { border-color: #e98243; }
 .objective-waypoint[data-state="contested"] .wp-diamond { background: #e98243; }
+.objective-waypoint[data-state="overtime"] { border-color: #ffbe4a; }
+.objective-waypoint[data-state="overtime"] .wp-diamond { background: #ffbe4a; }
 .objective-waypoint b { font: 700 9px/1.1 Georgia, serif; letter-spacing: .12em; color: #f4ead2; white-space: nowrap; }
 .objective-waypoint span { font: 800 9px/1 ui-sans-serif, system-ui, sans-serif; color: #d5b76f; font-variant-numeric: tabular-nums; white-space: nowrap; }
 

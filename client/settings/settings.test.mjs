@@ -119,7 +119,7 @@ test('keys read like they do on the keycap', () => {
   assert.equal(keyLabel('ShiftLeft'), 'L-SHIFT');
   assert.equal(keyLabel('Mouse0'), 'LMB');
   assert.equal(keyLabel('ArrowUp'), '↑');
-  assert.equal(keyLabel(undefined), '—');
+  assert.equal(keyLabel(undefined), '-');
   assert.ok(isBindableCode('KeyZ') && isBindableCode('Mouse3') && !isBindableCode('Escape') && !isBindableCode('F3') && !isBindableCode('Bogus'));
   assert.equal(formatValue({ unit: '%' }, 55), '55%');
   assert.equal(formatValue({ unit: '×' }, 1.2), '1.20×');

@@ -425,7 +425,7 @@ const segments = [
       { id: 'dead-end-crossing', place: 'dead-end-crossing', kind: 'stage', advanceOn: 'dead-end-crossed',
         direction: 'The Spellblade leaps the wall (or takes the side gate).' },
       // (a phonetic joke: "a LIE!" for a moment, then the last /v/ makes it "alive": nothing may clip its pause)
-      { id: 'dead-end-alive', speaker: 'spellblade', line: 'The dead-end is a LIE—ve!' },
+      { id: 'dead-end-alive', speaker: 'spellblade', line: 'The dead-end is a LIE-ve!' },
     ],
   },
   {

@@ -1,15 +1,16 @@
 import { propSolids } from './props.mjs';
+import { TEAMS } from '../src/teams.mjs';
 
-// Bastion Breach: Prototype battlefield for Breakthrough / Siege team battles.
+// Bastion Breach: Formidable medieval fortress for Breakthrough team battles.
 //
 // Layout:
-// - Zone 1: Attacker Staging Camp (z: -38 to -26) with rear ramparts and team spawn points.
-// - Zone 2: The Exposed Approach (z: -26 to -10): open killzone with low wall and crate cover.
+// - Zone 1: Attacker Staging Camp (z: -38 to -26) with siege mantlets, pavises, and team spawns.
+// - Zone 2: The Exposed Approach (z: -26 to -10): open killzone with low wall, crate cover, and palisades.
 // - Zone 3: Western Flank Route (x: -16 to -8, z: -26 to +6): covered alley partitioned by a stone curtain.
 // - Zone 4: The Outer Courtyard (Objective 1, z: -10 to +8): wide contested plaza centered at (0, 0, -2).
-// - Zone 5: The Gatehouse Breach & Eastern Gallery (z: +8 to +16): central breach flanked by an elevated ramp/gallery.
-// - Zone 6: The High Sanctum (Objective 2, z: +16 to +38): enclosed hall with central dais at (0, 0.3, 25) and pillars.
-// - Defender Base (z: +32 to +38): secure staging area behind the Sanctum.
+// - Zone 5: The Gatehouse Breach & Eastern Gallery (z: +8 to +16): massive gatehouse breach flanked by an elevated ramp/gallery.
+// - Zone 6: The High Sanctum (Objective 2, z: +16 to +38): vaulted military chapel with ceremonial dais at (0, 0.3, 25), effigies, and side aisles.
+// - Defender Base (z: +32 to +38): secure staging area behind the Sanctum altar.
 
 function solid(id, [x0, x1], [y0, y1], [z0, z1], extra = {}) {
   return { id, center: [(x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2], size: [x1 - x0, y1 - y0, z1 - z0], material: 'stone', ...extra };
@@ -54,7 +55,8 @@ const FLOORS = [
 
   // Inner Sanctum (Objective 2)
   floor('floor-sanctum', [-14, 14], [16, 36], 0, 'stone'),
-  // Raised Dais for Objective 2
+  // Tiered Ceremonial Dais for Objective 2
+  floor('step-sanctum', [-6.5, 6.5], [19.5, 30.5], 0.15, 'stone'),
   floor('dais-sanctum', [-4, 4], [22, 28], 0.3, 'stone'),
 ];
 
@@ -69,45 +71,70 @@ const SOLIDS = [
   solid('wall-west-camp', [-16.5, -15.5], [0, 3.5], [-38, -26]),
   solid('wall-east-camp', [15.5, 16.5], [0, 3.5], [-38, -26]),
 
+  // Exterior Buttresses (silhouette and structural depth)
+  solid('buttress-west-camp', [-16.5, -15.0], [0, 4.2], [-33, -31]),
+  solid('buttress-east-camp', [15.0, 16.5], [0, 4.2], [-33, -31]),
+
   solid('wall-west-courtyard', [-16.5, -15.5], [0, 4.5], [-26, 8]),
   solid('wall-east-courtyard', [15.5, 16.5], [0, 4.5], [-26, 8]),
+  solid('buttress-west-courtyard', [-16.5, -15.0], [0, 5.0], [-1, 1]),
+  solid('buttress-east-courtyard', [15.0, 16.5], [0, 5.0], [-1, 1]),
 
   // --- Western Flank Partition Wall (separates exposed approach from flank alley) ---
   solid('wall-flank-divider-south', [-8.5, -7.8], [0, 2.8], [-26, -12]),
   solid('wall-flank-divider-north', [-8.5, -7.8], [0, 2.8], [-8, 0]),
+  solid('rubble-flank-west', [-14.5, -12.5], [0, 0.9], [-16, -14]),
 
-  // --- Approach Cover (low walls & crates) ---
+  // --- Approach Cover (pavises, barricades, crates, breastwork) ---
   solid('cover-camp-barricade', [-3, 3], [0, 1.2], [-28, -27], { material: 'timber' }),
+  solid('cover-camp-pavise', [-7.0, -5.0], [0, 1.4], [-27.5, -26.5], { material: 'timber' }),
   solid('cover-approach-pillar-left', [-4.5, -3.0], [0, 2.8], [-20, -18]),
   solid('cover-approach-crates-right', [2.5, 4.5], [0, 1.4], [-19, -17], { material: 'timber' }),
   solid('cover-approach-breastwork', [-1.8, 1.8], [0, 0.95], [-14.5, -13.7]),
 
-  // --- Courtyard (Objective 1) Structures & Cover ---
-  solid('gate-pillar-left', [-5.5, -3.8], [0, 4.0], [-3.5, -1.5]),
-  solid('gate-pillar-right', [3.8, 5.5], [0, 4.0], [-3.5, -1.5]),
+  // --- Barbican Gatehouse (Objective 1) Defensive Bulwarks ---
+  solid('tower-barbican-west', [-6.0, -3.8], [0, 5.8], [-3.5, -0.5]),
+  solid('tower-barbican-east', [3.8, 6.0], [0, 5.8], [-3.5, -0.5]),
+  solid('arch-barbican-overhead', [-3.8, 3.8], [4.6, 5.8], [-2.6, -1.4]),
+  solid('breastwork-barbican-west', [-8.5, -6.0], [0, 1.2], [-2.5, -1.5]),
+  solid('breastwork-barbican-east', [6.0, 8.5], [0, 1.2], [-2.5, -1.5]),
   solid('rubble-courtyard-sw', [-6.5, -4.5], [0, 1.1], [3, 4.5]),
   solid('rubble-courtyard-se', [4.5, 6.5], [0, 1.1], [3, 4.5]),
+  solid('wreckage-courtyard-mid', [-1.5, 1.5], [0, 1.1], [-6.5, -5.2], { material: 'timber' }),
 
   // --- Breach / Gatehouse Rampart (divides Courtyard and Sanctum) ---
-  solid('wall-breach-west', [-16, -3.5], [0, 5.0], [8, 9.8]),
-  solid('wall-breach-east', [3.5, 9.5], [0, 5.0], [8, 9.8]),
-  // Gallery Outer Balustrade
+  solid('wall-breach-west', [-16, -3.5], [0, 5.5], [8, 9.8]),
+  solid('wall-breach-east', [3.5, 9.5], [0, 5.5], [8, 9.8]),
+  solid('tower-gatehouse-west', [-8.0, -4.0], [0, 6.8], [7.2, 10.6]),
+  solid('tower-gatehouse-east', [4.0, 8.0], [0, 6.8], [7.2, 10.6]),
+  solid('rubble-breach', [-3.2, -1.8], [0, 0.8], [6.5, 8.2]),
+
+  // Gallery Parapets
   solid('gallery-parapet-east', [14.8, 15.5], [BASTION_GALLERY_Y, BASTION_GALLERY_Y + 1.2], [8, 22]),
+  solid('gallery-parapet-west', [8.8, 9.4], [BASTION_GALLERY_Y, BASTION_GALLERY_Y + 1.1], [9, 15]),
 
-  // --- Inner Sanctum (Objective 2) Enclosing Walls ---
-  solid('wall-sanctum-west', [-15, -14], [0, 5.5], [9.8, 36]),
-  solid('wall-sanctum-east', [14, 15], [0, 5.5], [9.8, 36]),
-  solid('wall-sanctum-north', [-15, 15], [0, 5.5], [36, 37]),
+  // --- Inner Sanctum (Objective 2) Enclosing Walls & Military Chapel ---
+  solid('wall-sanctum-west', [-15, -14], [0, 6.0], [9.8, 36]),
+  solid('wall-sanctum-east', [14, 15], [0, 6.0], [9.8, 36]),
+  solid('wall-sanctum-north', [-15, 15], [0, 6.0], [36, 37]),
 
-  // Inner Sanctum Pillars (tighter melee corners)
-  solid('pillar-sanctum-sw', [-5.5, -4.0], [0, 4.8], [19.5, 21.0]),
-  solid('pillar-sanctum-se', [4.0, 5.5], [0, 4.8], [19.5, 21.0]),
-  solid('pillar-sanctum-nw', [-5.5, -4.0], [0, 4.8], [29.0, 30.5]),
-  solid('pillar-sanctum-ne', [4.0, 5.5], [0, 4.8], [29.0, 30.5]),
+  // Vaulted Chapel Nave Pillars
+  solid('pillar-sanctum-sw', [-5.5, -4.0], [0, 5.5], [19.5, 21.0]),
+  solid('pillar-sanctum-se', [4.0, 5.5], [0, 5.5], [19.5, 21.0]),
+  solid('pillar-sanctum-nw', [-5.5, -4.0], [0, 5.5], [29.0, 30.5]),
+  solid('pillar-sanctum-ne', [4.0, 5.5], [0, 5.5], [29.0, 30.5]),
+
+  // Stone Knight Effigies (sarcophagi in side aisles providing tactical cover)
+  solid('effigy-sanctum-sw', [-10.5, -8.5], [0, 1.1], [22.5, 25.5]),
+  solid('effigy-sanctum-se', [8.5, 10.5], [0, 1.1], [22.5, 25.5]),
+
+  // Rear Reredos Altar & Staging Wall
+  solid('sanctum-altar', [-3.0, 3.0], [0, 2.2], [35.5, 36.5]),
 
   // Defender Rear Barricade
   solid('cover-defender-barricade', [-2.5, 2.5], [0, 1.2], [31.0, 31.8], { material: 'timber' }),
 ];
+
 
 const OBJECTIVES = Object.freeze([
   {
@@ -117,6 +144,8 @@ const OBJECTIVES = Object.freeze([
     y: 0,
     z: -2,
     radius: 6.0,
+    verticalBelow: 1.2,
+    verticalAbove: 2.5,
     captureSec: 15,
     decayRate: 0.5,
   },
@@ -127,34 +156,36 @@ const OBJECTIVES = Object.freeze([
     y: 0.3,
     z: 25,
     radius: 5.5,
+    verticalBelow: 1.2,
+    verticalAbove: 2.5,
     captureSec: 20,
     decayRate: 0.5,
   },
 ]);
 
 const SPAWN_POINTS = Object.freeze([
-  // Attackers initial staging spawns (Phase 0 — South Staging Camp)
+  // Attackers initial staging spawns (Phase 0 - South Staging Camp)
   spawn(-4, 0, -33, 0, -2, 'ATTACKERS', 0),
   spawn(0, 0, -34, 0, -2, 'ATTACKERS', 0),
   spawn(4, 0, -33, 0, -2, 'ATTACKERS', 0),
   spawn(-2, 0, -31, 0, -2, 'ATTACKERS', 0),
   spawn(2, 0, -31, 0, -2, 'ATTACKERS', 0),
 
-  // Attackers forward spawns (Phase 1 — Captured Outer Courtyard)
+  // Attackers forward spawns (Phase 1 - Captured Outer Courtyard)
   spawn(-2.5, 0, -1.0, 0, 25, 'ATTACKERS', 1),
   spawn(0, 0, -1.5, 0, 25, 'ATTACKERS', 1),
   spawn(2.5, 0, -1.0, 0, 25, 'ATTACKERS', 1),
   spawn(-2.5, 0, 0.5, 0, 25, 'ATTACKERS', 1),
   spawn(2.5, 0, 0.5, 0, 25, 'ATTACKERS', 1),
 
-  // Defenders Phase 0 spawns (Gatehouse Inner Ward & Gallery — 15m behind Outer Gate)
+  // Defenders Phase 0 spawns (Gatehouse Inner Ward & Gallery - 15m behind Outer Gate)
   spawn(-2.5, 0, 12.5, 0, -2, 'DEFENDERS', 0),
   spawn(0, 0, 13.5, 0, -2, 'DEFENDERS', 0),
   spawn(2.5, 0, 12.5, 0, -2, 'DEFENDERS', 0),
   spawn(-2, 0, 15.0, 0, -2, 'DEFENDERS', 0),
   spawn(11.5, BASTION_GALLERY_Y, 11.0, 0, -2, 'DEFENDERS', 0),
 
-  // Defenders Phase 1 spawns (Sanctum Rear Bastion — defending High Sanctum)
+  // Defenders Phase 1 spawns (Sanctum Rear Bastion - defending High Sanctum)
   spawn(-4, 0, 33.5, 0, 25, 'DEFENDERS', 1),
   spawn(0, 0, 34.2, 0, 25, 'DEFENDERS', 1),
   spawn(4, 0, 33.5, 0, 25, 'DEFENDERS', 1),
@@ -200,9 +231,11 @@ const NAVIGATION_NODES = Object.freeze([
 
   // Inner Sanctum (Objective 2)
   nav('sanctum-entry', 0, 0, 18),
+  nav('sanctum-aisle-w', -7.5, 0, 24),
   nav('sanctum-west', -5, 0, 25),
   nav('sanctum-center', 0, 0.3, 25),
   nav('sanctum-east', 5, 0, 25),
+  nav('sanctum-aisle-e', 7.5, 0, 24),
   nav('sanctum-rear', 0, 0, 30),
 
   // Defender Base
@@ -210,6 +243,67 @@ const NAVIGATION_NODES = Object.freeze([
   nav('def-base-center', 0, 0, 34),
   nav('def-base-east', 4, 0, 34),
 ]);
+
+export const BASTION_BREACH_TACTICS = Object.freeze({
+  getTacticalGoal({ actor, rivalIndex, objectiveState, activeObj, enemies, disengageTarget }) {
+    if (objectiveState.index === 0) {
+      // Stage 1: Outer Gate
+      if (actor.team === TEAMS.ATTACKERS) {
+        if (actor.position.z < -4) {
+          if (rivalIndex === 1) {
+            // West Flank Route
+            if (actor.position.z < -22) return { x: -12, y: 0, z: -22 };
+            if (actor.position.z < -10) return { x: -12, y: 0, z: -10 };
+            if (actor.position.z < 1) return { x: -12, y: 0, z: 2 };
+            return { x: -4.5, y: 0, z: -1.0 };
+          }
+          if (rivalIndex === 2) {
+            // Eastern approach lane
+            if (actor.position.z < -14) return { x: 3.5, y: 0, z: -14 };
+            if (actor.position.z < -2) return { x: 5.5, y: 0, z: 0.5 };
+            return { x: 4.0, y: 0, z: -1.0 };
+          }
+          // Central Vanguard lane
+          if (actor.position.z < -16) return { x: 0, y: 0, z: -16 };
+          return { x: 0, y: 0, z: -2.0 };
+        }
+      } else {
+        // Defenders holding the Outer Gate
+        if (objectiveState.attackersCount === 0 && (objectiveState.progress ?? 0) < 0.05) {
+          if (rivalIndex === 1) return { x: -5.5, y: 0, z: 0.5 };
+          if (rivalIndex === 2) return { x: 5.5, y: 0, z: 0.5 };
+          return { x: 0, y: 0, z: -1.0 };
+        }
+      }
+    } else if (objectiveState.index === 1) {
+      // Stage 2: High Sanctum
+      if (actor.team === TEAMS.DEFENDERS) {
+        const outsideSanctum = actor.position.z < 16;
+        if (outsideSanctum) {
+          const immediateThreat = enemies.some((e) => {
+            const dx = actor.position.x - e.position.x;
+            const dz = actor.position.z - e.position.z;
+            return Math.hypot(dx, dz) <= 2.5 && e.attackActive;
+          });
+          if (!immediateThreat) {
+            disengageTarget?.();
+          }
+          return { x: rivalIndex === 1 ? -4.5 : rivalIndex === 2 ? 4.5 : 0, y: 0.3, z: 25 };
+        }
+        if (objectiveState.attackersCount === 0 && (objectiveState.progress ?? 0) < 0.05) {
+          if (rivalIndex === 1) return { x: -4.8, y: 0, z: 25.0 };
+          if (rivalIndex === 2) return { x: 0, y: 0, z: 30.5 };
+          return { x: 0, y: 0.3, z: 25.0 };
+        }
+      } else if (actor.position.z < 20) {
+        if (rivalIndex === 1) return { x: -4.5, y: 0, z: 22.0 };
+        if (rivalIndex === 2) return { x: 4.5, y: 0, z: 22.0 };
+        return { x: 0, y: 0.3, z: 25.0 };
+      }
+    }
+    return null;
+  },
+});
 
 export const BASTION_BREACH = Object.freeze({
   id: 'bastion-breach',
@@ -223,5 +317,7 @@ export const BASTION_BREACH = Object.freeze({
   navigation: Object.freeze({
     nodes: NAVIGATION_NODES,
   }),
+  tactics: BASTION_BREACH_TACTICS,
   abyssY: -10,
 });
+

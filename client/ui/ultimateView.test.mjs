@@ -58,10 +58,10 @@ test('in the Practice Yard the tile says READY whenever the key would work: the 
 });
 
 test('the line under a Vortex\'s name says how it is steered, by the buttons the player has', () => {
-  assert.equal(vortexHint({ bindings: { attack: ['Mouse0'], guard: ['Mouse2'] } }), 'LEFT CLICK — FIRE   ·   RIGHT CLICK — BLADE');
-  assert.equal(vortexHint({ bindings: { attack: ['KeyJ'], guard: ['KeyK'] } }), 'J — FIRE   ·   K — BLADE', 'rebound: their own keys');
-  assert.equal(vortexHint({ touch: true, bindings: { attack: ['Mouse0'], guard: ['Mouse2'] } }), 'ATTACK — FIRE   ·   GUARD — BLADE', 'on a touch screen: the buttons\' names');
-  assert.equal(vortexHint({ bindings: {} }), 'ATTACK — FIRE   ·   GUARD — BLADE');
+  assert.equal(vortexHint({ bindings: { attack: ['Mouse0'], guard: ['Mouse2'] } }), 'LEFT CLICK - FIRE   ·   RIGHT CLICK - BLADE');
+  assert.equal(vortexHint({ bindings: { attack: ['KeyJ'], guard: ['KeyK'] } }), 'J - FIRE   ·   K - BLADE', 'rebound: their own keys');
+  assert.equal(vortexHint({ touch: true, bindings: { attack: ['Mouse0'], guard: ['Mouse2'] } }), 'ATTACK - FIRE   ·   GUARD - BLADE', 'on a touch screen: the buttons\' names');
+  assert.equal(vortexHint({ bindings: {} }), 'ATTACK - FIRE   ·   GUARD - BLADE');
 });
 
 test('Chivalry distinguishes its planning startup and nine second active duration', () => {

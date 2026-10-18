@@ -30,3 +30,7 @@ Final verification: `npm run verify` passed with 1,502 repository tests, four HT
 The next combat pass should use physical mouse input to assess distance judgment and recovery pose readability against a human opponent. Those observations should precede additional animation or balance work. Physical phone testing should remain a priority after the recent mobile input changes.
 
 Two further opportunities were observed while browsing: How to Play still presents desktop keys in touch mode, and the solo arena menu explicitly keeps the fight running while controls are released. Device aware help and a true local solo pause deserve a dedicated follow up. Armory selection and help navigation continued to work; their established designs were preserved.
+
+## Main integration
+
+Integrated current main at `66b6be5` for PR #200. The sole textual conflict was the Bot Duel button handler in `client/main.mjs`. Kept the shared start/replay function and preserved main's Breakthrough arena selection and other incoming changes. Focused tests passed (20); full verification passed with 1,520 repository tests, four HTML5 export tests, syntax checks across 441 modules, and HTTP/WebSocket smoke. The desktop Pointer Lock limitation above remains open.

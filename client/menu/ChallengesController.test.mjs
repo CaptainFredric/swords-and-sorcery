@@ -25,12 +25,12 @@ const completed = { challenges: { progress: { wind_correction: 1 }, completed: {
   lastReward: { matchId: 'match', challenges: ['wind_correction'], challengeAmount: 20 } };
 const finished = { roomState: 'FINISHED', rewardMatchId: 'match' };
 
-test('Armory renders the three populated families while hinted entries expose only authored hints', () => {
+test('Armory renders the four populated families while hinted entries expose only authored hints', () => {
   const { root } = fixture({ challenges: { progress: { wind_correction: 1, both_hands_full: 1 } } });
   const families = root.children.filter((node) => node.className === 'mastery-family');
-  assert.deepEqual(families.map((node) => node.attrs['aria-label']), ['SWORDSMANSHIP', 'SORCERY', 'CHIVALRY']);
+  assert.deepEqual(families.map((node) => node.attrs['aria-label']), ['SWORDSMANSHIP', 'SORCERY', 'CHIVALRY', 'ODDITIES']);
   const hidden = families.flatMap((node) => node.children).filter((node) => node.className?.includes('hinted'));
-  assert.equal(hidden.length, 4);
+  assert.equal(hidden.length, 5);
   for (const card of hidden) {
     const words = textTree(card);
     assert.match(words, /HIDDEN CHALLENGE/);
@@ -42,7 +42,7 @@ test('Armory renders the three populated families while hinted entries expose on
     }
   }
   assert.match(textTree(root), /Practice is for training/);
-  assert.doesNotMatch(textTree(root), /ODDITIES/);
+  assert.match(textTree(root), /ODDITIES/);
 });
 
 test('server completion reveals exact title, condition, reward and authored flavor', () => {
@@ -53,7 +53,7 @@ test('server completion reveals exact title, condition, reward and authored flav
   assert.ok(words.includes(CHALLENGES.wind_correction.condition));
   assert.ok(words.includes(CHALLENGES.wind_correction.flavor));
   assert.match(words, /EARNED · 20 RENOWN/);
-  assert.match(words, /1 \/ 9 MASTERED/);
+  assert.match(words, /1 \/ 10 MASTERED/);
 });
 
 test('visible chain progress uses authoritative progress and remains stable across wallet updates', () => {

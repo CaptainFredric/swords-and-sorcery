@@ -125,6 +125,9 @@ export class Room {
     this.peace = null;
     this.botsProvisioned = false;
     this.teamMarks = [];
+    this.overtime = false;
+    this.overtimeStartedAt = null;
+    this.overtimeClearedAt = null;
     if (this.policy.teamMode) {
       this.objectiveState = createObjectiveState(this.world.objectives ?? []);
     }
@@ -688,12 +691,61 @@ export class Room {
     if (this.state === 'PLAYING'
       && this.policy.timed
       && !this.suddenDeath
-      && this.matchStartedAt !== null
-      && nowSec >= this.matchStartedAt + this.policy.matchSeconds) {
+      && this.matchStartedAt !== null) {
       if (this.policy.teamMode) {
-        // Defenders hold until round end
-        this.finish(TEAMS.DEFENDERS, nowSec, 'defense');
-      } else {
+        const timeExpired = nowSec >= this.matchStartedAt + this.policy.matchSeconds;
+        const obj = this.objectiveState;
+        const hasAttackers = (obj?.attackersCount ?? 0) > 0;
+        const isCapturing = (obj?.capturing || obj?.contested) && (obj?.progress ?? 0) > 0.001;
+
+        if (timeExpired) {
+          let hasAttackers = false;
+          if (obj) {
+            const currentObj = obj.objectives[obj.index];
+            if (currentObj) {
+              const center = currentObj.position;
+              const radSq = currentObj.radius * currentObj.radius;
+              for (const p of this.players.values()) {
+                if (p.alive && p.team === TEAMS.ATTACKERS) {
+                  const dx = p.position.x - center.x;
+                  const dz = p.position.z - center.z;
+                  if (dx * dx + dz * dz <= radSq) {
+                    hasAttackers = true;
+                    break;
+                  }
+                }
+              }
+            }
+          }
+          const isCapturing = (obj?.capturing || obj?.contested) && (obj?.progress ?? 0) > 0.001;
+
+          if (this.overtime) {
+            // Already in overtime: check if defenders have cleared attackers for >= 3.0s
+            if (!hasAttackers) {
+              if (this.overtimeClearedAt === null) {
+                this.overtimeClearedAt = nowSec;
+              }
+              if (nowSec - this.overtimeClearedAt >= 3.0) {
+                this.overtime = false;
+                if (obj) obj.overtime = false;
+                this.finish(TEAMS.DEFENDERS, nowSec, 'defense');
+              }
+            } else {
+              this.overtimeClearedAt = null;
+            }
+          } else if (hasAttackers || isCapturing) {
+            this.overtime = true;
+            this.overtimeStartedAt = nowSec;
+            this.overtimeClearedAt = null;
+            if (obj) obj.overtime = true;
+            this.events.push({ type: 'overtimeStarted', at: nowSec });
+          } else {
+            this.overtime = false;
+            if (obj) obj.overtime = false;
+            this.finish(TEAMS.DEFENDERS, nowSec, 'defense');
+          }
+        }
+      } else if (nowSec >= this.matchStartedAt + this.policy.matchSeconds) {
         let max = -1;
         let leaders = [];
         for (const p of this.players.values()) {
@@ -725,6 +777,9 @@ export class Room {
     this.suddenDeathLeaders = [];
     this.rematchVotes.clear();
     this.teamMarks = [];
+    this.overtime = false;
+    this.overtimeStartedAt = null;
+    this.overtimeClearedAt = null;
     if (this.policy.teamMode) {
       if (this.botsProvisioned) this.provisionModeActors(nowSec);
       this.objectiveState = createObjectiveState(this.world.objectives ?? []);

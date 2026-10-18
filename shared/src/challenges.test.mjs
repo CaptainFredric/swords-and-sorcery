@@ -2,10 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { CHALLENGES, challengeView, publicChallengeState } from './challenges.mjs';
 
-test('nine mastery feats use extensible rewards and three populated curriculum families',()=>{
-  assert.equal(Object.keys(CHALLENGES).length,9);
-  assert.equal(Object.values(CHALLENGES).reduce((sum,c)=>sum+c.reward.renown,0),175);
-  assert.deepEqual(new Set(Object.values(CHALLENGES).map(c=>c.family)),new Set(['swordsmanship','sorcery','chivalry']));
+test('ten mastery feats use extensible rewards and four populated curriculum families',()=>{
+  assert.equal(Object.keys(CHALLENGES).length,10);
+  assert.equal(Object.values(CHALLENGES).reduce((sum,c)=>sum+c.reward.renown,0),190);
+  assert.deepEqual(new Set(Object.values(CHALLENGES).map(c=>c.family)),new Set(['swordsmanship','sorcery','chivalry','oddities']));
 });
 test('hinted feats hide title, condition, numeric progress and reward until settled completion',()=>{
   const state={progress:{wind_correction:1},completed:{}};

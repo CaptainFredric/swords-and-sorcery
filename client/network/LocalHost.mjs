@@ -108,7 +108,7 @@ export class LocalHost {
     }
     this.#stop();
     const time = this.now();
-    const resolvedWorld = tutorial ? 'greener-pastures' : (mode === GAME_MODES.BREAKTHROUGH ? 'bastion-breach' : arenaOrDefault(worldId));
+    const resolvedWorld = tutorial ? 'greener-pastures' : (mode === GAME_MODES.BREAKTHROUGH ? (worldId === 'blackbell-foundry' ? 'blackbell-foundry' : 'bastion-breach') : arenaOrDefault(worldId));
     const room = this.rooms.createSoloRoom(mode, time, resolvedWorld, { teamSize });
     room.localTutorial = tutorial;
     const player = room.addPlayer({ id: randomId(), token: randomId(), name: String(name || 'Spellblade').slice(0, 18), spell: this.spell, ultimate: this.ultimateId, preparedSpells: this.preparedSpells, team }, time);
@@ -135,9 +135,10 @@ export class LocalHost {
     this.startSolo(GAME_MODES.PRACTICE, name, 'greener-pastures', undefined, true);
   }
 
-  startBreakthrough(name, botSkill = null, team = null) {
-    this.startSolo(GAME_MODES.BREAKTHROUGH, name, 'bastion-breach', botSkill, false, team);
+  startBreakthrough(name, botSkill = null, team = null, worldId = 'bastion-breach') {
+    this.startSolo(GAME_MODES.BREAKTHROUGH, name, worldId, botSkill, false, team);
   }
+
 
   get inspectionFrozen() { return this.frozenAt !== null; }
 

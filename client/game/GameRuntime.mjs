@@ -26,6 +26,7 @@ import {
   ultimateFizzleRecipe, ultimateReadyRecipe,
   emberImpactRecipe, emberRecipe, vortexCatchRecipe, vortexCutRecipe, vortexEndRecipe, vortexIgniteRecipe, vortexScrapeRecipe, vortexStarRecipe, vortexWhooshRecipe,
 } from './sound/soundRecipes.mjs';
+import { bellTollRecipe, gateRecipe, warDrumRecipe } from './sound/atmosphereRecipes.mjs';
 import { ULTIMATES, ultimateFor, ultimateStartup, ultimateWhirl, vortexAngle, vortexWindup } from '../../shared/src/ultimates.mjs';
 import { PROWESS } from '../../shared/src/prowess.mjs';
 import { PRACTICE_RECAST, recordUse } from '../../shared/src/practiceRecast.mjs';
@@ -56,6 +57,8 @@ import { ShatteredKeepRenderer } from '../worlds/ShatteredKeepRenderer.mjs';
 import { RuinedKeepRenderer } from '../worlds/RuinedKeepRenderer.mjs';
 import { GreenerPasturesRenderer } from '../worlds/GreenerPasturesRenderer.mjs';
 import { BastionBreachRenderer } from '../worlds/BastionBreachRenderer.mjs';
+import { BlackbellFoundryRenderer } from '../worlds/BlackbellFoundryRenderer.mjs';
+
 import {
   canPresentLocalAction,
   handsTaken,
@@ -82,13 +85,15 @@ const WORLD_RENDERERS = Object.freeze({
   'ruined-keep': RuinedKeepRenderer,
   'greener-pastures': GreenerPasturesRenderer,
   'bastion-breach': BastionBreachRenderer,
+  'blackbell-foundry': BlackbellFoundryRenderer,
 });
+
 
 // the server's word for a clang my own view already foretold arrives within this long (a round trip and a tick or two)
 const FORETOLD_CLANG_MS = 700;
 
-// my case for not having fallen ("Why I should not fall. One... Two... Three—"): begun this long after the fall at the
-// soonest; meant to be cut this far before its end (its last word just begun: "Thr—") by my return; and, back on my
+// my case for not having fallen ("Why I should not fall. One... Two... Three-"): begun this long after the fall at the
+// soonest; meant to be cut this far before its end (its last word just begun: "Thr-") by my return; and, back on my
 // feet a moment before that word, let run on this long at most to reach it (the take is never hurried to fit)
 const APPEAL = Object.freeze({ leadSec: 0.1, interruptBeforeEnd: 0.4, runOnSec: 0.45 });
 // the paired "Oof!" of a Steel ram: the one rammed a breath behind the rammer (nearly together, not in unison)
@@ -874,18 +879,30 @@ export class GameRuntime {
         else this.voice?.cut?.(me);
       }
       if (event.type === 'objectiveCaptured') {
-        this.#play(gateRecipe(), null, 0.9);
+        this.#play(bellTollRecipe(), null, 1.0);
+        this.#play(gateRecipe(), null, 0.95);
         const myTeam = this.localAuth?.team;
         const objName = (event.objectiveName ?? 'OBJECTIVE').toUpperCase();
         this.hud.addFeed(`${objName} CAPTURED BY ATTACKERS`, 'fire');
         if (event.index === 0) {
           this.hud.flashText(
-            myTeam === 'DEFENDERS' ? `${objName} LOST` : `${objName} TAKEN`,
+            myTeam === 'DEFENDERS' ? 'THE OUTER GATE HAS FALLEN' : 'THE OUTER GATE IS BREACHED',
             myTeam === 'DEFENDERS' ? 'danger' : 'kill',
-            3100,
-            myTeam === 'DEFENDERS' ? 'Fall back and defend The High Sanctum!' : 'Advance through the breach to The High Sanctum!',
+            3600,
+            myTeam === 'DEFENDERS' ? 'Fall back to The High Sanctum: Defend the inner sanctuary!' : 'The breach is open: Advance to The High Sanctum!',
           );
         }
+      }
+      if (event.type === 'overtimeStarted') {
+        this.#play(warDrumRecipe(), null, 1.0);
+        const myTeam = this.localAuth?.team;
+        this.hud.flashText(
+          'OVERTIME',
+          'danger',
+          2800,
+          myTeam === 'ATTACKERS' ? 'Maintain capture pressure on the objective!' : 'Drive the attackers out of the zone!',
+        );
+        this.hud.addFeed('OVERTIME · BATTLE FOR THE BASTION', 'fire');
       }
       if (event.type === 'objectiveContested') {
         const myTeam = this.localAuth?.team;
@@ -895,7 +912,7 @@ export class GameRuntime {
         const myTeam = this.localAuth?.team;
         if (!myTeam || event.team === myTeam) {
           const prefix = event.kind === 'enemy' ? 'TARGET MARKED' : 'RALLY POINT';
-          this.hud.addFeed(`${event.playerName || 'Ally'}: ${prefix} — ${event.label}`, 'fire');
+          this.hud.addFeed(`${event.playerName || 'Ally'}: ${prefix} · ${event.label}`, 'fire');
           if (event.playerId === me) {
             this.hud.flashText(`${prefix}: ${String(event.label).toUpperCase()}`, 'metal', 1400);
           }
@@ -1451,7 +1468,7 @@ export class GameRuntime {
       }
     }
 
-    // nothing said of my own fall: now and then, I make my case late, and my return cuts it short ("Three—")
+    // nothing said of my own fall: now and then, I make my case late, and my return cuts it short ("Three-")
     if (!spoke && victimId === this.socket.playerId) this.#appeal(event);
   }
 

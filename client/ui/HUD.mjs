@@ -35,18 +35,23 @@ export function breakthroughHudView(local, snapshot, serverNow) {
   const isAttacker = myTeam === 'ATTACKERS';
   const pct = Math.max(0, Math.min(100, Math.round((obj.progress ?? 0) * 100)));
 
-  const startedAt = Number.isFinite(snapshot.matchStartedAt) ? snapshot.matchStartedAt : serverNow;
+  const isOvertime = Boolean(snapshot?.overtime || obj.overtime);
+  const startedAt = Number.isFinite(snapshot?.matchStartedAt) ? snapshot.matchStartedAt : serverNow;
   const elapsed = Math.max(0, serverNow - startedAt);
-  const length = Number.isFinite(snapshot.matchSeconds) ? snapshot.matchSeconds : 300;
+  const length = Number.isFinite(snapshot?.matchSeconds) ? snapshot.matchSeconds : 300;
   const left = Math.max(0, length - elapsed);
   const mins = Math.floor(left / 60);
   const secs = Math.floor(left % 60).toString().padStart(2, '0');
+  const clock = isOvertime ? 'OVERTIME' : `${mins}:${secs}`;
 
   let stateKey = 'idle';
   let stateLabel = isAttacker ? 'CAPTURE' : 'DEFEND';
   if (obj.completed) {
     stateKey = 'captured';
     stateLabel = 'CAPTURED';
+  } else if (isOvertime) {
+    stateKey = 'overtime';
+    stateLabel = isAttacker ? 'OVERTIME · CAPTURE' : 'OVERTIME · DEFEND';
   } else if (obj.contested) {
     stateKey = 'contested';
     stateLabel = 'CONTESTED';
@@ -77,7 +82,7 @@ export function breakthroughHudView(local, snapshot, serverNow) {
     stateLabel,
     attackersCount: obj.attackersCount ?? 0,
     defendersCount: obj.defendersCount ?? 0,
-    clock: `${mins}:${secs}`,
+    clock,
     distanceMeters: dist,
   };
 }
@@ -92,12 +97,13 @@ export function matchInfoText(snapshot, serverNow) {
   const left = Math.max(0, length - elapsed);
   const mins = Math.floor(left / 60);
   const secs = Math.floor(left % 60).toString().padStart(2, '0');
+  const clockStr = (snapshot?.overtime || snapshot?.objective?.overtime) ? 'OVERTIME' : `${mins}:${secs}`;
   if (snapshot?.mode === 'BREAKTHROUGH') {
     const obj = snapshot.objective;
     const objName = obj?.name ?? 'OBJECTIVE';
     const pct = Math.round((obj?.progress ?? 0) * 100);
-    const status = obj?.contested ? 'CONTESTED' : `${pct}%`;
-    return `BREAKTHROUGH  ·  ${objName.toUpperCase()} [${status}]  ·  ${mins}:${secs}`;
+    const status = (snapshot?.overtime || obj?.overtime) ? 'OVERTIME' : obj?.contested ? 'CONTESTED' : `${pct}%`;
+    return `BREAKTHROUGH  ·  ${objName.toUpperCase()} [${status}]  ·  ${clockStr}`;
   }
   return `FIRST TO ${snapshot?.scoreToWin ?? 10}  ·  ${mins}:${secs}`;
 }
@@ -706,8 +712,10 @@ export class HUD {
       const renderTeam = (title, list, cls) => `<h4 class="sb-team-head ${cls}">${title}</h4>` + list.map((p) =>
         `<div class="sb-row ${cls}"><span>${escapeHtml(p.name)}${p.actorKind === 'bot' ? ' <small>[BOT]</small>' : ''}</span><b>${p.kills} K</b><em>${p.deaths} D · ${p.parries ?? 0} P</em></div>`
       ).join('');
-      this.scoreboard.innerHTML = `<h3>BREAKTHROUGH · BASTION BREACH</h3>${renderTeam('ATTACKERS · AZURE HOST', attackers, 'team-att')}${renderTeam('DEFENDERS · CRIMSON GUARD', defenders, 'team-def')}`;
+      const worldTitle = snapshot.worldId === 'blackbell-foundry' ? 'BLACKBELL FOUNDRY' : 'BASTION BREACH';
+      this.scoreboard.innerHTML = `<h3>BREAKTHROUGH · ${worldTitle}</h3>${renderTeam('ATTACKERS · AZURE HOST', attackers, 'team-att')}${renderTeam('DEFENDERS · CRIMSON GUARD', defenders, 'team-def')}`;
       return;
+
     }
     const sorted = [...snapshot.players].sort((a, b) => b.kills - a.kills || a.deaths - b.deaths);
     this.scoreboard.innerHTML = `<h3>SCOREBOARD</h3>${sorted.map((p) => `<div><span>${escapeHtml(p.name)}</span><b>${p.kills}</b><em>${p.deaths} deaths</em></div>`).join('')}`;

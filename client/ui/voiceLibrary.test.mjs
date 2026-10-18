@@ -122,7 +122,7 @@ test('the library stands in its authored sections: his voice, then the sounds of
   assert.equal(where('heavyHurt2'), 'Injury');
   assert.equal(where('firstStrike'), 'Exertions');
   // the makers
-  assert.deepEqual(CREDITS.lines.map((line) => `${line.role} ${line.name}`), ['Created and designed by CaptainFredric', 'The Spellblade — performed by CaptainFredric']);
+  assert.deepEqual(CREDITS.lines.map((line) => `${line.role} ${line.name}`), ['Created and designed by CaptainFredric', 'The Spellblade: performed by CaptainFredric']);
 });
 
 test('the new lines\' words and notes are as written (a few, checked to the letter)', () => {

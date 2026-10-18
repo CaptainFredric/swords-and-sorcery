@@ -198,17 +198,25 @@
         <button class="back-button" id="breakthrough-back">← BACK</button>
         <p class="eyebrow">TEAM BATTLE</p>
         <h2>BREAKTHROUGH</h2>
-        <p class="scenario-subtitle">BASTION BREACH</p>
+        <p class="scenario-subtitle" id="breakthrough-scenario-subtitle">BASTION BREACH</p>
+
         <label class="field-label" for="breakthrough-name">SPELLBLADE NAME</label>
         <input id="breakthrough-name" class="game-input" data-name-copy maxlength="18" autocomplete="nickname" placeholder="Enter a name" />
         <p class="error-copy" data-menu-error aria-live="polite"></p>
-        <p class="panel-copy">A multi-phase fortress siege. Attackers capture sequential objectives to breach the stronghold; Defenders stand fast to hold the line.</p>
+        <p class="panel-copy" id="breakthrough-panel-copy">A multi-phase fortress siege. Attackers capture sequential objectives to breach the stronghold; Defenders stand fast to hold the line.</p>
 
         <div id="breakthrough-size" class="vote-row solo-arena" role="radiogroup" aria-label="Battle Size">
           <span>BATTLE SIZE</span>
           <button type="button" class="vote-chip" role="radio" data-size="2">2V2</button>
           <button type="button" class="vote-chip mine" role="radio" data-size="3">3V3 <small>(RECOMMENDED)</small></button>
         </div>
+
+        <div id="breakthrough-arena" class="vote-row solo-arena" role="radiogroup" aria-label="Battlefield">
+          <span>BATTLEFIELD</span>
+          <button type="button" class="vote-chip mine" role="radio" data-arena="bastion-breach">BASTION BREACH</button>
+          <button type="button" class="vote-chip" role="radio" data-arena="blackbell-foundry">BLACKBELL FOUNDRY</button>
+        </div>
+
 
         <div id="breakthrough-team" class="vote-row solo-arena" role="radiogroup" aria-label="Allegiance">
           <span>ALLEGIANCE</span>
