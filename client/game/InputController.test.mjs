@@ -537,6 +537,8 @@ test('mobile focus does not invoke native pointer lock or fullscreen and ignores
   assert.equal(input.enabled, true);
   assert.equal(pointerLocks, 0, 'touch focus must not activate mouse pointer lock');
   assert.equal(immersiveCalls, 0, 'entering touch focus must not request fullscreen');
+  input.requestPointerLock({ mouse: true });
+  assert.equal(pointerLocks, 1, 'hybrid mouse users can still explicitly request pointer lock');
   assert.ok(input.movement().forward > .8);
   send('blur', {}, win);
   assert.equal(resets, 0, 'temporary system overlay blur should not release touch input');
