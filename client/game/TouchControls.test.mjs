@@ -341,3 +341,35 @@ test('mouse click on TouchControls button still activates the button', () => {
   send('pointerup', 600, 300, { action: 'attack', pointerType: 'mouse', button: 0 });
   assert.deepEqual(calls, [['attack', true], ['attack', false]]);
 });
+
+test('floating joystick plants in game-layer coordinates despite mobile viewport offset and scale', () => {
+  const { controls, send } = setup({ alive: true, spell: 'fireball' });
+  // This game layer is offset and displayed at half its CSS layout size.
+  controls.layer.getBoundingClientRect = () => ({ left: 50, top: 30, width: 400, height: 300 });
+  const finger = { target: controls.layer };
+  send('pointerdown', 130, 255, finger); // game-layer point (160, 450), not (130, 255)
+  assert.deepEqual({ x: controls.stick.x, y: controls.stick.y }, { x: 160, y: 450 });
+  assert.equal(controls.stickBase.style.left, '160px');
+  assert.equal(controls.stickBase.style.top, '450px');
+  send('pointermove', 130, 225, finger);
+  assert.ok(controls.movement().forward > 0.9, 'drag up moves forward in the corrected local frame');
+  send('pointerup', 130, 225, finger);
+  assert.equal(controls.stick, null);
+  assert.equal(controls.stickBase.style.left, '');
+  assert.equal(controls.stickBase.style.top, '');
+});
+
+test('upper-left HUD touch never drags the floating joystick into the menu and health bars', () => {
+  const { controls, send } = setup({ alive: true, spell: 'fireball' });
+  const finger = { target: controls.layer };
+  send('pointerdown', 40, 42, finger);
+  assert.equal(controls.stick, null, 'HUD region does not plant a movement stick');
+  send('pointerup', 40, 42, finger);
+  send('pointerdown', 125, 420, finger);
+  assert.deepEqual({ x: controls.stick.x, y: controls.stick.y }, { x: 125, y: 420 });
+  send('pointermove', 125, 370, finger);
+  assert.ok(controls.movement().forward > 0, 'normal lower-left play area still works');
+  globalThis.window.dispatchEvent(new Event('blur'));
+  assert.equal(controls.stick, null, 'app focus loss clears captured movement');
+  assert.equal(controls.movement().forward, 0);
+});
