@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { TOGGLE_TAP, TOUCH, isDeliberateTap, isTouchPrimary, lookDelta, stickVector } from './touchControlsModel.mjs';
+import { TOGGLE_TAP, TOUCH, isDeliberateTap, isTouchPrimary, lookDelta, stickVector, touchLayerPoint } from './touchControlsModel.mjs';
 
 function close(actual, expected, epsilon = 1e-9) {
   assert.ok(Math.abs(actual - expected) <= epsilon, `${actual} != ${expected}`);
@@ -60,4 +60,20 @@ test('the crouch toggle answers only a deliberate tap on it: quick, lifted where
   assert.equal(isDeliberateTap(press, { at: 1100, x: 100 + TOGGLE_TAP.maxSlide + 5, y: 200, lifted: true }), false, 'slid away: on its way somewhere else');
   assert.equal(isDeliberateTap(press, { at: 1100, x: 100, y: 200, lifted: false }), false, 'cancelled, not lifted');
   assert.equal(isDeliberateTap(null, { at: 1100, x: 100, y: 200, lifted: true }), false, 'never pressed on it at all');
+});
+
+test('layer-relative touch positions account for viewport offsets and CSS scale', () => {
+  // The viewport can be inset by browser UI or displayed with a non-unit scale.
+  const rect = { left: 50, top: 30, width: 400, height: 300 };
+  const size = { width: 800, height: 600 };
+  assert.deepEqual(touchLayerPoint(130, 255, rect, size), { x: 160, y: 450 });
+  assert.deepEqual(touchLayerPoint(30, 30, rect, size), { x: -40, y: 0 });
+});
+
+test('layer-relative touch positions undo both sideways rotations', () => {
+  const rect = { left: 20, top: 40, width: 300, height: 600 };
+  const size = { width: 600, height: 300 };
+  assert.deepEqual(touchLayerPoint(110, 170, rect, size, 90), { x: 130, y: 210 });
+  assert.deepEqual(touchLayerPoint(230, 510, rect, size, -90), { x: 130, y: 210 });
+  assert.equal(touchLayerPoint(0, 0, null, size), null);
 });
