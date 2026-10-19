@@ -122,32 +122,36 @@ body.took-steel::after{content:"";position:fixed;inset:0;z-index:50;pointer-even
 
 /* --- Breakthrough Objective HUD, World Waypoint & Team End Screen --- */
 .breakthrough-hud {
-  position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
-  width: min(390px, 88cqw); padding: 8px 14px 9px;
+  width: min(330px, 100%); padding: 6px 9px;
   background: linear-gradient(180deg, rgba(22, 23, 19, .88), rgba(14, 15, 12, .92));
   border: 1px solid rgba(201, 156, 82, .45);
   box-shadow: 0 6px 20px rgba(0, 0, 0, .45);
-  display: grid; gap: 5px; pointer-events: none;
+  display: grid; gap: 3px; pointer-events: none;
 }
+.hud-status-stack { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); width: min(380px, calc(100% - 24px)); display: grid; justify-items: center; gap: 5px; pointer-events: none; }
+.hud-status-stack > .match-info, .hud-status-stack > .duel-score { position: static; transform: none; max-width: 100%; margin: 0; text-align: center; }
+.hud-status-stack > .match-info { padding: 5px 10px; font-size: 9px; }
+.hud-status-stack > .duel-score { padding: 3px 9px; }
 .breakthrough-hud[data-team="ATTACKERS"] { border-top: 2px solid #5294ff; }
 .breakthrough-hud[data-team="DEFENDERS"] { border-top: 2px solid #de4840; }
-.bt-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 9px; font-weight: 800; letter-spacing: .16em; color: rgba(234, 220, 182, .75); }
+.bt-header { display: flex; align-items: center; justify-content: space-between; gap: 5px; font-size: 8px; font-weight: 800; letter-spacing: .06em; color: rgba(234, 220, 182, .75); }
 .bt-team-badge { padding: 2px 6px; font-weight: 900; letter-spacing: .14em; background: rgba(61, 126, 237, .22); color: #8ec0ff; border: 1px solid rgba(116, 182, 255, .45); }
 .breakthrough-hud[data-team="DEFENDERS"] .bt-team-badge { background: rgba(222, 56, 56, .22); color: #ff9c94; border-color: rgba(226, 106, 95, .45); }
 .bt-clock { font-variant-numeric: tabular-nums; color: #f1dfae; font-size: 11px; }
 .bt-main { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
-.bt-obj-name { font-family: Georgia, serif; font-size: 15px; letter-spacing: .08em; color: #f4ead2; }
-.bt-state-pill { font-style: normal; font-size: 10px; font-weight: 900; letter-spacing: .14em; color: #d5b76f; }
+.bt-obj-name { min-width: 0; font-family: Georgia, serif; font-size: 13px; line-height: 1.15; letter-spacing: .025em; color: #f4ead2; }
+.bt-state-pill { flex: none; font-style: normal; font-size: 9px; font-weight: 900; letter-spacing: .04em; color: #d5b76f; }
 .breakthrough-hud[data-state="capturing"] .bt-state-pill { color: #74b6ff; }
 .breakthrough-hud[data-state="contested"] .bt-state-pill { color: #ff9a52; animation: bt-pulse .75s ease-in-out infinite alternate; }
 .breakthrough-hud[data-state="overtime"] { border-top: 2px solid #ffbe4a; box-shadow: 0 0 18px rgba(255, 190, 74, .32); }
 .breakthrough-hud[data-state="overtime"] .bt-clock { color: #ffbe4a; font-weight: 900; letter-spacing: .12em; animation: bt-pulse .6s ease-in-out infinite alternate; }
 .breakthrough-hud[data-state="overtime"] .bt-state-pill { color: #ffbe4a; animation: bt-pulse .6s ease-in-out infinite alternate; }
 .breakthrough-hud[data-state="overtime"] .bt-bar-fill { background: linear-gradient(90deg, #e98243, #ffbe4a); }
-.bt-bar-track { height: 7px; background: #121410; border: 1px solid rgba(201, 156, 82, .38); overflow: hidden; }
+.bt-bar-track { height: 4px; background: #121410; border: 1px solid rgba(201, 156, 82, .38); overflow: hidden; }
 .bt-bar-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #3d7eed, #68cee1); transition: width .12s linear; }
 .breakthrough-hud[data-state="contested"] .bt-bar-fill { background: linear-gradient(90deg, #c9564a, #e98243); }
-.bt-footer { display: flex; align-items: center; justify-content: space-between; font-size: 10px; color: rgba(234, 220, 182, .68); letter-spacing: .04em; }
+.bt-footer { display: flex; align-items: center; justify-content: space-between; gap: 6px; font-size: 10px; color: rgba(234, 220, 182, .68); letter-spacing: .02em; }
+.bt-footer small { min-width: 0; }
 @keyframes bt-pulse { from { opacity: .65; } to { opacity: 1; } }
 
 .objective-waypoint {

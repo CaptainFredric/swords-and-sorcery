@@ -1,5 +1,5 @@
 import { CREDITS, LIBRARY_GROUPS, VOICE_LIBRARY, librarySections, libraryStatus, statusLabel } from './voiceLibrary.mjs';
-import { highlight, searchShelves, searchTerms } from './creditsSearch.mjs';
+import { highlight, searchShelves, searchTerms, sortArchiveEntries } from './creditsSearch.mjs';
 
 // The credits, and the Spellblade's voice library (voiceLibrary.mjs): who made him, then every line he has or will
 // have (each section folding away) and the sounds he makes in a fight, each with a button per take to hear it as the
@@ -20,6 +20,12 @@ export class CreditsPanel {
     this.query = '';
     this.search = root.querySelector('[data-credits-search]');
     this.count = root.querySelector('[data-credits-count]');
+    this.sort = root.querySelector('[data-credits-sort]');
+    this.sortOrder = 'sections';
+    this.sort?.addEventListener('change', () => {
+      this.sortOrder = this.sort.value;
+      this.#render();
+    });
     this.search?.addEventListener('input', () => {
       this.query = this.search.value;
       this.#render();
@@ -36,7 +42,7 @@ export class CreditsPanel {
     root.addEventListener('keydown', (event) => {
       if (event.key !== 'Tab' || !this.isOpen) return;
       const folded = [...root.querySelectorAll('details:not([open])')];
-      const controls = [...root.querySelectorAll('button:not(:disabled), input, summary, a[href]')].filter((el) =>
+      const controls = [...root.querySelectorAll('button:not(:disabled), input, select, summary, a[href]')].filter((el) =>
         el.getClientRects().length && folded.every((detail) => !detail.contains(el) || detail.firstElementChild === el));
       const next = event.shiftKey ? controls.at(-1) : controls[0];
       const edge = event.shiftKey ? controls[0] : controls.at(-1);
@@ -141,7 +147,9 @@ export class CreditsPanel {
     const take = focused?.dataset?.take;
     const section = focused?.tagName === 'SUMMARY' ? focused.closest('[data-section]')?.dataset.section : null;
     this.attribution.innerHTML = credits;
-    this.library.innerHTML = `${groups}${empty}`;
+    const sorted = this.sortOrder === 'sections' ? groups
+      : sortArchiveEntries(shelves.flatMap(shelf => shelf.entries), this.sortOrder, this.voice?.archiveAddedOn).map(row).join('');
+    this.library.innerHTML = `${sorted}${empty}`;
     // Preserve keyboard position if asynchronously loaded recordings redraw their controls.
     const replacement = line
       ? [...this.library.querySelectorAll('[data-play-line]')].find((el) => el.dataset.playLine === line && el.dataset.take === take)

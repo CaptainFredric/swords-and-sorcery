@@ -42,6 +42,18 @@ export function searchShelves(shelves, terms, statusOf = () => '') {
     .filter((shelf) => shelf.entries.length);
 }
 
+/** First archive addition, independent of later audio processing. Undated lines stay last. */
+export function sortArchiveEntries(entries, order, addedOn = new Map()) {
+  return [...entries].sort((a, b) => {
+    if (order === 'newest' || order === 'oldest') {
+      const left = addedOn.get(a.line), right = addedOn.get(b.line);
+      if (Boolean(left) !== Boolean(right)) return left ? -1 : 1;
+      if (left && right && left !== right) return (order === 'newest' ? -1 : 1) * left.localeCompare(right);
+    }
+    return a.title.localeCompare(b.title, 'en', { sensitivity: 'base' }) || a.line.localeCompare(b.line);
+  });
+}
+
 const escapeHtml = (text) => String(text).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const escapeRegExp = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
