@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { SpellbladeComposition } from './spellbladeComposition.mjs';
 import { BODY_GROUND_CLEARANCE, bodyGroundLift, bootSide, soleContactOffset } from './spellbladeContact.mjs';
 import { SpellbladeClothRig } from './SpellbladeClothRig.mjs';
+import { ClothGridRig, hasClothGrids } from './ClothGridRig.mjs';
 import { blendProgressFor, blendSeconds, blendWeights } from './spellbladeBlend.mjs';
 import { DEATH_REST, GAIT_CLIPS, deathRest, deathSlump, gaitTime, nonlethalRecovery, reactionPose } from './spellbladeMotion.mjs';
 
@@ -53,7 +54,8 @@ export class SpellbladeAnimator {
     this.onPose = onPose;
     this.root = root;
     this.mixer = new THREE.AnimationMixer(root);
-    this.cloth = cloth ? new SpellbladeClothRig(root) : null;
+    // (a model with cloth grids gets cloth; one with the older two-bone chains, their springs)
+    this.cloth = cloth ? (hasClothGrids(root) ? new ClothGridRig(root) : new SpellbladeClothRig(root)) : null;
     this.actions = new Map();
     this.composition = new SpellbladeComposition(root, clips);
     this.composing = false;
