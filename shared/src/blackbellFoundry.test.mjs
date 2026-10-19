@@ -143,7 +143,7 @@ test('Blackbell Foundry Breakthrough match initializes and simulates cleanly', (
   });
 });
 
-test('Blackbell Foundry authoritative capture respects vertical height bounds', () => {
+test('Blackbell Foundry authoritative capture respects vertical height bounds and fixes trench exploit', () => {
   const room = new Room('TEST-HEIGHT', { mode: GAME_MODES.BREAKTHROUGH, worldId: 'blackbell-foundry' });
   room.startMatch(0);
 
@@ -155,33 +155,54 @@ test('Blackbell Foundry authoritative capture respects vertical height bounds', 
   }, 0);
 
   // 1. Stage 1 (Chain Winch at x: 0, y: 0, z: -2)
-  // Player standing on the ground inside the yard captures cleanly:
+  // A. Player standing on accessible ground inside the yard captures cleanly:
   att.position = { x: 0, y: 0, z: -2 };
   stepObjectives(room, 1.0, 1.0);
   assert(room.objectiveState.progress > 0, 'Player on ground should capture Chain Winch');
   assert.equal(room.objectiveState.attackersCount, 1);
 
-  // Reset progress and place player on the overhead gantry (y = 2.8) directly above:
+  // B. Player jumping inside the zone (y = 1.2, dy = 1.2 <= 1.8) captures:
+  room.objectiveState.progress = 0;
+  att.position = { x: 0, y: 1.2, z: -2 };
+  stepObjectives(room, 1.0, 2.0);
+  assert(room.objectiveState.progress > 0, 'Jumping player within vertical tolerance should capture');
+  assert.equal(room.objectiveState.attackersCount, 1);
+
+  // C. Player on overhead gantry (y = 2.8, dy = 2.8 > 1.8) directly above:
   room.objectiveState.progress = 0;
   att.position = { x: 0, y: 2.8, z: -2 };
-  stepObjectives(room, 1.0, 2.0);
+  stepObjectives(room, 1.0, 3.0);
   assert.equal(room.objectiveState.progress, 0, 'Player on overhead gantry (y=2.8) must NOT capture yard objective (y=0)');
   assert.equal(room.objectiveState.attackersCount, 0, 'Overhead player should not count toward capture zone');
+
+  // D. Player in sunken drainage trench (y = -1.0, dy = -1.0 < -0.6):
+  room.objectiveState.progress = 0;
+  att.position = { x: 0, y: -1.0, z: -2 };
+  stepObjectives(room, 1.0, 4.0);
+  assert.equal(room.objectiveState.progress, 0, 'Player in sunken trench (y=-1.0) must NOT capture ground objective (y=0)');
+  assert.equal(room.objectiveState.attackersCount, 0, 'Trench player should not count toward capture zone');
 
   // 2. Stage 2 (The Great Bell on Dais at x: 0, y: 1.0, z: 26)
   room.objectiveState.index = 1;
   room.objectiveState.progress = 0;
   
-  // Player on the raised dais at y = 1.0 captures:
+  // A. Player on the raised dais at y = 1.0 captures:
   att.position = { x: 0, y: 1.0, z: 26 };
-  stepObjectives(room, 1.0, 3.0);
+  stepObjectives(room, 1.0, 5.0);
   assert(room.objectiveState.progress > 0, 'Player on Great Bell dais should capture');
   assert.equal(room.objectiveState.attackersCount, 1);
 
-  // Player far below the dais in a trench (y = -1.0, dy = -2.0) must not capture:
+  // B. Player on the foundry floor beneath the dais (y = 0.0, dy = -1.0 < -0.6) must NOT capture:
+  room.objectiveState.progress = 0;
+  att.position = { x: 0, y: 0.0, z: 26 };
+  stepObjectives(room, 1.0, 6.0);
+  assert.equal(room.objectiveState.progress, 0, 'Player on floor below dais must NOT capture without climbing dais');
+  assert.equal(room.objectiveState.attackersCount, 0);
+
+  // C. Player deep beneath dais in a trench (y = -1.0, dy = -2.0) must not capture:
   room.objectiveState.progress = 0;
   att.position = { x: 0, y: -1.0, z: 26 };
-  stepObjectives(room, 1.0, 4.0);
+  stepObjectives(room, 1.0, 7.0);
   assert.equal(room.objectiveState.progress, 0, 'Player deep beneath dais must NOT capture');
   assert.equal(room.objectiveState.attackersCount, 0);
 });

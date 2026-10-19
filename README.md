@@ -81,7 +81,7 @@ The [Castleward 3D asset roadmap](docs/art/castleward-3d-asset-roadmap.md) track
 
 These are **production intentions, not a claim that the assets are already in this repository or shipped**. Model briefs, technical constraints, and acceptance checklist: [full asset roadmap](docs/art/castleward-3d-asset-roadmap.md).
 
-**Worldbuilding and future animated gags:** [Renown hoarding, the Rightful Renowner, and its two judgment scenes](docs/ideas/renown-renowner-worldbuilding.md). These are creative concepts, not new gameplay requirements.
+**Worldbuilding, fortifications, and narrative scenes:** [Honorable Entry Gatehouse](docs/ideas/honorable-entry-gatehouse.md) (the martial doctrine of willing entry, gatehouse architecture, and scripted castle comedy scenes); [Renown hoarding, the Rightful Renowner, and judgment scenes](docs/ideas/renown-renowner-worldbuilding.md). These are creative concepts, not new gameplay requirements.
 
 ## Project structure
 
