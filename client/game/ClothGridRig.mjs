@@ -12,6 +12,11 @@ const _q = new THREE.Quaternion();
 const _twist = new THREE.Quaternion();
 const _parent = new THREE.Quaternion();
 const _world = new THREE.Quaternion();
+const _anchorTurn = new THREE.Quaternion();
+// how a cloth bone turns about its own length to follow the cloth's width: fully up to TWIST_FULL (rad), then less
+// and less, to none by TWIST_NONE (columns that have crossed would ask for a half turn, and flip as they cross back)
+const TWIST_FULL = 1.0;
+const TWIST_NONE = 2.6;
 
 // a bone by its Blender name: the glTF loader drops a name's dots ('cape.C.1' arrives as 'capeC1')
 function node(root, name) {
@@ -42,9 +47,17 @@ export class ClothGridRig {
       }).filter(Boolean);
       // the drape: each bone's own rest turn (the bind pose), and its length (the last bone's as the one above it)
       const bind = bones.map((column) => column.map((bone) => bone.quaternion.clone()));
+      // which way the cloth hangs from his body (level), in the anchor's own frame: read on the bind pose
+      root.updateWorldMatrix(true, true);
+      anchor.getWorldQuaternion(_anchorTurn).invert();
+      const from = anchor.getWorldPosition(new THREE.Vector3());
+      const mean = new THREE.Vector3();
+      bones.flat().forEach((bone) => mean.add(bone.getWorldPosition(_v)));
+      mean.divideScalar(bones.flat().length).sub(from).setY(0).normalize();
+      const outward = mean.applyQuaternion(_anchorTurn);
       // (a bone's length is where its child sits; the last one's, the one above it: the rows are evenly spaced)
       const lengths = bones.map((column) => column.map((bone, r) => (column[r + 1] ? column[r + 1].position.length() : (r > 0 ? bone.position.length() : 0.25))));
-      this.grids.push({ spec, anchor, bones, bind, lengths, colliders, sim: null, drape: null, drapeTurn: null });
+      this.grids.push({ spec, anchor, bones, bind, lengths, colliders, outward, sim: null, drape: null, drapeTurn: null });
     }
     this.enabled = this.grids.length > 0;
     this.wind = [0, 0, 0];
@@ -95,7 +108,9 @@ export class ClothGridRig {
           _side0.addScaledVector(_dir, -_side0.dot(_dir));
           if (_side.lengthSq() > 1e-10 && _side0.lengthSq() > 1e-10) {
             _side.normalize(); _side0.normalize();
-            const angle = Math.atan2(_v.crossVectors(_side0, _side).dot(_dir), _side0.dot(_side));
+            const wanted = Math.atan2(_v.crossVectors(_side0, _side).dot(_dir), _side0.dot(_side));
+            const fade = Math.max(0, Math.min(1, (TWIST_NONE - Math.abs(wanted)) / (TWIST_NONE - TWIST_FULL)));
+            const angle = Math.sign(wanted) * Math.min(Math.abs(wanted), TWIST_FULL) * fade;
             _twist.setFromAxisAngle(_dir, angle);
             _q.premultiply(_twist);
           }
@@ -113,11 +128,17 @@ export class ClothGridRig {
     if (!this.enabled) return;
     this.root.updateWorldMatrix(true, false);
     const ground = this.root.getWorldPosition(_v).y + 0.02;
+    // where he is and which way he faces (the cloth is carried with all but its inertia share of that)
+    const body = { position: _v.toArray(), quaternion: this.root.getWorldQuaternion(_world).toArray() };
     for (const grid of this.grids) {
       const drape = this.#drape(grid);
-      if (!grid.sim) grid.sim = createClothGrid(grid.spec, drape.targets);
-      else if (dt > 0) stepClothGrid(grid.sim, dt, { targets: drape.targets, colliders: this.#colliders(grid), ground, wind: this.wind });
-      else resetClothGrid(grid.sim, drape.targets);
+      grid.anchor.getWorldQuaternion(_anchorTurn);
+      // (its side of him turns with him; its height limit is the world's: leaning into a dash, the cape streams out
+      // level behind him at most, not up over his head)
+      const side = { outward: _a.copy(grid.outward).applyQuaternion(_anchorTurn).toArray(), up: [0, 1, 0] };
+      if (!grid.sim) { grid.sim = createClothGrid(grid.spec, drape.targets); resetClothGrid(grid.sim, drape.targets, body); }
+      else if (dt > 0) stepClothGrid(grid.sim, dt, { targets: drape.targets, colliders: this.#colliders(grid), ground, wind: this.wind, body, ...side });
+      else resetClothGrid(grid.sim, drape.targets, body);
       this.#write(grid, drape);
     }
     // (a gust passes)

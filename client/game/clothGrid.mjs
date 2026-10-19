@@ -4,29 +4,49 @@
 //
 // Each grid is columns of nodes hanging from the body: row 0 is pinned where the body holds the cloth (the cape at the
 // shoulders, the tabard at the belt), the rows below are free. Every frame:
-//   gravity and air drag move the free nodes (in the world, so the cloth keeps its own momentum: it trails a run,
-//     swings on a stop or a turn, and flies up on a fall);
+//   the cloth is carried with the body by part of its own motion (inertia): a sudden start, stop or turn swings it by
+//     the rest, as a heavy cloth does, instead of flinging it the whole way; the air it moves through is still the
+//     world's, so a steady run trails it as fully as before;
+//   gravity and air drag move the free nodes (so the cloth keeps its own momentum: it trails a run, swings on a stop
+//     or a turn, and flies up on a fall);
 //   a gentle pull draws each node back toward the cloth's authored drape on the body (firm near where it hangs from,
 //     loose at the hem), so it keeps its shape at rest instead of collapsing onto him;
 //   constraints keep the cloth from stretching (down each column: hard; across, and on the diagonals: softer), and
 //     from folding up on itself;
-//   capsules round his back, hips, thighs and shins push it out of the body, and it stays above the ground.
+//   capsules round his back, hips, thighs and shins push it out of the body (without a bounce: it slides on him), and
+//     it stays above the ground;
+//   and it keeps to its own side of him: never nearer his body than its reach from where it hangs at rest (the cape
+//     behind him, the tabard in front: a swing stops against him instead of passing through), and never above where
+//     it hangs from (a cape flies out level at most, never over his head).
 
 export const CLOTH_GRID_SPECS = Object.freeze({
   cape: Object.freeze({
     prefix: 'cape', columns: Object.freeze(['L', 'C', 'R']), rows: 4, anchor: 'chest',
     // how quickly each row returns toward its drape (1/s): row 0 is pinned
     follow: Object.freeze([0, 7, 3.2, 1.8, 1.2]),
-    drag: 1.1,
-    width: 0.8, shear: 0.3, bend: 0.25,
+    drag: 1.4,
+    width: 1, shear: 0.3, bend: 0.25,
     colliders: Object.freeze(['torso', 'hips', 'thigh.L', 'thigh.R', 'shin.L', 'shin.R']),
+    // the share of his own motion the cloth feels (1: all of it, a loose cloth; 0: none, carried rigidly with him)
+    inertia: Object.freeze({ move: 0.55, turn: 0.3 }),
+    // how near his body (m) each row may come from where it hangs at rest: the cape against his back, then his legs
+    reach: Object.freeze([0, 0.02, 0.03, 0.05, 0.07]),
+    // how high (m) above where it hangs from any node may rise (or each row's, as a list)
+    rise: 0.04,
+    // how far (m) the cloth reaches beyond its outer columns (its edges collide too)
+    span: 0.15,
   }),
   tabard: Object.freeze({
     prefix: 'tabard', columns: Object.freeze(['L', 'R']), rows: 3, anchor: 'pelvis',
     follow: Object.freeze([0, 9, 4, 2.4]),
-    drag: 1.4,
-    width: 0.85, shear: 0.3, bend: 0.25,
+    drag: 1.6,
+    width: 1, shear: 0.3, bend: 0.25,
     colliders: Object.freeze(['thigh.L', 'thigh.R', 'shin.L', 'shin.R']),
+    inertia: Object.freeze({ move: 0.55, turn: 0.3 }),
+    reach: Object.freeze([0, 0.02, 0.05, 0.08]),
+    // (each row's own: a knee lifts the tabard's hem out to about level, but never folds it up over the belt)
+    rise: Object.freeze([0, 0.04, -0.04, -0.12]),
+    span: 0.09,
   }),
 });
 
@@ -56,8 +76,39 @@ const TELEPORT_DISTANCE = 2;
 const MAX_SPEED = 25;
 
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 const len = (a) => Math.hypot(a[0], a[1], a[2]);
 const lerp = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+const unit = (a) => { const l = len(a); return l > 1e-9 ? [a[0] / l, a[1] / l, a[2] / l] : [0, 0, 0]; };
+
+// quaternions as [x, y, z, w]
+const qMul = (a, b) => [
+  a[3] * b[0] + a[0] * b[3] + a[1] * b[2] - a[2] * b[1],
+  a[3] * b[1] - a[0] * b[2] + a[1] * b[3] + a[2] * b[0],
+  a[3] * b[2] + a[0] * b[1] - a[1] * b[0] + a[2] * b[3],
+  a[3] * b[3] - a[0] * b[0] - a[1] * b[1] - a[2] * b[2],
+];
+const qInv = (q) => [-q[0], -q[1], -q[2], q[3]];
+function qPow(q, t) {
+  // the same turn about the same axis, t of the way (the short way round)
+  const s = q[3] < 0 ? -1 : 1;
+  const w = Math.max(-1, Math.min(1, q[3] * s));
+  const angle = 2 * Math.acos(w);
+  const sinHalf = Math.sqrt(Math.max(0, 1 - w * w));
+  if (sinHalf < 1e-9) return [0, 0, 0, 1];
+  const axis = [q[0] * s / sinHalf, q[1] * s / sinHalf, q[2] * s / sinHalf];
+  const half = angle * t / 2;
+  return [axis[0] * Math.sin(half), axis[1] * Math.sin(half), axis[2] * Math.sin(half), Math.cos(half)];
+}
+function qSlerp(a, b, t) {
+  const d = dot(a, b) + a[3] * b[3];
+  const bb = d < 0 ? b.map((x) => -x) : b;
+  return qMul(qPow(qMul(bb, qInv(a)), t), a);
+}
+function qRotate(q, v) {
+  const p = qMul(qMul(q, [v[0], v[1], v[2], 0]), qInv(q));
+  return [p[0], p[1], p[2]];
+}
 
 function index(grid, column, row) {
   return column * (grid.rows + 1) + row;
@@ -77,6 +128,8 @@ export function createClothGrid(spec, targets) {
     pinned: targets.map((column) => [...column[0]]),
     targets: targets.map((column) => column.map((p) => [...p])),
     links: [],
+    body: null,
+    colliders: null,
   };
   const link = (a, b, stiffness, mode = 'both') => grid.links.push({ a, b, rest: len(sub(grid.x[a], grid.x[b])), stiffness, mode });
   for (let c = 0; c < columns; c += 1) {
@@ -98,7 +151,7 @@ export function createClothGrid(spec, targets) {
 }
 
 /** Back onto the drape, still (a respawn, a teleport, a reset). */
-export function resetClothGrid(grid, targets) {
+export function resetClothGrid(grid, targets, body = null) {
   for (let c = 0; c < grid.columns; c += 1) {
     for (let r = 0; r <= grid.rows; r += 1) {
       const i = index(grid, c, r);
@@ -108,6 +161,8 @@ export function resetClothGrid(grid, targets) {
     }
     grid.pinned[c] = [...targets[c][0]];
   }
+  grid.body = body ? { position: [...body.position], quaternion: [...body.quaternion] } : null;
+  grid.colliders = null;
 }
 
 /** A push on the free cloth (velocity, m/s, in the world), stronger toward the hem: a gust, a landing. */
@@ -123,8 +178,8 @@ export function impulseClothGrid(grid, velocity) {
 
 function closestOnSegment(p, a, b) {
   const ab = sub(b, a);
-  const l2 = ab[0] * ab[0] + ab[1] * ab[1] + ab[2] * ab[2];
-  const t = l2 > 1e-12 ? Math.max(0, Math.min(1, ((p[0] - a[0]) * ab[0] + (p[1] - a[1]) * ab[1] + (p[2] - a[2]) * ab[2]) / l2)) : 0;
+  const l2 = dot(ab, ab);
+  const t = l2 > 1e-12 ? Math.max(0, Math.min(1, dot(sub(p, a), ab) / l2)) : 0;
   return [a[0] + ab[0] * t, a[1] + ab[1] * t, a[2] + ab[2] * t];
 }
 
@@ -137,6 +192,16 @@ function pushOut(p, capsule) {
   if (l < 1e-6) return [0, 0, capsule.radius];
   const k = (capsule.radius - l) / l;
   return [d[0] * k, d[1] * k, d[2] * k];
+}
+
+// a node moved by a contact: it keeps no speed into what it touched (no bounce, and no pushing back in), and slides on
+function touch(grid, i, push) {
+  const p = grid.x[i];
+  for (let k = 0; k < 3; k += 1) p[k] += push[k];
+  const n = unit(push);
+  const v = sub(p, grid.prev[i]);
+  const into = Math.min(0, dot(v, n));
+  for (let k = 0; k < 3; k += 1) grid.prev[i][k] = p[k] - (v[k] - n[k] * into);
 }
 
 function solveLinks(grid) {
@@ -156,57 +221,112 @@ function solveLinks(grid) {
   }
 }
 
+// the cloth against the body: at every node, between nodes (down and across), and out to the cloth's edges beyond
+// its outer columns, so a leg can neither slip between two nodes nor pass through the cloth's sides
 function collide(grid, colliders, ground) {
-  const free = (r) => r > 0;
+  const span = grid.spec.span ?? 0;
+  const push = (point, nodes) => {
+    for (const capsule of colliders) {
+      const out = pushOut(point, capsule);
+      if (!out) continue;
+      for (const i of nodes) touch(grid, i, out);
+      for (let k = 0; k < 3; k += 1) point[k] += out[k];
+    }
+  };
   for (let c = 0; c < grid.columns; c += 1) {
-    for (let r = 0; r <= grid.rows; r += 1) {
+    for (let r = 1; r <= grid.rows; r += 1) {
       const i = index(grid, c, r);
-      if (free(r)) {
-        for (const capsule of colliders) {
-          const push = pushOut(grid.x[i], capsule);
-          if (push) for (let k = 0; k < 3; k += 1) grid.x[i][k] += push[k];
-        }
-        if (grid.x[i][1] < ground) grid.x[i][1] = ground;
+      push([...grid.x[i]], [i]);
+      if (grid.x[i][1] < ground) touch(grid, i, [0, ground - grid.x[i][1], 0]);
+      // down the column (from where it hangs, the free node takes the whole push)
+      const j = index(grid, c, r - 1);
+      push(lerp(grid.x[j], grid.x[i], 0.5), r - 1 > 0 ? [i, j] : [i, i]);
+      // across, to the next column
+      if (c + 1 < grid.columns) push(lerp(grid.x[i], grid.x[index(grid, c + 1, r)], 0.5), [i, index(grid, c + 1, r)]);
+      // out to the edge
+      if (span > 0 && grid.columns > 1 && (c === 0 || c === grid.columns - 1)) {
+        const side = unit(sub(grid.x[i], grid.x[index(grid, c === 0 ? 1 : c - 1, r)]));
+        push(grid.x[i].map((x, k) => x + side[k] * span), [i]);
       }
-      // (and the middle of each segment, so a leg cannot slip between two nodes)
-      if (r > 0) {
-        const j = index(grid, c, r - 1);
-        const mid = lerp(grid.x[j], grid.x[i], 0.5);
-        for (const capsule of colliders) {
-          const push = pushOut(mid, capsule);
-          if (!push) continue;
-          const shareJ = free(r - 1) ? 1 : 0;
-          for (let k = 0; k < 3; k += 1) {
-            grid.x[i][k] += push[k] * (shareJ ? 1 : 2);
-            if (shareJ) grid.x[j][k] += push[k];
-          }
-        }
+    }
+  }
+}
+
+// its own side of him: never nearer his body than its reach from the drape, never above where it hangs from
+function keepSide(grid, target, frame) {
+  const { reach = [], rise = Infinity } = grid.spec;
+  const outward = frame.outward;
+  const up = frame.up;
+  for (let c = 0; c < grid.columns; c += 1) {
+    const top = target(c, 0);
+    for (let r = 1; r <= grid.rows; r += 1) {
+      const i = index(grid, c, r);
+      if (outward) {
+        const d = dot(sub(grid.x[i], target(c, r)), outward) + (reach[r] ?? 0);
+        if (d < 0) touch(grid, i, outward.map((x) => -x * d));
+      }
+      const limit = Array.isArray(rise) ? rise[r] : rise;
+      if (up && Number.isFinite(limit)) {
+        const h = dot(sub(grid.x[i], top), up) - limit;
+        if (h > 0) touch(grid, i, up.map((x) => -x * h));
       }
     }
   }
 }
 
 /**
- * One frame. frame: { targets[column][row] (the drape on the body this frame, world), colliders: [{ a, b, radius }]
- * (world), ground (world y), wind? [x, y, z] (m/s of air moving past) }.
+ * One frame. frame: {
+ *   targets[column][row] (the drape on the body this frame, world), colliders: [{ a, b, radius }] (world),
+ *   ground (world y), wind? [x, y, z] (m/s of air moving past),
+ *   body? { position, quaternion [x, y, z, w] } (the body's own place and turn this frame, world: the cloth is carried
+ *     with its motion by all but the spec's inertia share),
+ *   outward? (unit, world: the way from his body to the cloth), up? (unit, world: his up)
+ * }.
  */
 export function stepClothGrid(grid, dt, frame) {
   if (!(dt > 0)) return grid;
   // (a jump in where it hangs from: a respawn or a teleport, not motion)
   const moved = Math.max(...frame.targets.map((column, c) => len(sub(column[0], grid.pinned[c]))));
   if (!Number.isFinite(moved) || moved > TELEPORT_DISTANCE) {
-    resetClothGrid(grid, frame.targets);
+    resetClothGrid(grid, frame.targets, frame.body);
     return grid;
   }
   const steps = Math.min(MAX_SUBSTEPS, Math.max(1, Math.ceil(dt / SUBSTEP)));
   const h = dt / steps;
-  const wind = frame.wind ?? [0, 0, 0];
   const keep = Math.exp(-grid.spec.drag * h);
   const fromTargets = grid.targets;
+  const inertia = grid.spec.inertia ?? { move: 1, turn: 1 };
+  const bodyFrom = grid.body;
+  const bodyTo = frame.body ?? null;
+  const carrying = Boolean(bodyFrom && bodyTo);
+  // the air: the world's, seen from the share of his motion the cloth is carried by (so a steady run trails it fully)
+  const carried = carrying ? sub(bodyTo.position, bodyFrom.position).map((x) => x * (1 - inertia.move) / dt) : [0, 0, 0];
+  const wind = sub(frame.wind ?? [0, 0, 0], carried);
+  const fromColliders = grid.colliders && grid.colliders.length === (frame.colliders ?? []).length ? grid.colliders : null;
+  let bodyAt = carrying ? bodyFrom : null;
   for (let s = 1; s <= steps; s += 1) {
     const t = s / steps;
     // the drape and where it hangs from, moved through the frame a substep at a time (no snap per frame)
     const target = (c, r) => lerp(fromTargets[c][r], frame.targets[c][r], t);
+    const colliders = (frame.colliders ?? []).map((capsule, k) => (fromColliders
+      ? { a: lerp(fromColliders[k].a, capsule.a, t), b: lerp(fromColliders[k].b, capsule.b, t), radius: capsule.radius }
+      : capsule));
+    if (carrying) {
+      // carried with him by the rest of his motion this substep: his move, and his turn about where he stands
+      const next = { position: lerp(bodyFrom.position, bodyTo.position, t), quaternion: qSlerp(bodyFrom.quaternion, bodyTo.quaternion, t) };
+      const move = sub(next.position, bodyAt.position).map((x) => x * (1 - inertia.move));
+      const turn = qPow(qMul(next.quaternion, qInv(bodyAt.quaternion)), 1 - inertia.turn);
+      for (let c = 0; c < grid.columns; c += 1) {
+        for (let r = 1; r <= grid.rows; r += 1) {
+          const i = index(grid, c, r);
+          for (const p of [grid.x[i], grid.prev[i]]) {
+            const around = qRotate(turn, sub(p, bodyAt.position));
+            for (let k = 0; k < 3; k += 1) p[k] = bodyAt.position[k] + around[k] + move[k];
+          }
+        }
+      }
+      bodyAt = next;
+    }
     for (let c = 0; c < grid.columns; c += 1) {
       for (let r = 1; r <= grid.rows; r += 1) {
         const i = index(grid, c, r);
@@ -233,12 +353,15 @@ export function stepClothGrid(grid, dt, frame) {
     }
     for (let n = 0; n < ITERATIONS; n += 1) {
       solveLinks(grid);
-      collide(grid, frame.colliders ?? [], frame.ground ?? -Infinity);
+      collide(grid, colliders, frame.ground ?? -Infinity);
+      keepSide(grid, target, frame);
     }
   }
   grid.targets = frame.targets.map((column) => column.map((p) => [...p]));
   grid.pinned = frame.targets.map((column) => [...column[0]]);
-  if (grid.x.some((p) => !p.every(Number.isFinite))) resetClothGrid(grid, frame.targets);
+  grid.body = bodyTo ? { position: [...bodyTo.position], quaternion: [...bodyTo.quaternion] } : null;
+  grid.colliders = (frame.colliders ?? []).map((capsule) => ({ a: [...capsule.a], b: [...capsule.b], radius: capsule.radius }));
+  if (grid.x.some((p) => !p.every(Number.isFinite))) resetClothGrid(grid, frame.targets, frame.body);
   return grid;
 }
 
