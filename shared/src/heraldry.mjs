@@ -4,19 +4,24 @@
 // the Armory. Each earned emblem is unlocked by one challenge (shared/src/challenges.mjs), and owned once that
 // challenge is complete: the profile's completed feats are the record, nothing else is stored for it.
 //
-// banner: the KitBanner atlas with this emblem on the back banner's half (the front tabard's half unchanged).
+// banners: the emblem's back-banner texture for each kind of banner cloth a model may have, by its material's name:
+//   KitBanner: the kit's banner atlas with the emblem on the back banner's half (the front tabard's half unchanged);
+//   CapeBanner: a cape with a texture of its own (the supplied Spellblade's), its sign replaced by the emblem.
 
 export const DEFAULT_EMBLEM = 'trident';
 
-const emblem = (id, name, description, { flavor = null, challenge = null, banner = null, art = null } = {}) =>
-  Object.freeze({ id, name, description, flavor, challenge, banner, art });
+const emblem = (id, name, description, { flavor = null, challenge = null, banners = {}, art = null } = {}) =>
+  Object.freeze({ id, name, description, flavor, challenge, banners: Object.freeze({ ...banners }), art });
 
 export const EMBLEMS = Object.freeze({
   trident: emblem('trident', 'Castleward Trident', 'The castle\'s own sign, worn by every knight of the yard.'),
   seize_thy_slayer: emblem('seize_thy_slayer', 'Seize Thy Slayer', 'A gauntlet closed on a burning blade.', {
     flavor: 'Leverage comes with an edge.',
     challenge: 'seize_thy_slayer',
-    banner: '/client/assets/heraldry/seize-thy-slayer-banner.jpg',
+    banners: {
+      KitBanner: '/client/assets/heraldry/seize-thy-slayer-banner.jpg',
+      CapeBanner: '/client/assets/heraldry/seize-thy-slayer-cape.jpg',
+    },
     art: '/client/assets/heraldry/seize-thy-slayer.png',
   }),
 });

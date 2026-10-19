@@ -2,10 +2,11 @@ import * as THREE from 'three';
 import { appUrl } from '../appUrl.mjs';
 import { DEFAULT_EMBLEM, emblemChoice } from '../../shared/src/heraldry.mjs';
 
-// The emblem on a knight's back banner (shared/src/heraldry.mjs). The kit's banner cloth is one atlas, the front
-// tabard on its left half and the back banner on its right; an earned emblem's atlas is the same cloth with the emblem
-// on the back banner's half only, so it is laid on the back banner (TabardBack) alone and the front tabard keeps the
-// trident. A model whose back banner is not the kit's banner cloth carries no emblem (nothing is changed on it).
+// The emblem on a knight's back banner (shared/src/heraldry.mjs), laid on the back banner (TabardBack) alone: the front
+// tabard keeps the trident. Each kind of banner cloth has its own texture for an emblem, by its material's name: the
+// kit's banner atlas (KitBanner: the front tabard on its left half, the back banner on its right, the emblem on the
+// right half only) or a cape with a texture of its own (CapeBanner). A back banner of any other cloth carries no emblem
+// (nothing is changed on it).
 // Isolated per knight: the back banner's own material is changed (clothDye has already made it this knight's own).
 
 const textures = new Map();
@@ -35,7 +36,7 @@ export function createEmblemBanner(root) {
     if (!object.isMesh || object.name !== 'TabardBack') return;
     const materials = Array.isArray(object.material) ? object.material : [object.material];
     for (const material of materials) {
-      if (material?.name === 'KitBanner' && material.map) banners.push({ material, base: material.map });
+      if (['KitBanner', 'CapeBanner'].includes(material?.name) && material.map) banners.push({ material, base: material.map, cloth: material.name });
     }
   });
   let wanted = DEFAULT_EMBLEM;
@@ -44,15 +45,13 @@ export function createEmblemBanner(root) {
       const emblem = emblemChoice(id);
       if (emblem.id === wanted) return;
       wanted = emblem.id;
-      if (!banners.length) return;
-      if (!emblem.banner) {
-        for (const banner of banners) banner.material.map = banner.base;
-        return;
+      for (const banner of banners) {
+        const url = emblem.banners[banner.cloth];
+        if (!url) { banner.material.map = banner.base; continue; }
+        bannerTexture(url, banner.base).then((texture) => {
+          if (wanted === emblem.id) banner.material.map = texture;
+        }).catch(() => {});
       }
-      bannerTexture(emblem.banner, banners[0].base).then((texture) => {
-        if (wanted !== emblem.id) return;
-        for (const banner of banners) banner.material.map = texture;
-      }).catch(() => {});
     },
     dispose() {
       // (the shared emblem textures stay loaded for the next knight; the banner returns to its own cloth)
