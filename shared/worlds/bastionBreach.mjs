@@ -248,7 +248,7 @@ const NAVIGATION_NODES = Object.freeze([
 ]);
 
 export const BASTION_BREACH_TACTICS = Object.freeze({
-  getTacticalGoal({ actor, rivalIndex, objectiveState, activeObj, enemies, disengageTarget }) {
+  getTacticalGoal({ actor, rivalIndex, objectiveState, activeObj, enemies, disengageTarget, nowSec = undefined }) {
     if (objectiveState.index === 0) {
       // Stage 1: Outer Gate
       if (actor.team === TEAMS.ATTACKERS) {
@@ -280,6 +280,24 @@ export const BASTION_BREACH_TACTICS = Object.freeze({
       }
     } else if (objectiveState.index === 1) {
       // Stage 2: High Sanctum
+      const capturedAt = objectiveState.lastCapturedAt;
+      const isGateOpening = Number.isFinite(capturedAt) && Number.isFinite(nowSec) && nowSec < capturedAt + BASTION_GATE_OPEN_DURATION_SEC;
+
+      if (isGateOpening) {
+        // While gate is actively opening (~1.2s ceremony), bots hold their respective sides of the threshold
+        if (actor.team === TEAMS.ATTACKERS) {
+          if (actor.position.z < 5.5) {
+            return { x: rivalIndex === 1 ? -3.0 : rivalIndex === 2 ? 3.0 : 0, y: 0, z: 5.5 };
+          }
+          return { x: actor.position.x, y: 0, z: actor.position.z };
+        } else {
+          if (actor.position.z < 8.5) {
+            return { x: rivalIndex === 1 ? -4.5 : rivalIndex === 2 ? 4.5 : 0, y: 0, z: 5.0 };
+          }
+          return { x: rivalIndex === 1 ? -4.5 : rivalIndex === 2 ? 4.5 : 0, y: 0.3, z: 25.0 };
+        }
+      }
+
       if (actor.team === TEAMS.DEFENDERS) {
         const outsideSanctum = actor.position.z < 16;
         if (outsideSanctum) {
@@ -307,6 +325,8 @@ export const BASTION_BREACH_TACTICS = Object.freeze({
     return null;
   },
 });
+
+export const BASTION_GATE_OPEN_DURATION_SEC = 1.2;
 
 export const BASTION_GATE_BLOCKER = Object.freeze(
   solid('gatehouse-honorable-gate-closed', [-3.4, 3.4], [0, 5.5], [8.5, 9.1], { material: 'iron' })
@@ -340,9 +360,20 @@ export const BASTION_BREACH_OPEN = Object.freeze({
   solids: SOLIDS_OPEN,
 });
 
-export function bastionBreachForObjective(objectiveState) {
-  const isStage2 = (objectiveState?.index ?? 0) >= 1 || Boolean(objectiveState?.completed);
-  return isStage2 ? BASTION_BREACH_OPEN : BASTION_BREACH_CLOSED;
+export function bastionBreachForObjective(objectiveState, nowSec = undefined) {
+  if (!objectiveState) return BASTION_BREACH_CLOSED;
+  if (objectiveState.completed) return BASTION_BREACH_OPEN;
+  const index = objectiveState.index ?? 0;
+  if (index === 0) return BASTION_BREACH_CLOSED;
+  if (index > 1) return BASTION_BREACH_OPEN;
+  // Stage 2: index === 1 (The High Sanctum)
+  const capturedAt = objectiveState.lastCapturedAt;
+  if (Number.isFinite(capturedAt) && Number.isFinite(nowSec)) {
+    return nowSec >= capturedAt + BASTION_GATE_OPEN_DURATION_SEC
+      ? BASTION_BREACH_OPEN
+      : BASTION_BREACH_CLOSED;
+  }
+  return BASTION_BREACH_OPEN;
 }
 
 export const BASTION_BREACH = BASTION_BREACH_OPEN;

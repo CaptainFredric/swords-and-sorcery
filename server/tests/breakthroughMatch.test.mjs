@@ -320,14 +320,39 @@ test('Bastion Breach Breakthrough: server-authoritative gate blocker blocks duri
 
   // Objective advanced to Stage 2 (The High Sanctum, index 1)
   assert.equal(room.objectiveState.index, 1);
-  // Authoritative room.world updated immediately
-  assert.equal(room.world.solids.some((s) => s.id === 'gatehouse-honorable-gate-closed'), false);
+  const capturedAt = room.objectiveState.lastCapturedAt;
+  assert.ok(Number.isFinite(capturedAt));
 
-  // Now attacker moves through gatehouse into High Sanctum
+  // 1. Mid-ceremony check: 0.5s after capture, gate is still opening (~1.2s ceremony)
+  // Collision blocker MUST remain active so players/weapons cannot penetrate visibly closing/opening door
+  stepRoom(room, 0.5, capturedAt + 0.5);
+  assert.equal(
+    room.world.solids.some((s) => s.id === 'gatehouse-honorable-gate-closed'),
+    true,
+    'Blocker must remain active during 1.2s opening ceremony'
+  );
+
+  // Attacker cannot push through during opening ceremony
+  att.position = { x: 0, y: 0, z: 8.0 };
+  att.input = { forward: 1, right: 0, jump: false, crouch: false, yaw: Math.PI, pitch: 0 };
+  for (let t = 0; t < 5; t++) {
+    stepRoom(room, 0.05, capturedAt + 0.5 + t * 0.05);
+  }
+  assert(att.position.z < 8.2, `Attacker must be stopped by opening gate; at z=${att.position.z}`);
+
+  // 2. Opening ceremony complete: after 1.2s, gate is fully open and blocker is authoritatively removed
+  stepRoom(room, 0.5, capturedAt + 1.3);
+  assert.equal(
+    room.world.solids.some((s) => s.id === 'gatehouse-honorable-gate-closed'),
+    false,
+    'Blocker must be removed once 1.2s opening duration elapses'
+  );
+
+  // Now attacker moves smoothly through open gatehouse into High Sanctum
   att.position = { x: 0, y: 0, z: 8.0 };
   att.input = { forward: 1, right: 0, jump: false, crouch: false, yaw: Math.PI, pitch: 0 };
   for (let t = 0; t < 10; t++) {
-    stepRoom(room, 0.05, 20.0 + t * 0.05);
+    stepRoom(room, 0.05, capturedAt + 1.4 + t * 0.05);
   }
   assert(att.position.z > 9.5, `Attacker must traverse open gate into Sanctum; reached z=${att.position.z}`);
 });

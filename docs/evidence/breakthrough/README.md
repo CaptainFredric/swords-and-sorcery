@@ -53,12 +53,16 @@ Elevated overhead isometric perspective showcasing the complete linear progressi
 ![Bastion Breach Overhead Overview](bastion-breach-06-overhead-overview.png)
 
 ### Viewpoint 7: The Honorable Entry Gatehouse (Closed State at `z = 8.8`)
-Standing in the Outer Courtyard looking north toward the closed Honorable Entry Gatehouse during Stage 1. Showcases the pale limestone Gothic pointed arch, carved central keystone boss with Castleward brass seal, corbelled machicolations, draped crimson banners, lowered iron portcullis with bottom spikes, and closed twin oak gates.
-![Honorable Entry Gatehouse Closed](bastion-breach-07-gatehouse-closed.png)
+Standing in the Outer Courtyard looking north toward the closed Honorable Entry Gatehouse during Stage 1. Showcases the pale limestone Gothic pointed arch, carved central keystone boss with Castleward brass seal, corbelled machicolations, draped crimson banners, lowered iron portcullis with bottom spikes, and closed twin oak gates. Authoritative dynamic collision (`BASTION_GATE_BLOCKER`) is active at `z = [8.5, 9.1]`, stopping all player movement, jumps, weapon strikes, and bot navigation.
+![Honorable Entry Gatehouse Closed](bastion-breach-gate-01-closed.png)
 
-### Viewpoint 8: The Honorable Entry Gatehouse (Open State & Stage 2 Transition)
-Same perspective immediately following the capture of Objective 1 (The Outer Gate). The defenders have ceremonially winched the portcullis `3.8m` upward into the overhead arch chamber and swung the twin heavy oak gates wide open inward, welcoming the attackers into the vaulted High Sanctum nave.
-![Honorable Entry Gatehouse Open](bastion-breach-08-gatehouse-open.png)
+### Viewpoint 7b: The Honorable Entry Gatehouse (Intermediate Opening Transition at `t = lastCapturedAt + 0.6s`)
+Standing in the Outer Courtyard 0.6 seconds into the deterministic 1.2-second opening ceremony. The portcullis is hoisted halfway up and the twin oak doors are cracked half-open. Authoritative collision remains active during this transition window so players cannot walk or strike through visibly obstructing geometry. Attackers hold at the courtyard threshold (`z = 5.5`) witnessing the ceremony, and bots do not path through before the opening completes.
+![Honorable Entry Gatehouse Opening Transition](bastion-breach-gate-02-transition.png)
+
+### Viewpoint 8: The Honorable Entry Gatehouse (Fully Open State at `t >= lastCapturedAt + 1.2s`)
+Same perspective once the 1.2-second opening ceremony completes. The portcullis is hoisted `3.8m` overhead into the archway, the heavy oak doors are folded flush against the side passage walls, authoritative collision is removed, and the corridor into the vaulted High Sanctum nave is completely clear for attackers and bots to charge through.
+![Honorable Entry Gatehouse Open](bastion-breach-gate-03-open.png)
 
 ### Viewpoint 9: Western Wall Unfinished Construction Gap & Scaffolding (Scene A)
 Standing in the courtyard looking northwest toward the breach curtain wall at `x = -11.5m, z = 6.8m`. Features the multi-tier timber scaffolding, ledger platforms, sway cross-braces, leaning ladder, mason's mortar trough, stacked ashlar blocks, and parapet headers—providing the concrete visual storytelling anchor for Scene A (*"I must go to the formal entrance; an honorable warrior does not enter through a renovation gap"*).
@@ -203,4 +207,5 @@ For live player hardware with dedicated discrete or integrated GPUs (Apple Metal
 | **Total Draw Calls** | **< 600** (Current: 351–507) | Fits comfortably within WebGL2 browser driver overhead thresholds. |
 | **Active Point Lights** | **<= 14** | Bounded radius attenuation (`distance: 14m`, `decay: 1.6`) limits fragment shader overdraw. |
 
-Software rasterization achieving 30–45 FPS in CPU software confirms that geometry and state-change overhead is lightweight; when vertex and fragment shading are offloaded to native GPU hardware, the engine readily sustains 60 FPS.
+> [!NOTE] Target Design Budgets vs. Measured CI Metrics
+> The 60.0 FPS figure represents an architectural performance budget and target design constraint for standard hardware-accelerated WebGL2 environments, supported by conservative triangle (< 100k), draw call (< 600), and point light (<= 14) limits. Automated CI testing measures actual unaccelerated CPU software rasterization rates under SwiftShader (29–48 FPS) as a reproducible regression floor, without inferring or asserting guaranteed 60 FPS across diverse player hardware configurations.

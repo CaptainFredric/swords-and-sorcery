@@ -1832,7 +1832,7 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
   stepObjectives(room, dt, nowSec);
   if (room.state !== 'PLAYING') return room.events;
   if (room.worldId === WORLD_IDS.BASTION_BREACH) {
-    room.world = bastionBreachForObjective(room.objectiveState);
+    room.world = bastionBreachForObjective(room.objectiveState, nowSec);
     world = room.world;
   }
 

@@ -31,13 +31,13 @@ The Honorable Entry Gatehouse divides the contested Outer Courtyard (Objective 1
 - **Overhead Gate Chamber Machinery**: A heavy timber winch drum (`radius: 0.26m`, length `5.4m`) with dual spoked iron ratchet gear wheels, axle pillow blocks, and counterweight boxes (`0.55m × 1.2m`) hanging on vertical guide chains.
 - **Articulated Hoisting Portcullis**: A heavy wrought-iron grille with horizontal crossbeams, nine vertical square bars, sharpened bottom spikes, and vertical hoist chains. When closed, it bars the road at `y = 0.5–4.3m`. When Stage 2 begins, the winch rotates, counterweights descend, and the portcullis smoothly hoists `3.8m` upward into the overhead arch chamber.
 - **Articulated Twin Oak Gate Doors**: Heavy dark oak timbers (`0x3d2b1f`) banded with three horizontal iron strap hinges, brass pull rings, and iron bolt studs. Hinged on the inner piers (`x = ±3.1m`), they swing open inward (`+z`) by 86 degrees, folding flush against the stone passage walls to reveal the vaulted High Sanctum nave.
-- **Western Wall Unfinished Construction Opening**: Located at `x = -11.5m, z = 6.8m` to `9.8m` along the breach wall. In the narrative world, this is an active masonry renovation site. In the competitive multiplayer game, the wall is partitioned into authentic architectural segments:
+- **Western Wall Unfinished Construction Opening**: Located at `x = -11.5m, z = 6.8m` to `9.8m` along the breach wall. In the competitive multiplayer game, this boundary separates the Outer Courtyard from the High Sanctum. To preserve competitive match balance and prevent attackers from bypassing Stage 1, the wall is partitioned into authentic architectural segments with an authoritative defensive barricade:
   - Outer curtain masonry: `x = [-16, -13.0]`, `y = [0, 5.5]`.
   - Inner curtain masonry: `x = [-10.0, -3.5]`, `y = [0, 5.5]`.
   - Partially laid foundation course: `wall-construction-footing` at `x = [-13.0, -10.0]`, `y = [0, 0.95]`.
-  - Sturdy timber hoarding balks: `wall-construction-hoarding` at `x = [-13.0, -10.0]`, `y = [0.95, 3.2]`, material `'timber'`.
+  - Sturdy timber hoarding barricade: `wall-construction-hoarding` at `x = [-13.0, -10.0]`, `y = [0.95, 3.2]`, material `'timber'`.
   - Scaffolding kit: Multi-tier timber scaffolding standards, horizontal ledger platforms, diagonal sway cross-braces, a leaning wooden ladder, mason's mortar mixing trough with lime mortar, stacked ashlar stone blocks, and parapet headers.
-  - This design preserves narrative authenticity while physically preventing sequence-breaking or exploiting shortcuts into the High Sanctum before Stage 1 is won.
+  - In competitive Breakthrough, this hoarding solidly blocks player locomotion, jumping, and bot navigation. The comedic premise of a completely open gap is preserved specifically for the scripted narrative prologue/tutorial scene described below, ensuring the competitive match flow and the narrative worldbuilding never contradict each other.
 
 ---
 
@@ -45,8 +45,11 @@ The Honorable Entry Gatehouse divides the contested Outer Courtyard (Objective 1
 
 These scripted scenes and vignettes are preserved here for future cinematic trailers, tutorial character dialogue, in-match voice quips, and single-player campaign encounters.
 
+> [!NOTE] Architecture & Narrative Reconciliation
+> In competitive multiplayer Breakthrough matches, the western breach is fortified with `wall-construction-hoarding` (3.2m high timber hoarding) to preserve Stage 1 progression. The scenes below reflect the canonical narrative / cinematic fiction—such as an opening tutorial or peacetime renovation scenario—where the curtain wall gap stood completely open before wartime fortification, making the Spellblade's refusal an act of purely stubborn martial decorum.
+
 ### Scene A (Canonical): The Unfinished Gap ("I Must Go to the Entrance")
-**Setting:** The outer approach of a Castleward fortress during active siege fighting. Arrows strike the stone, trebuchet horns echo in the distance.  
+**Setting:** The outer approach of a Castleward fortress during active siege fighting (narrative scenario). Arrows strike the stone, trebuchet horns echo in the distance.  
 **Characters:** The Spellblade (attacker protagonist) and two Castleward stonemason laborers (Hob and Gyles).
 
 > *(The Spellblade sprints past the outer barricades toward the fortress. Along the western curtain wall, an enormous renovation breach sits completely open to the sky: scaffolding towers, stacks of ashlar blocks, mortar tubs, and a low three-foot wooden hurdle. Beyond it lies an unobstructed, direct shortcut straight into the inner sanctuary.)*

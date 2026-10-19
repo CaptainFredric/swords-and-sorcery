@@ -412,7 +412,7 @@ export class GameRuntime {
       this.world = nextRenderer;
       this.#applyLighting(nextRenderer.lighting);
       this.activeWorld = worldId === 'bastion-breach'
-        ? bastionBreachForObjective(this.latestSnapshot?.objective)
+        ? bastionBreachForObjective(this.latestSnapshot?.objective, this.latestSnapshot?.serverTime ?? this.socket.serverNow())
         : nextWorld;
       this.worldId = worldId;
       this.worldError = null;
@@ -532,7 +532,7 @@ export class GameRuntime {
       if (this.world.setBridgeRetries(failures)) this.activeWorld = greenerPasturesWithBridgeRetries(failures);
     }
     if (snapshot.worldId === 'bastion-breach') {
-      this.activeWorld = bastionBreachForObjective(snapshot.objective);
+      this.activeWorld = bastionBreachForObjective(snapshot.objective, snapshot.serverTime ?? this.socket.serverNow());
     }
     if (snapshot.matchStartedAt !== this.latestSnapshot?.matchStartedAt) this.localGate = null;
     this.latestSnapshot = snapshot;
@@ -2044,6 +2044,9 @@ export class GameRuntime {
       this.localState.speedScale = chillScale(this.localAuth.chill, serverNow);
       // (a Steel dash under way: where it sets off from this step, to see whom it meets)
       const ramFrom = this.localRam?.armed && serverNow < (this.localState.dashUntil ?? -Infinity) ? { ...this.localState.position } : null;
+      if (this.worldId === 'bastion-breach' && this.latestSnapshot?.objective) {
+        this.activeWorld = bastionBreachForObjective(this.latestSnapshot.objective, serverNow);
+      }
       this.localState = movePlayer(this.localState, moveInput, dt, serverNow, this.activeWorld);
       if (ramFrom) this.#foretellRam(ramFrom, serverNow);
       if (this.localRam?.armed && serverNow >= (this.localState.dashUntil ?? -Infinity)) this.localRam = null;
@@ -2148,7 +2151,7 @@ export class GameRuntime {
     }
     this.remotePlayers.update(nowMs, dt);
     this.#showAfflictions(dt);
-    this.world?.setObjectiveState?.(this.latestSnapshot?.objective ?? null, this.localAuth?.team ?? null);
+    this.world?.setObjectiveState?.(this.latestSnapshot?.objective ?? null, this.localAuth?.team ?? null, this.socket.serverNow());
     this.world?.update?.(timeSec, this.camera);
     this.#followGusts();
     this.effects.update(dt);
