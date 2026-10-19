@@ -1,6 +1,7 @@
 /* Phones and tablets: on-screen controls, landscape-first layouts for short screens, and the rotate prompt. */
 
 :root {
+  --safe-t: env(safe-area-inset-top, 0px);
   --safe-l: env(safe-area-inset-left, 0px);
   --safe-r: env(safe-area-inset-right, 0px);
   --safe-b: env(safe-area-inset-bottom, 0px);
@@ -73,7 +74,7 @@ button, input { touch-action: manipulation; }
 .touch-stick-knob { position: absolute; left: 50%; top: 50%; width: 50px; height: 50px; margin: -25px 0 0 -25px; border-radius: 50%; border: 1px solid rgba(240, 230, 205, .6); background: radial-gradient(circle at 45% 38%, rgba(240, 230, 205, .55), rgba(140, 128, 100, .45)); }
 
 /* the touch HUD moves health and stamina to the top, clear of both thumbs; the buttons show their own cooldowns */
-.touch-ui .bottom-hud { top: 9px; bottom: auto; left: calc(var(--safe-l) + 104px); right: auto; display: block; }
+.touch-ui .bottom-hud { top: calc(var(--safe-t) + 9px); bottom: auto; left: calc(var(--safe-l) + 104px); right: auto; display: block; }
 .touch-ui .health-block { width: 150px; }
 .touch-ui .health-label { font-size: 13px; margin-bottom: 3px; }
 .touch-ui .health-track { height: 10px; }
@@ -83,6 +84,11 @@ button, input { touch-action: manipulation; }
 .touch-ui .abilities { display: none; }
 .touch-ui .match-info { top: 10px; }
 .touch-ui .duel-score { top:39px; padding:3px 9px; gap:8px; }
+.touch-ui .hud-status-stack { top: calc(var(--safe-t) + 8px); left: calc(var(--safe-l) + 266px); right: calc(var(--safe-r) + 12px); width: auto; transform: none; gap: 4px; }
+.touch-ui .breakthrough-hud { width: min(310px, 100%); }
+@container app (max-width: 540px) {
+  .touch-ui .hud-status-stack { top: calc(var(--safe-t) + 86px); left: calc(var(--safe-l) + 12px); }
+}
 .touch-btn.denied { border-color:#f1aa7e; box-shadow:0 0 0 2px #d28b5b99,0 2px 10px #0006; }
 .touch-ui .kill-feed { top: 10px; right: calc(var(--safe-r) + 14px); width: min(260px, 34cqw); font-size: 10px; }
 .touch-ui .hud.pointer-locked .practice-tools { display: none; }
@@ -107,13 +113,13 @@ button, input { touch-action: manipulation; }
   .banner-panel .game-input { height: 36px; }
   .name-block { margin-bottom: 4px; }
   .command-rail { gap: 5px; }
-  .menu-command { min-height: 38px; padding: 6px 12px 7px 28px; }
+  .menu-command { min-height: 38px; padding: 6px 28px 7px; }
   .menu-command small { display: none; }
   .menu-command span { font-size: 16px; }
   .quiet-command { min-height: 36px; }
-  .command-pair .menu-command { min-height: 36px; padding: 6px 8px 7px 22px; }
+  .command-pair .menu-command { min-height: 36px; padding: 6px 16px 7px; }
   .command-pair .menu-command::before { left: 8px; }
-  .command-pair .menu-command span { font-size: 14px; white-space: nowrap; }
+  .command-pair .menu-command span { font-size: clamp(10px, 1.6cqw, 13px); white-space: normal; text-wrap: balance; }
   .banner-panel .error-copy { min-height: 0; }
   .side-screen .banner-panel h2, .lobby-screen h2 { font-size: 22px; margin-bottom: 6px; }
   .back-button { margin-bottom: 8px; }
@@ -215,3 +221,13 @@ html.turn-typing .rotate-prompt { display: none !important; }
 /* the Practice Yard: the button works though its real cooldown shows; a small brass infinity says so */
 .touch-btn.practice::before { content: "\221E"; position: absolute; left: 12%; top: 8%; z-index: 3; width: 34%; height: 34%; display: grid; place-items: center; border-radius: 50%; font: 900 11px/1 system-ui, sans-serif; color: #2a1c10; background: linear-gradient(180deg, #e7c47c, #b8893f); pointer-events: none; }
 .touch-btn.practice svg, .touch-btn.practice span { opacity: .85 !important; }
+
+/* A short phone keeps the objective clear of the right thumb's action arc. */
+@container app (max-width: 700px) and (max-height: 420px) {
+  .touch-ui .hud-status-stack { right: calc(var(--safe-r) + 80px); }
+  .touch-ui .breakthrough-hud { padding: 5px 7px; gap: 2px; }
+  .touch-ui .bt-phase, .touch-ui .bt-footer { display: none; }
+  .touch-ui .bt-main { gap: 4px; }
+  .touch-ui .bt-obj-name { font-size: 11px; }
+  .touch-ui .bt-state-pill { font-size: 8px; letter-spacing: 0; }
+}

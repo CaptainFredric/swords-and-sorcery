@@ -25,6 +25,7 @@ export class VoiceBank {
     this.playing = new Map();
     // which lines have a recording, and how many takes (from the takes' manifest; null until it is known)
     this.recorded = null;
+    this.archiveAddedOn = new Map();
     // settles once the manifest is in (what is recorded is known), and once every take has been loaded (or there
     // were none to load)
     this.listed = new Promise((resolve) => { this.resolveListed = resolve; });
@@ -41,6 +42,7 @@ export class VoiceBank {
       if (typeof fetch === 'function') manifest = await (await fetch(appUrl(`${this.base}manifest.json`), { cache: 'no-cache' })).json();
     } catch { /* no voice recorded yet: the knight fights in silence */ }
     this.recorded = new Map(Object.entries(manifest?.lines ?? {}).map(([name, takes]) => [name, takes.length]));
+    this.archiveAddedOn = new Map(Object.entries(manifest?.addedOn ?? {}));
     this.resolveListed();
     return manifest;
   }

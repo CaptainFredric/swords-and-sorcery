@@ -765,7 +765,12 @@ def write_manifest():
         meta = json.load(open(meta_path)) if os.path.exists(meta_path) else {}
         lines.setdefault(line_of_stem(stem), []).append({'file': f'{stem}-{number}', **meta})
     lines = {line: sorted(takes, key=lambda t: int(t['file'].rsplit('-', 1)[1])) for line, takes in sorted(lines.items())}
-    manifest = {'version': 1, 'lines': lines}
+    from datetime import datetime, timezone
+    today = datetime.now(timezone.utc).date().isoformat()
+    added_on = dict(existing.get('addedOn', {}))
+    for line in lines:
+        added_on.setdefault(line, today)
+    manifest = {'version': 1, 'lines': lines, 'addedOn': added_on}
     if 'effects' in existing:
         manifest['effects'] = existing['effects']
     with open(path, 'w') as f:

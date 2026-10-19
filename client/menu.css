@@ -112,8 +112,8 @@
 
 /* commands are iron plaques with brass rims */
 .menu-command, .mode-choice, .wide-button, .join-button {
-  position: relative; width: 100%; min-height: 54px; padding: 9px 14px 10px 30px; border: 1px solid rgba(201, 156, 82, .5); border-radius: 2px;
-  background: linear-gradient(180deg, var(--heraldry-iron-light), var(--heraldry-iron)); color: var(--heraldry-cream); text-align: left; cursor: pointer;
+  position: relative; width: 100%; min-height: 54px; padding: 9px 30px 10px; border: 1px solid rgba(201, 156, 82, .5); border-radius: 2px;
+  background: linear-gradient(180deg, var(--heraldry-iron-light), var(--heraldry-iron)); color: var(--heraldry-cream); text-align: center; cursor: pointer;
   box-shadow: inset 0 1px 0 rgba(255, 230, 180, .1), 0 2px 4px rgba(0, 0, 0, .35);
   transition: transform .14s ease, border-color .14s ease, box-shadow .14s ease, background .14s ease;
 }
@@ -127,7 +127,7 @@
 }
 .menu-command:hover::before, .mode-choice:hover::before, .wide-button:hover::before, .join-button:hover::before { background: var(--heraldry-brass-light); box-shadow: 0 0 8px rgba(236, 201, 127, .8); }
 .menu-command:focus-visible, .mode-choice:focus-visible, .wide-button:focus-visible, .join-button:focus-visible, .back-button:focus-visible { outline: 2px solid var(--heraldry-brass-light); outline-offset: 2px; }
-.menu-command span, .mode-choice span { display: block; font: 400 18px/1.05 var(--font-inscription); letter-spacing: .05em; }
+.menu-command span, .mode-choice span { display: block; min-width: 0; max-width: 100%; white-space: normal; overflow-wrap: anywhere; text-wrap: balance; font: 400 18px/1.12 var(--font-inscription); letter-spacing: .04em; }
 .menu-command small, .mode-choice small { display: block; margin-top: 3px; color: rgba(234, 220, 182, .66); font: 500 11px/1.3 var(--font-script); letter-spacing: .02em; }
 /* online commands wait for the game server: dimmed, still readable, saying why */
 .menu-command.needs-server { opacity: .55; cursor: not-allowed; filter: saturate(.6); }
@@ -350,9 +350,9 @@
 
 /* --- Settings: an iron-bound ledger over whatever is behind it (the menu, or a match that keeps going) ----------- */
 .command-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
-.command-pair .menu-command { min-width: 0; padding-left: 20px; padding-right: 8px; }
+.command-pair .menu-command { min-width: 0; padding-left: 20px; padding-right: 20px; }
 .command-pair .menu-command::before { left: 9px; }
-.command-pair .menu-command span { font-size: 16px; white-space: normal; text-wrap: balance; }
+.command-pair .menu-command span { font-size: clamp(11px, 1.6cqw, 15px); white-space: normal; text-wrap: balance; }
 .how-settings { margin: 10px 0 4px; }
 .turn-only { display: none !important; }
 html[data-turn] .turn-only { display: block !important; }
@@ -419,9 +419,6 @@ html[data-turn] .turn-only { display: block !important; }
 }
 
 /* --- the Armory: a brass-edged command on the front door's banner, and his kit on a banner of its own ------------ */
-.armory-command { display: flex; align-items: baseline; gap: 10px; min-height: 42px; border-color: rgba(236, 201, 127, .72); background: linear-gradient(180deg, #4a3a26, #2f2518); }
-.armory-command span { color: #f3dfa6; }
-.armory-command small { margin-top: 0; }
 
 .armory-inner { --banner-width: min(400px, 40cqw); }
 .armory-slot { margin: 14px 0 6px; color: var(--heraldry-brass-light); font: 800 10px/1 var(--font-script); letter-spacing: .22em; }
@@ -522,7 +519,6 @@ html[data-turn] .turn-only { display: block !important; }
   .armory-inner > .eyebrow { margin-bottom: 4px; }
   .armory-inner > h2 { font-size: 24px; margin-bottom: 6px; }
   .armory-scroll-hint { margin-top: 4px; font-size: 8px; }
-  .armory-command { flex-wrap: wrap; gap: 3px 10px; }
 }
 
 /* Keep the manual crown visible while keys and rules scroll inside the banner. */
@@ -617,9 +613,37 @@ body.observing .herald-toast { left: 50cqw; max-width: calc(100cqw - 40px); }
 .foot-herald { display: none; }
 /* the plaques' small descriptions: easier to read, the banner no bigger */
 .menu-command small { color: rgba(234, 220, 182, .78); }
-/* a small etched rule between the ways to fight and the knight's kit; the Armory one step quieter than the commands */
-.command-rail .armory-command { margin-top: 7px; border-color: rgba(236, 201, 127, .48); }
-.command-rail .armory-command::after { content: ""; position: absolute; left: 6%; right: 6%; top: -9px; border-top: 1px solid rgba(201, 156, 82, .34); pointer-events: none; }
+/* Armory stays reachable while the command banner scrolls. */
+#menu > .banner-panel { top: 70px; max-height: calc(100% - 70px); }
+#menu::after { top: 66px; }
+.armory-shortcut {
+  position: absolute; z-index: 9; top: 9px; left: var(--banner-left); width: var(--banner-width);
+  min-height: 48px; padding: 6px 18px; display: flex; align-items: center; justify-content: center; gap: 14px;
+  pointer-events: auto; cursor: pointer; border: 1px solid #b7a375; border-radius: 3px;
+  color: #f1e5c7; background: linear-gradient(165deg, #667078 0%, #343c43 33%, #23292e 56%, #414a51 100%);
+  box-shadow: inset 0 1px 0 #b7b9b5, inset 0 -2px 0 #151b20, inset 0 0 0 3px #30373c, 0 3px 7px #0008;
+  transition: transform .26s ease, visibility 0s linear 0s, filter .12s ease;
+}
+.armory-shortcut::before, .armory-shortcut::after {
+  content: ""; position: absolute; top: 50%; width: 3px; height: 3px; border-radius: 50%; background: #c3ae80;
+  box-shadow: 0 1px 1px #000; transform: translateY(-50%);
+}
+.armory-shortcut::before { left: 7px; }
+.armory-shortcut::after { right: 7px; }
+.armory-shortcut-copy { min-width: 0; display: grid; gap: 3px; text-align: center; }
+.armory-shortcut strong { font: 400 17px/1 var(--font-inscription); letter-spacing: .1em; }
+.armory-shortcut small { font: 500 11px/1.2 var(--font-script); color: #d4d6d1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.armory-shortcut svg { flex: none; width: 23px; height: 23px; }
+.armory-sword { fill: #d6d7ce; stroke: #e7d4a7; stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
+.armory-spell { fill: #9cd8e4; stroke: #d9f2ef; stroke-width: .7; }
+.armory-shortcut:hover { filter: brightness(1.15); }
+.armory-shortcut:active { filter: brightness(.9); }
+.armory-shortcut:focus-visible { outline: 2px solid #f4d58e; outline-offset: 3px; }
+#menu.withdrawn .armory-shortcut {
+  transform: translateX(calc(-1 * (var(--banner-left) + var(--banner-width) + 80px)));
+  visibility: hidden; transition: transform .23s ease, visibility 0s linear .23s;
+}
+@media (prefers-reduced-motion: reduce) { .armory-shortcut, #menu.withdrawn .armory-shortcut { transition: none; } }
 
 /* --- the Herald: a wax-sealed tab on the banner's edge, and the notice drawn out from it ---------------------- */
 .herald-tab {
@@ -707,6 +731,12 @@ body.observing .herald-toast { left: 50cqw; max-width: calc(100cqw - 40px); }
 .credits-body .credits-card { margin-top: 18px; }
 .credits-search { position: sticky; top: 0; z-index: 1; flex-wrap: wrap; padding: 12px 0; background: #241e19; border-bottom: 1px solid #655038; }
 .credits-search label { width: 100%; color: #e7c47c; font: 700 12px/1.4 var(--font-script); letter-spacing: .15em; }
+.credits-search > label:first-child { flex: 1; width: auto; }
+.credits-search .credits-sort { flex: none; display: flex; align-items: center; gap: 5px; width: auto; margin-left: auto; color: #b9ac91; font: 500 11px/1.2 var(--font-script); letter-spacing: 0; }
+.credits-sort select { min-width: 0; max-width: 142px; min-height: 30px; padding: 4px 6px; border: 1px solid #655038; border-radius: 2px; background: #241e19; color: #d5c7ab; font: inherit; cursor: pointer; }
+.credits-sort select:focus-visible { outline: 2px solid #e7c47c; outline-offset: 2px; }
+.credits-search > .game-input { flex-basis: 100%; order: 2; }
+.credits-search > small { order: 3; }
 .credits-search .game-input::placeholder { color: #b9ac91; }
 .credits-search small, .credits-line small { color: #c1b59b; }
 .credits-support { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 14px; margin: 12px 0; padding: 10px 12px; border: 1px solid #655038; background: rgba(78, 28, 26, .18); }
@@ -748,5 +778,5 @@ body.observing .herald-toast { left: 50cqw; max-width: calc(100cqw - 40px); }
   #menu .crest { width:26px; height:31px; margin-bottom:4px; }
   #menu .game-brand { margin-bottom:12px; }
   #menu .eyebrow { font-size:10px; margin-bottom:4px; }
-  #menu h1 { font-size:24px; white-space:nowrap; letter-spacing:.015em; }
+  #menu h1 { font-size:24px; white-space:normal; letter-spacing:.015em; }
 }

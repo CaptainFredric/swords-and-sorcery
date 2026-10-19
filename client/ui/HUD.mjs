@@ -203,7 +203,10 @@ export class HUD {
     this.preparedPanel = document.createElement('div');
     this.preparedPanel.className = 'prepared-spells';
     this.preparedPanel.hidden = true;
-    this.root.append(this.preparedPanel);
+    this.statusStack = document.createElement('div');
+    this.statusStack.className = 'hud-status-stack';
+    this.statusStack.append(this.matchInfo, this.duelScore, this.breakthroughHud, this.preparedPanel);
+    this.root.append(this.statusStack);
     this.preparedSelector = null;
     // with a mouse and keyboard, the prepared spells stand as a rack of tiles over the Q, E and R tiles (on touch they
     // keep their own place: the touch layout has no ability tiles)
@@ -331,7 +334,7 @@ export class HUD {
     const docked = this.preparedInputMode !== 'touch' && Boolean(this.abilityRow);
     if (docked !== this.preparedDocked) {
       this.preparedDocked = docked;
-      (docked ? this.abilityRow : this.root).append(this.preparedPanel);
+      (docked ? this.abilityRow : this.statusStack).append(this.preparedPanel);
       this.preparedPanel.classList.toggle('docked', docked);
     }
     this.preparedPanel.classList.toggle('selecting', Boolean(this.preparedSelector));

@@ -94,6 +94,7 @@ function presentYard(state, previous, cause) {
   // (the banner drawn aside can be neither reached nor read by anything: not a click, not Tab, not a screen reader)
   menuBanner.inert = observing;
   heraldTab.inert = observing;
+  $('#armory-button').inert = observing;
   if (observing) heraldPanel?.close({ restore: false });
   yardWatch.hidden = observing;
   yardObserve.hidden = !observing;
