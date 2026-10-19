@@ -314,6 +314,7 @@ function createRemoteShell(index, player, pendingCast, nowMs) {
       }
       if (upgradeRemoteVisual(shell, instance, generation)) {
         instance.setCloth(shell.cloth ?? 'crimson');
+        instance.setEmblem?.(shell.emblem ?? 'trident');
         reportSpellbladeAssetStatus('remote', instance);
       }
     })
@@ -451,6 +452,8 @@ export class RemotePlayers {
       const shell = this.rigs.get(player.id);
       shell.cloth = player.cloth ?? 'crimson';
       shell.visualInstance?.setCloth(shell.cloth);
+      shell.emblem = player.emblem ?? 'trident';
+      shell.visualInstance?.setEmblem?.(shell.emblem);
       const d = shell.root.userData;
 
       if (!d.lastAlive && player.alive) {
@@ -583,6 +586,8 @@ export class RemotePlayers {
     const shell = this.self;
     shell.cloth = player.cloth ?? 'crimson';
     shell.visualInstance?.setCloth(shell.cloth);
+    shell.emblem = player.emblem ?? 'trident';
+    shell.visualInstance?.setEmblem?.(shell.emblem);
     if (!visible || !at?.position) {
       if (shell.root.visible) shell.vortexBlade?.set(0, nowMs / 1000, { swinging: false });
       shell.root.visible = false;

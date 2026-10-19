@@ -227,3 +227,88 @@ test('actual Blazing Vortex startup defeat awards Well Balanced to the fallen kn
   assert.equal(progress(r,'b').well_balanced,1);
 });
 
+
+// Seize Thy Slayer: a sword-only kill from full health, never guarding, with a lethal spell ready and refused
+function slayerRun(room, { victim = 'b', hits = [30, 30, 25, 15], ready = true, nominal = 28, extra = () => [], hit = {} } = {}) {
+  let health = 100;
+  hits.forEach((amount, i) => {
+    const at = 10 + i;
+    fact(room, { type: 'swordSwing', playerId: 'a', chainId: 'a:1', strikeIndex: i % 3, spellReady: ready, spellNominal: nominal, at: at - 0.2 });
+    for (const f of extra(i, at)) fact(room, f);
+    fact(room, damage({ victimId: victim, at, amount, healthBefore: health, healthAfter: Math.max(0, health - amount), strikeIndex: i % 3, ...hit }));
+    health = Math.max(0, health - amount);
+  });
+  fact(room, { type: 'death', killerId: 'a', victimId: victim, source: 'sword', at: 14 });
+  return progress(room).seize_thy_slayer ?? 0;
+}
+
+test('Seize Thy Slayer: full health to defeat by one sword, never guarding, a lethal spell ready on the felling strike', () => {
+  assert.equal(slayerRun(roomFor('DUEL')), 1);
+  // (Steel-hardened sword blows still count)
+  assert.equal(slayerRun(roomFor('DUEL'), { hit: { steel: 1 } }), 1);
+  // a guard raised before the encounter began does not spoil it
+  const before = roomFor('DUEL');
+  fact(before, { type: 'guardRaised', playerId: 'a', at: 5 });
+  assert.equal(slayerRun(before), 1);
+});
+
+test('Seize Thy Slayer is spoiled by prior damage, another hand, a spell or its burn, the world, a guard, or no lethal spell', () => {
+  const spoilers = {
+    'already hurt': (r) => slayerRunFrom(r, 99),
+    'a second knight': (r) => slayerRun(r, { extra: (i, at) => (i === 1 ? [damage({ attackerId: 'c', at: at - 0.1, amount: 5, healthBefore: 70, healthAfter: 65 })] : []) }),
+    'a spell': (r) => slayerRun(r, { extra: (i, at) => (i === 2 ? [damage({ source: 'fireball', ordinary: false, at: at - 0.1, amount: 1, healthBefore: 40, healthAfter: 39 })] : []) }),
+    'a burn lick': (r) => slayerRun(r, { extra: (i, at) => (i === 2 ? [damage({ source: 'burn', contact: false, at: at - 0.1, amount: 1, healthBefore: 40, healthAfter: 39 })] : []) }),
+    'the world': (r) => slayerRun(r, { extra: (i, at) => (i === 1 ? [damage({ attackerId: null, source: 'fall', at: at - 0.1, amount: 2, healthBefore: 70, healthAfter: 68 })] : []) }),
+    'a guard raised mid-fight': (r) => slayerRun(r, { extra: (i, at) => (i === 2 ? [{ type: 'guardRaised', playerId: 'a', at: at - 0.5 }] : []) }),
+    'no spell ready': (r) => slayerRun(r, { ready: false }),
+    'a spell too weak to kill': (r) => slayerRun(r, { nominal: 14 }),
+  };
+  for (const [label, run] of Object.entries(spoilers)) assert.equal(run(roomFor('DUEL')), 0, label);
+  // a guarded contact (Chivalry's) on any blow
+  const guarded = roomFor('DUEL');
+  fact(guarded, { type: 'swordSwing', playerId: 'a', chainId: 'a:1', strikeIndex: 0, spellReady: true, spellNominal: 28, at: 9.8 });
+  fact(guarded, damage({ at: 10, amount: 100, healthBefore: 100, healthAfter: 0, guarding: true }));
+  assert.equal(progress(guarded).seize_thy_slayer ?? 0, 0);
+  // and a spoiled fight starts over once the victim is back at full health
+  const again = roomFor('DUEL');
+  fact(again, damage({ attackerId: 'c', at: 5, amount: 10, healthBefore: 100, healthAfter: 90 }));
+  assert.equal(slayerRun(again), 1);
+});
+
+function slayerRunFrom(room, start) {
+  fact(room, { type: 'swordSwing', playerId: 'a', chainId: 'a:1', strikeIndex: 0, spellReady: true, spellNominal: 28, at: 9.8 });
+  fact(room, damage({ at: 10, amount: start, healthBefore: start, healthAfter: 0 }));
+  return progress(room).seize_thy_slayer ?? 0;
+}
+
+test('Seize Thy Slayer counts a bot only at Spellblade difficulty', () => {
+  for (const [skill, yes] of [['spellblade', true], ['champion', false], ['knight', false], ['squire', false]]) {
+    const room = roomFor('BOT_DUEL');
+    room.addServerActor({ id: 'r', name: 'Rival', actorKind: 'bot' }, 0);
+    room.players.get('r').botSkill = skill;
+    assert.equal(slayerRun(room, { victim: 'r' }), yes ? 1 : 0, skill);
+  }
+});
+
+test('combat records the felling strike\'s spell readiness and every raised guard for Seize Thy Slayer', () => {
+  const room = roomFor('DUEL');
+  const a = room.players.get('a');
+  a.spell = 'fireball'; a.spellReadyAt = 0;
+  room.challengeFacts.length = 0;
+  beginAttack(room, 'a', 1);
+  run(room, 1, 1.4);
+  const swing = room.challengeFacts.find((f) => f.type === 'swordSwing' && f.playerId === 'a');
+  assert.ok(swing, 'a strike opening records its swing');
+  assert.equal(swing.spellReady, true);
+  assert.equal(swing.spellNominal, 28);
+  const cooling = roomFor('DUEL');
+  const c = cooling.players.get('a');
+  c.spell = 'fireball'; c.spellReadyAt = 1e9;
+  cooling.challengeFacts.length = 0;
+  beginAttack(cooling, 'a', 1);
+  run(cooling, 1, 1.4);
+  assert.equal(cooling.challengeFacts.find((f) => f.type === 'swordSwing').spellReady, false);
+  cooling.challengeFacts.length = 0;
+  setGuard(cooling, 'b', true, 2);
+  assert.ok(cooling.challengeFacts.some((f) => f.type === 'guardRaised' && f.playerId === 'b'));
+});

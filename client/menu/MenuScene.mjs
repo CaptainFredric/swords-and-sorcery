@@ -183,6 +183,7 @@ export class MenuScene {
       this.assetInstance = instance;
       this.visualKind = 'production';
       instance.setCloth(this.cloth ?? 'crimson');
+      instance.setEmblem?.(this.emblem ?? 'trident');
       this.characterRoot.add(instance.root);
       instance.root.traverse((object) => { if (object.isMesh) { object.castShadow = true; object.receiveShadow = true; } });
       instance.animator.apply({ clip: 'Idle', loop: true, time: 0 });
@@ -268,6 +269,18 @@ export class MenuScene {
   setCloth(id) {
     this.cloth = id;
     this.assetInstance?.setCloth(id);
+  }
+
+  /** The emblem on his back banner (shared/src/heraldry.mjs). */
+  setEmblem(id) {
+    this.emblem = id;
+    this.assetInstance?.setEmblem?.(id);
+  }
+
+  /** Turn him to show his back banner (previewing heraldry in the Armory), or round to face the camera again. */
+  showBanner(on) {
+    const front = this.breakthroughActive ? Math.PI - 0.72 : Math.PI - 0.22;
+    this.targetYaw = on ? front - Math.PI : front;
   }
 
   setShot(name, seconds = null) {

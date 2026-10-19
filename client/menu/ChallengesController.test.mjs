@@ -53,7 +53,9 @@ test('server completion reveals exact title, condition, reward and authored flav
   assert.ok(words.includes(CHALLENGES.wind_correction.condition));
   assert.ok(words.includes(CHALLENGES.wind_correction.flavor));
   assert.match(words, /EARNED · 20 RENOWN/);
-  assert.match(words, /1 \/ 10 MASTERED/);
+  assert.match(words, /1 \/ 11 MASTERED/);
+  // (a feat whose reward is heraldry names it)
+  assert.match(words, /REWARD · 30 RENOWN · SEIZE THY SLAYER HERALDRY/);
 });
 
 test('visible chain progress uses authoritative progress and remains stable across wallet updates', () => {

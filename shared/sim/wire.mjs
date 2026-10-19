@@ -141,6 +141,8 @@ export function serializeSnapshot(room, nowSec) {
       spellReadyById: { ...(p.spellReadyById ?? {}) },
       chivalryProjectileReadyAt: p.chivalryProjectileReadyAt ?? 0,
       cloth: p.cloth ?? 'crimson',
+      // (the emblem on their back banner: shared/src/heraldry.mjs)
+      emblem: p.emblem ?? 'trident',
       spellReadyAt: p.spellReadyAt,
       castingSpell: p.pendingSpell?.spell ?? null,
       castEndsAt: p.castEndsAt ?? 0,

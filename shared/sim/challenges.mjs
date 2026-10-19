@@ -1,6 +1,7 @@
 import { CHALLENGES } from '../src/challenges.mjs';
 import { GAME_MODES } from '../src/modes.mjs';
 import { SPELLS } from '../src/spells.mjs';
+import { GAME } from '../src/combat.mjs';
 
 const MODES = new Set([GAME_MODES.FFA, GAME_MODES.DUEL, GAME_MODES.BOT_DUEL]);
 const CONTACT_SOURCES = new Set(['sword', 'fireball', 'frostfire', 'gale', 'gauntlet', 'vortex', 'rupture', 'ram']);
@@ -8,7 +9,7 @@ const CONTACT_SOURCES = new Set(['sword', 'fireball', 'frostfire', 'gale', 'gaun
 /** Match memory only. Profile settlement owns persistence and rewards. */
 export function resetChallengeTracking(room) {
   room.challengeFacts = [];
-  room.challengeTracking = { players: new Map(), bentProjectiles: new Map() };
+  room.challengeTracking = { players: new Map(), bentProjectiles: new Map(), encounters: new Map() };
 }
 
 /** Authoritative combat queues facts independently from public presentation events. */
@@ -24,7 +25,7 @@ function stateFor(room, id) {
   if (!knight(room, id) || room.players.get(id).actorKind !== 'human') return null;
   let state = room.challengeTracking.players.get(id);
   if (!state) {
-    state = { progress: {}, chains: new Map(), parried: new Map(), mixed: new Map(), lowHealth: false, vortexStartedAt: null, vortexDealtDamage: false };
+    state = { progress: {}, chains: new Map(), parried: new Map(), mixed: new Map(), swings: new Map(), lowHealth: false, vortexStartedAt: null, vortexDealtDamage: false };
     room.challengeTracking.players.set(id, state);
   }
   return state;
@@ -75,6 +76,38 @@ function mixedContact(state, victimId, contact) {
   }
 }
 
+// Seize Thy Slayer: one knight takes an enemy Spellblade from full health to defeat with the sword alone, never
+// guarding, and the strike that fells them began with a damaging spell ready whose listed damage would have done it.
+// An encounter is the victim's, from a blow that finds them at full health to their fall: it is the striker's only while
+// every blow is that striker's sword (Steel-hardened or not), and nothing else touches the victim (another knight, a
+// spell or its burn, the world); the striker raising a guard spoils it. A blow that finds the victim already hurt by
+// something else starts nothing: they must be back at full health first.
+const SWING_MEMORY_SEC = 10;
+function slayerEncounter(room, f) {
+  const victim = room.players.get(f.victimId);
+  if (!victim || !Number.isFinite(f.amount) || f.amount <= 0 || !Number.isFinite(f.healthBefore)) return;
+  const encounters = room.challengeTracking.encounters;
+  const byEnemy = enemies(room, f.attackerId, f.victimId);
+  let encounter = encounters.get(f.victimId);
+  if (f.healthBefore >= GAME.maxHealth - 1e-6) {
+    encounter = { attackerId: byEnemy ? f.attackerId : null, valid: byEnemy, startedAt: f.at };
+    encounters.set(f.victimId, encounter);
+  } else if (!encounter) {
+    encounter = { attackerId: null, valid: false, startedAt: f.at };
+    encounters.set(f.victimId, encounter);
+  }
+  if (!byEnemy || f.attackerId !== encounter.attackerId || f.source !== 'sword' || f.contact !== true || f.guarding === true) {
+    encounter.valid = false;
+  }
+  if (!encounter.valid || !(f.healthAfter <= 0)) return;
+  // the felling blow: by a knight against a fellow player, or against a bot only at the Spellblade's own difficulty
+  const slayer = stateFor(room, f.attackerId);
+  const qualified = victim.actorKind === 'human' || (victim.actorKind === 'bot' && victim.botSkill === 'spellblade');
+  const swing = slayer?.swings.get(`${f.chainId}#${f.strikeIndex}`);
+  if (slayer && qualified && swing?.spellReady === true && Number.isFinite(swing.spellNominal)
+    && swing.spellNominal >= f.healthBefore) advance(slayer, 'seize_thy_slayer');
+}
+
 function observeDamage(room, f) {
   if (!realDamage(room, f)) return;
   const victim = stateFor(room, f.victimId);
@@ -109,7 +142,17 @@ export function observeChallengeFacts(room) {
   for (const f of facts) {
     if (!f || !Number.isFinite(f.at)) continue;
     switch (f.type) {
-      case 'damage': observeDamage(room, f); break;
+      case 'damage': slayerEncounter(room, f); observeDamage(room, f); break;
+      case 'swordSwing': {
+        const state = stateFor(room, f.playerId);
+        if (!state || typeof f.chainId !== 'string' || !Number.isInteger(f.strikeIndex)) break;
+        for (const [key, swing] of state.swings) if (f.at - swing.at > SWING_MEMORY_SEC) state.swings.delete(key);
+        state.swings.set(`${f.chainId}#${f.strikeIndex}`, { at: f.at, spellReady: f.spellReady === true, spellNominal: f.spellNominal });
+        break;
+      }
+      case 'guardRaised':
+        for (const encounter of room.challengeTracking.encounters.values()) if (encounter.attackerId === f.playerId) encounter.valid = false;
+        break;
       case 'swordChainInterrupted': {
         const state = stateFor(room, f.playerId);
         if (!state || typeof f.chainId !== 'string' || !f.chainId) break;
@@ -130,6 +173,7 @@ export function observeChallengeFacts(room) {
         break;
       }
       case 'death': {
+        room.challengeTracking.encounters.delete(f.victimId);
         const victim = stateFor(room, f.victimId);
         if (victim && Number.isFinite(victim.vortexStartedAt)
           && f.at >= victim.vortexStartedAt

@@ -1,4 +1,20 @@
 import { CLOTH, clothChoice } from '../../shared/src/cosmetics.mjs';
+import { DEFAULT_EMBLEM, EMBLEMS, emblemChoice } from '../../shared/src/heraldry.mjs';
+
+/** The heraldry chooser: what the previewed emblem is, whether it is earned and carried, and what its button does. */
+export function heraldryView(profile, preview, online) {
+  const emblem = emblemChoice(preview);
+  const earned = new Set([DEFAULT_EMBLEM, ...(Array.isArray(profile?.emblems) ? profile.emblems : [])]);
+  const owned = earned.has(emblem.id);
+  const carried = (EMBLEMS[profile?.emblem] ? profile.emblem : DEFAULT_EMBLEM) === emblem.id;
+  const hint = carried ? 'On your back banner in every battle.'
+    : owned ? 'Earned. Carry it on your back banner.'
+      : `Earned by mastering the ${emblem.name} challenge (see Challenges).`;
+  return { emblem, owned, carried, hint,
+    status: carried ? 'Carried' : owned ? 'Earned' : 'Locked',
+    label: carried ? 'CARRIED' : owned ? 'CARRY THIS HERALDRY' : 'NOT YET EARNED',
+    disabled: !online || !profile || carried || !owned };
+}
 export function renownView(profile, preview, online) {
   const item = clothChoice(preview);
   const ownedIds = Array.isArray(profile?.owned) ? profile.owned.filter((id) => Object.hasOwn(CLOTH, id)) : [];

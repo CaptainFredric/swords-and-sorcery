@@ -19,6 +19,18 @@
 .cloth-card[aria-checked='true'] { border-color: var(--heraldry-brass-light); box-shadow: inset 0 0 0 1px rgba(236,201,127,.35); background: linear-gradient(#554735, var(--heraldry-iron)); }
 .cloth-card:hover { border-color: var(--heraldry-brass-light); }
 .cloth-card:focus-visible, #cloth-action:focus-visible, .armory-tabs button:focus-visible, .renown-rules summary:focus-visible { outline: 2px solid var(--heraldry-magic); outline-offset: 3px; }
+.emblem-mark { flex: 0 0 30px; height: 40px; display: grid; place-items: center; background: linear-gradient(90deg, rgba(0,0,0,.25), transparent 35%, rgba(255,255,255,.1) 55%, rgba(0,0,0,.22)), #79313b; clip-path: polygon(0 0,100% 0,100% 80%,50% 100%,0 80%); }
+.emblem-mark img, .emblem-mark svg { width: 24px; height: 34px; object-fit: contain; }
+.emblem-card.locked .emblem-mark { filter: grayscale(.85) brightness(.7); }
+.emblem-detail { margin-top: 2px; }
+#emblem-name { margin: 0 0 5px; color: var(--heraldry-brass-light); font: 400 20px/1.1 var(--font-inscription); }
+#emblem-description, #emblem-hint, #emblem-flavor { margin: 0; font: 500 13px/1.35 var(--font-script); color: var(--heraldry-cream); }
+#emblem-flavor { margin-top: 6px; font-style: italic; color: #f3dfb0; }
+#emblem-flavor:empty { display: none; }
+#emblem-hint { margin-top: 9px; font-weight: 700; }
+#emblem-action { margin-top: 10px; min-height: 40px; }
+#emblem-action:disabled { opacity: .65; cursor: default; }
+#emblem-action:focus-visible { outline: 2px solid var(--heraldry-magic); outline-offset: 3px; }
 .cloth-detail { padding: 12px; background: rgba(34,29,25,.55); border: 1px solid rgba(201,156,82,.35); }
 #cloth-name { margin: 0 0 5px; color: var(--heraldry-brass-light); font: 400 20px/1.1 var(--font-inscription); }
 #cloth-description, #cloth-hint, #renown-status, .renown-rules p { margin: 0; font: 500 13px/1.35 var(--font-script); color: var(--heraldry-cream); }

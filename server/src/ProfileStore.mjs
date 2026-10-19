@@ -3,6 +3,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { CHALLENGES, publicChallengeState } from '../../shared/src/challenges.mjs';
 import { CLOTH } from '../../shared/src/cosmetics.mjs';
+import { DEFAULT_EMBLEM, isEmblem, ownedEmblems } from '../../shared/src/heraldry.mjs';
 
 export function assessMatchReward(room, player, finishedAt) {
   let reason = 'earned';
@@ -70,7 +71,10 @@ export class ProfileStore {
   view(profile) {
     const lastReward = profile.lastReward ? structuredClone(profile.lastReward) : null;
     if (Array.isArray(lastReward?.challenges)) lastReward.challenges = lastReward.challenges.filter((id) => Object.hasOwn(CHALLENGES, id));
+    // (an emblem is owned while its challenge stands complete; anything else carried falls back to the trident)
+    const emblems = ownedEmblems(profile.challenges);
     return { balance: profile.balance, owned: [...profile.owned], equipped: profile.equipped,
+      emblem: emblems.includes(profile.emblem) ? profile.emblem : DEFAULT_EMBLEM, emblems,
       lastReward, challenges: publicChallengeState(profile.challenges) };
   }
   open(token = null) {
@@ -128,6 +132,14 @@ export class ProfileStore {
     if (current.owned.includes(id)) return this.view(current);
     if (current.balance < CLOTH[id].price) throw new Error('Earn more Renown to unlock this cloth.');
     return this.write(token, { ...current, balance: current.balance - CLOTH[id].price, owned: [...current.owned, id] });
+  }
+  /** Carry an earned heraldic emblem on the back banner (the trident is everyone's). */
+  equipEmblem(token, id) {
+    const current = this.read(token);
+    if (!isEmblem(id)) throw new Error('Unknown heraldry');
+    if (!ownedEmblems(current.challenges).includes(id)) throw new Error('Earn this heraldry before carrying it.');
+    if ((current.emblem ?? DEFAULT_EMBLEM) === id) return this.view(current);
+    return this.write(token, { ...current, emblem: id });
   }
   equip(token, id) {
     const current = this.read(token);

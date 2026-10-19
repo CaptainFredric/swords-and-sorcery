@@ -1,9 +1,11 @@
 // Authored feats. Combat facts and settlement remain authoritative; this table describes the curriculum.
 export const CHALLENGE_FAMILIES = Object.freeze({ swordsmanship:'SWORDSMANSHIP', sorcery:'SORCERY', chivalry:'CHIVALRY', oddities:'ODDITIES' });
-const feat=(id,family,title,condition,renown,{hint=null,goal=1,flavor=null}={})=>Object.freeze({id,family,title,condition,visibility:hint?'hinted':'visible',hint,goal,reward:Object.freeze({renown}),flavor});
+const feat=(id,family,title,condition,renown,{hint=null,goal=1,flavor=null,emblem=null}={})=>Object.freeze({id,family,title,condition,visibility:hint?'hinted':'visible',hint,goal,reward:Object.freeze(emblem?{renown,emblem}:{renown}),flavor});
 export const CHALLENGES = Object.freeze({
   three_part_argument:feat('three_part_argument','swordsmanship','THREE PART ARGUMENT','Land all three strikes of one uninterrupted ordinary sword chain on the same opponent.',15,{goal:3}),
   turnabout:feat('turnabout','swordsmanship','TURNABOUT','Perfect parry an opponent, then kill that same opponent within 5 seconds.',20),
+  // (its reward is a heraldic emblem as well as Renown: shared/src/heraldry.mjs)
+  seize_thy_slayer:feat('seize_thy_slayer','swordsmanship','SEIZE THY SLAYER','Take an enemy Spellblade from full health to defeat with your sword alone, never guarding, and finish them with a lethal spell ready that you chose not to cast. Bots count only at Spellblade difficulty.',30,{flavor:'Leverage comes with an edge.',emblem:'seize_thy_slayer'}),
   mind_the_gap:feat('mind_the_gap','sorcery','MIND THE GAP','Earn an abyss kill attributed to your Gale displacement.',20),
   wind_correction:feat('wind_correction','sorcery','WIND CORRECTION','Hit an enemy with an ordinary projectile after that same owned projectile was bent by your Gale.',20,{hint:'The wind is not particular about straight lines.',flavor:'The wind was apparently not particular about straight lines.'}),
   polished_under_pressure:feat('polished_under_pressure','sorcery','POLISHED UNDER PRESSURE','While Steel is active, survive a damaging contact whose unmitigated damage would have killed you.',20,{hint:'Armor is most convincing when tested.'}),
