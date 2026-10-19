@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { writeFile, appendFile } from 'node:fs/promises';
 import path from 'node:path';
-import { downloadCandidate } from './candidate.mjs';
+import { downloadCandidate, findRecoveryRelease } from './candidate.mjs';
 import { checkServer } from './server-check.mjs';
 import { REPOSITORY, TARGET, publicationPlan, butlerStatus, invokeButler, butlerEnvironment } from './policy.mjs';
 
@@ -36,6 +36,10 @@ execFileSync('gh', ['release', 'create', tag, '--repo', REPOSITORY, '--draft', '
   '--title', `itch recovery ${candidate.revision.slice(0, 12)}`, '--notes', 'Recovery archive and publication evidence. This draft does not publish the game page.',
   path.join(directory, 'swords-and-sorcery-html5.zip'), path.join(directory, 'export-report.json'), path.join(directory, 'candidate.json'),
   path.join(directory, 'browser-check.json'), path.join(directory, 'server-check.json'), receiptPath], { stdio: 'pipe' });
+const recovery = findRecoveryRelease(tag, candidate.revision);
+receipt.recoveryReleaseId = recovery.id;
+receipt.recoveryUrl = recovery.html_url;
+await save();
 try {
   // Recheck channel immediately before mutation, within the workflow's serialized job.
   publicationPlan({ ref: env.GITHUB_REF, event: env.GITHUB_EVENT_NAME, approved: true, key: env.BUTLER_API_KEY,
@@ -63,5 +67,5 @@ try {
 } finally {
   await save();
   execFileSync('gh', ['release', 'upload', tag, receiptPath, '--repo', REPOSITORY, '--clobber'], { stdio: 'pipe' });
-  if (env.GITHUB_STEP_SUMMARY) await appendFile(env.GITHUB_STEP_SUMMARY, `\n## itch channel operation\n\n${receipt.status}\n\nSource: ${candidate.revision}\n\nSHA256: ${candidate.sha256}\n\nRecovery draft: https://github.com/${REPOSITORY}/releases/tag/${tag}\n\nActual itch iframe and physical device acceptance remain owner checks. Never infer browser success from a zero Butler exit.\n`);
+  if (env.GITHUB_STEP_SUMMARY) await appendFile(env.GITHUB_STEP_SUMMARY, `\n## itch channel operation\n\n${receipt.status}\n\nSource: ${candidate.revision}\n\nSHA256: ${candidate.sha256}\n\nRecovery draft: ${receipt.recoveryUrl}\n\nActual itch iframe and physical device acceptance remain owner checks. Never infer browser success from a zero Butler exit.\n`);
 }
