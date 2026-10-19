@@ -13,8 +13,10 @@
 //     loose at the hem), so it keeps its shape at rest instead of collapsing onto him;
 //   constraints keep the cloth from stretching (down each column: hard; across, and on the diagonals: softer), and
 //     from folding up on itself;
-//   capsules round his back, hips, thighs and shins push it out of the body (without a bounce: it slides on him), and
-//     it stays above the ground;
+//   capsules round his back, hips, thighs and shins push it out of the body (without a bounce: it slides on him), tested
+//     at its nodes, between them and out to its edges, on its inner face (the cape's lining), and a short way out
+//     taken on the cloth's own side of a limb (over the front of a thigh, off the back of a leg); and it stays above
+//     the ground;
 //   and it keeps to its own side of him: never nearer his body than its reach from where it hangs at rest (the cape
 //     behind him, the tabard in front: a swing stops against him instead of passing through), and never above where
 //     it hangs from (a cape flies out level at most, never over his head).
@@ -35,6 +37,8 @@ export const CLOTH_GRID_SPECS = Object.freeze({
     rise: 0.04,
     // how far (m) the cloth reaches beyond its outer columns (its edges collide too)
     span: 0.15,
+    // how far (m) its inner face lies nearer his body than its nodes (the lining inside the banner)
+    thickness: 0.035,
   }),
   tabard: Object.freeze({
     prefix: 'tabard', columns: Object.freeze(['L', 'R']), rows: 3, anchor: 'pelvis',
@@ -47,6 +51,7 @@ export const CLOTH_GRID_SPECS = Object.freeze({
     // (each row's own: a knee lifts the tabard's hem out to about level, but never folds it up over the belt)
     rise: Object.freeze([0, 0.04, -0.04, -0.12]),
     span: 0.09,
+    thickness: 0.015,
   }),
 });
 
@@ -112,6 +117,48 @@ function qRotate(q, v) {
 
 function index(grid, column, row) {
   return column * (grid.rows + 1) + row;
+}
+
+const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+// the turn taking one unit direction to another, the short way (three's Quaternion.setFromUnitVectors)
+function qBetween(from, to) {
+  const r = dot(from, to) + 1;
+  let q;
+  if (r < 1e-6) q = Math.abs(from[0]) > Math.abs(from[2]) ? [-from[1], from[0], 0, 0] : [0, -from[2], from[1], 0];
+  else { const c = cross(from, to); q = [c[0], c[1], c[2], r]; }
+  const l = Math.hypot(...q);
+  return q.map((x) => x / l);
+}
+
+// how a segment of cloth turns about its own length to follow the cloth's width: fully up to TWIST_FULL (rad), then
+// less and less, to none by TWIST_NONE (columns that have crossed would ask for a half turn, and flip as they cross back)
+export const TWIST_FULL = 1.0;
+export const TWIST_NONE = 2.6;
+
+/**
+ * The turn (world, [x, y, z, w]) of the cloth between rows r - 1 and r of a column, from its drape (targets) to now:
+ * swung to run from node to node, then twisted so its width lies as the neighbouring columns now do (within the
+ * limits above). The rig turns that segment's bone by it, and the cloth's edges are found by it, so both agree.
+ */
+export function clothSegmentTurn(grid, c, r, targets = grid.targets) {
+  const dir = unit(sub(grid.x[index(grid, c, r)], grid.x[index(grid, c, r - 1)]));
+  const dir0 = unit(sub(targets[c][r], targets[c][r - 1]));
+  if (len(dir) < 0.5 || len(dir0) < 0.5) return [0, 0, 0, 1];
+  let q = qBetween(dir0, dir);
+  if (grid.columns > 1) {
+    const left = Math.max(0, c - 1);
+    const right = Math.min(grid.columns - 1, c + 1);
+    const across = (v) => { const along = dot(v, dir); return unit(v.map((x, k) => x - dir[k] * along)); };
+    const side = across(sub(grid.x[index(grid, right, r - 1)], grid.x[index(grid, left, r - 1)]));
+    const side0 = across(qRotate(q, sub(targets[right][r - 1], targets[left][r - 1])));
+    if (len(side) > 0.5 && len(side0) > 0.5) {
+      const wanted = Math.atan2(dot(cross(side0, side), dir), dot(side0, side));
+      const fade = Math.max(0, Math.min(1, (TWIST_NONE - Math.abs(wanted)) / (TWIST_NONE - TWIST_FULL)));
+      const half = Math.sign(wanted) * Math.min(Math.abs(wanted), TWIST_FULL) * fade / 2;
+      q = qMul([dir[0] * Math.sin(half), dir[1] * Math.sin(half), dir[2] * Math.sin(half), Math.cos(half)], q);
+    }
+  }
+  return q;
 }
 
 /**
@@ -183,14 +230,44 @@ function closestOnSegment(p, a, b) {
   return [a[0] + ab[0] * t, a[1] + ab[1] * t, a[2] + ab[2] * t];
 }
 
-// push a point out of a capsule; returns the push (or null)
-function pushOut(p, capsule) {
+// how far along a direction (unit) a point inside a capsule must go to leave it
+function exitAlong(p, capsule, n) {
+  const axis = sub(capsule.b, capsule.a);
+  const length = len(axis);
+  const u = length > 1e-9 ? axis.map((x) => x / length) : [0, 1, 0];
+  const w = sub(p, capsule.a);
+  const flat = (v) => { const along = dot(v, u); return v.map((x, k) => x - u[k] * along); };
+  // (through the side: the cylinder, if it leaves within the capsule's length; else through the round end there)
+  const wp = flat(w), np = flat(n);
+  const a = dot(np, np), b = dot(wp, np), c = dot(wp, wp) - capsule.radius * capsule.radius;
+  let end;
+  if (a > 1e-9) {
+    const s = (-b + Math.sqrt(Math.max(0, b * b - a * c))) / a;
+    const along = dot(w, u) + s * dot(n, u);
+    if (along >= 0 && along <= length) return s;
+    end = along > length ? capsule.b : capsule.a;
+  } else end = dot(n, u) > 0 ? capsule.b : capsule.a;
+  const e = sub(p, end);
+  const be = dot(e, n), ce = dot(e, e) - capsule.radius * capsule.radius;
+  return -be + Math.sqrt(Math.max(0, be * be - ce));
+}
+
+// push a point out of a capsule; returns the push (or null). Cloth lies on the outside of his body, so it leaves a
+// limb by its own side (outward: the cape off the back of a leg swung back into it, the tabard off the front of a
+// thigh swung up under it) when that way out is short; caught deep, past the limb's middle, it leaves by the nearest
+// way (sent the far way round it would jump across the limb)
+function pushOut(p, capsule, outward = null) {
   const c = closestOnSegment(p, capsule.a, capsule.b);
   const d = sub(p, c);
   const l = len(d);
   if (l >= capsule.radius) return null;
+  const nearest = capsule.radius - l;
+  if (outward) {
+    const s = exitAlong(p, capsule, outward);
+    if (Number.isFinite(s) && s >= 0 && s <= Math.max(2.5 * nearest, 0.05)) return outward.map((x) => x * s);
+  }
   if (l < 1e-6) return [0, 0, capsule.radius];
-  const k = (capsule.radius - l) / l;
+  const k = nearest / l;
   return [d[0] * k, d[1] * k, d[2] * k];
 }
 
@@ -222,17 +299,24 @@ function solveLinks(grid) {
 }
 
 // the cloth against the body: at every node, between nodes (down and across), and out to the cloth's edges beyond
-// its outer columns, so a leg can neither slip between two nodes nor pass through the cloth's sides
-function collide(grid, colliders, ground) {
+// its outer columns (beside each node and between them), so a leg can neither slip between two nodes nor pass through
+// the cloth's sides. Each is tested on the cloth's inner face (its thickness nearer his body than the nodes, which run
+// through its middle: the cape's lining hangs that much inside its banner)
+function collide(grid, colliders, ground, outward, targets) {
   const span = grid.spec.span ?? 0;
+  const inward = outward ? outward.map((x) => -x * (grid.spec.thickness ?? 0)) : [0, 0, 0];
   const push = (point, nodes) => {
+    const face = point.map((x, k) => x + inward[k]);
     for (const capsule of colliders) {
-      const out = pushOut(point, capsule);
+      const out = pushOut(face, capsule, outward);
       if (!out) continue;
       for (const i of nodes) touch(grid, i, out);
-      for (let k = 0; k < 3; k += 1) point[k] += out[k];
+      for (let k = 0; k < 3; k += 1) face[k] += out[k];
     }
   };
+  // (an outer column's edge: the drape's way out from the next column in, turned as that segment of cloth is turned)
+  const inner = (c) => (span > 0 && grid.columns > 1 && (c === 0 || c === grid.columns - 1) ? (c === 0 ? 1 : c - 1) : -1);
+  const outwards = (c, r, turn) => qRotate(turn, unit(sub(targets[c][r], targets[inner(c)][r]))).map((x) => x * span);
   for (let c = 0; c < grid.columns; c += 1) {
     for (let r = 1; r <= grid.rows; r += 1) {
       const i = index(grid, c, r);
@@ -240,13 +324,17 @@ function collide(grid, colliders, ground) {
       if (grid.x[i][1] < ground) touch(grid, i, [0, ground - grid.x[i][1], 0]);
       // down the column (from where it hangs, the free node takes the whole push)
       const j = index(grid, c, r - 1);
-      push(lerp(grid.x[j], grid.x[i], 0.5), r - 1 > 0 ? [i, j] : [i, i]);
+      const nodes = r - 1 > 0 ? [i, j] : [i, i];
+      push(lerp(grid.x[j], grid.x[i], 0.5), nodes);
       // across, to the next column
       if (c + 1 < grid.columns) push(lerp(grid.x[i], grid.x[index(grid, c + 1, r)], 0.5), [i, index(grid, c + 1, r)]);
-      // out to the edge
-      if (span > 0 && grid.columns > 1 && (c === 0 || c === grid.columns - 1)) {
-        const side = unit(sub(grid.x[i], grid.x[index(grid, c === 0 ? 1 : c - 1, r)]));
-        push(grid.x[i].map((x, k) => x + side[k] * span), [i]);
+      // out to the edge, beside this node and halfway up to the one above
+      if (inner(c) >= 0) {
+        const turn = clothSegmentTurn(grid, c, r, targets);
+        const here = outwards(c, r, turn);
+        push(grid.x[i].map((x, k) => x + here[k]), [i]);
+        const above = outwards(c, r - 1, turn);
+        push(lerp(grid.x[j], grid.x[i], 0.5).map((x, k) => x + (here[k] + above[k]) / 2), nodes);
       }
     }
   }
@@ -351,9 +439,10 @@ export function stepClothGrid(grid, dt, frame) {
       }
       grid.x[index(grid, c, 0)] = target(c, 0);
     }
+    const drapeNow = frame.targets.map((column, c) => column.map((_, r) => target(c, r)));
     for (let n = 0; n < ITERATIONS; n += 1) {
       solveLinks(grid);
-      collide(grid, colliders, frame.ground ?? -Infinity);
+      collide(grid, colliders, frame.ground ?? -Infinity, frame.outward ?? null, drapeNow);
       keepSide(grid, target, frame);
     }
   }

@@ -1,22 +1,13 @@
 import * as THREE from 'three';
-import { CLOTH_COLLIDERS, CLOTH_GRID_SPECS, clothNode, createClothGrid, impulseClothGrid, loadedBoneName, resetClothGrid, stepClothGrid } from './clothGrid.mjs';
+import { CLOTH_COLLIDERS, CLOTH_GRID_SPECS, clothSegmentTurn, createClothGrid, impulseClothGrid, loadedBoneName, resetClothGrid, stepClothGrid } from './clothGrid.mjs';
 
 const _v = new THREE.Vector3();
 const _a = new THREE.Vector3();
 const _b = new THREE.Vector3();
-const _dir = new THREE.Vector3();
-const _dir0 = new THREE.Vector3();
-const _side = new THREE.Vector3();
-const _side0 = new THREE.Vector3();
 const _q = new THREE.Quaternion();
-const _twist = new THREE.Quaternion();
 const _parent = new THREE.Quaternion();
 const _world = new THREE.Quaternion();
 const _anchorTurn = new THREE.Quaternion();
-// how a cloth bone turns about its own length to follow the cloth's width: fully up to TWIST_FULL (rad), then less
-// and less, to none by TWIST_NONE (columns that have crossed would ask for a half turn, and flip as they cross back)
-const TWIST_FULL = 1.0;
-const TWIST_NONE = 2.6;
 
 // a bone by its Blender name: the glTF loader drops a name's dots ('cape.C.1' arrives as 'capeC1')
 function node(root, name) {
@@ -87,34 +78,13 @@ export class ClothGridRig {
     return grid.colliders.map(({ from, to, radius }) => ({ a: from.getWorldPosition(_a).toArray(), b: to.getWorldPosition(_b).toArray(), radius }));
   }
 
-  // each cloth bone turned so it runs from its node to the next, and its width (the way to its neighbouring columns)
-  // lies as the cloth's does there
+  // each cloth bone turned as its segment of cloth is (clothSegmentTurn: from node to node, its width lying as the
+  // cloth's does there)
   #write(grid, drape) {
-    const columns = grid.bones.length;
     for (let r = 0; r < grid.spec.rows; r += 1) {
       grid.bones.forEach((column, c) => {
         const bone = column[r];
-        _dir.fromArray(clothNode(grid.sim, c, r + 1)).sub(_a.fromArray(clothNode(grid.sim, c, r)));
-        _dir0.fromArray(drape.targets[c][r + 1]).sub(_a.fromArray(drape.targets[c][r]));
-        if (_dir.lengthSq() < 1e-10 || _dir0.lengthSq() < 1e-10) return;
-        _dir.normalize(); _dir0.normalize();
-        _q.setFromUnitVectors(_dir0, _dir);
-        if (columns > 1) {
-          const left = Math.max(0, c - 1);
-          const right = Math.min(columns - 1, c + 1);
-          _side.fromArray(clothNode(grid.sim, right, r)).sub(_a.fromArray(clothNode(grid.sim, left, r)));
-          _side0.fromArray(drape.targets[right][r]).sub(_a.fromArray(drape.targets[left][r])).applyQuaternion(_q);
-          _side.addScaledVector(_dir, -_side.dot(_dir));
-          _side0.addScaledVector(_dir, -_side0.dot(_dir));
-          if (_side.lengthSq() > 1e-10 && _side0.lengthSq() > 1e-10) {
-            _side.normalize(); _side0.normalize();
-            const wanted = Math.atan2(_v.crossVectors(_side0, _side).dot(_dir), _side0.dot(_side));
-            const fade = Math.max(0, Math.min(1, (TWIST_NONE - Math.abs(wanted)) / (TWIST_NONE - TWIST_FULL)));
-            const angle = Math.sign(wanted) * Math.min(Math.abs(wanted), TWIST_FULL) * fade;
-            _twist.setFromAxisAngle(_dir, angle);
-            _q.premultiply(_twist);
-          }
-        }
+        _q.fromArray(clothSegmentTurn(grid.sim, c, r + 1, drape.targets));
         _world.copy(_q).multiply(drape.turns[c][r]);
         bone.parent.getWorldQuaternion(_parent).invert();
         bone.quaternion.copy(_parent).multiply(_world);
