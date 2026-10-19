@@ -169,7 +169,11 @@ async function snapshotUi() {
 }
 
 async function waitForMenuScene(timeoutMs = 20000) {
-  await poll(async () => (await snapshotUi()).menuCanvasCount === 1, {
+  await poll(async () => {
+    const unavailable = await evaluate(`Boolean(document.querySelector('#menu-spellblade')?.classList.contains('menu-scene-unavailable'))`);
+    if (unavailable) throw new Error('Spellblade menu preview unavailable (WebGL initialization failed)');
+    return (await snapshotUi()).menuCanvasCount === 1;
+  }, {
     timeoutMs,
     label: 'Spellblade menu WebGL canvas',
   });
@@ -209,6 +213,8 @@ try {
   chrome = spawn(chromeBin, [
     '--headless=new',
     '--no-sandbox',
+    '--enable-unsafe-swiftshader',
+    '--disable-dev-shm-usage',
     '--hide-scrollbars',
     '--disable-features=MacAppCodeSignClone',
     '--window-size=1440,900',
@@ -240,6 +246,7 @@ try {
   });
   cdp.on('Log.entryAdded', ({ entry }) => {
     if (entry?.level === 'error') browserErrors.push({ type: 'console', text: entry.text, url: entry.url || null, lineNumber: entry.lineNumber ?? null });
+    else if (entry?.level === 'warning') process.stdout.write(`[browser:warn] ${entry.text}\n`);
   });
   cdp.on('Network.responseReceived', ({ response, type }) => {
     if (response?.status >= 400) httpErrors.push({ status: response.status, url: response.url, resourceType: type });
