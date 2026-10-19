@@ -145,3 +145,20 @@ test('changing Armory sections starts their shared scroll at the top while the c
   assert.equal(scroll.scrollTop, 40, 'an invalid section changes neither selection nor scroll');
   assert.equal(controller.section, 'kit');
 });
+
+test('heraldry: the trident is always carried or carriable; an earned emblem can be carried; a locked one cannot', async () => {
+  const { heraldryView } = await import('./renownView.mjs');
+  assert.equal(heraldryView(null, 'trident', true).status, 'Carried');
+  const fresh = { emblem: 'trident', emblems: ['trident'] };
+  const locked = heraldryView(fresh, 'seize_thy_slayer', true);
+  assert.equal(locked.status, 'Locked');
+  assert.equal(locked.disabled, true);
+  assert.match(locked.hint, /Seize Thy Slayer challenge/);
+  const earned = heraldryView({ ...fresh, emblems: ['trident', 'seize_thy_slayer'] }, 'seize_thy_slayer', true);
+  assert.equal(earned.status, 'Earned');
+  assert.equal(earned.disabled, false);
+  assert.equal(heraldryView({ ...fresh, emblems: ['trident', 'seize_thy_slayer'] }, 'seize_thy_slayer', false).disabled, true);
+  assert.equal(heraldryView({ emblem: 'seize_thy_slayer', emblems: ['trident', 'seize_thy_slayer'] }, 'seize_thy_slayer', true).label, 'CARRIED');
+  // (an unknown preview falls back to the trident)
+  assert.equal(heraldryView(fresh, 'dragon', true).emblem.id, 'trident');
+});

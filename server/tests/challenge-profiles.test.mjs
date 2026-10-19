@@ -187,3 +187,27 @@ test('obsolete completion IDs in a saved reward receipt stay on disk and leave t
   assert.deepEqual(store.open(token).profile.lastReward.challenges, ['turnabout']);
   assert.deepEqual(JSON.parse(fs.readFileSync(file, 'utf8')).lastReward.challenges, ['obsolete', 'turnabout']);
 });
+
+test('Seize Thy Slayer heraldry is earned once by its feat, persists, and is the only emblem besides the trident a profile may carry', (t) => {
+  const { store, token, directory } = fixture(t);
+  let profile = store.open(token).profile;
+  assert.equal(profile.emblem, 'trident');
+  assert.deepEqual(profile.emblems, ['trident']);
+  assert.throws(() => store.equipEmblem(token, 'seize_thy_slayer'), /Earn this heraldry/);
+  assert.throws(() => store.equipEmblem(token, 'dragon'), /Unknown heraldry/);
+  profile = store.settleMatch(token, 'm1', 30, { seize_thy_slayer: 1 });
+  assert.ok(profile.challenges.completed.seize_thy_slayer);
+  assert.equal(profile.lastReward.challengeAmount, CHALLENGES.seize_thy_slayer.reward.renown);
+  assert.deepEqual(profile.emblems, ['trident', 'seize_thy_slayer']);
+  profile = store.equipEmblem(token, 'seize_thy_slayer');
+  assert.equal(profile.emblem, 'seize_thy_slayer');
+  // (awarded once: a second qualifying match pays nothing more)
+  const balance = profile.balance;
+  profile = store.settleMatch(token, 'm2', 0, { seize_thy_slayer: 1 });
+  assert.equal(profile.balance, balance);
+  // persisted: a fresh store reads it back from disk
+  const reopened = new ProfileStore(directory).open(token).profile;
+  assert.equal(reopened.emblem, 'seize_thy_slayer');
+  assert.deepEqual(reopened.emblems, ['trident', 'seize_thy_slayer']);
+  assert.equal(store.equipEmblem(token, 'trident').emblem, 'trident');
+});

@@ -1,5 +1,25 @@
 import { CLOTH } from '../../shared/src/cosmetics.mjs';
-import { renownView, rewardText } from './renownView.mjs';
+import { DEFAULT_EMBLEM, EMBLEMS } from '../../shared/src/heraldry.mjs';
+import { heraldryView, renownView, rewardText } from './renownView.mjs';
+import { appUrl } from '../appUrl.mjs';
+
+const SVG = 'http://www.w3.org/2000/svg';
+// the Castleward trident, for its heraldry card
+function tridentMark(doc) {
+  if (typeof doc.createElementNS !== 'function') {
+    const glyph = doc.createElement('span');
+    glyph.textContent = 'Ψ';
+    return glyph;
+  }
+  const svg = doc.createElementNS(SVG, 'svg');
+  svg.setAttribute('viewBox', '0 0 24 34');
+  svg.setAttribute('aria-hidden', 'true');
+  const path = doc.createElementNS(SVG, 'path');
+  path.setAttribute('fill', '#e8cfa0');
+  path.setAttribute('d', 'M11 9h2v25h-2zM12 1l3.5 6h-7zM4 11h2v6c0 2.2 2.4 3.6 6 3.6s6-1.4 6-3.6v-6h2v6c0 3.6-3.3 5.6-8 5.6s-8-2-8-5.6zM5 6l2.6 5H2.4zM19 6l2.6 5h-5.2z');
+  svg.appendChild(path);
+  return svg;
+}
 
 export class RenownController {
   constructor({ socket, scene, spell = () => null, document: doc = document, storage = localStorage }) {
@@ -28,6 +48,8 @@ export class RenownController {
     } catch {}
     this.preview = this.profile?.equipped ?? 'crimson';
     scene()?.setCloth(this.preview);
+    this.emblemPreview = this.carriedEmblem();
+    scene()?.setEmblem?.(this.emblemPreview);
     this.cards = doc.querySelector('#armory-cloths');
     for (const item of Object.values(CLOTH)) {
       const button = doc.createElement('button');
@@ -46,7 +68,7 @@ export class RenownController {
       button.appendChild(swatch); button.appendChild(words);
       this.cardLabels.set(item.id, status);
       button.setAttribute('role', 'radio');
-      button.addEventListener('click', () => { this.preview = item.id; this.error = ''; this.feedback = ''; this.render(); scene()?.setCloth(item.id); });
+      button.addEventListener('click', () => { this.preview = item.id; this.error = ''; this.feedback = ''; this.render(); scene()?.setCloth(item.id); scene()?.showBanner?.(false); });
       button.addEventListener('keydown', (event) => {
         const ids = Object.keys(CLOTH), index = ids.indexOf(item.id);
         const delta = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[event.key];
@@ -76,19 +98,78 @@ export class RenownController {
         this.render();
       }, 8000);
     });
+    // the heraldry: the trident and each earned emblem, previewed on his back banner (he turns to show it)
+    this.emblemCards = doc.querySelector('#armory-emblems');
+    this.emblemLabels = new Map();
+    const previewEmblem = (id) => {
+      this.emblemPreview = id; this.error = ''; this.feedback = '';
+      this.render(); scene()?.setEmblem?.(id); scene()?.showBanner?.(true);
+    };
+    for (const emblem of Object.values(EMBLEMS)) {
+      const button = doc.createElement('button');
+      button.type = 'button';
+      button.className = 'cloth-card emblem-card';
+      button.dataset.emblem = emblem.id;
+      const mark = doc.createElement('span');
+      mark.className = 'emblem-mark';
+      if (emblem.art) {
+        const img = doc.createElement('img');
+        img.src = appUrl(emblem.art); img.alt = ''; img.decoding = 'async';
+        mark.appendChild(img);
+      } else mark.appendChild(tridentMark(doc));
+      const words = doc.createElement('span');
+      const name = doc.createElement('strong');
+      name.textContent = emblem.name;
+      const status = doc.createElement('small');
+      words.appendChild(name); words.appendChild(status);
+      button.appendChild(mark); button.appendChild(words);
+      this.emblemLabels.set(emblem.id, status);
+      button.setAttribute('role', 'radio');
+      button.addEventListener('click', () => previewEmblem(emblem.id));
+      button.addEventListener('keydown', (event) => {
+        const ids = Object.keys(EMBLEMS), index = ids.indexOf(emblem.id);
+        const delta = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[event.key];
+        if (!delta) return;
+        event.preventDefault();
+        const next = (index + delta + ids.length) % ids.length;
+        previewEmblem(ids[next]); this.emblemCards.children[next].focus();
+      });
+      this.emblemCards?.appendChild(button);
+    }
+    this.emblemAction = doc.querySelector('#emblem-action');
+    this.emblemAction?.addEventListener('click', () => {
+      const view = heraldryView(this.profile, this.emblemPreview, this.online());
+      if (view.disabled || this.pending) return;
+      this.pending = true;
+      this.operation = { action: 'equipEmblem', id: view.emblem.id };
+      this.feedback = ''; this.error = '';
+      this.render();
+      socket.remote.send({ type: 'equipEmblem', emblem: view.emblem.id });
+      clearTimeout(this.timer);
+      this.timer = setTimeout(() => {
+        this.pending = false;
+        this.operation = null;
+        this.error = 'Confirmation delayed. Reconnect or retry; repeat requests are safe.';
+        this.render();
+      }, 8000);
+    });
     socket.on('profile', ({ profile }) => {
       this.profile = profile;
       const operation = this.operation;
-      const confirmed = operation && (operation.action === 'purchase' ? profile.owned.includes(operation.id) : profile.equipped === operation.id);
+      const confirmed = operation && (operation.action === 'purchase' ? profile.owned.includes(operation.id)
+        : operation.action === 'equipEmblem' ? profile.emblem === operation.id : profile.equipped === operation.id);
       if (confirmed) {
-        const name = CLOTH[operation.id].name;
-        this.feedback = operation.action === 'purchase' ? `${name} unlocked. Equip it when ready.` : `${name} equipped. Your next battle awaits.`;
+        if (operation.action === 'equipEmblem') this.feedback = `${EMBLEMS[operation.id].name} carried on your back banner.`;
+        else {
+          const name = CLOTH[operation.id].name;
+          this.feedback = operation.action === 'purchase' ? `${name} unlocked. Equip it when ready.` : `${name} equipped. Your next battle awaits.`;
+        }
         this.operation = null;
       }
       if (!operation || confirmed) { this.pending = false; clearTimeout(this.timer); }
       this.error = '';
       try { storage.setItem('ss-profile-cache', JSON.stringify(profile)); } catch {}
-      if (!this.inArmory || this.section === 'kit') scene()?.setCloth(profile.equipped);
+      if (!this.inArmory || this.section === 'kit') { scene()?.setCloth(profile.equipped); scene()?.setEmblem?.(this.carriedEmblem()); }
       this.render();
     });
     socket.on('profileError', ({ message }) => {
@@ -119,13 +200,20 @@ export class RenownController {
     }
     this.scene()?.showSpell?.(section === 'kit' ? this.spell() : null);
     this.scene()?.setCloth(section === 'heraldry' ? this.preview : this.profile?.equipped ?? 'crimson');
+    this.scene()?.setEmblem?.(section === 'heraldry' ? this.emblemPreview : this.carriedEmblem());
+    if (section !== 'heraldry') this.scene()?.showBanner?.(false);
   }
+  carriedEmblem() { return EMBLEMS[this.profile?.emblem] ? this.profile.emblem : DEFAULT_EMBLEM; }
   online() { return this.socket.status === 'online' && this.socket.remote.profileReady; }
   route(screen) {
     const entering = screen === 'ARMORY' && !this.inArmory;
     this.inArmory = screen === 'ARMORY';
-    if (entering) { this.preview = this.profile?.equipped ?? 'crimson'; this.selectSection('kit'); this.render(); }
-    if (!this.inArmory) this.scene()?.setCloth(this.profile?.equipped ?? 'crimson');
+    if (entering) { this.preview = this.profile?.equipped ?? 'crimson'; this.emblemPreview = this.carriedEmblem(); this.selectSection('kit'); this.render(); }
+    if (!this.inArmory) {
+      this.scene()?.setCloth(this.profile?.equipped ?? 'crimson');
+      this.scene()?.setEmblem?.(this.carriedEmblem());
+      this.scene()?.showBanner?.(false);
+    }
   }
   renderReward() {
     const text = this.error && this.snapshot?.roomState === 'FINISHED' && this.profile?.lastReward?.matchId !== this.snapshot.rewardMatchId
@@ -154,6 +242,24 @@ export class RenownController {
     progress.value = view.progress;
     progress.hidden = view.owned;
     progress.setAttribute('aria-valuetext', `${Math.min(view.balance, view.item.price)} of ${view.item.price} Renown`);
+    const heraldry = heraldryView(this.profile, this.emblemPreview, this.online());
+    for (const button of this.emblemCards?.children ?? []) {
+      const id = button.dataset.emblem;
+      const status = heraldryView(this.profile, id, this.online()).status;
+      button.setAttribute('aria-checked', String(id === heraldry.emblem.id));
+      button.setAttribute('aria-label', `${EMBLEMS[id].name} · ${status}`);
+      button.classList.toggle('locked', status === 'Locked');
+      button.tabIndex = id === heraldry.emblem.id ? 0 : -1;
+      this.emblemLabels.get(id).textContent = status;
+    }
+    if (this.emblemAction) {
+      this.emblemAction.textContent = this.pending && this.operation?.action === 'equipEmblem' ? 'CONFIRMING…' : heraldry.label;
+      this.emblemAction.disabled = heraldry.disabled || this.pending;
+      this.doc.querySelector('#emblem-name').textContent = heraldry.emblem.name;
+      this.doc.querySelector('#emblem-description').textContent = heraldry.emblem.description;
+      this.doc.querySelector('#emblem-flavor').textContent = heraldry.emblem.flavor ? `“${heraldry.emblem.flavor}”` : '';
+      this.doc.querySelector('#emblem-hint').textContent = heraldry.hint;
+    }
     this.doc.querySelector('#renown-status').textContent = this.error || (!this.online()
       ? 'Reconnect to earn and spend Renown. You can still preview your standards.'
       : this.feedback || 'Preview freely. Unlock and equip when ready.');

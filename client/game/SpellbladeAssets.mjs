@@ -1,4 +1,5 @@
 import { createClothDye } from './clothDye.mjs';
+import { createEmblemBanner } from './emblemBanner.mjs';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import { createSorceryVolume } from './SorceryVolume.mjs';
@@ -163,10 +164,12 @@ export async function createSpellbladeAsset({ kind = 'thirdPerson', manifestUrl 
   }, { cloth: kind !== 'firstPerson' });
 
   const clothDye = createClothDye(root);
+  const emblemBanner = createEmblemBanner(root);
   let disposed = false;
   return {
     root,
     setCloth: (id) => clothDye.set(id),
+    setEmblem: (id) => emblemBanner.set(id),
     animator,
     sockets,
     sorceryLevel: () => sorcery.level(),
@@ -175,6 +178,7 @@ export async function createSpellbladeAsset({ kind = 'thirdPerson', manifestUrl 
     dispose() {
       if (disposed) return;
       disposed = true;
+      emblemBanner.dispose();
       clothDye.dispose();
       animator.dispose();
       sorcery.dispose();

@@ -14,7 +14,7 @@ import { preparedSpellMember } from '../src/preparedSpells.mjs';
 import { RUPTURE, fissureHit, onTornGround, planRupture } from '../src/rupture.mjs';
 import { recastReady, recordUse } from '../src/practiceRecast.mjs';
 import { GAME_MODES } from '../src/modes.mjs';
-import { blastDamage, blastDistance, burnFrom, chillFrom, chillScale, spellExposure, spellFor, strongerChill } from '../src/spells.mjs';
+import { blastDamage, blastDistance, burnFrom, chillFrom, chillScale, nominalSpellDamage, spellExposure, spellFor, strongerChill } from '../src/spells.mjs';
 import { callSteel, steelBlunt, steelExposure, steelQuality, steelStrength, steelTakes } from '../src/steel.mjs';
 import { galeBend, galeCarry, galeOnBody, galeRecoil, galeShove, galeWindOnBody } from '../src/gale.mjs';
 import { GAUNTLET, gauntletGeometry, gauntletTarget, withinGauntlet } from '../src/gauntlet.mjs';
@@ -262,6 +262,7 @@ export function setGuard(room, playerId, guarding, nowSec, { auto = false } = {}
     if (!combatActionPolicy(player, nowSec).concurrent) stopSwordChain(player, {}, room, nowSec);
   }
   room.events.push({ type: guarding ? 'guardStarted' : 'guardEnded', playerId, at: nowSec });
+  if (guarding) recordChallengeFact(room, { type: 'guardRaised', playerId, auto: Boolean(auto), at: nowSec });
   return true;
 }
 
@@ -734,6 +735,11 @@ function openStrike(room, player, strike, nowSec) {
   const slam = Boolean(player.attackSlam);
   player.attackSweep = { strike, sampledTo: window.from, direction: null, slam, ruptures: slam && sundering(player, nowSec), struck: null };
   room.events.push({ type: 'swordSwing', playerId: player.id, strikeIndex: strike, ...(slam ? { slam: true } : {}), at: nowSec });
+  // (for Seize Thy Slayer: whether a damaging spell was there to be thrown as this strike began, and what it would do)
+  const spell = spellFor(player.spell);
+  const castable = spell.kind !== 'ward' && !player.pendingSpell && spellReady(player, spell, nowSec, practising(room, player));
+  recordChallengeFact(room, { type: 'swordSwing', playerId: player.id, chainId: player.attackChainId, strikeIndex: strike,
+    spellReady: castable, spellNominal: castable ? nominalSpellDamage(spell) : 0, at: nowSec });
 }
 
 /**

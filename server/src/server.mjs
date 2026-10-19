@@ -148,7 +148,9 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
   function attachPlayer(session, room, player) {
     if (session.profileToken) {
       player.profileToken = session.profileToken;
-      player.cloth = profileStore.open(session.profileToken).profile.equipped;
+      const { profile } = profileStore.open(session.profileToken);
+      player.cloth = profile.equipped;
+      player.emblem = profile.emblem;
     }
     session.roomCode = room.code;
     session.playerId = player.id;
@@ -252,7 +254,9 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
 
   function publishProfile(token, profile, extra = {}) {
     for (const room of roomManager.rooms.values()) {
-      for (const player of room.players.values()) if (player.profileToken === token) player.cloth = profile.equipped;
+      for (const player of room.players.values()) {
+        if (player.profileToken === token) { player.cloth = profile.equipped; player.emblem = profile.emblem; }
+      }
     }
     for (const session of sessions) if (session.profileToken === token) send(session, { type: 'profile', profile, ...extra });
   }
@@ -273,7 +277,7 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
       send(session, { type: 'pong', sentAt: message.sentAt, serverTime: time });
       return;
     }
-    if (['profileHello', 'purchaseCloth', 'equipCloth'].includes(message.type)) {
+    if (['profileHello', 'purchaseCloth', 'equipCloth', 'equipEmblem'].includes(message.type)) {
       try {
         if (message.type === 'profileHello') {
           // A connection may establish one identity only; reconnect to change identities.
@@ -288,7 +292,9 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
           if (!session.profileToken) throw new Error('Connect your guest profile first.');
           const profile = message.type === 'purchaseCloth'
             ? profileStore.purchase(session.profileToken, message.cloth)
-            : profileStore.equip(session.profileToken, message.cloth);
+            : message.type === 'equipEmblem'
+              ? profileStore.equipEmblem(session.profileToken, message.emblem)
+              : profileStore.equip(session.profileToken, message.cloth);
           publishProfile(session.profileToken, profile);
         }
       } catch (error) {

@@ -1,4 +1,5 @@
 import { CHALLENGES, CHALLENGE_FAMILIES, challengeView } from '../../shared/src/challenges.mjs';
+import { emblemChoice } from '../../shared/src/heraldry.mjs';
 
 /** A receipt can describe only the feats the server settled for the match currently being shown. */
 export function challengeRewardView(profile, snapshot, local = false) {
@@ -9,8 +10,10 @@ export function challengeRewardView(profile, snapshot, local = false) {
   if (!ids.length) return null;
   const amount = Number.isSafeInteger(reward.challengeAmount) && reward.challengeAmount > 0 ? reward.challengeAmount : 0;
   const titles = ids.map((id) => CHALLENGES[id].title);
+  // (a feat whose reward is heraldry says so: it is carried from the Armory's Heraldry)
+  const heraldry = ids.some((id) => CHALLENGES[id].reward.emblem);
   return { matchId: reward.matchId, ids, titles, amount,
-    text: `${titles.join(' · ')}${amount ? ` · +${amount} RENOWN` : ''}` };
+    text: `${titles.join(' · ')}${amount ? ` · +${amount} RENOWN` : ''}${heraldry ? ' · HERALDRY EARNED' : ''}` };
 }
 
 export class ChallengesController {
@@ -75,7 +78,8 @@ export class ChallengesController {
               card.appendChild(progress);
               card.appendChild(this.node('small', 'mastery-progress-count', `${view.progress} / ${view.goal}`));
             }
-            card.appendChild(this.node('small', 'mastery-reward', `${view.complete ? 'EARNED' : 'REWARD'} · ${view.reward.renown} RENOWN`));
+            const heraldry = view.reward.emblem ? ` · ${emblemChoice(view.reward.emblem).name.toUpperCase()} HERALDRY` : '';
+            card.appendChild(this.node('small', 'mastery-reward', `${view.complete ? 'EARNED' : 'REWARD'} · ${view.reward.renown} RENOWN${heraldry}`));
           }
           if (view.complete && view.flavor) card.appendChild(this.node('p', 'mastery-flavor', view.flavor));
           section.appendChild(card);
