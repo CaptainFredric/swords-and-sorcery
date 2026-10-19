@@ -17,6 +17,12 @@ This list collects near-term **authored 3D assets** from the Castleward discussi
 - Gatehouse Counterweight Trebuchet
 - Heavy Siege Tower Frame
 
+### Fortification & Gatehouse Assets
+- **Honorable Entry Gatehouse Architecture & Scaffolding Kit**
+  - Design & Worldbuilding Specification: [docs/ideas/honorable-entry-gatehouse.md](../ideas/honorable-entry-gatehouse.md)
+  - In-Engine Implementation: `client/worlds/BastionBreachRenderer.mjs`
+  - Authored Asset Queue: Pale stone Gothic pointed arch surround, carved keystone seal boss medallion, articulated hoisting portcullis frame, articulated twin oak doors with iron strap hinges, overhead timber winch drum and cast-iron spoked ratchet gears, counterweight boxes, and timber scaffolding standards with ladders, mortar trough, and ashlar block props.
+
 ---
 
 ## Reference & Notes

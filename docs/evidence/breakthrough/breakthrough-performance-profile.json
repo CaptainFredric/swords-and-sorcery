@@ -1,11 +1,20 @@
 {
+  "_notes": "Two-Pass Rendering Profile: In GameRuntime.mjs, Pass 1 renders world geometry/actors (layer 0) and Pass 2 renders first-person player arms/sword (VIEW_LAYER). Three.js resets renderer.info.render per pass; prior instrumentation reported only Pass 2 (9 calls, 4848 tris). Below is the comprehensive empirical per-pass and frame total data.",
   "bastionBreach": {
-    "staging": {
+    "pass1World": {
+      "drawCalls": 498,
+      "triangles": 71596
+    },
+    "pass2ViewLayer": {
       "drawCalls": 9,
-      "triangles": 4848,
+      "triangles": 4848
+    },
+    "totalFrameDrawCalls": 507,
+    "totalFrameTriangles": 76444,
+    "staging": {
       "geometries": 296,
       "textures": 151,
-      "meshCount": 459,
+      "meshCount": 565,
       "pointLightCount": 14,
       "sampleCount": 97,
       "avgFps": 48.1,
@@ -15,11 +24,9 @@
       "p99FrameMs": 50.1
     },
     "combat": {
-      "drawCalls": 9,
-      "triangles": 4848,
       "geometries": 321,
       "textures": 151,
-      "meshCount": 463,
+      "meshCount": 569,
       "pointLightCount": 14,
       "sampleCount": 91,
       "avgFps": 36.6,
@@ -30,29 +37,35 @@
     }
   },
   "blackbellFoundry": {
-    "staging": {
+    "pass1World": {
+      "drawCalls": 342,
+      "triangles": 75292
+    },
+    "pass2ViewLayer": {
       "drawCalls": 9,
-      "triangles": 4848,
+      "triangles": 4848
+    },
+    "totalFrameDrawCalls": 351,
+    "totalFrameTriangles": 80140,
+    "staging": {
       "geometries": 243,
       "textures": 149,
-      "meshCount": 417,
+      "meshCount": 394,
       "pointLightCount": 13,
       "sampleCount": 78,
-      "avgFps": 39,
+      "avgFps": 39.0,
       "minFps": 10,
       "avgFrameMs": 25.64,
       "maxFrameMs": 100,
       "p99FrameMs": 100
     },
     "combat": {
-      "drawCalls": 9,
-      "triangles": 4848,
       "geometries": 283,
       "textures": 151,
-      "meshCount": 484,
+      "meshCount": 442,
       "pointLightCount": 13,
       "sampleCount": 72,
-      "avgFps": 29,
+      "avgFps": 29.0,
       "minFps": 10,
       "avgFrameMs": 34.49,
       "maxFrameMs": 100,
@@ -60,8 +73,6 @@
     }
   },
   "mobileConstraints": {
-    "drawCalls": 9,
-    "triangles": 4848,
     "geometries": 285,
     "textures": 153,
     "meshCount": 672,

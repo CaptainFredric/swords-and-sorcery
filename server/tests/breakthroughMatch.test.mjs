@@ -234,5 +234,56 @@ test('Blackbell Foundry Breakthrough: Chain Winch capture advances to The Great 
   assert.equal(hud.phaseLabel, 'OBJECTIVE 2 OF 2');
 });
 
+test('Bastion Breach Breakthrough: authoritative capture respects vertical bounds', () => {
+  const manager = new RoomManager();
+  const room = manager.createBreakthroughRoom(0, true, WORLD_IDS.BASTION_BREACH);
+  const att = room.addPlayer({ id: 'att-1', token: 't1', name: 'Attacker 1', team: TEAMS.ATTACKERS }, 0);
+  const def = room.addPlayer({ id: 'def-1', token: 't2', name: 'Defender 1', team: TEAMS.DEFENDERS }, 0);
+  room.startMatch(0);
+
+  // 1. Stage 1 (The Outer Gate at x: 0, y: 0, z: -2)
+  // Ground player captures
+  att.position = { x: 0, y: 0, z: -2 };
+  def.position = { x: 0, y: 0, z: 20 };
+  stepRoom(room, 1.0, 1.0);
+  assert(room.objectiveState.progress > 0, 'Ground player captures Outer Gate');
+
+  // Jumping player within vertical tolerance (y = 1.25) captures
+  room.objectiveState.progress = 0;
+  att.position = { x: 0, y: 1.25, z: -2 };
+  stepRoom(room, 1.0, 2.0);
+  assert(room.objectiveState.progress > 0, 'Jumping player captures Outer Gate');
+
+  // Player on elevated East Gallery ramparts (y = 2.5, dy = 2.5 > 1.8) does NOT capture
+  room.objectiveState.progress = 0;
+  att.position = { x: 0, y: 2.5, z: -2 };
+  stepRoom(room, 1.0, 3.0);
+  assert.equal(room.objectiveState.progress, 0, 'Player on high gallery must NOT capture ground objective');
+  assert.equal(room.objectiveState.attackersCount, 0);
+
+  // 2. Stage 2 (The High Sanctum at x: 0, y: 0.3, z: 25, radius: 5.5)
+  room.objectiveState.index = 1;
+  room.objectiveState.phase = 1;
+  room.objectiveState.progress = 0;
+  def.position = { x: 0, y: 0, z: 35 }; // Defender outside 5.5m radius (dist = 10m)
+
+  // Player on the raised dais at y = 0.3 captures
+  att.position = { x: 0, y: 0.3, z: 25 };
+  stepRoom(room, 1.0, 4.0);
+  assert(room.objectiveState.progress > 0, 'Player on Sanctum dais captures High Sanctum');
+
+  // Player jumping on dais (y = 1.5, dy = 1.2 <= 1.8) captures
+  room.objectiveState.progress = 0;
+  att.position = { x: 0, y: 1.5, z: 25 };
+  stepRoom(room, 1.0, 5.0);
+  assert(room.objectiveState.progress > 0, 'Jumping player on dais captures');
+
+  // Player far below in abyss (y = -3.0) does NOT capture
+  room.objectiveState.progress = 0;
+  att.position = { x: 0, y: -3.0, z: 25 };
+  stepRoom(room, 1.0, 6.0);
+  assert.equal(room.objectiveState.progress, 0, 'Player far below dais must not capture');
+});
+
 
 

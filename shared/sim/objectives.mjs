@@ -30,8 +30,8 @@ export function createObjectiveState(worldObjectives = []) {
     name: obj.name || `Objective ${i + 1}`,
     position: Object.freeze({ x: obj.x, y: obj.y ?? 0, z: obj.z }),
     radius: obj.radius ?? 6.0,
-    verticalBelow: obj.verticalBelow ?? 1.2,
-    verticalAbove: obj.verticalAbove ?? 2.5,
+    verticalBelow: obj.verticalBelow ?? 0.6,
+    verticalAbove: obj.verticalAbove ?? 1.8,
     captureSec: obj.captureSec ?? 15,
     decayRate: obj.decayRate ?? 0.5,
   }));
@@ -68,8 +68,8 @@ export function stepObjectives(room, dt, nowSec) {
 
   const center = currentObj.position;
   const radiusSq = currentObj.radius * currentObj.radius;
-  const vBelow = currentObj.verticalBelow ?? 1.2;
-  const vAbove = currentObj.verticalAbove ?? 2.5;
+  const vBelow = currentObj.verticalBelow ?? 0.6;
+  const vAbove = currentObj.verticalAbove ?? 1.8;
 
   let attackers = 0;
   let defenders = 0;
