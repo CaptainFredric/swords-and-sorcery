@@ -31,6 +31,23 @@ export async function validateCandidate(directory, { revision, checksum, runId, 
 export function github(endpoint) {
   return JSON.parse(execFileSync('gh', ['api', endpoint], { encoding: 'utf8', maxBuffer: 4 * 1024 ** 2 }));
 }
+
+export function findRecoveryRelease(tag, revision, request = github) {
+  const matches = [];
+  // The release-by-tag endpoint returns published releases only. Recovery archives
+  // remain drafts, so find their exact tag through the authenticated release list.
+  for (let page = 1; ; page++) {
+    const releases = request(`repos/${REPOSITORY}/releases?per_page=100&page=${page}`);
+    if (!Array.isArray(releases)) throw new Error('Recovery archive list is invalid');
+    matches.push(...releases.filter(release => release.tag_name === tag));
+    if (matches.length > 1) throw new Error('Recovery archive is ambiguous');
+    if (releases.length < 100) break;
+  }
+  const release = matches[0];
+  if (!release?.draft || release.target_commitish !== revision) throw new Error('Recovery archive is missing or its draft/source identity does not match');
+  return release;
+}
+
 export async function downloadCandidate(directory, env = process.env) {
   const runId = env.CANDIDATE_RUN, revision = env.CANDIDATE_SHA, checksum = env.CANDIDATE_SHA256;
   if (!/^\d+$/.test(runId || '') || !SHA.test(revision || '') || !DIGEST.test(checksum || '')) throw new Error('Supply the candidate run ID, full source SHA and SHA256 from its summary');
@@ -43,8 +60,7 @@ export async function downloadCandidate(directory, env = process.env) {
   if (env.RECOVERY_RUN) {
     if (env.RELEASE_OPERATION !== 'rollback' || !/^\d+$/.test(env.RECOVERY_RUN)) throw new Error('Recovery archives are available only for explicit rollback');
     const tag = `itch-${revision}-${env.RECOVERY_RUN}`;
-    const release = github(`repos/${REPOSITORY}/releases/tags/${tag}`);
-    if (!release.draft || release.target_commitish !== revision) throw new Error('Recovery draft source mismatch');
+    const release = findRecoveryRelease(tag, revision);
     for (const name of [...names, 'publication.json']) {
       const matches = release.assets.filter(asset => asset.name === name);
       if (matches.length !== 1) throw new Error(`Missing recovery asset: ${name}`);
