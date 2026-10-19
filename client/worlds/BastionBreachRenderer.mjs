@@ -112,7 +112,8 @@ export class BastionBreachRenderer {
 
     // --- Build Solids ---
     for (const sol of BASTION_BREACH.solids) {
-      const isTimber = sol.material === 'timber' || sol.id.includes('timber') || sol.id.includes('crates') || sol.id.includes('wreckage') || sol.id.includes('barricade');
+      if (sol.id === 'gatehouse-honorable-gate-closed') continue;
+      const isTimber = sol.material === 'timber' || sol.id.includes('timber') || sol.id.includes('crates') || sol.id.includes('wreckage') || sol.id.includes('barricade') || sol.id.includes('hoarding');
       const mat = isTimber ? this.materials.timber : this.materials.stone;
       box(this.group, sol.size, mat, sol.center, [0, 0, 0], true);
     }
@@ -605,6 +606,7 @@ export class BastionBreachRenderer {
   }
 
   setObjectiveState(objective, localTeam = null) {
+    const isFirstSet = this.currentObjective === null;
     this.currentObjective = objective ?? null;
     this.localTeam = localTeam;
     // When Objective 1 (The Outer Gate, index 0) is captured or match transitions to index >= 1 (High Sanctum),
@@ -612,6 +614,26 @@ export class BastionBreachRenderer {
     const activeIdx = objective?.index ?? 0;
     const completed = Boolean(objective?.completed);
     this.targetGateOpen = (activeIdx >= 1 || completed) ? 1.0 : 0.0;
+    if (isFirstSet) {
+      // Late join / reconnect: snap immediately to current authoritative state without animation delay
+      this.gateOpenProgress = this.targetGateOpen;
+      if (this.gatePortcullisGroup) {
+        this.gatePortcullisGroup.position.y = this.gateOpenProgress * 3.8;
+      }
+      if (this.gateLeftDoor && this.gateRightDoor) {
+        const doorAngle = this.gateOpenProgress * (Math.PI * 0.48);
+        this.gateLeftDoor.rotation.y = -doorAngle;
+        this.gateRightDoor.rotation.y = doorAngle;
+      }
+      if (this.gateWinchDrum) {
+        this.gateWinchDrum.rotation.x = this.gateOpenProgress * (Math.PI * 3.5);
+      }
+      if (this.gateCounterweightLeft && this.gateCounterweightRight) {
+        const cwY = 5.2 - this.gateOpenProgress * 3.2;
+        this.gateCounterweightLeft.position.y = cwY;
+        this.gateCounterweightRight.position.y = cwY;
+      }
+    }
   }
 
   update(timeSec, camera = null) {

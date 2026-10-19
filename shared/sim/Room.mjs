@@ -2,6 +2,7 @@ import { createMovementState } from '../src/movement.mjs';
 import { guardProfile } from '../src/combat.mjs';
 import { GAME_MODES, VOTE_OPTIONS, getModePolicy } from '../src/modes.mjs';
 import { WORLD_IDS, getWorld } from '../worlds/registry.mjs';
+import { bastionBreachForObjective } from '../worlds/bastionBreach.mjs';
 import { DEFAULT_SPELL, SPELLS, isSpell } from '../src/spells.mjs';
 import { recordChallengeFact, resetChallengeTracking } from './challenges.mjs';
 import { normalizePreparedSpells } from '../src/preparedSpells.mjs';
@@ -130,6 +131,9 @@ export class Room {
     this.overtimeClearedAt = null;
     if (this.policy.teamMode) {
       this.objectiveState = createObjectiveState(this.world.objectives ?? []);
+      if (this.worldId === WORLD_IDS.BASTION_BREACH) {
+        this.world = bastionBreachForObjective(this.objectiveState);
+      }
     }
   }
 
@@ -556,6 +560,9 @@ export class Room {
       try {
         this.world = getWorld(tally.world.chosen);
         this.worldId = tally.world.chosen;
+        if (this.worldId === WORLD_IDS.BASTION_BREACH && this.objectiveState) {
+          this.world = bastionBreachForObjective(this.objectiveState);
+        }
       } catch { /* unknown world: keep the current one */ }
     }
     if (Number.isFinite(tally.score.chosen)) this.scoreToWin = tally.score.chosen;
@@ -783,6 +790,9 @@ export class Room {
     if (this.policy.teamMode) {
       if (this.botsProvisioned) this.provisionModeActors(nowSec);
       this.objectiveState = createObjectiveState(this.world.objectives ?? []);
+      if (this.worldId === WORLD_IDS.BASTION_BREACH) {
+        this.world = bastionBreachForObjective(this.objectiveState);
+      }
     }
     let i = 0;
     for (const player of this.players.values()) {

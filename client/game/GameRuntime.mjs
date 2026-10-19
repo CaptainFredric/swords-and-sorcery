@@ -3,6 +3,7 @@ import { heldActions } from '../../shared/src/heldActions.mjs';
 import * as THREE from 'three';
 import { getWorld } from '../../shared/worlds/registry.mjs';
 import { greenerPasturesWithBridgeRetries } from '../../shared/worlds/greenerPastures.mjs';
+import { bastionBreachForObjective } from '../../shared/worlds/bastionBreach.mjs';
 import { computeRivalWaypoint } from '../tutorial/rivalWaypoint.mjs';
 import { MOVEMENT, createMovementState, launchBody, movePlayer, resolveSprint, shoveBody, tryStartDash } from '../../shared/src/movement.mjs';
 import { separateLocal } from '../../shared/src/separation.mjs';
@@ -410,7 +411,9 @@ export class GameRuntime {
       this.world?.dispose?.();
       this.world = nextRenderer;
       this.#applyLighting(nextRenderer.lighting);
-      this.activeWorld = nextWorld;
+      this.activeWorld = worldId === 'bastion-breach'
+        ? bastionBreachForObjective(this.latestSnapshot?.objective)
+        : nextWorld;
       this.worldId = worldId;
       this.worldError = null;
       this.localState = null;
@@ -527,6 +530,9 @@ export class GameRuntime {
     if (snapshot.tutorial && snapshot.worldId === 'greener-pastures') {
       const failures = snapshot.tutorialBridgeFailures ?? 0;
       if (this.world.setBridgeRetries(failures)) this.activeWorld = greenerPasturesWithBridgeRetries(failures);
+    }
+    if (snapshot.worldId === 'bastion-breach') {
+      this.activeWorld = bastionBreachForObjective(snapshot.objective);
     }
     if (snapshot.matchStartedAt !== this.latestSnapshot?.matchStartedAt) this.localGate = null;
     this.latestSnapshot = snapshot;

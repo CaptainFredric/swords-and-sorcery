@@ -285,5 +285,53 @@ test('Bastion Breach Breakthrough: authoritative capture respects vertical bound
   assert.equal(room.objectiveState.progress, 0, 'Player far below dais must not capture');
 });
 
+test('Bastion Breach Breakthrough: server-authoritative gate blocker blocks during Stage 1 and opens on Stage 2 transition', () => {
+  const manager = new RoomManager();
+  const room = manager.createBreakthroughRoom(0, true, WORLD_IDS.BASTION_BREACH);
+  const att = room.addPlayer({ id: 'att-1', token: 't1', name: 'Attacker 1', team: TEAMS.ATTACKERS }, 0);
+  const def = room.addPlayer({ id: 'def-1', token: 't2', name: 'Defender 1', team: TEAMS.DEFENDERS }, 0);
+  room.startMatch(0);
+
+  // Initial state: Stage 1 active, room.world has blocker
+  assert.equal(room.objectiveState.index, 0);
+  assert.equal(room.world.solids.some((s) => s.id === 'gatehouse-honorable-gate-closed'), true);
+
+  // Defenders spawned in Outer Courtyard, not behind closed gate
+  assert(def.position.z < 8.5, `Defender initial spawn at z=${def.position.z} must be in courtyard south of gate`);
+
+  // Attacker tries to walk through gate at z = 8.0 towards +z (yaw: Math.PI)
+  att.position = { x: 0, y: 0, z: 8.0 };
+  att.input = { forward: 1, right: 0, jump: false, crouch: false, yaw: Math.PI, pitch: 0 };
+  for (let t = 0; t < 10; t++) {
+    stepRoom(room, 0.05, 1.0 + t * 0.05);
+  }
+  // Stopped at closed gate
+  assert(att.position.z < 8.2, `Attacker must be blocked at closed gate; stopped at z=${att.position.z}`);
+
+  // Now capture Objective 1 (The Outer Gate)
+  att.position = { x: 0, y: 0, z: -2 };
+  att.input = { forward: 0, right: 0, jump: false, crouch: false, yaw: 0, pitch: 0 };
+  def.position = { x: 0, y: 0, z: 30 }; // Defender far away
+  def.input = { forward: 0, right: 0, jump: false, crouch: false, yaw: 0, pitch: 0 };
+  // Complete the 15s capture
+  for (let t = 0; t < 16; t++) {
+    stepRoom(room, 1.0, 2.0 + t);
+  }
+
+  // Objective advanced to Stage 2 (The High Sanctum, index 1)
+  assert.equal(room.objectiveState.index, 1);
+  // Authoritative room.world updated immediately
+  assert.equal(room.world.solids.some((s) => s.id === 'gatehouse-honorable-gate-closed'), false);
+
+  // Now attacker moves through gatehouse into High Sanctum
+  att.position = { x: 0, y: 0, z: 8.0 };
+  att.input = { forward: 1, right: 0, jump: false, crouch: false, yaw: Math.PI, pitch: 0 };
+  for (let t = 0; t < 10; t++) {
+    stepRoom(room, 0.05, 20.0 + t * 0.05);
+  }
+  assert(att.position.z > 9.5, `Attacker must traverse open gate into Sanctum; reached z=${att.position.z}`);
+});
+
+
 
 

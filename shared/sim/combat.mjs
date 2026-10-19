@@ -28,6 +28,8 @@ import { chooseSpawn } from './spawns.mjs';
 import { recordTransform, sampleTransform } from './history.mjs';
 import { TEAMS, areAllies, areEnemies } from '../src/teams.mjs';
 import { stepObjectives } from './objectives.mjs';
+import { WORLD_IDS } from '../worlds/registry.mjs';
+import { bastionBreachForObjective } from '../worlds/bastionBreach.mjs';
 
 const SWORD_ARC_COS = Math.cos((110 * Math.PI / 180) / 2);
 const RESPAWN_SEC = 3;
@@ -1829,6 +1831,10 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
 
   stepObjectives(room, dt, nowSec);
   if (room.state !== 'PLAYING') return room.events;
+  if (room.worldId === WORLD_IDS.BASTION_BREACH) {
+    room.world = bastionBreachForObjective(room.objectiveState);
+    world = room.world;
+  }
 
   markTornGround(room);
   for (const player of room.players.values()) {

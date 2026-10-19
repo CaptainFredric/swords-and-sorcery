@@ -103,7 +103,10 @@ const SOLIDS = [
   solid('wreckage-courtyard-mid', [-1.5, 1.5], [0, 1.1], [-6.5, -5.2], { material: 'timber' }),
 
   // --- Breach / Gatehouse Rampart (divides Courtyard and Sanctum) ---
-  solid('wall-breach-west', [-16, -3.5], [0, 5.5], [8, 9.8]),
+  solid('wall-breach-west-outer', [-16, -13.0], [0, 5.5], [8, 9.8]),
+  solid('wall-breach-west-inner', [-10.0, -3.5], [0, 5.5], [8, 9.8]),
+  solid('wall-construction-footing', [-13.0, -10.0], [0, 0.95], [8.0, 9.8]),
+  solid('wall-construction-hoarding', [-13.0, -10.0], [0.95, 3.2], [8.5, 9.3], { material: 'timber' }),
   solid('wall-breach-east', [3.5, 9.5], [0, 5.5], [8, 9.8]),
   solid('tower-gatehouse-west', [-8.0, -4.0], [0, 6.8], [7.2, 10.6]),
   solid('tower-gatehouse-east', [4.0, 8.0], [0, 6.8], [7.2, 10.6]),
@@ -178,12 +181,12 @@ const SPAWN_POINTS = Object.freeze([
   spawn(-2.5, 0, 0.5, 0, 25, 'ATTACKERS', 1),
   spawn(2.5, 0, 0.5, 0, 25, 'ATTACKERS', 1),
 
-  // Defenders Phase 0 spawns (Gatehouse Inner Ward & Gallery - 15m behind Outer Gate)
-  spawn(-2.5, 0, 12.5, 0, -2, 'DEFENDERS', 0),
-  spawn(0, 0, 13.5, 0, -2, 'DEFENDERS', 0),
-  spawn(2.5, 0, 12.5, 0, -2, 'DEFENDERS', 0),
-  spawn(-2, 0, 15.0, 0, -2, 'DEFENDERS', 0),
-  spawn(11.5, BASTION_GALLERY_Y, 11.0, 0, -2, 'DEFENDERS', 0),
+  // Defenders Phase 0 spawns (Outer Courtyard & Gallery ramp defending Outer Gate)
+  spawn(-3.5, 0, 4.5, 0, -2, 'DEFENDERS', 0),
+  spawn(0, 0, 5.0, 0, -2, 'DEFENDERS', 0),
+  spawn(3.5, 0, 4.5, 0, -2, 'DEFENDERS', 0),
+  spawn(-1.5, 0, 3.0, 0, -2, 'DEFENDERS', 0),
+  spawn(11.5, 1.25, 3.5, 0, -2, 'DEFENDERS', 0),
 
   // Defenders Phase 1 spawns (Sanctum Rear Bastion - defending High Sanctum)
   spawn(-4, 0, 33.5, 0, 25, 'DEFENDERS', 1),
@@ -305,12 +308,18 @@ export const BASTION_BREACH_TACTICS = Object.freeze({
   },
 });
 
-export const BASTION_BREACH = Object.freeze({
+export const BASTION_GATE_BLOCKER = Object.freeze(
+  solid('gatehouse-honorable-gate-closed', [-3.4, 3.4], [0, 5.5], [8.5, 9.1], { material: 'iron' })
+);
+
+const SOLIDS_CLOSED = Object.freeze([...SOLIDS, BASTION_GATE_BLOCKER]);
+const SOLIDS_OPEN = Object.freeze([...SOLIDS]);
+
+const BASE_BASTION_BREACH = Object.freeze({
   id: 'bastion-breach',
   name: 'Bastion Breach',
   floors: FLOORS,
   ramps: RAMPS,
-  solids: SOLIDS,
   props: [],
   objectives: OBJECTIVES,
   spawnPoints: SPAWN_POINTS,
@@ -320,4 +329,21 @@ export const BASTION_BREACH = Object.freeze({
   tactics: BASTION_BREACH_TACTICS,
   abyssY: -10,
 });
+
+export const BASTION_BREACH_CLOSED = Object.freeze({
+  ...BASE_BASTION_BREACH,
+  solids: SOLIDS_CLOSED,
+});
+
+export const BASTION_BREACH_OPEN = Object.freeze({
+  ...BASE_BASTION_BREACH,
+  solids: SOLIDS_OPEN,
+});
+
+export function bastionBreachForObjective(objectiveState) {
+  const isStage2 = (objectiveState?.index ?? 0) >= 1 || Boolean(objectiveState?.completed);
+  return isStage2 ? BASTION_BREACH_OPEN : BASTION_BREACH_CLOSED;
+}
+
+export const BASTION_BREACH = BASTION_BREACH_OPEN;
 
