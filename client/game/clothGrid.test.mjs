@@ -83,3 +83,87 @@ test('cloth bones are looked up by the names the glTF loader gives them (dots dr
   const loaded = new Set(names.map(loadedBoneName));
   assert.equal(loaded.size, new Set(names).size);
 });
+
+// --- the cloth on its own side of him, carried by part of his motion -----------------------------------------------
+
+// a body facing -z at [x, 0, z], turned by yaw about +y: the cape's drape behind him (+z), his up +y
+const turnY = (yaw) => [0, Math.sin(yaw / 2), 0, Math.cos(yaw / 2)];
+const rotY = ([x, y, z], yaw) => [x * Math.cos(yaw) + z * Math.sin(yaw), y, -x * Math.sin(yaw) + z * Math.cos(yaw)];
+function bodyFrame([x, , z], yaw = 0) {
+  const at = (p) => { const q = rotY(p, yaw); return [q[0] + x, q[1], q[2] + z]; };
+  return {
+    targets: drape([0, 1.64, 0]).map((column) => column.map(at)),
+    body: { position: [x, 0, z], quaternion: turnY(yaw) },
+    outward: rotY([0, 0, 1], yaw),
+    up: [0, 1, 0],
+    colliders: [],
+    ground: 0,
+  };
+}
+const nearest = (grid, frame) => {
+  // how far each node has come toward his body from its own drape point, beyond its reach (m; > 0 is too near)
+  let worst = -Infinity;
+  for (let c = 0; c < 3; c += 1) for (let r = 1; r <= 4; r += 1) {
+    const p = clothNode(grid, c, r);
+    const toward = -((p[0] - frame.targets[c][r][0]) * frame.outward[0] + (p[1] - frame.targets[c][r][1]) * frame.outward[1] + (p[2] - frame.targets[c][r][2]) * frame.outward[2]);
+    worst = Math.max(worst, toward - cape.reach[r]);
+  }
+  return worst;
+};
+
+test('carried with him, a steady run still trails the cape fully (the air is the world\'s)', () => {
+  const at = (t) => bodyFrame([0, 0, -6 * t]);
+  const grid = createClothGrid(cape, at(0).targets);
+  run(grid, 2, at);
+  const trail = clothNode(grid, 1, 4)[2] - clothNode(grid, 1, 0)[2];
+  assert.ok(trail > 0.3, `hem should trail behind, got ${trail.toFixed(3)}`);
+});
+
+test('on a hard stop the cape swings forward against him but never comes through him', () => {
+  let z = 0;
+  const grid = createClothGrid(cape, bodyFrame([0, 0, 0]).targets);
+  let worst = -Infinity;
+  for (let t = 0; t < 3; t += 1 / 60) {
+    if (t < 1.5) z -= 8 / 60;   // a sprint, then stopped dead
+    const frame = bodyFrame([0, 0, z]);
+    stepClothGrid(grid, 1 / 60, frame);
+    if (t > 1.5) worst = Math.max(worst, nearest(grid, frame));
+  }
+  assert.ok(worst < 0.005, `the cape came ${(worst * 100).toFixed(1)} cm past its reach`);
+});
+
+test('a half turn in a fifth of a second carries the cape round with him, never through him, and it settles', () => {
+  const grid = createClothGrid(cape, bodyFrame([0, 0, 0]).targets);
+  let worst = -Infinity;
+  for (let t = 0; t < 3; t += 1 / 60) {
+    const yaw = Math.PI * Math.max(0, Math.min(1, (t - 0.5) / 0.2));
+    const frame = bodyFrame([0, 0, 0], yaw);
+    stepClothGrid(grid, 1 / 60, frame);
+    worst = Math.max(worst, nearest(grid, frame));
+  }
+  assert.ok(worst < 0.005, `the cape came ${(worst * 100).toFixed(1)} cm past its reach`);
+  const end = bodyFrame([0, 0, 0], Math.PI);
+  assert.ok(dist(clothNode(grid, 1, 4), end.targets[1][4]) < 0.05, 'and hangs behind him again');
+});
+
+test('flung upward, the cape rises no higher than where it hangs from (it never flips over his head)', () => {
+  const grid = createClothGrid(cape, bodyFrame([0, 0, 0]).targets);
+  impulseClothGrid(grid, [0, 30, -10]);
+  let highest = -Infinity;
+  for (let t = 0; t < 1; t += 1 / 60) {
+    const frame = bodyFrame([0, 0, 0]);
+    stepClothGrid(grid, 1 / 60, frame);
+    for (let c = 0; c < 3; c += 1) for (let r = 1; r <= 4; r += 1) highest = Math.max(highest, clothNode(grid, c, r)[1] - frame.targets[c][0][1]);
+  }
+  assert.ok(highest <= cape.rise + 0.005, `a node rose ${highest.toFixed(3)} m above where it hangs from`);
+});
+
+test('a leg swung into the cloth\'s edge, beyond its outer column, pushes the cloth away', () => {
+  // a shin-thick capsule well out past the right column (it never reaches the column itself), but inside the cloth's
+  // span, moving back into it
+  const grid = createClothGrid(cape, drape());
+  const leg = (z) => ({ a: [0.3, 0.4, z], b: [0.3, 1.0, z], radius: 0.11 });
+  for (let t = 0; t < 0.6; t += 1 / 60) stepClothGrid(grid, 1 / 60, { targets: drape(), colliders: [leg(0.1 + 0.25 * t)], ground: 0 });
+  const p = clothNode(grid, 2, 3);
+  assert.ok(p[2] > 0.24 + 0.02, `the right column should be pushed back by the leg at its edge, z ${p[2].toFixed(3)}`);
+});
