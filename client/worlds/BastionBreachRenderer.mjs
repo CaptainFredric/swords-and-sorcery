@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { BASTION_BREACH, BASTION_GALLERY_Y } from '../../shared/worlds/bastionBreach.mjs';
+import { BASTION_BREACH, BASTION_GALLERY_Y, BASTION_GATE_OPEN_DURATION_SEC } from '../../shared/worlds/bastionBreach.mjs';
 import { everywhere } from '../game/viewLayers.mjs';
 
 export const BASTION_BREACH_LIGHTING = Object.freeze({
@@ -51,6 +51,7 @@ export class BastionBreachRenderer {
     this.gateOpenProgress = 0.0;
     this.targetGateOpen = 0.0;
     this.lastTimeSec = null;
+    this.serverTime = null;
     this.gatehouseGroup = null;
     this.gatePortcullisGroup = null;
     this.gateLeftDoor = null;
@@ -112,7 +113,8 @@ export class BastionBreachRenderer {
 
     // --- Build Solids ---
     for (const sol of BASTION_BREACH.solids) {
-      const isTimber = sol.material === 'timber' || sol.id.includes('timber') || sol.id.includes('crates') || sol.id.includes('wreckage') || sol.id.includes('barricade');
+      if (sol.id === 'gatehouse-honorable-gate-closed') continue;
+      const isTimber = sol.material === 'timber' || sol.id.includes('timber') || sol.id.includes('crates') || sol.id.includes('wreckage') || sol.id.includes('barricade') || sol.id.includes('hoarding');
       const mat = isTimber ? this.materials.timber : this.materials.stone;
       box(this.group, sol.size, mat, sol.center, [0, 0, 0], true);
     }
@@ -604,28 +606,37 @@ export class BastionBreachRenderer {
     this.torches.push({ light: torchLight, baseY: position[1], phase: Math.random() * Math.PI * 2 });
   }
 
-  setObjectiveState(objective, localTeam = null) {
+  setObjectiveState(objective, localTeam = null, serverTime = null) {
+    const isFirstSet = this.currentObjective === null;
     this.currentObjective = objective ?? null;
     this.localTeam = localTeam;
+    if (Number.isFinite(serverTime)) {
+      this.serverTime = serverTime;
+    }
+
     // When Objective 1 (The Outer Gate, index 0) is captured or match transitions to index >= 1 (High Sanctum),
     // Castleward defenders ceremonially open the Honorable Entry Gatehouse to admit attackers.
     const activeIdx = objective?.index ?? 0;
     const completed = Boolean(objective?.completed);
     this.targetGateOpen = (activeIdx >= 1 || completed) ? 1.0 : 0.0;
+
+    if (isFirstSet) {
+      if (this.targetGateOpen === 1.0) {
+        const capturedAt = objective?.lastCapturedAt;
+        if (Number.isFinite(capturedAt) && Number.isFinite(this.serverTime)) {
+          const elapsed = this.serverTime - capturedAt;
+          this.gateOpenProgress = Math.min(1.0, Math.max(0.0, elapsed / BASTION_GATE_OPEN_DURATION_SEC));
+        } else {
+          this.gateOpenProgress = 1.0;
+        }
+      } else {
+        this.gateOpenProgress = 0.0;
+      }
+      this.#applyGateTransform();
+    }
   }
 
-  update(timeSec, camera = null) {
-    const dt = this.lastTimeSec !== null ? Math.min(0.1, Math.max(0.0001, timeSec - this.lastTimeSec)) : 0.016;
-    this.lastTimeSec = timeSec;
-
-    // Smooth Honorable Entry Gatehouse opening animation
-    const gateSpeed = 0.85; // opens smoothly over ~1.2s
-    if (this.gateOpenProgress < this.targetGateOpen) {
-      this.gateOpenProgress = Math.min(this.targetGateOpen, this.gateOpenProgress + dt * gateSpeed);
-    } else if (this.gateOpenProgress > this.targetGateOpen) {
-      this.gateOpenProgress = Math.max(this.targetGateOpen, this.gateOpenProgress - dt * gateSpeed);
-    }
-
+  #applyGateTransform() {
     if (this.gatePortcullisGroup) {
       this.gatePortcullisGroup.position.y = this.gateOpenProgress * 3.8;
     }
@@ -642,13 +653,39 @@ export class BastionBreachRenderer {
       this.gateCounterweightLeft.position.y = cwY;
       this.gateCounterweightRight.position.y = cwY;
     }
+  }
+
+  update(timeSec, camera = null) {
+    const dt = this.lastTimeSec !== null ? Math.min(0.1, Math.max(0.0001, timeSec - this.lastTimeSec)) : 0.016;
+    this.lastTimeSec = timeSec;
+    if (this.serverTime !== null) {
+      this.serverTime += dt;
+    }
+
+    // Deterministic Honorable Entry Gatehouse opening animation
+    // Coordinated precisely with server-authoritative BASTION_GATE_OPEN_DURATION_SEC (1.2s)
+    const activeIdx = this.currentObjective?.index ?? 0;
+    const capturedAt = this.currentObjective?.lastCapturedAt;
+    if (this.targetGateOpen === 1.0) {
+      if (activeIdx === 1 && Number.isFinite(capturedAt) && Number.isFinite(this.serverTime)) {
+        const elapsed = this.serverTime - capturedAt;
+        this.gateOpenProgress = Math.min(1.0, Math.max(0.0, elapsed / BASTION_GATE_OPEN_DURATION_SEC));
+      } else {
+        const rate = 1.0 / BASTION_GATE_OPEN_DURATION_SEC;
+        this.gateOpenProgress = Math.min(1.0, this.gateOpenProgress + dt * rate);
+      }
+    } else {
+      const rate = 1.0 / BASTION_GATE_OPEN_DURATION_SEC;
+      this.gateOpenProgress = Math.max(0.0, this.gateOpenProgress - dt * rate);
+    }
+
+    this.#applyGateTransform();
 
     for (const torch of this.torches) {
       torch.light.intensity = 1.6 + Math.sin(timeSec * 8.5 + torch.phase) * 0.25 + Math.sin(timeSec * 14.1) * 0.12;
     }
 
     const objState = this.currentObjective;
-    const activeIdx = objState?.index ?? 0;
     const progress = Math.max(0, Math.min(1, objState?.progress ?? 0));
     const contested = Boolean(objState?.contested);
     const capturing = Boolean(objState?.capturing);

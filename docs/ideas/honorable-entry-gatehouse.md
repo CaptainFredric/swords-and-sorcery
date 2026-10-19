@@ -1,7 +1,7 @@
 # The Honorable Entry Gatehouse — Worldbuilding, Architecture, and Martial Doctrine
 
 **Document status:** Design, narrative, and worldbuilding foundation.  
-**Repository integration:** Live in `client/worlds/BastionBreachRenderer.mjs` (Bastion Breach 2.0 at `z = 8.8`).  
+**Repository integration:** Live in `shared/worlds/bastionBreach.mjs` (authoritative collision & spawns) and `client/worlds/BastionBreachRenderer.mjs` (Bastion Breach 2.0 at `z = 8.8`).  
 **Updated:** 2026-10-18.  
 [Back to project README](../../README.md) · [3D Asset Roadmap](../art/castleward-3d-asset-roadmap.md) · [Breakthrough Battlefield Evidence](../evidence/breakthrough/README.md)
 
@@ -31,7 +31,13 @@ The Honorable Entry Gatehouse divides the contested Outer Courtyard (Objective 1
 - **Overhead Gate Chamber Machinery**: A heavy timber winch drum (`radius: 0.26m`, length `5.4m`) with dual spoked iron ratchet gear wheels, axle pillow blocks, and counterweight boxes (`0.55m × 1.2m`) hanging on vertical guide chains.
 - **Articulated Hoisting Portcullis**: A heavy wrought-iron grille with horizontal crossbeams, nine vertical square bars, sharpened bottom spikes, and vertical hoist chains. When closed, it bars the road at `y = 0.5–4.3m`. When Stage 2 begins, the winch rotates, counterweights descend, and the portcullis smoothly hoists `3.8m` upward into the overhead arch chamber.
 - **Articulated Twin Oak Gate Doors**: Heavy dark oak timbers (`0x3d2b1f`) banded with three horizontal iron strap hinges, brass pull rings, and iron bolt studs. Hinged on the inner piers (`x = ±3.1m`), they swing open inward (`+z`) by 86 degrees, folding flush against the stone passage walls to reveal the vaulted High Sanctum nave.
-- **Western Wall Unfinished Construction Gap (Scene A Visual Anchor)**: Located at `x = -11.5m, z = 6.8m` along the breach wall. Features multi-tier timber scaffolding standards, horizontal ledger platforms, diagonal sway cross-braces, a leaning wooden ladder, mason's mortar mixing trough with lime mortar, stacked ashlar stone blocks, and timber headers in the parapet.
+- **Western Wall Unfinished Construction Opening**: Located at `x = -11.5m, z = 6.8m` to `9.8m` along the breach wall. In the competitive multiplayer game, this boundary separates the Outer Courtyard from the High Sanctum. To preserve competitive match balance and prevent attackers from bypassing Stage 1, the wall is partitioned into authentic architectural segments with an authoritative defensive barricade:
+  - Outer curtain masonry: `x = [-16, -13.0]`, `y = [0, 5.5]`.
+  - Inner curtain masonry: `x = [-10.0, -3.5]`, `y = [0, 5.5]`.
+  - Partially laid foundation course: `wall-construction-footing` at `x = [-13.0, -10.0]`, `y = [0, 0.95]`.
+  - Sturdy timber hoarding barricade: `wall-construction-hoarding` at `x = [-13.0, -10.0]`, `y = [0.95, 3.2]`, material `'timber'`.
+  - Scaffolding kit: Multi-tier timber scaffolding standards, horizontal ledger platforms, diagonal sway cross-braces, a leaning wooden ladder, mason's mortar mixing trough with lime mortar, stacked ashlar stone blocks, and parapet headers.
+  - In competitive Breakthrough, this hoarding solidly blocks player locomotion, jumping, and bot navigation. The comedic premise of a completely open gap is preserved specifically for the scripted narrative prologue/tutorial scene described below, ensuring the competitive match flow and the narrative worldbuilding never contradict each other.
 
 ---
 
@@ -39,19 +45,32 @@ The Honorable Entry Gatehouse divides the contested Outer Courtyard (Objective 1
 
 These scripted scenes and vignettes are preserved here for future cinematic trailers, tutorial character dialogue, in-match voice quips, and single-player campaign encounters.
 
-### Scene A: The Unfinished Gap ("I Must Go to the Entrance")
-**Setting:** The outer approach of a Castleward fortress. Heavy siege combat is underway.  
-**Characters:** The Spellblade (attacker protagonist), Squire Vance, and two Castleward stonemason laborers (Hob and Gyles).
+> [!NOTE] Architecture & Narrative Reconciliation
+> In competitive multiplayer Breakthrough matches, the western breach is fortified with `wall-construction-hoarding` (3.2m high timber hoarding) to preserve Stage 1 progression. The scenes below reflect the canonical narrative / cinematic fiction—such as an opening tutorial or peacetime renovation scenario—where the curtain wall gap stood completely open before wartime fortification, making the Spellblade's refusal an act of purely stubborn martial decorum.
 
-> **Hob:** *(Wiping mortar from his trowel, shouting over the din of battle)* Hey! Knight! Over here!
+### Scene A (Canonical): The Unfinished Gap ("I Must Go to the Entrance")
+**Setting:** The outer approach of a Castleward fortress during active siege fighting (narrative scenario). Arrows strike the stone, trebuchet horns echo in the distance.  
+**Characters:** The Spellblade (attacker protagonist) and two Castleward stonemason laborers (Hob and Gyles).
+
+> *(The Spellblade sprints past the outer barricades toward the fortress. Along the western curtain wall, an enormous renovation breach sits completely open to the sky: scaffolding towers, stacks of ashlar blocks, mortar tubs, and a low three-foot wooden hurdle. Beyond it lies an unobstructed, direct shortcut straight into the inner sanctuary.)*
 >
-> **Squire Vance:** *(Ducking an arrow)* Milord, look! The west curtain wall—the masonry is completely down for renovation! There is only a three-foot wooden hurdle and some scaffolding!
+> **Hob:** *(Leaning casually on his shovel, wiping mortar from his brow, shouting over the din)* Hey! Knight! Over here!
 >
-> **Gyles:** *(Waving a wooden measuring stick cheerfully)* You can literally just walk through! The mortar’s still wet, but if you step on the timber balks you won't even scuff your greaves! Come on through, save yourselves ten minutes!
+> **Gyles:** *(Waving a wooden measuring rule cheerfully)* Don’t bother with the killzone, mate! The curtain wall's down for seasonal renovation! You can literally just walk through!
 >
-> **Spellblade:** *(Halts, staring at the laborers in cold, scandalized disbelief)* ...Walk through?
+> **Hob:** Mortar’s still a bit tacky, but if you step on the timber balks you won't even scuff your greaves! Come on through, save yourself ten minutes of crossbow bolts!
 >
-> **Squire Vance:** It would circumvent the entire flanking gallery, sir!
+> *(The Spellblade stops dead in his tracks. He stares at the gaping hole in the wall. He looks at the cheerful masons. A heavy, frozen pause hangs over the battlefield.)*
+>
+> **Spellblade:** *(Completely deadpan)* I must go to the entrance.
+>
+> *(Without a single additional word, the Spellblade turns on his heel and marches straight back into the central arrow-swept killzone toward the formal gatehouse. The two masons exchange bewildered glances as arrows rain down around him.)*
+>
+> **Gyles:** ...Right then. Mind the boiling oil, guv'nor.
+
+#### Scene A Variant (Expanded Dialogue: Protocol & Turnip Sacks)
+*(Optional expanded character dialogue featuring Squire Vance debating martial decorum.)*
+> **Squire Vance:** *(Ducking an arrow)* Milord, look! The west curtain wall—there is only a wooden hurdle and some scaffolding! It would circumvent the entire flanking gallery!
 >
 > **Spellblade:** Vance, are we vagabonds? Are we drovers delivering turnip sacks through the pantry shutter?
 >
@@ -59,51 +78,49 @@ These scripted scenes and vignettes are preserved here for future cinematic trai
 >
 > **Spellblade:** Then we do not scuttle through a mason’s renovation gap like delinquent rats! Where is the formal entrance?
 >
-> **Hob:** The Honorable Entry Gatehouse is down the killzone, ninety paces east, past the boiling oil cauldrons and the crossbow gallery.
+> **Hob:** The Honorable Entry Gatehouse is ninety paces east, past the boiling cauldrons and the crossbow loops.
 >
 > **Spellblade:** Splendid. A proper gateway with an arch and a keystone. Inform your castellan that we shall present ourselves at the main portal with all due decorum!
->
-> **Hob:** *(Shrugging, returning to mixing mortar)* Right you are, guv'nor. Best of luck with the archers.
 
 ---
 
-### Scene B: The Accidental Breach ("Exit and Re-enter Properly")
-**Setting:** The interior High Sanctum. Stained glass reflections, quiet incense, vaulted quiet.  
-**Characters:** Warden Alden (defender castellan), Defender Knights, and Squire Rowan (attacker).
+### Scene B (Canonical, Self-Imposed!): The Formal Re-Entry ("This Does Not Count")
+**Setting:** The quiet, incense-filled interior High Sanctum nave. Stained glass casts crimson light across the ceremonial altar dais.  
+**Characters:** The Spellblade (attacker protagonist) and Warden Alden (defender castellan).
 
-> *(A tremendous CRASH shakes the ceiling. A stray trebuchet stone punches through the roof vault. Dust cascades down. Squire Rowan falls through the breach, crashing onto a pile of chapel cushions, coughing violently.)*
+> *(Through chaotic battlefield circumstance—a miscalculated blast jump or an accidental collapse—the Spellblade finds himself deep inside the High Sanctum entirely alone, behind enemy lines, standing directly upon the sacred altar dais.)*
 >
-> **Warden Alden:** *(Lowering his devotional hymnbook, looking over his spectacles)* What was that?
+> **Warden Alden:** *(Looking up from his desk in sheer bewilderment, clutching his quill)* By the trident... How did you get in here?! The gatehouse is barred!
 >
-> **Defender Knight:** An intruder, Warden! He has infiltrated the Sanctum!
+> *(The Spellblade looks down at the dais beneath his boots. He looks up at the vaulted ribs. He looks at his drawn sword. His face settles into profound, unyielding disappointment.)*
 >
-> **Squire Rowan:** *(Scrambling up, drawing sword triumphantly)* Victory! I have breached your inner sanctum! Surrender the relic!
+> **Spellblade:** *(Muttering to himself)* No. No, this does not count.
 >
-> **Warden Alden:** *(Stands up, thoroughly unimpressed)* Young man, through which threshold did you enter this sanctuary?
+> **Warden Alden:** I beg your pardon?
 >
-> **Squire Rowan:** Through... well, through the ceiling. The trebuchet missed the courtyard and—
+> **Spellblade:** I did not cross the threshold. The portcullis was not raised. No ceremonial horns sounded. If I defeat you now, chroniclers will not record a glorious conquest; they will record a domestic break-in. It is utterly degrading.
 >
-> **Warden Alden:** The ceiling. Through a hole in the roof plaster.
+> *(The Spellblade calmly sheathes his broadsword. He turns away from the defenseless castellan and walks toward the interior side of the Honorable Entry Gatehouse.)*
 >
-> **Squire Rowan:** Yes! I'm behind your lines!
+> **Warden Alden:** What are you doing?
 >
-> **Warden Alden:** That does not count.
+> **Spellblade:** Rectifying the error.
 >
-> **Squire Rowan:** What do you mean it doesn't count? I am standing on your dais!
+> *(The Spellblade pulls the interior winch lever. The heavy iron portcullis ascends with a grinding rattle. He pushes open the twin oak doors, walks out into the contested Outer Courtyard, steps across the threshold stone, and releases the winch catch. The portcullis SLAMS shut behind him. The oak doors swing closed and latch.)*
 >
-> **Warden Alden:** Did you cross the threshold of the Honorable Entry Gatehouse? Was your arrival announced by the winch bells? Did our portcullis ascend in ceremonial acknowledgement of your martial prowess?
+> *(From inside, Warden Alden stands frozen in shock. A moment of silence. Then, three measured, thunderous KNOCKS rattle the heavy oak doors from the courtyard outside.)*
 >
-> **Squire Rowan:** No, I fell sixty feet through a skylight!
+> **Spellblade:** *(Shouting through the gate wicket with impeccable formality)* Castleward garrison! I am the Spellblade of the Western Reaches! Open this gatehouse and prepare for honorable combat!
 >
-> **Warden Alden:** Exactly. An unannounced tumbling accident. If we kill you here, our chronicler cannot record a legitimate duel; he would have to write: *"And then a boy fell from the sky like an overripe pear, and we struck him."* It is utterly degrading to both parties.
+> **Warden Alden:** *(Blinking in reverent astonishment, adjusting his collar)* Now that... is an honorable gentleman. Man the winches, lads! Admit the challenger!
+
+#### Scene B Variant (Expanded Dialogue: The Accidental Breach with Rowan & Alden)
+*(Optional comedic dialogue where defending Warden Alden scolds an infiltrating young squire who crashed through a ceiling skylight.)*
+> **Warden Alden:** Young man, through which threshold did you enter this sanctuary?
 >
-> **Squire Rowan:** ...So what am I supposed to do?
+> **Squire Rowan:** Through... well, through the ceiling. The trebuchet stone punched through the roof vault and—
 >
-> **Warden Alden:** *(Gestures toward the great double doors)* You will sheath your blade, walk out through the main gates, cross into the courtyard, wait for the gates to swing shut, and knock like a gentleman.
->
-> *(Beat. Rowan looks at his sword, then at the open doors, sheepishly sheathes his weapon, and walks out toward the courtyard.)*
->
-> **Warden Alden:** *(Calling after him)* Mind the step on the threshold! It was oiled yesterday!
+> **Warden Alden:** The ceiling. Through a hole in the roof plaster. If we strike you down here, our chronicler must write: *"And then a boy fell from the sky like an overripe pear, and we struck him."* You will sheath your blade, walk out through the main gates, wait for them to swing shut, and knock like a gentleman.
 
 ---
 
@@ -150,35 +167,42 @@ Because the gatehouse is seen as an instrument of mutual chivalry rather than a 
   - Attacker: *"No, no, I insist, we are the visiting party, let us winch it up!"*
   - Defender: *"I wouldn't hear of it, hospitality demands the host raise the portcullis!"*
 
+### 5. The Champion Challenge at the Threshold
+Before a fortress gate can be legally forced or raised, the defending garrison champion often stands on the threshold platform, reciting a 14-stanza genealogical challenge. If an attacking champion steps forward and recites an equally elaborate, legally rhyming counter-challenge, the gate is winched up halfway as a sign of mutual respect before single combat begins.
+
 ---
 
-## 5. Gameplay & Match Flow Integration
+## 5. Gameplay & Authoritative Collision Architecture
 
-In Breakthrough mode (`bastionBreach.mjs` and `BastionBreachRenderer.mjs`):
+In Breakthrough mode (`shared/worlds/bastionBreach.mjs`, `shared/sim/Room.mjs`, `shared/sim/combat.mjs`, and `client/worlds/BastionBreachRenderer.mjs`):
+
 1. **Stage 1 (The Outer Gate)**:
-   - Contested area: `z = -10` to `+8`, centered at `(0, 0, -2)`.
-   - Gatehouse state at `z = 8.8`: **Closed**. Portcullis lowered, heavy twin oak doors shut, heraldic banners displayed.
-   - Attackers clash with defenders in the outer courtyard.
+   - **Contested Area**: `z = -10` to `+8`, centered at `(0, 0, -2)`.
+   - **Authoritative Gate Blocker**: `BASTION_GATE_BLOCKER = solid('gatehouse-honorable-gate-closed', [-3.4, 3.4], [0, 5.5], [8.5, 9.1], { material: 'iron' })`.
+   - **Authoritative World State**: Server uses `BASTION_BREACH_CLOSED` where `solids` includes `BASTION_GATE_BLOCKER`.
+   - **Player Locomotion & Attacks**: Attackers cannot tunnel or walk through the closed gate; sword swings and projectile casts strike the iron gate with an authoritative metallic clang and sparks.
+   - **Stage 1 Defender Spawns**: Phase 0 defenders spawn in the Outer Courtyard (`z = 3.0` to `5.0`) and on the East Gallery ramp (`z = 3.5, y = 1.25`), placing them directly on the courtyard side with clean, unobstructed ground access to defend Objective 1 at `z = -2`.
+   - **Bot Navigation Graph**: In `BASTION_BREACH_CLOSED`, `botNav` does not link `breach-south` (`z = 7`) to `breach-center` (`z = 11`), preventing bots from trying to path through the closed doors.
 2. **The Capture Moment (100% Progress)**:
-   - The authoritative objective server transitions to `index: 1` (The High Sanctum).
-   - In `BastionBreachRenderer.mjs`, `setObjectiveState` detects `activeIdx >= 1`.
-   - The gatehouse animation triggers smoothly over 1.2 seconds:
-     - Winch drum begins rotating.
-     - Counterweight boxes descend.
-     - Heavy iron portcullis hoists `3.8m` vertically under the stone arch.
-     - Twin oak doors swing inward 86 degrees, folding flat against the passage piers.
-   - The 6-meter-wide grand ceremonial entrance opens up with clear sightlines into the High Sanctum.
-3. **Stage 2 (The High Sanctum)**:
-   - Attackers charge through the open gatehouse into the vaulted chapel.
-   - Defenders fall back to their altar dais staging positions (`z = 32–36`).
-   - The battle reaches its dramatic climax under the ribbed Gothic vaults.
+   - `stepObjectives` authoritatively transitions the room state to `index: 1` (The High Sanctum).
+   - In `stepRoom`, `room.world` immediately updates to `bastionBreachForObjective(room.objectiveState)`, resolving to `BASTION_BREACH_OPEN` which omits the gate blocker.
+   - Authoritative movement, weapon sweeps, and bot navigation immediately permit passage through `z = 8.8`.
+3. **Client Presentation & Late-Join Synchronization**:
+   - In `BastionBreachRenderer.mjs`:
+     - **Live capture transition**: `isFirstSet === false`. The gate smoothly animates open over ~1.2s (`gateSpeed = 0.85`), hoists the portcullis `3.8m` upward, swings the twin oak doors 86 degrees inward, rotates the winch drum, and drops the counterweights.
+     - **Late join / reconnect**: `isFirstSet === true`. The renderer immediately snaps `gateOpenProgress = targetGateOpen` (`1.0`), positioning the portcullis, doors, winch, and counterweights in their fully open state without misleading animation lag.
+     - **Movement prediction**: `GameRuntime.mjs` updates `this.activeWorld = bastionBreachForObjective(snapshot.objective)` on each snapshot, synchronizing local client prediction with server truth.
+4. **Stage 2 (The High Sanctum)**:
+   - Attackers advance through the open gatehouse into the vaulted chapel.
+   - Respawning defenders use Phase 1 spawns behind the sanctum altar (`z = 32.8` to `34.2`).
+   - The battle concludes on the sacred ceremonial dais at `(0, 0.3, 25)`.
 
 ---
 
-## 6. Open Design & Implementation Notes
+## 6. Verification & Implementation Summary
 
-- **Collision Decoupling**: The static server navigation graph (`getNavigationGraph`) treats the `z = 8.8` passage as an open lane (`floor-breach`, width 7.0m) to preserve reliable bot pathfinding and avoid locomotion desyncs across client/server boundaries.
-- **Audio Opportunities**: Future passes can hook procedural stone-grinding, chain-rattling, and timber-creaking sound effects directly to `gateOpenProgress` in `AudioManager`.
-- **Dialogue Triggers**: In-match announcer lines when the gate opens:
+- **Server Truth**: Gate passage is strictly determined by server-authoritative collision in `Room.mjs` and `combat.mjs`. Clients cannot walk or glitch through closed doors.
+- **Bot Integrity**: Defensive bot retreat logic (`BASTION_BREACH_TACTICS`) directs bots into the High Sanctum once Stage 1 falls, traversing the newly opened gate without navigation bottlenecks.
+- **Audio & Voice Quip Hooks**: In-match announcer lines when the gate opens:
   - Defender Announcer: *"The Outer Bailey is ceded! Open the Citadel Gates—let them face our steel upon the sacred flags!"*
   - Attacker Announcer: *"The Gatehouse rises! Advance into their sanctuary!"*

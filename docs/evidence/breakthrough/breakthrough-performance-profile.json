@@ -1,5 +1,18 @@
 {
-  "_notes": "Two-Pass Rendering Profile: In GameRuntime.mjs, Pass 1 renders world geometry/actors (layer 0) and Pass 2 renders first-person player arms/sword (VIEW_LAYER). Three.js resets renderer.info.render per pass; prior instrumentation reported only Pass 2 (9 calls, 4848 tris). Below is the comprehensive empirical per-pass and frame total data.",
+  "_notes": "Two-Pass Rendering Profile: In GameRuntime.mjs, Pass 1 renders world geometry/actors (layer 0) and Pass 2 renders first-person player arms/sword (VIEW_LAYER). Three.js resets renderer.info.render per pass; prior instrumentation reported only Pass 2 (9 calls, 4848 tris). Below is the empirical per-pass and frame total data collected under automated headless test execution.",
+  "measurementHarness": {
+    "engine": "Headless Chromium",
+    "rasterizer": "Google SwiftShader (CPU software WebGL)",
+    "platform": "macOS",
+    "notes": "Software rasterization is CPU-bound and measures baseline worst-case pipeline throughput without GPU hardware acceleration."
+  },
+  "targetHardwareBudgets": {
+    "targetFps": 60.0,
+    "frameBudgetMs": 16.67,
+    "maxDrawCalls": 600,
+    "maxTriangles": 100000,
+    "notes": "Target budget for standard desktop and mobile devices running live browser WebGL2 with dedicated GPU acceleration."
+  },
   "bastionBreach": {
     "pass1World": {
       "drawCalls": 498,

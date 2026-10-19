@@ -842,6 +842,7 @@ function selectTeamGoal(room, actor, ai, nowSec) {
       enemies,
       defaultGoal: goalPos,
       disengageTarget: () => { ai.targetId = null; },
+      nowSec,
     });
     if (tactical) goalPos = tactical;
   }

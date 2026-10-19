@@ -8,6 +8,7 @@ import { GAME_MODES } from '../../shared/src/modes.mjs';
 import { WORLD_IDS } from '../../shared/worlds/registry.mjs';
 import { TEAMS } from '../../shared/src/teams.mjs';
 import { breakthroughHudView, matchInfoText } from '../../client/ui/HUD.mjs';
+import { BASTION_BREACH_CLOSED, BASTION_BREACH_OPEN, bastionBreachForObjective } from '../../shared/worlds/bastionBreach.mjs';
 
 test('Breakthrough overtime: enters overtime when match clock expires with active capture pressure', () => {
   const manager = new RoomManager();
@@ -284,6 +285,133 @@ test('Bastion Breach Breakthrough: authoritative capture respects vertical bound
   stepRoom(room, 1.0, 6.0);
   assert.equal(room.objectiveState.progress, 0, 'Player far below dais must not capture');
 });
+
+test('Bastion Breach Breakthrough: server-authoritative gate blocker blocks during Stage 1 and opens on Stage 2 transition', () => {
+  const manager = new RoomManager();
+  const room = manager.createBreakthroughRoom(0, true, WORLD_IDS.BASTION_BREACH);
+  const att = room.addPlayer({ id: 'att-1', token: 't1', name: 'Attacker 1', team: TEAMS.ATTACKERS }, 0);
+  const def = room.addPlayer({ id: 'def-1', token: 't2', name: 'Defender 1', team: TEAMS.DEFENDERS }, 0);
+  room.startMatch(0);
+
+  // Initial state: Stage 1 active, room.world has blocker
+  assert.equal(room.objectiveState.index, 0);
+  assert.equal(room.world.solids.some((s) => s.id === 'gatehouse-honorable-gate-closed'), true);
+
+  // Defenders spawned in Outer Courtyard, not behind closed gate
+  assert(def.position.z < 8.5, `Defender initial spawn at z=${def.position.z} must be in courtyard south of gate`);
+
+  // Attacker tries to walk through gate at z = 8.0 towards +z (yaw: Math.PI)
+  att.position = { x: 0, y: 0, z: 8.0 };
+  att.input = { forward: 1, right: 0, jump: false, crouch: false, yaw: Math.PI, pitch: 0 };
+  for (let t = 0; t < 10; t++) {
+    stepRoom(room, 0.05, 1.0 + t * 0.05);
+  }
+  // Stopped at closed gate
+  assert(att.position.z < 8.2, `Attacker must be blocked at closed gate; stopped at z=${att.position.z}`);
+
+  // Now capture Objective 1 (The Outer Gate)
+  att.position = { x: 0, y: 0, z: -2 };
+  att.input = { forward: 0, right: 0, jump: false, crouch: false, yaw: 0, pitch: 0 };
+  def.position = { x: 0, y: 0, z: 30 }; // Defender far away
+  def.input = { forward: 0, right: 0, jump: false, crouch: false, yaw: 0, pitch: 0 };
+  // Complete the 15s capture
+  for (let t = 0; t < 16; t++) {
+    stepRoom(room, 1.0, 2.0 + t);
+  }
+
+  // Objective advanced to Stage 2 (The High Sanctum, index 1)
+  assert.equal(room.objectiveState.index, 1);
+  const capturedAt = room.objectiveState.lastCapturedAt;
+  assert.ok(Number.isFinite(capturedAt));
+
+  // 1. Mid-ceremony check: 0.5s after capture, gate is still opening (~1.2s ceremony)
+  // Collision blocker MUST remain active so players/weapons cannot penetrate visibly closing/opening door
+  stepRoom(room, 0.5, capturedAt + 0.5);
+  assert.equal(
+    room.world.solids.some((s) => s.id === 'gatehouse-honorable-gate-closed'),
+    true,
+    'Blocker must remain active during 1.2s opening ceremony'
+  );
+
+  // Attacker cannot push through during opening ceremony
+  att.position = { x: 0, y: 0, z: 8.0 };
+  att.input = { forward: 1, right: 0, jump: false, crouch: false, yaw: Math.PI, pitch: 0 };
+  for (let t = 0; t < 5; t++) {
+    stepRoom(room, 0.05, capturedAt + 0.5 + t * 0.05);
+  }
+  // 2. Continuous forward motion through transition boundary without sticking or rubber-banding:
+  // Reset attacker to flush against gate at z = 8.1 holding forward continuously from t = capturedAt + 0.8s to t = capturedAt + 1.6s
+  att.position = { x: 0, y: 0, z: 8.1 };
+  att.input = { forward: 1, right: 0, jump: false, crouch: false, yaw: Math.PI, pitch: 0 };
+  let simulatedTime = capturedAt + 0.8;
+  const positionsDuringTransition = [];
+  while (simulatedTime < capturedAt + 1.6) {
+    stepRoom(room, 0.05, simulatedTime);
+    positionsDuringTransition.push({ time: simulatedTime, z: att.position.z });
+    if (simulatedTime < capturedAt + 1.2) {
+      assert(att.position.z < 8.2, `Attacker must remain blocked before 1.2s (at t=${simulatedTime}, z=${att.position.z})`);
+    }
+    simulatedTime += 0.05;
+  }
+  // Immediately after 1.2s, forward motion resumes cleanly without trapping or sticking
+  assert(att.position.z > 9.5, `Attacker must cleanly step through open gate without getting stuck; reached z=${att.position.z}`);
+
+  // 3. Defender approaching from opposite side (north, z = 9.8 heading south with yaw = 0):
+  // Test symmetrical collision on defender side
+  const testRoomOpposite = manager.createBreakthroughRoom(0, true, WORLD_IDS.BASTION_BREACH);
+  const defOpposite = testRoomOpposite.addPlayer({ id: 'def-opp', token: 'topp', name: 'Defender North', team: TEAMS.DEFENDERS }, 0);
+  testRoomOpposite.startMatch(0);
+  testRoomOpposite.objectiveState.index = 1;
+  testRoomOpposite.objectiveState.lastCapturedAt = 100.0;
+  testRoomOpposite.world = BASTION_BREACH_CLOSED;
+
+  // Mid-ceremony (t = 100.6s): defender walking south is blocked at north face of gate
+  defOpposite.position = { x: 0, y: 0, z: 9.8 };
+  defOpposite.input = { forward: 1, right: 0, jump: false, crouch: false, yaw: 0, pitch: 0 }; // heading -z
+  for (let t = 0; t < 10; t++) {
+    stepRoom(testRoomOpposite, 0.05, 100.6 + t * 0.05);
+  }
+  assert(defOpposite.position.z > 9.3, `Defender moving south must be blocked at north face of closed gate; stopped at z=${defOpposite.position.z}`);
+
+  // Post-ceremony (t = 101.5s): gate is open, defender moving south walks freely through into courtyard
+  stepRoom(testRoomOpposite, 0.5, 101.5);
+  for (let t = 0; t < 10; t++) {
+    stepRoom(testRoomOpposite, 0.05, 101.5 + t * 0.05);
+  }
+  assert(defOpposite.position.z < 8.5, `Defender moving south must walk freely into courtyard through open gate; reached z=${defOpposite.position.z}`);
+
+  // 4. Late join and reconnect client snapshot verification:
+  // Client joining mid-ceremony receives snapshot with lastCapturedAt and computes closed world
+  const snapMid = serializeSnapshot(room, capturedAt + 0.6);
+  assert.equal(snapMid.objective.index, 1);
+  assert.equal(snapMid.objective.lastCapturedAt, capturedAt);
+  const lateJoinWorldMid = bastionBreachForObjective(snapMid.objective, capturedAt + 0.6);
+  assert.equal(lateJoinWorldMid, BASTION_BREACH_CLOSED, 'Late join mid-ceremony receives closed gate world');
+
+  // Client joining post-ceremony receives snapshot and computes open world
+  const snapPost = serializeSnapshot(room, capturedAt + 2.0);
+  const lateJoinWorldPost = bastionBreachForObjective(snapPost.objective, capturedAt + 2.0);
+  assert.equal(lateJoinWorldPost, BASTION_BREACH_OPEN, 'Late join post-ceremony receives open gate world');
+
+  // 5. Complete Stage 2: Attacker captures High Sanctum objective at (0, 0.3, 25)
+  att.position = { x: 0, y: 0.3, z: 25.0 };
+  att.input = { forward: 0, right: 0, jump: false, crouch: false, yaw: 0, pitch: 0 };
+  def.position = { x: 0, y: 0, z: -20.0 }; // Defender kept far away
+  def.input = { forward: 0, right: 0, jump: false, crouch: false, yaw: 0, pitch: 0 };
+
+  // Step 22 seconds to complete the 20s Sanctum capture
+  for (let t = 0; t < 22; t++) {
+    stepRoom(room, 1.0, capturedAt + 2.0 + t);
+  }
+
+  // Sanctum captured: attackers win the Breakthrough match cleanly
+  assert.equal(room.state, 'FINISHED');
+  assert.equal(room.winnerTeam, TEAMS.ATTACKERS);
+  assert.equal(room.finishReason, 'objective');
+  assert.equal(room.objectiveState.completed, true);
+  assert.equal(room.objectiveState.index, 1);
+});
+
 
 
 

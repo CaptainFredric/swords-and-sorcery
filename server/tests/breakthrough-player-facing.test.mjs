@@ -111,7 +111,7 @@ test('Phase-aware spawns: Defenders spawn near Outer Gate in Phase 0 and Sanctum
   const def = room.addPlayer({ id: 'def', token: 't2', name: 'Defender', team: TEAMS.DEFENDERS }, 0);
   room.startMatch(0);
 
-  assert.ok(def.position.z >= 10 && def.position.z <= 16, `Phase 0 defender z=${def.position.z} should be near Gatehouse`);
+  assert.ok(def.position.z >= 2 && def.position.z <= 6, `Phase 0 defender z=${def.position.z} should be in Outer Courtyard defending Outer Gate`);
   assert.ok(att.position.z <= -26, `Phase 0 attacker z=${att.position.z} should be in staging camp`);
 
   room.objectiveState.index = 1;
