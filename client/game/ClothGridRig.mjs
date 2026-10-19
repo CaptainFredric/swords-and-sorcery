@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { CLOTH_COLLIDERS, CLOTH_GRID_SPECS, clothNode, createClothGrid, impulseClothGrid, resetClothGrid, stepClothGrid } from './clothGrid.mjs';
+import { CLOTH_COLLIDERS, CLOTH_GRID_SPECS, clothNode, createClothGrid, impulseClothGrid, loadedBoneName, resetClothGrid, stepClothGrid } from './clothGrid.mjs';
 
 const _v = new THREE.Vector3();
 const _a = new THREE.Vector3();
@@ -13,9 +13,14 @@ const _twist = new THREE.Quaternion();
 const _parent = new THREE.Quaternion();
 const _world = new THREE.Quaternion();
 
+// a bone by its Blender name: the glTF loader drops a name's dots ('cape.C.1' arrives as 'capeC1')
+function node(root, name) {
+  return root.getObjectByName(loadedBoneName(name)) ?? root.getObjectByName(name) ?? null;
+}
+
 /** Whether a model carries cloth grids (the cape and tabard as columns of bones). */
 export function hasClothGrids(root) {
-  return Object.values(CLOTH_GRID_SPECS).some((spec) => root.getObjectByName(`${spec.prefix}.${spec.columns[0]}.1`));
+  return Object.values(CLOTH_GRID_SPECS).some((spec) => node(root, `${spec.prefix}.${spec.columns[0]}.1`));
 }
 
 // The cape and tabard as cloth (clothGrid): read the cloth's drape and the body from the skeleton the mixer has just
@@ -26,13 +31,13 @@ export class ClothGridRig {
     this.root = root;
     this.grids = [];
     for (const spec of Object.values(CLOTH_GRID_SPECS)) {
-      const anchor = root.getObjectByName(spec.anchor);
-      const bones = spec.columns.map((column) => Array.from({ length: spec.rows }, (_, r) => root.getObjectByName(`${spec.prefix}.${column}.${r + 1}`)));
+      const anchor = node(root, spec.anchor);
+      const bones = spec.columns.map((column) => Array.from({ length: spec.rows }, (_, r) => node(root, `${spec.prefix}.${column}.${r + 1}`)));
       if (!anchor || bones.some((column) => column.some((bone) => !bone))) continue;
       const colliders = spec.colliders.map((name) => {
         const c = CLOTH_COLLIDERS[name];
-        const from = root.getObjectByName(c.from);
-        const to = root.getObjectByName(c.to);
+        const from = node(root, c.from);
+        const to = node(root, c.to);
         return from && to ? { from, to, radius: c.radius } : null;
       }).filter(Boolean);
       // the drape: each bone's own rest turn (the bind pose), and its length (the last bone's as the one above it)

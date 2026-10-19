@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { CLOTH_GRID_SPECS, clothNode, createClothGrid, impulseClothGrid, stepClothGrid } from './clothGrid.mjs';
+import { CLOTH_COLLIDERS, CLOTH_GRID_SPECS, clothNode, createClothGrid, impulseClothGrid, loadedBoneName, stepClothGrid } from './clothGrid.mjs';
 
 // a cape hanging from shoulders at the given point: three columns 0.12 m apart, four rows of 0.28 m, behind him (+z)
 function drape([x, y, z] = [0, 1.64, 0]) {
@@ -67,4 +67,19 @@ test('a gust flings the hem the way it blows, more than the top, and a long or b
   assert.ok(hem > upper && hem > 0.05, `hem ${hem.toFixed(3)} should fly further than row 1 ${upper.toFixed(3)}`);
   stepClothGrid(grid, 0.5, { targets: drape(), colliders: [], ground: 0 });
   assert.ok(grid.x.every((p) => p.every(Number.isFinite)));
+});
+
+test('cloth bones are looked up by the names the glTF loader gives them (dots dropped)', () => {
+  assert.equal(loadedBoneName('cape.C.1'), 'capeC1');
+  assert.equal(loadedBoneName('thigh.L'), 'thighL');
+  assert.equal(loadedBoneName('tabard_root'), 'tabard_root');
+  assert.equal(loadedBoneName('a b[c]:d/e'), 'a_bcde');
+  // every grid bone and collider joint has a distinct loaded name
+  const names = [];
+  for (const spec of Object.values(CLOTH_GRID_SPECS)) {
+    for (const column of spec.columns) for (let r = 1; r <= spec.rows; r += 1) names.push(`${spec.prefix}.${column}.${r}`);
+  }
+  for (const c of Object.values(CLOTH_COLLIDERS)) names.push(c.from, c.to);
+  const loaded = new Set(names.map(loadedBoneName));
+  assert.equal(loaded.size, new Set(names).size);
 });

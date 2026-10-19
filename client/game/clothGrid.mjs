@@ -40,6 +40,14 @@ export const CLOTH_COLLIDERS = Object.freeze({
   'shin.R': Object.freeze({ from: 'shin.R', to: 'foot.R', radius: 0.11 }),
 });
 
+/**
+ * A bone's name as the glTF loader leaves it (three's PropertyBinding.sanitizeNodeName): whitespace to underscores,
+ * and the characters a property path reserves ([ ] . : /) dropped, so 'cape.C.1' arrives as 'capeC1'.
+ */
+export function loadedBoneName(name) {
+  return String(name).replace(/\s/g, '_').replace(/[[\].:/]/g, '');
+}
+
 export const CLOTH_GRAVITY = Object.freeze([0, -9.81, 0]);
 const SUBSTEP = 1 / 120;
 const MAX_SUBSTEPS = 8;
