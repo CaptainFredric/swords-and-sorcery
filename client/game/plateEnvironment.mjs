@@ -5,7 +5,7 @@ import * as THREE from 'three';
 // sixth (as the kit's colours are calibrated), and its steel and brass then read as matte paint, like clay. Here its
 // plate is given a soft sky over ground to reflect (the renderer prefilters it on first use) and its metal back up to
 // about half of what the source model asked for: the steel takes the sky on its upper faces and the ground below, and
-// reads as steel. Only a model carrying the supplied body's material is changed (the kit, calibrated for no
+// reads as steel. Only a model carrying the supplied model's materials is changed (the kit, calibrated for no
 // environment, is left as it is); its glow and its own kit parts (the sword, the palm rune) are left alone.
 
 export const PLATE_ENVIRONMENT = Object.freeze({
@@ -46,12 +46,13 @@ function skyOverGround() {
   return shared;
 }
 
-/** Whether a model is the supplied Spellblade (its body's material), which takes the environment. */
+/** Whether a model is the supplied Spellblade (its body's material, or its arms' in first person), which takes the
+ * environment. */
 export function wantsPlateEnvironment(root) {
   let found = false;
   root.traverse((object) => {
     if (found || !object.isMesh) return;
-    for (const material of [].concat(object.material)) if (material?.name === PLATE_ENVIRONMENT.body) found = true;
+    for (const material of [].concat(object.material)) if (material?.name && METAL.test(material.name)) found = true;
   });
   return found;
 }
