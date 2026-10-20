@@ -38,6 +38,26 @@ This list collects near-term **authored 3D assets** from the Castleward discussi
 
 **Later, contingent on the new map being implemented:** Blackbell Foundry should get its own signature **colossal suspended bell, chain/winch assembly, foundry furnaces, casting channels and walkable gantry kit**. These are map-specific architectural set pieces, not higher-priority than completing the immediate Castleward asset queue.
 
+## Bi-Bye-llista: silhouette, description and operator calls
+
+**Visual concept (proposed, not production-approved):** A recognizably broad ballista silhouette. The lower/main launcher uses two enormous sword-shaped forged spring-steel bow limbs, with a visible working string, oversized physical bolt on a central rail, and rear winch/ratchet. These should function as spring limbs, not merely be ornamental swords attached to a cannon. The upper, distinct miniature enchanted ballista fires the first conditioning bolt. Engrave a restrained **I** on the small launcher and **II** on the main launcher to show the two firing stages. Provide physical string catches, loading access, and deployable stabilizers so the mechanism and reload read coherently. Full cocking/loading occurs before the paired firing sequence; the main assembly performs only its brief final draw as the first bolt fires.
+
+**Proposed in-game description (creator wording, em dash removed):**
+
+> *A marvel of combative engineering: compact, brutal, and devoted to destruction, much like the denizens who created it.*
+>
+> The first bolt weakens the target's defenses.
+
+There is deliberately **no second sentence explaining the second bolt**. “Compact” is deliberate understatement for the enormous machine; do not explain the joke in the in-game copy.
+
+**Operator callouts (alternatives, not a sequence of three and not yet recorded):**
+
+- “First! ...Last!”
+- “Fire!...Again!”
+- “Damage them!..Weaken them!”
+
+Preserve these alternatives verbatim, including the deliberately contrary ordering of the last callout. The mechanical shot order remains small weakening bolt first and huge finishing bolt second.
+
 ## Bi-Bye-llista: animation and gameplay notes
 
 1. **Ready:** main projectile is already present and substantially tensioned. Small auxiliary enchanted launcher is also ready.
