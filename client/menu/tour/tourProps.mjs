@@ -93,7 +93,8 @@ export function dressRival(instance, { tint, visor }) {
   };
 }
 
-// a skinned mesh's triangles as they stand right now, in world space, each labelled with the bone that moves it most
+// a skinned mesh's triangles as they stand right now, in world space, each labelled with the piece of him that moves it
+// (chunkOf), and each vertex with its share in every piece (its skin weights, summed by piece)
 function bakedTriangles(mesh) {
   const geometry = mesh.geometry;
   const position = geometry.attributes.position;
@@ -103,37 +104,39 @@ function bakedTriangles(mesh) {
   const uv = geometry.attributes.uv;
   const index = geometry.index;
   const count = index ? index.count : position.count;
+  const bones = mesh.skeleton?.bones ?? [];
+  const boneChunk = bones.map((b) => chunkOf(b.name));
   mesh.updateMatrixWorld(true);
   const world = new Float32Array(position.count * 3);
-  const bone = new Int16Array(position.count);
+  const shares = new Array(position.count);
+  const top = new Array(position.count);
   for (let i = 0; i < position.count; i += 1) {
     if (mesh.isSkinnedMesh) mesh.getVertexPosition(i, _v); else _v.fromBufferAttribute(position, i);
     _v.applyMatrix4(mesh.matrixWorld);
     world[i * 3] = _v.x; world[i * 3 + 1] = _v.y; world[i * 3 + 2] = _v.z;
+    const share = new Map();
     if (skinIndex && skinWeight) {
-      let best = 0;
-      let weight = -1;
       for (let k = 0; k < 4; k += 1) {
         const w = skinWeight.getComponent(i, k);
-        if (w > weight) { weight = w; best = skinIndex.getComponent(i, k); }
+        if (w <= 0) continue;
+        const chunk = boneChunk[skinIndex.getComponent(i, k)] ?? 'hips';
+        share.set(chunk, (share.get(chunk) ?? 0) + w);
       }
-      bone[i] = best;
     }
+    if (!share.size) share.set(chunkOf(''), 1);
+    shares[i] = share;
+    top[i] = [...share.entries()].sort((x, y) => y[1] - x[1])[0][0];
   }
   const triangles = [];
-  const bones = mesh.skeleton?.bones ?? [];
   for (let t = 0; t < count; t += 3) {
     const ids = [0, 1, 2].map((k) => (index ? index.getX(t + k) : t + k));
     // (the piece of him it belongs to: what most of its corners ride on)
     const votes = new Map();
-    for (const id of ids) {
-      const chunk = chunkOf(bones[bone[id]]?.name ?? '');
-      votes.set(chunk, (votes.get(chunk) ?? 0) + 1);
-    }
-    const chunk = [...votes.entries()].sort((a, b) => b[1] - a[1])[0][0];
-    triangles.push({ ids, bone: bone[ids[0]], chunk });
+    for (const id of ids) votes.set(top[id], (votes.get(top[id]) ?? 0) + 1);
+    const chunk = [...votes.entries()].sort((x, y) => y[1] - x[1])[0][0];
+    triangles.push({ ids, chunk });
   }
-  return { triangles, world, color, uv };
+  return { triangles, world, color, uv, shares, top };
 }
 
 // tidy the pieces of one mesh: a triangle whose neighbours are mostly of another piece joins them (four times over), and
@@ -175,38 +178,46 @@ function tidyChunks(baked) {
     const best = [...votes.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
     if (best) for (const r of run) baked.triangles[r].chunk = best;
   });
+  return around;
 }
 
-// a static mesh from some of those triangles, centred on their middle (returned as its world position)
-function pieceFrom(baked, triangles, material) {
-  const positions = [];
-  const colors = baked.color ? [] : null;
-  const uvs = baked.uv ? [] : null;
-  const centre = new THREE.Vector3();
-  for (const { ids } of triangles) {
-    for (const id of ids) {
-      positions.push(baked.world[id * 3], baked.world[id * 3 + 1], baked.world[id * 3 + 2]);
-      centre.x += baked.world[id * 3]; centre.y += baked.world[id * 3 + 1]; centre.z += baked.world[id * 3 + 2];
-      if (colors) colors.push(baked.color.getX(id), baked.color.getY(id), baked.color.getZ(id));
-      if (uvs) uvs.push(baked.uv.getX(id), baked.uv.getY(id));
+// The pieces' triangles, cut clean where two pieces meet: a triangle whose corners ride two pieces, both of which meet
+// there, is split along the line where the two pieces' shares are equal (the middle of the joint's blend), each side to
+// its own piece, so a plate comes away with a clean edge instead of the mesh's zig-zag of whole triangles. (Only where
+// both really meet: a corner left riding a piece the tidying took away keeps to the triangle's piece.)
+function cutAlongJoints(baked, around) {
+  const corner = (id) => ({
+    p: [baked.world[id * 3], baked.world[id * 3 + 1], baked.world[id * 3 + 2]],
+    uv: baked.uv ? [baked.uv.getX(id), baked.uv.getY(id)] : null,
+    c: baked.color ? [baked.color.getX(id), baked.color.getY(id), baked.color.getZ(id)] : null,
+    a: 0,
+  });
+  const byChunk = new Map();
+  const into = (chunk, triangles) => {
+    if (!byChunk.has(chunk)) byChunk.set(chunk, []);
+    byChunk.get(chunk).push(...triangles);
+  };
+  baked.triangles.forEach((triangle, t) => {
+    const corners = triangle.ids.map(corner);
+    const kinds = [...new Set(triangle.ids.map((id) => baked.top[id]))];
+    if (kinds.length === 2 && kinds.includes(triangle.chunk)) {
+      const meeting = new Set([triangle.chunk, ...around[t].map((u) => baked.triangles[u].chunk)]);
+      const [a, b] = kinds;
+      if (meeting.has(a) && meeting.has(b)) {
+        triangle.ids.forEach((id, k) => {
+          corners[k].a = (baked.shares[id].get(a) ?? 0) - (baked.shares[id].get(b) ?? 0);
+        });
+        const [toB, toA] = splitAt(corners, 0);
+        into(a, toA);
+        into(b, toB);
+        return;
+      }
     }
-  }
-  centre.divideScalar(positions.length / 3);
-  for (let i = 0; i < positions.length; i += 3) {
-    positions[i] -= centre.x; positions[i + 1] -= centre.y; positions[i + 2] -= centre.z;
-  }
-  const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-  if (colors) geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, baked.color.itemSize === 4 ? 3 : 3));
-  if (uvs) geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
-  geometry.computeVertexNormals();
-  geometry.computeBoundingSphere();
-  const mesh = new THREE.Mesh(geometry, material);
-  mesh.position.copy(centre);
-  mesh.castShadow = true;
-  mesh.receiveShadow = true;
-  return mesh;
+    into(triangle.chunk, [corners]);
+  });
+  return byChunk;
 }
+
 
 /** Tumbling pieces that fall, bounce once or twice on the ground (y = 0) and lie still. */
 export class Debris {
@@ -331,15 +342,11 @@ export function shatterKnight(instance, debris, random = Math.random) {
     if (!object.isMesh || !object.visible || !object.geometry?.attributes?.position) return;
     if (object.geometry.attributes.position.count < 12) return;   // the palm's sorcery shards just go out
     const baked = bakedTriangles(object);
-    tidyChunks(baked);
-    const byChunk = new Map();
-    for (const triangle of baked.triangles) {
-      if (!byChunk.has(triangle.chunk)) byChunk.set(triangle.chunk, []);
-      byChunk.get(triangle.chunk).push(triangle);
-    }
+    const byChunk = cutAlongJoints(baked, tidyChunks(baked));
     for (const [chunk, triangles] of byChunk) {
+      if (!triangles.length) continue;
       if (!chunks.has(chunk)) chunks.set(chunk, []);
-      chunks.get(chunk).push(pieceFrom(baked, triangles, object.material));
+      chunks.get(chunk).push(pieceFromCorners(triangles, object.material));
     }
   });
   for (const parts of chunks.values()) {

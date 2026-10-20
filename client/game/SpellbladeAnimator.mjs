@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { SpellbladeComposition } from './spellbladeComposition.mjs';
 import { BODY_GROUND_CLEARANCE, bodyGroundLift, bootSide, soleContactOffset } from './spellbladeContact.mjs';
+import { pauldronFollow } from './pauldronFollow.mjs';
 import { SpellbladeClothRig } from './SpellbladeClothRig.mjs';
 import { ClothGridRig, hasClothGrids } from './ClothGridRig.mjs';
 import { blendProgressFor, blendSeconds, blendWeights } from './spellbladeBlend.mjs';
@@ -12,11 +13,6 @@ function sanitize(name) {
 }
 
 const LEG_CHAINS = [['thigh.L', 'shin.L', 'foot.L'], ['thigh.R', 'shin.R', 'foot.R']];
-// The supplied Spellblade's pauldrons ride bones of their own, each sharing its upper arm's rest and parent and turned
-// this far with it (its build bakes the same into every clip): each plate moves whole, partly with the shoulder and
-// partly with the arm. Set here every frame as well, so they follow whatever else turns the arm (a flourish's reach,
-// a reaction, a fall).
-export const PAULDRON_FOLLOW = 0.6;
 const _q = new THREE.Quaternion();
 const _qp = new THREE.Quaternion();
 const _qpInv = new THREE.Quaternion();
@@ -122,7 +118,9 @@ export class SpellbladeAnimator {
 
   #followPauldrons() {
     for (const { plate, arm, rest } of this.pauldrons) {
-      plate.quaternion.copy(rest).slerp(arm.quaternion, PAULDRON_FOLLOW);
+      // (they share a rest: how far the arm has turned from it)
+      const turn = THREE.MathUtils.radToDeg(2 * Math.acos(Math.min(1, Math.abs(rest.dot(arm.quaternion)))));
+      plate.quaternion.copy(rest).slerp(arm.quaternion, pauldronFollow(turn));
       plate.position.copy(arm.position);
     }
   }
