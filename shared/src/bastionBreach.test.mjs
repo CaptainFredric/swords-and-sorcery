@@ -45,12 +45,12 @@ test('Honorable Entry Gatehouse blocker is authoritative during Stage 1 and remo
   assert.equal(closedWorld.solids.some((s) => s.id === 'gatehouse-honorable-gate-closed'), true);
   assert.equal(openWorld.solids.some((s) => s.id === 'gatehouse-honorable-gate-closed'), false);
 
-  // Material check: iron gate produces metal clang
+  // Material check: iron gate produces metal clang, matching Argon authored arch dimensions (3.392m x 3.940m x 0.550m)
   const blocker = closedWorld.solids.find((s) => s.id === 'gatehouse-honorable-gate-closed');
   assert.equal(blocker.material, 'iron');
-  assert.equal(Math.abs(blocker.size[0] - 6.8) < 1e-4, true);
-  assert.equal(Math.abs(blocker.size[1] - 5.5) < 1e-4, true);
-  assert.equal(Math.abs(blocker.size[2] - 0.6) < 1e-4, true);
+  assert.equal(Math.abs(blocker.size[0] - 3.392) < 1e-3, true);
+  assert.equal(Math.abs(blocker.size[1] - 3.940) < 1e-3, true);
+  assert.equal(Math.abs(blocker.size[2] - 0.550) < 1e-3, true);
 });
 
 test('Honorable Entry Gatehouse stops players and weapons when closed, and permits free traversal when open', () => {

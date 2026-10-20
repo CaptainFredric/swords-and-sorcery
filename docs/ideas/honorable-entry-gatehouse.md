@@ -1,8 +1,8 @@
 # The Honorable Entry Gatehouse — Worldbuilding, Architecture, and Martial Doctrine
 
 **Document status:** Design, narrative, and worldbuilding foundation.  
-**Repository integration:** Live in `shared/worlds/bastionBreach.mjs` (authoritative collision & spawns) and `client/worlds/BastionBreachRenderer.mjs` (Bastion Breach 2.0 at `z = 8.8`).  
-**Updated:** 2026-10-18.  
+**Repository integration:** Live authored PBR GLB in `client/assets/worlds/bastion-breach/honorable-entry-gatehouse.glb`, rendered by `client/worlds/BastionBreachRenderer.mjs` and authoritatively simulated in `shared/worlds/bastionBreach.mjs` (Argon v1.1 bounds, stepped buttress solids, door bumpers, portcullis, spawns).  
+**Updated:** 2026-10-20.  
 [Back to project README](../../README.md) · [3D Asset Roadmap](../art/castleward-3d-asset-roadmap.md) · [Breakthrough Battlefield Evidence](../evidence/breakthrough/README.md)
 
 ---
@@ -24,13 +24,21 @@ In Castleward martial philosophy:
 
 The Honorable Entry Gatehouse divides the contested Outer Courtyard (Objective 1, `z = -2`) from the sacred High Sanctum (Objective 2, `z = 25`).
 
-### Key Structural Components
-- **Pale-Stone Gothic Arch Facade**: Crafted from dressed pale limestone (`0x9e988f`) with molded stringcourses, impost blocks, angled voussoirs, and a carved central keystone boss bearing the Castleward brass heraldic seal (`0x9b783e`).
-- **Overhead Machicolations and Parapet**: Corbel brackets support a raised crenellated parapet at `y = 7.15m` with defensive merlons and flanking crimson banners (`0x8b201a`) draped on iron corbels.
-- **Interior Barrel Vault and Murder Holes**: A vaulted stone passage soffit at `y = 5.85m` features four cylindrical murder hole chutes opening into the overhead gate chamber.
-- **Overhead Gate Chamber Machinery**: A heavy timber winch drum (`radius: 0.26m`, length `5.4m`) with dual spoked iron ratchet gear wheels, axle pillow blocks, and counterweight boxes (`0.55m × 1.2m`) hanging on vertical guide chains.
-- **Articulated Hoisting Portcullis**: A heavy wrought-iron grille with horizontal crossbeams, nine vertical square bars, sharpened bottom spikes, and vertical hoist chains. When closed, it bars the road at `y = 0.5–4.3m`. When Stage 2 begins, the winch rotates, counterweights descend, and the portcullis smoothly hoists `3.8m` upward into the overhead arch chamber.
-- **Articulated Twin Oak Gate Doors**: Heavy dark oak timbers (`0x3d2b1f`) banded with three horizontal iron strap hinges, brass pull rings, and iron bolt studs. Hinged on the inner piers (`x = ±3.1m`), they swing open inward (`+z`) by 86 degrees, folding flush against the stone passage walls to reveal the vaulted High Sanctum nave.
+### Authored PBR Game-Ready Model (`honorable-entry-gatehouse.glb`)
+Authored by Argon (`Honorable_Entry_Gatehouse_GameReady_PBR.glb`, v1.1 integration specifications) and integrated directly into `client/assets/worlds/bastion-breach/honorable-entry-gatehouse.glb` (3.7MB binary glTF 2.0; pre-gzipped 2.1MB candidate):
+- **Model Hierarchy**: 9 primary mesh nodes (`Gatehouse_Structure`, `Portcullis`, `Door_Left`, `Door_Right`, `Winch_Drum`, `Counterweight_Left`, `Counterweight_Right`, `Banner_Left`, `Banner_Right`) and 5 alignment locators (`LOC_SpikeClearance`, `LOC_TraversalCenter`, `LOC_ArchKeystone`, `LOC_Hinge_Left`, `LOC_Hinge_Right`).
+- **Material & Textures**: Single draw-call PBR material `Castleward_Gatehouse_PBR` with 2K diffuse/albedo, normal, and metallic/roughness maps capturing weathered pale ashlar limestone, dark iron fittings, oak woodgrain, and heraldic crimson fabric.
+- **Embedded Animation Clips**:
+  1. `Gate_ClosedIdle` (1.00s): Default barred stance with lowered portcullis spikes resting on the stone threshold and latched oak doors.
+  2. `Gate_Open` (3.60s): Winch drum rotates +540°, counterweights sink -1.36m, iron portcullis ascends +1.36m (providing 3.940m overhead clearance), and twin oak doors swing inward 86° against the inner jamb stops.
+  3. `Gate_OpenIdle` (1.00s): Stage 2 open hold state with unobstructed 3.088m clear traversal width.
+  4. `Gate_Close` (3.60s): Reverse closure animation.
+
+### Key Structural Dimensions & Bounds (Root = `[0.0, 0.0, +8.8]`)
+- **Full Gatehouse AABB**: Local $X \in [-7.575, +7.575]$m (15.150m wide), $Y \in [-0.256, +8.636]$m (8.892m total height; 8.636m above $Y = 0$ road), $Z \in [-4.459, +2.480]$m ($6.939$m deep) $\rightarrow$ World $X \in [-7.575, +7.575]$, $Y \in [0.000, 8.636]$, $Z \in [+4.341, +11.280]$.
+- **Central Portal Archway**: $X \in [-1.696, +1.696]$m ($3.392$m inner jamb width; $3.088$m clear width between open oak doors $X \in [-1.544, +1.544]$m across $Z \in [+9.04, +10.64]$m).
+- **Vertical Clearances**: Raised portcullis spike clearance at $Y = 3.940$m (+2.14m above a standard 1.80m Spellblade) and $Y = 4.496$m to the arch keystone.
+- **Overhead Machinery & Parapet**: High parapet and corbelled machicolations at $Y = 7.15$m, crenellated merlons reaching $Y = 8.636$m, overhead timber winch drum, twin spoked ratchet wheels, and counterweight boxes.
 - **Western Wall Unfinished Construction Opening**: Located at `x = -11.5m, z = 6.8m` to `9.8m` along the breach wall. In the competitive multiplayer game, this boundary separates the Outer Courtyard from the High Sanctum. To preserve competitive match balance and prevent attackers from bypassing Stage 1, the wall is partitioned into authentic architectural segments with an authoritative defensive barricade:
   - Outer curtain masonry: `x = [-16, -13.0]`, `y = [0, 5.5]`.
   - Inner curtain masonry: `x = [-10.0, -3.5]`, `y = [0, 5.5]`.
@@ -178,19 +186,31 @@ In Breakthrough mode (`shared/worlds/bastionBreach.mjs`, `shared/sim/Room.mjs`, 
 
 1. **Stage 1 (The Outer Gate)**:
    - **Contested Area**: `z = -10` to `+8`, centered at `(0, 0, -2)`.
-   - **Authoritative Gate Blocker**: `BASTION_GATE_BLOCKER = solid('gatehouse-honorable-gate-closed', [-3.4, 3.4], [0, 5.5], [8.5, 9.1], { material: 'iron' })`.
+   - **Authoritative Gate Blocker**: `BASTION_GATE_BLOCKER = solid('gatehouse-honorable-gate-closed', [-1.696, 1.696], [0.000, 3.940], [8.550, 9.100], { material: 'iron' })`.
+   - **Stepped Architectural Solids**:
+     - West buttress: `[-7.575, -3.500]`, `[0.000, 8.636]`, `[4.341, 7.000]`
+     - West tower / inner jamb: `[-7.575, -1.696]`, `[0.000, 8.636]`, `[7.000, 11.280]`
+     - East buttress: `[3.500, 7.575]`, `[0.000, 8.636]`, `[4.341, 7.000]`
+     - East tower / inner jamb: `[1.696, 7.575]`, `[0.000, 8.636]`, `[7.000, 11.280]`
+     - Arch keystone overhead: `[-1.696, 1.696]`, `[3.940, 8.636]`, `[7.000, 10.600]`
    - **Authoritative World State**: Server uses `BASTION_BREACH_CLOSED` where `solids` includes `BASTION_GATE_BLOCKER`.
    - **Player Locomotion & Attacks**: Attackers cannot tunnel or walk through the closed gate; sword swings and projectile casts strike the iron gate with an authoritative metallic clang and sparks.
-   - **Stage 1 Defender Spawns**: Phase 0 defenders spawn in the Outer Courtyard (`z = 3.0` to `5.0`) and on the East Gallery ramp (`z = 3.5, y = 1.25`), placing them directly on the courtyard side with clean, unobstructed ground access to defend Objective 1 at `z = -2`.
+   - **Stage 1 Defender Spawns**: Phase 0 defenders spawn in the Outer Courtyard (`x = ±2.8, z = 4.5` and gallery ramp `z = 3.5, y = 1.25`), placing them directly on the courtyard side with clean, unobstructed ground access to defend Objective 1 at `z = -2` without clipping the stepped buttresses.
    - **Bot Navigation Graph**: In `BASTION_BREACH_CLOSED`, `botNav` does not link `breach-south` (`z = 7`) to `breach-center` (`z = 11`), preventing bots from trying to path through the closed doors.
-2. **The Capture Moment (100% Progress)**:
-   - `stepObjectives` authoritatively transitions the room state to `index: 1` (The High Sanctum).
-   - In `stepRoom`, `room.world` immediately updates to `bastionBreachForObjective(room.objectiveState)`, resolving to `BASTION_BREACH_OPEN` which omits the gate blocker.
-   - Authoritative movement, weapon sweeps, and bot navigation immediately permit passage through `z = 8.8`.
+2. **The Capture Moment & Deterministic Transition**:
+   - `stepObjectives` authoritatively transitions the room state to `index: 1` (The High Sanctum), stamping `lastCapturedAt`.
+   - Authoritative collision keeps `BASTION_GATE_BLOCKER` active for the exact transition interval (`BASTION_GATE_OPEN_DURATION_MS = 1200` ms).
+   - Once `now - lastCapturedAt >= 1200`, `room.world` authoritatively resolves to `BASTION_BREACH_OPEN`, swapping `BASTION_GATE_BLOCKER` for the open door bumpers:
+     - `gatehouse-door-bumper-west`: `[-1.696, -1.544]`, `[0, 2.9]`, `[9.04, 10.64]`
+     - `gatehouse-door-bumper-east`: `[1.544, 1.696]`, `[0, 2.9]`, `[9.04, 10.64]`
+     - This leaves a generous $3.088$m clear central traversal corridor ($X \in [-1.544, +1.544]$m).
 3. **Client Presentation & Late-Join Synchronization**:
    - In `BastionBreachRenderer.mjs`:
-     - **Live capture transition**: `isFirstSet === false`. The gate smoothly animates open over ~1.2s (`gateSpeed = 0.85`), hoists the portcullis `3.8m` upward, swings the twin oak doors 86 degrees inward, rotates the winch drum, and drops the counterweights.
-     - **Late join / reconnect**: `isFirstSet === true`. The renderer immediately snaps `gateOpenProgress = targetGateOpen` (`1.0`), positioning the portcullis, doors, winch, and counterweights in their fully open state without misleading animation lag.
+     - **Authored Asset Mixer**: `AnimationMixer` binds the 4 embedded clips (`Gate_ClosedIdle`, `Gate_Open`, `Gate_OpenIdle`, `Gate_Close`).
+     - **Deterministic Lockstep Progress**: Instead of free-running mixer clocks, `#applyGateTransform()` maps normalized `gateOpenProgress` (0.0 to 1.0) directly onto clip duration: `openAction.time = Math.min(clip.duration, Math.max(0, this.gateOpenProgress * clip.duration))`.
+     - **1.20s Lockstep ($3.0\times$)**: With a 3.60s GLB clip and 1.200s server transition window, this achieves perfect $3.0\times$ playback lockstep with server simulation.
+     - **Late join / reconnect**: Snapping `gateOpenProgress = targetGateOpen` (`1.0`) immediately scrubs the animation to $3.60$s, positioning all meshes in their fully open state without animation lag.
+     - **Fallback & Disposal**: Gracefully falls back to procedural meshes if the GLB fails to load or in headless tests; cleans up mixer actions and cached clones upon `dispose()`.
      - **Movement prediction**: `GameRuntime.mjs` updates `this.activeWorld = bastionBreachForObjective(snapshot.objective)` on each snapshot, synchronizing local client prediction with server truth.
 4. **Stage 2 (The High Sanctum)**:
    - Attackers advance through the open gatehouse into the vaulted chapel.
@@ -201,8 +221,10 @@ In Breakthrough mode (`shared/worlds/bastionBreach.mjs`, `shared/sim/Room.mjs`, 
 
 ## 6. Verification & Implementation Summary
 
+- **Authored Asset Delivery**: Authored game-ready PBR GLB (`honorable-entry-gatehouse.glb`) loaded and verified in-engine.
 - **Server Truth**: Gate passage is strictly determined by server-authoritative collision in `Room.mjs` and `combat.mjs`. Clients cannot walk or glitch through closed doors.
 - **Bot Integrity**: Defensive bot retreat logic (`BASTION_BREACH_TACTICS`) directs bots into the High Sanctum once Stage 1 falls, traversing the newly opened gate without navigation bottlenecks.
+- **Visual Evidence**: In-engine WebGL screenshots recorded for Stage 1 barred gate, mid-ceremony transition ($t = 0.6$s), Stage 2 fully open portal, western construction gap, and defender sanctum perspective (see [Breakthrough Evidence](../evidence/breakthrough/README.md)).
 - **Audio & Voice Quip Hooks**: In-match announcer lines when the gate opens:
   - Defender Announcer: *"The Outer Bailey is ceded! Open the Citadel Gates—let them face our steel upon the sacred flags!"*
   - Attacker Announcer: *"The Gatehouse rises! Advance into their sanctuary!"*
