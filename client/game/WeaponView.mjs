@@ -9,6 +9,7 @@ import { SPELLBLADE_PALETTE } from './spellbladeDesign.mjs';
 import { createSpellbladeSword } from './SpellbladeSword.mjs';
 import { castGesture, castGestureRotations } from './castGesture.mjs';
 import { createSpellbladeAsset, reportSpellbladeAssetStatus } from './SpellbladeAssets.mjs';
+import { SORCERY_LIFT } from './SorceryVolume.mjs';
 import { resolveFirstPersonAnimationPlan } from './spellbladeAnimationPlan.mjs';
 import { FIRST_PERSON_WEAPON_SCALE, resolveWeaponPose } from './weaponPose.mjs';
 import { FP_MOTION, FirstPersonMotion } from './firstPersonMotion.mjs';
@@ -353,7 +354,9 @@ export class WeaponView {
 
       if (instance.sockets.sorcery) {
         instance.sockets.sorcery.add(this.magicLight);
-        this.magicLight.position.set(0, 0, 0);
+        // (the palm's light in the sorcery above it, as the shards are: on the palm itself, a hand's breadth from the
+        // fingers, it washed them pale blue)
+        this.magicLight.position.copy(SORCERY_LIFT);
         // the spell gathering in the palm: a hot core and a softer glow, in the spell's colour
         this.chargeOrb = new THREE.Group();
         this.chargeCore = new THREE.Mesh(new THREE.IcosahedronGeometry(0.035, 1), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
