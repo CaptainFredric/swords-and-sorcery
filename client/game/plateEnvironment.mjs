@@ -3,10 +3,10 @@ import * as THREE from 'three';
 // Something for the supplied Spellblade's plate to reflect. The game lights its knights with a hemisphere and a sun and
 // no environment map: with nothing to reflect, metal renders dark, so that model's build turns its metalness down to a
 // sixth (as the kit's colours are calibrated), and its steel and brass then read as matte paint, like clay. Here its
-// plate is given a soft sky over ground to reflect (the renderer prefilters it on first use) and its metal back up to
-// about half of what the source model asked for: the steel takes the sky on its upper faces and the ground below, and
-// reads as steel. Only a model carrying the supplied model's materials is changed (the kit, calibrated for no
-// environment, is left as it is); its glow and its own kit parts (the sword, the palm rune) are left alone.
+// plate is given a soft sky over ground to reflect, faintly (the renderer prefilters it on first use), and its metal a
+// little up: the steel takes a little of the sky on its upper faces and the ground below, and reads as steel. Only a
+// model carrying the supplied model's materials is changed (the kit, calibrated for no environment, is left as it is);
+// its glow and its own kit parts (the sword, the palm rune) are left alone.
 
 export const PLATE_ENVIRONMENT = Object.freeze({
   body: 'GameBody',
@@ -14,10 +14,12 @@ export const PLATE_ENVIRONMENT = Object.freeze({
   sky: Object.freeze([0.62, 0.62, 0.6]),
   horizon: Object.freeze([0.78, 0.74, 0.66]),
   ground: Object.freeze([0.16, 0.13, 0.11]),
-  intensity: 0.9,
-  // the build's metalness, back up from a sixth to about half the source's; its roughness a little lower (scaled)
-  metal: 3,
-  roughness: 0.8,
+  // (a soft reflection, not a shine: at more the plate read light and glinting against the world, and drew the eye in
+  // first person; the concept's steel is dark and quiet, its edges catching the light)
+  intensity: 0.3,
+  // the build's metalness, a little up from its sixth of the source's; its roughness a little higher (scaled)
+  metal: 1.25,
+  roughness: 1.1,
 });
 const LEAVE = new Set(['KitMetal', 'KitMatte', 'SwordSteel', 'SorceryAccent', 'VisorGlow', 'Helmet visor shadow']);
 // the supplied model's metal parts (their metalness is the build's, scaled down): the rest only see the sky
@@ -70,7 +72,7 @@ export function lightPlate(root) {
       if (METAL.test(material.name)) {
         // (the build's metalness: in a texture, scaled by the factor; or the factor itself, scaled)
         material.metalness = material.metalnessMap ? PLATE_ENVIRONMENT.metal : Math.min(0.6, material.metalness * PLATE_ENVIRONMENT.metal);
-        material.roughness *= PLATE_ENVIRONMENT.roughness;
+        material.roughness = Math.min(1, material.roughness * PLATE_ENVIRONMENT.roughness);
       }
       material.userData.plateEnvironment = true;
       material.needsUpdate = true;
