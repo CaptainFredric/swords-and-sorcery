@@ -941,7 +941,8 @@ export class WeaponView {
       for (const material of this.productionInstance.materials.SorceryAccent ?? []) {
         material.emissiveIntensity = (0.7 + 2.1 * level + 2.4 * wake) * away.rune;
       }
-      this.magicLight.intensity = (0.12 + 2.6 * level + 1.8 * wake) * away.rune;
+      // (at rest a faint ember: a hand's breadth from the fingers, at more it lit the whole gauntlet a pale blue)
+      this.magicLight.intensity = (0.04 + 2.6 * level + 1.8 * wake) * away.rune;
       this.#chargeGlow(gesture, timeSec);
       // (the hand on a burning sword is lit by it)
       if (fire > 0.01) {
