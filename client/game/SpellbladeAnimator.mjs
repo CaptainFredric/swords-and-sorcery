@@ -350,12 +350,12 @@ export class SpellbladeAnimator {
     // the airborne tuck lets the feet rise instead.
     const flex = landFlex + airFlex;
     if (flex > 1e-4 && pelvisBone) {
-      // A moving crouch can swap support legs. Comparing each ankle's lift and taking the maximum
-      // lowers the opposite boot into the floor. Preserve the lowest actual sole across the whole pose.
+      // A crouch can swap support legs as it moves, and standing it bends uneven legs unevenly: comparing each
+      // ankle's lift and taking the maximum lowers the other boot into the floor (the supplied model's stance put a
+      // standing crouch's boot 7 mm under). Preserve the lowest actual sole across the whole pose.
       // Keep the existing landing and airborne behavior, including ultimate action poses, unchanged.
-      const movingCrouch = landFlex > 0 && motion.crouch > 1e-4 && airFlex < 1e-4
-        && GAIT_CLIPS.has(this.activeClip) && this.soles.size === 2;
-      const height = (foot) => movingCrouch ? this.#soleY(foot) : this.#rootY(this.bone(foot));
+      const soleCrouch = landFlex > 0 && motion.crouch > 1e-4 && airFlex < 1e-4 && this.soles.size === 2;
+      const height = (foot) => soleCrouch ? this.#soleY(foot) : this.#rootY(this.bone(foot));
       const before = LEG_CHAINS.map(([, , foot]) => height(foot));
       for (const [thigh, shin, foot] of LEG_CHAINS) {
         // hips flex (knee forward), the knee bends twice as far back, the foot stays flat
@@ -364,7 +364,7 @@ export class SpellbladeAnimator {
         this.#rotateInRootSpace(this.bone(foot), [1, 0, 0], flex);
       }
       const after = LEG_CHAINS.map(([, , foot]) => height(foot));
-      const offset = movingCrouch ? soleContactOffset(before, after)
+      const offset = soleCrouch ? soleContactOffset(before, after)
         : -Math.max(...after.map((y, i) => y - before[i])) * (landFlex / flex);
       if (Number.isFinite(offset) && landFlex > 1e-4) this.#offsetInRootSpace(pelvisBone, [0, offset, 0]);
     }
