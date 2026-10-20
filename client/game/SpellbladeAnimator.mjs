@@ -12,6 +12,11 @@ function sanitize(name) {
 }
 
 const LEG_CHAINS = [['thigh.L', 'shin.L', 'foot.L'], ['thigh.R', 'shin.R', 'foot.R']];
+// The supplied Spellblade's pauldrons ride bones of their own, each sharing its upper arm's rest and parent and turned
+// this far with it (its build bakes the same into every clip): each plate moves whole, partly with the shoulder and
+// partly with the arm. Set here every frame as well, so they follow whatever else turns the arm (a flourish's reach,
+// a reaction, a fall).
+export const PAULDRON_FOLLOW = 0.6;
 const _q = new THREE.Quaternion();
 const _qp = new THREE.Quaternion();
 const _qpInv = new THREE.Quaternion();
@@ -56,6 +61,8 @@ export class SpellbladeAnimator {
     this.mixer = new THREE.AnimationMixer(root);
     // (a model with cloth grids gets cloth; one with the older two-bone chains, their springs)
     this.cloth = cloth ? (hasClothGrids(root) ? new ClothGridRig(root) : new SpellbladeClothRig(root)) : null;
+    // (the pauldrons' bones and their rest turns, read as the model loads: at its rest)
+    this.pauldrons = [];
     this.actions = new Map();
     this.composition = new SpellbladeComposition(root, clips);
     this.composing = false;
@@ -70,6 +77,11 @@ export class SpellbladeAnimator {
     this.gaitPhase = 0;
     this.bones = new Map();
     root.traverse((object) => { if (object.isBone) this.bones.set(object.name, object); });
+    for (const side of ['L', 'R']) {
+      const plate = this.bones.get(`pauldron${side}`);
+      const arm = this.bones.get(`upper_arm${side}`);
+      if (plate && arm) this.pauldrons.push({ plate, arm, rest: plate.quaternion.clone() });
+    }
     // bone transforms the procedural layer changed last frame (restored before the next pose)
     this.touched = new Map();
     // Cache the rigid boots in their foot bones' space once. Contact checks then use cheap transforms,
@@ -106,6 +118,13 @@ export class SpellbladeAnimator {
       rotate: (name, axis, angle) => this.#rotateInRootSpace(this.bone(name), axis, angle),
       shift: (name, offset) => this.#offsetInRootSpace(this.bone(name), offset),
     };
+  }
+
+  #followPauldrons() {
+    for (const { plate, arm, rest } of this.pauldrons) {
+      plate.quaternion.copy(rest).slerp(arm.quaternion, PAULDRON_FOLLOW);
+      plate.position.copy(arm.position);
+    }
   }
 
   bone(name) {
@@ -146,6 +165,7 @@ export class SpellbladeAnimator {
       this.activeClip = locomotion?.clip ?? this.activeClip;
       this.composition.apply(layers, step);
       this.#applyProcedural(plan.motion);
+      this.#followPauldrons();
       this.cloth?.apply(step);
       this.onPose?.(plan);
       return true;
@@ -228,6 +248,7 @@ export class SpellbladeAnimator {
     this.mixer.update(0);
     this.composition.blendOut(step);
     this.#applyProcedural(plan.motion);
+    this.#followPauldrons();
     this.cloth?.apply(step);
     this.onPose?.(plan);
     return true;

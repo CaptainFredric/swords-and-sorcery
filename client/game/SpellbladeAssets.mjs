@@ -1,5 +1,6 @@
 import { createClothDye } from './clothDye.mjs';
 import { createEmblemBanner } from './emblemBanner.mjs';
+import { lightPlate } from './plateEnvironment.mjs';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import { createSorceryVolume } from './SorceryVolume.mjs';
@@ -163,6 +164,8 @@ export async function createSpellbladeAsset({ kind = 'thirdPerson', manifestUrl 
     sorcery.update(performance.now() / 1000, sorceryLevel(plan.layers?.sorcery?.clip ?? plan.clip, plan.layers?.sorcery?.time ?? plan.time, castDuration));
   }, { cloth: kind !== 'firstPerson' });
 
+  // (the supplied model's plate: something to reflect, so its steel reads as steel)
+  if (kind !== 'firstPerson') lightPlate(root);
   const clothDye = createClothDye(root);
   const emblemBanner = createEmblemBanner(root);
   let disposed = false;

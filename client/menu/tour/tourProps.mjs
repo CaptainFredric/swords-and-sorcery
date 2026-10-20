@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { chunkOf, splitAt } from './tourChunks.mjs';
 
 // What happens to the Spellblade's rivals on his round, made of their own armour: a knight charred black, a knight
 // fallen apart into the pieces he was built from, a sword cut in two, a white flag, a knight frozen solid and melted
@@ -120,11 +121,60 @@ function bakedTriangles(mesh) {
     }
   }
   const triangles = [];
+  const bones = mesh.skeleton?.bones ?? [];
   for (let t = 0; t < count; t += 3) {
     const ids = [0, 1, 2].map((k) => (index ? index.getX(t + k) : t + k));
-    triangles.push({ ids, bone: bone[ids[0]] });
+    // (the piece of him it belongs to: what most of its corners ride on)
+    const votes = new Map();
+    for (const id of ids) {
+      const chunk = chunkOf(bones[bone[id]]?.name ?? '');
+      votes.set(chunk, (votes.get(chunk) ?? 0) + 1);
+    }
+    const chunk = [...votes.entries()].sort((a, b) => b[1] - a[1])[0][0];
+    triangles.push({ ids, bone: bone[ids[0]], chunk });
   }
   return { triangles, world, color, uv };
+}
+
+// tidy the pieces of one mesh: a triangle whose neighbours are mostly of another piece joins them (four times over), and
+// any scrap left of a piece too small to fall on its own joins the piece it touches most
+function tidyChunks(baked) {
+  const key = (id) => `${Math.round(baked.world[id * 3] * 2000)},${Math.round(baked.world[id * 3 + 1] * 2000)},${Math.round(baked.world[id * 3 + 2] * 2000)}`;
+  const edges = new Map();
+  baked.triangles.forEach((triangle, t) => {
+    const k = triangle.ids.map(key);
+    for (const [a, b] of [[k[0], k[1]], [k[1], k[2]], [k[2], k[0]]]) {
+      const e = a < b ? `${a}|${b}` : `${b}|${a}`;
+      if (!edges.has(e)) edges.set(e, []);
+      edges.get(e).push(t);
+    }
+  });
+  const around = baked.triangles.map(() => []);
+  for (const list of edges.values()) for (const t of list) for (const u of list) if (t !== u) around[t].push(u);
+  for (let pass = 0; pass < 4; pass += 1) {
+    const next = baked.triangles.map((triangle, t) => {
+      const votes = new Map();
+      for (const u of around[t]) votes.set(baked.triangles[u].chunk, (votes.get(baked.triangles[u].chunk) ?? 0) + 1);
+      const [best, n] = [...votes.entries()].sort((a, b) => b[1] - a[1])[0] ?? [triangle.chunk, 0];
+      return n >= 2 && best !== triangle.chunk ? best : triangle.chunk;
+    });
+    next.forEach((chunk, t) => { baked.triangles[t].chunk = chunk; });
+  }
+  // scraps: connected runs of one piece, under 24 triangles, join the piece they border most
+  const seen = new Set();
+  baked.triangles.forEach((triangle, t) => {
+    if (seen.has(t)) return;
+    const run = [t];
+    seen.add(t);
+    for (let i = 0; i < run.length; i += 1) {
+      for (const u of around[run[i]]) if (!seen.has(u) && baked.triangles[u].chunk === triangle.chunk) { seen.add(u); run.push(u); }
+    }
+    if (run.length >= 24) return;
+    const votes = new Map();
+    for (const r of run) for (const u of around[r]) if (baked.triangles[u].chunk !== triangle.chunk) votes.set(baked.triangles[u].chunk, (votes.get(baked.triangles[u].chunk) ?? 0) + 1);
+    const best = [...votes.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+    if (best) for (const r of run) baked.triangles[r].chunk = best;
+  });
 }
 
 // a static mesh from some of those triangles, centred on their middle (returned as its world position)
@@ -196,30 +246,35 @@ export class Debris {
   }
 
   // once everything lies still, what lies there is merged into one mesh for each material: a heap of armour costs a
-  // draw call or two instead of one for every plate (and as many again for their shadows)
+  // draw call or two instead of one for every plate (and as many again for their shadows). A piece may be a group of
+  // meshes (a gauntlet of several materials): each of its meshes is merged with its own material's.
   #merge() {
     const groups = new Map();
     for (const piece of this.pieces) {
-      const { geometry, material } = piece.mesh;
-      const names = Object.keys(geometry.attributes).sort();
-      const key = `${names.join(',')}:${Boolean(piece.mesh.userData.tourRetired)}`;
-      if (!groups.has(material)) groups.set(material, new Map());
-      const shapes = groups.get(material);
-      if (!shapes.has(key)) shapes.set(key, []);
-      shapes.get(key).push(piece);
+      piece.mesh.updateMatrixWorld(true);
+      const retired = Boolean(piece.mesh.userData.tourRetired);
+      piece.mesh.traverse((mesh) => {
+        if (!mesh.isMesh) return;
+        const { geometry, material } = mesh;
+        const names = Object.keys(geometry.attributes).sort();
+        const key = `${names.join(',')}:${retired}`;
+        if (!groups.has(material)) groups.set(material, new Map());
+        const shapes = groups.get(material);
+        if (!shapes.has(key)) shapes.set(key, []);
+        shapes.get(key).push({ mesh, retired, visible: piece.mesh.visible });
+      });
     }
+    for (const piece of this.pieces) this.scene.remove(piece.mesh);
     const merged = [];
     for (const [material, shapes] of groups) {
       for (const pieces of shapes.values()) {
         const names = Object.keys(pieces[0].mesh.geometry.attributes);
         const parts = Object.fromEntries(names.map((name) => [name, []]));
         for (const { mesh } of pieces) {
-          mesh.updateMatrixWorld();
           const placed = mesh.geometry.index ? mesh.geometry.toNonIndexed() : mesh.geometry.clone();
           placed.applyMatrix4(mesh.matrixWorld);
           for (const name of names) parts[name].push(placed.attributes[name].array);
           placed.dispose();
-          this.scene.remove(mesh);
           mesh.geometry.dispose();
         }
         const geometry = new THREE.BufferGeometry();
@@ -233,8 +288,8 @@ export class Debris {
         const mesh = new THREE.Mesh(geometry, material);
         mesh.castShadow = true;
         mesh.receiveShadow = true;
-        mesh.visible = pieces[0].mesh.visible;
-        mesh.userData.tourRetired = Boolean(pieces[0].mesh.userData.tourRetired);
+        mesh.visible = pieces[0].visible;
+        mesh.userData.tourRetired = pieces[0].retired;
         this.scene.add(mesh);
         merged.push({ mesh, velocity: new THREE.Vector3(), spin: new THREE.Vector3(), delay: 0, landed: 0, resting: true, merged: true });
       }
@@ -247,7 +302,7 @@ export class Debris {
     this.pieces = this.pieces.filter((piece) => {
       if (!which(piece.mesh)) return true;
       this.scene.remove(piece.mesh);
-      piece.mesh.geometry.dispose();
+      piece.mesh.traverse((mesh) => mesh.geometry?.dispose());
       return false;
     });
   }
@@ -255,42 +310,54 @@ export class Debris {
   clear() {
     for (const piece of this.pieces) {
       this.scene.remove(piece.mesh);
-      piece.mesh.geometry.dispose();
+      piece.mesh.traverse((mesh) => mesh.geometry?.dispose());
     }
     this.pieces = [];
   }
 }
 
 /**
- * The knight falls apart: every piece of his armour (split by the bone it rides on) drops where it was, pushed a
- * little outward and set tumbling, and he himself is hidden. `random` makes it the same every round.
+ * The knight falls apart: every piece of his armour (chunkOf: the helm, the cuirass, a pauldron, a greave, the cape...)
+ * drops where it was, pushed a little outward and set tumbling, and he himself is hidden. `random` makes it the same
+ * every round.
  */
 export function shatterKnight(instance, debris, random = Math.random) {
   const centre = new THREE.Vector3();
   instance.root.getWorldPosition(centre);
+  // every mesh's triangles, by the piece of him they belong to (a gauntlet's plates, palm and grip, whatever meshes
+  // and materials they are drawn with, fall together as one)
+  const chunks = new Map();
   instance.root.traverse((object) => {
     if (!object.isMesh || !object.visible || !object.geometry?.attributes?.position) return;
     if (object.geometry.attributes.position.count < 12) return;   // the palm's sorcery shards just go out
     const baked = bakedTriangles(object);
-    const groups = new Map();
+    tidyChunks(baked);
+    const byChunk = new Map();
     for (const triangle of baked.triangles) {
-      if (!groups.has(triangle.bone)) groups.set(triangle.bone, []);
-      groups.get(triangle.bone).push(triangle);
+      if (!byChunk.has(triangle.chunk)) byChunk.set(triangle.chunk, []);
+      byChunk.get(triangle.chunk).push(triangle);
     }
-    for (const triangles of groups.values()) {
-      const piece = pieceFrom(baked, triangles, object.material);
-      const out = piece.position.clone().sub(centre).setY(0);
-      if (out.lengthSq() < 1e-4) out.set(random() - 0.5, 0, random() - 0.5);
-      out.normalize().multiplyScalar(0.4 + random() * 0.9);
-      // higher pieces drop a moment later, as a tower of plate would come down
-      const delay = Math.max(0, piece.position.y - 0.4) * 0.12 * random();
-      debris.add(piece, {
-        velocity: new THREE.Vector3(out.x, 0.4 + random() * 1.1, out.z),
-        spin: new THREE.Vector3((random() - 0.5) * 7, (random() - 0.5) * 5, (random() - 0.5) * 7),
-        delay,
-      });
+    for (const [chunk, triangles] of byChunk) {
+      if (!chunks.has(chunk)) chunks.set(chunk, []);
+      chunks.get(chunk).push(pieceFrom(baked, triangles, object.material));
     }
   });
+  for (const parts of chunks.values()) {
+    const piece = new THREE.Group();
+    for (const part of parts) piece.position.add(part.position);
+    piece.position.divideScalar(parts.length);
+    for (const part of parts) { part.position.sub(piece.position); piece.add(part); }
+    const out = piece.position.clone().sub(centre).setY(0);
+    if (out.lengthSq() < 1e-4) out.set(random() - 0.5, 0, random() - 0.5);
+    out.normalize().multiplyScalar(0.4 + random() * 0.9);
+    // higher pieces drop a moment later, as a tower of plate would come down
+    const delay = Math.max(0, piece.position.y - 0.4) * 0.12 * random();
+    debris.add(piece, {
+      velocity: new THREE.Vector3(out.x, 0.4 + random() * 1.1, out.z),
+      spin: new THREE.Vector3((random() - 0.5) * 7, (random() - 0.5) * 5, (random() - 0.5) * 7),
+      delay,
+    });
+  }
   instance.root.visible = false;
 }
 
@@ -306,43 +373,81 @@ export function cutSword(instance, debris, { aim, at = 0.42, throwDirection = ne
   const axis = new THREE.Vector3(...aim).applyQuaternion(socket.getWorldQuaternion(new THREE.Quaternion())).normalize();
   const swords = [];
   instance.root.traverse((object) => { if (object.isMesh && /^HeroSword/i.test(object.name)) swords.push(object); });
+  // every triangle's corners as they stand, and how far along the blade from the grip each lies
   let reach = 0;
-  const upper = [];
-  const lower = [];
+  const all = [];
   for (const mesh of swords) {
     const baked = bakedTriangles(mesh);
+    const corner = (id) => {
+      const p = [baked.world[id * 3], baked.world[id * 3 + 1], baked.world[id * 3 + 2]];
+      return {
+        p,
+        uv: baked.uv ? [baked.uv.getX(id), baked.uv.getY(id)] : null,
+        c: baked.color ? [baked.color.getX(id), baked.color.getY(id), baked.color.getZ(id)] : null,
+        a: _v.set(...p).sub(grip).dot(axis),
+      };
+    };
     for (const triangle of baked.triangles) {
-      const along = triangle.ids.reduce((sum, id) => sum + _v.set(baked.world[id * 3], baked.world[id * 3 + 1], baked.world[id * 3 + 2]).sub(grip).dot(axis), 0) / 3;
-      reach = Math.max(reach, along);
-      (along > 0 ? upper : lower).push({ mesh, baked, triangle, along });
+      const corners = triangle.ids.map(corner);
+      for (const c of corners) reach = Math.max(reach, c.a);
+      all.push({ mesh, corners });
     }
   }
+  // cut clean across the blade: a triangle the cut crosses is split along it (the blade's few long triangles, kept or
+  // thrown whole, left a stub of ragged slivers)
   const cut = reach * at;
-  const byMesh = (list) => {
-    const out = new Map();
-    for (const entry of list) {
-      if (!out.has(entry.mesh)) out.set(entry.mesh, { baked: entry.baked, triangles: [] });
-      out.get(entry.mesh).triangles.push(entry.triangle);
-    }
-    return out;
-  };
-  const kept = [...lower, ...upper.filter((entry) => entry.along <= cut)];
-  const thrown = upper.filter((entry) => entry.along > cut);
-  const stub = new THREE.Group();
-  for (const [mesh, { baked, triangles }] of byMesh(kept)) {
-    const piece = pieceFrom(baked, triangles, mesh.material);
-    stub.add(piece);
+  const kept = new Map();
+  const thrown = new Map();
+  const into = (map, mesh, triangles) => { if (!map.has(mesh)) map.set(mesh, []); map.get(mesh).push(...triangles); };
+  for (const { mesh, corners } of all) {
+    const [below, above] = splitAt(corners, cut);
+    into(kept, mesh, below);
+    into(thrown, mesh, above);
   }
+  const stub = new THREE.Group();
+  for (const [mesh, triangles] of kept) if (triangles.length) stub.add(pieceFromCorners(triangles, mesh.material));
   // the stub rides the hand from here on
   socket.attach(stub);
-  for (const [mesh, { baked, triangles }] of byMesh(thrown)) {
-    debris.add(pieceFrom(baked, triangles, mesh.material), {
+  for (const [mesh, triangles] of thrown) {
+    if (!triangles.length) continue;
+    debris.add(pieceFromCorners(triangles, mesh.material), {
       velocity: throwDirection.clone().multiplyScalar(2.2).add(new THREE.Vector3(0, 2.4, 0)),
       spin: new THREE.Vector3(9, 2, 6),
     });
   }
   for (const mesh of swords) mesh.visible = false;
   return stub;
+}
+
+// a static mesh from triangles given by their corners ({ p, uv, c }), centred on their middle (its world position)
+function pieceFromCorners(triangles, material) {
+  const positions = [];
+  const uvs = triangles[0][0].uv ? [] : null;
+  const colors = triangles[0][0].c ? [] : null;
+  const centre = new THREE.Vector3();
+  for (const triangle of triangles) {
+    for (const corner of triangle) {
+      positions.push(...corner.p);
+      centre.x += corner.p[0]; centre.y += corner.p[1]; centre.z += corner.p[2];
+      if (uvs) uvs.push(...corner.uv);
+      if (colors) colors.push(...corner.c);
+    }
+  }
+  centre.divideScalar(positions.length / 3);
+  for (let i = 0; i < positions.length; i += 3) {
+    positions[i] -= centre.x; positions[i + 1] -= centre.y; positions[i + 2] -= centre.z;
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  if (colors) geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  if (uvs) geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+  geometry.computeVertexNormals();
+  geometry.computeBoundingSphere();
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.position.copy(centre);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  return mesh;
 }
 
 /** The sword comes back whole (for the next round). */
