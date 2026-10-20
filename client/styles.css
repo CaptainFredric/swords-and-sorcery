@@ -170,6 +170,7 @@ body.took-steel::after{content:"";position:fixed;inset:0;z-index:50;pointer-even
 .objective-waypoint[data-state="capturing"][data-team="DEFENDERS"] { border-color: #ff6e63; }
 .objective-waypoint[data-state="capturing"][data-team="DEFENDERS"] .wp-diamond { background: #ff6e63; }
 .objective-waypoint[data-clamped="true"] { opacity: 0.88; transform: translate(-50%, -50%) scale(0.92); }
+.objective-waypoint[data-clamped="true"] .wp-diamond { transform: rotate(var(--wp-angle, 45deg)); }
 .objective-waypoint[data-state="contested"] { border-color: #e98243; }
 .objective-waypoint[data-state="contested"] .wp-diamond { background: #e98243; }
 .objective-waypoint[data-state="overtime"] { border-color: #ffbe4a; }

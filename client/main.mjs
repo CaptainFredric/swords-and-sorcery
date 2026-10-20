@@ -1500,6 +1500,7 @@ function noteRoomState(snapshot) {
 socket.on('snapshot', (snapshot) => {
   if (fromLeftRoom(snapshot) || (leftRoom !== null && !socket.roomCode)) return;
   latestSnapshot = snapshot;
+  if (new URLSearchParams(location.search).has('debug')) globalThis.__ssSnapshot = snapshot;
   ensureRuntime();
   noteRoomState(snapshot);
   currentRoomState = snapshot.roomState;

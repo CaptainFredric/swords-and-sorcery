@@ -677,6 +677,9 @@ export class HUD {
     this.objectiveWaypoint.style.top = `${(screenPos.y * 100).toFixed(1)}%`;
     this.objectiveWaypoint.dataset.team = myTeam;
     this.objectiveWaypoint.dataset.clamped = screenPos.clamped ? 'true' : 'false';
+    if (Number.isFinite(screenPos.angle)) {
+      this.objectiveWaypoint.style.setProperty('--wp-angle', `${screenPos.angle.toFixed(1)}deg`);
+    }
     this.objectiveWaypoint.dataset.state = obj.contested ? 'contested' : obj.capturing ? 'capturing' : 'idle';
     this.objectiveWaypoint.querySelector('[data-wp-name]').textContent = (obj.name ?? 'OBJECTIVE').toUpperCase();
     const pct = Math.round((obj.progress ?? 0) * 100);

@@ -182,10 +182,10 @@ const SPAWN_POINTS = Object.freeze([
   spawn(2.5, 0, 0.5, 0, 25, 'ATTACKERS', 1),
 
   // Defenders Phase 0 spawns (Outer Courtyard & Gallery ramp defending Outer Gate)
-  spawn(-3.5, 0, 4.5, 0, -2, 'DEFENDERS', 0),
-  spawn(0, 0, 5.0, 0, -2, 'DEFENDERS', 0),
-  spawn(3.5, 0, 4.5, 0, -2, 'DEFENDERS', 0),
-  spawn(-1.5, 0, 3.0, 0, -2, 'DEFENDERS', 0),
+  spawn(-3.5, 0, 5.0, 0, -2, 'DEFENDERS', 0),
+  spawn(0, 0, 5.5, 0, -2, 'DEFENDERS', 0),
+  spawn(3.5, 0, 5.0, 0, -2, 'DEFENDERS', 0),
+  spawn(-1.5, 0, 5.2, 0, -2, 'DEFENDERS', 0),
   spawn(11.5, 1.25, 3.5, 0, -2, 'DEFENDERS', 0),
 
   // Defenders Phase 1 spawns (Sanctum Rear Bastion - defending High Sanctum)
