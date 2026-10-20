@@ -164,8 +164,8 @@ export async function createSpellbladeAsset({ kind = 'thirdPerson', manifestUrl 
     sorcery.update(performance.now() / 1000, sorceryLevel(plan.layers?.sorcery?.clip ?? plan.clip, plan.layers?.sorcery?.time ?? plan.time, castDuration));
   }, { cloth: kind !== 'firstPerson' });
 
-  // (the supplied model's plate: something to reflect, so its steel reads as steel)
-  if (kind !== 'firstPerson') lightPlate(root);
+  // (the supplied model's plate, in the world and in the view's arms: something to reflect, so its steel reads as steel)
+  lightPlate(root);
   const clothDye = createClothDye(root);
   const emblemBanner = createEmblemBanner(root);
   let disposed = false;
