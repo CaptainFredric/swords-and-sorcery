@@ -21,7 +21,7 @@ export const PLATE_ENVIRONMENT = Object.freeze({
   metal: 1.25,
   roughness: 1.1,
 });
-const LEAVE = new Set(['KitMetal', 'KitMatte', 'SwordSteel', 'SorceryAccent', 'VisorGlow', 'Helmet visor shadow']);
+const LEAVE = new Set(['KitMetal', 'KitMatte', 'SwordSteel', 'SorceryAccent', 'VisorGlow', 'Visor halo', 'Helmet visor shadow']);
 // the supplied model's metal parts (their metalness is the build's, scaled down): the rest only see the sky
 const METAL = /^(GameBody|Native supplied forearm|Hand steel|Hand worn edge|Helmet )/;
 
