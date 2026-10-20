@@ -104,6 +104,20 @@ function loadGltf(url) {
   return gltfPromises.get(url);
 }
 
+const FIRST_PERSON_ANISOTROPY = 8;
+const TEXTURE_SLOTS = ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'emissiveMap'];
+function sharpenTextures(root, anisotropy) {
+  root.traverse((object) => {
+    if (!object.isMesh) return;
+    for (const material of [].concat(object.material)) {
+      for (const slot of TEXTURE_SLOTS) {
+        const texture = material?.[slot];
+        if (texture && texture.anisotropy < anisotropy) { texture.anisotropy = anisotropy; texture.needsUpdate = true; }
+      }
+    }
+  });
+}
+
 function cloneMutableMaterials(root, names) {
   const wanted = new Set(names);
   const owned = new Set();
@@ -166,6 +180,9 @@ export async function createSpellbladeAsset({ kind = 'thirdPerson', manifestUrl 
 
   // (the supplied model's plate, in the world and in the view's arms: something to reflect, so its steel reads as steel)
   lightPlate(root);
+  // (the arms in view are seen a hand's breadth from the eye and edge-on along the forearm: their textures filtered
+  // for that angle, or the forearm's plate smears and steps into blocks down its length)
+  if (kind === 'firstPerson') sharpenTextures(root, FIRST_PERSON_ANISOTROPY);
   const clothDye = createClothDye(root);
   const emblemBanner = createEmblemBanner(root);
   let disposed = false;
