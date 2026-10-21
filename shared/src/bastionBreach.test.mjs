@@ -96,6 +96,9 @@ test('Stage 1 Phase 0 defenders spawn in Outer Courtyard and ramp with clear acc
   for (const sp of phase0Defenders) {
     // Must be located south of the closed gatehouse (z < 8.5)
     assert(sp.z < 8.5, `Defender spawn at (x=${sp.x}, z=${sp.z}) must be in courtyard, not behind closed gate`);
+    // Must be outside Objective 1 capture radius (6.0m from [0, 0, -2])
+    const distToObj1 = Math.hypot(sp.x - 0, sp.z - (-2));
+    assert(distToObj1 > 6.0, `Defender spawn at (${sp.x}, ${sp.z}) distance ${distToObj1.toFixed(2)}m must be outside 6m capture radius`);
     // Ground underfoot
     const ground = surfaceHeightAt(sp.x, sp.z, sp.y + 0.2, BASTION_BREACH);
     assert.notEqual(ground, null, `Defender spawn at (x=${sp.x}, z=${sp.z}) must have solid ground`);

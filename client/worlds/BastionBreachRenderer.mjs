@@ -19,12 +19,17 @@ export function loadHonorableGatehouseAsset() {
         undefined,
         (err) => {
           console.warn('Honorable Entry Gatehouse GLB failed to load:', err);
+          gatehouseGltfPromise = null;
           resolve(null);
         }
       );
     });
   }
   return gatehouseGltfPromise;
+}
+
+export function resetGatehouseAssetCache() {
+  gatehouseGltfPromise = null;
 }
 
 export const BASTION_BREACH_LIGHTING = Object.freeze({
@@ -85,6 +90,7 @@ export class BastionBreachRenderer {
     this.gatehouseModel = null;
     this.gatehouseMixer = null;
     this.gatehouseActions = null;
+    this.gatehouseOwnedMaterials = new Set();
 
     // Fallback references (lightweight procedural gate while GLB is pending)
     this.fallbackGatehouseGroup = null;
@@ -340,7 +346,8 @@ export class BastionBreachRenderer {
       this.gatehouseGroup.remove(this.fallbackGatehouseGroup);
       this.fallbackGatehouseGroup.traverse((obj) => {
         obj.geometry?.dispose?.();
-        disposeMaterial(obj.material);
+        // NOTE: Do NOT dispose obj.material here!
+        // Fallback procedural elements use this.materials, which are shared across the renderer.
       });
       this.fallbackGatehouseGroup = null;
       this.gatePortcullisGroup = null;
@@ -356,6 +363,15 @@ export class BastionBreachRenderer {
       if (this.gatehouseModel) {
         this.gatehouseMixer.uncacheRoot(this.gatehouseModel);
         this.gatehouseGroup.remove(this.gatehouseModel);
+        this.gatehouseModel.traverse((child) => {
+          child.geometry?.dispose?.();
+        });
+        if (this.gatehouseOwnedMaterials) {
+          for (const mat of this.gatehouseOwnedMaterials) {
+            mat?.dispose?.();
+          }
+          this.gatehouseOwnedMaterials.clear();
+        }
       }
     }
 
@@ -365,12 +381,29 @@ export class BastionBreachRenderer {
     model.rotation.set(0, 0, 0);
     model.scale.set(1, 1, 1);
 
+    // Clone materials so this instance owns its materials and disposing them upon renderer disposal
+    // does not mutate or dispose the cached gltf.scene materials across repeated matches!
+    const ownedMaterials = new Set();
     model.traverse((child) => {
       if (child.isMesh) {
         child.castShadow = true;
         child.receiveShadow = true;
+        if (child.material) {
+          if (Array.isArray(child.material)) {
+            child.material = child.material.map((m) => {
+              const c = m.clone();
+              ownedMaterials.add(c);
+              return c;
+            });
+          } else {
+            const c = child.material.clone();
+            ownedMaterials.add(c);
+            child.material = c;
+          }
+        }
       }
     });
+    this.gatehouseOwnedMaterials = ownedMaterials;
 
     this.gatehouseModel = model;
     this.gatehouseGroup.add(model);
@@ -737,7 +770,15 @@ export class BastionBreachRenderer {
     // Castleward defenders ceremonially open the Honorable Entry Gatehouse to admit attackers.
     const activeIdx = objective?.index ?? 0;
     const completed = Boolean(objective?.completed);
-    this.targetGateOpen = (activeIdx >= 1 || completed) ? 1.0 : 0.0;
+    const newTarget = (activeIdx >= 1 || completed) ? 1.0 : 0.0;
+    const previousTarget = this.targetGateOpen;
+    this.targetGateOpen = newTarget;
+
+    // Reset detection: if match resets from open back to closed (Stage 1), snap closed immediately
+    if (previousTarget === 1.0 && newTarget === 0.0) {
+      this.gateOpenProgress = 0.0;
+      this.#applyGateTransform();
+    }
 
     if (isFirstSet) {
       if (this.targetGateOpen === 1.0) {
@@ -885,8 +926,13 @@ export class BastionBreachRenderer {
     this.scene.remove(this.group);
     this.group.traverse((object) => {
       object.geometry?.dispose?.();
-      disposeMaterial(object.material);
     });
+    if (this.gatehouseOwnedMaterials) {
+      for (const mat of this.gatehouseOwnedMaterials) {
+        mat?.dispose?.();
+      }
+      this.gatehouseOwnedMaterials.clear();
+    }
     for (const mat of Object.values(this.materials)) {
       disposeMaterial(mat);
     }

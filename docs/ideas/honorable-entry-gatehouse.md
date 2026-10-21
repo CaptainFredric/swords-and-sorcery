@@ -1,7 +1,7 @@
 # The Honorable Entry Gatehouse — Worldbuilding, Architecture, and Martial Doctrine
 
 **Document status:** Design, narrative, and worldbuilding foundation.  
-**Repository integration:** Live authored PBR GLB in `client/assets/worlds/bastion-breach/honorable-entry-gatehouse.glb`, rendered by `client/worlds/BastionBreachRenderer.mjs` and authoritatively simulated in `shared/worlds/bastionBreach.mjs` (Argon v1.1 bounds, stepped buttress solids, door bumpers, portcullis, spawns).  
+**Repository integration:** Integrated on PR #214 (`client/assets/worlds/bastion-breach/honorable-entry-gatehouse.glb`, pending merge), rendered by `client/worlds/BastionBreachRenderer.mjs` and authoritatively simulated in `shared/worlds/bastionBreach.mjs` (Argon v1.1 bounds, stepped buttress solids, door bumpers, portcullis, spawns).  
 **Updated:** 2026-10-20.  
 [Back to project README](../../README.md) · [3D Asset Roadmap](../art/castleward-3d-asset-roadmap.md) · [Breakthrough Battlefield Evidence](../evidence/breakthrough/README.md)
 

@@ -159,15 +159,28 @@ test('Authored Honorable Entry Gatehouse: authoritative collision matches Argon 
     assert.equal(node.x, 0, `Breach node ${node.id} must be centered at x = 0`);
   }
 
-  // Phase 0 defender spawns are clear of tower solids
-  for (const sp of BASTION_BREACH.spawnPoints.filter((s) => s.team === 'DEFENDERS' && s.phase === 0)) {
-    for (const sol of [towerWest, towerEast]) {
-      const sx0 = sol.center[0] - sol.size[0] / 2;
-      const sx1 = sol.center[0] + sol.size[0] / 2;
-      const sz0 = sol.center[2] - sol.size[2] / 2;
-      const sz1 = sol.center[2] + sol.size[2] / 2;
-      const inside = sp.x >= sx0 && sp.x <= sx1 && sp.z >= sz0 && sp.z <= sz1;
-      assert.equal(inside, false, `Defender spawn at (${sp.x}, ${sp.z}) must not spawn inside ${sol.id}`);
+  // Phase 0 defender spawns: must be strictly OUTSIDE Objective 1 capture radius (6.0m)
+  // and clear of all gatehouse solids (towers, buttresses, doors, walls)
+  const obj1 = BASTION_BREACH.objectives.find((o) => o.id === 'outer-gate') ?? { x: 0, y: 0, z: -2, radius: 6.0 };
+  const phase0Defenders = BASTION_BREACH.spawnPoints.filter((s) => s.team === 'DEFENDERS' && s.phase === 0);
+  assert.equal(phase0Defenders.length, 5, 'Must have 5 Phase 0 defender spawns');
+
+  for (const sp of phase0Defenders) {
+    const dist = Math.hypot(sp.x - obj1.x, sp.z - obj1.z);
+    assert.ok(
+      dist > obj1.radius,
+      `Defender spawn at (${sp.x}, ${sp.z}) distance ${dist.toFixed(2)}m must be > capture radius ${obj1.radius}m`
+    );
+
+    // Collision check against ALL closed-world solids
+    for (const sol of BASTION_BREACH_CLOSED.solids) {
+      const [x0, x1] = [sol.center[0] - sol.size[0] / 2, sol.center[0] + sol.size[0] / 2];
+      const [y0, y1] = [sol.center[1] - sol.size[1] / 2, sol.center[1] + sol.size[1] / 2];
+      const [z0, z1] = [sol.center[2] - sol.size[2] / 2, sol.center[2] + sol.size[2] / 2];
+      const inX = sp.x >= x0 && sp.x <= x1;
+      const inY = sp.y >= y0 && sp.y < y1;
+      const inZ = sp.z >= z0 && sp.z <= z1;
+      assert.equal(inX && inY && inZ, false, `Defender spawn at (${sp.x}, ${sp.y}, ${sp.z}) must not intersect solid "${sol.id}"`);
     }
   }
 });
@@ -189,4 +202,16 @@ test('BastionBreachRenderer source: loads authored GLB, binds clips, and synchro
   assert.match(source, /timeScale|openAction\.time/);
   assert.match(source, /#buildConstructionGapScaffolding/);
   assert.match(source, /uncacheRoot/);
+  assert.match(source, /resetGatehouseAssetCache/);
+  assert.match(source, /gatehouseOwnedMaterials/);
+
+  // Asset lifecycle: fallback disposal must NOT dispose shared materials (this.materials)
+  assert.doesNotMatch(
+    source,
+    /fallbackGatehouseGroup\.traverse\([^)]*\)\s*=>\s*\{[^}]*disposeMaterial\s*\(\s*obj\.material\s*\)/,
+    'Fallback traversal must not dispose shared renderer materials'
+  );
+
+  // Match reset: returning from Stage 2 back to Stage 1 snaps gate closed immediately
+  assert.match(source, /previousTarget\s*===\s*1\.0\s*&&\s*newTarget\s*===\s*0\.0/);
 });
