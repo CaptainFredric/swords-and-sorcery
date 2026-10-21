@@ -49,7 +49,7 @@ test('Scenario 1: Full deployed volley lethality against unprotected 100 HP Spel
   assert.equal(ballista.mode, BI_BYE_MODES.DEPLOYED);
 
   ballista.yaw = -Math.PI / 2; // Facing +X
-  ballista.pitch = 0;
+  ballista.pitch = -0.08; // Aimed at dummy center of mass
 
   // Add full-health 100 HP dummy directly in line of fire
   const target = room.addServerActor({ id: 'target-hero', name: 'Hero', actorKind: 'dummy' }, 0);
@@ -99,7 +99,7 @@ test('Scenario 2: Frost Conditioning Bolt blast radius, stamina drain, and fadin
   stepBiByeLlista(room, ballista, 1.25, 1.25, room.world);
 
   ballista.yaw = -Math.PI / 2;
-  ballista.pitch = 0;
+  ballista.pitch = -0.13; // Aimed downward across range targets
 
   // Place guarding defender within 1.0m of blast impact point
   const defender = room.addServerActor({ id: 'guard-defender', name: 'Defender', actorKind: 'dummy' }, 0);
@@ -137,7 +137,7 @@ test('Scenario 3: Main Physical Siege Bolt direct hit, shove, and stagger', () =
   stepBiByeLlista(room, ballista, 1.25, 1.25, room.world);
 
   ballista.yaw = -Math.PI / 2;
-  ballista.pitch = 0;
+  ballista.pitch = -0.13; // Aimed downward across range targets
 
   // Add dummy at x = 15.0 with 200 HP to inspect pure Shot II effect
   const target = room.addServerActor({ id: 'heavy-dummy', name: 'Heavy Dummy', actorKind: 'dummy' }, 0);
@@ -171,7 +171,7 @@ test('Scenario 4: Siege shockwave damages nearby targets but does NOT double-hit
   stepBiByeLlista(room, ballista, 1.25, 1.25, room.world);
 
   ballista.yaw = -Math.PI / 2;
-  ballista.pitch = 0;
+  ballista.pitch = -0.13; // Aimed downward across range targets
 
   // Direct victim at x = 15.0, z = -14.6
   const directVictim = room.addServerActor({ id: 'direct-target', name: 'Direct', actorKind: 'dummy' }, 0);
@@ -213,7 +213,7 @@ test('Scenario 5: Solid world collision stops physical siege bolt without tunnel
   stepBiByeLlista(room, ballista, 1.25, 1.25, room.world);
 
   ballista.yaw = -Math.PI / 2;
-  ballista.pitch = 0;
+  ballista.pitch = -0.13; // Aimed downward across range targets
 
   // Add solid stone wall at x = 12.0
   const worldWithWall = {
@@ -315,15 +315,15 @@ test('Scenario 7: Deployed Mode transition, swivel traverse, and full reload cyc
   assert.equal(ballista.state, BI_BYE_STATES.SPENT);
   assert.equal(ballista.mainBoltLoaded, false);
 
-  // Advance into RELOADING
-  while (nowSec < 4.0) {
+  // Advance past 2.20s recoil impulse and recovery into RELOADING
+  while (nowSec < 5.3) {
     nowSec += 1 / 30;
     stepBiByeLlista(room, ballista, 1 / 30, nowSec, room.world);
   }
   assert.equal(ballista.state, BI_BYE_STATES.RELOADING);
 
   // Advance 6.0s through mechanical reload
-  while (nowSec < 10.1) {
+  while (nowSec < 11.4) {
     nowSec += 1 / 30;
     stepBiByeLlista(room, ballista, 1 / 30, nowSec, room.world);
   }
@@ -382,7 +382,7 @@ test('Scenario 9: Sheathe in Steel mitigates ballista volley: Spellblade survive
   stepBiByeLlista(room, ballista, 1.25, 1.25, room.world);
 
   ballista.yaw = -Math.PI / 2;
-  ballista.pitch = 0;
+  ballista.pitch = -0.13; // Aimed downward across range targets
 
   // Defender Sheathed in Steel
   const defender = room.addServerActor({ id: 'steeled-knight', name: 'Steeled Knight', actorKind: 'dummy' }, 0);
@@ -439,6 +439,13 @@ test('Scenario 10: Snapshot serialization and practice command handling', () => 
   assert.equal(snap.bibyeBallista.mode, BI_BYE_MODES.DEPLOYING);
   assert.ok(snap.bibyeBallista.deployProgress > 0);
   assert.equal(snap.bibyeBallista.mainBoltLoaded, true);
+
+  // Damage / destruction command
+  applyRoomCommand(room, human, { type: 'bibyeDamage', amount: 400 }, 1.3);
+  assert.equal(ballista.mode, BI_BYE_MODES.DESTROYED);
+  assert.equal(ballista.health, 0);
+  assert.equal(ballista.operatorId, null);
+  assert.equal(human.operatingBallistaId, null);
 });
 
 test('Scenario 11: Vehicle Input Protocol & Ackermann Steering Kinematics', () => {
@@ -515,7 +522,7 @@ test('Scenario 12: Step-Rate Independent Continuous Swept Collision (30 Hz, 60 H
     stepBiByeLlista(room, ballista, 1.25, 1.25, room.world);
 
     ballista.yaw = -Math.PI / 2;
-    ballista.pitch = 0;
+    ballista.pitch = -0.13; // Aimed downward across range targets
 
     // Target 1 at x = 13.0, Target 2 at x = 17.0
     const target1 = room.addServerActor({ id: `t1-${framerate}`, name: 'Target 1', actorKind: 'dummy' }, 0);
@@ -557,7 +564,7 @@ test('Scenario 13: Solid Stone Wall Decisive Termination & Occlusion Behind Wall
   stepBiByeLlista(room, ballista, 1.25, 1.25, room.world);
 
   ballista.yaw = -Math.PI / 2;
-  ballista.pitch = 0;
+  ballista.pitch = -0.13; // Aimed downward across range targets
 
   // Target 1 before wall (x = 12.0)
   const targetBefore = room.addServerActor({ id: 'target-before', name: 'Before Wall', actorKind: 'dummy' }, 0);
@@ -608,7 +615,7 @@ test('Scenario 14: Friendly Fire and Self Damage Exclusions', () => {
   stepBiByeLlista(room, ballista, 1.25, 1.25, room.world);
 
   ballista.yaw = -Math.PI / 2;
-  ballista.pitch = 0;
+  ballista.pitch = -0.13; // Aimed downward across range targets
 
   // Add allied teammate right in front of ballista
   const ally = room.addPlayer({ id: 'ally-01', token: 'token-ally', name: 'Ally' }, 0);

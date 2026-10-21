@@ -197,7 +197,9 @@ export class BiByeLlistaRenderer {
     const heading = ballistaData.heading ?? 0;
 
     this.group.position.set(posX, posY, posZ);
-    this.group.rotation.y = heading;
+    // Argon's v3 asset faces local +Z. Castleward's forward heading faces -Z.
+    // Rotate by heading + PI to perfectly align the model with authoritative movement and projectile trajectories.
+    this.group.rotation.y = heading + Math.PI;
 
     // 2. Kinematic Wheel Locomotion & Steering
     const dx = posX - this.lastPosition.x;
@@ -214,11 +216,11 @@ export class BiByeLlistaRenderer {
     const deltaRoll = deltaTravel / WHEEL_RADIUS;
     this.wheelRoll += deltaRoll;
 
-    // Ackermann steering angles around +Y
+    // Ackermann steering angles around +Y (consistent with heading + PI orientation)
     const steer = ballistaData.steer ?? 0;
-    const frontSteerYaw = steer * (18 * Math.PI / 180); // +-18 deg
+    const frontSteerYaw = -steer * (18 * Math.PI / 180); // +-18 deg
     const midSteerYaw = 0; // 0 deg
-    const rearSteerYaw = -steer * (10 * Math.PI / 180); // -+10 deg counter-steer
+    const rearSteerYaw = steer * (10 * Math.PI / 180); // -+10 deg counter-steer
 
     // 3. Update Authored Model or Fallback
     if (this.authoredModel) {
@@ -237,7 +239,9 @@ export class BiByeLlistaRenderer {
 
     // A. State & Mode Action Transitions
     if (mode === BI_BYE_MODES.DESTROYED) {
-      this.#playAction('12_BiBye_Damaged_Destroyed', { loop: THREE.LoopOnce, clamp: true });
+      if (this.activeActionName !== '12_BiBye_Damaged_Destroyed') {
+        this.#playAction('12_BiBye_Damaged_Destroyed', { loop: THREE.LoopOnce, clamp: true });
+      }
     } else if (mode === BI_BYE_MODES.DEPLOYING) {
       this.#playAction('05_BiBye_Stabilizer_Deploy', { loop: THREE.LoopOnce, clamp: true, timeScale: DEPLOY_TIME_SCALE });
     } else if (mode === BI_BYE_MODES.RETRACTING) {
@@ -246,7 +250,12 @@ export class BiByeLlistaRenderer {
       if (state === BI_BYE_STATES.FIRING) {
         this.#playAction('02_BiBye_TwoStage_Fire', { loop: THREE.LoopOnce, clamp: true });
       } else if (state === BI_BYE_STATES.SPENT) {
-        this.#playAction('03_BiBye_Spent_Recovery', { loop: THREE.LoopRepeat });
+        const fireAction = this.actions.get('02_BiBye_TwoStage_Fire');
+        if (this.activeActionName === '02_BiBye_TwoStage_Fire' && fireAction?.isRunning() && fireAction.time < 2.2) {
+          // Allow two-stage recoil impulse and full recovery to complete cleanly
+        } else {
+          this.#playAction('03_BiBye_Spent_Recovery', { loop: THREE.LoopRepeat });
+        }
       } else if (state === BI_BYE_STATES.RELOADING) {
         const reloadDuration = BI_BYE_LLISTA_CONFIG.timing.reloadDurationSec ?? 6.0;
         this.#playAction('04_BiBye_Mechanical_Reload', { loop: THREE.LoopOnce, clamp: true, timeScale: 6.0 / reloadDuration });
@@ -258,7 +267,7 @@ export class BiByeLlistaRenderer {
         this.#playAction('09_BiBye_Mobile_Shot1_Fire', { loop: THREE.LoopOnce, clamp: true });
       } else if (!ballistaData.smallBoltReady) {
         const shotAction = this.actions.get('09_BiBye_Mobile_Shot1_Fire');
-        if (this.activeActionName === '09_BiBye_Mobile_Shot1_Fire' && shotAction?.isRunning() && shotAction.time < 0.6) {
+        if (this.activeActionName === '09_BiBye_Mobile_Shot1_Fire' && shotAction?.isRunning() && shotAction.time < 0.85) {
           // Allow firing recoil impulse to complete
         } else {
           const recockDuration = BI_BYE_LLISTA_CONFIG.timing.mobileRecockSec ?? 3.0;
@@ -319,15 +328,18 @@ export class BiByeLlistaRenderer {
     const relYaw = ((aimYaw - heading) % (2 * Math.PI) + 3 * Math.PI) % (2 * Math.PI) - Math.PI;
 
     if (mode === BI_BYE_MODES.DEPLOYED || mode === BI_BYE_MODES.DEPLOYING || mode === BI_BYE_MODES.RETRACTING) {
-      // Deployed mode: Traverse_Mount rotates around Y (clamped to +/-25 deg = +/-0.436332 rad)
-      const clampedTraverse = Math.max(-0.436332, Math.min(0.436332, relYaw));
+      // Deployed mode: Traverse_Mount rotates around Y (synchronized with authoritative limits)
+      const yawLimit = BI_BYE_LLISTA_CONFIG.traverse.yawLimit;
+      const pitchMin = BI_BYE_LLISTA_CONFIG.traverse.pitchMin;
+      const pitchMax = BI_BYE_LLISTA_CONFIG.traverse.pitchMax;
+
+      const clampedTraverse = Math.max(-yawLimit, Math.min(yawLimit, relYaw));
       if (traverseMount) {
         traverseMount.rotation.set(0, clampedTraverse, 0);
       }
 
       // Elevation_Cradle: pitch UP corresponds to negative rotation around local X
-      // (clamped to [-8, +12] deg = [-0.139626, +0.209440] rad)
-      const clampedPitch = Math.max(-0.139626, Math.min(0.209440, aimPitch));
+      const clampedPitch = Math.max(pitchMin, Math.min(pitchMax, aimPitch));
       if (elevationCradle) {
         elevationCradle.rotation.set(-clampedPitch, 0, 0);
       }
@@ -341,11 +353,13 @@ export class BiByeLlistaRenderer {
       if (traverseMount) traverseMount.rotation.set(0, 0, 0);
       if (elevationCradle) elevationCradle.rotation.set(0, 0, 0);
 
-      // Upper launcher aims independently:
-      // traverse yaw clamped to +/-35 deg (+/-0.610865 rad)
-      // pitch clamped to [-10, +15] deg ([-0.174533, +0.261799] rad)
-      const clampedUpperYaw = Math.max(-0.610865, Math.min(0.610865, relYaw));
-      const clampedUpperPitch = Math.max(-0.174533, Math.min(0.261799, aimPitch));
+      // Upper launcher aims independently (synchronized with mobile limits)
+      const mobileYawLimit = BI_BYE_LLISTA_CONFIG.mobility.traverseMobileMax;
+      const mobilePitchMin = BI_BYE_LLISTA_CONFIG.mobility.pitchMobileMin;
+      const mobilePitchMax = BI_BYE_LLISTA_CONFIG.mobility.pitchMobileMax;
+
+      const clampedUpperYaw = Math.max(-mobileYawLimit, Math.min(mobileYawLimit, relYaw));
+      const clampedUpperPitch = Math.max(mobilePitchMin, Math.min(mobilePitchMax, aimPitch));
       if (upperTurretMount) {
         upperTurretMount.rotation.set(-clampedUpperPitch, clampedUpperYaw, 0, 'YXZ');
       }
@@ -358,8 +372,12 @@ export class BiByeLlistaRenderer {
 
     nextAction.timeScale = timeScale;
 
-    if (this.activeActionName === name && this.activeBaseAction?.isRunning()) {
-      return;
+    if (this.activeActionName === name) {
+      if (this.activeBaseAction?.isRunning()) return;
+      // If clamped and duration reached, hold the completed final pose (e.g. destroyed wreck)
+      if (clamp && this.activeBaseAction && this.activeBaseAction.time >= (nextAction.getClip()?.duration ?? 0) - 0.05) {
+        return;
+      }
     }
 
     nextAction.setLoop(loop);
