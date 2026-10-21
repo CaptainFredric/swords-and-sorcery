@@ -190,19 +190,24 @@ export class BiByeLlistaRenderer {
     const dt = Math.max(0.001, Math.min(0.2, this.lastTimeSec > 0 ? timeSec - this.lastTimeSec : 0.016));
     this.lastTimeSec = timeSec;
 
-    // 1. Authoritative World Position & Yaw
-    this.group.position.set(ballistaData.position.x, ballistaData.position.y, ballistaData.position.z);
-    this.group.rotation.y = ballistaData.yaw;
+    // 1. Authoritative World Position & Carriage Heading
+    const posX = ballistaData.position?.x ?? ballistaData.x ?? 0;
+    const posY = ballistaData.position?.y ?? ballistaData.y ?? 0;
+    const posZ = ballistaData.position?.z ?? ballistaData.z ?? 0;
+    const heading = ballistaData.heading ?? 0;
+
+    this.group.position.set(posX, posY, posZ);
+    this.group.rotation.y = heading;
 
     // 2. Kinematic Wheel Locomotion & Steering
-    const dx = ballistaData.position.x - this.lastPosition.x;
-    const dz = ballistaData.position.z - this.lastPosition.z;
-    this.lastPosition.x = ballistaData.position.x;
-    this.lastPosition.z = ballistaData.position.z;
+    const dx = posX - this.lastPosition.x;
+    const dz = posZ - this.lastPosition.z;
+    this.lastPosition.x = posX;
+    this.lastPosition.z = posZ;
 
-    // Signed travel projection along forward heading vector (-sin(yaw), -cos(yaw))
-    const headingX = -Math.sin(ballistaData.yaw);
-    const headingZ = -Math.cos(ballistaData.yaw);
+    // Signed travel projection along forward heading vector (-sin(heading), -cos(heading))
+    const headingX = -Math.sin(heading);
+    const headingZ = -Math.cos(heading);
     const deltaTravel = dx * headingX + dz * headingZ;
 
     // Roll angle around local +X: deltaTheta = deltaTravel / R_wheel
@@ -227,7 +232,62 @@ export class BiByeLlistaRenderer {
   }
 
   #updateAuthoredModel(timeSec, dt, ballistaData, frontSteerYaw, midSteerYaw, rearSteerYaw) {
-    // A. Update 6 articulated wheels (composed Euler roll and steering)
+    const mode = ballistaData.mode;
+    const state = ballistaData.state;
+
+    // A. State & Mode Action Transitions
+    if (mode === BI_BYE_MODES.DESTROYED) {
+      this.#playAction('12_BiBye_Damaged_Destroyed', { loop: THREE.LoopOnce, clamp: true });
+    } else if (mode === BI_BYE_MODES.DEPLOYING) {
+      this.#playAction('05_BiBye_Stabilizer_Deploy', { loop: THREE.LoopOnce, clamp: true, timeScale: DEPLOY_TIME_SCALE });
+    } else if (mode === BI_BYE_MODES.RETRACTING) {
+      this.#playAction('07_BiBye_Stabilizer_Retract', { loop: THREE.LoopOnce, clamp: true, timeScale: RETRACT_TIME_SCALE });
+    } else if (mode === BI_BYE_MODES.DEPLOYED) {
+      if (state === BI_BYE_STATES.FIRING) {
+        this.#playAction('02_BiBye_TwoStage_Fire', { loop: THREE.LoopOnce, clamp: true });
+      } else if (state === BI_BYE_STATES.SPENT) {
+        this.#playAction('03_BiBye_Spent_Recovery', { loop: THREE.LoopRepeat });
+      } else if (state === BI_BYE_STATES.RELOADING) {
+        const reloadDuration = BI_BYE_LLISTA_CONFIG.timing.reloadDurationSec ?? 6.0;
+        this.#playAction('04_BiBye_Mechanical_Reload', { loop: THREE.LoopOnce, clamp: true, timeScale: 6.0 / reloadDuration });
+      } else {
+        this.#playAction('01_BiBye_LoadedIdle', { loop: THREE.LoopRepeat });
+      }
+    } else if (mode === BI_BYE_MODES.MOBILE) {
+      if (this.lastSmallBoltReady && !ballistaData.smallBoltReady) {
+        this.#playAction('09_BiBye_Mobile_Shot1_Fire', { loop: THREE.LoopOnce, clamp: true });
+      } else if (!ballistaData.smallBoltReady) {
+        const shotAction = this.actions.get('09_BiBye_Mobile_Shot1_Fire');
+        if (this.activeActionName === '09_BiBye_Mobile_Shot1_Fire' && shotAction?.isRunning() && shotAction.time < 0.6) {
+          // Allow firing recoil impulse to complete
+        } else {
+          const recockDuration = BI_BYE_LLISTA_CONFIG.timing.mobileRecockSec ?? 3.0;
+          this.#playAction('10_BiBye_Mobile_Shot1_Reload', { loop: THREE.LoopOnce, clamp: true, timeScale: 2.2 / recockDuration });
+        }
+      } else {
+        this.#playAction('06_BiBye_Travel_Ready', { loop: THREE.LoopRepeat });
+      }
+    }
+    this.lastSmallBoltReady = Boolean(ballistaData.smallBoltReady);
+
+    // B. Bolt and Catch Visibilities
+    const mainBolt = this.nodes.get('Main_Siege_Bolt');
+    if (mainBolt) {
+      mainBolt.visible = Boolean(ballistaData.mainBoltLoaded) && mode !== BI_BYE_MODES.DESTROYED;
+    }
+
+    const upperBolt = this.nodes.get('Upper_Conditioning_Bolt');
+    if (upperBolt) {
+      upperBolt.visible = Boolean(ballistaData.smallBoltReady) && mode !== BI_BYE_MODES.DESTROYED;
+    }
+
+    // C. Advance Animation Mixer BEFORE applying runtime joint overrides
+    // (Ensures mixer tracks do not clobber runtime wheel steering/roll or turret aiming)
+    if (this.mixer) {
+      this.mixer.update(dt);
+    }
+
+    // D. Articulate 6 wheels (Euler roll + steering)
     const wheels = [
       { node: this.nodes.get('Wheel_FL'), steer: frontSteerYaw },
       { node: this.nodes.get('Wheel_FR'), steer: frontSteerYaw },
@@ -244,68 +304,64 @@ export class BiByeLlistaRenderer {
       }
     }
 
-    // B. State & Mode Action Transitions
-    const mode = ballistaData.mode;
-    const state = ballistaData.state;
+    // E. Turret Articulation (Traverse_Mount, Elevation_Cradle, Upper_Turret_Mount)
+    const traverseMount = this.nodes.get('Traverse_Mount');
+    const elevationCradle = this.nodes.get('Elevation_Cradle');
+    const upperTurretMount = this.nodes.get('Upper_Turret_Mount');
 
-    if (mode === BI_BYE_MODES.DESTROYED) {
-      this.#playAction('12_BiBye_Damaged_Destroyed', { loop: THREE.LoopOnce, clamp: true });
-    } else if (mode === BI_BYE_MODES.DEPLOYING) {
-      this.#playAction('05_BiBye_Stabilizer_Deploy', { loop: THREE.LoopOnce, clamp: true, timeScale: DEPLOY_TIME_SCALE });
-    } else if (mode === BI_BYE_MODES.RETRACTING) {
-      this.#playAction('07_BiBye_Stabilizer_Retract', { loop: THREE.LoopOnce, clamp: true, timeScale: RETRACT_TIME_SCALE });
-    } else if (mode === BI_BYE_MODES.DEPLOYED) {
-      if (state === BI_BYE_STATES.FIRING_SHOT_1 || state === BI_BYE_STATES.FIRING_SHOT_2 || state === BI_BYE_STATES.BETWEEN_SHOTS) {
-        this.#playAction('02_BiBye_TwoStage_Fire', { loop: THREE.LoopOnce, clamp: true });
-      } else if (state === BI_BYE_STATES.RELOADING) {
-        const reloadAction = this.actions.get('04_BiBye_Mechanical_Reload');
-        if (reloadAction) {
-          // Duration of clip is 6.0s; sync speed to authoritative reloadDuration
-          const duration = BI_BYE_LLISTA_CONFIG.reloadDuration ?? 4.0;
-          reloadAction.timeScale = 6.0 / duration;
-          this.#playAction('04_BiBye_Mechanical_Reload', { loop: THREE.LoopOnce, clamp: true });
-        }
-      } else {
-        this.#playAction('01_BiBye_LoadedIdle', { loop: THREE.LoopRepeat });
+    const heading = ballistaData.heading ?? 0;
+    const aimYaw = ballistaData.yaw ?? heading;
+    const aimPitch = ballistaData.pitch ?? 0;
+
+    // Relative yaw in [-PI, +PI]
+    const relYaw = ((aimYaw - heading) % (2 * Math.PI) + 3 * Math.PI) % (2 * Math.PI) - Math.PI;
+
+    if (mode === BI_BYE_MODES.DEPLOYED || mode === BI_BYE_MODES.DEPLOYING || mode === BI_BYE_MODES.RETRACTING) {
+      // Deployed mode: Traverse_Mount rotates around Y (clamped to +/-25 deg = +/-0.436332 rad)
+      const clampedTraverse = Math.max(-0.436332, Math.min(0.436332, relYaw));
+      if (traverseMount) {
+        traverseMount.rotation.set(0, clampedTraverse, 0);
+      }
+
+      // Elevation_Cradle: pitch UP corresponds to negative rotation around local X
+      // (clamped to [-8, +12] deg = [-0.139626, +0.209440] rad)
+      const clampedPitch = Math.max(-0.139626, Math.min(0.209440, aimPitch));
+      if (elevationCradle) {
+        elevationCradle.rotation.set(-clampedPitch, 0, 0);
+      }
+
+      // Upper_Turret_Mount rests at (0, 0, 0) and fires in unison with the cradle
+      if (upperTurretMount) {
+        upperTurretMount.rotation.set(0, 0, 0);
       }
     } else if (mode === BI_BYE_MODES.MOBILE) {
-      if (state === BI_BYE_STATES.FIRING_SHOT_1) {
-        this.#playAction('09_BiBye_Mobile_Shot1_Fire', { loop: THREE.LoopOnce, clamp: true });
-      } else if (!ballistaData.smallBoltReady) {
-        this.#playAction('10_BiBye_Mobile_Shot1_Reload', { loop: THREE.LoopOnce, clamp: true });
-      } else {
-        this.#playAction('06_BiBye_Travel_Ready', { loop: THREE.LoopRepeat });
+      // Mobile mode: Traverse_Mount and Elevation_Cradle remain locked at 0
+      if (traverseMount) traverseMount.rotation.set(0, 0, 0);
+      if (elevationCradle) elevationCradle.rotation.set(0, 0, 0);
+
+      // Upper launcher aims independently:
+      // traverse yaw clamped to +/-35 deg (+/-0.610865 rad)
+      // pitch clamped to [-10, +15] deg ([-0.174533, +0.261799] rad)
+      const clampedUpperYaw = Math.max(-0.610865, Math.min(0.610865, relYaw));
+      const clampedUpperPitch = Math.max(-0.174533, Math.min(0.261799, aimPitch));
+      if (upperTurretMount) {
+        upperTurretMount.rotation.set(-clampedUpperPitch, clampedUpperYaw, 0, 'YXZ');
       }
-    }
-
-    // C. Bolt and Catch Visibilities
-    const mainBolt = this.nodes.get('Main_Siege_Bolt');
-    if (mainBolt) {
-      mainBolt.visible = Boolean(ballistaData.mainBoltLoaded) && mode !== BI_BYE_MODES.DESTROYED;
-    }
-
-    const upperBolt = this.nodes.get('Upper_Conditioning_Bolt');
-    if (upperBolt) {
-      upperBolt.visible = Boolean(ballistaData.smallBoltReady) && mode !== BI_BYE_MODES.DESTROYED;
-    }
-
-    // D. Advance Animation Mixer
-    if (this.mixer) {
-      this.mixer.update(dt);
     }
   }
 
   #playAction(name, { loop = THREE.LoopRepeat, clamp = false, timeScale = 1.0 } = {}) {
+    const nextAction = this.actions.get(name);
+    if (!nextAction) return;
+
+    nextAction.timeScale = timeScale;
+
     if (this.activeActionName === name && this.activeBaseAction?.isRunning()) {
       return;
     }
 
-    const nextAction = this.actions.get(name);
-    if (!nextAction) return;
-
     nextAction.setLoop(loop);
     nextAction.clampWhenFinished = clamp;
-    nextAction.timeScale = timeScale;
     nextAction.reset();
 
     if (this.activeBaseAction && this.activeBaseAction !== nextAction) {
@@ -315,6 +371,33 @@ export class BiByeLlistaRenderer {
     nextAction.play();
     this.activeBaseAction = nextAction;
     this.activeActionName = name;
+  }
+
+  getMuzzleWorldPosition(subKind, outVec = new THREE.Vector3()) {
+    const node = subKind === 'conditioning' ? this.nodes.get('small_bolt_muzzle') : this.nodes.get('main_bolt_muzzle');
+    if (node) {
+      node.getWorldPosition(outVec);
+      return outVec;
+    }
+    return null;
+  }
+
+  getMuzzleWorldDirection(subKind, outVec = new THREE.Vector3()) {
+    const node = subKind === 'conditioning' ? this.nodes.get('small_bolt_muzzle') : this.nodes.get('main_bolt_muzzle');
+    if (node) {
+      node.getWorldDirection(outVec);
+      return outVec;
+    }
+    return null;
+  }
+
+  getOperatorStationWorldPosition(outVec = new THREE.Vector3()) {
+    const node = this.nodes.get('operator_station');
+    if (node) {
+      node.getWorldPosition(outVec);
+      return outVec;
+    }
+    return null;
   }
 
   #updateFallbackModel(timeSec, ballistaData, frontSteerYaw, midSteerYaw, rearSteerYaw) {

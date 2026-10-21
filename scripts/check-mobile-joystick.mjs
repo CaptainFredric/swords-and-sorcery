@@ -9,7 +9,7 @@ const chromeBin = process.env.CHROME_BIN || 'chromium';
 const port = 9238;
 const userData = await mkdtemp(join(tmpdir(), 'ss-joystick-chrome-'));
 const chrome = spawn(chromeBin, [
-  '--headless=new', '--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu',
+  '--headless=new', '--no-sandbox', '--disable-dev-shm-usage', '--enable-unsafe-swiftshader',
   '--remote-allow-origins=*', '--window-size=820,450',
   '--remote-debugging-port=' + port, '--user-data-dir=' + userData, 'about:blank',
 ], { stdio: 'ignore' });
@@ -103,8 +103,7 @@ try {
   await evaluate("window.__stickProbe.controls.dispose(); window.__stickProbe.root.remove(); window.__stickProbe = null");
   await until(() => evaluate("Boolean(document.querySelector('#menu'))"), 'menu loaded');
   await until(() => evaluate("Boolean(document.querySelector('#loading-veil')?.classList.contains('done'))"), 'menu ready');
-  await evaluate("(() => { const offer=document.querySelector('#tutorial-onboarding'); if (offer && !offer.hidden) document.querySelector('[data-tutorial-onboarding-skip]').click(); const field=document.querySelector('#player-name');field.value='Mobile Inspector';field.dispatchEvent(new Event('input',{bubbles:true}));document.querySelector('#solo-button').click(); })()");
-  await until(() => evaluate("Boolean(document.querySelector('#solo-menu') && !document.querySelector('#solo-menu').classList.contains('hidden'))"), 'Solo menu');
+  await until(async () => evaluate("(() => { const offer = document.querySelector('#tutorial-onboarding'); if (offer && !offer.hidden) document.querySelector('[data-tutorial-onboarding-skip]')?.click(); const show = document.querySelector('#show-menu'); if (show && !show.closest('.yard-observe')?.hidden) show.click(); const field = document.querySelector('#player-name'); if (field && field.value !== 'Mobile Inspector') { field.value = 'Mobile Inspector'; field.dispatchEvent(new Event('input', { bubbles: true })); } const soloMenu = document.querySelector('#solo-menu'); if (soloMenu && !soloMenu.classList.contains('hidden')) return true; document.querySelector('#solo-button')?.click(); return false; })()"), 'Solo menu');
   await evaluate("document.querySelector('#practice-mode').click()");
   await until(() => evaluate("Boolean(window.__ssRuntime?.touch && window.__ssRuntime?.localAuth && !document.querySelector('#hud').classList.contains('hidden'))"), 'live local Practice runtime');
   const preFocus = await evaluate("(() => { const r=window.__ssRuntime; return {playing:r.playing,touchFocus:r.input.touchFocus,touchActive:r.touch.active,inputEnabled:r.input.enabled,suspended:r.input.suspended,world:r.worldId}; })()");

@@ -247,8 +247,10 @@ export class TouchControls {
     // Ballista touch controls (Mount / Dismount / Deploy / Pack)
     if (this.buttons.interact || this.buttons.deploy) {
       const bl = snapshot?.bibyeBallista;
+      const bx = bl?.position?.x ?? bl?.x;
+      const bz = bl?.position?.z ?? bl?.z;
       const mounted = Boolean(local.operatingBallistaId);
-      const near = bl && local.position ? Math.hypot(bl.position.x - local.position.x, bl.position.z - local.position.z) <= 3.5 : false;
+      const near = bl && local.position && bx !== undefined ? Math.hypot(bx - local.position.x, bz - local.position.z) <= 3.5 : false;
 
       if (mounted) {
         if (this.buttons.interact) {

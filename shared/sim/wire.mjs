@@ -181,6 +181,7 @@ export function serializeSnapshot(room, nowSec) {
     projectiles: [...room.projectiles.values()].map((p) => ({ id: p.id, ownerId: p.ownerId, spell: p.spell, position: p.position, velocity: p.velocity })),
     bibyeBallista: room.biByeLlista ? {
       id: room.biByeLlista.id,
+      position: { x: room.biByeLlista.x, y: room.biByeLlista.y, z: room.biByeLlista.z },
       x: room.biByeLlista.x,
       y: room.biByeLlista.y,
       z: room.biByeLlista.z,

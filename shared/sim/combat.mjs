@@ -28,7 +28,7 @@ import { chooseSpawn } from './spawns.mjs';
 import { recordTransform, sampleTransform } from './history.mjs';
 import { TEAMS, areAllies, areEnemies } from '../src/teams.mjs';
 import { stepObjectives } from './objectives.mjs';
-import { stepBiByeLlista, stepBiByeProjectiles, dismountBiByeLlista, damageBiByeLlista } from './biByeLlista.mjs';
+import { stepBiByeLlista, stepBiByeProjectiles, dismountBiByeLlista, damageBiByeLlista, getBiByeSolids } from './biByeLlista.mjs';
 import { WORLD_IDS } from '../worlds/registry.mjs';
 import { bastionBreachForObjective } from '../worlds/bastionBreach.mjs';
 
@@ -1877,6 +1877,9 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
   }
 
   markTornGround(room);
+  const biByeSolids = (room.biByeLlista && room.biByeLlista.mode !== 'DESTROYED') ? getBiByeSolids(room.biByeLlista) : [];
+  const effectiveWorld = biByeSolids.length > 0 ? { ...world, solids: [...(world.solids ?? []), ...biByeSolids] } : world;
+
   for (const player of room.players.values()) {
     if (!player.alive) {
       if (nowSec >= player.respawnAt && room.state === 'PLAYING') respawnPlayer(room, player, nowSec, world);
@@ -1978,7 +1981,7 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
         player.pitch = bl.pitch;
       }
     } else {
-      const moved = movePlayer(player, input, dt, nowSec, world);
+      const moved = movePlayer(player, input, dt, nowSec, effectiveWorld);
       player.position = moved.position;
       player.velocity = moved.velocity;
       player.grounded = moved.grounded;
@@ -2062,7 +2065,7 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
 
   stepRuptures(room, nowSec);
   // bodies do not share space: overlapping Spellblades are eased apart (never off a ledge or into a wall)
-  separatePlayers([...room.players.values()], world);
+  separatePlayers([...room.players.values()].filter((p) => !p.operatingBallistaId), effectiveWorld);
   stepProjectiles(room, dt, nowSec, world);
   if (room.biByeLlista) {
     stepBiByeLlista(room, room.biByeLlista, dt, nowSec);

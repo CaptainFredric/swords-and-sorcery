@@ -656,3 +656,98 @@ test('Scenario 15: Obstacle-Aware Safe Dismounting', () => {
   const distToBarrier = Math.hypot(human.position.x - 9.0, human.position.z - (-12.4));
   assert.ok(distToBarrier > 1.5, 'dismount selected non-obstructed location');
 });
+
+test('Scenario 16: Serialized snapshot schema conforms to BiByeLlistaRenderer contract', () => {
+  const { room, human } = makePracticeRoom();
+  const ballista = room.biByeLlista;
+  assert.ok(ballista, 'ballista exists in Practice mode');
+
+  human.position = { x: ballista.x, y: ballista.y, z: ballista.z };
+  mountBiByeLlista(ballista, human);
+  ballista.heading = -Math.PI / 2; // East
+  ballista.yaw = -Math.PI / 2 + 0.25; // Swiveled launcher
+  ballista.pitch = 0.12;
+
+  const nowSec = 1.5;
+  const snapshot = serializeSnapshot(room, nowSec);
+  const bl = snapshot.bibyeBallista;
+
+  assert.ok(bl, 'serialized snapshot includes bibyeBallista payload');
+  assert.equal(bl.id, ballista.id);
+
+  // Dual schema compatibility: both position object and top-level coordinates
+  assert.ok(bl.position && typeof bl.position.x === 'number', 'bl.position.x exists as number');
+  assert.ok(typeof bl.position.y === 'number', 'bl.position.y exists as number');
+  assert.ok(typeof bl.position.z === 'number', 'bl.position.z exists as number');
+  assert.equal(bl.x, bl.position.x);
+  assert.equal(bl.y, bl.position.y);
+  assert.equal(bl.z, bl.position.z);
+
+  // Separation of carriage heading and launcher aim
+  assert.equal(bl.heading, -Math.PI / 2, 'carriage heading preserved');
+  assert.equal(bl.yaw, -Math.PI / 2 + 0.25, 'launcher yaw swiveled relative to heading');
+  assert.equal(bl.pitch, 0.12, 'launcher pitch preserved');
+
+  // State machine fields
+  assert.equal(bl.mode, BI_BYE_MODES.MOBILE);
+  assert.equal(bl.state, BI_BYE_STATES.LOADED);
+  assert.equal(bl.operatorId, human.id);
+  assert.equal(bl.smallBoltReady, true);
+  assert.equal(bl.mainBoltLoaded, true);
+
+  // Validate renderer extraction logic never throws
+  const extractPos = {
+    x: bl.position?.x ?? bl.x,
+    y: bl.position?.y ?? bl.y,
+    z: bl.position?.z ?? bl.z,
+  };
+  assert.equal(extractPos.x, ballista.x);
+  assert.equal(extractPos.y, ballista.y);
+  assert.equal(extractPos.z, ballista.z);
+});
+
+test('Scenario 17: Operating player disconnect or removal cleans up operator station immediately', () => {
+  const { room, human } = makePracticeRoom();
+  const ballista = room.biByeLlista;
+
+  human.position = { x: ballista.x, y: ballista.y, z: ballista.z };
+  mountBiByeLlista(ballista, human);
+  assert.equal(ballista.operatorId, human.id);
+  assert.equal(human.operatingBallistaId, ballista.id);
+
+  // Disconnect operating player
+  room.disconnectPlayer(human.id, 2.0);
+  assert.equal(ballista.operatorId, null, 'ballista operatorId cleared upon disconnect');
+  assert.equal(human.operatingBallistaId, null, 'player operating reference cleared');
+
+  // Re-mount another actor
+  const human2 = room.addPlayer({ id: 'human-02', token: 'token-human2', name: 'SecondKnight' }, 2.5);
+  human2.position = { x: ballista.x, y: ballista.y, z: ballista.z };
+  mountBiByeLlista(ballista, human2);
+  assert.equal(ballista.operatorId, human2.id);
+
+  // Remove player completely
+  room.removePlayer(human2.id, 3.0);
+  assert.equal(ballista.operatorId, null, 'ballista operatorId cleared upon player removal');
+});
+
+test('Scenario 18: Unmounted player movement and separation respects ballista chassis solid', () => {
+  const { room } = makePracticeRoom();
+  const ballista = room.biByeLlista;
+
+  // Add an unmounted runner walking directly into the center of the ballista
+  const runner = room.addPlayer({ id: 'runner-01', token: 'token-runner', name: 'Runner' }, 0);
+  runner.position = { x: ballista.x - 4.0, y: ballista.y, z: ballista.z };
+  runner.spawnProtectionUntil = 0;
+
+  // Step simulation with runner walking eastward (+X) into ballista
+  runner.input = { forward: 1, right: 0, yaw: -Math.PI / 2, pitch: 0 };
+  const dt = 1 / 30;
+  for (let t = 0; t < 60; t++) {
+    stepRoom(room, dt, t * dt);
+  }
+
+  // Runner must be blocked by carriage bounds and not penetrate into chassis center
+  const distToCenter = Math.hypot(runner.position.x - ballista.x, runner.position.z - ballista.z);
+  assert.ok(distToCenter >= 1.2, `unmounted player was stopped by ballista solid (dist: ${distToCenter.toFixed(2)}m)`);
+});

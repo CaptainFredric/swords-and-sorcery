@@ -290,16 +290,17 @@ export function mountBiByeLlista(ballista, player, nowSec = 0) {
 
 /**
  * Dismount the ballista and return control to the Spellblade.
+ * Clears the machine's operator station even if the player entity has disconnected.
  */
-export function dismountBiByeLlista(ballista, player, safeDisplace = false, world = null) {
-  if (!ballista || !player) return false;
-  if (ballista.operatorId === player.id) {
+export function dismountBiByeLlista(ballista, player = null, safeDisplace = false, world = null) {
+  if (!ballista) return false;
+  if (ballista.operatorId && (!player || ballista.operatorId === player.id)) {
     ballista.operatorId = null;
   }
-  if (player.operatingBallistaId === ballista.id) {
+  if (player && player.operatingBallistaId === ballista.id) {
     player.operatingBallistaId = null;
   }
-  if (safeDisplace) {
+  if (player && safeDisplace) {
     const heading = ballista.heading;
     const rgtX = Math.cos(heading);
     const rgtZ = -Math.sin(heading);
@@ -624,16 +625,21 @@ export function stepBiByeLlista(room, ballista, dt, nowSec, world = room.world) 
         // Kinematics: turning only occurs while moving!
         // Ackermann steering with turning radius R >= 4.25m.
         // In Castleward coordinates, steering right (steer > 0) turns clockwise, decreasing yaw.
+        const prevHeading = ballista.heading;
+        const prevX = ballista.x;
+        const prevZ = ballista.z;
+
         const R_MIN = BI_BYE_LLISTA_CONFIG.mobility.minTurningRadius ?? 4.25;
+        let newHeading = ballista.heading;
         if (Math.abs(speed) > 0.05 && Math.abs(steer) > 0.01) {
           const omega = -(speed / R_MIN) * steer;
-          ballista.heading += omega * dt;
+          newHeading += omega * dt;
         }
 
         if (Math.abs(speed) > 0.01) {
           const moveDist = speed * dt;
-          const targetX = ballista.x - Math.sin(ballista.heading) * moveDist;
-          const targetZ = ballista.z - Math.cos(ballista.heading) * moveDist;
+          const targetX = ballista.x - Math.sin(newHeading) * moveDist;
+          const targetZ = ballista.z - Math.cos(newHeading) * moveDist;
 
           // Multi-point footprint collision test for vehicle chassis
           const solids = (world?.solids ?? []).filter(
@@ -642,8 +648,8 @@ export function stepBiByeLlista(room, ballista, dt, nowSec, world = room.world) 
           const R_VEH = 1.05;
           const resolvedCenter = resolvePlayerWorld({ x: targetX, y: ballista.y, z: targetZ }, R_VEH, solids, 1.4);
 
-          const fwdX = -Math.sin(ballista.heading);
-          const fwdZ = -Math.cos(ballista.heading);
+          const fwdX = -Math.sin(newHeading);
+          const fwdZ = -Math.cos(newHeading);
           const xFront = resolvedCenter.x + fwdX * 1.2;
           const zFront = resolvedCenter.z + fwdZ * 1.2;
           const resFront = resolvePlayerWorld({ x: xFront, y: ballista.y, z: zFront }, R_VEH, solids, 1.4);
@@ -652,17 +658,46 @@ export function stepBiByeLlista(room, ballista, dt, nowSec, world = room.world) 
           const zRear = resolvedCenter.z - fwdZ * 1.5;
           const resRear = resolvePlayerWorld({ x: xRear, y: ballista.y, z: zRear }, R_VEH, solids, 1.4);
 
-          if (Math.hypot(resFront.x - xFront, resFront.z - zFront) < 0.05 &&
-              Math.hypot(resRear.x - xRear, resRear.z - zRear) < 0.05) {
+          const frontClear = Math.hypot(resFront.x - xFront, resFront.z - zFront) < 0.05;
+          const rearClear = Math.hypot(resRear.x - xRear, resRear.z - zRear) < 0.05;
+
+          if (frontClear && rearClear) {
+            ballista.heading = newHeading;
             ballista.x = resolvedCenter.x;
             ballista.z = resolvedCenter.z;
           } else {
-            ballista.x = resolvedCenter.x;
-            ballista.z = resolvedCenter.z;
+            // Steering or turning caused front/rear collision: test pure forward/reverse translation without steering
+            const sTargetX = ballista.x - Math.sin(prevHeading) * moveDist;
+            const sTargetZ = ballista.z - Math.cos(prevHeading) * moveDist;
+            const sCenter = resolvePlayerWorld({ x: sTargetX, y: ballista.y, z: sTargetZ }, R_VEH, solids, 1.4);
+
+            const sfwdX = -Math.sin(prevHeading);
+            const sfwdZ = -Math.cos(prevHeading);
+            const sxFront = sCenter.x + sfwdX * 1.2;
+            const szFront = sCenter.z + sfwdZ * 1.2;
+            const sresFront = resolvePlayerWorld({ x: sxFront, y: ballista.y, z: szFront }, R_VEH, solids, 1.4);
+
+            const sxRear = sCenter.x - sfwdX * 1.5;
+            const szRear = sCenter.z - sfwdZ * 1.5;
+            const sresRear = resolvePlayerWorld({ x: sxRear, y: ballista.y, z: szRear }, R_VEH, solids, 1.4);
+
+            if (Math.hypot(sresFront.x - sxFront, sresFront.z - szFront) < 0.05 &&
+                Math.hypot(sresRear.x - sxRear, sresRear.z - szRear) < 0.05) {
+              ballista.heading = prevHeading;
+              ballista.x = sCenter.x;
+              ballista.z = sCenter.z;
+            } else {
+              // Path fully obstructed: halt machine at previous obstacle-free position
+              ballista.heading = prevHeading;
+              ballista.x = prevX;
+              ballista.z = prevZ;
+            }
           }
 
           const ground = surfaceHeightAt(ballista.x, ballista.z, ballista.y + 1.0, world);
           if (ground !== null) ballista.y = ground;
+        } else {
+          ballista.heading = newHeading;
         }
 
         // Aim upper launcher with traverse limits relative to carriage heading

@@ -290,7 +290,11 @@ export class HUD {
       this.matchInfo.textContent = `BI-BYE-LLISTA · ${bl.health}/${bl.maxHealth} HP · ${modeText} · ${smallText} · ${mainText}`;
     } else {
       const bl = snapshot?.bibyeBallista;
-      const near = bl && local?.position && bl.mode !== 'DESTROYED' ? Math.hypot(bl.position.x - local.position.x, bl.position.z - local.position.z) <= 3.5 : false;
+      const bx = bl?.position?.x ?? bl?.x;
+      const bz = bl?.position?.z ?? bl?.z;
+      const near = bl && local?.position && bx !== undefined && bl.mode !== 'DESTROYED'
+        ? Math.hypot(bx - local.position.x, bz - local.position.z) <= 3.5
+        : false;
       if (near) {
         this.matchInfo.textContent = `[T] Mount Bi-Bye-llista · ${bl.health}/${bl.maxHealth} HP`;
       } else {
