@@ -287,20 +287,22 @@ export class BiByeLlistaRenderer {
       this.mixer.update(dt);
     }
 
-    // D. Articulate 6 wheels (Euler roll + steering)
-    const wheels = [
-      { node: this.nodes.get('Wheel_FL'), steer: frontSteerYaw },
-      { node: this.nodes.get('Wheel_FR'), steer: frontSteerYaw },
-      { node: this.nodes.get('Wheel_ML'), steer: midSteerYaw },
-      { node: this.nodes.get('Wheel_MR'), steer: midSteerYaw },
-      { node: this.nodes.get('Wheel_RL'), steer: rearSteerYaw },
-      { node: this.nodes.get('Wheel_RR'), steer: rearSteerYaw },
-    ];
+    // D. Articulate 6 wheels (Euler roll + steering) when not destroyed
+    if (mode !== BI_BYE_MODES.DESTROYED) {
+      const wheels = [
+        { node: this.nodes.get('Wheel_FL'), steer: frontSteerYaw },
+        { node: this.nodes.get('Wheel_FR'), steer: frontSteerYaw },
+        { node: this.nodes.get('Wheel_ML'), steer: midSteerYaw },
+        { node: this.nodes.get('Wheel_MR'), steer: midSteerYaw },
+        { node: this.nodes.get('Wheel_RL'), steer: rearSteerYaw },
+        { node: this.nodes.get('Wheel_RR'), steer: rearSteerYaw },
+      ];
 
-    for (const { node, steer } of wheels) {
-      if (node) {
-        // Euler 'YXZ': steer around local Y, roll around local X
-        node.rotation.set(this.wheelRoll, steer, 0, 'YXZ');
+      for (const { node, steer } of wheels) {
+        if (node) {
+          // Euler 'YXZ': steer around local Y, roll around local X
+          node.rotation.set(this.wheelRoll, steer, 0, 'YXZ');
+        }
       }
     }
 

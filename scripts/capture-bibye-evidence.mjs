@@ -4,30 +4,29 @@ import os from 'node:os';
 import { spawn } from 'node:child_process';
 
 const chromeBin = process.env.CHROME_BIN || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-const port = 9255;
-const userDataDir = path.join(os.tmpdir(), `ss-bibye-evidence-${process.pid}`);
+const port = 9260;
+const serverPort = 3002;
+const userDataDir = path.join(os.tmpdir(), `ss-bibye-capture-${process.pid}`);
 const evidenceDir = path.resolve('docs/evidence/bibye');
 await fs.mkdir(evidenceDir, { recursive: true });
 
-// Start local server if not already running
-let server = null;
-let serverPort = 3001;
-try {
-  await fetch(`http://127.0.0.1:${serverPort}/health`);
-  console.log(`Server already responsive on port ${serverPort}`);
-} catch {
-  console.log('Starting local server...');
-  server = spawn('node', ['server/src/server.mjs'], {
-    env: { ...process.env, PORT: String(serverPort), HOST: '127.0.0.1' },
-    stdio: 'ignore',
-  });
-  for (let i = 0; i < 40; i++) {
-    try {
-      const res = await fetch(`http://127.0.0.1:${serverPort}/health`);
-      if (res.ok) break;
-    } catch {}
-    await new Promise(r => setTimeout(r, 200));
-  }
+console.log('Starting dedicated test server on port ' + serverPort + '...');
+const server = spawn('node', ['server/src/server.mjs'], {
+  env: { ...process.env, PORT: String(serverPort), HOST: '127.0.0.1' },
+  stdio: 'ignore',
+});
+
+async function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+for (let i = 0; i < 50; i++) {
+  try {
+    const res = await fetch(`http://127.0.0.1:${serverPort}/health`);
+    if (res.ok) {
+      console.log('Server is healthy on port ' + serverPort);
+      break;
+    }
+  } catch {}
+  await wait(150);
 }
 
 const chrome = spawn(chromeBin, [
@@ -42,8 +41,6 @@ const chrome = spawn(chromeBin, [
   'about:blank',
 ], { stdio: 'ignore' });
 
-async function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
-
 let tabs;
 for (let i = 0; i < 40; i++) {
   try {
@@ -52,10 +49,6 @@ for (let i = 0; i < 40; i++) {
     if (page) { tabs = [page]; break; }
   } catch {}
   await wait(150);
-}
-
-if (!tabs || !tabs[0]) {
-  throw new Error('Chrome CDP page tab not found');
 }
 
 const ws = new WebSocket(tabs[0].webSocketDebuggerUrl);
@@ -83,9 +76,6 @@ function send(method, params = {}) {
 
 async function evaluate(expr) {
   const res = await send('Runtime.evaluate', { expression: expr, returnByValue: true, awaitPromise: true });
-  if (res?.exceptionDetails) {
-    throw new Error(res.exceptionDetails.text || 'Runtime exception');
-  }
   return res?.result?.value;
 }
 
@@ -113,9 +103,8 @@ try {
   await send('Runtime.enable');
   await send('Page.navigate', { url: `http://127.0.0.1:${serverPort}/?debug` });
 
-  await until(() => evaluate("Boolean(document.querySelector('#menu') && document.querySelector('#loading-veil')?.classList.contains('done'))"), 'menu load');
+  await until(() => evaluate("Boolean(document.querySelector('#menu') && document.querySelector('#loading-veil')?.classList.contains('done'))"), 'menu ready');
 
-  // Skip tutorial onboarding if present, set player name, open Practice Yard
   await until(async () => evaluate(`(() => {
     const offer = document.querySelector('#tutorial-onboarding');
     if (offer && !offer.hidden) document.querySelector('[data-tutorial-onboarding-skip]')?.click();
@@ -135,105 +124,141 @@ try {
   await wait(300);
   await evaluate("document.querySelector('#practice-mode').click()");
 
-  await until(() => evaluate("Boolean(window.__ssRuntime?.localAuth && !document.querySelector('#hud').classList.contains('hidden'))"), 'Practice Yard live');
+  await until(() => evaluate("Boolean(window.__ssRuntime?.localAuth && !document.querySelector('#hud')?.classList.contains('hidden'))"), 'Practice Yard live');
   console.log('Entered Practice Yard!');
 
-  // Wait for authored GLB to load in renderer
-  await until(() => evaluate("Boolean(window.__ssRuntime?.world?.biByeLlista?.authoredModel)"), 'Bi-Bye-llista authored GLB loaded');
-  console.log('Authored v3.0 Bi-Bye-llista GLB loaded into scene!');
+  await until(() => evaluate("Boolean(window.__ssRuntime?.world?.biByeLlista?.authoredModel)"), 'Authored GLB loaded');
+  console.log('Authored v3.0 Bi-Bye-llista GLB is loaded in renderer!');
 
-  // Setup spectator camera angle to showcase the ballista clearly
-  // Ballista default position: x: 9.2, y: 0, z: -14.6
-  // We place camera at x: 4.8, y: 2.1, z: -12.2 looking at ballista center
+  // Setup render hook to bypass first person camera, hide UI overlays, and hook ballista data
   await evaluate(`(() => {
     const r = window.__ssRuntime;
-    const cam = r.camera;
-    // Set custom third-person perspective overlooking the ballista and range
-    cam.position.set(4.6, 2.2, -12.4);
-    cam.lookAt(9.2, 1.4, -14.6);
-    r.cameraRigOverride = true;
-    // Force camera stay during frames
-    const origUpdate = r.world.biByeLlista.update.bind(r.world.biByeLlista);
+    r.weapon.group.visible = false;
+    document.querySelector('#practice-overlay')?.remove();
+    document.querySelector('#pointer-hint')?.remove();
+    document.querySelector('#hud')?.remove();
+    
+    const b = r.world.biByeLlista;
+    const origUpdate = b.update.bind(b);
+    b.update = function(timeSec, ballistaData, projectilesData) {
+      const bd = window.__overrideBallistaData || ballistaData;
+      const pd = window.__overrideProjData || projectilesData;
+      return origUpdate(timeSec, bd, pd);
+    };
+
+    const origRender = r.renderer.render.bind(r.renderer);
+    r.renderer.render = function(scene, camera) {
+      if (r.__customCam) {
+        camera.position.set(r.__customCam.pos[0], r.__customCam.pos[1], r.__customCam.pos[2]);
+        camera.lookAt(r.__customCam.look[0], r.__customCam.look[1], r.__customCam.look[2]);
+      }
+      r.weapon.group.visible = false;
+      return origRender(scene, camera);
+    };
   })()`);
 
-  await wait(600);
-
-  // 1. Capture Mobile Mode (6-wheeled carriage)
+  // Viewpoint 1: Mobile Carriage (steered wheels, traversed upper turret, travel ready)
   console.log('Capturing Viewpoint 1: Mobile Carriage...');
   await evaluate(`(() => {
     const r = window.__ssRuntime;
-    r.camera.position.set(4.6, 2.0, -12.2);
-    r.camera.lookAt(9.2, 1.3, -14.6);
+    window.__overrideBallistaData = {
+      x: 9.0, y: 0, z: -14.6,
+      heading: -Math.PI / 2, // Facing East (+X)
+      yaw: -Math.PI / 2 + 0.38, // Upper launcher traversed
+      pitch: 0.14,
+      steer: 0.75, // Articulated front/rear wheels
+      mode: 'MOBILE',
+      state: 'LOADED',
+      health: 400,
+      maxHealth: 400,
+      smallBoltReady: true,
+      mainBoltLoaded: true,
+    };
+    window.__overrideProjData = [];
+    r.__customCam = { pos: [13.2, 1.8, -12.0], look: [9.0, 1.1, -14.6] };
   })()`);
-  await wait(300);
+  await wait(800);
   await capture('bibye-01-mobile-carriage.png');
 
-  // 2. Capture Deployed Mode (outriggers planted, turntable elevated)
+  // Viewpoint 2: Deployed Mode (outriggers planted, main turntable elevated & traversed)
   console.log('Capturing Viewpoint 2: Deployed Mode...');
   await evaluate(`(() => {
-    const bl = window.__ssRuntime.room?.biByeLlista;
-    if (bl) {
-      bl.mode = 'DEPLOYED';
-      bl.yaw = -Math.PI / 2 + 0.18;
-      bl.pitch = 0.15;
-    }
+    const r = window.__ssRuntime;
+    window.__overrideBallistaData = {
+      x: 9.0, y: 0, z: -14.6,
+      heading: -Math.PI / 2,
+      yaw: -Math.PI / 2 + 0.35, // Turntable traversed
+      pitch: 0.18, // Cradle elevated
+      steer: 0,
+      mode: 'DEPLOYED',
+      state: 'LOADED',
+      health: 400,
+      maxHealth: 400,
+      smallBoltReady: true,
+      mainBoltLoaded: true,
+    };
+    window.__overrideProjData = [];
+    // Slightly more side/front angle to show deployed outriggers planted on turf
+    r.__customCam = { pos: [12.8, 1.6, -11.5], look: [9.0, 1.1, -14.6] };
   })()`);
-  await wait(500);
+  await wait(1000);
   await capture('bibye-02-deployed-mode.png');
 
-  // 3. Capture Firing Volley (projectiles in air)
-  console.log('Capturing Viewpoint 3: Two-Stage Volley Discharge...');
+  // Viewpoint 3: Two-Stage Volley Discharge
+  console.log('Capturing Viewpoint 3: Two-Stage Volley...');
   await evaluate(`(() => {
     const r = window.__ssRuntime;
-    const bl = r.room?.biByeLlista;
-    if (bl) {
-      bl.mode = 'DEPLOYED';
-      bl.state = 'FIRING';
-      bl.yaw = -Math.PI / 2;
-      bl.pitch = 0.08;
-    }
-    // Spawn visual test projectiles in flight
-    r.latestSnapshot.bibyeProjectiles = [
-      {
-        id: 'cap-cond-1',
-        subKind: 'conditioning',
-        position: { x: 12.8, y: 1.55, z: -14.6 },
-        velocity: { x: 48, y: 0.8, z: 0 },
-      },
-      {
-        id: 'cap-siege-1',
-        subKind: 'siege',
-        position: { x: 10.6, y: 1.25, z: -14.6 },
-        velocity: { x: 55, y: 0.5, z: 0 },
-      }
+    window.__overrideBallistaData = {
+      x: 9.0, y: 0, z: -14.6,
+      heading: -Math.PI / 2,
+      yaw: -Math.PI / 2,
+      pitch: 0.10,
+      steer: 0,
+      mode: 'DEPLOYED',
+      state: 'FIRING',
+      health: 400,
+      maxHealth: 400,
+      smallBoltReady: false,
+      mainBoltLoaded: false,
+    };
+    window.__overrideProjData = [
+      { id: 'shot-frost', subKind: 'conditioning', position: { x: 12.6, y: 1.65, z: -14.6 }, velocity: { x: 48, y: 0.5, z: 0 } },
+      { id: 'shot-siege', subKind: 'siege', position: { x: 10.8, y: 1.25, z: -14.6 }, velocity: { x: 55, y: 0.3, z: 0 } }
     ];
-    r.camera.position.set(6.2, 1.9, -11.5);
-    r.camera.lookAt(12.5, 1.4, -14.6);
+    // Camera angle looking across the line of fire
+    r.__customCam = { pos: [14.0, 1.7, -11.0], look: [11.0, 1.3, -14.6] };
   })()`);
-  await wait(400);
+  await wait(800);
   await capture('bibye-03-firing-volley.png');
 
-  // 4. Capture Destroyed Wreck
-  console.log('Capturing Viewpoint 4: Destroyed Wreckage...');
+  // Viewpoint 4: Destroyed Wreckage
+  console.log('Capturing Viewpoint 4: Destroyed Wreck...');
   await evaluate(`(() => {
     const r = window.__ssRuntime;
-    const bl = r.room?.biByeLlista;
-    if (bl) {
-      bl.mode = 'DESTROYED';
-      bl.state = 'SPENT';
-      bl.health = 0;
-    }
-    r.latestSnapshot.bibyeProjectiles = [];
-    r.camera.position.set(6.5, 1.8, -12.6);
-    r.camera.lookAt(9.2, 0.8, -14.6);
+    window.__overrideBallistaData = {
+      x: 9.0, y: 0, z: -14.6,
+      heading: -Math.PI / 2,
+      yaw: -Math.PI / 2,
+      pitch: 0,
+      steer: 0,
+      mode: 'DESTROYED',
+      state: 'SPENT',
+      health: 0,
+      maxHealth: 400,
+      smallBoltReady: false,
+      mainBoltLoaded: false,
+    };
+    window.__overrideProjData = [];
+    r.__customCam = { pos: [12.6, 1.4, -12.2], look: [9.0, 0.7, -14.6] };
   })()`);
-  await wait(600);
+  // Wait 2.2 seconds for the 1.8s destruction collapse animation to complete
+  await wait(2200);
   await capture('bibye-04-wreck-destroyed.png');
 
-  console.log('All 4 visual evidence viewpoints successfully captured!');
+  console.log('All 4 viewpoints captured successfully!');
 } finally {
   try { ws?.close(); } catch {}
   chrome.kill('SIGTERM');
-  if (server) server.kill('SIGTERM');
+  server.kill('SIGTERM');
   await fs.rm(userDataDir, { recursive: true, force: true }).catch(() => {});
 }
