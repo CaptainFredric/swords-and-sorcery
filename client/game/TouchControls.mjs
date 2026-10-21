@@ -33,6 +33,8 @@ const BUTTONS = [
   { action: 'ultimate', label: 'SUNDER', icon: 'sunder' },
   { action: 'pause', label: 'MENU' },
   { action: 'scores', label: 'SCORES' },
+  { action: 'interact', label: 'MOUNT' },
+  { action: 'deploy', label: 'DEPLOY' },
 ];
 
 const svg = (icon) => iconSvg(icon);
@@ -97,6 +99,8 @@ export class TouchControls {
       timer: this.buttons[action].querySelector('.touch-timer'),
       ...cooldown,
     }));
+    if (this.buttons.interact) this.buttons.interact.hidden = true;
+    if (this.buttons.deploy) this.buttons.deploy.hidden = true;
 
     this.layer.addEventListener('pointerdown', this.#down);
     this.layer.addEventListener('pointermove', this.#move);
@@ -212,7 +216,7 @@ export class TouchControls {
     }
   }
 
-  update(local, serverNow, { practice = false } = {}) {
+  update(local, serverNow, { practice = false, snapshot = null } = {}) {
     if (!local) return;
     this.prepared = preparedSpellView(local, serverNow);
     this.input.updatePreparedSpells(local, serverNow);
@@ -239,6 +243,37 @@ export class TouchControls {
     if (crouchLabel && crouchLabel.textContent !== crouchWord) crouchLabel.textContent = crouchWord;
     this.buttons.guard.classList.toggle('drained', (local.guardStamina ?? 100) < 1);
     this.#showUltimate(local, serverNow, practice);
+
+    // Ballista touch controls (Mount / Dismount / Deploy / Pack)
+    if (this.buttons.interact || this.buttons.deploy) {
+      const bl = snapshot?.bibyeBallista;
+      const mounted = Boolean(local.operatingBallistaId);
+      const near = bl && local.position ? Math.hypot(bl.position.x - local.position.x, bl.position.z - local.position.z) <= 3.5 : false;
+
+      if (mounted) {
+        if (this.buttons.interact) {
+          this.buttons.interact.hidden = false;
+          const label = this.buttons.interact.querySelector('span');
+          if (label && label.textContent !== 'DISMOUNT') label.textContent = 'DISMOUNT';
+        }
+        if (this.buttons.deploy) {
+          this.buttons.deploy.hidden = false;
+          const label = this.buttons.deploy.querySelector('span');
+          const text = bl?.mode === 'DEPLOYED' ? 'PACK' : 'DEPLOY';
+          if (label && label.textContent !== text) label.textContent = text;
+        }
+      } else if (near && bl?.mode !== 'DESTROYED') {
+        if (this.buttons.interact) {
+          this.buttons.interact.hidden = false;
+          const label = this.buttons.interact.querySelector('span');
+          if (label && label.textContent !== 'MOUNT') label.textContent = 'MOUNT';
+        }
+        if (this.buttons.deploy) this.buttons.deploy.hidden = true;
+      } else {
+        if (this.buttons.interact) this.buttons.interact.hidden = true;
+        if (this.buttons.deploy) this.buttons.deploy.hidden = true;
+      }
+    }
   }
 
   // the ultimate's button: filling with prowess, glowing when full, lit while it is active
@@ -464,6 +499,8 @@ export class TouchControls {
       this.crouchTap = { id: event.pointerId, at: performance.now(), x: point.x, y: point.y };
     }
     if (action === 'scores') this.input.scoreboardHeld = !this.input.scoreboardHeld;
+    if (action === 'interact') this.input.interact?.();
+    if (action === 'deploy') this.input.deploy?.();
   }
 
   #release(action, pointerId) {

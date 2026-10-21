@@ -63,6 +63,10 @@ button, input { touch-action: manipulation; }
 .touch-pause span, .touch-scores span { display: none; }
 .touch-pause svg, .touch-scores svg { width: calc(var(--size) * var(--s) * .5); height: calc(var(--size) * var(--s) * .5); stroke-width: 2.6; }
 
+/* Ballista mount & deploy touch controls */
+.touch-interact { --size: 58px; right: calc(var(--safe-r) + 204px * var(--s)); bottom: calc(var(--safe-b) + 96px * var(--s)); color: #ffdf77; border-color: rgba(255, 223, 119, .7); }
+.touch-deploy { --size: 58px; right: calc(var(--safe-r) + 196px * var(--s)); bottom: calc(var(--safe-b) + 164px * var(--s)); color: #a8e063; border-color: rgba(168, 224, 99, .7); }
+
 .touch-cooldown { position: absolute; inset: 0; background: rgba(8, 9, 7, .66); transform: translateY(calc((1 - var(--cooldown, 0)) * 100%)); pointer-events: none; }
 .touch-timer { position: absolute; inset: 0; display: grid; place-items: center; font-size: 15px; font-weight: 900; color: #f3ead2; text-shadow: 0 1px 3px #000; pointer-events: none; }
 .touch-btn.cooling svg, .touch-btn.cooling span { opacity: .4; }

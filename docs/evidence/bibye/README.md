@@ -70,10 +70,20 @@ The Bi-Bye-llista prototype has been advanced from a stationary turret into an a
 
 ## 3. Verification Summary
 
-- **Bi-Bye-llista Test Suite**: `node --test server/tests/bi-bye-llista.test.mjs` — **10/10 passing**
+- **Bi-Bye-llista Test Suite**: `node --test server/tests/bi-bye-llista.test.mjs` — **15/15 passing** (including Ackermann kinematics, 30/60/10 Hz continuous swept collisions, stone wall occlusion, friendly-fire immunity, and obstacle-aware dismount)
 - **Sheathe in Steel Regression Suite**: `node --test server/tests/steel-mitigation.test.mjs` — **4/4 passing**
 - **Sunder Regression Suite**: `node --test server/tests/sunder.test.mjs` — **47/47 passing**
-- **Full Unit Test Suite**: `npm test` — **1,563/1,563 passing**
+- **Full Unit Test Suite**: `npm test` — **1,568/1,568 passing**
 - **Syntax Verification**: `npm run check` — **Syntax OK (451 modules)**
 - **HTML5 Candidate Package**: `npm run test:html5` — **19/19 passing**
 - **Live Smoke Test**: `npm run smoke` — **Smoke OK**
+
+---
+
+## 4. Production Asset Integration (Argon v3.0 Deliverables)
+
+- **Authored Asset**: `client/assets/props/bibye-ballista/bi-bye-llista.glb` (SHA-256 `647a4ab490b5292fc1b67b5356705ae4bea743f87eab046863cff141eedad9d1`)
+- **Scene Graph Hierarchy**: 37 nodes (1 root, 29 articulated mechanical mesh nodes, 7 named gameplay locators)
+- **Animation Mixer**: 12 animation clips with retimed deploy/retract transitions ($1.3333\times$ speedup) synchronized to authoritative 1.200 s server transitions
+- **Locomotion Kinematics**: Composed 6-wheel rolling ($R_{\text{wheel}} = 0.550\text{ m}$) with front $\pm 18^\circ$ steering and rear $\mp 10^\circ$ counter-steering
+- **Touchscreen Readiness**: Dedicated mobile touch actions for mount/dismount and deploy/pack modes along with analog thumbstick driving

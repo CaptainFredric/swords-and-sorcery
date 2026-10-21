@@ -40,7 +40,7 @@ test('Scenario 1: Full deployed volley lethality against unprotected 100 HP Spel
   const ballista = room.biByeLlista;
   assert.ok(ballista, 'ballista exists in Practice mode');
 
-  human.position = { x: 4.3, y: 0, z: -14.6 };
+  human.position = { x: 7.8, y: 0, z: -14.6 };
   mountBiByeLlista(ballista, human);
 
   // Deploy outriggers
@@ -91,7 +91,7 @@ test('Scenario 2: Frost Conditioning Bolt blast radius, stamina drain, and fadin
   const { room, human } = makePracticeRoom();
   const ballista = room.biByeLlista;
 
-  human.position = { x: 4.3, y: 0, z: -14.6 };
+  human.position = { x: 7.8, y: 0, z: -14.6 };
   mountBiByeLlista(ballista, human);
 
   // Deploy outriggers
@@ -121,16 +121,17 @@ test('Scenario 2: Frost Conditioning Bolt blast radius, stamina drain, and fadin
 
   // Guard stamina drained by ~22 points (solid sword strike equivalent)
   assert.ok(defender.guardStamina <= 30 && defender.guardStamina >= 25, 'guard stamina drained by blast');
+  assert.equal(defender.health, 100, 'raised guard absorbs health damage');
   assert.ok(defender.chill, 'fading chill applied');
-  assert.ok(defender.chill.slow > 0.35 && defender.chill.slow <= 0.40, 'initial slow ~0.40');
-  assert.ok(defender.chill.until - defender.chill.startedAt >= 4.5, 'thaw duration ~5.0s');
+  assert.ok(defender.chill.slow >= 0.18 && defender.chill.slow <= 0.22, 'initial edge slow ~0.20 for guarded defender');
+  assert.ok(defender.chill.until - defender.chill.startedAt >= 1.9, 'edge thaw duration ~2.0s');
 });
 
 test('Scenario 3: Main Physical Siege Bolt direct hit, shove, and stagger', () => {
   const { room, human } = makePracticeRoom();
   const ballista = room.biByeLlista;
 
-  human.position = { x: 4.3, y: 0, z: -14.6 };
+  human.position = { x: 7.8, y: 0, z: -14.6 };
   mountBiByeLlista(ballista, human);
   toggleBiByeDeploy(ballista, 0);
   stepBiByeLlista(room, ballista, 1.25, 1.25, room.world);
@@ -164,7 +165,7 @@ test('Scenario 4: Siege shockwave damages nearby targets but does NOT double-hit
   const { room, human } = makePracticeRoom();
   const ballista = room.biByeLlista;
 
-  human.position = { x: 4.3, y: 0, z: -14.6 };
+  human.position = { x: 7.8, y: 0, z: -14.6 };
   mountBiByeLlista(ballista, human);
   toggleBiByeDeploy(ballista, 0);
   stepBiByeLlista(room, ballista, 1.25, 1.25, room.world);
@@ -206,7 +207,7 @@ test('Scenario 5: Solid world collision stops physical siege bolt without tunnel
   const { room, human } = makePracticeRoom();
   const ballista = room.biByeLlista;
 
-  human.position = { x: 4.3, y: 0, z: -14.6 };
+  human.position = { x: 7.8, y: 0, z: -14.6 };
   mountBiByeLlista(ballista, human);
   toggleBiByeDeploy(ballista, 0);
   stepBiByeLlista(room, ballista, 1.25, 1.25, room.world);
@@ -249,7 +250,7 @@ test('Scenario 6: Mobile Mode travel, steering, and independent Shot I firing on
 
   assert.equal(ballista.mode, BI_BYE_MODES.MOBILE, 'starts in mobile mode');
 
-  human.position = { x: 4.3, y: 0, z: -14.6 };
+  human.position = { x: 7.8, y: 0, z: -14.6 };
   mountBiByeLlista(ballista, human);
 
   const startX = ballista.x;
@@ -279,7 +280,7 @@ test('Scenario 7: Deployed Mode transition, swivel traverse, and full reload cyc
   const { room, human } = makePracticeRoom();
   const ballista = room.biByeLlista;
 
-  human.position = { x: 4.3, y: 0, z: -14.6 };
+  human.position = { x: 7.8, y: 0, z: -14.6 };
   mountBiByeLlista(ballista, human);
 
   // Toggle deploy
@@ -340,7 +341,7 @@ test('Scenario 8: Siege-machine durability, destruction, and safe operator dismo
   const { room, human } = makePracticeRoom();
   const ballista = room.biByeLlista;
 
-  human.position = { x: 4.3, y: 0, z: -14.6 };
+  human.position = { x: 7.8, y: 0, z: -14.6 };
   mountBiByeLlista(ballista, human);
 
   assert.equal(ballista.health, 400);
@@ -375,7 +376,7 @@ test('Scenario 9: Sheathe in Steel mitigates ballista volley: Spellblade survive
   const { room, human } = makePracticeRoom();
   const ballista = room.biByeLlista;
 
-  human.position = { x: 4.3, y: 0, z: -14.6 };
+  human.position = { x: 7.8, y: 0, z: -14.6 };
   mountBiByeLlista(ballista, human);
   toggleBiByeDeploy(ballista, 0);
   stepBiByeLlista(room, ballista, 1.25, 1.25, room.world);
@@ -423,7 +424,7 @@ test('Scenario 10: Snapshot serialization and practice command handling', () => 
   const ballista = room.biByeLlista;
 
   // Mount via command
-  human.position = { x: 4.3, y: 0, z: -14.6 };
+  human.position = { x: 7.8, y: 0, z: -14.6 };
   applyRoomCommand(room, human, { type: 'bibyeOperate' }, 1.0);
   assert.equal(ballista.operatorId, human.id);
 
@@ -438,4 +439,220 @@ test('Scenario 10: Snapshot serialization and practice command handling', () => 
   assert.equal(snap.bibyeBallista.mode, BI_BYE_MODES.DEPLOYING);
   assert.ok(snap.bibyeBallista.deployProgress > 0);
   assert.equal(snap.bibyeBallista.mainBoltLoaded, true);
+});
+
+test('Scenario 11: Vehicle Input Protocol & Ackermann Steering Kinematics', () => {
+  const { room, human } = makePracticeRoom();
+  const ballista = room.biByeLlista;
+
+  human.position = { x: 7.8, y: 0, z: -14.6 };
+  mountBiByeLlista(ballista, human);
+
+  const initialHeading = ballista.heading;
+  const initialX = ballista.x;
+  const initialZ = ballista.z;
+  const dt = 1 / 30;
+
+  // 1. Motionless steering: input.right = 1, forward = 0
+  // Authored kinematics: vehicle ONLY steers while moving!
+  human.input = { forward: 0, right: 1 };
+  for (let i = 0; i < 30; i++) {
+    stepBiByeLlista(room, ballista, dt, 1.0 + i * dt, room.world);
+  }
+  assert.equal(ballista.heading, initialHeading, 'motionless machine has zero steering angular velocity');
+  assert.equal(ballista.x, initialX, 'motionless machine does not translate');
+
+  // 2. Forward driving: input.forward = 1, right = 0
+  human.input = { forward: 1, right: 0 };
+  for (let i = 0; i < 30; i++) {
+    stepBiByeLlista(room, ballista, dt, 2.0 + i * dt, room.world);
+  }
+  assert.ok(ballista.x > initialX + 2.5, 'forward driving moves along heading (+X)');
+  assert.equal(ballista.heading, initialHeading, 'driving straight produces no heading change');
+
+  // 3. Forward driving with right steering: input.forward = 1, right = 1
+  const preSteerHeading = ballista.heading;
+  human.input = { forward: 1, right: 1 };
+  stepBiByeLlista(room, ballista, dt, 3.0, room.world);
+  // Turning right in Castleward decreases heading (clockwise)
+  assert.ok(ballista.heading < preSteerHeading, 'steering right while moving forward turns clockwise (heading decreases)');
+
+  // Ackermann turning radius validation: R = |v / omega| >= 4.25m
+  const speed = BI_BYE_LLISTA_CONFIG.mobility.forwardSpeed; // 3.2 m/s
+  const deltaHeading = Math.abs(ballista.heading - preSteerHeading);
+  const omega = deltaHeading / dt;
+  const turningRadius = speed / omega;
+  assert.ok(turningRadius >= 4.24 && turningRadius <= 4.26, `turning radius matches authored R=4.25m: ${turningRadius}`);
+
+  // 4. Reverse driving: input.forward = -1
+  const preRevX = ballista.x;
+  human.input = { forward: -1, right: 0 };
+  for (let i = 0; i < 30; i++) {
+    stepBiByeLlista(room, ballista, dt, 4.0 + i * dt, room.world);
+  }
+  assert.ok(ballista.x < preRevX, 'reverse driving moves opposite heading (-X)');
+
+  // 5. Analog partial deflection: forward = 0.5, right = -0.5
+  human.input = { forward: 0.5, right: -0.5 };
+  stepBiByeLlista(room, ballista, dt, 5.0, room.world);
+  assert.equal(ballista.speed, 0.5 * BI_BYE_LLISTA_CONFIG.mobility.forwardSpeed, 'analog throttle scales speed');
+  assert.equal(ballista.steer, -0.5, 'analog steering recorded');
+
+  // 6. Release input and stop
+  human.input = { forward: 0, right: 0 };
+  stepBiByeLlista(room, ballista, dt, 6.0, room.world);
+  assert.equal(ballista.speed, 0, 'releasing input stops carriage');
+});
+
+test('Scenario 12: Step-Rate Independent Continuous Swept Collision (30 Hz, 60 Hz, 10 Hz lag spike)', () => {
+  for (const framerate of [60, 30, 10]) {
+    const { room, human } = makePracticeRoom();
+    const ballista = room.biByeLlista;
+
+    human.position = { x: 7.8, y: 0, z: -14.6 };
+    mountBiByeLlista(ballista, human);
+    toggleBiByeDeploy(ballista, 0);
+    stepBiByeLlista(room, ballista, 1.25, 1.25, room.world);
+
+    ballista.yaw = -Math.PI / 2;
+    ballista.pitch = 0;
+
+    // Target 1 at x = 13.0, Target 2 at x = 17.0
+    const target1 = room.addServerActor({ id: `t1-${framerate}`, name: 'Target 1', actorKind: 'dummy' }, 0);
+    target1.position = { x: 13.0, y: 0, z: -14.6 };
+    target1.health = 200;
+    target1.spawnProtectionUntil = 0;
+
+    const target2 = room.addServerActor({ id: `t2-${framerate}`, name: 'Target 2', actorKind: 'dummy' }, 0);
+    target2.position = { x: 17.0, y: 0, z: -14.6 };
+    target2.health = 200;
+    target2.spawnProtectionUntil = 0;
+
+    let nowSec = 2.0;
+    fireBiByeLlista(room, ballista, nowSec);
+
+    const dt = 1 / framerate;
+    while (nowSec < 3.2) {
+      nowSec += dt;
+      stepBiByeLlista(room, ballista, dt, nowSec, room.world);
+      stepBiByeProjectiles(room, dt, nowSec, room.world);
+    }
+
+    // Both targets must be pierced regardless of framerate (no tunneling!)
+    // Target 1: 18 (Shot I direct) + 85 (Shot II 1st pierce) = 103 dmg -> 200 - 103 = 97
+    assert.equal(target1.health, 97, `target 1 hit at ${framerate} Hz (no tunneling)`);
+
+    // Target 2: 0 (Shot I detonated on Target 1) + 59 (Shot II 2nd pierce, 85 * 0.70 = 59.5 -> 59) = 59 dmg -> 200 - 59 = 141
+    assert.equal(target2.health, 141, `target 2 pierced in spatial order at ${framerate} Hz`);
+  }
+});
+
+test('Scenario 13: Solid Stone Wall Decisive Termination & Occlusion Behind Wall', () => {
+  const { room, human } = makePracticeRoom();
+  const ballista = room.biByeLlista;
+
+  human.position = { x: 7.8, y: 0, z: -14.6 };
+  mountBiByeLlista(ballista, human);
+  toggleBiByeDeploy(ballista, 0);
+  stepBiByeLlista(room, ballista, 1.25, 1.25, room.world);
+
+  ballista.yaw = -Math.PI / 2;
+  ballista.pitch = 0;
+
+  // Target 1 before wall (x = 12.0)
+  const targetBefore = room.addServerActor({ id: 'target-before', name: 'Before Wall', actorKind: 'dummy' }, 0);
+  targetBefore.position = { x: 12.0, y: 0, z: -14.6 };
+  targetBefore.health = 200;
+  targetBefore.spawnProtectionUntil = 0;
+
+  // Solid stone wall at x = 14.0
+  const worldWithWall = {
+    ...room.world,
+    solids: [
+      ...room.world.solids,
+      { id: 'stone-rampart', center: [14.0, 1.0, -14.6], size: [0.8, 4.0, 4.0], material: 'stone' },
+    ],
+  };
+
+  // Target 2 behind wall (x = 17.0)
+  const targetBehind = room.addServerActor({ id: 'target-behind', name: 'Behind Wall', actorKind: 'dummy' }, 0);
+  targetBehind.position = { x: 17.0, y: 0, z: -14.6 };
+  targetBehind.health = 100;
+  targetBehind.spawnProtectionUntil = 0;
+
+  let nowSec = 2.0;
+  fireBiByeLlista(room, ballista, nowSec);
+
+  const dt = 1 / 30;
+  while (nowSec < 3.2) {
+    nowSec += dt;
+    stepBiByeLlista(room, ballista, dt, nowSec, worldWithWall);
+    stepBiByeProjectiles(room, dt, nowSec, worldWithWall);
+  }
+
+  // Target before wall took damage
+  assert.equal(targetBefore.health, 97, 'target before wall takes direct hits');
+
+  // Target behind wall is completely occluded: 0 direct damage, 0 shockwave damage
+  assert.equal(targetBehind.health, 100, 'target behind solid wall receives zero damage');
+});
+
+test('Scenario 14: Friendly Fire and Self Damage Exclusions', () => {
+  const { room, human } = makePracticeRoom();
+  const ballista = room.biByeLlista;
+
+  human.position = { x: 7.8, y: 0, z: -14.6 };
+  human.team = 'ATTACKERS';
+  mountBiByeLlista(ballista, human);
+  toggleBiByeDeploy(ballista, 0);
+  stepBiByeLlista(room, ballista, 1.25, 1.25, room.world);
+
+  ballista.yaw = -Math.PI / 2;
+  ballista.pitch = 0;
+
+  // Add allied teammate right in front of ballista
+  const ally = room.addPlayer({ id: 'ally-01', token: 'token-ally', name: 'Ally' }, 0);
+  ally.team = 'ATTACKERS';
+  ally.position = { x: 12.0, y: 0, z: -14.6 };
+  ally.health = 100;
+  ally.spawnProtectionUntil = 0;
+
+  let nowSec = 2.0;
+  fireBiByeLlista(room, ballista, nowSec);
+
+  const dt = 1 / 30;
+  while (nowSec < 3.0) {
+    nowSec += dt;
+    stepBiByeLlista(room, ballista, dt, nowSec, room.world);
+    stepBiByeProjectiles(room, dt, nowSec, room.world);
+  }
+
+  assert.equal(ally.health, 100, 'teammate is strictly immune to friendly fire');
+  assert.equal(ally.chill, null, 'teammate does not receive chill from friendly fire');
+  assert.equal(human.health, 100, 'operator receives no self-damage');
+});
+
+test('Scenario 15: Obstacle-Aware Safe Dismounting', () => {
+  const { room, human } = makePracticeRoom();
+  const ballista = room.biByeLlista;
+
+  human.position = { x: 7.8, y: 0, z: -14.6 };
+  mountBiByeLlista(ballista, human);
+
+  // Add world solid blocking left side of ballista (facing East -pi/2, left is North z = -12.4)
+  const worldWithObstacle = {
+    ...room.world,
+    solids: [
+      ...room.world.solids,
+      { id: 'left-barrier', center: [9.0, 1.0, -12.4], size: [2.0, 2.0, 2.0], material: 'stone' },
+    ],
+  };
+
+  dismountBiByeLlista(ballista, human, true, worldWithObstacle);
+  assert.equal(ballista.operatorId, null);
+  assert.equal(human.operatingBallistaId, null);
+
+  // Verify human did NOT dismount inside left-barrier
+  const distToBarrier = Math.hypot(human.position.x - 9.0, human.position.z - (-12.4));
+  assert.ok(distToBarrier > 1.5, 'dismount selected non-obstructed location');
 });

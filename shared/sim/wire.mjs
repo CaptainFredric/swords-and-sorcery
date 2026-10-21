@@ -187,6 +187,8 @@ export function serializeSnapshot(room, nowSec) {
       heading: room.biByeLlista.heading,
       yaw: room.biByeLlista.yaw,
       pitch: room.biByeLlista.pitch,
+      speed: room.biByeLlista.speed ?? 0,
+      steer: room.biByeLlista.steer ?? 0,
       mode: room.biByeLlista.mode,
       deployProgress: room.biByeLlista.mode === 'DEPLOYING'
         ? Math.min(1.0, Math.max(0, (nowSec - room.biByeLlista.modeTransitionStartedAt) / BI_BYE_LLISTA_CONFIG.timing.deployDurationSec))
