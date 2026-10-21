@@ -28,6 +28,7 @@ import { chooseSpawn } from './spawns.mjs';
 import { recordTransform, sampleTransform } from './history.mjs';
 import { TEAMS, areAllies, areEnemies } from '../src/teams.mjs';
 import { stepObjectives } from './objectives.mjs';
+import { stepBiByeLlista, stepBiByeProjectiles, dismountBiByeLlista } from './biByeLlista.mjs';
 import { WORLD_IDS } from '../worlds/registry.mjs';
 import { bastionBreachForObjective } from '../worlds/bastionBreach.mjs';
 
@@ -1119,6 +1120,9 @@ export function killPlayer(room, victimId, attackerId, source, nowSec) {
   }
   victim.alive = false;
   victim.health = 0;
+  if (victim.operatingBallistaId && room.biByeLlista) {
+    dismountBiByeLlista(room.biByeLlista, victim);
+  }
   victim.guarding = false;
   victim.steel = null;
   victim.gust = null;
@@ -1909,19 +1913,51 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
     player.whirl = whirl;
     const from = { ...player.position };
     const dashing = nowSec < (player.dashUntil ?? -Infinity);
-    const moved = movePlayer(player, input, dt, nowSec, world);
-    player.position = moved.position;
-    player.velocity = moved.velocity;
-    player.grounded = moved.grounded;
-    player.jumpHeld = moved.jumpHeld;
-    player.dashUntil = moved.dashUntil;
-    player.dashReadyAt = moved.dashReadyAt;
-    player.dashDir = moved.dashDir;
-    player.sprintBlend = moved.sprintBlend;
-    player.impulse = moved.impulse;
-    player.crouched = moved.crouched;
-    player.yaw = input.yaw ?? player.yaw;
-    player.pitch = input.pitch ?? player.pitch;
+    if (player.operatingBallistaId && room.biByeLlista?.operatorId === player.id) {
+      if (input.jump) {
+        dismountBiByeLlista(room.biByeLlista, player);
+        const moved = movePlayer(player, input, dt, nowSec, world);
+        player.position = moved.position;
+        player.velocity = moved.velocity;
+        player.grounded = moved.grounded;
+        player.jumpHeld = moved.jumpHeld;
+        player.dashUntil = moved.dashUntil;
+        player.dashReadyAt = moved.dashReadyAt;
+        player.dashDir = moved.dashDir;
+        player.sprintBlend = moved.sprintBlend;
+        player.impulse = moved.impulse;
+        player.crouched = moved.crouched;
+        player.yaw = input.yaw ?? player.yaw;
+        player.pitch = input.pitch ?? player.pitch;
+      } else {
+        const bl = room.biByeLlista;
+        player.position = {
+          x: bl.x + bl.operatorOffset.x,
+          y: bl.y + bl.operatorOffset.y,
+          z: bl.z + bl.operatorOffset.z,
+        };
+        player.velocity = { x: 0, y: 0, z: 0 };
+        player.grounded = true;
+        player.sprinting = false;
+        player.crouched = false;
+        player.yaw = bl.yaw;
+        player.pitch = bl.pitch;
+      }
+    } else {
+      const moved = movePlayer(player, input, dt, nowSec, world);
+      player.position = moved.position;
+      player.velocity = moved.velocity;
+      player.grounded = moved.grounded;
+      player.jumpHeld = moved.jumpHeld;
+      player.dashUntil = moved.dashUntil;
+      player.dashReadyAt = moved.dashReadyAt;
+      player.dashDir = moved.dashDir;
+      player.sprintBlend = moved.sprintBlend;
+      player.impulse = moved.impulse;
+      player.crouched = moved.crouched;
+      player.yaw = input.yaw ?? player.yaw;
+      player.pitch = input.pitch ?? player.pitch;
+    }
     // a Steel dash driven into someone: it meets them, gives them its momentum, and stops there (steelRam.mjs)
     if (player.dashRam) {
       if (dashing) ramThrough(room, player, from, nowSec, world);
@@ -1994,6 +2030,10 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
   // bodies do not share space: overlapping Spellblades are eased apart (never off a ledge or into a wall)
   separatePlayers([...room.players.values()], world);
   stepProjectiles(room, dt, nowSec, world);
+  if (room.biByeLlista) {
+    stepBiByeLlista(room, room.biByeLlista, dt, nowSec);
+    stepBiByeProjectiles(room, dt, nowSec, world);
+  }
   room.tickNumber += 1;
   return room.events;
 }

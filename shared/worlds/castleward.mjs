@@ -138,6 +138,8 @@ export const CASTLEWARD = Object.freeze({
     { id: 'tourney-pavilion', center: [20.6, 1.2, -19.6], size: [3.4, 2.4, 3.4], material: 'cloth', kind: 'pavilion' },
     { id: 'tourney-bales-west', center: [9.6, 0.5, -17.6], size: [1.8, 1.0, 1.1], material: 'straw', kind: 'bales' },
     { id: 'tourney-bales-east', center: [18.4, 0.5, -12.4], size: [1.1, 1.0, 1.8], material: 'straw', kind: 'bales' },
+    // stationary Bi-Bye-llista emplacement chassis
+    { id: 'bibye-practice-chassis', center: [5.5, 0.25, -14.6], size: [1.6, 0.5, 1.6], material: 'timber', kind: 'siege-chassis' },
 
     // braziers flank the ramp foot (clear of its 8 m lane) and light the meadow; old rune stones stand by the chapel
     { id: 'forecourt-brazier-west', center: [-5.2, 0.65, 13.3], size: [0.62, 1.3, 0.62], material: 'stone', kind: 'brazier' },

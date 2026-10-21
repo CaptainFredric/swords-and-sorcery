@@ -12,6 +12,7 @@ import { BOT_SKILLS, botSkillId } from './botSkill.mjs';
 import { beginPeace } from './peace.mjs';
 import { TEAMS, areAllies, assignTeam } from '../src/teams.mjs';
 import { createObjectiveState } from './objectives.mjs';
+import { createBiByeLlista } from './biByeLlista.mjs';
 
 const COUNTDOWN_SEC = 3;
 const MATCH_SEC = 360;
@@ -103,6 +104,13 @@ export class Room {
     }
     this.worldId = worldId;
     this.world = getWorld(worldId);
+    if (this.mode === GAME_MODES.PRACTICE) {
+      this.biByeLlista = createBiByeLlista();
+      this.bibyeProjectiles = new Map();
+    } else {
+      this.biByeLlista = null;
+      this.bibyeProjectiles = null;
+    }
     this.state = 'WAITING';
     this.players = new Map();
     this.projectiles = new Map();

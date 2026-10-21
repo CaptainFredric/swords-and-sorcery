@@ -11,6 +11,7 @@ const PRESS = {
   dash: (input) => input.dash(),
   gauntlet: (input) => input.gauntlet(),
   ultimate: (input) => input.ultimate(),
+  interact: (input) => input.interact(),
   scoreboard: (input) => { input.scoreboardHeld = true; },
 };
 const RELEASE = {
@@ -435,6 +436,11 @@ export class InputController {
     const dir = this.dashDirection();
     this.socket.dash(dir);
     this.onDashLocal(dir);
+  }
+
+  interact() {
+    if (!this.enabled) return;
+    this.socket?.send?.({ type: 'bibyeOperate' });
   }
 
   movement() {

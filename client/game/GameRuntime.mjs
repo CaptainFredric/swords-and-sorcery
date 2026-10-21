@@ -2152,6 +2152,7 @@ export class GameRuntime {
     this.remotePlayers.update(nowMs, dt);
     this.#showAfflictions(dt);
     this.world?.setObjectiveState?.(this.latestSnapshot?.objective ?? null, this.localAuth?.team ?? null, this.socket.serverNow());
+    this.world?.setBiByeState?.(this.latestSnapshot);
     this.world?.update?.(timeSec, this.camera);
     this.#followGusts();
     this.effects.update(dt);
