@@ -28,7 +28,7 @@ import { chooseSpawn } from './spawns.mjs';
 import { recordTransform, sampleTransform } from './history.mjs';
 import { TEAMS, areAllies, areEnemies } from '../src/teams.mjs';
 import { stepObjectives } from './objectives.mjs';
-import { stepBiByeLlista, stepBiByeProjectiles, dismountBiByeLlista } from './biByeLlista.mjs';
+import { stepBiByeLlista, stepBiByeProjectiles, dismountBiByeLlista, damageBiByeLlista } from './biByeLlista.mjs';
 import { WORLD_IDS } from '../worlds/registry.mjs';
 import { bastionBreachForObjective } from '../worlds/bastionBreach.mjs';
 
@@ -933,6 +933,7 @@ function landStrike(room, attacker, strikeIndex, target, atSec, nowSec, met = nu
     turned: level === DAMAGE_LEVELS.normal ? swordDamageFor(quality) - damage : 0,
     clean: armour.quality >= CLEAN_CONTACT.sword,
     level,
+    skipSteel: cancelled || armour.strength > 0,
     ultimate: sunder || Boolean(attacker.attackChivalry) || combatActionPolicy(attacker, nowSec).concurrent,
     rawDamage: sunder ? GAME.swordElevated : GAME.swordGlance + (GAME.swordDamage - GAME.swordGlance) * quality,
     contactFacts: challengeContact(attacker, atSec, { ordinary: !attacker.attackSlam && !sunder,
@@ -1076,7 +1077,9 @@ export function applyDamage(room, attackerId, victimId, amount, source, nowSec, 
   if (!skipSteel && !steel && victim.steel && finalAmount > 0) {
     const mit = steelMitigate(victim.steel, finalAmount, source, nowSec, minDamage);
     if (mit.turned > 0) {
-      victim.steel = steelTakes(victim.steel, nowSec);
+      if (source !== 'burn' && source !== 'rupture') {
+        victim.steel = steelTakes(victim.steel, nowSec);
+      }
       finalAmount = mit.amount;
       finalSteel = mit.strength;
       finalTurned = mit.turned;
@@ -1401,6 +1404,16 @@ function explodeSpell(room, projectile, point, nowSec, worldHit = false, directV
       if (player.chill === chill) room.events.push({ type: 'chilled', playerId: player.id, by: projectile.ownerId, spell: spell.id, slow: chill.slow, until: chill.until, at: nowSec });
     }
   }
+  if (room.biByeLlista && room.biByeLlista.mode !== 'DESTROYED') {
+    const bl = room.biByeLlista;
+    const dist = Math.hypot(bl.x - point.x, (bl.y + 0.8) - point.y, bl.z - point.z);
+    if (dist <= spell.radius + 1.5) {
+      const exposure = Math.max(0, 1 - dist / (spell.radius + 1.5));
+      const dmg = Math.round(spell.directDamage * exposure);
+      if (dmg > 0) damageBiByeLlista(room, bl, dmg, projectile.ownerId, spell.id, nowSec);
+    }
+  }
+
   room.events.push({
     type: 'projectileImpact', projectileId: projectile.id, ownerId: projectile.ownerId, spell: spell.id, radius: spell.radius, point, worldHit, at: nowSec,
   });
@@ -1948,10 +1961,14 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
         player.pitch = input.pitch ?? player.pitch;
       } else {
         const bl = room.biByeLlista;
+        const cos = Math.cos(bl.heading - bl.baseYaw);
+        const sin = Math.sin(bl.heading - bl.baseYaw);
+        const ox = bl.operatorOffset.x * cos - bl.operatorOffset.z * sin;
+        const oz = bl.operatorOffset.x * sin + bl.operatorOffset.z * cos;
         player.position = {
-          x: bl.x + bl.operatorOffset.x,
+          x: bl.x + ox,
           y: bl.y + bl.operatorOffset.y,
-          z: bl.z + bl.operatorOffset.z,
+          z: bl.z + oz,
         };
         player.velocity = { x: 0, y: 0, z: 0 };
         player.grounded = true;

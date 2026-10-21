@@ -122,8 +122,15 @@ export function resetPracticePlayer(room, playerId, nowSec) {
       if (projectile.ownerId === player.id) room.bibyeProjectiles.delete(projectile.id);
     }
   }
-  if (player.operatingBallistaId && room.biByeLlista) {
-    dismountBiByeLlista(room.biByeLlista, player);
+  if (room.biByeLlista) {
+    if (player.operatingBallistaId) {
+      dismountBiByeLlista(room.biByeLlista, player);
+    }
+    room.biByeLlista.health = room.biByeLlista.maxHealth;
+    room.biByeLlista.mode = 'MOBILE';
+    room.biByeLlista.state = 'LOADED';
+    room.biByeLlista.mainBoltLoaded = true;
+    room.biByeLlista.smallBoltReadyAt = nowSec;
   }
   resetActorAtSpawn(player, spawn, nowSec);
   room.events.push({ type: 'practicePlayerReset', playerId, at: nowSec });

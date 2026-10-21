@@ -2,12 +2,17 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Room } from '../../shared/sim/Room.mjs';
 import { RoomManager } from '../../shared/sim/RoomManager.mjs';
-import { stepRoom } from '../../shared/sim/combat.mjs';
+import { stepRoom, applyDamage } from '../../shared/sim/combat.mjs';
 import {
   BI_BYE_LLISTA_CONFIG,
   BI_BYE_STATES,
+  BI_BYE_MODES,
   mountBiByeLlista,
   dismountBiByeLlista,
+  toggleBiByeDeploy,
+  damageBiByeLlista,
+  fireBiByeMobile,
+  fireBiByeFullVolley,
   fireBiByeLlista,
   stepBiByeLlista,
   stepBiByeProjectiles,
@@ -19,7 +24,7 @@ import {
   setPracticeDummyMode,
   PRACTICE_DUMMY_MODES,
 } from '../../shared/sim/practice.mjs';
-import { getWorld } from '../../shared/worlds/registry.mjs';
+import { callSteel } from '../../shared/src/steel.mjs';
 
 function makePracticeRoom() {
   const manager = new RoomManager();
@@ -30,422 +35,407 @@ function makePracticeRoom() {
   return { room, human };
 }
 
-test('Scenario 1: Shot I hits, Shot II hits (vulnerability applied and exploited: 18 + 98 = 116 damage)', () => {
+test('Scenario 1: Full deployed volley lethality against unprotected 100 HP Spellblade (18 + 85 = 103 dmg)', () => {
   const { room, human } = makePracticeRoom();
   const ballista = room.biByeLlista;
   assert.ok(ballista, 'ballista exists in Practice mode');
 
-  // Place human at ballista mount station and mount
   human.position = { x: 4.3, y: 0, z: -14.6 };
-  assert.ok(mountBiByeLlista(ballista, human));
+  mountBiByeLlista(ballista, human);
+
+  // Deploy outriggers
+  toggleBiByeDeploy(ballista, 0);
+  stepBiByeLlista(room, ballista, 1.25, 1.25, room.world);
+  assert.equal(ballista.mode, BI_BYE_MODES.DEPLOYED);
+
   ballista.yaw = -Math.PI / 2; // Facing +X
   ballista.pitch = 0;
 
-  // Add dummy directly down the line of fire
-  const target = room.addServerActor({ id: 'target-dummy', name: 'Target', actorKind: 'dummy' }, 0);
+  // Add full-health 100 HP dummy directly in line of fire
+  const target = room.addServerActor({ id: 'target-hero', name: 'Hero', actorKind: 'dummy' }, 0);
   target.position = { x: 15.0, y: 0, z: -14.6 };
-  target.health = 200; // Sufficient health to record both hits
+  target.health = 100;
   target.spawnProtectionUntil = 0;
 
-  let nowSec = 1.0;
+  let nowSec = 2.0;
   assert.ok(fireBiByeLlista(room, ballista, nowSec));
   assert.equal(ballista.state, BI_BYE_STATES.FIRING);
 
-  // Step forward until Shot I lands
   const dt = 1 / 30;
-  while (nowSec < 1.18) {
+
+  // Step until Shot I releases at 2.450s and hits at ~2.62s
+  while (nowSec < 2.65) {
     nowSec += dt;
-    stepBiByeLlista(room, ballista, dt, nowSec);
+    stepBiByeLlista(room, ballista, dt, nowSec, room.world);
     stepBiByeProjectiles(room, dt, nowSec, room.world);
   }
 
-  // Shot I has landed
-  assert.equal(target.health, 182, 'target takes 18 damage from conditioning bolt');
-  assert.ok(target.bibyeVulnerable, 'target receives bibyeVulnerable condition');
-  assert.equal(target.bibyeVulnerable.multiplier, 1.5);
-  assert.ok(target.bibyeVulnerable.until > nowSec);
+  // Shot I hit: 18 direct damage (100 -> 82), stamina drained, chill applied, NO arbitrary multiplier
+  assert.equal(target.health, 82, 'target takes exactly 18 damage from conditioning bolt');
+  assert.ok(target.chill, 'target is chilled');
+  assert.equal(target.bibyeVulnerable, undefined, 'no arbitrary vulnerability multiplier exists');
 
-  // Step forward until Shot II lands (fired at 1.20s, reaches target at ~1.35s)
-  while (nowSec < 1.45) {
+  // Step until Shot II releases at 2.650s and hits at ~2.80s
+  while (nowSec < 2.85) {
     nowSec += dt;
-    stepBiByeLlista(room, ballista, dt, nowSec);
+    stepBiByeLlista(room, ballista, dt, nowSec, room.world);
     stepBiByeProjectiles(room, dt, nowSec, room.world);
   }
 
-  // Shot II has landed on vulnerable target: 65 * 1.5 = 97.5 -> 98 damage
-  assert.equal(target.health, 84, 'target takes 98 damage from siege bolt (182 - 98 = 84)');
-  assert.equal(200 - target.health, 116, 'total combo damage is 116');
-
-  // Check event sequence
-  const impactEvents = room.events.filter((e) => e.type === 'bibyeBoltImpact');
-  assert.equal(impactEvents.length, 2);
-  assert.equal(impactEvents[0].subKind, 'conditioning');
-  assert.equal(impactEvents[0].inflictedVulnerability, true);
-  assert.equal(impactEvents[1].subKind, 'siege');
-  assert.equal(impactEvents[1].exploitedVulnerability, true);
-  assert.equal(impactEvents[1].damage, 98);
+  // Shot II deals 85 direct damage: 82 - 85 <= 0 -> target defeated!
+  assert.equal(target.health, 0, 'target takes 85 direct siege damage and is defeated');
+  assert.equal(target.alive, false, 'unprotected 100 HP Spellblade is felled by two direct hits');
 });
 
-test('Scenario 2: Shot I misses, Shot II hits (no vulnerability bonus: 65 damage)', () => {
+test('Scenario 2: Frost Conditioning Bolt blast radius, stamina drain, and fading chill', () => {
   const { room, human } = makePracticeRoom();
   const ballista = room.biByeLlista;
 
   human.position = { x: 4.3, y: 0, z: -14.6 };
   mountBiByeLlista(ballista, human);
+
+  // Deploy outriggers
+  toggleBiByeDeploy(ballista, 0);
+  stepBiByeLlista(room, ballista, 1.25, 1.25, room.world);
+
   ballista.yaw = -Math.PI / 2;
   ballista.pitch = 0;
 
-  let nowSec = 1.0;
+  // Place guarding defender within 1.0m of blast impact point
+  const defender = room.addServerActor({ id: 'guard-defender', name: 'Defender', actorKind: 'dummy' }, 0);
+  defender.position = { x: 15.0, y: 0, z: -14.6 };
+  defender.health = 100;
+  defender.guardStamina = 50;
+  defender.guarding = true;
+  defender.spawnProtectionUntil = 0;
+
+  let nowSec = 2.0;
   fireBiByeLlista(room, ballista, nowSec);
 
   const dt = 1 / 30;
-  // Step until Shot I has traveled past x = 15.0
-  while (nowSec < 1.25) {
+  while (nowSec < 2.65) {
     nowSec += dt;
-    stepBiByeLlista(room, ballista, dt, nowSec);
+    stepBiByeLlista(room, ballista, dt, nowSec, room.world);
     stepBiByeProjectiles(room, dt, nowSec, room.world);
   }
 
-  // Target now steps into line of fire before Shot II arrives
-  const target = room.addServerActor({ id: 'target-late', name: 'Late Arrival', actorKind: 'dummy' }, nowSec);
-  target.position = { x: 15.0, y: 0, z: -14.6 };
-  target.health = 100;
-  target.spawnProtectionUntil = 0;
-  assert.equal(target.bibyeVulnerable, undefined, 'target has no vulnerability');
-
-  // Step until Shot II lands
-  while (nowSec < 1.45) {
-    nowSec += dt;
-    stepBiByeLlista(room, ballista, dt, nowSec);
-    stepBiByeProjectiles(room, dt, nowSec, room.world);
-  }
-
-  // Shot II deals base 65 damage without multiplier
-  assert.equal(target.health, 35, 'target takes exactly base 65 damage (100 - 65 = 35)');
-  const siegeImpact = room.events.find((e) => e.type === 'bibyeBoltImpact' && e.subKind === 'siege');
-  assert.ok(siegeImpact);
-  assert.equal(siegeImpact.exploitedVulnerability, false);
-  assert.equal(siegeImpact.damage, 65);
+  // Guard stamina drained by ~22 points (solid sword strike equivalent)
+  assert.ok(defender.guardStamina <= 30 && defender.guardStamina >= 25, 'guard stamina drained by blast');
+  assert.ok(defender.chill, 'fading chill applied');
+  assert.ok(defender.chill.slow > 0.35 && defender.chill.slow <= 0.40, 'initial slow ~0.40');
+  assert.ok(defender.chill.until - defender.chill.startedAt >= 4.5, 'thaw duration ~5.0s');
 });
 
-test('Scenario 3: Shot I hits, Shot II misses (18 damage, vulnerability remains active for 4.0s)', () => {
+test('Scenario 3: Main Physical Siege Bolt direct hit, shove, and stagger', () => {
   const { room, human } = makePracticeRoom();
   const ballista = room.biByeLlista;
 
   human.position = { x: 4.3, y: 0, z: -14.6 };
   mountBiByeLlista(ballista, human);
+  toggleBiByeDeploy(ballista, 0);
+  stepBiByeLlista(room, ballista, 1.25, 1.25, room.world);
+
   ballista.yaw = -Math.PI / 2;
   ballista.pitch = 0;
 
-  const target = room.addServerActor({ id: 'target-dodger', name: 'Dodger', actorKind: 'dummy' }, 0);
+  // Add dummy at x = 15.0 with 200 HP to inspect pure Shot II effect
+  const target = room.addServerActor({ id: 'heavy-dummy', name: 'Heavy Dummy', actorKind: 'dummy' }, 0);
   target.position = { x: 15.0, y: 0, z: -14.6 };
-  target.health = 100;
+  target.health = 200;
   target.spawnProtectionUntil = 0;
 
-  let nowSec = 1.0;
+  let nowSec = 2.0;
   fireBiByeLlista(room, ballista, nowSec);
 
   const dt = 1 / 30;
-  // Step until Shot I lands
-  while (nowSec < 1.18) {
+  while (nowSec < 2.85) {
     nowSec += dt;
-    stepBiByeLlista(room, ballista, dt, nowSec);
+    stepBiByeLlista(room, ballista, dt, nowSec, room.world);
     stepBiByeProjectiles(room, dt, nowSec, room.world);
   }
 
-  assert.equal(target.health, 82, 'target takes 18 damage');
-  assert.ok(target.bibyeVulnerable, 'target has vulnerability');
-  const vulnExpiry = target.bibyeVulnerable.until;
-
-  // Target dodges out of the line of fire before Shot II arrives
-  target.position.z = -18.0;
-
-  // Step past Shot II flight
-  while (nowSec < 1.50) {
-    nowSec += dt;
-    stepBiByeLlista(room, ballista, dt, nowSec);
-    stepBiByeProjectiles(room, dt, nowSec, room.world);
-  }
-
-  assert.equal(target.health, 82, 'health unchanged; Shot II missed completely');
-  assert.ok(nowSec < vulnExpiry, 'vulnerability is still active');
-  assert.ok(target.bibyeVulnerable);
-
-  // Advance time past 4.0s vulnerability window
-  nowSec = vulnExpiry + 0.1;
-  const snapshot = serializeSnapshot(room, nowSec);
-  const targetSnap = snapshot.players.find((p) => p.id === target.id);
-  assert.equal(targetSnap.bibyeVulnerable, null, 'vulnerability status expired in snapshot');
+  // 18 from Shot I + 85 from Shot II = 103 total damage
+  assert.equal(target.health, 97, 'takes 103 damage (200 - 103 = 97)');
+  assert.ok(target.impulse.x > 5.0, 'heavy physical knockback applied');
+  assert.ok(target.stagger.level > 0.4, 'heavy stagger applied');
 });
 
-test('Scenario 4: Both shots miss (0 damage dealt)', () => {
+test('Scenario 4: Siege shockwave damages nearby targets but does NOT double-hit direct victim', () => {
   const { room, human } = makePracticeRoom();
   const ballista = room.biByeLlista;
 
   human.position = { x: 4.3, y: 0, z: -14.6 };
   mountBiByeLlista(ballista, human);
+  toggleBiByeDeploy(ballista, 0);
+  stepBiByeLlista(room, ballista, 1.25, 1.25, room.world);
 
-  // Pitch up to max elevation so bolts fly high over targets
-  ballista.yaw = -Math.PI / 2;
-  ballista.pitch = 0.35;
-
-  const target = room.addServerActor({ id: 'target-ground', name: 'Ground Target', actorKind: 'dummy' }, 0);
-  target.position = { x: 15.0, y: 0, z: -14.6 };
-  target.health = 100;
-  target.spawnProtectionUntil = 0;
-
-  let nowSec = 1.0;
-  fireBiByeLlista(room, ballista, nowSec);
-
-  const dt = 1 / 30;
-  while (nowSec < 2.5) {
-    nowSec += dt;
-    stepBiByeLlista(room, ballista, dt, nowSec);
-    stepBiByeProjectiles(room, dt, nowSec, room.world);
-  }
-
-  assert.equal(target.health, 100, 'target takes 0 damage');
-  assert.equal(target.bibyeVulnerable, undefined, 'no status applied');
-});
-
-test('Scenario 5: Target moves between shots (Shot II does not home along committed line)', () => {
-  const { room, human } = makePracticeRoom();
-  const ballista = room.biByeLlista;
-
-  human.position = { x: 4.3, y: 0, z: -14.6 };
-  mountBiByeLlista(ballista, human);
   ballista.yaw = -Math.PI / 2;
   ballista.pitch = 0;
 
-  const target = room.addServerActor({ id: 'target-mover', name: 'Mover', actorKind: 'dummy' }, 0);
-  target.position = { x: 15.0, y: 0, z: -14.6 };
-  target.health = 100;
-  target.spawnProtectionUntil = 0;
+  // Direct victim at x = 15.0, z = -14.6
+  const directVictim = room.addServerActor({ id: 'direct-target', name: 'Direct', actorKind: 'dummy' }, 0);
+  directVictim.position = { x: 15.0, y: 0, z: -14.6 };
+  directVictim.health = 200;
+  directVictim.spawnProtectionUntil = 0;
 
-  let nowSec = 1.0;
+  // Bystander 2.0m away at x = 15.0, z = -12.6 (within 3.5m shockwave)
+  const bystander = room.addServerActor({ id: 'bystander', name: 'Bystander', actorKind: 'dummy' }, 0);
+  bystander.position = { x: 15.0, y: 0, z: -12.6 };
+  bystander.health = 100;
+  bystander.spawnProtectionUntil = 0;
+
+  let nowSec = 2.0;
   fireBiByeLlista(room, ballista, nowSec);
 
   const dt = 1 / 30;
-  // Step until Shot I hits
-  while (nowSec < 1.18) {
+  while (nowSec < 2.90) {
     nowSec += dt;
-    stepBiByeLlista(room, ballista, dt, nowSec);
-    stepBiByeProjectiles(room, dt, nowSec, room.world);
-  }
-  assert.equal(target.health, 82);
-
-  // Target dashes north to z = -12.0 before Shot II arrives
-  target.position.z = -12.0;
-
-  // Also rotate operator aim to test if ballista re-aims: committed aim must NOT change
-  human.yaw = -Math.PI / 4;
-  human.pitch = 0.2;
-
-  while (nowSec < 1.45) {
-    nowSec += dt;
-    stepBiByeLlista(room, ballista, dt, nowSec);
+    stepBiByeLlista(room, ballista, dt, nowSec, room.world);
     stepBiByeProjectiles(room, dt, nowSec, room.world);
   }
 
-  // Shot II stayed on original line (z = -14.6) and did not track the mover
-  assert.equal(target.health, 82, 'target successfully dodged Shot II');
-  const impacts = room.events.filter((e) => e.type === 'bibyeBoltImpact' && e.hitKind === 'player');
-  assert.equal(impacts.length, 1, 'only Shot I impacted player');
+  // Bystander took shockwave damage
+  assert.ok(bystander.health < 100, 'bystander took shockwave damage');
+  assert.ok(bystander.health >= 75, 'shockwave damage attenuated with distance');
+
+  // Direct victim took exactly 18 (Shot I) + 85 (Shot II) = 103 damage, NOT double-hit by shockwave
+  assert.equal(directVictim.health, 97, 'direct victim was not double-hit by shockwave');
 });
 
-test('Scenario 6: Obstacles intercept projectiles (solid wall blocks both bolts)', () => {
+test('Scenario 5: Solid world collision stops physical siege bolt without tunneling', () => {
   const { room, human } = makePracticeRoom();
   const ballista = room.biByeLlista;
 
   human.position = { x: 4.3, y: 0, z: -14.6 };
   mountBiByeLlista(ballista, human);
+  toggleBiByeDeploy(ballista, 0);
+  stepBiByeLlista(room, ballista, 1.25, 1.25, room.world);
+
   ballista.yaw = -Math.PI / 2;
   ballista.pitch = 0;
 
-  // Add a solid wooden barricade between ballista and target
-  const testWorld = {
+  // Add solid stone wall at x = 12.0
+  const worldWithWall = {
     ...room.world,
     solids: [
       ...room.world.solids,
-      { id: 'practice-test-barricade', center: [11.0, 1.0, -14.6], size: [0.6, 2.5, 3.0], material: 'timber' },
+      { id: 'stone-rampart', center: [12.0, 1.0, -14.6], size: [0.8, 4.0, 4.0], material: 'stone' },
     ],
   };
 
-  const target = room.addServerActor({ id: 'target-shielded', name: 'Shielded Target', actorKind: 'dummy' }, 0);
-  target.position = { x: 15.0, y: 0, z: -14.6 };
-  target.health = 100;
-  target.spawnProtectionUntil = 0;
+  const targetBehindWall = room.addServerActor({ id: 'behind-wall', name: 'Behind Wall', actorKind: 'dummy' }, 0);
+  targetBehindWall.position = { x: 15.0, y: 0, z: -14.6 };
+  targetBehindWall.health = 100;
+  targetBehindWall.spawnProtectionUntil = 0;
 
-  let nowSec = 1.0;
+  let nowSec = 2.0;
   fireBiByeLlista(room, ballista, nowSec);
 
   const dt = 1 / 30;
-  while (nowSec < 1.5) {
+  while (nowSec < 3.0) {
     nowSec += dt;
-    stepBiByeLlista(room, ballista, dt, nowSec);
-    stepBiByeProjectiles(room, dt, nowSec, testWorld);
+    stepBiByeLlista(room, ballista, dt, nowSec, worldWithWall);
+    stepBiByeProjectiles(room, dt, nowSec, worldWithWall);
   }
 
-  assert.equal(target.health, 100, 'target behind barricade took 0 damage');
-  const wallHits = room.events.filter((e) => e.type === 'bibyeBoltImpact' && e.hitKind === 'solid');
-  assert.equal(wallHits.length, 2, 'both bolts were stopped by the solid barricade');
-  assert.equal(wallHits[0].solidId, 'practice-test-barricade');
-  assert.equal(wallHits[1].solidId, 'practice-test-barricade');
+  assert.equal(targetBehindWall.health, 100, 'target behind solid wall takes 0 damage');
+  const impacts = room.events.filter((e) => e.type === 'bibyeBoltImpact' && e.hitKind === 'solid');
+  assert.equal(impacts.length, 2, 'both bolts stopped by solid stone wall');
 });
 
-test('Scenario 7: Reload completes normally (SPENT -> RELOADING 6.0s -> LOADED)', () => {
+test('Scenario 6: Mobile Mode travel, steering, and independent Shot I firing on move', () => {
+  const { room, human } = makePracticeRoom();
+  const ballista = room.biByeLlista;
+
+  assert.equal(ballista.mode, BI_BYE_MODES.MOBILE, 'starts in mobile mode');
+
+  human.position = { x: 4.3, y: 0, z: -14.6 };
+  mountBiByeLlista(ballista, human);
+
+  const startX = ballista.x;
+  const startZ = ballista.z;
+
+  // Drive forward in mobile mode
+  human.input = { forward: true };
+  const dt = 1 / 30;
+  for (let i = 0; i < 30; i++) {
+    stepBiByeLlista(room, ballista, dt, 1.0 + i * dt, room.world);
+  }
+
+  assert.ok(ballista.x > startX, 'carriage moved forward along heading');
+  assert.ok(human.position.x > startX - 1.5, 'operator moved with carriage');
+
+  // Fire Shot I while mobile
+  let nowSec = 2.0;
+  assert.ok(fireBiByeLlista(room, ballista, nowSec), 'Shot I can be fired while moving');
+  assert.equal(ballista.mainBoltLoaded, true, 'main bolt was NOT consumed by mobile shot');
+  assert.ok(nowSec < ballista.smallBoltReadyAt, 'small bolt has recock cooldown');
+
+  // Full volley is rejected while mobile
+  assert.equal(fireBiByeFullVolley(room, ballista, nowSec), false, 'full volley unavailable while mobile');
+});
+
+test('Scenario 7: Deployed Mode transition, swivel traverse, and full reload cycle', () => {
   const { room, human } = makePracticeRoom();
   const ballista = room.biByeLlista;
 
   human.position = { x: 4.3, y: 0, z: -14.6 };
   mountBiByeLlista(ballista, human);
 
-  let nowSec = 1.0;
-  assert.equal(ballista.state, BI_BYE_STATES.LOADED);
+  // Toggle deploy
+  assert.ok(toggleBiByeDeploy(ballista, 1.0));
+  assert.equal(ballista.mode, BI_BYE_MODES.DEPLOYING);
 
-  fireBiByeLlista(room, ballista, nowSec);
+  // Advance past 1.2s deploy transition
+  stepBiByeLlista(room, ballista, 1.25, 2.25, room.world);
+  assert.equal(ballista.mode, BI_BYE_MODES.DEPLOYED);
+
+  // Carriage cannot move while deployed
+  const posX = ballista.x;
+  human.input = { forward: true };
+  stepBiByeLlista(room, ballista, 0.1, 2.35, room.world);
+  assert.equal(ballista.x, posX, 'carriage movement locked while deployed');
+
+  // Swivel upper launcher independently
+  human.input = { yaw: -Math.PI / 3, pitch: 0.2 };
+  stepBiByeLlista(room, ballista, 0.1, 2.45, room.world);
+  assert.ok(Math.abs(ballista.pitch - 0.2) < 1e-4, 'swivel pitch updated');
+
+  // Fire full volley
+  let nowSec = 3.0;
+  assert.ok(fireBiByeFullVolley(room, ballista, nowSec));
   assert.equal(ballista.state, BI_BYE_STATES.FIRING);
 
-  const dt = 1 / 30;
-  // Step past Shot II (0.200s)
-  while (nowSec < 1.22) {
-    nowSec += dt;
-    stepBiByeLlista(room, ballista, dt, nowSec);
+  // Advance past Shot I (0.450s) and Shot II (0.650s)
+  while (nowSec < 3.70) {
+    nowSec += 1 / 30;
+    stepBiByeLlista(room, ballista, 1 / 30, nowSec, room.world);
   }
-  assert.equal(ballista.state, BI_BYE_STATES.SPENT, 'ballista is in SPENT recovery');
+  assert.equal(ballista.state, BI_BYE_STATES.SPENT);
+  assert.equal(ballista.mainBoltLoaded, false);
 
-  // Step past spent recovery (0.250s after Shot II -> ~1.46s)
-  while (nowSec < 1.50) {
-    nowSec += dt;
-    stepBiByeLlista(room, ballista, dt, nowSec);
-  }
-  assert.equal(ballista.state, BI_BYE_STATES.RELOADING, 'ballista entered RELOADING');
-
-  // Check reloadProgress midway through 6.0s reload
-  while (nowSec < 4.50) {
-    nowSec += dt;
-    stepBiByeLlista(room, ballista, dt, nowSec);
-  }
-  let snap = serializeSnapshot(room, nowSec);
-  assert.ok(snap.bibyeBallista.reloadProgress > 0.4 && snap.bibyeBallista.reloadProgress < 0.6);
-
-  // Step until reload completes (6.0s after reload started at ~1.45s -> ~7.46s)
-  while (nowSec < 7.60) {
-    nowSec += dt;
-    stepBiByeLlista(room, ballista, dt, nowSec);
-  }
-  assert.equal(ballista.state, BI_BYE_STATES.LOADED, 'ballista has fully reloaded to LOADED');
-  assert.equal(ballista.committedAim, null, 'committed aim is reset');
-
-  // Ready to fire again
-  assert.ok(fireBiByeLlista(room, ballista, nowSec));
-  assert.equal(ballista.state, BI_BYE_STATES.FIRING);
-});
-
-test('Scenario 8: Reload / operation interrupted (operator dismounts; state preserved)', () => {
-  const { room, human } = makePracticeRoom();
-  const ballista = room.biByeLlista;
-
-  human.position = { x: 4.3, y: 0, z: -14.6 };
-  mountBiByeLlista(ballista, human);
-
-  let nowSec = 1.0;
-  fireBiByeLlista(room, ballista, nowSec);
-
-  const dt = 1 / 30;
-  // Step into RELOADING state
-  while (nowSec < 1.6) {
-    nowSec += dt;
-    stepBiByeLlista(room, ballista, dt, nowSec);
+  // Advance into RELOADING
+  while (nowSec < 4.0) {
+    nowSec += 1 / 30;
+    stepBiByeLlista(room, ballista, 1 / 30, nowSec, room.world);
   }
   assert.equal(ballista.state, BI_BYE_STATES.RELOADING);
-  assert.equal(ballista.operatorId, human.id);
 
-  // Dismount operator midway
-  dismountBiByeLlista(ballista, human);
-  assert.equal(ballista.operatorId, null);
-  assert.equal(human.operatingBallistaId, null);
-  assert.equal(ballista.state, BI_BYE_STATES.RELOADING, 'reloading state preserved when operator leaves');
-
-  // Step simulation forward: reload proceeds autonomously
-  while (nowSec < 7.7) {
-    nowSec += dt;
-    stepBiByeLlista(room, ballista, dt, nowSec);
+  // Advance 6.0s through mechanical reload
+  while (nowSec < 10.1) {
+    nowSec += 1 / 30;
+    stepBiByeLlista(room, ballista, 1 / 30, nowSec, room.world);
   }
-  assert.equal(ballista.state, BI_BYE_STATES.LOADED, 'reload completes autonomously without operator');
+  assert.equal(ballista.state, BI_BYE_STATES.LOADED);
+  assert.equal(ballista.mainBoltLoaded, true);
+
+  // Retract outriggers to restore mobile mode
+  assert.ok(toggleBiByeDeploy(ballista, nowSec));
+  assert.equal(ballista.mode, BI_BYE_MODES.RETRACTING);
+  stepBiByeLlista(room, ballista, 1.25, nowSec + 1.25, room.world);
+  assert.equal(ballista.mode, BI_BYE_MODES.MOBILE);
 });
 
-test('Scenario 9: Spellblade leaves and returns to weapon (dismount -> move/cast -> remount -> fire)', () => {
+test('Scenario 8: Siege-machine durability, destruction, and safe operator dismount', () => {
   const { room, human } = makePracticeRoom();
   const ballista = room.biByeLlista;
 
+  human.position = { x: 4.3, y: 0, z: -14.6 };
+  mountBiByeLlista(ballista, human);
+
+  assert.equal(ballista.health, 400);
+
+  // Takes damage from attack
+  damageBiByeLlista(room, ballista, 150, 'attacker-01', 'sword', 1.0);
+  assert.equal(ballista.health, 250);
+  assert.equal(ballista.mode, BI_BYE_MODES.MOBILE);
+  assert.equal(ballista.operatorId, human.id);
+
+  // Lethal damage to siege engine
+  damageBiByeLlista(room, ballista, 300, 'attacker-01', 'sword', 2.0);
+  assert.equal(ballista.health, 0);
+  assert.equal(ballista.mode, BI_BYE_MODES.DESTROYED);
+
+  // Operator is safely dismounted and remains alive
+  assert.equal(ballista.operatorId, null, 'operator dismounted on vehicle destruction');
+  assert.equal(human.operatingBallistaId, null);
+  assert.equal(human.alive, true, 'operator is alive');
+
+  // Disabled: cannot move, deploy, or fire
+  assert.equal(toggleBiByeDeploy(ballista, 3.0), false, 'cannot deploy destroyed vehicle');
+  assert.equal(fireBiByeLlista(room, ballista, 3.0), false, 'cannot fire destroyed vehicle');
+
+  // Practice reset restores ballista
+  assert.ok(resetPracticePlayer(room, human.id, 4.0));
+  assert.equal(ballista.health, 400, 'practice reset restores ballista HP');
+  assert.equal(ballista.mode, BI_BYE_MODES.MOBILE);
+});
+
+test('Scenario 9: Sheathe in Steel mitigates ballista volley: Spellblade survives with 33 HP', () => {
+  const { room, human } = makePracticeRoom();
+  const ballista = room.biByeLlista;
+
+  human.position = { x: 4.3, y: 0, z: -14.6 };
+  mountBiByeLlista(ballista, human);
+  toggleBiByeDeploy(ballista, 0);
+  stepBiByeLlista(room, ballista, 1.25, 1.25, room.world);
+
+  ballista.yaw = -Math.PI / 2;
+  ballista.pitch = 0;
+
+  // Defender Sheathed in Steel
+  const defender = room.addServerActor({ id: 'steeled-knight', name: 'Steeled Knight', actorKind: 'dummy' }, 0);
+  defender.position = { x: 15.0, y: 0, z: -14.6 };
+  defender.health = 100;
+  defender.spawnProtectionUntil = 0;
+  defender.steel = callSteel(1.0); // Fully hardened
+
+  let nowSec = 2.0;
+  fireBiByeLlista(room, ballista, nowSec);
+
+  const dt = 1 / 30;
+  // Step past Shot I (conditioning bolt)
+  while (nowSec < 2.65) {
+    nowSec += dt;
+    stepBiByeLlista(room, ballista, dt, nowSec, room.world);
+    stepBiByeProjectiles(room, dt, nowSec, room.world);
+  }
+
+  // Conditioning bolt mitigated from 18 to min 12: health drops 100 -> 88
+  assert.equal(defender.health, 88, 'frost bolt mitigated from 18 to min 12');
+  assert.ok(defender.chill, 'cold/chill still applied (physical consequences distinct)');
+
+  // Step past Shot II (siege bolt)
+  while (nowSec < 2.85) {
+    nowSec += dt;
+    stepBiByeLlista(room, ballista, dt, nowSec, room.world);
+    stepBiByeProjectiles(room, dt, nowSec, room.world);
+  }
+
+  // Siege bolt mitigated from 85 to min 55: health drops 88 - 55 = 33!
+  assert.equal(defender.health, 33, 'siege bolt mitigated from 85 to min 55 (88 - 55 = 33 HP)');
+  assert.equal(defender.alive, true, 'Sheathed in Steel Spellblade survives with 33 HP!');
+  assert.ok(defender.impulse.x > 5.0, 'knockback still applied (Steel does not erase momentum)');
+});
+
+test('Scenario 10: Snapshot serialization and practice command handling', () => {
+  const { room, human } = makePracticeRoom();
+  const ballista = room.biByeLlista;
+
+  // Mount via command
   human.position = { x: 4.3, y: 0, z: -14.6 };
   applyRoomCommand(room, human, { type: 'bibyeOperate' }, 1.0);
   assert.equal(ballista.operatorId, human.id);
-  assert.equal(human.operatingBallistaId, ballista.id);
 
-  // While mounted, walking input is locked to station
-  stepRoom(room, 1 / 30, 1.05, room.world);
-  assert.equal(human.position.x, 4.3);
-  assert.equal(human.position.z, -14.6);
+  // Deploy toggle via command
+  applyRoomCommand(room, human, { type: 'bibyeToggleDeploy' }, 1.1);
+  assert.equal(ballista.mode, BI_BYE_MODES.DEPLOYING);
 
-  // Jump to dismount
-  human.input = { jump: true, forward: true };
-  stepRoom(room, 1 / 30, 1.10, room.world);
-  assert.equal(human.operatingBallistaId, null, 'dismounted on jump');
-  assert.equal(ballista.operatorId, null);
-
-  // Spellblade moves away into the meadow and casts a spell
-  human.input = { forward: true };
-  human.position = { x: 10.0, y: 0, z: -10.0 };
-  stepRoom(room, 1 / 30, 1.20, room.world);
-  assert.ok(human.alive);
-
-  // Spellblade returns to ballista emplacement station
-  human.position = { x: 4.3, y: 0, z: -14.6 };
-  applyRoomCommand(room, human, { type: 'bibyeOperate' }, 2.0);
-  assert.equal(ballista.operatorId, human.id);
-  assert.equal(human.operatingBallistaId, ballista.id);
-
-  // Fires ballista using primary attack command
-  applyRoomCommand(room, human, { type: 'attack', down: true }, 2.1);
-  assert.equal(ballista.state, BI_BYE_STATES.FIRING);
-});
-
-test('Scenario 10: Practice Yard stability (normal combat unaffected, dummy spawning works)', () => {
-  const { room, human } = makePracticeRoom();
-
-  // Test dummy lifecycle alongside ballista
-  const dummy = spawnPracticeDummy(room, PRACTICE_DUMMY_MODES.PASSIVE, 1.0);
-  assert.ok(dummy);
-  assert.equal(dummy.practiceMode, PRACTICE_DUMMY_MODES.PASSIVE);
-
-  // Switch dummy mode
-  assert.ok(setPracticeDummyMode(room, PRACTICE_DUMMY_MODES.GUARDING, 1.5));
-  assert.equal(dummy.practiceMode, PRACTICE_DUMMY_MODES.GUARDING);
-
-  // Reset player
-  human.health = 20;
-  assert.ok(resetPracticePlayer(room, human.id, 2.0));
-  assert.equal(human.health, 100);
-
-  // Verify snapshot serialization contains ballista state
-  const snapshot = serializeSnapshot(room, 2.0);
-  assert.ok(snapshot.bibyeBallista);
-  assert.equal(snapshot.bibyeBallista.id, 'bibye-practice-01');
-  assert.equal(snapshot.bibyeBallista.state, BI_BYE_STATES.LOADED);
-  assert.equal(snapshot.bibyeBallista.reloadProgress, 1.0);
-  assert.equal(Array.isArray(snapshot.bibyeProjectiles), true);
-
-  // In non-practice room, ballista is null and commands rejected
-  const ffaRoom = new Room('FFA01', { mode: 'FFA', worldId: 'castleward' });
-  const ffaPlayer = ffaRoom.addPlayer({ id: 'p1', token: 'tok1' }, 0);
-  assert.equal(ffaRoom.biByeLlista, null);
-  assert.equal(ffaRoom.bibyeProjectiles, null);
-
-  const resOperate = applyRoomCommand(ffaRoom, ffaPlayer, { type: 'bibyeOperate' }, 1.0);
-  assert.equal(resOperate.rejected, 'No ballista available');
-
-  const resFire = applyRoomCommand(ffaRoom, ffaPlayer, { type: 'bibyeFire' }, 1.0);
-  assert.equal(resFire.rejected, 'No ballista available');
+  // Check snapshot serialization
+  const snap = serializeSnapshot(room, 1.2);
+  assert.ok(snap.bibyeBallista);
+  assert.equal(snap.bibyeBallista.health, 400);
+  assert.equal(snap.bibyeBallista.mode, BI_BYE_MODES.DEPLOYING);
+  assert.ok(snap.bibyeBallista.deployProgress > 0);
+  assert.equal(snap.bibyeBallista.mainBoltLoaded, true);
 });

@@ -12,6 +12,7 @@ const PRESS = {
   gauntlet: (input) => input.gauntlet(),
   ultimate: (input) => input.ultimate(),
   interact: (input) => input.interact(),
+  deploy: (input) => input.deploy(),
   scoreboard: (input) => { input.scoreboardHeld = true; },
 };
 const RELEASE = {
@@ -441,6 +442,11 @@ export class InputController {
   interact() {
     if (!this.enabled) return;
     this.socket?.send?.({ type: 'bibyeOperate' });
+  }
+
+  deploy() {
+    if (!this.enabled) return;
+    this.socket?.send?.({ type: 'bibyeToggleDeploy' });
   }
 
   movement() {

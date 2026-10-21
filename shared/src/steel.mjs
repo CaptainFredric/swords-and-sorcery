@@ -61,13 +61,16 @@ export function steelMitigate(steel, rawDamage, source, nowSec, explicitMin = nu
   if (strength <= 0.005) {
     return { amount: rawDamage, turned: 0, strength: 0 };
   }
+  const range = STEEL_DAMAGE_RANGES[source];
   let min = explicitMin;
+  let max = range ? range.max : rawDamage;
   if (min === null || min === undefined) {
-    const range = STEEL_DAMAGE_RANGES[source];
     min = range ? range.min : Math.round(rawDamage * (GAME.swordGlance / GAME.swordDamage));
   }
   min = Math.min(rawDamage, min);
-  const felt = Math.round(min * strength + rawDamage * (1 - strength));
+  const maxReduction = Math.max(0, (max - min) * strength);
+  const reduction = Math.min(Math.max(0, (rawDamage - min) * strength), maxReduction);
+  const felt = Math.max(0, Math.round(rawDamage - reduction));
   const turned = Math.max(0, rawDamage - felt);
   return { amount: felt, turned, strength };
 }
