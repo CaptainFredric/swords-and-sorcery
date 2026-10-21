@@ -15,7 +15,7 @@ import { RUPTURE, fissureHit, onTornGround, planRupture } from '../src/rupture.m
 import { recastReady, recordUse } from '../src/practiceRecast.mjs';
 import { GAME_MODES } from '../src/modes.mjs';
 import { blastDamage, blastDistance, burnFrom, chillFrom, chillScale, nominalSpellDamage, spellExposure, spellFor, strongerChill } from '../src/spells.mjs';
-import { callSteel, steelBlunt, steelExposure, steelQuality, steelStrength, steelTakes } from '../src/steel.mjs';
+import { callSteel, steelBlunt, steelExposure, steelMitigate, steelQuality, steelStrength, steelTakes, STEEL_DAMAGE_RANGES } from '../src/steel.mjs';
 import { galeBend, galeCarry, galeOnBody, galeRecoil, galeShove, galeWindOnBody } from '../src/gale.mjs';
 import { GAUNTLET, gauntletGeometry, gauntletTarget, withinGauntlet } from '../src/gauntlet.mjs';
 import { postureOf } from '../src/body.mjs';
@@ -1062,13 +1062,30 @@ function guardChallengeContact(room, defender, attacker, nowSec) {
 
 export function applyDamage(room, attackerId, victimId, amount, source, nowSec, knockback = null, {
   steel = 0, turned = 0, clean = false, level = DAMAGE_LEVELS.normal, ultimate = false, rawDamage = amount, contactFacts = null,
+  minDamage = null, skipSteel = false,
 } = {}) {
   if (attackerId && areAllies(room, attackerId, victimId)) return false;
   const victim = room.players.get(victimId);
   if (!victim || !victim.alive || victim.spawnProtectionUntil > nowSec) return false;
+
+  let finalAmount = amount;
+  let finalSteel = steel;
+  let finalTurned = turned;
+
+  // Apply centralized Steel mitigation if victim is Sheathed in Steel and not already mitigated
+  if (!skipSteel && !steel && victim.steel && finalAmount > 0) {
+    const mit = steelMitigate(victim.steel, finalAmount, source, nowSec, minDamage);
+    if (mit.turned > 0) {
+      victim.steel = steelTakes(victim.steel, nowSec);
+      finalAmount = mit.amount;
+      finalSteel = mit.strength;
+      finalTurned = mit.turned;
+    }
+  }
+
   const healthBefore = victim.health;
-  const taken = Math.min(victim.health, amount);
-  victim.health = Math.max(0, victim.health - amount);
+  const taken = Math.min(victim.health, finalAmount);
+  victim.health = Math.max(0, victim.health - finalAmount);
   // Only the locally staged Tutorial Rival survives until its final fight begins.
   // Contact, damage events, afflictions and physical response still resolve normally.
   if (room.localTutorial && room.tutorialRival?.id === victimId && room.tutorialRival.protected) victim.health = Math.max(1, victim.health);
@@ -1084,10 +1101,10 @@ export function applyDamage(room, attackerId, victimId, amount, source, nowSec, 
       victim.lastKnockbackBy = attackerId;
     }
   }
-  const event = { type: 'damage', attackerId, victimId, source, amount, health: victim.health, push: knockback ?? null, at: nowSec };
-  if (steel > 0.005) {
-    event.steel = steel;
-    event.turned = Math.max(0, Math.round(turned));
+  const event = { type: 'damage', attackerId, victimId, source, amount: finalAmount, health: victim.health, push: knockback ?? null, at: nowSec };
+  if (finalSteel > 0.005) {
+    if (source !== 'burn') event.steel = finalSteel;
+    event.turned = Math.max(0, Math.round(finalTurned));
   }
   if (clean) event.clean = true;
   if (level !== DAMAGE_LEVELS.normal) event.level = level;
@@ -1095,7 +1112,7 @@ export function applyDamage(room, attackerId, victimId, amount, source, nowSec, 
   room.events.push(event);
   recordChallengeFact(room, {
     ...contactFacts, type: 'damage', attackerId, victimId, source, amount: taken, rawDamage,
-    healthBefore, healthAfter: victim.health, steel: contactFacts?.steel ?? steel, contact: source !== 'burn', at: nowSec,
+    healthBefore, healthAfter: victim.health, steel: contactFacts?.steel ?? finalSteel, contact: source !== 'burn', at: nowSec,
   });
   if (victim.health <= 0) killPlayer(room, victimId, attackerId, source, nowSec);
   return true;
