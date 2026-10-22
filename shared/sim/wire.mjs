@@ -5,7 +5,7 @@
 import { tryCastSpell, castPreparedSpell, selectPreparedSpell, beginAttack, endAttack, pressButton, setGuard, tryCastOrGauntlet, tryDash, tryGauntletStrike, tryUltimate } from './combat.mjs';
 import { compensatedInputTime } from './history.mjs';
 import { readyPracticeUltimate, removePracticeDummy, resetPracticePlayer, setPracticeDummyMode, spawnPracticeDummy } from './practice.mjs';
-import { mountBiByeLlista, dismountBiByeLlista, fireBiByeLlista, toggleBiByeDeploy, damageBiByeLlista, BI_BYE_LLISTA_CONFIG } from './biByeLlista.mjs';
+import { mountBiByeLlista, dismountBiByeLlista, fireBiByeLlista, toggleBiByeDeploy, BI_BYE_LLISTA_CONFIG } from './biByeLlista.mjs';
 import { spellFor } from '../src/spells.mjs';
 import { GAME_MODES } from '../src/modes.mjs';
 
@@ -324,12 +324,6 @@ export function applyRoomCommand(room, player, message, time) {
       if (!room.biByeLlista) return { rejected: 'No ballista available' };
       if (room.biByeLlista.operatorId !== player.id) return { rejected: 'Must operate ballista to fire' };
       fireBiByeLlista(room, room.biByeLlista, time);
-      return {};
-    }
-    case 'bibyeDamage': {
-      if (!room.biByeLlista) return { rejected: 'No ballista available' };
-      const amount = typeof message.amount === 'number' ? message.amount : 400;
-      damageBiByeLlista(room, room.biByeLlista, amount, player.id, 'command', time);
       return {};
     }
     default: return {};

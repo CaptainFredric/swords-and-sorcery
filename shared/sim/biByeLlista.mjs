@@ -494,36 +494,69 @@ function aimToDirection(yaw, pitch) {
 /**
  * Authoritative 3D muzzle positions matching Argon v3.0 model locators:
  * - Stage I Conditioning: small_bolt_muzzle (Node 34: [0, 2.785, +0.920] relative to root)
- *   Parented to Upper_Turret_Mount (pivot [0, 2.280, +0.080])
+ *   In Deployed Mode: hitched to Elevation_Cradle with 0 relative rotation; articulates around cradle pivot [0, 1.500, -0.100]
+ *   In Mobile Mode: independent upper turret aim around Upper_Turret_Mount pivot [0, 2.280, +0.080]
  * - Stage II Heavy Siege: main_bolt_muzzle (Node 30: [0, 1.835, +1.520] relative to root)
- *   Parented to Elevation_Cradle (trunnion pivot [0, 1.500, -0.100])
+ *   Parented to Elevation_Cradle (trunnion pivot [0, 1.500, -0.100] rotating with Traverse_Mount)
  */
 export function getBiByeMuzzlePosition(ballista, subKind, aim = { yaw: ballista.yaw, pitch: ballista.pitch }) {
-  const fwdX = -Math.sin(ballista.heading);
-  const fwdZ = -Math.cos(ballista.heading);
-  const dir = aimToDirection(aim.yaw, aim.pitch);
+  const isDeployed = ballista.mode === BI_BYE_MODES.DEPLOYED ||
+                     ballista.mode === BI_BYE_MODES.DEPLOYING ||
+                     ballista.mode === BI_BYE_MODES.RETRACTING;
+
+  const yaw = aim.yaw ?? ballista.yaw ?? ballista.heading;
+  const pitch = aim.pitch ?? ballista.pitch ?? 0;
+
+  const dir = aimToDirection(yaw, pitch);
   const up = {
-    x: Math.sin(aim.yaw) * Math.sin(aim.pitch),
-    y: Math.cos(aim.pitch),
-    z: Math.cos(aim.yaw) * Math.sin(aim.pitch),
+    x: Math.sin(yaw) * Math.sin(pitch),
+    y: Math.cos(pitch),
+    z: Math.cos(yaw) * Math.sin(pitch),
+  };
+
+  const dirH = {
+    x: -Math.sin(yaw),
+    z: -Math.cos(yaw),
+  };
+
+  const fwd = {
+    x: -Math.sin(ballista.heading),
+    z: -Math.cos(ballista.heading),
   };
 
   if (subKind === 'conditioning') {
-    // Upper Turret Mount (Node 23: pivot [0, 2.280, +0.080] in carriage space)
-    const pivotX = ballista.x + 0.080 * fwdX;
-    const pivotY = ballista.y + 2.280;
-    const pivotZ = ballista.z + 0.080 * fwdZ;
-    return {
-      x: pivotX + 0.840 * dir.x + 0.505 * up.x,
-      y: pivotY + 0.840 * dir.y + 0.505 * up.y,
-      z: pivotZ + 0.840 * dir.z + 0.505 * up.z,
-    };
+    if (isDeployed) {
+      // In Deployed Mode, Upper_Turret_Mount is hitched to Elevation_Cradle with 0 relative rotation.
+      // Rotation happens at the cradle trunnion pivot [0, 1.500, -0.100] along turret traverse yaw.
+      // small_bolt_muzzle sits at [0, 1.285, 1.020] relative to the cradle pivot.
+      const pivotX = ballista.x - 0.100 * dirH.x;
+      const pivotY = ballista.y + 1.500;
+      const pivotZ = ballista.z - 0.100 * dirH.z;
+      return {
+        x: pivotX + 1.020 * dir.x + 1.285 * up.x,
+        y: pivotY + 1.020 * dir.y + 1.285 * up.y,
+        z: pivotZ + 1.020 * dir.z + 1.285 * up.z,
+      };
+    } else {
+      // In Mobile Mode, Elevation_Cradle and Traverse_Mount remain locked at 0.
+      // Upper_Turret_Mount aims independently around its own pivot [0, 2.280, +0.080] on the chassis.
+      // small_bolt_muzzle sits at [0, 0.505, 0.840] relative to Upper_Turret_Mount.
+      const pivotX = ballista.x + 0.080 * fwd.x;
+      const pivotY = ballista.y + 2.280;
+      const pivotZ = ballista.z + 0.080 * fwd.z;
+      return {
+        x: pivotX + 0.840 * dir.x + 0.505 * up.x,
+        y: pivotY + 0.840 * dir.y + 0.505 * up.y,
+        z: pivotZ + 0.840 * dir.z + 0.505 * up.z,
+      };
+    }
   }
 
-  // Elevation Cradle (Node 13: trunnion pivot [0, 1.500, -0.100] in carriage space)
-  const pivotX = ballista.x - 0.100 * fwdX;
+  // Heavy Siege shot: main_bolt_muzzle (Node 30: [0, 0.335, 1.620] relative to cradle trunnion [0, 1.500, -0.100])
+  // Always fired in Deployed Mode; articulates with Elevation_Cradle and Traverse_Mount.
+  const pivotX = ballista.x - 0.100 * dirH.x;
   const pivotY = ballista.y + 1.500;
-  const pivotZ = ballista.z - 0.100 * fwdZ;
+  const pivotZ = ballista.z - 0.100 * dirH.z;
   return {
     x: pivotX + 1.620 * dir.x + 0.335 * up.x,
     y: pivotY + 1.620 * dir.y + 0.335 * up.y,
@@ -793,7 +826,8 @@ export function stepBiByeLlista(room, ballista, dt, nowSec, world = room.world) 
       ballista.shotIIPendingAt = Infinity;
       ballista.mainBoltLoaded = false;
       ballista.state = BI_BYE_STATES.SPENT;
-      ballista.reloadStartedAt = nowSec + BI_BYE_LLISTA_CONFIG.timing.spentRecoverySec;
+      const recoveryCompleteAt = (ballista.firedAt ?? (nowSec - BI_BYE_LLISTA_CONFIG.timing.mainBoltFireDelaySec)) + BI_BYE_LLISTA_CONFIG.timing.recoilRecoveryDurationSec;
+      ballista.reloadStartedAt = recoveryCompleteAt;
       ballista.reloadEndsAt = ballista.reloadStartedAt + BI_BYE_LLISTA_CONFIG.timing.reloadDurationSec;
 
       room.events?.push({

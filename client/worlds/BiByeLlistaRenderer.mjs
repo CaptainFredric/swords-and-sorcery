@@ -280,14 +280,42 @@ export class BiByeLlistaRenderer {
     this.lastSmallBoltReady = Boolean(ballistaData.smallBoltReady);
 
     // B. Bolt and Catch Visibilities
+    // Argon's firing and reload animation clips contain authored scale tracks for both bolts:
+    // - 09_BiBye_Mobile_Shot1_Fire: Upper bolt visible until release at 0.200s (scale 0 at 0.235s)
+    // - 10_BiBye_Mobile_Shot1_Reload: Upper bolt visible from 1.300s onward
+    // - 02_BiBye_TwoStage_Fire: Upper bolt visible until 0.485s; Main bolt visible until 0.705s
+    // - 04_BiBye_Mechanical_Reload: Main bolt visible from 3.100s; Upper bolt visible from 4.950s
+    // - 03_BiBye_Spent_Recovery: Both bolts spent (hidden)
+    // - Idle modes: Reflect authoritative loaded status
+    // - Destroyed: Both bolts hidden
+    const activeName = this.activeActionName;
+    const isDestroyed = mode === BI_BYE_MODES.DESTROYED;
+
     const mainBolt = this.nodes.get('Main_Siege_Bolt');
     if (mainBolt) {
-      mainBolt.visible = Boolean(ballistaData.mainBoltLoaded) && mode !== BI_BYE_MODES.DESTROYED;
+      if (isDestroyed) {
+        mainBolt.visible = false;
+      } else if (activeName === '02_BiBye_TwoStage_Fire' || activeName === '04_BiBye_Mechanical_Reload') {
+        mainBolt.visible = true;
+      } else if (activeName === '03_BiBye_Spent_Recovery') {
+        mainBolt.visible = false;
+      } else {
+        mainBolt.visible = Boolean(ballistaData.mainBoltLoaded);
+      }
     }
 
     const upperBolt = this.nodes.get('Upper_Conditioning_Bolt');
     if (upperBolt) {
-      upperBolt.visible = Boolean(ballistaData.smallBoltReady) && mode !== BI_BYE_MODES.DESTROYED;
+      if (isDestroyed) {
+        upperBolt.visible = false;
+      } else if (activeName === '09_BiBye_Mobile_Shot1_Fire' || activeName === '10_BiBye_Mobile_Shot1_Reload' ||
+                 activeName === '02_BiBye_TwoStage_Fire' || activeName === '04_BiBye_Mechanical_Reload') {
+        upperBolt.visible = true;
+      } else if (activeName === '03_BiBye_Spent_Recovery') {
+        upperBolt.visible = false;
+      } else {
+        upperBolt.visible = Boolean(ballistaData.smallBoltReady);
+      }
     }
 
     // C. Advance Animation Mixer BEFORE applying runtime joint overrides

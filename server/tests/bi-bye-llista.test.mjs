@@ -14,6 +14,7 @@ import {
   fireBiByeMobile,
   fireBiByeFullVolley,
   fireBiByeLlista,
+  getBiByeMuzzlePosition,
   stepBiByeLlista,
   stepBiByeProjectiles,
 } from '../../shared/sim/biByeLlista.mjs';
@@ -315,12 +316,23 @@ test('Scenario 7: Deployed Mode transition, swivel traverse, and full reload cyc
   assert.equal(ballista.state, BI_BYE_STATES.SPENT);
   assert.equal(ballista.mainBoltLoaded, false);
 
-  // Advance past 2.20s recoil impulse and recovery into RELOADING
-  while (nowSec < 5.3) {
+  // Recovery timeline verification:
+  // Firing began at t=3.0. Argon's recoil impulse and recovery requires 2.200s.
+  // The machine MUST remain strictly in SPENT (recovering) throughout [3.65s, 5.20s).
+  // It must NOT prematurely transition to RELOADING around 0.9s (t=3.9s).
+  while (nowSec < 5.15) {
+    nowSec += 1 / 30;
+    stepBiByeLlista(room, ballista, 1 / 30, nowSec, room.world);
+    assert.equal(ballista.state, BI_BYE_STATES.SPENT, `state must be SPENT during recoil recovery at t=${nowSec.toFixed(2)}s`);
+  }
+
+  // At t >= 5.20s (nowSec >= 3.0 + 2.200s), recovery completes and RELOADING begins
+  while (nowSec < 5.30) {
     nowSec += 1 / 30;
     stepBiByeLlista(room, ballista, 1 / 30, nowSec, room.world);
   }
-  assert.equal(ballista.state, BI_BYE_STATES.RELOADING);
+  assert.equal(ballista.state, BI_BYE_STATES.RELOADING, 'reloading begins only after 2.20s recovery finishes');
+  assert.ok(nowSec - ballista.firedAt >= 2.200, 'elapsed recovery time must be at least 2.200s');
 
   // Advance 6.0s through mechanical reload
   while (nowSec < 11.4) {
@@ -440,8 +452,8 @@ test('Scenario 10: Snapshot serialization and practice command handling', () => 
   assert.ok(snap.bibyeBallista.deployProgress > 0);
   assert.equal(snap.bibyeBallista.mainBoltLoaded, true);
 
-  // Damage / destruction command
-  applyRoomCommand(room, human, { type: 'bibyeDamage', amount: 400 }, 1.3);
+  // Destruction via authoritative damage
+  damageBiByeLlista(room, ballista, 400, human.id, 'sword', 1.3);
   assert.equal(ballista.mode, BI_BYE_MODES.DESTROYED);
   assert.equal(ballista.health, 0);
   assert.equal(ballista.operatorId, null);
@@ -757,4 +769,61 @@ test('Scenario 18: Unmounted player movement and separation respects ballista ch
   // Runner must be blocked by carriage bounds and not penetrate into chassis center
   const distToCenter = Math.hypot(runner.position.x - ballista.x, runner.position.z - ballista.z);
   assert.ok(distToCenter >= 1.2, `unmounted player was stopped by ballista solid (dist: ${distToCenter.toFixed(2)}m)`);
+});
+
+test('Scenario 19: Exact 3D muzzle positions under articulation and parent-child kinematics', () => {
+  const ballista = {
+    id: 'ballista-test',
+    x: 0,
+    y: 0,
+    z: 0,
+    heading: 0, // facing -Z
+    yaw: 0,
+    pitch: 0,
+    mode: BI_BYE_MODES.DEPLOYED,
+  };
+
+  // 1. Neutral Aim (Heading 0, Yaw 0, Pitch 0)
+  // small_bolt_muzzle in neutral: [0, 2.785, 0.920] relative to root facing local +Z -> Castleward [0, 2.785, -0.920]
+  const smallNeutral = getBiByeMuzzlePosition(ballista, 'conditioning');
+  assert.ok(Math.abs(smallNeutral.x - 0) < 1e-4);
+  assert.ok(Math.abs(smallNeutral.y - 2.785) < 1e-4);
+  assert.ok(Math.abs(smallNeutral.z - (-0.920)) < 1e-4);
+
+  // main_bolt_muzzle in neutral: [0, 1.835, 1.520] relative to root facing local +Z -> Castleward [0, 1.835, -1.520]
+  const mainNeutral = getBiByeMuzzlePosition(ballista, 'siege');
+  assert.ok(Math.abs(mainNeutral.x - 0) < 1e-4);
+  assert.ok(Math.abs(mainNeutral.y - 1.835) < 1e-4);
+  assert.ok(Math.abs(mainNeutral.z - (-1.520)) < 1e-4);
+
+  // 2. Heading East (-PI/2)
+  ballista.heading = -Math.PI / 2;
+  ballista.yaw = -Math.PI / 2;
+  const smallEast = getBiByeMuzzlePosition(ballista, 'conditioning');
+  assert.ok(Math.abs(smallEast.x - 0.920) < 1e-4);
+  assert.ok(Math.abs(smallEast.y - 2.785) < 1e-4);
+  assert.ok(Math.abs(smallEast.z - 0) < 1e-4);
+
+  const mainEast = getBiByeMuzzlePosition(ballista, 'siege');
+  assert.ok(Math.abs(mainEast.x - 1.520) < 1e-4);
+  assert.ok(Math.abs(mainEast.y - 1.835) < 1e-4);
+  assert.ok(Math.abs(mainEast.z - 0) < 1e-4);
+
+  // 3. Deployed Mode: Pitch UP +15 deg (0.2618 rad) with Elevation Cradle parent-child articulation
+  ballista.heading = 0;
+  ballista.yaw = 0.2; // slight traverse
+  ballista.pitch = 0.2618;
+  const smallPitchUp = getBiByeMuzzlePosition(ballista, 'conditioning');
+  const mainPitchUp = getBiByeMuzzlePosition(ballista, 'siege');
+  // Both launchers elevate together in deployed mode
+  assert.ok(smallPitchUp.y > 2.785, 'small muzzle raised with elevation cradle pitch');
+  assert.ok(mainPitchUp.y > 1.835, 'main muzzle raised with elevation cradle pitch');
+
+  // 4. Mobile Mode: Independent Upper Turret Aim
+  ballista.mode = BI_BYE_MODES.MOBILE;
+  ballista.yaw = 0.4363; // +25 deg traverse
+  ballista.pitch = 0.2094; // +12 deg pitch
+  const smallMobile = getBiByeMuzzlePosition(ballista, 'conditioning');
+  assert.ok(smallMobile.y > 2.785, 'mobile upper turret elevated independently');
+  assert.ok(smallMobile.x < 0, 'mobile upper turret yawed into direction');
 });

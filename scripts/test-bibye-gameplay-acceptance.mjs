@@ -32,7 +32,6 @@ async function until(fn, description, timeout = 30000) {
       const val = await fn();
       if (val) return val;
     } catch (err) {
-      if (i % 10 === 0) console.log(`Fetch error at i=${i}:`, err.message);
     }
     await wait(150);
   }
@@ -85,7 +84,6 @@ try {
         break;
       }
     } catch (err) {
-      if (i % 10 === 0) console.log(`Fetch error at i=${i}:`, err.message);
     }
     await wait(150);
   }
@@ -112,7 +110,6 @@ try {
       if (page) { tabs = [page]; break; }
       if (i % 5 === 0) console.log('Tabs in json/list:', res.map(t => `${t.type}:${t.url}`));
     } catch (err) {
-      if (i % 10 === 0) console.log(`Fetch error at i=${i}:`, err.message);
     }
     await wait(200);
   }
@@ -384,6 +381,12 @@ try {
     window.__ssRuntime.socket.send({ type: 'bibyeFire' });
   })()`);
 
+  // Verify Upper bolt remains visible during firing impulse and string release
+  const upperBoltVisibleAtFire = await evaluate(`(() => {
+    return window.__ssRuntime.world?.biByeLlista?.nodes?.get('Upper_Conditioning_Bolt')?.visible;
+  })()`);
+  assert.equal(upperBoltVisibleAtFire, true, 'Upper bolt must remain visible during mobile firing impulse');
+
   // Wait for server-generated projectile spawn (spawned after 0.200s delay)
   const mobileShot = await until(async () => {
     return evaluate(`(() => {
@@ -474,14 +477,26 @@ try {
   await until(async () => {
     return evaluate(`(() => {
       const bl = window.__ssRuntime.latestSnapshot?.bibyeBallista;
-      return bl?.mainBoltLoaded && bl?.state === 'LOADED';
+      return bl?.mainBoltLoaded && bl?.smallBoltReady && bl?.state === 'LOADED';
     })()`);
   }, 'bolts loaded for volley', 10000);
 
   // Trigger full volley
+  const volleyBeganAt = Date.now();
   await evaluate(`(() => {
     window.__ssRuntime.socket.send({ type: 'bibyeFire' });
   })()`);
+
+  // Verify bolts stay visible during two-stage volley impulse
+  const boltsVisibleAtVolley = await evaluate(`(() => {
+    const rend = window.__ssRuntime.world?.biByeLlista;
+    return {
+      main: rend?.nodes?.get('Main_Siege_Bolt')?.visible,
+      upper: rend?.nodes?.get('Upper_Conditioning_Bolt')?.visible,
+    };
+  })()`);
+  assert.equal(boltsVisibleAtVolley.main, true, 'Main bolt must stay visible during volley firing impulse');
+  assert.equal(boltsVisibleAtVolley.upper, true, 'Upper bolt must stay visible during volley firing impulse');
 
   const volleyFiring = await until(async () => {
     return evaluate(`(() => {
@@ -528,7 +543,10 @@ try {
     })()`);
   }, 'state RELOADING', 10000);
   assert.equal(reloadingState.state, 'RELOADING');
-  console.log(`[PASS] Stage 9: Recoil recovery completed (2.200s); mechanical reload active with progress ${(reloadingState.reloadProgress * 100).toFixed(1)}%.`);
+  const elapsedRecoveryMs = Date.now() - volleyBeganAt;
+  assert.ok(elapsedRecoveryMs >= 2000, `Recoil recovery must take full duration before RELOADING (elapsed: ${elapsedRecoveryMs}ms)`);
+  assert.equal(reloadingState.action, '04_BiBye_Mechanical_Reload', 'animation must transition to 04_BiBye_Mechanical_Reload');
+  console.log(`[PASS] Stage 9: Recoil recovery completed in ${elapsedRecoveryMs}ms (authoritative 2.200s); mechanical reload active with progress ${(reloadingState.reloadProgress * 100).toFixed(1)}%.`);
 
   // --- STAGE 10: RETRACT STABILIZERS ---
   console.log('\n--- Stage 10: Retract Stabilizers ---');
@@ -557,10 +575,17 @@ try {
 
   // --- STAGE 11: DAMAGE, DESTRUCTION, AND PERSISTENT WRECK POSE ---
   console.log('\n--- Stage 11: Destruction & Final Wreck Pose ---');
-  // Inflict fatal damage via authoritative command
-  await evaluate(`(() => {
-    window.__ssRuntime.socket.send({ type: 'bibyeDamage', amount: 400 });
+  // Inflict fatal damage via trusted test fixture
+  const damaged = await evaluate(`(async () => {
+    const { damageBiByeLlista } = await import('/shared/sim/biByeLlista.mjs');
+    const room = window.__ssRuntime.socket?.active?.room ?? window.__ssRuntime.socket?.local?.room ?? window.__ssRuntime.socket?.room;
+    if (room && room.biByeLlista) {
+      damageBiByeLlista(room, room.biByeLlista, 400, 'test-fixture', 'fixture', performance.now() / 1000);
+      return true;
+    }
+    return false;
   })()`);
+  assert.equal(damaged, true, 'trusted damage fixture must find practice room and ballista');
 
   const destroyed = await until(async () => {
     return evaluate(`(() => {
