@@ -236,26 +236,28 @@ export const COMBO_END = C3 + 0.55;
 
 export const COMBO = settle([
   rest(0, { ease: 0.6 }),
-  // 1. the forehand: a small cock out to the right, the body coiling a touch (out in front, still in view)...
+  // 1. the forehand: a small cock out to the right, the body coiling a touch (out in front, still in view)... (the
+  // magic arm swings down and back out of its path as it comes across, and through the backhand's load: the blade's
+  // sweep across the low left passed over the magic hand where it rests)
   key(C1 - 0.25, [0.46, -0.25, -0.6], dir(-38, 40), [-0.8, -0.3, -0.5],
     { shoulder: [0.03, 0.03, 0.03], body: [0.01, 0.005, 0.01], look: [0.4, 0.9, 0.9], counter: [-0.04, -0.05, 0] }),
   key(C1 - 0.16, [0.48, -0.23, -0.59], dir(-50, 33), [-0.8, -0.35, -0.45],
     { shoulder: [0.04, 0.03, 0.04], body: [0.015, 0.005, 0.012], look: [0.5, 1.1, 1.1], counter: [-0.06, -0.06, 0], ease: 0.35 }),
   // ...then it comes down across the front, the shoulder driving round behind it; through the middle at the contact
   key(C1 - EARLY, [0.44, -0.2, -0.63], dir(-25, 20), [-0.75, -0.3, -0.6],
-    { shoulder: [-0.04, 0.03, -0.04], look: [0.2, 0.2, 0.3], counter: [0.06, 0.05, 0.04] }),
+    { shoulder: [-0.04, 0.03, -0.04], look: [0.2, 0.2, 0.3], counter: [0.16, 0.15, 0.04] }),
   key(C1, [0.3, -0.24, -0.65], dir(54, -12), [-0.65, -0.45, 0.6],
-    { shoulder: [-0.13, 0.02, -0.11], body: [-0.02, -0.005, -0.01], look: [-0.5, -1.2, -1.2], counter: [0.26, 0.2, 0.08] }),
+    { shoulder: [-0.13, 0.02, -0.11], body: [-0.02, -0.005, -0.01], look: [-0.5, -1.2, -1.2], counter: [0.56, 0.5, 0.08] }),
   key(C1 + LATE, [0.05, -0.27, -0.63], dir(70, -16), [-0.8, -0.5, 0.3],
-    { shoulder: [-0.19, 0, -0.12], body: [-0.03, -0.01, -0.012], look: [-0.4, -1.4, -1.5], counter: [0.4, 0.28, 0.1] }),
+    { shoulder: [-0.19, 0, -0.12], body: [-0.03, -0.01, -0.012], look: [-0.4, -1.4, -1.5], counter: [0.7, 0.58, 0.1] }),
   // 2. the backhand: the forehand's momentum carried on round the low left (the blade still moving, the body
   // starting to unwind), rebounding a little as it turns, then dipping to load...
   key(C1 + 0.22, [-0.03, -0.28, -0.62], dir(76, -17), [-0.8, -0.55, 0.2],
-    { shoulder: [-0.21, -0.01, -0.11], body: [-0.03, -0.012, -0.01], look: [-0.2, -1.4, -1.6], counter: [0.42, 0.5, 0.09] }),
+    { shoulder: [-0.21, -0.01, -0.11], body: [-0.03, -0.012, -0.01], look: [-0.2, -1.4, -1.6], counter: [0.72, 0.8, 0.09] }),
   key(C1 + 0.34, [-0.06, -0.25, -0.61], dir(73, 0), [0.75, 0.6, -0.2],
-    { shoulder: [-0.21, -0.02, -0.1], body: [-0.028, -0.012, -0.008], look: [0.1, -1.3, -1.6], counter: [0.38, 0.8, 0.06] }),
+    { shoulder: [-0.21, -0.02, -0.1], body: [-0.028, -0.012, -0.008], look: [0.1, -1.3, -1.6], counter: [0.68, 1.1, 0.06] }),
   key(C2 - 0.24, [-0.06, -0.33, -0.61], dir(69, -19), [0.7, 0.65, -0.2],
-    { shoulder: [-0.2, -0.03, -0.09], body: [-0.025, -0.012, -0.006], look: [0.3, -1.1, -1.5], counter: [0.3, 0.78, 0.04], ease: 0.6 }),
+    { shoulder: [-0.2, -0.03, -0.09], body: [-0.025, -0.012, -0.006], look: [0.3, -1.1, -1.5], counter: [0.5, 0.98, 0.04], ease: 0.6 }),
   // ...and rises across, the body unwinding behind it; through the middle at the contact
   key(C2 - EARLY, [-0.04, -0.31, -0.62], dir(64, -8), [0.75, 0.55, -0.35],
     { shoulder: [-0.15, 0, -0.1], body: [-0.01, -0.005, -0.01], look: [0.1, -0.3, -0.5], counter: [0.14, 0.66, 0] }),
@@ -378,8 +380,11 @@ export const CHAIN = Object.freeze({ body: 0.03, blade: 0.012 });
 const REACH_FROM = Object.freeze([-0.12, -0.2, 0.05]);
 // how far the magic arm's shoulder comes forward and in when both hands are on the sword
 const OFF_SHOULDER = Object.freeze([0.22, 0.05, -0.18]);
-// the lower hand's place on the grip: this far along the blade below the sword hand's grip (m), off to its left
-const LOWER_GRIP = Object.freeze({ below: 0.165, aside: 0.012 });
+// the magic hand's place on the hilt: this far along the blade below the sword hand's grip (m), off to its left, and back
+// along the edge. It clasps the sword hand's fist from beside, both fists on the hilt: in this view the blade runs within
+// a quarter turn of the sword arm's forearm, so a hand on the grip below the fist sat inside that forearm, and with plate
+// on both arms the two forearms met (they now come in from either side, as a V)
+export const LOWER_GRIP = Object.freeze({ below: 0.065, aside: 0.192, back: 0.04 });
 
 // where the sword hand's fist closes on the grip, from the wrist and the blade's frame (measured from the rig)
 function gripPoint(wrist, blade, edge) {
@@ -388,18 +393,18 @@ function gripPoint(wrist, blade, edge) {
 }
 
 /**
- * The magic hand on the lower grip, below the sword hand: where its wrist goes and how the hand lies (its fingers
- * wrap the grip the way the sword hand's do, its palm against it). Its fist sits clear below the sword hand's, over
- * the lower grip and the pommel, so the two read as two hands on one handle.
+ * The magic hand on the hilt beside the sword hand: where its wrist goes and how the hand lies (its fingers wrap the way
+ * the sword hand's do). Its fist clasps the sword hand's from its left, a little below, so the two read as two hands on
+ * one hilt, the forearms apart.
  */
-export function offHandOnGrip({ wrist, blade, edge }) {
+export function offHandOnGrip({ wrist, blade, edge }, place = LOWER_GRIP) {
   const b = normalize(blade);
   const e = leading(edge, b);
   const flat = cross(b, e);
   // the sword hand's fingers and palm in the blade's frame (the rig at rest): the magic hand's lie the same way
   const fingers = normalize(add(add(scale(b, 0.851), scale(e, -0.477)), scale(flat, 0.219)));
   const palm = normalize(add(add(scale(b, 0.227), scale(e, -0.041)), scale(flat, -0.973)));
-  const hold = add(sub(gripPoint(wrist, b, e), scale(b, LOWER_GRIP.below)), scale(flat, -LOWER_GRIP.aside));
+  const hold = add(add(sub(gripPoint(wrist, b, e), scale(b, place.below)), scale(flat, -place.aside)), scale(e, -place.back));
   return { wrist: sub(hold, scale(fingers, 0.094)), aim: fingers, roll: palm, shoulder: OFF_SHOULDER };
 }
 
