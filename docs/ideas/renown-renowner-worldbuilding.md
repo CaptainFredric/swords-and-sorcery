@@ -101,3 +101,15 @@ The monument remains impassive.
 ## Related production work
 
 The **Rightful Renowner** is the present creative direction for the earlier Wardstone/Renown Dispenser candidate. It should stay identified as a prospective model until it has actual reviewed source geometry, animations and in-game placement. See [the asset roadmap](../art/castleward-3d-asset-roadmap.md).
+
+## Future herald concept — Strike While Hot!
+
+**Status:** Proposed herald/achievement concept; artwork and unlock condition are not implemented or finalized.
+
+- **Title:** **Strike While Hot!**
+- **Flavor text (preserve exact wording):** “THIS was now planned!”
+- **Art concept:** A sword has been **thrown spinning through a fireball**, cleaving the spell cleanly into **two separating halves** while the sword continues through the cut. The motion is a precise, extravagant sword-versus-sorcery feat rather than an ordinary sword pose or fireball icon.
+- **Composition:** Make the single thrown sword's trajectory and spin readable, with a distinct separation through the fireball. Keep movement accents restrained enough that both severed halves and the weapon remain instantly identifiable at herald size. Preserve Castleward's bold, stylized heraldic treatment.
+- **Character/comedy:** The Spellblade retroactively declares an implausibly successful improvisation to have been planned. The intentionally contradictory tense in **“THIS was now planned!”** is the punchline, not a typo to correct.
+
+The title and flavor text are established creative choices. Do not infer a gameplay unlock trigger or award this herald until its actual condition is separately designed and implemented.
