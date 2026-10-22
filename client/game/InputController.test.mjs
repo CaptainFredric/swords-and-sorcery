@@ -26,6 +26,16 @@ function setup({ useHostTimers = false } = {}) {
 const chivalry = { alive: true, spell: 'fireball', preparedSpells: ['fireball', 'frostfire', 'gale'],
   ultimateState: { id: 'chivalry', phase: 'active', until: 20 }, spellReadyById: { gale: 14 }, chivalryProjectileReadyAt: 0 };
 
+test('mounted view toggle uses its rebound key and produces one local presentation action', () => {
+  const { input, down, up } = setup();
+  const actions = [];
+  assert.deepEqual(input.bindings.siegeView, ['KeyZ']);
+  input.onAction = (action, pressed) => { if (pressed) actions.push(action); };
+  input.configure({ bindings: { ...input.bindings, siegeView: ['KeyJ'] } });
+  down('KeyJ'); up('KeyJ');
+  assert.deepEqual(actions, ['siegeView']);
+});
+
 test('default guard holds across either physical binding release without restarting guard', () => {
   for (const sources of [['Mouse2', 'KeyG'], ['KeyG', 'Mouse2']]) {
     const { input, calls, down, up } = setup();

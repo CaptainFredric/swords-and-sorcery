@@ -145,7 +145,8 @@ test('the game shows my own body, and not the helm\'s arms, exactly while the vi
   // the arms and the body are each other's opposite, by the view's own word for where it is
   assert.match(source, /outside = out\.thirdPerson;/);
   assert.match(source, /this\.weapon\.group\.visible = !outside;/);
-  assert.match(source, /this\.remotePlayers\.showSelf\(this\.localAuth, \{[\s\S]{0,200}\}, serverNow, nowMs, dt, outside\);/);
+  assert.match(source, /this\.remotePlayers\.showSelf\(this\.localAuth, \{[\s\S]{0,200}\}, serverNow, nowMs, dt, outside && \(!mounted \|\|/);
+  assert.match(source, /this\.siegeView === 'third'/);
   // the view is given the player's own yaw and pitch, never the blade's angle
   assert.match(source, /chaseCamera\(\{\s*feet: this\.localState\.position, eyeHeight: this\.viewHeight, yaw: this\.input\.yaw, pitch: this\.input\.pitch, blend: this\.chase,/);
   // walls and the ground are minded with the death camera's own reach

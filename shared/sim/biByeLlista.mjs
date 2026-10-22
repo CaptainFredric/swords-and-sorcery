@@ -145,6 +145,8 @@ export function createBiByeLlista(overrides = {}) {
     speed: 0,
     steer: 0,
     operatorId: null,
+    mobileFiredAt: null,
+    destroyedAt: null,
 
     // Operational mode
     mode: BI_BYE_MODES.MOBILE,
@@ -160,6 +162,10 @@ export function createBiByeLlista(overrides = {}) {
     smallBoltReadyAt: 0,            // Shot I mobile recock timer
     mainBoltLoaded: true,           // Shot II status
     committedAim: null,             // Locked aim during firing
+    committedMobileAim: null,
+    mobileShotPendingAt: null,
+    mobileOperatorId: null,
+    firingOperatorId: null,
 
     // Volley timers
     firedAt: -Infinity,
@@ -274,6 +280,7 @@ export function getBiByeSolids(ballista) {
  */
 export function mountBiByeLlista(ballista, player, nowSec = 0) {
   if (!ballista || !player || !player.alive) return false;
+  if (player.pendingSpell || player.gauntlet || player.ultimateState || player.attackActive) return false;
   if (ballista.mode === BI_BYE_MODES.DESTROYED) return false;
   if (ballista.operatorId && ballista.operatorId !== player.id) return false;
 
@@ -286,6 +293,11 @@ export function mountBiByeLlista(ballista, player, nowSec = 0) {
   // Align player to operator station
   syncOperatorPosition(ballista, player);
   player.velocity = { x: 0, y: 0, z: 0 };
+  player.guarding = false;
+  player.guardHeld = false;
+  player.guardButton = false;
+  player.input = { ...player.input, forward: 0, right: 0, jump: false, sprint: false,
+    crouch: false, attack: false, guard: false, yaw: ballista.yaw, pitch: ballista.pitch };
 
   return true;
 }
@@ -302,6 +314,8 @@ export function dismountBiByeLlista(ballista, player = null, safeDisplace = fals
   if (player && player.operatingBallistaId === ballista.id) {
     player.operatingBallistaId = null;
   }
+  ballista.speed = 0;
+  ballista.steer = 0;
   if (player && safeDisplace) {
     const heading = ballista.heading;
     const rgtX = Math.cos(heading);
@@ -376,6 +390,7 @@ export function toggleBiByeDeploy(ballista, nowSec) {
   if (!ballista || ballista.mode === BI_BYE_MODES.DESTROYED) return false;
 
   if (ballista.mode === BI_BYE_MODES.MOBILE) {
+    if (ballista.mobileShotPendingAt != null) return false;
     ballista.mode = BI_BYE_MODES.DEPLOYING;
     ballista.modeTransitionStartedAt = nowSec;
     ballista.modeTransitionEndsAt = nowSec + BI_BYE_LLISTA_CONFIG.timing.deployDurationSec;
@@ -413,6 +428,7 @@ export function damageBiByeLlista(room, ballista, amount, attackerId, source, no
   });
 
   if (ballista.health <= 0) {
+    ballista.destroyedAt = nowSec;
     ballista.mode = BI_BYE_MODES.DESTROYED;
     ballista.state = BI_BYE_STATES.SPENT;
     ballista.mobileShotPendingAt = null;
@@ -443,6 +459,8 @@ export function fireBiByeMobile(room, ballista, nowSec) {
 
   const aim = { yaw: ballista.yaw, pitch: ballista.pitch };
   ballista.committedMobileAim = aim;
+  ballista.mobileFiredAt = nowSec;
+  ballista.mobileOperatorId = ballista.operatorId;
   ballista.mobileShotPendingAt = nowSec + (BI_BYE_LLISTA_CONFIG.timing.mobileSmallBoltDelaySec ?? 0.200);
   ballista.smallBoltReadyAt = nowSec + BI_BYE_LLISTA_CONFIG.timing.mobileRecockSec;
 
@@ -468,6 +486,8 @@ export function fireBiByeFullVolley(room, ballista, nowSec) {
 
   const aim = { yaw: ballista.yaw, pitch: ballista.pitch };
   ballista.committedAim = aim;
+  ballista.firingOperatorId = ballista.operatorId;
+  ballista.smallBoltReadyAt = nowSec + BI_BYE_LLISTA_CONFIG.timing.recoilRecoveryDurationSec + BI_BYE_LLISTA_CONFIG.timing.reloadDurationSec;
   ballista.state = BI_BYE_STATES.FIRING;
   ballista.firedAt = nowSec;
   ballista.shotIPendingAt = nowSec + BI_BYE_LLISTA_CONFIG.timing.smallBoltFireDelaySec;
@@ -507,12 +527,10 @@ function aimToDirection(yaw, pitch) {
 }
 
 /**
- * Authoritative 3D muzzle positions matching Argon v3.0 model locators:
- * - Stage I Conditioning: small_bolt_muzzle (Node 34: [0, 2.785, +0.920] relative to root)
- *   In Deployed Mode: hitched to Elevation_Cradle with 0 relative rotation; articulates around cradle pivot [0, 1.500, -0.100]
- *   In Mobile Mode: independent upper turret aim around Upper_Turret_Mount pivot [0, 2.280, +0.080]
- * - Stage II Heavy Siege: main_bolt_muzzle (Node 30: [0, 1.835, +1.520] relative to root)
- *   Parented to Elevation_Cradle (trunnion pivot [0, 1.500, -0.100] rotating with Traverse_Mount)
+ * Release-frame locators from the checksum-verified v3.2 export.
+ * Traverse [0,1.24,0] -> cradle [0,.38,-.12] -> upper [0,.92,.20].
+ * The exported +Z firing axis becomes Castleward forward through heading + PI.
+ * Recoil starts AFTER release, so authoritative projectiles use these rest pivots.
  */
 export function getBiByeMuzzlePosition(ballista, subKind, aim = { yaw: ballista.yaw, pitch: ballista.pitch }) {
   const isDeployed = ballista.mode === BI_BYE_MODES.DEPLOYED ||
@@ -541,47 +559,42 @@ export function getBiByeMuzzlePosition(ballista, subKind, aim = { yaw: ballista.
 
   if (subKind === 'conditioning') {
     if (isDeployed) {
-      // In Deployed Mode, Upper_Turret_Mount is hitched to Elevation_Cradle with 0 relative rotation.
-      // Rotation happens at the cradle trunnion pivot [0, 1.500, -0.100] along turret traverse yaw.
-      // small_bolt_muzzle sits at [0, 1.285, 1.020] relative to the cradle pivot.
-      const pivotX = ballista.x - 0.100 * dirH.x;
-      const pivotY = ballista.y + 1.500;
-      const pivotZ = ballista.z - 0.100 * dirH.z;
+      // Upper mount plus its muzzle, relative to the cradle: [0,1.165,1.040].
+      const pivotX = ballista.x - 0.120 * dirH.x;
+      const pivotY = ballista.y + 1.620;
+      const pivotZ = ballista.z - 0.120 * dirH.z;
       return {
-        x: pivotX + 1.020 * dir.x + 1.285 * up.x,
-        y: pivotY + 1.020 * dir.y + 1.285 * up.y,
-        z: pivotZ + 1.020 * dir.z + 1.285 * up.z,
+        x: pivotX + 1.040 * dir.x + 1.165 * up.x,
+        y: pivotY + 1.040 * dir.y + 1.165 * up.y,
+        z: pivotZ + 1.040 * dir.z + 1.165 * up.z,
       };
     } else {
-      // In Mobile Mode, Elevation_Cradle and Traverse_Mount remain locked at 0.
-      // Upper_Turret_Mount aims independently around its own pivot [0, 2.280, +0.080] on the chassis.
-      // small_bolt_muzzle sits at [0, 0.505, 0.840] relative to Upper_Turret_Mount.
+      // Mobile upper launcher rotates independently around [0,2.540,.080].
       const pivotX = ballista.x + 0.080 * fwd.x;
-      const pivotY = ballista.y + 2.280;
+      const pivotY = ballista.y + 2.540;
       const pivotZ = ballista.z + 0.080 * fwd.z;
       return {
-        x: pivotX + 0.840 * dir.x + 0.505 * up.x,
-        y: pivotY + 0.840 * dir.y + 0.505 * up.y,
-        z: pivotZ + 0.840 * dir.z + 0.505 * up.z,
+        x: pivotX + 0.840 * dir.x + 0.245 * up.x,
+        y: pivotY + 0.840 * dir.y + 0.245 * up.y,
+        z: pivotZ + 0.840 * dir.z + 0.245 * up.z,
       };
     }
   }
 
-  // Heavy Siege shot: main_bolt_muzzle (Node 30: [0, 0.335, 1.620] relative to cradle trunnion [0, 1.500, -0.100])
-  // Always fired in Deployed Mode; articulates with Elevation_Cradle and Traverse_Mount.
-  const pivotX = ballista.x - 0.100 * dirH.x;
-  const pivotY = ballista.y + 1.500;
-  const pivotZ = ballista.z - 0.100 * dirH.z;
+  // Main muzzle is [0,.215,1.640] relative to the cradle.
+  const pivotX = ballista.x - 0.120 * dirH.x;
+  const pivotY = ballista.y + 1.620;
+  const pivotZ = ballista.z - 0.120 * dirH.z;
   return {
-    x: pivotX + 1.620 * dir.x + 0.335 * up.x,
-    y: pivotY + 1.620 * dir.y + 0.335 * up.y,
-    z: pivotZ + 1.620 * dir.z + 0.335 * up.z,
+    x: pivotX + 1.640 * dir.x + 0.215 * up.x,
+    y: pivotY + 1.640 * dir.y + 0.215 * up.y,
+    z: pivotZ + 1.640 * dir.z + 0.215 * up.z,
   };
 }
 
 let bibyeProjCounter = 0;
 
-function spawnShotI(room, ballista, aim, nowSec) {
+function spawnShotI(room, ballista, aim, nowSec, ownerId = ballista.firingOperatorId) {
   const dir = aimToDirection(aim.yaw, aim.pitch);
   const cfg = BI_BYE_LLISTA_CONFIG.shotI;
   const id = `bibye-bolt-${++bibyeProjCounter}`;
@@ -593,7 +606,7 @@ function spawnShotI(room, ballista, aim, nowSec) {
     kind: 'bibye',
     subKind: 'conditioning',
     ballistaId: ballista.id,
-    ownerId: ballista.operatorId ?? 'ballista',
+    ownerId: ownerId ?? ballista.operatorId ?? 'ballista',
     position: muzzlePos,
     velocity: { x: dir.x * cfg.speed, y: dir.y * cfg.speed, z: dir.z * cfg.speed },
     bornAt: nowSec,
@@ -626,7 +639,7 @@ function spawnShotII(room, ballista, aim, nowSec) {
     kind: 'bibye',
     subKind: 'siege',
     ballistaId: ballista.id,
-    ownerId: ballista.operatorId ?? 'ballista',
+    ownerId: ballista.firingOperatorId ?? ballista.operatorId ?? 'ballista',
     position: muzzlePos,
     velocity: { x: dir.x * cfg.speed, y: dir.y * cfg.speed, z: dir.z * cfg.speed },
     bornAt: nowSec,
@@ -731,6 +744,11 @@ export function stepBiByeLlista(room, ballista, dt, nowSec, world = room.world) 
           const solids = (world?.solids ?? []).filter(
             (s) => !String(s.id ?? '').startsWith('bibye-')
           );
+          // Vehicle motion also respects living bodies. Dead players never obstruct it.
+          for (const other of room.players?.values() ?? []) {
+            if (!other.alive || other.id === ballista.operatorId) continue;
+            solids.push({ center: [other.position.x, other.position.y + .9, other.position.z], size: [.9, 1.8, .9] });
+          }
           const R_VEH = 1.05;
           const resolvedCenter = resolvePlayerWorld({ x: targetX, y: ballista.y, z: targetZ }, R_VEH, solids, 1.4);
 
@@ -780,16 +798,25 @@ export function stepBiByeLlista(room, ballista, dt, nowSec, world = room.world) 
             }
           }
 
-          const ground = surfaceHeightAt(ballista.x, ballista.z, ballista.y + 1.0, world);
-          if (ground !== null) ballista.y = ground;
+          const ground = surfaceHeightAt(ballista.x, ballista.z, ballista.y + 0.1, world);
+          const supported = !world?.floors?.length || [1.2, -1.715].every(offset => {
+            const y = surfaceHeightAt(ballista.x - Math.sin(ballista.heading) * offset,
+              ballista.z - Math.cos(ballista.heading) * offset, ballista.y + .1, world);
+            return y !== null && Math.abs(y - ballista.y) <= .65;
+          });
+          if (!supported) { ballista.heading = prevHeading; ballista.x = prevX; ballista.z = prevZ; }
+          else if (ground !== null) ballista.y = ground;
+          const actualSpeed = ((ballista.x - prevX) * -Math.sin(ballista.heading) + (ballista.z - prevZ) * -Math.cos(ballista.heading)) / Math.max(dt, 1e-6);
+          ballista.speed = Math.abs(actualSpeed - speed) < 1e-6 ? speed : actualSpeed;
         } else {
           ballista.heading = newHeading;
         }
 
         // Aim upper launcher with traverse limits relative to carriage heading
         const cfgMob = BI_BYE_LLISTA_CONFIG.mobility;
-        ballista.yaw = clampAngle(input.yaw ?? ballista.heading, ballista.heading, cfgMob.traverseMobileMax);
-        ballista.pitch = clamp(input.pitch ?? 0, cfgMob.pitchMobileMin, cfgMob.pitchMobileMax);
+        const mobileAim = ballista.mobileShotPendingAt != null ? ballista.committedMobileAim : input;
+        ballista.yaw = clampAngle(mobileAim.yaw ?? ballista.heading, ballista.heading, cfgMob.traverseMobileMax);
+        ballista.pitch = clamp(mobileAim.pitch ?? 0, cfgMob.pitchMobileMin, cfgMob.pitchMobileMax);
       } else if (ballista.mode === BI_BYE_MODES.DEPLOYED) {
         ballista.speed = 0;
         ballista.steer = 0;
@@ -808,8 +835,10 @@ export function stepBiByeLlista(room, ballista, dt, nowSec, world = room.world) 
 
   // Mobile Shot I pending release
   if (ballista.mobileShotPendingAt && nowSec >= ballista.mobileShotPendingAt) {
-    const aim = ballista.committedMobileAim ?? { yaw: ballista.yaw, pitch: ballista.pitch };
-    spawnShotI(room, ballista, aim, nowSec);
+    // The committed aim remains clamped to the moving carriage's legal traverse.
+    // Release from that actual turret pose if steering reaches the limit.
+    const aim = { yaw: ballista.yaw, pitch: ballista.pitch };
+    spawnShotI(room, ballista, aim, nowSec, ballista.mobileOperatorId);
     ballista.mobileShotPendingAt = null;
     room.events?.push({
       type: 'bibyeFired',

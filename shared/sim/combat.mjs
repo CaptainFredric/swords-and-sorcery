@@ -2066,7 +2066,7 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
   stepRuptures(room, nowSec);
   // bodies do not share space: overlapping Spellblades are eased apart (never off a ledge or into a wall)
   separatePlayers([...room.players.values()].filter((p) => !p.operatingBallistaId), effectiveWorld);
-  stepProjectiles(room, dt, nowSec, world);
+  stepProjectiles(room, dt, nowSec, effectiveWorld);
   if (room.biByeLlista) {
     stepBiByeLlista(room, room.biByeLlista, dt, nowSec);
     stepBiByeProjectiles(room, dt, nowSec, world);

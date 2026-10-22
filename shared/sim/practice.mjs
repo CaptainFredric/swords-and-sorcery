@@ -7,7 +7,7 @@ import { BOT_PROFILES } from './botBehavior.mjs';
 import { PROWESS } from '../src/prowess.mjs';
 import { freshStagger } from '../src/stagger.mjs';
 import { setupUltimateKnight, stepUltimateKnight } from './UltimateKnight.mjs';
-import { dismountBiByeLlista } from './biByeLlista.mjs';
+import { dismountBiByeLlista, createBiByeLlista } from './biByeLlista.mjs';
 
 export const PRACTICE_DUMMY_MODES = Object.freeze({
   PASSIVE: 'PASSIVE',
@@ -126,11 +126,8 @@ export function resetPracticePlayer(room, playerId, nowSec) {
     if (player.operatingBallistaId) {
       dismountBiByeLlista(room.biByeLlista, player);
     }
-    room.biByeLlista.health = room.biByeLlista.maxHealth;
-    room.biByeLlista.mode = 'MOBILE';
-    room.biByeLlista.state = 'LOADED';
-    room.biByeLlista.mainBoltLoaded = true;
-    room.biByeLlista.smallBoltReadyAt = nowSec;
+    const b = room.biByeLlista;
+    Object.assign(b, createBiByeLlista({ id: b.id, x: b.x, y: b.y, z: b.z, baseYaw: b.heading }), { smallBoltReadyAt: nowSec });
   }
   resetActorAtSpawn(player, spawn, nowSec);
   room.events.push({ type: 'practicePlayerReset', playerId, at: nowSec });

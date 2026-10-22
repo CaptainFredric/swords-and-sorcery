@@ -200,6 +200,13 @@ export function serializeSnapshot(room, nowSec) {
       maxHealth: room.biByeLlista.maxHealth,
       state: room.biByeLlista.state,
       operatorId: room.biByeLlista.operatorId,
+      firedAt: Number.isFinite(room.biByeLlista.firedAt) ? room.biByeLlista.firedAt : null,
+      mobileFiredAt: room.biByeLlista.mobileFiredAt,
+      smallBoltReadyAt: room.biByeLlista.smallBoltReadyAt,
+      reloadStartedAt: Number.isFinite(room.biByeLlista.reloadStartedAt) ? room.biByeLlista.reloadStartedAt : null,
+      reloadEndsAt: Number.isFinite(room.biByeLlista.reloadEndsAt) ? room.biByeLlista.reloadEndsAt : null,
+      destroyedAt: room.biByeLlista.destroyedAt,
+      modeTransitionStartedAt: Number.isFinite(room.biByeLlista.modeTransitionStartedAt) ? room.biByeLlista.modeTransitionStartedAt : null,
       smallBoltReady: nowSec >= (room.biByeLlista.smallBoltReadyAt ?? 0),
       mainBoltLoaded: Boolean(room.biByeLlista.mainBoltLoaded),
       reloadProgress: room.biByeLlista.state === 'RELOADING'
@@ -221,6 +228,8 @@ export function serializeSnapshot(room, nowSec) {
  * command is not allowed here, or {} for nothing more.
  */
 export function applyRoomCommand(room, player, message, time) {
+  // Mounted input belongs to the siege session; personal combat resumes on exit.
+  if (player?.operatingBallistaId && ['cast', 'castPreparedSpell', 'castPreparedSlot', 'castCurrentSpell', 'guard', 'dash', 'gauntlet', 'ultimate'].includes(message.type)) return {};
   switch (message.type) {
     case 'startMatch':
     case 'ready': {

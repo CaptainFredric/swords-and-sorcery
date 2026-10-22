@@ -446,9 +446,10 @@ export class CastlewardRenderer {
     this.group.add(sky);
   }
 
-  setBiByeState(snapshot) {
+  setBiByeState(snapshot, serverNow = snapshot?.serverTime) {
     this.biByeLlistaData = snapshot?.bibyeBallista ?? null;
     this.biByeProjectilesData = snapshot?.bibyeProjectiles ?? [];
+    this.biByeServerTime = serverNow;
   }
 
   update(timeSec, camera = null) {
@@ -465,7 +466,7 @@ export class CastlewardRenderer {
     for (const cloth of this.banners) cloth.rotation.x = -0.05 * (0.5 + 0.5 * Math.sin(timeSec * 1.2 + cloth.userData.phase));
     for (const rune of this.runes) rune.material.emissiveIntensity = 0.75 + Math.sin(timeSec * 1.4) * 0.2;
     if (camera && this.sky) this.sky.position.copy(camera.position);
-    this.biByeLlista?.update(timeSec, this.biByeLlistaData, this.biByeProjectilesData);
+    this.biByeLlista?.update(this.biByeServerTime ?? timeSec, this.biByeLlistaData, this.biByeProjectilesData);
   }
 
   dispose() {
