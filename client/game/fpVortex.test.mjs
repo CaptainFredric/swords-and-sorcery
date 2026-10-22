@@ -36,8 +36,15 @@ test('in front, the blade is where the real blade is: level, drooping a little, 
   assert.equal(vortexBladeInFront(0), true);
   assert.equal(vortexBladeInFront(Math.PI), false);
   assert.equal(vortexBladeInFront((FP_VORTEX.frontDeg - 1) * DEG), true);
-  // both hands on the grip all the way round
-  for (let deg = -180; deg <= 180; deg += 15) assert.equal(vortexSpinPose(deg * DEG).offHand.weight, 1);
+  // both hands on the grip all the way round, but for the wide swing on the right and the carry round behind on the left,
+  // where the magic hand lets go (reaching across for it, its forearm crossed the sword arm's) and takes it again
+  for (let deg = -180; deg <= 180; deg += 15) {
+    const weight = vortexSpinPose(deg * DEG).offHand?.weight ?? 0;
+    if ((deg <= -60 && deg >= -130) || deg >= 100 || deg <= -180) continue;
+    assert.equal(weight, 1, `both hands at ${deg} deg`);
+  }
+  assert.equal(vortexSpinPose(-95 * DEG).offHand, null, 'let go at the widest');
+  assert.equal(vortexSpinPose(140 * DEG).offHand, null, 'and behind on the left');
 });
 
 test('round behind, the hands drop below the view and the point drops: never back up through the eyes', () => {

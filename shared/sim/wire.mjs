@@ -5,6 +5,7 @@
 import { tryCastSpell, castPreparedSpell, selectPreparedSpell, beginAttack, endAttack, pressButton, setGuard, tryCastOrGauntlet, tryDash, tryGauntletStrike, tryUltimate } from './combat.mjs';
 import { compensatedInputTime } from './history.mjs';
 import { readyPracticeUltimate, removePracticeDummy, resetPracticePlayer, setPracticeDummyMode, spawnPracticeDummy } from './practice.mjs';
+import { mountBiByeLlista, dismountBiByeLlista, fireBiByeLlista, toggleBiByeDeploy, BI_BYE_LLISTA_CONFIG } from './biByeLlista.mjs';
 import { spellFor } from '../src/spells.mjs';
 import { GAME_MODES } from '../src/modes.mjs';
 
@@ -175,8 +176,42 @@ export function serializeSnapshot(room, nowSec) {
       spawnProtectionUntil: p.spawnProtectionUntil,
       respawnAt: p.respawnAt,
       lastInputSeq: p.lastInputSeq,
+      operatingBallistaId: p.operatingBallistaId ?? null,
     })),
     projectiles: [...room.projectiles.values()].map((p) => ({ id: p.id, ownerId: p.ownerId, spell: p.spell, position: p.position, velocity: p.velocity })),
+    bibyeBallista: room.biByeLlista ? {
+      id: room.biByeLlista.id,
+      position: { x: room.biByeLlista.x, y: room.biByeLlista.y, z: room.biByeLlista.z },
+      x: room.biByeLlista.x,
+      y: room.biByeLlista.y,
+      z: room.biByeLlista.z,
+      heading: room.biByeLlista.heading,
+      yaw: room.biByeLlista.yaw,
+      pitch: room.biByeLlista.pitch,
+      speed: room.biByeLlista.speed ?? 0,
+      steer: room.biByeLlista.steer ?? 0,
+      mode: room.biByeLlista.mode,
+      deployProgress: room.biByeLlista.mode === 'DEPLOYING'
+        ? Math.min(1.0, Math.max(0, (nowSec - room.biByeLlista.modeTransitionStartedAt) / BI_BYE_LLISTA_CONFIG.timing.deployDurationSec))
+        : (room.biByeLlista.mode === 'RETRACTING'
+          ? Math.max(0, 1.0 - (nowSec - room.biByeLlista.modeTransitionStartedAt) / BI_BYE_LLISTA_CONFIG.timing.retractDurationSec)
+          : (room.biByeLlista.mode === 'DEPLOYED' ? 1.0 : 0.0)),
+      health: room.biByeLlista.health,
+      maxHealth: room.biByeLlista.maxHealth,
+      state: room.biByeLlista.state,
+      operatorId: room.biByeLlista.operatorId,
+      smallBoltReady: nowSec >= (room.biByeLlista.smallBoltReadyAt ?? 0),
+      mainBoltLoaded: Boolean(room.biByeLlista.mainBoltLoaded),
+      reloadProgress: room.biByeLlista.state === 'RELOADING'
+        ? Math.min(1.0, Math.max(0, (nowSec - room.biByeLlista.reloadStartedAt) / BI_BYE_LLISTA_CONFIG.timing.reloadDurationSec))
+        : (room.biByeLlista.state === 'LOADED' ? 1.0 : 0.0),
+    } : null,
+    bibyeProjectiles: [...(room.bibyeProjectiles?.values() ?? [])].map((p) => ({
+      id: p.id,
+      subKind: p.subKind,
+      position: p.position,
+      velocity: p.velocity,
+    })),
   };
 }
 
@@ -211,6 +246,12 @@ export function applyRoomCommand(room, player, message, time) {
       return {};
     }
     case 'attack': {
+      if (player.operatingBallistaId && room.biByeLlista?.operatorId === player.id) {
+        if (message.down) {
+          fireBiByeLlista(room, room.biByeLlista, time);
+        }
+        return {};
+      }
       const inputTime = compensatedInputTime(message.clientTime, time);
       pressButton(room, player.id, 'attack', message.down, inputTime);
       if (message.down) beginAttack(room, player.id, inputTime);
@@ -264,6 +305,27 @@ export function applyRoomCommand(room, player, message, time) {
       return room.mode === GAME_MODES.PRACTICE && readyPracticeUltimate(room, player.id) ? {} : { rejected: PRACTICE_REJECTED };
     case 'practiceSetDummyMode':
       return room.mode === GAME_MODES.PRACTICE && setPracticeDummyMode(room, message.mode, time) ? { lobby: true } : { rejected: PRACTICE_REJECTED };
+    case 'bibyeOperate': {
+      if (!room.biByeLlista) return { rejected: 'No ballista available' };
+      if (room.biByeLlista.operatorId === player.id) {
+        dismountBiByeLlista(room.biByeLlista, player, true, room.world);
+      } else {
+        mountBiByeLlista(room.biByeLlista, player);
+      }
+      return {};
+    }
+    case 'bibyeToggleDeploy': {
+      if (!room.biByeLlista) return { rejected: 'No ballista available' };
+      if (room.biByeLlista.operatorId !== player.id) return { rejected: 'Must operate ballista to toggle deployment' };
+      toggleBiByeDeploy(room.biByeLlista, time);
+      return {};
+    }
+    case 'bibyeFire': {
+      if (!room.biByeLlista) return { rejected: 'No ballista available' };
+      if (room.biByeLlista.operatorId !== player.id) return { rejected: 'Must operate ballista to fire' };
+      fireBiByeLlista(room, room.biByeLlista, time);
+      return {};
+    }
     default: return {};
   }
 }

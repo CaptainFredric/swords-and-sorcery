@@ -94,6 +94,7 @@ const POLICIES = Object.freeze({
     timed: true,
     scoreToWin: null,
     matchSeconds: 300,
+    respawnSec: 4.5,
     autoStart: true,
     allowRematchVote: true,
     countdownSec: 3,

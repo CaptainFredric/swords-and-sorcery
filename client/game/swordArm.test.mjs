@@ -213,7 +213,7 @@ test('the sword stays at a steady distance: never a slab across the eye, and the
   }
 });
 
-test('for the heavy strike the magic hand takes the lower grip, clear below the sword hand, and lets go early', () => {
+test('for the heavy strike the magic hand clasps the hilt beside the sword hand, clear of its forearm, and lets go early', () => {
   for (let t = C3 - 0.25; t <= C3 + 0.02; t += 0.03) {
     const pose = comboPose(t);
     assert.ok(pose.offHand && pose.offHand.weight > 0.99, `both hands at ${t.toFixed(2)} s`);
@@ -224,10 +224,14 @@ test('for the heavy strike the magic hand takes the lower grip, clear below the 
     assert.ok(distance(off.api.position('hand.L'), pose.offHand.wrist) < 0.012, `the magic hand reaches the grip at ${t.toFixed(2)} s`);
     assert.ok(dot(off.api.direction('hand.L', [0, 1, 0]), pose.offHand.aim) > 0.999, `its fingers wrap the grip at ${t.toFixed(2)} s`);
     assert.ok(dot(off.api.direction('hand.L', [0, 0, 1]), normalize(pose.offHand.roll)) > 0.99, `its palm against the grip at ${t.toFixed(2)} s`);
-    // the two fists stacked on the handle: a hand's width apart along it, not one on top of the other
+    // the two fists side by side on the hilt: the magic hand's a fist's width off the blade's line, and no further down
+    // it than a hand (below the fist, the blade's line runs up the sword arm's forearm)
     const grip = offHandOnGrip(pose.arm);
-    const along = dot(sub(add(grip.wrist, scale(grip.aim, 0.094)), add(pose.arm.wrist, scale(normalize(pose.arm.blade), 0.076))), normalize(pose.arm.blade));
-    assert.ok(along < -0.14, `below the sword hand at ${t.toFixed(2)} s (${along.toFixed(3)} m)`);
+    const offset = sub(add(grip.wrist, scale(grip.aim, 0.094)), add(pose.arm.wrist, scale(normalize(pose.arm.blade), 0.076)));
+    const along = dot(offset, normalize(pose.arm.blade));
+    const aside = Math.hypot(...sub(offset, scale(normalize(pose.arm.blade), along)));
+    assert.ok(along > -0.1 && along < 0, `level with the sword hand at ${t.toFixed(2)} s (${along.toFixed(3)} m)`);
+    assert.ok(aside > 0.15, `beside it, off the blade's line, at ${t.toFixed(2)} s (${aside.toFixed(3)} m)`);
   }
   // it lets go early in the follow-through, not deep into it; and it keeps to itself through the quick cuts
   assert.ok((comboPose(C3 + 0.12).offHand?.weight ?? 0) < 0.6, 'letting go soon after the contact');

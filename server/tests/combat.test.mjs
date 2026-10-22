@@ -660,7 +660,7 @@ test('a burn\'s licks make no clang: only a blow landing on the plate carries it
   room.events.length = 0;
   for (let now = 10.85; now < 13.5; now += 0.05) stepRoom(room, 0.05, now, openWorld);
   const licks = room.events.filter((e) => e.type === 'damage' && e.source === 'burn');
-  assert.equal(licks.reduce((sum, e) => sum + e.amount, 0), SPELLS.fireball.burn.damage, 'Steel leaves existing burn damage intact');
+  assert.equal(licks.reduce((sum, e) => sum + e.amount, 0), 5, 'Steel reduces burn damage to minimum legitimate range (1 per lick)');
   assert.ok(licks.length > 0 && licks.every((e) => !e.steel), 'the licks land quietly on the plate');
   // a spell landing square on the plate does carry it
   const steeled = playingRoom();

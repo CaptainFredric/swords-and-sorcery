@@ -259,6 +259,8 @@ const loadingVeil = $('#loading-veil');
 const loadingFill = $('#loading-fill');
 const loadingCopy = $('#loading-copy');
 let veilLifted = false;
+const tutorialProgress = new TutorialProgress();
+const tutorialOffer = $('#tutorial-onboarding');
 const stopWatchingLoad = watchSpellbladeLoading((fraction) => {
   loadingFill.style.transform = `scaleX(${Math.max(0.04, fraction).toFixed(3)})`;
   if (fraction >= 1) loadingCopy.textContent = 'Raising the banners…';
@@ -930,8 +932,6 @@ breakthroughRival?.addEventListener('click', (event) => {
   showBreakthroughRival();
 });
 showBreakthroughRival();
-const tutorialProgress = new TutorialProgress();
-const tutorialOffer = $('#tutorial-onboarding');
 function offerTutorial() {
   if (!tutorialProgress.shouldOfferFirstRun({params:new URLSearchParams(location.search)})) return;
   tutorialOffer.hidden = false;
@@ -1500,6 +1500,7 @@ function noteRoomState(snapshot) {
 socket.on('snapshot', (snapshot) => {
   if (fromLeftRoom(snapshot) || (leftRoom !== null && !socket.roomCode)) return;
   latestSnapshot = snapshot;
+  if (new URLSearchParams(location.search).has('debug')) globalThis.__ssSnapshot = snapshot;
   ensureRuntime();
   noteRoomState(snapshot);
   currentRoomState = snapshot.roomState;

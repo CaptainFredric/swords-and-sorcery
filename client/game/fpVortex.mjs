@@ -15,7 +15,7 @@
 // View space: +x right, +y up, -z ahead (the camera looks down -z). `rel`: the blade's turn from straight ahead,
 // radians, + to the left (the way it spins).
 
-import { REST_ARM, offHandOnGrip } from './fpSlash.mjs';
+import { LOWER_GRIP, REST_ARM, offHandOnGrip } from './fpSlash.mjs';
 import { normalize } from './swordArmIK.mjs';
 
 const DEG = Math.PI / 180;
@@ -80,8 +80,19 @@ function blendArm(a, b, t) {
   };
 }
 
+// the magic hand's clasp through the spin: a little wider of the sword hand than in the chain (the blade level, the arms
+// going round), and let go while the blade swings wide on the right, and while it is carried round behind on the left
+// (there the magic arm, reaching across, crossed the sword arm), taken again as it comes back across
+const SPIN_GRIP = Object.freeze({ ...LOWER_GRIP, aside: LOWER_GRIP.aside + 0.06, back: LOWER_GRIP.back - 0.08 });
+const LET_GO = Object.freeze([
+  Object.freeze({ deg: -95, full: 14, none: 28 }),
+  Object.freeze({ deg: 140, full: 26, none: 40 }),
+]);
+
 function present(arm, grip, rel, lean) {
-  const offHand = grip > 1e-3 ? { ...offHandOnGrip(arm), weight: grip } : null;
+  const deg = wrap(rel) / DEG;
+  for (const { deg: at, full, none } of LET_GO) grip *= 1 - smooth((none - Math.abs(deg - at)) / (none - full));
+  const offHand = grip > 1e-3 ? { ...offHandOnGrip(arm, SPIN_GRIP), weight: grip } : null;
   if (offHand && grip < 1) {
     // (it comes up onto the grip from below and to the left)
     const away = (1 - grip) ** 2;

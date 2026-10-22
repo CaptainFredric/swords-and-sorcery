@@ -2,14 +2,16 @@ import * as THREE from 'three';
 
 export const SORCERY_RESTING = Object.freeze({ scale: 0.42, emissive: 0.75, opacity: 0.62 });
 export const SORCERY_FLARE = Object.freeze({ scale: 1.3, emissive: 2.8, opacity: 0.92 });
+// where the sorcery hangs over the palm, in its socket's frame: socket Y runs out of the palm (after glTF conversion),
+// and the shards rise a hand's breadth above it, as the concept holds the spell (at 15 cm they floated off the hand)
+export const SORCERY_LIFT = Object.freeze(new THREE.Vector3(0, 0.075, 0.012));
 
 // Palm-local shards are presentation only. They never enter the character GLB.
 export function createSorceryVolume(socket) {
   if (!socket) return { update() {}, level: () => 0, dispose() {} };
   const root = new THREE.Group();
   root.name = 'SpellbladePalmSorcery';
-  // Socket Y follows the hand's attachment direction after glTF conversion.
-  root.position.set(0, 0.15, 0.035);
+  root.position.copy(SORCERY_LIFT);
   socket.add(root);
   const material = new THREE.MeshStandardMaterial({
     color: 0x36c9f5, emissive: 0x16b5ef, emissiveIntensity: SORCERY_RESTING.emissive,

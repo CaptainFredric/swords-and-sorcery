@@ -191,6 +191,7 @@ const SPAWN_POINTS = Object.freeze([
   spawn(2.5, 0, 0.5, 0, 25, 'ATTACKERS', 1),
 
   // Defenders Phase 0 spawns (Outer Courtyard & Gallery ramp defending Outer Gate)
+  // Defenders Phase 0 spawns (Outer Courtyard & Gallery ramp defending Outer Gate)
   // Positioned > 6.0m from Objective 1 center (0, 0, -2) outside the capture zone,
   // clear of stepped gatehouse buttresses (X in [-3.5, 3.5] clear central bay).
   spawn(-2.8, 0, 5.0, 0, -2, 'DEFENDERS', 0),

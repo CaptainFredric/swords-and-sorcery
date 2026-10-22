@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { CASTLEWARD } from '../../shared/worlds/castleward.mjs';
+import { BiByeLlistaRenderer } from './BiByeLlistaRenderer.mjs';
 import { buildCastlewardDecorPlan, insideCastlewardFootprint } from './castlewardDecor.mjs';
 import { buildCastlewardTerrainSkirts } from './castlewardTerrain.mjs';
 import { FacetBuilder, KIT_PALETTE as P, facetMesh, kitMaterials, seededRandom, shadeColor, valueNoise } from './kit/facetKit.mjs';
@@ -41,6 +42,9 @@ export class CastlewardRenderer {
     scene.background = new THREE.Color(CASTLEWARD_LIGHTING.background);
     scene.fog = new THREE.FogExp2(CASTLEWARD_LIGHTING.fog.color, CASTLEWARD_LIGHTING.fog.density);
     scene.add(this.group);
+    this.biByeLlista = new BiByeLlistaRenderer(scene);
+    this.biByeLlistaData = null;
+    this.biByeProjectilesData = [];
     this.#build();
   }
 
@@ -442,6 +446,11 @@ export class CastlewardRenderer {
     this.group.add(sky);
   }
 
+  setBiByeState(snapshot) {
+    this.biByeLlistaData = snapshot?.bibyeBallista ?? null;
+    this.biByeProjectilesData = snapshot?.bibyeProjectiles ?? [];
+  }
+
   update(timeSec, camera = null) {
     for (const flame of this.flames) {
       const pulse = 0.9 + Math.sin(timeSec * 8.3 + flame.userData.phase) * 0.07 + Math.sin(timeSec * 13.1 + flame.userData.phase * 2) * 0.04;
@@ -456,9 +465,11 @@ export class CastlewardRenderer {
     for (const cloth of this.banners) cloth.rotation.x = -0.05 * (0.5 + 0.5 * Math.sin(timeSec * 1.2 + cloth.userData.phase));
     for (const rune of this.runes) rune.material.emissiveIntensity = 0.75 + Math.sin(timeSec * 1.4) * 0.2;
     if (camera && this.sky) this.sky.position.copy(camera.position);
+    this.biByeLlista?.update(timeSec, this.biByeLlistaData, this.biByeProjectilesData);
   }
 
   dispose() {
+    this.biByeLlista?.dispose();
     this.scene.remove(this.group);
     const materials = new Set();
     this.group.traverse((object) => {

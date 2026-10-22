@@ -15,7 +15,7 @@ import { RUPTURE, fissureHit, onTornGround, planRupture } from '../src/rupture.m
 import { recastReady, recordUse } from '../src/practiceRecast.mjs';
 import { GAME_MODES } from '../src/modes.mjs';
 import { blastDamage, blastDistance, burnFrom, chillFrom, chillScale, nominalSpellDamage, spellExposure, spellFor, strongerChill } from '../src/spells.mjs';
-import { callSteel, steelBlunt, steelExposure, steelQuality, steelStrength, steelTakes } from '../src/steel.mjs';
+import { callSteel, steelBlunt, steelExposure, steelMitigate, steelQuality, steelStrength, steelTakes, STEEL_DAMAGE_RANGES } from '../src/steel.mjs';
 import { galeBend, galeCarry, galeOnBody, galeRecoil, galeShove, galeWindOnBody } from '../src/gale.mjs';
 import { GAUNTLET, gauntletGeometry, gauntletTarget, withinGauntlet } from '../src/gauntlet.mjs';
 import { postureOf } from '../src/body.mjs';
@@ -28,6 +28,7 @@ import { chooseSpawn } from './spawns.mjs';
 import { recordTransform, sampleTransform } from './history.mjs';
 import { TEAMS, areAllies, areEnemies } from '../src/teams.mjs';
 import { stepObjectives } from './objectives.mjs';
+import { stepBiByeLlista, stepBiByeProjectiles, dismountBiByeLlista, damageBiByeLlista, getBiByeSolids } from './biByeLlista.mjs';
 import { WORLD_IDS } from '../worlds/registry.mjs';
 import { bastionBreachForObjective } from '../worlds/bastionBreach.mjs';
 
@@ -932,6 +933,7 @@ function landStrike(room, attacker, strikeIndex, target, atSec, nowSec, met = nu
     turned: level === DAMAGE_LEVELS.normal ? swordDamageFor(quality) - damage : 0,
     clean: armour.quality >= CLEAN_CONTACT.sword,
     level,
+    skipSteel: cancelled || armour.strength > 0,
     ultimate: sunder || Boolean(attacker.attackChivalry) || combatActionPolicy(attacker, nowSec).concurrent,
     rawDamage: sunder ? GAME.swordElevated : GAME.swordGlance + (GAME.swordDamage - GAME.swordGlance) * quality,
     contactFacts: challengeContact(attacker, atSec, { ordinary: !attacker.attackSlam && !sunder,
@@ -1061,13 +1063,32 @@ function guardChallengeContact(room, defender, attacker, nowSec) {
 
 export function applyDamage(room, attackerId, victimId, amount, source, nowSec, knockback = null, {
   steel = 0, turned = 0, clean = false, level = DAMAGE_LEVELS.normal, ultimate = false, rawDamage = amount, contactFacts = null,
+  minDamage = null, skipSteel = false,
 } = {}) {
   if (attackerId && areAllies(room, attackerId, victimId)) return false;
   const victim = room.players.get(victimId);
   if (!victim || !victim.alive || victim.spawnProtectionUntil > nowSec) return false;
+
+  let finalAmount = amount;
+  let finalSteel = steel;
+  let finalTurned = turned;
+
+  // Apply centralized Steel mitigation if victim is Sheathed in Steel and not already mitigated
+  if (!skipSteel && !steel && victim.steel && finalAmount > 0) {
+    const mit = steelMitigate(victim.steel, finalAmount, source, nowSec, minDamage);
+    if (mit.turned > 0) {
+      if (source !== 'burn' && source !== 'rupture') {
+        victim.steel = steelTakes(victim.steel, nowSec);
+      }
+      finalAmount = mit.amount;
+      finalSteel = mit.strength;
+      finalTurned = mit.turned;
+    }
+  }
+
   const healthBefore = victim.health;
-  const taken = Math.min(victim.health, amount);
-  victim.health = Math.max(0, victim.health - amount);
+  const taken = Math.min(victim.health, finalAmount);
+  victim.health = Math.max(0, victim.health - finalAmount);
   // Only the locally staged Tutorial Rival survives until its final fight begins.
   // Contact, damage events, afflictions and physical response still resolve normally.
   if (room.localTutorial && room.tutorialRival?.id === victimId && room.tutorialRival.protected) victim.health = Math.max(1, victim.health);
@@ -1083,10 +1104,10 @@ export function applyDamage(room, attackerId, victimId, amount, source, nowSec, 
       victim.lastKnockbackBy = attackerId;
     }
   }
-  const event = { type: 'damage', attackerId, victimId, source, amount, health: victim.health, push: knockback ?? null, at: nowSec };
-  if (steel > 0.005) {
-    event.steel = steel;
-    event.turned = Math.max(0, Math.round(turned));
+  const event = { type: 'damage', attackerId, victimId, source, amount: finalAmount, health: victim.health, push: knockback ?? null, at: nowSec };
+  if (finalSteel > 0.005) {
+    if (source !== 'burn') event.steel = finalSteel;
+    event.turned = Math.max(0, Math.round(finalTurned));
   }
   if (clean) event.clean = true;
   if (level !== DAMAGE_LEVELS.normal) event.level = level;
@@ -1094,7 +1115,7 @@ export function applyDamage(room, attackerId, victimId, amount, source, nowSec, 
   room.events.push(event);
   recordChallengeFact(room, {
     ...contactFacts, type: 'damage', attackerId, victimId, source, amount: taken, rawDamage,
-    healthBefore, healthAfter: victim.health, steel: contactFacts?.steel ?? steel, contact: source !== 'burn', at: nowSec,
+    healthBefore, healthAfter: victim.health, steel: contactFacts?.steel ?? finalSteel, contact: source !== 'burn', at: nowSec,
   });
   if (victim.health <= 0) killPlayer(room, victimId, attackerId, source, nowSec);
   return true;
@@ -1119,6 +1140,9 @@ export function killPlayer(room, victimId, attackerId, source, nowSec) {
   }
   victim.alive = false;
   victim.health = 0;
+  if (victim.operatingBallistaId && room.biByeLlista) {
+    dismountBiByeLlista(room.biByeLlista, victim);
+  }
   victim.guarding = false;
   victim.steel = null;
   victim.gust = null;
@@ -1133,7 +1157,7 @@ export function killPlayer(room, victimId, attackerId, source, nowSec) {
   stopSwordChain(victim, {}, room, nowSec);
   // an ultimate still bracing is interrupted (its charge kept); one active is over
   stepUltimate(room, victim, nowSec);
-  victim.respawnAt = nowSec + RESPAWN_SEC;
+  victim.respawnAt = nowSec + (room.policy?.respawnSec ?? RESPAWN_SEC);
   const playing = room.state === 'PLAYING';
   if (playing && room.policy?.teamMode && credited && credited !== victimId) {
     const killer = room.players.get(credited);
@@ -1380,6 +1404,16 @@ function explodeSpell(room, projectile, point, nowSec, worldHit = false, directV
       if (player.chill === chill) room.events.push({ type: 'chilled', playerId: player.id, by: projectile.ownerId, spell: spell.id, slow: chill.slow, until: chill.until, at: nowSec });
     }
   }
+  if (room.biByeLlista && room.biByeLlista.mode !== 'DESTROYED') {
+    const bl = room.biByeLlista;
+    const dist = Math.hypot(bl.x - point.x, (bl.y + 0.8) - point.y, bl.z - point.z);
+    if (dist <= spell.radius + 1.5) {
+      const exposure = Math.max(0, 1 - dist / (spell.radius + 1.5));
+      const dmg = Math.round(spell.directDamage * exposure);
+      if (dmg > 0) damageBiByeLlista(room, bl, dmg, projectile.ownerId, spell.id, nowSec);
+    }
+  }
+
   room.events.push({
     type: 'projectileImpact', projectileId: projectile.id, ownerId: projectile.ownerId, spell: spell.id, radius: spell.radius, point, worldHit, at: nowSec,
   });
@@ -1843,6 +1877,9 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
   }
 
   markTornGround(room);
+  const biByeSolids = (room.biByeLlista && room.biByeLlista.mode !== 'DESTROYED') ? getBiByeSolids(room.biByeLlista) : [];
+  const effectiveWorld = biByeSolids.length > 0 ? { ...world, solids: [...(world.solids ?? []), ...biByeSolids] } : world;
+
   for (const player of room.players.values()) {
     if (!player.alive) {
       if (nowSec >= player.respawnAt && room.state === 'PLAYING') respawnPlayer(room, player, nowSec, world);
@@ -1909,19 +1946,55 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
     player.whirl = whirl;
     const from = { ...player.position };
     const dashing = nowSec < (player.dashUntil ?? -Infinity);
-    const moved = movePlayer(player, input, dt, nowSec, world);
-    player.position = moved.position;
-    player.velocity = moved.velocity;
-    player.grounded = moved.grounded;
-    player.jumpHeld = moved.jumpHeld;
-    player.dashUntil = moved.dashUntil;
-    player.dashReadyAt = moved.dashReadyAt;
-    player.dashDir = moved.dashDir;
-    player.sprintBlend = moved.sprintBlend;
-    player.impulse = moved.impulse;
-    player.crouched = moved.crouched;
-    player.yaw = input.yaw ?? player.yaw;
-    player.pitch = input.pitch ?? player.pitch;
+    if (player.operatingBallistaId && room.biByeLlista?.operatorId === player.id) {
+      if (input.jump) {
+        dismountBiByeLlista(room.biByeLlista, player);
+        const moved = movePlayer(player, input, dt, nowSec, world);
+        player.position = moved.position;
+        player.velocity = moved.velocity;
+        player.grounded = moved.grounded;
+        player.jumpHeld = moved.jumpHeld;
+        player.dashUntil = moved.dashUntil;
+        player.dashReadyAt = moved.dashReadyAt;
+        player.dashDir = moved.dashDir;
+        player.sprintBlend = moved.sprintBlend;
+        player.impulse = moved.impulse;
+        player.crouched = moved.crouched;
+        player.yaw = input.yaw ?? player.yaw;
+        player.pitch = input.pitch ?? player.pitch;
+      } else {
+        const bl = room.biByeLlista;
+        const cos = Math.cos(bl.heading - bl.baseYaw);
+        const sin = Math.sin(bl.heading - bl.baseYaw);
+        const ox = bl.operatorOffset.x * cos - bl.operatorOffset.z * sin;
+        const oz = bl.operatorOffset.x * sin + bl.operatorOffset.z * cos;
+        player.position = {
+          x: bl.x + ox,
+          y: bl.y + bl.operatorOffset.y,
+          z: bl.z + oz,
+        };
+        player.velocity = { x: 0, y: 0, z: 0 };
+        player.grounded = true;
+        player.sprinting = false;
+        player.crouched = false;
+        player.yaw = bl.yaw;
+        player.pitch = bl.pitch;
+      }
+    } else {
+      const moved = movePlayer(player, input, dt, nowSec, effectiveWorld);
+      player.position = moved.position;
+      player.velocity = moved.velocity;
+      player.grounded = moved.grounded;
+      player.jumpHeld = moved.jumpHeld;
+      player.dashUntil = moved.dashUntil;
+      player.dashReadyAt = moved.dashReadyAt;
+      player.dashDir = moved.dashDir;
+      player.sprintBlend = moved.sprintBlend;
+      player.impulse = moved.impulse;
+      player.crouched = moved.crouched;
+      player.yaw = input.yaw ?? player.yaw;
+      player.pitch = input.pitch ?? player.pitch;
+    }
     // a Steel dash driven into someone: it meets them, gives them its momentum, and stops there (steelRam.mjs)
     if (player.dashRam) {
       if (dashing) ramThrough(room, player, from, nowSec, world);
@@ -1992,8 +2065,12 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
 
   stepRuptures(room, nowSec);
   // bodies do not share space: overlapping Spellblades are eased apart (never off a ledge or into a wall)
-  separatePlayers([...room.players.values()], world);
+  separatePlayers([...room.players.values()].filter((p) => !p.operatingBallistaId), effectiveWorld);
   stepProjectiles(room, dt, nowSec, world);
+  if (room.biByeLlista) {
+    stepBiByeLlista(room, room.biByeLlista, dt, nowSec);
+    stepBiByeProjectiles(room, dt, nowSec, world);
+  }
   room.tickNumber += 1;
   return room.events;
 }

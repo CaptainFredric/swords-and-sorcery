@@ -282,7 +282,25 @@ export class HUD {
     this.dash.classList.toggle('practice', practiceOverride(local, 'dash', serverNow, practice));
     this.#ultimate(local, serverNow, practice);
     this.#armour(steelStrength(local.steel, serverNow), local.steel?.calledAt);
-    this.matchInfo.textContent = matchInfoText(snapshot, serverNow);
+    if (local?.operatingBallistaId && snapshot?.bibyeBallista) {
+      const bl = snapshot.bibyeBallista;
+      const modeText = bl.mode === 'MOBILE' ? 'MOBILE [B: Deploy · T: Dismount]' : (bl.mode === 'DEPLOYED' ? 'DEPLOYED [B: Mobile · T: Dismount]' : bl.mode);
+      const smallText = bl.smallBoltReady ? 'Shot I Ready' : 'Shot I Recocking';
+      const mainText = bl.mode === 'DEPLOYED' ? (bl.mainBoltLoaded ? 'Shot II Ready' : `Reloading ${(bl.reloadProgress * 100).toFixed(0)}%`) : 'Shot II (Deploy to Arm)';
+      this.matchInfo.textContent = `BI-BYE-LLISTA · ${bl.health}/${bl.maxHealth} HP · ${modeText} · ${smallText} · ${mainText}`;
+    } else {
+      const bl = snapshot?.bibyeBallista;
+      const bx = bl?.position?.x ?? bl?.x;
+      const bz = bl?.position?.z ?? bl?.z;
+      const near = bl && local?.position && bx !== undefined && bl.mode !== 'DESTROYED'
+        ? Math.hypot(bx - local.position.x, bz - local.position.z) <= 3.5
+        : false;
+      if (near) {
+        this.matchInfo.textContent = `[T] Mount Bi-Bye-llista · ${bl.health}/${bl.maxHealth} HP`;
+      } else {
+        this.matchInfo.textContent = matchInfoText(snapshot, serverNow);
+      }
+    }
     const duel = duelScoreView(local, snapshot);
     if (this.duelScore) {
       this.duelScore.classList.toggle('hidden', !duel);
@@ -677,6 +695,9 @@ export class HUD {
     this.objectiveWaypoint.style.top = `${(screenPos.y * 100).toFixed(1)}%`;
     this.objectiveWaypoint.dataset.team = myTeam;
     this.objectiveWaypoint.dataset.clamped = screenPos.clamped ? 'true' : 'false';
+    if (Number.isFinite(screenPos.angle)) {
+      this.objectiveWaypoint.style.setProperty('--wp-angle', `${screenPos.angle.toFixed(1)}deg`);
+    }
     this.objectiveWaypoint.dataset.state = obj.contested ? 'contested' : obj.capturing ? 'capturing' : 'idle';
     this.objectiveWaypoint.querySelector('[data-wp-name]').textContent = (obj.name ?? 'OBJECTIVE').toUpperCase();
     const pct = Math.round((obj.progress ?? 0) * 100);

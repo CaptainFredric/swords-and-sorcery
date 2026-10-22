@@ -39,6 +39,10 @@ function patch(material, uniforms) {
  * at once, so the plate's shader is built with the knight's own and not mid-fight, the first time it is called
  * (unsheathed, the patched plate looks exactly as before).
  */
+// the plate the steel hardens: the kit's metal, or the supplied Spellblade's (its body's material, and its forearms'
+// and hands' steel); never the sword, and never cloth drawn with the body's material (its tabards)
+const PLATE = /^(KitMetal|GameBody|Native supplied forearm|Hand steel)/;
+
 export function createSteelSheen(instance, { gauntlet = 'handL', ready = false } = {}) {
   const uniforms = { uSteel: { value: 0 }, uRipple: { value: -1 }, uRippleFrom: { value: new THREE.Vector3() } };
   let clones = null;
@@ -49,11 +53,11 @@ export function createSteelSheen(instance, { gauntlet = 'handL', ready = false }
     let origin = null;
     instance.root.updateMatrixWorld(true);
     instance.root.traverse((object) => {
-      if (!object.isMesh || /Sword/i.test(object.name)) return;
+      if (!object.isMesh || /Sword|^Tabard/i.test(object.name)) return;
       const list = [object.material].flat();
-      if (!list.some((material) => material?.name === 'KitMetal')) return;
+      if (!list.some((material) => PLATE.test(material?.name ?? ''))) return;
       const next = list.map((material) => {
-        if (material?.name !== 'KitMetal') return material;
+        if (!PLATE.test(material?.name ?? '')) return material;
         if (!clones.has(material)) clones.set(material, patch(material.clone(), uniforms));
         return clones.get(material);
       });

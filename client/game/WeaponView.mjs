@@ -9,6 +9,7 @@ import { SPELLBLADE_PALETTE } from './spellbladeDesign.mjs';
 import { createSpellbladeSword } from './SpellbladeSword.mjs';
 import { castGesture, castGestureRotations } from './castGesture.mjs';
 import { createSpellbladeAsset, reportSpellbladeAssetStatus } from './SpellbladeAssets.mjs';
+import { SORCERY_LIFT } from './SorceryVolume.mjs';
 import { resolveFirstPersonAnimationPlan } from './spellbladeAnimationPlan.mjs';
 import { FIRST_PERSON_WEAPON_SCALE, resolveWeaponPose } from './weaponPose.mjs';
 import { FP_MOTION, FirstPersonMotion } from './firstPersonMotion.mjs';
@@ -353,7 +354,9 @@ export class WeaponView {
 
       if (instance.sockets.sorcery) {
         instance.sockets.sorcery.add(this.magicLight);
-        this.magicLight.position.set(0, 0, 0);
+        // (the palm's light in the sorcery above it, as the shards are: on the palm itself, a hand's breadth from the
+        // fingers, it washed them pale blue)
+        this.magicLight.position.copy(SORCERY_LIFT);
         // the spell gathering in the palm: a hot core and a softer glow, in the spell's colour
         this.chargeOrb = new THREE.Group();
         this.chargeCore = new THREE.Mesh(new THREE.IcosahedronGeometry(0.035, 1), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
@@ -938,7 +941,8 @@ export class WeaponView {
       for (const material of this.productionInstance.materials.SorceryAccent ?? []) {
         material.emissiveIntensity = (0.7 + 2.1 * level + 2.4 * wake) * away.rune;
       }
-      this.magicLight.intensity = (0.12 + 2.6 * level + 1.8 * wake) * away.rune;
+      // (at rest a faint ember: a hand's breadth from the fingers, at more it lit the whole gauntlet a pale blue)
+      this.magicLight.intensity = (0.04 + 2.6 * level + 1.8 * wake) * away.rune;
       this.#chargeGlow(gesture, timeSec);
       // (the hand on a burning sword is lit by it)
       if (fire > 0.01) {
