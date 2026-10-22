@@ -1157,7 +1157,7 @@ export function killPlayer(room, victimId, attackerId, source, nowSec) {
   stopSwordChain(victim, {}, room, nowSec);
   // an ultimate still bracing is interrupted (its charge kept); one active is over
   stepUltimate(room, victim, nowSec);
-  victim.respawnAt = nowSec + RESPAWN_SEC;
+  victim.respawnAt = nowSec + (room.policy?.respawnSec ?? RESPAWN_SEC);
   const playing = room.state === 'PLAYING';
   if (playing && room.policy?.teamMode && credited && credited !== victimId) {
     const killer = room.players.get(credited);

@@ -5,6 +5,7 @@ import { getWorld } from '../../shared/worlds/registry.mjs';
 import { greenerPasturesWithBridgeRetries } from '../../shared/worlds/greenerPastures.mjs';
 import { bastionBreachForObjective } from '../../shared/worlds/bastionBreach.mjs';
 import { computeRivalWaypoint } from '../tutorial/rivalWaypoint.mjs';
+import { projectToScreen } from '../ui/screenProjection.mjs';
 import { MOVEMENT, createMovementState, launchBody, movePlayer, resolveSprint, shoveBody, tryStartDash } from '../../shared/src/movement.mjs';
 import { separateLocal } from '../../shared/src/separation.mjs';
 import { segmentAabbHit, surfaceHeightAt } from '../../shared/src/collision.mjs';
@@ -2200,18 +2201,12 @@ export class GameRuntime {
       this.hud.update(this.localAuth, this.latestSnapshot, this.socket.serverNow());
       if (this.latestSnapshot.mode === 'BREAKTHROUGH' && this.latestSnapshot.objective?.position) {
         const pos = this.latestSnapshot.objective.position;
-        const proj = new THREE.Vector3(pos.x, (pos.y ?? 0) + 2.6, pos.z).project(this.camera);
-        const behind = proj.z > 1;
-        let sx = (proj.x * 0.5) + 0.5;
-        let sy = (-proj.y * 0.5) + 0.5;
-        if (behind) {
-          sx = 1 - sx;
-          sy = 0.88;
+        const projected = projectToScreen(pos, this.camera, { heightOffset: 2.2, THREE });
+        if (projected) {
+          this.hud.updateObjectiveWaypoint?.(projected, this.localState ?? this.localAuth, this.latestSnapshot);
+        } else {
+          this.hud.updateObjectiveWaypoint?.(null, null, null);
         }
-        const clamped = behind || sx < 0.08 || sx > 0.92 || sy < 0.12 || sy > 0.88;
-        sx = Math.max(0.08, Math.min(0.92, sx));
-        sy = Math.max(0.14, Math.min(0.86, sy));
-        this.hud.updateObjectiveWaypoint?.({ x: sx, y: sy, clamped }, this.localState ?? this.localAuth, this.latestSnapshot);
       } else {
         this.hud.updateObjectiveWaypoint?.(null, null, null);
       }

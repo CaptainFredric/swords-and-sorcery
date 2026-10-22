@@ -865,15 +865,21 @@ function selectTeamGoal(room, actor, ai, nowSec) {
     }
   }
 
-  // Urgent objective duty:
-  // - Defenders must step into the ring if attackers are capturing and no defender is contesting (closest defender or anyone nearby)
-  // - Attackers need at least one knight inside the capture ring (closest living attacker takes point)
+  // Objective ring anchoring and contesting:
+  // - Attackers: if inside ring, HOLD the ring to keep capturing and prevent decay!
+  //              if outside and no attacker in ring, rush to capture!
+  const inRing = distToObj <= activeObj.radius;
   const isClosestTeammate = !allies.some((a) => distance2d(a, { position: objPos }) < distToObj);
-  const mustContest = actor.team === TEAMS.DEFENDERS && room.objectiveState.attackersCount > 0 && room.objectiveState.defendersCount === 0
-    && (isClosestTeammate || distToObj <= activeObj.radius + 6.0);
-  const mustCapture = actor.team === TEAMS.ATTACKERS && room.objectiveState.attackersCount === 0 && !allyInRing
-    && (rivalIndex === 0 || isClosestTeammate);
-  const holdRing = (mustContest || mustCapture) && distToObj > activeObj.radius - 0.6;
+  const attackerNeedsRing = actor.team === TEAMS.ATTACKERS
+    && (inRing || room.objectiveState.attackersCount === 0 || !allyInRing || rivalIndex === 0);
+
+  // - Defenders: if attackers are capturing (attackersCount > 0):
+  //              if in ring, stay and contest!
+  //              if outside and no defender contesting, rush into ring!
+  const defenderNeedsRing = actor.team === TEAMS.DEFENDERS && room.objectiveState.attackersCount > 0
+    && (inRing || room.objectiveState.defendersCount === 0 || distToObj <= activeObj.radius + 6.0);
+
+  const holdRing = attackerNeedsRing || defenderNeedsRing;
 
   const pickDistributedTarget = (candidates) => {
     if (!candidates.length) return null;
@@ -898,14 +904,27 @@ function selectTeamGoal(room, actor, ai, nowSec) {
     return best;
   };
 
-  // 1. Immediate self-defense: enemy right in melee reach
-  const immediate = enemies.filter((e) => distance2d(actor, e) <= 3.2 && (e.attackActive || distance2d(actor, e) <= 2.2));
-  if (immediate.length) return { target: pickDistributedTarget(immediate), goalPos, holdRing: false };
+  // 1. Immediate self-defense: enemy right in melee reach (<= 2.8m)
+  const immediate = enemies.filter((e) => distance2d(actor, e) <= 2.8);
+  if (immediate.length) return { target: pickDistributedTarget(immediate), goalPos, holdRing };
 
-  // 2. If urgent ring entry is needed, ignore side bait outside the ring and rush into the ring (or attack the capper inside it)
+  // 2. Ring duty (capturing or contesting)
   if (holdRing) {
-    const enemyInRing = enemies.filter((e) => distance2d(e, { position: objPos }) <= activeObj.radius && distance2d(actor, e) <= 4.5);
-    return { target: pickDistributedTarget(enemyInRing), goalPos, holdRing: true };
+    // Attack enemies inside or contesting the capture circle
+    const enemiesInRing = enemies.filter((e) => distance2d(e, { position: objPos }) <= activeObj.radius + 0.8);
+    if (enemiesInRing.length) {
+      return { target: pickDistributedTarget(enemiesInRing), goalPos, holdRing: true };
+    }
+    // If inside ring and no enemies are inside the ring:
+    if (inRing) {
+      // Engage anyone who reaches into melee from the edge
+      const edgeEnemy = enemies.find((e) => distance2d(actor, e) <= 2.8);
+      if (edgeEnemy) return { target: edgeEnemy, goalPos, holdRing: true };
+      // Otherwise hold ground in the ring! Do not chase enemies outside!
+      return { target: null, goalPos, holdRing: true };
+    }
+    // Outside ring: rush straight to goalPos in ring
+    return { target: null, goalPos, holdRing: true };
   }
 
   // 3. Team-marked enemy near the objective or ally
@@ -925,23 +944,14 @@ function selectTeamGoal(room, actor, ai, nowSec) {
     return { target: pickDistributedTarget(enemiesAtObj), goalPos, holdRing: false };
   }
 
-  // 6. If this bot is inside the ring while capturing, stay in the ring rather than chasing enemies far outside
-  if (actor.team === TEAMS.ATTACKERS && distToObj <= activeObj.radius && (room.objectiveState.capturing || room.objectiveState.attackersCount <= 1)) {
-    const enemyInRing = enemies.filter((e) => distance2d(e, { position: objPos }) <= activeObj.radius + 1.2);
-    if (enemyInRing.length) {
-      return { target: pickDistributedTarget(enemyInRing), goalPos, holdRing: true };
-    }
-    return { target: null, goalPos, holdRing: true };
-  }
-
-  // 7. Flankers / vanguards engage enemies approaching the objective within a disciplined leash
+  // 6. Flankers / vanguards engage enemies approaching the objective within a disciplined leash
   const leash = rivalIndex === 0 ? activeObj.radius + 5.5 : activeObj.radius + 10.0;
   const nearbyEnemies = enemies.filter((e) => distance2d(e, { position: objPos }) <= leash);
   if (nearbyEnemies.length) {
     return { target: pickDistributedTarget(nearbyEnemies), goalPos, holdRing: false };
   }
 
-  // 8. No immediate enemies: proceed to capture or defend objective
+  // 7. No immediate enemies: proceed to capture or defend objective
   return { target: null, goalPos, holdRing: false };
 }
 
@@ -1003,7 +1013,8 @@ export function stepBotControllers(
       if (teamGoal.goalPos) {
         ai.patrol = null;
         const dist = distance2d(actor, { position: teamGoal.goalPos });
-        if (dist > 1.2) {
+        const closeEnough = teamGoal.holdRing ? dist <= 2.2 : dist <= 1.2;
+        if (!closeEnough) {
           const way = wayToward(world, actor, { position: teamGoal.goalPos }, ai, nowSec);
           const aimAt = way ?? teamGoal.goalPos;
           actor.input.yaw = yawToward(actor, { position: aimAt });
@@ -1015,7 +1026,9 @@ export function stepBotControllers(
           actor.input.forward = 0;
           actor.input.right = 0;
           actor.input.sprint = false;
-          const faceYaw = actor.team === TEAMS.ATTACKERS ? 0 : Math.PI;
+          const enemies = foesOf(room, actor);
+          const nearestEnemy = enemies.length ? enemies.reduce((closest, e) => distance2d(actor, e) < distance2d(actor, closest) ? e : closest, enemies[0]) : null;
+          const faceYaw = nearestEnemy ? yawToward(actor, nearestEnemy) : (actor.team === TEAMS.ATTACKERS ? 0 : Math.PI);
           actor.input.yaw = faceYaw;
           actor.yaw = faceYaw;
         }
@@ -1041,6 +1054,19 @@ export function stepBotControllers(
     ai.goingRound = Boolean(way);
     considerRetreat(actor, target, distance, ai, nowSec, skill);
     updateMovement(actor, target, distance, ai, aggressionScale, world, nowSec, profile, way, skill);
+    if (teamGoal.holdRing && room.objectiveState) {
+      const activeObj = room.objectiveState.objectives[room.objectiveState.index];
+      if (activeObj) {
+        const myDist = distance2d(actor, { position: activeObj.position });
+        const targetDist = distance2d(target, { position: activeObj.position });
+        if (myDist <= activeObj.radius && targetDist > activeObj.radius) {
+          if (myDist > activeObj.radius - 0.7 || distance > 2.6) {
+            actor.input.forward = Math.min(0, actor.input.forward);
+            actor.input.sprint = false;
+          }
+        }
+      }
+    }
     considerDefense(room, actor, target, distance, ai, nowSec, random, aggressionScale, profile, skill);
     aimGatheredProjectile(actor, target, skill);
 
