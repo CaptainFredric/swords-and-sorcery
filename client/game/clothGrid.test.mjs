@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { CLOTH_COLLIDERS, CLOTH_GRID_SPECS, clothNode, createClothGrid, impulseClothGrid, loadedBoneName, stepClothGrid } from './clothGrid.mjs';
+import { CLOTH_COLLIDERS, CLOTH_GRID_SPECS, TWIST_FULL, clothNode, clothSegmentTurn, createClothGrid, impulseClothGrid, loadedBoneName, stepClothGrid } from './clothGrid.mjs';
 
 // a cape hanging from shoulders at the given point: three columns 0.12 m apart, four rows of 0.28 m, behind him (+z)
 function drape([x, y, z] = [0, 1.64, 0]) {
@@ -166,4 +166,51 @@ test('a leg swung into the cloth\'s edge, beyond its outer column, pushes the cl
   for (let t = 0; t < 0.6; t += 1 / 60) stepClothGrid(grid, 1 / 60, { targets: drape(), colliders: [leg(0.1 + 0.25 * t)], ground: 0 });
   const p = clothNode(grid, 2, 3);
   assert.ok(p[2] > 0.24 + 0.02, `the right column should be pushed back by the leg at its edge, z ${p[2].toFixed(3)}`);
+});
+
+// --- the cloth's own thickness and its side of a limb ----------------------------------------------------------------
+
+const axisGap = (p, capsule) => {
+  const ab = capsule.b.map((x, k) => x - capsule.a[k]);
+  const t = Math.max(0, Math.min(1, ab.reduce((s, x, k) => s + (p[k] - capsule.a[k]) * x, 0) / ab.reduce((s, x) => s + x * x, 0)));
+  return dist(p, capsule.a.map((x, k) => x + ab[k] * t));
+};
+
+test('a leg swung back into the cape lifts it clear by its lining too: the inner face never enters the leg', () => {
+  // the cape behind him (+z); a thigh behind his hips swung back into its lower half
+  const grid = createClothGrid(cape, drape());
+  const thigh = (z) => ({ a: [-0.1, 1.0, z], b: [-0.1, 0.5, z + 0.1], radius: 0.13 });
+  let worst = Infinity;
+  for (let t = 0; t < 1; t += 1 / 60) {
+    const leg = thigh(Math.min(0.12, 0.25 * t));
+    stepClothGrid(grid, 1 / 60, { targets: drape(), colliders: [leg], ground: 0, outward: [0, 0, 1], up: [0, 1, 0] });
+    for (let c = 0; c < 3; c += 1) for (let r = 1; r <= 4; r += 1) {
+      const p = clothNode(grid, c, r);
+      worst = Math.min(worst, axisGap([p[0], p[1], p[2] - cape.thickness], leg) - leg.radius);
+    }
+  }
+  assert.ok(worst > -0.01, `the cape's inner face went ${(-worst * 100).toFixed(1)} cm into the leg`);
+});
+
+test('cloth caught at the edge of a leg leaves it over the leg\'s front (its own side), not squeezed out sideways', () => {
+  // the tabard in front of him (-z); a leg grazing its right column from the side, its axis level with the cloth
+  const tabard = CLOTH_GRID_SPECS.tabard;
+  const hang = () => [-0.065, 0.065].map((x) => Array.from({ length: 4 }, (_, r) => [x, 1.05 - 0.18 * r, -0.2]));
+  const grid = createClothGrid(tabard, hang());
+  const leg = { a: [0.185, 0.9, -0.2], b: [0.185, 0.4, -0.2], radius: 0.13 };
+  stepClothGrid(grid, 1 / 60, { targets: hang(), colliders: [leg], ground: 0, outward: [0, 0, -1], up: [0, 1, 0] });
+  const p = clothNode(grid, 1, 2);
+  assert.ok(p[2] < -0.2 - 0.03, `the cloth should go out over the leg (forward), z ${p[2].toFixed(3)}`);
+  assert.ok(axisGap(p, leg) >= leg.radius - 0.005, 'and be clear of it');
+});
+
+test('a segment\'s turn carries the drape onto the cloth: straight down it is no turn; twisted, it follows the width', () => {
+  const grid = createClothGrid(cape, drape());
+  assert.ok(Math.abs(clothSegmentTurn(grid, 0, 2)[3]) > 1 - 1e-9, 'on its drape the cloth is not turned');
+  // the right column swung 0.12 m back: the cloth's width turns about the left column's length
+  for (let r = 1; r <= 4; r += 1) grid.x[2 * 5 + r][2] += 0.12 * r / 4;
+  for (let r = 0; r <= 4; r += 1) grid.x[1 * 5 + r][2] += 0.06 * r / 4;
+  const q = clothSegmentTurn(grid, 1, 4);
+  const angle = 2 * Math.acos(Math.min(1, Math.abs(q[3])));
+  assert.ok(angle > 0.1 && angle <= TWIST_FULL + 0.2, `the middle column turns with its width (${angle.toFixed(2)} rad)`);
 });
