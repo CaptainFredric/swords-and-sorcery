@@ -636,16 +636,43 @@ try {
   console.log('\n--- Stage 12: Safe Operator Dismount & Recovery ---');
   const playerDismounted = await evaluate(`(() => {
     const auth = window.__ssRuntime.localAuth;
+    const bl = window.__ssRuntime.latestSnapshot?.bibyeBallista;
     return {
       alive: auth?.alive,
       health: auth?.health,
       operatingBallistaId: auth?.operatingBallistaId,
       pos: auth?.position,
+      pitch: auth?.pitch,
+      yaw: auth?.yaw,
+      ballistaPos: bl ? { x: bl.position?.x ?? bl.x, y: bl.position?.y ?? bl.y, z: bl.position?.z ?? bl.z } : null,
+      ballistaHeading: bl?.heading,
     };
   })()`);
   assert.equal(playerDismounted.alive, true, 'dismounted player must be alive');
   assert.equal(playerDismounted.operatingBallistaId, null, 'operatingBallistaId must be null');
-  console.log(`[PASS] Stage 12: Operator safely dismounted at position (${playerDismounted.pos?.x?.toFixed(2)}, ${playerDismounted.pos?.z?.toFixed(2)}).`);
+
+  // Verify physical and visual clearance from collapsed ballista carriage
+  const dx = playerDismounted.pos.x - playerDismounted.ballistaPos.x;
+  const dz = playerDismounted.pos.z - playerDismounted.ballistaPos.z;
+  const distToCenter = Math.hypot(dx, dz);
+  assert.ok(distToCenter >= 2.8, `Operator must dismount with physical clearance from ballista (distance: ${distToCenter.toFixed(2)}m >= 2.8m)`);
+
+  const heading = playerDismounted.ballistaHeading;
+  const fwdX = -Math.sin(heading);
+  const fwdZ = -Math.cos(heading);
+  const dotForward = dx * fwdX + dz * fwdZ;
+  assert.ok(dotForward <= -2.5, `Operator must be behind the carriage chassis (dotForward: ${dotForward.toFixed(2)}m <= -2.5m)`);
+
+  console.log(`[PASS] Stage 12: Operator safely dismounted at position (${playerDismounted.pos?.x?.toFixed(2)}, ${playerDismounted.pos?.z?.toFixed(2)}), ${distToCenter.toFixed(2)}m clear of wreck.`);
+
+  // Dismiss UI overlays for clear first-person visual capture of wreckage
+  await evaluate(`(() => {
+    const overlay = document.querySelector('#practice-overlay');
+    if (overlay) overlay.style.display = 'none';
+    const hint = document.querySelector('#pointer-hint');
+    if (hint) hint.style.display = 'none';
+  })()`);
+  await wait(300);
 
   // Capture final evidence screenshot of successful acceptance run
   await captureScreenshot('bibye-gameplay-acceptance.png');

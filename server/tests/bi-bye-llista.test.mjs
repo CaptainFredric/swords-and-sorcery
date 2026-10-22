@@ -651,29 +651,44 @@ test('Scenario 14: Friendly Fire and Self Damage Exclusions', () => {
   assert.equal(human.health, 100, 'operator receives no self-damage');
 });
 
-test('Scenario 15: Obstacle-Aware Safe Dismounting', () => {
+test('Scenario 15: Obstacle-Aware Safe Dismounting & Physical/Visual Clearance', () => {
   const { room, human } = makePracticeRoom();
   const ballista = room.biByeLlista;
 
   human.position = { x: 7.8, y: 0, z: -14.6 };
+  human.pitch = 0.35; // Aiming upward
   mountBiByeLlista(ballista, human);
 
-  // Add world solid blocking left side of ballista (facing East -pi/2, left is North z = -12.4)
-  const worldWithObstacle = {
+  // Default clean safe dismount: places operator behind carriage with clear distance
+  dismountBiByeLlista(ballista, human, true, room.world);
+  assert.equal(ballista.operatorId, null);
+  assert.equal(human.operatingBallistaId, null);
+  assert.equal(human.pitch, 0, 'operator pitch reset to level horizon on dismount');
+
+  const distToCenter = Math.hypot(human.position.x - ballista.x, human.position.z - ballista.z);
+  assert.ok(distToCenter >= 2.8, `dismount must have physical clearance from ballista center (actual: ${distToCenter.toFixed(2)}m)`);
+
+  // Verify placement behind carriage along heading vector (-pi/2 -> fwd is +X)
+  const fwdX = -Math.sin(ballista.heading);
+  const fwdZ = -Math.cos(ballista.heading);
+  const dotForward = (human.position.x - ballista.x) * fwdX + (human.position.z - ballista.z) * fwdZ;
+  assert.ok(dotForward <= -2.5, `dismount must place operator behind the chassis (actual: ${dotForward.toFixed(2)}m)`);
+
+  // Now test with rear path obstructed: add obstacle behind the carriage (x = 6.0, z = -14.6)
+  mountBiByeLlista(ballista, human);
+  const worldWithRearObstacle = {
     ...room.world,
     solids: [
       ...room.world.solids,
-      { id: 'left-barrier', center: [9.0, 1.0, -12.4], size: [2.0, 2.0, 2.0], material: 'stone' },
+      { id: 'rear-barrier', center: [6.0, 1.0, -14.6], size: [2.0, 2.0, 2.0], material: 'stone' },
     ],
   };
 
-  dismountBiByeLlista(ballista, human, true, worldWithObstacle);
-  assert.equal(ballista.operatorId, null);
-  assert.equal(human.operatingBallistaId, null);
-
-  // Verify human did NOT dismount inside left-barrier
-  const distToBarrier = Math.hypot(human.position.x - 9.0, human.position.z - (-12.4));
-  assert.ok(distToBarrier > 1.5, 'dismount selected non-obstructed location');
+  dismountBiByeLlista(ballista, human, true, worldWithRearObstacle);
+  const distToRearBarrier = Math.hypot(human.position.x - 6.0, human.position.z - (-14.6));
+  assert.ok(distToRearBarrier > 1.2, 'dismount selected alternative candidate avoiding rear barrier');
+  const distWithObstacle = Math.hypot(human.position.x - ballista.x, human.position.z - ballista.z);
+  assert.ok(distWithObstacle >= 2.8, 'alternative dismount still maintains physical clearance from ballista');
 });
 
 test('Scenario 16: Serialized snapshot schema conforms to BiByeLlistaRenderer contract', () => {

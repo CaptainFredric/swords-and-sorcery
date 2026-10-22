@@ -309,10 +309,22 @@ export function dismountBiByeLlista(ballista, player = null, safeDisplace = fals
     const fwdX = -Math.sin(heading);
     const fwdZ = -Math.cos(heading);
 
+    // Prioritize clean egress directly behind the operator station along the vehicle approach path,
+    // ensuring complete visual and physical clearance from the 3.985m chassis and collapsed wreckage
+    // while comfortably clearing the Tourney Field embankment (south-road-east-bank).
     const candidates = [
-      { x: ballista.x - rgtX * 2.2, z: ballista.z - rgtZ * 2.2 }, // Left side
-      { x: ballista.x + rgtX * 2.2, z: ballista.z + rgtZ * 2.2 }, // Right side
-      { x: ballista.x - fwdX * 3.2, z: ballista.z - fwdZ * 3.2 }, // Behind carriage
+      // 1. Primary: 3.0m behind carriage center (1.0m behind rear chassis timber, clear of terrain banks)
+      { x: ballista.x - fwdX * 3.0, z: ballista.z - fwdZ * 3.0 },
+      // 2. Slightly tighter behind carriage (0.8m behind rear chassis timber)
+      { x: ballista.x - fwdX * 2.8, z: ballista.z - fwdZ * 2.8 },
+      // 3. Rear-left quarter
+      { x: ballista.x - fwdX * 3.0 - rgtX * 1.8, z: ballista.z - fwdZ * 3.0 - rgtZ * 1.8 },
+      // 4. Rear-right quarter
+      { x: ballista.x - fwdX * 3.0 + rgtX * 1.8, z: ballista.z - fwdZ * 3.0 + rgtZ * 1.8 },
+      // 5. Rear lateral left flank
+      { x: ballista.x - fwdX * 2.0 - rgtX * 2.8, z: ballista.z - fwdZ * 2.0 - rgtZ * 2.8 },
+      // 6. Rear lateral right flank
+      { x: ballista.x - fwdX * 2.0 + rgtX * 2.8, z: ballista.z - fwdZ * 2.0 + rgtZ * 2.8 },
     ];
 
     let chosen = candidates[0];
@@ -328,6 +340,9 @@ export function dismountBiByeLlista(ballista, player = null, safeDisplace = fals
     player.position.x = chosen.x;
     player.position.z = chosen.z;
     player.velocity = { x: 0, y: 0, z: 0 };
+    if (typeof player.pitch === 'number') {
+      player.pitch = 0;
+    }
   }
   return true;
 }

@@ -308,7 +308,7 @@ export function applyRoomCommand(room, player, message, time) {
     case 'bibyeOperate': {
       if (!room.biByeLlista) return { rejected: 'No ballista available' };
       if (room.biByeLlista.operatorId === player.id) {
-        dismountBiByeLlista(room.biByeLlista, player);
+        dismountBiByeLlista(room.biByeLlista, player, true, room.world);
       } else {
         mountBiByeLlista(room.biByeLlista, player);
       }
