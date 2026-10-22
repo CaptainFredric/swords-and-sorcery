@@ -26,3 +26,14 @@ test('visible progress is safe and unknown IDs never become player-facing entrie
   assert.deepEqual(publicChallengeState(state),{progress:{three_part_argument:2},completed:{}});
   assert.equal(challengeView(state).find(c=>c.id==='three_part_argument').progress,2);
 });
+
+test('Mutual Mortality is a visible preview whose future completion cannot be claimed',()=>{
+  const state={progress:{mutual_mortality:1},completed:{mutual_mortality:123}};
+  const preview=challengeView(state).find(c=>c.id==='mutual_mortality');
+  assert.equal(preview.available,false);
+  assert.equal(preview.complete,false);
+  assert.equal(preview.condition,'Defeat an enemy who began at full health using melee damage alone, while suffering a damage-over-time effect that defeats you within one second of your killing blow.');
+  assert.equal(preview.flavor,"One of us won't recover.");
+  assert.equal(preview.reward.renown,undefined);
+  assert.deepEqual(publicChallengeState(state),{progress:{},completed:{}});
+});

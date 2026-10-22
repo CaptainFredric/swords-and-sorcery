@@ -103,7 +103,10 @@ export class RenownController {
     this.emblemLabels = new Map();
     const previewEmblem = (id) => {
       this.emblemPreview = id; this.error = ''; this.feedback = '';
-      this.render(); scene()?.setEmblem?.(id); scene()?.showBanner?.(true);
+      this.render();
+      const available = EMBLEMS[id].available;
+      scene()?.setEmblem?.(available ? id : this.carriedEmblem());
+      scene()?.showBanner?.(available);
     };
     for (const emblem of Object.values(EMBLEMS)) {
       const button = doc.createElement('button');
@@ -116,6 +119,9 @@ export class RenownController {
         const img = doc.createElement('img');
         img.src = appUrl(emblem.art); img.alt = ''; img.decoding = 'async';
         mark.appendChild(img);
+      } else if (!emblem.available) {
+        mark.className += ' pending';
+        mark.textContent = 'ART PENDING';
       } else mark.appendChild(tridentMark(doc));
       const words = doc.createElement('span');
       const name = doc.createElement('strong');
@@ -200,8 +206,9 @@ export class RenownController {
     }
     this.scene()?.showSpell?.(section === 'kit' ? this.spell() : null);
     this.scene()?.setCloth(section === 'heraldry' ? this.preview : this.profile?.equipped ?? 'crimson');
-    this.scene()?.setEmblem?.(section === 'heraldry' ? this.emblemPreview : this.carriedEmblem());
-    if (section !== 'heraldry') this.scene()?.showBanner?.(false);
+    const available = EMBLEMS[this.emblemPreview]?.available;
+    this.scene()?.setEmblem?.(section === 'heraldry' && available ? this.emblemPreview : this.carriedEmblem());
+    if (section !== 'heraldry' || !available) this.scene()?.showBanner?.(false);
   }
   carriedEmblem() { return EMBLEMS[this.profile?.emblem] ? this.profile.emblem : DEFAULT_EMBLEM; }
   online() { return this.socket.status === 'online' && this.socket.remote.profileReady; }

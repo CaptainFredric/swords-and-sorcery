@@ -162,3 +162,28 @@ test('heraldry: the trident is always carried or carriable; an earned emblem can
   // (an unknown preview falls back to the trident)
   assert.equal(heraldryView(fresh, 'dragon', true).emblem.id, 'trident');
 });
+
+test('Mutual Mortality is a named, unequippable preview with no banner art or substituted trident', async () => {
+  const {heraldryView}=await import('./renownView.mjs');
+  const {EMBLEMS,ownedEmblems}=await import('../../shared/src/heraldry.mjs');
+  const profile={emblem:'trident',emblems:['trident','mutual_mortality']};
+  const view=heraldryView(profile,'mutual_mortality',true);
+  assert.equal(view.emblem.name,'Mutual Mortality');
+  assert.equal(view.status,'In development');
+  assert.equal(view.disabled,true);
+  assert.equal(view.owned,false);
+  assert.match(view.hint,/From Challenges/);
+  assert.equal(EMBLEMS.mutual_mortality.art,null);
+  assert.deepEqual(EMBLEMS.mutual_mortality.banners,{});
+  assert.deepEqual(ownedEmblems({completed:{mutual_mortality:123}}),['trident']);
+  const nodes=new Map(),calls=[];
+  const doc={querySelector(id){if(!nodes.has(id))nodes.set(id,element());return nodes.get(id);},createElement:element};
+  const controller=new RenownController({socket:{status:'offline',remote:{},on(){}},document:doc,storage:{getItem(){return null;}},scene:()=>({setCloth(){},setEmblem(id){calls.push(['emblem',id]);},showBanner(value){calls.push(['banner',value]);}})});
+  controller.selectSection('heraldry');
+  const card=controller.emblemCards.children.find(n=>n.dataset.emblem==='mutual_mortality');
+  assert.equal(card.children[0].children.length,0);
+  assert.equal(card.children[0].textContent,'ART PENDING');
+  card.handlers.click();
+  assert.deepEqual(calls.slice(-2),[['emblem','trident'],['banner',false]]);
+  assert.equal(doc.querySelector('#emblem-action').disabled,true);
+});
