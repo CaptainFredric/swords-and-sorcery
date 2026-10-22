@@ -102,15 +102,24 @@ const SOLIDS = [
   solid('rubble-courtyard-se', [4.5, 6.5], [0, 1.1], [3, 4.5]),
   solid('wreckage-courtyard-mid', [-1.5, 1.5], [0, 1.1], [-6.5, -5.2], { material: 'timber' }),
 
-  // --- Breach / Gatehouse Rampart (divides Courtyard and Sanctum) ---
+  // --- Breach / Curtain Walls (seamlessly meeting gatehouse at x = -7.575 and x = +7.575) ---
   solid('wall-breach-west-outer', [-16, -13.0], [0, 5.5], [8, 9.8]),
-  solid('wall-breach-west-inner', [-10.0, -3.5], [0, 5.5], [8, 9.8]),
   solid('wall-construction-footing', [-13.0, -10.0], [0, 0.95], [8.0, 9.8]),
   solid('wall-construction-hoarding', [-13.0, -10.0], [0.95, 3.2], [8.5, 9.3], { material: 'timber' }),
-  solid('wall-breach-east', [3.5, 9.5], [0, 5.5], [8, 9.8]),
-  solid('tower-gatehouse-west', [-8.0, -4.0], [0, 6.8], [7.2, 10.6]),
-  solid('tower-gatehouse-east', [4.0, 8.0], [0, 6.8], [7.2, 10.6]),
-  solid('rubble-breach', [-3.2, -1.8], [0, 0.8], [6.5, 8.2]),
+  solid('wall-breach-west-inner', [-10.0, -7.575], [0, 5.5], [8, 9.8]),
+  solid('wall-breach-east', [7.575, 9.5], [0, 5.5], [8, 9.8]),
+
+  // --- The Honorable Entry Gatehouse (Authored Argon Model at z = +8.8) ---
+  // Left Tower Front Buttress (Static, Always active)
+  solid('gatehouse-buttress-west', [-7.575, -3.500], [0.000, 8.636], [4.341, 7.000]),
+  // Left Tower & Inner Arch Jamb (Static, Always active)
+  solid('gatehouse-tower-west', [-7.575, -1.696], [0.000, 8.636], [7.000, 11.280]),
+  // Right Tower Front Buttress (Static, Always active)
+  solid('gatehouse-buttress-east', [3.500, 7.575], [0.000, 8.636], [4.341, 7.000]),
+  // Right Tower & Inner Arch Jamb (Static, Always active)
+  solid('gatehouse-tower-east', [1.696, 7.575], [0.000, 8.636], [7.000, 11.280]),
+  // Upper Arch Wall & Winch Housing (Static, Always active, overhead clearance Y = 3.940m)
+  solid('gatehouse-arch-overhead', [-1.696, 1.696], [3.940, 8.636], [7.000, 10.600]),
 
   // Gallery Parapets
   solid('gallery-parapet-east', [14.8, 15.5], [BASTION_GALLERY_Y, BASTION_GALLERY_Y + 1.2], [8, 22]),
@@ -182,9 +191,12 @@ const SPAWN_POINTS = Object.freeze([
   spawn(2.5, 0, 0.5, 0, 25, 'ATTACKERS', 1),
 
   // Defenders Phase 0 spawns (Outer Courtyard & Gallery ramp defending Outer Gate)
-  spawn(-3.5, 0, 5.0, 0, -2, 'DEFENDERS', 0),
+  // Defenders Phase 0 spawns (Outer Courtyard & Gallery ramp defending Outer Gate)
+  // Positioned > 6.0m from Objective 1 center (0, 0, -2) outside the capture zone,
+  // clear of stepped gatehouse buttresses (X in [-3.5, 3.5] clear central bay).
+  spawn(-2.8, 0, 5.0, 0, -2, 'DEFENDERS', 0),
   spawn(0, 0, 5.5, 0, -2, 'DEFENDERS', 0),
-  spawn(3.5, 0, 5.0, 0, -2, 'DEFENDERS', 0),
+  spawn(2.8, 0, 5.0, 0, -2, 'DEFENDERS', 0),
   spawn(-1.5, 0, 5.2, 0, -2, 'DEFENDERS', 0),
   spawn(11.5, 1.25, 3.5, 0, -2, 'DEFENDERS', 0),
 
@@ -329,11 +341,16 @@ export const BASTION_BREACH_TACTICS = Object.freeze({
 export const BASTION_GATE_OPEN_DURATION_SEC = 1.2;
 
 export const BASTION_GATE_BLOCKER = Object.freeze(
-  solid('gatehouse-honorable-gate-closed', [-3.4, 3.4], [0, 5.5], [8.5, 9.1], { material: 'iron' })
+  solid('gatehouse-honorable-gate-closed', [-1.696, 1.696], [0.000, 3.940], [8.550, 9.100], { material: 'iron' })
 );
 
+export const BASTION_GATE_DOOR_BUMPERS = Object.freeze([
+  solid('gatehouse-door-bumper-west', [-1.696, -1.544], [0.000, 2.900], [9.040, 10.640], { material: 'timber' }),
+  solid('gatehouse-door-bumper-east', [1.544, 1.696], [0.000, 2.900], [9.040, 10.640], { material: 'timber' }),
+]);
+
 const SOLIDS_CLOSED = Object.freeze([...SOLIDS, BASTION_GATE_BLOCKER]);
-const SOLIDS_OPEN = Object.freeze([...SOLIDS]);
+const SOLIDS_OPEN = Object.freeze([...SOLIDS, ...BASTION_GATE_DOOR_BUMPERS]);
 
 const BASE_BASTION_BREACH = Object.freeze({
   id: 'bastion-breach',

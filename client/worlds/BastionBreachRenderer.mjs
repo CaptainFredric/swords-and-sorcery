@@ -1,6 +1,36 @@
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
+import { appUrl } from '../appUrl.mjs';
 import { BASTION_BREACH, BASTION_GALLERY_Y, BASTION_GATE_OPEN_DURATION_SEC } from '../../shared/worlds/bastionBreach.mjs';
 import { everywhere } from '../game/viewLayers.mjs';
+
+export const GATEHOUSE_MODEL_URL = '/client/assets/worlds/bastion-breach/honorable-entry-gatehouse.glb';
+
+let gatehouseGltfPromise = null;
+
+export function loadHonorableGatehouseAsset() {
+  if (!gatehouseGltfPromise) {
+    const loader = new GLTFLoader();
+    gatehouseGltfPromise = new Promise((resolve) => {
+      loader.load(
+        appUrl(GATEHOUSE_MODEL_URL),
+        (gltf) => resolve(gltf),
+        undefined,
+        (err) => {
+          console.warn('Honorable Entry Gatehouse GLB failed to load:', err);
+          gatehouseGltfPromise = null;
+          resolve(null);
+        }
+      );
+    });
+  }
+  return gatehouseGltfPromise;
+}
+
+export function resetGatehouseAssetCache() {
+  gatehouseGltfPromise = null;
+}
 
 export const BASTION_BREACH_LIGHTING = Object.freeze({
   background: 0x242832,
@@ -39,8 +69,9 @@ function disposeMaterial(material) {
 }
 
 export class BastionBreachRenderer {
-  constructor(scene) {
+  constructor(scene, options = {}) {
     this.scene = scene;
+    this.options = options;
     this.group = new THREE.Group();
     this.group.name = 'Bastion Breach';
     this.lighting = BASTION_BREACH_LIGHTING;
@@ -52,7 +83,17 @@ export class BastionBreachRenderer {
     this.targetGateOpen = 0.0;
     this.lastTimeSec = null;
     this.serverTime = null;
+    this.disposed = false;
+
+    // Gatehouse references (authored GLB)
     this.gatehouseGroup = null;
+    this.gatehouseModel = null;
+    this.gatehouseMixer = null;
+    this.gatehouseActions = null;
+    this.gatehouseOwnedMaterials = new Set();
+
+    // Fallback references (lightweight procedural gate while GLB is pending)
+    this.fallbackGatehouseGroup = null;
     this.gatePortcullisGroup = null;
     this.gateLeftDoor = null;
     this.gateRightDoor = null;
@@ -113,7 +154,7 @@ export class BastionBreachRenderer {
 
     // --- Build Solids ---
     for (const sol of BASTION_BREACH.solids) {
-      if (sol.id === 'gatehouse-honorable-gate-closed') continue;
+      if (sol.id.startsWith('gatehouse-')) continue;
       const isTimber = sol.material === 'timber' || sol.id.includes('timber') || sol.id.includes('crates') || sol.id.includes('wreckage') || sol.id.includes('barricade') || sol.id.includes('hoarding');
       const mat = isTimber ? this.materials.timber : this.materials.stone;
       box(this.group, sol.size, mat, sol.center, [0, 0, 0], true);
@@ -280,61 +321,175 @@ export class BastionBreachRenderer {
 
   #buildHonorableEntryGatehouse() {
     this.gatehouseGroup = new THREE.Group();
+    this.gatehouseGroup.name = "Honorable Entry Gatehouse Group";
     this.gatehouseGroup.position.set(0, 0, 8.8);
+    this.group.add(this.gatehouseGroup);
 
-    // --- Pale Stone Gatehouse Piers and Molded Plinths ---
+    if (this.options?.gatehouseGltf) {
+      this.#setupAuthoredGatehouse(this.options.gatehouseGltf);
+    } else {
+      this.#buildFallbackProceduralGate();
+      loadHonorableGatehouseAsset().then((gltf) => {
+        if (!gltf || this.disposed) return;
+        this.#setupAuthoredGatehouse(gltf);
+      }).catch(() => {});
+    }
+
+    // --- Western Wall Unfinished Construction Gap & Scaffolding (Scene A Anchor) ---
+    this.#buildConstructionGapScaffolding();
+  }
+
+  #setupAuthoredGatehouse(gltf) {
+    if (!gltf?.scene || this.disposed) return;
+
+    if (this.fallbackGatehouseGroup) {
+      this.gatehouseGroup.remove(this.fallbackGatehouseGroup);
+      this.fallbackGatehouseGroup.traverse((obj) => {
+        obj.geometry?.dispose?.();
+        // NOTE: Do NOT dispose obj.material here!
+        // Fallback procedural elements use this.materials, which are shared across the renderer.
+      });
+      this.fallbackGatehouseGroup = null;
+      this.gatePortcullisGroup = null;
+      this.gateLeftDoor = null;
+      this.gateRightDoor = null;
+      this.gateWinchDrum = null;
+      this.gateCounterweightLeft = null;
+      this.gateCounterweightRight = null;
+    }
+
+    if (this.gatehouseMixer) {
+      this.gatehouseMixer.stopAllAction();
+      if (this.gatehouseModel) {
+        this.gatehouseMixer.uncacheRoot(this.gatehouseModel);
+        this.gatehouseGroup.remove(this.gatehouseModel);
+        this.gatehouseModel.traverse((child) => {
+          child.geometry?.dispose?.();
+        });
+        if (this.gatehouseOwnedMaterials) {
+          for (const mat of this.gatehouseOwnedMaterials) {
+            mat?.dispose?.();
+          }
+          this.gatehouseOwnedMaterials.clear();
+        }
+      }
+    }
+
+    const model = SkeletonUtils.clone(gltf.scene);
+    model.name = "Authored_Honorable_Entry_Gatehouse";
+    model.position.set(0, 0, 0);
+    model.rotation.set(0, 0, 0);
+    model.scale.set(1, 1, 1);
+
+    // Clone materials so this instance owns its materials and disposing them upon renderer disposal
+    // does not mutate or dispose the cached gltf.scene materials across repeated matches!
+    const ownedMaterials = new Set();
+    model.traverse((child) => {
+      if (child.isMesh) {
+        child.castShadow = true;
+        child.receiveShadow = true;
+        if (child.material) {
+          if (Array.isArray(child.material)) {
+            child.material = child.material.map((m) => {
+              const c = m.clone();
+              ownedMaterials.add(c);
+              return c;
+            });
+          } else {
+            const c = child.material.clone();
+            ownedMaterials.add(c);
+            child.material = c;
+          }
+        }
+      }
+    });
+    this.gatehouseOwnedMaterials = ownedMaterials;
+
+    this.gatehouseModel = model;
+    this.gatehouseGroup.add(model);
+
+    this.gatehouseMixer = new THREE.AnimationMixer(model);
+    this.gatehouseActions = {};
+    for (const clip of (gltf.animations || [])) {
+      const action = this.gatehouseMixer.clipAction(clip);
+      action.clampWhenFinished = true;
+      action.setLoop(THREE.LoopOnce);
+      this.gatehouseActions[clip.name] = action;
+    }
+
+    if (this.gatehouseActions.Gate_Open) {
+      this.gatehouseActions.Gate_Open.clampWhenFinished = true;
+      this.gatehouseActions.Gate_Open.setLoop(THREE.LoopOnce);
+    }
+    if (this.gatehouseActions.Gate_Close) {
+      this.gatehouseActions.Gate_Close.clampWhenFinished = true;
+      this.gatehouseActions.Gate_Close.setLoop(THREE.LoopOnce);
+    }
+
+    this.#applyGateTransform();
+  }
+
+  setGatehouseAsset(gltf) {
+    this.#setupAuthoredGatehouse(gltf);
+  }
+
+  #buildFallbackProceduralGate() {
+    this.fallbackGatehouseGroup = new THREE.Group();
+    this.fallbackGatehouseGroup.name = "Procedural_Gatehouse_Fallback";
+
+        // --- Pale Stone Gatehouse Piers and Molded Plinths ---
     for (const side of [-3.8, 3.8]) {
       // Main flanking stone piers
-      box(this.gatehouseGroup, [1.4, 4.4, 2.0], this.materials.paleStone, [side, 2.2, 0]);
+      box(this.fallbackGatehouseGroup, [1.4, 4.4, 2.0], this.materials.paleStone, [side, 2.2, 0]);
       // Molded base plinth
-      box(this.gatehouseGroup, [1.6, 0.5, 2.2], this.materials.paleStoneTrim, [side, 0.25, 0]);
+      box(this.fallbackGatehouseGroup, [1.6, 0.5, 2.2], this.materials.paleStoneTrim, [side, 0.25, 0]);
       // Molded capital / impost at arch spring
-      box(this.gatehouseGroup, [1.55, 0.35, 2.1], this.materials.paleStoneTrim, [side, 4.4, 0]);
+      box(this.fallbackGatehouseGroup, [1.55, 0.35, 2.1], this.materials.paleStoneTrim, [side, 4.4, 0]);
       // Decorative pilaster strips facing courtyard (-z)
-      box(this.gatehouseGroup, [0.35, 4.2, 0.15], this.materials.paleStoneTrim, [side, 2.2, -1.05]);
+      box(this.fallbackGatehouseGroup, [0.35, 4.2, 0.15], this.materials.paleStoneTrim, [side, 2.2, -1.05]);
       // Arrow loops in outer flanks
-      box(this.gatehouseGroup, [0.12, 1.4, 0.35], this.materials.iron, [side * 1.15, 2.6, 0]);
+      box(this.fallbackGatehouseGroup, [0.12, 1.4, 0.35], this.materials.iron, [side * 1.15, 2.6, 0]);
     }
 
     // --- Molded Pointed Gothic Arch Voussoirs ---
     // Lower angled springers
-    box(this.gatehouseGroup, [2.2, 0.55, 1.8], this.materials.paleStoneTrim, [-2.2, 4.95, 0], [0, 0, 0.36]);
-    box(this.gatehouseGroup, [2.2, 0.55, 1.8], this.materials.paleStoneTrim, [2.2, 4.95, 0], [0, 0, -0.36]);
+    box(this.fallbackGatehouseGroup, [2.2, 0.55, 1.8], this.materials.paleStoneTrim, [-2.2, 4.95, 0], [0, 0, 0.36]);
+    box(this.fallbackGatehouseGroup, [2.2, 0.55, 1.8], this.materials.paleStoneTrim, [2.2, 4.95, 0], [0, 0, -0.36]);
     // Upper converging voussoirs
-    box(this.gatehouseGroup, [1.8, 0.50, 1.8], this.materials.paleStoneTrim, [-0.85, 5.65, 0], [0, 0, 0.16]);
-    box(this.gatehouseGroup, [1.8, 0.50, 1.8], this.materials.paleStoneTrim, [0.85, 5.65, 0], [0, 0, -0.16]);
+    box(this.fallbackGatehouseGroup, [1.8, 0.50, 1.8], this.materials.paleStoneTrim, [-0.85, 5.65, 0], [0, 0, 0.16]);
+    box(this.fallbackGatehouseGroup, [1.8, 0.50, 1.8], this.materials.paleStoneTrim, [0.85, 5.65, 0], [0, 0, -0.16]);
 
     // Central Carved Keystone Boss & Castleward Seal
-    box(this.gatehouseGroup, [0.95, 0.85, 1.9], this.materials.paleStoneTrim, [0, 6.05, 0]);
-    cylinder(this.gatehouseGroup, 0.42, 0.42, 0.14, 16, this.materials.brass, [0, 6.05, -0.98], [Math.PI / 2, 0, 0]);
-    box(this.gatehouseGroup, [0.48, 0.12, 0.16], this.materials.iron, [0, 6.05, -1.02]);
-    box(this.gatehouseGroup, [0.12, 0.48, 0.16], this.materials.iron, [0, 6.05, -1.02]);
+    box(this.fallbackGatehouseGroup, [0.95, 0.85, 1.9], this.materials.paleStoneTrim, [0, 6.05, 0]);
+    cylinder(this.fallbackGatehouseGroup, 0.42, 0.42, 0.14, 16, this.materials.brass, [0, 6.05, -0.98], [Math.PI / 2, 0, 0]);
+    box(this.fallbackGatehouseGroup, [0.48, 0.12, 0.16], this.materials.iron, [0, 6.05, -1.02]);
+    box(this.fallbackGatehouseGroup, [0.12, 0.48, 0.16], this.materials.iron, [0, 6.05, -1.02]);
 
     // Gatehouse Facade Parapet, Stringcourse & Machicolations
-    box(this.gatehouseGroup, [9.0, 0.28, 2.2], this.materials.paleStoneTrim, [0, 6.45, 0]);
-    box(this.gatehouseGroup, [9.0, 1.2, 0.6], this.materials.paleStone, [0, 7.15, -0.8]);
+    box(this.fallbackGatehouseGroup, [9.0, 0.28, 2.2], this.materials.paleStoneTrim, [0, 6.45, 0]);
+    box(this.fallbackGatehouseGroup, [9.0, 1.2, 0.6], this.materials.paleStone, [0, 7.15, -0.8]);
     for (const x of [-3.8, -1.9, 0, 1.9, 3.8]) {
-      box(this.gatehouseGroup, [0.95, 0.8, 0.65], this.materials.paleStone, [x, 8.0, -0.8]);
+      box(this.fallbackGatehouseGroup, [0.95, 0.8, 0.65], this.materials.paleStone, [x, 8.0, -0.8]);
     }
     for (const x of [-3.8, -2.5, -1.2, 0, 1.2, 2.5, 3.8]) {
-      box(this.gatehouseGroup, [0.28, 0.45, 0.35], this.materials.paleStoneTrim, [x, 6.2, -1.05]);
+      box(this.fallbackGatehouseGroup, [0.28, 0.45, 0.35], this.materials.paleStoneTrim, [x, 6.2, -1.05]);
     }
 
     // Interior Vault Soffit & Cylindrical Murder Holes
-    box(this.gatehouseGroup, [6.4, 0.25, 1.8], this.materials.paleStone, [0, 5.85, 0]);
+    box(this.fallbackGatehouseGroup, [6.4, 0.25, 1.8], this.materials.paleStone, [0, 5.85, 0]);
     for (const [mx, mz] of [[-1.2, -0.4], [1.2, -0.4], [-1.2, 0.4], [1.2, 0.4]]) {
-      cylinder(this.gatehouseGroup, 0.26, 0.26, 0.32, 12, this.materials.iron, [mx, 5.85, mz]);
-      box(this.gatehouseGroup, [0.48, 0.05, 0.05], this.materials.iron, [mx, 5.75, mz]);
-      box(this.gatehouseGroup, [0.05, 0.05, 0.48], this.materials.iron, [mx, 5.75, mz]);
+      cylinder(this.fallbackGatehouseGroup, 0.26, 0.26, 0.32, 12, this.materials.iron, [mx, 5.85, mz]);
+      box(this.fallbackGatehouseGroup, [0.48, 0.05, 0.05], this.materials.iron, [mx, 5.75, mz]);
+      box(this.fallbackGatehouseGroup, [0.05, 0.05, 0.48], this.materials.iron, [mx, 5.75, mz]);
     }
 
     // Courtyard-facing Crimson Banners draped from iron corbels
     for (const side of [-3.8, 3.8]) {
-      box(this.gatehouseGroup, [0.9, 0.08, 0.08], this.materials.iron, [side, 4.6, -1.05]);
+      box(this.fallbackGatehouseGroup, [0.9, 0.08, 0.08], this.materials.iron, [side, 4.6, -1.05]);
       const bannerMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.95, 2.4), this.materials.bannerCrimson);
       bannerMesh.position.set(side, 3.35, -1.08);
       bannerMesh.rotation.y = Math.PI;
-      this.gatehouseGroup.add(bannerMesh);
+      this.fallbackGatehouseGroup.add(bannerMesh);
     }
 
     // --- Overhead Gate Chamber Winch Machinery ---
@@ -351,11 +506,11 @@ export class BastionBreachRenderer {
         box(this.gateWinchDrum, [0.08, 1.1, 0.08], this.materials.iron, [gx, 0, 0], [rad, 0, 0]);
       }
     }
-    this.gatehouseGroup.add(this.gateWinchDrum);
+    this.fallbackGatehouseGroup.add(this.gateWinchDrum);
 
     // Wall bearing blocks supporting axle
-    box(this.gatehouseGroup, [0.45, 0.65, 0.55], this.materials.iron, [-3.1, 6.7, 0]);
-    box(this.gatehouseGroup, [0.45, 0.65, 0.55], this.materials.iron, [3.1, 6.7, 0]);
+    box(this.fallbackGatehouseGroup, [0.45, 0.65, 0.55], this.materials.iron, [-3.1, 6.7, 0]);
+    box(this.fallbackGatehouseGroup, [0.45, 0.65, 0.55], this.materials.iron, [3.1, 6.7, 0]);
 
     // Counterweight Boxes
     this.gateCounterweightLeft = new THREE.Group();
@@ -363,18 +518,18 @@ export class BastionBreachRenderer {
     box(this.gateCounterweightLeft, [0.55, 1.2, 0.55], this.materials.timber, [0, 0, 0]);
     box(this.gateCounterweightLeft, [0.60, 0.15, 0.60], this.materials.iron, [0, 0.45, 0]);
     box(this.gateCounterweightLeft, [0.60, 0.15, 0.60], this.materials.iron, [0, -0.45, 0]);
-    this.gatehouseGroup.add(this.gateCounterweightLeft);
+    this.fallbackGatehouseGroup.add(this.gateCounterweightLeft);
 
     this.gateCounterweightRight = new THREE.Group();
     this.gateCounterweightRight.position.set(3.1, 5.2, 0.45);
     box(this.gateCounterweightRight, [0.55, 1.2, 0.55], this.materials.timber, [0, 0, 0]);
     box(this.gateCounterweightRight, [0.60, 0.15, 0.60], this.materials.iron, [0, 0.45, 0]);
     box(this.gateCounterweightRight, [0.60, 0.15, 0.60], this.materials.iron, [0, -0.45, 0]);
-    this.gatehouseGroup.add(this.gateCounterweightRight);
+    this.fallbackGatehouseGroup.add(this.gateCounterweightRight);
 
     // Counterweight suspension chains (fixed vertical guides)
-    cylinder(this.gatehouseGroup, 0.035, 0.035, 3.4, 6, this.materials.iron, [-3.1, 5.1, 0.45]);
-    cylinder(this.gatehouseGroup, 0.035, 0.035, 3.4, 6, this.materials.iron, [3.1, 5.1, 0.45]);
+    cylinder(this.fallbackGatehouseGroup, 0.035, 0.035, 3.4, 6, this.materials.iron, [-3.1, 5.1, 0.45]);
+    cylinder(this.fallbackGatehouseGroup, 0.035, 0.035, 3.4, 6, this.materials.iron, [3.1, 5.1, 0.45]);
 
     // --- Articulated Moving Portcullis Grille ---
     this.gatePortcullisGroup = new THREE.Group();
@@ -391,7 +546,7 @@ export class BastionBreachRenderer {
     // Portcullis hoist chains attached to top beam
     cylinder(this.gatePortcullisGroup, 0.04, 0.04, 2.6, 6, this.materials.iron, [-1.8, 5.6, 0]);
     cylinder(this.gatePortcullisGroup, 0.04, 0.04, 2.6, 6, this.materials.iron, [1.8, 5.6, 0]);
-    this.gatehouseGroup.add(this.gatePortcullisGroup);
+    this.fallbackGatehouseGroup.add(this.gatePortcullisGroup);
 
     // --- Articulated Twin Oak Gate Doors ---
     // Left door (hinged on west pier at x = -3.1, swinging inward toward +z)
@@ -402,7 +557,7 @@ export class BastionBreachRenderer {
       box(this.gateLeftDoor, [3.08, 0.14, 0.26], this.materials.iron, [1.55, hy, 0]);
     }
     box(this.gateLeftDoor, [0.12, 0.35, 0.15], this.materials.brass, [2.75, 2.05, -0.15]);
-    this.gatehouseGroup.add(this.gateLeftDoor);
+    this.fallbackGatehouseGroup.add(this.gateLeftDoor);
 
     // Right door (hinged on east pier at x = 3.1, swinging inward toward +z)
     this.gateRightDoor = new THREE.Group();
@@ -412,12 +567,9 @@ export class BastionBreachRenderer {
       box(this.gateRightDoor, [3.08, 0.14, 0.26], this.materials.iron, [-1.55, hy, 0]);
     }
     box(this.gateRightDoor, [0.12, 0.35, 0.15], this.materials.brass, [-2.75, 2.05, -0.15]);
-    this.gatehouseGroup.add(this.gateRightDoor);
+    this.fallbackGatehouseGroup.add(this.gateRightDoor);
 
-    this.group.add(this.gatehouseGroup);
-
-    // --- Western Wall Unfinished Construction Gap & Scaffolding (Scene A Anchor) ---
-    this.#buildConstructionGapScaffolding();
+    this.gatehouseGroup.add(this.fallbackGatehouseGroup);
   }
 
   #buildConstructionGapScaffolding() {
@@ -618,7 +770,15 @@ export class BastionBreachRenderer {
     // Castleward defenders ceremonially open the Honorable Entry Gatehouse to admit attackers.
     const activeIdx = objective?.index ?? 0;
     const completed = Boolean(objective?.completed);
-    this.targetGateOpen = (activeIdx >= 1 || completed) ? 1.0 : 0.0;
+    const newTarget = (activeIdx >= 1 || completed) ? 1.0 : 0.0;
+    const previousTarget = this.targetGateOpen;
+    this.targetGateOpen = newTarget;
+
+    // Reset detection: if match resets from open back to closed (Stage 1), snap closed immediately
+    if (previousTarget === 1.0 && newTarget === 0.0) {
+      this.gateOpenProgress = 0.0;
+      this.#applyGateTransform();
+    }
 
     if (isFirstSet) {
       if (this.targetGateOpen === 1.0) {
@@ -637,21 +797,30 @@ export class BastionBreachRenderer {
   }
 
   #applyGateTransform() {
-    if (this.gatePortcullisGroup) {
-      this.gatePortcullisGroup.position.y = this.gateOpenProgress * 3.8;
-    }
-    if (this.gateLeftDoor && this.gateRightDoor) {
-      const doorAngle = this.gateOpenProgress * (Math.PI * 0.48);
-      this.gateLeftDoor.rotation.y = -doorAngle;
-      this.gateRightDoor.rotation.y = doorAngle;
-    }
-    if (this.gateWinchDrum) {
-      this.gateWinchDrum.rotation.x = this.gateOpenProgress * (Math.PI * 3.5);
-    }
-    if (this.gateCounterweightLeft && this.gateCounterweightRight) {
-      const cwY = 5.2 - this.gateOpenProgress * 3.2;
-      this.gateCounterweightLeft.position.y = cwY;
-      this.gateCounterweightRight.position.y = cwY;
+    if (this.gatehouseMixer && this.gatehouseActions?.Gate_Open) {
+      const openAction = this.gatehouseActions.Gate_Open;
+      const clip = openAction.getClip();
+      openAction.play();
+      const clipTime = Math.min(clip.duration, Math.max(0, this.gateOpenProgress * clip.duration));
+      openAction.time = clipTime;
+      this.gatehouseMixer.update(0);
+    } else {
+      if (this.gatePortcullisGroup) {
+        this.gatePortcullisGroup.position.y = this.gateOpenProgress * 3.8;
+      }
+      if (this.gateLeftDoor && this.gateRightDoor) {
+        const doorAngle = this.gateOpenProgress * (Math.PI * 0.48);
+        this.gateLeftDoor.rotation.y = -doorAngle;
+        this.gateRightDoor.rotation.y = doorAngle;
+      }
+      if (this.gateWinchDrum) {
+        this.gateWinchDrum.rotation.x = this.gateOpenProgress * (Math.PI * 3.5);
+      }
+      if (this.gateCounterweightLeft && this.gateCounterweightRight) {
+        const cwY = 5.2 - this.gateOpenProgress * 3.2;
+        this.gateCounterweightLeft.position.y = cwY;
+        this.gateCounterweightRight.position.y = cwY;
+      }
     }
   }
 
@@ -749,11 +918,21 @@ export class BastionBreachRenderer {
   }
 
   dispose() {
+    this.disposed = true;
+    this.gatehouseMixer?.stopAllAction?.();
+    if (this.gatehouseModel) {
+      this.gatehouseMixer?.uncacheRoot?.(this.gatehouseModel);
+    }
     this.scene.remove(this.group);
     this.group.traverse((object) => {
       object.geometry?.dispose?.();
-      disposeMaterial(object.material);
     });
+    if (this.gatehouseOwnedMaterials) {
+      for (const mat of this.gatehouseOwnedMaterials) {
+        mat?.dispose?.();
+      }
+      this.gatehouseOwnedMaterials.clear();
+    }
     for (const mat of Object.values(this.materials)) {
       disposeMaterial(mat);
     }
