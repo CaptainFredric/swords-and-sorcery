@@ -25,6 +25,8 @@ export const ICONS = Object.freeze({
   crouch: '<path d="M6 7.5 12 13l6-5.5M6 18.5h12"/>',
   pause: '<path d="M9 5v14M15 5v14"/>',
   scores: '<path d="M5 7h14M5 12h14M5 17h14"/>',
+  interact: '<path d="M12 4v12M8 8l4-4 4 4M4 20h16"/>',
+  deploy: '<path d="M4 12h16M12 4v16M7 7l10 10M17 7l-10 10"/>',
 });
 
 /** An icon as inline SVG markup (a missing name falls back to `fallback`). */

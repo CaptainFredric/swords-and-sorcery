@@ -226,6 +226,10 @@ export class GameRuntime {
     // when each of the two was last pressed: of the two held together, the one pressed last has the hands
     this.pressedAt = { attack: -Infinity, guard: -Infinity };
     this.input.onAttackLocal = (held) => {
+      if (this.localAuth?.operatingBallistaId) {
+        if (held) this.socket.send?.({ type: 'bibyeFire' });
+        return;
+      }
       if (held) this.pressedAt.attack = this.socket.serverNow();
       if (this.socket.inspectionFrozen) return;
       if (!held) {
@@ -236,6 +240,7 @@ export class GameRuntime {
       if (canPresentLocalAction('attack', this.localAuth, this.localState, now)) this.weapon.setAttack(true);
     };
     this.input.onGuardLocal = (held) => {
+      if (this.localAuth?.operatingBallistaId) return;
       if (held) this.pressedAt.guard = this.socket.serverNow();
       if (this.socket.inspectionFrozen) return;
       if (!held) {
@@ -247,6 +252,7 @@ export class GameRuntime {
     };
     // the palm starts gathering the moment the spell is called (the server's word follows and confirms it)
     this.input.onCastLocal = (metadata = {}) => {
+      if (this.localAuth?.operatingBallistaId) return;
       if (this.socket.inspectionFrozen) return;
       const now = this.socket.serverNow();
       const practice = this.#inPractice();
@@ -322,6 +328,7 @@ export class GameRuntime {
     this.input.onPreparedSelector = (view) => this.hud.setPreparedSelector?.(view);
     this.hud.onUltimateReady = () => this.#play(ultimateReadyRecipe(), null, 0.9);
     this.input.onDashLocal = (dir) => {
+      if (this.localAuth?.operatingBallistaId) return;
       if (this.socket.inspectionFrozen) return;
       const now = this.socket.serverNow();
       const practice = this.#inPractice();
@@ -553,22 +560,31 @@ export class GameRuntime {
       this.input.yaw = auth.yaw;
       this.input.pitch = auth.pitch;
     } else {
-      const dx = auth.position.x - this.localState.position.x;
-      const dy = auth.position.y - this.localState.position.y;
-      const dz = auth.position.z - this.localState.position.z;
-      const error = Math.hypot(dx, dy, dz);
-      this.predictionError = error;
-      if (!auth.alive || error > 2.2) {
+      if (auth.operatingBallistaId) {
+        this.predictionError = 0;
         this.localState.position = { ...auth.position };
-        this.localState.velocity = { ...auth.velocity };
-        this.localState.impulse = auth.impulse ? { ...auth.impulse } : { x: 0, z: 0 };
-        this.localState.crouched = Boolean(auth.crouched);
+        this.localState.velocity = { x: 0, y: 0, z: 0 };
+        this.localState.impulse = { x: 0, z: 0 };
+        this.localState.crouched = false;
+        this.localState.sprinting = false;
       } else {
-        this.localState.position.x += dx * 0.11;
-        this.localState.position.y += dy * 0.16;
-        this.localState.position.z += dz * 0.11;
-        // (carried by another's gust: its push is the host's to say, not something I can foresee)
-        if (auth.impulse && this.socket.serverNow() < (this.windOnMeUntil ?? -Infinity)) this.localState.impulse = { ...auth.impulse };
+        const dx = auth.position.x - this.localState.position.x;
+        const dy = auth.position.y - this.localState.position.y;
+        const dz = auth.position.z - this.localState.position.z;
+        const error = Math.hypot(dx, dy, dz);
+        this.predictionError = error;
+        if (!auth.alive || error > 2.2) {
+          this.localState.position = { ...auth.position };
+          this.localState.velocity = { ...auth.velocity };
+          this.localState.impulse = auth.impulse ? { ...auth.impulse } : { x: 0, z: 0 };
+          this.localState.crouched = Boolean(auth.crouched);
+        } else {
+          this.localState.position.x += dx * 0.11;
+          this.localState.position.y += dy * 0.16;
+          this.localState.position.z += dz * 0.11;
+          // (carried by another's gust: its push is the host's to say, not something I can foresee)
+          if (auth.impulse && this.socket.serverNow() < (this.windOnMeUntil ?? -Infinity)) this.localState.impulse = { ...auth.impulse };
+        }
       }
       this.localState.dashReadyAt = auth.dashReadyAt;
       // (a ram I foresaw has stopped my dash already, whatever the host's word on it says before it has heard)
@@ -2047,7 +2063,17 @@ export class GameRuntime {
       if (this.worldId === 'bastion-breach' && this.latestSnapshot?.objective) {
         this.activeWorld = bastionBreachForObjective(this.latestSnapshot.objective, serverNow);
       }
-      this.localState = movePlayer(this.localState, moveInput, dt, serverNow, this.activeWorld);
+      if (this.localAuth?.operatingBallistaId) {
+        this.localState.velocity = { x: 0, y: 0, z: 0 };
+        this.localState.sprinting = false;
+        this.localState.sprintBlend = 0;
+        this.localState.grounded = true;
+        if (this.localAuth.position) {
+          this.localState.position = { ...this.localAuth.position };
+        }
+      } else {
+        this.localState = movePlayer(this.localState, moveInput, dt, serverNow, this.activeWorld);
+      }
       if (ramFrom) this.#foretellRam(ramFrom, serverNow);
       if (this.localRam?.armed && serverNow >= (this.localState.dashUntil ?? -Infinity)) this.localRam = null;
       // predict the server's body separation so pressing into an opponent does not rubber-band
@@ -2133,7 +2159,9 @@ export class GameRuntime {
         this.chaseAim = null;
         this.chaseOut = 0;
       }
-      // (outside, my own body is drawn and the helm's arms are not)
+      // (outside, my own body is drawn and the helm's arms are not; mounted on ballista, draw body at station and hide FP arms)
+      const mounted = Boolean(this.localAuth?.operatingBallistaId);
+      if (mounted) outside = true;
       this.weapon.group.visible = !outside;
       this.remotePlayers.showSelf(this.localAuth, {
         position: this.localState.position, velocity: this.localState.velocity, yaw: this.input.yaw, pitch: this.input.pitch,
@@ -2152,6 +2180,7 @@ export class GameRuntime {
     this.remotePlayers.update(nowMs, dt);
     this.#showAfflictions(dt);
     this.world?.setObjectiveState?.(this.latestSnapshot?.objective ?? null, this.localAuth?.team ?? null, this.socket.serverNow());
+    this.world?.setBiByeState?.(this.latestSnapshot);
     this.world?.update?.(timeSec, this.camera);
     this.#followGusts();
     this.effects.update(dt);
@@ -2191,7 +2220,7 @@ export class GameRuntime {
       } else {
         this.hud.updateRivalWaypoint?.(null);
       }
-      this.touch?.update(this.localAuth, this.socket.serverNow(), { practice: this.#inPractice() });
+      this.touch?.update(this.localAuth, this.socket.serverNow(), { practice: this.#inPractice(), snapshot: this.latestSnapshot });
       this.hud.setScoreboard(this.latestSnapshot, this.input.scoreboardHeld);
       this.hud.setDebug({
         fps: this.fps,

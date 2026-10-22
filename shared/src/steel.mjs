@@ -15,6 +15,21 @@
 
 import { GAME } from './combat.mjs';
 
+export const STEEL_DAMAGE_RANGES = Object.freeze({
+  sword: Object.freeze({ min: GAME.swordGlance, max: GAME.swordDamage }), // 19 - 30
+  gauntlet: Object.freeze({ min: 6, max: 9 }),                            // 6 - 9
+  ram: Object.freeze({ min: 6, max: 12 }),                                // 6 - 12
+  fireball: Object.freeze({ min: 13, max: 18 }),                          // 13 - 18
+  frostfire: Object.freeze({ min: 11, max: 16 }),                         // 11 - 16
+  gale: Object.freeze({ min: 1, max: 8 }),                                // 1 - 8
+  burn: Object.freeze({ min: 1, max: 2 }),                                // 1 - 2 per lick
+  vortex: Object.freeze({ min: 20, max: 30 }),                            // 20 - 30
+  rupture: Object.freeze({ min: 5, max: 12 }),                            // 5 - 12
+  'bibye-conditioning': Object.freeze({ min: 12, max: 18 }),              // 12 - 18
+  'bibye-siege': Object.freeze({ min: 55, max: 85 }),                     // 55 - 85
+  'bibye-shockwave': Object.freeze({ min: 10, max: 35 }),                 // 10 - 35
+});
+
 export const STEEL = Object.freeze({
   cooldownSec: 18,       // from one call to the next
   fullSec: 5,            // fully hardened, from the call
@@ -33,16 +48,43 @@ export function steelStrength(steel, nowSec) {
   return Math.max(0, 1 - (nowSec - steel.fullUntil) / STEEL.fadeSec);
 }
 
+/**
+ * Universal Sheathe in Steel mitigation logic.
+ * Reduces the health damage of a valid damaging contact to the MINIMUM of that source's
+ * legitimate damage range, proportional to the armour's remaining strength as it fades.
+ */
+export function steelMitigate(steel, rawDamage, source, nowSec, explicitMin = null) {
+  if (!steel || !(rawDamage > 0)) {
+    return { amount: rawDamage, turned: 0, strength: 0 };
+  }
+  const strength = steelStrength(steel, nowSec);
+  if (strength <= 0.005) {
+    return { amount: rawDamage, turned: 0, strength: 0 };
+  }
+  const range = STEEL_DAMAGE_RANGES[source];
+  let min = explicitMin;
+  let max = range ? range.max : rawDamage;
+  if (min === null || min === undefined) {
+    min = range ? range.min : Math.round(rawDamage * (GAME.swordGlance / GAME.swordDamage));
+  }
+  min = Math.min(rawDamage, min);
+  const maxReduction = Math.max(0, (max - min) * strength);
+  const reduction = Math.min(Math.max(0, (rawDamage - min) * strength), maxReduction);
+  const felt = Math.max(0, Math.round(rawDamage - reduction));
+  const turned = Math.max(0, rawDamage - felt);
+  return { amount: felt, turned, strength };
+}
+
 /** A sword blow's contact quality as the armour lets it through: { quality (felt), strength }. */
 export function steelQuality(steel, quality, nowSec) {
   const strength = steelStrength(steel, nowSec);
   return { quality: quality * (1 - STEEL.qualityCut * strength), strength };
 }
 
-/** Any other blow's damage as the armour lets it through: { amount (felt), strength }. */
-export function steelBlunt(steel, amount, nowSec) {
-  const strength = steelStrength(steel, nowSec);
-  return { amount: Math.round(amount * (1 - STEEL.bluntCut * strength)), strength };
+/** Any other blow's damage as the armour lets it through: { amount (felt), strength, turned }. */
+export function steelBlunt(steel, amount, nowSec, source = null) {
+  const mit = steelMitigate(steel, amount, source, nowSec);
+  return { amount: mit.amount, turned: mit.turned, strength: mit.strength };
 }
 
 /** A spell's exposure as the armour lets it through: { exposure (felt), turned (what it turned aside), strength }. */
