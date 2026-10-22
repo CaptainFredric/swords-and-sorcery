@@ -4,6 +4,10 @@ import { DEFAULT_EMBLEM, EMBLEMS, emblemChoice } from '../../shared/src/heraldry
 /** The heraldry chooser: what the previewed emblem is, whether it is earned and carried, and what its button does. */
 export function heraldryView(profile, preview, online) {
   const emblem = emblemChoice(preview);
+  if (!emblem.available) return {
+    emblem, owned: false, carried: false, hint: 'From Challenges. Challenge and heraldry artwork in development.',
+    status: 'In development', label: 'IN DEVELOPMENT', disabled: true,
+  };
   const earned = new Set([DEFAULT_EMBLEM, ...(Array.isArray(profile?.emblems) ? profile.emblems : [])]);
   const owned = earned.has(emblem.id);
   const carried = (EMBLEMS[profile?.emblem] ? profile.emblem : DEFAULT_EMBLEM) === emblem.id;

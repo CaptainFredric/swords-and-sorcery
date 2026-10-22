@@ -53,7 +53,8 @@ export class ChallengesController {
       const header = this.node('div', 'mastery-intro');
       header.appendChild(this.node('p', 'armory-slot', 'PERMANENT MASTERY'));
       header.appendChild(this.node('p', 'mastery-copy', 'Master combat techniques. Completed feats grant Renown once and are saved after server matches. Practice is for training.'));
-      header.appendChild(this.node('p', 'mastery-count', `${views.filter((view) => view.complete).length} / ${views.length} MASTERED`));
+      const active = views.filter((view) => view.available !== false);
+      header.appendChild(this.node('p', 'mastery-count', `${active.filter((view) => view.complete).length} / ${active.length} MASTERED`));
       const content = [header];
       for (const [family, label] of Object.entries(CHALLENGE_FAMILIES)) {
         const entries = views.filter((view) => view.family === family);
@@ -62,13 +63,16 @@ export class ChallengesController {
         section.setAttribute('aria-label', label);
         section.appendChild(this.node('h3', 'mastery-family-title', label));
         for (const view of entries) {
+          const upcoming = view.available === false;
           const card = this.node('article', `mastery-feat${view.complete ? ' complete' : ''}${view.hint && !view.complete ? ' hinted' : ''}`);
           const heading = this.node('div', 'mastery-feat-heading');
           heading.appendChild(this.node('h4', 'mastery-feat-title', view.title));
-          heading.appendChild(this.node('span', 'mastery-feat-state', view.complete ? 'COMPLETE' : view.hint ? 'UNDISCOVERED' : 'TO MASTER'));
+          heading.appendChild(this.node('span', 'mastery-feat-state', upcoming ? 'IN DEVELOPMENT' : view.complete ? 'COMPLETE' : view.hint ? 'UNDISCOVERED' : 'TO MASTER'));
           card.appendChild(heading);
           card.appendChild(this.node('p', 'mastery-condition', view.condition ?? view.hint));
-          if (view.condition) {
+          if (upcoming) {
+            card.appendChild(this.node('small', 'mastery-reward', 'HERALDRY IN PREPARATION'));
+          } else if (view.condition) {
             if (view.goal > 1) {
               const progress = this.node('progress', 'mastery-progress');
               progress.max = view.goal;
@@ -81,7 +85,7 @@ export class ChallengesController {
             const heraldry = view.reward.emblem ? ` · ${emblemChoice(view.reward.emblem).name.toUpperCase()} HERALDRY` : '';
             card.appendChild(this.node('small', 'mastery-reward', `${view.complete ? 'EARNED' : 'REWARD'} · ${view.reward.renown} RENOWN${heraldry}`));
           }
-          if (view.complete && view.flavor) card.appendChild(this.node('p', 'mastery-flavor', view.flavor));
+          if ((view.complete || upcoming) && view.flavor) card.appendChild(this.node('p', 'mastery-flavor', upcoming ? `“${view.flavor}”` : view.flavor));
           section.appendChild(card);
         }
         content.push(section);

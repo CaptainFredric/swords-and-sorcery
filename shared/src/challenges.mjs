@@ -16,6 +16,15 @@ export const CHALLENGES = Object.freeze({
   well_balanced:feat('well_balanced','oddities','WELL BALANCED','Be defeated shortly after initiating Blazing Vortex without damaging anybody.',15,{hint:'Spinning is not the same as winning.',flavor:'A blazing commitment, cut abruptly short.'}),
 });
 
+// Visible authoring previews stay outside the authoritative award catalog.
+export const CHALLENGE_PREVIEWS = Object.freeze({
+  mutual_mortality: Object.freeze({
+    id: 'mutual_mortality', family: 'oddities', title: 'MUTUAL MORTALITY', available: false,
+    condition: 'Defeat an enemy who began at full health using melee damage alone, while suffering a damage-over-time effect that defeats you within one second of your killing blow.',
+    flavor: "One of us won't recover.", reward: Object.freeze({ emblem: 'mutual_mortality' }),
+  }),
+});
+
 /** Never transmit numeric progress for an unrevealed hinted feat. Unknown IDs are retained on disk only. */
 export function publicChallengeState(state={}) {
   const progress={},completed={};
@@ -34,5 +43,5 @@ export function challengeView(state={}) {
     const complete=Boolean(state?.completed?.[c.id]);
     if(c.visibility==='hinted' && !complete) return {id:c.id,family:c.family,title:'HIDDEN CHALLENGE',hint:c.hint,complete:false};
     return {...c,progress:complete?c.goal:Math.max(0,Math.min(c.goal,Number(state?.progress?.[c.id])||0)),complete};
-  });
+  }).concat(Object.values(CHALLENGE_PREVIEWS).map(c=>({...c,progress:0,complete:false})));
 }

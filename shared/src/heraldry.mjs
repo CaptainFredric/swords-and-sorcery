@@ -8,10 +8,12 @@
 //   KitBanner: the kit's banner atlas with the emblem on the back banner's half (the front tabard's half unchanged);
 //   CapeBanner: a cape with a texture of its own (the supplied Spellblade's), its sign replaced by the emblem.
 
+import { CHALLENGE_PREVIEWS } from './challenges.mjs';
+
 export const DEFAULT_EMBLEM = 'trident';
 
-const emblem = (id, name, description, { flavor = null, challenge = null, banners = {}, art = null } = {}) =>
-  Object.freeze({ id, name, description, flavor, challenge, banners: Object.freeze({ ...banners }), art });
+const emblem = (id, name, description, { flavor = null, challenge = null, banners = {}, art = null, available = true } = {}) =>
+  Object.freeze({ id, name, description, flavor, challenge, banners: Object.freeze({ ...banners }), art, available });
 
 export const EMBLEMS = Object.freeze({
   trident: emblem('trident', 'Castleward Trident', 'The castle\'s own sign, worn by every knight of the yard.'),
@@ -24,6 +26,10 @@ export const EMBLEMS = Object.freeze({
     },
     art: '/client/assets/heraldry/seize-thy-slayer.png',
   }),
+  mutual_mortality: emblem('mutual_mortality', 'Mutual Mortality', CHALLENGE_PREVIEWS.mutual_mortality.condition, {
+    flavor: CHALLENGE_PREVIEWS.mutual_mortality.flavor,
+    challenge: 'mutual_mortality', available: false,
+  }),
 });
 
 export function isEmblem(id) { return typeof id === 'string' && Object.hasOwn(EMBLEMS, id); }
@@ -32,5 +38,5 @@ export function emblemChoice(id) { return isEmblem(id) ? EMBLEMS[id] : EMBLEMS[D
 /** The emblems a profile's completed challenges have earned (the trident always). */
 export function ownedEmblems(challenges) {
   const completed = challenges?.completed ?? {};
-  return Object.values(EMBLEMS).filter((e) => !e.challenge || Boolean(completed[e.challenge])).map((e) => e.id);
+  return Object.values(EMBLEMS).filter((e) => e.available && (!e.challenge || Boolean(completed[e.challenge]))).map((e) => e.id);
 }

@@ -100,3 +100,17 @@ test('duplicate server feat IDs are displayed once and only the server settled R
   assert.equal(view.amount, 7);
   assert.match(view.text, /\+7 RENOWN/);
 });
+
+test('the upcoming Mutual Mortality card shows its authored condition without changing active mastery totals', () => {
+  const {root}=fixture({challenges:{completed:{mutual_mortality:123}}});
+  const cards=root.children.flatMap(n=>n.children).filter(n=>n.className?.includes('mastery-feat'));
+  const card=cards.find(n=>textTree(n).includes('MUTUAL MORTALITY'));
+  assert.ok(card);
+  const words=textTree(card);
+  assert.match(words,/IN DEVELOPMENT/);
+  assert.match(words,/melee damage alone/);
+  assert.match(words,/within one second of your killing blow/);
+  assert.ok(words.includes("One of us won't recover."));
+  assert.doesNotMatch(words,/\d+ RENOWN|COMPLETE|TO MASTER/);
+  assert.match(textTree(root),/0 \/ 11 MASTERED/);
+});

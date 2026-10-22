@@ -21,6 +21,7 @@
 .cloth-card:focus-visible, #cloth-action:focus-visible, .armory-tabs button:focus-visible, .renown-rules summary:focus-visible { outline: 2px solid var(--heraldry-magic); outline-offset: 3px; }
 .emblem-mark { flex: 0 0 30px; height: 40px; display: grid; place-items: center; background: linear-gradient(90deg, rgba(0,0,0,.25), transparent 35%, rgba(255,255,255,.1) 55%, rgba(0,0,0,.22)), #79313b; clip-path: polygon(0 0,100% 0,100% 80%,50% 100%,0 80%); }
 .emblem-mark img, .emblem-mark svg { width: 24px; height: 34px; object-fit: contain; }
+.emblem-mark.pending { clip-path: none; background: transparent; border: 1px dashed #c9aa7266; color: var(--heraldry-brass-light); font: 700 7px/1.3 var(--font-script); text-align: center; }
 .emblem-card.locked .emblem-mark { filter: grayscale(.85) brightness(.7); }
 .emblem-detail { margin-top: 2px; }
 #emblem-name { margin: 0 0 5px; color: var(--heraldry-brass-light); font: 400 20px/1.1 var(--font-inscription); }
