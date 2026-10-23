@@ -118,6 +118,7 @@ jobs:
           import json
           from pathlib import Path
           report = json.loads(Path('artifacts/spellblade-assets/spellblade-build-report.json').read_text())
+          contract = json.loads(Path('tools/blender/characters/spellblade/contract.json').read_text())
           assert report['workerReady'] is True
           production_stages = {
               'third-person-animated-with-first-person',
@@ -134,18 +135,13 @@ jobs:
               assert report['model']['triangles'] <= report['model']['triangleBudget']
               assert report['outputs']['thirdPersonGlb'] == 'spellblade.glb'
               assert report['sizes']['thirdPersonGlbBytes'] <= report['sizes']['thirdPersonTargetBytes']
-              required_tp = {
-                  'Idle', 'Run', 'Sprint', 'Air', 'Guard', 'Slash_1', 'Slash_2', 'Slash_3',
-                  'Cast', 'Dash', 'Stagger', 'Death',
-              }
+              required_tp = set(contract['clips'])
               assert set(report['animations']) == required_tp
 
               assert report['outputs']['firstPersonGlb'] == 'spellblade-fp.glb'
               assert report['sizes']['firstPersonGlbBytes'] <= report['sizes']['firstPersonTargetBytes']
               assert report['firstPerson']['triangles'] <= report['firstPerson']['triangleBudget']
-              required_fp = {
-                  'Idle', 'Guard', 'Slash_1', 'Slash_2', 'Slash_3', 'Cast', 'Dash', 'Stagger',
-              }
+              required_fp = set(contract['firstPersonClips'])
               assert set(report['firstPerson']['animations']) == required_fp
               assert set(report['outputs']['firstPersonRenders']) == {
                   'fp-neutral', 'fp-guard', 'fp-slash', 'fp-cast',
