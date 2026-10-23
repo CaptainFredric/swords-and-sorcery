@@ -15,7 +15,7 @@ export function biByeHudView(local, snapshot, now, { bindings = registry.default
   const upper = upperReady ? 'Shot I ready' : b.upperPending ? 'Shot I releasing' : `Shot I ${Math.max(0,(b.smallBoltReadyAt??now)-now).toFixed(1)}s`;
   const heavy = b.mainBoltLoaded !== false ? 'II ready' : `II ${Math.max(0,(b.reloadEndsAt??now)-now).toFixed(1)}s`;
   const coupling = b.coupling === 'ALIGNING' ? `Aligning ${Math.round((b.couplingProgress??0)*100)}%`
-    : b.coupling === 'ENGAGING' ? 'Engaging latch' : b.coupling === 'FIRING' ? 'Volley committed' : '';
+    : b.coupling === 'ENGAGING' ? 'Engaging latch' : b.coupling === 'RELEASING' ? 'Releasing clutch' : b.coupling === 'FIRING' ? 'Volley committed' : '';
   let status = b.mode === 'DEPLOYING' ? 'Deploying outriggers' : b.mode === 'RETRACTING' ? 'Packing outriggers'
     : [upper,b.mode === 'DEPLOYED' || b.mainBoltLoaded === false ? heavy : '',coupling].filter(Boolean).join(' · ');
   const faults = [!condition.canDrive ? "IMMOBILIZED" : condition.failedWheels ? "DRIVE IMPAIRED" : "", !condition.canDeploy ? "SUPPORTS DISABLED" : condition.failedStabilizers ? "SUPPORT DAMAGED" : ""].filter(Boolean);

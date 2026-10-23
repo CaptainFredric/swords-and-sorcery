@@ -192,6 +192,7 @@ export function serializeSnapshot(room, nowSec) {
       upperYaw: room.biByeLlista.upperYaw, upperPitch: room.biByeLlista.upperPitch,
       weaponFocus: room.biByeLlista.weaponFocus, focusRevision: room.biByeLlista.focusRevision,
       coupling: room.biByeLlista.coupling, couplingProgress: room.biByeLlista.couplingProgress,
+      couplingReleaseFrom: room.biByeLlista.couplingReleaseFrom,
       couplingStartedAt: room.biByeLlista.couplingStartedAt, couplingEndsAt: room.biByeLlista.couplingEndsAt,
       upperReleasedAt: room.biByeLlista.upperReleasedAt, upperFiredAt: room.biByeLlista.upperFiredAt,
       upperShotKind: room.biByeLlista.upperShotKind, mainReleasedAt: room.biByeLlista.mainReleasedAt, heavyDelayTrippedAt: room.biByeLlista.heavyDelayTrippedAt,

@@ -28,16 +28,17 @@ export function biByeAimPose(b,now=b.poseTime??0){
  const rel=Math.atan2(Math.sin(main-heading),Math.cos(main-heading));
  let yaw=b.mode==='MOBILE'?0:rel,pitch=b.mode==='MOBILE'?0:(b.mainPitch??b.pitch??0);
  if(b.mode==='RETRACTING'){
-  const t=clamp((now-b.modeTransitionStartedAt)/Math.max(.001,b.modeTransitionEndsAt-b.modeTransitionStartedAt));
+  const start=Math.max(b.modeTransitionStartedAt,Math.min(b.couplingEndsAt??b.modeTransitionStartedAt,b.modeTransitionEndsAt-.001));
+  const t=clamp((now-start)/Math.max(.001,b.modeTransitionEndsAt-start));
   yaw=(b.retractAim?.yaw??rel)*(1-t);pitch=(b.retractAim?.pitch??pitch)*(1-t);
  }
- if(b.upperYaw==null)return {mainYaw:yaw,mainPitch:pitch,upperYaw:Math.atan2(Math.sin((b.yaw??heading)-heading),Math.cos((b.yaw??heading)-heading))-yaw,upperPitch:(b.pitch??0)-pitch};
- // Inverse the actual cradle basis instead of subtracting Euler angles. This
+ if(b.upperYaw==null)return {mainYaw:yaw,mainPitch:pitch,upperYaw:Math.atan2(Math.sin((b.yaw??heading)-heading),Math.cos((b.yaw??heading)-heading))-yaw,upperPitch:(b.pitch??0)};
+ // Inverse the actual traverse basis instead of subtracting Euler angles. This
  // keeps rear/side upper aim level even while the lower launcher is elevated.
  const root=frame([0,0,0],[heading+Math.PI,0,0]);
- const traverse=frame([0,0,0],[yaw,0,0],root),cradle=frame([0,0,0],[0,-pitch,0],traverse);
+ const traverse=frame([0,0,0],[yaw,0,0],root);
  const wy=b.upperYaw,wp=b.upperPitch??0,dir=[-Math.sin(wy)*Math.cos(wp),Math.sin(wp),-Math.cos(wy)*Math.cos(wp)];
- const local=cradle.axes.map(axis=>axis.reduce((n,v,i)=>n+v*dir[i],0));
+ const local=traverse.axes.map(axis=>axis.reduce((n,v,i)=>n+v*dir[i],0));
  return {mainYaw:yaw,mainPitch:pitch,upperYaw:Math.atan2(local[0],local[2]),upperPitch:Math.asin(clamp(local[1],-1,1))};
 }
 export function biByeWheelSteering(steer){
@@ -74,27 +75,35 @@ export function biByeFrames(b,now=b.poseTime??0){
  const root=frame([b.x??b.position?.x??0,b.y??b.position?.y??0,b.z??b.position?.z??0],[(b.heading??0)+Math.PI,0,0]);
  const p=biByeAimPose(b,now),traverse=frame([0,1.24,0],[p.mainYaw,0,0],root);
  const cradle=frame([0,.38,-.12],[0,-p.mainPitch,0],traverse);
- const upper=frame([0,.92,.2],[p.upperYaw,-p.upperPitch,0],cradle);
+ const upper=frame([0,1.54,.08],[p.upperYaw,-p.upperPitch,0],traverse);
  return {root,traverse,cradle,upper};
 }
 export function biByeHitVolumes(b,now=b.poseTime??0){
  if(!b)return [];
  const {root,traverse,cradle,upper}=biByeFrames(b,now),result=[];
  const add=(componentId,material,center,size,parent,rotation=[0,0,0],assembly=parent===upper?'upper':parent===cradle?'main':'carriage')=>result.push({...frame(center,rotation,parent),size,assembly,id:'bibye-hit-'+componentId+'-'+result.length,componentId,material,kind:'siege-component'});
- add('hull','timber',[0,.68,-.28],[1.62,1.16,3.85],root);
- if(b.mode==='DESTROYED'){result[0].center=boxWorld(root,[0,.65,0]);result[0].size=[2.46,1.3,3.985];return result;}
+ add('hull','timber',[0,.78,-.07],[2.1,.24,3.42],root);
+ add('hull','timber',[0,.45,-.24],[.34,.4,3.2],root);
+ add('hull','metal',[0,.74,-2.30],[.96,.2,.17],root);
+ add('hull','metal',[0,.77,0],[.28,1.54,.28],traverse);
+ if(b.mode==='DESTROYED'){result.length=1;result[0].center=boxWorld(root,[0,.65,-.374]);result[0].size=[2.46,1.3,4.022];return result;}
  // Small volumes cover actual stocks and mantlets rather than the empty bow span.
  if(b.mode!=='DESTROYED'){
   add('hull','timber',[0,.18,.3],[.32,.35,2.25],cradle);
   for(const sign of [-1,1])add('hull','metal',[sign*.85,.23,1.15],[.55,.8,.22],cradle);
-  add('hull','metal',[0,.16,.03],[.55,.32,1.6],upper);
+  add('hull','metal',[0,.08,.03],[.55,.32,1.6],upper);
   for(const sign of [-1,1]){
    const mainLimb=frame([sign*.88,.18,1.04],[sign*25*DEG,0,0],cradle);
    add('hull','timber',[sign*.84,0,-.02],[1.98,.44,.48],mainLimb,[0,0,0],'main');
-   const upperLimb=frame([sign*.3,.22,.26],[sign*25*DEG,0,0],upper);
+   const upperLimb=frame([sign*.3,.14,.26],[sign*25*DEG,0,0],upper);
    add('hull','metal',[sign*.436,0,-.025],[1.03,.23,.27],upperLimb,[0,0,0],'upper');
   }
-  add('hull','metal',[0,.18,-1.38],[1.98,.71,.44],traverse);
+  add('hull','metal',[0,.2,-.92],[1.61,.61,.5],traverse);result.at(-1).id='bibye-hit-winch';
+  add('hull','metal',[-.42,.53,-.92],[.11,.47,.09],traverse);
+  add('hull','timber',[0,.87,-1.86],[.57,.18,.36],root);result.at(-1).id='bibye-hit-cockpit-seat';
+  add('hull','metal',[0,1.34,-2.07],[.56,.64,.12],root);result.at(-1).id='bibye-hit-cockpit-back';
+  add('hull','metal',[0,.495,-1.49],[.88,.07,.5],root);result.at(-1).id='bibye-hit-cockpit-footrest';
+  for(const x of [-.28,.28])add('hull','metal',[x,.91,-1.44],[.10,.78,.12],root);
  }
  for(const def of BI_BYE_COMPONENTS){
   const p=biByeComponentPose(b,def,now),f=frame(p.pivot,[p.steer,0,p.tilt],root),s=def.side==='L'?-1:1;

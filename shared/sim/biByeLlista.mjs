@@ -1,5 +1,5 @@
 import { biByeWeaponState, requestBiByeIndependent, requestBiByeVolley, stepBiByeWeapons, cancelBiByeCoupling, interruptBiByeSupport } from './biByeWeapons.mjs';
-import { biByeCondition, createBiByeComponents, biByeDeployProgress, biByeAimPose, biByeFrames, biByeFirstHit, biByeBlastAllocations, biByeWheelTravel, biByeWheelSteering } from './biByeComponents.mjs';
+import { biByeCondition, createBiByeComponents, biByeDeployProgress, biByeAimPose, biByeFrames, biByeHitVolumes, biByeFirstHit, biByeBlastAllocations, biByeWheelTravel, biByeWheelSteering } from './biByeComponents.mjs';
 import { boxWorld } from '../src/orientedBox.mjs';
 import { segmentAabbHit, surfaceHeightAt, resolvePlayerWorld } from '../src/collision.mjs';
 import { applyDamage, staggerBy } from './combat.mjs';
@@ -19,19 +19,19 @@ export const BI_BYE_LLISTA_CONFIG = Object.freeze({
     z: -14.6,
     baseYaw: -Math.PI / 2, // Facing East (+X) across the Tourney Field
     interactRadius: 3.2,
-    operatorOffset: Object.freeze({ x: 0, y: 0, z: -2.250 }),
+    operatorOffset: Object.freeze({ x: 0, y: -.05, z: -1.880 }),
   }),
 
   stations: Object.freeze({
-    operator: Object.freeze({ x: 0, y: 0, z: -2.550 }),      // Deployed standing station
-    transportPush: Object.freeze({ x: 0, y: 0, z: -2.250 }), // Mobile transport push station
+    operator: Object.freeze({ x: 0, y: -.05, z: -1.880 }), // Production pelvis [0,1.03,-.02] meets seat anchor.
+    transportPush: Object.freeze({ x: 0, y: -.05, z: -1.880 }), // Same seated cockpit during travel.
   }),
 
   durability: Object.freeze({
     maxHealth: 650,
     radius: 1.6,
-    bounds: Object.freeze({ width: 2.46, height: 1.6, depth: 3.985 }),
-    deployedBounds: Object.freeze({ width: 3.822, height: 1.6, depth: 3.985 }),
+    bounds: Object.freeze({ width: 2.46, height: 1.66, depth: 4.022 }),
+    deployedBounds: Object.freeze({ width: 4.38, height: 1.66, depth: 4.022 }),
   }),
 
   modes: Object.freeze({
@@ -267,23 +267,13 @@ export function sweptSegmentCylinderHit(start, end, cylinder) {
  */
 export function getBiByeSolids(ballista) {
   if (!ballista) return [];
-  const deployed = ballista.mode === BI_BYE_MODES.DEPLOYED || ballista.mode === BI_BYE_MODES.DEPLOYING;
-  const width = deployed ? 3.822 : 2.460;
-  const length = 3.985;
-  const height = 1.6;
-
-  const cos = Math.abs(Math.cos(ballista.heading));
-  const sin = Math.abs(Math.sin(ballista.heading));
-  const sizeX = width * cos + length * sin;
-  const sizeZ = width * sin + length * cos;
-
-  return [{
-    id: 'bibye-chassis-dynamic',
-    center: [ballista.x, ballista.y + height / 2, ballista.z],
-    size: [sizeX, height, sizeZ],
-    material: 'timber',
-    kind: 'siege-chassis',
-  }];
+  // Separate occupied pieces retain the open space around the cockpit and
+  // outriggers. The movement solver accepts AABBs, so conservatively project each OBB.
+  return biByeHitVolumes(ballista).map(box=>({
+    id:box.id,center:box.center,
+    size:[0,1,2].map(axis=>box.axes.reduce((sum,basis,i)=>sum+Math.abs(basis[axis])*box.size[i],0)),
+    material:box.material,kind:'siege-chassis',
+  }));
 }
 
 /**
@@ -407,7 +397,7 @@ export function toggleBiByeDeploy(ballista, nowSec) {
   if (ballista.mode === BI_BYE_MODES.DEPLOYED) {
     // Once the string releases, keep the machine planted through the heavy delay.
     if (ballista.coupling === 'FIRING' && ballista.upperReleasedAt != null) return false;
-    cancelBiByeCoupling(ballista);
+    cancelBiByeCoupling(ballista, nowSec);
     ballista.retractFrom = biByeDeployProgress(ballista, nowSec);
     ballista.retractAim = { yaw: biByeAimPose(ballista, nowSec).mainYaw, pitch: biByeAimPose(ballista, nowSec).mainPitch };
     ballista.mode = BI_BYE_MODES.RETRACTING;
@@ -453,7 +443,7 @@ export function damageBiByeLlista(room, ballista, amount, attackerId, source, no
       ballista.mode = BI_BYE_MODES.RETRACTING;
       ballista.modeTransitionStartedAt = nowSec;
       ballista.modeTransitionEndsAt = nowSec + Math.max(.1,progress * BI_BYE_LLISTA_CONFIG.timing.retractDurationSec);
-      interruptBiByeSupport(ballista);
+      interruptBiByeSupport(ballista, nowSec);
       room.events?.push({type:'bibyeSupportFailed',ballistaId:ballista.id,at:nowSec});
     }
   }
@@ -525,7 +515,7 @@ export function biByeCoupledAim(b, range = 35) {
 export function getBiByeMuzzlePosition(ballista, subKind, aim = null) {
   const copy = biByeAimedCopy(ballista, subKind, aim);
   const frames = biByeFrames(copy);
-  const point = subKind === 'conditioning' ? boxWorld(frames.upper,[0,.245,.84]) : boxWorld(frames.cradle,[0,.215,1.64]);
+  const point = subKind === 'conditioning' ? boxWorld(frames.upper,[0,.165,.84]) : boxWorld(frames.cradle,[0,.215,1.64]);
   return {x:point[0],y:point[1],z:point[2]};
 }
 

@@ -1,0 +1,684 @@
+{
+  "damaged": {
+    "asset": "BiBye_Authored_Asset_v4_1",
+    "intact": false,
+    "damaged": true,
+    "scale": [
+      1,
+      1,
+      1
+    ]
+  },
+  "dismount": {
+    "pos": {
+      "x": 6,
+      "y": 0,
+      "z": -14.6
+    },
+    "alive": true,
+    "mounted": null,
+    "seated": false,
+    "originalSword": true,
+    "stowed": false
+  },
+  "partial": {
+    "components": {
+      "Wheel_FL": {
+        "health": 0,
+        "maxHealth": 120,
+        "failedAt": 17.2355,
+        "lastHitAt": 17.2355
+      },
+      "Wheel_FR": {
+        "health": 120,
+        "maxHealth": 120,
+        "failedAt": null
+      },
+      "Wheel_ML": {
+        "health": 120,
+        "maxHealth": 120,
+        "failedAt": null
+      },
+      "Wheel_MR": {
+        "health": 120,
+        "maxHealth": 120,
+        "failedAt": null
+      },
+      "Wheel_RL": {
+        "health": 120,
+        "maxHealth": 120,
+        "failedAt": null
+      },
+      "Wheel_RR": {
+        "health": 120,
+        "maxHealth": 120,
+        "failedAt": null
+      },
+      "Stabilizer_FL": {
+        "health": 150,
+        "maxHealth": 150,
+        "failedAt": null
+      },
+      "Stabilizer_FR": {
+        "health": 150,
+        "maxHealth": 150,
+        "failedAt": null
+      },
+      "Stabilizer_RL": {
+        "health": 150,
+        "maxHealth": 150,
+        "failedAt": null
+      },
+      "Stabilizer_RR": {
+        "health": 150,
+        "maxHealth": 150,
+        "failedAt": null
+      }
+    },
+    "health": 650,
+    "shot": 26.47339999961853
+  },
+  "wreck": {
+    "mode": "DESTROYED",
+    "health": 0,
+    "operator": null,
+    "elapsed": 3.019900000572207
+  },
+  "events": [
+    {
+      "type": "bibyeDamaged",
+      "ballistaId": "bibye-practice-01",
+      "componentId": "Wheel_FL",
+      "amount": 25,
+      "health": 95,
+      "attackerId": "f650ea28-29b1-46d7-99ff-094523a15893",
+      "source": "sword",
+      "material": "timber",
+      "point": {
+        "x": 10.797885416778156,
+        "y": 0.49573605699292933,
+        "z": -13.253
+      },
+      "at": 14.296
+    },
+    {
+      "type": "bibyeDamaged",
+      "ballistaId": "bibye-practice-01",
+      "componentId": "Wheel_FL",
+      "amount": 25,
+      "health": 70,
+      "attackerId": "f650ea28-29b1-46d7-99ff-094523a15893",
+      "source": "sword",
+      "material": "timber",
+      "point": {
+        "x": 10.797759192354434,
+        "y": 0.4959344369817278,
+        "z": -13.25259853388638
+      },
+      "at": 15.02289999961853
+    },
+    {
+      "type": "bibyeDamaged",
+      "ballistaId": "bibye-practice-01",
+      "componentId": "Wheel_FL",
+      "amount": 25,
+      "health": 45,
+      "attackerId": "f650ea28-29b1-46d7-99ff-094523a15893",
+      "source": "sword",
+      "material": "timber",
+      "point": {
+        "x": 10.793256857192135,
+        "y": 0.495078666008153,
+        "z": -13.25217008092076
+      },
+      "at": 15.820199999809265
+    },
+    {
+      "type": "bibyeDamaged",
+      "ballistaId": "bibye-practice-01",
+      "componentId": "Wheel_FL",
+      "amount": 25,
+      "health": 20,
+      "attackerId": "f650ea28-29b1-46d7-99ff-094523a15893",
+      "source": "sword",
+      "material": "timber",
+      "point": {
+        "x": 10.794652548306427,
+        "y": 0.49566188652639775,
+        "z": -13.251746073033303
+      },
+      "at": 16.543699999809267
+    },
+    {
+      "type": "bibyeDamaged",
+      "ballistaId": "bibye-practice-01",
+      "componentId": "Wheel_FL",
+      "amount": 20,
+      "health": 0,
+      "attackerId": "f650ea28-29b1-46d7-99ff-094523a15893",
+      "source": "sword",
+      "material": "timber",
+      "point": {
+        "x": 10.795535512630835,
+        "y": 0.49612526934539647,
+        "z": -13.251312472491813
+      },
+      "at": 17.2355
+    },
+    {
+      "type": "bibyeComponentFailed",
+      "ballistaId": "bibye-practice-01",
+      "componentId": "Wheel_FL",
+      "point": {
+        "x": 10.795535512630835,
+        "y": 0.49612526934539647,
+        "z": -13.251312472491813
+      },
+      "at": 17.2355
+    },
+    {
+      "type": "bibyeMobileFireTriggered",
+      "ballistaId": "bibye-practice-01",
+      "at": 26.27339999961853,
+      "operatorId": "f650ea28-29b1-46d7-99ff-094523a15893",
+      "aim": {
+        "yaw": -0.24434609527920548,
+        "pitch": 0.10079999999999999
+      }
+    },
+    {
+      "type": "bibyeBoltSpawned",
+      "projectile": {
+        "id": "bibye-bolt-1",
+        "kind": "bibye",
+        "subKind": "conditioning",
+        "ballistaId": "bibye-practice-01",
+        "ownerId": "f650ea28-29b1-46d7-99ff-094523a15893",
+        "position": {
+          "x": 9.278166037387898,
+          "y": 3.028691142600925,
+          "z": -15.394800564429735
+        },
+        "velocity": {
+          "x": 11.553306972283968,
+          "y": 4.8302106214776925,
+          "z": -46.33778332372341
+        },
+        "bornAt": 26.47339999961853,
+        "radius": 0.6,
+        "blastRadius": 2,
+        "directDamage": 18,
+        "edgeDamage": 12,
+        "maxStaminaDrain": 22
+      },
+      "at": 26.47339999961853
+    },
+    {
+      "type": "bibyeFired",
+      "ballistaId": "bibye-practice-01",
+      "at": 26.47339999961853,
+      "operatorId": "f650ea28-29b1-46d7-99ff-094523a15893",
+      "shot": "I_MOBILE"
+    },
+    {
+      "type": "bibyeUpperRecocked",
+      "ballistaId": "bibye-practice-01",
+      "at": 28.97339999961853
+    },
+    {
+      "type": "bibyeDamaged",
+      "ballistaId": "bibye-practice-01",
+      "componentId": "hull",
+      "amount": 24,
+      "health": 626,
+      "attackerId": "f650ea28-29b1-46d7-99ff-094523a15893",
+      "source": "sword",
+      "material": "metal",
+      "point": {
+        "x": 7.75,
+        "y": 1.3769652069603593,
+        "z": -13.7220877182174
+      },
+      "at": 31.22639999961853
+    },
+    {
+      "type": "bibyeDamaged",
+      "ballistaId": "bibye-practice-01",
+      "componentId": "hull",
+      "amount": 24,
+      "health": 602,
+      "attackerId": "f650ea28-29b1-46d7-99ff-094523a15893",
+      "source": "sword",
+      "material": "metal",
+      "point": {
+        "x": 7.75,
+        "y": 1.3769652069603593,
+        "z": -13.7220877182174
+      },
+      "at": 31.951600000381468
+    },
+    {
+      "type": "bibyeDamaged",
+      "ballistaId": "bibye-practice-01",
+      "componentId": "hull",
+      "amount": 24,
+      "health": 578,
+      "attackerId": "f650ea28-29b1-46d7-99ff-094523a15893",
+      "source": "sword",
+      "material": "metal",
+      "point": {
+        "x": 7.75,
+        "y": 1.3769652069603593,
+        "z": -13.7220877182174
+      },
+      "at": 32.67769999980926
+    },
+    {
+      "type": "bibyeDamaged",
+      "ballistaId": "bibye-practice-01",
+      "componentId": "hull",
+      "amount": 24,
+      "health": 554,
+      "attackerId": "f650ea28-29b1-46d7-99ff-094523a15893",
+      "source": "sword",
+      "material": "metal",
+      "point": {
+        "x": 7.75,
+        "y": 1.3769652069603593,
+        "z": -13.7220877182174
+      },
+      "at": 33.37030000019074
+    },
+    {
+      "type": "bibyeDamaged",
+      "ballistaId": "bibye-practice-01",
+      "componentId": "hull",
+      "amount": 24,
+      "health": 530,
+      "attackerId": "f650ea28-29b1-46d7-99ff-094523a15893",
+      "source": "sword",
+      "material": "metal",
+      "point": {
+        "x": 7.75,
+        "y": 1.3769652069603593,
+        "z": -13.7220877182174
+      },
+      "at": 34.11589999961853
+    },
+    {
+      "type": "bibyeDamaged",
+      "ballistaId": "bibye-practice-01",
+      "componentId": "hull",
+      "amount": 24,
+      "health": 506,
+      "attackerId": "f650ea28-29b1-46d7-99ff-094523a15893",
+      "source": "sword",
+      "material": "metal",
+      "point": {
+        "x": 7.75,
+        "y": 1.3769652069603593,
+        "z": -13.7220877182174
+      },
+      "at": 34.823
+    },
+    {
+      "type": "bibyeDamaged",
+      "ballistaId": "bibye-practice-01",
+      "componentId": "hull",
+      "amount": 24,
+      "health": 482,
+      "attackerId": "f650ea28-29b1-46d7-99ff-094523a15893",
+      "source": "sword",
+      "material": "metal",
+      "point": {
+        "x": 7.75,
+        "y": 1.3769652069603593,
+        "z": -13.7220877182174
+      },
+      "at": 35.57739999961853
+    },
+    {
+      "type": "bibyeDamaged",
+      "ballistaId": "bibye-practice-01",
+      "componentId": "hull",
+      "amount": 24,
+      "health": 458,
+      "attackerId": "f650ea28-29b1-46d7-99ff-094523a15893",
+      "source": "sword",
+      "material": "metal",
+      "point": {
+        "x": 7.75,
+        "y": 1.3769652069603593,
+        "z": -13.7220877182174
+      },
+      "at": 36.28660000038147
+    },
+    {
+      "type": "bibyeDamaged",
+      "ballistaId": "bibye-practice-01",
+      "componentId": "hull",
+      "amount": 24,
+      "health": 434,
+      "attackerId": "f650ea28-29b1-46d7-99ff-094523a15893",
+      "source": "sword",
+      "material": "metal",
+      "point": {
+        "x": 7.75,
+        "y": 1.3769652069603593,
+        "z": -13.7220877182174
+      },
+      "at": 36.975300000190735
+    },
+    {
+      "type": "bibyeDamaged",
+      "ballistaId": "bibye-practice-01",
+      "componentId": "hull",
+      "amount": 24,
+      "health": 410,
+      "attackerId": "f650ea28-29b1-46d7-99ff-094523a15893",
+      "source": "sword",
+      "material": "metal",
+      "point": {
+        "x": 7.75,
+        "y": 1.3769652069603593,
+        "z": -13.7220877182174
+      },
+      "at": 37.69519999980926
+    },
+    {
+      "type": "bibyeDamaged",
+      "ballistaId": "bibye-practice-01",
+      "componentId": "hull",
+      "amount": 24,
+      "health": 386,
+      "attackerId": "f650ea28-29b1-46d7-99ff-094523a15893",
+      "source": "sword",
+      "material": "metal",
+      "point": {
+        "x": 7.75,
+        "y": 1.3769652069603593,
+        "z": -13.7220877182174
+      },
+      "at": 38.44189999961853
+    },
+    {
+      "type": "bibyeDamaged",
+      "ballistaId": "bibye-practice-01",
+      "componentId": "hull",
+      "amount": 24,
+      "health": 362,
+      "attackerId": "f650ea28-29b1-46d7-99ff-094523a15893",
+      "source": "sword",
+      "material": "metal",
+      "point": {
+        "x": 7.75,
+        "y": 1.3769652069603593,
+        "z": -13.7220877182174
+      },
+      "at": 39.15619999980927
+    },
+    {
+      "type": "bibyeDamaged",
+      "ballistaId": "bibye-practice-01",
+      "componentId": "hull",
+      "amount": 24,
+      "health": 338,
+      "attackerId": "f650ea28-29b1-46d7-99ff-094523a15893",
+      "source": "sword",
+      "material": "metal",
+      "point": {
+        "x": 7.75,
+        "y": 1.3769652069603593,
+        "z": -13.7220877182174
+      },
+      "at": 39.871199999809264
+    },
+    {
+      "type": "bibyeDamaged",
+      "ballistaId": "bibye-practice-01",
+      "componentId": "hull",
+      "amount": 24,
+      "health": 314,
+      "attackerId": "f650ea28-29b1-46d7-99ff-094523a15893",
+      "source": "sword",
+      "material": "metal",
+      "point": {
+        "x": 7.75,
+        "y": 1.3769652069603593,
+        "z": -13.7220877182174
+      },
+      "at": 40.601
+    },
+    {
+      "type": "bibyeDamaged",
+      "ballistaId": "bibye-practice-01",
+      "componentId": "hull",
+      "amount": 24,
+      "health": 290,
+      "attackerId": "f650ea28-29b1-46d7-99ff-094523a15893",
+      "source": "sword",
+      "material": "metal",
+      "point": {
+        "x": 7.75,
+        "y": 1.3769652069603593,
+        "z": -13.7220877182174
+      },
+      "at": 41.324800000190734
+    },
+    {
+      "type": "bibyeDamaged",
+      "ballistaId": "bibye-practice-01",
+      "componentId": "hull",
+      "amount": 24,
+      "health": 266,
+      "attackerId": "f650ea28-29b1-46d7-99ff-094523a15893",
+      "source": "sword",
+      "material": "metal",
+      "point": {
+        "x": 7.75,
+        "y": 1.3769652069603593,
+        "z": -13.7220877182174
+      },
+      "at": 42.01760000038147
+    },
+    {
+      "type": "bibyeDamaged",
+      "ballistaId": "bibye-practice-01",
+      "componentId": "hull",
+      "amount": 24,
+      "health": 242,
+      "attackerId": "f650ea28-29b1-46d7-99ff-094523a15893",
+      "source": "sword",
+      "material": "metal",
+      "point": {
+        "x": 7.75,
+        "y": 1.3769652069603593,
+        "z": -13.7220877182174
+      },
+      "at": 42.74380000019074
+    },
+    {
+      "type": "bibyeDamaged",
+      "ballistaId": "bibye-practice-01",
+      "componentId": "hull",
+      "amount": 24,
+      "health": 218,
+      "attackerId": "f650ea28-29b1-46d7-99ff-094523a15893",
+      "source": "sword",
+      "material": "metal",
+      "point": {
+        "x": 7.75,
+        "y": 1.3769652069603593,
+        "z": -13.7220877182174
+      },
+      "at": 43.45780000019074
+    },
+    {
+      "type": "bibyeDamaged",
+      "ballistaId": "bibye-practice-01",
+      "componentId": "hull",
+      "amount": 24,
+      "health": 194,
+      "attackerId": "f650ea28-29b1-46d7-99ff-094523a15893",
+      "source": "sword",
+      "material": "metal",
+      "point": {
+        "x": 7.75,
+        "y": 1.3769652069603593,
+        "z": -13.7220877182174
+      },
+      "at": 44.19480000019073
+    },
+    {
+      "type": "bibyeDamaged",
+      "ballistaId": "bibye-practice-01",
+      "componentId": "hull",
+      "amount": 24,
+      "health": 170,
+      "attackerId": "f650ea28-29b1-46d7-99ff-094523a15893",
+      "source": "sword",
+      "material": "metal",
+      "point": {
+        "x": 7.75,
+        "y": 1.3769652069603593,
+        "z": -13.7220877182174
+      },
+      "at": 44.92319999980926
+    },
+    {
+      "type": "bibyeDamaged",
+      "ballistaId": "bibye-practice-01",
+      "componentId": "hull",
+      "amount": 24,
+      "health": 146,
+      "attackerId": "f650ea28-29b1-46d7-99ff-094523a15893",
+      "source": "sword",
+      "material": "metal",
+      "point": {
+        "x": 7.75,
+        "y": 1.3769652069603593,
+        "z": -13.7220877182174
+      },
+      "at": 45.62069999980927
+    },
+    {
+      "type": "bibyeDamaged",
+      "ballistaId": "bibye-practice-01",
+      "componentId": "hull",
+      "amount": 24,
+      "health": 122,
+      "attackerId": "f650ea28-29b1-46d7-99ff-094523a15893",
+      "source": "sword",
+      "material": "metal",
+      "point": {
+        "x": 7.75,
+        "y": 1.3769652069603593,
+        "z": -13.7220877182174
+      },
+      "at": 46.347
+    },
+    {
+      "type": "bibyeDamaged",
+      "ballistaId": "bibye-practice-01",
+      "componentId": "hull",
+      "amount": 24,
+      "health": 98,
+      "attackerId": "f650ea28-29b1-46d7-99ff-094523a15893",
+      "source": "sword",
+      "material": "metal",
+      "point": {
+        "x": 7.75,
+        "y": 1.3769652069603593,
+        "z": -13.7220877182174
+      },
+      "at": 47.06810000038147
+    },
+    {
+      "type": "bibyeDamaged",
+      "ballistaId": "bibye-practice-01",
+      "componentId": "hull",
+      "amount": 24,
+      "health": 74,
+      "attackerId": "f650ea28-29b1-46d7-99ff-094523a15893",
+      "source": "sword",
+      "material": "metal",
+      "point": {
+        "x": 7.75,
+        "y": 1.3769652069603593,
+        "z": -13.7220877182174
+      },
+      "at": 47.792300000190735
+    },
+    {
+      "type": "bibyeDamaged",
+      "ballistaId": "bibye-practice-01",
+      "componentId": "hull",
+      "amount": 24,
+      "health": 50,
+      "attackerId": "f650ea28-29b1-46d7-99ff-094523a15893",
+      "source": "sword",
+      "material": "metal",
+      "point": {
+        "x": 7.75,
+        "y": 1.3769652069603593,
+        "z": -13.7220877182174
+      },
+      "at": 48.52610000038147
+    },
+    {
+      "type": "bibyeDamaged",
+      "ballistaId": "bibye-practice-01",
+      "componentId": "hull",
+      "amount": 24,
+      "health": 26,
+      "attackerId": "f650ea28-29b1-46d7-99ff-094523a15893",
+      "source": "sword",
+      "material": "metal",
+      "point": {
+        "x": 7.75,
+        "y": 1.3769652069603593,
+        "z": -13.7220877182174
+      },
+      "at": 49.243
+    },
+    {
+      "type": "bibyeDamaged",
+      "ballistaId": "bibye-practice-01",
+      "componentId": "hull",
+      "amount": 24,
+      "health": 2,
+      "attackerId": "f650ea28-29b1-46d7-99ff-094523a15893",
+      "source": "sword",
+      "material": "metal",
+      "point": {
+        "x": 7.75,
+        "y": 1.3769652069603593,
+        "z": -13.7220877182174
+      },
+      "at": 49.969899999618534
+    },
+    {
+      "type": "bibyeDamaged",
+      "ballistaId": "bibye-practice-01",
+      "componentId": "hull",
+      "amount": 2,
+      "health": 0,
+      "attackerId": "f650ea28-29b1-46d7-99ff-094523a15893",
+      "source": "sword",
+      "material": "metal",
+      "point": {
+        "x": 7.75,
+        "y": 1.3769652069603593,
+        "z": -13.7220877182174
+      },
+      "at": 50.66239999961853
+    },
+    {
+      "type": "bibyeDestroyed",
+      "ballistaId": "bibye-practice-01",
+      "killerId": "f650ea28-29b1-46d7-99ff-094523a15893",
+      "at": 50.66239999961853
+    }
+  ],
+  "errors": []
+}

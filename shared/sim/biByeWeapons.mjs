@@ -1,11 +1,11 @@
 import { biByeCondition } from './biByeComponents.mjs';
 
 // Gameplay does not depend on an asynchronously loaded visual asset. The current
-// GLB is a temporary presentation candidate; final 360 degree clearance is pending.
+// authored asset can load late without changing aim, ammunition or release clocks.
 export const BI_BYE_WEAPONS = Object.freeze({
   upperRecock: 2.5, independentWindup: .2, upperRelease: .45,
   heavyDelay: .2, recovery: 2.2, heavyReload: 4.5,
-  turnRate: Math.PI * 2 / 3, latchDuration: .18, releaseDuration: .12,
+  turnRate: Math.PI * 2 / 3, latchDuration: .6, releaseDuration: .6,
 });
 export const wrapBiByeAngle = angle => Math.atan2(Math.sin(angle), Math.cos(angle));
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -13,22 +13,28 @@ const approach=(a,b,amount)=>a+clamp(wrapBiByeAngle(b-a),-amount,amount);
 const event=(room,b,type,at,extra={})=>room.events?.push({type,ballistaId:b.id,at,...extra});
 const ready=(b,now)=>now+1e-8>=b.smallBoltReadyAt&&b.mobileShotPendingAt==null;
 const supported=b=>b.mode==='DEPLOYED'&&biByeCondition(b).canSiege;
-const busy=b=>['ALIGNING','ENGAGING','COUPLED','FIRING'].includes(b.coupling);
+const busy=b=>['ALIGNING','ENGAGING','COUPLED','FIRING','RELEASING'].includes(b.coupling);
 
 export function biByeWeaponState(heading) {
   return {mainYaw:heading,mainPitch:0,upperYaw:heading,upperPitch:0,
     weaponFocus:'UPPER',focusRevision:0,coupling:'INDEPENDENT',couplingProgress:0,
-    couplingStartedAt:null,couplingEndsAt:null,pendingVolley:null,upperReleasedAt:null,
+    couplingStartedAt:null,couplingEndsAt:null,couplingReleaseFrom:1,pendingVolley:null,upperReleasedAt:null,upperReadyAnnouncedAt:null,
     heavyDelayTrippedAt:null,mainReleasedAt:null,upperFiredAt:null,upperShotKind:null};
 }
 
 // Before the first release, no ammunition has left either weapon. After it,
 // operator interruption cannot undo the mechanical delay catch.
-export function cancelBiByeCoupling(b) {
+function releaseClutch(b,now,from=1){
+  b.coupling='RELEASING';b.couplingReleaseFrom=from;
+  b.couplingStartedAt=now;b.couplingEndsAt=now+BI_BYE_WEAPONS.releaseDuration*from;
+}
+export function cancelBiByeCoupling(b,now=b.poseTime??0) {
   if(b.coupling==='FIRING'&&b.upperReleasedAt!=null)return false;
-  if(!busy(b))return true;
-  b.pendingVolley=null;b.coupling='INDEPENDENT';b.couplingProgress=0;
-  b.couplingStartedAt=null;b.couplingEndsAt=null;
+  if(!busy(b)||b.coupling==='RELEASING')return true;
+  const from=b.coupling==='ENGAGING'?clamp((now-b.couplingStartedAt)/BI_BYE_WEAPONS.latchDuration,0,1):b.coupling==='ALIGNING'?0:1;
+  b.pendingVolley=null;b.couplingProgress=0;
+  if(from>0)releaseClutch(b,now,from);
+  else {b.coupling='INDEPENDENT';b.couplingStartedAt=null;b.couplingEndsAt=null;}
   b.shotIPendingAt=Infinity;b.shotIIPendingAt=Infinity;b.committedAim=null;
   if(b.state==='FIRING'){b.state='LOADED';b.upperFiredAt=null;b.upperShotKind=null;}
   return true;
@@ -36,7 +42,7 @@ export function cancelBiByeCoupling(b) {
 export function setBiByeWeaponFocus(b,focus,now=0) {
   if(!b||b.mode!=='DEPLOYED'||!['MAIN','UPPER'].includes(focus))return false;
   if(focus===b.weaponFocus)return true;
-  if(focus==='UPPER')cancelBiByeCoupling(b);
+  if(focus==='UPPER')cancelBiByeCoupling(b,now);
   b.weaponFocus=focus;b.focusRevision=(b.focusRevision??0)+1;
   b.yaw=focus==='UPPER'?b.upperYaw:b.mainYaw;
   b.pitch=focus==='UPPER'?b.upperPitch:b.mainPitch;
@@ -59,18 +65,18 @@ export function requestBiByeVolley(room,b,now) {
   event(room,b,'bibyeAlignmentStarted',now);
   return true;
 }
-export function interruptBiByeSupport(b) {
+export function interruptBiByeSupport(b,now=b.poseTime??0) {
   if(b.coupling==='FIRING'&&b.upperReleasedAt!=null){
-    b.shotIIPendingAt=Infinity;b.coupling='RELEASING';b.couplingEndsAt=b.upperReleasedAt+BI_BYE_WEAPONS.heavyDelay;
+    b.shotIIPendingAt=Infinity;releaseClutch(b,now);
     b.state='LOADED';b.pendingVolley=null; // Heavy ammunition never discharged.
-  }else cancelBiByeCoupling(b);
+  }else cancelBiByeCoupling(b,now);
 }
 
 export function stepBiByeWeapons(room,b,dt,now,{shotI,shotII,coupledAim}={}) {
   if(b.mode==='DESTROYED')return;
   const op=room.players?.get(b.operatorId),input=op?.alive?op.input??{}:{};
   if(b.mode!=='DEPLOYED'&&b.weaponFocus!=='UPPER'){
-    b.weaponFocus='UPPER';b.focusRevision++;cancelBiByeCoupling(b);
+    b.weaponFocus='UPPER';b.focusRevision++;cancelBiByeCoupling(b,now);
   }
   const locked=busy(b);
   if(b.mode==='MOBILE') { b.mainYaw=b.heading;b.mainPitch=0; }
@@ -87,7 +93,7 @@ export function stepBiByeWeapons(room,b,dt,now,{shotI,shotII,coupledAim}={}) {
   }
   if(['ALIGNING','ENGAGING','COUPLED'].includes(b.coupling)){
     const pending=b.pendingVolley;
-    if(!pending||!supported(b)||!op?.alive||op.id!==pending.operatorId||!ready(b,now)||!b.mainBoltLoaded){cancelBiByeCoupling(b);}
+    if(!pending||!supported(b)||!op?.alive||op.id!==pending.operatorId||!ready(b,now)||!b.mainBoltLoaded){cancelBiByeCoupling(b,now);}
     else {
       b.mainYaw=pending.yaw;b.mainPitch=pending.pitch;
       const target=coupledAim?.(b)??pending;
@@ -116,7 +122,7 @@ export function stepBiByeWeapons(room,b,dt,now,{shotI,shotII,coupledAim}={}) {
     event(room,b,'bibyeFired',releasedAt,{operatorId:b.mobileOperatorId,shot:'I_MOBILE'});
   }
   if(b.coupling==='FIRING'){
-    if(b.upperReleasedAt==null&&(!supported(b)||!op?.alive||op.id!==b.firingOperatorId)){cancelBiByeCoupling(b);}
+    if(b.upperReleasedAt==null&&(!supported(b)||!op?.alive||op.id!==b.firingOperatorId)){cancelBiByeCoupling(b,now);}
     else if(b.upperReleasedAt==null&&now+1e-8>=b.shotIPendingAt){
       const releasedAt=b.shotIPendingAt;
       shotI?.(room,b,b.committedAim,releasedAt,b.firingOperatorId);
@@ -127,18 +133,21 @@ export function stepBiByeWeapons(room,b,dt,now,{shotI,shotII,coupledAim}={}) {
       event(room,b,'bibyeFired',releasedAt,{operatorId:b.firingOperatorId,shot:'I'});
       event(room,b,'bibyeHeavyDelayTripped',releasedAt);
     }
-    if(b.upperReleasedAt!=null&&!supported(b))interruptBiByeSupport(b);
+    if(b.upperReleasedAt!=null&&!supported(b))interruptBiByeSupport(b,now);
     else if(b.upperReleasedAt!=null&&now+1e-8>=b.shotIIPendingAt){
       const releasedAt=b.shotIIPendingAt;
       shotII?.(room,b,b.committedAim,releasedAt);b.shotIIPendingAt=Infinity;
       b.mainReleasedAt=releasedAt;b.mainBoltLoaded=false;b.state='SPENT';b.reloadStartedAt=b.firedAt+BI_BYE_WEAPONS.recovery;
       b.reloadEndsAt=b.reloadStartedAt+BI_BYE_WEAPONS.heavyReload;
-      b.coupling='RELEASING';b.couplingEndsAt=now+BI_BYE_WEAPONS.releaseDuration;b.pendingVolley=null;
+      releaseClutch(b,releasedAt);b.pendingVolley=null;
       event(room,b,'bibyeFired',releasedAt,{operatorId:b.firingOperatorId,shot:'II'});
     }
   }
   if(b.coupling==='RELEASING'&&now+1e-8>=b.couplingEndsAt){b.coupling='INDEPENDENT';b.couplingProgress=0;event(room,b,'bibyeCouplingReleased',now);}
   if(b.state==='SPENT'&&now+1e-8>=b.reloadStartedAt){b.state='RELOADING';event(room,b,'bibyeReloadStarted',now,{durationSec:BI_BYE_WEAPONS.heavyReload});}
   if(b.state==='RELOADING'&&now+1e-8>=b.reloadEndsAt){b.state='LOADED';b.mainBoltLoaded=true;event(room,b,'bibyeReloadCompleted',now);}
+  if(b.upperReleasedAt!=null&&now+1e-8>=b.smallBoltReadyAt&&b.upperReadyAnnouncedAt!==b.smallBoltReadyAt){
+    b.upperReadyAnnouncedAt=b.smallBoltReadyAt;event(room,b,'bibyeUpperRecocked',b.smallBoltReadyAt);
+  }
   b.yaw=b.weaponFocus==='MAIN'?b.mainYaw:b.upperYaw;b.pitch=b.weaponFocus==='MAIN'?b.mainPitch:b.upperPitch;
 }

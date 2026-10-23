@@ -10,8 +10,8 @@ import { stepRoom } from '../../shared/sim/combat.mjs';
 function fireBiByeLlista(room,b,t){
  if(b.mode!=='DEPLOYED')return requestFire(room,b,t);
  const target=biByeCoupledAim(b);b.upperYaw=target.yaw;b.upperPitch=target.pitch;
- const accepted=requestFire(room,b,t-.2);
- if(accepted){stepBiByeLlista(room,b,.001,t-.2);stepBiByeLlista(room,b,.001,t);}
+ const accepted=requestFire(room,b,t-.6);
+ if(accepted){stepBiByeLlista(room,b,.001,t-.6);stepBiByeLlista(room,b,.001,t);}
  return accepted;
 }
 function setup() {

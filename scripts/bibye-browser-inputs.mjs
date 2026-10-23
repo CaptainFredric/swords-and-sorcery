@@ -11,6 +11,7 @@ export const state = page => page.evaluate(() => {
   return { player: r?.localAuth, ballista: b, yaw: r?.input.yaw, pitch: r?.input.pitch,
     enabled: r?.input.enabled, pointer: !!document.pointerLockElement,
     action: r?.world?.biByeLlista?.activeActionName,
+    upperAction: r?.world?.biByeLlista?.upperAction?.getClip().name,
     camera: r?.camera?.position.toArray(), cameraView: r?.siegeView,
     authored: r?.world?.biByeLlista?.authoredModel?.name,
     projectiles: r?.latestSnapshot?.bibyeProjectiles,
@@ -70,7 +71,7 @@ export async function walkTo(page, x, z) {
 }
 export async function approach(page) {
   await focus(page);
-  for (const [x,z] of [[0,-4.5],[13.8,-4.5],[13.8,-10],[9,-12.0]]) await walkTo(page,x,z);
+  for (const [x,z] of [[0,-4.5],[13.8,-4.5],[13.8,-10],[9,-11.5]]) await walkTo(page,x,z);
   return state(page);
 }
 export async function capture(page, filename, folder = new URL('../output/playwright/bi-bye-v32', import.meta.url).pathname) {
@@ -110,7 +111,7 @@ export async function mobileAndViews(page) {
   s=await capture(page,'02-mobile-sight.png');
   assert.equal(s.cameraView,'sight');
   await page.keyboard.press('f');
-  await waitFor(page,s=>s.action==='09_BiBye_Mobile_Shot1_Fire','mobile fire animation');
+  await waitFor(page,s=>s.upperAction==='09_BiBye_Mobile_Shot1_Fire_Upper','mobile fire animation');
   await page.waitForTimeout(260);
   s=await capture(page,'03-mobile-recoil.png');
   await waitFor(page,s=>s.ballista.smallBoltReady,'mobile recock');

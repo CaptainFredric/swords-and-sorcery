@@ -1,3 +1,5 @@
+> Historical preparation plan. The delivered v4.1 integration is documented in [the current contract](../art/bi-bye-independent-contract.md) and [evidence](../evidence/bibye-v41/README.md).
+
 # Independent BiBye weapons
 
 Objective: extend the merged PR 218 foundation in a focused followup draft with independent upper firing, deterministic mechanical coupling, independent authoritative clocks and concurrent presentation. Preserve damage, movement and projectile combat values.

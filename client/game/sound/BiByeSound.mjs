@@ -18,7 +18,8 @@ export function biByeRecipe(kind,rand=Math.random){
   wreck:[noise(380,.65,.62),noise(1700,.3,.3),thud(58,.8,.8),...ticks(7,.09,1300,.18)],
   creak:[noise(260,.28,.13,0,'bandpass',5),noise(380,.21,.10,.06,'bandpass',7)],
   latch:[noise(2200,.025,.21),thud(240,.08,.25)],
-  delay:[noise(2800,.02,.13),ring(rand,580,{decay:.15,gain:.035,partials:2})],
+  delay:[noise(2800,.02,.13),ring(rand,580,{decay:.15,gain:.035,partials:2}),...ticks(3,.06,2500,.055)],
+  upperCatch:[noise(2850,.025,.15),thud(310,.065,.16)],
   release:[noise(1500,.04,.17),thud(180,.06,.13)],
   frost:[noise(2300,.3,.33),noise(5400,.12,.12),ring(rand,1100,{decay:.38,gain:.055,partials:3})],
   siegeImpact:[...wood,noise(2200,.09,.38),thud(72,.35,.55)],
@@ -31,10 +32,10 @@ export function biByeLoopSamples(kind,rate=22050,seconds=2,rand=Math.random){
  const result=new Float32Array(Math.floor(rate*seconds));let low=0;
  for(let i=0;i<result.length;i++){
   const t=i/rate,white=rand()*2-1;low=.94*low+.06*white;
-  const phase=(t*(kind==='roll'?6:9))%1;
+  const phase=(t*(kind==='roll'?6:kind==='recock'?14:9))%1;
   const contact=Math.exp(-phase*(kind==='roll'?24:45));
   const seam=Math.min(1,i/(rate*.02),(result.length-1-i)/(rate*.02));
-  result[i]=seam*(kind==='roll'?(low*.28+contact*Math.sin(2*Math.PI*91*t)*.12):contact*(white*.12+Math.sin(2*Math.PI*430*t)*.08));
+  result[i]=seam*(kind==='roll'?(low*.28+contact*Math.sin(2*Math.PI*91*t)*.12):contact*(white*.12+Math.sin(2*Math.PI*(kind==='recock'?850:430)*t)*.08));
  }return result;
 }
 export class BiByeSound {
@@ -67,8 +68,10 @@ export class BiByeSound {
   const turn=last ? Math.abs(Math.atan2(Math.sin((b.upperYaw??b.yaw)-(last.upperYaw??last.yaw)),Math.cos((b.upperYaw??b.yaw)-(last.upperYaw??last.yaw))))/elapsed : 0;
   this.#loop('turn',owned&&turn>.035,b,Math.min(.16,turn*.12),Math.max(.6,Math.min(1.4,turn/.8)));
   this.poseAt=options.now;
-  const recock=b.mobileFiredAt!=null&&options.now>b.mobileFiredAt+.85&&options.now<b.smallBoltReadyAt;
-  this.#loop('winch',owned&&(b.state==='RELOADING'||recock),b,.25);
+  const upper=b.upperFiredAt??b.mobileFiredAt;
+  const recock=upper!=null&&options.now>upper+.85&&options.now<b.smallBoltReadyAt;
+  this.#loop('winch',owned&&b.state==='RELOADING',b,.23);
+  this.#loop('recock',owned&&recock,b,.14,1.12);
   if(last?.mode!==b.mode){if(b.mode==='DEPLOYING')this.#play('deploy',b);if(b.mode==='RETRACTING')this.#play('retract',b);}
   if(moving&&Math.abs((b.steer??0)-(last?.steer??0))>.25&&options.now>this.nextCreak){this.#play('creak',b,.7);this.nextCreak=options.now+.55;}
   if(this.settleAt!=null&&options.now>=this.settleAt){this.#play('settle',b);this.settleAt=null;}
@@ -81,6 +84,7 @@ export class BiByeSound {
   let kind=null;
   if(event.type==='bibyeFired'){kind=event.shot==='II'?'shotII':'shotI';this.settleAt=event.at+(event.shot==='II'?.45:.3);}
   if(event.type==='bibyeReloadCompleted')kind='catch';
+  if(event.type==='bibyeUpperRecocked')kind='upperCatch';
   if(event.type==='bibyeCouplingEngaged')kind='latch';
   if(event.type==='bibyeHeavyDelayTripped')kind='delay';
   if(event.type==='bibyeCouplingReleased')kind='release';

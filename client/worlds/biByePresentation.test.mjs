@@ -1,23 +1,25 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { biByeUpperAnimation, biByeAnimation, biByeWheelSteering, biByeWheelTravel } from './biByePresentation.mjs';
+import { biByeUpperAnimation, biByeClutchAnimation, biByeDelayAnimation, biByeTrackOwner, biByeAnimation, biByeWheelSteering, biByeWheelTravel } from './biByePresentation.mjs';
 
 test('spent state retains the firing recovery until its authored completion event', () => {
-  const b = { mode: 'DEPLOYED', state: 'SPENT', firedAt: 10, reloadStartedAt: 12.2 };
-  assert.equal(biByeAnimation(b, 10.8).name, '02_BiBye_TwoStage_Fire');
-  assert.equal(biByeAnimation(b, 12.19).name, '02_BiBye_TwoStage_Fire');
+  const b = { mode: 'DEPLOYED', state: 'SPENT', firedAt: 10, mainReleasedAt:10.65, reloadStartedAt: 12.2 };
+  assert.equal(biByeAnimation(b, 10.8).name, '21_BiBye_Delayed_Shot2_Release_And_Recoil');
+  assert.equal(biByeAnimation(b, 12.19).name, '21_BiBye_Delayed_Shot2_Release_And_Recoil');
   assert.equal(biByeAnimation({ ...b, state: 'RELOADING' }, 12.2).time, 0);
-  assert.equal(biByeAnimation({ ...b, state: 'RELOADING' }, 15.2).time, 4);
+  assert.equal(biByeAnimation({ ...b, state: 'RELOADING' }, 15.2).time, 3);
 });
 test('late snapshots and repeated volleys seek their own authoritative action clock', () => {
-  assert.equal(biByeAnimation({ mode: 'DEPLOYED', state: 'FIRING', firedAt: 11 }, 11.5).time, .5);
-  assert.equal(biByeAnimation({ mode: 'DEPLOYED', state: 'FIRING', firedAt: 20 }, 20.1).time.toFixed(1), '0.1');
+  const b={mode:'DEPLOYED',state:'SPENT',firedAt:11,mainReleasedAt:11.65};
+  assert.equal(biByeAnimation(b,11.85).time.toFixed(1),'0.2');
+  assert.equal(biByeAnimation({...b,firedAt:20,mainReleasedAt:20.65},20.75).time.toFixed(1),'0.1');
 });
-test('mobile recoil and reload share the real three second cooldown', () => {
-  const b = { mode: 'MOBILE', state: 'LOADED', mobileFiredAt: 4, smallBoltReadyAt: 7 };
-  assert.equal(biByeAnimation(b, 4.3).name, '09_BiBye_Mobile_Shot1_Fire');
-  assert.equal(biByeAnimation(b, 5).name, '10_BiBye_Mobile_Shot1_Reload');
-  assert.equal(biByeAnimation(b, 7).name, '06_BiBye_Travel_Ready');
+test('mobile recock uses the upper layer and actual discharge deadline',()=>{
+ const b={mode:'MOBILE',state:'LOADED',upperFiredAt:4,upperShotKind:'independent',smallBoltReadyAt:6.7};
+ assert.equal(biByeAnimation(b,4.3).name,'06_BiBye_Travel_Ready');
+ assert.equal(biByeUpperAnimation(b,4.3).name,'09_BiBye_Mobile_Shot1_Fire_Upper');
+ assert.equal(biByeUpperAnimation(b,5).name,'10_BiBye_Mobile_Shot1_Reload_Upper');
+ assert.equal(biByeUpperAnimation(b,6.7).name,'01_BiBye_LoadedIdle_Upper');
 });
 test('destroyed animation reaches its stable terminal pose', () => {
   assert.deepEqual(biByeAnimation({ mode: 'DESTROYED', destroyedAt: 2 }, 10), { name: '12_BiBye_Damaged_Destroyed', time: 1.8 });
@@ -39,8 +41,19 @@ test('each wheel rolls from its own signed ground travel and holds when stationa
 
 test('upper recoil and recock remain independent of the main reload action',()=>{
  const b={mode:'DEPLOYED',state:'RELOADING',reloadStartedAt:2.2,upperFiredAt:3,upperShotKind:'independent',smallBoltReadyAt:5.7};
- assert.equal(biByeAnimation(b,3.3).name,'04_BiBye_Mechanical_Reload');
+ assert.equal(biByeAnimation(b,3.3).name,'19_BiBye_Main_Winch_Reload_Only');
  assert.equal(biByeUpperAnimation(b,3.3).name,'09_BiBye_Mobile_Shot1_Fire_Upper');
  assert.equal(biByeUpperAnimation(b,4).name,'10_BiBye_Mobile_Shot1_Reload_Upper');
  assert.equal(biByeUpperAnimation(b,5.7).name,'01_BiBye_LoadedIdle_Upper');
+});
+
+test('clutch layers seek engagement, partial cancellation and complete uncoupling',()=>{
+ assert.equal(biByeClutchAnimation({coupling:'INDEPENDENT'},4).time,.6);
+ assert.deepEqual(biByeClutchAnimation({coupling:'ENGAGING',couplingStartedAt:2},2.3),{name:'17_BiBye_Upper_Align_And_Couple_Clutch',time:2.3-2});
+ assert.equal(biByeClutchAnimation({coupling:'RELEASING',couplingStartedAt:4,couplingReleaseFrom:.5},4).time,.3);
+ assert.equal(biByeTrackOwner('Upper_Turret_Mount.quaternion'),'Aim');
+ assert.equal(biByeTrackOwner('Coupling_Clutch_Collar.position'),'Clutch');
+ assert.equal(biByeTrackOwner('Winch_Drum_And_Cranks.quaternion'),'Main');
+ assert.equal(biByeTrackOwner('Wheel_FL_Damaged.scale'),'Components');
+ assert.equal(biByeDelayAnimation({firedAt:2,upperShotKind:'coupled'},2.6).name,'20_BiBye_Coupled_Shot1_Trigger_And_Delay_Delay');
 });

@@ -45,3 +45,10 @@ test('coupling latch, delay trip and release sound once per authoritative transi
  for(const type of ['bibyeCouplingEngaged','bibyeHeavyDelayTripped','bibyeCouplingReleased'])for(let i=0;i<2;i++)audio.event({type,ballistaId:'b',at:1},machine,1);
  for(const kind of ['latch','delay','release'])assert.equal(heard.filter(x=>x.recipe?.tag===kind).length,1);
 });
+test('upper recock and main winch have distinct simultaneous loops and separate catches',()=>{
+ const {audio,heard}=setup();const b={...machine,state:'RELOADING',upperFiredAt:0,smallBoltReadyAt:3};
+ audio.update(b,{...opt,now:1});assert.ok(audio.loops.has('winch'));assert.ok(audio.loops.has('recock'));
+ const upper={type:'bibyeUpperRecocked',ballistaId:'b',at:3};audio.event(upper,b,3);audio.event(upper,b,3);
+ assert.equal(heard.filter(x=>x.recipe?.tag==='upperCatch').length,1);
+ assert.notDeepEqual(biByeLoopSamples('winch',22050,2,()=>.6),biByeLoopSamples('recock',22050,2,()=>.6));
+});

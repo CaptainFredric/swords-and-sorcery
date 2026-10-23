@@ -1,6 +1,6 @@
 # BiBye independent weapon contract
 
-This pass implements authoritative mechanics independently of asynchronous model loading. It preserves the production v3.2 GLB and all rollback files. PR 218 merged externally at 5b6e2d6; this work continues on feat/ballista-independent.
+This pass implements authoritative mechanics independently of asynchronous model loading. It uses the checksum verified v4.1 GLB and preserves the v3.2 and original rollback files. PR 218 merged externally at 5b6e2d6; this work continues on feat/ballista-independent.
 
 ## Authoritative state
 
@@ -8,7 +8,7 @@ This pass implements authoritative mechanics independently of asynchronous model
 
 The upper controller supports a full circle with shortest arc rotation at 120 degrees per second. Main traverse remains 45 degrees either side of the carriage. Current upper elevation remains the existing game envelope. Server behavior never waits for GLB loading.
 
-Coupling proceeds through INDEPENDENT, ALIGNING, ENGAGING, COUPLED, FIRING and RELEASING. A fire request freezes its intended main aim, aligns the upper to the converged line, engages the latch for 0.18 seconds and commits automatically. Switching to UPPER or packing cancels before upper release without spending either bolt.
+Coupling proceeds through INDEPENDENT, ALIGNING, ENGAGING, COUPLED, FIRING and RELEASING. A fire request freezes its intended main aim, aligns the upper to the converged line, engages the latch for 0.60 seconds and commits automatically. Switching to UPPER or packing cancels before upper release without spending either bolt. The collar releases for 0.60 seconds after a full engagement; independent rotation and firing wait until it is clear. A partially engaged collar reverses from its current position.
 
 The upper string release trips the heavy delay catch. A miss has no effect on the heavy release. Dismount, death and disconnect before the first release cancel the volley. After that release they preserve the heavy delay. Failed supports can still prevent the heavy shot. Released bolts retain their original owner.
 
@@ -20,22 +20,24 @@ Heavy recovery ends at commitment plus 2.2 seconds. Mechanical reload lasts 4.5 
 
 ## Aim and collision
 
-The current two muzzle locators and composed hierarchy remain the source for projectile origins. The upper world direction is inverted into the main cradle's basis rather than subtracting Euler angles. Sideways and backward aim remain stable while the main cradle is elevated or the carriage turns.
+The current two muzzle locators and composed hierarchy remain the source for projectile origins. The upper world direction is inverted into the Traverse_Mount basis rather than subtracting Euler angles. Sideways and backward aim remain stable while the main cradle is elevated or the carriage turns.
 
 Coupled aiming converges on the main sightline at 35 metres, using each actual muzzle. Speeds remain 48 and 55 metres per second. Practical 10 to 50 metre impact ordering favors the upper bolt first; sufficiently long shots allow the heavy bolt to overtake. This is not a damage multiplier.
 
 Own projectile collision exempts only the launching assembly while the bolt clears its rail. Other parts of the carriage still intercept it. This is simulation coverage, not proof of triangle mesh clearance for the commissioned mechanism.
 
-## Presentation and current asset boundary
+## Presentation and production asset
 
-Main and upper animation tracks are independent. Heavy reload seeks the six second authored source clip over 4.5 game seconds. Upper aim, recoil and recock remain active during main reload. Support and wheel layers retain their existing ownership. Sounds for latch, delay catch, release and turning use the current SoundEngine synthesis, spatialization and deduplication.
+The exact delivered v4.1 binary has SHA256 `4641af412cf83d497f6f6059aa3d7c319b71bdcd44770f92bf90c65e2eccb31a`, 65 nodes, 46 meshes and 21 clips. The upper pivot is a child of Traverse_Mount at `[0,1.54,.08]`; its muzzle is `[0,.165,.84]`. Shared transforms and rendering use that hierarchy. Main cradle and muzzle placement remain unchanged.
 
-The operator's current standing station remains unchanged. Local and remote body heading follows the carriage and its presentation uses the same interpolated carriage frame. No seated pose or elevated attachment is invented.
+Main, upper, clutch and delay tracks have exclusive ownership. Runtime owns aim rotations, wheels and stabilizers. Main reload samples clip19 over its native 4.5 seconds. Clips17/18 move only the lever and collar; clips20/21 retain the two release stages. Upper recoil and recock continue during main reload. Damaged components use the authored mesh alternatives. The upper sight uses node64. SoundEngine supplies distinct clutch, delay, upper recock, main winch and discharge cues, with deduplication.
 
-Argon's supplied v3.3 candidate has SHA256 `f993ccfe6279a8cac0335508b4aca233b6a3257b825cce1be28dd15c4f09d0e0`. Its standing station and limited upper clearance study do not satisfy the new visual design. The active GLB remains v3.2, SHA256 `c595a2bc41db7d8c5783c0795cb24276529f72932c8ecb70f72599c099937b6a`. Supplied v3.3 damaged meshes and nine audio masters remain available in the local source package for the final integration pass; they are not silently substituted here.
+The actual production Spellblade is fitted to the seat in Blender and retargeted into its original glTF bone bases. The supplied candidate quaternions are incompatible with this production rig. Limb lengths, normal character meshes and ordinary animation clips remain unchanged. Runtime arm IK follows the moving grips; the right hand travels between wheel and lever. A mounted rigid copy of the production sword is stowed while the normal hand weighted sword is hidden. Both local and remote bodies use the same interpolated carriage frame. Dismount restores the normal rig and sword, including when the local third person body becomes hidden.
 
-## Final delivery needed from Argon
+The carriage has localized occupied volumes for the compact winch, seat, backrest, footrests and controls. Movement uses conservative AABBs around those pieces; projectile hits use their oriented boxes. Empty cockpit space is left open. No broader game mode availability is introduced.
 
-Provide the revised Blender source, checksum verified GLB and contract together. Confirm named main and upper yaw/pitch pivots, full circle clearance across elevation and recoil, both muzzle release transforms, seat/pelvis anchor, foot rests and hand control sockets. Specify operator body facing relative to carriage and camera safe envelopes. Supply separate coupling latch, delay catch and release tracks or controllable nodes. Clips must leave unrelated weapon, wheels, supports and operator anchors untouched. Provide damage mesh visibility ownership and any revised hit volumes.
+The v3.2 GLB and original compressed/uncompressed files remain rollback resources. The earlier v3.3 delivery remains in the external source archive. Full source provenance and the production pose generator are recorded in the asset directory README.
 
-Only after that delivery can actual mesh clearance, seated rig fitting, coupling motion, final muzzle placement and sound audition be accepted. Physical phone, live itch iframe and real simultaneous shared room vehicle play remain separate outstanding checks.
+## Validation boundary
+
+See [v4.1 evidence](../evidence/bibye-v41/README.md) for actual gameplay captures, sampled Blender clearance, remote fixture scope, touch emulation and the matched frame comparison. Physical phone testing and a live itch.io iframe run of this private candidate remain separate. This PR stays in draft; integration does not authorize publication.

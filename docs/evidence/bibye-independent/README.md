@@ -1,5 +1,7 @@
 # Independent BiBye controller evidence
 
+Historical controller baseline at730ca86. The subsequent [v4.1 integration evidence](../bibye-v41/README.md) supersedes its pending asset and seating limitations.
+
 This is the controller and presentation preparation pass authorized while Argon's new machine is being authored. It is a followup to merged PR 218. The current GLB and standing station are retained. Actual seated fitting, final turret clearance and physical coupling animation await the revised asset.
 
 ## Verified behavior

@@ -66,7 +66,7 @@ async function walkTo(page, x, z) {
 }
 async function approach(page) {
   await focus(page);
-  for (const [x,z] of [[0,-4.5],[13.8,-4.5],[13.8,-10],[9,-12.0]]) await walkTo(page,x,z);
+  for (const [x,z] of [[0,-4.5],[13.8,-4.5],[13.8,-10],[9,-11.5]]) await walkTo(page,x,z);
   return state(page);
 }
 

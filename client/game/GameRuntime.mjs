@@ -2255,17 +2255,18 @@ export class GameRuntime {
     this.siegeSound.update(this.latestSnapshot?.bibyeBallista,{active:this.playing && this.input.enabled && !this.socket.inspectionFrozen,playerId:this.socket.playerId,listener:this.localState?.position??this.localAuth?.position,yaw:this.input.yaw,now:this.socket.serverNow()});
     this.world?.setBiByeState?.(this.latestSnapshot, this.socket.serverNow(), {local:this.socket.playingLocally,frozen:this.socket.inspectionFrozen});
     this.world?.update?.(timeSec, this.camera);
-    // Vehicle and operator use the same interpolated carriage frame. Keep the
-    // standing station until the commissioned seat and pose contract arrive.
+    // Vehicle, seated operator and hand controls share one interpolated carriage frame.
     const mountedMachine=this.world?.biByeLlista?.presentationData;
     if(mountedMachine){
       const operator=this.remotePlayers.self?.root;
       if(operator?.visible && this.localAuth?.alive && mountedMachine.operatorId===this.localAuth.id){
         const pose=getBiByeOperatorTransform({...mountedMachine,...mountedMachine.position});
         operator.position.set(pose.position.x,pose.position.y,pose.position.z);operator.rotation.y=pose.yaw;
+        this.remotePlayers.self.visualInstance?.animator?.applyMounted(mountedMachine,mountedMachine.poseTime??this.socket.serverNow(),this.world.biByeLlista.getOperatorGrips());
       }
       const remote=this.remotePlayers.rigs.get(mountedMachine.operatorId)?.root;
-      if(remote?.visible){const pose=getBiByeOperatorTransform({...mountedMachine,...mountedMachine.position});remote.position.set(pose.position.x,pose.position.y,pose.position.z);remote.rotation.y=pose.yaw;}
+      if(remote?.visible){const pose=getBiByeOperatorTransform({...mountedMachine,...mountedMachine.position});remote.position.set(pose.position.x,pose.position.y,pose.position.z);remote.rotation.y=pose.yaw;
+        this.remotePlayers.rigs.get(mountedMachine.operatorId).visualInstance?.animator?.applyMounted(mountedMachine,mountedMachine.poseTime??this.socket.serverNow(),this.world.biByeLlista.getOperatorGrips());}
     }
     this.#mountedView(dt);
     this.#followGusts();

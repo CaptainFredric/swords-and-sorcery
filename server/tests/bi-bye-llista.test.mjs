@@ -34,8 +34,8 @@ function fireBiByeFullVolley(room,b,t) {
   if(b.mode!=='DEPLOYED'||b.state!=='LOADED'||!b.mainBoltLoaded||t<b.smallBoltReadyAt)return requestFullVolley(room,b,t);
   b.mainYaw=b.yaw;b.mainPitch=b.pitch;b.weaponFocus='MAIN';
   const target=biByeCoupledAim(b);b.upperYaw=target.yaw;b.upperPitch=target.pitch;
-  const accepted=requestFullVolley(room,b,t-.2);
-  if(accepted){stepBiByeLlista(room,b,.001,t-.2);stepBiByeLlista(room,b,.001,t);}
+  const accepted=requestFullVolley(room,b,t-.6);
+  if(accepted){stepBiByeLlista(room,b,.001,t-.6);stepBiByeLlista(room,b,.001,t);}
   return accepted;
 }
 function fireBiByeLlista(room,b,t){return b.mode==='DEPLOYED'?fireBiByeFullVolley(room,b,t):requestFire(room,b,t);}
@@ -812,10 +812,10 @@ test('Scenario 19: Exact 3D muzzle positions under articulation and parent-child
   };
 
   // 1. Neutral Aim (Heading 0, Yaw 0, Pitch 0)
-  // small_bolt_muzzle in neutral: [0, 2.785, 0.920] relative to root facing local +Z -> Castleward [0, 2.785, -0.920]
+  // small_bolt_muzzle in neutral: [0, 2.945, 0.920] relative to root facing local +Z -> Castleward [0, 2.945, -0.920]
   const smallNeutral = getBiByeMuzzlePosition(ballista, 'conditioning');
   assert.ok(Math.abs(smallNeutral.x - 0) < 1e-4);
-  assert.ok(Math.abs(smallNeutral.y - 2.785) < 1e-4);
+  assert.ok(Math.abs(smallNeutral.y - 2.945) < 1e-4);
   assert.ok(Math.abs(smallNeutral.z - (-0.920)) < 1e-4);
 
   // main_bolt_muzzle in neutral: [0, 1.835, 1.520] relative to root facing local +Z -> Castleward [0, 1.835, -1.520]
@@ -829,7 +829,7 @@ test('Scenario 19: Exact 3D muzzle positions under articulation and parent-child
   ballista.yaw = -Math.PI / 2;
   const smallEast = getBiByeMuzzlePosition(ballista, 'conditioning');
   assert.ok(Math.abs(smallEast.x - 0.920) < 1e-4);
-  assert.ok(Math.abs(smallEast.y - 2.785) < 1e-4);
+  assert.ok(Math.abs(smallEast.y - 2.945) < 1e-4);
   assert.ok(Math.abs(smallEast.z - 0) < 1e-4);
 
   const mainEast = getBiByeMuzzlePosition(ballista, 'siege');
@@ -843,15 +843,15 @@ test('Scenario 19: Exact 3D muzzle positions under articulation and parent-child
   ballista.pitch = 0.2618;
   const smallPitchUp = getBiByeMuzzlePosition(ballista, 'conditioning');
   const mainPitchUp = getBiByeMuzzlePosition(ballista, 'siege');
-  // Both launchers elevate together in deployed mode
-  assert.ok(smallPitchUp.y > 2.785, 'small muzzle raised with elevation cradle pitch');
-  assert.ok(mainPitchUp.y > 1.835, 'main muzzle raised with elevation cradle pitch');
+  // Legacy selected aim points both launchers; explicit independent world aim is tested in bi-bye-v41.
+  assert.ok(smallPitchUp.y > 2.945, 'small muzzle raised with upper elevation');
+  assert.ok(mainPitchUp.y > 1.835, 'main muzzle raised with upper elevation');
 
   // 4. Mobile Mode: Independent Upper Turret Aim
   ballista.mode = BI_BYE_MODES.MOBILE;
   ballista.yaw = 0.4363; // +25 deg traverse
   ballista.pitch = 0.2094; // +12 deg pitch
   const smallMobile = getBiByeMuzzlePosition(ballista, 'conditioning');
-  assert.ok(smallMobile.y > 2.785, 'mobile upper turret elevated independently');
+  assert.ok(smallMobile.y > 2.945, 'mobile upper turret elevated independently');
   assert.ok(smallMobile.x < 0, 'mobile upper turret yawed into direction');
 });
