@@ -37,6 +37,7 @@ const BUTTONS = [
   { action: 'interact', label: 'MOUNT' },
   { action: 'deploy', label: 'DEPLOY' },
   { action: 'siegeView', label: 'VIEW' },
+  { action: 'siegeWeapon', label: 'UPPER' },
 ];
 
 const svg = (icon) => iconSvg(icon);
@@ -104,6 +105,7 @@ export class TouchControls {
     if (this.buttons.interact) this.buttons.interact.hidden = true;
     if (this.buttons.deploy) this.buttons.deploy.hidden = true;
     if (this.buttons.siegeView) this.buttons.siegeView.hidden = true;
+    if (this.buttons.siegeWeapon) this.buttons.siegeWeapon.hidden = true;
 
     this.layer.addEventListener('pointerdown', this.#down);
     this.layer.addEventListener('pointermove', this.#move);
@@ -256,6 +258,12 @@ export class TouchControls {
       const near = local.alive && bl && local.position && bx !== undefined && !bl.operatorId ? Math.hypot(bx - local.position.x, bz - local.position.z) <= 3.2 : false;
       this.layer.classList.toggle('touch-mounted', mounted);
       if (this.buttons.siegeView) this.buttons.siegeView.hidden = !mounted;
+      if (this.buttons.siegeWeapon) {
+        this.buttons.siegeWeapon.hidden = !mounted || bl?.mode !== 'DEPLOYED';
+        const next = bl?.weaponFocus === 'MAIN' ? 'UPPER' : 'MAIN';
+        this.buttons.siegeWeapon.querySelector('span').textContent = next;
+        this.buttons.siegeWeapon.setAttribute('aria-label', `Control ${next.toLowerCase()} launcher${next === 'UPPER' ? ' and cancel alignment' : ''}`);
+      }
 
       if (mounted) {
         if (this.buttons.interact) {
@@ -510,6 +518,7 @@ export class TouchControls {
     if (action === 'scores') this.input.scoreboardHeld = !this.input.scoreboardHeld;
     if (action === 'interact') this.input.interact?.();
     if (action === 'deploy') this.input.deploy?.();
+    if (action === 'siegeWeapon') this.input.siegeWeapon?.();
     if (action === 'siegeView' && this.input.enabled) this.input.onAction?.('siegeView', true);
   }
 

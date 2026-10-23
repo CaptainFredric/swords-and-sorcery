@@ -5,14 +5,14 @@ import { appUrl } from '../appUrl.mjs';
 import { everywhere } from '../game/viewLayers.mjs';
 import { BI_BYE_LLISTA_CONFIG, BI_BYE_STATES, BI_BYE_MODES } from '../../shared/sim/biByeLlista.mjs';
 
-import { biByeAnimation, biByeWheelSteering, biByeWheelTravel } from './biByePresentation.mjs';
+import { biByeAnimation, biByeUpperAnimation, biByeClutchAnimation, biByeDelayAnimation, biByeTrackOwner, biByeWheelSteering, biByeWheelTravel } from './biByePresentation.mjs';
 
-const ASSET_PATH = '/client/assets/props/bibye-ballista/bi-bye-llista-v3.2.glb?v=c595a2bc41db7d8c';
+const ASSET_PATH = '/client/assets/props/bibye-ballista/bi-bye-llista-v4.1.glb?v=4641af412cf83d49';
 
 /**
  * Bi-Bye-llista (Two-Bolt Ballista) Mobile Siege Engine Renderer.
- * Integrates the authored Argon v3.2 production GLB asset (39 nodes, 29 mechanical meshes,
- * 9 locators, and 12 animation clips) with fallback procedural meshes, continuous 6-wheel
+ * Integrates the authored Argon v4.1 production GLB asset (65 nodes, 46 meshes,
+ * seated cockpit locators, and 21 animation clips) with fallback procedural meshes, continuous 6-wheel
  * Ackermann steering & rolling, dual projectile visuals, and persistent wreck states.
  */
 export class BiByeLlistaRenderer {
@@ -62,7 +62,7 @@ export class BiByeLlistaRenderer {
     // 1. Build initial procedural fallback until authored GLB completes load
     this.#buildFallbackMesh();
 
-    // 2. Load authored v3.2 production GLB asset asynchronously
+    // 2. Load authored v4.1 production GLB asset asynchronously
     this.#loadAuthoredModel();
 
     scene.add(this.group);
@@ -96,7 +96,7 @@ export class BiByeLlistaRenderer {
       (gltf) => {
         this.authoredModel = gltf.scene;
         if (this.disposed) { this.#disposeGroup(gltf.scene, true); return; }
-        this.authoredModel.name = 'BiBye_Authored_Asset_v3_2';
+        this.authoredModel.name = 'BiBye_Authored_Asset_v4_1';
 
         // Index nodes by name
         gltf.scene.traverse((obj) => {
@@ -126,28 +126,22 @@ export class BiByeLlistaRenderer {
 
         // Initialize AnimationMixer and extract all clips
         this.mixer = new THREE.AnimationMixer(this.authoredModel);
-        this.jointPose = new Map(['Traverse_Mount', 'Elevation_Cradle', 'Upper_Turret_Mount']
+        this.jointPose = new Map(['Traverse_Mount', 'Elevation_Cradle', 'Upper_Turret_Mount', 'Operator_Traverse_Wheel']
           .map(name => [name, this.nodes.get(name).quaternion.clone()]));
 
-        // Wheel motion belongs to snapshots. Stabilizers have their own layer so
-        // firing or reloading cannot retract them via an unrelated full-body clip.
-        for (const clip of (gltf.animations ?? [])) {
-          const base = clip.clone();
-          const destroyed = clip.name === '12_BiBye_Damaged_Destroyed';
-          base.tracks = base.tracks.filter(track => destroyed ||
-            (!track.name.startsWith('Wheel_') && !track.name.startsWith('Stabilizer_')));
-          const action = this.mixer.clipAction(base);
-          action.setLoop(THREE.LoopOnce, 1);
-          action.clampWhenFinished = true;
-          this.actions.set(clip.name, action);
-          if (clip.name === '05_BiBye_Stabilizer_Deploy' || clip.name === '07_BiBye_Stabilizer_Retract') {
-            const stabilizers = clip.clone();
-            stabilizers.name += '_Outriggers';
-            stabilizers.tracks = stabilizers.tracks.filter(track => track.name.startsWith('Stabilizer_'));
-            const layer = this.mixer.clipAction(stabilizers);
-            layer.setLoop(THREE.LoopOnce, 1);
-            layer.clampWhenFinished = true;
-            this.actions.set(stabilizers.name, layer);
+        // No two live layers may bind the same node property. Runtime owns aim
+        // joints and component hinges, including the authored damaged alternatives.
+        for (const clip of gltf.animations ?? []) {
+          if (clip.name === '12_BiBye_Damaged_Destroyed') {
+            const action=this.mixer.clipAction(clip);action.setLoop(THREE.LoopOnce,1);action.clampWhenFinished=true;
+            this.actions.set(clip.name,action);continue;
+          }
+          for(const owner of ['Main','Upper','Clutch','Delay']){
+            const part=clip.clone();part.name+=owner==='Main'?'':'_'+owner;
+            part.tracks=part.tracks.filter(track=>biByeTrackOwner(track.name)===owner);
+            if(!part.tracks.length)continue;
+            const action=this.mixer.clipAction(part);action.setLoop(THREE.LoopOnce,1);action.clampWhenFinished=true;
+            this.actions.set(part.name,action);
           }
         }
 
@@ -213,11 +207,11 @@ export class BiByeLlistaRenderer {
     this.fallbackCradle = new THREE.Group();
     this.fallbackCradle.position.set(0, .38, -.12);
     this.fallbackUpper = new THREE.Group();
-    this.fallbackUpper.position.set(0, .92, .2);
+    this.fallbackUpper.position.set(0, 1.54, .08);
     this.fallbackGroup.add(this.fallbackTraverse);
     this.fallbackTraverse.add(this.fallbackCradle);
-    this.fallbackCradle.add(this.fallbackUpper);
-    for (const [parent, span, length, y, z] of [[this.fallbackCradle, 5.48, 3.2, .215, 1.04], [this.fallbackUpper, 1.86, 1.4, .245, .26]]) {
+    this.fallbackTraverse.add(this.fallbackUpper);
+    for (const [parent, span, length, y, z] of [[this.fallbackCradle, 5.48, 3.2, .215, 1.04], [this.fallbackUpper, 1.86, 1.4, .165, .26]]) {
       const rail = new THREE.Mesh(new THREE.BoxGeometry(.16, .12, length), this.materials.timber);
       rail.position.y = y;
       const bow = new THREE.Mesh(new THREE.BoxGeometry(span, .12, .14), this.materials.steel);
@@ -266,49 +260,46 @@ export class BiByeLlistaRenderer {
     for (const [name, pose] of this.jointPose) this.nodes.get(name).quaternion.copy(pose);
     const sample = biByeAnimation(ballistaData, timeSec);
     this.#sampleAction(sample.name, sample.time);
-    if (mode === BI_BYE_MODES.DESTROYED) {
-      this.stabilizerAction?.stop();
-      this.stabilizerAction = null;
-    } else {
-      const next = this.actions.get('05_BiBye_Stabilizer_Deploy_Outriggers');
-      if (next !== this.stabilizerAction) {
-        this.stabilizerAction?.stop();this.stabilizerAction=next;next?.reset().play();
-      }
-      if(next){next.paused=true;next.time=biByeDeployProgress(ballistaData,timeSec)*next.getClip().duration;}
+    for(const [key,selection] of [['upperAction',biByeUpperAnimation],['clutchAction',biByeClutchAnimation],['delayAction',biByeDelayAnimation]]){
+      const chosen=mode===BI_BYE_MODES.DESTROYED?null:selection(ballistaData,timeSec);
+      const next=chosen?this.actions.get(chosen.name):null;
+      if(next!==this[key]){this[key]?.stop();this[key]=next;next?.reset().play();}
+      if(next){next.paused=true;next.time=Math.max(0,Math.min(chosen.time,next.getClip().duration));}
     }
     this.mixer.update(0);
     for (const [name, pose] of this.jointPose) pose.copy(this.nodes.get(name).quaternion);
 
     // Release is authoritative. Keep authored loading placement, but never show
     // an extra bolt after its release while an exported scale track catches up.
-    const volley = sample.name === '02_BiBye_TwoStage_Fire';
-    const mobileFire = sample.name === '09_BiBye_Mobile_Shot1_Fire';
-    const reloading = sample.name === '04_BiBye_Mechanical_Reload';
-    const mobileReload = sample.name === '10_BiBye_Mobile_Shot1_Reload';
-    const mainBolt = this.nodes.get('Main_Siege_Bolt');
-    const upperBolt = this.nodes.get('Upper_Conditioning_Bolt');
-    if (mainBolt) mainBolt.visible = mode !== BI_BYE_MODES.DESTROYED &&
-      (volley ? sample.time < .65 : reloading ? sample.time >= 3.1 : Boolean(ballistaData.mainBoltLoaded));
-    if (upperBolt) upperBolt.visible = mode !== BI_BYE_MODES.DESTROYED &&
-      (volley ? sample.time < .45 : mobileFire ? sample.time < .2 : reloading ? sample.time >= 4.95 : mobileReload ? sample.time >= 1.3 : Boolean(ballistaData.smallBoltReady));
-
-    if (mode === BI_BYE_MODES.DESTROYED) return;
-    for (const [index, def] of BI_BYE_COMPONENTS.entries()) {
-      const node=this.nodes.get(def.id);if(!node)continue;
+    const reloading=sample.name==='19_BiBye_Main_Winch_Reload_Only';
+    const mainBolt=this.nodes.get('Main_Siege_Bolt'),upperBolt=this.nodes.get('Upper_Conditioning_Bolt');
+    if(mainBolt)mainBolt.visible=mode!=='DESTROYED'&&(reloading?sample.time>=2.75:Boolean(ballistaData.mainBoltLoaded));
+    const upperSample=biByeUpperAnimation(ballistaData,timeSec);
+    if(upperBolt)upperBolt.visible=mode!=='DESTROYED'&&Boolean(ballistaData.upperPending||ballistaData.coupling==='FIRING'&&ballistaData.upperReleasedAt==null||ballistaData.smallBoltReady||upperSample.name.includes('Reload')&&upperSample.time>=1.55);
+    for(const [index,def] of BI_BYE_COMPONENTS.entries()){
+      const failed=mode==='DESTROYED'||ballistaData.components?.[def.id]?.health<=0;
+      const intact=this.nodes.get(def.id),damaged=this.nodes.get(def.id+'_Damaged');
+      if(intact)intact.visible=!failed;
+      if(damaged){damaged.visible=failed;damaged.scale.setScalar(1);}
+      if(mode==='DESTROYED')continue;
       const p=biByeComponentPose(ballistaData,def,timeSec);
-      node.position.set(...p.pivot);
-      if(def.kind==='wheel')node.rotation.set(this.wheelAngles[index]??0,p.steer,p.tilt,'YZX');
-      else node.rotation.set(0,0,p.tilt);
+      for(const node of [intact,damaged]){
+        if(!node)continue;node.position.set(...p.pivot);node.scale.setScalar(1);
+        if(def.kind==='wheel')node.rotation.set(this.wheelAngles[index]??0,p.steer,p.tilt,'YZX');
+        else node.rotation.set(0,0,p.tilt);
+      }
       for(const material of this.componentMaterials.get(def.id)??[]){
-        const base=material.userData.baseColor;
-        material.color.copy(base).multiplyScalar(1-.40*p.damage);
+        material.color.copy(material.userData.baseColor).multiplyScalar(1-.40*p.damage);
         material.roughness=Math.min(1,material.userData.baseRoughness+.35*p.damage);
       }
     }
+    if(mode===BI_BYE_MODES.DESTROYED)return;
     const pose=biByeAimPose(ballistaData,timeSec);
     this.nodes.get('Traverse_Mount')?.rotation.set(0,pose.mainYaw,0);
     this.nodes.get('Elevation_Cradle')?.quaternion.premultiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1,0,0),-pose.mainPitch));
-    this.nodes.get('Upper_Turret_Mount')?.quaternion.premultiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(-pose.upperPitch,pose.upperYaw,0,'YXZ')));
+    this.nodes.get('Upper_Turret_Mount')?.quaternion.setFromEuler(new THREE.Euler(-pose.upperPitch,pose.upperYaw,0,'YXZ'));
+    const tiller=this.nodes.get('Operator_Steering_Tiller');if(tiller)tiller.rotation.z=(ballistaData.steer??0)*.28;
+    this.nodes.get('Operator_Traverse_Wheel')?.rotateZ(pose.mainYaw*4);
   }
 
   #sampleAction(name, seconds) {
@@ -327,7 +318,14 @@ export class BiByeLlistaRenderer {
   getMountedCameraPosition(view, out = new THREE.Vector3()) {
     const node = this.nodes.get(view === 'sight' ? 'mounted_camera_sight' : 'mounted_camera_tpv');
     if (!node) return null;
-    if (view === 'sight') return node.getWorldPosition(out);
+    if (view === 'sight') {
+      const b = this.presentationData;
+      if(b?.weaponFocus === 'UPPER' || b?.mode === 'MOBILE') {
+        const upper=this.nodes.get('mounted_camera_upper_360');
+        if(upper)return upper.getWorldPosition(out);
+      }
+      return node.getWorldPosition(out);
+    }
     const b = this.presentationData;
     const yaw = b?.yaw ?? b?.heading ?? 0;
     return out.set(this.group.position.x + Math.sin(yaw)*6.7, this.group.position.y + 3.8, this.group.position.z + Math.cos(yaw)*6.7);
@@ -351,8 +349,14 @@ export class BiByeLlistaRenderer {
     return null;
   }
 
+  getOperatorGrips(){
+    this.group.updateMatrixWorld(true);
+    const point=name=>this.nodes.get(name)?.getWorldPosition(new THREE.Vector3());
+    return {left:point('hand_L_steering_grip'),right:point('hand_R_traverse_grip'),lever:point('hand_R_fire_lever_grip')};
+  }
+
   getOperatorStationWorldPosition(outVec = new THREE.Vector3()) {
-    const node = this.nodes.get(this.currentMode === 'MOBILE' ? 'transport_push_station' : 'operator_station');
+    const node = this.nodes.get('seat_pelvis_anchor');
     if (node) {
       node.getWorldPosition(outVec);
       return outVec;

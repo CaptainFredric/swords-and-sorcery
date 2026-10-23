@@ -1,0 +1,63 @@
+{
+  "scenario": "30 seconds of driving, turning, deployment, coupled volley and upper discharge during main reload",
+  "baselineCommit": "730ca86b323426171b5b2201ce5cff34671f7b17",
+  "runs": [
+    {
+      "label": "baseline",
+      "url": "http://127.0.0.1:3234/?debug",
+      "asset": "BiBye_Authored_Asset_v3_2",
+      "metrics": {
+        "count": 1800,
+        "median": 16.69999999999709,
+        "p95": 18.600000000000364,
+        "p99": 18.700000000004366,
+        "max": 18.80000000000291,
+        "over50": 0,
+        "over33": 0,
+        "viewport": [
+          1280,
+          800,
+          1
+        ],
+        "quality": {
+          "fov": 78,
+          "pixelRatioCap": 1.6,
+          "cameraMotion": 1,
+          "damageNumbers": true,
+          "damageFlash": true,
+          "subtitles": true,
+          "particles": 1
+        }
+      }
+    },
+    {
+      "label": "candidate",
+      "url": "http://127.0.0.1:3233/?debug",
+      "asset": "BiBye_Authored_Asset_v4_1",
+      "metrics": {
+        "count": 1801,
+        "median": 16.69999999999709,
+        "p95": 18.599999999998545,
+        "p99": 18.700000000000728,
+        "max": 18.799999999999272,
+        "over50": 0,
+        "over33": 0,
+        "viewport": [
+          1280,
+          800,
+          1
+        ],
+        "quality": {
+          "fov": 78,
+          "pixelRatioCap": 1.6,
+          "cameraMotion": 1,
+          "damageNumbers": true,
+          "damageFlash": true,
+          "subtitles": true,
+          "particles": 1
+        }
+      }
+    }
+  ],
+  "limits": "One bounded run per version. Animation frame intervals, not GPU timing or a physical phone measurement."
+}

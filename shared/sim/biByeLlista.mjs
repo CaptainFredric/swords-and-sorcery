@@ -1,4 +1,5 @@
-import { biByeCondition, createBiByeComponents, biByeDeployProgress, biByeAimPose, biByeFrames, biByeFirstHit, biByeBlastAllocations, biByeWheelTravel, biByeWheelSteering } from './biByeComponents.mjs';
+import { biByeWeaponState, requestBiByeIndependent, requestBiByeVolley, stepBiByeWeapons, cancelBiByeCoupling, interruptBiByeSupport } from './biByeWeapons.mjs';
+import { biByeCondition, createBiByeComponents, biByeDeployProgress, biByeAimPose, biByeFrames, biByeHitVolumes, biByeFirstHit, biByeBlastAllocations, biByeWheelTravel, biByeWheelSteering } from './biByeComponents.mjs';
 import { boxWorld } from '../src/orientedBox.mjs';
 import { segmentAabbHit, surfaceHeightAt, resolvePlayerWorld } from '../src/collision.mjs';
 import { applyDamage, staggerBy } from './combat.mjs';
@@ -18,19 +19,19 @@ export const BI_BYE_LLISTA_CONFIG = Object.freeze({
     z: -14.6,
     baseYaw: -Math.PI / 2, // Facing East (+X) across the Tourney Field
     interactRadius: 3.2,
-    operatorOffset: Object.freeze({ x: 0, y: 0, z: -2.250 }),
+    operatorOffset: Object.freeze({ x: 0, y: -.05, z: -1.880 }),
   }),
 
   stations: Object.freeze({
-    operator: Object.freeze({ x: 0, y: 0, z: -2.550 }),      // Deployed standing station
-    transportPush: Object.freeze({ x: 0, y: 0, z: -2.250 }), // Mobile transport push station
+    operator: Object.freeze({ x: 0, y: -.05, z: -1.880 }), // Production pelvis [0,1.03,-.02] meets seat anchor.
+    transportPush: Object.freeze({ x: 0, y: -.05, z: -1.880 }), // Same seated cockpit during travel.
   }),
 
   durability: Object.freeze({
     maxHealth: 650,
     radius: 1.6,
-    bounds: Object.freeze({ width: 2.46, height: 1.6, depth: 3.985 }),
-    deployedBounds: Object.freeze({ width: 3.822, height: 1.6, depth: 3.985 }),
+    bounds: Object.freeze({ width: 2.46, height: 1.66, depth: 4.022 }),
+    deployedBounds: Object.freeze({ width: 4.38, height: 1.66, depth: 4.022 }),
   }),
 
   modes: Object.freeze({
@@ -49,8 +50,8 @@ export const BI_BYE_LLISTA_CONFIG = Object.freeze({
     mainBoltFireDelaySec: 0.650,  // Matches Argon 02_BiBye_TwoStage_Fire string release (0.200s after small bolt)
     recoilRecoveryDurationSec: 2.200, // Matches Argon 02_BiBye_TwoStage_Fire recovery_complete (2.200s)
     spentRecoverySec: 1.550,      // Spent recovery before mechanical reload (2.200 - 0.650 = 1.550s)
-    mobileRecockSec: 3.000,       // Independent reload for Shot I while in mobile mode
-    reloadDurationSec: 6.000,     // 6.0s mechanical reload (Argon 04_BiBye_Mechanical_Reload)
+    mobileRecockSec: 2.500,       // Recock from actual Shot I discharge in either mode
+    reloadDurationSec: 4.500,     // 4.5s main reload; presentation retimes authored clip
   }),
 
   mobility: Object.freeze({
@@ -136,6 +137,7 @@ function clampAngle(angle, base, limit) {
 export function createBiByeLlista(overrides = {}) {
   const conf = { ...BI_BYE_LLISTA_CONFIG.emplacement, ...overrides };
   return {
+    ...biByeWeaponState(conf.baseYaw),
     id: conf.id,
     x: conf.x,
     y: conf.y,
@@ -265,23 +267,13 @@ export function sweptSegmentCylinderHit(start, end, cylinder) {
  */
 export function getBiByeSolids(ballista) {
   if (!ballista) return [];
-  const deployed = ballista.mode === BI_BYE_MODES.DEPLOYED || ballista.mode === BI_BYE_MODES.DEPLOYING;
-  const width = deployed ? 3.822 : 2.460;
-  const length = 3.985;
-  const height = 1.6;
-
-  const cos = Math.abs(Math.cos(ballista.heading));
-  const sin = Math.abs(Math.sin(ballista.heading));
-  const sizeX = width * cos + length * sin;
-  const sizeZ = width * sin + length * cos;
-
-  return [{
-    id: 'bibye-chassis-dynamic',
-    center: [ballista.x, ballista.y + height / 2, ballista.z],
-    size: [sizeX, height, sizeZ],
-    material: 'timber',
-    kind: 'siege-chassis',
-  }];
+  // Separate occupied pieces retain the open space around the cockpit and
+  // outriggers. The movement solver accepts AABBs, so conservatively project each OBB.
+  return biByeHitVolumes(ballista).map(box=>({
+    id:box.id,center:box.center,
+    size:[0,1,2].map(axis=>box.axes.reduce((sum,basis,i)=>sum+Math.abs(basis[axis])*box.size[i],0)),
+    material:box.material,kind:'siege-chassis',
+  }));
 }
 
 /**
@@ -324,6 +316,8 @@ export function dismountBiByeLlista(ballista, player = null, safeDisplace = fals
   if (player && player.operatingBallistaId === ballista.id) {
     player.operatingBallistaId = null;
   }
+  cancelBiByeCoupling(ballista);
+  if(ballista.mobileShotPendingAt != null){ballista.mobileShotPendingAt=null;ballista.mobileFiredAt=null;ballista.upperFiredAt=null;}
   ballista.speed = 0;
   ballista.steer = 0;
   if (player && safeDisplace) {
@@ -363,6 +357,7 @@ export function dismountBiByeLlista(ballista, player = null, safeDisplace = fals
 
     player.position.x = chosen.x;
     player.position.z = chosen.z;
+    player.position.y = surfaceHeightAt(chosen.x, chosen.z, ballista.y + 2, world) ?? ballista.y;
     player.velocity = { x: 0, y: 0, z: 0 };
     if (typeof player.pitch === 'number') {
       player.pitch = 0;
@@ -371,26 +366,17 @@ export function dismountBiByeLlista(ballista, player = null, safeDisplace = fals
   return true;
 }
 
-function syncOperatorPosition(ballista, player) {
+export function getBiByeOperatorTransform(ballista) {
   const station = ballista.mode === BI_BYE_MODES.MOBILE
-    ? BI_BYE_LLISTA_CONFIG.stations.transportPush
-    : BI_BYE_LLISTA_CONFIG.stations.operator;
-
-  const heading = ballista.heading;
-  const rgtX = Math.cos(heading);
-  const rgtZ = -Math.sin(heading);
-  const fwdX = -Math.sin(heading);
-  const fwdZ = -Math.cos(heading);
-
-  const posX = ballista.x + rgtX * station.x + fwdX * station.z;
-  const posZ = ballista.z + rgtZ * station.x + fwdZ * station.z;
-
-  player.position.x = posX;
-  player.position.y = ballista.y + station.y;
-  player.position.z = posZ;
-  player.velocity = { x: 0, y: 0, z: 0 };
-  player.yaw = ballista.yaw;
-  player.pitch = ballista.pitch;
+    ? BI_BYE_LLISTA_CONFIG.stations.transportPush : BI_BYE_LLISTA_CONFIG.stations.operator;
+  const h=ballista.heading;
+  return {position:{x:ballista.x+Math.cos(h)*station.x-Math.sin(h)*station.z,
+    y:ballista.y+station.y,z:ballista.z-Math.sin(h)*station.x-Math.cos(h)*station.z},yaw:h,pitch:0};
+}
+function syncOperatorPosition(ballista, player) {
+  const pose=getBiByeOperatorTransform(ballista);
+  Object.assign(player.position,pose.position);
+  player.velocity={x:0,y:0,z:0};player.yaw=pose.yaw;player.pitch=0;
 }
 
 /**
@@ -409,8 +395,9 @@ export function toggleBiByeDeploy(ballista, nowSec) {
   }
 
   if (ballista.mode === BI_BYE_MODES.DEPLOYED) {
-    // If currently firing or reloading, retraction is delayed until ready or interrupts cleanly
-    if (ballista.state === BI_BYE_STATES.FIRING) return false;
+    // Once the string releases, keep the machine planted through the heavy delay.
+    if (ballista.coupling === 'FIRING' && ballista.upperReleasedAt != null) return false;
+    cancelBiByeCoupling(ballista, nowSec);
     ballista.retractFrom = biByeDeployProgress(ballista, nowSec);
     ballista.retractAim = { yaw: biByeAimPose(ballista, nowSec).mainYaw, pitch: biByeAimPose(ballista, nowSec).mainPitch };
     ballista.mode = BI_BYE_MODES.RETRACTING;
@@ -456,18 +443,7 @@ export function damageBiByeLlista(room, ballista, amount, attackerId, source, no
       ballista.mode = BI_BYE_MODES.RETRACTING;
       ballista.modeTransitionStartedAt = nowSec;
       ballista.modeTransitionEndsAt = nowSec + Math.max(.1,progress * BI_BYE_LLISTA_CONFIG.timing.retractDurationSec);
-      if (ballista.state === BI_BYE_STATES.FIRING && Number.isFinite(ballista.shotIIPendingAt)) {
-        ballista.shotIIPendingAt = Infinity;
-        ballista.state = BI_BYE_STATES.LOADED;
-        ballista.smallBoltReadyAt = Math.max(ballista.smallBoltReadyAt > nowSec ? nowSec + BI_BYE_LLISTA_CONFIG.timing.mobileRecockSec : nowSec, nowSec);
-        // A pending upper release remains committed, from its real current pose.
-        if (Number.isFinite(ballista.shotIPendingAt)) {
-          ballista.mobileShotPendingAt = ballista.shotIPendingAt;
-          ballista.mobileOperatorId = ballista.firingOperatorId;
-          ballista.committedMobileAim = ballista.committedAim;
-          ballista.shotIPendingAt = Infinity;
-        }
-      }
+      interruptBiByeSupport(ballista, nowSec);
       room.events?.push({type:'bibyeSupportFailed',ballistaId:ballista.id,at:nowSec});
     }
   }
@@ -499,68 +475,15 @@ export function blastBiByeLlista(room, ballista, blast, attackerId, source, nowS
  * Discharges at nowSec + 0.200s (matching Argon 09_BiBye_Mobile_Shot1_Fire string release).
  */
 export function fireBiByeMobile(room, ballista, nowSec) {
-  if (!ballista || ballista.mode !== BI_BYE_MODES.MOBILE || ballista.mode === BI_BYE_MODES.DESTROYED) return false;
-  if (nowSec < ballista.smallBoltReadyAt || ballista.mobileShotPendingAt) return false;
-
-  const aim = { yaw: ballista.yaw, pitch: ballista.pitch };
-  ballista.committedMobileAim = aim;
-  ballista.mobileFiredAt = nowSec;
-  ballista.mobileOperatorId = ballista.operatorId;
-  ballista.mobileShotPendingAt = nowSec + (BI_BYE_LLISTA_CONFIG.timing.mobileSmallBoltDelaySec ?? 0.200);
-  ballista.smallBoltReadyAt = nowSec + BI_BYE_LLISTA_CONFIG.timing.mobileRecockSec;
-
-  room.events?.push({
-    type: 'bibyeMobileFireTriggered',
-    ballistaId: ballista.id,
-    operatorId: ballista.operatorId,
-    aim,
-    at: nowSec,
-  });
-
-  return true;
+  return requestBiByeIndependent(room, ballista, nowSec);
 }
-
-/**
- * Trigger full two-stage volley in DEPLOYED mode.
- * Shot I discharges at nowSec + 0.450s (small bolt string release).
- * Shot II discharges at nowSec + 0.650s (main bolt string release, 0.200s gap).
- */
 export function fireBiByeFullVolley(room, ballista, nowSec) {
-  if (!ballista || ballista.mode !== BI_BYE_MODES.DEPLOYED || ballista.state !== BI_BYE_STATES.LOADED) return false;
-  if (!biByeCondition(ballista).canSiege || !ballista.mainBoltLoaded || nowSec < ballista.smallBoltReadyAt) return false;
-
-  const aim = { yaw: ballista.yaw, pitch: ballista.pitch };
-  ballista.committedAim = aim;
-  ballista.firingOperatorId = ballista.operatorId;
-  ballista.smallBoltReadyAt = nowSec + BI_BYE_LLISTA_CONFIG.timing.recoilRecoveryDurationSec + BI_BYE_LLISTA_CONFIG.timing.reloadDurationSec;
-  ballista.state = BI_BYE_STATES.FIRING;
-  ballista.firedAt = nowSec;
-  ballista.shotIPendingAt = nowSec + BI_BYE_LLISTA_CONFIG.timing.smallBoltFireDelaySec;
-  ballista.shotIIPendingAt = nowSec + BI_BYE_LLISTA_CONFIG.timing.mainBoltFireDelaySec;
-
-  room.events?.push({
-    type: 'bibyeVolleyInitiated',
-    ballistaId: ballista.id,
-    operatorId: ballista.operatorId,
-    aim,
-    at: nowSec,
-  });
-
-  return true;
+  return requestBiByeVolley(room, ballista, nowSec);
 }
-
-/**
- * Primary attack dispatch: mobile Shot I or full deployed volley.
- */
 export function fireBiByeLlista(room, ballista, nowSec) {
   if (!ballista || ballista.mode === BI_BYE_MODES.DESTROYED) return false;
-  if (ballista.mode === BI_BYE_MODES.MOBILE) {
-    return fireBiByeMobile(room, ballista, nowSec);
-  }
-  if (ballista.mode === BI_BYE_MODES.DEPLOYED) {
-    return fireBiByeFullVolley(room, ballista, nowSec);
-  }
-  return false;
+  return ballista.mode === BI_BYE_MODES.DEPLOYED && ballista.weaponFocus === 'MAIN'
+    ? fireBiByeFullVolley(room, ballista, nowSec) : fireBiByeMobile(room, ballista, nowSec);
 }
 
 /**
@@ -569,15 +492,35 @@ export function fireBiByeLlista(room, ballista, nowSec) {
  * The exported +Z firing axis becomes Castleward forward through heading + PI.
  * Recoil starts AFTER release, so authoritative projectiles use these rest pivots.
  */
-export function getBiByeMuzzlePosition(ballista, subKind, aim = { yaw: ballista.yaw, pitch: ballista.pitch }) {
-  const copy = {...ballista,yaw:aim.yaw??ballista.yaw,pitch:aim.pitch??ballista.pitch};
+function biByeAimedCopy(b, kind, aim) {
+  aim ??= kind === 'conditioning' ? {yaw:b.upperYaw??b.yaw,pitch:b.upperPitch??b.pitch} : {yaw:b.mainYaw??b.yaw,pitch:b.mainPitch??b.pitch};
+  if (b.mainYaw == null) return {...b, yaw: aim.yaw, pitch: aim.pitch};
+  return kind === 'conditioning'
+    ? {...b, upperYaw: aim.upperYaw ?? aim.yaw ?? b.upperYaw, upperPitch: aim.upperPitch ?? aim.pitch ?? b.upperPitch}
+    : {...b, mainYaw: aim.yaw ?? b.mainYaw, mainPitch: aim.pitch ?? b.mainPitch};
+}
+// Converge on the main rail's sightline at 35 m without changing bolt speeds.
+// Solve against each real composed muzzle, keeping correction in the mechanism.
+export function biByeCoupledAim(b, range = 35) {
+  const main = {yaw:b.mainYaw,pitch:b.mainPitch};
+  const muzzle = getBiByeMuzzlePosition(b,'siege',main),dir = getBiByeMuzzleDirection(b,'siege',main);
+  const target = {x:muzzle.x+dir.x*range,y:muzzle.y+dir.y*range,z:muzzle.z+dir.z*range};
+  let aim = main;
+  for(let i=0;i<4;i++){
+    const p=getBiByeMuzzlePosition(b,'conditioning',aim),x=target.x-p.x,y=target.y-p.y,z=target.z-p.z;
+    aim={yaw:Math.atan2(-x,-z),pitch:Math.atan2(y,Math.hypot(x,z))};
+  }
+  return aim;
+}
+export function getBiByeMuzzlePosition(ballista, subKind, aim = null) {
+  const copy = biByeAimedCopy(ballista, subKind, aim);
   const frames = biByeFrames(copy);
-  const point = subKind === 'conditioning' ? boxWorld(frames.upper,[0,.245,.84]) : boxWorld(frames.cradle,[0,.215,1.64]);
+  const point = subKind === 'conditioning' ? boxWorld(frames.upper,[0,.165,.84]) : boxWorld(frames.cradle,[0,.215,1.64]);
   return {x:point[0],y:point[1],z:point[2]};
 }
 
-export function getBiByeMuzzleDirection(ballista, subKind, aim = { yaw: ballista.yaw, pitch: ballista.pitch }) {
-  const frames = biByeFrames({...ballista, yaw: aim.yaw ?? ballista.yaw, pitch: aim.pitch ?? ballista.pitch});
+export function getBiByeMuzzleDirection(ballista, subKind, aim = null) {
+  const frames = biByeFrames(biByeAimedCopy(ballista, subKind, aim));
   const [x,y,z] = (subKind === 'conditioning' ? frames.upper : frames.cradle).axes[2];
   return {x,y,z};
 }
@@ -673,6 +616,9 @@ export function stepBiByeLlista(room, ballista, dt, nowSec, world = room.world) 
   if (ballista.mode === BI_BYE_MODES.DEPLOYING) {
     if (nowSec >= ballista.modeTransitionEndsAt) {
       ballista.mode = BI_BYE_MODES.DEPLOYED;
+      ballista.weaponFocus = 'MAIN';ballista.focusRevision++;
+      const op = room.players?.get(ballista.operatorId);
+      if(op)op.input={...op.input,yaw:ballista.mainYaw,pitch:ballista.mainPitch};
       room.events?.push({ type: 'bibyeModeChanged', ballistaId: ballista.id, mode: BI_BYE_MODES.DEPLOYED, at: nowSec });
     }
   } else if (ballista.mode === BI_BYE_MODES.RETRACTING) {
@@ -805,20 +751,9 @@ export function stepBiByeLlista(room, ballista, dt, nowSec, world = room.world) 
           ballista.heading = newHeading;
         }
 
-        // Aim upper launcher with traverse limits relative to carriage heading
-        const cfgMob = BI_BYE_LLISTA_CONFIG.mobility;
-        const mobileAim = ballista.mobileShotPendingAt != null ? ballista.committedMobileAim : input;
-        ballista.yaw = clampAngle(mobileAim.yaw ?? ballista.heading, ballista.heading, cfgMob.traverseMobileMax);
-        ballista.pitch = clamp(mobileAim.pitch ?? 0, cfgMob.pitchMobileMin, cfgMob.pitchMobileMax);
-      } else if (ballista.mode === BI_BYE_MODES.DEPLOYED || ballista.mode === BI_BYE_MODES.RETRACTING || ballista.mode === BI_BYE_MODES.DEPLOYING) {
+      } else {
         ballista.speed = 0;
         ballista.steer = 0;
-        // Stationary: swivel turret within deployed traverse limits
-        if (ballista.state !== BI_BYE_STATES.FIRING) {
-          const cfgTrav = biByeCondition(ballista).canSiege ? BI_BYE_LLISTA_CONFIG.traverse : {yawLimit:BI_BYE_LLISTA_CONFIG.mobility.traverseMobileMax,pitchMin:BI_BYE_LLISTA_CONFIG.mobility.pitchMobileMin,pitchMax:BI_BYE_LLISTA_CONFIG.mobility.pitchMobileMax};
-          ballista.yaw = clampAngle(input.yaw ?? ballista.heading, ballista.heading, cfgTrav.yawLimit);
-          ballista.pitch = clamp(input.pitch ?? 0, cfgTrav.pitchMin, cfgTrav.pitchMax);
-        }
       }
 
       // Sync operator position to carriage station
@@ -829,79 +764,8 @@ export function stepBiByeLlista(room, ballista, dt, nowSec, world = room.world) 
   const roll = biByeWheelTravel(previousPose, {x:ballista.x,z:ballista.z,heading:ballista.heading}, biByeWheelSteering(ballista.steer??0));
   ballista.wheelRolls = ballista.wheelRolls.map((v,i)=>v + (ballista.components[Object.keys(ballista.components)[i]].health > 0 ? roll[i] : 0));
 
-  // Mobile Shot I pending release
-  if (ballista.mobileShotPendingAt && nowSec >= ballista.mobileShotPendingAt) {
-    // The committed aim remains clamped to the moving carriage's legal traverse.
-    // Release from that actual turret pose if steering reaches the limit.
-    const aim = { yaw: ballista.yaw, pitch: ballista.pitch };
-    spawnShotI(room, ballista, aim, nowSec, ballista.mobileOperatorId);
-    ballista.mobileShotPendingAt = null;
-    room.events?.push({
-      type: 'bibyeFired',
-      ballistaId: ballista.id,
-      operatorId: ballista.operatorId,
-      shot: 'I_MOBILE',
-      aim,
-      at: nowSec,
-    });
-  }
+  stepBiByeWeapons(room, ballista, dt, nowSec, {shotI:spawnShotI,shotII:spawnShotII,coupledAim:biByeCoupledAim});
 
-  // Firing state machine (DEPLOYED mode)
-  if (ballista.state === BI_BYE_STATES.FIRING) {
-    if (nowSec >= ballista.shotIPendingAt) {
-      spawnShotI(room, ballista, ballista.committedAim, nowSec);
-      ballista.shotIPendingAt = Infinity;
-      room.events?.push({
-        type: 'bibyeFired',
-        ballistaId: ballista.id,
-        operatorId: ballista.operatorId,
-        shot: 'I',
-        aim: ballista.committedAim,
-        at: nowSec,
-      });
-    }
-
-    if (nowSec >= ballista.shotIIPendingAt && biByeCondition(ballista).canSiege) {
-      spawnShotII(room, ballista, ballista.committedAim, nowSec);
-      ballista.shotIIPendingAt = Infinity;
-      ballista.mainBoltLoaded = false;
-      ballista.state = BI_BYE_STATES.SPENT;
-      const recoveryCompleteAt = (ballista.firedAt ?? (nowSec - BI_BYE_LLISTA_CONFIG.timing.mainBoltFireDelaySec)) + BI_BYE_LLISTA_CONFIG.timing.recoilRecoveryDurationSec;
-      ballista.reloadStartedAt = recoveryCompleteAt;
-      ballista.reloadEndsAt = ballista.reloadStartedAt + BI_BYE_LLISTA_CONFIG.timing.reloadDurationSec;
-
-      room.events?.push({
-        type: 'bibyeFired',
-        ballistaId: ballista.id,
-        operatorId: ballista.operatorId,
-        shot: 'II',
-        aim: ballista.committedAim,
-        at: nowSec,
-      });
-    }
-  } else if (ballista.state === BI_BYE_STATES.SPENT) {
-    if (nowSec >= ballista.reloadStartedAt) {
-      ballista.state = BI_BYE_STATES.RELOADING;
-      room.events?.push({
-        type: 'bibyeReloadStarted',
-        ballistaId: ballista.id,
-        durationSec: BI_BYE_LLISTA_CONFIG.timing.reloadDurationSec,
-        at: nowSec,
-      });
-    }
-  } else if (ballista.state === BI_BYE_STATES.RELOADING) {
-    if (nowSec >= ballista.reloadEndsAt) {
-      ballista.state = BI_BYE_STATES.LOADED;
-      ballista.mainBoltLoaded = true;
-      ballista.smallBoltReadyAt = nowSec;
-      ballista.committedAim = null;
-      room.events?.push({
-        type: 'bibyeReloadCompleted',
-        ballistaId: ballista.id,
-        at: nowSec,
-      });
-    }
-  }
 }
 
 /**
@@ -914,10 +778,13 @@ export function stepBiByeProjectiles(room, dt, nowSec, world = room.world) {
 
   for (const projectile of [...room.bibyeProjectiles.values()]) {
     const before = { ...projectile.position };
+    // A release can occur between host ticks. Advance only the fraction of this
+    // tick during which the projectile actually existed.
+    const flightDt = Math.min(dt, Math.max(0, nowSec - projectile.bornAt));
     const after = {
-      x: before.x + projectile.velocity.x * dt,
-      y: before.y + projectile.velocity.y * dt,
-      z: before.z + projectile.velocity.z * dt,
+      x: before.x + projectile.velocity.x * flightDt,
+      y: before.y + projectile.velocity.y * flightDt,
+      z: before.z + projectile.velocity.z * flightDt,
     };
 
     const hits = [];
@@ -937,8 +804,13 @@ export function stepBiByeProjectiles(room, dt, nowSec, world = room.world) {
     }
 
     const machine = room.biByeLlista;
-    if (machine && projectile.ballistaId !== machine.id) {
-      const hit = biByeFirstHit(machine, [before.x,before.y,before.z], [after.x,after.y,after.z], nowSec);
+    if (machine) {
+      // The launching rail/limbs may initially contain their own bolt. Exempt
+      // that assembly only until it clears the rail, never the entire carriage.
+      const own = projectile.ballistaId === machine.id;
+      const railClearTime = projectile.subKind === 'conditioning' ? 1.65 / 48 : 3.75 / 55;
+      const assembly = own && nowSec - projectile.bornAt <= railClearTime + dt ? (projectile.subKind === 'conditioning' ? 'upper' : 'main') : null;
+      const hit = biByeFirstHit(machine, [before.x,before.y,before.z], [after.x,after.y,after.z], nowSec, 0, assembly);
       if (hit) hits.push({...hit,kind:"machine",point:{x:hit.point[0],y:hit.point[1],z:hit.point[2]}});
     }
 

@@ -1,3 +1,4 @@
+import { setBiByeWeaponFocus } from './biByeWeapons.mjs';
 import { biByeDeployProgress } from './biByeComponents.mjs';
 // What a host (the game server, or the browser playing alone when the server cannot be reached) says to its
 // Spellblades and does with what they send. The same shapes either way, so the client cannot tell who is hosting
@@ -187,6 +188,16 @@ export function serializeSnapshot(room, nowSec) {
       y: room.biByeLlista.y,
       z: room.biByeLlista.z,
       heading: room.biByeLlista.heading,
+      mainYaw: room.biByeLlista.mainYaw, mainPitch: room.biByeLlista.mainPitch,
+      upperYaw: room.biByeLlista.upperYaw, upperPitch: room.biByeLlista.upperPitch,
+      weaponFocus: room.biByeLlista.weaponFocus, focusRevision: room.biByeLlista.focusRevision,
+      coupling: room.biByeLlista.coupling, couplingProgress: room.biByeLlista.couplingProgress,
+      couplingReleaseFrom: room.biByeLlista.couplingReleaseFrom,
+      couplingStartedAt: room.biByeLlista.couplingStartedAt, couplingEndsAt: room.biByeLlista.couplingEndsAt,
+      upperReleasedAt: room.biByeLlista.upperReleasedAt, upperFiredAt: room.biByeLlista.upperFiredAt,
+      upperShotKind: room.biByeLlista.upperShotKind, mainReleasedAt: room.biByeLlista.mainReleasedAt, heavyDelayTrippedAt: room.biByeLlista.heavyDelayTrippedAt,
+      upperPending: room.biByeLlista.mobileShotPendingAt != null,
+
       yaw: room.biByeLlista.yaw,
       pitch: room.biByeLlista.pitch,
       speed: room.biByeLlista.speed ?? 0,
@@ -210,7 +221,7 @@ export function serializeSnapshot(room, nowSec) {
       reloadEndsAt: Number.isFinite(room.biByeLlista.reloadEndsAt) ? room.biByeLlista.reloadEndsAt : null,
       destroyedAt: room.biByeLlista.destroyedAt,
       modeTransitionStartedAt: Number.isFinite(room.biByeLlista.modeTransitionStartedAt) ? room.biByeLlista.modeTransitionStartedAt : null,
-      smallBoltReady: nowSec >= (room.biByeLlista.smallBoltReadyAt ?? 0),
+      smallBoltReady: nowSec + 1e-8 >= (room.biByeLlista.smallBoltReadyAt ?? 0) && room.biByeLlista.mobileShotPendingAt == null && !(room.biByeLlista.coupling === 'FIRING' && room.biByeLlista.upperReleasedAt == null),
       mainBoltLoaded: Boolean(room.biByeLlista.mainBoltLoaded),
       reloadProgress: room.biByeLlista.state === 'RELOADING'
         ? Math.min(1.0, Math.max(0, (nowSec - room.biByeLlista.reloadStartedAt) / BI_BYE_LLISTA_CONFIG.timing.reloadDurationSec))
@@ -219,6 +230,7 @@ export function serializeSnapshot(room, nowSec) {
     bibyeProjectiles: [...(room.bibyeProjectiles?.values() ?? [])].map((p) => ({
       id: p.id,
       subKind: p.subKind,
+      bornAt: p.bornAt, ballistaId: p.ballistaId,
       position: p.position,
       velocity: p.velocity,
     })),
@@ -322,7 +334,7 @@ export function applyRoomCommand(room, player, message, time) {
       if (room.biByeLlista.operatorId === player.id) {
         dismountBiByeLlista(room.biByeLlista, player, true, room.world);
       } else {
-        mountBiByeLlista(room.biByeLlista, player);
+        mountBiByeLlista(room.biByeLlista, player, time);
       }
       return {};
     }
@@ -330,6 +342,14 @@ export function applyRoomCommand(room, player, message, time) {
       if (!room.biByeLlista) return { rejected: 'No ballista available' };
       if (room.biByeLlista.operatorId !== player.id) return { rejected: 'Must operate ballista to toggle deployment' };
       toggleBiByeDeploy(room.biByeLlista, time);
+      return {};
+    }
+    case 'bibyeWeaponFocus': {
+      const b = room.biByeLlista;
+      if (!player.alive || !b || b.operatorId !== player.id) return { rejected: 'Must operate ballista to change weapon' };
+      const focus = message.focus ?? (b.weaponFocus === 'MAIN' ? 'UPPER' : 'MAIN');
+      if (!setBiByeWeaponFocus(b, focus, time)) return { rejected: 'Deploy before switching weapon focus' };
+      player.input = {...player.input,yaw:b.yaw,pitch:b.pitch};
       return {};
     }
     case 'bibyeFire': {

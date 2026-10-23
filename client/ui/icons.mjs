@@ -26,6 +26,7 @@ export const ICONS = Object.freeze({
   pause: '<path d="M9 5v14M15 5v14"/>',
   scores: '<path d="M5 7h14M5 12h14M5 17h14"/>',
   interact: '<path d="M12 4v12M8 8l4-4 4 4M4 20h16"/>',
+  siegeWeapon: '<path d="M4 8h16l-4-4M20 16H4l4 4"/>',
   siegeView: '<path d="M2 12s4-6 10-6 10 6 10 6-4 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
   deploy: '<path d="M4 12h16M12 4v16M7 7l10 10M17 7l-10 10"/>',
 });

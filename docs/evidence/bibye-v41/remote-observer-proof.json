@@ -1,0 +1,206 @@
+{
+  "mounted": {
+    "local": false,
+    "id": "97a2ad76-5ed1-47e7-9264-c025be0c4f2c",
+    "source": "glb",
+    "seat": true,
+    "root": [
+      7.12,
+      -0.05,
+      -14.6
+    ],
+    "head": [
+      7.170000000745058,
+      1.7099999904632568,
+      -14.6
+    ],
+    "stowed": true
+  },
+  "events": [
+    {
+      "type": "bibyeModeChanged",
+      "ballistaId": "bibye-practice-01",
+      "mode": "DEPLOYED",
+      "at": 377.53166725
+    },
+    {
+      "type": "bibyeAlignmentStarted",
+      "ballistaId": "bibye-practice-01",
+      "at": 377.575803625
+    },
+    {
+      "type": "bibyeUpperAligned",
+      "ballistaId": "bibye-practice-01",
+      "at": 378.79769175
+    },
+    {
+      "type": "bibyeCouplingEngaged",
+      "ballistaId": "bibye-practice-01",
+      "at": 379.414385833
+    },
+    {
+      "type": "bibyeVolleyInitiated",
+      "ballistaId": "bibye-practice-01",
+      "at": 379.414385833,
+      "operatorId": "97a2ad76-5ed1-47e7-9264-c025be0c4f2c",
+      "aim": {
+        "yaw": -0.7853981633974483,
+        "pitch": 0.0798,
+        "upperYaw": -0.7853981633974484,
+        "upperPitch": 0.04980915121581185
+      }
+    },
+    {
+      "type": "bibyeBoltSpawned",
+      "projectile": {
+        "id": "bibye-bolt-3",
+        "kind": "bibye",
+        "subKind": "conditioning",
+        "ballistaId": "bibye-practice-01",
+        "ownerId": "97a2ad76-5ed1-47e7-9264-c025be0c4f2c",
+        "position": {
+          "x": 9.643992624529549,
+          "y": 2.986617752605038,
+          "z": -15.243992624529549
+        },
+        "velocity": {
+          "x": 33.89903105702181,
+          "y": 2.389850788259009,
+          "z": -33.8990310570218
+        },
+        "bornAt": 379.864385833,
+        "radius": 0.6,
+        "blastRadius": 2,
+        "directDamage": 18,
+        "edgeDamage": 12,
+        "maxStaminaDrain": 22
+      },
+      "at": 379.864385833
+    },
+    {
+      "type": "bibyeFired",
+      "ballistaId": "bibye-practice-01",
+      "at": 379.864385833,
+      "operatorId": "97a2ad76-5ed1-47e7-9264-c025be0c4f2c",
+      "shot": "I"
+    },
+    {
+      "type": "bibyeHeavyDelayTripped",
+      "ballistaId": "bibye-practice-01",
+      "at": 379.864385833
+    },
+    {
+      "type": "bibyeBoltSpawned",
+      "projectile": {
+        "id": "bibye-bolt-4",
+        "kind": "bibye",
+        "subKind": "siege",
+        "ballistaId": "bibye-practice-01",
+        "ownerId": "97a2ad76-5ed1-47e7-9264-c025be0c4f2c",
+        "position": {
+          "x": 10.058992942169853,
+          "y": 1.9650489434313874,
+          "z": -15.658992942169853
+        },
+        "velocity": {
+          "x": 38.76710934647802,
+          "y": 4.384343261702105,
+          "z": -38.767109346478016
+        },
+        "bornAt": 380.06438583299996,
+        "radius": 0.85,
+        "directDamage": 85,
+        "pierceMaxTargets": 2,
+        "pierceCount": 0,
+        "piercedVictimIds": [],
+        "shove": 8.5,
+        "staggerGain": 45
+      },
+      "at": 380.06438583299996
+    },
+    {
+      "type": "bibyeFired",
+      "ballistaId": "bibye-practice-01",
+      "at": 380.06438583299996,
+      "operatorId": "97a2ad76-5ed1-47e7-9264-c025be0c4f2c",
+      "shot": "II"
+    },
+    {
+      "type": "bibyeCouplingReleased",
+      "ballistaId": "bibye-practice-01",
+      "at": 380.856991
+    },
+    {
+      "type": "bibyeReloadStarted",
+      "ballistaId": "bibye-practice-01",
+      "at": 381.637017042,
+      "durationSec": 4.5
+    },
+    {
+      "type": "bibyeUpperRecocked",
+      "ballistaId": "bibye-practice-01",
+      "at": 382.364385833
+    },
+    {
+      "type": "bibyeReloadCompleted",
+      "ballistaId": "bibye-practice-01",
+      "at": 386.124328042
+    },
+    {
+      "type": "bibyeMobileFireTriggered",
+      "ballistaId": "bibye-practice-01",
+      "at": 395.36467508299995,
+      "operatorId": "97a2ad76-5ed1-47e7-9264-c025be0c4f2c",
+      "aim": {
+        "yaw": -1.064650843716541,
+        "pitch": 0
+      }
+    },
+    {
+      "type": "bibyeBoltSpawned",
+      "projectile": {
+        "id": "bibye-bolt-5",
+        "kind": "bibye",
+        "subKind": "conditioning",
+        "ballistaId": "bibye-practice-01",
+        "ownerId": "97a2ad76-5ed1-47e7-9264-c025be0c4f2c",
+        "position": {
+          "x": 9.814680553997093,
+          "y": 2.9450000000000003,
+          "z": -15.007240081006923
+        },
+        "velocity": {
+          "x": 41.98174594269099,
+          "y": 0,
+          "z": -23.27086177182418
+        },
+        "bornAt": 395.56467508299994,
+        "radius": 0.6,
+        "blastRadius": 2,
+        "directDamage": 18,
+        "edgeDamage": 12,
+        "maxStaminaDrain": 22
+      },
+      "at": 395.56467508299994
+    },
+    {
+      "type": "bibyeFired",
+      "ballistaId": "bibye-practice-01",
+      "at": 395.56467508299994,
+      "operatorId": "97a2ad76-5ed1-47e7-9264-c025be0c4f2c",
+      "shot": "I_MOBILE"
+    }
+  ],
+  "dismounted": {
+    "seated": false,
+    "sword": true,
+    "stowed": false
+  },
+  "observedUpperFollowup": {
+    "local": false,
+    "state": "LOADED",
+    "upper": 395.56467508299994,
+    "heavyReady": 386.114385833
+  },
+  "scope": "Two real WebSocket browser clients on an isolated localhost fixture with the vehicle and initial actor positions supplied by the fixture. Production availability remains Practice only. This capture followup shot occurred after heavy reload; concurrent fire is covered by local desktop, exported touch and the protocol test."
+}

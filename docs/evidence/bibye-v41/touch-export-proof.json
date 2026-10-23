@@ -1,0 +1,702 @@
+{
+  "mounted": {
+    "now": 19.18210000038147,
+    "local": true,
+    "enabled": true,
+    "yaw": -1.5009831567151233,
+    "pitch": 0,
+    "view": "third",
+    "action": "06_BiBye_Travel_Ready",
+    "upper": "01_BiBye_LoadedIdle_Upper",
+    "b": {
+      "id": "bibye-practice-01",
+      "position": {
+        "x": 9,
+        "y": 0,
+        "z": -14.6
+      },
+      "heading": -1.5707963267948966,
+      "mainYaw": -1.5707963267948966,
+      "mainPitch": 0,
+      "upperYaw": -1.5009831567151233,
+      "upperPitch": 0,
+      "weaponFocus": "UPPER",
+      "coupling": "INDEPENDENT",
+      "couplingProgress": 0,
+      "couplingReleaseFrom": 1,
+      "couplingStartedAt": null,
+      "couplingEndsAt": null,
+      "upperReleasedAt": null,
+      "upperFiredAt": null,
+      "mainReleasedAt": null,
+      "heavyDelayTrippedAt": null,
+      "upperPending": false,
+      "speed": 0,
+      "steer": 0,
+      "mode": "MOBILE",
+      "components": {
+        "Wheel_FL": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Wheel_FR": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Wheel_ML": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Wheel_MR": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Wheel_RL": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Wheel_RR": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Stabilizer_FL": {
+          "health": 150,
+          "maxHealth": 150,
+          "failedAt": null
+        },
+        "Stabilizer_FR": {
+          "health": 150,
+          "maxHealth": 150,
+          "failedAt": null
+        },
+        "Stabilizer_RL": {
+          "health": 150,
+          "maxHealth": 150,
+          "failedAt": null
+        },
+        "Stabilizer_RR": {
+          "health": 150,
+          "maxHealth": 150,
+          "failedAt": null
+        }
+      },
+      "health": 650,
+      "state": "LOADED",
+      "operatorId": "11e81a54-5ff4-44fb-bc6f-6464e73e3c0d",
+      "firedAt": null,
+      "smallBoltReadyAt": 0,
+      "reloadStartedAt": null,
+      "reloadEndsAt": null,
+      "smallBoltReady": true,
+      "mainBoltLoaded": true
+    },
+    "player": {
+      "id": "11e81a54-5ff4-44fb-bc6f-6464e73e3c0d",
+      "position": {
+        "x": 7.12,
+        "y": -0.05,
+        "z": -14.6
+      },
+      "alive": true,
+      "operatingBallistaId": "bibye-practice-01"
+    }
+  },
+  "independent": {
+    "now": 21.24839999961853,
+    "local": true,
+    "enabled": true,
+    "yaw": -1.5707963267948966,
+    "pitch": 0,
+    "view": "third",
+    "action": "01_BiBye_LoadedIdle",
+    "upper": "09_BiBye_Mobile_Shot1_Fire_Upper",
+    "b": {
+      "id": "bibye-practice-01",
+      "position": {
+        "x": 9,
+        "y": 0,
+        "z": -14.6
+      },
+      "heading": -1.5707963267948966,
+      "mainYaw": -1.5707963267948966,
+      "mainPitch": 0,
+      "upperYaw": -1.5707963267948966,
+      "upperPitch": 0,
+      "weaponFocus": "UPPER",
+      "coupling": "INDEPENDENT",
+      "couplingProgress": 0,
+      "couplingReleaseFrom": 1,
+      "couplingStartedAt": null,
+      "couplingEndsAt": null,
+      "upperReleasedAt": 21.197899999618528,
+      "upperFiredAt": 20.99789999961853,
+      "mainReleasedAt": null,
+      "heavyDelayTrippedAt": null,
+      "upperPending": false,
+      "speed": 0,
+      "steer": 0,
+      "mode": "DEPLOYED",
+      "components": {
+        "Wheel_FL": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Wheel_FR": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Wheel_ML": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Wheel_MR": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Wheel_RL": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Wheel_RR": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Stabilizer_FL": {
+          "health": 150,
+          "maxHealth": 150,
+          "failedAt": null
+        },
+        "Stabilizer_FR": {
+          "health": 150,
+          "maxHealth": 150,
+          "failedAt": null
+        },
+        "Stabilizer_RL": {
+          "health": 150,
+          "maxHealth": 150,
+          "failedAt": null
+        },
+        "Stabilizer_RR": {
+          "health": 150,
+          "maxHealth": 150,
+          "failedAt": null
+        }
+      },
+      "health": 650,
+      "state": "LOADED",
+      "operatorId": "11e81a54-5ff4-44fb-bc6f-6464e73e3c0d",
+      "firedAt": null,
+      "smallBoltReadyAt": 23.697899999618528,
+      "reloadStartedAt": null,
+      "reloadEndsAt": null,
+      "smallBoltReady": false,
+      "mainBoltLoaded": true
+    },
+    "player": {
+      "id": "11e81a54-5ff4-44fb-bc6f-6464e73e3c0d",
+      "position": {
+        "x": 7.12,
+        "y": -0.05,
+        "z": -14.6
+      },
+      "alive": true,
+      "operatingBallistaId": "bibye-practice-01"
+    }
+  },
+  "committed": {
+    "now": 24.5625,
+    "local": true,
+    "enabled": true,
+    "yaw": -1.5707963267948966,
+    "pitch": 0,
+    "view": "third",
+    "action": "01_BiBye_LoadedIdle",
+    "upper": "20_BiBye_Coupled_Shot1_Trigger_And_Delay_Upper",
+    "b": {
+      "id": "bibye-practice-01",
+      "position": {
+        "x": 9,
+        "y": 0,
+        "z": -14.6
+      },
+      "heading": -1.5707963267948966,
+      "mainYaw": -1.5707963267948966,
+      "mainPitch": 0,
+      "upperYaw": -1.5707963267948968,
+      "upperPitch": -0.030453704899145874,
+      "weaponFocus": "MAIN",
+      "coupling": "FIRING",
+      "couplingProgress": 1,
+      "couplingReleaseFrom": 1,
+      "couplingStartedAt": 23.88189999961853,
+      "couplingEndsAt": 24.48189999961853,
+      "upperReleasedAt": null,
+      "upperFiredAt": 24.5125,
+      "mainReleasedAt": null,
+      "heavyDelayTrippedAt": null,
+      "upperPending": false,
+      "speed": 0,
+      "steer": 0,
+      "mode": "DEPLOYED",
+      "components": {
+        "Wheel_FL": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Wheel_FR": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Wheel_ML": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Wheel_MR": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Wheel_RL": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Wheel_RR": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Stabilizer_FL": {
+          "health": 150,
+          "maxHealth": 150,
+          "failedAt": null
+        },
+        "Stabilizer_FR": {
+          "health": 150,
+          "maxHealth": 150,
+          "failedAt": null
+        },
+        "Stabilizer_RL": {
+          "health": 150,
+          "maxHealth": 150,
+          "failedAt": null
+        },
+        "Stabilizer_RR": {
+          "health": 150,
+          "maxHealth": 150,
+          "failedAt": null
+        }
+      },
+      "health": 650,
+      "state": "FIRING",
+      "operatorId": "11e81a54-5ff4-44fb-bc6f-6464e73e3c0d",
+      "firedAt": 24.5125,
+      "smallBoltReadyAt": 23.697899999618528,
+      "reloadStartedAt": null,
+      "reloadEndsAt": null,
+      "smallBoltReady": false,
+      "mainBoltLoaded": true
+    },
+    "player": {
+      "id": "11e81a54-5ff4-44fb-bc6f-6464e73e3c0d",
+      "position": {
+        "x": 7.12,
+        "y": -0.05,
+        "z": -14.6
+      },
+      "alive": true,
+      "operatingBallistaId": "bibye-practice-01"
+    }
+  },
+  "heavy": {
+    "now": 25.22,
+    "local": true,
+    "enabled": true,
+    "yaw": -1.5707963267948966,
+    "pitch": 0,
+    "view": "third",
+    "action": "21_BiBye_Delayed_Shot2_Release_And_Recoil",
+    "upper": "20_BiBye_Coupled_Shot1_Trigger_And_Delay_Upper",
+    "b": {
+      "id": "bibye-practice-01",
+      "position": {
+        "x": 9,
+        "y": 0,
+        "z": -14.6
+      },
+      "heading": -1.5707963267948966,
+      "mainYaw": -1.5707963267948966,
+      "mainPitch": 0,
+      "upperYaw": -1.5707963267948968,
+      "upperPitch": -0.030453704899145874,
+      "weaponFocus": "MAIN",
+      "coupling": "RELEASING",
+      "couplingProgress": 1,
+      "couplingReleaseFrom": 1,
+      "couplingStartedAt": 25.162499999999998,
+      "couplingEndsAt": 25.7625,
+      "upperReleasedAt": 24.9625,
+      "upperFiredAt": 24.5125,
+      "mainReleasedAt": 25.162499999999998,
+      "heavyDelayTrippedAt": 24.9625,
+      "upperPending": false,
+      "speed": 0,
+      "steer": 0,
+      "mode": "DEPLOYED",
+      "components": {
+        "Wheel_FL": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Wheel_FR": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Wheel_ML": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Wheel_MR": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Wheel_RL": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Wheel_RR": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Stabilizer_FL": {
+          "health": 150,
+          "maxHealth": 150,
+          "failedAt": null
+        },
+        "Stabilizer_FR": {
+          "health": 150,
+          "maxHealth": 150,
+          "failedAt": null
+        },
+        "Stabilizer_RL": {
+          "health": 150,
+          "maxHealth": 150,
+          "failedAt": null
+        },
+        "Stabilizer_RR": {
+          "health": 150,
+          "maxHealth": 150,
+          "failedAt": null
+        }
+      },
+      "health": 650,
+      "state": "SPENT",
+      "operatorId": "11e81a54-5ff4-44fb-bc6f-6464e73e3c0d",
+      "firedAt": 24.5125,
+      "smallBoltReadyAt": 27.4625,
+      "reloadStartedAt": 26.7125,
+      "reloadEndsAt": 31.2125,
+      "smallBoltReady": false,
+      "mainBoltLoaded": false
+    },
+    "player": {
+      "id": "11e81a54-5ff4-44fb-bc6f-6464e73e3c0d",
+      "position": {
+        "x": 7.12,
+        "y": -0.05,
+        "z": -14.6
+      },
+      "alive": true,
+      "operatingBallistaId": "bibye-practice-01"
+    }
+  },
+  "concurrent": {
+    "now": 28.964800000190735,
+    "local": true,
+    "enabled": true,
+    "yaw": -1.5707963267948968,
+    "pitch": -0.030453704899145874,
+    "view": "third",
+    "action": "19_BiBye_Main_Winch_Reload_Only",
+    "upper": "09_BiBye_Mobile_Shot1_Fire_Upper",
+    "b": {
+      "id": "bibye-practice-01",
+      "position": {
+        "x": 9,
+        "y": 0,
+        "z": -14.6
+      },
+      "heading": -1.5707963267948966,
+      "mainYaw": -1.5707963267948966,
+      "mainPitch": 0,
+      "upperYaw": -1.5707963267948968,
+      "upperPitch": -0.030453704899145874,
+      "weaponFocus": "UPPER",
+      "coupling": "INDEPENDENT",
+      "couplingProgress": 0,
+      "couplingReleaseFrom": 1,
+      "couplingStartedAt": 25.162499999999998,
+      "couplingEndsAt": 25.7625,
+      "upperReleasedAt": 28.73510000038147,
+      "upperFiredAt": 28.53510000038147,
+      "mainReleasedAt": 25.162499999999998,
+      "heavyDelayTrippedAt": 24.9625,
+      "upperPending": false,
+      "speed": 0,
+      "steer": 0,
+      "mode": "DEPLOYED",
+      "components": {
+        "Wheel_FL": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Wheel_FR": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Wheel_ML": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Wheel_MR": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Wheel_RL": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Wheel_RR": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Stabilizer_FL": {
+          "health": 150,
+          "maxHealth": 150,
+          "failedAt": null
+        },
+        "Stabilizer_FR": {
+          "health": 150,
+          "maxHealth": 150,
+          "failedAt": null
+        },
+        "Stabilizer_RL": {
+          "health": 150,
+          "maxHealth": 150,
+          "failedAt": null
+        },
+        "Stabilizer_RR": {
+          "health": 150,
+          "maxHealth": 150,
+          "failedAt": null
+        }
+      },
+      "health": 650,
+      "state": "RELOADING",
+      "operatorId": "11e81a54-5ff4-44fb-bc6f-6464e73e3c0d",
+      "firedAt": 24.5125,
+      "smallBoltReadyAt": 31.23510000038147,
+      "reloadStartedAt": 26.7125,
+      "reloadEndsAt": 31.2125,
+      "smallBoltReady": false,
+      "mainBoltLoaded": false
+    },
+    "player": {
+      "id": "11e81a54-5ff4-44fb-bc6f-6464e73e3c0d",
+      "position": {
+        "x": 7.12,
+        "y": -0.05,
+        "z": -14.6
+      },
+      "alive": true,
+      "operatingBallistaId": "bibye-practice-01"
+    }
+  },
+  "sight": {
+    "now": 30.822300000190737,
+    "local": true,
+    "enabled": true,
+    "yaw": -1.5707963267948968,
+    "pitch": -0.030453704899145874,
+    "view": "sight",
+    "action": "19_BiBye_Main_Winch_Reload_Only",
+    "upper": "10_BiBye_Mobile_Shot1_Reload_Upper",
+    "b": {
+      "id": "bibye-practice-01",
+      "position": {
+        "x": 9,
+        "y": 0,
+        "z": -14.6
+      },
+      "heading": -1.5707963267948966,
+      "mainYaw": -1.5707963267948966,
+      "mainPitch": 0,
+      "upperYaw": -1.5707963267948968,
+      "upperPitch": -0.030453704899145874,
+      "weaponFocus": "UPPER",
+      "coupling": "INDEPENDENT",
+      "couplingProgress": 0,
+      "couplingReleaseFrom": 1,
+      "couplingStartedAt": 25.162499999999998,
+      "couplingEndsAt": 25.7625,
+      "upperReleasedAt": 28.73510000038147,
+      "upperFiredAt": 28.53510000038147,
+      "mainReleasedAt": 25.162499999999998,
+      "heavyDelayTrippedAt": 24.9625,
+      "upperPending": false,
+      "speed": 0,
+      "steer": 0,
+      "mode": "DEPLOYED",
+      "components": {
+        "Wheel_FL": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Wheel_FR": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Wheel_ML": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Wheel_MR": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Wheel_RL": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Wheel_RR": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Stabilizer_FL": {
+          "health": 150,
+          "maxHealth": 150,
+          "failedAt": null
+        },
+        "Stabilizer_FR": {
+          "health": 150,
+          "maxHealth": 150,
+          "failedAt": null
+        },
+        "Stabilizer_RL": {
+          "health": 150,
+          "maxHealth": 150,
+          "failedAt": null
+        },
+        "Stabilizer_RR": {
+          "health": 150,
+          "maxHealth": 150,
+          "failedAt": null
+        }
+      },
+      "health": 650,
+      "state": "RELOADING",
+      "operatorId": "11e81a54-5ff4-44fb-bc6f-6464e73e3c0d",
+      "firedAt": 24.5125,
+      "smallBoltReadyAt": 31.23510000038147,
+      "reloadStartedAt": 26.7125,
+      "reloadEndsAt": 31.2125,
+      "smallBoltReady": false,
+      "mainBoltLoaded": false
+    },
+    "player": {
+      "id": "11e81a54-5ff4-44fb-bc6f-6464e73e3c0d",
+      "position": {
+        "x": 7.12,
+        "y": -0.05,
+        "z": -14.6
+      },
+      "alive": true,
+      "operatingBallistaId": "bibye-practice-01"
+    }
+  },
+  "controls": [
+    {
+      "label": "ATTACK",
+      "x": 818,
+      "y": 322,
+      "w": 80,
+      "h": 80
+    },
+    {
+      "label": "MENU",
+      "x": 10,
+      "y": 8,
+      "w": 38,
+      "h": 38
+    },
+    {
+      "label": "SCORES",
+      "x": 54,
+      "y": 8,
+      "w": 38,
+      "h": 38
+    },
+    {
+      "label": "LEAVE",
+      "x": 664,
+      "y": 276,
+      "w": 58,
+      "h": 58
+    },
+    {
+      "label": "PACK",
+      "x": 672,
+      "y": 208,
+      "w": 58,
+      "h": 58
+    },
+    {
+      "label": "VIEW",
+      "x": 746,
+      "y": 198,
+      "w": 58,
+      "h": 58
+    },
+    {
+      "label": "MAIN",
+      "x": 816,
+      "y": 194,
+      "w": 62,
+      "h": 62
+    }
+  ],
+  "errors": []
+}

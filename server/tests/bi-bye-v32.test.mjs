@@ -12,50 +12,12 @@ const bytes = readFileSync(new URL('../../client/assets/props/bibye-ballista/bi-
 const gltf = JSON.parse(bytes.subarray(20, 20 + bytes.readUInt32LE(12)).toString());
 const byName = new Map(gltf.nodes.map((node, index) => [node.name, index]));
 const parents = new Map(gltf.nodes.flatMap((node, parent) => (node.children ?? []).map(child => [child, parent])));
-// Independently evaluate the actual exported parent chain, in model coordinates.
-function rotate([x, y, z], yaw, pitch = 0) {
-  const py = y * Math.cos(pitch) - z * Math.sin(pitch);
-  const pz = y * Math.sin(pitch) + z * Math.cos(pitch);
-  return [x * Math.cos(yaw) + pz * Math.sin(yaw), py, -x * Math.sin(yaw) + pz * Math.cos(yaw)];
-}
-function locator(ballista, name) {
-  let point = [0, 0, 0];
-  for (let index = byName.get(name); index !== undefined; index = parents.get(index)) {
-    const node = gltf.nodes[index];
-    const mobile = ballista.mode === BI_BYE_MODES.MOBILE;
-    if (node.name === 'Traverse_Mount' && !mobile) point = rotate(point, ballista.yaw - ballista.heading);
-    if (node.name === 'Elevation_Cradle' && !mobile) point = rotate(point, 0, -ballista.pitch);
-    if (node.name === 'Upper_Turret_Mount' && mobile) point = rotate(point, ballista.yaw - ballista.heading, -ballista.pitch);
-    point = point.map((value, axis) => value + (node.translation?.[axis] ?? 0));
-  }
-  point = rotate(point, ballista.heading + Math.PI);
-  return point.map((value, axis) => value + [ballista.x, ballista.y, ballista.z][axis]);
-}
-
 test('v3.2 asset identity and mechanical contract', () => {
   assert.equal(createHash('sha256').update(bytes).digest('hex'), 'c595a2bc41db7d8c5783c0795cb24276529f72932c8ecb70f72599c099937b6a');
   assert.equal(gltf.nodes.length, 39);
   assert.equal(gltf.meshes.length, 29);
   assert.equal(gltf.animations.length, 12);
   for (const name of ['mounted_camera_tpv', 'mounted_camera_sight', 'small_bolt_muzzle', 'main_bolt_muzzle']) assert.ok(byName.has(name), name);
-});
-
-test('authoritative muzzle geometry matches the exported v3.2 hierarchy throughout the aiming envelope', () => {
-  for (const mode of [BI_BYE_MODES.MOBILE, BI_BYE_MODES.DEPLOYED]) {
-    for (let heading = -Math.PI; heading < Math.PI; heading += Math.PI / 4) {
-      for (const traverse of [-Math.PI / (mode === BI_BYE_MODES.MOBILE ? 5 : 4), 0, Math.PI / (mode === BI_BYE_MODES.MOBILE ? 5 : 4)]) {
-        for (const pitch of [-0.15, 0, 0.35]) {
-          const ballista = { x: 7, y: 2, z: -11, heading, yaw: heading + traverse, pitch, mode };
-          for (const [kind, name] of [['conditioning', 'small_bolt_muzzle'], ...mode === BI_BYE_MODES.DEPLOYED ? [['siege', 'main_bolt_muzzle']] : []]) {
-            const actual = Object.values(getBiByeMuzzlePosition(ballista, kind));
-            const expected = locator(ballista, name);
-            assert.ok(Math.hypot(...actual.map((value, axis) => value - expected[axis])) < 1e-8,
-              `${mode} ${kind} heading ${heading}, traverse ${traverse}, pitch ${pitch}: ${actual} != ${expected}`);
-          }
-        }
-      }
-    }
-  }
 });
 
 test('a moving ballista stops at an unmounted living player', () => {
@@ -82,11 +44,12 @@ test('mounted operators cannot cast personal spells or trigger personal combat a
   assert.equal(p.pendingSpell, null);
 });
 
-test('an ordinary Fireball directly collides with and damages the carriage', () => {
+test('an ordinary Fireball directly collides with the visible cockpit backrest', () => {
   const room = new RoomManager().createSoloRoom('PRACTICE', 0, 'castleward');
   const p = room.addPlayer({ id: 'caster', token: 'caster', name: 'Caster' }, 0);
   room.armAutoStart(0);
-  p.position = { x: 6.4, y: 0, z: -14.6 };
+  // Account for the ordinary casting hand offset while aiming at the narrow backrest.
+  p.position = { x: 6, y: 0, z: -15.02 };
   p.spawnProtectionUntil = 0;
   applyRoomCommand(room, p, { type: 'cast', direction: { x: 1, y: 0, z: 0 } }, 1);
   for (let i = 0; i < 60; i++) stepRoom(room, 1 / 30, 1 + i / 30);

@@ -1,5 +1,5 @@
 import { BiByeSound } from './sound/BiByeSound.mjs';
-import { getBiByeMuzzlePosition, getBiByeMuzzleDirection } from '../../shared/sim/biByeLlista.mjs';
+import { getBiByeMuzzlePosition, getBiByeMuzzleDirection, getBiByeOperatorTransform } from '../../shared/sim/biByeLlista.mjs';
 import { combatActionPolicy, combatBlocksSprint } from '../../shared/src/combatActionPolicy.mjs';
 import { heldActions } from '../../shared/src/heldActions.mjs';
 import * as THREE from 'three';
@@ -553,6 +553,7 @@ export class GameRuntime {
       this.activeWorld = bastionBreachForObjective(snapshot.objective, snapshot.serverTime ?? this.socket.serverNow());
     }
     if (snapshot.matchStartedAt !== this.latestSnapshot?.matchStartedAt) this.localGate = null;
+    const previousSiege = this.latestSnapshot?.bibyeBallista;
     this.latestSnapshot = snapshot;
     this.remotePlayers.pushSnapshot(snapshot, this.presentationNow());
     this.effects.syncProjectiles(snapshot.projectiles ?? []);
@@ -565,6 +566,10 @@ export class GameRuntime {
       this.input.releaseInputs();
       this.weapon.setAttack(false);
       this.weapon.setGuard(false);
+      this.input.yaw = snapshot.bibyeBallista.yaw;
+      this.input.pitch = snapshot.bibyeBallista.pitch;
+    }
+    if (auth?.operatingBallistaId && wasMounted && previousSiege?.focusRevision !== snapshot.bibyeBallista?.focusRevision) {
       this.input.yaw = snapshot.bibyeBallista.yaw;
       this.input.pitch = snapshot.bibyeBallista.pitch;
     }
@@ -2018,7 +2023,7 @@ export class GameRuntime {
         const back = sight ? 1.45 : 6.7;
         target.set(b.position.x + Math.sin(b.yaw) * back, b.position.y + (sight ? 2.18 : 3.8), b.position.z + Math.cos(b.yaw) * back);
       }
-      const kind = b.mode === 'DEPLOYED' ? 'siege' : 'conditioning';
+      const kind = b.mode === 'DEPLOYED' && b.weaponFocus === 'MAIN' ? 'siege' : 'conditioning';
       if (this.siegeView === 'third') {
         const anchor = [b.position.x, b.position.y + 2.18, b.position.z];
         target.set(...clip(this.#reach, anchor, target.toArray(), .25));
@@ -2231,7 +2236,7 @@ export class GameRuntime {
       if (mounted) outside = true;
       this.weapon.group.visible = !outside;
       this.remotePlayers.showSelf(this.localAuth, {
-        position: this.localState.position, velocity: this.localState.velocity, yaw: this.input.yaw, pitch: this.input.pitch,
+        position: this.localState.position, velocity: this.localState.velocity, yaw: mounted ? this.localAuth.yaw : this.input.yaw, pitch: mounted ? 0 : this.input.pitch,
       }, serverNow, nowMs, dt, outside && (!mounted || (this.siegeView === 'third' && this.siegeCamera?.position.distanceTo(this.camera.position) > 1.2)));
       this.#setFov(this.view.fov + (view.fov - FP_MOTION.baseFov) * motion);
     } else if (this.localAuth && this.localState && this.deathCam && this.localAuth.alive === false) {
@@ -2250,6 +2255,19 @@ export class GameRuntime {
     this.siegeSound.update(this.latestSnapshot?.bibyeBallista,{active:this.playing && this.input.enabled && !this.socket.inspectionFrozen,playerId:this.socket.playerId,listener:this.localState?.position??this.localAuth?.position,yaw:this.input.yaw,now:this.socket.serverNow()});
     this.world?.setBiByeState?.(this.latestSnapshot, this.socket.serverNow(), {local:this.socket.playingLocally,frozen:this.socket.inspectionFrozen});
     this.world?.update?.(timeSec, this.camera);
+    // Vehicle, seated operator and hand controls share one interpolated carriage frame.
+    const mountedMachine=this.world?.biByeLlista?.presentationData;
+    if(mountedMachine){
+      const operator=this.remotePlayers.self?.root;
+      if(operator?.visible && this.localAuth?.alive && mountedMachine.operatorId===this.localAuth.id){
+        const pose=getBiByeOperatorTransform({...mountedMachine,...mountedMachine.position});
+        operator.position.set(pose.position.x,pose.position.y,pose.position.z);operator.rotation.y=pose.yaw;
+        this.remotePlayers.self.visualInstance?.animator?.applyMounted(mountedMachine,mountedMachine.poseTime??this.socket.serverNow(),this.world.biByeLlista.getOperatorGrips());
+      }
+      const remote=this.remotePlayers.rigs.get(mountedMachine.operatorId)?.root;
+      if(remote?.visible){const pose=getBiByeOperatorTransform({...mountedMachine,...mountedMachine.position});remote.position.set(pose.position.x,pose.position.y,pose.position.z);remote.rotation.y=pose.yaw;
+        this.remotePlayers.rigs.get(mountedMachine.operatorId).visualInstance?.animator?.applyMounted(mountedMachine,mountedMachine.poseTime??this.socket.serverNow(),this.world.biByeLlista.getOperatorGrips());}
+    }
     this.#mountedView(dt);
     this.#followGusts();
     this.effects.update(dt);

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { BiByeOperatorPose } from './BiByeOperatorPose.mjs';
 import { SpellbladeComposition } from './spellbladeComposition.mjs';
 import { BODY_GROUND_CLEARANCE, bodyGroundLift, bootSide, soleContactOffset } from './spellbladeContact.mjs';
 import { pauldronFollow } from './pauldronFollow.mjs';
@@ -100,6 +101,7 @@ export class SpellbladeAnimator {
       this.soles.set(`foot.${side}`, [...(this.soles.get(`foot.${side}`) ?? []), ...unique.values()]);
     });
     // what a procedural solver (motion.solve, e.g. the first-person sword arm) may read and turn, in root space
+    this.siege = new BiByeOperatorPose(root,this.bones);
     this.boneApi = {
       position: (name) => {
         const bone = this.bone(name);
@@ -134,6 +136,11 @@ export class SpellbladeAnimator {
   }
 
   apply(plan, dt = 0) {
+    if(plan?.mounted){
+      if(!this.siege.active)this.reset();
+      this.siege.apply();this.onPose?.(plan);return true;
+    }
+    this.releaseMounted();
     const step = Number.isFinite(dt) ? Math.max(0, Math.min(0.1, dt)) : 0;
     if (plan?.layers) {
       this.#restoreTouched();
@@ -251,6 +258,9 @@ export class SpellbladeAnimator {
     this.onPose?.(plan);
     return true;
   }
+
+  applyMounted(machine,now,grips){this.siege.apply(machine,now,grips);}
+  releaseMounted(){if(this.siege.release())this.reset();}
 
   #clipOf(action) {
     for (const [name, candidate] of this.actions) if (candidate === action) return name;
@@ -483,6 +493,7 @@ export class SpellbladeAnimator {
   }
 
   dispose() {
+    this.siege.dispose();
     this.#restoreTouched();
     this.mixer.stopAllAction();
     this.mixer.uncacheRoot(this.root);

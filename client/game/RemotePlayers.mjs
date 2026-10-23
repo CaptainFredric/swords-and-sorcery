@@ -584,6 +584,9 @@ export class RemotePlayers {
       this.scene.add(this.self.root);
     }
     const shell = this.self;
+    // First person hides the body immediately after dismount. Restore its rig
+    // and sword now rather than retaining the seated pose until it is drawn again.
+    if (!player.alive || !player.operatingBallistaId) shell.visualInstance?.animator?.releaseMounted();
     shell.cloth = player.cloth ?? 'crimson';
     shell.visualInstance?.setCloth(shell.cloth);
     shell.emblem = player.emblem ?? 'trident';
@@ -682,6 +685,7 @@ export class RemotePlayers {
       // the gauntlet's jab, if one is under way, and the crouch's lean
       extra: state === 'dead' || recovering ? [] : [...crouch.turns, ...guardTurns(plan.concurrent?.attack ? 0 : d.guardAmount), ...jabTurns(serverNow - (d.jabAt ?? -Infinity))],
     };
+    if(pb.alive&&pb.operatingBallistaId)Object.assign(plan,{mounted:true,clip:'Idle',layers:null,concurrent:null});
     setRemoteVisualPlan(shell, plan, dt);
     // a foot comes down where the gait clip puts it (its rate follows the knight's speed)
     const gait = shell.visualInstance?.animator?.gaitPhase;
