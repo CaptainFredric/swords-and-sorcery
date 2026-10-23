@@ -28,3 +28,10 @@ test('deployed HUD exposes independent clocks, selected focus and rebound cancel
  const hud=biByeHudView({...local,operatingBallistaId:b.id},{bibyeBallista:bl},10,{bindings:{siegeWeapon:['KeyL']}});
  assert.match(hud.title,/MAIN \/ COUPLED/);assert.match(hud.status,/Shot I ready.*II 2.0s.*Aligning 45%/);assert.match(hud.controls,/\[L\] Upper \/ cancel/);
 });
+
+test('terrain deployment rejection is concise and expires without replacing readiness permanently',()=>{
+ const bl={...b,deploymentReason:'Too steep to deploy. Find flatter ground.',deploymentRejectedAt:10};
+ const localDriver={...local,operatingBallistaId:b.id};
+ assert.match(biByeHudView(localDriver,{bibyeBallista:bl},11).status,/Too steep/);
+ assert.match(biByeHudView(localDriver,{bibyeBallista:bl},14).status,/Shot I ready/);
+});

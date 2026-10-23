@@ -30,7 +30,7 @@ export async function waitFor(page, check, label, timeout = 12000) {
 }
 export async function focus(page) {
   await page.bringToFront();
-  if (!(await state(page)).pointer) await page.locator('#game-canvas canvas').click({ position: { x: 600, y: 320 } });
+  if (!(await state(page)).pointer) await page.locator('#game-canvas canvas').click({ position: { x: 600, y: 320 },noWaitAfter:true });
   await waitFor(page, s => s.enabled, 'arena input focus');
 }
 export async function aim(page, yaw, pitch = 0) {

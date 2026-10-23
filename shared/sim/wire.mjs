@@ -188,6 +188,9 @@ export function serializeSnapshot(room, nowSec) {
       y: room.biByeLlista.y,
       z: room.biByeLlista.z,
       heading: room.biByeLlista.heading,
+      chassisPitch:room.biByeLlista.chassisPitch,chassisRoll:room.biByeLlista.chassisRoll,
+      wheelOffsets:[...room.biByeLlista.wheelOffsets],stabilizerTilts:[...room.biByeLlista.stabilizerTilts],
+      deploymentReason:room.biByeLlista.deploymentReason,deploymentRejectedAt:room.biByeLlista.deploymentRejectedAt,
       mainYaw: room.biByeLlista.mainYaw, mainPitch: room.biByeLlista.mainPitch,
       upperYaw: room.biByeLlista.upperYaw, upperPitch: room.biByeLlista.upperPitch,
       weaponFocus: room.biByeLlista.weaponFocus, focusRevision: room.biByeLlista.focusRevision,
@@ -196,7 +199,9 @@ export function serializeSnapshot(room, nowSec) {
       couplingStartedAt: room.biByeLlista.couplingStartedAt, couplingEndsAt: room.biByeLlista.couplingEndsAt,
       upperReleasedAt: room.biByeLlista.upperReleasedAt, upperFiredAt: room.biByeLlista.upperFiredAt,
       upperShotKind: room.biByeLlista.upperShotKind, mainReleasedAt: room.biByeLlista.mainReleasedAt, heavyDelayTrippedAt: room.biByeLlista.heavyDelayTrippedAt,
+      trackingSince:room.biByeLlista.trackingSince,aimLimited:Boolean(room.biByeLlista.aimLimited),
       upperPending: room.biByeLlista.mobileShotPendingAt != null,
+      upperQueued:Boolean(room.biByeLlista.pendingIndependent),
 
       yaw: room.biByeLlista.yaw,
       pitch: room.biByeLlista.pitch,
@@ -256,6 +261,7 @@ export function applyRoomCommand(room, player, message, time) {
     case 'input': {
       player.lastInputSeq = Number.isFinite(message.seq) ? message.seq : player.lastInputSeq;
       player.input = {
+        siegeTarget:player.operatingBallistaId&&message.siegeTarget&&['x','y','z'].every(k=>Number.isFinite(message.siegeTarget[k]))?Object.fromEntries(['x','y','z'].map(k=>[k,message.siegeTarget[k]])):null,
         forward: Math.max(-1, Math.min(1, Number(message.forward) || 0)),
         right: Math.max(-1, Math.min(1, Number(message.right) || 0)),
         jump: Boolean(message.jump),
@@ -341,7 +347,7 @@ export function applyRoomCommand(room, player, message, time) {
     case 'bibyeToggleDeploy': {
       if (!room.biByeLlista) return { rejected: 'No ballista available' };
       if (room.biByeLlista.operatorId !== player.id) return { rejected: 'Must operate ballista to toggle deployment' };
-      toggleBiByeDeploy(room.biByeLlista, time);
+      toggleBiByeDeploy(room.biByeLlista, time, room.world);
       return {};
     }
     case 'bibyeWeaponFocus': {

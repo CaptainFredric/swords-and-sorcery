@@ -1,0 +1,28 @@
+[
+  {
+    "version": "e901924",
+    "frames": 3600,
+    "median": 16.69999999999709,
+    "p95": 16.70000000001164,
+    "p99": 16.80000000000291,
+    "maximum": 33.400000000001455,
+    "over33": 1,
+    "longTasks": 0,
+    "ticks": 1819,
+    "simulationStepMedianMs": 33.09999942779385,
+    "simulationStepP95Ms": 34.499999999997755
+  },
+  {
+    "version": "terrain-candidate",
+    "frames": 3603,
+    "median": 16.69999999999709,
+    "p95": 16.70000000001164,
+    "p99": 16.80000000000291,
+    "maximum": 16.80000000000291,
+    "over33": 0,
+    "longTasks": 0,
+    "ticks": 1821,
+    "simulationStepMedianMs": 33.00000000000125,
+    "simulationStepP95Ms": 34.300000190739866
+  }
+]

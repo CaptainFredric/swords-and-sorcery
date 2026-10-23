@@ -23,23 +23,26 @@ export function biByeDeployProgress(b,now=b.poseTime??0){
  if(b.mode==='RETRACTING')return (b.retractFrom??1)*(1-ease((now-b.modeTransitionStartedAt)/Math.max(.001,b.modeTransitionEndsAt-b.modeTransitionStartedAt)));
  return 0;
 }
+export function biByeRootFrame(b) {
+ return frame([b.x??b.position?.x??0,b.y??b.position?.y??0,b.z??b.position?.z??0],[(b.heading??0)+Math.PI,-(b.chassisPitch??0),b.chassisRoll??0]);
+}
+function localAim(parent,yaw,pitch) {
+ const dir=[-Math.sin(yaw)*Math.cos(pitch),Math.sin(pitch),-Math.cos(yaw)*Math.cos(pitch)];
+ const local=parent.axes.map(axis=>axis.reduce((n,v,i)=>n+v*dir[i],0));
+ return {yaw:Math.atan2(local[0],local[2]),pitch:Math.asin(clamp(local[1],-1,1))};
+}
 export function biByeAimPose(b,now=b.poseTime??0){
- const heading=b.heading??0,main=b.mainYaw??b.yaw??heading;
- const rel=Math.atan2(Math.sin(main-heading),Math.cos(main-heading));
- let yaw=b.mode==='MOBILE'?0:rel,pitch=b.mode==='MOBILE'?0:(b.mainPitch??b.pitch??0);
+ const heading=b.heading??0,root=biByeRootFrame(b);
+ const main=(b.chassisPitch||b.chassisRoll)?localAim(root,b.mainYaw??b.yaw??heading,b.mainPitch??b.pitch??0):{yaw:Math.atan2(Math.sin((b.mainYaw??b.yaw??heading)-heading),Math.cos((b.mainYaw??b.yaw??heading)-heading)),pitch:b.mainPitch??b.pitch??0};
+ let yaw=b.mode==='MOBILE'?0:main.yaw,pitch=b.mode==='MOBILE'?0:main.pitch;
  if(b.mode==='RETRACTING'){
   const start=Math.max(b.modeTransitionStartedAt,Math.min(b.couplingEndsAt??b.modeTransitionStartedAt,b.modeTransitionEndsAt-.001));
   const t=clamp((now-start)/Math.max(.001,b.modeTransitionEndsAt-start));
-  yaw=(b.retractAim?.yaw??rel)*(1-t);pitch=(b.retractAim?.pitch??pitch)*(1-t);
+  yaw=(b.retractAim?.yaw??yaw)*(1-t);pitch=(b.retractAim?.pitch??pitch)*(1-t);
  }
- if(b.upperYaw==null)return {mainYaw:yaw,mainPitch:pitch,upperYaw:Math.atan2(Math.sin((b.yaw??heading)-heading),Math.cos((b.yaw??heading)-heading))-yaw,upperPitch:(b.pitch??0)};
- // Inverse the actual traverse basis instead of subtracting Euler angles. This
- // keeps rear/side upper aim level even while the lower launcher is elevated.
- const root=frame([0,0,0],[heading+Math.PI,0,0]);
  const traverse=frame([0,0,0],[yaw,0,0],root);
- const wy=b.upperYaw,wp=b.upperPitch??0,dir=[-Math.sin(wy)*Math.cos(wp),Math.sin(wp),-Math.cos(wy)*Math.cos(wp)];
- const local=traverse.axes.map(axis=>axis.reduce((n,v,i)=>n+v*dir[i],0));
- return {mainYaw:yaw,mainPitch:pitch,upperYaw:Math.atan2(local[0],local[2]),upperPitch:Math.asin(clamp(local[1],-1,1))};
+ const upper=localAim(traverse,b.upperYaw??b.yaw??heading,b.upperPitch??b.pitch??0);
+ return {mainYaw:yaw,mainPitch:pitch,upperYaw:upper.yaw,upperPitch:upper.pitch};
 }
 export function biByeWheelSteering(steer){
  if(Math.abs(steer)<.001)return [0,0,0,0,0,0];
@@ -52,14 +55,19 @@ export function biByeComponentPose(b,def,now=b.poseTime??0){
  const c=b.components?.[def.id],damage=1-clamp((c?.health??def.maxHealth)/def.maxHealth);
  const failure=c?.health<=0?clamp((now-(c.failedAt??now))/.35):0;
  const sign=def.side==='L'?-1:1;
- if(def.kind==='wheel')return {pivot:[def.pivot[0],def.pivot[1]-.065*failure,def.pivot[2]],
+ if(def.kind==='wheel')return {pivot:[def.pivot[0],def.pivot[1]+(b.wheelOffsets?.[BI_BYE_COMPONENTS.indexOf(def)]??0)-.065*failure,def.pivot[2]],
   tilt:sign*(.035*damage+.22*failure),steer:(biByeWheelSteering(b.steer??0)[BI_BYE_COMPONENTS.indexOf(def)]??0)*(1-failure),damage};
- return {pivot:def.pivot,tilt:sign*(68*DEG*(1-biByeDeployProgress(b,now))+.26*failure),steer:0,damage};
+ return {pivot:def.pivot,tilt:sign*(68*DEG*(1-biByeDeployProgress(b,now))+.26*failure)+(b.stabilizerTilts?.[BI_BYE_COMPONENTS.indexOf(def)-6]??0)*biByeDeployProgress(b,now),steer:0,damage};
 }
 export function biByeWheelTravel(a,b,steering){
  if(!a||Math.hypot(b.x-a.x,b.z-a.z)>3)return [0,0,0,0,0,0];
- const point=(p,x,z)=>[p.x-Math.cos(p.heading)*x-Math.sin(p.heading)*z,p.z+Math.sin(p.heading)*x-Math.cos(p.heading)*z];
- return BI_BYE_COMPONENTS.slice(0,6).map((d,i)=>{const p=point(a,d.pivot[0],d.pivot[2]),q=point(b,d.pivot[0],d.pivot[2]);const yaw=b.heading+steering[i];return (-(q[0]-p[0])*Math.sin(yaw)-(q[1]-p[1])*Math.cos(yaw))/.55;});
+ const old=biByeRootFrame(a),next=biByeRootFrame(b);
+ return BI_BYE_COMPONENTS.slice(0,6).map((d,i)=>{
+  const p=boxWorld(old,[d.pivot[0],d.pivot[1]+(a.wheelOffsets?.[i]??0),d.pivot[2]]);
+  const q=boxWorld(next,[d.pivot[0],d.pivot[1]+(b.wheelOffsets?.[i]??0),d.pivot[2]]);
+  const direction=boxWorld(next,[Math.sin(steering[i]),0,Math.cos(steering[i])],true);
+  return q.reduce((sum,v,k)=>sum+(v-p[k])*direction[k],0)/.55;
+ });
 }
 function rotate(v,yaw=0,pitch=0,roll=0){
  let [x,y,z]=v;[x,y]=[x*Math.cos(roll)-y*Math.sin(roll),x*Math.sin(roll)+y*Math.cos(roll)];
@@ -72,7 +80,7 @@ function frame(origin,rotation,parent){
  return {center:boxWorld(parent,origin),axes:axes.map(a=>boxWorld(parent,a,true))};
 }
 export function biByeFrames(b,now=b.poseTime??0){
- const root=frame([b.x??b.position?.x??0,b.y??b.position?.y??0,b.z??b.position?.z??0],[(b.heading??0)+Math.PI,0,0]);
+ const root=biByeRootFrame(b);
  const p=biByeAimPose(b,now),traverse=frame([0,1.24,0],[p.mainYaw,0,0],root);
  const cradle=frame([0,.38,-.12],[0,-p.mainPitch,0],traverse);
  const upper=frame([0,1.54,.08],[p.upperYaw,-p.upperPitch,0],traverse);
@@ -140,4 +148,13 @@ export function biByeBlastAllocations(b,{point,radius,damage,excludeComponent=nu
  const entries=[...weights],sum=entries.reduce((n,[,w])=>n+w,0);
  // Exposure cannot create more total damage than one central hit.
  return entries.map(([componentId,w])=>({componentId,amount:Math.floor(damage*w/Math.max(1,sum))})).filter(x=>x.amount>0);
+}
+
+// Clamp in the inclined mechanical frame, then return an ordinary world aim.
+export function biByeConstrainAim(b,aim,upper=false){
+ if(!(b.chassisPitch||b.chassisRoll)&&aim.pitch>=-.15&&aim.pitch<=.35&&(upper||Math.abs(Math.atan2(Math.sin(aim.yaw-(b.heading??0)),Math.cos(aim.yaw-(b.heading??0))))<=Math.PI/4))return {...aim};
+ const root=biByeRootFrame(b),main=biByeAimPose(b),parent=upper?frame([0,0,0],[main.mainYaw,0,0],root):root;
+ const local=localAim(parent,aim.yaw,aim.pitch),yaw=upper?local.yaw:clamp(local.yaw,-Math.PI/4,Math.PI/4),pitch=clamp(local.pitch,-.15,.35);
+ const dir=boxWorld(parent,[Math.sin(yaw)*Math.cos(pitch),Math.sin(pitch),Math.cos(yaw)*Math.cos(pitch)],true);
+ return {yaw:Math.atan2(-dir[0],-dir[2]),pitch:Math.atan2(dir[1],Math.hypot(dir[0],dir[2]))};
 }

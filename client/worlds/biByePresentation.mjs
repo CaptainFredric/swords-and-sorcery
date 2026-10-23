@@ -19,6 +19,7 @@ export function biByeUpperAnimation(b,now){
   return {name:'01_BiBye_LoadedIdle_Upper',time:0};
 }
 export function biByeClutchAnimation(b,now){
+  if(b.trackingSince!=null)return {name:'17_BiBye_Upper_Align_And_Couple_Clutch',time:Math.min(.6,Math.max(0,now-b.trackingSince))};
   if(b.coupling==='ENGAGING')return {name:'17_BiBye_Upper_Align_And_Couple_Clutch',time:Math.max(0,now-b.couplingStartedAt)};
   if(b.coupling==='RELEASING'&&(b.couplingReleaseFrom??1)<1)return {name:'17_BiBye_Upper_Align_And_Couple_Clutch',time:Math.max(0,.6*b.couplingReleaseFrom-(now-b.couplingStartedAt))};
   if(b.coupling==='RELEASING')return {name:'18_BiBye_Upper_Uncouple_Release_Clutch',time:.6*(1-(b.couplingReleaseFrom??1))+Math.max(0,now-b.couplingStartedAt)};
@@ -34,6 +35,7 @@ export function biByeTrackOwner(track){
   const node=track.split('.')[0];
   if(/^(Wheel_|Stabilizer_)/.test(node))return 'Components';
   if(node==='Upper_Turret_Mount'&&track.endsWith('.quaternion'))return 'Aim';
+  if(node==='Upper_Conditioning_Bolt')return 'Aim';
   if(node.startsWith('Upper_'))return 'Upper';
   if(['Operator_Fire_And_Couple_Lever','Coupling_Clutch_Collar'].includes(node))return 'Clutch';
   if(['Coupling_Transfer_Linkage','Delay_Escapement_Gear'].includes(node))return 'Delay';

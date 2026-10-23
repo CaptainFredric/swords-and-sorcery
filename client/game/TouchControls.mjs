@@ -255,6 +255,7 @@ export class TouchControls {
       const bx = bl?.position?.x ?? bl?.x;
       const bz = bl?.position?.z ?? bl?.z;
       const mounted = Boolean(local.alive && local.operatingBallistaId);
+      this.mounted=mounted;
       const near = local.alive && bl && local.position && bx !== undefined && !bl.operatorId ? Math.hypot(bx - local.position.x, bz - local.position.z) <= 3.2 : false;
       this.layer.classList.toggle('touch-mounted', mounted);
       if (this.buttons.siegeView) this.buttons.siegeView.hidden = !mounted;
@@ -576,7 +577,7 @@ export class TouchControls {
     const dx = event.clientX - this.stick.clientX;
     const dy = event.clientY - this.stick.clientY;
     const delta = screenTurn?.vector(dx, dy) ?? { x: dx, y: dy };
-    const vector = stickVector(delta.x, delta.y);
+    const vector = stickVector(delta.x, delta.y,{deadZone:this.mounted?.06:TOUCH.deadZone});
     this.stickSprintRequested = vector.sprint;
     this.#gateHeld('move', true, 'touch-stick', false);
     const sprint = this.#gateHeld('sprint', vector.sprint, 'touch-stick');

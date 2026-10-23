@@ -101,3 +101,10 @@ test('inspection freeze preserves captured input until live local play resumes',
   sendMovementInput(socket, { forward: 0 }, 1032, stream);
   assert.deepEqual(sent, [{ seq: 5, forward: 0, clientTime: 7 }]);
 });
+
+test('mounted aim and steering use fine packet transitions while on foot thresholds stay unchanged',()=>{
+ const a={yaw:0,pitch:0,forward:0,right:0};
+ assert.equal(hasMeaningfulInputChange({...a,yaw:.003},a),false);
+ assert.equal(hasMeaningfulInputChange({...a,mounted:true,yaw:.003},{...a,mounted:true}),true);
+ assert.equal(hasMeaningfulInputChange({...a,mounted:true,right:.02},{...a,mounted:true}),true);
+});

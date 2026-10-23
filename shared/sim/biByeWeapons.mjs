@@ -1,4 +1,4 @@
-import { biByeCondition } from './biByeComponents.mjs';
+import { biByeCondition, biByeConstrainAim } from './biByeComponents.mjs';
 
 // Gameplay does not depend on an asynchronously loaded visual asset. The current
 // authored asset can load late without changing aim, ammunition or release clocks.
@@ -12,12 +12,12 @@ const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const approach=(a,b,amount)=>a+clamp(wrapBiByeAngle(b-a),-amount,amount);
 const event=(room,b,type,at,extra={})=>room.events?.push({type,ballistaId:b.id,at,...extra});
 const ready=(b,now)=>now+1e-8>=b.smallBoltReadyAt&&b.mobileShotPendingAt==null;
-const supported=b=>b.mode==='DEPLOYED'&&biByeCondition(b).canSiege;
+const supported=b=>b.mode==='DEPLOYED'&&b.deploymentSupported!==false&&biByeCondition(b).canSiege;
 const busy=b=>['ALIGNING','ENGAGING','COUPLED','FIRING','RELEASING'].includes(b.coupling);
 
 export function biByeWeaponState(heading) {
   return {mainYaw:heading,mainPitch:0,upperYaw:heading,upperPitch:0,
-    weaponFocus:'UPPER',focusRevision:0,coupling:'INDEPENDENT',couplingProgress:0,
+    pendingIndependent:null,weaponFocus:'UPPER',focusRevision:0,coupling:'INDEPENDENT',couplingProgress:0,
     couplingStartedAt:null,couplingEndsAt:null,couplingReleaseFrom:1,pendingVolley:null,upperReleasedAt:null,upperReadyAnnouncedAt:null,
     heavyDelayTrippedAt:null,mainReleasedAt:null,upperFiredAt:null,upperShotKind:null};
 }
@@ -30,6 +30,7 @@ function releaseClutch(b,now,from=1){
 }
 export function cancelBiByeCoupling(b,now=b.poseTime??0) {
   if(b.coupling==='FIRING'&&b.upperReleasedAt!=null)return false;
+  if(b.trackingSince!=null){const from=clamp((now-b.trackingSince)/.6,0,1);b.trackingSince=null;if(!busy(b)){if(from>0)releaseClutch(b,now,from);return true;}}
   if(!busy(b)||b.coupling==='RELEASING')return true;
   const from=b.coupling==='ENGAGING'?clamp((now-b.couplingStartedAt)/BI_BYE_WEAPONS.latchDuration,0,1):b.coupling==='ALIGNING'?0:1;
   b.pendingVolley=null;b.couplingProgress=0;
@@ -43,13 +44,17 @@ export function setBiByeWeaponFocus(b,focus,now=0) {
   if(!b||b.mode!=='DEPLOYED'||!['MAIN','UPPER'].includes(focus))return false;
   if(focus===b.weaponFocus)return true;
   if(focus==='UPPER')cancelBiByeCoupling(b,now);
-  b.weaponFocus=focus;b.focusRevision=(b.focusRevision??0)+1;
+  b.pendingIndependent=null;b.weaponFocus=focus;b.focusRevision=(b.focusRevision??0)+1;
   b.yaw=focus==='UPPER'?b.upperYaw:b.mainYaw;
   b.pitch=focus==='UPPER'?b.upperPitch:b.mainPitch;
   return true;
 }
 export function requestBiByeIndependent(room,b,now) {
-  if(!b||b.mode==='DESTROYED'||!['MOBILE','DEPLOYED'].includes(b.mode)||busy(b)||!ready(b,now))return false;
+  if(!b||b.mode==='DESTROYED'||!['MOBILE','DEPLOYED'].includes(b.mode)||!ready(b,now))return false;
+  if(b.coupling==='RELEASING'&&b.weaponFocus==='UPPER'){
+    b.pendingIndependent??={operatorId:b.operatorId,yaw:b.upperYaw,pitch:b.upperPitch};return true;
+  }
+  if(busy(b))return false;
   b.committedMobileAim={yaw:b.upperYaw,pitch:b.upperPitch};
   b.mobileFiredAt=now;b.upperFiredAt=now;b.upperShotKind='independent';
   b.mobileShotPendingAt=now+BI_BYE_WEAPONS.independentWindup;b.mobileOperatorId=b.operatorId;
@@ -58,6 +63,13 @@ export function requestBiByeIndependent(room,b,now) {
 }
 export function requestBiByeVolley(room,b,now) {
   if(!b||!supported(b)||b.state!=='LOADED'||!b.mainBoltLoaded||!ready(b,now)||busy(b))return false;
+  if(b.trackingSince!=null&&now+1e-8>=b.trackingSince+BI_BYE_WEAPONS.latchDuration){
+    b.trackingSince=null;b.upperReleasedAt=null;b.heavyDelayTrippedAt=null;
+    b.committedAim={yaw:b.mainYaw,pitch:b.mainPitch,upperYaw:b.upperYaw,upperPitch:b.upperPitch};
+    b.firingOperatorId=b.operatorId;b.state='FIRING';b.firedAt=now;b.mainReleasedAt=null;
+    b.upperFiredAt=now;b.upperShotKind='coupled';b.shotIPendingAt=now+BI_BYE_WEAPONS.upperRelease;b.shotIIPendingAt=Infinity;
+    b.coupling='FIRING';event(room,b,'bibyeVolleyInitiated',now,{operatorId:b.firingOperatorId,aim:b.committedAim});return true;
+  }
   b.pendingVolley={yaw:b.mainYaw,pitch:b.mainPitch,operatorId:b.operatorId};
   b.coupling='ALIGNING';b.couplingProgress=0;b.couplingStartedAt=now;
   b.alignmentStartError=Math.max(.001,Math.abs(wrapBiByeAngle(b.upperYaw-b.mainYaw)),Math.abs(b.upperPitch-b.mainPitch));
@@ -72,24 +84,29 @@ export function interruptBiByeSupport(b,now=b.poseTime??0) {
   }else cancelBiByeCoupling(b,now);
 }
 
-export function stepBiByeWeapons(room,b,dt,now,{shotI,shotII,coupledAim}={}) {
+export function stepBiByeWeapons(room,b,dt,now,{shotI,shotII,coupledAim,targetAim}={}) {
   if(b.mode==='DESTROYED')return;
   const op=room.players?.get(b.operatorId),input=op?.alive?op.input??{}:{};
   if(b.mode!=='DEPLOYED'&&b.weaponFocus!=='UPPER'){
     b.weaponFocus='UPPER';b.focusRevision++;cancelBiByeCoupling(b,now);
   }
   const locked=busy(b);
-  if(b.mode==='MOBILE') { b.mainYaw=b.heading;b.mainPitch=0; }
+  b.aimTarget=input.siegeTarget??null;
+  const aim=(kind,current)=>targetAim?.(b,kind,{yaw:input.yaw??current.yaw,pitch:input.pitch??current.pitch},b.aimTarget)??biByeConstrainAim(b,{yaw:input.yaw??current.yaw,pitch:input.pitch??current.pitch},kind==='conditioning');
+  if(b.mode==='MOBILE') {b.mainYaw=b.heading;b.mainPitch=0;}
   else if(!locked&&b.weaponFocus==='MAIN'&&op?.alive){
-    b.mainYaw=b.heading+clamp(wrapBiByeAngle((input.yaw??b.mainYaw)-b.heading),-Math.PI/4,Math.PI/4);
-    b.mainPitch=clamp(input.pitch??b.mainPitch,-.15,.35);
+    const target=aim('siege',{yaw:b.mainYaw,pitch:b.mainPitch});b.mainYaw=target.yaw;b.mainPitch=target.pitch;b.aimLimited=Boolean(target.limited);
   }
   if(!locked&&b.mobileShotPendingAt==null&&b.weaponFocus==='UPPER'&&op?.alive){
-    // A world-space target keeps steering from dragging the turret aim.
-    const limit=b.upperYawLimit??Math.PI;
-    const target=b.heading+clamp(wrapBiByeAngle((input.yaw??b.upperYaw)-b.heading),-limit,limit);
-    b.upperYaw=approach(b.upperYaw,target,BI_BYE_WEAPONS.turnRate*dt);
-    b.upperPitch=clamp(input.pitch??b.upperPitch,-.15,.35);
+    const target=aim('conditioning',{yaw:b.upperYaw,pitch:b.upperPitch});
+    b.upperYaw=Math.abs(target.yaw-b.upperYaw)>Math.PI?b.upperYaw+wrapBiByeAngle(target.yaw-b.upperYaw):target.yaw;b.upperPitch=target.pitch;b.aimLimited=Boolean(target.limited);
+  }
+  // Deployment seats the clutch in advance. While Main is selected both bows
+  // follow the reticle; Fire only commits the already aligned mechanisms.
+  if(op?.alive&&!locked&&b.mobileShotPendingAt==null&&(b.mode==='DEPLOYING'||supported(b)&&b.weaponFocus==='MAIN'&&b.mainBoltLoaded&&ready(b,now))){
+    b.trackingSince??=b.mode==='DEPLOYING'?b.modeTransitionStartedAt:now;
+    const target=coupledAim?.(b)??{yaw:b.mainYaw,pitch:b.mainPitch};
+    b.upperYaw=target.yaw;b.upperPitch=target.pitch;
   }
   if(['ALIGNING','ENGAGING','COUPLED'].includes(b.coupling)){
     const pending=b.pendingVolley;
@@ -144,6 +161,12 @@ export function stepBiByeWeapons(room,b,dt,now,{shotI,shotII,coupledAim}={}) {
     }
   }
   if(b.coupling==='RELEASING'&&now+1e-8>=b.couplingEndsAt){b.coupling='INDEPENDENT';b.couplingProgress=0;event(room,b,'bibyeCouplingReleased',now);}
+  if(b.coupling==='INDEPENDENT'&&b.pendingIndependent){
+    const pending=b.pendingIndependent;b.pendingIndependent=null;
+    if(op?.alive&&op.id===pending.operatorId&&b.weaponFocus==='UPPER'&&ready(b,now)){
+      b.upperYaw=pending.yaw;b.upperPitch=pending.pitch;requestBiByeIndependent(room,b,now);
+    }
+  }
   if(b.state==='SPENT'&&now+1e-8>=b.reloadStartedAt){b.state='RELOADING';event(room,b,'bibyeReloadStarted',now,{durationSec:BI_BYE_WEAPONS.heavyReload});}
   if(b.state==='RELOADING'&&now+1e-8>=b.reloadEndsAt){b.state='LOADED';b.mainBoltLoaded=true;event(room,b,'bibyeReloadCompleted',now);}
   if(b.upperReleasedAt!=null&&now+1e-8>=b.smallBoltReadyAt&&b.upperReadyAnnouncedAt!==b.smallBoltReadyAt){

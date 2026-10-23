@@ -23,8 +23,9 @@ export class BiByeMotion {
   const ballista={...discrete,position:{},poseTime:clock};
   for(const k of ['x','y','z']){ballista[k]=lerp(a.ballista.position[k],b.ballista.position[k],t);ballista.position[k]=ballista[k];}
   for(const k of ['heading','yaw','mainYaw','upperYaw'])ballista[k]=angle(a.ballista[k]??a.ballista.yaw,b.ballista[k]??b.ballista.yaw,t);
-  for(const k of ['pitch','mainPitch','upperPitch','steer','speed'])ballista[k]=lerp(a.ballista[k]??0,b.ballista[k]??0,t);
+  for(const k of ['pitch','mainPitch','upperPitch','steer','speed','chassisPitch','chassisRoll'])ballista[k]=lerp(a.ballista[k]??0,b.ballista[k]??0,t);
   ballista.wheelRolls=(a.ballista.wheelRolls??[]).map((v,i)=>lerp(v,b.ballista.wheelRolls?.[i]??v,t));
+  for(const key of ['wheelOffsets','stabilizerTilts'])ballista[key]=(a.ballista[key]??[]).map((v,i)=>lerp(v,b.ballista[key]?.[i]??v,t));
   const old=new Map(a.projectiles.map(p=>[p.id,p]));
   const projectiles=[];
   for(const p of b.projectiles){
