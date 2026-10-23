@@ -1,3 +1,5 @@
+import { BiByeSound } from './sound/BiByeSound.mjs';
+import { getBiByeMuzzlePosition, getBiByeMuzzleDirection } from '../../shared/sim/biByeLlista.mjs';
 import { combatActionPolicy, combatBlocksSprint } from '../../shared/src/combatActionPolicy.mjs';
 import { heldActions } from '../../shared/src/heldActions.mjs';
 import * as THREE from 'three';
@@ -52,7 +54,7 @@ import { FOOTSTEPS, footfallsCrossed, footstepPlacement, footstepRecipe, surface
 import { getWinStreak } from './sound/matchStreak.mjs';
 import { CombatHeat, matchClosing, nearestFoe } from './sound/combatHeat.mjs';
 import { FP_MOTION } from './firstPersonMotion.mjs';
-import { DEATH_CAM, deathCamera, deathCardText, killerCamPolicy } from './deathCam.mjs';
+import { DEATH_CAM, deathCamera, deathCardText, killerCamPolicy, clip } from './deathCam.mjs';
 import { createWorldRenderer, rendererKeyForWorld } from '../worlds/WorldRendererFactory.mjs';
 import { CastlewardRenderer } from '../worlds/CastlewardRenderer.mjs';
 import { ShatteredKeepRenderer } from '../worlds/ShatteredKeepRenderer.mjs';
@@ -107,6 +109,7 @@ export class GameRuntime {
     this.socket = socket;
     this.hud = hud;
     this.sound = sound;
+    this.siegeSound = new BiByeSound(sound);
     this.voice = voice;
     // the score (for its stingers: my Spells & Chivalry taken up)
     this.music = music;
@@ -220,6 +223,12 @@ export class GameRuntime {
     this.effects = new Effects(this.scene, this.camera);
     this.onPointer = () => {};
     this.input = new InputController(this.renderer.domElement, socket);
+    this.siegeView = 'third';
+    this.input.onAction = (action, pressed) => {
+      if (action === 'siegeView' && pressed && this.localAuth?.alive && this.localAuth?.operatingBallistaId) {
+        this.siegeView = this.siegeView === 'third' ? 'sight' : 'third';
+      }
+    };
     this.input.onPointer = (locked) => {
       hud.setPointerLocked(locked);
       this.onPointer(locked);
@@ -228,7 +237,6 @@ export class GameRuntime {
     this.pressedAt = { attack: -Infinity, guard: -Infinity };
     this.input.onAttackLocal = (held) => {
       if (this.localAuth?.operatingBallistaId) {
-        if (held) this.socket.send?.({ type: 'bibyeFire' });
         return;
       }
       if (held) this.pressedAt.attack = this.socket.serverNow();
@@ -300,12 +308,14 @@ export class GameRuntime {
     // the gauntlet on its own key: the fist at once, spell or no spell (the server's word follows); only while the hand
     // cannot (mid-swing, say), the quiet no
     this.input.onGauntletLocal = () => {
+      if (this.localAuth?.operatingBallistaId) return;
       if (this.socket.inspectionFrozen) return;
       const now = this.socket.serverNow();
       if (this.localAuth?.alive && !this.#tryLocalJab(now)) this.#play(deniedRecipe(), null, 0.5);
     };
     // the ultimate's key: the host decides; with the meter short (or it already running), the quiet no
     this.input.onUltimateLocal = () => {
+      if (this.localAuth?.operatingBallistaId) return;
       if (this.socket.inspectionFrozen) return;
       const me = this.localAuth;
       // (in the Practice Yard the key readies it too: only one already under way, or its recovery, says no)
@@ -529,7 +539,7 @@ export class GameRuntime {
 
   setPlaying(playing, { preservePointerLock = false } = {}) {
     this.playing = Boolean(playing) && !this.worldError;
-    if (!this.playing) this.#applyWeaponRelease({ attack: true, guard: true });
+    if (!this.playing) {this.#applyWeaponRelease({ attack: true, guard: true });this.siegeSound.stop();}
     if (!this.playing && !preservePointerLock) this.input.releaseFocus();
   }
 
@@ -547,7 +557,21 @@ export class GameRuntime {
     this.remotePlayers.pushSnapshot(snapshot, this.presentationNow());
     this.effects.syncProjectiles(snapshot.projectiles ?? []);
     const auth = snapshot.players.find((p) => p.id === this.socket.playerId);
+    const wasMounted = Boolean(this.localAuth?.operatingBallistaId);
     this.localAuth = auth ?? null;
+    if (auth?.operatingBallistaId && !wasMounted) {
+      this.siegeView = 'third';
+      this.siegeCamera = { position: this.camera.position.clone(), quaternion: this.camera.quaternion.clone() };
+      this.input.releaseInputs();
+      this.weapon.setAttack(false);
+      this.weapon.setGuard(false);
+      this.input.yaw = snapshot.bibyeBallista.yaw;
+      this.input.pitch = snapshot.bibyeBallista.pitch;
+    }
+    if (wasMounted && !auth?.operatingBallistaId) {
+      this.input.releaseInputs();
+      if (auth) { this.input.yaw = auth.yaw; this.input.pitch = auth.pitch; }
+    }
     this.input.updatePreparedSpells?.(auth, this.socket.serverNow());
     this.weapon.setCombatPolicy(combatActionPolicy(auth, this.socket.serverNow()), auth, this.socket.serverNow());
     if (!auth) return;
@@ -610,6 +634,11 @@ export class GameRuntime {
 
   onEvents(events) {
     for (const event of events) {
+      this.siegeSound.event(event,this.latestSnapshot?.bibyeBallista,this.socket.serverNow());
+      if(event.type === "bibyeDamaged" && event.point) {
+        if(event.componentId?.startsWith("Stabilizer")) this.effects.wallClang(event.point);
+        else this.effects.splinters?.(event.point);
+      }
       this.teamVoiceEvents.onEvent(event);
       this.remotePlayers.onEvent(event, this.latestSnapshot);
       this.#applyWeaponRelease(localWeaponReleaseForEvent(event, this.socket.playerId, this.localAuth, event.at ?? this.socket.serverNow()));
@@ -1198,7 +1227,7 @@ export class GameRuntime {
   // it at once, as they show a press (the host's word follows)
   #resumeHeld(now) {
     const auth = this.localAuth;
-    if (!this.playing || this.socket.inspectionFrozen || !auth?.alive) return;
+    if (!this.playing || this.socket.inspectionFrozen || !auth?.alive || auth.operatingBallistaId) return;
     const concurrent = combatActionPolicy(auth, now).concurrent;
     const wanted = heldActions({ attack: this.input.attackHeld, guard: this.input.guardHeld,
       attackPressedAt: this.pressedAt.attack, guardPressedAt: this.pressedAt.guard, concurrent });
@@ -1975,11 +2004,48 @@ export class GameRuntime {
     return this.socket.playingLocally ? this.socket.serverNow() * 1000 : performance.now();
   }
 
+  #mountedView(dt) {
+    const b = this.latestSnapshot?.bibyeBallista;
+    const mounted = this.localAuth?.alive && this.localAuth?.operatingBallistaId && b?.mode !== 'DESTROYED';
+    if (!mounted && !this.siegeCamera) return;
+    const target = this.camera.position.clone();
+    const rotation = this.camera.quaternion.clone();
+    if (mounted) {
+      const locator = this.world?.biByeLlista?.getMountedCameraPosition(this.siegeView, target);
+      if (!locator) {
+        // The same exported locator offsets provide a usable view during asset load/failure.
+        const sight = this.siegeView === 'sight';
+        const back = sight ? 1.45 : 6.7;
+        target.set(b.position.x + Math.sin(b.yaw) * back, b.position.y + (sight ? 2.18 : 3.8), b.position.z + Math.cos(b.yaw) * back);
+      }
+      const kind = b.mode === 'DEPLOYED' ? 'siege' : 'conditioning';
+      if (this.siegeView === 'third') {
+        const anchor = [b.position.x, b.position.y + 2.18, b.position.z];
+        target.set(...clip(this.#reach, anchor, target.toArray(), .25));
+      }
+      const rendered = this.world?.biByeLlista?.presentationData ?? b;
+      const muzzle = getBiByeMuzzlePosition({ ...rendered, ...rendered.position }, kind);
+      const axis = getBiByeMuzzleDirection({...rendered,...rendered.position},kind);
+      const direction = new THREE.Vector3(axis.x,axis.y,axis.z);
+      const point = new THREE.Vector3(muzzle.x, muzzle.y, muzzle.z).addScaledVector(direction, this.siegeView === 'third' ? 30 : 60);
+      const matrix = new THREE.Matrix4().lookAt(target, point, new THREE.Vector3(0, 1, 0));
+      rotation.setFromRotationMatrix(matrix);
+    }
+    this.siegeCamera ??= { position: this.camera.position.clone(), quaternion: this.camera.quaternion.clone() };
+    const blend = 1 - Math.exp(-dt * 14);
+    this.siegeCamera.position.lerp(target, blend);
+    this.siegeCamera.quaternion.slerp(rotation, blend);
+    this.camera.position.copy(this.siegeCamera.position);
+    this.camera.quaternion.copy(this.siegeCamera.quaternion);
+    if (!mounted && this.siegeCamera.position.distanceTo(target) < .02 && this.siegeCamera.quaternion.angleTo(rotation) < .01) this.siegeCamera = null;
+  }
+
   #frame(nowMs) {
     if (!this.running) return;
     if (this.socket.playingLocally) nowMs = this.presentationNow();
     // Keep drawing the exact same scene. A single authoritative step advances this clock once.
     if (this.socket.inspectionFrozen && nowMs <= this.lastFrameAt) {
+      this.siegeSound.stop();
       this.#renderView();
       requestAnimationFrame(t => this.#frame(t));
       return;
@@ -2078,7 +2144,7 @@ export class GameRuntime {
       if (ramFrom) this.#foretellRam(ramFrom, serverNow);
       if (this.localRam?.armed && serverNow >= (this.localState.dashUntil ?? -Infinity)) this.localRam = null;
       // predict the server's body separation so pressing into an opponent does not rubber-band
-      separateLocal(this.localState.position, this.remotePlayers.bodies(), this.activeWorld, { crouched: this.localState.crouched });
+      if (!this.localAuth?.operatingBallistaId) separateLocal(this.localState.position, this.remotePlayers.bodies(), this.activeWorld, { crouched: this.localState.crouched });
       // my own jump: now and then a grunt with it
       if (wasGrounded && !this.localState.grounded && this.localState.velocity.y > 4) this.#sayMoment(this.socket.playerId, ['jump']);
       if (!wasGrounded && this.localState.grounded) {
@@ -2166,7 +2232,7 @@ export class GameRuntime {
       this.weapon.group.visible = !outside;
       this.remotePlayers.showSelf(this.localAuth, {
         position: this.localState.position, velocity: this.localState.velocity, yaw: this.input.yaw, pitch: this.input.pitch,
-      }, serverNow, nowMs, dt, outside);
+      }, serverNow, nowMs, dt, outside && (!mounted || (this.siegeView === 'third' && this.siegeCamera?.position.distanceTo(this.camera.position) > 1.2)));
       this.#setFov(this.view.fov + (view.fov - FP_MOTION.baseFov) * motion);
     } else if (this.localAuth && this.localState && this.deathCam && this.localAuth.alive === false) {
       this.#viewInHelm(nowMs, dt);
@@ -2181,8 +2247,10 @@ export class GameRuntime {
     this.remotePlayers.update(nowMs, dt);
     this.#showAfflictions(dt);
     this.world?.setObjectiveState?.(this.latestSnapshot?.objective ?? null, this.localAuth?.team ?? null, this.socket.serverNow());
-    this.world?.setBiByeState?.(this.latestSnapshot);
+    this.siegeSound.update(this.latestSnapshot?.bibyeBallista,{active:this.playing && this.input.enabled && !this.socket.inspectionFrozen,playerId:this.socket.playerId,listener:this.localState?.position??this.localAuth?.position,yaw:this.input.yaw,now:this.socket.serverNow()});
+    this.world?.setBiByeState?.(this.latestSnapshot, this.socket.serverNow(), {local:this.socket.playingLocally,frozen:this.socket.inspectionFrozen});
     this.world?.update?.(timeSec, this.camera);
+    this.#mountedView(dt);
     this.#followGusts();
     this.effects.update(dt);
 
@@ -2198,6 +2266,7 @@ export class GameRuntime {
       }
       this.#placeVoices();
       this.#showCondition(this.socket.serverNow());
+      this.hud.ballistaControls = { bindings: this.input.bindings, touch: Boolean(this.touch), view: this.siegeView };
       this.hud.update(this.localAuth, this.latestSnapshot, this.socket.serverNow());
       if (this.latestSnapshot.mode === 'BREAKTHROUGH' && this.latestSnapshot.objective?.position) {
         const pos = this.latestSnapshot.objective.position;
@@ -2294,6 +2363,7 @@ export class GameRuntime {
 
   dispose() {
     this.running = false;
+    this.siegeSound.dispose();
     clearTimeout(this.appealCut);
     if (this.voice?.onSpoken === this.subtitleHook) this.voice.onSpoken = null;
     if (this.voice?.onCut === this.captionCut) this.voice.onCut = null;

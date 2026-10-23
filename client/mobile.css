@@ -66,6 +66,9 @@ button, input { touch-action: manipulation; }
 /* Ballista mount & deploy touch controls */
 .touch-interact { --size: 58px; right: calc(var(--safe-r) + 204px * var(--s)); bottom: calc(var(--safe-b) + 96px * var(--s)); color: #ffdf77; border-color: rgba(255, 223, 119, .7); }
 .touch-deploy { --size: 58px; right: calc(var(--safe-r) + 196px * var(--s)); bottom: calc(var(--safe-b) + 164px * var(--s)); color: #a8e063; border-color: rgba(168, 224, 99, .7); }
+.touch-siegeView { --size: 58px; right: calc(var(--safe-r) + 122px * var(--s)); bottom: calc(var(--safe-b) + 174px * var(--s)); }
+.touch-btn[hidden] { display: none; }
+.touch-mounted :is(.touch-guard, .touch-dash, .touch-spell, .touch-jump, .touch-sprint, .touch-crouch, .touch-gauntlet, .touch-ultimate) { display: none; }
 
 .touch-cooldown { position: absolute; inset: 0; background: rgba(8, 9, 7, .66); transform: translateY(calc((1 - var(--cooldown, 0)) * 100%)); pointer-events: none; }
 .touch-timer { position: absolute; inset: 0; display: grid; place-items: center; font-size: 15px; font-weight: 900; color: #f3ead2; text-shadow: 0 1px 3px #000; pointer-events: none; }

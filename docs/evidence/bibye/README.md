@@ -1,5 +1,10 @@
 # Bi-Bye-llista Mobile Siege Engine & Combat Redesign — Visual Evidence & Architecture
 
+Current v3.2 integration and real input evidence: [v3.2 gameplay report](../bibye-v32/README.md).
+
+The four original presentation captures below use renderer snapshot overrides from `scripts/capture-bibye-evidence.mjs`. They document appearance only. The original acceptance script also uses injected navigation and a destruction fixture. See the v3.2 report for checks performed using actual keyboard, mouse and touch input.
+
+
 This document presents the authoritative architecture, gameplay mechanics, combat redesign, and in-engine visual evidence for the **Bi-Bye-llista** mobile siege engine prototype in Castleward Practice Yard.
 
 ---
@@ -30,7 +35,7 @@ The Bi-Bye-llista prototype has been advanced from a stationary turret into an a
 3. **Dual Operational Modes**:
    - **Travel / Mobile Mode**: 6-wheeled carriage drives forward/backward (3.2/2.0 m/s), steers (1.6 rad/s), and climbs slopes with terrain height conforming and wall sliding. Operator can aim the upper launcher ($\pm 36^\circ$ traverse) and fire Shot I on the move.
    - **Deployed Mode**: Stabilizers and outriggers plant into the turf over a 1.200 s transition. Movement locked. Turntable swivels ($\pm 45^\circ$ traverse, $-8.6^\circ$ to $+20.0^\circ$ pitch). Unlocks the full two-stage volley with exact 0.200 s string release interval (Shot I at $t = +0.450$ s, Shot II at $t = +0.650$ s).
-   - **Reload Cycle**: `SPENT` (0.25 s) $\to$ 6.0 s mechanical reload $\to$ `LOADED`. Retracts in 1.200 s.
+   - **Reload Cycle**: `SPENT` (1.55 s, completing the 2.20 s recoil recovery) $\to$ 6.0 s mechanical reload $\to$ `LOADED`. Retracts in 1.200 s.
 
 4. **Siege Engine Durability**:
    - 400 HP destructible siege machine. Takes damage from enemy weapons, siege bolts, and spell blasts.

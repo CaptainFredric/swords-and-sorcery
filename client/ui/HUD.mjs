@@ -8,6 +8,7 @@ import { ultimateView } from './ultimateView.mjs';
 import { STAGGER } from '../../shared/src/stagger.mjs';
 import { practiceOverride } from '../../shared/src/practiceRecast.mjs';
 import { ultimateFor } from '../../shared/src/ultimates.mjs';
+import { biByeHudView } from './biByeHudView.mjs';
 
 const HIT_MARKERS = Object.freeze({
   hit: { priority: 1, milliseconds: 160 },
@@ -206,6 +207,11 @@ export class HUD {
     this.statusStack = document.createElement('div');
     this.statusStack.className = 'hud-status-stack';
     this.statusStack.append(this.matchInfo, this.duelScore, this.breakthroughHud, this.preparedPanel);
+    this.ballistaPanel = document.createElement('div');
+    this.ballistaPanel.className = 'ballista-hud';
+    this.ballistaPanel.hidden = true;
+    this.ballistaPanel.innerHTML = '<strong></strong><span></span><small></small>';
+    this.statusStack.append(this.ballistaPanel);
     this.root.append(this.statusStack);
     this.preparedSelector = null;
     // with a mouse and keyboard, the prepared spells stand as a rack of tiles over the Q, E and R tiles (on touch they
@@ -282,24 +288,14 @@ export class HUD {
     this.dash.classList.toggle('practice', practiceOverride(local, 'dash', serverNow, practice));
     this.#ultimate(local, serverNow, practice);
     this.#armour(steelStrength(local.steel, serverNow), local.steel?.calledAt);
-    if (local?.operatingBallistaId && snapshot?.bibyeBallista) {
-      const bl = snapshot.bibyeBallista;
-      const modeText = bl.mode === 'MOBILE' ? 'MOBILE [B: Deploy · T: Dismount]' : (bl.mode === 'DEPLOYED' ? 'DEPLOYED [B: Mobile · T: Dismount]' : bl.mode);
-      const smallText = bl.smallBoltReady ? 'Shot I Ready' : 'Shot I Recocking';
-      const mainText = bl.mode === 'DEPLOYED' ? (bl.mainBoltLoaded ? 'Shot II Ready' : `Reloading ${(bl.reloadProgress * 100).toFixed(0)}%`) : 'Shot II (Deploy to Arm)';
-      this.matchInfo.textContent = `BI-BYE-LLISTA · ${bl.health}/${bl.maxHealth} HP · ${modeText} · ${smallText} · ${mainText}`;
-    } else {
-      const bl = snapshot?.bibyeBallista;
-      const bx = bl?.position?.x ?? bl?.x;
-      const bz = bl?.position?.z ?? bl?.z;
-      const near = bl && local?.position && bx !== undefined && bl.mode !== 'DESTROYED'
-        ? Math.hypot(bx - local.position.x, bz - local.position.z) <= 3.5
-        : false;
-      if (near) {
-        this.matchInfo.textContent = `[T] Mount Bi-Bye-llista · ${bl.health}/${bl.maxHealth} HP`;
-      } else {
-        this.matchInfo.textContent = matchInfoText(snapshot, serverNow);
-      }
+    this.matchInfo.textContent = matchInfoText(snapshot, serverNow);
+    const siege = biByeHudView(local, snapshot, serverNow, this.ballistaControls);
+    this.root.classList.toggle('ballista-mounted', Boolean(local?.alive && local.operatingBallistaId));
+    this.ballistaPanel.hidden = !siege;
+    if (siege) {
+      this.ballistaPanel.querySelector('strong').textContent = siege.title;
+      this.ballistaPanel.querySelector('span').textContent = siege.status;
+      this.ballistaPanel.querySelector('small').textContent = siege.controls;
     }
     const duel = duelScoreView(local, snapshot);
     if (this.duelScore) {

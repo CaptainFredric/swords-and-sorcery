@@ -1,0 +1,46 @@
+{
+  "releases": [
+    {
+      "type": "bibyeVolleyInitiated",
+      "at": 12.01460000038147
+    },
+    {
+      "type": "bibyeFired",
+      "shot": "I",
+      "at": 12.48720000076294
+    },
+    {
+      "type": "bibyeFired",
+      "shot": "II",
+      "at": 12.6865
+    },
+    {
+      "type": "bibyeVolleyInitiated",
+      "at": 46.64520000076294
+    },
+    {
+      "type": "bibyeFired",
+      "shot": "I",
+      "at": 47.10520000076294
+    },
+    {
+      "type": "bibyeFired",
+      "shot": "II",
+      "at": 47.30370000076294
+    }
+  ],
+  "muzzles": [
+    {
+      "kind": "conditioning",
+      "at": 47.10520000076294,
+      "error": 0.0017824532321365325,
+      "dot": 0.9999997996454044
+    },
+    {
+      "kind": "siege",
+      "at": 47.30370000076294,
+      "error": 0.0005835672498333854,
+      "dot": 0.999999949365609
+    }
+  ]
+}

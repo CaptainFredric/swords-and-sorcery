@@ -1,3 +1,4 @@
+import { orientedBoxHit } from './orientedBox.mjs';
 function bounds(box) {
   return {
     min: [
@@ -14,6 +15,7 @@ function bounds(box) {
 }
 
 export function segmentAabbHit(start, end, box) {
+  if (box.axes) return orientedBoxHit(start, end, box);
   const { min, max } = bounds(box);
   const delta = [end[0] - start[0], end[1] - start[1], end[2] - start[2]];
   let tMin = 0;
@@ -75,7 +77,8 @@ export function resolvePlayerWorld(position, radius, solids, height = 1.8) {
   const yTop = yBottom + height;
 
   for (const box of solids) {
-    const { min, max } = bounds(box);
+    if (box.axes) return orientedBoxHit(start, end, box);
+  const { min, max } = bounds(box);
     if (yTop <= min[1] || yBottom >= max[1]) continue;
     const closestX = Math.max(min[0], Math.min(x, max[0]));
     const closestZ = Math.max(min[2], Math.min(z, max[2]));

@@ -1,0 +1,614 @@
+{
+  "scenario": "844x390 DPR1 Balanced quality; active sound; 30 seconds per repeat; forward/reverse, mobile Shot I, deploy, two full volleys with reload, pack; default third person camera per build. Candidate began about 2.2m farther along the same lane following its touch acceptance loop; each run ends slightly forward because reverse is deliberately slower. This is an audiovisual regression check on desktop touch emulation, not a physical phone benchmark.",
+  "runs": [
+    {
+      "build": "candidate",
+      "repeat": 1,
+      "frame": {
+        "count": 1801,
+        "median": 16.70000000001164,
+        "p95": 18.5,
+        "max": 18.900000000023283,
+        "over50": 0
+      },
+      "tick": {
+        "count": 907,
+        "median": 33.00000000001546,
+        "p95": 35.00000000002501,
+        "max": 83.10000038142107,
+        "over50": 2
+      },
+      "view": {
+        "fov": 78,
+        "pixelRatioCap": 1.35,
+        "cameraMotion": 1,
+        "damageNumbers": true,
+        "damageFlash": true,
+        "subtitles": true,
+        "particles": 0.7
+      },
+      "pixelRatio": 1,
+      "viewport": [
+        844,
+        390
+      ],
+      "audio": {
+        "running": true,
+        "muted": false
+      },
+      "machine": {
+        "id": "bibye-practice-01",
+        "position": {
+          "x": 12.040000000000033,
+          "y": 0,
+          "z": -14.6
+        },
+        "x": 12.040000000000033,
+        "y": 0,
+        "z": -14.6,
+        "heading": -1.5707963267948966,
+        "yaw": -1.5707964972488129,
+        "pitch": 0,
+        "speed": 0,
+        "steer": 0,
+        "mode": "MOBILE",
+        "deployProgress": 0,
+        "components": {
+          "Wheel_FL": {
+            "health": 120,
+            "maxHealth": 120,
+            "failedAt": null
+          },
+          "Wheel_FR": {
+            "health": 120,
+            "maxHealth": 120,
+            "failedAt": null
+          },
+          "Wheel_ML": {
+            "health": 120,
+            "maxHealth": 120,
+            "failedAt": null
+          },
+          "Wheel_MR": {
+            "health": 120,
+            "maxHealth": 120,
+            "failedAt": null
+          },
+          "Wheel_RL": {
+            "health": 120,
+            "maxHealth": 120,
+            "failedAt": null
+          },
+          "Wheel_RR": {
+            "health": 120,
+            "maxHealth": 120,
+            "failedAt": null
+          },
+          "Stabilizer_FL": {
+            "health": 150,
+            "maxHealth": 150,
+            "failedAt": null
+          },
+          "Stabilizer_FR": {
+            "health": 150,
+            "maxHealth": 150,
+            "failedAt": null
+          },
+          "Stabilizer_RL": {
+            "health": 150,
+            "maxHealth": 150,
+            "failedAt": null
+          },
+          "Stabilizer_RR": {
+            "health": 150,
+            "maxHealth": 150,
+            "failedAt": null
+          }
+        },
+        "wheelRolls": [
+          5.52727272727278,
+          5.52727272727278,
+          5.52727272727278,
+          5.52727272727278,
+          5.52727272727278,
+          5.52727272727278
+        ],
+        "poseTime": 349.953,
+        "retractFrom": 1,
+        "retractAim": {
+          "yaw": -1.704539163149832e-7,
+          "pitch": 0
+        },
+        "modeTransitionEndsAt": 345.836,
+        "health": 650,
+        "maxHealth": 650,
+        "state": "LOADED",
+        "operatorId": "d172f812-6a4f-43e3-b317-6a46ea9ffd37",
+        "firedAt": 335.4855999994278,
+        "mobileFiredAt": 321.4255,
+        "smallBoltReadyAt": 343.71389999961855,
+        "reloadStartedAt": 337.6855999994278,
+        "reloadEndsAt": 343.6855999994278,
+        "destroyedAt": null,
+        "modeTransitionStartedAt": 344.636,
+        "smallBoltReady": true,
+        "mainBoltLoaded": true,
+        "reloadProgress": 1
+      }
+    },
+    {
+      "build": "candidate",
+      "repeat": 2,
+      "frame": {
+        "count": 1800,
+        "median": 16.70000000001164,
+        "p95": 18.599999999976717,
+        "max": 18.70000000001164,
+        "over50": 0
+      },
+      "tick": {
+        "count": 904,
+        "median": 33.00000000001546,
+        "p95": 35.29999923705418,
+        "max": 74.29999923704145,
+        "over50": 5
+      },
+      "view": {
+        "fov": 78,
+        "pixelRatioCap": 1.35,
+        "cameraMotion": 1,
+        "damageNumbers": true,
+        "damageFlash": true,
+        "subtitles": true,
+        "particles": 0.7
+      },
+      "pixelRatio": 1,
+      "viewport": [
+        844,
+        390
+      ],
+      "audio": {
+        "running": true,
+        "muted": false
+      },
+      "machine": {
+        "id": "bibye-practice-01",
+        "position": {
+          "x": 12.840000000000051,
+          "y": 0,
+          "z": -14.6
+        },
+        "x": 12.840000000000051,
+        "y": 0,
+        "z": -14.6,
+        "heading": -1.5707963267948966,
+        "yaw": -1.5707964972488129,
+        "pitch": 0,
+        "speed": 0,
+        "steer": 0,
+        "mode": "MOBILE",
+        "deployProgress": 0,
+        "components": {
+          "Wheel_FL": {
+            "health": 120,
+            "maxHealth": 120,
+            "failedAt": null
+          },
+          "Wheel_FR": {
+            "health": 120,
+            "maxHealth": 120,
+            "failedAt": null
+          },
+          "Wheel_ML": {
+            "health": 120,
+            "maxHealth": 120,
+            "failedAt": null
+          },
+          "Wheel_MR": {
+            "health": 120,
+            "maxHealth": 120,
+            "failedAt": null
+          },
+          "Wheel_RL": {
+            "health": 120,
+            "maxHealth": 120,
+            "failedAt": null
+          },
+          "Wheel_RR": {
+            "health": 120,
+            "maxHealth": 120,
+            "failedAt": null
+          },
+          "Stabilizer_FL": {
+            "health": 150,
+            "maxHealth": 150,
+            "failedAt": null
+          },
+          "Stabilizer_FR": {
+            "health": 150,
+            "maxHealth": 150,
+            "failedAt": null
+          },
+          "Stabilizer_RL": {
+            "health": 150,
+            "maxHealth": 150,
+            "failedAt": null
+          },
+          "Stabilizer_RR": {
+            "health": 150,
+            "maxHealth": 150,
+            "failedAt": null
+          }
+        },
+        "wheelRolls": [
+          6.9818181818182605,
+          6.9818181818182605,
+          6.9818181818182605,
+          6.9818181818182605,
+          6.9818181818182605,
+          6.9818181818182605
+        ],
+        "poseTime": 395.1288999996185,
+        "retractFrom": 1,
+        "retractAim": {
+          "yaw": -1.704539163149832e-7,
+          "pitch": 0
+        },
+        "modeTransitionEndsAt": 390.9878999996185,
+        "health": 650,
+        "maxHealth": 650,
+        "state": "LOADED",
+        "operatorId": "d172f812-6a4f-43e3-b317-6a46ea9ffd37",
+        "firedAt": 380.6195999994278,
+        "mobileFiredAt": 366.58369999980926,
+        "smallBoltReadyAt": 388.82469999980924,
+        "reloadStartedAt": 382.8195999994278,
+        "reloadEndsAt": 388.8195999994278,
+        "destroyedAt": null,
+        "modeTransitionStartedAt": 389.7878999996185,
+        "smallBoltReady": true,
+        "mainBoltLoaded": true,
+        "reloadProgress": 1
+      }
+    },
+    {
+      "build": "candidate",
+      "repeat": 3,
+      "frame": {
+        "count": 1800,
+        "median": 16.70000000001164,
+        "p95": 18.400000000023283,
+        "max": 18.899999999965075,
+        "over50": 0
+      },
+      "tick": {
+        "count": 905,
+        "median": 33.00000000001546,
+        "p95": 35.30000019071622,
+        "max": 131.19999980926877,
+        "over50": 2
+      },
+      "view": {
+        "fov": 78,
+        "pixelRatioCap": 1.35,
+        "cameraMotion": 1,
+        "damageNumbers": true,
+        "damageFlash": true,
+        "subtitles": true,
+        "particles": 0.7
+      },
+      "pixelRatio": 1,
+      "viewport": [
+        844,
+        390
+      ],
+      "audio": {
+        "running": true,
+        "muted": false
+      },
+      "machine": {
+        "id": "bibye-practice-01",
+        "position": {
+          "x": 13.64000000000007,
+          "y": 0,
+          "z": -14.6
+        },
+        "x": 13.64000000000007,
+        "y": 0,
+        "z": -14.6,
+        "heading": -1.5707963267948966,
+        "yaw": -1.5707964972488129,
+        "pitch": 0,
+        "speed": 0,
+        "steer": 0,
+        "mode": "MOBILE",
+        "deployProgress": 0,
+        "components": {
+          "Wheel_FL": {
+            "health": 120,
+            "maxHealth": 120,
+            "failedAt": null
+          },
+          "Wheel_FR": {
+            "health": 120,
+            "maxHealth": 120,
+            "failedAt": null
+          },
+          "Wheel_ML": {
+            "health": 120,
+            "maxHealth": 120,
+            "failedAt": null
+          },
+          "Wheel_MR": {
+            "health": 120,
+            "maxHealth": 120,
+            "failedAt": null
+          },
+          "Wheel_RL": {
+            "health": 120,
+            "maxHealth": 120,
+            "failedAt": null
+          },
+          "Wheel_RR": {
+            "health": 120,
+            "maxHealth": 120,
+            "failedAt": null
+          },
+          "Stabilizer_FL": {
+            "health": 150,
+            "maxHealth": 150,
+            "failedAt": null
+          },
+          "Stabilizer_FR": {
+            "health": 150,
+            "maxHealth": 150,
+            "failedAt": null
+          },
+          "Stabilizer_RL": {
+            "health": 150,
+            "maxHealth": 150,
+            "failedAt": null
+          },
+          "Stabilizer_RR": {
+            "health": 150,
+            "maxHealth": 150,
+            "failedAt": null
+          }
+        },
+        "wheelRolls": [
+          8.436363636363742,
+          8.436363636363742,
+          8.436363636363742,
+          8.436363636363742,
+          8.436363636363742,
+          8.436363636363742
+        ],
+        "poseTime": 482.8085,
+        "retractFrom": 1,
+        "retractAim": {
+          "yaw": -1.704539163149832e-7,
+          "pitch": 0
+        },
+        "modeTransitionEndsAt": 478.7533999996185,
+        "health": 650,
+        "maxHealth": 650,
+        "state": "LOADED",
+        "operatorId": "d172f812-6a4f-43e3-b317-6a46ea9ffd37",
+        "firedAt": 468.3883999996185,
+        "mobileFiredAt": 454.3398999996185,
+        "smallBoltReadyAt": 476.6050999994278,
+        "reloadStartedAt": 470.5883999996185,
+        "reloadEndsAt": 476.5883999996185,
+        "destroyedAt": null,
+        "modeTransitionStartedAt": 477.55339999961853,
+        "smallBoltReady": true,
+        "mainBoltLoaded": true,
+        "reloadProgress": 1
+      }
+    },
+    {
+      "build": "baseline-5f5fa6c",
+      "repeat": 1,
+      "frame": {
+        "count": 1801,
+        "median": 16.69999999999709,
+        "p95": 18.19999999999709,
+        "max": 18.80000000000291,
+        "over50": 0
+      },
+      "tick": {
+        "count": 908,
+        "median": 33.0999994277974,
+        "p95": 35.200000762941386,
+        "max": 67.90000057220169,
+        "over50": 5
+      },
+      "view": {
+        "fov": 78,
+        "pixelRatioCap": 1.35,
+        "cameraMotion": 1,
+        "damageNumbers": true,
+        "damageFlash": true,
+        "subtitles": true,
+        "particles": 0.7
+      },
+      "pixelRatio": 1,
+      "viewport": [
+        844,
+        390
+      ],
+      "audio": {
+        "running": true,
+        "muted": false
+      },
+      "machine": {
+        "id": "bibye-practice-01",
+        "position": {
+          "x": 9.800000000000018,
+          "y": 0,
+          "z": -14.6
+        },
+        "x": 9.800000000000018,
+        "y": 0,
+        "z": -14.6,
+        "heading": -1.5707963267948966,
+        "yaw": -1.5707964972488129,
+        "pitch": 0,
+        "speed": 0,
+        "steer": 0,
+        "mode": "MOBILE",
+        "deployProgress": 0,
+        "health": 400,
+        "maxHealth": 400,
+        "state": "LOADED",
+        "operatorId": "f7beb46e-06f5-4a20-a53b-366276ccd057",
+        "firedAt": 71.74460000038147,
+        "mobileFiredAt": 57.694900000572204,
+        "smallBoltReadyAt": 79.952,
+        "reloadStartedAt": 73.94460000038147,
+        "reloadEndsAt": 79.94460000038147,
+        "destroyedAt": null,
+        "modeTransitionStartedAt": 80.91110000038147,
+        "smallBoltReady": true,
+        "mainBoltLoaded": true,
+        "reloadProgress": 1
+      }
+    },
+    {
+      "build": "baseline-5f5fa6c",
+      "repeat": 2,
+      "frame": {
+        "count": 1801,
+        "median": 16.69999999999709,
+        "p95": 18.5,
+        "max": 18.70000000001164,
+        "over50": 0
+      },
+      "tick": {
+        "count": 908,
+        "median": 33.00000000000125,
+        "p95": 35.10000038147609,
+        "max": 68.30000019074589,
+        "over50": 2
+      },
+      "view": {
+        "fov": 78,
+        "pixelRatioCap": 1.35,
+        "cameraMotion": 1,
+        "damageNumbers": true,
+        "damageFlash": true,
+        "subtitles": true,
+        "particles": 0.7
+      },
+      "pixelRatio": 1,
+      "viewport": [
+        844,
+        390
+      ],
+      "audio": {
+        "running": true,
+        "muted": false
+      },
+      "machine": {
+        "id": "bibye-practice-01",
+        "position": {
+          "x": 10.600000000000037,
+          "y": 0,
+          "z": -14.6
+        },
+        "x": 10.600000000000037,
+        "y": 0,
+        "z": -14.6,
+        "heading": -1.5707963267948966,
+        "yaw": -1.5707964972488129,
+        "pitch": 0,
+        "speed": 0,
+        "steer": 0,
+        "mode": "MOBILE",
+        "deployProgress": 0,
+        "health": 400,
+        "maxHealth": 400,
+        "state": "LOADED",
+        "operatorId": "f7beb46e-06f5-4a20-a53b-366276ccd057",
+        "firedAt": 131.16060000038146,
+        "mobileFiredAt": 117.09830000019073,
+        "smallBoltReadyAt": 139.38569999980928,
+        "reloadStartedAt": 133.36060000038145,
+        "reloadEndsAt": 139.36060000038145,
+        "destroyedAt": null,
+        "modeTransitionStartedAt": 140.31090000057222,
+        "smallBoltReady": true,
+        "mainBoltLoaded": true,
+        "reloadProgress": 1
+      }
+    },
+    {
+      "build": "baseline-5f5fa6c",
+      "repeat": 3,
+      "frame": {
+        "count": 1800,
+        "median": 16.699999999982538,
+        "p95": 18.199999999982538,
+        "max": 18.89999999999418,
+        "over50": 0
+      },
+      "tick": {
+        "count": 907,
+        "median": 33.09999942777608,
+        "p95": 35.10000038144767,
+        "max": 66.69999980925923,
+        "over50": 2
+      },
+      "view": {
+        "fov": 78,
+        "pixelRatioCap": 1.35,
+        "cameraMotion": 1,
+        "damageNumbers": true,
+        "damageFlash": true,
+        "subtitles": true,
+        "particles": 0.7
+      },
+      "pixelRatio": 1,
+      "viewport": [
+        844,
+        390
+      ],
+      "audio": {
+        "running": true,
+        "muted": false
+      },
+      "machine": {
+        "id": "bibye-practice-01",
+        "position": {
+          "x": 11.400000000000055,
+          "y": 0,
+          "z": -14.6
+        },
+        "x": 11.400000000000055,
+        "y": 0,
+        "z": -14.6,
+        "heading": -1.5707963267948966,
+        "yaw": -1.5707964972488129,
+        "pitch": 0,
+        "speed": 0,
+        "steer": 0,
+        "mode": "MOBILE",
+        "deployProgress": 0,
+        "health": 400,
+        "maxHealth": 400,
+        "state": "LOADED",
+        "operatorId": "f7beb46e-06f5-4a20-a53b-366276ccd057",
+        "firedAt": 178.59480000019073,
+        "mobileFiredAt": 164.561,
+        "smallBoltReadyAt": 186.80730000019074,
+        "reloadStartedAt": 180.79480000019072,
+        "reloadEndsAt": 186.79480000019072,
+        "destroyedAt": null,
+        "modeTransitionStartedAt": 187.7274000005722,
+        "smallBoltReady": true,
+        "mainBoltLoaded": true,
+        "reloadProgress": 1
+      }
+    }
+  ]
+}

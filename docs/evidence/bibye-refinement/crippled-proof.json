@@ -1,0 +1,169 @@
+{
+  "before": {
+    "x": 9,
+    "y": 0,
+    "z": -14.6
+  },
+  "b": {
+    "id": "bibye-practice-01",
+    "position": {
+      "x": 9,
+      "y": 0,
+      "z": -14.6
+    },
+    "x": 9,
+    "y": 0,
+    "z": -14.6,
+    "heading": -1.5707963267948966,
+    "yaw": -1.198998163397449,
+    "pitch": 0.1818000000000005,
+    "speed": 0,
+    "steer": 0,
+    "mode": "MOBILE",
+    "deployProgress": 0,
+    "components": {
+      "Wheel_FL": {
+        "health": 0,
+        "maxHealth": 120,
+        "failedAt": 13.011699999809265,
+        "lastHitAt": 13.011699999809265
+      },
+      "Wheel_FR": {
+        "health": 97,
+        "maxHealth": 120,
+        "failedAt": null,
+        "lastHitAt": 295.0930999994278
+      },
+      "Wheel_ML": {
+        "health": 0,
+        "maxHealth": 120,
+        "failedAt": 20.830099999427794,
+        "lastHitAt": 20.830099999427794
+      },
+      "Wheel_MR": {
+        "health": 102,
+        "maxHealth": 120,
+        "failedAt": null,
+        "lastHitAt": 286.777
+      },
+      "Wheel_RL": {
+        "health": 48,
+        "maxHealth": 120,
+        "failedAt": null,
+        "lastHitAt": 808.3443000001907
+      },
+      "Wheel_RR": {
+        "health": 120,
+        "maxHealth": 120,
+        "failedAt": null
+      },
+      "Stabilizer_FL": {
+        "health": 0,
+        "maxHealth": 150,
+        "failedAt": 235.29880000019074,
+        "lastHitAt": 235.29880000019074
+      },
+      "Stabilizer_FR": {
+        "health": 106,
+        "maxHealth": 150,
+        "failedAt": null,
+        "lastHitAt": 294.3685
+      },
+      "Stabilizer_RL": {
+        "health": 0,
+        "maxHealth": 150,
+        "failedAt": 805.5080999994278,
+        "lastHitAt": 805.5080999994278
+      },
+      "Stabilizer_RR": {
+        "health": 150,
+        "maxHealth": 150,
+        "failedAt": null
+      }
+    },
+    "wheelRolls": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "poseTime": 852.3015,
+    "retractFrom": 1,
+    "retractAim": {
+      "yaw": -0.7853981633974483,
+      "pitch": -0.0008999999999994728
+    },
+    "modeTransitionEndsAt": 806.7080999994279,
+    "health": 380,
+    "maxHealth": 650,
+    "state": "LOADED",
+    "operatorId": "2b9d8e64-994a-42bd-a712-866da239df11",
+    "firedAt": 459.19989999961854,
+    "mobileFiredAt": 851.0528999996185,
+    "smallBoltReadyAt": 854.0528999996185,
+    "reloadStartedAt": 461.3998999996185,
+    "reloadEndsAt": 467.3998999996185,
+    "destroyedAt": null,
+    "modeTransitionStartedAt": 805.5080999994278,
+    "smallBoltReady": false,
+    "mainBoltLoaded": true,
+    "reloadProgress": 1
+  },
+  "events": [
+    {
+      "type": "bibyeMobileFireTriggered",
+      "ballistaId": "bibye-practice-01",
+      "operatorId": "2b9d8e64-994a-42bd-a712-866da239df11",
+      "aim": {
+        "yaw": -1.198998163397449,
+        "pitch": 0.1818000000000005
+      },
+      "at": 851.0528999996185
+    },
+    {
+      "type": "bibyeBoltSpawned",
+      "projectile": {
+        "id": "bibye-bolt-15",
+        "kind": "bibye",
+        "subKind": "conditioning",
+        "ballistaId": "bibye-practice-01",
+        "ownerId": "2b9d8e64-994a-42bd-a712-866da239df11",
+        "position": {
+          "x": 9.808440459575722,
+          "y": 2.9328345311609088,
+          "z": -14.884043179782052
+        },
+        "velocity": {
+          "x": 43.983429007653626,
+          "y": 8.678409652258402,
+          "z": -17.15060286509724
+        },
+        "bornAt": 851.2753000001908,
+        "radius": 0.6,
+        "blastRadius": 2,
+        "directDamage": 18,
+        "edgeDamage": 12,
+        "maxStaminaDrain": 22
+      },
+      "at": 851.2753000001908
+    },
+    {
+      "type": "bibyeFired",
+      "ballistaId": "bibye-practice-01",
+      "operatorId": "2b9d8e64-994a-42bd-a712-866da239df11",
+      "shot": "I_MOBILE",
+      "aim": {
+        "yaw": -1.198998163397449,
+        "pitch": 0.1818000000000005
+      },
+      "at": 851.2753000001908
+    }
+  ],
+  "view": "sight",
+  "hud": "BI-BYE-LLISTA · 380/650 · MOBILEShot I recocking · 1.8s · IMMOBILIZED · SUPPORTS DISABLED[LMB] Fire · [Z] View · [T] Leave",
+  "loops": [
+    "winch"
+  ]
+}

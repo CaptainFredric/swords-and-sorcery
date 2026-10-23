@@ -314,9 +314,19 @@ export class SoundEngine {
     this.#send(out, this.reverb, recipe.reverb);
     this.#send(out, this.hall, recipe.hall);
     let end = start;
-    for (const layer of recipe.layers) end = Math.max(end, this.#layer(layer, out, start + (layer.at ?? 0)));
-    // let the graph go once everything has rung out
-    this.#release([out, panner], end);
+    const sources = [], nodes = [];
+    for (const layer of recipe.layers) end = Math.max(end, this.#layer(layer, out, start + (layer.at ?? 0), sources, nodes));
+    this.#release([out, panner, ...nodes], end);
+    let stopped = false;
+    return {
+      stop: (fade = .06) => {
+        if (stopped) return;stopped = true;
+        const now = ctx.currentTime;
+        out.gain.cancelScheduledValues(now);out.gain.setValueAtTime(out.gain.value, now);
+        out.gain.linearRampToValueAtTime(.0001, now + fade);
+        for (const source of sources) { try { source.stop(now + fade + .01); } catch {} }
+      },
+    };
   }
 
   /**
@@ -326,7 +336,7 @@ export class SoundEngine {
    */
   playBuffer(buffer, {
     bus = 'sfx', pan = 0, gain = 1, rate = 1, at = null, delay = 0, reverb = 0, hall = 0, echo = null, echoLevel = 0.5,
-    attack = 0, duration = null, release = 0.05, shape = null,
+    attack = 0, duration = null, release = 0.05, shape = null, loop = false,
   } = {}) {
     const ctx = this.ctx;
     if (!ctx || !buffer || this.levels.muted || !this.running) return null;
@@ -334,6 +344,7 @@ export class SoundEngine {
     const { out, panner } = this.#route(bus, pan);
     const source = ctx.createBufferSource();
     source.buffer = buffer;
+    source.loop = loop;
     source.playbackRate.value = rate;
     const amp = ctx.createGain();
     if (attack > 0) {
@@ -360,25 +371,30 @@ export class SoundEngine {
       amp.gain.linearRampToValueAtTime(0.0001, start + length);
     }
     source.start(start);
-    source.stop(start + length + 0.02);
-    this.#release([out, panner, amp, ...(shaped?.nodes ?? [])], start + length);
+    if (!loop) {
+      source.stop(start + length + 0.02);
+      this.#release([source, out, panner, amp, ...(shaped?.nodes ?? [])], start + length);
+    }
     let stopped = false;
     return {
       source,
       /** Move it while it plays (a speaker walking as he talks): its level and its side, eased over a moment. */
-      place: ({ gain: level = null, pan: side = null } = {}) => {
+      place: ({ gain: level = null, pan: side = null, rate: nextRate = null } = {}) => {
         if (stopped) return;
         const now = ctx.currentTime;
+        if (Number.isFinite(nextRate)) source.playbackRate.setTargetAtTime(Math.max(.1,nextRate),now,.06);
         if (Number.isFinite(level)) amp.gain.setTargetAtTime(Math.max(0, level), Math.max(now, start), 0.06);
         if (Number.isFinite(side) && panner) panner.pan.setTargetAtTime(Math.max(-1, Math.min(1, side)), Math.max(now, start), 0.06);
       },
       stop: (fade = 0.08) => {
+        if (stopped) return;
         stopped = true;
         const now = ctx.currentTime;
         amp.gain.cancelScheduledValues(now);
         amp.gain.setValueAtTime(amp.gain.value, now);
         amp.gain.linearRampToValueAtTime(0.0001, now + fade);
         try { source.stop(now + fade + 0.02); } catch { /* not started or already stopped */ }
+        if (loop) this.#release([source,out,panner,amp,...(shaped?.nodes??[])],now+fade);
       },
     };
   }
@@ -398,7 +414,7 @@ export class SoundEngine {
     return start + attack + decay;
   }
 
-  #layer(layer, out, start) {
+  #layer(layer, out, start, sources = [], nodes = []) {
     const ctx = this.ctx;
     if (layer.type === 'noise') {
       const source = ctx.createBufferSource();
@@ -413,6 +429,7 @@ export class SoundEngine {
       const amp = ctx.createGain();
       const end = this.#envelope(amp.gain, start, layer.attack, layer.decay, layer.gain);
       source.connect(filter).connect(amp).connect(out);
+      sources.push(source);nodes.push(source,filter,amp);
       source.start(start, Math.random() * 0.5);
       source.stop(end + 0.02);
       return end;
@@ -425,6 +442,7 @@ export class SoundEngine {
       const amp = ctx.createGain();
       const end = this.#envelope(amp.gain, start, layer.attack, layer.decay, layer.gain);
       osc.connect(amp).connect(out);
+      sources.push(osc);nodes.push(osc,amp);
       osc.start(start);
       osc.stop(end + 0.02);
       return end;
@@ -438,6 +456,7 @@ export class SoundEngine {
         const amp = ctx.createGain();
         const stop = this.#envelope(amp.gain, start, partial.attack ?? 0.002, partial.decay, partial.gain);
         osc.connect(amp).connect(out);
+        sources.push(osc);nodes.push(osc,amp);
         osc.start(start);
         osc.stop(stop + 0.02);
         end = Math.max(end, stop);

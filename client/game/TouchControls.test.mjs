@@ -50,6 +50,25 @@ function setup(local) {
 const local = { alive: true, spell: 'fireball', preparedSpells: ['fireball', 'frostfire', 'gale'],
   ultimateState: { id: 'chivalry', phase: 'active', until: 19 }, chivalryProjectileReadyAt: 0 };
 
+test('siege controls appear only in real interaction range or while mounted and clear on death', () => {
+  const p = { alive: true, spell: 'fireball', position: { x: 0, z: 3.1 } };
+  const { controls, input, send } = setup(p);
+  const b = { id: 'siege', position: { x: 0, z: 0 }, mode: 'MOBILE' };
+  controls.update(p, 10, { snapshot: { bibyeBallista: b } });
+  assert.equal(controls.buttons.interact.hidden, false);
+  assert.equal(controls.buttons.deploy.hidden, true);
+  controls.update({ ...p, operatingBallistaId: 'siege' }, 10, { snapshot: { bibyeBallista: b } });
+  assert.equal(controls.buttons.siegeView.hidden, false);
+  assert.equal(controls.buttons.deploy.hidden, false);
+  const actions = [];
+  input.onAction = (...args) => actions.push(args);
+  send('pointerdown', 600, 300, { action: 'siegeView' });
+  assert.deepEqual(actions, [['siegeView', true]]);
+  controls.update({ ...p, alive: false }, 10, { snapshot: { bibyeBallista: b } });
+  assert.equal(controls.buttons.interact.hidden, true);
+  assert.equal(controls.buttons.siegeView.hidden, true);
+});
+
 test('mobile tap current and drag alternate send one atomic release intent per gesture', () => {
   const { controls, calls, send } = setup(local);
   send('pointerdown');

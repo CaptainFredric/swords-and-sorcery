@@ -212,6 +212,7 @@ registry
   .defineAction({ id: 'ultimate', label: 'Ultimate', group: 'Abilities', keys: ['KeyR'] })
   .defineAction({ id: 'interact', label: 'Operate / Interact', group: 'Combat', keys: ['KeyT'] })
   .defineAction({ id: 'deploy', label: 'Deploy / Mobile Mode', group: 'Combat', keys: ['KeyB'] })
+  .defineAction({ id: 'siegeView', label: 'Mounted siege view', group: 'Interface', keys: ['KeyZ'] })
   // (the spell's key throws the fist while the spell cools; this throws it spell or no spell, for whoever wants it)
   .defineAction({ id: 'gauntlet', label: 'Gauntlet on its own', group: 'Abilities', keys: [] })
   .defineAction({ id: 'scoreboard', label: 'Scoreboard (hold)', group: 'Interface', keys: ['Tab'] })
