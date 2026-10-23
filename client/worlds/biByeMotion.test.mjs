@@ -29,3 +29,11 @@ test('repairing only a component clears the old failure pose immediately',()=>{
  m.push({...b(0),health:650,components:{Wheel_FL:{health:120}}},[],1.03333);
  assert.equal(m.sample(1.04,true).ballista.components.Wheel_FL.health,120);
 });
+
+test('terrain attitude and all wheel contact offsets share the carriage interpolation clock',()=>{
+ const m=new BiByeMotion();m.push({...b(0),chassisPitch:0,chassisRoll:0,wheelOffsets:Array(6).fill(0),stabilizerTilts:Array(4).fill(0)},[],1);
+ m.push({...b(.1),chassisPitch:.2,chassisRoll:.1,wheelOffsets:Array(6).fill(.08),stabilizerTilts:Array(4).fill(.02)},[],1.033333333);
+ const pose=m.sample(1.05,true).ballista;
+ assert.ok(pose.chassisPitch>0&&pose.chassisPitch<.2);assert.ok(pose.chassisRoll>0&&pose.chassisRoll<.1);
+ assert.ok(pose.wheelOffsets.every(x=>x>0&&x<.08));assert.ok(pose.stabilizerTilts.every(x=>x>0&&x<.02));
+});

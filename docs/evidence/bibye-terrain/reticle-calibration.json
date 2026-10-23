@@ -1,0 +1,197 @@
+{
+  "before": {
+    "target": {
+      "x": -3.159588741800172e-15,
+      "y": 2.0251005140825615,
+      "z": 21.800000000000004
+    },
+    "camera": [
+      8.205133554287262e-16,
+      3.7999999999999985,
+      -10.699999999999996
+    ],
+    "aim": {
+      "yaw": 3.141592653589793,
+      "pitch": -0.05455809506235438
+    },
+    "ballista": {
+      "id": "bibye-practice-01",
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": -4
+      },
+      "x": 0,
+      "y": 0,
+      "z": -4,
+      "heading": 3.141592653589793,
+      "chassisPitch": 0,
+      "chassisRoll": 0,
+      "wheelOffsets": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "stabilizerTilts": [
+        -0.000001220703125,
+        0.000001220703125,
+        -0.000001220703125,
+        0.000001220703125
+      ],
+      "deploymentReason": null,
+      "deploymentRejectedAt": null,
+      "mainYaw": 3.141592653589793,
+      "mainPitch": 0.007333857505042795,
+      "upperYaw": 3.141592653589793,
+      "upperPitch": -0.03575463610488928,
+      "weaponFocus": "MAIN",
+      "focusRevision": 1,
+      "coupling": "INDEPENDENT",
+      "couplingProgress": 0,
+      "couplingReleaseFrom": 1,
+      "couplingStartedAt": null,
+      "couplingEndsAt": null,
+      "upperReleasedAt": null,
+      "upperFiredAt": null,
+      "upperShotKind": null,
+      "mainReleasedAt": null,
+      "heavyDelayTrippedAt": null,
+      "trackingSince": 15.294800000190735,
+      "aimLimited": false,
+      "upperPending": false,
+      "yaw": 3.141592653589793,
+      "pitch": 0.007333857505042795,
+      "speed": 0,
+      "steer": 0,
+      "mode": "DEPLOYED",
+      "deployProgress": 1,
+      "components": {
+        "Wheel_FL": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Wheel_FR": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Wheel_ML": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Wheel_MR": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Wheel_RL": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Wheel_RR": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Stabilizer_FL": {
+          "health": 150,
+          "maxHealth": 150,
+          "failedAt": null
+        },
+        "Stabilizer_FR": {
+          "health": 150,
+          "maxHealth": 150,
+          "failedAt": null
+        },
+        "Stabilizer_RL": {
+          "health": 150,
+          "maxHealth": 150,
+          "failedAt": null
+        },
+        "Stabilizer_RR": {
+          "health": 150,
+          "maxHealth": 150,
+          "failedAt": null
+        }
+      },
+      "wheelRolls": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "poseTime": 17.69660000038147,
+      "retractFrom": 1,
+      "retractAim": null,
+      "modeTransitionEndsAt": 16.494800000190736,
+      "health": 650,
+      "maxHealth": 650,
+      "state": "LOADED",
+      "operatorId": "205c3135-f130-4b06-88d0-c3ef15e3c3c9",
+      "firedAt": null,
+      "mobileFiredAt": null,
+      "smallBoltReadyAt": 0,
+      "reloadStartedAt": null,
+      "reloadEndsAt": null,
+      "destroyedAt": null,
+      "modeTransitionStartedAt": 15.294800000190735,
+      "smallBoltReady": true,
+      "mainBoltLoaded": true,
+      "reloadProgress": 1
+    }
+  },
+  "bolts": [
+    {
+      "id": "bibye-bolt-1",
+      "subKind": "conditioning",
+      "bornAt": 18.16,
+      "ballistaId": "bibye-practice-01",
+      "position": {
+        "x": -3.0934441991123264e-16,
+        "y": 2.8604743851525276,
+        "z": -1.5540111179271419
+      },
+      "velocity": {
+        "x": -5.874547641478987e-15,
+        "y": -1.7158568883083636,
+        "z": 47.969321812371334
+      },
+      "projectedHit": {
+        "x": -3.169385916193351e-15,
+        "y": 2.025104208291058,
+        "z": 21.800000000000004
+      },
+      "reticleMiss": 0.000003694208496440865
+    },
+    {
+      "id": "bibye-bolt-2",
+      "subKind": "siege",
+      "bornAt": 18.36,
+      "ballistaId": "bibye-practice-01",
+      "position": {
+        "x": -7.692828277625109e-16,
+        "y": 1.8589207137142354,
+        "z": -0.859164502376867
+      },
+      "velocity": {
+        "x": -1.3470752517152012e-14,
+        "y": 0.40335854695010215,
+        "z": 54.998520906317125
+      },
+      "projectedHit": {
+        "x": -6.319177483600344e-15,
+        "y": 2.025102776761903,
+        "z": 21.800000000000004
+      },
+      "reticleMiss": 0.000002262679341669127
+    }
+  ]
+}

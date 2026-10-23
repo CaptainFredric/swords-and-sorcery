@@ -240,7 +240,7 @@ export class BiByeLlistaRenderer {
     this.group.position.set(posX, posY, posZ);
     // Argon's v3 asset faces local +Z. Castleward's forward heading faces -Z.
     // Rotate by heading + PI to perfectly align the model with authoritative movement and projectile trajectories.
-    this.group.rotation.y = heading + Math.PI;
+    this.group.rotation.set(-(ballistaData.chassisPitch??0),heading+Math.PI,ballistaData.chassisRoll??0,'YXZ');
 
     // 3. Update Authored Model or Fallback
     if (this.authoredModel) {
@@ -274,8 +274,7 @@ export class BiByeLlistaRenderer {
     const reloading=sample.name==='19_BiBye_Main_Winch_Reload_Only';
     const mainBolt=this.nodes.get('Main_Siege_Bolt'),upperBolt=this.nodes.get('Upper_Conditioning_Bolt');
     if(mainBolt)mainBolt.visible=mode!=='DESTROYED'&&(reloading?sample.time>=2.75:Boolean(ballistaData.mainBoltLoaded));
-    const upperSample=biByeUpperAnimation(ballistaData,timeSec);
-    if(upperBolt)upperBolt.visible=mode!=='DESTROYED'&&Boolean(ballistaData.upperPending||ballistaData.coupling==='FIRING'&&ballistaData.upperReleasedAt==null||ballistaData.smallBoltReady||upperSample.name.includes('Reload')&&upperSample.time>=1.55);
+    if(upperBolt)upperBolt.visible=mode!=='DESTROYED'&&Boolean(ballistaData.upperPending||ballistaData.coupling==='FIRING'&&ballistaData.upperReleasedAt==null||ballistaData.smallBoltReady);
     for(const [index,def] of BI_BYE_COMPONENTS.entries()){
       const failed=mode==='DESTROYED'||ballistaData.components?.[def.id]?.health<=0;
       const intact=this.nodes.get(def.id),damaged=this.nodes.get(def.id+'_Damaged');
@@ -328,7 +327,8 @@ export class BiByeLlistaRenderer {
     }
     const b = this.presentationData;
     const yaw = b?.yaw ?? b?.heading ?? 0;
-    return out.set(this.group.position.x + Math.sin(yaw)*6.7, this.group.position.y + 3.8, this.group.position.z + Math.cos(yaw)*6.7);
+    this.group.localToWorld(out.set(0,3.8,0));
+    out.x+=Math.sin(yaw)*6.7;out.z+=Math.cos(yaw)*6.7;return out;
   }
 
   getMuzzleWorldPosition(subKind, outVec = new THREE.Vector3()) {

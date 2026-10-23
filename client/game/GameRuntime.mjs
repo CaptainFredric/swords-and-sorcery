@@ -1,5 +1,7 @@
+import { boxWorld } from '../../shared/src/orientedBox.mjs';
+import { biByeConstrainAim, biByeRootFrame } from '../../shared/sim/biByeComponents.mjs';
 import { BiByeSound } from './sound/BiByeSound.mjs';
-import { getBiByeMuzzlePosition, getBiByeMuzzleDirection, getBiByeOperatorTransform } from '../../shared/sim/biByeLlista.mjs';
+import { getBiByeOperatorTransform } from '../../shared/sim/biByeLlista.mjs';
 import { combatActionPolicy, combatBlocksSprint } from '../../shared/src/combatActionPolicy.mjs';
 import { heldActions } from '../../shared/src/heldActions.mjs';
 import * as THREE from 'three';
@@ -2009,6 +2011,17 @@ export class GameRuntime {
     return this.socket.playingLocally ? this.socket.serverNow() * 1000 : performance.now();
   }
 
+  #mountedIntent(wanted){
+    const b=this.latestSnapshot?.bibyeBallista;
+    if(!this.localAuth?.operatingBallistaId||!b||b.mode==='DESTROYED')return {...wanted, ...(this.chaseAim ? { pitch: this.chaseAim.pitch } : {})};
+    const aim=biByeConstrainAim({...b,...b.position},wanted,b.mode!=='DEPLOYED'||b.weaponFocus!=='MAIN');
+    // Stop accumulating input beyond the physical joint stops.
+    this.input.yaw=aim.yaw;this.input.pitch=aim.pitch;
+    const origin=this.siegeCamera?.position??this.camera.position,forward=aimVector(aim.yaw,aim.pitch);
+    const distance=reticleDistance(origin.toArray(),forward,{reach:this.#reach,groundAt:(x,z,y)=>surfaceHeightAt(x,z,y,this.activeWorld),bodies:this.remotePlayers.bodies()},{aimReach:200,bodyRadius:.45});
+    return {...wanted,...aim,siegeTarget:{x:origin.x+forward[0]*distance,y:origin.y+forward[1]*distance,z:origin.z+forward[2]*distance},mounted:true};
+  }
+
   #mountedView(dt) {
     const b = this.latestSnapshot?.bibyeBallista;
     const mounted = this.localAuth?.alive && this.localAuth?.operatingBallistaId && b?.mode !== 'DESTROYED';
@@ -2025,21 +2038,21 @@ export class GameRuntime {
       }
       const kind = b.mode === 'DEPLOYED' && b.weaponFocus === 'MAIN' ? 'siege' : 'conditioning';
       if (this.siegeView === 'third') {
-        const anchor = [b.position.x, b.position.y + 2.18, b.position.z];
+        const pivot=boxWorld(biByeRootFrame({...b,...b.position}),[0,3.8,0]);
+        target.set(pivot[0]+Math.sin(this.input.yaw)*6.7,pivot[1],pivot[2]+Math.cos(this.input.yaw)*6.7);
+        const anchor=boxWorld(biByeRootFrame({...b,...b.position}),[0,2.18,0]);
         target.set(...clip(this.#reach, anchor, target.toArray(), .25));
       }
-      const rendered = this.world?.biByeLlista?.presentationData ?? b;
-      const muzzle = getBiByeMuzzlePosition({ ...rendered, ...rendered.position }, kind);
-      const axis = getBiByeMuzzleDirection({...rendered,...rendered.position},kind);
-      const direction = new THREE.Vector3(axis.x,axis.y,axis.z);
-      const point = new THREE.Vector3(muzzle.x, muzzle.y, muzzle.z).addScaledVector(direction, this.siegeView === 'third' ? 30 : 60);
-      const matrix = new THREE.Matrix4().lookAt(target, point, new THREE.Vector3(0, 1, 0));
-      rotation.setFromRotationMatrix(matrix);
+      // The view responds to input immediately. The host points each real muzzle
+      // at the reticle hit, accounting for the camera offset and joint limits.
+      const aim=biByeConstrainAim({...b,...b.position},{yaw:this.input.yaw,pitch:this.input.pitch},kind==='conditioning');
+      rotation.setFromEuler(new THREE.Euler(aim.pitch,aim.yaw,0,'YXZ'));
+
     }
     this.siegeCamera ??= { position: this.camera.position.clone(), quaternion: this.camera.quaternion.clone() };
     const blend = 1 - Math.exp(-dt * 14);
     this.siegeCamera.position.lerp(target, blend);
-    this.siegeCamera.quaternion.slerp(rotation, blend);
+    if(mounted)this.siegeCamera.quaternion.copy(rotation);else this.siegeCamera.quaternion.slerp(rotation,blend);
     this.camera.position.copy(this.siegeCamera.position);
     this.camera.quaternion.copy(this.siegeCamera.quaternion);
     if (!mounted && this.siegeCamera.position.distanceTo(target) < .02 && this.siegeCamera.quaternion.angleTo(rotation) < .01) this.siegeCamera = null;
@@ -2088,7 +2101,7 @@ export class GameRuntime {
       this.viewGuide?.(dt, this.input);
       const wanted = this.input.movement();
       // A browser-hosted match receives the current render frame's intent before its next combat tick.
-      if (this.socket.playingLocally) sendMovementInput(this.socket, { ...wanted, ...(this.chaseAim ? { pitch: this.chaseAim.pitch } : {}) }, nowMs, this);
+      if (this.socket.playingLocally) sendMovementInput(this.socket, this.#mountedIntent(wanted), nowMs, this);
       const bracing = ultimateStartup(this.localAuth, serverNow);
       const whirl = ultimateWhirl(this.localAuth, serverNow);
       // (staggered, or reeling from a Sundering blow, my feet are not my own for that moment: as the host has it)
@@ -2160,7 +2173,7 @@ export class GameRuntime {
         if (fallSpeed > 2.5) this.#footstep(null, this.localState.position, Math.min(1, fallSpeed / 10), FOOTSTEPS.landing);
       }
       // With the view out behind me, the aim is from my own eyes to what the reticle is on.
-      if (!this.socket.playingLocally) sendMovementInput(this.socket, { ...wanted, ...(this.chaseAim ? { pitch: this.chaseAim.pitch } : {}) }, nowMs, this);
+      if (!this.socket.playingLocally) sendMovementInput(this.socket, this.#mountedIntent(wanted), nowMs, this);
       // the weapon's procedural motion also returns small camera offsets (purely visual: aim uses input yaw/pitch)
       // Sheathed in Steel on my own arms: the server's word, or my own press while that word is on the way
       const steel = this.localAuth.steel;
@@ -2261,11 +2274,11 @@ export class GameRuntime {
       const operator=this.remotePlayers.self?.root;
       if(operator?.visible && this.localAuth?.alive && mountedMachine.operatorId===this.localAuth.id){
         const pose=getBiByeOperatorTransform({...mountedMachine,...mountedMachine.position});
-        operator.position.set(pose.position.x,pose.position.y,pose.position.z);operator.rotation.y=pose.yaw;
+        operator.position.set(pose.position.x,pose.position.y,pose.position.z);operator.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(...pose.axes.map(a=>new THREE.Vector3(...a))));
         this.remotePlayers.self.visualInstance?.animator?.applyMounted(mountedMachine,mountedMachine.poseTime??this.socket.serverNow(),this.world.biByeLlista.getOperatorGrips());
       }
       const remote=this.remotePlayers.rigs.get(mountedMachine.operatorId)?.root;
-      if(remote?.visible){const pose=getBiByeOperatorTransform({...mountedMachine,...mountedMachine.position});remote.position.set(pose.position.x,pose.position.y,pose.position.z);remote.rotation.y=pose.yaw;
+      if(remote?.visible){const pose=getBiByeOperatorTransform({...mountedMachine,...mountedMachine.position});remote.position.set(pose.position.x,pose.position.y,pose.position.z);remote.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(...pose.axes.map(a=>new THREE.Vector3(...a))));
         this.remotePlayers.rigs.get(mountedMachine.operatorId).visualInstance?.animator?.applyMounted(mountedMachine,mountedMachine.poseTime??this.socket.serverNow(),this.world.biByeLlista.getOperatorGrips());}
     }
     this.#mountedView(dt);

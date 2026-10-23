@@ -128,3 +128,31 @@ test('late host ticks preserve exact release spacing and fractional first flight
  const shot=shots(s).find(p=>p.subKind==='siege'),before={...shot.position};stepBiByeProjectiles(s.room,.1,t+.70,s.room.world);
  const after=s.room.bibyeProjectiles.get(shot.id).position;near(Math.hypot(after.x-before.x,after.y-before.y,after.z-before.z),55*.05);
 });
+
+test('deployed main tracks both bows before firing and commits without a new turning sequence',()=>{
+ const s=setup();toggleBiByeDeploy(s.b,0);s.step(.6);s.step(1.3);
+ s.p.input={yaw:.35,pitch:.15};s.step(1.4);
+ assert.ok(Math.abs(s.b.mainYaw-.35)<1e-8);
+ const before=s.b.upperYaw;
+ assert.ok(fireBiByeLlista(s.room,s.b,1.4));
+ assert.equal(s.b.coupling,'FIRING');near(s.b.upperYaw,before);near(s.b.shotIPendingAt,1.85);
+ s.step(1.85);s.step(2.05);assert.equal(shots(s).length,2);
+});
+test('aiming back from a mechanical limit responds to a small input immediately',async()=>{
+ const {biByeConstrainAim}=await import('../../shared/sim/biByeComponents.mjs');
+ const b={...setup().b,chassisPitch:.2,chassisRoll:.1,mode:'DEPLOYED'};
+ const limit=biByeConstrainAim(b,{yaw:0,pitch:1.4},true);
+ const back=biByeConstrainAim(b,{yaw:limit.yaw,pitch:limit.pitch-.003},true);
+ assert.ok(back.pitch<limit.pitch-.002);
+});
+
+test('one upper fire press during uncoupling queues one shot and cancels safely on leaving',()=>{
+ for(const leave of [false,true]){
+  const s=setup();toggleBiByeDeploy(s.b,0);s.step(.6);s.step(1.3);setBiByeWeaponFocus(s.b,'UPPER',1.4);
+  assert.equal(s.b.coupling,'RELEASING');assert.ok(fireBiByeLlista(s.room,s.b,1.4));
+  assert.equal(shots(s).length,0);
+  if(leave)dismountBiByeLlista(s.b,s.p);
+  s.step(2.05);s.step(2.3);
+  assert.equal(shots(s).length,leave?0:1);assert.ok(s.b.mainBoltLoaded);
+ }
+});

@@ -1,0 +1,29 @@
+{
+  "boltDuring": {
+    "visible": false,
+    "position": [
+      0,
+      0.165,
+      -0.70203
+    ],
+    "scale": [
+      1,
+      1,
+      1
+    ]
+  },
+  "boltAfter": {
+    "visible": true,
+    "position": [
+      0,
+      0.165,
+      -0.70203
+    ],
+    "scale": [
+      1,
+      1,
+      1
+    ]
+  },
+  "errors": []
+}

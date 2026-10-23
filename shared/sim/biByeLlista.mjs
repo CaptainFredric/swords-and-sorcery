@@ -1,5 +1,6 @@
+import { biByeTerrainContext, biByeTerrainPose, biByeTerrainClear, biByeDeploymentSupport } from './biByeTerrain.mjs';
 import { biByeWeaponState, requestBiByeIndependent, requestBiByeVolley, stepBiByeWeapons, cancelBiByeCoupling, interruptBiByeSupport } from './biByeWeapons.mjs';
-import { biByeCondition, createBiByeComponents, biByeDeployProgress, biByeAimPose, biByeFrames, biByeHitVolumes, biByeFirstHit, biByeBlastAllocations, biByeWheelTravel, biByeWheelSteering } from './biByeComponents.mjs';
+import { biByeCondition, createBiByeComponents, biByeDeployProgress, biByeAimPose, biByeFrames, biByeHitVolumes, biByeFirstHit, biByeBlastAllocations, biByeWheelTravel, biByeWheelSteering, biByeConstrainAim } from './biByeComponents.mjs';
 import { boxWorld } from '../src/orientedBox.mjs';
 import { segmentAabbHit, surfaceHeightAt, resolvePlayerWorld } from '../src/collision.mjs';
 import { applyDamage, staggerBy } from './combat.mjs';
@@ -161,6 +162,8 @@ export function createBiByeLlista(overrides = {}) {
     components: createBiByeComponents(),
     wheelRolls: [0,0,0,0,0,0],
     poseTime: 0,
+    chassisPitch:0,chassisRoll:0,wheelOffsets:[0,0,0,0,0,0],stabilizerTilts:[0,0,0,0],
+    terrainInitialized:false,deploymentSupported:true,deploymentReason:null,deploymentRejectedAt:null,
     retractFrom: 1,
     retractAim: null,
 
@@ -316,6 +319,7 @@ export function dismountBiByeLlista(ballista, player = null, safeDisplace = fals
   if (player && player.operatingBallistaId === ballista.id) {
     player.operatingBallistaId = null;
   }
+  ballista.pendingIndependent=null;
   cancelBiByeCoupling(ballista);
   if(ballista.mobileShotPendingAt != null){ballista.mobileShotPendingAt=null;ballista.mobileFiredAt=null;ballista.upperFiredAt=null;}
   ballista.speed = 0;
@@ -369,9 +373,10 @@ export function dismountBiByeLlista(ballista, player = null, safeDisplace = fals
 export function getBiByeOperatorTransform(ballista) {
   const station = ballista.mode === BI_BYE_MODES.MOBILE
     ? BI_BYE_LLISTA_CONFIG.stations.transportPush : BI_BYE_LLISTA_CONFIG.stations.operator;
-  const h=ballista.heading;
-  return {position:{x:ballista.x+Math.cos(h)*station.x-Math.sin(h)*station.z,
-    y:ballista.y+station.y,z:ballista.z-Math.sin(h)*station.x-Math.cos(h)*station.z},yaw:h,pitch:0};
+  const root=biByeFrames(ballista).root,point=boxWorld(root,[station.x,station.y,station.z]);
+  // The character faces -Z while the carriage asset faces +Z.
+  return {position:{x:point[0],y:point[1],z:point[2]},yaw:ballista.heading,pitch:0,
+    axes:[root.axes[0].map(v=>-v),root.axes[1],root.axes[2].map(v=>-v)]};
 }
 function syncOperatorPosition(ballista, player) {
   const pose=getBiByeOperatorTransform(ballista);
@@ -382,11 +387,15 @@ function syncOperatorPosition(ballista, player) {
 /**
  * Toggle operational mode between MOBILE and DEPLOYED.
  */
-export function toggleBiByeDeploy(ballista, nowSec) {
+export function toggleBiByeDeploy(ballista, nowSec, world=null) {
   if (!ballista || ballista.mode === BI_BYE_MODES.DESTROYED) return false;
 
   if (ballista.mode === BI_BYE_MODES.MOBILE) {
     if (ballista.mobileShotPendingAt != null || !biByeCondition(ballista).canDeploy) return false;
+    const support=biByeDeploymentSupport(ballista,world);
+    ballista.deploymentSupported=support.ok;
+    if(!support.ok){ballista.deploymentReason=support.reason;ballista.deploymentRejectedAt=nowSec;return false;}
+    ballista.stabilizerTilts=support.tilts;ballista.deploymentReason=null;
     ballista.mode = BI_BYE_MODES.DEPLOYING;
     ballista.modeTransitionStartedAt = nowSec;
     ballista.modeTransitionEndsAt = nowSec + BI_BYE_LLISTA_CONFIG.timing.deployDurationSec;
@@ -397,6 +406,7 @@ export function toggleBiByeDeploy(ballista, nowSec) {
   if (ballista.mode === BI_BYE_MODES.DEPLOYED) {
     // Once the string releases, keep the machine planted through the heavy delay.
     if (ballista.coupling === 'FIRING' && ballista.upperReleasedAt != null) return false;
+    ballista.pendingIndependent=null;
     cancelBiByeCoupling(ballista, nowSec);
     ballista.retractFrom = biByeDeployProgress(ballista, nowSec);
     ballista.retractAim = { yaw: biByeAimPose(ballista, nowSec).mainYaw, pitch: biByeAimPose(ballista, nowSec).mainPitch };
@@ -503,6 +513,7 @@ function biByeAimedCopy(b, kind, aim) {
 // Solve against each real composed muzzle, keeping correction in the mechanism.
 export function biByeCoupledAim(b, range = 35) {
   const main = {yaw:b.mainYaw,pitch:b.mainPitch};
+  if(b.aimTarget){const p=getBiByeMuzzlePosition(b,'siege',main);range=clamp(Math.hypot(b.aimTarget.x-p.x,b.aimTarget.y-p.y,b.aimTarget.z-p.z),4,200);}
   const muzzle = getBiByeMuzzlePosition(b,'siege',main),dir = getBiByeMuzzleDirection(b,'siege',main);
   const target = {x:muzzle.x+dir.x*range,y:muzzle.y+dir.y*range,z:muzzle.z+dir.z*range};
   let aim = main;
@@ -511,6 +522,17 @@ export function biByeCoupledAim(b, range = 35) {
     aim={yaw:Math.atan2(-x,-z),pitch:Math.atan2(y,Math.hypot(x,z))};
   }
   return aim;
+}
+export function biByeTargetAim(b,kind,aim,target){
+ if(!target||!['x','y','z'].every(k=>Number.isFinite(target[k]))||Math.hypot(target.x-b.x,target.y-b.y,target.z-b.z)>210)return {...biByeConstrainAim(b,aim,kind==='conditioning'),limited:false};
+ let limited=false;
+ for(let i=0;i<5;i++){
+  const p=getBiByeMuzzlePosition(b,kind,aim),x=target.x-p.x,y=target.y-p.y,z=target.z-p.z;
+  const requested={yaw:Math.atan2(-x,-z),pitch:Math.atan2(y,Math.hypot(x,z))};
+  aim=biByeConstrainAim(b,requested,kind==='conditioning');
+  limited=Math.abs(Math.atan2(Math.sin(aim.yaw-requested.yaw),Math.cos(aim.yaw-requested.yaw)))>.002||Math.abs(aim.pitch-requested.pitch)>.002;
+ }
+ return {...aim,limited};
 }
 export function getBiByeMuzzlePosition(ballista, subKind, aim = null) {
   const copy = biByeAimedCopy(ballista, subKind, aim);
@@ -601,7 +623,8 @@ function spawnShotII(room, ballista, aim, nowSec) {
 export function stepBiByeLlista(room, ballista, dt, nowSec, world = room.world) {
   if (!ballista) return;
   ballista.poseTime = nowSec;
-  const previousPose = {x:ballista.x,z:ballista.z,heading:ballista.heading};
+  const previousPose = {...ballista};
+  if(!ballista.terrainInitialized){const initial=biByeTerrainPose(ballista,biByeTerrainContext(world,ballista));if(initial)Object.assign(ballista,initial);ballista.terrainInitialized=true;}
 
   // Handle destroyed state
   if (ballista.mode === BI_BYE_MODES.DESTROYED) {
@@ -610,6 +633,18 @@ export function stepBiByeLlista(room, ballista, dt, nowSec, world = room.world) 
       dismountBiByeLlista(ballista, op, true, room.world);
     }
     return;
+  }
+
+  if(ballista.mode==='DEPLOYING'||ballista.mode==='DEPLOYED'){
+    const support=biByeDeploymentSupport(ballista,world);
+    ballista.deploymentSupported=support.ok;
+    if(!support.ok){
+      ballista.deploymentReason=support.reason;ballista.deploymentRejectedAt=nowSec;
+      ballista.retractFrom=biByeDeployProgress(ballista,nowSec);
+      const aim=biByeAimPose(ballista,nowSec);ballista.retractAim={yaw:aim.mainYaw,pitch:aim.mainPitch};
+      interruptBiByeSupport(ballista,nowSec);ballista.mode='RETRACTING';
+      ballista.modeTransitionStartedAt=nowSec;ballista.modeTransitionEndsAt=nowSec+Math.max(.1,ballista.retractFrom*1.2);
+    }else ballista.stabilizerTilts=support.tilts;
   }
 
   // Handle mode transitions
@@ -652,104 +687,31 @@ export function stepBiByeLlista(room, ballista, dt, nowSec, world = room.world) 
         const forward = Math.max(-1, Math.min(1, forwardVal));
         const steer = Math.max(-1, Math.min(1, rightVal));
 
-        // Speed determination
-        const driveScale = biByeCondition(ballista).driveScale;
-        const speed = driveScale * (forward > 0
-          ? forward * BI_BYE_LLISTA_CONFIG.mobility.forwardSpeed
-          : (forward < 0 ? forward * BI_BYE_LLISTA_CONFIG.mobility.reverseSpeed : 0));
-        ballista.speed = speed;
-        ballista.steer = steer;
-
-        // Kinematics: turning only occurs while moving!
-        // Ackermann steering with turning radius R >= 4.25m.
-        // In Castleward coordinates, steering right (steer > 0) turns clockwise, decreasing yaw.
-        const prevHeading = ballista.heading;
-        const prevX = ballista.x;
-        const prevZ = ballista.z;
-
-        const R_MIN = BI_BYE_LLISTA_CONFIG.mobility.minTurningRadius ?? 4.25;
-        let newHeading = ballista.heading;
-        if (Math.abs(speed) > 0.05 && Math.abs(steer) > 0.01) {
-          const omega = -(speed / R_MIN) * steer;
-          newHeading += omega * dt;
-        }
-
-        if (Math.abs(speed) > 0.01) {
-          const moveDist = speed * dt;
-          const targetX = ballista.x - Math.sin(newHeading) * moveDist;
-          const targetZ = ballista.z - Math.cos(newHeading) * moveDist;
-
-          // Multi-point footprint collision test for vehicle chassis
-          const solids = (world?.solids ?? []).filter(
-            (s) => !String(s.id ?? '').startsWith('bibye-')
-          );
-          // Vehicle motion also respects living bodies. Dead players never obstruct it.
-          for (const other of room.players?.values() ?? []) {
-            if (!other.alive || other.id === ballista.operatorId) continue;
-            solids.push({ center: [other.position.x, other.position.y + .9, other.position.z], size: [.9, 1.8, .9] });
+        const driveScale=biByeCondition(ballista).driveScale;
+        const baseSpeed=driveScale*forward*(forward>=0?BI_BYE_LLISTA_CONFIG.mobility.forwardSpeed:BI_BYE_LLISTA_CONFIG.mobility.reverseSpeed);
+        const ascent=Math.sin(ballista.chassisPitch??0)*Math.sign(forward);
+        const gradeScale=1-.55*Math.max(0,Math.min(1,ascent/Math.sin(22*Math.PI/180)));
+        const speed=baseSpeed*gradeScale*Math.cos(ballista.chassisPitch??0);
+        ballista.steer=steer;
+        const others=[];
+        for(const other of room.players?.values()??[]){if(other.alive&&other.id!==ballista.operatorId)others.push({center:[other.position.x,other.position.y+.9,other.position.z],size:[.9,1.8,.9]});}
+        const ctx=biByeTerrainContext(world,ballista,others),old={...ballista};
+        const slices=Math.max(1,Math.ceil(Math.abs(speed*dt)/.05));
+        for(let i=0;i<slices&&Math.abs(speed)>1e-5;i++){
+          const distance=speed*dt/slices,heading=ballista.heading-distance/BI_BYE_LLISTA_CONFIG.mobility.minTurningRadius*steer;
+          let moved=false;
+          for(const h of [heading,ballista.heading]){
+            const candidate={...ballista,heading:h,x:ballista.x-Math.sin(h)*distance,z:ballista.z-Math.cos(h)*distance};
+            const contact=biByeTerrainPose(candidate,ctx);if(!contact)continue;
+            Object.assign(candidate,contact);
+            if(Math.abs(candidate.y-ballista.y)>.07||!biByeTerrainClear(candidate,ctx))continue;
+            Object.assign(ballista,{x:candidate.x,y:candidate.y,z:candidate.z,heading:candidate.heading,...contact});moved=true;break;
           }
-          const R_VEH = 1.05;
-          const resolvedCenter = resolvePlayerWorld({ x: targetX, y: ballista.y, z: targetZ }, R_VEH, solids, 1.4);
-
-          const fwdX = -Math.sin(newHeading);
-          const fwdZ = -Math.cos(newHeading);
-          const xFront = resolvedCenter.x + fwdX * 1.2;
-          const zFront = resolvedCenter.z + fwdZ * 1.2;
-          const resFront = resolvePlayerWorld({ x: xFront, y: ballista.y, z: zFront }, R_VEH, solids, 1.4);
-
-          const xRear = resolvedCenter.x - fwdX * 1.5;
-          const zRear = resolvedCenter.z - fwdZ * 1.5;
-          const resRear = resolvePlayerWorld({ x: xRear, y: ballista.y, z: zRear }, R_VEH, solids, 1.4);
-
-          const frontClear = Math.hypot(resFront.x - xFront, resFront.z - zFront) < 0.05;
-          const rearClear = Math.hypot(resRear.x - xRear, resRear.z - zRear) < 0.05;
-
-          if (frontClear && rearClear) {
-            ballista.heading = newHeading;
-            ballista.x = resolvedCenter.x;
-            ballista.z = resolvedCenter.z;
-          } else {
-            // Steering or turning caused front/rear collision: test pure forward/reverse translation without steering
-            const sTargetX = ballista.x - Math.sin(prevHeading) * moveDist;
-            const sTargetZ = ballista.z - Math.cos(prevHeading) * moveDist;
-            const sCenter = resolvePlayerWorld({ x: sTargetX, y: ballista.y, z: sTargetZ }, R_VEH, solids, 1.4);
-
-            const sfwdX = -Math.sin(prevHeading);
-            const sfwdZ = -Math.cos(prevHeading);
-            const sxFront = sCenter.x + sfwdX * 1.2;
-            const szFront = sCenter.z + sfwdZ * 1.2;
-            const sresFront = resolvePlayerWorld({ x: sxFront, y: ballista.y, z: szFront }, R_VEH, solids, 1.4);
-
-            const sxRear = sCenter.x - sfwdX * 1.5;
-            const szRear = sCenter.z - sfwdZ * 1.5;
-            const sresRear = resolvePlayerWorld({ x: sxRear, y: ballista.y, z: szRear }, R_VEH, solids, 1.4);
-
-            if (Math.hypot(sresFront.x - sxFront, sresFront.z - szFront) < 0.05 &&
-                Math.hypot(sresRear.x - sxRear, sresRear.z - szRear) < 0.05) {
-              ballista.heading = prevHeading;
-              ballista.x = sCenter.x;
-              ballista.z = sCenter.z;
-            } else {
-              // Path fully obstructed: halt machine at previous obstacle-free position
-              ballista.heading = prevHeading;
-              ballista.x = prevX;
-              ballista.z = prevZ;
-            }
-          }
-
-          const ground = surfaceHeightAt(ballista.x, ballista.z, ballista.y + 0.1, world);
-          const supported = !world?.floors?.length || [1.2, -1.715].every(offset => {
-            const y = surfaceHeightAt(ballista.x - Math.sin(ballista.heading) * offset,
-              ballista.z - Math.cos(ballista.heading) * offset, ballista.y + .1, world);
-            return y !== null && Math.abs(y - ballista.y) <= .65;
-          });
-          if (!supported) { ballista.heading = prevHeading; ballista.x = prevX; ballista.z = prevZ; }
-          else if (ground !== null) ballista.y = ground;
-          const actualSpeed = ((ballista.x - prevX) * -Math.sin(ballista.heading) + (ballista.z - prevZ) * -Math.cos(ballista.heading)) / Math.max(dt, 1e-6);
-          ballista.speed = Math.abs(actualSpeed - speed) < 1e-6 ? speed : actualSpeed;
-        } else {
-          ballista.heading = newHeading;
+          if(!moved)break;
         }
+        ballista.speed=((ballista.x-old.x)*-Math.sin(ballista.heading)+(ballista.z-old.z)*-Math.cos(ballista.heading))/Math.max(dt,1e-6);
+        if(Math.abs(ballista.speed-speed)<1e-5)ballista.speed=speed;
+        if(Math.abs(ballista.speed)<1e-9)ballista.speed=0;
 
       } else {
         ballista.speed = 0;
@@ -761,10 +723,10 @@ export function stepBiByeLlista(room, ballista, dt, nowSec, world = room.world) 
     }
   }
 
-  const roll = biByeWheelTravel(previousPose, {x:ballista.x,z:ballista.z,heading:ballista.heading}, biByeWheelSteering(ballista.steer??0));
+  const roll = biByeWheelTravel(previousPose, ballista, biByeWheelSteering(ballista.steer??0));
   ballista.wheelRolls = ballista.wheelRolls.map((v,i)=>v + (ballista.components[Object.keys(ballista.components)[i]].health > 0 ? roll[i] : 0));
 
-  stepBiByeWeapons(room, ballista, dt, nowSec, {shotI:spawnShotI,shotII:spawnShotII,coupledAim:biByeCoupledAim});
+  stepBiByeWeapons(room, ballista, dt, nowSec, {shotI:spawnShotI,shotII:spawnShotII,coupledAim:biByeCoupledAim,targetAim:biByeTargetAim});
 
 }
 

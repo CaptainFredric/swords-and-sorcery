@@ -561,7 +561,7 @@ export class RemotePlayers {
         pa.position.z + (pb.position.z - pa.position.z) * t,
       );
       const yawDelta = Math.atan2(Math.sin(pb.yaw - pa.yaw), Math.cos(pb.yaw - pa.yaw));
-      shell.root.rotation.y = pa.yaw + yawDelta * t;
+      shell.root.rotation.set(0,pa.yaw+yawDelta*t,0);
       // (where they face and aim, whatever a Vortex then does with the body)
       shell.root.userData.yaw = shell.root.rotation.y;
       shell.root.userData.pitch = (pa.pitch ?? 0) + ((pb.pitch ?? 0) - (pa.pitch ?? 0)) * t;
@@ -586,7 +586,10 @@ export class RemotePlayers {
     const shell = this.self;
     // First person hides the body immediately after dismount. Restore its rig
     // and sword now rather than retaining the seated pose until it is drawn again.
-    if (!player.alive || !player.operatingBallistaId) shell.visualInstance?.animator?.releaseMounted();
+    if (!player.alive || !player.operatingBallistaId) {
+      shell.visualInstance?.animator?.releaseMounted();
+      shell.root.rotation.set(0,at?.yaw??player.yaw??0,0);
+    }
     shell.cloth = player.cloth ?? 'crimson';
     shell.visualInstance?.setCloth(shell.cloth);
     shell.emblem = player.emblem ?? 'trident';
@@ -597,7 +600,7 @@ export class RemotePlayers {
       return;
     }
     shell.root.position.set(at.position.x, at.position.y, at.position.z);
-    shell.root.rotation.y = at.yaw ?? 0;
+    shell.root.rotation.set(0,at.yaw??0,0);
     shell.root.userData.yaw = at.yaw ?? 0;
     shell.root.userData.pitch = at.pitch ?? 0;
     shell.root.userData.crouched = false;

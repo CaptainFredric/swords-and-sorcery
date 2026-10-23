@@ -1,0 +1,2284 @@
+{
+  "before": {
+    "player": {
+      "id": "6ed9bcdf-abe7-4240-a83c-d07244408cd2",
+      "name": "Terrain touch",
+      "team": null,
+      "actorKind": "human",
+      "practiceMode": null,
+      "connected": true,
+      "arenaReady": false,
+      "position": {
+        "x": 0.005226423163813044,
+        "y": -0.04972609462057676,
+        "z": -5.88
+      },
+      "velocity": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "impulse": {
+        "x": 0,
+        "z": 0
+      },
+      "yaw": 3.141592653589793,
+      "pitch": 0,
+      "health": 100,
+      "guardStamina": 100,
+      "guarding": false,
+      "sprinting": false,
+      "tornGround": false,
+      "crouched": false,
+      "attackActive": false,
+      "attackStartedAt": null,
+      "attackNextStrike": 0,
+      "attackCommitted": 0,
+      "attackSlam": false,
+      "alive": true,
+      "kills": 0,
+      "deaths": 0,
+      "parries": 0,
+      "abyssKills": 0,
+      "spell": "fireball",
+      "startingSpell": "fireball",
+      "preparedSpells": [
+        "fireball",
+        "frostfire",
+        "gale"
+      ],
+      "preparedSpellSelected": false,
+      "spellReadyById": {},
+      "chivalryProjectileReadyAt": 0,
+      "cloth": "crimson",
+      "emblem": "trident",
+      "spellReadyAt": 0,
+      "castingSpell": null,
+      "castEndsAt": 0,
+      "castStartedAt": 0,
+      "chill": null,
+      "burningUntil": 0,
+      "steel": null,
+      "dashReadyAt": 0,
+      "dashUntil": null,
+      "practiceGate": null,
+      "staggerUntil": null,
+      "stagger": {
+        "level": 0,
+        "recoverUntil": null
+      },
+      "prowess": 0,
+      "ultimate": "sunder",
+      "ultimateState": null,
+      "dizzyUntil": null,
+      "recoverUntil": null,
+      "ultimateLockedUntil": null,
+      "spawnProtectionUntil": 15.650899999618531,
+      "respawnAt": 0,
+      "lastInputSeq": 43,
+      "operatingBallistaId": "bibye-practice-01"
+    },
+    "ballista": {
+      "id": "bibye-practice-01",
+      "position": {
+        "x": 0,
+        "y": 1.4779172330392498e-10,
+        "z": -4
+      },
+      "x": 0,
+      "y": 1.4779172330392498e-10,
+      "z": -4,
+      "heading": 3.141592653589793,
+      "chassisPitch": 0,
+      "chassisRoll": 0.10471975512830532,
+      "wheelOffsets": [
+        0,
+        -5.581692217118295e-17,
+        0,
+        -5.581692217118295e-17,
+        5.581692217118295e-17,
+        -5.581692217118295e-17
+      ],
+      "stabilizerTilts": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "deploymentReason": null,
+      "deploymentRejectedAt": null,
+      "mainYaw": 3.141592653589793,
+      "mainPitch": 0,
+      "upperYaw": 3.1411466971706243,
+      "upperPitch": 0.004308628732081413,
+      "weaponFocus": "UPPER",
+      "focusRevision": 0,
+      "coupling": "INDEPENDENT",
+      "couplingProgress": 0,
+      "couplingReleaseFrom": 1,
+      "couplingStartedAt": null,
+      "couplingEndsAt": null,
+      "upperReleasedAt": null,
+      "upperFiredAt": null,
+      "upperShotKind": null,
+      "mainReleasedAt": null,
+      "heavyDelayTrippedAt": null,
+      "aimLimited": false,
+      "upperPending": false,
+      "yaw": 3.1411466971706243,
+      "pitch": 0.004308628732081413,
+      "speed": 0,
+      "steer": 0,
+      "mode": "MOBILE",
+      "deployProgress": 0,
+      "components": {
+        "Wheel_FL": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Wheel_FR": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Wheel_ML": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Wheel_MR": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Wheel_RL": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Wheel_RR": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Stabilizer_FL": {
+          "health": 150,
+          "maxHealth": 150,
+          "failedAt": null
+        },
+        "Stabilizer_FR": {
+          "health": 150,
+          "maxHealth": 150,
+          "failedAt": null
+        },
+        "Stabilizer_RL": {
+          "health": 150,
+          "maxHealth": 150,
+          "failedAt": null
+        },
+        "Stabilizer_RR": {
+          "health": 150,
+          "maxHealth": 150,
+          "failedAt": null
+        }
+      },
+      "wheelRolls": [
+        2.2979580848201298e-17,
+        2.822459834022007e-17,
+        2.2979580848201298e-17,
+        2.822459834022007e-17,
+        2.2979580848201298e-17,
+        2.822459834022007e-17
+      ],
+      "poseTime": 16.6025,
+      "retractFrom": 1,
+      "retractAim": null,
+      "modeTransitionEndsAt": null,
+      "health": 650,
+      "maxHealth": 650,
+      "state": "LOADED",
+      "operatorId": "6ed9bcdf-abe7-4240-a83c-d07244408cd2",
+      "firedAt": null,
+      "mobileFiredAt": null,
+      "smallBoltReadyAt": 0,
+      "reloadStartedAt": null,
+      "reloadEndsAt": null,
+      "destroyedAt": null,
+      "modeTransitionStartedAt": null,
+      "smallBoltReady": true,
+      "mainBoltLoaded": true,
+      "reloadProgress": 1
+    },
+    "yaw": 3.141592653589793,
+    "pitch": 0,
+    "enabled": true,
+    "pointer": false,
+    "action": "06_BiBye_Travel_Ready",
+    "upperAction": "01_BiBye_LoadedIdle_Upper",
+    "camera": [
+      -0.39563504111613784,
+      3.770473468055533,
+      -10.684692897000032
+    ],
+    "cameraView": "third",
+    "authored": "BiBye_Authored_Asset_v4_1",
+    "projectiles": [],
+    "players": [
+      {
+        "id": "6ed9bcdf-abe7-4240-a83c-d07244408cd2",
+        "name": "Terrain touch",
+        "team": null,
+        "actorKind": "human",
+        "practiceMode": null,
+        "connected": true,
+        "arenaReady": false,
+        "position": {
+          "x": 0.005226423163813044,
+          "y": -0.04972609462057676,
+          "z": -5.88
+        },
+        "velocity": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "impulse": {
+          "x": 0,
+          "z": 0
+        },
+        "yaw": 3.141592653589793,
+        "pitch": 0,
+        "health": 100,
+        "guardStamina": 100,
+        "guarding": false,
+        "sprinting": false,
+        "tornGround": false,
+        "crouched": false,
+        "attackActive": false,
+        "attackStartedAt": null,
+        "attackNextStrike": 0,
+        "attackCommitted": 0,
+        "attackSlam": false,
+        "alive": true,
+        "kills": 0,
+        "deaths": 0,
+        "parries": 0,
+        "abyssKills": 0,
+        "spell": "fireball",
+        "startingSpell": "fireball",
+        "preparedSpells": [
+          "fireball",
+          "frostfire",
+          "gale"
+        ],
+        "preparedSpellSelected": false,
+        "spellReadyById": {},
+        "chivalryProjectileReadyAt": 0,
+        "cloth": "crimson",
+        "emblem": "trident",
+        "spellReadyAt": 0,
+        "castingSpell": null,
+        "castEndsAt": 0,
+        "castStartedAt": 0,
+        "chill": null,
+        "burningUntil": 0,
+        "steel": null,
+        "dashReadyAt": 0,
+        "dashUntil": null,
+        "practiceGate": null,
+        "staggerUntil": null,
+        "stagger": {
+          "level": 0,
+          "recoverUntil": null
+        },
+        "prowess": 0,
+        "ultimate": "sunder",
+        "ultimateState": null,
+        "dizzyUntil": null,
+        "recoverUntil": null,
+        "ultimateLockedUntil": null,
+        "spawnProtectionUntil": 15.650899999618531,
+        "respawnAt": 0,
+        "lastInputSeq": 43,
+        "operatingBallistaId": "bibye-practice-01"
+      }
+    ],
+    "hud": "BI-BYE-LLISTA · 650/650 · MOBILE · UPPERShot I readySIEGE VIEW · ATTACK to fire",
+    "now": 16.63139999961853,
+    "local": true
+  },
+  "fine": {
+    "player": {
+      "id": "6ed9bcdf-abe7-4240-a83c-d07244408cd2",
+      "name": "Terrain touch",
+      "team": null,
+      "actorKind": "human",
+      "practiceMode": null,
+      "connected": true,
+      "arenaReady": false,
+      "position": {
+        "x": 0.005226423163383122,
+        "y": -0.04972609476841369,
+        "z": -5.782908622908618
+      },
+      "velocity": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "impulse": {
+        "x": 0,
+        "z": 0
+      },
+      "yaw": 3.141592653589793,
+      "pitch": 0,
+      "health": 100,
+      "guardStamina": 100,
+      "guarding": false,
+      "sprinting": false,
+      "tornGround": false,
+      "crouched": false,
+      "attackActive": false,
+      "attackStartedAt": null,
+      "attackNextStrike": 0,
+      "attackCommitted": 0,
+      "attackSlam": false,
+      "alive": true,
+      "kills": 0,
+      "deaths": 0,
+      "parries": 0,
+      "abyssKills": 0,
+      "spell": "fireball",
+      "startingSpell": "fireball",
+      "preparedSpells": [
+        "fireball",
+        "frostfire",
+        "gale"
+      ],
+      "preparedSpellSelected": false,
+      "spellReadyById": {},
+      "chivalryProjectileReadyAt": 0,
+      "cloth": "crimson",
+      "emblem": "trident",
+      "spellReadyAt": 0,
+      "castingSpell": null,
+      "castEndsAt": 0,
+      "castStartedAt": 0,
+      "chill": null,
+      "burningUntil": 0,
+      "steel": null,
+      "dashReadyAt": 0,
+      "dashUntil": null,
+      "practiceGate": null,
+      "staggerUntil": null,
+      "stagger": {
+        "level": 0,
+        "recoverUntil": null
+      },
+      "prowess": 0,
+      "ultimate": "sunder",
+      "ultimateState": null,
+      "dizzyUntil": null,
+      "recoverUntil": null,
+      "ultimateLockedUntil": null,
+      "spawnProtectionUntil": 15.650899999618531,
+      "respawnAt": 0,
+      "lastInputSeq": 93,
+      "operatingBallistaId": "bibye-practice-01"
+    },
+    "ballista": {
+      "id": "bibye-practice-01",
+      "position": {
+        "x": -1.1890264417976363e-17,
+        "y": -2.7755575615628914e-17,
+        "z": -3.902908622908618
+      },
+      "x": -1.1890264417976363e-17,
+      "y": -2.7755575615628914e-17,
+      "z": -3.902908622908618,
+      "heading": 3.141592653589793,
+      "chassisPitch": 0,
+      "chassisRoll": 0.10471975511965978,
+      "wheelOffsets": [
+        -2.790846108556612e-17,
+        -8.372538325669836e-17,
+        -2.790846108556612e-17,
+        -8.372538325669836e-17,
+        8.372538325669836e-17,
+        2.790846108556611e-17
+      ],
+      "stabilizerTilts": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "deploymentReason": null,
+      "deploymentRejectedAt": null,
+      "mainYaw": 3.141592653589793,
+      "mainPitch": 0,
+      "upperYaw": 3.1411300839269347,
+      "upperPitch": 0.004401028343328097,
+      "weaponFocus": "UPPER",
+      "focusRevision": 0,
+      "coupling": "INDEPENDENT",
+      "couplingProgress": 0,
+      "couplingReleaseFrom": 1,
+      "couplingStartedAt": null,
+      "couplingEndsAt": null,
+      "upperReleasedAt": null,
+      "upperFiredAt": null,
+      "upperShotKind": null,
+      "mainReleasedAt": null,
+      "heavyDelayTrippedAt": null,
+      "aimLimited": false,
+      "upperPending": false,
+      "yaw": 3.1411300839269347,
+      "pitch": 0.004401028343328097,
+      "speed": 0.12664092664092666,
+      "steer": 0,
+      "mode": "MOBILE",
+      "deployProgress": 0,
+      "components": {
+        "Wheel_FL": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Wheel_FR": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Wheel_ML": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Wheel_MR": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Wheel_RL": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Wheel_RR": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Stabilizer_FL": {
+          "health": 150,
+          "maxHealth": 150,
+          "failedAt": null
+        },
+        "Stabilizer_FR": {
+          "health": 150,
+          "maxHealth": 150,
+          "failedAt": null
+        },
+        "Stabilizer_RL": {
+          "health": 150,
+          "maxHealth": 150,
+          "failedAt": null
+        },
+        "Stabilizer_RR": {
+          "health": 150,
+          "maxHealth": 150,
+          "failedAt": null
+        }
+      },
+      "wheelRolls": [
+        0.1765297765297853,
+        0.1765297765297853,
+        0.17652977652978377,
+        0.1765297765297853,
+        0.17652977652978377,
+        0.1765297765297853
+      ],
+      "poseTime": 17.427699999809263,
+      "retractFrom": 1,
+      "retractAim": null,
+      "modeTransitionEndsAt": null,
+      "health": 650,
+      "maxHealth": 650,
+      "state": "LOADED",
+      "operatorId": "6ed9bcdf-abe7-4240-a83c-d07244408cd2",
+      "firedAt": null,
+      "mobileFiredAt": null,
+      "smallBoltReadyAt": 0,
+      "reloadStartedAt": null,
+      "reloadEndsAt": null,
+      "destroyedAt": null,
+      "modeTransitionStartedAt": null,
+      "smallBoltReady": true,
+      "mainBoltLoaded": true,
+      "reloadProgress": 1
+    },
+    "yaw": 3.141592653589793,
+    "pitch": 6.77927340424307e-32,
+    "enabled": true,
+    "pointer": false,
+    "action": "06_BiBye_Travel_Ready",
+    "upperAction": "01_BiBye_LoadedIdle_Upper",
+    "camera": [
+      -0.3972081434381894,
+      3.779183108394077,
+      -10.611833676648287
+    ],
+    "cameraView": "third",
+    "authored": "BiBye_Authored_Asset_v4_1",
+    "projectiles": [],
+    "players": [
+      {
+        "id": "6ed9bcdf-abe7-4240-a83c-d07244408cd2",
+        "name": "Terrain touch",
+        "team": null,
+        "actorKind": "human",
+        "practiceMode": null,
+        "connected": true,
+        "arenaReady": false,
+        "position": {
+          "x": 0.005226423163383122,
+          "y": -0.04972609476841369,
+          "z": -5.782908622908618
+        },
+        "velocity": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "impulse": {
+          "x": 0,
+          "z": 0
+        },
+        "yaw": 3.141592653589793,
+        "pitch": 0,
+        "health": 100,
+        "guardStamina": 100,
+        "guarding": false,
+        "sprinting": false,
+        "tornGround": false,
+        "crouched": false,
+        "attackActive": false,
+        "attackStartedAt": null,
+        "attackNextStrike": 0,
+        "attackCommitted": 0,
+        "attackSlam": false,
+        "alive": true,
+        "kills": 0,
+        "deaths": 0,
+        "parries": 0,
+        "abyssKills": 0,
+        "spell": "fireball",
+        "startingSpell": "fireball",
+        "preparedSpells": [
+          "fireball",
+          "frostfire",
+          "gale"
+        ],
+        "preparedSpellSelected": false,
+        "spellReadyById": {},
+        "chivalryProjectileReadyAt": 0,
+        "cloth": "crimson",
+        "emblem": "trident",
+        "spellReadyAt": 0,
+        "castingSpell": null,
+        "castEndsAt": 0,
+        "castStartedAt": 0,
+        "chill": null,
+        "burningUntil": 0,
+        "steel": null,
+        "dashReadyAt": 0,
+        "dashUntil": null,
+        "practiceGate": null,
+        "staggerUntil": null,
+        "stagger": {
+          "level": 0,
+          "recoverUntil": null
+        },
+        "prowess": 0,
+        "ultimate": "sunder",
+        "ultimateState": null,
+        "dizzyUntil": null,
+        "recoverUntil": null,
+        "ultimateLockedUntil": null,
+        "spawnProtectionUntil": 15.650899999618531,
+        "respawnAt": 0,
+        "lastInputSeq": 93,
+        "operatingBallistaId": "bibye-practice-01"
+      }
+    ],
+    "hud": "BI-BYE-LLISTA · 650/650 · MOBILE · UPPERShot I readySIEGE VIEW · ATTACK to fire",
+    "now": 17.447099999427795,
+    "local": true
+  },
+  "drive": {
+    "player": {
+      "id": "6ed9bcdf-abe7-4240-a83c-d07244408cd2",
+      "name": "Terrain touch",
+      "team": null,
+      "actorKind": "human",
+      "practiceMode": null,
+      "connected": true,
+      "arenaReady": false,
+      "position": {
+        "x": -0.42587176402905524,
+        "y": -0.09503634005769301,
+        "z": -0.1650436413609011
+      },
+      "velocity": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "impulse": {
+        "x": 0,
+        "z": 0
+      },
+      "yaw": 2.693821934904602,
+      "pitch": 0,
+      "health": 100,
+      "guardStamina": 81.3333333333336,
+      "guarding": false,
+      "sprinting": false,
+      "tornGround": false,
+      "crouched": false,
+      "attackActive": false,
+      "attackStartedAt": null,
+      "attackNextStrike": 0,
+      "attackCommitted": 0,
+      "attackSlam": false,
+      "alive": true,
+      "kills": 0,
+      "deaths": 0,
+      "parries": 0,
+      "abyssKills": 0,
+      "spell": "fireball",
+      "startingSpell": "fireball",
+      "preparedSpells": [
+        "fireball",
+        "frostfire",
+        "gale"
+      ],
+      "preparedSpellSelected": false,
+      "spellReadyById": {},
+      "chivalryProjectileReadyAt": 0,
+      "cloth": "crimson",
+      "emblem": "trident",
+      "spellReadyAt": 0,
+      "castingSpell": null,
+      "castEndsAt": 0,
+      "castStartedAt": 0,
+      "chill": null,
+      "burningUntil": 0,
+      "steel": null,
+      "dashReadyAt": 0,
+      "dashUntil": null,
+      "practiceGate": null,
+      "staggerUntil": null,
+      "stagger": {
+        "level": 0,
+        "recoverUntil": null
+      },
+      "prowess": 0,
+      "ultimate": "sunder",
+      "ultimateState": null,
+      "dizzyUntil": null,
+      "recoverUntil": null,
+      "ultimateLockedUntil": null,
+      "spawnProtectionUntil": 15.650899999618531,
+      "respawnAt": 0,
+      "lastInputSeq": 208,
+      "operatingBallistaId": "bibye-practice-01"
+    },
+    "ballista": {
+      "id": "bibye-practice-01",
+      "position": {
+        "x": -1.2442160932658444,
+        "y": -0.1307723809879529,
+        "z": 1.5278637672662274
+      },
+      "x": -1.2442160932658444,
+      "y": -0.1307723809879529,
+      "z": 1.5278637672662274,
+      "heading": 2.693821934904602,
+      "chassisPitch": -0.045474253958571395,
+      "chassisRoll": 0.09436345531704209,
+      "wheelOffsets": [
+        5.581692217113223e-17,
+        0,
+        0,
+        -5.581692217113223e-17,
+        0,
+        5.581692217113223e-17
+      ],
+      "stabilizerTilts": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "deploymentReason": null,
+      "deploymentRejectedAt": null,
+      "mainYaw": 2.693821934904602,
+      "mainPitch": 0,
+      "upperYaw": 3.141984468232353,
+      "upperPitch": 0.004496886794417793,
+      "weaponFocus": "UPPER",
+      "focusRevision": 0,
+      "coupling": "INDEPENDENT",
+      "couplingProgress": 0,
+      "couplingReleaseFrom": 1,
+      "couplingStartedAt": null,
+      "couplingEndsAt": null,
+      "upperReleasedAt": null,
+      "upperFiredAt": null,
+      "upperShotKind": null,
+      "mainReleasedAt": null,
+      "heavyDelayTrippedAt": null,
+      "aimLimited": false,
+      "upperPending": false,
+      "yaw": 3.141984468232353,
+      "pitch": 0.004496886794417793,
+      "speed": 3.0078121445577928,
+      "steer": 0.3387194682727417,
+      "mode": "MOBILE",
+      "deployProgress": 0,
+      "components": {
+        "Wheel_FL": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Wheel_FR": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Wheel_ML": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Wheel_MR": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Wheel_RL": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Wheel_RR": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Stabilizer_FL": {
+          "health": 150,
+          "maxHealth": 150,
+          "failedAt": null
+        },
+        "Stabilizer_FR": {
+          "health": 150,
+          "maxHealth": 150,
+          "failedAt": null
+        },
+        "Stabilizer_RL": {
+          "health": 150,
+          "maxHealth": 150,
+          "failedAt": null
+        },
+        "Stabilizer_RR": {
+          "health": 150,
+          "maxHealth": 150,
+          "failedAt": null
+        }
+      },
+      "wheelRolls": [
+        9.40211801431353,
+        10.955967831074037,
+        9.514708125699666,
+        11.273460487983517,
+        9.618196245198693,
+        11.339761174691553
+      ],
+      "poseTime": 19.343599999427795,
+      "retractFrom": 1,
+      "retractAim": null,
+      "modeTransitionEndsAt": null,
+      "health": 650,
+      "maxHealth": 650,
+      "state": "LOADED",
+      "operatorId": "6ed9bcdf-abe7-4240-a83c-d07244408cd2",
+      "firedAt": null,
+      "mobileFiredAt": null,
+      "smallBoltReadyAt": 0,
+      "reloadStartedAt": null,
+      "reloadEndsAt": null,
+      "destroyedAt": null,
+      "modeTransitionStartedAt": null,
+      "smallBoltReady": true,
+      "mainBoltLoaded": true,
+      "reloadProgress": 1
+    },
+    "yaw": -3.141592653589793,
+    "pitch": 1.734723475976807e-16,
+    "enabled": true,
+    "pointer": false,
+    "action": "06_BiBye_Travel_Ready",
+    "upperAction": "01_BiBye_LoadedIdle_Upper",
+    "camera": [
+      -1.5527672375955852,
+      3.6577290492882826,
+      -5.364614015989232
+    ],
+    "cameraView": "third",
+    "authored": "BiBye_Authored_Asset_v4_1",
+    "projectiles": [],
+    "players": [
+      {
+        "id": "6ed9bcdf-abe7-4240-a83c-d07244408cd2",
+        "name": "Terrain touch",
+        "team": null,
+        "actorKind": "human",
+        "practiceMode": null,
+        "connected": true,
+        "arenaReady": false,
+        "position": {
+          "x": -0.42587176402905524,
+          "y": -0.09503634005769301,
+          "z": -0.1650436413609011
+        },
+        "velocity": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "impulse": {
+          "x": 0,
+          "z": 0
+        },
+        "yaw": 2.693821934904602,
+        "pitch": 0,
+        "health": 100,
+        "guardStamina": 81.3333333333336,
+        "guarding": false,
+        "sprinting": false,
+        "tornGround": false,
+        "crouched": false,
+        "attackActive": false,
+        "attackStartedAt": null,
+        "attackNextStrike": 0,
+        "attackCommitted": 0,
+        "attackSlam": false,
+        "alive": true,
+        "kills": 0,
+        "deaths": 0,
+        "parries": 0,
+        "abyssKills": 0,
+        "spell": "fireball",
+        "startingSpell": "fireball",
+        "preparedSpells": [
+          "fireball",
+          "frostfire",
+          "gale"
+        ],
+        "preparedSpellSelected": false,
+        "spellReadyById": {},
+        "chivalryProjectileReadyAt": 0,
+        "cloth": "crimson",
+        "emblem": "trident",
+        "spellReadyAt": 0,
+        "castingSpell": null,
+        "castEndsAt": 0,
+        "castStartedAt": 0,
+        "chill": null,
+        "burningUntil": 0,
+        "steel": null,
+        "dashReadyAt": 0,
+        "dashUntil": null,
+        "practiceGate": null,
+        "staggerUntil": null,
+        "stagger": {
+          "level": 0,
+          "recoverUntil": null
+        },
+        "prowess": 0,
+        "ultimate": "sunder",
+        "ultimateState": null,
+        "dizzyUntil": null,
+        "recoverUntil": null,
+        "ultimateLockedUntil": null,
+        "spawnProtectionUntil": 15.650899999618531,
+        "respawnAt": 0,
+        "lastInputSeq": 208,
+        "operatingBallistaId": "bibye-practice-01"
+      }
+    ],
+    "hud": "BI-BYE-LLISTA · 650/650 · MOBILE · UPPERShot I readySIEGE VIEW · ATTACK to fire",
+    "now": 19.362,
+    "local": true
+  },
+  "atLimit": {
+    "player": {
+      "id": "6ed9bcdf-abe7-4240-a83c-d07244408cd2",
+      "name": "Terrain touch",
+      "team": null,
+      "actorKind": "human",
+      "practiceMode": null,
+      "connected": true,
+      "arenaReady": false,
+      "position": {
+        "x": -0.42587176402905524,
+        "y": -0.09503634005769301,
+        "z": -0.1650436413609011
+      },
+      "velocity": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "impulse": {
+        "x": 0,
+        "z": 0
+      },
+      "yaw": 2.693821934904602,
+      "pitch": 0,
+      "health": 100,
+      "guardStamina": 81.3333333333336,
+      "guarding": false,
+      "sprinting": false,
+      "tornGround": false,
+      "crouched": false,
+      "attackActive": false,
+      "attackStartedAt": null,
+      "attackNextStrike": 0,
+      "attackCommitted": 0,
+      "attackSlam": false,
+      "alive": true,
+      "kills": 0,
+      "deaths": 0,
+      "parries": 0,
+      "abyssKills": 0,
+      "spell": "fireball",
+      "startingSpell": "fireball",
+      "preparedSpells": [
+        "fireball",
+        "frostfire",
+        "gale"
+      ],
+      "preparedSpellSelected": false,
+      "spellReadyById": {},
+      "chivalryProjectileReadyAt": 0,
+      "cloth": "crimson",
+      "emblem": "trident",
+      "spellReadyAt": 0,
+      "castingSpell": null,
+      "castEndsAt": 0,
+      "castStartedAt": 0,
+      "chill": null,
+      "burningUntil": 0,
+      "steel": null,
+      "dashReadyAt": 0,
+      "dashUntil": null,
+      "practiceGate": null,
+      "staggerUntil": null,
+      "stagger": {
+        "level": 0,
+        "recoverUntil": null
+      },
+      "prowess": 0,
+      "ultimate": "sunder",
+      "ultimateState": null,
+      "dizzyUntil": null,
+      "recoverUntil": null,
+      "ultimateLockedUntil": null,
+      "spawnProtectionUntil": 15.650899999618531,
+      "respawnAt": 0,
+      "lastInputSeq": 229,
+      "operatingBallistaId": "bibye-practice-01"
+    },
+    "ballista": {
+      "id": "bibye-practice-01",
+      "position": {
+        "x": -1.2442160932658444,
+        "y": -0.1307723809879529,
+        "z": 1.5278637672662274
+      },
+      "x": -1.2442160932658444,
+      "y": -0.1307723809879529,
+      "z": 1.5278637672662274,
+      "heading": 2.693821934904602,
+      "chassisPitch": -0.045474253958571395,
+      "chassisRoll": 0.09436345531704209,
+      "wheelOffsets": [
+        5.581692217113223e-17,
+        0,
+        0,
+        -5.581692217113223e-17,
+        0,
+        5.581692217113223e-17
+      ],
+      "stabilizerTilts": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "deploymentReason": null,
+      "deploymentRejectedAt": null,
+      "mainYaw": 2.693821934904602,
+      "mainPitch": 0,
+      "upperYaw": 3.2528903579811366,
+      "upperPitch": 0.36365958797135056,
+      "weaponFocus": "UPPER",
+      "focusRevision": 0,
+      "coupling": "INDEPENDENT",
+      "couplingProgress": 0,
+      "couplingReleaseFrom": 1,
+      "couplingStartedAt": null,
+      "couplingEndsAt": null,
+      "upperReleasedAt": null,
+      "upperFiredAt": null,
+      "upperShotKind": null,
+      "mainReleasedAt": null,
+      "heavyDelayTrippedAt": null,
+      "aimLimited": true,
+      "upperPending": false,
+      "yaw": 3.2528903579811366,
+      "pitch": 0.36365958797135056,
+      "speed": 0,
+      "steer": 0,
+      "mode": "MOBILE",
+      "deployProgress": 0,
+      "components": {
+        "Wheel_FL": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Wheel_FR": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Wheel_ML": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Wheel_MR": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Wheel_RL": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Wheel_RR": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Stabilizer_FL": {
+          "health": 150,
+          "maxHealth": 150,
+          "failedAt": null
+        },
+        "Stabilizer_FR": {
+          "health": 150,
+          "maxHealth": 150,
+          "failedAt": null
+        },
+        "Stabilizer_RL": {
+          "health": 150,
+          "maxHealth": 150,
+          "failedAt": null
+        },
+        "Stabilizer_RR": {
+          "health": 150,
+          "maxHealth": 150,
+          "failedAt": null
+        }
+      },
+      "wheelRolls": [
+        9.40211801431353,
+        10.955967831074037,
+        9.514708125699666,
+        11.273460487983517,
+        9.618196245198693,
+        11.339761174691553
+      ],
+      "poseTime": 19.705,
+      "retractFrom": 1,
+      "retractAim": null,
+      "modeTransitionEndsAt": null,
+      "health": 650,
+      "maxHealth": 650,
+      "state": "LOADED",
+      "operatorId": "6ed9bcdf-abe7-4240-a83c-d07244408cd2",
+      "firedAt": null,
+      "mobileFiredAt": null,
+      "smallBoltReadyAt": 0,
+      "reloadStartedAt": null,
+      "reloadEndsAt": null,
+      "destroyedAt": null,
+      "modeTransitionStartedAt": null,
+      "smallBoltReady": true,
+      "mainBoltLoaded": true,
+      "reloadProgress": 1
+    },
+    "yaw": -3.032124712028633,
+    "pitch": 0.36346928095587894,
+    "enabled": true,
+    "pointer": false,
+    "action": "06_BiBye_Travel_Ready",
+    "upperAction": "01_BiBye_LoadedIdle_Upper",
+    "camera": [
+      -2.358885469929736,
+      3.6484804049305986,
+      -5.134228518014043
+    ],
+    "cameraView": "third",
+    "authored": "BiBye_Authored_Asset_v4_1",
+    "projectiles": [],
+    "players": [
+      {
+        "id": "6ed9bcdf-abe7-4240-a83c-d07244408cd2",
+        "name": "Terrain touch",
+        "team": null,
+        "actorKind": "human",
+        "practiceMode": null,
+        "connected": true,
+        "arenaReady": false,
+        "position": {
+          "x": -0.42587176402905524,
+          "y": -0.09503634005769301,
+          "z": -0.1650436413609011
+        },
+        "velocity": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "impulse": {
+          "x": 0,
+          "z": 0
+        },
+        "yaw": 2.693821934904602,
+        "pitch": 0,
+        "health": 100,
+        "guardStamina": 81.3333333333336,
+        "guarding": false,
+        "sprinting": false,
+        "tornGround": false,
+        "crouched": false,
+        "attackActive": false,
+        "attackStartedAt": null,
+        "attackNextStrike": 0,
+        "attackCommitted": 0,
+        "attackSlam": false,
+        "alive": true,
+        "kills": 0,
+        "deaths": 0,
+        "parries": 0,
+        "abyssKills": 0,
+        "spell": "fireball",
+        "startingSpell": "fireball",
+        "preparedSpells": [
+          "fireball",
+          "frostfire",
+          "gale"
+        ],
+        "preparedSpellSelected": false,
+        "spellReadyById": {},
+        "chivalryProjectileReadyAt": 0,
+        "cloth": "crimson",
+        "emblem": "trident",
+        "spellReadyAt": 0,
+        "castingSpell": null,
+        "castEndsAt": 0,
+        "castStartedAt": 0,
+        "chill": null,
+        "burningUntil": 0,
+        "steel": null,
+        "dashReadyAt": 0,
+        "dashUntil": null,
+        "practiceGate": null,
+        "staggerUntil": null,
+        "stagger": {
+          "level": 0,
+          "recoverUntil": null
+        },
+        "prowess": 0,
+        "ultimate": "sunder",
+        "ultimateState": null,
+        "dizzyUntil": null,
+        "recoverUntil": null,
+        "ultimateLockedUntil": null,
+        "spawnProtectionUntil": 15.650899999618531,
+        "respawnAt": 0,
+        "lastInputSeq": 229,
+        "operatingBallistaId": "bibye-practice-01"
+      }
+    ],
+    "hud": "BI-BYE-LLISTA · 650/650 · MOBILE · UPPERShot I ready · AIM LIMITSIEGE VIEW · ATTACK to fire",
+    "now": 19.71289999961853,
+    "local": true
+  },
+  "offLimit": {
+    "player": {
+      "id": "6ed9bcdf-abe7-4240-a83c-d07244408cd2",
+      "name": "Terrain touch",
+      "team": null,
+      "actorKind": "human",
+      "practiceMode": null,
+      "connected": true,
+      "arenaReady": false,
+      "position": {
+        "x": -0.42587176402905524,
+        "y": -0.09503634005769301,
+        "z": -0.1650436413609011
+      },
+      "velocity": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "impulse": {
+        "x": 0,
+        "z": 0
+      },
+      "yaw": 2.693821934904602,
+      "pitch": 0,
+      "health": 100,
+      "guardStamina": 81.3333333333336,
+      "guarding": false,
+      "sprinting": false,
+      "tornGround": false,
+      "crouched": false,
+      "attackActive": false,
+      "attackStartedAt": null,
+      "attackNextStrike": 0,
+      "attackCommitted": 0,
+      "attackSlam": false,
+      "alive": true,
+      "kills": 0,
+      "deaths": 0,
+      "parries": 0,
+      "abyssKills": 0,
+      "spell": "fireball",
+      "startingSpell": "fireball",
+      "preparedSpells": [
+        "fireball",
+        "frostfire",
+        "gale"
+      ],
+      "preparedSpellSelected": false,
+      "spellReadyById": {},
+      "chivalryProjectileReadyAt": 0,
+      "cloth": "crimson",
+      "emblem": "trident",
+      "spellReadyAt": 0,
+      "castingSpell": null,
+      "castEndsAt": 0,
+      "castStartedAt": 0,
+      "chill": null,
+      "burningUntil": 0,
+      "steel": null,
+      "dashReadyAt": 0,
+      "dashUntil": null,
+      "practiceGate": null,
+      "staggerUntil": null,
+      "stagger": {
+        "level": 0,
+        "recoverUntil": null
+      },
+      "prowess": 0,
+      "ultimate": "sunder",
+      "ultimateState": null,
+      "dizzyUntil": null,
+      "recoverUntil": null,
+      "ultimateLockedUntil": null,
+      "spawnProtectionUntil": 15.650899999618531,
+      "respawnAt": 0,
+      "lastInputSeq": 249,
+      "operatingBallistaId": "bibye-practice-01"
+    },
+    "ballista": {
+      "id": "bibye-practice-01",
+      "position": {
+        "x": -1.2442160932658444,
+        "y": -0.1307723809879529,
+        "z": 1.5278637672662274
+      },
+      "x": -1.2442160932658444,
+      "y": -0.1307723809879529,
+      "z": 1.5278637672662274,
+      "heading": 2.693821934904602,
+      "chassisPitch": -0.045474253958571395,
+      "chassisRoll": 0.09436345531704209,
+      "wheelOffsets": [
+        5.581692217113223e-17,
+        0,
+        0,
+        -5.581692217113223e-17,
+        0,
+        5.581692217113223e-17
+      ],
+      "stabilizerTilts": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "deploymentReason": null,
+      "deploymentRejectedAt": null,
+      "mainYaw": 2.693821934904602,
+      "mainPitch": 0,
+      "upperYaw": 3.2515901974135653,
+      "upperPitch": 0.36352436840233915,
+      "weaponFocus": "UPPER",
+      "focusRevision": 0,
+      "coupling": "INDEPENDENT",
+      "couplingProgress": 0,
+      "couplingReleaseFrom": 1,
+      "couplingStartedAt": null,
+      "couplingEndsAt": null,
+      "upperReleasedAt": null,
+      "upperFiredAt": null,
+      "upperShotKind": null,
+      "mainReleasedAt": null,
+      "heavyDelayTrippedAt": null,
+      "aimLimited": true,
+      "upperPending": false,
+      "yaw": 3.2515901974135653,
+      "pitch": 0.36352436840233915,
+      "speed": 0,
+      "steer": 0,
+      "mode": "MOBILE",
+      "deployProgress": 0,
+      "components": {
+        "Wheel_FL": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Wheel_FR": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Wheel_ML": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Wheel_MR": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Wheel_RL": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Wheel_RR": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Stabilizer_FL": {
+          "health": 150,
+          "maxHealth": 150,
+          "failedAt": null
+        },
+        "Stabilizer_FR": {
+          "health": 150,
+          "maxHealth": 150,
+          "failedAt": null
+        },
+        "Stabilizer_RL": {
+          "health": 150,
+          "maxHealth": 150,
+          "failedAt": null
+        },
+        "Stabilizer_RR": {
+          "health": 150,
+          "maxHealth": 150,
+          "failedAt": null
+        }
+      },
+      "wheelRolls": [
+        9.40211801431353,
+        10.955967831074037,
+        9.514708125699666,
+        11.273460487983517,
+        9.618196245198693,
+        11.339761174691553
+      ],
+      "poseTime": 20.035800000190736,
+      "retractFrom": 1,
+      "retractAim": null,
+      "modeTransitionEndsAt": null,
+      "health": 650,
+      "maxHealth": 650,
+      "state": "LOADED",
+      "operatorId": "6ed9bcdf-abe7-4240-a83c-d07244408cd2",
+      "firedAt": null,
+      "mobileFiredAt": null,
+      "smallBoltReadyAt": 0,
+      "reloadStartedAt": null,
+      "reloadEndsAt": null,
+      "destroyedAt": null,
+      "modeTransitionStartedAt": null,
+      "smallBoltReady": true,
+      "mainBoltLoaded": true,
+      "reloadProgress": 1
+    },
+    "yaw": -3.032124712028633,
+    "pitch": 0.35386928095587905,
+    "enabled": true,
+    "pointer": false,
+    "action": "06_BiBye_Travel_Ready",
+    "upperAction": "01_BiBye_LoadedIdle_Upper",
+    "camera": [
+      -2.3732873174011058,
+      3.648411340296868,
+      -5.132048859042167
+    ],
+    "cameraView": "third",
+    "authored": "BiBye_Authored_Asset_v4_1",
+    "projectiles": [],
+    "players": [
+      {
+        "id": "6ed9bcdf-abe7-4240-a83c-d07244408cd2",
+        "name": "Terrain touch",
+        "team": null,
+        "actorKind": "human",
+        "practiceMode": null,
+        "connected": true,
+        "arenaReady": false,
+        "position": {
+          "x": -0.42587176402905524,
+          "y": -0.09503634005769301,
+          "z": -0.1650436413609011
+        },
+        "velocity": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "impulse": {
+          "x": 0,
+          "z": 0
+        },
+        "yaw": 2.693821934904602,
+        "pitch": 0,
+        "health": 100,
+        "guardStamina": 81.3333333333336,
+        "guarding": false,
+        "sprinting": false,
+        "tornGround": false,
+        "crouched": false,
+        "attackActive": false,
+        "attackStartedAt": null,
+        "attackNextStrike": 0,
+        "attackCommitted": 0,
+        "attackSlam": false,
+        "alive": true,
+        "kills": 0,
+        "deaths": 0,
+        "parries": 0,
+        "abyssKills": 0,
+        "spell": "fireball",
+        "startingSpell": "fireball",
+        "preparedSpells": [
+          "fireball",
+          "frostfire",
+          "gale"
+        ],
+        "preparedSpellSelected": false,
+        "spellReadyById": {},
+        "chivalryProjectileReadyAt": 0,
+        "cloth": "crimson",
+        "emblem": "trident",
+        "spellReadyAt": 0,
+        "castingSpell": null,
+        "castEndsAt": 0,
+        "castStartedAt": 0,
+        "chill": null,
+        "burningUntil": 0,
+        "steel": null,
+        "dashReadyAt": 0,
+        "dashUntil": null,
+        "practiceGate": null,
+        "staggerUntil": null,
+        "stagger": {
+          "level": 0,
+          "recoverUntil": null
+        },
+        "prowess": 0,
+        "ultimate": "sunder",
+        "ultimateState": null,
+        "dizzyUntil": null,
+        "recoverUntil": null,
+        "ultimateLockedUntil": null,
+        "spawnProtectionUntil": 15.650899999618531,
+        "respawnAt": 0,
+        "lastInputSeq": 249,
+        "operatingBallistaId": "bibye-practice-01"
+      }
+    ],
+    "hud": "BI-BYE-LLISTA · 650/650 · MOBILE · UPPERShot I ready · AIM LIMITSIEGE VIEW · ATTACK to fire",
+    "now": 20.062599999427796,
+    "local": true
+  },
+  "committed": {
+    "player": {
+      "id": "6ed9bcdf-abe7-4240-a83c-d07244408cd2",
+      "name": "Terrain touch",
+      "team": null,
+      "actorKind": "human",
+      "practiceMode": null,
+      "connected": true,
+      "arenaReady": false,
+      "position": {
+        "x": -0.42587176402905524,
+        "y": -0.09503634005769301,
+        "z": -0.1650436413609011
+      },
+      "velocity": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "impulse": {
+        "x": 0,
+        "z": 0
+      },
+      "yaw": 2.693821934904602,
+      "pitch": 0,
+      "health": 100,
+      "guardStamina": 100,
+      "guarding": false,
+      "sprinting": false,
+      "tornGround": false,
+      "crouched": false,
+      "attackActive": false,
+      "attackStartedAt": null,
+      "attackNextStrike": 0,
+      "attackCommitted": 0,
+      "attackSlam": false,
+      "alive": true,
+      "kills": 0,
+      "deaths": 0,
+      "parries": 0,
+      "abyssKills": 0,
+      "spell": "fireball",
+      "startingSpell": "fireball",
+      "preparedSpells": [
+        "fireball",
+        "frostfire",
+        "gale"
+      ],
+      "preparedSpellSelected": false,
+      "spellReadyById": {},
+      "chivalryProjectileReadyAt": 0,
+      "cloth": "crimson",
+      "emblem": "trident",
+      "spellReadyAt": 0,
+      "castingSpell": null,
+      "castEndsAt": 0,
+      "castStartedAt": 0,
+      "chill": null,
+      "burningUntil": 0,
+      "steel": null,
+      "dashReadyAt": 0,
+      "dashUntil": null,
+      "practiceGate": null,
+      "staggerUntil": null,
+      "stagger": {
+        "level": 0,
+        "recoverUntil": null
+      },
+      "prowess": 0,
+      "ultimate": "sunder",
+      "ultimateState": null,
+      "dizzyUntil": null,
+      "recoverUntil": null,
+      "ultimateLockedUntil": null,
+      "spawnProtectionUntil": 15.650899999618531,
+      "respawnAt": 0,
+      "lastInputSeq": 368,
+      "operatingBallistaId": "bibye-practice-01"
+    },
+    "ballista": {
+      "id": "bibye-practice-01",
+      "position": {
+        "x": -1.2442160932658444,
+        "y": -0.1307723809879529,
+        "z": 1.5278637672662274
+      },
+      "x": -1.2442160932658444,
+      "y": -0.1307723809879529,
+      "z": 1.5278637672662274,
+      "heading": 2.693821934904602,
+      "chassisPitch": -0.045474253958571395,
+      "chassisRoll": 0.09436345531704209,
+      "wheelOffsets": [
+        5.581692217113223e-17,
+        0,
+        0,
+        -5.581692217113223e-17,
+        0,
+        5.581692217113223e-17
+      ],
+      "stabilizerTilts": [
+        0.000001220703125,
+        -0.000001220703125,
+        0.000001220703125,
+        -0.000001220703125
+      ],
+      "deploymentReason": null,
+      "deploymentRejectedAt": null,
+      "mainYaw": -3.0303913278630454,
+      "mainPitch": 0.36364956529594783,
+      "upperYaw": -3.029800327190246,
+      "upperPitch": 0.35867607930879253,
+      "weaponFocus": "MAIN",
+      "focusRevision": 1,
+      "coupling": "FIRING",
+      "couplingProgress": 0,
+      "couplingReleaseFrom": 1,
+      "couplingStartedAt": null,
+      "couplingEndsAt": null,
+      "upperReleasedAt": null,
+      "upperFiredAt": 21.976699999809266,
+      "upperShotKind": "coupled",
+      "mainReleasedAt": null,
+      "heavyDelayTrippedAt": null,
+      "trackingSince": null,
+      "aimLimited": true,
+      "upperPending": false,
+      "yaw": -3.0303913278630454,
+      "pitch": 0.36364956529594783,
+      "speed": 0,
+      "steer": 0,
+      "mode": "DEPLOYED",
+      "deployProgress": 1,
+      "components": {
+        "Wheel_FL": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Wheel_FR": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Wheel_ML": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Wheel_MR": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Wheel_RL": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Wheel_RR": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Stabilizer_FL": {
+          "health": 150,
+          "maxHealth": 150,
+          "failedAt": null
+        },
+        "Stabilizer_FR": {
+          "health": 150,
+          "maxHealth": 150,
+          "failedAt": null
+        },
+        "Stabilizer_RL": {
+          "health": 150,
+          "maxHealth": 150,
+          "failedAt": null
+        },
+        "Stabilizer_RR": {
+          "health": 150,
+          "maxHealth": 150,
+          "failedAt": null
+        }
+      },
+      "wheelRolls": [
+        9.40211801431353,
+        10.955967831074037,
+        9.514708125699666,
+        11.273460487983517,
+        9.618196245198693,
+        11.339761174691553
+      ],
+      "poseTime": 22.014800000190736,
+      "retractFrom": 1,
+      "retractAim": null,
+      "modeTransitionEndsAt": 21.32689999961853,
+      "health": 650,
+      "maxHealth": 650,
+      "state": "FIRING",
+      "operatorId": "6ed9bcdf-abe7-4240-a83c-d07244408cd2",
+      "firedAt": 21.976699999809266,
+      "mobileFiredAt": null,
+      "smallBoltReadyAt": 0,
+      "reloadStartedAt": null,
+      "reloadEndsAt": null,
+      "destroyedAt": null,
+      "modeTransitionStartedAt": 20.12689999961853,
+      "smallBoltReady": false,
+      "mainBoltLoaded": true,
+      "reloadProgress": 0
+    },
+    "yaw": -3.0318439802204464,
+    "pitch": 0.36349848228363363,
+    "enabled": true,
+    "pointer": false,
+    "action": "01_BiBye_LoadedIdle",
+    "upperAction": "01_BiBye_LoadedIdle_Upper",
+    "camera": [
+      -2.3752650042978942,
+      3.648410821411486,
+      -5.131826747501687
+    ],
+    "cameraView": "third",
+    "authored": "BiBye_Authored_Asset_v4_1",
+    "projectiles": [],
+    "players": [
+      {
+        "id": "6ed9bcdf-abe7-4240-a83c-d07244408cd2",
+        "name": "Terrain touch",
+        "team": null,
+        "actorKind": "human",
+        "practiceMode": null,
+        "connected": true,
+        "arenaReady": false,
+        "position": {
+          "x": -0.42587176402905524,
+          "y": -0.09503634005769301,
+          "z": -0.1650436413609011
+        },
+        "velocity": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "impulse": {
+          "x": 0,
+          "z": 0
+        },
+        "yaw": 2.693821934904602,
+        "pitch": 0,
+        "health": 100,
+        "guardStamina": 100,
+        "guarding": false,
+        "sprinting": false,
+        "tornGround": false,
+        "crouched": false,
+        "attackActive": false,
+        "attackStartedAt": null,
+        "attackNextStrike": 0,
+        "attackCommitted": 0,
+        "attackSlam": false,
+        "alive": true,
+        "kills": 0,
+        "deaths": 0,
+        "parries": 0,
+        "abyssKills": 0,
+        "spell": "fireball",
+        "startingSpell": "fireball",
+        "preparedSpells": [
+          "fireball",
+          "frostfire",
+          "gale"
+        ],
+        "preparedSpellSelected": false,
+        "spellReadyById": {},
+        "chivalryProjectileReadyAt": 0,
+        "cloth": "crimson",
+        "emblem": "trident",
+        "spellReadyAt": 0,
+        "castingSpell": null,
+        "castEndsAt": 0,
+        "castStartedAt": 0,
+        "chill": null,
+        "burningUntil": 0,
+        "steel": null,
+        "dashReadyAt": 0,
+        "dashUntil": null,
+        "practiceGate": null,
+        "staggerUntil": null,
+        "stagger": {
+          "level": 0,
+          "recoverUntil": null
+        },
+        "prowess": 0,
+        "ultimate": "sunder",
+        "ultimateState": null,
+        "dizzyUntil": null,
+        "recoverUntil": null,
+        "ultimateLockedUntil": null,
+        "spawnProtectionUntil": 15.650899999618531,
+        "respawnAt": 0,
+        "lastInputSeq": 368,
+        "operatingBallistaId": "bibye-practice-01"
+      }
+    ],
+    "hud": "BI-BYE-LLISTA · 650/650 · MAIN / COUPLEDShot I 0.0s · II ready · Volley committed · AIM LIMITSIEGE VIEW · ATTACK to fire",
+    "now": 22.03389999961853,
+    "local": true
+  },
+  "concurrent": {
+    "player": {
+      "id": "6ed9bcdf-abe7-4240-a83c-d07244408cd2",
+      "name": "Terrain touch",
+      "team": null,
+      "actorKind": "human",
+      "practiceMode": null,
+      "connected": true,
+      "arenaReady": false,
+      "position": {
+        "x": -0.42587176402905524,
+        "y": -0.09503634005769301,
+        "z": -0.1650436413609011
+      },
+      "velocity": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "impulse": {
+        "x": 0,
+        "z": 0
+      },
+      "yaw": 2.693821934904602,
+      "pitch": 0,
+      "health": 100,
+      "guardStamina": 100,
+      "guarding": false,
+      "sprinting": false,
+      "tornGround": false,
+      "crouched": false,
+      "attackActive": false,
+      "attackStartedAt": null,
+      "attackNextStrike": 0,
+      "attackCommitted": 0,
+      "attackSlam": false,
+      "alive": true,
+      "kills": 0,
+      "deaths": 0,
+      "parries": 0,
+      "abyssKills": 0,
+      "spell": "fireball",
+      "startingSpell": "fireball",
+      "preparedSpells": [
+        "fireball",
+        "frostfire",
+        "gale"
+      ],
+      "preparedSpellSelected": false,
+      "spellReadyById": {},
+      "chivalryProjectileReadyAt": 0,
+      "cloth": "crimson",
+      "emblem": "trident",
+      "spellReadyAt": 0,
+      "castingSpell": null,
+      "castEndsAt": 0,
+      "castStartedAt": 0,
+      "chill": null,
+      "burningUntil": 0,
+      "steel": null,
+      "dashReadyAt": 0,
+      "dashUntil": null,
+      "practiceGate": null,
+      "staggerUntil": null,
+      "stagger": {
+        "level": 0,
+        "recoverUntil": null
+      },
+      "prowess": 0,
+      "ultimate": "sunder",
+      "ultimateState": null,
+      "dizzyUntil": null,
+      "recoverUntil": null,
+      "ultimateLockedUntil": null,
+      "spawnProtectionUntil": 15.650899999618531,
+      "respawnAt": 0,
+      "lastInputSeq": 570,
+      "operatingBallistaId": "bibye-practice-01"
+    },
+    "ballista": {
+      "id": "bibye-practice-01",
+      "position": {
+        "x": -1.2442160932658444,
+        "y": -0.1307723809879529,
+        "z": 1.5278637672662274
+      },
+      "x": -1.2442160932658444,
+      "y": -0.1307723809879529,
+      "z": 1.5278637672662274,
+      "heading": 2.693821934904602,
+      "chassisPitch": -0.045474253958571395,
+      "chassisRoll": 0.09436345531704209,
+      "wheelOffsets": [
+        5.581692217113223e-17,
+        0,
+        0,
+        -5.581692217113223e-17,
+        0,
+        5.581692217113223e-17
+      ],
+      "stabilizerTilts": [
+        0.000001220703125,
+        -0.000001220703125,
+        0.000001220703125,
+        -0.000001220703125
+      ],
+      "deploymentReason": null,
+      "deploymentRejectedAt": null,
+      "mainYaw": -3.0303913278630454,
+      "mainPitch": 0.36364956529594783,
+      "upperYaw": -3.028962005229995,
+      "upperPitch": 0.3637981892136618,
+      "weaponFocus": "UPPER",
+      "focusRevision": 2,
+      "coupling": "INDEPENDENT",
+      "couplingProgress": 0,
+      "couplingReleaseFrom": 1,
+      "couplingStartedAt": 22.626699999809265,
+      "couplingEndsAt": 23.226699999809266,
+      "upperReleasedAt": 25.22639999961853,
+      "upperFiredAt": 25.02639999961853,
+      "upperShotKind": "independent",
+      "mainReleasedAt": 22.626699999809265,
+      "heavyDelayTrippedAt": 22.426699999809266,
+      "trackingSince": null,
+      "aimLimited": true,
+      "upperPending": false,
+      "yaw": -3.028962005229995,
+      "pitch": 0.3637981892136618,
+      "speed": 0,
+      "steer": 0,
+      "mode": "DEPLOYED",
+      "deployProgress": 1,
+      "components": {
+        "Wheel_FL": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Wheel_FR": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Wheel_ML": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Wheel_MR": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Wheel_RL": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Wheel_RR": {
+          "health": 120,
+          "maxHealth": 120,
+          "failedAt": null
+        },
+        "Stabilizer_FL": {
+          "health": 150,
+          "maxHealth": 150,
+          "failedAt": null
+        },
+        "Stabilizer_FR": {
+          "health": 150,
+          "maxHealth": 150,
+          "failedAt": null
+        },
+        "Stabilizer_RL": {
+          "health": 150,
+          "maxHealth": 150,
+          "failedAt": null
+        },
+        "Stabilizer_RR": {
+          "health": 150,
+          "maxHealth": 150,
+          "failedAt": null
+        }
+      },
+      "wheelRolls": [
+        9.40211801431353,
+        10.955967831074037,
+        9.514708125699666,
+        11.273460487983517,
+        9.618196245198693,
+        11.339761174691553
+      ],
+      "poseTime": 25.38089999961853,
+      "retractFrom": 1,
+      "retractAim": null,
+      "modeTransitionEndsAt": 21.32689999961853,
+      "health": 650,
+      "maxHealth": 650,
+      "state": "RELOADING",
+      "operatorId": "6ed9bcdf-abe7-4240-a83c-d07244408cd2",
+      "firedAt": 21.976699999809266,
+      "mobileFiredAt": 25.02639999961853,
+      "smallBoltReadyAt": 27.72639999961853,
+      "reloadStartedAt": 24.176699999809266,
+      "reloadEndsAt": 28.676699999809266,
+      "destroyedAt": null,
+      "modeTransitionStartedAt": 20.12689999961853,
+      "smallBoltReady": false,
+      "mainBoltLoaded": false,
+      "reloadProgress": 0.2675999999576146
+    },
+    "yaw": -3.029800327190246,
+    "pitch": 0.3586760793087922,
+    "enabled": true,
+    "pointer": false,
+    "action": "19_BiBye_Main_Winch_Reload_Only",
+    "upperAction": "09_BiBye_Mobile_Shot1_Fire_Upper",
+    "camera": [
+      -2.388873689659863,
+      3.648410821411486,
+      -5.130313110878253
+    ],
+    "cameraView": "third",
+    "authored": "BiBye_Authored_Asset_v4_1",
+    "projectiles": [
+      {
+        "id": "bibye-bolt-1",
+        "subKind": "conditioning",
+        "bornAt": 22.426699999809266,
+        "ballistaId": "bibye-practice-01",
+        "position": {
+          "x": 13.501684481471738,
+          "y": 53.36085280530482,
+          "z": 135.60733391099456
+        },
+        "velocity": {
+          "x": 5.014091015982827,
+          "y": 16.849673843531775,
+          "z": 44.664833847782766
+        }
+      },
+      {
+        "id": "bibye-bolt-2",
+        "subKind": "siege",
+        "bornAt": 22.626699999809265,
+        "ballistaId": "bibye-practice-01",
+        "position": {
+          "x": 14.580492631429776,
+          "y": 56.70025634634948,
+          "z": 145.01940464370335
+        },
+        "velocity": {
+          "x": 5.70433862367682,
+          "y": 19.56281229297281,
+          "z": 51.08577978318762
+        }
+      },
+      {
+        "id": "bibye-bolt-3",
+        "subKind": "conditioning",
+        "bornAt": 25.22639999961853,
+        "ballistaId": "bibye-practice-01",
+        "position": {
+          "x": -0.6696671084233616,
+          "y": 5.762642620078473,
+          "z": 9.312901232720304
+        },
+        "velocity": {
+          "x": 5.04176638910917,
+          "y": 17.07966705386589,
+          "z": 44.57427021283395
+        }
+      }
+    ],
+    "players": [
+      {
+        "id": "6ed9bcdf-abe7-4240-a83c-d07244408cd2",
+        "name": "Terrain touch",
+        "team": null,
+        "actorKind": "human",
+        "practiceMode": null,
+        "connected": true,
+        "arenaReady": false,
+        "position": {
+          "x": -0.42587176402905524,
+          "y": -0.09503634005769301,
+          "z": -0.1650436413609011
+        },
+        "velocity": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "impulse": {
+          "x": 0,
+          "z": 0
+        },
+        "yaw": 2.693821934904602,
+        "pitch": 0,
+        "health": 100,
+        "guardStamina": 100,
+        "guarding": false,
+        "sprinting": false,
+        "tornGround": false,
+        "crouched": false,
+        "attackActive": false,
+        "attackStartedAt": null,
+        "attackNextStrike": 0,
+        "attackCommitted": 0,
+        "attackSlam": false,
+        "alive": true,
+        "kills": 0,
+        "deaths": 0,
+        "parries": 0,
+        "abyssKills": 0,
+        "spell": "fireball",
+        "startingSpell": "fireball",
+        "preparedSpells": [
+          "fireball",
+          "frostfire",
+          "gale"
+        ],
+        "preparedSpellSelected": false,
+        "spellReadyById": {},
+        "chivalryProjectileReadyAt": 0,
+        "cloth": "crimson",
+        "emblem": "trident",
+        "spellReadyAt": 0,
+        "castingSpell": null,
+        "castEndsAt": 0,
+        "castStartedAt": 0,
+        "chill": null,
+        "burningUntil": 0,
+        "steel": null,
+        "dashReadyAt": 0,
+        "dashUntil": null,
+        "practiceGate": null,
+        "staggerUntil": null,
+        "stagger": {
+          "level": 0,
+          "recoverUntil": null
+        },
+        "prowess": 0,
+        "ultimate": "sunder",
+        "ultimateState": null,
+        "dizzyUntil": null,
+        "recoverUntil": null,
+        "ultimateLockedUntil": null,
+        "spawnProtectionUntil": 15.650899999618531,
+        "respawnAt": 0,
+        "lastInputSeq": 570,
+        "operatingBallistaId": "bibye-practice-01"
+      }
+    ],
+    "hud": "BI-BYE-LLISTA · 650/650 · UPPER / INDEPENDENTShot I 2.4s · II 3.3s · AIM LIMITSIEGE VIEW · ATTACK to fire",
+    "now": 25.38189999961853,
+    "local": true
+  },
+  "geometry": {
+    "wheels": [
+      {
+        "id": "FL",
+        "minimumGroundClearance": -0.006372513883441122
+      },
+      {
+        "id": "FR",
+        "minimumGroundClearance": -0.006438669690474963
+      },
+      {
+        "id": "ML",
+        "minimumGroundClearance": -0.005688314187828281
+      },
+      {
+        "id": "MR",
+        "minimumGroundClearance": 0.0018372899383826136
+      },
+      {
+        "id": "RL",
+        "minimumGroundClearance": 0.000002350678096563197
+      },
+      {
+        "id": "RR",
+        "minimumGroundClearance": 0.0006506052681718444
+      }
+    ],
+    "seatError": 2.2247786310271853e-16,
+    "operatorUp": [
+      -0.10452846326765354,
+      0.9945218953682733,
+      -1.3877787807814457e-17
+    ],
+    "chassisUp": [
+      -0.10452846326765353,
+      0.9945218953682733,
+      -6.938893903907228e-18
+    ],
+    "rootRotation": [
+      -3.091153009587632,
+      0.44727424653899306,
+      3.0253985208557426,
+      "XYZ"
+    ],
+    "chassisRotation": [
+      0.045474253958571395,
+      5.835414588494395,
+      0.09436345531704209,
+      "YXZ"
+    ],
+    "offsets": [
+      5.581692217113223e-17,
+      0,
+      0,
+      -5.581692217113223e-17,
+      0,
+      5.581692217113223e-17
+    ]
+  },
+  "release": {
+    "rotation": [
+      0,
+      -3.029800327190246,
+      0,
+      "XYZ"
+    ]
+  },
+  "errors": []
+}

@@ -57,3 +57,7 @@ test('clutch layers seek engagement, partial cancellation and complete uncouplin
  assert.equal(biByeTrackOwner('Wheel_FL_Damaged.scale'),'Components');
  assert.equal(biByeDelayAnimation({firedAt:2,upperShotKind:'coupled'},2.6).name,'20_BiBye_Coupled_Shot1_Trigger_And_Delay_Delay');
 });
+
+test('conditioning bolt stays in its authored rail pose throughout reload',()=>{
+ for(const prop of ['position','quaternion','scale'])assert.equal(biByeTrackOwner(`Upper_Conditioning_Bolt.${prop}`),'Aim');
+});

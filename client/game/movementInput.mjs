@@ -10,6 +10,12 @@ export const REMOTE_PITCH_THRESHOLD_RAD = 0.06;
 
 export function hasMeaningfulInputChange(current, previous) {
   if (!previous) return true;
+  if(Boolean(current.mounted)!==Boolean(previous.mounted))return true;
+  if(current.mounted){
+    if(Math.abs((current.forward??0)-(previous.forward??0))>.01||Math.abs((current.right??0)-(previous.right??0))>.01)return true;
+    if(Math.abs(Math.atan2(Math.sin(current.yaw-previous.yaw),Math.cos(current.yaw-previous.yaw)))>.002||Math.abs(current.pitch-previous.pitch)>.002)return true;
+    if(current.siegeTarget&&previous.siegeTarget&&Math.hypot(...['x','y','z'].map(k=>current.siegeTarget[k]-previous.siegeTarget[k]))>.03)return true;
+  }
   if (Boolean(current.sprint) !== Boolean(previous.sprint)) return true;
   if (Boolean(current.crouch) !== Boolean(previous.crouch)) return true;
   if (Boolean(current.jump) !== Boolean(previous.jump)) return true;
