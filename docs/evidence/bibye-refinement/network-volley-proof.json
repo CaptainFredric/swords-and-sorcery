@@ -1,0 +1,379 @@
+{
+  "player": {
+    "id": "70f64715-92c0-4f45-a777-1c1b128ffbfa",
+    "name": "Network Siege",
+    "team": null,
+    "actorKind": "human",
+    "practiceMode": null,
+    "connected": true,
+    "arenaReady": false,
+    "position": {
+      "x": 6.45,
+      "y": 0,
+      "z": -14.6
+    },
+    "velocity": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "impulse": {
+      "x": 0,
+      "z": 0
+    },
+    "yaw": -1.5707963267948966,
+    "pitch": 0,
+    "health": 100,
+    "guardStamina": 100,
+    "guarding": false,
+    "sprinting": false,
+    "tornGround": false,
+    "crouched": false,
+    "attackActive": false,
+    "attackStartedAt": null,
+    "attackNextStrike": 0,
+    "attackCommitted": 0,
+    "attackSlam": false,
+    "alive": true,
+    "kills": 0,
+    "deaths": 0,
+    "parries": 0,
+    "abyssKills": 0,
+    "spell": "fireball",
+    "startingSpell": "fireball",
+    "preparedSpells": [
+      "fireball",
+      "frostfire",
+      "gale"
+    ],
+    "preparedSpellSelected": false,
+    "spellReadyById": {},
+    "chivalryProjectileReadyAt": 0,
+    "cloth": "crimson",
+    "emblem": "trident",
+    "spellReadyAt": 0,
+    "castingSpell": null,
+    "castEndsAt": 0,
+    "castStartedAt": 0,
+    "chill": null,
+    "burningUntil": 0,
+    "steel": null,
+    "dashReadyAt": 0,
+    "dashUntil": null,
+    "practiceGate": null,
+    "staggerUntil": null,
+    "stagger": {
+      "level": 0,
+      "recoverUntil": null
+    },
+    "prowess": 0,
+    "ultimate": "sunder",
+    "ultimateState": null,
+    "dizzyUntil": null,
+    "recoverUntil": null,
+    "ultimateLockedUntil": null,
+    "spawnProtectionUntil": 261.285833292,
+    "respawnAt": 0,
+    "lastInputSeq": 215,
+    "operatingBallistaId": "bibye-practice-01"
+  },
+  "ballista": {
+    "id": "bibye-practice-01",
+    "position": {
+      "x": 9,
+      "y": 0,
+      "z": -14.6
+    },
+    "x": 9,
+    "y": 0,
+    "z": -14.6,
+    "heading": -1.5707963267948966,
+    "yaw": -1.5707963267948966,
+    "pitch": 0,
+    "speed": 0,
+    "steer": 0,
+    "mode": "DEPLOYED",
+    "deployProgress": 1,
+    "components": {
+      "Wheel_FL": {
+        "health": 120,
+        "maxHealth": 120,
+        "failedAt": null
+      },
+      "Wheel_FR": {
+        "health": 120,
+        "maxHealth": 120,
+        "failedAt": null
+      },
+      "Wheel_ML": {
+        "health": 120,
+        "maxHealth": 120,
+        "failedAt": null
+      },
+      "Wheel_MR": {
+        "health": 120,
+        "maxHealth": 120,
+        "failedAt": null
+      },
+      "Wheel_RL": {
+        "health": 120,
+        "maxHealth": 120,
+        "failedAt": null
+      },
+      "Wheel_RR": {
+        "health": 120,
+        "maxHealth": 120,
+        "failedAt": null
+      },
+      "Stabilizer_FL": {
+        "health": 150,
+        "maxHealth": 150,
+        "failedAt": null
+      },
+      "Stabilizer_FR": {
+        "health": 150,
+        "maxHealth": 150,
+        "failedAt": null
+      },
+      "Stabilizer_RL": {
+        "health": 150,
+        "maxHealth": 150,
+        "failedAt": null
+      },
+      "Stabilizer_RR": {
+        "health": 150,
+        "maxHealth": 150,
+        "failedAt": null
+      }
+    },
+    "wheelRolls": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "poseTime": 271.46819329199997,
+    "retractFrom": 1,
+    "retractAim": null,
+    "modeTransitionEndsAt": 270.673785917,
+    "health": 650,
+    "maxHealth": 650,
+    "state": "SPENT",
+    "operatorId": "70f64715-92c0-4f45-a777-1c1b128ffbfa",
+    "firedAt": 270.773237125,
+    "mobileFiredAt": null,
+    "smallBoltReadyAt": 278.97323712499997,
+    "reloadStartedAt": 272.97323712499997,
+    "reloadEndsAt": 278.97323712499997,
+    "destroyedAt": null,
+    "modeTransitionStartedAt": 269.473785917,
+    "smallBoltReady": false,
+    "mainBoltLoaded": false,
+    "reloadProgress": 0
+  },
+  "yaw": -1.5707963267948966,
+  "pitch": 0,
+  "enabled": true,
+  "pointer": false,
+  "action": "02_BiBye_TwoStage_Fire",
+  "camera": [
+    2.300000000001101,
+    3.7999999999996192,
+    -14.599999999999566
+  ],
+  "cameraView": "third",
+  "authored": "BiBye_Authored_Asset_v3_2",
+  "projectiles": [
+    {
+      "id": "bibye-bolt-1",
+      "subKind": "conditioning",
+      "position": {
+        "x": 22.720000000000006,
+        "y": 2.785,
+        "z": -14.6
+      },
+      "velocity": {
+        "x": 48,
+        "y": 0,
+        "z": 2.9391523179536475e-15
+      }
+    },
+    {
+      "id": "bibye-bolt-2",
+      "subKind": "siege",
+      "position": {
+        "x": 14.18666666666667,
+        "y": 1.8350000000000002,
+        "z": -14.6
+      },
+      "velocity": {
+        "x": 55,
+        "y": 0,
+        "z": 3.3677786976552213e-15
+      }
+    }
+  ],
+  "players": [
+    {
+      "id": "70f64715-92c0-4f45-a777-1c1b128ffbfa",
+      "name": "Network Siege",
+      "team": null,
+      "actorKind": "human",
+      "practiceMode": null,
+      "connected": true,
+      "arenaReady": false,
+      "position": {
+        "x": 6.45,
+        "y": 0,
+        "z": -14.6
+      },
+      "velocity": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "impulse": {
+        "x": 0,
+        "z": 0
+      },
+      "yaw": -1.5707963267948966,
+      "pitch": 0,
+      "health": 100,
+      "guardStamina": 100,
+      "guarding": false,
+      "sprinting": false,
+      "tornGround": false,
+      "crouched": false,
+      "attackActive": false,
+      "attackStartedAt": null,
+      "attackNextStrike": 0,
+      "attackCommitted": 0,
+      "attackSlam": false,
+      "alive": true,
+      "kills": 0,
+      "deaths": 0,
+      "parries": 0,
+      "abyssKills": 0,
+      "spell": "fireball",
+      "startingSpell": "fireball",
+      "preparedSpells": [
+        "fireball",
+        "frostfire",
+        "gale"
+      ],
+      "preparedSpellSelected": false,
+      "spellReadyById": {},
+      "chivalryProjectileReadyAt": 0,
+      "cloth": "crimson",
+      "emblem": "trident",
+      "spellReadyAt": 0,
+      "castingSpell": null,
+      "castEndsAt": 0,
+      "castStartedAt": 0,
+      "chill": null,
+      "burningUntil": 0,
+      "steel": null,
+      "dashReadyAt": 0,
+      "dashUntil": null,
+      "practiceGate": null,
+      "staggerUntil": null,
+      "stagger": {
+        "level": 0,
+        "recoverUntil": null
+      },
+      "prowess": 0,
+      "ultimate": "sunder",
+      "ultimateState": null,
+      "dizzyUntil": null,
+      "recoverUntil": null,
+      "ultimateLockedUntil": null,
+      "spawnProtectionUntil": 261.285833292,
+      "respawnAt": 0,
+      "lastInputSeq": 215,
+      "operatingBallistaId": "bibye-practice-01"
+    },
+    {
+      "id": "practice-dummy-FCSJ4",
+      "name": "Training Dummy",
+      "team": null,
+      "actorKind": "dummy",
+      "practiceMode": "PASSIVE",
+      "connected": false,
+      "arenaReady": false,
+      "position": {
+        "x": 10.138110391667166,
+        "y": 0,
+        "z": -4.893965806782807
+      },
+      "velocity": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "impulse": {
+        "x": 0,
+        "z": 0
+      },
+      "yaw": 2.214297435588181,
+      "pitch": 0,
+      "health": 100,
+      "guardStamina": 100,
+      "guarding": false,
+      "sprinting": false,
+      "tornGround": false,
+      "crouched": false,
+      "attackActive": false,
+      "attackStartedAt": null,
+      "attackNextStrike": 0,
+      "attackCommitted": 0,
+      "attackSlam": false,
+      "alive": true,
+      "kills": 0,
+      "deaths": 0,
+      "parries": 0,
+      "abyssKills": 0,
+      "spell": "fireball",
+      "startingSpell": "fireball",
+      "preparedSpells": [
+        "fireball",
+        "frostfire",
+        "gale"
+      ],
+      "preparedSpellSelected": false,
+      "spellReadyById": {},
+      "chivalryProjectileReadyAt": 0,
+      "cloth": "crimson",
+      "emblem": "trident",
+      "spellReadyAt": 0,
+      "castingSpell": null,
+      "castEndsAt": 0,
+      "castStartedAt": 0,
+      "chill": null,
+      "burningUntil": 0,
+      "steel": null,
+      "dashReadyAt": 0,
+      "dashUntil": null,
+      "practiceGate": null,
+      "staggerUntil": null,
+      "stagger": {
+        "level": 0,
+        "recoverUntil": null
+      },
+      "prowess": 0,
+      "ultimate": "sunder",
+      "ultimateState": null,
+      "dizzyUntil": null,
+      "recoverUntil": null,
+      "ultimateLockedUntil": null,
+      "spawnProtectionUntil": 261.285833292,
+      "respawnAt": 0,
+      "lastInputSeq": 0,
+      "operatingBallistaId": null
+    }
+  ],
+  "hud": "BI-BYE-LLISTA · 650/650 · SIEGERecoil recoverySIEGE VIEW · ATTACK to fire",
+  "now": 271.4850932916185,
+  "local": false
+}

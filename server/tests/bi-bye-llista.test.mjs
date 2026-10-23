@@ -356,16 +356,16 @@ test('Scenario 8: Siege-machine durability, destruction, and safe operator dismo
   human.position = { x: 7.8, y: 0, z: -14.6 };
   mountBiByeLlista(ballista, human);
 
-  assert.equal(ballista.health, 400);
+  assert.equal(ballista.health, 650);
 
   // Takes damage from attack
   damageBiByeLlista(room, ballista, 150, 'attacker-01', 'sword', 1.0);
-  assert.equal(ballista.health, 250);
+  assert.equal(ballista.health, 500);
   assert.equal(ballista.mode, BI_BYE_MODES.MOBILE);
   assert.equal(ballista.operatorId, human.id);
 
   // Lethal damage to siege engine
-  damageBiByeLlista(room, ballista, 300, 'attacker-01', 'sword', 2.0);
+  damageBiByeLlista(room, ballista, 500, 'attacker-01', 'sword', 2.0);
   assert.equal(ballista.health, 0);
   assert.equal(ballista.mode, BI_BYE_MODES.DESTROYED);
 
@@ -380,7 +380,7 @@ test('Scenario 8: Siege-machine durability, destruction, and safe operator dismo
 
   // Practice reset restores ballista
   assert.ok(resetPracticePlayer(room, human.id, 4.0));
-  assert.equal(ballista.health, 400, 'practice reset restores ballista HP');
+  assert.equal(ballista.health, 650, 'practice reset restores ballista HP');
   assert.equal(ballista.mode, BI_BYE_MODES.MOBILE);
 });
 
@@ -447,13 +447,13 @@ test('Scenario 10: Snapshot serialization and practice command handling', () => 
   // Check snapshot serialization
   const snap = serializeSnapshot(room, 1.2);
   assert.ok(snap.bibyeBallista);
-  assert.equal(snap.bibyeBallista.health, 400);
+  assert.equal(snap.bibyeBallista.health, 650);
   assert.equal(snap.bibyeBallista.mode, BI_BYE_MODES.DEPLOYING);
   assert.ok(snap.bibyeBallista.deployProgress > 0);
   assert.equal(snap.bibyeBallista.mainBoltLoaded, true);
 
   // Destruction via authoritative damage
-  damageBiByeLlista(room, ballista, 400, human.id, 'sword', 1.3);
+  damageBiByeLlista(room, ballista, 650, human.id, 'sword', 1.3);
   assert.equal(ballista.mode, BI_BYE_MODES.DESTROYED);
   assert.equal(ballista.health, 0);
   assert.equal(ballista.operatorId, null);

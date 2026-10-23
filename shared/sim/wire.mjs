@@ -1,3 +1,4 @@
+import { biByeDeployProgress } from './biByeComponents.mjs';
 // What a host (the game server, or the browser playing alone when the server cannot be reached) says to its
 // Spellblades and does with what they send. The same shapes either way, so the client cannot tell who is hosting
 // except by asking.
@@ -191,11 +192,13 @@ export function serializeSnapshot(room, nowSec) {
       speed: room.biByeLlista.speed ?? 0,
       steer: room.biByeLlista.steer ?? 0,
       mode: room.biByeLlista.mode,
-      deployProgress: room.biByeLlista.mode === 'DEPLOYING'
-        ? Math.min(1.0, Math.max(0, (nowSec - room.biByeLlista.modeTransitionStartedAt) / BI_BYE_LLISTA_CONFIG.timing.deployDurationSec))
-        : (room.biByeLlista.mode === 'RETRACTING'
-          ? Math.max(0, 1.0 - (nowSec - room.biByeLlista.modeTransitionStartedAt) / BI_BYE_LLISTA_CONFIG.timing.retractDurationSec)
-          : (room.biByeLlista.mode === 'DEPLOYED' ? 1.0 : 0.0)),
+      deployProgress: biByeDeployProgress(room.biByeLlista, nowSec),
+      components: structuredClone(room.biByeLlista.components),
+      wheelRolls: [...room.biByeLlista.wheelRolls],
+      poseTime: nowSec,
+      retractFrom: room.biByeLlista.retractFrom,
+      retractAim: room.biByeLlista.retractAim ? {...room.biByeLlista.retractAim} : null,
+      modeTransitionEndsAt: Number.isFinite(room.biByeLlista.modeTransitionEndsAt) ? room.biByeLlista.modeTransitionEndsAt : null,
       health: room.biByeLlista.health,
       maxHealth: room.biByeLlista.maxHealth,
       state: room.biByeLlista.state,

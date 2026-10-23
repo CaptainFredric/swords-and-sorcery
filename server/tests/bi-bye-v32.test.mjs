@@ -33,7 +33,7 @@ function locator(ballista, name) {
 }
 
 test('v3.2 asset identity and mechanical contract', () => {
-  assert.equal(createHash('sha256').update(bytes).digest('hex'), '9e745f774e73e56d23c9a357ab0b180e7fab99a9396299c9728750359298e196');
+  assert.equal(createHash('sha256').update(bytes).digest('hex'), 'c595a2bc41db7d8c5783c0795cb24276529f72932c8ecb70f72599c099937b6a');
   assert.equal(gltf.nodes.length, 39);
   assert.equal(gltf.meshes.length, 29);
   assert.equal(gltf.animations.length, 12);
@@ -90,7 +90,7 @@ test('an ordinary Fireball directly collides with and damages the carriage', () 
   p.spawnProtectionUntil = 0;
   applyRoomCommand(room, p, { type: 'cast', direction: { x: 1, y: 0, z: 0 } }, 1);
   for (let i = 0; i < 60; i++) stepRoom(room, 1 / 30, 1 + i / 30);
-  assert.ok(room.biByeLlista.health < 400, `Fireball passed through machine: ${room.biByeLlista.health}`);
+  assert.ok(room.biByeLlista.health < 650, `Fireball passed through machine: ${room.biByeLlista.health}`);
 });
 
 test('Practice reset cancels an unlaunched shot and clears the previous firing clock', () => {

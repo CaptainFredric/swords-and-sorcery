@@ -1,3 +1,4 @@
+import { BI_BYE_COMPONENTS, biByeComponentPose, biByeAimPose, biByeDeployProgress } from '../../shared/sim/biByeComponents.mjs';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { appUrl } from '../appUrl.mjs';
@@ -6,8 +7,7 @@ import { BI_BYE_LLISTA_CONFIG, BI_BYE_STATES, BI_BYE_MODES } from '../../shared/
 
 import { biByeAnimation, biByeWheelSteering, biByeWheelTravel } from './biByePresentation.mjs';
 
-const ASSET_PATH = '/client/assets/props/bibye-ballista/bi-bye-llista-v3.2.glb?v=9e745f774e73e56d';
-const WHEEL_RADIUS = 0.550; // meters (R_wheel)
+const ASSET_PATH = '/client/assets/props/bibye-ballista/bi-bye-llista-v3.2.glb?v=c595a2bc41db7d8c';
 
 /**
  * Bi-Bye-llista (Two-Bolt Ballista) Mobile Siege Engine Renderer.
@@ -39,9 +39,6 @@ export class BiByeLlistaRenderer {
     this.environment.mapping = THREE.EquirectangularReflectionMapping;
     this.environment.colorSpace = THREE.SRGBColorSpace;
     this.environment.needsUpdate = true;
-    this.lastPosition = null;
-    this.lastTimeSec = 0;
-    this.wheelRoll = 0;
     this.wheelAngles = [0, 0, 0, 0, 0, 0];
 
     this.currentState = BI_BYE_STATES.LOADED;
@@ -115,6 +112,18 @@ export class BiByeLlistaRenderer {
           }
         });
 
+        this.componentMaterials = new Map();
+        for (const def of BI_BYE_COMPONENTS) {
+          const node = this.nodes.get(def.id);
+          if (!node?.isMesh) continue;
+          const multiple = Array.isArray(node.material);
+          const copies = [node.material].flat().map(m => {
+            const copy=m.clone();copy.userData.baseColor=copy.color.clone();copy.userData.baseRoughness=copy.roughness;return copy;
+          });
+          node.material = multiple ? copies : copies[0];
+          this.componentMaterials.set(def.id,copies);
+        }
+
         // Initialize AnimationMixer and extract all clips
         this.mixer = new THREE.AnimationMixer(this.authoredModel);
         this.jointPose = new Map(['Traverse_Mount', 'Elevation_Cradle', 'Upper_Turret_Mount']
@@ -181,12 +190,15 @@ export class BiByeLlistaRenderer {
 
     // 4 Stabilizers
     this.fallbackStabilizers = [];
-    for (const [ox, oz, dir] of [[-1.2, 0.7, 1], [1.2, 0.7, 1], [-1.2, -0.7, -1], [1.2, -0.7, -1]]) {
+    for (const def of BI_BYE_COMPONENTS.filter(d=>d.kind==='stabilizer')) {
       const stab = new THREE.Group();
-      stab.position.set(ox, 0.35, oz);
-      const arm = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.1, 0.12), this.materials.iron);
-      arm.position.set(ox > 0 ? 0.4 : -0.4, 0, 0);
+      const sign=def.side==='L'?-1:1;
+      stab.position.set(...def.pivot);
+      const arm = new THREE.Mesh(new THREE.BoxGeometry(.16,1.03,.14), this.materials.timber);
+      arm.position.set(sign*.35,-.375,0);arm.rotation.z=sign*43*Math.PI/180;
       stab.add(arm);
+      const foot=new THREE.Mesh(new THREE.CylinderGeometry(.225,.225,.11,12),this.materials.iron);
+      foot.position.set(sign*.71,-.765,0);stab.add(foot);
       this.fallbackGroup.add(stab);
       this.fallbackStabilizers.push(stab);
     }
@@ -217,11 +229,9 @@ export class BiByeLlistaRenderer {
   }
 
   update(timeSec, ballistaData, projectilesData = []) {
+    this.presentationData = ballistaData;
     this.group.visible = Boolean(ballistaData);
     if (!ballistaData) { this.#updateProjectiles([]); return; }
-
-    const dt = Math.max(0.001, Math.min(0.2, this.lastTimeSec > 0 ? timeSec - this.lastTimeSec : 0.016));
-    this.lastTimeSec = timeSec;
 
     // 1. Authoritative World Position & Carriage Heading
     const posX = ballistaData.position?.x ?? ballistaData.x ?? 0;
@@ -231,45 +241,25 @@ export class BiByeLlistaRenderer {
     this.currentMode = ballistaData.mode;
     const wheelTravel = biByeWheelTravel(this.lastWheelPose, { x: posX, z: posZ, heading }, biByeWheelSteering(ballistaData.steer ?? 0));
     this.lastWheelPose = { x: posX, z: posZ, heading };
-    this.wheelAngles = this.wheelAngles.map((angle, index) => angle + wheelTravel[index]);
+    this.wheelAngles = ballistaData.wheelRolls?.length === 6 ? [...ballistaData.wheelRolls] : this.wheelAngles.map((angle, index) => angle + wheelTravel[index]);
 
     this.group.position.set(posX, posY, posZ);
     // Argon's v3 asset faces local +Z. Castleward's forward heading faces -Z.
     // Rotate by heading + PI to perfectly align the model with authoritative movement and projectile trajectories.
     this.group.rotation.y = heading + Math.PI;
 
-    // 2. Kinematic Wheel Locomotion & Steering
-    const dx = this.lastPosition ? posX - this.lastPosition.x : 0;
-    const dz = this.lastPosition ? posZ - this.lastPosition.z : 0;
-    this.lastPosition = { x: posX, z: posZ };
-
-    // Signed travel projection along forward heading vector (-sin(heading), -cos(heading))
-    const headingX = -Math.sin(heading);
-    const headingZ = -Math.cos(heading);
-    const deltaTravel = dx * headingX + dz * headingZ;
-
-    // Roll angle around local +X: deltaTheta = deltaTravel / R_wheel
-    const deltaRoll = deltaTravel / WHEEL_RADIUS;
-    if (Math.hypot(dx, dz) < 3) this.wheelRoll += deltaRoll;
-
-    // Ackermann steering angles around +Y (consistent with heading + PI orientation)
-    const steer = ballistaData.steer ?? 0;
-    const frontSteerYaw = -steer * (18 * Math.PI / 180); // +-18 deg
-    const midSteerYaw = 0; // 0 deg
-    const rearSteerYaw = steer * (10 * Math.PI / 180); // -+10 deg counter-steer
-
     // 3. Update Authored Model or Fallback
     if (this.authoredModel) {
-      this.#updateAuthoredModel(timeSec, dt, ballistaData, frontSteerYaw, midSteerYaw, rearSteerYaw);
+      this.#updateAuthoredModel(timeSec, ballistaData);
     } else if (this.fallbackGroup) {
-      this.#updateFallbackModel(timeSec, ballistaData, frontSteerYaw, midSteerYaw, rearSteerYaw);
+      this.#updateFallbackModel(timeSec, ballistaData);
     }
 
     // 4. Update In-Flight Projectile Visuals
     this.#updateProjectiles(projectilesData);
   }
 
-  #updateAuthoredModel(timeSec, dt, ballistaData, frontSteerYaw, midSteerYaw, rearSteerYaw) {
+  #updateAuthoredModel(timeSec, ballistaData) {
     const mode = ballistaData.mode;
     // Restore the uncomposed animation pose, including on a frozen frame. Mixer
     // bindings cache unchanged values, so resetting to identity would lose recoil.
@@ -280,19 +270,11 @@ export class BiByeLlistaRenderer {
       this.stabilizerAction?.stop();
       this.stabilizerAction = null;
     } else {
-      const retracting = mode === BI_BYE_MODES.RETRACTING;
-      const name = (retracting ? '07_BiBye_Stabilizer_Retract' : '05_BiBye_Stabilizer_Deploy') + '_Outriggers';
-      const next = this.actions.get(name);
+      const next = this.actions.get('05_BiBye_Stabilizer_Deploy_Outriggers');
       if (next !== this.stabilizerAction) {
-        this.stabilizerAction?.stop();
-        this.stabilizerAction = next;
-        next?.reset().play();
+        this.stabilizerAction?.stop();this.stabilizerAction=next;next?.reset().play();
       }
-      if (next) {
-        next.paused = true;
-        const progress = Math.max(0, Math.min(1, ballistaData.deployProgress ?? (mode === BI_BYE_MODES.DEPLOYED ? 1 : 0)));
-        next.time = (retracting ? 1 - progress : progress) * next.getClip().duration;
-      }
+      if(next){next.paused=true;next.time=biByeDeployProgress(ballistaData,timeSec)*next.getClip().duration;}
     }
     this.mixer.update(0);
     for (const [name, pose] of this.jointPose) pose.copy(this.nodes.get(name).quaternion);
@@ -310,65 +292,23 @@ export class BiByeLlistaRenderer {
     if (upperBolt) upperBolt.visible = mode !== BI_BYE_MODES.DESTROYED &&
       (volley ? sample.time < .45 : mobileFire ? sample.time < .2 : reloading ? sample.time >= 4.95 : mobileReload ? sample.time >= 1.3 : Boolean(ballistaData.smallBoltReady));
 
-    // D. Articulate 6 wheels (Euler roll + steering) when not destroyed
-    if (mode !== BI_BYE_MODES.DESTROYED) {
-      const steering = biByeWheelSteering(ballistaData.steer ?? 0);
-      for (const [index, name] of ['FL', 'FR', 'ML', 'MR', 'RL', 'RR'].entries()) {
-        this.nodes.get('Wheel_' + name)?.rotation.set(this.wheelAngles[index], steering[index], 0, 'YXZ');
-      }
-    }
     if (mode === BI_BYE_MODES.DESTROYED) return;
-
-    // E. Turret Articulation (Traverse_Mount, Elevation_Cradle, Upper_Turret_Mount)
-    const traverseMount = this.nodes.get('Traverse_Mount');
-    const elevationCradle = this.nodes.get('Elevation_Cradle');
-    const upperTurretMount = this.nodes.get('Upper_Turret_Mount');
-
-    const heading = ballistaData.heading ?? 0;
-    const aimYaw = ballistaData.yaw ?? heading;
-    const aimPitch = ballistaData.pitch ?? 0;
-
-    // Relative yaw in [-PI, +PI]
-    const relYaw = ((aimYaw - heading) % (2 * Math.PI) + 3 * Math.PI) % (2 * Math.PI) - Math.PI;
-
-    if (mode === BI_BYE_MODES.DEPLOYED || mode === BI_BYE_MODES.DEPLOYING || mode === BI_BYE_MODES.RETRACTING) {
-      // Deployed mode: Traverse_Mount rotates around Y (synchronized with authoritative limits)
-      const yawLimit = BI_BYE_LLISTA_CONFIG.traverse.yawLimit;
-      const pitchMin = BI_BYE_LLISTA_CONFIG.traverse.pitchMin;
-      const pitchMax = BI_BYE_LLISTA_CONFIG.traverse.pitchMax;
-
-      const clampedTraverse = Math.max(-yawLimit, Math.min(yawLimit, relYaw));
-      if (traverseMount) {
-        traverseMount.rotation.set(0, clampedTraverse, 0);
-      }
-
-      // Elevation_Cradle: pitch UP corresponds to negative rotation around local X
-      const clampedPitch = Math.max(pitchMin, Math.min(pitchMax, aimPitch));
-      if (elevationCradle) {
-        elevationCradle.quaternion.premultiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -clampedPitch));
-      }
-
-      // Upper_Turret_Mount rests at (0, 0, 0) and fires in unison with the cradle
-      if (upperTurretMount) {
-        // Keep the authored recoil rotation; no additional mobile aim while deployed.
-      }
-    } else if (mode === BI_BYE_MODES.MOBILE) {
-      // Mobile mode: Traverse_Mount and Elevation_Cradle remain locked at 0
-      if (traverseMount) traverseMount.rotation.set(0, 0, 0);
-      // The sampled cradle retains its authored recoil even if packing during recovery.
-
-      // Upper launcher aims independently (synchronized with mobile limits)
-      const mobileYawLimit = BI_BYE_LLISTA_CONFIG.mobility.traverseMobileMax;
-      const mobilePitchMin = BI_BYE_LLISTA_CONFIG.mobility.pitchMobileMin;
-      const mobilePitchMax = BI_BYE_LLISTA_CONFIG.mobility.pitchMobileMax;
-
-      const clampedUpperYaw = Math.max(-mobileYawLimit, Math.min(mobileYawLimit, relYaw));
-      const clampedUpperPitch = Math.max(mobilePitchMin, Math.min(mobilePitchMax, aimPitch));
-      if (upperTurretMount) {
-        const aim = new THREE.Quaternion().setFromEuler(new THREE.Euler(-clampedUpperPitch, clampedUpperYaw, 0, 'YXZ'));
-        upperTurretMount.quaternion.premultiply(aim);
+    for (const [index, def] of BI_BYE_COMPONENTS.entries()) {
+      const node=this.nodes.get(def.id);if(!node)continue;
+      const p=biByeComponentPose(ballistaData,def,timeSec);
+      node.position.set(...p.pivot);
+      if(def.kind==='wheel')node.rotation.set(this.wheelAngles[index]??0,p.steer,p.tilt,'YZX');
+      else node.rotation.set(0,0,p.tilt);
+      for(const material of this.componentMaterials.get(def.id)??[]){
+        const base=material.userData.baseColor;
+        material.color.copy(base).multiplyScalar(1-.40*p.damage);
+        material.roughness=Math.min(1,material.userData.baseRoughness+.35*p.damage);
       }
     }
+    const pose=biByeAimPose(ballistaData,timeSec);
+    this.nodes.get('Traverse_Mount')?.rotation.set(0,pose.mainYaw,0);
+    this.nodes.get('Elevation_Cradle')?.quaternion.premultiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1,0,0),-pose.mainPitch));
+    this.nodes.get('Upper_Turret_Mount')?.quaternion.premultiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(-pose.upperPitch,pose.upperYaw,0,'YXZ')));
   }
 
   #sampleAction(name, seconds) {
@@ -386,7 +326,11 @@ export class BiByeLlistaRenderer {
 
   getMountedCameraPosition(view, out = new THREE.Vector3()) {
     const node = this.nodes.get(view === 'sight' ? 'mounted_camera_sight' : 'mounted_camera_tpv');
-    return node ? node.getWorldPosition(out) : null;
+    if (!node) return null;
+    if (view === 'sight') return node.getWorldPosition(out);
+    const b = this.presentationData;
+    const yaw = b?.yaw ?? b?.heading ?? 0;
+    return out.set(this.group.position.x + Math.sin(yaw)*6.7, this.group.position.y + 3.8, this.group.position.z + Math.cos(yaw)*6.7);
   }
 
   getMuzzleWorldPosition(subKind, outVec = new THREE.Vector3()) {
@@ -416,12 +360,11 @@ export class BiByeLlistaRenderer {
     return null;
   }
 
-  #updateFallbackModel(timeSec, ballistaData, frontSteerYaw, midSteerYaw, rearSteerYaw) {
-    const deployed = ballistaData.mode !== BI_BYE_MODES.MOBILE;
-    const yaw = Math.atan2(Math.sin(ballistaData.yaw - ballistaData.heading), Math.cos(ballistaData.yaw - ballistaData.heading));
-    this.fallbackTraverse.rotation.y = deployed ? yaw : 0;
-    this.fallbackCradle.rotation.x = deployed ? -ballistaData.pitch : 0;
-    this.fallbackUpper.rotation.set(deployed ? 0 : -ballistaData.pitch, deployed ? 0 : yaw, 0, 'YXZ');
+  #updateFallbackModel(timeSec, ballistaData) {
+    const pose=biByeAimPose(ballistaData,timeSec);
+    this.fallbackTraverse.rotation.y = pose.mainYaw;
+    this.fallbackCradle.rotation.x = -pose.mainPitch;
+    this.fallbackUpper.rotation.set(-pose.upperPitch,pose.upperYaw,0,'YXZ');
     if (ballistaData.mode === BI_BYE_MODES.DESTROYED) {
       this.fallbackCradle.rotation.z = .22;
       this.fallbackUpper.rotation.z = -.35;
@@ -430,16 +373,16 @@ export class BiByeLlistaRenderer {
       this.fallbackUpper.rotation.z = 0;
     }
     if (this.fallbackWheels) {
-      const steers = [frontSteerYaw, frontSteerYaw, midSteerYaw, midSteerYaw, rearSteerYaw, rearSteerYaw];
       this.fallbackWheels.forEach((w, i) => {
-        w.rotation.set(this.wheelAngles[i], steers[i] ?? 0, 0, 'YXZ');
+        const p=biByeComponentPose(ballistaData,BI_BYE_COMPONENTS[i],timeSec);
+        w.position.set(...p.pivot);
+        w.rotation.set(this.wheelAngles[i],p.steer,p.tilt,'YZX');
       });
     }
 
     if (this.fallbackStabilizers) {
-      const deployed = ballistaData.mode === BI_BYE_MODES.DEPLOYED;
-      for (const stab of this.fallbackStabilizers) {
-        stab.rotation.z = deployed ? 0 : 0.8;
+      for (const [i,stab] of this.fallbackStabilizers.entries()) {
+        stab.rotation.z = biByeComponentPose(ballistaData,BI_BYE_COMPONENTS[i+6],timeSec).tilt;
       }
     }
   }

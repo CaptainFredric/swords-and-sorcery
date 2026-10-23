@@ -1,3 +1,4 @@
+import { biByeCondition } from '../../shared/sim/biByeComponents.mjs';
 import { PreparedSpellSelector, preparedSpellView } from './preparedSpellSelector.mjs';
 import { MOVEMENT } from '../../shared/src/movement.mjs';
 import { spellFor } from '../../shared/src/spells.mjs';
@@ -264,7 +265,7 @@ export class TouchControls {
           this.buttons.interact.setAttribute('aria-label', 'Dismount ballista');
         }
         if (this.buttons.deploy) {
-          this.buttons.deploy.hidden = false;
+          this.buttons.deploy.hidden = !biByeCondition(bl).canDeploy;
           const label = this.buttons.deploy.querySelector('span');
           const text = bl?.mode === 'DEPLOYED' ? 'PACK' : 'DEPLOY';
           if (label && label.textContent !== text) label.textContent = text;

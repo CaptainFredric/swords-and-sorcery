@@ -14,3 +14,12 @@ test('mounted controls use rebound keys or touch labels', () => {
   assert.match(desktop.controls, /\[F\] Fire.*\[H\] Deploy.*\[J\] View.*\[K\] Leave/);
   assert.equal(biByeHudView(operator, { bibyeBallista: b }, 0, { touch: true }).controls, 'SIEGE VIEW · ATTACK to fire');
 });
+
+test('mounted HUD names structural faults and makes unsupported siege unavailable', async()=>{
+ const {createBiByeLlista}=await import('../../shared/sim/biByeLlista.mjs');
+ const b=createBiByeLlista();b.position={x:0,y:0,z:0};b.smallBoltReady=true;
+ for(const id of ['Wheel_FL','Wheel_RL','Stabilizer_FL','Stabilizer_RR'])b.components[id].health=0;
+ const hud=biByeHudView({...local,operatingBallistaId:b.id},{bibyeBallista:b},0);
+ assert.match(hud.status,/IMMOBILIZED/);assert.match(hud.status,/SUPPORTS DISABLED/);
+ assert.doesNotMatch(hud.controls,/\] Deploy/);assert.match(hud.status,/Shot I ready/);
+});

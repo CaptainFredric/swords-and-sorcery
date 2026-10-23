@@ -1,3 +1,4 @@
+import { orientedBoxHit } from './orientedBox.mjs';
 // The sword as a blade in the world. Each strike swings a real blade (a segment from the sword hand out to the tip,
 // with a little thickness) through its arc in the attacker's view: the forehand from high on the right down across to
 // the left, the backhand back the other way, the third straight down from above the aim to below it. Wherever it is,
@@ -138,6 +139,7 @@ function bladeSegment(eye, direction, blade) {
 
 // a segment against a box grown by `grow` all round: the fraction along the segment where it enters, or null
 function segmentBox(start, end, box, grow) {
+  if (box.axes) return orientedBoxHit([start.x,start.y,start.z], [end.x,end.y,end.z], box, grow);
   const min = [box.center[0] - box.size[0] / 2 - grow, box.center[1] - box.size[1] / 2 - grow, box.center[2] - box.size[2] / 2 - grow];
   const max = [box.center[0] + box.size[0] / 2 + grow, box.center[1] + box.size[1] / 2 + grow, box.center[2] + box.size[2] / 2 + grow];
   const s = [start.x, start.y, start.z];

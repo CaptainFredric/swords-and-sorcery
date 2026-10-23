@@ -1,5 +1,7 @@
 # BiBye v3.2 integration evidence
 
+This records the initial PR candidate at `5f5fa6c`. See the [current refinement evidence](../bibye-refinement/README.md) for corrected geometry, component durability, audio and current verification.
+
 This pass uses the real Castleward runtime and normal keyboard, mouse, Pointer Lock and browser touch events. It never replaces input methods, injects rendered snapshots, manufactures hits or invokes a damage fixture. State readback and event listeners observe the real simulation.
 
 ## Result

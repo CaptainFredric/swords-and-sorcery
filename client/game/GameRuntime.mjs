@@ -1,4 +1,5 @@
-import { getBiByeMuzzlePosition } from '../../shared/sim/biByeLlista.mjs';
+import { BiByeSound } from './sound/BiByeSound.mjs';
+import { getBiByeMuzzlePosition, getBiByeMuzzleDirection } from '../../shared/sim/biByeLlista.mjs';
 import { combatActionPolicy, combatBlocksSprint } from '../../shared/src/combatActionPolicy.mjs';
 import { heldActions } from '../../shared/src/heldActions.mjs';
 import * as THREE from 'three';
@@ -108,6 +109,7 @@ export class GameRuntime {
     this.socket = socket;
     this.hud = hud;
     this.sound = sound;
+    this.siegeSound = new BiByeSound(sound);
     this.voice = voice;
     // the score (for its stingers: my Spells & Chivalry taken up)
     this.music = music;
@@ -537,7 +539,7 @@ export class GameRuntime {
 
   setPlaying(playing, { preservePointerLock = false } = {}) {
     this.playing = Boolean(playing) && !this.worldError;
-    if (!this.playing) this.#applyWeaponRelease({ attack: true, guard: true });
+    if (!this.playing) {this.#applyWeaponRelease({ attack: true, guard: true });this.siegeSound.stop();}
     if (!this.playing && !preservePointerLock) this.input.releaseFocus();
   }
 
@@ -632,6 +634,11 @@ export class GameRuntime {
 
   onEvents(events) {
     for (const event of events) {
+      this.siegeSound.event(event,this.latestSnapshot?.bibyeBallista,this.socket.serverNow());
+      if(event.type === "bibyeDamaged" && event.point) {
+        if(event.componentId?.startsWith("Stabilizer")) this.effects.wallClang(event.point);
+        else this.effects.splinters?.(event.point);
+      }
       this.teamVoiceEvents.onEvent(event);
       this.remotePlayers.onEvent(event, this.latestSnapshot);
       this.#applyWeaponRelease(localWeaponReleaseForEvent(event, this.socket.playerId, this.localAuth, event.at ?? this.socket.serverNow()));
@@ -2008,17 +2015,19 @@ export class GameRuntime {
       if (!locator) {
         // The same exported locator offsets provide a usable view during asset load/failure.
         const sight = this.siegeView === 'sight';
-        const back = sight ? 1.45 : 4.8;
-        target.set(b.position.x + Math.sin(b.yaw) * back, b.position.y + (sight ? 2.18 : 3.65), b.position.z + Math.cos(b.yaw) * back);
+        const back = sight ? 1.45 : 6.7;
+        target.set(b.position.x + Math.sin(b.yaw) * back, b.position.y + (sight ? 2.18 : 3.8), b.position.z + Math.cos(b.yaw) * back);
       }
-      const kind = b.mode === 'MOBILE' ? 'conditioning' : 'siege';
+      const kind = b.mode === 'DEPLOYED' ? 'siege' : 'conditioning';
       if (this.siegeView === 'third') {
         const anchor = [b.position.x, b.position.y + 2.18, b.position.z];
         target.set(...clip(this.#reach, anchor, target.toArray(), .25));
       }
-      const muzzle = getBiByeMuzzlePosition({ ...b, ...b.position }, kind);
-      const direction = new THREE.Vector3(-Math.sin(b.yaw) * Math.cos(b.pitch), Math.sin(b.pitch), -Math.cos(b.yaw) * Math.cos(b.pitch));
-      const point = new THREE.Vector3(muzzle.x, muzzle.y, muzzle.z).addScaledVector(direction, 60);
+      const rendered = this.world?.biByeLlista?.presentationData ?? b;
+      const muzzle = getBiByeMuzzlePosition({ ...rendered, ...rendered.position }, kind);
+      const axis = getBiByeMuzzleDirection({...rendered,...rendered.position},kind);
+      const direction = new THREE.Vector3(axis.x,axis.y,axis.z);
+      const point = new THREE.Vector3(muzzle.x, muzzle.y, muzzle.z).addScaledVector(direction, this.siegeView === 'third' ? 30 : 60);
       const matrix = new THREE.Matrix4().lookAt(target, point, new THREE.Vector3(0, 1, 0));
       rotation.setFromRotationMatrix(matrix);
     }
@@ -2036,6 +2045,7 @@ export class GameRuntime {
     if (this.socket.playingLocally) nowMs = this.presentationNow();
     // Keep drawing the exact same scene. A single authoritative step advances this clock once.
     if (this.socket.inspectionFrozen && nowMs <= this.lastFrameAt) {
+      this.siegeSound.stop();
       this.#renderView();
       requestAnimationFrame(t => this.#frame(t));
       return;
@@ -2237,7 +2247,8 @@ export class GameRuntime {
     this.remotePlayers.update(nowMs, dt);
     this.#showAfflictions(dt);
     this.world?.setObjectiveState?.(this.latestSnapshot?.objective ?? null, this.localAuth?.team ?? null, this.socket.serverNow());
-    this.world?.setBiByeState?.(this.latestSnapshot, this.socket.serverNow());
+    this.siegeSound.update(this.latestSnapshot?.bibyeBallista,{active:this.playing && this.input.enabled && !this.socket.inspectionFrozen,playerId:this.socket.playerId,listener:this.localState?.position??this.localAuth?.position,yaw:this.input.yaw,now:this.socket.serverNow()});
+    this.world?.setBiByeState?.(this.latestSnapshot, this.socket.serverNow(), {local:this.socket.playingLocally,frozen:this.socket.inspectionFrozen});
     this.world?.update?.(timeSec, this.camera);
     this.#mountedView(dt);
     this.#followGusts();
@@ -2352,6 +2363,7 @@ export class GameRuntime {
 
   dispose() {
     this.running = false;
+    this.siegeSound.dispose();
     clearTimeout(this.appealCut);
     if (this.voice?.onSpoken === this.subtitleHook) this.voice.onSpoken = null;
     if (this.voice?.onCut === this.captionCut) this.voice.onCut = null;

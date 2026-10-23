@@ -353,6 +353,9 @@ export class Effects {
   }
 
   /** Splinters and dust knocked off timber by a blade. */
+  splinters(point) {
+    for (let i=0;i<this.#many(4);i++) this.#dust(point,{size:.55,rise:.5,life:.45,color:0x8a6237});
+  }
   // a puff of dust off the ground, drifting up and spreading as it thins
   // (velocity: where it is thrown, if not straight up)
   #dust(point, { size = 1, rise = 0.8, life = 0.6, color = 0x9a8a72, velocity = null } = {}) {

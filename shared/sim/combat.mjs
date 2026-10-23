@@ -1,3 +1,4 @@
+import { biByeHitVolumes, biByeFirstHit } from './biByeComponents.mjs';
 import {
   DAMAGE_LEVELS, GAME, HEALTH_REGEN, MAX_FORCE, MELEE_CONTACT, SWORD_CHAIN, SWORD_STRIKE_TIMES, closingImpact, guardProfile, nextChainStep,
   resolveSwordVsGuard, swordDamage, swordDamageFor, swordForce,
@@ -28,7 +29,7 @@ import { chooseSpawn } from './spawns.mjs';
 import { recordTransform, sampleTransform } from './history.mjs';
 import { TEAMS, areAllies, areEnemies } from '../src/teams.mjs';
 import { stepObjectives } from './objectives.mjs';
-import { stepBiByeLlista, stepBiByeProjectiles, dismountBiByeLlista, damageBiByeLlista, getBiByeSolids } from './biByeLlista.mjs';
+import { stepBiByeLlista, stepBiByeProjectiles, dismountBiByeLlista, damageBiByeLlista, blastBiByeLlista, getBiByeSolids } from './biByeLlista.mjs';
 import { WORLD_IDS } from '../worlds/registry.mjs';
 import { bastionBreachForObjective } from '../worlds/bastionBreach.mjs';
 
@@ -753,7 +754,7 @@ function sweepStrike(room, player, nowSec, world) {
   if (!live) return;
   const window = strikeWindow(player, live.strike, live.slam);
   const until = Math.min(nowSec, window.to);
-  const solids = world.solids ?? [];
+  const solids = [...(world.solids ?? []), ...biByeHitVolumes(room.biByeLlista, nowSec)];
   const blade = live.slam ? SLAM_STRIKE : live.strike;
   while (player.attackSweep === live && live.sampledTo < until - 1e-9) {
     const at = Math.min(until, nextSample(window, live.sampledTo));
@@ -792,6 +793,10 @@ function sweepStrike(room, player, nowSec, world) {
     }
     if (met?.kind === 'solid') {
       player.attackSweep = null;
+      if (met.solid.componentId) {
+        const quality = aimQuality(Math.acos(Math.max(-1,Math.min(1,met.direction.x*frame.forward.x+met.direction.y*frame.forward.y+met.direction.z*frame.forward.z))) * 180/Math.PI);
+        damageBiByeLlista(room,room.biByeLlista,swordDamage({quality,level:live.ruptures?DAMAGE_LEVELS.elevated:DAMAGE_LEVELS.normal}),player.id,'sword',nowSec,{componentId:met.solid.componentId,point:met.point,material:met.solid.material});
+      }
       // a snag: the blade caught on some small incidental furnishing as it came round, not driven at it (SNAG)
       const offAim = Math.acos(Math.max(-1, Math.min(1, met.direction.x * frame.forward.x + met.direction.y * frame.forward.y + met.direction.z * frame.forward.z))) * 180 / Math.PI;
       const snag = Boolean(met.solid.incidental) && offAim >= SNAG.offAimDeg;
@@ -1359,7 +1364,7 @@ function blowGale(room, player, nowSec, world, dt = 0) {
 }
 
 // the blast: damage by distance, a shove away from its heart, then what the spell leaves behind (a burn, a chill)
-function explodeSpell(room, projectile, point, nowSec, worldHit = false, directVictimId = null) {
+function explodeSpell(room, projectile, point, nowSec, worldHit = false, directVictimId = null, directComponent = null) {
   room.projectiles.delete(projectile.id);
   const spell = spellFor(projectile.spell);
   // fire throws a body back; cold only staggers it a little (and an ember is a small fire)
@@ -1404,14 +1409,10 @@ function explodeSpell(room, projectile, point, nowSec, worldHit = false, directV
       if (player.chill === chill) room.events.push({ type: 'chilled', playerId: player.id, by: projectile.ownerId, spell: spell.id, slow: chill.slow, until: chill.until, at: nowSec });
     }
   }
-  if (room.biByeLlista && room.biByeLlista.mode !== 'DESTROYED') {
-    const bl = room.biByeLlista;
-    const dist = Math.hypot(bl.x - point.x, (bl.y + 0.8) - point.y, bl.z - point.z);
-    if (dist <= spell.radius + 1.5) {
-      const exposure = Math.max(0, 1 - dist / (spell.radius + 1.5));
-      const dmg = Math.round(spell.directDamage * exposure);
-      if (dmg > 0) damageBiByeLlista(room, bl, dmg, projectile.ownerId, spell.id, nowSec);
-    }
+  if (directComponent) {
+    damageBiByeLlista(room,room.biByeLlista,spell.directDamage,projectile.ownerId,spell.id,nowSec,{componentId:directComponent,point});
+  } else {
+    blastBiByeLlista(room,room.biByeLlista,{point,radius:spell.radius,damage:spell.directDamage},projectile.ownerId,spell.id,nowSec,room.world?.solids ?? []);
   }
 
   room.events.push({
@@ -1441,38 +1442,34 @@ function stepProjectiles(room, dt, nowSec, world) {
       y: before.y + projectile.velocity.y * dt,
       z: before.z + projectile.velocity.z * dt,
     };
-    let nearestWorld = null;
+    const hits = [];
+    const a=[before.x,before.y,before.z],b=[after.x,after.y,after.z];
     for (const box of world.solids ?? []) {
-      const hit = segmentAabbHit([before.x, before.y, before.z], [after.x, after.y, after.z], box);
-      if (hit && (!nearestWorld || hit.t < nearestWorld.t)) nearestWorld = hit;
+      if (String(box.id??'').startsWith('bibye-')) continue;
+      const hit=segmentAabbHit(a,b,box);if(hit)hits.push({...hit,kind:'world'});
     }
-    if (nearestWorld) {
-      explodeSpell(room, projectile, { x: nearestWorld.point[0], y: nearestWorld.point[1], z: nearestWorld.point[2] }, nowSec, true);
-      continue;
+    const machine=biByeFirstHit(room.biByeLlista,a,b,nowSec);
+    if(machine)hits.push({...machine,kind:'machine'});
+    const ground=surfaceHeightAt(after.x,after.z,before.y,world);
+    if(ground!==null&&after.y<=ground&&before.y>ground){
+      const t=(before.y-ground)/(before.y-after.y);
+      hits.push({t,kind:'world',point:[before.x+(after.x-before.x)*t,ground+.05,before.z+(after.z-before.z)*t]});
     }
-    // a spell thrown at the ground (at someone's feet) bursts where it meets it, instead of sinking through
-    const ground = surfaceHeightAt(after.x, after.z, before.y, world);
-    if (ground !== null && after.y <= ground && before.y > ground) {
-      const t = (before.y - ground) / (before.y - after.y);
-      explodeSpell(room, projectile, {
-        x: before.x + (after.x - before.x) * t,
-        y: ground + 0.05,
-        z: before.z + (after.z - before.z) * t,
-      }, nowSec, true);
-      continue;
+    for(const target of room.players.values()){
+      if(!target.alive||target.id===projectile.ownerId||target.spawnProtectionUntil>nowSec||areAllies(room,projectile.ownerId,target.id))continue;
+      // Preserve the existing ordinary spell body shape and endpoint eligibility.
+      const center=playerCenter(target),radius=Math.min(.75,postureOf(target).height/2);
+      if(Math.hypot(center.x-after.x,center.y-after.y,center.z-after.z)>=radius)continue;
+      const d={x:after.x-before.x,y:after.y-before.y,z:after.z-before.z};
+      const o={x:before.x-center.x,y:before.y-center.y,z:before.z-center.z};
+      const A=d.x*d.x+d.y*d.y+d.z*d.z,B=2*(o.x*d.x+o.y*d.y+o.z*d.z),C=o.x*o.x+o.y*o.y+o.z*o.z-radius*radius;
+      const t=C<=0?0:Math.max(0,Math.min(1,(-B-Math.sqrt(Math.max(0,B*B-4*A*C)))/(2*A||1)));
+      hits.push({t,point:[before.x+d.x*t,before.y+d.y*t,before.z+d.z*t],kind:'player',player:target});
     }
-
-    let direct = null;
-    for (const target of room.players.values()) {
-      if (!target.alive || target.id === projectile.ownerId || target.spawnProtectionUntil > nowSec || areAllies(room, projectile.ownerId, target.id)) continue;
-      // (the body as a ball about its middle: a crouched one is smaller, and a spell can fly over it)
-      const c = playerCenter(target);
-      const d = Math.hypot(c.x - after.x, c.y - after.y, c.z - after.z);
-      if (d < Math.min(0.75, postureOf(target).height / 2)) { direct = target; break; }
-    }
-    if (direct) {
-      projectile.position = after;
-      explodeSpell(room, projectile, after, nowSec, false, direct.id);
+    hits.sort((a,b)=>a.t-b.t);
+    if(hits.length){
+      const hit=hits[0],point={x:hit.point[0],y:hit.point[1],z:hit.point[2]};
+      explodeSpell(room,projectile,point,nowSec,hit.kind!=='player',hit.player?.id??null,hit.kind==='machine'?hit.box.componentId:null);
       continue;
     }
 
@@ -1877,7 +1874,7 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
   }
 
   markTornGround(room);
-  const biByeSolids = (room.biByeLlista && room.biByeLlista.mode !== 'DESTROYED') ? getBiByeSolids(room.biByeLlista) : [];
+  const biByeSolids = getBiByeSolids(room.biByeLlista);
   const effectiveWorld = biByeSolids.length > 0 ? { ...world, solids: [...(world.solids ?? []), ...biByeSolids] } : world;
 
   for (const player of room.players.values()) {
@@ -2066,7 +2063,7 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
   stepRuptures(room, nowSec);
   // bodies do not share space: overlapping Spellblades are eased apart (never off a ledge or into a wall)
   separatePlayers([...room.players.values()].filter((p) => !p.operatingBallistaId), effectiveWorld);
-  stepProjectiles(room, dt, nowSec, effectiveWorld);
+  stepProjectiles(room, dt, nowSec, world);
   if (room.biByeLlista) {
     stepBiByeLlista(room, room.biByeLlista, dt, nowSec);
     stepBiByeProjectiles(room, dt, nowSec, world);

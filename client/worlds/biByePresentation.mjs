@@ -18,23 +18,4 @@ export function biByeAnimation(b, now) {
   return { name: b.mode === 'DEPLOYED' ? '01_BiBye_LoadedIdle' : '06_BiBye_Travel_Ready', time: 0 };
 }
 
-export function biByeWheelSteering(steer) {
-  if (Math.abs(steer) < .001) return [0, 0, 0, 0, 0, 0];
-  // Preserve the authored 18 / 10 degree front/rear steering geometry, with
-  // distinct inner and outer angles for the shared 4.25 m turning circle.
-  const radius = CONFIG.mobility.minTurningRadius / Math.abs(steer);
-  const side = Math.sign(steer);
-  const angle = (degrees, x) => Math.atan(Math.tan(degrees * Math.PI / 180) * radius / (radius - side * x)) * side;
-  return [-angle(18, -1.075), -angle(18, 1.075), 0, 0, angle(10, -1.075), angle(10, 1.075)];
-}
-
-export function biByeWheelTravel(previous, current, steering) {
-  if (!previous || Math.hypot(current.x - previous.x, current.z - previous.z) > 3) return [0, 0, 0, 0, 0, 0];
-  const point = (pose, x, z) => [pose.x - Math.cos(pose.heading) * x - Math.sin(pose.heading) * z,
-    pose.z + Math.sin(pose.heading) * x - Math.cos(pose.heading) * z];
-  return [[-1.075, 1.2], [1.075, 1.2], [-1.075, -.34], [1.075, -.34], [-1.075, -1.715], [1.075, -1.715]].map(([x, z], index) => {
-    const a = point(previous, x, z), b = point(current, x, z);
-    const yaw = current.heading + steering[index];
-    return (-(b[0] - a[0]) * Math.sin(yaw) - (b[1] - a[1]) * Math.cos(yaw)) / CONFIG.mobility.wheelRadius;
-  });
-}
+export { biByeWheelSteering, biByeWheelTravel } from '../../shared/sim/biByeComponents.mjs';

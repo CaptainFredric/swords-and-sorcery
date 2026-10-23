@@ -1,3 +1,4 @@
+import { BiByeMotion } from './biByeMotion.mjs';
 import * as THREE from 'three';
 import { CASTLEWARD } from '../../shared/worlds/castleward.mjs';
 import { BiByeLlistaRenderer } from './BiByeLlistaRenderer.mjs';
@@ -44,6 +45,7 @@ export class CastlewardRenderer {
     scene.add(this.group);
     this.biByeLlista = new BiByeLlistaRenderer(scene);
     this.biByeLlistaData = null;
+    this.biByeMotion = new BiByeMotion();
     this.biByeProjectilesData = [];
     this.#build();
   }
@@ -446,7 +448,9 @@ export class CastlewardRenderer {
     this.group.add(sky);
   }
 
-  setBiByeState(snapshot, serverNow = snapshot?.serverTime) {
+  setBiByeState(snapshot, serverNow = snapshot?.serverTime, options = {}) {
+    this.biByePresentationOptions = options;
+    this.biByeMotion.push(snapshot?.bibyeBallista ?? null, snapshot?.bibyeProjectiles ?? [], snapshot?.serverTime ?? serverNow);
     this.biByeLlistaData = snapshot?.bibyeBallista ?? null;
     this.biByeProjectilesData = snapshot?.bibyeProjectiles ?? [];
     this.biByeServerTime = serverNow;
@@ -466,7 +470,8 @@ export class CastlewardRenderer {
     for (const cloth of this.banners) cloth.rotation.x = -0.05 * (0.5 + 0.5 * Math.sin(timeSec * 1.2 + cloth.userData.phase));
     for (const rune of this.runes) rune.material.emissiveIntensity = 0.75 + Math.sin(timeSec * 1.4) * 0.2;
     if (camera && this.sky) this.sky.position.copy(camera.position);
-    this.biByeLlista?.update(this.biByeServerTime ?? timeSec, this.biByeLlistaData, this.biByeProjectilesData);
+    const view = this.biByeMotion.sample(this.biByeServerTime ?? timeSec, this.biByePresentationOptions?.local, this.biByePresentationOptions?.frozen);
+    this.biByeLlista?.update(view.clock, view.ballista, view.projectiles);
   }
 
   dispose() {
