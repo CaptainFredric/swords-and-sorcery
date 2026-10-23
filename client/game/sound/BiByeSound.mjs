@@ -17,6 +17,9 @@ export function biByeRecipe(kind,rand=Math.random){
   failure:[...wood,noise(1200,.18,.28),...ticks(5,.07,1700,.16),thud(70,.45,.55,.06)],
   wreck:[noise(380,.65,.62),noise(1700,.3,.3),thud(58,.8,.8),...ticks(7,.09,1300,.18)],
   creak:[noise(260,.28,.13,0,'bandpass',5),noise(380,.21,.10,.06,'bandpass',7)],
+  latch:[noise(2200,.025,.21),thud(240,.08,.25)],
+  delay:[noise(2800,.02,.13),ring(rand,580,{decay:.15,gain:.035,partials:2})],
+  release:[noise(1500,.04,.17),thud(180,.06,.13)],
   frost:[noise(2300,.3,.33),noise(5400,.12,.12),ring(rand,1100,{decay:.38,gain:.055,partials:3})],
   siegeImpact:[...wood,noise(2200,.09,.38),thud(72,.35,.55)],
  };
@@ -54,11 +57,16 @@ export class BiByeSound {
  update(b,options){
   const last=this.last;this.options=options;
   if(last&&(last.operatorId!==b?.operatorId||last.id!==b?.id||options.now<this.lastTime))this.stop();
+  if(last&&(last.id!==b?.id||options.now<this.lastTime))this.seen.clear();
   this.lastTime=options.now;
   this.active=Boolean(options.active&&b&&this.engine?.running&&!this.engine?.muted);
   if(!this.active){this.stop();this.last=b;return;}
   const owned=Boolean(b.operatorId)&&b.mode!=='DESTROYED',moving=owned&&Math.abs(b.speed??0)>.04;
   this.#loop('roll',moving,b,.30,Math.max(.4,Math.abs(b.speed??0)/3.2));
+  const elapsed=Math.max(.001,options.now-(this.poseAt??options.now));
+  const turn=last ? Math.abs(Math.atan2(Math.sin((b.upperYaw??b.yaw)-(last.upperYaw??last.yaw)),Math.cos((b.upperYaw??b.yaw)-(last.upperYaw??last.yaw))))/elapsed : 0;
+  this.#loop('turn',owned&&turn>.035,b,Math.min(.16,turn*.12),Math.max(.6,Math.min(1.4,turn/.8)));
+  this.poseAt=options.now;
   const recock=b.mobileFiredAt!=null&&options.now>b.mobileFiredAt+.85&&options.now<b.smallBoltReadyAt;
   this.#loop('winch',owned&&(b.state==='RELOADING'||recock),b,.25);
   if(last?.mode!==b.mode){if(b.mode==='DEPLOYING')this.#play('deploy',b);if(b.mode==='RETRACTING')this.#play('retract',b);}
@@ -73,6 +81,9 @@ export class BiByeSound {
   let kind=null;
   if(event.type==='bibyeFired'){kind=event.shot==='II'?'shotII':'shotI';this.settleAt=event.at+(event.shot==='II'?.45:.3);}
   if(event.type==='bibyeReloadCompleted')kind='catch';
+  if(event.type==='bibyeCouplingEngaged')kind='latch';
+  if(event.type==='bibyeHeavyDelayTripped')kind='delay';
+  if(event.type==='bibyeCouplingReleased')kind='release';
   if(event.type==='bibyeModeChanged')kind='catch';
   if(event.type==='bibyeDamaged'&&event.source!=='sword')kind=event.componentId?.startsWith('Wheel')?'wheel':event.componentId?.startsWith('Stabilizer')?'stabilizer':event.material==='metal'?'metal':'wood';
   if(event.type==='bibyeComponentFailed')kind='failure';

@@ -24,13 +24,21 @@ export function biByeDeployProgress(b,now=b.poseTime??0){
  return 0;
 }
 export function biByeAimPose(b,now=b.poseTime??0){
- const heading=b.heading??0,rel=Math.atan2(Math.sin((b.yaw??heading)-heading),Math.cos((b.yaw??heading)-heading));
- let yaw=b.mode==='MOBILE'?0:rel,pitch=b.mode==='MOBILE'?0:(b.pitch??0);
+ const heading=b.heading??0,main=b.mainYaw??b.yaw??heading;
+ const rel=Math.atan2(Math.sin(main-heading),Math.cos(main-heading));
+ let yaw=b.mode==='MOBILE'?0:rel,pitch=b.mode==='MOBILE'?0:(b.mainPitch??b.pitch??0);
  if(b.mode==='RETRACTING'){
   const t=clamp((now-b.modeTransitionStartedAt)/Math.max(.001,b.modeTransitionEndsAt-b.modeTransitionStartedAt));
   yaw=(b.retractAim?.yaw??rel)*(1-t);pitch=(b.retractAim?.pitch??pitch)*(1-t);
  }
- return {mainYaw:yaw,mainPitch:pitch,upperYaw:rel-yaw,upperPitch:(b.pitch??0)-pitch};
+ if(b.upperYaw==null)return {mainYaw:yaw,mainPitch:pitch,upperYaw:Math.atan2(Math.sin((b.yaw??heading)-heading),Math.cos((b.yaw??heading)-heading))-yaw,upperPitch:(b.pitch??0)-pitch};
+ // Inverse the actual cradle basis instead of subtracting Euler angles. This
+ // keeps rear/side upper aim level even while the lower launcher is elevated.
+ const root=frame([0,0,0],[heading+Math.PI,0,0]);
+ const traverse=frame([0,0,0],[yaw,0,0],root),cradle=frame([0,0,0],[0,-pitch,0],traverse);
+ const wy=b.upperYaw,wp=b.upperPitch??0,dir=[-Math.sin(wy)*Math.cos(wp),Math.sin(wp),-Math.cos(wy)*Math.cos(wp)];
+ const local=cradle.axes.map(axis=>axis.reduce((n,v,i)=>n+v*dir[i],0));
+ return {mainYaw:yaw,mainPitch:pitch,upperYaw:Math.atan2(local[0],local[2]),upperPitch:Math.asin(clamp(local[1],-1,1))};
 }
 export function biByeWheelSteering(steer){
  if(Math.abs(steer)<.001)return [0,0,0,0,0,0];
@@ -72,7 +80,7 @@ export function biByeFrames(b,now=b.poseTime??0){
 export function biByeHitVolumes(b,now=b.poseTime??0){
  if(!b)return [];
  const {root,traverse,cradle,upper}=biByeFrames(b,now),result=[];
- const add=(componentId,material,center,size,parent,rotation=[0,0,0])=>result.push({...frame(center,rotation,parent),size,id:'bibye-hit-'+componentId+'-'+result.length,componentId,material,kind:'siege-component'});
+ const add=(componentId,material,center,size,parent,rotation=[0,0,0],assembly=parent===upper?'upper':parent===cradle?'main':'carriage')=>result.push({...frame(center,rotation,parent),size,assembly,id:'bibye-hit-'+componentId+'-'+result.length,componentId,material,kind:'siege-component'});
  add('hull','timber',[0,.68,-.28],[1.62,1.16,3.85],root);
  if(b.mode==='DESTROYED'){result[0].center=boxWorld(root,[0,.65,0]);result[0].size=[2.46,1.3,3.985];return result;}
  // Small volumes cover actual stocks and mantlets rather than the empty bow span.
@@ -82,9 +90,9 @@ export function biByeHitVolumes(b,now=b.poseTime??0){
   add('hull','metal',[0,.16,.03],[.55,.32,1.6],upper);
   for(const sign of [-1,1]){
    const mainLimb=frame([sign*.88,.18,1.04],[sign*25*DEG,0,0],cradle);
-   add('hull','timber',[sign*.84,0,-.02],[1.98,.44,.48],mainLimb);
+   add('hull','timber',[sign*.84,0,-.02],[1.98,.44,.48],mainLimb,[0,0,0],'main');
    const upperLimb=frame([sign*.3,.22,.26],[sign*25*DEG,0,0],upper);
-   add('hull','metal',[sign*.436,0,-.025],[1.03,.23,.27],upperLimb);
+   add('hull','metal',[sign*.436,0,-.025],[1.03,.23,.27],upperLimb,[0,0,0],'upper');
   }
   add('hull','metal',[0,.18,-1.38],[1.98,.71,.44],traverse);
  }
@@ -100,9 +108,10 @@ export function biByeHitVolumes(b,now=b.poseTime??0){
  }
  return result;
 }
-export function biByeFirstHit(b,start,end,now=b.poseTime??0,grow=0){
+export function biByeFirstHit(b,start,end,now=b.poseTime??0,grow=0,ignoreAssembly=null){
  let best=null;
  for(const box of biByeHitVolumes(b,now)){
+  if(box.assembly===ignoreAssembly)continue;
   const h=orientedBoxHit(start,end,box,grow);if(h&&(!best||h.t<best.t))best=h;
  }return best;
 }

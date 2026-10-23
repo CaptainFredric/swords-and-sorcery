@@ -13,6 +13,7 @@ const PRESS = {
   ultimate: (input) => input.ultimate(),
   interact: (input) => input.interact(),
   deploy: (input) => input.deploy(),
+  siegeWeapon: (input) => input.siegeWeapon(),
   scoreboard: (input) => { input.scoreboardHeld = true; },
 };
 const RELEASE = {
@@ -447,6 +448,10 @@ export class InputController {
   deploy() {
     if (!this.enabled) return;
     this.socket?.send?.({ type: 'bibyeToggleDeploy' });
+  }
+
+  siegeWeapon() {
+    if (this.enabled) this.socket?.send?.({ type: 'bibyeWeaponFocus' });
   }
 
   movement() {

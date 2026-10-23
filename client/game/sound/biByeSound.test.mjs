@@ -40,3 +40,8 @@ test('mechanical recipes remain bounded and differentiated with separate wood, m
  const a=biByeLoopSamples('roll',22050,2,()=>.6),b=biByeLoopSamples('winch',22050,2,()=>.6);
  assert.equal(a.length,44100);assert.ok(a.every(Number.isFinite));assert.ok(Math.max(...a.map(Math.abs))<1);assert.notDeepEqual(a,b);
 });
+test('coupling latch, delay trip and release sound once per authoritative transition',()=>{
+ const {audio,heard}=setup();audio.update(machine,opt);
+ for(const type of ['bibyeCouplingEngaged','bibyeHeavyDelayTripped','bibyeCouplingReleased'])for(let i=0;i<2;i++)audio.event({type,ballistaId:'b',at:1},machine,1);
+ for(const kind of ['latch','delay','release'])assert.equal(heard.filter(x=>x.recipe?.tag===kind).length,1);
+});

@@ -11,15 +11,18 @@ export function biByeHudView(local, snapshot, now, { bindings = registry.default
     return { title: 'BI-BYE-LLISTA', status: touch ? 'Tap MOUNT to operate' : `[${key('interact')}] Operate`, controls: '' };
   }
   const condition = biByeCondition(b);
+  const upperReady = b.smallBoltReady ?? (now >= (b.smallBoltReadyAt ?? 0) && !b.upperPending);
+  const upper = upperReady ? 'Shot I ready' : b.upperPending ? 'Shot I releasing' : `Shot I ${Math.max(0,(b.smallBoltReadyAt??now)-now).toFixed(1)}s`;
+  const heavy = b.mainBoltLoaded !== false ? 'II ready' : `II ${Math.max(0,(b.reloadEndsAt??now)-now).toFixed(1)}s`;
+  const coupling = b.coupling === 'ALIGNING' ? `Aligning ${Math.round((b.couplingProgress??0)*100)}%`
+    : b.coupling === 'ENGAGING' ? 'Engaging latch' : b.coupling === 'FIRING' ? 'Volley committed' : '';
   let status = b.mode === 'DEPLOYING' ? 'Deploying outriggers' : b.mode === 'RETRACTING' ? 'Packing outriggers'
-    : b.state === 'FIRING' ? 'Volley committed' : b.state === 'SPENT' ? 'Recoil recovery'
-      : b.state === 'RELOADING' ? `Reloading · ${Math.max(0, (b.reloadEndsAt ?? now) - now).toFixed(1)}s`
-        : b.smallBoltReady ? (b.mode === 'DEPLOYED' ? 'Both bolts ready' : 'Shot I ready')
-          : `Shot I recocking · ${Math.max(0, (b.smallBoltReadyAt ?? now) - now).toFixed(1)}s`;
+    : [upper,b.mode === 'DEPLOYED' || b.mainBoltLoaded === false ? heavy : '',coupling].filter(Boolean).join(' · ');
   const faults = [!condition.canDrive ? "IMMOBILIZED" : condition.failedWheels ? "DRIVE IMPAIRED" : "", !condition.canDeploy ? "SUPPORTS DISABLED" : condition.failedStabilizers ? "SUPPORT DAMAGED" : ""].filter(Boolean);
   if (faults.length) status += " · " + faults.join(" · ");
   const deployment = condition.canDeploy ? `[${key('deploy')}] ${b.mode === 'DEPLOYED' ? 'Pack' : 'Deploy'} · ` : "";
+  const focus = b.mode === 'DEPLOYED' ? `[${key('siegeWeapon')}] ${b.weaponFocus === 'MAIN' ? 'Upper / cancel' : 'Main'} · ` : '';
   const controls = touch ? `${view === 'sight' ? 'SIGHT' : 'SIEGE VIEW'} · ATTACK to fire`
-    : `[${key('attack')}] Fire · ${deployment}[${key('siegeView')}] View · [${key('interact')}] Leave`;
-  return { title: `BI-BYE-LLISTA · ${b.health}/${b.maxHealth} · ${b.mode === 'MOBILE' ? 'MOBILE' : 'SIEGE'}`, status, controls };
+    : `[${key('attack')}] Fire · ${deployment}${focus}[${key('siegeView')}] View · [${key('interact')}] Leave`;
+  return { title: `BI-BYE-LLISTA · ${b.health}/${b.maxHealth} · ${b.mode === 'MOBILE' ? 'MOBILE · UPPER' : b.weaponFocus === 'UPPER' ? 'UPPER / INDEPENDENT' : 'MAIN / COUPLED'}`, status, controls };
 }

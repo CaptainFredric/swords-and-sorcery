@@ -12,8 +12,9 @@ import {
   toggleBiByeDeploy,
   damageBiByeLlista,
   fireBiByeMobile,
-  fireBiByeFullVolley,
-  fireBiByeLlista,
+  fireBiByeFullVolley as requestFullVolley,
+  fireBiByeLlista as requestFire,
+  biByeCoupledAim,
   getBiByeMuzzlePosition,
   stepBiByeLlista,
   stepBiByeProjectiles,
@@ -26,6 +27,18 @@ import {
   PRACTICE_DUMMY_MODES,
 } from '../../shared/sim/practice.mjs';
 import { callSteel } from '../../shared/src/steel.mjs';
+
+// Combat scenarios begin with the upper already aimed and ready to latch.
+// Real turning and latch timing have separate mechanism tests.
+function fireBiByeFullVolley(room,b,t) {
+  if(b.mode!=='DEPLOYED'||b.state!=='LOADED'||!b.mainBoltLoaded||t<b.smallBoltReadyAt)return requestFullVolley(room,b,t);
+  b.mainYaw=b.yaw;b.mainPitch=b.pitch;b.weaponFocus='MAIN';
+  const target=biByeCoupledAim(b);b.upperYaw=target.yaw;b.upperPitch=target.pitch;
+  const accepted=requestFullVolley(room,b,t-.2);
+  if(accepted){stepBiByeLlista(room,b,.001,t-.2);stepBiByeLlista(room,b,.001,t);}
+  return accepted;
+}
+function fireBiByeLlista(room,b,t){return b.mode==='DEPLOYED'?fireBiByeFullVolley(room,b,t):requestFire(room,b,t);}
 
 function makePracticeRoom() {
   const manager = new RoomManager();
@@ -271,7 +284,7 @@ test('Scenario 6: Mobile Mode travel, steering, and independent Shot I firing on
   let nowSec = 2.0;
   assert.ok(fireBiByeLlista(room, ballista, nowSec), 'Shot I can be fired while moving');
   assert.equal(ballista.mainBoltLoaded, true, 'main bolt was NOT consumed by mobile shot');
-  assert.ok(nowSec < ballista.smallBoltReadyAt, 'small bolt has recock cooldown');
+  assert.ok(ballista.mobileShotPendingAt > nowSec, 'small bolt is pending release; recock begins at discharge');
 
   // Full volley is rejected while mobile
   assert.equal(fireBiByeFullVolley(room, ballista, nowSec), false, 'full volley unavailable while mobile');

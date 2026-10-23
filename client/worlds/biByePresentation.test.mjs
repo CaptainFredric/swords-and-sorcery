@@ -1,13 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { biByeAnimation, biByeWheelSteering, biByeWheelTravel } from './biByePresentation.mjs';
+import { biByeUpperAnimation, biByeAnimation, biByeWheelSteering, biByeWheelTravel } from './biByePresentation.mjs';
 
 test('spent state retains the firing recovery until its authored completion event', () => {
   const b = { mode: 'DEPLOYED', state: 'SPENT', firedAt: 10, reloadStartedAt: 12.2 };
   assert.equal(biByeAnimation(b, 10.8).name, '02_BiBye_TwoStage_Fire');
   assert.equal(biByeAnimation(b, 12.19).name, '02_BiBye_TwoStage_Fire');
   assert.equal(biByeAnimation({ ...b, state: 'RELOADING' }, 12.2).time, 0);
-  assert.equal(biByeAnimation({ ...b, state: 'RELOADING' }, 15.2).time, 3);
+  assert.equal(biByeAnimation({ ...b, state: 'RELOADING' }, 15.2).time, 4);
 });
 test('late snapshots and repeated volleys seek their own authoritative action clock', () => {
   assert.equal(biByeAnimation({ mode: 'DEPLOYED', state: 'FIRING', firedAt: 11 }, 11.5).time, .5);
@@ -35,4 +35,12 @@ test('each wheel rolls from its own signed ground travel and holds when stationa
   for (const roll of biByeWheelTravel(a, a, biByeWheelSteering(1))) assert.equal(Math.abs(roll), 0);
   const turn = biByeWheelTravel(a, { x: .005, z: -.1, heading: -.025 }, biByeWheelSteering(1));
   assert.ok(turn[0] < turn[1]);
+});
+
+test('upper recoil and recock remain independent of the main reload action',()=>{
+ const b={mode:'DEPLOYED',state:'RELOADING',reloadStartedAt:2.2,upperFiredAt:3,upperShotKind:'independent',smallBoltReadyAt:5.7};
+ assert.equal(biByeAnimation(b,3.3).name,'04_BiBye_Mechanical_Reload');
+ assert.equal(biByeUpperAnimation(b,3.3).name,'09_BiBye_Mobile_Shot1_Fire_Upper');
+ assert.equal(biByeUpperAnimation(b,4).name,'10_BiBye_Mobile_Shot1_Reload_Upper');
+ assert.equal(biByeUpperAnimation(b,5.7).name,'01_BiBye_LoadedIdle_Upper');
 });

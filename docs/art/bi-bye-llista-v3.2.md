@@ -57,3 +57,7 @@ Siege recipes and continuous rolling/winch loops use SoundEngine and its effects
 ## Evidence
 
 See [actual gameplay checks and limitations](../evidence/bibye-refinement/README.md). This branch changes neither publishing configuration nor multiplayer availability. Merge and release require creator approval.
+
+## Independent weapons followup
+
+The followup branch changes firing clocks and control ownership. See [the independent weapon contract](bi-bye-independent-contract.md) for current timing and the commissioned model boundary. The original asset details and evidence above describe the merged v3.2 foundation.

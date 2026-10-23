@@ -1,12 +1,19 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as parts from '../../shared/sim/biByeComponents.mjs';
-import { createBiByeLlista, damageBiByeLlista, mountBiByeLlista, stepBiByeLlista, toggleBiByeDeploy, fireBiByeLlista, stepBiByeProjectiles, getBiByeSolids } from '../../shared/sim/biByeLlista.mjs';
+import { createBiByeLlista, damageBiByeLlista, mountBiByeLlista, stepBiByeLlista, toggleBiByeDeploy, biByeCoupledAim, fireBiByeLlista as requestFire, stepBiByeProjectiles, getBiByeSolids } from '../../shared/sim/biByeLlista.mjs';
 import { segmentAabbHit } from '../../shared/src/collision.mjs';
 import { RoomManager } from '../../shared/sim/RoomManager.mjs';
 import { applyRoomCommand, serializeSnapshot } from '../../shared/sim/wire.mjs';
 import { stepRoom } from '../../shared/sim/combat.mjs';
 
+function fireBiByeLlista(room,b,t){
+ if(b.mode!=='DEPLOYED')return requestFire(room,b,t);
+ const target=biByeCoupledAim(b);b.upperYaw=target.yaw;b.upperPitch=target.pitch;
+ const accepted=requestFire(room,b,t-.2);
+ if(accepted){stepBiByeLlista(room,b,.001,t-.2);stepBiByeLlista(room,b,.001,t);}
+ return accepted;
+}
 function setup() {
  const b = createBiByeLlista({x:0,y:0,z:0,baseYaw:0});
  const p={id:'driver',alive:true,position:{x:0,y:0,z:2.8},input:{yaw:0,pitch:0}};
@@ -31,10 +38,10 @@ test('one wheel impairs, two on same side or three overall immobilize',()=>{
 });
 test('immobile carriage can swivel, deploy, fire both bolts and remain stationary',()=>{
  const {b,p,room}=setup();breakPart(room,b,'Wheel_FL');breakPart(room,b,'Wheel_RL');
- p.input={forward:1,right:1,yaw:.4,pitch:.2};stepBiByeLlista(room,b,1/30,2);
+ p.input={forward:1,right:1,yaw:.4,pitch:.2};for(let n=0;n<8;n++)stepBiByeLlista(room,b,1/30,1.7+n/30);
  assert.equal(b.x,0);assert.equal(b.z,0);assert.equal(b.heading,0);assert.equal(b.yaw,.4);
  assert.ok(toggleBiByeDeploy(b,2));stepBiByeLlista(room,b,1/30,3.3);assert.ok(fireBiByeLlista(room,b,4));
- stepBiByeLlista(room,b,1/30,4.7);assert.equal(room.bibyeProjectiles.size,2);
+ stepBiByeLlista(room,b,1/30,4.46);stepBiByeLlista(room,b,1/30,4.7);assert.equal(room.bibyeProjectiles.size,2);
 });
 test('two broken stabilizers forbid deployment but preserve mobile Shot I and driving',()=>{
  const {b,p,room}=setup();breakPart(room,b,'Stabilizer_FL');breakPart(room,b,'Stabilizer_RR');
@@ -44,7 +51,7 @@ test('two broken stabilizers forbid deployment but preserve mobile Shot I and dr
 });
 test('both disabled systems retain stationary independently aimed Shot I',()=>{
  const {b,p,room}=setup();for(const id of ['Wheel_FL','Wheel_RL','Stabilizer_FL','Stabilizer_RR']) breakPart(room,b,id);
- p.input={forward:1,right:1,yaw:-.35,pitch:.15};stepBiByeLlista(room,b,1/30,2);
+ p.input={forward:1,right:1,yaw:-.35,pitch:.15};for(let n=0;n<8;n++)stepBiByeLlista(room,b,1/30,1.7+n/30);
  assert.equal(b.speed,0);assert.equal(b.z,0);assert.equal(b.yaw,-.35);
  assert.ok(fireBiByeLlista(room,b,2));stepBiByeLlista(room,b,1/30,2.3);assert.equal(room.bibyeProjectiles.size,1);
 });
@@ -140,17 +147,20 @@ test('component snapshots are copies and a Practice reset restores all subsystem
  resetPracticePlayer(room,p.id,3);assert.equal(b.components.Wheel_FL.health,120);assert.equal(snapshot.bibyeBallista.components.Wheel_FL.health,0);
 });
 
-test('support failure before Shot I still releases only the committed upper bolt',()=>{
+test('support failure before Shot I cancels both releases with ammunition intact',()=>{
  const {b,room}=setup();toggleBiByeDeploy(b,0);stepBiByeLlista(room,b,1/30,1.3);fireBiByeLlista(room,b,2);
  breakPart(room,b,'Stabilizer_FL',2.2);breakPart(room,b,'Stabilizer_FR',2.2);
  stepBiByeLlista(room,b,1/30,2.7);
- assert.deepEqual([...room.bibyeProjectiles.values()].map(p=>p.subKind),['conditioning']);
+ assert.equal(room.bibyeProjectiles?.size??0,0);assert.ok(b.mainBoltLoaded);assert.equal(b.smallBoltReadyAt,0);
 });
 
 test('an upper bolt released during support retraction follows its articulated muzzle',()=>{
  const {b,p,room}=setup();p.input={yaw:.5,pitch:.25};
- toggleBiByeDeploy(b,0);stepBiByeLlista(room,b,1/30,1.3);fireBiByeLlista(room,b,2);
- breakPart(room,b,'Stabilizer_FL',2.2);breakPart(room,b,'Stabilizer_FR',2.2);
+ toggleBiByeDeploy(b,0);stepBiByeLlista(room,b,1/30,1.3);
+ b.weaponFocus='UPPER';
+ // Independent upper discharge uses its real pose after support collapse.
+ requestFire(room,b,2);
+ breakPart(room,b,'Stabilizer_FL',2.1);breakPart(room,b,'Stabilizer_FR',2.1);
  stepBiByeLlista(room,b,1/30,2.5);
  const projectile=[...room.bibyeProjectiles.values()][0];
  const expected=parts.biByeFrames({...b,...b.committedAim}).upper.axes[2];

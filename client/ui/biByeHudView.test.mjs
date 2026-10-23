@@ -23,3 +23,8 @@ test('mounted HUD names structural faults and makes unsupported siege unavailabl
  assert.match(hud.status,/IMMOBILIZED/);assert.match(hud.status,/SUPPORTS DISABLED/);
  assert.doesNotMatch(hud.controls,/\] Deploy/);assert.match(hud.status,/Shot I ready/);
 });
+test('deployed HUD exposes independent clocks, selected focus and rebound cancel control',()=>{
+ const bl={...b,mode:'DEPLOYED',weaponFocus:'MAIN',smallBoltReady:true,mainBoltLoaded:false,reloadEndsAt:12,coupling:'ALIGNING',couplingProgress:.45};
+ const hud=biByeHudView({...local,operatingBallistaId:b.id},{bibyeBallista:bl},10,{bindings:{siegeWeapon:['KeyL']}});
+ assert.match(hud.title,/MAIN \/ COUPLED/);assert.match(hud.status,/Shot I ready.*II 2.0s.*Aligning 45%/);assert.match(hud.controls,/\[L\] Upper \/ cancel/);
+});

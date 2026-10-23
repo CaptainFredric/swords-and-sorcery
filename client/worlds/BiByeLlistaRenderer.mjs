@@ -5,7 +5,7 @@ import { appUrl } from '../appUrl.mjs';
 import { everywhere } from '../game/viewLayers.mjs';
 import { BI_BYE_LLISTA_CONFIG, BI_BYE_STATES, BI_BYE_MODES } from '../../shared/sim/biByeLlista.mjs';
 
-import { biByeAnimation, biByeWheelSteering, biByeWheelTravel } from './biByePresentation.mjs';
+import { biByeAnimation, biByeUpperAnimation, biByeWheelSteering, biByeWheelTravel } from './biByePresentation.mjs';
 
 const ASSET_PATH = '/client/assets/props/bibye-ballista/bi-bye-llista-v3.2.glb?v=c595a2bc41db7d8c';
 
@@ -135,11 +135,19 @@ export class BiByeLlistaRenderer {
           const base = clip.clone();
           const destroyed = clip.name === '12_BiBye_Damaged_Destroyed';
           base.tracks = base.tracks.filter(track => destroyed ||
-            (!track.name.startsWith('Wheel_') && !track.name.startsWith('Stabilizer_')));
+            (!track.name.startsWith('Wheel_') && !track.name.startsWith('Stabilizer_') && !track.name.startsWith('Upper_')));
           const action = this.mixer.clipAction(base);
           action.setLoop(THREE.LoopOnce, 1);
           action.clampWhenFinished = true;
           this.actions.set(clip.name, action);
+          if (!destroyed) {
+            const upper = clip.clone(); upper.name += '_Upper';
+            upper.tracks = upper.tracks.filter(track => track.name.startsWith('Upper_'));
+            if (upper.tracks.length) {
+              const layer = this.mixer.clipAction(upper); layer.setLoop(THREE.LoopOnce,1); layer.clampWhenFinished=true;
+              this.actions.set(upper.name,layer);
+            }
+          }
           if (clip.name === '05_BiBye_Stabilizer_Deploy' || clip.name === '07_BiBye_Stabilizer_Retract') {
             const stabilizers = clip.clone();
             stabilizers.name += '_Outriggers';
@@ -267,6 +275,7 @@ export class BiByeLlistaRenderer {
     const sample = biByeAnimation(ballistaData, timeSec);
     this.#sampleAction(sample.name, sample.time);
     if (mode === BI_BYE_MODES.DESTROYED) {
+      this.upperAction?.stop();this.upperAction=null;
       this.stabilizerAction?.stop();
       this.stabilizerAction = null;
     } else {
@@ -275,6 +284,12 @@ export class BiByeLlistaRenderer {
         this.stabilizerAction?.stop();this.stabilizerAction=next;next?.reset().play();
       }
       if(next){next.paused=true;next.time=biByeDeployProgress(ballistaData,timeSec)*next.getClip().duration;}
+    }
+    if (mode !== BI_BYE_MODES.DESTROYED) {
+      const upperSample = biByeUpperAnimation(ballistaData,timeSec);
+      const upper = this.actions.get(upperSample.name);
+      if (upper !== this.upperAction) { this.upperAction?.stop();this.upperAction=upper;upper?.reset().play(); }
+      if(upper){upper.paused=true;upper.time=Math.min(upperSample.time,upper.getClip().duration);}
     }
     this.mixer.update(0);
     for (const [name, pose] of this.jointPose) pose.copy(this.nodes.get(name).quaternion);
@@ -288,9 +303,10 @@ export class BiByeLlistaRenderer {
     const mainBolt = this.nodes.get('Main_Siege_Bolt');
     const upperBolt = this.nodes.get('Upper_Conditioning_Bolt');
     if (mainBolt) mainBolt.visible = mode !== BI_BYE_MODES.DESTROYED &&
-      (volley ? sample.time < .65 : reloading ? sample.time >= 3.1 : Boolean(ballistaData.mainBoltLoaded));
+      (volley ? Boolean(ballistaData.mainBoltLoaded) : reloading ? sample.time >= 3.1 : Boolean(ballistaData.mainBoltLoaded));
     if (upperBolt) upperBolt.visible = mode !== BI_BYE_MODES.DESTROYED &&
-      (volley ? sample.time < .45 : mobileFire ? sample.time < .2 : reloading ? sample.time >= 4.95 : mobileReload ? sample.time >= 1.3 : Boolean(ballistaData.smallBoltReady));
+      (ballistaData.upperPending || ballistaData.coupling === 'FIRING' && ballistaData.upperReleasedAt == null ||
+       ballistaData.smallBoltReady || biByeUpperAnimation(ballistaData,timeSec).name.includes('Reload') && biByeUpperAnimation(ballistaData,timeSec).time >= 1.3);
 
     if (mode === BI_BYE_MODES.DESTROYED) return;
     for (const [index, def] of BI_BYE_COMPONENTS.entries()) {
@@ -327,7 +343,14 @@ export class BiByeLlistaRenderer {
   getMountedCameraPosition(view, out = new THREE.Vector3()) {
     const node = this.nodes.get(view === 'sight' ? 'mounted_camera_sight' : 'mounted_camera_tpv');
     if (!node) return null;
-    if (view === 'sight') return node.getWorldPosition(out);
+    if (view === 'sight') {
+      const b = this.presentationData;
+      if(b?.weaponFocus === 'UPPER' || b?.mode === 'MOBILE') {
+        const muzzle=this.nodes.get('small_bolt_muzzle'),upper=this.nodes.get('Upper_Turret_Mount');
+        if(muzzle&&upper){muzzle.getWorldPosition(out);const axis=new THREE.Vector3(0,0,1).applyQuaternion(upper.getWorldQuaternion(new THREE.Quaternion()));return out.addScaledVector(axis,-1.7).add(new THREE.Vector3(0,.18,0));}
+      }
+      return node.getWorldPosition(out);
+    }
     const b = this.presentationData;
     const yaw = b?.yaw ?? b?.heading ?? 0;
     return out.set(this.group.position.x + Math.sin(yaw)*6.7, this.group.position.y + 3.8, this.group.position.z + Math.cos(yaw)*6.7);

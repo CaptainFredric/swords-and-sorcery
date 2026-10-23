@@ -238,3 +238,5 @@ html.turn-typing .rotate-prompt { display: none !important; }
   .touch-ui .bt-obj-name { font-size: 11px; }
   .touch-ui .bt-state-pill { font-size: 8px; letter-spacing: 0; }
 }
+
+.touch-siegeWeapon { --size: 62px; right: calc(var(--safe-r) + 48px * var(--s)); bottom: calc(var(--safe-b) + 174px * var(--s)); color: #a8e2e9; }
