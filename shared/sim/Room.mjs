@@ -1,3 +1,5 @@
+import { createStructureState } from './structures.mjs';
+import { createSoFistication, dismountSoFistication, soFistTerrainPose, soFistClear } from './soFistication.mjs';
 import { createMovementState } from '../src/movement.mjs';
 import { guardProfile } from '../src/combat.mjs';
 import { GAME_MODES, VOTE_OPTIONS, getModePolicy } from '../src/modes.mjs';
@@ -104,6 +106,7 @@ export class Room {
     }
     this.worldId = worldId;
     this.world = getWorld(worldId);
+    this.structures = createStructureState(this.world);
     this.soFistication = null;
     this.soFistRevision = 0;
     if (this.mode === GAME_MODES.PRACTICE) {
@@ -586,6 +589,7 @@ export class Room {
     if (this.biByeLlista && this.biByeLlista.operatorId === id) {
       dismountBiByeLlista(this.biByeLlista, player, false, this.world);
     }
+    if (this.soFistication?.operatorId === id) dismountSoFistication(this,this.soFistication,player,{force:true});
     this.players.delete(id);
     this.rematchVotes.delete(id);
     if (this.humanActorCount() === 0) {
@@ -602,6 +606,7 @@ export class Room {
     if (this.biByeLlista && this.biByeLlista.operatorId === id) {
       dismountBiByeLlista(this.biByeLlista, player, true, this.world);
     }
+    if (this.soFistication?.operatorId === id) dismountSoFistication(this,this.soFistication,player,{force:true});
     player.connected = false;
     player.arenaReady = false;
     player.disconnectedAt = nowSec;
@@ -814,8 +819,23 @@ export class Room {
         this.world = bastionBreachForObjective(this.objectiveState);
       }
     }
+    // Match reset restores canonical geometry before rebuilding authoritative defense state.
+    const baseWorld = getWorld(this.worldId);
+    this.structures = createStructureState(baseWorld, (this.structures?.revision ?? 0) + 1);
+    this.soFistication = null;
+    this.soFistRevision++;
+    if (this.policy.teamMode) {
+      for (const emplacement of baseWorld.siegeEmplacements ?? []) {
+        if (emplacement.type !== 'so-fist-ication' || !emplacement.phases.includes(this.objectiveState.phase)) continue;
+        const ram = createSoFistication({ ...emplacement, emplacementId: emplacement.id, id: `${emplacement.id}-${this.soFistRevision}` });
+        const pose = soFistTerrainPose(ram, this.world);
+        if (pose && soFistClear({ ...ram, ...pose }, this.world, [], {operatorStation:true})) this.soFistication = Object.assign(ram, pose);
+        break;
+      }
+    }
     let i = 0;
     for (const player of this.players.values()) {
+      player.operatingRamId = null;
       const spawn = this.initialSpawnFor(player, i, nowSec);
       player.spell = isSpell(player.startingSpell) ? player.startingSpell : player.spell;
       player.preparedSpells = normalizePreparedSpells(player.spell, player.startingPreparedSpells ?? player.preparedSpells);

@@ -1,3 +1,4 @@
+import { structureWorld, damageStructureSolid } from './structures.mjs';
 import {stepSoFistication,dismountSoFistication,soFistOperator,damageSoFistication,blastSoFistication} from './soFistication.mjs';
 import {soFistVolumes,soFistSolids,soFistFirstHit} from './soFistGeometry.mjs';
 import {resolveWorldImpact} from './worldImpact.mjs';
@@ -802,6 +803,7 @@ function sweepStrike(room, player, nowSec, world) {
         const ram=met.solid.id?.startsWith('sofist-');
         (ram?damageSoFistication:damageBiByeLlista)(room,ram?room.soFistication:room.biByeLlista,swordDamage({quality,level:live.ruptures?DAMAGE_LEVELS.elevated:DAMAGE_LEVELS.normal}),player.id,'sword',nowSec,{componentId:met.solid.componentId,point:met.point,material:met.solid.material});
       }
+      damageStructureSolid(room,met.solid,swordDamage({quality:aimQuality(Math.acos(Math.max(-1,Math.min(1,met.direction.x*frame.forward.x+met.direction.y*frame.forward.y+met.direction.z*frame.forward.z)))*180/Math.PI),level:live.ruptures?DAMAGE_LEVELS.elevated:DAMAGE_LEVELS.normal}),player.id,'sword',nowSec,{point:met.point});
       // a snag: the blade caught on some small incidental furnishing as it came round, not driven at it (SNAG)
       const offAim = Math.acos(Math.max(-1, Math.min(1, met.direction.x * frame.forward.x + met.direction.y * frame.forward.y + met.direction.z * frame.forward.z))) * 180 / Math.PI;
       const snag = Boolean(met.solid.incidental) && offAim >= SNAG.offAimDeg;
@@ -1443,6 +1445,7 @@ function stepAfflictions(room, player, nowSec) {
 
 function stepProjectiles(room, dt, nowSec, world) {
   for (const projectile of [...room.projectiles.values()]) {
+    world = structureWorld(world, room.structures);
     const before = { ...projectile.position };
     const after = {
       x: before.x + projectile.velocity.x * dt,
@@ -1453,7 +1456,7 @@ function stepProjectiles(room, dt, nowSec, world) {
     const a=[before.x,before.y,before.z],b=[after.x,after.y,after.z];
     for (const box of world.solids ?? []) {
       if (String(box.id??'').startsWith('bibye-')) continue;
-      const hit=segmentAabbHit(a,b,box);if(hit)hits.push({...hit,kind:'world'});
+      const hit=segmentAabbHit(a,b,box);if(hit)hits.push({...hit,box,kind:'world'});
     }
     const machine=biByeFirstHit(room.biByeLlista,a,b,nowSec);
     if(machine)hits.push({...machine,kind:'machine'});
@@ -1477,6 +1480,7 @@ function stepProjectiles(room, dt, nowSec, world) {
     hits.sort((a,b)=>a.t-b.t);
     if(hits.length){
       const hit=hits[0],point={x:hit.point[0],y:hit.point[1],z:hit.point[2]};
+      if(hit.kind==='world'&&hit.box)damageStructureSolid(room,hit.box,spellFor(projectile.spell).directDamage,projectile.ownerId,projectile.spell,nowSec,{point});
       explodeSpell(room,projectile,point,nowSec,hit.kind!=='player',hit.player?.id??null,hit.kind==='machine'?hit.box.componentId:null,hit.kind==='ram'?hit.box.componentId:null);
       continue;
     }
@@ -1877,10 +1881,12 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
   stepObjectives(room, dt, nowSec);
   if (room.state !== 'PLAYING') return room.events;
   if (room.worldId === WORLD_IDS.BASTION_BREACH) {
-    room.world = bastionBreachForObjective(room.objectiveState, nowSec);
+    room.world = structureWorld(bastionBreachForObjective(room.objectiveState, nowSec), room.structures);
     world = room.world;
   }
 
+  world = structureWorld(world, room.structures);
+  room.world = world;
   markTornGround(room);
   const biByeSolids = [...getBiByeSolids(room.biByeLlista),...soFistSolids(room.soFistication)];
   const effectiveWorld = biByeSolids.length > 0 ? { ...world, solids: [...(world.solids ?? []), ...biByeSolids] } : world;

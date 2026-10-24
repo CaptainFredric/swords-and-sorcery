@@ -883,7 +883,7 @@ function showBreakthroughArena() {
   if (breakthroughCopy) {
     breakthroughCopy.textContent = chosen === 'blackbell-foundry'
       ? 'A brutal clash across a medieval industrial foundry. Contest the Chain Winch yard, breach the blast portal, and assault the monumental Great Bell.'
-      : 'A multi-phase fortress siege. Attackers capture sequential objectives to breach the stronghold; Defenders stand fast to hold the line.';
+      : 'Attackers have one So-Fist-ication ram on the approach. Break the reinforced timber barricade to open a direct assault lane, then capture the Outer Gate to enter the stronghold. Defenders can destroy the ram.';
   }
 }
 breakthroughArena?.addEventListener('click', (event) => {

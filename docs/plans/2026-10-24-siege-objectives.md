@@ -1,0 +1,14 @@
+# Siege objectives implementation plan
+
+Goal: a real Bastion Breakthrough ram assault that changes selected defenses while preserving capture progression.
+Architecture: world authors name structures, their collider IDs, durability profile and owning team. Room holds health; a cached world variant removes failed collider IDs. Every consumer, including prediction and navigation, receives that variant. Snapshot health drives modest authored damage and debris states. One attacker emplacement resets only with the match.
+Spec: /Users/erendiracisneros/.codex/attachments/a145c745-b2f8-4ae9-b445-20cd43e32401/Pasted text.txt
+
+1. Structural state and map contract. Add shared/sim/structures.mjs, definitions in bastionBreach.mjs and Room initialization/reset. Tests pin isolated rooms, friendly sabotage protection, persistent destruction, unchanged capture gate and cache identity. Reinforced approach barricade initially targets three armored piston blows, versus many swords and four heavy bolts. Tune from actual play.
+2. Real combat integration. Route sword, projectile, ballista and swept ram contacts into material profiles. Only first solid receives damage. A charge and its overlapping stroke share an impact budget; later deliberate strokes remain independent. Test obstruction, simultaneous impact, exposed shaft, collision removal, navigation and snapshot reconnect.
+3. Team emplacement. Authored attacker ram at central approach, safe rear station and egress. Match phase, team and one operator checked authoritatively. Friendly team cannot damage it, including when empty. Destruction persists; rematch creates a fresh machine. No ballista emplacement in Bastion.
+4. Presentation. Reuse canonical ram GLB. New reusable structure renderer builds timber planks and iron straps with three damage states and bounded settled debris. Snapshot state also controls client collision. Compact health feedback and emplacement instructions use current bindings/touch. No broad UI redesign.
+5. Actual gameplay. Browser Breakthrough with active defenders, operate and strike using real timing, capture before/damaged/breached evidence, drive through and continue capture. Check touch, ordinary attacks, projectiles, bot paths, reconnect and frame pacing. Preserve authored 2.08 second windup unless play demonstrates a concrete problem.
+6. Run focused tests, full npm run verify and actual exported HTML5. Push separate draft stacked on feat/so-fist-ication while PR224 remains unmerged. No review agents, merge, deployment or publication.
+
+Design checks: phase boundary hoarding remains permanent; gate ceremony remains 1.2 seconds; debris never retains movement collision; same tick subsequent projectiles see destroyed geometry; match reset refreshes both structure and machine state; disconnected operator releases ownership. Antigravity larger map stays untouched; publish reusable structure/emplacement contract for integration.
