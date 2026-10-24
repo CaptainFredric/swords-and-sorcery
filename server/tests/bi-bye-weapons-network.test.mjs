@@ -23,7 +23,11 @@ test('network host preserves mechanical release after dismount and independent r
  const takeEvent=async predicate=>{const m=await next('events',m=>m.events.some(predicate));const [e]=m.events.splice(m.events.findIndex(predicate),1);if(m.events.length)queue.unshift(m);return e;};
  const event=type=>takeEvent(e=>e.type===type);
  send({type:'startSolo',mode:'PRACTICE',worldId:'castleward',name:'Network Siege'});
- const joined=await next('joined'),room=game.roomManager.findByCode(joined.roomCode),p=room.players.get(joined.playerId),b=room.biByeLlista=createBiByeLlista();
+ const joined=await next('joined'),room=game.roomManager.findByCode(joined.roomCode),p=room.players.get(joined.playerId);
+ // Keep an actual preconstruction snapshot queued while checking later releases.
+ // Slow CI can naturally deliver this packet alongside the mounted snapshots.
+ const empty=await next('snapshot',m=>m.bibyeBallista===null);queue.push(empty);
+ const b=room.biByeLlista=createBiByeLlista();
  p.position={x:b.x,y:b.y,z:b.z};send({type:'bibyeOperate'});
  await next('snapshot',m=>m.bibyeBallista?.operatorId===p.id);
  send({type:'bibyeToggleDeploy'});await next('snapshot',m=>m.bibyeBallista?.mode==='DEPLOYED');
@@ -36,14 +40,14 @@ test('network host preserves mechanical release after dismount and independent r
  const heavyReady=b.reloadEndsAt;assert.ok(Math.abs(heavyReady-committed.at-6.7)<1e-8);
  send({type:'bibyeOperate'});await next('snapshot',m=>m.serverTime>heavy.at&&m.bibyeBallista?.operatorId===p.id);
  send({type:'bibyeWeaponFocus',focus:'UPPER'});
- await next('snapshot',m=>m.serverTime>heavy.at&&m.bibyeBallista.weaponFocus==='UPPER'&&m.bibyeBallista.smallBoltReady);
+ await next('snapshot',m=>m.serverTime>heavy.at&&m.bibyeBallista?.weaponFocus==='UPPER'&&m.bibyeBallista?.smallBoltReady);
  send({type:'bibyeFire'});
  const independent=await takeEvent(e=>e.type==='bibyeFired'&&e.shot==='I_MOBILE');
- const snapshot=await next('snapshot',m=>m.bibyeBallista.upperReleasedAt>=independent.at);
+ const snapshot=await next('snapshot',m=>m.bibyeBallista?.upperReleasedAt>=independent.at);
  assert.equal(snapshot.bibyeBallista.state,'RELOADING');assert.equal(snapshot.bibyeBallista.reloadEndsAt,heavyReady);
  assert.ok(Math.abs(snapshot.bibyeBallista.smallBoltReadyAt-independent.at-2.5)<1e-8);
  assert.equal(snapshot.players.find(v=>v.id===p.id).yaw,snapshot.bibyeBallista.heading);
- await next('snapshot',m=>m.bibyeBallista.mainBoltLoaded&&m.serverTime>=heavyReady);
+ await next('snapshot',m=>m.bibyeBallista?.mainBoltLoaded&&m.serverTime>=heavyReady);
  assert.equal(queue.flatMap(m=>m.events??[]).filter(e=>e.type==='bibyeVolleyInitiated').length,0);
 });
 
