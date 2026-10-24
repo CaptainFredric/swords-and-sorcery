@@ -18,17 +18,17 @@
   {
     "file": "localized-hits.webm",
     "originalDuration": 23.36,
-    "start": 7.279999999999999,
-    "requestedSeconds": 16,
-    "bytes": 3234109,
+    "start": 17.3,
+    "requestedSeconds": 5.979999999999999,
+    "bytes": 1689206,
     "trim": "Decoded exact frames, VP8 quality 8, source preserved"
   },
   {
     "file": "touch-precision.webm",
     "originalDuration": 20.04,
-    "start": 5.959999999999999,
-    "requestedSeconds": 14,
-    "bytes": 3510034,
+    "start": 14.8,
+    "requestedSeconds": 5.159999999999998,
+    "bytes": 1320228,
     "trim": "Decoded exact frames, VP8 quality 8, source preserved"
   },
   {
