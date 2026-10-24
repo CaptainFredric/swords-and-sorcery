@@ -1,6 +1,6 @@
 {
   "source": "SoFist-crafted.blend",
-  "exportSha256": "d81caf389c6c17a64ba06652d602e4d3e977e871e3fe4ad1305414b8328c3d34",
+  "exportSha256": "903b8cc349e7831d7a6a21e9a6ed7e9f1acca45d9745b1f79504bad3d30c7472",
   "rollbackCommit": "6249095632bba62a8702630267968c3bc922a893",
   "rollbackSha256": "64cdc7b09e88e31f4b4ff7cb65631fd036e12ba71c0c3f9466cc52b8416419c6",
   "scale": 2.85,
@@ -9,7 +9,9 @@
     "Lower frame moved inward with local front bracket clearance",
     "Round wheel running surfaces, wider front track .43 and rear .37 native",
     "Broad material regions for metal fist, wheel rims and mechanisms; retained timber and cloth atlas detail",
-    "Original four animation clips and twenty named nodes preserved"
+    "Original four animation clips and twenty named nodes preserved",
+    "Reconstructed planked bed, splayed supports, diagonal braces, four corner posts, front housing and two-grip operator bar; retained authored moving mechanisms",
+    "Removed accidental atlas emission from the metal drivetrain while retaining the arcane collar"
   ],
   "maps": "Four original 1024 square maps retained; no upscaling or global filter changes"
 }

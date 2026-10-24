@@ -61,3 +61,8 @@ test('a delayed packet cannot cash out accumulated clock debt as a carriage jump
  m.push(b(.96),[],1.2);const next=m.sample(1.39,false,false,1/60).ballista.position.x;
  assert.ok(next-held<.1);assert.ok(next<=.96);
 });
+
+test('the grounded operator height follows terrain interpolation without pinning an empty station to zero',()=>{
+ const m=new BiByeMotion();m.push({...b(0),operatorY:1},[],1);m.push({...b(.1),operatorY:1.08},[],1+1/30);const s=m.sample(1.05,true).ballista;assert.ok(s.operatorY>1&&s.operatorY<1.08);
+ const empty=new BiByeMotion();empty.push(b(0),[],1);assert.equal(empty.sample(1,true).ballista.operatorY,undefined);
+});

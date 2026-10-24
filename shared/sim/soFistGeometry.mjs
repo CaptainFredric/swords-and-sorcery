@@ -38,12 +38,30 @@ export const soFistFrame=b=>biByeRootFrame(b);
 export function soFistVolumes(b,now=b?.poseTime??0){
  if(!b||b.retired)return[];const root=soFistFrame(b),pose=soFistPose(b,now),out=[];
  const add=(id,center,size,material='timber',native=false)=>{if(!native){center=center.map(fit);size=size.map(fit);}return out.push({id:`sofist-${b.id}-${id}`,componentId:id,material,center:boxWorld(root,center),axes:root.axes,size});};
- // Side rails, underside and rear frame leave the real winch accessible.
- for(const side of [-1,1]){add('hull',[side*.18*SO_FIST_SCALE,.19*SO_FIST_SCALE,-.10*SO_FIST_SCALE],[.18,.16,1.475].map(v=>v*SO_FIST_SCALE),'timber',true);add('hull',[side*.30*SO_FIST_SCALE,.55*SO_FIST_SCALE,-.10*SO_FIST_SCALE],[.18,.18,1.475].map(v=>v*SO_FIST_SCALE),'timber',true);}
- add('hull',[0,.27,-.5],[1.45,.28,3.9]);
- add('hull',[0,.9,-2.29],[1.5,1.25,.3]);
- add('hull',[0,.97,1.23],[1.25,1.2,.25],'metal');
- add('Drive',[0,1.05,-1.5],[1.05,.63,.88],'metal');
+ const native=(id,center,size,material='timber')=>add(id,center.map(v=>v*SO_FIST_SCALE),size.map(v=>v*SO_FIST_SCALE),material,true);
+ // Physical framing is separate from the cylinder and drivetrain. The open
+ // timber structure must not turn back into one large opaque damage box.
+ for(const side of [-1,1]){
+  native('hull',[side*.18,.19,-.10],[.18,.16,1.40]);native('hull',[side*.30,.55,-.10],[.18,.18,1.39]);
+  native('hull',[side*.30,.343,.58],[.10,.55,.09]);native('hull',[side*.30,.40,-.77],[.10,.66,.09]);
+  native('hull',[side*.215,.30,-.90],[.045,.265,.075],'metal');
+  native('hull',[side*.29,.385,.575],[.055,.29,.055],'metal');
+ }
+ native('hull',[0,.106,-.172],[.55,.075,1.504]);
+ for(const z of [.58,-.14,-.77])native('hull',[0,.155,z],[.75,.105,.10]);
+ for(const [z,span]of [[.325,.86],[-.42,.74]])native('hull',[0,.165,z],[span,.055,.055],'metal');
+ native('hull',[0,.433,-.90],[.43,.089,.071]);native('hull',[0,.56,.575],[.62,.045,.055],'metal');
+ const cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]],unit=a=>{const d=Math.hypot(...a);return a.map(v=>v/d);};
+ const brace=(a,b,width)=>{
+  const delta=b.map((v,i)=>v-a[i]),forward=unit(delta),right=unit(cross([0,1,0],forward)),up=cross(forward,right);
+  native('hull',a.map((v,i)=>(v+b[i])/2),[width,width,Math.hypot(...delta)]);
+  out.at(-1).axes=[right,up,forward].map(axis=>boxWorld(root,axis,true));
+ };
+ for(const side of [-1,1]){
+  for(const z of [.48,-.14,-.65])brace([side*.18,.18,z],[side*.30,.55,z],.09);
+  brace([side*.30,.53,.50],[side*.18,.19,-.14],.095);brace([side*.18,.19,-.14],[side*.30,.53,-.70],.095);
+ }
+ native('Drive',[0,.385,-.56],[.53,.252,.224],'metal');
  for(const [i,w]of SO_FIST_WHEELS.entries()){add(w.id,[w.pivot[0],w.pivot[1]+(b.wheelOffsets?.[i]??0),w.pivot[2]],[.127*SO_FIST_SCALE,w.radius*2,w.radius*2],'timber',true);if(i<2){const a=soFistWheelSteering(b)[i],c=Math.cos(a),s=Math.sin(a);out.at(-1).axes=[root.axes[0].map((v,k)=>v*c-root.axes[2][k]*s),root.axes[1],root.axes[0].map((v,k)=>v*s+root.axes[2][k]*c)];}}
  if((b.components?.Fist?.health??500)>0)add('Fist',[-.021,.353, .732].map((n,i)=>n*SO_FIST_SCALE+(i===2?pose.offset:0)),[.494,.436,.435].map(n=>n*SO_FIST_SCALE),'metal',true);
  add('Piston',[0,.967,-.262+pose.offset*2.65/SO_FIST_SCALE],[.88,.88,3.228],'metal');return out;
@@ -54,7 +72,14 @@ export function soFistStriker(b,now){
 }
 export function soFistFirstHit(b,start,end,now,grow=0){let best=null;for(const box of soFistVolumes(b,now)){const h=orientedBoxHit(start,end,box,grow);if(h&&(!best||h.t<best.t))best=h;}return best;}
 export function soFistSolids(b){return soFistVolumes(b).map(v=>({...v,kind:'siege-chassis'}));}
+const IDENTITY_AXES=[[1,0,0],[0,1,0],[0,0,1]];
 export function machineryOverlap(a,b){
- const dot=(x,y)=>x.reduce((n,v,i)=>n+v*y[i],0),cross=(x,y)=>[x[1]*y[2]-x[2]*y[1],x[2]*y[0]-x[0]*y[2],x[0]*y[1]-x[1]*y[0]],B=b.axes??[[1,0,0],[0,1,0],[0,0,1]],delta=b.center.map((v,i)=>v-a.center[i]);
- for(const axis of [...a.axes,...B,...a.axes.flatMap(u=>B.map(v=>cross(u,v)))]){if(dot(axis,axis)<1e-10)continue;const r=(box,axes)=>axes.reduce((n,v,i)=>n+Math.abs(dot(v,axis))*box.size[i]/2,0);if(Math.abs(dot(delta,axis))>=r(a,a.axes)+r(b,B)-.002)return false;}return true;
+ const dot=(x,y)=>x.reduce((n,v,i)=>n+v*y[i],0),cross=(x,y)=>[x[1]*y[2]-x[2]*y[1],x[2]*y[0]-x[0]*y[2],x[0]*y[1]-x[1]*y[0]],B=b.axes??IDENTITY_AXES,delta=b.center.map((v,i)=>v-a.center[i]);
+ const separated=axis=>{if(dot(axis,axis)<1e-10)return false;const r=(box,axes)=>axes.reduce((n,v,i)=>n+Math.abs(dot(v,axis))*box.size[i]/2,0);return Math.abs(dot(delta,axis))>=r(a,a.axes)+r(b,B)-.002;};
+ // Most world pieces are far away. Reject on the face axes before constructing
+ // any edge cross products; the exact same SAT axes still handle close pairs.
+ for(const axis of a.axes)if(separated(axis))return false;
+ for(const axis of B)if(separated(axis))return false;
+ for(const u of a.axes)for(const v of B)if(separated(cross(u,v)))return false;
+ return true;
 }
