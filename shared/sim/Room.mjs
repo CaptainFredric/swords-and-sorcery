@@ -146,7 +146,9 @@ export class Room {
     this.overtimeClearedAt = null;
     if (this.policy.teamMode) {
       this.objectiveState = createObjectiveState(this.world.objectives ?? []);
-      if (this.worldId === WORLD_IDS.BASTION_BREACH) {
+      if (typeof this.world?.forObjective === 'function') {
+        this.world = this.world.forObjective(this.objectiveState);
+      } else if (this.worldId === WORLD_IDS.BASTION_BREACH) {
         this.world = bastionBreachForObjective(this.objectiveState);
       }
     }

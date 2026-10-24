@@ -8,6 +8,7 @@ import {
   OUTERWORKS_OPEN,
   OUTERWORKS_TERRACE_Y,
   OUTERWORKS_PARAPET_Y,
+  OUTERWORKS_TRENCH_Y,
   outerworksForObjective,
 } from '../../shared/worlds/outerworks.mjs';
 import { navGraph, runClear, routeBetween } from '../../shared/sim/botNav.mjs';
@@ -97,17 +98,67 @@ test('The Outerworks: ballista routes provide >= 7.0m clearance for 5.3m bow', (
 test('The Outerworks: Western Sally Trench is infantry-only and shielded from ballista fire', () => {
   const world = getWorld(WORLD_IDS.OUTERWORKS);
 
-  // Trench floor width: x in [-26, -16] is 10m total including revetments, with walking width ~2.8m
+  // Genuinely sunken trench floor at y = OUTERWORKS_TRENCH_Y (-1.2m)
+  const trenchFloor = world.floors.find((f) => f.id === 'floor-west-trench');
+  assert.ok(trenchFloor);
+  assert.equal(trenchFloor.y, OUTERWORKS_TRENCH_Y, 'Trench floor must be recessed below ground level');
+
+  // Entry and exit ramps provide smooth traversal between y = 0 and y = -1.2m
+  const southRamp = world.ramps.find((r) => r.id === 'ramp-trench-south');
+  const northRamp = world.ramps.find((r) => r.id === 'ramp-trench-north');
+  assert.ok(southRamp && northRamp, 'Trench must have entry and exit ramps');
+  assert.equal(southRamp.endY, OUTERWORKS_TRENCH_Y);
+  assert.equal(northRamp.startY, OUTERWORKS_TRENCH_Y);
+
   // The chicane openings are <= 3.2m, physically preventing the 5.3m ballista from traversing
   const chicane1 = world.solids.find((s) => s.id === 'trench-chicane-1');
   const chicane2 = world.solids.find((s) => s.id === 'trench-chicane-2');
   assert.ok(chicane1 && chicane2);
 
-  // Line of sight check: Ballista at emplacement (-8, 1.2, -46) firing toward a Spellblade in the trench at (-21, 1.0, -24)
+  // Line of sight check: Ballista at emplacement (-8, 1.2, -46) firing toward a Spellblade in the sunken trench at (-21, OUTERWORKS_TRENCH_Y + 0.9, -24)
   const eye = [-8.0, 1.2, -46.0];
-  const targetInTrench = [-21.0, 1.0, -24.0];
+  const targetInTrench = [-21.0, OUTERWORKS_TRENCH_Y + 0.9, -24.0];
   const revetmentHit = world.solids.some((s) => segmentAabbHit(eye, targetInTrench, s));
   assert.ok(revetmentHit, 'Revetment wall must break line of sight into the trench, shielding infantry from ballista fire');
+});
+
+test('The Outerworks: Ballista authorization restricts mounting to attackers and survives dismount/operator death', () => {
+  const manager = new RoomManager();
+  const room = manager.createBreakthroughRoom(0, true, WORLD_IDS.OUTERWORKS);
+  const ballista = room.biByeLlista;
+  assert.ok(ballista);
+  assert.equal(ballista.team, TEAMS.ATTACKERS, 'Ballista emplacement must start with ATTACKERS allegiance');
+
+  const defender = room.addPlayer({ id: 'def-infiltrator', name: 'DefenderSaboteur', team: TEAMS.DEFENDERS }, 0);
+  defender.position = { x: -8.0, y: 0, z: -46.0 };
+
+  // 1. Defender tries to mount attacker-authorized machine -> MUST FAIL
+  const defMounted = mountBiByeLlista(ballista, defender, 0);
+  assert.equal(defMounted, false, 'Defender must not be allowed to mount attacker-authorized ballista');
+  assert.equal(ballista.operatorId, null);
+  assert.equal(ballista.team, TEAMS.ATTACKERS);
+
+  // 2. Attacker mounts -> SUCCEEDS
+  const attacker = room.addPlayer({ id: 'att-pilot', name: 'AttackerPilot', team: TEAMS.ATTACKERS }, 0);
+  attacker.position = { x: -8.0, y: 0, z: -46.0 };
+  const attMounted = mountBiByeLlista(ballista, attacker, 0);
+  assert.equal(attMounted, true, 'Attacker must be able to mount authorized ballista');
+  assert.equal(ballista.operatorId, attacker.id);
+  assert.equal(ballista.team, TEAMS.ATTACKERS);
+
+  // 3. Attacker dismounts -> team remains ATTACKERS, defender still cannot mount
+  dismountBiByeLlista(ballista, attacker, true, room.world);
+  assert.equal(ballista.operatorId, null);
+  assert.equal(ballista.team, TEAMS.ATTACKERS);
+  assert.equal(mountBiByeLlista(ballista, defender, 1.0), false, 'Defender still cannot mount unattended ballista');
+
+  // 4. Attacker mounts, then dies -> ballista operator cleared, team remains ATTACKERS
+  mountBiByeLlista(ballista, attacker, 2.0);
+  attacker.alive = false;
+  attacker.health = 0;
+  dismountBiByeLlista(ballista, attacker, true, room.world);
+  assert.equal(ballista.operatorId, null);
+  assert.equal(ballista.team, TEAMS.ATTACKERS);
 });
 
 test('The Outerworks: Ballista can mount, deploy stabilizers, and fire siege bolts at Objective 1', () => {

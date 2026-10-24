@@ -50,6 +50,7 @@ function nav(id, x, y, z) {
 
 export const OUTERWORKS_TERRACE_Y = 1.2;
 export const OUTERWORKS_PARAPET_Y = 2.4;
+export const OUTERWORKS_TRENCH_Y = -1.2;
 export const OUTERWORKS_GATE_OPEN_DURATION_SEC = 1.4;
 
 const FLOORS = [
@@ -57,13 +58,13 @@ const FLOORS = [
   floor('floor-att-camp', [-18, 18], [-58, -40], 0, 'stone'),
 
   // The Great Esplanade (Central Approach Road)
-  floor('floor-esplanade', [-16, 16], [-40, -14], 0, 'stone'),
+  floor('floor-esplanade', [-18, 18], [-40, -14], 0, 'stone'),
 
   // Objective 1: The Forward Redoubt Ground
-  floor('floor-redoubt', [-16, 16], [-14, 0], 0, 'stone'),
+  floor('floor-redoubt', [-18, 18], [-14, 0], 0, 'stone'),
 
   // The Great Breach Passage
-  floor('floor-breach', [-10, 10], [0, 6], 0, 'stone'),
+  floor('floor-breach', [-18, 18], [0, 6], 0, 'stone'),
 
   // The Barbican Courtyard / Inner Bailey
   floor('floor-bailey', [-18, 18], [6, 44], 0, 'stone'),
@@ -74,14 +75,15 @@ const FLOORS = [
   // Defender Staging Camp
   floor('floor-def-base', [-18, 18], [48, 60], 0, 'stone'),
 
-  // Western Sally Trench (Sunken infantry corridor)
-  floor('floor-west-trench', [-26, -16], [-44, 8], 0, 'stone'),
+  // Western Sally Trench (Genuinely sunken infantry corridor floor at y = -1.2)
+  floor('floor-west-trench', [-25.5, -16.5], [-40.0, -8.0], OUTERWORKS_TRENCH_Y, 'dirt'),
+  floor('floor-trench-exit', [-23.0, -16.0], [-2.0, 4.0], 0, 'stone'),
 
   // Eastern Elevated Firing Terrace (Ballista platform)
   floor('floor-east-terrace', [13, 24], [-18, -4], OUTERWORKS_TERRACE_Y, 'stone'),
 
   // Eastern High Parapet (Infantry catwalk)
-  floor('floor-east-parapet', [19, 25], [-4, 38], OUTERWORKS_PARAPET_Y, 'stone'),
+  floor('floor-east-parapet', [19, 25.5], [-4, 38], OUTERWORKS_PARAPET_Y, 'stone'),
 ];
 
 const RAMPS = [
@@ -108,14 +110,36 @@ const RAMPS = [
     axis: 'z',
     steps: true,
   },
+  // Sunken Western Sally Trench: South entry ramp (drops 0 -> -1.2m)
+  {
+    id: 'ramp-trench-south',
+    minX: -22.5,
+    maxX: -17.5,
+    minZ: -46.0,
+    maxZ: -39.5,
+    startY: 0,
+    endY: OUTERWORKS_TRENCH_Y,
+    axis: 'z',
+  },
+  // Sunken Western Sally Trench: North exit ramp (rises -1.2m -> 0)
+  {
+    id: 'ramp-trench-north',
+    minX: -22.5,
+    maxX: -17.5,
+    minZ: -8.5,
+    maxZ: -2.0,
+    startY: OUTERWORKS_TRENCH_Y,
+    endY: 0,
+    axis: 'z',
+  },
 ];
 
 const SOLIDS = [
   // --- Outer Perimeter Fortress Walls ---
   solid('wall-south-camp', [-19, 19], [0, 4.5], [-59, -58]),
-  solid('wall-west-camp', [-19, -18], [0, 4.0], [-58, -44]),
+  solid('wall-west-camp', [-19, -18], [0, 4.0], [-58, -46]),
   solid('wall-east-camp', [18, 19], [0, 4.0], [-58, -28]),
-  solid('wall-west-trench-outer', [-26.8, -26.0], [0, 4.0], [-44, 8]),
+  solid('wall-west-trench-outer', [-26.5, -24.5], [-1.5, 4.0], [-46, 8]),
   solid('wall-west-bailey-outer', [-26.8, -26.0], [0, 5.0], [8, 44]),
   solid('wall-east-outer', [25.0, 26.0], [0, 5.0], [-28, 44]),
   solid('wall-north-keep', [-19, 19], [0, 5.5], [60, 61]),
@@ -128,15 +152,14 @@ const SOLIDS = [
   solid('cover-camp-crates', [-10, -6], [0, 1.2], [-56, -54.5], { material: 'timber' }),
 
   // --- Western Sally Trench Partition & Revetments (Infantry Only) ---
-  // Leave a 6m wide entrance at z: -46 to -40 for camp access into the trench
-  solid('trench-revetment-south', [-16.8, -16.0], [0, 2.2], [-38, -26]),
-  solid('trench-revetment-north', [-16.8, -16.0], [0, 2.2], [-22, -10]),
-  solid('trench-chicane-1', [-20.0, -18.2], [0, 2.0], [-30, -29], { material: 'timber' }),
-  solid('trench-chicane-2', [-24.8, -23.0], [0, 2.0], [-18, -17], { material: 'timber' }),
-  solid('trench-exit-wall', [-16.8, -16.0], [0, 2.2], [-6, 4]),
+  // High revetment wall rising to +1.0m (providing 2.2m of cover above trench floor at -1.2m)
+  solid('trench-revetment-wall', [-17.2, -16.5], [-1.5, 1.0], [-39.5, -8.5], { material: 'timber' }),
+  solid('trench-chicane-1', [-20.5, -18.5], [OUTERWORKS_TRENCH_Y, 1.0], [-29, -28], { material: 'timber' }),
+  solid('trench-chicane-2', [-23.5, -21.5], [OUTERWORKS_TRENCH_Y, 1.0], [-17, -16], { material: 'timber' }),
+  solid('trench-exit-wall', [-17.2, -16.5], [0, 2.2], [-2, 4]),
 
   // --- The Great Esplanade Cover (Intermittent siege protection) ---
-  solid('cover-esplanade-mantlet', [-6.5, -4.5], [0, 1.8], [-33, -32], { material: 'timber' }),
+  solid('cover-esplanade-mantlet', [-11.5, -9.5], [0, 1.8], [-33, -32], { material: 'timber' }),
   solid('cover-esplanade-cart', [4.5, 7.5], [0, 1.4], [-27, -25], { material: 'timber' }),
   solid('cover-esplanade-boulder', [-7.5, -5.5], [0, 1.2], [-24, -22]),
 
@@ -272,15 +295,17 @@ const NAVIGATION_NODES = Object.freeze([
   nav('esplanade-flank-e', 3.5, 0, -22),
   nav('esplanade-north', 0, 0, -18),
 
-  // Western Sally Trench (Infantry Flank Route)
-  nav('trench-camp-approach', -12, 0, -47),
-  nav('trench-portal', -18, 0, -43),
-  nav('trench-south', -21, 0, -35),
-  nav('trench-corner-1', -21.5, 0, -30),
-  nav('trench-mid', -22.0, 0, -24),
-  nav('trench-corner-2', -22.0, 0, -16),
-  nav('trench-north', -21, 0, -8),
-  nav('trench-exit', -18.8, 0, -2),
+  // Western Sally Trench (Genuinely Sunken Infantry Flank Route)
+  nav('trench-camp-approach', -14, 0, -48),
+  nav('trench-ramp-top', -20, 0, -45),
+  nav('trench-ramp-mid', -20, -0.6, -42.5),
+  nav('trench-south', -20, OUTERWORKS_TRENCH_Y, -36),
+  nav('trench-corner-1', -21.5, OUTERWORKS_TRENCH_Y, -30),
+  nav('trench-mid', -19.5, OUTERWORKS_TRENCH_Y, -24),
+  nav('trench-corner-2', -19.5, OUTERWORKS_TRENCH_Y, -16),
+  nav('trench-north', -20, OUTERWORKS_TRENCH_Y, -10),
+  nav('trench-exit-ramp-mid', -20, -0.6, -5.5),
+  nav('trench-exit-ramp-top', -20, 0, -2.5),
   nav('trench-postern', -18.8, 0, 1.8),
   nav('trench-flank-bailey', -15.0, 0, 6),
 
@@ -339,10 +364,11 @@ export const OUTERWORKS_TACTICS = Object.freeze({
       if (actor.team === TEAMS.ATTACKERS) {
         if (actor.position.z < -10) {
           if (rivalIndex === 1) {
-            // Western Sally Trench flank route
-            if (actor.position.z < -38) return { x: -21, y: 0, z: -38 };
-            if (actor.position.z < -18) return { x: -21, y: 0, z: -18 };
-            if (actor.position.z < -4) return { x: -21, y: 0, z: -4 };
+            // Western Sally Trench flank route (sunken at y = -1.2)
+            if (actor.position.z < -44) return { x: -20, y: 0, z: -44 };
+            if (actor.position.z < -36) return { x: -20, y: OUTERWORKS_TRENCH_Y, z: -36 };
+            if (actor.position.z < -10) return { x: -20, y: OUTERWORKS_TRENCH_Y, z: -10 };
+            if (actor.position.z < -2) return { x: -20, y: 0, z: -2 };
             return { x: -14, y: 0, z: 2 };
           }
           if (rivalIndex === 2) {
@@ -411,6 +437,7 @@ const BASE_OUTERWORKS = Object.freeze({
     nodes: NAVIGATION_NODES,
   }),
   tactics: OUTERWORKS_TACTICS,
+  forObjective: (state, nowSec) => outerworksForObjective(state, nowSec),
   abyssY: -10,
 });
 

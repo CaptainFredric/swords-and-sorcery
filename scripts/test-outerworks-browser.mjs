@@ -1,3 +1,15 @@
+/**
+ * STAGED VISUAL INSPECTION HARNESS — THE OUTERWORKS
+ *
+ * NOTE: This script is a STAGED visual inspection harness for verifying camera perspectives,
+ * architectural visibility, and world asset layout. It repositions the local player camera
+ * and staging entities to capture multi-angle environment frames.
+ *
+ * For AUTHENTIC, input-driven gameplay acceptance testing (real player locomotion, ballista
+ * driving, stabilizer deployment, siege volley firing, trench traversing, and objective capture),
+ * see: scripts/test-outerworks-gameplay-acceptance.mjs
+ */
+
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { mkdtemp, copyFile, mkdir, writeFile } from 'node:fs/promises';
@@ -18,7 +30,7 @@ const brainDir = '/Users/erendiracisneros/.gemini/antigravity/brain/bf36c922-878
 
 await mkdir(evidenceDir, { recursive: true });
 
-console.log('=== The Outerworks Battlefield Browser Acceptance Test ===');
+console.log('=== The Outerworks Staged Visual Inspection Harness ===');
 console.log(`Starting dedicated test server on port ${serverPort}...`);
 
 const server = spawn('node', ['server/src/server.mjs'], {
