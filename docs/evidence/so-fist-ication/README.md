@@ -18,25 +18,27 @@ Chrome gameplay used ordinary keyboard, mouse and CDP touch input. Routes in the
 
 The decisive encounter used a normal 100 HP dummy with real Steel state, the authored fist, and the actual Tourney Field stone wall. The fist dealt 76 HP after Steel and 78 stagger, then physically launched the survivor into the wall. That real contact dealt another 19 HP after Steel, added the normal 26 stagger, caused a full balance break, and credited the operator. The victim survived with 5 HP. [Capture](steel-survivor-wall-impact.png) and [events](wall-encounter.json).
 
-Desktop construction, operating, driving, charge, piston, both views, rebuild and dismantling passed. A real sword strike destroyed a fist initialized at 19 remaining HP, preserved all 1400 hull HP, and allowed subsequent exposed shaft operation. Touch at 960 by 600 passed mount, held Charge, release, piston, view and leave. Aborted GLB loading refused construction; retry loaded the genuine model and then constructed it.
+Desktop construction, operating, driving, charge, piston, both views, rebuild and dismantling passed. A real sword strike destroyed a fist initialized at 19 remaining HP, preserved all 1400 hull HP, and allowed subsequent exposed shaft operation. The standalone HTML5 ZIP passed the same desktop and touch flows, plus the real wall encounter. Existing ballista desktop construction, mobile operation, aim, fire, deployment, rebuild and removal also passed. Touch at 960 by 600 passed mount, held Charge, release, piston, view and leave. Aborted GLB loading refused construction; retry loaded the genuine model and then constructed it.
 
 Reproduction helpers: `scripts/so-fist-browser.mjs` and `scripts/so-fist-performance.mjs`. Shared regressions cover real running, Sprint and Dash evasion, side versus frontal impact, pinned contacts, normal Guard facing, mitigation, recovery, thin walls, slope ascent/descent/reverse, unsupported drops, damaged wheels and drive, precise component hits, reset, egress and both bolt types against the ram.
 
 ## Frame pacing
 
-[Raw measurements](performance.json). Same Chrome 155, Apple M1 through ANGLE Metal, 1280 by 800 viewport, device scale 1, 78 degree field of view and identical visual settings. The old implementation was served from an isolated archive of commit `47c6d31`. Warm stationary cases sampled eight seconds each; active charging and piston sampled six seconds, reaching 12 m/s. One game tab ran during each sample.
+[Raw measurements](performance.json). Same Chrome 155, Apple M1 through ANGLE Metal, 1280 by 800 viewport, device scale 1, 78 degree field of view and identical visual settings. The old implementation was served from an isolated archive of commit `47c6d31`. The old baseline and visible ram cases sampled eight seconds each; final empty Practice and construction sampled five seconds, and active charging and piston sampled six seconds, reaching 12 m/s. One game tab ran during each sample.
 
-| Scenario | Frame median | Frame p95 | Frames above 50 ms | Host tick CPU median | Host tick CPU p95 |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| Baseline, empty Practice | 16.7 ms | 16.7 ms | 0 | 0.5 ms | 0.8 ms |
-| Candidate, empty Practice | 16.7 ms | 16.7 ms | 0 | 0.5 ms | 0.9 ms |
-| Ram visible, initial implementation | 16.7 ms | 16.7 ms | 0 | 1.9 ms | 3.0 ms |
-| Ram visible, idle work corrected | 16.7 ms | 16.7 ms | 0 | 0.6 ms | 1.0 ms |
-| Charge and piston active | 16.7 ms | 16.7 ms | 0 | 2.0 ms | 4.4 ms |
+| Scenario | Frame median | Frame p95 | Maximum frame | Frames at least 50 ms | Host CPU median | Host CPU p95 |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| Baseline, empty Practice | 16.7 ms | 16.7 ms | 16.8 ms | 0 | 0.5 ms | 0.8 ms |
+| Final candidate, empty Practice | 16.7 ms | 16.8 ms | 16.8 ms | 0 | 0.5 ms | 0.9 ms |
+| Ram visible, initial implementation | 16.7 ms | 16.7 ms | 16.8 ms | 0 | 1.9 ms | 3.0 ms |
+| Final ram visible, idle work corrected | 16.7 ms | 16.8 ms | 16.8 ms | 0 | 0.5 ms | 0.9 ms |
+| Final charge and piston active | 16.7 ms | 16.8 ms | 50.0 ms | 1 | 2.0 ms | 4.4 ms |
 
-Measurements exposed repeated terrain and collision sweeps while the carriage was stationary. Skipping that idle work reduced host CPU cost. Frame pacing already met the display interval, so these results demonstrate no visible frame rate improvement over the baseline. Initial construction recorded a 33.4 ms maximum frame and one 73.3 ms host scheduling interval; warm driving recorded no such host interval. These are bounded desktop measurements, not a physical phone performance claim.
+Measurements exposed repeated terrain and collision sweeps while the carriage was stationary. Skipping that idle work reduced host CPU cost. Frame pacing already met the display interval, so these results demonstrate no visible frame rate improvement over the baseline. Final construction recorded a 33.3 ms maximum frame and 44.7 ms maximum host scheduling interval. Final active play contained one 50 ms frame; host CPU work peaked at 5.4 ms and host scheduling intervals at 38.2 ms in that sample. That isolated frame's cause remains unresolved. These bounded desktop samples establish neither phone performance nor a general stutter guarantee.
 
 Verification: `npm run verify` passed syntax checks, 1746 repository tests, 19 HTML5/release tests and the HTTP/WebSocket smoke check.
+
+The tested gameplay source is commit `1db0329`, based on merged PR222 at `1109c54`. [Verification details](verification.json). The export contains 985 of the 1000 allowed itch files, with 15 remaining.
 
 ## Limits and next decisions
 
