@@ -12,7 +12,8 @@ import {
   outerworksForObjective,
 } from '../../shared/worlds/outerworks.mjs';
 import { navGraph, runClear, routeBetween } from '../../shared/sim/botNav.mjs';
-import { mountBiByeLlista, dismountBiByeLlista, stepBiByeLlista, stepBiByeProjectiles, fireBiByeLlista, toggleBiByeDeploy, damageBiByeLlista } from '../../shared/sim/biByeLlista.mjs';
+import { mountBiByeLlista, dismountBiByeLlista, stepBiByeLlista, stepBiByeProjectiles, fireBiByeLlista, toggleBiByeDeploy, damageBiByeLlista, createBiByeLlista } from '../../shared/sim/biByeLlista.mjs';
+import { biByeDeploymentSupport } from '../../shared/sim/biByeTerrain.mjs';
 import { stepRoom } from '../../shared/sim/combat.mjs';
 import { TEAMS } from '../../shared/src/teams.mjs';
 import { segmentAabbHit } from '../../shared/src/collision.mjs';
@@ -287,3 +288,45 @@ test('The Outerworks: Tactical bot goals navigate across lanes', () => {
   });
   assert.ok(sGoal && sGoal.x >= 14, 'Support bot must head for Eastern Firing Terrace');
 });
+
+test('The Outerworks: Ballista can physically negotiate the Eastern Terrace ramp and deploy stabilizers', () => {
+  const world = OUTERWORKS_CLOSED;
+  const ballista = createBiByeLlista({ id: 'bibye-terrace-test', x: 17, z: -32, baseYaw: Math.PI, heading: Math.PI, team: TEAMS.ATTACKERS });
+  const driver = {
+    id: 'test-driver',
+    team: TEAMS.ATTACKERS,
+    alive: true,
+    position: { x: 17, y: 0, z: -32 },
+    input: { forward: 0, right: 0 },
+  };
+  const room = {
+    world,
+    players: new Map([[driver.id, driver]]),
+    biByeLlista: ballista,
+    events: [],
+  };
+
+  assert.ok(mountBiByeLlista(ballista, driver, 0, world), 'Driver must mount ballista at ramp foot');
+  driver.input.forward = 1;
+
+  // Step ballista forward up the 6.8° ramp to the elevated firing platform
+  for (let tick = 0; tick < 250; tick++) {
+    driver.position.x = ballista.x;
+    driver.position.y = ballista.y;
+    driver.position.z = ballista.z;
+    stepBiByeLlista(room, ballista, 1 / 30, (tick + 1) / 30, world);
+    if (ballista.z >= -12) break;
+  }
+
+  assert.ok(ballista.z >= -14, `Ballista must advance onto terrace platform (reached z: ${ballista.z.toFixed(2)})`);
+  assert.ok(Math.abs(ballista.y - OUTERWORKS_TERRACE_Y) < 0.05, `Ballista must achieve elevated terrace height y = 1.2m (y: ${ballista.y.toFixed(2)})`);
+
+  // Verify deployment support on terrace
+  const support = biByeDeploymentSupport(ballista, world);
+  assert.equal(support.ok, true, `Terrace platform must provide valid stabilizer support: ${support.reason}`);
+
+  // Deploy stabilizers on the elevated terrace
+  assert.ok(toggleBiByeDeploy(ballista, 10), 'Must successfully initiate stabilizer deployment on terrace');
+  assert.equal(ballista.mode, 'DEPLOYING', 'Ballista must enter DEPLOYING mode');
+});
+

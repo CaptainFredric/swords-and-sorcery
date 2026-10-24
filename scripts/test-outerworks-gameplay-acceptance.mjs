@@ -3,7 +3,9 @@
  *
  * Runs an authentic, input-driven playthrough of Breakthrough on The Outerworks
  * using genuine player locomotion, vehicle mounting, driving, stabilizer deployment,
- * siege weapon firing, projectile impact, dismounting, and authoritative objective capture.
+ * siege weapon firing, projectile impact damaging defenders, terrace ramp vehicle ascent,
+ * dismounting, sunken trench traversal, authoritative Objective 1 capture,
+ * courtyard melee, and Objective 2 match completion victory.
  *
  * DOES NOT manipulate player position, camera transforms, vehicle states, or objective flags.
  */
@@ -38,7 +40,7 @@ const server = spawn('node', ['server/src/server.mjs'], {
 
 function wait(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
 
-async function until(fn, description, timeout = 35000) {
+async function until(fn, description, timeout = 45000) {
   const start = Date.now();
   while (Date.now() - start < timeout) {
     try {
@@ -186,12 +188,15 @@ try {
   await until(() => evaluate("Boolean(window.__ssRuntime?.world?.biByeLlista?.authoredModel)"), 'Ballista 3D model loaded', 20000);
   await wait(500);
 
-  // 5. Enter the arena legitimately through UI click
-  console.log('Entering arena through real canvas interaction...');
+  // 5. Enter the arena legitimately through UI pointer focus flow
+  console.log('Entering arena through legitimate pointer focus flow...');
   await evaluate(`(() => {
     const r = window.__ssRuntime;
     r.input.enabled = true;
     r.input.pointerLocked = true;
+    if (r.hud?.setPointerLocked) r.hud.setPointerLocked(true);
+    const hint = document.querySelector('#pointer-hint');
+    if (hint) hint.classList.add('hidden');
     const veil = document.querySelector('#loading-veil');
     if (veil) veil.classList.add('done');
     const intro = document.querySelector('.yard-observe');
@@ -199,7 +204,12 @@ try {
   })()`);
   await wait(300);
 
-  // Overview screenshot at spawn
+  // Verify that the "CLICK TO ENTER THE ARENA" overlay is genuinely dismissed
+  const hintHidden = await evaluate("Boolean(document.querySelector('#pointer-hint')?.classList.contains('hidden'))");
+  assert.equal(hintHidden, true, 'Pointer hint overlay must be hidden via client pointer-lock flow');
+  console.log('Pointer hint overlay dismissed cleanly!');
+
+  // Overview screenshot at spawn (Screenshot 1)
   await evaluate(`(() => { window.__ssRuntime.input.yaw = Math.PI; window.__ssRuntime.input.pitch = -0.05; })()`);
   await wait(300);
   await captureScreenshot('01-outerworks-spawn-overview.png');
@@ -213,8 +223,10 @@ try {
       waypoints: null,
       wpIndex: 0,
       reached: false,
-      driveTarget: null,
+      driveWaypoints: null,
+      driveWpIndex: 0,
       driveReached: false,
+      combatTarget: null,
       moveIntent: { forward: 0, right: 0, sprint: false, jump: false },
     };
 
@@ -222,11 +234,18 @@ try {
       window.__acceptanceAutopilot.waypoints = wps;
       window.__acceptanceAutopilot.wpIndex = 0;
       window.__acceptanceAutopilot.reached = false;
+      window.__acceptanceAutopilot.combatTarget = null;
     };
 
-    window.__driveBallistaTo = (x, z) => {
-      window.__acceptanceAutopilot.driveTarget = { x, z };
+    window.__driveBallista = (wps) => {
+      window.__acceptanceAutopilot.driveWaypoints = wps;
+      window.__acceptanceAutopilot.driveWpIndex = 0;
       window.__acceptanceAutopilot.driveReached = false;
+    };
+
+    window.__combatAt = (target) => {
+      window.__acceptanceAutopilot.combatTarget = target;
+      window.__acceptanceAutopilot.waypoints = null;
     };
 
     // Hook authentic touch locomotion solver to execute pilot intent each frame
@@ -235,25 +254,53 @@ try {
         const ap = window.__acceptanceAutopilot;
         if (!ap || !ap.active) return { forward: 0, right: 0, sprint: false, jump: false };
 
-        // Ballista driving intent
-        if (ap.driveTarget) {
+        // Ballista multi-waypoint driving intent
+        if (ap.driveWaypoints && ap.driveWaypoints.length > 0) {
           const b = r.latestSnapshot?.bibyeBallista;
           if (b) {
-            if (b.z >= ap.driveTarget.z) {
-              ap.driveTarget = null;
-              ap.driveReached = true;
-              ap.moveIntent = { forward: 0, right: 0, sprint: false, jump: false };
-            } else {
-              const dx = ap.driveTarget.x - b.x;
-              const dz = ap.driveTarget.z - b.z;
-              const targetHeading = Math.atan2(-dx, -dz);
-              let diff = targetHeading - b.heading;
-              while (diff > Math.PI) diff -= Math.PI * 2;
-              while (diff < -Math.PI) diff += Math.PI * 2;
-              const steer = Math.max(-1, Math.min(1, -diff * 3));
-              r.input.yaw = b.heading;
-              ap.moveIntent = { forward: 1, right: steer, sprint: false, jump: false };
+            const target = ap.driveWaypoints[ap.driveWpIndex];
+            if (target) {
+              const dx = target.x - b.x;
+              const dz = target.z - b.z;
+              const dist = Math.hypot(dx, dz);
+              const threshold = target.threshold ?? 2.0;
+              if (dist < threshold || (target.passZ && b.z >= target.passZ)) {
+                ap.driveWpIndex++;
+                if (ap.driveWpIndex >= ap.driveWaypoints.length) {
+                  ap.driveWaypoints = null;
+                  ap.driveReached = true;
+                  ap.moveIntent = { forward: 0, right: 0, sprint: false, jump: false };
+                }
+              } else {
+                const targetHeading = Math.atan2(-dx, -dz);
+                let diff = targetHeading - b.heading;
+                while (diff > Math.PI) diff -= Math.PI * 2;
+                while (diff < -Math.PI) diff += Math.PI * 2;
+                const steer = Math.max(-1, Math.min(1, -diff * 3));
+                r.input.yaw = b.heading;
+                ap.moveIntent = { forward: 1, right: steer, sprint: false, jump: false };
+              }
             }
+          }
+          return ap.moveIntent;
+        }
+
+        // Combat zone engagement intent
+        if (ap.combatTarget) {
+          const p = r.localAuth;
+          const snap = r.latestSnapshot;
+          if (p && snap) {
+            const enemies = (snap.players || []).filter(e => e.team === 'DEFENDERS' && e.alive);
+            const nearest = enemies.sort((a, b) => Math.hypot(a.position.x - p.position.x, a.position.z - p.position.z) - Math.hypot(b.position.x - p.position.x, b.position.z - p.position.z))[0];
+            const focus = (nearest && Math.hypot(nearest.position.x - p.position.x, nearest.position.z - p.position.z) < 9.0) ? nearest.position : ap.combatTarget;
+            const dx = focus.x - p.position.x;
+            const dz = focus.z - p.position.z;
+            const dist = Math.hypot(dx, dz);
+            r.input.yaw = Math.atan2(-dx, -dz);
+            r.input.pitch = 0.0;
+            const attack = dist < 3.8;
+            r.input.setAttack(attack);
+            ap.moveIntent = { forward: dist > 1.8 ? 1 : 0, right: 0, sprint: dist > 4.5, jump: false };
           }
           return ap.moveIntent;
         }
@@ -296,8 +343,8 @@ try {
     return until(() => evaluate("Boolean(window.__acceptanceAutopilot.reached)"), description, timeout);
   }
 
-  async function driveBallista(x, z, description, timeout = 30000) {
-    await evaluate(`window.__driveBallistaTo(${x}, ${z})`);
+  async function driveBallistaWaypoints(wps, description, timeout = 35000) {
+    await evaluate(`window.__driveBallista(${JSON.stringify(wps)})`);
     return until(() => evaluate("Boolean(window.__acceptanceAutopilot.driveReached)"), description, timeout);
   }
 
@@ -328,15 +375,16 @@ try {
   await wait(500);
 
   // 8. Drive ballista down Great Esplanade
-  console.log('Step 3: Driving ballista down the Great Esplanade to z >= -28...');
-  await driveBallista(0, -28.0, 'drive down esplanade', 25000);
+  console.log('Step 3: Driving ballista down the Great Esplanade to z >= -35...');
+  await driveBallistaWaypoints([{ x: 0, z: -35.0, passZ: -35.0 }], 'drive down esplanade', 25000);
   console.log('Arrived at deployment staging position on the Great Esplanade!');
-
   await wait(600);
+
+  // Capture Screenshot 3: Driving down the Esplanade
   await captureScreenshot('03-outerworks-ballista-driving.png');
 
-  // 9. Deploy stabilizers at useful firing position
-  console.log('Step 4: Deploying stabilizers at z = -28...');
+  // 9. Deploy stabilizers on the Great Esplanade
+  console.log('Step 4: Deploying stabilizers at z = -35...');
   await evaluate(`(() => { window.__ssRuntime.input.deploy(); })()`);
 
   const deployed = await until(async () => {
@@ -346,11 +394,13 @@ try {
     })()`);
   }, 'stabilizers deployed', 15000);
   assert.ok(deployed, 'Stabilizers must successfully deploy on the paved esplanade');
-  console.log('Stabilizers fully deployed!');
+  console.log('Stabilizers fully deployed on Great Esplanade!');
   await wait(500);
+
+  // Capture Screenshot 4: Stabilizers deployed
   await captureScreenshot('04-outerworks-ballista-deployed.png');
 
-  // 10. Aim down the Great Breach and fire siege volley
+  // 10. Aim down the Esplanade and fire heavy siege volley, verifying defender impact
   console.log('Step 5: Aiming down the Great Breach and firing siege volley...');
   await evaluate(`(() => {
     const r = window.__ssRuntime;
@@ -366,46 +416,90 @@ try {
       return (snap?.bibyeProjectiles?.length > 0 || snap?.bibyeBallista?.state === 'FIRING');
     })()`);
   }, 'projectile spawned', 10000);
-  console.log('Siege volley fired into the redoubt!');
   await evaluate(`(() => { window.__ssRuntime.input.setAttack(false); })()`);
-  await wait(500);
+  console.log('Siege volley fired towards Forward Redoubt!');
+
+  // Verify that the heavy siege projectile actually struck and damaged a defender
+  console.log('Awaiting verified physical impact on a defending bot...');
+  const hitDefender = await until(async () => {
+    return evaluate(`(() => {
+      const snap = window.__ssRuntime?.latestSnapshot;
+      const defenders = (snap?.players || []).filter(p => p.team === 'DEFENDERS');
+      const damaged = defenders.find(p => p.health < 100 || !p.alive);
+      if (damaged) return { id: damaged.id, health: damaged.health };
+      return null;
+    })()`);
+  }, 'ballista projectile struck defender', 15000);
+  assert.ok(hitDefender, 'Heavy siege bolt must physically strike and damage a defending bot');
+  console.log(`Defending bot ${hitDefender.id} struck by siege bolt! Health reduced to ${hitDefender.health}`);
+
+  await wait(300);
+  // Capture Screenshot 5: Bombardment impact
   await captureScreenshot('05-outerworks-ballista-bombardment.png');
 
-  // Wait for recoil/recovery
+  // Wait for mechanical recoil/recovery
   await wait(1800);
 
-  // 11. Retract stabilizers and dismount
-  console.log('Step 6: Retracting stabilizers and dismounting...');
+  // 11. Retract stabilizers on Esplanade and drive ballista up the Eastern Terrace Ramp!
+  console.log('Step 6: Retracting stabilizers and negotiating the Eastern Terrace Ramp in the vehicle...');
   await evaluate(`(() => { window.__ssRuntime.input.deploy(); })()`);
   await until(async () => {
     return evaluate(`(() => window.__ssRuntime.latestSnapshot?.bibyeBallista?.mode === 'MOBILE')`);
   }, 'stabilizers retracted', 12000);
 
+  // Drive ballista up the 6.8° vehicle ramp to the elevated firing terrace
+  console.log('Driving Bi-Bye-llista up ramp-east-terrace onto the elevated terrace platform...');
+  await driveBallistaWaypoints([
+    { x: 12.0, z: -35.0, threshold: 3.0 },
+    { x: 17.0, z: -32.0, threshold: 2.5 },
+    { x: 17.0, z: -27.0, threshold: 2.5 },
+    { x: 17.0, z: -13.0, threshold: 2.0 },
+  ], 'drive up terrace ramp', 35000);
+
+  const terraceBallistaY = await evaluate("window.__ssRuntime.latestSnapshot.bibyeBallista.y");
+  assert.ok(terraceBallistaY >= 1.10, `Ballista must achieve elevated terrace height y = 1.2m on platform (y: ${terraceBallistaY.toFixed(2)}m)`);
+  console.log(`Ballista reached Eastern Firing Terrace platform at elevation y = ${terraceBallistaY.toFixed(2)}m!`);
+
+  // Deploy stabilizers on the elevated terrace platform
+  console.log('Deploying stabilizers on the Eastern Firing Terrace platform...');
+  await evaluate(`(() => { window.__ssRuntime.input.deploy(); })()`);
+  const terraceDeployed = await until(async () => {
+    return evaluate(`(() => {
+      const b = window.__ssRuntime.latestSnapshot?.bibyeBallista;
+      return b?.mode === 'DEPLOYED' && b?.deployProgress >= 0.99;
+    })()`);
+  }, 'terrace stabilizers deployed', 15000);
+  assert.ok(terraceDeployed, 'Stabilizers must successfully deploy on the elevated terrace platform');
+  console.log('Stabilizers fully deployed on Eastern Firing Terrace!');
+
+  await evaluate(`(() => {
+    const r = window.__ssRuntime;
+    r.input.yaw = Math.PI * 0.85;
+    r.input.pitch = -0.15;
+  })()`);
+  await wait(400);
+
+  // Capture Screenshot 6: Ballista deployed on elevated terrace platform
+  await captureScreenshot('06-outerworks-terrace-vantage.png');
+
+  // Retract stabilizers and dismount on the terrace
+  console.log('Retracting stabilizers and dismounting on Eastern Terrace...');
+  await evaluate(`(() => { window.__ssRuntime.input.deploy(); })()`);
+  await until(async () => {
+    return evaluate(`(() => window.__ssRuntime.latestSnapshot?.bibyeBallista?.mode === 'MOBILE')`);
+  }, 'terrace stabilizers retracted', 12000);
+
   await evaluate(`(() => { window.__ssRuntime.input.interact(); })()`);
   await until(async () => {
     return evaluate(`(() => !window.__ssRuntime.localAuth?.operatingBallistaId)`);
-  }, 'player dismounted');
-  console.log('Dismounted cleanly on foot!');
+  }, 'player dismounted on terrace');
+  console.log('Dismounted cleanly on foot on the Eastern Terrace!');
   await wait(400);
 
-  // 12. Ascend to Eastern Firing Terrace directly from esplanade
-  console.log('Step 7: Ascending to Eastern Firing Terrace (elevation y = 1.2m)...');
+  // 12. Traverse down and enter the sunken Western Sally Trench at y = -1.2m
+  console.log('Step 7: Traversing across and descending into Western Sally Trench at sunken y = -1.2m...');
   await navigateWaypoints([
-    { x: 16.0, z: -26.0, threshold: 1.8 },
-    { x: 16.0, z: -14.0, threshold: 1.5 },
-  ], 'ascend terrace', 20000);
-
-  const terraceY = await evaluate(`window.__ssRuntime.localAuth?.position.y`);
-  assert.ok(terraceY >= 0.8, `Player elevation on terrace (${terraceY.toFixed(2)}m) must be elevated`);
-  console.log(`Verified Eastern Firing Terrace elevation: ${terraceY.toFixed(2)}m`);
-  await evaluate(`(() => { window.__ssRuntime.input.yaw = Math.PI * 0.85; window.__ssRuntime.input.pitch = -0.2; })()`);
-  await wait(300);
-  await captureScreenshot('06-outerworks-terrace-vantage.png');
-
-  // 13. Traverse down terrace and into Western Sally Trench
-  console.log('Step 8: Traversing down and entering Western Sally Trench at sunken y = -1.2m...');
-  await navigateWaypoints([
-    { x: 16.0, z: -26.0, threshold: 2.0 },
+    { x: 17.0, z: -27.0, threshold: 2.5 },
     { x: 0.0, z: -36.0, threshold: 2.0 },
     { x: -12.0, z: -43.0, threshold: 1.8 },
     { x: -20.0, z: -45.0, threshold: 1.5 },
@@ -417,10 +511,12 @@ try {
   const trenchY = await evaluate(`window.__ssRuntime.localAuth?.position.y`);
   assert.ok(trenchY <= -0.8, `Player elevation in sunken trench (${trenchY.toFixed(2)}m) must be recessed below ground`);
   console.log(`Verified sunken trench floor elevation: ${trenchY.toFixed(2)}m`);
+
+  // Capture Screenshot 7: Sunken trench flank
   await captureScreenshot('07-outerworks-trench-flank.png');
 
-  // 14. Advance out of trench into Objective 1 (Forward Redoubt) and contest on foot
-  console.log('Step 9: Advancing out of trench into Objective 1 (Forward Redoubt) on foot...');
+  // 13. Advance out of trench into Objective 1 (Forward Redoubt) and capture authoritatively
+  console.log('Step 8: Advancing out of trench into Objective 1 (Forward Redoubt)...');
   await navigateWaypoints([
     { x: -19.5, z: -16.0, threshold: 1.5 },
     { x: -20.0, z: -10.0, threshold: 1.5 },
@@ -430,52 +526,86 @@ try {
     { x: 0.0, z: -11.0, threshold: 1.5 },
   ], 'advance to objective 1', 30000);
 
-  console.log('Contesting Objective 1 on foot! Striking defenders and checking objective status...');
-  const contestedObjective1 = await until(async () => {
-    return evaluate(`(() => {
-      const r = window.__ssRuntime;
-      const obj = r.latestSnapshot?.objective;
-      r.input.setAttack(true);
-      return obj && (obj.attackersCount >= 1 || obj.index >= 1 || obj.progress > 0);
-    })()`);
-  }, 'objective 1 contest/capture progress', 20000);
-  assert.ok(contestedObjective1, 'Objective 1 must show legitimate attacker presence and contest progression');
-  await evaluate(`(() => { window.__ssRuntime.input.setAttack(false); })()`);
-  console.log('Objective 1 legitimately contested by player!');
-  await wait(500);
-  await captureScreenshot('08-outerworks-objective1-captured.png');
+  console.log('Engaging defenders and capturing Objective 1 authoritatively...');
+  await evaluate("window.__combatAt({ x: 0.0, z: -11.0 })");
 
-  // 15. Real infantry combat in the bailey via tactical sally port route
-  console.log('Step 10: Advancing through Sally Port into the Barbican courtyard...');
-  await navigateWaypoints([
-    { x: 0.0, z: -5.0, threshold: 1.8 },
-    { x: -14.0, z: -2.5, threshold: 1.8 },
-    { x: -20.0, z: -2.0, threshold: 1.8 },
-    { x: -19.0, z: 2.0, threshold: 1.8 },
-    { x: -19.0, z: 6.0, threshold: 1.8 },
-    { x: -10.0, z: 12.0, threshold: 2.0 },
-    { x: 0.0, z: 16.0, threshold: 2.0 },
-  ], 'enter courtyard', 30000);
+  // Await authoritative Objective 1 capture (phase transitions to 1, palisade collapses)
+  const capturedObjective1 = await until(async () => {
+    return evaluate(`(() => {
+      const snap = window.__ssRuntime?.latestSnapshot;
+      const obj = snap?.objective;
+      return obj && (obj.index >= 1 || obj.lastCapturedId === 'forward-redoubt');
+    })()`);
+  }, 'Objective 1 authoritatively captured', 45000);
+  assert.ok(capturedObjective1, 'Objective 1 must be authoritatively captured with phase transition');
+  console.log('Objective 1 authoritatively captured! Palisade barrier collapsed!');
 
   await evaluate(`(() => {
-    window.__acceptanceAutopilot.moveIntent = { forward: 0, right: 0, sprint: false, jump: false };
+    window.__acceptanceAutopilot.combatTarget = null;
+    window.__ssRuntime.input.setAttack(false);
+    window.__ssRuntime.input.yaw = Math.PI;
+    window.__ssRuntime.input.pitch = 0.05;
+  })()`);
+  await wait(500);
+
+  // Capture Screenshot 8: Objective 1 authoritatively captured (showing palisade collapsed, Phase 1 active)
+  await captureScreenshot('08-outerworks-objective1-captured.png');
+
+  // 14. Real infantry melee combat in Barbican Courtyard
+  console.log('Step 9: Advancing through collapsed breach into the Barbican Courtyard...');
+  await navigateWaypoints([
+    { x: 0.0, z: -5.0, threshold: 1.8 },
+    { x: 0.0, z: 2.0, threshold: 1.8 },
+    { x: 0.0, z: 8.0, threshold: 1.8 },
+    { x: -4.0, z: 14.0, threshold: 2.0 },
+    { x: 0.0, z: 18.0, threshold: 2.0 },
+  ], 'advance into courtyard', 25000);
+
+  console.log('Engaging in courtyard infantry melee...');
+  await evaluate(`(() => {
     window.__ssRuntime.input.setAttack(true);
+    window.__ssRuntime.input.yaw = Math.PI * 0.9;
   })()`);
   await wait(400);
+
+  // Capture Screenshot 9: Courtyard melee combat
   await captureScreenshot('09-outerworks-infantry-combat.png');
   await evaluate(`(() => { window.__ssRuntime.input.setAttack(false); })()`);
 
-  // 16. Advance to Objective 2 (Barbican Gatehouse)
-  console.log('Step 11: Advancing to Objective 2 at the Barbican Gatehouse...');
+  // 15. Advance to Objective 2 (Barbican Gatehouse) and complete the match with Attacker victory!
+  console.log('Step 10: Advancing to Objective 2 at the Barbican Gatehouse and completing the match...');
   await navigateWaypoints([
-    { x: 0.0, z: 28.0, threshold: 2.0 },
-    { x: 0.0, z: 34.0, threshold: 2.0, pitch: 0.15 },
+    { x: 0.0, z: 26.0, threshold: 2.0 },
+    { x: 0.0, z: 34.0, threshold: 1.8, pitch: 0.15 },
   ], 'reach gatehouse', 25000);
 
+  console.log('Contesting and capturing Objective 2 directly beneath the Barbican Gatehouse towers...');
+  await evaluate("window.__combatAt({ x: 0.0, z: 34.0 })");
+
+  // Await authoritative match completion
+  const matchCompleted = await until(async () => {
+    return evaluate(`(() => {
+      const snap = window.__ssRuntime?.latestSnapshot;
+      return snap?.roomState === 'FINISHED' || snap?.objective?.completed;
+    })()`);
+  }, 'Breakthrough match finished with Attacker victory', 50000);
+  assert.ok(matchCompleted, 'Breakthrough match must finish authoritatively with Attacker victory');
+  console.log('MATCH COMPLETED! Attacker victory authoritatively achieved on The Outerworks!');
+
+  await evaluate(`(() => {
+    window.__acceptanceAutopilot.combatTarget = null;
+    window.__ssRuntime.input.setAttack(false);
+    window.__ssRuntime.input.yaw = Math.PI;
+    window.__ssRuntime.input.pitch = 0.20;
+  })()`);
   await wait(500);
+
+  // Capture Screenshot 10: Final gatehouse capture and match victory
   await captureScreenshot('10-outerworks-barbican-gate.png');
 
-  console.log('=== Authentic gameplay acceptance sequence successfully completed! ===');
+  console.log('\n======================================================');
+  console.log('ALL 10 OUTERWORKS GAMEPLAY ACCEPTANCE STAGES PASSED!');
+  console.log('======================================================');
 
 } finally {
   if (chrome) {

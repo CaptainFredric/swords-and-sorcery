@@ -79,7 +79,8 @@ const FLOORS = [
   floor('floor-west-trench', [-25.5, -16.5], [-40.0, -8.0], OUTERWORKS_TRENCH_Y, 'dirt'),
   floor('floor-trench-exit', [-23.0, -16.0], [-2.0, 4.0], 0, 'stone'),
 
-  // Eastern Elevated Firing Terrace (Ballista platform)
+  // Eastern Elevated Firing Terrace (Ballista platform) & Ramp Approach
+  floor('floor-terrace-approach', [18, 25], [-40, -28], 0, 'stone'),
   floor('floor-east-terrace', [13, 24], [-18, -4], OUTERWORKS_TERRACE_Y, 'stone'),
 
   // Eastern High Parapet (Infantry catwalk)
@@ -138,10 +139,11 @@ const SOLIDS = [
   // --- Outer Perimeter Fortress Walls ---
   solid('wall-south-camp', [-19, 19], [0, 4.5], [-59, -58]),
   solid('wall-west-camp', [-19, -18], [0, 4.0], [-58, -46]),
-  solid('wall-east-camp', [18, 19], [0, 4.0], [-58, -28]),
+  solid('wall-east-camp', [18, 19], [0, 4.0], [-58, -40]),
+  solid('wall-east-camp-corner', [18, 25], [0, 4.0], [-41, -40]),
   solid('wall-west-trench-outer', [-26.5, -24.5], [-1.5, 4.0], [-46, 8]),
   solid('wall-west-bailey-outer', [-26.8, -26.0], [0, 5.0], [8, 44]),
-  solid('wall-east-outer', [25.0, 26.0], [0, 5.0], [-28, 44]),
+  solid('wall-east-outer', [25.0, 26.0], [0, 5.0], [-40, 44]),
   solid('wall-north-keep', [-19, 19], [0, 5.5], [60, 61]),
   solid('wall-west-def-camp', [-19, -18], [0, 4.5], [48, 60]),
   solid('wall-east-def-camp', [18, 19], [0, 4.5], [48, 60]),
