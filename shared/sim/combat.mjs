@@ -34,7 +34,7 @@ import { recordTransform, sampleTransform } from './history.mjs';
 import { TEAMS, areAllies, areEnemies } from '../src/teams.mjs';
 import { stepObjectives } from './objectives.mjs';
 import { stepBiByeLlista, stepBiByeProjectiles, dismountBiByeLlista, damageBiByeLlista, blastBiByeLlista, getBiByeSolids } from './biByeLlista.mjs';
-import { WORLD_IDS } from '../worlds/registry.mjs';
+import { WORLD_IDS, getWorld } from '../worlds/registry.mjs';
 import { bastionBreachForObjective } from '../worlds/bastionBreach.mjs';
 
 const SWORD_ARC_COS = Math.cos((110 * Math.PI / 180) / 2);
@@ -1880,11 +1880,15 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
 
   stepObjectives(room, dt, nowSec);
   if (room.state !== 'PLAYING') return room.events;
-  if (room.worldId === WORLD_IDS.BASTION_BREACH) {
-    room.world = structureWorld(bastionBreachForObjective(room.objectiveState, nowSec), room.structures);
+  // Preserve the world argument for ordinary and custom/test combat worlds.
+  // Only objective phase transitions deliberately replace it with canonical geometry.
+  if (room.worldId === WORLD_IDS.OUTERWORKS && room.objectiveState) {
+    room.world = getWorld(WORLD_IDS.OUTERWORKS).forObjective(room.objectiveState, nowSec);
+    world = room.world;
+  } else if (room.worldId === WORLD_IDS.BASTION_BREACH && room.objectiveState) {
+    room.world = bastionBreachForObjective(room.objectiveState, nowSec);
     world = room.world;
   }
-
   world = structureWorld(world, room.structures);
   room.world = world;
   markTornGround(room);

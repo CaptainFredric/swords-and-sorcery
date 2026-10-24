@@ -73,6 +73,7 @@ import { RuinedKeepRenderer } from '../worlds/RuinedKeepRenderer.mjs';
 import { GreenerPasturesRenderer } from '../worlds/GreenerPasturesRenderer.mjs';
 import { BastionBreachRenderer } from '../worlds/BastionBreachRenderer.mjs';
 import { BlackbellFoundryRenderer } from '../worlds/BlackbellFoundryRenderer.mjs';
+import { OuterworksRenderer } from '../worlds/OuterworksRenderer.mjs';
 
 import {
   canPresentLocalAction,
@@ -101,6 +102,7 @@ const WORLD_RENDERERS = Object.freeze({
   'greener-pastures': GreenerPasturesRenderer,
   'bastion-breach': BastionBreachRenderer,
   'blackbell-foundry': BlackbellFoundryRenderer,
+  'outerworks': OuterworksRenderer,
 });
 
 
@@ -446,9 +448,12 @@ export class GameRuntime {
       this.world = nextRenderer;
       nextRenderer.soFistication=this.ramRenderer;
       this.#applyLighting(nextRenderer.lighting);
-      this.activeWorld = worldId === 'bastion-breach'
-        ? structureWorld(bastionBreachForObjective(this.latestSnapshot?.objective, this.latestSnapshot?.serverTime ?? this.socket.serverNow()),this.latestSnapshot?.structures)
-        : nextWorld;
+      const phasedWorld = typeof nextWorld?.forObjective === 'function'
+        ? nextWorld.forObjective(this.latestSnapshot?.objective, this.latestSnapshot?.serverTime ?? this.socket.serverNow())
+        : worldId === 'bastion-breach'
+          ? bastionBreachForObjective(this.latestSnapshot?.objective, this.latestSnapshot?.serverTime ?? this.socket.serverNow())
+          : nextWorld;
+      this.activeWorld = structureWorld(phasedWorld, this.latestSnapshot?.structures);
       this.worldId = worldId;
       this.worldError = null;
       this.localState = null;
@@ -567,10 +572,13 @@ export class GameRuntime {
       const failures = snapshot.tutorialBridgeFailures ?? 0;
       if (this.world.setBridgeRetries(failures)) this.activeWorld = greenerPasturesWithBridgeRetries(failures);
     }
-    if (snapshot.worldId === 'bastion-breach') {
-      this.activeWorld = structureWorld(bastionBreachForObjective(snapshot.objective, snapshot.serverTime ?? this.socket.serverNow()),snapshot.structures);
-    }
-    this.activeWorld = structureWorld(this.activeWorld,snapshot.structures);
+    // Resolve the objective phase using the canonical map template each snapshot.
+    const worldTemplate = getWorld(snapshot.worldId);
+    if (typeof worldTemplate?.forObjective === 'function')
+      this.activeWorld = worldTemplate.forObjective(snapshot.objective, snapshot.serverTime ?? this.socket.serverNow());
+    else if (snapshot.worldId === 'bastion-breach')
+      this.activeWorld = bastionBreachForObjective(snapshot.objective, snapshot.serverTime ?? this.socket.serverNow());
+    this.activeWorld = structureWorld(this.activeWorld, snapshot.structures);
     if (snapshot.matchStartedAt !== this.latestSnapshot?.matchStartedAt) this.localGate = null;
     const previousSiege = this.latestSnapshot?.bibyeBallista;
     if (previousSiege && previousSiege.id !== snapshot.bibyeBallista?.id) {
@@ -976,12 +984,17 @@ export class GameRuntime {
         const objName = (event.objectiveName ?? 'OBJECTIVE').toUpperCase();
         this.hud.addFeed(`${objName} CAPTURED BY ATTACKERS`, 'fire');
         if (event.index === 0) {
-          this.hud.flashText(
-            myTeam === 'DEFENDERS' ? 'THE OUTER GATE HAS FALLEN' : 'THE OUTER GATE IS BREACHED',
-            myTeam === 'DEFENDERS' ? 'danger' : 'kill',
-            3600,
-            myTeam === 'DEFENDERS' ? 'Fall back to The High Sanctum: Defend the inner sanctuary!' : 'The breach is open: Advance to The High Sanctum!',
-          );
+          // Bastion's ceremonial gate has its own callout; other Breakthrough
+          // battlefields must name the objective they actually captured.
+          const bastion = this.worldId === 'bastion-breach';
+          const nextName = this.activeWorld?.objectives?.[1]?.name ?? 'the next objective';
+          const headline = bastion
+            ? (myTeam === 'DEFENDERS' ? 'THE OUTER GATE HAS FALLEN' : 'THE OUTER GATE IS BREACHED')
+            : `${objName} ${myTeam === 'DEFENDERS' ? 'HAS FALLEN' : 'CAPTURED'}`;
+          const instruction = bastion
+            ? (myTeam === 'DEFENDERS' ? 'Fall back to The High Sanctum: Defend the inner sanctuary!' : 'The breach is open: Advance to The High Sanctum!')
+            : (myTeam === 'DEFENDERS' ? `Fall back to ${nextName}!` : `Advance to ${nextName}!`);
+          this.hud.flashText(headline, myTeam === 'DEFENDERS' ? 'danger' : 'kill', 3600, instruction);
         }
       }
       if (event.type === 'overtimeStarted') {
@@ -2188,8 +2201,14 @@ export class GameRuntime {
       this.localState.speedScale = chillScale(this.localAuth.chill, serverNow);
       // (a Steel dash under way: where it sets off from this step, to see whom it meets)
       const ramFrom = this.localRam?.armed && serverNow < (this.localState.dashUntil ?? -Infinity) ? { ...this.localState.position } : null;
-      if (this.worldId === 'bastion-breach' && this.latestSnapshot?.objective) {
-        this.activeWorld = structureWorld(bastionBreachForObjective(this.latestSnapshot.objective, serverNow),this.latestSnapshot.structures);
+      if (this.latestSnapshot?.objective) {
+        const template = getWorld(this.worldId);
+        const phase = typeof template?.forObjective === 'function'
+          ? template.forObjective(this.latestSnapshot.objective, serverNow)
+          : this.worldId === 'bastion-breach'
+            ? bastionBreachForObjective(this.latestSnapshot.objective, serverNow)
+            : this.activeWorld;
+        this.activeWorld = structureWorld(phase, this.latestSnapshot.structures);
       }
       if ((this.localAuth?.operatingBallistaId||this.localAuth?.operatingRamId)) {
         this.localState.velocity = this.localAuth?.operatingRamId?{...this.localAuth.velocity}:{ x: 0, y: 0, z: 0 };

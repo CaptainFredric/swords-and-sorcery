@@ -7,6 +7,7 @@ export const WORLD_NAMES = Object.freeze({
   'shattered-keep': 'The Shattered Keep',
   'bastion-breach': 'Bastion Breach',
   'blackbell-foundry': 'Blackbell Foundry',
+  'outerworks': 'The Outerworks',
 });
 
 

@@ -82,14 +82,15 @@ export class MenuController {
     return chosen;
   }
 
-  /** Selected battlefield for Breakthrough ('bastion-breach', 'blackbell-foundry'). */
+  /** Selected battlefield for Breakthrough ('bastion-breach', 'outerworks', 'blackbell-foundry'). */
   breakthroughArena() {
     const raw = this.storage?.getItem?.('ss-breakthrough-arena');
-    return raw === 'blackbell-foundry' ? 'blackbell-foundry' : 'bastion-breach';
+    if (raw === 'outerworks' || raw === 'blackbell-foundry') return raw;
+    return 'bastion-breach';
   }
 
   chooseBreakthroughArena(arena) {
-    const chosen = arena === 'blackbell-foundry' ? 'blackbell-foundry' : 'bastion-breach';
+    const chosen = (arena === 'outerworks' || arena === 'blackbell-foundry') ? arena : 'bastion-breach';
     this.storage?.setItem?.('ss-breakthrough-arena', chosen);
     return chosen;
   }
