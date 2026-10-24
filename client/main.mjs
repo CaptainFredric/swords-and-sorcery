@@ -1054,9 +1054,12 @@ function revealTutorialControls(taught) {
 }
 function startTutorial() {
   showMenuError('');
-  const name = nameInput.value.trim().slice(0,18);
-  if (!name) { showMenuError('Enter a Spellblade name.'); nameFields.find(field => field.offsetParent !== null)?.focus(); return; }
-  localStorage.setItem('ss-player-name',name);
+  let name = nameInput.value.trim().slice(0, 18);
+  if (!name) {
+    name = 'Spellblade';
+    nameFields.forEach((field) => { field.value = name; });
+  }
+  localStorage.setItem('ss-player-name', name);
   tutorialEquipment.reset();
   runtime?.weapon.setEquipment({ sword: false, hand: false });
   socket.startTutorial(name);

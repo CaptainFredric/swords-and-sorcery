@@ -52,6 +52,7 @@ export function computeRivalWaypoint({ session, local, snapshot, camera, THREE }
   let heightOffset = 2.3;
   let name = 'RIVAL';
   let isPassage = false;
+  let passageKind = null;
 
   // Obstacle-aware navigation:
   // 1. Opening Slalom (gates A, B, C)
@@ -61,16 +62,19 @@ export function computeRivalWaypoint({ session, local, snapshot, camera, THREE }
       heightOffset = 1.6;
       name = 'PASSAGE';
       isPassage = true;
+      passageKind = 'gate';
     } else if (playerPos.z > 110) {
       targetPos = { x: -68, y: 0, z: 110 };
       heightOffset = 1.6;
       name = 'PASSAGE';
       isPassage = true;
+      passageKind = 'gate';
     } else if (playerPos.z > 52) {
       targetPos = { x: 68, y: 0, z: 52 };
       heightOffset = 1.6;
       name = 'PASSAGE';
       isPassage = true;
+      passageKind = 'gate';
     }
   }
   // 2. Mill Lane entrance through 1.7m stone field wall
@@ -79,6 +83,7 @@ export function computeRivalWaypoint({ session, local, snapshot, camera, THREE }
     heightOffset = 1.6;
     name = 'PASSAGE';
     isPassage = true;
+    passageKind = 'lane';
   }
   // 3. Broken Bridge Ravine (guide to takeoff ramp before chasm)
   else if (rivalPos.z < -676 && playerPos.z > -663 && playerPos.z < -580) {
@@ -86,6 +91,7 @@ export function computeRivalWaypoint({ session, local, snapshot, camera, THREE }
     heightOffset = 1.6;
     name = 'PASSAGE';
     isPassage = true;
+    passageKind = 'bridge';
   }
 
   const dist = Math.hypot(targetPos.x - playerPos.x, targetPos.z - playerPos.z);
@@ -118,5 +124,6 @@ export function computeRivalWaypoint({ session, local, snapshot, camera, THREE }
     angle: projected.angle,
     dist,
     name,
+    passageKind,
   };
 }

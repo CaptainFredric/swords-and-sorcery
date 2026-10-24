@@ -128,7 +128,7 @@ function officeFootprint() {
   return [whole(west), whole(east), whole({ minX: west.minX, maxX: east.maxX, minZ: rear.maxZ, maxZ: west.minZ })];
 }
 
-// A stone gatepost: shaft, cap, a low pyramid on top.
+// A stone gatepost: shaft, cap, a low pyramid on top, and wayfinding finial.
 function gatepost(batch, random, solid) {
   const [cx, cy, cz] = solid.center;
   const [sx, sy, sz] = solid.size;
@@ -136,6 +136,9 @@ function gatepost(batch, random, solid) {
   batch.stone.block({ cx, cy: bottom, cz, sx, sy: sy - 0.2, sz, color: P.stone, rand: random, chamfer: 0.05, jitter: 0.02 });
   batch.stone.block({ cx, cy: bottom + sy - 0.2, cz, sx: sx + 0.16, sy: 0.2, sz: sz + 0.16, color: P.stoneLight, rand: random, chamfer: 0.04, jitter: 0.01 });
   batch.stone.prism({ cx, cy: bottom + sy, cz, radiusBottom: sx * 0.5, radiusTop: 0, height: 0.36, sides: 4, rotY: Math.PI / 4, color: P.stoneLight, rand: random });
+  // Wayfinding timber beacon atop the gateposts helps unfamiliar players spot gateways from across the meadow
+  batch.wood.block({ cx, cy: bottom + sy + 0.36, cz, sx: sx * 0.42, sy: 0.45, sz: sz * 0.42, color: P.timberDark, rand: random, chamfer: 0.03 });
+  batch.wood.block({ cx, cy: bottom + sy + 0.81, cz, sx: sx * 0.6, sy: 0.12, sz: sz * 0.6, color: 0xba8a46, rand: random, chamfer: 0.02 });
 }
 
 export class GreenerPasturesRenderer {
