@@ -39,10 +39,10 @@ try{
  }
  if(mode==='damage'){
   const context=await browser.newContext({viewport:{width:1280,height:800},recordVideo:{dir:dir+'/video',size:{width:1280,height:800}}}),page=await context.newPage();monitor(page);await start(page,{fixture:true});
-  await aim(page,Math.PI,-.12);await page.keyboard.down('f');await page.waitForFunction(()=>window.__ramEvents.some(e=>e.type==='soFistDamaged'&&e.componentId==='Fist'));await page.keyboard.up('f');await page.waitForTimeout(85);await snap(page,'fist-flash');
+  await aim(page,Math.PI,-.12);await page.keyboard.down('f');await page.waitForFunction(()=>window.__ssRuntime.ramRenderer.materials.some(e=>e.id==='Fist'&&e.hit.uRamHitAge.value.some(age=>age>=0&&age<.1)));await page.keyboard.up('f');await snap(page,'fist-flash');
   const initial=await state(page);assert.ok(initial.b.components.Fist.health<500);assert.ok(initial.events.some(e=>e.componentId==='Fist'&&e.amount>0&&e.pointLocal));
   for(const [x,z]of [[14,-5.2],[18,-5.2],[18,0],[16.1,0]])await walkTo(page,x,z);
-  await aim(page,Math.PI/2,-.12);const count=(await state(page)).events.length;await page.keyboard.down('f');await page.waitForFunction(n=>window.__ramEvents.slice(n).some(e=>e.type==='soFistDamaged'&&e.componentId!=='Fist'),count);await page.keyboard.up('f');await page.waitForTimeout(85);await snap(page,'chassis-flash');
+  await aim(page,Math.PI/2,-.12);await page.keyboard.down('f');await page.waitForFunction(()=>window.__ssRuntime.ramRenderer.materials.some(e=>e.id==='hull'&&e.hit.uRamHitAge.value.some(age=>age>=0&&age<.1)));await page.keyboard.up('f');await snap(page,'chassis-flash');
   const end=await state(page);await writeFile(dir+'/damage.json',JSON.stringify({initial,end,errors},null,2));const video=page.video();await context.close();await video.saveAs(dir+'/localized-hits.webm');console.log('Damage events',end.events.filter(e=>e.type==='soFistDamaged'));
  }
  if(mode==='space'){

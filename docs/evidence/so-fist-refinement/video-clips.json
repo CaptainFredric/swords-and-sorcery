@@ -1,0 +1,50 @@
+[
+  {
+    "file": "before-handling.webm",
+    "originalDuration": 30.0,
+    "start": 17.92,
+    "requestedSeconds": 12,
+    "bytes": 3294545,
+    "trim": "Decoded exact frames, VP8 quality 8, source preserved"
+  },
+  {
+    "file": "after-handling.webm",
+    "originalDuration": 22.32,
+    "start": 10.24,
+    "requestedSeconds": 12,
+    "bytes": 3038530,
+    "trim": "Decoded exact frames, VP8 quality 8, source preserved"
+  },
+  {
+    "file": "localized-hits.webm",
+    "originalDuration": 23.36,
+    "start": 7.279999999999999,
+    "requestedSeconds": 16,
+    "bytes": 3234109,
+    "trim": "Decoded exact frames, VP8 quality 8, source preserved"
+  },
+  {
+    "file": "touch-precision.webm",
+    "originalDuration": 20.04,
+    "start": 5.959999999999999,
+    "requestedSeconds": 14,
+    "bytes": 3510034,
+    "trim": "Decoded exact frames, VP8 quality 8, source preserved"
+  },
+  {
+    "file": "clock-before-0.webm",
+    "originalDuration": 25.12,
+    "start": 18.540000000000003,
+    "requestedSeconds": 6.5,
+    "bytes": 1922683,
+    "trim": "Decoded exact frames, VP8 quality 8, source preserved"
+  },
+  {
+    "file": "clock-after-0.webm",
+    "originalDuration": 20.84,
+    "start": 14.26,
+    "requestedSeconds": 6.5,
+    "bytes": 1942081,
+    "trim": "Decoded exact frames, VP8 quality 8, source preserved"
+  }
+]
