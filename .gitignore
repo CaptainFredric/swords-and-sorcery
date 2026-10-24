@@ -17,5 +17,5 @@ artifacts/
 .butler/
 
 # Local browser verification captures and control sessions
-output/playwright/
+output/
 .playwright-cli/
