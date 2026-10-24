@@ -142,6 +142,11 @@ export class TouchControls {
     window.addEventListener('blur', this.onBlur);
     document.addEventListener('visibilitychange', this.onVisibilityChange);
     this.offScreenTurn = screenTurn?.onChange(() => { this.touchDebugEvent = 'rotation'; this.reset(); });
+    // Native orientation can change with ScreenTurn still in auto mode. End the
+    // old pointers across that axis change, while keeping small browser resizes live.
+    this.orientationQuery = window.matchMedia?.('(orientation: portrait)');
+    this.onOrientationChange = () => { this.touchDebugEvent = 'rotation'; this.reset(); };
+    this.orientationQuery?.addEventListener('change', this.onOrientationChange);
 
     // the prompts name taps instead of clicks and Esc
     const hints = [
@@ -379,6 +384,7 @@ export class TouchControls {
     window.removeEventListener('blur', this.onBlur);
     document.removeEventListener('visibilitychange', this.onVisibilityChange);
     this.offScreenTurn?.();
+    this.orientationQuery?.removeEventListener('change', this.onOrientationChange);
     this.layer.remove();
   }
 

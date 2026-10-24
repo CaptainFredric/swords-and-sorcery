@@ -25,13 +25,14 @@ class Node extends EventTarget {
     return this.nodes.get(selector);
   }
 }
-function setup(local) {
+function setup(local, { orientation } = {}) {
   const doc = new EventTarget();
   doc.createElement = () => new Node();
   doc.querySelector = () => null;
   doc.createRange = () => ({ createContextualFragment: () => new Node() });
   globalThis.document = doc;
   globalThis.window = new EventTarget();
+  if (orientation) window.matchMedia = () => orientation;
   const element = new Node();
   const calls = [];
   const socket = Object.fromEntries(['cast', 'castPreparedSpell', 'selectPreparedSpell', 'guard', 'attack', 'dash'].map((id) => [id, (...args) => calls.push([id, ...args])]));
@@ -471,6 +472,18 @@ test('fullscreen layout temporarily reporting zero dimensions never teleports th
   assert.equal(input.movement().forward, 0, 'release restores neutral movement');
   assert.equal(controls.stickBase.style.left, undefined);
   assert.equal(controls.stickBase.style.top, undefined);
+});
+
+test('a portrait transition cancels held look without applying the old finger displacement', () => {
+  const orientation = new EventTarget();
+  const { input, controls, send } = setup({ alive: true, spell: 'fireball' }, { orientation });
+  send('pointerdown', 600, 300, { target: controls.layer });
+  const yaw = input.yaw;
+  orientation.dispatchEvent(new Event('change'));
+  send('pointermove', 200, 400, { target: controls.layer });
+  assert.equal(input.yaw, yaw);
+  assert.equal(controls.look, null);
+  controls.orientationQuery.removeEventListener('change', controls.onOrientationChange);
 });
 
 test('joystick survives a layer resize during the same drag without reversing or jumping', () => {
