@@ -510,7 +510,7 @@ export class OuterworksRenderer {
       this.group.add(flame);
       this.flames.push(flame);
 
-      const light = new THREE.PointLight(0xff8833, 2.2, 14, 1.4);
+      const light = everywhere(new THREE.PointLight(0xff8833, 2.2, 14, 1.4));
       light.position.set(x, y + 0.55, z);
       light.userData = { phase: flame.userData.phase };
       this.group.add(light);
