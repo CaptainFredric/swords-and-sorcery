@@ -70,6 +70,7 @@ import { RuinedKeepRenderer } from '../worlds/RuinedKeepRenderer.mjs';
 import { GreenerPasturesRenderer } from '../worlds/GreenerPasturesRenderer.mjs';
 import { BastionBreachRenderer } from '../worlds/BastionBreachRenderer.mjs';
 import { BlackbellFoundryRenderer } from '../worlds/BlackbellFoundryRenderer.mjs';
+import { OuterworksRenderer } from '../worlds/OuterworksRenderer.mjs';
 
 import {
   canPresentLocalAction,
@@ -98,6 +99,7 @@ const WORLD_RENDERERS = Object.freeze({
   'greener-pastures': GreenerPasturesRenderer,
   'bastion-breach': BastionBreachRenderer,
   'blackbell-foundry': BlackbellFoundryRenderer,
+  'outerworks': OuterworksRenderer,
 });
 
 
@@ -441,9 +443,11 @@ export class GameRuntime {
       this.world = nextRenderer;
       nextRenderer.soFistication=this.ramRenderer;
       this.#applyLighting(nextRenderer.lighting);
-      this.activeWorld = worldId === 'bastion-breach'
-        ? bastionBreachForObjective(this.latestSnapshot?.objective, this.latestSnapshot?.serverTime ?? this.socket.serverNow())
-        : nextWorld;
+      this.activeWorld = typeof nextWorld?.forObjective === 'function'
+        ? nextWorld.forObjective(this.latestSnapshot?.objective, this.latestSnapshot?.serverTime ?? this.socket.serverNow())
+        : (worldId === 'bastion-breach'
+            ? bastionBreachForObjective(this.latestSnapshot?.objective, this.latestSnapshot?.serverTime ?? this.socket.serverNow())
+            : nextWorld);
       this.worldId = worldId;
       this.worldError = null;
       this.localState = null;
@@ -562,7 +566,9 @@ export class GameRuntime {
       const failures = snapshot.tutorialBridgeFailures ?? 0;
       if (this.world.setBridgeRetries(failures)) this.activeWorld = greenerPasturesWithBridgeRetries(failures);
     }
-    if (snapshot.worldId === 'bastion-breach') {
+    if (typeof this.activeWorld?.forObjective === 'function') {
+      this.activeWorld = this.activeWorld.forObjective(snapshot.objective, snapshot.serverTime ?? this.socket.serverNow());
+    } else if (snapshot.worldId === 'bastion-breach') {
       this.activeWorld = bastionBreachForObjective(snapshot.objective, snapshot.serverTime ?? this.socket.serverNow());
     }
     if (snapshot.matchStartedAt !== this.latestSnapshot?.matchStartedAt) this.localGate = null;
@@ -2172,7 +2178,9 @@ export class GameRuntime {
       this.localState.speedScale = chillScale(this.localAuth.chill, serverNow);
       // (a Steel dash under way: where it sets off from this step, to see whom it meets)
       const ramFrom = this.localRam?.armed && serverNow < (this.localState.dashUntil ?? -Infinity) ? { ...this.localState.position } : null;
-      if (this.worldId === 'bastion-breach' && this.latestSnapshot?.objective) {
+      if (typeof this.activeWorld?.forObjective === 'function' && this.latestSnapshot?.objective) {
+        this.activeWorld = this.activeWorld.forObjective(this.latestSnapshot.objective, serverNow);
+      } else if (this.worldId === 'bastion-breach' && this.latestSnapshot?.objective) {
         this.activeWorld = bastionBreachForObjective(this.latestSnapshot.objective, serverNow);
       }
       if ((this.localAuth?.operatingBallistaId||this.localAuth?.operatingRamId)) {

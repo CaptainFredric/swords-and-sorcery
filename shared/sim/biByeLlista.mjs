@@ -154,7 +154,7 @@ export function createBiByeLlista(overrides = {}) {
     speed: 0,
     steer: 0,
     operatorId: null,
-    team: null,
+    team: conf.team ?? null,
     mobileFiredAt: null,
     destroyedAt: null,
 
@@ -292,12 +292,14 @@ export function mountBiByeLlista(ballista, player, nowSec = 0) {
   if (player.pendingSpell || player.gauntlet || player.ultimateState || player.attackActive) return false;
   if (ballista.mode === BI_BYE_MODES.DESTROYED) return false;
   if (ballista.operatorId && ballista.operatorId !== player.id) return false;
+  // Enforce team authorization: enemy players cannot mount an allegiance-restricted machine
+  if (ballista.team && player.team && ballista.team !== player.team) return false;
 
   const dist = Math.hypot(player.position.x - ballista.x, player.position.z - ballista.z);
   if (dist > ballista.interactRadius) return false;
 
   ballista.operatorId = player.id;
-  if (player.team) ballista.team = player.team;
+  if (!ballista.team && player.team) ballista.team = player.team;
   player.operatingBallistaId = ballista.id;
 
   // Align player to operator station

@@ -4,6 +4,7 @@ import { RUINED_KEEP } from './ruinedKeep.mjs';
 import { GREENER_PASTURES } from './greenerPastures.mjs';
 import { BASTION_BREACH } from './bastionBreach.mjs';
 import { BLACKBELL_FOUNDRY } from './blackbellFoundry.mjs';
+import { OUTERWORKS } from './outerworks.mjs';
 
 export const WORLD_IDS = Object.freeze({
   SHATTERED_KEEP: 'shattered-keep',
@@ -12,6 +13,7 @@ export const WORLD_IDS = Object.freeze({
   GREENER_PASTURES: 'greener-pastures',
   BASTION_BREACH: 'bastion-breach',
   BLACKBELL_FOUNDRY: 'blackbell-foundry',
+  OUTERWORKS: 'outerworks',
 });
 
 const WORLDS = new Map([
@@ -21,6 +23,7 @@ const WORLDS = new Map([
   [WORLD_IDS.GREENER_PASTURES, GREENER_PASTURES],
   [WORLD_IDS.BASTION_BREACH, BASTION_BREACH],
   [WORLD_IDS.BLACKBELL_FOUNDRY, BLACKBELL_FOUNDRY],
+  [WORLD_IDS.OUTERWORKS, OUTERWORKS],
 ]);
 
 

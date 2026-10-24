@@ -8,6 +8,7 @@ const WORLD_RENDERER_KEYS = Object.freeze({
   'greener-pastures': 'greener-pastures',
   'bastion-breach': 'bastion-breach',
   'blackbell-foundry': 'blackbell-foundry',
+  'outerworks': 'outerworks',
 });
 
 
