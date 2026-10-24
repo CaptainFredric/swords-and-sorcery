@@ -846,10 +846,12 @@ export class Room {
         break;
       }
     }
-    // Reset the ballista separately from the structural defenses and ram each match.
-    this.biByeLlista = baseWorld.ballistaEmplacement ? createBiByeLlista(baseWorld.ballistaEmplacement) : null;
-    this.biByeRevision = (this.biByeRevision ?? 0) + 1;
-    this.bibyeProjectiles = new Map();
+    // Breakthrough emplacements reset per match; Practice controls its own vehicle.
+    if (baseWorld.ballistaEmplacement || this.mode !== GAME_MODES.PRACTICE) {
+      this.biByeLlista = baseWorld.ballistaEmplacement ? createBiByeLlista(baseWorld.ballistaEmplacement) : null;
+      this.biByeRevision = (this.biByeRevision ?? 0) + 1;
+      this.bibyeProjectiles = new Map();
+    }
     let i = 0;
     for (const player of this.players.values()) {
       player.operatingRamId = null;
