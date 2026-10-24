@@ -3,6 +3,8 @@
 (Tutorial 1's narrator, Spellblade and Rival takes have their own front door, `tools/audio/tutorial_voice.py`: see
 `docs/tutorial-voice.md`. This page is the combat voice.)
 
+**Draft voice lines for future recording review:** [voice-line candidate backlog](voice-candidates/README.md). These are ideas, not declared or recorded lines.
+
 The Spellblade is a hardened battlemage: controlled, chesty, economical. He grunts from the gut rather than yelling
 from the throat, and he saves his breath for the one cry that matters. Record your own takes, then let
 `knight_voice.py` put him in his helm: the room it was recorded in taken out, then a little deeper, closer, a touch of

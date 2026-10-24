@@ -1,3 +1,5 @@
+import { createStructureState } from './structures.mjs';
+import { createSoFistication, dismountSoFistication, soFistTerrainPose, soFistClear } from './soFistication.mjs';
 import { createMovementState } from '../src/movement.mjs';
 import { guardProfile } from '../src/combat.mjs';
 import { GAME_MODES, VOTE_OPTIONS, getModePolicy } from '../src/modes.mjs';
@@ -104,6 +106,7 @@ export class Room {
     }
     this.worldId = worldId;
     this.world = getWorld(worldId);
+    this.structures = createStructureState(this.world);
     this.soFistication = null;
     this.soFistRevision = 0;
     if (this.world.ballistaEmplacement) {
@@ -146,11 +149,11 @@ export class Room {
     this.overtimeClearedAt = null;
     if (this.policy.teamMode) {
       this.objectiveState = createObjectiveState(this.world.objectives ?? []);
-      if (typeof this.world?.forObjective === 'function') {
-        this.world = this.world.forObjective(this.objectiveState);
-      } else if (this.worldId === WORLD_IDS.BASTION_BREACH) {
+      const template = getWorld(this.worldId);
+      if (typeof template?.forObjective === 'function')
+        this.world = template.forObjective(this.objectiveState);
+      else if (this.worldId === WORLD_IDS.BASTION_BREACH)
         this.world = bastionBreachForObjective(this.objectiveState);
-      }
     }
   }
 
@@ -577,16 +580,14 @@ export class Room {
       try {
         this.world = getWorld(tally.world.chosen);
         this.worldId = tally.world.chosen;
-        if (typeof this.world?.forObjective === 'function' && this.objectiveState) {
-          this.world = this.world.forObjective(this.objectiveState);
-        } else if (this.worldId === WORLD_IDS.BASTION_BREACH && this.objectiveState) {
+        const template = getWorld(this.worldId);
+        if (typeof template?.forObjective === 'function' && this.objectiveState)
+          this.world = template.forObjective(this.objectiveState);
+        else if (this.worldId === WORLD_IDS.BASTION_BREACH && this.objectiveState)
           this.world = bastionBreachForObjective(this.objectiveState);
-        }
-        if (this.world.ballistaEmplacement) {
-          this.biByeLlista = createBiByeLlista(this.world.ballistaEmplacement);
-          this.biByeRevision = (this.biByeRevision ?? 0) + 1;
-          this.bibyeProjectiles = new Map();
-        }
+        this.biByeLlista = this.world.ballistaEmplacement ? createBiByeLlista(this.world.ballistaEmplacement) : null;
+        this.biByeRevision = (this.biByeRevision ?? 0) + 1;
+        this.bibyeProjectiles = new Map();
       } catch { /* unknown world: keep the current one */ }
     }
     if (Number.isFinite(tally.score.chosen)) this.scoreToWin = tally.score.chosen;
@@ -599,6 +600,7 @@ export class Room {
     if (this.biByeLlista && this.biByeLlista.operatorId === id) {
       dismountBiByeLlista(this.biByeLlista, player, false, this.world);
     }
+    if (this.soFistication?.operatorId === id) dismountSoFistication(this,this.soFistication,player,{force:true});
     this.players.delete(id);
     this.rematchVotes.delete(id);
     if (this.humanActorCount() === 0) {
@@ -615,6 +617,7 @@ export class Room {
     if (this.biByeLlista && this.biByeLlista.operatorId === id) {
       dismountBiByeLlista(this.biByeLlista, player, true, this.world);
     }
+    if (this.soFistication?.operatorId === id) dismountSoFistication(this,this.soFistication,player,{force:true});
     player.connected = false;
     player.arenaReady = false;
     player.disconnectedAt = nowSec;
@@ -823,19 +826,33 @@ export class Room {
     if (this.policy.teamMode) {
       if (this.botsProvisioned) this.provisionModeActors(nowSec);
       this.objectiveState = createObjectiveState(this.world.objectives ?? []);
-      if (typeof this.world?.forObjective === 'function') {
-        this.world = this.world.forObjective(this.objectiveState, nowSec);
-      } else if (this.worldId === WORLD_IDS.BASTION_BREACH) {
+      const template = getWorld(this.worldId);
+      if (typeof template?.forObjective === 'function')
+        this.world = template.forObjective(this.objectiveState, nowSec);
+      else if (this.worldId === WORLD_IDS.BASTION_BREACH)
         this.world = bastionBreachForObjective(this.objectiveState);
+    }
+    // Match reset restores canonical geometry before rebuilding authoritative defense state.
+    const baseWorld = getWorld(this.worldId);
+    this.structures = createStructureState(baseWorld, (this.structures?.revision ?? 0) + 1);
+    this.soFistication = null;
+    this.soFistRevision++;
+    if (this.policy.teamMode) {
+      for (const emplacement of baseWorld.siegeEmplacements ?? []) {
+        if (emplacement.type !== 'so-fist-ication' || !emplacement.phases.includes(this.objectiveState.phase)) continue;
+        const ram = createSoFistication({ ...emplacement, emplacementId: emplacement.id, id: `${emplacement.id}-${this.soFistRevision}` });
+        const pose = soFistTerrainPose(ram, this.world);
+        if (pose && soFistClear({ ...ram, ...pose }, this.world, [], {operatorStation:true})) this.soFistication = Object.assign(ram, pose);
+        break;
       }
     }
-    if (this.world.ballistaEmplacement) {
-      this.biByeLlista = createBiByeLlista(this.world.ballistaEmplacement);
-      this.biByeRevision = (this.biByeRevision ?? 0) + 1;
-      this.bibyeProjectiles = new Map();
-    }
+    // Reset the ballista separately from the structural defenses and ram each match.
+    this.biByeLlista = baseWorld.ballistaEmplacement ? createBiByeLlista(baseWorld.ballistaEmplacement) : null;
+    this.biByeRevision = (this.biByeRevision ?? 0) + 1;
+    this.bibyeProjectiles = new Map();
     let i = 0;
     for (const player of this.players.values()) {
+      player.operatingRamId = null;
       const spawn = this.initialSpawnFor(player, i, nowSec);
       player.spell = isSpell(player.startingSpell) ? player.startingSpell : player.spell;
       player.preparedSpells = normalizePreparedSpells(player.spell, player.startingPreparedSpells ?? player.preparedSpells);

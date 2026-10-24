@@ -154,7 +154,7 @@ export class BastionBreachRenderer {
 
     // --- Build Solids ---
     for (const sol of BASTION_BREACH.solids) {
-      if (sol.id.startsWith('gatehouse-')) continue;
+      if (sol.id.startsWith('gatehouse-') || BASTION_BREACH.structures.some(def => def.solidIds.includes(sol.id))) continue;
       const isTimber = sol.material === 'timber' || sol.id.includes('timber') || sol.id.includes('crates') || sol.id.includes('wreckage') || sol.id.includes('barricade') || sol.id.includes('hoarding');
       const mat = isTimber ? this.materials.timber : this.materials.stone;
       box(this.group, sol.size, mat, sol.center, [0, 0, 0], true);
