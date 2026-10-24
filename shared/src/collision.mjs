@@ -70,6 +70,39 @@ export function findSwordWorldHit(origin, direction, range, solids) {
   return { ...nearest, distance: nearest.t * range };
 }
 
+// Project only the part of an oriented solid intersecting the body's vertical slab.
+// Its convex footprint avoids the empty corners introduced by a rotated AABB.
+function orientedBodyPush(box, x, z, radius, low, high) {
+  const corners=Array.from({length:8},(_,bits)=>[0,1,2].map(i=>box.center[i]+box.axes.reduce((sum,axis,j)=>sum+axis[i]*box.size[j]*((bits&(1<<j))?.5:-.5),0)));
+  const ys=corners.map(p=>p[1]);
+  if(Math.max(...ys)<=low||Math.min(...ys)>=high)return{x,z};
+  const points=corners.filter(p=>p[1]>=low&&p[1]<=high).map(p=>[p[0],p[2]]);
+  for(let i=0;i<8;i++)for(let axis=0;axis<3;axis++){
+    const j=i^(1<<axis);if(j<i)continue;
+    const a=corners[i],b=corners[j];
+    for(const y of [low,high])if((a[1]<y&&b[1]>y)||(b[1]<y&&a[1]>y)){
+      const t=(y-a[1])/(b[1]-a[1]);points.push([a[0]+(b[0]-a[0])*t,a[2]+(b[2]-a[2])*t]);
+    }
+  }
+  points.sort((a,b)=>a[0]-b[0]||a[1]-b[1]);
+  const cross=(a,b,c)=>(b[0]-a[0])*(c[1]-a[1])-(b[1]-a[1])*(c[0]-a[0]);
+  const half=list=>{const hull=[];for(const p of list){while(hull.length>1&&cross(hull.at(-2),hull.at(-1),p)<=1e-12)hull.pop();hull.push(p);}return hull;};
+  const lower=half(points),upper=half([...points].reverse());lower.pop();upper.pop();const polygon=[...lower,...upper];
+  if(polygon.length<3)return{x,z};
+  let inside=true,best=null;
+  for(let i=0;i<polygon.length;i++){
+    const a=polygon[i],b=polygon[(i+1)%polygon.length],dx=b[0]-a[0],dz=b[1]-a[1],lengthSq=dx*dx+dz*dz;
+    if(cross(a,b,[x,z])<-1e-10)inside=false;
+    const t=Math.max(0,Math.min(1,((x-a[0])*dx+(z-a[1])*dz)/lengthSq));
+    const q=[a[0]+dx*t,a[1]+dz*t],d=Math.hypot(x-q[0],z-q[1]);
+    if(!best||d<best.d)best={q,d,normal:[dz/Math.sqrt(lengthSq),-dx/Math.sqrt(lengthSq)]};
+  }
+  if(!inside&&best.d>=radius)return{x,z};
+  const n=best.d>1e-10?(inside?[(best.q[0]-x)/best.d,(best.q[1]-z)/best.d]:[(x-best.q[0])/best.d,(z-best.q[1])/best.d]):best.normal;
+  const push=inside?radius+best.d:radius-best.d;
+  return{x:x+n[0]*push,z:z+n[1]*push};
+}
+
 export function resolvePlayerWorld(position, radius, solids, height = 1.8) {
   let x = position.x;
   let z = position.z;
@@ -77,8 +110,10 @@ export function resolvePlayerWorld(position, radius, solids, height = 1.8) {
   const yTop = yBottom + height;
 
   for (const box of solids) {
-    if (box.axes) return orientedBoxHit(start, end, box);
-  const { min, max } = bounds(box);
+    if (box.axes) {
+      const pushed=orientedBodyPush(box,x,z,radius,yBottom,yTop);x=pushed.x;z=pushed.z;continue;
+    }
+    const { min, max } = bounds(box);
     if (yTop <= min[1] || yBottom >= max[1]) continue;
     const closestX = Math.max(min[0], Math.min(x, max[0]));
     const closestZ = Math.max(min[2], Math.min(z, max[2]));

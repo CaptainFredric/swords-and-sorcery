@@ -69,7 +69,7 @@ export class InputController {
     this.onPointer = () => {};
     this.onAction = () => {};
     // look speed (multipliers) and the key bindings, from the settings
-    this.look = { mouse: 1, touch: 1, invertY: false };
+    this.look = { mouse: 1, touch: 1, ram: .65, invertY: false };
     this.bindings = registry.defaultBindings();
     this.#index();
 
@@ -77,9 +77,9 @@ export class InputController {
   }
 
   /** Settings: { mouse, touch, invertY, bindings: { action: [codes] } }. */
-  configure({ mouse = this.look.mouse, touch = this.look.touch, invertY = this.look.invertY, bindings = this.bindings } = {}) {
+  configure({ mouse = this.look.mouse, touch = this.look.touch, invertY = this.look.invertY, ram = this.look.ram, bindings = this.bindings } = {}) {
     this.releaseInputs();
-    this.look = { mouse, touch, invertY: Boolean(invertY) };
+    this.look = { mouse, touch, ram, invertY: Boolean(invertY) };
     this.bindings = bindings;
     this.#index();
   }
@@ -285,8 +285,9 @@ export class InputController {
   turn(yawDelta, pitchDelta) {
     if (!this.enabled) return;
     if (this.allowAction?.('look', false) === false) { this.mouseLookBlocked = true; return; }
-    this.yaw += yawDelta;
-    this.pitch = Math.max(-1.45, Math.min(1.45, this.pitch + pitchDelta));
+    const gain=this.mountedRam?this.look.ram:1;
+    this.yaw += yawDelta*gain;
+    this.pitch = Math.max(-1.45, Math.min(1.45, this.pitch + pitchDelta*gain));
   }
 
   /** A denied held source must release before it may request the newly available action. */

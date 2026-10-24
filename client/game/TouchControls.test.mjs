@@ -25,13 +25,14 @@ class Node extends EventTarget {
     return this.nodes.get(selector);
   }
 }
-function setup(local) {
+function setup(local, { orientation } = {}) {
   const doc = new EventTarget();
   doc.createElement = () => new Node();
   doc.querySelector = () => null;
   doc.createRange = () => ({ createContextualFragment: () => new Node() });
   globalThis.document = doc;
   globalThis.window = new EventTarget();
+  if (orientation) window.matchMedia = () => orientation;
   const element = new Node();
   const calls = [];
   const socket = Object.fromEntries(['cast', 'castPreparedSpell', 'selectPreparedSpell', 'guard', 'attack', 'dash'].map((id) => [id, (...args) => calls.push([id, ...args])]));
@@ -473,6 +474,18 @@ test('fullscreen layout temporarily reporting zero dimensions never teleports th
   assert.equal(controls.stickBase.style.top, undefined);
 });
 
+test('a portrait transition cancels held look without applying the old finger displacement', () => {
+  const orientation = new EventTarget();
+  const { input, controls, send } = setup({ alive: true, spell: 'fireball' }, { orientation });
+  send('pointerdown', 600, 300, { target: controls.layer });
+  const yaw = input.yaw;
+  orientation.dispatchEvent(new Event('change'));
+  send('pointermove', 200, 400, { target: controls.layer });
+  assert.equal(input.yaw, yaw);
+  assert.equal(controls.look, null);
+  controls.orientationQuery.removeEventListener('change', controls.onOrientationChange);
+});
+
 test('joystick survives a layer resize during the same drag without reversing or jumping', () => {
   const { controls, send } = setup({ alive: true, spell: 'fireball' });
   const finger = { target: controls.layer };
@@ -521,4 +534,12 @@ test('View upward swipe zooms once without also toggling or turning; cancelled g
  send('pointerup',602,250,{action:'siegeView'});assert.equal(actions.length,1);assert.equal(input.yaw,yaw);assert.equal(input.pitch,pitch);
  send('pointerdown',600,300,{action:'siegeView'});send('pointercancel',600,300,{action:'siegeView'});assert.equal(actions.length,1);
  send('pointerdown',600,300,{action:'siegeView'});controls.reset();send('pointerup',600,300,{action:'siegeView'});assert.equal(actions.length,1);
+});
+
+test('resizing the touch layer during a slow look cannot create an aim jump',()=>{
+ const {input,controls,send}=setup({alive:true,spell:'fireball'});
+ let rect={left:0,top:0,width:800,height:600};controls.layer.getBoundingClientRect=()=>rect;
+ const pointer={target:controls.layer};send('pointerdown',600,300,pointer);send('pointermove',604,300,pointer);
+ const before=input.yaw;rect={left:0,top:0,width:1000,height:650};send('pointermove',604,300,pointer);
+ assert.equal(input.yaw,before);send('pointermove',600,300,pointer);assert.ok(Math.abs(input.yaw)<1e-9);
 });

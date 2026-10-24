@@ -1,0 +1,37 @@
+{
+  "fixture": "Initial parked ram and two reconnecting humans; normal browser inputs. Ordered45..95ms inbound proxy delay; old/current presentation module only.",
+  "summary": {
+    "clock-before": [
+      {
+        "frames": 279,
+        "maxPoseStep": 0.34674679613139553,
+        "p95PoseStep": 0.15639204379895036,
+        "maxFrameMs": 33.59999942779541,
+        "backwardClock": 17
+      },
+      {
+        "frames": 284,
+        "maxPoseStep": 0.40877788492654127,
+        "p95PoseStep": 0.12498315354335329,
+        "maxFrameMs": 31.100000381469727,
+        "backwardClock": 16
+      }
+    ],
+    "clock-after": [
+      {
+        "frames": 273,
+        "maxPoseStep": 0.17188169117372654,
+        "p95PoseStep": 0.08926144350179482,
+        "maxFrameMs": 30,
+        "backwardClock": 0
+      },
+      {
+        "frames": 281,
+        "maxPoseStep": 0.1734624375517271,
+        "p95PoseStep": 0.08896469697074802,
+        "maxFrameMs": 29.899999618530273,
+        "backwardClock": 0
+      }
+    ]
+  }
+}

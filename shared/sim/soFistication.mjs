@@ -10,15 +10,15 @@ import {sampleTransform} from './history.mjs';
 import {armWorldImpact} from './worldImpact.mjs';
 import {getBiByeSolids,damageBiByeLlista} from './biByeLlista.mjs';
 import {biByeHitVolumes} from './biByeComponents.mjs';
-import {SO_FIST_WHEELS,soFistTurnRate,soFistFrame,soFistPose,soFistVolumes,soFistStriker,soFistSolids,machineryOverlap} from './soFistGeometry.mjs';
+import {SO_FIST_SCALE,SO_FIST_FIT,SO_FIST_WHEELS,soFistTurnRate,soFistFrame,soFistPose,soFistVolumes,soFistStriker,soFistSolids,machineryOverlap} from './soFistGeometry.mjs';
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
-export const SO_FIST=Object.freeze({speed:4.2,reverse:1.9,peak:12,pressure:100,hull:1400,fist:500,cycle:4});
+export const SO_FIST=Object.freeze({speed:4.8,reverse:2.5,peak:12,pressure:100,hull:1400,fist:500,cycle:4});
 export function createSoFistication(overrides={}){return{id:'sofist-practice',type:'so-fist-ication',x:0,y:0,z:0,heading:0,chassisPitch:0,chassisRoll:0,speed:0,steer:0,pressure:100,charging:false,chargeSpent:false,operatorId:null,health:1400,maxHealth:1400,mode:'MOBILE',strikeAt:null,strokeVictims:[],contacts:[],recentVictims:{},wheelRolls:[0,0,0,0],wheelOffsets:[0,0,0,0],components:Object.fromEntries([...SO_FIST_WHEELS.map(w=>[w.id,{health:180,maxHealth:180}]),['Fist',{health:500,maxHealth:500}],['Drive',{health:250,maxHealth:250}]]),...overrides};}
-export function soFistOperator(b,world=null){const p=boxWorld(soFistFrame(b),[0,0,-2.85]);return{x:p[0],y:world?surfaceHeightAt(p[0],p[2],p[1]+.5,world):b.operatorY??p[1],z:p[2]};}
+export function soFistOperator(b,world=null){const p=boxWorld(soFistFrame(b),SO_FIST_FIT.operator);return{x:p[0],y:world?surfaceHeightAt(p[0],p[2],p[1]+.5,world):b.operatorY??p[1],z:p[2]};}
 function stationClear(b,world,extra=[]){const at=soFistOperator(b,world);if(at.y==null||Math.abs(at.y-soFistOperator({...b,operatorY:undefined}).y)>.4)return false;const hit=resolvePlayerWorld(at,.45,[...(world.solids??[]),...extra],1.8);return Math.hypot(hit.x-at.x,hit.z-at.z)<.015;}
 export function soFistExit(room,b,p,extras=[]){
  const frame=soFistFrame(b),solids=[...(room.world.solids??[]),...soFistSolids(b),...getBiByeSolids(room.biByeLlista),...extras,...[...room.players.values()].filter(v=>v.alive&&v.id!==p.id).map(v=>({center:[v.position.x,v.position.y+.9,v.position.z],size:[.9,1.8,.9]}))];
- for(const [x,z]of [[0,-3.3],[-1.8,-3.1],[1.8,-3.1],[-2,0],[2,0]]){const at=boxWorld(frame,[x,0,z]),y=surfaceHeightAt(at[0],at[2],b.y+.6,room.world);if(y==null||Math.abs(y-b.y)>.75)continue;const candidate={x:at[0],y,z:at[2]},resolved=resolvePlayerWorld(candidate,.45,solids,1.8);if(Math.hypot(resolved.x-candidate.x,resolved.z-candidate.z)<.015)return candidate;}return null;
+ for(const [x,z]of [[0,-3.3],[-1.8,-3.1],[1.8,-3.1],[-2,0],[2,0]]){const at=boxWorld(frame,[x,0,z].map(v=>v*SO_FIST_SCALE/2.65)),y=surfaceHeightAt(at[0],at[2],b.y+.6,room.world);if(y==null||Math.abs(y-b.y)>.75)continue;const candidate={x:at[0],y,z:at[2]},resolved=resolvePlayerWorld(candidate,.45,solids,1.8);if(Math.hypot(resolved.x-candidate.x,resolved.z-candidate.z)<.015)return candidate;}return null;
 }
 export function mountSoFistication(room,b,p,now=0){
  if(!b||b.retired||b.health<=0||!p?.alive||p.operatingBallistaId||p.operatingRamId||(p.staggerUntil??0)>now||p.pendingSpell||p.gauntlet||p.ultimateState||p.attackActive||b.operatorId)return false;
@@ -36,7 +36,7 @@ export function soFistTerrainPose(b,world){
  const flat=soFistFrame({...b,chassisPitch:0,chassisRoll:0}),samples=[];
  for(const w of SO_FIST_WHEELS){const point=boxWorld(flat,[w.pivot[0],0,w.pivot[2]]),h=surfaceHeightAt(point[0],point[2],b.y+.3,world);if(h==null||Math.abs(h-b.y)>.65)return null;samples.push(h);}
  const front=(samples[0]+samples[1])/2,rear=(samples[2]+samples[3])/2,left=(samples[0]+samples[2])/2,right=(samples[1]+samples[3])/2;
- const pitch=Math.atan2(front-rear,1.97425),roll=Math.atan2(right-left,1.7914);if(Math.hypot(pitch,roll)>.384)return null;
+ const pitch=Math.atan2(front-rear,SO_FIST_FIT.wheelbase),roll=Math.atan2(right-left,(SO_FIST_FIT.frontTrack+SO_FIST_FIT.rearTrack)/2);if(Math.hypot(pitch,roll)>.384)return null;
  const y=(front+rear)/2,root=soFistFrame({...b,y,chassisPitch:pitch,chassisRoll:roll}),offsets=SO_FIST_WHEELS.map((w,i)=>(samples[i]+w.pivot[1]-boxWorld(root,w.pivot)[1])/root.axes[1][1]);if(offsets.some(v=>Math.abs(v)>.18))return null;
  return{y,chassisPitch:pitch,chassisRoll:roll,wheelOffsets:offsets};
 }
@@ -81,10 +81,11 @@ const p=room.players.get(b.operatorId);
  if(!chargeHeld)b.charging=false;
  if(b.charging){b.pressure=Math.max(0,b.pressure-(4+.07*b.speed*b.speed)*(1+failed.length*.18+(b.components.Drive.health<=0?.5:0))*dt);if(b.pressure<=0){b.charging=false;b.chargeSpent=true;}}
  else b.pressure=Math.min(100,b.pressure+(Math.abs(b.speed)>6?5:13)*(b.components.Drive.health<=0?.5:1)*dt);
- const target=(b.charging?12:input.forward>0?4.2:input.forward<0?-1.9:0)*driveScale*(1-.45*clamp(Math.max(0,b.chassisPitch*Math.sign(b.charging?1:input.forward??0))/.384,0,1));
- const accel=b.charging?4:Math.abs(target)>Math.abs(b.speed)?2.6:4;
+ const target=(b.charging?12:input.forward>0?SO_FIST.speed:input.forward<0?-SO_FIST.reverse:0)*driveScale*(1-.45*clamp(Math.max(0,b.chassisPitch*Math.sign(b.charging?1:input.forward??0))/.384,0,1));
+ const reversing=target*b.speed<0;
+ const accel=b.charging?4:reversing||Math.abs(target)<Math.abs(b.speed)?5.8:3.8;
  b.speed+=clamp(target-b.speed,-accel*dt,accel*dt);if(Math.abs(b.speed)<.001)b.speed=0;
- b.steer=clamp(input.right??0,-1,1)*(1-.86*clamp((Math.abs(b.speed)-4.2)/7.8,0,1));
+ b.steer=clamp(input.right??0,-1,1)*(1-.86*clamp((Math.abs(b.speed)-SO_FIST.speed)/(SO_FIST.peak-SO_FIST.speed),0,1));
  const steps=Math.max(1,Math.ceil(Math.abs(b.speed)*dt/.12)),sub=dt/steps;const wheelTravel=b.wheelRolls.slice();
  for(let i=0;i<steps;i++){
   if(Math.abs(b.speed)<1e-5)break;
@@ -180,7 +181,7 @@ export function damageSoFistication(room,b,amount,attackerId,source,now,{compone
  const old=target.health;
  if(componentId==='Fist'){const range=STEEL_DAMAGE_RANGES[source];amount=Math.min(amount,range?.min??Math.round(amount*GAME.swordGlance/GAME.swordDamage));}
  target.health=Math.max(0,target.health-amount);target.lastHitAt=now;
- room.events.push({type:'soFistDamaged',machineId:b.id,componentId,amount:old-target.health,point,attackerId,source,at:now});
+ room.events.push({type:'soFistDamaged',machineId:b.id,componentId,amount:old-target.health,point,pointLocal:point?boxLocal(soFistFrame(b),[point.x,point.y,point.z]):null,poseOffset:soFistPose(b,now).offset,attackerId,source,at:now});
  if(target.health===0){target.failedAt=now;if(componentId==='Fist')b.fistBrokenAt=now;if(componentId==='hull'){b.mode='DESTROYED';b.strikeAt=null;const p=room.players.get(b.operatorId);dismountSoFistication(room,b,p,{force:true});}}
  return true;
 }

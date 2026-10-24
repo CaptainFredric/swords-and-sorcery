@@ -4,6 +4,7 @@ import {SoFisticationRenderer} from '../worlds/SoFisticationRenderer.mjs';
 import {BiByeMotion} from '../worlds/biByeMotion.mjs';
 import {SoFistSound} from './sound/SoFistSound.mjs';
 import {soFistSolids} from '../../shared/sim/soFistGeometry.mjs';
+import {ramCameraFollow} from './ramCamera.mjs';
 import {soFistOperator} from '../../shared/sim/soFistication.mjs';
 import { boxWorld } from '../../shared/src/orientedBox.mjs';
 import { biByeViewAction } from '../worlds/biByePresentation.mjs';
@@ -584,6 +585,7 @@ export class GameRuntime {
     const auth = snapshot.players.find((p) => p.id === this.socket.playerId);
     const wasMounted = Boolean(this.localAuth?.operatingBallistaId||this.localAuth?.operatingRamId);
     this.localAuth = auth ?? null;
+    this.input.mountedRam=Boolean(auth?.alive&&auth.operatingRamId);
     if(auth?.operatingRamId&&!wasMounted){
       this.siegeView='third';this.siegeCamera={position:this.camera.position.clone(),quaternion:this.camera.quaternion.clone()};this.input.releaseInputs();this.weapon.setAttack(false);this.weapon.setGuard(false);this.input.yaw=snapshot.soFistication.heading;this.input.pitch=0;
     }
@@ -676,6 +678,7 @@ export class GameRuntime {
         if(event.point)this.effects.splinters?.(event.point);
         if(event.attackerId===this.socket.playerId)this.hud.flashText(event.destroyed?'BREACH OPEN':`TIMBER DAMAGED · ${Math.ceil(event.health)}/${event.maxHealth}`,event.destroyed?'gold':'',event.destroyed?1800:950);
       }
+      this.ramRenderer.hit(event);
       this.teamVoiceEvents.onEvent(event);
       this.remotePlayers.onEvent(event, this.latestSnapshot);
       this.#applyWeaponRelease(localWeaponReleaseForEvent(event, this.socket.playerId, this.localAuth, event.at ?? this.socket.serverNow()));
@@ -1619,7 +1622,7 @@ export class GameRuntime {
 
   // a blade stopped by the world: stone rings and sparks, timber thunks and splinters, a hedge or cloth only takes it.
   // mine: my own blade (the jolt in the arms, the flash, the view's kick)
-  #worldClang({ point, material }, mine) {
+  #worldClang({ point, material, surfaceId }, mine) {
     const surface = strikeSurface(material);
     const recipe = surface === 'wood' ? woodThunkRecipe() : surface === 'soft' ? softStrikeRecipe() : wallClangRecipe();
     if (mine) {
@@ -1628,7 +1631,8 @@ export class GameRuntime {
       this.cameraKick = Math.max(this.cameraKick, surface === 'soft' ? 0.05 : 0.13);
     }
     if (surface === 'stone') {
-      if (mine) this.effects.wallClang(point);
+      if(surfaceId?.startsWith('sofist-')&&surfaceId.endsWith('-Fist'))this.effects.sparks(point,0xc9dded,mine?5:3);
+      else if (mine) this.effects.wallClang(point);
       else this.effects.sparks(point, 0xffd48a, 8);
     } else if (surface === 'wood') {
       this.effects.splinters(point, mine ? 12 : 7);
@@ -2087,7 +2091,10 @@ export class GameRuntime {
     this.siegeCamera ??= { position: this.camera.position.clone(), quaternion: this.camera.quaternion.clone() };
     if(mounted&&this.siegeView==='clear')this.#setFov(Math.max(35,this.view.fov*.7));
     const blend = 1 - Math.exp(-dt * 14);
-    this.siegeCamera.position.lerp(target, blend);
+    if(ram&&mounted){
+      const follow=ramCameraFollow(this.ramCameraAnchor,[b.position.x,b.position.y,b.position.z],target.toArray(),dt);
+      this.ramCameraAnchor=follow.anchor;this.siegeCamera.position.fromArray(clip(this.#reach,[b.position.x,b.position.y+1.85,b.position.z],follow.position,.25));
+    }else{this.ramCameraAnchor=null;this.siegeCamera.position.lerp(target, blend);}
     if(mounted)this.siegeCamera.quaternion.copy(rotation);else this.siegeCamera.quaternion.slerp(rotation,blend);
     this.camera.position.copy(this.siegeCamera.position);
     this.camera.quaternion.copy(this.siegeCamera.quaternion);
@@ -2308,7 +2315,7 @@ export class GameRuntime {
     this.ramSound.update(this.latestSnapshot?.soFistication,{active:this.playing&&this.input.enabled&&!this.socket.inspectionFrozen,listener:this.localState?.position??this.localAuth?.position,yaw:this.input.yaw,now:this.socket.serverNow()});
     if(this.ramRoom!==this.latestSnapshot?.roomCode){this.ramRoom=this.latestSnapshot?.roomCode;this.ramMotion=new BiByeMotion();}
     this.ramMotion.push(this.latestSnapshot?.soFistication??null,[],this.latestSnapshot?.serverTime??this.socket.serverNow(),this.latestSnapshot?.soFistRevision??0);
-    const ramView=this.ramMotion.sample(this.socket.serverNow(),this.socket.playingLocally,this.socket.inspectionFrozen);this.ramRenderer.update(ramView.clock,ramView.ballista);
+    const ramView=this.ramMotion.sample(this.socket.serverNow(),this.socket.playingLocally,this.socket.inspectionFrozen,dt);this.ramRenderer.update(ramView.clock,ramView.ballista);
     this.structuresRenderer?.update(this.latestSnapshot?.structures,this.socket.serverNow());
     this.world?.update?.(timeSec, this.camera);
     const ramPose=this.world?.soFistication?.presentationData;
