@@ -1404,8 +1404,17 @@ rematchButton.addEventListener('click', () => {
 });
 $('#leave').addEventListener('click', () => returnToMenu());
 
+let preparingSiege=false;
 function updateInspectionControls() {
-  const machine=Boolean(latestSnapshot?.bibyeBallista);
+  const ram=$('#practice-siege-type').value==='so-fist-ication';
+  const machine=Boolean(ram?latestSnapshot?.soFistication:latestSnapshot?.bibyeBallista);
+  const name=ram?'SO-FIST-ICATION':'BI-BYE-LLISTA';
+  $('[data-siege-title]').textContent=name;
+  $('[data-siege-classification]').hidden=!ram;
+  $('[data-siege-classification]').textContent=ram?'Mechanical Battering Ram':'';
+  $('[data-siege-description]').hidden=ram;
+  $('[data-siege-final]').textContent=ram?'Will not leave a scratch.':"The first shot lowers the target's defense.";
+  for(const action of ['build','rebuild','dismantle'])$('#practice-'+action+'-bibye').textContent=preparingSiege&&action!=='dismantle'?'PREPARING CARRIAGE…':action.toUpperCase()+(action==='build'?' A ':' ')+name;
   $('#practice-build-bibye').hidden=machine;
   $('#practice-rebuild-bibye').hidden=!machine;
   $('#practice-dismantle-bibye').hidden=!machine;
@@ -1419,7 +1428,7 @@ function updateInspectionControls() {
   practiceOverlay.classList.toggle('inspection-frozen', socket.inspectionFrozen);
   for (const button of practiceOverlay.querySelectorAll('button')) {
     if (button.matches('#practice-freeze, #practice-step, #practice-play-frames, #practice-leave, [data-open-settings]')) continue;
-    button.disabled = socket.inspectionFrozen;
+    button.disabled = socket.inspectionFrozen || (preparingSiege&&button.id.endsWith('-bibye'));
   }
   practiceOverlay.querySelector('.practice-tools-unlocked-hint').textContent = socket.inspectionFrozen ? 'P OR RESUME TO CONTINUE' : 'CLICK ARENA TO RESUME';
   practiceOverlay.querySelector('.practice-tools-locked-hint').textContent = available ? 'P TO FREEZE · ESC FOR TOOLS' : 'ESC FOR TOOLS';
@@ -1449,7 +1458,19 @@ document.addEventListener('keydown', event => {
 }, { capture: true });
 socket.on('inspectionState', updateInspectionControls);
 
-for(const action of ['build','rebuild','dismantle'])$('#practice-'+action+'-bibye').addEventListener('click',()=>socket.send({type:'practice'+action[0].toUpperCase()+action.slice(1)+'BiBye'}));
+$('#practice-siege-type').addEventListener('change',updateInspectionControls);
+for(const action of ['build','rebuild','dismantle'])$('#practice-'+action+'-bibye').addEventListener('click',async()=>{
+  if(preparingSiege)return;const machine=$('#practice-siege-type').value,room=latestSnapshot?.roomCode;
+  if(machine==='so-fist-ication'&&action!=='dismantle'){
+    preparingSiege=true;updateInspectionControls();$('#practice-siege-type').disabled=true;$('#practice-siege-status').hidden=false;$('#practice-siege-status').textContent='Preparing carriage…';
+    const loaded=await runtime.world?.soFistication?.load(true);
+    preparingSiege=false;$('#practice-siege-type').disabled=false;updateInspectionControls();
+    if(latestSnapshot?.roomCode!==room||latestSnapshot?.mode!=='PRACTICE')return;
+    $('#practice-siege-status').hidden=Boolean(loaded);
+    if(!loaded){$('#practice-siege-status').textContent='The carriage could not load. Try Build again.';return;}
+  }
+  socket.send({type:'practiceSiege',action,machine});
+});
 $('#practice-reset').addEventListener('click', () => socket.practiceResetPlayer());
 $('#practice-passive').addEventListener('click', () => socket.practiceSpawnDummy('PASSIVE'));
 $('#practice-guarding').addEventListener('click', () => socket.practiceSpawnDummy('GUARDING'));
@@ -1506,7 +1527,7 @@ function noteRoomState(snapshot) {
 }
 
 socket.on('snapshot', (snapshot) => {
-  if(snapshot.roomCode===latestSnapshot?.roomCode&&(snapshot.bibyeRevision??0)<(latestSnapshot?.bibyeRevision??0))return;
+  if(snapshot.roomCode===latestSnapshot?.roomCode&&((snapshot.bibyeRevision??0)<(latestSnapshot?.bibyeRevision??0)||(snapshot.soFistRevision??0)<(latestSnapshot?.soFistRevision??0)))return;
   if (fromLeftRoom(snapshot) || (leftRoom !== null && !socket.roomCode)) return;
   latestSnapshot = snapshot;
   if (new URLSearchParams(location.search).has('debug')) globalThis.__ssSnapshot = snapshot;

@@ -1,3 +1,4 @@
+import {soFistOperator} from '../../shared/sim/soFistication.mjs';
 import { biByeCondition } from '../../shared/sim/biByeComponents.mjs';
 import { PreparedSpellSelector, preparedSpellView } from './preparedSpellSelector.mjs';
 import { MOVEMENT } from '../../shared/src/movement.mjs';
@@ -64,7 +65,7 @@ export class TouchControls {
     this.held = new Map();   // pointerId -> action for held buttons
     this.stickState = { forward: 0, right: 0, sprint: false };
     this.stickSprintRequested = false;
-    this.sprintLatched = false;
+    this.sprintLatched = false;this.chargeHeld=false;
     this.jumpHeld = false;
     this.jumpUntil = 0;
 
@@ -174,7 +175,7 @@ export class TouchControls {
     this.#endStick();
     if (this.look) this.#gateHeld('look', false, `touch-look:${this.look.id}`, false);
     this.look = null;
-    this.sprintLatched = false;
+    this.sprintLatched = false;this.chargeHeld=false;
     this.crouchLatched = false;
     this.crouchTap = null;
     this.viewGesture = null;
@@ -196,7 +197,7 @@ export class TouchControls {
       forward: moveAllowed ? this.stickState.forward : 0,
       right: moveAllowed ? this.stickState.right : 0,
       jump: this.jumpHeld || performance.now() < this.jumpUntil,
-      sprint: moveAllowed && (this.stickState.sprint || this.#gateHeld('sprint', this.sprintLatched && moving, 'touch-latch', false)),
+      sprint: this.ramMounted?this.chargeHeld:moveAllowed && (this.stickState.sprint || this.#gateHeld('sprint', this.sprintLatched && moving, 'touch-latch', false)),
       crouch: Boolean(this.crouchLatched),
     };
     this.#showTouchDebug(result);
@@ -256,18 +257,23 @@ export class TouchControls {
       const bl = snapshot?.bibyeBallista;
       const bx = bl?.position?.x ?? bl?.x;
       const bz = bl?.position?.z ?? bl?.z;
-      const mounted = Boolean(local.alive && local.operatingBallistaId);
+      const ram=Boolean(local.alive&&local.operatingRamId),rb=snapshot?.soFistication,station=rb?soFistOperator(rb):null;
+      const nearRam=local.alive&&rb&&rb.health>0&&!rb.operatorId&&Math.hypot(station.x-local.position.x,station.z-local.position.z)<=2.2;
+      const mounted = Boolean(local.alive && (local.operatingBallistaId||local.operatingRamId));
+      if(this.ramMounted!==ram){this.chargeHeld=false;this.sprintLatched=false;}this.ramMounted=ram;
+      this.layer.classList.toggle('touch-ram',ram);
+      this.buttons.sprint.querySelector('span').textContent=ram?'CHARGE':'SPRINT';
       this.mounted=mounted;
       const near = local.alive && bl && local.position && bx !== undefined && !bl.operatorId ? Math.hypot(bx - local.position.x, bz - local.position.z) <= 3.2 : false;
       this.layer.classList.toggle('touch-mounted', mounted);
       if (this.buttons.siegeView) {
         this.buttons.siegeView.hidden=!mounted;
-        this.buttons.siegeView.querySelector('span').textContent='VIEW ↑';
-        this.buttons.siegeView.setAttribute('aria-label','Tap to change view. Swipe up to zoom ahead of the bow. Tap again to return.');
+        this.buttons.siegeView.querySelector('span').textContent=ram?'VIEW':'VIEW ↑';
+        this.buttons.siegeView.setAttribute('aria-label',ram?'Change ram view':'Tap to change view. Swipe up to zoom ahead of the bow. Tap again to return.');
         if(!mounted)this.viewGesture=null;
       }
       if (this.buttons.siegeWeapon) {
-        this.buttons.siegeWeapon.hidden = !mounted || bl?.mode !== 'DEPLOYED';
+        this.buttons.siegeWeapon.hidden = !mounted || ram || bl?.mode !== 'DEPLOYED';
         const next = bl?.weaponFocus === 'MAIN' ? 'UPPER' : 'MAIN';
         this.buttons.siegeWeapon.querySelector('span').textContent = next;
         this.buttons.siegeWeapon.setAttribute('aria-label', `Control ${next.toLowerCase()} launcher${next === 'UPPER' ? ' and cancel alignment' : ''}`);
@@ -278,20 +284,20 @@ export class TouchControls {
           this.buttons.interact.hidden = false;
           const label = this.buttons.interact.querySelector('span');
           if (label && label.textContent !== 'LEAVE') label.textContent = 'LEAVE';
-          this.buttons.interact.setAttribute('aria-label', 'Dismount ballista');
+          this.buttons.interact.setAttribute('aria-label', ram?'Leave ram':'Dismount ballista');
         }
         if (this.buttons.deploy) {
-          this.buttons.deploy.hidden = !biByeCondition(bl).canDeploy;
+          this.buttons.deploy.hidden = ram||!biByeCondition(bl).canDeploy;
           const label = this.buttons.deploy.querySelector('span');
           const text = bl?.mode === 'DEPLOYED' ? 'PACK' : 'DEPLOY';
           if (label && label.textContent !== text) label.textContent = text;
         }
-      } else if (near && bl?.mode !== 'DESTROYED') {
+      } else if (nearRam||(near && bl?.mode !== 'DESTROYED')) {
         if (this.buttons.interact) {
           this.buttons.interact.hidden = false;
           const label = this.buttons.interact.querySelector('span');
           if (label && label.textContent !== 'MOUNT') label.textContent = 'MOUNT';
-          this.buttons.interact.setAttribute('aria-label', 'Mount ballista');
+          this.buttons.interact.setAttribute('aria-label', nearRam?'Operate ram':'Mount ballista');
         }
         if (this.buttons.deploy) this.buttons.deploy.hidden = true;
       } else {
@@ -524,6 +530,7 @@ export class TouchControls {
       this.jumpHeld = true;
       this.jumpUntil = performance.now() + JUMP_LATCH_MS;
     }
+    if (action === 'sprint'&&this.ramMounted){this.chargeHeld=true;return;}
     if (action === 'sprint') {
       this.sprintLatched = !this.sprintLatched;
       if (!this.sprintLatched) this.#gateHeld('sprint', false, 'touch-latch');
@@ -548,6 +555,7 @@ export class TouchControls {
     if (action === 'attack') this.input.setAttack(false);
     if (action === 'guard') this.input.setGuard(false);
     if (action === 'jump') this.jumpHeld = false;
+    if(action==='sprint')this.chargeHeld=false;
   }
 
   #cancelPreparedTouch() {
@@ -614,7 +622,7 @@ export class TouchControls {
     this.stickKnob.style.transform = '';
     // the sprint toggle lasts until the thumb lets go of the stick
     if (this.sprintLatched) {
-      this.sprintLatched = false;
+      this.sprintLatched = false;this.chargeHeld=false;
       this.buttons.sprint.classList.remove('on');
     }
   }

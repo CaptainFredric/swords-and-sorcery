@@ -450,7 +450,8 @@ export class RemotePlayers {
       }
 
       const shell = this.rigs.get(player.id);
-      shell.cloth = player.cloth ?? 'crimson';
+      if(!player.operatingRamId)shell.visualInstance?.animator?.releaseRam();
+    shell.cloth = player.cloth ?? 'crimson';
       shell.visualInstance?.setCloth(shell.cloth);
       shell.emblem = player.emblem ?? 'trident';
       shell.visualInstance?.setEmblem?.(shell.emblem);
@@ -590,6 +591,7 @@ export class RemotePlayers {
       shell.visualInstance?.animator?.releaseMounted();
       shell.root.rotation.set(0,at?.yaw??player.yaw??0,0);
     }
+    if(!player.operatingRamId)shell.visualInstance?.animator?.releaseRam();
     shell.cloth = player.cloth ?? 'crimson';
     shell.visualInstance?.setCloth(shell.cloth);
     shell.emblem = player.emblem ?? 'trident';
@@ -688,6 +690,7 @@ export class RemotePlayers {
       // the gauntlet's jab, if one is under way, and the crouch's lean
       extra: state === 'dead' || recovering ? [] : [...crouch.turns, ...guardTurns(plan.concurrent?.attack ? 0 : d.guardAmount), ...jabTurns(serverNow - (d.jabAt ?? -Infinity))],
     };
+    if(pb.alive&&pb.operatingRamId)plan.ramMounted=true;
     if(pb.alive&&pb.operatingBallistaId)Object.assign(plan,{mounted:true,clip:'Idle',layers:null,concurrent:null});
     setRemoteVisualPlan(shell, plan, dt);
     // a foot comes down where the gait clip puts it (its rate follows the knight's speed)
