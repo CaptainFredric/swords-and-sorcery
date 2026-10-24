@@ -1,11 +1,11 @@
-import { BI_BYE_COMPONENTS, biByeComponentPose, biByeAimPose, biByeDeployProgress } from '../../shared/sim/biByeComponents.mjs';
+import { BI_BYE_COMPONENTS, BI_BYE_STABILIZER, biByeComponentPose, biByeAimPose, biByeDeployProgress } from '../../shared/sim/biByeComponents.mjs';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { appUrl } from '../appUrl.mjs';
 import { everywhere } from '../game/viewLayers.mjs';
-import { BI_BYE_LLISTA_CONFIG, BI_BYE_STATES, BI_BYE_MODES } from '../../shared/sim/biByeLlista.mjs';
+import { BI_BYE_LLISTA_CONFIG, BI_BYE_STATES, BI_BYE_MODES, getBiByeMuzzlePosition, getBiByeMuzzleDirection } from '../../shared/sim/biByeLlista.mjs';
 
-import { biByeAnimation, biByeUpperAnimation, biByeClutchAnimation, biByeDelayAnimation, biByeTrackOwner, biByeWheelSteering, biByeWheelTravel } from './biByePresentation.mjs';
+import { biByeDamageFlash, biByeAnimation, biByeUpperAnimation, biByeClutchAnimation, biByeDelayAnimation, biByeTrackOwner, biByeWheelSteering, biByeWheelTravel } from './biByePresentation.mjs';
 
 const ASSET_PATH = '/client/assets/props/bibye-ballista/bi-bye-llista-v4.1.glb?v=4641af412cf83d49';
 
@@ -26,6 +26,7 @@ export class BiByeLlistaRenderer {
     this.group.position.set(cfg.x, cfg.y, cfg.z);
 
     this.materials = this.#initMaterials();
+    this.hitColor=new THREE.Color(0xb7785c);
     // Castleward has direct sun and diffuse sky lighting but no scene environment.
     // Give this PBR asset a restrained sky/ground reflection so steel and brass
     // remain distinct instead of rendering nearly black outside the sun glint.
@@ -61,6 +62,7 @@ export class BiByeLlistaRenderer {
 
     // 1. Build initial procedural fallback until authored GLB completes load
     this.#buildFallbackMesh();
+    this.fallbackComponentMaterials=this.#copyDamageMaterials(this.fallbackGroup);
 
     // 2. Load authored v4.1 production GLB asset asynchronously
     this.#loadAuthoredModel();
@@ -112,22 +114,13 @@ export class BiByeLlistaRenderer {
           }
         });
 
-        this.componentMaterials = new Map();
-        for (const def of BI_BYE_COMPONENTS) {
-          const node = this.nodes.get(def.id);
-          if (!node?.isMesh) continue;
-          const multiple = Array.isArray(node.material);
-          const copies = [node.material].flat().map(m => {
-            const copy=m.clone();copy.userData.baseColor=copy.color.clone();copy.userData.baseRoughness=copy.roughness;return copy;
-          });
-          node.material = multiple ? copies : copies[0];
-          this.componentMaterials.set(def.id,copies);
-        }
-
+        this.componentMaterials=this.#copyDamageMaterials(gltf.scene);
         // Initialize AnimationMixer and extract all clips
         this.mixer = new THREE.AnimationMixer(this.authoredModel);
         this.jointPose = new Map(['Traverse_Mount', 'Elevation_Cradle', 'Upper_Turret_Mount', 'Operator_Traverse_Wheel']
           .map(name => [name, this.nodes.get(name).quaternion.clone()]));
+
+        this.restJointPose=new Map([...this.jointPose].map(([name,q])=>[name,q.clone()]));
 
         // No two live layers may bind the same node property. Runtime owns aim
         // joints and component hinges, including the authored damaged alternatives.
@@ -159,6 +152,40 @@ export class BiByeLlistaRenderer {
     );
   }
 
+  #copyDamageMaterials(root){
+    const groups=new Map();
+    root.traverse(node=>{
+      if(!node.isMesh)return;
+      let id='hull';
+      for(let p=node;p&&p!==root;p=p.parent){
+        const def=BI_BYE_COMPONENTS.find(d=>p.name===d.id||p.name===d.id+'_Damaged');
+        if(def||p.userData.componentId){id=def?.id??p.userData.componentId;break;}
+      }
+      if(!groups.has(id))groups.set(id,new Map());
+      const copies=groups.get(id),materials=[node.material].flat().map(original=>{
+        if(!copies.has(original)){
+          const m=original.clone();m.userData={...m.userData,baseColor:m.color.clone(),baseRoughness:m.roughness,baseEmissive:m.emissive.clone(),baseEmission:m.emissiveIntensity};copies.set(original,m);
+        }
+        return copies.get(original);
+      });
+      node.material=Array.isArray(node.material)?materials:materials[0];
+    });
+    return new Map([...groups].map(([id,mats])=>[id,[...mats.values()]]));
+  }
+
+  #updateDamageMaterials(groups,b,now){
+    for(const [id,materials]of groups??[]){
+      const def=BI_BYE_COMPONENTS.find(d=>d.id===id),damage=def?1-Math.max(0,Math.min(1,(b.components?.[id]?.health??def.maxHealth)/def.maxHealth)):0;
+      const pulse=biByeDamageFlash(b,id,now);
+      for(const m of materials){
+        m.color.copy(m.userData.baseColor).multiplyScalar(1-.4*damage).lerp(this.hitColor,pulse*.5);
+        m.roughness=Math.min(1,m.userData.baseRoughness+.35*damage);
+        m.emissive.copy(m.userData.baseEmissive).lerp(this.hitColor,pulse*.45);
+        m.emissiveIntensity=m.userData.baseEmission+.3*pulse;
+      }
+    }
+  }
+
   #buildFallbackMesh() {
     this.fallbackGroup = new THREE.Group();
     this.fallbackGroup.name = 'BiBye_ProceduralFallback';
@@ -179,6 +206,7 @@ export class BiByeLlistaRenderer {
       rim.rotation.z = Math.PI / 2;
       wGroup.add(rim);
       this.fallbackGroup.add(wGroup);
+      wGroup.userData.componentId='Wheel_'+['FL','FR','ML','MR','RL','RR'][this.fallbackWheels.length];
       this.fallbackWheels.push(wGroup);
     }
 
@@ -188,6 +216,8 @@ export class BiByeLlistaRenderer {
       const stab = new THREE.Group();
       const sign=def.side==='L'?-1:1;
       stab.position.set(...def.pivot);
+      stab.userData.componentId=def.id;
+      stab.scale.x=BI_BYE_STABILIZER.widthScale;
       const arm = new THREE.Mesh(new THREE.BoxGeometry(.16,1.03,.14), this.materials.timber);
       arm.position.set(sign*.35,-.375,0);arm.rotation.z=sign*43*Math.PI/180;
       stab.add(arm);
@@ -227,6 +257,11 @@ export class BiByeLlistaRenderer {
     this.group.visible = Boolean(ballistaData);
     if (!ballistaData) { this.#updateProjectiles([]); return; }
 
+    if(this.instanceId!==ballistaData.id){
+      this.instanceId=ballistaData.id;this.lastWheelPose=null;this.wheelAngles.fill(0);
+      this.mixer?.stopAllAction();this.activeBaseAction=null;this.upperAction=null;this.clutchAction=null;this.delayAction=null;
+      if(this.restJointPose)this.jointPose=new Map([...this.restJointPose].map(([name,q])=>[name,q.clone()]));
+    }
     // 1. Authoritative World Position & Carriage Heading
     const posX = ballistaData.position?.x ?? ballistaData.x ?? 0;
     const posY = ballistaData.position?.y ?? ballistaData.y ?? 0;
@@ -237,7 +272,8 @@ export class BiByeLlistaRenderer {
     this.lastWheelPose = { x: posX, z: posZ, heading };
     this.wheelAngles = ballistaData.wheelRolls?.length === 6 ? [...ballistaData.wheelRolls] : this.wheelAngles.map((angle, index) => angle + wheelTravel[index]);
 
-    this.group.position.set(posX, posY, posZ);
+    const settling=ballistaData.operatorId?0:Math.max(0,1-(timeSec-(ballistaData.builtAt??-Infinity))/.5);
+    this.group.position.set(posX,posY+.12*settling*settling,posZ);
     // Argon's v3 asset faces local +Z. Castleward's forward heading faces -Z.
     // Rotate by heading + PI to perfectly align the model with authoritative movement and projectile trajectories.
     this.group.rotation.set(-(ballistaData.chassisPitch??0),heading+Math.PI,ballistaData.chassisRoll??0,'YXZ');
@@ -248,6 +284,8 @@ export class BiByeLlistaRenderer {
     } else if (this.fallbackGroup) {
       this.#updateFallbackModel(timeSec, ballistaData);
     }
+
+    this.#updateDamageMaterials(this.authoredModel?this.componentMaterials:this.fallbackComponentMaterials,ballistaData,timeSec);
 
     // 4. Update In-Flight Projectile Visuals
     this.#updateProjectiles(projectilesData);
@@ -280,17 +318,15 @@ export class BiByeLlistaRenderer {
       const intact=this.nodes.get(def.id),damaged=this.nodes.get(def.id+'_Damaged');
       if(intact)intact.visible=!failed;
       if(damaged){damaged.visible=failed;damaged.scale.setScalar(1);}
+      for(const node of [intact,damaged])if(node&&def.kind==='stabilizer')node.scale.x=BI_BYE_STABILIZER.widthScale;
       if(mode==='DESTROYED')continue;
       const p=biByeComponentPose(ballistaData,def,timeSec);
       for(const node of [intact,damaged]){
-        if(!node)continue;node.position.set(...p.pivot);node.scale.setScalar(1);
+        if(!node)continue;node.position.set(...p.pivot);node.scale.set(def.kind==='stabilizer'?BI_BYE_STABILIZER.widthScale:1,1,1);
         if(def.kind==='wheel')node.rotation.set(this.wheelAngles[index]??0,p.steer,p.tilt,'YZX');
         else node.rotation.set(0,0,p.tilt);
       }
-      for(const material of this.componentMaterials.get(def.id)??[]){
-        material.color.copy(material.userData.baseColor).multiplyScalar(1-.40*p.damage);
-        material.roughness=Math.min(1,material.userData.baseRoughness+.35*p.damage);
-      }
+
     }
     if(mode===BI_BYE_MODES.DESTROYED)return;
     const pose=biByeAimPose(ballistaData,timeSec);
@@ -315,6 +351,11 @@ export class BiByeLlistaRenderer {
   }
 
   getMountedCameraPosition(view, out = new THREE.Vector3()) {
+    if(view==='clear'&&this.presentationData){
+      const b=this.presentationData,kind=b.mode==='DEPLOYED'&&b.weaponFocus==='MAIN'?'siege':'conditioning';
+      const p=getBiByeMuzzlePosition({...b,...b.position},kind),d=getBiByeMuzzleDirection({...b,...b.position},kind);
+      return out.set(p.x+d.x*.4,p.y+d.y*.4,p.z+d.z*.4);
+    }
     const node = this.nodes.get(view === 'sight' ? 'mounted_camera_sight' : 'mounted_camera_tpv');
     if (!node) return null;
     if (view === 'sight') {

@@ -51,11 +51,12 @@ async function aimFrom(page, yaw, pitch, x, y) {
   }
   throw new Error('Mouse aim did not converge');
 }
-export async function walkTo(page, x, z) {
+export async function walkTo(page, x, z, { reached = null } = {}) {
   const started = Date.now();
   try {
     for (;;) {
       const s = await state(page);
+      if(reached?.(s))return;
       const dx = x - s.player.position.x, dz = z - s.player.position.z;
       const distance = Math.hypot(dx, dz);
       if (distance < .4) return;
@@ -71,7 +72,10 @@ export async function walkTo(page, x, z) {
 }
 export async function approach(page) {
   await focus(page);
-  for (const [x,z] of [[0,-4.5],[13.8,-4.5],[13.8,-10],[9,-11.5]]) await walkTo(page,x,z);
+  const s=await state(page),b=s.ballista;
+  if(Math.abs(b.x-9)<.01&&Math.abs(b.z+14.6)<.01){
+    for(const [x,z]of [[0,-4.5],[13.8,-4.5],[13.8,-10],[9,-11.5]])await walkTo(page,x,z);
+  }else await walkTo(page,b.x+Math.sin(b.heading)*2.6,b.z+Math.cos(b.heading)*2.6,{reached:s=>Math.hypot(s.player.position.x-b.x,s.player.position.z-b.z)<3.15});
   return state(page);
 }
 export async function capture(page, filename, folder = new URL('../output/playwright/bi-bye-v32', import.meta.url).pathname) {
@@ -84,15 +88,20 @@ export async function capture(page, filename, folder = new URL('../output/playwr
   await writeFile(path.join(folder,filename.replace('.png','.json')),JSON.stringify(s,null,2));
   return s;
 }
-export async function startPractice(page, url = 'http://127.0.0.1:3228/?debug') {
+export async function startPractice(page, url = 'http://127.0.0.1:3228/?debug', {inspection=false} = {}) {
   await page.goto(url);
   await page.waitForFunction(() => document.querySelector('#loading-veil')?.classList.contains('done'));
   const skip = page.locator('[data-tutorial-onboarding-skip]');
   if(await skip.isVisible()) await skip.click();
   await page.locator('#player-name').fill('Siege Integration');
   await page.locator('#solo-button').click();
-  await page.locator('#practice-mode').click();
+  await page.locator(inspection?'#inspection-mode':'#practice-mode').click();
   await waitFor(page,s=>s.authored,'authored model loaded');
+  if(!(await state(page)).ballista){
+    await page.locator('.practice-siege summary').click();
+    await page.locator('#practice-build-bibye').click();
+    await waitFor(page,s=>s.ballista,'explicit Practice construction');
+  }
 }
 export async function mobileAndViews(page) {
   await page.keyboard.press('t');
@@ -101,7 +110,8 @@ export async function mobileAndViews(page) {
   await capture(page,'01-mobile-third.png');
   await page.keyboard.down('w'); await page.waitForTimeout(650); await page.keyboard.up('w');
   let s=await state(page);
-  assert.ok(s.ballista.x > start.ballista.x + 1,'forward travel');
+  const forwardTravel=-(s.ballista.x-start.ballista.x)*Math.sin(start.ballista.heading)-(s.ballista.z-start.ballista.z)*Math.cos(start.ballista.heading);
+  assert.ok(forwardTravel>1,'forward travel');
   await page.keyboard.down('s'); await page.waitForTimeout(700); await page.keyboard.up('s');
   await page.keyboard.down('w'); await page.keyboard.down('d'); await page.waitForTimeout(500); await page.keyboard.up('d'); await page.keyboard.up('w');
   s=await state(page);

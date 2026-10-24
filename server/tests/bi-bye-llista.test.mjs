@@ -4,6 +4,7 @@ import { Room } from '../../shared/sim/Room.mjs';
 import { RoomManager } from '../../shared/sim/RoomManager.mjs';
 import { stepRoom, applyDamage } from '../../shared/sim/combat.mjs';
 import {
+  createBiByeLlista,
   BI_BYE_LLISTA_CONFIG,
   BI_BYE_STATES,
   BI_BYE_MODES,
@@ -43,6 +44,8 @@ function fireBiByeLlista(room,b,t){return b.mode==='DEPLOYED'?fireBiByeFullVolle
 function makePracticeRoom() {
   const manager = new RoomManager();
   const room = manager.createSoloRoom('PRACTICE', 0, 'castleward');
+  // These combat fixtures explicitly construct the legacy emplacement.
+  room.biByeLlista=createBiByeLlista();
   const human = room.addPlayer({ id: 'human-01', token: 'token-human', name: 'Spellblade' }, 0);
   room.armAutoStart(0);
   human.spawnProtectionUntil = 0;
@@ -391,10 +394,11 @@ test('Scenario 8: Siege-machine durability, destruction, and safe operator dismo
   assert.equal(toggleBiByeDeploy(ballista, 3.0), false, 'cannot deploy destroyed vehicle');
   assert.equal(fireBiByeLlista(room, ballista, 3.0), false, 'cannot fire destroyed vehicle');
 
-  // Practice reset restores ballista
   assert.ok(resetPracticePlayer(room, human.id, 4.0));
-  assert.equal(ballista.health, 650, 'practice reset restores ballista HP');
-  assert.equal(ballista.mode, BI_BYE_MODES.MOBILE);
+  assert.equal(ballista.health,0,'Reset Self preserves the wreck');
+  assert.deepEqual(applyRoomCommand(room,human,{type:'practiceRebuildBiBye'},4),{});
+  assert.equal(room.biByeLlista.health,650);
+  assert.equal(room.biByeLlista.mode,BI_BYE_MODES.MOBILE);
 });
 
 test('Scenario 9: Sheathe in Steel mitigates ballista volley: Spellblade survives with 33 HP', () => {

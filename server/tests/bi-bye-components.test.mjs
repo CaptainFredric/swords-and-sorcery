@@ -90,8 +90,8 @@ test('component boxes track carriage heading and return nearest wheel ahead of h
  }
 });
 test('folded and deployed stabilizer damage volumes follow the authored hinge',()=>{
- const {b}=setup();const folded=parts.biByeHitVolumes(b,0).find(x=>x.componentId==='Stabilizer_FL');
- b.mode='DEPLOYED';const planted=parts.biByeHitVolumes(b,0).find(x=>x.componentId==='Stabilizer_FL');
+ const {b}=setup();const folded=parts.biByeHitVolumes(b,0).filter(x=>x.componentId==='Stabilizer_FL').at(-1);
+ b.mode='DEPLOYED';const planted=parts.biByeHitVolumes(b,0).filter(x=>x.componentId==='Stabilizer_FL').at(-1);
  assert.ok(Math.abs(folded.center[1]-planted.center[1])>.25);assert.ok(Math.abs(planted.center[0]-folded.center[0])>.1);
 });
 test('blast budget cannot multiply across overlapping parts and cover rejects hidden surfaces',()=>{
@@ -116,7 +116,7 @@ test('team safe machine rejects allied attacks while allowing Practice maintenan
 });
 
 test('ordinary sword sweeps damage one real wheel without draining hull or neighboring wheels',()=>{
- const room=new RoomManager().createSoloRoom('PRACTICE',0,'castleward');const b=room.biByeLlista;
+ const room=new RoomManager().createSoloRoom('PRACTICE',0,'castleward');const b=room.biByeLlista=createBiByeLlista();
  const p=room.addPlayer({id:'blade',token:'blade',name:'Blade'},0);room.armAutoStart(0);
  p.position={x:b.x+1.2,y:0,z:b.z+2.85};p.yaw=0;p.pitch=-.52;p.input={yaw:0,pitch:-.52};p.spawnProtectionUntil=0;
  applyRoomCommand(room,p,{type:'attack',down:true},1);
@@ -127,7 +127,7 @@ test('ordinary sword sweeps damage one real wheel without draining hull or neigh
 
 test('ordinary projectile stops at the first localized part and respects intervening world cover',()=>{
  for(const covered of [false,true]){
-  const room=new RoomManager().createSoloRoom('PRACTICE',0,'castleward');const b=room.biByeLlista;
+  const room=new RoomManager().createSoloRoom('PRACTICE',0,'castleward');const b=room.biByeLlista=createBiByeLlista();
   const p=room.addPlayer({id:'cast',token:'cast',name:'Cast'},0);room.armAutoStart(0);
   room.world={floors:[],solids:covered?[{center:[b.x+1.2,.6,b.z+2.2],size:[3,3,.2]}]:[]};
   p.position={x:b.x+1.2,y:0,z:b.z+4};p.spawnProtectionUntil=0;
@@ -138,13 +138,13 @@ test('ordinary projectile stops at the first localized part and respects interve
  }
 });
 
-test('component snapshots are copies and a Practice reset restores all subsystems',async()=>{
+test('component snapshots are copies and Reset Self preserves subsystem damage',async()=>{
  const {resetPracticePlayer}=await import('../../shared/sim/practice.mjs');
- const room=new RoomManager().createSoloRoom('PRACTICE',0,'castleward');const b=room.biByeLlista;
+ const room=new RoomManager().createSoloRoom('PRACTICE',0,'castleward');const b=room.biByeLlista=createBiByeLlista();
  const p=room.addPlayer({id:'p',token:'p',name:'P'},0);room.armAutoStart(0);
  breakPart(room,b,'Wheel_FL');const snapshot=serializeSnapshot(room,2);
  assert.equal(snapshot.bibyeBallista.components.Wheel_FL.health,0);
- resetPracticePlayer(room,p.id,3);assert.equal(b.components.Wheel_FL.health,120);assert.equal(snapshot.bibyeBallista.components.Wheel_FL.health,0);
+ resetPracticePlayer(room,p.id,3);assert.equal(b.components.Wheel_FL.health,0);assert.equal(snapshot.bibyeBallista.components.Wheel_FL.health,0);
 });
 
 test('support failure before Shot I cancels both releases with ammunition intact',()=>{

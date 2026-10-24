@@ -37,3 +37,8 @@ test('terrain attitude and all wheel contact offsets share the carriage interpol
  assert.ok(pose.chassisPitch>0&&pose.chassisPitch<.2);assert.ok(pose.chassisRoll>0&&pose.chassisRoll<.1);
  assert.ok(pose.wheelOffsets.every(x=>x>0&&x<.08));assert.ok(pose.stabilizerTilts.every(x=>x>0&&x<.02));
 });
+
+test('retired lifecycle snapshots cannot resurrect a removed machine or overwrite its replacement',()=>{
+ const m=new BiByeMotion();m.push(b(0),[],1,1);m.push(null,[],2,2);m.push(b(1),[],1.9,1);assert.equal(m.sample(2,true).ballista,null);
+ m.push({...b(5),id:'new'},[],3,3);m.push(b(1),[],4,1);assert.equal(m.sample(4,true).ballista.id,'new');
+});

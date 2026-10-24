@@ -449,8 +449,10 @@ export class CastlewardRenderer {
   }
 
   setBiByeState(snapshot, serverNow = snapshot?.serverTime, options = {}) {
+    if(this.biByeRoomCode!==snapshot?.roomCode){this.biByeRoomCode=snapshot?.roomCode;this.biByeMotion=new BiByeMotion();}
+    if((snapshot?.bibyeRevision??0)<this.biByeMotion.revision)return;
     this.biByePresentationOptions = options;
-    this.biByeMotion.push(snapshot?.bibyeBallista ?? null, snapshot?.bibyeProjectiles ?? [], snapshot?.serverTime ?? serverNow);
+    this.biByeMotion.push(snapshot?.bibyeBallista ?? null, snapshot?.bibyeProjectiles ?? [], snapshot?.serverTime ?? serverNow,snapshot?.bibyeRevision??0);
     this.biByeLlistaData = snapshot?.bibyeBallista ?? null;
     this.biByeProjectilesData = snapshot?.bibyeProjectiles ?? [];
     this.biByeServerTime = serverNow;

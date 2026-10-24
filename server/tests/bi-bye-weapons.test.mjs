@@ -84,19 +84,21 @@ test('whole-circle world direction remains exact under pitched and traversed mai
  for(const range of [10,20,35,50])assert.ok(.45+range/48 < .65+(range-.6)/55);
  assert.ok(.45+100/48 > .65+(100-.6)/55);
 });
-test('focus command is owned, validated, serialized and Practice reset restores the whole mechanism',async()=>{
+test('focus command is owned, validated, serialized and explicit rebuild restores the whole mechanism',async()=>{
  const {RoomManager}=await import('../../shared/sim/RoomManager.mjs');
  const {applyRoomCommand,serializeSnapshot}=await import('../../shared/sim/wire.mjs');
  const {resetPracticePlayer}=await import('../../shared/sim/practice.mjs');
  const room=new RoomManager().createSoloRoom('PRACTICE',0,'castleward');
- const p=room.addPlayer({id:'p',token:'p',name:'P'},0),other=room.addPlayer({id:'q',token:'q',name:'Q'},0),b=room.biByeLlista;
+ const p=room.addPlayer({id:'p',token:'p',name:'P'},0),other=room.addPlayer({id:'q',token:'q',name:'Q'},0),b=room.biByeLlista=createBiByeLlista();
  p.position={x:b.x,y:b.y,z:b.z};mountBiByeLlista(b,p);b.mode='DEPLOYED';
  assert.ok(applyRoomCommand(room,other,{type:'bibyeWeaponFocus',focus:'MAIN'},1).rejected);
  assert.ok(applyRoomCommand(room,p,{type:'bibyeWeaponFocus',focus:'heavyOnly'},1).rejected);
  assert.deepEqual(applyRoomCommand(room,p,{type:'bibyeWeaponFocus',focus:'MAIN'},1),{});
  fireBiByeLlista(room,b,1);const snapshot=serializeSnapshot(room,1).bibyeBallista;
  assert.equal(snapshot.coupling,'ALIGNING');assert.equal(snapshot.weaponFocus,'MAIN');assert.equal(snapshot.mainYaw,b.mainYaw);
- resetPracticePlayer(room,p.id,2);assert.equal(b.coupling,'INDEPENDENT');assert.equal(b.mainBoltLoaded,true);assert.equal(b.smallBoltReadyAt,2);assert.equal(b.weaponFocus,'UPPER');
+ resetPracticePlayer(room,p.id,2);assert.equal(b.smallBoltReadyAt,0);room.state='PLAYING';
+ assert.deepEqual(applyRoomCommand(room,p,{type:'practiceRebuildBiBye'},2),{});
+ const fresh=room.biByeLlista;assert.equal(fresh.coupling,'INDEPENDENT');assert.equal(fresh.mainBoltLoaded,true);assert.equal(fresh.smallBoltReadyAt,2);assert.equal(fresh.weaponFocus,'UPPER');
 });
 test('leaving before an independent string release cancels that windup without a recock',()=>{
  const s=setup();fireBiByeLlista(s.room,s.b,1);dismountBiByeLlista(s.b,s.p);s.step(1.3);
@@ -112,7 +114,7 @@ for(const range of [10,20,35,50])test(`both real projectiles strike an ordinary 
  const {RoomManager}=await import('../../shared/sim/RoomManager.mjs');
  const {stepBiByeProjectiles}=await import('../../shared/sim/biByeLlista.mjs');
  const room=new RoomManager().createSoloRoom('PRACTICE',0,'castleward');room.world={solids:[],floors:[{center:[0,0,0],size:[300,0,300],y:0}]};
- const p=room.addPlayer({id:'op',token:'op',name:'Operator'},0),b=room.biByeLlista;
+ const p=room.addPlayer({id:'op',token:'op',name:'Operator'},0),b=room.biByeLlista=createBiByeLlista();
  Object.assign(b,{x:0,z:0,heading:0,mainYaw:0,upperYaw:0});p.position={x:0,y:0,z:0};mountBiByeLlista(b,p);
  b.mode='DEPLOYED';b.mainPitch=Math.atan2(1.1-1.835,range-1.52);p.input={yaw:0,pitch:b.mainPitch};setBiByeWeaponFocus(b,'MAIN');
  const target=room.addServerActor({id:'target',name:'Target',actorKind:'dummy'},0);target.position={x:0,y:0,z:-range};target.spawnProtectionUntil=0;

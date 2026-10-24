@@ -1,3 +1,5 @@
+import { postureOf } from '../src/body.mjs';
+import { sampleTransform } from './history.mjs';
 import { biByeTerrainContext, biByeTerrainPose, biByeTerrainClear, biByeDeploymentSupport } from './biByeTerrain.mjs';
 import { biByeWeaponState, requestBiByeIndependent, requestBiByeVolley, stepBiByeWeapons, cancelBiByeCoupling, interruptBiByeSupport } from './biByeWeapons.mjs';
 import { biByeCondition, createBiByeComponents, biByeDeployProgress, biByeAimPose, biByeFrames, biByeHitVolumes, biByeFirstHit, biByeBlastAllocations, biByeWheelTravel, biByeWheelSteering, biByeConstrainAim } from './biByeComponents.mjs';
@@ -32,7 +34,7 @@ export const BI_BYE_LLISTA_CONFIG = Object.freeze({
     maxHealth: 650,
     radius: 1.6,
     bounds: Object.freeze({ width: 2.46, height: 1.66, depth: 4.022 }),
-    deployedBounds: Object.freeze({ width: 4.38, height: 1.66, depth: 4.022 }),
+    deployedBounds: Object.freeze({ width: 3.669, height: 1.66, depth: 4.022 }),
   }),
 
   modes: Object.freeze({
@@ -64,7 +66,7 @@ export const BI_BYE_LLISTA_CONFIG = Object.freeze({
     wheelbase: 2.915,             // 2.915m front-to-rear axle wheelbase
     steerSpeed: 1.6,              // rad/s steering speed
     traverseMobileMax: Math.PI / 5, // +/- 36 deg horizontal traverse while mobile
-    pitchMobileMin: -0.15,
+    pitchMobileMin: -0.35,
     pitchMobileMax: 0.35,
   }),
 
@@ -169,6 +171,7 @@ export function createBiByeLlista(overrides = {}) {
 
     // Durability
     health: BI_BYE_LLISTA_CONFIG.durability.maxHealth,
+    lastHitAt: null,
     maxHealth: BI_BYE_LLISTA_CONFIG.durability.maxHealth,
 
     // Weapon state
@@ -388,7 +391,7 @@ function syncOperatorPosition(ballista, player) {
  * Toggle operational mode between MOBILE and DEPLOYED.
  */
 export function toggleBiByeDeploy(ballista, nowSec, world=null) {
-  if (!ballista || ballista.mode === BI_BYE_MODES.DESTROYED) return false;
+  if (!ballista || ballista.retired || ballista.mode === BI_BYE_MODES.DESTROYED) return false;
 
   if (ballista.mode === BI_BYE_MODES.MOBILE) {
     if (ballista.mobileShotPendingAt != null || !biByeCondition(ballista).canDeploy) return false;
@@ -423,7 +426,7 @@ export function toggleBiByeDeploy(ballista, nowSec, world=null) {
  * Damage the siege machine. Destroys it at 0 HP.
  */
 export function biByeCanDamage(room, ballista, attackerId) {
-  if (!ballista || ballista.mode === BI_BYE_MODES.DESTROYED) return false;
+  if (!ballista || ballista.retired || ballista.mode === BI_BYE_MODES.DESTROYED) return false;
   if (room.mode === 'PRACTICE') return true;
   if (ballista.operatorId === attackerId) return false;
   const attacker = room.players?.get(attackerId);
@@ -491,7 +494,7 @@ export function fireBiByeFullVolley(room, ballista, nowSec) {
   return requestBiByeVolley(room, ballista, nowSec);
 }
 export function fireBiByeLlista(room, ballista, nowSec) {
-  if (!ballista || ballista.mode === BI_BYE_MODES.DESTROYED) return false;
+  if (!ballista || ballista.retired || ballista.mode === BI_BYE_MODES.DESTROYED) return false;
   return ballista.mode === BI_BYE_MODES.DEPLOYED && ballista.weaponFocus === 'MAIN'
     ? fireBiByeFullVolley(room, ballista, nowSec) : fireBiByeMobile(room, ballista, nowSec);
 }
@@ -621,6 +624,7 @@ function spawnShotII(room, ballista, aim, nowSec) {
  * Step ballista locomotion, transitions, and firing cycle.
  */
 export function stepBiByeLlista(room, ballista, dt, nowSec, world = room.world) {
+  if(ballista?.retired)return;
   if (!ballista) return;
   ballista.poseTime = nowSec;
   const previousPose = {...ballista};
@@ -804,10 +808,16 @@ export function stepBiByeProjectiles(room, dt, nowSec, world = room.world) {
         y: player.position.y - rad,
         z: player.position.z,
         radius: 0.45 + rad,
-        height: 1.8 + 2 * rad,
+        height: postureOf(player).height + 2 * rad,
       };
 
-      const hit = sweptSegmentCylinderHit(before, after, cylinder);
+      // Sweep relative to the target's actual motion over this bolt's flight interval.
+      // A teleport/reset is not travel through every intervening point.
+      const old=sampleTransform(player,nowSec-flightDt).position;
+      const moved=Math.hypot(player.position.x-old.x,player.position.y-old.y,player.position.z-old.z);
+      const start=moved<2?{x:before.x+player.position.x-old.x,y:before.y+player.position.y-old.y,z:before.z+player.position.z-old.z}:before;
+      const hit = sweptSegmentCylinderHit(start, after, cylinder);
+      if(hit)hit.point={x:before.x+(after.x-before.x)*hit.t,y:before.y+(after.y-before.y)*hit.t,z:before.z+(after.z-before.z)*hit.t};
       if (hit && hit.t >= 0 && hit.t <= 1) {
         hits.push({
           t: hit.t,
@@ -831,6 +841,7 @@ export function stepBiByeProjectiles(room, dt, nowSec, world = room.world) {
         room.bibyeProjectiles.delete(projectile.id);
         room.events?.push({
           type: 'bibyeBoltImpact',
+          ballistaId: projectile.ballistaId,
           projectileId: projectile.id,
           subKind: 'conditioning',
           point: impactPoint,
@@ -860,6 +871,7 @@ export function stepBiByeProjectiles(room, dt, nowSec, world = room.world) {
 
           room.events?.push({
             type: 'bibyeBoltImpact',
+            ballistaId: projectile.ballistaId,
             projectileId: projectile.id,
             subKind: 'siege',
             point: hit.point,
@@ -913,6 +925,7 @@ export function stepBiByeProjectiles(room, dt, nowSec, world = room.world) {
 
           room.events?.push({
             type: 'bibyeBoltImpact',
+            ballistaId: projectile.ballistaId,
             projectileId: projectile.id,
             subKind: 'siege',
             victimId: sweptVictim.id,
@@ -962,6 +975,7 @@ function detonateFrostBlast(room, projectile, point, nowSec, directVictimId = nu
 
   room.events?.push({
     type: 'bibyeFrostBlast',
+    ballistaId: projectile.ballistaId,
     projectileId: projectile.id,
     point,
     radius,
@@ -1023,6 +1037,7 @@ function detonateFrostBlast(room, projectile, point, nowSec, directVictimId = nu
 
       room.events?.push({
         type: 'bibyeFrostBlastAbsorbed',
+        ballistaId: projectile.ballistaId,
         projectileId: projectile.id,
         victimId: victim.id,
         staminaDrain,
@@ -1074,6 +1089,7 @@ function detonateSiegeShockwave(room, projectile, point, excludedVictimIds, nowS
 
   room.events?.push({
     type: 'bibyeSiegeShockwave',
+    ballistaId: projectile.ballistaId,
     projectileId: projectile.id,
     point,
     radius,

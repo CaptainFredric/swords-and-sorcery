@@ -167,6 +167,7 @@ export class TouchControls {
   }
 
   reset() {
+    this.viewGesture=null;
     this.#cancelPreparedTouch();
     for (const [pointerId, action] of this.held) this.#release(action, pointerId);
     this.held.clear();
@@ -176,6 +177,7 @@ export class TouchControls {
     this.sprintLatched = false;
     this.crouchLatched = false;
     this.crouchTap = null;
+    this.viewGesture = null;
     this.jumpHeld = false;
     this.jumpUntil = 0;
     this.buttons.sprint.classList.remove('on');
@@ -258,7 +260,12 @@ export class TouchControls {
       this.mounted=mounted;
       const near = local.alive && bl && local.position && bx !== undefined && !bl.operatorId ? Math.hypot(bx - local.position.x, bz - local.position.z) <= 3.2 : false;
       this.layer.classList.toggle('touch-mounted', mounted);
-      if (this.buttons.siegeView) this.buttons.siegeView.hidden = !mounted;
+      if (this.buttons.siegeView) {
+        this.buttons.siegeView.hidden=!mounted;
+        this.buttons.siegeView.querySelector('span').textContent='VIEW ↑';
+        this.buttons.siegeView.setAttribute('aria-label','Tap to change view. Swipe up to zoom ahead of the bow. Tap again to return.');
+        if(!mounted)this.viewGesture=null;
+      }
       if (this.buttons.siegeWeapon) {
         this.buttons.siegeWeapon.hidden = !mounted || bl?.mode !== 'DEPLOYED';
         const next = bl?.weaponFocus === 'MAIN' ? 'UPPER' : 'MAIN';
@@ -408,6 +415,12 @@ export class TouchControls {
 
   #move = (event) => {
     if (event.pointerType === 'mouse' && !this.held.has(event.pointerId)) return;
+    if(this.viewGesture?.id===event.pointerId){
+      const point=gamePoint(event,this.layer),g=this.viewGesture,dx=point.x-g.x,dy=g.y-point.y;
+      g.travel=Math.max(g.travel,Math.hypot(dx,dy));
+      if(!g.zoomed&&dy>=32&&dy>Math.abs(dx)*1.25){g.zoomed=true;this.input.onAction?.('siegeZoom',true);}
+      return;
+    }
     if (this.preparedTouch?.id === event.pointerId) {
       const point = gamePoint(event, this.layer);
       const gesture = this.preparedTouch;
@@ -451,6 +464,10 @@ export class TouchControls {
     if (this.stick?.id === event.pointerId) this.#endStick();
     if (this.look?.id === event.pointerId) this.look = null;
     const action = this.held.get(event.pointerId);
+    if(action==='siegeView'&&this.viewGesture?.id===event.pointerId){
+      const g=this.viewGesture;this.viewGesture=null;
+      if(event.type==='pointerup'&&!g.zoomed&&g.travel<18&&this.input.enabled)this.input.onAction?.('siegeView',true);
+    }
     // crouch toggles only for a deliberate tap: pressed on the button and lifted soon after, without sliding off it (a
     // finger passing over it while steering or looking belongs to the stick or the view, and never reaches it at all)
     if (action === 'crouch' && this.crouchTap?.id === event.pointerId) {
@@ -520,7 +537,7 @@ export class TouchControls {
     if (action === 'interact') this.input.interact?.();
     if (action === 'deploy') this.input.deploy?.();
     if (action === 'siegeWeapon') this.input.siegeWeapon?.();
-    if (action === 'siegeView' && this.input.enabled) this.input.onAction?.('siegeView', true);
+    if(action==='siegeView'&&this.input.enabled)this.viewGesture={id:event.pointerId,...gamePoint(event,this.layer),travel:0,zoomed:false};
   }
 
   #release(action, pointerId) {

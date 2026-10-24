@@ -61,3 +61,21 @@ test('clutch layers seek engagement, partial cancellation and complete uncouplin
 test('conditioning bolt stays in its authored rail pose throughout reload',()=>{
  for(const prop of ['position','quaternion','scale'])assert.equal(biByeTrackOwner(`Upper_Conditioning_Bolt.${prop}`),'Aim');
 });
+
+test('a damage pulse affects only the struck part and expires without replaying late snapshots',async()=>{
+ const {biByeDamageFlash:flash}=await import('./biByePresentation.mjs');
+ assert.equal(typeof flash,'function');
+ const b={lastHitAt:10,components:{Wheel_FL:{lastHitAt:11},Stabilizer_FR:{lastHitAt:12}}};
+ assert.ok(flash(b,'Wheel_FL',11.03)>.4);assert.equal(flash(b,'hull',11.03),0);assert.equal(flash(b,'Stabilizer_FR',11.03),0);
+ assert.equal(flash(b,'Wheel_FL',11.5),0);assert.equal(flash({lastHitAt:null,components:{}},'hull',0),0);
+ assert.ok(flash(b,'Stabilizer_FR',12.02)>0);assert.ok(flash(b,'hull',10.02)>0);
+});
+test('clear sight returns to the exact preceding view on the next tap',async()=>{
+ const {biByeViewAction:change}=await import('./biByePresentation.mjs');
+ assert.equal(typeof change,'function');
+ for(const view of ['third','sight']){
+  const zoom=change({view},'zoom');assert.equal(zoom.view,'clear');assert.equal(change(zoom,'tap').view,view);
+  assert.equal(change(change(zoom,'zoom'),'tap').view,view);
+ }
+ assert.equal(change({view:'third'},'tap').view,'sight');
+});

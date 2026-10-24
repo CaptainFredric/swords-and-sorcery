@@ -1,3 +1,4 @@
+import { practiceBiByeCommand } from './practiceSiege.mjs';
 import { setBiByeWeaponFocus } from './biByeWeapons.mjs';
 import { biByeDeployProgress } from './biByeComponents.mjs';
 // What a host (the game server, or the browser playing alone when the server cannot be reached) says to its
@@ -181,7 +182,9 @@ export function serializeSnapshot(room, nowSec) {
       operatingBallistaId: p.operatingBallistaId ?? null,
     })),
     projectiles: [...room.projectiles.values()].map((p) => ({ id: p.id, ownerId: p.ownerId, spell: p.spell, position: p.position, velocity: p.velocity })),
+    bibyeRevision: room.biByeRevision??0,
     bibyeBallista: room.biByeLlista ? {
+      builtAt:room.biByeLlista.builtAt,
       id: room.biByeLlista.id,
       position: { x: room.biByeLlista.x, y: room.biByeLlista.y, z: room.biByeLlista.z },
       x: room.biByeLlista.x,
@@ -216,6 +219,7 @@ export function serializeSnapshot(room, nowSec) {
       retractAim: room.biByeLlista.retractAim ? {...room.biByeLlista.retractAim} : null,
       modeTransitionEndsAt: Number.isFinite(room.biByeLlista.modeTransitionEndsAt) ? room.biByeLlista.modeTransitionEndsAt : null,
       health: room.biByeLlista.health,
+      lastHitAt: room.biByeLlista.lastHitAt,
       maxHealth: room.biByeLlista.maxHealth,
       state: room.biByeLlista.state,
       operatorId: room.biByeLlista.operatorId,
@@ -324,6 +328,9 @@ export function applyRoomCommand(room, player, message, time) {
     case 'rematch': room.requestRematch(player.id, time); return {};
     case 'switchTeam': return { lobby: room.switchTeam(player.id, message.team ?? null, time) };
     case 'markTarget': room.markTarget(player.id, { targetId: message.targetId ?? null }, time); return {};
+    case 'practiceBuildBiBye':return practiceBiByeCommand(room,player,'build',time);
+    case 'practiceRebuildBiBye':return practiceBiByeCommand(room,player,'rebuild',time);
+    case 'practiceDismantleBiBye':return practiceBiByeCommand(room,player,'dismantle',time);
     case 'practiceResetPlayer':
       return room.mode === GAME_MODES.PRACTICE && resetPracticePlayer(room, player.id, time) ? {} : { rejected: PRACTICE_REJECTED };
     case 'practiceSpawnDummy':

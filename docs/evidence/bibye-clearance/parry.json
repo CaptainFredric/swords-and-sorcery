@@ -1,0 +1,21 @@
+{
+  "proof": {
+    "events": [
+      {
+        "type": "parry",
+        "attackerId": "practice-dummy-GPCD8",
+        "defenderId": "3301bf63-b2f4-4a6e-84b3-03caf4215ee1",
+        "suppressParryReel": false,
+        "point": {
+          "x": -4.817401837576078,
+          "y": 1.4824747250351378,
+          "z": -4.777780982673228
+        },
+        "at": 16.45710000038147
+      }
+    ],
+    "outlinedSymbol": "0",
+    "cameraFlashChildren": 0
+  },
+  "errors": []
+}

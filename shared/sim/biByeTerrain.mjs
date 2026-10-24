@@ -1,4 +1,4 @@
-import { BI_BYE_COMPONENTS, biByeRootFrame, biByeHitVolumes, biByeWheelSteering } from './biByeComponents.mjs';
+import { BI_BYE_COMPONENTS, BI_BYE_STABILIZER, biByeRootFrame, biByeHitVolumes, biByeWheelSteering } from './biByeComponents.mjs';
 import { boxWorld } from '../src/orientedBox.mjs';
 
 const RAD=Math.PI/180, R=.55, clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -91,7 +91,7 @@ function overlaps(a,b){
  }return true;
 }
 export function biByeTerrainClear(b,ctx){
- const volumes=biByeHitVolumes(b).filter(v=>!v.componentId.startsWith('Stabilizer_'));
+ const volumes=biByeHitVolumes(b);
  for(const v of volumes){
   for(const solid of ctx.solids){
    const low=ctx.surfaces.some(s=>s.solid===solid);
@@ -114,12 +114,12 @@ export function biByeDeploymentSupport(b,world){
  for(const def of BI_BYE_COMPONENTS.slice(6)){
   if((b.components?.[def.id]?.health??150)<=0){tilts.push(0);continue;}
   const sign=def.side==='L'?-1:1;
-  const shoe=t=>{const x=sign*.71,y=-.765-.055;return boxWorld(root,[def.pivot[0]+x*Math.cos(t)-y*Math.sin(t),def.pivot[1]+x*Math.sin(t)+y*Math.cos(t),def.pivot[2]]);};
+  const shoe=(t,dx=0,dz=0)=>{const x=sign*BI_BYE_STABILIZER.shoeX+dx,y=BI_BYE_STABILIZER.shoeY-.055;return boxWorld(root,[def.pivot[0]+x*Math.cos(t)-y*Math.sin(t),def.pivot[1]+x*Math.sin(t)+y*Math.cos(t),def.pivot[2]+dz]);};
   let lo=-BI_BYE_TERRAIN.padAdjustment,hi=-lo;
   for(let k=0;k<16;k++){const mid=(lo+hi)/2,p=shoe(mid),g=groundAt(ctx,p[0],p[2],p[1]+.2);if(g===null)return {ok:false,reason:'Stabilizers need supported ground.'};if((p[1]-g)*sign>0)hi=mid;else lo=mid;}
   const tilt=(lo+hi)/2,p=shoe(tilt),g=groundAt(ctx,p[0],p[2],p[1]+.2);
   if(g===null||Math.abs(p[1]-g)>.035)return {ok:false,reason:'Stabilizers cannot reach stable ground.'};
-  for(const dx of [-.2,.2])for(const dz of [-.2,.2]){const q=boxWorld(root,[def.pivot[0]+sign*.71+dx,0,def.pivot[2]+dz]),h=groundAt(ctx,q[0],q[2],p[1]+.3);if(h===null||Math.abs(h-g)>.09)return {ok:false,reason:'Stabilizers need supported ground.'};}
+  for(const dx of [-BI_BYE_STABILIZER.shoeHalfWidth,BI_BYE_STABILIZER.shoeHalfWidth])for(const dz of [-BI_BYE_STABILIZER.shoeHalfDepth,BI_BYE_STABILIZER.shoeHalfDepth]){const q=shoe(tilt,dx,dz),h=groundAt(ctx,q[0],q[2],p[1]+.3);if(h===null||Math.abs(h-g)>.09)return {ok:false,reason:'Stabilizers need supported ground.'};}
   tilts.push(tilt);
  }
  return {ok:true,tilts};

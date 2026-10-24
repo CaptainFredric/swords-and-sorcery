@@ -12,7 +12,7 @@ test('mounted controls use rebound keys or touch labels', () => {
   const operator = { ...local, operatingBallistaId: b.id };
   const desktop = biByeHudView(operator, { bibyeBallista: b }, 0, { bindings: { attack: ['KeyF'], deploy: ['KeyH'], siegeView: ['KeyJ'], interact: ['KeyK'] } });
   assert.match(desktop.controls, /\[F\] Fire.*\[H\] Deploy.*\[J\] View.*\[K\] Leave/);
-  assert.equal(biByeHudView(operator, { bibyeBallista: b }, 0, { touch: true }).controls, 'SIEGE VIEW · ATTACK to fire');
+  assert.equal(biByeHudView(operator, { bibyeBallista: b }, 0, { touch: true }).controls, 'SIEGE VIEW · VIEW ↑ zoom · ATTACK to fire');
 });
 
 test('mounted HUD names structural faults and makes unsupported siege unavailable', async()=>{

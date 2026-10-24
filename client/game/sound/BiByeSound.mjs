@@ -62,6 +62,7 @@ export class BiByeSound {
   this.lastTime=options.now;
   this.active=Boolean(options.active&&b&&this.engine?.running&&!this.engine?.muted);
   if(!this.active){this.stop();this.last=b;return;}
+  if(last?.id!==b.id&&Number.isFinite(b.builtAt)&&options.now-b.builtAt<.75)this.#play('deploy',b,.55);
   const owned=Boolean(b.operatorId)&&b.mode!=='DESTROYED',moving=owned&&Math.abs(b.speed??0)>.04;
   this.#loop('roll',moving,b,.30,Math.max(.4,Math.abs(b.speed??0)/3.2));
   const elapsed=Math.max(.001,options.now-(this.poseAt??options.now));
