@@ -714,11 +714,25 @@ export class HUD {
     this.rivalWaypoint.style.left = `${(marker.x * 100).toFixed(1)}%`;
     this.rivalWaypoint.style.top = `${(marker.y * 100).toFixed(1)}%`;
     this.rivalWaypoint.dataset.clamped = marker.clamped ? 'true' : 'false';
+    this.rivalWaypoint.dataset.passage = marker.name === 'PASSAGE' ? 'true' : 'false';
+    if (marker.passageKind) {
+      this.rivalWaypoint.dataset.passageKind = marker.passageKind;
+    } else {
+      delete this.rivalWaypoint.dataset.passageKind;
+    }
     if (Number.isFinite(marker.angle)) {
       this.rivalWaypoint.style.setProperty('--wp-angle', `${marker.angle.toFixed(1)}deg`);
     }
     const nameEl = this.rivalWaypoint.querySelector('[data-rival-name]');
-    if (nameEl) nameEl.textContent = marker.name ?? 'RIVAL';
+    if (nameEl) {
+      let label = marker.name ?? 'RIVAL';
+      if (marker.name === 'PASSAGE') {
+        if (marker.passageKind === 'bridge') label = 'BRIDGE CROSSING';
+        else if (marker.passageKind === 'lane') label = 'MILL LANE';
+        else label = 'GATEWAY TO RIVAL';
+      }
+      nameEl.textContent = label;
+    }
     const distEl = this.rivalWaypoint.querySelector('[data-rival-dist]');
     if (distEl) distEl.textContent = Number.isFinite(marker.dist) ? `${Math.round(marker.dist)} m` : '';
   }

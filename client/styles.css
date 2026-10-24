@@ -210,6 +210,17 @@ body.took-steel::after{content:"";position:fixed;inset:0;z-index:50;pointer-even
   border-bottom: 7px solid #e5c378;
   transform: rotate(calc(var(--wp-angle, 0deg) + 90deg));
 }
+.rival-waypoint[data-passage="true"] {
+  border-color: rgba(235, 192, 107, .8);
+  background: rgba(24, 20, 14, .88);
+}
+.rival-waypoint[data-passage="true"] .rival-wp-pointer {
+  background: #ecc97f;
+}
+.rival-waypoint[data-passage="true"] b {
+  color: #f7eedb;
+  letter-spacing: .09em;
+}
 .rival-waypoint b {
   font: 700 8.5px/1.1 Georgia, serif; letter-spacing: .12em;
   color: #f4ead2; white-space: nowrap;

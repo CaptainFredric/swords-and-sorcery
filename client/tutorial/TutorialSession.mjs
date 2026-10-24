@@ -62,7 +62,7 @@ export function tutorialPrompt(beat, { touch = false, bindings = {} } = {}) {
     case 'health-regen': return `Health regenerates after ${HEALTH_REGEN.delaySec} seconds without damage.`;
     case 'fireball': return `Aim at Rival and cast Fireball: ${use('spell')}. Missed? Wait for the real cooldown and try again.`;
     case 'jump': return `Jump over the low stone wall: ${use('jump')}. Keep moving toward Rival.`;
-    case 'dash': return `Sprint and Jump from the high broken deck. Dash toward the lower bank while airborne: ${use('dash')}.`;
+    case 'dash': return `Sprint and Jump from the high broken deck. Dash toward the lower bank while airborne: ${use('dash')}. (Jump first, then Dash mid-air!)`;
     case 'sprint-jump': return touch
       ? 'A running Jump falls short of the brook. Push the stick fully forward to Sprint, then tap Jump at the edge. Fell in? Wade up the ford on the right.'
       : `A running Jump falls short of the brook. Hold ${keys('sprint')} and Jump at the edge: ${use('jump')}. Fell in? Wade up the ford on the right.`;
@@ -250,7 +250,14 @@ export class TutorialSession {
     const yaw=Math.atan2(-(actor.position.x-me.position.x),-(actor.position.z-me.position.z));
     const angle=Math.atan2(Math.sin(yaw-me.yaw),Math.cos(yaw-me.yaw));
     const direction=Math.abs(angle)>2.3?'behind you':angle>.45?'to your left':angle<-.45?'to your right':'ahead';
-    return `Rival is ${direction} · ${Math.round(distance(me.position,actor.position))} m.`;
+    const dist = Math.round(distance(me.position,actor.position));
+    if (me.position.z > 168 && actor.position.z <= -10) {
+      return `Follow Gate A passage to Rival · ${dist} m.`;
+    }
+    if (me.position.z > 52 && actor.position.z <= -10) {
+      return `Follow passage gates to Rival · ${dist} m.`;
+    }
+    return `Rival is ${direction} · ${dist} m.`;
   }
   allows(action, notify = true) {
     const normal = ACTION[action] ?? action;
