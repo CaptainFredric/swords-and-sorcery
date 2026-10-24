@@ -393,7 +393,7 @@ export const OUTERWORKS_BALLISTA_EMPLACEMENT = Object.freeze({
   x: -8.0,
   y: 0,
   z: -46.0,
-  baseYaw: 0, // Facing North (+Z) straight down the Great Esplanade
+  baseYaw: Math.PI, // Facing North (+Z) straight down the Great Esplanade
   team: TEAMS.ATTACKERS,
   interactRadius: 3.2,
 });

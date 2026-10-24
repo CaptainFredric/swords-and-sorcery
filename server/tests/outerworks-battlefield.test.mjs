@@ -142,7 +142,13 @@ test('The Outerworks: Ballista can mount, deploy stabilizers, and fire siege bol
   // Aim toward defender at Objective 1 (0, 0, -12) from (-8, 0, -46)
   const dx = defender.position.x - ballista.x;
   const dz = defender.position.z - ballista.z;
-  ballista.yaw = Math.atan2(-dx, -dz);
+  const targetYaw = Math.atan2(-dx, -dz);
+  attacker.input = { yaw: targetYaw, pitch: 0.02 };
+  ballista.mainYaw = targetYaw;
+  ballista.mainPitch = 0.02;
+  ballista.upperYaw = targetYaw;
+  ballista.upperPitch = 0.02;
+  ballista.yaw = targetYaw;
   ballista.pitch = 0.02;
 
   // Fire volley (Shot I conditioning bolt + Shot II siege bolt)
@@ -173,8 +179,8 @@ test('The Outerworks: Flanking infantry can sneak via trench and damage ballista
   defenderFlanker.position = { x: -8.0, y: 0, z: -48.0 };
 
   // Apply sword strike damage to ballista
-  const dmgResult = damageBiByeLlista(room, ballista, 35, 1.0, defenderFlanker);
-  assert.ok(dmgResult.applied > 0, 'Ballista must take damage from flanking attack');
+  const dmgResult = damageBiByeLlista(room, ballista, 35, defenderFlanker.id, 'sword', 1.0);
+  assert.equal(dmgResult, true, 'Ballista must take damage from flanking attack');
   assert.ok(ballista.health < initialHp, 'Ballista durability must decrease when struck');
 });
 

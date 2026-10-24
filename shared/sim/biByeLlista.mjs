@@ -154,7 +154,7 @@ export function createBiByeLlista(overrides = {}) {
     speed: 0,
     steer: 0,
     operatorId: null,
-    team: null,
+    team: conf.team ?? null,
     mobileFiredAt: null,
     destroyedAt: null,
 
