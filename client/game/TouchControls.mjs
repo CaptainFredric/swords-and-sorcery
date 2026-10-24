@@ -258,7 +258,7 @@ export class TouchControls {
       const bx = bl?.position?.x ?? bl?.x;
       const bz = bl?.position?.z ?? bl?.z;
       const ram=Boolean(local.alive&&local.operatingRamId),rb=snapshot?.soFistication,station=rb?soFistOperator(rb):null;
-      const nearRam=local.alive&&rb&&rb.health>0&&!rb.operatorId&&Math.hypot(station.x-local.position.x,station.z-local.position.z)<=2.2;
+      const nearRam=local.alive&&rb&&rb.health>0&&(!rb.team||rb.team===local.team)&&!rb.operatorId&&Math.hypot(station.x-local.position.x,station.z-local.position.z)<=2.2;
       const mounted = Boolean(local.alive && (local.operatingBallistaId||local.operatingRamId));
       if(this.ramMounted!==ram){this.chargeHeld=false;this.sprintLatched=false;}this.ramMounted=ram;
       this.layer.classList.toggle('touch-ram',ram);

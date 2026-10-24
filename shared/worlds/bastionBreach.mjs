@@ -90,7 +90,7 @@ const SOLIDS = [
   solid('cover-camp-pavise', [-7.0, -5.0], [0, 1.4], [-27.5, -26.5], { material: 'timber' }),
   solid('cover-approach-pillar-left', [-4.5, -3.0], [0, 2.8], [-20, -18]),
   solid('cover-approach-crates-right', [2.5, 4.5], [0, 1.4], [-19, -17], { material: 'timber' }),
-  solid('cover-approach-breastwork', [-1.8, 1.8], [0, 0.95], [-14.5, -13.7]),
+  solid('cover-approach-breastwork', [-2.9, 2.9], [0, 2.35], [-14.5, -13.7], { material: 'timber' }),
 
   // --- Barbican Gatehouse (Objective 1) Defensive Bulwarks ---
   solid('tower-barbican-west', [-6.0, -3.8], [0, 5.8], [-3.5, -0.5]),
@@ -221,6 +221,9 @@ const NAVIGATION_NODES = Object.freeze([
   nav('approach-flank-left', -3.5, 0, -14),
   nav('approach-flank-right', 3.5, 0, -14),
   nav('approach-north', 0, 0, -11),
+  nav('barricade-east-south', 3.7, 0, -16),
+  nav('barricade-east-north', 3.7, 0, -11),
+  nav('barricade-west-north', -3.7, 0, -11),
 
   // West Flank Route
   nav('flank-south', -12, 0, -22),
@@ -359,6 +362,14 @@ const BASE_BASTION_BREACH = Object.freeze({
   ramps: RAMPS,
   props: [],
   objectives: OBJECTIVES,
+  structures: Object.freeze([
+    { id: 'assault-barricade', name: 'Reinforced assault barricade', solidIds: ['cover-approach-breastwork'], profile: 'reinforcedTimber', team: TEAMS.DEFENDERS },
+    { id: 'approach-screen', name: 'Supply screen', solidIds: ['cover-approach-crates-right'], profile: 'timber', team: TEAMS.DEFENDERS },
+    { id: 'sanctum-barricade', name: 'Sanctum rear barricade', solidIds: ['cover-defender-barricade'], profile: 'reinforcedTimber', team: TEAMS.DEFENDERS },
+  ]),
+  siegeEmplacements: Object.freeze([
+    { id: 'approach-ram', type: 'so-fist-ication', team: TEAMS.ATTACKERS, phases: [0, 1], x: 0, y: 0, z: -23, heading: Math.PI },
+  ]),
   spawnPoints: SPAWN_POINTS,
   navigation: Object.freeze({
     nodes: NAVIGATION_NODES,

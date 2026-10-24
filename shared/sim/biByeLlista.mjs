@@ -1,3 +1,4 @@
+import { structureWorld, damageStructureSolid } from './structures.mjs';
 import {soFistFirstHit,soFistSolids} from './soFistGeometry.mjs';
 import {damageSoFistication} from './soFistication.mjs';
 import { postureOf } from '../src/body.mjs';
@@ -758,6 +759,7 @@ export function stepBiByeProjectiles(room, dt, nowSec, world = room.world) {
     const hits = [];
 
     // 1. World solids continuous swept ray test
+    world = structureWorld(world, room.structures);
     for (const box of world?.solids ?? []) {
       if (String(box.id ?? '').startsWith('bibye-') || String(box.id ?? '').startsWith('sofist-')) continue;
       const hit = segmentAabbHit([before.x, before.y, before.z], [after.x, after.y, after.z], box);
@@ -855,6 +857,7 @@ export function stepBiByeProjectiles(room, dt, nowSec, world = room.world) {
           victimId: hitPlayer?.id ?? null,
           at: nowSec,
         });
+        if(first.kind==='solid')damageStructureSolid(room,first.box,projectile.directDamage,projectile.ownerId,'bibye-conditioning',nowSec,{point:impactPoint});
         if(first.kind==='ram')damageSoFistication(room,room.soFistication,projectile.directDamage,projectile.ownerId,'bibye-conditioning',nowSec,{componentId:first.box.componentId,point:impactPoint});
         if (first.kind === 'machine') damageBiByeLlista(room,machine,projectile.directDamage,projectile.ownerId,'bibye-conditioning',nowSec,{componentId:first.box.componentId,point:impactPoint});
         else if (machine?.id !== projectile.ballistaId) blastBiByeLlista(room,machine,{point:impactPoint,radius:projectile.blastRadius,damage:projectile.directDamage},projectile.ownerId,'bibye-conditioning',nowSec);
@@ -870,6 +873,7 @@ export function stepBiByeProjectiles(room, dt, nowSec, world = room.world) {
       for (const hit of hits) {
         // Solid world obstacle or ground decisively stops the physical bolt
         if (hit.kind === 'solid' || hit.kind === 'ground' || hit.kind === 'machine' || hit.kind === 'ram') {
+          if(hit.kind==='solid')damageStructureSolid(room,hit.box,projectile.directDamage,projectile.ownerId,'bibye-siege',nowSec,{point:hit.point});
           if(hit.kind==='ram')damageSoFistication(room,room.soFistication,projectile.directDamage,projectile.ownerId,'bibye-siege',nowSec,{componentId:hit.box.componentId,point:hit.point});
           if (hit.kind === 'machine') damageBiByeLlista(room,machine,projectile.directDamage,projectile.ownerId,'bibye-siege',nowSec,{componentId:hit.box.componentId,point:hit.point});
           else if (machine?.id !== projectile.ballistaId) blastBiByeLlista(room,machine,{point:hit.point,radius:BI_BYE_LLISTA_CONFIG.shotII.shockwave.radius,damage:BI_BYE_LLISTA_CONFIG.shotII.shockwave.centerDamage},projectile.ownerId,'bibye-shockwave',nowSec);
