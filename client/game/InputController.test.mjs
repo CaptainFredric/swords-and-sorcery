@@ -559,3 +559,10 @@ test('mobile focus does not invoke native pointer lock or fullscreen and ignores
   assert.equal(input.enabled, false);
   assert.ok(resets > 0, 'backgrounding the page must clear touch input');
 });
+
+test('ram sensitivity preserves precise immediate aim and ordinary settings on exit',()=>{
+ const {input}=setup();input.configure({ram: .6});input.mountedRam=true;input.turn(.1,.05);
+ assert.ok(Math.abs(input.yaw-.06)<1e-9);assert.ok(Math.abs(input.pitch-.03)<1e-9);
+ input.turn(-.1,-.05);assert.ok(Math.abs(input.yaw)<1e-9);
+ input.mountedRam=false;input.turn(.1,.05);assert.equal(input.yaw,.1);assert.equal(input.pitch,.05);
+});

@@ -42,3 +42,27 @@ test('retired lifecycle snapshots cannot resurrect a removed machine or overwrit
  const m=new BiByeMotion();m.push(b(0),[],1,1);m.push(null,[],2,2);m.push(b(1),[],1.9,1);assert.equal(m.sample(2,true).ballista,null);
  m.push({...b(5),id:'new'},[],3,3);m.push(b(1),[],4,1);assert.equal(m.sample(4,true).ballista.id,'new');
 });
+
+test('remote carriage presentation advances steadily when ordered snapshots arrive with jitter',()=>{
+ const motion=new BiByeMotion(),packets=[];let delivery=0;
+ for(let i=0;i<90;i++){delivery=Math.max(i/30+[.045,.060,.095,.055][i%4],delivery+.001);packets.push({delivery,time:1+i/30,pose:b(i/30*4.8)});}
+ let latest=null,previous=null,maxStep=0;
+ for(let t=0;t<2.8;t+=1/60){while(packets[0]?.delivery<=t){latest=packets.shift();motion.push(latest.pose,[],latest.time);}
+  if(!latest)continue;const now=latest.time+t-latest.delivery,s=motion.sample(now,false,false,1/60).ballista;
+  if(previous!=null){const step=s.position.x-previous;assert.ok(step>=-1e-8,'arrivals never pull the carriage backward');maxStep=Math.max(maxStep,step);}previous=s.position.x;
+ }
+ assert.ok(maxStep<4.8/60*1.12,`largest step ${maxStep}`);
+});
+
+test('a delayed packet cannot cash out accumulated clock debt as a carriage jump',()=>{
+ const m=new BiByeMotion();m.push(b(0),[],1);m.push(b(.16),[],1+1/30);
+ for(let i=0;i<18;i++)m.sample(1.05+i/60,false,false,1/60);
+ const held=m.sample(1.35,false,false,1/60).ballista.position.x;assert.equal(held,.16);
+ m.push(b(.96),[],1.2);const next=m.sample(1.39,false,false,1/60).ballista.position.x;
+ assert.ok(next-held<.1);assert.ok(next<=.96);
+});
+
+test('the grounded operator height follows terrain interpolation without pinning an empty station to zero',()=>{
+ const m=new BiByeMotion();m.push({...b(0),operatorY:1},[],1);m.push({...b(.1),operatorY:1.08},[],1+1/30);const s=m.sample(1.05,true).ballista;assert.ok(s.operatorY>1&&s.operatorY<1.08);
+ const empty=new BiByeMotion();empty.push(b(0),[],1);assert.equal(empty.sample(1,true).ballista.operatorY,undefined);
+});

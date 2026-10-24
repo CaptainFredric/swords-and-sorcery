@@ -1,0 +1,413 @@
+{
+  "results": {
+    "before": {
+      "stationary": {
+        "frames": {
+          "samples": 360,
+          "median": 16.69999999999891,
+          "p95": 16.700000000000728,
+          "p99": 16.80000000000109,
+          "max": 16.80000000000109,
+          "over33": 0,
+          "over50": 0
+        },
+        "hostCpu": {
+          "samples": 182,
+          "median": 0.5,
+          "p95": 0.8000001907348633,
+          "p99": 1.3000001907348633,
+          "max": 3.8000001907348633,
+          "over33": 0,
+          "over50": 0
+        },
+        "hostIntervals": {
+          "samples": 181,
+          "median": 33,
+          "p95": 34.5,
+          "p99": 36.79999923706055,
+          "max": 37.59999942779541,
+          "over33": 43,
+          "over50": 0
+        },
+        "maxSpeed": 0,
+        "memory": {
+          "geometries": 89,
+          "textures": 50
+        },
+        "viewport": [
+          1280,
+          800
+        ],
+        "pixelRatio": 1,
+        "gpu": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)",
+        "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/155.0.0.0 Safari/537.36",
+        "position": [
+          19.627859870414447,
+          3.4999999999999996,
+          2.5667400869845816
+        ],
+        "yaw": 1.2478500000000001,
+        "view": {
+          "fov": 78,
+          "pixelRatioCap": 1.6,
+          "cameraMotion": 1,
+          "damageNumbers": true,
+          "damageFlash": true,
+          "subtitles": true,
+          "particles": 1
+        }
+      },
+      "steps": [
+        {
+          "label": "accelerate",
+          "speed": 2.6866666666666683,
+          "position": [
+            12.515576244472863,
+            0,
+            -1.2463634191527575
+          ],
+          "heading": 0,
+          "pressure": 100
+        },
+        {
+          "label": "brake",
+          "speed": 0,
+          "position": [
+            12.515576244472863,
+            0,
+            -2.104141196930536
+          ],
+          "heading": 0,
+          "pressure": 100
+        },
+        {
+          "label": "reverse",
+          "speed": 0,
+          "position": [
+            12.515576244472863,
+            0,
+            0.6418588030694637
+          ],
+          "heading": 0,
+          "pressure": 100
+        },
+        {
+          "label": "brake-reverse",
+          "speed": 0,
+          "position": [
+            12.515576244472863,
+            0,
+            0.6418588030694637
+          ],
+          "heading": 0,
+          "pressure": 100
+        },
+        {
+          "label": "turn",
+          "speed": 2.860000000000002,
+          "position": [
+            12.92657959851473,
+            0,
+            -0.9077118743192872
+          ],
+          "heading": -0.49866666666666676,
+          "pressure": 100
+        },
+        {
+          "label": "stop",
+          "speed": 0,
+          "position": [
+            13.39303764449357,
+            0,
+            -1.7642701049450387
+          ],
+          "heading": -0.49866666666666676,
+          "pressure": 100
+        },
+        {
+          "label": "charge",
+          "speed": 0.4,
+          "position": [
+            15.370887777933113,
+            0,
+            -5.396201905342673
+          ],
+          "heading": -0.49866666666666676,
+          "pressure": 92.8051555555555
+        },
+        {
+          "label": "release",
+          "speed": 0,
+          "position": [
+            15.377264511302613,
+            0,
+            -5.407911518885062
+          ],
+          "heading": -0.49866666666666676,
+          "pressure": 100
+        }
+      ],
+      "active": {
+        "frames": {
+          "samples": 600,
+          "median": 16.700000000000728,
+          "p95": 16.700000000000728,
+          "p99": 16.80000000000291,
+          "max": 16.80000000000291,
+          "over33": 0,
+          "over50": 0
+        },
+        "hostCpu": {
+          "samples": 303,
+          "median": 1.2999992370605469,
+          "p95": 2.3000001907348633,
+          "p99": 3.8000001907348633,
+          "max": 5.299999237060547,
+          "over33": 0,
+          "over50": 0
+        },
+        "hostIntervals": {
+          "samples": 302,
+          "median": 33.09999942779541,
+          "p95": 34.69999980926514,
+          "p99": 35.39999961853027,
+          "max": 37.90000057220459,
+          "over33": 82,
+          "over50": 0
+        },
+        "maxSpeed": 5.600000000000004,
+        "memory": {
+          "geometries": 89,
+          "textures": 50
+        },
+        "viewport": [
+          1280,
+          800
+        ],
+        "pixelRatio": 1,
+        "gpu": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)",
+        "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/155.0.0.0 Safari/537.36",
+        "position": [
+          22.489548137212882,
+          3.4999999999999996,
+          -3.0276969015791093
+        ],
+        "yaw": 1.2478500000000001,
+        "view": {
+          "fov": 78,
+          "pixelRatioCap": 1.6,
+          "cameraMotion": 1,
+          "damageNumbers": true,
+          "damageFlash": true,
+          "subtitles": true,
+          "particles": 1
+        }
+      }
+    },
+    "after": {
+      "stationary": {
+        "frames": {
+          "samples": 360,
+          "median": 16.699999999999818,
+          "p95": 16.799999999999272,
+          "p99": 16.800000000000182,
+          "max": 16.800000000000182,
+          "over33": 0,
+          "over50": 0
+        },
+        "hostCpu": {
+          "samples": 182,
+          "median": 0.5,
+          "p95": 0.8999996185302734,
+          "p99": 1.0999994277954102,
+          "max": 1.0999994277954102,
+          "over33": 0,
+          "over50": 0
+        },
+        "hostIntervals": {
+          "samples": 181,
+          "median": 33.10000038146973,
+          "p95": 34.60000038146973,
+          "p99": 37.19999980926514,
+          "max": 37.5,
+          "over33": 42,
+          "over50": 0
+        },
+        "maxSpeed": 0,
+        "memory": {
+          "geometries": 89,
+          "textures": 50
+        },
+        "viewport": [
+          1280,
+          800
+        ],
+        "pixelRatio": 1,
+        "gpu": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)",
+        "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/155.0.0.0 Safari/537.36",
+        "position": [
+          19.628139496534352,
+          3.5,
+          2.565904377229538
+        ],
+        "yaw": 1.2479675,
+        "view": {
+          "fov": 78,
+          "pixelRatioCap": 1.6,
+          "cameraMotion": 1,
+          "damageNumbers": true,
+          "damageFlash": true,
+          "subtitles": true,
+          "particles": 1
+        }
+      },
+      "steps": [
+        {
+          "label": "accelerate",
+          "speed": 3.7999999999999976,
+          "position": [
+            12.515576244472863,
+            0,
+            -1.7768078635972016
+          ],
+          "heading": 0,
+          "pressure": 100
+        },
+        {
+          "label": "brake",
+          "speed": 0,
+          "position": [
+            12.515576244472863,
+            0,
+            -2.9590300858194216
+          ],
+          "heading": 0,
+          "pressure": 100
+        },
+        {
+          "label": "reverse",
+          "speed": 0,
+          "position": [
+            12.515576244472863,
+            0,
+            0.4191921364028001
+          ],
+          "heading": 0,
+          "pressure": 100
+        },
+        {
+          "label": "brake-reverse",
+          "speed": 0,
+          "position": [
+            12.515576244472863,
+            0,
+            0.4191921364028001
+          ],
+          "heading": 0,
+          "pressure": 100
+        },
+        {
+          "label": "turn",
+          "speed": 4.179999999999998,
+          "position": [
+            13.343529959178719,
+            0,
+            -1.7469121561341345
+          ],
+          "heading": -0.7073286052009459,
+          "pressure": 100
+        },
+        {
+          "label": "stop",
+          "speed": 0,
+          "position": [
+            14.277517155932408,
+            0,
+            -2.83942990308898
+          ],
+          "heading": -0.7073286052009459,
+          "pressure": 100
+        },
+        {
+          "label": "charge",
+          "speed": 0,
+          "position": [
+            16.10274878347827,
+            0,
+            -4.974467676977239
+          ],
+          "heading": -0.7073286052009459,
+          "pressure": 93.11476148148138
+        },
+        {
+          "label": "release",
+          "speed": 0,
+          "position": [
+            16.10274878347827,
+            0,
+            -4.974467676977239
+          ],
+          "heading": -0.7073286052009459,
+          "pressure": 100
+        }
+      ],
+      "active": {
+        "frames": {
+          "samples": 600,
+          "median": 16.69999999999891,
+          "p95": 16.799999999999272,
+          "p99": 16.80000000000109,
+          "max": 16.80000000000291,
+          "over33": 0,
+          "over50": 0
+        },
+        "hostCpu": {
+          "samples": 303,
+          "median": 1.8000001907348633,
+          "p95": 3.6000003814697266,
+          "p99": 5.40000057220459,
+          "max": 7.700000762939453,
+          "over33": 0,
+          "over50": 0
+        },
+        "hostIntervals": {
+          "samples": 302,
+          "median": 33.19999980926514,
+          "p95": 34.69999980926514,
+          "p99": 37.30000019073486,
+          "max": 38.80000019073486,
+          "over33": 70,
+          "over50": 0
+        },
+        "maxSpeed": 4.666666666666668,
+        "memory": {
+          "geometries": 89,
+          "textures": 50
+        },
+        "viewport": [
+          1280,
+          800
+        ],
+        "pixelRatio": 1,
+        "gpu": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)",
+        "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/155.0.0.0 Safari/537.36",
+        "position": [
+          23.215312035539753,
+          3.5,
+          -2.595088769483832
+        ],
+        "yaw": 1.2479675,
+        "view": {
+          "fov": 78,
+          "pixelRatioCap": 1.6,
+          "cameraMotion": 1,
+          "damageNumbers": true,
+          "damageFlash": true,
+          "subtitles": true,
+          "particles": 1
+        }
+      }
+    }
+  },
+  "errors": []
+}

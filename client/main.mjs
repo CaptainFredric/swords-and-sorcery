@@ -1417,7 +1417,8 @@ function updateInspectionControls() {
   $('[data-siege-title]').textContent=name;
   $('[data-siege-classification]').hidden=!ram;
   $('[data-siege-classification]').textContent=ram?'Mechanical Battering Ram':'';
-  $('[data-siege-description]').hidden=ram;
+  $('[data-siege-description]').hidden=false;
+  $('[data-siege-description]').textContent=ram?'This hulking, unsubtle contraption has the strength of a stubborn Spellblade and the durability of many more. The sword is mightier than the pen, but siege engineers have devised a more sophisticated form of persuasion: an armored fist, delivered at a speed that cannot be ignored.':'A marvel of combative engineering: compact, brutal, and devoted to destruction, much like the denizens who created it.';
   $('[data-siege-final]').textContent=ram?'Will not leave a scratch.':"The first shot lowers the target's defense.";
   for(const action of ['build','rebuild','dismantle'])$('#practice-'+action+'-bibye').textContent=preparingSiege&&action!=='dismantle'?'PREPARING CARRIAGE…':action.toUpperCase()+(action==='build'?' A ':' ')+name;
   $('#practice-build-bibye').hidden=machine;
