@@ -1,3 +1,5 @@
+import { structureWorld } from '../../shared/sim/structures.mjs';
+import { StructureRenderer } from '../worlds/StructureRenderer.mjs';
 import {SoFisticationRenderer} from '../worlds/SoFisticationRenderer.mjs';
 import {BiByeMotion} from '../worlds/biByeMotion.mjs';
 import {SoFistSound} from './sound/SoFistSound.mjs';
@@ -438,11 +440,13 @@ export class GameRuntime {
       const nextWorld = getWorld(worldId);
       const nextRenderer = createWorldRenderer(worldId, this.scene, WORLD_RENDERERS);
       this.world?.dispose?.();
+      this.structuresRenderer?.dispose();
+      this.structuresRenderer = new StructureRenderer(this.scene, nextWorld);
       this.world = nextRenderer;
       nextRenderer.soFistication=this.ramRenderer;
       this.#applyLighting(nextRenderer.lighting);
       this.activeWorld = worldId === 'bastion-breach'
-        ? bastionBreachForObjective(this.latestSnapshot?.objective, this.latestSnapshot?.serverTime ?? this.socket.serverNow())
+        ? structureWorld(bastionBreachForObjective(this.latestSnapshot?.objective, this.latestSnapshot?.serverTime ?? this.socket.serverNow()),this.latestSnapshot?.structures)
         : nextWorld;
       this.worldId = worldId;
       this.worldError = null;
@@ -563,8 +567,9 @@ export class GameRuntime {
       if (this.world.setBridgeRetries(failures)) this.activeWorld = greenerPasturesWithBridgeRetries(failures);
     }
     if (snapshot.worldId === 'bastion-breach') {
-      this.activeWorld = bastionBreachForObjective(snapshot.objective, snapshot.serverTime ?? this.socket.serverNow());
+      this.activeWorld = structureWorld(bastionBreachForObjective(snapshot.objective, snapshot.serverTime ?? this.socket.serverNow()),snapshot.structures);
     }
+    this.activeWorld = structureWorld(this.activeWorld,snapshot.structures);
     if (snapshot.matchStartedAt !== this.latestSnapshot?.matchStartedAt) this.localGate = null;
     const previousSiege = this.latestSnapshot?.bibyeBallista;
     if (previousSiege && previousSiege.id !== snapshot.bibyeBallista?.id) {
@@ -666,6 +671,10 @@ export class GameRuntime {
       if(event.type === "bibyeDamaged" && event.point) {
         if(event.componentId?.startsWith("Stabilizer")) this.effects.wallClang(event.point);
         else this.effects.splinters?.(event.point);
+      }
+      if(event.type==='structureDamaged'){
+        if(event.point)this.effects.splinters?.(event.point);
+        if(event.attackerId===this.socket.playerId)this.hud.flashText(event.destroyed?'BREACH OPEN':`TIMBER DAMAGED · ${Math.ceil(event.health)}/${event.maxHealth}`,event.destroyed?'gold':'',event.destroyed?1800:950);
       }
       this.teamVoiceEvents.onEvent(event);
       this.remotePlayers.onEvent(event, this.latestSnapshot);
@@ -2173,7 +2182,7 @@ export class GameRuntime {
       // (a Steel dash under way: where it sets off from this step, to see whom it meets)
       const ramFrom = this.localRam?.armed && serverNow < (this.localState.dashUntil ?? -Infinity) ? { ...this.localState.position } : null;
       if (this.worldId === 'bastion-breach' && this.latestSnapshot?.objective) {
-        this.activeWorld = bastionBreachForObjective(this.latestSnapshot.objective, serverNow);
+        this.activeWorld = structureWorld(bastionBreachForObjective(this.latestSnapshot.objective, serverNow),this.latestSnapshot.structures);
       }
       if ((this.localAuth?.operatingBallistaId||this.localAuth?.operatingRamId)) {
         this.localState.velocity = this.localAuth?.operatingRamId?{...this.localAuth.velocity}:{ x: 0, y: 0, z: 0 };
@@ -2300,6 +2309,7 @@ export class GameRuntime {
     if(this.ramRoom!==this.latestSnapshot?.roomCode){this.ramRoom=this.latestSnapshot?.roomCode;this.ramMotion=new BiByeMotion();}
     this.ramMotion.push(this.latestSnapshot?.soFistication??null,[],this.latestSnapshot?.serverTime??this.socket.serverNow(),this.latestSnapshot?.soFistRevision??0);
     const ramView=this.ramMotion.sample(this.socket.serverNow(),this.socket.playingLocally,this.socket.inspectionFrozen);this.ramRenderer.update(ramView.clock,ramView.ballista);
+    this.structuresRenderer?.update(this.latestSnapshot?.structures,this.socket.serverNow());
     this.world?.update?.(timeSec, this.camera);
     const ramPose=this.world?.soFistication?.presentationData;
     if(ramPose?.operatorId){
@@ -2441,6 +2451,7 @@ export class GameRuntime {
     this.resizeObserver?.disconnect();
     this.input.dispose();
     this.touch?.dispose();
+    this.structuresRenderer?.dispose();
     this.world?.dispose?.();
     this.remotePlayers.dispose();
     this.bladeHeatmapDebug?.dispose();

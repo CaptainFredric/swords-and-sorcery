@@ -1,7 +1,7 @@
 import {keyLabel,registry} from '../settings/settingsRegistry.mjs';
 import {soFistOperator} from '../../shared/sim/soFistication.mjs';
 export function soFistHudView(local,snapshot,now,{bindings=registry.defaultBindings(),touch=false}={}){
- const b=snapshot?.soFistication;if(!local?.alive||!b||b.retired||b.health<=0||local.operatingBallistaId)return null;
+ const b=snapshot?.soFistication;if(!local?.alive||!b||b.retired||b.health<=0||local.operatingBallistaId||b.team&&local.team!==b.team)return null;
  const key=action=>bindings[action]?.[0]?keyLabel(bindings[action][0]):'UNBOUND';
  if(local.operatingRamId!==b.id){const at=soFistOperator(b);if(b.operatorId||Math.hypot(at.x-local.position.x,at.z-local.position.z)>2.2)return null;return{title:'SO-FIST-ICATION',status:touch?'Tap MOUNT at the rear frame':`[${key('interact')}] Operate`,controls:''};}
  const fist=b.components?.Fist,drive=b.components?.Drive,wheels=Object.entries(b.components??{}).filter(([id,c])=>id.startsWith('Wheel_')&&c.health<=0).length;

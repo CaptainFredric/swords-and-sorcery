@@ -1,3 +1,4 @@
+import { structureForSolid, damageStructure, STRUCTURE_PROFILES } from './structures.mjs';
 import {surfaceHeightAt,resolvePlayerWorld} from '../src/collision.mjs';
 import {boxWorld,orientedBoxHit,boxLocal} from '../src/orientedBox.mjs';
 import {applyDamage,staggerBy,interruptHitActions,isInGuardCone} from './combat.mjs';
@@ -21,6 +22,7 @@ export function soFistExit(room,b,p,extras=[]){
 }
 export function mountSoFistication(room,b,p,now=0){
  if(!b||b.retired||b.health<=0||!p?.alive||p.operatingBallistaId||p.operatingRamId||(p.staggerUntil??0)>now||p.pendingSpell||p.gauntlet||p.ultimateState||p.attackActive||b.operatorId)return false;
+ if(b.emplacementId&&(room.state!=='PLAYING'||p.team!==b.team||!b.phases.includes(room.objectiveState?.phase)))return false;
  const seat=soFistOperator(b,room.world);if(!stationClear(b,room.world,getBiByeSolids(room.biByeLlista))||Math.hypot(p.position.x-seat.x,p.position.z-seat.z)>2.2||!soFistExit(room,b,p))return false;
  b.operatorId=p.id;p.operatingRamId=b.id;p.position=seat;p.velocity={x:0,y:0,z:0};p.impulse={x:0,z:0};p.guarding=false;p.guardHeld=false;p.attackHeld=false;p.input={forward:0,right:0,yaw:b.heading,pitch:0,jump:false,sprint:false};return true;
 }
@@ -29,7 +31,7 @@ export function dismountSoFistication(room,b,p,{administrative=false,exit=null,f
  b.operatorId=null;b.charging=false;b.chargeSpent=false;b.speed=0;if(administrative){b.retired=true;b.strikeAt=null;}
  if(p){p.operatingRamId=null;p.input={forward:0,right:0,yaw:p.yaw,pitch:p.pitch,jump:false,sprint:false};p.attackHeld=false;p.guarding=false;p.velocity={x:0,y:0,z:0};p.impulse={x:0,z:0};if(exit)p.position={...exit};}return true;
 }
-export function fireSoFistication(room,b,now){if(!b||b.retired||b.health<=0||!room.players.get(b.operatorId)?.alive||(room.players.get(b.operatorId)?.staggerUntil??0)>now||b.strikeAt!=null&&now-b.strikeAt<4)return false;b.strikeAt=now;b.strokeLimit=null;b.strokeBlockedAt=null;b.strikeOperatorId=b.operatorId;b.strokeVictims=[];b.strokeMachines=[];room.events.push({type:'soFistStrike',machineId:b.id,at:now});return true;}
+export function fireSoFistication(room,b,now){if(b?.emplacementId&&room.state!=='PLAYING')return false;if(!b||b.retired||b.health<=0||!room.players.get(b.operatorId)?.alive||(room.players.get(b.operatorId)?.staggerUntil??0)>now||b.strikeAt!=null&&now-b.strikeAt<4)return false;b.strikeAt=now;b.strokeLimit=null;b.strokeBlockedAt=null;b.strikeOperatorId=b.operatorId;b.strokeVictims=[];b.strokeMachines=[];b.strokeStructures=[];room.events.push({type:'soFistStrike',machineId:b.id,at:now});return true;}
 export function soFistTerrainPose(b,world){
  const flat=soFistFrame({...b,chassisPitch:0,chassisRoll:0}),samples=[];
  for(const w of SO_FIST_WHEELS){const point=boxWorld(flat,[w.pivot[0],0,w.pivot[2]]),h=surfaceHeightAt(point[0],point[2],b.y+.3,world);if(h==null||Math.abs(h-b.y)>.65)return null;samples.push(h);}
@@ -38,20 +40,35 @@ export function soFistTerrainPose(b,world){
  const y=(front+rear)/2,root=soFistFrame({...b,y,chassisPitch:pitch,chassisRoll:roll}),offsets=SO_FIST_WHEELS.map((w,i)=>(samples[i]+w.pivot[1]-boxWorld(root,w.pivot)[1])/root.axes[1][1]);if(offsets.some(v=>Math.abs(v)>.18))return null;
  return{y,chassisPitch:pitch,chassisRoll:roll,wheelOffsets:offsets};
 }
-export function soFistClear(b,world,extra=[]){if(b.operatorId&&!stationClear(b,world,extra))return false;const boxes=soFistVolumes(b);return !boxes.some(v=>[...(world.solids??[]),...extra].some(s=>machineryOverlap(v,s)));}
+export function soFistClear(b,world,extra=[],{operatorStation=false}={}){if((b.operatorId||operatorStation)&&!stationClear(b,world,extra))return false;const boxes=soFistVolumes(b);return !boxes.some(v=>[...(world.solids??[]),...extra].some(s=>machineryOverlap(v,s)));}
 export function stepSoFistication(room,b,dt,now,world=room.world){
- if(!b||b.retired)return;b.poseTime=now;
+ if(!b||b.retired||b.health<=0)return;b.poseTime=now;
  // Sweep the real striking surface against architecture before sampling contacts.
  const prior=soFistPose(b,now-dt),raw=soFistPose({...b,strokeLimit:null},now);
  b.strokePreviousOffset=prior.offset;b.strokeStepDt=dt;
  if(raw.active&&raw.offset>prior.offset){
   const start=soFistStriker(b,now-dt),end=soFistStriker({...b,strokeLimit:null},now);
   const extent=[0,1,2].map(i=>start.axes.reduce((n,axis,j)=>n+Math.abs(axis[i])*start.size[j],0));
+  let first = null;
   for(const solid of [...(world.solids??[]),...getBiByeSolids(room.biByeLlista)]){
    const box={...solid,axes:[[1,0,0],[0,1,0],[0,0,1]],size:solid.size.map((v,i)=>v+extent[i])};
-   const hit=orientedBoxHit(start.center,end.center,box);if(!hit)continue;
-   const limit=prior.offset+(raw.offset-prior.offset)*hit.t-.002;
+   const hit=orientedBoxHit(start.center,end.center,box);
+   if(hit&&(!first||hit.t<first.hit.t))first={solid,hit};
+  }
+  if(first){
+   const {solid,hit}=first,limit=prior.offset+(raw.offset-prior.offset)*hit.t-.002;
    if(b.strokeLimit==null||limit<b.strokeLimit){b.strokeLimit=limit;if(b.strokeBlockedAt==null){b.strokeBlockedAt=now;room.events.push({type:'soFistBlocked',machineId:b.id,point:{x:hit.point[0],y:hit.point[1],z:hit.point[2]},at:now});}}
+   const def=structureForSolid(world,solid);
+   if(def&&!(b.strokeStructures??[]).includes(def.id)){
+    const profile=STRUCTURE_PROFILES[def.profile],budget=b.structureChargeBudget;
+    const maximum=b.components.Fist.health>0?profile.piston:profile.exposed;
+    const already=budget?.id===def.id&&budget.strokeAt==null?budget.damage:0;
+    if(damageStructure(room,def.id,Math.max(0,maximum-already),b.strikeOperatorId,'so-fist',now,{raw:true,point:{x:hit.point[0],y:hit.point[1],z:hit.point[2]}})){
+     b.strokeStructures??=[];b.strokeStructures.push(def.id);
+    }
+    if(budget?.id===def.id)budget.strokeAt=b.strikeAt;
+    world=room.world;
+   }
   }
  }
 const p=room.players.get(b.operatorId);
@@ -74,7 +91,21 @@ const p=room.players.get(b.operatorId);
   const from={...b},heading=b.heading+soFistTurnRate(b)*sub;
   const next={...b,x:b.x-Math.sin(heading)*b.speed*sub,z:b.z-Math.cos(heading)*b.speed*sub,heading};const pose=soFistTerrainPose(next,world);
   const obstacles=getBiByeSolids(room.biByeLlista);
-  if(!pose||Math.abs(pose.y-b.y)>.12||!soFistClear({...next,...pose},world,obstacles)){b.speed=0;break;}
+  if(!pose||Math.abs(pose.y-b.y)>.12||!soFistClear({...next,...pose},world,obstacles)){
+   if(pose&&b.speed>4.2){
+    const head=soFistStriker(b,now),end=soFistStriker({...next,...pose},now);
+    const extent=[0,1,2].map(i=>head.axes.reduce((sum,axis,j)=>sum+Math.abs(axis[i])*head.size[j],0));
+    let first=null;
+    for(const solid of world.solids??[]){const hit=orientedBoxHit(head.center,end.center,{...solid,axes:[[1,0,0],[0,1,0],[0,0,1]],size:solid.size.map((v,i)=>v+extent[i])});if(hit&&(!first||hit.t<first.hit.t))first={solid,hit};}
+    const def=first&&structureForSolid(world,first.solid);
+    if(def&&b.structureChargeBudget?.id!==def.id){
+     const damage=STRUCTURE_PROFILES[def.profile].charge*clamp((b.speed-2)/10,0,1);
+     if(damageStructure(room,def.id,damage,b.operatorId,'ram-charge',now,{raw:true,point:{x:first.hit.point[0],y:first.hit.point[1],z:first.hit.point[2]}}))b.structureChargeBudget={id:def.id,damage,strokeAt:null};
+     world=room.world;
+    }
+   }
+   b.speed=0;break;
+  }
   Object.assign(b,next,pose);
   resolveSoFistContacts(room,b,from,sub,now-dt+(i+1)*sub,now-dt,dt);
   for(let w=0;w<4;w++){const a=boxWorld(soFistFrame(from),SO_FIST_WHEELS[w].pivot),c=boxWorld(soFistFrame(b),SO_FIST_WHEELS[w].pivot);wheelTravel[w]+=Math.hypot(c[0]-a[0],c[1]-a[1],c[2]-a[2])*Math.sign(b.speed)/SO_FIST_WHEELS[w].radius;}
@@ -89,6 +120,8 @@ const p=room.players.get(b.operatorId);
   }
   if(first){const armored=b.components.Fist.health>0,damage=armored?110:75+15*clamp(stroke.velocity/12.6,0,1);if(damageBiByeLlista(room,other,damage,b.strikeOperatorId,'so-fist',now,{componentId:first.box.componentId,point:{x:first.point[0],y:first.point[1],z:first.point[2]}})){b.strokeMachines??=[];b.strokeMachines.push(other.id);}}
  }
+ const budget=b.structureChargeBudget;
+ if(budget){const def=world.structures?.find(v=>v.id===budget.id),head=soFistStriker(b,now);if(!def||!(world.solids??[]).some(v=>def.solidIds.includes(v.id)&&Math.hypot(...head.center.map((n,i)=>Math.max(0,Math.abs(n-v.center[i])-v.size[i]/2-head.size[i]/2)))<1))b.structureChargeBudget=null;}
  b.wheelRolls=wheelTravel;
  if(driver){b.operatorY=soFistOperator(b,world).y;driver.position=soFistOperator(b);driver.velocity={x:-Math.sin(b.heading)*b.speed,y:0,z:-Math.cos(b.heading)*b.speed};driver.grounded=true;driver.yaw=input.yaw??b.heading;driver.pitch=input.pitch??0;driver.sprinting=false;driver.guardHeld=false;driver.guarding=false;}
  if(b.strikeAt!=null&&now-b.strikeAt>=4)b.strikeAt=null;
@@ -142,7 +175,7 @@ function resolveSoFistContacts(room,b,previous,dt,now,tickStart,tickDt){
 export function damageSoFistication(room,b,amount,attackerId,source,now,{componentId='hull',point=null}={}){
  if(!b||b.retired||b.health<=0||!Number.isFinite(amount)||!(amount>0))return false;
  if(componentId!=='hull'&&componentId!=='Piston'&&!b.components[componentId])return false;
- if(room.mode!=='PRACTICE'&&(b.operatorId===attackerId||areAllies(room,b.operatorId,attackerId)))return false;
+ if(room.mode!=='PRACTICE'&&(b.operatorId===attackerId||areAllies(room,b.operatorId,attackerId)||b.team&&room.players.get(attackerId)?.team===b.team))return false;
  const component=b.components[componentId],target=component??b;if(target.health<=0)return false;
  const old=target.health;
  if(componentId==='Fist'){const range=STEEL_DAMAGE_RANGES[source];amount=Math.min(amount,range?.min??Math.round(amount*GAME.swordGlance/GAME.swordDamage));}
