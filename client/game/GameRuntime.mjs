@@ -981,12 +981,17 @@ export class GameRuntime {
         const objName = (event.objectiveName ?? 'OBJECTIVE').toUpperCase();
         this.hud.addFeed(`${objName} CAPTURED BY ATTACKERS`, 'fire');
         if (event.index === 0) {
-          this.hud.flashText(
-            myTeam === 'DEFENDERS' ? 'THE OUTER GATE HAS FALLEN' : 'THE OUTER GATE IS BREACHED',
-            myTeam === 'DEFENDERS' ? 'danger' : 'kill',
-            3600,
-            myTeam === 'DEFENDERS' ? 'Fall back to The High Sanctum: Defend the inner sanctuary!' : 'The breach is open: Advance to The High Sanctum!',
-          );
+          // Bastion's ceremonial gate has its own callout; other Breakthrough
+          // battlefields must name the objective they actually captured.
+          const bastion = this.worldId === 'bastion-breach';
+          const nextName = this.activeWorld?.objectives?.[1]?.name ?? 'the next objective';
+          const headline = bastion
+            ? (myTeam === 'DEFENDERS' ? 'THE OUTER GATE HAS FALLEN' : 'THE OUTER GATE IS BREACHED')
+            : `${objName} ${myTeam === 'DEFENDERS' ? 'HAS FALLEN' : 'CAPTURED'}`;
+          const instruction = bastion
+            ? (myTeam === 'DEFENDERS' ? 'Fall back to The High Sanctum: Defend the inner sanctuary!' : 'The breach is open: Advance to The High Sanctum!')
+            : (myTeam === 'DEFENDERS' ? `Fall back to ${nextName}!` : `Advance to ${nextName}!`);
+          this.hud.flashText(headline, myTeam === 'DEFENDERS' ? 'danger' : 'kill', 3600, instruction);
         }
       }
       if (event.type === 'overtimeStarted') {
