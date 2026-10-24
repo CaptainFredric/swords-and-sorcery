@@ -7,13 +7,13 @@ const req=createRequire(import.meta.url);
 const {chromium}=req(process.env.PLAYWRIGHT_MODULE??'playwright');
 const browser=await chromium.launch({channel:'chrome',headless:true});
 const context=await browser.newContext({viewport:{width:1280,height:800}});
-const page=await context.newPage();page.setDefaultTimeout(8000);
+const page=await context.newPage();page.setDefaultTimeout(20000);
 const folder=new URL('../output/playwright/siege-objectives',import.meta.url).pathname;await mkdir(folder,{recursive:true});
 const errors=[];page.on('pageerror',e=>errors.push(e.message));
 const state=()=>page.evaluate(()=>{const r=window.__ssRuntime;return{p:r?.localAuth,b:r?.latestSnapshot?.soFistication,structures:r?.latestSnapshot?.structures,objective:r?.latestSnapshot?.objective,now:r?.socket.serverNow(),events:window.__siegeEvents??[],pointer:!!document.pointerLockElement,enabled:r?.input.enabled};});
 const capture=async name=>{const cdp=await context.newCDPSession(page);const shot=await cdp.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});await cdp.detach();await writeFile(folder+'/'+name+'.png',Buffer.from(shot.data,'base64'));const s=await state();await writeFile(folder+'/'+name+'.json',JSON.stringify(s));console.log(name,JSON.stringify({position:s.p?.position,health:s.p?.health,b:s.b&&{x:s.b.x,z:s.b.z,op:s.b.operatorId,health:s.b.health},structures:s.structures,objective:s.objective?.index}));return s;};
 try {
- await page.goto(process.env.SIEGE_URL??'http://127.0.0.1:3251/?debug');await page.waitForFunction(()=>document.querySelector('#loading-veil')?.classList.contains('done'));
+ await page.goto(process.env.SIEGE_URL??'http://127.0.0.1:3251/?debug',{waitUntil:'domcontentloaded'});await page.waitForFunction(()=>document.querySelector('#loading-veil')?.classList.contains('done'));
  await page.locator('#player-name').fill('Breach test');await page.locator('#breakthrough-button').click();await page.locator('#breakthrough-team [data-team="ATTACKERS"]').click();if(process.env.SIEGE_SIZE)await page.locator(`#breakthrough-size [data-size="${process.env.SIEGE_SIZE}"]`).click();if(process.env.SIEGE_SKILL)await page.locator(`#breakthrough-rival [data-skill="${process.env.SIEGE_SKILL}"]`).click();await page.locator('#breakthrough-play-bots').click();
  await page.waitForFunction(()=>window.__ssRuntime?.localAuth&&window.__ssRuntime.latestSnapshot?.roomState==='PLAYING');await Promise.race([page.mouse.click(600,320),new Promise(r=>setTimeout(r,1000))]);console.log('focus',JSON.stringify({enabled:(await state()).enabled,pointer:(await state()).pointer}));
  await page.evaluate(()=>{window.__siegeEvents=[];window.__ssRuntime.socket.on('events',b=>window.__siegeEvents.push(...b.events));});await capture('start');

@@ -414,7 +414,7 @@ export class TouchControls {
       if (onStick && this.stick && this.stick.id !== event.pointerId) this.#endStick();
       if (!this.stick) this.#startStick(event, point);
     } else if (!this.look) {
-      this.look = { id: event.pointerId, x: point.x, y: point.y };
+      this.look = { id: event.pointerId, clientX:event.clientX, clientY:event.clientY };
       this.#gateHeld('look', true, `touch-look:${event.pointerId}`, false);
     }
   };
@@ -443,10 +443,9 @@ export class TouchControls {
     const aiming = held === 'attack' || held === 'guard' ? this.aim?.get(event.pointerId) : null;
     const tracker = looking ?? aiming;
     if (!tracker) return;
-    const point = gamePoint(event, this.layer);
-    const { yaw, pitch } = lookDelta(point.x - tracker.x, point.y - tracker.y);
-    tracker.x = point.x;
-    tracker.y = point.y;
+    const delta=screenTurn?.vector(event.clientX-tracker.clientX,event.clientY-tracker.clientY)??{x:event.clientX-tracker.clientX,y:event.clientY-tracker.clientY};
+    const { yaw, pitch } = lookDelta(delta.x,delta.y);
+    tracker.clientX=event.clientX;tracker.clientY=event.clientY;
     if (!this.#gateHeld('look', true, `touch-look:${event.pointerId}`, false)) return;
     const look = this.input.look ?? { touch: 1, invertY: false };
     this.input.turn(yaw * look.touch, pitch * look.touch * (look.invertY ? -1 : 1));
@@ -503,7 +502,7 @@ export class TouchControls {
     this.held.set(event.pointerId, action);
     if (action === 'attack' || action === 'guard') {
       this.aim ??= new Map();
-      this.aim.set(event.pointerId, gamePoint(event, this.layer));
+      this.aim.set(event.pointerId, {clientX:event.clientX,clientY:event.clientY});
       this.#gateHeld('look', true, `touch-look:${event.pointerId}`, false);
     }
     if (!this.#gateHeld(action, true, `touch-button:${event.pointerId}`)) {

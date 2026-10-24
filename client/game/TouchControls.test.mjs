@@ -522,3 +522,11 @@ test('View upward swipe zooms once without also toggling or turning; cancelled g
  send('pointerdown',600,300,{action:'siegeView'});send('pointercancel',600,300,{action:'siegeView'});assert.equal(actions.length,1);
  send('pointerdown',600,300,{action:'siegeView'});controls.reset();send('pointerup',600,300,{action:'siegeView'});assert.equal(actions.length,1);
 });
+
+test('resizing the touch layer during a slow look cannot create an aim jump',()=>{
+ const {input,controls,send}=setup({alive:true,spell:'fireball'});
+ let rect={left:0,top:0,width:800,height:600};controls.layer.getBoundingClientRect=()=>rect;
+ const pointer={target:controls.layer};send('pointerdown',600,300,pointer);send('pointermove',604,300,pointer);
+ const before=input.yaw;rect={left:0,top:0,width:1000,height:650};send('pointermove',604,300,pointer);
+ assert.equal(input.yaw,before);send('pointermove',600,300,pointer);assert.ok(Math.abs(input.yaw)<1e-9);
+});

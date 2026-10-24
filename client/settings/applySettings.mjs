@@ -34,6 +34,7 @@ export function inputOptions(store) {
   return {
     mouse: store.get('controls.mouseSensitivity'),
     touch: store.get('controls.touchSensitivity'),
+    ram: store.get('controls.ramSensitivity'),
     invertY: store.get('controls.invertY'),
     touchScale: store.get('controls.touchScale') / 100,
     touchGauntlet: Boolean(store.get('controls.touchGauntlet')),

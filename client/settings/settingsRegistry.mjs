@@ -154,6 +154,7 @@ registry
 registry
   .defineSetting({ id: 'controls.mouseSensitivity', section: 'controls', label: 'Mouse sensitivity', type: 'range', min: 0.2, max: 3, step: 0.05, unit: '×', default: 1, devices: 'desktop' })
   .defineSetting({ id: 'controls.touchSensitivity', section: 'controls', label: 'Look sensitivity', type: 'range', min: 0.3, max: 2.5, step: 0.05, unit: '×', default: 1, devices: 'touch' })
+  .defineSetting({ id: 'controls.ramSensitivity', section: 'controls', label: 'Ram mounted look', description: 'Multiplies your normal look sensitivity while operating So-Fist-ication.', type: 'range', min: 0.35, max: 1.5, step: 0.05, unit: '×', default: 0.65 })
   .defineSetting({ id: 'controls.invertY', section: 'controls', label: 'Invert look up and down', type: 'toggle', default: false })
   .defineSetting({ id: 'controls.touchScale', section: 'controls', label: 'Button size', type: 'range', min: 80, max: 130, step: 5, unit: '%', default: 100, devices: 'touch' })
   .defineSetting({
