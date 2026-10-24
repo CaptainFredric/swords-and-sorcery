@@ -24,4 +24,4 @@ Bastion uses the approach at(0,0,-23), headingPI. It receives no ballista. This 
 
 Call the shared structural filter in client prediction as well as authority. The runtime currently does this automatically. Ensure waypoints can reach alternate routes while each defense remains intact. Preserve capture dependencies independently of structural health. Do not use a destructible panel to bypass phase boundaries.
 
-The active Antigravity battlefield conversation was located and read on screen. Native input failed with noWindowsAvailable before a coordination message could be entered, so delivery is unconfirmed. This document and the PR provide the concrete integration handoff. No external map files were edited.
+The active Antigravity battlefield conversation was located and read on screen. Native input failed before text entry. Once its Outerworks draft appeared as PR225, the concrete interface handoff was successfully posted through GitHub: https://github.com/CaptainFredric/swords-and-sorcery/pull/225#issuecomment-6387707336. Recipient acknowledgment remains pending. No external map files were edited.
