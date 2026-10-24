@@ -12,7 +12,7 @@ import { BOT_SKILLS, botSkillId } from './botSkill.mjs';
 import { beginPeace } from './peace.mjs';
 import { TEAMS, areAllies, assignTeam } from '../src/teams.mjs';
 import { createObjectiveState } from './objectives.mjs';
-import { dismountBiByeLlista } from './biByeLlista.mjs';
+import { createBiByeLlista, dismountBiByeLlista } from './biByeLlista.mjs';
 
 const COUNTDOWN_SEC = 3;
 const MATCH_SEC = 360;
@@ -104,7 +104,11 @@ export class Room {
     }
     this.worldId = worldId;
     this.world = getWorld(worldId);
-    if (this.mode === GAME_MODES.PRACTICE) {
+    if (this.world.ballistaEmplacement) {
+      this.biByeLlista = createBiByeLlista(this.world.ballistaEmplacement);
+      this.biByeRevision = 0;
+      this.bibyeProjectiles = new Map();
+    } else if (this.mode === GAME_MODES.PRACTICE) {
       this.biByeLlista = null;
       this.biByeRevision = 0;
       this.bibyeProjectiles = new Map();
@@ -569,8 +573,15 @@ export class Room {
       try {
         this.world = getWorld(tally.world.chosen);
         this.worldId = tally.world.chosen;
-        if (this.worldId === WORLD_IDS.BASTION_BREACH && this.objectiveState) {
+        if (typeof this.world?.forObjective === 'function' && this.objectiveState) {
+          this.world = this.world.forObjective(this.objectiveState);
+        } else if (this.worldId === WORLD_IDS.BASTION_BREACH && this.objectiveState) {
           this.world = bastionBreachForObjective(this.objectiveState);
+        }
+        if (this.world.ballistaEmplacement) {
+          this.biByeLlista = createBiByeLlista(this.world.ballistaEmplacement);
+          this.biByeRevision = (this.biByeRevision ?? 0) + 1;
+          this.bibyeProjectiles = new Map();
         }
       } catch { /* unknown world: keep the current one */ }
     }
@@ -808,9 +819,16 @@ export class Room {
     if (this.policy.teamMode) {
       if (this.botsProvisioned) this.provisionModeActors(nowSec);
       this.objectiveState = createObjectiveState(this.world.objectives ?? []);
-      if (this.worldId === WORLD_IDS.BASTION_BREACH) {
+      if (typeof this.world?.forObjective === 'function') {
+        this.world = this.world.forObjective(this.objectiveState, nowSec);
+      } else if (this.worldId === WORLD_IDS.BASTION_BREACH) {
         this.world = bastionBreachForObjective(this.objectiveState);
       }
+    }
+    if (this.world.ballistaEmplacement) {
+      this.biByeLlista = createBiByeLlista(this.world.ballistaEmplacement);
+      this.biByeRevision = (this.biByeRevision ?? 0) + 1;
+      this.bibyeProjectiles = new Map();
     }
     let i = 0;
     for (const player of this.players.values()) {
