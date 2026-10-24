@@ -686,9 +686,9 @@ function updateEnd(snapshot) {
     const me = snapshot.players.find((player) => player.id === socket.playerId);
     const won = Boolean(me?.team && snapshot.winnerTeam === me.team);
     winnerTitle.textContent = won ? 'VICTORY' : 'DEFEAT';
-    const heldObj = snapshot.objective?.name ?? 'the Bastion';
+    const heldObj = snapshot.objective?.name ?? 'the stronghold';
     const outcomeSummary = snapshot.winnerTeam === 'ATTACKERS'
-      ? 'ATTACKERS TRIUMPH · THE HIGH SANCTUM HAS FALLEN'
+      ? `ATTACKERS TRIUMPH · ${heldObj.toUpperCase()} HAS FALLEN`
       : `DEFENDERS STAND FAST · HELD ${heldObj.toUpperCase()}`;
     const roleSummary = me?.team === 'DEFENDERS' ? 'You fought for the Defenders' : 'You fought for the Attackers';
     const sorted = [...snapshot.players].sort((a, b) => (a.team === me?.team ? -1 : 1) - (b.team === me?.team ? -1 : 1) || b.kills - a.kills || a.deaths - b.deaths);
@@ -701,8 +701,10 @@ function updateEnd(snapshot) {
     rematchButton.classList.remove('hidden');
     rematchButton.textContent = 'PLAY AGAIN';
     const humanCount = snapshot.players.filter((p) => p.actorKind === 'human').length;
+    const battlefieldName = snapshot.worldId === 'outerworks' ? 'The Outerworks'
+      : snapshot.worldId === 'blackbell-foundry' ? 'Blackbell Foundry' : 'Bastion Breach';
     rematchCopy.textContent = humanCount <= 1
-      ? 'Fight another round of Breakthrough at Bastion Breach.'
+      ? `Fight another round of Breakthrough at ${battlefieldName}.`
       : 'All remaining players vote to rematch in this room.';
     return;
   }
@@ -878,12 +880,15 @@ function showBreakthroughArena() {
     chip.setAttribute('aria-checked', String(on));
   }
   if (breakthroughSubtitle) {
-    breakthroughSubtitle.textContent = chosen === 'blackbell-foundry' ? 'BLACKBELL FOUNDRY' : 'BASTION BREACH';
+    breakthroughSubtitle.textContent = chosen === 'outerworks' ? 'THE OUTERWORKS'
+      : chosen === 'blackbell-foundry' ? 'BLACKBELL FOUNDRY' : 'BASTION BREACH';
   }
   if (breakthroughCopy) {
-    breakthroughCopy.textContent = chosen === 'blackbell-foundry'
-      ? 'A brutal clash across a medieval industrial foundry. Contest the Chain Winch yard, breach the blast portal, and assault the monumental Great Bell.'
-      : 'Attackers have one So-Fist-ication ram on the approach. Break the reinforced timber barricade to open a direct assault lane, then capture the Outer Gate to enter the stronghold. Defenders can destroy the ram.';
+    breakthroughCopy.textContent = chosen === 'outerworks'
+      ? 'Advance through the Forward Redoubt and Barbican Gate. Attackers can operate the Bi-Bye-llista along the wide siege approach; infantry can flank through the Western Sally Trench.'
+      : chosen === 'blackbell-foundry'
+        ? 'A brutal clash across a medieval industrial foundry. Contest the Chain Winch yard, breach the blast portal, and assault the monumental Great Bell.'
+        : 'Attackers have one So-Fist-ication ram on the approach. Break the reinforced timber barricade to open a direct assault lane, then capture the Outer Gate to enter the stronghold. Defenders can destroy the ram.';
   }
 }
 breakthroughArena?.addEventListener('click', (event) => {
