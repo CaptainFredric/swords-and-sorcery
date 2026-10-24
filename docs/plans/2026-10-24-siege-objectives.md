@@ -2,6 +2,7 @@
 
 Goal: a real Bastion Breakthrough ram assault that changes selected defenses while preserving capture progression.
 Architecture: world authors name structures, their collider IDs, durability profile and owning team. Room holds health; a cached world variant removes failed collider IDs. Every consumer, including prediction and navigation, receives that variant. Snapshot health drives modest authored damage and debris states. One attacker emplacement resets only with the match.
+Integration update: PR224 merged as6bc2be9 during implementation. The isolated branch was rebased cleanly onto current main and the new draft will target main.
 Spec: /Users/erendiracisneros/.codex/attachments/a145c745-b2f8-4ae9-b445-20cd43e32401/Pasted text.txt
 
 1. Structural state and map contract. Add shared/sim/structures.mjs, definitions in bastionBreach.mjs and Room initialization/reset. Tests pin isolated rooms, friendly sabotage protection, persistent destruction, unchanged capture gate and cache identity. Reinforced approach barricade initially targets three armored piston blows, versus many swords and four heavy bolts. Tune from actual play.
