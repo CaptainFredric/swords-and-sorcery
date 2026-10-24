@@ -1,3 +1,13 @@
+/**
+ * STAGED CHAPTER INSPECTION HARNESS
+ *
+ * NOTE: This script rapidly inspects visual UI elements, prompts, and chapter
+ * transitions by jumping between director checkpoints and simulating fast-forwarded states.
+ * For the authentic, uninterrupted continuous gameplay playthrough driven solely by
+ * player input and naturally earned progression (no injected facts or checkpoint jumps),
+ * see: scripts/test-tutorial-ftue-continuous.mjs
+ */
+
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { mkdir, writeFile } from 'node:fs/promises';
