@@ -1880,11 +1880,11 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
 
   stepObjectives(room, dt, nowSec);
   if (room.state !== 'PLAYING') return room.events;
-  // Select the phase from the canonical world before applying structure damage.
-  const template = getWorld(room.worldId);
-  if (typeof template?.forObjective === 'function')
-    room.world = template.forObjective(room.objectiveState, nowSec);
-  else if (room.worldId === WORLD_IDS.BASTION_BREACH)
+  // Only phase-driven battlefields replace the authoritative world each step.
+  // Ordinary/Practice/custom worlds may have runtime geometry changes: retain them.
+  if (room.worldId === WORLD_IDS.OUTERWORKS && room.objectiveState)
+    room.world = getWorld(WORLD_IDS.OUTERWORKS).forObjective(room.objectiveState, nowSec);
+  else if (room.worldId === WORLD_IDS.BASTION_BREACH && room.objectiveState)
     room.world = bastionBreachForObjective(room.objectiveState, nowSec);
   world = structureWorld(room.world, room.structures);
   room.world = world;
