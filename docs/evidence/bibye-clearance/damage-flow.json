@@ -1,0 +1,62 @@
+{
+  "hit": "Wheel_FL",
+  "materials": [
+    {
+      "id": "hull",
+      "emission": 0,
+      "colorChange": false
+    },
+    {
+      "id": "Wheel_FL",
+      "emission": 0.15571642561983357,
+      "colorChange": true
+    },
+    {
+      "id": "Wheel_FR",
+      "emission": 0,
+      "colorChange": false
+    },
+    {
+      "id": "Wheel_ML",
+      "emission": 0,
+      "colorChange": false
+    },
+    {
+      "id": "Wheel_MR",
+      "emission": 0,
+      "colorChange": false
+    },
+    {
+      "id": "Wheel_RL",
+      "emission": 0,
+      "colorChange": false
+    },
+    {
+      "id": "Wheel_RR",
+      "emission": 0,
+      "colorChange": false
+    },
+    {
+      "id": "Stabilizer_FL",
+      "emission": 0,
+      "colorChange": false
+    },
+    {
+      "id": "Stabilizer_FR",
+      "emission": 0,
+      "colorChange": false
+    },
+    {
+      "id": "Stabilizer_RL",
+      "emission": 0,
+      "colorChange": false
+    },
+    {
+      "id": "Stabilizer_RR",
+      "emission": 0,
+      "colorChange": false
+    }
+  ],
+  "expired": true,
+  "errors": []
+}

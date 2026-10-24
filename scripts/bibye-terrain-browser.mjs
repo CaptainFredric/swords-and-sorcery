@@ -15,7 +15,7 @@ export function terrainCourse(degrees=0,step=0,cross=false){
 }
 export async function installCourse(page,world){
  await page.route('**/shared/worlds/castleward.mjs',route=>route.fulfill({contentType:'text/javascript',body:`export const CASTLEWARD=Object.freeze(${JSON.stringify(world)});`}));
- await page.route('**/shared/sim/Room.mjs',async route=>{const r=await route.fetch();await route.fulfill({response:r,body:(await r.text()).replace('this.biByeLlista = createBiByeLlista();','this.biByeLlista = createBiByeLlista({x:0,z:-4,baseYaw:Math.PI});')});});
+ await page.route('**/shared/sim/Room.mjs',async route=>{const r=await route.fetch();await route.fulfill({response:r,body:"import {createBiByeLlista} from './biByeLlista.mjs';\n"+(await r.text()).replace('this.biByeLlista = null;','this.biByeLlista = createBiByeLlista({x:0,z:-4,baseYaw:Math.PI});')});});
  await page.route('**/client/worlds/CastlewardRenderer.mjs',async route=>{const r=await route.fetch();await route.fulfill({response:r,body:(await r.text()).replace('buildCastlewardDecorPlan(1337)',"{paths:[],banners:[],runeStones:[],trees:[],forest:[],houses:[],torches:[],braziers:[]}").replace('this.#landscape(batch, rand);','')});});
 }
 export async function terrainBrowser(chromium,{url='http://127.0.0.1:3237/?debug',folder='output/playwright/bibye-terrain',headless=true,only=null}={}){

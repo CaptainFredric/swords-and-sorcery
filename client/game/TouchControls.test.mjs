@@ -63,6 +63,8 @@ test('siege controls appear only in real interaction range or while mounted and 
   const actions = [];
   input.onAction = (...args) => actions.push(args);
   send('pointerdown', 600, 300, { action: 'siegeView' });
+  assert.deepEqual(actions, []);
+  send('pointerup', 600, 300, { action: 'siegeView' });
   assert.deepEqual(actions, [['siegeView', true]]);
   controls.update({ ...p, alive: false }, 10, { snapshot: { bibyeBallista: b } });
   assert.equal(controls.buttons.interact.hidden, true);
@@ -507,4 +509,16 @@ test('opt-in mobile touch diagnostics report gesture state without intercepting 
   } finally {
     globalThis.location = previousLocation;
   }
+});
+
+
+test('View upward swipe zooms once without also toggling or turning; cancelled gestures do nothing',()=>{
+ const p={alive:true,position:{x:0,z:0},operatingBallistaId:'siege'}, {controls,input,send}=setup(p), actions=[];
+ controls.update(p,10,{snapshot:{bibyeBallista:{id:'siege',position:{x:0,z:0},mode:'MOBILE'}}});
+ input.onAction=(...args)=>actions.push(args);const yaw=input.yaw,pitch=input.pitch;
+ send('pointerdown',600,300,{action:'siegeView'});send('pointermove',602,250,{action:'siegeView'});
+ assert.deepEqual(actions,[['siegeZoom',true]]);
+ send('pointerup',602,250,{action:'siegeView'});assert.equal(actions.length,1);assert.equal(input.yaw,yaw);assert.equal(input.pitch,pitch);
+ send('pointerdown',600,300,{action:'siegeView'});send('pointercancel',600,300,{action:'siegeView'});assert.equal(actions.length,1);
+ send('pointerdown',600,300,{action:'siegeView'});controls.reset();send('pointerup',600,300,{action:'siegeView'});assert.equal(actions.length,1);
 });

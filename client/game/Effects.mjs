@@ -342,7 +342,6 @@ export class Effects {
   swordSwing() {}
   swordHit() {}
   block() { this.#cameraFlash(0xffd38a, 0.09, 0.8); }
-  parry() { this.#cameraFlash(0xaeefff, 0.12, 1.25); }
   guardBreak() { this.#cameraFlash(0xff744d, 0.14, 1.15); }
   /** The palm lights up as a spell begins to gather. */
   castFlash(spell = 'fireball') { this.#cameraFlash(lookFor(spell).flash, 0.08, 0.58); }
@@ -667,7 +666,6 @@ export class Effects {
       spark.lookAt(at.clone().add(velocity));
       this.#addTransient(spark, { velocity, life: 0.2 + Math.random() * 0.2, shrink: true, gravity: 9, drag: 2 });
     }
-    if (parry) this.#groundRing(at.clone().setY(at.y + 0.2), 0x9fe8ff, 0.8, true);
   }
 
   /**

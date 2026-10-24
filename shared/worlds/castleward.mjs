@@ -24,7 +24,7 @@ const PROPS = Object.freeze([
   { kind: 'target', x: 23.05, z: -11.2, facing: -Math.PI / 2 }, { kind: 'target', x: 23.05, z: -14.6, facing: -Math.PI / 2 },
   { kind: 'target', x: 23.05, z: -17.2, facing: -Math.PI / 2 },
   { kind: 'rack', x: 12.5, z: -22.0, facing: 0 },
-  { kind: 'pennant', x: 11.0, z: -7.8, height: 3.4 }, { kind: 'pennant', x: 16.6, z: -7.8, height: 3.4 },
+  { kind: 'pennant', x: 10.3, z: -7.8, height: 3.4 }, { kind: 'pennant', x: 17.3, z: -7.8, height: 3.4 },
   ].map((prop, index) => Object.freeze({ id: `prop-${index}`, ...prop })));
 
 // a waypoint for bots finding their way (feet)
@@ -125,11 +125,11 @@ export const CASTLEWARD = Object.freeze({
 
     // field walls close the south edge of the village, the green and the meadow
     { id: 'south-field-wall-west', center: [-13.85, 0.8, -7.8], size: [17, 1.6, 0.4], material: 'stone', kind: 'field-wall' },
-    // (east of the road it opens in a 5 m gateway onto the Tourney Field, between two posts)
-    { id: 'south-field-wall-east', center: [8.325, 0.8, -7.8], size: [5.95, 1.6, 0.4], material: 'stone', kind: 'field-wall' },
-    { id: 'south-field-wall-far-east', center: [20.25, 0.8, -7.8], size: [7.9, 1.6, 0.4], material: 'stone', kind: 'field-wall' },
-    { id: 'tourney-gatepost-west', center: [11.0, 1.15, -7.8], size: [0.7, 2.3, 0.7], material: 'stone', kind: 'gatepost' },
-    { id: 'tourney-gatepost-east', center: [16.6, 1.15, -7.8], size: [0.7, 2.3, 0.7], material: 'stone', kind: 'gatepost' },
+    // (east of the road it opens in a 6.3 m gateway onto the Tourney Field, between two posts)
+    { id: 'south-field-wall-east', center: [7.975, 0.8, -7.8], size: [5.25, 1.6, 0.4], material: 'stone', kind: 'field-wall' },
+    { id: 'south-field-wall-far-east', center: [20.6, 0.8, -7.8], size: [7.2, 1.6, 0.4], material: 'stone', kind: 'field-wall' },
+    { id: 'tourney-gatepost-west', center: [10.3, 1.15, -7.8], size: [0.7, 2.3, 0.7], material: 'stone', kind: 'gatepost' },
+    { id: 'tourney-gatepost-east', center: [17.3, 1.15, -7.8], size: [0.7, 2.3, 0.7], material: 'stone', kind: 'gatepost' },
 
     // the Tourney Field's own bounds: the hedgerow carries on down its east side, a field wall along the ravine
     { id: 'tourney-east-hedge', center: [23.75, 0.8, -15.2], size: [0.5, 1.6, 14.8], material: 'hedge', kind: 'hedge' },

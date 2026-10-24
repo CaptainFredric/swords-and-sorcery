@@ -33,6 +33,7 @@ test('a moving ballista stops at an unmounted living player', () => {
 
 test('mounted operators cannot cast personal spells or trigger personal combat abilities', () => {
   const room = new RoomManager().createSoloRoom('PRACTICE', 0, 'castleward');
+  room.biByeLlista=createBiByeLlista();
   const p = room.addPlayer({ id: 'operator', token: 'operator', name: 'Operator' }, 0);
   room.armAutoStart(0);
   p.position = { x: room.biByeLlista.x, y: 0, z: room.biByeLlista.z };
@@ -46,6 +47,7 @@ test('mounted operators cannot cast personal spells or trigger personal combat a
 
 test('an ordinary Fireball directly collides with the visible cockpit backrest', () => {
   const room = new RoomManager().createSoloRoom('PRACTICE', 0, 'castleward');
+  room.biByeLlista=createBiByeLlista();
   const p = room.addPlayer({ id: 'caster', token: 'caster', name: 'Caster' }, 0);
   room.armAutoStart(0);
   // Account for the ordinary casting hand offset while aiming at the narrow backrest.
@@ -58,6 +60,7 @@ test('an ordinary Fireball directly collides with the visible cockpit backrest',
 
 test('Practice reset cancels an unlaunched shot and clears the previous firing clock', () => {
   const room = new RoomManager().createSoloRoom('PRACTICE', 0, 'castleward');
+  room.biByeLlista=createBiByeLlista();
   const p = room.addPlayer({ id: 'driver', token: 'driver', name: 'Driver' }, 0);
   room.armAutoStart(0);
   p.position = { x: room.biByeLlista.x, y: 0, z: room.biByeLlista.z };

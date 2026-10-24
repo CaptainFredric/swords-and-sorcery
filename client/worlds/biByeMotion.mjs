@@ -3,8 +3,10 @@
 const lerp=(a,b,t)=>a+(b-a)*t;
 const angle=(a,b,t)=>a+Math.atan2(Math.sin(b-a),Math.cos(b-a))*t;
 export class BiByeMotion {
- constructor(){this.samples=[];}
- push(ballista,projectiles,time){
+ constructor(){this.samples=[];this.revision=0;}
+ push(ballista,projectiles,time,revision=0){
+  if(revision<this.revision)return;
+  if(revision>this.revision){this.samples=[];this.revision=revision;}
   const last=this.samples.at(-1);
   if(!ballista){this.samples=[];return;}
   if(last?.time===time)return;

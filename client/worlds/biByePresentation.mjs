@@ -42,3 +42,14 @@ export function biByeTrackOwner(track){
   if(['BiBye_Root','Carriage_Chassis','Traverse_Mount'].includes(node))return 'Aim';
   return 'Main';
 }
+
+// One muted pulse on authority's hit clock, never a repeating low health blink.
+export function biByeDamageFlash(b,id,now){
+ const at=id==='hull'?b?.lastHitAt:b?.components?.[id]?.lastHitAt;
+ if(!Number.isFinite(at)||now<at||now-at>=.22)return 0;
+ return (1-(now-at)/.22)**2;
+}
+export function biByeViewAction(state,action){
+ if(action==='zoom')return state.view==='clear'?state:{view:'clear',returnView:state.view};
+ return {view:state.view==='clear'?(state.returnView??'third'):state.view==='third'?'sight':'third'};
+}

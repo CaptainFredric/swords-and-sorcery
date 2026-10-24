@@ -43,6 +43,10 @@
   display: none;
 }
 
+.hud.pointer-locked .practice-tools > :not(div, button) {
+  display: none;
+}
+
 /* Keep the front door focused on Play + the Spellblade rather than a dense info panel. */
 .world-note {
   width: 220px;

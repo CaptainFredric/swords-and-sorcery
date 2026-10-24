@@ -4,6 +4,8 @@ import { boxNearest, boxWorld, orientedBoxHit } from '../src/orientedBox.mjs';
 const clamp=(v,a=0,b=1)=>Math.max(a,Math.min(b,v));
 const DEG=Math.PI/180;
 const ease=t=>{const k=clamp(t);return k*k*(3-2*k);};
+// Shorter outward reach retains the original hinge height and ground clearance.
+export const BI_BYE_STABILIZER=Object.freeze({widthScale:.7,stowAngle:105*DEG,shoeX:.71*.7,shoeY:-.765,shoeHalfWidth:.225*.7,shoeHalfDepth:.225});
 export const BI_BYE_COMPONENTS=Object.freeze([
  ...['FL','FR','ML','MR','RL','RR'].map((end,i)=>Object.freeze({id:'Wheel_'+end,kind:'wheel',side:end[1],maxHealth:120,pivot:[end[1]==='L'?-1.075:1.075,.55,[1.2,-.34,-1.715][Math.floor(i/2)]]})),
  ...['FL','FR','RL','RR'].map(end=>Object.freeze({id:'Stabilizer_'+end,kind:'stabilizer',side:end[1],maxHealth:150,pivot:[end[1]==='L'?-1.18:1.18,.82,end[0]==='F'?1.05:-1.42]})),
@@ -57,7 +59,7 @@ export function biByeComponentPose(b,def,now=b.poseTime??0){
  const sign=def.side==='L'?-1:1;
  if(def.kind==='wheel')return {pivot:[def.pivot[0],def.pivot[1]+(b.wheelOffsets?.[BI_BYE_COMPONENTS.indexOf(def)]??0)-.065*failure,def.pivot[2]],
   tilt:sign*(.035*damage+.22*failure),steer:(biByeWheelSteering(b.steer??0)[BI_BYE_COMPONENTS.indexOf(def)]??0)*(1-failure),damage};
- return {pivot:def.pivot,tilt:sign*(68*DEG*(1-biByeDeployProgress(b,now))+.26*failure)+(b.stabilizerTilts?.[BI_BYE_COMPONENTS.indexOf(def)-6]??0)*biByeDeployProgress(b,now),steer:0,damage};
+ return {pivot:def.pivot,tilt:sign*(BI_BYE_STABILIZER.stowAngle*(1-biByeDeployProgress(b,now))+.26*failure)+(b.stabilizerTilts?.[BI_BYE_COMPONENTS.indexOf(def)-6]??0)*biByeDeployProgress(b,now),steer:0,damage};
 }
 export function biByeWheelTravel(a,b,steering){
  if(!a||Math.hypot(b.x-a.x,b.z-a.z)>3)return [0,0,0,0,0,0];
@@ -87,7 +89,7 @@ export function biByeFrames(b,now=b.poseTime??0){
  return {root,traverse,cradle,upper};
 }
 export function biByeHitVolumes(b,now=b.poseTime??0){
- if(!b)return [];
+ if(!b||b.retired)return [];
  const {root,traverse,cradle,upper}=biByeFrames(b,now),result=[];
  const add=(componentId,material,center,size,parent,rotation=[0,0,0],assembly=parent===upper?'upper':parent===cradle?'main':'carriage')=>result.push({...frame(center,rotation,parent),size,assembly,id:'bibye-hit-'+componentId+'-'+result.length,componentId,material,kind:'siege-component'});
  add('hull','timber',[0,.78,-.07],[2.1,.24,3.42],root);
@@ -118,9 +120,15 @@ export function biByeHitVolumes(b,now=b.poseTime??0){
   if(def.kind==='wheel')add(def.id,'timber',[s*.0185,0,0],[.347,1.112,1.112],f);
   else {
    // Beam and planting shoe, not one large box containing the empty A frame.
-   add(def.id,'timber',[s*.35,-.375,0],[.16,1.03,.14],f,[0,0,s*43*DEG]);
-   add(def.id,'metal',[s*.24,-.41,0],[.09,.68,.10],f,[0,0,s*56*DEG]);
-   add(def.id,'metal',[s*.71,-.765,0],[.45,.11,.45],f);
+   const k=BI_BYE_STABILIZER.widthScale;
+   // Fit the nonuniformly shortened beam into an orthogonal box, including shear.
+   const beam=(x,y,w,h,d,a,material)=>{
+    const c=Math.cos(a),n=Math.sin(a),length=Math.hypot(k*n,c);
+    add(def.id,material,[s*x*k,y,0],[w*k/length,h*length+w*Math.abs(n*c*(k*k-1))/length,d],f,[0,0,s*Math.atan2(k*n,c)]);
+   };
+   beam(.35,-.375,.16,1.03,.14,43*DEG,'timber');
+   beam(.24,-.41,.09,.68,.10,56*DEG,'metal');
+   add(def.id,'metal',[s*BI_BYE_STABILIZER.shoeX,BI_BYE_STABILIZER.shoeY,0],[.45*k,.11,.45],f);
   }
  }
  return result;
@@ -154,7 +162,10 @@ export function biByeBlastAllocations(b,{point,radius,damage,excludeComponent=nu
 export function biByeConstrainAim(b,aim,upper=false){
  if(!(b.chassisPitch||b.chassisRoll)&&aim.pitch>=-.15&&aim.pitch<=.35&&(upper||Math.abs(Math.atan2(Math.sin(aim.yaw-(b.heading??0)),Math.cos(aim.yaw-(b.heading??0))))<=Math.PI/4))return {...aim};
  const root=biByeRootFrame(b),main=biByeAimPose(b),parent=upper?frame([0,0,0],[main.mainYaw,0,0],root):root;
- const local=localAim(parent,aim.yaw,aim.pitch),yaw=upper?local.yaw:clamp(local.yaw,-Math.PI/4,Math.PI/4),pitch=clamp(local.pitch,-.15,.35);
+ const local=localAim(parent,aim.yaw,aim.pitch);
+ // Raised main mantlets and the broad sideways limbs reduce downward clearance.
+ const minimum=upper?-.35+.05*Math.sin(local.yaw)**2+.2*clamp(main.mainPitch/.35):-.15;
+ const yaw=upper?local.yaw:clamp(local.yaw,-Math.PI/4,Math.PI/4),pitch=clamp(local.pitch,minimum,.35);
  const dir=boxWorld(parent,[Math.sin(yaw)*Math.cos(pitch),Math.sin(pitch),Math.cos(yaw)*Math.cos(pitch)],true);
  return {yaw:Math.atan2(-dir[0],-dir[2]),pitch:Math.atan2(dir[1],Math.hypot(dir[0],dir[2]))};
 }

@@ -1,4 +1,5 @@
 import { boxWorld } from '../../shared/src/orientedBox.mjs';
+import { biByeViewAction } from '../worlds/biByePresentation.mjs';
 import { biByeConstrainAim, biByeRootFrame } from '../../shared/sim/biByeComponents.mjs';
 import { BiByeSound } from './sound/BiByeSound.mjs';
 import { getBiByeOperatorTransform } from '../../shared/sim/biByeLlista.mjs';
@@ -227,8 +228,9 @@ export class GameRuntime {
     this.input = new InputController(this.renderer.domElement, socket);
     this.siegeView = 'third';
     this.input.onAction = (action, pressed) => {
-      if (action === 'siegeView' && pressed && this.localAuth?.alive && this.localAuth?.operatingBallistaId) {
-        this.siegeView = this.siegeView === 'third' ? 'sight' : 'third';
+      if (['siegeView','siegeZoom'].includes(action) && pressed && this.localAuth?.alive && this.localAuth?.operatingBallistaId) {
+        const next=biByeViewAction({view:this.siegeView,returnView:this.siegeReturnView},action==='siegeZoom'?'zoom':'tap');
+        this.siegeView=next.view;this.siegeReturnView=next.returnView;
       }
     };
     this.input.onPointer = (locked) => {
@@ -546,6 +548,7 @@ export class GameRuntime {
   }
 
   onSnapshot(snapshot) {
+    if(snapshot.roomCode===this.latestSnapshot?.roomCode&&(snapshot.bibyeRevision??0)<(this.latestSnapshot?.bibyeRevision??0))return;
     if (!this.#ensureWorld(snapshot.worldId)) return;
     if (snapshot.tutorial && snapshot.worldId === 'greener-pastures') {
       const failures = snapshot.tutorialBridgeFailures ?? 0;
@@ -556,6 +559,11 @@ export class GameRuntime {
     }
     if (snapshot.matchStartedAt !== this.latestSnapshot?.matchStartedAt) this.localGate = null;
     const previousSiege = this.latestSnapshot?.bibyeBallista;
+    if (previousSiege && previousSiege.id !== snapshot.bibyeBallista?.id) {
+      this.siegeCamera = null;
+      this.siegeView = 'third';
+      this.siegeReturnView = undefined;
+    }
     this.latestSnapshot = snapshot;
     this.remotePlayers.pushSnapshot(snapshot, this.presentationNow());
     this.effects.syncProjectiles(snapshot.projectiles ?? []);
@@ -641,6 +649,7 @@ export class GameRuntime {
 
   onEvents(events) {
     for (const event of events) {
+      if(event.type?.startsWith('bibye')&&event.ballistaId&&event.ballistaId!==this.latestSnapshot?.bibyeBallista?.id)continue;
       this.siegeSound.event(event,this.latestSnapshot?.bibyeBallista,this.socket.serverNow());
       if(event.type === "bibyeDamaged" && event.point) {
         if(event.componentId?.startsWith("Stabilizer")) this.effects.wallClang(event.point);
@@ -824,7 +833,6 @@ export class GameRuntime {
 
       const combatFeedback = localCombatFeedback(event, this.socket.playerId);
       if (combatFeedback === 'block') this.effects.block();
-      if (combatFeedback === 'parry') this.effects.parry();
       if (combatFeedback === 'guardBreak') this.effects.guardBreak();
 
       // a blade stopped by the world. Mine was felt as my own view judged it (#foretellClang): the server's word for
@@ -842,7 +850,7 @@ export class GameRuntime {
       // a guard just claimed to stop the threat, broken: the claim disproved (voiceScenes.mjs)
       if (event.type === 'guardBreak') this.scenes.guardBroken(event);
       if (event.type === 'parry') {
-        if (event.defenderId === me) { this.weapon.parry(); this.hud.flashText('PARRY', 'parry'); this.hud.hit('parry'); }
+        if (event.defenderId === me) { this.weapon.parry(); this.hud.flashText('PARRY', 'parry'); }
         if (event.attackerId === me && !(event.suppressParryReel ?? combatActionPolicy(this.localAuth, event.at ?? this.socket.serverNow()).suppressParryReel)) {
           this.weapon.parryReel();
         }
@@ -2050,6 +2058,7 @@ export class GameRuntime {
 
     }
     this.siegeCamera ??= { position: this.camera.position.clone(), quaternion: this.camera.quaternion.clone() };
+    if(mounted&&this.siegeView==='clear')this.#setFov(Math.max(35,this.view.fov*.7));
     const blend = 1 - Math.exp(-dt * 14);
     this.siegeCamera.position.lerp(target, blend);
     if(mounted)this.siegeCamera.quaternion.copy(rotation);else this.siegeCamera.quaternion.slerp(rotation,blend);

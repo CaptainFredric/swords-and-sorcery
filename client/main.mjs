@@ -1402,6 +1402,10 @@ rematchButton.addEventListener('click', () => {
 $('#leave').addEventListener('click', () => returnToMenu());
 
 function updateInspectionControls() {
+  const machine=Boolean(latestSnapshot?.bibyeBallista);
+  $('#practice-build-bibye').hidden=machine;
+  $('#practice-rebuild-bibye').hidden=!machine;
+  $('#practice-dismantle-bibye').hidden=!machine;
   const available = socket.inspectionAvailable && latestSnapshot?.mode === 'PRACTICE';
   for (const node of document.querySelectorAll('.inspection-control')) node.classList.toggle('hidden', !available);
   $('#practice-freeze').textContent = socket.inspectionFrozen ? 'RESUME · P' : 'FREEZE · P';
@@ -1442,6 +1446,7 @@ document.addEventListener('keydown', event => {
 }, { capture: true });
 socket.on('inspectionState', updateInspectionControls);
 
+for(const action of ['build','rebuild','dismantle'])$('#practice-'+action+'-bibye').addEventListener('click',()=>socket.send({type:'practice'+action[0].toUpperCase()+action.slice(1)+'BiBye'}));
 $('#practice-reset').addEventListener('click', () => socket.practiceResetPlayer());
 $('#practice-passive').addEventListener('click', () => socket.practiceSpawnDummy('PASSIVE'));
 $('#practice-guarding').addEventListener('click', () => socket.practiceSpawnDummy('GUARDING'));
@@ -1498,6 +1503,7 @@ function noteRoomState(snapshot) {
 }
 
 socket.on('snapshot', (snapshot) => {
+  if(snapshot.roomCode===latestSnapshot?.roomCode&&(snapshot.bibyeRevision??0)<(latestSnapshot?.bibyeRevision??0))return;
   if (fromLeftRoom(snapshot) || (leftRoom !== null && !socket.roomCode)) return;
   latestSnapshot = snapshot;
   if (new URLSearchParams(location.search).has('debug')) globalThis.__ssSnapshot = snapshot;
