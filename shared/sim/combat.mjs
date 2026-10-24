@@ -1,3 +1,6 @@
+import {stepSoFistication,dismountSoFistication,soFistOperator,damageSoFistication,blastSoFistication} from './soFistication.mjs';
+import {soFistVolumes,soFistSolids,soFistFirstHit} from './soFistGeometry.mjs';
+import {resolveWorldImpact} from './worldImpact.mjs';
 import { biByeHitVolumes, biByeFirstHit } from './biByeComponents.mjs';
 import {
   DAMAGE_LEVELS, GAME, HEALTH_REGEN, MAX_FORCE, MELEE_CONTACT, SWORD_CHAIN, SWORD_STRIKE_TIMES, closingImpact, guardProfile, nextChainStep,
@@ -104,6 +107,7 @@ function resetAtSpawn(player, spawn, nowSec, room) {
   player.lastDamageAt = -Infinity;
   player.lastAttackerId = null;
   player.lastKnockbackAt = -Infinity;
+  player.worldImpact = null;
   player.history = [];
   recordTransform(player, nowSec);
 }
@@ -621,7 +625,7 @@ function transformFor(player, atSec) {
   return sampleTransform(player, atSec);
 }
 
-function isInGuardCone(defender, attacker, atSec) {
+export function isInGuardCone(defender, attacker, atSec) {
   const d = transformFor(defender, atSec);
   const a = transformFor(attacker, atSec);
   const toAttackerX = a.position.x - d.position.x;
@@ -754,7 +758,7 @@ function sweepStrike(room, player, nowSec, world) {
   if (!live) return;
   const window = strikeWindow(player, live.strike, live.slam);
   const until = Math.min(nowSec, window.to);
-  const solids = [...(world.solids ?? []), ...biByeHitVolumes(room.biByeLlista, nowSec)];
+  const solids = [...(world.solids ?? []), ...biByeHitVolumes(room.biByeLlista, nowSec), ...soFistVolumes(room.soFistication,nowSec)];
   const blade = live.slam ? SLAM_STRIKE : live.strike;
   while (player.attackSweep === live && live.sampledTo < until - 1e-9) {
     const at = Math.min(until, nextSample(window, live.sampledTo));
@@ -795,7 +799,8 @@ function sweepStrike(room, player, nowSec, world) {
       player.attackSweep = null;
       if (met.solid.componentId) {
         const quality = aimQuality(Math.acos(Math.max(-1,Math.min(1,met.direction.x*frame.forward.x+met.direction.y*frame.forward.y+met.direction.z*frame.forward.z))) * 180/Math.PI);
-        damageBiByeLlista(room,room.biByeLlista,swordDamage({quality,level:live.ruptures?DAMAGE_LEVELS.elevated:DAMAGE_LEVELS.normal}),player.id,'sword',nowSec,{componentId:met.solid.componentId,point:met.point,material:met.solid.material});
+        const ram=met.solid.id?.startsWith('sofist-');
+        (ram?damageSoFistication:damageBiByeLlista)(room,ram?room.soFistication:room.biByeLlista,swordDamage({quality,level:live.ruptures?DAMAGE_LEVELS.elevated:DAMAGE_LEVELS.normal}),player.id,'sword',nowSec,{componentId:met.solid.componentId,point:met.point,material:met.solid.material});
       }
       // a snag: the blade caught on some small incidental furnishing as it came round, not driven at it (SNAG)
       const offAim = Math.acos(Math.max(-1, Math.min(1, met.direction.x * frame.forward.x + met.direction.y * frame.forward.y + met.direction.z * frame.forward.z))) * 180 / Math.PI;
@@ -947,7 +952,7 @@ function landStrike(room, attacker, strikeIndex, target, atSec, nowSec, met = nu
   // (a Sundering blow on the body shakes a balance by its own measure: the heaviest single contact there is)
   staggerBy(room, target, empowered ? ultimateFor('sunder').stagger : STAGGER.gain.sword * force, nowSec, attacker.id);
   // and it ends what they were doing, there and then (whether or not their balance has broken), and leaves them reeling
-  if (empowered) cutShort(room, target, attacker, nowSec);
+  if (empowered) interruptHitActions(room, target, attacker.id, nowSec, 'sunder');
   room.events.push({
     type: 'swordHit', playerId: attacker.id, targetId: target.id, strikeIndex, quality: armour.quality, impact: physical.impact, steel: armour.strength,
     ...(level !== DAMAGE_LEVELS.normal ? { level } : {}), ...(cancelled ? { sunderMet: true } : {}),
@@ -963,7 +968,7 @@ function landStrike(room, attacker, strikeIndex, target, atSec, nowSec, met = nu
  * already committed is not undone. Then they reel for a moment (the Sunder's `reelSec`: the same "cannot act" as a
  * broken balance, only brief), so that what was cut short is felt to have been; after it they may begin again.
  */
-function cutShort(room, target, attacker, nowSec) {
+export function interruptHitActions(room, target, attackerId, nowSec, source = 'sunder') {
   if (!target.alive) return;
   const what = [];
   if (target.guarding) { target.guarding = false; what.push('guard'); }
@@ -993,10 +998,10 @@ function cutShort(room, target, attacker, nowSec) {
     target.sprintBlend = 0;
     what.push('sprint');
   }
-  if (interruptUltimate(room, target, nowSec, attacker.id, 'sunder')) what.push('ultimate');
+  if (interruptUltimate(room, target, nowSec, attackerId, source)) what.push('ultimate');
   const reelUntil = nowSec + ultimateFor('sunder').reelSec;
   target.staggerUntil = Math.max(target.staggerUntil ?? -Infinity, reelUntil);
-  room.events.push({ type: 'actionInterrupted', playerId: target.id, by: attacker.id, what, reelUntil: target.staggerUntil, at: nowSec });
+  room.events.push({ type: 'actionInterrupted', playerId: target.id, by: attackerId, what, reelUntil: target.staggerUntil, at: nowSec });
 }
 
 // how clean a contact must be (as it was felt: after any hardened plate) to count as the cleanest there is, for the
@@ -1364,7 +1369,7 @@ function blowGale(room, player, nowSec, world, dt = 0) {
 }
 
 // the blast: damage by distance, a shove away from its heart, then what the spell leaves behind (a burn, a chill)
-function explodeSpell(room, projectile, point, nowSec, worldHit = false, directVictimId = null, directComponent = null) {
+function explodeSpell(room, projectile, point, nowSec, worldHit = false, directVictimId = null, directComponent = null, directRamComponent = null) {
   room.projectiles.delete(projectile.id);
   const spell = spellFor(projectile.spell);
   // fire throws a body back; cold only staggers it a little (and an ember is a small fire)
@@ -1409,6 +1414,8 @@ function explodeSpell(room, projectile, point, nowSec, worldHit = false, directV
       if (player.chill === chill) room.events.push({ type: 'chilled', playerId: player.id, by: projectile.ownerId, spell: spell.id, slow: chill.slow, until: chill.until, at: nowSec });
     }
   }
+  if(directRamComponent)damageSoFistication(room,room.soFistication,spell.directDamage,projectile.ownerId,spell.id,nowSec,{componentId:directRamComponent,point});
+  else blastSoFistication(room,room.soFistication,{point,radius:spell.radius,damage:spell.directDamage},projectile.ownerId,spell.id,nowSec);
   if (directComponent) {
     damageBiByeLlista(room,room.biByeLlista,spell.directDamage,projectile.ownerId,spell.id,nowSec,{componentId:directComponent,point});
   } else {
@@ -1450,6 +1457,7 @@ function stepProjectiles(room, dt, nowSec, world) {
     }
     const machine=biByeFirstHit(room.biByeLlista,a,b,nowSec);
     if(machine)hits.push({...machine,kind:'machine'});
+    const ram=soFistFirstHit(room.soFistication,a,b,nowSec);if(ram)hits.push({...ram,kind:'ram'});
     const ground=surfaceHeightAt(after.x,after.z,before.y,world);
     if(ground!==null&&after.y<=ground&&before.y>ground){
       const t=(before.y-ground)/(before.y-after.y);
@@ -1469,7 +1477,7 @@ function stepProjectiles(room, dt, nowSec, world) {
     hits.sort((a,b)=>a.t-b.t);
     if(hits.length){
       const hit=hits[0],point={x:hit.point[0],y:hit.point[1],z:hit.point[2]};
-      explodeSpell(room,projectile,point,nowSec,hit.kind!=='player',hit.player?.id??null,hit.kind==='machine'?hit.box.componentId:null);
+      explodeSpell(room,projectile,point,nowSec,hit.kind!=='player',hit.player?.id??null,hit.kind==='machine'?hit.box.componentId:null,hit.kind==='ram'?hit.box.componentId:null);
       continue;
     }
 
@@ -1877,7 +1885,7 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
   }
 
   markTornGround(room);
-  const biByeSolids = getBiByeSolids(room.biByeLlista);
+  const biByeSolids = [...getBiByeSolids(room.biByeLlista),...soFistSolids(room.soFistication)];
   const effectiveWorld = biByeSolids.length > 0 ? { ...world, solids: [...(world.solids ?? []), ...biByeSolids] } : world;
 
   for (const player of room.players.values()) {
@@ -1921,7 +1929,7 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
       grounded: player.grounded,
       stamina: player.guardStamina,
       sprinting: player.sprinting,
-      blocked: combatBlocksSprint(player, nowSec) || Boolean(player.tornGround),
+      blocked: combatBlocksSprint(player, nowSec) || Boolean(player.tornGround) || Boolean(player.operatingRamId),
       crouched: Boolean(player.crouched),
     });
     // (torn ground breaks a sprint outright: the speed it had built goes with it)
@@ -1946,6 +1954,10 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
     player.whirl = whirl;
     const from = { ...player.position };
     const dashing = nowSec < (player.dashUntil ?? -Infinity);
+    if (player.operatingRamId && room.soFistication?.operatorId === player.id) {
+      if(input.jump)dismountSoFistication(room,room.soFistication,player);
+      if(player.operatingRamId){player.position=soFistOperator(room.soFistication);player.yaw=input.yaw??player.yaw;player.pitch=input.pitch??player.pitch;player.sprinting=false;player.sprintBlend=0;continue;}
+    }
     if (player.operatingBallistaId && room.biByeLlista?.operatorId === player.id) {
       if (input.jump) {
         dismountBiByeLlista(room.biByeLlista, player);
@@ -1994,6 +2006,7 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
       player.crouched = moved.crouched;
       player.yaw = input.yaw ?? player.yaw;
       player.pitch = input.pitch ?? player.pitch;
+      resolveWorldImpact(room,player,from,moved,nowSec);
     }
     // a Steel dash driven into someone: it meets them, gives them its momentum, and stops there (steelRam.mjs)
     if (player.dashRam) {
@@ -2065,7 +2078,8 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
 
   stepRuptures(room, nowSec);
   // bodies do not share space: overlapping Spellblades are eased apart (never off a ledge or into a wall)
-  separatePlayers([...room.players.values()].filter((p) => !p.operatingBallistaId), effectiveWorld);
+  separatePlayers([...room.players.values()].filter((p) => !p.operatingBallistaId&&!p.operatingRamId), effectiveWorld);
+  if(room.soFistication){stepSoFistication(room,room.soFistication,dt,nowSec,world);const op=room.players.get(room.soFistication.operatorId);if(op)recordTransform(op,nowSec);}
   stepProjectiles(room, dt, nowSec, world);
   if (room.biByeLlista) {
     stepBiByeLlista(room, room.biByeLlista, dt, nowSec);

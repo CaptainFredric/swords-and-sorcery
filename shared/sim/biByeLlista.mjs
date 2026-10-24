@@ -1,3 +1,5 @@
+import {soFistFirstHit,soFistSolids} from './soFistGeometry.mjs';
+import {damageSoFistication} from './soFistication.mjs';
 import { postureOf } from '../src/body.mjs';
 import { sampleTransform } from './history.mjs';
 import { biByeTerrainContext, biByeTerrainPose, biByeTerrainClear, biByeDeploymentSupport } from './biByeTerrain.mjs';
@@ -5,7 +7,7 @@ import { biByeWeaponState, requestBiByeIndependent, requestBiByeVolley, stepBiBy
 import { biByeCondition, createBiByeComponents, biByeDeployProgress, biByeAimPose, biByeFrames, biByeHitVolumes, biByeFirstHit, biByeBlastAllocations, biByeWheelTravel, biByeWheelSteering, biByeConstrainAim } from './biByeComponents.mjs';
 import { boxWorld } from '../src/orientedBox.mjs';
 import { segmentAabbHit, surfaceHeightAt, resolvePlayerWorld } from '../src/collision.mjs';
-import { applyDamage, staggerBy } from './combat.mjs';
+import { applyDamage, staggerBy, interruptHitActions } from './combat.mjs';
 import { strongerChill } from '../src/spells.mjs';
 import { GAME } from '../src/combat.mjs';
 import { areAllies } from '../src/teams.mjs';
@@ -697,7 +699,7 @@ export function stepBiByeLlista(room, ballista, dt, nowSec, world = room.world) 
         const gradeScale=1-.55*Math.max(0,Math.min(1,ascent/Math.sin(22*Math.PI/180)));
         const speed=baseSpeed*gradeScale*Math.cos(ballista.chassisPitch??0);
         ballista.steer=steer;
-        const others=[];
+        const others=soFistSolids(room.soFistication);
         for(const other of room.players?.values()??[]){if(other.alive&&other.id!==ballista.operatorId)others.push({center:[other.position.x,other.position.y+.9,other.position.z],size:[.9,1.8,.9]});}
         const ctx=biByeTerrainContext(world,ballista,others),old={...ballista};
         const slices=Math.max(1,Math.ceil(Math.abs(speed*dt)/.05));
@@ -757,7 +759,7 @@ export function stepBiByeProjectiles(room, dt, nowSec, world = room.world) {
 
     // 1. World solids continuous swept ray test
     for (const box of world?.solids ?? []) {
-      if (String(box.id ?? '').startsWith('bibye-')) continue;
+      if (String(box.id ?? '').startsWith('bibye-') || String(box.id ?? '').startsWith('sofist-')) continue;
       const hit = segmentAabbHit([before.x, before.y, before.z], [after.x, after.y, after.z], box);
       if (hit && hit.t >= 0 && hit.t <= 1) {
         hits.push({
@@ -779,6 +781,9 @@ export function stepBiByeProjectiles(room, dt, nowSec, world = room.world) {
       const hit = biByeFirstHit(machine, [before.x,before.y,before.z], [after.x,after.y,after.z], nowSec, 0, assembly);
       if (hit) hits.push({...hit,kind:"machine",point:{x:hit.point[0],y:hit.point[1],z:hit.point[2]}});
     }
+
+    const ramHit=soFistFirstHit(room.soFistication,[before.x,before.y,before.z],[after.x,after.y,after.z],nowSec);
+    if(ramHit)hits.push({...ramHit,kind:'ram',point:{x:ramHit.point[0],y:ramHit.point[1],z:ramHit.point[2]}});
 
     // 2. Ground terrain collision
     const ground = surfaceHeightAt(after.x, after.z, before.y, world);
@@ -850,6 +855,7 @@ export function stepBiByeProjectiles(room, dt, nowSec, world = room.world) {
           victimId: hitPlayer?.id ?? null,
           at: nowSec,
         });
+        if(first.kind==='ram')damageSoFistication(room,room.soFistication,projectile.directDamage,projectile.ownerId,'bibye-conditioning',nowSec,{componentId:first.box.componentId,point:impactPoint});
         if (first.kind === 'machine') damageBiByeLlista(room,machine,projectile.directDamage,projectile.ownerId,'bibye-conditioning',nowSec,{componentId:first.box.componentId,point:impactPoint});
         else if (machine?.id !== projectile.ballistaId) blastBiByeLlista(room,machine,{point:impactPoint,radius:projectile.blastRadius,damage:projectile.directDamage},projectile.ownerId,'bibye-conditioning',nowSec);
         detonateFrostBlast(room, projectile, impactPoint, nowSec, hitPlayer?.id, world);
@@ -863,7 +869,8 @@ export function stepBiByeProjectiles(room, dt, nowSec, world = room.world) {
 
       for (const hit of hits) {
         // Solid world obstacle or ground decisively stops the physical bolt
-        if (hit.kind === 'solid' || hit.kind === 'ground' || hit.kind === 'machine') {
+        if (hit.kind === 'solid' || hit.kind === 'ground' || hit.kind === 'machine' || hit.kind === 'ram') {
+          if(hit.kind==='ram')damageSoFistication(room,room.soFistication,projectile.directDamage,projectile.ownerId,'bibye-siege',nowSec,{componentId:hit.box.componentId,point:hit.point});
           if (hit.kind === 'machine') damageBiByeLlista(room,machine,projectile.directDamage,projectile.ownerId,'bibye-siege',nowSec,{componentId:hit.box.componentId,point:hit.point});
           else if (machine?.id !== projectile.ballistaId) blastBiByeLlista(room,machine,{point:hit.point,radius:BI_BYE_LLISTA_CONFIG.shotII.shockwave.radius,damage:BI_BYE_LLISTA_CONFIG.shotII.shockwave.centerDamage},projectile.ownerId,'bibye-shockwave',nowSec);
           room.bibyeProjectiles.delete(projectile.id);
@@ -917,11 +924,14 @@ export function stepBiByeProjectiles(room, dt, nowSec, world = room.world) {
             }
           }
 
-          applyDamage(room, projectile.ownerId, sweptVictim.id, damage, 'bibye-siege', nowSec, push, {
+          const landed = applyDamage(room, projectile.ownerId, sweptVictim.id, damage, 'bibye-siege', nowSec, push, {
             minDamage: 55,
           });
 
-          staggerBy(room, sweptVictim, projectile.staggerGain, nowSec, projectile.ownerId);
+          if (landed) {
+            staggerBy(room, sweptVictim, projectile.staggerGain, nowSec, projectile.ownerId);
+            interruptHitActions(room, sweptVictim, projectile.ownerId, nowSec, 'bibye-siege');
+          }
 
           room.events?.push({
             type: 'bibyeBoltImpact',
@@ -997,7 +1007,7 @@ function detonateFrostBlast(room, projectile, point, nowSec, directVictimId = nu
     if (!isDirect && world?.solids) {
       let occluded = false;
       for (const solid of world.solids) {
-        if (String(solid.id ?? '').startsWith('bibye-')) continue;
+        if (String(solid.id ?? '').startsWith('bibye-') || String(solid.id ?? '').startsWith('sofist-')) continue;
         if (segmentAabbHit([point.x, point.y, point.z], [targetCenter.x, targetCenter.y, targetCenter.z], solid)) {
           occluded = true;
           break;
@@ -1109,7 +1119,7 @@ function detonateSiegeShockwave(room, projectile, point, excludedVictimIds, nowS
     if (world?.solids) {
       let occluded = false;
       for (const solid of world.solids) {
-        if (String(solid.id ?? '').startsWith('bibye-')) continue;
+        if (String(solid.id ?? '').startsWith('bibye-') || String(solid.id ?? '').startsWith('sofist-')) continue;
         if (segmentAabbHit([point.x, point.y, point.z], [targetCenter.x, targetCenter.y, targetCenter.z], solid)) {
           occluded = true;
           break;

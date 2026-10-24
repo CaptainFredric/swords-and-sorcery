@@ -48,12 +48,18 @@ export class BiByeOperatorPose {
    if(grips.right&&grips.lever)this.#arm('R',grips.right.clone().lerp(grips.lever,reach));
   }
  }
- #arm(side,grip){
+ applyStanding(grips){
+  if(!this.standingActive){this.standingActive=true;this.standingSwordVisible=this.sword?.visible??true;}
+  if(this.sword)this.sword.visible=false;if(this.stowed)this.stowed.visible=true;
+  this.root.updateWorldMatrix(true,true);this.#arm('L',grips?.left,false);this.#arm('R',grips?.right,false);
+ }
+ releaseStanding(){if(!this.standingActive)return;if(this.sword)this.sword.visible=this.standingSwordVisible;if(this.stowed)this.stowed.visible=false;this.standingActive=false;}
+ #arm(side,grip,seated=true){
   if(!grip)return;
   const a=this.bone('upper_arm.'+side),b=this.bone('forearm.'+side),c=this.bone('hand.'+side);
   if(!a||!b||!c)return;
   const wristQ=c.getWorldQuaternion(new THREE.Quaternion());
-  const local=this.root.worldToLocal(grip.clone()).add(new THREE.Vector3(0,-.02,.12));
+  const local=this.root.worldToLocal(grip.clone()).add(seated?new THREE.Vector3(0,-.02,.12):new THREE.Vector3());
   const end=this.root.localToWorld(local),start=a.getWorldPosition(new THREE.Vector3());
   const elbow=b.getWorldPosition(new THREE.Vector3()),wrist=c.getWorldPosition(new THREE.Vector3());
   const l1=start.distanceTo(elbow),l2=elbow.distanceTo(wrist),axis=end.clone().sub(start).normalize();
@@ -79,5 +85,5 @@ export class BiByeOperatorPose {
   if(this.stowed)this.stowed.visible=false;
   this.active=false;return true;
  }
- dispose(){this.release();this.stowed?.removeFromParent();this.stowed?.traverse(o=>o.geometry?.dispose());}
+ dispose(){this.releaseStanding();this.release();this.stowed?.removeFromParent();this.stowed?.traverse(o=>o.geometry?.dispose());}
 }

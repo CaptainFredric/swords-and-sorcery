@@ -450,10 +450,13 @@
         <button id="practice-ultimate">READY ULTIMATE</button>
         <details class="practice-siege">
           <summary>SIEGE MACHINATIONS</summary>
+          <label class="siege-machine-choice">MACHINE <select id="practice-siege-type"><option value="bi-bye-llista">BI-BYE-LLISTA</option><option value="so-fist-ication">SO-FIST-ICATION</option></select></label>
+          <p id="practice-siege-status" role="status" hidden></p>
           <article>
-            <h4>BI-BYE-LLISTA</h4>
-            <p>A marvel of combative engineering: compact, brutal, and devoted to destruction, much like the denizens who created it.</p>
-            <p>The first shot lowers the target's defense.</p>
+            <h4 data-siege-title>BI-BYE-LLISTA</h4>
+            <p data-siege-classification hidden></p>
+            <p data-siege-description>A marvel of combative engineering: compact, brutal, and devoted to destruction, much like the denizens who created it.</p>
+            <p data-siege-final>The first shot lowers the target's defense.</p>
             <button id="practice-build-bibye">BUILD A BI-BYE-LLISTA</button>
             <button id="practice-rebuild-bibye" hidden>REBUILD BI-BYE-LLISTA</button>
             <button id="practice-dismantle-bibye" hidden>DISMANTLE BI-BYE-LLISTA</button>

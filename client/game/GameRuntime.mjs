@@ -1,3 +1,8 @@
+import {SoFisticationRenderer} from '../worlds/SoFisticationRenderer.mjs';
+import {BiByeMotion} from '../worlds/biByeMotion.mjs';
+import {SoFistSound} from './sound/SoFistSound.mjs';
+import {soFistSolids} from '../../shared/sim/soFistGeometry.mjs';
+import {soFistOperator} from '../../shared/sim/soFistication.mjs';
 import { boxWorld } from '../../shared/src/orientedBox.mjs';
 import { biByeViewAction } from '../worlds/biByePresentation.mjs';
 import { biByeConstrainAim, biByeRootFrame } from '../../shared/sim/biByeComponents.mjs';
@@ -114,7 +119,7 @@ export class GameRuntime {
     this.socket = socket;
     this.hud = hud;
     this.sound = sound;
-    this.siegeSound = new BiByeSound(sound);
+    this.siegeSound = new BiByeSound(sound);this.ramSound=new SoFistSound(sound);
     this.voice = voice;
     // the score (for its stingers: my Spells & Chivalry taken up)
     this.music = music;
@@ -129,6 +134,7 @@ export class GameRuntime {
     if (this.voice) this.voice.onCut = this.captionCut;
     this.touchScale = 1;
     this.scene = new THREE.Scene();
+    this.ramRenderer=new SoFisticationRenderer(this.scene);this.ramMotion=new BiByeMotion();
     this.scene.background = new THREE.Color(SCENE_PRESENTATION.background);
     this.scene.fog = new THREE.FogExp2(SCENE_PRESENTATION.fogColor, SCENE_PRESENTATION.fogDensity);
     const view = this.#viewSize();
@@ -230,7 +236,8 @@ export class GameRuntime {
     this.input = new InputController(this.renderer.domElement, socket);
     this.siegeView = 'third';
     this.input.onAction = (action, pressed) => {
-      if (['siegeView','siegeZoom'].includes(action) && pressed && this.localAuth?.alive && this.localAuth?.operatingBallistaId) {
+      if (['siegeView','siegeZoom'].includes(action) && pressed && this.localAuth?.alive && (this.localAuth?.operatingBallistaId||this.localAuth?.operatingRamId)) {
+        if(this.localAuth?.operatingRamId){if(action==='siegeView')this.siegeView=this.siegeView==='third'?'sight':'third';return;}
         const next=biByeViewAction({view:this.siegeView,returnView:this.siegeReturnView},action==='siegeZoom'?'zoom':'tap');
         this.siegeView=next.view;this.siegeReturnView=next.returnView;
       }
@@ -242,7 +249,7 @@ export class GameRuntime {
     // when each of the two was last pressed: of the two held together, the one pressed last has the hands
     this.pressedAt = { attack: -Infinity, guard: -Infinity };
     this.input.onAttackLocal = (held) => {
-      if (this.localAuth?.operatingBallistaId) {
+      if ((this.localAuth?.operatingBallistaId||this.localAuth?.operatingRamId)) {
         return;
       }
       if (held) this.pressedAt.attack = this.socket.serverNow();
@@ -255,7 +262,7 @@ export class GameRuntime {
       if (canPresentLocalAction('attack', this.localAuth, this.localState, now)) this.weapon.setAttack(true);
     };
     this.input.onGuardLocal = (held) => {
-      if (this.localAuth?.operatingBallistaId) return;
+      if ((this.localAuth?.operatingBallistaId||this.localAuth?.operatingRamId)) return;
       if (held) this.pressedAt.guard = this.socket.serverNow();
       if (this.socket.inspectionFrozen) return;
       if (!held) {
@@ -267,7 +274,7 @@ export class GameRuntime {
     };
     // the palm starts gathering the moment the spell is called (the server's word follows and confirms it)
     this.input.onCastLocal = (metadata = {}) => {
-      if (this.localAuth?.operatingBallistaId) return;
+      if ((this.localAuth?.operatingBallistaId||this.localAuth?.operatingRamId)) return;
       if (this.socket.inspectionFrozen) return;
       const now = this.socket.serverNow();
       const practice = this.#inPractice();
@@ -314,14 +321,14 @@ export class GameRuntime {
     // the gauntlet on its own key: the fist at once, spell or no spell (the server's word follows); only while the hand
     // cannot (mid-swing, say), the quiet no
     this.input.onGauntletLocal = () => {
-      if (this.localAuth?.operatingBallistaId) return;
+      if ((this.localAuth?.operatingBallistaId||this.localAuth?.operatingRamId)) return;
       if (this.socket.inspectionFrozen) return;
       const now = this.socket.serverNow();
       if (this.localAuth?.alive && !this.#tryLocalJab(now)) this.#play(deniedRecipe(), null, 0.5);
     };
     // the ultimate's key: the host decides; with the meter short (or it already running), the quiet no
     this.input.onUltimateLocal = () => {
-      if (this.localAuth?.operatingBallistaId) return;
+      if ((this.localAuth?.operatingBallistaId||this.localAuth?.operatingRamId)) return;
       if (this.socket.inspectionFrozen) return;
       const me = this.localAuth;
       // (in the Practice Yard the key readies it too: only one already under way, or its recovery, says no)
@@ -345,7 +352,7 @@ export class GameRuntime {
     this.input.onPreparedSelector = (view) => this.hud.setPreparedSelector?.(view);
     this.hud.onUltimateReady = () => this.#play(ultimateReadyRecipe(), null, 0.9);
     this.input.onDashLocal = (dir) => {
-      if (this.localAuth?.operatingBallistaId) return;
+      if ((this.localAuth?.operatingBallistaId||this.localAuth?.operatingRamId)) return;
       if (this.socket.inspectionFrozen) return;
       const now = this.socket.serverNow();
       const practice = this.#inPractice();
@@ -434,6 +441,7 @@ export class GameRuntime {
       const nextRenderer = createWorldRenderer(worldId, this.scene, WORLD_RENDERERS);
       this.world?.dispose?.();
       this.world = nextRenderer;
+      nextRenderer.soFistication=this.ramRenderer;
       this.#applyLighting(nextRenderer.lighting);
       this.activeWorld = typeof nextWorld?.forObjective === 'function'
         ? nextWorld.forObjective(this.latestSnapshot?.objective, this.latestSnapshot?.serverTime ?? this.socket.serverNow())
@@ -547,7 +555,7 @@ export class GameRuntime {
 
   setPlaying(playing, { preservePointerLock = false } = {}) {
     this.playing = Boolean(playing) && !this.worldError;
-    if (!this.playing) {this.#applyWeaponRelease({ attack: true, guard: true });this.siegeSound.stop();}
+    if (!this.playing) {this.#applyWeaponRelease({ attack: true, guard: true });this.siegeSound.stop();this.ramSound.stop();}
     if (!this.playing && !preservePointerLock) this.input.releaseFocus();
   }
 
@@ -570,12 +578,16 @@ export class GameRuntime {
       this.siegeView = 'third';
       this.siegeReturnView = undefined;
     }
+    if(snapshot.roomCode===this.latestSnapshot?.roomCode&&(snapshot.soFistRevision??0)<(this.latestSnapshot?.soFistRevision??0))return;
     this.latestSnapshot = snapshot;
     this.remotePlayers.pushSnapshot(snapshot, this.presentationNow());
     this.effects.syncProjectiles(snapshot.projectiles ?? []);
     const auth = snapshot.players.find((p) => p.id === this.socket.playerId);
-    const wasMounted = Boolean(this.localAuth?.operatingBallistaId);
+    const wasMounted = Boolean(this.localAuth?.operatingBallistaId||this.localAuth?.operatingRamId);
     this.localAuth = auth ?? null;
+    if(auth?.operatingRamId&&!wasMounted){
+      this.siegeView='third';this.siegeCamera={position:this.camera.position.clone(),quaternion:this.camera.quaternion.clone()};this.input.releaseInputs();this.weapon.setAttack(false);this.weapon.setGuard(false);this.input.yaw=snapshot.soFistication.heading;this.input.pitch=0;
+    }
     if (auth?.operatingBallistaId && !wasMounted) {
       this.siegeView = 'third';
       this.siegeCamera = { position: this.camera.position.clone(), quaternion: this.camera.quaternion.clone() };
@@ -589,7 +601,7 @@ export class GameRuntime {
       this.input.yaw = snapshot.bibyeBallista.yaw;
       this.input.pitch = snapshot.bibyeBallista.pitch;
     }
-    if (wasMounted && !auth?.operatingBallistaId) {
+    if (wasMounted && !auth?.operatingBallistaId && !auth?.operatingRamId) {
       this.input.releaseInputs();
       if (auth) { this.input.yaw = auth.yaw; this.input.pitch = auth.pitch; }
     }
@@ -606,10 +618,10 @@ export class GameRuntime {
       this.input.yaw = auth.yaw;
       this.input.pitch = auth.pitch;
     } else {
-      if (auth.operatingBallistaId) {
+      if (auth.operatingBallistaId||auth.operatingRamId) {
         this.predictionError = 0;
         this.localState.position = { ...auth.position };
-        this.localState.velocity = { x: 0, y: 0, z: 0 };
+        this.localState.velocity = this.localAuth?.operatingRamId?{...this.localAuth.velocity}:{ x: 0, y: 0, z: 0 };
         this.localState.impulse = { x: 0, z: 0 };
         this.localState.crouched = false;
         this.localState.sprinting = false;
@@ -656,7 +668,7 @@ export class GameRuntime {
   onEvents(events) {
     for (const event of events) {
       if(event.type?.startsWith('bibye')&&event.ballistaId&&event.ballistaId!==this.latestSnapshot?.bibyeBallista?.id)continue;
-      this.siegeSound.event(event,this.latestSnapshot?.bibyeBallista,this.socket.serverNow());
+      this.siegeSound.event(event,this.latestSnapshot?.bibyeBallista,this.socket.serverNow());this.ramSound.event(event,this.latestSnapshot?.soFistication,this.socket.serverNow());
       if(event.type === "bibyeDamaged" && event.point) {
         if(event.componentId?.startsWith("Stabilizer")) this.effects.wallClang(event.point);
         else this.effects.splinters?.(event.point);
@@ -1248,7 +1260,7 @@ export class GameRuntime {
   // it at once, as they show a press (the host's word follows)
   #resumeHeld(now) {
     const auth = this.localAuth;
-    if (!this.playing || this.socket.inspectionFrozen || !auth?.alive || auth.operatingBallistaId) return;
+    if (!this.playing || this.socket.inspectionFrozen || !auth?.alive || auth.operatingBallistaId || auth.operatingRamId) return;
     const concurrent = combatActionPolicy(auth, now).concurrent;
     const wanted = heldActions({ attack: this.input.attackHeld, guard: this.input.guardHeld,
       attackPressedAt: this.pressedAt.attack, guardPressedAt: this.pressedAt.guard, concurrent });
@@ -2027,6 +2039,7 @@ export class GameRuntime {
 
   #mountedIntent(wanted){
     const b=this.latestSnapshot?.bibyeBallista;
+    if(this.localAuth?.operatingRamId)return {...wanted,mounted:true};
     if(!this.localAuth?.operatingBallistaId||!b||b.mode==='DESTROYED')return {...wanted, ...(this.chaseAim ? { pitch: this.chaseAim.pitch } : {})};
     const aim=biByeConstrainAim({...b,...b.position},wanted,b.mode!=='DEPLOYED'||b.weaponFocus!=='MAIN');
     // Stop accumulating input beyond the physical joint stops.
@@ -2037,21 +2050,26 @@ export class GameRuntime {
   }
 
   #mountedView(dt) {
-    const b = this.latestSnapshot?.bibyeBallista;
-    const mounted = this.localAuth?.alive && this.localAuth?.operatingBallistaId && b?.mode !== 'DESTROYED';
+    const ram=Boolean(this.localAuth?.operatingRamId);
+    const b = ram?this.world?.soFistication?.presentationData??this.latestSnapshot?.soFistication:this.latestSnapshot?.bibyeBallista;
+    const mounted = this.localAuth?.alive && (this.localAuth?.operatingBallistaId||this.localAuth?.operatingRamId) && b && b.mode !== 'DESTROYED';
     if (!mounted && !this.siegeCamera) return;
     const target = this.camera.position.clone();
     const rotation = this.camera.quaternion.clone();
     if (mounted) {
-      const locator = this.world?.biByeLlista?.getMountedCameraPosition(this.siegeView, target);
-      if (!locator) {
+      const locator = ram?null:this.world?.biByeLlista?.getMountedCameraPosition(this.siegeView, target);
+      if(ram){
+        if(this.siegeView==='third'){const anchor=[b.position.x,b.position.y+1.85,b.position.z];target.set(b.position.x+Math.sin(this.input.yaw)*7.5,b.position.y+3.5,b.position.z+Math.cos(this.input.yaw)*7.5);target.set(...clip(this.#reach,anchor,target.toArray(),.25));}
+        else{const at=soFistOperator(b);target.set(at.x,at.y+1.75,at.z);}
+      }
+      else if (!locator) {
         // The same exported locator offsets provide a usable view during asset load/failure.
         const sight = this.siegeView === 'sight';
         const back = sight ? 1.45 : 6.7;
         target.set(b.position.x + Math.sin(b.yaw) * back, b.position.y + (sight ? 2.18 : 3.8), b.position.z + Math.cos(b.yaw) * back);
       }
       const kind = b.mode === 'DEPLOYED' && b.weaponFocus === 'MAIN' ? 'siege' : 'conditioning';
-      if (this.siegeView === 'third') {
+      if (this.siegeView === 'third'&&!ram) {
         const pivot=boxWorld(biByeRootFrame({...b,...b.position}),[0,3.8,0]);
         target.set(pivot[0]+Math.sin(this.input.yaw)*6.7,pivot[1],pivot[2]+Math.cos(this.input.yaw)*6.7);
         const anchor=boxWorld(biByeRootFrame({...b,...b.position}),[0,2.18,0]);
@@ -2059,7 +2077,7 @@ export class GameRuntime {
       }
       // The view responds to input immediately. The host points each real muzzle
       // at the reticle hit, accounting for the camera offset and joint limits.
-      const aim=biByeConstrainAim({...b,...b.position},{yaw:this.input.yaw,pitch:this.input.pitch},kind==='conditioning');
+      const aim=ram?{yaw:this.input.yaw,pitch:this.input.pitch}:biByeConstrainAim({...b,...b.position},{yaw:this.input.yaw,pitch:this.input.pitch},kind==='conditioning');
       rotation.setFromEuler(new THREE.Euler(aim.pitch,aim.yaw,0,'YXZ'));
 
     }
@@ -2078,7 +2096,7 @@ export class GameRuntime {
     if (this.socket.playingLocally) nowMs = this.presentationNow();
     // Keep drawing the exact same scene. A single authoritative step advances this clock once.
     if (this.socket.inspectionFrozen && nowMs <= this.lastFrameAt) {
-      this.siegeSound.stop();
+      this.siegeSound.stop();this.ramSound.stop();
       this.#renderView();
       requestAnimationFrame(t => this.#frame(t));
       return;
@@ -2145,7 +2163,7 @@ export class GameRuntime {
         grounded: this.localState.grounded,
         stamina: this.localAuth.guardStamina,
         sprinting: this.localState.sprinting,
-        blocked: reeling || torn || combatBlocksSprint(this.localAuth, serverNow, {
+        blocked: Boolean(this.localAuth?.operatingRamId) || reeling || torn || combatBlocksSprint(this.localAuth, serverNow, {
           guarding: this.input.guardHeld || this.weapon.guard,
           attacking: this.input.attackHeld || this.weapon.attackHeld,
           casting: this.weapon.castUntil > timeSec || this.localAuth.castEndsAt > serverNow,
@@ -2165,8 +2183,8 @@ export class GameRuntime {
       } else if (this.worldId === 'bastion-breach' && this.latestSnapshot?.objective) {
         this.activeWorld = bastionBreachForObjective(this.latestSnapshot.objective, serverNow);
       }
-      if (this.localAuth?.operatingBallistaId) {
-        this.localState.velocity = { x: 0, y: 0, z: 0 };
+      if ((this.localAuth?.operatingBallistaId||this.localAuth?.operatingRamId)) {
+        this.localState.velocity = this.localAuth?.operatingRamId?{...this.localAuth.velocity}:{ x: 0, y: 0, z: 0 };
         this.localState.sprinting = false;
         this.localState.sprintBlend = 0;
         this.localState.grounded = true;
@@ -2174,12 +2192,14 @@ export class GameRuntime {
           this.localState.position = { ...this.localAuth.position };
         }
       } else {
-        this.localState = movePlayer(this.localState, moveInput, dt, serverNow, this.activeWorld);
+        const ramSolids=soFistSolids(this.latestSnapshot?.soFistication);
+        const movementWorld=ramSolids.length?{...this.activeWorld,solids:[...(this.activeWorld.solids??[]),...ramSolids]}:this.activeWorld;
+        this.localState = movePlayer(this.localState, moveInput, dt, serverNow, movementWorld);
       }
       if (ramFrom) this.#foretellRam(ramFrom, serverNow);
       if (this.localRam?.armed && serverNow >= (this.localState.dashUntil ?? -Infinity)) this.localRam = null;
       // predict the server's body separation so pressing into an opponent does not rubber-band
-      if (!this.localAuth?.operatingBallistaId) separateLocal(this.localState.position, this.remotePlayers.bodies(), this.activeWorld, { crouched: this.localState.crouched });
+      if (!(this.localAuth?.operatingBallistaId||this.localAuth?.operatingRamId)) separateLocal(this.localState.position, this.remotePlayers.bodies(), this.activeWorld, { crouched: this.localState.crouched });
       // my own jump: now and then a grunt with it
       if (wasGrounded && !this.localState.grounded && this.localState.velocity.y > 4) this.#sayMoment(this.socket.playerId, ['jump']);
       if (!wasGrounded && this.localState.grounded) {
@@ -2262,7 +2282,7 @@ export class GameRuntime {
         this.chaseOut = 0;
       }
       // (outside, my own body is drawn and the helm's arms are not; mounted on ballista, draw body at station and hide FP arms)
-      const mounted = Boolean(this.localAuth?.operatingBallistaId);
+      const mounted = Boolean((this.localAuth?.operatingBallistaId||this.localAuth?.operatingRamId));
       if (mounted) outside = true;
       this.weapon.group.visible = !outside;
       this.remotePlayers.showSelf(this.localAuth, {
@@ -2284,7 +2304,16 @@ export class GameRuntime {
     this.world?.setObjectiveState?.(this.latestSnapshot?.objective ?? null, this.localAuth?.team ?? null, this.socket.serverNow());
     this.siegeSound.update(this.latestSnapshot?.bibyeBallista,{active:this.playing && this.input.enabled && !this.socket.inspectionFrozen,playerId:this.socket.playerId,listener:this.localState?.position??this.localAuth?.position,yaw:this.input.yaw,now:this.socket.serverNow()});
     this.world?.setBiByeState?.(this.latestSnapshot, this.socket.serverNow(), {local:this.socket.playingLocally,frozen:this.socket.inspectionFrozen});
+    this.ramSound.update(this.latestSnapshot?.soFistication,{active:this.playing&&this.input.enabled&&!this.socket.inspectionFrozen,listener:this.localState?.position??this.localAuth?.position,yaw:this.input.yaw,now:this.socket.serverNow()});
+    if(this.ramRoom!==this.latestSnapshot?.roomCode){this.ramRoom=this.latestSnapshot?.roomCode;this.ramMotion=new BiByeMotion();}
+    this.ramMotion.push(this.latestSnapshot?.soFistication??null,[],this.latestSnapshot?.serverTime??this.socket.serverNow(),this.latestSnapshot?.soFistRevision??0);
+    const ramView=this.ramMotion.sample(this.socket.serverNow(),this.socket.playingLocally,this.socket.inspectionFrozen);this.ramRenderer.update(ramView.clock,ramView.ballista);
     this.world?.update?.(timeSec, this.camera);
+    const ramPose=this.world?.soFistication?.presentationData;
+    if(ramPose?.operatorId){
+      const driver=ramPose.operatorId===this.localAuth?.id?this.remotePlayers.self:this.remotePlayers.rigs.get(ramPose.operatorId);
+      if(driver?.root?.visible){const at=soFistOperator(ramPose);driver.root.position.set(at.x,at.y,at.z);driver.root.rotation.set(0,ramPose.heading,0);driver.visualInstance?.animator?.applyRam(this.world.soFistication.getOperatorGrips());}
+    }
     // Vehicle, seated operator and hand controls share one interpolated carriage frame.
     const mountedMachine=this.world?.biByeLlista?.presentationData;
     if(mountedMachine){
@@ -2411,7 +2440,7 @@ export class GameRuntime {
 
   dispose() {
     this.running = false;
-    this.siegeSound.dispose();
+    this.siegeSound.dispose();this.ramSound.dispose();this.ramRenderer.dispose();
     clearTimeout(this.appealCut);
     if (this.voice?.onSpoken === this.subtitleHook) this.voice.onSpoken = null;
     if (this.voice?.onCut === this.captionCut) this.voice.onCut = null;

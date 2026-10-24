@@ -136,6 +136,7 @@ export class SpellbladeAnimator {
   }
 
   apply(plan, dt = 0) {
+    this.restoreRamArms();if(!plan?.ramMounted)this.siege.releaseStanding();
     if(plan?.mounted){
       if(!this.siege.active)this.reset();
       this.siege.apply();this.onPose?.(plan);return true;
@@ -260,6 +261,12 @@ export class SpellbladeAnimator {
   }
 
   applyMounted(machine,now,grips){this.siege.apply(machine,now,grips);}
+  applyRam(grips){
+    this.ramArms=new Map(['upper_arm.L','forearm.L','hand.L','upper_arm.R','forearm.R','hand.R'].map(n=>this.bone(n)).filter(Boolean).map(b=>[b,b.quaternion.clone()]));
+    this.siege.applyStanding(grips);
+  }
+  restoreRamArms(){for(const [b,q]of this.ramArms??[])b.quaternion.copy(q);this.ramArms=null;}
+  releaseRam(){this.restoreRamArms();this.siege.releaseStanding();}
   releaseMounted(){if(this.siege.release())this.reset();}
 
   #clipOf(action) {

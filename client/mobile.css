@@ -240,3 +240,4 @@ html.turn-typing .rotate-prompt { display: none !important; }
 }
 
 .touch-siegeWeapon { --size: 62px; right: calc(var(--safe-r) + 48px * var(--s)); bottom: calc(var(--safe-b) + 174px * var(--s)); color: #a8e2e9; }
+.touch-mounted.touch-ram .touch-sprint { display: grid; }

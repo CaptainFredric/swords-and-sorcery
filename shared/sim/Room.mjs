@@ -104,6 +104,8 @@ export class Room {
     }
     this.worldId = worldId;
     this.world = getWorld(worldId);
+    this.soFistication = null;
+    this.soFistRevision = 0;
     if (this.world.ballistaEmplacement) {
       this.biByeLlista = createBiByeLlista(this.world.ballistaEmplacement);
       this.biByeRevision = 0;

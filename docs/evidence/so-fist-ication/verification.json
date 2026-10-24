@@ -1,0 +1,22 @@
+{
+  "testedRuntimeCommit": "1db03294b8a02ac98dd1d9f26250dfdb8f7e0951",
+  "base": "1109c541c8caf795b7680bb34e81576544946994",
+  "repositoryTests": 1746,
+  "html5ReleaseTests": 19,
+  "syntaxModules": 496,
+  "smoke": "passed",
+  "html5": {
+    "files": 985,
+    "zipSHA256": "6267d2ec94941bf276d6347c22f5179ac8b8490c4eac2f46232c7536671d9c5c",
+    "zipMiB": 47.82,
+    "zipIntegrity": "passed",
+    "desktop": "passed",
+    "emulatedTouch": "passed",
+    "realWallEncounter": "76 fist + 19 wall HP, 78 + 26 stagger, survivor5HP"
+  },
+  "ballistaRegression": "existing current desktop construction, mobile controls, aim, fire, deployment, rebuild and dismantle passed",
+  "assetLoadFailure": "refuses invisible construction; retry passed",
+  "physicalPhone": "not performed",
+  "liveItchIframe": "not performed",
+  "destructibleMapFortifications": "no existing health API; walls and gates remain intact"
+}
