@@ -104,6 +104,8 @@ export class Room {
     }
     this.worldId = worldId;
     this.world = getWorld(worldId);
+    this.soFistication = null;
+    this.soFistRevision = 0;
     if (this.mode === GAME_MODES.PRACTICE) {
       this.biByeLlista = null;
       this.biByeRevision = 0;

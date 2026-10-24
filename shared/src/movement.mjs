@@ -134,6 +134,7 @@ export function movePlayer(previous, input, dt, nowSec, world) {
   const state = {
     ...previous,
     position: { ...previous.position },
+    worldContacts: [],
     velocity: { ...previous.velocity },
     dashDir: { ...previous.dashDir },
     impulse: { x: previous.impulse?.x ?? 0, z: previous.impulse?.z ?? 0 },
@@ -203,7 +204,16 @@ export function movePlayer(previous, input, dt, nowSec, world) {
   for (let i = 0; i < substeps; i += 1) {
     state.position.x += travelX / substeps;
     state.position.z += travelZ / substeps;
+    const wanted={...state.position};
     state.position = resolvePlayerWorld(state.position, MOVEMENT.playerRadius, world.solids ?? [], postureOf(state).height);
+    if(previous.worldImpact){
+      const dx=state.position.x-wanted.x,dz=state.position.z-wanted.z,length=Math.hypot(dx,dz);
+      if(length>1e-5){
+        const normal={x:dx/length,z:dz/length};
+        const solid=(world.solids??[]).find(b=>wanted.y+postureOf(state).height>b.center[1]-b.size[1]/2&&wanted.y<b.center[1]+b.size[1]/2&&Math.abs(wanted.x-b.center[0])<=b.size[0]/2+MOVEMENT.playerRadius&&Math.abs(wanted.z-b.center[2])<=b.size[2]/2+MOVEMENT.playerRadius);
+        if(solid)state.worldContacts.push({id:solid.id,material:solid.material,normal,externalSpeed:Math.max(0,-(previous.impulse?.x??0)*normal.x-(previous.impulse?.z??0)*normal.z)});
+      }
+    }
   }
   // a wall takes what a shove drives into it
   if (state.impulse.x || state.impulse.z) {

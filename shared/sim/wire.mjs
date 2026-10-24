@@ -1,4 +1,5 @@
-import { practiceBiByeCommand } from './practiceSiege.mjs';
+import {mountSoFistication,dismountSoFistication,fireSoFistication} from './soFistication.mjs';
+import { practiceBiByeCommand,practiceSiegeCommand } from './practiceSiege.mjs';
 import { setBiByeWeaponFocus } from './biByeWeapons.mjs';
 import { biByeDeployProgress } from './biByeComponents.mjs';
 // What a host (the game server, or the browser playing alone when the server cannot be reached) says to its
@@ -180,8 +181,11 @@ export function serializeSnapshot(room, nowSec) {
       respawnAt: p.respawnAt,
       lastInputSeq: p.lastInputSeq,
       operatingBallistaId: p.operatingBallistaId ?? null,
+      operatingRamId: p.operatingRamId ?? null,
     })),
     projectiles: [...room.projectiles.values()].map((p) => ({ id: p.id, ownerId: p.ownerId, spell: p.spell, position: p.position, velocity: p.velocity })),
+    soFistRevision:room.soFistRevision??0,
+    soFistication:room.soFistication?{...room.soFistication,position:{x:room.soFistication.x,y:room.soFistication.y,z:room.soFistication.z},contacts:undefined,recentVictims:undefined,strokeVictims:undefined,strokeMachines:undefined}:null,
     bibyeRevision: room.biByeRevision??0,
     bibyeBallista: room.biByeLlista ? {
       builtAt:room.biByeLlista.builtAt,
@@ -253,7 +257,7 @@ export function serializeSnapshot(room, nowSec) {
  */
 export function applyRoomCommand(room, player, message, time) {
   // Mounted input belongs to the siege session; personal combat resumes on exit.
-  if (player?.operatingBallistaId && ['cast', 'castPreparedSpell', 'castPreparedSlot', 'castCurrentSpell', 'guard', 'dash', 'gauntlet', 'ultimate'].includes(message.type)) return {};
+  if ((player?.operatingBallistaId||player?.operatingRamId) && ['cast', 'castPreparedSpell', 'castPreparedSlot', 'castCurrentSpell', 'guard', 'dash', 'gauntlet', 'ultimate'].includes(message.type)) return {};
   switch (message.type) {
     case 'startMatch':
     case 'ready': {
@@ -280,6 +284,7 @@ export function applyRoomCommand(room, player, message, time) {
       return {};
     }
     case 'attack': {
+      if(player.operatingRamId&&room.soFistication?.operatorId===player.id){if(message.down&&player.alive)fireSoFistication(room,room.soFistication,time);return {};}
       if (player.operatingBallistaId && room.biByeLlista?.operatorId === player.id) {
         if (message.down) {
           fireBiByeLlista(room, room.biByeLlista, time);
@@ -328,6 +333,7 @@ export function applyRoomCommand(room, player, message, time) {
     case 'rematch': room.requestRematch(player.id, time); return {};
     case 'switchTeam': return { lobby: room.switchTeam(player.id, message.team ?? null, time) };
     case 'markTarget': room.markTarget(player.id, { targetId: message.targetId ?? null }, time); return {};
+    case 'practiceSiege':return practiceSiegeCommand(room,player,message.action,message.machine,time);
     case 'practiceBuildBiBye':return practiceBiByeCommand(room,player,'build',time);
     case 'practiceRebuildBiBye':return practiceBiByeCommand(room,player,'rebuild',time);
     case 'practiceDismantleBiBye':return practiceBiByeCommand(room,player,'dismantle',time);
@@ -342,7 +348,16 @@ export function applyRoomCommand(room, player, message, time) {
       return room.mode === GAME_MODES.PRACTICE && readyPracticeUltimate(room, player.id) ? {} : { rejected: PRACTICE_REJECTED };
     case 'practiceSetDummyMode':
       return room.mode === GAME_MODES.PRACTICE && setPracticeDummyMode(room, message.mode, time) ? { lobby: true } : { rejected: PRACTICE_REJECTED };
+    case 'siegeOperate': {
+      if(player.operatingRamId){return dismountSoFistication(room,room.soFistication,player)?{}:{rejected:'No safe exit. Move onto supported open ground.'};}
+      if(player.operatingBallistaId)return applyRoomCommand(room,player,{type:'bibyeOperate'},time);
+      const ram=room.soFistication,b=room.biByeLlista;
+      if(ram&&mountSoFistication(room,ram,player,time))return {};
+      if(b&&mountBiByeLlista(b,player,time))return {};
+      return {rejected:'Approach an available operator station.'};
+    }
     case 'bibyeOperate': {
+      if(player.operatingRamId)return {rejected:'Leave the ram before operating another machine.'};
       if (!room.biByeLlista) return { rejected: 'No ballista available' };
       if (room.biByeLlista.operatorId === player.id) {
         dismountBiByeLlista(room.biByeLlista, player, true, room.world);

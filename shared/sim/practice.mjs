@@ -1,3 +1,4 @@
+import {dismountSoFistication} from './soFistication.mjs';
 import { GAME_MODES } from '../src/modes.mjs';
 import { guardProfile } from '../src/combat.mjs';
 import { cancelAttack, setGuard } from './combat.mjs';
@@ -103,6 +104,7 @@ function resetActorAtSpawn(player, spawn, nowSec) {
   player.lastDamageAt = -Infinity;
   player.lastAttackerId = null;
   player.lastKnockbackAt = -Infinity;
+  player.worldImpact = null;
   player.history = [];
   recordTransform(player, nowSec);
 }
@@ -128,6 +130,7 @@ export function resetPracticePlayer(room, playerId, nowSec) {
     }
 
   }
+  if(player.operatingRamId&&room.soFistication)dismountSoFistication(room,room.soFistication,player,{force:true});
   resetActorAtSpawn(player, spawn, nowSec);
   room.events.push({ type: 'practicePlayerReset', playerId, at: nowSec });
   return true;

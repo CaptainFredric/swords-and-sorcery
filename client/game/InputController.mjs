@@ -442,7 +442,7 @@ export class InputController {
 
   interact() {
     if (!this.enabled) return;
-    this.socket?.send?.({ type: 'bibyeOperate' });
+    this.socket?.send?.({ type: 'siegeOperate' });
   }
 
   deploy() {
