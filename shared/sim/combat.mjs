@@ -1880,13 +1880,16 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
 
   stepObjectives(room, dt, nowSec);
   if (room.state !== 'PLAYING') return room.events;
-  // Only phase-driven battlefields replace the authoritative world each step.
-  // Ordinary/Practice/custom worlds may have runtime geometry changes: retain them.
-  if (room.worldId === WORLD_IDS.OUTERWORKS && room.objectiveState)
+  // Preserve the world argument for ordinary and custom/test combat worlds.
+  // Only objective phase transitions deliberately replace it with canonical geometry.
+  if (room.worldId === WORLD_IDS.OUTERWORKS && room.objectiveState) {
     room.world = getWorld(WORLD_IDS.OUTERWORKS).forObjective(room.objectiveState, nowSec);
-  else if (room.worldId === WORLD_IDS.BASTION_BREACH && room.objectiveState)
+    world = room.world;
+  } else if (room.worldId === WORLD_IDS.BASTION_BREACH && room.objectiveState) {
     room.world = bastionBreachForObjective(room.objectiveState, nowSec);
-  world = structureWorld(room.world, room.structures);
+    world = room.world;
+  }
+  world = structureWorld(world, room.structures);
   room.world = world;
   markTornGround(room);
   const biByeSolids = [...getBiByeSolids(room.biByeLlista),...soFistSolids(room.soFistication)];
