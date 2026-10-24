@@ -210,7 +210,7 @@ export function movePlayer(previous, input, dt, nowSec, world) {
       const dx=state.position.x-wanted.x,dz=state.position.z-wanted.z,length=Math.hypot(dx,dz);
       if(length>1e-5){
         const normal={x:dx/length,z:dz/length};
-        const solid=(world.solids??[]).find(b=>wanted.y+postureOf(state).height>b.center[1]-b.size[1]/2&&wanted.y<b.center[1]+b.size[1]/2&&Math.abs(wanted.x-b.center[0])<=b.size[0]/2+MOVEMENT.playerRadius&&Math.abs(wanted.z-b.center[2])<=b.size[2]/2+MOVEMENT.playerRadius);
+        const solid=(world.solids??[]).find(b=>{const placed=resolvePlayerWorld(wanted,MOVEMENT.playerRadius,[b],postureOf(state).height);return Math.hypot(placed.x-wanted.x,placed.z-wanted.z)>1e-8;});
         if(solid)state.worldContacts.push({id:solid.id,material:solid.material,normal,externalSpeed:Math.max(0,-(previous.impulse?.x??0)*normal.x-(previous.impulse?.z??0)*normal.z)});
       }
     }

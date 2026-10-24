@@ -51,3 +51,12 @@ test('front wheels follow the real turn, inner wheel travels less, and crawling 
  const {soFistWheelSteering,soFistTurnRate}=await import('../../shared/sim/soFistGeometry.mjs');const right=soFistWheelSteering({speed:4.2,steer:1});assert.ok(right[0]<0&&right[1]<right[0]);assert.deepEqual(right.slice(2),[0,0]);assert.deepEqual(soFistWheelSteering({speed:-4.2,steer:1}),right);assert.ok(1/Math.abs(soFistTurnRate({speed:1,steer:1}))>=3.25);
  const s=setup();run(s,3,{forward:1,right:1});assert.ok(s.b.heading<-.8);assert.ok(s.b.wheelRolls[1]<s.b.wheelRolls[0]);
 });
+
+test('rotated ram movement solids leave the empty diagonal approach accessible', async () => {
+ const {soFistSolids}=await import('../../shared/sim/soFistGeometry.mjs');
+ const {resolvePlayerWorld}=await import('../../shared/src/collision.mjs');
+ const b=createSoFistication({heading:Math.PI/4});
+ const at={x:-.7,y:0,z:1.4};
+ assert.deepEqual(resolvePlayerWorld(at,.45,soFistSolids(b)),at);
+ assert.ok(soFistSolids(b).every(s=>s.axes),'movement keeps component orientation');
+});

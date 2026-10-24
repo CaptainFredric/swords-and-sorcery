@@ -1,3 +1,4 @@
+import { resolvePlayerWorld } from './collision.mjs';
 // A Spellblade's body, standing or crouched: the one description everything reads (the world's walls and ceilings,
 // every blow and blast, the eyes). Crouching is a real posture, not a lowered camera: the body is shorter, so it fits
 // under what a standing knight cannot and whatever passes over it misses it, and it cannot stand up again until there
@@ -30,6 +31,11 @@ export function roomToStand(position, radius, world) {
   const from = position.y + POSTURES.crouched.height;
   const to = position.y + POSTURES.standing.height;
   for (const box of world?.solids ?? []) {
+    if(box.axes){
+      const head={...position,y:from},clear=resolvePlayerWorld(head,radius,[box],to-from);
+      if(Math.hypot(clear.x-head.x,clear.z-head.z)>1e-8)return false;
+      continue;
+    }
     const minY = box.center[1] - box.size[1] / 2;
     const maxY = box.center[1] + box.size[1] / 2;
     if (maxY <= from || minY >= to) continue;

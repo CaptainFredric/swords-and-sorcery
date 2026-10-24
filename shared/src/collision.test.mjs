@@ -44,3 +44,29 @@ test('Shattered Keep broken bridge has a real traversable floor gap', () => {
   assert.equal(surfaceHeightAt(0, gapCenterZ, 0.5, SHATTERED_KEEP), null);
   assert.equal(surfaceHeightAt(0, south.center[2], 0.5, SHATTERED_KEEP), 0);
 });
+
+test('oriented machinery permits a close approach outside its actual diagonal footprint', () => {
+  const c=Math.SQRT1_2;
+  const machine={center:[0,1,0],size:[.8,1,4],axes:[[c,0,-c],[0,1,0],[c,0,c]]};
+  const at={x:1.5,y:0,z:-1.5};
+  assert.deepEqual(resolvePlayerWorld(at,.45,[machine]),at);
+});
+test('oriented machinery pushes an overlapping body out along its actual face normal', () => {
+  const c=Math.SQRT1_2,box={center:[0,1,0],size:[.8,1,4],axes:[[c,0,-c],[0,1,0],[c,0,c]]};
+  const at={x:c*.6,y:0,z:-c*.6},result=resolvePlayerWorld(at,.45,[box]);
+  assert.ok(Math.abs((result.x-result.z)*c-.85)<1e-7);
+  assert.equal(result.y,0);
+});
+test('inclined machinery clips its footprint to the body height instead of blocking empty space underneath', () => {
+  const c=Math.SQRT1_2,box={center:[0,1,0],size:[1,1,4],axes:[[1,0,0],[0,c,-c],[0,c,c]]};
+  const below={x:0,y:-2,z:0};
+  assert.deepEqual(resolvePlayerWorld(below,.45,[box],.5),below);
+  const on={x:.6,y:0,z:0},moved=resolvePlayerWorld(on,.45,[box]);
+  assert.ok(moved.x>=.949999);
+});
+
+test('a crouched body cannot stand through a diagonally placed mechanical beam', async () => {
+ const {roomToStand}=await import('./body.mjs');const c=Math.SQRT1_2;
+ const beam={center:[0,1.6,0],size:[.8,.5,4],axes:[[c,0,-c],[0,1,0],[c,0,c]]};
+ assert.equal(roomToStand({x:1,y:0,z:1},.45,{solids:[beam]}),false);
+});

@@ -44,7 +44,7 @@ export function soFistStriker(b,now){
  return b.components.Fist.health>0?soFistVolumes(b,now).find(v=>v.componentId==='Fist'):{componentId:'Piston',axes:soFistFrame(b).axes,center:boxWorld(soFistFrame(b),[0,.965,1.347+pose.offset-.06]),size:[.848,.848,.12]};
 }
 export function soFistFirstHit(b,start,end,now,grow=0){let best=null;for(const box of soFistVolumes(b,now)){const h=orientedBoxHit(start,end,box,grow);if(h&&(!best||h.t<best.t))best=h;}return best;}
-export function soFistSolids(b){return soFistVolumes(b).map(v=>({id:v.id,componentId:v.componentId,center:v.center,size:[0,1,2].map(i=>v.axes.reduce((s,a,j)=>s+Math.abs(a[i])*v.size[j],0)),material:v.material,kind:'siege-chassis'}));}
+export function soFistSolids(b){return soFistVolumes(b).map(v=>({...v,kind:'siege-chassis'}));}
 export function machineryOverlap(a,b){
  const dot=(x,y)=>x.reduce((n,v,i)=>n+v*y[i],0),cross=(x,y)=>[x[1]*y[2]-x[2]*y[1],x[2]*y[0]-x[0]*y[2],x[0]*y[1]-x[1]*y[0]],B=b.axes??[[1,0,0],[0,1,0],[0,0,1]],delta=b.center.map((v,i)=>v-a.center[i]);
  for(const axis of [...a.axes,...B,...a.axes.flatMap(u=>B.map(v=>cross(u,v)))]){if(dot(axis,axis)<1e-10)continue;const r=(box,axes)=>axes.reduce((n,v,i)=>n+Math.abs(dot(v,axis))*box.size[i]/2,0);if(Math.abs(dot(delta,axis))>=r(a,a.axes)+r(b,B)-.002)return false;}return true;
