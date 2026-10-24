@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { mkdir, writeFile } from 'node:fs/promises';
-const require=createRequire('/Users/erendiracisneros/.npm/_npx/31e32ef8478fbf80/node_modules/playwright/package.json');
-const {chromium}=require('playwright');
+const require=createRequire(import.meta.url);
+const {chromium}=require(process.env.PLAYWRIGHT_MODULE??'playwright');
 const browser=await chromium.launch({channel:'chrome',headless:true});
 const context=await browser.newContext({viewport:{width:960,height:600},isMobile:true,hasTouch:true});
 const page=await context.newPage();page.setDefaultTimeout(10000);

@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { focus, aim, walkTo } from './bibye-browser-inputs.mjs';
-const req=createRequire('/Users/erendiracisneros/.npm/_npx/31e32ef8478fbf80/node_modules/playwright/package.json');
-const {chromium}=req('playwright');
+const req=createRequire(import.meta.url);
+const {chromium}=req(process.env.PLAYWRIGHT_MODULE??'playwright');
 const browser=await chromium.launch({channel:'chrome',headless:true});
 const context=await browser.newContext({viewport:{width:1280,height:800}});
 const page=await context.newPage();page.setDefaultTimeout(8000);
@@ -27,7 +27,7 @@ try {
   await page.mouse.down();await page.mouse.up();await page.waitForTimeout(2300);s=await capture('stroke-'+i);assert.equal(s.structures.entities['assault-barricade'].health,Math.max(0,600-i*240));if(i<3)await page.waitForTimeout(1750);
  }
  await page.keyboard.down('w');await page.waitForTimeout(2900);await page.keyboard.up('w');await page.waitForTimeout(200);s=await capture('through-breach');assert.ok(s.b.z>-13,`ram crossed the opening: ${s.b.z}`);assert.equal(s.objective.index,0,'capture gate remains phase bound');
- await page.keyboard.press('t');await page.keyboard.down('d');await page.keyboard.down('Shift');await page.waitForTimeout(500);await page.keyboard.up('d');await page.keyboard.up('Shift');await page.keyboard.press('e');await page.mouse.down({button:'right'});await page.waitForTimeout(900);s=await capture('contesting-objective');await page.mouse.up({button:'right'});assert.ok(s.p.position.z>-8&&Math.abs(s.p.position.x)<6);assert.ok(s.objective.attackersCount>0);
+ await page.keyboard.press('t');await page.waitForFunction(()=>!window.__ssRuntime.localAuth.operatingRamId);await page.waitForTimeout(250);await aim(page,Math.PI,0);await page.keyboard.down('d');await page.keyboard.down('Shift');await page.waitForTimeout(500);await page.keyboard.up('d');await page.keyboard.up('Shift');await page.keyboard.down('w');await page.keyboard.press('e');await page.waitForTimeout(500);await page.keyboard.up('w');await page.mouse.down({button:'right'});await page.waitForTimeout(400);s=await state();await page.mouse.up({button:'right'});if(Math.hypot(s.p.position.x,s.p.position.z+2)>5.8)await walkTo(page,Math.sign(s.p.position.x||1)*4.5,-4.2);await page.mouse.down({button:'right'});await page.waitForTimeout(250);s=await capture('contesting-objective');await page.mouse.up({button:'right'});assert.ok(s.p.position.z>-8&&Math.abs(s.p.position.x)<6);assert.ok(s.objective.attackersCount>0);
 
  await writeFile(folder+'/errors.json',JSON.stringify(errors));console.log('COMPLETE',JSON.stringify(errors));
 } catch(e){await capture('failure').catch(()=>{});console.error(e);process.exitCode=1;}finally{await browser.close();}
