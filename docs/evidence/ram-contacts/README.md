@@ -14,4 +14,15 @@ Real Chrome inputs against two WebSocket clients verified Charge at 88 HP, Guard
 
 Browser harness: `scripts/so-fist-contacts-browser.mjs`. Set PLAYWRIGHT_MODULE to an installed Playwright module path. RAM_VERSION=before selects the baseline source checkout, configurable through RAM_BASELINE_REPO. RAM_CASE selects comma separated scenarios. Fixtures supply only initial placement and a Steel loadout. Driving, firing, Guard, Steel and gestures use keyboard, mouse or CDP touch events. No damage or hit results are injected. Full raw recordings remain in ignored output/playwright/ram-contacts.
 
-Final rotated touch, HTML5 export and evidence packaging checks are being completed. Physical phone and deployed itch.io iframe are outside this local verification. No release, deployment or merge is authorized.
+Final browser checks passed for the ordinary touch layout and both sideways layouts, including orientation cancellation and fresh dismount input. `npm run verify` passed 509 syntax modules, 1,806 repository tests, 19 HTML5 tests and HTTP/WebSocket smoke checks. The exported ZIP contains 992 runtime files, 47.37 MB compressed and 64.17 MB extracted. Its SHA256 is `8f730d9089e976790c98074bd741fc8b94fbc988aaf12f3f95f3f484dcf33004`; runtime revision is `e88ea8273ba48577b146f2563c6b500b802386a2`. Later commits change this harness or documentation only.
+
+## Short visual comparison
+
+Both recordings use Chrome, a 960 by 600 viewport, the same initial carriage position, and the same touch gesture sequence. The baseline runs at ordinary 4.8 m/s with full Drive Pressure when the stick is pushed forward; the candidate shows KNOCK ON STEEL and spends Drive Pressure. The clips also demonstrate independent source releases and cancellation.
+
+| Before | After |
+| :--- | :--- |
+| ![Forward stick leaves ordinary drive active](before-touch-stick.png) | ![Forward stick activates Knock on Steel](after-touch-stick.png) |
+| [7 second recording](before-touch.webm) | [8 second recording](after-touch.webm) |
+
+[Authoritative browser events and gesture results](browser-summary.json) record all eight candidate scenarios. No frame rate improvement is claimed. Physical phone and deployed itch.io iframe are outside this local verification. No release, deployment or merge is authorized.

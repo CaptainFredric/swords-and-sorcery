@@ -1,0 +1,438 @@
+{
+  "baseline": "c37309f (same source as bede0bf)",
+  "candidateRuntime": "e88ea8273ba48577b146f2563c6b500b802386a2",
+  "cases": [
+    {
+      "id": "nudge",
+      "damage": [],
+      "health": 100,
+      "position": {
+        "x": 15.3,
+        "y": 0,
+        "z": -21.848741666666665
+      },
+      "deaths": 0
+    },
+    {
+      "id": "charge",
+      "damage": [
+        {
+          "type": "damage",
+          "attackerId": "operator",
+          "victimId": "target",
+          "source": "knock-on-steel",
+          "amount": 88,
+          "health": 12,
+          "push": null,
+          "at": 31.821832957999998
+        },
+        {
+          "type": "damage",
+          "attackerId": "operator",
+          "victimId": "target",
+          "source": "wall-impact",
+          "amount": 30,
+          "health": 0,
+          "push": null,
+          "at": 32.108417208
+        }
+      ],
+      "health": 0,
+      "position": {
+        "x": 15.3,
+        "y": 0,
+        "z": -21.85
+      },
+      "deaths": 1
+    },
+    {
+      "id": "guard",
+      "damage": [
+        {
+          "type": "damage",
+          "attackerId": "operator",
+          "victimId": "target",
+          "source": "knock-on-steel",
+          "amount": 48,
+          "health": 52,
+          "push": null,
+          "at": 46.79168125
+        }
+      ],
+      "health": 22,
+      "position": {
+        "x": 15.3,
+        "y": 0,
+        "z": -21.85
+      },
+      "deaths": 0
+    },
+    {
+      "id": "steel",
+      "damage": [
+        {
+          "type": "damage",
+          "attackerId": "operator",
+          "victimId": "target",
+          "source": "knock-on-steel",
+          "amount": 56,
+          "health": 44,
+          "push": null,
+          "at": 61.131784375,
+          "steel": 1,
+          "turned": 32
+        },
+        {
+          "type": "damage",
+          "attackerId": "operator",
+          "victimId": "target",
+          "source": "wall-impact",
+          "amount": 19,
+          "health": 25,
+          "push": null,
+          "at": 61.366626665999995,
+          "steel": 1,
+          "turned": 11
+        }
+      ],
+      "health": 25,
+      "position": {
+        "x": 15.3,
+        "y": 0,
+        "z": -21.850686111111113
+      },
+      "deaths": 0
+    },
+    {
+      "id": "piston",
+      "damage": [
+        {
+          "type": "damage",
+          "attackerId": "operator",
+          "victimId": "target",
+          "source": "so-fist",
+          "amount": 108,
+          "health": 0,
+          "push": null,
+          "at": 75.23400375
+        }
+      ],
+      "health": 0,
+      "position": {
+        "x": 15.3,
+        "y": 0,
+        "z": -1.7
+      },
+      "deaths": 1
+    },
+    {
+      "id": "touch",
+      "gestures": [
+        {
+          "label": "mounted",
+          "charge": false,
+          "sprintIntent": false,
+          "forward": 0,
+          "pressure": 100
+        },
+        {
+          "label": "stick-alone",
+          "charge": true,
+          "sprintIntent": true,
+          "forward": 1,
+          "pressure": 99.06289185185184
+        },
+        {
+          "label": "threshold-51",
+          "charge": true,
+          "sprintIntent": true,
+          "forward": 1,
+          "pressure": 97.81522962962961
+        },
+        {
+          "label": "threshold-50",
+          "charge": true,
+          "sprintIntent": true,
+          "forward": 1,
+          "pressure": 96.46340740740737
+        },
+        {
+          "label": "threshold-49",
+          "charge": true,
+          "sprintIntent": true,
+          "forward": 1,
+          "pressure": 94.94694518518514
+        },
+        {
+          "label": "threshold-50",
+          "charge": true,
+          "sprintIntent": true,
+          "forward": 1,
+          "pressure": 93.20536296296291
+        },
+        {
+          "label": "threshold-51",
+          "charge": true,
+          "sprintIntent": true,
+          "forward": 1,
+          "pressure": 91.17818074074069
+        },
+        {
+          "label": "button-holds",
+          "charge": true,
+          "sprintIntent": true,
+          "forward": 0.5945945945945946,
+          "pressure": 87.00061037037032
+        },
+        {
+          "label": "stick-holds",
+          "charge": true,
+          "sprintIntent": true,
+          "forward": 1,
+          "pressure": 83.1639407407407
+        },
+        {
+          "label": "both-released",
+          "charge": false,
+          "sprintIntent": false,
+          "forward": 0.5945945945945946,
+          "pressure": 83.94490074074074
+        },
+        {
+          "label": "button-alone",
+          "charge": true,
+          "sprintIntent": true,
+          "forward": 0,
+          "pressure": 81.6092033185185
+        },
+        {
+          "label": "cancelled",
+          "charge": false,
+          "sprintIntent": false,
+          "forward": 0,
+          "pressure": 82.74112839448149
+        },
+        {
+          "label": "orientation-cancelled",
+          "charge": false,
+          "sprintIntent": false,
+          "forward": 0,
+          "pressure": 87.5077950611482
+        },
+        {
+          "label": "dismounted",
+          "charge": false,
+          "sprintIntent": false,
+          "forward": 0,
+          "pressure": 90.10779506114822
+        }
+      ]
+    },
+    {
+      "id": "touch-left",
+      "gestures": [
+        {
+          "label": "mounted",
+          "charge": false,
+          "sprintIntent": false,
+          "forward": 0,
+          "pressure": 100
+        },
+        {
+          "label": "stick-alone",
+          "charge": true,
+          "sprintIntent": true,
+          "forward": 1,
+          "pressure": 99.06289185185184
+        },
+        {
+          "label": "threshold-51",
+          "charge": true,
+          "sprintIntent": true,
+          "forward": 1,
+          "pressure": 97.67127703703702
+        },
+        {
+          "label": "threshold-50",
+          "charge": true,
+          "sprintIntent": true,
+          "forward": 1,
+          "pressure": 96.30414814814812
+        },
+        {
+          "label": "threshold-49",
+          "charge": true,
+          "sprintIntent": true,
+          "forward": 1,
+          "pressure": 94.76565925925922
+        },
+        {
+          "label": "threshold-50",
+          "charge": true,
+          "sprintIntent": true,
+          "forward": 1,
+          "pressure": 92.99533037037031
+        },
+        {
+          "label": "threshold-51",
+          "charge": true,
+          "sprintIntent": true,
+          "forward": 1,
+          "pressure": 90.93268148148142
+        },
+        {
+          "label": "button-holds",
+          "charge": true,
+          "sprintIntent": true,
+          "forward": 0.5945945945945946,
+          "pressure": 86.35592296296292
+        },
+        {
+          "label": "stick-holds",
+          "charge": true,
+          "sprintIntent": true,
+          "forward": 1,
+          "pressure": 82.77823407407404
+        },
+        {
+          "label": "both-released",
+          "charge": false,
+          "sprintIntent": false,
+          "forward": 0.5945945945945946,
+          "pressure": 83.55268148148147
+        },
+        {
+          "label": "button-alone",
+          "charge": true,
+          "sprintIntent": true,
+          "forward": 0,
+          "pressure": 81.30156139618516
+        },
+        {
+          "label": "cancelled",
+          "charge": false,
+          "sprintIntent": false,
+          "forward": 0,
+          "pressure": 82.65561268103704
+        },
+        {
+          "label": "orientation-cancelled",
+          "charge": false,
+          "sprintIntent": false,
+          "forward": 0,
+          "pressure": 86.98894601437041
+        },
+        {
+          "label": "dismounted",
+          "charge": false,
+          "sprintIntent": false,
+          "forward": 0,
+          "pressure": 88.28894601437042
+        }
+      ]
+    },
+    {
+      "id": "touch-right",
+      "gestures": [
+        {
+          "label": "mounted",
+          "charge": false,
+          "sprintIntent": false,
+          "forward": 0,
+          "pressure": 100
+        },
+        {
+          "label": "stick-alone",
+          "charge": true,
+          "sprintIntent": true,
+          "forward": 1,
+          "pressure": 99.06289185185184
+        },
+        {
+          "label": "threshold-51",
+          "charge": true,
+          "sprintIntent": true,
+          "forward": 1,
+          "pressure": 97.67127703703702
+        },
+        {
+          "label": "threshold-50",
+          "charge": true,
+          "sprintIntent": true,
+          "forward": 1,
+          "pressure": 96.30414814814812
+        },
+        {
+          "label": "threshold-49",
+          "charge": true,
+          "sprintIntent": true,
+          "forward": 1,
+          "pressure": 94.76565925925922
+        },
+        {
+          "label": "threshold-50",
+          "charge": true,
+          "sprintIntent": true,
+          "forward": 1,
+          "pressure": 93.20536296296291
+        },
+        {
+          "label": "threshold-51",
+          "charge": true,
+          "sprintIntent": true,
+          "forward": 1,
+          "pressure": 91.17818074074069
+        },
+        {
+          "label": "button-holds",
+          "charge": true,
+          "sprintIntent": true,
+          "forward": 0.5945945945945946,
+          "pressure": 87.00061037037032
+        },
+        {
+          "label": "stick-holds",
+          "charge": true,
+          "sprintIntent": true,
+          "forward": 1,
+          "pressure": 83.1639407407407
+        },
+        {
+          "label": "both-released",
+          "charge": false,
+          "sprintIntent": false,
+          "forward": 0.5945945945945946,
+          "pressure": 83.55268148148147
+        },
+        {
+          "label": "button-alone",
+          "charge": true,
+          "sprintIntent": true,
+          "forward": 0,
+          "pressure": 81.30156139618516
+        },
+        {
+          "label": "cancelled",
+          "charge": false,
+          "sprintIntent": false,
+          "forward": 0,
+          "pressure": 82.65561268103704
+        },
+        {
+          "label": "orientation-cancelled",
+          "charge": false,
+          "sprintIntent": false,
+          "forward": 0,
+          "pressure": 86.85561268103707
+        },
+        {
+          "label": "dismounted",
+          "charge": false,
+          "sprintIntent": false,
+          "forward": 0,
+          "pressure": 88.58894601437042
+        }
+      ]
+    }
+  ]
+}
