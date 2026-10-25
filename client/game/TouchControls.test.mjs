@@ -590,5 +590,6 @@ test('cancelled look or View fingers cancel precision view while ordinary finger
  const look={target:controls.layer};send('pointerdown',650,230,look);send('pointerup',660,230,look);assert.equal(cancelled,0);
  send('pointerdown',650,230,look);send('pointercancel',660,230,look);assert.equal(cancelled,1);
  send('lostpointercapture',660,230,look);assert.equal(cancelled,1);
+ const prior=cancelled;send('pointerdown',650,230,{action:'attack',pointerId:3});send('pointercancel',660,230,{action:'attack',pointerId:3});assert.equal(cancelled,prior+1);assert.equal(input.attackHeld,false);
  controls.reset();assert.ok(cancelled>1);
 });

@@ -2485,7 +2485,7 @@ export class GameRuntime {
     camera.layers.set(0);
     const ballista=this.world?.biByeLlista;
     const clear=Boolean(this.localAuth?.alive&&this.localAuth?.operatingBallistaId&&(this.siegeView==='clear'||this.clearBlend>.02));
-    if(ballista)ballista.renderMountedView(clear,()=>renderer.render(scene,camera));
+    if(ballista)ballista.renderMountedView(clear,()=>renderer.render(scene,camera),camera);
     else renderer.render(scene,camera);
     const background = scene.background;
     const shadows = renderer.shadowMap.autoUpdate;
