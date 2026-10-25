@@ -445,6 +445,8 @@
         <button id="practice-melee" class="practice-opponent">MR. MELEE</button>
         <button id="practice-runner" class="practice-opponent">SIR RUNS-A-LOT</button>
         <button id="practice-ultimate-knight" class="practice-opponent">THE ULTIMATE KNIGHT</button>
+        <button id="practice-st-perry" class="practice-opponent">ST. PERRY THE PRODIGIOUS</button>
+        <button id="practice-canonization" class="practice-opponent hidden">CANONIZATION</button>
         <button id="practice-remove">REMOVE DUMMY</button>
         <h3>ULTIMATE</h3>
         <button id="practice-ultimate">READY ULTIMATE</button>
@@ -466,6 +468,32 @@
         <button type="button" data-open-settings>SETTINGS</button>
         <button id="practice-leave" class="practice-leave">LEAVE PRACTICE</button>
       </aside>
+      <!-- St. Perry dialogue card in Practice Yard -->
+      <section id="perry-dialogue" class="perry-dialogue hidden" role="region" aria-label="St. Perry the Prodigious">
+        <div class="perry-dialogue-card">
+          <header class="perry-dialogue-header">
+            <span class="perry-saint-icon">🛡️</span>
+            <strong class="perry-dialogue-name">ST. PERRY THE PRODIGIOUS</strong>
+            <button id="perry-dialogue-close" class="perry-dialogue-close" type="button" aria-label="Dismiss dialogue">✕</button>
+          </header>
+          <div class="perry-dialogue-body">
+            <p id="perry-dialogue-text">"I am St. Perry, the Prodigious! Any idea why that is my name?"</p>
+          </div>
+          <div id="perry-dialogue-options" class="perry-dialogue-options">
+            <button class="perry-option-btn" type="button" data-answer="parry">"Because you parry?"</button>
+            <button class="perry-option-btn" type="button" data-answer="pears">"Because you are fond of pears?"</button>
+            <button class="perry-option-btn" type="button" data-answer="modesty">"Because of your saintly modesty?"</button>
+          </div>
+          <form id="perry-dialogue-form" class="perry-dialogue-form">
+            <input id="perry-dialogue-input" type="text" placeholder="Or type your guess…" autocomplete="off" />
+            <button type="submit">GUESS</button>
+          </form>
+          <div id="perry-canonization-prompt" class="perry-canonization-prompt hidden">
+            <p id="perry-canonize-status"><em>"You have parried the Saint! Truly, you understand the art."</em></p>
+            <button id="perry-canonize-btn" class="perry-canonize-btn" type="button">INVOKE CANONIZATION</button>
+          </div>
+        </div>
+      </section>
       <div id="death-card" class="death-card hidden"><div><small>SLAIN BY</small><strong id="death-killer">THE FALL</strong><b id="death-left" hidden></b></div><div class="death-card-how"><em id="death-how"></em><span id="death-timer">3.0</span></div></div>
       <div id="debug" class="debug hidden"></div>
       <div id="scoreboard" class="scoreboard hidden"></div>

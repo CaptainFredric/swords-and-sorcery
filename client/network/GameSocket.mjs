@@ -126,6 +126,8 @@ export class GameSocket {
   practiceSpawnDummy(mode = 'PASSIVE') { this.send({ type: 'practiceSpawnDummy', mode }); }
   practiceRemoveDummy() { this.send({ type: 'practiceRemoveDummy' }); }
   practiceSetDummyMode(mode) { this.send({ type: 'practiceSetDummyMode', mode }); }
+  practicePerryAnswer(answer) { this.send({ type: 'practicePerryAnswer', answer }); }
+  practicePerryDismiss() { this.send({ type: 'practicePerryDismiss' }); }
   input(input) { this.send({ type: 'input', ...input }); }
   attack(down) { this.send({ type: 'attack', down, clientTime: this.serverNow() }); }
   guard(down) { this.send({ type: 'guard', down, clientTime: this.serverNow() }); }

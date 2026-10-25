@@ -10,6 +10,7 @@ import { tryCastSpell, castPreparedSpell, selectPreparedSpell, beginAttack, endA
 import { compensatedInputTime } from './history.mjs';
 import { readyPracticeUltimate, removePracticeDummy, resetPracticePlayer, setPracticeDummyMode, spawnPracticeDummy } from './practice.mjs';
 import { mountBiByeLlista, dismountBiByeLlista, fireBiByeLlista, toggleBiByeDeploy, BI_BYE_LLISTA_CONFIG } from './biByeLlista.mjs';
+import { answerPerryDialogue, dismissPerryDialogue } from './StPerry.mjs';
 import { spellFor } from '../src/spells.mjs';
 import { GAME_MODES } from '../src/modes.mjs';
 
@@ -132,6 +133,22 @@ export function serializeSnapshot(room, nowSec) {
       attackNextStrike: p.attackNextStrike,
       // how many of the chain's strikes are committed (each swing seen beginning: the breath behind it leads it)
       attackCommitted: p.attackCommitted ?? 0,
+      ...(p.stPerry ? {
+        stPerry: {
+          parries: p.stPerry.parries,
+          playerCounterParries: p.stPerry.playerCounterParries,
+          playerHits: p.stPerry.playerHits,
+          canonized: Boolean(p.stPerry.canonized),
+          unlocked: Boolean(p.stPerry.unlocked),
+          dialogue: p.stPerry.dialogue ? {
+            state: p.stPerry.dialogue.state,
+            wrongCount: p.stPerry.dialogue.wrongCount,
+            solved: Boolean(p.stPerry.dialogue.solved),
+            dismissed: Boolean(p.stPerry.dialogue.dismissed),
+            lastLine: p.stPerry.dialogue.lastLine,
+          } : null,
+        },
+      } : {}),
       // a chain begun Sundering: every strike of it a slam (the heavy strike's shape)
       attackSlam: Boolean(p.attackSlam),
       alive: p.alive,
@@ -349,6 +366,10 @@ export function applyRoomCommand(room, player, message, time) {
       return room.mode === GAME_MODES.PRACTICE && readyPracticeUltimate(room, player.id) ? {} : { rejected: PRACTICE_REJECTED };
     case 'practiceSetDummyMode':
       return room.mode === GAME_MODES.PRACTICE && setPracticeDummyMode(room, message.mode, time) ? { lobby: true } : { rejected: PRACTICE_REJECTED };
+    case 'practicePerryAnswer':
+      return room.mode === GAME_MODES.PRACTICE && answerPerryDialogue(room, player, message.answer, time) ? {} : { rejected: PRACTICE_REJECTED };
+    case 'practicePerryDismiss':
+      return room.mode === GAME_MODES.PRACTICE && dismissPerryDialogue(room, player, time) ? {} : { rejected: PRACTICE_REJECTED };
     case 'siegeOperate': {
       if(player.operatingRamId){return dismountSoFistication(room,room.soFistication,player)?{}:{rejected:'No safe exit. Move onto supported open ground.'};}
       if(player.operatingBallistaId)return applyRoomCommand(room,player,{type:'bibyeOperate'},time);

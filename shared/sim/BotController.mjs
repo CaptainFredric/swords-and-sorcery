@@ -220,7 +220,7 @@ function considerDefense(room, actor, target, distance, ai, nowSec, random, aggr
 // when a foe's next blow will land (host seconds), as anyone can read it off their swing: its strike's swing has
 // visibly begun (the chain under way that long), so its contact is known; null if none is on its way (whether they
 // mean to swing again is theirs: never read)
-function nextContactAt(foe, nowSec = Infinity) {
+export function nextContactAt(foe, nowSec = Infinity) {
   if (!foe.attackActive || !Number.isFinite(foe.attackStartedAt)) return null;
   const strike = foe.attackNextStrike ?? 0;
   if (strike >= SWORD_STRIKE_TIMES.length) return null;
