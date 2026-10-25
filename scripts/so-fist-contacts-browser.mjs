@@ -60,6 +60,10 @@ for(const id of cases){
    await operator.setViewportSize(angle?{width:960,height:600}:{width:600,height:960});await sample('orientation-cancelled');
    assert.equal(samples.at(-1).input.sprint,false);assert.equal(samples.at(-1).input.forward,0);
    await dispatch('touchCancel',[]);
+   // Portrait correctly presents a modal that blocks the controls. Choose the
+   // same explicit continuation a player must choose before testing dismount.
+   const dismiss=operator.locator('#rotate-dismiss');
+   if(await dismiss.isVisible())await dismiss.tap();
    await operator.locator('.touch-interact').tap();await operator.waitForFunction(()=>!window.__ssRuntime.localAuth.operatingRamId);samples.push({label:'dismounted',...await read(operator)});assert.equal(samples.at(-1).input.sprint,false);
   }else{
    
