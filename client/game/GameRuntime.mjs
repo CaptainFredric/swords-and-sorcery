@@ -7,6 +7,7 @@ import {soFistSolids} from '../../shared/sim/soFistGeometry.mjs';
 import {ramCameraFollow} from './ramCamera.mjs';
 import {soFistOperator} from '../../shared/sim/soFistication.mjs';
 import { boxWorld } from '../../shared/src/orientedBox.mjs';
+import {clearOptics,sightPlanePoint,sightLimits,sightWeaponRay,sightScreenPoint} from './biByeSight.mjs';
 import { biByeViewAction } from '../worlds/biByePresentation.mjs';
 import { biByeConstrainAim, biByeRootFrame } from '../../shared/sim/biByeComponents.mjs';
 import { BiByeSound } from './sound/BiByeSound.mjs';
@@ -244,6 +245,9 @@ export class GameRuntime {
         const next=biByeViewAction({view:this.siegeView,returnView:this.siegeReturnView},action==='siegeZoom'?'zoom':'tap');
         this.siegeView=next.view;this.siegeReturnView=next.returnView;
       }
+    };
+    this.input.onAimCancelled=()=>{
+      if(this.siegeView==='clear'){this.siegeView=this.siegeReturnView??'third';this.siegeReturnView=undefined;}
     };
     this.input.onPointer = (locked) => {
       hud.setPointerLocked(locked);
@@ -585,6 +589,7 @@ export class GameRuntime {
       this.siegeCamera = null;
       this.siegeView = 'third';
       this.siegeReturnView = undefined;
+      this.clearBlend=0;this.input.aimGain=1;
     }
     if(snapshot.roomCode===this.latestSnapshot?.roomCode&&(snapshot.soFistRevision??0)<(this.latestSnapshot?.soFistRevision??0))return;
     this.latestSnapshot = snapshot;
@@ -610,7 +615,8 @@ export class GameRuntime {
       this.input.yaw = snapshot.bibyeBallista.yaw;
       this.input.pitch = snapshot.bibyeBallista.pitch;
     }
-    if (wasMounted && !auth?.operatingBallistaId && !auth?.operatingRamId) {
+    if (wasMounted && (!auth?.alive || !auth?.operatingBallistaId && !auth?.operatingRamId)) {
+      this.siegeView='third';this.siegeReturnView=undefined;
       this.input.releaseInputs();
       if (auth) { this.input.yaw = auth.yaw; this.input.pitch = auth.pitch; }
     }
@@ -2086,6 +2092,11 @@ export class GameRuntime {
     const ram=Boolean(this.localAuth?.operatingRamId);
     const b = ram?this.world?.soFistication?.presentationData??this.latestSnapshot?.soFistication:this.latestSnapshot?.bibyeBallista;
     const mounted = this.localAuth?.alive && (this.localAuth?.operatingBallistaId||this.localAuth?.operatingRamId) && b && b.mode !== 'DESTROYED';
+    const optics=clearOptics(this.clearBlend??0,this.view.fov,Boolean(mounted&&!ram&&this.siegeView==='clear'&&this.input.enabled),dt);
+    this.clearBlend=optics.blend;
+    this.input.aimGain=mounted&&!ram&&this.input.enabled?optics.gain:1;
+    if(optics.blend>0)this.#setFov(optics.fov);
+    if(!(mounted&&!ram&&this.siegeView==='clear'&&this.input.enabled))this.hud.setBiByeSight(null);
     if (!mounted && !this.siegeCamera) return;
     const target = this.camera.position.clone();
     const rotation = this.camera.quaternion.clone();
@@ -2119,16 +2130,45 @@ export class GameRuntime {
 
     }
     this.siegeCamera ??= { position: this.camera.position.clone(), quaternion: this.camera.quaternion.clone() };
-    if(mounted&&this.siegeView==='clear')this.#setFov(Math.max(35,this.view.fov*.7));
     const blend = 1 - Math.exp(-dt * 14);
     if(ram&&mounted){
       const follow=ramCameraFollow(this.ramCameraAnchor,[b.position.x,b.position.y,b.position.z],target.toArray(),dt);
       this.ramCameraAnchor=follow.anchor;this.siegeCamera.position.fromArray(clip(this.#reach,[b.position.x,b.position.y+1.85,b.position.z],follow.position,.25));
-    }else{this.ramCameraAnchor=null;this.siegeCamera.position.lerp(target, blend);}
+    }else{
+      this.ramCameraAnchor=null;this.siegeCamera.position.lerp(target, blend);
+      // Clip the interpolated camera too: a safe destination alone does not
+      // make the path between two safe views passable through scenery.
+      if(mounted&&this.clearBlend>0){
+        const anchor=boxWorld(biByeRootFrame({...b,...b.position}),[0,1.45,-1.88]);
+        this.siegeCamera.position.fromArray(clip(this.#reach,anchor,this.siegeCamera.position.toArray(),.18));
+      }
+    }
     if(mounted)this.siegeCamera.quaternion.copy(rotation);else this.siegeCamera.quaternion.slerp(rotation,blend);
     this.camera.position.copy(this.siegeCamera.position);
     this.camera.quaternion.copy(this.siegeCamera.quaternion);
+    if(mounted&&!ram&&this.siegeView==='clear'&&this.input.enabled)this.#showBiByeSight(b);
     if (!mounted && this.siegeCamera.position.distanceTo(target) < .02 && this.siegeCamera.quaternion.angleTo(rotation) < .01) this.siegeCamera = null;
+  }
+
+  #showBiByeSight(b){
+    const upper=b.mode!=='DEPLOYED'||b.weaponFocus!=='MAIN',camera=this.camera;
+    camera.updateMatrixWorld();
+    const origin=camera.position.toArray(),forward=aimVector(this.input.yaw,this.input.pitch);
+    const range=reticleDistance(origin,forward,{reach:this.#reach,groundAt:(x,z,y)=>surfaceHeightAt(x,z,y,this.activeWorld),bodies:this.remotePlayers.bodies()},{aimReach:200,bodyRadius:.45});
+    const size={width:this.renderer.domElement.clientWidth,height:this.renderer.domElement.clientHeight};
+    const project=kind=>{
+      const ray=sightWeaponRay({...b,...b.position},kind),end=sightPlanePoint(ray.origin,ray.direction,origin,forward,range);
+      if(!end)return null;
+      const fraction=this.#reach(ray.origin,end),point=ray.origin.map((v,i)=>v+(end[i]-v)*fraction);
+      const local=new THREE.Vector3(...point).applyMatrix4(camera.matrixWorldInverse);
+      const screen=sightScreenPoint(local.toArray(),camera.fov,camera.aspect);
+      if(!screen)return null;
+      return {x:screen.x*size.width/2,y:-screen.y*size.height/2,blocked:fraction<.995};
+    };
+    const primary=project(upper?'conditioning':'siege');
+    const secondary=!upper&&b.mainBoltLoaded!==false&&(b.coupling==='FIRING'||b.trackingSince!=null)?project('conditioning'):null;
+    const limits=sightLimits({...b,...b.position},{yaw:this.input.yaw,pitch:this.input.pitch},upper);
+    this.hud.setBiByeSight({weapon:upper?'UPPER':'MAIN',primary,secondary,limits,limited:b.aimLimited,blend:this.clearBlend});
   }
 
   #frame(nowMs) {
@@ -2444,7 +2484,7 @@ export class GameRuntime {
     const { renderer, scene, camera } = this;
     camera.layers.set(0);
     const ballista=this.world?.biByeLlista;
-    const clear=Boolean(this.localAuth?.alive&&this.localAuth?.operatingBallistaId&&this.siegeView==='clear');
+    const clear=Boolean(this.localAuth?.alive&&this.localAuth?.operatingBallistaId&&(this.siegeView==='clear'||this.clearBlend>.02));
     if(ballista)ballista.renderMountedView(clear,()=>renderer.render(scene,camera));
     else renderer.render(scene,camera);
     const background = scene.background;

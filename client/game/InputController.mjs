@@ -68,8 +68,10 @@ export class InputController {
     this.onMarkLocal = () => {};
     this.onPointer = () => {};
     this.onAction = () => {};
+    this.onAimCancelled = () => {};
     // look speed (multipliers) and the key bindings, from the settings
     this.look = { mouse: 1, touch: 1, ram: .65, invertY: false };
+    this.aimGain = 1;
     this.bindings = registry.defaultBindings();
     this.#index();
 
@@ -286,7 +288,7 @@ export class InputController {
   turn(yawDelta, pitchDelta) {
     if (!this.enabled) return;
     if (this.allowAction?.('look', false) === false) { this.mouseLookBlocked = true; return; }
-    const gain=this.mountedRam?this.look.ram:1;
+    const gain=(this.mountedRam?this.look.ram:1)*this.aimGain;
     this.yaw += yawDelta*gain;
     this.pitch = Math.max(-1.45, Math.min(1.45, this.pitch + pitchDelta*gain));
   }
@@ -338,6 +340,8 @@ export class InputController {
   }
 
   releaseInputs() {
+    this.aimGain = 1;
+    this.onAimCancelled();
     this.cancelPreparedGesture();
     this.attackSources.clear();
     this.guardSources.clear();
