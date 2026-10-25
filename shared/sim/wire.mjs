@@ -186,7 +186,7 @@ export function serializeSnapshot(room, nowSec) {
     projectiles: [...room.projectiles.values()].map((p) => ({ id: p.id, ownerId: p.ownerId, spell: p.spell, position: p.position, velocity: p.velocity })),
     structures: room.structures,
     soFistRevision:room.soFistRevision??0,
-    soFistication:room.soFistication?{...room.soFistication,position:{x:room.soFistication.x,y:room.soFistication.y,z:room.soFistication.z},contacts:undefined,recentVictims:undefined,strokeVictims:undefined,strokeMachines:undefined}:null,
+    soFistication:room.soFistication?{...room.soFistication,position:{x:room.soFistication.x,y:room.soFistication.y,z:room.soFistication.z},contacts:undefined,bodyEpisodes:undefined,recentVictims:undefined,strokeVictims:undefined,strokeMachines:undefined}:null,
     bibyeRevision: room.biByeRevision??0,
     bibyeBallista: room.biByeLlista ? {
       builtAt:room.biByeLlista.builtAt,

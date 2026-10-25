@@ -543,3 +543,44 @@ test('resizing the touch layer during a slow look cannot create an aim jump',()=
  const before=input.yaw;rect={left:0,top:0,width:1000,height:650};send('pointermove',604,300,pointer);
  assert.equal(input.yaw,before);send('pointermove',600,300,pointer);assert.ok(Math.abs(input.yaw)<1e-9);
 });
+
+test('mounted ram Charge accepts independent stick and held button sources with hysteresis', () => {
+  const p={alive:true,spell:'fireball',position:{x:0,y:0,z:3.1},operatingRamId:'ram'};
+  const {controls,send}=setup(p),stick={target:controls.layer,pointerId:1},button={action:'sprint',pointerId:2};
+  send('pointerdown',100,400,stick);send('pointermove',100,348,stick);
+  assert.equal(controls.movement().sprint,true,'strong forward push charges alone');
+  for(const y of [349,350,351,350,349]){send('pointermove',100,y,stick);assert.equal(controls.movement().sprint,true,'threshold noise retains charge');}
+  send('pointerdown',50,180,button);send('pointermove',100,370,stick);
+  assert.equal(controls.movement().sprint,true,'button holds charge after stick eases');
+  send('pointermove',100,344,stick);send('pointerup',50,180,button);
+  assert.equal(controls.movement().sprint,true,'stick holds charge after button release');
+  send('pointermove',100,370,stick);assert.equal(controls.movement().sprint,false);
+  send('pointerdown',50,180,button);send('pointerup',100,370,stick);
+  assert.equal(controls.movement().sprint,true,'button charges without stick');
+  send('pointercancel',50,180,button);assert.equal(controls.movement().sprint,false);
+});
+
+test('ram gestures clear across dismount, death and orientation; old pointers cannot restore Charge',()=>{
+  for(const end of ['dismount','death','orientation']){
+    const orientation=new EventTarget(),p={alive:true,spell:'fireball',position:{x:0,y:0,z:3.1},operatingRamId:'ram'};
+    const {controls,send}=setup(p,{orientation}),stick={target:controls.layer};
+    send('pointerdown',100,400,stick);send('pointermove',100,344,stick);
+    send('pointerdown',50,180,{action:'sprint',pointerId:2});
+    if(end==='orientation')orientation.dispatchEvent(new Event('change'));
+    else controls.update({...p,alive:end!=='death',operatingRamId:null},10);
+    send('pointermove',100,340,stick);
+    assert.equal(controls.movement().sprint,false,end);
+    assert.equal(controls.movement().forward,0,end);
+  }
+});
+
+test('two held Charge pointers remain independent and ordinary on-foot Sprint keeps its threshold',()=>{
+ const p={alive:true,spell:'fireball',position:{x:0,y:0,z:3.1},operatingRamId:'ram'};
+ const {controls,send}=setup(p);
+ send('pointerdown',50,180,{action:'sprint',pointerId:2});send('pointerdown',50,180,{action:'sprint',pointerId:3});
+ send('pointercancel',50,180,{action:'sprint',pointerId:2});assert.equal(controls.movement().sprint,true);
+ send('pointerup',50,180,{action:'sprint',pointerId:3});assert.equal(controls.movement().sprint,false);
+ controls.update({...p,operatingRamId:null},10);const stick={target:controls.layer};
+ send('pointerdown',100,400,stick);send('pointermove',100,347,stick);assert.equal(controls.movement().sprint,true);
+ send('pointermove',100,350,stick);assert.equal(controls.movement().sprint,false,'on foot behavior retains established threshold');
+});
