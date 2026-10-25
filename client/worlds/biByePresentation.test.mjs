@@ -79,3 +79,12 @@ test('clear sight returns to the exact preceding view on the next tap',async()=>
  }
  assert.equal(change({view:'third'},'tap').view,'sight');
 });
+
+test('CLEAR hides only the loaded bolt for one local render and always restores authored state', async()=>{
+ const {withClearBoltHidden}=await import('./biByePresentation.mjs');
+ const bolt={visible:true},other={visible:true};
+ withClearBoltHidden(bolt,true,()=>{assert.equal(bolt.visible,false);assert.equal(other.visible,true);});assert.equal(bolt.visible,true);
+ assert.throws(()=>withClearBoltHidden(bolt,true,()=>{throw Error('render');}));assert.equal(bolt.visible,true);
+ bolt.visible=false;withClearBoltHidden(bolt,true,()=>{});assert.equal(bolt.visible,false);
+ withClearBoltHidden(bolt,false,()=>assert.equal(bolt.visible,false));
+});

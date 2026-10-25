@@ -24,3 +24,13 @@ test('unrelated event types do not request generic melee feedback', () => {
   assert.equal(localCombatFeedback({ type: 'spellCast', playerId: 'me' }, 'me'), null);
   assert.equal(localCombatFeedback(null, 'me'), null);
 });
+
+test('frost feedback uses one canonical blast and one outcome per affected target', async()=>{
+ const {biByeFrostFeedback}=await import('./combatFeedback.mjs');
+ assert.deepEqual(biByeFrostFeedback({type:'bibyeBoltImpact',subKind:'conditioning'},'me'),null);
+ assert.equal(biByeFrostFeedback({type:'bibyeFrostBlast',radius:2},'me').kind,'blast');
+ for(const [outcome,marker] of [['hit','hit'],['block','block'],['parry','parry'],['guardBreak','break']]){
+  const e={type:'bibyeFrostContact',outcome,attackerId:'me',defenderId:'them',damage:outcome==='parry'?0:5};
+  assert.equal(biByeFrostFeedback(e,'me').marker,marker);assert.equal(biByeFrostFeedback(e,'them').reaction,outcome);assert.equal(biByeFrostFeedback(e,'observer').marker,null);
+ }
+});

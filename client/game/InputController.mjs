@@ -201,6 +201,7 @@ export class InputController {
       }
       // a bound key belongs to the game while in the arena (Space would scroll, Tab would move focus)
       if (action) event.preventDefault();
+      if(action==='siegeView'&&event.shiftKey&&this.enabled){if(!event.repeat)this.onAction('siegeZoom',true);return;}
       this.#press(event.code, event.repeat);
       if (event.code === 'F3' && !event.repeat) {
         event.preventDefault();

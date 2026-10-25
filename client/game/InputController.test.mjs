@@ -566,3 +566,8 @@ test('ram sensitivity preserves precise immediate aim and ordinary settings on e
  input.turn(-.1,-.05);assert.ok(Math.abs(input.yaw)<1e-9);
  input.mountedRam=false;input.turn(.1,.05);assert.equal(input.yaw,.1);assert.equal(input.pitch,.05);
 });
+
+test('Shift with the rebound mounted view key enters CLEAR once without toggling the base view',()=>{
+ const {input,send,up}=setup(),actions=[];input.configure({bindings:{...input.bindings,siegeView:['KeyJ']}});input.onAction=(a,p)=>{if(p)actions.push(a);};
+ send('keydown',{code:'KeyJ',shiftKey:true,repeat:false});send('keydown',{code:'KeyJ',shiftKey:true,repeat:true});up('KeyJ');assert.deepEqual(actions,['siegeZoom']);
+});

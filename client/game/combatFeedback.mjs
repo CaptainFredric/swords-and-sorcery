@@ -17,5 +17,12 @@ export function shouldPlayWorldClang(event, localId) {
 export function damageHitMarker(event, localId) {
   if (!localId || event?.type !== 'damage' || event.attackerId !== localId ||
       !event.victimId || event.victimId === localId || !(event.amount > 0)) return null;
-  return event.source === 'sword' || event.source === 'burn' ? null : 'hit';
+  return ['sword','burn','bibye-conditioning'].includes(event.source) ? null : 'hit';
+}
+
+export function biByeFrostFeedback(event, localId) {
+ if(event.type==='bibyeFrostBlast')return {kind:'blast'};
+ if(event.type!=='bibyeFrostContact')return null;
+ const marker={hit:event.damage>0?'hit':null,block:'block',parry:'parry',guardBreak:'break'}[event.outcome];
+ return {kind:'contact',marker:event.attackerId===localId?marker:null,reaction:event.defenderId===localId?event.outcome:null};
 }

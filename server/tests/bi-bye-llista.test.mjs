@@ -124,6 +124,8 @@ test('Scenario 2: Frost Conditioning Bolt blast radius, stamina drain, and fadin
   defender.health = 100;
   defender.guardStamina = 50;
   defender.guarding = true;
+  defender.yaw=Math.PI/2; // Faces the incoming bolt from the west.
+  defender.guardStartedAt=0;
   defender.spawnProtectionUntil = 0;
 
   let nowSec = 2.0;
@@ -138,7 +140,7 @@ test('Scenario 2: Frost Conditioning Bolt blast radius, stamina drain, and fadin
 
   // Guard stamina drained by ~22 points (solid sword strike equivalent)
   assert.ok(defender.guardStamina <= 30 && defender.guardStamina >= 25, 'guard stamina drained by blast');
-  assert.equal(defender.health, 100, 'raised guard absorbs health damage');
+  assert.equal(defender.health, 95, 'frontal raised Guard mitigates the direct hit to five HP');
   assert.ok(defender.chill, 'fading chill applied');
   assert.ok(defender.chill.slow >= 0.18 && defender.chill.slow <= 0.22, 'initial edge slow ~0.20 for guarded defender');
   assert.ok(defender.chill.until - defender.chill.startedAt >= 1.9, 'edge thaw duration ~2.0s');
