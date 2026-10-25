@@ -202,7 +202,7 @@ export class TouchControls {
       forward: moveAllowed ? this.stickState.forward : 0,
       right: moveAllowed ? this.stickState.right : 0,
       jump: this.jumpHeld || performance.now() < this.jumpUntil,
-      sprint: this.ramMounted?this.chargeHeld:moveAllowed && (this.stickState.sprint || this.#gateHeld('sprint', this.sprintLatched && moving, 'touch-latch', false)),
+      sprint: this.ramMounted?(this.chargeHeld || moveAllowed && this.stickState.sprint):moveAllowed && (this.stickState.sprint || this.#gateHeld('sprint', this.sprintLatched && moving, 'touch-latch', false)),
       crouch: Boolean(this.crouchLatched),
     };
     this.#showTouchDebug(result);
@@ -265,7 +265,8 @@ export class TouchControls {
       const ram=Boolean(local.alive&&local.operatingRamId),rb=snapshot?.soFistication,station=rb?soFistOperator(rb):null;
       const nearRam=local.alive&&rb&&rb.health>0&&(!rb.team||rb.team===local.team)&&!rb.operatorId&&Math.hypot(station.x-local.position.x,station.z-local.position.z)<=2.2;
       const mounted = Boolean(local.alive && (local.operatingBallistaId||local.operatingRamId));
-      if(this.ramMounted!==ram){this.chargeHeld=false;this.sprintLatched=false;}this.ramMounted=ram;
+      if(this.ramMounted!==undefined&&this.ramMounted!==ram)this.reset();
+      this.ramMounted=ram;
       this.layer.classList.toggle('touch-ram',ram);
       this.buttons.sprint.querySelector('span').textContent=ram?'CHARGE':'SPRINT';
       this.mounted=mounted;
@@ -560,7 +561,7 @@ export class TouchControls {
     if (action === 'attack') this.input.setAttack(false);
     if (action === 'guard') this.input.setGuard(false);
     if (action === 'jump') this.jumpHeld = false;
-    if(action==='sprint')this.chargeHeld=false;
+    if(action==='sprint')this.chargeHeld=[...this.held].some(([id,held])=>id!==pointerId&&held==='sprint'&&!this.deniedButtons.has(id));
   }
 
   #cancelPreparedTouch() {
@@ -607,7 +608,7 @@ export class TouchControls {
     const dx = event.clientX - this.stick.clientX;
     const dy = event.clientY - this.stick.clientY;
     const delta = screenTurn?.vector(dx, dy) ?? { x: dx, y: dy };
-    const vector = stickVector(delta.x, delta.y,{deadZone:this.mounted?.06:TOUCH.deadZone});
+    const vector = stickVector(delta.x, delta.y,{deadZone:this.mounted?.06:TOUCH.deadZone, sprintActive:this.ramMounted && this.stickSprintRequested});
     this.stickSprintRequested = vector.sprint;
     this.#gateHeld('move', true, 'touch-stick', false);
     const sprint = this.#gateHeld('sprint', vector.sprint, 'touch-stick');
@@ -627,7 +628,7 @@ export class TouchControls {
     this.stickKnob.style.transform = '';
     // the sprint toggle lasts until the thumb lets go of the stick
     if (this.sprintLatched) {
-      this.sprintLatched = false;this.chargeHeld=false;
+      this.sprintLatched = false;
       this.buttons.sprint.classList.remove('on');
     }
   }

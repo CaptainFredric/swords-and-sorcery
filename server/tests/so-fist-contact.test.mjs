@@ -73,3 +73,81 @@ test('the powered fist and shorter exposed shaft can each strike other siege mac
   const hits=s.room.events.filter(e=>e.type==='bibyeDamaged'&&e.source==='so-fist');assert.equal(hits.length,1);assert.ok(hits[0].amount>0&&hits[0].amount<=(armored?110:90));
  }
 });
+
+test('gentle chassis contacts displace through world collision without damage or armed wall consequences',()=>{
+ for(const speed of [.05,1,2.1,3]){
+  const s=setup(-3.2);s.b.speed=speed;
+  run(s,.08,{forward:1});
+  assert.equal(s.v.health,300,`speed ${speed}`);
+  assert.equal(s.v.worldImpact,undefined);
+ }
+});
+
+test('ordinary impact damage rises with energy and a glancing approach uses normal closing speed',()=>{
+ const damage=[];
+ for(const speed of [4.8,8,12]){
+  const s=setup(-3.2);s.b.speed=speed;run(s,.04,{forward:1,sprint:speed>5});
+  damage.push(300-s.v.health);
+ }
+ assert.ok(damage[0]>0&&damage[0]<=10,JSON.stringify(damage));
+ assert.ok(damage[1]>damage[0]*3&&damage[2]>=65,JSON.stringify(damage));
+});
+
+test('knockback separation and tiny reversals cannot rearm a spent chassis episode',()=>{
+ const s=setup(-3.2);s.b.speed=12;run(s,.04,{sprint:true});
+ assert.equal(s.room.events.filter(e=>e.type==='damage').length,1);
+ // A launched victim clears the old overlap envelope. The carriage has made
+ // no new approach: repeated contacts at the same location remain one episode.
+ for(let i=0;i<4;i++){
+  s.v.position={x:0,y:0,z:s.b.z-7};run(s,.3);
+  s.v.position={x:0,y:0,z:s.b.z-3.2};s.b.speed=4.8;run(s,.05,{forward:1});
+ }
+ assert.equal(s.room.events.filter(e=>e.type==='damage').length,1);
+ // Genuine withdrawal, clearance and a fresh powered run rearm without a timer.
+ s.v.position={x:0,y:0,z:s.b.z-3.2};run(s,2,{forward:-1});
+ const before=s.v.health;run(s,3,{sprint:true});assert.ok(s.v.health<before);
+});
+
+test('slow input pulses press a real stationary victim forward without damage, launch or wall credit',()=>{
+ const s=setup(-3.3),start=s.v.position.z;s.v.history=[];
+ for(let i=1;i<=120;i++){
+  s.p.input={forward:i%20<7?1:0,right:0,yaw:0,pitch:0};
+  stepRoom(s.room,1/30,i/30);
+ }
+ assert.ok(s.v.position.z<start-.2,JSON.stringify(s.v.position));
+ assert.equal(s.room.events.filter(e=>e.type==='damage').length,0);
+ assert.equal(s.v.health,300);assert.equal(s.v.worldImpact,undefined);
+});
+
+test('relative closing velocity distinguishes escaping, head-on and glancing moving targets',()=>{
+ const damage=[];
+ for(const vz of [-7,0,7]){
+  const s=setup(-3.2);s.v.history=[];historyApi.recordTransform(s.v,0);
+  s.v.position.z+=vz/30;historyApi.recordTransform(s.v,1/30);
+  s.b.speed=8;s.p.input={forward:1,sprint:true,right:0};stepSoFistication(s.room,s.b,1/30,1/30);
+  damage.push(300-s.v.health);
+ }
+ assert.equal(damage[0],0);assert.ok(damage[1]>20);assert.ok(damage[2]>damage[1]);
+ // A fast tangent across the outer flank has almost no normal closing energy.
+ const glance=setup(-.4);glance.v.position.x=1.9;glance.v.history=[];historyApi.recordTransform(glance.v,0);
+ glance.v.position.x-=.02;glance.v.position.z-=.25;historyApi.recordTransform(glance.v,1/30);
+ glance.b.speed=8;glance.p.input={forward:1,sprint:true,right:0};stepSoFistication(glance.room,glance.b,1/30,1/30);
+ assert.equal(glance.v.health,300);
+});
+
+test('a cleared lateral return rearms a body impact and body episodes stay out of snapshots',async()=>{
+ const s=setup(-3.2);s.b.speed=12;run(s,.04,{sprint:true});assert.ok(s.b.bodyEpisodes.v);
+ // An actual side route clears the carriage from the victim, independently of
+ // elapsed time. The next encounter may use either face of the machinery.
+ s.b.x+=4;run(s,.02,{forward:1});assert.equal(s.b.bodyEpisodes.v,undefined);
+ const {serializeSnapshot}=await import('../../shared/sim/wire.mjs');
+ const snapshot=serializeSnapshot(s.room,s.time);assert.equal(snapshot.soFistication.bodyEpisodes,undefined);
+});
+
+test('gentle pressure against masonry stops the carriage instead of squeezing a victim through the wall',()=>{
+ const s=setup(-3.4);s.v.history=[];s.room.world.solids=[{id:'pin-wall',center:[0,1,-4],size:[8,2,.2],material:'stone'}];
+ for(let i=1;i<=150;i++){
+  s.p.input={forward:i%30<16?1:0,right:0,yaw:0,pitch:0};stepRoom(s.room,1/30,i/30);
+ }
+ assert.ok(s.v.position.z>=-3.451,JSON.stringify(s.v.position));assert.equal(s.v.health,300);
+});

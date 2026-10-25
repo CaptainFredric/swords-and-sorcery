@@ -11,6 +11,8 @@ export const TOUCH = Object.freeze({
   fullAt: 0.8,              // share of the radius that is already a full run (the thumb need not pin the rim)
   sprintAt: 0.92,           // share of the radius that engages sprint...
   sprintForward: 0.75,      // ...when the stick points at least this much straight ahead
+  sprintReleaseAt: 0.84,    // optional hysteresis, currently used only by ram Charge
+  sprintReleaseForward: 0.68,
   lookYawPerPx: 0.0058,     // radians of turn per px of drag
   lookPitchPerPx: 0.0048,
 });
@@ -20,7 +22,7 @@ export const TOUCH = Object.freeze({
  * @param {number} dy (px, +y down the screen)
  * @returns {{forward:number, right:number, magnitude:number, sprint:boolean, knob:{x:number,y:number}}}
  */
-export function stickVector(dx, dy, { radius = TOUCH.stickRadius, deadZone = TOUCH.deadZone } = {}) {
+export function stickVector(dx, dy, { radius = TOUCH.stickRadius, deadZone = TOUCH.deadZone, sprintActive = false } = {}) {
   const distance = Math.hypot(dx, dy);
   const clamped = Math.min(distance, radius);
   const unitX = distance > 1e-6 ? dx / distance : 0;
@@ -32,7 +34,7 @@ export function stickVector(dx, dy, { radius = TOUCH.stickRadius, deadZone = TOU
   const magnitude = Math.min(1, (raw - deadZone) / (TOUCH.fullAt - deadZone));
   const forward = -unitY * magnitude;
   const right = unitX * magnitude;
-  const sprint = raw >= TOUCH.sprintAt && -unitY >= TOUCH.sprintForward;
+  const sprint = raw >= (sprintActive ? TOUCH.sprintReleaseAt : TOUCH.sprintAt) && -unitY >= (sprintActive ? TOUCH.sprintReleaseForward : TOUCH.sprintForward);
   return { forward, right, magnitude, sprint, knob };
 }
 

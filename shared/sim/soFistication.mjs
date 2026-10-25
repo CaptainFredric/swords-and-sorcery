@@ -3,6 +3,7 @@ import {surfaceHeightAt,resolvePlayerWorld} from '../src/collision.mjs';
 import {boxWorld,orientedBoxHit,boxLocal} from '../src/orientedBox.mjs';
 import {applyDamage,staggerBy,interruptHitActions,isInGuardCone} from './combat.mjs';
 import {launchBody} from '../src/movement.mjs';
+import {postureOf} from '../src/body.mjs';
 import {GAME} from '../src/combat.mjs';
 import {STEEL_DAMAGE_RANGES} from '../src/steel.mjs';
 import {areAllies} from '../src/teams.mjs';
@@ -13,7 +14,7 @@ import {biByeHitVolumes} from './biByeComponents.mjs';
 import {SO_FIST_SCALE,SO_FIST_FIT,SO_FIST_WHEELS,soFistTurnRate,soFistFrame,soFistPose,soFistVolumes,soFistStriker,soFistSolids,machineryOverlap} from './soFistGeometry.mjs';
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 export const SO_FIST=Object.freeze({speed:4.8,reverse:2.5,peak:12,pressure:100,hull:1400,fist:500,cycle:4});
-export function createSoFistication(overrides={}){return{id:'sofist-practice',type:'so-fist-ication',x:0,y:0,z:0,heading:0,chassisPitch:0,chassisRoll:0,speed:0,steer:0,pressure:100,charging:false,chargeSpent:false,operatorId:null,health:1400,maxHealth:1400,mode:'MOBILE',strikeAt:null,strokeVictims:[],contacts:[],recentVictims:{},wheelRolls:[0,0,0,0],wheelOffsets:[0,0,0,0],components:Object.fromEntries([...SO_FIST_WHEELS.map(w=>[w.id,{health:180,maxHealth:180}]),['Fist',{health:500,maxHealth:500}],['Drive',{health:250,maxHealth:250}]]),...overrides};}
+export function createSoFistication(overrides={}){return{id:'sofist-practice',type:'so-fist-ication',x:0,y:0,z:0,heading:0,chassisPitch:0,chassisRoll:0,speed:0,steer:0,pressure:100,charging:false,chargeSpent:false,operatorId:null,health:1400,maxHealth:1400,mode:'MOBILE',strikeAt:null,strokeVictims:[],bodyEpisodes:{},recentVictims:{},wheelRolls:[0,0,0,0],wheelOffsets:[0,0,0,0],components:Object.fromEntries([...SO_FIST_WHEELS.map(w=>[w.id,{health:180,maxHealth:180}]),['Fist',{health:500,maxHealth:500}],['Drive',{health:250,maxHealth:250}]]),...overrides};}
 export function soFistOperator(b,world=null){const p=boxWorld(soFistFrame(b),SO_FIST_FIT.operator);return{x:p[0],y:world?surfaceHeightAt(p[0],p[2],p[1]+.5,world):b.operatorY??p[1],z:p[2]};}
 function stationClear(b,world,extra=[]){const at=soFistOperator(b,world);if(at.y==null||Math.abs(at.y-soFistOperator({...b,operatorY:undefined}).y)>.4)return false;const hit=resolvePlayerWorld(at,.45,[...(world.solids??[]),...extra],1.8);return Math.hypot(hit.x-at.x,hit.z-at.z)<.015;}
 export function soFistExit(room,b,p,extras=[]){
@@ -41,6 +42,20 @@ export function soFistTerrainPose(b,world){
  return{y,chassisPitch:pitch,chassisRoll:roll,wheelOffsets:offsets};
 }
 export function soFistClear(b,world,extra=[],{operatorStation=false}={}){if((b.operatorId||operatorStation)&&!stationClear(b,world,extra))return false;const boxes=soFistVolumes(b);return !boxes.some(v=>[...(world.solids??[]),...extra].some(s=>machineryOverlap(v,s)));}
+// Movement solids can press a player aside, but that correction must itself
+// fit in the world. Stop the carriage when machinery and masonry leave no room.
+function pinsPlayer(room,next,world,obstacles){
+ const nearby=[...room.players.values()].filter(p=>p.alive&&p.id!==next.operatorId&&p.operatingRamId!==next.id&&Math.hypot(p.position.x-next.x,p.position.z-next.z)<SO_FIST_SCALE*2);
+ if(!nearby.length)return false;
+ const machine=soFistSolids(next),solids=[...(world.solids??[]),...obstacles];
+ for(const p of nearby){
+  const pressed=resolvePlayerWorld(p.position,.45,machine,postureOf(p).height);
+  if(Math.hypot(pressed.x-p.position.x,pressed.z-p.position.z)<.001)continue;
+  const safe=resolvePlayerWorld(pressed,.45,solids,postureOf(p).height);
+  if(Math.hypot(safe.x-pressed.x,safe.z-pressed.z)>.0005)return true;
+ }
+ return false;
+}
 export function stepSoFistication(room,b,dt,now,world=room.world){
  if(!b||b.retired||b.health<=0)return;b.poseTime=now;
  // Sweep the real striking surface against architecture before sampling contacts.
@@ -107,6 +122,12 @@ const p=room.players.get(b.operatorId);
    }
    b.speed=0;break;
   }
+  if(pinsPlayer(room,{...next,...pose},world,obstacles)){
+   // Preserve the impact on the swept contact surface, then brake. Low energy
+   // pressure reaches this path with no damage or armed wall consequence.
+   resolveSoFistContacts(room,{...b,...next,...pose},from,sub,now-dt+(i+1)*sub,now-dt,dt);
+   b.speed=0;break;
+  }
   Object.assign(b,next,pose);
   resolveSoFistContacts(room,b,from,sub,now-dt+(i+1)*sub,now-dt,dt);
   for(let w=0;w<4;w++){const a=boxWorld(soFistFrame(from),SO_FIST_WHEELS[w].pivot),c=boxWorld(soFistFrame(b),SO_FIST_WHEELS[w].pivot);wheelTravel[w]+=Math.hypot(c[0]-a[0],c[1]-a[1],c[2]-a[2])*Math.sign(b.speed)/SO_FIST_WHEELS[w].radius;}
@@ -135,7 +156,20 @@ function targetSweep(box,oldBox,player,oldPosition,endPosition=player.position){
 }
 function resolveSoFistContacts(room,b,previous,dt,now,tickStart,tickDt){
  const volumes=soFistVolumes(b,now),oldVolumes=soFistVolumes(previous,now-dt),forward={x:-Math.sin(b.heading),z:-Math.cos(b.heading)},pose=soFistPose(b,now),fistAlive=b.components.Fist.health>0;
- b.contacts=b.contacts.filter(id=>{const p=room.players.get(id);return p?.alive&&volumes.some(v=>{const q=boxLocal(v,[p.position.x,p.position.y+.9,p.position.z]);return Math.abs(q[0])<v.size[0]/2+1&&Math.abs(q[1])<v.size[1]/2+1.1&&Math.abs(q[2])<v.size[2]/2+1;});});
+ // A victim being thrown clear cannot by itself create a fresh approach.
+ // Rearm through real carriage withdrawal or a lateral route around the old
+ // collision, with physical clearance. There is no global impact cooldown.
+ b.bodyEpisodes??={};
+ for(const [id,episode]of Object.entries(b.bodyEpisodes)){
+  const victim=room.players.get(id);
+  if(!victim?.alive){delete b.bodyEpisodes[id];continue;}
+  const clear=!volumes.some(v=>{const q=boxLocal(v,[victim.position.x,victim.position.y+.9,victim.position.z]);return Math.abs(q[0])<v.size[0]/2+1&&Math.abs(q[1])<v.size[1]/2+1.1&&Math.abs(q[2])<v.size[2]/2+1;});
+  const travel=(b.x-episode.x)*episode.normal[0]+(b.z-episode.z)*episode.normal[2];
+  if(travel>0){episode.x+=episode.normal[0]*travel;episode.z+=episode.normal[2]*travel;}
+  const across=Math.abs((b.x-episode.x)*episode.normal[2]-(b.z-episode.z)*episode.normal[0]);
+  if(clear&&(travel < -SO_FIST_FIT.wheelbase*.6 || across > SO_FIST_FIT.frontTrack))delete b.bodyEpisodes[id];
+ }
+
  for(const victim of room.players.values()){
   if(!victim.alive||victim.id===b.operatorId||victim.operatingRamId===b.id||areAllies(room,b.operatorId,victim.id))continue;
   const old=sampleTransform(victim,tickStart).position,alpha=Math.max(0,Math.min(1,(now-dt-tickStart)/tickDt)),oldPosition={x:old.x+(victim.position.x-old.x)*alpha,y:old.y+(victim.position.y-old.y)*alpha,z:old.z+(victim.position.z-old.z)*alpha};
@@ -143,31 +177,47 @@ function resolveSoFistContacts(room,b,previous,dt,now,tickStart,tickDt){
   const beta=clamp((now-tickStart)/tickDt,0,1),endPosition=Object.fromEntries(['x','y','z'].map(k=>[k,old[k]+(victim.position[k]-old[k])*beta]));
   if(teleported){Object.assign(oldPosition,victim.position);Object.assign(endPosition,victim.position);}
   const velocity=teleported?{x:0,z:0}:{x:(victim.position.x-old.x)/tickDt,z:(victim.position.z-old.z)/tickDt};
-  let piston=false,contact=null;
+  let piston=false,contact=null,surfaceVelocity={x:0,z:0};
   if(pose.active&&!b.strokeVictims.includes(victim.id)){
    contact=targetSweep(soFistStriker(b,now),soFistStriker(previous,now-dt),victim,oldPosition,endPosition);piston=Boolean(contact);
   }
-  if(!contact&&!b.contacts.includes(victim.id)&&Math.abs(b.speed)>2){
-   for(let i=0;i<volumes.length;i++){const h=targetSweep(volumes[i],oldVolumes[i]??volumes[i],victim,oldPosition,endPosition);if(h&&(!contact||h.t<contact.t))contact=h;}
+  if(!contact&&!b.bodyEpisodes[victim.id]&&Math.abs(b.speed)>.001){
+   for(let i=0;i<volumes.length;i++){
+    const box=volumes[i],oldBox=oldVolumes[i]??box,h=targetSweep(box,oldBox,victim,oldPosition,endPosition);
+    if(h&&(!contact||h.t<contact.t)){
+     contact=h;surfaceVelocity={x:(box.center[0]-oldBox.center[0])/dt,z:(box.center[2]-oldBox.center[2])/dt};
+     if(Math.hypot(...h.normal)<.1){
+      // An initial overlap has no slab entry normal. Use the nearest actual
+      // horizontal face rather than treating every overlap as a frontal hit.
+      const q=boxLocal(box,[endPosition.x,endPosition.y+.9,endPosition.z]);
+      const axis=box.size[0]/2+.45-Math.abs(q[0]) < box.size[2]/2+.45-Math.abs(q[2])?0:2;
+      h.normal=box.axes[axis].map(v=>v*(Math.sign(q[axis])||1));
+     }
+    }
+   }
   }
   if(!contact)continue;
-  if(now-(b.recentVictims[victim.id]??-Infinity)<.25){if(piston)b.strokeVictims.push(victim.id);continue;}
+  if(piston&&now-(b.recentVictims[victim.id]??-Infinity)<.25){b.strokeVictims.push(victim.id);continue;}
   let normal=contact.normal;const magnitude=Math.hypot(...normal);if(magnitude<.1)normal=[forward.x,0,forward.z];
-  const closing=(-Math.sin(b.heading)*b.speed-velocity.x)*normal[0]+(-Math.cos(b.heading)*b.speed-velocity.z)*normal[2];
-  if(!piston&&closing<=2)continue;
-  const frontal=normal[0]*forward.x+normal[2]*forward.z>.65,force=clamp((closing-2)/10,0,1);
-  let amount=piston?(fistAlive?90+30*clamp((pose.velocity+Math.max(0,b.speed)-4.4)/8.2,0,1):75+15*clamp(pose.velocity/12.6,0,1)):(frontal?20+70*force:8+27*force);
+  const closing=(surfaceVelocity.x-velocity.x)*normal[0]+(surfaceVelocity.z-velocity.z)*normal[2];
+  const frontal=normal[0]*forward.x+normal[2]*forward.z>.65;
+  // Normal kinetic energy above a harmless maneuvering band. Tangential
+  // speed does not turn a glancing scrape into a full energy frontal blow.
+  const force=clamp((closing*closing-3.5*3.5)/(SO_FIST.peak**2-3.5*3.5),0,1);
+  if(!piston&&(closing<=3.5||Math.round((frontal?90:35)*force)===0))continue;
+  let amount=piston?(fistAlive?90+30*clamp((pose.velocity+Math.max(0,b.speed)-4.4)/8.2,0,1):75+15*clamp(pose.velocity/12.6,0,1)):(frontal?90:35)*force;
   if(piston){
    const behind={x:victim.position.x+forward.x*.65,y:victim.position.y,z:victim.position.z+forward.z*.65},resolved=resolvePlayerWorld(behind,.45,room.world.solids??[],1.8);
    if(fistAlive&&Math.hypot(resolved.x-behind.x,resolved.z-behind.z)>.1)amount=110;
    b.strokeVictims.push(victim.id);
   }
-  const guarded=Boolean(victim.guarding)&&isInGuardCone(victim,{position:{x:b.x,y:b.y,z:b.z}},now),stagger=(piston?78:26+26*force)*(guarded?.35:1),shove=(piston?18:8+10*force)*(guarded?.8:1),by=piston?b.strikeOperatorId??b.operatorId:b.operatorId;
-  if(guarded){amount*=.55;victim.guardStamina=Math.max(0,victim.guardStamina-(piston?65:30+30*force));victim.lastGuardDrainAt=now;if(victim.guardStamina<=0){victim.guarding=false;room.events.push({type:'guardBreak',attackerId:by,defenderId:victim.id,at:now});}}
+  const guarded=Boolean(victim.guarding)&&isInGuardCone(victim,{position:{x:b.x,y:b.y,z:b.z}},now),stagger=(piston?78:52*Math.sqrt(force))*(guarded?.35:1),shove=(piston?18:18*Math.sqrt(force))*(guarded?.8:1),by=piston?b.strikeOperatorId??b.operatorId:b.operatorId;
+  if(guarded){amount*=.55;victim.guardStamina=Math.max(0,victim.guardStamina-(piston?65:60*Math.sqrt(force)));victim.lastGuardDrainAt=now;if(victim.guardStamina<=0){victim.guarding=false;room.events.push({type:'guardBreak',attackerId:by,defenderId:victim.id,at:now});}}
   if(applyDamage(room,by,victim.id,Math.round(amount),piston?'so-fist':'knock-on-steel',now,null)){
    staggerBy(room,victim,stagger,now,by);
    if(victim.alive){launchBody(victim,{x:normal[0]*shove,y:piston?4.5:2,z:normal[2]*shove},6);armWorldImpact(victim,by,'so-fist',now);interruptHitActions(room,victim,by,now,'so-fist');}
-   b.recentVictims[victim.id]=now;if(!b.contacts.includes(victim.id))b.contacts.push(victim.id);
+   b.bodyEpisodes[victim.id]={x:b.x,z:b.z,normal:[...normal]};
+   b.recentVictims[victim.id]=now;
    room.events.push({type:'soFistImpact',machineId:b.id,victimId:victim.id,piston,guarded,point:{...victim.position},at:now});
    if(!piston)b.speed*=.65;
   }

@@ -9,5 +9,5 @@ export function soFistHudView(local,snapshot,now,{bindings=registry.defaultBindi
  const strike=age<2.08?'Piston winding':age<2.26?'Piston released':age<4?'Piston retracting':'Piston ready';
  return{title:`SO-FIST-ICATION · ${Math.ceil(b.health)}/${b.maxHealth}`,pressure:b.pressure,
   status:[b.charging?'KNOCK ON STEEL':b.chargeSpent?'DRIVE WINDING DOWN':`${Math.abs(b.speed).toFixed(1)} m/s`,strike,fist?.health<=0?'EXPOSED PISTON':`FIST ${Math.ceil(fist?.health??500)}/500`,drive?.health<=0?'DRIVE DAMAGED':'',wheels?`${wheels} WHEEL${wheels>1?'S':''} DISABLED`:''].filter(Boolean).join(' · '),
-  controls:touch?'Hold CHARGE · ATTACK for piston · VIEW · LEAVE':`Hold [${key('sprint')}] Charge · [${key('attack')}] Piston · [${key('siegeView')}] View · [${key('interact')}] Leave`};
+  controls:touch?'Full stick forward or hold CHARGE · ATTACK piston · VIEW · LEAVE':`Hold [${key('sprint')}] Charge · [${key('attack')}] Piston · [${key('siegeView')}] View · [${key('interact')}] Leave`};
 }
