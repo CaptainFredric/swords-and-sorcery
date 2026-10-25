@@ -113,3 +113,17 @@ The **Rightful Renowner** is the present creative direction for the earlier Ward
 - **Character/comedy:** The Spellblade retroactively declares an implausibly successful improvisation to have been planned. The intentionally contradictory tense in **“THIS was now planned!”** is the punchline, not a typo to correct.
 
 The title and flavor text are established creative choices. Do not infer a gameplay unlock trigger or award this herald until its actual condition is separately designed and implemented.
+## Future herald concept — St. Perry the Plain
+
+**Status:** Accepted creative concept for a future prestige herald tied to St. Perry the Prodigious's optional **Canonization** challenge. **Not implemented or obtainable yet.** The exact persistence/unlock integration remains to be built; do not treat this concept as a shipped challenge, published asset or existing voice line.
+
+- **Herald title:** **St. Perry the Plain**
+- **Exact unlock condition:** Defeat **St. Perry the Prodigious** in **Canonization** from his full health (100 HP) to 0 **without suffering any HP damage during the player's current life**.
+- **Tracking intent:** The restriction begins with the player's current life, **not** merely when Canonization starts. Losing health earlier in the same life disqualifies that attempt; healing back to full health does not erase previous damage. Guard-stamina loss without HP damage is allowed. Valid defense, parries, spells, sword attacks and Ultimates remain legal. Perry must begin the qualifying fight at full health, and the player's actual victory must bring him to zero. Death and a genuinely new life reset eligibility for a new attempt.
+- **Reward:** One-time permanent **prestige herald / heraldic emblem**, not ordinary Practice Renown or a combat advantage. Challenge completion should be authoritative and persisted only after its own implementation and validation; existing Practice mode does **not** award normal match Renown.
+- **Artwork:** Perry's recognizable **helmet** and its solemn **saintly halo**, with a sword **cutting through the halo** and knocking part of the ring askew. The image represents a blow to his sanctity and title, not a severed head; favor a bold, compact, readable medieval heraldic silhouette with Castleward's restrained brass/crimson/iron treatment.
+- **Spellblade victory line (preserve wording):** **“I suppose anyone can become a saint... these days.”** Deliver as a quietly disappointed, self-superior comment on the declining standards of sainthood—not a victorious shout. Audio is not recorded or implemented.
+- **Character continuity:** Perry's in-world name **remains “St. Perry the Prodigious.”** The herald **“St. Perry the Plain”** is the player's/Spellblade's unofficial demotion, not a global NPC rename. Perry would not agree to the revision.
+- **Comic premise:** A saint canonized by his own extraordinary parrying is ceremonially reduced to being merely *plain* after a flawless defeat. This is a deliberate title-reversal, not a generic no-hit trophy.
+
+**Design dependency:** Canonization is the proposed discoverable, extremely capable **full-Spellblade** version of the normal Perry parrying instructor, not The Ultimate Knight (whose distinct gimmick is frequent Ultimates with otherwise ordinary combat competence). Implement and verify Perry and Canonization before wiring this herald into `shared/src/heraldry.mjs`, the challenge system, persistence or artwork delivery. The criteria above are creative design decisions, not evidence of an existing game feature.
