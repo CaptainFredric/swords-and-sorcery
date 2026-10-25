@@ -8,6 +8,7 @@ import { BOT_PROFILES } from './botBehavior.mjs';
 import { PROWESS } from '../src/prowess.mjs';
 import { freshStagger } from '../src/stagger.mjs';
 import { setupUltimateKnight, stepUltimateKnight } from './UltimateKnight.mjs';
+import { setupStPerry, stepStPerry, cleanupStPerry } from './StPerry.mjs';
 import { dismountBiByeLlista } from './biByeLlista.mjs';
 
 export const PRACTICE_DUMMY_MODES = Object.freeze({
@@ -18,6 +19,8 @@ export const PRACTICE_DUMMY_MODES = Object.freeze({
   MELEE: 'MELEE',
   RUNNER: 'RUNNER',
   ULTIMATE_KNIGHT: 'ULTIMATE_KNIGHT',
+  ST_PERRY: 'ST_PERRY',
+  CANONIZATION: 'CANONIZATION',
 });
 
 // the modes in which the dummy is a bot, and which kind: one controller plays each from its profile (botBehavior.mjs).
@@ -29,6 +32,8 @@ export const PRACTICE_OPPONENTS = Object.freeze({
   SORCERY: Object.freeze({ profile: 'caster', name: BOT_PROFILES.caster.name, spell: 'fireball', aggression: 0.7 }),
   MELEE: Object.freeze({ profile: 'melee', name: BOT_PROFILES.melee.name, spell: 'steel', aggression: 0.62 }),
   RUNNER: Object.freeze({ profile: 'runner', name: BOT_PROFILES.runner.name, spell: 'fireball', aggression: 0.7 }),
+  ST_PERRY: Object.freeze({ profile: 'rival', name: 'St. Perry the Prodigious', spell: 'fireball', aggression: 0.4 }),
+  CANONIZATION: Object.freeze({ profile: 'rival', name: 'St. Perry the Prodigious', spell: 'fireball', aggression: 1 }),
 });
 
 const VALID_DUMMY_MODES = new Set(Object.values(PRACTICE_DUMMY_MODES));
@@ -173,6 +178,7 @@ export function removePracticeDummy(room) {
   for (const projectile of [...room.projectiles.values()]) {
     if (projectile.ownerId === dummy.id) room.projectiles.delete(projectile.id);
   }
+  if (dummy.stPerry) cleanupStPerry(room, dummy, 0);
   room.players.delete(dummy.id);
   room.events.push({ type: 'practiceDummyRemoved', playerId: dummy.id });
   return true;
@@ -195,6 +201,9 @@ export function setPracticeDummyMode(room, mode, nowSec = 0) {
     dummy.dashUntil = Math.min(dummy.dashUntil, nowSec);
     dummy.ultimateKnight = null;
   }
+  if (dummy.stPerry && mode !== PRACTICE_DUMMY_MODES.ST_PERRY && mode !== PRACTICE_DUMMY_MODES.CANONIZATION) {
+    cleanupStPerry(room, dummy, nowSec);
+  }
   dummy.input = neutralInput(dummy);
   dummy.ai = null;
   dummy.practiceMode = mode;
@@ -204,6 +213,8 @@ export function setPracticeDummyMode(room, mode, nowSec = 0) {
   dummy.spell = opponent?.spell ?? 'fireball';
   dummy.steel = null;
   if (mode === PRACTICE_DUMMY_MODES.ULTIMATE_KNIGHT) setupUltimateKnight(dummy, nowSec);
+  if (mode === PRACTICE_DUMMY_MODES.ST_PERRY) setupStPerry(dummy, nowSec, false);
+  if (mode === PRACTICE_DUMMY_MODES.CANONIZATION) setupStPerry(dummy, nowSec, true);
 
   if (mode === PRACTICE_DUMMY_MODES.GUARDING && dummy.alive && dummy.guardStamina > 0) {
     if (setGuard(room, dummy.id, true, nowSec)) {
@@ -222,6 +233,10 @@ export function stepPracticeActors(room, nowSec, world = room.world, { random = 
   if (!dummy) return;
   if (dummy.practiceMode === PRACTICE_DUMMY_MODES.ULTIMATE_KNIGHT) {
     stepUltimateKnight(room, dummy, nowSec, world, { random });
+    return;
+  }
+  if (dummy.practiceMode === PRACTICE_DUMMY_MODES.ST_PERRY || dummy.practiceMode === PRACTICE_DUMMY_MODES.CANONIZATION) {
+    stepStPerry(room, dummy, nowSec, world, { random });
     return;
   }
   if (!dummy.alive) return;

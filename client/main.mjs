@@ -1485,10 +1485,75 @@ $('#practice-sorcery').addEventListener('click', () => socket.practiceSpawnDummy
 $('#practice-melee').addEventListener('click', () => socket.practiceSpawnDummy('MELEE'));
 $('#practice-runner').addEventListener('click', () => socket.practiceSpawnDummy('RUNNER'));
 $('#practice-ultimate-knight').addEventListener('click', () => socket.practiceSpawnDummy('ULTIMATE_KNIGHT'));
+$('#practice-st-perry')?.addEventListener('click', () => socket.practiceSpawnDummy('ST_PERRY'));
+$('#practice-canonization')?.addEventListener('click', () => socket.practiceSpawnDummy('CANONIZATION'));
 $('#practice-remove').addEventListener('click', () => socket.practiceRemoveDummy());
 // the yard earns no prowess: this readies the ultimate to try
 $('#practice-ultimate').addEventListener('click', () => socket.practiceReadyUltimate());
 $('#practice-leave').addEventListener('click', () => returnToMenu());
+
+const perryDialogue = $('#perry-dialogue');
+const perryDialogueText = $('#perry-dialogue-text');
+const perryDialogueClose = $('#perry-dialogue-close');
+const perryDialogueForm = $('#perry-dialogue-form');
+const perryDialogueInput = $('#perry-dialogue-input');
+const perryCanonizeBtn = $('#perry-canonize-btn');
+const perryCanonizePrompt = $('#perry-canonization-prompt');
+const practiceCanonizationBtn = $('#practice-canonization');
+
+perryDialogueClose?.addEventListener('click', () => {
+  perryDialogue?.classList.add('hidden');
+  socket.practicePerryDismiss();
+});
+
+for (const btn of document.querySelectorAll('.perry-option-btn')) {
+  btn.addEventListener('click', () => {
+    const answer = btn.dataset.answer;
+    socket.practicePerryAnswer(answer);
+  });
+}
+
+perryDialogueForm?.addEventListener('submit', (e) => {
+  e.preventDefault();
+  const val = perryDialogueInput?.value?.trim();
+  if (val) {
+    socket.practicePerryAnswer(val);
+    if (perryDialogueInput) perryDialogueInput.value = '';
+  }
+});
+
+perryCanonizeBtn?.addEventListener('click', () => {
+  socket.practiceSpawnDummy('CANONIZATION');
+});
+
+function updateStPerryUI(snapshot) {
+  if (snapshot?.mode !== 'PRACTICE') {
+    perryDialogue?.classList.add('hidden');
+    practiceCanonizationBtn?.classList.add('hidden');
+    return;
+  }
+  const dummy = snapshot.players?.find((p) => p.actorKind === 'dummy');
+  const isPerry = dummy?.practiceMode === 'ST_PERRY';
+  const isCanonized = dummy?.practiceMode === 'CANONIZATION';
+  const perryData = dummy?.stPerry;
+
+  if (isPerry && perryData?.dialogue && !perryData.dialogue.dismissed) {
+    perryDialogue?.classList.remove('hidden');
+    if (perryDialogueText && perryData.dialogue.lastLine) {
+      perryDialogueText.textContent = `"${perryData.dialogue.lastLine}"`;
+    }
+  } else {
+    perryDialogue?.classList.add('hidden');
+  }
+
+  const unlocked = Boolean(perryData?.unlocked || isCanonized);
+  if (practiceCanonizationBtn) {
+    practiceCanonizationBtn.classList.toggle('hidden', !unlocked);
+  }
+  if (perryCanonizePrompt) {
+    perryCanonizePrompt.classList.toggle('hidden', !unlocked);
+  }
+}
 
 // into a fight: the blade comes out of its scabbard (once per room: not again on a reconnect to the same one)
 let drawnFor = null;
@@ -1558,6 +1623,16 @@ socket.on('snapshot', (snapshot) => {
     route(SCREEN_IDS.PLAYING);
     hud.show();
     setPracticeVisible(snapshot.mode === 'PRACTICE');
+    updateStPerryUI(snapshot);
+    if (snapshot.events) {
+      for (const ev of snapshot.events) {
+        if (ev.type === 'stPerryDialogue') {
+          hud.subtitle({ text: ev.text, name: ev.speaker ?? 'St. Perry the Prodigious', seconds: 3.5 });
+        } else if (ev.type === 'stPerryUnlocked') {
+          hud.addFeed(ev.message ?? 'CANONIZATION UNLOCKED!', 'sword');
+        }
+      }
+    }
   } else if (snapshot.roomState === 'FINISHED') {
     hideChallenge();
     paused = false; pauseMenu.classList.add('hidden');

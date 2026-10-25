@@ -248,7 +248,7 @@ export class Room {
     const actor = {
       id,
       token: null,
-      name: String(name || (actorKind === 'bot' ? 'Rival Spellblade' : 'Training Dummy')).slice(0, 18),
+      name: String(name || (actorKind === 'bot' ? 'Rival Spellblade' : 'Training Dummy')).slice(0, 32),
       // a bot brings either spell, so both turn up in a fight
       spell: isSpell(spell) ? spell : spells[Math.floor(Math.random() * spells.length)],
       // (and either ultimate; a practice dummy, which earns none, the default)

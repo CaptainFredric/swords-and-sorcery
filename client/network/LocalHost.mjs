@@ -291,6 +291,8 @@ export class LocalHost {
   practiceSpawnDummy(mode = 'PASSIVE') { this.#command({ type: 'practiceSpawnDummy', mode }); }
   practiceRemoveDummy() { this.#command({ type: 'practiceRemoveDummy' }); }
   practiceSetDummyMode(mode) { this.#command({ type: 'practiceSetDummyMode', mode }); }
+  practicePerryAnswer(answer) { this.#command({ type: 'practicePerryAnswer', answer }); }
+  practicePerryDismiss() { this.#command({ type: 'practicePerryDismiss' }); }
   input(input) { this.#command({ type: 'input', ...input }); }
   attack(down) { this.#command({ type: 'attack', down, clientTime: this.now() }); }
   guard(down) { this.#command({ type: 'guard', down, clientTime: this.now() }); }
