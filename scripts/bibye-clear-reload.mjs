@@ -35,7 +35,7 @@ try{
  if(touch){await page.locator('.touch-siegeView').tap();await page.locator('.touch-siegeView').tap();}else{await page.keyboard.press('z');await page.keyboard.press('z');}
  await shot('ordinary');assert.equal(await page.evaluate(()=>window.__ssRuntime.world.biByeLlista.nodes.get('Main_Siege_Bolt').visible),true);assert.deepEqual(errors,[]);
  if(process.env.CLEAR_WALL&&!touch){
-  await page.keyboard.press('x');await page.waitForFunction(()=>window.__ssRuntime.latestSnapshot.bibyeBallista.weaponFocus==='UPPER');await page.waitForTimeout(700);await aim(page,-1.3,-.1);await page.keyboard.press('Shift+z');await page.waitForTimeout(600);
+  await page.keyboard.press('x');await page.waitForFunction(()=>window.__ssRuntime.latestSnapshot.bibyeBallista.weaponFocus==='UPPER');await page.waitForTimeout(700);await aim(page,-2.2,-.25);await page.keyboard.press('Shift+z');await page.waitForTimeout(600);
   const count=await page.evaluate(()=>window.__clearEvents.length);await page.keyboard.press('f');await page.waitForFunction(n=>window.__clearEvents.slice(n).some(e=>e.type==='bibyeBoltImpact'&&e.subKind==='conditioning'),count);
   proof.wallImpact=await page.evaluate(n=>{const r=window.__ssRuntime,e=window.__clearEvents.slice(n).find(e=>e.type==='bibyeBoltImpact'&&e.subKind==='conditioning');return {event:e,camera:r.camera.position.toArray()};},count);await shot('wall');assert.equal(proof.wallImpact.event.hitKind,'solid');
  }

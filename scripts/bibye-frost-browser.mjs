@@ -24,16 +24,16 @@ for(const cfg of scenarios.filter(c=>!process.env.FROST_CASE||process.env.FROST_
  for(const id of ['operator','target'])room.addPlayer({id,token:cfg.id+'-'+id,name:id},now);room.startMatch(now);
  for(const id of ['operator','target']){const p=room.players.get(id);Object.assign(p,{connected:false,disconnectExpiresAt:now+3600,position:id==='operator'?{x:18,y:0,z:5.1}:{x:18,y:0,z:-6},yaw:id==='operator'?0:cfg.yaw??Math.PI,spawnProtectionUntil:0,history:[]});p.input.yaw=p.yaw;if(id==='target'&&cfg.steel){p.spell='steel';p.loadout={...p.loadout,spell:'steel'};}}
  room.biByeLlista=createBiByeLlista({id:'bibye-'+cfg.id,x:18,y:0,z:2,baseYaw:0});
- const contexts=[],pages=[];
+ const contexts=[],pages=[],sessions=[];
  try{
   for(const role of ['operator','target']){
    const context=await browser.newContext({viewport:{width:1280,height:800},recordVideo:{dir:dir+'/video',size:{width:1280,height:800}}});contexts.push(context);
    await context.addInitScript(({role,token,code})=>{localStorage.setItem('ss-session-token',token);localStorage.setItem('ss-room-code',code);},{role,token:cfg.id+'-'+role,code:room.code});
    const page=await context.newPage();pages.push(page);page.on('pageerror',e=>results.errors.push(e.message));page.on('console',m=>{if(m.type()==='error'&&/WebGLProgram|shader/.test(m.text()))results.errors.push(m.text());});
-   const cdp=await context.newCDPSession(page);await cdp.send('Emulation.setFocusEmulationEnabled',{enabled:true});
+   const cdp=await context.newCDPSession(page);sessions.push(cdp);await cdp.send('Emulation.setFocusEmulationEnabled',{enabled:true});
    await page.goto(`http://127.0.0.1:${game.address().port}/?debug`,{waitUntil:'domcontentloaded'});await page.waitForFunction(()=>document.querySelector('#loading-veil')?.classList.contains('done'),null,{timeout:60000});await page.waitForFunction(()=>window.__ssRuntime?.localAuth&&window.__ssRuntime.world.biByeLlista.authoredModel);
    const skip=page.locator('[data-tutorial-onboarding-skip]');if(await skip.isVisible())await skip.click();await focus(page);
-   await page.evaluate(()=>{window.__frostEvents=[];window.__frostMarkers=[];const hud=window.__ssRuntime.hud,hit=hud.hit.bind(hud);hud.hit=(kind,...options)=>{const result=hit(kind,...options);window.__frostMarkers.push({kind,at:performance.now(),playerId:window.__ssRuntime.socket.playerId,classes:hud.crosshair.className});return result;};window.__ssRuntime.socket.on('events',batch=>{window.__frostEvents.push(...batch.events);if(!window.__frostCapture&&batch.events.some(e=>e.type==='bibyeFrostBlast'))requestAnimationFrame(()=>{const r=window.__ssRuntime;window.__frostCapture={png:r.renderer.domElement.toDataURL('image/png'),marker:r.hud.hitKind,at:r.socket.serverNow(),atMs:performance.now()};});});});
+   await page.evaluate(()=>{window.__frostEvents=[];window.__frostMarkers=[];const hud=window.__ssRuntime.hud,hit=hud.hit.bind(hud);hud.hit=(kind,...options)=>{const result=hit(kind,...options);window.__frostMarkers.push({kind,at:performance.now(),playerId:window.__ssRuntime.socket.playerId,classes:hud.crosshair.className,opacity:getComputedStyle(hud.crosshair,'::before').opacity});return result;};window.__ssRuntime.socket.on('events',batch=>{window.__frostEvents.push(...batch.events);if(!window.__frostCapture&&batch.events.some(e=>e.type==='bibyeFrostBlast'))requestAnimationFrame(()=>{const r=window.__ssRuntime;window.__frostCapture={png:r.renderer.domElement.toDataURL('image/png'),marker:r.hud.hitKind,at:r.socket.serverNow(),atMs:performance.now()};});});});
   }
   const [operator,target]=pages;
   await focus(operator);await operator.keyboard.press('t');await operator.waitForFunction(()=>window.__ssRuntime.localAuth.operatingBallistaId);await operator.keyboard.press('z');await operator.waitForTimeout(400);
@@ -57,10 +57,11 @@ for(const cfg of scenarios.filter(c=>!process.env.FROST_CASE||process.env.FROST_
    await target.keyboard.down('g');
   }else await operator.keyboard.press('f');
   await operator.waitForFunction(()=>window.__frostEvents.some(e=>e.type==='bibyeBoltImpact'&&e.subKind==='conditioning'));
-  const ui=await operator.context().newCDPSession(operator);const shot=await ui.send('Page.captureScreenshot',{format:'png'});await writeFile(dir+version+'-'+cfg.id+'-ui.png',Buffer.from(shot.data,'base64'));await ui.detach();
+  const ui=sessions[0];const shot=await ui.send('Page.captureScreenshot',{format:'png'});await writeFile(dir+version+'-'+cfg.id+'-ui.png',Buffer.from(shot.data,'base64'));
   const after={operator:await state(operator),target:await state(target),events:await operator.evaluate(()=>window.__frostEvents),marker:await operator.evaluate(()=>window.__frostCapture?.marker??window.__ssRuntime.hud.hitKind),markerCalls:await operator.evaluate(()=>window.__frostMarkers),captureMoment:await operator.evaluate(()=>{const c=window.__frostCapture;return c?{...c,png:undefined}:null;})};
   await capture(operator,cfg.id+'-impact');await capture(target,cfg.id+'-defender');
   console.log(cfg.id,JSON.stringify({health:after.target.player.health,guard:after.target.player.guardStamina,chill:after.target.player.chill,events:after.events.filter(e=>e.type.startsWith('bibyeFrost')||e.type==='bibyeBoltImpact'),enabled:[after.operator.enabled,after.target.enabled]}));
+  if(version==='after'){const expected=cfg.id==='parry'?'parry':cfg.guard&&!['side','rear'].includes(cfg.id)?'block':'hit';assert.ok(after.markerCalls.some(m=>m.kind===expected));if(expected==='parry')assert.ok(after.markerCalls.some(m=>m.opacity==='1'));}
   if(cfg.splash&&version==='after'){const e=after.events.find(e=>e.type==='bibyeFrostContact');assert.equal(e.direct,false);assert.equal(e.outcome,'block');assert.ok(e.staminaDrain>0);}
   if(cfg.hp!=null)assert.equal(after.target.player.health,version==='before'&&cfg.guard?100:cfg.hp);
   await writeFile(dir+version+'-'+cfg.id+'.json',JSON.stringify({id:cfg.id,before,after},null,2));
