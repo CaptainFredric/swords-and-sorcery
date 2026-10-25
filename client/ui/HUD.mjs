@@ -639,16 +639,22 @@ export class HUD {
     }
   }
 
-  hit(kind = 'hit') {
+  hit(kind = 'hit', { afterPaint = false } = {}) {
     const marker = HIT_MARKERS[kind];
     if (!marker || (HIT_MARKERS[this.hitKind]?.priority ?? 0) > marker.priority) return;
     this.clearHit();
     this.hitKind = kind;
     this.crosshair.classList.add(kind);
-    this.hitTimer = setTimeout(() => this.clearHit(), marker.milliseconds);
+    const begin=()=>{this.hitFrame=null;this.hitTimer=setTimeout(()=>this.clearHit(),marker.milliseconds);};
+    // Frost's first impact frame can be busy. Give the visible confirmation its
+    // full lifetime after that draw, rather than spending it while rendering.
+    if(afterPaint&&globalThis.requestAnimationFrame)this.hitFrame=requestAnimationFrame(begin);
+    else begin();
   }
 
   clearHit() {
+    if(this.hitFrame!=null)globalThis.cancelAnimationFrame?.(this.hitFrame);
+    this.hitFrame=null;
     clearTimeout(this.hitTimer);
     this.hitTimer = null;
     this.hitKind = null;

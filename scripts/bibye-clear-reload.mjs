@@ -2,11 +2,11 @@
 import assert from 'node:assert/strict';import{mkdtemp,mkdir,writeFile,readFile,rm}from'node:fs/promises';import{tmpdir}from'node:os';import{createRequire}from'node:module';
 import{aim,focus,state}from'./bibye-browser-inputs.mjs';
 const require=createRequire(import.meta.url),{chromium}=require(process.env.PLAYWRIGHT_MODULE??'playwright'),before=process.env.CLEAR_BEFORE==='1',touch=process.env.CLEAR_TOUCH==='1';
-const version=before?'before':touch?'touch':'after',source=before?'/Users/erendiracisneros/swords-and-sorcery-ballista-v32/':new URL('../',import.meta.url).pathname;
+const version=before?'before':touch?'touch':'after',source=before?(process.env.FROST_BASELINE_REPO??new URL('../../swords-and-sorcery-ballista-v32/',import.meta.url).pathname).replace(/\/?$/,'/'):new URL('../',import.meta.url).pathname;
 const{createGameServer}=await import(source+'server/src/server.mjs'),{ProfileStore}=await import(source+'server/src/ProfileStore.mjs'),{createBiByeLlista}=await import(source+'shared/sim/biByeLlista.mjs'),{createSoFistication}=await import(source+'shared/sim/soFistication.mjs');
 const dir=new URL('../output/playwright/bibye-frost/',import.meta.url).pathname;await mkdir(dir,{recursive:true});const folder=await mkdtemp(tmpdir()+'/bibye-clear-'),game=createGameServer({port:0,host:'127.0.0.1',profileStore:new ProfileStore(folder)});await game.start();
 const now=performance.now()/1000,room=game.roomManager.createPrivateRoom(now,'castleward');room.addPlayer({id:'operator',token:'clear-operator',name:'Operator'},now);room.startMatch(now);
-const p=room.players.get('operator');Object.assign(p,{connected:false,disconnectExpiresAt:now+3600,position:{x:18,y:0,z:9.1},yaw:0,spawnProtectionUntil:0,history:[]});p.input.yaw=0;room.biByeLlista=createBiByeLlista({id:'bibye-clear',x:18,y:0,z:6,baseYaw:0});room.soFistication=createSoFistication({x:18,y:0,z:-4});
+const p=room.players.get('operator');Object.assign(p,{connected:false,disconnectExpiresAt:now+3600,position:{x:18,y:0,z:5.1},yaw:0,spawnProtectionUntil:0,history:[]});p.input.yaw=0;room.biByeLlista=createBiByeLlista({id:'bibye-clear',x:18,y:0,z:2,baseYaw:0});room.soFistication=createSoFistication({x:18,y:0,z:-8});
 const browser=await chromium.launch({channel:'chrome',headless:true}),context=await browser.newContext({viewport:touch?{width:960,height:600}:{width:1280,height:800},isMobile:touch,hasTouch:touch,recordVideo:{dir:dir+'/video',size:touch?{width:960,height:600}:{width:1280,height:800}}}),page=await context.newPage(),errors=[];
 page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error'&&/WebGLProgram|shader/.test(m.text()))errors.push(m.text());});
 try{
@@ -34,6 +34,11 @@ try{
  const reload=proof.frames.filter(f=>f.state==='RELOADING');assert.ok(reload.length>50);assert.equal(proof.view,'clear');assert.equal(proof.restoredVisible,true);if(!before)assert.ok(proof.frames.every(f=>!f.boltVisible&&!f.obstruction));
  if(touch){await page.locator('.touch-siegeView').tap();await page.locator('.touch-siegeView').tap();}else{await page.keyboard.press('z');await page.keyboard.press('z');}
  await shot('ordinary');assert.equal(await page.evaluate(()=>window.__ssRuntime.world.biByeLlista.nodes.get('Main_Siege_Bolt').visible),true);assert.deepEqual(errors,[]);
+ if(process.env.CLEAR_WALL&&!touch){
+  await page.keyboard.press('x');await page.waitForFunction(()=>window.__ssRuntime.latestSnapshot.bibyeBallista.weaponFocus==='UPPER');await page.waitForTimeout(700);await aim(page,-1.3,-.1);await page.keyboard.press('Shift+z');await page.waitForTimeout(600);
+  const count=await page.evaluate(()=>window.__clearEvents.length);await page.keyboard.press('f');await page.waitForFunction(n=>window.__clearEvents.slice(n).some(e=>e.type==='bibyeBoltImpact'&&e.subKind==='conditioning'),count);
+  proof.wallImpact=await page.evaluate(n=>{const r=window.__ssRuntime,e=window.__clearEvents.slice(n).find(e=>e.type==='bibyeBoltImpact'&&e.subKind==='conditioning');return {event:e,camera:r.camera.position.toArray()};},count);await shot('wall');assert.equal(proof.wallImpact.event.hitKind,'solid');
+ }
  await writeFile(dir+version+'-clear.json',JSON.stringify({...proof,errors},null,2));console.log(version,JSON.stringify({frames:proof.frames.length,reload:reload.length,obstruction:proof.frames.filter(f=>f.obstruction).length,events:proof.events.filter(e=>e.type==='bibyeBoltImpact'||e.type==='bibyeFrostBlast'||e.type==='soFistDamaged'),errors}));
  const video=page.video();await context.close();await video.saveAs(dir+version+'-clear.webm');
 }finally{await context.close();await browser.close();await game.stop();await rm(folder,{recursive:true,force:true});}

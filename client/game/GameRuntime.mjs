@@ -695,7 +695,7 @@ export class GameRuntime {
         this.effects.impact(event.point,{spell:'frostfire',radius:event.radius,ground});
       }
       if(frostFeedback?.kind==='contact'){
-        if(frostFeedback.marker)this.hud.hit(frostFeedback.marker);
+        if(frostFeedback.marker)this.hud.hit(frostFeedback.marker,{afterPaint:true});
         if(['block','parry'].includes(event.outcome))this.effects.blockBurst(event.point,null,{frost:true,parry:event.outcome==='parry'});
         if(frostFeedback.reaction==='block')this.weapon.block(false);
         if(frostFeedback.reaction==='parry'){this.weapon.parry();this.hud.flashText('PARRY','parry');}
