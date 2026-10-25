@@ -30,6 +30,10 @@ Browser verification uses a disposable local wallet seeded with 60 Renown to exe
 
 The catalog now contains six standards, with per knight shader colors that preserve banner embroidery. Heraldry uses existing menu design tokens and shows collection count, selected unlock progress, server confirmation feedback and specific reasons for zero rewards. Combat Kit remains the opening section. The latest Claude changes through a243b99 are included. See GPT_HANDOFF_RENOWN.md for the complete handoff.
 
+## Proposed prestige heralds
+
+Future herald concepts (not yet implemented or obtainable), including **St. Perry the Plain** — flawless victory over St. Perry the Prodigious in Canonization — and **Strike While Hot!**, are recorded in [Castleward worldbuilding and herald concepts](ideas/renown-renowner-worldbuilding.md). These proposals are separate from existing Renown and challenge rewards; Practice does not award ordinary match Renown.
+
 ## Next increment
 
 Configure production persistence, then add solo trial definitions and completion records using the existing bot duel simulation. Ultimate equipment and charge rules should remain a separate combat milestone.
