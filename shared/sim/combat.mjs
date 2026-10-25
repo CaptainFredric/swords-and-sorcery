@@ -15,6 +15,7 @@ import {
 import { combatActionPolicy, combatBlocksSprint } from '../src/combatActionPolicy.mjs';
 import { heldActions } from '../src/heldActions.mjs';
 import { recordChallengeFact } from './challenges.mjs';
+import { recordPerryParry, recordPerryDamage } from './StPerry.mjs';
 import { preparedSpellMember } from '../src/preparedSpells.mjs';
 import { RUPTURE, fissureHit, onTornGround, planRupture } from '../src/rupture.mjs';
 import { recastReady, recordUse } from '../src/practiceRecast.mjs';
@@ -911,6 +912,7 @@ function landStrike(room, attacker, strikeIndex, target, atSec, nowSec, met = nu
         ...(met?.point ? { point: { x: met.point.x, y: met.point.y, z: met.point.z } } : {}), at: nowSec,
       });
       recordChallengeFact(room, { type: 'parry', attackerId: attacker.id, defenderId: target.id, at: nowSec });
+      recordPerryParry(room, attacker, target, nowSec);
       staggerBy(room, attacker, STAGGER.gain.parried, nowSec, target.id);
       return 'parry';
     }
@@ -1129,6 +1131,7 @@ export function applyDamage(room, attackerId, victimId, amount, source, nowSec, 
     ...contactFacts, type: 'damage', attackerId, victimId, source, amount: taken, rawDamage,
     healthBefore, healthAfter: victim.health, steel: contactFacts?.steel ?? finalSteel, contact: source !== 'burn', at: nowSec,
   });
+  recordPerryDamage(room, attackerId, victimId, source, nowSec);
   if (victim.health <= 0) killPlayer(room, victimId, attackerId, source, nowSec);
   return true;
 }

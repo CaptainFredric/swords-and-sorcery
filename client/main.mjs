@@ -1546,7 +1546,7 @@ function updateStPerryUI(snapshot) {
     perryDialogue?.classList.add('hidden');
   }
 
-  const unlocked = Boolean(perryData?.unlocked || isCanonized);
+  const unlocked = Boolean(perryData?.unlocked);
   if (practiceCanonizationBtn) {
     practiceCanonizationBtn.classList.toggle('hidden', !unlocked);
   }

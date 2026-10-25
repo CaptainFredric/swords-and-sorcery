@@ -371,10 +371,21 @@ body.took-steel::after{content:"";position:fixed;inset:0;z-index:50;pointer-even
 @container app (max-width: 600px) {
   .perry-dialogue {
     top: auto;
-    bottom: 80px;
-    right: 10px;
-    left: 10px;
+    bottom: 84px;
+    right: 12px;
+    left: 12px;
     width: auto;
+    max-width: none;
+  }
+}
+@media (max-width: 600px) {
+  .perry-dialogue {
+    top: auto;
+    bottom: 84px;
+    right: 12px;
+    left: 12px;
+    width: auto;
+    max-width: none;
   }
 }
 /* A mechanical siege sight. The open center keeps bolts and frost confirmations visible. */

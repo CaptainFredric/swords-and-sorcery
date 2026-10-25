@@ -4,7 +4,7 @@
  * Verifies the complete playable training opponent:
  * 1. Practice Yard selection: "St. Perry the Prodigious" option.
  * 2. Part II Dialogue: Non-blocking dialogue card, exact greeting,
- *    authored wrong answer responses ("Incorrect! You are lucky I am a St.",
+ *    authored wrong answer responses ("Incorrect! You are lucky I am a Saint.",
  *    "Have you grown in intellect since we last spoke?"), and case-insensitive
  *    "parry" answer matcher.
  * 3. Combat Mechanics:
@@ -234,7 +234,7 @@ try {
   // Test 1st wrong answer: "Because you are fond of pears?"
   console.log('Testing 1st wrong answer...');
   await evaluate(`document.querySelector('.perry-option-btn[data-answer="pears"]')?.click()`);
-  await until(() => evaluate("Boolean(document.querySelector('#perry-dialogue-text')?.textContent?.includes('Incorrect! You are lucky I am a St. Try again.'))"), '1st wrong answer response', 5000);
+  await until(() => evaluate("Boolean(document.querySelector('#perry-dialogue-text')?.textContent?.includes('Incorrect! You are lucky I am a Saint. Try again.'))"), '1st wrong answer response', 5000);
   const line1 = await evaluate("document.querySelector('#perry-dialogue-text')?.textContent");
   console.log(`1st wrong reply: ${line1}`);
 
