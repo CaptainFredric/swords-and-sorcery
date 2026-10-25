@@ -461,7 +461,7 @@ export class TouchControls {
 
   #up = (event) => {
     this.touchDebugEvent = event.type;
-    if(event.type!=='pointerup'&&(this.look?.id===event.pointerId||this.viewGesture?.id===event.pointerId))this.input.onAimCancelled?.();
+    if(event.type!=='pointerup'&&(this.look?.id===event.pointerId||this.viewGesture?.id===event.pointerId||this.aim?.has(event.pointerId)))this.input.onAimCancelled?.();
     if (event.pointerType === 'mouse' && !this.held.has(event.pointerId)) {
       const button = typeof event.button === 'number' && event.button >= 0 ? event.button : 0;
       this.input.handleMouseButtonUp?.(`Mouse${button}`);
