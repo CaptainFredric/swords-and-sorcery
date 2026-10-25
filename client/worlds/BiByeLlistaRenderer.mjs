@@ -5,7 +5,7 @@ import { appUrl } from '../appUrl.mjs';
 import { everywhere } from '../game/viewLayers.mjs';
 import { BI_BYE_LLISTA_CONFIG, BI_BYE_STATES, BI_BYE_MODES, getBiByeMuzzlePosition, getBiByeMuzzleDirection } from '../../shared/sim/biByeLlista.mjs';
 
-import { biByeDamageFlash, biByeAnimation, biByeUpperAnimation, biByeClutchAnimation, biByeDelayAnimation, biByeTrackOwner, biByeWheelSteering, biByeWheelTravel } from './biByePresentation.mjs';
+import { withClearBoltHidden, biByeDamageFlash, biByeAnimation, biByeUpperAnimation, biByeClutchAnimation, biByeDelayAnimation, biByeTrackOwner, biByeWheelSteering, biByeWheelTravel } from './biByePresentation.mjs';
 
 const ASSET_PATH = '/client/assets/props/bibye-ballista/bi-bye-llista-v4.1.glb?v=4641af412cf83d49';
 
@@ -348,6 +348,10 @@ export class BiByeLlistaRenderer {
     }
     action.paused = true;
     action.time = Math.max(0, Math.min(seconds, action.getClip().duration));
+  }
+
+  renderMountedView(clear, render) {
+    return withClearBoltHidden(this.nodes.get('Main_Siege_Bolt'),clear,render);
   }
 
   getMountedCameraPosition(view, out = new THREE.Vector3()) {

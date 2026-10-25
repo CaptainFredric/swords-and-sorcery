@@ -649,16 +649,16 @@ export class Effects {
   }
 
   /** Steel meeting steel on a guard: bright blue-white sparks and a flat flash where the blades met. */
-  blockBurst(point, dir, { heavy = false, parry = false } = {}) {
+  blockBurst(point, dir, { heavy = false, parry = false, frost = false } = {}) {
     const at = new THREE.Vector3(point.x, point.y, point.z);
     const push = new THREE.Vector3(dir?.x ?? 0, 0, dir?.z ?? 0).normalize();
-    const color = parry ? 0xbff4ff : 0xfff0c8;
+    const color = parry ? 0xbff4ff : frost ? 0x79cfff : 0xfff0c8;
     const flash = new THREE.Mesh(this.impactFlashGeometry, this.#basicMaterial(color));
     flash.position.copy(at);
     flash.scale.setScalar(parry ? 0.7 : 0.45);
     this.#addTransient(flash, { life: parry ? 0.14 : 0.08, expand: parry ? 4.5 : 3, shrink: true, spin: new THREE.Vector3(5, 3, 6) });
     for (let i = 0, n = this.#many((heavy || parry ? 24 : 14)); i < n; i += 1) {
-      const spark = new THREE.Mesh(this.sparkGeometry, this.#basicMaterial(i % 2 ? color : 0xffd27a));
+      const spark = new THREE.Mesh(this.sparkGeometry, this.#basicMaterial(i % 2 ? color : frost ? 0xe8fbff : 0xffd27a));
       spark.position.copy(at);
       // sparks fly back toward the attacker off the guard
       const velocity = push.clone().multiplyScalar(-(1.5 + Math.random() * 3))

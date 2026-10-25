@@ -29,7 +29,7 @@ import { RemotePlayers } from './RemotePlayers.mjs';
 import { WeaponView } from './WeaponView.mjs';
 import { Effects } from './Effects.mjs';
 import { SCENE_PRESENTATION } from './scenePresentation.mjs';
-import { damageHitMarker, localCombatFeedback, shouldPlayWorldClang } from './combatFeedback.mjs';
+import { biByeFrostFeedback, damageHitMarker, localCombatFeedback, shouldPlayWorldClang } from './combatFeedback.mjs';
 import { castVisualDuration } from './weaponPose.mjs';
 import { localPushDirection } from './spellbladeMotion.mjs';
 import { blowDirection, glancing, hitKick, hitstopSeconds, impactPoint, steelHitFeel } from './hitFeel.mjs';
@@ -689,6 +689,19 @@ export class GameRuntime {
       this.ramRenderer.hit(event);
       this.teamVoiceEvents.onEvent(event);
       this.remotePlayers.onEvent(event, this.latestSnapshot);
+      const frostFeedback=biByeFrostFeedback(event,this.socket.playerId);
+      if(frostFeedback?.kind==='blast'&&event.point){
+        const ground=this.activeWorld?surfaceHeightAt(event.point.x,event.point.z,event.point.y,this.activeWorld):null;
+        this.effects.impact(event.point,{spell:'frostfire',radius:event.radius,ground});
+      }
+      if(frostFeedback?.kind==='contact'){
+        if(frostFeedback.marker)this.hud.hit(frostFeedback.marker);
+        if(['block','parry'].includes(event.outcome))this.effects.blockBurst(event.point,null,{frost:true,parry:event.outcome==='parry'});
+        if(frostFeedback.reaction==='block')this.weapon.block(false);
+        if(frostFeedback.reaction==='parry'){this.weapon.parry();this.hud.flashText('PARRY','parry');}
+        if(frostFeedback.reaction==='hit'&&event.damage>0)this.weapon.damage(this.#pushTowardMe(event.attackerId),event.damage);
+      }
+
       this.#applyWeaponRelease(localWeaponReleaseForEvent(event, this.socket.playerId, this.localAuth, event.at ?? this.socket.serverNow()));
 
       const me = this.socket.playerId;
@@ -928,7 +941,7 @@ export class GameRuntime {
           }
         }
         // (a ram knocks me through my own view itself, harder: #steelRam)
-        if (event.victimId === this.socket.playerId && event.source !== 'abyss' && event.source !== 'ram' && event.amount > 0) {
+        if (event.victimId === this.socket.playerId && event.source !== 'abyss' && event.source !== 'ram' && event.source !== 'bibye-conditioning' && event.amount > 0) {
           this.weapon.damage(this.#pushTowardMe(event.attackerId), event.amount);
         }
         // a blow that kills gets the death cry instead
@@ -2088,6 +2101,10 @@ export class GameRuntime {
         const back = sight ? 1.45 : 6.7;
         target.set(b.position.x + Math.sin(b.yaw) * back, b.position.y + (sight ? 2.18 : 3.8), b.position.z + Math.cos(b.yaw) * back);
       }
+      if(!ram&&this.siegeView==='clear'){
+        const anchor=boxWorld(biByeRootFrame({...b,...b.position}),[0,1.45,-1.88]);
+        target.set(...clip(this.#reach,anchor,target.toArray(),.18));
+      }
       const kind = b.mode === 'DEPLOYED' && b.weaponFocus === 'MAIN' ? 'siege' : 'conditioning';
       if (this.siegeView === 'third'&&!ram) {
         const pivot=boxWorld(biByeRootFrame({...b,...b.position}),[0,3.8,0]);
@@ -2426,7 +2443,10 @@ export class GameRuntime {
   #renderView() {
     const { renderer, scene, camera } = this;
     camera.layers.set(0);
-    renderer.render(scene, camera);
+    const ballista=this.world?.biByeLlista;
+    const clear=Boolean(this.localAuth?.alive&&this.localAuth?.operatingBallistaId&&this.siegeView==='clear');
+    if(ballista)ballista.renderMountedView(clear,()=>renderer.render(scene,camera));
+    else renderer.render(scene,camera);
     const background = scene.background;
     const shadows = renderer.shadowMap.autoUpdate;
     const clears = renderer.autoClear;

@@ -1014,7 +1014,7 @@ export const CLEAN_CONTACT = Object.freeze({ sword: 0.91, spell: 0.9, gale: 0.85
 // that long, while the sword, the spells and the dash carry on (every verb at once is the ultimate). Otherwise the
 // knight reels for that long (nothing new begins). Either way the blow still shakes their balance (staggerBy), and a
 // balance that breaks stops everything, Chivalry or not.
-function breakGuard(target, seconds, nowSec) {
+export function breakGuard(target, seconds, nowSec) {
   target.guarding = false;
   target.guardAuto = false;
   if (combatActionPolicy(target, nowSec).concurrent) target.guardBrokenUntil = Math.max(target.guardBrokenUntil ?? -Infinity, nowSec + seconds);

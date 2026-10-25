@@ -396,6 +396,11 @@ export class RemotePlayers {
       if (d) d.reactions = d.reactions.map((reaction) => (reaction.kind === 'hit' && reaction.at === event.at ? { ...reaction, strike: event.strikeIndex, strength: (reaction.strength ?? 1) * crash } : reaction));
       return;
     }
+    if(event?.type==='damage'&&event.source==='bibye-conditioning')return;
+    if(event?.type==='bibyeFrostContact'){
+      if(event.outcome==='guardBreak')return; // The ordinary guardBreak event owns this reaction.
+      event={...event,type:event.outcome==='hit'?'damage':event.outcome,victimId:event.defenderId,amount:event.damage};
+    }
     const spec = REACTION_EVENTS[event?.type];
     if (!spec || !Number.isFinite(event.at)) return;
     if (event.type === 'damage' && (event.source === 'abyss' || !(event.amount > 0))) return;

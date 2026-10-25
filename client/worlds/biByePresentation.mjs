@@ -53,3 +53,11 @@ export function biByeViewAction(state,action){
  if(action==='zoom')return state.view==='clear'?state:{view:'clear',returnView:state.view};
  return {view:state.view==='clear'?(state.returnView??'third'):state.view==='third'?'sight':'third'};
 }
+
+// Visibility belongs to this client's world pass only. Restore even on renderer
+// failure so the authored state remains available to every other view.
+export function withClearBoltHidden(bolt, clear, render) {
+ if(!bolt||!clear)return render();
+ const visible=bolt.visible;bolt.visible=false;
+ try{return render();}finally{bolt.visible=visible;}
+}

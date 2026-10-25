@@ -1,3 +1,4 @@
+import {frostGuardFaces,frostParryContact} from './biByeFrostGuard.mjs';
 import { structureWorld, damageStructureSolid } from './structures.mjs';
 import {soFistFirstHit,soFistSolids} from './soFistGeometry.mjs';
 import {damageSoFistication} from './soFistication.mjs';
@@ -8,7 +9,7 @@ import { biByeWeaponState, requestBiByeIndependent, requestBiByeVolley, stepBiBy
 import { biByeCondition, createBiByeComponents, biByeDeployProgress, biByeAimPose, biByeFrames, biByeHitVolumes, biByeFirstHit, biByeBlastAllocations, biByeWheelTravel, biByeWheelSteering, biByeConstrainAim } from './biByeComponents.mjs';
 import { boxWorld } from '../src/orientedBox.mjs';
 import { segmentAabbHit, surfaceHeightAt, resolvePlayerWorld } from '../src/collision.mjs';
-import { applyDamage, staggerBy, interruptHitActions } from './combat.mjs';
+import { applyDamage, staggerBy, interruptHitActions, breakGuard } from './combat.mjs';
 import { strongerChill } from '../src/spells.mjs';
 import { GAME } from '../src/combat.mjs';
 import { areAllies } from '../src/teams.mjs';
@@ -87,6 +88,8 @@ export const BI_BYE_LLISTA_CONFIG = Object.freeze({
     blastRadius: 2.0,             // 2.0m frost blast
     directDamage: 18,             // 18 direct health damage
     edgeDamage: 12,               // 12 edge health damage
+    guardArcDeg: 90,             // Independent of the melee Guard cone
+    guardedDamageScale: 0.25,    // A central ordinary block takes 5 HP before Steel
     maxStaminaDrain: 22,          // 22 stamina drain at blast center (solid sword strike equivalent)
     chill: Object.freeze({
       slow: 0.40,                 // Gentler initial slow (regular frostfire is 0.55)
@@ -832,6 +835,7 @@ export function stepBiByeProjectiles(room, dt, nowSec, world = room.world) {
           t: hit.t,
           kind: 'player',
           player,
+          parryContact: projectile.subKind==='conditioning'?frostParryContact(player,projectile,start,{x:start.x+(after.x-start.x)*hit.t,y:start.y+(after.y-start.y)*hit.t,z:start.z+(after.z-start.z)*hit.t},nowSec,BI_BYE_LLISTA_CONFIG.shotI.guardArcDeg):null,
           point: hit.point,
         });
       }
@@ -863,7 +867,7 @@ export function stepBiByeProjectiles(room, dt, nowSec, world = room.world) {
         if(first.kind==='ram')damageSoFistication(room,room.soFistication,projectile.directDamage,projectile.ownerId,'bibye-conditioning',nowSec,{componentId:first.box.componentId,point:impactPoint});
         if (first.kind === 'machine') damageBiByeLlista(room,machine,projectile.directDamage,projectile.ownerId,'bibye-conditioning',nowSec,{componentId:first.box.componentId,point:impactPoint});
         else if (machine?.id !== projectile.ballistaId) blastBiByeLlista(room,machine,{point:impactPoint,radius:projectile.blastRadius,damage:projectile.directDamage},projectile.ownerId,'bibye-conditioning',nowSec);
-        detonateFrostBlast(room, projectile, impactPoint, nowSec, hitPlayer?.id, world);
+        detonateFrostBlast(room, projectile, impactPoint, nowSec, hitPlayer?.id, world, Boolean(first.parryContact));
         continue;
       }
     }
@@ -982,10 +986,10 @@ export function stepBiByeProjectiles(room, dt, nowSec, world = room.world) {
 /**
  * Detonates the Frost Conditioning blast.
  * Continuous linear damage falloff (18 -> 0 at perimeter), stamina drain, and fading chill.
- * Raised Guard absorbs the damage, drains stamina (22 at center), and applies edge chill.
+ * Frontal Guard chips health, drains stamina and chills lightly. Direct timed physical parries exclude their defender.
  * Excludes friendly fire and self-damage.
  */
-function detonateFrostBlast(room, projectile, point, nowSec, directVictimId = null, world = null) {
+function detonateFrostBlast(room, projectile, point, nowSec, directVictimId = null, world = null, directParry = false) {
   const cfg = BI_BYE_LLISTA_CONFIG.shotI;
   const radius = cfg.blastRadius;
 
@@ -1000,7 +1004,7 @@ function detonateFrostBlast(room, projectile, point, nowSec, directVictimId = nu
   });
 
   for (const victim of room.players.values()) {
-    if (!victim.alive) continue;
+    if (!victim.alive || victim.spawnProtectionUntil > nowSec) continue;
     if (victim.id === projectile.ownerId) continue;
     if (areAllies(room, projectile.ownerId, victim.id)) continue;
 
@@ -1032,14 +1036,24 @@ function detonateFrostBlast(room, projectile, point, nowSec, directVictimId = nu
     // 2. Stamina drain (22 at blast center, scaled by exposure)
     const staminaDrain = Math.round(cfg.maxStaminaDrain * exposure);
 
-    if (victim.guarding) {
-      // Raised Guard absorbs conditioning bolt: drains stamina, breaks guard at 0, applies edge chill
+    const guarded=frostGuardFaces(victim,point,projectile.velocity,isDirect,cfg.guardArcDeg);
+    const healthBefore=victim.health;
+    const contact={type:'bibyeFrostContact',ballistaId:projectile.ballistaId,projectileId:projectile.id,attackerId:projectile.ownerId,defenderId:victim.id,point,direct:Boolean(isDirect),exposure,at:nowSec};
+    if(isDirect&&directParry){
+      victim.parries=(victim.parries??0)+1;
+      room.events?.push({...contact,outcome:'parry',damage:0,staminaDrain:0});
+      continue;
+    }
+    if (guarded) {
+      const chip=Math.round(rawDamage*cfg.guardedDamageScale);
+      if(chip>0)applyDamage(room,projectile.ownerId,victim.id,chip,'bibye-conditioning',nowSec,null,{minDamage:Math.min(chip,cfg.edgeDamage*cfg.guardedDamageScale)});
+      let broken=false;
       if (staminaDrain > 0) {
         victim.guardStamina = Math.max(0, victim.guardStamina - staminaDrain);
         victim.lastGuardDrainAt = nowSec;
         if (victim.guardStamina <= 0) {
-          victim.guarding = false;
-          room.events?.push({ type: 'guardBreak', attackerId: projectile.ownerId, defenderId: victim.id, at: nowSec });
+          broken=true;breakGuard(victim,GAME.guardBreakStaggerMs/1000,nowSec);
+          room.events?.push({ type: 'guardBreak', attackerId: projectile.ownerId, defenderId: victim.id, source:'bibye-conditioning', at: nowSec });
         }
       }
 
@@ -1059,6 +1073,7 @@ function detonateFrostBlast(room, projectile, point, nowSec, directVictimId = nu
         staminaDrain,
         at: nowSec,
       });
+      room.events?.push({...contact,outcome:broken?'guardBreak':'block',damage:healthBefore-victim.health,staminaDrain});
     } else {
       // Unprotected target takes health damage
       if (rawDamage > 0) {
@@ -1068,7 +1083,8 @@ function detonateFrostBlast(room, projectile, point, nowSec, directVictimId = nu
       }
 
       if (staminaDrain > 0) {
-        victim.sprintStamina = Math.max(0, (victim.sprintStamina ?? 100) - staminaDrain);
+        victim.guardStamina = Math.max(0, victim.guardStamina - staminaDrain);
+        victim.lastGuardDrainAt = nowSec;
       }
 
       // Fading chill scaled by exposure
@@ -1081,6 +1097,7 @@ function detonateFrostBlast(room, projectile, point, nowSec, directVictimId = nu
         until: nowSec + duration,
       }, nowSec);
 
+      room.events?.push({...contact,outcome:'hit',damage:healthBefore-victim.health,staminaDrain});
       room.events?.push({
         type: 'chilled',
         playerId: victim.id,
