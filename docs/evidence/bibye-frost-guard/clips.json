@@ -1,0 +1,30 @@
+[
+  {
+    "file": "before-clear.webm",
+    "originalDuration": 17.6,
+    "start": 5.550000000000002,
+    "duration": 12,
+    "source": "original browser recording; exact decoded crop, no altered gameplay"
+  },
+  {
+    "file": "after-clear.webm",
+    "originalDuration": 16.32,
+    "start": 2.2700000000000005,
+    "duration": 14,
+    "source": "original browser recording; exact decoded crop, no altered gameplay"
+  },
+  {
+    "file": "touch-clear.webm",
+    "originalDuration": 13.76,
+    "start": 3.71,
+    "duration": 10,
+    "source": "original browser recording; exact decoded crop, no altered gameplay"
+  },
+  {
+    "file": "after-front-block.webm",
+    "originalDuration": 18.16,
+    "start": 11.11,
+    "duration": 7,
+    "source": "original browser recording; exact decoded crop, no altered gameplay"
+  }
+]

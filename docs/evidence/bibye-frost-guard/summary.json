@@ -1,0 +1,162 @@
+{
+  "combat": [
+    {
+      "case": "unguarded",
+      "outcome": "hit",
+      "healthDamage": 18,
+      "staminaDrain": 22,
+      "direct": true,
+      "exposure": 1,
+      "markerCalls": [
+        {
+          "kind": "hit",
+          "at": 22743.900000572205,
+          "playerId": "operator",
+          "classes": "crosshair hit"
+        }
+      ]
+    },
+    {
+      "case": "front-block",
+      "outcome": "block",
+      "healthDamage": 5,
+      "staminaDrain": 22,
+      "direct": true,
+      "exposure": 1,
+      "markerCalls": [
+        {
+          "kind": "block",
+          "at": 13948.699999809265,
+          "playerId": "operator",
+          "classes": "crosshair block"
+        }
+      ]
+    },
+    {
+      "case": "side",
+      "outcome": "hit",
+      "healthDamage": 18,
+      "staminaDrain": 22,
+      "direct": true,
+      "exposure": 1,
+      "markerCalls": [
+        {
+          "kind": "hit",
+          "at": 15769.10000038147,
+          "playerId": "operator",
+          "classes": "crosshair hit"
+        }
+      ]
+    },
+    {
+      "case": "rear",
+      "outcome": "hit",
+      "healthDamage": 18,
+      "staminaDrain": 22,
+      "direct": true,
+      "exposure": 1,
+      "markerCalls": [
+        {
+          "kind": "hit",
+          "at": 17579.10000038147,
+          "playerId": "operator",
+          "classes": "crosshair hit"
+        }
+      ]
+    },
+    {
+      "case": "parry",
+      "outcome": "parry",
+      "healthDamage": 0,
+      "staminaDrain": 0,
+      "direct": true,
+      "exposure": 1,
+      "markerCalls": [
+        {
+          "kind": "parry",
+          "at": 18808,
+          "playerId": "operator",
+          "classes": "crosshair parry",
+          "opacity": "1"
+        }
+      ]
+    },
+    {
+      "case": "late-parry",
+      "outcome": "block",
+      "healthDamage": 5,
+      "staminaDrain": 22,
+      "direct": true,
+      "exposure": 1,
+      "markerCalls": [
+        {
+          "kind": "block",
+          "at": 10724,
+          "playerId": "operator",
+          "classes": "crosshair block"
+        }
+      ]
+    },
+    {
+      "case": "splash",
+      "outcome": "block",
+      "healthDamage": 0,
+      "staminaDrain": 1,
+      "direct": false,
+      "exposure": 0.04270831386906049,
+      "markerCalls": [
+        {
+          "kind": "block",
+          "at": 19786,
+          "playerId": "operator",
+          "classes": "crosshair block"
+        }
+      ]
+    },
+    {
+      "case": "steel",
+      "outcome": "hit",
+      "healthDamage": 12,
+      "staminaDrain": 22,
+      "direct": true,
+      "exposure": 1,
+      "markerCalls": [
+        {
+          "kind": "hit",
+          "at": 10575.39999961853,
+          "playerId": "operator",
+          "classes": "crosshair hit"
+        }
+      ]
+    }
+  ],
+  "reload": {
+    "before": {
+      "frames": 414,
+      "reloadFrames": 269,
+      "obstructedFrames": 114,
+      "p95FrameMs": 17.7,
+      "maxFrameMs": 20.0,
+      "longFrames33_5": 0,
+      "maxCameraStep": 0.0006417597495428958
+    },
+    "after": {
+      "frames": 413,
+      "reloadFrames": 270,
+      "obstructedFrames": 0,
+      "p95FrameMs": 18.6,
+      "maxFrameMs": 21.5,
+      "longFrames33_5": 0,
+      "maxCameraStep": 0.0008587405150385785
+    },
+    "touch": {
+      "frames": 416,
+      "reloadFrames": 270,
+      "obstructedFrames": 0,
+      "p95FrameMs": 17.6,
+      "maxFrameMs": 20.5,
+      "longFrames33_5": 0,
+      "maxCameraStep": 1.6258291538888249e-06
+    }
+  }
+}
