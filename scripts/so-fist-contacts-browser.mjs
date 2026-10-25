@@ -66,7 +66,6 @@ for(const id of cases){
    if(await dismiss.isVisible())await dismiss.tap();
    await operator.locator('.touch-interact').tap();await operator.waitForFunction(()=>!window.__ssRuntime.localAuth.operatingRamId);samples.push({label:'dismounted',...await read(operator)});assert.equal(samples.at(-1).input.sprint,false);
   }else{
-   
    if(id==='guard'){await focus(target);await target.keyboard.down('g');await target.waitForTimeout(300);}
    await focus(operator);
    const started=Date.now();
