@@ -10,7 +10,7 @@ import { tryCastSpell, castPreparedSpell, selectPreparedSpell, beginAttack, endA
 import { compensatedInputTime } from './history.mjs';
 import { readyPracticeUltimate, removePracticeDummy, resetPracticePlayer, setPracticeDummyMode, spawnPracticeDummy } from './practice.mjs';
 import { mountBiByeLlista, dismountBiByeLlista, fireBiByeLlista, toggleBiByeDeploy, BI_BYE_LLISTA_CONFIG } from './biByeLlista.mjs';
-import { answerPerryDialogue, dismissPerryDialogue, isCanonizationUnlocked } from './StPerry.mjs';
+import { answerPerryDialogue, dismissPerryDialogue, getPlayerPerryDialogue, isCanonizationUnlocked } from './StPerry.mjs';
 import { spellFor } from '../src/spells.mjs';
 import { GAME_MODES } from '../src/modes.mjs';
 
@@ -143,14 +143,17 @@ export function serializeSnapshot(room, nowSec, recipientId = null) {
           unlockedPlayers: [...(room.stPerryState?.byPlayer?.entries() ?? [])]
             .filter(([, prog]) => prog.unlocked)
             .map(([id]) => id),
-          dialogue: p.stPerry.dialogue ? {
-            state: p.stPerry.dialogue.state,
-            wrongCount: p.stPerry.dialogue.wrongCount,
-            solved: Boolean(p.stPerry.dialogue.solved),
-            dismissed: Boolean(p.stPerry.dialogue.dismissed),
-            lastLine: p.stPerry.dialogue.lastLine,
-            choices: p.stPerry.dialogue.choices ? [...p.stPerry.dialogue.choices] : [],
-          } : null,
+          dialogue: (() => {
+            const d = getPlayerPerryDialogue(room, recipientId) || p.stPerry.dialogue;
+            return d ? {
+              state: d.state,
+              wrongCount: d.wrongCount,
+              solved: Boolean(d.solved),
+              dismissed: Boolean(d.dismissed),
+              lastLine: d.lastLine,
+              choices: d.choices ? [...d.choices] : [],
+            } : null;
+          })(),
         },
       } : {}),
       // a chain begun Sundering: every strike of it a slam (the heavy strike's shape)

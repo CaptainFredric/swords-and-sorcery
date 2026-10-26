@@ -1600,8 +1600,14 @@ function updateStPerryUI(snapshot) {
     }
 
     const isSolved = Boolean(perryData.dialogue.solved);
-    if (perryDialogueOptions) perryDialogueOptions.hidden = isSolved;
-    if (perryDialogueForm) perryDialogueForm.hidden = isSolved;
+    if (perryDialogueOptions) {
+      perryDialogueOptions.hidden = isSolved;
+      perryDialogueOptions.classList.toggle('hidden', isSolved);
+    }
+    if (perryDialogueForm) {
+      perryDialogueForm.hidden = isSolved;
+      perryDialogueForm.classList.toggle('hidden', isSolved);
+    }
   } else {
     perryDialogue?.classList.add('hidden');
   }
@@ -1691,9 +1697,15 @@ socket.on('snapshot', (snapshot) => {
     if (snapshot.events) {
       for (const ev of snapshot.events) {
         if (ev.type === 'stPerryDialogue') {
-          hud.subtitle({ text: ev.text, name: ev.speaker ?? 'St. Perry the Prodigious', seconds: 3.5 });
+          const myId = window.__ssRuntime?.localAuth?.id || socket?.playerId;
+          if (!ev.playerId || ev.playerId === myId) {
+            hud.subtitle({ text: ev.text, name: ev.speaker ?? 'St. Perry the Prodigious', seconds: 3.5 });
+          }
         } else if (ev.type === 'stPerryUnlocked') {
-          hud.addFeed(ev.message ?? 'CANONIZATION UNLOCKED!', 'sword');
+          const myId = window.__ssRuntime?.localAuth?.id || socket?.playerId;
+          if (!ev.playerId || ev.playerId === myId) {
+            hud.addFeed(ev.message ?? 'CANONIZATION UNLOCKED!', 'sword');
+          }
         }
       }
     }
