@@ -1694,31 +1694,6 @@ socket.on('snapshot', (snapshot) => {
     hud.show();
     setPracticeVisible(snapshot.mode === 'PRACTICE');
     updateStPerryUI(snapshot);
-    if (snapshot.events) {
-      for (const ev of snapshot.events) {
-        if (ev.type === 'stPerryDialogue') {
-          const myId = window.__ssRuntime?.localAuth?.id || socket?.playerId;
-          if (!ev.playerId || ev.playerId === myId) {
-            hud.subtitle({ text: ev.text, name: ev.speaker ?? 'St. Perry the Prodigious', seconds: 3.5 });
-          }
-        } else if (ev.type === 'stPerryUnlocked') {
-          const myId = window.__ssRuntime?.localAuth?.id || socket?.playerId;
-          if (!ev.playerId || ev.playerId === myId) {
-            hud.addFeed(ev.message ?? 'CANONIZATION UNLOCKED!', 'sword');
-          }
-        } else if (ev.type === 'stPerryPlainUnlocked') {
-          const myId = window.__ssRuntime?.localAuth?.id || socket?.playerId;
-          if (!ev.playerId || ev.playerId === myId) {
-            hud.addFeed(ev.message ?? 'PRESTIGE HERALD EARNED: ST. PERRY THE PLAIN!', 'shield');
-          }
-        } else if (ev.type === 'spellbladeLine') {
-          const myId = window.__ssRuntime?.localAuth?.id || socket?.playerId;
-          if (!ev.playerId || ev.playerId === myId) {
-            hud.subtitle({ text: ev.text, name: ev.speaker ?? 'Spellblade', seconds: 4.5 });
-          }
-        }
-      }
-    }
   } else if (snapshot.roomState === 'FINISHED') {
     hideChallenge();
     paused = false; pauseMenu.classList.add('hidden');
@@ -1727,6 +1702,30 @@ socket.on('snapshot', (snapshot) => {
     setPracticeVisible(false);
     updateEnd(snapshot);
     route(SCREEN_IDS.END_SCREEN);
+  }
+});
+
+socket.on('events', ({ events }) => {
+  if (!events || !Array.isArray(events)) return;
+  const myId = window.__ssRuntime?.localAuth?.id || socket?.playerId;
+  for (const ev of events) {
+    if (ev.type === 'stPerryDialogue') {
+      if (!ev.playerId || ev.playerId === myId) {
+        hud.subtitle({ text: ev.text, name: ev.speaker ?? 'St. Perry the Prodigious', seconds: 3.5 });
+      }
+    } else if (ev.type === 'stPerryUnlocked') {
+      if (!ev.playerId || ev.playerId === myId) {
+        hud.addFeed(ev.message ?? 'CANONIZATION UNLOCKED!', 'sword');
+      }
+    } else if (ev.type === 'stPerryPlainUnlocked') {
+      if (!ev.playerId || ev.playerId === myId) {
+        hud.addFeed(ev.message ?? 'PRESTIGE HERALD EARNED: ST. PERRY THE PLAIN!', 'shield');
+      }
+    } else if (ev.type === 'spellbladeLine') {
+      if (!ev.playerId || ev.playerId === myId) {
+        hud.subtitle({ text: ev.text, name: ev.speaker ?? 'Spellblade', seconds: 4.5 });
+      }
+    }
   }
 });
 

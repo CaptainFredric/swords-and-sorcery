@@ -151,6 +151,8 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
       const { profile } = profileStore.open(session.profileToken);
       player.cloth = profile.equipped;
       player.emblem = profile.emblem;
+      player.emblems = profile.emblems;
+      player.challenges = profile.challenges;
     }
     session.roomCode = room.code;
     session.playerId = player.id;
@@ -255,7 +257,12 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
   function publishProfile(token, profile, extra = {}) {
     for (const room of roomManager.rooms.values()) {
       for (const player of room.players.values()) {
-        if (player.profileToken === token) { player.cloth = profile.equipped; player.emblem = profile.emblem; }
+        if (player.profileToken === token) {
+          player.cloth = profile.equipped;
+          player.emblem = profile.emblem;
+          player.emblems = profile.emblems;
+          player.challenges = profile.challenges;
+        }
       }
     }
     for (const session of sessions) if (session.profileToken === token) send(session, { type: 'profile', profile, ...extra });
@@ -480,8 +487,26 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
             try {
               const updated = profileStore.completePrestigeChallenge(player.profileToken, event.challengeId, { completedAt: event.at });
               publishProfile(player.profileToken, updated, { prestigeFeat: event.challengeId });
+              events.push({
+                type: 'stPerryPlainUnlocked',
+                playerId: player.id,
+                message: 'PRESTIGE HERALD EARNED: ST. PERRY THE PLAIN!',
+                at: event.at,
+              });
+              events.push({
+                type: 'spellbladeLine',
+                playerId: player.id,
+                text: 'I suppose anyone can become a saint... these days.',
+                speaker: player.name || 'Spellblade',
+                at: event.at,
+              });
             } catch (err) {
               console.error('Failed to complete prestige challenge:', err);
+              for (const session of sessions) {
+                if (session.profileToken === player.profileToken) {
+                  send(session, { type: 'profileError', message: 'Prestige feat storage unavailable. Please retry.' });
+                }
+              }
             }
           }
         }
