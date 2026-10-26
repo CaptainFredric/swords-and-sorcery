@@ -1,0 +1,40 @@
+{
+  "passed": true,
+  "timestamp": "2026-10-26T17:57:29.625Z",
+  "revision": "8cc3432e842b2191cb6441afc043a2cd192f5748",
+  "sha256": "0782f6ef0e16bb649757180610d38b287d394b11616f7c0ddb516b365ee6dc46",
+  "files": 736,
+  "archiveBytes": 49748161,
+  "extractedBytes": 67273854,
+  "startup": {
+    "unbundled": {
+      "label": "Unbundled (dev)",
+      "readyTimeMs": 2429,
+      "domContentLoadedMs": 1495,
+      "totalRequests": 294,
+      "jsRequestsCount": 261,
+      "totalJsBytes": 48855,
+      "errors": []
+    },
+    "bundled": {
+      "label": "Bundled ZIP",
+      "readyTimeMs": 1675,
+      "domContentLoadedMs": 492,
+      "totalRequests": 38,
+      "jsRequestsCount": 5,
+      "totalJsBytes": 296102,
+      "errors": []
+    }
+  },
+  "matrix": {
+    "Greener Pastures traversal & tutorial voice playback": true,
+    "Practice Yard & St. Perry rotating dialogue (touch + desktop)": true,
+    "Canonization mode & St. Perry the Plain conditional dialogue": true,
+    "Bi-Bye-llista mounting, CLEAR aiming, and firing assemblies": true,
+    "SO-FIST-ICATION model loading and basic operation": true,
+    "First-person and third-person Spellblade models and animations": true,
+    "Offline Solo simulation (LocalHost)": true,
+    "Hosted WebSocket multiplayer session & reconnect": true,
+    "Settings panel and dynamic / lazy-loaded code": true
+  }
+}

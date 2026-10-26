@@ -86,6 +86,7 @@ export async function checkServer(directory, { base, attempts = 4 } = {}) {
   // No protocol version exists today. Exact shared runtime + network adapter bytes are
   // a conservative compatibility lock, paired with actual authoritative commands below.
   const sources = (report.compatibilitySources ?? report.entries).filter(entry => /^shared\/.*\.mjs$/.test(entry.path) || entry.path === 'client/network/GameSocket.mjs');
+  if (sources.length === 0) throw new Error('No compatibility sources found to verify');
   let cursor = 0;
   await Promise.all(Array.from({ length: 6 }, async () => {
     while (cursor < sources.length) {

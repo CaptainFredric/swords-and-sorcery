@@ -4,7 +4,7 @@ import { mkdtemp, rm, readFile, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { exportHtml5 } from '../export-html5.mjs';
-import { validateArchive } from './archive.mjs';
+import { validateArchive, validateCompatibilitySources } from './archive.mjs';
 import { sealCandidate, validateCandidate } from './candidate.mjs';
 import { validateEnvironment } from './environment.mjs';
 import { createGameServer } from '../../server/src/server.mjs';
@@ -28,6 +28,10 @@ test('real ZIP validates hashes, seals browser proof, rejects failed proof and c
     await assert.rejects(validateCandidate(directory), /evidence/);
     await writeFile(path.join(directory,'export-report.json'),JSON.stringify({...report,entries:report.entries.map((entry,i)=>i===0?{...entry,sha256:'e'.repeat(64)}:entry)}));
     await assert.rejects(validateArchive(directory), /content mismatch/);
+    await writeFile(path.join(directory,'export-report.json'),JSON.stringify({...report,compatibilitySources:[]}));
+    await assert.rejects(validateArchive(directory), /missing or empty compatibilitySources/);
+    await writeFile(path.join(directory,'export-report.json'),JSON.stringify({...report,compatibilitySources:[{path:'shared/sim/Room.mjs',size:10,sha256:'bad'}]}));
+    await assert.rejects(validateArchive(directory), /Malformed compatibility source entry/);
     await writeFile(path.join(directory,'export-report.json'),JSON.stringify(report));
     const bytes = await readFile(report.zip); bytes[20] ^= 1; await writeFile(report.zip, bytes);
     await assert.rejects(validateArchive(directory), /checksum/);
@@ -55,4 +59,23 @@ test('compatibility exercises authoritative commands and reconnect; source misma
     try { await assert.rejects(checkServer(directory, { base, attempts: 1 }), /compatibility mismatch/); }
     finally { globalThis.fetch = original; }
   } finally { await game.stop(); await rm(directory, { recursive: true, force: true }); }
+});
+
+test('validateCompatibilitySources enforces nonempty inventory, path safety, and required sources', () => {
+  const validEntry = (path) => ({ path, size: 1024, sha256: 'a'.repeat(64) });
+  const validList = [
+    validEntry('shared/sim/Room.mjs'),
+    validEntry('shared/sim/BotController.mjs'),
+    validEntry('shared/sim/StPerry.mjs'),
+    validEntry('client/network/GameSocket.mjs'),
+  ];
+  assert.equal(validateCompatibilitySources(validList).size, 4);
+  assert.throws(() => validateCompatibilitySources(null), /missing or empty/);
+  assert.throws(() => validateCompatibilitySources([]), /missing or empty/);
+  assert.throws(() => validateCompatibilitySources([validEntry('shared/sim/Room.mjs')]), /Missing authoritative/);
+  assert.throws(() => validateCompatibilitySources([...validList, { path: 'shared/sim/Other.mjs', size: -1, sha256: 'a'.repeat(64) }]), /Malformed/);
+  assert.throws(() => validateCompatibilitySources([...validList, { path: 'shared/sim/Other.mjs', size: 10, sha256: 'short' }]), /Malformed/);
+  assert.throws(() => validateCompatibilitySources([...validList, { path: '../evil.mjs', size: 10, sha256: 'a'.repeat(64) }]), /Invalid/);
+  assert.throws(() => validateCompatibilitySources([...validList, { path: 'client/main.mjs', size: 10, sha256: 'a'.repeat(64) }]), /Invalid/);
+  assert.throws(() => validateCompatibilitySources([...validList, validEntry('shared/sim/Room.mjs')]), /Duplicate/);
 });
