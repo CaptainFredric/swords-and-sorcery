@@ -1,5 +1,5 @@
 import { CLOTH } from '../../shared/src/cosmetics.mjs';
-import { DEFAULT_EMBLEM, EMBLEMS } from '../../shared/src/heraldry.mjs';
+import { DEFAULT_EMBLEM, EMBLEMS, ownedEmblems } from '../../shared/src/heraldry.mjs';
 import { heraldryView, renownView, rewardText } from './renownView.mjs';
 import { appUrl } from '../appUrl.mjs';
 
@@ -42,7 +42,8 @@ export class RenownController {
     }
     // Cache is presentation only. Only server messages authorise purchases or equipment.
     try {
-      const cached = JSON.parse(storage.getItem('ss-profile-cache'));
+      const soloCached = JSON.parse(storage.getItem('ss-solo-profile-cache') || 'null');
+      const cached = JSON.parse(storage.getItem('ss-profile-cache') || 'null') || soloCached;
       if (Number.isSafeInteger(cached?.balance) && cached.balance >= 0 && Array.isArray(cached.owned)
         && cached.owned.includes(cached.equipped) && Object.hasOwn(CLOTH, cached.equipped)) this.profile = cached;
     } catch {}
@@ -159,7 +160,7 @@ export class RenownController {
         this.render();
       }, 8000);
     });
-    socket.on('profile', ({ profile }) => {
+    socket.on('profile', ({ profile, local = false }) => {
       this.profile = profile;
       const operation = this.operation;
       const confirmed = operation && (operation.action === 'purchase' ? profile.owned.includes(operation.id)
@@ -174,7 +175,13 @@ export class RenownController {
       }
       if (!operation || confirmed) { this.pending = false; clearTimeout(this.timer); }
       this.error = '';
-      try { storage.setItem('ss-profile-cache', JSON.stringify(profile)); } catch {}
+      try {
+        if (local) {
+          storage.setItem('ss-solo-profile-cache', JSON.stringify(profile));
+        } else {
+          storage.setItem('ss-profile-cache', JSON.stringify(profile));
+        }
+      } catch {}
       if (!this.inArmory || this.section === 'kit') { scene()?.setCloth(profile.equipped); scene()?.setEmblem?.(this.carriedEmblem()); }
       this.render();
     });

@@ -80,6 +80,7 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
   const sessions = new Set();
   const sessionsById = new Map();
   const pendingRewards = new Map();
+  const pendingPrestige = new Map();
   let lastSeekBroadcastAt = 0;
   let tickTimer = null;
   const now = () => performance.now() / 1000;
@@ -151,6 +152,8 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
       const { profile } = profileStore.open(session.profileToken);
       player.cloth = profile.equipped;
       player.emblem = profile.emblem;
+      player.emblems = profile.emblems;
+      player.challenges = profile.challenges;
     }
     session.roomCode = room.code;
     session.playerId = player.id;
@@ -255,7 +258,12 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
   function publishProfile(token, profile, extra = {}) {
     for (const room of roomManager.rooms.values()) {
       for (const player of room.players.values()) {
-        if (player.profileToken === token) { player.cloth = profile.equipped; player.emblem = profile.emblem; }
+        if (player.profileToken === token) {
+          player.cloth = profile.equipped;
+          player.emblem = profile.emblem;
+          player.emblems = profile.emblems;
+          player.challenges = profile.challenges;
+        }
       }
     }
     for (const session of sessions) if (session.profileToken === token) send(session, { type: 'profile', profile, ...extra });
@@ -451,8 +459,8 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
     send(session, { type: 'hello', serverTime: now() });
   });
 
-  function tick() {
-    const time = now();
+  function tick(explicitTime = null) {
+    const time = Number.isFinite(explicitTime) ? explicitTime : now();
     for (const room of roomManager.rooms.values()) {
       stepBotControllers(room, time, room.world);
       stepPracticeActors(room, time, room.world);
@@ -477,11 +485,41 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
         if (event.type === 'prestigeChallengeCompleted') {
           const player = room.players.get(event.playerId);
           if (player?.profileToken) {
+            const prestigeKey = `${player.profileToken}:${event.challengeId}`;
             try {
               const updated = profileStore.completePrestigeChallenge(player.profileToken, event.challengeId, { completedAt: event.at });
+              pendingPrestige.delete(prestigeKey);
               publishProfile(player.profileToken, updated, { prestigeFeat: event.challengeId });
+              events.push({
+                type: 'stPerryPlainUnlocked',
+                playerId: player.id,
+                message: 'PRESTIGE HERALD EARNED: ST. PERRY THE PLAIN!',
+                at: event.at,
+              });
+              events.push({
+                type: 'spellbladeLine',
+                playerId: player.id,
+                text: 'I suppose anyone can become a saint... these days.',
+                speaker: player.name || 'Spellblade',
+                at: event.at,
+              });
             } catch (err) {
-              console.error('Failed to complete prestige challenge:', err);
+              if (!pendingPrestige.has(prestigeKey)) {
+                pendingPrestige.set(prestigeKey, {
+                  token: player.profileToken,
+                  playerId: player.id,
+                  playerName: player.name || 'Spellblade',
+                  challengeId: event.challengeId,
+                  roomCode: room.code,
+                  completedAt: event.at,
+                  retryAt: time + 1,
+                });
+              }
+              for (const session of sessions) {
+                if (session.profileToken === player.profileToken) {
+                  send(session, { type: 'profileError', message: 'Prestige feat storage is temporarily unavailable. Your achievement will retry saving shortly.' });
+                }
+              }
             }
           }
         }
@@ -508,6 +546,46 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
           send(session, { type: 'profileError', message: 'Reward storage is temporarily unavailable. Your match reward will retry shortly.' });
       }
     }
+    for (const [key, pending] of pendingPrestige) {
+      if (time < pending.retryAt) continue;
+      try {
+        const updated = profileStore.completePrestigeChallenge(pending.token, pending.challengeId, { completedAt: pending.completedAt });
+        pendingPrestige.delete(key);
+        publishProfile(pending.token, updated, { prestigeFeat: pending.challengeId });
+        const targetRoom = roomManager.findByCode(pending.roomCode);
+        const retryEvents = [
+          {
+            type: 'stPerryPlainUnlocked',
+            playerId: pending.playerId,
+            message: 'PRESTIGE HERALD EARNED: ST. PERRY THE PLAIN!',
+            at: time,
+          },
+          {
+            type: 'spellbladeLine',
+            playerId: pending.playerId,
+            text: 'I suppose anyone can become a saint... these days.',
+            speaker: pending.playerName || 'Spellblade',
+            at: time,
+          },
+        ];
+        if (targetRoom) {
+          broadcastRoom(targetRoom, { type: 'events', events: retryEvents });
+        } else {
+          for (const session of sessions) {
+            if (session.profileToken === pending.token) {
+              send(session, { type: 'events', events: retryEvents });
+            }
+          }
+        }
+      } catch {
+        pending.retryAt = time + 3;
+        for (const session of sessions) {
+          if (session.profileToken === pending.token) {
+            send(session, { type: 'profileError', message: 'Prestige feat storage is temporarily unavailable. Retrying...' });
+          }
+        }
+      }
+    }
     runMatchmaking(time);
     roomManager.cleanup(time);
   }
@@ -516,6 +594,7 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
     roomManager,
     matchmaker,
     now,
+    tick(explicitTime) { tick(explicitTime); },
     start() {
       return new Promise((resolve, reject) => {
         server.once('error', reject);

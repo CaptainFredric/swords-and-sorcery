@@ -87,7 +87,10 @@ export class GameLink {
 
   #fromRemote(type, payload) {
     if (type === 'connection') this.#setStatus(payload.connected ? 'online' : 'offline');
-    if (type === 'profile') this.local.setProfileCloth(payload.profile?.equipped);
+    if (type === 'profile') {
+      this.local.setProfileCloth(payload.profile?.equipped);
+      this.local.setProfile(payload.profile, payload.token);
+    }
     if (this.hosting === 'remote' || type === 'profile' || type === 'profileError') this.#emit(type, payload);
   }
 
