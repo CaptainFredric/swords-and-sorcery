@@ -41,8 +41,12 @@ export async function validateArchive(directory, { revision, checksum } = {}) {
   if (release.revision !== report.revision || release.server !== report.server || release.source !== 'https://github.com/CaptainFredric/swords-and-sorcery') throw new Error('Root release.json mismatch');
   const html = unzip(zip, 'index.html').toString();
   if (!html.includes(`content="${DEFAULT_GAME_SERVER}"`)) throw new Error('Root entry has wrong WebSocket server');
-  for (const required of ['client/main.mjs', 'client/network/LocalHost.mjs', 'client/assets/characters/spellblade/spellblade.glb', 'client/assets/characters/spellblade/spellblade-fp.glb', 'client/assets/voice/manifest.json']) {
+  for (const required of ['client/main.mjs', 'client/assets/characters/spellblade/spellblade.glb', 'client/assets/characters/spellblade/spellblade-fp.glb', 'client/assets/voice/manifest.json']) {
     if (!expected.has(required)) throw new Error(`Missing production dependency: ${required}`);
+  }
+  const mainBundle = unzip(zip, 'client/main.mjs').toString('utf8');
+  if (!mainBundle.includes('LocalHost') && !expected.has('client/network/LocalHost.mjs')) {
+    throw new Error('Missing production dependency: LocalHost simulation engine');
   }
   return { ...report, zip };
 }

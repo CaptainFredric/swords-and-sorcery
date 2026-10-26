@@ -85,7 +85,7 @@ export async function checkServer(directory, { base, attempts = 4 } = {}) {
   if (!healthy) throw new Error('Render did not wake within the bounded compatibility check; retry after checking service status');
   // No protocol version exists today. Exact shared runtime + network adapter bytes are
   // a conservative compatibility lock, paired with actual authoritative commands below.
-  const sources = report.entries.filter(entry => /^shared\/.*\.mjs$/.test(entry.path) || entry.path === 'client/network/GameSocket.mjs');
+  const sources = (report.compatibilitySources ?? report.entries).filter(entry => /^shared\/.*\.mjs$/.test(entry.path) || entry.path === 'client/network/GameSocket.mjs');
   let cursor = 0;
   await Promise.all(Array.from({ length: 6 }, async () => {
     while (cursor < sources.length) {
