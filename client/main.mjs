@@ -1502,16 +1502,24 @@ const perryCanonizePrompt = $('#perry-canonization-prompt');
 const practiceCanonizationBtn = $('#practice-canonization');
 const perryDialogueOptions = $('#perry-dialogue-options');
 const perryDialogueCard = document.querySelector('.perry-dialogue-card');
+const perryDialogueHud = $('#hud');
+
+// While Perry's card is open on touch, its HUD layer must sit above the
+// full-screen movement/aim surface; restore the normal order when it closes.
+function setPerryDialogueVisible(visible) {
+  perryDialogue?.classList.toggle('hidden', !visible);
+  perryDialogueHud?.classList.toggle('perry-dialogue-active', visible);
+}
 
 if (perryDialogueCard) {
-  for (const ev of ['mousedown', 'mouseup', 'click', 'pointerdown', 'pointerup']) {
+  for (const ev of ['mousedown', 'mouseup', 'click', 'pointerdown', 'pointerup', 'touchstart', 'touchmove', 'touchend']) {
     perryDialogueCard.addEventListener(ev, (e) => e.stopPropagation());
   }
 }
 
 perryDialogueClose?.addEventListener('click', (e) => {
   e.stopPropagation();
-  perryDialogue?.classList.add('hidden');
+  setPerryDialogueVisible(false);
   socket.practicePerryDismiss();
 });
 
@@ -1532,7 +1540,7 @@ perryCanonizeBtn?.addEventListener('click', (e) => {
 
 function updateStPerryUI(snapshot) {
   if (snapshot?.mode !== 'PRACTICE') {
-    perryDialogue?.classList.add('hidden');
+    setPerryDialogueVisible(false);
     practiceCanonizationBtn?.classList.add('hidden');
     return;
   }
@@ -1563,8 +1571,9 @@ function updateStPerryUI(snapshot) {
     !isInCombat &&
     isNearPerry;
 
+  setPerryDialogueVisible(Boolean(shouldShowDialogue));
+
   if (shouldShowDialogue) {
-    perryDialogue?.classList.remove('hidden');
     if (perryDialogueText && perryData.dialogue.lastLine) {
       perryDialogueText.textContent = `"${perryData.dialogue.lastLine}"`;
     }
@@ -1608,8 +1617,6 @@ function updateStPerryUI(snapshot) {
       perryDialogueForm.hidden = isSolved;
       perryDialogueForm.classList.toggle('hidden', isSolved);
     }
-  } else {
-    perryDialogue?.classList.add('hidden');
   }
 
   const unlocked = Boolean(
