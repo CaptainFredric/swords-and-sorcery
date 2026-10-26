@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { Room } from '../../shared/sim/Room.mjs';
 import { spawnPracticeDummy, setPracticeDummyMode, removePracticeDummy, resetPracticePlayer, stepPracticeActors } from '../../shared/sim/practice.mjs';
 import { beginAttack, endAttack, setGuard, stepRoom, applyDamage, tryCastSpell, cancelAttack } from '../../shared/sim/combat.mjs';
-import { isCorrectPerryAnswer, answerPerryDialogue, dismissPerryDialogue, isCanonizationUnlocked, setupStPerry, recordPerryParry, getPlayerPerryProgress, PERRY_CORRECT_ANSWER, PERRY_INCORRECT_ANSWERS, PERRY_CONDITIONAL_ANSWERS, isHeraldEarned, selectPerryDialogueChoices, resetPerryVisitBag, PERRY_CANONIZED_SKILL, PERRY_PROFILE, PERRY_CANONIZED_PROFILE } from '../../shared/sim/StPerry.mjs';
+import { isCorrectPerryAnswer, answerPerryDialogue, dismissPerryDialogue, isCanonizationUnlocked, setupStPerry, recordPerryParry, getPlayerPerryProgress, getPlayerPerryDialogue, PERRY_CORRECT_ANSWER, PERRY_INCORRECT_ANSWERS, PERRY_CONDITIONAL_ANSWERS, isHeraldEarned, selectPerryDialogueChoices, resetPerryVisitBag, PERRY_CANONIZED_SKILL, PERRY_PROFILE, PERRY_CANONIZED_PROFILE } from '../../shared/sim/StPerry.mjs';
 import { applyRoomCommand, serializeSnapshot } from '../../shared/sim/wire.mjs';
 import { SWORD_STRIKE_TIMES, GAME } from '../../shared/src/combat.mjs';
 import { PROWESS } from '../../shared/src/prowess.mjs';
@@ -161,6 +161,105 @@ test('St. Perry: Encounter choice stability and fresh selection across visits', 
   const { room: room2, human: human2 } = makePracticeFixture();
   const dummy2 = spawnPracticeDummy(room2, 'ST_PERRY', 0);
   assert.equal(dummy2.stPerry.dialogue.choices.length, 4);
+});
+
+test('St. Perry: Multiplayer dialogue isolation - two players converse and dismiss independently with single dummy', () => {
+  const { room, human: player1 } = makePracticeFixture();
+  const player2 = {
+    id: 'player-two',
+    actorKind: 'human',
+    alive: true,
+    connected: true,
+    health: 100,
+    position: { x: 0, y: 0, z: -5 },
+    yaw: 0,
+    parries: 0,
+    guardStamina: 100,
+    guarding: false,
+  };
+  room.players.set(player2.id, player2);
+
+  // Single physical Perry dummy spawned
+  const dummy = spawnPracticeDummy(room, 'ST_PERRY', 0);
+  assert.ok(dummy, 'Single Perry dummy exists in room');
+  assert.equal([...room.players.values()].filter(p => p.actorKind === 'dummy').length, 1, 'Exactly one physical dummy');
+
+  // Both players initially see the introductory line
+  const d1 = getPlayerPerryDialogue(room, player1.id);
+  const d2 = getPlayerPerryDialogue(room, player2.id);
+  assert.ok(d1 && d2, 'Both players have dialogue state');
+  assert.equal(d1.lastLine, 'I am St. Perry, the Prodigious! Any idea why that is my name?');
+  assert.equal(d2.lastLine, 'I am St. Perry, the Prodigious! Any idea why that is my name?');
+  assert.equal(d1.solved, false);
+  assert.equal(d2.solved, false);
+  assert.equal(d1.dismissed, false);
+  assert.equal(d2.dismissed, false);
+
+  // Player 1 answers incorrectly
+  applyRoomCommand(room, player1, { type: 'practicePerryAnswer', answer: 'Because you are fond of periwinkles?' }, 1.0);
+  assert.equal(d1.wrongCount, 1);
+  assert.equal(d1.lastLine, 'Incorrect! You are lucky I am a St. Try again.');
+
+  // Player 2 is unaffected!
+  assert.equal(d2.wrongCount, 0);
+  assert.equal(d2.lastLine, 'I am St. Perry, the Prodigious! Any idea why that is my name?');
+
+  // Snapshots for Player 1 and Player 2 reflect their isolated states
+  const snap1 = serializeSnapshot(room, 1.1, player1.id);
+  const snap2 = serializeSnapshot(room, 1.1, player2.id);
+  assert.equal(snap1.players.find(p => p.id === dummy.id).stPerry.dialogue.wrongCount, 1);
+  assert.equal(snap2.players.find(p => p.id === dummy.id).stPerry.dialogue.wrongCount, 0);
+
+  // Player 1 dismisses their dialogue
+  applyRoomCommand(room, player1, { type: 'practicePerryDismiss' }, 1.2);
+  assert.equal(d1.dismissed, true);
+  assert.equal(d2.dismissed, false, 'Player 2 dialogue must remain open when Player 1 dismisses');
+
+  // Player 2 answers correctly
+  applyRoomCommand(room, player2, { type: 'practicePerryAnswer', answer: 'Because you parry?' }, 1.3);
+  assert.equal(d2.solved, true);
+  assert.equal(d2.lastLine, 'Finally!.. I meant, that was the least you could do. Your reward?... Enjoy this brief acknowledgement.');
+  assert.equal(d1.solved, false, 'Player 1 dialogue was not prematurely solved by Player 2');
+
+  const snapPost1 = serializeSnapshot(room, 1.4, player1.id);
+  const snapPost2 = serializeSnapshot(room, 1.4, player2.id);
+  assert.equal(snapPost1.players.find(p => p.id === dummy.id).stPerry.dialogue.solved, false);
+  assert.equal(snapPost1.players.find(p => p.id === dummy.id).stPerry.dialogue.dismissed, true);
+  assert.equal(snapPost2.players.find(p => p.id === dummy.id).stPerry.dialogue.solved, true);
+  assert.equal(snapPost2.players.find(p => p.id === dummy.id).stPerry.dialogue.dismissed, false);
+});
+
+test('St. Perry: Scoped rotation bag - no module-global array and rebuilds on entitlement change', () => {
+  const p1 = { id: 'p1', challenges: { completed: {} } };
+  const p2 = { id: 'p2', challenges: { completed: {} } };
+
+  // Draw 1 for p1
+  const c1 = selectPerryDialogueChoices({ player: p1 });
+  // Draw 1 for p2
+  const c2 = selectPerryDialogueChoices({ player: p2 });
+  assert.equal(c1.length, 4);
+  assert.equal(c2.length, 4);
+
+  // Consecutive visits for p1 draw without replacement from p1's bag
+  const seenIncorrect = new Set();
+  for (let visit = 0; visit < 6; visit++) {
+    const list = selectPerryDialogueChoices({ player: p1 });
+    for (const item of list) {
+      if (item !== PERRY_CORRECT_ANSWER) seenIncorrect.add(item);
+    }
+  }
+  assert.equal(seenIncorrect.size, 18, `Should draw 18 unique items without replacement across 6 visits: got ${seenIncorrect.size}`);
+
+  // When entitlement changes: player earns conditional herald
+  p1.challenges.completed['st_perry_the_plain'] = Date.now();
+  assert.equal(isHeraldEarned(p1, 'st-perry-the-plain'), true);
+
+  // Eligible pool rebuilds and special answer is included
+  const newChoices = selectPerryDialogueChoices({ player: p1 });
+  assert.ok(
+    newChoices.includes("Because 'St. Perry the Plain' was too accurate?"),
+    'When entitlement is newly earned, pool rebuilds and special choice appears on fresh visit'
+  );
 });
 
 test('St. Perry: Every authored incorrect choice advances wrongCount and follows authored progression', () => {
@@ -455,7 +554,7 @@ test('St. Perry: Unlock tracking is strictly scoped to Perry vs player and reset
   getPlayerPerryProgress(room, human.id).perryParries = 2;
   getPlayerPerryProgress(room, human.id).playerCounterParries = 0;
   setPracticeDummyMode(room, 'MELEE', 4.0);
-  assert.equal(room.stPerryState.byPlayer?.size ?? 0, 0, 'Switching opponent must clear incomplete Perry parries');
+  assert.equal(getPlayerPerryProgress(room, human.id).perryParries, 0, 'Switching opponent must clear incomplete Perry parries');
 
   // 5. Earn legitimate criteria: 3 Perry parries + 1 player counterparry
   setPracticeDummyMode(room, 'ST_PERRY', 5.0);

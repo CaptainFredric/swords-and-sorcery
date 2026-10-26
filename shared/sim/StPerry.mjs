@@ -61,33 +61,41 @@ export const PERRY_CONDITIONAL_ANSWERS = Object.freeze([
 
 export function isHeraldEarned(player, heraldId) {
   if (!player || !heraldId) return false;
+  const challenges = player.challenges?.completed ?? {};
+  const normalizedKey = heraldId.replace(/-/g, '_');
+  if (challenges[normalizedKey] || challenges[heraldId]) return true;
+  if (player.emblems && Array.isArray(player.emblems)) {
+    if (player.emblems.includes(normalizedKey) || player.emblems.includes(heraldId)) return true;
+  }
   if (player.unlockedHeralds && typeof player.unlockedHeralds.has === 'function') {
-    return player.unlockedHeralds.has(heraldId);
+    return player.unlockedHeralds.has(heraldId) || player.unlockedHeralds.has(normalizedKey);
   }
   if (Array.isArray(player.unlockedHeralds)) {
-    return player.unlockedHeralds.includes(heraldId);
+    return player.unlockedHeralds.includes(heraldId) || player.unlockedHeralds.includes(normalizedKey);
   }
   return false;
 }
 
-let globalVisitShuffleBag = [];
-
-export function resetPerryVisitBag() {
-  globalVisitShuffleBag = [];
+export function resetPerryVisitBag(owner = null) {
+  if (owner) {
+    owner.rotationBag = [];
+    owner.lastPoolKey = null;
+  }
 }
 
-export function selectPerryDialogueChoices({ player = null, seed = undefined, pool = null } = {}) {
+export function selectPerryDialogueChoices({ player = null, prog = null, seed = undefined, pool = null } = {}) {
   const candidatePool = pool ? [...pool] : [...PERRY_INCORRECT_ANSWERS];
+  let earnedConditionals = [];
   if (!pool) {
     for (const cond of PERRY_CONDITIONAL_ANSWERS) {
       if (isHeraldEarned(player, cond.requiredHerald)) {
         candidatePool.push(cond.text);
+        earnedConditionals.push(cond.text);
       }
     }
   }
 
   const count = Math.min(3, candidatePool.length);
-  let selectedIncorrect = [];
 
   if (seed !== undefined && seed !== null) {
     let s = (Math.abs(Number(seed)) >>> 0) || 1;
@@ -103,7 +111,7 @@ export function selectPerryDialogueChoices({ player = null, seed = undefined, po
       const j = Math.floor(rnd() * (i + 1));
       [indices[i], indices[j]] = [indices[j], indices[i]];
     }
-    selectedIncorrect = indices.slice(0, count).map((idx) => candidatePool[idx]);
+    const selectedIncorrect = indices.slice(0, count).map((idx) => candidatePool[idx]);
 
     const choices = [PERRY_CORRECT_ANSWER, ...selectedIncorrect];
     for (let i = choices.length - 1; i > 0; i--) {
@@ -113,17 +121,29 @@ export function selectPerryDialogueChoices({ player = null, seed = undefined, po
     return choices;
   }
 
-  if (globalVisitShuffleBag.length < count) {
-    const indices = Array.from({ length: candidatePool.length }, (_, i) => i);
-    for (let i = indices.length - 1; i > 0; i--) {
+  const rotationOwner = prog || player || {};
+  let bag = rotationOwner.rotationBag;
+  const poolKey = candidatePool.join('|||');
+
+  if (!Array.isArray(bag) || rotationOwner.lastPoolKey !== poolKey || bag.length < count) {
+    bag = [...candidatePool];
+    for (let i = bag.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
-      [indices[i], indices[j]] = [indices[j], indices[i]];
+      [bag[i], bag[j]] = [bag[j], bag[i]];
     }
-    globalVisitShuffleBag = indices;
+    if (rotationOwner.lastPoolKey && earnedConditionals.length > 0) {
+      for (const special of earnedConditionals) {
+        const idx = bag.indexOf(special);
+        if (idx >= count) {
+          [bag[0], bag[idx]] = [bag[idx], bag[0]];
+        }
+      }
+    }
+    rotationOwner.lastPoolKey = poolKey;
   }
 
-  const chosenIndices = globalVisitShuffleBag.splice(0, count);
-  selectedIncorrect = chosenIndices.map((idx) => candidatePool[idx]);
+  const selectedIncorrect = bag.splice(0, count);
+  rotationOwner.rotationBag = bag;
 
   const choices = [PERRY_CORRECT_ANSWER, ...selectedIncorrect];
   for (let i = choices.length - 1; i > 0; i--) {
@@ -239,10 +259,43 @@ export function getPlayerPerryProgress(room, playerId) {
       perryParries: 0,
       playerCounterParries: 0,
       unlocked: false,
+      dialogue: null,
+      rotationBag: null,
+      lastPoolKey: null,
     };
     roomState.byPlayer.set(playerId, prog);
   }
   return prog;
+}
+
+export function getPlayerPerryDialogue(room, playerId = null) {
+  if (!room) return null;
+  let targetId = playerId;
+  if (!targetId && room.players) {
+    const humans = [...room.players.values()].filter((p) => p.actorKind === 'human');
+    if (humans.length === 1) targetId = humans[0].id;
+  }
+  if (!targetId) {
+    const dummy = [...(room.players?.values() ?? [])].find((p) => p.actorKind === 'dummy' && p.stPerry);
+    return dummy?.stPerry?.dialogue ?? null;
+  }
+
+  const prog = getPlayerPerryProgress(room, targetId);
+  if (!prog) return null;
+  const player = room.players?.get?.(targetId);
+
+  if (!prog.dialogue) {
+    const choices = selectPerryDialogueChoices({ player, prog });
+    prog.dialogue = {
+      state: 'intro',
+      wrongCount: 0,
+      solved: false,
+      dismissed: false,
+      lastLine: 'I am St. Perry, the Prodigious! Any idea why that is my name?',
+      choices,
+    };
+  }
+  return prog.dialogue;
 }
 
 export function isCanonizationUnlocked(room, playerId = null) {
@@ -291,13 +344,13 @@ export function setupStPerry(actor, nowSec, canonized = false, room = null, play
   }
 
   const prev = actor.stPerry;
-  const introDone = Boolean(roomState?.introCompleted || prev?.dialogue?.dismissed || prev?.dialogue?.solved);
-
-  let choices = roomState?.dialogueChoices ?? prev?.dialogue?.choices;
-  if (!choices || choices.length !== 4) {
-    const humanPlayer = room ? [...(room.players?.values() ?? [])].find((p) => p.actorKind === 'human') : null;
-    choices = selectPerryDialogueChoices({ player: humanPlayer });
-    if (roomState) roomState.dialogueChoices = choices;
+  const humanPlayer = room ? [...(room.players?.values() ?? [])].find((p) => p.actorKind === 'human') : null;
+  const targetId = playerId || humanPlayer?.id;
+  const activeDialogue = targetId ? getPlayerPerryDialogue(room, targetId) : prev?.dialogue;
+  if (activeDialogue && (activeDialogue.solved || activeDialogue.dismissed)) {
+    activeDialogue.dismissed = true;
+    activeDialogue.state = 'completed';
+    activeDialogue.lastLine = '';
   }
 
   actor.stPerry = {
@@ -316,13 +369,13 @@ export function setupStPerry(actor, nowSec, canonized = false, room = null, play
     dashSlot: -1,
     spellIndex: 0,
     navigation: {},
-    dialogue: prev?.dialogue ?? {
-      state: introDone ? 'completed' : 'intro',
+    dialogue: activeDialogue ?? {
+      state: 'intro',
       wrongCount: 0,
-      solved: Boolean(roomState?.introSolved),
-      dismissed: introDone,
-      lastLine: introDone ? '' : 'I am St. Perry, the Prodigious! Any idea why that is my name?',
-      choices: choices ? [...choices] : [],
+      solved: false,
+      dismissed: false,
+      lastLine: 'I am St. Perry, the Prodigious! Any idea why that is my name?',
+      choices: selectPerryDialogueChoices({ player: humanPlayer }),
     },
   };
 }
@@ -336,7 +389,10 @@ export function cleanupStPerry(room, actor, nowSec) {
   }
   const roomState = getPerryRoomState(room);
   if (roomState && !roomState.unlocked) {
-    roomState.byPlayer?.clear();
+    for (const prog of roomState.byPlayer?.values() ?? []) {
+      prog.perryParries = 0;
+      prog.playerCounterParries = 0;
+    }
   }
   actor.stPerry = null;
 }
@@ -344,18 +400,16 @@ export function cleanupStPerry(room, actor, nowSec) {
 export function answerPerryDialogue(room, player, answer, nowSec) {
   const dummy = [...room.players.values()].find((p) => p.actorKind === 'dummy' && p.stPerry);
   if (!dummy || !dummy.stPerry) return false;
-  const d = dummy.stPerry.dialogue;
-  const state = getPerryRoomState(room);
+  const d = getPlayerPerryDialogue(room, player?.id);
+  if (!d) return false;
+
   if (isCorrectPerryAnswer(answer)) {
     d.solved = true;
-    if (state) {
-      state.introSolved = true;
-      state.introCompleted = true;
-    }
     d.state = 'correct';
     d.lastLine = 'Finally!.. I meant, that was the least you could do. Your reward?... Enjoy this brief acknowledgement.';
     room.events.push({
       type: 'stPerryDialogue',
+      playerId: player.id,
       text: d.lastLine,
       speaker: 'St. Perry the Prodigious',
       correct: true,
@@ -374,6 +428,7 @@ export function answerPerryDialogue(room, player, answer, nowSec) {
   }
   room.events.push({
     type: 'stPerryDialogue',
+    playerId: player.id,
     text: d.lastLine,
     speaker: 'St. Perry the Prodigious',
     correct: false,
@@ -386,9 +441,9 @@ export function answerPerryDialogue(room, player, answer, nowSec) {
 export function dismissPerryDialogue(room, player, nowSec) {
   const dummy = [...room.players.values()].find((p) => p.actorKind === 'dummy' && p.stPerry);
   if (!dummy || !dummy.stPerry) return false;
-  dummy.stPerry.dialogue.dismissed = true;
-  const state = getPerryRoomState(room);
-  if (state) state.introCompleted = true;
+  const d = getPlayerPerryDialogue(room, player?.id);
+  if (!d) return false;
+  d.dismissed = true;
   return true;
 }
 

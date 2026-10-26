@@ -270,6 +270,10 @@ try {
   const correctLine = await evaluate("document.querySelector('#perry-dialogue-text')?.textContent");
   console.log(`Correct reply: ${correctLine}`);
   assert.equal(correctLine, '"Finally!.. I meant, that was the least you could do. Your reward?... Enjoy this brief acknowledgement."', 'Correct reply must match authored line exactly');
+  const optionsHidden = await evaluate("Boolean(document.querySelector('#perry-dialogue-options')?.hidden || document.querySelector('#perry-dialogue-options')?.classList.contains('hidden') || getComputedStyle(document.querySelector('#perry-dialogue-options')).display === 'none')");
+  assert.equal(optionsHidden, true, 'Choice options container must be hidden after correct answer');
+  const formHidden = await evaluate("Boolean(document.querySelector('#perry-dialogue-form')?.hidden || document.querySelector('#perry-dialogue-form')?.classList.contains('hidden') || getComputedStyle(document.querySelector('#perry-dialogue-form')).display === 'none')");
+  assert.equal(formHidden, true, 'Guess form must be hidden after correct answer');
   await captureScreenshot('04-perry-dialogue-correct-parry.png');
 
   // Dismiss dialogue
