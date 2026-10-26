@@ -5,7 +5,7 @@ import { appUrl } from '../appUrl.mjs';
 import { everywhere } from '../game/viewLayers.mjs';
 import { BI_BYE_LLISTA_CONFIG, BI_BYE_STATES, BI_BYE_MODES, getBiByeMuzzlePosition, getBiByeMuzzleDirection } from '../../shared/sim/biByeLlista.mjs';
 
-import { withClearBoltHidden, biByeDamageFlash, biByeAnimation, biByeUpperAnimation, biByeClutchAnimation, biByeDelayAnimation, biByeTrackOwner, biByeWheelSteering, biByeWheelTravel } from './biByePresentation.mjs';
+import { withClearBoltHidden, withClearNearBoltsHidden, biByeDamageFlash, biByeAnimation, biByeUpperAnimation, biByeClutchAnimation, biByeDelayAnimation, biByeTrackOwner, biByeWheelSteering, biByeWheelTravel } from './biByePresentation.mjs';
 
 const ASSET_PATH = '/client/assets/props/bibye-ballista/bi-bye-llista-v4.1.glb?v=4641af412cf83d49';
 
@@ -55,6 +55,7 @@ export class BiByeLlistaRenderer {
 
     // Projectile visual tracking
     this.projectileMeshes = new Map();
+    this.clearProjectileBounds = new THREE.Box3();
     // A fixed light count avoids compiling the whole scene's PBR shaders on the
     // first frost-bolt release. Move this light; never add/remove it during fire.
     this.projectileLight = everywhere(new THREE.PointLight(0x22ccff, 0, 4.5));
@@ -350,8 +351,10 @@ export class BiByeLlistaRenderer {
     action.time = Math.max(0, Math.min(seconds, action.getClip().duration));
   }
 
-  renderMountedView(clear, render) {
-    return withClearBoltHidden(this.nodes.get('Main_Siege_Bolt'),clear,render);
+  renderMountedView(clear, render, camera = null) {
+    return withClearNearBoltsHidden(this.projectileMeshes.values(),clear&&Boolean(camera),this.instanceId,
+      mesh=>this.clearProjectileBounds.setFromObject(mesh).distanceToPoint(camera.position),
+      ()=>withClearBoltHidden(this.nodes.get('Main_Siege_Bolt'),clear,render));
   }
 
   getMountedCameraPosition(view, out = new THREE.Vector3()) {
@@ -450,6 +453,7 @@ export class BiByeLlistaRenderer {
         this.projectileMeshes.set(proj.id, mesh);
       }
 
+      mesh.userData.ballistaId=proj.ballistaId;
       mesh.position.set(proj.position.x, proj.position.y, proj.position.z);
       if (proj.subKind === 'conditioning') {
         this.projectileLight.position.copy(mesh.position);

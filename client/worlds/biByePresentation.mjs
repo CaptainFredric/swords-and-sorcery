@@ -61,3 +61,13 @@ export function withClearBoltHidden(bolt, clear, render) {
  const visible=bolt.visible;bolt.visible=false;
  try{return render();}finally{bolt.visible=visible;}
 }
+
+// A fired bolt starts behind the CLEAR lens. Suppress only its brief near-plane
+// crossing, so its tail cannot cover the whole view; normal flight stays visible.
+export function withClearNearBoltsHidden(meshes,clear,machineId,distance,render){
+ const hidden=[];
+ if(clear)for(const mesh of meshes){
+  if(mesh.visible&&mesh.userData.ballistaId===machineId&&distance(mesh)<1.5){hidden.push(mesh);mesh.visible=false;}
+ }
+ try{return render();}finally{for(const mesh of hidden)mesh.visible=true;}
+}

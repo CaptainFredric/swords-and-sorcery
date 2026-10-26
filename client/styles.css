@@ -377,3 +377,14 @@ body.took-steel::after{content:"";position:fixed;inset:0;z-index:50;pointer-even
     width: auto;
   }
 }
+/* A mechanical siege sight. The open center keeps bolts and frost confirmations visible. */
+.siege-sight{position:absolute;left:50%;top:50%;pointer-events:none;color:#d6bb80;filter:drop-shadow(0 1px 1px #161712);font-family:Georgia,serif}
+.siege-sight[hidden],.siege-sight [hidden]{display:none}
+.siege-primary{position:absolute;left:-20px;top:-20px;width:40px;height:40px}
+.siege-primary svg{width:40px;height:40px;fill:none;stroke:#d6bb80;stroke-width:1.4;stroke-linejoin:miter;paint-order:stroke;filter:drop-shadow(1px 0 0 #302e27)}
+.siege-primary b,.siege-primary small{position:absolute;top:41px;left:50%;transform:translateX(-50%);white-space:nowrap;font-size:9px;font-weight:600;letter-spacing:.12em;text-shadow:0 1px 2px #000}
+.siege-primary small{top:55px;font-size:8px;color:#edce96}
+.siege-sight[data-weapon="MAIN"] .upper-mark,.siege-sight[data-weapon="UPPER"] .main-mark{display:none}
+.siege-primary.limited svg{stroke:#efc07d;stroke-width:2}
+.siege-secondary{position:absolute;left:-5px;top:-9px;font:16px Georgia,serif;color:#dfd4b9}
+.crosshair.clear-reference:not(:is(.hit,.glance,.kill,.block,.break,.parry))>i{opacity:.28;transform:scale(.55)}

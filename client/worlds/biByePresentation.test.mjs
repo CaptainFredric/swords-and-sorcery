@@ -88,3 +88,14 @@ test('CLEAR hides only the loaded bolt for one local render and always restores 
  bolt.visible=false;withClearBoltHidden(bolt,true,()=>{});assert.equal(bolt.visible,false);
  withClearBoltHidden(bolt,false,()=>assert.equal(bolt.visible,false));
 });
+
+test('CLEAR suppresses only the local bolt crossing the lens and restores every observer view',async()=>{
+ const {withClearNearBoltsHidden}=await import('./biByePresentation.mjs');
+ const own={visible:true,userData:{ballistaId:'ours'},distance:.1},far={visible:true,userData:{ballistaId:'ours'},distance:4},enemy={visible:true,userData:{ballistaId:'other'},distance:.1};
+ const meshes=[own,far,enemy];
+ withClearNearBoltsHidden(meshes,true,'ours',m=>m.distance,()=>{assert.equal(own.visible,false);assert.equal(far.visible,true);assert.equal(enemy.visible,true);});
+ assert.ok(meshes.every(m=>m.visible));
+ assert.throws(()=>withClearNearBoltsHidden(meshes,true,'ours',m=>m.distance,()=>{throw Error('render failed');}));
+ assert.ok(meshes.every(m=>m.visible));
+ withClearNearBoltsHidden(meshes,false,'ours',m=>m.distance,()=>assert.ok(meshes.every(m=>m.visible)));
+});

@@ -190,6 +190,9 @@ export class HUD {
     }
     this.feed = document.querySelector('#kill-feed');
     this.crosshair = document.querySelector('#crosshair');
+    this.siegeSight=document.createElement('div');this.siegeSight.className='siege-sight';this.siegeSight.hidden=true;
+    this.siegeSight.innerHTML='<div class="siege-primary"><svg viewBox="0 0 40 40" aria-hidden="true"><path class="main-mark" d="M13 10H8V30H13M27 10H32V30H27M11 14V26M29 14V26"/><path class="upper-mark" d="M20 9L31 20L20 31L9 20ZM20 5V9M20 31V35"/></svg><b></b><small></small></div><div class="siege-secondary" aria-hidden="true">⌄</div>';
+    this.root.append(this.siegeSight);
     this.flash = document.querySelector('#status-flash');
     this.subtitleLine = document.querySelector('#subtitle');
     this.deathCard = document.querySelector('#death-card');
@@ -650,6 +653,27 @@ export class HUD {
     // full lifetime after that draw, rather than spending it while rendering.
     if(afterPaint&&globalThis.requestAnimationFrame)this.hitFrame=requestAnimationFrame(begin);
     else begin();
+  }
+
+  setBiByeSight(view){
+    this.siegeSight.hidden=!view;
+    this.crosshair.classList.toggle('clear-reference',Boolean(view));
+    if(!view)return;
+    const node=this.siegeSight.querySelector('.siege-primary'),secondary=this.siegeSight.querySelector('.siege-secondary');
+    node.hidden=false;
+    node.querySelector('svg').style.visibility=view.primary?'visible':'hidden';
+    this.siegeSight.dataset.weapon=view.weapon;
+    this.siegeSight.style.opacity=String(view.blend);
+    node.style.transform=`translate(${view.primary?.x??0}px,${view.primary?.y??0}px)`;
+    const label=node.querySelector('b');if(label.textContent!==view.weapon)label.textContent=view.weapon;
+    const limit=view.limits.length?view.limits.some(x=>x==='left'||x==='right')?'TRAVERSE LIMIT':'ELEVATION LIMIT':view.limited?'AIM LIMIT':!view.primary?'AXIS OUT OF VIEW':view.primary.blocked?'OBSTRUCTED':'';
+    const status=node.querySelector('small');if(status.textContent!==limit)status.textContent=limit;
+    node.classList.toggle('limited',Boolean(limit));
+    // Converging rays often coincide. Suppress their duplicate mark instead of
+    // inventing an offset; a visibly separated upper axis gets a small chevron.
+    const s=view.secondary,p=view.primary,d=s&&p?Math.hypot(s.x-p.x,s.y-p.y):0;
+    secondary.hidden=!(d>=10&&d<=90);
+    if(!secondary.hidden)secondary.style.transform=`translate(${s.x}px,${s.y}px)`;
   }
 
   clearHit() {

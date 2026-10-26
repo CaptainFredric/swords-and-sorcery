@@ -571,3 +571,14 @@ test('Shift with the rebound mounted view key enters CLEAR once without toggling
  const {input,send,up}=setup(),actions=[];input.configure({bindings:{...input.bindings,siegeView:['KeyJ']}});input.onAction=(a,p)=>{if(p)actions.push(a);};
  send('keydown',{code:'KeyJ',shiftKey:true,repeat:false});send('keydown',{code:'KeyJ',shiftKey:true,repeat:true});up('KeyJ');assert.deepEqual(actions,['siegeZoom']);
 });
+
+test('precision angular gain applies to both input devices and clears with released inputs',()=>{
+ const {input}=setup();input.aimGain=.55;input.turn(.2,.1);assert.ok(Math.abs(input.yaw-.11)<1e-9);assert.ok(Math.abs(input.pitch-.055)<1e-9);
+ input.releaseInputs();assert.equal(input.aimGain,1);
+});
+
+test('blur and input release cancel precision presentation without changing aim',()=>{
+ const {input,win}=setup();let cancelled=0;input.onAimCancelled=()=>cancelled++;
+ input.yaw=.4;input.pitch=.2;input.aimGain=.55;win.dispatchEvent(new Event('blur'));
+ assert.ok(cancelled>0);assert.equal(input.aimGain,1);assert.equal(input.yaw,.4);assert.equal(input.pitch,.2);
+});

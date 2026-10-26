@@ -584,3 +584,12 @@ test('two held Charge pointers remain independent and ordinary on-foot Sprint ke
  send('pointerdown',100,400,stick);send('pointermove',100,347,stick);assert.equal(controls.movement().sprint,true);
  send('pointermove',100,350,stick);assert.equal(controls.movement().sprint,false,'on foot behavior retains established threshold');
 });
+
+test('cancelled look or View fingers cancel precision view while ordinary finger release preserves it',()=>{
+ const {controls,input,send}=setup({alive:true,spell:'fireball'});let cancelled=0;input.onAimCancelled=()=>cancelled++;
+ const look={target:controls.layer};send('pointerdown',650,230,look);send('pointerup',660,230,look);assert.equal(cancelled,0);
+ send('pointerdown',650,230,look);send('pointercancel',660,230,look);assert.equal(cancelled,1);
+ send('lostpointercapture',660,230,look);assert.equal(cancelled,1);
+ const prior=cancelled;send('pointerdown',650,230,{action:'attack',pointerId:3});send('pointercancel',660,230,{action:'attack',pointerId:3});assert.equal(cancelled,prior+1);assert.equal(input.attackHeld,false);
+ controls.reset();assert.ok(cancelled>1);
+});

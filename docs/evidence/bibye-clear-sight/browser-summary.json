@@ -1,0 +1,1074 @@
+{
+  "baseline": "3397128 (same runtime as bede0bf)",
+  "candidateRuntime": "9a6712bf365be825c3d166cf3fb3477738a47a85",
+  "accuracy": [
+    {
+      "label": "after-mouse-close-78-main-accuracy",
+      "fov": 48,
+      "gain": 0.5498116374953507,
+      "kind": "siege",
+      "point": {
+        "x": -7.116535112722216e-06,
+        "y": 1.1544930143603893,
+        "z": -36.98100824812361
+      },
+      "rayDistance": 0.000687953434032453,
+      "impact": {
+        "type": "bibyeBoltImpact",
+        "ballistaId": "sight-test",
+        "projectileId": "bibye-bolt-2",
+        "subKind": "siege",
+        "victimId": "target",
+        "damage": 85,
+        "point": {
+          "x": -1.3639385273421158e-06,
+          "y": 1.2522036382649906,
+          "z": -38.29999999999929
+        },
+        "hitKind": "player",
+        "at": 27.625990958
+      },
+      "damage": [
+        {
+          "type": "damage",
+          "attackerId": "operator",
+          "victimId": "target",
+          "source": "bibye-conditioning",
+          "amount": 18,
+          "health": 82,
+          "push": null,
+          "at": 27.490613375000002
+        },
+        {
+          "type": "damage",
+          "attackerId": "operator",
+          "victimId": "target",
+          "source": "bibye-siege",
+          "amount": 85,
+          "health": 0,
+          "push": {
+            "x": -1.5056464262865903e-06,
+            "y": 0.6,
+            "z": 8.499999999999869
+          },
+          "at": 27.625990958
+        }
+      ]
+    },
+    {
+      "label": "after-mouse-close-78-upper-accuracy",
+      "fov": 48,
+      "gain": 0.5498116374953507,
+      "kind": "conditioning",
+      "point": {
+        "x": -1.1185710197137344e-15,
+        "y": 1.171929633129851,
+        "z": -36.94617447175359
+      },
+      "rayDistance": 1.6579674598568585e-11,
+      "impact": {
+        "type": "bibyeBoltImpact",
+        "ballistaId": "sight-test",
+        "projectileId": "bibye-bolt-1",
+        "subKind": "conditioning",
+        "point": {
+          "x": -9.833913797153237e-16,
+          "y": 1.39041995160399,
+          "z": -38.05
+        },
+        "hitKind": "player",
+        "solidId": null,
+        "victimId": "target",
+        "at": 89.56104870899999
+      },
+      "damage": [
+        {
+          "type": "damage",
+          "attackerId": "operator",
+          "victimId": "target",
+          "source": "bibye-conditioning",
+          "amount": 18,
+          "health": 82,
+          "push": null,
+          "at": 89.56104870899999
+        }
+      ]
+    },
+    {
+      "label": "after-mouse-long-100-upper-accuracy",
+      "fov": 66.46884029477047,
+      "gain": 0.5498116374953507,
+      "kind": "conditioning",
+      "point": {
+        "x": -3.2635824707435494e-06,
+        "y": 1.278365596078712,
+        "z": -4.984593443094319
+      },
+      "rayDistance": 5.1889905675545306e-05,
+      "impact": {
+        "type": "bibyeBoltImpact",
+        "ballistaId": "sight-test",
+        "projectileId": "bibye-bolt-1",
+        "subKind": "conditioning",
+        "point": {
+          "x": -6.658175689051221e-07,
+          "y": 1.3216953449956232,
+          "z": -6.049999999999789
+        },
+        "hitKind": "player",
+        "solidId": null,
+        "victimId": "target",
+        "at": 23.26623425
+      },
+      "damage": [
+        {
+          "type": "damage",
+          "attackerId": "operator",
+          "victimId": "target",
+          "source": "bibye-conditioning",
+          "amount": 18,
+          "health": 82,
+          "push": null,
+          "at": 23.26623425
+        }
+      ]
+    },
+    {
+      "label": "after-mouse-long-65-main-accuracy",
+      "fov": 38.60751486591769,
+      "gain": 0.5498116374953507,
+      "kind": "siege",
+      "point": {
+        "x": -2.213985371244978e-05,
+        "y": 1.2885021331186983,
+        "z": -4.994835056045858
+      },
+      "rayDistance": 0.0001932898179854104,
+      "impact": {
+        "type": "bibyeBoltImpact",
+        "ballistaId": "sight-test",
+        "projectileId": "bibye-bolt-2",
+        "subKind": "siege",
+        "victimId": "target",
+        "damage": 85,
+        "point": {
+          "x": -2.7908313096053583e-06,
+          "y": 1.3056603735799321,
+          "z": -6.299999999997004
+        },
+        "hitKind": "player",
+        "at": 24.326511375
+      },
+      "damage": [
+        {
+          "type": "damage",
+          "attackerId": "operator",
+          "victimId": "target",
+          "source": "bibye-conditioning",
+          "amount": 18,
+          "health": 82,
+          "push": null,
+          "at": 24.216778375
+        },
+        {
+          "type": "damage",
+          "attackerId": "operator",
+          "victimId": "target",
+          "source": "bibye-siege",
+          "amount": 85,
+          "health": 0,
+          "push": {
+            "x": -5.975331519305714e-07,
+            "y": 0.6,
+            "z": 8.499999999999979
+          },
+          "at": 24.326511375
+        }
+      ]
+    },
+    {
+      "label": "after-mouse-long-78-upper-accuracy",
+      "fov": 48,
+      "gain": 0.5498116374953507,
+      "kind": "conditioning",
+      "point": {
+        "x": -2.119390767846538e-08,
+        "y": 1.2783405914028922,
+        "z": -4.984594459285354
+      },
+      "rayDistance": 3.554609119037011e-05,
+      "impact": {
+        "type": "bibyeBoltImpact",
+        "ballistaId": "sight-test",
+        "projectileId": "bibye-bolt-1",
+        "subKind": "conditioning",
+        "point": {
+          "x": -2.629463313268728e-09,
+          "y": 1.3216868199186291,
+          "z": -6.05
+        },
+        "hitKind": "player",
+        "solidId": null,
+        "victimId": "target",
+        "at": 22.743412499999998
+      },
+      "damage": [
+        {
+          "type": "damage",
+          "attackerId": "operator",
+          "victimId": "target",
+          "source": "bibye-conditioning",
+          "amount": 18,
+          "health": 82,
+          "push": null,
+          "at": 22.743412499999998
+        }
+      ]
+    },
+    {
+      "label": "after-mouse-medium-78-main-accuracy",
+      "fov": 48,
+      "gain": 0.5498116374953507,
+      "kind": "siege",
+      "point": {
+        "x": -1.0474558566143322e-05,
+        "y": 1.2421952806505652,
+        "z": -25.989916631245958
+      },
+      "rayDistance": 0.00021518787294274173,
+      "impact": {
+        "type": "bibyeBoltImpact",
+        "ballistaId": "sight-test",
+        "projectileId": "bibye-bolt-2",
+        "subKind": "siege",
+        "victimId": "target",
+        "damage": 85,
+        "point": {
+          "x": -1.911370561875175e-06,
+          "y": 1.2805804845946154,
+          "z": -27.299999999998594
+        },
+        "hitKind": "player",
+        "at": 29.66890725
+      },
+      "damage": [
+        {
+          "type": "damage",
+          "attackerId": "operator",
+          "victimId": "target",
+          "source": "bibye-conditioning",
+          "amount": 18,
+          "health": 82,
+          "push": null,
+          "at": 29.592321457999997
+        },
+        {
+          "type": "damage",
+          "attackerId": "operator",
+          "victimId": "target",
+          "source": "bibye-siege",
+          "amount": 85,
+          "health": 0,
+          "push": {
+            "x": -8.68804800852282e-07,
+            "y": 0.6,
+            "z": 8.499999999999956
+          },
+          "at": 29.66890725
+        }
+      ]
+    },
+    {
+      "label": "after-mouse-medium-78-upper-accuracy",
+      "fov": 48,
+      "gain": 0.5498116374953507,
+      "kind": "conditioning",
+      "point": {
+        "x": -1.67950235422931e-06,
+        "y": 1.2084332663271171,
+        "z": -25.973135567646672
+      },
+      "rayDistance": 0.0001459767477556588,
+      "impact": {
+        "type": "bibyeBoltImpact",
+        "ballistaId": "sight-test",
+        "projectileId": "bibye-bolt-1",
+        "subKind": "conditioning",
+        "point": {
+          "x": -2.4960798015075747e-07,
+          "y": 1.3020798022737092,
+          "z": -27.049999999999972
+        },
+        "hitKind": "player",
+        "solidId": null,
+        "victimId": "target",
+        "at": 30.883960042
+      },
+      "damage": [
+        {
+          "type": "damage",
+          "attackerId": "operator",
+          "victimId": "target",
+          "source": "bibye-conditioning",
+          "amount": 18,
+          "health": 82,
+          "push": null,
+          "at": 30.883960042
+        }
+      ]
+    },
+    {
+      "label": "after-mouse-parry-78-upper-accuracy",
+      "fov": 48,
+      "gain": 0.5498116374953507,
+      "kind": "conditioning",
+      "point": {
+        "x": -1.616022667245589e-05,
+        "y": 1.1625614909767261,
+        "z": -36.947713689795286
+      },
+      "rayDistance": 0.0007163460640705218,
+      "impact": {
+        "type": "bibyeBoltImpact",
+        "ballistaId": "sight-test",
+        "projectileId": "bibye-bolt-1",
+        "subKind": "conditioning",
+        "point": {
+          "x": -4.429178553472159e-06,
+          "y": 1.381299484445318,
+          "z": -38.04999999999066
+        },
+        "hitKind": "player",
+        "solidId": null,
+        "victimId": "target",
+        "at": 26.166783208000002
+      },
+      "damage": [],
+      "parry": {
+        "type": "bibyeFrostContact",
+        "ballistaId": "sight-test",
+        "projectileId": "bibye-bolt-1",
+        "attackerId": "operator",
+        "defenderId": "target",
+        "point": {
+          "x": -4.429178553472159e-06,
+          "y": 1.381299484445318,
+          "z": -38.04999999999066
+        },
+        "direct": true,
+        "exposure": 1,
+        "at": 26.166783208000002,
+        "outcome": "parry",
+        "damage": 0,
+        "staminaDrain": 0
+      }
+    },
+    {
+      "label": "after-mouse-terrain-78-main-accuracy",
+      "fov": 48,
+      "gain": 0.5498116374953507,
+      "kind": "siege",
+      "point": {
+        "x": 16.49995261459835,
+        "y": 2.391002433037494,
+        "z": -9.999582882563242
+      },
+      "rayDistance": 0.0002999957550149847,
+      "impact": {
+        "type": "bibyeBoltImpact",
+        "ballistaId": "sight-test",
+        "projectileId": "bibye-bolt-2",
+        "subKind": "siege",
+        "victimId": "target",
+        "damage": 85,
+        "point": {
+          "x": 16.499971373480015,
+          "y": 2.3925061197078588,
+          "z": -11.299999999684816
+        },
+        "hitKind": "player",
+        "at": 22.6015805
+      },
+      "damage": [
+        {
+          "type": "damage",
+          "attackerId": "operator",
+          "victimId": "target",
+          "source": "bibye-conditioning",
+          "amount": 18,
+          "health": 82,
+          "push": null,
+          "at": 22.422894167
+        },
+        {
+          "type": "damage",
+          "attackerId": "operator",
+          "victimId": "target",
+          "source": "bibye-siege",
+          "amount": 85,
+          "health": 0,
+          "push": {
+            "x": -2.0418201674665588e-05,
+            "y": 0.6,
+            "z": 8.499999999975477
+          },
+          "at": 22.6015805
+        }
+      ]
+    }
+  ],
+  "optics": [
+    {
+      "label": "before-mouse-long-78",
+      "precision": {
+        "from": 3.141592653589793,
+        "to": 3.1180926535897933,
+        "gain": 1
+      },
+      "fov": 54.599999999999994,
+      "observer": {
+        "reloadFrames": 246,
+        "lateReload": 50,
+        "hiddenLateReload": 0
+      },
+      "entry": [
+        {
+          "at": 0,
+          "fov": 78
+        },
+        {
+          "at": 17.6,
+          "fov": 54.599999999999994
+        },
+        {
+          "at": 33.2,
+          "fov": 54.599999999999994
+        },
+        {
+          "at": 49.6,
+          "fov": 54.599999999999994
+        },
+        {
+          "at": 67.8,
+          "fov": 54.599999999999994
+        },
+        {
+          "at": 84.8,
+          "fov": 54.599999999999994
+        },
+        {
+          "at": 101.3,
+          "fov": 54.599999999999994
+        },
+        {
+          "at": 117,
+          "fov": 54.599999999999994
+        },
+        {
+          "at": 133.6,
+          "fov": 54.599999999999994
+        },
+        {
+          "at": 150.3,
+          "fov": 54.599999999999994
+        },
+        {
+          "at": 167.8,
+          "fov": 54.599999999999994
+        },
+        {
+          "at": 184.3,
+          "fov": 54.599999999999994
+        },
+        {
+          "at": 200.8,
+          "fov": 54.599999999999994
+        },
+        {
+          "at": 217.7,
+          "fov": 54.599999999999994
+        },
+        {
+          "at": 234.4,
+          "fov": 54.599999999999994
+        },
+        {
+          "at": 251.1,
+          "fov": 54.599999999999994
+        },
+        {
+          "at": 266.9,
+          "fov": 54.599999999999994
+        },
+        {
+          "at": 283.1,
+          "fov": 54.599999999999994
+        },
+        {
+          "at": 300.8,
+          "fov": 54.599999999999994
+        },
+        {
+          "at": 317.5,
+          "fov": 54.599999999999994
+        },
+        {
+          "at": 334.4,
+          "fov": 54.599999999999994
+        },
+        {
+          "at": 350.9,
+          "fov": 54.599999999999994
+        },
+        {
+          "at": 367.8,
+          "fov": 54.599999999999994
+        },
+        {
+          "at": 383.8,
+          "fov": 54.599999999999994
+        },
+        {
+          "at": 400.3,
+          "fov": 54.599999999999994
+        }
+      ]
+    },
+    {
+      "label": "after-mouse-long-78",
+      "precision": {
+        "from": 3.141592653589793,
+        "to": 3.1286720801086525,
+        "gain": 0.5498116374953507
+      },
+      "fov": 48,
+      "observer": {
+        "reloadFrames": 258,
+        "lateReload": 83,
+        "hiddenLateReload": 0
+      },
+      "entry": [
+        {
+          "at": 0.0,
+          "fov": 78
+        },
+        {
+          "at": 17.2,
+          "fov": 72.57117562442957
+        },
+        {
+          "at": 34.3,
+          "fov": 67.95553331613793
+        },
+        {
+          "at": 50.1,
+          "fov": 64.13553311212429
+        },
+        {
+          "at": 67.1,
+          "fov": 60.97239318863377
+        },
+        {
+          "at": 82.5,
+          "fov": 58.40728163745387
+        },
+        {
+          "at": 100.1,
+          "fov": 56.3160888598743
+        },
+        {
+          "at": 125.1,
+          "fov": 54.631317553210515
+        },
+        {
+          "at": 148.1,
+          "fov": 53.279359582003416
+        },
+        {
+          "at": 168.8,
+          "fov": 51.33912100162655
+        },
+        {
+          "at": 186.7,
+          "fov": 50.650429029102675
+        },
+        {
+          "at": 204.4,
+          "fov": 50.10544211013315
+        },
+        {
+          "at": 222.6,
+          "fov": 49.6694168185173
+        },
+        {
+          "at": 237.6,
+          "fov": 49.32504523682749
+        },
+        {
+          "at": 251.8,
+          "fov": 49.04994430614385
+        },
+        {
+          "at": 269.9,
+          "fov": 48.831768104492376
+        },
+        {
+          "at": 285.6,
+          "fov": 48.65972995690221
+        },
+        {
+          "at": 301.4,
+          "fov": 48.522470883110515
+        },
+        {
+          "at": 321.3,
+          "fov": 48.41372236957211
+        },
+        {
+          "at": 339.0,
+          "fov": 48.32757988375567
+        },
+        {
+          "at": 355.5,
+          "fov": 48.25971812978116
+        },
+        {
+          "at": 371.7,
+          "fov": 48.20590334145197
+        },
+        {
+          "at": 385.9,
+          "fov": 48.162775985193875
+        },
+        {
+          "at": 405.4,
+          "fov": 48.12903792331812
+        },
+        {
+          "at": 420.2,
+          "fov": 48.102146803313815
+        }
+      ]
+    },
+    {
+      "label": "before-touch-long-78",
+      "precision": {
+        "from": 3.141592653589793,
+        "to": 3.0835926535897933,
+        "gain": 1
+      },
+      "fov": 54.599999999999994,
+      "observer": {
+        "reloadFrames": 270,
+        "lateReload": 98,
+        "hiddenLateReload": 0
+      },
+      "entry": [
+        {
+          "at": 0.0,
+          "fov": 78
+        },
+        {
+          "at": 22.4,
+          "fov": 54.599999999999994
+        },
+        {
+          "at": 37.2,
+          "fov": 54.599999999999994
+        },
+        {
+          "at": 58.4,
+          "fov": 54.599999999999994
+        },
+        {
+          "at": 71.0,
+          "fov": 54.599999999999994
+        },
+        {
+          "at": 88.6,
+          "fov": 54.599999999999994
+        },
+        {
+          "at": 104.9,
+          "fov": 54.599999999999994
+        },
+        {
+          "at": 120.7,
+          "fov": 54.599999999999994
+        },
+        {
+          "at": 137.4,
+          "fov": 54.599999999999994
+        },
+        {
+          "at": 153.7,
+          "fov": 54.599999999999994
+        },
+        {
+          "at": 170.4,
+          "fov": 54.599999999999994
+        },
+        {
+          "at": 188.0,
+          "fov": 54.599999999999994
+        },
+        {
+          "at": 205.2,
+          "fov": 54.599999999999994
+        },
+        {
+          "at": 220.7,
+          "fov": 54.599999999999994
+        },
+        {
+          "at": 237.4,
+          "fov": 54.599999999999994
+        },
+        {
+          "at": 254.2,
+          "fov": 54.599999999999994
+        },
+        {
+          "at": 270.2,
+          "fov": 54.599999999999994
+        },
+        {
+          "at": 289.8,
+          "fov": 54.599999999999994
+        },
+        {
+          "at": 303.6,
+          "fov": 54.599999999999994
+        },
+        {
+          "at": 320.1,
+          "fov": 54.599999999999994
+        },
+        {
+          "at": 337.3,
+          "fov": 54.599999999999994
+        },
+        {
+          "at": 353.8,
+          "fov": 54.599999999999994
+        },
+        {
+          "at": 370.3,
+          "fov": 54.599999999999994
+        },
+        {
+          "at": 387.1,
+          "fov": 54.599999999999994
+        },
+        {
+          "at": 403.6,
+          "fov": 54.599999999999994
+        }
+      ]
+    },
+    {
+      "label": "after-touch-long-78",
+      "precision": {
+        "from": 3.141592653589793,
+        "to": 3.1097035786150626,
+        "gain": 0.5498116374953507
+      },
+      "fov": 48,
+      "observer": {
+        "reloadFrames": 271,
+        "lateReload": 99,
+        "hiddenLateReload": 0
+      },
+      "entry": [
+        {
+          "at": 0.0,
+          "fov": 78
+        },
+        {
+          "at": 19.4,
+          "fov": 72.57117562443013
+        },
+        {
+          "at": 35.0,
+          "fov": 67.95553331613839
+        },
+        {
+          "at": 53.3,
+          "fov": 64.13553311212505
+        },
+        {
+          "at": 67.3,
+          "fov": 60.972393188634086
+        },
+        {
+          "at": 85.6,
+          "fov": 58.40728163745437
+        },
+        {
+          "at": 101.9,
+          "fov": 56.3160888598747
+        },
+        {
+          "at": 118.3,
+          "fov": 54.631317553210685
+        },
+        {
+          "at": 133.8,
+          "fov": 53.28659356450121
+        },
+        {
+          "at": 151.5,
+          "fov": 52.20355126360577
+        },
+        {
+          "at": 168.4,
+          "fov": 51.34373563375261
+        },
+        {
+          "at": 183.6,
+          "fov": 50.654102617328704
+        },
+        {
+          "at": 201.8,
+          "fov": 50.105442110133254
+        },
+        {
+          "at": 218.2,
+          "fov": 49.67174011698756
+        },
+        {
+          "at": 235.5,
+          "fov": 49.32320116630343
+        },
+        {
+          "at": 251.3,
+          "fov": 49.0499443061439
+        },
+        {
+          "at": 267.5,
+          "fov": 48.83176810449239
+        },
+        {
+          "at": 284.7,
+          "fov": 48.65972995690223
+        },
+        {
+          "at": 301.9,
+          "fov": 48.52247088311054
+        },
+        {
+          "at": 317.9,
+          "fov": 48.41372236957212
+        },
+        {
+          "at": 334.2,
+          "fov": 48.32757988375567
+        },
+        {
+          "at": 352.1,
+          "fov": 48.25971812978116
+        },
+        {
+          "at": 367.5,
+          "fov": 48.20590334145197
+        },
+        {
+          "at": 384.2,
+          "fov": 48.163003886432946
+        },
+        {
+          "at": 401.3,
+          "fov": 48.12903792331812
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "label": "after-mouse-wall-78",
+      "failure": null,
+      "wallImpact": {
+        "type": "bibyeBoltImpact",
+        "ballistaId": "sight-test",
+        "projectileId": "bibye-bolt-3",
+        "subKind": "conditioning",
+        "point": {
+          "x": 0.011200502889495135,
+          "y": 2.162940055563297,
+          "z": -58
+        },
+        "hitKind": "solid",
+        "solidId": "wall-south-camp",
+        "victimId": null,
+        "at": 27.618316334
+      },
+      "wallView": {
+        "camera": [
+          0.028066833703323024,
+          2.629961438887681,
+          -56.16149553519697
+        ],
+        "fov": 48,
+        "gain": 0.5498116374953507,
+        "view": "clear",
+        "sight": {
+          "hidden": false,
+          "weapon": "UPPER",
+          "text": "UPPER\u2304",
+          "primary": "translate(5.07451px, 0.625692px)",
+          "secondaryHidden": true
+        },
+        "sightData": {
+          "weapon": "UPPER",
+          "primary": {
+            "x": 5.074512331637679,
+            "y": 0.625692479200565,
+            "blocked": false
+          },
+          "secondary": null,
+          "limits": [],
+          "limited": false,
+          "blend": 1
+        },
+        "mounted": "sight-test"
+      },
+      "limit": {
+        "camera": [
+          4.606124297089204e-10,
+          3.360189624328967,
+          -53.81175594129813
+        ],
+        "fov": 48,
+        "gain": 0.5498116374953507,
+        "view": "clear",
+        "sight": {
+          "hidden": false,
+          "weapon": "UPPER",
+          "text": "UPPERELEVATION LIMIT\u2304",
+          "primary": "translate(-5.44502e-09px, 1.83727e-06px)",
+          "secondaryHidden": true
+        },
+        "sightData": {
+          "weapon": "UPPER",
+          "primary": {
+            "x": -5.445023331902146e-09,
+            "y": 1.8372744474650208e-06,
+            "blocked": false
+          },
+          "secondary": null,
+          "limits": [
+            "up"
+          ],
+          "limited": false,
+          "blend": 1
+        },
+        "mounted": "sight-test"
+      },
+      "remounted": {
+        "camera": [
+          0.0011563696556847513,
+          2.8460444959367956,
+          -57.755951575536066
+        ],
+        "fov": 78.03396294685338,
+        "gain": 1,
+        "view": "third",
+        "sight": {
+          "hidden": true,
+          "weapon": "UPPER",
+          "text": "UPPERELEVATION LIMIT\u2304",
+          "primary": "translate(-1.67576e-13px, -1.59591e-14px)",
+          "secondaryHidden": true
+        },
+        "sightData": {
+          "weapon": "UPPER",
+          "primary": {
+            "x": -1.6757615152528962e-13,
+            "y": -1.5959051139476906e-14,
+            "blocked": false
+          },
+          "secondary": null,
+          "limits": [
+            "up"
+          ],
+          "limited": false,
+          "blend": 1
+        },
+        "mounted": "sight-test"
+      },
+      "cancelled": {
+        "camera": [
+          -5.77056342571484e-15,
+          2.846618730899284,
+          -57.75700023157139
+        ],
+        "fov": 78.00000007676765,
+        "gain": 1,
+        "view": "third",
+        "sight": {
+          "hidden": true,
+          "weapon": "UPPER",
+          "text": "UPPERELEVATION LIMIT\u2304",
+          "primary": "translate(-6.0435e-10px, 0.00567606px)",
+          "secondaryHidden": true
+        },
+        "sightData": {
+          "weapon": "UPPER",
+          "primary": {
+            "x": -6.043497134194797e-10,
+            "y": 0.005676055566964529,
+            "blocked": false
+          },
+          "secondary": null,
+          "limits": [
+            "up"
+          ],
+          "limited": false,
+          "blend": 0.9985465278517505
+        },
+        "mounted": "sight-test"
+      }
+    },
+    {
+      "label": "after-mouse-destroy-78",
+      "failure": null,
+      "wallImpact": null,
+      "destroyed": {
+        "camera": [
+          -0.06286630252078805,
+          1.5799528983627633,
+          -49.68666245714462
+        ],
+        "fov": 78,
+        "gain": 1,
+        "view": "third",
+        "sight": {
+          "hidden": true,
+          "weapon": "MAIN",
+          "text": "MAIN\u2304",
+          "primary": "translate(1.37599e-12px, 4.34993e-11px)",
+          "secondaryHidden": true
+        },
+        "sightData": {
+          "weapon": "MAIN",
+          "primary": {
+            "x": 1.3759931009213928e-12,
+            "y": 4.3499341206777374e-11,
+            "blocked": false
+          },
+          "secondary": {
+            "x": 1.261562784971471e-12,
+            "y": -2.2994425822303456e-06,
+            "blocked": false
+          },
+          "limits": [],
+          "limited": false,
+          "blend": 1
+        },
+        "mounted": null
+      }
+    }
+  ],
+  "recordedRuntime": "11eef78c9136fc72414a3ad9f626a513c025f316",
+  "recordingScope": "Gameplay captures precede the final cancellation and local near-lens bolt cleanup, then rebase onto main 5e454e0. Final edits have focused and full automated verification. Additional play was waived by the creator."
+}
