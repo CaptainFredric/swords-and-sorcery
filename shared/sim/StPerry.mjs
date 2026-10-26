@@ -59,6 +59,18 @@ export const PERRY_CONDITIONAL_ANSWERS = Object.freeze([
   },
 ]);
 
+export function normalizeDialogueGuess(str) {
+  if (typeof str !== 'string') return '';
+  return str
+    .trim()
+    .toLowerCase()
+    .replace(/['"’“”]/g, '')
+    .replace(/[?!.,;:]/g, '')
+    .replace(/\s+/g, ' ');
+}
+
+export const SPECIAL_PLAIN_ANSWER_NORMALIZED = normalizeDialogueGuess("Because 'St. Perry the Plain' was too accurate?");
+
 export function isHeraldEarned(player, heraldId) {
   if (!player || !heraldId) return false;
   const challenges = player.challenges?.completed ?? {};
@@ -131,13 +143,14 @@ export function selectPerryDialogueChoices({ player = null, prog = null, seed = 
       const j = Math.floor(Math.random() * (i + 1));
       [bag[i], bag[j]] = [bag[j], bag[i]];
     }
-    if (rotationOwner.lastPoolKey && earnedConditionals.length > 0) {
+    if (earnedConditionals.length > 0 && !rotationOwner.hasSeenEarnedConditionals) {
       for (const special of earnedConditionals) {
         const idx = bag.indexOf(special);
         if (idx >= count) {
           [bag[0], bag[idx]] = [bag[idx], bag[0]];
         }
       }
+      rotationOwner.hasSeenEarnedConditionals = true;
     }
     rotationOwner.lastPoolKey = poolKey;
   }
@@ -424,12 +437,8 @@ export function answerPerryDialogue(room, player, answer, nowSec) {
     return true;
   }
 
-  const isPlainGuess = Boolean(
-    answer &&
-    typeof answer === 'string' &&
-    answer.toLowerCase().includes('plain') &&
-    answer.toLowerCase().includes('accurate')
-  );
+  const normalizedAnswer = normalizeDialogueGuess(answer);
+  const isPlainGuess = normalizedAnswer === SPECIAL_PLAIN_ANSWER_NORMALIZED;
 
   if (isPlainGuess && isHeraldEarned(player, 'st-perry-the-plain')) {
     d.wrongCount += 1;
@@ -540,7 +549,7 @@ export function recordPerryParry(room, attacker, defender, nowSec) {
   }
 }
 
-export function recordPerryDamage(room, attackerId, victimId, source, nowSec, amount = 0) {
+export function recordPerryDamage(room, attackerId, victimId, source, nowSec, amount = 0, healthBefore = undefined) {
   if (room?.mode !== 'PRACTICE') return;
   const dummy = [...(room.players?.values() ?? [])].find((p) => p.actorKind === 'dummy');
   if (!dummy || !dummy.stPerry) return;
@@ -557,7 +566,7 @@ export function recordPerryDamage(room, attackerId, victimId, source, nowSec, am
       const prog = getPlayerPerryProgress(room, attackerId);
       if (prog) {
         if (prog.perryFightStartHealth === undefined) {
-          prog.perryFightStartHealth = dummy.health + amount;
+          prog.perryFightStartHealth = healthBefore !== undefined ? healthBefore : dummy.health + amount;
         }
         prog.damageDealtToPerry = (prog.damageDealtToPerry || 0) + amount;
       }
@@ -576,38 +585,22 @@ export function assessPerryDefeat(room, dummy, killerId, nowSec) {
   const killer = room.players.get(killerId);
   if (!killer || killer.actorKind !== 'human') return;
   const prog = getPlayerPerryProgress(room, killerId);
-  if (!prog || prog.plainHeraldEarned) return;
+  if (!prog || prog.plainHeraldQualified) return;
 
+  // Has killer already earned this herald? If already owned in persisted profile, no duplicate qualification
+  const alreadyEarned = isHeraldEarned(killer, 'st-perry-the-plain');
   const killerFlawless = (killer.damageTakenThisLife || 0) === 0 && (killer.health || 0) === 100;
   const perryBeganFull = (prog.perryFightStartHealth || 0) >= 100;
   const dealtFullDefeat = (prog.damageDealtToPerry || 0) >= 100;
 
-  if (killerFlawless && perryBeganFull && dealtFullDefeat) {
-    prog.plainHeraldEarned = true;
-    killer.challenges = killer.challenges || { completed: {} };
-    killer.challenges.completed = killer.challenges.completed || {};
-    killer.challenges.completed['st_perry_the_plain'] = Date.now();
-    if (Array.isArray(killer.emblems) && !killer.emblems.includes('st_perry_the_plain')) {
-      killer.emblems.push('st_perry_the_plain');
-    }
+  if (alreadyEarned) return;
 
+  if (killerFlawless && perryBeganFull && dealtFullDefeat) {
+    prog.plainHeraldQualified = true;
     room.events.push({
       type: 'prestigeChallengeCompleted',
       playerId: killer.id,
       challengeId: 'st_perry_the_plain',
-      at: nowSec,
-    });
-    room.events.push({
-      type: 'stPerryPlainUnlocked',
-      playerId: killer.id,
-      message: 'PRESTIGE HERALD EARNED: ST. PERRY THE PLAIN!',
-      at: nowSec,
-    });
-    room.events.push({
-      type: 'spellbladeLine',
-      playerId: killer.id,
-      text: 'I suppose anyone can become a saint... these days.',
-      speaker: killer.name || 'Spellblade',
       at: nowSec,
     });
   }

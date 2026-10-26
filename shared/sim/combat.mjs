@@ -1104,7 +1104,7 @@ export function applyDamage(room, attackerId, victimId, amount, source, nowSec, 
   const healthBefore = victim.health;
   const taken = Math.min(victim.health, finalAmount);
   victim.health = Math.max(0, victim.health - finalAmount);
-  if (finalAmount > 0) victim.damageTakenThisLife = (victim.damageTakenThisLife || 0) + finalAmount;
+  if (taken > 0) victim.damageTakenThisLife = (victim.damageTakenThisLife || 0) + taken;
   // Only the locally staged Tutorial Rival survives until its final fight begins.
   // Contact, damage events, afflictions and physical response still resolve normally.
   if (room.localTutorial && room.tutorialRival?.id === victimId && room.tutorialRival.protected) victim.health = Math.max(1, victim.health);
@@ -1133,7 +1133,7 @@ export function applyDamage(room, attackerId, victimId, amount, source, nowSec, 
     ...contactFacts, type: 'damage', attackerId, victimId, source, amount: taken, rawDamage,
     healthBefore, healthAfter: victim.health, steel: contactFacts?.steel ?? finalSteel, contact: source !== 'burn', at: nowSec,
   });
-  recordPerryDamage(room, attackerId, victimId, source, nowSec, finalAmount);
+  recordPerryDamage(room, attackerId, victimId, source, nowSec, taken, healthBefore);
   if (victim.health <= 0) killPlayer(room, victimId, attackerId, source, nowSec);
   return true;
 }

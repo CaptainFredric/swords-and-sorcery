@@ -1,5 +1,5 @@
 import { CLOTH } from '../../shared/src/cosmetics.mjs';
-import { DEFAULT_EMBLEM, EMBLEMS } from '../../shared/src/heraldry.mjs';
+import { DEFAULT_EMBLEM, EMBLEMS, ownedEmblems } from '../../shared/src/heraldry.mjs';
 import { heraldryView, renownView, rewardText } from './renownView.mjs';
 import { appUrl } from '../appUrl.mjs';
 
@@ -160,6 +160,21 @@ export class RenownController {
       }, 8000);
     });
     socket.on('profile', ({ profile }) => {
+      if (storage) {
+        try {
+          const cached = JSON.parse(storage.getItem('ss-profile-cache') || 'null');
+          if (cached?.challenges?.completed) {
+            profile.challenges ??= { version: 1, progress: {}, completed: {}, rewarded: [] };
+            profile.challenges.completed ??= {};
+            for (const [feat, val] of Object.entries(cached.challenges.completed)) {
+              if (!profile.challenges.completed[feat]) {
+                profile.challenges.completed[feat] = val;
+              }
+            }
+            profile.emblems = ownedEmblems(profile.challenges);
+          }
+        } catch {}
+      }
       this.profile = profile;
       const operation = this.operation;
       const confirmed = operation && (operation.action === 'purchase' ? profile.owned.includes(operation.id)
