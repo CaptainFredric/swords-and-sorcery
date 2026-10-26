@@ -1,28 +1,28 @@
 {
   "passed": true,
-  "timestamp": "2026-10-26T19:35:51.323Z",
-  "revision": "7dfc80bdbf97099da0a35c28f84988395abb1dde",
-  "sha256": "6cb5fe536b728b2000504a36447058ef160a99380df2c5b72abb7cf77e47125b",
+  "timestamp": "2026-10-26T19:39:47.669Z",
+  "revision": "078b77f061ba29c757ba3fe18521e8ff63615a4f",
+  "sha256": "e9d1e476f8b65885c972f12eeaf108832a5e3dcbb4ea74e9f36d6d0264a43266",
   "files": 736,
-  "archiveBytes": 49748160,
+  "archiveBytes": 49748161,
   "extractedBytes": 67273854,
   "startup": {
     "unbundled": {
       "label": "Unbundled (dev)",
-      "readyTimeMs": 3762,
-      "domContentLoadedMs": 2230,
+      "readyTimeMs": 3625,
+      "domContentLoadedMs": 2044,
       "totalRequests": 294,
       "jsRequestsCount": 261,
-      "totalJsBytes": 49813,
+      "totalJsBytes": 49841,
       "errors": []
     },
     "bundled": {
       "label": "Bundled ZIP",
-      "readyTimeMs": 2138,
-      "domContentLoadedMs": 1181,
+      "readyTimeMs": 2168,
+      "domContentLoadedMs": 960,
       "totalRequests": 38,
       "jsRequestsCount": 5,
-      "totalJsBytes": 297249,
+      "totalJsBytes": 297286,
       "errors": []
     }
   },
