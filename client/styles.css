@@ -261,6 +261,19 @@ body.took-steel::after{content:"";position:fixed;inset:0;z-index:50;pointer-even
 }
 .perry-dialogue.hidden { display: none !important; }
 .hud.pointer-locked .perry-dialogue { opacity: 0.92; pointer-events: none; }
+/* Touch retains its on-screen controls instead of desktop pointer lock. Raise the
+   active card above the full-screen touch surface and restore its hit targets. */
+.touch-ui .hud.perry-dialogue-active { z-index: 13; }
+.touch-ui .hud.pointer-locked .perry-dialogue { opacity: 1; pointer-events: auto; }
+.touch-ui .perry-dialogue {
+  top: calc(var(--safe-t, 0px) + 8px);
+  bottom: auto;
+  max-height: calc(100% - var(--safe-t, 0px) - var(--safe-b, 0px) - 16px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+}
 .perry-dialogue-card {
   background: linear-gradient(180deg, rgba(38, 26, 18, 0.96), rgba(20, 14, 10, 0.96));
   border: 1px solid #c99c52;
