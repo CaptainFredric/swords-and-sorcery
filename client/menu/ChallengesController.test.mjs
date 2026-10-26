@@ -30,7 +30,7 @@ test('Armory renders the four populated families while hinted entries expose onl
   const families = root.children.filter((node) => node.className === 'mastery-family');
   assert.deepEqual(families.map((node) => node.attrs['aria-label']), ['SWORDSMANSHIP', 'SORCERY', 'CHIVALRY', 'ODDITIES']);
   const hidden = families.flatMap((node) => node.children).filter((node) => node.className?.includes('hinted'));
-  assert.equal(hidden.length, 5);
+  assert.equal(hidden.length, 6);
   for (const card of hidden) {
     const words = textTree(card);
     assert.match(words, /HIDDEN CHALLENGE/);
@@ -53,7 +53,7 @@ test('server completion reveals exact title, condition, reward and authored flav
   assert.ok(words.includes(CHALLENGES.wind_correction.condition));
   assert.ok(words.includes(CHALLENGES.wind_correction.flavor));
   assert.match(words, /EARNED · 20 RENOWN/);
-  assert.match(words, /1 \/ 11 MASTERED/);
+  assert.match(words, /1 \/ 12 MASTERED/);
   // (a feat whose reward is heraldry names it)
   assert.match(words, /REWARD · 30 RENOWN · SEIZE THY SLAYER HERALDRY/);
 });
@@ -112,5 +112,5 @@ test('the upcoming Mutual Mortality card shows its authored condition without ch
   assert.match(words,/within one second of your killing blow/);
   assert.ok(words.includes("One of us won't recover."));
   assert.doesNotMatch(words,/\d+ RENOWN|COMPLETE|TO MASTER/);
-  assert.match(textTree(root),/0 \/ 11 MASTERED/);
+  assert.match(textTree(root),/0 \/ 12 MASTERED/);
 });

@@ -15,7 +15,7 @@ import {
 import { combatActionPolicy, combatBlocksSprint } from '../src/combatActionPolicy.mjs';
 import { heldActions } from '../src/heldActions.mjs';
 import { recordChallengeFact } from './challenges.mjs';
-import { recordPerryParry, recordPerryDamage } from './StPerry.mjs';
+import { recordPerryParry, recordPerryDamage, assessPerryDefeat } from './StPerry.mjs';
 import { preparedSpellMember } from '../src/preparedSpells.mjs';
 import { RUPTURE, fissureHit, onTornGround, planRupture } from '../src/rupture.mjs';
 import { recastReady, recordUse } from '../src/practiceRecast.mjs';
@@ -103,6 +103,7 @@ function resetAtSpawn(player, spawn, nowSec, room) {
   // balance found again; an ultimate still bracing or active is over (the prowess earned is kept)
   player.stagger = freshStagger();
   player.ultimateState = null;
+  player.damageTakenThisLife = 0;
   player.spawnProtectionUntil = nowSec + SPAWN_PROTECTION_SEC;
   player.alive = true;
   player.respawnAt = 0;
@@ -1103,6 +1104,7 @@ export function applyDamage(room, attackerId, victimId, amount, source, nowSec, 
   const healthBefore = victim.health;
   const taken = Math.min(victim.health, finalAmount);
   victim.health = Math.max(0, victim.health - finalAmount);
+  if (finalAmount > 0) victim.damageTakenThisLife = (victim.damageTakenThisLife || 0) + finalAmount;
   // Only the locally staged Tutorial Rival survives until its final fight begins.
   // Contact, damage events, afflictions and physical response still resolve normally.
   if (room.localTutorial && room.tutorialRival?.id === victimId && room.tutorialRival.protected) victim.health = Math.max(1, victim.health);
@@ -1131,7 +1133,7 @@ export function applyDamage(room, attackerId, victimId, amount, source, nowSec, 
     ...contactFacts, type: 'damage', attackerId, victimId, source, amount: taken, rawDamage,
     healthBefore, healthAfter: victim.health, steel: contactFacts?.steel ?? finalSteel, contact: source !== 'burn', at: nowSec,
   });
-  recordPerryDamage(room, attackerId, victimId, source, nowSec);
+  recordPerryDamage(room, attackerId, victimId, source, nowSec, finalAmount);
   if (victim.health <= 0) killPlayer(room, victimId, attackerId, source, nowSec);
   return true;
 }
@@ -1148,6 +1150,7 @@ export function killPlayer(room, victimId, attackerId, source, nowSec) {
   recordChallengeFact(room, { type: 'death', victimId, killerId: credited, source, at: nowSec,
     displacementSource: victim.lastKnockbackSource ?? null, displacementBy: victim.lastKnockbackBy ?? null,
     displacementAt: victim.lastKnockbackAt });
+  assessPerryDefeat(room, victim, credited, nowSec);
   if (victim.ultimateState?.phase === 'startup' && !Number.isFinite(victim.ultimateInterruptionAt)) {
     victim.ultimateInterruptionBy = credited;
     victim.ultimateInterruptionAt = nowSec;

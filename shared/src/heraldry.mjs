@@ -26,6 +26,16 @@ export const EMBLEMS = Object.freeze({
     },
     art: '/client/assets/heraldry/seize-thy-slayer.png',
   }),
+  st_perry_the_plain: emblem('st_perry_the_plain', 'St. Perry the Plain', "Perry's helmet and askew halo, cleaved by a blade.", {
+    flavor: 'I suppose anyone can become a saint... these days.',
+    challenge: 'st_perry_the_plain',
+    banners: {
+      KitBanner: '/client/assets/heraldry/st-perry-the-plain-banner.jpg',
+      CapeBanner: '/client/assets/heraldry/st-perry-the-plain-cape.jpg',
+    },
+    art: '/client/assets/heraldry/st-perry-the-plain.png',
+    available: true,
+  }),
   mutual_mortality: emblem('mutual_mortality', 'Mutual Mortality', CHALLENGE_PREVIEWS.mutual_mortality.condition, {
     flavor: CHALLENGE_PREVIEWS.mutual_mortality.flavor,
     challenge: 'mutual_mortality', available: false,

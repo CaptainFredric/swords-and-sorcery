@@ -77,6 +77,7 @@ function freshCombatState(spawn, nowSec = 0) {
     dizzyUntil: -Infinity,
     spawnProtectionUntil: nowSec + 1,
     alive: true,
+    damageTakenThisLife: 0,
     respawnAt: 0,
     lastDamageAt: -Infinity,
     lastAttackerId: null,

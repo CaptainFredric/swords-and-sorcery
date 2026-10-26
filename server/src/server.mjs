@@ -474,6 +474,17 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
             });
           }
         }
+        if (event.type === 'prestigeChallengeCompleted') {
+          const player = room.players.get(event.playerId);
+          if (player?.profileToken) {
+            try {
+              const updated = profileStore.completePrestigeChallenge(player.profileToken, event.challengeId, { completedAt: event.at });
+              publishProfile(player.profileToken, updated, { prestigeFeat: event.challengeId });
+            } catch (err) {
+              console.error('Failed to complete prestige challenge:', err);
+            }
+          }
+        }
       }
       if (events.length) broadcastRoom(room, { type: 'events', events });
       if (room.mode === 'PRACTICE' && room.stPerryState) {
