@@ -112,13 +112,28 @@ export function getPerryRoomState(room) {
   if (!room.stPerryState) {
     room.stPerryState = {
       unlocked: false,
-      perryParries: 0,
-      playerCounterParries: 0,
+      byPlayer: new Map(),
       introCompleted: false,
       introSolved: false,
     };
   }
   return room.stPerryState;
+}
+
+export function getPlayerPerryProgress(room, playerId) {
+  const roomState = getPerryRoomState(room);
+  if (!roomState) return null;
+  if (!roomState.byPlayer) roomState.byPlayer = new Map();
+  let prog = roomState.byPlayer.get(playerId);
+  if (!prog) {
+    prog = {
+      perryParries: 0,
+      playerCounterParries: 0,
+      unlocked: false,
+    };
+    roomState.byPlayer.set(playerId, prog);
+  }
+  return prog;
 }
 
 export function isCanonizationUnlocked(room) {
@@ -192,8 +207,7 @@ export function cleanupStPerry(room, actor, nowSec) {
   }
   const roomState = getPerryRoomState(room);
   if (roomState && !roomState.unlocked) {
-    roomState.perryParries = 0;
-    roomState.playerCounterParries = 0;
+    roomState.byPlayer?.clear();
   }
   actor.stPerry = null;
 }
@@ -225,7 +239,7 @@ export function answerPerryDialogue(room, player, answer, nowSec) {
   d.wrongCount += 1;
   d.state = 'wrong';
   if (d.wrongCount === 1) {
-    d.lastLine = 'Incorrect! You are lucky I am a Saint. Try again.';
+    d.lastLine = 'Incorrect! You are lucky I am a St. Try again.';
   } else {
     d.lastLine = 'Have you grown in intellect since we last spoke?';
   }
@@ -249,13 +263,18 @@ export function dismissPerryDialogue(room, player, nowSec) {
   return true;
 }
 
-export function unlockCanonization(room, actor, nowSec) {
+export function unlockCanonization(room, actor, nowSec, playerId = null) {
   const roomState = getPerryRoomState(room);
+  if (roomState?.unlocked) return; // Prevent repeated Canonization unlock announcements!
   if (roomState) roomState.unlocked = true;
   if (actor?.stPerry) actor.stPerry.unlocked = true;
+  if (playerId && roomState?.byPlayer) {
+    const prog = getPlayerPerryProgress(room, playerId);
+    if (prog) prog.unlocked = true;
+  }
   room.events.push({
     type: 'stPerryUnlocked',
-    playerId: actor?.id ?? null,
+    playerId: playerId ?? actor?.id ?? null,
     at: nowSec,
     message: 'Canonization Unlocked! St. Perry acknowledges your parrying skill.',
   });
@@ -266,12 +285,11 @@ export function recordPerryParry(room, attacker, defender, nowSec) {
   const dummy = [...(room.players?.values() ?? [])].find((p) => p.actorKind === 'dummy');
   if (!dummy || !dummy.stPerry) return;
 
-  const state = getPerryRoomState(room);
-
   // Case 1: St. Perry (defender) legitimately parried a human player's strike (attacker)
   if (defender.id === dummy.id && attacker.actorKind === 'human') {
-    dummy.stPerry.parries += 1;
-    state.perryParries += 1;
+    const prog = getPlayerPerryProgress(room, attacker.id);
+    prog.perryParries += 1;
+    dummy.stPerry.parries = prog.perryParries;
     setGuard(room, dummy.id, false, nowSec);
     dummy.stPerry.guardUntil = -Infinity;
     dummy.stPerry.pendingCounter = true;
@@ -279,27 +297,30 @@ export function recordPerryParry(room, attacker, defender, nowSec) {
     room.events.push({
       type: 'stPerryFeedback',
       kind: 'perryParry',
-      count: state.perryParries,
+      playerId: attacker.id,
+      count: prog.perryParries,
       at: nowSec,
     });
-    if (state.perryParries >= 3 && state.playerCounterParries >= 1) {
-      unlockCanonization(room, dummy, nowSec);
+    if (prog.perryParries >= 3 && prog.playerCounterParries >= 1) {
+      unlockCanonization(room, dummy, nowSec, attacker.id);
     }
   }
   // Case 2: Human player (defender) legitimately counterparried St. Perry's counterattack (attacker)
   else if (attacker.id === dummy.id && defender.actorKind === 'human') {
-    dummy.stPerry.playerCounterParries += 1;
-    state.playerCounterParries += 1;
+    const prog = getPlayerPerryProgress(room, defender.id);
+    prog.playerCounterParries += 1;
+    dummy.stPerry.playerCounterParries = prog.playerCounterParries;
     dummy.stPerry.counterAttacking = false;
     dummy.stPerry.pendingCounter = false;
     room.events.push({
       type: 'stPerryFeedback',
       kind: 'playerCounterParry',
-      count: state.playerCounterParries,
+      playerId: defender.id,
+      count: prog.playerCounterParries,
       at: nowSec,
     });
-    if (state.perryParries >= 3 && state.playerCounterParries >= 1) {
-      unlockCanonization(room, dummy, nowSec);
+    if (prog.perryParries >= 3 && prog.playerCounterParries >= 1) {
+      unlockCanonization(room, dummy, nowSec, defender.id);
     }
   }
 }

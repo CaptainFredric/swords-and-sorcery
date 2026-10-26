@@ -136,9 +136,12 @@ export function resetPracticePlayer(room, playerId, nowSec) {
 
   }
   if(player.operatingRamId&&room.soFistication)dismountSoFistication(room,room.soFistication,player,{force:true});
-  if (room.stPerryState && !room.stPerryState.unlocked) {
-    room.stPerryState.perryParries = 0;
-    room.stPerryState.playerCounterParries = 0;
+  if (room.stPerryState?.byPlayer && !room.stPerryState.unlocked) {
+    const prog = room.stPerryState.byPlayer.get(playerId);
+    if (prog && !prog.unlocked) {
+      prog.perryParries = 0;
+      prog.playerCounterParries = 0;
+    }
   }
   resetActorAtSpawn(player, spawn, nowSec);
   room.events.push({ type: 'practicePlayerReset', playerId, at: nowSec });

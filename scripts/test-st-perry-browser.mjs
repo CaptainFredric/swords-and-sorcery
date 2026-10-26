@@ -4,7 +4,7 @@
  * Verifies the complete playable training opponent:
  * 1. Practice Yard selection: "St. Perry the Prodigious" option.
  * 2. Part II Dialogue: Non-blocking dialogue card, exact greeting,
- *    authored wrong answer responses ("Incorrect! You are lucky I am a Saint.",
+ *    authored wrong answer responses ("Incorrect! You are lucky I am a St. Try again.",
  *    "Have you grown in intellect since we last spoke?"), and case-insensitive
  *    "parry" answer matcher.
  * 3. Combat Mechanics:
@@ -234,7 +234,7 @@ try {
   // Test 1st wrong answer: "Because you are fond of pears?"
   console.log('Testing 1st wrong answer...');
   await evaluate(`document.querySelector('.perry-option-btn[data-answer="pears"]')?.click()`);
-  await until(() => evaluate("Boolean(document.querySelector('#perry-dialogue-text')?.textContent?.includes('Incorrect! You are lucky I am a Saint. Try again.'))"), '1st wrong answer response', 5000);
+  await until(() => evaluate("Boolean(document.querySelector('#perry-dialogue-text')?.textContent?.includes('Incorrect! You are lucky I am a St. Try again.'))"), '1st wrong answer response', 5000);
   const line1 = await evaluate("document.querySelector('#perry-dialogue-text')?.textContent");
   console.log(`1st wrong reply: ${line1}`);
 
@@ -371,27 +371,20 @@ try {
   await evaluate(`window.__ssRuntime.input.setAttack(false)`);
 
   console.log('St. Perry parried frontal attack cleanly!');
-  await wait(150);
-  await captureScreenshot('05-perry-frontal-parry.png');
 
   // Player counterparries Perry's counterattack!
   console.log('Preparing to counterparry Perry counterattack...');
-  // Wait until player's parry reel/stagger expires and Perry is swinging his counterattack
+  // As soon as player's parry reel/stagger expires, raise Guard to counterparry Perry's counterattack
   await until(() => evaluate(`(() => {
     const r = window.__ssRuntime;
-    const dummy = r.latestSnapshot?.players?.find(p => p.actorKind === 'dummy');
     const p = r.localAuth;
     const now = r.socket?.serverNow?.() ?? 0;
-    return Boolean(dummy?.attackActive && now >= (p?.staggerUntil ?? 0));
-  })()`), 'Player stagger expired and Perry counterattack active', 6000);
-
-  console.log('Perry counterattack active and player recovered: raising fresh Guard to counterparry...');
-  // Execute fresh Guard press right into the counterattack strike window
-  await evaluate(`(() => {
-    const r = window.__ssRuntime;
-    r.input.setGuard(false);
-    setTimeout(() => r.input.setGuard(true), 50);
-  })()`);
+    if (now >= (p?.staggerUntil ?? 0)) {
+      r.input.setGuard(true);
+      return true;
+    }
+    return false;
+  })()`), 'Player raised Guard after stagger to counterparry', 4000);
 
   await until(() => evaluate(`(() => {
     const r = window.__ssRuntime;
@@ -443,6 +436,9 @@ try {
     })()`);
     await wait(600);
     await evaluate(`window.__ssRuntime.input.setAttack(false)`);
+    if (i === 0) {
+      await captureScreenshot('05-perry-frontal-parry.png');
+    }
     await wait(1200);
   }
 

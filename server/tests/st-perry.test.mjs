@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { Room } from '../../shared/sim/Room.mjs';
 import { spawnPracticeDummy, setPracticeDummyMode, removePracticeDummy, resetPracticePlayer, stepPracticeActors } from '../../shared/sim/practice.mjs';
 import { beginAttack, endAttack, setGuard, stepRoom, applyDamage, tryCastSpell, cancelAttack } from '../../shared/sim/combat.mjs';
-import { isCorrectPerryAnswer, answerPerryDialogue, dismissPerryDialogue, isCanonizationUnlocked, setupStPerry, recordPerryParry, PERRY_CANONIZED_SKILL, PERRY_PROFILE, PERRY_CANONIZED_PROFILE } from '../../shared/sim/StPerry.mjs';
+import { isCorrectPerryAnswer, answerPerryDialogue, dismissPerryDialogue, isCanonizationUnlocked, setupStPerry, recordPerryParry, getPlayerPerryProgress, PERRY_CANONIZED_SKILL, PERRY_PROFILE, PERRY_CANONIZED_PROFILE } from '../../shared/sim/StPerry.mjs';
 import { applyRoomCommand } from '../../shared/sim/wire.mjs';
 import { SWORD_STRIKE_TIMES, GAME } from '../../shared/src/combat.mjs';
 import { PROWESS } from '../../shared/src/prowess.mjs';
@@ -61,7 +61,7 @@ test('St. Perry: Part II dialogue - correct answers, wrong answers with exact au
   // 1st wrong answer
   assert.equal(answerPerryDialogue(room, human, 'Because you like pears?', 1), true);
   assert.equal(dummy.stPerry.dialogue.wrongCount, 1);
-  assert.equal(dummy.stPerry.dialogue.lastLine, 'Incorrect! You are lucky I am a Saint. Try again.');
+  assert.equal(dummy.stPerry.dialogue.lastLine, 'Incorrect! You are lucky I am a St. Try again.');
 
   // 2nd wrong answer
   assert.equal(answerPerryDialogue(room, human, 'Because of your modesty?', 2), true);
@@ -331,18 +331,19 @@ test('St. Perry: Unlock tracking is strictly scoped to Perry vs player and reset
   assert.equal(perryDummy.stPerry.playerCounterParries, 0);
   assert.equal(isCanonizationUnlocked(room), false);
 
-  // 3. Resetting practice player clears incomplete progress
-  room.stPerryState.perryParries = 2;
-  room.stPerryState.playerCounterParries = 0;
+  // 3. Resetting practice player clears incomplete progress for that player
+  const prog = getPlayerPerryProgress(room, human.id);
+  prog.perryParries = 2;
+  prog.playerCounterParries = 0;
   resetPracticePlayer(room, human.id, 3.0);
-  assert.equal(room.stPerryState.perryParries, 0, 'Resetting practice must clear incomplete Perry parries');
+  assert.equal(getPlayerPerryProgress(room, human.id).perryParries, 0, 'Resetting practice must clear incomplete Perry parries');
   assert.equal(isCanonizationUnlocked(room), false);
 
   // 4. Switching opponent away from Perry clears incomplete progress
-  room.stPerryState.perryParries = 2;
-  room.stPerryState.playerCounterParries = 0;
+  getPlayerPerryProgress(room, human.id).perryParries = 2;
+  getPlayerPerryProgress(room, human.id).playerCounterParries = 0;
   setPracticeDummyMode(room, 'MELEE', 4.0);
-  assert.equal(room.stPerryState.perryParries, 0, 'Switching opponent must clear incomplete Perry parries');
+  assert.equal(room.stPerryState.byPlayer?.size ?? 0, 0, 'Switching opponent must clear incomplete Perry parries');
 
   // 5. Earn legitimate criteria: 3 Perry parries + 1 player counterparry
   setPracticeDummyMode(room, 'ST_PERRY', 5.0);
@@ -362,6 +363,65 @@ test('St. Perry: Unlock tracking is strictly scoped to Perry vs player and reset
   assert.equal(setPracticeDummyMode(room, 'CANONIZATION', 6.0), true);
   assert.equal(perry.practiceMode, 'CANONIZATION');
   assert.equal(perry.stPerry.canonized, true);
+});
+
+test('St. Perry: Multiplayer Practice progress is isolated per player and cannot be pooled', () => {
+  const room = new Room('PERRY_MULTI', { mode: 'PRACTICE' });
+  room.world = world;
+  const player1 = room.addPlayer({ id: 'human-1', token: 'token1', name: 'Aden' }, 0);
+  const player2 = room.addPlayer({ id: 'human-2', token: 'token2', name: 'Bryn' }, 0);
+  room.startMatch(0);
+  player1.spawnProtectionUntil = 0;
+  player2.spawnProtectionUntil = 0;
+
+  const perry = spawnPracticeDummy(room, 'ST_PERRY', 0);
+  assert.ok(perry);
+
+  // Player 1 attacks Perry twice -> Perry parries twice for Player 1
+  recordPerryParry(room, player1, perry, 1.0);
+  recordPerryParry(room, player1, perry, 1.1);
+
+  // Player 2 gets attacked by Perry once -> Player 2 counterparries Perry
+  recordPerryParry(room, perry, player2, 1.2);
+
+  const prog1 = getPlayerPerryProgress(room, player1.id);
+  const prog2 = getPlayerPerryProgress(room, player2.id);
+
+  assert.equal(prog1.perryParries, 2);
+  assert.equal(prog1.playerCounterParries, 0);
+  assert.equal(prog2.perryParries, 0);
+  assert.equal(prog2.playerCounterParries, 1);
+
+  assert.equal(isCanonizationUnlocked(room), false, 'Combining Player 1 and Player 2 parries must NOT unlock Canonization');
+
+  // Player 2 also has Perry parry him twice (now Player 2 has 2 parries + 1 counterparry -> still not 3)
+  recordPerryParry(room, player2, perry, 1.3);
+  recordPerryParry(room, player2, perry, 1.4);
+  assert.equal(isCanonizationUnlocked(room), false, 'Player 2 with 2 parries + 1 counterparry is not enough');
+
+  // Player 2 gets 3rd parry:
+  recordPerryParry(room, player2, perry, 1.5);
+  assert.equal(isCanonizationUnlocked(room), true, 'Player 2 earning 3 parries + 1 counterparry independently unlocks Canonization');
+});
+
+test('St. Perry: Canonization unlock announcement is emitted exactly once upon transition', () => {
+  const { room, human } = makePracticeFixture();
+  const perry = spawnPracticeDummy(room, 'ST_PERRY', 0);
+
+  recordPerryParry(room, human, perry, 1.0);
+  recordPerryParry(room, human, perry, 1.1);
+  recordPerryParry(room, human, perry, 1.2);
+  recordPerryParry(room, perry, human, 1.3);
+
+  const unlockEvents = room.events.filter(e => e.type === 'stPerryUnlocked');
+  assert.equal(unlockEvents.length, 1, 'stPerryUnlocked event emitted upon unlocking');
+
+  // Additional parries after unlock
+  recordPerryParry(room, human, perry, 2.0);
+  recordPerryParry(room, perry, human, 2.1);
+
+  const unlockEventsAfter = room.events.filter(e => e.type === 'stPerryUnlocked');
+  assert.equal(unlockEventsAfter.length, 1, 'stPerryUnlocked event must NOT repeat on subsequent parries');
 });
 
 test('Canonization: Chivalry spell casting uses prepared-spell API with real projectiles, cooldowns, and Gale blasts', async () => {
