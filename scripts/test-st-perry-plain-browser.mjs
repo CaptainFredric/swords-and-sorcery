@@ -633,7 +633,7 @@ try {
   await wait(1200);
 
   const reloadedStorage = await evaluate(`(() => {
-    const raw = localStorage.getItem('ss-profile-cache');
+    const raw = localStorage.getItem('ss-solo-profile-cache') || localStorage.getItem('ss-profile-cache');
     const profile = JSON.parse(raw || '{}');
     return {
       hasPlainFeat: Boolean(profile?.challenges?.completed?.st_perry_the_plain),

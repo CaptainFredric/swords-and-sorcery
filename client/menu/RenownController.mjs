@@ -42,7 +42,8 @@ export class RenownController {
     }
     // Cache is presentation only. Only server messages authorise purchases or equipment.
     try {
-      const cached = JSON.parse(storage.getItem('ss-profile-cache'));
+      const soloCached = JSON.parse(storage.getItem('ss-solo-profile-cache') || 'null');
+      const cached = JSON.parse(storage.getItem('ss-profile-cache') || 'null') || soloCached;
       if (Number.isSafeInteger(cached?.balance) && cached.balance >= 0 && Array.isArray(cached.owned)
         && cached.owned.includes(cached.equipped) && Object.hasOwn(CLOTH, cached.equipped)) this.profile = cached;
     } catch {}
@@ -159,22 +160,7 @@ export class RenownController {
         this.render();
       }, 8000);
     });
-    socket.on('profile', ({ profile }) => {
-      if (storage) {
-        try {
-          const cached = JSON.parse(storage.getItem('ss-profile-cache') || 'null');
-          if (cached?.challenges?.completed) {
-            profile.challenges ??= { version: 1, progress: {}, completed: {}, rewarded: [] };
-            profile.challenges.completed ??= {};
-            for (const [feat, val] of Object.entries(cached.challenges.completed)) {
-              if (!profile.challenges.completed[feat]) {
-                profile.challenges.completed[feat] = val;
-              }
-            }
-            profile.emblems = ownedEmblems(profile.challenges);
-          }
-        } catch {}
-      }
+    socket.on('profile', ({ profile, local = false }) => {
       this.profile = profile;
       const operation = this.operation;
       const confirmed = operation && (operation.action === 'purchase' ? profile.owned.includes(operation.id)
@@ -189,7 +175,13 @@ export class RenownController {
       }
       if (!operation || confirmed) { this.pending = false; clearTimeout(this.timer); }
       this.error = '';
-      try { storage.setItem('ss-profile-cache', JSON.stringify(profile)); } catch {}
+      try {
+        if (local) {
+          storage.setItem('ss-solo-profile-cache', JSON.stringify(profile));
+        } else {
+          storage.setItem('ss-profile-cache', JSON.stringify(profile));
+        }
+      } catch {}
       if (!this.inArmory || this.section === 'kit') { scene()?.setCloth(profile.equipped); scene()?.setEmblem?.(this.carriedEmblem()); }
       this.render();
     });

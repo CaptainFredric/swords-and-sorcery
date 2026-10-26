@@ -17,6 +17,20 @@ import { DEFAULT_EMBLEM, ownedEmblems } from '../../shared/src/heraldry.mjs';
 const TICK_RATE = 30;
 const SOLO_MODES = new Set([GAME_MODES.BOT_DUEL, GAME_MODES.PRACTICE, GAME_MODES.BREAKTHROUGH]);
 export const OFFLINE_MESSAGE = 'Multiplayer is offline right now. Practice and Bot Duel still work.';
+export const SOLO_PROFILE_KEY = 'ss-solo-profile-cache';
+
+function defaultSoloProfile() {
+  return {
+    version: 2,
+    balance: 0,
+    owned: ['crimson'],
+    equipped: 'crimson',
+    emblem: DEFAULT_EMBLEM,
+    emblems: [DEFAULT_EMBLEM],
+    receipts: [],
+    challenges: { version: 1, progress: {}, completed: {}, rewarded: [] },
+  };
+}
 
 function randomId() {
   return globalThis.crypto?.randomUUID?.() ?? `local-${Math.random().toString(36).slice(2)}-${Date.now().toString(36)}`;
@@ -120,7 +134,7 @@ export class LocalHost {
     room.localTutorial = tutorial;
     if (!this.profile && this.storage) {
       try {
-        const cached = JSON.parse(this.storage.getItem('ss-profile-cache') || 'null');
+        const cached = JSON.parse(this.storage.getItem(SOLO_PROFILE_KEY) || this.storage.getItem('ss-profile-cache') || 'null');
         if (cached) this.setProfile(cached);
       } catch {}
     }
@@ -139,6 +153,7 @@ export class LocalHost {
       roomState: room.state, mode: room.mode, worldId: room.worldId, local: true,
     });
     this.#deliver(serializeLobby(room));
+    if (this.profile) this.#deliver({ type: 'profile', profile: this.profile, local: true }, true);
     this.timer = this.every(() => this.tick(), 1000 / TICK_RATE);
   }
 
@@ -213,7 +228,7 @@ export class LocalHost {
   }
 
   /** One step of the match, as the server's tick does it for each room. */
-  tick() {
+  tick(explicitTime) {
     if (this.inspectionFrozen) {
       if (this.inspectionFramesPlaying && this.wallNow() + 1e-9 >= this.inspectionNextBeat) {
         this.stepInspection();
@@ -223,13 +238,13 @@ export class LocalHost {
       }
       return;
     }
-    this.#step();
+    this.#step(explicitTime);
   }
 
-  #step() {
+  #step(explicitTime) {
     const room = this.room;
     if (!room) return;
-    const time = this.now();
+    const time = explicitTime ?? this.now();
     stepBotControllers(room, time, room.world);
     if (this.sessionController) this.sessionController.beforeStep(time);
     else stepPracticeActors(room, time, room.world);
@@ -237,7 +252,38 @@ export class LocalHost {
     const events = room.events.splice(0);
     for (const event of events) {
       if (event.type === 'prestigeChallengeCompleted') {
-        this.#completePrestigeChallenge(event, events);
+        this.#completePrestigeChallenge(event, events, time);
+      }
+    }
+    if (this.pendingPrestige && time >= this.pendingPrestige.retryAt) {
+      const pending = this.pendingPrestige;
+      try {
+        if (this.storage && pending.profile) {
+          this.storage.setItem(SOLO_PROFILE_KEY, JSON.stringify(pending.profile));
+        }
+        this.setProfile(pending.profile);
+        this.pendingPrestige = null;
+        this.#deliver({ type: 'profile', profile: pending.profile, prestigeFeat: pending.event.challengeId, local: true }, true);
+        this.#deliver({
+          type: 'events',
+          events: [
+            {
+              type: 'stPerryPlainUnlocked',
+              playerId: pending.player.id,
+              message: 'PRESTIGE HERALD EARNED: ST. PERRY THE PLAIN!',
+              at: time,
+            },
+            {
+              type: 'spellbladeLine',
+              playerId: pending.player.id,
+              text: 'I suppose anyone can become a saint... these days.',
+              speaker: pending.player.name || 'Spellblade',
+              at: time,
+            },
+          ],
+        }, true);
+      } catch {
+        pending.retryAt = time + 1;
       }
     }
     if (events.length) this.#deliver({ type: 'events', events }, true);
@@ -306,12 +352,25 @@ export class LocalHost {
 
   setProfile(profile, token = null) {
     if (!profile) return;
-    this.profile = profile;
     if (token) this.token = token;
     if (profile.equipped) this.setProfileCloth(profile.equipped);
     if (profile.emblem) this.emblem = profile.emblem;
-    if (Array.isArray(profile.emblems)) this.emblems = [...profile.emblems];
-    if (profile.challenges) this.challenges = structuredClone(profile.challenges);
+
+    let challenges = profile.challenges ? structuredClone(profile.challenges) : { completed: {}, progress: {} };
+    if (this.storage) {
+      try {
+        const solo = JSON.parse(this.storage.getItem(SOLO_PROFILE_KEY) || 'null');
+        if (solo?.challenges?.completed) {
+          challenges.completed ??= {};
+          for (const [k, v] of Object.entries(solo.challenges.completed)) {
+            challenges.completed[k] ??= v;
+          }
+        }
+      } catch {}
+    }
+    this.challenges = challenges;
+    this.emblems = ownedEmblems(this.challenges);
+    this.profile = { ...profile, challenges: this.challenges, emblems: this.emblems };
     if (this.player) {
       this.player.cloth = this.cloth;
       this.player.emblem = this.emblem || DEFAULT_EMBLEM;
@@ -320,44 +379,36 @@ export class LocalHost {
     }
   }
 
-  #completePrestigeChallenge(event, tickEvents) {
+  #completePrestigeChallenge(event, tickEvents, time = this.now()) {
     const player = this.room?.players?.get(event.playerId);
     if (!player) return;
+    let profile = this.profile;
+    if (!profile && this.storage) {
+      try {
+        profile = JSON.parse(this.storage.getItem(SOLO_PROFILE_KEY) || this.storage.getItem('ss-profile-cache') || 'null');
+      } catch {}
+    }
+    if (!profile) {
+      profile = defaultSoloProfile();
+    }
+    if (!profile.challenges) profile.challenges = { version: 1, progress: {}, completed: {}, rewarded: [] };
+    if (!profile.challenges.completed) profile.challenges.completed = {};
+    if (!profile.challenges.progress) profile.challenges.progress = {};
+
+    const completedAt = Number.isFinite(event.at) && event.at > 0 ? event.at * 1000 : Date.now();
+    profile.challenges.completed[event.challengeId] = completedAt;
+    profile.challenges.progress[event.challengeId] = 1;
+    profile.emblems = ownedEmblems(profile.challenges);
+
     try {
-      let profile = this.profile;
-      if (!profile && this.storage) {
-        try {
-          profile = JSON.parse(this.storage.getItem('ss-profile-cache') || 'null');
-        } catch {}
-      }
-      if (!profile) {
-        profile = {
-          version: 2,
-          balance: 0,
-          owned: ['crimson'],
-          equipped: 'crimson',
-          emblem: DEFAULT_EMBLEM,
-          emblems: [DEFAULT_EMBLEM],
-          receipts: [],
-          challenges: { version: 1, progress: {}, completed: {}, rewarded: [] },
-        };
-      }
-      if (!profile.challenges) profile.challenges = { version: 1, progress: {}, completed: {}, rewarded: [] };
-      if (!profile.challenges.completed) profile.challenges.completed = {};
-      if (!profile.challenges.progress) profile.challenges.progress = {};
-
-      const completedAt = Number.isFinite(event.at) && event.at > 0 ? event.at * 1000 : Date.now();
-      profile.challenges.completed[event.challengeId] = completedAt;
-      profile.challenges.progress[event.challengeId] = 1;
-      profile.emblems = ownedEmblems(profile.challenges);
-
       if (this.storage) {
-        this.storage.setItem('ss-profile-cache', JSON.stringify(profile));
+        this.storage.setItem(SOLO_PROFILE_KEY, JSON.stringify(profile));
       }
       this.setProfile(profile);
+      this.pendingPrestige = null;
 
       // Deliver updated profile message so Armory and Challenge UI update immediately
-      this.#deliver({ type: 'profile', profile, prestigeFeat: event.challengeId }, true);
+      this.#deliver({ type: 'profile', profile, prestigeFeat: event.challengeId, local: true }, true);
 
       // Confirmed unlock announcements delivered on the events channel:
       tickEvents.push({
@@ -374,10 +425,15 @@ export class LocalHost {
         at: event.at,
       });
     } catch (err) {
-      console.error('Failed to save offline prestige challenge:', err);
+      this.pendingPrestige = {
+        event,
+        player,
+        profile,
+        retryAt: time + 1,
+      };
       this.#deliver({
         type: 'profileError',
-        message: 'Browser storage is blocked. Could not save prestige achievement.',
+        message: 'Prestige feat storage unavailable. Retrying in background...',
       }, true);
     }
   }
