@@ -4,7 +4,7 @@ import { Room } from '../../shared/sim/Room.mjs';
 import { spawnPracticeDummy, setPracticeDummyMode, removePracticeDummy, resetPracticePlayer, stepPracticeActors } from '../../shared/sim/practice.mjs';
 import { beginAttack, endAttack, setGuard, stepRoom, applyDamage, tryCastSpell, cancelAttack } from '../../shared/sim/combat.mjs';
 import { isCorrectPerryAnswer, answerPerryDialogue, dismissPerryDialogue, isCanonizationUnlocked, setupStPerry, recordPerryParry, getPlayerPerryProgress, PERRY_CANONIZED_SKILL, PERRY_PROFILE, PERRY_CANONIZED_PROFILE } from '../../shared/sim/StPerry.mjs';
-import { applyRoomCommand } from '../../shared/sim/wire.mjs';
+import { applyRoomCommand, serializeSnapshot } from '../../shared/sim/wire.mjs';
 import { SWORD_STRIKE_TIMES, GAME } from '../../shared/src/combat.mjs';
 import { PROWESS } from '../../shared/src/prowess.mjs';
 
@@ -401,7 +401,27 @@ test('St. Perry: Multiplayer Practice progress is isolated per player and cannot
 
   // Player 2 gets 3rd parry:
   recordPerryParry(room, player2, perry, 1.5);
-  assert.equal(isCanonizationUnlocked(room), true, 'Player 2 earning 3 parries + 1 counterparry independently unlocks Canonization');
+  assert.equal(isCanonizationUnlocked(room, player2.id), true, 'Player 2 earning 3 parries + 1 counterparry independently unlocks Canonization');
+  assert.equal(isCanonizationUnlocked(room, player1.id), false, 'Player 1 must NOT have Canonization unlocked simply because Player 2 unlocked it');
+
+  // Player 1 attempts to switch dummy to CANONIZATION via wire command -> REJECTED
+  const res1 = applyRoomCommand(room, player1, { type: 'practiceSetDummyMode', mode: 'CANONIZATION' }, 2.0);
+  assert.ok(res1.rejected, 'Player 1 cannot select CANONIZATION without qualifying');
+
+  // Player 2 attempts to switch dummy to CANONIZATION via wire command -> ACCEPTED
+  const res2 = applyRoomCommand(room, player2, { type: 'practiceSetDummyMode', mode: 'CANONIZATION' }, 2.1);
+  assert.equal(res2.rejected, undefined, 'Player 2 can select CANONIZATION after qualifying');
+  assert.equal(perry.practiceMode, 'CANONIZATION');
+
+  // Snapshot verification: serializeSnapshot for player1 has unlocked: false; serializeSnapshot for player2 has unlocked: true
+  const snap1 = serializeSnapshot(room, 2.2, player1.id);
+  const snap2 = serializeSnapshot(room, 2.2, player2.id);
+  const dummy1 = snap1.players.find(p => p.actorKind === 'dummy');
+  const dummy2 = snap2.players.find(p => p.actorKind === 'dummy');
+  assert.equal(dummy1.stPerry.unlocked, false, 'Player 1 snapshot reflects locked status');
+  assert.equal(dummy2.stPerry.unlocked, true, 'Player 2 snapshot reflects unlocked status');
+  assert.deepEqual(dummy1.stPerry.unlockedPlayers, [player2.id]);
+  assert.deepEqual(dummy2.stPerry.unlockedPlayers, [player2.id]);
 });
 
 test('St. Perry: Canonization unlock announcement is emitted exactly once upon transition', () => {

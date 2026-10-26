@@ -136,13 +136,24 @@ export function getPlayerPerryProgress(room, playerId) {
   return prog;
 }
 
-export function isCanonizationUnlocked(room) {
-  return Boolean(room?.stPerryState?.unlocked);
+export function isCanonizationUnlocked(room, playerId = null) {
+  if (!room?.stPerryState) return false;
+  if (playerId) {
+    const prog = room.stPerryState.byPlayer?.get(playerId);
+    return Boolean(prog?.unlocked);
+  }
+  // Singleplayer fallback or test fixture:
+  const humans = [...(room.players?.values() ?? [])].filter((p) => p.actorKind === 'human');
+  if (humans.length === 1) {
+    const prog = room.stPerryState.byPlayer?.get(humans[0].id);
+    return Boolean(prog?.unlocked || room.stPerryState.unlocked);
+  }
+  return Boolean(room.stPerryState.unlocked);
 }
 
-export function setupStPerry(actor, nowSec, canonized = false, room = null) {
+export function setupStPerry(actor, nowSec, canonized = false, room = null, playerId = null) {
   const roomState = getPerryRoomState(room);
-  const isUnlocked = Boolean(roomState?.unlocked);
+  const isUnlocked = isCanonizationUnlocked(room, playerId);
   const actuallyCanonized = Boolean(canonized && isUnlocked);
 
   actor.name = 'St. Perry the Prodigious';
@@ -265,13 +276,15 @@ export function dismissPerryDialogue(room, player, nowSec) {
 
 export function unlockCanonization(room, actor, nowSec, playerId = null) {
   const roomState = getPerryRoomState(room);
-  if (roomState?.unlocked) return; // Prevent repeated Canonization unlock announcements!
-  if (roomState) roomState.unlocked = true;
-  if (actor?.stPerry) actor.stPerry.unlocked = true;
   if (playerId && roomState?.byPlayer) {
     const prog = getPlayerPerryProgress(room, playerId);
+    if (prog?.unlocked) return; // Prevent repeated Canonization unlock announcements for this player!
     if (prog) prog.unlocked = true;
+  } else {
+    if (roomState?.unlocked) return;
+    if (roomState) roomState.unlocked = true;
   }
+  if (actor?.stPerry) actor.stPerry.unlocked = true;
   room.events.push({
     type: 'stPerryUnlocked',
     playerId: playerId ?? actor?.id ?? null,

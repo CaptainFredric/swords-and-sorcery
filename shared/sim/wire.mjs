@@ -10,7 +10,7 @@ import { tryCastSpell, castPreparedSpell, selectPreparedSpell, beginAttack, endA
 import { compensatedInputTime } from './history.mjs';
 import { readyPracticeUltimate, removePracticeDummy, resetPracticePlayer, setPracticeDummyMode, spawnPracticeDummy } from './practice.mjs';
 import { mountBiByeLlista, dismountBiByeLlista, fireBiByeLlista, toggleBiByeDeploy, BI_BYE_LLISTA_CONFIG } from './biByeLlista.mjs';
-import { answerPerryDialogue, dismissPerryDialogue } from './StPerry.mjs';
+import { answerPerryDialogue, dismissPerryDialogue, isCanonizationUnlocked } from './StPerry.mjs';
 import { spellFor } from '../src/spells.mjs';
 import { GAME_MODES } from '../src/modes.mjs';
 
@@ -42,7 +42,7 @@ export function serializeLobby(room) {
   };
 }
 
-export function serializeSnapshot(room, nowSec) {
+export function serializeSnapshot(room, nowSec, recipientId = null) {
   return {
     type: 'snapshot',
     tick: room.tickNumber,
@@ -139,7 +139,10 @@ export function serializeSnapshot(room, nowSec) {
           playerCounterParries: p.stPerry.playerCounterParries,
           playerHits: p.stPerry.playerHits,
           canonized: Boolean(p.stPerry.canonized),
-          unlocked: Boolean(p.stPerry.unlocked),
+          unlocked: isCanonizationUnlocked(room, recipientId),
+          unlockedPlayers: [...(room.stPerryState?.byPlayer?.entries() ?? [])]
+            .filter(([, prog]) => prog.unlocked)
+            .map(([id]) => id),
           dialogue: p.stPerry.dialogue ? {
             state: p.stPerry.dialogue.state,
             wrongCount: p.stPerry.dialogue.wrongCount,
@@ -359,13 +362,13 @@ export function applyRoomCommand(room, player, message, time) {
       return room.mode === GAME_MODES.PRACTICE && resetPracticePlayer(room, player.id, time) ? {} : { rejected: PRACTICE_REJECTED };
     case 'practiceSpawnDummy':
       if (room.mode !== GAME_MODES.PRACTICE) return { rejected: PRACTICE_REJECTED };
-      return spawnPracticeDummy(room, message.mode, time) ? { lobby: true } : { rejected: PRACTICE_REJECTED };
+      return spawnPracticeDummy(room, message.mode, time, player.id) ? { lobby: true } : { rejected: PRACTICE_REJECTED };
     case 'practiceRemoveDummy':
       return room.mode === GAME_MODES.PRACTICE && removePracticeDummy(room) ? { lobby: true } : { rejected: PRACTICE_REJECTED };
     case 'practiceReadyUltimate':
       return room.mode === GAME_MODES.PRACTICE && readyPracticeUltimate(room, player.id) ? {} : { rejected: PRACTICE_REJECTED };
     case 'practiceSetDummyMode':
-      return room.mode === GAME_MODES.PRACTICE && setPracticeDummyMode(room, message.mode, time) ? { lobby: true } : { rejected: PRACTICE_REJECTED };
+      return room.mode === GAME_MODES.PRACTICE && setPracticeDummyMode(room, message.mode, time, player.id) ? { lobby: true } : { rejected: PRACTICE_REJECTED };
     case 'practicePerryAnswer':
       return room.mode === GAME_MODES.PRACTICE && answerPerryDialogue(room, player, message.answer, time) ? {} : { rejected: PRACTICE_REJECTED };
     case 'practicePerryDismiss':

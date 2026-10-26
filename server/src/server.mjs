@@ -476,7 +476,15 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
         }
       }
       if (events.length) broadcastRoom(room, { type: 'events', events });
-      broadcastRoom(room, serializeSnapshot(room, time));
+      if (room.mode === 'PRACTICE' && room.stPerryState) {
+        for (const session of sessions) {
+          if (session.roomCode === room.code && !session.peer.closed) {
+            send(session, serializeSnapshot(room, time, session.playerId));
+          }
+        }
+      } else {
+        broadcastRoom(room, serializeSnapshot(room, time));
+      }
     }
     for (const [key, reward] of pendingRewards) {
       if (time < reward.retryAt) continue;

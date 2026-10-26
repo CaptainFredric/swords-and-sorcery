@@ -157,12 +157,12 @@ export function readyPracticeUltimate(room, playerId) {
   return true;
 }
 
-export function spawnPracticeDummy(room, mode = PRACTICE_DUMMY_MODES.PASSIVE, nowSec = 0) {
+export function spawnPracticeDummy(room, mode = PRACTICE_DUMMY_MODES.PASSIVE, nowSec = 0, playerId = null) {
   if (!isPractice(room) || !VALID_DUMMY_MODES.has(mode)) return null;
-  if (mode === PRACTICE_DUMMY_MODES.CANONIZATION && !isCanonizationUnlocked(room)) return null;
+  if (mode === PRACTICE_DUMMY_MODES.CANONIZATION && !isCanonizationUnlocked(room, playerId)) return null;
   const existing = findPracticeDummy(room);
   if (existing) {
-    if (!setPracticeDummyMode(room, mode, nowSec)) return null;
+    if (!setPracticeDummyMode(room, mode, nowSec, playerId)) return null;
     return existing;
   }
 
@@ -173,7 +173,7 @@ export function spawnPracticeDummy(room, mode = PRACTICE_DUMMY_MODES.PASSIVE, no
   }, nowSec);
   dummy.practiceMode = PRACTICE_DUMMY_MODES.PASSIVE;
   dummy.ai = null;
-  if (!setPracticeDummyMode(room, mode, nowSec)) return null;
+  if (!setPracticeDummyMode(room, mode, nowSec, playerId)) return null;
   room.events.push({ type: 'practiceDummySpawned', playerId: dummy.id, mode: dummy.practiceMode, at: nowSec });
   return dummy;
 }
@@ -192,9 +192,9 @@ export function removePracticeDummy(room) {
   return true;
 }
 
-export function setPracticeDummyMode(room, mode, nowSec = 0) {
+export function setPracticeDummyMode(room, mode, nowSec = 0, playerId = null) {
   if (!isPractice(room) || !VALID_DUMMY_MODES.has(mode)) return false;
-  if (mode === PRACTICE_DUMMY_MODES.CANONIZATION && !isCanonizationUnlocked(room)) return false;
+  if (mode === PRACTICE_DUMMY_MODES.CANONIZATION && !isCanonizationUnlocked(room, playerId)) return false;
   const dummy = findPracticeDummy(room);
   if (!dummy) return false;
 
@@ -222,8 +222,8 @@ export function setPracticeDummyMode(room, mode, nowSec = 0) {
   dummy.spell = opponent?.spell ?? 'fireball';
   dummy.steel = null;
   if (mode === PRACTICE_DUMMY_MODES.ULTIMATE_KNIGHT) setupUltimateKnight(dummy, nowSec);
-  if (mode === PRACTICE_DUMMY_MODES.ST_PERRY) setupStPerry(dummy, nowSec, false, room);
-  if (mode === PRACTICE_DUMMY_MODES.CANONIZATION) setupStPerry(dummy, nowSec, true, room);
+  if (mode === PRACTICE_DUMMY_MODES.ST_PERRY) setupStPerry(dummy, nowSec, false, room, playerId);
+  if (mode === PRACTICE_DUMMY_MODES.CANONIZATION) setupStPerry(dummy, nowSec, true, room, playerId);
 
   if (mode === PRACTICE_DUMMY_MODES.GUARDING && dummy.alive && dummy.guardStamina > 0) {
     if (setGuard(room, dummy.id, true, nowSec)) {

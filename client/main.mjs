@@ -1546,7 +1546,12 @@ function updateStPerryUI(snapshot) {
     perryDialogue?.classList.add('hidden');
   }
 
-  const unlocked = Boolean(perryData?.unlocked);
+  const myId = window.__ssRuntime?.localAuth?.id || socket?.playerId;
+  const unlocked = Boolean(
+    perryData?.unlockedPlayers
+      ? (myId && perryData.unlockedPlayers.includes(myId))
+      : perryData?.unlocked
+  );
   if (practiceCanonizationBtn) {
     practiceCanonizationBtn.classList.toggle('hidden', !unlocked);
   }
