@@ -231,14 +231,41 @@ try {
   assert.ok(introText?.includes('I am St. Perry, the Prodigious! Any idea why that is my name?'), 'Must display authored intro line');
   await captureScreenshot('02-perry-dialogue-intro.png');
 
-  // Test 1st wrong answer
-  console.log('Testing 1st wrong answer from rendered choices...');
-  await evaluate(`(() => {
-    const btns = [...document.querySelectorAll('.perry-option-btn')];
-    const wrong = btns.find(b => !b.dataset.answer?.toLowerCase().includes('parry'));
-    wrong?.click();
+  // Mobile regression: Perry's card must win hit-testing above the full-screen
+  // touch-controls surface even while the Practice HUD is pointer-locked.
+  console.log('Testing 1st wrong answer via a real emulated touch tap...');
+  const mobileHit = await evaluate(`(() => {
+    document.body.classList.add('touch-ui');
+    const layer = document.createElement('div');
+    layer.id = 'perry-mobile-hit-test-layer';
+    layer.className = 'touch-controls active';
+    document.querySelector('#game-shell').appendChild(layer);
+    const wrong = [...document.querySelectorAll('.perry-option-btn')]
+      .find(b => !b.dataset.answer?.toLowerCase().includes('parry'));
+    if (!wrong) return { error: 'No wrong choice rendered' };
+    const box = wrong.getBoundingClientRect();
+    const x = (box.left + box.right) / 2;
+    const y = (box.top + box.bottom) / 2;
+    return {
+      x, y,
+      hit: document.elementFromPoint(x, y)?.closest('.perry-option-btn') === wrong,
+      cardPointerEvents: getComputedStyle(document.querySelector('#perry-dialogue')).pointerEvents,
+      layerAbove: Number(getComputedStyle(document.querySelector('#hud')).zIndex) > Number(getComputedStyle(layer).zIndex),
+    };
   })()`);
-  await until(() => evaluate("Boolean(document.querySelector('#perry-dialogue-text')?.textContent?.includes('Incorrect! You are lucky I am a St. Try again.'))"), '1st wrong answer response', 5000);
+  assert.ok(mobileHit.hit, `Touch hit-test failed: ${JSON.stringify(mobileHit)}`);
+  assert.equal(mobileHit.cardPointerEvents, 'auto');
+  assert.ok(mobileHit.layerAbove, 'Active Perry HUD must stack above touch controls');
+
+  await send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
+  await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: mobileHit.x, y: mobileHit.y }] });
+  await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await until(() => evaluate("Boolean(document.querySelector('#perry-dialogue-text')?.textContent?.includes('Incorrect! You are lucky I am a St. Try again.'))"), '1st wrong answer from mobile tap', 5000);
+  await send('Emulation.setTouchEmulationEnabled', { enabled: false });
+  await evaluate(`(() => {
+    document.querySelector('#perry-mobile-hit-test-layer')?.remove();
+    document.body.classList.remove('touch-ui');
+  })()`);
   const line1 = await evaluate("document.querySelector('#perry-dialogue-text')?.textContent");
   console.log(`1st wrong reply: ${line1}`);
 
