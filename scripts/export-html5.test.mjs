@@ -33,7 +33,7 @@ test('archive is repeatable, rooted correctly, and omits tests, private files an
     await mkdir(path.join(root, 'client/assets'), { recursive: true });
     await mkdir(path.join(root, 'shared/src'), { recursive: true });
     await writeFile(path.join(root, 'client/index.html'), '<meta charset="UTF-8" /><script src="client/main.mjs"></script>');
-    await writeFile(path.join(root, 'client/main.mjs'), 'import "../shared/src/rules.mjs";');
+    await writeFile(path.join(root, 'client/main.mjs'), 'import { rule } from "../shared/src/rules.mjs"; globalThis.__rule = rule;');
     await writeFile(path.join(root, 'shared/src/rules.mjs'), 'export const rule = 1;');
     await writeFile(path.join(root, 'client/private.test.mjs'), 'import "node:test";');
     await writeFile(path.join(root, 'client/.env'), 'SECRET=private');
@@ -47,9 +47,12 @@ test('archive is repeatable, rooted correctly, and omits tests, private files an
     const entries = execFileSync('unzip', ['-Z1', first.zip], { encoding: 'utf8' }).trim().split('\n');
     assert(entries.includes('index.html'));
     assert(entries.includes('client/assets/avatar.png'));
-    assert(entries.includes('shared/src/rules.mjs'));
+    assert(entries.includes('client/main.mjs'));
+    assert(!entries.includes('shared/src/rules.mjs'), 'Unbundled module files must not be exported');
     assert(!entries.includes('client/index.html'));
     assert(entries.every((p) => !/\.test\.|\.browser\.|\.env|README|secret|server\//.test(p)));
+    const bundledContent = execFileSync('unzip', ['-p', first.zip, 'client/main.mjs'], { encoding: 'utf8', maxBuffer: 10 * 1024 ** 2 });
+    assert(bundledContent.includes('rule'), 'Bundled output must include source code dependencies');
     execFileSync('unzip', ['-t', first.zip]);
     assert.equal(first.files, entries.length);
     assert((await stat(first.zip)).size > 0);
@@ -62,32 +65,35 @@ test('production export includes all local module, HTML and CSS dependencies', a
   try {
     const built = await exportHtml5({ root, out, revision: 'test' });
     const paths = new Set(execFileSync('unzip', ['-Z1', built.zip], { encoding: 'utf8' }).trim().split('\n'));
-    const inspect = async (dir) => {
-      for (const entry of await readdir(path.join(root, dir), { withFileTypes: true })) {
-        const p = `${dir}/${entry.name}`;
-        if (entry.isDirectory()) await inspect(p);
-        else if (paths.has(p) && /\.(mjs|js)$/.test(p)) {
-          const source = await readFile(path.join(root, p), 'utf8');
-          for (const match of source.matchAll(/(?:^\s*import\s*['"]|^\s*(?:import|export)[^;'"\n]*?\bfrom\s*['"]|\bimport\(\s*['"])([^'"]+)['"]/gm)) {
-            const specifier = match[1];
-            assert(!specifier.startsWith('node:'), `${p}: Node import shipped`);
-            if (specifier.startsWith('.')) assert(paths.has(path.posix.normalize(`${path.posix.dirname(p)}/${specifier}`)), `${p}: missing ${specifier}`);
-            else assert(specifier === 'three' || specifier.startsWith('three/addons/'), `${p}: unexpected bare import ${specifier}`);
-          }
-        } else if (paths.has(p) && p.endsWith('.css')) {
-          for (const match of (await readFile(path.join(root, p), 'utf8')).matchAll(/url\(['"]?([^'"\)]+)['"]?\)/g)) {
-            if (!/^(data:|https:|#)/.test(match[1])) assert(paths.has(path.posix.normalize(`${path.posix.dirname(p)}/${match[1]}`)), `${p}: missing ${match[1]}`);
-          }
+    assert(paths.has('client/main.mjs'), 'Must contain bundled client/main.mjs');
+    assert(!paths.has('client/network/LocalHost.mjs'), 'Raw source files must not ship in bundled release');
+    assert(!paths.has('shared/sim/combat.mjs'), 'Shared simulation source files must not ship in bundled release');
+    const bundleContent = execFileSync('unzip', ['-p', built.zip, 'client/main.mjs'], { encoding: 'utf8', maxBuffer: 10 * 1024 ** 2 });
+    assert(bundleContent.includes('LocalHost'), 'Simulation engine must be bundled into client/main.mjs');
+    assert(paths.has('client/assets/characters/spellblade/spellblade.glb'));
+    assert(paths.has('client/assets/voice/manifest.json'));
+    assert(built.files < 750, `Expected fewer than 750 files in bundled export, got ${built.files}`);
+    assert.equal(built.files, paths.size);
+
+    for (const p of paths) {
+      if (/\.(mjs|js)$/.test(p)) {
+        const source = execFileSync('unzip', ['-p', built.zip, p], { encoding: 'utf8', maxBuffer: 10 * 1024 ** 2 });
+        for (const match of source.matchAll(/(?:^\s*import\s*['"]|^\s*(?:import|export)[^;'"\n]*?\bfrom\s*['"]|\bimport\(\s*['"])([^'"]+)['"]/gm)) {
+          const specifier = match[1];
+          assert(!specifier.startsWith('node:'), `${p}: Node import shipped`);
+          if (specifier.startsWith('.')) assert(paths.has(path.posix.normalize(`${path.posix.dirname(p)}/${specifier}`)), `${p}: missing ${specifier}`);
+          else assert(specifier === 'three' || specifier.startsWith('three/addons/'), `${p}: unexpected bare import ${specifier}`);
+        }
+      } else if (p.endsWith('.css')) {
+        const css = execFileSync('unzip', ['-p', built.zip, p], { encoding: 'utf8' });
+        for (const match of css.matchAll(/url\(['"]?([^'"\)]+)['"]?\)/g)) {
+          if (!/^(data:|https:|#)/.test(match[1])) assert(paths.has(path.posix.normalize(`${path.posix.dirname(p)}/${match[1]}`)), `${p}: missing ${match[1]}`);
         }
       }
-    };
-    await inspect('client'); await inspect('shared');
+    }
     const html = execFileSync('unzip', ['-p', built.zip, 'index.html'], { encoding: 'utf8' });
     for (const match of html.matchAll(/(?:src|href)="([^"]+)"/g)) {
       if (!/^(https:|#)/.test(match[1])) assert(paths.has(match[1].replace(/^\.\//, '')), `index: missing ${match[1]}`);
     }
-    assert(paths.has('client/assets/characters/spellblade/spellblade.glb'));
-    assert(paths.has('client/assets/voice/manifest.json'));
-    assert(paths.has('client/network/LocalHost.mjs'));
   } finally { await rm(out, { recursive: true, force: true }); }
 });

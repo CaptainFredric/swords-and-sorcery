@@ -3,9 +3,10 @@ import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import esbuild from 'esbuild';
 
 export const DEFAULT_GAME_SERVER = 'wss://swords-and-sorcery.onrender.com/ws';
-const RUNTIME_FILE = /\.(mjs|js|html|css|json|webmanifest|svg|png|jpe?g|webp|glb|ogg|mp3|m4a|wav|woff2?|ttf)$/i;
+const ASSET_FILE = /\.(html|css|json|webmanifest|svg|png|jpe?g|webp|glb|ogg|mp3|m4a|wav|woff2?|ttf)$/i;
 
 export function configuredHtml(html, server) {
   const url = new URL(server);
@@ -43,12 +44,30 @@ export async function exportHtml5({ root = path.resolve(import.meta.dirname, '..
   const files = [];
   const record = async (relative) => files.push({ path: relative, size: (await stat(path.join(staging, relative))).size, sha256: createHash('sha256').update(await readFile(path.join(staging, relative))).digest('hex') });
   try {
+    const mainEntry = path.join(root, 'client/main.mjs');
+    const hasMain = await stat(mainEntry).then(() => true).catch(() => false);
+    if (hasMain) {
+      const outMain = path.join(staging, 'client/main.mjs');
+      await mkdir(path.dirname(outMain), { recursive: true });
+      await esbuild.build({
+        entryPoints: [mainEntry],
+        outfile: outMain,
+        bundle: true,
+        format: 'esm',
+        target: 'es2022',
+        external: ['three', 'three/*'],
+        platform: 'browser',
+        logLevel: 'warning',
+      });
+      await record('client/main.mjs');
+    }
+
     const copy = async (directory) => {
       for (const entry of (await readdir(path.join(root, directory), { withFileTypes: true })).sort((a, b) => a.name.localeCompare(b.name))) {
         if (entry.name.startsWith('.') || /^(fixtures|__tests__|node_modules)$/.test(entry.name)) continue;
         const relative = `${directory}/${entry.name}`;
         if (entry.isDirectory()) await copy(relative);
-        else if (entry.isFile() && RUNTIME_FILE.test(entry.name) && !/\.(test|spec|browser)\./.test(entry.name)
+        else if (entry.isFile() && ASSET_FILE.test(entry.name) && !/\.(test|spec|browser)\./.test(entry.name)
           && (!entry.name.endsWith('.json') || entry.name === 'manifest.json') && relative !== 'client/index.html') {
           await mkdir(path.dirname(path.join(staging, relative)), { recursive: true });
           await copyFile(path.join(root, relative), path.join(staging, relative));
@@ -56,7 +75,7 @@ export async function exportHtml5({ root = path.resolve(import.meta.dirname, '..
         }
       }
     };
-    await copy('client'); await copy('shared');
+    await copy('client');
     await writeFile(path.join(staging, 'index.html'), html);
     await record('index.html');
     await writeFile(path.join(staging, 'release.json'), `${JSON.stringify({ revision, server, source: 'https://github.com/CaptainFredric/swords-and-sorcery' }, null, 2)}\n`);
@@ -70,12 +89,45 @@ export async function exportHtml5({ root = path.resolve(import.meta.dirname, '..
     execFileSync('zip', ['-X', '-q', temporaryZip, '-@'], { cwd: staging, input: `${files.map((f) => f.path).join('\n')}\n`, env: { ...process.env, TZ: 'UTC' } });
     const zip = path.resolve(out, 'swords-and-sorcery-html5.zip');
     await copyFile(temporaryZip, zip);
+
+    const compatibilitySources = [];
+    const scanSources = async (dir) => {
+      const dirPath = path.join(root, dir);
+      let entries = [];
+      try { entries = await readdir(dirPath, { withFileTypes: true }); } catch { return; }
+      for (const entry of entries.sort((a, b) => a.name.localeCompare(b.name))) {
+        if (entry.name.startsWith('.') || /\.(test|spec|browser)\./.test(entry.name)) continue;
+        const relative = `${dir}/${entry.name}`;
+        if (entry.isDirectory()) await scanSources(relative);
+        else if (entry.isFile() && relative.endsWith('.mjs')) {
+          const content = await readFile(path.join(root, relative));
+          compatibilitySources.push({
+            path: relative,
+            size: content.length,
+            sha256: createHash('sha256').update(content).digest('hex'),
+          });
+        }
+      }
+    };
+    await scanSources('shared');
+    const gameSocketRel = 'client/network/GameSocket.mjs';
+    try {
+      const gsContent = await readFile(path.join(root, gameSocketRel));
+      compatibilitySources.push({
+        path: gameSocketRel,
+        size: gsContent.length,
+        sha256: createHash('sha256').update(gsContent).digest('hex'),
+      });
+    } catch {}
+    compatibilitySources.sort((a, b) => a.path < b.path ? -1 : a.path > b.path ? 1 : 0);
+
     const report = {
       revision, server, zip, files: files.length,
       extractedBytes: files.reduce((total, f) => total + f.size, 0),
       archiveBytes: (await stat(zip)).size,
       sha256: createHash('sha256').update(await readFile(zip)).digest('hex'),
       warnings: archiveWarnings(files.length),
+      compatibilitySources,
       entries: files,
     };
     await writeFile(path.join(out, 'export-report.json'), `${JSON.stringify(report, null, 2)}\n`);
