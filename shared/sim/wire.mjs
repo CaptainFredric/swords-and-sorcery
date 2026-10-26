@@ -149,6 +149,7 @@ export function serializeSnapshot(room, nowSec, recipientId = null) {
             solved: Boolean(p.stPerry.dialogue.solved),
             dismissed: Boolean(p.stPerry.dialogue.dismissed),
             lastLine: p.stPerry.dialogue.lastLine,
+            choices: p.stPerry.dialogue.choices ? [...p.stPerry.dialogue.choices] : [],
           } : null,
         },
       } : {}),

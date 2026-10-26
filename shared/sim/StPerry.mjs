@@ -24,6 +24,115 @@ function turnToward(currentYaw, targetYaw, maxStep) {
   return currentYaw + step;
 }
 
+export const PERRY_CORRECT_ANSWER = 'Because you parry?';
+
+export const PERRY_INCORRECT_ANSWERS = Object.freeze([
+  'Because of a clerical error?',
+  'I do not know! But I know it does not suit you.',
+  'There is a Street named Perry?',
+  "It was the fault of perry's parents?",
+  'You acquired it from a different, better, St. Perry?',
+  "Because 'Perry' was not long enough?",
+  "'Twas a dare to reclaim your renown?",
+  'May I have it?',
+  'You borrowed it just for me?',
+  'So you could ask that question?',
+  'I am a knight.',
+  'Who are you?',
+  'I, am St. Perry!',
+  'You were waiting for the rightful owner to arrive, who is now here.',
+  'I remember wishing for a St. Perry one day',
+  'Aha! A rhetorical question, you are Squire!',
+  "'the Prodigious... what? It was cut off and not meant for you",
+  'You wanted to decorate my tally with a nice name!',
+  'An impossible question. Next.',
+  'Not even you know the answer, do you?',
+  "I'm uncertain, it should be 'Defeated'",
+  'This is the correct answer',
+  'You would not understand...',
+]);
+
+export const PERRY_CONDITIONAL_ANSWERS = Object.freeze([
+  {
+    text: "Because 'St. Perry the Plain' was too accurate?",
+    requiredHerald: 'st-perry-the-plain',
+  },
+]);
+
+export function isHeraldEarned(player, heraldId) {
+  if (!player || !heraldId) return false;
+  if (player.unlockedHeralds && typeof player.unlockedHeralds.has === 'function') {
+    return player.unlockedHeralds.has(heraldId);
+  }
+  if (Array.isArray(player.unlockedHeralds)) {
+    return player.unlockedHeralds.includes(heraldId);
+  }
+  return false;
+}
+
+let globalVisitShuffleBag = [];
+
+export function resetPerryVisitBag() {
+  globalVisitShuffleBag = [];
+}
+
+export function selectPerryDialogueChoices({ player = null, seed = undefined, pool = null } = {}) {
+  const candidatePool = pool ? [...pool] : [...PERRY_INCORRECT_ANSWERS];
+  if (!pool) {
+    for (const cond of PERRY_CONDITIONAL_ANSWERS) {
+      if (isHeraldEarned(player, cond.requiredHerald)) {
+        candidatePool.push(cond.text);
+      }
+    }
+  }
+
+  const count = Math.min(3, candidatePool.length);
+  let selectedIncorrect = [];
+
+  if (seed !== undefined && seed !== null) {
+    let s = (Math.abs(Number(seed)) >>> 0) || 1;
+    const rnd = () => {
+      s = (s + 0x6d2b79f5) | 0;
+      let t = Math.imul(s ^ (s >>> 15), 1 | s);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+
+    const indices = Array.from({ length: candidatePool.length }, (_, i) => i);
+    for (let i = indices.length - 1; i > 0; i--) {
+      const j = Math.floor(rnd() * (i + 1));
+      [indices[i], indices[j]] = [indices[j], indices[i]];
+    }
+    selectedIncorrect = indices.slice(0, count).map((idx) => candidatePool[idx]);
+
+    const choices = [PERRY_CORRECT_ANSWER, ...selectedIncorrect];
+    for (let i = choices.length - 1; i > 0; i--) {
+      const j = Math.floor(rnd() * (i + 1));
+      [choices[i], choices[j]] = [choices[j], choices[i]];
+    }
+    return choices;
+  }
+
+  if (globalVisitShuffleBag.length < count) {
+    const indices = Array.from({ length: candidatePool.length }, (_, i) => i);
+    for (let i = indices.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [indices[i], indices[j]] = [indices[j], indices[i]];
+    }
+    globalVisitShuffleBag = indices;
+  }
+
+  const chosenIndices = globalVisitShuffleBag.splice(0, count);
+  selectedIncorrect = chosenIndices.map((idx) => candidatePool[idx]);
+
+  const choices = [PERRY_CORRECT_ANSWER, ...selectedIncorrect];
+  for (let i = choices.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [choices[i], choices[j]] = [choices[j], choices[i]];
+  }
+  return choices;
+}
+
 export const PERRY_PROFILE = Object.freeze({
   name: 'St. Perry the Prodigious',
   sword: true,
@@ -183,6 +292,14 @@ export function setupStPerry(actor, nowSec, canonized = false, room = null, play
 
   const prev = actor.stPerry;
   const introDone = Boolean(roomState?.introCompleted || prev?.dialogue?.dismissed || prev?.dialogue?.solved);
+
+  let choices = roomState?.dialogueChoices ?? prev?.dialogue?.choices;
+  if (!choices || choices.length !== 4) {
+    const humanPlayer = room ? [...(room.players?.values() ?? [])].find((p) => p.actorKind === 'human') : null;
+    choices = selectPerryDialogueChoices({ player: humanPlayer });
+    if (roomState) roomState.dialogueChoices = choices;
+  }
+
   actor.stPerry = {
     canonized: actuallyCanonized,
     parries: roomState?.perryParries ?? prev?.parries ?? 0,
@@ -205,6 +322,7 @@ export function setupStPerry(actor, nowSec, canonized = false, room = null, play
       solved: Boolean(roomState?.introSolved),
       dismissed: introDone,
       lastLine: introDone ? '' : 'I am St. Perry, the Prodigious! Any idea why that is my name?',
+      choices: choices ? [...choices] : [],
     },
   };
 }
@@ -235,7 +353,7 @@ export function answerPerryDialogue(room, player, answer, nowSec) {
       state.introCompleted = true;
     }
     d.state = 'correct';
-    d.lastLine = 'Precisely! The art of the parry, elevated to saintliness. Raise your blade and strike at me!';
+    d.lastLine = 'Finally!.. I meant, that was the least you could do. Your reward?... Enjoy this brief acknowledgement.';
     room.events.push({
       type: 'stPerryDialogue',
       text: d.lastLine,

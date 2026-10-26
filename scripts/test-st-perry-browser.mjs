@@ -231,36 +231,45 @@ try {
   assert.ok(introText?.includes('I am St. Perry, the Prodigious! Any idea why that is my name?'), 'Must display authored intro line');
   await captureScreenshot('02-perry-dialogue-intro.png');
 
-  // Test 1st wrong answer: "Because you are fond of pears?"
-  console.log('Testing 1st wrong answer...');
-  await evaluate(`document.querySelector('.perry-option-btn[data-answer="pears"]')?.click()`);
+  // Test 1st wrong answer
+  console.log('Testing 1st wrong answer from rendered choices...');
+  await evaluate(`(() => {
+    const btns = [...document.querySelectorAll('.perry-option-btn')];
+    const wrong = btns.find(b => !b.dataset.answer?.toLowerCase().includes('parry'));
+    wrong?.click();
+  })()`);
   await until(() => evaluate("Boolean(document.querySelector('#perry-dialogue-text')?.textContent?.includes('Incorrect! You are lucky I am a St. Try again.'))"), '1st wrong answer response', 5000);
   const line1 = await evaluate("document.querySelector('#perry-dialogue-text')?.textContent");
   console.log(`1st wrong reply: ${line1}`);
 
-  // Test 2nd wrong answer: "Because of your saintly modesty?"
-  console.log('Testing 2nd wrong answer...');
-  await evaluate(`document.querySelector('.perry-option-btn[data-answer="modesty"]')?.click()`);
+  await wait(400);
+
+  // Test 2nd wrong answer
+  console.log('Testing 2nd wrong answer from rendered choices...');
+  await evaluate(`(() => {
+    const btns = [...document.querySelectorAll('.perry-option-btn')];
+    const wrongs = btns.filter(b => !b.dataset.answer?.toLowerCase().includes('parry'));
+    const secondWrong = wrongs[1] || wrongs[0];
+    secondWrong?.click();
+  })()`);
   await until(() => evaluate("Boolean(document.querySelector('#perry-dialogue-text')?.textContent?.includes('Have you grown in intellect since we last spoke?'))"), '2nd wrong answer response', 5000);
   const line2 = await evaluate("document.querySelector('#perry-dialogue-text')?.textContent");
   console.log(`2nd wrong reply: ${line2}`);
   await captureScreenshot('03-perry-dialogue-wrong-intellect.png');
 
-  // Test correct answer: Type "Because you parry!"
-  console.log('Testing correct answer via form submit...');
+  await wait(400);
+
+  // Test correct answer
+  console.log('Testing correct answer via choice button...');
   await evaluate(`(() => {
-    const input = document.querySelector('#perry-dialogue-input');
-    const form = document.querySelector('#perry-dialogue-form');
-    if (input && form) {
-      input.value = 'Because you parry!';
-      form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-    }
+    const btns = [...document.querySelectorAll('.perry-option-btn')];
+    const correct = btns.find(b => b.dataset.answer === 'Because you parry?');
+    correct?.click();
   })()`);
-  await until(() => evaluate("Boolean(document.querySelector('#perry-dialogue-text')?.textContent?.includes('Precisely!'))"), 'Correct answer response', 5000);
+  await until(() => evaluate("Boolean(document.querySelector('#perry-dialogue-text')?.textContent?.includes('Finally!.. I meant, that was the least you could do.'))"), 'Correct answer response', 5000);
   const correctLine = await evaluate("document.querySelector('#perry-dialogue-text')?.textContent");
   console.log(`Correct reply: ${correctLine}`);
-  await captureScreenshot('04-perry-dialogue-correct-parry.png');
-  assert.ok(correctLine?.includes('Precisely!'), 'Correct reply must acknowledge parrying art');
+  assert.equal(correctLine, '"Finally!.. I meant, that was the least you could do. Your reward?... Enjoy this brief acknowledgement."', 'Correct reply must match authored line exactly');
   await captureScreenshot('04-perry-dialogue-correct-parry.png');
 
   // Dismiss dialogue

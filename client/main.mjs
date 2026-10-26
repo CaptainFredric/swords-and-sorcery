@@ -1500,21 +1500,24 @@ const perryDialogueInput = $('#perry-dialogue-input');
 const perryCanonizeBtn = $('#perry-canonize-btn');
 const perryCanonizePrompt = $('#perry-canonization-prompt');
 const practiceCanonizationBtn = $('#practice-canonization');
+const perryDialogueOptions = $('#perry-dialogue-options');
+const perryDialogueCard = document.querySelector('.perry-dialogue-card');
 
-perryDialogueClose?.addEventListener('click', () => {
+if (perryDialogueCard) {
+  for (const ev of ['mousedown', 'mouseup', 'click', 'pointerdown', 'pointerup']) {
+    perryDialogueCard.addEventListener(ev, (e) => e.stopPropagation());
+  }
+}
+
+perryDialogueClose?.addEventListener('click', (e) => {
+  e.stopPropagation();
   perryDialogue?.classList.add('hidden');
   socket.practicePerryDismiss();
 });
 
-for (const btn of document.querySelectorAll('.perry-option-btn')) {
-  btn.addEventListener('click', () => {
-    const answer = btn.dataset.answer;
-    socket.practicePerryAnswer(answer);
-  });
-}
-
 perryDialogueForm?.addEventListener('submit', (e) => {
   e.preventDefault();
+  e.stopPropagation();
   const val = perryDialogueInput?.value?.trim();
   if (val) {
     socket.practicePerryAnswer(val);
@@ -1522,7 +1525,8 @@ perryDialogueForm?.addEventListener('submit', (e) => {
   }
 });
 
-perryCanonizeBtn?.addEventListener('click', () => {
+perryCanonizeBtn?.addEventListener('click', (e) => {
+  e.stopPropagation();
   socket.practiceSpawnDummy('CANONIZATION');
 });
 
@@ -1536,17 +1540,72 @@ function updateStPerryUI(snapshot) {
   const isPerry = dummy?.practiceMode === 'ST_PERRY';
   const isCanonized = dummy?.practiceMode === 'CANONIZATION';
   const perryData = dummy?.stPerry;
+  const myId = window.__ssRuntime?.localAuth?.id || socket?.playerId;
 
-  if (isPerry && perryData?.dialogue && !perryData.dialogue.dismissed) {
+  const localPlayer = snapshot.players?.find((p) => p.id === myId) || window.__ssRuntime?.localAuth;
+  const isOperatingSiege = Boolean(localPlayer?.operatingRamId || localPlayer?.operatingBallistaId);
+  const isInCombat = Boolean(
+    localPlayer?.attackActive ||
+    dummy?.attackActive ||
+    (perryData?.playerHits ?? 0) > 0 ||
+    (dummy?.health ?? 100) < 100
+  );
+  let isNearPerry = true;
+  if (localPlayer?.position && dummy?.position) {
+    const distSq = (localPlayer.position.x - dummy.position.x) ** 2 + (localPlayer.position.z - dummy.position.z) ** 2;
+    if (distSq > 144) isNearPerry = false; // > 12m
+  }
+
+  const shouldShowDialogue = isPerry &&
+    perryData?.dialogue &&
+    !perryData.dialogue.dismissed &&
+    !isOperatingSiege &&
+    !isInCombat &&
+    isNearPerry;
+
+  if (shouldShowDialogue) {
     perryDialogue?.classList.remove('hidden');
     if (perryDialogueText && perryData.dialogue.lastLine) {
       perryDialogueText.textContent = `"${perryData.dialogue.lastLine}"`;
     }
+
+    const choices = perryData.dialogue.choices;
+    if (perryDialogueOptions && Array.isArray(choices) && choices.length > 0) {
+      const serialized = choices.join('|||');
+      if (perryDialogueOptions.dataset.rendered !== serialized) {
+        perryDialogueOptions.dataset.rendered = serialized;
+        perryDialogueOptions.innerHTML = '';
+        for (const choice of choices) {
+          const btn = document.createElement('button');
+          btn.className = 'perry-option-btn';
+          btn.type = 'button';
+          btn.textContent = `"${choice}"`;
+          btn.dataset.answer = choice;
+          btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (btn.disabled) return;
+            for (const b of perryDialogueOptions.querySelectorAll('.perry-option-btn')) {
+              b.disabled = true;
+            }
+            setTimeout(() => {
+              for (const b of perryDialogueOptions.querySelectorAll('.perry-option-btn')) {
+                b.disabled = false;
+              }
+            }, 350);
+            socket.practicePerryAnswer(choice);
+          });
+          perryDialogueOptions.appendChild(btn);
+        }
+      }
+    }
+
+    const isSolved = Boolean(perryData.dialogue.solved);
+    if (perryDialogueOptions) perryDialogueOptions.hidden = isSolved;
+    if (perryDialogueForm) perryDialogueForm.hidden = isSolved;
   } else {
     perryDialogue?.classList.add('hidden');
   }
 
-  const myId = window.__ssRuntime?.localAuth?.id || socket?.playerId;
   const unlocked = Boolean(
     perryData?.unlockedPlayers
       ? (myId && perryData.unlockedPlayers.includes(myId))

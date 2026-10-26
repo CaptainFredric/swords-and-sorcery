@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { Room } from '../../shared/sim/Room.mjs';
 import { spawnPracticeDummy, setPracticeDummyMode, removePracticeDummy, resetPracticePlayer, stepPracticeActors } from '../../shared/sim/practice.mjs';
 import { beginAttack, endAttack, setGuard, stepRoom, applyDamage, tryCastSpell, cancelAttack } from '../../shared/sim/combat.mjs';
-import { isCorrectPerryAnswer, answerPerryDialogue, dismissPerryDialogue, isCanonizationUnlocked, setupStPerry, recordPerryParry, getPlayerPerryProgress, PERRY_CANONIZED_SKILL, PERRY_PROFILE, PERRY_CANONIZED_PROFILE } from '../../shared/sim/StPerry.mjs';
+import { isCorrectPerryAnswer, answerPerryDialogue, dismissPerryDialogue, isCanonizationUnlocked, setupStPerry, recordPerryParry, getPlayerPerryProgress, PERRY_CORRECT_ANSWER, PERRY_INCORRECT_ANSWERS, PERRY_CONDITIONAL_ANSWERS, isHeraldEarned, selectPerryDialogueChoices, resetPerryVisitBag, PERRY_CANONIZED_SKILL, PERRY_PROFILE, PERRY_CANONIZED_PROFILE } from '../../shared/sim/StPerry.mjs';
 import { applyRoomCommand, serializeSnapshot } from '../../shared/sim/wire.mjs';
 import { SWORD_STRIKE_TIMES, GAME } from '../../shared/src/combat.mjs';
 import { PROWESS } from '../../shared/src/prowess.mjs';
@@ -76,11 +76,123 @@ test('St. Perry: Part II dialogue - correct answers, wrong answers with exact au
   // Correct answer
   assert.equal(answerPerryDialogue(room, human, 'Because you parry!', 4), true);
   assert.equal(dummy.stPerry.dialogue.solved, true);
-  assert.ok(dummy.stPerry.dialogue.lastLine.includes('Precisely!'));
+  assert.equal(dummy.stPerry.dialogue.lastLine, 'Finally!.. I meant, that was the least you could do. Your reward?... Enjoy this brief acknowledgement.');
 
   // Wire command test
   assert.deepEqual(applyRoomCommand(room, human, { type: 'practicePerryDismiss' }, 5), {});
   assert.equal(dummy.stPerry.dialogue.dismissed, true);
+});
+
+test('St. Perry: Rotating dialogue choices - 4 choices, 1 correct, 3 unique incorrect', () => {
+  const choices = selectPerryDialogueChoices();
+  assert.equal(choices.length, 4, 'Must present exactly four choices');
+  assert.ok(choices.includes(PERRY_CORRECT_ANSWER), 'Must include the fixed correct answer');
+
+  const incorrectChoices = choices.filter(c => c !== PERRY_CORRECT_ANSWER);
+  assert.equal(incorrectChoices.length, 3, 'Must have exactly 3 incorrect choices');
+  assert.equal(new Set(incorrectChoices).size, 3, 'All 3 incorrect choices must be unique');
+
+  for (const inc of incorrectChoices) {
+    assert.ok(PERRY_INCORRECT_ANSWERS.includes(inc), `Must belong to authored pool: ${inc}`);
+    assert.equal(isCorrectPerryAnswer(inc), false, `Must never satisfy correct-answer matcher: ${inc}`);
+  }
+  assert.equal(isCorrectPerryAnswer(PERRY_CORRECT_ANSWER), true, 'Correct answer must satisfy matcher');
+});
+
+test('St. Perry: Seeded determinism and 100% full coverage of authored incorrect answer pool', () => {
+  // Test seeded determinism: same seed returns identical choice array
+  const c1 = selectPerryDialogueChoices({ seed: 1337 });
+  const c2 = selectPerryDialogueChoices({ seed: 1337 });
+  assert.deepEqual(c1, c2, 'Same seed must produce identical choices in identical order');
+
+  // Test full coverage over seeds 0 to 60
+  const chosenSet = new Set();
+  for (let s = 0; s < 60; s++) {
+    const list = selectPerryDialogueChoices({ seed: s });
+    for (const item of list) {
+      if (item !== PERRY_CORRECT_ANSWER) chosenSet.add(item);
+    }
+  }
+  for (const authored of PERRY_INCORRECT_ANSWERS) {
+    assert.ok(chosenSet.has(authored), `Authored choice missing from coverage: "${authored}"`);
+  }
+  assert.equal(chosenSet.size, PERRY_INCORRECT_ANSWERS.length, 'Every authored incorrect choice must be reachable');
+});
+
+test('St. Perry: Herald-gated conditional answer is excluded without genuine herald', () => {
+  // Unearned player
+  const playerWithout = { id: 'unearned', unlockedHeralds: null };
+  for (let s = 0; s < 50; s++) {
+    const list = selectPerryDialogueChoices({ player: playerWithout, seed: s });
+    assert.ok(!list.includes("Because 'St. Perry the Plain' was too accurate?"), 'Herald-gated answer must NOT be selected without genuine herald');
+  }
+
+  // Earned player (when genuine herald becomes available)
+  const playerWith = { id: 'earned', unlockedHeralds: new Set(['st-perry-the-plain']) };
+  assert.equal(isHeraldEarned(playerWith, 'st-perry-the-plain'), true);
+  let seenWith = false;
+  for (let s = 0; s < 100; s++) {
+    const list = selectPerryDialogueChoices({ player: playerWith, seed: s });
+    if (list.includes("Because 'St. Perry the Plain' was too accurate?")) {
+      seenWith = true;
+      break;
+    }
+  }
+  assert.ok(seenWith, 'Herald-gated answer can appear once player legitimately owns herald');
+});
+
+test('St. Perry: Encounter choice stability and fresh selection across visits', () => {
+  const { room, human } = makePracticeFixture();
+  const dummy = spawnPracticeDummy(room, 'ST_PERRY', 0);
+  const initialChoices = [...dummy.stPerry.dialogue.choices];
+  assert.equal(initialChoices.length, 4);
+
+  // Guess wrong answer -> choices remain identical
+  const wrongChoice = initialChoices.find(c => c !== PERRY_CORRECT_ANSWER);
+  answerPerryDialogue(room, human, wrongChoice, 1.0);
+  assert.deepEqual(dummy.stPerry.dialogue.choices, initialChoices, 'Choices must not reshuffle on guess');
+
+  // Switch dummy to MELEE then back to ST_PERRY -> choices remain identical
+  setPracticeDummyMode(room, 'MELEE', 2.0);
+  setPracticeDummyMode(room, 'ST_PERRY', 3.0);
+  assert.deepEqual(dummy.stPerry.dialogue.choices, initialChoices, 'Choices must not reshuffle on opponent switch');
+
+  // Enter fresh Practice visit (new room) -> provides new selection
+  const { room: room2, human: human2 } = makePracticeFixture();
+  const dummy2 = spawnPracticeDummy(room2, 'ST_PERRY', 0);
+  assert.equal(dummy2.stPerry.dialogue.choices.length, 4);
+});
+
+test('St. Perry: Every authored incorrect choice advances wrongCount and follows authored progression', () => {
+  for (let i = 0; i < PERRY_INCORRECT_ANSWERS.length; i++) {
+    const { room, human } = makePracticeFixture();
+    const dummy = spawnPracticeDummy(room, 'ST_PERRY', 0);
+    const inc = PERRY_INCORRECT_ANSWERS[i];
+
+    // 1st wrong
+    answerPerryDialogue(room, human, inc, 1.0);
+    assert.equal(dummy.stPerry.dialogue.wrongCount, 1);
+    assert.equal(dummy.stPerry.dialogue.lastLine, 'Incorrect! You are lucky I am a St. Try again.');
+
+    // 2nd wrong
+    answerPerryDialogue(room, human, inc, 2.0);
+    assert.equal(dummy.stPerry.dialogue.wrongCount, 2);
+    assert.equal(dummy.stPerry.dialogue.lastLine, 'Have you grown in intellect since we last spoke?');
+  }
+});
+
+test('St. Perry: Repeatable introduction after leaving and reentering Practice', () => {
+  const { room: visit1, human: h1 } = makePracticeFixture();
+  const d1 = spawnPracticeDummy(visit1, 'ST_PERRY', 0);
+  answerPerryDialogue(visit1, h1, PERRY_CORRECT_ANSWER, 1.0);
+  assert.equal(d1.stPerry.dialogue.solved, true);
+
+  // Leave and re-enter fresh Practice session
+  const { room: visit2, human: h2 } = makePracticeFixture();
+  const d2 = spawnPracticeDummy(visit2, 'ST_PERRY', 0);
+  assert.equal(d2.stPerry.dialogue.solved, false, 'Fresh visit must allow playing introduction again');
+  assert.equal(d2.stPerry.dialogue.dismissed, false);
+  assert.equal(d2.stPerry.dialogue.lastLine, 'I am St. Perry, the Prodigious! Any idea why that is my name?');
 });
 
 test('St. Perry: Dialogue UX does not needlessly repeat after introduction is completed', () => {
