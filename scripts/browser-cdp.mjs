@@ -35,7 +35,7 @@ export class CdpClient {
     this.events.set(method, list);
   }
 
-  send(method, params = {}) {
+  send(method, params = {}, timeoutMs = 30000) {
     if (!this.socket || this.socket.readyState !== WebSocket.OPEN) return Promise.reject(new Error(`CDP socket is not open for ${method}`));
     const id = this.nextId++;
     this.socket.send(JSON.stringify({ id, method, params }));
@@ -43,7 +43,7 @@ export class CdpClient {
       const timer = setTimeout(() => {
         this.pending.delete(id);
         reject(new Error(`Timed out waiting for CDP ${method}`));
-      }, 15000);
+      }, timeoutMs);
       this.pending.set(id, {
         resolve: (value) => { clearTimeout(timer); resolve(value); },
         reject: (error) => { clearTimeout(timer); reject(error); },

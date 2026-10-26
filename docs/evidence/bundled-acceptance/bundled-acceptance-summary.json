@@ -1,40 +1,44 @@
 {
   "passed": true,
-  "timestamp": "2026-10-26T17:57:29.625Z",
-  "revision": "8cc3432e842b2191cb6441afc043a2cd192f5748",
-  "sha256": "0782f6ef0e16bb649757180610d38b287d394b11616f7c0ddb516b365ee6dc46",
+  "timestamp": "2026-10-26T19:35:51.323Z",
+  "revision": "7dfc80bdbf97099da0a35c28f84988395abb1dde",
+  "sha256": "6cb5fe536b728b2000504a36447058ef160a99380df2c5b72abb7cf77e47125b",
   "files": 736,
-  "archiveBytes": 49748161,
+  "archiveBytes": 49748160,
   "extractedBytes": 67273854,
   "startup": {
     "unbundled": {
       "label": "Unbundled (dev)",
-      "readyTimeMs": 2429,
-      "domContentLoadedMs": 1495,
+      "readyTimeMs": 3762,
+      "domContentLoadedMs": 2230,
       "totalRequests": 294,
       "jsRequestsCount": 261,
-      "totalJsBytes": 48855,
+      "totalJsBytes": 49813,
       "errors": []
     },
     "bundled": {
       "label": "Bundled ZIP",
-      "readyTimeMs": 1675,
-      "domContentLoadedMs": 492,
+      "readyTimeMs": 2138,
+      "domContentLoadedMs": 1181,
       "totalRequests": 38,
       "jsRequestsCount": 5,
-      "totalJsBytes": 296102,
+      "totalJsBytes": 297249,
       "errors": []
     }
   },
   "matrix": {
-    "Greener Pastures traversal & tutorial voice playback": true,
+    "Greener Pastures traversal & tutorial voice buffer decoding": true,
     "Practice Yard & St. Perry rotating dialogue (touch + desktop)": true,
-    "Canonization mode & St. Perry the Plain conditional dialogue": true,
-    "Bi-Bye-llista mounting, CLEAR aiming, and firing assemblies": true,
-    "SO-FIST-ICATION model loading and basic operation": true,
-    "First-person and third-person Spellblade models and animations": true,
+    "Canonization mode & St. Perry the Plain conditional dialogue (fixture-assisted setup)": true,
+    "Bi-Bye-llista CLEAR aiming and authoritative firing release (fixture-mounted)": true,
+    "SO-FIST-ICATION model loading, command charging, and strike cycle (fixture-mounted)": true,
+    "First-person and third-person Spellblade models and AnimationMixer clips": true,
     "Offline Solo simulation (LocalHost)": true,
-    "Hosted WebSocket multiplayer session & reconnect": true,
+    "Hosted WebSocket wire protocol & token reconnect (direct server protocol verification)": true,
     "Settings panel and dynamic / lazy-loaded code": true
+  },
+  "notes": {
+    "toolRole": "Documented local release-acceptance tool",
+    "ciStatus": "Not part of mandatory CI pipeline; designed for local and manual release qualification against extracted bundled ZIP"
   }
 }
