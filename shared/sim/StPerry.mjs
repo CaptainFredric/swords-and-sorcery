@@ -343,6 +343,11 @@ export function setupStPerry(actor, nowSec, canonized = false, room = null, play
     actor.prowess = 0;
   }
 
+  for (const p of roomState?.byPlayer?.values() ?? []) {
+    p.perryFightStartHealth = undefined;
+    p.damageDealtToPerry = 0;
+  }
+
   const prev = actor.stPerry;
   const humanPlayer = room ? [...(room.players?.values() ?? [])].find((p) => p.actorKind === 'human') : null;
   const targetId = playerId || humanPlayer?.id;
@@ -413,6 +418,30 @@ export function answerPerryDialogue(room, player, answer, nowSec) {
       text: d.lastLine,
       speaker: 'St. Perry the Prodigious',
       correct: true,
+      wrongCount: d.wrongCount,
+      at: nowSec,
+    });
+    return true;
+  }
+
+  const isPlainGuess = Boolean(
+    answer &&
+    typeof answer === 'string' &&
+    answer.toLowerCase().includes('plain') &&
+    answer.toLowerCase().includes('accurate')
+  );
+
+  if (isPlainGuess && isHeraldEarned(player, 'st-perry-the-plain')) {
+    d.wrongCount += 1;
+    d.state = 'heraldReaction';
+    d.lastLine = "NO! HOW DID YOU GET THAT! I musn't allow you to revoke my sainthood! Prepare for the Perry!";
+    room.events.push({
+      type: 'stPerryDialogue',
+      playerId: player.id,
+      text: d.lastLine,
+      speaker: 'St. Perry the Prodigious',
+      correct: false,
+      special: 'stPerryThePlain',
       wrongCount: d.wrongCount,
       at: nowSec,
     });
@@ -511,7 +540,7 @@ export function recordPerryParry(room, attacker, defender, nowSec) {
   }
 }
 
-export function recordPerryDamage(room, attackerId, victimId, source, nowSec) {
+export function recordPerryDamage(room, attackerId, victimId, source, nowSec, amount = 0) {
   if (room?.mode !== 'PRACTICE') return;
   const dummy = [...(room.players?.values() ?? [])].find((p) => p.actorKind === 'dummy');
   if (!dummy || !dummy.stPerry) return;
@@ -523,10 +552,62 @@ export function recordPerryDamage(room, attackerId, victimId, source, nowSec) {
       const state = getPerryRoomState(room);
       if (state) state.introCompleted = true;
     }
+    const attacker = room.players.get(attackerId);
+    if (attacker?.actorKind === 'human') {
+      const prog = getPlayerPerryProgress(room, attackerId);
+      if (prog) {
+        if (prog.perryFightStartHealth === undefined) {
+          prog.perryFightStartHealth = dummy.health + amount;
+        }
+        prog.damageDealtToPerry = (prog.damageDealtToPerry || 0) + amount;
+      }
+    }
     room.events.push({
       type: 'stPerryFeedback',
       kind: 'playerHit',
       source,
+      at: nowSec,
+    });
+  }
+}
+
+export function assessPerryDefeat(room, dummy, killerId, nowSec) {
+  if (!dummy?.stPerry || dummy.practiceMode !== 'CANONIZATION') return;
+  const killer = room.players.get(killerId);
+  if (!killer || killer.actorKind !== 'human') return;
+  const prog = getPlayerPerryProgress(room, killerId);
+  if (!prog || prog.plainHeraldEarned) return;
+
+  const killerFlawless = (killer.damageTakenThisLife || 0) === 0 && (killer.health || 0) === 100;
+  const perryBeganFull = (prog.perryFightStartHealth || 0) >= 100;
+  const dealtFullDefeat = (prog.damageDealtToPerry || 0) >= 100;
+
+  if (killerFlawless && perryBeganFull && dealtFullDefeat) {
+    prog.plainHeraldEarned = true;
+    killer.challenges = killer.challenges || { completed: {} };
+    killer.challenges.completed = killer.challenges.completed || {};
+    killer.challenges.completed['st_perry_the_plain'] = Date.now();
+    if (Array.isArray(killer.emblems) && !killer.emblems.includes('st_perry_the_plain')) {
+      killer.emblems.push('st_perry_the_plain');
+    }
+
+    room.events.push({
+      type: 'prestigeChallengeCompleted',
+      playerId: killer.id,
+      challengeId: 'st_perry_the_plain',
+      at: nowSec,
+    });
+    room.events.push({
+      type: 'stPerryPlainUnlocked',
+      playerId: killer.id,
+      message: 'PRESTIGE HERALD EARNED: ST. PERRY THE PLAIN!',
+      at: nowSec,
+    });
+    room.events.push({
+      type: 'spellbladeLine',
+      playerId: killer.id,
+      text: 'I suppose anyone can become a saint... these days.',
+      speaker: killer.name || 'Spellblade',
       at: nowSec,
     });
   }

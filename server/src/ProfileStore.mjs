@@ -87,6 +87,42 @@ export class ProfileStore {
     return this.settleMatch(token, matchId, amount, {}, details);
   }
 
+  /** Authoritative, idempotent prestige challenge unlock path outside conventional match settlements. */
+  completePrestigeChallenge(token, challengeId, details = {}) {
+    const current = this.read(token);
+    if (!Object.hasOwn(CHALLENGES, challengeId)) throw new Error('Unknown challenge');
+    const challenge = CHALLENGES[challengeId];
+    const prior = current.challenges;
+    if (prior.completed?.[challengeId]) {
+      return this.view(current);
+    }
+    const completedAt = Number.isFinite(details.completedAt) && details.completedAt > 0 ? details.completedAt : Date.now();
+    const progress = { ...prior.progress, [challengeId]: challenge.goal };
+    const completed = { ...prior.completed, [challengeId]: completedAt };
+    const rewarded = [...prior.rewarded];
+    let challengeAmount = challenge.reward.renown ?? 0;
+    if (challengeAmount > 0 && !rewarded.includes(challengeId)) {
+      rewarded.push(challengeId);
+    }
+    const balance = current.balance + challengeAmount;
+    const matchId = details.matchId ?? `prestige-${challengeId}-${completedAt}`;
+    return this.write(token, {
+      ...current,
+      balance,
+      challenges: { ...prior, version: CHALLENGE_VERSION, progress, completed, rewarded },
+      receipts: [...current.receipts, matchId],
+      lastReward: {
+        matchId,
+        amount: challengeAmount,
+        reason: 'prestige',
+        completion: 0,
+        victory: 0,
+        challengeAmount,
+        challenges: [challengeId],
+      },
+    });
+  }
+
   /** One eligible match's base reward and observed feats, committed together. Callers decide match eligibility. */
   settleMatch(token, matchId, amount, challengeProgress = {}, details = {}) {
     const current = this.read(token);

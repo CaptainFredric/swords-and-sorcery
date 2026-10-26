@@ -1706,6 +1706,16 @@ socket.on('snapshot', (snapshot) => {
           if (!ev.playerId || ev.playerId === myId) {
             hud.addFeed(ev.message ?? 'CANONIZATION UNLOCKED!', 'sword');
           }
+        } else if (ev.type === 'stPerryPlainUnlocked') {
+          const myId = window.__ssRuntime?.localAuth?.id || socket?.playerId;
+          if (!ev.playerId || ev.playerId === myId) {
+            hud.addFeed(ev.message ?? 'PRESTIGE HERALD EARNED: ST. PERRY THE PLAIN!', 'shield');
+          }
+        } else if (ev.type === 'spellbladeLine') {
+          const myId = window.__ssRuntime?.localAuth?.id || socket?.playerId;
+          if (!ev.playerId || ev.playerId === myId) {
+            hud.subtitle({ text: ev.text, name: ev.speaker ?? 'Spellblade', seconds: 4.5 });
+          }
         }
       }
     }

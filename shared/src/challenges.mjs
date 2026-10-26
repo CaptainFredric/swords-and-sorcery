@@ -13,6 +13,18 @@ export const CHALLENGES = Object.freeze({
   against_better_judgment:feat('against_better_judgment','chivalry','AGAINST BETTER JUDGMENT','Win a Duel after reaching 15 HP or less during that Duel.',20),
   both_hands_full:feat('both_hands_full','chivalry','BOTH HANDS FULL','During Chivalry, damage the same enemy with sword and a prepared spell within 1.5 seconds, with Guard active during at least one contact.',25,{hint:'A knight need not choose one thing at a time.'}),
   passing_remark:feat('passing_remark','chivalry','PASSING REMARK','During Chivalry, land an ordinary sword contact while in Dash.',15,{hint:'Momentum is an argument too.'}),
+  st_perry_the_plain: feat(
+    'st_perry_the_plain',
+    'chivalry',
+    'ST. PERRY THE PLAIN',
+    'Defeat St. Perry the Prodigious in Canonization from full health (100 HP) to 0 without suffering any HP damage during your current life.',
+    0,
+    {
+      hint: 'A saint canonized by his own parry is merely plain when struck without answer.',
+      flavor: 'I suppose anyone can become a saint... these days.',
+      emblem: 'st_perry_the_plain',
+    }
+  ),
   well_balanced:feat('well_balanced','oddities','WELL BALANCED','Be defeated shortly after initiating Blazing Vortex without damaging anybody.',15,{hint:'Spinning is not the same as winning.',flavor:'A blazing commitment, cut abruptly short.'}),
 });
 
