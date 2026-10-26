@@ -31,11 +31,34 @@ const server = http.createServer(async (req, res) => {
 await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
 const url = `http://127.0.0.1:${server.address().port}${prefix}?debug`;
 console.log('Testing exported client',url);
-const chrome = spawn(process.env.CHROME_BIN || 'google-chrome', ['--headless=new', '--no-sandbox', '--enable-unsafe-swiftshader', '--disable-dev-shm-usage', '--disable-features=MacAppCodeSignClone', '--window-size=1280,800', '--remote-debugging-port=0', `--user-data-dir=${profile}`, 'about:blank'], { stdio: 'ignore' });
+const chromeBin = process.env.CHROME_BIN || (process.platform === 'darwin' ? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' : 'google-chrome');
+const chrome = spawn(chromeBin, [
+  '--headless=new',
+  '--no-sandbox',
+  '--enable-unsafe-swiftshader',
+  '--disable-dev-shm-usage',
+  '--disable-features=MacAppCodeSignClone',
+  '--disable-background-timer-throttling',
+  '--disable-renderer-backgrounding',
+  '--disable-backgrounding-occluded-windows',
+  '--disable-ipc-flooding-protection',
+  '--remote-allow-origins=*',
+  '--window-size=1280,800',
+  '--remote-debugging-port=0',
+  `--user-data-dir=${profile}`,
+  'about:blank',
+], { stdio: 'ignore' });
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 async function until(fn, label, timeout = 45_000) {
   const end = Date.now() + timeout;
-  while (Date.now() < end) { if (await fn()) return; await sleep(100); }
+  while (Date.now() < end) {
+    try {
+      if (await fn()) return;
+    } catch {
+      // Ignore transient evaluation/navigation failures during polling
+    }
+    await sleep(150);
+  }
   throw new Error(`Browser check timed out: ${label}`);
 }
 let cdp;

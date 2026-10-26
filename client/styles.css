@@ -255,8 +255,8 @@ body.took-steel::after{content:"";position:fixed;inset:0;z-index:50;pointer-even
   top: 24px;
   right: 24px;
   z-index: 30;
-  width: 320px;
-  max-width: calc(100vw - 48px);
+  width: 340px;
+  max-width: min(360px, calc(100vw - 48px));
   pointer-events: auto;
 }
 .perry-dialogue.hidden { display: none; }
@@ -312,12 +312,20 @@ body.took-steel::after{content:"";position:fixed;inset:0;z-index:50;pointer-even
   font-family: inherit;
   text-align: left;
   cursor: pointer;
+  white-space: normal;
+  line-height: 1.35;
+  overflow-wrap: break-word;
+  word-break: normal;
   transition: background 0.15s, border-color 0.15s;
 }
 .perry-option-btn:hover {
   background: rgba(201, 156, 82, 0.22);
   border-color: #ecc97f;
   color: #ffffff;
+}
+.perry-option-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 .perry-dialogue-form {
   display: flex;
@@ -371,10 +379,21 @@ body.took-steel::after{content:"";position:fixed;inset:0;z-index:50;pointer-even
 @container app (max-width: 600px) {
   .perry-dialogue {
     top: auto;
-    bottom: 80px;
-    right: 10px;
-    left: 10px;
+    bottom: 84px;
+    right: 12px;
+    left: 12px;
     width: auto;
+    max-width: none;
+  }
+}
+@media (max-width: 600px) {
+  .perry-dialogue {
+    top: auto;
+    bottom: 84px;
+    right: 12px;
+    left: 12px;
+    width: auto;
+    max-width: none;
   }
 }
 /* A mechanical siege sight. The open center keeps bolts and frost confirmations visible. */

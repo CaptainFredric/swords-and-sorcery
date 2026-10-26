@@ -220,7 +220,7 @@ export class LocalHost {
     stepRoom(room, 1 / TICK_RATE, time, room.world);
     const events = room.events.splice(0);
     if (events.length) this.#deliver({ type: 'events', events }, true);
-    if (this.room === room) this.#deliver(serializeSnapshot(room, time), true);
+    if (this.room === room) this.#deliver(serializeSnapshot(room, time, this.playerId), true);
   }
 
   #stop() {

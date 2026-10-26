@@ -1,4 +1,4 @@
-import { beginAttack, endAttack, setGuard, tryCastSpell, tryDash, tryUltimate, cancelAttack } from './combat.mjs';
+import { beginAttack, endAttack, setGuard, tryCastSpell, castPreparedSpell, tryDash, tryUltimate, cancelAttack } from './combat.mjs';
 import { postureOf } from '../src/body.mjs';
 import { segmentAabbHit } from '../src/collision.mjs';
 import { activeUltimate } from '../src/ultimates.mjs';
@@ -22,6 +22,115 @@ function turnToward(currentYaw, targetYaw, maxStep) {
   const diff = Math.atan2(Math.sin(targetYaw - currentYaw), Math.cos(targetYaw - currentYaw));
   const step = Math.max(-maxStep, Math.min(maxStep, diff));
   return currentYaw + step;
+}
+
+export const PERRY_CORRECT_ANSWER = 'Because you parry?';
+
+export const PERRY_INCORRECT_ANSWERS = Object.freeze([
+  'Because of a clerical error?',
+  'I do not know! But I know it does not suit you.',
+  'There is a Street named Perry?',
+  "It was the fault of perry's parents?",
+  'You acquired it from a different, better, St. Perry?',
+  "Because 'Perry' was not long enough?",
+  "'Twas a dare to reclaim your renown?",
+  'May I have it?',
+  'You borrowed it just for me?',
+  'So you could ask that question?',
+  'I am a knight.',
+  'Who are you?',
+  'I, am St. Perry!',
+  'You were waiting for the rightful owner to arrive, who is now here.',
+  'I remember wishing for a St. Perry one day',
+  'Aha! A rhetorical question, you are Squire!',
+  "'the Prodigious... what? It was cut off and not meant for you",
+  'You wanted to decorate my tally with a nice name!',
+  'An impossible question. Next.',
+  'Not even you know the answer, do you?',
+  "I'm uncertain, it should be 'Defeated'",
+  'This is the correct answer',
+  'You would not understand...',
+]);
+
+export const PERRY_CONDITIONAL_ANSWERS = Object.freeze([
+  {
+    text: "Because 'St. Perry the Plain' was too accurate?",
+    requiredHerald: 'st-perry-the-plain',
+  },
+]);
+
+export function isHeraldEarned(player, heraldId) {
+  if (!player || !heraldId) return false;
+  if (player.unlockedHeralds && typeof player.unlockedHeralds.has === 'function') {
+    return player.unlockedHeralds.has(heraldId);
+  }
+  if (Array.isArray(player.unlockedHeralds)) {
+    return player.unlockedHeralds.includes(heraldId);
+  }
+  return false;
+}
+
+let globalVisitShuffleBag = [];
+
+export function resetPerryVisitBag() {
+  globalVisitShuffleBag = [];
+}
+
+export function selectPerryDialogueChoices({ player = null, seed = undefined, pool = null } = {}) {
+  const candidatePool = pool ? [...pool] : [...PERRY_INCORRECT_ANSWERS];
+  if (!pool) {
+    for (const cond of PERRY_CONDITIONAL_ANSWERS) {
+      if (isHeraldEarned(player, cond.requiredHerald)) {
+        candidatePool.push(cond.text);
+      }
+    }
+  }
+
+  const count = Math.min(3, candidatePool.length);
+  let selectedIncorrect = [];
+
+  if (seed !== undefined && seed !== null) {
+    let s = (Math.abs(Number(seed)) >>> 0) || 1;
+    const rnd = () => {
+      s = (s + 0x6d2b79f5) | 0;
+      let t = Math.imul(s ^ (s >>> 15), 1 | s);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+
+    const indices = Array.from({ length: candidatePool.length }, (_, i) => i);
+    for (let i = indices.length - 1; i > 0; i--) {
+      const j = Math.floor(rnd() * (i + 1));
+      [indices[i], indices[j]] = [indices[j], indices[i]];
+    }
+    selectedIncorrect = indices.slice(0, count).map((idx) => candidatePool[idx]);
+
+    const choices = [PERRY_CORRECT_ANSWER, ...selectedIncorrect];
+    for (let i = choices.length - 1; i > 0; i--) {
+      const j = Math.floor(rnd() * (i + 1));
+      [choices[i], choices[j]] = [choices[j], choices[i]];
+    }
+    return choices;
+  }
+
+  if (globalVisitShuffleBag.length < count) {
+    const indices = Array.from({ length: candidatePool.length }, (_, i) => i);
+    for (let i = indices.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [indices[i], indices[j]] = [indices[j], indices[i]];
+    }
+    globalVisitShuffleBag = indices;
+  }
+
+  const chosenIndices = globalVisitShuffleBag.splice(0, count);
+  selectedIncorrect = chosenIndices.map((idx) => candidatePool[idx]);
+
+  const choices = [PERRY_CORRECT_ANSWER, ...selectedIncorrect];
+  for (let i = choices.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [choices[i], choices[j]] = [choices[j], choices[i]];
+  }
+  return choices;
 }
 
 export const PERRY_PROFILE = Object.freeze({
@@ -107,10 +216,58 @@ export function isCorrectPerryAnswer(answer) {
   return normalized.includes('parry') || normalized.includes('parrying');
 }
 
-export function setupStPerry(actor, nowSec, canonized = false) {
+export function getPerryRoomState(room) {
+  if (!room) return null;
+  if (!room.stPerryState) {
+    room.stPerryState = {
+      unlocked: false,
+      byPlayer: new Map(),
+      introCompleted: false,
+      introSolved: false,
+    };
+  }
+  return room.stPerryState;
+}
+
+export function getPlayerPerryProgress(room, playerId) {
+  const roomState = getPerryRoomState(room);
+  if (!roomState) return null;
+  if (!roomState.byPlayer) roomState.byPlayer = new Map();
+  let prog = roomState.byPlayer.get(playerId);
+  if (!prog) {
+    prog = {
+      perryParries: 0,
+      playerCounterParries: 0,
+      unlocked: false,
+    };
+    roomState.byPlayer.set(playerId, prog);
+  }
+  return prog;
+}
+
+export function isCanonizationUnlocked(room, playerId = null) {
+  if (!room?.stPerryState) return false;
+  if (playerId) {
+    const prog = room.stPerryState.byPlayer?.get(playerId);
+    return Boolean(prog?.unlocked);
+  }
+  // Singleplayer fallback or test fixture:
+  const humans = [...(room.players?.values() ?? [])].filter((p) => p.actorKind === 'human');
+  if (humans.length === 1) {
+    const prog = room.stPerryState.byPlayer?.get(humans[0].id);
+    return Boolean(prog?.unlocked || room.stPerryState.unlocked);
+  }
+  return Boolean(room.stPerryState.unlocked);
+}
+
+export function setupStPerry(actor, nowSec, canonized = false, room = null, playerId = null) {
+  const roomState = getPerryRoomState(room);
+  const isUnlocked = isCanonizationUnlocked(room, playerId);
+  const actuallyCanonized = Boolean(canonized && isUnlocked);
+
   actor.name = 'St. Perry the Prodigious';
-  actor.botProfile = canonized ? PERRY_CANONIZED_PROFILE : PERRY_PROFILE;
-  actor.botSkill = canonized ? PERRY_CANONIZED_SKILL : 'knight';
+  actor.botProfile = actuallyCanonized ? PERRY_CANONIZED_PROFILE : PERRY_PROFILE;
+  actor.botSkill = actuallyCanonized ? PERRY_CANONIZED_SKILL : 'knight';
   actor.health = 100;
   actor.guardStamina = 100;
   actor.guarding = false;
@@ -119,7 +276,7 @@ export function setupStPerry(actor, nowSec, canonized = false) {
   actor.alive = true;
   actor.respawnAt = 0;
 
-  if (canonized) {
+  if (actuallyCanonized) {
     actor.ultimate = actor.startingUltimate = 'chivalry';
     actor.spell = actor.startingSpell = PREPARED_SPELLS[0];
     actor.preparedSpells = [...PREPARED_SPELLS];
@@ -134,28 +291,38 @@ export function setupStPerry(actor, nowSec, canonized = false) {
   }
 
   const prev = actor.stPerry;
+  const introDone = Boolean(roomState?.introCompleted || prev?.dialogue?.dismissed || prev?.dialogue?.solved);
+
+  let choices = roomState?.dialogueChoices ?? prev?.dialogue?.choices;
+  if (!choices || choices.length !== 4) {
+    const humanPlayer = room ? [...(room.players?.values() ?? [])].find((p) => p.actorKind === 'human') : null;
+    choices = selectPerryDialogueChoices({ player: humanPlayer });
+    if (roomState) roomState.dialogueChoices = choices;
+  }
+
   actor.stPerry = {
-    canonized,
-    parries: prev?.parries ?? 0,
-    playerCounterParries: prev?.playerCounterParries ?? 0,
+    canonized: actuallyCanonized,
+    parries: roomState?.perryParries ?? prev?.parries ?? 0,
+    playerCounterParries: roomState?.playerCounterParries ?? prev?.playerCounterParries ?? 0,
     playerHits: prev?.playerHits ?? 0,
-    unlocked: Boolean(prev?.unlocked || canonized),
+    unlocked: isUnlocked,
     anchor: { x: actor.position.x, y: actor.position.y, z: actor.position.z },
     guardUntil: -Infinity,
     pendingCounter: false,
     counterattackAt: -Infinity,
     lastCounterAt: -Infinity,
-    lastEventCheckedAt: nowSec,
+    lastStepAt: nowSec,
     castSlot: -1,
     dashSlot: -1,
     spellIndex: 0,
     navigation: {},
     dialogue: prev?.dialogue ?? {
-      state: 'intro',
+      state: introDone ? 'completed' : 'intro',
       wrongCount: 0,
-      solved: false,
-      dismissed: false,
-      lastLine: 'I am St. Perry, the Prodigious! Any idea why that is my name?',
+      solved: Boolean(roomState?.introSolved),
+      dismissed: introDone,
+      lastLine: introDone ? '' : 'I am St. Perry, the Prodigious! Any idea why that is my name?',
+      choices: choices ? [...choices] : [],
     },
   };
 }
@@ -167,6 +334,10 @@ export function cleanupStPerry(room, actor, nowSec) {
     room.events.push({ type: 'ultimateEnded', playerId: actor.id, ultimate: actor.ultimateState.id, at: nowSec });
     actor.ultimateState = null;
   }
+  const roomState = getPerryRoomState(room);
+  if (roomState && !roomState.unlocked) {
+    roomState.byPlayer?.clear();
+  }
   actor.stPerry = null;
 }
 
@@ -174,10 +345,15 @@ export function answerPerryDialogue(room, player, answer, nowSec) {
   const dummy = [...room.players.values()].find((p) => p.actorKind === 'dummy' && p.stPerry);
   if (!dummy || !dummy.stPerry) return false;
   const d = dummy.stPerry.dialogue;
+  const state = getPerryRoomState(room);
   if (isCorrectPerryAnswer(answer)) {
     d.solved = true;
+    if (state) {
+      state.introSolved = true;
+      state.introCompleted = true;
+    }
     d.state = 'correct';
-    d.lastLine = 'Precisely! The art of the parry, elevated to saintliness. Raise your blade and strike at me!';
+    d.lastLine = 'Finally!.. I meant, that was the least you could do. Your reward?... Enjoy this brief acknowledgement.';
     room.events.push({
       type: 'stPerryDialogue',
       text: d.lastLine,
@@ -211,110 +387,141 @@ export function dismissPerryDialogue(room, player, nowSec) {
   const dummy = [...room.players.values()].find((p) => p.actorKind === 'dummy' && p.stPerry);
   if (!dummy || !dummy.stPerry) return false;
   dummy.stPerry.dialogue.dismissed = true;
+  const state = getPerryRoomState(room);
+  if (state) state.introCompleted = true;
   return true;
 }
 
-export function unlockCanonization(room, actor, nowSec) {
-  const perry = actor.stPerry;
-  if (!perry) return;
-  if (!perry.unlocked) {
-    perry.unlocked = true;
-    room.events.push({
-      type: 'stPerryUnlocked',
-      playerId: actor.id,
-      at: nowSec,
-      message: 'Canonization Unlocked! St. Perry acknowledges your parrying skill.',
-    });
+export function unlockCanonization(room, actor, nowSec, playerId = null) {
+  const roomState = getPerryRoomState(room);
+  if (playerId && roomState?.byPlayer) {
+    const prog = getPlayerPerryProgress(room, playerId);
+    if (prog?.unlocked) return; // Prevent repeated Canonization unlock announcements for this player!
+    if (prog) prog.unlocked = true;
+  } else {
+    if (roomState?.unlocked) return;
+    if (roomState) roomState.unlocked = true;
   }
+  if (actor?.stPerry) actor.stPerry.unlocked = true;
+  room.events.push({
+    type: 'stPerryUnlocked',
+    playerId: playerId ?? actor?.id ?? null,
+    at: nowSec,
+    message: 'Canonization Unlocked! St. Perry acknowledges your parrying skill.',
+  });
 }
 
-function processPerryEvents(room, actor, target, nowSec) {
-  const perry = actor.stPerry;
-  if (!perry) return;
+export function recordPerryParry(room, attacker, defender, nowSec) {
+  if (room?.mode !== 'PRACTICE') return;
+  const dummy = [...(room.players?.values() ?? [])].find((p) => p.actorKind === 'dummy');
+  if (!dummy || !dummy.stPerry) return;
 
-  // 1. Authoritative counter sync: actor.parries directly increments on parry in combat.mjs
-  if (actor.parries > perry.parries) {
-    perry.parries = actor.parries;
-    setGuard(room, actor.id, false, nowSec);
-    perry.guardUntil = -Infinity;
-    perry.pendingCounter = true;
-    perry.counterattackAt = nowSec + COUNTERATTACK_DELAY_SEC;
+  // Case 1: St. Perry (defender) legitimately parried a human player's strike (attacker)
+  if (defender.id === dummy.id && attacker.actorKind === 'human') {
+    const prog = getPlayerPerryProgress(room, attacker.id);
+    prog.perryParries += 1;
+    dummy.stPerry.parries = prog.perryParries;
+    setGuard(room, dummy.id, false, nowSec);
+    dummy.stPerry.guardUntil = -Infinity;
+    dummy.stPerry.pendingCounter = true;
+    dummy.stPerry.counterattackAt = nowSec + COUNTERATTACK_DELAY_SEC;
     room.events.push({
       type: 'stPerryFeedback',
       kind: 'perryParry',
-      count: perry.parries,
+      playerId: attacker.id,
+      count: prog.perryParries,
       at: nowSec,
     });
-    if (perry.parries >= 3 && perry.playerCounterParries >= 1) {
-      unlockCanonization(room, actor, nowSec);
+    if (prog.perryParries >= 3 && prog.playerCounterParries >= 1) {
+      unlockCanonization(room, dummy, nowSec, attacker.id);
     }
   }
-
-  // 2. Authoritative counterparry sync: player parries Perry's counterattack
-  if (target) {
-    const playerParries = target.parries ?? 0;
-    if (playerParries > perry.playerCounterParries) {
-      perry.playerCounterParries = playerParries;
-      perry.counterAttacking = false;
-      perry.pendingCounter = false;
-      room.events.push({
-        type: 'stPerryFeedback',
-        kind: 'playerCounterParry',
-        count: perry.playerCounterParries,
-        at: nowSec,
-      });
-      if (perry.parries >= 3 && perry.playerCounterParries >= 1) {
-        unlockCanonization(room, actor, nowSec);
-      }
+  // Case 2: Human player (defender) legitimately counterparried St. Perry's counterattack (attacker)
+  else if (attacker.id === dummy.id && defender.actorKind === 'human') {
+    const prog = getPlayerPerryProgress(room, defender.id);
+    prog.playerCounterParries += 1;
+    dummy.stPerry.playerCounterParries = prog.playerCounterParries;
+    dummy.stPerry.counterAttacking = false;
+    dummy.stPerry.pendingCounter = false;
+    room.events.push({
+      type: 'stPerryFeedback',
+      kind: 'playerCounterParry',
+      playerId: defender.id,
+      count: prog.playerCounterParries,
+      at: nowSec,
+    });
+    if (prog.perryParries >= 3 && prog.playerCounterParries >= 1) {
+      unlockCanonization(room, dummy, nowSec, defender.id);
     }
   }
+}
 
-  // 3. Inspect room.events for additional feedback events (e.g. player hits)
-  const lastChecked = perry.lastEventCheckedAt ?? -Infinity;
+export function recordPerryDamage(room, attackerId, victimId, source, nowSec) {
+  if (room?.mode !== 'PRACTICE') return;
+  const dummy = [...(room.players?.values() ?? [])].find((p) => p.actorKind === 'dummy');
+  if (!dummy || !dummy.stPerry) return;
 
-  for (const event of room.events) {
-    if (event.at < lastChecked) continue;
-
-    if (event.type === 'damage' && event.victimId === actor.id && event.attackerId === target?.id) {
-      perry.playerHits += 1;
-      room.events.push({
-        type: 'stPerryFeedback',
-        kind: 'playerHit',
-        source: event.source,
-        at: nowSec,
-      });
+  if (victimId === dummy.id) {
+    dummy.stPerry.playerHits += 1;
+    if (!dummy.stPerry.dialogue.dismissed) {
+      dummy.stPerry.dialogue.dismissed = true;
+      const state = getPerryRoomState(room);
+      if (state) state.introCompleted = true;
     }
+    room.events.push({
+      type: 'stPerryFeedback',
+      kind: 'playerHit',
+      source,
+      at: nowSec,
+    });
   }
-
-  if (perry.parries >= 3 && perry.playerCounterParries >= 1) {
-    unlockCanonization(room, actor, nowSec);
-  }
-
-  perry.lastEventCheckedAt = nowSec;
 }
 
 function stepCanonizedChivalry(room, actor, target, nowSec, world) {
   const perry = actor.stPerry;
   const state = actor.ultimateState;
+  const prevStep = perry.lastStepAt ?? nowSec;
+  const dt = Math.max(1 / 120, Math.min(1 / 15, nowSec - prevStep || 1 / 30));
+  perry.lastStepAt = nowSec;
+
   const dx = target.position.x - actor.position.x;
   const dz = target.position.z - actor.position.z;
-  const dy = target.position.y + postureOf(target).center - actor.position.y - postureOf(actor).eye + 0.1;
+  const dy = (target.position.y + postureOf(target).center) - (actor.position.y + postureOf(actor).eye) + 0.1;
   const distance = Math.hypot(dx, dz);
   const length = Math.hypot(dx, dy, dz) || 1;
-  const direction = { x: dx / length, y: dy / length, z: dz / length };
 
-  actor.yaw = Math.atan2(-dx, -dz);
-  actor.pitch = Math.asin(direction.y);
+  // Turn toward target yaw smoothly (no instantaneous snapping)
+  const faceYaw = Math.atan2(-dx, -dz);
+  const f = forwardFromYaw(actor.yaw);
+  const toTargetX = dx / (distance || 1);
+  const toTargetZ = dz / (distance || 1);
+  const isFrontal = (f.x * toTargetX + f.z * toTargetZ) >= GUARD_CONE_COS;
+  const isTargetInFov = (f.x * toTargetX + f.z * toTargetZ) >= 0;
+
+  const baseTurnRate = isTargetInFov ? PERRY_TURN_RATE * 1.1 : Math.PI * 0.95;
+  const turnRate = actor.guarding ? baseTurnRate * 0.75 : baseTurnRate;
+  actor.yaw = turnToward(actor.yaw, faceYaw, turnRate * dt);
+
+  const targetPitch = Math.asin(dy / length);
+  actor.pitch = turnToward(actor.pitch, targetPitch, Math.PI * 1.5 * dt);
+
+  // Cast direction is derived from Perry's actual forward facing and pitch
+  const cosPitch = Math.cos(actor.pitch);
+  const castDirection = {
+    x: -Math.sin(actor.yaw) * cosPitch,
+    y: Math.sin(actor.pitch),
+    z: -Math.cos(actor.yaw) * cosPitch,
+  };
 
   const age = Math.max(0, nowSec - state.commitAt);
   const loop = Math.floor(age / 2.5);
   const phase = age % 2.5;
 
   const contact = nextContactAt(target, nowSec);
-  const incomingThreat = distance <= DEFENSE_THREAT_RANGE && target.attackActive;
-  const inParryWindow = contact !== null && nowSec >= contact - PARRY_LEAD_SEC && nowSec < contact;
-  const guard = inParryWindow || phase < 0.6;
-  const sword = distance < 3.2 && phase >= 0.5 && phase < 2.2;
+  const incomingThreat = distance <= DEFENSE_THREAT_RANGE && target.attackActive && isFrontal;
+  const inParryWindow = incomingThreat && contact !== null && nowSec >= contact - PARRY_LEAD_SEC && nowSec < contact;
+  const guard = inParryWindow || (phase < 0.6 && isFrontal);
+  const sword = distance < 3.2 && phase >= 0.5 && phase < 2.2 && isFrontal;
 
   const way = wayToward(world, actor, target, perry.navigation, nowSec);
   const movementYaw = way ? Math.atan2(-(way.x - actor.position.x), -(way.z - actor.position.z)) : actor.yaw;
@@ -335,22 +542,28 @@ function stepCanonizedChivalry(room, actor, target, nowSec, world) {
   if (sword && !actor.attackHeld) beginAttack(room, actor.id, nowSec);
   else if (!sword && actor.attackHeld) endAttack(room, actor.id, nowSec);
 
+  // Cast prepared spells in rotation (Fireball, Frostfire, Gale) using authentic prepared-spell API
   const slot = phase >= 1.5 ? loop * 2 + 1 : phase >= 0.8 ? loop * 2 : -1;
   if (slot >= 0 && slot !== perry.castSlot) {
-    perry.castSlot = slot;
-    const spell = PREPARED_SPELLS[perry.spellIndex++ % PREPARED_SPELLS.length];
-    tryCastSpell(room, actor.id, spell, direction, nowSec);
+    const spell = PREPARED_SPELLS[perry.spellIndex % PREPARED_SPELLS.length];
+    if (castPreparedSpell(room, actor.id, spell, castDirection, nowSec)) {
+      perry.castSlot = slot;
+      perry.spellIndex += 1;
+    }
   }
 
+  // Dash toward player if spaced out
   if (phase >= 1.6 && perry.dashSlot !== loop && distance > 3.5) {
-    perry.dashSlot = loop;
-    tryDash(room, actor.id, { x: direction.x, z: direction.z }, nowSec);
+    const dashLen = Math.hypot(castDirection.x, castDirection.z) || 1;
+    if (tryDash(room, actor.id, { x: castDirection.x / dashLen, z: castDirection.z / dashLen }, nowSec)) {
+      perry.dashSlot = loop;
+    }
   }
 }
 
 export function stepStPerry(room, actor, nowSec, world = room.world, { random = Math.random } = {}) {
   if (room.mode !== 'PRACTICE' || room.state !== 'PLAYING') return;
-  if (!actor.stPerry) setupStPerry(actor, nowSec, actor.practiceMode === 'CANONIZATION');
+  if (!actor.stPerry) setupStPerry(actor, nowSec, actor.practiceMode === 'CANONIZATION', room);
 
   const perry = actor.stPerry;
   if (!actor.alive) {
@@ -368,12 +581,28 @@ export function stepStPerry(room, actor, nowSec, world = room.world, { random = 
     return;
   }
 
-  processPerryEvents(room, actor, target, nowSec);
-
   // CANONIZATION MODE: Full Spellblade duel
   if (perry.canonized || actor.practiceMode === 'CANONIZATION') {
-    if (activeUltimate(actor, nowSec)?.id === 'chivalry') {
-      stepCanonizedChivalry(room, actor, target, nowSec, world);
+    if (actor.ultimateState?.id === 'chivalry') {
+      if (activeUltimate(actor, nowSec)?.id === 'chivalry') {
+        stepCanonizedChivalry(room, actor, target, nowSec, world);
+        return;
+      }
+      // Startup phase: smooth turn towards target, no instantaneous snap
+      const prevStep = perry.lastStepAt ?? nowSec;
+      const dt = Math.max(1 / 120, Math.min(1 / 15, nowSec - prevStep || 1 / 30));
+      perry.lastStepAt = nowSec;
+      const dx = target.position.x - actor.position.x;
+      const dz = target.position.z - actor.position.z;
+      const dist = Math.hypot(dx, dz);
+      const faceYaw = Math.atan2(-dx, -dz);
+      const f = forwardFromYaw(actor.yaw);
+      const toX = dx / (dist || 1);
+      const toZ = dz / (dist || 1);
+      const isTargetInFov = (f.x * toX + f.z * toZ) >= 0;
+      const turnRate = isTargetInFov ? PERRY_TURN_RATE : Math.PI * 0.95;
+      actor.yaw = turnToward(actor.yaw, faceYaw, turnRate * dt);
+      actor.input = { forward: 0, right: 0, jump: false, attack: false, guard: false, yaw: actor.yaw, pitch: 0 };
       return;
     }
 
@@ -409,7 +638,12 @@ export function stepStPerry(room, actor, nowSec, world = room.world, { random = 
 
   // Turn to face target smoothly (predominantly holds ground)
   const faceYaw = Math.atan2(-dx, -dz);
-  const maxTurn = (actor.guarding ? 0.65 : 1.0) * PERRY_TURN_RATE * dt;
+  const f = forwardFromYaw(actor.yaw);
+  const toTargetX = dx / (distance || 1);
+  const toTargetZ = dz / (distance || 1);
+  const isTargetInFov = (f.x * toTargetX + f.z * toTargetZ) >= 0;
+  const baseTurnRate = isTargetInFov ? PERRY_TURN_RATE : Math.PI * 0.85;
+  const maxTurn = (actor.guarding ? 0.65 : 1.0) * baseTurnRate * dt;
   actor.yaw = turnToward(actor.yaw, faceYaw, maxTurn);
   actor.pitch = 0;
 
@@ -473,10 +707,8 @@ export function stepStPerry(room, actor, nowSec, world = room.world, { random = 
   const hasLos = !targetBlockedByWorld(actor, target, world);
 
   // Facing check: Is target in Perry's front view cone (115°)?
-  const f = forwardFromYaw(actor.yaw);
-  const toTargetX = dx / (distance || 1);
-  const toTargetZ = dz / (distance || 1);
-  const frontalDot = f.x * toTargetX + f.z * toTargetZ;
+  const facingAfterTurn = forwardFromYaw(actor.yaw);
+  const frontalDot = facingAfterTurn.x * toTargetX + facingAfterTurn.z * toTargetZ;
   const isFrontal = frontalDot >= GUARD_CONE_COS;
 
   const canDefend = actor.guardStamina > 0 && !actor.attackActive && inRange && hasLos && isFrontal && target.attackActive;
