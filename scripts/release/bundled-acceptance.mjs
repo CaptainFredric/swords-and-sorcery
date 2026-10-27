@@ -406,30 +406,33 @@ export async function runBundledAcceptance({ directory = 'dist/html5' } = {}) {
     console.log(`   Perry greeting text: "${greetingText}"`);
     assert.ok(greetingText.includes('I am St. Perry, the Prodigious! Any idea why that is my name?'));
 
-    // Test emulated touch tap on wrong answer
+    // Test emulated touch tap on wrong answer (strict touch event delivery, no DOM-click fallback)
     await evaluate("document.body.classList.add('touch-ui')");
-    await cdp.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 2 }).catch(() => {});
-    const wrongBtnRect = await evaluate(`(() => {
+    await cdp.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 2 });
+    const wrongBtnInfo = await evaluate(`(() => {
       const wrong = [...document.querySelectorAll('.perry-option-btn')].find(b => !b.dataset.answer?.toLowerCase().includes('parry'));
+      if (!wrong) return null;
       const rect = wrong.getBoundingClientRect();
-      return { x: Math.round(rect.x + rect.width / 2), y: Math.round(rect.y + rect.height / 2) };
+      const x = Math.round(rect.x + rect.width / 2);
+      const y = Math.round(rect.y + rect.height / 2);
+      const hitElement = document.elementFromPoint(x, y);
+      return {
+        x, y,
+        hit: hitElement === wrong || hitElement?.closest('.perry-option-btn') === wrong,
+        targetTag: hitElement?.tagName,
+        targetClass: hitElement?.className,
+        disabled: Boolean(wrong.disabled),
+      };
     })()`);
-    try {
-      await Promise.race([
-        (async () => {
-          await tap('touchStart', [{ x: wrongBtnRect.x, y: wrongBtnRect.y }]);
-          await sleep(50);
-          await tap('touchEnd', []);
-        })(),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Touch dispatch timeout')), 5000)),
-      ]);
-    } catch {
-      await evaluate(`(() => {
-        const wrong = [...document.querySelectorAll('.perry-option-btn')].find(b => !b.dataset.answer?.toLowerCase().includes('parry'));
-        wrong?.click();
-      })()`);
-    }
-    await until(() => evaluate("document.querySelector('#perry-dialogue-text')?.textContent?.includes('Incorrect! You are lucky I am a St. Try again.')"), 'Authored wrong answer response via touch');
+    assert.ok(wrongBtnInfo, 'Wrong answer button must be present in DOM');
+    assert.ok(wrongBtnInfo.hit, `Mobile hit-test failed at (${wrongBtnInfo.x}, ${wrongBtnInfo.y}): hit ${wrongBtnInfo.targetTag}.${wrongBtnInfo.targetClass}`);
+    assert.equal(wrongBtnInfo.disabled, false, 'Touch target button must be enabled');
+
+    await tap('touchStart', [{ x: wrongBtnInfo.x, y: wrongBtnInfo.y }]);
+    await sleep(50);
+    await tap('touchEnd', []);
+
+    await until(() => evaluate("document.querySelector('#perry-dialogue-text')?.textContent?.includes('Incorrect! You are lucky I am a St. Try again.')"), 'Authored wrong answer response via emulated touch tap', 8000);
     console.log('   Touch tap delivered authored response: "Incorrect! You are lucky I am a St. Try again."');
 
     await cdp.send('Emulation.setTouchEmulationEnabled', { enabled: false }).catch(() => {});
@@ -553,36 +556,33 @@ export async function runBundledAcceptance({ directory = 'dist/html5' } = {}) {
       return s.dummy?.practiceMode === 'ST_PERRY';
     }, 'Perry reset to riddle dummy', 10000);
 
-    // Verify conditional choice appears
-    const hasPlainChoice = await until(async () => {
+    // Verify conditional choice appears and is naturally enabled
+    const plainChoiceStatus = await until(async () => {
       return evaluate(`(() => {
-        const btns = [...document.querySelectorAll('.perry-option-btn')].map(b => b.textContent);
-        return btns.some(t => t.includes('Plain') && t.includes('accurate'));
+        const btn = [...document.querySelectorAll('.perry-option-btn')].find(b => b.dataset.answer?.includes('Plain') || b.textContent.includes('Plain'));
+        if (!btn) return null;
+        return {
+          found: true,
+          text: btn.textContent,
+          answer: btn.dataset.answer,
+          disabled: Boolean(btn.disabled),
+        };
       })()`);
-    }, 'St. Perry the Plain conditional dialogue choice', 10000);
-    assert.ok(hasPlainChoice, 'Guaranteed conditional answer option must appear');
-    console.log('   Conditional dialogue option ("Because \'St. Perry the Plain\' was too accurate?") is present.');
+    }, 'St. Perry the Plain conditional dialogue choice rendered', 10000);
+    assert.ok(plainChoiceStatus?.found, 'Guaranteed conditional answer option must appear');
+    assert.equal(plainChoiceStatus.disabled, false, 'Conditional answer button must be naturally enabled');
+    console.log('   Conditional dialogue option ("Because \'St. Perry the Plain\' was too accurate?") is naturally enabled.');
 
-    // Select the conditional choice and verify indignation reaction
-    await sleep(400);
+    // Select the conditional choice via authentic button click (no state override or socket bypass)
     await evaluate(`(() => {
-      const r = window.__ssRuntime;
-      const plainBtn = [...document.querySelectorAll('.perry-option-btn')].find(b => b.textContent.includes('Plain') || b.dataset.answer?.includes('Plain'));
-      if (plainBtn) {
-        plainBtn.disabled = false;
-        plainBtn.click();
-      } else if (r?.socket?.practicePerryAnswer) {
-        r.socket.practicePerryAnswer("Because 'St. Perry the Plain' was too accurate?");
-      }
+      const plainBtn = [...document.querySelectorAll('.perry-option-btn')].find(b => b.dataset.answer?.includes('Plain') || b.textContent.includes('Plain'));
+      if (!plainBtn) throw new Error('Missing plainBtn element in DOM');
+      plainBtn.click();
     })()`);
-    await until(() => evaluate(`(() => {
-      const text = document.querySelector('#perry-dialogue-text')?.textContent || '';
-      const prog = window.__ssRuntime?.socket?.local?.room?.stPerryState?.byPlayer?.get(window.__ssRuntime?.localAuth?.id);
-      return Boolean(text.includes('NO! HOW DID YOU GET THAT!') || text.includes('Prepare for the Perry!') || prog?.dialogue?.lastLine?.includes('Prepare for the Perry!'));
-    })()`), 'Perry indignation reaction', 10000);
-    const indignation = await evaluate("document.querySelector('#perry-dialogue-text')?.textContent || window.__ssRuntime?.socket?.local?.room?.stPerryState?.byPlayer?.get(window.__ssRuntime?.localAuth?.id)?.dialogue?.lastLine");
+    await until(() => evaluate("document.querySelector('#perry-dialogue-text')?.textContent?.includes('NO! HOW DID YOU GET THAT!')"), 'Perry indignation reaction in dialogue text', 10000);
+    const indignation = await evaluate("document.querySelector('#perry-dialogue-text')?.textContent");
     console.log(`   Perry reaction: "${indignation}"`);
-    assert.ok(indignation.includes('NO! HOW DID YOU GET THAT! I musn\'t allow you to revoke my sainthood! Prepare for the Perry!'));
+    assert.ok(indignation.includes("NO! HOW DID YOU GET THAT! I musn't allow you to revoke my sainthood! Prepare for the Perry!"));
     await saveScreenshot('03-perry-indignant-reaction.png');
 
     // 4. Bi-Bye-llista Mounting, CLEAR Aiming, and Firing Release
