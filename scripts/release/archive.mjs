@@ -11,6 +11,37 @@ export const digest = value => createHash('sha256').update(value).digest('hex');
 export const json = async file => JSON.parse(await readFile(file, 'utf8'));
 export const unzip = (zip, file) => execFileSync('unzip', ['-p', zip, file], { maxBuffer: 250 * 1024 ** 2 });
 
+export function validateCompatibilitySources(sources) {
+  if (!Array.isArray(sources) || sources.length === 0) {
+    throw new Error('Archive export-report missing or empty compatibilitySources');
+  }
+  const seenPaths = new Set();
+  for (const source of sources) {
+    if (!source || typeof source.path !== 'string' || !DIGEST.test(source.sha256) || !Number.isInteger(source.size) || source.size <= 0) {
+      throw new Error(`Malformed compatibility source entry: ${JSON.stringify(source)}`);
+    }
+    if (!/^(shared\/.*\.mjs|client\/network\/GameSocket\.mjs)$/.test(source.path) || source.path.includes('..') || source.path.startsWith('/') || source.path.includes('\\')) {
+      throw new Error(`Invalid compatibility source path: ${source.path}`);
+    }
+    if (seenPaths.has(source.path)) {
+      throw new Error(`Duplicate compatibility source entry: ${source.path}`);
+    }
+    seenPaths.add(source.path);
+  }
+  const requiredAuthoritative = [
+    'shared/sim/Room.mjs',
+    'shared/sim/BotController.mjs',
+    'shared/sim/StPerry.mjs',
+    'client/network/GameSocket.mjs',
+  ];
+  for (const required of requiredAuthoritative) {
+    if (!seenPaths.has(required)) {
+      throw new Error(`Missing authoritative compatibility source: ${required}`);
+    }
+  }
+  return seenPaths;
+}
+
 export async function validateArchive(directory, { revision, checksum } = {}) {
   const report = await json(path.join(directory, 'export-report.json'));
   const zip = path.join(directory, ZIP_NAME), bytes = await readFile(zip);
@@ -48,5 +79,6 @@ export async function validateArchive(directory, { revision, checksum } = {}) {
   if (!mainBundle.includes('LocalHost') && !expected.has('client/network/LocalHost.mjs')) {
     throw new Error('Missing production dependency: LocalHost simulation engine');
   }
+  validateCompatibilitySources(report.compatibilitySources);
   return { ...report, zip };
 }
