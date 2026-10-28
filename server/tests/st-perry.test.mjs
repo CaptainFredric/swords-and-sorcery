@@ -68,13 +68,18 @@ test('St. Perry: Part II dialogue - correct answers, wrong answers with exact au
   assert.equal(dummy.stPerry.dialogue.wrongCount, 2);
   assert.equal(dummy.stPerry.dialogue.lastLine, 'Have you grown in intellect since we last spoke?');
 
-  // 3rd wrong answer (subsequent wrong answer)
+  // 3rd wrong answer
   assert.equal(answerPerryDialogue(room, human, 'Because you wear green?', 3), true);
   assert.equal(dummy.stPerry.dialogue.wrongCount, 3);
-  assert.equal(dummy.stPerry.dialogue.lastLine, 'Have you grown in intellect since we last spoke?');
+  assert.equal(dummy.stPerry.dialogue.lastLine, "That's ENOUGH! I shall no longer listen to any answer I do not like! Even if you force me to prove my name!!");
+
+  // 4th wrong answer (subsequent wrong answer)
+  assert.equal(answerPerryDialogue(room, human, 'You must be very wealthy', 4), true);
+  assert.equal(dummy.stPerry.dialogue.wrongCount, 4);
+  assert.equal(dummy.stPerry.dialogue.lastLine, "That's ENOUGH! I shall no longer listen to any answer I do not like! Even if you force me to prove my name!!");
 
   // Correct answer
-  assert.equal(answerPerryDialogue(room, human, 'Because you parry!', 4), true);
+  assert.equal(answerPerryDialogue(room, human, 'Because you parry!', 5), true);
   assert.equal(dummy.stPerry.dialogue.solved, true);
   assert.equal(dummy.stPerry.dialogue.lastLine, 'Finally!.. I meant, that was the least you could do. Your reward?... Enjoy this brief acknowledgement.');
 
@@ -277,6 +282,11 @@ test('St. Perry: Every authored incorrect choice advances wrongCount and follows
     answerPerryDialogue(room, human, inc, 2.0);
     assert.equal(dummy.stPerry.dialogue.wrongCount, 2);
     assert.equal(dummy.stPerry.dialogue.lastLine, 'Have you grown in intellect since we last spoke?');
+
+    // 3rd wrong
+    answerPerryDialogue(room, human, inc, 3.0);
+    assert.equal(dummy.stPerry.dialogue.wrongCount, 3);
+    assert.equal(dummy.stPerry.dialogue.lastLine, "That's ENOUGH! I shall no longer listen to any answer I do not like! Even if you force me to prove my name!!");
   }
 });
 
