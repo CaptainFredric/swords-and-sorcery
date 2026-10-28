@@ -1,12 +1,17 @@
 import { beginAttack, endAttack, setGuard, tryCastSpell, castPreparedSpell, tryDash, tryUltimate, cancelAttack } from './combat.mjs';
 import { postureOf } from '../src/body.mjs';
 import { segmentAabbHit } from '../src/collision.mjs';
-import { activeUltimate } from '../src/ultimates.mjs';
+import { activeUltimate, sundering, vortexing } from '../src/ultimates.mjs';
 import { PROWESS } from '../src/prowess.mjs';
 import { BOT_SKILLS } from './botSkill.mjs';
 import { BOT_PROFILES } from './botBehavior.mjs';
 import { stepBotControllers, nextContactAt } from './BotController.mjs';
 import { wayToward } from './botNav.mjs';
+
+function normalize3(v) {
+  const len = Math.hypot(v.x, v.y, v.z) || 1;
+  return { x: v.x / len, y: v.y / len, z: v.z / len };
+}
 
 const DEFENSE_THREAT_RANGE = 3.1;
 const PARRY_LEAD_SEC = 0.10;
@@ -95,7 +100,15 @@ export function resetPerryVisitBag(owner = null) {
   }
 }
 
-export function selectPerryDialogueChoices({ player = null, prog = null, seed = undefined, pool = null } = {}) {
+export function selectPerryDialogueChoices({
+  player = null,
+  prog = null,
+  seed = undefined,
+  pool = null,
+  wrongCount = 0,
+  includeCorrect = undefined,
+  allowOmit = false,
+} = {}) {
   const candidatePool = pool ? [...pool] : [...PERRY_INCORRECT_ANSWERS];
   let earnedConditionals = [];
   if (!pool) {
@@ -107,7 +120,23 @@ export function selectPerryDialogueChoices({ player = null, prog = null, seed = 
     }
   }
 
-  const count = Math.min(3, candidatePool.length);
+  let showCorrect = true;
+  if (includeCorrect !== undefined) {
+    showCorrect = Boolean(includeCorrect);
+  } else if (wrongCount > 0) {
+    // Once the player has received a wrong answer, the correct answer appears in the mix
+    showCorrect = true;
+  } else if (allowOmit) {
+    if (seed !== undefined && seed !== null) {
+      const sVal = (Math.abs(Number(seed)) >>> 0) || 1;
+      showCorrect = (sVal % 2) === 0;
+    } else {
+      // At first, sometimes the right answer doesn't appear (~50% chance)
+      showCorrect = Math.random() < 0.5;
+    }
+  }
+
+  const count = showCorrect ? Math.min(3, candidatePool.length) : Math.min(4, candidatePool.length);
 
   if (seed !== undefined && seed !== null) {
     let s = (Math.abs(Number(seed)) >>> 0) || 1;
@@ -125,7 +154,7 @@ export function selectPerryDialogueChoices({ player = null, prog = null, seed = 
     }
     const selectedIncorrect = indices.slice(0, count).map((idx) => candidatePool[idx]);
 
-    const choices = [PERRY_CORRECT_ANSWER, ...selectedIncorrect];
+    const choices = showCorrect ? [PERRY_CORRECT_ANSWER, ...selectedIncorrect] : [...selectedIncorrect];
     for (let i = choices.length - 1; i > 0; i--) {
       const j = Math.floor(rnd() * (i + 1));
       [choices[i], choices[j]] = [choices[j], choices[i]];
@@ -158,7 +187,7 @@ export function selectPerryDialogueChoices({ player = null, prog = null, seed = 
   const selectedIncorrect = bag.splice(0, count);
   rotationOwner.rotationBag = bag;
 
-  const choices = [PERRY_CORRECT_ANSWER, ...selectedIncorrect];
+  const choices = showCorrect ? [PERRY_CORRECT_ANSWER, ...selectedIncorrect] : [...selectedIncorrect];
   for (let i = choices.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [choices[i], choices[j]] = [choices[j], choices[i]];
@@ -169,12 +198,12 @@ export function selectPerryDialogueChoices({ player = null, prog = null, seed = 
 export const PERRY_PROFILE = Object.freeze({
   name: 'St. Perry the Prodigious',
   sword: true,
-  spells: false,
+  spells: true,
   guard: 1.0,
-  dash: 0,
+  dash: 0.35,
   keepRange: null,
   flee: false,
-  footwork: 0.35,
+  footwork: 0.65,
 });
 
 export const PERRY_CANONIZED_PROFILE = Object.freeze({
@@ -298,7 +327,7 @@ export function getPlayerPerryDialogue(room, playerId = null) {
   const player = room.players?.get?.(targetId);
 
   if (!prog.dialogue) {
-    const choices = selectPerryDialogueChoices({ player, prog });
+    const choices = selectPerryDialogueChoices({ player, prog, wrongCount: 0, allowOmit: true });
     prog.dialogue = {
       state: 'intro',
       wrongCount: 0,
@@ -393,7 +422,7 @@ export function setupStPerry(actor, nowSec, canonized = false, room = null, play
       solved: false,
       dismissed: false,
       lastLine: 'I am St. Perry, the Prodigious! Any idea why that is my name?',
-      choices: selectPerryDialogueChoices({ player: humanPlayer }),
+      choices: selectPerryDialogueChoices({ player: humanPlayer, wrongCount: 0, allowOmit: true }),
     },
   };
 }
@@ -444,6 +473,15 @@ export function answerPerryDialogue(room, player, answer, nowSec) {
     d.wrongCount += 1;
     d.state = 'heraldReaction';
     d.lastLine = "NO! HOW DID YOU GET THAT! I musn't allow you to revoke my sainthood! Prepare for the Perry!";
+    const prog = getPlayerPerryProgress(room, player?.id);
+    d.choices = selectPerryDialogueChoices({
+      player,
+      prog,
+      wrongCount: d.wrongCount,
+    });
+    if (dummy?.stPerry?.dialogue) {
+      dummy.stPerry.dialogue.choices = d.choices;
+    }
     room.events.push({
       type: 'stPerryDialogue',
       playerId: player.id,
@@ -452,6 +490,7 @@ export function answerPerryDialogue(room, player, answer, nowSec) {
       correct: false,
       special: 'stPerryThePlain',
       wrongCount: d.wrongCount,
+      choices: d.choices ? [...d.choices] : [],
       at: nowSec,
     });
     return true;
@@ -466,6 +505,16 @@ export function answerPerryDialogue(room, player, answer, nowSec) {
   } else {
     d.lastLine = "That's ENOUGH! I shall no longer listen to any answer I do not like! Even if you force me to prove my name!!";
   }
+  const prog = getPlayerPerryProgress(room, player?.id);
+  d.choices = selectPerryDialogueChoices({
+    player,
+    prog,
+    wrongCount: d.wrongCount,
+  });
+  if (dummy?.stPerry?.dialogue) {
+    dummy.stPerry.dialogue.choices = d.choices;
+  }
+
   room.events.push({
     type: 'stPerryDialogue',
     playerId: player.id,
@@ -473,6 +522,7 @@ export function answerPerryDialogue(room, player, answer, nowSec) {
     speaker: 'St. Perry the Prodigious',
     correct: false,
     wrongCount: d.wrongCount,
+    choices: d.choices ? [...d.choices] : [],
     at: nowSec,
   });
   return true;
@@ -758,6 +808,16 @@ export function stepStPerry(room, actor, nowSec, world = room.world, { random = 
   const dt = Math.max(1 / 120, Math.min(1 / 15, nowSec - prevStep || 1 / 30));
   perry.lastStepAt = nowSec;
 
+  // Stagger check: while staggered, Perry cannot guard or counterattack
+  if (nowSec < (actor.staggerUntil ?? -Infinity)) {
+    if (actor.guarding) setGuard(room, actor.id, false, nowSec);
+    if (actor.attackHeld) cancelAttack(room, actor.id, nowSec);
+    perry.pendingCounter = false;
+    perry.counterAttacking = false;
+    actor.input = { forward: 0, right: 0, jump: false, attack: false, guard: false, yaw: actor.yaw, pitch: 0 };
+    return;
+  }
+
   // Release expired guard
   if (actor.guarding && nowSec >= perry.guardUntil) {
     setGuard(room, actor.id, false, nowSec);
@@ -765,25 +825,154 @@ export function stepStPerry(room, actor, nowSec, world = room.world, { random = 
 
   const dx = target.position.x - actor.position.x;
   const dz = target.position.z - actor.position.z;
-  const distance = Math.hypot(dx, dz);
+  const distance = Math.hypot(dx, dz) || 1;
+
+  // 1. ULTIMATES FLEE: Intelligent evasion from Sunder or Vortex
+  const targetSunder = sundering(target, nowSec) || target.ultimateState?.id === 'sunder';
+  const targetVortex = Boolean(vortexing(target, nowSec)) || target.ultimateState?.id === 'vortex';
+  const threatUltimate = targetSunder || targetVortex;
+
+  if (threatUltimate) {
+    // Intelligent flee: Drop guard (blocking Sunder or Vortex breaks guard/inflicts fatal stagger),
+    // cancel any attack or counter, turn away, and sprint/dash to safety.
+    if (actor.guarding) setGuard(room, actor.id, false, nowSec);
+    if (actor.attackHeld || actor.attackActive) cancelAttack(room, actor.id, nowSec);
+    perry.pendingCounter = false;
+    perry.counterAttacking = false;
+
+    const dxAway = actor.position.x - target.position.x;
+    const dzAway = actor.position.z - target.position.z;
+    const distAway = Math.hypot(dxAway, dzAway) || 1;
+    const awayYaw = Math.atan2(-dxAway, -dzAway);
+
+    actor.yaw = turnToward(actor.yaw, awayYaw, PERRY_TURN_RATE * 1.5 * dt);
+
+    if (distAway < 6.0) {
+      tryDash(room, actor.id, { x: dxAway / distAway, z: dzAway / distAway }, nowSec);
+    }
+
+    actor.input = {
+      forward: 1.0,
+      right: 0,
+      jump: false,
+      attack: false,
+      guard: false,
+      sprint: true,
+      yaw: actor.yaw,
+      pitch: 0,
+    };
+    return;
+  }
 
   // Turn to face target smoothly (predominantly holds ground)
   const faceYaw = Math.atan2(-dx, -dz);
   const f = forwardFromYaw(actor.yaw);
-  const toTargetX = dx / (distance || 1);
-  const toTargetZ = dz / (distance || 1);
+  const toTargetX = dx / distance;
+  const toTargetZ = dz / distance;
   const isTargetInFov = (f.x * toTargetX + f.z * toTargetZ) >= 0;
   const baseTurnRate = isTargetInFov ? PERRY_TURN_RATE : Math.PI * 0.85;
   const maxTurn = (actor.guarding ? 0.65 : 1.0) * baseTurnRate * dt;
   actor.yaw = turnToward(actor.yaw, faceYaw, maxTurn);
   actor.pitch = 0;
 
-  // Stagger check: while staggered, Perry cannot guard or counterattack
-  if (nowSec < (actor.staggerUntil ?? -Infinity)) {
-    if (actor.guarding) setGuard(room, actor.id, false, nowSec);
-    if (actor.attackHeld) cancelAttack(room, actor.id, nowSec);
+  // 2. PROJECTILE EVASION & RETALIATION
+  let threateningProj = null;
+  let minProjT = Infinity;
+  for (const p of room.projectiles?.values() ?? []) {
+    if (p.ownerId === actor.id) continue;
+    const rx = actor.position.x - p.position.x;
+    const rz = actor.position.z - p.position.z;
+    const vx = p.velocity?.x || 0;
+    const vz = p.velocity?.z || 0;
+    const vSq = vx * vx + vz * vz;
+    if (vSq < 0.1) continue;
+    const dot = rx * vx + rz * vz;
+    if (dot > 0) {
+      const t = dot / vSq;
+      if (t > 0 && t <= 1.5) {
+        const closestX = p.position.x + vx * t;
+        const closestZ = p.position.z + vz * t;
+        const miss = Math.hypot(actor.position.x - closestX, actor.position.z - closestZ);
+        if (miss <= 3.2 && t < minProjT) {
+          minProjT = t;
+          threateningProj = p;
+        }
+      }
+    }
+  }
+
+  if (threateningProj) {
+    const vx = threateningProj.velocity.x;
+    const vz = threateningProj.velocity.z;
+    const vLen = Math.hypot(vx, vz) || 1;
+    const perpX = -vz / vLen;
+    const perpZ = vx / vLen;
+    const side = ((actor.position.x - threateningProj.position.x) * perpX + (actor.position.z - threateningProj.position.z) * perpZ) >= 0 ? 1 : -1;
+    const dashDir = { x: perpX * side, z: perpZ * side };
+
+    const dashed = tryDash(room, actor.id, dashDir, nowSec);
+    if (dashed) {
+      perry.retaliateSpell = true;
+      perry.retaliateAt = nowSec + 0.35;
+    }
+  }
+
+  // Handle retaliatory spell launch
+  if (perry.retaliateSpell && nowSec >= perry.retaliateAt) {
+    if (distance <= 16 && !actor.pendingSpell && !actor.attackActive) {
+      const dy = (target.position.y + postureOf(target).center) - (actor.position.y + postureOf(actor).eye);
+      const castDir = normalize3({ x: dx, y: dy, z: dz });
+      if (tryCastSpell(room, actor.id, castDir, nowSec)) {
+        perry.retaliateSpell = false;
+      }
+    } else if (distance > 16 || nowSec >= perry.retaliateAt + 2.0) {
+      perry.retaliateSpell = false;
+    }
+  }
+
+  // 3. DEFEND AGAINST SPELLS (e.g. Gale)
+  const facingAfterTurn = forwardFromYaw(actor.yaw);
+  const frontalDot = facingAfterTurn.x * toTargetX + facingAfterTurn.z * toTargetZ;
+  const isFrontal = frontalDot >= GUARD_CONE_COS;
+  const targetGale = target.pendingSpell?.spell === 'gale' || Boolean(target.gust);
+  if (targetGale && isFrontal && actor.guardStamina > 10) {
+    if (!actor.guarding) {
+      setGuard(room, actor.id, true, nowSec);
+    }
+    perry.guardUntil = Math.max(perry.guardUntil, nowSec + 0.5);
+  }
+
+  // 4. CONSECUTIVE STRIKE AVOIDANCE:
+  // Detect if player is attacking in melee and Perry's parry won't deflect the hit
+  // (e.g. player attacking Perry while Perry counterattacks/recovers, or chaining consecutive strikes)
+  const contact = nextContactAt(target, nowSec);
+  const targetSwinging = target.attackActive || target.attackHeld || (contact !== null && nowSec < contact);
+  const inMeleeRange = distance <= DEFENSE_THREAT_RANGE;
+  const isConsecutiveStrike = (target.attackNextStrike ?? 0) > 0 || (target.chainCount ?? 0) > 0;
+  const inCounterOrRecovery = actor.attackActive || actor.attackHeld || perry.counterAttacking || perry.pendingCounter || nowSec < (perry.lastCounterAt ?? 0) + 0.6;
+  const cannotDeflect = inCounterOrRecovery || (isConsecutiveStrike && (actor.guardStamina <= 15 || nowSec < (actor.recoverUntil ?? -Infinity)));
+
+  if (targetSwinging && inMeleeRange && cannotDeflect && isFrontal) {
+    if (actor.attackHeld || actor.attackActive) {
+      cancelAttack(room, actor.id, nowSec);
+    }
     perry.pendingCounter = false;
-    actor.input = { forward: 0, right: 0, jump: false, attack: false, guard: false, yaw: actor.yaw, pitch: 0 };
+    perry.counterAttacking = false;
+
+    // Dash or backpedal backward out of range of consecutive strikes
+    const awayDir = { x: -toTargetX, z: -toTargetZ };
+    tryDash(room, actor.id, awayDir, nowSec);
+
+    actor.input = {
+      forward: -1.0,
+      right: 0,
+      jump: false,
+      attack: false,
+      guard: false,
+      sprint: true,
+      yaw: actor.yaw,
+      pitch: 0,
+    };
     return;
   }
 
@@ -833,14 +1022,8 @@ export function stepStPerry(room, actor, nowSec, world = room.world, { random = 
   actor.input = { forward, right, jump: false, attack: false, guard: actor.guarding, yaw: actor.yaw, pitch: 0 };
 
   // Frontal sword recognition:
-  const contact = nextContactAt(target, nowSec);
   const inRange = distance <= DEFENSE_THREAT_RANGE;
   const hasLos = !targetBlockedByWorld(actor, target, world);
-
-  // Facing check: Is target in Perry's front view cone (115°)?
-  const facingAfterTurn = forwardFromYaw(actor.yaw);
-  const frontalDot = facingAfterTurn.x * toTargetX + facingAfterTurn.z * toTargetZ;
-  const isFrontal = frontalDot >= GUARD_CONE_COS;
 
   const canDefend = actor.guardStamina > 0 && !actor.attackActive && inRange && hasLos && isFrontal && target.attackActive;
 
