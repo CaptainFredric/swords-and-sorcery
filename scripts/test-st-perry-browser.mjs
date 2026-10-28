@@ -5,8 +5,9 @@
  * 1. Practice Yard selection: "St. Perry the Prodigious" option.
  * 2. Part II Dialogue: Non-blocking dialogue card, exact greeting,
  *    authored wrong answer responses ("Incorrect! You are lucky I am a St. Try again.",
- *    "Have you grown in intellect since we last spoke?"), and case-insensitive
- *    "parry" answer matcher.
+ *    "Have you grown in intellect since we last spoke?",
+ *    "That's ENOUGH! I shall no longer listen to any answer I do not like! Even if you force me to prove my name!!"),
+ *    and case-insensitive "parry" answer matcher.
  * 3. Combat Mechanics:
  *    - Frontal parry via authentic setGuard, timing, and parry events.
  *    - Measured single counterattack by Perry.
@@ -283,6 +284,21 @@ try {
   const line2 = await evaluate("document.querySelector('#perry-dialogue-text')?.textContent");
   console.log(`2nd wrong reply: ${line2}`);
   await captureScreenshot('03-perry-dialogue-wrong-intellect.png');
+
+  await wait(400);
+
+  // Test 3rd wrong answer
+  console.log('Testing 3rd wrong answer from rendered choices...');
+  await evaluate(`(() => {
+    const btns = [...document.querySelectorAll('.perry-option-btn')];
+    const wrongs = btns.filter(b => !b.dataset.answer?.toLowerCase().includes('parry'));
+    const thirdWrong = wrongs[2] || wrongs[0];
+    thirdWrong?.click();
+  })()`);
+  await until(() => evaluate("Boolean(document.querySelector('#perry-dialogue-text')?.textContent?.includes(\"That's ENOUGH!\"))"), '3rd wrong answer response', 5000);
+  const line3 = await evaluate("document.querySelector('#perry-dialogue-text')?.textContent");
+  console.log(`3rd wrong reply: ${line3}`);
+  assert.ok(line3?.includes("That's ENOUGH! I shall no longer listen to any answer I do not like! Even if you force me to prove my name!!"));
 
   await wait(400);
 

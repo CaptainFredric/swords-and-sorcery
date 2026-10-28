@@ -461,8 +461,10 @@ export function answerPerryDialogue(room, player, answer, nowSec) {
   d.state = 'wrong';
   if (d.wrongCount === 1) {
     d.lastLine = 'Incorrect! You are lucky I am a St. Try again.';
-  } else {
+  } else if (d.wrongCount === 2) {
     d.lastLine = 'Have you grown in intellect since we last spoke?';
+  } else {
+    d.lastLine = "That's ENOUGH! I shall no longer listen to any answer I do not like! Even if you force me to prove my name!!";
   }
   room.events.push({
     type: 'stPerryDialogue',
