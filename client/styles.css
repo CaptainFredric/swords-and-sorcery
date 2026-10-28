@@ -431,3 +431,30 @@ body.took-steel::after{content:"";position:fixed;inset:0;z-index:50;pointer-even
 .siege-primary.limited svg{stroke:#efc07d;stroke-width:2}
 .siege-secondary{position:absolute;left:-5px;top:-9px;font:16px Georgia,serif;color:#dfd4b9}
 .crosshair.clear-reference:not(:is(.hit,.glance,.kill,.block,.break,.parry))>i{opacity:.28;transform:scale(.55)}
+
+/* Inspection has one simulation and separately selectable actor/camera views. */
+.inspection-camera-ui { position:absolute; inset:0; z-index:15; pointer-events:none; }
+.inspection-camera-tools { position:absolute; right:10px; top:10px; width:min(330px,calc(100% - 20px)); padding:8px; border:1px solid #b29459; background:rgba(31,25,20,.94); color:#eadcb6; pointer-events:auto; font-size:11px; }
+.inspection-camera-tools summary { cursor:pointer; min-height:28px; font-weight:800; letter-spacing:.06em; }
+.inspection-camera-tools summary span { display:inline-block; color:#a9d6db; margin-left:8px; font-size:10px; }
+.inspection-camera-tools p { margin:9px 0 6px; line-height:1.4; }
+.inspection-camera-tools small { color:#b8ab94; font-size:10px; line-height:1.35; }
+.inspection-camera-buttons { display:grid; grid-template-columns:1fr 1fr; gap:5px; }
+.inspection-camera-buttons button,.inspection-view-label { min-height:36px; padding:6px; background:#2a2922; border:1px solid #7e704d; color:#eadcb6; font-size:10px; cursor:pointer; }
+.inspection-camera-ui button[aria-pressed=true] { background:#554329; border-color:#e2bf70; }
+.inspection-camera-ui button:disabled { opacity:.4; cursor:default; }
+.inspection-view-label { position:absolute; pointer-events:auto; min-width:72px; }
+.hud.inspection-flying .bottom-hud,.hud.inspection-flying .hud-status-stack,.hud.inspection-flying .kill-feed,.hud.inspection-flying .subtitle { display:none; }
+.touch-controls.inspection-flight .touch-attack,.touch-controls.inspection-flight .touch-guard,.touch-controls.inspection-flight .touch-spell,.touch-controls.inspection-flight .touch-dash,.touch-controls.inspection-flight .touch-gauntlet,.touch-controls.inspection-flight .touch-ultimate,.touch-controls.inspection-flight .touch-interact,.touch-controls.inspection-flight .touch-deploy,.touch-controls.inspection-flight .touch-siegeView,.touch-controls.inspection-flight .touch-siegeWeapon,.touch-controls.inspection-flight .touch-scores { display:none !important; }
+.touch-controls.inspection-flight .touch-jump { right:22px; bottom:72px; }
+.touch-controls.inspection-flight .touch-crouch { left:auto; right:112px; top:auto; bottom:38px; }
+@container app (max-width:600px) { .inspection-camera-tools { top:48px; width:min(290px,calc(100% - 20px)); } }
+.inspection-pane { position:absolute; border:1px solid rgba(223,194,133,.4); pointer-events:none; }
+.hud.inspection-split .bottom-hud { inset:0; display:block; }
+.hud.inspection-split .health-block { position:absolute; top:52px; left:12px; width:160px; }
+.hud.inspection-split .guard-block { position:absolute; top:112px; left:12px; width:160px; transform:none; }
+.hud.inspection-split .abilities { position:absolute; right:12px; bottom:12px; gap:3px; }
+.hud.inspection-split .ability { width:65px; height:58px; padding:4px; grid-template-columns:19px 1fr; }
+.hud.inspection-split .ability-icon { font-size:16px; }
+.hud.inspection-split .hud-status-stack { top:12px; left:100px; right:12px; width:auto; transform:none; }
+.hud.inspection-split.inspection-flying .bottom-hud { display:none; }

@@ -1,0 +1,124 @@
+{
+  "baseRevision": "4d92f5cc1880c06f79d2b3f9b9a0cdf1ae278891",
+  "desktop": {
+    "frozenTickBefore": 1614,
+    "frozenTickAfter": 1614,
+    "actorsUnchanged": true,
+    "cameraBefore": {
+      "position": {
+        "x": -9.200000000000001,
+        "y": 3,
+        "z": -6.8999999999999995
+      },
+      "yaw": -2.214297435588181,
+      "pitch": -0.24
+    },
+    "cameraAfter": {
+      "position": {
+        "x": -5.918889524393428,
+        "y": 6.218732772105317,
+        "z": -4.439167143295062
+      },
+      "yaw": -2.214297435588181,
+      "pitch": -0.24
+    },
+    "ownerIdentityPreserved": true,
+    "controlledDummy": "practice-dummy-FRGY4",
+    "dummyMovementBefore": {
+      "x": 6,
+      "y": 0,
+      "z": -4.5
+    },
+    "dummyMovementAfter": {
+      "x": 2.9999999999999973,
+      "y": 0,
+      "z": -2.25
+    },
+    "dummyAttack": true,
+    "dummyCast": true
+  },
+  "touch": {
+    "frozenTickBefore": 15,
+    "frozenTickAfter": 15,
+    "actorsUnchanged": true,
+    "cameraBefore": {
+      "position": {
+        "x": -9.200000000000001,
+        "y": 3,
+        "z": -6.8999999999999995
+      },
+      "yaw": -2.214297435588181,
+      "pitch": -0.24
+    },
+    "cameraAfter": {
+      "position": {
+        "x": -6.040116128101999,
+        "y": 6.173937136569441,
+        "z": -4.530087096076501
+      },
+      "yaw": -2.214297435588181,
+      "pitch": -0.24
+    },
+    "releasedMovement": {
+      "forward": 0,
+      "right": 0,
+      "jump": false,
+      "sprint": false,
+      "crouch": false,
+      "attack": false,
+      "guard": false,
+      "yaw": -2.214297435588181,
+      "pitch": -0.24
+    }
+  },
+  "rotatedShell": {
+    "old": {
+      "x": 6,
+      "y": 0,
+      "z": -4.5
+    },
+    "next": {
+      "x": 3.5519480519480497,
+      "y": 0,
+      "z": -2.663961038961039
+    },
+    "owner": "c150e763-0913-494d-b618-aaf0ee3633b8",
+    "actor": "c150e763-0913-494d-b618-aaf0ee3633b8",
+    "events": [],
+    "stuck": {
+      "forward": 0,
+      "right": 0,
+      "jump": false,
+      "sprint": false,
+      "crouch": false,
+      "attack": false,
+      "guard": false,
+      "yaw": -2.214297435588181,
+      "pitch": 0
+    },
+    "turn": "90"
+  },
+  "cleanup": {
+    "removed": {
+      "id": "7deb4475-d377-4c16-a888-894604013699",
+      "owner": "7deb4475-d377-4c16-a888-894604013699",
+      "arms": 0,
+      "aimGain": 1
+    },
+    "normal": {
+      "available": false,
+      "free": false,
+      "split": false,
+      "hudWidth": "",
+      "tools": true
+    }
+  },
+  "checks": {
+    "repositoryTests": 1868,
+    "html5Tests": 20,
+    "smoke": "passed",
+    "physicalPhone": false,
+    "remotePossession": "rejected by GameLink and LocalHost tests",
+    "sharedSimulationChanges": false
+  }
+}

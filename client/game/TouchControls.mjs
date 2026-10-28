@@ -172,6 +172,20 @@ export class TouchControls {
     if (!this.active) this.reset();
   }
 
+  setInspectionFlight(active) {
+    if (this.inspectionFlight === Boolean(active)) return;
+    this.reset();
+    this.inspectionFlight = Boolean(active);
+    this.layer.classList.toggle('inspection-flight', this.inspectionFlight);
+    this.buttons.jump.querySelector('span').textContent = active ? 'UP' : 'JUMP';
+    this.buttons.crouch.querySelector('span').textContent = active ? 'DOWN' : 'CROUCH';
+    this.buttons.sprint.querySelector('span').textContent = active ? 'FAST' : 'SPRINT';
+    this.buttons.jump.setAttribute('aria-label',active?'Fly up':'JUMP');
+    this.buttons.crouch.setAttribute('aria-label',active?'Fly down':'CROUCH');
+    this.buttons.sprint.setAttribute('aria-label',active?'Camera fast mode':'SPRINT');
+    if(active){this.ramMounted=false;this.layer.classList.remove('touch-mounted','touch-ram');}
+  }
+
   reset() {
     this.input.onAimCancelled?.();
     this.viewGesture=null;
@@ -183,6 +197,7 @@ export class TouchControls {
     this.look = null;
     this.sprintLatched = false;this.chargeHeld=false;
     this.crouchLatched = false;
+    this.flightCrouchHeld = false;
     this.crouchTap = null;
     this.viewGesture = null;
     this.jumpHeld = false;
@@ -202,9 +217,9 @@ export class TouchControls {
     const result = {
       forward: moveAllowed ? this.stickState.forward : 0,
       right: moveAllowed ? this.stickState.right : 0,
-      jump: this.jumpHeld || performance.now() < this.jumpUntil,
+      jump: this.jumpHeld || !this.inspectionFlight && performance.now() < this.jumpUntil,
       sprint: this.ramMounted?(this.chargeHeld || moveAllowed && this.stickState.sprint):moveAllowed && (this.stickState.sprint || this.#gateHeld('sprint', this.sprintLatched && moving, 'touch-latch', false)),
-      crouch: Boolean(this.crouchLatched),
+      crouch: this.inspectionFlight ? Boolean(this.flightCrouchHeld) : Boolean(this.crouchLatched),
     };
     this.#showTouchDebug(result);
     return result;
@@ -231,6 +246,7 @@ export class TouchControls {
   }
 
   update(local, serverNow, { practice = false, snapshot = null } = {}) {
+    if (this.inspectionFlight) return;
     if (!local) return;
     this.prepared = preparedSpellView(local, serverNow);
     this.input.updatePreparedSpells(local, serverNow);
@@ -544,6 +560,7 @@ export class TouchControls {
       if (!this.sprintLatched) this.#gateHeld('sprint', false, 'touch-latch');
       this.buttons.sprint.classList.toggle('on', this.sprintLatched);
     }
+    if (action === 'crouch' && this.inspectionFlight) { this.flightCrouchHeld=true; return; }
     if (action === 'crouch') {
       const point = gamePoint(event, this.layer);
       this.crouchTap = { id: event.pointerId, at: performance.now(), x: point.x, y: point.y };
@@ -563,6 +580,7 @@ export class TouchControls {
     if (action === 'attack') this.input.setAttack(false);
     if (action === 'guard') this.input.setGuard(false);
     if (action === 'jump') this.jumpHeld = false;
+    if(action==='crouch'&&this.inspectionFlight)this.flightCrouchHeld=[...this.held].some(([id,held])=>id!==pointerId&&held==='crouch'&&!this.deniedButtons.has(id));
     if(action==='sprint')this.chargeHeld=[...this.held].some(([id,held])=>id!==pointerId&&held==='sprint'&&!this.deniedButtons.has(id));
   }
 

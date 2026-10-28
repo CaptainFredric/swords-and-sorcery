@@ -593,3 +593,31 @@ test('cancelled look or View fingers cancel precision view while ordinary finger
  const prior=cancelled;send('pointerdown',650,230,{action:'attack',pointerId:3});send('pointercancel',660,230,{action:'attack',pointerId:3});assert.equal(cancelled,prior+1);assert.equal(input.attackHeld,false);
  controls.reset();assert.ok(cancelled>1);
 });
+
+test('Inspection flight uses held rise/descend, independent look, and clears interrupted gestures',()=>{
+ const {controls,send,input,calls}=setup({alive:true,spell:'fireball'});
+ controls.setInspectionFlight(true);
+ send('pointerdown',650,300,{action:'crouch',pointerId:9});
+ assert.equal(controls.movement().crouch,true);
+ send('pointerdown',700,200,{action:'jump',pointerId:10});
+ assert.equal(controls.movement().jump,true);
+ send('pointercancel',650,300,{action:'crouch',pointerId:9});
+ assert.equal(controls.movement().crouch,false);
+ send('pointerup',700,200,{action:'jump',pointerId:10});
+ assert.equal(controls.movement().jump,false,'flight rise has no jump pulse after release');
+ controls.reset();assert.equal(controls.movement().crouch,false);
+ controls.setInspectionFlight(false);
+ send('pointerdown',650,300,{action:'crouch',pointerId:11});send('pointerup',650,300,{action:'crouch',pointerId:11});
+ assert.equal(controls.movement().crouch,true,'ordinary crouch still toggles');
+ assert.deepEqual(calls,[]);input.dispose();
+});
+
+test('mouse clicks on interface controls do not also attack while touch focus is active',()=>{
+ const {input,calls}=setup({alive:true,spell:'fireball'});
+ const event=new Event('mousedown');
+ Object.defineProperties(event,{button:{value:0},target:{value:{closest:()=>({tagName:'BUTTON'})}}});
+ document.dispatchEvent(event);assert.deepEqual(calls,[]);
+ const canvas=new Event('mousedown');Object.defineProperties(canvas,{button:{value:0},target:{value:{closest:()=>null}}});
+ document.dispatchEvent(canvas);assert.deepEqual(calls,[['attack',true]]);
+ input.dispose();
+});

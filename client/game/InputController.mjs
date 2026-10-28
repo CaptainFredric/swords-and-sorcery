@@ -220,6 +220,9 @@ export class InputController {
 
     // mouse buttons are bindings like keys: Mouse0 is the left button, Mouse2 the right
     this.#listen(document, 'mousedown', (event) => {
+      // A focused touch arena can coexist with menus and Inspection controls.
+      // Their compatibility mouse clicks must never become a sword press.
+      if (event.sourceCapabilities?.firesTouchEvents || event.target?.closest?.('button, input, select, textarea, summary, a, [role=dialog]')) return;
       if (!this.enabled && !this.pointerLocked) return;
       this.handleMouseButtonDown(`Mouse${event.button}`);
     });

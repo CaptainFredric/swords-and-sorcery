@@ -532,7 +532,8 @@ function ensureRuntime() {
       else if (latestSnapshot?.roomState === 'PLAYING' && mode !== 'PRACTICE') openPause();
     };
   }
-  runtime.setPlayerId(socket.playerId);
+  runtime.onInspectionFreeze=toggleInspectionFreeze;
+  runtime.setPlayerId(socket.inspectionActorId??socket.playerId);
 }
 
 function runMenuAction(result, failureScreen) {
@@ -1446,8 +1447,8 @@ function toggleInspectionFreeze() {
   const frozen = !socket.inspectionFrozen;
   // Freeze before releasing focus so a frozen Guard or sword pose remains intact.
   if (!socket.setInspectionFrozen(frozen)) return;
-  runtime.input.suspended = frozen;
-  if (frozen) runtime.input.releaseFocus();
+  runtime.syncInspection();
+  if (frozen && !runtime.inspectionFree) runtime.input.releaseFocus();
   else runtime.input.releaseInputs();
   updateInspectionControls();
 }

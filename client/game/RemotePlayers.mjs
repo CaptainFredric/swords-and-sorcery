@@ -340,7 +340,12 @@ export class RemotePlayers {
     this.nextRigIndex = 0;
   }
 
-  setLocalId(id) { this.localId = id; }
+  setLocalId(id) {
+    if (id === this.localId) return;
+    this.dispose();
+    this.self = null;
+    this.localId = id;
+  }
 
   onEvent(event, snapshot = null) {
     this.#react(event, snapshot);

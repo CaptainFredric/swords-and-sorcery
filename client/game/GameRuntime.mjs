@@ -1,3 +1,5 @@
+import { flyStep, inspectionSpawn, inspectionViews } from './inspectionCamera.mjs';
+import { InspectionCameraTools } from './InspectionCameraTools.mjs';
 import { structureWorld } from '../../shared/sim/structures.mjs';
 import { StructureRenderer } from '../worlds/StructureRenderer.mjs';
 import {SoFisticationRenderer} from '../worlds/SoFisticationRenderer.mjs';
@@ -224,13 +226,13 @@ export class GameRuntime {
       this.#play(swingRecipe(Math.random, { strike: heavy ? 2 : strike }), null, 0.85);
       // the heavy third strike gets his breath behind it; the lighter ones only now and then
       // (under the Sunder sentence, a word to a slam, the ordinary breath of a swing keeps quiet)
-      if (!this.scenes.sentenceRunning(this.socket.playerId, this.socket.serverNow())) this.#sayMoment(this.socket.playerId, [heavy ? 'heavySwing' : 'lightSwing']);
+      if (!this.scenes.sentenceRunning(this.playerId, this.socket.serverNow())) this.#sayMoment(this.playerId, [heavy ? 'heavySwing' : 'lightSwing']);
     };
     // my own strike committed, its swing beginning: the breath behind it leads the blade (a first swing after a while;
     // the heavy third swung at a foe it would fell)
     this.weapon.onBegin = (strike) => {
       this.#play(attackWindupRecipe(Math.random, { strike }), null, 0.45);
-      const me = this.socket.playerId;
+      const me = this.playerId;
       const knights = (this.latestSnapshot?.players ?? []).map((p) => (p.id === me && this.localState
         ? { ...p, position: this.localState.position, yaw: this.input.yaw ?? p.yaw } : p));
       this.#sayWatched(this.watch.begin({ playerId: me, strikeIndex: strike, at: this.socket.serverNow() }, knights));
@@ -238,6 +240,25 @@ export class GameRuntime {
     this.effects = new Effects(this.scene, this.camera);
     this.onPointer = () => {};
     this.input = new InputController(this.renderer.domElement, socket);
+    this.inspectionFocus = 'actor';
+    this.inspectionSplit = false;
+    this.flyCamera = new THREE.PerspectiveCamera(78, 1, .05, 2000);
+    this.inspectionTools = new InspectionCameraTools(hud.root.parentElement, {
+      actor: () => this.inhabitInspection(socket.playerId),
+      dummy: () => this.inhabitInspection(this.latestSnapshot?.players.find(p=>p.actorKind==='dummy'&&p.alive)?.id),
+      body: () => this.setInspectionFocus('actor'),
+      fly: () => this.setInspectionFocus('fly'),
+      split: () => this.setInspectionSplit(!this.inspectionSplit),
+      reset: () => this.resetInspectionCamera(),
+      freeze: () => {this.onInspectionFreeze?.();if(!socket.inspectionFrozen&&this.touch)this.input.requestPointerLock();},
+      step: () => socket.stepInspection(),
+    });
+    this.inspectionActionGate = (action, notify=true) => {
+      if (!this.inspectionFree || ['look','move','sprint','jump','crouch','pause'].includes(action)) return true;
+      if (notify) this.hud.flashText('CAMERA ONLY', '', 700);
+      return false;
+    };
+    if(socket.inspectionAvailable)this.input.allowAction=this.inspectionActionGate;
     this.siegeView = 'third';
     this.input.onAction = (action, pressed) => {
       if (['siegeView','siegeZoom'].includes(action) && pressed && this.localAuth?.alive && (this.localAuth?.operatingBallistaId||this.localAuth?.operatingRamId)) {
@@ -389,7 +410,7 @@ export class GameRuntime {
       // a Steel dash straight at someone near is a charge (head on, as he would put it): its line, if said, is the
       // only breath of the dash (the same moment: the first said is the only one)
       const toward = ram > 0 ? chargeTarget(this.localState.position, this.localState.dashDir, this.#chargeable(now)) : null;
-      this.#sayMoment(this.socket.playerId, toward ? ['steelCharge', 'dash'] : ['dash']);
+      this.#sayMoment(this.playerId, toward ? ['steelCharge', 'dash'] : ['dash']);
     };
 
     this.localState = null;
@@ -407,6 +428,7 @@ export class GameRuntime {
     this.unsubscribe = [
       socket.on('snapshot', (snapshot) => this.onSnapshot(snapshot)),
       socket.on('events', (batch) => this.onEvents(batch.events)),
+      socket.on('inspectionState', () => this.syncInspection()),
     ];
     window.addEventListener('resize', this.#resize);
     // the shell can change shape without the window changing (lying sideways on an upright phone app)
@@ -427,9 +449,12 @@ export class GameRuntime {
 
   #resize = () => {
     const view = this.#viewSize();
-    this.camera.aspect = view.width / view.height;
+    const actorView = this.socket.inspectionAvailable && this.inspectionSplit
+      ? inspectionViews(view.width,view.height,true,this.inspectionFocus)[0] : view;
+    this.camera.aspect = actorView.width / actorView.height;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(view.width, view.height);
+    this.syncInspection();
   };
 
   #applyWeaponRelease(release) {
@@ -515,8 +540,88 @@ export class GameRuntime {
     this.sun.target.updateMatrixWorld();
   }
 
+  get playerId() { return this.socket.inspectionActorId ?? this.socket.playerId; }
+  get inspectionFree() { return this.socket.inspectionAvailable && this.inspectionFocus === 'fly'; }
+
   setPlayerId(id) {
+    if (id === this.remotePlayers.localId) return;
+    this.input.releaseInputs();
     this.remotePlayers.setLocalId(id);
+    this.localState=null;this.localAuth=null;this.deathCam=null;
+    this.chase=0;this.chaseOut=0;this.chaseAim=null;this.siegeCamera=null;
+    this.weapon.cancelAttack();this.weapon.setGuard(false);this.weapon.cancelCast();
+    this.cameraKick=0;this.wasConcurrent=false;this.lastInputAt=-Infinity;
+    this.localRam=null;this.windOnMeUntil=null;this.braceAskedAt=null;
+    this.siegeView='third';this.siegeReturnView=undefined;this.clearBlend=0;this.input.aimGain=1;
+    this.weapon.group.position.y=0;this.weapon.group.visible=true;
+    this.#setFov(this.view.fov);
+    // Same-clock frozen snapshots still need one pose refresh for the new viewpoint.
+    this.lastFrameAt=this.presentationNow()-.001;
+  }
+
+  inhabitInspection(id) {
+    if (!id || !this.socket.inspectionAvailable) return false;
+    this.input.releaseInputs();
+    if (!this.socket.setInspectionActor(id)) return false;
+    this.setInspectionFocus('actor');
+    return true;
+  }
+
+  setInspectionFocus(focus) {
+    if (!this.socket.inspectionAvailable || !['actor','fly'].includes(focus)) return false;
+    const wasFree=this.inspectionFree;
+    this.input.releaseInputs();
+    this.socket.releaseInspectionInput();
+    this.inspectionFocus=focus;
+    if(focus==='fly') {
+      this.flyPose ??= inspectionSpawn(this.localAuth);
+      this.input.yaw=this.flyPose.yaw;this.input.pitch=this.flyPose.pitch;
+    } else if(wasFree && this.localAuth) {
+      this.input.yaw=this.localAuth.yaw;this.input.pitch=this.localAuth.pitch;
+    }
+    this.syncInspection();
+    if(this.socket.inspectionFrozen && focus==='actor')this.input.releaseFocus();
+    else if(this.touch)this.input.requestPointerLock();
+    return true;
+  }
+
+  setInspectionSplit(split) {
+    if (!this.socket.inspectionAvailable) return false;
+    this.input.releaseInputs();this.socket.releaseInspectionInput();
+    this.inspectionSplit=Boolean(split);
+    this.flyPose ??= inspectionSpawn(this.localAuth);
+    this.#resize();
+    return true;
+  }
+
+  resetInspectionCamera() {
+    if (!this.socket.inspectionAvailable) return;
+    this.input.releaseInputs();
+    this.flyPose=inspectionSpawn(this.localAuth);
+    if(this.inspectionFree){this.input.yaw=this.flyPose.yaw;this.input.pitch=this.flyPose.pitch;}
+    this.syncInspection();
+  }
+
+  syncInspection() {
+    const enabled=Boolean(this.socket.inspectionAvailable);
+    if(!enabled&&!this.inspectionWasAvailable)return;
+    this.inspectionWasAvailable=enabled;
+    if(enabled&&!this.input.allowAction)this.input.allowAction=this.inspectionActionGate;
+    if(!enabled&&this.input.allowAction===this.inspectionActionGate)this.input.allowAction=null;
+    const available=Boolean(enabled&&this.playing);
+    if(!this.socket.inspectionAvailable){this.inspectionFocus='actor';this.inspectionSplit=false;this.flyPose=null;}
+    this.input.suspended=Boolean(this.socket.inspectionFrozen&&!this.inspectionFree);
+    this.touch?.setInspectionFlight(this.inspectionFree);
+    this.hud.root.classList.toggle('inspection-flying',this.inspectionFree);
+    this.hud.root.classList.toggle('inspection-split',available&&this.inspectionSplit);
+    const size=this.#viewSize();
+    const views=inspectionViews(size.width,size.height,this.inspectionSplit,this.inspectionFocus);
+    const pane=views.find(v=>v.controlled);
+    if(available&&this.inspectionSplit)Object.assign(this.hud.root.style,{inset:'auto',left:`${pane.x}px`,top:`${pane.y}px`,width:`${pane.width}px`,height:`${pane.height}px`});
+    else for(const key of ['inset','left','top','width','height'])this.hud.root.style[key]='';
+    const key=action=>[...new Set((this.input.bindings[action]??[]).map(code=>code.replace('Key','').replace(/Left$|Right$/g,'')))].join(' / ');
+    const controls=this.touch?'Stick moves; drag to look. Hold UP or DOWN. Push forward fully or tap FAST for speed.':'Move and look normally. Rise: '+key('jump')+'. Descend: '+key('crouch')+'. Faster: '+key('sprint')+'. Escape for camera controls.';
+    this.inspectionTools.update({available,focus:this.inspectionFocus,split:this.inspectionSplit,dummy:this.latestSnapshot?.players.some(p=>p.actorKind==='dummy'&&p.alive),controlledDummy:this.localAuth?.actorKind==='dummy',frozen:this.socket.inspectionFrozen,views,controls});
   }
 
   requestPointerLock() {
@@ -560,6 +665,7 @@ export class GameRuntime {
     this.touch.setGauntletButton(this.touchGauntlet);
     this.input.touch = this.touch;
     this.touch.setActive(this.input.touchFocus);
+    this.syncInspection();
     this.#shadowDetail();
   }
 
@@ -567,6 +673,7 @@ export class GameRuntime {
     this.playing = Boolean(playing) && !this.worldError;
     if (!this.playing) {this.#applyWeaponRelease({ attack: true, guard: true });this.siegeSound.stop();this.ramSound.stop();}
     if (!this.playing && !preservePointerLock) this.input.releaseFocus();
+    this.syncInspection();
   }
 
   onSnapshot(snapshot) {
@@ -593,9 +700,11 @@ export class GameRuntime {
     }
     if(snapshot.roomCode===this.latestSnapshot?.roomCode&&(snapshot.soFistRevision??0)<(this.latestSnapshot?.soFistRevision??0))return;
     this.latestSnapshot = snapshot;
+    this.setPlayerId(this.playerId);
+    const flyAim=this.inspectionFree?{yaw:this.input.yaw,pitch:this.input.pitch}:null;
     this.remotePlayers.pushSnapshot(snapshot, this.presentationNow());
     this.effects.syncProjectiles(snapshot.projectiles ?? []);
-    const auth = snapshot.players.find((p) => p.id === this.socket.playerId);
+    const auth = snapshot.players.find((p) => p.id === this.playerId);
     const wasMounted = Boolean(this.localAuth?.operatingBallistaId||this.localAuth?.operatingRamId);
     this.localAuth = auth ?? null;
     this.input.mountedRam=Boolean(auth?.alive&&auth.operatingRamId);
@@ -678,6 +787,8 @@ export class GameRuntime {
       this.weapon.setGuard(this.input.guardHeld && auth.alive && auth.guardStamina > 0);
     }
     this.wasConcurrent = concurrent;
+    if(flyAim){this.input.yaw=flyAim.yaw;this.input.pitch=flyAim.pitch;}
+    this.syncInspection();
   }
 
   onEvents(events) {
@@ -690,12 +801,12 @@ export class GameRuntime {
       }
       if(event.type==='structureDamaged'){
         if(event.point)this.effects.splinters?.(event.point);
-        if(event.attackerId===this.socket.playerId)this.hud.flashText(event.destroyed?'BREACH OPEN':`TIMBER DAMAGED · ${Math.ceil(event.health)}/${event.maxHealth}`,event.destroyed?'gold':'',event.destroyed?1800:950);
+        if(event.attackerId===this.playerId)this.hud.flashText(event.destroyed?'BREACH OPEN':`TIMBER DAMAGED · ${Math.ceil(event.health)}/${event.maxHealth}`,event.destroyed?'gold':'',event.destroyed?1800:950);
       }
       this.ramRenderer.hit(event);
       this.teamVoiceEvents.onEvent(event);
       this.remotePlayers.onEvent(event, this.latestSnapshot);
-      const frostFeedback=biByeFrostFeedback(event,this.socket.playerId);
+      const frostFeedback=biByeFrostFeedback(event,this.playerId);
       if(frostFeedback?.kind==='blast'&&event.point){
         const ground=this.activeWorld?surfaceHeightAt(event.point.x,event.point.z,event.point.y,this.activeWorld):null;
         this.effects.impact(event.point,{spell:'frostfire',radius:event.radius,ground});
@@ -708,9 +819,9 @@ export class GameRuntime {
         if(frostFeedback.reaction==='hit'&&event.damage>0)this.weapon.damage(this.#pushTowardMe(event.attackerId),event.damage);
       }
 
-      this.#applyWeaponRelease(localWeaponReleaseForEvent(event, this.socket.playerId, this.localAuth, event.at ?? this.socket.serverNow()));
+      this.#applyWeaponRelease(localWeaponReleaseForEvent(event, this.playerId, this.localAuth, event.at ?? this.socket.serverNow()));
 
-      const me = this.socket.playerId;
+      const me = this.playerId;
       if (event.playerId === me || event.victimId === me) this.weapon.chivalryEvent(event);
       if (event.type === 'spellCast') {
         const spell = spellFor(event.spell);
@@ -882,14 +993,14 @@ export class GameRuntime {
       }
       this.#warm(event, me);
 
-      const combatFeedback = localCombatFeedback(event, this.socket.playerId);
+      const combatFeedback = localCombatFeedback(event, this.playerId);
       if (combatFeedback === 'block') this.effects.block();
       if (combatFeedback === 'guardBreak') this.effects.guardBreak();
 
       // a blade stopped by the world. Mine was felt as my own view judged it (#foretellClang): the server's word for
       // the same strike only ends the swing (#applyWeaponRelease above), it does not ring twice
       if (event.type === 'swordWorldImpact') {
-        const mine = shouldPlayWorldClang(event, this.socket.playerId);
+        const mine = shouldPlayWorldClang(event, this.playerId);
         const foretold = mine && this.presentationNow() - (this.foretoldClangAt ?? -Infinity) < FORETOLD_CLANG_MS;
         if (foretold) this.foretoldClangAt = -Infinity;
         else this.#worldClang(event, mine);
@@ -947,7 +1058,7 @@ export class GameRuntime {
           }
         }
         // (a ram knocks me through my own view itself, harder: #steelRam)
-        if (event.victimId === this.socket.playerId && event.source !== 'abyss' && event.source !== 'ram' && event.source !== 'bibye-conditioning' && event.amount > 0) {
+        if (event.victimId === this.playerId && event.source !== 'abyss' && event.source !== 'ram' && event.source !== 'bibye-conditioning' && event.amount > 0) {
           this.weapon.damage(this.#pushTowardMe(event.attackerId), event.amount);
         }
         // a blow that kills gets the death cry instead
@@ -961,7 +1072,7 @@ export class GameRuntime {
         // a blow on hardened plate clangs and sparks instead (#steelStruck); otherwise, mine flashes the view red
         // (a ram on hardened plate rings in its own sound: #steelRam)
         const plated = event.source === 'ram' ? (event.steel ?? 0) >= 0.02 : this.#steelStruck(event);
-        if (event.victimId === this.socket.playerId && this.view.damageFlash && !plated && event.amount > 0 && event.source !== 'abyss') {
+        if (event.victimId === this.playerId && this.view.damageFlash && !plated && event.amount > 0 && event.source !== 'abyss') {
           // (the side it came from: the push runs away from whoever struck)
           const push = this.#pushTowardMe(event.attackerId);
           this.hud.hurt?.({ amount: event.amount, side: -push.x });
@@ -979,7 +1090,7 @@ export class GameRuntime {
         if (!outlasts) this.voice?.cut?.(event.victimId, 0.12);
         this.#deathVoice(event, { doomCut: saying === 'spellDoom' });
       }
-      if (event.type === 'respawn' && event.playerId === this.socket.playerId) this.hud.flashText('FIGHT!', 'ready');
+      if (event.type === 'respawn' && event.playerId === this.playerId) this.hud.flashText('FIGHT!', 'ready');
       // a life begun again (the wildcard is once a life); a new match forgets everything
       if (event.type === 'respawn') this.voice?.director?.newLife?.(event.playerId);
       // back on his feet: a scene's word for it first ("It was brief.", the comeback's "Now..."); otherwise, in a bad
@@ -1077,8 +1188,8 @@ export class GameRuntime {
         } else if (!this.#inPractice() && knights.length >= 2) {
           // Field-level restraint: at most one team-opening sentence wins around match start across all knights
           const candidates = [
-            ...knights.filter((k) => k.id === this.socket.playerId),
-            ...knights.filter((k) => k.id !== this.socket.playerId),
+            ...knights.filter((k) => k.id === this.playerId),
+            ...knights.filter((k) => k.id !== this.playerId),
           ];
           let openingSaid = false;
           for (const knight of candidates) {
@@ -1113,7 +1224,7 @@ export class GameRuntime {
 
   // where a Spellblade is drawn right now (me: my predicted body; others: their interpolated body)
   #bodyPosition(id) {
-    if (id === this.socket.playerId) return this.localState?.position ?? this.localAuth?.position ?? null;
+    if (id === this.playerId) return this.localState?.position ?? this.localAuth?.position ?? null;
     return this.remotePlayers.bodyPosition(id) ?? this.latestSnapshot?.players.find((p) => p.id === id)?.position ?? null;
   }
 
@@ -1127,7 +1238,7 @@ export class GameRuntime {
     for (const player of snapshot.players) {
       const burning = player.alive !== false && (player.burningUntil ?? 0) > serverNow;
       const chill = player.alive !== false ? 1 - chillScale(player.chill, serverNow) : 0;
-      if (player.id === this.socket.playerId) {
+      if (player.id === this.playerId) {
         this.hud.setAfflictions({ burning, chill: chill / 0.55 });
         continue;
       }
@@ -1152,7 +1263,7 @@ export class GameRuntime {
   }
 
   #speak(line, playerId, { chanceScale, delay, force, cry, earned, opening, part }) {
-    if (playerId === this.socket.playerId) return this.voice.say(line, { speaker: playerId, gain: 0.8, chanceScale, delay, close: true, force, cry, earned, opening, part });
+    if (playerId === this.playerId) return this.voice.say(line, { speaker: playerId, gain: 0.8, chanceScale, delay, close: true, force, cry, earned, opening, part });
     const body = this.#bodyPosition(playerId);
     const snapshotPlayer = this.latestSnapshot?.players.find((p) => p.id === playerId);
     if (!body || snapshotPlayer?.actorKind === 'dummy') return false;
@@ -1169,7 +1280,7 @@ export class GameRuntime {
     const listener = this.localState?.position ?? this.localAuth?.position;
     if (!bank?.playing?.size || !listener) return;
     for (const speaker of bank.playing.keys()) {
-      if (speaker === this.socket.playerId) continue;
+      if (speaker === this.playerId) continue;
       const line = bank.speakingLine?.(speaker);
       const body = line ? this.#bodyPosition(speaker) : null;
       if (!body) continue;
@@ -1211,7 +1322,7 @@ export class GameRuntime {
   // a Gale let go: the gust seen and heard, the knights it caught shoved and their cloth flung, and now and then a word
   // from whoever loosed it. My own was shown the moment it went (#releaseLocalGale), so only its shoves are left
   #galeBlast(event) {
-    const me = this.socket.playerId;
+    const me = this.playerId;
     const spell = spellFor(event.spell);
     const mine = event.playerId === me;
     // the server's word can beat my own frame to it: then this is the moment it goes, and it goes once
@@ -1231,7 +1342,7 @@ export class GameRuntime {
   // a gust catching knights (as it leaves the hand, or a moment later, still blowing): my body goes with it at once
   // and the view is buffeted; others are shoved and their cloth flung; now and then a word from whoever loosed it
   #galeCaught(event) {
-    const me = this.socket.playerId;
+    const me = this.playerId;
     for (const caught of event.affected ?? []) {
       if (caught.id === me) {
         // the gust hits me: my body goes with it at once, and the view is buffeted; and while its wind carries me on,
@@ -1254,7 +1365,7 @@ export class GameRuntime {
     const now = this.presentationNow() / 1000;
     if (now - (this.preciseAt ?? -Infinity) < 0.2) return;
     this.preciseAt = now;
-    const me = this.socket.playerId;
+    const me = this.playerId;
     const involved = event.attackerId === me || event.victimId === me;
     this.#play(preciseRecipe(), involved ? null : this.#bodyPosition(event.victimId), involved ? (event.attackerId === me ? 0.9 : 0.55) : 0.35);
   }
@@ -1268,7 +1379,7 @@ export class GameRuntime {
     const clangs = (this.steelClangAt ??= new Map());
     const feel = steelHitFeel(event, { lastClangAt: clangs.get(event.victimId) ?? -Infinity, now });
     if (!feel) return false;
-    const mine = event.victimId === this.socket.playerId;
+    const mine = event.victimId === this.playerId;
     const body = this.#bodyPosition(event.victimId);
     const attacker = this.#bodyPosition(event.attackerId);
     if (feel.full) {
@@ -1316,14 +1427,14 @@ export class GameRuntime {
     if (!this.weapon.canJab()) return false;
     this.weapon.jab();
     this.#play(gauntletSwingRecipe(), null, 0.8);
-    this.#sayMoment(this.socket.playerId, ['gauntletThrow']);
+    this.#sayMoment(this.playerId, ['gauntletThrow']);
     this.localJabAt = now;
     return true;
   }
 
   // another knight's gauntlet going out (mine was shown as I pressed, unless the server saw a foe I did not)
   #gauntletStrike(event) {
-    const me = this.socket.playerId;
+    const me = this.playerId;
     if (event.playerId === me) {
       if (!(Math.abs((this.localJabAt ?? -Infinity) - event.at) < 0.5)) {
         this.weapon.jab();
@@ -1382,7 +1493,7 @@ export class GameRuntime {
   // from under their feet; the rammer jolts to a stop, the one rammed is knocked through their own view. Mine was
   // foreseen as it landed (#foretellRam), so the host's word only confirms it
   #steelRam(event) {
-    const me = this.socket.playerId;
+    const me = this.playerId;
     const kind = event.guarded ? 'guard' : (event.steel ?? 0) >= 0.15 ? 'steel' : 'body';
     this.#ramVoices(event);
     if (event.playerId === me) {
@@ -1461,7 +1572,7 @@ export class GameRuntime {
   }
 
   #gauntletHit(event) {
-    const me = this.socket.playerId;
+    const me = this.playerId;
     const involved = event.playerId === me || event.targetId === me;
     const body = this.#bodyPosition(event.targetId);
     // (a fist on my own hardened plate is its clang alone: #steelStruck)
@@ -1494,7 +1605,7 @@ export class GameRuntime {
     const d = this.input.lookDirection();
     const eye = { x: this.localState.position.x, y: this.localState.position.y + postureOf(this.localState).eye, z: this.localState.position.z };
     const view = this.effects.galeBlast(this.#gustOrigin(null, eye, d), d, gale.spell.cone, this.#groundUnder());
-    (this.gustViews ??= []).push({ view, ownerId: this.socket.playerId });
+    (this.gustViews ??= []).push({ view, ownerId: this.playerId });
     this.#play(galeReleaseRecipe(), null, 1);
     const recoil = galeRecoil(gale.spell, eye, d, this.activeWorld);
     if (recoil) launchBody(this.localState, recoil, recoil.maxUp);
@@ -1511,7 +1622,7 @@ export class GameRuntime {
   // the gusts still blowing stay at their casters' hands and turn with their aim
   #followGusts() {
     if (!this.gustViews?.length) return;
-    const me = this.socket.playerId;
+    const me = this.playerId;
     this.gustViews = this.gustViews.filter((entry) => entry.view?.alive);
     for (const { view, ownerId } of this.gustViews) {
       if (ownerId === me) {
@@ -1575,7 +1686,7 @@ export class GameRuntime {
     this.#sayMoments(rescued, event.at);
 
     // team battle reactions: ally blunder
-    const myId = this.socket.playerId;
+    const myId = this.playerId;
     const myPlayer = players.find((p) => p.id === myId);
     const myTeam = this.localAuth?.team ?? myPlayer?.team;
     const victimPlayer = players.find((p) => p.id === victimId);
@@ -1592,7 +1703,7 @@ export class GameRuntime {
     }
 
     // nothing said of my own fall: now and then, I make my case late, and my return cuts it short ("Three-")
-    if (!spoke && victimId === this.socket.playerId) this.#appeal(event);
+    if (!spoke && victimId === this.playerId) this.#appeal(event);
   }
 
   // my case for not having fallen, timed so that I am back on my feet as its last word begins (APPEAL)
@@ -1601,7 +1712,7 @@ export class GameRuntime {
     const respawnIn = (event.respawnAt ?? event.at) - this.socket.serverNow();
     if (!length || !(respawnIn > 1)) return;
     const delay = Math.max(APPEAL.leadSec, respawnIn - (length - APPEAL.interruptBeforeEnd));
-    for (const say of linesFor(this.socket.playerId, ['appeal'])) {
+    for (const say of linesFor(this.playerId, ['appeal'])) {
       const said = this.#say(say.line, say.speaker, { ...say, delay });
       if (said) this.appealing = { interruptAt: performance.now() / 1000 + said.delay + said.seconds - APPEAL.interruptBeforeEnd };
     }
@@ -1618,7 +1729,7 @@ export class GameRuntime {
     if (!this.view.subtitles) return;
     const plan = captionPlan(line, { part, beats });
     if (!plan) return;
-    const mine = speaker === this.socket.playerId;
+    const mine = speaker === this.playerId;
     const name = mine ? null : (this.latestSnapshot?.players.find((p) => p.id === speaker)?.name ?? 'A Spellblade');
     this.hud.subtitle({ text: plan.text, name, delay: delay + plan.after, seconds: Math.max(0.5, seconds - plan.after), speaker, cues: plan.cues });
   }
@@ -1626,7 +1737,7 @@ export class GameRuntime {
   // a Vortex's blade clipping the world as it comes round: the ring of what it clipped and sparks off it (lighter
   // than a blade stopped dead: nothing is stopped), no jolt in the arms and no word on the screen
   #vortexWorld({ playerId, point, material }) {
-    const mine = playerId === this.socket.playerId;
+    const mine = playerId === this.playerId;
     const surface = strikeSurface(material);
     const recipe = surface === 'wood' ? woodThunkRecipe() : surface === 'soft' ? softStrikeRecipe() : vortexScrapeRecipe();
     if (surface === 'stone') this.effects.sparks(point, 0xffc070, mine ? 10 : 7);
@@ -1637,7 +1748,7 @@ export class GameRuntime {
   // a Sundering blow ended what a knight was doing. Mine: my arms let go of it as the host has (the sword's chain,
   // the spell in the palm, the dash, the sprint's speed), and I am told
   #cutShort(event) {
-    if (event.playerId !== this.socket.playerId) return;
+    if (event.playerId !== this.playerId) return;
     const what = event.what ?? [];
     if (what.includes('sword')) this.weapon.cancelAttack();
     if (what.includes('spell')) {
@@ -1769,7 +1880,7 @@ export class GameRuntime {
   /** How hot the fight is for the music: 0 calm, 1 blades out nearby, 2 the fight is on. */
   musicHeat({ cap = 2 } = {}) {
     const snapshot = this.latestSnapshot;
-    const me = snapshot?.players.find((p) => p.id === this.socket.playerId);
+    const me = snapshot?.players.find((p) => p.id === this.playerId);
     return this.heat.level({
       now: performance.now() / 1000,
       nearestFoe: nearestFoe(me, snapshot?.players),
@@ -1793,7 +1904,7 @@ export class GameRuntime {
 
   // a knight braces into Sunder: the harness drawn tight, and the cry; mine names it
   #ultimateStart(event) {
-    const me = event.playerId === this.socket.playerId;
+    const me = event.playerId === this.playerId;
     // (a fresh use: its one line, whichever of his ultimate's lines has the turn)
     const voice = this.ultimateLines.begin(event.playerId, event.ultimate);
     // a Blazing Vortex is lit, not braced into: the breath drawn up into flame through its startup, and no cry
@@ -1867,7 +1978,7 @@ export class GameRuntime {
 
   // a Vortex's blade biting a knight as it comes round: sparks and fire where it met them, and the cut heard
   #vortexHit(event) {
-    const me = this.socket.playerId;
+    const me = this.playerId;
     const attacker = this.#bodyPosition(event.playerId);
     const victim = this.#bodyPosition(event.targetId);
     const point = event.point ?? impactPoint(victim, attacker);
@@ -1889,7 +2000,7 @@ export class GameRuntime {
 
   // a knight's balance broken: plate clattering as they stumble; mine lurches and says so
   #staggerBreak(event) {
-    const me = event.playerId === this.socket.playerId;
+    const me = event.playerId === this.playerId;
     this.#play(staggerBreakRecipe(), me ? null : this.#bodyPosition(event.playerId), me ? 1 : 0.8);
     if (me) {
       this.hud.flashText('STAGGERED', 'danger');
@@ -1917,7 +2028,7 @@ export class GameRuntime {
 
   // a sword biting into a body: burst, flash, sound and (for the attacker) hit-stop and kick
   #swordHit(event) {
-    const me = this.socket.playerId;
+    const me = this.playerId;
     const strike = event.strikeIndex ?? 0;
     // how cleanly it landed (a glancing blow skates off with a scrape) and how hard the two met
     const quality = Number.isFinite(event.quality) ? event.quality : 1;
@@ -1955,7 +2066,7 @@ export class GameRuntime {
 
   // a blow meeting a guard: sparks where the blades met and the ring of steel (or the crunch of it breaking)
   #guardContact(event) {
-    const me = this.socket.playerId;
+    const me = this.playerId;
     const attacker = this.#bodyPosition(event.attackerId);
     const defender = this.#bodyPosition(event.defenderId);
     const point = event.point ? { x: event.point.x, y: event.point.y, z: event.point.z } : impactPoint(defender, attacker);
@@ -1990,8 +2101,8 @@ export class GameRuntime {
   #deathEvent(event) {
     const killer = this.latestSnapshot?.players.find((p) => p.id === event.killerId);
     const victim = this.latestSnapshot?.players.find((p) => p.id === event.victimId);
-    if (event.victimId === this.socket.playerId) this.#dying(event, killer);
-    if (event.killerId === this.socket.playerId) {
+    if (event.victimId === this.playerId) this.#dying(event, killer);
+    if (event.killerId === this.playerId) {
       this.hud.flashText('SLAIN  +1', 'kill');
       this.hud.hit('kill');
       // the killing blow lands harder: a longer hit-stop, a toll in the courtyard, a shockwave at their feet
@@ -2015,7 +2126,7 @@ export class GameRuntime {
 
   // I fell: the card says who and how close it was, and the view plays out the death (deathCam.mjs)
   #dying(event, killer) {
-    const me = this.socket.playerId;
+    const me = this.playerId;
     const felledBy = killer && killer.id !== me ? killer : null;
     this.hud.setDeath(deathCardText({ killerName: felledBy?.name ?? null, source: event.source, killerHealth: felledBy?.health }));
     const body = this.localState?.position ?? this.localAuth?.position;
@@ -2173,10 +2284,22 @@ export class GameRuntime {
 
   #frame(nowMs) {
     if (!this.running) return;
+    const wallDt=Math.min(.05,Math.max(0,(nowMs-(this.inspectionWallAt??nowMs))/1000));
+    this.inspectionWallAt=nowMs;
+    let flyAim=null;
+    if(this.inspectionFree){
+      this.flyPose??=inspectionSpawn(this.localAuth);
+      this.flyPose={...this.flyPose,yaw:this.input.yaw,pitch:this.input.pitch};
+      if(this.playing&&this.input.enabled)this.flyPose=flyStep(this.flyPose,this.input.movement(),wallDt);
+      flyAim={yaw:this.input.yaw,pitch:this.input.pitch};
+      this.input.yaw=this.localAuth?.yaw??0;this.input.pitch=this.localAuth?.pitch??0;
+      this.input.aimGain=1;this.input.mountedRam=false;
+    }
     if (this.socket.playingLocally) nowMs = this.presentationNow();
     // Keep drawing the exact same scene. A single authoritative step advances this clock once.
     if (this.socket.inspectionFrozen && nowMs <= this.lastFrameAt) {
       this.siegeSound.stop();this.ramSound.stop();
+      if(flyAim){this.input.yaw=flyAim.yaw;this.input.pitch=flyAim.pitch;this.input.aimGain=1;}
       this.#renderView();
       requestAnimationFrame(t => this.#frame(t));
       return;
@@ -2212,9 +2335,11 @@ export class GameRuntime {
       // (a guided look, where something asks for one: the tutorial turning the Spellblade's head; the player's own look
       // always wins)
       this.viewGuide?.(dt, this.input);
-      const wanted = this.input.movement();
+      const wanted = this.inspectionFree
+        ? {forward:0,right:0,jump:false,sprint:false,crouch:false,attack:false,guard:false,yaw:this.localAuth.yaw,pitch:this.localAuth.pitch}
+        : this.input.movement();
       // A browser-hosted match receives the current render frame's intent before its next combat tick.
-      if (this.socket.playingLocally) sendMovementInput(this.socket, this.#mountedIntent(wanted), nowMs, this);
+      if (this.socket.playingLocally && !this.inspectionFree) sendMovementInput(this.socket, this.#mountedIntent(wanted), nowMs, this);
       const bracing = ultimateStartup(this.localAuth, serverNow);
       const whirl = ultimateWhirl(this.localAuth, serverNow);
       // (staggered, or reeling from a Sundering blow, my feet are not my own for that moment: as the host has it)
@@ -2251,7 +2376,7 @@ export class GameRuntime {
         crouched: Boolean(this.localState.crouched),
       });
       // breaking into a sprint with someone at my heels: the wildcard, now and then
-      if (!wasSprinting && this.localState.sprinting && this.moments.underPressure(this.socket.playerId, serverNow)) this.#sayMoment(this.socket.playerId, ['sprintUnderPressure']);
+      if (!wasSprinting && this.localState.sprinting && this.moments.underPressure(this.playerId, serverNow)) this.#sayMoment(this.playerId, ['sprintUnderPressure']);
       const wasGrounded = this.localState.grounded;
       const fallSpeed = -this.localState.velocity.y;
       // a chill slows my own steps exactly as the server slows them (it thaws on the same clock)
@@ -2285,11 +2410,11 @@ export class GameRuntime {
       // predict the server's body separation so pressing into an opponent does not rubber-band
       if (!(this.localAuth?.operatingBallistaId||this.localAuth?.operatingRamId)) separateLocal(this.localState.position, this.remotePlayers.bodies(), this.activeWorld, { crouched: this.localState.crouched });
       // my own jump: now and then a grunt with it
-      if (wasGrounded && !this.localState.grounded && this.localState.velocity.y > 4) this.#sayMoment(this.socket.playerId, ['jump']);
+      if (wasGrounded && !this.localState.grounded && this.localState.velocity.y > 4) this.#sayMoment(this.playerId, ['jump']);
       if (!wasGrounded && this.localState.grounded) {
         this.weapon.land(fallSpeed);
         // a hard landing: the wildcard, now and then
-        if (fallSpeed > 11) this.#sayMoment(this.socket.playerId, ['hardLanding']);
+        if (fallSpeed > 11) this.#sayMoment(this.playerId, ['hardLanding']);
         // both feet down at once, heavier the further he fell
         if (fallSpeed > 2.5) this.#footstep(null, this.localState.position, Math.min(1, fallSpeed / 10), FOOTSTEPS.landing);
       }
@@ -2369,9 +2494,10 @@ export class GameRuntime {
       const mounted = Boolean((this.localAuth?.operatingBallistaId||this.localAuth?.operatingRamId));
       if (mounted) outside = true;
       this.weapon.group.visible = !outside;
+      this.inspectionBodyOutside=outside;
       this.remotePlayers.showSelf(this.localAuth, {
         position: this.localState.position, velocity: this.localState.velocity, yaw: mounted ? this.localAuth.yaw : this.input.yaw, pitch: mounted ? 0 : this.input.pitch,
-      }, serverNow, nowMs, dt, outside && (!mounted || (this.siegeView === 'third' && this.siegeCamera?.position.distanceTo(this.camera.position) > 1.2)));
+      }, serverNow, nowMs, dt, outside && (!mounted || (this.siegeView === 'third' && this.siegeCamera?.position.distanceTo(this.camera.position) > 1.2)) || this.socket.inspectionAvailable&&(this.inspectionFree||this.inspectionSplit));
       this.#setFov(this.view.fov + (view.fov - FP_MOTION.baseFov) * motion);
     } else if (this.localAuth && this.localState && this.deathCam && this.localAuth.alive === false) {
       this.#viewInHelm(nowMs, dt);
@@ -2386,7 +2512,7 @@ export class GameRuntime {
     this.remotePlayers.update(nowMs, dt);
     this.#showAfflictions(dt);
     this.world?.setObjectiveState?.(this.latestSnapshot?.objective ?? null, this.localAuth?.team ?? null, this.socket.serverNow());
-    this.siegeSound.update(this.latestSnapshot?.bibyeBallista,{active:this.playing && this.input.enabled && !this.socket.inspectionFrozen,playerId:this.socket.playerId,listener:this.localState?.position??this.localAuth?.position,yaw:this.input.yaw,now:this.socket.serverNow()});
+    this.siegeSound.update(this.latestSnapshot?.bibyeBallista,{active:this.playing && this.input.enabled && !this.socket.inspectionFrozen,playerId:this.playerId,listener:this.localState?.position??this.localAuth?.position,yaw:this.input.yaw,now:this.socket.serverNow()});
     this.world?.setBiByeState?.(this.latestSnapshot, this.socket.serverNow(), {local:this.socket.playingLocally,frozen:this.socket.inspectionFrozen});
     this.ramSound.update(this.latestSnapshot?.soFistication,{active:this.playing&&this.input.enabled&&!this.socket.inspectionFrozen,listener:this.localState?.position??this.localAuth?.position,yaw:this.input.yaw,now:this.socket.serverNow()});
     if(this.ramRoom!==this.latestSnapshot?.roomCode){this.ramRoom=this.latestSnapshot?.roomCode;this.ramMotion=new BiByeMotion();}
@@ -2419,8 +2545,8 @@ export class GameRuntime {
     if (this.latestSnapshot && this.localAuth) {
       // (the longer scenes' clocks: a part whose moment has come is said)
       this.scenes.step(this.socket.serverNow(), this.latestSnapshot.players);
-      const players = this.latestSnapshot.players.map((p) => (p.id === this.socket.playerId && this.localState ? { ...p, crouched: Boolean(this.localState.crouched) } : p));
-      this.#sayWatched(this.watch.step(this.socket.serverNow(), players, { self: this.socket.playerId, world: this.activeWorld, practice: this.#inPractice() }));
+      const players = this.latestSnapshot.players.map((p) => (p.id === this.playerId && this.localState ? { ...p, crouched: Boolean(this.localState.crouched) } : p));
+      this.#sayWatched(this.watch.step(this.socket.serverNow(), players, { self: this.playerId, world: this.activeWorld, practice: this.#inPractice() }));
       // the last seconds of a timed match (never the yard's, never sudden death)
       const match = this.latestSnapshot;
       if (match.roomState === 'PLAYING' && Number.isFinite(match.matchSeconds) && Number.isFinite(match.matchStartedAt) && !match.suddenDeath && !this.#inPractice()) {
@@ -2473,6 +2599,7 @@ export class GameRuntime {
 
     if (nowMs - this.lastPingAt > 2000) { this.lastPingAt = nowMs; this.socket.ping(); }
     this.#followSun(this.localState?.position ?? this.camera.position);
+    if(flyAim){this.input.yaw=flyAim.yaw;this.input.pitch=flyAim.pitch;this.input.aimGain=1;this.input.mountedRam=false;}
     this.weapon.syncPalmLight();
     this.#renderView();
     requestAnimationFrame((t) => this.#frame(t));
@@ -2481,12 +2608,42 @@ export class GameRuntime {
   // the world; then my own arms and sword over it, on depth cleared of the world (viewLayers.mjs), with the shadows
   // the world's pass already made
   #renderView() {
-    const { renderer, scene, camera } = this;
+    if(!this.socket.inspectionAvailable||(!this.inspectionFree&&!this.inspectionSplit))return this.#renderCamera(this.camera,true);
+    const {width,height}=this.#viewSize();
+    const views=inspectionViews(width,height,this.inspectionSplit,this.inspectionFocus);
+    this.flyPose??=inspectionSpawn(this.localAuth);
+    this.flyCamera.position.set(this.flyPose.position.x,this.flyPose.position.y,this.flyPose.position.z);
+    this.flyCamera.rotation.order='YXZ';this.flyCamera.rotation.set(this.flyPose.pitch,this.flyPose.yaw,0);
+    this.flyCamera.fov=this.view.fov;this.flyCamera.far=Math.max(2000,this.camera.far);
+    // The frozen actor is posed once at the frozen simulation clock, never advanced by flight.
+    if(!this.remotePlayers.self?.root.visible&&this.localAuth&&this.localState)this.remotePlayers.showSelf(this.localAuth,{position:this.localState.position,velocity:this.localState.velocity,yaw:this.localAuth.yaw,pitch:this.localAuth.pitch},this.socket.serverNow(),this.presentationNow(),0,true);
+    const self=this.remotePlayers.self?.root,visible=self?.visible;
+    const actorAspect=this.camera.aspect;
+    this.renderer.setScissorTest(true);
+    try{
+      for(const pane of views){
+        const camera=pane.kind==='fly'?this.flyCamera:this.camera;
+        camera.aspect=pane.width/pane.height;camera.updateProjectionMatrix();
+        this.renderer.setViewport(pane.x,height-pane.y-pane.height,pane.width,pane.height);
+        this.renderer.setScissor(pane.x,height-pane.y-pane.height,pane.width,pane.height);
+        if(self)self.visible=pane.kind==='fly'||Boolean(this.inspectionBodyOutside);
+        this.#renderCamera(camera,pane.kind==='actor');
+      }
+    }finally{
+      if(self)self.visible=visible;
+      this.camera.aspect=actorAspect;this.camera.updateProjectionMatrix();
+      this.renderer.setScissorTest(false);this.renderer.setViewport(0,0,width,height);
+    }
+  }
+
+  #renderCamera(camera, firstPerson) {
+    const { renderer, scene } = this;
     camera.layers.set(0);
     const ballista=this.world?.biByeLlista;
-    const clear=Boolean(this.localAuth?.alive&&this.localAuth?.operatingBallistaId&&(this.siegeView==='clear'||this.clearBlend>.02));
+    const clear=Boolean(firstPerson&&this.localAuth?.alive&&this.localAuth?.operatingBallistaId&&(this.siegeView==='clear'||this.clearBlend>.02));
     if(ballista)ballista.renderMountedView(clear,()=>renderer.render(scene,camera),camera);
     else renderer.render(scene,camera);
+    if(!firstPerson)return;
     const background = scene.background;
     const shadows = renderer.shadowMap.autoUpdate;
     const clears = renderer.autoClear;
@@ -2535,6 +2692,9 @@ export class GameRuntime {
     for (const off of this.unsubscribe) off();
     window.removeEventListener('resize', this.#resize);
     this.resizeObserver?.disconnect();
+    this.inspectionTools.dispose();
+    for(const key of ['inset','left','top','width','height'])this.hud.root.style[key]='';
+    this.hud.root.classList.remove('inspection-flying','inspection-split');
     this.input.dispose();
     this.touch?.dispose();
     this.structuresRenderer?.dispose();

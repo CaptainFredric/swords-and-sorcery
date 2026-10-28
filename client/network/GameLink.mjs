@@ -179,6 +179,10 @@ export class GameLink {
     this.local.startTutorial(name);
   }
 
+  get inspectionActorId() { return this.inspectionAvailable ? this.local.inspectionActorId : null; }
+  setInspectionActor(id) { return this.inspectionAvailable && this.local.setInspectionActor(id); }
+  releaseInspectionInput() { return this.inspectionAvailable && this.local.releaseInspectionInput(); }
+
   get inspectionAvailable() { return this.playingLocally && this.local.inspectionEnabled; }
   get inspectionFrozen() { return this.inspectionAvailable && this.local.inspectionFrozen; }
   setInspectionFrozen(frozen) { return this.inspectionAvailable && this.local.setInspectionFrozen(frozen); }

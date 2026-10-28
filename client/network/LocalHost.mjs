@@ -15,6 +15,9 @@ import { clothChoice } from '../../shared/src/cosmetics.mjs';
 import { DEFAULT_EMBLEM, ownedEmblems } from '../../shared/src/heraldry.mjs';
 
 const TICK_RATE = 30;
+const INSPECTION_ACTIONS = new Set(['input','attack','guard','cast','castCurrentSpell','castPreparedSpell','castPreparedSlot','selectPreparedSlot','selectPreparedSpell','gauntlet','ultimate','dash','practiceReadyUltimate']);
+const INSPECTION_ADMIN_RESET = new Set(['practiceResetPlayer','practiceSpawnDummy','practiceSetDummyMode','practiceRemoveDummy']);
+
 const SOLO_MODES = new Set([GAME_MODES.BOT_DUEL, GAME_MODES.PRACTICE, GAME_MODES.BREAKTHROUGH]);
 export const OFFLINE_MESSAGE = 'Multiplayer is offline right now. Practice and Bot Duel still work.';
 export const SOLO_PROFILE_KEY = 'ss-solo-profile-cache';
@@ -48,6 +51,9 @@ export class LocalHost {
     this.timeOffset = 0;
     this.frozenAt = null;
     this.inspectionEnabled = false;
+    this.inspectionControlId = null;
+    this.inspectionControlUsed = false;
+    this.inspectionPendingRelease = new Set();
     this.inspectionFramesPlaying = false;
     this.inspectionNextBeat = null;
     this.now = () => this.frozenAt ?? (this.wallNow() - this.timeOffset);
@@ -171,6 +177,52 @@ export class LocalHost {
   }
 
 
+  get inspectionActorId() { return this.inspectionEnabled ? (this.inspectionControlId ?? this.player?.id ?? null) : null; }
+
+  setInspectionActor(id) {
+    if (!this.inspectionEnabled || this.room?.state !== 'PLAYING') return false;
+    const target = this.room.players.get(id);
+    if (!target?.alive || (id !== this.player.id && target.actorKind !== 'dummy')) return false;
+    if (id === this.inspectionActorId) return true;
+    const previous = this.inspectionActorId;
+    // A view handoff while frozen must not lower a captured Guard or change a pose.
+    for (const actorId of [previous,id]) {
+      if (this.inspectionFrozen) this.inspectionPendingRelease.add(actorId);
+      else this.#releaseInspectionActor(actorId);
+    }
+    this.inspectionControlId = id === this.player.id ? null : id;
+    if (this.inspectionControlId) this.inspectionControlUsed = true;
+    this.#inspectionState();
+    this.#deliver(serializeSnapshot(this.room,this.now(),this.playerId),true);
+    return true;
+  }
+
+  #releaseInspectionActor(id) {
+    const actor = this.room?.players.get(id);
+    if (!actor) return;
+    const time = this.now();
+    applyRoomCommand(this.room,actor,{type:'attack',down:false,clientTime:time},time);
+    applyRoomCommand(this.room,actor,{type:'guard',down:false,clientTime:time},time);
+    applyRoomCommand(this.room,actor,{type:'input',seq:(actor.lastInputSeq??0)+1,forward:0,right:0,jump:false,sprint:false,crouch:false,yaw:actor.yaw,pitch:actor.pitch,attack:false,guard:false},time);
+    actor.ai = null;
+  }
+
+  releaseInspectionInput() {
+    if (!this.inspectionEnabled) return false;
+    if (this.inspectionFrozen) this.inspectionPendingRelease.add(this.inspectionActorId);
+    else this.#releaseInspectionActor(this.inspectionActorId);
+    return true;
+  }
+
+  #validateInspectionActor() {
+    if (!this.inspectionControlId) return;
+    const actor = this.room?.players.get(this.inspectionControlId);
+    if (actor?.alive && actor.actorKind === 'dummy') return;
+    this.#releaseInspectionActor(this.inspectionControlId);
+    this.inspectionControlId = null;
+    this.#inspectionState();
+  }
+
   get inspectionFrozen() { return this.frozenAt !== null; }
 
   setInspectionFrozen(frozen) {
@@ -183,6 +235,8 @@ export class LocalHost {
       this.timeOffset = this.wallNow() - this.frozenAt;
       this.frozenAt = null;
       // Held input belongs to the old live frame, never to a resumed inspection.
+      for (const id of new Set([this.player?.id,this.inspectionActorId,...this.inspectionPendingRelease])) this.#releaseInspectionActor(id);
+      this.inspectionPendingRelease.clear();
       this.attack(false);
       this.guard(false);
       this.input({ seq: (this.player?.lastInputSeq ?? 0) + 1, forward: 0, right: 0,
@@ -217,7 +271,7 @@ export class LocalHost {
   }
 
   #inspectionState() {
-    this.#deliver({ type: 'inspectionState', frozen: this.inspectionFrozen, playingFrames: this.inspectionFramesPlaying });
+    this.#deliver({ type: 'inspectionState', frozen: this.inspectionFrozen, playingFrames: this.inspectionFramesPlaying, actorId:this.inspectionActorId, sandbox:this.inspectionControlUsed });
   }
 
   stepInspection() {
@@ -245,11 +299,13 @@ export class LocalHost {
     const room = this.room;
     if (!room) return;
     const time = explicitTime ?? this.now();
+    this.#validateInspectionActor();
     stepBotControllers(room, time, room.world);
     if (this.sessionController) this.sessionController.beforeStep(time);
-    else stepPracticeActors(room, time, room.world);
+    else if (!this.inspectionControlId) stepPracticeActors(room, time, room.world);
     stepRoom(room, 1 / TICK_RATE, time, room.world);
-    const events = room.events.splice(0);
+    this.#validateInspectionActor();
+    const events = room.events.splice(0).filter(event => !(this.inspectionControlUsed && event.type === 'prestigeChallengeCompleted'));
     for (const event of events) {
       if (event.type === 'prestigeChallengeCompleted') {
         this.#completePrestigeChallenge(event, events, time);
@@ -300,6 +356,9 @@ export class LocalHost {
     this.commandFilter = null;
     this.sessionController = null;
     this.inspectionEnabled = false;
+    this.inspectionControlId = null;
+    this.inspectionControlUsed = false;
+    this.inspectionPendingRelease = new Set();
     this.inspectionFramesPlaying = false;
     this.inspectionNextBeat = null;
     this.frozenAt = null;
@@ -308,8 +367,15 @@ export class LocalHost {
 
   #command(message) {
     const room = this.room;
-    const player = room?.players.get(this.player?.id);
-    if (!room || !player || this.inspectionFrozen) return;
+    const owner = room?.players.get(this.player?.id);
+    if (!room || !owner || this.inspectionFrozen) return;
+    this.#validateInspectionActor();
+    if (this.inspectionControlId && INSPECTION_ADMIN_RESET.has(message.type)) this.setInspectionActor(owner.id);
+    if (this.inspectionControlId && (message.type?.startsWith('bibye') || message.type === 'siegeOperate' || message.type === 'practiceReadyUltimate')) {
+      this.#deliver({type:'error',message:'Return control to You to operate siege machinery.'}); return;
+    }
+    const player = this.inspectionControlId && INSPECTION_ACTIONS.has(message.type)
+      ? room.players.get(this.inspectionControlId) : owner;
     if (this.commandFilter) {
       message = this.commandFilter(message);
       if (!message) return;
@@ -317,6 +383,7 @@ export class LocalHost {
     const result = applyRoomCommand(room, player, message, this.now());
     if (result.rejected) this.#deliver({ type: 'error', message: result.rejected });
     else if (result.lobby) this.#deliver(serializeLobby(room));
+    this.#validateInspectionActor();
   }
 
   leaveRoom() {

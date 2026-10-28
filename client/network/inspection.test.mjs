@@ -153,3 +153,81 @@ test('continuous stepping never catches up a background stall and clears on resu
   assert.equal(host.inspectionFramesPlaying, false);
   assert.equal(host.playInspectionFrames(true), false);
 });
+
+test('dummy possession is confined to Inspection and preserves the human identity', () => {
+  const { host, advance } = yard();
+  host.practiceSpawnDummy('GUARDING'); advance(1);
+  const dummy = [...host.room.players.values()].find(p => p.actorKind === 'dummy');
+  const owner = host.player;
+  assert.equal(host.setInspectionActor(dummy.id), true);
+  assert.equal(host.inspectionActorId, dummy.id);
+  assert.equal(host.player, owner);
+  assert.equal(host.playerId, owner.id, 'profile and room identity remain human');
+  host.input({seq:50,forward:1,right:0,yaw:0,pitch:0});
+  const oldZ = dummy.position.z;
+  for(let i=0;i<12;i++)advance(1/30);
+  assert(dummy.position.z < oldZ - .3, 'ordinary movement reaches the selected dummy');
+  assert.equal(owner.input.forward, 0);
+  assert.equal(dummy.practiceMode, 'GUARDING', 'the authored mode is preserved while its controller yields');
+  assert.equal(dummy.actorKind, 'dummy');
+  host.guard(true); advance(1/30); assert.equal(dummy.guarding,true);
+  const facts=[];host.on('events',({events})=>facts.push(...events));
+  host.guard(false); host.cast({x:0,y:0,z:-1});
+  for(let i=0;i<12;i++)advance(1/30);
+  assert(facts.some(e=>e.type==='spellCast'&&e.playerId===dummy.id), 'normal cast uses the possessed actor');
+  assert(facts.some(e=>e.type==='projectileImpact'&&e.ownerId===dummy.id)||host.latestSnapshot.projectiles.some(p=>p.ownerId===dummy.id), 'the real projectile travels or hits scenery normally');
+  host.setInspectionActor(owner.id); advance(1/30);
+  assert.equal(dummy.input.forward,0); assert.equal(host.inspectionActorId,owner.id);
+  host.startSolo('PRACTICE','Ordinary');host.arenaReady(true);host.tick();
+  assert.equal(host.setInspectionActor(host.player.id),false);
+});
+
+test('frozen handoffs preserve the captured pose and flush both actors on resume', () => {
+  const { host, advance } = yard();host.practiceSpawnDummy('PASSIVE');advance(1);
+  const owner=host.player,dummy=[...host.room.players.values()].find(p=>p.actorKind==='dummy');
+  host.guard(true);advance(1/30);host.setInspectionFrozen(true);
+  const before=structuredClone(host.latestSnapshot.players);
+  assert.equal(host.setInspectionActor(dummy.id),true);
+  assert.deepEqual(host.latestSnapshot.players,before);
+  assert.equal(owner.guarding,true);
+  host.attack(true);host.input({seq:11,forward:1,yaw:2});
+  host.setInspectionFrozen(false);advance(1/30);
+  assert.equal(owner.guarding,false);assert.equal(owner.attackHeld,false);
+  assert.equal(dummy.attackHeld,false);assert.equal(dummy.input.forward,0);
+});
+
+test('removed or dead possessed actors return control without stale commands', () => {
+  const {host,advance}=yard();host.practiceSpawnDummy('PASSIVE');advance(1);
+  const dummy=[...host.room.players.values()].find(p=>p.actorKind==='dummy');
+  host.setInspectionActor(dummy.id);dummy.alive=false;advance(1/30);
+  assert.equal(host.inspectionActorId,host.player.id);
+  host.practiceRemoveDummy();advance(1/30);
+  assert.equal(host.setInspectionActor(dummy.id),false);
+  host.leaveRoom();assert.equal(host.inspectionActorId,null);
+});
+
+test('GameLink possession never forwards a command to a remote room', () => {
+  const remote={on(){},calls:[],send(m){this.calls.push(m);}};
+  const local=new LocalHost({every:()=>1,cancel:()=>{},later:fn=>fn()});
+  const link=new GameLink({remote,local});
+  assert.equal(link.setInspectionActor('someone'),false);
+  link.startInspectionPractice('Inspector','castleward');link.arenaReady(true);local.tick();
+  local.practiceSpawnDummy('PASSIVE');local.tick();
+  const dummy=[...local.room.players.values()].find(p=>p.actorKind==='dummy');
+  assert.equal(link.setInspectionActor(dummy.id),true);assert.equal(link.inspectionActorId,dummy.id);
+  assert.equal(remote.calls.length,0);
+});
+
+test('free camera input release preserves frozen pose and possession cannot write challenge rewards',()=>{
+ const {host,advance}=yard();host.practiceSpawnDummy('PASSIVE');advance(.1);
+ const dummy=[...host.room.players.values()].find(p=>p.actorKind==='dummy');
+ host.guard(true);host.input({seq:7,forward:1,yaw:host.player.yaw});advance(1/30);
+ host.setInspectionFrozen(true);host.releaseInspectionInput();
+ assert.equal(host.player.guarding,true);
+ host.setInspectionFrozen(false);assert.equal(host.player.input.forward,0);assert.equal(host.player.guarding,false);
+ host.setInspectionActor(dummy.id);host.setInspectionActor(host.player.id);
+ const facts=[];host.on('events',b=>facts.push(...b.events));
+ host.room.events.push({type:'prestigeChallengeCompleted',challengeId:'st-perry-plain',playerId:host.player.id,at:host.serverNow()});
+ advance(1/30);
+ assert.equal(host.profile,null);assert(!facts.some(e=>e.type==='prestigeChallengeCompleted'||e.type==='stPerryPlainUnlocked'));
+});
