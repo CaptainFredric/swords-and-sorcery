@@ -72,6 +72,8 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
+      - name: Install locked release-tool dependencies
+        run: npm ci
       - name: Validate protected environment configuration
         env:
           GH_TOKEN: ${{ github.token }}
@@ -101,6 +103,8 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
+      - name: Install locked release-tool dependencies
+        run: npm ci
       - name: Install pinned official Butler distribution
         run: node scripts/release/install-butler.mjs
       - name: Revalidate, preserve recovery archive, push and verify channel processing

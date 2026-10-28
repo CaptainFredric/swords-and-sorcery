@@ -73,3 +73,14 @@ test('candidate workflow has no publication credentials and publication depends 
   assert.match(publish, /cancel-in-progress: false/);
   assert.doesNotMatch(publish, /^  (push|pull_request|workflow_run):/m);
 });
+
+test('publication jobs install locked dependencies before importing release tools', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const workflow = await readFile(new URL('../../.github/workflows/itch-publish.yml', import.meta.url), 'utf8');
+  for (const name of ['preflight', 'publish']) {
+    const job = workflow.split(`  ${name}:\n`)[1].split(/^  \w+:\n/m)[0];
+    const install = job.indexOf('run: npm ci');
+    assert(install >= 0, `${name} must install the locked release-tool dependencies`);
+    assert(install < job.indexOf('run: node scripts/release/'), `${name} imports release tools only after installation`);
+  }
+});
