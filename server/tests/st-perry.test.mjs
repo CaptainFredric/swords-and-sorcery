@@ -152,15 +152,17 @@ test('St. Perry: Encounter choice stability and fresh selection across visits', 
   const initialChoices = [...dummy.stPerry.dialogue.choices];
   assert.equal(initialChoices.length, 4);
 
-  // Guess wrong answer -> choices remain identical
-  const wrongChoice = initialChoices.find(c => c !== PERRY_CORRECT_ANSWER);
+  // Guess wrong answer -> choices mix and re-randomize
+  const wrongChoice = initialChoices.find(c => c !== PERRY_CORRECT_ANSWER) || PERRY_INCORRECT_ANSWERS[0];
   answerPerryDialogue(room, human, wrongChoice, 1.0);
-  assert.deepEqual(dummy.stPerry.dialogue.choices, initialChoices, 'Choices must not reshuffle on guess');
+  assert.equal(dummy.stPerry.dialogue.choices.length, 4);
+  assert.ok(dummy.stPerry.dialogue.choices.includes(PERRY_CORRECT_ANSWER), 'Correct answer must appear after wrong guess');
 
-  // Switch dummy to MELEE then back to ST_PERRY -> choices remain identical
+  // Switch dummy to MELEE then back to ST_PERRY -> choices remain stable for active encounter
+  const afterGuessChoices = [...dummy.stPerry.dialogue.choices];
   setPracticeDummyMode(room, 'MELEE', 2.0);
   setPracticeDummyMode(room, 'ST_PERRY', 3.0);
-  assert.deepEqual(dummy.stPerry.dialogue.choices, initialChoices, 'Choices must not reshuffle on opponent switch');
+  assert.deepEqual(dummy.stPerry.dialogue.choices, afterGuessChoices, 'Choices must not reshuffle on opponent switch');
 
   // Enter fresh Practice visit (new room) -> provides new selection
   const { room: room2, human: human2 } = makePracticeFixture();
@@ -455,6 +457,7 @@ test('St. Perry: Fails to parry damaging spells (Fireball damages and burns him)
   dummy.input = { yaw: 0 };
   dummy.history = [];
   dummy.stPerry.anchor = { x: 0, y: 0, z: 0 };
+  dummy.dashReadyAt = Infinity; // Disable dash to verify pure melee guard vulnerability to projectile blast
 
   human.position = { x: 0, y: 0, z: -3.0 };
   human.yaw = Math.PI;
@@ -777,4 +780,204 @@ test('St. Perry: Mode switching, cleanup, and removal preserve no stale state', 
   // Remove dummy completely
   assert.equal(removePracticeDummy(room), true);
   assert.equal([...room.players.values()].some((p) => p.actorKind === 'dummy'), false);
+});
+
+test('St. Perry: Potential answers mix and re-randomize on wrong answers, and correct answer can be omitted at first', () => {
+  // 1. Initial selection with allowOmit: true can omit the correct answer
+  const withoutCorrect = selectPerryDialogueChoices({ allowOmit: true, includeCorrect: false });
+  assert.equal(withoutCorrect.length, 4);
+  assert.equal(withoutCorrect.includes(PERRY_CORRECT_ANSWER), false);
+
+  const withCorrect = selectPerryDialogueChoices({ allowOmit: true, includeCorrect: true });
+  assert.equal(withCorrect.length, 4);
+  assert.equal(withCorrect.includes(PERRY_CORRECT_ANSWER), true);
+
+  // Across seeds with allowOmit: true, both omitted and included occur
+  let sawOmitted = false;
+  let sawIncluded = false;
+  for (let s = 0; s < 20; s++) {
+    const list = selectPerryDialogueChoices({ seed: s, allowOmit: true });
+    assert.equal(list.length, 4);
+    if (list.includes(PERRY_CORRECT_ANSWER)) sawIncluded = true;
+    else sawOmitted = true;
+  }
+  assert.ok(sawOmitted && sawIncluded, 'Both omitted and included choices must occur at first');
+
+  // 2. Answering incorrectly remixes and guarantees correct answer is included
+  const { room, human } = makePracticeFixture();
+  const dummy = spawnPracticeDummy(room, 'ST_PERRY', 0);
+  const d = dummy.stPerry.dialogue;
+
+  // First wrong guess
+  const guess1 = d.choices.find(c => c !== PERRY_CORRECT_ANSWER) || PERRY_INCORRECT_ANSWERS[0];
+  answerPerryDialogue(room, human, guess1, 1.0);
+  assert.equal(d.wrongCount, 1);
+  assert.equal(d.choices.length, 4);
+  assert.ok(d.choices.includes(PERRY_CORRECT_ANSWER), 'Correct answer must appear after 1st wrong guess');
+  const choicesAfter1 = [...d.choices];
+
+  // Second wrong guess
+  const guess2 = choicesAfter1.find(c => c !== PERRY_CORRECT_ANSWER) || PERRY_INCORRECT_ANSWERS[1];
+  answerPerryDialogue(room, human, guess2, 2.0);
+  assert.equal(d.wrongCount, 2);
+  assert.equal(d.choices.length, 4);
+  assert.ok(d.choices.includes(PERRY_CORRECT_ANSWER), 'Correct answer must appear after 2nd wrong guess');
+
+  // Third wrong guess: 3rd authored line delivered
+  const guess3 = d.choices.find(c => c !== PERRY_CORRECT_ANSWER) || PERRY_INCORRECT_ANSWERS[2];
+  answerPerryDialogue(room, human, guess3, 3.0);
+  assert.equal(d.wrongCount, 3);
+  assert.equal(d.lastLine, "That's ENOUGH! I shall no longer listen to any answer I do not like! Even if you force me to prove my name!!");
+  assert.equal(d.choices.length, 4);
+  assert.ok(d.choices.includes(PERRY_CORRECT_ANSWER), 'Correct answer must appear after 3rd wrong guess');
+});
+
+test('St. Perry: Dashes away from incoming projectiles and retaliates with spell', () => {
+  const { room, human } = makePracticeFixture();
+  const dummy = spawnPracticeDummy(room, 'ST_PERRY', 0);
+
+  dummy.position = { x: 0, y: 0, z: 0 };
+  dummy.yaw = 0;
+  dummy.input = { yaw: 0 };
+  dummy.history = [];
+  dummy.stPerry.anchor = { x: 0, y: 0, z: 0 };
+
+  human.position = { x: 0, y: 0, z: -6.0 };
+  human.yaw = Math.PI;
+  human.input = { yaw: Math.PI };
+  human.history = [];
+  human.spell = 'fireball';
+
+  // Cast fireball from human toward Perry
+  tryCastSpell(room, human.id, { x: 0, y: 0, z: 1 }, 1.0);
+
+  let nowSec = 1.0;
+  let sawDash = false;
+  let sawRetaliation = false;
+
+  while (nowSec < 3.0) {
+    nowSec += 1 / 30;
+    stepTick(room, nowSec);
+
+    if (dummy.dashReadyAt > 1.0 || Math.abs(dummy.position.x) > 0.5) {
+      sawDash = true;
+    }
+    if (dummy.stPerry?.retaliateSpell || dummy.pendingSpell || [...room.projectiles.values()].some(p => p.ownerId === dummy.id)) {
+      sawRetaliation = true;
+    }
+  }
+
+  assert.ok(sawDash, 'Perry must dash away to evade the incoming fireball');
+  assert.ok(sawRetaliation, 'Perry must be inclined toward launching a spell back in retaliation');
+});
+
+test('St. Perry: Flees intelligently from player Sunder and Vortex ultimates', () => {
+  const { room, human } = makePracticeFixture();
+  const dummy = spawnPracticeDummy(room, 'ST_PERRY', 0);
+
+  dummy.position = { x: 0, y: 0, z: 0 };
+  dummy.yaw = 0;
+  dummy.guarding = true;
+  dummy.stPerry.anchor = { x: 0, y: 0, z: 0 };
+
+  human.position = { x: 0, y: 0, z: 2.0 };
+  human.yaw = Math.PI;
+
+  // 1. Player activates Sunder
+  human.ultimateState = { id: 'sunder', phase: 'active', commitAt: 1.0, until: 9.0 };
+  stepTick(room, 1.05);
+
+  assert.equal(dummy.guarding, false, 'Must drop guard against Sunder');
+  assert.equal(dummy.input.forward, 1.0, 'Must move forward in retreat yaw');
+  assert.equal(dummy.input.sprint, true, 'Must sprint away from Sunder');
+
+  // 2. Player activates Vortex
+  dummy.guarding = true;
+  human.ultimateState = { id: 'vortex', phase: 'active', commitAt: 2.0, until: 10.0 };
+  stepTick(room, 2.05);
+
+  assert.equal(dummy.guarding, false, 'Must drop guard against Vortex');
+  assert.equal(dummy.input.forward, 1.0, 'Must move forward in retreat yaw');
+  assert.equal(dummy.input.sprint, true, 'Must sprint away from Vortex');
+});
+
+test('St. Perry: Defends against Chivalry strikes and spells', () => {
+  const { room, human } = makePracticeFixture();
+  const dummy = spawnPracticeDummy(room, 'ST_PERRY', 0);
+
+  dummy.position = { x: 0, y: 0, z: 0 };
+  dummy.yaw = 0;
+  dummy.input = { yaw: 0 };
+  dummy.history = [];
+  dummy.stPerry.anchor = { x: 0, y: 0, z: 0 };
+
+  human.position = { x: 0, y: 0, z: -1.8 };
+  human.yaw = Math.PI;
+  human.input = { yaw: Math.PI };
+  human.history = [];
+
+  // Player in Chivalry ultimate attacks with sword
+  human.ultimateState = { id: 'chivalry', phase: 'active', commitAt: 1.0, until: 10.0 };
+  beginAttack(room, human.id, 1.0);
+
+  let nowSec = 1.0;
+  while (nowSec < 1.45) {
+    nowSec += 1 / 30;
+    stepTick(room, nowSec);
+  }
+
+  assert.ok(dummy.stPerry.parries > 0, 'Perry defends against Chivalry strikes by parrying');
+
+  // Player prepares Gale spell
+  human.ultimateState = null;
+  human.pendingSpell = { spell: 'gale', direction: { x: 0, y: 0, z: 1 } };
+  stepTick(room, 2.0);
+  assert.ok(dummy.guarding, 'Perry raises guard to defend against Gale blast');
+});
+
+test('St. Perry: Avoids consecutive sword strikes when parry cannot deflect (counterattack exploit prevention)', () => {
+  const { room, human } = makePracticeFixture();
+  const dummy = spawnPracticeDummy(room, 'ST_PERRY', 0);
+
+  dummy.position = { x: 0, y: 0, z: 0 };
+  dummy.yaw = 0;
+  dummy.input = { yaw: 0 };
+  dummy.history = [];
+  dummy.stPerry.anchor = { x: 0, y: 0, z: 0 };
+
+  human.position = { x: 0, y: 0, z: -1.8 };
+  human.yaw = Math.PI;
+  human.input = { yaw: Math.PI };
+  human.history = [];
+
+  // 1. Human attacks and gets parried
+  let nowSec = 1.0;
+  beginAttack(room, human.id, nowSec);
+  while (nowSec < 1.45) {
+    nowSec += 1 / 30;
+    stepTick(room, nowSec);
+    if (dummy.stPerry.parries > 0) break;
+  }
+  assert.equal(dummy.stPerry.parries, 1, 'Perry parries first attack');
+  assert.ok(dummy.stPerry.pendingCounter, 'Perry queues counterattack');
+
+  // 2. Step forward until Perry launches counterattack
+  while (nowSec < 1.80 && !dummy.attackActive) {
+    nowSec += 1 / 30;
+    stepTick(room, nowSec);
+  }
+  assert.ok(dummy.attackActive, 'Perry must execute his counterattack');
+
+  // 3. Human steps back out of reach and begins consecutive attack
+  human.position.z = -2.6;
+  human.staggerUntil = 0;
+  beginAttack(room, human.id, nowSec);
+
+  // 4. Step tick: Perry detects his counterattack cannot deflect the incoming strike
+  stepTick(room, nowSec + 1 / 30);
+
+  // Perry must have cancelled attack and attempted backward avoidance
+  assert.equal(dummy.attackActive, false, 'Perry cancels counterattack strike');
+  assert.equal(dummy.input.forward, -1.0, 'Perry backpedals away');
+  assert.equal(dummy.input.sprint, true, 'Perry sprints backward out of strike reach');
 });
