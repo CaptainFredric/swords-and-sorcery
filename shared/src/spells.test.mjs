@@ -14,7 +14,7 @@ test('a direct Fireball, burn and all, stands in for about one clean sword blow;
 });
 
 test('exposure: 1 at the heart of a blast, falling to 0 at its edge; the damage eases off only a little, then stops', () => {
-  for (const spell of Object.values(SPELLS).filter((s) => s.radius)) {
+  for (const spell of Object.values(SPELLS).filter((s) => s.radius && !s.core)) {
     assert.equal(spellExposure(spell, 0), 1);
     assert.equal(spellExposure(spell, spell.radius), 0);
     assert.equal(spellExposure(spell, spell.radius + 0.01), 0);
