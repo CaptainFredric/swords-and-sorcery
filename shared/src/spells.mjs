@@ -149,7 +149,7 @@ export function spellFor(id) {
 /** A spell's listed damage, as its Armory card states it: a direct hit's (and all of its burn), a gust's heart; a ward's 0. */
 export function nominalSpellDamage(spell) {
   if (!spell || spell.kind === 'ward') return 0;
-  return (spell.directDamage ?? spell.cone?.damage ?? 0) + (spell.burn?.damage ?? 0);
+  return (spell.directDamage ?? spell.cone?.damage ?? 0) + (spell.core?.initialDamage ?? 0) + (spell.burn?.damage ?? 0);
 }
 
 export function isSpell(id) {
