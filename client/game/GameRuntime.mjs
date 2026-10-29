@@ -1040,12 +1040,6 @@ export class GameRuntime {
         this.effects.impact(event.point, { spell: 'fireball', radius: 0.9, ground });
         this.#play(fireballImpactRecipe(), event.point, 0.4);
       }
-      if (event.type === 'coreflagrationArmed') {
-        // The small first burst is a distinct event, well before the final 3m detonation.
-        const ground = this.activeWorld ? surfaceHeightAt(event.point.x, event.point.z, event.point.y, this.activeWorld) : null;
-        this.effects.impact(event.point, { spell: 'fireball', radius: 0.85, ground });
-        this.#play(fireballImpactRecipe(), event.point, 0.38);
-      }
       if (event.type === 'coreflagrationParried') {
         this.#play(parryRecipe(), event.defenderId === me ? null : event.point, 0.9);
         this.effects.blockBurst(event.point, { x: 0, y: 0.5, z: 0 }, { parry: true });
