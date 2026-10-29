@@ -1445,6 +1445,8 @@ function coreflagrationBurst(room, projectile, point, nowSec, damage, final = fa
   for (const player of room.players.values()) {
     if (!player.alive || player.id === projectile.ownerId || areAllies(room, projectile.ownerId, player.id)) continue;
     if (blastDistance(point, player.position, postureOf(player).crown) > spell.radius) continue;
+    // A successful parry negates this defender's first burst on landing; the later explosion remains dangerous.
+    if (!final && projectile.coreParriedDefenderId === player.id) continue;
     // No falloff anywhere in the body-intersection radius. Sheathe in Steel and spawn protection still apply.
     const hit = applyDamage(room, projectile.ownerId, player.id, damage, spell.id, nowSec, null, {
       contactFacts: challengeContact(room.players.get(projectile.ownerId), nowSec, {
@@ -1503,6 +1505,7 @@ function coreflagrationParry(room, projectile, defender, nowSec) {
   if (face.x * incomingX + face.z * incomingZ < Math.cos(65 * Math.PI / 180)) return false;
   const core = spellFor(projectile.spell).core;
   projectile.coreParried = true;
+  projectile.coreParriedDefenderId = defender.id;
   projectile.corePhase = 'knocked';
   projectile.coreKnockedAt = nowSec;
   // A lateral hop, not a change of allegiance. Ownership, kill credit and friendly-fire rules stay intact.
