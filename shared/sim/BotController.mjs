@@ -972,7 +972,7 @@ export function stepBotControllers(
   const peaceful = peaceHolds(room, nowSec, { isPlayer: (actor) => Boolean(actor) && targetKinds.includes(actor.actorKind) });
 
   for (const actor of room.players.values()) {
-    if (!allowedKinds.has(actor.actorKind) || !actor.alive) continue;
+    if (!allowedKinds.has(actor.actorKind) || !actor.alive || room.inspectionFrozenActors?.has(actor.id)) continue;
     const skill = botSkill(actor);
     const aggressionScale = clamp(aggression * skill.aggression, 0.1, 1);
     const ai = ensureAi(actor, nowSec, random, skill);

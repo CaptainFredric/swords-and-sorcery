@@ -127,6 +127,7 @@ export function serializeSnapshot(room, nowSec, recipientId = null) {
       // feet on ground an enemy's Sunder has torn: no sprint while they are (for my own prediction, and the HUD)
       tornGround: Boolean(p.tornGround),
       crouched: Boolean(p.crouched),
+      ...(room.inspectionEnabled && p.inspectionFrozen ? { inspectionFrozen: true } : {}),
       ...(room.localTutorial && p.id === room.tutorialRival?.id ? {
         tutorialSwordDrawn:Boolean(p.tutorialSwordDrawn), tutorialDrawAt:p.tutorialDrawAt ?? null,
         ...(Number.isFinite(p.deathAt) ? {deathAt:p.deathAt} : {}),

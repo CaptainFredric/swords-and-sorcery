@@ -152,7 +152,8 @@ export function resetPracticePlayer(room, playerId, nowSec) {
 export function readyPracticeUltimate(room, playerId) {
   if (!isPractice(room)) return false;
   const player = room.players.get(playerId);
-  if (!player || player.actorKind !== 'human') return false;
+  if (!player) return false;
+  if (player.actorKind !== 'human' && !room.inspectionEnabled) return false;
   player.prowess = PROWESS.full;
   return true;
 }
@@ -187,6 +188,12 @@ export function removePracticeDummy(room) {
     if (projectile.ownerId === dummy.id) room.projectiles.delete(projectile.id);
   }
   if (dummy.stPerry) cleanupStPerry(room, dummy, 0);
+  if (dummy.operatingBallistaId && room.biByeLlista) {
+    dismountBiByeLlista(room.biByeLlista, dummy, 0);
+  }
+  if (dummy.operatingRamId && room.soFistication) {
+    dismountSoFistication(room, room.soFistication, dummy, { administrative: false, force: true });
+  }
   room.players.delete(dummy.id);
   room.events.push({ type: 'practiceDummyRemoved', playerId: dummy.id });
   return true;
@@ -240,6 +247,9 @@ export function stepPracticeActors(room, nowSec, world = room.world, { random = 
   if (!isPractice(room) || room.state !== 'PLAYING') return;
   const dummy = findPracticeDummy(room);
   if (!dummy) return;
+  if (room.inspectionEnabled && (dummy.aiSuspended || dummy.id === room.inspectionControlId)) {
+    return;
+  }
   if (dummy.practiceMode === PRACTICE_DUMMY_MODES.ULTIMATE_KNIGHT) {
     stepUltimateKnight(room, dummy, nowSec, world, { random });
     return;

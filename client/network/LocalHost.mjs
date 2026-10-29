@@ -13,9 +13,23 @@ import { normalizePreparedSpells, DEFAULT_PREPARED_SPELLS } from '../../shared/s
 import { DEFAULT_ULTIMATE, isUltimate } from '../../shared/src/ultimates.mjs';
 import { clothChoice } from '../../shared/src/cosmetics.mjs';
 import { DEFAULT_EMBLEM, ownedEmblems } from '../../shared/src/heraldry.mjs';
+import { resolvePlayerWorld, surfaceHeightAt } from '../../shared/src/collision.mjs';
+import { createBiByeLlista, getBiByeSolids, mountBiByeLlista, dismountBiByeLlista } from '../../shared/sim/biByeLlista.mjs';
+import { soFistSolids } from '../../shared/sim/soFistGeometry.mjs';
+import { createSoFistication, soFistOperator, mountSoFistication, dismountSoFistication } from '../../shared/sim/soFistication.mjs';
+import { practiceSiegeCommand } from '../../shared/sim/practiceSiege.mjs';
+import { setGuard, beginAttack, endAttack, cancelAttack } from '../../shared/sim/combat.mjs';
+import { PROWESS } from '../../shared/src/prowess.mjs';
+import { GAME, guardProfile } from '../../shared/src/combat.mjs';
+import { freshStagger } from '../../shared/src/stagger.mjs';
 
 const TICK_RATE = 30;
-const INSPECTION_ACTIONS = new Set(['input','attack','guard','cast','castCurrentSpell','castPreparedSpell','castPreparedSlot','selectPreparedSlot','selectPreparedSpell','gauntlet','ultimate','dash','practiceReadyUltimate']);
+const INSPECTION_ACTIONS = new Set([
+  'input','attack','guard','cast','castCurrentSpell','castPreparedSpell',
+  'castPreparedSlot','selectPreparedSlot','selectPreparedSpell','gauntlet',
+  'ultimate','dash','practiceReadyUltimate','siegeOperate','bibyeOperate',
+  'bibyeToggleDeploy','bibyeWeaponFocus','bibyeFire'
+]);
 const INSPECTION_ADMIN_RESET = new Set(['practiceResetPlayer','practiceSpawnDummy','practiceSetDummyMode','practiceRemoveDummy']);
 
 const SOLO_MODES = new Set([GAME_MODES.BOT_DUEL, GAME_MODES.PRACTICE, GAME_MODES.BREAKTHROUGH]);
@@ -166,6 +180,9 @@ export class LocalHost {
   startInspectionPractice(name, worldId) {
     this.startSolo(GAME_MODES.PRACTICE, name, worldId);
     this.inspectionEnabled = true;
+    if (this.room) {
+      this.room.inspectionEnabled = true;
+    }
   }
 
   startTutorial(name) {
@@ -191,6 +208,7 @@ export class LocalHost {
       else this.#releaseInspectionActor(actorId);
     }
     this.inspectionControlId = id === this.player.id ? null : id;
+    if (this.room) this.room.inspectionControlId = this.inspectionControlId;
     if (this.inspectionControlId) this.inspectionControlUsed = true;
     this.#inspectionState();
     this.#deliver(serializeSnapshot(this.room,this.now(),this.playerId),true);
@@ -224,26 +242,48 @@ export class LocalHost {
   }
 
   get inspectionFrozen() { return this.frozenAt !== null; }
+  get inspectionFreezeMode() { return this.freezeModeState ?? (this.frozenAt !== null ? 'all' : 'none'); }
+  get inspectionFreezeProjectiles() { return Boolean(this.freezeProjectilesState); }
 
-  setInspectionFrozen(frozen) {
+  setInspectionFreezeMode(mode) {
     if (!this.inspectionEnabled || this.room?.state !== 'PLAYING') return false;
-    if (Boolean(frozen) === this.inspectionFrozen) return true;
-    if (frozen) this.frozenAt = this.now();
-    else {
-      this.inspectionFramesPlaying = false;
-      this.inspectionNextBeat = null;
-      this.timeOffset = this.wallNow() - this.frozenAt;
-      this.frozenAt = null;
-      // Held input belongs to the old live frame, never to a resumed inspection.
-      for (const id of new Set([this.player?.id,this.inspectionActorId,...this.inspectionPendingRelease])) this.#releaseInspectionActor(id);
-      this.inspectionPendingRelease.clear();
-      this.attack(false);
-      this.guard(false);
-      this.input({ seq: (this.player?.lastInputSeq ?? 0) + 1, forward: 0, right: 0,
-        jump: false, sprint: false, crouch: false, yaw: this.player?.yaw ?? 0, pitch: this.player?.pitch ?? 0 });
+    const validModes = ['all', 'others', 'actor', 'none'];
+    if (!validModes.includes(mode)) return false;
+    this.freezeModeState = mode;
+    if (mode === 'all') {
+      if (this.frozenAt === null) this.frozenAt = this.now();
+    } else {
+      if (this.frozenAt !== null) {
+        this.inspectionFramesPlaying = false;
+        this.inspectionNextBeat = null;
+        this.timeOffset = this.wallNow() - this.frozenAt;
+        this.frozenAt = null;
+        for (const id of new Set([this.player?.id, this.inspectionActorId, ...this.inspectionPendingRelease])) {
+          this.#releaseInspectionActor(id);
+        }
+        this.inspectionPendingRelease.clear();
+      }
+    }
+    if (this.room) {
+      this.room.inspectionFreezeMode = mode;
+      this.room.freezeProjectiles = mode === 'all' || Boolean(this.freezeProjectilesState);
     }
     this.#inspectionState();
     return true;
+  }
+
+  setInspectionFreezeProjectiles(frozen) {
+    if (!this.inspectionEnabled || this.room?.state !== 'PLAYING') return false;
+    this.freezeProjectilesState = Boolean(frozen);
+    if (this.room) {
+      this.room.freezeProjectiles = this.inspectionFreezeMode === 'all' || this.freezeProjectilesState;
+    }
+    this.#inspectionState();
+    return true;
+  }
+
+  setInspectionFrozen(frozen) {
+    return this.setInspectionFreezeMode(frozen ? 'all' : 'none');
   }
 
   /**
@@ -271,7 +311,15 @@ export class LocalHost {
   }
 
   #inspectionState() {
-    this.#deliver({ type: 'inspectionState', frozen: this.inspectionFrozen, playingFrames: this.inspectionFramesPlaying, actorId:this.inspectionActorId, sandbox:this.inspectionControlUsed });
+    this.#deliver({
+      type: 'inspectionState',
+      frozen: this.inspectionFrozen,
+      freezeMode: this.inspectionFreezeMode,
+      freezeProjectiles: this.inspectionFreezeProjectiles,
+      playingFrames: this.inspectionFramesPlaying,
+      actorId: this.inspectionActorId,
+      sandbox: this.inspectionControlUsed,
+    });
   }
 
   stepInspection() {
@@ -300,6 +348,43 @@ export class LocalHost {
     if (!room) return;
     const time = explicitTime ?? this.now();
     this.#validateInspectionActor();
+
+    const activeActorId = this.inspectionActorId;
+    const frozenActors = new Set();
+    const mode = this.inspectionFreezeMode;
+    if (mode === 'all') {
+      for (const p of room.players.keys()) frozenActors.add(p);
+    } else if (mode === 'others') {
+      for (const p of room.players.keys()) {
+        if (p !== activeActorId) frozenActors.add(p);
+      }
+    } else if (mode === 'actor') {
+      if (activeActorId) frozenActors.add(activeActorId);
+    }
+    room.inspectionFrozenActors = frozenActors;
+    room.inspectionFreezeMode = mode;
+    room.freezeProjectiles = mode === 'all' || this.inspectionFreezeProjectiles;
+
+    if (this.inspectionQueuedActions?.length) {
+      const queued = this.inspectionQueuedActions.splice(0);
+      for (const item of queued) {
+        const actor = room.players.get(item.actorId);
+        if (!actor || !actor.alive) continue;
+        if (item.action === 'attack') {
+          applyRoomCommand(room, actor, { type: 'attack', down: true, clientTime: time }, time);
+        } else if (item.action === 'guard') {
+          applyRoomCommand(room, actor, { type: 'guard', down: true, clientTime: time }, time);
+        } else if (item.action === 'cast') {
+          applyRoomCommand(room, actor, { type: 'cast', direction: { x: Math.sin(actor.yaw), y: 0, z: Math.cos(actor.yaw) }, clientTime: time }, time);
+        } else if (item.action === 'dash') {
+          applyRoomCommand(room, actor, { type: 'dash', direction: 'forward' }, time);
+        } else if (item.action === 'ultimate') {
+          actor.prowess = PROWESS.full;
+          applyRoomCommand(room, actor, { type: 'ultimate' }, time);
+        }
+      }
+    }
+
     stepBotControllers(room, time, room.world);
     if (this.sessionController) this.sessionController.beforeStep(time);
     else if (!this.inspectionControlId) stepPracticeActors(room, time, room.world);
@@ -350,7 +435,11 @@ export class LocalHost {
     this.generation += 1;
     if (this.timer !== null) this.cancel(this.timer);
     this.timer = null;
-    if (this.room) this.rooms.rooms.delete(this.room.code);
+    if (this.room) {
+      this.room.inspectionEnabled = false;
+      this.room.inspectionControlId = null;
+      this.rooms.rooms.delete(this.room.code);
+    }
     this.room = null;
     this.player = null;
     this.commandFilter = null;
@@ -361,6 +450,9 @@ export class LocalHost {
     this.inspectionPendingRelease = new Set();
     this.inspectionFramesPlaying = false;
     this.inspectionNextBeat = null;
+    this.freezeModeState = 'none';
+    this.freezeProjectilesState = false;
+    this.inspectionQueuedActions = [];
     this.frozenAt = null;
     this.timeOffset = 0;
   }
@@ -371,11 +463,9 @@ export class LocalHost {
     if (!room || !owner || this.inspectionFrozen) return;
     this.#validateInspectionActor();
     if (this.inspectionControlId && INSPECTION_ADMIN_RESET.has(message.type)) this.setInspectionActor(owner.id);
-    if (this.inspectionControlId && (message.type?.startsWith('bibye') || message.type === 'siegeOperate' || message.type === 'practiceReadyUltimate')) {
-      this.#deliver({type:'error',message:'Return control to You to operate siege machinery.'}); return;
-    }
     const player = this.inspectionControlId && INSPECTION_ACTIONS.has(message.type)
       ? room.players.get(this.inspectionControlId) : owner;
+    if (this.inspectionFreezeMode === 'actor' && player?.id === this.inspectionActorId) return;
     if (this.commandFilter) {
       message = this.commandFilter(message);
       if (!message) return;
@@ -384,6 +474,235 @@ export class LocalHost {
     if (result.rejected) this.#deliver({ type: 'error', message: result.rejected });
     else if (result.lobby) this.#deliver(serializeLobby(room));
     this.#validateInspectionActor();
+  }
+
+  stageInspectionActor({
+    actorId = null,
+    position = null,
+    vitals = null,
+    ultimate = null,
+    clearCooldowns = false,
+    loadout = null,
+    ai = null,
+    pose = null,
+    mount = null,
+    nextTick = null,
+  } = {}) {
+    if (!this.inspectionEnabled || !this.room) return { success: false, reason: 'Inspection inactive' };
+    const room = this.room;
+    const id = actorId ?? this.inspectionActorId ?? this.player?.id;
+    const actor = room.players.get(id);
+    if (!actor || !actor.alive) return { success: false, reason: 'Actor not found or dead' };
+    const now = this.now();
+    actor.spawnProtectionUntil = Math.min(actor.spawnProtectionUntil, now);
+
+    // 1. Position
+    if (position) {
+      const world = room.world;
+      const solids = [...(world.solids ?? []), ...getBiByeSolids(room.biByeLlista), ...soFistSolids(room.soFistication)];
+      let targetX = actor.position.x;
+      let targetY = actor.position.y;
+      let targetZ = actor.position.z;
+      let targetYaw = actor.yaw;
+      let targetPitch = actor.pitch;
+
+      if (typeof position === 'string') {
+        if (position === 'face_target') {
+          const other = [...room.players.values()].find(p => p.id !== actor.id && p.alive);
+          if (other) {
+            targetYaw = Math.atan2(-(other.position.x - actor.position.x), -(other.position.z - actor.position.z));
+          }
+        } else if (position === 'courtyard') {
+          targetX = 0; targetZ = -2;
+        } else if (position === 'walkway') {
+          targetX = 4; targetZ = 8;
+        } else if (position === 'near_ballista' && room.biByeLlista) {
+          targetX = room.biByeLlista.x - 2; targetZ = room.biByeLlista.z;
+        } else if (position === 'near_ram' && room.soFistication) {
+          targetX = room.soFistication.x - 2.5; targetZ = room.soFistication.z;
+        }
+      } else {
+        if (Number.isFinite(position.x)) targetX = position.x;
+        if (Number.isFinite(position.y)) targetY = position.y;
+        if (Number.isFinite(position.z)) targetZ = position.z;
+        if (Number.isFinite(position.yaw)) targetYaw = position.yaw;
+        if (Number.isFinite(position.pitch)) targetPitch = position.pitch;
+      }
+      const ground = surfaceHeightAt(targetX, targetZ, targetY + 1.2, world);
+      const safeY = ground !== null ? Math.max(targetY, ground) : targetY;
+      const candidate = { x: targetX, y: safeY, z: targetZ };
+      const resolved = resolvePlayerWorld(candidate, 0.45, solids, 1.8);
+      actor.position = { x: resolved.x, y: resolved.y, z: resolved.z };
+      actor.velocity = { x: 0, y: 0, z: 0 };
+      actor.impulse = { x: 0, z: 0 };
+      actor.yaw = targetYaw;
+      actor.pitch = targetPitch;
+      actor.history = [{ at: now, position: { ...actor.position }, yaw: actor.yaw, pitch: actor.pitch, crouched: Boolean(actor.crouched) }];
+    }
+
+    // 2. Vitals
+    if (vitals) {
+      if (vitals.refill) {
+        actor.health = GAME.maxHealth;
+        actor.guardStamina = guardProfile(actor.knightClass).capacity;
+      }
+      if (Number.isFinite(vitals.health)) {
+        actor.health = Math.max(1, Math.min(GAME.maxHealth, vitals.health));
+      }
+      if (Number.isFinite(vitals.guardStamina)) {
+        actor.guardStamina = Math.max(0, Math.min(guardProfile(actor.knightClass).capacity, vitals.guardStamina));
+      }
+    }
+
+    // 3. Ultimate
+    if (ultimate) {
+      actor.prowess = PROWESS.full;
+      actor.ultimateLockedUntil = -Infinity;
+      actor.recoverUntil = -Infinity;
+      actor.staggerUntil = -Infinity;
+      if (typeof ultimate === 'string' && isUltimate(ultimate)) {
+        actor.ultimate = ultimate;
+        actor.startingUltimate = ultimate;
+      }
+    }
+
+    // 4. Cooldowns
+    if (clearCooldowns) {
+      actor.dashReadyAt = -Infinity;
+      actor.castEndsAt = 0;
+      actor.gauntlet = null;
+      actor.recast = {};
+      actor.stagger = freshStagger();
+      actor.staggerUntil = -Infinity;
+    }
+
+    // 5. Loadout
+    if (loadout) {
+      if (loadout.spell && isSpell(loadout.spell)) {
+        actor.spell = loadout.spell;
+        actor.startingSpell = loadout.spell;
+        if (!actor.preparedSpells.includes(loadout.spell)) actor.preparedSpells[0] = loadout.spell;
+      }
+      if (loadout.ultimate && isUltimate(loadout.ultimate)) {
+        actor.ultimate = loadout.ultimate;
+        actor.startingUltimate = loadout.ultimate;
+      }
+    }
+
+    // 6. AI
+    if (ai) {
+      if (ai.suspended !== undefined) {
+        actor.aiSuspended = Boolean(ai.suspended);
+        if (actor.aiSuspended) actor.input = { forward: 0, right: 0, jump: false, sprint: false, crouch: false, yaw: actor.yaw, pitch: actor.pitch, attack: false, guard: false };
+      }
+    }
+
+    // 7. Poses
+    if (pose) {
+      if (pose === 'idle') {
+        if (actor.guarding) setGuard(room, actor.id, false, now);
+        actor.guardHeld = false;
+        if (actor.attackActive) cancelAttack(room, actor.id, now);
+        actor.pendingSpell = null;
+        actor.castEndsAt = 0;
+      } else if (pose === 'guard') {
+        setGuard(room, actor.id, true, now);
+        actor.guardHeld = true;
+      } else if (pose === 'swing') {
+        beginAttack(room, actor.id, now);
+      } else if (pose === 'cast') {
+        actor.pendingSpell = { spell: actor.spell, startedAt: now };
+        actor.castEndsAt = now + 0.6;
+      }
+    }
+
+    // 8. Siege Mount
+    if (mount) {
+      if (mount === 'ballista') {
+        actor.ultimateState = null;
+        actor.attackActive = false;
+        actor.pendingSpell = null;
+        actor.gauntlet = null;
+        actor.staggerUntil = 0;
+        if (actor.operatingRamId && room.soFistication) {
+          dismountSoFistication(room, room.soFistication, actor, { force: true });
+        }
+        if (!room.biByeLlista) {
+          practiceSiegeCommand(room, room.players.get(this.player.id), 'build', 'bi-bye-llista', now);
+          if (!room.biByeLlista) {
+            const b = createBiByeLlista({ x: 5, y: 0, z: -10, baseYaw: 0 });
+            room.biByeLlista = b;
+            room.biByeRevision = (room.biByeRevision ?? 0) + 1;
+            room.events.push({ type: 'bibyeConstructed', machineId: b.id, ballistaId: b.id, rebuild: false, point: { x: b.x, y: b.y, z: b.z }, at: now });
+          }
+        }
+        if (room.biByeLlista) {
+          const b = room.biByeLlista;
+          actor.position = { x: b.x, y: b.y + 0.5, z: b.z };
+          if (!mountBiByeLlista(b, actor, now)) {
+            b.operatorId = actor.id;
+            actor.operatingBallistaId = b.id;
+            actor.velocity = { x: 0, y: 0, z: 0 };
+            actor.guarding = false;
+            actor.input = { ...actor.input, forward: 0, right: 0, jump: false, sprint: false, yaw: b.yaw, pitch: b.pitch };
+          }
+        }
+      } else if (mount === 'ram') {
+        actor.ultimateState = null;
+        actor.attackActive = false;
+        actor.pendingSpell = null;
+        actor.gauntlet = null;
+        actor.staggerUntil = 0;
+        if (actor.operatingBallistaId && room.biByeLlista) {
+          dismountBiByeLlista(room.biByeLlista, actor, true, room.world);
+        }
+        if (!room.soFistication) {
+          if (room.biByeLlista) {
+            practiceSiegeCommand(room, room.players.get(this.player.id), 'dismantle', 'bi-bye-llista', now);
+            room.biByeLlista = null;
+          }
+          practiceSiegeCommand(room, room.players.get(this.player.id), 'build', 'so-fist-ication', now);
+          if (!room.soFistication) {
+            const h = surfaceHeightAt(0, -6, 2, room.world) ?? 0;
+            const ram = createSoFistication({ x: 0, y: h, z: -6, heading: 0 });
+            room.soFistication = ram;
+            room.soFistRevision = (room.soFistRevision ?? 0) + 1;
+            room.events.push({ type: 'soFistConstructed', machineId: ram.id, rebuild: false, point: { x: ram.x, y: ram.y, z: ram.z }, at: now });
+          }
+        }
+        if (room.soFistication) {
+          const ram = room.soFistication;
+          const seat = soFistOperator(ram, room.world);
+          if (seat.y == null) seat.y = ram.y;
+          actor.position = { ...seat };
+          if (!mountSoFistication(room, ram, actor, now)) {
+            ram.operatorId = actor.id;
+            actor.operatingRamId = ram.id;
+            actor.position = { ...seat };
+            actor.velocity = { x: 0, y: 0, z: 0 };
+            actor.impulse = { x: 0, z: 0 };
+            actor.guarding = false;
+            actor.input = { forward: 0, right: 0, yaw: ram.heading, pitch: 0, jump: false, sprint: false };
+          }
+        }
+      } else if (mount === 'dismount') {
+        if (actor.operatingBallistaId && room.biByeLlista) {
+          dismountBiByeLlista(room.biByeLlista, actor, true, room.world);
+        }
+        if (actor.operatingRamId && room.soFistication) {
+          dismountSoFistication(room, room.soFistication, actor, { force: true });
+        }
+      }
+    }
+
+    // 9. Next tick queued action
+    if (nextTick) {
+      this.inspectionQueuedActions = this.inspectionQueuedActions || [];
+      this.inspectionQueuedActions.push({ actorId: actor.id, action: nextTick });
+    }
+
+    this.#deliver(serializeSnapshot(room, now, this.playerId), true);
+    return { success: true };
   }
 
   leaveRoom() {
@@ -539,6 +858,12 @@ export class LocalHost {
   gauntlet() { this.#command({ type: 'gauntlet', clientTime: this.now() }); }
   ultimate() { this.#command({ type: 'ultimate' }); }
   practiceReadyUltimate() { this.#command({ type: 'practiceReadyUltimate' }); }
+  siegeOperate() { this.#command({ type: 'siegeOperate' }); }
+  bibyeOperate() { this.#command({ type: 'bibyeOperate' }); }
+  bibyeFire(weapon = 'MAIN') { this.#command({ type: 'bibyeFire', weapon }); }
+  bibyeToggleDeploy() { this.#command({ type: 'bibyeToggleDeploy' }); }
+  bibyeWeaponFocus(focus) { this.#command({ type: 'bibyeWeaponFocus', focus }); }
+  practiceSiege(action, machine) { this.#command({ type: 'practiceSiege', action, machine }); }
   dash(direction) { this.#command({ type: 'dash', direction }); }
   rematch() { this.#command({ type: 'rematch' }); }
   switchTeam(team = null) { this.#command({ type: 'switchTeam', team }); }

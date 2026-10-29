@@ -306,11 +306,25 @@ export class GameRuntime {
     this.inspectionTools = new InspectionCameraTools(hud.root.parentElement, {
       actor: () => this.inhabitInspection(socket.playerId),
       dummy: () => this.inhabitInspection(this.latestSnapshot?.players.find(p=>p.actorKind==='dummy'&&p.alive)?.id),
+      viewFp: () => this.setInspectionFocus('actor'),
       body: () => this.setInspectionFocus('actor'),
       fly: () => this.setInspectionFocus('fly'),
       split: () => this.setInspectionSplit(!this.inspectionSplit),
       reset: () => this.resetInspectionCamera(),
-      freeze: () => {this.onInspectionFreeze?.();if(!socket.inspectionFrozen&&this.touch)this.input.requestPointerLock();},
+      freeze: () => {
+        const next = !socket.inspectionFrozen;
+        socket.setInspectionFrozen(next);
+        this.onInspectionFreeze?.();
+        if(!socket.inspectionFrozen&&this.touch)this.input.requestPointerLock();
+      },
+      freezeMode: (mode) => {
+        socket.setInspectionFreezeMode?.(mode);
+        this.onInspectionFreeze?.();
+        if (mode === 'none' && this.touch) this.input.requestPointerLock();
+      },
+      toggleFreezeProjectiles: () => {
+        socket.setInspectionFreezeProjectiles?.(!socket.inspectionFreezeProjectiles);
+      },
       step: () => socket.stepInspection(),
       playFrames: () => socket.playInspectionFrames(!socket.inspectionFramesPlaying),
       hideAllUi: () => this.setInspectionUiMode('clean'),
@@ -328,6 +342,40 @@ export class GameRuntime {
       captureSingle: () => this.captureInspectionScreenshot(),
       captureAll: () => this.captureAllInspectionCameras(),
       toggleSequence: () => this.toggleInspectionSequence(),
+      stageRefill: () => {
+        const res = socket.stageInspectionActor?.({ vitals: { refill: true } }) ?? { success: false };
+        this.inspectionTools.setFeedback(res.success ? 'VITALS RESTORED: FULL HEALTH & STAMINA' : (res.reason || 'Failed'), !res.success);
+      },
+      stageUltimate: () => {
+        const res = socket.stageInspectionActor?.({ ultimate: true }) ?? { success: false };
+        this.inspectionTools.setFeedback(res.success ? 'ULTIMATE READIED: FULL PROWESS' : (res.reason || 'Failed'), !res.success);
+      },
+      stageClearCooldowns: () => {
+        const res = socket.stageInspectionActor?.({ clearCooldowns: true }) ?? { success: false };
+        this.inspectionTools.setFeedback(res.success ? 'COOLDOWNS CLEARED' : (res.reason || 'Failed'), !res.success);
+      },
+      stageToggleAi: () => {
+        const dummy = this.latestSnapshot?.players.find(p => p.actorKind === 'dummy');
+        const next = !dummy?.aiSuspended;
+        const res = socket.stageInspectionActor?.({ actorId: dummy?.id, ai: { suspended: next } }) ?? { success: false };
+        this.inspectionTools.setFeedback(res.success ? (next ? 'DUMMY AI SUSPENDED' : 'DUMMY AI ACTIVE') : (res.reason || 'Failed'), !res.success);
+      },
+      stageLoadout: (loadout) => {
+        const res = socket.stageInspectionActor?.({ loadout }) ?? { success: false };
+        this.inspectionTools.setFeedback(res.success ? 'LOADOUT EQUIPPED' : (res.reason || 'Failed'), !res.success);
+      },
+      stagePose: (pose) => {
+        const res = socket.stageInspectionActor?.({ pose }) ?? { success: false };
+        this.inspectionTools.setFeedback(res.success ? `POSE SET: ${pose.toUpperCase()}` : (res.reason || 'Failed'), !res.success);
+      },
+      stagePosition: (pos) => {
+        const res = socket.stageInspectionActor?.({ position: pos }) ?? { success: false };
+        this.inspectionTools.setFeedback(res.success ? `POSITIONED: ${pos.toUpperCase()}` : (res.reason || 'Failed'), !res.success);
+      },
+      stageMount: (mount) => {
+        const res = socket.stageInspectionActor?.({ mount }) ?? { success: false };
+        this.inspectionTools.setFeedback(res.success ? (mount === 'dismount' ? 'DISMOUNTED' : `MOUNTED: ${mount.toUpperCase()}`) : (res.reason || 'Failed'), !res.success);
+      },
     });
     this.inspectionActionGate = (action, notify=true) => {
       if (!this.inspectionFree || ['look','move','sprint','jump','crouch','pause'].includes(action)) return true;
@@ -715,6 +763,8 @@ export class GameRuntime {
       dummy: this.latestSnapshot?.players.some((p) => p.actorKind === 'dummy' && p.alive),
       controlledDummy: this.localAuth?.actorKind === 'dummy',
       frozen: this.socket.inspectionFrozen,
+      freezeMode: this.socket.inspectionFreezeMode ?? (this.socket.inspectionFrozen ? 'all' : 'none'),
+      freezeProjectiles: this.socket.inspectionFreezeProjectiles ?? false,
       playingFrames: this.socket.inspectionFramesPlaying,
       views,
       controls,
@@ -726,6 +776,14 @@ export class GameRuntime {
       fov: this.inspectionFov ?? this.view.fov,
       bookmarks: this.inspectionBookmarks,
       sequence: this.inspectionSequence,
+      actorHealth: this.localAuth?.health,
+      actorMaxHealth: this.localAuth?.maxHealth ?? 100,
+      actorStamina: this.localAuth?.guardStamina,
+      actorSpell: this.localAuth?.spell,
+      actorUltimate: this.localAuth?.ultimate,
+      actorProwess: this.localAuth?.prowess ?? 0,
+      dummyAiSuspended: Boolean(this.latestSnapshot?.players.find(p => p.actorKind === 'dummy')?.aiSuspended),
+      mounted: Boolean(this.localAuth?.operatingBallistaId || this.localAuth?.operatingRamId),
     });
   }
 
