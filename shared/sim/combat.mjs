@@ -332,7 +332,7 @@ function inPractice(room) {
 // that leave is the knight's who came to practise: the yard's own opponents keep their real cooldowns (or they would
 // throw a spell every time the gate opened: a fireball every half second)
 function practising(room, player) {
-  return inPractice(room) && !room.localTutorial && player?.actorKind === 'human';
+  return inPractice(room) && !room.localTutorial && (player?.actorKind === 'human' || (room.inspectionEnabled && player?.id === room.inspectionControlId));
 }
 
 export function tryDash(room, playerId, direction, nowSec) {
@@ -1167,6 +1167,9 @@ export function killPlayer(room, victimId, attackerId, source, nowSec) {
   victim.health = 0;
   if (victim.operatingBallistaId && room.biByeLlista) {
     dismountBiByeLlista(room.biByeLlista, victim);
+  }
+  if (victim.operatingRamId && room.soFistication) {
+    dismountSoFistication(room, room.soFistication, victim, { administrative: false, force: true });
   }
   victim.guarding = false;
   victim.steel = null;
@@ -2038,6 +2041,55 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
   const effectiveWorld = biByeSolids.length > 0 ? { ...world, solids: [...(world.solids ?? []), ...biByeSolids] } : world;
 
   for (const player of room.players.values()) {
+    const isFrozenActor = Boolean(room.inspectionFrozenActors?.has(player.id));
+    player.inspectionFrozen = isFrozenActor;
+    if (isFrozenActor) {
+      if (!player.alive) {
+        player.respawnAt = (player.respawnAt ?? nowSec) + dt;
+        continue;
+      }
+      if (player.ultimateWantedUntil) player.ultimateWantedUntil += dt;
+      if (player.pendingSpell) {
+        player.castEndsAt = (player.castEndsAt ?? nowSec) + dt;
+        player.pendingSpell.startedAt = (player.pendingSpell.startedAt ?? nowSec) + dt;
+      }
+      if (player.gust) {
+        player.gust.until = (player.gust.until ?? nowSec) + dt;
+        player.gust.bornAt = (player.gust.bornAt ?? nowSec) + dt;
+      }
+      if (player.burn) {
+        player.burn.until = (player.burn.until ?? nowSec) + dt;
+        if (Array.isArray(player.burn.ticks)) {
+          for (const t of player.burn.ticks) t.at = (t.at ?? nowSec) + dt;
+        }
+      }
+      if (player.chill) {
+        player.chill.until = (player.chill.until ?? nowSec) + dt;
+      }
+      player.lastGuardDrainAt = (player.lastGuardDrainAt ?? nowSec) + dt;
+      player.lastDamageAt = (player.lastDamageAt ?? nowSec) + dt;
+      if (player.staggerUntil && nowSec < player.staggerUntil) {
+        player.staggerUntil += dt;
+      }
+      if (player.ultimateState) {
+        if (player.ultimateState.commitAt) player.ultimateState.commitAt += dt;
+        if (player.ultimateState.until) player.ultimateState.until += dt;
+      }
+      if (player.attackActive) {
+        player.attackStartedAt = (player.attackStartedAt ?? nowSec) + dt;
+        if (player.attackRestartAt) player.attackRestartAt += dt;
+      }
+      if (player.gauntlet) {
+        player.gauntlet.landAt = (player.gauntlet.landAt ?? nowSec) + dt;
+      }
+      if (player.dashUntil && nowSec < player.dashUntil) {
+        player.dashUntil += dt;
+      }
+      player.velocity = { x: 0, y: 0, z: 0 };
+      player.impulse = { x: 0, z: 0 };
+      recordTransform(player, nowSec);
+      continue;
+    }
     if (!player.alive) {
       if (nowSec >= player.respawnAt && room.state === 'PLAYING') respawnPlayer(room, player, nowSec, world);
       continue;
@@ -2230,10 +2282,26 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
   // bodies do not share space: overlapping Spellblades are eased apart (never off a ledge or into a wall)
   separatePlayers([...room.players.values()].filter((p) => !p.operatingBallistaId&&!p.operatingRamId), effectiveWorld);
   if(room.soFistication){stepSoFistication(room,room.soFistication,dt,nowSec,world);const op=room.players.get(room.soFistication.operatorId);if(op)recordTransform(op,nowSec);}
-  stepProjectiles(room, dt, nowSec, world);
   if (room.biByeLlista) {
     stepBiByeLlista(room, room.biByeLlista, dt, nowSec);
-    stepBiByeProjectiles(room, dt, nowSec, world);
+  }
+  if (!room.freezeProjectiles) {
+    stepProjectiles(room, dt, nowSec, world);
+    if (room.biByeLlista) {
+      stepBiByeProjectiles(room, dt, nowSec, world);
+    }
+  } else {
+    for (const projectile of room.projectiles.values()) {
+      projectile.bornAt = (projectile.bornAt ?? nowSec) + dt;
+      if (projectile.detonateAt) projectile.detonateAt += dt;
+      if (projectile.coreKnockedAt) projectile.coreKnockedAt += dt;
+      if (projectile.armedAt) projectile.armedAt += dt;
+    }
+    if (room.bibyeProjectiles) {
+      for (const bp of room.bibyeProjectiles.values()) {
+        bp.bornAt = (bp.bornAt ?? nowSec) + dt;
+      }
+    }
   }
   room.tickNumber += 1;
   return room.events;

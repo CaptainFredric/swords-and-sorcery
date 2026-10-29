@@ -186,9 +186,20 @@ export class GameLink {
   get inspectionAvailable() { return this.playingLocally && this.local.inspectionEnabled; }
   get inspectionFrozen() { return this.inspectionAvailable && this.local.inspectionFrozen; }
   setInspectionFrozen(frozen) { return this.inspectionAvailable && this.local.setInspectionFrozen(frozen); }
+  get inspectionFreezeMode() { return this.inspectionAvailable ? this.local.inspectionFreezeMode : 'none'; }
+  setInspectionFreezeMode(mode) { return this.inspectionAvailable && this.local.setInspectionFreezeMode(mode); }
+  get inspectionFreezeProjectiles() { return this.inspectionAvailable ? this.local.inspectionFreezeProjectiles : false; }
+  setInspectionFreezeProjectiles(freeze) { return this.inspectionAvailable && this.local.setInspectionFreezeProjectiles(freeze); }
   get inspectionFramesPlaying() { return this.inspectionAvailable && this.local.inspectionFramesPlaying; }
   playInspectionFrames(playing) { return this.inspectionAvailable && this.local.playInspectionFrames(playing); }
   stepInspection() { return this.inspectionAvailable && this.local.stepInspection(); }
+  stageInspectionActor(options) { return this.inspectionAvailable && this.local.stageInspectionActor(options); }
+  siegeOperate() { return this.playingLocally ? this.local.siegeOperate() : this.send({ type: 'siegeOperate' }); }
+  bibyeOperate() { return this.playingLocally ? this.local.bibyeOperate() : this.send({ type: 'bibyeOperate' }); }
+  bibyeFire(weapon = 'MAIN') { return this.playingLocally ? this.local.bibyeFire(weapon) : this.send({ type: 'bibyeFire', weapon }); }
+  bibyeToggleDeploy() { return this.playingLocally ? this.local.bibyeToggleDeploy() : this.send({ type: 'bibyeToggleDeploy' }); }
+  bibyeWeaponFocus(focus) { return this.playingLocally ? this.local.bibyeWeaponFocus(focus) : this.send({ type: 'bibyeWeaponFocus', focus }); }
+  practiceSiege(action, machine) { return this.playingLocally ? this.local.practiceSiege(action, machine) : this.send({ type: 'practiceSiege', action, machine }); }
 
   // online play needs the server; without it, Seek a Duel offers the honest next best thing: a bot, here
   #online(method, args) {

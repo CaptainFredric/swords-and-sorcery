@@ -153,6 +153,14 @@ class MockElement extends EventTarget {
       ['captureSingle', 'CAPTURE PNG'],
       ['captureAll', 'CAPTURE ALL CAMERAS'],
       ['toggleSequence', 'START SEQUENCE'],
+      ['viewFp', '1ST'],
+      ['toggleFreezeProjectiles', 'FREEZE PROJECTILES: OFF'],
+      ['stageRefill', 'REFILL VITALS'],
+      ['stageUltimate', 'READY ULTIMATE'],
+      ['stageClearCooldowns', 'CLEAR COOLDOWNS'],
+      ['stageToggleAi', 'AI: ACTIVE'],
+      ['stageApplySpell', 'EQUIP'],
+      ['stageApplyUltimate', 'EQUIP'],
     ];
 
     for (const [id, label] of btnNames) {
@@ -161,8 +169,46 @@ class MockElement extends EventTarget {
       btn.textContent = label;
       if (id === 'cycleUiMode') btn.dataset.uiModeBtn = '';
       if (id === 'toggleGrid') btn.dataset.gridBtn = '';
+      if (id === 'toggleFreezeProjectiles') btn.dataset.freezeProjBtn = '';
+      if (id === 'stageToggleAi') btn.dataset.aiBtn = '';
       details.append(btn);
     }
+
+    for (const m of ['none', 'all', 'others', 'actor']) {
+      const btn = new MockElement('button');
+      btn.dataset.camera = 'freezeMode';
+      btn.dataset.mode = m;
+      details.append(btn);
+    }
+
+    for (const p of ['idle', 'guard', 'swing', 'cast']) {
+      const btn = new MockElement('button');
+      btn.dataset.camera = 'stagePose';
+      btn.dataset.pose = p;
+      details.append(btn);
+    }
+
+    for (const pos of ['face_target', 'courtyard', 'walkway', 'near_ballista']) {
+      const btn = new MockElement('button');
+      btn.dataset.camera = 'stagePosition';
+      btn.dataset.pos = pos;
+      details.append(btn);
+    }
+
+    for (const mount of ['ballista', 'ram', 'dismount']) {
+      const btn = new MockElement('button');
+      btn.dataset.camera = 'stageMount';
+      btn.dataset.mount = mount;
+      details.append(btn);
+    }
+
+    const stageSpell = new MockElement('select');
+    stageSpell.dataset.stageSpell = '';
+    stageSpell.value = 'fireball';
+    const stageUlt = new MockElement('select');
+    stageUlt.dataset.stageUltimate = '';
+    stageUlt.value = 'sunder';
+    details.append(stageSpell, stageUlt);
 
     for (const spd of ['slow', 'normal', 'fast']) {
       const btn = new MockElement('button');
@@ -250,6 +296,16 @@ function setup() {
     captureSingle: () => calls.push('captureSingle'),
     captureAll: () => calls.push('captureAll'),
     toggleSequence: () => calls.push('toggleSequence'),
+    freezeMode: (mode) => calls.push(['freezeMode', mode]),
+    toggleFreezeProjectiles: () => calls.push('toggleFreezeProjectiles'),
+    stageRefill: () => calls.push('stageRefill'),
+    stageUltimate: () => calls.push('stageUltimate'),
+    stageClearCooldowns: () => calls.push('stageClearCooldowns'),
+    stageToggleAi: () => calls.push('stageToggleAi'),
+    stageLoadout: (l) => calls.push(['stageLoadout', l]),
+    stagePose: (p) => calls.push(['stagePose', p]),
+    stagePosition: (pos) => calls.push(['stagePosition', pos]),
+    stageMount: (m) => calls.push(['stageMount', m]),
   };
   const tools = new InspectionCameraTools(parent, actions);
   return { parent, calls, actions, tools };
@@ -304,6 +360,36 @@ test('InspectionCameraTools renders all controls and dispatches actions on click
   const goBtn = tools.root.querySelector('[data-camera="bookmarkGo"][data-slot="1"]');
   goBtn.dispatchEvent(new Event('click', { bubbles: true }));
   assert.deepEqual(calls.at(-1), ['bookmarkGo', 1]);
+
+  // Test freezeMode dispatch
+  clickBtn('freezeMode', { mode: 'others' });
+  assert.deepEqual(calls.at(-1), ['freezeMode', 'others']);
+
+  // Test freeze projectiles
+  clickBtn('toggleFreezeProjectiles');
+  assert.equal(calls.at(-1), 'toggleFreezeProjectiles');
+
+  // Test staging actions
+  clickBtn('stageRefill');
+  assert.equal(calls.at(-1), 'stageRefill');
+
+  clickBtn('stageUltimate');
+  assert.equal(calls.at(-1), 'stageUltimate');
+
+  clickBtn('stageClearCooldowns');
+  assert.equal(calls.at(-1), 'stageClearCooldowns');
+
+  clickBtn('stageToggleAi');
+  assert.equal(calls.at(-1), 'stageToggleAi');
+
+  clickBtn('stagePose', { pose: 'guard' });
+  assert.deepEqual(calls.at(-1), ['stagePose', 'guard']);
+
+  clickBtn('stagePosition', { pos: 'courtyard' });
+  assert.deepEqual(calls.at(-1), ['stagePosition', 'courtyard']);
+
+  clickBtn('stageMount', { mount: 'ballista' });
+  assert.deepEqual(calls.at(-1), ['stageMount', 'ballista']);
 });
 
 test('InspectionCameraTools.update updates UI state and authoritative readout', () => {

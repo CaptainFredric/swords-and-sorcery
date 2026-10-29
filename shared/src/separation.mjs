@@ -59,13 +59,21 @@ export function separatePlayers(players, world) {
       const b = bodies[j];
       const push = separationPush({ ...a.position, id: a.id }, { ...b.position, id: b.id });
       if (!push) continue;
+      const aFrozen = Boolean(a.inspectionFrozen || a.frozen);
+      const bFrozen = Boolean(b.inspectionFrozen || b.frozen);
       const aHeight = a.crouched ? POSTURES.crouched.height : POSTURES.standing.height;
       const bHeight = b.crouched ? POSTURES.crouched.height : POSTURES.standing.height;
-      const aMoved = tryMove(a.position, push.x / 2, push.z / 2, world, aHeight);
-      const bMoved = tryMove(b.position, -push.x / 2, -push.z / 2, world, bHeight);
-      // one side is against a wall or an edge: the other gives way completely
-      if (aMoved && !bMoved) tryMove(a.position, push.x / 2, push.z / 2, world, aHeight);
-      if (bMoved && !aMoved) tryMove(b.position, -push.x / 2, -push.z / 2, world, bHeight);
+      if (aFrozen && !bFrozen) {
+        tryMove(b.position, -push.x, -push.z, world, bHeight);
+      } else if (bFrozen && !aFrozen) {
+        tryMove(a.position, push.x, push.z, world, aHeight);
+      } else if (!aFrozen && !bFrozen) {
+        const aMoved = tryMove(a.position, push.x / 2, push.z / 2, world, aHeight);
+        const bMoved = tryMove(b.position, -push.x / 2, -push.z / 2, world, bHeight);
+        // one side is against a wall or an edge: the other gives way completely
+        if (aMoved && !bMoved) tryMove(a.position, push.x / 2, push.z / 2, world, aHeight);
+        if (bMoved && !aMoved) tryMove(b.position, -push.x / 2, -push.z / 2, world, bHeight);
+      }
     }
   }
 }

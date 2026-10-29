@@ -231,3 +231,160 @@ test('free camera input release preserves frozen pose and possession cannot writ
  advance(1/30);
  assert.equal(host.profile,null);assert(!facts.some(e=>e.type==='prestigeChallengeCompleted'||e.type==='stPerryPlainUnlocked'));
 });
+
+
+test('Priority 1A: possessed dummy can prepare and execute Ultimates in Inspection Yard only', () => {
+  const { host, advance } = yard();
+  host.practiceSpawnDummy('PASSIVE'); advance(0.1);
+  const dummy = [...host.room.players.values()].find(p => p.actorKind === 'dummy');
+  const owner = host.player;
+  const ownerProwessBefore = owner.prowess;
+
+  assert.equal(host.setInspectionActor(dummy.id), true);
+  assert.equal(host.inspectionActorId, dummy.id);
+
+  // Ready dummy's ultimate
+  host.practiceReadyUltimate();
+  assert.equal(dummy.prowess, 100);
+
+  // Trigger ultimate
+  const facts = [];
+  host.on('events', ({ events }) => facts.push(...events));
+  host.ultimate();
+  assert.ok(dummy.ultimateState, 'Dummy has started its ultimate');
+  assert.equal(dummy.ultimateState.id, dummy.ultimate);
+
+  // Advance ticks through ultimate startup and commit
+  for (let i = 0; i < 20; i++) advance(1 / 30);
+  assert.ok(facts.some(e => (e.type === 'ultimateStart' || e.type === 'ultimateActive') && e.playerId === dummy.id), 'Ultimate started event recorded');
+  assert.equal(owner.prowess, ownerProwessBefore, 'Owner prowess was not altered');
+
+  // Verify that competitive multiplayer / ordinary rooms reject dummy ultimates
+  host.startSolo('PRACTICE', 'Ordinary');
+  host.arenaReady(true);
+  host.tick();
+  assert.equal(host.setInspectionActor(dummy.id), false);
+});
+
+test('Priority 1B: possessed dummy can mount, drive, fire, and dismount siege machinery', () => {
+  const { host, advance } = yard();
+  host.practiceSpawnDummy('PASSIVE'); advance(0.1);
+  const dummy = [...host.room.players.values()].find(p => p.actorKind === 'dummy');
+
+  assert.equal(host.setInspectionActor(dummy.id), true);
+
+  // Mount Bi-Bye-llista
+  const mountBallistaRes = host.stageInspectionActor({ actorId: dummy.id, mount: 'ballista' });
+  assert.equal(mountBallistaRes.success, true);
+  assert.ok(dummy.operatingBallistaId, 'Dummy mounted the ballista');
+  assert.equal(host.room.biByeLlista.operatorId, dummy.id);
+
+  // Fire ballista
+  const facts = [];
+  host.on('events', ({ events }) => facts.push(...events));
+  host.bibyeFire('MAIN');
+  advance(1 / 30);
+  assert.ok(facts.some(e => e.type?.startsWith('bibye') || host.latestSnapshot.bibyeProjectiles?.length), 'Ballista shot fired');
+
+  // Dismount
+  host.stageInspectionActor({ actorId: dummy.id, mount: 'dismount' });
+  assert.equal(dummy.operatingBallistaId, null);
+  assert.equal(host.room.biByeLlista.operatorId, null);
+
+  // Mount SO-FIST-ICATION
+  const mountRamRes = host.stageInspectionActor({ actorId: dummy.id, mount: 'ram' });
+  assert.equal(mountRamRes.success, true);
+  assert.ok(dummy.operatingRamId, 'Dummy mounted SO-FIST-ICATION');
+  assert.equal(host.room.soFistication.operatorId, dummy.id);
+
+  // Punch
+  host.attack(true);
+  advance(1 / 30);
+  assert.ok(host.room.soFistication.strikeAt !== null, 'Ram strike initiated');
+
+  // Safe dismount
+  host.stageInspectionActor({ actorId: dummy.id, mount: 'dismount' });
+  assert.equal(dummy.operatingRamId, null);
+  assert.equal(host.room.soFistication.operatorId, null);
+});
+
+test('Priority 2: selective freeze modes (ALL, OTHERS, ACTOR) and projectile freezing', () => {
+  const { host, advance } = yard();
+  host.practiceSpawnDummy('PASSIVE'); advance(1.5);
+  const dummy = [...host.room.players.values()].find(p => p.actorKind === 'dummy');
+  const owner = host.player;
+
+  // 1. FREEZE OTHERS: Owner moves and attacks, dummy stationary
+  assert.equal(host.setInspectionFreezeMode('others'), true);
+  assert.equal(host.inspectionFreezeMode, 'others');
+  assert.equal(host.inspectionFrozen, false, 'Simulation continues in real time');
+
+  const oldDummyZ = dummy.position.z;
+  const oldDummyHealth = dummy.health;
+  // Position owner facing dummy within sword reach
+  host.stageInspectionActor({ actorId: owner.id, position: { x: dummy.position.x, y: dummy.position.y, z: dummy.position.z - 1.2 } });
+  host.stageInspectionActor({ actorId: owner.id, position: 'face_target' });
+  host.attack(true);
+  for (let i = 0; i < 25; i++) advance(1 / 30);
+  assert.equal(dummy.position.z, oldDummyZ, 'Frozen dummy stayed stationary in position');
+  assert.ok(dummy.health < oldDummyHealth, 'Stationary dummy received combat damage');
+  host.attack(false);
+
+  // 2. FREEZE PROJECTILES: Cast fireball, freeze projectiles midair, verify position holds
+  host.stageInspectionActor({ actorId: owner.id, position: { x: 0, y: 1, z: 0, yaw: 0, pitch: 0 } });
+  host.cast({ x: 0, y: 0, z: 1 });
+  for (let i = 0; i < 11; i++) advance(1 / 30);
+  assert.ok(host.latestSnapshot.projectiles.length, 'Projectile spawned and in flight');
+
+  const pBefore = structuredClone(host.latestSnapshot.projectiles[0]);
+  host.setInspectionFreezeProjectiles(true);
+  assert.equal(host.inspectionFreezeProjectiles, true);
+  advance(1.0); // 30 ticks elapsed
+  const pDuring = host.latestSnapshot.projectiles[0];
+  assert.deepEqual(pDuring.position, pBefore.position, 'Projectile stayed frozen in midair');
+
+  // Resume projectile motion
+  host.setInspectionFreezeProjectiles(false);
+  advance(0.5);
+  const pAfter = host.latestSnapshot.projectiles[0];
+  if (pAfter) {
+    assert.notDeepEqual(pAfter.position, pBefore.position, 'Projectile resumed flight');
+  }
+
+  // 3. FREEZE ACTOR: Owner frozen, dummy free
+  host.setInspectionFreezeMode('actor');
+  assert.equal(host.inspectionFreezeMode, 'actor');
+  const ownerPosBefore = structuredClone(owner.position);
+  host.input({ seq: 99, forward: 1, right: 0, yaw: 0, pitch: 0 });
+  advance(0.5);
+  assert.deepEqual(owner.position, ownerPosBefore, 'Frozen actor position held fixed');
+});
+
+test('Priority 3: director staging actor vitals, cooldowns, loadouts, AI and poses', () => {
+  const { host, advance } = yard();
+  host.practiceSpawnDummy('PASSIVE'); advance(0.1);
+  const dummy = [...host.room.players.values()].find(p => p.actorKind === 'dummy');
+
+  // Vitals refill
+  dummy.health = 25;
+  dummy.guardStamina = 10;
+  host.stageInspectionActor({ actorId: dummy.id, vitals: { refill: true } });
+  assert.equal(dummy.health, 100);
+  assert.equal(dummy.guardStamina, 100);
+
+  // Loadout change
+  host.stageInspectionActor({ actorId: dummy.id, loadout: { spell: 'frostfire', ultimate: 'vortex' } });
+  assert.equal(dummy.spell, 'frostfire');
+  assert.equal(dummy.ultimate, 'vortex');
+
+  // Pose staging
+  host.stageInspectionActor({ actorId: dummy.id, pose: 'guard' });
+  assert.equal(dummy.guarding, true);
+
+  host.stageInspectionActor({ actorId: dummy.id, pose: 'idle' });
+  assert.equal(dummy.guarding, false);
+
+  // AI suspension
+  host.stageInspectionActor({ actorId: dummy.id, ai: { suspended: true } });
+  assert.equal(dummy.aiSuspended, true);
+});
