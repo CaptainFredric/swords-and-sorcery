@@ -72,17 +72,26 @@ function createCoreflagrationOrb() {
   group.userData.setCorePhase = (phase, progress) => {
     group.userData.corePhase = phase;
     group.userData.coreProgress = progress;
-    if (ring) ring.visible = phase === 'armed';
+    if (ring) {
+      ring.visible = phase === 'armed';
+      // The GLB stores this 3m radius ring at 0.001 initial scale.
+      ring.scale.setScalar(phase === 'armed' ? 1 : 0.001);
+    }
     if (wake) wake.visible = phase !== 'armed';
   };
   group.userData.update = (t) => {
     const armed = group.userData.corePhase === 'armed';
     const progress = group.userData.coreProgress;
     const object = model ?? fallback;
-    object.rotation.y = armed ? Math.sin(t * 5) * 0.07 * progress : t * 1.8;
-    object.rotation.z = armed ? Math.sin(t * 14) * 0.04 * progress : t * 1.2;
+    object.rotation.y = armed ? 0 : t * 1.8;
+    object.rotation.z = armed ? 0 : t * 1.2;
+    if (model) {
+      const shell = model.getObjectByName('Rocky_Core_Shell');
+      if (shell) shell.rotation.z = armed ? Math.sin(t * 14) * 0.04 * progress : 0;
+    }
     if (ring) ring.visible = armed;
-    if (armed) object.scale.setScalar(1 + 0.08 * progress);
+    // Keep the perimeter mathematically fixed at 3m. Do not enlarge the entire GLB.
+    if (model) model.scale.setScalar(1);
   };
   group.userData.dispose = () => { fallbackGeometry.dispose(); fallbackMaterial.dispose(); };
   coreflagrationAssetPromise ??= new Promise((resolve) => new GLTFLoader().load(
