@@ -168,7 +168,7 @@ test('arena and score are majority votes; a tie keeps what the room has; they ap
   assert.equal(room.vote('a', 'score', 5), true);
   assert.equal(room.vote('b', 'score', 15), true);
   assert.equal(room.vote('a', 'world', 'the-moon'), false, 'only offered choices count');
-  assert.equal(room.vote('a', 'score', 7), false);
+  assert.equal(room.vote('a', 'score', 101), false);
   const tally = room.tallyVotes();
   assert.equal(tally.world.chosen, 'ruined-keep');
   assert.equal(tally.score.chosen, 10, 'a 1-1 tie keeps the current score');

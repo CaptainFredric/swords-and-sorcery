@@ -1,3 +1,4 @@
+import { galeProfile, galeLift, sustainGaleRecoil } from '../src/galeModes.mjs';
 import { structureWorld, damageStructureSolid } from './structures.mjs';
 import {stepSoFistication,dismountSoFistication,soFistOperator,damageSoFistication,blastSoFistication} from './soFistication.mjs';
 import {soFistVolumes,soFistSolids,soFistFirstHit} from './soFistGeometry.mjs';
@@ -1243,16 +1244,18 @@ function spawnSpell(room, player, nowSec, world) {
 // sting, not the shove; walls stop it. A spell flying through it is bent off its line. Driven into the ground close by,
 // the gust throws its caster back off it (once, as it leaves the hand).
 function releaseGale(room, player, spell, nowSec, world) {
+  const mode = player.pendingSpell?.galeMode ?? 'balanced';
+  spell = galeProfile(mode);
   const ultimate = Boolean(player.pendingSpell?.ultimate);
   player.pendingSpell = null;
   player.castEndsAt = 0;
-  player.gust = { ultimate, spell: spell.id, bornAt: nowSec, until: nowSec + (spell.cone.lastsSec ?? 0), caught: [] };
+  player.gust = { ultimate, mode, spell: spell.id, bornAt: nowSec, until: nowSec + (spell.cone.lastsSec ?? 0), caught: [] };
   const { eye, direction } = galeAim(player);
   const affected = blowGale(room, player, nowSec, world);
   const recoil = galeRecoil(spell, eye, direction, world);
   if (recoil) launchBody(player, recoil, recoil.maxUp);
   const origin = galeOrigin(eye, direction);
-  room.events.push({ type: 'galeBlast', playerId: player.id, spell: spell.id, origin, direction, affected, recoil, at: nowSec });
+  room.events.push({ type: 'galeBlast', playerId: player.id, spell: spell.id, mode, origin, direction, affected, recoil, at: nowSec });
 }
 
 // where a caster's gust comes from and goes: their eyes, and where they aim
@@ -1286,12 +1289,13 @@ const GALE_BEND_SEC = 0.05;
 // off its line. The bodies it caught now, for the event
 function blowGale(room, player, nowSec, world, dt = 0) {
   const gust = player.gust;
-  const spell = spellFor(gust.spell);
+  const spell = galeProfile(gust.mode);
   const strength = galeStrength(spell, nowSec - gust.bornAt);
   const affected = [];
   if (strength <= 0) return affected;
   const { direction, eye } = galeAim(player);
   const origin = galeOrigin(eye, direction);
+  if (gust.mode === 'sustained') sustainGaleRecoil(spell, player, direction, world, dt, strength);
   const sheltered = (at) => (world.solids ?? []).some((box) => segmentAabbHit([origin.x, origin.y, origin.z], [at.x, at.y, at.z], box));
   for (const target of room.players.values()) {
     if (target.id === player.id || !target.alive || target.spawnProtectionUntil > nowSec || areAllies(room, player.id, target.id)) continue;
@@ -1304,6 +1308,7 @@ function blowGale(room, player, nowSec, world, dt = 0) {
     // the wind carries them on for as long as they stand in it (and a fall it carries them into is its doing)
     if (dt > 0 && wind > 0.01 && !sheltered(blown.point)) {
       target.impulse = galeCarry(spell, target.impulse, origin, direction, blown.point, wind, dt, { guarded });
+      if (gust.mode === 'sustained') target.velocity.y = galeLift(target.velocity.y, direction.y, wind, dt, guarded);
       target.lastAttackerId = player.id;
       target.lastKnockbackAt = nowSec;
       target.lastKnockbackSource = 'gale'; target.lastKnockbackBy = player.id;

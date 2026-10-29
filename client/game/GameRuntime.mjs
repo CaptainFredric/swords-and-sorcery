@@ -1,3 +1,4 @@
+import { galeProfile, galeModeId, sustainGaleRecoil } from '../../shared/src/galeModes.mjs';
 import { flyStep, inspectionSpawn, inspectionViews } from './inspectionCamera.mjs';
 import { InspectionCameraTools } from './InspectionCameraTools.mjs';
 import { structureWorld } from '../../shared/sim/structures.mjs';
@@ -344,7 +345,17 @@ export class GameRuntime {
       this.weapon.cast({ gatherSec: spell.gatherSec, spell: spell.id });
       // a Gale lets go when its breath is drawn: my own is seen and felt the moment it goes, once the server has taken it
       // (it goes where I aim as it leaves the hand, as the server's does: the aim is taken then, not now)
-      if (spell.kind === 'cone') this.localGale = { at: now + spell.gatherSec, spell, confirmed: false };
+      if (spell.kind === 'cone') {
+        this.localGale = { at: now + spell.gatherSec, spell, mode: 'balanced', confirmed: false };
+        this.hud.flashText('GALE · BALANCED', 'wind', 500);
+      }
+    };
+    this.input.onGaleModeLocal = mode => {
+      if (!this.localGale || this.socket.serverNow() >= this.localGale.at) return false;
+      this.localGale.mode = galeModeId(mode);
+      this.localGale.spell = galeProfile(mode);
+      this.hud.flashText(`GALE · ${this.localGale.mode.toUpperCase()}`, 'wind', 550);
+      return true;
     };
     // the gauntlet on its own key: the fist at once, spell or no spell (the server's word follows); only while the hand
     // cannot (mid-swing, say), the quiet no
@@ -552,6 +563,7 @@ export class GameRuntime {
     this.weapon.cancelAttack();this.weapon.setGuard(false);this.weapon.cancelCast();
     this.cameraKick=0;this.wasConcurrent=false;this.lastInputAt=-Infinity;
     this.localRam=null;this.windOnMeUntil=null;this.braceAskedAt=null;
+    this.localGale=null;this.localGaleWind=null;this.localGaleAt=null;
     this.siegeView='third';this.siegeReturnView=undefined;this.clearBlend=0;this.input.aimGain=1;
     this.weapon.group.position.y=0;this.weapon.group.visible=true;
     this.#setFov(this.view.fov);
@@ -671,7 +683,7 @@ export class GameRuntime {
 
   setPlaying(playing, { preservePointerLock = false } = {}) {
     this.playing = Boolean(playing) && !this.worldError;
-    if (!this.playing) {this.#applyWeaponRelease({ attack: true, guard: true });this.siegeSound.stop();this.ramSound.stop();}
+    if (!this.playing) {this.localGale=null;this.localGaleWind=null;this.#applyWeaponRelease({ attack: true, guard: true });this.siegeSound.stop();this.ramSound.stop();}
     if (!this.playing && !preservePointerLock) this.input.releaseFocus();
     this.syncInspection();
   }
@@ -1036,8 +1048,7 @@ export class GameRuntime {
       }
       if (event.type === 'coreflagrationArmed') {
         // A brief, small flame burst; the physical core and its 3m warning ring remain visible until detonation.
-        const ground = this.activeWorld ? surfaceHeightAt(event.point.x, event.point.z, event.point.y, this.activeWorld) : null;
-        this.effects.impact(event.point, { spell: 'fireball', radius: 0.9, ground });
+        this.effects.coreContact(event.point, event.radius);
         this.#play(fireballImpactRecipe(), event.point, 0.4);
       }
       if (event.type === 'coreflagrationParried') {
@@ -1333,13 +1344,16 @@ export class GameRuntime {
   // from whoever loosed it. My own was shown the moment it went (#releaseLocalGale), so only its shoves are left
   #galeBlast(event) {
     const me = this.playerId;
-    const spell = spellFor(event.spell);
+    const spell = galeProfile(event.mode);
     const mine = event.playerId === me;
     // the server's word can beat my own frame to it: then this is the moment it goes, and it goes once
     const pending = mine && this.localGale;
     if (pending) this.localGale = null;
     const shownAlready = mine && !pending && Number.isFinite(this.localGaleAt) && Math.abs(event.at - this.localGaleAt) < 0.5;
-    if (mine) this.localGaleAt = event.at;
+    if (mine) {
+      this.localGaleAt = event.at;
+      this.localGaleWind = event.mode === 'sustained' ? { spell, until: event.at + spell.cone.lastsSec } : null;
+    }
     if (!shownAlready && spell.cone) {
       const view = this.effects.galeBlast(event.origin, event.direction, spell.cone, this.#groundUnder());
       (this.gustViews ??= []).push({ view, ownerId: event.playerId });
@@ -1611,6 +1625,7 @@ export class GameRuntime {
     const gale = this.localGale;
     this.localGale = null;
     this.localGaleAt = serverNow;
+    this.localGaleWind = gale.mode === 'sustained' ? { spell: gale.spell, until: serverNow + gale.spell.cone.lastsSec } : null;
     if (!this.localState || !gale.spell.cone) return;
     const d = this.input.lookDirection();
     const eye = { x: this.localState.position.x, y: this.localState.position.y + postureOf(this.localState).eye, z: this.localState.position.z };
@@ -1764,6 +1779,7 @@ export class GameRuntime {
     if (what.includes('spell')) {
       this.weapon.cancelCast();
       this.localGale = null;
+      this.localGaleWind = null;
     }
     if (this.localState) {
       if (what.includes('dash')) this.localState.dashUntil = Math.min(this.localState.dashUntil ?? -Infinity, this.socket.serverNow());
@@ -2451,6 +2467,9 @@ export class GameRuntime {
         if (this.localGale.confirmed) this.#releaseLocalGale(serverNow);
         else if (serverNow > this.localGale.at + 0.4) this.localGale = null;
       }
+      if (this.localGaleWind && this.localAuth.alive && !this.localAuth.operatingBallistaId && !this.localAuth.operatingRamId && serverNow < this.localGaleWind.until) {
+        if (!this.socket.playingLocally) sustainGaleRecoil(this.localGaleWind.spell, this.localState, this.input.lookDirection(), this.activeWorld, dt);
+      } else this.localGaleWind = null;
       const strideBefore = this.weapon.motion.stride;
       const view = this.weapon.update(timeSec, dt, {
         speed: Math.hypot(this.localState.velocity.x, this.localState.velocity.z),

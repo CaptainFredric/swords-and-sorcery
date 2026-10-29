@@ -36,7 +36,7 @@ export function lobbyStateText(message, serverNow = 0) {
   if (message.mode === 'BREAKTHROUGH') {
     if (message.roomState === 'COUNTDOWN') return 'SIEGE STARTING…';
     if (message.roomState === 'REMATCH_COUNTDOWN') return 'NEXT ROUND STARTING…';
-    return 'RALLYING SPELLBLADES · 3V3';
+    return `RALLYING SPELLBLADES · ${message.teamSize ?? 3}V${message.teamSize ?? 3}`;
   }
   if (message.mode === 'BOT_DUEL') {
     if (message.roomState === 'COUNTDOWN') return 'BOT DUEL STARTING…';
@@ -61,7 +61,7 @@ export function lobbyStateText(message, serverNow = 0) {
 function playerStatus(message, player) {
   if (message.mode === 'BREAKTHROUGH') {
     const side = player.team === 'DEFENDERS' ? 'DEFENDERS' : 'ATTACKERS';
-    if (player.actorKind === 'bot') return `${side} · BOT`;
+    if (player.actorKind === 'bot') return `${side} · BOT · OPEN SEAT`;
     if (!player.connected) return `${side} · RECONNECTING`;
     return player.lobbyReady ? `${side} · READY` : side;
   }
@@ -124,6 +124,13 @@ export function lobbyView(message, { localId = null, serverNow = 0, myVotes = {}
           value: Number(value), label: value, count, chosen: Number(message.votes.score.chosen) === Number(value), mine: Number(myVotes.score) === Number(value),
         })),
       },
+      {
+        key: 'time',
+        label: 'MATCH TIME',
+        options: Object.entries(message.votes.time?.counts ?? {}).map(([value, count]) => ({
+          value: Number(value), label: clock(Number(value)), count, chosen: Number(message.votes.time.chosen) === Number(value), mine: Number(myVotes.time) === Number(value),
+        })),
+      },
     ]
     : [];
 
@@ -135,14 +142,14 @@ export function lobbyView(message, { localId = null, serverNow = 0, myVotes = {}
     ? 'Get ready. The duel begins after the countdown.'
     : 'Press Start Bot Duel when ready. A short countdown follows.';
   if (breakthrough) {
-    const mySide = me?.team === 'DEFENDERS' ? 'Defenders (Hold the Outer Gate)' : 'Attackers (Capture the Outer Gate)';
-    footer = `Your side: ${mySide}. Empty 3v3 slots are filled by bots; friends joining by code replace bots.`;
+    const mySide = me?.team === 'DEFENDERS' ? 'Defenders' : 'Attackers';
+    footer = `Your side: ${mySide}. Empty ${message.teamSize ?? 3}v${message.teamSize ?? 3} slots are filled by bots; friends joining by code replace bots.`;
   }
   if (message.mode === 'DUEL') footer = 'A matchmade duel. First to five.';
 
   return {
     world: worldLabel(message.worldId),
-    mode: modeLabel(message.mode),
+    mode: message.mode === 'BREAKTHROUGH' ? `BREAKTHROUGH · ${message.teamSize ?? 3}V${message.teamSize ?? 3}` : modeLabel(message.mode),
     state: lobbyStateText(message, serverNow),
     players,
     ready,

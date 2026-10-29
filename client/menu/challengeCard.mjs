@@ -16,7 +16,7 @@ export function countdownSeconds(countdownEndsAt, serverNow) {
   return Math.max(1, Math.ceil(countdownEndsAt - serverNow));
 }
 
-export function challengeCopy({ mode, players = [], localId = null, worldId = 'castleward', scoreToWin = 10 } = {}) {
+export function challengeCopy({ mode, players = [], localId = null, worldId = 'castleward', scoreToWin = 10, teamSize = 3 } = {}) {
   const world = worldName(worldId);
   const me = players.find((p) => p.id === localId);
   if (mode === 'BREAKTHROUGH') {
@@ -25,7 +25,7 @@ export function challengeCopy({ mode, players = [], localId = null, worldId = 'c
       kicker: defending ? 'BREAKTHROUGH · DEFEND THE BASTION' : 'BREAKTHROUGH · SIEGE ASSAULT',
       you: defending ? 'DEFENDERS' : 'ATTACKERS',
       foe: defending ? 'ATTACKERS' : 'DEFENDERS',
-      copy: defending ? `${world} · Hold the Outer Gate (3v3)` : `${world} · Capture the Outer Gate (3v3)`,
+      copy: `${world} · ${defending ? 'Defend' : 'Capture'} ${worldId === 'bastion-breach' ? 'the Outer Gate' : 'the first objective'} (${teamSize}v${teamSize})`,
     };
   }
   const others = players.filter((p) => p.id !== localId && p.actorKind !== 'dummy');
@@ -47,16 +47,16 @@ export function challengeCopy({ mode, players = [], localId = null, worldId = 'c
   };
 }
 
-export function arenaGateCopy({ mode, worldId = 'castleward', scoreToWin = 10, team = null } = {}) {
+export function arenaGateCopy({ mode, worldId = 'castleward', scoreToWin = 10, team = null, teamSize = 3 } = {}) {
   const title = worldName(worldId).toUpperCase();
   const first = `FIRST TO ${scoreToWin ?? 10}`;
   if (mode === 'PRACTICE') return { title, sub: 'PRACTICE YARD · UNTIMED' };
   if (mode === 'BREAKTHROUGH') {
     const sub = team === 'DEFENDERS'
-      ? 'DEFENDERS · HOLD THE OUTER GATE'
+      ? (worldId === 'bastion-breach' ? 'DEFENDERS · HOLD THE OUTER GATE' : 'DEFENDERS · HOLD THE OBJECTIVES')
       : team === 'ATTACKERS'
-        ? 'ATTACKERS · CAPTURE THE OUTER GATE'
-        : 'BREAKTHROUGH · 3V3 SIEGE';
+        ? (worldId === 'bastion-breach' ? 'ATTACKERS · CAPTURE THE OUTER GATE' : 'ATTACKERS · CAPTURE THE OBJECTIVES')
+        : `BREAKTHROUGH · ${teamSize}V${teamSize} SIEGE`;
     return { title, sub };
   }
   if (mode === 'BOT_DUEL' || mode === 'DUEL') return { title, sub: `DUEL · ${first}` };

@@ -15,7 +15,7 @@ import { applyRoomCommand, serializeLobby, serializeSnapshot } from '../../share
 import { DEFAULT_SPELL, isSpell } from '../../shared/src/spells.mjs';
 import { stepBotControllers } from '../../shared/sim/BotController.mjs';
 import { spawnPracticeDummy, stepPracticeActors } from '../../shared/sim/practice.mjs';
-import { GAME_MODES, arenaOrDefault } from '../../shared/src/modes.mjs';
+import { GAME_MODES, BREAKTHROUGH_ARENAS, arenaOrDefault } from '../../shared/src/modes.mjs';
 import { DEFAULT_ULTIMATE, isUltimate } from '../../shared/src/ultimates.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -157,16 +157,7 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
     }
     session.roomCode = room.code;
     session.playerId = player.id;
-    send(session, {
-      type: 'joined',
-      playerId: player.id,
-      token: player.token,
-      roomCode: room.code,
-    hostId: room.hostId(),
-      roomState: room.state,
-      mode: room.mode,
-      worldId: room.worldId,
-    });
+    send(session, { ...serializeLobby(room), type: 'joined', playerId: player.id, token: player.token });
     broadcastLobby(room);
   }
 
@@ -371,7 +362,7 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
         send(session, { type: 'error', message: 'Invalid team size: must be 2 or 3' });
         return;
       }
-      const resolvedWorld = message.worldId === 'blackbell-foundry' ? 'blackbell-foundry' : 'bastion-breach';
+      const resolvedWorld = BREAKTHROUGH_ARENAS.includes(message.worldId) ? message.worldId : 'bastion-breach';
       const room = roomManager.createBreakthroughRoom(time, Boolean(message.isPrivate ?? true), resolvedWorld, { teamSize });
       room.setBotSkill(message.botSkill);
       const player = createNetworkPlayer(session, room, message.name, message.team ?? null);
@@ -398,7 +389,7 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
         }
       }
       const resolvedWorld = message.mode === GAME_MODES.BREAKTHROUGH
-        ? (message.worldId === 'blackbell-foundry' ? 'blackbell-foundry' : 'bastion-breach')
+        ? (BREAKTHROUGH_ARENAS.includes(message.worldId) ? message.worldId : 'bastion-breach')
         : arenaOrDefault(message.worldId);
       const room = roomManager.createSoloRoom(message.mode, time, resolvedWorld, { teamSize });
 

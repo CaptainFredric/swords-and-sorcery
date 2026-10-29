@@ -68,7 +68,7 @@ export const SPELLS = Object.freeze({
       bend: 0.8,                 // how the shove falls with distance: (1 - d / reach) ^ bend
       core: 0.35,                // the middle share of the cone's angle at full strength, easing out to its edge
       damage: 8,                 // at point blank in its heart
-      push: 18,                  // m/s: the shove at point blank, as it first catches a body
+      push: 18,                  // m/s: the balanced shove at point blank
       lift: 0.32,                // a share of it lifting the body off its feet
       guarded: 0.35,             // a raised guard facing it keeps this much of the shove (and of the wind)...
       guardCost: 14,             // ...and pays this much stamina for it at point blank
@@ -114,7 +114,7 @@ export const SPELLS = Object.freeze({
     // The native combat simulation resolves these separately; Fireball's exposure falloff does not apply.
     directDamage: 20,
     edgeDamage: 20,
-    core: Object.freeze({ initialDamage: 5, fuseSec: 0.9, parryRegenPauseSec: 1.5, parryKnockSpeed: 13, parryKnockUp: 2.8, parryKnockSec: 0.28 }),
+    core: Object.freeze({ initialDamage: 5, fuseSec: 0.5, parryRegenPauseSec: 1.5, parryKnockSpeed: 13, parryKnockUp: 2.8, parryKnockSec: 0.28 }),
     burn: Object.freeze({ damage: 6, seconds: 3, licks: 6, reach: 1 }),
   }),
 });

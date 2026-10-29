@@ -621,3 +621,28 @@ test('mouse clicks on interface controls do not also attack while touch focus is
  document.dispatchEvent(canvas);assert.deepEqual(calls,[['attack',true]]);
  input.dispose();
 });
+
+test('Gale casts on press and shapes upward/downward during gather without leaking into look', () => {
+  const {input,controls,calls,send}=setup({alive:true,spell:'gale',spellReadyAt:0});
+  const modes=[];input.selectGaleMode=mode=>{modes.push(mode);return true;};
+  let turns=0;input.turn=()=>turns++;
+  send('pointerdown',600,300);
+  send('pointermove',602,262);
+  send('pointermove',603,260);
+  send('pointermove',600,300);
+  send('pointermove',601,339);
+  send('pointerup',601,339);
+  assert.equal(calls.filter(c=>c[0]==='cast').length,1);
+  assert.deepEqual(modes,['burst','balanced','sustained']);
+  assert.equal(turns,0);assert.equal(controls.galeGesture,null);
+});
+
+test('cancelled Gale swipe clears ownership and a fresh tap keeps balanced casting',()=>{
+  const {input,controls,calls,send}=setup({alive:true,spell:'gale',spellReadyAt:0});
+  const modes=[];input.selectGaleMode=mode=>{modes.push(mode);return true;};
+  send('pointerdown',600,300);send('pointercancel',600,300);
+  send('pointermove',600,240);assert.deepEqual(modes,[]);
+  send('pointerdown',600,300,{pointerId:2});send('pointerup',600,300,{pointerId:2});
+  assert.equal(calls.filter(c=>c[0]==='cast').length,2);
+  assert.equal(controls.galeGesture,null);
+});

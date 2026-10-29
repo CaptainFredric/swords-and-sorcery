@@ -458,3 +458,14 @@ body.took-steel::after{content:"";position:fixed;inset:0;z-index:50;pointer-even
 .hud.inspection-split .ability-icon { font-size:16px; }
 .hud.inspection-split .hud-status-stack { top:12px; left:100px; right:12px; width:auto; transform:none; }
 .hud.inspection-split.inspection-flying .bottom-hud { display:none; }
+
+/* Compact room rules share the banner's metal and parchment controls. */
+.lobby-config,.lobby-swap{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:12px 0}
+.lobby-config label,.lobby-swap label{display:grid;gap:5px;min-width:0;font-size:11px;font-weight:800;letter-spacing:.1em;color:var(--cream,#eadbb6)}
+.lobby-config .game-input,.lobby-swap .game-input{width:100%;min-width:0;padding:8px;font-size:16px;box-sizing:border-box}
+.lobby-config button,.lobby-config small,.lobby-swap button{grid-column:1/-1}
+.lobby-config small{font-size:12px;line-height:1.4;opacity:.8}
+.lobby-config [hidden]{display:none}
+.lobby-arrange summary{cursor:pointer;font-size:12px;letter-spacing:.12em;padding:8px 0;color:var(--gold,#d5b56e)}
+#lobby-error:empty{display:none}
+@media(max-width:380px){.lobby-config,.lobby-swap{grid-template-columns:minmax(0,1fr)}}

@@ -28,7 +28,7 @@ const SPELL_WORDS = Object.freeze({
   gale: {
     mark: '≋',
     line: 'Release a cone of wind that carries enemies, bends projectiles, and can launch you when aimed at the ground.',
-    facts: (s) => `Up to ${s.cone.damage} damage · ${s.cone.pressureReach}m reach · ${s.cone.lastsSec}s wind · ${s.cooldownSec}s cooldown`,
+    facts: (s) => `Up to ${s.cone.damage} damage · ${s.cone.pressureReach}m reach · burst / balanced / sustained · ${s.cooldownSec}s cooldown`,
   },
   steel: {
     mark: '⛨',
