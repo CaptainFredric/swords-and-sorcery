@@ -1,11 +1,9 @@
-# Authored So-Fist-ication carriage
+# SO FIST v2.2 integration candidate
 
-The current runtime asset is the crafted refinement of the creator's `BattleRam_Spellblade_GameReady_PBR.glb`. SHA256: `903b8cc349e7831d7a6a21e9a6ed7e9f1acca45d9745b1f79504bad3d30c7472`. Size:5,356,608bytes.
+Runtime: `so-fist-ication-v2_2.glb`, exported from the separate editable `assets/source/so-fist-ication/SoFist-v2_2-runtime-source.blend`. Current SHA and exact bytes are in the source manifest. Scale remains 2.85. No extra baked scale is applied.
 
-The editable Blender source, change manifest and rollback hash are in `assets/source/so-fist-ication`. Reexport with `tools/assets/export-so-fist.py`. The original binary is preserved in commit `6249095`, SHA256 `64cdc7b09e88e31f4b4ff7cb65631fd036e12ba71c0c3f9466cc52b8416419c6`, and in the creator's local source backup.
+This retains Argon's authored v2.2 carriage, fist, wheels, four clips and thirteen station locators. Stretched frame/platform timber texture regions use the existing clean walnut material. The 0.68 second release and 0.88 second maximum extension share their exact linear keys with authority; the full cycle remains four seconds. Whole-model recoil tracks are excluded by the renderer so wheels and the physical carriage stay registered. Piston, chains, springs, lever and the braced operator provide the visible action.
 
-The hierarchy remains20nodes,17meshes and four authored clips. Four maps remain1024 square. There are12 material regions and30 primitives after separating the mechanical surfaces and reconstructing the timber frame around the retained moving mechanisms. The frame has a planked bed, crossmembers, splayed supports, diagonal bracing, bearing posts and an actual two-grip control bar.
+The operator boards from the rear ground entry and rides the elevated rear station. The actual production character uses geometry based boot contact and fitted control hands. Carriage pitch, roll and interpolation attach the whole rider. Sight and third person cameras use the shared station fit. Movement, damage, durability, pressure and controls remain Castleward's existing implementation.
 
-Game scale is2.85. The shared fit exports define four0.47025m radius wheels,2.12325m wheelbase,2.451m front track and2.109m rear track. The full piston cycle remains four seconds, powered release2.08 to2.26seconds, with1.5675m travel from charged to extended. Runtime owns actual wheel travel and steering; the authored strike drives piston, chains, springs and release lever. Fist and exposed shaft remain separate. The rear operator stands on supported ground; this asset has no seat.
-
-Source: https://drive.google.com/file/d/1DUf5EtqNCh7c5CaEvNFldouONAjU-5dD/view
+The prior integrated GLB is preserved as `assets/source/so-fist-ication/rollback-crafted.glb`, outside the playable package. The canonical earlier `SoFist-crafted.blend` is unchanged. Supplied upstream Blender source is separately preserved, but lacks the GLB's thirteen locators; export from the runtime matching source above. See `docs/so-fist-v22/README.md` for actual game evidence and limitations.

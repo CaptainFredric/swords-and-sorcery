@@ -21,11 +21,11 @@ test('thin stone wall stops a full speed charge and a dead operator cannot keep 
  s.p.alive=false;run(s,.1,{sprint:true});assert.equal(s.b.operatorId,null);assert.equal(s.p.operatingRamId,null);assert.equal(s.b.charging,false);
 });
 test('actual piston curve matches the authored native stroke and peak velocity before its hard stop',()=>{
- const b=createSoFistication();b.strikeAt=0;const a=soFistPose(b,1.8),peak=soFistPose(b,2.2),end=soFistPose(b,2.26);
+ const b=createSoFistication();b.strikeAt=0;const a=soFistPose(b,.62),peak=soFistPose(b,.81),end=soFistPose(b,.88);
  assert.ok(Math.abs(end.offset-a.offset-.55*SO_FIST_SCALE)<.0001);assert.ok(peak.velocity>10);assert.ok(end.velocity<=0);assert.equal(end.active,false);assert.equal(soFistVolumes(b,0).filter(v=>v.componentId.startsWith('Wheel')).length,4);
  const s=setup();assert.ok(fireSoFistication(s.room,s.b,0));assert.equal(fireSoFistication(s.room,s.b,.1),false);run(s,4.1,{forward:1});assert.ok(s.b.z< -10,'idle piston never locks carriage movement');
 });
-test('the grounded operator station has physical clearance during mounting and travel',()=>{
+test('the onboard operator station has physical clearance during mounting and travel',()=>{
  const s=setup();s.b.operatorId=null;s.p.operatingRamId=null;
  s.room.world.solids=[{id:'rear-stone',center:[0,.9,3.05],size:[.4,1.8,.4],material:'stone'}];
  assert.equal(mountSoFistication(s.room,s.b,s.p,0),false,'an alternate exit does not make an occupied station safe');

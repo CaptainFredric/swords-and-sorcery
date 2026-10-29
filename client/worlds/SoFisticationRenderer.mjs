@@ -4,7 +4,7 @@ import {ramHitMaterial} from './ramHitFlash.mjs';
 import {appUrl} from '../appUrl.mjs';
 import {everywhere} from '../game/viewLayers.mjs';
 import {boxWorld} from '../../shared/src/orientedBox.mjs';
-import {SO_FIST_SCALE,SO_FIST_FIT,SO_FIST_WHEELS,soFistWheelSteering,soFistFrame,soFistPose} from '../../shared/sim/soFistGeometry.mjs';
+import {SO_FIST_SCALE,SO_FIST_FIT,SO_FIST_STATION,SO_FIST_TIMING,SO_FIST_WHEELS,soFistWheelSteering,soFistFrame,soFistPose} from '../../shared/sim/soFistGeometry.mjs';
 
 // The original authored asset loads when requested through Practice. Authority owns
 // locomotion and strike time; the mixer supplies the matching mechanical motion.
@@ -18,7 +18,7 @@ export class SoFisticationRenderer {
   if(this.loadingPromise)return this.loadingPromise;
   if(this.disposed||this.error)return Promise.resolve(false);this.loading=true;
   this.loadingPromise=new Promise(resolve=>{
-  new GLTFLoader().load(appUrl('/client/assets/props/so-fist-ication/so-fist-ication.glb?v=903b8cc349e7831d'),gltf=>{
+  new GLTFLoader().load(appUrl('/client/assets/props/so-fist-ication/so-fist-ication-v2_2.glb?v=479d96ec89f0c2e3'),gltf=>{
    if(this.disposed){this.destroyMeshes(gltf.scene);resolve(false);return;}
    this.model=gltf.scene;this.model.scale.setScalar(SO_FIST_SCALE);this.group.add(this.model);
    const sky=new Uint8Array(32*16*4);for(let y=0;y<16;y++)for(let x=0;x<32;x++)sky.set([...(y<8?[192,203,211]:[94,89,76]),255],(y*32+x)*4);
@@ -37,7 +37,7 @@ export class SoFisticationRenderer {
     }
    });
    this.wheels=SO_FIST_WHEELS.map(w=>{const o=this.nodes.get(w.id);return{o,rest:o.quaternion.clone(),position:o.position.clone()};});
-   const clip=gltf.animations.find(c=>c.name==='01_Ram_Strike_Full_Cycle').clone();clip.tracks=clip.tracks.filter(t=>!t.name.startsWith('Wheel_'));
+   const clip=gltf.animations.find(c=>c.name==='01_Ram_Strike_Full_Cycle').clone();clip.tracks=clip.tracks.filter(t=>!t.name.startsWith('Wheel_')&&!t.name.startsWith('BattleRam_Root')); // Keep wheel/authority placement registered; recoil belongs to the mechanism and rider.
    this.mixer=new THREE.AnimationMixer(this.model);this.strike=this.mixer.clipAction(clip);this.strike.setLoop(THREE.LoopOnce,1);this.strike.clampWhenFinished=true;this.strike.play();this.strike.paused=true;
    this.loading=false;resolve(true);
   },undefined,error=>{this.error=true;this.loading=false;resolve(false);console.error('SoFistication authored asset failed to load',error);});
@@ -92,7 +92,12 @@ export class SoFisticationRenderer {
    hit.uRamHitAge.value=hitTimes.map(t=>now-t>=0&&now-t<.3?now-t:-1);const c=id==='hull'?b:b.components?.[id],damage=1-(c?.health??1)/(c?.maxHealth??1);m.color.copy(color).multiplyScalar(1-damage*.32);m.emissive.copy(emission);m.emissiveIntensity=intensity;}
  }
  hit(event){if(event.type==='soFistDamaged'&&event.machineId===this.presentationData?.id&&event.amount>0&&event.point&&Object.values(event.point).every(Number.isFinite)){this.pendingHits.push(event);if(this.pendingHits.length>24)this.pendingHits.shift();}}
- getOperatorGrips(){const b=this.presentationData;if(!b)return null;const f=soFistFrame(b);return{left:new THREE.Vector3(...boxWorld(f,[-SO_FIST_FIT.grips[0],SO_FIST_FIT.grips[1],SO_FIST_FIT.grips[2]])),right:new THREE.Vector3(...boxWorld(f,SO_FIST_FIT.grips))};}
+ getOperatorStation(now=0){
+  const b=this.presentationData;if(!b)return null;const frame=soFistFrame(b),point=p=>new THREE.Vector3(...boxWorld(frame,p));
+  const pose=soFistPose(b,now),recoil=pose.active?Math.max(0,pose.velocity)/14:Math.max(0,1-Math.abs(pose.age-SO_FIST_TIMING.peak)/.25)*.4;
+  return Object.fromEntries([...['pelvis','leftHand','rightHand','leftFoot','rightFoot'].map(key=>[key,point(SO_FIST_STATION[key])]),['forward',new THREE.Vector3(...frame.axes[2])],['up',new THREE.Vector3(...frame.axes[1])],['recoil',Math.min(1,recoil)]]);
+ }
+ getOperatorGrips(){const station=this.getOperatorStation(this.presentationData?.poseTime??0);return station?{left:station.leftHand,right:station.rightHand}:null;}
  clearDebris(){if(this.debris){this.scene.remove(this.debris);this.debris=null;}}
  destroyMeshes(root){const mats=new Set(),textures=new Set();root.traverse(o=>{o.geometry?.dispose();for(const m of [o.material].flat()){if(!m)continue;mats.add(m);for(const v of Object.values(m))if(v?.isTexture)textures.add(v);}});for(const t of textures)t.dispose();for(const m of mats)m.dispose();}
  dispose(){this.disposed=true;this.clearDebris();this.mixer?.stopAllAction();this.scene.remove(this.group);this.destroyMeshes(this.group);this.environment?.dispose();}
