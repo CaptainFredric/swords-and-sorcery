@@ -134,13 +134,36 @@ test('the march fills its bars, keeps to D minor, and builds in layers like the 
   assert.ok(second.some((event) => event.inst === 'horn' && event.layer === 2));
   for (const bar of bars) for (const event of bar.events) assert.ok(event.beat < MARCH.beatsPerBar, 'every note starts inside its bar');
   // each match fights to one of its arena's pieces, the same for everyone in it
-  assert.ok(PIECES.march && FIGHT_MUSIC.castleward.includes('march') && FIGHT_MUSIC.castleward.includes('battle'));
+  assert.ok(PIECES.march && FIGHT_MUSIC.castleward.includes('march') && FIGHT_MUSIC.castleward.includes('battle') && FIGHT_MUSIC.castleward.includes('vigil'));
   const picks = new Set();
-  for (let start = 0; start < 40; start += 1) picks.add(fightPieceFor({ worldId: 'castleward', roomCode: 'ABCD', matchStartedAt: 1000 + start * 7.3 }));
-  assert.deepEqual([...picks].sort(), ['battle', 'march'], 'both are heard across matches');
+  for (let start = 0; start < 60; start += 1) picks.add(fightPieceFor({ worldId: 'castleward', roomCode: 'ABCD', matchStartedAt: 1000 + start * 7.3 }));
+  assert.deepEqual([...picks].sort(), ['battle', 'march', 'vigil'], 'all three are heard across matches');
   const match = { worldId: 'castleward', roomCode: 'ROOM', matchStartedAt: 55.5 };
   assert.equal(fightPieceFor(match), fightPieceFor({ ...match }));
   assert.ok(FIGHT_MUSIC.castleward.includes(fightPieceFor({ worldId: 'nowhere' })));
+});
+
+test('the vigil theme fills its bars, keeps to D minor, and builds in layers', async () => {
+  const { VIGIL, vigilBars, PIECES, FIGHT_MUSIC } = await import('./score.mjs');
+  for (const [name, line] of Object.entries(VIGIL.melody)) {
+    line.forEach((bar, i) => assert.equal(bar.reduce((sum, note) => sum + note.beats, 0), VIGIL.beatsPerBar, `vigil ${name} bar ${i + 1}`));
+    assert.equal(line.length, VIGIL.chords[name].length, `vigil ${name} has a bar for every chord`);
+    for (const note of line.flat()) if (note.midi !== null) assert.ok(D_MINOR.has(pitchClass(note.midi)), `vigil note ${note.midi}`);
+    line.forEach((bar, i) => {
+      const chord = CHORDS[VIGIL.chords[name][i]].lute.map(pitchClass);
+      assert.ok(chord.includes(pitchClass(bar[0].midi)), `vigil ${name} bar ${i + 1} lands on its chord`);
+    });
+  }
+  const bars = take(vigilBars(() => 0.5), 4 + 8 + 8 + 8 + 4);
+  const intro = bars.slice(0, 4).flatMap((bar) => bar.events);
+  assert.ok(intro.every((event) => event.layer === 0), 'intro opens with drone and lute alone');
+  const tuneA = bars.slice(4, 12).flatMap((bar) => bar.events);
+  assert.ok(tuneA.some((event) => event.inst === 'flute' && event.layer === 1), 'flute and drums lead on strain A');
+  assert.ok(tuneA.some((event) => event.inst === 'war' && event.layer === 1));
+  const strainB = bars.slice(12, 20).flatMap((bar) => bar.events);
+  assert.ok(strainB.some((event) => event.inst === 'horn' && event.layer === 2), 'horn and choir enter on strain B');
+  assert.ok(strainB.some((event) => event.inst === 'choir' && event.layer === 2));
+  assert.ok(PIECES.vigil && FIGHT_MUSIC.castleward.includes('vigil'));
 });
 
 test('Spells & Chivalry taken up: strings swell from B-flat into D major on the cry\'s "...of SWORDS", the horn on "SORCERY"', () => {

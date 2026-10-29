@@ -20,7 +20,7 @@ import { preloadSpellbladeAssets, watchSpellbladeLoading } from './game/Spellbla
 import { SoundEngine } from './game/sound/SoundEngine.mjs';
 import { Ambience } from './game/sound/Ambience.mjs';
 import { MusicPlayer } from './game/sound/music/MusicPlayer.mjs';
-import { fightPieceFor } from './game/sound/music/score.mjs';
+import { fightPieceFor, PIECES } from './game/sound/music/score.mjs';
 import { VoiceBank } from './game/sound/VoiceBank.mjs';
 import { linesFor } from './game/sound/voiceLines.mjs';
 import { recordMatchResult } from './game/sound/matchStreak.mjs';
@@ -381,20 +381,26 @@ function route(screenId) {
 function syncSoundscape() {
   const screen = router.current;
   const inArena = screen === null;
+  const soundtrack = settings.get('audio.soundtrack');
+  const overridePiece = (soundtrack && soundtrack !== 'adaptive' && PIECES[soundtrack]) ? soundtrack : null;
+
   if (!challengeCard.classList.contains('hidden')) {
     music.play(null);
     ambience.setScene(inArena ? 'arena' : 'menu');
   } else if (inArena) {
     ambience.setScene('arena');
     const fighting = latestSnapshot?.roomState === 'PLAYING';
-    music.play(fighting ? fightPieceFor(latestSnapshot) : null);
-    if (fighting && runtime) music.setIntensity(runtime.musicHeat({ cap: latestSnapshot.mode === 'PRACTICE' ? 1 : 2 }));
+    const piece = fighting ? (overridePiece ?? fightPieceFor(latestSnapshot)) : (overridePiece ?? null);
+    music.play(piece);
+    if ((fighting || overridePiece) && runtime) {
+      music.setIntensity(runtime.musicHeat({ cap: latestSnapshot?.mode === 'PRACTICE' ? 1 : 2 }));
+    }
   } else if (screen === SCREEN_IDS.END_SCREEN) {
     ambience.setScene('arena');
     music.play(null);
   } else if (isMenuBackedScreen(screen)) {
     ambience.setScene('menu');
-    music.play('hall');
+    music.play(overridePiece ?? 'hall');
   }
 }
 setInterval(syncSoundscape, 500);
@@ -1202,6 +1208,9 @@ settings.onChange((change) => {
     socket.loadout(settings.get('loadout.spell'), settings.get('loadout.ultimate'), change.value);
     renderArmory();
   }
+  if (change.id === 'audio.soundtrack') {
+    syncSoundscape();
+  }
   // choosing to lie sideways (a tap, so motion access can be asked for): say which way to turn the phone
   if (change.id === 'display.orientation' && change.value === 'sideways') {
     screenTurn?.listenToMotion();
@@ -1321,11 +1330,29 @@ function renderSoundToggles() {
   }
 }
 renderSoundToggles();
+const SOUNDTRACK_CHOICES = [
+  { value: 'adaptive', label: 'Adaptive' },
+  { value: 'battle', label: 'Steel at the Gate' },
+  { value: 'march', label: 'The Keep Holds' },
+  { value: 'vigil', label: "Sunderer's Vigil" },
+  { value: 'hall', label: 'Castleward Hall' },
+];
+
+function cycleSoundtrackSetting() {
+  const current = settings.get('audio.soundtrack') || 'adaptive';
+  const idx = Math.max(0, SOUNDTRACK_CHOICES.findIndex((c) => c.value === current));
+  const next = SOUNDTRACK_CHOICES[(idx + 1) % SOUNDTRACK_CHOICES.length];
+  settings.set('audio.soundtrack', next.value);
+  hud.flashText(`TRACK: ${next.label.toUpperCase()}`, 'ready', 1000);
+  syncSoundscape();
+}
+
 document.addEventListener('keydown', (event) => {
   if (event.repeat || event.target?.tagName === 'INPUT') return;
   const action = settings.actionFor(event.code);
   if (action === 'toggleSound') hud.flashText(settings.toggle('audio.muted') ? 'SOUND OFF' : 'SOUND ON', 'ready', 900);
   if (action === 'toggleMusic') hud.flashText(settings.toggle('audio.musicMuted') ? 'MUSIC OFF' : 'MUSIC ON', 'ready', 900);
+  if (action === 'cycleSoundtrack') cycleSoundtrackSetting();
 });
 for (const button of document.querySelectorAll('[data-toggle-sound]')) button.addEventListener('click', () => settings.toggle('audio.muted'));
 for (const button of document.querySelectorAll('[data-toggle-music]')) button.addEventListener('click', () => settings.toggle('audio.musicMuted'));

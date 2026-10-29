@@ -98,6 +98,26 @@ export const MARCH = Object.freeze({
   },
 });
 
+export const VIGIL = Object.freeze({
+  name: 'vigil',
+  bpm: 120,
+  beatsPerBar: 4,
+  hall: 0.42,
+  scale: 'D minor',
+  chords: {
+    intro: ['Dm', 'Bb', 'C', 'Dm'],
+    A: ['Dm', 'Bb', 'F', 'C', 'Dm', 'Gm', 'A', 'Dm'],
+    B: ['F', 'C', 'Dm', 'Bb', 'Gm', 'Dm', 'A', 'A'],
+    fanfare: ['Dm', 'F', 'C', 'Dm', 'Bb', 'F', 'A', 'Dm'],
+    rest: ['Dm', 'Bb', 'C', 'Dm'],
+  },
+  melody: {
+    A: parseLine('D5:1 F5:1 A5:1.5 G5:.5 | F5:1.5 D5:.5 C5:1 E5:1 | F5:2 A5:1 C6:1 | G5:3 E5:1 | D5:1.5 E5:.5 F5:1 A5:1 | Bb5:2 G5:1 D5:1 | E5:1.5 F5:.5 E5:1 C#5:1 | D5:4'),
+    B: parseLine('A5:2 F5:1 C5:1 | E5:2 G5:2 | F5:1.5 E5:.5 D5:2 | D5:1 F5:1 Bb5:2 | G5:1.5 A5:.5 Bb5:1 G5:1 | F5:2 D5:2 | E5:2 C#5:2 | E5:4'),
+    fanfare: parseLine('D5:1.5 A4:.5 D5:1 F5:1 | A5:2 F5:2 | G5:1.5 E5:.5 C5:1 E5:1 | D5:2 A4:2 | Bb4:1.5 D5:.5 F5:1 Bb5:1 | A5:2 F5:2 | E5:1.5 F5:.5 G5:1 E5:1 | D5:4'),
+  },
+});
+
 // notes of a parsed melody bar as events
 function lineEvents(bar, inst, { vel = 0.8, layer = 0, octave = 0, pan = 0 } = {}) {
   const events = [];
@@ -265,15 +285,80 @@ export function* marchBars(rand = Math.random) {
   }
 }
 
+function* vigilSection(section, rand, { melody = null, horn = false, choir = false, drums = true, sparkle = false }) {
+  const chords = VIGIL.chords[section];
+  const line = melody ? VIGIL.melody[melody] : null;
+  for (let i = 0; i < chords.length; i += 1) {
+    const chord = chords[i];
+    const events = [];
+    if (i === 0) {
+      const beats = chords.length * VIGIL.beatsPerBar + 2;
+      events.push({ inst: 'drone', midi: noteToMidi('D2'), beat: 0, beats, vel: 1.05, layer: 0, pan: 0 });
+      if (section !== 'rest') events.push({ inst: 'drone', midi: noteToMidi('A2'), beat: 0, beats, vel: 0.8, layer: 0, pan: 0.1 });
+    }
+    // Driving lute arpeggiation (layer 0)
+    if (section === 'rest') {
+      events.push({ inst: 'lute', midi: CHORDS[chord].lute[0], beat: 0, beats: 4, vel: 0.55, layer: 0, pan: -0.25 });
+    } else {
+      events.push(...arpeggio(chord, [0, 1, 2, 3, 2, 1, 2, 1], 0.5, { vel: 0.52, accent: 0.15 }));
+    }
+    // Drums when combat heats up (layer 1)
+    if (drums) {
+      events.push({ inst: 'war', beat: 0, beats: 2, vel: 0.88, layer: 1, pan: 0 });
+      events.push({ inst: 'war', beat: 2, beats: 2, vel: 0.7, layer: 1, pan: 0 });
+      for (const [beat, inst, vel] of [[0, 'dum', 0.55], [1, 'tek', 0.45], [2, 'dum', 0.5], [3, 'tek', 0.45]]) {
+        events.push({ inst, beat, beats: 1, vel, layer: 1, pan: 0.2 });
+      }
+      for (const beat of [0.5, 1.5, 2.5, 3.5]) {
+        events.push({ inst: 'ghost', beat, beats: 0.5, vel: 0.28, layer: 1, pan: 0.2 });
+      }
+    }
+    // Layer 1 melody: flute
+    if (line) {
+      events.push(...lineEvents(line[i], 'flute', { vel: 0.82, layer: 1, pan: 0.2 }));
+    }
+    // Layer 2: horn fanfare, choir, jingles
+    if (horn && line) {
+      events.push(...lineEvents(line[i], 'horn', { vel: 0.72, layer: 2, octave: -1, pan: -0.15 }));
+    }
+    if (choir) {
+      events.push({ inst: 'choir', midi: CHORDS[chord].choir, beat: 0, beats: VIGIL.beatsPerBar + 0.6, vel: 1.0, layer: 2, pan: 0 });
+      events.push({ inst: 'jingle', beat: 1, beats: 1, vel: 0.4, layer: 2, pan: -0.3 });
+      events.push({ inst: 'jingle', beat: 3, beats: 1, vel: 0.45, layer: 2, pan: -0.3 });
+    }
+    if (sparkle) {
+      const tones = CHORDS[chord].lute.slice(1);
+      const count = 1 + (rand() < 0.5 ? 1 : 0);
+      for (let k = 0; k < count; k += 1) {
+        const beat = [0, 1, 2, 3][Math.floor(rand() * 4)];
+        events.push({ inst: 'harp', midi: tones[Math.floor(rand() * tones.length)] + 24, beat, beats: 2, vel: 0.48, layer: 0, pan: 0.35 });
+      }
+    }
+    yield { piece: 'vigil', section, index: i, chord, events };
+  }
+}
+
+/** The Sunderer's Vigil, forever: solemn intro, driving flute theme, horn counterpoint, soaring fanfare, and reflection. */
+export function* vigilBars(rand = Math.random) {
+  yield* vigilSection('intro', rand, { drums: false, sparkle: true });
+  for (;;) {
+    yield* vigilSection('A', rand, { melody: 'A', drums: true });
+    yield* vigilSection('B', rand, { melody: 'B', horn: true, choir: true, drums: true });
+    yield* vigilSection('fanfare', rand, { melody: 'fanfare', horn: true, choir: true, drums: true });
+    yield* vigilSection('rest', rand, { drums: false, sparkle: true });
+  }
+}
+
 export const PIECES = Object.freeze({
   hall: { ...HALL, bars: hallBars },
   battle: { ...BATTLE, bars: battleBars },
   march: { ...MARCH, bars: marchBars },
+  vigil: { ...VIGIL, bars: vigilBars },
 });
 
 // what each arena fights to: one of its pieces per match, the same for everyone in it (more maps, more music)
 export const FIGHT_MUSIC = Object.freeze({
-  castleward: Object.freeze(['battle', 'march']),
+  castleward: Object.freeze(['battle', 'march', 'vigil']),
 });
 
 /** The fight piece for a match: chosen by the match itself (its room and start), so a rematch may bring the other. */

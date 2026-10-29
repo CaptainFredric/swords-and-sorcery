@@ -149,7 +149,23 @@ registry
   .defineSetting({ id: 'audio.ambience', section: 'audio', label: 'Wind and bells', type: 'range', min: 0, max: 100, step: 5, unit: '%', default: 100 })
   .defineSetting({ id: 'audio.subtitles', section: 'audio', label: 'Subtitles', type: 'toggle', default: true, hint: 'What the Spellblades say, written out as they say it' })
   .defineSetting({ id: 'audio.musicMuted', section: 'audio', group: 'Music', label: 'Music', type: 'toggle', default: false, invert: true, hint: 'N turns it on and off' })
-  .defineSetting({ id: 'audio.music', section: 'audio', group: 'Music', label: 'Music volume', type: 'range', min: 0, max: 100, step: 5, unit: '%', default: 55 });
+  .defineSetting({ id: 'audio.music', section: 'audio', group: 'Music', label: 'Music volume', type: 'range', min: 0, max: 100, step: 5, unit: '%', default: 55 })
+  .defineSetting({
+    id: 'audio.soundtrack',
+    section: 'audio',
+    group: 'Music',
+    label: 'Soundtrack',
+    type: 'choice',
+    options: [
+      { value: 'adaptive', label: 'Adaptive' },
+      { value: 'battle', label: 'Steel at the Gate' },
+      { value: 'march', label: 'The Keep Holds' },
+      { value: 'vigil', label: "Sunderer's Vigil" },
+      { value: 'hall', label: 'Castleward Hall' },
+    ],
+    default: 'adaptive',
+    hint: 'Choose a soundtrack theme or let the music adapt dynamically',
+  });
 
 registry
   .defineSetting({ id: 'controls.mouseSensitivity', section: 'controls', label: 'Mouse sensitivity', type: 'range', min: 0.2, max: 3, step: 0.05, unit: '×', default: 1, devices: 'desktop' })
@@ -225,4 +241,5 @@ registry
   .defineAction({ id: 'gauntlet', label: 'Gauntlet on its own', group: 'Abilities', keys: [] })
   .defineAction({ id: 'scoreboard', label: 'Scoreboard (hold)', group: 'Interface', keys: ['Tab'] })
   .defineAction({ id: 'toggleSound', label: 'Sound on / off', group: 'Interface', keys: ['KeyM'] })
-  .defineAction({ id: 'toggleMusic', label: 'Music on / off', group: 'Interface', keys: ['KeyN'] });
+  .defineAction({ id: 'toggleMusic', label: 'Music on / off', group: 'Interface', keys: ['KeyN'] })
+  .defineAction({ id: 'cycleSoundtrack', label: 'Cycle soundtrack', group: 'Interface', keys: [] });
