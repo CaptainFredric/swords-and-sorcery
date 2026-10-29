@@ -15,6 +15,11 @@ const SPELL_WORDS = Object.freeze({
     line: 'Explodes on impact and burns enemies caught near the blast.',
     facts: (s) => `${s.directDamage} impact · ${s.burn.damage} burn · ${s.cooldownSec}s cooldown`,
   },
+  coreflagration: {
+    mark: '◆',
+    line: 'A burning stone bursts on impact, then erupts a moment later. Parry the flying core to knock it aside.',
+    facts: (s) => `${s.core.initialDamage} first burst · ${s.directDamage} final blast · ${s.burn.damage} burn · ${s.cooldownSec}s cooldown`,
+  },
   frostfire: {
     mark: '❄',
     line: 'A fast bolt of cold that slows whoever it hits until they thaw.',
