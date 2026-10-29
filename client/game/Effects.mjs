@@ -825,6 +825,7 @@ export class Effects {
     const born = performance.now() / 1000;
     const turned = new THREE.Quaternion();
     const handle = {
+      cancel() { gust.removeFromParent(); },
       /** Keep the gust at its caster's hand and along their aim (eased, so it sways with the arm rather than jumps). */
       follow(origin, direction) {
         if (!gust.parent) return;
@@ -1188,6 +1189,29 @@ export class Effects {
         spin: new THREE.Vector3(2, 4, 1) });
     }
     this.#flashLight(point, 0xff9a38, 11, 0.12, radius * 1.5);
+  }
+
+  coreEruption(point, radius = SPELLS.coreflagration.radius, ground = null) {
+    this.impact(point, {spell:'fireball',radius,ground});
+    const at=new THREE.Vector3(point.x,point.y,point.z);
+    // A ruptured stone vents upward: a brief central plume and heavy dark fragments,
+    // distinct from Fireball's rounded travelling flame. Every fragment is presentation only.
+    const materials=this.#spellMaterials('fireball');
+    for(let i=0,n=this.#many(9);i<n;i++) {
+      const a=i*2.39996,spread=.2+(i%3)*.18;
+      const flame=new THREE.Mesh(this.flameGeometry,i%2?materials.shell:materials.blast);
+      flame.position.copy(at).add(new THREE.Vector3(Math.cos(a)*spread,.12,Math.sin(a)*spread));
+      flame.scale.set(3.2,5.8+(i%3),3.2);
+      this.#addTransient(flame,{life:.28+(i%3)*.045,fade:true,shrink:true,expand:2,
+        velocity:new THREE.Vector3(Math.cos(a)*1.8,3.4+(i%3)*.65,Math.sin(a)*1.8),spin:new THREE.Vector3(1,2,1)});
+    }
+    const stone=this.#basicMaterial(0x332820);
+    for(let i=0,n=this.#many(8);i<n;i++) {
+      const a=i*Math.PI/4,chip=new THREE.Mesh(this.impactFlashGeometry,stone);
+      chip.position.copy(at);chip.scale.set(.65,.9,.65);
+      this.#addTransient(chip,{life:.4+(i%3)*.06,shrink:true,gravity:15,
+        velocity:new THREE.Vector3(Math.cos(a)*3,3.5+(i%3),Math.sin(a)*3),spin:new THREE.Vector3(8,5,7)});
+    }
   }
 
   impact(point, { spell = 'fireball', radius = 2.6, ground = null } = {}) {

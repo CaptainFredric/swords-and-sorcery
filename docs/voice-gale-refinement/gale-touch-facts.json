@@ -1,0 +1,305 @@
+{
+  "events": [
+    {
+      "at": 333.98409999999404,
+      "castEndsAt": 334.48409999999404,
+      "playerId": "c20a63e9-d17e-4daf-8f54-f43099ac757b",
+      "spell": "gale",
+      "type": "spellCast"
+    },
+    {
+      "affected": [
+        {
+          "guarded": false,
+          "id": "practice-dummy-TVBR7",
+          "pressure": 0.970569549116778,
+          "shove": {
+            "x": 4.365383154734722,
+            "y": 1.262002500269156,
+            "z": 0.02537855621179941
+          }
+        }
+      ],
+      "at": 334.51519999998806,
+      "direction": {
+        "x": 0.9999999553320236,
+        "y": 0,
+        "z": -0.0002988912022654407
+      },
+      "mode": "sustained",
+      "origin": {
+        "x": 13.402357847216106,
+        "y": 1.35,
+        "z": -4.5080741321896065
+      },
+      "playerId": "c20a63e9-d17e-4daf-8f54-f43099ac757b",
+      "recoil": null,
+      "spell": "gale",
+      "type": "galeBlast"
+    },
+    {
+      "amount": 1,
+      "at": 334.70059999999404,
+      "attackerId": "c20a63e9-d17e-4daf-8f54-f43099ac757b",
+      "health": 99,
+      "ongoing": true,
+      "push": null,
+      "source": "gale",
+      "type": "damage",
+      "victimId": "practice-dummy-TVBR7"
+    },
+    {
+      "amount": 1,
+      "at": 334.89590000000595,
+      "attackerId": "c20a63e9-d17e-4daf-8f54-f43099ac757b",
+      "health": 98,
+      "ongoing": true,
+      "push": null,
+      "source": "gale",
+      "type": "damage",
+      "victimId": "practice-dummy-TVBR7"
+    },
+    {
+      "amount": 1,
+      "at": 335.06109999999404,
+      "attackerId": "c20a63e9-d17e-4daf-8f54-f43099ac757b",
+      "health": 97,
+      "ongoing": true,
+      "push": null,
+      "source": "gale",
+      "type": "damage",
+      "victimId": "practice-dummy-TVBR7"
+    },
+    {
+      "amount": 1,
+      "at": 335.26590000000596,
+      "attackerId": "c20a63e9-d17e-4daf-8f54-f43099ac757b",
+      "health": 96,
+      "ongoing": true,
+      "push": null,
+      "source": "gale",
+      "type": "damage",
+      "victimId": "practice-dummy-TVBR7"
+    },
+    {
+      "amount": 1,
+      "at": 335.53590000000594,
+      "attackerId": "c20a63e9-d17e-4daf-8f54-f43099ac757b",
+      "health": 95,
+      "ongoing": true,
+      "push": null,
+      "source": "gale",
+      "type": "damage",
+      "victimId": "practice-dummy-TVBR7"
+    }
+  ],
+  "states": [
+    {
+      "at": 334.079099999994,
+      "players": [
+        {
+          "health": 100,
+          "id": "c20a63e9-d17e-4daf-8f54-f43099ac757b",
+          "position": {
+            "x": 11.499999218310403,
+            "y": 0,
+            "z": -4.505230596039665
+          }
+        },
+        {
+          "health": 100,
+          "id": "practice-dummy-TVBR7",
+          "position": {
+            "x": 13.6046549693907,
+            "y": 0,
+            "z": -4.500571829104112
+          }
+        }
+      ]
+    },
+    {
+      "at": 334.33390000000594,
+      "players": [
+        {
+          "health": 100,
+          "id": "c20a63e9-d17e-4daf-8f54-f43099ac757b",
+          "position": {
+            "x": 12.24999918480942,
+            "y": 0,
+            "z": -4.505454764441365
+          }
+        },
+        {
+          "health": 100,
+          "id": "practice-dummy-TVBR7",
+          "position": {
+            "x": 13.6046549693907,
+            "y": 0,
+            "z": -4.500571829104112
+          }
+        }
+      ]
+    },
+    {
+      "at": 334.59790000000595,
+      "players": [
+        {
+          "health": 100,
+          "id": "c20a63e9-d17e-4daf-8f54-f43099ac757b",
+          "position": {
+            "x": 13.954079755184663,
+            "y": 0,
+            "z": -4.510075492324966
+          }
+        },
+        {
+          "health": 100,
+          "id": "practice-dummy-TVBR7",
+          "position": {
+            "x": 14.70384362041862,
+            "y": 0,
+            "z": -4.49125671474938
+          }
+        }
+      ]
+    },
+    {
+      "at": 334.86240000000595,
+      "players": [
+        {
+          "health": 100,
+          "id": "c20a63e9-d17e-4daf-8f54-f43099ac757b",
+          "position": {
+            "x": 15.95407966584871,
+            "y": 0,
+            "z": -4.510673274729499
+          }
+        },
+        {
+          "health": 99,
+          "id": "practice-dummy-TVBR7",
+          "position": {
+            "x": 16.72876799175464,
+            "y": 0,
+            "z": -4.47089701100241
+          }
+        }
+      ]
+    },
+    {
+      "at": 335.1386999999881,
+      "players": [
+        {
+          "health": 100,
+          "id": "c20a63e9-d17e-4daf-8f54-f43099ac757b",
+          "position": {
+            "x": 17.95407957651277,
+            "y": 0,
+            "z": -4.511271057134032
+          }
+        },
+        {
+          "health": 97,
+          "id": "practice-dummy-TVBR7",
+          "position": {
+            "x": 18.75289708209088,
+            "y": 0,
+            "z": -4.432448136880319
+          }
+        }
+      ]
+    },
+    {
+      "at": 335.3905,
+      "players": [
+        {
+          "health": 100,
+          "id": "c20a63e9-d17e-4daf-8f54-f43099ac757b",
+          "position": {
+            "x": 19.911193056731236,
+            "y": 0.0017995157969913364,
+            "z": -4.511856021161235
+          }
+        },
+        {
+          "health": 96,
+          "id": "practice-dummy-TVBR7",
+          "position": {
+            "x": 20.776199811173083,
+            "y": 0,
+            "z": -4.360980454495029
+          }
+        }
+      ]
+    },
+    {
+      "at": 335.687900000006,
+      "players": [
+        {
+          "health": 100,
+          "id": "c20a63e9-d17e-4daf-8f54-f43099ac757b",
+          "position": {
+            "x": 20.01963742096747,
+            "y": 0.0006773447927689608,
+            "z": -4.51188843422909
+          }
+        },
+        {
+          "health": 95,
+          "id": "practice-dummy-TVBR7",
+          "position": {
+            "x": 22.57823613798684,
+            "y": 0,
+            "z": -4.268517639144994
+          }
+        }
+      ]
+    },
+    {
+      "at": 335.952,
+      "players": [
+        {
+          "health": 100,
+          "id": "c20a63e9-d17e-4daf-8f54-f43099ac757b",
+          "position": {
+            "x": 19.57584914315213,
+            "y": 0,
+            "z": -4.511755789811256
+          }
+        },
+        {
+          "health": 95,
+          "id": "practice-dummy-TVBR7",
+          "position": {
+            "x": 23.05,
+            "y": 0,
+            "z": -4.237816219679253
+          }
+        }
+      ]
+    },
+    {
+      "at": 336.01759999999405,
+      "players": [
+        {
+          "health": 100,
+          "id": "c20a63e9-d17e-4daf-8f54-f43099ac757b",
+          "position": {
+            "x": 19.536380712315655,
+            "y": 0,
+            "z": -4.511743993043986
+          }
+        },
+        {
+          "health": 95,
+          "id": "practice-dummy-TVBR7",
+          "position": {
+            "x": 23.05,
+            "y": 0,
+            "z": -4.237816219679253
+          }
+        }
+      ]
+    }
+  ]
+}

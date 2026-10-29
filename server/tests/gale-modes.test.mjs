@@ -38,7 +38,7 @@ test('mode changes after the gather deadline and malformed profiles are rejected
   assert.ok(applyRoomCommand(room,a,{type:'galeMode',mode:'unlimited'},10.6).rejected);
 });
 
-test('sustained wind carries late entrants, with at most one damage application per target',()=>{
+test('sustained wind carries late entrants with bounded ongoing exposure damage',()=>{
   const {room,a,b}=cast('sustained',{x:3,y:0,z:20});
   // Enter well after the balanced gust expires.
   for(let now=10.53;now<11.15;now+=1/30)stepRoom(room,1/30,now,world);
@@ -46,7 +46,7 @@ test('sustained wind carries late entrants, with at most one damage application 
   Object.assign(b.position,{x:3,y:0,z:0});
   for(let now=11.15;now<11.7;now+=1/30)stepRoom(room,1/30,now,world);
   const hits=room.events.filter(e=>e.type==='damage'&&e.source==='gale'&&e.victimId==='b');
-  assert.equal(hits.length,1);assert.ok(100-b.health<=8);
+  assert.ok(hits.length>=1&&hits.every(e=>e.ongoing));assert.ok(100-b.health<=8);
   assert.ok(b.position.x>6);assert.equal(a.spellReadyAt,16);
 });
 

@@ -45,7 +45,7 @@ test('Coreflagration is a native loadout spell, without changing existing spells
   assert.ok(armoryView('coreflagration').spells.some(s => s.id === 'coreflagration'));
 });
 
-test('native projectile creates weak first burst and distinct 0.5s delayed detonation', () => {
+test('native projectile creates weak first burst and distinct 0.6s delayed detonation', () => {
   const { room, b } = duel();
   projectile(room);
   stepRoom(room, 0.03, 10.3, world);
@@ -54,7 +54,7 @@ test('native projectile creates weak first burst and distinct 0.5s delayed deton
   assert.equal(b.health, 95);
   assert.equal(room.projectiles.get('core-test').corePhase, 'armed');
   const deadline = room.projectiles.get('core-test').detonateAt;
-  assert.ok(Math.abs(deadline - 10.8) < 1e-8);
+  assert.ok(Math.abs(deadline - 10.9) < 1e-8);
   stepRoom(room, 0.03, deadline - 0.03, world);
   assert.equal(b.health, 95, 'no extra damage during fuse');
   stepRoom(room, 0.03, deadline, world);

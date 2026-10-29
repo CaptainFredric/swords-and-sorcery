@@ -1,0 +1,27 @@
+{
+  "before": {
+    "impulse": 18.466130367322005,
+    "displacement": 9.844690069172763,
+    "damage": 5
+  },
+  "after": {
+    "impulse": 20.984239053775003,
+    "displacement": 11.797661349244734,
+    "damage": 5
+  },
+  "balanced": {
+    "impulse": 15.108652118718,
+    "displacement": 8.448212540453296,
+    "damage": 5
+  },
+  "guardedBefore": {
+    "impulse": 6.119561008374351,
+    "displacement": 1.9858526448401355,
+    "damage": 0
+  },
+  "guardedAfter": {
+    "impulse": 6.954046600425398,
+    "displacement": 2.406159149984717,
+    "damage": 0
+  }
+}
