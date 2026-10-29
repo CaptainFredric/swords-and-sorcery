@@ -1,6 +1,6 @@
 import { combatActionPolicy } from '../../shared/src/combatActionPolicy.mjs';
 
-export const CHIVALRY_SIGNATURES = Object.freeze({ fireball: 0xff9852, frostfire: 0x77dfff, gale: 0xc5f3d8, steel: 0xdbe8f1 });
+export const CHIVALRY_SIGNATURES = Object.freeze({ fireball: 0xff9852, coreflagration: 0xff7a2a, frostfire: 0x77dfff, gale: 0xc5f3d8, steel: 0xdbe8f1 });
 export const CHIVALRY_END_SEC = 0.3;
 
 export function chivalryTellState(player, now, previous = {}) {

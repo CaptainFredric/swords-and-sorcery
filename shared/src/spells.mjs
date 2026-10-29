@@ -106,6 +106,7 @@ export const SPELLS = Object.freeze({
   coreflagration: Object.freeze({
     id: 'coreflagration',
     label: 'Coreflagration',
+    short: 'Core',
     cooldownSec: 5,
     gatherSec: 0.3,
     speed: 20,

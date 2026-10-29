@@ -536,7 +536,18 @@
         <p data-tutorial-prompt hidden></p>
         <p data-tutorial-blocked role="status" hidden></p>
       </div>
-      <button class="tutorial-transcript-open" data-tutorial-transcript-open type="button" aria-haspopup="dialog">TRANSCRIPT</button>
+      <div class="tutorial-top-controls">
+        <button class="tutorial-transcript-open" data-tutorial-transcript-open type="button" aria-haspopup="dialog">TRANSCRIPT</button>
+        <details class="tutorial-options" data-tutorial-options>
+          <summary><span>TUTORIAL </span>OPTIONS</summary>
+          <div class="tutorial-lesson-actions">
+            <button data-tutorial-practice type="button" hidden>CONTINUE IN PRACTICE</button>
+            <button data-tutorial-restart type="button">RESTART TUTORIAL</button>
+            <button data-tutorial-skip type="button">SKIP TUTORIAL</button>
+            <button data-tutorial-leave type="button">RETURN TO SOLO</button>
+          </div>
+        </details>
+      </div>
       <section class="tutorial-transcript" data-tutorial-transcript role="dialog" aria-modal="true" aria-label="Transcript" hidden>
         <header class="tutorial-transcript-head">
           <h2>TRANSCRIPT</h2>
@@ -544,15 +555,6 @@
         </header>
         <div class="tutorial-transcript-list" data-tutorial-transcript-list></div>
       </section>
-      <details class="tutorial-options" data-tutorial-options>
-        <summary><span>TUTORIAL </span>OPTIONS</summary>
-        <div class="tutorial-lesson-actions">
-          <button data-tutorial-practice type="button" hidden>CONTINUE IN PRACTICE</button>
-          <button data-tutorial-restart type="button">RESTART TUTORIAL</button>
-          <button data-tutorial-skip type="button">SKIP TUTORIAL</button>
-          <button data-tutorial-leave type="button">RETURN TO SOLO</button>
-        </div>
-      </details>
     </aside>
 
 

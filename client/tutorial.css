@@ -72,12 +72,20 @@
   color: #b9a37c; font: 600 16px/1 var(--font-script, sans-serif);
 }
 .tutorial-lesson .tutorial-back:hover { color: #eadcb6; border-color: #ac884d; }
-/* The transcript: a slip of parchment under the options, and the page it opens */
+/* Top controls: transcript slip on the left, options summary on the right, anchored together near upper-right safe area */
+.tutorial-top-controls {
+  position: absolute; right: calc(var(--safe-r, 0px) + 12px); top: calc(var(--safe-t, 0px) + 8px);
+  display: flex; align-items: flex-start; gap: 8px; z-index: 10; pointer-events: none;
+}
+.tutorial-top-controls > * { pointer-events: auto; }
+/* The transcript: a slip of parchment beside the options, and the page it opens */
 .tutorial-lesson .tutorial-transcript-open {
-  position: absolute; right: calc(var(--safe-r, 0px) + 12px); top: 78px; pointer-events: auto;
-  min-height: 30px; padding: 5px 10px; border: 1px solid #9c7c4a; border-radius: 1px 3px 2px 3px;
+  position: relative; right: auto; top: auto; pointer-events: auto;
+  min-height: 44px; padding: 10px 14px; border: 1px solid #9c7c4a; border-radius: 1px 3px 2px 3px;
   background: linear-gradient(176deg, #efe3c4, #e2d1a6 70%, #d8c495); color: #3b2a19;
-  font: 700 10px/1.2 var(--font-script, sans-serif); letter-spacing: .1em; box-shadow: 0 1px 0 rgba(0, 0, 0, .35);
+  font: 700 11px/1.2 var(--font-script, sans-serif); letter-spacing: .1em; box-shadow: 0 1px 0 rgba(0, 0, 0, .35);
+  box-sizing: border-box; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+  touch-action: manipulation;
 }
 .tutorial-lesson .tutorial-transcript-open:hover { background: linear-gradient(176deg, #f5ebd2, #e8d8b0 70%, #dccb9e); }
 .tutorial-transcript {
@@ -108,7 +116,7 @@
 /* (the transcript open, the lesson's own captions and slips keep out of its way) */
 .tutorial-lesson.tutorial-transcript-open .tutorial-caption,
 .tutorial-lesson.tutorial-transcript-open .tutorial-instruction, .tutorial-lesson.tutorial-transcript-open .tutorial-transcript-open { visibility: hidden; }
-.tutorial-options { position: absolute; right: calc(var(--safe-r, 0px) + 12px); top: 8px; pointer-events: auto; }
+.tutorial-options { position: relative; right: auto; top: auto; pointer-events: auto; }
 .tutorial-options summary { display: grid; place-content: center; list-style: none; user-select: none; background: rgba(36, 28, 23, .88); }
 .tutorial-options summary::-webkit-details-marker { display: none; }
 .tutorial-options[open] { width: 220px; max-height: calc(100cqh - 24px); overflow: auto; background: #241c17; border: 1px solid #ac884d; }
@@ -138,7 +146,7 @@
   position: relative; left: auto; right: auto; top: auto; bottom: auto; transform: none;
   width: var(--tutorial-stack-w); min-width: 0;
 }
-.tutorial-touch .tutorial-transcript-open { top: calc(var(--safe-t, 0px) + 78px); min-height: 34px; font-size: 11px; }
+.tutorial-touch .tutorial-transcript-open { min-height: 44px; font-size: 11px; padding: 10px 12px; }
 /* (the column covers the mode's label: it is not seen through the card, and is back when nothing is there) */
 .touch-ui:has(.tutorial-lesson.tutorial-touch:not([hidden]) :is([data-tutorial-caption], [data-tutorial-instruction]):not([hidden])) .match-info { visibility: hidden; }
 /* On touch, upper left bars and lower corner controls stay clear of gameplay captions. */

@@ -19,6 +19,7 @@ const MAX_TRANSIENTS = 260;
 // how each spell looks: fire is orange and throws embers; frost is ice-blue and throws shards
 const SPELL_LOOKS = Object.freeze({
   fireball: { core: 0xffe0a3, emissive: 0xff641c, shell: 0xff7a2a, heart: 0xffe6a8, light: 0xff6b24, bits: [0xffb13b, 0xff6328], flash: 0xff8a2b, burst: 0xffd18a, ring: 0xff9a3c, cloud: 0x6b5a4c },
+  coreflagration: { core: 0xfff4d0, emissive: 0xff4800, shell: 0xff5a18, heart: 0xfff0b0, light: 0xff6a1e, bits: [0xff9a28, 0x483224], flash: 0xffc870, burst: 0xff8a30, ring: 0xff7820, cloud: 0x4a3c32 },
   frostfire: { core: 0xe9fcff, emissive: 0x3fb8ff, shell: 0x86dcff, heart: 0xf4fdff, light: 0x5cc8ff, bits: [0xd9f6ff, 0x7fd0ff], flash: 0x8fdcff, burst: 0xe6fbff, ring: 0x7fd6ff, cloud: 0xdff4ff },
   // wind: white air with the faintest sage in it, never an elemental green
   gale: { core: 0xf4f7f2, emissive: 0xdfe8dc, shell: 0xe8efe6, heart: 0xffffff, light: 0xe2ebe0, bits: [0xf2f5ef, 0xd8e2d4], flash: 0xe8f0e6, burst: 0xf5f8f3, ring: 0xdbe5d8, cloud: 0xe9eee6 },
@@ -107,7 +108,7 @@ function createCoreflagrationOrb() {
   };
   group.userData.update = (t) => {
     const armed = group.userData.corePhase === 'armed';
-    const progress = group.userData.coreProgress;
+    const progress = Math.max(0, Math.min(1, group.userData.coreProgress));
     if (mixer && action) {
       // Sample authored phases using presentation time. Countdown duration follows the authoritative fuse.
       mixer.setTime(armed ? Math.min(0.999, progress) * action.getClip().duration : t);
@@ -115,10 +116,20 @@ function createCoreflagrationOrb() {
       fallback.rotation.set(t * 0.8, t * 2.4, t * 1.6);
       fallback.scale.setScalar(1 + Math.sin(t * (armed ? 30 : 12)) * (armed ? 0.045 : 0.025));
     }
+    if (armed) {
+      // Visibly charge the core as detonation nears: incandescent heat and energetic vibration
+      fallbackMaterial.emissiveIntensity = 0.6 + 1.8 * progress;
+      fallbackMaterial.emissive.setHex(progress > 0.65 ? 0xffb040 : 0xd84814);
+      boundaryMaterial.opacity = 0.35 + 0.45 * progress;
+      if (model) {
+        const pulse = 1 + (progress > 0.35 ? Math.sin(t * (24 + progress * 24)) * (0.04 + 0.05 * progress) : 0);
+        model.scale.setScalar(pulse);
+      }
+    }
     // The authored ring is a warning of the actual radius, never an expanding decorative hitbox.
     if (ring) ring.visible = false;
     // Keep the perimeter mathematically fixed at 3m. Do not enlarge the entire GLB.
-    if (model) model.scale.setScalar(1);
+    if (!armed && model) model.scale.setScalar(1);
   };
   group.userData.dispose = () => {
     mixer?.stopAllAction();
@@ -1235,8 +1246,8 @@ export class Effects {
       });
       const flash = new THREE.Mesh(this.impactFlashGeometry, this.#basicMaterial(profile.core));
       flash.position.copy(at);
-      flash.scale.setScalar(profile.size * presentation.worldScale);
-      this.#addTransient(flash, { life: 0.07, expand: 3, shrink: true });
+      flash.scale.setScalar(profile.size * presentation.worldScale * (spell === 'coreflagration' ? 1.35 : 1));
+      this.#addTransient(flash, { life: 0.07, expand: 3.5, shrink: true });
     }
     const heart = new THREE.Mesh(this.blastGeometry, materials.heart);
     heart.position.copy(at);
@@ -1276,16 +1287,28 @@ export class Effects {
     for (let i = 0, n = this.#many(profile.smokeCount); i < n; i += 1) {
       const mist = new THREE.Sprite(this.#elementalMist(profile.frost ? 'frostfire' : 'fireball'));
       mist.position.copy(at).add(new THREE.Vector3((Math.random() - 0.5) * radius * 0.35, Math.random() * 0.3, (Math.random() - 0.5) * radius * 0.35));
-      mist.scale.setScalar(radius * (profile.frost ? 0.25 : 0.18));
-      this.#addTransient(mist, { life: profile.frost ? 0.6 : 0.8, velocity: new THREE.Vector3((Math.random() - 0.5) * 0.4, profile.frost ? 0.1 : 0.7, (Math.random() - 0.5) * 0.4), expand: 1.4, fade: true, drag: 1.3 });
+      mist.scale.setScalar(radius * (profile.frost ? 0.25 : spell === 'coreflagration' ? 0.22 : 0.18));
+      const smokeLife = spell === 'coreflagration' ? 0.35 : profile.frost ? 0.6 : 0.8;
+      this.#addTransient(mist, { life: smokeLife, velocity: new THREE.Vector3((Math.random() - 0.5) * 0.4, profile.frost ? 0.1 : 0.7, (Math.random() - 0.5) * 0.4), expand: 1.4, fade: true, drag: 1.3 });
     }
     for (let i = 0, n = this.#many(profile.fragmentCount); i < n; i += 1) {
-      const fragment = new THREE.Mesh(profile.frost ? this.shardGeometry : this.emberGeometry, profile.frost ? materials.bits[i % 2] : this.emberMaterials[i % 2]);
+      const isRock = spell === 'coreflagration' && i % 3 === 0;
+      const fragment = new THREE.Mesh(
+        profile.frost || isRock ? this.shardGeometry : this.emberGeometry,
+        profile.frost ? materials.bits[i % 2] : isRock ? materials.bits[1] : this.emberMaterials[i % 2],
+      );
       fragment.position.copy(at);
-      fragment.scale.setScalar(profile.size * (profile.frost ? 1 : 0.75));
-      const dir = new THREE.Vector3(Math.random() - 0.5, Math.random() * 0.75 + 0.1, Math.random() - 0.5).normalize();
+      fragment.scale.setScalar(profile.size * (profile.frost ? 1 : isRock ? 0.9 : 0.75));
+      const dir = new THREE.Vector3(Math.random() - 0.5, Math.random() * 0.75 + 0.15, Math.random() - 0.5).normalize();
       fragment.lookAt(at.clone().add(dir));
-      this.#addTransient(fragment, { velocity: dir.multiplyScalar((profile.frost ? 4 : 5) + Math.random() * 3).multiplyScalar(0.65 + 0.35 * profile.strength), life: profile.frost ? 0.5 : 0.38, gravity: 8, shrink: true, drag: 1.2, spin: new THREE.Vector3(4, 6, 5) });
+      this.#addTransient(fragment, {
+        velocity: dir.multiplyScalar(((profile.frost ? 4 : 5.5) + Math.random() * 3.5) * (0.65 + 0.35 * profile.strength)),
+        life: profile.frost ? 0.5 : spell === 'coreflagration' ? 0.34 : 0.38,
+        gravity: isRock ? 9.8 : 8,
+        shrink: true,
+        drag: 1.2,
+        spin: new THREE.Vector3(4, 6, 5),
+      });
     }
     if (!profile.frost) {
       for (let i = 0, n = this.#many(Math.round(5 * profile.size)); i < n; i += 1) {

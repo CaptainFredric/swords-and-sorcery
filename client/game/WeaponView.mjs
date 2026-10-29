@@ -161,9 +161,9 @@ function addMagicWisp(parent, material, name, position, size, rotation) {
 
 
 // what a spell looks like gathering in the palm
-const SPELL_GLOW = Object.freeze({ fireball: 0xff7a2a, frostfire: 0x7fd6ff, gale: 0xe4ece2 });
+const SPELL_GLOW = Object.freeze({ fireball: 0xff7a2a, coreflagration: 0xff7a2a, frostfire: 0x7fd6ff, gale: 0xe4ece2 });
 // the light the palm throws on the arms while a spell gathers (air is pale, but lights them only a little)
-const SPELL_LIGHT = Object.freeze({ fireball: 0xff7a2a, frostfire: 0x7fd6ff, gale: 0x7d9282 });
+const SPELL_LIGHT = Object.freeze({ fireball: 0xff7a2a, coreflagration: 0xff7a2a, frostfire: 0x7fd6ff, gale: 0x7d9282 });
 
 // a value moved toward a target by at most `step`
 function approach(value, target, step) {

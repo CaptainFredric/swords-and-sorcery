@@ -38,7 +38,7 @@ import { castVisualDuration } from './weaponPose.mjs';
 import { localPushDirection } from './spellbladeMotion.mjs';
 import { blowDirection, glancing, hitKick, hitstopSeconds, impactPoint, steelHitFeel } from './hitFeel.mjs';
 import {
-  blockRecipe, burnLickRecipe, castRecipe, dashRecipe, fireballImpactRecipe, frostImpactRecipe, guardBreakRecipe, hurtRecipe, killRecipe,
+  blockRecipe, burnLickRecipe, castRecipe, coreflagrationImpactRecipe, dashRecipe, fireballImpactRecipe, frostImpactRecipe, guardBreakRecipe, hurtRecipe, killRecipe,
   deniedRecipe, galeReleaseRecipe, preciseRecipe, softStrikeRecipe, strikeSurface, woodThunkRecipe, gauntletHitRecipe, gauntletSwingRecipe, parryRecipe, spatialize, steelCallRecipe, steelClangRecipe, steelRamRecipe, steelTickRecipe,
   swingRecipe, swordHitRecipe, wallClangRecipe, attackWindupRecipe,
   groundSlamRecipe, ruptureRunRecipe, swordDrawRecipe, palmRevealRecipe, sunderRingRecipe, staggerBreakRecipe, staggerStrainRecipe, sunderDongRecipe, sunderDropRecipe, sunderForceRecipe,
@@ -347,14 +347,14 @@ export class GameRuntime {
       // (it goes where I aim as it leaves the hand, as the server's does: the aim is taken then, not now)
       if (spell.kind === 'cone') {
         this.localGale = { at: now + spell.gatherSec, spell, mode: 'balanced', confirmed: false };
-        this.hud.flashText('GALE · BALANCED', 'wind', 500);
+        if (!this.touch) this.hud.flashText('GALE · BALANCED', 'wind', 400);
       }
     };
     this.input.onGaleModeLocal = mode => {
       if (!this.localGale || this.socket.serverNow() >= this.localGale.at) return false;
       this.localGale.mode = galeModeId(mode);
       this.localGale.spell = galeProfile(mode);
-      this.hud.flashText(`GALE · ${this.localGale.mode.toUpperCase()}`, 'wind', 550);
+      if (!this.touch) this.hud.flashText(`GALE · ${this.localGale.mode.toUpperCase()}`, 'wind', 450);
       return true;
     };
     // the gauntlet on its own key: the fist at once, spell or no spell (the server's word follows); only while the hand
@@ -1065,9 +1065,16 @@ export class GameRuntime {
         const spell = spellFor(event.spell);
         // the ground under it, for the wave and the mark the blast leaves
         const ground = this.activeWorld ? surfaceHeightAt(event.point.x, event.point.z, event.point.y, this.activeWorld) : null;
-        if (spell.id === 'coreflagration' && event.stage === 'final') this.effects.coreEruption(event.point,event.radius??spell.radius,ground);
+        if (spell.id === 'coreflagration' && event.stage === 'final') this.effects.coreEruption(event.point, event.radius ?? spell.radius, ground);
         else this.effects.impact(event.point, { spell: spell.id, radius: event.radius ?? spell.radius, ground });
-        this.#play(spell.conjured ? emberImpactRecipe(Math.random, { size: spell.size }) : spell.chill ? frostImpactRecipe() : fireballImpactRecipe(), event.point, spell.conjured ? 0.6 + 0.4 * (spell.size ?? 0.5) : 1);
+        const recipe = spell.conjured ? emberImpactRecipe(Math.random, { size: spell.size })
+          : spell.id === 'coreflagration' ? coreflagrationImpactRecipe()
+          : spell.chill ? frostImpactRecipe()
+          : fireballImpactRecipe();
+        const volume = spell.conjured ? 0.6 + 0.4 * (spell.size ?? 0.5)
+          : spell.id === 'coreflagration' ? 1.2
+          : 1;
+        this.#play(recipe, event.point, volume);
       }
       if (event.type === 'damage' && event.source === 'burn') this.#play(burnLickRecipe(), event.victimId === me ? null : this.#bodyPosition(event.victimId), 0.7);
       // the split ground catching a knight: a smaller ring of the same iron
