@@ -34,6 +34,12 @@
       "file": "chivalry",
       "seconds": 0.74,
       "channels": 1
+    },
+    "coreflagration": {
+      "file": "coreflagration",
+      "seconds": 0.62,
+      "channels": 1,
+      "provisionalSource": "fireball placeholder; render unique cue before release"
     }
   }
 }
