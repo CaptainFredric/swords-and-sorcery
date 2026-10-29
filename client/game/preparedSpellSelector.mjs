@@ -12,7 +12,7 @@ export function preparedSpellView(local, serverNow = 0) {
   const visible = Boolean(phase && ids.length === 3);
   const spells = ids.map((id) => {
     const spell = spellFor(id);
-    const projectile = id === 'fireball' || id === 'frostfire';
+    const projectile = !spell.kind;
     const readyAt = phase === 'active' && projectile ? local.chivalryProjectileReadyAt
       : local?.spellReadyById?.[id] ?? (id === local?.spell ? local?.spellReadyAt : 0);
     const remaining = Math.max(0, (readyAt ?? 0) - serverNow);

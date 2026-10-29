@@ -80,6 +80,24 @@ export class TouchControls {
         </div>`).join('')}`;
     root.append(this.layer);
     this.galeGesture = null;
+    this.galeHoldTimer = null;
+    this.galeIndicator = document.createElement('div');
+    this.galeIndicator.className = 'touch-gale-indicator';
+    this.galeIndicator.innerHTML = `
+      <div class="touch-gale-capsule touch-gale-burst" data-option="burst">
+        <svg viewBox="0 0 16 16" class="gale-chevrons-up"><path d="M3 11l5-5 5 5M3 6l5-5 5 5"/></svg>
+        <span>BURST</span>
+      </div>
+      <div class="touch-gale-label" data-option="label">GALE · BALANCED</div>
+      <div class="touch-gale-capsule touch-gale-sustained" data-option="sustained">
+        <svg viewBox="0 0 16 16" class="gale-chevrons-down"><path d="M3 5l5 5 5-5M3 10l5 5 5-5"/></svg>
+        <span>SUSTAINED</span>
+      </div>
+    `;
+    this.layer.append(this.galeIndicator);
+    this.galeBurstCapsule = this.galeIndicator.querySelector('.touch-gale-burst');
+    this.galeSustainedCapsule = this.galeIndicator.querySelector('.touch-gale-sustained');
+    this.galeModeLabel = this.galeIndicator.querySelector('.touch-gale-label');
     this.preparedFan = document.createElement('div');
     this.preparedFan.className = 'touch-prepared-fan';
     this.preparedFan.hidden = true;
@@ -192,6 +210,7 @@ export class TouchControls {
     this.input.onAimCancelled?.();
     if (this.galeGesture?.mode !== 'balanced' && this.galeGesture) this.input.selectGaleMode?.('balanced');
     this.galeGesture = null;
+    this.#hideGaleIndicator();
     this.viewGesture=null;
     this.#cancelPreparedTouch();
     for (const [pointerId, action] of this.held) this.#release(action, pointerId);
@@ -384,6 +403,7 @@ export class TouchControls {
     button.classList.toggle('frost', spell.id === 'frostfire');
     button.classList.toggle('gale', spell.id === 'gale');
     button.classList.toggle('steel', spell.id === 'steel');
+    button.classList.toggle('coreflagration', spell.id === 'coreflagration');
     button.classList.toggle('fist', Boolean(cooling));
     button.setAttribute('aria-label', cooling ? `GAUNTLET (${spell.label.toUpperCase()} RECHARGING)` : spell.label.toUpperCase());
     button.querySelector('span').textContent = cooling ? 'FIST' : (spell.short ?? spell.label).toUpperCase();
@@ -458,11 +478,14 @@ export class TouchControls {
     }
     if (this.galeGesture?.id === event.pointerId) {
       const point = gamePoint(event, this.layer), g = this.galeGesture;
-      const mode = galeSwipeMode(point.x - g.x, point.y - g.y, g.mode);
-      if (mode !== g.mode && this.input.selectGaleMode?.(mode)) {
+      const dx = point.x - g.x;
+      const dy = point.y - g.y;
+      const mode = galeSwipeMode(dx, dy, g.mode);
+      if (mode !== g.mode) {
         g.mode = mode;
-        this.buttons.spell.querySelector('span').textContent = mode.toUpperCase();
+        this.input.selectGaleMode?.(mode);
       }
+      this.#showGaleIndicator(g.mode, dx, dy);
       return;
     }
     if (this.preparedTouch?.id === event.pointerId) {
@@ -503,6 +526,7 @@ export class TouchControls {
       const mode = event.type === 'pointerup' ? galeSwipeMode(point.x-g.x, point.y-g.y, g.mode) : 'balanced';
       if (mode !== g.mode) this.input.selectGaleMode?.(mode);
       this.galeGesture = null;
+      this.#hideGaleIndicator();
       delete this.buttons.spell.dataset.face;
     }
     if (this.preparedTouch?.id === event.pointerId) {
@@ -563,6 +587,9 @@ export class TouchControls {
       if (this.galeAvailable && !this.prepared?.visible) {
         this.galeGesture = { id: event.pointerId, ...gamePoint(event, this.layer), mode: 'balanced' };
         this.input.cast();
+        this.galeHoldTimer = setTimeout(() => {
+          if (this.galeGesture) this.#showGaleIndicator(this.galeGesture.mode, 0, 0);
+        }, 80);
       } else if (this.prepared?.visible) {
         if (!this.preparedTouch) {
           const point = gamePoint(event, this.layer);
@@ -606,6 +633,40 @@ export class TouchControls {
     if (action === 'jump') this.jumpHeld = false;
     if(action==='crouch'&&this.inspectionFlight)this.flightCrouchHeld=[...this.held].some(([id,held])=>id!==pointerId&&held==='crouch'&&!this.deniedButtons.has(id));
     if(action==='sprint')this.chargeHeld=[...this.held].some(([id,held])=>id!==pointerId&&held==='sprint'&&!this.deniedButtons.has(id));
+  }
+
+  #showGaleIndicator(mode = 'balanced', dx = 0, dy = 0) {
+    if (!this.galeIndicator || this.prepared?.visible) return;
+    this.galeIndicator.classList.add('active');
+    if (this.galeModeLabel) {
+      this.galeModeLabel.textContent = `GALE · ${mode.toUpperCase()}`;
+    }
+    const burstProgress = Math.min(1, Math.max(0, -dy / 28));
+    const sustainedProgress = Math.min(1, Math.max(0, dy / 28));
+    const burstSelected = mode === 'burst';
+    const sustainedSelected = mode === 'sustained';
+    if (this.galeBurstCapsule) {
+      this.galeBurstCapsule.classList.toggle('selected', burstSelected);
+      this.galeBurstCapsule.style.opacity = burstSelected ? '' : String(0.45 + 0.5 * burstProgress);
+    }
+    if (this.galeSustainedCapsule) {
+      this.galeSustainedCapsule.classList.toggle('selected', sustainedSelected);
+      this.galeSustainedCapsule.style.opacity = sustainedSelected ? '' : String(0.45 + 0.5 * sustainedProgress);
+    }
+  }
+
+  #hideGaleIndicator() {
+    if (this.galeHoldTimer) {
+      clearTimeout(this.galeHoldTimer);
+      this.galeHoldTimer = null;
+    }
+    if (this.galeIndicator) {
+      this.galeIndicator.classList.remove('active');
+      this.galeBurstCapsule?.classList.remove('selected');
+      this.galeSustainedCapsule?.classList.remove('selected');
+      if (this.galeBurstCapsule) this.galeBurstCapsule.style.opacity = '';
+      if (this.galeSustainedCapsule) this.galeSustainedCapsule.style.opacity = '';
+    }
   }
 
   #cancelPreparedTouch() {

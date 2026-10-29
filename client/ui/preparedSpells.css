@@ -18,6 +18,7 @@
   background:linear-gradient(180deg, #3a322bf5, #221d19f5);
   transition:border-color .12s ease, background .12s ease, transform .12s ease, box-shadow .12s ease;
 }
+.prepared-spell[data-spell="coreflagration"], .touch-prepared-slot[data-spell="coreflagration"] { --spell-color:#ff9852; }
 .prepared-spell[data-spell="frostfire"], .touch-prepared-slot[data-spell="frostfire"] { --spell-color:#8fdcff; }
 .prepared-spell[data-spell="gale"], .touch-prepared-slot[data-spell="gale"] { --spell-color:#e6eee3; }
 .prepared-spell[data-spell="steel"], .touch-prepared-slot[data-spell="steel"] { --spell-color:#d8e1ea; }

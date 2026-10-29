@@ -1,6 +1,7 @@
 import { galeProfile, galeModeId, sustainGaleRecoil } from '../../shared/src/galeModes.mjs';
-import { flyStep, inspectionSpawn, inspectionViews } from './inspectionCamera.mjs';
+import { flyStep, inspectionSpawn, inspectionViews, levelCamera, focusOnSubject, createBookmark } from './inspectionCamera.mjs';
 import { InspectionCameraTools } from './InspectionCameraTools.mjs';
+import { ZipArchive } from './zipWriter.mjs';
 import { structureWorld } from '../../shared/sim/structures.mjs';
 import { StructureRenderer } from '../worlds/StructureRenderer.mjs';
 import {SoFisticationRenderer} from '../worlds/SoFisticationRenderer.mjs';
@@ -38,7 +39,7 @@ import { castVisualDuration } from './weaponPose.mjs';
 import { localPushDirection } from './spellbladeMotion.mjs';
 import { blowDirection, glancing, hitKick, hitstopSeconds, impactPoint, steelHitFeel } from './hitFeel.mjs';
 import {
-  blockRecipe, burnLickRecipe, castRecipe, dashRecipe, fireballImpactRecipe, frostImpactRecipe, guardBreakRecipe, hurtRecipe, killRecipe,
+  blockRecipe, burnLickRecipe, castRecipe, coreflagrationImpactRecipe, dashRecipe, fireballImpactRecipe, frostImpactRecipe, guardBreakRecipe, hurtRecipe, killRecipe,
   deniedRecipe, galeReleaseRecipe, preciseRecipe, softStrikeRecipe, strikeSurface, woodThunkRecipe, gauntletHitRecipe, gauntletSwingRecipe, parryRecipe, spatialize, steelCallRecipe, steelClangRecipe, steelRamRecipe, steelTickRecipe,
   swingRecipe, swordHitRecipe, wallClangRecipe, attackWindupRecipe,
   groundSlamRecipe, ruptureRunRecipe, swordDrawRecipe, palmRevealRecipe, sunderRingRecipe, staggerBreakRecipe, staggerStrainRecipe, sunderDongRecipe, sunderDropRecipe, sunderForceRecipe,
@@ -120,6 +121,26 @@ const APPEAL = Object.freeze({ leadSec: 0.1, interruptBeforeEnd: 0.4, runOnSec: 
 // the paired "Oof!" of a Steel ram: the one rammed a breath behind the rammer (nearly together, not in unison)
 const RAM_OOF_LAG = 0.06;
 
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+}
+
+function dataUrlToBytes(dataUrl) {
+  const base64 = dataUrl.split(',')[1];
+  const binary = atob(base64);
+  const len = binary.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
 export class GameRuntime {
   constructor(container, socket, hud, { sound = null, voice = null, music = null } = {}) {
     this.container = container;
@@ -147,7 +168,7 @@ export class GameRuntime {
     const view = this.#viewSize();
     this.camera = new THREE.PerspectiveCamera(78, view.width / view.height, 0.05, 180);
     this.scene.add(this.camera);
-    this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+    this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance', preserveDrawingBuffer: true });
     this.renderer.setPixelRatio(Math.min(devicePixelRatio, this.view.pixelRatioCap));
     this.renderer.setSize(view.width, view.height);
     this.renderer.shadowMap.enabled = true;
@@ -244,6 +265,44 @@ export class GameRuntime {
     this.inspectionFocus = 'actor';
     this.inspectionSplit = false;
     this.flyCamera = new THREE.PerspectiveCamera(78, 1, .05, 2000);
+    this.inspectionUiMode = 'full';
+    this.inspectionSpeedMode = 'normal';
+    this.inspectionFov = null;
+    this.inspectionGridVisible = false;
+    this.inspectionBookmarks = [null, null, null];
+    this.inspectionBookmarkIncludes = [true, true, true];
+    this.inspectionSequence = null;
+    this.inspectionSubjectIndex = 0;
+
+    this.inspectionRestorePill = document.createElement('button');
+    this.inspectionRestorePill.className = 'inspection-restore-pill';
+    this.inspectionRestorePill.textContent = 'SHOW UI [H]';
+    this.inspectionRestorePill.setAttribute('aria-label', 'Show game and inspection interface');
+    this.inspectionRestorePill.addEventListener('click', () => this.setInspectionUiMode('full'));
+    hud.root.parentElement.append(this.inspectionRestorePill);
+
+    this.inspectionGrid = document.createElement('div');
+    this.inspectionGrid.className = 'inspection-grid hidden';
+    this.inspectionGrid.innerHTML = `
+      <div class="inspection-grid-line v1"></div>
+      <div class="inspection-grid-line v2"></div>
+      <div class="inspection-grid-line h1"></div>
+      <div class="inspection-grid-line h2"></div>
+    `;
+    hud.root.parentElement.append(this.inspectionGrid);
+
+    this.inspectionKeydown = (event) => {
+      if (!this.socket.inspectionAvailable) return;
+      if (event.target?.closest?.('input, textarea, select')) return;
+      if (event.code === 'KeyH' || event.code === 'Backquote') {
+        event.preventDefault();
+        this.cycleInspectionUiMode();
+      } else if (event.code === 'Escape' && this.inspectionUiMode !== 'full') {
+        this.setInspectionUiMode('full');
+      }
+    };
+    document.addEventListener('keydown', this.inspectionKeydown);
+
     this.inspectionTools = new InspectionCameraTools(hud.root.parentElement, {
       actor: () => this.inhabitInspection(socket.playerId),
       dummy: () => this.inhabitInspection(this.latestSnapshot?.players.find(p=>p.actorKind==='dummy'&&p.alive)?.id),
@@ -253,6 +312,22 @@ export class GameRuntime {
       reset: () => this.resetInspectionCamera(),
       freeze: () => {this.onInspectionFreeze?.();if(!socket.inspectionFrozen&&this.touch)this.input.requestPointerLock();},
       step: () => socket.stepInspection(),
+      playFrames: () => socket.playInspectionFrames(!socket.inspectionFramesPlaying),
+      hideAllUi: () => this.setInspectionUiMode('clean'),
+      cycleUiMode: () => this.cycleInspectionUiMode(),
+      toggleGrid: () => this.toggleInspectionGrid(),
+      speed: (mode) => this.setInspectionSpeedMode(mode),
+      fovInc: () => this.adjustInspectionFov(5),
+      fovDec: () => this.adjustInspectionFov(-5),
+      fovReset: () => this.resetInspectionFov(),
+      levelCamera: () => this.levelInspectionCamera(),
+      focusSubject: () => this.focusNextInspectionSubject(),
+      bookmarkSet: (slot) => this.setInspectionBookmark(slot),
+      bookmarkGo: (slot) => this.recallInspectionBookmark(slot),
+      bookmarkToggleInclude: (slot, inc) => this.setInspectionBookmarkInclude(slot, inc),
+      captureSingle: () => this.captureInspectionScreenshot(),
+      captureAll: () => this.captureAllInspectionCameras(),
+      toggleSequence: () => this.toggleInspectionSequence(),
     });
     this.inspectionActionGate = (action, notify=true) => {
       if (!this.inspectionFree || ['look','move','sprint','jump','crouch','pause'].includes(action)) return true;
@@ -347,14 +422,14 @@ export class GameRuntime {
       // (it goes where I aim as it leaves the hand, as the server's does: the aim is taken then, not now)
       if (spell.kind === 'cone') {
         this.localGale = { at: now + spell.gatherSec, spell, mode: 'balanced', confirmed: false };
-        this.hud.flashText('GALE · BALANCED', 'wind', 500);
+        if (!this.touch) this.hud.flashText('GALE · BALANCED', 'wind', 400);
       }
     };
     this.input.onGaleModeLocal = mode => {
       if (!this.localGale || this.socket.serverNow() >= this.localGale.at) return false;
       this.localGale.mode = galeModeId(mode);
       this.localGale.spell = galeProfile(mode);
-      this.hud.flashText(`GALE · ${this.localGale.mode.toUpperCase()}`, 'wind', 550);
+      if (!this.touch) this.hud.flashText(`GALE · ${this.localGale.mode.toUpperCase()}`, 'wind', 450);
       return true;
     };
     // the gauntlet on its own key: the fist at once, spell or no spell (the server's word follows); only while the hand
@@ -632,8 +707,348 @@ export class GameRuntime {
     if(available&&this.inspectionSplit)Object.assign(this.hud.root.style,{inset:'auto',left:`${pane.x}px`,top:`${pane.y}px`,width:`${pane.width}px`,height:`${pane.height}px`});
     else for(const key of ['inset','left','top','width','height'])this.hud.root.style[key]='';
     const key=action=>[...new Set((this.input.bindings[action]??[]).map(code=>code.replace('Key','').replace(/Left$|Right$/g,'')))].join(' / ');
-    const controls=this.touch?'Stick moves; drag to look. Hold UP or DOWN. Push forward fully or tap FAST for speed.':'Move and look normally. Rise: '+key('jump')+'. Descend: '+key('crouch')+'. Faster: '+key('sprint')+'. Escape for camera controls.';
-    this.inspectionTools.update({available,focus:this.inspectionFocus,split:this.inspectionSplit,dummy:this.latestSnapshot?.players.some(p=>p.actorKind==='dummy'&&p.alive),controlledDummy:this.localAuth?.actorKind==='dummy',frozen:this.socket.inspectionFrozen,views,controls});
+    const controls=this.touch?'Stick moves; drag to look. Hold UP or DOWN. Push forward fully or tap FAST for speed.':'Move and look normally. Rise: '+key('jump')+'. Descend: '+key('crouch')+'. Faster: '+key('sprint')+'. Escape for camera controls. H: Toggle UI.';
+    this.inspectionTools.update({
+      available,
+      focus: this.inspectionFocus,
+      split: this.inspectionSplit,
+      dummy: this.latestSnapshot?.players.some((p) => p.actorKind === 'dummy' && p.alive),
+      controlledDummy: this.localAuth?.actorKind === 'dummy',
+      frozen: this.socket.inspectionFrozen,
+      playingFrames: this.socket.inspectionFramesPlaying,
+      views,
+      controls,
+      tick: this.latestSnapshot?.tick ?? 0,
+      simTime: this.socket.serverNow?.() ?? 0,
+      uiMode: this.inspectionUiMode,
+      gridVisible: this.inspectionGridVisible,
+      speedMode: this.inspectionSpeedMode,
+      fov: this.inspectionFov ?? this.view.fov,
+      bookmarks: this.inspectionBookmarks,
+      sequence: this.inspectionSequence,
+    });
+  }
+
+  setInspectionUiMode(mode) {
+    if (!['full', 'gameplay', 'clean'].includes(mode)) return;
+    this.inspectionUiMode = mode;
+    document.body.classList.toggle('inspection-ui-clean', mode === 'clean');
+    document.body.classList.toggle('inspection-ui-gameplay', mode === 'gameplay');
+    document.body.classList.toggle('inspection-ui-full', mode === 'full');
+    this.syncInspection();
+  }
+
+  cycleInspectionUiMode() {
+    const next = this.inspectionUiMode === 'full' ? 'clean' : (this.inspectionUiMode === 'clean' ? 'gameplay' : 'full');
+    this.setInspectionUiMode(next);
+  }
+
+  toggleInspectionGrid() {
+    this.inspectionGridVisible = !this.inspectionGridVisible;
+    this.inspectionGrid?.classList.toggle('hidden', !this.inspectionGridVisible);
+    this.syncInspection();
+  }
+
+  setInspectionSpeedMode(mode) {
+    if (['slow', 'normal', 'fast'].includes(mode)) {
+      this.inspectionSpeedMode = mode;
+      this.syncInspection();
+    }
+  }
+
+  adjustInspectionFov(delta) {
+    const current = this.inspectionFov ?? this.view.fov;
+    const next = Math.max(45, Math.min(95, current + delta));
+    this.inspectionFov = next;
+    this.syncInspection();
+  }
+
+  resetInspectionFov() {
+    this.inspectionFov = null;
+    this.syncInspection();
+  }
+
+  levelInspectionCamera() {
+    this.flyPose ??= inspectionSpawn(this.localAuth);
+    this.flyPose = levelCamera(this.flyPose);
+    if (this.inspectionFree) this.input.pitch = 0;
+    this.hud.flashText('HORIZON LEVELED', '', 800);
+    this.syncInspection();
+  }
+
+  focusNextInspectionSubject() {
+    if (!this.socket.inspectionAvailable) return;
+    this.flyPose ??= inspectionSpawn(this.localAuth);
+    const subjects = [];
+    if (this.localAuth) subjects.push({ name: 'You', pos: this.localState?.position ?? this.localAuth.position });
+    const dummy = this.latestSnapshot?.players.find(p => p.actorKind === 'dummy' && p.alive);
+    if (dummy) subjects.push({ name: 'Dummy', pos: dummy.position });
+    const ballista = this.world?.biByeLlista?.group?.position ?? this.latestSnapshot?.bibyeBallista?.position;
+    if (ballista) subjects.push({ name: 'Bi-Bye Ballista', pos: ballista });
+    const ram = this.world?.soFistication?.group?.position ?? this.latestSnapshot?.soFistication?.position;
+    if (ram) subjects.push({ name: 'So-Fistication Ram', pos: ram });
+    if (subjects.length === 0) return;
+
+    this.inspectionSubjectIndex = (this.inspectionSubjectIndex + 1) % subjects.length;
+    const target = subjects[this.inspectionSubjectIndex];
+    const aim = focusOnSubject(this.flyPose.position, { x: target.pos.x, y: (target.pos.y ?? 0) + 1.2, z: target.pos.z });
+    this.flyPose.yaw = aim.yaw;
+    this.flyPose.pitch = aim.pitch;
+    if (this.inspectionFree) {
+      this.input.yaw = aim.yaw;
+      this.input.pitch = aim.pitch;
+    }
+    this.hud.flashText(`FOCUSED ${target.name.toUpperCase()}`, '', 800);
+    this.syncInspection();
+  }
+
+  setInspectionBookmark(slot) {
+    if (slot < 1 || slot > 3) return;
+    this.flyPose ??= inspectionSpawn(this.localAuth);
+    const fov = this.inspectionFov ?? this.view.fov;
+    this.inspectionBookmarks[slot - 1] = createBookmark(this.flyPose, fov);
+    this.hud.flashText(`BOOKMARK ${slot} SAVED`, `FOV: ${Math.round(fov)}°`, 800);
+    this.syncInspection();
+  }
+
+  recallInspectionBookmark(slot) {
+    if (slot < 1 || slot > 3) return;
+    const bm = this.inspectionBookmarks[slot - 1];
+    if (!bm) return;
+    this.flyPose = {
+      ...this.flyPose,
+      position: { ...bm.position },
+      yaw: bm.yaw,
+      pitch: bm.pitch,
+    };
+    this.inspectionFov = bm.fov;
+    if (this.inspectionFree) {
+      this.input.yaw = bm.yaw;
+      this.input.pitch = bm.pitch;
+    }
+    this.hud.flashText(`BOOKMARK ${slot} RECALLED`, '', 800);
+    this.syncInspection();
+  }
+
+  setInspectionBookmarkInclude(slot, included) {
+    if (slot >= 1 && slot <= 3) {
+      this.inspectionBookmarkIncludes[slot - 1] = Boolean(included);
+      this.syncInspection();
+    }
+  }
+
+  captureInspectionScreenshot() {
+    this.#renderView();
+    const dataUrl = this.renderer.domElement.toDataURL('image/png');
+    const bytes = dataUrlToBytes(dataUrl);
+    const blob = new Blob([bytes], { type: 'image/png' });
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    const dateStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+    const tick = this.latestSnapshot?.tick ?? 0;
+    const filename = `castleward-inspection-${dateStr}-tick${String(tick).padStart(6, '0')}.png`;
+    downloadBlob(blob, filename);
+    this.hud.flashText('SAVED SCREENSHOT', filename, 1200);
+  }
+
+  #getActiveCaptureTargets() {
+    const targets = [];
+    for (let i = 0; i < 3; i++) {
+      const bm = this.inspectionBookmarks[i];
+      if (bm && this.inspectionBookmarkIncludes[i]) {
+        targets.push({
+          name: `slot_${i + 1}`,
+          type: 'fly',
+          pose: bm,
+          fov: bm.fov,
+          transform: { position: { ...bm.position }, yaw: bm.yaw, pitch: bm.pitch },
+        });
+      }
+    }
+    if (targets.length === 0) {
+      this.flyPose ??= inspectionSpawn(this.localAuth);
+      const fov = this.inspectionFov ?? this.view.fov;
+      targets.push({
+        name: 'current_view',
+        type: this.inspectionFree ? 'fly' : 'actor',
+        pose: this.flyPose,
+        fov,
+        transform: { position: { ...this.flyPose.position }, yaw: this.flyPose.yaw, pitch: this.flyPose.pitch },
+      });
+    }
+    return targets;
+  }
+
+  #renderTargetSnapshot(target) {
+    const { width, height } = this.#viewSize();
+    const self = this.remotePlayers.self?.root;
+    const origSelfVisible = self?.visible;
+    const origActorAspect = this.camera.aspect;
+    const origActorFov = this.camera.fov;
+
+    if (target.type === 'fly') {
+      this.flyCamera.position.set(target.pose.position.x, target.pose.position.y, target.pose.position.z);
+      this.flyCamera.rotation.order = 'YXZ';
+      this.flyCamera.rotation.set(target.pose.pitch, target.pose.yaw, 0);
+      this.flyCamera.fov = target.fov;
+      this.flyCamera.aspect = width / height;
+      this.flyCamera.updateProjectionMatrix();
+      if (self) self.visible = true;
+      this.#renderCamera(this.flyCamera, false);
+    } else {
+      this.camera.fov = this.view.fov;
+      this.camera.aspect = width / height;
+      this.camera.updateProjectionMatrix();
+      if (self) self.visible = Boolean(this.inspectionBodyOutside);
+      this.#renderCamera(this.camera, true);
+    }
+
+    const dataUrl = this.renderer.domElement.toDataURL('image/png');
+    const bytes = dataUrlToBytes(dataUrl);
+
+    if (self) self.visible = origSelfVisible;
+    this.camera.aspect = origActorAspect;
+    this.camera.fov = origActorFov;
+    this.camera.updateProjectionMatrix();
+
+    return bytes;
+  }
+
+  captureAllInspectionCameras() {
+    const activeTargets = this.#getActiveCaptureTargets();
+    const tick = this.latestSnapshot?.tick ?? 0;
+    const serverTime = this.socket.serverNow?.() ?? 0;
+    const { width, height } = this.#viewSize();
+
+    const zip = new ZipArchive();
+    const manifestCaptures = [];
+
+    for (const target of activeTargets) {
+      const bytes = this.#renderTargetSnapshot(target);
+      const filename = `tick_${String(tick).padStart(6, '0')}_${target.name}.png`;
+      zip.addFile(filename, bytes);
+      manifestCaptures.push({
+        filename,
+        tick,
+        serverTime,
+        camera: target.name,
+        fov: target.fov,
+        transform: target.transform,
+      });
+    }
+
+    const manifest = {
+      world: this.latestSnapshot?.worldId ?? 'castleward',
+      tick,
+      serverTime,
+      totalImages: activeTargets.length,
+      resolution: { width, height },
+      createdAt: new Date().toISOString(),
+      captures: manifestCaptures,
+    };
+    zip.addFile('manifest.json', JSON.stringify(manifest, null, 2));
+
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    const dateStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+    const zipName = `castleward-multicam-${dateStr}-tick${String(tick).padStart(6, '0')}.zip`;
+    downloadBlob(zip.generateBlob(), zipName);
+
+    this.#renderView();
+    this.hud.flashText(`CAPTURED ${activeTargets.length} CAMERAS (ZIP)`, zipName, 1500);
+  }
+
+  toggleInspectionSequence() {
+    if (this.inspectionSequence?.active) {
+      this.stopInspectionSequence();
+    } else {
+      this.startInspectionSequence();
+    }
+  }
+
+  startInspectionSequence() {
+    const settings = this.inspectionTools.getSequenceSettings();
+    const tick = this.latestSnapshot?.tick ?? 0;
+    this.inspectionSequence = {
+      active: true,
+      intervalTicks: settings.intervalTicks,
+      limitMoments: settings.limitMoments,
+      startTick: tick,
+      lastCapturedTick: -1,
+      capturedMoments: 0,
+      images: [],
+      manifestCaptures: [],
+    };
+    this.hud.flashText('SEQUENCE STARTED', `Every ${settings.intervalTicks} ticks`, 1200);
+    if (this.socket.inspectionFrozen) {
+      this.#processInspectionSequence(tick, this.socket.serverNow?.() ?? 0);
+    }
+    this.syncInspection();
+  }
+
+  stopInspectionSequence() {
+    const seq = this.inspectionSequence;
+    this.inspectionSequence = null;
+    this.syncInspection();
+    if (!seq || seq.images.length === 0) {
+      this.hud.flashText('SEQUENCE STOPPED', '0 images captured', 1200);
+      return;
+    }
+    const { width, height } = this.#viewSize();
+    const zip = new ZipArchive();
+    const manifest = {
+      world: this.latestSnapshot?.worldId ?? 'castleward',
+      tickRate: 30,
+      intervalTicks: seq.intervalTicks,
+      totalMoments: seq.capturedMoments,
+      totalImages: seq.images.length,
+      resolution: { width, height },
+      createdAt: new Date().toISOString(),
+      captures: seq.manifestCaptures,
+    };
+    zip.addFile('manifest.json', JSON.stringify(manifest, null, 2));
+    for (const img of seq.images) {
+      zip.addFile(img.filename, img.bytes);
+    }
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    const dateStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+    const zipName = `castleward-sequence-${dateStr}-${seq.capturedMoments}moments.zip`;
+    downloadBlob(zip.generateBlob(), zipName);
+    this.#renderView();
+    this.hud.flashText('SEQUENCE EXPORTED (ZIP)', `${seq.images.length} images saved`, 1800);
+  }
+
+  #processInspectionSequence(tick, serverTime) {
+    const seq = this.inspectionSequence;
+    if (!seq || !seq.active) return;
+    if (tick === seq.lastCapturedTick) return;
+    const deltaTicks = tick - seq.startTick;
+    if (deltaTicks < 0 || deltaTicks % seq.intervalTicks !== 0) return;
+
+    seq.lastCapturedTick = tick;
+    seq.capturedMoments++;
+
+    const activeTargets = this.#getActiveCaptureTargets();
+    for (const target of activeTargets) {
+      const bytes = this.#renderTargetSnapshot(target);
+      const filename = `tick_${String(tick).padStart(6, '0')}_${target.name}.png`;
+      seq.images.push({ filename, bytes });
+      seq.manifestCaptures.push({
+        filename,
+        tick,
+        serverTime,
+        camera: target.name,
+        fov: target.fov,
+        transform: target.transform,
+      });
+    }
+
+    if (seq.limitMoments > 0 && seq.capturedMoments >= seq.limitMoments) {
+      this.stopInspectionSequence();
+    } else {
+      this.syncInspection();
+    }
   }
 
   requestPointerLock() {
@@ -713,6 +1128,12 @@ export class GameRuntime {
     }
     if(snapshot.roomCode===this.latestSnapshot?.roomCode&&(snapshot.soFistRevision??0)<(this.latestSnapshot?.soFistRevision??0))return;
     this.latestSnapshot = snapshot;
+    if (this.socket.inspectionAvailable) {
+      if (this.inspectionSequence?.active) {
+        this.#processInspectionSequence(snapshot.tick, snapshot.serverTime ?? this.socket.serverNow());
+      }
+      this.syncInspection();
+    }
     this.setPlayerId(this.playerId);
     const flyAim=this.inspectionFree?{yaw:this.input.yaw,pitch:this.input.pitch}:null;
     this.remotePlayers.pushSnapshot(snapshot, this.presentationNow());
@@ -1065,9 +1486,16 @@ export class GameRuntime {
         const spell = spellFor(event.spell);
         // the ground under it, for the wave and the mark the blast leaves
         const ground = this.activeWorld ? surfaceHeightAt(event.point.x, event.point.z, event.point.y, this.activeWorld) : null;
-        if (spell.id === 'coreflagration' && event.stage === 'final') this.effects.coreEruption(event.point,event.radius??spell.radius,ground);
+        if (spell.id === 'coreflagration' && event.stage === 'final') this.effects.coreEruption(event.point, event.radius ?? spell.radius, ground);
         else this.effects.impact(event.point, { spell: spell.id, radius: event.radius ?? spell.radius, ground });
-        this.#play(spell.conjured ? emberImpactRecipe(Math.random, { size: spell.size }) : spell.chill ? frostImpactRecipe() : fireballImpactRecipe(), event.point, spell.conjured ? 0.6 + 0.4 * (spell.size ?? 0.5) : 1);
+        const recipe = spell.conjured ? emberImpactRecipe(Math.random, { size: spell.size })
+          : spell.id === 'coreflagration' ? coreflagrationImpactRecipe()
+          : spell.chill ? frostImpactRecipe()
+          : fireballImpactRecipe();
+        const volume = spell.conjured ? 0.6 + 0.4 * (spell.size ?? 0.5)
+          : spell.id === 'coreflagration' ? 1.2
+          : 1;
+        this.#play(recipe, event.point, volume);
       }
       if (event.type === 'damage' && event.source === 'burn') this.#play(burnLickRecipe(), event.victimId === me ? null : this.#bodyPosition(event.victimId), 0.7);
       // the split ground catching a knight: a smaller ring of the same iron
@@ -2344,7 +2772,7 @@ export class GameRuntime {
     if(this.inspectionFree){
       this.flyPose??=inspectionSpawn(this.localAuth);
       this.flyPose={...this.flyPose,yaw:this.input.yaw,pitch:this.input.pitch};
-      if(this.playing&&this.input.enabled)this.flyPose=flyStep(this.flyPose,this.input.movement(),wallDt);
+      if(this.playing&&this.input.enabled)this.flyPose=flyStep(this.flyPose,this.input.movement(),wallDt,{speedMode:this.inspectionSpeedMode});
       flyAim={yaw:this.input.yaw,pitch:this.input.pitch};
       this.input.yaw=this.localAuth?.yaw??0;this.input.pitch=this.localAuth?.pitch??0;
       this.input.aimGain=1;this.input.mountedRam=false;
@@ -2671,7 +3099,8 @@ export class GameRuntime {
     this.flyPose??=inspectionSpawn(this.localAuth);
     this.flyCamera.position.set(this.flyPose.position.x,this.flyPose.position.y,this.flyPose.position.z);
     this.flyCamera.rotation.order='YXZ';this.flyCamera.rotation.set(this.flyPose.pitch,this.flyPose.yaw,0);
-    this.flyCamera.fov=this.view.fov;this.flyCamera.far=Math.max(2000,this.camera.far);
+    this.flyCamera.fov = this.inspectionFov ?? this.view.fov;
+    this.flyCamera.far = Math.max(2000, this.camera.far);
     // The frozen actor is posed once at the frozen simulation clock, never advanced by flight.
     if(!this.remotePlayers.self?.root.visible&&this.localAuth&&this.localState)this.remotePlayers.showSelf(this.localAuth,{position:this.localState.position,velocity:this.localState.velocity,yaw:this.localAuth.yaw,pitch:this.localAuth.pitch},this.socket.serverNow(),this.presentationNow(),0,true);
     const self=this.remotePlayers.self?.root,visible=self?.visible;
@@ -2750,6 +3179,10 @@ export class GameRuntime {
     window.removeEventListener('resize', this.#resize);
     this.resizeObserver?.disconnect();
     this.inspectionTools.dispose();
+    document.removeEventListener('keydown', this.inspectionKeydown);
+    this.inspectionRestorePill?.remove();
+    this.inspectionGrid?.remove();
+    document.body.classList.remove('inspection-ui-clean', 'inspection-ui-gameplay', 'inspection-ui-full');
     for(const key of ['inset','left','top','width','height'])this.hud.root.style[key]='';
     this.hud.root.classList.remove('inspection-flying','inspection-split');
     this.input.dispose();

@@ -336,6 +336,20 @@ export function fireballImpactRecipe(rand = Math.random) {
   return { layers, reverb: 0.45, hall: 0.2 };
 }
 
+/** Coreflagration detonating: a sharp ignition crack, a deep heavy sub-drop, roaring flame and scattering incandescent fragments. */
+export function coreflagrationImpactRecipe(rand = Math.random) {
+  const layers = [
+    { type: 'noise', filter: 'lowpass', freq: 1400 * jitter(rand, 0.08), q: 0.7, sweepTo: 130, attack: 0.003, decay: 0.82, gain: 1.0 },
+    { type: 'tone', wave: 'sine', freq: 76, slideTo: 24, attack: 0.003, decay: 0.68, gain: 0.95 },
+    { type: 'noise', filter: 'highpass', freq: 3200, q: 0.7, attack: 0.001, decay: 0.18, gain: 0.45 },
+    { type: 'noise', filter: 'bandpass', freq: 650, q: 1.8, sweepTo: 220, attack: 0.002, decay: 0.32, gain: 0.5 },
+  ];
+  for (let i = 0; i < 7; i += 1) {
+    layers.push({ type: 'noise', filter: 'bandpass', freq: 2800 * jitter(rand, 0.25), q: 3.2, at: 0.1 + i * 0.06 + rand() * 0.04, attack: 0.001, decay: 0.025, gain: 0.15 * (1 - i / 8) });
+  }
+  return { layers, reverb: 0.46, hall: 0.22 };
+}
+
 /** Frostfire breaking: ice shattering, its shards ringing as they scatter, a cold hiss after. */
 export function frostImpactRecipe(rand = Math.random) {
   const layers = [

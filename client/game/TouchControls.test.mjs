@@ -9,7 +9,17 @@ import { TutorialSession } from '../tutorial/TutorialSession.mjs';
 class Node extends EventTarget {
   constructor() {
     super(); this.children = []; this.dataset = {}; this.hidden = false; this.clientWidth = 800; this.clientHeight = 600;
-    this.classList = { add() {}, remove() {}, toggle() {} };
+    const classes = new Set();
+    this.classList = {
+      add(...c) { c.forEach((x) => classes.add(x)); },
+      remove(...c) { c.forEach((x) => classes.delete(x)); },
+      toggle(c, force) {
+        const on = force !== undefined ? Boolean(force) : !classes.has(c);
+        if (on) classes.add(c); else classes.delete(c);
+        return on;
+      },
+      contains(c) { return classes.has(c); },
+    };
     this.style = { setProperty() {} }; this.nodes = new Map();
   }
   append(node) { this.children.push(node); }
@@ -627,22 +637,47 @@ test('Gale casts on press and shapes upward/downward during gather without leaki
   const modes=[];input.selectGaleMode=mode=>{modes.push(mode);return true;};
   let turns=0;input.turn=()=>turns++;
   send('pointerdown',600,300);
+  assert.equal(controls.buttons.spell.querySelector('span').textContent, 'GALE');
   send('pointermove',602,262);
+  assert.equal(controls.galeIndicator.classList.contains('active'), true);
+  assert.equal(controls.galeBurstCapsule.classList.contains('selected'), true);
+  assert.equal(controls.galeModeLabel.textContent, 'GALE · BURST');
+  assert.equal(controls.buttons.spell.querySelector('span').textContent, 'GALE', 'button maintains compact label');
+
   send('pointermove',603,260);
   send('pointermove',600,300);
+  assert.equal(controls.galeBurstCapsule.classList.contains('selected'), false);
+  assert.equal(controls.galeSustainedCapsule.classList.contains('selected'), false);
+  assert.equal(controls.galeModeLabel.textContent, 'GALE · BALANCED');
+
   send('pointermove',601,339);
+  assert.equal(controls.galeSustainedCapsule.classList.contains('selected'), true);
+  assert.equal(controls.galeModeLabel.textContent, 'GALE · SUSTAINED');
+
   send('pointerup',601,339);
   assert.equal(calls.filter(c=>c[0]==='cast').length,1);
   assert.deepEqual(modes,['burst','balanced','sustained']);
   assert.equal(turns,0);assert.equal(controls.galeGesture,null);
+  assert.equal(controls.galeIndicator.classList.contains('active'), false);
 });
 
 test('cancelled Gale swipe clears ownership and a fresh tap keeps balanced casting',()=>{
   const {input,controls,calls,send}=setup({alive:true,spell:'gale',spellReadyAt:0});
   const modes=[];input.selectGaleMode=mode=>{modes.push(mode);return true;};
   send('pointerdown',600,300);send('pointercancel',600,300);
+  assert.equal(controls.galeIndicator.classList.contains('active'), false);
   send('pointermove',600,240);assert.deepEqual(modes,[]);
   send('pointerdown',600,300,{pointerId:2});send('pointerup',600,300,{pointerId:2});
   assert.equal(calls.filter(c=>c[0]==='cast').length,2);
   assert.equal(controls.galeGesture,null);
+});
+
+test('Coreflagration equips with compact label CORE, coreflagration class, and casts on touch', () => {
+  const {input,controls,calls,send}=setup({alive:true,spell:'coreflagration',spellReadyAt:0});
+  assert.equal(controls.buttons.spell.dataset.spell, 'coreflagration');
+  assert.equal(controls.buttons.spell.classList.contains('coreflagration'), true);
+  assert.equal(controls.buttons.spell.querySelector('span').textContent, 'CORE');
+  send('pointerdown',600,300);
+  send('pointerup',600,300);
+  assert.equal(calls.filter(c=>c[0]==='cast').length, 1);
 });
