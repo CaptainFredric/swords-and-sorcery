@@ -54,7 +54,7 @@ test('native projectile creates weak first burst and distinct 0.9s delayed deton
   assert.equal(b.health, 95);
   assert.equal(room.projectiles.get('core-test').corePhase, 'armed');
   const deadline = room.projectiles.get('core-test').detonateAt;
-  assert.equal(deadline, 11.2);
+  assert.ok(Math.abs(deadline - 11.2) < 1e-8);
   stepRoom(room, 0.03, deadline - 0.03, world);
   assert.equal(b.health, 95, 'no extra damage during fuse');
   stepRoom(room, 0.03, deadline, world);
@@ -108,7 +108,8 @@ test('successful parry pauses health regeneration without registering damage', (
   assert.ok(setGuard(room, 'b', true, 10.21));
   stepRoom(room, 0.03, 10.3, world);
   assert.equal(b.lastDamageAt, -100);
-  assert.equal(b.health, 50);
+  const afterContact = b.health; // Regeneration runs before projectile contact within this native tick.
+  assert.ok(afterContact >= 50 && afterContact <= 50.61);
   stepRoom(room, 0.1, 11.0, world);
-  assert.equal(b.health, 50, 'regen remains paused');
+  assert.equal(b.health, afterContact, 'regen remains paused after parry contact');
 });
