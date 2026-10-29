@@ -240,10 +240,6 @@ export class InspectionCameraTools {
       else if (action === 'stagePosition') actions.stagePosition?.(node.dataset.pos);
       else if (action === 'stageMount') actions.stageMount?.(node.dataset.mount);
       else actions[action]?.(node.dataset);
-
-      if (document.body.classList.contains('touch-ui') && ['actor', 'dummy', 'body', 'fly', 'freeze'].includes(action)) {
-        this.root.querySelector('details').open = false;
-      }
     };
     this.root.addEventListener('click', this.click);
 
@@ -257,7 +253,7 @@ export class InspectionCameraTools {
     this.root.addEventListener('change', this.change);
 
     this.stop = (event) => event.stopPropagation();
-    this.stopEvents = ['pointerdown', 'pointerup', 'mousedown', 'mouseup', 'keydown', 'keyup'];
+    this.stopEvents = ['pointerdown', 'pointerup', 'mousedown', 'mouseup', 'keydown', 'keyup', 'touchstart', 'touchend', 'touchmove'];
     for (const type of this.stopEvents) this.root.addEventListener(type, this.stop);
     this.labels = this.root.querySelector('.inspection-view-labels');
   }
