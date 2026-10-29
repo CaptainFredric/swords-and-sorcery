@@ -88,6 +88,7 @@ test('timed directional Guard deflects without damage or changing the caster', (
   stepRoom(room, 0.03, 10.6, world);
   assert.equal(p.corePhase, 'armed');
   assert.equal(p.ownerId, 'a');
+  assert.equal(b.health, 100, 'parry negates the first burst even when the knocked core lands nearby');
 });
 
 test('core at outer body edge receives full initial and final damage, not falloff', () => {
