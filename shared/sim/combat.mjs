@@ -108,6 +108,7 @@ function resetAtSpawn(player, spawn, nowSec, room) {
   player.alive = true;
   player.respawnAt = 0;
   player.lastDamageAt = -Infinity;
+  player.coreRegenPausedUntil = -Infinity;
   player.lastAttackerId = null;
   player.lastKnockbackAt = -Infinity;
   player.worldImpact = null;
@@ -1353,6 +1354,7 @@ function blowGale(room, player, nowSec, world, dt = 0) {
   // course (galeBend), the bend given over a moment so it curves rather than kinks; whose spell it is does not change
   gust.bent ??= {};
   for (const projectile of room.projectiles.values()) {
+    if (projectile.corePhase === 'armed') continue;
     let bend = gust.bent[projectile.id];
     if (!bend) {
       if (sheltered(projectile.position)) continue;
@@ -1435,6 +1437,84 @@ function explodeSpell(room, projectile, point, nowSec, worldHit = false, directV
   });
 }
 
+
+// Coreflagration belongs to this real projectile simulation, rather than a second standalone combat engine.
+// Its first burst is deliberately weak; the armed core occupies the same projectile map until the final blast.
+function coreflagrationBurst(room, projectile, point, nowSec, damage, final = false) {
+  const spell = spellFor(projectile.spell);
+  for (const player of room.players.values()) {
+    if (!player.alive || player.id === projectile.ownerId || areAllies(room, projectile.ownerId, player.id)) continue;
+    if (blastDistance(point, player.position, postureOf(player).crown) > spell.radius) continue;
+    // No falloff anywhere in the body-intersection radius. Sheathe in Steel and spawn protection still apply.
+    const hit = applyDamage(room, projectile.ownerId, player.id, damage, spell.id, nowSec, null, {
+      contactFacts: challengeContact(room.players.get(projectile.ownerId), nowSec, {
+        ordinaryProjectile: true, prepared: preparedSpellMember(room.players.get(projectile.ownerId), spell.id),
+        projectileId: projectile.id,
+      }),
+    });
+    if (hit && final && player.alive) {
+      player.burn = {
+        attackerId: projectile.ownerId,
+        perLick: spell.burn.damage / spell.burn.licks,
+        licksLeft: spell.burn.licks,
+        interval: spell.burn.seconds / spell.burn.licks,
+        nextAt: nowSec + spell.burn.seconds / spell.burn.licks,
+        until: nowSec + spell.burn.seconds,
+      };
+    }
+  }
+  if (room.soFistication) blastSoFistication(room, room.soFistication, { point, radius: spell.radius, damage }, projectile.ownerId, spell.id, nowSec);
+  if (room.biByeLlista) blastBiByeLlista(room, room.biByeLlista, { point, radius: spell.radius, damage }, projectile.ownerId, spell.id, nowSec, room.world?.solids ?? []);
+}
+
+function armCoreflagration(room, projectile, point, nowSec, worldHit = false) {
+  const spell = spellFor(projectile.spell);
+  projectile.position = { ...point };
+  projectile.velocity = { x: 0, y: 0, z: 0 };
+  projectile.corePhase = 'armed';
+  projectile.armedAt = nowSec;
+  projectile.detonateAt = nowSec + spell.core.fuseSec;
+  coreflagrationBurst(room, projectile, point, nowSec, spell.core.initialDamage);
+  room.events.push({
+    type: 'coreflagrationArmed', projectileId: projectile.id, ownerId: projectile.ownerId,
+    point: { ...point }, radius: spell.radius, detonateAt: projectile.detonateAt, worldHit, at: nowSec,
+  });
+}
+
+function detonateCoreflagration(room, projectile, nowSec) {
+  const spell = spellFor(projectile.spell);
+  coreflagrationBurst(room, projectile, projectile.position, nowSec, spell.directDamage, true);
+  room.projectiles.delete(projectile.id);
+  room.events.push({
+    type: 'projectileImpact', stage: 'final', projectileId: projectile.id, ownerId: projectile.ownerId,
+    spell: spell.id, radius: spell.radius, point: { ...projectile.position }, worldHit: true, at: nowSec,
+  });
+}
+
+function coreflagrationParry(room, projectile, defender, nowSec) {
+  if (!defender?.guarding || !(defender.guardStamina > 0) || projectile.coreParried) return false;
+  const age = (nowSec - defender.guardStartedAt) * 1000;
+  if (!(age >= 0 && age <= GAME.parryWindowMs)) return false;
+  const face = forwardFromYaw(defender.yaw ?? 0);
+  const speed = Math.hypot(projectile.velocity.x, projectile.velocity.z);
+  if (speed < 0.001) return false;
+  const incomingX = -projectile.velocity.x / speed;
+  const incomingZ = -projectile.velocity.z / speed;
+  if (face.x * incomingX + face.z * incomingZ < Math.cos(65 * Math.PI / 180)) return false;
+  const core = spellFor(projectile.spell).core;
+  projectile.coreParried = true;
+  projectile.corePhase = 'knocked';
+  projectile.coreKnockedAt = nowSec;
+  // A lateral hop, not a change of allegiance. Ownership, kill credit and friendly-fire rules stay intact.
+  projectile.velocity = { x: incomingZ * core.parryKnockSpeed, y: core.parryKnockUp, z: -incomingX * core.parryKnockSpeed };
+  defender.coreRegenPausedUntil = Math.max(defender.coreRegenPausedUntil ?? -Infinity, nowSec + core.parryRegenPauseSec);
+  room.events.push({
+    type: 'coreflagrationParried', projectileId: projectile.id, defenderId: defender.id,
+    ownerId: projectile.ownerId, point: { ...projectile.position }, at: nowSec,
+  });
+  return true;
+}
+
 // burns lick at their victims (credited to whoever threw the fire); chills thaw on their own
 function stepAfflictions(room, player, nowSec) {
   const burn = player.burn;
@@ -1451,6 +1531,22 @@ function stepAfflictions(room, player, nowSec) {
 
 function stepProjectiles(room, dt, nowSec, world) {
   for (const projectile of [...room.projectiles.values()]) {
+    if (projectile.corePhase === 'armed') {
+      if (nowSec + 1e-9 >= projectile.detonateAt) detonateCoreflagration(room, projectile, nowSec);
+      continue;
+    }
+    if (projectile.corePhase === 'knocked') {
+      projectile.position = {
+        x: projectile.position.x + projectile.velocity.x * dt,
+        y: projectile.position.y + projectile.velocity.y * dt,
+        z: projectile.position.z + projectile.velocity.z * dt,
+      };
+      if (nowSec - projectile.coreKnockedAt >= spellFor(projectile.spell).core.parryKnockSec) {
+        const ground = surfaceHeightAt(projectile.position.x, projectile.position.z, projectile.position.y, world);
+        armCoreflagration(room, projectile, { ...projectile.position, y: ground === null ? projectile.position.y : ground + 0.05 }, nowSec);
+      }
+      continue;
+    }
     world = structureWorld(world, room.structures);
     const before = { ...projectile.position };
     const after = {
@@ -1486,8 +1582,10 @@ function stepProjectiles(room, dt, nowSec, world) {
     hits.sort((a,b)=>a.t-b.t);
     if(hits.length){
       const hit=hits[0],point={x:hit.point[0],y:hit.point[1],z:hit.point[2]};
-      if(hit.kind==='world'&&hit.box)damageStructureSolid(room,hit.box,spellFor(projectile.spell).directDamage,projectile.ownerId,projectile.spell,nowSec,{point});
-      explodeSpell(room,projectile,point,nowSec,hit.kind!=='player',hit.player?.id??null,hit.kind==='machine'?hit.box.componentId:null,hit.kind==='ram'?hit.box.componentId:null);
+      if (projectile.spell === 'coreflagration' && hit.kind === 'player' && coreflagrationParry(room, projectile, hit.player, nowSec)) continue;
+      if(hit.kind==='world'&&hit.box)damageStructureSolid(room,hit.box,projectile.spell==='coreflagration'?spellFor(projectile.spell).core.initialDamage:spellFor(projectile.spell).directDamage,projectile.ownerId,projectile.spell,nowSec,{point});
+      if (projectile.spell === 'coreflagration') armCoreflagration(room, projectile, point, nowSec, hit.kind !== 'player');
+      else explodeSpell(room,projectile,point,nowSec,hit.kind!=='player',hit.player?.id??null,hit.kind==='machine'?hit.box.componentId:null,hit.kind==='ram'?hit.box.componentId:null);
       continue;
     }
 
@@ -1929,7 +2027,7 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
     // balance comes back once nothing has shaken it for a moment; an ultimate braces, commits and runs its course
     drainStagger(player.stagger, dt, nowSec);
     stepUltimate(room, player, nowSec);
-    if (nowSec - player.lastDamageAt >= HEALTH_REGEN_DELAY_SEC && player.health < GAME.maxHealth) {
+    if (nowSec - player.lastDamageAt >= HEALTH_REGEN_DELAY_SEC && nowSec >= (player.coreRegenPausedUntil ?? -Infinity) && player.health < GAME.maxHealth) {
       player.health = Math.min(GAME.maxHealth, player.health + HEALTH_REGEN_PER_SEC * dt);
     }
 
