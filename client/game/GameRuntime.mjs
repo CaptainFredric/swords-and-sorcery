@@ -314,13 +314,15 @@ export class GameRuntime {
       freeze: () => {
         const next = !socket.inspectionFrozen;
         socket.setInspectionFrozen(next);
-        this.onInspectionFreeze?.();
-        if(!socket.inspectionFrozen&&this.touch)this.input.requestPointerLock();
+        this.syncInspection();
+        if (next && !this.inspectionFree) this.input.releaseFocus();
+        else this.input.releaseInputs();
       },
       freezeMode: (mode) => {
         socket.setInspectionFreezeMode?.(mode);
-        this.onInspectionFreeze?.();
-        if (mode === 'none' && this.touch) this.input.requestPointerLock();
+        this.syncInspection();
+        if (mode !== 'none' && !this.inspectionFree) this.input.releaseFocus();
+        else this.input.releaseInputs();
       },
       toggleFreezeProjectiles: () => {
         socket.setInspectionFreezeProjectiles?.(!socket.inspectionFreezeProjectiles);
@@ -716,7 +718,7 @@ export class GameRuntime {
     }
     this.syncInspection();
     if(this.socket.inspectionFrozen && focus==='actor')this.input.releaseFocus();
-    else if(this.touch)this.input.requestPointerLock();
+    else if(!this.touch)this.input.requestPointerLock();
     return true;
   }
 

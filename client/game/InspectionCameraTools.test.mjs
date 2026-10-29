@@ -451,3 +451,83 @@ test('InspectionCameraTools.getSequenceSettings parses select inputs', () => {
   assert.equal(settings.intervalTicks, 6);
   assert.equal(settings.limitMoments, 12);
 });
+
+test('InspectionCameraTools supports selective freeze modes and updates aria-pressed', () => {
+  const { tools, calls } = setup();
+
+  // Test selecting FREEZE ALL
+  const allBtn = tools.root.querySelector('[data-camera="freezeMode"][data-mode="all"]');
+  assert.ok(allBtn);
+  allBtn.dispatchEvent(new Event('click', { bubbles: true }));
+  assert.deepEqual(calls.at(-1), ['freezeMode', 'all']);
+
+  // Updating tools with freezeMode="all"
+  tools.update({
+    available: true,
+    focus: 'actor',
+    split: false,
+    dummy: true,
+    frozen: true,
+    freezeMode: 'all',
+  });
+
+  assert.equal(allBtn.getAttribute('aria-pressed'), 'true');
+  const liveBtn = tools.root.querySelector('[data-camera="freezeMode"][data-mode="none"]');
+  assert.equal(liveBtn.getAttribute('aria-pressed'), 'false');
+  const freezeBtn = tools.root.querySelector('[data-camera="freeze"]');
+  assert.equal(freezeBtn.textContent, 'RESUME');
+
+  // Test selecting OTHERS
+  const othersBtn = tools.root.querySelector('[data-camera="freezeMode"][data-mode="others"]');
+  othersBtn.dispatchEvent(new Event('click', { bubbles: true }));
+  assert.deepEqual(calls.at(-1), ['freezeMode', 'others']);
+
+  tools.update({
+    available: true,
+    focus: 'actor',
+    split: false,
+    dummy: true,
+    frozen: false,
+    freezeMode: 'others',
+  });
+  assert.equal(othersBtn.getAttribute('aria-pressed'), 'true');
+  assert.equal(allBtn.getAttribute('aria-pressed'), 'false');
+  assert.equal(freezeBtn.textContent, 'RESUME');
+});
+
+test('InspectionCameraTools does not collapse panel on touch devices when clicking buttons', () => {
+  const { tools, calls } = setup();
+  document.body.classList.add('touch-ui');
+
+  const details = tools.root.querySelector('details');
+  details.open = true;
+
+  // Clicking freeze in touch-ui must not close details
+  const allBtn = tools.root.querySelector('[data-camera="freezeMode"][data-mode="all"]');
+  allBtn.dispatchEvent(new Event('click', { bubbles: true }));
+  assert.deepEqual(calls.at(-1), ['freezeMode', 'all']);
+  assert.equal(details.open, true, 'Details panel should remain open after clicking freeze mode');
+
+  const freezeBtn = tools.root.querySelector('[data-camera="freeze"]');
+  freezeBtn.dispatchEvent(new Event('click', { bubbles: true }));
+  assert.equal(details.open, true, 'Details panel should remain open after clicking freeze');
+
+  const flyBtn = tools.root.querySelector('[data-camera="fly"]');
+  flyBtn.dispatchEvent(new Event('click', { bubbles: true }));
+  assert.equal(details.open, true, 'Details panel should remain open after clicking fly');
+
+  document.body.classList.remove('touch-ui');
+});
+
+test('InspectionCameraTools stops touchstart, touchend, and touchmove propagation', () => {
+  const { tools } = setup();
+  assert.ok(tools.stopEvents.includes('touchstart'));
+  assert.ok(tools.stopEvents.includes('touchend'));
+  assert.ok(tools.stopEvents.includes('touchmove'));
+
+  let touchStartStopped = false;
+  const touchStartEv = new Event('touchstart');
+  touchStartEv.stopPropagation = () => { touchStartStopped = true; };
+  tools.root.dispatchEvent(touchStartEv);
+  assert.equal(touchStartStopped, true);
+});
