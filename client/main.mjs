@@ -1244,7 +1244,7 @@ function renderArmory() {
   const focusSpell = document.activeElement?.dataset?.spell;
   const focusUltimate = document.activeElement?.dataset?.ultimate;
   const view = armoryView(settings.get('loadout.spell'), settings.get('loadout.ultimate'));
-  $('#armory-equipped').textContent = `${({ fireball: 'Fireball', frostfire: 'Frostfire', gale: 'Gale', steel: 'Steel' })[settings.get('loadout.spell')]} · ${ULTIMATES[settings.get('loadout.ultimate')]?.short ?? 'Sunder'}`;
+  $('#armory-equipped').textContent = `${({ fireball: 'Fireball', coreflagration: 'Coreflagration', frostfire: 'Frostfire', gale: 'Gale', steel: 'Steel' })[settings.get('loadout.spell')] ?? SPELLS[settings.get('loadout.spell')]?.label} · ${ULTIMATES[settings.get('loadout.ultimate')]?.short ?? 'Sunder'}`;
   $('#armory-blade-name').textContent = view.blade.name;
   $('#armory-blade-facts').textContent = view.blade.facts;
   $('#armory-spells').innerHTML = view.spells.map((spell) => `<button type="button" class="spell-card${spell.equipped ? ' equipped' : ''}" role="radio" aria-checked="${spell.equipped}" data-spell="${spell.id}">

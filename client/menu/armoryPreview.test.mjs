@@ -12,8 +12,9 @@ test('every card has its own silhouette, and each settles fully into menu idle',
     assert.equal(end.body,0);
     assert.equal(end.fist,0);
   }
-  assert.equal(new Set(signatures).size,7);
-  assert.deepEqual(Object.keys(ARMORY_GESTURES),['fireball','frostfire','gale','steel','sunder','vortex','chivalry']);
+  assert.equal(new Set(signatures).size, 7);
+  assert.deepEqual(Object.keys(ARMORY_GESTURES), ['fireball', 'coreflagration', 'frostfire', 'gale', 'steel', 'sunder', 'vortex', 'chivalry']);
+  assert.deepEqual(ARMORY_GESTURES.coreflagration, ARMORY_GESTURES.fireball, 'coreflagration shares fireball gesture animation');
   assert.ok(armoryPose('steel',.6).fist>.9);
   assert.ok(armoryPose('sunder',.3).sword.target.wrist[1]>1.8);
   assert.ok(armoryPose('frostfire',.62).spell.target.wrist[0]<-.6);
