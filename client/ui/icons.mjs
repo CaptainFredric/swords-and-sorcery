@@ -6,6 +6,8 @@ export const ICONS = Object.freeze({
   attack: '<path d="M20 4 9 15M6 12l6 6M7.5 16.5 4 20"/>',
   guard: '<path d="M12 3l7 3v5c0 5-3.5 8.5-7 10-3.5-1.5-7-5-7-10V6z"/>',
   fireball: '<path d="M12 2.8c.9 3.7 5 5.3 5 10a5 5 0 0 1-10 0c0-2.4 1.3-4 2.6-5.3.3 1.7 1 2.7 2.1 3.2-.5-3 .1-5.5.3-7.9z"/>',
+  // A heavy fissured stone with flames breaking its upper edge.
+  coreflagration: '<path d="M7 8 11 5l5 2 3 5-2 7-7 1-5-5z"/><path d="m11 5 1-3 2 3M8 11l4 3 4-2M12 14l-1 5"/>',
   frostfire: '<path d="M12 3v18M4.2 7.5l15.6 9M4.2 16.5l15.6-9M9.5 4.5 12 7l2.5-2.5M9.5 19.5 12 17l2.5 2.5"/>',
   // three lines of wind, curling at their ends
   gale: '<path d="M3 8h11a3 3 0 1 0-3-3M3 12h15a3 3 0 1 1-3 3M3 16h8"/>',
