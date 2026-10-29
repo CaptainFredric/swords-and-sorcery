@@ -35,21 +35,6 @@ export const SPELLS = Object.freeze({
     // of the radius does it catch, fewer licks the further out
     burn: Object.freeze({ damage: 10, seconds: 2.5, licks: 5, reach: 0.6 }),
   }),
-  // A rocky fire core: a small first burst leaves an armed stone; a second, larger blast rewards area control.
-  coreflagration: Object.freeze({
-    id: 'coreflagration',
-    label: 'Coreflagration',
-    cooldownSec: 5,
-    gatherSec: 0.3,
-    speed: 20,
-    windResist: 1.2,
-    radius: 3,
-    // The native combat simulation resolves these separately; Fireball's exposure falloff does not apply.
-    directDamage: 20,
-    edgeDamage: 20,
-    core: Object.freeze({ initialDamage: 5, fuseSec: 0.9, parryRegenPauseSec: 1.5, parryKnockSpeed: 6.5, parryKnockUp: 2.8, parryKnockSec: 0.28 }),
-    burn: Object.freeze({ damage: 6, seconds: 3, licks: 6, reach: 1 }),
-  }),
   frostfire: Object.freeze({
     id: 'frostfire',
     label: 'Frostfire',
@@ -116,6 +101,21 @@ export const SPELLS = Object.freeze({
     kind: 'ward',
     cooldownSec: STEEL.cooldownSec,
     gatherSec: 0,
+  }),
+  // A rocky fire core: a small first burst leaves an armed stone; a second, larger blast rewards area control.
+  coreflagration: Object.freeze({
+    id: 'coreflagration',
+    label: 'Coreflagration',
+    cooldownSec: 5,
+    gatherSec: 0.3,
+    speed: 20,
+    windResist: 1.2,
+    radius: 3,
+    // The native combat simulation resolves these separately; Fireball's exposure falloff does not apply.
+    directDamage: 20,
+    edgeDamage: 20,
+    core: Object.freeze({ initialDamage: 5, fuseSec: 0.9, parryRegenPauseSec: 1.5, parryKnockSpeed: 6.5, parryKnockUp: 2.8, parryKnockSec: 0.28 }),
+    burn: Object.freeze({ damage: 6, seconds: 3, licks: 6, reach: 1 }),
   }),
 });
 
