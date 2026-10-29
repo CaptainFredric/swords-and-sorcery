@@ -102,6 +102,21 @@ export const SPELLS = Object.freeze({
     cooldownSec: STEEL.cooldownSec,
     gatherSec: 0,
   }),
+  // A rocky fire core: a small first burst leaves an armed stone; a second, larger blast rewards area control.
+  coreflagration: Object.freeze({
+    id: 'coreflagration',
+    label: 'Coreflagration',
+    cooldownSec: 5,
+    gatherSec: 0.3,
+    speed: 20,
+    windResist: 1.2,
+    radius: 3,
+    // The native combat simulation resolves these separately; Fireball's exposure falloff does not apply.
+    directDamage: 20,
+    edgeDamage: 20,
+    core: Object.freeze({ initialDamage: 5, fuseSec: 0.9, parryRegenPauseSec: 1.5, parryKnockSpeed: 13, parryKnockUp: 2.8, parryKnockSec: 0.28 }),
+    burn: Object.freeze({ damage: 6, seconds: 3, licks: 6, reach: 1 }),
+  }),
 });
 
 // Spells no knight carries: thrown by something else, and from there a spell like any other (it flies, meets the
@@ -134,7 +149,7 @@ export function spellFor(id) {
 /** A spell's listed damage, as its Armory card states it: a direct hit's (and all of its burn), a gust's heart; a ward's 0. */
 export function nominalSpellDamage(spell) {
   if (!spell || spell.kind === 'ward') return 0;
-  return (spell.directDamage ?? spell.cone?.damage ?? 0) + (spell.burn?.damage ?? 0);
+  return (spell.directDamage ?? spell.cone?.damage ?? 0) + (spell.core?.initialDamage ?? 0) + (spell.burn?.damage ?? 0);
 }
 
 export function isSpell(id) {

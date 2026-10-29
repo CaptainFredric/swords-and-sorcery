@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { appUrl } from '../appUrl.mjs';
 import { impactWorldPresentation, sampleTrailSegment, transientScale } from './effectTrail.mjs';
 import { puffTexture, windStreakTexture } from './softTextures.mjs';
 import {
@@ -51,6 +53,77 @@ function crescentGeometry({ radius, width, arc, segments }) {
   // the middle of the cutting edge sits on the origin, so the slash passes through the point of impact
   geometry.translate(-radius, 0, 0);
   return geometry;
+}
+
+
+// Shared authored mesh; instances are cloned into each projectile. A faceted stone keeps it visible if the asset fails.
+let coreflagrationAssetPromise = null;
+function createCoreflagrationOrb() {
+  const group = new THREE.Group();
+  const fallbackGeometry = new THREE.IcosahedronGeometry(0.31, 0);
+  const fallbackMaterial = new THREE.MeshStandardMaterial({ color: 0x342822, emissive: 0x803014, emissiveIntensity: 0.6, flatShading: true });
+  const fallback = new THREE.Mesh(fallbackGeometry, fallbackMaterial);
+  group.add(fallback);
+  // The 0.9s fuse cannot wait for an asynchronous model load: always show a safe warning perimeter.
+  const boundaryGeometry = new THREE.RingGeometry(2.94, 3.0, 48);
+  const boundaryMaterial = new THREE.MeshBasicMaterial({
+    color: 0xe68738, transparent: true, opacity: 0.45, side: THREE.DoubleSide, depthWrite: false,
+  });
+  const boundary = new THREE.Mesh(boundaryGeometry, boundaryMaterial);
+  boundary.rotation.x = -Math.PI / 2;
+  boundary.position.y = 0.02;
+  boundary.visible = false;
+  group.add(boundary);
+  let model = null;
+  let ring = null;
+  let wake = null;
+  group.userData.corePhase = 'airborne';
+  group.userData.coreProgress = 0;
+  group.userData.setCorePhase = (phase, progress) => {
+    group.userData.corePhase = phase;
+    group.userData.coreProgress = progress;
+    if (ring) {
+      ring.visible = phase === 'armed';
+      // The GLB stores this 3m radius ring at 0.001 initial scale.
+      ring.scale.setScalar(phase === 'armed' ? 1 : 0.001);
+    }
+    if (wake) wake.visible = phase !== 'armed';
+    boundary.visible = phase === 'armed' && !model;
+  };
+  group.userData.update = (t) => {
+    const armed = group.userData.corePhase === 'armed';
+    const progress = group.userData.coreProgress;
+    const object = model ?? fallback;
+    object.rotation.y = armed ? 0 : t * 1.8;
+    object.rotation.z = armed ? 0 : t * 1.2;
+    if (model) {
+      const shell = model.getObjectByName('Rocky_Core_Shell');
+      if (shell) shell.rotation.z = armed ? Math.sin(t * 14) * 0.04 * progress : 0;
+    }
+    if (ring) ring.visible = armed;
+    // Keep the perimeter mathematically fixed at 3m. Do not enlarge the entire GLB.
+    if (model) model.scale.setScalar(1);
+  };
+  group.userData.dispose = () => {
+    fallbackGeometry.dispose();
+    fallbackMaterial.dispose();
+    boundaryGeometry.dispose();
+    boundaryMaterial.dispose();
+  };
+  coreflagrationAssetPromise ??= new Promise((resolve) => new GLTFLoader().load(
+    appUrl('/client/assets/props/coreflagration/coreflagration-core.glb'), (gltf) => resolve(gltf.scene),
+    undefined, () => resolve(null),
+  ));
+  coreflagrationAssetPromise.then((scene) => {
+    if (!scene || !group.parent) return;
+    model = scene.clone(true);
+    ring = model.getObjectByName('Eruption_Threat_Ring');
+    wake = model.getObjectByName('Airborne_Flame_Wake');
+    group.remove(fallback);
+    group.add(model);
+    group.userData.setCorePhase(group.userData.corePhase, group.userData.coreProgress);
+  });
+  return group;
 }
 
 export class Effects {
@@ -1203,7 +1276,7 @@ export class Effects {
 
   #createProjectile(spell = 'fireball') {
     const profile = elementalProfile(spell);
-    const group = createElementalOrb(spell);
+    const group = spell === 'coreflagration' ? createCoreflagrationOrb() : createElementalOrb(spell);
     // (its glow from the fight's few lights: none to spare, and it flies unlit)
     const light = this.lights.hold(lookFor(spell).light, 5 * profile.size);
     group.scale.setScalar(profile.size);
@@ -1323,6 +1396,14 @@ export class Effects {
       }
 
       const next = { x: p.position.x, y: p.position.y, z: p.position.z };
+      if (effect.spell === 'coreflagration') {
+        const armed = p.corePhase === 'armed';
+        const duration = (p.detonateAt ?? 0) - (p.armedAt ?? 0);
+        if (armed && effect.coreArmedAt !== p.armedAt) { effect.coreArmedAt = p.armedAt; effect.coreArmedPhaseStart = effect.phase; }
+        const progress = armed && duration > 0 ? Math.max(0, Math.min(1, (effect.phase - (effect.coreArmedPhaseStart ?? effect.phase)) / duration)) : 0;
+        effect.group.userData.setCorePhase?.(armed ? 'armed' : 'airborne', progress);
+        if (armed) effect.lastPosition = null;
+      }
       if (effect.lastPosition) {
         const trail = sampleTrailSegment(effect.lastPosition, next, {
           spacing: effect.profile.trailSpacing / this.density,

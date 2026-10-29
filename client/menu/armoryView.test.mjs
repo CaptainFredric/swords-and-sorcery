@@ -39,9 +39,9 @@ test('Chivalry\'s prepared spells in the Armory: a slot for each key, the starti
   assert.deepEqual(slots.map((s) => [s.key, s.id, s.starting]), [[1, 'fireball', false], [2, 'frostfire', true], [3, 'gale', false]]);
   assert.equal(slots[1].previous, null, 'the starting spell stays where it is');
   assert.equal(slots[1].next, null);
-  // a slot turns only among its own spell and the one not prepared anywhere (Steel)
-  assert.deepEqual(new Set([slots[0].previous, slots[0].next]), new Set(['steel']));
-  assert.deepEqual(new Set([slots[2].previous, slots[2].next]), new Set(['steel']));
+  // a slot turns among its own spell and any other unprepared spells
+  assert.deepEqual(new Set([slots[0].previous, slots[0].next]), new Set(['steel', 'coreflagration']));
+  assert.deepEqual(new Set([slots[2].previous, slots[2].next]), new Set(['steel', 'coreflagration']));
   for (const slot of slots) assert.ok(slot.mark && slot.name === SPELLS[slot.id].label.toUpperCase());
   // an outside starting spell takes the last slot, as the shared rule says
   assert.deepEqual(preparedArmoryView('steel', ['fireball', 'frostfire', 'gale']).map((s) => s.id), ['fireball', 'frostfire', 'steel']);

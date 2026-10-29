@@ -1034,6 +1034,16 @@ export class GameRuntime {
           this.weapon.hitstop(0.09, 0.9);
         }
       }
+      if (event.type === 'coreflagrationArmed') {
+        // A brief, small flame burst; the physical core and its 3m warning ring remain visible until detonation.
+        const ground = this.activeWorld ? surfaceHeightAt(event.point.x, event.point.z, event.point.y, this.activeWorld) : null;
+        this.effects.impact(event.point, { spell: 'fireball', radius: 0.9, ground });
+        this.#play(fireballImpactRecipe(), event.point, 0.4);
+      }
+      if (event.type === 'coreflagrationParried') {
+        this.#play(parryRecipe(), event.defenderId === me ? null : event.point, 0.9);
+        this.effects.blockBurst(event.point, { x: 0, y: 0.5, z: 0 }, { parry: true });
+      }
       if (event.type === 'projectileImpact') {
         const spell = spellFor(event.spell);
         // the ground under it, for the wave and the mark the blast leaves
