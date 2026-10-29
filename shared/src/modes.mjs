@@ -11,7 +11,7 @@ export const GAME_MODES = Object.freeze({
 // The tutorial world Greener Pastures is registered separately and deliberately absent from arena choices.
 // The old greybox Shattered Keep stays only as a fixture for tests.
 export const ARENAS = Object.freeze(['castleward', 'ruined-keep']);
-export const BREAKTHROUGH_ARENAS = Object.freeze(['bastion-breach', 'blackbell-foundry']);
+export const BREAKTHROUGH_ARENAS = Object.freeze(['bastion-breach', 'outerworks', 'blackbell-foundry']);
 
 /** An arena by id, or Castleward for anything that is not one. */
 export function arenaOrDefault(worldId) {
@@ -23,6 +23,7 @@ export function arenaOrDefault(worldId) {
 export const VOTE_OPTIONS = Object.freeze({
   world: ARENAS,
   score: Object.freeze([5, 10, 15]),
+  time: Object.freeze([180, 300, 360, 600, 900]),
 });
 
 const POLICIES = Object.freeze({

@@ -63,6 +63,7 @@ export class InputController {
     this.onAttackLocal = () => {};
     this.onGuardLocal = () => {};
     this.onCastLocal = () => {};
+    this.onGaleModeLocal = () => false;
     this.onGauntletLocal = () => {};
     this.onDashLocal = () => {};
     this.onMarkLocal = () => {};
@@ -210,6 +211,11 @@ export class InputController {
         this.debugVisible = !this.debugVisible;
       }
     });
+
+    this.#listen(document, 'wheel', event => {
+      if (!event.deltaY || event.target?.closest?.('input, select, textarea, [role=dialog]')) return;
+      if (this.selectGaleMode(event.deltaY < 0 ? 'burst' : 'sustained')) event.preventDefault();
+    }, { passive: false });
 
     this.#listen(document, 'keyup', (event) => {
       this.blockedKeys.delete(event.code);
@@ -418,6 +424,12 @@ export class InputController {
     this.socket.castCurrentSpell(this.lookDirection(), { yaw: this.yaw, pitch: this.pitch });
     // Predict the ordered selection intent without sending a stale identity back to authority.
     this.onCastLocal({ spellOnly: true, ...(this.pendingPreparedSelection ? { spell: this.pendingPreparedSelection } : {}) });
+  }
+
+  selectGaleMode(mode) {
+    if (!this.enabled || !this.onGaleModeLocal(mode)) return false;
+    this.socket.send?.({ type: 'galeMode', mode });
+    return true;
   }
 
   cast() {

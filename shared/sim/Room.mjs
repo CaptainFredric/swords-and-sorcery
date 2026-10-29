@@ -1,3 +1,4 @@
+import { roomSettings, validRoomNumber } from '../src/roomSettings.mjs';
 import { createStructureState } from './structures.mjs';
 import { createSoFistication, dismountSoFistication, soFistTerrainPose, soFistClear } from './soFistication.mjs';
 import { createMovementState } from '../src/movement.mjs';
@@ -424,9 +425,58 @@ export class Room {
     return true;
   }
 
+  /** Private waiting rooms belong to their longest-standing connected human. */
+  configureRoom(playerId, patch, nowSec) {
+    if (!this.isPrivate || this.state !== 'WAITING' || playerId !== this.hostId()) return 'Only the room host may change settings before the countdown.';
+    const settings = roomSettings(this, patch);
+    if (settings.error) return settings.error;
+    if (this.humanActorCount() > (settings.mode === 'BREAKTHROUGH' ? settings.teamSize * 2 : 8)) return 'Too many Spellblades for that team size.';
+    const world = getWorld(settings.worldId);
+    const previousMode=this.mode;
+    // Everything is validated before actors or geometry change.
+    for (const [id, actor] of this.players) if (actor.actorKind !== 'human') this.players.delete(id);
+    this.mode = settings.mode;
+    this.policy = { ...getModePolicy(settings.mode), matchSeconds: settings.matchSeconds,
+      ...(settings.teamSize ? {teamSize:settings.teamSize,botCount:settings.teamSize*2-1} : {}) };
+    this.scoreToWin = settings.scoreToWin;
+    this.worldId = settings.worldId; this.world = world;
+    this.objectiveState = this.policy.teamMode ? createObjectiveState(world.objectives ?? []) : null;
+    if (this.objectiveState && typeof world.forObjective === 'function') this.world = world.forObjective(this.objectiveState);
+    this.structures = createStructureState(world, (this.structures?.revision ?? 0) + 1);
+    this.projectiles.clear();this.ruptures=[];this.teamMarks=[];
+    this.soFistication=null;this.soFistRevision++;
+    this.biByeLlista=world.ballistaEmplacement?createBiByeLlista(world.ballistaEmplacement):null;
+    this.biByeRevision=(this.biByeRevision??0)+1;this.bibyeProjectiles=new Map();
+    this.botsProvisioned=false;this.autoStartAt=null;
+    let index=0;
+    const assigned={ATTACKERS:0,DEFENDERS:0};
+    for(const p of this.players.values()) {
+      if(this.policy.teamMode){
+        const preferred=previousMode===this.mode?p.team:null;
+        p.team=preferred&&assigned[preferred]<settings.teamSize?preferred:(assigned.ATTACKERS<=assigned.DEFENDERS?TEAMS.ATTACKERS:TEAMS.DEFENDERS);
+        assigned[p.team]++;
+      } else p.team=null;
+      Object.assign(p,freshCombatState(this.initialSpawnFor(p,index++,nowSec),nowSec),scoreFields());
+      p.lobbyReady=false;p.arenaReady=false;p.votes={};
+    }
+    if(this.policy.teamMode)this.provisionModeActors(nowSec);
+    return null;
+  }
+
+  swapPlayers(playerId, firstId, secondId, nowSec) {
+    if (!this.isPrivate || !this.policy.teamMode || this.state !== 'WAITING' || playerId !== this.hostId()) return 'Only the host may arrange teams before the countdown.';
+    const first=this.players.get(firstId),second=this.players.get(secondId);
+    if(!first || !second || first.id===second.id || first.team===second.team)return 'Choose two Spellblades on opposite sides.';
+    [first.team,second.team]=[second.team,first.team];
+    for(const p of [first,second])Object.assign(p,freshCombatState(this.initialSpawnFor(p,0,nowSec),nowSec));
+    for(const p of this.players.values())p.lobbyReady=false;
+    this.autoStartAt=null;
+    return null;
+  }
+
   /** Switch a human player's team in a waiting/lobby team room, swapping with a bot to maintain team slots. */
   switchTeam(playerId, requestedTeam = null, nowSec = 0) {
-    if (!this.policy.teamMode || this.state === 'PLAYING') return false;
+    if (!this.policy.teamMode || this.state !== 'WAITING') return false;
     const player = this.players.get(playerId);
     if (!player || player.actorKind !== 'human') return false;
     const nextTeam = (requestedTeam === TEAMS.ATTACKERS || requestedTeam === TEAMS.DEFENDERS)
@@ -449,6 +499,7 @@ export class Room {
     const spawn = this.initialSpawnFor(player, 0, nowSec);
     player.position = { x: spawn.x, y: spawn.y, z: spawn.z };
     player.yaw = spawn.yaw ?? 0;
+    for (const p of this.players.values()) p.lobbyReady = false;
     return true;
   }
 
@@ -544,12 +595,12 @@ export class Room {
 
   /** A vote on the next match's arena or score (majority of connected Spellblades decides at the start). */
   vote(playerId, key, value) {
-    if (!this.policy.votes || ['PLAYING', 'COUNTDOWN', 'REMATCH_COUNTDOWN'].includes(this.state)) return false;
+    if (this.isPrivate || !this.policy.votes || ['PLAYING', 'COUNTDOWN', 'REMATCH_COUNTDOWN'].includes(this.state)) return false;
     const player = this.players.get(playerId);
     const options = VOTE_OPTIONS[key];
     if (!player || player.actorKind !== 'human' || !options) return false;
-    const choice = key === 'score' ? Number(value) : String(value);
-    if (!options.includes(choice)) return false;
+    const choice = key === 'world' ? String(value) : Number(value);
+    if (key === 'world' ? !options.includes(choice) : !validRoomNumber(key, choice)) return false;
     player.votes = { ...(player.votes ?? {}), [key]: choice };
     return true;
   }
@@ -557,9 +608,13 @@ export class Room {
   /** Counts per option and the choice that would apply now. */
   tallyVotes() {
     const result = {};
-    const current = { world: this.worldId, score: this.scoreToWin };
+    const current = { world: this.worldId, score: this.scoreToWin, time: this.policy.matchSeconds };
     for (const [key, options] of Object.entries(VOTE_OPTIONS)) {
-      const counts = Object.fromEntries(options.map((option) => [option, 0]));
+      const choices = [...options];
+      if (key !== 'world') for (const p of this.players.values()) {
+        if (p.actorKind === 'human' && p.connected && validRoomNumber(key, p.votes?.[key]) && !choices.includes(p.votes[key])) choices.push(p.votes[key]);
+      }
+      const counts = Object.fromEntries(choices.map((option) => [option, 0]));
       for (const p of this.players.values()) {
         if (p.actorKind !== 'human' || !p.connected) continue;
         const choice = p.votes?.[key];
@@ -569,13 +624,13 @@ export class Room {
       const leaders = Object.keys(counts).filter((option) => counts[option] === best && best > 0);
       // a tie (or no votes) keeps what the room has now
       const chosen = leaders.length === 1 ? leaders[0] : String(current[key]);
-      result[key] = { counts, chosen: key === 'score' ? Number(chosen) : chosen };
+      result[key] = { counts, chosen: key === 'world' ? chosen : Number(chosen) };
     }
     return result;
   }
 
   #applyVotes() {
-    if (!this.policy.votes) return;
+    if (this.isPrivate || !this.policy.votes) return;
     const tally = this.tallyVotes();
     if (tally.world.chosen !== this.worldId) {
       try {
@@ -592,6 +647,7 @@ export class Room {
       } catch { /* unknown world: keep the current one */ }
     }
     if (Number.isFinite(tally.score.chosen)) this.scoreToWin = tally.score.chosen;
+    if (Number.isFinite(tally.time.chosen)) this.policy.matchSeconds = tally.time.chosen;
   }
 
   /** A Spellblade leaves for good (to seek a duel, for instance): their slot is freed at once. */
@@ -659,7 +715,7 @@ export class Room {
         player.disconnectExpiresAt = null;
         if (this.mode === GAME_MODES.BOT_DUEL && this.state !== 'PLAYING') player.arenaReady = false;
         this.emptySince = null;
-        if (this.policy.autoStart) this.armAutoStart(nowSec);
+        if (this.policy.autoStart && (!this.policy.teamMode || [...this.players.values()].filter(p=>p.actorKind==='human'&&p.connected).every(p=>p.lobbyReady))) this.armAutoStart(nowSec);
         return player;
       }
     }

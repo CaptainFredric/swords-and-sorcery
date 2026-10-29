@@ -64,7 +64,7 @@ function createCoreflagrationOrb() {
   const fallbackMaterial = new THREE.MeshStandardMaterial({ color: 0x342822, emissive: 0x803014, emissiveIntensity: 0.6, flatShading: true });
   const fallback = new THREE.Mesh(fallbackGeometry, fallbackMaterial);
   group.add(fallback);
-  // The 0.9s fuse cannot wait for an asynchronous model load: always show a safe warning perimeter.
+  // The short fuse cannot wait for an asynchronous model load: always show a safe warning perimeter.
   const boundaryGeometry = new THREE.RingGeometry(2.94, 3.0, 48);
   const boundaryMaterial = new THREE.MeshBasicMaterial({
     color: 0xe68738, transparent: true, opacity: 0.45, side: THREE.DoubleSide, depthWrite: false,
@@ -77,46 +77,66 @@ function createCoreflagrationOrb() {
   let model = null;
   let ring = null;
   let wake = null;
+  let mixer = null;
+  let clips = [];
+  let activePhase = null;
+  let action = null;
   group.userData.corePhase = 'airborne';
   group.userData.coreProgress = 0;
   group.userData.setCorePhase = (phase, progress) => {
     group.userData.corePhase = phase;
     group.userData.coreProgress = progress;
+    if (mixer && activePhase !== phase) {
+      mixer.stopAllAction();
+      const clip = clips.find(c => c.name.startsWith(phase === 'armed' ? '02_' : '01_'));
+      action = clip ? mixer.clipAction(clip) : null;
+      if (action) {
+        action.reset().setLoop(phase === 'armed' ? THREE.LoopOnce : THREE.LoopRepeat, Infinity);
+        action.clampWhenFinished = phase === 'armed';
+        action.play();
+      }
+      activePhase = phase;
+    }
     if (ring) {
-      ring.visible = phase === 'armed';
-      // The GLB stores this 3m radius ring at 0.001 initial scale.
-      ring.scale.setScalar(phase === 'armed' ? 1 : 0.001);
+      // The authored warning contains opaque flame spikes. Keep the ball's animation,
+      // but use the restrained perimeter below so the short fuse stays readable.
+      ring.visible = false;
     }
     if (wake) wake.visible = phase !== 'armed';
-    boundary.visible = phase === 'armed' && !model;
+    boundary.visible = phase === 'armed';
   };
   group.userData.update = (t) => {
     const armed = group.userData.corePhase === 'armed';
     const progress = group.userData.coreProgress;
-    const object = model ?? fallback;
-    object.rotation.y = armed ? 0 : t * 1.8;
-    object.rotation.z = armed ? 0 : t * 1.2;
-    if (model) {
-      const shell = model.getObjectByName('Rocky_Core_Shell');
-      if (shell) shell.rotation.z = armed ? Math.sin(t * 14) * 0.04 * progress : 0;
+    if (mixer && action) {
+      // Sample authored phases using presentation time. Countdown duration follows the authoritative fuse.
+      mixer.setTime(armed ? Math.min(0.999, progress) * action.getClip().duration : t);
+    } else {
+      fallback.rotation.set(t * 0.8, t * 2.4, t * 1.6);
+      fallback.scale.setScalar(1 + Math.sin(t * (armed ? 30 : 12)) * (armed ? 0.045 : 0.025));
     }
-    if (ring) ring.visible = armed;
+    // The authored ring is a warning of the actual radius, never an expanding decorative hitbox.
+    if (ring) ring.visible = false;
     // Keep the perimeter mathematically fixed at 3m. Do not enlarge the entire GLB.
     if (model) model.scale.setScalar(1);
   };
   group.userData.dispose = () => {
+    mixer?.stopAllAction();
+    if (model) mixer?.uncacheRoot(model);
     fallbackGeometry.dispose();
     fallbackMaterial.dispose();
     boundaryGeometry.dispose();
     boundaryMaterial.dispose();
   };
   coreflagrationAssetPromise ??= new Promise((resolve) => new GLTFLoader().load(
-    appUrl('/client/assets/props/coreflagration/coreflagration-core.glb'), (gltf) => resolve(gltf.scene),
+    appUrl('/client/assets/props/coreflagration/coreflagration-core.glb'), (gltf) => resolve(gltf),
     undefined, () => resolve(null),
   ));
-  coreflagrationAssetPromise.then((scene) => {
-    if (!scene || !group.parent) return;
-    model = scene.clone(true);
+  coreflagrationAssetPromise.then((asset) => {
+    if (!asset || !group.parent) return;
+    model = asset.scene.clone(true);
+    clips = asset.animations;
+    mixer = new THREE.AnimationMixer(model);
     ring = model.getObjectByName('Eruption_Threat_Ring');
     wake = model.getObjectByName('Airborne_Flame_Wake');
     group.remove(fallback);
@@ -764,7 +784,8 @@ export class Effects {
     gust.position.copy(from);
     gust.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), dir);
     this.scene.add(gust);
-    const bodyLife = GALE_VOLUME.life;
+    const bodyLife = cone.lastsSec + 0.08;
+    const playback = GALE_VOLUME.life / bodyLife;
     const body = (geometry, material, length, { opacity, swirl = null, near = null, haze = null, rim = null, lag = 1 }) => {
       lag = Math.min(1, lag);
       const mesh = new THREE.Mesh(geometry, material.clone());
@@ -779,12 +800,12 @@ export class Effects {
       if (rim !== null) u.uRimFill.value = rim;
       this.#addTransient(mesh, {
         parent: gust,
-        life: GALE_VOLUME.life * lag,
+        life: bodyLife * lag,
         own: true,
         // rolling out: longer and wider as it goes
-        expand: GALE_VOLUME.spread / (GALE_VOLUME.life * lag),
+        expand: GALE_VOLUME.spread / (bodyLife * lag),
         tick: (age) => {
-          const at = galeVolumeAt(age / lag);
+          const at = galeVolumeAt(age / lag * playback);
           if (u.uHead) u.uHead.value = at.head;
           if (u.uTime) u.uTime.value = age;
           if (u.uFront) u.uFront.value = at.front;
@@ -1148,6 +1169,27 @@ export class Effects {
    * A spell breaking at `point` with its reach `radius`. ground: the height of the ground under it, if known; the
    * blast's wave runs along the ground (and leaves a mark there) only when the ground is within its reach.
    */
+  coreContact(point, radius = SPELLS.coreflagration.radius) {
+    const at = new THREE.Vector3(point.x, point.y, point.z);
+    const front = new THREE.Mesh(this.blastFrontGeometry, createBlastFrontMaterial('fireball'));
+    front.position.copy(at);
+    front.scale.setScalar(radius * 0.08);
+    this.#addTransient(front, { life: 0.16, own: true,
+      tick: age => { front.material.uniforms.uFade.value = Math.sin(Math.PI * Math.min(1, age / 0.16)) * 0.55; },
+      expand: (0.7 / 0.08 - 1) / 0.16 });
+    const materials = this.#spellMaterials('fireball');
+    for (let i = 0, n = this.#many(7); i < n; i++) {
+      const angle = i * Math.PI * 2 / n;
+      const flame = new THREE.Mesh(this.flameGeometry, i % 2 ? materials.shell : materials.blast);
+      flame.position.copy(at);
+      flame.scale.set(2.2, 3.0, 2.2);
+      this.#addTransient(flame, { life: 0.18, fade: true, shrink: true,
+        velocity: new THREE.Vector3(Math.cos(angle) * 4, 1.4, Math.sin(angle) * 4),
+        spin: new THREE.Vector3(2, 4, 1) });
+    }
+    this.#flashLight(point, 0xff9a38, 11, 0.12, radius * 1.5);
+  }
+
   impact(point, { spell = 'fireball', radius = 2.6, ground = null } = {}) {
     const at = new THREE.Vector3(point.x, point.y, point.z);
     const profile = elementalProfile(spell);
@@ -1402,7 +1444,8 @@ export class Effects {
         if (armed && effect.coreArmedAt !== p.armedAt) { effect.coreArmedAt = p.armedAt; effect.coreArmedPhaseStart = effect.phase; }
         const progress = armed && duration > 0 ? Math.max(0, Math.min(1, (effect.phase - (effect.coreArmedPhaseStart ?? effect.phase)) / duration)) : 0;
         effect.group.userData.setCorePhase?.(armed ? 'armed' : 'airborne', progress);
-        if (armed) effect.lastPosition = null;
+        if (armed) { effect.lastPosition = null; effect.group.quaternion.identity(); }
+        else if (p.velocity) effect.group.lookAt(effect.group.position.clone().add(new THREE.Vector3(p.velocity.x, p.velocity.y, p.velocity.z)));
       }
       if (effect.lastPosition) {
         const trail = sampleTrailSegment(effect.lastPosition, next, {

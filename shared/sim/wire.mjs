@@ -1,3 +1,4 @@
+import { GALE_MODES } from '../src/galeModes.mjs';
 import {mountSoFistication,dismountSoFistication,fireSoFistication} from './soFistication.mjs';
 import { practiceBiByeCommand,practiceSiegeCommand } from './practiceSiege.mjs';
 import { setBiByeWeaponFocus } from './biByeWeapons.mjs';
@@ -26,6 +27,8 @@ export function serializeLobby(room) {
     countdownEndsAt: room.countdownEndsAt,
     autoStartAt: room.autoStartAt,
     scoreToWin: room.scoreToWin,
+    matchSeconds: room.policy.matchSeconds,
+    teamSize: room.policy.teamSize ?? null,
     votes: room.policy.votes ? room.tallyVotes() : null,
     players: [...room.players.values()].map((p) => ({
       id: p.id,
@@ -58,6 +61,7 @@ export function serializeSnapshot(room, nowSec, recipientId = null) {
     matchStartedAt: room.matchStartedAt,
     scoreToWin: room.scoreToWin,
     matchSeconds: room.policy.matchSeconds,
+    teamSize: room.policy.teamSize ?? null,
     finishReason: room.finishReason ?? null,
     winnerId: room.winnerId,
     winnerTeam: room.winnerTeam ?? null,
@@ -174,6 +178,8 @@ export function serializeSnapshot(room, nowSec, recipientId = null) {
       emblem: p.emblem ?? 'trident',
       spellReadyAt: p.spellReadyAt,
       castingSpell: p.pendingSpell?.spell ?? null,
+      castingGaleMode: p.pendingSpell?.galeMode ?? 'balanced',
+      gale: p.gust ? { mode: p.gust.mode ?? 'balanced', bornAt: p.gust.bornAt, until: p.gust.until } : null,
       castEndsAt: p.castEndsAt ?? 0,
       castStartedAt: p.pendingSpell ? p.castEndsAt - spellFor(p.pendingSpell.spell).gatherSec : 0,
       // afflictions, for your own prediction (the chill slows you) and everyone's effects
@@ -289,7 +295,15 @@ export function applyRoomCommand(room, player, message, time) {
       const ready = message.type === 'startMatch' ? true : Boolean(message.ready);
       return { lobby: room.setReady(player.id, ready, time) };
     }
-    case 'vote': return { lobby: room.vote(player.id, message.key, message.value) };
+    case 'configureRoom': {
+      const rejected=room.configureRoom(player.id,message.settings,time);
+      return rejected ? {rejected} : {lobby:true};
+    }
+    case 'swapPlayers': {
+      const rejected=room.swapPlayers(player.id,message.firstId,message.secondId,time);
+      return rejected ? {rejected} : {lobby:true};
+    }
+    case 'vote': return room.vote(player.id,message.key,message.value) ? {lobby:true} : {rejected:'Choose a valid setting before the countdown.'};
     case 'arenaReady': return { lobby: room.setArenaReady(player.id, Boolean(message.ready), time) };
     case 'input': {
       player.lastInputSeq = Number.isFinite(message.seq) ? message.seq : player.lastInputSeq;
@@ -329,6 +343,11 @@ export function applyRoomCommand(room, player, message, time) {
       return {};
     }
     // the spell's key: the spell when it is ready; on its cooldown, the gauntlet if a foe is in reach
+    case 'galeMode': {
+      if (!player.alive || player.pendingSpell?.spell !== 'gale' || time >= player.castEndsAt || !GALE_MODES.includes(message.mode)) return { rejected: 'Gale can be shaped only while gathering.' };
+      player.pendingSpell.galeMode = message.mode;
+      return {};
+    }
     case 'cast': tryCastOrGauntlet(room, player.id, message.direction || { x: 0, y: 0, z: -1 }, time, compensatedInputTime(message.clientTime, time)); return {};
     case 'selectPreparedSpell': selectPreparedSpell(room, player.id, message.spell ?? message.id, time); return {};
     case 'selectPreparedSlot': {

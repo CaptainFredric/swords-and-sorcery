@@ -1,3 +1,4 @@
+import { stableLobbyMarkup, lobbyControls, arenaOptions } from './menu/lobbyControls.mjs';
 import { TutorialSession } from './tutorial/TutorialSession.mjs';
 import { TutorialView } from './tutorial/TutorialView.mjs';
 import { TutorialProgress } from './tutorial/TutorialProgress.mjs';
@@ -416,7 +417,7 @@ let currentRoomState = null;
 
 function showChallenge(message) {
   const appearing = challengeCard.classList.contains('hidden');
-  const copy = challengeCopy({ mode: message.mode, players: message.players ?? [], localId: socket.playerId, worldId: message.worldId, scoreToWin: message.scoreToWin });
+  const copy = challengeCopy({ mode: message.mode, players: message.players ?? [], localId: socket.playerId, worldId: message.worldId, scoreToWin: message.scoreToWin, teamSize: message.teamSize ?? 3 });
   $('#challenge-kicker').textContent = copy.kicker;
   $('#challenge-you').textContent = copy.you;
   $('#challenge-foe').textContent = copy.foe;
@@ -465,7 +466,7 @@ function openArenaGate(info, force = false) {
   if (tutorialSession) tutorialOpening.begin();
   const myTeam = (info.players ?? latestSnapshot?.players ?? latestLobby?.players ?? []).find((p) => p.id === socket.playerId)?.team ?? null;
   const copy = tutorialSession ? { title: 'GREENER PASTURES', sub: 'TUTORIAL 1' }
-    : arenaGateCopy({ mode: info.mode, worldId: info.worldId, scoreToWin: info.scoreToWin, team: myTeam });
+    : arenaGateCopy({ mode: info.mode, worldId: info.worldId, scoreToWin: info.scoreToWin, team: myTeam, teamSize: info.teamSize ?? 3 });
   $('#arena-gate-title').textContent = copy.title;
   $('#arena-gate-sub').textContent = copy.sub;
   arenaGate.classList.remove('hidden');
@@ -564,7 +565,7 @@ function renderLobby() {
   lobbyWorld.textContent = view.world;
   lobbyMode.textContent = view.mode;
   lobbyState.textContent = view.state;
-  lobbyPlayers.innerHTML = view.players.map((player) => `<div class="lobby-player${player.you ? ' you' : ''}${player.ready ? ' ready' : ''}"><span class="player-rune">${player.rune}</span><b>${escapeHtml(player.name)}</b><em>${player.status}</em></div>`).join('');
+  stableLobbyMarkup(lobbyPlayers, view.players.map((player) => `<div class="lobby-player${player.you ? ' you' : ''}${player.ready ? ' ready' : ''}"><span class="player-rune">${player.rune}</span><b>${escapeHtml(player.name)}</b><em>${player.status}</em></div>`).join(''));
   startMatchButton.classList.toggle('hidden', !view.ready.visible);
   startMatchButton.classList.toggle('pressed', view.ready.pressed);
   startMatchButton.textContent = view.ready.label;
@@ -580,7 +581,8 @@ function renderLobby() {
   copyLinkButton.classList.toggle('primary-command', view.action.primary);
   copyLinkButton.disabled = view.action.disabled;
   if (!copyLinkButton.dataset.flash) copyLinkButton.textContent = view.action.label;
-  lobbyVotes.innerHTML = view.votes.map((row) => `<div class="vote-row"><span>${row.label}</span>${row.options.map((option) => `<button class="vote-chip${option.chosen ? ' chosen' : ''}${option.mine ? ' mine' : ''}" data-key="${row.key}" data-value="${escapeHtml(String(option.value))}">${escapeHtml(String(option.label))}<b class="tally" data-count="${option.count}" aria-label="${option.count} ${option.count === 1 ? 'vote' : 'votes'}">${option.count}</b></button>`).join('')}</div>`).join('');
+  stableLobbyMarkup(lobbyVotes, (message.isPrivate === true ? [] : view.votes).map((row) => `<div class="vote-row"><span>${row.label}</span>${row.options.map((option) => `<button class="vote-chip${option.chosen ? ' chosen' : ''}${option.mine ? ' mine' : ''}" data-key="${row.key}" data-value="${escapeHtml(String(option.value))}">${escapeHtml(String(option.label))}<b class="tally" data-count="${option.count}" aria-label="${option.count} ${option.count === 1 ? 'vote' : 'votes'}">${option.count}</b></button>`).join('')}</div>`).join(''));
+  stableLobbyMarkup($('#lobby-settings'), lobbyControls(message, socket.playerId));
   lobbyCopy.textContent = view.footer;
 }
 
@@ -610,10 +612,39 @@ lobbyVotes.addEventListener('click', (event) => {
   const chip = event.target.closest?.('.vote-chip');
   if (!chip) return;
   const key = chip.dataset.key;
-  const value = key === 'score' ? Number(chip.dataset.value) : chip.dataset.value;
+  const value = key === 'world' ? chip.dataset.value : Number(chip.dataset.value);
   myVotes = { ...myVotes, [key]: value };
   socket.vote(key, value);
   renderLobby();
+});
+
+$('#lobby-settings').addEventListener('change', event => {
+  if (event.target.name !== 'mode') return;
+  const form=event.target.form,team=event.target.value==='BREAKTHROUGH';
+  form.elements.worldId.innerHTML=arenaOptions(event.target.value,null);
+  form.querySelector('[data-score-field]').hidden=team;
+  form.querySelector('[data-team-field]').hidden=!team;
+});
+$('#lobby-settings').addEventListener('submit', event => {
+  event.preventDefault();
+  const form=event.target;
+  $('#lobby-error').textContent='';
+  if(form.classList.contains('lobby-swap')) {
+    socket.send({type:'swapPlayers',firstId:form.elements.firstId.value,secondId:form.elements.secondId.value});
+    return;
+  }
+  const minutes=Number(form.elements.minutes.value),score=Number(form.elements.scoreToWin.value);
+  const mode=form.elements.mode?.value??latestLobby.mode;
+  if(!form.elements.minutes.value||!Number.isFinite(minutes)||minutes<1||minutes>30 || (mode==='FFA'&&(!Number.isInteger(score)||score<1||score>100))) {
+    $('#lobby-error').textContent='Choose 1 to 100 kills and a match time from 1 to 30 minutes.';
+    return;
+  }
+  if(latestLobby.isPrivate===true)socket.send({type:'configureRoom',settings:{mode,worldId:form.elements.worldId.value,matchSeconds:Math.round(minutes*60),...(mode==='FFA'?{scoreToWin:score}:{teamSize:Number(form.elements.teamSize.value)})}});
+  else {
+    myVotes.score=score;myVotes.time=Math.round(minutes*60);
+    socket.vote('score',myVotes.score);socket.vote('time',myVotes.time);
+    renderLobby();
+  }
 });
 
 // --- seeking a duel: the banner in the practice yard ---
@@ -1060,6 +1091,8 @@ function revealTutorialControls(taught) {
   for (const button of document.querySelectorAll('.touch-btn[data-action]')) {
     if (TUTORIAL_TOUCH_ACTIONS.has(button.dataset.action)) absent(button, button.dataset.action);
   }
+  const tutorialMenu = document.querySelector('.touch-btn[data-action="pause"]');
+  tutorialMenu?.classList.toggle('tutorial-absent', taught !== null);
   const stick = document.querySelector('.touch-stick');
   stick?.classList.toggle('tutorial-absent', taught !== null && !taught.includes('move'));
   for (const [action, tile] of [['spell', hud.spell], ['dash', hud.dash], ['ultimate', hud.ultimate]]) if (tile) absent(tile, action);
@@ -1777,6 +1810,7 @@ socket.on('resumeFailed', () => {
 
 socket.on('error', (message) => {
   const errorText = message.message || 'Could not enter that match.';
+  if (router.current === SCREEN_IDS.LOBBY && socket.roomCode) { $('#lobby-error').textContent=errorText; return; }
   if (!shouldRouteSocketError(socket.roomCode, latestSnapshot)) {
     hud.flashText(errorText.toUpperCase(), 'danger');
     return;

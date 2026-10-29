@@ -1,3 +1,4 @@
+import { galeSwipeMode } from '../../shared/src/galeModes.mjs';
 import {soFistOperator} from '../../shared/sim/soFistication.mjs';
 import { biByeCondition } from '../../shared/sim/biByeComponents.mjs';
 import { PreparedSpellSelector, preparedSpellView } from './preparedSpellSelector.mjs';
@@ -78,6 +79,7 @@ export class TouchControls {
           ${svg(icon)}<span>${label}</span>${cooldown ? '<i class="touch-cooldown"></i><b class="touch-timer"></b>' : ''}
         </div>`).join('')}`;
     root.append(this.layer);
+    this.galeGesture = null;
     this.preparedFan = document.createElement('div');
     this.preparedFan.className = 'touch-prepared-fan';
     this.preparedFan.hidden = true;
@@ -188,6 +190,8 @@ export class TouchControls {
 
   reset() {
     this.input.onAimCancelled?.();
+    if (this.galeGesture?.mode !== 'balanced' && this.galeGesture) this.input.selectGaleMode?.('balanced');
+    this.galeGesture = null;
     this.viewGesture=null;
     this.#cancelPreparedTouch();
     for (const [pointerId, action] of this.held) this.#release(action, pointerId);
@@ -248,6 +252,7 @@ export class TouchControls {
   update(local, serverNow, { practice = false, snapshot = null } = {}) {
     if (this.inspectionFlight) return;
     if (!local) return;
+    this.galeAvailable = local.spell === 'gale' && (practice || (local.spellReadyAt ?? 0) <= serverNow || local.castingSpell === 'gale');
     this.prepared = preparedSpellView(local, serverNow);
     this.input.updatePreparedSpells(local, serverNow);
     if (!this.prepared.visible) this.#cancelPreparedTouch();
@@ -451,6 +456,15 @@ export class TouchControls {
       if(!g.zoomed&&dy>=32&&dy>Math.abs(dx)*1.25){g.zoomed=true;this.input.onAction?.('siegeZoom',true);}
       return;
     }
+    if (this.galeGesture?.id === event.pointerId) {
+      const point = gamePoint(event, this.layer), g = this.galeGesture;
+      const mode = galeSwipeMode(point.x - g.x, point.y - g.y, g.mode);
+      if (mode !== g.mode && this.input.selectGaleMode?.(mode)) {
+        g.mode = mode;
+        this.buttons.spell.querySelector('span').textContent = mode.toUpperCase();
+      }
+      return;
+    }
     if (this.preparedTouch?.id === event.pointerId) {
       const point = gamePoint(event, this.layer);
       const gesture = this.preparedTouch;
@@ -484,6 +498,13 @@ export class TouchControls {
       return;
     }
     this.#gateHeld('look', false, `touch-look:${event.pointerId}`, false);
+    if (this.galeGesture?.id === event.pointerId) {
+      const g = this.galeGesture, point = gamePoint(event, this.layer);
+      const mode = event.type === 'pointerup' ? galeSwipeMode(point.x-g.x, point.y-g.y, g.mode) : 'balanced';
+      if (mode !== g.mode) this.input.selectGaleMode?.(mode);
+      this.galeGesture = null;
+      delete this.buttons.spell.dataset.face;
+    }
     if (this.preparedTouch?.id === event.pointerId) {
       const point = gamePoint(event, this.layer);
       const gesture = this.preparedTouch;
@@ -539,7 +560,10 @@ export class TouchControls {
     if (action === 'attack') this.input.setAttack(true);
     if (action === 'guard') this.input.setGuard(true);
     if (action === 'spell') {
-      if (this.prepared?.visible) {
+      if (this.galeAvailable && !this.prepared?.visible) {
+        this.galeGesture = { id: event.pointerId, ...gamePoint(event, this.layer), mode: 'balanced' };
+        this.input.cast();
+      } else if (this.prepared?.visible) {
         if (!this.preparedTouch) {
           const point = gamePoint(event, this.layer);
           this.preparedTouch = { id: event.pointerId, ...point, selector: new PreparedSpellSelector(this.prepared.spells.map((spell) => spell.id), this.prepared.current, { touch: true }) };
