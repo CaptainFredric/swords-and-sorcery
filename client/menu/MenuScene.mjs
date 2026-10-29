@@ -54,6 +54,7 @@ const OBSERVE_SHARE = 0.54;
 // the palm light's colour)
 const SPELL_PREVIEW = Object.freeze({
   fireball: { core: 0xfff0c8, glow: 0xff7a2a },
+  coreflagration: { core: 0xfff0c8, glow: 0xff7a2a },
   frostfire: { core: 0xeafcff, glow: 0x7fd6ff },
   gale: { wind: true, glow: 0x7fd08e, light: 0.9 },
   steel: { core: 0xe9f3ff, glow: 0xabc8e6, light: 1.3 },
@@ -711,7 +712,7 @@ export class MenuScene {
     if (this.armoryElementalSpell !== spell) {
       this.armoryElemental?.removeFromParent();
       this.armoryElemental?.userData.dispose?.();
-      this.armoryElemental = spell === 'fireball' || spell === 'frostfire' ? createElementalOrb(spell) : null;
+      this.armoryElemental = spell === 'fireball' || spell === 'frostfire' || spell === 'coreflagration' ? createElementalOrb(spell === 'frostfire' ? 'frostfire' : 'fireball') : null;
       this.armoryElemental?.scale.setScalar(.5);
       if (this.armoryElemental && this.spellOrb) this.spellOrb.add(this.armoryElemental);
       this.armoryElementalSpell = spell;

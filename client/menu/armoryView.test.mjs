@@ -46,3 +46,13 @@ test('Chivalry\'s prepared spells in the Armory: a slot for each key, the starti
   // an outside starting spell takes the last slot, as the shared rule says
   assert.deepEqual(preparedArmoryView('steel', ['fireball', 'frostfire', 'gale']).map((s) => s.id), ['fireball', 'frostfire', 'steel']);
 });
+
+test('Coreflagration is listed in the Armory, can be equipped, and carries its authored facts', () => {
+  const view = armoryView('coreflagration');
+  assert.deepEqual(view.spells.filter((spell) => spell.equipped).map((spell) => spell.id), ['coreflagration']);
+  const core = view.spells.find((spell) => spell.id === 'coreflagration');
+  assert.ok(core, 'coreflagration is present in armory spells');
+  assert.equal(core.name, 'COREFLAGRATION');
+  assert.match(core.facts, /5 first burst · 20 final blast · 6 burn · 5s cooldown/);
+  assert.match(core.line, /burning stone/);
+});

@@ -156,6 +156,8 @@ test('the Armory keeps its choice here without becoming a Settings tab, and old 
   assert.equal(store.actionFor('KeyR'), 'spell');
   store.set('loadout.spell', 'lightning');
   assert.equal(store.get('loadout.spell'), 'fireball', 'an unknown spell falls back to the default');
+  store.set('loadout.spell', 'coreflagration');
+  assert.equal(store.get('loadout.spell'), 'coreflagration', 'coreflagration is selectable and retained');
 });
 
 test('prepared spells validate as three legal unique identities and are stored as independent arrays', () => {
