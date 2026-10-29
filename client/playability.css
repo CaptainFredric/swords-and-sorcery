@@ -323,8 +323,57 @@
   .subtitle.end-caption { position: fixed; left: 50%; bottom: calc(var(--safe-b, 0px) + 12px); grid-row: auto; grid-column: auto; transform: translate(-50%, 4px); }
   .subtitle.end-caption.show { transform: translate(-50%, 0); }
 }
-.siege-machine-choice { display: grid; gap: .4rem; font-size: .72rem; letter-spacing: .1em; margin: .6rem 0; }
-.siege-machine-choice select { width: 100%; padding: .6rem; color: #edddb7; background: #29251e; border: 1px solid #8b7547; font: inherit; }
+.siege-machine-choice {
+  display: grid;
+  gap: .35rem;
+  font: 800 10px/1.3 var(--font-script, sans-serif);
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: #cbb78d;
+  margin: .6rem 0;
+}
+.siege-machine-choice select {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  box-sizing: border-box;
+  width: 100%;
+  padding: .55rem 2.2rem .55rem .75rem;
+  color: #f4e3be;
+  background-color: #241c17;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1.5 1.5L6 6l4.5-4.5' stroke='%23dcb770' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3C/svg%3E"), linear-gradient(180deg, #34281e 0%, #1e1612 100%);
+  background-repeat: no-repeat, no-repeat;
+  background-position: right 10px center, 0 0;
+  border: 1px solid #9c7c4a;
+  border-radius: 2px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08), 0 2px 4px rgba(0, 0, 0, .5);
+  font: 700 11px/1.35 var(--font-inscription, Georgia, serif);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: border-color .15s ease, box-shadow .15s ease, color .15s ease;
+}
+.siege-machine-choice select:hover {
+  border-color: #dcb770;
+  color: #fff3d8;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .14), 0 0 8px rgba(220, 183, 112, .32);
+}
+.siege-machine-choice select:focus-visible {
+  outline: 2px solid #8fd4e4;
+  outline-offset: 1px;
+  border-color: #8fd4e4;
+}
+.siege-machine-choice select:disabled {
+  opacity: .5;
+  cursor: default;
+}
+.siege-machine-choice select option {
+  background-color: #241c17;
+  color: #f4e3be;
+  font-family: var(--font-inscription, Georgia, serif);
+  font-size: 12px;
+  padding: 8px 10px;
+}
 .drive-pressure { display: block; font-size: .67rem; letter-spacing: .09em; color: #d6b875; }
 .drive-pressure[hidden] { display: none; }
 .drive-pressure output { float: right; }

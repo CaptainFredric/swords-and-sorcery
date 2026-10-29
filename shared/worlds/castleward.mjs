@@ -65,6 +65,8 @@ export const CASTLEWARD = Object.freeze({
     { id: 'east-wall-walk', center: [7.4, 3.85, 23.15], size: [3, 0.3, 5.3], y: 4, material: 'stone' },
     // beyond the South Gate the road runs out onto a bridge that ends in a broken span
     { id: 'broken-bridge', center: [0, -0.15, -26], size: [6, 0.3, 4], y: 0, material: 'stone' },
+    // the far broken bridge platform across the ravine, reachable by a jump from the broken span
+    { id: 'broken-bridge-far', center: [0, -0.15, -35.7], size: [6, 0.3, 4.2], y: 0, material: 'stone' },
     // the Tourney Field: open grass south of the meadow, reached through the gateway in the field wall. It runs under
     // the road's east bank and the meadow's wall, so no strip of it is left without ground
     { id: 'tourney-field', center: [14.55, -0.15, -15.2], size: [19.3, 0.3, 14.8], y: 0, material: 'grass' },
@@ -78,11 +80,21 @@ export const CASTLEWARD = Object.freeze({
   ],
   solids: [
     // Castle gatehouse pieces leave a broad readable center lane to the ramp.
-    { id: 'castle-gate-west', center: [-5.8, 2.0, 15.8], size: [3.2, 4, 2.2], material: 'limestone' },
-    { id: 'castle-gate-east', center: [5.8, 2.0, 15.8], size: [3.2, 4, 2.2], material: 'limestone' },
-    { id: 'bailey-back-wall', center: [0, 4.0, 26.25], size: [18.5, 3.0, 0.5], material: 'limestone' },
-    { id: 'bailey-west-wall', center: [-9.15, 4.0, 22], size: [0.5, 3.0, 8.5], material: 'limestone' },
-    { id: 'bailey-east-wall', center: [9.15, 4.0, 22], size: [0.5, 3.0, 8.5], material: 'limestone' },
+    { id: 'castle-gate-west', center: [-5.7, 2.0, 15.8], size: [3.4, 4, 2.2], material: 'limestone' },
+    { id: 'castle-gate-east', center: [5.7, 2.0, 15.8], size: [3.4, 4, 2.2], material: 'limestone' },
+    { id: 'castle-gate-west-upper', center: [-5.7, 5.3, 15.8], size: [3.5, 2.6, 2.3], material: 'limestone', kind: 'gate-upper' },
+    { id: 'castle-gate-east-upper', center: [5.7, 5.3, 15.8], size: [3.5, 2.6, 2.3], material: 'limestone', kind: 'gate-upper' },
+    { id: 'castle-gate-arch', center: [0, 5.1, 15.8], size: [8.4, 1.0, 1.4], material: 'limestone', kind: 'arch' },
+    { id: 'bailey-back-wall', center: [0, 2.75, 26.25], size: [18.5, 5.5, 0.5], material: 'limestone' },
+    { id: 'bailey-west-wall', center: [-9.15, 2.75, 22], size: [0.5, 5.5, 8.5], material: 'limestone' },
+    { id: 'bailey-east-wall', center: [9.15, 2.75, 22], size: [0.5, 5.5, 8.5], material: 'limestone' },
+    // corner towers anchor the bailey and ramparts
+    { id: 'castle-tower-nw', center: [-10.2, 4.35, 26.9], size: [2.3, 9.5, 2.3], material: 'limestone', kind: 'tower' },
+    { id: 'castle-tower-ne', center: [10.2, 4.35, 26.9], size: [2.3, 9.5, 2.3], material: 'limestone', kind: 'tower' },
+    { id: 'castle-tower-sw', center: [-10.2, 3.5, 17.3], size: [2.3, 7.8, 2.3], material: 'limestone', kind: 'tower' },
+    { id: 'castle-tower-se', center: [10.2, 3.5, 17.3], size: [2.3, 7.8, 2.3], material: 'limestone', kind: 'tower' },
+    // the keep behind the bailey
+    { id: 'castle-keep', center: [0, 6.5, 31.5], size: [11, 13, 8], material: 'limestone', kind: 'keep' },
     // masonry under the high end of the castle ramp (below its running surface), so nothing can pass beneath it
     { id: 'castle-ramp-footing', center: [0, 0.6, 17.25], size: [8, 1.2, 1.5], material: 'limestone', kind: 'footing' },
     // curtain walls close the forecourt's sides down to the ground
@@ -117,11 +129,12 @@ export const CASTLEWARD = Object.freeze({
     // South gate: its arch opens onto the Broken Bridge.
     { id: 'south-gate-west', center: [-4.0, 1.9, -22.6], size: [2.1, 3.8, 2.4], material: 'limestone' },
     { id: 'south-gate-east', center: [4.0, 1.9, -22.6], size: [2.1, 3.8, 2.4], material: 'limestone' },
+    { id: 'south-gate-west-upper', center: [-4.0, 4.6, -22.6], size: [2.2, 1.6, 2.5], material: 'limestone', kind: 'gate-upper' },
+    { id: 'south-gate-east-upper', center: [4.0, 4.6, -22.6], size: [2.2, 1.6, 2.5], material: 'limestone', kind: 'gate-upper' },
     { id: 'south-road-west-bank', center: [-5.15, 0.8, -14.675], size: [0.4, 1.6, 14.15], material: 'stone', kind: 'bank' },
     { id: 'south-road-east-bank', center: [5.15, 0.8, -14.675], size: [0.4, 1.6, 14.15], material: 'stone', kind: 'bank' },
     { id: 'bridge-west-parapet', center: [-2.3, 0.55, -25.9], size: [0.4, 1.1, 4.2], material: 'stone', kind: 'parapet' },
     { id: 'bridge-east-parapet', center: [2.3, 0.55, -25.9], size: [0.4, 1.1, 4.2], material: 'stone', kind: 'parapet' },
-    { id: 'bridge-broken-lip', center: [0, 0.22, -27.8], size: [4.2, 0.45, 0.4], material: 'stone', kind: 'lip', hazard: true },
 
     // field walls close the south edge of the village, the green and the meadow
     { id: 'south-field-wall-west', center: [-13.85, 0.8, -7.8], size: [17, 1.6, 0.4], material: 'stone', kind: 'field-wall' },

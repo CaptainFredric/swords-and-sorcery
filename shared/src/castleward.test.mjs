@@ -35,11 +35,12 @@ test('East Meadow runs through the gateway onto the open Tourney Field, and it s
 });
 
 test('Castleward stays inside the arena size envelope', () => {
-  const xs = CASTLEWARD.floors.flatMap((floor) => [
+  const coreFloors = CASTLEWARD.floors.filter((floor) => floor.id !== 'broken-bridge-far');
+  const xs = coreFloors.flatMap((floor) => [
     floor.center[0] - floor.size[0] / 2,
     floor.center[0] + floor.size[0] / 2,
   ]);
-  const zs = CASTLEWARD.floors.flatMap((floor) => [
+  const zs = coreFloors.flatMap((floor) => [
     floor.center[2] - floor.size[2] / 2,
     floor.center[2] + floor.size[2] / 2,
   ]);
@@ -86,6 +87,7 @@ function simulate(start, yaw, seconds, { jump = false, dash = false } = {}) {
 function rimSamples() {
   const samples = [];
   for (const floor of CASTLEWARD.floors) {
+    if (floor.id === 'broken-bridge' || floor.id === 'broken-bridge-far') continue;
     const [cx, , cz] = floor.center;
     const hx = floor.size[0] / 2 - 0.5;
     const hz = floor.size[2] / 2 - 0.5;
@@ -113,6 +115,8 @@ test('running, sprinting or dashing from anywhere on any edge never falls into t
     if (inSolid(sample.x, y, sample.z) || (surfaceHeightAt(sample.x, sample.z, 99, CASTLEWARD) ?? y) > y + 0.65) continue;
     for (let k = 0; k < 8; k += 1) {
       const yaw = (k / 8) * Math.PI * 2;
+      // heading south down the South Road leads through the South Gate onto the open Broken Bridge hazard
+      if (Math.abs(sample.x) < 4 && sample.z < -6 && (k === 0 || k === 1 || k === 7)) continue;
       for (const dash of [false, true]) {
         const { lowest } = simulate({ x: sample.x, y, z: sample.z }, yaw, 2.5, { dash });
         if (lowest < -0.5) falls.push(`${sample.floor.id} (${sample.x.toFixed(1)}, ${sample.z.toFixed(1)}) heading ${k * 45}deg${dash ? ' with dash' : ''}`);
@@ -131,14 +135,40 @@ test('ground-level boundaries are taller than a jump reaches; lips are low enoug
   }
 });
 
-test('the Broken Bridge is the one deliberate hazard: walking stops at its lip, a jump over it falls', () => {
-  const hazards = CASTLEWARD.solids.filter((solid) => solid.hazard);
-  assert.deepEqual(hazards.map((solid) => solid.id), ['bridge-broken-lip']);
-  // yaw 0 heads toward -z (south)
+test('the Broken Bridge is an open hazard: running or being knocked off its end falls into the abyss', () => {
+  // yaw 0 heads toward -z (south off the broken edge)
   const walked = simulate({ x: 0, y: 0, z: -25.5 }, 0, 2);
-  assert.ok(walked.state.position.y > -0.01 && walked.state.position.z > -27.7, 'stopped at the lip');
-  const jumped = simulate({ x: 0, y: 0, z: -26.2 }, 0, 2.5, { jump: true });
-  assert.ok(jumped.lowest < CASTLEWARD.abyssY + 3, 'a jump over the lip falls');
+  assert.ok(walked.lowest < CASTLEWARD.abyssY + 3, 'running off the broken edge falls into the abyss');
+  // but the parapets on east and west stop side-falls
+  const westWalk = simulate({ x: 0, y: 0, z: -26 }, Math.PI / 2, 1.5);
+  assert.ok(westWalk.lowest >= -0.1, 'stopped by west parapet');
+  const eastWalk = simulate({ x: 0, y: 0, z: -26 }, -Math.PI / 2, 1.5);
+  assert.ok(eastWalk.lowest >= -0.1, 'stopped by east parapet');
+});
+
+test('the far platform across the ravine has authoritative floor collision and can be landed on', () => {
+  const farFloor = CASTLEWARD.floors.find((floor) => floor.id === 'broken-bridge-far');
+  assert.ok(farFloor, 'broken-bridge-far floor exists');
+  assert.equal(surfaceHeightAt(0, -35.7, 0, CASTLEWARD), 0, 'surface height is 0 at center of far platform');
+  // a sprint-jump from the broken bridge edge reaches the far platform
+  const jumped = simulate({ x: 0, y: 0, z: -27.5 }, 0, 0.85, { jump: true });
+  assert.ok(jumped.state.position.z < -33.6 && jumped.state.position.z > -37.8, `reached far platform: z=${jumped.state.position.z}`);
+  assert.ok(Math.abs(jumped.state.position.y) < 0.05, `safely standing on platform: y=${jumped.state.position.y}`);
+  assert.equal(jumped.state.grounded, true, 'grounded on the far platform');
+});
+
+test('castle masonry, corner towers, and keep block movement', () => {
+  // corner tower NW blocks passage
+  const towerNW = CASTLEWARD.solids.find((s) => s.id === 'castle-tower-nw');
+  assert.ok(towerNW, 'corner tower NW exists');
+  const walkTower = runForward({ x: -8.8, y: 2.5, z: 26.0 }, 0.9, 60);
+  assert.ok(Math.hypot(walkTower.position.x - (-10.2), walkTower.position.z - 26.9) >= 1.2, 'blocked by tower NW');
+
+  // bailey back wall / keep blocks passage
+  const keep = CASTLEWARD.solids.find((s) => s.id === 'castle-keep');
+  assert.ok(keep, 'castle keep exists');
+  const walkKeep = runForward({ x: 0, y: 4, z: 25.5 }, 0, 60);
+  assert.ok(walkKeep.position.z <= 26.25, 'blocked by bailey back wall');
 });
 
 test('the wall walks are reached by their stairs and cannot be walked underneath', () => {

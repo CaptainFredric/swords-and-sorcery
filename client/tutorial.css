@@ -74,7 +74,7 @@
 .tutorial-lesson .tutorial-back:hover { color: #eadcb6; border-color: #ac884d; }
 /* The transcript: a slip of parchment under the options, and the page it opens */
 .tutorial-lesson .tutorial-transcript-open {
-  position: absolute; right: calc(var(--safe-r, 0px) + 12px); top: 58px; pointer-events: auto;
+  position: absolute; right: calc(var(--safe-r, 0px) + 12px); top: 78px; pointer-events: auto;
   min-height: 30px; padding: 5px 10px; border: 1px solid #9c7c4a; border-radius: 1px 3px 2px 3px;
   background: linear-gradient(176deg, #efe3c4, #e2d1a6 70%, #d8c495); color: #3b2a19;
   font: 700 10px/1.2 var(--font-script, sans-serif); letter-spacing: .1em; box-shadow: 0 1px 0 rgba(0, 0, 0, .35);
@@ -138,7 +138,7 @@
   position: relative; left: auto; right: auto; top: auto; bottom: auto; transform: none;
   width: var(--tutorial-stack-w); min-width: 0;
 }
-.tutorial-touch .tutorial-transcript-open { top: calc(var(--safe-t, 0px) + 58px); min-height: 34px; font-size: 11px; }
+.tutorial-touch .tutorial-transcript-open { top: calc(var(--safe-t, 0px) + 78px); min-height: 34px; font-size: 11px; }
 /* (the column covers the mode's label: it is not seen through the card, and is back when nothing is there) */
 .touch-ui:has(.tutorial-lesson.tutorial-touch:not([hidden]) :is([data-tutorial-caption], [data-tutorial-instruction]):not([hidden])) .match-info { visibility: hidden; }
 /* On touch, upper left bars and lower corner controls stay clear of gameplay captions. */

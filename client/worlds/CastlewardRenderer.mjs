@@ -147,8 +147,9 @@ export class CastlewardRenderer {
   #solid(batch, rand, solid) {
     const kind = solid.kind ?? '';
     const id = solid.id;
-    if (kind === 'footing') return;                           // hidden inside the ramp
+    if (kind === 'footing' || kind === 'gate-upper') return;                           // hidden inside the ramp or tower
     if (kind === 'brazier') return;                           // drawn with the fire
+    if (kind === 'tower' || kind === 'keep' || kind === 'arch') return; // drawn in #castle
     if (kind === 'rune-stone') {
       const spec = this.decor.runeStones.find((item) => item.id === id);
       const [x, y, z] = solid.center;
@@ -177,7 +178,11 @@ export class CastlewardRenderer {
       return;
     }
     if (kind === 'curtain') return masonry(batch, rand, solid, { merlons: solid.size[1] > 3, color: P.stone });
-    if (id.startsWith('bailey-') && id.endsWith('-wall')) return masonry(batch, rand, solid, { merlons: true, color: P.stone });
+    if (id.startsWith('bailey-') && id.endsWith('-wall')) {
+      const [cx, , cz] = solid.center;
+      const [sx, , sz] = solid.size;
+      return masonry(batch, rand, box([cx, 4.0, cz], [sx, 3.0, sz]), { merlons: true, color: P.stone });
+    }
     if (id.startsWith('castle-gate-')) return this.#gateTower(batch, rand, solid, 6.6);
     if (id.startsWith('south-gate-')) return this.#gateTower(batch, rand, solid, 5.4);
     if (id.startsWith('west-house-')) {
@@ -335,7 +340,7 @@ export class CastlewardRenderer {
     }
     let d = Infinity;
     for (const floor of CASTLEWARD.floors) {
-      if (floor.id === 'broken-bridge') continue;
+      if (floor.id === 'broken-bridge' || floor.id === 'broken-bridge-far') continue;
       const dx = Math.max(0, Math.abs(x - floor.center[0]) - floor.size[0] / 2);
       const dz = Math.max(0, Math.abs(z - floor.center[2]) - floor.size[2] / 2);
       d = Math.min(d, Math.hypot(dx, dz));
@@ -350,7 +355,7 @@ export class CastlewardRenderer {
     outerTerrain(batch, {
       minX: -95, maxX: 95, minZ: -95, maxZ: 95, cell: 2.5,
       heightAt: (x, z) => this.heightAt(x, z),
-      exclude: (x, z) => insideCastlewardFootprint(x, z, -0.7, { skip: ['broken-bridge'] }),
+      exclude: (x, z) => insideCastlewardFootprint(x, z, -0.7, { skip: ['broken-bridge', 'broken-bridge-far'] }),
       colorAt: (x, y, z) => {
         if (y < -1.5) return shadeColor(y < -9 ? P.cliffDark : P.cliff, 0.85 + (rand() - 0.5) * 0.14);
         const n = valueNoise(x * 0.3, z * 0.3, 21);

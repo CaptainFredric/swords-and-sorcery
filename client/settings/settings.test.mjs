@@ -24,6 +24,8 @@ test('values are made safe: ranges clamp and step, toggles stay booleans, choice
   assert.equal(registry.validate('display.damageNumbers', 'yes'), true);
   assert.equal(registry.validate('display.quality', 'ultra'), 'high');
   assert.equal(registry.validate('display.quality', 'low'), 'low');
+  assert.equal(registry.validate('audio.soundtrack', 'vigil'), 'vigil');
+  assert.equal(registry.validate('audio.soundtrack', 'rock-and-roll'), 'adaptive');
 });
 
 test('declarations are checked, so a mistake in a new setting fails loudly', () => {
