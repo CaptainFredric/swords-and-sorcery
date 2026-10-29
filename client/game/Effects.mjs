@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { appUrl } from '../appUrl.mjs';
 import { impactWorldPresentation, sampleTrailSegment, transientScale } from './effectTrail.mjs';
 import { puffTexture, windStreakTexture } from './softTextures.mjs';
 import {
@@ -51,6 +53,52 @@ function crescentGeometry({ radius, width, arc, segments }) {
   // the middle of the cutting edge sits on the origin, so the slash passes through the point of impact
   geometry.translate(-radius, 0, 0);
   return geometry;
+}
+
+
+// Shared authored mesh; instances are cloned into each projectile. A faceted stone keeps it visible if the asset fails.
+let coreflagrationAssetPromise = null;
+function createCoreflagrationOrb() {
+  const group = new THREE.Group();
+  const fallbackGeometry = new THREE.IcosahedronGeometry(0.31, 0);
+  const fallbackMaterial = new THREE.MeshStandardMaterial({ color: 0x342822, emissive: 0x803014, emissiveIntensity: 0.6, flatShading: true });
+  const fallback = new THREE.Mesh(fallbackGeometry, fallbackMaterial);
+  group.add(fallback);
+  let model = null;
+  let ring = null;
+  let wake = null;
+  group.userData.corePhase = 'airborne';
+  group.userData.coreProgress = 0;
+  group.userData.setCorePhase = (phase, progress) => {
+    group.userData.corePhase = phase;
+    group.userData.coreProgress = progress;
+    if (ring) ring.visible = phase === 'armed';
+    if (wake) wake.visible = phase !== 'armed';
+  };
+  group.userData.update = (t) => {
+    const armed = group.userData.corePhase === 'armed';
+    const progress = group.userData.coreProgress;
+    const object = model ?? fallback;
+    object.rotation.y = armed ? Math.sin(t * 5) * 0.07 * progress : t * 1.8;
+    object.rotation.z = armed ? Math.sin(t * 14) * 0.04 * progress : t * 1.2;
+    if (ring) ring.visible = armed;
+    if (armed) object.scale.setScalar(1 + 0.08 * progress);
+  };
+  group.userData.dispose = () => { fallbackGeometry.dispose(); fallbackMaterial.dispose(); };
+  coreflagrationAssetPromise ??= new Promise((resolve) => new GLTFLoader().load(
+    appUrl('/client/assets/props/coreflagration/coreflagration-core.glb'), (gltf) => resolve(gltf.scene),
+    undefined, () => resolve(null),
+  ));
+  coreflagrationAssetPromise.then((scene) => {
+    if (!scene || !group.parent) return;
+    model = scene.clone(true);
+    ring = model.getObjectByName('Eruption_Threat_Ring');
+    wake = model.getObjectByName('Airborne_Flame_Wake');
+    group.remove(fallback);
+    group.add(model);
+    group.userData.setCorePhase(group.userData.corePhase, group.userData.coreProgress);
+  });
+  return group;
 }
 
 export class Effects {
@@ -1203,7 +1251,7 @@ export class Effects {
 
   #createProjectile(spell = 'fireball') {
     const profile = elementalProfile(spell);
-    const group = createElementalOrb(spell);
+    const group = spell === 'coreflagration' ? createCoreflagrationOrb() : createElementalOrb(spell);
     // (its glow from the fight's few lights: none to spare, and it flies unlit)
     const light = this.lights.hold(lookFor(spell).light, 5 * profile.size);
     group.scale.setScalar(profile.size);
@@ -1323,6 +1371,13 @@ export class Effects {
       }
 
       const next = { x: p.position.x, y: p.position.y, z: p.position.z };
+      if (effect.spell === 'coreflagration') {
+        const armed = p.corePhase === 'armed';
+        const duration = (p.detonateAt ?? 0) - (p.armedAt ?? 0);
+        const progress = armed && duration > 0 ? Math.max(0, Math.min(1, (this.lastCoreflagrationSimTime ?? p.armedAt) - p.armedAt) / duration) : 0;
+        effect.group.userData.setCorePhase?.(armed ? 'armed' : 'airborne', progress);
+        if (armed) effect.lastPosition = null;
+      }
       if (effect.lastPosition) {
         const trail = sampleTrailSegment(effect.lastPosition, next, {
           spacing: effect.profile.trailSpacing / this.density,
