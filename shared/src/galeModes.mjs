@@ -7,7 +7,7 @@ export const GALE_MODES = Object.freeze(['burst', 'balanced', 'sustained']);
 const profiles = Object.freeze({
   balanced: SPELLS.gale,
   burst: Object.freeze({ ...SPELLS.gale, cone: Object.freeze({ ...SPELLS.gale.cone,
-    push: 22, lastsSec: .14, fadeSec: .08, wind: 4, drag: 6 }) }),
+    push: 25, lastsSec: .14, fadeSec: .08, wind: 4, drag: 6 }) }),
   sustained: Object.freeze({ ...SPELLS.gale, cone: Object.freeze({ ...SPELLS.gale.cone,
     push: 4.5, lastsSec: 1.25, fadeSec: .22, wind: 10, drag: 9 }),
     recoil: Object.freeze({ ...SPELLS.gale.recoil, push: 4.5, maxUp: 6 }) }),

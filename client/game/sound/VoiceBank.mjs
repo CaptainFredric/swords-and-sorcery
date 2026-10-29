@@ -1,3 +1,4 @@
+import { AudibleHistory } from './audibleHistory.mjs';
 // The Spellblade's voice. Takes are recorded by a person and shaped offline (tools/audio/knight_voice.py) into a
 // hardened battlemage with a touch of his helm; here they are loaded and one is picked (never the same twice running).
 // voiceRules.mjs decides when a line is spoken at all, and how far another knight's voice carries.
@@ -23,6 +24,7 @@ export class VoiceBank {
     this.lastTake = new Map();
     // what each knight is saying now (the handle to stop it, if a line that matters more cuts it)
     this.playing = new Map();
+    this.audibleHistory = new AudibleHistory();
     // which lines have a recording, and how many takes (from the takes' manifest; null until it is known)
     this.recorded = null;
     this.archiveAddedOn = new Map();
@@ -87,7 +89,7 @@ export class VoiceBank {
    * voiceRules.mjs: nothing is said by one out of earshot); rate is their pitch. close: it is my own knight, heard as
    * he is (dry, full level). Returns whether anything was said.
    */
-  say(line, { speaker = 'me', pan = 0, gain = 1, rate = 1, chanceScale = 1, delay = 0, close = false, reverb = VOICE_HEARING.reverb, force = false, cry = false, earned = false, opening = false, part = null } = {}) {
+  say(line, { speaker = 'me', pan = 0, gain = 1, rate = 1, chanceScale = 1, delay = 0, close = false, reverb = VOICE_HEARING.reverb, force = false, cry = false, earned = false, opening = false, part = null, source = null, chorus = null, gainScale = 1 } = {}) {
     if (!this.has(line) || !this.engine.running || !(gain > 0)) return false;
     const takes = this.takes.get(line);
     // a line said in parts: its recordings are its parts, in order (the part asked for, the first if none is)
@@ -95,11 +97,13 @@ export class VoiceBank {
     if (parts && !takes[part ?? 0]) return false;
     const index = parts ? part ?? 0 : this.#nextTake(`line:${line}`, takes.length);
     const take = takes[index];
-    const verdict = this.director.consider(line, speaker, this.engine.now, { chanceScale, force, cry, earned, opening, duration: delay + take.duration / Math.max(0.5, rate) });
+    if (!force && !cry && !earned && !opening && VOICE_LINES[line]?.kind === 'sentence') chanceScale *= this.audibleHistory.scale(line,speaker,this.engine.now,source);
+    const verdict = this.director.consider(line, speaker, this.engine.now, { chanceScale, force, cry, earned, opening, chorus, duration: delay + take.duration / Math.max(0.5, rate) });
     if (!verdict) return false;
     this.lastTake.set(`line:${line}`, index);
     // a line that matters more cuts the one it overrides (a short fade, not a click)
     for (const cut of verdict.stop) {
+      this.audibleHistory.cancel(this.playing.get(cut)?.audibleEntry,this.engine.now);
       this.playing.get(cut)?.stop?.(0.1);
       this.playing.delete(cut);
       // (what they were saying is over: its caption goes too)
@@ -109,7 +113,7 @@ export class VoiceBank {
     // (a hair of variety each time, no more: every word stays the word it was)
     const played = rate * (0.99 + Math.random() * 0.02);
     const handle = this.engine.playBuffer(take, {
-      bus: 'voice', pan: close ? 0 : pan, gain: gain * rule.gain, rate: played, delay,
+      bus: 'voice', pan: close ? 0 : pan, gain: gain * rule.gain * gainScale, rate: played, delay,
       reverb: close ? VOICE_HEARING.own : reverb,
       // (another knight: through his own helm, a little rougher than mine)
       ...(close || !this.timbre ? {} : { shape: (ctx) => this.timbre.build(ctx, speaker) }),
@@ -117,10 +121,11 @@ export class VoiceBank {
     if (handle) {
       // (what it is and how loud it was made, to move it with him: place())
       handle.line = line;
-      handle.ruleGain = rule.gain;
+      handle.ruleGain = rule.gain * gainScale;
       handle.close = close;
       handle.endsAt = this.engine.now + delay + take.duration / Math.max(0.5, played);
       this.playing.set(speaker, handle);
+      if (rule.kind === 'sentence' && !this.engine.muted && (this.engine.levels?.master ?? 1) > 0 && (this.engine.levels?.voice ?? 1) > 0) handle.audibleEntry = this.audibleHistory.note(line,speaker,this.engine.now+delay,source);
     }
     const seconds = take.duration / Math.max(0.5, played);
     // a spoken line: the music and the wind give way under it (a grunt does not need them to)
@@ -131,6 +136,31 @@ export class VoiceBank {
     // (how long it runs, for whoever times something on its end: the next part, an answer; and where its beats fall,
     // for a subtitle of its own: the menu's)
     return { seconds, delay, ...(parts ? { part: index } : {}), ...(beats ? { beats } : {}) };
+  }
+
+  resetAudibleHistory() { this.audibleHistory = new AudibleHistory(); }
+
+  varied(candidates, sourceFor) {
+    const protectedLine=say=>say.force||say.cry||say.earned||say.opening;
+    const buckets=new Map();
+    for(const [index,say] of candidates.entries()) {
+      if(protectedLine(say))continue;
+      const key=VOICE_LINES[say.line]?.priority??0;
+      const list=buckets.get(key)??[];
+      list.push({say,index,scale:this.audibleHistory.scale(say.line,say.speaker,this.engine.now,sourceFor(say.speaker))});buckets.set(key,list);
+    }
+    for(const list of buckets.values()) list.sort((a,b)=>b.scale-a.scale||a.index-b.index);
+    return candidates.map(say=>protectedLine(say)?say:buckets.get(VOICE_LINES[say.line]?.priority??0).shift().say);
+  }
+
+  sayChorus(event, speakers) {
+    if (event.line !== 'defeat' || !this.has('defeat') || !this.engine.running || speakers.length < 1) return false;
+    // The authority group can contain distant speakers: authorize the complete semantic group,
+    // then play only those this listener can actually hear.
+    if (!this.director.beginChorus(event.id,event.speakers.map(s=>s.playerId),this.engine.now)) return false;
+    let said=false;
+    for (const {playerId,delay,position,death, ...options} of speakers) said=Boolean(this.say('defeat',{...options,speaker:playerId,delay,source:position,chorus:event.id,gainScale:1/speakers.length}))||said;
+    return said;
   }
 
   /**
@@ -171,6 +201,7 @@ export class VoiceBank {
 
   /** Cut short whatever `speaker` is saying (a short fade): his case for not falling, as he rises again. */
   cut(speaker, fade = 0.06) {
+    this.audibleHistory.cancel(this.playing.get(speaker)?.audibleEntry,this.engine.now);
     this.playing.get(speaker)?.stop?.(fade);
     this.playing.delete(speaker);
     this.director.speaking?.delete?.(speaker);

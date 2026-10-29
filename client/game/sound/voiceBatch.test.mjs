@@ -448,7 +448,7 @@ test('18. spell your doom: felled at any point, the rest never said or shown, an
   assert.equal(VOICE_LINES.doomCut.priority, 3, 'a line of state: it is the fall');
   assert.match(runtime, /this\.#deathVoice\(event, \{ doomCut: saying === 'spellDoom' \}\)/);
   // the runtime cuts the scene's take before the fall's line
-  assert.match(runtime, /if \(!outlasts\) this\.voice\?\.cut\?\.\(event\.victimId, 0\.12\);\s+this\.#deathVoice/);
+  assert.match(runtime, /if \(!outlasts\) this\.voice\?\.cut\?\.\(event\.victimId, 0\.12\);[\s\S]*?if \(!event\.voicePending \|\| important\) this\.#deathVoice/);
   // its words come a letter at a time: never the whole spelling at once
   const beats = captionsFor('spellDoom');
   assert.equal(beats[0], 'I shall spell your doom.');

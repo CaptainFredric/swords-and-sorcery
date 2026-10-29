@@ -1,0 +1,58 @@
+[
+  {
+    "at": 960.173700000018,
+    "castEndsAt": 960.473700000018,
+    "playerId": "2408a4f7-c721-4360-a4b8-2b14f22d78de",
+    "spell": "coreflagration",
+    "type": "spellCast"
+  },
+  {
+    "at": 960.497300000012,
+    "projectile": {
+      "bornAt": 960.497300000012,
+      "id": "f14",
+      "ownerId": "2408a4f7-c721-4360-a4b8-2b14f22d78de",
+      "position": {
+        "x": -5.7704175803950255,
+        "y": 1.25,
+        "z": -2.3117133707030444
+      },
+      "spell": "coreflagration",
+      "velocity": {
+        "x": 10.618473967472442,
+        "y": -14.792325054366378,
+        "z": -8.272552815671522
+      }
+    },
+    "type": "projectileSpawned"
+  },
+  {
+    "at": 960.575100000024,
+    "detonateAt": 961.175100000024,
+    "ownerId": "2408a4f7-c721-4360-a4b8-2b14f22d78de",
+    "point": {
+      "x": -4.873121691441949,
+      "y": 0.05,
+      "z": -3.0107712254746346
+    },
+    "projectileId": "f14",
+    "radius": 3,
+    "type": "coreflagrationArmed",
+    "worldHit": true
+  },
+  {
+    "at": 961.190600000024,
+    "ownerId": "2408a4f7-c721-4360-a4b8-2b14f22d78de",
+    "point": {
+      "x": -4.873121691441949,
+      "y": 0.05,
+      "z": -3.0107712254746346
+    },
+    "projectileId": "f14",
+    "radius": 3,
+    "spell": "coreflagration",
+    "stage": "final",
+    "type": "projectileImpact",
+    "worldHit": true
+  }
+]

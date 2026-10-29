@@ -1,0 +1,64 @@
+{
+  "event": {
+    "at": 10.7,
+    "id": "CHORUS:1",
+    "line": "defeat",
+    "speakers": [
+      {
+        "death": {
+          "at": 10,
+          "killerId": "attacker",
+          "respawnAt": 13,
+          "source": "sword",
+          "type": "death",
+          "victimId": "a"
+        },
+        "delay": 0,
+        "playerId": "a",
+        "position": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "respawnAt": 13
+      },
+      {
+        "death": {
+          "at": 10.2,
+          "killerId": "attacker",
+          "respawnAt": 13.2,
+          "source": "sword",
+          "type": "death",
+          "victimId": "b"
+        },
+        "delay": 0.15,
+        "playerId": "b",
+        "position": {
+          "x": 4,
+          "y": 0,
+          "z": 0
+        },
+        "respawnAt": 13.2
+      }
+    ],
+    "type": "defeatChorus"
+  },
+  "overlapSeconds": 1.6287784466308404,
+  "played": true,
+  "realDeaths": 2,
+  "scoredKills": 2,
+  "starts": [
+    {
+      "active": true,
+      "at": 0.13333333333333333,
+      "duration": 2.024367007239842,
+      "gain": 0.4
+    },
+    {
+      "active": true,
+      "at": 0.2833333333333333,
+      "duration": 1.62877844663084,
+      "gain": 0.4
+    }
+  ]
+}

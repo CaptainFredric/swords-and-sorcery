@@ -1,3 +1,5 @@
+import { queueDefeatVoice, stepDefeatVoices } from './defeatChorus.mjs';
+import { galeDose } from '../src/galeDamage.mjs';
 import { galeProfile, galeLift, sustainGaleRecoil } from '../src/galeModes.mjs';
 import { structureWorld, damageStructureSolid } from './structures.mjs';
 import {stepSoFistication,dismountSoFistication,soFistOperator,damageSoFistication,blastSoFistication} from './soFistication.mjs';
@@ -978,6 +980,7 @@ function landStrike(room, attacker, strikeIndex, target, atSec, nowSec, met = nu
 export function interruptHitActions(room, target, attackerId, nowSec, source = 'sunder') {
   if (!target.alive) return;
   const what = [];
+  if (stopSustainedGale(room,target,nowSec)) what.push('spell');
   if (target.guarding) { target.guarding = false; what.push('guard'); }
   if (target.pendingSpell) {
     target.pendingSpell = null;
@@ -1027,6 +1030,7 @@ export function breakGuard(target, seconds, nowSec) {
 }
 
 function interruptOrdinaryActions(room, player, nowSec) {
+  stopSustainedGale(room,player,nowSec);
   player.guarding = false;
   player.pendingSpell = null;
   player.castEndsAt = 0;
@@ -1080,7 +1084,7 @@ function guardChallengeContact(room, defender, attacker, nowSec) {
 
 export function applyDamage(room, attackerId, victimId, amount, source, nowSec, knockback = null, {
   steel = 0, turned = 0, clean = false, level = DAMAGE_LEVELS.normal, ultimate = false, rawDamage = amount, contactFacts = null,
-  minDamage = null, skipSteel = false,
+  minDamage = null, skipSteel = false, ongoing = false,
 } = {}) {
   if (attackerId && areAllies(room, attackerId, victimId)) return false;
   const victim = room.players.get(victimId);
@@ -1112,7 +1116,7 @@ export function applyDamage(room, attackerId, victimId, amount, source, nowSec, 
   if (room.localTutorial && room.tutorialRival?.id === victimId && room.tutorialRival.protected) victim.health = Math.max(1, victim.health);
   victim.lastDamageAt = nowSec;
   victim.lastAttackerId = attackerId;
-  prowessForDamage(room, room.players.get(attackerId), victim, taken, { ultimate });
+  if (!ongoing) prowessForDamage(room, room.players.get(attackerId), victim, taken, { ultimate });
   if (knockback) {
     const scale = staggerShove(victim.stagger);
     shoveBody(victim, { x: knockback.x * scale, y: knockback.y, z: knockback.z * scale });
@@ -1123,6 +1127,7 @@ export function applyDamage(room, attackerId, victimId, amount, source, nowSec, 
     }
   }
   const event = { type: 'damage', attackerId, victimId, source, amount: finalAmount, health: victim.health, push: knockback ?? null, at: nowSec };
+  if (ongoing) event.ongoing = true;
   if (finalSteel > 0.005) {
     if (source !== 'burn') event.steel = finalSteel;
     event.turned = Math.max(0, Math.round(finalTurned));
@@ -1165,6 +1170,7 @@ export function killPlayer(room, victimId, attackerId, source, nowSec) {
   }
   victim.guarding = false;
   victim.steel = null;
+  stopSustainedGale(room,victim,nowSec);
   victim.gust = null;
   victim.pendingSpell = null;
   victim.castEndsAt = 0;
@@ -1206,7 +1212,10 @@ export function killPlayer(room, victimId, attackerId, source, nowSec) {
   }
   // (decisive: the fall lost the match, which that kill has just won)
   const decisive = playing && room.state === 'FINISHED' && Boolean(credited) && credited !== victimId && room.winnerId === credited;
-  room.events.push({ type: 'death', victimId, killerId: credited, source, ...(decisive ? { decisive: true } : {}), ...(steeled ? { steeled: true } : {}), ...(spun ? { dizzy: true } : {}), respawnAt: victim.respawnAt, at: nowSec });
+  const death = { type: 'death', victimId, killerId: credited, source, ...(decisive ? { decisive: true } : {}), ...(steeled ? { steeled: true } : {}), ...(spun ? { dizzy: true } : {}), respawnAt: victim.respawnAt, at: nowSec };
+  const vortex = spun || Boolean(room.players.get(credited) && vortexing(room.players.get(credited), nowSec)) || ['ember','vortexFire','vortexBlaze'].includes(source);
+  const voicePending = playing && queueDefeatVoice(room, death, victim.position, {vortex});
+  room.events.push({...death, ...(voicePending ? {voicePending:true} : {})});
   return true;
 }
 
@@ -1243,6 +1252,13 @@ function spawnSpell(room, player, nowSec, world) {
 // little); a raised guard facing it keeps most of its footing but pays for it like a blow; hardened steel turns the
 // sting, not the shove; walls stop it. A spell flying through it is bent off its line. Driven into the ground close by,
 // the gust throws its caster back off it (once, as it leaves the hand).
+function stopSustainedGale(room,player,nowSec) {
+  if(player.gust?.mode!=='sustained') return false;
+  player.gust=null;
+  room.events.push({type:'galeEnded',playerId:player.id,at:nowSec});
+  return true;
+}
+
 function releaseGale(room, player, spell, nowSec, world) {
   const mode = player.pendingSpell?.galeMode ?? 'balanced';
   spell = galeProfile(mode);
@@ -1292,7 +1308,8 @@ function blowGale(room, player, nowSec, world, dt = 0) {
   const spell = galeProfile(gust.mode);
   const strength = galeStrength(spell, nowSec - gust.bornAt);
   const affected = [];
-  if (strength <= 0) return affected;
+  const doseWindow = gust.mode === 'sustained' && dt > 0 && nowSec - dt < gust.until && nowSec > gust.bornAt;
+  if (strength <= 0 && !doseWindow) return affected;
   const { direction, eye } = galeAim(player);
   const origin = galeOrigin(eye, direction);
   if (gust.mode === 'sustained') sustainGaleRecoil(spell, player, direction, world, dt, strength);
@@ -1303,7 +1320,7 @@ function blowGale(room, player, nowSec, world, dt = 0) {
     const pressure = caught.pressure * strength;
     const blown = galeWindOnBody(spell, origin, direction, target.position, postureOf(target).crown);
     const wind = blown.wind * strength;
-    if (pressure <= 0.01 && wind <= 0.01) continue;
+    if (pressure <= 0.01 && wind <= 0.01 && !(doseWindow && caught.exposure > 0)) continue;
     const guarded = target.guarding && isInGuardCone(target, player, nowSec);
     // the wind carries them on for as long as they stand in it (and a fall it carries them into is its doing)
     if (dt > 0 && wind > 0.01 && !sheltered(blown.point)) {
@@ -1314,6 +1331,17 @@ function blowGale(room, player, nowSec, world, dt = 0) {
       target.lastKnockbackSource = 'gale'; target.lastKnockbackBy = player.id;
     }
     const at = caught.point;
+    if (doseWindow && !sheltered(at)) {
+      const steel = steelStrength(target.steel, nowSec);
+      const dose = galeDose(gust, target.id, nowSec, dt, caught.exposure, {guarded, steel});
+      if (dose.amount > 0) {
+        if (steel > .005) target.steel = steelTakes(target.steel, nowSec);
+        applyDamage(room, player.id, target.id, dose.amount, spell.id, nowSec, null, {
+          steel, skipSteel: true, ongoing: true, ultimate: Boolean(gust.ultimate), rawDamage: dose.rawDamage,
+        });
+      }
+      if (!target.alive) continue;
+    }
     if (pressure <= 0.01 || sheltered(at) || gust.caught.includes(target.id)) continue;
     gust.caught.push(target.id);
     let shove = galeShove(spell, origin, direction, at, pressure);
@@ -1336,7 +1364,7 @@ function blowGale(room, player, nowSec, world, dt = 0) {
     if (!gust.ultimate && !guarded && pressure >= 0.5) gainProwess(room, player, PROWESS.displaced);
     // its heart stings a little (steel turns that aside, never the shove)
     const exposure = guarded ? 0 : caught.exposure * strength;
-    const rawDamage = Math.round(spell.cone.damage * exposure);
+    const rawDamage = gust.mode === 'sustained' ? 0 : Math.round(spell.cone.damage * exposure);
     const armour = steelBlunt(target.steel, rawDamage, nowSec);
     if (rawDamage > armour.amount) target.steel = steelTakes(target.steel, nowSec);
     const damage = armour.amount;
@@ -1355,6 +1383,7 @@ function blowGale(room, player, nowSec, world, dt = 0) {
     }
     affected.push({ id: target.id, pressure, guarded, shove });
   }
+  if (strength <= 0) return affected;
   // spells in flight through it: each bent once, as it flies in, by as much as the gust would meet it with on its
   // course (galeBend), the bend given over a moment so it curves rather than kinks; whose spell it is does not change
   gust.bent ??= {};
@@ -1987,6 +2016,7 @@ function respawnPlayer(room, player, nowSec, world) {
 
 export function stepRoom(room, dt, nowSec, world = room.world) {
   if (!world) throw new Error(`Room ${room.code ?? 'unknown'} has no world`);
+  stepDefeatVoices(room, nowSec);
   room.tick(nowSec);
   if (room.state !== 'PLAYING') return room.events;
 
@@ -2018,11 +2048,12 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
     if (player.pendingSpell && spellFor(player.pendingSpell.spell).kind === 'cone' && nowSec >= player.castEndsAt) spawnSpell(room, player, nowSec, world);
     // a gust still blowing catches whoever it reaches now
     if (player.gust) {
-      if (nowSec > player.gust.until) player.gust = null;
-      else if (nowSec > player.gust.bornAt) {
+      const gust = player.gust;
+      if (nowSec > gust.bornAt && (nowSec <= gust.until || gust.mode === 'sustained' && nowSec - dt < gust.until)) {
         const affected = blowGale(room, player, nowSec, world, dt);
-        if (affected.length) room.events.push({ type: 'galeCatch', playerId: player.id, spell: player.gust.spell, affected, at: nowSec });
+        if (affected.length) room.events.push({ type: 'galeCatch', playerId: player.id, spell: gust.spell, affected, at: nowSec });
       }
+      if (nowSec >= gust.until) player.gust = null;
     }
     stepAfflictions(room, player, nowSec);
     if (!player.alive) continue;

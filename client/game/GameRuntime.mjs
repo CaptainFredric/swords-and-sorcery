@@ -689,6 +689,7 @@ export class GameRuntime {
   }
 
   onSnapshot(snapshot) {
+    if (snapshot.roomCode!==this.latestSnapshot?.roomCode || snapshot.worldId!==this.latestSnapshot?.worldId) this.voice?.resetAudibleHistory?.();
     if(snapshot.roomCode===this.latestSnapshot?.roomCode&&(snapshot.bibyeRevision??0)<(this.latestSnapshot?.bibyeRevision??0))return;
     if (!this.#ensureWorld(snapshot.worldId)) return;
     if (snapshot.tutorial && snapshot.worldId === 'greener-pastures') {
@@ -880,6 +881,11 @@ export class GameRuntime {
       // his Frostfire leaving a living foe properly chilled
       if (event.type === 'chilled' && event.by && event.by !== event.playerId && event.slow >= MOMENTS.chill.slow) this.#sayMoment(event.by, ['frostChill']);
 
+      if (event.type === 'galeEnded' || event.type === 'death') {
+        const owner=event.playerId??event.victimId;
+        for(const entry of this.gustViews??[]) if(entry.ownerId===owner) entry.view.cancel?.();
+        if(owner===me)this.localGaleWind=null;
+      }
       if (event.type === 'galeBlast') this.#galeBlast(event);
       if (event.type === 'galeCatch') this.#galeCaught(event);
       if (event.type === 'gauntletStrike') this.#gauntletStrike(event);
@@ -898,7 +904,7 @@ export class GameRuntime {
         (this.healthAfterBlow ??= new Map()).set(event.victimId, event.health);
         this.scenes.damage(event);
         this.watch.damage(event);
-        this.#sayMoments(this.moments.damage(event, this.#voiceWorld()), event.at);
+        if (!event.ongoing) this.#sayMoments(this.moments.damage(event, this.#voiceWorld()), event.at);
       }
       // a sword denied by the same foe again and again (their guard, their parry, or simply not being there)
       if ((event.type === 'block' && !event.vortex) || event.type === 'parry') this.#sayMoments(this.moments.denied(event.attackerId, event.defenderId, event.at), event.at);
@@ -1059,7 +1065,8 @@ export class GameRuntime {
         const spell = spellFor(event.spell);
         // the ground under it, for the wave and the mark the blast leaves
         const ground = this.activeWorld ? surfaceHeightAt(event.point.x, event.point.z, event.point.y, this.activeWorld) : null;
-        this.effects.impact(event.point, { spell: spell.id, radius: event.radius ?? spell.radius, ground });
+        if (spell.id === 'coreflagration' && event.stage === 'final') this.effects.coreEruption(event.point,event.radius??spell.radius,ground);
+        else this.effects.impact(event.point, { spell: spell.id, radius: event.radius ?? spell.radius, ground });
         this.#play(spell.conjured ? emberImpactRecipe(Math.random, { size: spell.size }) : spell.chill ? frostImpactRecipe() : fireballImpactRecipe(), event.point, spell.conjured ? 0.6 + 0.4 * (spell.size ?? 0.5) : 1);
       }
       if (event.type === 'damage' && event.source === 'burn') this.#play(burnLickRecipe(), event.victimId === me ? null : this.#bodyPosition(event.victimId), 0.7);
@@ -1079,7 +1086,7 @@ export class GameRuntime {
           }
         }
         // (a ram knocks me through my own view itself, harder: #steelRam)
-        if (event.victimId === this.playerId && event.source !== 'abyss' && event.source !== 'ram' && event.source !== 'bibye-conditioning' && event.amount > 0) {
+        if (!event.ongoing && event.victimId === this.playerId && event.source !== 'abyss' && event.source !== 'ram' && event.source !== 'bibye-conditioning' && event.amount > 0) {
           this.weapon.damage(this.#pushTowardMe(event.attackerId), event.amount);
         }
         // a blow that kills gets the death cry instead
@@ -1092,7 +1099,7 @@ export class GameRuntime {
         if (event.clean && event.source !== 'burn') this.#precise(event);
         // a blow on hardened plate clangs and sparks instead (#steelStruck); otherwise, mine flashes the view red
         // (a ram on hardened plate rings in its own sound: #steelRam)
-        const plated = event.source === 'ram' ? (event.steel ?? 0) >= 0.02 : this.#steelStruck(event);
+        const plated = event.ongoing ? (event.steel??0)>.005 : event.source === 'ram' ? (event.steel ?? 0) >= 0.02 : this.#steelStruck(event);
         if (event.victimId === this.playerId && this.view.damageFlash && !plated && event.amount > 0 && event.source !== 'abyss') {
           // (the side it came from: the push runs away from whoever struck)
           const push = this.#pushTowardMe(event.attackerId);
@@ -1109,8 +1116,23 @@ export class GameRuntime {
         const saying = this.voice?.director?.saying?.(event.victimId, this.voice.engine.now) ?? null;
         const outlasts = saying && voiceLine(saying)?.outlasts === event.source;
         if (!outlasts) this.voice?.cut?.(event.victimId, 0.12);
-        this.#deathVoice(event, { doomCut: saying === 'spellDoom' });
+        const important = outlasts || saying === 'spellDoom';
+        (this.deathVoiceFacts??=new Map()).set(event.victimId,{at:event.at,doomCut:saying==='spellDoom',handled:important});
+        if (!event.voicePending || important) this.#deathVoice(event, { doomCut: saying === 'spellDoom' });
       }
+      if (event.type === 'defeatVoice') this.#readyDefeatVoice(event);
+      if (event.type === 'defeatChorus' && this.voice && !this.latestSnapshot?.tutorial) {
+        const eligible = event.speakers.filter(s=>!this.deathVoiceFacts?.get(s.playerId)?.handled);
+        const speakers = eligible.flatMap(s => {
+          const p = this.latestSnapshot?.players.find(p=>p.id===s.playerId);
+          if (!p || p.alive || p.respawnAt !== s.respawnAt) return [];
+          if (s.playerId===me) return [{...s,close:true,gain:.8}];
+          const place=voicePlacement(this.localState?.position??this.localAuth?.position,this.input.yaw,s.position,hearingFor('defeat'));
+          return place ? [{...s,...place,gain:place.gain*.9,rate:voiceRate(s.playerId)}] : [];
+        });
+        if (!this.voice.sayChorus({...event,speakers:eligible},speakers)) for(const speaker of speakers) if(speaker.death) this.#readyDefeatVoice(speaker.death);
+      }
+      if (event.type === 'respawn' && this.voice?.director?.speaking.get(event.playerId)?.chorus) this.voice.cut(event.playerId);
       if (event.type === 'respawn' && event.playerId === this.playerId) this.hud.flashText('FIGHT!', 'ready');
       // a life begun again (the wildcard is once a life); a new match forgets everything
       if (event.type === 'respawn') this.voice?.director?.newLife?.(event.playerId);
@@ -1284,7 +1306,7 @@ export class GameRuntime {
   }
 
   #speak(line, playerId, { chanceScale, delay, force, cry, earned, opening, part }) {
-    if (playerId === this.playerId) return this.voice.say(line, { speaker: playerId, gain: 0.8, chanceScale, delay, close: true, force, cry, earned, opening, part });
+    if (playerId === this.playerId) return this.voice.say(line, { speaker: playerId, source: this.#bodyPosition(playerId), gain: 0.8, chanceScale, delay, close: true, force, cry, earned, opening, part });
     const body = this.#bodyPosition(playerId);
     const snapshotPlayer = this.latestSnapshot?.players.find((p) => p.id === playerId);
     if (!body || snapshotPlayer?.actorKind === 'dummy') return false;
@@ -1292,7 +1314,7 @@ export class GameRuntime {
     // only within earshot: his words carry across a duel, his breath only to those around him (voiceRules hearingFor)
     const place = voicePlacement(listener, this.input.yaw, body, hearingFor(line));
     if (!place) return false;
-    return this.voice.say(line, { speaker: playerId, pan: place.pan, gain: place.gain * 0.9, reverb: place.reverb, rate: voiceRate(playerId), chanceScale, delay, force, cry, earned, opening, part });
+    return this.voice.say(line, { speaker: playerId, source: this.#bodyPosition(playerId), pan: place.pan, gain: place.gain * 0.9, reverb: place.reverb, rate: voiceRate(playerId), chanceScale, delay, force, cry, earned, opening, part });
   }
 
   // another knight's line follows him while he says it (a charge begun a dozen metres off arrives with him)
@@ -1667,6 +1689,12 @@ export class GameRuntime {
 
   // the fallen may protest (magic they do not believe in, or that they are a knight); if they keep quiet, whoever
   // felled them may have a word over the body
+  #readyDefeatVoice(event) {
+    const facts=this.deathVoiceFacts?.get(event.victimId);
+    if (facts?.at===event.at && facts.handled) return;
+    this.#deathVoice(event,{doomCut:Boolean(facts?.at===event.at&&facts.doomCut)});
+  }
+
   #deathVoice(event, { doomCut = false } = {}) {
     const blow = this.killingBlow?.get(event.victimId) ?? null;
     this.killingBlow?.delete(event.victimId);
@@ -1703,7 +1731,7 @@ export class GameRuntime {
     const candidateFallen = wasMarked
       ? this.teamVoiceEvents.biasDefeatCandidates(fallen)
       : fallen;
-    const spoken = candidateFallen.find((say) => this.#say(say.line, say.speaker, say));
+    const spoken = (this.voice?.varied?.(candidateFallen,id=>this.#bodyPosition(id))??candidateFallen).find((say) => this.#say(say.line, say.speaker, say));
     const spoke = Boolean(spoken);
     // (a nap announced: "It was brief." waits for his return from this fall)
     if (spoken?.opens === 'nap') this.scenes.napTaken(victimId, at, event.respawnAt);
@@ -1878,7 +1906,7 @@ export class GameRuntime {
   #sayMoments(groups, at) {
     let anySaid = false;
     for (const group of groups) {
-      for (const say of group) {
+      for (const say of this.voice?.varied?.(group, id=>this.#bodyPosition(id)) ?? group) {
         const said = this.#say(say.line, say.speaker, say);
         if (!said) continue;
         anySaid = true;

@@ -1,0 +1,24 @@
+<!doctype html><meta charset="utf-8"><title>Castleward recorded chorus check</title>
+<style>body{background:#231f19;color:#ead7ab;font:18px Georgia;margin:40px;max-width:850px}button{padding:15px;background:#ac8746;color:#181811;border:1px solid #dfc38b;font:inherit}pre{white-space:pre-wrap}audio{width:100%}</style>
+<h1>Recorded knighthood protest</h1><p>Two authentic simulation defeats, one selected authority event, the existing human recording through VoiceBank and SoundEngine.</p><button id="play">PLAY RECORDED CHORUS</button><pre id="report">Ready.</pre><audio id="recording" controls></audio>
+<script type="module">
+import {SoundEngine} from './SoundEngine.mjs';import {VoiceBank} from './VoiceBank.mjs';
+import {Room} from '/shared/sim/Room.mjs';import {applyDamage} from '/shared/sim/combat.mjs';import {stepDefeatVoices} from '/shared/sim/defeatChorus.mjs';
+const engine=new SoundEngine({listen:false});
+document.querySelector('#play').onclick=async()=>{
+ engine.unlock();await engine.ctx.resume();
+ const manifest=await(await fetch('/client/assets/voice/manifest.json')).json();const takes=[];
+ for(const take of manifest.lines.defeat){const response=await fetch('/client/assets/voice/'+take.file+'.m4a');takes.push(await engine.ctx.decodeAudioData(await response.arrayBuffer()));}
+ const starts=[];const adapter={get running(){return engine.running},get now(){return engine.now},onReady(){},duck:engine.duck.bind(engine),playBuffer(buffer,opts){const h=engine.playBuffer(buffer,opts);starts.push({at:engine.now+opts.delay,duration:buffer.duration/opts.rate,gain:opts.gain,active:Boolean(h?.source)});return h;}};
+ const bank=new VoiceBank(adapter);bank.takes.set('defeat',takes);
+ const room=new Room('CHORUS',{mode:'FFA',worldId:'castleward'});for(const id of ['attacker','a','b'])room.addPlayer({id,token:id,name:id},0);room.startMatch(1);for(const p of room.players.values())p.spawnProtectionUntil=0;
+ Object.assign(room.players.get('a').position,{x:0,y:0,z:0});Object.assign(room.players.get('b').position,{x:4,y:0,z:0});
+ applyDamage(room,'attacker','a',100,'sword',10);applyDamage(room,'attacker','b',100,'sword',10.2);stepDefeatVoices(room,10.7,()=>.01);
+ const event=room.events.find(e=>e.type==='defeatChorus');
+ const capture=engine.ctx.createMediaStreamDestination();engine.compressor.connect(capture);const recorder=new MediaRecorder(capture.stream),chunks=[];recorder.ondataavailable=e=>chunks.push(e.data);recorder.start();
+ const played=bank.sayChorus(event,event.speakers.map((s,i)=>({...s,gain:.8,pan:i? .35:-.35,rate:i?1.03:.97})));
+ const overlap=starts.length===2?Math.min(...starts.map(s=>s.at+s.duration))-Math.max(...starts.map(s=>s.at)):0;
+ const facts={played,realDeaths:room.events.filter(e=>e.type==='death').length,scoredKills:room.players.get('attacker').kills,event,starts,overlapSeconds:overlap};document.querySelector('#report').textContent=JSON.stringify(facts,null,2);window.chorusCheck=facts;
+ recorder.onstop=()=>{const reader=new FileReader();reader.onload=()=>{window.chorusAudio=reader.result;document.querySelector('#recording').src=reader.result;};reader.readAsDataURL(new Blob(chunks,{type:recorder.mimeType}));engine.compressor.disconnect(capture);};setTimeout(()=>recorder.stop(),(Math.max(...starts.map(s=>s.duration))+.5)*1000);
+};
+</script>

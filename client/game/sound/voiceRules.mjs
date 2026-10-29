@@ -341,6 +341,15 @@ export class VoiceDirector {
     // line -> { tried, said }: how often each line has been asked for and how often said (for telling why a line is
     // never heard: voiceReport)
     this.stats = new Map();
+    this.choruses = new Map();
+  }
+
+  beginChorus(id, speakers, now) {
+    for (const [key, group] of this.choruses) if (now > group.until) this.choruses.delete(key);
+    if (!id || this.choruses.has(id) || new Set(speakers).size < 2) return false;
+    if (this.sentence && now < this.sentence.until && this.sentence.priority >= STATE && !speakers.includes(this.sentence.speaker)) return false;
+    this.choruses.set(id, {speakers:new Set(speakers), until:now+10});
+    return true;
   }
 
   /**
@@ -351,7 +360,9 @@ export class VoiceDirector {
    * ultimate's cry (a cry's moment: voiceLines.mjs), whatever line it is: forced, at the rank of state, cutting a lesser line. Voice is
    * presentation only: nothing in the game waits on a line, and nothing here waits on anything.
    */
-  consider(line, speaker, now, { chanceScale = 1, duration = MOUTH_BUSY_SEC, force = false, cry = false, earned = false, opening = false } = {}) {
+  consider(line, speaker, now, { chanceScale = 1, duration = MOUTH_BUSY_SEC, force = false, cry = false, earned = false, opening = false, chorus = null } = {}) {
+    const coordinated = line === 'defeat' && this.choruses.get(chorus)?.speakers.has(speaker) && now < this.choruses.get(chorus).until;
+    if (coordinated) force = true;
     const base = VOICE_LINES[line];
     if (!base) return null;
     const stat = this.stats.get(line) ?? { tried: 0, said: 0 };
@@ -375,17 +386,17 @@ export class VoiceDirector {
     const followsOn = earned && ownBusy && own.line === line;
     // (and a scene's part takes the voice from his own ultimate's cry: what has been earned outranks what is announced)
     const overCry = part && ownBusy && own.cry;
-    if (ownBusy && priority <= own.priority && !followsOn && !overCry) return null;
+    if (ownBusy && priority <= own.priority && !followsOn && !overCry && !coordinated) return null;
     if (!rule.interrupts && now - (this.lastSpoke.get(speaker) ?? -Infinity) < MOUTH_BUSY_SEC && !(ownBusy && priority > own.priority)) return null;
     const sentence = rule.kind === 'sentence';
     // one sentence heard at a time: another knight's is let finish, unless this one matters more
     const other = sentence && this.sentence && now < this.sentence.until && this.sentence.speaker !== speaker ? this.sentence : null;
-    if (other && priority <= other.priority) return null;
+    if (other && priority <= other.priority && !(coordinated && other.chorus === chorus)) return null;
     if (!force && sentence && !rule.interrupts && now - (this.lastSentence.get(speaker) ?? -Infinity) < SENTENCE_GAP) return null;
     if (!force && this.rand() >= rule.chance * chanceScale) return null;
     const stop = [];
     if (ownBusy) stop.push(speaker);
-    if (other) {
+    if (other && !(coordinated && other.chorus === chorus)) {
       stop.push(other.speaker);
       this.speaking.delete(other.speaker);
     }
@@ -395,10 +406,11 @@ export class VoiceDirector {
     this.readyAt.set(key, now + (most > least ? least + (most - least) * this.rand() : least));
     if (rule.perLife) this.thisLife.set(key, (this.thisLife.get(key) ?? 0) + 1);
     this.lastSpoke.set(speaker, now);
-    const entry = { speaker, line, priority, until: now + Math.max(0, duration), ...(cry ? { cry: true } : {}) };
+    const entry = { speaker, line, priority, until: now + Math.max(0, duration), ...(cry ? { cry: true } : {}), ...(coordinated ? {chorus} : {}) };
     this.speaking.set(speaker, entry);
     if (sentence) {
       this.lastSentence.set(speaker, now);
+      if (coordinated && this.sentence?.chorus === chorus) entry.until = Math.max(entry.until, this.sentence.until);
       this.sentence = entry;
     }
     return { stop };
