@@ -114,7 +114,7 @@ export const SPELLS = Object.freeze({
     // The native combat simulation resolves these separately; Fireball's exposure falloff does not apply.
     directDamage: 20,
     edgeDamage: 20,
-    core: Object.freeze({ initialDamage: 5, fuseSec: 0.9, parryRegenPauseSec: 1.5, parryKnockSpeed: 6.5, parryKnockUp: 2.8, parryKnockSec: 0.28 }),
+    core: Object.freeze({ initialDamage: 5, fuseSec: 0.9, parryRegenPauseSec: 1.5, parryKnockSpeed: 13, parryKnockUp: 2.8, parryKnockSec: 0.28 }),
     burn: Object.freeze({ damage: 6, seconds: 3, licks: 6, reach: 1 }),
   }),
 });
