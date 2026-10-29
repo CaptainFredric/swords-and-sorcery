@@ -434,15 +434,73 @@ body.took-steel::after{content:"";position:fixed;inset:0;z-index:50;pointer-even
 
 /* Inspection has one simulation and separately selectable actor/camera views. */
 .inspection-camera-ui { position:absolute; inset:0; z-index:15; pointer-events:none; }
-.inspection-camera-tools { position:absolute; right:10px; top:10px; width:min(330px,calc(100% - 20px)); padding:8px; border:1px solid #b29459; background:rgba(31,25,20,.94); color:#eadcb6; pointer-events:auto; font-size:11px; }
-.inspection-camera-tools summary { cursor:pointer; min-height:28px; font-weight:800; letter-spacing:.06em; }
-.inspection-camera-tools summary span { display:inline-block; color:#a9d6db; margin-left:8px; font-size:10px; }
-.inspection-camera-tools p { margin:9px 0 6px; line-height:1.4; }
-.inspection-camera-tools small { color:#b8ab94; font-size:10px; line-height:1.35; }
-.inspection-camera-buttons { display:grid; grid-template-columns:1fr 1fr; gap:5px; }
-.inspection-camera-buttons button,.inspection-view-label { min-height:36px; padding:6px; background:#2a2922; border:1px solid #7e704d; color:#eadcb6; font-size:10px; cursor:pointer; }
-.inspection-camera-ui button[aria-pressed=true] { background:#554329; border-color:#e2bf70; }
-.inspection-camera-ui button:disabled { opacity:.4; cursor:default; }
+.inspection-camera-tools { position:absolute; right:10px; top:10px; width:min(340px,calc(100% - 20px)); max-height:calc(100vh - 20px); overflow-y:auto; padding:8px; border:1px solid #b29459; background:rgba(28,23,18,.96); color:#eadcb6; pointer-events:auto; font-size:11px; box-shadow:0 4px 16px rgba(0,0,0,.6); box-sizing:border-box; }
+.inspection-camera-tools summary { cursor:pointer; min-height:26px; font-weight:800; letter-spacing:.06em; color:#dfc285; user-select:none; }
+.inspection-camera-tools summary span { display:inline-block; color:#a9d6db; margin-left:8px; font-size:10px; font-weight:normal; }
+.inspection-camera-tools p { margin:8px 0 4px; line-height:1.4; color:#ded5bf; }
+.inspection-camera-tools small { color:#b8ab94; font-size:10px; line-height:1.35; display:block; margin-top:4px; }
+
+.inspection-authoritative-readout { margin:6px 0; padding:4px 8px; background:rgba(15,12,10,.85); border:1px solid rgba(178,148,89,.4); border-radius:3px; font-family:monospace,Georgia,serif; font-size:11px; font-weight:bold; color:#78d4c8; text-align:center; letter-spacing:.05em; }
+.inspection-authoritative-readout.frozen { color:#efc07d; border-color:rgba(239,192,125,.6); }
+
+.inspection-section-label { font-size:9.5px; font-weight:800; letter-spacing:.09em; color:#b29459; margin:8px 0 4px; border-bottom:1px solid rgba(178,148,89,.25); padding-bottom:2px; }
+
+.inspection-camera-buttons { display:grid; grid-template-columns:1fr 1fr; gap:4px; margin:3px 0; }
+.inspection-camera-buttons button, .inspection-view-label, .inspection-btn-group button { min-height:28px; padding:4px 6px; background:#2a2922; border:1px solid #7e704d; color:#eadcb6; font-size:10px; cursor:pointer; font-family:inherit; transition:background .15s, border-color .15s; }
+.inspection-camera-buttons button:hover, .inspection-btn-group button:hover { background:#38362b; border-color:#d5b56e; }
+.inspection-camera-ui button[aria-pressed=true] { background:#554329 !important; border-color:#e2bf70 !important; color:#fff !important; font-weight:bold; }
+.inspection-camera-ui button:disabled { opacity:.35; cursor:default; pointer-events:none; }
+
+.inspection-btn-highlight { background:#422218 !important; border-color:#d46a48 !important; color:#ffdfd2 !important; font-weight:bold; }
+.inspection-btn-action { background:#302919 !important; border-color:#c89f55 !important; font-weight:bold; }
+.inspection-btn-sequence { grid-column:1 / -1; background:#213324 !important; border-color:#539d61 !important; color:#d2f3d7 !important; font-weight:bold; }
+.inspection-btn-sequence.recording { background:#5a1919 !important; border-color:#ff5555 !important; color:#fff !important; animation:inspection-pulse 1s infinite alternate; }
+@keyframes inspection-pulse { from { opacity:1; } to { opacity:.75; } }
+
+.inspection-control-row { display:flex; align-items:center; justify-content:space-between; gap:6px; margin:4px 0; }
+.inspection-row-title { font-size:10px; font-weight:bold; color:#eadcb6; min-width:54px; }
+.inspection-btn-group { display:flex; gap:3px; flex:1; justify-content:flex-end; }
+.inspection-fov-group { align-items:center; }
+.inspection-val-display { display:inline-block; min-width:32px; text-align:center; font-family:monospace; font-size:11px; font-weight:bold; color:#a9d6db; }
+
+.inspection-bookmark-list { display:flex; flex-direction:column; gap:3px; margin:4px 0; }
+.inspection-bookmark-row { display:flex; align-items:center; gap:6px; padding:2px 4px; background:rgba(20,18,14,.6); border:1px solid rgba(126,112,77,.3); border-radius:2px; }
+.inspection-bookmark-row.has-bookmark { border-color:rgba(226,191,112,.6); background:rgba(35,28,18,.6); }
+.inspection-bookmark-check { display:flex; align-items:center; gap:4px; font-size:10px; color:#eadcb6; cursor:pointer; flex:1; }
+.inspection-bookmark-row button { min-height:24px; padding:2px 8px; font-size:9.5px; }
+
+.inspection-sequence-box { background:rgba(18,15,12,.75); border:1px solid rgba(126,112,77,.4); padding:6px; margin:4px 0; border-radius:3px; }
+.inspection-sequence-progress { font-size:10px; color:#e2bf70; margin-top:4px; text-align:center; font-weight:bold; font-family:monospace; }
+.inspection-select { background:#2a2922; border:1px solid #7e704d; color:#eadcb6; font-size:10px; padding:3px 6px; border-radius:2px; font-family:inherit; }
+
+.inspection-restore-pill { position:fixed; top:12px; left:12px; z-index:9999; padding:6px 14px; background:rgba(28,23,18,.88); border:1px solid #b29459; color:#eadcb6; font-size:11px; font-weight:800; letter-spacing:.06em; border-radius:14px; cursor:pointer; pointer-events:auto; display:none; box-shadow:0 2px 8px rgba(0,0,0,.6); transition:background .15s, opacity .15s; }
+.inspection-restore-pill:hover, .inspection-restore-pill:focus-visible { background:rgba(45,36,26,.98); border-color:#e2bf70; color:#fff; }
+
+.inspection-grid { position:fixed; inset:0; pointer-events:none; z-index:10; }
+.inspection-grid.hidden { display:none; }
+.inspection-grid-line { position:absolute; pointer-events:none; }
+.inspection-grid-line.v1 { top:0; bottom:0; left:33.333%; width:1px; background:rgba(255,255,255,.2); box-shadow:0 0 1px rgba(0,0,0,.6); }
+.inspection-grid-line.v2 { top:0; bottom:0; left:66.667%; width:1px; background:rgba(255,255,255,.2); box-shadow:0 0 1px rgba(0,0,0,.6); }
+.inspection-grid-line.h1 { left:0; right:0; top:33.333%; height:1px; background:rgba(255,255,255,.2); box-shadow:0 0 1px rgba(0,0,0,.6); }
+.inspection-grid-line.h2 { left:0; right:0; top:66.667%; height:1px; background:rgba(255,255,255,.2); box-shadow:0 0 1px rgba(0,0,0,.6); }
+
+/* UI Presentation States: Clean and Gameplay HUD */
+body.inspection-ui-clean .inspection-camera-ui,
+body.inspection-ui-clean .practice-tools,
+body.inspection-ui-clean #hud,
+body.inspection-ui-clean .hud,
+body.inspection-ui-clean .touch-controls,
+body.inspection-ui-clean #pointer-hint,
+body.inspection-ui-clean .crosshair,
+body.inspection-ui-clean .inspection-view-labels,
+body.inspection-ui-clean .inspection-grid { display:none !important; }
+body.inspection-ui-clean .inspection-restore-pill { display:block !important; }
+
+body.inspection-ui-gameplay .inspection-camera-ui,
+body.inspection-ui-gameplay .practice-tools,
+body.inspection-ui-gameplay .inspection-view-labels { display:none !important; }
+body.inspection-ui-gameplay .inspection-restore-pill { display:block !important; }
+
 .inspection-view-label { position:absolute; pointer-events:auto; min-width:72px; }
 .hud.inspection-flying .bottom-hud,.hud.inspection-flying .hud-status-stack,.hud.inspection-flying .kill-feed,.hud.inspection-flying .subtitle { display:none; }
 .touch-controls.inspection-flight .touch-attack,.touch-controls.inspection-flight .touch-guard,.touch-controls.inspection-flight .touch-spell,.touch-controls.inspection-flight .touch-dash,.touch-controls.inspection-flight .touch-gauntlet,.touch-controls.inspection-flight .touch-ultimate,.touch-controls.inspection-flight .touch-interact,.touch-controls.inspection-flight .touch-deploy,.touch-controls.inspection-flight .touch-siegeView,.touch-controls.inspection-flight .touch-siegeWeapon,.touch-controls.inspection-flight .touch-scores { display:none !important; }
