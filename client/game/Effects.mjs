@@ -1374,7 +1374,8 @@ export class Effects {
       if (effect.spell === 'coreflagration') {
         const armed = p.corePhase === 'armed';
         const duration = (p.detonateAt ?? 0) - (p.armedAt ?? 0);
-        const progress = armed && duration > 0 ? Math.max(0, Math.min(1, (this.lastCoreflagrationSimTime ?? p.armedAt) - p.armedAt) / duration) : 0;
+        if (armed && effect.coreArmedAt !== p.armedAt) { effect.coreArmedAt = p.armedAt; effect.coreArmedPhaseStart = effect.phase; }
+        const progress = armed && duration > 0 ? Math.max(0, Math.min(1, (effect.phase - (effect.coreArmedPhaseStart ?? effect.phase)) / duration)) : 0;
         effect.group.userData.setCorePhase?.(armed ? 'armed' : 'airborne', progress);
         if (armed) effect.lastPosition = null;
       }
