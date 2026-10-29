@@ -64,6 +64,16 @@ function createCoreflagrationOrb() {
   const fallbackMaterial = new THREE.MeshStandardMaterial({ color: 0x342822, emissive: 0x803014, emissiveIntensity: 0.6, flatShading: true });
   const fallback = new THREE.Mesh(fallbackGeometry, fallbackMaterial);
   group.add(fallback);
+  // The 0.9s fuse cannot wait for an asynchronous model load: always show a safe warning perimeter.
+  const boundaryGeometry = new THREE.RingGeometry(2.94, 3.0, 48);
+  const boundaryMaterial = new THREE.MeshBasicMaterial({
+    color: 0xe68738, transparent: true, opacity: 0.45, side: THREE.DoubleSide, depthWrite: false,
+  });
+  const boundary = new THREE.Mesh(boundaryGeometry, boundaryMaterial);
+  boundary.rotation.x = -Math.PI / 2;
+  boundary.position.y = 0.02;
+  boundary.visible = false;
+  group.add(boundary);
   let model = null;
   let ring = null;
   let wake = null;
@@ -78,6 +88,7 @@ function createCoreflagrationOrb() {
       ring.scale.setScalar(phase === 'armed' ? 1 : 0.001);
     }
     if (wake) wake.visible = phase !== 'armed';
+    boundary.visible = phase === 'armed' && !model;
   };
   group.userData.update = (t) => {
     const armed = group.userData.corePhase === 'armed';
@@ -93,7 +104,12 @@ function createCoreflagrationOrb() {
     // Keep the perimeter mathematically fixed at 3m. Do not enlarge the entire GLB.
     if (model) model.scale.setScalar(1);
   };
-  group.userData.dispose = () => { fallbackGeometry.dispose(); fallbackMaterial.dispose(); };
+  group.userData.dispose = () => {
+    fallbackGeometry.dispose();
+    fallbackMaterial.dispose();
+    boundaryGeometry.dispose();
+    boundaryMaterial.dispose();
+  };
   coreflagrationAssetPromise ??= new Promise((resolve) => new GLTFLoader().load(
     appUrl('/client/assets/props/coreflagration/coreflagration-core.glb'), (gltf) => resolve(gltf.scene),
     undefined, () => resolve(null),
