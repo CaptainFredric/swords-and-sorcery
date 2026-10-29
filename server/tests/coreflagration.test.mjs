@@ -110,6 +110,7 @@ test('successful parry pauses health regeneration without registering damage', (
   assert.equal(b.lastDamageAt, -100);
   const afterContact = b.health; // Regeneration runs before projectile contact within this native tick.
   assert.ok(afterContact >= 50 && afterContact <= 50.61);
+  b.position.x = 20; // Isolate the regen penalty from the later burst of the parried (still hostile) core.
   stepRoom(room, 0.1, 11.0, world);
   assert.equal(b.health, afterContact, 'regen remains paused after parry contact');
 });
