@@ -1,17 +1,45 @@
 {
-  "source": "SoFist-crafted.blend",
-  "exportSha256": "903b8cc349e7831d7a6a21e9a6ed7e9f1acca45d9745b1f79504bad3d30c7472",
+  "source": "SoFist-v2_2-runtime-source.blend",
+  "exportSha256": "479d96ec89f0c2e36aa4a042305061cc1a16101ad6d7ce068c8184b8e566170b",
   "rollbackCommit": "6249095632bba62a8702630267968c3bc922a893",
   "rollbackSha256": "64cdc7b09e88e31f4b4ff7cb65631fd036e12ba71c0c3f9466cc52b8416419c6",
   "scale": 2.85,
   "changes": [
-    "Straight walnut load rails, iron bindings, bronze rivets; retained original mechanical construction",
-    "Lower frame moved inward with local front bracket clearance",
-    "Round wheel running surfaces, wider front track .43 and rear .37 native",
-    "Broad material regions for metal fist, wheel rims and mechanisms; retained timber and cloth atlas detail",
-    "Original four animation clips and twenty named nodes preserved",
-    "Reconstructed planked bed, splayed supports, diagonal braces, four corner posts, front housing and two-grip operator bar; retained authored moving mechanisms",
-    "Removed accidental atlas emission from the metal drivetrain while retaining the arcane collar"
+    "Integrated the actual v2.2 geometry at native scale, preserving wheel dimensions and damage mechanics",
+    "Fixed stretched timber atlas regions on braces and rear platform",
+    "Reconstructed a separate editable Blender source from the verified GLB; upstream source lacks its 13 locator nodes",
+    "Shared actual linear piston timing with authority; powered release .68s, maximum extension .88s, four second cycle",
+    "Real onboard rider, geometry based boot contact, hand controls and shared inclined carriage attachment",
+    "Whole-root authored slide excluded at runtime to keep wheels, rider and collider registered"
   ],
-  "maps": "Four original 1024 square maps retained; no upscaling or global filter changes"
+  "maps": "Four original 1024 square maps retained; no upscaling or global filter changes",
+  "priorRefinement": {
+    "source": "SoFist-crafted.blend",
+    "exportSha256": "903b8cc349e7831d7a6a21e9a6ed7e9f1acca45d9745b1f79504bad3d30c7472",
+    "rollbackCommit": "6249095632bba62a8702630267968c3bc922a893",
+    "rollbackSha256": "64cdc7b09e88e31f4b4ff7cb65631fd036e12ba71c0c3f9466cc52b8416419c6",
+    "scale": 2.85,
+    "changes": [
+      "Straight walnut load rails, iron bindings, bronze rivets; retained original mechanical construction",
+      "Lower frame moved inward with local front bracket clearance",
+      "Round wheel running surfaces, wider front track .43 and rear .37 native",
+      "Broad material regions for metal fist, wheel rims and mechanisms; retained timber and cloth atlas detail",
+      "Original four animation clips and twenty named nodes preserved",
+      "Reconstructed planked bed, splayed supports, diagonal braces, four corner posts, front housing and two-grip operator bar; retained authored moving mechanisms",
+      "Removed accidental atlas emission from the metal drivetrain while retaining the arcane collar"
+    ],
+    "maps": "Four original 1024 square maps retained; no upscaling or global filter changes"
+  },
+  "sizeBytes": 5355244,
+  "version": "2.2-castleward-integration",
+  "upstreamGlbSha256": "f268f91be025304cf7b418940c796024d70898a057dc57692c37728ef1f046d7",
+  "upstreamSource": "SoFist-crafted-v2_2.blend",
+  "upstreamSourceSha256": "613c228ff99fd35819e417ce1b80ec36af11a878ea592ad3de24f42284c7c6eb",
+  "rollbackCurrent": "rollback-crafted.glb",
+  "rollbackCurrentSha256": "903b8cc349e7831d7a6a21e9a6ed7e9f1acca45d9745b1f79504bad3d30c7472",
+  "upstreamUrls": [
+    "https://drive.google.com/file/d/1uzqbWWh0R2fTuwXy5D2CI0S77HDKNpAy/view",
+    "https://drive.google.com/file/d/17FJTBces2DABnbINUXQ8yxbuzJU8WS9D/view",
+    "https://drive.google.com/file/d/1yNXSd1Bj-xodu4nK9tiM8alz0vN1Wh3O/view"
+  ]
 }

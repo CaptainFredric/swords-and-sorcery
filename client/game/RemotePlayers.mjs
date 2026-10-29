@@ -700,12 +700,12 @@ export class RemotePlayers {
       // the gauntlet's jab, if one is under way, and the crouch's lean
       extra: state === 'dead' || recovering ? [] : [...crouch.turns, ...guardTurns(plan.concurrent?.attack ? 0 : d.guardAmount), ...jabTurns(serverNow - (d.jabAt ?? -Infinity))],
     };
-    if(pb.alive&&pb.operatingRamId)plan.ramMounted=true;
+    if(pb.alive&&pb.operatingRamId)Object.assign(plan,{ramMounted:true,clip:'Idle',time:0,layers:null,concurrent:null});
     if(pb.alive&&pb.operatingBallistaId)Object.assign(plan,{mounted:true,clip:'Idle',layers:null,concurrent:null});
     setRemoteVisualPlan(shell, plan, dt);
     // a foot comes down where the gait clip puts it (its rate follows the knight's speed)
     const gait = shell.visualInstance?.animator?.gaitPhase;
-    if ((state === 'run' || state === 'sprint') && Number.isFinite(gait) && Number.isFinite(d.lastGait) && gaitFootfall(d.lastGait, gait)) {
+    if (!pb.operatingRamId && (state === 'run' || state === 'sprint') && Number.isFinite(gait) && Number.isFinite(d.lastGait) && gaitFootfall(d.lastGait, gait)) {
       if (id) this.onFootstep?.(id, shell.root.position, state === 'sprint' ? 1 : 0, Boolean(pb.crouched));
     }
     d.lastGait = gait;

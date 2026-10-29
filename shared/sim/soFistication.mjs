@@ -11,20 +11,27 @@ import {sampleTransform} from './history.mjs';
 import {armWorldImpact} from './worldImpact.mjs';
 import {getBiByeSolids,damageBiByeLlista} from './biByeLlista.mjs';
 import {biByeHitVolumes} from './biByeComponents.mjs';
-import {SO_FIST_SCALE,SO_FIST_FIT,SO_FIST_WHEELS,soFistTurnRate,soFistFrame,soFistPose,soFistVolumes,soFistStriker,soFistSolids,machineryOverlap} from './soFistGeometry.mjs';
+import {SO_FIST_SCALE,SO_FIST_FIT,SO_FIST_STATION,SO_FIST_WHEELS,soFistTurnRate,soFistFrame,soFistPose,soFistVolumes,soFistStriker,soFistSolids,machineryOverlap} from './soFistGeometry.mjs';
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 export const SO_FIST=Object.freeze({speed:4.8,reverse:2.5,peak:12,pressure:100,hull:1400,fist:500,cycle:4});
 export function createSoFistication(overrides={}){return{id:'sofist-practice',type:'so-fist-ication',x:0,y:0,z:0,heading:0,chassisPitch:0,chassisRoll:0,speed:0,steer:0,pressure:100,charging:false,chargeSpent:false,operatorId:null,health:1400,maxHealth:1400,mode:'MOBILE',strikeAt:null,strokeVictims:[],bodyEpisodes:{},recentVictims:{},wheelRolls:[0,0,0,0],wheelOffsets:[0,0,0,0],components:Object.fromEntries([...SO_FIST_WHEELS.map(w=>[w.id,{health:180,maxHealth:180}]),['Fist',{health:500,maxHealth:500}],['Drive',{health:250,maxHealth:250}]]),...overrides};}
-export function soFistOperator(b,world=null){const p=boxWorld(soFistFrame(b),SO_FIST_FIT.operator);return{x:p[0],y:world?surfaceHeightAt(p[0],p[2],p[1]+.5,world):b.operatorY??p[1],z:p[2]};}
-function stationClear(b,world,extra=[]){const at=soFistOperator(b,world);if(at.y==null||Math.abs(at.y-soFistOperator({...b,operatorY:undefined}).y)>.4)return false;const hit=resolvePlayerWorld(at,.45,[...(world.solids??[]),...extra],1.8);return Math.hypot(hit.x-at.x,hit.z-at.z)<.015;}
+export function soFistOperator(b){const p=boxWorld(soFistFrame(b),SO_FIST_STATION.rider);return{x:p[0],y:p[1],z:p[2]};}
+export function soFistEntry(b,world){const p=boxWorld(soFistFrame(b),SO_FIST_STATION.entry);return{x:p[0],y:world?surfaceHeightAt(p[0],p[2],b.y+.8,world):p[1],z:p[2]};}
+function stationClear(b,world,extra=[]){
+ const at=soFistOperator(b),hit=resolvePlayerWorld(at,.45,[...(world.solids??[]),...extra],1.8);
+ const frame=soFistFrame(b),body={center:boxWorld(frame,[SO_FIST_STATION.rider[0],SO_FIST_STATION.rider[1]+.9,SO_FIST_STATION.rider[2]]),size:[.9,1.8,.9],axes:frame.axes};
+ return Math.hypot(hit.x-at.x,hit.z-at.z)<.015&&!([...(world.solids??[]),...extra].some(s=>machineryOverlap(body,s)));
+}
 export function soFistExit(room,b,p,extras=[]){
  const frame=soFistFrame(b),solids=[...(room.world.solids??[]),...soFistSolids(b),...getBiByeSolids(room.biByeLlista),...extras,...[...room.players.values()].filter(v=>v.alive&&v.id!==p.id).map(v=>({center:[v.position.x,v.position.y+.9,v.position.z],size:[.9,1.8,.9]}))];
- for(const [x,z]of [[0,-3.3],[-1.8,-3.1],[1.8,-3.1],[-2,0],[2,0]]){const at=boxWorld(frame,[x,0,z].map(v=>v*SO_FIST_SCALE/2.65)),y=surfaceHeightAt(at[0],at[2],b.y+.6,room.world);if(y==null||Math.abs(y-b.y)>.75)continue;const candidate={x:at[0],y,z:at[2]},resolved=resolvePlayerWorld(candidate,.45,solids,1.8);if(Math.hypot(resolved.x-candidate.x,resolved.z-candidate.z)<.015)return candidate;}return null;
+ for(const local of SO_FIST_STATION.exits){const at=boxWorld(frame,local),y=surfaceHeightAt(at[0],at[2],b.y+.8,room.world);if(y==null||Math.abs(y-b.y)>.85)continue;const candidate={x:at[0],y,z:at[2]},resolved=resolvePlayerWorld(candidate,.45,solids,1.8);if(Math.hypot(resolved.x-candidate.x,resolved.z-candidate.z)<.015)return candidate;}return null;
 }
 export function mountSoFistication(room,b,p,now=0){
  if(!b||b.retired||b.health<=0||!p?.alive||p.operatingBallistaId||p.operatingRamId||(p.staggerUntil??0)>now||p.pendingSpell||p.gauntlet||p.ultimateState||p.attackActive||b.operatorId)return false;
  if(b.emplacementId&&(room.state!=='PLAYING'||p.team!==b.team||!b.phases.includes(room.objectiveState?.phase)))return false;
- const seat=soFistOperator(b,room.world);if(!stationClear(b,room.world,getBiByeSolids(room.biByeLlista))||Math.hypot(p.position.x-seat.x,p.position.z-seat.z)>2.2||!soFistExit(room,b,p))return false;
+ const entry=soFistEntry(b,room.world),seat=soFistOperator(b);
+ const obstacles=[...getBiByeSolids(room.biByeLlista),...[...room.players.values()].filter(v=>v.alive&&v.id!==p.id).map(v=>({center:[v.position.x,v.position.y+.9,v.position.z],size:[.9,1.8,.9]}))];
+ if(entry.y==null||Math.abs(p.position.y-entry.y)>1||Math.hypot(p.position.x-entry.x,p.position.z-entry.z)>2.2||!stationClear(b,room.world,obstacles)||!soFistExit(room,b,p))return false;
  b.operatorId=p.id;p.operatingRamId=b.id;p.position=seat;p.velocity={x:0,y:0,z:0};p.impulse={x:0,z:0};p.guarding=false;p.guardHeld=false;p.attackHeld=false;p.input={forward:0,right:0,yaw:b.heading,pitch:0,jump:false,sprint:false};return true;
 }
 export function dismountSoFistication(room,b,p,{administrative=false,exit=null,force=false}={}){
@@ -87,7 +94,7 @@ export function stepSoFistication(room,b,dt,now,world=room.world){
   }
  }
 const p=room.players.get(b.operatorId);
- if(b.operatorId&&(!p?.alive||p.operatingRamId!==b.id||p.connected===false&&p.actorKind==='human'))dismountSoFistication(room,b,p);
+ if(b.operatorId&&(!p?.alive||p.operatingRamId!==b.id||p.connected===false&&p.actorKind==='human'))dismountSoFistication(room,b,p,{force:true});
  const driver=room.players.get(b.operatorId),input=driver&&(driver.staggerUntil??0)<=now?driver.input??{}:{};
  const failed=SO_FIST_WHEELS.filter(w=>b.components[w.id].health<=0),canDrive=failed.length<3&&!['L','R'].some(s=>failed.filter(w=>w.id.endsWith(s)).length>=2),driveScale=canDrive?(1-failed.length*.22)*(b.components.Drive.health<=0?.45:1):0;
  const chargeHeld=Boolean(driver&&input.sprint&&input.forward>=0&&driveScale>0);
@@ -145,7 +152,7 @@ const p=room.players.get(b.operatorId);
  const budget=b.structureChargeBudget;
  if(budget){const def=world.structures?.find(v=>v.id===budget.id),head=soFistStriker(b,now);if(!def||!(world.solids??[]).some(v=>def.solidIds.includes(v.id)&&Math.hypot(...head.center.map((n,i)=>Math.max(0,Math.abs(n-v.center[i])-v.size[i]/2-head.size[i]/2)))<1))b.structureChargeBudget=null;}
  b.wheelRolls=wheelTravel;
- if(driver){b.operatorY=soFistOperator(b,world).y;driver.position=soFistOperator(b);driver.velocity={x:-Math.sin(b.heading)*b.speed,y:0,z:-Math.cos(b.heading)*b.speed};driver.grounded=true;driver.yaw=input.yaw??b.heading;driver.pitch=input.pitch??0;driver.sprinting=false;driver.guardHeld=false;driver.guarding=false;}
+ if(driver){b.operatorY=soFistOperator(b).y;driver.position=soFistOperator(b);driver.velocity={x:-Math.sin(b.heading)*b.speed,y:0,z:-Math.cos(b.heading)*b.speed};driver.grounded=true;driver.yaw=input.yaw??b.heading;driver.pitch=input.pitch??0;driver.sprinting=false;driver.guardHeld=false;driver.guarding=false;}
  if(b.strikeAt!=null&&now-b.strikeAt>=4)b.strikeAt=null;
 }
 

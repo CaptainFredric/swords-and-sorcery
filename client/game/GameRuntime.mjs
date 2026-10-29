@@ -7,7 +7,7 @@ import { StructureRenderer } from '../worlds/StructureRenderer.mjs';
 import {SoFisticationRenderer} from '../worlds/SoFisticationRenderer.mjs';
 import {BiByeMotion} from '../worlds/biByeMotion.mjs';
 import {SoFistSound} from './sound/SoFistSound.mjs';
-import {soFistSolids} from '../../shared/sim/soFistGeometry.mjs';
+import {soFistSolids,soFistFrame,SO_FIST_STATION} from '../../shared/sim/soFistGeometry.mjs';
 import {ramCameraFollow} from './ramCamera.mjs';
 import {soFistOperator} from '../../shared/sim/soFistication.mjs';
 import { boxWorld } from '../../shared/src/orientedBox.mjs';
@@ -2754,8 +2754,8 @@ export class GameRuntime {
     if (mounted) {
       const locator = ram?null:this.world?.biByeLlista?.getMountedCameraPosition(this.siegeView, target);
       if(ram){
-        if(this.siegeView==='third'){const anchor=[b.position.x,b.position.y+1.85,b.position.z];target.set(b.position.x+Math.sin(this.input.yaw)*7.5,b.position.y+3.5,b.position.z+Math.cos(this.input.yaw)*7.5);target.set(...clip(this.#reach,anchor,target.toArray(),.25));}
-        else{const at=soFistOperator(b);target.set(at.x,at.y+1.75,at.z);}
+        if(this.siegeView==='third'){const anchor=boxWorld(soFistFrame(b),SO_FIST_STATION.pelvis);target.set(anchor[0]+Math.sin(this.input.yaw)*5.7,anchor[1]+1.8,anchor[2]+Math.cos(this.input.yaw)*5.7);target.set(...clip(this.#reach,anchor,target.toArray(),.25));}
+        else target.set(...boxWorld(soFistFrame(b),SO_FIST_STATION.sight));
       }
       else if (!locator) {
         // The same exported locator offsets provide a usable view during asset load/failure.
@@ -2784,7 +2784,7 @@ export class GameRuntime {
     const blend = 1 - Math.exp(-dt * 14);
     if(ram&&mounted){
       const follow=ramCameraFollow(this.ramCameraAnchor,[b.position.x,b.position.y,b.position.z],target.toArray(),dt);
-      this.ramCameraAnchor=follow.anchor;this.siegeCamera.position.fromArray(clip(this.#reach,[b.position.x,b.position.y+1.85,b.position.z],follow.position,.25));
+      this.ramCameraAnchor=follow.anchor;this.siegeCamera.position.fromArray(clip(this.#reach,boxWorld(soFistFrame(b),SO_FIST_STATION.pelvis),follow.position,.25));
     }else{
       this.ramCameraAnchor=null;this.siegeCamera.position.lerp(target, blend);
       // Clip the interpolated camera too: a safe destination alone does not
@@ -3066,7 +3066,7 @@ export class GameRuntime {
     const ramPose=this.world?.soFistication?.presentationData;
     if(ramPose?.operatorId){
       const driver=ramPose.operatorId===this.localAuth?.id?this.remotePlayers.self:this.remotePlayers.rigs.get(ramPose.operatorId);
-      if(driver?.root?.visible){const at=soFistOperator(ramPose);driver.root.position.set(at.x,at.y,at.z);driver.root.rotation.set(0,ramPose.heading,0);driver.visualInstance?.animator?.applyRam(this.world.soFistication.getOperatorGrips());}
+      if(driver?.root?.visible){const at=soFistOperator(ramPose),frame=soFistFrame(ramPose);driver.root.position.set(at.x,at.y,at.z);driver.root.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(...frame.axes.map((a,i)=>new THREE.Vector3(...a).multiplyScalar(i===1?1:-1))));driver.visualInstance?.animator?.applyRam(this.world.soFistication.getOperatorStation(ramPose.poseTime??this.socket.serverNow()));}
     }
     // Vehicle, seated operator and hand controls share one interpolated carriage frame.
     const mountedMachine=this.world?.biByeLlista?.presentationData;

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {RamOperatorPose} from './RamOperatorPose.mjs';
 import { BiByeOperatorPose } from './BiByeOperatorPose.mjs';
 import { SpellbladeComposition } from './spellbladeComposition.mjs';
 import { BODY_GROUND_CLEARANCE, bodyGroundLift, bootSide, soleContactOffset } from './spellbladeContact.mjs';
@@ -261,11 +262,12 @@ export class SpellbladeAnimator {
   }
 
   applyMounted(machine,now,grips){this.siege.apply(machine,now,grips);}
-  applyRam(grips){
-    this.ramArms=new Map(['upper_arm.L','forearm.L','hand.L','upper_arm.R','forearm.R','hand.R'].map(n=>this.bone(n)).filter(Boolean).map(b=>[b,b.quaternion.clone()]));
-    this.siege.applyStanding(grips);
+  applyRam(station){
+    this.ramArms=new Map([...this.bones.values()].map(b=>[b,{q:b.quaternion.clone(),p:b.position.clone()}]));
+    this.ramPose??=new RamOperatorPose(this.root,this.bones,this.siege,this.soles);
+    this.ramPose.apply(station);this.#followPauldrons();
   }
-  restoreRamArms(){for(const [b,q]of this.ramArms??[])b.quaternion.copy(q);this.ramArms=null;}
+  restoreRamArms(){for(const [b,t]of this.ramArms??[]){b.quaternion.copy(t.q);b.position.copy(t.p);}this.ramArms=null;}
   releaseRam(){this.restoreRamArms();this.siege.releaseStanding();}
   releaseMounted(){if(this.siege.release())this.reset();}
 
