@@ -10,7 +10,7 @@ test('real network host rejects a guest Skill and replicates machine cooldown af
   room.startMatch(game.now());room.world={floors:[{y:0,center:[0,-.1,0],size:[100,.2,100]}],solids:[],ramps:[],abyssY:-20};room.soFistication=createSoFistication();const ram=room.soFistication,p=room.players.get(joined.playerId);p.position=soFistEntry(ram,room.world);room.players.get(guest.playerId).position={x:20,y:0,z:20};
   b.send({type:'siegeSkill',machineId:ram.id});await b.wait(m=>m.type==='error');assert.equal(ram.skill.readyAt,0);
   a.send({type:'siegeOperate'});await a.wait(m=>m.type==='snapshot'&&m.soFistication?.operatorId===p.id);a.send({type:'siegeSkill'});
-  const seen=await b.wait(m=>m.type==='snapshot'&&m.soFistication?.skill.phase==='primed');const clock=seen.soFistication.skill.readyAt;assert.ok(clock>game.now());
-  a.send({type:'siegeOperate'});const after=await b.wait(m=>m.type==='snapshot'&&m.soFistication?.operatorId===null&&m.soFistication.skill.readyAt===clock);assert.equal(after.soFistication.skill.phase,'idle');
+  const seen=await b.wait(m=>m.type==='snapshot'&&m.soFistication?.skill.phase==='primed');const clock=seen.soFistication.skill.readyAt;assert.equal(clock,0);
+  a.send({type:'siegeOperate'});const after=await b.wait(m=>m.type==='snapshot'&&m.soFistication?.operatorId===null&&m.soFistication.skill.readyAt>game.now());assert.equal(after.soFistication.skill.phase,'idle');assert.equal(after.soFistication.skill.failureThreshold,undefined);
  }finally{for(const s of sockets)s.close();await game.stop();}
 });
