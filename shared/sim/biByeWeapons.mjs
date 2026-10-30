@@ -1,4 +1,4 @@
-import {createSiegeSkill,spendSiegeSkill,endSiegeSkill,skillOperator,skillEvent,SIEGE_SKILLS} from './siegeSkills.mjs';
+import {createSiegeSkill,primeSiegeSkill,commitSiegeSkill,endSiegeSkill,skillOperator,skillEvent,SIEGE_SKILLS} from './siegeSkills.mjs';
 import { biByeCondition, biByeConstrainAim } from './biByeComponents.mjs';
 
 // Gameplay does not depend on an asynchronously loaded visual asset. The current
@@ -50,20 +50,37 @@ export function setBiByeWeaponFocus(b,focus,now=0) {
   b.pitch=focus==='UPPER'?b.upperPitch:b.mainPitch;
   return true;
 }
+// SKILL is a two-press command: first primes independent aim, second fires
+// the loaded heavy bow. Ordinary ATTACK can still release Bolt I in between.
 export function requestBiByeHeavySkill(room,b,p,now,targetAim){
  if(!skillOperator(room,b,p,now)||!['MOBILE','DEPLOYED'].includes(b.mode)||!biByeCondition(b).canSiege)return 'The main launcher cannot release here.';
- if(!b.mainBoltLoaded||b.state!=='LOADED'||b.mobileShotPendingAt!=null||busy(b)||b.pendingIndependent)return 'Load Bolt II and finish the current mechanism first.';
- if(!spendSiegeSkill(b,now,'releasing',2))return 'Bolt to the Occasion is cooling down.';
- const input=p.input??{},requested={yaw:input.yaw??b.mainYaw,pitch:input.pitch??b.mainPitch},aim=targetAim?.(b,'siege',requested,input.siegeTarget)??biByeConstrainAim(b,requested);
- const turn=Math.max(Math.abs(wrapBiByeAngle(aim.yaw-b.mainYaw)),Math.abs(aim.pitch-b.mainPitch))/BI_BYE_WEAPONS.turnRate;
- cancelBiByeCoupling(b,now);
- const unclutch=b.coupling==='RELEASING'?Math.max(0,b.couplingEndsAt-now):0;
- b.heavySkill={operatorId:p.id,aim,releaseAt:now+Math.max(turn,unclutch)+SIEGE_SKILLS.boltToTheOccasion.release};
- b.skill.expiresAt=b.heavySkill.releaseAt+1;skillEvent(room,b,now,'releasing');return null;
+ const s=b.skill;
+ if(s?.phase==='releasing')return 'Bolt II is already releasing.';
+ if(s?.phase==='primed'){
+  if(!b.mainBoltLoaded||b.state!=='LOADED')return 'Load Bolt II first.';
+  if(b.mobileShotPendingAt!=null||b.pendingIndependent)return 'II PREPARING — Bolt I has not released.';
+  if(busy(b))return 'II PREPARING — finish releasing the clutch.';
+  const lastI=Math.max(b.upperReleasedAt??-Infinity,s.boltIReleasedAt??-Infinity);
+  const prepUntil=lastI+SIEGE_SKILLS.boltToTheOccasion.interShotPrep;
+  if(now+1e-8<prepUntil)return 'II PREPARING — wait for the actual Bolt I release catch.';
+  if(!commitSiegeSkill(b,now))return 'Bolt II is not primed.';
+  // The lower launcher has already tracked the camera while primed. Capture
+  // its physical angle; no additional artificial post-input windup is added.
+  b.heavySkill={operatorId:p.id,aim:{yaw:b.mainYaw,pitch:b.mainPitch},releaseAt:now};
+  skillEvent(room,b,now,'releasing');return null;
+ }
+ if(!b.mainBoltLoaded||b.state!=='LOADED')return 'Load Bolt II first.';
+ if(b.coupling==='FIRING')return 'Finish the coupled volley first.';
+ if(!primeSiegeSkill(b,now))return 'Bolt to the Occasion is cooling down.';
+ // Release an uncommitted clutch, but never start a coupled projectile.
+ if(!cancelBiByeCoupling(b,now)){endSiegeSkill(b,now);return 'Finish the current mechanism first.';}
+ b.pendingVolley=null;
+ s.boltIReleasedAt=b.upperReleasedAt!=null&&b.upperReleasedAt<=now?b.upperReleasedAt:null;
+ skillEvent(room,b,now,'primed');return null;
 }
 export function requestBiByeIndependent(room,b,now) {
   if(!b||b.mode==='DESTROYED'||!['MOBILE','DEPLOYED'].includes(b.mode)||b.heavySkill||!ready(b,now))return false;
-  if(b.coupling==='RELEASING'&&b.weaponFocus==='UPPER'){
+  if(b.coupling==='RELEASING'&&(b.weaponFocus==='UPPER'||b.skill?.phase==='primed')){
     b.pendingIndependent??={operatorId:b.operatorId,yaw:b.upperYaw,pitch:b.upperPitch};return true;
   }
   if(busy(b))return false;
@@ -74,7 +91,7 @@ export function requestBiByeIndependent(room,b,now) {
   return true;
 }
 export function requestBiByeVolley(room,b,now) {
-  if(b?.heavySkill)return false;
+  if(b?.heavySkill||b?.skill?.phase==='primed')return false;
   if(!b||!supported(b)||b.state!=='LOADED'||!b.mainBoltLoaded||!ready(b,now)||busy(b))return false;
   if(b.trackingSince!=null&&now+1e-8>=b.trackingSince+BI_BYE_WEAPONS.latchDuration){
     b.trackingSince=null;b.upperReleasedAt=null;b.heavyDelayTrippedAt=null;
@@ -103,9 +120,12 @@ export function stepBiByeWeapons(room,b,dt,now,{shotI,shotII,coupledAim,targetAi
   if(b.mode!=='DEPLOYED'&&b.weaponFocus!=='UPPER'){
     b.weaponFocus='UPPER';b.focusRevision++;cancelBiByeCoupling(b,now);
   }
+  if(b.skill?.phase==='primed'&&(!skillOperator(room,b,op,now)||!['MOBILE','DEPLOYED'].includes(b.mode)||!biByeCondition(b).canSiege)){
+    endSiegeSkill(b,now);skillEvent(room,b,now,'cancelled');
+  }
   if(b.heavySkill){
     const pending=b.heavySkill;
-    if(now>=b.skill.expiresAt||!skillOperator(room,b,op,now)||!['MOBILE','DEPLOYED'].includes(b.mode)||!biByeCondition(b).canSiege||!b.mainBoltLoaded){b.heavySkill=null;endSiegeSkill(b);skillEvent(room,b,now,'cancelled');}
+    if(!skillOperator(room,b,op,now)||!['MOBILE','DEPLOYED'].includes(b.mode)||!biByeCondition(b).canSiege||!b.mainBoltLoaded){b.heavySkill=null;endSiegeSkill(b);skillEvent(room,b,now,'cancelled');}
     else{
       const target=biByeConstrainAim(b,pending.aim);
       b.mainYaw=approach(b.mainYaw,target.yaw,BI_BYE_WEAPONS.turnRate*dt);b.mainPitch+=clamp(target.pitch-b.mainPitch,-BI_BYE_WEAPONS.turnRate*dt,BI_BYE_WEAPONS.turnRate*dt);
@@ -117,20 +137,37 @@ export function stepBiByeWeapons(room,b,dt,now,{shotI,shotII,coupledAim,targetAi
       }
     }
   }
+  const primed=b.skill?.phase==='primed';
   const locked=busy(b)||Boolean(b.heavySkill);
   b.aimTarget=input.siegeTarget??null;
   const aim=(kind,current)=>targetAim?.(b,kind,{yaw:input.yaw??current.yaw,pitch:input.pitch??current.pitch},b.aimTarget)??biByeConstrainAim(b,{yaw:input.yaw??current.yaw,pitch:input.pitch??current.pitch},kind==='conditioning');
-  if(b.mode==='MOBILE'&&!b.heavySkill&&now>=(b.mainSkillUntil??0)) {b.mainYaw=approach(b.mainYaw,b.heading,BI_BYE_WEAPONS.turnRate*dt);b.mainPitch+=clamp(-b.mainPitch,-BI_BYE_WEAPONS.turnRate*dt,BI_BYE_WEAPONS.turnRate*dt);}
-  else if(!locked&&b.weaponFocus==='MAIN'&&op?.alive){
-    const target=aim('siege',{yaw:b.mainYaw,pitch:b.mainPitch});b.mainYaw=target.yaw;b.mainPitch=target.pitch;b.aimLimited=Boolean(target.limited);
-  }
-  if(!locked&&b.mobileShotPendingAt==null&&b.weaponFocus==='UPPER'&&op?.alive){
-    const target=aim('conditioning',{yaw:b.upperYaw,pitch:b.upperPitch});
-    b.upperYaw=Math.abs(target.yaw-b.upperYaw)>Math.PI?b.upperYaw+wrapBiByeAngle(target.yaw-b.upperYaw):target.yaw;b.upperPitch=target.pitch;b.aimLimited=Boolean(target.limited);
+  if(primed&&op?.alive){
+    // Both actual articulations track the same camera independently, including
+    // while the chassis drives and turns. Keep the upper bow fixed while its
+    // already committed Shot I is winding through a real release.
+    const main=aim('siege',{yaw:b.mainYaw,pitch:b.mainPitch});
+    b.mainYaw=approach(b.mainYaw,main.yaw,BI_BYE_WEAPONS.turnRate*dt);
+    b.mainPitch+=clamp(main.pitch-b.mainPitch,-BI_BYE_WEAPONS.turnRate*dt,BI_BYE_WEAPONS.turnRate*dt);
+    b.aimLimited=Boolean(main.limited);
+    if(b.mobileShotPendingAt==null){
+      const upper=aim('conditioning',{yaw:b.upperYaw,pitch:b.upperPitch});
+      b.upperYaw=approach(b.upperYaw,upper.yaw,BI_BYE_WEAPONS.turnRate*dt);
+      b.upperPitch+=clamp(upper.pitch-b.upperPitch,-BI_BYE_WEAPONS.turnRate*dt,BI_BYE_WEAPONS.turnRate*dt);
+      b.aimLimited||=Boolean(upper.limited);
+    }
+  }else{
+    if(b.mode==='MOBILE'&&!b.heavySkill&&now>=(b.mainSkillUntil??0)) {b.mainYaw=approach(b.mainYaw,b.heading,BI_BYE_WEAPONS.turnRate*dt);b.mainPitch+=clamp(-b.mainPitch,-BI_BYE_WEAPONS.turnRate*dt,BI_BYE_WEAPONS.turnRate*dt);}
+    else if(!locked&&b.weaponFocus==='MAIN'&&op?.alive){
+      const target=aim('siege',{yaw:b.mainYaw,pitch:b.mainPitch});b.mainYaw=target.yaw;b.mainPitch=target.pitch;b.aimLimited=Boolean(target.limited);
+    }
+    if(!locked&&b.mobileShotPendingAt==null&&b.weaponFocus==='UPPER'&&op?.alive){
+      const target=aim('conditioning',{yaw:b.upperYaw,pitch:b.upperPitch});
+      b.upperYaw=Math.abs(target.yaw-b.upperYaw)>Math.PI?b.upperYaw+wrapBiByeAngle(target.yaw-b.upperYaw):target.yaw;b.upperPitch=target.pitch;b.aimLimited=Boolean(target.limited);
+    }
   }
   // Deployment seats the clutch in advance. While Main is selected both bows
   // follow the reticle; Fire only commits the already aligned mechanisms.
-  if(op?.alive&&!locked&&b.mobileShotPendingAt==null&&(b.mode==='DEPLOYING'||supported(b)&&b.weaponFocus==='MAIN'&&b.mainBoltLoaded&&ready(b,now))){
+  if(op?.alive&&!primed&&!locked&&b.mobileShotPendingAt==null&&(b.mode==='DEPLOYING'||supported(b)&&b.weaponFocus==='MAIN'&&b.mainBoltLoaded&&ready(b,now))){
     b.trackingSince??=b.mode==='DEPLOYING'?b.modeTransitionStartedAt:now;
     const target=coupledAim?.(b)??{yaw:b.mainYaw,pitch:b.mainPitch};
     b.upperYaw=target.yaw;b.upperPitch=target.pitch;
@@ -162,7 +199,7 @@ export function stepBiByeWeapons(room,b,dt,now,{shotI,shotII,coupledAim,targetAi
   if(b.mobileShotPendingAt!=null&&now+1e-8>=b.mobileShotPendingAt){
     const releasedAt=b.mobileShotPendingAt;
     shotI?.(room,b,{yaw:b.upperYaw,pitch:b.upperPitch},releasedAt,b.mobileOperatorId);
-    b.mobileShotPendingAt=null;b.upperReleasedAt=releasedAt;b.smallBoltReadyAt=releasedAt+BI_BYE_WEAPONS.upperRecock;
+    b.mobileShotPendingAt=null;b.upperReleasedAt=releasedAt;if(b.skill?.phase==='primed')b.skill.boltIReleasedAt=releasedAt;b.smallBoltReadyAt=releasedAt+BI_BYE_WEAPONS.upperRecock;
     event(room,b,'bibyeFired',releasedAt,{operatorId:b.mobileOperatorId,shot:'I_MOBILE'});
   }
   if(b.coupling==='FIRING'){
@@ -190,7 +227,7 @@ export function stepBiByeWeapons(room,b,dt,now,{shotI,shotII,coupledAim,targetAi
   if(b.coupling==='RELEASING'&&now+1e-8>=b.couplingEndsAt){b.coupling='INDEPENDENT';b.couplingProgress=0;event(room,b,'bibyeCouplingReleased',now);}
   if(b.coupling==='INDEPENDENT'&&b.pendingIndependent){
     const pending=b.pendingIndependent;b.pendingIndependent=null;
-    if(op?.alive&&op.id===pending.operatorId&&b.weaponFocus==='UPPER'&&ready(b,now)){
+    if(op?.alive&&op.id===pending.operatorId&&(b.weaponFocus==='UPPER'||b.skill?.phase==='primed')&&ready(b,now)){
       b.upperYaw=pending.yaw;b.upperPitch=pending.pitch;requestBiByeIndependent(room,b,now);
     }
   }
