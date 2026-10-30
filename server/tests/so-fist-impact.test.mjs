@@ -32,6 +32,17 @@ test('stationary fist strike moves both the enemy and its own carriage',()=>{
  assert.ok(b.z>start+.2,'ram physically recoils after hitting enemy');
  assert.ok(v.position.z<-4,'struck enemy actually launches forwards');
 });
+test('an actual stationary piston hit translates a live mobile ballista, not only its visual rig',()=>{
+ const r=room(),ram=r.soFistication=createSoFistication(),driver=r.addPlayer({id:'impact-driver',token:'impact-driver',name:'driver'},0);
+ driver.position=soFistEntry(ram,r.world);assert.ok(mountSoFistication(r,ram,driver));
+ const ballista=r.biByeLlista=createBiByeLlista({x:0,z:-5.5,baseYaw:0});
+ const start=ballista.z;
+ assert.ok(fireSoFistication(r,ram,0));
+ for(let i=1;i<=100;i++)stepRoom(r,1/30,i/30,r.world);
+ assert.ok(r.events.some(e=>e.type==='bibyeDamaged'&&e.source==='so-fist'),'fist must contact machine component');
+ assert.ok(ballista.z<start-.06,'impacted machine must translate across the world');
+ assert.ok(ram.z>.2,'hitting the machine must also recoil the attacker');
+});
 test('carriage collision transfers only bounded momentum and visually settles',()=>{
  assert.equal(ramReboundSpeed(2),0);
  assert.ok(ramReboundSpeed(12)<-1&&ramReboundSpeed(12)>=-SIEGE_IMPACT.ramReboundMax);
