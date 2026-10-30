@@ -406,7 +406,7 @@ export function applyRoomCommand(room, player, message, time) {
       return reason?{rejected:reason}:{};
     }
     case 'siegeOperate': {
-      if(player.operatingRamId){return dismountSoFistication(room,room.soFistication,player)?{}:{rejected:'No safe exit. Move onto supported open ground.'};}
+      if(player.operatingRamId){return dismountSoFistication(room,room.soFistication,player,{at:time})?{}:{rejected:'No safe exit. Move onto supported open ground.'};}
       if(player.operatingBallistaId)return applyRoomCommand(room,player,{type:'bibyeOperate'},time);
       const ram=room.soFistication,b=room.biByeLlista;
       if(ram&&mountSoFistication(room,ram,player,time))return {};
