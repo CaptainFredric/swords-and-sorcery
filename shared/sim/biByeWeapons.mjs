@@ -12,7 +12,7 @@ export const wrapBiByeAngle = angle => Math.atan2(Math.sin(angle), Math.cos(angl
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const approach=(a,b,amount)=>a+clamp(wrapBiByeAngle(b-a),-amount,amount);
 const event=(room,b,type,at,extra={})=>room.events?.push({type,ballistaId:b.id,at,...extra});
-const ready=(b,now)=>now+1e-8>=b.smallBoltReadyAt&&b.mobileShotPendingAt==null;
+const ready=(b,now)=>now+1e-8>=b.smallBoltReadyAt&&b.mobileShotPendingAt==null&&b.combinedUpperPendingAt==null;
 const supported=b=>b.mode==='DEPLOYED'&&b.deploymentSupported!==false&&biByeCondition(b).canSiege;
 const busy=b=>['ALIGNING','ENGAGING','COUPLED','FIRING','RELEASING'].includes(b.coupling);
 
@@ -20,7 +20,7 @@ export function biByeWeaponState(heading) {
   return {skill:createSiegeSkill('boltToTheOccasion'),heavySkill:null,mainSkillUntil:0,mainYaw:heading,mainPitch:0,upperYaw:heading,upperPitch:0,
     pendingIndependent:null,weaponFocus:'UPPER',focusRevision:0,coupling:'INDEPENDENT',couplingProgress:0,
     couplingStartedAt:null,couplingEndsAt:null,couplingReleaseFrom:1,pendingVolley:null,upperReleasedAt:null,upperReadyAnnouncedAt:null,
-    heavyDelayTrippedAt:null,mainReleasedAt:null,upperFiredAt:null,upperShotKind:null};
+    heavyDelayTrippedAt:null,mainReleasedAt:null,upperFiredAt:null,upperShotKind:null,combinedUpperPendingAt:null,combinedUpperAim:null,combinedOperatorId:null};
 }
 
 // Before the first release, no ammunition has left either weapon. After it,
@@ -52,11 +52,12 @@ export function setBiByeWeaponFocus(b,focus,now=0) {
 }
 // SKILL is a two-press command: first primes independent aim, second fires
 // the loaded heavy bow. Ordinary ATTACK can still release Bolt I in between.
-export function requestBiByeHeavySkill(room,b,p,now,targetAim){
+export function requestBiByeHeavySkill(room,b,p,now,targetAim,{combined=false}={}){
  if(!skillOperator(room,b,p,now)||!['MOBILE','DEPLOYED'].includes(b.mode)||!biByeCondition(b).canSiege)return 'The main launcher cannot release here.';
  const s=b.skill;
  if(s?.phase==='releasing')return 'Bolt II is already releasing.';
  if(s?.phase==='primed'){
+  if(combined&&(!ready(b,now)||!b.operatorId))return 'BOTH requires a ready Bolt I.';
   if(!b.mainBoltLoaded||b.state!=='LOADED')return 'Load Bolt II first.';
   if(b.mobileShotPendingAt!=null||b.pendingIndependent)return 'II PREPARING — Bolt I has not released.';
   if(busy(b))return 'II PREPARING — finish releasing the clutch.';
@@ -66,7 +67,7 @@ export function requestBiByeHeavySkill(room,b,p,now,targetAim){
   if(!commitSiegeSkill(b,now))return 'Bolt II is not primed.';
   // The lower launcher has already tracked the camera while primed. Capture
   // its physical angle; no additional artificial post-input windup is added.
-  b.heavySkill={operatorId:p.id,aim:{yaw:b.mainYaw,pitch:b.mainPitch},releaseAt:now};
+  b.heavySkill={operatorId:p.id,aim:{yaw:b.mainYaw,pitch:b.mainPitch},releaseAt:now,combined};
   skillEvent(room,b,now,'releasing');return null;
  }
  if(!b.mainBoltLoaded||b.state!=='LOADED')return 'Load Bolt II first.';
@@ -77,6 +78,12 @@ export function requestBiByeHeavySkill(room,b,p,now,targetAim){
  b.pendingVolley=null;
  s.boltIReleasedAt=b.upperReleasedAt!=null&&b.upperReleasedAt<=now?b.upperReleasedAt:null;
  skillEvent(room,b,now,'primed');return null;
+}
+// A separate atomic server command, never two competing ordinary inputs.
+export function requestBiByeCombinedSkill(room,b,p,now,targetAim){
+ if(b?.skill?.phase!=='primed')return 'Prime Bolt to the Occasion first.';
+ if(!ready(b,now))return 'BOTH requires Bolt I ready.';
+ return requestBiByeHeavySkill(room,b,p,now,targetAim,{combined:true});
 }
 export function requestBiByeIndependent(room,b,now) {
   if(!b||b.mode==='DESTROYED'||!['MOBILE','DEPLOYED'].includes(b.mode)||b.heavySkill||!ready(b,now))return false;
@@ -132,7 +139,17 @@ export function stepBiByeWeapons(room,b,dt,now,{shotI,shotII,coupledAim,targetAi
       if(now+1e-8>=pending.releaseAt&&Math.abs(wrapBiByeAngle(target.yaw-b.mainYaw))<.001&&Math.abs(target.pitch-b.mainPitch)<.001){
         b.firingOperatorId=pending.operatorId;shotII?.(room,b,{yaw:b.mainYaw,pitch:b.mainPitch},now);
         b.mainBoltLoaded=false;b.mainReleasedAt=now;b.firedAt=now;b.mainSkillUntil=now+BI_BYE_WEAPONS.recovery;b.state='SPENT';
-        b.reloadStartedAt=now+BI_BYE_WEAPONS.recovery;b.reloadEndsAt=b.reloadStartedAt+BI_BYE_WEAPONS.heavyReload;b.heavySkill=null;endSiegeSkill(b);
+        b.reloadStartedAt=now+BI_BYE_WEAPONS.recovery;b.reloadEndsAt=b.reloadStartedAt+BI_BYE_WEAPONS.heavyReload;
+        // The second string is a follow-through of the ONE committed action.
+        // Retain it through a rider change; no unrelated input can launch it.
+        if(pending.combined){
+          b.combinedUpperPendingAt=now+BI_BYE_WEAPONS.heavyDelay;
+          b.combinedUpperAim={yaw:b.upperYaw,pitch:b.upperPitch};
+          b.combinedOperatorId=pending.operatorId;
+          b.upperFiredAt=now;b.upperShotKind='combined';
+          event(room,b,'bibyeCombinedCommitted',now,{operatorId:pending.operatorId,upperReleaseAt:b.combinedUpperPendingAt});
+        }
+        b.heavySkill=null;endSiegeSkill(b);
         event(room,b,'bibyeFired',now,{operatorId:b.firingOperatorId,shot:'II_SKILL'});skillEvent(room,b,now,'released');
       }
     }
@@ -195,6 +212,13 @@ export function stepBiByeWeapons(room,b,dt,now,{shotI,shotII,coupledAim,targetAi
         b.coupling='FIRING';event(room,b,'bibyeVolleyInitiated',now,{operatorId:b.firingOperatorId,aim:b.committedAim});
       }
     }
+  }
+  if(b.combinedUpperPendingAt!=null&&now+1e-8>=b.combinedUpperPendingAt){
+    const releasedAt=b.combinedUpperPendingAt;
+    shotI?.(room,b,b.combinedUpperAim,releasedAt,b.combinedOperatorId);
+    b.combinedUpperPendingAt=null;b.combinedUpperAim=null;b.combinedOperatorId=null;
+    b.upperReleasedAt=releasedAt;b.smallBoltReadyAt=releasedAt+BI_BYE_WEAPONS.upperRecock;
+    event(room,b,'bibyeFired',releasedAt,{shot:'I_COMBINED'});
   }
   if(b.mobileShotPendingAt!=null&&now+1e-8>=b.mobileShotPendingAt){
     const releasedAt=b.mobileShotPendingAt;
