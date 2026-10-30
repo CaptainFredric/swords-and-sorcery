@@ -3157,7 +3157,11 @@ export class GameRuntime {
     const flightPose=this.latestSnapshot?.fightFlight;
     if(flightPose?.operatorId){
       const driver=flightPose.operatorId===this.localAuth?.id?this.remotePlayers.self:this.remotePlayers.rigs.get(flightPose.operatorId);
-      if(driver?.root?.visible){driver.root.position.set(flightPose.x,flightPose.y,flightPose.z);driver.root.rotation.set(0,flightPose.heading,0);}
+      if(driver?.root?.visible){
+        driver.root.position.set(flightPose.x,flightPose.y,flightPose.z);
+        driver.root.rotation.set(0,flightPose.heading,0);
+        if(this.flightRenderer.model)driver.visualInstance?.animator?.applyFightFlight(this.flightRenderer.getOperatorGrips());
+      }
     }
     this.#mountedView(dt);
     this.#followGusts();
