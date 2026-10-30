@@ -70,6 +70,7 @@ function playerCenter(player) {
 
 function resetAtSpawn(player, spawn, nowSec, room) {
   player.position = { x: spawn.x, y: spawn.y, z: spawn.z };
+  player.deathFlight=null;
   player.velocity = { x: 0, y: 0, z: 0 };
   player.impulse = { x: 0, z: 0 };
   player.grounded = true;
@@ -2099,6 +2100,18 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
     }
     if (!player.alive) {
       if (nowSec >= player.respawnAt && room.state === 'PLAYING') respawnPlayer(room, player, nowSec, world);
+      else if(player.deathFlight){
+        // A lethal piston strike leaves real momentum in the defeated body.
+        // Reuse normal gravity, substepped world collision and shove damping;
+        // never rerun damage/scoring or change the respawn deadline.
+        const flight=player.deathFlight;
+        if(nowSec<=flight.until){
+          const moved=movePlayer(player,{forward:0,right:0,jump:false,crouch:false,flight:false,yaw:player.yaw},dt,nowSec,world);
+          player.position=moved.position;player.velocity=moved.velocity;
+          player.impulse=moved.impulse;player.grounded=moved.grounded;
+          if(moved.grounded&&Math.hypot(moved.impulse.x,moved.impulse.z)<.12&&nowSec-flight.at>.45)player.deathFlight=null;
+        }else player.deathFlight=null;
+      }
       continue;
     }
     // the ultimate's key, kept while the hand was busy: taken now if it is free
