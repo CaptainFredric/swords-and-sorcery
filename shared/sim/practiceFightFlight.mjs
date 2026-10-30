@@ -42,6 +42,7 @@ export function practiceFightFlight(room,player,action,now){
     if(!body)return {rejected:'No clear and supported construction site. Move into open ground.'};
   }
   if(old?.operatorId)dismountFightFlight(room,old,player,{force:true,exit,at:now});
+  if(old){old.retired=true;old.mode='DESTROYED';old.operatorId=null;}
   room.fightFlightRevision=(room.fightFlightRevision??0)+1;
   if(action==='dismantle'){
     old.retired=true;old.mode='DESTROYED';old.operatorId=null;room.fightFlight=null;
