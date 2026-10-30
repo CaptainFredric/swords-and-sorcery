@@ -1,79 +1,182 @@
-import test from 'node:test';import assert from 'node:assert/strict';
+import test from 'node:test';
+import assert from 'node:assert/strict';
 import {Room} from '../../shared/sim/Room.mjs';
 import {applyRoomCommand,serializeSnapshot} from '../../shared/sim/wire.mjs';
-import {createBiByeLlista,mountBiByeLlista,stepBiByeLlista,dismountBiByeLlista} from '../../shared/sim/biByeLlista.mjs';
+import {createBiByeLlista,mountBiByeLlista,stepBiByeLlista,dismountBiByeLlista,fireBiByeLlista} from '../../shared/sim/biByeLlista.mjs';
 import {createSoFistication,mountSoFistication,soFistEntry,fireSoFistication,stepSoFistication,damageSoFistication,dismountSoFistication} from '../../shared/sim/soFistication.mjs';
-import {soFistPose,soFistStriker} from '../../shared/sim/soFistGeometry.mjs';
+import {soFistPose} from '../../shared/sim/soFistGeometry.mjs';
+import {integratedRamHazard,SIEGE_SKILLS} from '../../shared/sim/siegeSkills.mjs';
+
 const ground={floors:[{y:0,center:[0,-.1,0],size:[100,.2,100]}],solids:[],ramps:[],abyssY:-20};
-function setup(kind){const room=new Room('SKILL',{mode:'PRACTICE'});room.world=structuredClone(ground);room.state='PLAYING';const p=room.addPlayer({id:'op',token:'op',name:'op'},0);p.spawnProtectionUntil=0;const b=kind==='ram'?room.soFistication=createSoFistication():room.biByeLlista=createBiByeLlista({x:0,z:0,baseYaw:0});p.position=kind==='ram'?soFistEntry(b,room.world):{x:0,y:0,z:0};assert.ok(kind==='ram'?mountSoFistication(room,b,p):mountBiByeLlista(b,p));return{room,p,b};}
-const activate=s=>applyRoomCommand(s.room,s.p,{type:'siegeSkill'},1);
-test('independent heavy skill consumes only Bolt II, preserves reload and machine clock across handoff',()=>{
- const s=setup('bow');assert.equal(activate(s).rejected,undefined);stepBiByeLlista(s.room,s.b,1/30,1.3);const shots=[...s.room.bibyeProjectiles.values()];assert.deepEqual(shots.map(p=>p.subKind),['siege']);assert.equal(s.b.mainBoltLoaded,false);assert.equal(s.b.smallBoltReadyAt,0);assert.equal(s.b.skill.readyAt,25);
- const reload=s.b.reloadEndsAt;dismountBiByeLlista(s.b,s.p);s.p.position={x:0,y:0,z:0};mountBiByeLlista(s.b,s.p,2);assert.ok(applyRoomCommand(s.room,s.p,{type:'siegeSkill'},2).rejected);assert.equal(s.b.reloadEndsAt,reload);
- assert.equal(serializeSnapshot(s.room,2).bibyeBallista.skill.readyAt,25);
+function setup(kind){
+ const room=new Room('SKILL',{mode:'PRACTICE'});room.world=structuredClone(ground);room.state='PLAYING';
+ room.siegeSkillRandom=()=>.999999; // deterministic: long threshold, no random unrelated discharge
+ const p=room.addPlayer({id:'op',token:'op',name:'op'},0);p.spawnProtectionUntil=0;
+ const b=kind==='ram'?room.soFistication=createSoFistication():room.biByeLlista=createBiByeLlista({x:0,z:0,baseYaw:0});
+ p.position=kind==='ram'?soFistEntry(b,room.world):{x:0,y:0,z:0};
+ assert.ok(kind==='ram'?mountSoFistication(room,b,p):mountBiByeLlista(b,p));return{room,p,b};
+}
+const skill=(s,at=1)=>applyRoomCommand(s.room,s.p,{type:'siegeSkill'},at);
+const kinds=s=>[...s.room.bibyeProjectiles.values()].map(p=>p.subKind);
+
+test('ballista: priming neither launches nor consumes Bolt II or cooldown; second press deliberately commits',()=>{
+ const s=setup('bow');assert.equal(skill(s).rejected,undefined);
+ stepBiByeLlista(s.room,s.b,1/30,1.05);
+ assert.deepEqual(kinds(s),[]);assert.equal(s.b.skill.phase,'primed');
+ assert.equal(s.b.skill.readyAt,0);assert.equal(s.b.mainBoltLoaded,true);
+ assert.equal(skill(s,1.1).rejected,undefined);
+ assert.equal(s.b.skill.phase,'releasing');assert.equal(s.b.skill.readyAt,25.1);
+ stepBiByeLlista(s.room,s.b,1/30,1.14);
+ assert.deepEqual(kinds(s),['siege']);assert.equal(s.b.mainBoltLoaded,false);
+ assert.equal(s.b.smallBoltReadyAt,0);assert.equal(s.b.skill.phase,'idle');
+ assert.equal(serializeSnapshot(s.room,1.14).bibyeBallista.skill.readyAt,25.1);
+ assert.ok(skill(s,1.5).rejected);
 });
-test('skill rejects unauthorized, dead, empty and busy requests without spending',()=>{
- const s=setup('bow'),intruder=s.room.addPlayer({id:'other',token:'other',name:'other'},0);
- assert.ok(applyRoomCommand(s.room,intruder,{type:'siegeSkill'},1).rejected);s.b.mainBoltLoaded=false;assert.ok(activate(s).rejected);assert.equal(s.b.skill.readyAt,0);
- s.b.mainBoltLoaded=true;s.p.alive=false;assert.ok(activate(s).rejected);s.p.alive=true;s.b.coupling='FIRING';assert.ok(activate(s).rejected);
+
+test('ballista: independent Bolt I after Bolt II remains available',()=>{
+ const s=setup('bow');skill(s);skill(s,1.1);stepBiByeLlista(s.room,s.b,1/30,1.14);
+ assert.equal(fireBiByeLlista(s.room,s.b,1.2),true);
+ stepBiByeLlista(s.room,s.b,1/30,1.41);
+ assert.deepEqual(kinds(s),['siege','conditioning']);
 });
-for(const age of [.2,.88,1.8,3.5])test(`ram special retracts continuously from cycle age ${age} and cancels without refund`,()=>{
- const s=setup('ram');fireSoFistication(s.room,s.b,0);const t=age;assert.equal(applyRoomCommand(s.room,s.p,{type:'siegeSkill'},t).rejected,undefined);
- const before=soFistPose(s.b,t).offset;damageSoFistication(s.room,s.b,40,'enemy','sword',t,{componentId:'hull'});
- assert.ok(Math.abs(soFistPose(s.b,t).offset-before)<1e-8);assert.ok(s.b.skillStroke);const prep=s.b.skillStroke.prepare;
- assert.equal(soFistPose(s.b,t+prep/2).active,false);assert.ok(soFistPose(s.b,t+prep+.08).active);assert.ok(soFistPose(s.b,t+prep+.08).velocity>0);
- assert.equal(s.b.skill.phase,'idle');assert.equal(s.b.strikeAt,t);assert.equal(fireSoFistication(s.room,s.b,t+.5),false);
+
+test('ballista: Bolt I first triggers a real 0.2s preparation after projectile release',()=>{
+ const s=setup('bow');skill(s);
+ assert.equal(fireBiByeLlista(s.room,s.b,1.1),true);
+ assert.deepEqual(kinds(s),[]);
+ assert.ok(skill(s,1.29).rejected); // Shot I release has not happened yet
+ stepBiByeLlista(s.room,s.b,1/30,1.3);
+ assert.deepEqual(kinds(s),['conditioning']);assert.equal(s.b.upperReleasedAt,1.3);
+ assert.ok(skill(s,1.49).rejected);assert.equal(s.b.skill.phase,'primed');
+ assert.equal(skill(s,1.5).rejected,undefined);
+ stepBiByeLlista(s.room,s.b,1/30,1.535);
+ assert.deepEqual(kinds(s),['conditioning','siege']);
+ assert.ok(s.b.mainReleasedAt-s.b.upperReleasedAt>=.2-1e-8);
+ assert.ok(s.b.mainReleasedAt-s.b.upperReleasedAt<.25);
 });
-test('fist damage cannot bait; manual attack and dismount cancel priming, cooldown remains',()=>{
- const s=setup('ram');activate(s);damageSoFistication(s.room,s.b,100,'enemy','sword',1.1,{componentId:'Fist'});assert.equal(s.b.skill.phase,'primed');
- fireSoFistication(s.room,s.b,1.2);assert.equal(s.b.skill.phase,'idle');assert.equal(s.b.skill.readyAt,25);
- s.b.skill.readyAt=0;applyRoomCommand(s.room,s.p,{type:'siegeSkill'},2);dismountSoFistication(s.room,s.b,s.p);assert.equal(s.b.skill.phase,'idle');assert.equal(s.b.skill.readyAt,26);
+
+test('ballista: pre-fired Bolt I does not require reloading before priming',()=>{
+ const s=setup('bow');assert.equal(fireBiByeLlista(s.room,s.b,.8),true);
+ stepBiByeLlista(s.room,s.b,1/30,1.0);assert.deepEqual(kinds(s),['conditioning']);
+ assert.equal(skill(s,1.1).rejected,undefined);assert.equal(skill(s,1.2).rejected,undefined);
+ stepBiByeLlista(s.room,s.b,1/30,1.24);
+ assert.deepEqual(kinds(s),['conditioning','siege']);
 });
-test('reverse charge spends pressure and adds persistent cooldown debt; expiry ends priming',()=>{
- const s=setup('ram');activate(s);s.p.input={forward:-1,sprint:true};for(let i=1;i<=30;i++)stepSoFistication(s.room,s.b,1/30,1+i/30);
- assert.ok(s.b.speed<-2.5);assert.ok(s.b.pressure<100);assert.ok(s.b.skill.readyAt>26);assert.ok(s.b.skill.debt>1);s.p.input={};stepSoFistication(s.room,s.b,1/30,8);assert.equal(s.b.skill.phase,'idle');
+
+test('ballista: while primed both real bows turn toward moving camera in MOBILE mode',()=>{
+ const s=setup('bow');skill(s);
+ s.p.input={...s.p.input,yaw:.6,pitch:.2,forward:1,right:.2};
+ stepBiByeLlista(s.room,s.b,1/30,1.04);
+ assert.ok(s.b.mainYaw>.05);assert.ok(s.b.upperYaw>.05);
+ assert.ok(s.b.mainPitch>0);assert.ok(s.b.upperPitch>0);
+ assert.equal(s.b.mainBoltLoaded,true);assert.deepEqual(kinds(s),[]);
 });
-test('real hostile reach triggers one outward stroke, Guard mitigates it, and walls arrest it',()=>{
- for(const guarded of [false,true]){
-  const s=setup('ram'),v=s.room.addPlayer({id:'victim',token:'v',name:'v'},0);v.position={x:0,y:0,z:-3.8};v.health=500;v.maxHealth=500;v.spawnProtectionUntil=0;v.guarding=guarded;v.guardHeld=guarded;v.yaw=Math.PI;v.guardStamina=100;
-  activate(s);for(let i=0;i<45;i++)stepSoFistication(s.room,s.b,1/30,1+i/30);
-  const hits=s.room.events.filter(e=>e.type==='soFistImpact'&&e.victimId===v.id);assert.equal(hits.length,1);assert.ok(v.health<500);if(guarded){assert.ok(hits[0].guarded);assert.ok(v.health>420);}
+
+test('ballista: primitive coupled volley remains available only outside primed Skill',()=>{
+ const s=setup('bow');s.b.mode='DEPLOYED';s.b.weaponFocus='MAIN';
+ assert.equal(fireBiByeLlista(s.room,s.b,1),true);
+ assert.equal(s.b.skill.phase,'idle');assert.equal(s.b.coupling,'ALIGNING');
+ assert.deepEqual(kinds(s),[]);
+});
+
+test('ballista: invalid heavy release, operator interruptions and machine cooldown',()=>{
+ for(const when of ['before','after']){
+  const s=setup('bow');skill(s);
+  const intruder=s.room.addPlayer({id:'guest',token:'guest',name:'guest'},0);
+  assert.ok(applyRoomCommand(s.room,intruder,{type:'siegeSkill'},1.05).rejected);
+  if(when==='after') {skill(s,1.1);assert.equal(s.b.skill.readyAt,25.1);}
+  dismountBiByeLlista(s.b,s.p);
+  assert.equal(s.b.skill.phase,'idle');
+  assert.equal(s.b.skill.readyAt,when==='before'?0:25.1);
+  assert.equal(kinds(s).length,0);
  }
- const s=setup('ram');activate(s);damageSoFistication(s.room,s.b,40,'enemy','sword',1,{componentId:'hull'});s.room.world.solids=[{center:[0,1,-3],size:[4,3,.15]}];
- for(let i=1;i<35;i++)stepSoFistication(s.room,s.b,1/30,1+i/30);
- assert.ok(s.b.strokeLimit!=null);assert.ok(soFistPose(s.b,1.8).offset<=s.b.strokeLimit+1e-7);
+ const s=setup('bow');s.b.mainBoltLoaded=false;assert.ok(skill(s).rejected);
+ s.b.mainBoltLoaded=true;s.p.alive=false;assert.ok(skill(s).rejected);
 });
-test('operator loss before independent heavy release cancels, but neither refunds skill nor consumes ammunition',()=>{
- for(const reason of ['death','dismount','disconnect']){
-  const s=setup('bow');activate(s);if(reason==='dismount')dismountBiByeLlista(s.b,s.p);if(reason==='death')s.p.alive=false;if(reason==='disconnect')s.p.connected=false;
-  stepBiByeLlista(s.room,s.b,1/30,1.3);assert.equal(s.room.bibyeProjectiles?.size??0,0);assert.ok(s.b.mainBoltLoaded);assert.equal(s.b.skill.readyAt,25);assert.equal(s.b.skill.phase,'idle');
+
+test('ram: linear elapsed-time hazard is not a fixed six-second expiry or frame chance',()=>{
+ const {initialHazard,growthRate}=SIEGE_SKILLS.beatToThePunch;
+ assert.ok(initialHazard>0&&growthRate>0);
+ const value=integratedRamHazard(20);
+ assert.ok(Math.abs(value-(initialHazard*20+.5*growthRate*400))<1e-12);
+ assert.ok(integratedRamHazard(30)>3*integratedRamHazard(10));
+ const s=setup('ram');skill(s);
+ for(let i=1;i<=240;i++)stepSoFistication(s.room,s.b,1/30,1+i/30);
+ assert.equal(s.b.skill.phase,'primed');assert.equal(s.b.skill.expiresAt,null);
+ assert.ok(s.b.skill.integratedHazard>0);
+ assert.equal(serializeSnapshot(s.room,9).soFistication.skill.failureThreshold,undefined);
+});
+
+test('ram: deterministic failure threshold gives comparable release at distinct tick rates',()=>{
+ const failureTime=rate=>{
+  const s=setup('ram');s.room.siegeSkillRandom=()=>.12;skill(s);
+  for(let i=1;i<=rate*25;i++){
+   const t=1+i/rate;stepSoFistication(s.room,s.b,1/rate,t);
+   const event=s.room.events.find(e=>e.type==='siegeSkill'&&e.action==='triggered');
+   if(event)return{time:t,reason:event.reason,stroke:s.b.skillStroke};
+  }throw Error('No spontaneous release');
+ };
+ const a=failureTime(30),b=failureTime(120);
+ assert.equal(a.reason,'instability');assert.equal(b.reason,'instability');
+ assert.ok(a.stroke&&b.stroke);assert.ok(Math.abs(a.time-b.time)<.04);
+});
+
+test('ram: real hull damage triggers a continuous physical outward stroke from any recovery position',()=>{
+ for(const age of [.2,.88,1.8,3.5]){
+  const s=setup('ram');fireSoFistication(s.room,s.b,0);
+  assert.equal(skill(s,age).rejected,undefined);
+  const before=soFistPose(s.b,age).offset;
+  damageSoFistication(s.room,s.b,40,'enemy','sword',age,{componentId:'hull'});
+  assert.ok(Math.abs(soFistPose(s.b,age).offset-before)<1e-8);
+  assert.ok(s.b.skillStroke);const prep=s.b.skillStroke.prepare;
+  assert.equal(soFistPose(s.b,age+prep/2).active,false);
+  assert.ok(soFistPose(s.b,age+prep+.08).active);
+  assert.equal(s.b.skill.phase,'idle');assert.equal(s.b.skill.readyAt,age+24);
  }
 });
-test('ram cooldown belongs to the instance after a different operator boards',()=>{
- const s=setup('ram');activate(s);dismountSoFistication(s.room,s.b,s.p);s.p.position={x:20,y:0,z:20};
- const next=s.room.addPlayer({id:'next',token:'next',name:'next'},2);next.position=soFistEntry(s.b,s.room.world);assert.ok(mountSoFistication(s.room,s.b,next,2));
- assert.ok(applyRoomCommand(s.room,next,{type:'siegeSkill'},2).rejected);assert.equal(s.b.skill.readyAt,25);
+
+test('ram: invalid manual attack never cancels priming; legal attack does',()=>{
+ const s=setup('ram');fireSoFistication(s.room,s.b,0);skill(s,1);
+ assert.equal(fireSoFistication(s.room,s.b,1.1),false);
+ assert.equal(s.b.skill.phase,'primed');
+ assert.equal(fireSoFistication(s.room,s.b,4.1),true);
+ assert.equal(s.b.skill.phase,'idle');assert.equal(s.b.skill.readyAt,28.1);
 });
-test('a second genuine stroke can hit the same victim without overlap farming',()=>{
- const s=setup('ram'),v=s.room.addPlayer({id:'victim2',token:'v2',name:'v2'},0);v.position={x:0,y:0,z:-3.8};v.health=500;v.maxHealth=500;v.spawnProtectionUntil=0;
- fireSoFistication(s.room,s.b,0);for(let i=1;i<=30;i++)stepSoFistication(s.room,s.b,1/30,i/30);
- const first=v.health;assert.ok(first<500);assert.equal(applyRoomCommand(s.room,s.p,{type:'siegeSkill'},1.1).rejected,undefined);
- for(let i=1;i<=75;i++)stepSoFistication(s.room,s.b,1/30,1.1+i/30);
- assert.ok(v.health<first);assert.equal(s.room.events.filter(e=>e.type==='soFistImpact'&&e.victimId===v.id).length,2);
+
+test('ram: reverse charging accrues real cooldown debt only after resolving',()=>{
+ const s=setup('ram');skill(s);
+ s.p.input={forward:-1,sprint:true};
+ for(let i=1;i<=30;i++)stepSoFistication(s.room,s.b,1/30,1+i/30);
+ assert.ok(s.b.speed<-2.5);assert.ok(s.b.pressure<100);
+ assert.ok(s.b.skill.debt>1);assert.equal(s.b.skill.readyAt,0);
+ const debt=s.b.skill.debt;
+ s.p.input={};
+ assert.equal(fireSoFistication(s.room,s.b,2.1),true);
+ assert.ok(Math.abs(s.b.skill.readyAt-(2.1+24+debt))<1e-8);
 });
-test('destroying the primed drive cancels immediately before another damage event can bait release',()=>{
- const s=setup('ram');activate(s);damageSoFistication(s.room,s.b,1000,'enemy','sword',1.1,{componentId:'Drive'});damageSoFistication(s.room,s.b,40,'enemy','sword',1.1,{componentId:'hull'});
- assert.equal(s.b.skill.phase,'idle');assert.equal(s.b.skillStroke,null);assert.equal(s.b.skill.readyAt,25);
+
+test('ram: dismount or component loss preserves machine debt and cannot be reset by next operator',()=>{
+ const s=setup('ram');skill(s);s.b.skill.debt=3;
+ dismountSoFistication(s.room,s.b,s.p);
+ assert.equal(s.b.skill.phase,'idle');assert.equal(s.b.skill.readyAt,28);
+ s.p.position={x:20,y:0,z:20};
+ const next=s.room.addPlayer({id:'next',token:'next',name:'next'},2);
+ next.position=soFistEntry(s.b,s.room.world);assert.ok(mountSoFistication(s.room,s.b,next,2));
+ assert.ok(applyRoomCommand(s.room,next,{type:'siegeSkill'},2).rejected);
+ const d=setup('ram');skill(d);damageSoFistication(d.room,d.b,1000,'enemy','sword',1.1,{componentId:'Drive'});
+ assert.equal(d.b.skill.phase,'idle');assert.equal(d.b.skillStroke,null);
+ assert.ok(d.b.skill.readyAt>=25.1);
 });
-test('stagger and inactive multiplayer match reject without spending',()=>{
- const s=setup('ram');s.p.staggerUntil=2;assert.ok(activate(s).rejected);assert.equal(s.b.skill.readyAt,0);s.p.staggerUntil=0;s.room.mode='FFA';s.room.state='LOBBY';assert.ok(activate(s).rejected);assert.equal(s.b.skill.readyAt,0);
-});
-test('independent heavy accepts a spent upper bolt and smoothly releases a pretracked clutch',()=>{
- for(const tracked of [false,true]){
-  const s=setup('bow');s.b.smallBoltReadyAt=10;
-  if(tracked){s.b.smallBoltReadyAt=0;s.b.mode='DEPLOYED';s.b.weaponFocus='MAIN';s.b.trackingSince=0;}
-  assert.equal(activate(s).rejected,undefined);if(tracked){assert.equal(s.b.coupling,'RELEASING');stepBiByeLlista(s.room,s.b,1/30,1.3);assert.equal(s.room.bibyeProjectiles?.size??0,0);}
-  for(let i=1;i<=35;i++)stepBiByeLlista(s.room,s.b,1/30,1+i/30);
-  assert.deepEqual([...s.room.bibyeProjectiles.values()].map(p=>p.subKind),['siege']);assert.equal(s.b.smallBoltReadyAt,tracked?0:10);
- }
+
+test('ram: genuine enemy reach and wall remain physical contacts',()=>{
+ const s=setup('ram'),v=s.room.addPlayer({id:'victim',token:'victim',name:'victim'},0);
+ v.position={x:0,y:0,z:-3.8};v.health=500;v.maxHealth=500;v.spawnProtectionUntil=0;
+ skill(s);
+ for(let i=1;i<=45;i++)stepSoFistication(s.room,s.b,1/30,1+i/30);
+ assert.equal(s.room.events.filter(e=>e.type==='siegeSkill'&&e.action==='triggered'&&e.reason==='reach').length,1);
+ assert.ok(v.health<500);
+ const w=setup('ram');skill(w);damageSoFistication(w.room,w.b,40,'enemy','sword',1.1,{componentId:'hull'});
+ w.room.world.solids=[{center:[0,1,-3],size:[4,3,.15]}];
+ for(let i=1;i<=35;i++)stepSoFistication(w.room,w.b,1/30,1.1+i/30);
+ assert.ok(w.b.strokeLimit!=null);
 });
