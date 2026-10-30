@@ -752,7 +752,6 @@ export function stepBiByeLlista(room, ballista, dt, nowSec, world = room.world) 
       others.push({center:[other.position.x,other.position.y+.9,other.position.z],size:[.9,1.8,.9]});
     const ctx=biByeTerrainContext(world,ballista,others);
     const initiallyBlocked=!biByeTerrainClear(ballista,ctx);
-    const destination={x:ballista.x+impulse.x*dt,z:ballista.z+impulse.z*dt};
     const slices=Math.max(1,Math.ceil(Math.hypot(impulse.x,impulse.z)*dt/.05));
     for(let i=0;i<slices;i++){
       const next={...ballista,x:ballista.x+impulse.x*dt/slices,z:ballista.z+impulse.z*dt/slices};
@@ -767,7 +766,7 @@ export function stepBiByeLlista(room, ballista, dt, nowSec, world = room.world) 
         const ram=room.soFistication;
         const away=Math.hypot(proposed.x-ram.x,proposed.z-ram.z)>
           Math.hypot(ballista.x-ram.x,ballista.z-ram.z)+1e-6;
-        if(away) safe=biByeTerrainClear(proposed,biByeTerrainContext(world,proposed,others.filter(s=>!String(s.id??'').startsWith('sofist-'))));
+        if(away) safe=biByeTerrainClear(proposed,biByeTerrainContext(world,proposed,others.filter(s=>s.kind!=='siege-chassis')));
       }
       if(!safe){ballista.externalVelocity={x:0,z:0};break;}
       Object.assign(ballista,{x:proposed.x,y:proposed.y,z:proposed.z,chassisPitch:pose.chassisPitch,chassisRoll:pose.chassisRoll,wheelOffsets:pose.wheelOffsets});
