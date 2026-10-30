@@ -59,7 +59,7 @@ export class FightFlightRenderer{
     const name=this.posture(m),clip=this.clips.get(name);
     if(clip&&name!==this.lastMode){
       if(this.action){this.action.stop();this.action.enabled=false;}
-      this.action=this.mixer.clipAction(clip);this.action.reset().play();this.action.paused=true;this.lastMode=name;
+      this.action=this.mixer.clipAction(clip);this.action.reset().play();this.action.paused=false;this.lastMode=name;
     }
     if(this.action){this.action.time=name==='Posture_05_Grounded_Walk_Loop'?now%this.action.getClip().duration:Math.min(.65,this.action.getClip().duration);this.mixer.update(0);}
     const rotor=this.nodes.get('Rotor_Hub');if(rotor)rotor.rotation.y=m.rotorAngle??0;
