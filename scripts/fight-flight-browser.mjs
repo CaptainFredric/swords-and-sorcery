@@ -8,6 +8,7 @@ import {join} from 'node:path';
 const base=(process.env.FAF_BROWSER_URL??'http://127.0.0.1:3001').replace(/\/$/,'');
 const chromeBin=process.env.CHROME_BIN??'chromium',port=9247;
 const profile=await mkdtemp(join(tmpdir(),'ss-faf-chrome-'));
+let stage='Chrome launch';
 const folder='output/playwright/fight-flight-gate-a';
 await mkdir(folder,{recursive:true});
 const chrome=spawn(chromeBin,['--headless=new','--no-sandbox','--disable-dev-shm-usage',
@@ -16,8 +17,14 @@ const chrome=spawn(chromeBin,['--headless=new','--no-sandbox','--disable-dev-shm
 let ws,seq=0;const pending=new Map(),errors=[];
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 async function until(fn,name,limit=300){
-  for(let i=0;i<limit;i++){try{const x=await fn();if(x)return x;}catch(e){if(i===limit-1)throw e;}await sleep(100);}
-  throw Error('Chrome acceptance timed out: '+name);
+  stage=name;const started=Date.now();let lastError=null;
+  for(let i=0;i<limit;i++){
+    try{const x=await fn();if(x){console.log('[FAF PASS]',name,'after',Date.now()-started,'ms');return x;}}
+    catch(e){lastError=e;}
+    if(i%25===24)console.log('[FAF WAIT]',name,'attempt',i+1,'elapsed',Date.now()-started,'ms',lastError?.message??'');
+    await sleep(100);
+  }
+  throw Error('Chrome acceptance timed out: '+name+' (elapsed '+(Date.now()-started)+'ms; last error '+(lastError?.message??'none')+')');
 }
 async function send(method,params={}){
   const id=++seq;
@@ -63,13 +70,19 @@ try{
  const before=await evaluate(flightState);
  assert.equal(before.herald,false,'unapproved trident must be hidden');
  assert.equal(before.grip,true,'authored crossbow hand socket must be present');
- await screenshot('01-built-unmarked');
+ await screenshot('01-built-unmarked');console.log('[FAF] Built machine',JSON.stringify(before));
  // Physically drive the real held movement input toward the operator station.
  await evaluate("(() => {const r=window.__ssRuntime,p=r.localAuth.position,b=r.latestSnapshot.fightFlight; r.input.yaw=Math.atan2(-(b.x-p.x),-(b.z-p.z));})()");
  await send('Input.dispatchMouseEvent',{type:'mousePressed',x:640,y:420,button:'left',clickCount:1});
  await send('Input.dispatchMouseEvent',{type:'mouseReleased',x:640,y:420,button:'left',clickCount:1});
+ console.log('[FAF] Focus',await evaluate("({enabled:window.__ssRuntime?.input?.enabled,locked:document.pointerLockElement!=null,playing:window.__ssRuntime?.playing,yaw:window.__ssRuntime?.input?.yaw,keys:window.__ssRuntime?.input?.bindings?.forward,at:window.__ssRuntime?.localAuth?.position})"));
  await down('W');
- await until(()=>evaluate("(() => {const r=window.__ssRuntime,p=r.localAuth.position,m=r.latestSnapshot.fightFlight;return Math.hypot(p.x-m.x,p.z-m.z)<2.2;})()"),'walking into mount range',125);
+ await until(async()=>{
+  const x=await evaluate("(() => {const r=window.__ssRuntime,p=r.localAuth.position,m=r.latestSnapshot.fightFlight;return {dist:Math.hypot(p.x-m.x,p.z-m.z),position:p,heading:r.input.yaw,enabled:r.input.enabled,forward:r.input.movement().forward};})()");
+  if(x?.dist<2.2)return x;
+  if(x?.dist>30)throw Error('Moving away from flight machine: '+JSON.stringify(x));
+  return false;
+ },'walking into mount range',125);
  await up('W');await sleep(120);
  await tap('T');
  await until(()=>evaluate("Boolean(window.__ssRuntime?.localAuth?.operatingFightFlightId)"),'actual mount via T');
@@ -98,7 +111,15 @@ try{
  await writeFile(folder+'/result.json',JSON.stringify(result,null,2));
  assert.equal(errors.length,0,'Browser JS exceptions: '+errors.join('; '));
  console.log('Fight-and-Flight Chrome Gate-A acceptance:',JSON.stringify({takeoff:flying.machine.y,landing:landed.machine.y,charge:flying.machine.charge,model:flying.model,herald:flying.herald,errors}));
+}catch(err){
+ console.error('[FAF FAILED]',stage,err.stack??String(err));
+ const state=ws?await evaluate(flightState).catch(e=>({diagnosticError:String(e)})):null;
+ console.error('[FAF FAILED STATE]',JSON.stringify(state));
+ await writeFile(folder+'/failure.json',JSON.stringify({stage,error:String(err),state,errors},null,2));
+ if(ws)await screenshot('failure').catch(()=>{});
+ throw err;
 }finally{
  ws?.close();chrome.kill('SIGTERM');
- await rm(profile,{recursive:true,force:true});
+ // Chrome creates profile files during shutdown; never mask gameplay failure with ENOTEMPTY.
+ await sleep(900);await rm(profile,{recursive:true,force:true}).catch(e=>console.warn('Chrome profile cleanup:',e.message));
 }
