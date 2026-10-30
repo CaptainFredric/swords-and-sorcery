@@ -682,6 +682,7 @@ export class Room {
       dismountBiByeLlista(this.biByeLlista, player, true, this.world);
     }
     if (this.soFistication?.operatorId === id) dismountSoFistication(this,this.soFistication,player,{force:true});
+    if (this.fightFlight?.operatorId === id) dismountFightFlight(this,this.fightFlight,player,{force:true,at:nowSec});
     player.connected = false;
     player.arenaReady = false;
     player.disconnectedAt = nowSec;
