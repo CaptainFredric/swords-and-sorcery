@@ -3112,7 +3112,7 @@ export class GameRuntime {
       this.inspectionBodyOutside=outside;
       this.remotePlayers.showSelf(this.localAuth, {
         position: this.localState.position, velocity: this.localState.velocity, yaw: mounted ? this.localAuth.yaw : this.input.yaw, pitch: mounted ? 0 : this.input.pitch,
-      }, serverNow, nowMs, dt, outside && (!mounted || (this.siegeView === 'third' && this.siegeCamera?.position.distanceTo(this.camera.position) > 1.2)) || this.socket.inspectionAvailable&&(this.inspectionFree||this.inspectionSplit));
+      }, serverNow, nowMs, dt, outside && (!mounted || (this.localAuth?.operatingFightFlightId && this.siegeView === 'third') || (this.siegeView === 'third' && this.siegeCamera?.position.distanceTo(this.camera.position) > 1.2)) || this.socket.inspectionAvailable&&(this.inspectionFree||this.inspectionSplit));
       this.#setFov(this.view.fov + (view.fov - FP_MOTION.baseFov) * motion);
     } else if (this.localAuth && this.localState && this.deathCam && this.localAuth.alive === false) {
       this.#viewInHelm(nowMs, dt);
