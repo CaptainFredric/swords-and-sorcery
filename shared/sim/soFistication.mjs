@@ -122,7 +122,7 @@ export function stepSoFistication(room,b,dt,now,world=room.world){
   }
   if(first){
    const {solid,hit}=first,limit=prior.offset+(raw.offset-prior.offset)*hit.t-.002;
-   if(b.strokeLimit==null||limit<b.strokeLimit){b.strokeLimit=limit;if(b.strokeBlockedAt==null){b.strokeBlockedAt=now;recordSiegeImpact(room,b,now,{speed:Math.max(0,raw.velocity),normal:{x:Math.sin(b.heading),z:Math.cos(b.heading)},kind:'piston-wall',point:{x:hit.point[0],y:hit.point[1],z:hit.point[2]}});b.speed=Math.min(b.speed,-Math.min(SIEGE_IMPACT.pistonReboundMax,Math.max(0,raw.velocity)*.055));room.events.push({type:'soFistBlocked',machineId:b.id,point:{x:hit.point[0],y:hit.point[1],z:hit.point[2]},at:now});}}
+   if(b.strokeLimit==null||limit<b.strokeLimit){b.strokeLimit=limit;if(b.strokeBlockedAt==null){b.strokeBlockedAt=now;if(solid.kind!=='siege-chassis'){recordSiegeImpact(room,b,now,{speed:Math.max(0,raw.velocity),normal:{x:Math.sin(b.heading),z:Math.cos(b.heading)},kind:'piston-wall',point:{x:hit.point[0],y:hit.point[1],z:hit.point[2]}});b.speed=Math.min(b.speed,-Math.min(SIEGE_IMPACT.pistonReboundMax,Math.max(0,raw.velocity)*.055));}room.events.push({type:'soFistBlocked',machineId:b.id,point:{x:hit.point[0],y:hit.point[1],z:hit.point[2]},at:now});}}
    const def=structureForSolid(world,solid);
    if(def&&!(b.strokeStructures??[]).includes(def.id)){
     const profile=STRUCTURE_PROFILES[def.profile],budget=b.structureChargeBudget;
