@@ -159,6 +159,7 @@ class MockElement extends EventTarget {
       ['stageUltimate', 'READY ULTIMATE'],
       ['stageClearCooldowns', 'CLEAR COOLDOWNS'],
       ['stageToggleAi', 'AI: ACTIVE'],
+      ['stageToggleFlight', 'FLIGHT: OFF'],
       ['stageApplySpell', 'EQUIP'],
       ['stageApplyUltimate', 'EQUIP'],
     ];
@@ -171,6 +172,7 @@ class MockElement extends EventTarget {
       if (id === 'toggleGrid') btn.dataset.gridBtn = '';
       if (id === 'toggleFreezeProjectiles') btn.dataset.freezeProjBtn = '';
       if (id === 'stageToggleAi') btn.dataset.aiBtn = '';
+      if (id === 'stageToggleFlight') btn.dataset.flightBtn = '';
       details.append(btn);
     }
 
@@ -302,6 +304,7 @@ function setup() {
     stageUltimate: () => calls.push('stageUltimate'),
     stageClearCooldowns: () => calls.push('stageClearCooldowns'),
     stageToggleAi: () => calls.push('stageToggleAi'),
+    stageToggleFlight: () => calls.push('stageToggleFlight'),
     stageLoadout: (l) => calls.push(['stageLoadout', l]),
     stagePose: (p) => calls.push(['stagePose', p]),
     stagePosition: (pos) => calls.push(['stagePosition', pos]),
@@ -381,6 +384,9 @@ test('InspectionCameraTools renders all controls and dispatches actions on click
 
   clickBtn('stageToggleAi');
   assert.equal(calls.at(-1), 'stageToggleAi');
+
+  clickBtn('stageToggleFlight');
+  assert.equal(calls.at(-1), 'stageToggleFlight');
 
   clickBtn('stagePose', { pose: 'guard' });
   assert.deepEqual(calls.at(-1), ['stagePose', 'guard']);

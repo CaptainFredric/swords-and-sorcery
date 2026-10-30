@@ -67,6 +67,7 @@ export function createMovementState(position = { x: 0, y: 0, z: 0 }) {
     position: { ...position },
     velocity: { x: 0, y: 0, z: 0 },
     grounded: true,
+    flight: false,
     jumpHeld: false,
     dashUntil: -Infinity,
     dashReadyAt: 0,
@@ -139,7 +140,33 @@ export function movePlayer(previous, input, dt, nowSec, world) {
     dashDir: { ...previous.dashDir },
     impulse: { x: previous.impulse?.x ?? 0, z: previous.impulse?.z ?? 0 },
     crouched: Boolean(previous.crouched),
+    flight: input.flight !== undefined ? Boolean(input.flight) : Boolean(previous.flight),
   };
+
+  if (state.flight) {
+    const f = Math.max(-1, Math.min(1, input.forward ?? 0));
+    const r = Math.max(-1, Math.min(1, input.right ?? 0));
+    const yaw = input.yaw ?? 0;
+    const pitch = input.pitch ?? 0;
+    const speed = (input.sprint ? 20 : 8) * (state.speedScale ?? 1);
+
+    const fx = -Math.sin(yaw) * Math.cos(pitch);
+    const fy = Math.sin(pitch);
+    const fz = -Math.cos(yaw) * Math.cos(pitch);
+    const rx = Math.cos(yaw);
+    const rz = -Math.sin(yaw);
+    const up = Number(Boolean(input.jump)) - Number(Boolean(input.crouch));
+
+    state.velocity.x = (fx * f + rx * r) * speed;
+    state.velocity.y = (fy * f + up) * speed;
+    state.velocity.z = (fz * f + rz * r) * speed;
+
+    state.position.x += state.velocity.x * dt;
+    state.position.y += state.velocity.y * dt;
+    state.position.z += state.velocity.z * dt;
+    state.grounded = false;
+    return state;
+  }
 
   // the posture: down at once when asked (feet on the ground), up only when asked and there is room over the head
   const wantsCrouch = Boolean(input.crouch);

@@ -58,6 +58,7 @@ export class InspectionCameraTools {
       <button data-camera="stageUltimate" title="Ready selected actor's Ultimate prowess">READY ULTIMATE</button>
       <button data-camera="stageClearCooldowns" title="Instantly clear spells, dash, and stagger">CLEAR COOLDOWNS</button>
       <button data-camera="stageToggleAi" data-ai-btn title="Enable or suspend practice dummy AI">AI: ACTIVE</button>
+      <button data-camera="stageToggleFlight" data-flight-btn title="Toggle free 3D flight for Spellblade [Shortcut: Y]">FLIGHT: OFF</button>
     </div>
 
     <div class="inspection-control-row">
@@ -230,6 +231,7 @@ export class InspectionCameraTools {
       else if (action === 'stageUltimate') actions.stageUltimate?.();
       else if (action === 'stageClearCooldowns') actions.stageClearCooldowns?.();
       else if (action === 'stageToggleAi') actions.stageToggleAi?.();
+      else if (action === 'stageToggleFlight') actions.stageToggleFlight?.();
       else if (action === 'stageApplySpell') {
         const spell = this.root.querySelector('[data-stage-spell]')?.value;
         actions.stageLoadout?.({ spell });
@@ -300,6 +302,7 @@ export class InspectionCameraTools {
     actorProwess = 0,
     dummyAiSuspended = false,
     mounted = false,
+    spellbladeFlight = false,
   }) {
     this.root.classList.toggle('hidden', !available);
     if (!available) return;
@@ -327,6 +330,7 @@ export class InspectionCameraTools {
       actorUltimate,
       dummyAiSuspended,
       mounted,
+      spellbladeFlight,
     ]);
     if (signature === this.signature) return;
     this.signature = signature;
@@ -370,6 +374,13 @@ export class InspectionCameraTools {
     if (aiBtn) {
       aiBtn.textContent = `AI: ${dummyAiSuspended ? 'SUSPENDED' : 'ACTIVE'}`;
       aiBtn.setAttribute('aria-pressed', String(dummyAiSuspended));
+    }
+
+    // Spellblade flight toggle button
+    const flightBtn = this.root.querySelector('[data-flight-btn]');
+    if (flightBtn) {
+      flightBtn.textContent = `FLIGHT: ${spellbladeFlight ? 'ON' : 'OFF'}`;
+      flightBtn.setAttribute('aria-pressed', String(spellbladeFlight));
     }
 
     // Current actor loadout selectors

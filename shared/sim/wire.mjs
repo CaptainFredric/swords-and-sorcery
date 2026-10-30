@@ -127,6 +127,7 @@ export function serializeSnapshot(room, nowSec, recipientId = null) {
       // feet on ground an enemy's Sunder has torn: no sprint while they are (for my own prediction, and the HUD)
       tornGround: Boolean(p.tornGround),
       crouched: Boolean(p.crouched),
+      flight: Boolean(p.flight),
       ...(room.inspectionEnabled && p.inspectionFrozen ? { inspectionFrozen: true } : {}),
       ...(room.localTutorial && p.id === room.tutorialRival?.id ? {
         tutorialSwordDrawn:Boolean(p.tutorialSwordDrawn), tutorialDrawAt:p.tutorialDrawAt ?? null,
@@ -315,6 +316,7 @@ export function applyRoomCommand(room, player, message, time) {
         jump: Boolean(message.jump),
         sprint: Boolean(message.sprint),
         crouch: Boolean(message.crouch),
+        flight: message.flight !== undefined ? Boolean(message.flight) : Boolean(player.flight),
         // (what is held, beside the presses themselves: a Vortex is steered by it)
         attack: Boolean(message.attack),
         guard: Boolean(message.guard),

@@ -273,6 +273,7 @@ export class GameRuntime {
     this.inspectionBookmarkIncludes = [true, true, true];
     this.inspectionSequence = null;
     this.inspectionSubjectIndex = 0;
+    this.spellbladeFlight = false;
 
     this.inspectionRestorePill = document.createElement('button');
     this.inspectionRestorePill.className = 'inspection-restore-pill';
@@ -297,7 +298,11 @@ export class GameRuntime {
       if (event.code === 'KeyH' || event.code === 'Backquote') {
         event.preventDefault();
         this.cycleInspectionUiMode();
+      } else if (event.code === 'KeyY' && !event.repeat) {
+        event.preventDefault();
+        this.toggleSpellbladeFlight();
       } else if (event.code === 'Escape' && this.inspectionUiMode !== 'full') {
+        event.preventDefault();
         this.setInspectionUiMode('full');
       }
     };
@@ -315,14 +320,12 @@ export class GameRuntime {
         const next = !socket.inspectionFrozen;
         socket.setInspectionFrozen(next);
         this.syncInspection();
-        if (next && !this.inspectionFree) this.input.releaseFocus();
-        else this.input.releaseInputs();
+        this.input.releaseInputs();
       },
       freezeMode: (mode) => {
         socket.setInspectionFreezeMode?.(mode);
         this.syncInspection();
-        if (mode !== 'none' && !this.inspectionFree) this.input.releaseFocus();
-        else this.input.releaseInputs();
+        this.input.releaseInputs();
       },
       toggleFreezeProjectiles: () => {
         socket.setInspectionFreezeProjectiles?.(!socket.inspectionFreezeProjectiles);
@@ -378,9 +381,14 @@ export class GameRuntime {
         const res = socket.stageInspectionActor?.({ mount }) ?? { success: false };
         this.inspectionTools.setFeedback(res.success ? (mount === 'dismount' ? 'DISMOUNTED' : `MOUNTED: ${mount.toUpperCase()}`) : (res.reason || 'Failed'), !res.success);
       },
+      stageToggleFlight: () => this.toggleSpellbladeFlight(),
     });
     this.inspectionActionGate = (action, notify=true) => {
       if (!this.inspectionFree || ['look','move','sprint','jump','crouch','pause'].includes(action)) return true;
+      if (this.inspectionFree && (action === 'attack' || action === 'guard')) {
+        if (!this.touch) this.input.requestPointerLock();
+        return false;
+      }
       if (notify) this.hud.flashText('CAMERA ONLY', '', 700);
       return false;
     };
@@ -683,6 +691,7 @@ export class GameRuntime {
     if (id === this.remotePlayers.localId) return;
     this.input.releaseInputs();
     this.remotePlayers.setLocalId(id);
+    this.spellbladeFlight = Boolean(this.latestSnapshot?.players.find(p => p.id === id)?.flight);
     this.localState=null;this.localAuth=null;this.deathCam=null;
     this.chase=0;this.chaseOut=0;this.chaseAim=null;this.siegeCamera=null;
     this.weapon.cancelAttack();this.weapon.setGuard(false);this.weapon.cancelCast();
@@ -717,8 +726,7 @@ export class GameRuntime {
       this.input.yaw=this.localAuth.yaw;this.input.pitch=this.localAuth.pitch;
     }
     this.syncInspection();
-    if(this.socket.inspectionFrozen && focus==='actor')this.input.releaseFocus();
-    else if(!this.touch)this.input.requestPointerLock();
+    if(!this.touch)this.input.requestPointerLock();
     return true;
   }
 
@@ -739,10 +747,29 @@ export class GameRuntime {
     this.syncInspection();
   }
 
+  toggleSpellbladeFlight(force) {
+    if (!this.socket.inspectionAvailable) return false;
+    this.spellbladeFlight = force !== undefined ? Boolean(force) : !this.spellbladeFlight;
+    this.socket.stageInspectionActor?.({ flight: this.spellbladeFlight });
+    if (this.localState) {
+      this.localState.flight = this.spellbladeFlight;
+      if (this.spellbladeFlight) this.localState.grounded = false;
+    }
+    this.syncInspection();
+    this.inspectionTools?.setFeedback(this.spellbladeFlight ? 'SPELLBLADE FLIGHT: ACTIVE' : 'SPELLBLADE FLIGHT: OFF', false);
+    return true;
+  }
+
   syncInspection() {
     const enabled=Boolean(this.socket.inspectionAvailable);
     if(!enabled&&!this.inspectionWasAvailable)return;
     this.inspectionWasAvailable=enabled;
+    this.hud.setInspectionMode(enabled);
+    if (enabled) {
+      document.body.classList.toggle('inspection-ui-full', this.inspectionUiMode === 'full');
+      document.body.classList.toggle('inspection-ui-gameplay', this.inspectionUiMode === 'gameplay');
+      document.body.classList.toggle('inspection-ui-clean', this.inspectionUiMode === 'clean');
+    }
     if(enabled&&!this.input.allowAction)this.input.allowAction=this.inspectionActionGate;
     if(!enabled&&this.input.allowAction===this.inspectionActionGate)this.input.allowAction=null;
     const available=Boolean(enabled&&this.playing);
@@ -786,6 +813,7 @@ export class GameRuntime {
       actorProwess: this.localAuth?.prowess ?? 0,
       dummyAiSuspended: Boolean(this.latestSnapshot?.players.find(p => p.actorKind === 'dummy')?.aiSuspended),
       mounted: Boolean(this.localAuth?.operatingBallistaId || this.localAuth?.operatingRamId),
+      spellbladeFlight: this.spellbladeFlight,
     });
   }
 
@@ -1797,7 +1825,7 @@ export class GameRuntime {
     if (playerId === this.playerId) return this.voice.say(line, { speaker: playerId, source: this.#bodyPosition(playerId), gain: 0.8, chanceScale, delay, close: true, force, cry, earned, opening, part });
     const body = this.#bodyPosition(playerId);
     const snapshotPlayer = this.latestSnapshot?.players.find((p) => p.id === playerId);
-    if (!body || snapshotPlayer?.actorKind === 'dummy') return false;
+    if (!body || (snapshotPlayer?.actorKind === 'dummy' && !this.socket.inspectionAvailable)) return false;
     const listener = this.localState?.position ?? this.localAuth?.position;
     // only within earshot: his words carry across a duel, his breath only to those around him (voiceRules hearingFor)
     const place = voicePlacement(listener, this.input.yaw, body, hearingFor(line));
@@ -2832,7 +2860,7 @@ export class GameRuntime {
     if(this.inspectionFree){
       this.flyPose??=inspectionSpawn(this.localAuth);
       this.flyPose={...this.flyPose,yaw:this.input.yaw,pitch:this.input.pitch};
-      if(this.playing&&this.input.enabled)this.flyPose=flyStep(this.flyPose,this.input.movement(),wallDt,{speedMode:this.inspectionSpeedMode});
+      if(this.playing)this.flyPose=flyStep(this.flyPose,this.input.movement(),wallDt,{speedMode:this.inspectionSpeedMode});
       flyAim={yaw:this.input.yaw,pitch:this.input.pitch};
       this.input.yaw=this.localAuth?.yaw??0;this.input.pitch=this.localAuth?.pitch??0;
       this.input.aimGain=1;this.input.mountedRam=false;
@@ -2879,7 +2907,7 @@ export class GameRuntime {
       this.viewGuide?.(dt, this.input);
       const wanted = this.inspectionFree
         ? {forward:0,right:0,jump:false,sprint:false,crouch:false,attack:false,guard:false,yaw:this.localAuth.yaw,pitch:this.localAuth.pitch}
-        : this.input.movement();
+        : { ...this.input.movement(), flight: Boolean(this.spellbladeFlight) };
       // A browser-hosted match receives the current render frame's intent before its next combat tick.
       if (this.socket.playingLocally && !this.inspectionFree) sendMovementInput(this.socket, this.#mountedIntent(wanted), nowMs, this);
       const bracing = ultimateStartup(this.localAuth, serverNow);

@@ -227,8 +227,13 @@ export class HUD {
   show() { this.root.classList.remove('hidden'); this.root.setAttribute('aria-hidden', 'false'); }
   hide() { this.root.classList.add('hidden'); this.root.setAttribute('aria-hidden', 'true'); this.clearHit(); }
   setPointerLocked(locked) {
-    this.pointerHint.classList.toggle('hidden', locked);
+    this.pointerHint.classList.toggle('hidden', Boolean(locked) || Boolean(this.suppressPointerHint));
     this.root.classList.toggle('pointer-locked', Boolean(locked));
+  }
+
+  setInspectionMode(active) {
+    this.suppressPointerHint = Boolean(active);
+    if (active) this.pointerHint?.classList.add('hidden');
   }
 
   update(local, snapshot, serverNow) {
