@@ -539,7 +539,6 @@ function ensureRuntime() {
       else if (latestSnapshot?.roomState === 'PLAYING' && mode !== 'PRACTICE') openPause();
     };
   }
-  runtime.onInspectionFreeze=toggleInspectionFreeze;
   runtime.setPlayerId(socket.inspectionActorId??socket.playerId);
 }
 
