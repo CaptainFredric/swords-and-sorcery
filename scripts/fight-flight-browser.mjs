@@ -88,8 +88,9 @@ try{
  assert.equal(still.player.operating,still.machine.id,'midair T must not eject pilot');
  await up('W');
  await send('Input.dispatchKeyEvent',{type:'keyUp',key:' ',code:'Space',windowsVirtualKeyCode:32});
- await tap('C');
+ await down('C');
  await until(()=>evaluate("Boolean(window.__ssRuntime?.latestSnapshot?.fightFlight?.grounded)"),'controlled landing',190);
+ await up('C');
  const landed=await evaluate(flightState);await screenshot('04-landed');
  await tap('T');
  await until(()=>evaluate("!window.__ssRuntime?.localAuth?.operatingFightFlightId"),'safe grounded dismount');
