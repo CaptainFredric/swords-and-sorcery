@@ -44,7 +44,7 @@ export function fightFlightExit(room,m,player){
   const world=room.world,solids=extraSolids(room,m);
   // No airborne dismount: keep occupancy intact until a genuine landing.
   const floor=ground(world,m.x,m.z,m.y);
-  if(m.mode!=='GROUNDED'||!m.grounded||floor==null||Math.abs(m.y-floor)>.25)return null;
+  if(!['GROUNDED','LANDING'].includes(m.mode)||!m.grounded||floor==null||Math.abs(m.y-floor)>.25)return null;
   const forward=[-Math.sin(m.heading),-Math.cos(m.heading)],right=[Math.cos(m.heading),-Math.sin(m.heading)];
   for(const [back,side] of [[2.2,0],[2.1,-1.6],[2.1,1.6],[0,-2.4],[0,2.4],[2.8,-2],[2.8,2]]){
     const x=m.x-forward[0]*back+right[0]*side,z=m.z-forward[1]*back+right[1]*side;
