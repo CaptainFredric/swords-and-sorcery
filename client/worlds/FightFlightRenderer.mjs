@@ -44,6 +44,7 @@ export class FightFlightRenderer{
     if(m.rotorHP<=0)return 'Damage_08_Rotor_Destroy_Grounded';
     if(m.crouched)return 'Posture_03_Grounded_Crouch';
     if(m.mode==='TAKEOFF')return 'Posture_04_Takeoff_To_Flight';
+    if(m.mode==='LANDING')return 'Posture_02_Controlled_Landing';
     if(!m.grounded)return m.velocity?.y<-.9?'Posture_02_Controlled_Landing':'Posture_04_Takeoff_To_Flight';
     if(Math.hypot(m.velocity?.x??0,m.velocity?.z??0)>.3)return 'Posture_05_Grounded_Walk_Loop';
     return 'Posture_01_Grounded_Idle';
