@@ -8,7 +8,7 @@ import {SoFisticationRenderer} from '../worlds/SoFisticationRenderer.mjs';
 import {BiByeMotion} from '../worlds/biByeMotion.mjs';
 import {SoFistSound} from './sound/SoFistSound.mjs';
 import {soFistSolids,soFistFrame,SO_FIST_STATION} from '../../shared/sim/soFistGeometry.mjs';
-import {ramCameraFollow} from './ramCamera.mjs';
+import {ramCameraFollow,ramCameraOrbit} from './ramCamera.mjs';
 import {soFistOperator} from '../../shared/sim/soFistication.mjs';
 import { boxWorld } from '../../shared/src/orientedBox.mjs';
 import {clearOptics,sightPlanePoint,sightLimits,sightWeaponRay,sightScreenPoint} from './biByeSight.mjs';
@@ -2693,10 +2693,11 @@ export class GameRuntime {
     if (!mounted && !this.siegeCamera) return;
     const target = this.camera.position.clone();
     const rotation = this.camera.quaternion.clone();
+    let ramOrbit=null;
     if (mounted) {
       const locator = ram?null:this.world?.biByeLlista?.getMountedCameraPosition(this.siegeView, target);
       if(ram){
-        if(this.siegeView==='third'){const anchor=boxWorld(soFistFrame(b),SO_FIST_STATION.pelvis);target.set(anchor[0]+Math.sin(this.input.yaw)*5.7,anchor[1]+1.8,anchor[2]+Math.cos(this.input.yaw)*5.7);target.set(...clip(this.#reach,anchor,target.toArray(),.25));}
+        if(this.siegeView==='third'){const anchor=boxWorld(soFistFrame(b),[0,1.45,0]);ramOrbit=ramCameraOrbit(anchor,this.input.yaw,this.input.pitch);target.set(...clip(this.#reach,anchor,ramOrbit.position,.25));}
         else target.set(...boxWorld(soFistFrame(b),SO_FIST_STATION.sight));
       }
       else if (!locator) {
@@ -2718,7 +2719,7 @@ export class GameRuntime {
       }
       // The view responds to input immediately. The host points each real muzzle
       // at the reticle hit, accounting for the camera offset and joint limits.
-      const aim=ram?{yaw:this.input.yaw,pitch:this.input.pitch}:biByeConstrainAim({...b,...b.position},{yaw:this.input.yaw,pitch:this.input.pitch},kind==='conditioning');
+      const aim=ram?(ramOrbit??{yaw:this.input.yaw,pitch:this.input.pitch}):biByeConstrainAim({...b,...b.position},{yaw:this.input.yaw,pitch:this.input.pitch},kind==='conditioning');
       rotation.setFromEuler(new THREE.Euler(aim.pitch,aim.yaw,0,'YXZ'));
 
     }
@@ -2726,7 +2727,7 @@ export class GameRuntime {
     const blend = 1 - Math.exp(-dt * 14);
     if(ram&&mounted){
       const follow=ramCameraFollow(this.ramCameraAnchor,[b.position.x,b.position.y,b.position.z],target.toArray(),dt);
-      this.ramCameraAnchor=follow.anchor;this.siegeCamera.position.fromArray(clip(this.#reach,boxWorld(soFistFrame(b),SO_FIST_STATION.pelvis),follow.position,.25));
+      this.ramCameraAnchor=follow.anchor;this.siegeCamera.position.fromArray(clip(this.#reach,boxWorld(soFistFrame(b),this.siegeView==='third'?[0,1.45,0]:SO_FIST_STATION.pelvis),follow.position,.25));
     }else{
       this.ramCameraAnchor=null;this.siegeCamera.position.lerp(target, blend);
       // Clip the interpolated camera too: a safe destination alone does not
