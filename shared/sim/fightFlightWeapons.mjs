@@ -14,14 +14,18 @@ import {GAME} from '../src/combat.mjs';
 
 export const FLIGHT_REPEATER=Object.freeze({capacity:14,production:2,fireRate:7,speed:64,
   lifespan:2.4,falloff:22,closeDamage:3,farDamage:2,guardStamina:8,guardArc:100,
-  maxTraverse:Math.PI*70/180,maxPitch:Math.PI*35/180,minPitch:-Math.PI*30/180,radius:.065});
+  maxTraverse:Math.PI*25/180,maxPitch:Math.PI*20/180,minPitch:-Math.PI*20/180,radius:.065});
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
 const angle=x=>Math.atan2(Math.sin(x),Math.cos(x));
-export function flightMuzzle(m){
+export function flightMuzzle(m,{yaw=m.heading,pitch=0}={}){
+  // The exported crossbow body rotates at local [+0.65,+1.05,+0.22];
+  // the named muzzle is [+0.0,+0.048,+0.585] relative to that pivot.
+  const relative=clamp(angle(yaw-m.heading),-FLIGHT_REPEATER.maxTraverse,FLIGHT_REPEATER.maxTraverse);
+  const elevation=clamp(pitch,FLIGHT_REPEATER.minPitch,FLIGHT_REPEATER.maxPitch);
+  const lx=.65+Math.sin(relative)*Math.cos(elevation)*.585;
+  const lz=.22+Math.cos(relative)*Math.cos(elevation)*.585;
   const c=Math.cos(m.heading),s=Math.sin(m.heading);
-  // GLB rest crossbow_muzzle = [+0.650,+1.098,+0.805], exported +Z forward;
-  // root yaw + PI maps the authentically left-mounted weapon into game -Z forward.
-  return {x:m.x-.65*c-.805*s,y:m.y+1.098,z:m.z+.65*s-.805*c};
+  return {x:m.x-lx*c-lz*s,y:m.y+1.098+Math.sin(elevation)*.585,z:m.z+lx*s-lz*c};
 }
 export function advanceFlightAmmo(m,dt){
   if(!(dt>0)||!m||m.mode==='DESTROYED')return;
@@ -45,9 +49,12 @@ function release(room,m,p,now){
   if(p.attackActive)return false;
   const yaw=(m.heading??0)+clamp(angle((p.input?.yaw??m.heading)-m.heading),-FLIGHT_REPEATER.maxTraverse,FLIGHT_REPEATER.maxTraverse);
   const pitch=clamp(p.input?.pitch??0,FLIGHT_REPEATER.minPitch,FLIGHT_REPEATER.maxPitch);
-  const cp=Math.cos(pitch),origin=flightMuzzle(m);
+  const cp=Math.cos(pitch),origin=flightMuzzle(m,{yaw,pitch});
   const unit={x:-Math.sin(yaw)*cp,y:Math.sin(pitch),z:-Math.cos(yaw)*cp};
-  m.ammo--;m.nextShotAt=now+1/FLIGHT_REPEATER.fireRate;m.lastShotAt=now;m.shotSeq=(m.shotSeq??0)+1;
+  m.ammo--;
+  const period=1/FLIGHT_REPEATER.fireRate,lastDue=m.nextShotAt??now;
+  m.nextShotAt=(now-lastDue>period?now:lastDue)+period;
+  m.lastShotAt=now;m.crossbowYaw=yaw;m.crossbowPitch=pitch;m.shotSeq=(m.shotSeq??0)+1;
   room.fightFlightProjectiles??=new Map();
   const id=m.id+'-quarrel-'+m.shotSeq;
   room.fightFlightProjectiles.set(id,{id,machineId:m.id,ownerId:p.id,position:origin,
@@ -91,7 +98,7 @@ export function stepFightFlightProjectiles(room,dt,now,world=room.world,{filterO
       hits.push({t,kind:'ground',point:{x:a.x+(b.x-a.x)*t,y:floor,z:a.z+(b.z-a.z)*t}});
     }
     // Existing siege volumes use actual components, not a chassis-wide health redirect.
-    const bh=biByeFirstHit(room.biByeLlista,[a.x,a.y,a.z],[b.x,b.y,b.z],now);
+    const bh=room.biByeLlista?biByeFirstHit(room.biByeLlista,[a.x,a.y,a.z],[b.x,b.y,b.z],now):null;
     if(bh)hits.push({t:bh.t,kind:'ballista',hit:bh,point:{x:bh.point[0],y:bh.point[1],z:bh.point[2]}});
     const rh=soFistFirstHit(room.soFistication,[a.x,a.y,a.z],[b.x,b.y,b.z],now);
     if(rh)hits.push({t:rh.t,kind:'ram',hit:rh,point:{x:rh.point[0],y:rh.point[1],z:rh.point[2]}});
