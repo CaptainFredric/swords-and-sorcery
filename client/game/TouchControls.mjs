@@ -308,22 +308,26 @@ export class TouchControls {
       const bl = snapshot?.bibyeBallista;
       const bx = bl?.position?.x ?? bl?.x;
       const bz = bl?.position?.z ?? bl?.z;
-      const ram=Boolean(local.alive&&local.operatingRamId),rb=snapshot?.soFistication,station=rb?soFistOperator(rb):null;
+      const ram=Boolean(local.alive&&local.operatingRamId),flight=Boolean(local.alive&&local.operatingFightFlightId),fb=snapshot?.fightFlight,rb=snapshot?.soFistication,station=rb?soFistOperator(rb):null;
+      const nearFlight=local.alive&&fb&&fb.health>0&&!fb.operatorId&&(!fb.team||fb.team===local.team)&&Math.hypot(fb.x-local.position.x,fb.z-local.position.z)<=2.5;
       const nearRam=local.alive&&rb&&rb.health>0&&(!rb.team||rb.team===local.team)&&!rb.operatorId&&Math.hypot(station.x-local.position.x,station.z-local.position.z)<=2.2;
-      const mounted = Boolean(local.alive && (local.operatingBallistaId||local.operatingRamId));
+      const mounted = Boolean(local.alive && (local.operatingBallistaId||local.operatingRamId||local.operatingFightFlightId));
       if(this.ramMounted!==undefined&&this.ramMounted!==ram)this.reset();
       this.ramMounted=ram;
       this.layer.classList.toggle('touch-ram',ram);
+      this.layer.classList.toggle('touch-flight',flight);
+      this.buttons.jump.querySelector('span').textContent=flight?'RISE':'JUMP';
+      this.buttons.crouch.querySelector('span').textContent=flight?'LOWER':'CROUCH';
       this.buttons.sprint.querySelector('span').textContent=ram?'CHARGE':'SPRINT';
       this.mounted=mounted;
       if(this.buttons.siegeSkill){
         const button=this.buttons.siegeSkill,machine=ram?rb:bl,skill=machine?.skill,remaining=Math.max(0,(skill?.readyAt??0)-serverNow);
         const label=siegeSkillControlLabel(machine,serverNow);
-        button.hidden=!mounted;button.querySelector('span').textContent=label==='II PREPARING'?'II PREP':label==='II RELEASING'?'II RELEASE':label;
+        button.hidden=!mounted||flight;button.querySelector('span').textContent=label==='II PREPARING'?'II PREP':label==='II RELEASING'?'II RELEASE':label;
         button.setAttribute('aria-label',`${ram?'Beat to the Punch':'Bolt to the Occasion'}: ${skill?.phase==='primed'&&ram?'primed, increasingly unstable':remaining>0&&skill?.phase==='idle'?Math.ceil(remaining)+' seconds cooldown':label}`);
       }
       if(this.buttons.siegeBoth){
-        const primed=!ram&&mounted&&bl?.skill?.phase==='primed';
+        const primed=!ram&&!flight&&mounted&&bl?.skill?.phase==='primed';
         const ready=primed&&bl.mainBoltLoaded!==false&&bl.state==='LOADED'&&
           serverNow+1e-8>=(bl.smallBoltReadyAt??0)&&!bl.upperPending&&!bl.upperQueued&&
           bl.combinedUpperPendingAt==null&&(!bl.coupling||bl.coupling==='INDEPENDENT');
@@ -334,12 +338,12 @@ export class TouchControls {
       this.layer.classList.toggle('touch-mounted', mounted);
       if (this.buttons.siegeView) {
         this.buttons.siegeView.hidden=!mounted;
-        this.buttons.siegeView.querySelector('span').textContent=ram?'VIEW':'VIEW ↑';
+        this.buttons.siegeView.querySelector('span').textContent=ram||flight?'VIEW':'VIEW ↑';
         this.buttons.siegeView.setAttribute('aria-label',ram?'Change ram view':'Tap to change view. Swipe up to zoom ahead of the bow. Tap again to return.');
         if(!mounted)this.viewGesture=null;
       }
       if (this.buttons.siegeWeapon) {
-        this.buttons.siegeWeapon.hidden = !mounted || ram || bl?.mode !== 'DEPLOYED';
+        this.buttons.siegeWeapon.hidden = !mounted || ram || flight || bl?.mode !== 'DEPLOYED';
         const next = bl?.weaponFocus === 'MAIN' ? 'UPPER' : 'MAIN';
         this.buttons.siegeWeapon.querySelector('span').textContent = next;
         this.buttons.siegeWeapon.setAttribute('aria-label', `Control ${next.toLowerCase()} launcher${next === 'UPPER' ? ' and cancel alignment' : ''}`);
@@ -350,20 +354,20 @@ export class TouchControls {
           this.buttons.interact.hidden = false;
           const label = this.buttons.interact.querySelector('span');
           if (label && label.textContent !== 'LEAVE') label.textContent = 'LEAVE';
-          this.buttons.interact.setAttribute('aria-label', ram?'Leave ram':'Dismount ballista');
+          this.buttons.interact.setAttribute('aria-label',flight?'Dismount flying machine when landed':ram?'Leave ram':'Dismount ballista');
         }
         if (this.buttons.deploy) {
-          this.buttons.deploy.hidden = ram||!biByeCondition(bl).canDeploy;
+          this.buttons.deploy.hidden = ram||flight||!biByeCondition(bl).canDeploy;
           const label = this.buttons.deploy.querySelector('span');
           const text = bl?.mode === 'DEPLOYED' ? 'PACK' : 'DEPLOY';
           if (label && label.textContent !== text) label.textContent = text;
         }
-      } else if (nearRam||(near && bl?.mode !== 'DESTROYED')) {
+      } else if (nearFlight||nearRam||(near && bl?.mode !== 'DESTROYED')) {
         if (this.buttons.interact) {
           this.buttons.interact.hidden = false;
           const label = this.buttons.interact.querySelector('span');
           if (label && label.textContent !== 'MOUNT') label.textContent = 'MOUNT';
-          this.buttons.interact.setAttribute('aria-label', nearRam?'Operate ram':'Mount ballista');
+          this.buttons.interact.setAttribute('aria-label',nearFlight?'Mount Fight-and-Flight':nearRam?'Operate ram':'Mount ballista');
         }
         if (this.buttons.deploy) this.buttons.deploy.hidden = true;
       } else {
