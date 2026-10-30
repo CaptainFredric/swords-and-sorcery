@@ -431,44 +431,54 @@
         </div>
       </div>
       <aside id="practice-overlay" class="practice-tools hidden">
-        <div><strong>PRACTICE YARD</strong><small class="practice-tools-unlocked-hint">CLICK ARENA TO RESUME</small><small class="practice-tools-locked-hint">ESC FOR TOOLS</small></div>
-        <h3 class="inspection-control hidden">INSPECTION</h3>
-        <button id="practice-freeze" class="inspection-control hidden">FREEZE · P</button>
-        <button id="practice-step" class="inspection-control hidden" disabled>STEP 1 TICK</button>
-        <button id="practice-play-frames" class="inspection-control hidden" disabled>PLAY FRAMES</button>
-        <small id="inspection-status" class="inspection-control hidden" role="status">Live · P freezes the scene</small>
-        <h3>SELF</h3>
-        <button id="practice-reset">RESET SELF</button>
-        <h3>DUMMIES</h3>
-        <button id="practice-passive">PASSIVE DUMMY</button>
-        <button id="practice-guarding">GUARDING DUMMY</button>
-        <button id="practice-fight">FIGHTS BACK</button>
-        <button id="practice-sorcery" class="practice-opponent">SPELLS &amp; SORCERY</button>
-        <button id="practice-melee" class="practice-opponent">MR. MELEE</button>
-        <button id="practice-runner" class="practice-opponent">SIR RUNS-A-LOT</button>
-        <button id="practice-ultimate-knight" class="practice-opponent">THE ULTIMATE KNIGHT</button>
-        <button id="practice-st-perry" class="practice-opponent">ST. PERRY THE PRODIGIOUS</button>
-        <button id="practice-canonization" class="practice-opponent hidden">CANONIZATION</button>
-        <button id="practice-remove">REMOVE DUMMY</button>
-        <h3>ULTIMATE</h3>
-        <button id="practice-ultimate">READY ULTIMATE</button>
-        <details class="practice-siege">
-          <summary>SIEGE MACHINATIONS</summary>
-          <label class="siege-machine-choice">MACHINE <select id="practice-siege-type"><option value="bi-bye-llista">BI-BYE-LLISTA</option><option value="so-fist-ication">SO-FIST-ICATION</option></select></label>
-          <p id="practice-siege-status" role="status" hidden></p>
-          <article>
-            <h4 data-siege-title>BI-BYE-LLISTA</h4>
-            <p data-siege-classification hidden></p>
-            <p data-siege-description>A marvel of combative engineering: compact, brutal, and devoted to destruction, much like the denizens who created it.</p>
-            <p data-siege-final>The first shot lowers the target's defense.</p>
-            <button id="practice-build-bibye">BUILD A BI-BYE-LLISTA</button>
-            <button id="practice-rebuild-bibye" hidden>REBUILD BI-BYE-LLISTA</button>
-            <button id="practice-dismantle-bibye" hidden>DISMANTLE BI-BYE-LLISTA</button>
-          </article>
-        </details>
-        <h3>SESSION</h3>
-        <button type="button" data-open-settings>SETTINGS</button>
-        <button id="practice-leave" class="practice-leave">LEAVE PRACTICE</button>
+        <div class="practice-tools-header">
+          <div>
+            <strong id="practice-tools-title">PRACTICE YARD</strong>
+            <small class="practice-tools-unlocked-hint">CLICK ARENA TO RESUME</small>
+            <small class="practice-tools-locked-hint">ESC FOR TOOLS</small>
+            <small id="practice-role-hint" class="practice-role-hint hidden">Combatant spawner · Director controls on the right →</small>
+          </div>
+          <button id="practice-panel-toggle" class="practice-panel-toggle hidden" type="button" aria-expanded="true">− MINIMIZE</button>
+        </div>
+        <div id="practice-panel-content" class="practice-panel-content">
+          <h3 class="inspection-control hidden">INSPECTION</h3>
+          <button id="practice-freeze" class="inspection-control hidden">FREEZE · P</button>
+          <button id="practice-step" class="inspection-control hidden" disabled>STEP 1 TICK</button>
+          <button id="practice-play-frames" class="inspection-control hidden" disabled>PLAY FRAMES</button>
+          <small id="inspection-status" class="inspection-control hidden" role="status">Live · P freezes the scene</small>
+          <h3>SELF</h3>
+          <button id="practice-reset">RESET SELF</button>
+          <h3>DUMMIES</h3>
+          <button id="practice-passive">PASSIVE DUMMY</button>
+          <button id="practice-guarding">GUARDING DUMMY</button>
+          <button id="practice-fight">FIGHTS BACK</button>
+          <button id="practice-sorcery" class="practice-opponent">SPELLS &amp; SORCERY</button>
+          <button id="practice-melee" class="practice-opponent">MR. MELEE</button>
+          <button id="practice-runner" class="practice-opponent">SIR RUNS-A-LOT</button>
+          <button id="practice-ultimate-knight" class="practice-opponent">THE ULTIMATE KNIGHT</button>
+          <button id="practice-st-perry" class="practice-opponent">ST. PERRY THE PRODIGIOUS</button>
+          <button id="practice-canonization" class="practice-opponent hidden">CANONIZATION</button>
+          <button id="practice-remove">REMOVE DUMMY</button>
+          <h3>ULTIMATE</h3>
+          <button id="practice-ultimate">READY ULTIMATE</button>
+          <details class="practice-siege">
+            <summary>SIEGE MACHINATIONS</summary>
+            <label class="siege-machine-choice">MACHINE <select id="practice-siege-type"><option value="bi-bye-llista">BI-BYE-LLISTA</option><option value="so-fist-ication">SO-FIST-ICATION</option></select></label>
+            <p id="practice-siege-status" role="status" hidden></p>
+            <article>
+              <h4 data-siege-title>BI-BYE-LLISTA</h4>
+              <p data-siege-classification hidden></p>
+              <p data-siege-description>A marvel of combative engineering: compact, brutal, and devoted to destruction, much like the denizens who created it.</p>
+              <p data-siege-final>The first shot lowers the target's defense.</p>
+              <button id="practice-build-bibye">BUILD A BI-BYE-LLISTA</button>
+              <button id="practice-rebuild-bibye" hidden>REBUILD BI-BYE-LLISTA</button>
+              <button id="practice-dismantle-bibye" hidden>DISMANTLE BI-BYE-LLISTA</button>
+            </article>
+          </details>
+          <h3>SESSION</h3>
+          <button type="button" data-open-settings>SETTINGS</button>
+          <button id="practice-leave" class="practice-leave">LEAVE PRACTICE</button>
+        </div>
       </aside>
       <!-- St. Perry dialogue card in Practice Yard -->
       <section id="perry-dialogue" class="perry-dialogue hidden" role="region" aria-label="St. Perry the Prodigious">

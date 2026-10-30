@@ -272,10 +272,18 @@ export class LocalHost {
         }
         this.inspectionPendingRelease.clear();
       }
+      if (mode === 'none') {
+        this.freezeProjectilesState = false;
+      }
     }
     if (this.room) {
       this.room.inspectionFreezeMode = mode;
-      this.room.freezeProjectiles = mode === 'all' || Boolean(this.freezeProjectilesState);
+      if (mode === 'none') {
+        this.room.freezeProjectiles = false;
+        this.room.inspectionFrozenActors = new Set();
+      } else {
+        this.room.freezeProjectiles = Boolean(this.freezeProjectilesState);
+      }
     }
     this.#inspectionState();
     return true;
@@ -285,7 +293,7 @@ export class LocalHost {
     if (!this.inspectionEnabled || this.room?.state !== 'PLAYING') return false;
     this.freezeProjectilesState = Boolean(frozen);
     if (this.room) {
-      this.room.freezeProjectiles = this.inspectionFreezeMode === 'all' || this.freezeProjectilesState;
+      this.room.freezeProjectiles = this.freezeProjectilesState;
     }
     this.#inspectionState();
     return true;
@@ -315,6 +323,9 @@ export class LocalHost {
     if (Boolean(playing) === this.inspectionFramesPlaying) return true;
     this.inspectionFramesPlaying = Boolean(playing);
     this.inspectionNextBeat = playing ? this.wallNow() + 0.2 : null;
+    if (playing && this.room) {
+      this.room.freezeProjectiles = false;
+    }
     this.#inspectionState();
     return true;
   }
@@ -362,7 +373,7 @@ export class LocalHost {
     const frozenActors = new Set();
     const mode = this.inspectionFreezeMode;
     if (mode === 'all') {
-      for (const p of room.players.keys()) frozenActors.add(p);
+      // In 'all' mode, during stepInspection/playFrames, actors step together.
     } else if (mode === 'others') {
       for (const p of room.players.keys()) {
         if (p !== activeActorId) frozenActors.add(p);
@@ -372,7 +383,7 @@ export class LocalHost {
     }
     room.inspectionFrozenActors = frozenActors;
     room.inspectionFreezeMode = mode;
-    room.freezeProjectiles = mode === 'all' || this.inspectionFreezeProjectiles;
+    room.freezeProjectiles = this.inspectionFramesPlaying ? false : Boolean(this.freezeProjectilesState);
 
     if (this.inspectionQueuedActions?.length) {
       const queued = this.inspectionQueuedActions.splice(0);

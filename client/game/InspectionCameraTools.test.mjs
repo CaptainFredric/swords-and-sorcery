@@ -162,6 +162,8 @@ class MockElement extends EventTarget {
       ['stageToggleFlight', 'FLIGHT: OFF'],
       ['stageApplySpell', 'EQUIP'],
       ['stageApplyUltimate', 'EQUIP'],
+      ['stageSpawnDummy', 'SPAWN'],
+      ['stageRemoveDummy', 'REMOVE'],
     ];
 
     for (const [id, label] of btnNames) {
@@ -309,6 +311,8 @@ function setup() {
     stagePose: (p) => calls.push(['stagePose', p]),
     stagePosition: (pos) => calls.push(['stagePosition', pos]),
     stageMount: (m) => calls.push(['stageMount', m]),
+    stageSpawnDummy: (k) => calls.push(['stageSpawnDummy', k]),
+    stageRemoveDummy: () => calls.push('stageRemoveDummy'),
   };
   const tools = new InspectionCameraTools(parent, actions);
   return { parent, calls, actions, tools };
@@ -396,6 +400,12 @@ test('InspectionCameraTools renders all controls and dispatches actions on click
 
   clickBtn('stageMount', { mount: 'ballista' });
   assert.deepEqual(calls.at(-1), ['stageMount', 'ballista']);
+
+  clickBtn('stageSpawnDummy');
+  assert.deepEqual(calls.at(-1), ['stageSpawnDummy', 'PASSIVE']);
+
+  clickBtn('stageRemoveDummy');
+  assert.equal(calls.at(-1), 'stageRemoveDummy');
 });
 
 test('InspectionCameraTools.update updates UI state and authoritative readout', () => {
