@@ -1,4 +1,5 @@
 import {soFistHudView} from './soFistHudView.mjs';
+import {fightFlightHudView} from './fightFlightHudView.mjs';
 import { preparedSpellView } from '../game/preparedSpellSelector.mjs';
 import { SPRINT } from '../../shared/src/movement.mjs';
 import { combatStatusDurationMs } from '../game/combatFeedbackTiming.mjs';
@@ -298,14 +299,16 @@ export class HUD {
     this.#ultimate(local, serverNow, practice);
     this.#armour(steelStrength(local.steel, serverNow), local.steel?.calledAt);
     this.matchInfo.textContent = matchInfoText(snapshot, serverNow);
-    const siege = soFistHudView(local,snapshot,serverNow,this.ballistaControls)??biByeHudView(local, snapshot, serverNow, this.ballistaControls);
-    this.root.classList.toggle('ballista-mounted', Boolean(local?.alive && (local.operatingBallistaId||local.operatingRamId)));
+    const siege = fightFlightHudView(local,snapshot,serverNow,this.ballistaControls)??soFistHudView(local,snapshot,serverNow,this.ballistaControls)??biByeHudView(local, snapshot, serverNow, this.ballistaControls);
+    this.root.classList.toggle('ballista-mounted', Boolean(local?.alive && (local.operatingBallistaId||local.operatingRamId||local.operatingFightFlightId)));
     this.ballistaPanel.hidden = !siege;
     if (siege) {
       this.ballistaPanel.querySelector('strong').textContent = siege.title;
       this.ballistaPanel.querySelector('span').textContent = siege.status;
       this.ballistaPanel.querySelector('small').textContent = siege.controls;
-      const pressure=this.ballistaPanel.querySelector('.drive-pressure');pressure.hidden=siege.pressure==null;
+      const pressure=this.ballistaPanel.querySelector('.drive-pressure');
+      pressure.firstChild.nodeValue=(siege.pressureLabel??'DRIVE PRESSURE')+' ';
+      pressure.hidden=siege.pressure==null;
       if(siege.pressure!=null){pressure.querySelector('output').textContent=Math.ceil(siege.pressure);pressure.querySelector('progress').value=siege.pressure;}
     }
     const duel = duelScoreView(local, snapshot);
