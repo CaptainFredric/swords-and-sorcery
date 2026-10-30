@@ -94,12 +94,17 @@ The existing dual-shot siege ballista has an independently operated small condit
 
 ## Skill — Bolt to the Occasion
 
-**Type:** Independent heavy-shot firing-order/deployment exception. **Cooldown: TBD.**
+**Type:** Two-press independent heavy aiming and firing. **Initial machine-owned cooldown: 24 seconds from deliberate Bolt II commitment.**
 
 - Allow the **actually loaded Bolt II** to fire **independently**, including while the ballista is **mobile and not deployed**.
 - If Bolt I has not fired and both are loaded, the Skill may fire **Bolt II first**; it does not have to wait for Bolt I.
 - If Bolt I was already fired, the Skill may still fire an available Bolt II independently.
-- The Skill bypasses the usual **0.2-second Bolt I→Bolt II separation**, not necessarily every physical firing/recoil animation. Release should feel prompt and match the actual projectile's firing instant.
+- **First SKILL press primes**, without firing or spending the cooldown. Both independently articulated bows track the camera even while mobile, within real constraints.
+- **Second SKILL press fires Bolt II deliberately** using its actual main-launcher pose. Ordinary ATTACK continues to fire only Bolt I during priming, even with MAIN focus.
+- If Bolt I fires first, there is exactly **0.2 seconds of mechanical preparation measured from Bolt I's actual projectile release**. No automatic queued Bolt II, extra coupled delay or gratuitous windup. An early SKILL press is rejected while retaining priming.
+- If Bolt II fires first, Bolt I remains available through normal ATTACK and retains its independent recock clock.
+- A pre-fired Bolt I may precede priming; the operator need not reload it to fire Bolt II.
+- Priming has no arbitrary expiry; dismount before commitment cancels aiming without a fabricated shot or Skill cooldown. After commitment, cooldown survives operator changes/interruption.
 - **Consume the heavy bolt normally.** Do not clone ammo, instant-reload Bolt II, generate a third bolt, or grant unrestricted mobile coupled volleys.
 - Preserve existing heavy-bolt projectile speed, penetration, damage, collision rules, aiming geometry and legitimate reload limits.
 - Give the mobile heavy release an appropriate physical recoil/readability cost without inventing an arbitrary damage bonus.
@@ -115,7 +120,7 @@ SO-FIST-ICATION is a wheeled piston-driven battering ram: **an enormous armored 
 
 ## Skill — Beat to the Punch
 
-**Type:** Primed reactive piston attack, overriding recovery, with temporary backward pressure charge. **Cooldown, maximum armed duration and damage-trigger threshold: TBD.**
+**Type:** Primed reactive piston attack with elapsed-time stochastic instability and temporary backward pressure charge. **Initial base cooldown: 24 seconds from priming resolution.**
 
 **Primed:** The piston assembly visibly shudders, with subtle physically coherent vibration; the machine looks mechanically unstable. The operator can use special backward pressure charging while primed.
 
@@ -128,7 +133,8 @@ SO-FIST-ICATION is a wheeled piston-driven battering ram: **an enormous armored 
 - While primed, sufficiently threatening **chassis** damage may accidentally trigger the waiting attack early, allowing enemies to bait it. Fist damage and chassis damage are not necessarily equivalent for this purpose; define a clear threshold/condition.
 - **Backward pressure charge** permits brisk repositioning/retreat, but the machine's rear does not gain the armored fist's collision damage or special structure-breaking ability. Preserve actual pressure expenditure, terrain, clearance, wheel and chassis damage behavior.
 - If the operator manually attacks while primed, the primed state ends. The Skill cooldown is **not refunded**. Time spent in special backward charge adds to its cooldown obligation. Keep normal attack legality clear; manual attacking should not secretly create extra special strokes.
-- An armed Skill must have a finite window and an explicit end state on operator loss, machine destruction, or time expiry. Cooldown and any accrued penalty persist with the machine.
+- There is **no fixed six-second or other deterministic expiration**. Mechanical failure follows integrated hazard `H(t) = initialHazard·t + growthRate·t²/2`, with a single server-sampled exponential failure threshold at priming. Chances grow continuously over elapsed time, independent of tick rate. Accidental discharge makes a real outward stroke and may hit nothing.
+- Valid manual cancellation, actual strike/discharge, operator loss or component failure resolve priming and start `24s + accrued backward-charge debt` of machine-owned cooldown. Invalid manual attempts leave the Skill primed. Long priming never pays off cooldown in advance.
 
 **Visual rule:** The real visible mechanism is the **piston and armored fist**. Avoid inventing tightening chains, fictional windup drums, or unrelated contraptions. A brief shudder/retraction/outward strike is sufficient if accurately synchronized.
 
@@ -159,19 +165,17 @@ SO-FIST-ICATION is a wheeled piston-driven battering ram: **an enormous armored 
 **Design target:** Skills should feel like exceptional uses—and occasional abuses—of the machines' existing engineering, creating strategic decisions, counterplay, and memorable failures.
 
 
-# Initial implementation and confirmed October 29 rules
+# Revised October 30 siege Skills — candidate PR
 
-The shared `shared/sim/siegeSkills.mjs` owns only identity, readyAt, phase, expiresAt and accrued debt. Each existing machine owns its own state object. Normal ammunition, piston motion, contact sweeps and damage remain inside their existing modules. Both LocalHost and the WebSocket host process the same `siegeSkill` intent. Clients send no damage, ammunition, cooldown or Skill identity. The currently owned machine determines the Skill. The host checks life, ownership, match state, stagger and mechanism legality.
+The canonical revisions are the new two-press Bolt II Skill and rising probabilistic ram instability. Previous October 29 descriptions of automatic Bolt II release, a fixed six-second ram duration and cooldown beginning at priming are obsolete.
 
-Desktop uses a separate rebindable **U** action, Siege machine Skill. Touch has a separate **SKILL** button, showing prime/release/cooldown. Ordinary attack, Ultimate, deploy, weapon selection and View controls retain their meanings. HUD names the actual Skill and its clock. Rejected activations use ordinary host error feedback.
+The shared `shared/sim/siegeSkills.mjs` owns machine-specific clocks, a prime/commit distinction and the continuous-time hazard model. The host validates life, ownership, stagger, mode and legitimate mechanism eligibility; LocalHost and WebSocket command paths share the same authoritative `siegeSkill` intent. Desktop still uses rebindable **U**; landscape touch retains **SKILL**. No projectile is created merely by priming, and a heavy shot cannot fire automatically because Bolt I was released or because preparation completed.
 
-## Provisional tuning and cancellation
+**Provisional ram tuning:** initial hazard 0.0025/s; linear growth 0.0012/s²; qualifying hull damage threshold 35; backward pressure speed up to 8 m/s; +1.5 seconds cooldown debt per second of actual backward pressure charging. These coefficients yield approximately 8% spontaneous discharge by 10 seconds and 46% by 30 seconds; playtesting should determine final balance. The random failure threshold is server-only, while the client sees elapsed priming and increasing physical strain.
 
-All tuning lives in `SIEGE_SKILLS`. Both cooldowns start at 24 seconds, a conservative first testing value that prevents repeated recovery overrides while leaving ordinary operation useful. Beat to the Punch lasts six seconds, accumulates 35 actual hull damage to bait release, permits up to 8 m/s reverse pressure charge and adds 1.5 seconds of cooldown per second actually charging backward. Reverse movement uses existing pressure, wheel penalties, terrain and kinetic contacts. No rear fist, rear piston sweep or reverse structure charge bonus is added.
+**Ballista timing:** Bolt I's existing independent windup is preserved. Primed Bolt II uses its physically tracked lower launcher and respects clutch transition and a 0.2-second preparation if Bolt I has actually released. Cooldown starts at deliberate Bolt II commitment, not first SKILL press. Existing normal coupled volleys remain unchanged outside the Skill.
 
-Bolt to the Occasion requires Bolt II loaded and the mechanism idle. It refuses a pending upper release, coupled volley, clutch transition, damaged siege support condition or deployment transition. A pretracked clutch first releases through its existing transition. The main cradle turns at its existing bounded rate, then performs a 0.2 second physical release preparation; this is independent of the coupled inter-bolt delay. It uses the real main muzzle and existing traverse/elevation constraints, including in Mobile. It consumes only Bolt II and starts the normal 2.2 second recovery plus 4.5 second heavy reload. The upper bolt retains its own ammunition and clock. Operator loss before release cancels without refund, leaving the unspent bolt loaded. After release, reload remains with the machine.
-
-Priming does not immediately strike. A hostile body in the real reachable fist sweep or qualifying hull damage triggers preparation. The current measured extension, including obstacle arrest, becomes the start of a smooth retraction. Only the subsequent real outward stroke is damaging. Its motion maps onto the existing authored animation and physical collider. One special stroke may interrupt recovery; successful trigger starts the normal four second interval. Manual Attack cancels priming even if the normal attack is still recovering. Time expiry, operator loss and loss of the fist/drive end priming without refund. Damage to wheels, drive and armored fist does not count as hull bait. Millimetric shudder is shared by geometry and presentation.
+**Validation status:** focused automated tests added on this branch; runtime browser, landscape-touch and full HTML5 verification remain separate gates. No claim of live verification is made by this document.
 
 ## Fight and Flight: implementation contract, still unimplemented
 
