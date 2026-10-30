@@ -131,7 +131,10 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
     const candidate={x:m.x+m.velocity.x*step,y:m.y+m.velocity.y*step,z:m.z+m.velocity.z*step};
     const floor=ground(world,candidate.x,candidate.z,Math.max(candidate.y,m.y));
     if(floor!==null&&candidate.y<=floor){candidate.y=floor;m.velocity.y=0;m.grounded=true;m.mode='GROUNDED';}
-    else if(!m.grounded)m.mode=intact?'AIRBORNE':'FALLING';
+    else if(floor===null||candidate.y>floor+.05){
+      // Losing support at a cliff is a real transition to falling, not hovering at its rim.
+      m.grounded=false;m.mode=intact?'AIRBORNE':'FALLING';
+    }
     // Sample horizontal AND vertical extent. A ceiling contact kills upward
     // movement rather than phasing the 2.6m-high chassis into masonry.
     if(!collisionFree(candidate,solids,h)){
