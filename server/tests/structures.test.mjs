@@ -47,6 +47,11 @@ test('three real authored piston cycles breach the barricade and preserve phase 
   const from = {x:0,y:0,z:-17}, to = {x:0,y:0,z:-11};
   assert.equal(runClear(room.world,from,to),false);
   for (let cycle = 0; cycle < 3; cycle++) {
+    // Each piston impact now genuinely rolls the carriage backward. This test
+    // isolates repeatable structural stroke damage: treat the fresh aiming
+    // position as the operator having driven back to the barricade between
+    // cycles. The actual recoil travel is asserted in so-fist-impact.test.mjs.
+    if(cycle>0){b.z=-18;b.speed=0;b.recoilVelocity=0;}
     assert.ok(fireSoFistication(room,b,cycle * 4.1));
     for(let i=1;i<=240;i++) stepRoom(room,1/60,cycle*4.1+i/60);
     assert.equal(room.structures.entities['assault-barricade'].health, Math.max(0,600-240*(cycle+1)));
