@@ -505,6 +505,9 @@ export function fireBiByeFullVolley(room, ballista, nowSec) {
 }
 export function fireBiByeLlista(room, ballista, nowSec) {
   if (!ballista || ballista.retired || ballista.mode === BI_BYE_MODES.DESTROYED) return false;
+  // A primed Skill always routes ATTACK to the independent upper bolt.
+  // Never let the ordinary deployed MAIN focus arm a coupled automatic Bolt II.
+  if(ballista.skill?.phase==='primed')return fireBiByeMobile(room,ballista,nowSec);
   return ballista.mode === BI_BYE_MODES.DEPLOYED && ballista.weaponFocus === 'MAIN'
     ? fireBiByeFullVolley(room, ballista, nowSec) : fireBiByeMobile(room, ballista, nowSec);
 }
