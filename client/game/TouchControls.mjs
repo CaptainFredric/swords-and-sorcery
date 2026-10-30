@@ -8,6 +8,7 @@ import { isDeliberateTap, lookDelta, stickVector, touchLayerPoint, TOUCH } from 
 import { screenTurn } from '../ui/screenTurn.mjs';
 import { ICONS, iconSvg } from '../ui/icons.mjs';
 import { ultimateView } from '../ui/ultimateView.mjs';
+import { siegeSkillControlLabel } from '../ui/siegeSkillView.mjs';
 import { practiceOverride } from '../../shared/src/practiceRecast.mjs';
 
 // On-screen controls for phones and tablets. They drive the same InputController actions as the mouse and
@@ -314,9 +315,10 @@ export class TouchControls {
       this.buttons.sprint.querySelector('span').textContent=ram?'CHARGE':'SPRINT';
       this.mounted=mounted;
       if(this.buttons.siegeSkill){
-        const button=this.buttons.siegeSkill,skill=(ram?rb:bl)?.skill,remaining=Math.max(0,(skill?.readyAt??0)-serverNow);
-        button.hidden=!mounted;button.querySelector('span').textContent=skill?.phase==='primed'?'PRIMED':skill?.phase==='releasing'?'RELEASE':remaining>0?Math.ceil(remaining)+'s':'SKILL';
-        button.setAttribute('aria-label',`${ram?'Beat to the Punch':'Bolt to the Occasion'}: ${skill?.phase!=='idle'?skill?.phase:remaining>0?Math.ceil(remaining)+' seconds':'ready'}`);
+        const button=this.buttons.siegeSkill,machine=ram?rb:bl,skill=machine?.skill,remaining=Math.max(0,(skill?.readyAt??0)-serverNow);
+        const label=siegeSkillControlLabel(machine,serverNow);
+        button.hidden=!mounted;button.querySelector('span').textContent=label==='II PREPARING'?'II PREP':label==='II RELEASING'?'II RELEASE':label;
+        button.setAttribute('aria-label',`${ram?'Beat to the Punch':'Bolt to the Occasion'}: ${skill?.phase==='primed'&&ram?'primed, increasingly unstable':remaining>0&&skill?.phase==='idle'?Math.ceil(remaining)+' seconds cooldown':label}`);
       }
       const near = local.alive && bl && local.position && bx !== undefined && !bl.operatorId ? Math.hypot(bx - local.position.x, bz - local.position.z) <= 3.2 : false;
       this.layer.classList.toggle('touch-mounted', mounted);

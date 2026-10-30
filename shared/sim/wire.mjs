@@ -218,7 +218,7 @@ export function serializeSnapshot(room, nowSec, recipientId = null) {
     projectiles: [...room.projectiles.values()].map((p) => ({ id: p.id, ownerId: p.ownerId, spell: p.spell, position: p.position, velocity: p.velocity, ...(p.corePhase ? { corePhase: p.corePhase, armedAt: p.armedAt ?? null, detonateAt: p.detonateAt ?? null } : {}) })),
     structures: room.structures,
     soFistRevision:room.soFistRevision??0,
-    soFistication:room.soFistication?{...room.soFistication,position:{x:room.soFistication.x,y:room.soFistication.y,z:room.soFistication.z},contacts:undefined,bodyEpisodes:undefined,recentVictims:undefined,strokeVictims:undefined,strokeMachines:undefined}:null,
+    soFistication:room.soFistication?{...room.soFistication,skill:{...room.soFistication.skill,failureThreshold:undefined},position:{x:room.soFistication.x,y:room.soFistication.y,z:room.soFistication.z},contacts:undefined,bodyEpisodes:undefined,recentVictims:undefined,strokeVictims:undefined,strokeMachines:undefined}:null,
     bibyeRevision: room.biByeRevision??0,
     bibyeBallista: room.biByeLlista ? {
       skill:{...room.biByeLlista.skill},heavySkill:room.biByeLlista.heavySkill,mainSkillUntil:room.biByeLlista.mainSkillUntil,
@@ -406,7 +406,7 @@ export function applyRoomCommand(room, player, message, time) {
       return reason?{rejected:reason}:{};
     }
     case 'siegeOperate': {
-      if(player.operatingRamId){return dismountSoFistication(room,room.soFistication,player)?{}:{rejected:'No safe exit. Move onto supported open ground.'};}
+      if(player.operatingRamId){return dismountSoFistication(room,room.soFistication,player,{at:time})?{}:{rejected:'No safe exit. Move onto supported open ground.'};}
       if(player.operatingBallistaId)return applyRoomCommand(room,player,{type:'bibyeOperate'},time);
       const ram=room.soFistication,b=room.biByeLlista;
       if(ram&&mountSoFistication(room,ram,player,time))return {};

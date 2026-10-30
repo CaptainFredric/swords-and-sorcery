@@ -22,7 +22,10 @@ export const SO_FIST_STROKE=Object.freeze([[0,0],[.08,-.008],[.18,-.028],[.29,-.
 // Map a recovery interruption onto the same authored physical stroke. Preparation
 // starts at the current measured offset, including an obstacle-arrested stroke.
 export function soFistPose(b,now=b?.poseTime??0){
- if(!b.skillStroke||b.strikeAt==null){const pose=normalSoFistPose(b,now),jitter=b.skill?.phase==='primed'?Math.sin(now*56.55)*SIEGE_SKILLS.beatToThePunch.shudder:0;return{...pose,offset:pose.offset+jitter,jitter};}
+ if(!b.skillStroke||b.strikeAt==null){const pose=normalSoFistPose(b,now),settings=SIEGE_SKILLS.beatToThePunch;
+  const elapsed=Math.max(0,now-(b.skill?.primedAt??now));
+  const amplitude=b.skill?.phase==='primed'?Math.min(settings.maxShudder,settings.shudder+elapsed*settings.shudderGrowth):0;
+  const jitter=Math.sin(now*56.55)*amplitude;return{...pose,offset:pose.offset+jitter,jitter};}
  const age=Math.max(0,now-b.strikeAt),{from,prepare}=b.skillStroke,rest=-.105*SO_FIST_SCALE;
  if(age>=4)return normalSoFistPose({...b,skillStroke:null,strikeAt:null},now);
  if(age<prepare){
