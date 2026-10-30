@@ -27,7 +27,7 @@ const TICK_RATE = 30;
 const INSPECTION_ACTIONS = new Set([
   'input','attack','guard','cast','castCurrentSpell','castPreparedSpell',
   'castPreparedSlot','selectPreparedSlot','selectPreparedSpell','gauntlet',
-  'ultimate','dash','practiceReadyUltimate','siegeOperate','bibyeOperate',
+  'siegeSkill','ultimate','dash','practiceReadyUltimate','siegeOperate','bibyeOperate',
   'bibyeToggleDeploy','bibyeWeaponFocus','bibyeFire'
 ]);
 const INSPECTION_ADMIN_RESET = new Set(['practiceResetPlayer','practiceSpawnDummy','practiceSetDummyMode','practiceRemoveDummy']);

@@ -4,7 +4,7 @@ import {ramHitMaterial} from './ramHitFlash.mjs';
 import {appUrl} from '../appUrl.mjs';
 import {everywhere} from '../game/viewLayers.mjs';
 import {boxWorld} from '../../shared/src/orientedBox.mjs';
-import {SO_FIST_SCALE,SO_FIST_FIT,SO_FIST_STATION,SO_FIST_TIMING,SO_FIST_WHEELS,soFistWheelSteering,soFistFrame,soFistPose} from '../../shared/sim/soFistGeometry.mjs';
+import {SO_FIST_SCALE,SO_FIST_FIT,SO_FIST_STATION,soFistTiming,SO_FIST_WHEELS,soFistWheelSteering,soFistFrame,soFistPose} from '../../shared/sim/soFistGeometry.mjs';
 
 // The original authored asset loads when requested through Practice. Authority owns
 // locomotion and strike time; the mixer supplies the matching mechanical motion.
@@ -52,6 +52,7 @@ export class SoFisticationRenderer {
   this.basis.makeBasis(...frame.axes.map(a=>new THREE.Vector3(...a)));this.group.quaternion.setFromRotationMatrix(this.basis);
   if(!this.model)return;
   this.strike.time=Math.min(3.999,soFistPose(b,now).clipAge);this.strike.enabled=true;this.mixer.update(0);
+  this.nodes.get('Ram_Assembly').position.z+=(soFistPose(b,now).jitter??0)/SO_FIST_SCALE;
   for(let i=0;i<this.wheels.length;i++){
    const {o,rest,position}=this.wheels[i],failed=b.components?.[SO_FIST_WHEELS[i].id]?.health<=0;
    o.position.copy(position);o.position.y+=(b.wheelOffsets?.[i]??0)/SO_FIST_SCALE;
@@ -94,7 +95,7 @@ export class SoFisticationRenderer {
  hit(event){if(event.type==='soFistDamaged'&&event.machineId===this.presentationData?.id&&event.amount>0&&event.point&&Object.values(event.point).every(Number.isFinite)){this.pendingHits.push(event);if(this.pendingHits.length>24)this.pendingHits.shift();}}
  getOperatorStation(now=0){
   const b=this.presentationData;if(!b)return null;const frame=soFistFrame(b),point=p=>new THREE.Vector3(...boxWorld(frame,p));
-  const pose=soFistPose(b,now),recoil=pose.active?Math.max(0,pose.velocity)/14:Math.max(0,1-Math.abs(pose.age-SO_FIST_TIMING.peak)/.25)*.4;
+  const pose=soFistPose(b,now),recoil=pose.active?Math.max(0,pose.velocity)/14:Math.max(0,1-Math.abs(pose.age-soFistTiming(b).peak)/.25)*.4;
   return Object.fromEntries([...['pelvis','leftHand','rightHand','leftFoot','rightFoot'].map(key=>[key,point(SO_FIST_STATION[key])]),['forward',new THREE.Vector3(...frame.axes[2])],['up',new THREE.Vector3(...frame.axes[1])],['recoil',Math.min(1,recoil)]]);
  }
  getOperatorGrips(){const station=this.getOperatorStation(this.presentationData?.poseTime??0);return station?{left:station.leftHand,right:station.rightHand}:null;}

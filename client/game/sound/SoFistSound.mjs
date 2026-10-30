@@ -1,4 +1,4 @@
-import {SO_FIST_TIMING} from '../../../shared/sim/soFistGeometry.mjs';
+import {soFistTiming} from '../../../shared/sim/soFistGeometry.mjs';
 import {BiByeSound} from './BiByeSound.mjs';
 // Shared timber, iron and chain recordings/recipes, with the ram's own cycle.
 export class SoFistSound {
@@ -6,11 +6,12 @@ export class SoFistSound {
  update(b,options){
   if(this.id!==b?.id){this.id=b?.id;this.lastStrike=null;this.released=false;this.sound.stop();}
   if(!b){this.sound.update(null,options);return;}
+  const timing=soFistTiming(b);
   const age=b.strikeAt==null?4:options.now-b.strikeAt;
-  const pose={...b,yaw:b.heading,upperYaw:b.heading,state:age<SO_FIST_TIMING.release||b.charging?'RELOADING':'LOADED'};
+  const pose={...b,yaw:b.heading,upperYaw:b.heading,state:age<timing.release||b.charging?'RELOADING':'LOADED'};
   this.sound.update(pose,options);
   if(b.strikeAt!==this.lastStrike){this.lastStrike=b.strikeAt;this.released=false;}
-  if(age>=SO_FIST_TIMING.release&&age<SO_FIST_TIMING.peak+.24&&!this.released){this.released=true;this.sound.event({type:'bibyeFired',ballistaId:b.id,shot:'II',at:b.strikeAt+SO_FIST_TIMING.release},pose,options.now);}
+  if(age>=timing.release&&age<timing.peak+.24&&!this.released){this.released=true;this.sound.event({type:'bibyeFired',ballistaId:b.id,shot:'II',at:b.strikeAt+timing.release},pose,options.now);}
  }
  event(e,b,now){
   if(!b||e.machineId!==b.id)return;

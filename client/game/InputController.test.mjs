@@ -582,3 +582,7 @@ test('blur and input release cancel precision presentation without changing aim'
  input.yaw=.4;input.pitch=.2;input.aimGain=.55;win.dispatchEvent(new Event('blur'));
  assert.ok(cancelled>0);assert.equal(input.aimGain,1);assert.equal(input.yaw,.4);assert.equal(input.pitch,.2);
 });
+test('dedicated siege Skill respects rebinding, one press and disabled input',()=>{
+ const {input,down,up,calls,send}=setup();input.socket.send=m=>calls.push(m);input.configure({bindings:{...input.bindings,siegeSkill:['KeyH']}});
+ down('KeyH');send('keydown',{code:'KeyH',repeat:true});up('KeyH');assert.deepEqual(calls,[{type:'siegeSkill'}]);input.enabled=false;down('KeyH');assert.equal(calls.length,1);
+});

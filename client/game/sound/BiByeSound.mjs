@@ -83,7 +83,7 @@ export class BiByeSound {
   const key=[event.type,event.ballistaId,event.at,event.componentId,event.shot,event.projectileId].join(':');
   if(this.seen.has(key))return;this.seen.add(key);if(this.seen.size>160)this.seen.delete(this.seen.values().next().value);
   let kind=null;
-  if(event.type==='bibyeFired'){kind=event.shot==='II'?'shotII':'shotI';this.settleAt=event.at+(event.shot==='II'?.45:.3);}
+  if(event.type==='bibyeFired'){kind=event.shot.startsWith('II')?'shotII':'shotI';this.settleAt=event.at+(event.shot.startsWith('II')?.45:.3);}
   if(event.type==='bibyeReloadCompleted')kind='catch';
   if(event.type==='bibyeUpperRecocked')kind='upperCatch';
   if(event.type==='bibyeCouplingEngaged')kind='latch';

@@ -1,3 +1,4 @@
+import {createSiegeSkill,spendSiegeSkill,endSiegeSkill,skillOperator,skillEvent,SIEGE_SKILLS} from './siegeSkills.mjs';
 import { structureForSolid, damageStructure, STRUCTURE_PROFILES } from './structures.mjs';
 import {surfaceHeightAt,resolvePlayerWorld} from '../src/collision.mjs';
 import {boxWorld,orientedBoxHit,boxLocal} from '../src/orientedBox.mjs';
@@ -14,7 +15,7 @@ import {biByeHitVolumes} from './biByeComponents.mjs';
 import {SO_FIST_SCALE,SO_FIST_FIT,SO_FIST_STATION,SO_FIST_WHEELS,soFistTurnRate,soFistFrame,soFistPose,soFistVolumes,soFistStriker,soFistSolids,machineryOverlap} from './soFistGeometry.mjs';
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 export const SO_FIST=Object.freeze({speed:4.8,reverse:2.5,peak:12,pressure:100,hull:1400,fist:500,cycle:4});
-export function createSoFistication(overrides={}){return{id:'sofist-practice',type:'so-fist-ication',x:0,y:0,z:0,heading:0,chassisPitch:0,chassisRoll:0,speed:0,steer:0,pressure:100,charging:false,chargeSpent:false,operatorId:null,health:1400,maxHealth:1400,mode:'MOBILE',strikeAt:null,strokeVictims:[],bodyEpisodes:{},recentVictims:{},wheelRolls:[0,0,0,0],wheelOffsets:[0,0,0,0],components:Object.fromEntries([...SO_FIST_WHEELS.map(w=>[w.id,{health:180,maxHealth:180}]),['Fist',{health:500,maxHealth:500}],['Drive',{health:250,maxHealth:250}]]),...overrides};}
+export function createSoFistication(overrides={}){return{id:'sofist-practice',type:'so-fist-ication',skill:createSiegeSkill('beatToThePunch'),skillStroke:null,x:0,y:0,z:0,heading:0,chassisPitch:0,chassisRoll:0,speed:0,steer:0,pressure:100,charging:false,chargeSpent:false,operatorId:null,health:1400,maxHealth:1400,mode:'MOBILE',strikeAt:null,strokeVictims:[],bodyEpisodes:{},recentVictims:{},wheelRolls:[0,0,0,0],wheelOffsets:[0,0,0,0],components:Object.fromEntries([...SO_FIST_WHEELS.map(w=>[w.id,{health:180,maxHealth:180}]),['Fist',{health:500,maxHealth:500}],['Drive',{health:250,maxHealth:250}]]),...overrides};}
 export function soFistOperator(b){const p=boxWorld(soFistFrame(b),SO_FIST_STATION.rider);return{x:p[0],y:p[1],z:p[2]};}
 export function soFistEntry(b,world){const p=boxWorld(soFistFrame(b),SO_FIST_STATION.entry);return{x:p[0],y:world?surfaceHeightAt(p[0],p[2],b.y+.8,world):p[1],z:p[2]};}
 function stationClear(b,world,extra=[]){
@@ -36,10 +37,31 @@ export function mountSoFistication(room,b,p,now=0){
 }
 export function dismountSoFistication(room,b,p,{administrative=false,exit=null,force=false}={}){
  if(!b)return false;if(p?.alive&&!exit){exit=soFistExit(room,b,p);if(!exit&&!administrative&&!force)return false;}
- b.operatorId=null;b.charging=false;b.chargeSpent=false;b.speed=0;if(administrative){b.retired=true;b.strikeAt=null;}
+ endSiegeSkill(b);b.operatorId=null;b.charging=false;b.chargeSpent=false;b.speed=0;if(administrative){b.retired=true;b.strikeAt=null;}
  if(p){p.operatingRamId=null;p.input={forward:0,right:0,yaw:p.yaw,pitch:p.pitch,jump:false,sprint:false};p.attackHeld=false;p.guarding=false;p.velocity={x:0,y:0,z:0};p.impulse={x:0,z:0};if(exit)p.position={...exit};}return true;
 }
-export function fireSoFistication(room,b,now){if(b?.emplacementId&&room.state!=='PLAYING')return false;if(!b||b.retired||b.health<=0||!room.players.get(b.operatorId)?.alive||(room.players.get(b.operatorId)?.staggerUntil??0)>now||b.strikeAt!=null&&now-b.strikeAt<4)return false;b.strikeAt=now;b.strokeLimit=null;b.strokeBlockedAt=null;b.strikeOperatorId=b.operatorId;b.strokeVictims=[];b.strokeMachines=[];b.strokeStructures=[];room.events.push({type:'soFistStrike',machineId:b.id,at:now});return true;}
+export function fireSoFistication(room,b,now){if(b?.skill?.phase==='primed'){endSiegeSkill(b);skillEvent(room,b,now,'cancelled');}if(b?.emplacementId&&room.state!=='PLAYING')return false;if(!b||b.retired||b.health<=0||!room.players.get(b.operatorId)?.alive||(room.players.get(b.operatorId)?.staggerUntil??0)>now||b.strikeAt!=null&&now-b.strikeAt<4)return false;b.skillStroke=null;b.strikeAt=now;b.strokeLimit=null;b.strokeBlockedAt=null;b.strikeOperatorId=b.operatorId;b.strokeVictims=[];b.strokeMachines=[];b.strokeStructures=[];room.events.push({type:'soFistStrike',machineId:b.id,at:now});return true;}
+export function primeSoFistSkill(room,b,p,now){
+ if(!skillOperator(room,b,p,now)||b.components.Fist.health<=0||b.components.Drive.health<=0)return 'The fist and drive must be functioning.';
+ if(!spendSiegeSkill(b,now,'primed',SIEGE_SKILLS.beatToThePunch.armed))return 'Beat to the Punch is cooling down.';
+ b.skill.chassisDamage=0;skillEvent(room,b,now,'primed');return null;
+}
+function triggerSoFistSkill(room,b,now,reason){
+ if(b.skill?.phase!=='primed')return;
+ if(!skillOperator(room,b,room.players.get(b.operatorId),now)||b.components.Fist.health<=0||b.components.Drive.health<=0){endSiegeSkill(b);return;}
+ const from=soFistPose(b,now).offset,prepare=Math.max(.14,(from+.105*SO_FIST_SCALE)/4.5);
+ b.skillStroke={from,prepare};b.strikeAt=now;b.strokeLimit=null;b.strokeBlockedAt=null;b.strokePreviousOffset=from;b.strokeVictims=[];b.strokeMachines=[];b.strokeStructures=[];b.strikeOperatorId=b.operatorId;
+ endSiegeSkill(b);skillEvent(room,b,now,'triggered',{reason});room.events.push({type:'soFistStrike',machineId:b.id,at:now});
+}
+function stepSoFistSkill(room,b,now){
+ if(b.skill?.phase!=='primed')return;
+ const p=room.players.get(b.operatorId);
+ if(!skillOperator(room,b,p,now)||now>=b.skill.expiresAt||b.components.Fist.health<=0||b.components.Drive.health<=0){endSiegeSkill(b);skillEvent(room,b,now,'ended');return;}
+ const head=soFistStriker({...b,strikeAt:null,skillStroke:null},now),end={...head,center:head.center.map((v,i)=>v+head.axes[2][i]*.445*SO_FIST_SCALE)};
+ for(const target of room.players.values())if(target.alive&&target.id!==p.id&&!areAllies(room,p.id,target.id)&&targetSweep(end,head,target,target.position)){
+  triggerSoFistSkill(room,b,now,'reach');break;
+ }
+}
 export function soFistTerrainPose(b,world){
  const flat=soFistFrame({...b,chassisPitch:0,chassisRoll:0}),samples=[];
  for(const w of SO_FIST_WHEELS){const point=boxWorld(flat,[w.pivot[0],0,w.pivot[2]]),h=surfaceHeightAt(point[0],point[2],b.y+.3,world);if(h==null||Math.abs(h-b.y)>.65)return null;samples.push(h);}
@@ -64,7 +86,7 @@ function pinsPlayer(room,next,world,obstacles){
  return false;
 }
 export function stepSoFistication(room,b,dt,now,world=room.world){
- if(!b||b.retired||b.health<=0)return;b.poseTime=now;
+ if(!b||b.retired||b.health<=0)return;b.poseTime=now;stepSoFistSkill(room,b,now);
  // Sweep the real striking surface against architecture before sampling contacts.
  const prior=soFistPose(b,now-dt),raw=soFistPose({...b,strokeLimit:null},now);
  b.strokePreviousOffset=prior.offset;b.strokeStepDt=dt;
@@ -97,13 +119,16 @@ const p=room.players.get(b.operatorId);
  if(b.operatorId&&(!p?.alive||p.operatingRamId!==b.id||p.connected===false&&p.actorKind==='human'))dismountSoFistication(room,b,p,{force:true});
  const driver=room.players.get(b.operatorId),input=driver&&(driver.staggerUntil??0)<=now?driver.input??{}:{};
  const failed=SO_FIST_WHEELS.filter(w=>b.components[w.id].health<=0),canDrive=failed.length<3&&!['L','R'].some(s=>failed.filter(w=>w.id.endsWith(s)).length>=2),driveScale=canDrive?(1-failed.length*.22)*(b.components.Drive.health<=0?.45:1):0;
- const chargeHeld=Boolean(driver&&input.sprint&&input.forward>=0&&driveScale>0);
+ const reverseSkill=b.skill?.phase==='primed'&&input.forward<0;
+ const chargeHeld=Boolean(driver&&input.sprint&&(input.forward>=0||reverseSkill)&&driveScale>0);
+
  if(!chargeHeld)b.chargeSpent=false;
  if(chargeHeld&&!b.chargeSpent&&b.pressure>=25)b.charging=true;
  if(!chargeHeld)b.charging=false;
  if(b.charging){b.pressure=Math.max(0,b.pressure-(4+.07*b.speed*b.speed)*(1+failed.length*.18+(b.components.Drive.health<=0?.5:0))*dt);if(b.pressure<=0){b.charging=false;b.chargeSpent=true;}}
  else b.pressure=Math.min(100,b.pressure+(Math.abs(b.speed)>6?5:13)*(b.components.Drive.health<=0?.5:1)*dt);
- const target=(b.charging?12:input.forward>0?SO_FIST.speed:input.forward<0?-SO_FIST.reverse:0)*driveScale*(1-.45*clamp(Math.max(0,b.chassisPitch*Math.sign(b.charging?1:input.forward??0))/.384,0,1));
+ if(reverseSkill&&b.charging){const debt=SIEGE_SKILLS.beatToThePunch.reverseDebt*dt;b.skill.readyAt+=debt;b.skill.debt+=debt;}
+ const target=(b.charging?(reverseSkill?-SIEGE_SKILLS.beatToThePunch.reverseSpeed:12):input.forward>0?SO_FIST.speed:input.forward<0?-SO_FIST.reverse:0)*driveScale*(1-.45*clamp(Math.max(0,b.chassisPitch*Math.sign(b.charging?(reverseSkill?-1:1):input.forward??0))/.384,0,1));
  const reversing=target*b.speed<0;
  const accel=b.charging?4:reversing||Math.abs(target)<Math.abs(b.speed)?5.8:3.8;
  b.speed+=clamp(target-b.speed,-accel*dt,accel*dt);if(Math.abs(b.speed)<.001)b.speed=0;
@@ -239,7 +264,8 @@ export function damageSoFistication(room,b,amount,attackerId,source,now,{compone
  if(componentId==='Fist'){const range=STEEL_DAMAGE_RANGES[source];amount=Math.min(amount,range?.min??Math.round(amount*GAME.swordGlance/GAME.swordDamage));}
  target.health=Math.max(0,target.health-amount);target.lastHitAt=now;
  room.events.push({type:'soFistDamaged',machineId:b.id,componentId,amount:old-target.health,point,pointLocal:point?boxLocal(soFistFrame(b),[point.x,point.y,point.z]):null,poseOffset:soFistPose(b,now).offset,attackerId,source,at:now});
- if(target.health===0){target.failedAt=now;if(componentId==='Fist')b.fistBrokenAt=now;if(componentId==='hull'){b.mode='DESTROYED';b.strikeAt=null;const p=room.players.get(b.operatorId);dismountSoFistication(room,b,p,{force:true});}}
+ if(componentId==='hull'&&b.skill?.phase==='primed'&&target.health>0){b.skill.chassisDamage+=(old-target.health);if(b.skill.chassisDamage>=SIEGE_SKILLS.beatToThePunch.chassisTrigger)triggerSoFistSkill(room,b,now,'chassis');}
+ if(target.health===0){target.failedAt=now;if(componentId==='Fist')b.fistBrokenAt=now;if(['Fist','Drive'].includes(componentId)&&b.skill?.phase==='primed'){endSiegeSkill(b);skillEvent(room,b,now,'ended');}if(componentId==='hull'){b.mode='DESTROYED';b.strikeAt=null;const p=room.players.get(b.operatorId);dismountSoFistication(room,b,p,{force:true});}}
  return true;
 }
 
