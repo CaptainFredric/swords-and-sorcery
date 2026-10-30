@@ -210,3 +210,52 @@ test('ram: guarding the genuine reach strike still mitigates its one real contac
   if(guarded){assert.ok(hits[0].guarded);assert.ok(v.health>420);}
  }
 });
+
+test('BOTH: atomic mobile Skill releases heavy first, then the genuine upper bolt exactly once',()=>{
+ const s=setup('bow');assert.equal(skill(s).rejected,undefined);
+ const command=applyRoomCommand(s.room,s.p,{type:'bibyeCombinedFire'},1.1);
+ assert.equal(command.rejected,undefined);assert.equal(s.b.skill.readyAt,25.1);
+ assert.deepEqual(kinds(s),[]);
+ stepBiByeLlista(s.room,s.b,1/30,1.14);
+ assert.deepEqual(kinds(s),['siege']);assert.equal(s.b.mainBoltLoaded,false);
+ assert.ok(Math.abs(s.b.combinedUpperPendingAt-1.34)<1e-8);
+ stepBiByeLlista(s.room,s.b,1/30,1.3);
+ assert.deepEqual(kinds(s),['siege']);
+ stepBiByeLlista(s.room,s.b,1/30,1.35);
+ assert.deepEqual(kinds(s),['siege','conditioning']);
+ const shots=s.room.events.filter(e=>e.type==='bibyeBoltSpawned').map(e=>({kind:e.projectile.subKind,at:e.at}));
+ assert.equal(shots.length,2);assert.ok(Math.abs(shots[1].at-shots[0].at-.2)<1e-8);
+ stepBiByeLlista(s.room,s.b,1/30,1.4);assert.equal(kinds(s).length,2);
+ assert.ok(s.b.smallBoltReadyAt>1.35);assert.equal(s.b.combinedUpperPendingAt,null);
+});
+
+test('BOTH: unprimed, unavailable upper, or another operator cannot commit combined fire',()=>{
+ const s=setup('bow');
+ const both=at=>applyRoomCommand(s.room,s.p,{type:'bibyeCombinedFire'},at);
+ assert.ok(both(1).rejected);assert.equal(s.b.skill.readyAt,0);
+ skill(s,1.1);s.b.smallBoltReadyAt=3;
+ assert.ok(both(1.2).rejected);assert.equal(s.b.skill.phase,'primed');
+ s.b.smallBoltReadyAt=0;
+ const stranger=s.room.addPlayer({id:'stranger',token:'stranger',name:'stranger'},0);
+ assert.ok(applyRoomCommand(s.room,stranger,{type:'bibyeCombinedFire'},1.3).rejected);
+ assert.equal(both(1.4).rejected,undefined);
+ assert.ok(both(1.41).rejected);assert.equal(s.b.skill.readyAt,25.4);
+});
+
+test('BOTH: committed upper follow-through persists after operator dismount, never clones ammunition',()=>{
+ const s=setup('bow');skill(s);applyRoomCommand(s.room,s.p,{type:'bibyeCombinedFire'},1.1);
+ stepBiByeLlista(s.room,s.b,1/30,1.14);
+ dismountBiByeLlista(s.b,s.p);
+ stepBiByeLlista(s.room,s.b,1/30,1.35);
+ assert.deepEqual(kinds(s),['siege','conditioning']);
+ assert.equal(s.b.skill.readyAt,25.1);
+});
+
+test('BOTH: normal mobile movement and independent shot paths are preserved',()=>{
+ const s=setup('bow');skill(s);
+ s.p.input={...s.p.input,forward:1,right:.5,yaw:.2,pitch:.15};
+ applyRoomCommand(s.room,s.p,{type:'bibyeCombinedFire'},1.1);
+ for(let i=0;i<10;i++)stepBiByeLlista(s.room,s.b,1/30,1.1+i/30);
+ assert.ok(Math.hypot(s.b.x,s.b.z)>0.02);
+ assert.deepEqual(kinds(s),['siege','conditioning']);
+});

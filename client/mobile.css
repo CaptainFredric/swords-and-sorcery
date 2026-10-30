@@ -345,3 +345,6 @@ html.turn-typing .rotate-prompt { display: none !important; }
 .touch-mounted.touch-ram .touch-sprint { display: grid; }
 
 .touch-siegeSkill { --size: 62px; right: calc(var(--safe-r) + 278px * var(--s)); bottom: calc(var(--safe-b) + 96px * var(--s)); color: #eed39b; border-color: #bca06c; }
+
+/* Deliberate mobile volley: separate from simultaneous finger gestures. */
+.touch-siegeBoth { --size: 62px; right: calc(var(--safe-r) + 203px * var(--s)); bottom: calc(var(--safe-b) + 96px * var(--s)); color: #f3d4ac; border-color: #e6ad77; }

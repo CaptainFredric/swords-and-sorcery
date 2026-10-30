@@ -1,7 +1,7 @@
 import { GALE_MODES } from '../src/galeModes.mjs';
 import {mountSoFistication,dismountSoFistication,fireSoFistication,primeSoFistSkill} from './soFistication.mjs';
 import { practiceBiByeCommand,practiceSiegeCommand } from './practiceSiege.mjs';
-import { setBiByeWeaponFocus,requestBiByeHeavySkill } from './biByeWeapons.mjs';
+import { setBiByeWeaponFocus,requestBiByeHeavySkill,requestBiByeCombinedSkill } from './biByeWeapons.mjs';
 import { biByeDeployProgress } from './biByeComponents.mjs';
 // What a host (the game server, or the browser playing alone when the server cannot be reached) says to its
 // Spellblades and does with what they send. The same shapes either way, so the client cannot tell who is hosting
@@ -244,6 +244,7 @@ export function serializeSnapshot(room, nowSec, recipientId = null) {
       trackingSince:room.biByeLlista.trackingSince,aimLimited:Boolean(room.biByeLlista.aimLimited),
       upperPending: room.biByeLlista.mobileShotPendingAt != null,
       upperQueued:Boolean(room.biByeLlista.pendingIndependent),
+      combinedUpperPendingAt:room.biByeLlista.combinedUpperPendingAt,
 
       yaw: room.biByeLlista.yaw,
       pitch: room.biByeLlista.pitch,
@@ -404,6 +405,12 @@ export function applyRoomCommand(room, player, message, time) {
     case 'siegeSkill': {
       const ram=room.soFistication,b=room.biByeLlista;
       const reason=player.operatingRamId&&ram?.operatorId===player.id?primeSoFistSkill(room,ram,player,time):player.operatingBallistaId&&b?.operatorId===player.id?requestBiByeHeavySkill(room,b,player,time,biByeTargetAim):'Operate a siege machine to use its Skill.';
+      return reason?{rejected:reason}:{};
+    }
+    case 'bibyeCombinedFire': {
+      const b=room.biByeLlista;
+      if(!player.alive||!player.operatingBallistaId||b?.operatorId!==player.id)return {rejected:'Operate the ballista first.'};
+      const reason=requestBiByeCombinedSkill(room,b,player,time,biByeTargetAim);
       return reason?{rejected:reason}:{};
     }
     case 'siegeOperate': {

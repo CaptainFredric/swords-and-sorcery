@@ -42,6 +42,7 @@ const BUTTONS = [
   { action: 'siegeView', label: 'VIEW' },
   { action: 'siegeWeapon', label: 'UPPER' },
   { action: 'siegeSkill', label: 'SKILL' },
+  { action: 'siegeBoth', label: 'BOTH', icon: 'siegeSkill' },
 ];
 
 const svg = (icon) => iconSvg(icon);
@@ -130,6 +131,7 @@ export class TouchControls {
     if (this.buttons.siegeView) this.buttons.siegeView.hidden = true;
     if (this.buttons.siegeWeapon) this.buttons.siegeWeapon.hidden = true;
     if (this.buttons.siegeSkill) this.buttons.siegeSkill.hidden = true;
+    if (this.buttons.siegeBoth) this.buttons.siegeBoth.hidden = true;
 
     this.layer.addEventListener('pointerdown', this.#down);
     this.layer.addEventListener('pointermove', this.#move);
@@ -319,6 +321,14 @@ export class TouchControls {
         const label=siegeSkillControlLabel(machine,serverNow);
         button.hidden=!mounted;button.querySelector('span').textContent=label==='II PREPARING'?'II PREP':label==='II RELEASING'?'II RELEASE':label;
         button.setAttribute('aria-label',`${ram?'Beat to the Punch':'Bolt to the Occasion'}: ${skill?.phase==='primed'&&ram?'primed, increasingly unstable':remaining>0&&skill?.phase==='idle'?Math.ceil(remaining)+' seconds cooldown':label}`);
+      }
+      if(this.buttons.siegeBoth){
+        const primed=!ram&&mounted&&bl?.skill?.phase==='primed';
+        const ready=primed&&bl.mainBoltLoaded!==false&&bl.state==='LOADED'&&
+          serverNow+1e-8>=(bl.smallBoltReadyAt??0)&&!bl.upperPending&&!bl.upperQueued&&
+          bl.combinedUpperPendingAt==null&&(!bl.coupling||bl.coupling==='INDEPENDENT');
+        this.buttons.siegeBoth.hidden=!ready;
+        this.buttons.siegeBoth.setAttribute('aria-label','Fire both bolts together, Bolt II first');
       }
       const near = local.alive && bl && local.position && bx !== undefined && !bl.operatorId ? Math.hypot(bx - local.position.x, bz - local.position.z) <= 3.2 : false;
       this.layer.classList.toggle('touch-mounted', mounted);
@@ -630,6 +640,7 @@ export class TouchControls {
     if (action === 'deploy') this.input.deploy?.();
     if (action === 'siegeWeapon') this.input.siegeWeapon?.();
     if (action === 'siegeSkill') this.input.siegeSkill?.();
+    if (action === 'siegeBoth') this.input.siegeBoth?.();
     if(action==='siegeView'&&this.input.enabled)this.viewGesture={id:event.pointerId,...gamePoint(event,this.layer),travel:0,zoomed:false};
   }
 

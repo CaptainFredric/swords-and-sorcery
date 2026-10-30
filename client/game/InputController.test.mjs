@@ -586,3 +586,38 @@ test('dedicated siege Skill respects rebinding, one press and disabled input',()
  const {input,down,up,calls,send}=setup();input.socket.send=m=>calls.push(m);input.configure({bindings:{...input.bindings,siegeSkill:['KeyH']}});
  down('KeyH');send('keydown',{code:'KeyH',repeat:true});up('KeyH');assert.deepEqual(calls,[{type:'siegeSkill'}]);input.enabled=false;down('KeyH');assert.equal(calls.length,1);
 });
+
+test('mounted right mouse primes once, then a distinct right click releases the heavy Skill',()=>{
+ const {input,calls,down,up,reveal}=setup();
+ input.socket.send=message=>calls.push(['send',message]);
+ input.mountedBallista=true;input.ballistaSkillPhase='idle';
+ down('Mouse2');down('Mouse2');
+ assert.deepEqual(calls,[['send',{type:'siegeSkill'}]]);
+ up('Mouse2');
+ input.ballistaSkillPhase='primed';
+ down('Mouse2');assert.equal(calls.length,1);
+ reveal();assert.deepEqual(calls,[['send',{type:'siegeSkill'}],['send',{type:'siegeSkill'}]]);
+ up('Mouse2');assert.equal(calls.length,2);
+});
+
+for(const buttons of [['Mouse0','Mouse2'],['Mouse2','Mouse0']]){
+ test('mounted already-primed '+buttons.join(' then ')+' commits one atomic BOTH and no ordinary ATTACK',()=>{
+  const {input,calls,down,up,reveal}=setup();
+  input.socket.send=message=>calls.push(['send',message]);
+  input.mountedBallista=true;input.ballistaSkillPhase='primed';
+  down(buttons[0]);down(buttons[1]);reveal();
+  assert.deepEqual(calls,[['send',{type:'bibyeCombinedFire'}]]);
+  up(buttons[1]);up(buttons[0]);assert.equal(calls.length,1);
+ });
+}
+
+test('mounted quick single left click still fires Bolt I, and dismount preserves ordinary Guard',()=>{
+ const {input,calls,down,up}=setup();
+ input.socket.send=message=>calls.push(['send',message]);
+ input.mountedBallista=true;input.ballistaSkillPhase='primed';
+ down('Mouse0');up('Mouse0');
+ assert.deepEqual(calls.filter(v=>v[0]==='attack'),[['attack',true],['attack',false]]);
+ input.mountedBallista=false;input.releaseInputs();calls.length=0;
+ down('Mouse2');assert.deepEqual(calls,[['guard',true]]);
+ up('Mouse2');assert.deepEqual(calls,[['guard',true],['guard',false]]);
+});
