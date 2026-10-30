@@ -1,7 +1,7 @@
 // Fight-and-Flight: server-authoritative Gate A locomotion. One actual machine per lifecycle.
 // Coordinates are in world metres, Y up; the rider's feet share the machine origin.
 // Flight charge (power supply) and spinning rotor energy remain separate.
-import {resolvePlayerWorld,surfaceHeightAt} from '../src/collision.mjs';
+import {resolvePlayerWorld,surfaceHeightAt,segmentAabbHit} from '../src/collision.mjs';
 import {getBiByeSolids} from './biByeLlista.mjs';
 import {soFistSolids} from './soFistGeometry.mjs';
 
@@ -15,6 +15,12 @@ const cap=(v,a,b)=>Math.max(a,Math.min(b,v));
 const finite=v=>Number.isFinite(v)?v:0;
 const ground=(world,x,z,y)=>surfaceHeightAt(x,z,y+.7,world);
 export const fightFlightOperator=m=>({x:m.x,y:m.y,z:m.z});
+// Solid chassis, not a defensive bubble: rotor and braces require their own real hit geometry in Gate B.
+export function fightFlightSolids(m){
+  if(!m||m.retired||m.mode==='DESTROYED')return [];
+  return [{id:'fight-flight-chassis-'+m.id,kind:'siege-chassis',
+    center:[m.x,m.y+(m.crouched?1:1.15),m.z],size:[1.4,m.crouched?2:2.3,1.35]}];
+}
 const extraSolids=(room,m)=>[
   ...(room.world?.solids??[]),...getBiByeSolids(room.biByeLlista),...soFistSolids(room.soFistication),
 ];
@@ -31,7 +37,7 @@ export function createFightFlight({x=0,y=0,z=0,heading=0,id=null,lifecycleId=nul
     ammo:14,ammoDebt:0,nextShotAt:0,ammoProduction:0,
     skill:{phase:'idle',readyAt:0,activeUntil:0},offensiveRun:false,
     terminalDiveSpent:false,terminalDive:null,lastImpactAt:-Infinity,
-    builtAt:0,retired:false};
+    builtAt:0,takeoffAt:-Infinity,landingAt:-Infinity,retired:false};
 }
 export function fightFlightExit(room,m,player){
   if(!m||m.mode==='DESTROYED')return null;
@@ -45,6 +51,7 @@ export function fightFlightExit(room,m,player){
     const y=ground(world,x,z,m.y);if(y==null||Math.abs(y-m.y)>1)continue;
     const point={x,y,z};
     if(!collisionFree(point,solids,1.8,.45))continue;
+    if(solids.some(s=>segmentAabbHit([m.x,m.y+1,m.z],[x,y+1,z],s)))continue;
     if([...room.players.values()].some(p=>p.alive&&p.id!==player?.id&&Math.hypot(p.position.x-x,p.position.z-z)<1))continue;
     return point;
   }
@@ -58,6 +65,8 @@ export function mountFightFlight(room,m,player,now=0){
   if(m.team&&m.team!==player.team)return false;
   if(Math.hypot(player.position.x-m.x,player.position.z-m.z)>2.5||Math.abs(player.position.y-m.y)>1.5)return false;
   if(!collisionFree({x:m.x,y:m.y,z:m.z},extraSolids(room,m)))return false;
+  const sightSolids=extraSolids(room,m);
+  if(sightSolids.some(s=>segmentAabbHit([player.position.x,player.position.y+1.25,player.position.z],[m.x,m.y+1.25,m.z],s)))return false;
   // Do not imprison the rider in machinery with no safe way to exit.
   if(!fightFlightExit(room,m,player))return false;
   m.operatorId=player.id;if(!m.team&&player.team)m.team=player.team;
@@ -95,8 +104,8 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
   const jump=Boolean(op&&input.jump),descend=Boolean(op&&input.crouch);
   if(m.grounded){
     m.mode='GROUNDED';m.crouched=descend&&!jump;
-    if(jump&&intact&&m.flightCharge>2){m.grounded=false;m.mode='TAKEOFF';m.crouched=false;m.velocity.y=Math.max(m.velocity.y,2.8);}
-  }else{m.crouched=false;m.mode=intact?'AIRBORNE':'FALLING';}
+    if(jump&&intact&&m.flightCharge>2){m.grounded=false;m.mode='TAKEOFF';m.takeoffAt=now;m.crouched=false;m.velocity.y=Math.max(m.velocity.y,2.8);}
+  }else{m.crouched=false;m.mode=intact&&now-(m.takeoffAt??-Infinity)<1.1?'TAKEOFF':intact?'AIRBORNE':'FALLING';}
   const charge=m.flightCharge;
   const spinning=intact&&(op||!m.grounded)&&charge>0;
   // A real spool-up means a damaged or drained rotor cannot lift at full strength.
@@ -130,10 +139,13 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
     const previous={x:m.x,y:m.y,z:m.z},step=dt/steps;
     const candidate={x:m.x+m.velocity.x*step,y:m.y+m.velocity.y*step,z:m.z+m.velocity.z*step};
     const floor=ground(world,candidate.x,candidate.z,Math.max(candidate.y,m.y));
-    if(floor!==null&&candidate.y<=floor){candidate.y=floor;m.velocity.y=0;m.grounded=true;m.mode='GROUNDED';}
+    if(floor!==null&&candidate.y<=floor){
+      if(!m.grounded)m.landingAt=now;
+      candidate.y=floor;m.velocity.y=0;m.grounded=true;m.mode='GROUNDED';
+    }
     else if(floor===null||candidate.y>floor+.05){
       // Losing support at a cliff is a real transition to falling, not hovering at its rim.
-      m.grounded=false;m.mode=intact?'AIRBORNE':'FALLING';
+      m.grounded=false;m.mode=intact&&now-(m.takeoffAt??-Infinity)<1.1?'TAKEOFF':intact?'AIRBORNE':'FALLING';
     }
     // Sample horizontal AND vertical extent. A ceiling contact kills upward
     // movement rather than phasing the 2.6m-high chassis into masonry.
@@ -157,6 +169,8 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
     if(m.grounded&&floor!==null&&m.y>floor+.05)m.grounded=false;
   }
   if(!m.grounded&&m.mode==='GROUNDED')m.mode='AIRBORNE';
+  if(!m.grounded&&m.mode==='AIRBORNE'&&m.velocity.y<-.9)m.mode='LANDING';
+  if(m.mode==='GROUNDED'&&now-m.landingAt<.55)m.mode='LANDING';
   m.position={x:m.x,y:m.y,z:m.z};
   if(op){op.position=fightFlightOperator(m);op.velocity={...m.velocity};op.yaw=yaw;op.pitch=finite(input.pitch);op.grounded=m.grounded;op.crouched=m.crouched;op.sprinting=Boolean(input.sprint&&m.grounded);op.sprintBlend=0;}
 }
