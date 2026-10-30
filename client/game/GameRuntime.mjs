@@ -317,8 +317,14 @@ export class GameRuntime {
       split: () => this.setInspectionSplit(!this.inspectionSplit),
       reset: () => this.resetInspectionCamera(),
       freeze: () => {
-        const next = !socket.inspectionFrozen;
-        socket.setInspectionFrozen(next);
+        const frozen = socket.inspectionFrozen;
+        const mode = socket.inspectionFreezeMode;
+        const playing = socket.inspectionFramesPlaying;
+        if (frozen || mode !== 'none' || playing) {
+          socket.setInspectionFreezeMode?.('none');
+        } else {
+          socket.setInspectionFreezeMode?.('all');
+        }
         this.syncInspection();
         this.input.releaseInputs();
       },
@@ -331,7 +337,21 @@ export class GameRuntime {
         socket.setInspectionFreezeProjectiles?.(!socket.inspectionFreezeProjectiles);
       },
       step: () => socket.stepInspection(),
-      playFrames: () => socket.playInspectionFrames(!socket.inspectionFramesPlaying),
+      playFrames: () => {
+        if (!socket.inspectionFrozen && !socket.inspectionFramesPlaying) {
+          socket.setInspectionFrozen(true);
+        }
+        socket.playInspectionFrames(!socket.inspectionFramesPlaying);
+        this.syncInspection();
+      },
+      stageSpawnDummy: (kind) => {
+        socket.practiceSpawnDummy?.(kind || 'PASSIVE');
+        this.inspectionTools?.setFeedback(`DUMMY SPAWNED: ${kind || 'PASSIVE'}`);
+      },
+      stageRemoveDummy: () => {
+        socket.practiceRemoveDummy?.();
+        this.inspectionTools?.setFeedback('DUMMY REMOVED');
+      },
       hideAllUi: () => this.setInspectionUiMode('clean'),
       cycleUiMode: () => this.cycleInspectionUiMode(),
       toggleGrid: () => this.toggleInspectionGrid(),

@@ -48,11 +48,26 @@ export class InspectionCameraTools {
     </div>
     <div class="inspection-camera-buttons">
       <button data-camera="toggleFreezeProjectiles" data-freeze-proj-btn title="Suspend spell and siege projectiles midair">FREEZE PROJECTILES: OFF</button>
-      <button data-camera="playFrames" disabled title="Play simulation at 0.2s frame beats">PLAY FRAMES</button>
+      <button data-camera="playFrames" title="Play simulation at 0.2s frame beats">PLAY FRAMES</button>
     </div>
 
     <!-- ACTOR SETUP & STAGING -->
     <div class="inspection-section-label">ACTOR SETUP & STAGING</div>
+    <div class="inspection-control-row">
+      <label class="inspection-row-title" for="stage-spawn-dummy">DUMMY:</label>
+      <select id="stage-spawn-dummy" class="inspection-select" data-stage-dummy-type>
+        <option value="PASSIVE">Passive</option>
+        <option value="GUARDING">Guarding</option>
+        <option value="FIGHTS_BACK">Fights Back</option>
+        <option value="SORCERY">Spells &amp; Sorcery</option>
+        <option value="MELEE">Mr. Melee</option>
+        <option value="RUNNER">Sir Runs-A-Lot</option>
+        <option value="ULTIMATE_KNIGHT">The Ultimate Knight</option>
+        <option value="ST_PERRY">St. Perry</option>
+      </select>
+      <button data-camera="stageSpawnDummy" title="Spawn selected practice dummy">SPAWN</button>
+      <button data-camera="stageRemoveDummy" title="Remove dummy from arena">REMOVE</button>
+    </div>
     <div class="inspection-camera-buttons">
       <button data-camera="stageRefill" title="Restore HP and Guard Stamina to full">REFILL VITALS</button>
       <button data-camera="stageUltimate" title="Ready selected actor's Ultimate prowess">READY ULTIMATE</button>
@@ -232,6 +247,12 @@ export class InspectionCameraTools {
       else if (action === 'stageClearCooldowns') actions.stageClearCooldowns?.();
       else if (action === 'stageToggleAi') actions.stageToggleAi?.();
       else if (action === 'stageToggleFlight') actions.stageToggleFlight?.();
+      else if (action === 'stageSpawnDummy') {
+        const kind = this.root.querySelector('[data-stage-dummy-type]')?.value || 'PASSIVE';
+        actions.stageSpawnDummy?.(kind);
+      } else if (action === 'stageRemoveDummy') {
+        actions.stageRemoveDummy?.();
+      }
       else if (action === 'stageApplySpell') {
         const spell = this.root.querySelector('[data-stage-spell]')?.value;
         actions.stageLoadout?.({ spell });
@@ -346,6 +367,8 @@ export class InspectionCameraTools {
       dummyBtn.disabled = !dummy;
       dummyBtn.setAttribute('aria-pressed', String(focus === 'actor' && controlledDummy));
     }
+    const removeDummyBtn = button('stageRemoveDummy');
+    if (removeDummyBtn) removeDummyBtn.disabled = !dummy;
 
     const viewFpBtn = button('viewFp');
     if (viewFpBtn) viewFpBtn.setAttribute('aria-pressed', String(focus === 'actor'));
@@ -417,14 +440,14 @@ export class InspectionCameraTools {
 
     // Time controls
     const freezeBtn = button('freeze');
-    if (freezeBtn) freezeBtn.textContent = (frozen || effectiveFreeze !== 'none') ? 'RESUME' : 'FREEZE';
+    if (freezeBtn) freezeBtn.textContent = (frozen || effectiveFreeze !== 'none' || playingFrames) ? 'RESUME' : 'FREEZE';
 
     const stepBtn = button('step');
     if (stepBtn) stepBtn.disabled = !frozen && effectiveFreeze === 'none';
 
     const playFramesBtn = button('playFrames');
     if (playFramesBtn) {
-      playFramesBtn.disabled = !frozen && effectiveFreeze === 'none';
+      playFramesBtn.disabled = false;
       playFramesBtn.textContent = playingFrames ? 'STOP FRAMES' : 'PLAY FRAMES';
       playFramesBtn.setAttribute('aria-pressed', String(playingFrames));
     }

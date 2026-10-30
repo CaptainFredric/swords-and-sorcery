@@ -427,3 +427,48 @@ test('freeze mode OTHERS freezes incoming projectiles and unattended siege machi
   advance(0.2);
   assert.equal(dummy.position.y, dummyY, 'dummy in flight maintains altitude when frozen as others');
 });
+
+test('Play Frames advances flying projectiles and unpauses everything cleanly on resume', () => {
+  const { host, advance } = yard();
+  const owner = host.player;
+
+  // 1. Cast fireball while live
+  host.stageInspectionActor({ actorId: owner.id, position: { x: 0, y: 1, z: 0, yaw: 0, pitch: 0 } });
+  host.cast({ x: 0, y: 0, z: 1 });
+  for (let i = 0; i < 11; i++) advance(1 / 30);
+  assert.ok(host.latestSnapshot.projectiles.length, 'Fireball spawned and in flight');
+  const proj = host.latestSnapshot.projectiles[0];
+
+  // 2. Freeze all
+  host.setInspectionFreezeMode('all');
+  assert.equal(host.inspectionFrozen, true);
+  const posFrozen = structuredClone(host.latestSnapshot.projectiles[0].position);
+
+  // 3. While frozen without playFrames, idle advance does not advance projectile
+  advance(0.3);
+  assert.deepEqual(host.latestSnapshot.projectiles[0].position, posFrozen, 'Projectile stationary while frozen');
+
+  // 4. Start Play Frames: each beat must advance the flying projectile
+  assert.equal(host.playInspectionFrames(true), true);
+  assert.equal(host.inspectionFramesPlaying, true);
+
+  advance(0.25); // Advances 1 beat (1 tick)
+  const posAfterBeat1 = structuredClone(host.latestSnapshot.projectiles[0].position);
+  assert.notDeepEqual(posAfterBeat1, posFrozen, 'Projectile flew forward during Play Frames beat 1');
+
+  advance(0.2); // Advances beat 2
+  const posAfterBeat2 = structuredClone(host.latestSnapshot.projectiles[0].position);
+  assert.notDeepEqual(posAfterBeat2, posAfterBeat1, 'Projectile flew forward during Play Frames beat 2');
+
+  // 5. Resume to live (unpause everything)
+  assert.equal(host.setInspectionFreezeMode('none'), true);
+  assert.equal(host.inspectionFrozen, false, 'Unpaused to live');
+  assert.equal(host.inspectionFramesPlaying, false, 'Play frames stopped on resume');
+  assert.equal(host.inspectionFreezeProjectiles, false, 'Projectiles unpaused on resume');
+
+  // 6. Projectile continues flying in real time
+  advance(0.2);
+  if (host.latestSnapshot.projectiles.length > 0) {
+    assert.notDeepEqual(host.latestSnapshot.projectiles[0].position, posAfterBeat2, 'Projectile resumes real-time flight');
+  }
+});

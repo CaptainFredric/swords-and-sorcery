@@ -1484,16 +1484,30 @@ function updateInspectionControls() {
   $('#practice-rebuild-bibye').hidden=!machine;
   $('#practice-dismantle-bibye').hidden=!machine;
   const available = socket.inspectionAvailable && latestSnapshot?.mode === 'PRACTICE';
-  for (const node of document.querySelectorAll('.inspection-control')) node.classList.toggle('hidden', !available);
+  // Redundant inspection controls in the practice panel are hidden to prevent confusion with Inspection Yard
+  for (const node of document.querySelectorAll('.inspection-control')) node.classList.add('hidden');
   $('#practice-freeze').textContent = socket.inspectionFrozen ? 'RESUME · P' : 'FREEZE · P';
   $('#practice-step').disabled = !socket.inspectionFrozen || socket.inspectionFramesPlaying;
-  $('#practice-play-frames').disabled = !socket.inspectionFrozen;
+  $('#practice-play-frames').disabled = false;
   $('#practice-play-frames').textContent = socket.inspectionFramesPlaying ? 'STOP FRAMES' : 'PLAY FRAMES';
   $('#inspection-status').textContent = socket.inspectionFramesPlaying ? 'Playing frames · 5 ticks/s · ⅙ speed' : socket.inspectionFrozen ? 'Frozen · one step advances 1/30 second' : 'Live · P freezes the scene';
+  
+  const title = $('#practice-tools-title');
+  if (title) title.textContent = available ? 'COMBATANTS & SPAWNING' : 'PRACTICE YARD';
+  const roleHint = $('#practice-role-hint');
+  if (roleHint) roleHint.classList.toggle('hidden', !available);
+  const panelToggle = $('#practice-panel-toggle');
+  if (panelToggle) panelToggle.classList.toggle('hidden', !available);
+
   practiceOverlay.classList.toggle('inspection-frozen', socket.inspectionFrozen);
   for (const button of practiceOverlay.querySelectorAll('button')) {
-    if (button.matches('#practice-freeze, #practice-step, #practice-play-frames, #practice-leave, [data-open-settings]')) continue;
-    button.disabled = socket.inspectionFrozen || (preparingSiege&&button.id.endsWith('-bibye'));
+    if (button.matches('#practice-freeze, #practice-step, #practice-play-frames, #practice-leave, [data-open-settings], #practice-panel-toggle')) continue;
+    // In Inspection Mode, staging dummies and siege machines is permitted while frozen
+    if (available) {
+      button.disabled = Boolean(preparingSiege && button.id.endsWith('-bibye'));
+    } else {
+      button.disabled = socket.inspectionFrozen || (preparingSiege&&button.id.endsWith('-bibye'));
+    }
   }
   practiceOverlay.querySelector('.practice-tools-unlocked-hint').textContent = socket.inspectionFrozen ? 'P OR RESUME TO CONTINUE' : 'CLICK ARENA TO RESUME';
   practiceOverlay.querySelector('.practice-tools-locked-hint').textContent = available ? 'P TO FREEZE · ESC FOR TOOLS' : 'ESC FOR TOOLS';
@@ -1503,6 +1517,15 @@ function updateInspectionControls() {
     pointerHint.textContent = socket.inspectionFrozen ? 'SCENE FROZEN · P TO RESUME' : 'CLICK TO ENTER THE ARENA';
   }
 }
+
+$('#practice-panel-toggle')?.addEventListener('click', () => {
+  const content = $('#practice-panel-content');
+  const toggleBtn = $('#practice-panel-toggle');
+  if (!content || !toggleBtn) return;
+  const isHidden = content.classList.toggle('hidden');
+  toggleBtn.textContent = isHidden ? '+ EXPAND' : '− MINIMIZE';
+  toggleBtn.setAttribute('aria-expanded', String(!isHidden));
+});
 
 function toggleInspectionFreeze() {
   if (!socket.inspectionAvailable || latestSnapshot?.roomState !== 'PLAYING') return;
