@@ -67,7 +67,7 @@ export function soFistTerrainPose(b,world){
  for(const w of SO_FIST_WHEELS){const point=boxWorld(flat,[w.pivot[0],0,w.pivot[2]]),h=surfaceHeightAt(point[0],point[2],b.y+.3,world);if(h==null||Math.abs(h-b.y)>.65)return null;samples.push(h);}
  const front=(samples[0]+samples[1])/2,rear=(samples[2]+samples[3])/2,left=(samples[0]+samples[2])/2,right=(samples[1]+samples[3])/2;
  const pitch=Math.atan2(front-rear,SO_FIST_FIT.wheelbase),roll=Math.atan2(right-left,(SO_FIST_FIT.frontTrack+SO_FIST_FIT.rearTrack)/2);if(Math.hypot(pitch,roll)>.384)return null;
- const y=(front+rear)/2,root=soFistFrame({...b,y,chassisPitch:pitch,chassisRoll:roll}),offsets=SO_FIST_WHEELS.map((w,i)=>(samples[i]+w.pivot[1]-boxWorld(root,w.pivot)[1])/root.axes[1][1]);if(offsets.some(v=>Math.abs(v)>.18))return null;
+ const tilted=soFistFrame({...b,y:0,chassisPitch:pitch,chassisRoll:roll}),y=SO_FIST_WHEELS.reduce((sum,w,i)=>sum+samples[i]+w.pivot[1]-boxWorld(tilted,w.pivot)[1],0)/SO_FIST_WHEELS.length,root=soFistFrame({...b,y,chassisPitch:pitch,chassisRoll:roll}),offsets=SO_FIST_WHEELS.map((w,i)=>(samples[i]+w.pivot[1]-boxWorld(root,w.pivot)[1])/root.axes[1][1]);if(offsets.some(v=>Math.abs(v)>.18))return null;
  return{y,chassisPitch:pitch,chassisRoll:roll,wheelOffsets:offsets};
 }
 export function soFistClear(b,world,extra=[],{operatorStation=false}={}){if((b.operatorId||operatorStation)&&!stationClear(b,world,extra))return false;const boxes=soFistVolumes(b);return !boxes.some(v=>[...(world.solids??[]),...extra].some(s=>machineryOverlap(v,s)));}
@@ -137,7 +137,8 @@ const p=room.players.get(b.operatorId);
  for(let i=0;i<steps;i++){
   if(Math.abs(b.speed)<1e-5)break;
   const from={...b},heading=b.heading+soFistTurnRate(b)*sub;
-  const next={...b,x:b.x-Math.sin(heading)*b.speed*sub,z:b.z-Math.cos(heading)*b.speed*sub,heading};const pose=soFistTerrainPose(next,world);
+  const rearZ=SO_FIST_WHEELS[2].pivot[2];
+  const next={...b,x:b.x+(Math.sin(heading)-Math.sin(b.heading))*rearZ-Math.sin(heading)*b.speed*sub,z:b.z+(Math.cos(heading)-Math.cos(b.heading))*rearZ-Math.cos(heading)*b.speed*sub,heading};const pose=soFistTerrainPose(next,world);
   const obstacles=getBiByeSolids(room.biByeLlista);
   if(!pose||Math.abs(pose.y-b.y)>.12||!soFistClear({...next,...pose},world,obstacles)){
    if(pose&&b.speed>4.2){

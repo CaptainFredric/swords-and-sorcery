@@ -1,3 +1,5 @@
+Current runtime: so-fist-ication-v2_5.glb, exact upstream SHA b1ea92edc3310114c4c5ec08ce68ecb4768a2fed9ee816a25040b1d2281819d1. Rear axle Z is minus .820 native, wheelbase 1.145 at scale 2.85. Prior runtimes and source bundles are outside HTML5 in assets/source. The previous v2.2 notes below are historical.
+
 # SO FIST v2.2 integration candidate
 
 Runtime: `so-fist-ication-v2_2.glb`, exported from the separate editable `assets/source/so-fist-ication/SoFist-v2_2-runtime-source.blend`. Current SHA and exact bytes are in the source manifest. Scale remains 2.85. No extra baked scale is applied.

@@ -7,7 +7,7 @@ import { BI_BYE_LLISTA_CONFIG, BI_BYE_STATES, BI_BYE_MODES, getBiByeMuzzlePositi
 
 import { withClearBoltHidden, withClearNearBoltsHidden, biByeDamageFlash, biByeAnimation, biByeUpperAnimation, biByeClutchAnimation, biByeDelayAnimation, biByeTrackOwner, biByeWheelSteering, biByeWheelTravel } from './biByePresentation.mjs';
 
-const ASSET_PATH = '/client/assets/props/bibye-ballista/bi-bye-llista-v4.1.glb?v=4641af412cf83d49';
+const ASSET_PATH = '/client/assets/props/bibye-ballista/bi-bye-llista-v4.3.glb?v=d696b66892a96c0a';
 
 /**
  * Bi-Bye-llista (Two-Bolt Ballista) Mobile Siege Engine Renderer.
