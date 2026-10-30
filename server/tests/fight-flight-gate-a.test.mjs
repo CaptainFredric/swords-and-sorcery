@@ -52,7 +52,7 @@ test('Rotor destruction removes lift but leaves the apparatus and rider intact f
   step(room,m,0,70,{jump:true});
   const altitude=m.y;
   m.rotorHP=0;
-  step(room,m,3,15,{jump:true});
+  step(room,m,3,75,{jump:true});
   assert.ok(m.y<altitude,'fall starts from physical height');
   assert.equal(m.health,250);
   assert.equal(operator.alive,true);
