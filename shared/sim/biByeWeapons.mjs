@@ -123,6 +123,7 @@ export function interruptBiByeSupport(b,now=b.poseTime??0) {
 
 export function stepBiByeWeapons(room,b,dt,now,{shotI,shotII,coupledAim,targetAim}={}) {
   if(b.mode==='DESTROYED')return;
+  if(b.combinedUpperPendingAt!=null&&b.combinedUpperAim){b.upperYaw=b.combinedUpperAim.yaw;b.upperPitch=b.combinedUpperAim.pitch;}
   const op=room.players?.get(b.operatorId),input=op?.alive?op.input??{}:{};
   if(b.mode!=='DEPLOYED'&&b.weaponFocus!=='UPPER'){
     b.weaponFocus='UPPER';b.focusRevision++;cancelBiByeCoupling(b,now);
@@ -166,7 +167,7 @@ export function stepBiByeWeapons(room,b,dt,now,{shotI,shotII,coupledAim,targetAi
     b.mainYaw=approach(b.mainYaw,main.yaw,BI_BYE_WEAPONS.turnRate*dt);
     b.mainPitch+=clamp(main.pitch-b.mainPitch,-BI_BYE_WEAPONS.turnRate*dt,BI_BYE_WEAPONS.turnRate*dt);
     b.aimLimited=Boolean(main.limited);
-    if(b.mobileShotPendingAt==null){
+    if(b.mobileShotPendingAt==null&&b.combinedUpperPendingAt==null){
       const upper=aim('conditioning',{yaw:b.upperYaw,pitch:b.upperPitch});
       b.upperYaw=approach(b.upperYaw,upper.yaw,BI_BYE_WEAPONS.turnRate*dt);
       b.upperPitch+=clamp(upper.pitch-b.upperPitch,-BI_BYE_WEAPONS.turnRate*dt,BI_BYE_WEAPONS.turnRate*dt);
@@ -177,7 +178,7 @@ export function stepBiByeWeapons(room,b,dt,now,{shotI,shotII,coupledAim,targetAi
     else if(!locked&&b.weaponFocus==='MAIN'&&op?.alive){
       const target=aim('siege',{yaw:b.mainYaw,pitch:b.mainPitch});b.mainYaw=target.yaw;b.mainPitch=target.pitch;b.aimLimited=Boolean(target.limited);
     }
-    if(!locked&&b.mobileShotPendingAt==null&&b.weaponFocus==='UPPER'&&op?.alive){
+    if(!locked&&b.mobileShotPendingAt==null&&b.combinedUpperPendingAt==null&&b.weaponFocus==='UPPER'&&op?.alive){
       const target=aim('conditioning',{yaw:b.upperYaw,pitch:b.upperPitch});
       b.upperYaw=Math.abs(target.yaw-b.upperYaw)>Math.PI?b.upperYaw+wrapBiByeAngle(target.yaw-b.upperYaw):target.yaw;b.upperPitch=target.pitch;b.aimLimited=Boolean(target.limited);
     }
