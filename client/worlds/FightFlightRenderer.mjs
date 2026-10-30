@@ -19,6 +19,9 @@ export class FightFlightRenderer{
       this.model=gltf.scene;this.group.add(this.model);
       this.mixer=new THREE.AnimationMixer(this.model);
       this.clips=new Map(gltf.animations.map(clip=>[clip.name,clip]));
+      // Separate rotor/gear channel from torso/limb posture; both share the authored rig.
+      const spin=this.clips.get('Rotor_Spin_Cycle_1Rev');
+      if(spin){this.rotorAction=this.mixer.clipAction(spin);this.rotorAction.play();}
       this.model.traverse(n=>{if(n.name)this.nodes.set(n.name,n);if(n.isMesh){n.castShadow=true;n.receiveShadow=true;}});
       // Emblem deliberately unapproved: display the authored plain crimson cloth.
       const crest=this.nodes.get('Rear_Banner_Heraldic_Emblem');if(crest)crest.visible=false;
@@ -63,7 +66,9 @@ export class FightFlightRenderer{
       if(this.action){this.action.stop();this.action.enabled=false;}
       this.action=this.mixer.clipAction(clip);this.action.reset().play();this.action.paused=false;this.lastMode=name;
     }
-    if(this.action){this.action.time=name==='Posture_05_Grounded_Walk_Loop'?now%this.action.getClip().duration:Math.min(.65,this.action.getClip().duration);this.mixer.update(0);}
+    if(this.rotorAction){this.rotorAction.time=((m.rotorAngle??0)%(2*Math.PI)+2*Math.PI)%(2*Math.PI)/(2*Math.PI)*this.rotorAction.getClip().duration;}
+    if(this.action)this.action.time=name==='Posture_05_Grounded_Walk_Loop'?now%this.action.getClip().duration:Math.min(.65,this.action.getClip().duration);
+    this.mixer.update(0);
     const rotor=this.nodes.get('Rotor_Hub');if(rotor)rotor.rotation.y=m.rotorAngle??0;
     // The named GLB rotor's authored pose is driven by the authoritative angular phase,
     // not an unrelated animation clock. This also stops on rotor failure.
