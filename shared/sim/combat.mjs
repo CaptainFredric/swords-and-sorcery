@@ -1,5 +1,5 @@
 import { queueDefeatVoice, stepDefeatVoices } from './defeatChorus.mjs';
-import {stepFightFlight,dismountFightFlight} from './fightFlight.mjs';
+import {stepFightFlight,dismountFightFlight,fightFlightSolids} from './fightFlight.mjs';
 import { galeDose } from '../src/galeDamage.mjs';
 import { galeProfile, galeLift, sustainGaleRecoil } from '../src/galeModes.mjs';
 import { structureWorld, damageStructureSolid } from './structures.mjs';
@@ -2047,7 +2047,7 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
   world = structureWorld(world, room.structures);
   room.world = world;
   markTornGround(room);
-  const biByeSolids = [...getBiByeSolids(room.biByeLlista),...soFistSolids(room.soFistication)];
+  const biByeSolids = [...getBiByeSolids(room.biByeLlista),...soFistSolids(room.soFistication),...fightFlightSolids(room.fightFlight)];
   const effectiveWorld = biByeSolids.length > 0 ? { ...world, solids: [...(world.solids ?? []), ...biByeSolids] } : world;
 
   for (const player of room.players.values()) {
