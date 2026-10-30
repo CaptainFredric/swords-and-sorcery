@@ -642,7 +642,7 @@ export class TouchControls {
     if (action === 'scores') this.input.scoreboardHeld = !this.input.scoreboardHeld;
     if (action === 'interact') this.input.interact?.();
     if (action === 'deploy') this.input.deploy?.();
-    if (action === 'siegeWeapon') {if(this.input.mountedFlight)this.input.flightFire(true);else this.input.siegeWeapon?.();}
+    if (action === 'siegeWeapon') {if(this.input.mountedFlight)this.input.flightFire(true,'touch');else this.input.siegeWeapon?.();}
     if (action === 'siegeSkill') this.input.siegeSkill?.();
     if (action === 'siegeBoth') this.input.siegeBoth?.();
     if(action==='siegeView'&&this.input.enabled)this.viewGesture={id:event.pointerId,...gamePoint(event,this.layer),travel:0,zoomed:false};
@@ -655,7 +655,7 @@ export class TouchControls {
     this.buttons[action]?.classList.remove('pressed');
     if (action === 'attack') this.input.setAttack(false);
     if (action === 'guard') this.input.setGuard(false);
-    if (action === 'siegeWeapon' && this.input.mountedFlight) this.input.flightFire(false);
+    if (action === 'siegeWeapon' && this.input.mountedFlight) this.input.flightFire(false,'touch');
     if (action === 'jump') this.jumpHeld = false;
     if(action==='crouch'&&this.inspectionFlight)this.flightCrouchHeld=[...this.held].some(([id,held])=>id!==pointerId&&held==='crouch'&&!this.deniedButtons.has(id));
     if(action==='sprint')this.chargeHeld=[...this.held].some(([id,held])=>id!==pointerId&&held==='sprint'&&!this.deniedButtons.has(id));
