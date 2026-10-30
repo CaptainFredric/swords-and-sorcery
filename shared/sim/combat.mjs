@@ -1,5 +1,6 @@
 import { queueDefeatVoice, stepDefeatVoices } from './defeatChorus.mjs';
 import {stepFightFlight,dismountFightFlight,fightFlightSolids} from './fightFlight.mjs';
+import {stepFightFlightWeapons,stepFightFlightProjectiles} from './fightFlightWeapons.mjs';
 import { galeDose } from '../src/galeDamage.mjs';
 import { galeProfile, galeLift, sustainGaleRecoil } from '../src/galeModes.mjs';
 import { structureWorld, damageStructureSolid } from './structures.mjs';
@@ -2314,6 +2315,7 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
   const isOthersFreeze = room.inspectionFreezeMode === 'others';
   if(room.fightFlight && (!isOthersFreeze || room.fightFlight.operatorId === activeActorId)){
     stepFightFlight(room,room.fightFlight,dt,nowSec,world);
+    stepFightFlightWeapons(room,room.fightFlight,dt,nowSec);
     const op=room.players.get(room.fightFlight.operatorId);if(op)recordTransform(op,nowSec);
   }
   if(room.soFistication && (!isOthersFreeze || room.soFistication.operatorId === activeActorId)){stepSoFistication(room,room.soFistication,dt,nowSec,world);const op=room.players.get(room.soFistication.operatorId);if(op)recordTransform(op,nowSec);}
@@ -2323,6 +2325,7 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
   if (!room.freezeProjectiles) {
     const filterOwnerId = isOthersFreeze ? activeActorId : null;
     stepProjectiles(room, dt, nowSec, world, { filterOwnerId });
+    stepFightFlightProjectiles(room,dt,nowSec,world,{filterOwnerId});
     if (room.biByeLlista) {
       stepBiByeProjectiles(room, dt, nowSec, world, { filterOwnerId });
     }
