@@ -34,7 +34,7 @@ export function createFightFlight({x=0,y=0,z=0,heading=0,id=null,lifecycleId=nul
     mode:'GROUNDED',crouched:false,grounded:true,health:250,maxHealth:250,
     rotorHP:100,braceLHP:80,braceRHP:80,rotorAngle:0,rotorAngularVelocity:0,
     rotorEnergy:100,flightCharge:100,maxFlightCharge:100,
-    ammo:14,ammoDebt:0,nextShotAt:0,ammoProduction:0,
+    ammo:14,ammoDebt:0,nextShotAt:0,ammoProduction:0,firingOperatorId:null,shotSeq:0,lastShotAt:-Infinity,crossbowYaw:heading,crossbowPitch:0,
     skill:{phase:'idle',readyAt:0,activeUntil:0},offensiveRun:false,
     terminalDiveSpent:false,terminalDive:null,lastImpactAt:-Infinity,
     builtAt:0,takeoffAt:-Infinity,landingAt:-Infinity,retired:false};
@@ -100,6 +100,9 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
   // Turn rate is limited while airborne, not an instantaneous lateral inversion.
   const delta=Math.atan2(Math.sin(yaw-m.heading),Math.cos(yaw-m.heading));
   m.heading+=cap(delta,-(m.grounded?3.8:2.1)*dt,(m.grounded?3.8:2.1)*dt);
+  // Crossbow's real pivot follows the reticle only inside the authored traverse corridor.
+  m.crossbowYaw=m.heading+cap(Math.atan2(Math.sin(yaw-m.heading),Math.cos(yaw-m.heading)),-Math.PI*25/180,Math.PI*25/180);
+  m.crossbowPitch=cap(Number.isFinite(input.pitch)?input.pitch:0,-Math.PI/9,Math.PI/9);
   const intact=m.rotorHP>0&&m.health>0;
   const jump=Boolean(op&&input.jump),descend=Boolean(op&&input.crouch);
   if(m.grounded){
