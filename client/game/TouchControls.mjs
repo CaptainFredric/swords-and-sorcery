@@ -317,7 +317,7 @@ export class TouchControls {
       if(this.buttons.siegeSkill){
         const button=this.buttons.siegeSkill,machine=ram?rb:bl,skill=machine?.skill,remaining=Math.max(0,(skill?.readyAt??0)-serverNow);
         const label=siegeSkillControlLabel(machine,serverNow);
-        button.hidden=!mounted;button.querySelector('span').textContent=label;
+        button.hidden=!mounted;button.querySelector('span').textContent=label==='II PREPARING'?'II PREP':label==='II RELEASING'?'II RELEASE':label;
         button.setAttribute('aria-label',`${ram?'Beat to the Punch':'Bolt to the Occasion'}: ${skill?.phase==='primed'&&ram?'primed, increasingly unstable':remaining>0&&skill?.phase==='idle'?Math.ceil(remaining)+' seconds cooldown':label}`);
       }
       const near = local.alive && bl && local.position && bx !== undefined && !bl.operatorId ? Math.hypot(bx - local.position.x, bz - local.position.z) <= 3.2 : false;
