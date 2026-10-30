@@ -28,7 +28,7 @@ const INSPECTION_ACTIONS = new Set([
   'input','attack','guard','cast','castCurrentSpell','castPreparedSpell',
   'castPreparedSlot','selectPreparedSlot','selectPreparedSpell','gauntlet',
   'siegeSkill','ultimate','dash','practiceReadyUltimate','siegeOperate','bibyeOperate',
-  'bibyeToggleDeploy','bibyeWeaponFocus','bibyeFire'
+  'bibyeToggleDeploy','bibyeWeaponFocus','bibyeFire','fightFlightFire'
 ]);
 const INSPECTION_ADMIN_RESET = new Set(['practiceResetPlayer','practiceSpawnDummy','practiceSetDummyMode','practiceRemoveDummy']);
 
