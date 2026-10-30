@@ -83,7 +83,7 @@ export function dismountFightFlight(room,m,player,{force=false,at=0,exit=null}={
   const safe=exit??fightFlightExit(room,m,player);
   if(!safe&&!force)return false;
   // Forced removal is reserved for death/disconnect/destruction: no airborne teleport.
-  m.operatorId=null;player.operatingFightFlightId=null;
+  m.operatorId=null;m.firingOperatorId=null;player.operatingFightFlightId=null;
   if(safe)player.position={...safe};
   else player.position={x:m.x,y:m.y,z:m.z};
   player.velocity={x:0,y:0,z:0};
