@@ -78,3 +78,16 @@ test('Ground chassis cannot tunnel through solid walls under sustained forward d
   step(room,m,0,180,{forward:1,jump:false,crouch:false});
   assert.ok(m.z>-1.7,'the flying carriage stops before a world wall');
 });
+
+
+test('Walking off a supported platform is a real fall, not an infinite suspended ground state',()=>{
+  const {room,operator}=makeRoom(),m=createFightFlight({x:0,y:0,z:0});
+  room.world.floors=[{center:[0,0,0],size:[8,1,4],y:0}];
+  room.fightFlight=m;
+  assert.equal(mountFightFlight(room,m,operator),true);
+  step(room,m,0,65,{forward:1,jump:false,crouch:false});
+  assert.ok(m.z<-2.1);
+  assert.equal(m.grounded,false);
+  const height=m.y;step(room,m,3,14,{forward:0,jump:false});
+  assert.ok(m.y<height,'unsupported machine must fall from gravity');
+});
