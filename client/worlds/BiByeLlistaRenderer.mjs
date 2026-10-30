@@ -1,5 +1,6 @@
 import { BI_BYE_COMPONENTS, BI_BYE_STABILIZER, biByeComponentPose, biByeAimPose, biByeDeployProgress } from '../../shared/sim/biByeComponents.mjs';
 import * as THREE from 'three';
+import {siegeRock} from '../../shared/sim/siegeImpact.mjs';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { appUrl } from '../appUrl.mjs';
 import { everywhere } from '../game/viewLayers.mjs';
@@ -278,6 +279,8 @@ export class BiByeLlistaRenderer {
     // Argon's v3 asset faces local +Z. Castleward's forward heading faces -Z.
     // Rotate by heading + PI to perfectly align the model with authoritative movement and projectile trajectories.
     this.group.rotation.set(-(ballistaData.chassisPitch??0),heading+Math.PI,ballistaData.chassisRoll??0,'YXZ');
+    const impact=siegeRock(ballistaData,timeSec);
+    if(impact.pitch||impact.roll){this.group.rotateX(-impact.pitch);this.group.rotateZ(impact.roll);}
 
     // 3. Update Authored Model or Fallback
     if (this.authoredModel) {
