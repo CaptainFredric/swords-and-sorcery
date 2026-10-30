@@ -4,6 +4,7 @@ import {surfaceHeightAt,resolvePlayerWorld} from '../src/collision.mjs';
 import {boxWorld,orientedBoxHit,boxLocal} from '../src/orientedBox.mjs';
 import {applyDamage,staggerBy,interruptHitActions,isInGuardCone} from './combat.mjs';
 import {launchBody} from '../src/movement.mjs';
+import {SIEGE_IMPACT,recordSiegeImpact,ramReboundSpeed,applyBallistaImpact} from './siegeImpact.mjs';
 import {postureOf} from '../src/body.mjs';
 import {GAME} from '../src/combat.mjs';
 import {STEEL_DAMAGE_RANGES} from '../src/steel.mjs';
@@ -15,7 +16,7 @@ import {biByeHitVolumes} from './biByeComponents.mjs';
 import {SO_FIST_SCALE,SO_FIST_FIT,SO_FIST_STATION,SO_FIST_WHEELS,soFistTurnRate,soFistFrame,soFistPose,soFistVolumes,soFistStriker,soFistSolids,machineryOverlap} from './soFistGeometry.mjs';
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 export const SO_FIST=Object.freeze({speed:4.8,reverse:2.5,peak:12,pressure:100,hull:1400,fist:500,cycle:4});
-export function createSoFistication(overrides={}){return{id:'sofist-practice',type:'so-fist-ication',skill:createSiegeSkill('beatToThePunch'),skillStroke:null,x:0,y:0,z:0,heading:0,chassisPitch:0,chassisRoll:0,speed:0,steer:0,pressure:100,charging:false,chargeSpent:false,operatorId:null,health:1400,maxHealth:1400,mode:'MOBILE',strikeAt:null,strokeVictims:[],bodyEpisodes:{},recentVictims:{},wheelRolls:[0,0,0,0],wheelOffsets:[0,0,0,0],components:Object.fromEntries([...SO_FIST_WHEELS.map(w=>[w.id,{health:180,maxHealth:180}]),['Fist',{health:500,maxHealth:500}],['Drive',{health:250,maxHealth:250}]]),...overrides};}
+export function createSoFistication(overrides={}){return{id:'sofist-practice',type:'so-fist-ication',skill:createSiegeSkill('beatToThePunch'),skillStroke:null,impactReaction:null,x:0,y:0,z:0,heading:0,chassisPitch:0,chassisRoll:0,speed:0,steer:0,pressure:100,charging:false,chargeSpent:false,operatorId:null,health:1400,maxHealth:1400,mode:'MOBILE',strikeAt:null,strokeVictims:[],bodyEpisodes:{},recentVictims:{},wheelRolls:[0,0,0,0],wheelOffsets:[0,0,0,0],components:Object.fromEntries([...SO_FIST_WHEELS.map(w=>[w.id,{health:180,maxHealth:180}]),['Fist',{health:500,maxHealth:500}],['Drive',{health:250,maxHealth:250}]]),...overrides};}
 export function soFistOperator(b){const p=boxWorld(soFistFrame(b),SO_FIST_STATION.rider);return{x:p[0],y:p[1],z:p[2]};}
 export function soFistEntry(b,world){const p=boxWorld(soFistFrame(b),SO_FIST_STATION.entry);return{x:p[0],y:world?surfaceHeightAt(p[0],p[2],b.y+.8,world):p[1],z:p[2]};}
 function stationClear(b,world,extra=[]){
@@ -121,7 +122,7 @@ export function stepSoFistication(room,b,dt,now,world=room.world){
   }
   if(first){
    const {solid,hit}=first,limit=prior.offset+(raw.offset-prior.offset)*hit.t-.002;
-   if(b.strokeLimit==null||limit<b.strokeLimit){b.strokeLimit=limit;if(b.strokeBlockedAt==null){b.strokeBlockedAt=now;room.events.push({type:'soFistBlocked',machineId:b.id,point:{x:hit.point[0],y:hit.point[1],z:hit.point[2]},at:now});}}
+   if(b.strokeLimit==null||limit<b.strokeLimit){b.strokeLimit=limit;if(b.strokeBlockedAt==null){b.strokeBlockedAt=now;recordSiegeImpact(room,b,now,{speed:Math.max(0,raw.velocity),normal:{x:Math.sin(b.heading),z:Math.cos(b.heading)},kind:'piston-wall',point:{x:hit.point[0],y:hit.point[1],z:hit.point[2]}});b.speed=Math.min(b.speed,-Math.min(SIEGE_IMPACT.pistonReboundMax,Math.max(0,raw.velocity)*.055));room.events.push({type:'soFistBlocked',machineId:b.id,point:{x:hit.point[0],y:hit.point[1],z:hit.point[2]},at:now});}}
    const def=structureForSolid(world,solid);
    if(def&&!(b.strokeStructures??[]).includes(def.id)){
     const profile=STRUCTURE_PROFILES[def.profile],budget=b.structureChargeBudget;
@@ -150,7 +151,7 @@ const p=room.players.get(b.operatorId);
  if(reverseSkill&&b.charging){const debt=SIEGE_SKILLS.beatToThePunch.reverseDebt*dt;b.skill.debt+=debt;}
  const target=(b.charging?(reverseSkill?-SIEGE_SKILLS.beatToThePunch.reverseSpeed:12):input.forward>0?SO_FIST.speed:input.forward<0?-SO_FIST.reverse:0)*driveScale*(1-.45*clamp(Math.max(0,b.chassisPitch*Math.sign(b.charging?(reverseSkill?-1:1):input.forward??0))/.384,0,1));
  const reversing=target*b.speed<0;
- const accel=b.charging?4:reversing||Math.abs(target)<Math.abs(b.speed)?5.8:3.8;
+ const accel=b.charging?(reverseSkill?SIEGE_IMPACT.ramReverseChargeAcceleration:4):reversing||Math.abs(target)<Math.abs(b.speed)?5.8:3.8;
  b.speed+=clamp(target-b.speed,-accel*dt,accel*dt);if(Math.abs(b.speed)<.001)b.speed=0;
  b.steer=clamp(input.right??0,-1,1)*(1-.86*clamp((Math.abs(b.speed)-SO_FIST.speed)/(SO_FIST.peak-SO_FIST.speed),0,1));
  const steps=Math.max(1,Math.ceil(Math.abs(b.speed)*dt/.12)),sub=dt/steps;const wheelTravel=b.wheelRolls.slice();
@@ -173,13 +174,17 @@ const p=room.players.get(b.operatorId);
      world=room.world;
     }
    }
-   b.speed=0;break;
+   const crashSpeed=b.speed;
+   recordSiegeImpact(room,b,now,{speed:Math.abs(crashSpeed),normal:{x:Math.sin(b.heading)*Math.sign(crashSpeed),z:Math.cos(b.heading)*Math.sign(crashSpeed)},kind:'carriage-wall'});
+   b.speed=ramReboundSpeed(crashSpeed);break;
   }
   if(pinsPlayer(room,{...next,...pose},world,obstacles)){
    // Preserve the impact on the swept contact surface, then brake. Low energy
    // pressure reaches this path with no damage or armed wall consequence.
    resolveSoFistContacts(room,{...b,...next,...pose},from,sub,now-dt+(i+1)*sub,now-dt,dt);
-   b.speed=0;break;
+   const crashSpeed=b.speed;
+   recordSiegeImpact(room,b,now,{speed:Math.abs(crashSpeed),normal:{x:Math.sin(b.heading)*Math.sign(crashSpeed),z:Math.cos(b.heading)*Math.sign(crashSpeed)},kind:'carriage-body'});
+   b.speed=ramReboundSpeed(crashSpeed);break;
   }
   Object.assign(b,next,pose);
   resolveSoFistContacts(room,b,from,sub,now-dt+(i+1)*sub,now-dt,dt);
@@ -193,7 +198,11 @@ const p=room.players.get(b.operatorId);
    const size=box.size.map((v,i)=>v+head.axes.reduce((n,axis,j)=>n+Math.abs(axis.reduce((d,x,k)=>d+x*box.axes[i][k],0))*head.size[j],0)+.012);
    const hit=orientedBoxHit(old.center,head.center,{...box,size});if(hit&&(!first||hit.t<first.t))first=hit;
   }
-  if(first){const armored=b.components.Fist.health>0,damage=armored?110:75+15*clamp(stroke.velocity/12.6,0,1);if(damageBiByeLlista(room,other,damage,b.strikeOperatorId,'so-fist',now,{componentId:first.box.componentId,point:{x:first.point[0],y:first.point[1],z:first.point[2]}})){b.strokeMachines??=[];b.strokeMachines.push(other.id);}}
+  if(first){const armored=b.components.Fist.health>0,damage=armored?110:75+15*clamp(stroke.velocity/12.6,0,1);if(damageBiByeLlista(room,other,damage,b.strikeOperatorId,'so-fist',now,{componentId:first.box.componentId,point:{x:first.point[0],y:first.point[1],z:first.point[2]}})){b.strokeMachines??=[];b.strokeMachines.push(other.id);
+    const direction={x:-Math.sin(b.heading),z:-Math.cos(b.heading)};
+    applyBallistaImpact(room,other,now,{normal:direction,speed:Math.max(0,stroke.velocity),point:{x:first.point[0],y:first.point[1],z:first.point[2]}});
+    recordSiegeImpact(room,b,now,{speed:Math.max(0,stroke.velocity),normal:{x:-direction.x,z:-direction.z},kind:'piston-machine'});
+    b.speed=Math.min(b.speed,-Math.min(SIEGE_IMPACT.pistonReboundMax,Math.max(0,stroke.velocity)*.045));}}
  }
  const budget=b.structureChargeBudget;
  if(budget){const def=world.structures?.find(v=>v.id===budget.id),head=soFistStriker(b,now);if(!def||!(world.solids??[]).some(v=>def.solidIds.includes(v.id)&&Math.hypot(...head.center.map((n,i)=>Math.max(0,Math.abs(n-v.center[i])-v.size[i]/2-head.size[i]/2)))<1))b.structureChargeBudget=null;}
@@ -264,11 +273,17 @@ function resolveSoFistContacts(room,b,previous,dt,now,tickStart,tickDt){
    if(fistAlive&&Math.hypot(resolved.x-behind.x,resolved.z-behind.z)>.1)amount=110;
    b.strokeVictims.push(victim.id);
   }
-  const guarded=Boolean(victim.guarding)&&isInGuardCone(victim,{position:{x:b.x,y:b.y,z:b.z}},now),stagger=(piston?78:52*Math.sqrt(force))*(guarded?.35:1),shove=(piston?18:18*Math.sqrt(force))*(guarded?.8:1),by=piston?b.strikeOperatorId??b.operatorId:b.operatorId;
+  const guarded=Boolean(victim.guarding)&&isInGuardCone(victim,{position:{x:b.x,y:b.y,z:b.z}},now),stagger=(piston?78:52*Math.sqrt(force))*(guarded?.35:1),shove=(piston?18:18*Math.sqrt(force))*(guarded?.46:1),by=piston?b.strikeOperatorId??b.operatorId:b.operatorId;
   if(guarded){amount*=.55;victim.guardStamina=Math.max(0,victim.guardStamina-(piston?65:60*Math.sqrt(force)));victim.lastGuardDrainAt=now;if(victim.guardStamina<=0){victim.guarding=false;room.events.push({type:'guardBreak',attackerId:by,defenderId:victim.id,at:now});}}
   if(applyDamage(room,by,victim.id,Math.round(amount),piston?'so-fist':'knock-on-steel',now,null)){
    staggerBy(room,victim,stagger,now,by);
-   if(victim.alive){launchBody(victim,{x:normal[0]*shove,y:piston?4.5:2,z:normal[2]*shove},6);armWorldImpact(victim,by,'so-fist',now);interruptHitActions(room,victim,by,now,'so-fist');}
+   const launch={x:normal[0]*shove,y:piston?4.5:2,z:normal[2]*shove};
+   launchBody(victim,launch,6);
+   if(victim.alive){armWorldImpact(victim,by,'so-fist',now);interruptHitActions(room,victim,by,now,'so-fist');}
+   else if(piston&&!guarded&&shove>=10){
+     // Kill credit and respawn are already settled by applyDamage.
+     victim.deathFlight={at:now,until:Math.min(now+2.0,(victim.respawnAt??now+3)-.05)};
+   }
    b.bodyEpisodes[victim.id]={x:b.x,z:b.z,normal:[...normal]};
    b.recentVictims[victim.id]=now;
    room.events.push({type:'soFistImpact',machineId:b.id,victimId:victim.id,piston,guarded,point:{...victim.position},at:now});
