@@ -11,7 +11,7 @@ export function biByeAnimation(b, now) {
 export { biByeWheelSteering, biByeWheelTravel } from '../../shared/sim/biByeComponents.mjs';
 export function biByeUpperAnimation(b,now){
   const started=b.upperFiredAt??b.mobileFiredAt;
-  if(started!=null&&(now<(b.smallBoltReadyAt??0)||b.upperPending||b.coupling==='FIRING'&&b.upperReleasedAt==null)){
+  if(started!=null&&(now<(b.smallBoltReadyAt??0)||b.upperPending||b.combinedUpperPendingAt!=null||b.coupling==='FIRING'&&b.upperReleasedAt==null)){
     const elapsed=Math.max(0,now-started),coupled=b.upperShotKind==='coupled';
     if(elapsed<.85)return {name:coupled?'20_BiBye_Coupled_Shot1_Trigger_And_Delay_Upper':'09_BiBye_Mobile_Shot1_Fire_Upper',time:Math.min(elapsed,coupled?.7:.85)};
     return {name:'10_BiBye_Mobile_Shot1_Reload_Upper',time:Math.min(2.5,(elapsed-.85)*2.5/Math.max(.001,b.smallBoltReadyAt-started-.85))};
