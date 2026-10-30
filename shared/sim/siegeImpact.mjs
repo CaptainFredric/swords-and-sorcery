@@ -34,7 +34,7 @@ export function applyBallistaImpact(room,b,now,{normal,speed,point=null}){
  if(!b||b.retired||b.health<=0||b.mode==='DESTROYED')return false;
  const nx=normal?.x??0,nz=normal?.z??0,len=Math.hypot(nx,nz);
  if(len<.01)return false;
- const grounded=b.mode==='MOBILE',free=grounded?1:.2;
+ const grounded=b.mode==='MOBILE',free=grounded?1:.45;
  recordSiegeImpact(room,b,now,{speed:speed*free,normal:{x:nx/len,z:nz/len},kind:grounded?'mobile-piston':'braced-piston',point});
  if(grounded){
   const impulse=Math.min(SIEGE_IMPACT.mobileBallistaMaxSpeed,Math.max(0,speed)*SIEGE_IMPACT.mobileBallistaTransfer);
