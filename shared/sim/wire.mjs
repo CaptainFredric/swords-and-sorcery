@@ -222,6 +222,7 @@ export function serializeSnapshot(room, nowSec, recipientId = null) {
     bibyeRevision: room.biByeRevision??0,
     bibyeBallista: room.biByeLlista ? {
       skill:{...room.biByeLlista.skill},heavySkill:room.biByeLlista.heavySkill,mainSkillUntil:room.biByeLlista.mainSkillUntil,
+      impactReaction:room.biByeLlista.impactReaction,externalVelocity:room.biByeLlista.externalVelocity,
       builtAt:room.biByeLlista.builtAt,
       id: room.biByeLlista.id,
       position: { x: room.biByeLlista.x, y: room.biByeLlista.y, z: room.biByeLlista.z },
