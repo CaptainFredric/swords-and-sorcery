@@ -54,7 +54,8 @@ export class FightFlightRenderer{
     this.load();
     const at=m.position??m;
     this.group.position.set(at.x,at.y,at.z);
-    this.group.rotation.set(0,m.heading??0,0);
+    // Exported crossbow faces local +Z; Castleward's yaw-zero forward is world -Z.
+    this.group.rotation.set(0,(m.heading??0)+Math.PI,0);
     if(!this.model)return;
     const name=this.posture(m),clip=this.clips.get(name);
     if(clip&&name!==this.lastMode){
@@ -70,6 +71,8 @@ export class FightFlightRenderer{
   getMountedCameraPosition(view,out=new THREE.Vector3()){
     const m=this.state;if(!m)return null;
     const first=view==='sight';
+    const eye=this.nodes.get('operator_first_person_camera');
+    if(first&&eye){this.group.updateMatrixWorld(true);return eye.getWorldPosition(out);}
     const distance=first?0:5.5;
     out.set(m.x+Math.sin(m.heading)*distance,m.y+(first?1.52:3.05),m.z+Math.cos(m.heading)*distance);
     return out;
