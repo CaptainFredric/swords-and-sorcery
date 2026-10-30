@@ -1250,6 +1250,8 @@ export class GameRuntime {
     const wasMounted = Boolean(this.localAuth?.operatingBallistaId||this.localAuth?.operatingRamId);
     this.localAuth = auth ?? null;
     this.input.mountedRam=Boolean(auth?.alive&&auth.operatingRamId);
+    this.input.mountedBallista=Boolean(auth?.alive&&auth.operatingBallistaId);
+    this.input.ballistaSkillPhase=this.input.mountedBallista?(snapshot.bibyeBallista?.skill?.phase??'idle'):'idle';
     if(auth?.operatingRamId&&!wasMounted){
       this.siegeView='third';this.siegeCamera={position:this.camera.position.clone(),quaternion:this.camera.quaternion.clone()};this.input.releaseInputs();this.weapon.setAttack(false);this.weapon.setGuard(false);this.input.yaw=snapshot.soFistication.heading;this.input.pitch=0;
     }
