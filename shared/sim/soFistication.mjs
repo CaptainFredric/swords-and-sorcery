@@ -1,4 +1,4 @@
-import {createSiegeSkill,spendSiegeSkill,endSiegeSkill,skillOperator,skillEvent,SIEGE_SKILLS} from './siegeSkills.mjs';
+import {createSiegeSkill,primeSiegeSkill,endSiegeSkill,skillOperator,skillEvent,SIEGE_SKILLS,integratedRamHazard,sampleRamFailure} from './siegeSkills.mjs';
 import { structureForSolid, damageStructure, STRUCTURE_PROFILES } from './structures.mjs';
 import {surfaceHeightAt,resolvePlayerWorld} from '../src/collision.mjs';
 import {boxWorld,orientedBoxHit,boxLocal} from '../src/orientedBox.mjs';
@@ -37,30 +37,50 @@ export function mountSoFistication(room,b,p,now=0){
 }
 export function dismountSoFistication(room,b,p,{administrative=false,exit=null,force=false}={}){
  if(!b)return false;if(p?.alive&&!exit){exit=soFistExit(room,b,p);if(!exit&&!administrative&&!force)return false;}
- endSiegeSkill(b);b.operatorId=null;b.charging=false;b.chargeSpent=false;b.speed=0;if(administrative){b.retired=true;b.strikeAt=null;}
+ endSiegeSkill(b,Math.max(b.poseTime??0,b.skill?.primedAt??0));b.operatorId=null;b.charging=false;b.chargeSpent=false;b.speed=0;if(administrative){b.retired=true;b.strikeAt=null;}
  if(p){p.operatingRamId=null;p.input={forward:0,right:0,yaw:p.yaw,pitch:p.pitch,jump:false,sprint:false};p.attackHeld=false;p.guarding=false;p.velocity={x:0,y:0,z:0};p.impulse={x:0,z:0};if(exit)p.position={...exit};}return true;
 }
-export function fireSoFistication(room,b,now){if(b?.skill?.phase==='primed'){endSiegeSkill(b);skillEvent(room,b,now,'cancelled');}if(b?.emplacementId&&room.state!=='PLAYING')return false;if(!b||b.retired||b.health<=0||!room.players.get(b.operatorId)?.alive||(room.players.get(b.operatorId)?.staggerUntil??0)>now||b.strikeAt!=null&&now-b.strikeAt<4)return false;b.skillStroke=null;b.strikeAt=now;b.strokeLimit=null;b.strokeBlockedAt=null;b.strikeOperatorId=b.operatorId;b.strokeVictims=[];b.strokeMachines=[];b.strokeStructures=[];room.events.push({type:'soFistStrike',machineId:b.id,at:now});return true;}
+export function fireSoFistication(room,b,now){
+ if(b?.emplacementId&&room.state!=='PLAYING')return false;
+ if(!b||b.retired||b.health<=0||!room.players.get(b.operatorId)?.alive||
+   (room.players.get(b.operatorId)?.staggerUntil??0)>now||
+   b.strikeAt!=null&&now-b.strikeAt<SO_FIST.cycle)return false;
+ // Invalid manual attempts must not disarm a waiting counterattack.
+ if(b.skill?.phase==='primed'){endSiegeSkill(b,now);skillEvent(room,b,now,'cancelled',{reason:'manual'});}
+ b.skillStroke=null;b.strikeAt=now;b.strokeLimit=null;b.strokeBlockedAt=null;
+ b.strikeOperatorId=b.operatorId;b.strokeVictims=[];b.strokeMachines=[];b.strokeStructures=[];
+ room.events.push({type:'soFistStrike',machineId:b.id,at:now});return true;
+}
 export function primeSoFistSkill(room,b,p,now){
  if(!skillOperator(room,b,p,now)||b.components.Fist.health<=0||b.components.Drive.health<=0)return 'The fist and drive must be functioning.';
- if(!spendSiegeSkill(b,now,'primed',SIEGE_SKILLS.beatToThePunch.armed))return 'Beat to the Punch is cooling down.';
- b.skill.chassisDamage=0;skillEvent(room,b,now,'primed');return null;
+ if(!primeSiegeSkill(b,now))return 'Beat to the Punch is cooling down or already primed.';
+ b.skill.chassisDamage=0;b.skill.failureThreshold=sampleRamFailure(room);
+ b.skill.integratedHazard=0;skillEvent(room,b,now,'primed');return null;
 }
 function triggerSoFistSkill(room,b,now,reason){
  if(b.skill?.phase!=='primed')return;
- if(!skillOperator(room,b,room.players.get(b.operatorId),now)||b.components.Fist.health<=0||b.components.Drive.health<=0){endSiegeSkill(b);return;}
+ if(!skillOperator(room,b,room.players.get(b.operatorId),now)||b.components.Fist.health<=0||b.components.Drive.health<=0){endSiegeSkill(b,now);return;}
  const from=soFistPose(b,now).offset,prepare=Math.max(.14,(from+.105*SO_FIST_SCALE)/4.5);
- b.skillStroke={from,prepare};b.strikeAt=now;b.strokeLimit=null;b.strokeBlockedAt=null;b.strokePreviousOffset=from;b.strokeVictims=[];b.strokeMachines=[];b.strokeStructures=[];b.strikeOperatorId=b.operatorId;
- endSiegeSkill(b);skillEvent(room,b,now,'triggered',{reason});room.events.push({type:'soFistStrike',machineId:b.id,at:now});
+ b.skillStroke={from,prepare};b.strikeAt=now;b.strokeLimit=null;b.strokeBlockedAt=null;b.strokePreviousOffset=from;
+ b.strokeVictims=[];b.strokeMachines=[];b.strokeStructures=[];b.strikeOperatorId=b.operatorId;
+ endSiegeSkill(b,now);skillEvent(room,b,now,'triggered',{reason});room.events.push({type:'soFistStrike',machineId:b.id,at:now});
 }
 function stepSoFistSkill(room,b,now){
  if(b.skill?.phase!=='primed')return;
  const p=room.players.get(b.operatorId);
- if(!skillOperator(room,b,p,now)||now>=b.skill.expiresAt||b.components.Fist.health<=0||b.components.Drive.health<=0){endSiegeSkill(b);skillEvent(room,b,now,'ended');return;}
- const head=soFistStriker({...b,strikeAt:null,skillStroke:null},now),end={...head,center:head.center.map((v,i)=>v+head.axes[2][i]*.445*SO_FIST_SCALE)};
- for(const target of room.players.values())if(target.alive&&target.id!==p.id&&!areAllies(room,p.id,target.id)&&targetSweep(end,head,target,target.position)){
-  triggerSoFistSkill(room,b,now,'reach');break;
+ if(!skillOperator(room,b,p,now)||b.components.Fist.health<=0||b.components.Drive.health<=0){
+  endSiegeSkill(b,now);skillEvent(room,b,now,'ended');return;
  }
+ // Preserve genuine enemy-reach and hull-damage releases through the same
+ // moving piston strike. The instability can also strike empty air.
+ const head=soFistStriker({...b,strikeAt:null,skillStroke:null},now),
+  end={...head,center:head.center.map((v,i)=>v+head.axes[2][i]*.445*SO_FIST_SCALE)};
+ for(const target of room.players.values())if(target.alive&&target.id!==p.id&&!areAllies(room,p.id,target.id)&&targetSweep(end,head,target,target.position)){
+  triggerSoFistSkill(room,b,now,'reach');return;
+ }
+ const elapsed=Math.max(0,now-(b.skill.primedAt??now));
+ b.skill.integratedHazard=integratedRamHazard(elapsed);
+ if(b.skill.integratedHazard>=b.skill.failureThreshold)triggerSoFistSkill(room,b,now,'instability');
 }
 export function soFistTerrainPose(b,world){
  const flat=soFistFrame({...b,chassisPitch:0,chassisRoll:0}),samples=[];
@@ -127,7 +147,7 @@ const p=room.players.get(b.operatorId);
  if(!chargeHeld)b.charging=false;
  if(b.charging){b.pressure=Math.max(0,b.pressure-(4+.07*b.speed*b.speed)*(1+failed.length*.18+(b.components.Drive.health<=0?.5:0))*dt);if(b.pressure<=0){b.charging=false;b.chargeSpent=true;}}
  else b.pressure=Math.min(100,b.pressure+(Math.abs(b.speed)>6?5:13)*(b.components.Drive.health<=0?.5:1)*dt);
- if(reverseSkill&&b.charging){const debt=SIEGE_SKILLS.beatToThePunch.reverseDebt*dt;b.skill.readyAt+=debt;b.skill.debt+=debt;}
+ if(reverseSkill&&b.charging){const debt=SIEGE_SKILLS.beatToThePunch.reverseDebt*dt;b.skill.debt+=debt;}
  const target=(b.charging?(reverseSkill?-SIEGE_SKILLS.beatToThePunch.reverseSpeed:12):input.forward>0?SO_FIST.speed:input.forward<0?-SO_FIST.reverse:0)*driveScale*(1-.45*clamp(Math.max(0,b.chassisPitch*Math.sign(b.charging?(reverseSkill?-1:1):input.forward??0))/.384,0,1));
  const reversing=target*b.speed<0;
  const accel=b.charging?4:reversing||Math.abs(target)<Math.abs(b.speed)?5.8:3.8;
@@ -266,7 +286,7 @@ export function damageSoFistication(room,b,amount,attackerId,source,now,{compone
  target.health=Math.max(0,target.health-amount);target.lastHitAt=now;
  room.events.push({type:'soFistDamaged',machineId:b.id,componentId,amount:old-target.health,point,pointLocal:point?boxLocal(soFistFrame(b),[point.x,point.y,point.z]):null,poseOffset:soFistPose(b,now).offset,attackerId,source,at:now});
  if(componentId==='hull'&&b.skill?.phase==='primed'&&target.health>0){b.skill.chassisDamage+=(old-target.health);if(b.skill.chassisDamage>=SIEGE_SKILLS.beatToThePunch.chassisTrigger)triggerSoFistSkill(room,b,now,'chassis');}
- if(target.health===0){target.failedAt=now;if(componentId==='Fist')b.fistBrokenAt=now;if(['Fist','Drive'].includes(componentId)&&b.skill?.phase==='primed'){endSiegeSkill(b);skillEvent(room,b,now,'ended');}if(componentId==='hull'){b.mode='DESTROYED';b.strikeAt=null;const p=room.players.get(b.operatorId);dismountSoFistication(room,b,p,{force:true});}}
+ if(target.health===0){target.failedAt=now;if(componentId==='Fist')b.fistBrokenAt=now;if(['Fist','Drive'].includes(componentId)&&b.skill?.phase==='primed'){endSiegeSkill(b,now);skillEvent(room,b,now,'ended');}if(componentId==='hull'){b.mode='DESTROYED';b.strikeAt=null;const p=room.players.get(b.operatorId);dismountSoFistication(room,b,p,{force:true});}}
  return true;
 }
 
