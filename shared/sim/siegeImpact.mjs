@@ -28,6 +28,7 @@ export function siegeRock(machine,now){
 }
 export function ramReboundSpeed(speed){
  const strength=Math.max(0,Math.abs(speed)-SIEGE_IMPACT.minSoundSpeed);
+ if(strength===0)return 0;
  return -Math.sign(speed)*Math.min(SIEGE_IMPACT.ramReboundMax,strength*SIEGE_IMPACT.ramReboundFraction);
 }
 export function applyBallistaImpact(room,b,now,{normal,speed,point=null}){
