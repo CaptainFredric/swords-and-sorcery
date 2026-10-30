@@ -1,3 +1,5 @@
+Current runtime is the supplied v2.5 binary. Its preserved source/build bundle is argon-final-ram-source-contract.zip. The old runtime is so-fist-ication-v2_2.glb. Earlier source details below describe the preserved v2.2 integration.
+
 # Editable ram sources and rollback
 
 `SoFist-crafted.blend` remains the previous canonical source, unchanged.

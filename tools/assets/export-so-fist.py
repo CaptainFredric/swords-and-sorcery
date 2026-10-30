@@ -1,5 +1,6 @@
 """Run in Blender's Python console: exec(open('/absolute/repo/tools/assets/export-so-fist.py').read()).
-Reexports the editable source in one temporary scene, preserves other open scenes.
+Legacy v2.2 source exporter. The v2.5 upstream build bundle is preserved separately.
+Reexports into source storage by default, preserving the active v2.5 runtime.
 Set RAM_REPO to override the repository location. No asset generation services used.
 """
 import bpy, json, struct, re
@@ -13,7 +14,7 @@ scene=dst.scenes[0];bpy.context.window.scene=scene
 try:
  for obj in scene.objects:obj.select_set(True)
  bpy.context.view_layer.objects.active=next(o for o in scene.objects if o.type=='EMPTY' and o.parent is None)
- output=Path(globals().get('RAM_OUTPUT',root/'client/assets/props/so-fist-ication/so-fist-ication-v2_2.glb'))
+ output=Path(globals().get('RAM_OUTPUT',root/'assets/source/so-fist-ication/legacy-v2_2-reexport.glb'))
  bpy.ops.export_scene.gltf(filepath=str(output),use_selection=True,use_active_scene=True,export_animations=True,export_force_sampling=False,export_animation_mode='ACTIONS',export_anim_slide_to_zero=True)
  raw=output.read_bytes();size=struct.unpack_from('<I',raw,12)[0];g=json.loads(raw[20:20+size]);tail=raw[20+size:]
  for kind in ['nodes','meshes','materials','animations']:

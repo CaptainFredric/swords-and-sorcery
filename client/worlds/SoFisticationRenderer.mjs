@@ -18,7 +18,7 @@ export class SoFisticationRenderer {
   if(this.loadingPromise)return this.loadingPromise;
   if(this.disposed||this.error)return Promise.resolve(false);this.loading=true;
   this.loadingPromise=new Promise(resolve=>{
-  new GLTFLoader().load(appUrl('/client/assets/props/so-fist-ication/so-fist-ication-v2_2.glb?v=479d96ec89f0c2e3'),gltf=>{
+  new GLTFLoader().load(appUrl('/client/assets/props/so-fist-ication/so-fist-ication-v2_5.glb?v=b1ea92edc3310114'),gltf=>{
    if(this.disposed){this.destroyMeshes(gltf.scene);resolve(false);return;}
    this.model=gltf.scene;this.model.scale.setScalar(SO_FIST_SCALE);this.group.add(this.model);
    const sky=new Uint8Array(32*16*4);for(let y=0;y<16;y++)for(let x=0;x<32;x++)sky.set([...(y<8?[192,203,211]:[94,89,76]),255],(y*32+x)*4);

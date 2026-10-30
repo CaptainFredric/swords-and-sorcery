@@ -5,7 +5,7 @@ import { createHash } from 'node:crypto';
 import { createBiByeLlista, getBiByeMuzzlePosition, getBiByeOperatorTransform } from '../../shared/sim/biByeLlista.mjs';
 import { biByeFrames, biByeHitVolumes } from '../../shared/sim/biByeComponents.mjs';
 import { BI_BYE_WEAPONS, stepBiByeWeapons, setBiByeWeaponFocus } from '../../shared/sim/biByeWeapons.mjs';
-const bytes=readFileSync(new URL('../../client/assets/props/bibye-ballista/bi-bye-llista-v4.1.glb',import.meta.url));
+const bytes=readFileSync(new URL('../../client/assets/props/bibye-ballista/bi-bye-llista-v4.3.glb',import.meta.url));
 const g=JSON.parse(bytes.subarray(20,20+bytes.readUInt32LE(12)).toString());
 const index=new Map(g.nodes.map((n,i)=>[n.name,i]));
 const parents=new Map(g.nodes.flatMap((n,i)=>(n.children??[]).map(c=>[c,i])));
@@ -22,8 +22,8 @@ function exported(b,name){
  }
  p=rotate(p,b.heading+Math.PI);return p.map((v,k)=>v+[b.x,b.y,b.z][k]);
 }
-test('v4.1 binary identity and independent hierarchy',()=>{
- assert.equal(createHash('sha256').update(bytes).digest('hex'),'4641af412cf83d497f6f6059aa3d7c319b71bdcd44770f92bf90c65e2eccb31a');
+test('v4.3 binary identity and independent hierarchy',()=>{
+ assert.equal(createHash('sha256').update(bytes).digest('hex'),'d696b66892a96c0a23a66601a1daac8bbd137e5051f620a7df581c473ba0c44a');
  assert.equal(g.nodes.length,65);assert.equal(g.meshes.length,46);assert.equal(g.animations.length,21);
  assert.equal(g.nodes[parents.get(index.get('Upper_Turret_Mount'))].name,'Traverse_Mount');
  for(const clip of g.animations.filter(a=>/^(17|18)_/.test(a.name)))for(const c of clip.channels)assert.ok([51,52].includes(c.target.node));
@@ -31,7 +31,7 @@ test('v4.1 binary identity and independent hierarchy',()=>{
  assert.equal(reload.extras.duration_sec,4.5);
  assert.ok(reload.channels.every(c=>c.target.node<23||c.target.node>29));
 });
-test('shared muzzle points match the actual v4.1 exported chain throughout both aiming envelopes',()=>{
+test('shared muzzle points match the actual v4.3 exported chain throughout both aiming envelopes',()=>{
  for(const heading of [-2.4,0,1.7])for(const traverse of [-.7,0,.7])for(const mainPitch of [-.15,0,.35])for(const turn of [-Math.PI,-1,0,1,Math.PI])for(const upperPitch of [-.15,0,.35]){
   const b={x:7,y:2,z:-11,heading,mainYaw:heading+traverse,mainPitch,upperYaw:heading+turn,upperPitch,mode:'DEPLOYED'};
   for(const [kind,name] of [['conditioning','small_bolt_muzzle'],['siege','main_bolt_muzzle']]){

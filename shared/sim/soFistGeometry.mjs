@@ -12,9 +12,9 @@ export const SO_FIST_STATION=Object.freeze({
  sight:native([0,.835,-.82]),third:native([0,1.14,-2.1]),
  exits:Object.freeze([[0,0,-1.35],[.76,0,-.9],[-.76,0,-.9],[-.8,0,0],[.8,0,0]].map(native)),
 });
-export const SO_FIST_FIT=Object.freeze({wheelbase:.745*SO_FIST_SCALE,frontTrack:.86*SO_FIST_SCALE,rearTrack:.74*SO_FIST_SCALE,operator:SO_FIST_STATION.rider,grips:SO_FIST_STATION.rightHand});
+export const SO_FIST_FIT=Object.freeze({wheelbase:1.145*SO_FIST_SCALE,frontTrack:.86*SO_FIST_SCALE,rearTrack:.74*SO_FIST_SCALE,operator:SO_FIST_STATION.rider,grips:SO_FIST_STATION.rightHand});
 const fit=v=>v/2.65*SO_FIST_SCALE;
-export const SO_FIST_WHEELS=Object.freeze(['FL','FR','RL','RR'].map(end=>({id:'Wheel_'+end,pivot:[(end[1]==='L'?1:-1)*(end[0]==='F'?.43:.37)*SO_FIST_SCALE,.165*SO_FIST_SCALE,(end[0]==='F'?.325:-.42)*SO_FIST_SCALE],radius:.165*SO_FIST_SCALE,maxHealth:180})));
+export const SO_FIST_WHEELS=Object.freeze(['FL','FR','RL','RR'].map(end=>({id:'Wheel_'+end,pivot:[(end[1]==='L'?1:-1)*(end[0]==='F'?.43:.37)*SO_FIST_SCALE,.165*SO_FIST_SCALE,(end[0]==='F'?.325:-.82)*SO_FIST_SCALE],radius:.165*SO_FIST_SCALE,maxHealth:180})));
 // Sampled from the candidate's linear Ram_Assembly translation keys, relative to standby.
 export const SO_FIST_TIMING=Object.freeze({release:.68,peak:.88,cycle:4});
 export const soFistTiming=b=>b?.skillStroke?{release:b.skillStroke.prepare,peak:b.skillStroke.prepare+.2,cycle:4}:SO_FIST_TIMING;
@@ -79,7 +79,7 @@ export function soFistVolumes(b,now=b?.poseTime??0){
  }
  native('hull',[0,.106,-.172],[.55,.075,1.504]);
  for(const z of [.58,-.14,-.77])native('hull',[0,.155,z],[.75,.105,.10]);
- for(const [z,span]of [[.325,.86],[-.42,.74]])native('hull',[0,.165,z],[span,.055,.055],'metal');
+ for(const [z,span]of [[.325,.86],[-.82,.74]])native('hull',[0,.165,z],[span,.055,.055],'metal');
  native('hull',[0,.209,-.915],[.56,.034,.388]);
  for(const side of [-1,1]){native('hull',[side*.265,.36,-1.05],[.055,.32,.065],'metal');native('hull',[side*.268,.542,-.875],[.06,.06,.37]);}
  const cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]],unit=a=>{const d=Math.hypot(...a);return a.map(v=>v/d);};
@@ -93,8 +93,8 @@ export function soFistVolumes(b,now=b?.poseTime??0){
   brace([side*.30,.53,.50],[side*.18,.19,-.14],.095);brace([side*.18,.19,-.14],[side*.30,.53,-.70],.095);
  }
  native('Drive',[0,.385,-.56],[.53,.252,.224],'metal');
- for(const [i,w]of SO_FIST_WHEELS.entries()){add(w.id,[w.pivot[0],w.pivot[1]+(b.wheelOffsets?.[i]??0),w.pivot[2]],[.127*SO_FIST_SCALE,w.radius*2,w.radius*2],'timber',true);if(i<2){const a=soFistWheelSteering(b)[i],c=Math.cos(a),s=Math.sin(a);out.at(-1).axes=[root.axes[0].map((v,k)=>v*c-root.axes[2][k]*s),root.axes[1],root.axes[0].map((v,k)=>v*s+root.axes[2][k]*c)];}}
- if((b.components?.Fist?.health??500)>0)add('Fist',[-.021,.353, .732].map((n,i)=>n*SO_FIST_SCALE+(i===2?pose.offset:0)),[.494,.436,.435].map(n=>n*SO_FIST_SCALE),'metal',true);
+ for(const [i,w]of SO_FIST_WHEELS.entries()){add(w.id,[w.pivot[0],w.pivot[1]+(b.wheelOffsets?.[i]??0),w.pivot[2]],[.144*SO_FIST_SCALE,w.radius*2,w.radius*2],'timber',true);if(i<2){const a=soFistWheelSteering(b)[i],c=Math.cos(a),s=Math.sin(a);out.at(-1).axes=[root.axes[0].map((v,k)=>v*c-root.axes[2][k]*s),root.axes[1],root.axes[0].map((v,k)=>v*s+root.axes[2][k]*c)];}}
+ if((b.components?.Fist?.health??500)>0)add('Fist',[-.02845,.3849, .7288].map((n,i)=>n*SO_FIST_SCALE+(i===2?pose.offset:0)),[.5283,.4824,.4444].map(n=>n*SO_FIST_SCALE),'metal',true);
  add('Piston',[0,.967,-.262+pose.offset*2.65/SO_FIST_SCALE],[.88,.88,3.228],'metal');return out;
 }
 export function soFistStriker(b,now){
