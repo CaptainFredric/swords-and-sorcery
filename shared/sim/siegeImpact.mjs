@@ -4,6 +4,7 @@ export const SIEGE_IMPACT=Object.freeze({
  minSoundSpeed:2.8,heavySpeed:10,
  ramReboundFraction:.16,ramReboundMax:1.55,
  pistonReboundMax:.78,ramReverseChargeAcceleration:6.25,
+ ramPistonRecoilTransfer:.33,ramPistonRecoilMax:3.75,ramPistonRecoilBrake:4.9,
  mobileBallistaTransfer:.19,mobileBallistaMaxSpeed:3.4,
  mobileDrag:4.2,restSpeed:.06,rockDuration:1.15,rockPitch:.075,rockRoll:.042,
 });
@@ -30,6 +31,15 @@ export function ramReboundSpeed(speed){
  const strength=Math.max(0,Math.abs(speed)-SIEGE_IMPACT.minSoundSpeed);
  if(strength===0)return 0;
  return -Math.sign(speed)*Math.min(SIEGE_IMPACT.ramReboundMax,strength*SIEGE_IMPACT.ramReboundFraction);
+}
+// The motor must not cancel a real piston collision one frame later.
+export function recoilRamOnPistonHit(room,b,now,{speed,normal,kind,point=null}){
+ const energy=Math.max(0,speed);
+ if(energy<1.4)return false;
+ const impulse=Math.min(SIEGE_IMPACT.ramPistonRecoilMax,(energy-1.4)*SIEGE_IMPACT.ramPistonRecoilTransfer);
+ b.recoilVelocity=Math.max(-SIEGE_IMPACT.ramPistonRecoilMax,(b.recoilVelocity??0)-impulse);
+ recordSiegeImpact(room,b,now,{speed:energy,normal,kind,point});
+ return true;
 }
 export function applyBallistaImpact(room,b,now,{normal,speed,point=null}){
  if(!b||b.retired||b.health<=0||b.mode==='DESTROYED')return false;
