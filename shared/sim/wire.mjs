@@ -1,5 +1,6 @@
 import { GALE_MODES } from '../src/galeModes.mjs';
 import {mountFightFlight,dismountFightFlight} from './fightFlight.mjs';
+import {requestFightFlightFire} from './fightFlightWeapons.mjs';
 import {mountSoFistication,dismountSoFistication,fireSoFistication,primeSoFistSkill} from './soFistication.mjs';
 import { practiceBiByeCommand,practiceSiegeCommand } from './practiceSiege.mjs';
 import { setBiByeWeaponFocus,requestBiByeHeavySkill,requestBiByeCombinedSkill } from './biByeWeapons.mjs';
@@ -219,6 +220,7 @@ export function serializeSnapshot(room, nowSec, recipientId = null) {
     })),
     projectiles: [...room.projectiles.values()].map((p) => ({ id: p.id, ownerId: p.ownerId, spell: p.spell, position: p.position, velocity: p.velocity, ...(p.corePhase ? { corePhase: p.corePhase, armedAt: p.armedAt ?? null, detonateAt: p.detonateAt ?? null } : {}) })),
     structures: room.structures,
+    fightFlightProjectiles:[...(room.fightFlightProjectiles?.values()??[])].map(p=>({id:p.id,machineId:p.machineId,ownerId:p.ownerId,position:p.position,velocity:p.velocity,bornAt:p.bornAt})),
     fightFlightRevision:room.fightFlightRevision??0,
     fightFlight:room.fightFlight?{...room.fightFlight,position:{x:room.fightFlight.x,y:room.fightFlight.y,z:room.fightFlight.z}}:null,
     soFistRevision:room.soFistRevision??0,
@@ -412,6 +414,11 @@ export function applyRoomCommand(room, player, message, time) {
       const ram=room.soFistication,b=room.biByeLlista;
       const reason=player.operatingRamId&&ram?.operatorId===player.id?primeSoFistSkill(room,ram,player,time):player.operatingBallistaId&&b?.operatorId===player.id?requestBiByeHeavySkill(room,b,player,time,biByeTargetAim):'Operate a siege machine to use its Skill.';
       return reason?{rejected:reason}:{};
+    }
+    case 'fightFlightFire': {
+      const m=room.fightFlight;
+      if(!requestFightFlightFire(room,m,player,Boolean(message.down),time))return {rejected:'Operate Fight-and-Flight to fire the repeater.'};
+      return {};
     }
     case 'bibyeCombinedFire': {
       const b=room.biByeLlista;
