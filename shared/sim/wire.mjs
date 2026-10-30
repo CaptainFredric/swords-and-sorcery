@@ -243,6 +243,7 @@ export function serializeSnapshot(room, nowSec, recipientId = null) {
       trackingSince:room.biByeLlista.trackingSince,aimLimited:Boolean(room.biByeLlista.aimLimited),
       upperPending: room.biByeLlista.mobileShotPendingAt != null,
       upperQueued:Boolean(room.biByeLlista.pendingIndependent),
+      combinedUpperPendingAt:room.biByeLlista.combinedUpperPendingAt,
 
       yaw: room.biByeLlista.yaw,
       pitch: room.biByeLlista.pitch,
