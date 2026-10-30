@@ -681,3 +681,9 @@ test('Coreflagration equips with compact label CORE, coreflagration class, and c
   send('pointerup',600,300);
   assert.equal(calls.filter(c=>c[0]==='cast').length, 1);
 });
+test('touch siege Skill sends one authoritative command and leaves personal Ultimate alone',()=>{
+ const {input,controls,calls,send}=setup({local:{alive:true,operatingRamId:'ram',position:{x:0,y:0,z:0}}});input.socket.send=m=>calls.push(m);
+ controls.update({alive:true,operatingRamId:'ram',position:{x:0,y:0,z:0}},10,{snapshot:{soFistication:{id:'ram',skill:{id:'beatToThePunch',phase:'idle',readyAt:0}}}});
+ assert.equal(controls.buttons.siegeSkill.hidden,false);send('pointerdown',800,100,{action:'siegeSkill'});send('pointerup',800,100,{action:'siegeSkill'});
+ assert.deepEqual(calls,[{type:'siegeSkill'}]);controls.reset();assert.equal(controls.held.size,0);
+});

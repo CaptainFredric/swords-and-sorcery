@@ -1,7 +1,7 @@
 import { GALE_MODES } from '../src/galeModes.mjs';
-import {mountSoFistication,dismountSoFistication,fireSoFistication} from './soFistication.mjs';
+import {mountSoFistication,dismountSoFistication,fireSoFistication,primeSoFistSkill} from './soFistication.mjs';
 import { practiceBiByeCommand,practiceSiegeCommand } from './practiceSiege.mjs';
-import { setBiByeWeaponFocus } from './biByeWeapons.mjs';
+import { setBiByeWeaponFocus,requestBiByeHeavySkill } from './biByeWeapons.mjs';
 import { biByeDeployProgress } from './biByeComponents.mjs';
 // What a host (the game server, or the browser playing alone when the server cannot be reached) says to its
 // Spellblades and does with what they send. The same shapes either way, so the client cannot tell who is hosting
@@ -10,7 +10,7 @@ import { biByeDeployProgress } from './biByeComponents.mjs';
 import { tryCastSpell, castPreparedSpell, selectPreparedSpell, beginAttack, endAttack, pressButton, setGuard, tryCastOrGauntlet, tryDash, tryGauntletStrike, tryUltimate } from './combat.mjs';
 import { compensatedInputTime } from './history.mjs';
 import { readyPracticeUltimate, removePracticeDummy, resetPracticePlayer, setPracticeDummyMode, spawnPracticeDummy } from './practice.mjs';
-import { mountBiByeLlista, dismountBiByeLlista, fireBiByeLlista, toggleBiByeDeploy, BI_BYE_LLISTA_CONFIG } from './biByeLlista.mjs';
+import { mountBiByeLlista, dismountBiByeLlista, fireBiByeLlista, toggleBiByeDeploy, biByeTargetAim, BI_BYE_LLISTA_CONFIG } from './biByeLlista.mjs';
 import { answerPerryDialogue, dismissPerryDialogue, getPlayerPerryDialogue, isCanonizationUnlocked } from './StPerry.mjs';
 import { spellFor } from '../src/spells.mjs';
 import { GAME_MODES } from '../src/modes.mjs';
@@ -221,6 +221,7 @@ export function serializeSnapshot(room, nowSec, recipientId = null) {
     soFistication:room.soFistication?{...room.soFistication,position:{x:room.soFistication.x,y:room.soFistication.y,z:room.soFistication.z},contacts:undefined,bodyEpisodes:undefined,recentVictims:undefined,strokeVictims:undefined,strokeMachines:undefined}:null,
     bibyeRevision: room.biByeRevision??0,
     bibyeBallista: room.biByeLlista ? {
+      skill:{...room.biByeLlista.skill},heavySkill:room.biByeLlista.heavySkill,mainSkillUntil:room.biByeLlista.mainSkillUntil,
       builtAt:room.biByeLlista.builtAt,
       id: room.biByeLlista.id,
       position: { x: room.biByeLlista.x, y: room.biByeLlista.y, z: room.biByeLlista.z },
@@ -399,6 +400,11 @@ export function applyRoomCommand(room, player, message, time) {
       return room.mode === GAME_MODES.PRACTICE && answerPerryDialogue(room, player, message.answer, time) ? {} : { rejected: PRACTICE_REJECTED };
     case 'practicePerryDismiss':
       return room.mode === GAME_MODES.PRACTICE && dismissPerryDialogue(room, player, time) ? {} : { rejected: PRACTICE_REJECTED };
+    case 'siegeSkill': {
+      const ram=room.soFistication,b=room.biByeLlista;
+      const reason=player.operatingRamId&&ram?.operatorId===player.id?primeSoFistSkill(room,ram,player,time):player.operatingBallistaId&&b?.operatorId===player.id?requestBiByeHeavySkill(room,b,player,time,biByeTargetAim):'Operate a siege machine to use its Skill.';
+      return reason?{rejected:reason}:{};
+    }
     case 'siegeOperate': {
       if(player.operatingRamId){return dismountSoFistication(room,room.soFistication,player)?{}:{rejected:'No safe exit. Move onto supported open ground.'};}
       if(player.operatingBallistaId)return applyRoomCommand(room,player,{type:'bibyeOperate'},time);

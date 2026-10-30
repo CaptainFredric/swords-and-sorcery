@@ -1,3 +1,4 @@
+import {siegeSkillLabel} from './siegeSkillView.mjs';
 import { biByeCondition } from '../../shared/sim/biByeComponents.mjs';
 import { keyLabel, registry } from '../settings/settingsRegistry.mjs';
 import { BI_BYE_LLISTA_CONFIG } from '../../shared/sim/biByeLlista.mjs';
@@ -24,7 +25,8 @@ export function biByeHudView(local, snapshot, now, { bindings = registry.default
   if (faults.length) status += " · " + faults.join(" · ");
   const deployment = condition.canDeploy ? `[${key('deploy')}] ${b.mode === 'DEPLOYED' ? 'Pack' : 'Deploy'} · ` : "";
   const focus = b.mode === 'DEPLOYED' ? `[${key('siegeWeapon')}] ${b.weaponFocus === 'MAIN' ? 'Upper / cancel' : 'Main'} · ` : '';
-  const controls = touch ? `${view==='clear'?'ZOOM · VIEW to return':view==='sight'?'SIGHT · VIEW ↑ zoom':'SIEGE VIEW · VIEW ↑ zoom'} · ATTACK to fire`
-    : `[${key('attack')}] Fire · ${deployment}${focus}[${key('siegeView')}] View · [SHIFT+${key('siegeView')}] CLEAR · [${key('interact')}] Leave`;
+  status+=' · '+siegeSkillLabel(b,now);
+  const controls = touch ? `${view==='clear'?'ZOOM · VIEW to return':view==='sight'?'SIGHT · VIEW ↑ zoom':'SIEGE VIEW · VIEW ↑ zoom'} · ATTACK to fire · SKILL heavy`
+    : `[${key('attack')}] Fire · [${key('siegeSkill')}] Heavy Skill · ${deployment}${focus}[${key('siegeView')}] View · [SHIFT+${key('siegeView')}] CLEAR · [${key('interact')}] Leave`;
   return { title: `BI-BYE-LLISTA · ${b.health}/${b.maxHealth} · ${b.mode === 'MOBILE' ? 'MOBILE · UPPER' : b.weaponFocus === 'UPPER' ? 'UPPER / INDEPENDENT' : 'MAIN / COUPLED'}`, status, controls };
 }

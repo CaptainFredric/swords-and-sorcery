@@ -1,6 +1,6 @@
 # Swords & Sorcery — Siege Machine Skills
 
-> **Design status: proposed, not implemented.** This document records intended mechanics and open balancing decisions, not assertions about the current build.
+> **Implementation status:** Bolt to the Occasion and Beat to the Punch have an initial playable implementation on the Siege Skills candidate branch. Fight and Flight remains a preparation contract, with no integrated apparatus or playable flight Skill. Numeric Skill tuning remains provisional.
 >
 > **Core principle:** Skills belong to specific machines. They extend or temporarily violate their normal mechanical operating rules in distinctive ways, rather than supplying generic damage bonuses.
 
@@ -157,3 +157,36 @@ SO-FIST-ICATION is a wheeled piston-driven battering ram: **an enormous armored 
 - Beat to the Punch preloaded piston stroke, physical clearance requirement, trigger volume, bait threshold, backward pressure speed and extra cooldown accounting.
 
 **Design target:** Skills should feel like exceptional uses—and occasional abuses—of the machines' existing engineering, creating strategic decisions, counterplay, and memorable failures.
+
+
+# Initial implementation and confirmed October 29 rules
+
+The shared `shared/sim/siegeSkills.mjs` owns only identity, readyAt, phase, expiresAt and accrued debt. Each existing machine owns its own state object. Normal ammunition, piston motion, contact sweeps and damage remain inside their existing modules. Both LocalHost and the WebSocket host process the same `siegeSkill` intent. Clients send no damage, ammunition, cooldown or Skill identity. The currently owned machine determines the Skill. The host checks life, ownership, match state, stagger and mechanism legality.
+
+Desktop uses a separate rebindable **U** action, Siege machine Skill. Touch has a separate **SKILL** button, showing prime/release/cooldown. Ordinary attack, Ultimate, deploy, weapon selection and View controls retain their meanings. HUD names the actual Skill and its clock. Rejected activations use ordinary host error feedback.
+
+## Provisional tuning and cancellation
+
+All tuning lives in `SIEGE_SKILLS`. Both cooldowns start at 24 seconds, a conservative first testing value that prevents repeated recovery overrides while leaving ordinary operation useful. Beat to the Punch lasts six seconds, accumulates 35 actual hull damage to bait release, permits up to 8 m/s reverse pressure charge and adds 1.5 seconds of cooldown per second actually charging backward. Reverse movement uses existing pressure, wheel penalties, terrain and kinetic contacts. No rear fist, rear piston sweep or reverse structure charge bonus is added.
+
+Bolt to the Occasion requires Bolt II loaded and the mechanism idle. It refuses a pending upper release, coupled volley, clutch transition, damaged siege support condition or deployment transition. A pretracked clutch first releases through its existing transition. The main cradle turns at its existing bounded rate, then performs a 0.2 second physical release preparation; this is independent of the coupled inter-bolt delay. It uses the real main muzzle and existing traverse/elevation constraints, including in Mobile. It consumes only Bolt II and starts the normal 2.2 second recovery plus 4.5 second heavy reload. The upper bolt retains its own ammunition and clock. Operator loss before release cancels without refund, leaving the unspent bolt loaded. After release, reload remains with the machine.
+
+Priming does not immediately strike. A hostile body in the real reachable fist sweep or qualifying hull damage triggers preparation. The current measured extension, including obstacle arrest, becomes the start of a smooth retraction. Only the subsequent real outward stroke is damaging. Its motion maps onto the existing authored animation and physical collider. One special stroke may interrupt recovery; successful trigger starts the normal four second interval. Manual Attack cancels priming even if the normal attack is still recovering. Time expiry, operator loss and loss of the fist/drive end priming without refund. Damage to wheels, drive and armored fist does not count as hull bait. Millimetric shudder is shared by geometry and presentation.
+
+## Fight and Flight: implementation contract, still unimplemented
+
+No base Fight and Flight exists on main or the inspected branches. The candidate GLB is an asset reference, not a running machine. The following supersedes older broad descriptions above.
+
+Use an instance containing id, operatorId, team, lifecycleId, mode, position, velocity, orientation, component HP, rotor angular position/velocity/energy, flightCharge/current maximum, crossbow reserve/debt/nextShotAt and machine Skill state. Keep operator Ultimate on the player. Persist resource debt and terminalDiveSpent across operator changes; rebuild/match reset must explicitly define a new lifecycle. Snapshot the physical and resource state, with renderer interpolation and independent rotor/repeater/posture tracks. Replicate event identity, release time, impact region and committed trajectory.
+
+States and transitions: grounded with rotor intact can crouch, walk or begin takeoff; takeoff enters powered flight; flying can deliberately land through landing to grounded. Grounded crouch changes actual support and rotor height. Offensive run requires held Dash and available personal Ultimate. A separately held Dash plus ready, unspent Chivalry commits terminal dive. Rotor destruction is irreversible for that lifecycle, ends lift and leaves a grounded crossbow apparatus after actual fall physics. Main destruction ends operation. Terminal trajectory and its bounded resolution continue after rider defeat.
+
+Repeater: maximum seven releases per second, three raw close damage and two after falloff, modest spread, finite reserve and passive production with no full magazine delay. Ordinary sword/repeater operation is exclusive. Active **Spells and Chivalry** permits independent simultaneous repeater and right sword hit events. Ordinary airborne Guard and spellcasting remain restricted; grounded Guard uses normal posture. Guard blocks all HP damage only when a bolt genuinely meets its defined frontal/vertical defended region; unprotected limbs remain vulnerable. Crouching changes geometry rather than granting immunity.
+
+Rotor: provisional 100 HP with passive Steel protection, separate recoverable rotational energy and flight charge. Powered clean-hit potential ranges 8 to 30; grazes and defended hits can deal less or zero. Genuine swept blade crossings spend current energy proportional to contact resistance; continuous overlap creates no extra impacts, while subsequent physical crossings may hit again. Use angular substeps or conservative continuous sweeps at 30 Hz, including relative target movement. Substantial contacts slow/deflect rotation and affect lift. A protected Guard contact prevents HP loss, drains substantial stamina and rotor energy. A timed parry prevents that blade contact, briefly disrupts rotor, jolts defender, deals exactly eight actual rotor HP after Steel mitigation and spends a small amount of current flight charge, preserving its maximum.
+
+Flight charge pays powered ascent and ordinary hover, recovers under the defined descent/energy model and permits voluntary landing. Grounded apparatus movement stays heavy. Rotor destruction does not automatically disable repeater. Ordinary Dash hold is an offensive run spending personal Ultimate quickly; terminal dive is a separate deliberate Dash plus ready Ultimate commitment, sacrifices operator/apparatus and is once per machine per match. No homing revenge blades or guaranteed destruction damage.
+
+**Fire Away? I'm Right Here.** will share the instance Skill clock. Real extra ammunition delivered during firing creates debt; existing reserve and zero-shot activations do not. Production after expiry repays debt first, then creates usable ammunition. Debt survives swapping, dismount and operators. When not firing, capacity offsets ordinary hover expenditure only, with no unlimited ascent. Keep this contract alongside the actual reserve and flight energy integration rather than implementing a fictional Skill magazine now.
+
+Required future tests: actual mounted flight/landing/crouch, independent repeater/sword events, bolt defended-volume contacts and exposed limbs, continuous rotor sweeps at 30 Hz, repeated genuine crossings, graze energy, parry HP after mitigation, current versus maximum flight charge, debt accounting with zero/partial/all shots and handoff, irreversible rotor loss, deliberate terminal commitment and bounded wreck/respawn resolution. None of these machine-specific tests are claimed to pass before its base integration.

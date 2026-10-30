@@ -40,6 +40,7 @@ const BUTTONS = [
   { action: 'deploy', label: 'DEPLOY' },
   { action: 'siegeView', label: 'VIEW' },
   { action: 'siegeWeapon', label: 'UPPER' },
+  { action: 'siegeSkill', label: 'SKILL' },
 ];
 
 const svg = (icon) => iconSvg(icon);
@@ -127,6 +128,7 @@ export class TouchControls {
     if (this.buttons.deploy) this.buttons.deploy.hidden = true;
     if (this.buttons.siegeView) this.buttons.siegeView.hidden = true;
     if (this.buttons.siegeWeapon) this.buttons.siegeWeapon.hidden = true;
+    if (this.buttons.siegeSkill) this.buttons.siegeSkill.hidden = true;
 
     this.layer.addEventListener('pointerdown', this.#down);
     this.layer.addEventListener('pointermove', this.#move);
@@ -311,6 +313,11 @@ export class TouchControls {
       this.layer.classList.toggle('touch-ram',ram);
       this.buttons.sprint.querySelector('span').textContent=ram?'CHARGE':'SPRINT';
       this.mounted=mounted;
+      if(this.buttons.siegeSkill){
+        const button=this.buttons.siegeSkill,skill=(ram?rb:bl)?.skill,remaining=Math.max(0,(skill?.readyAt??0)-serverNow);
+        button.hidden=!mounted;button.querySelector('span').textContent=skill?.phase==='primed'?'PRIMED':skill?.phase==='releasing'?'RELEASE':remaining>0?Math.ceil(remaining)+'s':'SKILL';
+        button.setAttribute('aria-label',`${ram?'Beat to the Punch':'Bolt to the Occasion'}: ${skill?.phase!=='idle'?skill?.phase:remaining>0?Math.ceil(remaining)+' seconds':'ready'}`);
+      }
       const near = local.alive && bl && local.position && bx !== undefined && !bl.operatorId ? Math.hypot(bx - local.position.x, bz - local.position.z) <= 3.2 : false;
       this.layer.classList.toggle('touch-mounted', mounted);
       if (this.buttons.siegeView) {
@@ -620,6 +627,7 @@ export class TouchControls {
     if (action === 'interact') this.input.interact?.();
     if (action === 'deploy') this.input.deploy?.();
     if (action === 'siegeWeapon') this.input.siegeWeapon?.();
+    if (action === 'siegeSkill') this.input.siegeSkill?.();
     if(action==='siegeView'&&this.input.enabled)this.viewGesture={id:event.pointerId,...gamePoint(event,this.layer),travel:0,zoomed:false};
   }
 

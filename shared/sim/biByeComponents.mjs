@@ -36,7 +36,7 @@ function localAim(parent,yaw,pitch) {
 export function biByeAimPose(b,now=b.poseTime??0){
  const heading=b.heading??0,root=biByeRootFrame(b);
  const main=(b.chassisPitch||b.chassisRoll)?localAim(root,b.mainYaw??b.yaw??heading,b.mainPitch??b.pitch??0):{yaw:Math.atan2(Math.sin((b.mainYaw??b.yaw??heading)-heading),Math.cos((b.mainYaw??b.yaw??heading)-heading)),pitch:b.mainPitch??b.pitch??0};
- let yaw=b.mode==='MOBILE'?0:main.yaw,pitch=b.mode==='MOBILE'?0:main.pitch;
+ let yaw=main.yaw,pitch=main.pitch; // Mobile main aim is normally stowed; Skill release uses its real traverse.
  if(b.mode==='RETRACTING'){
   const start=Math.max(b.modeTransitionStartedAt,Math.min(b.couplingEndsAt??b.modeTransitionStartedAt,b.modeTransitionEndsAt-.001));
   const t=clamp((now-start)/Math.max(.001,b.modeTransitionEndsAt-start));

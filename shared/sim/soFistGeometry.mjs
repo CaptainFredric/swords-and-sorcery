@@ -1,3 +1,4 @@
+import {SIEGE_SKILLS} from './siegeSkills.mjs';
 import {biByeRootFrame} from './biByeComponents.mjs';
 import {boxWorld,orientedBoxHit} from '../src/orientedBox.mjs';
 export const SO_FIST_SCALE=2.85;
@@ -16,8 +17,24 @@ const fit=v=>v/2.65*SO_FIST_SCALE;
 export const SO_FIST_WHEELS=Object.freeze(['FL','FR','RL','RR'].map(end=>({id:'Wheel_'+end,pivot:[(end[1]==='L'?1:-1)*(end[0]==='F'?.43:.37)*SO_FIST_SCALE,.165*SO_FIST_SCALE,(end[0]==='F'?.325:-.42)*SO_FIST_SCALE],radius:.165*SO_FIST_SCALE,maxHealth:180})));
 // Sampled from the candidate's linear Ram_Assembly translation keys, relative to standby.
 export const SO_FIST_TIMING=Object.freeze({release:.68,peak:.88,cycle:4});
+export const soFistTiming=b=>b?.skillStroke?{release:b.skillStroke.prepare,peak:b.skillStroke.prepare+.2,cycle:4}:SO_FIST_TIMING;
 export const SO_FIST_STROKE=Object.freeze([[0,0],[.08,-.008],[.18,-.028],[.29,-.06],[.4,-.088],[.49,-.101],[.55,-.105],[.59,-.105],[.62,-.105],[.64,-.105],[.66,-.105],[.68,-.103],[.73,-.02],[.79,.145],[.83,.335],[.88,.445],[.94,.402],[1,.428],[1.1,.412],[1.24,.418],[1.45,.415],[2.05,.31],[2.75,.165],[3.4,.048],[3.78,.006],[4,0]]);
+// Map a recovery interruption onto the same authored physical stroke. Preparation
+// starts at the current measured offset, including an obstacle-arrested stroke.
 export function soFistPose(b,now=b?.poseTime??0){
+ if(!b.skillStroke||b.strikeAt==null){const pose=normalSoFistPose(b,now),jitter=b.skill?.phase==='primed'?Math.sin(now*56.55)*SIEGE_SKILLS.beatToThePunch.shudder:0;return{...pose,offset:pose.offset+jitter,jitter};}
+ const age=Math.max(0,now-b.strikeAt),{from,prepare}=b.skillStroke,rest=-.105*SO_FIST_SCALE;
+ if(age>=4)return normalSoFistPose({...b,skillStroke:null,strikeAt:null},now);
+ if(age<prepare){
+  const t=age/prepare,offset=from+(rest-from)*(t*t*(3-2*t));
+  let clipAge=.68;
+  for(let i=1;i<SO_FIST_STROKE.length;i++){const [a,p]=SO_FIST_STROKE[i-1],[z,q]=SO_FIST_STROKE[i];if(a>=.68&&z<=.88&&offset<=q*SO_FIST_SCALE){clipAge=a+(offset/SO_FIST_SCALE-p)/(q-p)*(z-a);break;}}
+  return{age,clipAge,offset,velocity:(rest-from)*6*t*(1-t)/prepare,active:false};
+ }
+ const outward=age-prepare,clipAge=outward<=.2?.68+outward:.88+(outward-.2)*3.12/(4-prepare-.2);
+ const pose=normalSoFistPose({...b,strikeAt:now-clipAge},now);return{...pose,age};
+}
+function normalSoFistPose(b,now=b?.poseTime??0){
  const age=b.strikeAt==null?4:Math.max(0,now-b.strikeAt);
  if(age>=4)return{age,clipAge:0,offset:0,velocity:0,active:false};
  for(let i=1;i<SO_FIST_STROKE.length;i++){

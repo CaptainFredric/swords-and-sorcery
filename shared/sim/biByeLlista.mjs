@@ -1,3 +1,4 @@
+import {endSiegeSkill} from './siegeSkills.mjs';
 import {frostGuardFaces,frostParryContact} from './biByeFrostGuard.mjs';
 import { structureWorld, damageStructureSolid } from './structures.mjs';
 import {soFistFirstHit,soFistSolids} from './soFistGeometry.mjs';
@@ -330,6 +331,7 @@ export function dismountBiByeLlista(ballista, player = null, safeDisplace = fals
   if (player && player.operatingBallistaId === ballista.id) {
     player.operatingBallistaId = null;
   }
+  ballista.heavySkill=null;endSiegeSkill(ballista);
   ballista.pendingIndependent=null;
   cancelBiByeCoupling(ballista);
   if(ballista.mobileShotPendingAt != null){ballista.mobileShotPendingAt=null;ballista.mobileFiredAt=null;ballista.upperFiredAt=null;}
