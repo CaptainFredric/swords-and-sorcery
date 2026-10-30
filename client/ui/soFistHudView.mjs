@@ -11,6 +11,6 @@ export function soFistHudView(local,snapshot,now,{bindings=registry.defaultBindi
  const age=b.strikeAt==null?4:now-b.strikeAt;
  const strike=age<timing.release?(b.skillStroke?'Piston resetting':'Piston winding'):age<timing.peak?'Piston released':age<4?'Piston retracting':'Piston ready';
  return{title:`SO-FIST-ICATION · ${Math.ceil(b.health)}/${b.maxHealth}`,pressure:b.pressure,
-  status:[b.charging?'KNOCK ON STEEL':b.chargeSpent?'DRIVE WINDING DOWN':`${Math.abs(b.speed).toFixed(1)} m/s`,strike,siegeSkillLabel(b,now),fist?.health<=0?'EXPOSED PISTON':`FIST ${Math.ceil(fist?.health??500)}/500`,drive?.health<=0?'DRIVE DAMAGED':'',wheels?`${wheels} WHEEL${wheels>1?'S':''} DISABLED`:''].filter(Boolean).join(' · '),
-  controls:touch?'Full stick forward or hold CHARGE · SKILL prime / reverse charge · ATTACK piston · VIEW · LEAVE':`Hold [${key('sprint')}] Charge · [${key('attack')}] Piston · [${key('siegeSkill')}] Skill · [${key('siegeView')}] View · [${key('interact')}] Leave`};
+  status:[b.charging&&b.speed<-.05?'REVERSE PRESSURE CHARGE':b.charging?'KNOCK ON STEEL':b.chargeSpent?'DRIVE WINDING DOWN':`${Math.abs(b.speed).toFixed(1)} m/s`,strike,siegeSkillLabel(b,now),fist?.health<=0?'EXPOSED PISTON':`FIST ${Math.ceil(fist?.health??500)}/500`,drive?.health<=0?'DRIVE DAMAGED':'',wheels?`${wheels} WHEEL${wheels>1?'S':''} DISABLED`:''].filter(Boolean).join(' · '),
+  controls:touch?'Full stick forward or hold CHARGE · SKILL prime · Hold CHARGE + stick down to reverse charge · ATTACK piston · VIEW · LEAVE':`Hold [${key('sprint')}] + W charge or S reverse while primed · [${key('attack')}] Piston · [${key('siegeSkill')}] Skill · [${key('siegeView')}] View · [${key('interact')}] Leave`};
 }
