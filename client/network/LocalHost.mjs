@@ -168,6 +168,7 @@ export class LocalHost {
     room.armAutoStart(time);
     this.room = room;
     this.player = player;
+    room.inspectionActorId = player.id;
     this.#deliver({
       type: 'joined', playerId: player.id, token: player.token, roomCode: room.code, hostId: room.hostId(),
       roomState: room.state, mode: room.mode, worldId: room.worldId, local: true,
@@ -183,6 +184,7 @@ export class LocalHost {
     if (this.room) {
       this.room.inspectionEnabled = true;
     }
+    this.#inspectionState();
   }
 
   startTutorial(name) {
@@ -208,7 +210,10 @@ export class LocalHost {
       else this.#releaseInspectionActor(actorId);
     }
     this.inspectionControlId = id === this.player.id ? null : id;
-    if (this.room) this.room.inspectionControlId = this.inspectionControlId;
+    if (this.room) {
+      this.room.inspectionControlId = this.inspectionControlId;
+      this.room.inspectionActorId = this.inspectionActorId;
+    }
     if (this.inspectionControlId) this.inspectionControlUsed = true;
     this.#inspectionState();
     this.#deliver(serializeSnapshot(this.room,this.now(),this.playerId),true);
@@ -238,12 +243,16 @@ export class LocalHost {
     if (actor?.alive && actor.actorKind === 'dummy') return;
     this.#releaseInspectionActor(this.inspectionControlId);
     this.inspectionControlId = null;
+    if (this.room) {
+      this.room.inspectionControlId = null;
+      this.room.inspectionActorId = this.player?.id ?? null;
+    }
     this.#inspectionState();
   }
 
   get inspectionFrozen() { return this.frozenAt !== null; }
   get inspectionFreezeMode() { return this.freezeModeState ?? (this.frozenAt !== null ? 'all' : 'none'); }
-  get inspectionFreezeProjectiles() { return Boolean(this.freezeProjectilesState); }
+  get inspectionFreezeProjectiles() { return Boolean(this.room?.freezeProjectiles ?? this.freezeProjectilesState); }
 
   setInspectionFreezeMode(mode) {
     if (!this.inspectionEnabled || this.room?.state !== 'PLAYING') return false;
@@ -479,6 +488,7 @@ export class LocalHost {
   stageInspectionActor({
     actorId = null,
     position = null,
+    flight = undefined,
     vitals = null,
     ultimate = null,
     clearCooldowns = false,
@@ -492,9 +502,27 @@ export class LocalHost {
     const room = this.room;
     const id = actorId ?? this.inspectionActorId ?? this.player?.id;
     const actor = room.players.get(id);
-    if (!actor || !actor.alive) return { success: false, reason: 'Actor not found or dead' };
+    if (!actor) return { success: false, reason: 'Actor not found' };
+    if (!actor.alive) {
+      if (vitals || clearCooldowns || flight !== undefined) {
+        actor.alive = true;
+        actor.health = GAME.maxHealth;
+        actor.guardStamina = guardProfile(actor.knightClass).capacity;
+        actor.respawnAt = 0;
+      } else {
+        return { success: false, reason: 'Actor not found or dead' };
+      }
+    }
     const now = this.now();
     actor.spawnProtectionUntil = Math.min(actor.spawnProtectionUntil, now);
+
+    if (flight !== undefined) {
+      actor.flight = Boolean(flight);
+      if (actor.flight) {
+        actor.grounded = false;
+        actor.velocity = { x: 0, y: 0, z: 0 };
+      }
+    }
 
     // 1. Position
     if (position) {

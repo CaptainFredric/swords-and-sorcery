@@ -747,10 +747,14 @@ export function stepBiByeLlista(room, ballista, dt, nowSec, world = room.world) 
  * Calculates exact impact time t in [0, 1] against world geometry, terrain, and player hit cylinders.
  * Resolves impacts in spatial order (earliest t first).
  */
-export function stepBiByeProjectiles(room, dt, nowSec, world = room.world) {
+export function stepBiByeProjectiles(room, dt, nowSec, world = room.world, { filterOwnerId = null } = {}) {
   if (!room.bibyeProjectiles || room.bibyeProjectiles.size === 0) return;
 
   for (const projectile of [...room.bibyeProjectiles.values()]) {
+    if (filterOwnerId !== null && projectile.ownerId !== filterOwnerId) {
+      projectile.bornAt = (projectile.bornAt ?? nowSec) + dt;
+      continue;
+    }
     const before = { ...projectile.position };
     // A release can occur between host ticks. Advance only the fraction of this
     // tick during which the projectile actually existed.

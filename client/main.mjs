@@ -536,7 +536,6 @@ function ensureRuntime() {
       const mode = latestLobby?.mode ?? latestSnapshot?.mode;
       if (mode === 'BOT_DUEL') socket.arenaReady(locked);
       if (locked) { paused = false; pauseMenu.classList.add('hidden'); }
-      else if (latestSnapshot?.roomState === 'PLAYING' && mode !== 'PRACTICE') openPause();
     };
   }
   runtime.setPlayerId(socket.inspectionActorId??socket.playerId);
@@ -1498,7 +1497,11 @@ function updateInspectionControls() {
   }
   practiceOverlay.querySelector('.practice-tools-unlocked-hint').textContent = socket.inspectionFrozen ? 'P OR RESUME TO CONTINUE' : 'CLICK ARENA TO RESUME';
   practiceOverlay.querySelector('.practice-tools-locked-hint').textContent = available ? 'P TO FREEZE · ESC FOR TOOLS' : 'ESC FOR TOOLS';
-  $('#pointer-hint').textContent = socket.inspectionFrozen ? 'SCENE FROZEN · P TO RESUME' : 'CLICK TO ENTER THE ARENA';
+  const pointerHint = $('#pointer-hint');
+  if (pointerHint) {
+    if (available) pointerHint.classList.add('hidden');
+    pointerHint.textContent = socket.inspectionFrozen ? 'SCENE FROZEN · P TO RESUME' : 'CLICK TO ENTER THE ARENA';
+  }
 }
 
 function toggleInspectionFreeze() {
@@ -1507,8 +1510,7 @@ function toggleInspectionFreeze() {
   // Freeze before releasing focus so a frozen Guard or sword pose remains intact.
   if (!socket.setInspectionFrozen(frozen)) return;
   runtime.syncInspection();
-  if (frozen && !runtime.inspectionFree) runtime.input.releaseFocus();
-  else runtime.input.releaseInputs();
+  runtime.input.releaseInputs();
   updateInspectionControls();
 }
 $('#practice-freeze').addEventListener('click', toggleInspectionFreeze);

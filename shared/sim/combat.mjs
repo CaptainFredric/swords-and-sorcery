@@ -1569,8 +1569,15 @@ function stepAfflictions(room, player, nowSec) {
   player.speedScale = chillScale(player.chill, nowSec);
 }
 
-function stepProjectiles(room, dt, nowSec, world) {
+function stepProjectiles(room, dt, nowSec, world, { filterOwnerId = null } = {}) {
   for (const projectile of [...room.projectiles.values()]) {
+    if (filterOwnerId !== null && projectile.ownerId !== filterOwnerId) {
+      projectile.bornAt = (projectile.bornAt ?? nowSec) + dt;
+      if (projectile.detonateAt) projectile.detonateAt += dt;
+      if (projectile.coreKnockedAt) projectile.coreKnockedAt += dt;
+      if (projectile.armedAt) projectile.armedAt += dt;
+      continue;
+    }
     if (projectile.corePhase === 'armed') {
       if (nowSec + 1e-9 >= projectile.detonateAt) detonateCoreflagration(room, projectile, nowSec);
       continue;
@@ -2208,6 +2215,7 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
       player.crouched = moved.crouched;
       player.yaw = input.yaw ?? player.yaw;
       player.pitch = input.pitch ?? player.pitch;
+      player.flight = moved.flight;
       resolveWorldImpact(room,player,from,moved,nowSec);
     }
     // a Steel dash driven into someone: it meets them, gives them its momentum, and stops there (steelRam.mjs)
@@ -2221,7 +2229,7 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
     // velocity belongs to the projectile; turning or moving the caster never steers it.
     if (player.pendingSpell && spellFor(player.pendingSpell.spell).kind !== 'cone' && nowSec >= player.castEndsAt) spawnSpell(room, player, nowSec, world);
 
-    if (player.position.y < (world.abyssY ?? -9)) {
+    if (player.position.y < (world.abyssY ?? -9) && !player.flight) {
       killPlayer(room, player.id, null, 'abyss', nowSec);
       continue;
     }
@@ -2281,14 +2289,17 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
   stepRuptures(room, nowSec);
   // bodies do not share space: overlapping Spellblades are eased apart (never off a ledge or into a wall)
   separatePlayers([...room.players.values()].filter((p) => !p.operatingBallistaId&&!p.operatingRamId), effectiveWorld);
-  if(room.soFistication){stepSoFistication(room,room.soFistication,dt,nowSec,world);const op=room.players.get(room.soFistication.operatorId);if(op)recordTransform(op,nowSec);}
-  if (room.biByeLlista) {
+  const activeActorId = room.inspectionActorId ?? room.inspectionControlId ?? [...room.players.values()].find(p => p.actorKind === 'human')?.id ?? null;
+  const isOthersFreeze = room.inspectionFreezeMode === 'others';
+  if(room.soFistication && (!isOthersFreeze || room.soFistication.operatorId === activeActorId)){stepSoFistication(room,room.soFistication,dt,nowSec,world);const op=room.players.get(room.soFistication.operatorId);if(op)recordTransform(op,nowSec);}
+  if (room.biByeLlista && (!isOthersFreeze || room.biByeLlista.operatorId === activeActorId)) {
     stepBiByeLlista(room, room.biByeLlista, dt, nowSec);
   }
   if (!room.freezeProjectiles) {
-    stepProjectiles(room, dt, nowSec, world);
+    const filterOwnerId = isOthersFreeze ? activeActorId : null;
+    stepProjectiles(room, dt, nowSec, world, { filterOwnerId });
     if (room.biByeLlista) {
-      stepBiByeProjectiles(room, dt, nowSec, world);
+      stepBiByeProjectiles(room, dt, nowSec, world, { filterOwnerId });
     }
   } else {
     for (const projectile of room.projectiles.values()) {

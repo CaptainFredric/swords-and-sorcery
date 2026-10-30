@@ -504,6 +504,8 @@ body.inspection-ui-clean #hud,
 body.inspection-ui-clean .hud,
 body.inspection-ui-clean .touch-controls,
 body.inspection-ui-clean #pointer-hint,
+body.inspection-ui-gameplay #pointer-hint,
+body.inspection-ui-full #pointer-hint,
 body.inspection-ui-clean .crosshair,
 body.inspection-ui-clean .inspection-view-labels,
 body.inspection-ui-clean .inspection-grid { display:none !important; }
