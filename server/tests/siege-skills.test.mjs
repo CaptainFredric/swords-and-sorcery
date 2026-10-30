@@ -180,3 +180,33 @@ test('ram: genuine enemy reach and wall remain physical contacts',()=>{
  for(let i=1;i<=35;i++)stepSoFistication(w.room,w.b,1/30,1.1+i/30);
  assert.ok(w.b.strokeLimit!=null);
 });
+
+test('ballista: deployed MAIN ATTACK stays independent while Skill is primed',()=>{
+ const s=setup('bow');s.b.mode='DEPLOYED';s.b.weaponFocus='MAIN';skill(s);
+ assert.equal(fireBiByeLlista(s.room,s.b,1.1),true);
+ assert.equal(s.b.coupling,'INDEPENDENT');
+ assert.ok(s.b.mobileShotPendingAt>1.1);
+ assert.equal(s.b.skill.phase,'primed');assert.equal(s.b.mainBoltLoaded,true);
+});
+
+test('ram: a long priming period cannot pay off its future cooldown',()=>{
+ const s=setup('ram');skill(s);
+ for(let i=1;i<=600;i++)stepSoFistication(s.room,s.b,1/30,1+i/30);
+ assert.equal(s.b.skill.phase,'primed');assert.equal(s.b.skill.readyAt,0);
+ assert.equal(fireSoFistication(s.room,s.b,21.1),true);
+ assert.equal(s.b.skill.readyAt,45.1);
+ assert.ok(skill(s,21.2).rejected);
+});
+
+test('ram: guarding the genuine reach strike still mitigates its one real contact',()=>{
+ for(const guarded of [false,true]){
+  const s=setup('ram'),v=s.room.addPlayer({id:'guardVictim',token:'v',name:'v'},0);
+  v.position={x:0,y:0,z:-3.8};v.health=500;v.maxHealth=500;v.spawnProtectionUntil=0;
+  v.guarding=guarded;v.guardHeld=guarded;v.yaw=Math.PI;v.guardStamina=100;
+  skill(s);
+  for(let i=1;i<=45;i++)stepSoFistication(s.room,s.b,1/30,1+i/30);
+  const hits=s.room.events.filter(e=>e.type==='soFistImpact'&&e.victimId===v.id);
+  assert.equal(hits.length,1);assert.ok(v.health<500);
+  if(guarded){assert.ok(hits[0].guarded);assert.ok(v.health>420);}
+ }
+});
