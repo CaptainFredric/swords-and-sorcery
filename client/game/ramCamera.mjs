@@ -6,3 +6,10 @@ export function ramCameraFollow(previous,anchor,target,dt){
  const next=anchor.map((v,i)=>previous?previous[i]+(v-previous[i])*blend:v);
  return {anchor:next,position:target.map((v,i)=>v+next[i]-anchor[i])};
 }
+
+// A true orbit keeps the carriage centered through both horizontal and vertical
+// look. Positive pitch looks upward, matching the ordinary player camera.
+export function ramCameraOrbit(anchor,yaw,pitch){
+ const elevation=Math.max(-1.15,Math.min(.75,pitch-.28)),distance=6.2,c=Math.cos(elevation);
+ return {position:[anchor[0]+Math.sin(yaw)*c*distance,anchor[1]-Math.sin(elevation)*distance,anchor[2]+Math.cos(yaw)*c*distance],yaw,pitch:elevation};
+}
