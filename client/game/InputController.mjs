@@ -158,6 +158,7 @@ export class InputController {
     });
 
     this.#listen(this.element, 'click', () => this.requestPointerLock());
+    this.#listen(this.element, 'pointerdown', () => this.requestPointerLock());
 
     this.#listen(document, 'mousemove', (event) => {
       if (!this.pointerLocked) return;

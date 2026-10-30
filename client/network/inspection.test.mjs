@@ -387,4 +387,43 @@ test('Priority 3: director staging actor vitals, cooldowns, loadouts, AI and pos
   // AI suspension
   host.stageInspectionActor({ actorId: dummy.id, ai: { suspended: true } });
   assert.equal(dummy.aiSuspended, true);
+
+  // Flight staging
+  host.stageInspectionActor({ actorId: dummy.id, flight: true });
+  assert.equal(dummy.flight, true);
+  assert.equal(dummy.grounded, false);
+});
+
+test('freeze mode OTHERS freezes incoming projectiles and unattended siege machines', () => {
+  const { host, advance } = yard();
+  host.practiceSpawnDummy('PASSIVE');
+  advance(0.1);
+  const dummy = [...host.room.players.values()].find(p => p.actorKind === 'dummy');
+
+  // Mount ballista, fire a bolt, then dismount
+  host.setInspectionActor(dummy.id);
+  host.stageInspectionActor({ actorId: dummy.id, mount: 'ballista' });
+  const ballista = host.room.biByeLlista;
+  assert(ballista, 'ballista exists');
+  host.bibyeFire('MAIN');
+  advance(0.25);
+  assert.ok(host.room.bibyeProjectiles?.size, 'Ballista bolt in flight');
+  const bolt = [...host.room.bibyeProjectiles.values()][0];
+  host.stageInspectionActor({ actorId: dummy.id, mount: 'dismount' });
+  assert.equal(ballista.operatorId, null, 'ballista is unattended');
+
+  // Set freeze mode to OTHERS with owner as active actor
+  host.setInspectionActor(host.player.id);
+  host.setInspectionFreezeMode('others');
+
+  const boltPosBefore = structuredClone(bolt.position);
+  advance(0.3);
+
+  assert.deepEqual(bolt.position, boltPosBefore, 'Unattended incoming ballista bolt remained frozen in flight in OTHERS mode');
+
+  // Dummy should not be moved by gravity if flight is enabled
+  host.stageInspectionActor({ actorId: dummy.id, flight: true });
+  const dummyY = dummy.position.y;
+  advance(0.2);
+  assert.equal(dummy.position.y, dummyY, 'dummy in flight maintains altitude when frozen as others');
 });
