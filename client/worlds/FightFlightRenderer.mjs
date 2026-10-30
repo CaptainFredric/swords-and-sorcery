@@ -80,6 +80,12 @@ export class FightFlightRenderer{
     }
     if(this.action)this.action.time=name==='Posture_05_Grounded_Walk_Loop'?now%this.action.getClip().duration:Math.min(.65,this.action.getClip().duration);
     this.mixer.update(0);
+    const crossbow=this.nodes.get('Crossbow_Body');
+    if(crossbow){
+      const relative=Math.atan2(Math.sin((m.crossbowYaw??m.heading)-m.heading),Math.cos((m.crossbowYaw??m.heading)-m.heading));
+      const age=now-(m.lastShotAt??-Infinity),recoil=age>=0&&age<.143?(.065*(1-age/.143)):0;
+      crossbow.rotation.set(-(m.crossbowPitch??0)-recoil,relative,0,'YXZ');
+    }
     const rotor=this.nodes.get('Rotor_Hub');if(rotor)rotor.rotation.y=m.rotorAngle??0;
     // The named GLB rotor's authored pose is driven by the authoritative angular phase,
     // not an unrelated animation clock. This also stops on rotor failure.
