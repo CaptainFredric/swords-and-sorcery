@@ -15,7 +15,8 @@ export class SoFistSound {
  }
  event(e,b,now){
   if(!b||e.machineId!==b.id)return;
-  if(e.type==='soFistBlocked')this.sound.event({...e,type:'bibyeBoltImpact',ballistaId:b.id,subKind:'siege'},b,now);
+  if(e.type==='siegeImpact'&&e.kind!=='piston-wall'&&e.strength>.12)this.sound.event({...e,type:'bibyeBoltImpact',ballistaId:b.id,subKind:'siege'},b,now);
+   if(e.type==='soFistBlocked')this.sound.event({...e,type:'bibyeBoltImpact',ballistaId:b.id,subKind:'siege'},b,now);
   if(e.type==='soFistImpact')this.sound.event({...e,type:'bibyeBoltImpact',ballistaId:b.id,subKind:'siege'},b,now);
   if(e.type==='soFistDamaged')this.sound.event({...e,type:'bibyeDamaged',ballistaId:b.id,material:e.componentId==='Fist'?'metal':'timber'},b,now);
  }

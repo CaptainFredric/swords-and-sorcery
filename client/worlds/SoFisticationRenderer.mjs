@@ -4,6 +4,7 @@ import {ramHitMaterial} from './ramHitFlash.mjs';
 import {appUrl} from '../appUrl.mjs';
 import {everywhere} from '../game/viewLayers.mjs';
 import {boxWorld} from '../../shared/src/orientedBox.mjs';
+import {siegeRock} from '../../shared/sim/siegeImpact.mjs';
 import {SO_FIST_SCALE,SO_FIST_FIT,SO_FIST_STATION,soFistTiming,SO_FIST_WHEELS,soFistWheelSteering,soFistFrame,soFistPose} from '../../shared/sim/soFistGeometry.mjs';
 
 // The original authored asset loads when requested through Practice. Authority owns
@@ -50,6 +51,8 @@ export class SoFisticationRenderer {
   this.load();const frame=soFistFrame(b);
   this.group.position.set(b.position?.x??b.x,b.position?.y??b.y,b.position?.z??b.z);
   this.basis.makeBasis(...frame.axes.map(a=>new THREE.Vector3(...a)));this.group.quaternion.setFromRotationMatrix(this.basis);
+  const rock=siegeRock(b,now);
+  if(rock.pitch||rock.roll)this.group.quaternion.multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(-rock.pitch,0,rock.roll,'XYZ')));
   if(!this.model)return;
   this.strike.time=Math.min(3.999,soFistPose(b,now).clipAge);this.strike.enabled=true;this.mixer.update(0);
   this.nodes.get('Ram_Assembly').position.z+=(soFistPose(b,now).jitter??0)/SO_FIST_SCALE;

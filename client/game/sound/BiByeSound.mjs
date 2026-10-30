@@ -79,7 +79,8 @@ export class BiByeSound {
   this.last={...b};
  }
  event(event,b,now){
-  if(!event.type?.startsWith('bibye')||!b||!this.active||event.ballistaId&&event.ballistaId!==b.id||Math.abs(now-event.at)>1)return;
+  if((!event.type?.startsWith('bibye')&&event.type!=='siegeImpact')||!b||!this.active||
+      event.ballistaId&&event.ballistaId!==b.id||event.type==='siegeImpact'&&event.machineId!==b.id||Math.abs(now-event.at)>1)return;
   const key=[event.type,event.ballistaId,event.at,event.componentId,event.shot,event.projectileId].join(':');
   if(this.seen.has(key))return;this.seen.add(key);if(this.seen.size>160)this.seen.delete(this.seen.values().next().value);
   let kind=null;
@@ -94,6 +95,7 @@ export class BiByeSound {
   if(event.type==='bibyeComponentFailed')kind='failure';
   if(event.type==='bibyeDestroyed'){this.stop();this.active=Boolean(this.options?.active);kind='wreck';}
   if(event.type==='bibyeBoltImpact')kind=event.subKind==='conditioning'?'frost':'siegeImpact';
+   if(event.type==='siegeImpact'&&event.strength>.12)kind='siegeImpact';
   if(kind)this.#play(kind,event.point?{...b,position:event.point}:b,kind==='wreck'?.8:1);
  }
  stop(){this.active=false;for(const h of this.loops.values())h.stop(.06);this.loops.clear();for(const h of this.ones)h.stop?.(.06);this.ones=[];this.settleAt=null;}

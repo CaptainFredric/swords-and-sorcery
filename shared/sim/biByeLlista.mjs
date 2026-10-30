@@ -1,4 +1,5 @@
 import {endSiegeSkill} from './siegeSkills.mjs';
+import {SIEGE_IMPACT} from './siegeImpact.mjs';
 import {frostGuardFaces,frostParryContact} from './biByeFrostGuard.mjs';
 import { structureWorld, damageStructureSolid } from './structures.mjs';
 import {soFistFirstHit,soFistSolids} from './soFistGeometry.mjs';
@@ -158,6 +159,7 @@ export function createBiByeLlista(overrides = {}) {
     pitch: 0,                       // Launcher aim pitch
     speed: 0,
     steer: 0,
+    externalVelocity:{x:0,z:0},impactReaction:null,
     operatorId: null,
     team: conf.team ?? null,
     mobileFiredAt: null,
@@ -739,6 +741,43 @@ export function stepBiByeLlista(room, ballista, dt, nowSec, world = room.world) 
       syncOperatorPosition(ballista, operator);
     }
   }
+
+  // Authoritative momentum transferred by a real piston contact. This is
+  // separate from the driver's requested speed: ordinary input cannot erase
+  // the shove in the following tick. Unoccupied machines obey it as well.
+  const impulse=ballista.externalVelocity??{x:0,z:0};
+  if(ballista.mode==='MOBILE'&&Math.hypot(impulse.x,impulse.z)>SIEGE_IMPACT.restSpeed){
+    const others=soFistSolids(room.soFistication);
+    for(const other of room.players?.values()??[])if(other.alive&&other.id!==ballista.operatorId)
+      others.push({center:[other.position.x,other.position.y+.9,other.position.z],size:[.9,1.8,.9]});
+    const ctx=biByeTerrainContext(world,ballista,others);
+    const initiallyBlocked=!biByeTerrainClear(ballista,ctx);
+    const slices=Math.max(1,Math.ceil(Math.hypot(impulse.x,impulse.z)*dt/.05));
+    for(let i=0;i<slices;i++){
+      const next={...ballista,x:ballista.x+impulse.x*dt/slices,z:ballista.z+impulse.z*dt/slices};
+      const pose=biByeTerrainPose(next,ctx);
+      if(!pose||Math.abs(pose.y-ballista.y)>.07)break;
+      const proposed={...next,...pose};
+      let safe=biByeTerrainClear(proposed,ctx);
+      // A piston contact can begin at the boundary of the ram's hit volumes.
+      // Escape from an initial overlap is safe only if separating from the
+      // ram AND clearing the permanent world + player obstacles.
+      if(!safe&&initiallyBlocked&&room.soFistication){
+        const ram=room.soFistication;
+        const away=Math.hypot(proposed.x-ram.x,proposed.z-ram.z)>
+          Math.hypot(ballista.x-ram.x,ballista.z-ram.z)+1e-6;
+        if(away) safe=biByeTerrainClear(proposed,biByeTerrainContext(world,proposed,others.filter(s=>s.kind!=='siege-chassis')));
+      }
+      if(!safe){ballista.externalVelocity={x:0,z:0};break;}
+      Object.assign(ballista,{x:proposed.x,y:proposed.y,z:proposed.z,chassisPitch:pose.chassisPitch,chassisRoll:pose.chassisRoll,wheelOffsets:pose.wheelOffsets});
+    }
+    if(ballista.operatorId){
+      const operator=room.players?.get(ballista.operatorId);
+      if(operator?.alive)syncOperatorPosition(ballista,operator);
+    }
+    const fade=Math.exp(-SIEGE_IMPACT.mobileDrag*dt);
+    ballista.externalVelocity={x:(ballista.externalVelocity?.x??0)*fade,z:(ballista.externalVelocity?.z??0)*fade};
+  }else ballista.externalVelocity={x:0,z:0};
 
   const roll = biByeWheelTravel(previousPose, ballista, biByeWheelSteering(ballista.steer??0));
   ballista.wheelRolls = ballista.wheelRolls.map((v,i)=>v + (ballista.components[Object.keys(ballista.components)[i]].health > 0 ? roll[i] : 0));
