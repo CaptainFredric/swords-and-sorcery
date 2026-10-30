@@ -68,6 +68,10 @@ export class FightFlightRenderer{
     // not an unrelated animation clock. This also stops on rotor failure.
     this.setFailureParts();
   }
+  getOperatorGrips(){
+    this.group.updateMatrixWorld(true);
+    return {left:this.nodes.get('operator_hand_L_crossbow_grip')?.getWorldPosition(new THREE.Vector3())??null};
+  }
   getMountedCameraPosition(view,out=new THREE.Vector3()){
     const m=this.state;if(!m)return null;
     const first=view==='sight';
