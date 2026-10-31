@@ -63,10 +63,10 @@ test('Early release cancels preparation without spending any Ultimate or termina
 });
 test('Ordinary held Dash alone spends prowess but never triggers irreversible terminal dive',()=>{
  const s=setup();s.cmd('flightDash',true,1);
- stepTerminalPreparation(s.room,s.m,1.2);stepFlightRun(s.room,s.m,1/30,1.2);
+ stepTerminalPreparation(s.room,s.m,1.34);stepFlightRun(s.room,s.m,1/30,1.34);
  assert.ok(s.p.prowess<100);
  assert.equal(s.m.terminalPrep,null);assert.equal(s.m.terminalDive,null);
- s.cmd('flightDash',false,1.25);
+ s.cmd('flightDash',false,1.38);
  assert.equal(s.m.offensiveRun,false);
 });
 test('Already active Chivalry cannot spend another Ultimate on a terminal chord',()=>{
