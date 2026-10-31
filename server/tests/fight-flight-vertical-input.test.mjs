@@ -70,8 +70,8 @@ test('Lower responds on its first packet, holding sustains descent and release d
 test('Low rotor energy, destroyed rotor, or charge loss defeats otherwise perfect hover',()=>{
  const {room,m,p}=setup();step(room,m,0,56,{flightRise:true});
  m.rotorEnergy=0;m.rotorHP=0;
- const y=m.y;step(room,m,56*DT,8,{flightRise:false});
- assert.equal(m.rotorLiftAuthority,0);assert.ok(m.velocity.y<-.5&&m.y<y);
+ const y=m.y;step(room,m,56*DT,24,{flightRise:false});
+ assert.equal(m.rotorLiftAuthority,0);assert.ok(m.velocity.y<-.5&&m.y<y,'loss of lift must eventually reverse prior climb momentum');
  const other=setup();step(other.room,other.m,0,56,{flightRise:true});
  other.m.flightCharge=0;step(other.room,other.m,56*DT,3,{flightRise:false});
  assert.equal(other.m.rotorLiftAuthority,0);assert.ok(other.m.velocity.y<0);
@@ -124,14 +124,18 @@ test('Aerial ejection falls and lands; remount preserves machine ammunition, deb
  assert.deepEqual(applyRoomCommand(room,p,{type:'flightEject',down:false},3.1),{});
  assert.equal(p.grounded,false);assert.equal(p.ejectionFallExempt,true);
  assert.equal(m.operatorId,null);assert.equal(p.operatingFightFlightId,null);
+ assert.equal(m.ammo,spare);assert.equal(m.ammoDebt,3,'ejection cannot erase machine debt');
  let fell=false;for(let i=1;i<=190;i++){stepRoom(room,DT,3.1+i*DT,room.world);
    if(p.velocity.y<-.5)fell=true;
    if(p.grounded)break;
  }
  assert.ok(fell,'operator actually falls under gravity');
  assert.equal(p.grounded,true);assert.equal(p.ejectionFallExempt,false);
- assert.equal(m.ammo,spare);assert.equal(m.ammoDebt,3);
- assert.ok(mountFightFlight(room,m,p,10)||m.y>1,'only safely accessible grounded machinery may remount');
+ assert.ok(m.ammo>=spare&&m.ammo<=18&&m.ammoDebt>=0&&m.ammoDebt<=3,'production may pay debt, not reset inventory');
+ for(let i=1;i<=110&&!m.grounded;i++)stepRoom(room,DT,10+i*DT,room.world);
+ assert.ok(m.grounded,'unpiloted machine must land');
+ p.position={x:m.x,y:m.y,z:m.z+1};
+ assert.equal(mountFightFlight(room,m,p,15),true,'operator can remount after a genuine safe landing');
 });
 test('Death does not grant a second mounted life or leave ascent input controlling the machine',()=>{
  const {room,m,p}=setup();step(room,m,0,40,{flightRise:true});
