@@ -5,7 +5,7 @@ import {spawn} from 'node:child_process';
 import {mkdtemp,mkdir,writeFile,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-const url=(process.env.SHARED_PRACTICE_URL??'http://127.0.0.1:3001').replace(/\\/$/,'');
+const url=(process.env.SHARED_PRACTICE_URL??'http://127.0.0.1:3001').replace(/\/$/,'');
 const out='output/playwright/shared-practice';await mkdir(out,{recursive:true});
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const browsers=[];
@@ -42,12 +42,6 @@ async function connectBrowser(label,port){
  await waitFor(()=>b.evaluate("document.querySelector('#loading-veil')?.classList.contains('done')"),'menu ready',160);
  return b;
 }
-// Uses a function body so we can call it before the CDP connection exists.
-const until=async(label,fn,stage,attempts=120)=>{
- for(let i=0;i<attempts;i++){try{const value=await fn();if(value){console.log('[SHARED '+label+']',stage);return value;}}catch{}
-  await sleep(120);
- }throw Error('Shared Practice Chrome timeout: '+label+' '+stage);
-};
 // Initial debugger probe must not depend upon a connected WebSocket.
 async function waitFor(fn,label,attempts=180){for(let i=0;i<attempts;i++){try{const x=await fn();if(x)return x;}catch{}await sleep(100);}throw Error('Chrome startup: '+label);}
 let host=null,guest=null;
