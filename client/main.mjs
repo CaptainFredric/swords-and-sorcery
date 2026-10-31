@@ -919,11 +919,13 @@ function showBreakthroughArena() {
   }
   if (breakthroughSubtitle) {
     breakthroughSubtitle.textContent = chosen === 'outerworks' ? 'THE OUTERWORKS'
-      : chosen === 'blackbell-foundry' ? 'BLACKBELL FOUNDRY' : 'BASTION BREACH';
+      : chosen === 'blackbell-foundry' ? 'BLACKBELL FOUNDRY' : chosen === 'high-grounds' ? 'THE HIGH GROUNDS' : 'BASTION BREACH';
   }
   if (breakthroughCopy) {
     breakthroughCopy.textContent = chosen === 'outerworks'
       ? 'Advance through the Forward Redoubt and Barbican Gate. Attackers can operate the Bi-Bye-llista along the wide siege approach; infantry can flank through the Western Sally Trench.'
+      : chosen === 'high-grounds'
+        ? 'Both armies attack. Capture and recapture five footholds across colossal flowering trees, great bridges and an abyss. Hold territory to earn points; treetop lanes and the main siege road offer different ways through.'
       : chosen === 'blackbell-foundry'
         ? 'A brutal clash across a medieval industrial foundry. Contest the Chain Winch yard, breach the blast portal, and assault the monumental Great Bell.'
         : 'Attackers have one So-Fist-ication ram on the approach. Break the reinforced timber barricade to open a direct assault lane, then capture the Outer Gate to enter the stronghold. Defenders can destroy the ram.';
