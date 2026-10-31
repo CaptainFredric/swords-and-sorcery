@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { HIGH_GROUNDS } from '../../shared/worlds/highGrounds.mjs';
-import { buildHighGroundsDecks, buildHighGroundsSurroundings, highGroundsSceneryMaterials } from './highGroundsScenery.mjs';
+import { buildHighGroundsDecks, buildHighGroundsSurroundings, buildHighGroundsDetail, highGroundsSceneryMaterials } from './highGroundsScenery.mjs';
 
 // Intentionally simple, instanced-friendly forms: a very large map should
 // remain legible and run in the HTML5/mobile renderer without texture atlases.
@@ -89,6 +89,7 @@ export class HighGroundsRenderer {
       mesh(this.group, new THREE.IcosahedronGeometry(tree.radius * 1.05, 0),
         this.materials.leaf, [tree.x, crownY - 3.7, tree.z]);
     }
+    buildHighGroundsDetail(this.group, HIGH_GROUNDS, this.materials);
     // Three-dimensional standards on *all five* independent capture sites.
     for (const obj of HIGH_GROUNDS.objectives) {
       const parent = new THREE.Group();
