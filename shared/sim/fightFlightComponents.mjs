@@ -13,12 +13,15 @@ export const FIGHT_FLIGHT_COMPONENTS=Object.freeze(COMPONENTS);
 const rot=m=>({s:Math.sin(m.heading??0),c:Math.cos(m.heading??0)});
 function box(m,component,local,size,spin=0){
   const {s,c}=rot(m);
-  const p={x:m.x-local[0]*c-local[2]*s,y:m.y+local[1],z:m.z+local[0]*s-local[2]*c};
-  // World axes: local +X -> [-cos,0,+sin]; local +Z -> [-sin,0,-cos].
-  const a=[[-c,0,s],[0,1,0],[-s,0,-c]];
+  // The renderer pitches the complete authored model about local +X
+  // during offensive runs and terminal dives, before heading rotation.
+  const pitch=Number.isFinite(m.runPitch)?m.runPitch:0,cp=Math.cos(pitch),sp=Math.sin(pitch);
+  const ly=local[1]*cp-local[2]*sp,lz=local[1]*sp+local[2]*cp;
+  const p={x:m.x-local[0]*c-lz*s,y:m.y+ly,z:m.z+local[0]*s-lz*c};
+  const a=[[-c,0,s],[-s*sp,cp,-c*sp],[-s*cp,-sp,-c*cp]];
   if(spin){const sa=Math.sin(spin),ca=Math.cos(spin);
     const u=a[0],v=a[2];a[0]=u.map((x,i)=>x*ca+v[i]*sa);a[2]=v.map((x,i)=>x*ca-u[i]*sa);}
-  return {componentId:component,center:[p.x,p.y,p.z],axes:a,size};
+  return {id:'fight-flight-'+m.id+'-'+component,componentId:component,center:[p.x,p.y,p.z],axes:a,size};
 }
 export function fightFlightHitVolumes(m){
   if(!m||m.retired||m.mode==='DESTROYED')return [];
