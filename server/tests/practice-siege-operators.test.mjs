@@ -177,3 +177,20 @@ test('Immobilized ram pilot uses a physical safe exit rather than teleporting or
  }
  assert.ok(p.alive&&room.players.has(p.id));
 });
+
+
+test('Hostile flight deployment rejects a low canopy which clears the grounded chassis but prevents actual takeoff',()=>{
+ const {room,command}=setup();
+ // The roof begins above the standing 2.65m chassis, but before flight can
+ // reach even a few metres. Previously a valid construction site trapped Donte.
+ const roof={id:'market-canopy',center:[0,3.5,-10],size:[6,1,6]};
+ room.world.solids.push(roof);
+ assert.deepEqual(command('spawn','fight-and-flight','formidable'),{});
+ const m=room.fightFlight;
+ const roofNear=Math.abs(m.x-roof.center[0])<roof.size[0]/2+1.35&&
+   Math.abs(m.z-roof.center[2])<roof.size[2]/2+1.35;
+ assert.equal(roofNear,false,'hostile flight spawns beyond the roof and rotor swept footprint');
+ advance(room,2,8);
+ assert.ok(Number.isFinite(m.takeoffAt)&&m.takeoffAt>=2,'bot must genuinely attempt powered takeoff');
+ assert.ok(room.events.some(e=>e.type==='fightFlightBoltReleased'),'new open site permits physical repeater fire');
+});
