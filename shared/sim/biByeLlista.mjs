@@ -493,7 +493,10 @@ export function damageBiByeLlista(room, ballista, amount, attackerId, source, no
     ballista.shotIIPendingAt = Infinity;
     if (ballista.operatorId) {
       const op = room.players?.get(ballista.operatorId);
-      dismountBiByeLlista(ballista, op, true, room.world);
+      const cold=ballista.skill?.id==='coldHowTouching'&&ballista.skill?.phase==='active';
+      dismountBiByeLlista(ballista, op, true, room.world, nowSec);
+      if(cold)room.events?.push({type:'siegeSkill',machineId:ballista.id,
+        skill:'coldHowTouching',action:'ended',reason:'destroyed',at:nowSec});
     }
     room.events?.push({type:'bibyeDestroyed',ballistaId:ballista.id,killerId:attackerId,at:nowSec});
   }
