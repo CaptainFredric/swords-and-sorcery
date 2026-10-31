@@ -14,6 +14,7 @@ export function applySavedLoadout(session, room, player, message) {
   // its current technique silently replaced by an Armory request.
   if (!player.operatingBallistaId&&!player.operatingRamId&&!player.operatingFightFlightId)
     player.siegeLoadout={...session.siegeLoadout};
+  else player.queuedSiegeLoadout={...session.siegeLoadout};
   player.startingSpell = session.spell;
   player.startingPreparedSpells = [...session.preparedSpells];
   player.startingUltimate = session.ultimate;
