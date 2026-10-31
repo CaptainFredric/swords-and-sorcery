@@ -2183,8 +2183,8 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
       // Flight uses Jump for powered ascent, not accidental ejection.
       player.position={x:room.fightFlight.x,y:room.fightFlight.y,z:room.fightFlight.z};
       player.velocity={...room.fightFlight.velocity};player.yaw=input.yaw??player.yaw;player.pitch=input.pitch??player.pitch;
-      player.sprinting=false;player.sprintBlend=0;continue;
-    }
+      player.sprinting=false;player.sprintBlend=0;
+    } else {
     if (player.operatingRamId && room.soFistication?.operatorId === player.id) {
       if(input.jump)dismountSoFistication(room,room.soFistication,player);
       if(player.operatingRamId){player.position=soFistOperator(room.soFistication);player.yaw=input.yaw??player.yaw;player.pitch=input.pitch??player.pitch;player.sprinting=false;player.sprintBlend=0;continue;}
@@ -2239,6 +2239,7 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
       player.pitch = input.pitch ?? player.pitch;
       player.flight = moved.flight;
       resolveWorldImpact(room,player,from,moved,nowSec);
+    }
     }
     // a Steel dash driven into someone: it meets them, gives them its momentum, and stops there (steelRam.mjs)
     if (player.dashRam) {
