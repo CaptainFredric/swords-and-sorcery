@@ -179,7 +179,11 @@ export function stepBiByeWeapons(room,b,dt,now,{shotI,shotII,coupledAim,targetAi
           b.upperFiredAt=now;b.upperShotKind='combined';
           event(room,b,'bibyeCombinedCommitted',now,{operatorId:pending.operatorId,upperReleaseAt:b.combinedUpperPendingAt});
         }
-        b.heavySkill=null;endSiegeSkill(b);
+        b.heavySkill=null;endSiegeSkill(b,now);
+        // Selection of the current rider was deferred until the first
+        // operator's irrevocable release finished. No cooldown reset.
+        const current=room.players.get(b.operatorId);
+        if(current?.alive)b.skill.id=selectedSiegeSkill(current,'biBye');
         event(room,b,'bibyeFired',now,{operatorId:b.firingOperatorId,shot:'II_SKILL'});skillEvent(room,b,now,'released');
       }
     }
