@@ -187,3 +187,22 @@ test('A new match clears the previous Valkyrie burning-ground aftermath',()=>{
  assert.deepEqual(room.flightBurnZones,[],'a fresh match cannot inherit hazardous terminal fire');
  assert.equal(room.fightFlight,null);
 });
+
+
+test('Committed dive blocked by substantial world masonry explodes at contact rather than hanging until timeout',()=>{
+ const s=setup();commit(s);
+ s.m.y=1.6;s.p.position.y=1.6;
+ s.m.velocity={x:0,y:0,z:-.5};s.m.heading=0;s.m.terminalDive.heading=0;
+ s.room.world.solids=[{id:'heavy-stone-obstruction',center:[0,1.3,-1.5],size:[8,2.6,.7]}];
+ for(let i=0;i<80&&!s.m.terminalDive.resolved;i++){
+  const t=2.11+i/30;
+  advanceTerminalFlight(s.room,s.m,1/30,t);
+  stepFightFlight(s.room,s.m,1/30,t,s.room.world);
+  resolveTerminalFlight(s.room,s.m,t);
+ }
+ assert.equal(s.m.terminalDive.resolved,true);
+ assert.ok(s.m.terminalDive.impactAt!=null,'real obstruction triggers collision rather than the timeout');
+ assert.ok(s.m.terminalDive.resolvedAt-s.m.terminalDive.startedAt<2.5,'physical contact resolves promptly');
+ assert.equal(s.room.flightBurnZones.length,1);
+ assert.equal(s.room.flightBurnZones[0].point.y,0,'ground aftermath cannot hover at wall impact altitude');
+});
