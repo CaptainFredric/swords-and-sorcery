@@ -78,6 +78,8 @@ function playerCenter(player) {
 function resetAtSpawn(player, spawn, nowSec, room) {
   player.position = { x: spawn.x, y: spawn.y, z: spawn.z };
   player.deathFlight=null;
+  player.ejectionFallExempt=false;
+  player.flightInputAt=null;
   player.velocity = { x: 0, y: 0, z: 0 };
   player.impulse = { x: 0, z: 0 };
   player.grounded = true;
