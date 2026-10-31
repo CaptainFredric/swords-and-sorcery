@@ -1,6 +1,7 @@
 import { GALE_MODES } from '../src/galeModes.mjs';
 import {mountFightFlight,dismountFightFlight} from './fightFlight.mjs';
 import {requestFightFlightFire} from './fightFlightWeapons.mjs';
+import {requestFightFlightSkill} from './fightFlightSkill.mjs';
 import {mountSoFistication,dismountSoFistication,fireSoFistication,primeSoFistSkill} from './soFistication.mjs';
 import { practiceBiByeCommand,practiceSiegeCommand } from './practiceSiege.mjs';
 import { setBiByeWeaponFocus,requestBiByeHeavySkill,requestBiByeCombinedSkill } from './biByeWeapons.mjs';
@@ -416,8 +417,8 @@ export function applyRoomCommand(room, player, message, time) {
     case 'practicePerryDismiss':
       return room.mode === GAME_MODES.PRACTICE && dismissPerryDialogue(room, player, time) ? {} : { rejected: PRACTICE_REJECTED };
     case 'siegeSkill': {
-      const ram=room.soFistication,b=room.biByeLlista;
-      const reason=player.operatingRamId&&ram?.operatorId===player.id?primeSoFistSkill(room,ram,player,time):player.operatingBallistaId&&b?.operatorId===player.id?requestBiByeHeavySkill(room,b,player,time,biByeTargetAim):'Operate a siege machine to use its Skill.';
+      const ram=room.soFistication,b=room.biByeLlista,f=room.fightFlight;
+      const reason=player.operatingFightFlightId&&f?.operatorId===player.id?requestFightFlightSkill(room,f,player,time):player.operatingRamId&&ram?.operatorId===player.id?primeSoFistSkill(room,ram,player,time):player.operatingBallistaId&&b?.operatorId===player.id?requestBiByeHeavySkill(room,b,player,time,biByeTargetAim):'Operate a siege machine to use its Skill.';
       return reason?{rejected:reason}:{};
     }
     case 'fightFlightFire': {
