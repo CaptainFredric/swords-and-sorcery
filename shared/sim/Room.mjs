@@ -1,3 +1,4 @@
+import {normalizeSiegeLoadout} from '../src/siegeLoadout.mjs';
 import { roomSettings, validRoomNumber } from '../src/roomSettings.mjs';
 import { createStructureState } from './structures.mjs';
 import { dismountFightFlight } from './fightFlight.mjs';
@@ -193,7 +194,7 @@ export class Room {
     return this.world.spawnPoints[index % this.world.spawnPoints.length];
   }
 
-  addPlayer({ id, token, name, spell = DEFAULT_SPELL, ultimate = DEFAULT_ULTIMATE, preparedSpells = [], team = null }, nowSec) {
+  addPlayer({ id, token, name, spell = DEFAULT_SPELL, ultimate = DEFAULT_ULTIMATE, preparedSpells = [], siegeLoadout = null, team = null }, nowSec) {
     let assigned = null;
     if (this.policy.teamMode) {
       const teamSize = this.policy.teamSize ?? 3;
@@ -239,6 +240,7 @@ export class Room {
     player.preparedSpells = normalizePreparedSpells(player.startingSpell, preparedSpells);
     player.startingPreparedSpells = [...player.preparedSpells];
     player.startingUltimate = player.ultimate;
+    player.siegeLoadout=normalizeSiegeLoadout(siegeLoadout);
     this.players.set(id, player);
     this.emptySince = null;
     return player;
