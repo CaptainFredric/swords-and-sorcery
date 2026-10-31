@@ -19,6 +19,8 @@ export function hasMeaningfulInputChange(current, previous) {
   if (Boolean(current.sprint) !== Boolean(previous.sprint)) return true;
   if (Boolean(current.crouch) !== Boolean(previous.crouch)) return true;
   if (Boolean(current.jump) !== Boolean(previous.jump)) return true;
+  if (Boolean(current.flightRise) !== Boolean(previous.flightRise)) return true;
+  if (Boolean(current.flightLower) !== Boolean(previous.flightLower)) return true;
   if (Math.abs((current.forward ?? 0) - (previous.forward ?? 0)) > 0.05) return true;
   if (Math.abs((current.right ?? 0) - (previous.right ?? 0)) > 0.05) return true;
   if (Math.abs((current.yaw ?? 0) - (previous.yaw ?? 0)) > REMOTE_YAW_THRESHOLD_RAD) return true;

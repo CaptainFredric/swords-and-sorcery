@@ -341,12 +341,16 @@ export function applyRoomCommand(room, player, message, time) {
     case 'vote': return room.vote(player.id,message.key,message.value) ? {lobby:true} : {rejected:'Choose a valid setting before the countdown.'};
     case 'arenaReady': return { lobby: room.setArenaReady(player.id, Boolean(message.ready), time) };
     case 'input': {
+      if(player.operatingFightFlightId)player.flightInputAt=time;
       player.lastInputSeq = Number.isFinite(message.seq) ? message.seq : player.lastInputSeq;
       player.input = {
         siegeTarget:(player.operatingBallistaId||player.operatingFightFlightId)&&message.siegeTarget&&['x','y','z'].every(k=>Number.isFinite(message.siegeTarget[k]))?Object.fromEntries(['x','y','z'].map(k=>[k,message.siegeTarget[k]])):null,
         forward: Math.max(-1, Math.min(1, Number(message.forward) || 0)),
         right: Math.max(-1, Math.min(1, Number(message.right) || 0)),
         jump: Boolean(message.jump),
+        // Explicit held controls for mobile. Legacy Space retains tap/hold jump.
+        flightRise: Boolean(player.operatingFightFlightId&&message.flightRise),
+        flightLower: Boolean(player.operatingFightFlightId&&message.flightLower),
         sprint: Boolean(message.sprint),
         crouch: Boolean(message.crouch),
         flight: message.flight !== undefined ? Boolean(message.flight) : Boolean(player.flight),
@@ -411,6 +415,15 @@ export function applyRoomCommand(room, player, message, time) {
     case 'dash':
       if(player.operatingFightFlightId)return {rejected:'Hold Dash to initiate Flight to the Valkyrie.'};
       tryDash(room, player.id, message.direction || { x: 0, z: -1 }, time); return {};
+    case 'flightHop': {
+      const m=room.fightFlight;
+      if(!m||!player.alive||m.operatorId!==player.id||player.operatingFightFlightId!==m.id||m.terminalDive)
+        return {rejected:'Only the living Fight-and-Flight operator may hop.'};
+      if(!m.grounded||m.hopRequested||m.rotorHP<=0||m.health<=0||m.flightCharge<=2)
+        return {rejected:'Hop requires an intact machine on supported ground.'};
+      m.hopRequested=true;
+      return {};
+    }
     case 'flightEject': {
       const m=room.fightFlight;
       if(!m||!player.alive||m.operatorId!==player.id||player.operatingFightFlightId!==m.id)
