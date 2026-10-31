@@ -102,6 +102,7 @@ export function matchInfoText(snapshot, serverNow) {
   const mins = Math.floor(left / 60);
   const secs = Math.floor(left % 60).toString().padStart(2, '0');
   const clockStr = (snapshot?.overtime || snapshot?.objective?.overtime) ? 'OVERTIME' : `${mins}:${secs}`;
+  if (snapshot?.mode === 'HIGH_GROUNDS') return `THE HIGH GROUNDS · TERRITORY · ${clockStr}`;
   if (snapshot?.mode === 'BREAKTHROUGH') {
     const obj = snapshot.objective;
     const objName = obj?.name ?? 'OBJECTIVE';
@@ -852,14 +853,14 @@ export class HUD {
   setScoreboard(snapshot, visible) {
     this.scoreboard.classList.toggle('hidden', !visible);
     if (!visible) return;
-    if (snapshot.mode === 'BREAKTHROUGH') {
+    if (snapshot.mode === 'BREAKTHROUGH' || snapshot.mode === 'HIGH_GROUNDS') {
       const attackers = snapshot.players.filter((p) => p.team === 'ATTACKERS').sort((a, b) => b.kills - a.kills || a.deaths - b.deaths);
       const defenders = snapshot.players.filter((p) => p.team === 'DEFENDERS').sort((a, b) => b.kills - a.kills || a.deaths - b.deaths);
       const renderTeam = (title, list, cls) => `<h4 class="sb-team-head ${cls}">${title}</h4>` + list.map((p) =>
         `<div class="sb-row ${cls}"><span>${escapeHtml(p.name)}${p.actorKind === 'bot' ? ' <small>[BOT]</small>' : ''}</span><b>${p.kills} K</b><em>${p.deaths} D · ${p.parries ?? 0} P</em></div>`
       ).join('');
-      const worldTitle = snapshot.worldId === 'blackbell-foundry' ? 'BLACKBELL FOUNDRY' : 'BASTION BREACH';
-      this.scoreboard.innerHTML = `<h3>BREAKTHROUGH · ${worldTitle}</h3>${renderTeam('ATTACKERS · AZURE HOST', attackers, 'team-att')}${renderTeam('DEFENDERS · CRIMSON GUARD', defenders, 'team-def')}`;
+      const worldTitle = snapshot.mode === 'HIGH_GROUNDS' ? 'THE HIGH GROUNDS' : snapshot.worldId === 'blackbell-foundry' ? 'BLACKBELL FOUNDRY' : snapshot.worldId === 'outerworks' ? 'THE OUTERWORKS' : 'BASTION BREACH';
+      this.scoreboard.innerHTML = `<h3>${snapshot.mode === 'HIGH_GROUNDS' ? 'TERRITORY' : 'BREAKTHROUGH'} · ${worldTitle}</h3>${renderTeam('ATTACKERS · AZURE HOST', attackers, 'team-att')}${renderTeam('DEFENDERS · CRIMSON GUARD', defenders, 'team-def')}`;
       return;
 
     }
