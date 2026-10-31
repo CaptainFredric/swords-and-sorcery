@@ -19,13 +19,15 @@ function distanceToBlade(body,m,phase,blade,part){
   const projected=clamp(x*radialX+z*radialZ,ROTOR_CONTACT.inner,ROTOR_CONTACT.outer);
   const cross=x-radialX*projected,depth=z-radialZ*projected;
   const d=Math.hypot(cross,depth);
-  return {distance:d,r:projected,contact:{x:m.x+radialX*projected,y:m.y+2.18,z:m.z+radialZ*projected}};
+  const fwd=-Math.sin(m.heading??0)*radialX-Math.cos(m.heading??0)*radialZ;
+  const drop=Math.sin(m.runPitch??0)*fwd*projected;
+  return {distance:d,r:projected,contact:{x:m.x+radialX*projected,y:m.y+2.18-drop,z:m.z+radialZ*projected}};
 }
 // Pure geometric predicate used by collision regression tests and the host.
 export function rotorBladeContact(m,body,phase,blade=0){
   const c=distanceToBlade(body,m,phase,blade);
   const radius=(body.radius??.45)+ROTOR_CONTACT.bladeWidth;
-  const y=m.y+2.18,pBottom=body.y,pTop=body.y+(body.height??1.8);
+  const y=c.contact.y,pBottom=body.y,pTop=body.y+(body.height??1.8);
   if(y+ROTOR_CONTACT.bladeHalfHeight<pBottom||y-ROTOR_CONTACT.bladeHalfHeight>pTop||c.distance>radius)return null;
   return {...c,quality:clamp((radius-c.distance)/(radius*.8),0,1)};
 }
@@ -98,7 +100,11 @@ export function stepFightFlightRotor(room,m,dt,now){
   const episodes=m.rotorEpisodes??={};
   for(let k=1;k<=samples;k++){
     const frac=k/samples,theta=before+angularTravel*frac;
-    const pose={x:x0+(m.x-x0)*frac,y:y0+(m.y-y0)*frac,z:z0+(m.z-z0)*frac};
+    const pitch=m.runPitch??0,forwardOffset=2.18*Math.sin(pitch);
+    const pose={x:x0+(m.x-x0)*frac-Math.sin(m.heading)*forwardOffset,
+      y:y0+(m.y-y0)*frac+2.18*(Math.cos(pitch)-1),
+      z:z0+(m.z-z0)*frac-Math.cos(m.heading)*forwardOffset,
+      heading:m.heading,runPitch:pitch};
     // Blade edges collide with real masonry before the chassis body hits it.
     // Keep world-contact episodes independent of defender contacts, so continuous
     // overlap cannot drain the rotor every rendered frame.
@@ -106,8 +112,9 @@ export function stepFightFlightRotor(room,m,dt,now){
     for(let blade=0;blade<2;blade++){
       const heading=theta+blade*Math.PI;
       const dx=Math.cos(heading),dz=Math.sin(heading);
-      const from=[pose.x+dx*ROTOR_CONTACT.inner,pose.y+2.18,pose.z+dz*ROTOR_CONTACT.inner];
-      const to=[pose.x+dx*ROTOR_CONTACT.outer,pose.y+2.18,pose.z+dz*ROTOR_CONTACT.outer];
+      const fwd=-Math.sin(pose.heading)*dx-Math.cos(pose.heading)*dz;
+      const from=[pose.x+dx*ROTOR_CONTACT.inner,pose.y+2.18-Math.sin(pitch)*fwd*ROTOR_CONTACT.inner,pose.z+dz*ROTOR_CONTACT.inner];
+      const to=[pose.x+dx*ROTOR_CONTACT.outer,pose.y+2.18-Math.sin(pitch)*fwd*ROTOR_CONTACT.outer,pose.z+dz*ROTOR_CONTACT.outer];
       for(let index=0;index<worldSolids.length;index++){
         const solid=worldSolids[index];if(!solid)continue;
         const center=solid.center??[0,0,0],size=solid.size??[0,0,0];
