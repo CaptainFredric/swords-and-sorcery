@@ -98,6 +98,8 @@ export class TouchLayoutEditor {
   }
 
   open(mode = null) {
+    this.preEditorActive = this.touchControls.active;
+    this.touchControls.setActive(true);
     this.active = true;
     this.mode = mode ?? (this.touchControls.flightMounted ? 'flight' : 'onFoot');
     this.root.classList.remove('hidden');
@@ -113,7 +115,11 @@ export class TouchLayoutEditor {
     this.touchControls.layer.classList.remove('touch-layout-editing');
     this.#clearSelectionHighlight();
     saveTouchLayout(this.layouts);
+    this.touchControls.previewEditMode(null);
     this.touchControls.applyLayout(this.layouts);
+    if (this.preEditorActive !== undefined) {
+      this.touchControls.setActive(this.preEditorActive);
+    }
   }
 
   setMode(mode) {

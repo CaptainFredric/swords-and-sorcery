@@ -224,12 +224,13 @@ export class TouchControls {
 
   previewEditMode(mode) {
     this.previewMode = mode;
-    this.layer.classList.toggle('touch-flight', mode === 'flight');
-    this.layer.classList.toggle('touch-mounted', mode === 'flight');
-    if (this.buttons.flightRise) this.buttons.flightRise.hidden = mode !== 'flight';
-    if (this.buttons.flightLower) this.buttons.flightLower.hidden = mode !== 'flight';
-    if (this.buttons.siegeWeapon) this.buttons.siegeWeapon.hidden = mode !== 'flight';
-    if (this.buttons.siegeSkill) this.buttons.siegeSkill.hidden = mode !== 'flight';
+    const isFlight = mode === 'flight' || (mode === null && Boolean(this.flightMounted));
+    this.layer.classList.toggle('touch-flight', isFlight);
+    this.layer.classList.toggle('touch-mounted', isFlight);
+    if (this.buttons.flightRise) this.buttons.flightRise.hidden = !isFlight;
+    if (this.buttons.flightLower) this.buttons.flightLower.hidden = !isFlight;
+    if (this.buttons.siegeWeapon) this.buttons.siegeWeapon.hidden = !isFlight;
+    if (this.buttons.siegeSkill) this.buttons.siegeSkill.hidden = !isFlight;
     this.applyLayout(this.layouts);
   }
 

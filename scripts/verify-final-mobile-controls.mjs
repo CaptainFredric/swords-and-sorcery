@@ -1,7 +1,7 @@
 /**
  * Final Fight-and-Flight Mobile Controls & Layout Verification
  * Tests the locked default combat ladder, movement rocker, Valkyrie chord isolation,
- * and the Touch Layout Editor with real headless Chrome in landscape mobile dimensions.
+ * multi-touch CDP touch events, and the Touch Layout Editor with real headless Chrome.
  */
 
 import assert from 'node:assert/strict';
@@ -48,6 +48,7 @@ const chrome = spawn(chromeBin, [
 let ws;
 let seq = 0;
 const pending = new Map();
+const activeTouches = new Map();
 
 function send(method, params = {}) {
   return new Promise((resolve, reject) => {
@@ -104,6 +105,64 @@ async function until(fn, name, maxRetries = 200, delayMs = 100) {
   throw new Error(`Timeout waiting for: ${name}`);
 }
 
+// Genuine CDP touch dispatchers
+async function touchDown(x, y, id = 0) {
+  activeTouches.set(id, { x: Math.round(x), y: Math.round(y), id });
+  await send('Input.dispatchTouchEvent', {
+    type: 'touchStart',
+    touchPoints: Array.from(activeTouches.values())
+  });
+}
+
+async function touchMove(x, y, id = 0) {
+  activeTouches.set(id, { x: Math.round(x), y: Math.round(y), id });
+  await send('Input.dispatchTouchEvent', {
+    type: 'touchMove',
+    touchPoints: Array.from(activeTouches.values())
+  });
+}
+
+async function touchUp(id = 0) {
+  activeTouches.delete(id);
+  await send('Input.dispatchTouchEvent', {
+    type: 'touchEnd',
+    touchPoints: Array.from(activeTouches.values())
+  });
+}
+
+async function touchCancel(id = 0) {
+  activeTouches.delete(id);
+  await send('Input.dispatchTouchEvent', {
+    type: 'touchCancel',
+    touchPoints: Array.from(activeTouches.values())
+  });
+}
+
+async function releaseAllTouches() {
+  activeTouches.clear();
+  await send('Input.dispatchTouchEvent', {
+    type: 'touchEnd',
+    touchPoints: []
+  });
+}
+
+async function getElementCenter(selector) {
+  return await evaluate(`(() => {
+    const el = document.querySelector('${selector}');
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2, width: r.width, height: r.height, rect: r };
+  })()`);
+}
+
+async function tapElement(selector, touchId = 1) {
+  const center = await getElementCenter(selector);
+  assert.ok(center, `Element ${selector} found for tap`);
+  await touchDown(center.x, center.y, touchId);
+  await sleep(80);
+  await touchUp(touchId);
+}
+
 try {
   const target = await until(async () => {
     const res = await fetch(`http://127.0.0.1:${cdpPort}/json/list`);
@@ -134,11 +193,14 @@ try {
 
   await until(() => evaluate("document.querySelector('#loading-veil')?.classList.contains('done')"), 'Menu ready');
 
-  // Configure loadout: Chivalry as Ultimate, Sunder prepared as alternate test
+  // Configure loadout: Chivalry as Ultimate
   await evaluate(`
     document.querySelector('#player-name').value = 'MobilePilot';
-    document.querySelector('#solo-button').click();
+    document.querySelector('#armory-button').click();
   `);
+  await until(() => evaluate("Boolean(document.querySelector('#armory-ultimates [data-ultimate=\"chivalry\"]'))"), 'Chivalry armory choice');
+  await evaluate("document.querySelector('#armory-ultimates [data-ultimate=\"chivalry\"]').click()");
+  await evaluate("document.querySelector('#armory-back').click(); document.querySelector('#solo-button').click();");
 
   await until(() => evaluate("Boolean(document.querySelector('#practice-mode') && !document.querySelector('#practice-mode').disabled)"), 'Practice entry');
   await evaluate("document.querySelector('#practice-mode').click()");
@@ -154,14 +216,14 @@ try {
 
   await until(() => evaluate("Boolean(window.__ssRuntime?.latestSnapshot?.fightFlight)"), 'Fight-and-Flight spawned');
 
-  // Force enable touch controls for testing
+  // Activate touch controls
   await evaluate(`(() => {
     window.__ssRuntime.enableTouch();
     window.__ssRuntime.touch.setActive(true);
     window.__ssRuntime.touch.setGauntletButton(true);
   })()`);
 
-  // Walk pilot to mount position
+  // Move pilot into mount range
   await evaluate(`(() => {
     const rt = window.__ssRuntime;
     const p = rt.localAuth.position;
@@ -202,8 +264,8 @@ try {
     if (pl) pl.style.setProperty('display', 'none', 'important');
   })()`);
 
-  // Verify locked layout geometry
-  const layoutCheck = await evaluate(`(() => {
+  // Verify locked layout geometry on default Pixel 7 (915x412)
+  const evalLayout = async () => evaluate(`(() => {
     const getRect = sel => {
       const el = document.querySelector(sel);
       if (!el) return null;
@@ -235,6 +297,7 @@ try {
     };
   })()`);
 
+  const layoutCheck = await evalLayout();
   console.log('Layout evaluation:', JSON.stringify(layoutCheck, null, 2));
 
   // Assertions for Right-Hand Combat Cluster:
@@ -264,93 +327,162 @@ try {
   assert.equal(layoutCheck.ejectLabel, 'EJECT', 'Interact button renamed to EJECT');
 
   console.log('[PASS] All layout geometric and labeling specifications verified!');
-
-  // Take screenshot of default layout
   await captureScreenshot('mobile-flight-default-layout.png');
 
-  // Test Valkyrie chord isolation
-  // 1. Ultimate alone:
-  await evaluate(`(() => {
-    const btn = document.querySelector('.touch-ultimate');
-    btn.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerId: 10, pointerType: 'touch' }));
-  })()`);
-  const ultAlone = await evaluate(`(() => {
+  // Multi-viewport verification: test 800x360, 915x412, and 1024x600 viewports
+  const viewports = [
+    { width: 915, height: 412, name: 'Pixel 7 landscape' },
+    { width: 800, height: 360, name: 'Compact phone landscape' },
+    { width: 1024, height: 600, name: 'Tablet landscape' }
+  ];
+
+  for (const vp of viewports) {
+    await send('Emulation.setDeviceMetricsOverride', {
+      width: vp.width,
+      height: vp.height,
+      deviceScaleFactor: 2,
+      mobile: true
+    });
+    await evaluate("window.__ssRuntime.touch.applyLayout()");
+    await sleep(150);
+
+    const vpLayout = await evalLayout();
+    for (const [key, rect] of Object.entries(vpLayout)) {
+      if (rect && typeof rect === 'object' && 'left' in rect) {
+        assert.ok(rect.left >= 0, `${key} left >= 0 in ${vp.name} (${rect.left})`);
+        assert.ok(rect.right <= vp.width + 2, `${key} right <= ${vp.width} in ${vp.name} (${rect.right})`);
+        assert.ok(rect.top >= 0, `${key} top >= 0 in ${vp.name} (${rect.top})`);
+        assert.ok(rect.bottom <= vp.height + 2, `${key} bottom <= ${vp.height} in ${vp.name} (${rect.bottom})`);
+      }
+    }
+    console.log(`[PASS] Viewport ${vp.name} bounds verified (${vp.width}x${vp.height})`);
+  }
+
+  // Restore 915x412 default viewport
+  await send('Emulation.setDeviceMetricsOverride', {
+    width: 915,
+    height: 412,
+    deviceScaleFactor: 2,
+    mobile: true
+  });
+  await evaluate("window.__ssRuntime.touch.applyLayout()");
+  await sleep(150);
+
+  // 1. Legitimate Prowess charging & Takeoff (no state tampering!)
+  console.log('Charging personal Prowess via Practice tool...');
+  await evaluate("document.querySelector('#practice-ultimate')?.click()");
+  await until(() => evaluate("window.__ssRuntime?.localAuth?.prowess >= 100"), 'Prowess ready at 100');
+
+  // Genuine touch on Rise rocker to climb
+  console.log('Touching Rise rocker via genuine CDP touch...');
+  const riseCenter = await getElementCenter('.touch-flightRise');
+  await touchDown(riseCenter.x, riseCenter.y, 15);
+  await until(() => evaluate("window.__ssRuntime?.latestSnapshot?.fightFlight?.y > 1.2 && window.__ssRuntime?.latestSnapshot?.fightFlight?.rotorRPM > 0"), 'Climbed into air via touch Rise', 50, 100);
+  await touchUp(15);
+  await sleep(200);
+
+  const airborneState = await evaluate("window.__ssRuntime?.latestSnapshot?.fightFlight?.grounded === false");
+  assert.equal(airborneState, true, 'Machine is airborne');
+
+  // 2. Multi-touch Valkyrie Chord: simultaneous Dash + Ultimate hold
+  console.log('Dispatching simultaneous multi-touch Dash + Ultimate chord...');
+  const curDashCenter = await getElementCenter('.touch-dash');
+  const curUltCenter = await getElementCenter('.touch-ultimate');
+  activeTouches.set(21, { x: Math.round(curDashCenter.x), y: Math.round(curDashCenter.y), id: 21 });
+  activeTouches.set(22, { x: Math.round(curUltCenter.x), y: Math.round(curUltCenter.y), id: 22 });
+  await send('Input.dispatchTouchEvent', {
+    type: 'touchStart',
+    touchPoints: Array.from(activeTouches.values())
+  });
+
+  await sleep(350);
+  const prepActive = await evaluate("Boolean(window.__ssRuntime?.latestSnapshot?.fightFlight?.terminalPrep)");
+  assert.equal(prepActive, true, 'Terminal prep started by simultaneous multi-touch chord');
+  await captureScreenshot('mobile-flight-valkyrie-prep.png');
+
+  // Cancel chord before 1.0s commitment: release touches
+  console.log('Cancelling multi-touch chord before commitment...');
+  await releaseAllTouches();
+  await sleep(200);
+
+  const cancelResult = await evaluate(`(() => {
     const rt = window.__ssRuntime;
+    const m = rt.latestSnapshot?.fightFlight;
     return {
-      dashHeld: (rt.input.flightDashSources?.size ?? 0) > 0,
-      ultHeld: (rt.input.flightUltimateSources?.size ?? 0) > 0,
-      dashPressed: document.querySelector('.touch-dash')?.classList.contains('active')
+      terminalPrep: m?.terminalPrep,
+      terminalDive: m?.terminalDive,
+      prowess: rt.localAuth?.prowess
     };
   })()`);
-  assert.equal(ultAlone.dashHeld, false, 'Pressing Ultimate alone NEVER synthesizes Dash');
-  assert.equal(ultAlone.dashPressed, false, 'Touch Dash button is not active when pressing Ultimate');
+  assert.equal(cancelResult.terminalPrep, null, 'Terminal prep cleanly cancelled on touch release');
+  assert.equal(cancelResult.terminalDive, null, 'Terminal dive was NOT activated');
+  assert.ok(cancelResult.prowess >= 100, 'Prowess was not consumed on chord cancellation');
+  console.log('[PASS] Multi-touch Valkyrie prep chord cancelled safely without prowess consumption!');
 
-  await evaluate(`(() => {
-    const btn = document.querySelector('.touch-ultimate');
-    btn.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 10, pointerType: 'touch' }));
-  })()`);
+  // Test touchCancel event (palm rejection / gesture interruption)
+  activeTouches.set(23, { x: Math.round(curDashCenter.x), y: Math.round(curDashCenter.y), id: 23 });
+  activeTouches.set(24, { x: Math.round(curUltCenter.x), y: Math.round(curUltCenter.y), id: 24 });
+  await send('Input.dispatchTouchEvent', {
+    type: 'touchStart',
+    touchPoints: Array.from(activeTouches.values())
+  });
+  await sleep(100);
+  await send('Input.dispatchTouchEvent', {
+    type: 'touchCancel',
+    touchPoints: []
+  });
+  activeTouches.clear();
+  await sleep(150);
 
-  // 2. Dash alone:
-  await evaluate(`(() => {
-    const btn = document.querySelector('.touch-dash');
-    btn.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerId: 11, pointerType: 'touch' }));
-  })()`);
-  const dashAlone = await evaluate(`(() => {
+  const afterCancel = await evaluate(`(() => {
     const rt = window.__ssRuntime;
     return {
       dashHeld: (rt.input.flightDashSources?.size ?? 0) > 0,
       ultHeld: (rt.input.flightUltimateSources?.size ?? 0) > 0
     };
   })()`);
-  assert.equal(dashAlone.ultHeld, false, 'Pressing Dash alone NEVER synthesizes Ultimate');
+  assert.equal(afterCancel.dashHeld, false, 'touchCancel releases Dash sources');
+  assert.equal(afterCancel.ultHeld, false, 'touchCancel releases Ultimate sources');
+  console.log('[PASS] touchCancel correctly cleared all held sources!');
 
-  await evaluate(`(() => {
-    const btn = document.querySelector('.touch-dash');
-    btn.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 11, pointerType: 'touch' }));
+  // 3. Test Independent Dash vs Ultimate isolation using genuine CDP touch events
+  // Touch Dash alone:
+  await touchDown(curDashCenter.x, curDashCenter.y, 11);
+  await sleep(100);
+  const dashAlone = await evaluate(`(() => {
+    const rt = window.__ssRuntime;
+    return {
+      dashHeld: (rt.input.flightDashSources?.size ?? 0) > 0,
+      ultHeld: (rt.input.flightUltimateSources?.size ?? 0) > 0,
+      ultPressed: document.querySelector('.touch-ultimate')?.classList.contains('pressed')
+    };
   })()`);
+  assert.equal(dashAlone.ultHeld, false, 'Touch on Dash alone NEVER synthesizes Ultimate');
+  assert.equal(dashAlone.ultPressed, false, 'Touch Ultimate button is not pressed when touching Dash');
+  await touchUp(11);
+  await sleep(100);
+
+  // Touch Ultimate alone:
+  await touchDown(curUltCenter.x, curUltCenter.y, 10);
+  await sleep(100);
+  const ultAlone = await evaluate(`(() => {
+    const rt = window.__ssRuntime;
+    return {
+      dashHeld: (rt.input.flightDashSources?.size ?? 0) > 0,
+      ultHeld: (rt.input.flightUltimateSources?.size ?? 0) > 0,
+      dashPressed: document.querySelector('.touch-dash')?.classList.contains('pressed')
+    };
+  })()`);
+  assert.equal(ultAlone.dashHeld, false, 'Touch on Ultimate alone NEVER synthesizes Dash');
+  assert.equal(ultAlone.dashPressed, false, 'Touch Dash button is not pressed when touching Ultimate');
+  await touchUp(10);
+  await sleep(100);
 
   console.log('[PASS] Dash and Ultimate are completely independent with no auto-synthesis!');
 
-  // 3. Takeoff to airborne and activate Valkyrie prep chord
-  await evaluate(`(() => {
-    const rt = window.__ssRuntime;
-    rt.localAuth.prowess = 100;
-    rt.localAuth.ultimate = 'chivalry';
-    rt.touch.flightMounted = true;
-    // Ascend into air
-    rt.input.flightRise = true;
-  })()`);
-
-  // Wait 1 second for climb
-  await sleep(1000);
-
-  // Press both Dash and Ultimate to begin Valkyrie Prep
-  await evaluate(`(() => {
-    const dashBtn = document.querySelector('.touch-dash');
-    const ultBtn = document.querySelector('.touch-ultimate');
-    dashBtn.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerId: 21, pointerType: 'touch' }));
-    ultBtn.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerId: 22, pointerType: 'touch' }));
-  })()`);
-  await sleep(300);
-
-  // Capture Valkyrie prep state screenshot
-  await captureScreenshot('mobile-flight-valkyrie-prep.png');
-
-  // Release Dash and Ultimate
-  await evaluate(`(() => {
-    const rt = window.__ssRuntime;
-    const dashBtn = document.querySelector('.touch-dash');
-    const ultBtn = document.querySelector('.touch-ultimate');
-    dashBtn?.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 21, pointerType: 'touch' }));
-    ultBtn?.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 22, pointerType: 'touch' }));
-    rt.input.flightRise = false;
-  })()`);
-  await sleep(200);
-
-  // Open Touch Layout Editor
-  await evaluate(`(() => {
-    window.__ssRuntime.editTouchLayout('flight');
-  })()`);
+  // 4. Touch Layout Editor verification
+  console.log('Testing Touch Layout Editor...');
+  await evaluate("window.__ssRuntime.editTouchLayout('flight')");
   await sleep(300);
 
   const editorCheck = await evaluate(`(() => {
@@ -362,29 +494,59 @@ try {
   assert.equal(editorCheck.isVisible, true, 'Touch layout editor is visible');
   assert.equal(editorCheck.modeBtnActive, 'flight', 'Editor starts in flight mode');
 
-  // Capture Touch Layout Editor screenshot
   await captureScreenshot('mobile-flight-touch-editor.png');
 
-  // Close Touch Layout Editor
-  await evaluate(`(() => {
-    document.querySelector('.tle-btn[data-action="done"]')?.click();
-  })()`);
+  // Drag .touch-siegeWeapon (Bolt) using genuine CDP touch events
+  const boltCenter = await getElementCenter('.touch-siegeWeapon');
+  assert.ok(boltCenter, 'Bolt button found for dragging');
+
+  await touchDown(boltCenter.x, boltCenter.y, 30);
+  await sleep(50);
+  await touchMove(boltCenter.x - 40, boltCenter.y - 30, 30);
+  await sleep(50);
+  await touchMove(boltCenter.x - 70, boltCenter.y - 50, 30);
+  await sleep(50);
+  await touchUp(30);
+  await sleep(100);
+
+  const newBoltCenter = await getElementCenter('.touch-siegeWeapon');
+  assert.ok(Math.abs(newBoltCenter.x - boltCenter.x) > 30, 'Bolt button was physically dragged to a new position');
+
+  // Test mode switching in editor
+  await tapElement('.tle-btn[data-mode="onFoot"]', 31);
+  await sleep(100);
+  const onFootPreview = await evaluate("window.__ssRuntime.touch.previewMode");
+  assert.equal(onFootPreview, 'onFoot', 'Editor switched to onFoot preview mode');
+
+  await tapElement('.tle-btn[data-mode="flight"]', 32);
+  await sleep(100);
+  const flightPreview = await evaluate("window.__ssRuntime.touch.previewMode");
+  assert.equal(flightPreview, 'flight', 'Editor switched back to flight preview mode');
+
+  // Close editor via Done button
+  await tapElement('.tle-btn[data-action="done"]', 33);
   await sleep(200);
 
-  const editorClosed = await evaluate(`(() => {
+  const editorClosedCheck = await evaluate(`(() => {
     const tle = document.querySelector('.touch-layout-editor');
-    return !tle || tle.classList.contains('hidden');
+    const isHidden = !tle || tle.classList.contains('hidden');
+    const previewMode = window.__ssRuntime?.touch?.previewMode;
+    const editingClass = Boolean(document.querySelector('.touch-controls')?.classList.contains('touch-layout-editing'));
+    return { isHidden, previewMode, editingClass };
   })()`);
-  assert.equal(editorClosed, true, 'Touch layout editor closed cleanly on Done');
+  assert.equal(editorClosedCheck.isHidden, true, 'Editor is hidden after clicking Done');
+  assert.equal(editorClosedCheck.previewMode, null, 'previewMode restored to null on close');
+  assert.equal(editorClosedCheck.editingClass, false, 'touch-layout-editing class removed on close');
 
-  console.log('[PASS] All verification scenarios passed successfully!');
+  console.log('[PASS] Touch Layout Editor dragging, preview switching, and close lifecycle verified!');
+  console.log('[MOBILE CONTROLS ACCEPTED] All specifications and review requirements satisfied.');
 
 } catch (err) {
-  console.error('[ERROR]', err);
+  console.error('[ERROR]', err.stack || err);
   process.exitCode = 1;
 } finally {
   try { ws?.close(); } catch {}
-  try { chrome.kill('SIGKILL'); } catch {}
-  try { server.kill('SIGKILL'); } catch {}
-  process.exit();
+  try { chrome.kill('SIGTERM'); } catch {}
+  try { server.kill('SIGTERM'); } catch {}
+  await sleep(600);
 }
