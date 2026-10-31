@@ -27,9 +27,11 @@ export function rotorBladeContact(m,body,phase,blade=0){
   if(y+ROTOR_CONTACT.bladeHalfHeight<pBottom||y-ROTOR_CONTACT.bladeHalfHeight>pTop||c.distance>radius)return null;
   return {...c,quality:clamp((radius-c.distance)/(radius*.8),0,1)};
 }
-function defended(victim,point){
+function defended(victim,point,m){
   if(!victim.guarding||victim.guardStamina<=0)return false;
-  const dx=point.x-victim.position.x,dz=point.z-victim.position.z;
+  // The attack originates at the spinning hub, not at the moving contact point
+  // (which can be coincident with the victim's center).
+  const dx=m.x-victim.position.x,dz=m.z-victim.position.z;
   const dist=Math.hypot(dx,dz);if(dist<.04)return false;
   const dot=(-Math.sin(victim.yaw)*dx-Math.cos(victim.yaw)*dz)/dist;
   // Physical frontal torso only. Exposed legs, rear and high shoulder remain vulnerable.
@@ -47,7 +49,7 @@ function hit(room,m,p,part,contact,now,phase){
   const clean=clamp(quality*t,0,1);
   const damage=Math.max(0,Math.round((ROTOR_CONTACT.baseDamage+22*clean)*rpm*Math.sqrt(available)*Math.min(1,quality*1.6)));
   let result='graze',appliedDamage=0;
-  const blocked=defended(p,contact.contact);
+  const blocked=defended(p,contact.contact,m);
   if(blocked){
     const time=(now-(p.guardStartedAt??-Infinity))*1000;
     const parry=time>=0&&time<=GAME.parryWindowMs;
