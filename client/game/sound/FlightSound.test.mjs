@@ -41,10 +41,24 @@ test('wrong machine and stale server events never play stray wind sound',()=>{
  const played=[];
  const engine={running:true,muted:false,buffer:()=>({}),playBuffer:()=>({place(){},stop(){}}),
  play:(recipe)=>{played.push(recipe.tag);return {stop(){}};}};
- const sound=new FlightSound(engine),m=machine();
+ const sound=new FlightSound(engine),m=machine();m.offensiveRun=false;
  sound.update(m,{active:true,listener:m.position,yaw:0,now:10});
  sound.event({type:'fightFlightOffensiveRun',machineId:'foreign',at:10,action:'started'},m,10);
  sound.event({type:'fightFlightOffensiveRun',machineId:m.id,at:8,action:'started'},m,10);
  assert.deepEqual(played,[]);
+ sound.dispose();
+});
+
+test('actual Dash key release gets a single whoosh tail even without an ended server event',()=>{
+ const played=[];
+ const engine={running:true,muted:false,buffer:()=>({}),
+  playBuffer:()=>({place(){},stop(){}}),
+  play:recipe=>{played.push(recipe.tag);return {stop(){}};}};
+ const sound=new FlightSound(engine),m=machine();
+ sound.update(m,{active:true,listener:m.position,yaw:0,now:1});
+ sound.update({...m,offensiveRun:false},{active:true,listener:m.position,yaw:0,now:1.35});
+ sound.update({...m,offensiveRun:false},{active:true,listener:m.position,yaw:0,now:1.4});
+ sound.event({type:'fightFlightOffensiveRun',machineId:m.id,action:'ended',at:1.35},m,1.44);
+ assert.deepEqual(played,['offensiveRun','offensiveRelease'],'no double whoosh from late network events');
  sound.dispose();
 });
