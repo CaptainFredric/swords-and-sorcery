@@ -3236,7 +3236,9 @@ export class GameRuntime {
     const ramView=this.ramMotion.sample(this.socket.serverNow(),this.socket.playingLocally,this.socket.inspectionFrozen,dt);this.ramRenderer.update(ramView.clock,ramView.ballista);
     const localIsFlightDriver = Boolean(this.localAuth?.alive && this.localAuth?.operatingFightFlightId);
     const localFlightAim = localIsFlightDriver ? { yaw: this.input.yaw, pitch: this.input.pitch, siegeTarget: this.flightSiegeTarget } : null;
-    this.flightRenderer.update(this.socket.serverNow(),this.latestSnapshot?.fightFlight??null,this.latestSnapshot?.fightFlightProjectiles??[],this.latestSnapshot?.serverTime??this.socket.serverNow(),this.latestSnapshot?.flightBurnZones??[],localFlightAim);
+    const flightState=this.latestSnapshot?.fightFlight;
+    const flightOperator=flightState?.operatorId===this.localAuth?.id?this.localAuth:this.latestSnapshot?.players?.find(p=>p.id===flightState?.operatorId);
+    this.flightRenderer.update(this.socket.serverNow(),flightState??null,this.latestSnapshot?.fightFlightProjectiles??[],this.latestSnapshot?.serverTime??this.socket.serverNow(),this.latestSnapshot?.flightBurnZones??[],localFlightAim,flightOperator);
     this.structuresRenderer?.update(this.latestSnapshot?.structures,this.socket.serverNow());
     this.world?.update?.(timeSec, this.camera);
     const ramPose=this.world?.soFistication?.presentationData;
