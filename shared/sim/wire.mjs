@@ -403,7 +403,11 @@ export function applyRoomCommand(room, player, message, time) {
     }
     // the ultimate's key (a full prowess meter): the brace begins
     case 'ultimate':
-      if(player.operatingFightFlightId)return {rejected:'Use the mounted Ultimate key hold or tap.'};
+      // Preserve legacy/ordinary Chivalry activation for a mounted tap. The
+      // separate held chord owns the terminal path; never convert a Dash hold
+      // into a normal Ultimate activation or spend its reserved meter.
+      if(player.operatingFightFlightId&&(room.fightFlight?.flightDashHeld||room.fightFlight?.terminalPrep||room.fightFlight?.terminalDive))
+        return {rejected:'Release Dash before activating ordinary Chivalry.'};
       tryUltimate(room, player.id, time); return {};
     case 'flightUltimateHold': {
       const result=setFlightUltimateHold(room,room.fightFlight,player,Boolean(message.down),time);
