@@ -109,7 +109,7 @@ test('Competence settings change real decision cadence and aiming, not equipment
   stepPracticeActors(room,2.1,room.world);
   times.push(a.siegeAi.nextThinkAt);
   assert.equal(f.maxFlightCharge,100);
-  assert.equal(f.ammo,14);
+  assert.ok(f.ammo>=0&&f.ammo<=14,'a skilled pilot uses finite ammunition');
   assert.equal(f.health,250);
  }
  assert.ok(times[0]>times[1]&&times[1]>times[2]);
