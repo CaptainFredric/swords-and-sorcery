@@ -30,8 +30,6 @@ export function serializeLobby(room) {
     mode: room.mode,
     worldId: room.worldId,
     isPrivate: room.isPrivate,
-    sharedPractice:Boolean(room.sharedPractice),
-    sharedPracticeHostId:room.sharedPracticeHostId??null,
     countdownEndsAt: room.countdownEndsAt,
     autoStartAt: room.autoStartAt,
     scoreToWin: room.scoreToWin,
@@ -66,8 +64,6 @@ export function serializeSnapshot(room, nowSec, recipientId = null) {
     roomState: room.state,
     mode: room.mode,
     worldId: room.worldId,
-    sharedPractice:Boolean(room.sharedPractice),
-    sharedPracticeHostId:room.sharedPracticeHostId??null,
     countdownEndsAt: room.countdownEndsAt,
     matchStartedAt: room.matchStartedAt,
     scoreToWin: room.scoreToWin,
@@ -404,6 +400,19 @@ export function applyRoomCommand(room, player, message, time) {
     case 'dash':
       if(player.operatingFightFlightId)return {rejected:'Hold Dash to initiate Flight to the Valkyrie.'};
       tryDash(room, player.id, message.direction || { x: 0, z: -1 }, time); return {};
+    case 'flightEject': {
+      const m=room.fightFlight;
+      if(!m||!player.alive||m.operatorId!==player.id||player.operatingFightFlightId!==m.id)
+        return {rejected:'Operate Fight-and-Flight before ejecting.'};
+      if(m.terminalDive)return {rejected:'A committed terminal dive cannot be abandoned.'};
+      if(message.cancel){m.ejectHoldStartedAt=null;m.emergencyBrakeActive=false;return {};}
+      if(message.down){if(m.ejectHoldStartedAt==null)m.ejectHoldStartedAt=time;return {};}
+      if(m.ejectHoldStartedAt==null)return {rejected:'An ejection press must precede release.'};
+      if(time-m.ejectHoldStartedAt>=.35){m.rotorPowered=false;m.emergencyBrakeActive=true;}
+      m.ejectHoldStartedAt=null;
+      if(!dismountFightFlight(room,m,player,{at:time})){m.emergencyBrakeActive=false;return {rejected:'No clear ejection corridor.'};}
+      return {};
+    }
     case 'flightDash': {
       const ok=requestFlightDash(room,room.fightFlight,player,Boolean(message.down),time);
       return ok?{}:{rejected:'Operate Fight-and-Flight to use Flight to the Valkyrie.'};
@@ -426,38 +435,26 @@ export function applyRoomCommand(room, player, message, time) {
     case 'switchTeam': return { lobby: room.switchTeam(player.id, message.team ?? null, time) };
     case 'markTarget': room.markTarget(player.id, { targetId: message.targetId ?? null }, time); return {};
     case 'practiceSiegeOpponent':{
-      if(room.sharedPractice&&room.sharedPracticeHostId!==player.id)return {rejected:'Only the Shared Practice host may manage opponents.'};
       const {action,machine,difficulty}=message;
       if(action==='spawn')return spawnPracticeSiegeOperator(room,player,machine,difficulty,time);
       if(action==='remove')return removePracticeSiegeOperator(room,player,machine,time);
       if(action==='reset')return resetPracticeSiegeOperator(room,player,machine,difficulty,time);
       return {rejected:'Unknown hostile Practice operator action.'};
     }
-    case 'practiceSiege':
-      if(room.sharedPractice&&room.sharedPracticeHostId!==player.id)return {rejected:'Only the Shared Practice host may manage siege machines.'};
-      return practiceSiegeCommand(room,player,message.action,message.machine,time);
-    case 'practiceBuildBiBye':
-      if(room.sharedPractice&&room.sharedPracticeHostId!==player.id)return {rejected:'Only the Shared Practice host may build siege machines.'};
-      return practiceBiByeCommand(room,player,'build',time);
-    case 'practiceRebuildBiBye':
-      if(room.sharedPractice&&room.sharedPracticeHostId!==player.id)return {rejected:'Only the Shared Practice host may rebuild siege machines.'};
-      return practiceBiByeCommand(room,player,'rebuild',time);
-    case 'practiceDismantleBiBye':
-      if(room.sharedPractice&&room.sharedPracticeHostId!==player.id)return {rejected:'Only the Shared Practice host may dismantle siege machines.'};
-      return practiceBiByeCommand(room,player,'dismantle',time);
+    case 'practiceSiege':return practiceSiegeCommand(room,player,message.action,message.machine,time);
+    case 'practiceBuildBiBye':return practiceBiByeCommand(room,player,'build',time);
+    case 'practiceRebuildBiBye':return practiceBiByeCommand(room,player,'rebuild',time);
+    case 'practiceDismantleBiBye':return practiceBiByeCommand(room,player,'dismantle',time);
     case 'practiceResetPlayer':
       return room.mode === GAME_MODES.PRACTICE && resetPracticePlayer(room, player.id, time) ? {} : { rejected: PRACTICE_REJECTED };
     case 'practiceSpawnDummy':
-      if(room.sharedPractice&&room.sharedPracticeHostId!==player.id)return {rejected:'Only the Shared Practice host may configure dummies.'};
       if (room.mode !== GAME_MODES.PRACTICE) return { rejected: PRACTICE_REJECTED };
       return spawnPracticeDummy(room, message.mode, time, player.id) ? { lobby: true } : { rejected: PRACTICE_REJECTED };
     case 'practiceRemoveDummy':
-      if(room.sharedPractice&&room.sharedPracticeHostId!==player.id)return {rejected:'Only the Shared Practice host may remove dummies.'};
       return room.mode === GAME_MODES.PRACTICE && removePracticeDummy(room) ? { lobby: true } : { rejected: PRACTICE_REJECTED };
     case 'practiceReadyUltimate':
       return room.mode === GAME_MODES.PRACTICE && readyPracticeUltimate(room, player.id) ? {} : { rejected: PRACTICE_REJECTED };
     case 'practiceSetDummyMode':
-      if(room.sharedPractice&&room.sharedPracticeHostId!==player.id)return {rejected:'Only the Shared Practice host may configure dummies.'};
       return room.mode === GAME_MODES.PRACTICE && setPracticeDummyMode(room, message.mode, time, player.id) ? { lobby: true } : { rejected: PRACTICE_REJECTED };
     case 'practicePerryAnswer':
       return room.mode === GAME_MODES.PRACTICE && answerPerryDialogue(room, player, message.answer, time) ? {} : { rejected: PRACTICE_REJECTED };
@@ -493,7 +490,7 @@ export function applyRoomCommand(room, player, message, time) {
       return reason?{rejected:reason}:{};
     }
     case 'siegeOperate': {
-      if(player.operatingFightFlightId){return dismountFightFlight(room,room.fightFlight,player,{at:time})?{}:{rejected:'Land on open ground before leaving Fight-and-Flight.'};}
+      if(player.operatingFightFlightId){return dismountFightFlight(room,room.fightFlight,player,{at:time})?{}:{rejected:'No clear ejection corridor.'};}
       if(player.operatingRamId){return dismountSoFistication(room,room.soFistication,player,{at:time})?{}:{rejected:'No safe exit. Move onto supported open ground.'};}
       if(player.operatingBallistaId)return applyRoomCommand(room,player,{type:'bibyeOperate'},time);
       const ram=room.soFistication,b=room.biByeLlista,f=room.fightFlight;
