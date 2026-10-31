@@ -6,6 +6,7 @@ import {requestFlightDash} from './fightFlightRun.mjs';
 import {setFlightUltimateHold} from './fightFlightTerminal.mjs';
 import {mountSoFistication,dismountSoFistication,fireSoFistication,primeSoFistSkill} from './soFistication.mjs';
 import { practiceBiByeCommand,practiceSiegeCommand } from './practiceSiege.mjs';
+import { requestHighGroundsMachine } from './highGroundsFoundry.mjs';
 import {spawnPracticeSiegeOperator,removePracticeSiegeOperator,resetPracticeSiegeOperator} from './practiceSiegeOperators.mjs';
 import { requestColdHowTouching, requestBiByeIndependentHeavy, setBiByeWeaponFocus,requestBiByeHeavySkill,requestBiByeCombinedSkill } from './biByeWeapons.mjs';
 import { biByeDeployProgress } from './biByeComponents.mjs';
@@ -79,6 +80,12 @@ export function serializeSnapshot(room, nowSec, recipientId = null) {
     rewardMatchId: room.rewardMatchId ?? null,
     suddenDeath: room.suddenDeath,
     overtime: Boolean(room.overtime),
+    highGrounds: room.highGrounds ? {
+      sites: room.highGrounds.sites.map(s => ({ ...s, position: { ...s.position } })),
+      scores: { ...room.highGrounds.scores },
+      scoreToWin: 900,
+      foundries: room.highGrounds.foundries.map(f => ({ ...f })),
+    } : null,
     objective: room.objectiveState ? {
       index: room.objectiveState.index,
       phase: room.objectiveState.phase,
@@ -446,6 +453,8 @@ export function applyRoomCommand(room, player, message, time) {
       if(action==='reset')return resetPracticeSiegeOperator(room,player,machine,difficulty,time);
       return {rejected:'Unknown hostile Practice operator action.'};
     }
+    case 'highGroundsBuild':
+      return requestHighGroundsMachine(room, player, message.machine, time);
     case 'practiceSiege':
       if(room.sharedPractice&&room.sharedPracticeHostId!==player.id)return {rejected:'Only the Shared Practice host may manage siege machines.'};
       return practiceSiegeCommand(room,player,message.action,message.machine,time);

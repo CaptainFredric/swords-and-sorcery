@@ -6,16 +6,18 @@ export const GAME_MODES = Object.freeze({
   DUEL: 'DUEL',
   // objective-based team battle (attackers advance through sequential objectives)
   BREAKTHROUGH: 'BREAKTHROUGH',
+  HIGH_GROUNDS: 'HIGH_GROUNDS',
 });
 
 // The tutorial world Greener Pastures is registered separately and deliberately absent from arena choices.
 // The old greybox Shattered Keep stays only as a fixture for tests.
 export const ARENAS = Object.freeze(['castleward', 'ruined-keep']);
 export const BREAKTHROUGH_ARENAS = Object.freeze(['bastion-breach', 'outerworks', 'blackbell-foundry']);
+export const HIGH_GROUNDS_ARENAS = Object.freeze(['high-grounds']);
 
 /** An arena by id, or Castleward for anything that is not one. */
 export function arenaOrDefault(worldId) {
-  return (ARENAS.includes(worldId) || BREAKTHROUGH_ARENAS.includes(worldId)) ? worldId : ARENAS[0];
+  return (ARENAS.includes(worldId) || BREAKTHROUGH_ARENAS.includes(worldId) || HIGH_GROUNDS_ARENAS.includes(worldId)) ? worldId : ARENAS[0];
 }
 
 
@@ -84,6 +86,13 @@ const POLICIES = Object.freeze({
     countdownSec: 5,
     // a duellist who leaves forfeits
     forfeit: true,
+  }),
+  [GAME_MODES.HIGH_GROUNDS]: Object.freeze({
+    id: GAME_MODES.HIGH_GROUNDS, teamMode: true, teamSize: 3,
+    minHumansToStart: 1, botCount: 5, scored: false, timed: true,
+    scoreToWin: null, matchSeconds: 720, respawnSec: 5,
+    autoStart: true, allowRematchVote: true, countdownSec: 3,
+    openingPeaceSec: 2,
   }),
   [GAME_MODES.BREAKTHROUGH]: Object.freeze({
     id: GAME_MODES.BREAKTHROUGH,

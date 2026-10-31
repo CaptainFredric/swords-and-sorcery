@@ -44,6 +44,7 @@ import { chooseSpawn } from './spawns.mjs';
 import { recordTransform, sampleTransform } from './history.mjs';
 import { TEAMS, areAllies, areEnemies } from '../src/teams.mjs';
 import { stepObjectives } from './objectives.mjs';
+import { stepHighGrounds, availableHighGroundsSpawns } from './highGroundsMode.mjs';
 import { stepBiByeLlista, stepBiByeProjectiles, dismountBiByeLlista, damageBiByeLlista, blastBiByeLlista, getBiByeSolids } from './biByeLlista.mjs';
 import { WORLD_IDS, getWorld } from '../worlds/registry.mjs';
 import { bastionBreachForObjective } from '../worlds/bastionBreach.mjs';
@@ -2032,9 +2033,10 @@ function respawnPlayer(room, player, nowSec, world) {
   let spawnPoints = allSpawns;
   if (room.policy?.teamMode && player.team) {
     const currentPhase = room.objectiveState?.phase ?? 0;
+    if (room.mode === 'HIGH_GROUNDS') spawnPoints = availableHighGroundsSpawns(room, player, allSpawns);
     const matching = allSpawns.filter((s) => s.team === player.team && (s.phase === undefined || s.phase === currentPhase));
-    if (matching.length) spawnPoints = matching;
-    else {
+    if (matching.length && room.mode !== 'HIGH_GROUNDS') spawnPoints = matching;
+    else if (room.mode !== 'HIGH_GROUNDS') {
       const anyTeamSpawns = allSpawns.filter((s) => s.team === player.team);
       if (anyTeamSpawns.length) spawnPoints = anyTeamSpawns;
     }
@@ -2055,7 +2057,8 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
   room.tick(nowSec);
   if (room.state !== 'PLAYING') return room.events;
 
-  stepObjectives(room, dt, nowSec);
+  if (room.mode === 'HIGH_GROUNDS') stepHighGrounds(room, dt, nowSec);
+  else stepObjectives(room, dt, nowSec);
   if (room.state !== 'PLAYING') return room.events;
   // Preserve the world argument for ordinary and custom/test combat worlds.
   // Only objective phase transitions deliberately replace it with canonical geometry.

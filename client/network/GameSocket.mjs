@@ -150,6 +150,7 @@ export class GameSocket {
   startMatch() { this.send({ type: 'startMatch' }); }
   arenaReady(ready) { this.send({ type: 'arenaReady', ready: Boolean(ready) }); }
   practiceResetPlayer() { this.send({ type: 'practiceResetPlayer' }); }
+  highGroundsBuild(machine) { this.send({ type: 'highGroundsBuild', machine }); }
   practiceSpawnDummy(mode = 'PASSIVE') { this.send({ type: 'practiceSpawnDummy', mode }); }
   practiceRemoveDummy() { this.send({ type: 'practiceRemoveDummy' }); }
   practiceSetDummyMode(mode) { this.send({ type: 'practiceSetDummyMode', mode }); }

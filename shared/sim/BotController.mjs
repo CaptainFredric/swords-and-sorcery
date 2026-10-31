@@ -11,6 +11,7 @@ import { botSkill, reactionDelay } from './botSkill.mjs';
 import { wayToward } from './botNav.mjs';
 import { peaceHolds } from './peace.mjs';
 import { TEAMS, areAllies, areEnemies } from '../src/teams.mjs';
+import { highGroundsBotGoal } from './highGroundsMode.mjs';
 
 const MELEE_RANGE = 2.25;
 const FIREBALL_RANGE = 11;
@@ -813,6 +814,12 @@ function patrol(actor, ai, nowSec, random, world) {
  * objective -> immediate danger -> useful ally support -> enemy pursuit -> reposition
  */
 function selectTeamGoal(room, actor, ai, nowSec) {
+  if (room.mode === 'HIGH_GROUNDS') {
+    const goalPos = highGroundsBotGoal(room, actor);
+    const enemy = foesOf(room, actor).filter(p => distance2d(actor, p) < 9)
+      .sort((a,b) => distance2d(actor,a) - distance2d(actor,b))[0] ?? null;
+    return { target: enemy, goalPos, holdRing: Boolean(goalPos) };
+  }
   if (!room.policy?.teamMode || !room.objectiveState || room.objectiveState.completed) {
     return { target: null, goalPos: null, holdRing: false };
   }
@@ -1002,7 +1009,10 @@ export function stepBotControllers(
         continue;
       }
     }
-    if (room.policy?.teamMode && room.objectiveState && !room.objectiveState.completed) {
+    if (room.mode === 'HIGH_GROUNDS') {
+      target = teamGoal.target;
+      ai.targetId = target?.id ?? null;
+    } else if (room.policy?.teamMode && room.objectiveState && !room.objectiveState.completed) {
       target = teamGoal.target;
       ai.targetId = target?.id ?? null;
     } else if (!target || (!room.policy?.teamMode && !targetKinds.includes(target.actorKind)) || (target.actorKind === 'human' && !target.connected) || !target.alive) {
@@ -1016,7 +1026,13 @@ export function stepBotControllers(
     if (!target) {
       if (teamGoal.goalPos) {
         ai.patrol = null;
-        const dist = distance2d(actor, { position: teamGoal.goalPos });
+        // A bot standing directly *under* a canopy site has not arrived.
+        // High Grounds goal arrival is truly 3D; otherwise it idles beneath
+        // capture decks despite never entering their vertical capture slab.
+        const dist = room.mode === 'HIGH_GROUNDS'
+          ? Math.hypot(actor.position.x-teamGoal.goalPos.x,
+              actor.position.y-teamGoal.goalPos.y,actor.position.z-teamGoal.goalPos.z)
+          : distance2d(actor, { position: teamGoal.goalPos });
         const closeEnough = teamGoal.holdRing ? dist <= 2.2 : dist <= 1.2;
         if (!closeEnough) {
           const way = wayToward(world, actor, { position: teamGoal.goalPos }, ai, nowSec);
