@@ -30,6 +30,12 @@ export class RoomManager {
     return this.#createRoom({ isPrivate: true, mode: GAME_MODES.FFA, worldId }, nowSec);
   }
 
+  createSharedPracticeRoom(nowSec = 0, worldId = WORLD_IDS.CASTLEWARD) {
+    const room=this.#createRoom({isPrivate:true,mode:GAME_MODES.PRACTICE,worldId},nowSec);
+    room.sharedPractice=true;
+    return room;
+  }
+
   createPublicRoom(nowSec = 0, worldId = WORLD_IDS.CASTLEWARD) {
     return this.#createRoom({ isPrivate: false, mode: GAME_MODES.FFA, worldId }, nowSec);
   }

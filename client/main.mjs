@@ -1156,6 +1156,7 @@ function startBotDuel() {
 $('#bot-duel').addEventListener('click', startBotDuel);
 $('#inspection-mode').addEventListener('click', () => runMenuAction(menuController.inspectionPractice(nameInput.value), SCREEN_IDS.SOLO_MENU));
 $('#practice-mode').addEventListener('click', () => runMenuAction(menuController.practice(nameInput.value), SCREEN_IDS.SOLO_MENU));
+$('#shared-practice-mode')?.addEventListener('click',()=>runMenuAction(menuController.sharedPractice(nameInput.value),SCREEN_IDS.SOLO_MENU));
 $('#create-breakthrough-room')?.addEventListener('click', () => runMenuAction(menuController.createBreakthroughPrivate(nameInput.value), SCREEN_IDS.PRIVATE_MENU));
 $('#create-room').addEventListener('click', () => runMenuAction(menuController.createPrivate(nameInput.value), SCREEN_IDS.PRIVATE_MENU));
 $('#join-room').addEventListener('click', () => runMenuAction(menuController.joinPrivate(roomInput.value, nameInput.value), SCREEN_IDS.PRIVATE_MENU));
@@ -1532,7 +1533,12 @@ function updateInspectionControls() {
   $('#inspection-status').textContent = socket.inspectionFramesPlaying ? 'Playing frames · 5 ticks/s · ⅙ speed' : socket.inspectionFrozen ? 'Frozen · one step advances 1/30 second' : 'Live · P freezes the scene';
   
   const title = $('#practice-tools-title');
-  if (title) title.textContent = available ? 'COMBATANTS & SPAWNING' : 'PRACTICE YARD';
+  if (title) title.textContent = available ? 'COMBATANTS & SPAWNING' : latestSnapshot?.sharedPractice ? 'SHARED PRACTICE YARD' : 'PRACTICE YARD';
+  const shared=Boolean(latestSnapshot?.sharedPractice);
+  const sharedInvite=$('#shared-practice-invite');
+  if(sharedInvite)sharedInvite.classList.toggle('hidden',!shared);
+  const codeLabel=$('#shared-practice-code');
+  if(codeLabel&&shared)codeLabel.textContent=latestSnapshot.roomCode??socket.roomCode??'';
   const roleHint = $('#practice-role-hint');
   if (roleHint) roleHint.classList.toggle('hidden', !available);
   const panelToggle = $('#practice-panel-toggle');
@@ -1540,7 +1546,7 @@ function updateInspectionControls() {
 
   practiceOverlay.classList.toggle('inspection-frozen', socket.inspectionFrozen);
   for (const button of practiceOverlay.querySelectorAll('button')) {
-    if (button.matches('#practice-freeze, #practice-step, #practice-play-frames, #practice-leave, [data-open-settings], #practice-panel-toggle')) continue;
+    if (button.matches('#practice-freeze, #practice-step, #practice-play-frames, #practice-leave, [data-open-settings], #practice-panel-toggle, #shared-practice-copy')) continue;
     // In Inspection Mode, staging dummies and siege machines is permitted while frozen
     if (available) {
       button.disabled = Boolean(preparingSiege && button.id.endsWith('-bibye'));
@@ -1557,6 +1563,13 @@ function updateInspectionControls() {
   $('#practice-hostile-reset').disabled=Boolean(!hostile||frozen);
   $('#practice-hostile-remove').disabled=Boolean(!hostile||frozen);
   if(hostileStatus&&!hostile&&occupied)hostileStatus.textContent='Machine already present. Dismantle it before summoning.';
+  if(shared&&latestSnapshot?.sharedPracticeHostId!==socket.playerId){
+    const hostTools=['practice-passive','practice-guarding','practice-fight','practice-sorcery','practice-melee','practice-runner',
+      'practice-ultimate-knight','practice-st-perry','practice-canonization','practice-remove',
+      'practice-build-bibye','practice-rebuild-bibye','practice-dismantle-bibye',
+      'practice-hostile-spawn','practice-hostile-reset','practice-hostile-remove'];
+    for(const id of hostTools){const button=$('#'+id);if(button)button.disabled=true;}
+  }
   practiceOverlay.querySelector('.practice-tools-unlocked-hint').textContent = socket.inspectionFrozen ? 'P OR RESUME TO CONTINUE' : 'CLICK ARENA TO RESUME';
   practiceOverlay.querySelector('.practice-tools-locked-hint').textContent = available ? 'P TO FREEZE · ESC FOR TOOLS' : 'ESC FOR TOOLS';
   const pointerHint = $('#pointer-hint');
@@ -1615,6 +1628,12 @@ for(const action of ['build','rebuild','dismantle'])$('#practice-'+action+'-biby
     if(!loaded){$('#practice-siege-status').textContent='The carriage could not load. Try Build again.';return;}
   }
   socket.send({type:'practiceSiege',action,machine});
+});
+$('#shared-practice-copy')?.addEventListener('click',async()=>{
+  const code=latestSnapshot?.sharedPractice?latestSnapshot?.roomCode:null;
+  if(!code)return;
+  try{await navigator.clipboard.writeText(code);$('#shared-practice-copy').textContent='COPIED · '+code;}
+  catch{$('#shared-practice-copy').textContent='ROOM CODE · '+code;}
 });
 $('#practice-reset').addEventListener('click', () => socket.practiceResetPlayer());
 $('#practice-passive').addEventListener('click', () => socket.practiceSpawnDummy('PASSIVE'));

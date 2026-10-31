@@ -45,7 +45,7 @@ const FORWARDED = ['playerId', 'token', 'roomCode', 'latestSnapshot', 'snapshotR
 const PLAY = ['startMatch', 'ready', 'arenaReady', 'practiceResetPlayer', 'practiceSpawnDummy', 'practiceRemoveDummy',
   'practiceSetDummyMode', 'practiceReadyUltimate', 'practicePerryAnswer', 'practicePerryDismiss', 'input', 'attack', 'guard', 'cast', 'castCurrentSpell', 'selectPreparedSlot', 'castPreparedSlot', 'castPreparedSpell', 'selectPreparedSpell', 'gauntlet', 'ultimate', 'dash', 'rematch', 'switchTeam', 'markTarget', 'vote',
   'ping', 'send'];
-const ONLINE = ['createRoom', 'createBreakthroughRoom', 'quickPlay', 'joinRoom', 'seekDuel', 'cancelSeek', 'seekBotDuel', 'listRooms', 'createPublicRoom'];
+const ONLINE = ['createSharedPracticeRoom', 'createRoom', 'createBreakthroughRoom', 'quickPlay', 'joinRoom', 'seekDuel', 'cancelSeek', 'seekBotDuel', 'listRooms', 'createPublicRoom'];
 
 export class GameLink {
   constructor({ remote = new GameSocket(), local = new LocalHost(), timing = LINK_TIMING, timers = globalThis } = {}) {
@@ -207,6 +207,10 @@ export class GameLink {
       if (this.hosting === 'local') this.local.leaveRoom();
       this.hosting = 'remote';
       this.remote[method](...args);
+      return;
+    }
+    if(method==='createSharedPracticeRoom'){
+      this.#emit('notice',{text:'Shared Practice requires a connection to the multiplayer server. Solo Practice remains available.'});
       return;
     }
     if (method === 'cancelSeek') return;
