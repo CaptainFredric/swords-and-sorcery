@@ -7,7 +7,7 @@ import {setFlightUltimateHold} from './fightFlightTerminal.mjs';
 import {mountSoFistication,dismountSoFistication,fireSoFistication,primeSoFistSkill} from './soFistication.mjs';
 import { practiceBiByeCommand,practiceSiegeCommand } from './practiceSiege.mjs';
 import {spawnPracticeSiegeOperator,removePracticeSiegeOperator,resetPracticeSiegeOperator} from './practiceSiegeOperators.mjs';
-import { setBiByeWeaponFocus,requestBiByeHeavySkill,requestBiByeCombinedSkill } from './biByeWeapons.mjs';
+import { requestColdHowTouching, setBiByeWeaponFocus,requestBiByeHeavySkill,requestBiByeCombinedSkill } from './biByeWeapons.mjs';
 import { biByeDeployProgress } from './biByeComponents.mjs';
 // What a host (the game server, or the browser playing alone when the server cannot be reached) says to its
 // Spellblades and does with what they send. The same shapes either way, so the client cannot tell who is hosting
@@ -449,7 +449,9 @@ export function applyRoomCommand(room, player, message, time) {
       return room.mode === GAME_MODES.PRACTICE && dismissPerryDialogue(room, player, time) ? {} : { rejected: PRACTICE_REJECTED };
     case 'siegeSkill': {
       const ram=room.soFistication,b=room.biByeLlista,f=room.fightFlight;
-      const reason=player.operatingFightFlightId&&f?.operatorId===player.id?requestFightFlightSkill(room,f,player,time):player.operatingRamId&&ram?.operatorId===player.id?primeSoFistSkill(room,ram,player,time):player.operatingBallistaId&&b?.operatorId===player.id?requestBiByeHeavySkill(room,b,player,time,biByeTargetAim):'Operate a siege machine to use its Skill.';
+      const reason=player.operatingFightFlightId&&f?.operatorId===player.id?requestFightFlightSkill(room,f,player,time):player.operatingRamId&&ram?.operatorId===player.id?primeSoFistSkill(room,ram,player,time):player.operatingBallistaId&&b?.operatorId===player.id?
+        (b.skill?.id==='coldHowTouching'?requestColdHowTouching(room,b,player,time):
+         requestBiByeHeavySkill(room,b,player,time,biByeTargetAim)):'Operate a siege machine to use its Skill.';
       return reason?{rejected:reason}:{};
     }
     case 'fightFlightFire': {
