@@ -12,6 +12,7 @@ import {frostGuardFaces,frostParryContact} from './biByeFrostGuard.mjs';
 import {applyDamage,breakGuard} from './combat.mjs';
 import {GAME} from '../src/combat.mjs';
 import {combatActionPolicy} from '../src/combatActionPolicy.mjs';
+import {fightFlightSkillActive} from './fightFlightSkill.mjs';
 
 export const FLIGHT_REPEATER=Object.freeze({capacity:14,production:2,fireRate:7,speed:64,
   lifespan:2.4,falloff:22,closeDamage:3,farDamage:2,guardStamina:8,guardArc:100,
@@ -44,15 +45,22 @@ export function advanceFlightAmmo(m,dt){
 function validOperator(room,m,p){return Boolean(m&&p?.alive&&room.players.get(p.id)===p&&m.health>0&&
   m.mode!=='DESTROYED'&&m.operatorId===p.id&&p.operatingFightFlightId===m.id);}
 function release(room,m,p,now){
-  if(!validOperator(room,m,p)||m.ammo<1||now+1e-8<(m.nextShotAt??0))return false;
+  if(!validOperator(room,m,p)||now+1e-8<(m.nextShotAt??0))return false;
   // The ordinary sword and repeater cannot hit simultaneously. Chivalry is the
   // explicitly permitted exception when sword combat is integrated.
   if((p.attackActive||p.guarding)&&!combatActionPolicy(p,now).concurrent)return false;
+  const borrowed=m.ammo<1;
+  if(borrowed&&!fightFlightSkillActive(m,now))return false;
   const yaw=(m.heading??0)+clamp(angle((p.input?.yaw??m.heading)-m.heading),-FLIGHT_REPEATER.maxTraverse,FLIGHT_REPEATER.maxTraverse);
   const pitch=clamp(p.input?.pitch??0,FLIGHT_REPEATER.minPitch,FLIGHT_REPEATER.maxPitch);
   const cp=Math.cos(pitch),origin=flightMuzzle(m,{yaw,pitch});
   const unit={x:-Math.sin(yaw)*cp,y:Math.sin(pitch),z:-Math.cos(yaw)*cp};
-  m.ammo--;
+  if(borrowed){
+    // Only an extra projectile ACTUALLY released incurs an integer loan.
+    // Never consume a loaded round twice or reward a zero-shot activation.
+    m.ammoDebt=(m.ammoDebt??0)+1;
+    m.skill.borrowed=(m.skill.borrowed??0)+1;
+  }else m.ammo--;
   const period=1/FLIGHT_REPEATER.fireRate,lastDue=m.nextShotAt??now;
   m.nextShotAt=(now-lastDue>period?now:lastDue)+period;
   m.lastShotAt=now;m.crossbowYaw=yaw;m.crossbowPitch=pitch;m.shotSeq=(m.shotSeq??0)+1;
@@ -62,7 +70,7 @@ function release(room,m,p,now){
     velocity:{x:unit.x*FLIGHT_REPEATER.speed,y:unit.y*FLIGHT_REPEATER.speed,z:unit.z*FLIGHT_REPEATER.speed},
     bornAt:now,dist:0,radius:FLIGHT_REPEATER.radius});
   room.events.push({type:'fightFlightBoltReleased',machineId:m.id,projectileId:id,operatorId:p.id,
-    point:origin,ammo:m.ammo,at:now});
+    point:origin,ammo:m.ammo,borrowed,ammoDebt:m.ammoDebt??0,at:now});
   return true;
 }
 export function requestFightFlightFire(room,m,p,down,now){
