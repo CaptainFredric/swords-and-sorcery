@@ -128,3 +128,27 @@ test('Moving airborne Fight-and-Flight is an actual proximity target, not a grou
  assert.ok(hits.length>0);
  assert.ok(hits.reduce((sum,e)=>sum+e.damage,0)<=18+1e-6);
 });
+
+test('Operator transfer cannot erase a physically committed independent Bolt II',()=>{
+ const room=new Room('HANDOFF',{mode:'PRACTICE'});room.world=ground();room.state='PLAYING';
+ const first=room.addPlayer({id:'first',token:'first',name:'first',
+   siegeLoadout:{biBye:'boltToTheOccasion'}},0);
+ const second=room.addPlayer({id:'second',token:'second',name:'second',
+   siegeLoadout:{biBye:'coldHowTouching'}},0);
+ const b=room.biByeLlista=createBiByeLlista({id:'handoff',x:0,y:0,z:0,baseYaw:0});
+ first.position={x:0,y:0,z:0};assert.ok(mountBiByeLlista(b,first,1));
+ assert.deepEqual(applyRoomCommand(room,first,{type:'siegeSkill'},1),{});
+ assert.deepEqual(applyRoomCommand(room,first,{type:'siegeSkill'},1.1),{});
+ assert.equal(b.skill.phase,'releasing');assert.equal(b.skill.readyAt,25.1);
+ dismountBiByeLlista(b,first,false,room.world,1.11);
+ assert.ok(b.heavySkill,'committed real bow release persists without its operator');
+ second.position={x:0,y:0,z:0};assert.ok(mountBiByeLlista(b,second,1.12));
+ assert.equal(b.skill.phase,'releasing');
+ stepBiByeLlista(room,b,1/30,1.16);
+ assert.ok([...room.bibyeProjectiles.values()].some(p=>
+   p.subKind==='siege'&&p.ownerId==='first'));
+ assert.equal(b.mainBoltLoaded,false);
+ assert.equal(b.skill.id,'coldHowTouching');
+ assert.equal(b.skill.readyAt,25.1);
+ assert.ok(applyRoomCommand(room,second,{type:'siegeSkill'},2).rejected);
+});
