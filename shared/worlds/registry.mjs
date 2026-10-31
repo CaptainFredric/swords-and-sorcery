@@ -5,6 +5,7 @@ import { GREENER_PASTURES } from './greenerPastures.mjs';
 import { BASTION_BREACH } from './bastionBreach.mjs';
 import { BLACKBELL_FOUNDRY } from './blackbellFoundry.mjs';
 import { OUTERWORKS } from './outerworks.mjs';
+import { HIGH_GROUNDS } from './highGrounds.mjs';
 
 export const WORLD_IDS = Object.freeze({
   SHATTERED_KEEP: 'shattered-keep',
@@ -14,6 +15,7 @@ export const WORLD_IDS = Object.freeze({
   BASTION_BREACH: 'bastion-breach',
   BLACKBELL_FOUNDRY: 'blackbell-foundry',
   OUTERWORKS: 'outerworks',
+  HIGH_GROUNDS: 'high-grounds',
 });
 
 const WORLDS = new Map([
@@ -24,6 +26,7 @@ const WORLDS = new Map([
   [WORLD_IDS.BASTION_BREACH, BASTION_BREACH],
   [WORLD_IDS.BLACKBELL_FOUNDRY, BLACKBELL_FOUNDRY],
   [WORLD_IDS.OUTERWORKS, OUTERWORKS],
+  [WORLD_IDS.HIGH_GROUNDS, HIGH_GROUNDS],
 ]);
 
 
