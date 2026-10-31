@@ -47,7 +47,7 @@ const grounds = [
   floor('root-shelf-cross-north', 0, 28, 42, 7, -9),
   floor('root-shelf-cross-centre', 0, 0, 42, 6, -9),
   // Reinforced side approaches with open, physically traversable slopes.
-  floor('azure-west-landing', -38, -80, 19, 14, 0),
+  floor('azure-west-landing', -38, -86, 19, 12, 0),
   floor('crimson-east-landing', 38, 80, 19, 14, 0),
   // Seamless, physically supported links between camp ground and side-ramp
   // landings. Before this, the first steps of several ramps hung in midair.
@@ -55,11 +55,11 @@ const grounds = [
   floor('crimson-east-gate-approach', 26, 81, 16, 12, 0, 'stone'),
   floor('azure-east-gate-approach', 26, -99, 16, 12, 0, 'stone'),
   floor('crimson-west-gate-approach', -26, 99, 16, 12, 0, 'stone'),
-  floor('azure-east-ascent-landing', 38, -96, 19, 14, 0, 'stone'),
+  floor('azure-east-ascent-landing', 38, -104, 19, 12, 0, 'stone'),
   floor('crimson-west-descent-landing', -38, 96, 19, 14, 0, 'stone'),
   // Entrances to the under-roots must be supported at Y=0, not begin
   // outside the forward deck in invisible space.
-  floor('azure-root-approach', -14, -54, 13, 10, 0, 'stone'),
+  floor('azure-root-approach', -14, -55, 13, 5, 0, 'stone'),
   floor('crimson-root-approach', 14, 54, 13, 10, 0, 'stone'),
 
 ];
@@ -137,6 +137,12 @@ const spawnPoints = [
 const nodes = [];
 const nav = (id,x,y,z) => nodes.push({id,x,y,z});
 for(let z=-108;z<=108;z+=12)nav('road-'+z,0,0,z);
+// Route mouths must be within the actual bot-nav link reach (18m).
+// Cover the 35m horizontal excursion from main road to side ascent ramps.
+for(const [side,z] of [[-1,-85],[1,-85],[-1,97],[1,97]]){
+  for(const x of [side*15,side*27,side*37])nav('camp-approach-'+side+'-'+z+'-'+x,x,0,z);
+}
+
 for(const side of [-1,1]){
   for(let z=-57;z<=63;z+=12)nav('canopy-'+side+'-'+z,side*38,12,z);
   for(let z=-24;z<=24;z+=12)nav('root-'+side+'-'+z,side*16,-9,z);
