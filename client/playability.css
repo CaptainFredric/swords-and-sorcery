@@ -378,3 +378,65 @@
 .drive-pressure[hidden] { display: none; }
 .drive-pressure output { float: right; }
 .drive-pressure progress { display: block; width: 100%; height: .4rem; accent-color: #c7a456; margin-top: .25rem; }
+
+
+/* The High Grounds: compact, readable territory status and player-operated
+   foundry controls. The buttons are usable while the arena HUD is visible. */
+.high-grounds-status {
+  position: absolute;
+  top: 3.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 24;
+  width: min(92vw, 700px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .2rem;
+  text-align: center;
+  pointer-events: none;
+  color: #f8edcf;
+  text-shadow: 0 1px 3px #111, 0 2px 5px #111;
+}
+.high-grounds-status strong { font-size: .82rem; letter-spacing: .14em; }
+#high-grounds-score { font-size: .95rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+#high-grounds-sites { max-width: 100%; font-size: .63rem; line-height: 1.4; }
+.high-grounds-foundry {
+  position: absolute;
+  z-index: 40;
+  left: 50%;
+  bottom: min(24vh, 180px);
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .45rem;
+  padding: .7rem;
+  width: min(94vw, 460px);
+  background: rgba(29, 33, 32, .91);
+  color: #f4e7c3;
+  border: 1px solid #bc9859;
+  border-radius: 8px;
+  pointer-events: auto;
+}
+.high-grounds-foundry strong { letter-spacing: .1em; }
+.high-grounds-foundry small { text-align: center; }
+.high-grounds-machine-buttons { display: flex; flex-wrap: wrap; justify-content: center; gap: .4rem; }
+.high-grounds-machine-buttons button {
+  padding: .5rem .6rem;
+  font-size: .7rem;
+  font-weight: bold;
+  border: 1px solid #be995e;
+  border-radius: 4px;
+  background: #534435;
+  color: #fff2d1;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.high-grounds-machine-buttons button:disabled { opacity: .4; cursor: not-allowed; }
+.high-grounds-status.hidden, .high-grounds-foundry.hidden { display: none; }
+@media (max-width: 650px) {
+  .high-grounds-status { top: 2.25rem; }
+  .high-grounds-foundry { bottom: 18%; }
+  #high-grounds-sites { font-size: .53rem; }
+}
