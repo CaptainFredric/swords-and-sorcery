@@ -32,7 +32,7 @@ export function createFightFlight({x=0,y=0,z=0,heading=0,id=null,lifecycleId=nul
   return {id:id??'fight-flight-1',lifecycleId:lifecycleId??id??'fight-flight-1',
     operatorId:null,team,x,y,z,heading,position:{x,y,z},velocity:{x:0,y:0,z:0},
     mode:'GROUNDED',crouched:false,grounded:true,health:250,maxHealth:250,
-    rotorHP:100,braceLHP:80,braceRHP:80,rotorAngle:0,rotorAngularVelocity:0,
+    rotorHP:100,braceLHP:80,braceRHP:80,rotorAngle:0,rotorAngularVelocity:0,rotorEpisodes:{},lastRotorDelta:0,
     rotorEnergy:100,flightCharge:100,maxFlightCharge:100,
     ammo:14,ammoDebt:0,nextShotAt:0,ammoProduction:0,firingOperatorId:null,shotSeq:0,lastShotAt:-Infinity,crossbowYaw:heading,crossbowPitch:0,
     skill:{phase:'idle',readyAt:0,activeUntil:0},offensiveRun:false,
@@ -93,6 +93,8 @@ export function dismountFightFlight(room,m,player,{force=false,at=0,exit=null}={
 }
 export function stepFightFlight(room,m,dt,now,world=room.world){
   if(!m||m.retired||m.mode==='DESTROYED')return;
+  m.rotorAngleBefore=m.rotorAngle;
+  m.rotorPositionBefore={x:m.x,y:m.y,z:m.z};
   const op=m.operatorId?room.players.get(m.operatorId):null;
   if(m.operatorId&&(!op||!op.alive)){if(op)dismountFightFlight(room,m,op,{force:true,at:now});else m.operatorId=null;}
   const input=op?.input??{};
@@ -115,7 +117,8 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
   const desiredOmega=spinning?Math.PI*15:0;
   const spool=1-Math.exp(-dt*(spinning?2.5:1.8));
   m.rotorAngularVelocity+=(desiredOmega-m.rotorAngularVelocity)*spool;
-  m.rotorAngle=(m.rotorAngle+m.rotorAngularVelocity*dt)%(Math.PI*2);
+  m.lastRotorDelta=m.rotorAngularVelocity*dt;
+  m.rotorAngle=(m.rotorAngle+m.lastRotorDelta)%(Math.PI*2);
   if(spinning)m.rotorEnergy=cap(m.rotorEnergy+dt*7,0,100);
   else m.rotorEnergy=cap(m.rotorEnergy-dt*5,0,100);
   const forward=cap(finite(input.forward),-1,1),right=cap(finite(input.right),-1,1);
