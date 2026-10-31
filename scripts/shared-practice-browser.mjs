@@ -48,17 +48,15 @@ let host=null,guest=null;
 try{
  host=await connectBrowser('host',9263);
  guest=await connectBrowser('guest',9264);
+ // __ssRuntime exists only AFTER entering a match. The prior check waited
+ // for an impossible pre-match runtime socket, then timed out after minutes.
+ // The actual menu reports the GameLink status through this public UI element.
+ // Click Retry explicitly: future lazy-network startup must not require Render.
  for(const b of [host,guest]){
-  let probes=0;
-  await waitFor(async()=>{
-    const status=await b.evaluate("window.__ssRuntime?.socket?.status??'not-constructed'");
-    if(++probes%35===0){
-      const state=await b.evaluate("(() => {const s=window.__ssRuntime?.socket;return {status:s?.status,hosting:s?.hosting,readyState:s?.remote?.ws?.readyState,serverUrl:s?.remote?.ws?.url,href:location.href};})()");
-      console.log('[SHARED NETWORK]',b.label,JSON.stringify(state),JSON.stringify(b.errors.slice(-3)));
-    }
-    if(status==='offline'&&probes%80===0)await b.evaluate("window.__ssRuntime?.socket?.retryNow()");
-    return status==='online';
-  },b.label+' multiplayer online',650);
+  await b.evaluate("document.querySelector('#link-retry')?.click()");
+  await waitFor(()=>b.evaluate("document.querySelector('[data-link-mark]')?.dataset?.tone==='online'"),
+    b.label+' local multiplayer server online',160);
+  console.log('[SHARED NETWORK READY]',b.label,await b.evaluate("document.querySelector('[data-link-mark]')?.dataset?.tone"));
  }
  await host.evaluate("document.querySelector('#player-name').value='Practice Host';document.querySelector('#solo-button').click()");
  await waitFor(()=>host.evaluate("!document.querySelector('#shared-practice-mode').disabled"),'shared Practice mode',80);
@@ -77,7 +75,9 @@ try{
  await host.evaluate("const s=document.querySelector('#practice-siege-type');s.value='fight-and-flight';s.dispatchEvent(new Event('change',{bubbles:true}));document.querySelector('#practice-build-bibye').click()");
  await waitFor(()=>guest.evaluate("Boolean(window.__ssRuntime?.latestSnapshot?.fightFlight?.id)"),'guest observes same physical machine',100);
  await host.evaluate("(() => {const r=window.__ssRuntime,p=r.localAuth.position,m=r.latestSnapshot.fightFlight;r.input.yaw=Math.atan2(-(m.x-p.x),-(m.z-p.z));})()");
- await host.evaluate("window.__ssRuntime?.requestPointerLock()");
+ await host.send('Page.bringToFront');
+ await host.send('Input.dispatchMouseEvent',{type:'mousePressed',x:640,y:420,button:'left',clickCount:1});
+ await host.send('Input.dispatchMouseEvent',{type:'mouseReleased',x:640,y:420,button:'left',clickCount:1});
  await waitFor(()=>host.evaluate("Boolean(window.__ssRuntime?.input?.enabled)"),'host gameplay focus',80);
  await host.key('W','rawKeyDown');
  await waitFor(()=>host.evaluate("(() => {const r=window.__ssRuntime,p=r.localAuth.position,m=r.latestSnapshot.fightFlight;return Math.hypot(p.x-m.x,p.z-m.z)<2.2;})()"),'host walks physically to the machine',170);
@@ -85,7 +85,9 @@ try{
  await waitFor(()=>guest.evaluate("Boolean(window.__ssRuntime?.latestSnapshot?.fightFlight?.operatorId==='"+hostRoom.id+"')"),'guest sees host operating shared flight',120);
  await host.screenshot('host-mounted');await guest.screenshot('guest-observes-pilot');
  const start=await guest.evaluate("(() => {const r=window.__ssRuntime;return {...r.localAuth.position};})()");
- await guest.evaluate("window.__ssRuntime?.requestPointerLock()");
+ await guest.send('Page.bringToFront');
+ await guest.send('Input.dispatchMouseEvent',{type:'mousePressed',x:640,y:420,button:'left',clickCount:1});
+ await guest.send('Input.dispatchMouseEvent',{type:'mouseReleased',x:640,y:420,button:'left',clickCount:1});
  await waitFor(()=>guest.evaluate("Boolean(window.__ssRuntime?.input?.enabled)"),'guest gameplay focus');
  await guest.key('W','rawKeyDown');
  await waitFor(()=>host.evaluate("(() => {const r=window.__ssRuntime,p=r.latestSnapshot.players.find(p=>p.id==='"+guestRoom.id+"');return p&&Math.hypot(p.position.x-"+start.x+",p.position.z-"+start.z+")>.65;})()"),'host sees guest physical network locomotion',140);
@@ -99,15 +101,53 @@ try{
  await host.send('Input.dispatchMouseEvent',{type:'mouseReleased',x:640,y:420,button:'left',clickCount:1});
  // A real second client must observe mounted RMB sword input without a phantom bolt.
  const beforeSwordShot=await guest.evaluate("window.__ssRuntime?.latestSnapshot?.fightFlight?.shotSeq");
+ // Record actual remote rig animation frames, not just a server swing flag.
+ await guest.evaluate("(() => {const trace=window.__flightSwordTrace=[];let frames=0;function sample(){const r=window.__ssRuntime,rig=r?.remotePlayers?.rigs?.get('"+hostRoom.id+"'),p=r?.latestSnapshot?.players?.find(p=>p.id==='"+hostRoom.id+"');if(rig)trace.push({clip:rig.visualInstance?.animator?.activeClip,attack:Boolean(p?.attackActive)});if(++frames<500)requestAnimationFrame(sample);}requestAnimationFrame(sample);})()");
  await host.send('Input.dispatchMouseEvent',{type:'mousePressed',x:640,y:420,button:'right',clickCount:1});
  await waitFor(()=>guest.evaluate("(() => {const r=window.__ssRuntime,p=r?.latestSnapshot?.players?.find(p=>p.id==='"+hostRoom.id+"');return Boolean(p&&(p.attackActive||p.attackCommitted>0));})()"),'guest sees genuine mounted sword state',110);
  await host.send('Input.dispatchMouseEvent',{type:'mouseReleased',x:640,y:420,button:'right',clickCount:1});
  assert.equal(await guest.evaluate("window.__ssRuntime?.latestSnapshot?.fightFlight?.shotSeq"),beforeSwordShot,'mounted RMB sword must not fire repeating crossbow');
- const result={roomCode:hostRoom.code,host:hostRoom.id,guest:guestRoom.id,hostAndGuestInSameRoom:true,
-  machine:await guest.evaluate("(() => {const m=window.__ssRuntime?.latestSnapshot?.fightFlight;return {id:m.id,operatorId:m.operatorId,shotSeq:m.shotSeq,ammo:m.ammo};})()"),
-  players:await host.evaluate("window.__ssRuntime?.latestSnapshot?.players?.filter(p=>p.actorKind==='human').map(p=>({id:p.id,position:p.position,attackCommitted:p.attackCommitted}))"),
+ await waitFor(()=>guest.evaluate("Boolean((window.__flightSwordTrace??[]).some(s=>s.attack&&/^Slash_[123]$/.test(s.clip??'')))"),
+   'real remote Spellblade sword animation agrees with attack state',110);
+ // Prepare *personal* Prowess using the real Practice action, not state editing.
+ await host.evaluate("document.querySelector('#practice-ultimate').click()");
+ await waitFor(()=>guest.evaluate("window.__ssRuntime?.latestSnapshot?.players?.find(p=>p.id==='"+hostRoom.id+"')?.prowess>=100"),
+   'real host Prowess readiness replicated',100);
+ await host.send('Input.dispatchKeyEvent',{type:'rawKeyDown',key:' ',code:'Space',windowsVirtualKeyCode:32});
+ const rising=await waitFor(()=>guest.evaluate("(() => {const m=window.__ssRuntime?.latestSnapshot?.fightFlight;return m?.y>1.2&&m.rotorRPM>0&&m.flightCharge<100?{y:m.y,charge:m.flightCharge,rpm:m.rotorRPM}:null;})()"),
+   'guest observes actual rotor-powered vertical flight',170);
+ await host.send('Input.dispatchKeyEvent',{type:'keyUp',key:' ',code:'Space',windowsVirtualKeyCode:32});
+ await guest.evaluate("(() => {window.__flightMotionTrace=[];let frames=0;function frame(){const s=window.__ssRuntime?.latestSnapshot,m=s?.fightFlight,p=s?.players?.find(p=>p.id==='"+hostRoom.id+"');if(m&&p)window.__flightMotionTrace.push({run:m.offensiveRun,pitch:m.runPitch,speed:Math.hypot(m.velocity?.x??0,m.velocity?.z??0),ejected:m.operatorId===null,grounded:p.grounded,y:p.position?.y,ammo:m.ammo,debt:m.ammoDebt,shotSeq:m.shotSeq});if(++frames<850)requestAnimationFrame(frame);}requestAnimationFrame(frame);})()");
+ await host.key('E','rawKeyDown');
+ const run=await waitFor(()=>guest.evaluate("(() => {const trace=window.__flightMotionTrace??[];return trace.find(s=>s.run&&s.pitch>.08&&s.speed>4)??null;})()"),
+   'guest sees a moving Prowess-powered offensive flight run',140);
+ await host.key('E','keyUp');
+ await waitFor(()=>guest.evaluate("window.__ssRuntime?.latestSnapshot?.fightFlight?.offensiveRun===false"),
+   'remote Dash release stops offensive run',100);
+ const beforeEject=await guest.evaluate("(() => {const m=window.__ssRuntime?.latestSnapshot?.fightFlight;return {ammo:m.ammo,debt:m.ammoDebt,id:m.lifecycleId};})()");
+ await host.tap('T');
+ const ejected=await waitFor(()=>guest.evaluate("(() => {const s=window.__ssRuntime?.latestSnapshot,m=s?.fightFlight,p=s?.players?.find(p=>p.id==='"+hostRoom.id+"'),trace=window.__flightMotionTrace??[];const falling=trace.find(f=>f.ejected&&!f.grounded&&f.y>.2);return m?.operatorId===null&&p?.operatingFightFlightId==null&&falling?{y:falling.y,ammo:m.ammo,debt:m.ammoDebt,id:m.lifecycleId,shotSeq:m.shotSeq}:null;})()"),
+   'guest captures real airborne ejection before subsequent landing',140);
+ assert.equal(ejected.id,beforeEject.id);
+ assert.ok(ejected.ammo>=beforeEject.ammo&&ejected.ammo<=18,'passive 2/s replenishment is allowed, reset is not');
+ assert.ok(ejected.debt<=beforeEject.debt,'ammo debt can only be repaid, not cleared by eject');
+ await waitFor(()=>guest.evaluate("(() => {const s=window.__ssRuntime?.latestSnapshot,p=s?.players?.find(p=>p.id==='"+hostRoom.id+"');return Boolean(p?.grounded&&p.position.y<.2&&p.operatingFightFlightId==null);})()"),
+   'ejected Spellblade physically lands in shared room',180);
+ await guest.screenshot('guest-flight-landing');
+ const livePlayers=await host.evaluate("window.__ssRuntime?.latestSnapshot?.players?.filter(p=>p.actorKind==='human').map(p=>({id:p.id,position:p.position,operating:p.operatingFightFlightId,grounded:p.grounded}))");
+ const machineAfterEject=await guest.evaluate("(() => {const m=window.__ssRuntime?.latestSnapshot?.fightFlight;return {id:m.id,operatorId:m.operatorId,shotSeq:m.shotSeq,ammo:m.ammo,ammoDebt:m.ammoDebt};})()");
+ // Leaving as guest must not disturb the host's active authoritative room.
+ await guest.evaluate("document.querySelector('#practice-leave').click()");
+ await waitFor(()=>host.evaluate("window.__ssRuntime?.latestSnapshot?.players?.filter(p=>p.actorKind==='human').length===1"),
+   'host room survives guest leaving',120);
+ await host.evaluate("document.querySelector('#practice-leave').click()");
+ await waitFor(()=>host.evaluate("!document.querySelector('#menu')?.classList.contains('hidden')"),
+   'host leaves cleanly to the menu',120);
+
+ const result={roomCode:hostRoom.code,host:hostRoom.id,guest:guestRoom.id,hostAndGuestInSameRoom:true,rising,run,ejected,
+  machine:machineAfterEject,players:livePlayers,
   errors:[...host.errors,...guest.errors]};
- await host.screenshot('host-attacks');await guest.screenshot('guest-sees-bolt');
+ await host.screenshot('host-left-room');await guest.screenshot('guest-left-room');
  await writeFile(out+'/result.json',JSON.stringify(result,null,2));
  assert.equal(result.errors.length,0,result.errors.join('; '));
  console.log('[SHARED PRACTICE CHROME ACCEPTED]',JSON.stringify(result));
