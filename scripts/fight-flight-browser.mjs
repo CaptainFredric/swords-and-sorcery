@@ -44,6 +44,28 @@ async function down(key){await send('Input.dispatchKeyEvent',{type:'rawKeyDown',
 async function up(key){await send('Input.dispatchKeyEvent',{type:'keyUp',key:key.toLowerCase(),code:'Key'+key.toUpperCase(),windowsVirtualKeyCode:key.toUpperCase().charCodeAt(0)});}
 async function tap(key){await down(key);await sleep(90);await up(key);}
 async function screenshot(name){const r=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});await writeFile(folder+'/'+name+'.png',Buffer.from(r.data,'base64'));}
+// HTML5 Chrome software-renderer sample, not a claim about physical mobile GPUs.
+async function profileFramePerformance(label){
+ const stats=await evaluate(`new Promise(resolve=>{
+   const r=window.__ssRuntime,delta=[];let last=0,frames=0;
+   const tick=t=>{
+     if(last)delta.push(t-last);last=t;
+     if(++frames<16){requestAnimationFrame(tick);return;}
+     const sorted=[...delta].sort((a,b)=>a-b);
+     resolve({label:'${label}',frames:delta.length,
+       frameMsMedian:sorted[Math.floor(sorted.length/2)]??null,
+       frameMsP95:sorted[Math.min(sorted.length-1,Math.floor(sorted.length*.95))]??null,
+       calls:r?.renderer?.info?.render?.calls??null,
+       triangles:r?.renderer?.info?.render?.triangles??null,
+       geometries:r?.renderer?.info?.memory?.geometries??null,
+       textures:r?.renderer?.info?.memory?.textures??null,
+       usedJSHeapBytes:performance.memory?.usedJSHeapSize??null,
+       glVersion:r?.renderer?.getContext?.()?.getParameter?.(r.renderer.getContext().VERSION)??null});
+   };requestAnimationFrame(tick);
+ })`);
+ await writeFile(folder+'/performance-'+label+'.json',JSON.stringify(stats,null,2));
+ console.log('[FAF HTML5 PERFORMANCE]',JSON.stringify(stats));
+}
 const flightState="(() => {const r=window.__ssRuntime,m=r?.latestSnapshot?.fightFlight,p=r?.localAuth;return {ready:Boolean(m&&r?.flightRenderer?.model),machine:m?{id:m.id,mode:m.mode,x:m.x,y:m.y,z:m.z,charge:m.flightCharge,rotor:m.rotorAngle,ammo:m.ammo,operator:m.operatorId,grounded:m.grounded}:null,player:p?{id:p.id,operating:p.operatingFightFlightId,position:p.position}:null,cam:r?.camera?.position.toArray(),view:r?.siegeView,model:r?.flightRenderer?.model?.name,herald:r?.flightRenderer?.nodes.get('Rear_Banner_Heraldic_Emblem')?.visible,grip:Boolean(r?.flightRenderer?.nodes.get('operator_hand_L_crossbow_grip')),riderVisible:Boolean(r?.remotePlayers?.self?.root?.visible),riderPos:r?.remotePlayers?.self?.root?.position.toArray()};})()";
 try{
  const target=await until(async()=>{
@@ -100,11 +122,13 @@ try{
  await until(()=>evaluate("Boolean(window.__ssRuntime?.localAuth?.operatingFightFlightId)"),'actual mount via T');
  await until(()=>evaluate("Boolean(window.__ssRuntime?.remotePlayers?.self?.root?.visible)"),'third-person genuine Spellblade pilot visible',50);
  const mounted=await evaluate(flightState);await screenshot('02-mounted');
+ await profileFramePerformance('mounted-third-person');
  assert.equal(mounted.riderVisible,true,'the actual Spellblade is drawn inside the wearable apparatus');
  assert.ok(Math.hypot(mounted.riderPos[0]-mounted.machine.x,mounted.riderPos[2]-mounted.machine.z)<.4,'pilot remains fitted to current machine position');
  if(mounted.view!=='sight'){await tap('Z');}
  await until(()=>evaluate("window.__ssRuntime?.siegeView==='sight'"),'authored first-person flight view',50);
  await screenshot('02a-cockpit');
+ await profileFramePerformance('mounted-first-person');
  await tap('Z');await until(()=>evaluate("window.__ssRuntime?.siegeView==='third'"),'return to mounted third-person view',50);
  await down('W');
  await send('Input.dispatchKeyEvent',{type:'rawKeyDown',key:' ',code:'Space',windowsVirtualKeyCode:32});
