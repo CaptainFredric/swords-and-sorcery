@@ -1480,9 +1480,6 @@ function updateInspectionControls() {
       ? `${role} · ${hostile.practiceSiegeOperator.difficulty.toUpperCase()} · ${alive?'ACTIVE':'DEFEATED'}`
       : 'No hostile operator summoned.';
   }
-  if($('#practice-hostile-spawn'))$('#practice-hostile-spawn').disabled=Boolean(hostile);
-  if($('#practice-hostile-reset'))$('#practice-hostile-reset').disabled=!hostile;
-  if($('#practice-hostile-remove'))$('#practice-hostile-remove').disabled=!hostile;
   const ram=$('#practice-siege-type').value==='so-fist-ication';
   const flight=$('#practice-siege-type').value==='fight-and-flight';
   const machine=Boolean(flight?latestSnapshot?.fightFlight:ram?latestSnapshot?.soFistication:latestSnapshot?.bibyeBallista);
@@ -1523,6 +1520,15 @@ function updateInspectionControls() {
       button.disabled = socket.inspectionFrozen || (preparingSiege&&button.id.endsWith('-bibye'));
     }
   }
+  // Restore per-operator state *after* the generic Practice button policy.
+  const occupied=machineChoice==='bi-bye-llista'?Boolean(latestSnapshot?.bibyeBallista):
+    machineChoice==='so-fist-ication'?Boolean(latestSnapshot?.soFistication):
+    Boolean(latestSnapshot?.fightFlight);
+  const frozen=socket.inspectionFrozen&&!socket.inspectionAvailable;
+  $('#practice-hostile-spawn').disabled=Boolean(hostile||occupied||frozen);
+  $('#practice-hostile-reset').disabled=Boolean(!hostile||frozen);
+  $('#practice-hostile-remove').disabled=Boolean(!hostile||frozen);
+  if(hostileStatus&&!hostile&&occupied)hostileStatus.textContent='Machine already present. Dismantle it before summoning.';
   practiceOverlay.querySelector('.practice-tools-unlocked-hint').textContent = socket.inspectionFrozen ? 'P OR RESUME TO CONTINUE' : 'CLICK ARENA TO RESUME';
   practiceOverlay.querySelector('.practice-tools-locked-hint').textContent = available ? 'P TO FREEZE · ESC FOR TOOLS' : 'ESC FOR TOOLS';
   const pointerHint = $('#pointer-hint');
