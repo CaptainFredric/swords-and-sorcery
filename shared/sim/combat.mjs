@@ -1200,7 +1200,7 @@ export function killPlayer(room, victimId, attackerId, source, nowSec) {
     victim.terminalRespawnDeferredFor=diver.id;
     // A finite failsafe protects reconnects and corrupted/unresolved dive state;
     // normal resolution replaces this deadline with a fresh post-impact respawn.
-    victim.respawnAt=Math.max(nowSec,diver.terminalDive.expiresAt)+(room.policy?.respawnSec??RESPAWN_SEC)+1;
+    victim.respawnAt=Math.max(nowSec,diver.terminalDive.expiresAt+30)+(room.policy?.respawnSec??RESPAWN_SEC);
   }
   const playing = room.state === 'PLAYING';
   if (playing && room.policy?.teamMode && credited && credited !== victimId) {
