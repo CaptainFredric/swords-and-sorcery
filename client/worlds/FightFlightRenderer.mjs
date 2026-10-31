@@ -16,7 +16,7 @@ export class FightFlightRenderer{
     this.group.visible=false;scene.add(this.group);this.nodes=new Map();this.state=null;
     this.lastMode=null;this.clip=null;this.disposed=false;
     this.bolts=new Map();this.boltGeometry=new THREE.CylinderGeometry(.027,.032,.33,6);
-    this.quarrelPrototype=null;this.lastSwordStrike=-1;this.operator=null;
+    this.quarrelPrototype=null;this.lastSwordChain=null;this.operator=null;this.ejectionAt=null;
     this.boltMaterial=new THREE.MeshStandardMaterial({color:0xb7a17b,metalness:.35,roughness:.55});
     // Ground fire is authoritative aftermath, not part of the wreck model:
     // it remains visible after the apparatus disappears.
@@ -35,6 +35,14 @@ export class FightFlightRenderer{
       if(spin){this.rotorAction=this.mixer.clipAction(spin);this.rotorAction.play();}
       const reload=this.clips.get('Crossbow_Reload_Index');
       if(reload){this.reloadAction=this.mixer.clipAction(reload);this.reloadAction.play();}
+      const eject=this.clips.get('Posture_11_Aerial_Ejection');
+      if(eject){
+        this.ejectionAction=this.mixer.clipAction(eject);
+        this.ejectionAction.setLoop(THREE.LoopOnce,1);
+        this.ejectionAction.clampWhenFinished=true;
+        this.ejectionAction.play();this.ejectionAction.paused=true;
+        this.ejectionAction.enabled=false;
+      }
       const sword=this.clips.get('Sword_Strike_And_Recovery');
       if(sword){this.swordAction=this.mixer.clipAction(sword);this.swordAction.setLoop(THREE.LoopOnce,1);this.swordAction.clampWhenFinished=true;this.swordAction.play();this.swordAction.paused=true;this.swordAction.enabled=false;}
       const fire=this.clips.get('Crossbow_Fire_Loop');
@@ -60,6 +68,9 @@ export class FightFlightRenderer{
     for(const name of ['Rear_Drive_Assembly','Rear_Trident_Banner']){
       const node=this.nodes.get(name);if(node)node.visible=!this.isFirstPerson;
     }
+  }
+  noteEjection(at){
+    if(Number.isFinite(at))this.ejectionAt=at;
   }
   setFailureParts(){
     const m=this.state;if(!m)return;
@@ -96,6 +107,17 @@ export class FightFlightRenderer{
     this.drawBurnZones(zones,now);
     this.state=m;this.operator=operator;this.group.visible=Boolean(m&&!m.retired&&m.mode!=='DESTROYED');
     if(!m?.operatorId)this.lastSwordChain=null;
+    // Server detachment is immediate. The authored clip opens the empty
+    // harness and deflects the coasting shaft, never teleports or reattaches
+    // the live Spellblade after its airborne ejection.
+    if(this.ejectionAction){
+      const age=now-(this.ejectionAt??-Infinity);
+      const active=age>=0&&age<this.ejectionAction.getClip().duration
+        &&!m?.operatorId&&(m?.rotorHP??0)>0;
+      this.ejectionAction.enabled=active;
+      if(active)this.ejectionAction.time=age;
+      if(age>=this.ejectionAction.getClip().duration)this.ejectionAt=null;
+    }
     if(!this.group.visible)return;
     this.load();
     const at=m.position??m;
@@ -189,6 +211,16 @@ export class FightFlightRenderer{
     // simulation already owns chassis XYZ and run pitch; allowing those visual
     // oscillations to move the muzzle would desynchronize server collision,
     // crosshair truth and the displayed gun. Keep limb/banner animation only.
+    if(!this.ejectionAction?.enabled){
+      for(const name of ['Protective_Brace_L','Protective_Brace_R']){
+        const brace=this.nodes.get(name);if(brace)brace.quaternion.identity();
+      }
+      if(m.rotorHP>0&&!m.terminalDive){
+        const shaft=this.nodes.get('Rotor_Shaft_And_Bearing');if(shaft)shaft.quaternion.identity();
+      }
+      const anchor=this.nodes.get('operator_root_anchor');
+      if(anchor){anchor.position.set(0,0,0);anchor.quaternion.identity();}
+    }
     const chassis=this.nodes.get('Main_Apparatus_Chassis');
     if(chassis){chassis.position.set(0,0,0);chassis.quaternion.identity();}
     this.setFailureParts();
