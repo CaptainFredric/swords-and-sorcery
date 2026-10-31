@@ -1,6 +1,8 @@
 // Actual rotor blade crossings. Angular substeps detect an entire blade passage at 30Hz,
 // not a fixed hit aura. An episode ends only when the blade physically leaves a body.
 import {postureOf} from '../src/body.mjs';
+import {segmentAabbHit} from '../src/collision.mjs';
+import {orientedBoxHit} from '../src/orientedBox.mjs';
 import {areAllies} from '../src/teams.mjs';
 import {GAME} from '../src/combat.mjs';
 import {steelStrength} from '../src/steel.mjs';
@@ -97,6 +99,37 @@ export function stepFightFlightRotor(room,m,dt,now){
   for(let k=1;k<=samples;k++){
     const frac=k/samples,theta=before+angularTravel*frac;
     const pose={x:x0+(m.x-x0)*frac,y:y0+(m.y-y0)*frac,z:z0+(m.z-z0)*frac};
+    // Blade edges collide with real masonry before the chassis body hits it.
+    // Keep world-contact episodes independent of defender contacts, so continuous
+    // overlap cannot drain the rotor every rendered frame.
+    const worldSolids=room.world?.solids??[];
+    for(let blade=0;blade<2;blade++){
+      const heading=theta+blade*Math.PI;
+      const dx=Math.cos(heading),dz=Math.sin(heading);
+      const from=[pose.x+dx*ROTOR_CONTACT.inner,pose.y+2.18,pose.z+dz*ROTOR_CONTACT.inner];
+      const to=[pose.x+dx*ROTOR_CONTACT.outer,pose.y+2.18,pose.z+dz*ROTOR_CONTACT.outer];
+      for(let index=0;index<worldSolids.length;index++){
+        const solid=worldSolids[index];if(!solid)continue;
+        const center=solid.center??[0,0,0],size=solid.size??[0,0,0];
+        if(Math.abs(center[0]-pose.x)>ROTOR_CONTACT.outer+size[0]/2+.2||
+          Math.abs(center[2]-pose.z)>ROTOR_CONTACT.outer+size[2]/2+.2||
+          Math.abs(center[1]-(pose.y+2.18))>size[1]/2+.2)continue;
+        const key='world:'+String(solid.id??index)+':'+blade;
+        const intersection=(solid.axes?orientedBoxHit(from,to,solid,.09):segmentAabbHit(from,to,solid));
+        if(intersection&&!episodes[key]){
+          episodes[key]=true;
+          const beforeEnergy=m.rotorEnergy;
+          m.rotorEnergy=clamp(m.rotorEnergy-18,0,100);
+          m.rotorAngularVelocity*=.72;
+          // Only a substantial strike at high speed damages rotor integrity.
+          if(beforeEnergy>65&&Math.abs(m.rotorAngularVelocity)>24)
+            damageFightFlight(room,m,7,null,'fight-flight-rotor-masonry',now,{componentId:'rotor',
+              point:{x:intersection.point[0],y:intersection.point[1],z:intersection.point[2]},steelMinimum:1});
+          room.events.push({type:'fightFlightRotorWorldImpact',machineId:m.id,solidId:solid.id??null,
+            blade,point:{x:intersection.point[0],y:intersection.point[1],z:intersection.point[2]},at:now});
+        }else if(!intersection)episodes[key]=false;
+      }
+    }
     for(const p of room.players.values()){
       if(!p.alive||p.id===m.operatorId||areAllies(room,m.operatorId,p.id))continue;
       const current=p.position,vel=p.velocity??{};
