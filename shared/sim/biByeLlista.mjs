@@ -1,17 +1,18 @@
 import {selectedSiegeSkill} from '../src/siegeLoadout.mjs';
 import {endSiegeSkill} from './siegeSkills.mjs';
+import {earliestFrostProximity} from './biByeProximity.mjs';
 import {SIEGE_IMPACT} from './siegeImpact.mjs';
 import {frostGuardFaces,frostParryContact} from './biByeFrostGuard.mjs';
 import { structureWorld, damageStructureSolid } from './structures.mjs';
 import {soFistFirstHit,soFistSolids} from './soFistGeometry.mjs';
-import {damageSoFistication} from './soFistication.mjs';
+import {damageSoFistication,blastSoFistication} from './soFistication.mjs';
 import { postureOf } from '../src/body.mjs';
 import { sampleTransform } from './history.mjs';
 import { biByeTerrainContext, biByeTerrainPose, biByeTerrainClear, biByeDeploymentSupport } from './biByeTerrain.mjs';
 import { biByeWeaponState, requestBiByeIndependent, requestBiByeVolley, stepBiByeWeapons, cancelBiByeCoupling, interruptBiByeSupport } from './biByeWeapons.mjs';
 import { biByeCondition, createBiByeComponents, biByeDeployProgress, biByeAimPose, biByeFrames, biByeHitVolumes, biByeFirstHit, biByeBlastAllocations, biByeWheelTravel, biByeWheelSteering, biByeConstrainAim } from './biByeComponents.mjs';
 import { boxWorld } from '../src/orientedBox.mjs';
-import {fightFlightFirstHit,damageFightFlight} from './fightFlightComponents.mjs';
+import {fightFlightFirstHit,damageFightFlight,fightFlightHitVolumes} from './fightFlightComponents.mjs';
 import { segmentAabbHit, surfaceHeightAt, resolvePlayerWorld } from '../src/collision.mjs';
 import { applyDamage, staggerBy, interruptHitActions, breakGuard } from './combat.mjs';
 import { strongerChill } from '../src/spells.mjs';
@@ -333,7 +334,7 @@ export function mountBiByeLlista(ballista, player, nowSec = 0) {
  * Dismount the ballista and return control to the Spellblade.
  * Clears the machine's operator station even if the player entity has disconnected.
  */
-export function dismountBiByeLlista(ballista, player = null, safeDisplace = false, world = null) {
+export function dismountBiByeLlista(ballista, player = null, safeDisplace = false, world = null, nowSec = ballista?.poseTime ?? 0) {
   if (!ballista) return false;
   if (ballista.operatorId && (!player || ballista.operatorId === player.id)) {
     ballista.operatorId = null;
@@ -341,7 +342,8 @@ export function dismountBiByeLlista(ballista, player = null, safeDisplace = fals
   if (player && player.operatingBallistaId === ballista.id) {
     player.operatingBallistaId = null;
   }
-  ballista.heavySkill=null;endSiegeSkill(ballista);
+  ballista.heavySkill=null;
+  endSiegeSkill(ballista,nowSec);
   ballista.pendingIndependent=null;
   cancelBiByeCoupling(ballista);
   if(ballista.mobileShotPendingAt != null){ballista.mobileShotPendingAt=null;ballista.mobileFiredAt=null;ballista.upperFiredAt=null;}
@@ -591,6 +593,8 @@ function spawnShotI(room, ballista, aim, nowSec, ownerId = ballista.firingOperat
     position: muzzlePos,
     velocity: { x: dir.x * cfg.speed, y: dir.y * cfg.speed, z: dir.z * cfg.speed },
     bornAt: nowSec,
+    // Capture the Skill on physical release, not aim or target impact.
+    proximityFrost:ballista.skill?.id==='coldHowTouching'&&ballista.skill.phase==='active',
     radius: cfg.radius,
     blastRadius: cfg.blastRadius,
     directDamage: cfg.directDamage,
@@ -899,7 +903,11 @@ export function stepBiByeProjectiles(room, dt, nowSec, world = room.world, { fil
       }
     }
 
-    // Sort all candidate impacts spatially in ascending order of impact time t
+    // Proximity and real impacts compete on the same continuous swept path.
+    if(projectile.proximityFrost){
+      const near=earliestFrostProximity(room,projectile,before,after,world,nowSec,flightDt);
+      if(near)hits.push(near);
+    }
     hits.sort((a, b) => a.t - b.t);
 
     // Handle Shot I: Enchanted Frost Conditioning Bolt
@@ -921,6 +929,23 @@ export function stepBiByeProjectiles(room, dt, nowSec, world = room.world, { fil
           victimId: hitPlayer?.id ?? null,
           at: nowSec,
         });
+        if(first.kind==='proximity'){
+          room.events?.push({type:'bibyeFrostProximity',ballistaId:projectile.ballistaId,
+            projectileId:projectile.id,targetKind:first.targetKind,targetId:first.targetId,
+            point:impactPoint,at:nowSec});
+          // Explosion remains at the actual bolt; unchanged falloff and guard.
+          detonateFrostBlast(room,projectile,impactPoint,nowSec,null,world,false);
+          if(room.soFistication?.operatorId!==projectile.ownerId)
+            blastSoFistication(room,room.soFistication,{point:impactPoint,
+              radius:projectile.blastRadius,damage:projectile.directDamage},
+              projectile.ownerId,'bibye-conditioning',nowSec);
+          if(machine?.id!==projectile.ballistaId)
+            blastBiByeLlista(room,machine,{point:impactPoint,
+              radius:projectile.blastRadius,damage:projectile.directDamage},
+              projectile.ownerId,'bibye-conditioning',nowSec,world?.solids??[]);
+          frostBlastFlight(room,room.fightFlight,projectile,impactPoint,nowSec);
+          continue;
+        }
         if(first.kind==='solid')damageStructureSolid(room,first.box,projectile.directDamage,projectile.ownerId,'bibye-conditioning',nowSec,{point:impactPoint});
         if(first.kind==='ram')damageSoFistication(room,room.soFistication,projectile.directDamage,projectile.ownerId,'bibye-conditioning',nowSec,{componentId:first.box.componentId,point:impactPoint});
         if(first.kind==='flight')damageFightFlight(room,room.fightFlight,projectile.directDamage,projectile.ownerId,'bibye-conditioning',nowSec,{componentId:first.box.componentId,point:impactPoint,steelMinimum:2});
@@ -1043,6 +1068,27 @@ export function stepBiByeProjectiles(room, dt, nowSec, world = room.world, { fil
   }
 }
 
+// One damage budget across every damaged flight component; rotor blades
+// are not independent 18-HP targets within a single detonation.
+function frostBlastFlight(room,m,projectile,point,now){
+ if(!m||m.retired||m.mode==='DESTROYED'||m.operatorId===projectile.ownerId||
+   m.team&&room.players.get(projectile.ownerId)?.team===m.team)return;
+ const exposures=new Map(),radius=projectile.blastRadius;
+ for(const box of fightFlightHitVolumes(m)){
+  const d=[point.x-box.center[0],point.y-box.center[1],point.z-box.center[2]];
+  let outside=0;
+  for(let i=0;i<3;i++){
+   const projection=d.reduce((sum,x,k)=>sum+x*box.axes[i][k],0);
+   outside+=Math.max(0,Math.abs(projection)-box.size[i]/2)**2;
+  }
+  const exposure=Math.max(0,1-Math.sqrt(outside)/radius);
+  exposures.set(box.componentId,Math.max(exposures.get(box.componentId)??0,exposure));
+ }
+ const total=[...exposures.values()].reduce((a,e)=>a+e,0);
+ for(const [componentId,exposure]of exposures)if(exposure>0)
+  damageFightFlight(room,m,projectile.directDamage*exposure/Math.max(1,total),
+    projectile.ownerId,'bibye-conditioning',now,{componentId,point,steelMinimum:0});
+}
 /**
  * Detonates the Frost Conditioning blast.
  * Continuous linear damage falloff (18 -> 0 at perimeter), stamina drain, and fading chill.
@@ -1065,6 +1111,9 @@ function detonateFrostBlast(room, projectile, point, nowSec, directVictimId = nu
 
   for (const victim of room.players.values()) {
     if (!victim.alive || victim.spawnProtectionUntil > nowSec) continue;
+    // Proximity never makes the protected operator a second chassis target.
+    if(projectile.proximityFrost&&
+      (victim.operatingBallistaId||victim.operatingRamId||victim.operatingFightFlightId))continue;
     if (victim.id === projectile.ownerId) continue;
     if (areAllies(room, projectile.ownerId, victim.id)) continue;
 
@@ -1138,7 +1187,7 @@ function detonateFrostBlast(room, projectile, point, nowSec, directVictimId = nu
       // Unprotected target takes health damage
       if (rawDamage > 0) {
         applyDamage(room, projectile.ownerId, victim.id, rawDamage, 'bibye-conditioning', nowSec, null, {
-          minDamage: cfg.edgeDamage,
+          minDamage: projectile.proximityFrost&&!isDirect?0:cfg.edgeDamage,
         });
       }
 
