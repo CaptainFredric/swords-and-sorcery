@@ -21,7 +21,7 @@ export function createHighGroundsState(world) {
     })),
     scores: { [TEAMS.ATTACKERS]: 0, [TEAMS.DEFENDERS]: 0 },
     foundries: (world.siegeFoundries ?? []).map(f => ({
-      id: f.id, team: f.team, x: f.x, y: f.y, z: f.z,
+      id: f.id, team: f.team, x: f.x, y: f.y, z: f.z, spawnX: f.spawnX, spawnZ: f.spawnZ,
       heading: f.heading, machineId: null, machine: null,
       readyAt: 0, lastProducedAt: null,
     })),
@@ -84,7 +84,7 @@ export function stepHighGrounds(room, dt, now) {
   }
   // A side never gains score for neutral or merely contested territory.
   for (const team of SIDES) {
-    const held = state.sites.filter(s => s.owner === team).length;
+    const held = state.sites.filter(s => s.owner === team && !s.contested).length;
     state.scores[team] += held * validDt;
   }
   const [a,b] = SIDES.map(team => state.scores[team]);
@@ -106,7 +106,7 @@ export function finishHighGroundsOnTime(room, now) {
 export function availableHighGroundsSpawns(room, player, allSpawns) {
   const base = allSpawns.filter(s => s.team === player.team && !s.forward);
   const state = room.highGrounds;
-  if (!state || !room.matchStartedAt || room.state !== 'PLAYING') return base;
+  if (!state || room.matchStartedAt == null || room.state !== 'PLAYING') return base;
   const site = state.sites.find(s => s.forwardTeam === player.team && s.owner === player.team);
   if (!site || site.contested) return base;
   const forward = allSpawns.filter(s => s.team === player.team && s.forward);
