@@ -64,3 +64,26 @@
 @container app (max-width: 600px) and (min-height: 501px) {
   #armory-menu .armory-inner { --banner-width: calc(100cqw - 24px); left: 12px; padding: 22px 23px calc(var(--hem) + 20px); }
 }
+
+/* Siege shares the existing hanging-cloth Armory; no dormant 3D viewer. */
+.armory-tabs button { min-width: 0; }
+.siege-announcement { padding: 13px 12px; border: 1px solid rgba(201,156,82,.55);
+  background: linear-gradient(145deg,rgba(110,38,35,.24),rgba(24,20,17,.7)); }
+.siege-announcement h3 { margin: 0 0 7px; font: 400 21px/1.1 var(--font-inscription); color: var(--heraldry-brass-light); }
+.siege-announcement p { margin: 0; color: var(--heraldry-cream); font: 500 12px/1.45 var(--font-script); }
+.siege-armory-machines { display: grid; gap: 12px; margin-top: 12px; }
+.siege-armory-card { padding: 11px; border: 1px solid rgba(201,156,82,.42);
+  background: rgba(20,18,17,.52); }
+.siege-armory-heading { display: flex; align-items: center; gap: 11px; }
+.siege-armory-mark { flex: 0 0 56px; height: 54px; display: grid; place-items: center;
+  border: 2px solid rgba(232,196,130,.6); background: linear-gradient(135deg,#46392b,#27221c);
+  color: #d1ad70; font: 700 27px/1 var(--font-inscription); text-shadow: 0 2px 2px #0008; }
+.siege-armory-heading h4 { margin: 3px 0; font: 400 22px/1 var(--font-inscription); color: #f1e4c2; }
+.siege-armory-heading .armory-slot { margin: 0; }
+.siege-armory-card > p:not(.armory-slot) { margin: 9px 0 5px; font: 500 13px/1.35 var(--font-script); color: var(--heraldry-cream); }
+.siege-armory-facts { color: var(--heraldry-brass-light); font: 700 11px/1.4 var(--font-script); }
+.siege-armory-card .spell-card { grid-template-columns: 1fr auto; min-height: 56px; }
+.siege-armory-card .spell-card small { grid-column: 1 / -1; }
+.siege-armory-card .spell-card:disabled { opacity: 1; cursor: default; }
+.siege-armory-card .spell-card:disabled:hover { background: linear-gradient(180deg,var(--heraldry-iron-light),var(--heraldry-iron)); }
+@container app (max-width: 480px) { .armory-tabs button { padding: 9px 3px; font-size: 12px; letter-spacing: 0; } }

@@ -37,7 +37,7 @@ export class RenownController {
     this.error = '';
     this.inArmory = false;
     this.section = 'kit';
-    for (const section of ['kit', 'heraldry', 'challenges']) {
+    for (const section of ['kit', 'siege', 'heraldry', 'challenges']) {
       doc.querySelector(`#armory-${section}-tab`)?.addEventListener('click', () => this.selectSection(section));
     }
     // Cache is presentation only. Only server messages authorise purchases or equipment.
@@ -200,13 +200,21 @@ export class RenownController {
     this.render();
   }
   selectSection(section) {
-    if (!['kit', 'heraldry', 'challenges'].includes(section)) return;
+    if (!['kit', 'siege', 'heraldry', 'challenges'].includes(section)) return;
     const changed = this.section !== section;
     this.section = section;
-    for (const id of ['kit', 'heraldry', 'challenges']) {
+    for (const id of ['kit', 'siege', 'heraldry', 'challenges']) {
       this.doc.querySelector(`#armory-${id}`)?.classList.toggle('hidden', id !== section);
       this.doc.querySelector(`#armory-${id}-tab`)?.setAttribute('aria-pressed', String(id === section));
     }
+    const hints={
+      kit:'SCROLL FOR SPELLS AND ULTIMATES ↓',
+      siege:'SCROLL FOR ALL THREE SIEGE MACHINES ↓',
+      heraldry:'SCROLL FOR STANDARDS AND HERALDRY ↓',
+      challenges:'SCROLL FOR CHALLENGES ↓',
+    };
+    const hint=this.doc.querySelector('#armory-menu .armory-scroll-hint');
+    if(hint)hint.textContent=hints[section];
     if (changed) {
       const scroll = this.doc.querySelector('#armory-menu .armory-scroll');
       if (scroll) scroll.scrollTop = 0;

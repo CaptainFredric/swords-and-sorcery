@@ -218,6 +218,10 @@ registry
   .defineSetting({
     id: 'loadout.preparedSpells', section: 'loadout', label: 'Prepared spells', type: 'array', default: DEFAULT_PREPARED_SPELLS,
     validate: (ids) => normalizePreparedSpells(Array.isArray(ids) ? ids.find(isSpell) : 'fireball', ids),
+  })
+  .defineSetting({
+    id: 'loadout.bibyeSkill', section: 'loadout', label: 'Bi-Bye-llista Skill', type: 'choice', default: 'boltToTheOccasion',
+    options: [{value:'boltToTheOccasion',label:'Bolt to the Occasion'},{value:'coldHowTouching',label:'Cold, How Touching'}]
   });
 
 registry

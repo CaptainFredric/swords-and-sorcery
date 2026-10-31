@@ -165,7 +165,7 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
   function createNetworkPlayer(session, room, name, team = null) {
     const id = crypto.randomUUID();
     const token = crypto.randomUUID();
-    return room.addPlayer({ id, token, name, spell: session.spell, ultimate: session.ultimate, preparedSpells: session.preparedSpells, team }, now());
+    return room.addPlayer({ id, token, name, spell: session.spell, ultimate: session.ultimate, preparedSpells: session.preparedSpells, siegeLoadout: session.siegeLoadout, team }, now());
   }
 
   function joinNew(session, room, name, team = null) {

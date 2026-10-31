@@ -115,6 +115,7 @@
         <h2>ARMORY</h2>
         <nav class="armory-tabs" aria-label="Armory sections">
           <button type="button" id="armory-kit-tab" aria-pressed="true" aria-controls="armory-kit">COMBAT KIT</button>
+          <button type="button" id="armory-siege-tab" aria-pressed="false" aria-controls="armory-siege">SIEGE</button>
           <button type="button" id="armory-heraldry-tab" aria-pressed="false" aria-controls="armory-heraldry">HERALDRY</button>
           <button type="button" id="armory-challenges-tab" aria-pressed="false" aria-controls="armory-challenges">CHALLENGES</button>
         </nav>
@@ -128,6 +129,14 @@
         <div id="armory-ultimates" class="armory-spells" role="radiogroup" aria-label="Ultimate"></div>
         <div id="armory-prepared" class="hidden"></div>
         <p class="panel-copy armory-note">Equipped for your next match.</p>
+        </div>
+        <div id="armory-siege" class="hidden">
+          <div class="siege-announcement">
+            <h3>SIEGE IN PRODUCTION!</h3>
+            <p>The fourth wall still stands. Once breached, more uncreations—and the peculiar things they can do—shall be unveiled. For now, these machines are operational.</p>
+          </div>
+          <div id="armory-siege-machines" class="siege-armory-machines" aria-label="Siege equipment"></div>
+          <p class="panel-copy">Your Skill selection travels with you. Cooldowns and ammunition remain with each machine.</p>
         </div>
         <div id="armory-heraldry" class="hidden">
           <div class="heraldry-ledger">

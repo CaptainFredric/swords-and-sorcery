@@ -1,3 +1,4 @@
+import {selectedSiegeSkill} from '../src/siegeLoadout.mjs';
 import {endSiegeSkill} from './siegeSkills.mjs';
 import {SIEGE_IMPACT} from './siegeImpact.mjs';
 import {frostGuardFaces,frostParryContact} from './biByeFrostGuard.mjs';
@@ -306,6 +307,12 @@ export function mountBiByeLlista(ballista, player, nowSec = 0) {
   const dist = Math.hypot(player.position.x - ballista.x, player.position.z - ballista.z);
   if (dist > ballista.interactRadius) return false;
 
+  if(player.queuedSiegeLoadout){
+    player.siegeLoadout={...player.queuedSiegeLoadout};player.queuedSiegeLoadout=null;
+  }
+  // Only technique selection changes. In particular never recreate skill,
+  // readyAt, loading state, committed bolt, or the chassis.
+  if(ballista.skill?.phase==='idle')ballista.skill.id=selectedSiegeSkill(player,'biBye');
   ballista.operatorId = player.id;
   if (!ballista.team && player.team) ballista.team = player.team;
   player.operatingBallistaId = ballista.id;

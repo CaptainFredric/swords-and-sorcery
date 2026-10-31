@@ -302,8 +302,12 @@ export function stepPracticeSiegeOperators(room,now,world=room.world){
     if(m?.operatorId===a.id&&machine==='so-fist-ication'){
       const failed=['FL','FR','RL','RR'].filter(w=>
         (m.components?.['Wheel_'+w]?.health??0)<=0);
-      const immobilized=failed.length>=3||['L','R'].some(side=>
-        failed.filter(w=>w.endsWith(side)).length>=2);
+      // The front pair are the actual steering axle. Losing both front
+      // wheels leaves a nominally drivable chassis unable to choose a safe
+      // approach angle, so a competent pilot abandons it if egress is real.
+      const immobilized=failed.length>=3||
+        (failed.includes('FL')&&failed.includes('FR'))||
+        ['L','R'].some(side=>failed.filter(w=>w.endsWith(side)).length>=2);
       if(immobilized&&soFistExit(room,m,a))
         dismountSoFistication(room,m,a,{at:now});
     }
