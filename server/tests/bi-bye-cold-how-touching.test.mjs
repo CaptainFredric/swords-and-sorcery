@@ -21,6 +21,9 @@ function target(room,x,z,y=0){
  p.position={x,y,z};p.spawnProtectionUntil=0;p.velocity={x:0,y:0,z:0};return p;
 }
 function projectile(room,{x=0,z=0,flag=true}={}){
+ // The fired bolt survives departure or destruction of its launch carriage.
+ // Keep the source machine out of this already-airborne collision fixture.
+ room.biByeLlista=null;
  const p={id:'cold-test',subKind:'conditioning',ballistaId:'bow',ownerId:'op',
  position:{x,y:.9,z},velocity:{x:0,y:0,z:-48},bornAt:0,
  radius:.6,blastRadius:2,directDamage:18,edgeDamage:12,maxStaminaDrain:22,
