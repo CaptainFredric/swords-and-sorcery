@@ -47,9 +47,9 @@ export function requestHighGroundsMachine(room, player, type, now) {
   }
   const at = { x: f.spawnX, y: f.y, z: f.spawnZ, heading: f.heading };
   const other = [
-    ...running(room.biByeLlista) ? getBiByeSolids(room.biByeLlista) : [],
-    ...running(room.soFistication) ? soFistSolids(room.soFistication) : [],
-    ...running(room.fightFlight) ? fightFlightSolids(room.fightFlight) : [],
+    ...(running(room.biByeLlista) ? getBiByeSolids(room.biByeLlista) : []),
+    ...(running(room.soFistication) ? soFistSolids(room.soFistication) : []),
+    ...(running(room.fightFlight) ? fightFlightSolids(room.fightFlight) : []),
   ];
   let machine = null, eventType = null, revision = null;
   if (type === 'bi-bye-llista') {
