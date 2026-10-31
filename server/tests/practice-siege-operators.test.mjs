@@ -114,3 +114,16 @@ test('Competence settings change real decision cadence and aiming, not equipment
  }
  assert.ok(times[0]>times[1]&&times[1]>times[2]);
 });
+
+test('Canonical Castleward Practice spawns each hostile machine on real supported terrain',()=>{
+ for(const machine of Object.keys(SIEGE_OPERATORS)){
+  const room=new RoomManager().createSoloRoom('PRACTICE',0,'castleward');
+  const player=room.addPlayer({id:'canonical',token:'c',name:'Player'},0);
+  room.state='PLAYING';player.spawnProtectionUntil=0;
+  const result=applyRoomCommand(room,player,{type:'practiceSiegeOpponent',
+    action:'spawn',machine,difficulty:'skilled'},2);
+  assert.deepEqual(result,{},`${machine}: ${result.rejected??'failed'}`);
+  const def=SIEGE_OPERATORS[machine],vehicle=room[def.field];
+  assert.ok(vehicle?.operatorId&&room.players.get(vehicle.operatorId)?.alive);
+ }
+});
