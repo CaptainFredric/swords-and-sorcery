@@ -57,6 +57,7 @@ export class InputController {
     this.flightFireSources = new Set();
     this.flightDashSources = new Set();
     this.flightUltimateSources=new Set();
+    this.flightEjectHeld=false;
     this.ballistaSkillPhase = 'idle';
     this.attackHeld = false;
     this.guardHeld = false;
@@ -98,6 +99,7 @@ export class InputController {
         this.flightDash(false, 'touch');
         this.flightUltimate(false, 'key');
         this.flightUltimate(false, 'touch');
+        this.flightEject(false,true);
         this.setAttack(false, 'mouse');
       }
       this._mountedFlight = next;
@@ -126,6 +128,7 @@ export class InputController {
   #press(code, repeat = false) {
     const action = this.actionOf.get(code);
     if (!action || repeat || HELD.has(action) || MENU_ACTIONS.has(action)) return;
+    if(this.mountedFlight&&action==='interact'){this.flightEject(true);return;}
     if(this.mountedFlight&&action==='siegeWeapon'){this.flightFire(true,'key');return;}
     if(this.mountedFlight&&action==='dash'){this.flightDash(true,'key');return;}
     if(this.mountedFlight&&action==='ultimate'){this.flightUltimate(true,'key');return;}
@@ -140,6 +143,7 @@ export class InputController {
     const action = this.actionOf.get(code);
     if (HELD.has(action) && !this.held(action)) this.gateHeldAction(action, false, 'desktop');
     if (!action || HELD.has(action) || MENU_ACTIONS.has(action)) return;
+    if(action==='interact'&&this.flightEjectHeld){this.flightEject(false);return;}
     if(this.mountedFlight&&action==='siegeWeapon'){this.flightFire(false,'key');return;}
     if(this.mountedFlight&&action==='dash'){this.flightDash(false,'key');return;}
     if(this.mountedFlight&&action==='ultimate'){this.flightUltimate(false,'key');return;}
@@ -414,6 +418,7 @@ export class InputController {
     // Losing pointer lock or backgrounding a touch arena must not leave a remote
     // machine's repeating trigger latched. A release is legitimate even after
     // `enabled` has already become false.
+    if(this.flightEjectHeld)this.flightEject(false,true);
     if(this.flightFireSources.size){this.flightFireSources.clear();this.socket?.send?.({type:'fightFlightFire',down:false});}
     if(this.flightDashSources.size){this.flightDashSources.clear();this.socket?.send?.({type:'flightDash',down:false});}
     if(this.flightUltimateSources.size){this.flightUltimateSources.clear();this.socket?.send?.({type:'flightUltimateHold',down:false,cancel:true});}
@@ -544,6 +549,13 @@ export class InputController {
 
   siegeSkill() {
     if(this.enabled&&this.allowAction?.('siegeSkill')!==false)this.socket?.send?.({type:'siegeSkill'});
+  }
+
+  flightEject(down,cancel=false){
+    if(down&&(!this.enabled||!this.mountedFlight||this.flightEjectHeld))return;
+    if(!down&&!this.flightEjectHeld)return;
+    this.flightEjectHeld=Boolean(down);
+    this.socket?.send?.({type:'flightEject',down:Boolean(down),...(cancel?{cancel:true}:{})});
   }
 
   flightUltimate(down,source='touch') {

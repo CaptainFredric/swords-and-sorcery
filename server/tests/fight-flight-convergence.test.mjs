@@ -116,12 +116,12 @@ test('Mounted normal sword attack suspends repeater fire; active Chivalry permit
   pilot.attackActive = true;
   requestFightFlightFire(room, m, pilot, true, 1);
   assert.equal(room.fightFlightProjectiles.size, 0, 'no bolt released while ordinary sword is swinging');
-  assert.equal(m.ammo, 14, 'ammo unspent');
+  assert.equal(m.ammo, FLIGHT_REPEATER.capacity, 'ammo unspent');
 
   // Activate Chivalry
   pilot.ultimate = 'chivalry';
   pilot.ultimateState = { id: 'chivalry', phase: 'active', at: 1, until: 15 };
   requestFightFlightFire(room, m, pilot, true, 1.1);
   assert.equal(room.fightFlightProjectiles.size, 1, 'bolt released under Chivalry');
-  assert.equal(m.ammo, 13, 'ammo spent under Chivalry');
+  assert.equal(m.ammo, FLIGHT_REPEATER.capacity - 1, 'ammo spent under Chivalry');
 });

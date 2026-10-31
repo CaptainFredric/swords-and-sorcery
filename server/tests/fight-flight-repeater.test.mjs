@@ -23,18 +23,18 @@ test('2/s fractional production repays true debt before storing an available bol
  assert.equal(m.ammoDebt,0);assert.equal(m.ammo,0);
  for(let i=0;i<15;i++)advanceFlightAmmo(m,1/30);
  assert.equal(m.ammo,1);assert.ok(Math.abs(m.ammoProduction)<1e-8);
- m.ammo=14;advanceFlightAmmo(m,3);assert.equal(m.ammo,14);assert.equal(m.ammoProduction,0);
+ m.ammo=FLIGHT_REPEATER.capacity;advanceFlightAmmo(m,3);assert.equal(m.ammo,FLIGHT_REPEATER.capacity);assert.equal(m.ammoProduction,0);
 });
 test('Held repeater fires at most seven actual physical bolts per second, never double-spends ammo',()=>{
  const {room,p,m}=setup();
  assert.equal(requestFightFlightFire(room,m,p,true,1),true);
- assert.equal(m.ammo,13);assert.equal(room.fightFlightProjectiles.size,1);
+ assert.equal(m.ammo,17);assert.equal(room.fightFlightProjectiles.size,1);
  assert.equal(requestFightFlightFire(room,m,p,true,1),true);
- assert.equal(m.ammo,13,'second same-clock press cannot release another bolt');
+ assert.equal(m.ammo,17,'second same-clock press cannot release another bolt');
  for(let i=1;i<=30;i++)stepFightFlightWeapons(room,m,1/30,1+i/30);
  assert.equal(room.fightFlightProjectiles.size,8,'initial release plus seven subsequent releases through one second');
- assert.equal(m.ammo,8,'eight fired less two passively regenerated');
- assert.ok(m.ammo>=0&&m.ammo<=14);
+ assert.equal(m.ammo,12,'eight fired less two passively regenerated');
+ assert.ok(m.ammo>=0&&m.ammo<=FLIGHT_REPEATER.capacity);
  requestFightFlightFire(room,m,p,false,2.1);
  for(let i=1;i<=90;i++)stepFightFlightWeapons(room,m,1/30,2.1+i/30);
  assert.equal(room.fightFlightProjectiles.size,8,'releasing trigger stops actual projectile creation');
@@ -72,11 +72,11 @@ test('unmounted foreign operator cannot fire or counterfeit ammo; projectiles re
  const {room,p,m}=setup();
  const other=room.addPlayer({id:'impostor',token:'imp',name:'Impostor'},0);
  assert.ok(applyRoomCommand(room,other,{type:'fightFlightFire',down:true,ammo:999},1).rejected);
- assert.equal(m.ammo,14);
+ assert.equal(m.ammo,FLIGHT_REPEATER.capacity);
  assert.deepEqual(applyRoomCommand(room,p,{type:'fightFlightFire',down:true,ammo:999},1),{});
- assert.equal(m.ammo,13);
+ assert.equal(m.ammo,17);
  const snap=serializeSnapshot(room,1);
- assert.equal(snap.fightFlight.ammo,13);
+ assert.equal(snap.fightFlight.ammo,17);
  assert.equal(snap.fightFlightProjectiles.length,1);
  assert.ok(snap.fightFlightProjectiles[0].velocity.z<0);
 });

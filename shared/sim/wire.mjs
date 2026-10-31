@@ -404,6 +404,19 @@ export function applyRoomCommand(room, player, message, time) {
     case 'dash':
       if(player.operatingFightFlightId)return {rejected:'Hold Dash to initiate Flight to the Valkyrie.'};
       tryDash(room, player.id, message.direction || { x: 0, z: -1 }, time); return {};
+    case 'flightEject': {
+      const m=room.fightFlight;
+      if(!m||!player.alive||m.operatorId!==player.id||player.operatingFightFlightId!==m.id)
+        return {rejected:'Operate Fight-and-Flight before ejecting.'};
+      if(m.terminalDive)return {rejected:'A committed terminal dive cannot be abandoned.'};
+      if(message.cancel){m.ejectHoldStartedAt=null;m.emergencyBrakeActive=false;return {};}
+      if(message.down){if(m.ejectHoldStartedAt==null)m.ejectHoldStartedAt=time;return {};}
+      if(m.ejectHoldStartedAt==null)return {rejected:'An ejection press must precede release.'};
+      if(time-m.ejectHoldStartedAt>=.35){m.rotorPowered=false;m.emergencyBrakeActive=true;}
+      m.ejectHoldStartedAt=null;
+      if(!dismountFightFlight(room,m,player,{at:time})){m.emergencyBrakeActive=false;return {rejected:'No clear ejection corridor.'};}
+      return {};
+    }
     case 'flightDash': {
       const ok=requestFlightDash(room,room.fightFlight,player,Boolean(message.down),time);
       return ok?{}:{rejected:'Operate Fight-and-Flight to use Flight to the Valkyrie.'};
@@ -493,7 +506,7 @@ export function applyRoomCommand(room, player, message, time) {
       return reason?{rejected:reason}:{};
     }
     case 'siegeOperate': {
-      if(player.operatingFightFlightId){return dismountFightFlight(room,room.fightFlight,player,{at:time})?{}:{rejected:'Land on open ground before leaving Fight-and-Flight.'};}
+      if(player.operatingFightFlightId){return dismountFightFlight(room,room.fightFlight,player,{at:time})?{}:{rejected:'No clear ejection corridor.'};}
       if(player.operatingRamId){return dismountSoFistication(room,room.soFistication,player,{at:time})?{}:{rejected:'No safe exit. Move onto supported open ground.'};}
       if(player.operatingBallistaId)return applyRoomCommand(room,player,{type:'bibyeOperate'},time);
       const ram=room.soFistication,b=room.biByeLlista,f=room.fightFlight;

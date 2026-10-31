@@ -100,7 +100,7 @@ test('Mr. Donte Shoot takes off, maneuvers and fires finite physical repeater bo
  assert.notEqual(f.z,z,'machine actually translates');
  assert.ok(room.events.some(e=>e.type==='fightFlightBoltReleased'),'repeater releases real projectiles');
  assert.ok(f.flightCharge<100,'ascent or hover has a real charge cost');
- assert.ok(f.ammo<=14&&f.ammo>=0);
+ assert.ok(f.ammo<=18&&f.ammo>=0);
  assert.ok(room.events.some(e=>e.type==='damage'&&e.victimId==='human'&&
    e.source==='fight-flight-repeater'),
    'Mr. Donte Shoot must hit the actual player with a physical repeater quarrel');
@@ -129,7 +129,7 @@ test('Competence settings change real decision cadence and aiming, not equipment
   stepPracticeActors(room,2.1,room.world);
   times.push(a.siegeAi.nextThinkAt);
   assert.equal(f.maxFlightCharge,100);
-  assert.ok(f.ammo>=0&&f.ammo<=14,'a skilled pilot uses finite ammunition');
+  assert.ok(f.ammo>=0&&f.ammo<=18,'a skilled pilot uses finite ammunition');
   assert.equal(f.health,250);
  }
  assert.ok(times[0]>times[1]&&times[1]>times[2]);
@@ -176,4 +176,21 @@ test('Immobilized ram pilot uses a physical safe exit rather than teleporting or
   assert.deepEqual(p.position,before);
  }
  assert.ok(p.alive&&room.players.has(p.id));
+});
+
+
+test('Hostile flight deployment rejects a low canopy which clears the grounded chassis but prevents actual takeoff',()=>{
+ const {room,command}=setup();
+ // The roof begins above the standing 2.65m chassis, but before flight can
+ // reach even a few metres. Previously a valid construction site trapped Donte.
+ const roof={id:'market-canopy',center:[0,3.5,-10],size:[6,1,6]};
+ room.world.solids.push(roof);
+ assert.deepEqual(command('spawn','fight-and-flight','formidable'),{});
+ const m=room.fightFlight;
+ const roofNear=Math.abs(m.x-roof.center[0])<roof.size[0]/2+1.35&&
+   Math.abs(m.z-roof.center[2])<roof.size[2]/2+1.35;
+ assert.equal(roofNear,false,'hostile flight spawns beyond the roof and rotor swept footprint');
+ advance(room,2,8);
+ assert.ok(Number.isFinite(m.takeoffAt)&&m.takeoffAt>=2,'bot must genuinely attempt powered takeoff');
+ assert.ok(room.events.some(e=>e.type==='fightFlightBoltReleased'),'new open site permits physical repeater fire');
 });

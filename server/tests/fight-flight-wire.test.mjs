@@ -27,7 +27,7 @@ test('Practice -> operate -> network snapshot -> authoritative real flying movem
  assert.ok(snap.fightFlight.y>0);
  assert.equal(snap.players.find(p=>p.id==='pilot').operatingFightFlightId,m.id);
  assert.ok(m.flightCharge<100);
- assert.ok(s.do('siegeOperate').rejected,'airborne exit must be rejected');
+ assert.equal(m.operatorId,s.p.id,'pilot remains until an explicit eject command');
  assert.deepEqual(s.do('input',{jump:false,crouch:true,yaw:0,forward:0}),{});
  for(let i=70;i<220;i++)stepRoom(s.room,1/30,(i+1)/30,s.room.world);
  assert.ok(m.grounded,'descent must re-establish ground contact');

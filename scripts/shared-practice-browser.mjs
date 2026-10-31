@@ -94,9 +94,15 @@ try{
  await guest.send('Input.dispatchMouseEvent',{type:'mousePressed',x:640,y:420,button:'left',clickCount:1});
  await waitFor(()=>host.evaluate("(() => {const r=window.__ssRuntime,p=r.latestSnapshot.players.find(p=>p.id==='"+guestRoom.id+"');return Boolean(p&&(p.attackActive||p.attackCommitted>0));})()"),'host observes guest melee action',110);
  await guest.send('Input.dispatchMouseEvent',{type:'mouseReleased',x:640,y:420,button:'left',clickCount:1});
- await host.send('Input.dispatchMouseEvent',{type:'mousePressed',x:640,y:420,button:'right',clickCount:1});
+ await host.send('Input.dispatchMouseEvent',{type:'mousePressed',x:640,y:420,button:'left',clickCount:1});
  await waitFor(()=>guest.evaluate("Boolean(window.__ssRuntime?.latestSnapshot?.fightFlight?.shotSeq>0)"),'guest sees host fire real network repeater',140);
+ await host.send('Input.dispatchMouseEvent',{type:'mouseReleased',x:640,y:420,button:'left',clickCount:1});
+ // A real second client must observe mounted RMB sword input without a phantom bolt.
+ const beforeSwordShot=await guest.evaluate("window.__ssRuntime?.latestSnapshot?.fightFlight?.shotSeq");
+ await host.send('Input.dispatchMouseEvent',{type:'mousePressed',x:640,y:420,button:'right',clickCount:1});
+ await waitFor(()=>guest.evaluate("(() => {const r=window.__ssRuntime,p=r?.latestSnapshot?.players?.find(p=>p.id==='"+hostRoom.id+"');return Boolean(p&&(p.attackActive||p.attackCommitted>0));})()"),'guest sees genuine mounted sword state',110);
  await host.send('Input.dispatchMouseEvent',{type:'mouseReleased',x:640,y:420,button:'right',clickCount:1});
+ assert.equal(await guest.evaluate("window.__ssRuntime?.latestSnapshot?.fightFlight?.shotSeq"),beforeSwordShot,'mounted RMB sword must not fire repeating crossbow');
  const result={roomCode:hostRoom.code,host:hostRoom.id,guest:guestRoom.id,hostAndGuestInSameRoom:true,
   machine:await guest.evaluate("(() => {const m=window.__ssRuntime?.latestSnapshot?.fightFlight;return {id:m.id,operatorId:m.operatorId,shotSeq:m.shotSeq,ammo:m.ammo};})()"),
   players:await host.evaluate("window.__ssRuntime?.latestSnapshot?.players?.filter(p=>p.actorKind==='human').map(p=>({id:p.id,position:p.position,attackCommitted:p.attackCommitted}))"),

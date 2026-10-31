@@ -37,7 +37,7 @@ test('Powered ascent costs more charge than hover; controlled descent can land',
   assert.ok(m.y>1,'the apparatus actually ascends, not a flight flag');
   assert.ok(m.flightCharge<96,'ascent draws charge');
   assert.equal(m.mode,'AIRBORNE');
-  assert.equal(dismountFightFlight(room,m,operator),false,'midair dismount must be rejected');
+  assert.ok(fightFlightExit(room,m,operator),'midair departure has a collision-checked direction');
   const climbCharge=m.flightCharge;
   step(room,m,2,25,{jump:false,crouch:false});
   assert.ok(m.flightCharge<climbCharge&&m.flightCharge>0,'hover has a real cost');

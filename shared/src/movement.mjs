@@ -255,6 +255,7 @@ export function movePlayer(previous, input, dt, nowSec, world) {
     state.position.y = ground;
     state.velocity.y = 0;
     state.grounded = true;
+    state.ejectionFallExempt = false;
   } else if (ground === null || state.position.y > ground + 0.001) {
     state.grounded = false;
   }

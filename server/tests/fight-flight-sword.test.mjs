@@ -1,3 +1,4 @@
+import {FLIGHT_REPEATER} from '../../shared/src/flightRepeaterAim.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Room} from '../../shared/sim/Room.mjs';
@@ -32,7 +33,7 @@ test('Ordinary flight sword and repeater cannot attack simultaneously, but relea
  const {room,a,m}=setup();
  assert.equal(beginAttack(room,a.id,10),true);
  assert.equal(requestFightFlightFire(room,m,a,true,10.01),true);
- assert.equal(m.ammo,14,'no shot during ongoing sword animation');
+ assert.equal(m.ammo,FLIGHT_REPEATER.capacity,'no shot during ongoing sword animation');
  stepRoom(room,.01,10.4,world);
  assert.equal(room.events.filter(e=>e.type==='fightFlightBoltReleased').length,0);
  endAttack(room,a.id,10.5);
@@ -70,7 +71,7 @@ test('Grounded Guard remains real and suppresses ordinary firing; airborne Guard
  assert.deepEqual(applyRoomCommand(room,a,{type:'guard',down:true},10),{});
  assert.equal(a.guarding,true,JSON.stringify({state:room.state,guardStamina:a.guardStamina,staggerUntil:a.staggerUntil,guardBrokenUntil:a.guardBrokenUntil,ultimateState:a.ultimateState,grounded:m.grounded,operatorId:m.operatorId,guardHeld:a.guardHeld,guardButton:a.guardButton,events:room.events.slice(-3)}));
  assert.equal(requestFightFlightFire(room,m,a,true,10.01),true);
- assert.equal(m.ammo,14);
+ assert.equal(m.ammo,FLIGHT_REPEATER.capacity);
  m.grounded=false;m.mode='AIRBORNE';m.y=3;
  assert.deepEqual(applyRoomCommand(room,a,{type:'guard',down:true},10.1),{});
  stepRoom(room,.01,10.11,world);
