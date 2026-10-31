@@ -451,7 +451,8 @@ export class Room {
     this.structures = createStructureState(world, (this.structures?.revision ?? 0) + 1);
     this.projectiles.clear();this.ruptures=[];this.teamMarks=[];
     this.soFistication=null;this.soFistRevision++;
-    this.fightFlight=null;this.fightFlightRevision++;this.fightFlightProjectiles=new Map();this.flightBurnZones=[];this.flightBurnZones=[];
+    this.fightFlight=null;this.fightFlightRevision++;this.fightFlightProjectiles=new Map();
+    this.flightBurnZones=[];this.flightBurnZones=[];
     this.biByeLlista=world.ballistaEmplacement?createBiByeLlista(world.ballistaEmplacement):null;
     this.biByeRevision=(this.biByeRevision??0)+1;this.bibyeProjectiles=new Map();
     this.botsProvisioned=false;this.autoStartAt=null;
@@ -905,7 +906,7 @@ export class Room {
     this.structures = createStructureState(baseWorld, (this.structures?.revision ?? 0) + 1);
     this.soFistication = null;
     this.soFistRevision++;
-    this.fightFlight=null;this.fightFlightRevision++;this.fightFlightProjectiles=new Map();
+    this.fightFlight=null;this.fightFlightRevision++;this.fightFlightProjectiles=new Map();this.flightBurnZones=[];
     if (this.policy.teamMode) {
       for (const emplacement of baseWorld.siegeEmplacements ?? []) {
         if (emplacement.type !== 'so-fist-ication' || !emplacement.phases.includes(this.objectiveState.phase)) continue;
