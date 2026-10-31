@@ -3,8 +3,9 @@ import {stepFightFlight,dismountFightFlight,fightFlightSolids} from './fightFlig
 import {stepFightFlightWeapons,stepFightFlightProjectiles} from './fightFlightWeapons.mjs';
 import {stepFightFlightSkill} from './fightFlightSkill.mjs';
 import {stepFlightRun} from './fightFlightRun.mjs';
-import {stepTerminalPreparation,advanceTerminalFlight,resolveTerminalFlight,stepFlightBurnZones} from './fightFlightTerminal.mjs';
+import {stepTerminalPreparation,advanceTerminalFlight,resolveTerminalFlight,stepFlightBurnZones,terminalFlightSteps} from './fightFlightTerminal.mjs';
 import {stepFightFlightRotor} from './fightFlightRotor.mjs';
+import {fightFlightHitVolumes,damageFightFlight} from './fightFlightComponents.mjs';
 import { galeDose } from '../src/galeDamage.mjs';
 import { galeProfile, galeLift, sustainGaleRecoil } from '../src/galeModes.mjs';
 import { structureWorld, damageStructureSolid } from './structures.mjs';
@@ -772,7 +773,11 @@ function sweepStrike(room, player, nowSec, world) {
   if (!live) return;
   const window = strikeWindow(player, live.strike, live.slam);
   const until = Math.min(nowSec, window.to);
-  const solids = [...(world.solids ?? []), ...biByeHitVolumes(room.biByeLlista, nowSec), ...soFistVolumes(room.soFistication,nowSec)];
+  // Incoming blades must actually meet rotor/braces/chassis before a covered
+  // rider. The mounted knight may swing *out* through their own hardware.
+  const flightCover=room.fightFlight?.operatorId===player.id?[]:fightFlightHitVolumes(room.fightFlight);
+  const solids = [...(world.solids ?? []), ...biByeHitVolumes(room.biByeLlista, nowSec),
+    ...soFistVolumes(room.soFistication,nowSec),...flightCover];
   const blade = live.slam ? SLAM_STRIKE : live.strike;
   while (player.attackSweep === live && live.sampledTo < until - 1e-9) {
     const at = Math.min(until, nextSample(window, live.sampledTo));
@@ -814,7 +819,12 @@ function sweepStrike(room, player, nowSec, world) {
       if (met.solid.componentId) {
         const quality = aimQuality(Math.acos(Math.max(-1,Math.min(1,met.direction.x*frame.forward.x+met.direction.y*frame.forward.y+met.direction.z*frame.forward.z))) * 180/Math.PI);
         const ram=met.solid.id?.startsWith('sofist-');
-        (ram?damageSoFistication:damageBiByeLlista)(room,ram?room.soFistication:room.biByeLlista,swordDamage({quality,level:live.ruptures?DAMAGE_LEVELS.elevated:DAMAGE_LEVELS.normal}),player.id,'sword',nowSec,{componentId:met.solid.componentId,point:met.point,material:met.solid.material});
+        const flight=met.solid.id?.startsWith('fight-flight-');
+        const damage=swordDamage({quality,level:live.ruptures?DAMAGE_LEVELS.elevated:DAMAGE_LEVELS.normal});
+        (flight?damageFightFlight:ram?damageSoFistication:damageBiByeLlista)(
+          room,flight?room.fightFlight:ram?room.soFistication:room.biByeLlista,
+          damage,player.id,'sword',nowSec,
+          {componentId:met.solid.componentId,point:met.point,material:met.solid.material});
       }
       damageStructureSolid(room,met.solid,swordDamage({quality:aimQuality(Math.acos(Math.max(-1,Math.min(1,met.direction.x*frame.forward.x+met.direction.y*frame.forward.y+met.direction.z*frame.forward.z)))*180/Math.PI),level:live.ruptures?DAMAGE_LEVELS.elevated:DAMAGE_LEVELS.normal}),player.id,'sword',nowSec,{point:met.point});
       // a snag: the blade caught on some small incidental furnishing as it came round, not driven at it (SNAG)
@@ -1200,7 +1210,7 @@ export function killPlayer(room, victimId, attackerId, source, nowSec) {
     victim.terminalRespawnDeferredFor=diver.id;
     // A finite failsafe protects reconnects and corrupted/unresolved dive state;
     // normal resolution replaces this deadline with a fresh post-impact respawn.
-    victim.respawnAt=Math.max(nowSec,diver.terminalDive.expiresAt)+(room.policy?.respawnSec??RESPAWN_SEC)+1;
+    victim.respawnAt=Math.max(nowSec,diver.terminalDive.expiresAt+30)+(room.policy?.respawnSec??RESPAWN_SEC);
   }
   const playing = room.state === 'PLAYING';
   if (playing && room.policy?.teamMode && credited && credited !== victimId) {
@@ -2329,12 +2339,26 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
   if(room.fightFlight && (!isOthersFreeze || room.fightFlight.operatorId === activeActorId)){
     stepTerminalPreparation(room,room.fightFlight,nowSec);
     stepFlightRun(room,room.fightFlight,dt,nowSec);
-    advanceTerminalFlight(room,room.fightFlight,dt,nowSec);
-    stepFightFlight(room,room.fightFlight,dt,nowSec,world);
-    resolveTerminalFlight(room,room.fightFlight,nowSec);
-    stepFightFlightSkill(room,room.fightFlight,nowSec);
-    stepFightFlightWeapons(room,room.fightFlight,dt,nowSec);
-    stepFightFlightRotor(room,room.fightFlight,dt,nowSec);
+    const flight=room.fightFlight,dive=flight.terminalDive;
+    if(dive&&!dive.resolved){
+      // At 30Hz multiplayer advances one frame. A throttled solo browser can
+      // skip wall-clock seconds while still delivering fixed 1/30s host ticks.
+      // Catch up ONLY the committed machine's physical trajectory; never allow
+      // its five-second fuse to outrun its actual displacement.
+      const frames=terminalFlightSteps(dive,nowSec,dt);
+      for(let i=0;i<frames&&!dive.resolved;i++){
+        const physicsNow=dive.startedAt+(dive.simulatedSec??0)+dt;
+        advanceTerminalFlight(room,flight,dt,physicsNow);
+        stepFightFlight(room,flight,dt,physicsNow,world);
+        stepFightFlightRotor(room,flight,dt,physicsNow);
+        resolveTerminalFlight(room,flight,nowSec);
+      }
+    }else{
+      stepFightFlight(room,flight,dt,nowSec,world);
+      stepFightFlightRotor(room,flight,dt,nowSec);
+    }
+    stepFightFlightSkill(room,flight,nowSec);
+    stepFightFlightWeapons(room,flight,dt,nowSec);
     const op=room.players.get(room.fightFlight.operatorId);if(op)recordTransform(op,nowSec);
   }
   if(room.soFistication && (!isOthersFreeze || room.soFistication.operatorId === activeActorId)){stepSoFistication(room,room.soFistication,dt,nowSec,world);const op=room.players.get(room.soFistication.operatorId);if(op)recordTransform(op,nowSec);}

@@ -3228,7 +3228,11 @@ export class GameRuntime {
       const driver=flightPose.operatorId===this.localAuth?.id?this.remotePlayers.self:this.remotePlayers.rigs.get(flightPose.operatorId);
       if(driver?.root?.visible){
         driver.root.position.set(flightPose.x,flightPose.y,flightPose.z);
-        driver.root.rotation.set(0,flightPose.heading,0);
+        // The fitted Spellblade pitches with the worn apparatus, including the
+        // committed Valkyrie dive; his arm IK continues targeting its real grip.
+        // The character faces -Z while the authored chassis faces +Z, so their
+        // forward/downward local pitch signs are opposite.
+        driver.root.rotation.set(-(flightPose.runPitch??0),flightPose.heading,0,'YXZ');
         if(this.flightRenderer.model)driver.visualInstance?.animator?.applyFightFlight(this.flightRenderer.getOperatorGrips());
       }
     }

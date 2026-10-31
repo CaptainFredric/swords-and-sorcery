@@ -3,10 +3,14 @@ import {createFightFlight,dismountFightFlight,fightFlightExit} from './fightFlig
 import {resolvePlayerWorld,surfaceHeightAt} from '../src/collision.mjs';
 import {getBiByeSolids} from './biByeLlista.mjs';
 import {soFistSolids} from './soFistGeometry.mjs';
-const clear=(room,p,ignoreId)=> {
+export const fightFlightConstructionClear=(room,p,ignoreId)=> {
   const solids=[...(room.world.solids??[]),...getBiByeSolids(room.biByeLlista),...soFistSolids(room.soFistication)];
   const q=resolvePlayerWorld(p,.9,solids,2.65);
+  // A clear chassis is not enough: rotating blades sweep 1.32 m from the
+  // hub at Y=2.18. Reject rebuild locations that would spawn in masonry.
+  const rotor=resolvePlayerWorld({x:p.x,y:p.y+1.95,z:p.z},1.35,solids,.5);
   return Math.hypot(q.x-p.x,q.z-p.z)<.015 &&
+    Math.hypot(rotor.x-p.x,rotor.z-p.z)<.015 &&
     ![...room.players.values()].some(a=>a.alive&&a.id!==ignoreId&&Math.hypot(a.position.x-p.x,a.position.z-p.z)<2);
 };
 export function practiceFightFlight(room,player,action,now){
@@ -31,7 +35,7 @@ export function practiceFightFlight(room,player,action,now){
         const z=old?anchor.z-Math.sin(heading)*side:anchor.z-Math.cos(heading)*d-Math.sin(heading)*side;
         const y=surfaceHeightAt(x,z,anchor.y+1.4,room.world);
         if(y===null||Math.abs(y-anchor.y)>1.4)continue;
-        const p={x,y,z};if(!clear(room,p,old?.operatorId))continue;
+        const p={x,y,z};if(!fightFlightConstructionClear(room,p,old?.operatorId))continue;
         const temp=createFightFlight({...p,heading});
         // A mountable machine must have room to dismount again.
         if(!fightFlightExit(room,temp,player))continue;

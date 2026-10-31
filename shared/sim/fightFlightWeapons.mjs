@@ -14,21 +14,9 @@ import {GAME} from '../src/combat.mjs';
 import {combatActionPolicy} from '../src/combatActionPolicy.mjs';
 import {fightFlightSkillActive} from './fightFlightSkill.mjs';
 
-export const FLIGHT_REPEATER=Object.freeze({capacity:14,production:2,fireRate:7,speed:64,
-  lifespan:2.4,falloff:22,closeDamage:4,farDamage:2,guardStamina:8,guardArc:100,
-  maxTraverse:Math.PI*25/180,maxPitch:Math.PI*20/180,minPitch:-Math.PI*20/180,radius:.065});
+import {FLIGHT_REPEATER,flightMuzzle,flightDirection,flightRepeaterAim} from '../src/flightRepeaterAim.mjs';
+export {FLIGHT_REPEATER,flightMuzzle,flightDirection,flightRepeaterAim} from '../src/flightRepeaterAim.mjs';
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
-const angle=x=>Math.atan2(Math.sin(x),Math.cos(x));
-export function flightMuzzle(m,{yaw=m.heading,pitch=0}={}){
-  // The exported crossbow body rotates at local [+0.65,+1.05,+0.22];
-  // the named muzzle is [+0.0,+0.048,+0.585] relative to that pivot.
-  const relative=clamp(angle(yaw-m.heading),-FLIGHT_REPEATER.maxTraverse,FLIGHT_REPEATER.maxTraverse);
-  const elevation=clamp(pitch,FLIGHT_REPEATER.minPitch,FLIGHT_REPEATER.maxPitch);
-  const lx=.65+Math.sin(relative)*Math.cos(elevation)*.585;
-  const lz=.22+Math.cos(relative)*Math.cos(elevation)*.585;
-  const c=Math.cos(m.heading),s=Math.sin(m.heading);
-  return {x:m.x-lx*c-lz*s,y:m.y+1.098+Math.sin(elevation)*.585,z:m.z+lx*s-lz*c};
-}
 export function advanceFlightAmmo(m,dt){
   if(!(dt>0)||!m||m.mode==='DESTROYED')return;
   // Production first repays actual debt from previously delivered Skill bolts.
@@ -48,16 +36,13 @@ function release(room,m,p,now){
   if(!validOperator(room,m,p)||now+1e-8<(m.nextShotAt??0))return false;
   // The ordinary sword and repeater cannot hit simultaneously. Chivalry is the
   // explicitly permitted exception when sword combat is integrated.
-  if((p.attackActive||p.guarding)&&!combatActionPolicy(p,now).concurrent)return false;
+  const swordBusy=Boolean(p.attackActive||p.attackSweep||p.attackHeld||p.attackQueued||
+    now+1e-8<(p.attackRestartAt??-Infinity));
+  if((swordBusy||p.guarding)&&!combatActionPolicy(p,now).concurrent)return false;
   const borrowed=m.ammo<1;
   if(borrowed&&!fightFlightSkillActive(m,now))return false;
-  const yaw=(m.heading??0)+clamp(angle((p.input?.yaw??m.heading)-m.heading),-FLIGHT_REPEATER.maxTraverse,FLIGHT_REPEATER.maxTraverse);
-  // A terminal commitment pitches the entire machine downward. Its mounted
-  // crossbow can traverse down, not aim upward independently of the dive.
-  const freePitch=clamp(p.input?.pitch??0,FLIGHT_REPEATER.minPitch,FLIGHT_REPEATER.maxPitch);
-  const pitch=m.terminalDive?Math.min(freePitch,-Math.max(.18,(m.runPitch??.34)*.55)):freePitch;
-  const cp=Math.cos(pitch),origin=flightMuzzle(m,{yaw,pitch});
-  const unit={x:-Math.sin(yaw)*cp,y:Math.sin(pitch),z:-Math.cos(yaw)*cp};
+  const {yaw,pitch}=flightRepeaterAim(m,{...p.input,yaw:m.terminalDive?.heading??p.input?.yaw});
+  const origin=flightMuzzle(m,{yaw,pitch}),unit=flightDirection(m,{yaw,pitch});
   if(borrowed){
     // Only an extra projectile ACTUALLY released incurs an integer loan.
     // Never consume a loaded round twice or reward a zero-shot activation.
@@ -125,7 +110,7 @@ export function stepFightFlightProjectiles(room,dt,now,world=room.world,{filterO
     if(first){
       const point=first.point,damage=q.dist+delta*first.t<=FLIGHT_REPEATER.falloff?FLIGHT_REPEATER.closeDamage:FLIGHT_REPEATER.farDamage;
       if(first.kind==='player'){
-        const p=first.player;
+        const p=first.player,healthBefore=p.health;
         // A real frontal/vertical guard zone, not a spherical immunity bubble.
         const height=postureOf(p).height,dy=point.y-p.position.y;
         const frontal=frostGuardFaces(p,point,q.velocity,true,FLIGHT_REPEATER.guardArc);
@@ -138,9 +123,11 @@ export function stepFightFlightProjectiles(room,dt,now,world=room.world,{filterO
           p.guardStamina=Math.max(0,p.guardStamina-FLIGHT_REPEATER.guardStamina);
           p.lastGuardDrainAt=now;
           if(p.guardStamina<=0)breakGuard(p,GAME.guardBreakStaggerMs/1000,now);
-        }else applyDamage(room,q.ownerId,p.id,damage,'fight-flight-repeater',now);
+        }else applyDamage(room,q.ownerId,p.id,damage,'fight-flight-repeater',now,null,
+          {minDamage:FLIGHT_REPEATER.farDamage});
         room.events.push({type:'fightFlightBoltImpact',machineId:q.machineId,projectileId:q.id,
-          victimId:p.id,point,hitKind:parried?'parry':defended?'guard':'player',damage:defended?0:damage,at:now});
+          victimId:p.id,point,hitKind:parried?'parry':defended?'guard':'player',
+          damage:defended?0:Math.max(0,healthBefore-p.health),at:now});
       }else{
         if(first.kind==='wall')damageStructureSolid(room,first.solid,damage,q.ownerId,'fight-flight-repeater',now,{point});
         if(first.kind==='ballista')damageBiByeLlista(room,room.biByeLlista,damage,q.ownerId,'fight-flight-repeater',now,{componentId:first.hit.box.componentId,point});

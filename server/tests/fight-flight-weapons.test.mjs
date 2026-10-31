@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import {RoomManager} from '../../shared/sim/RoomManager.mjs';
 import {applyRoomCommand,serializeSnapshot} from '../../shared/sim/wire.mjs';
 import {createFightFlight,mountFightFlight} from '../../shared/sim/fightFlight.mjs';
-import {advanceFlightAmmo,flightMuzzle,requestFightFlightFire,stepFightFlightWeapons,stepFightFlightProjectiles,FLIGHT_REPEATER} from '../../shared/sim/fightFlightWeapons.mjs';
+import {advanceFlightAmmo,flightMuzzle,flightDirection,flightRepeaterAim,requestFightFlightFire,stepFightFlightWeapons,stepFightFlightProjectiles,FLIGHT_REPEATER} from '../../shared/sim/fightFlightWeapons.mjs';
+import {callSteel} from '../../shared/src/steel.mjs';
 
 function setup(){
  const room=new RoomManager().createSoloRoom('PRACTICE',0,'castleward');
@@ -70,4 +71,45 @@ test('Actual swept bolt hits body along authoritative world line, not a radius-b
  for(let i=1;i<=7;i++)stepFightFlightProjectiles(room,1/30,2+i/30);
  assert.equal(victim.health,health-4);
  assert.ok(room.events.some(e=>e.type==='fightFlightBoltImpact'&&e.victimId===victim.id));
+});
+
+test('Repeater damage is 4 close, 2 far; fully active Sheathe reduces close contact to exactly 2',()=>{
+  for(const [distance,armored,expected] of [[7,false,4],[28,false,2],[7,true,2],[28,true,2]]){
+    const {room,m,p}=setup();
+    const victim=room.addServerActor({id:'target',name:'Target',actorKind:'dummy'},0);
+    victim.position={x:-.65,y:0,z:-distance};victim.spawnProtectionUntil=0;victim.alive=true;
+    if(armored)victim.steel=callSteel(2);
+    requestFightFlightFire(room,m,p,true,2);
+    for(let i=1;i<=20;i++)stepFightFlightProjectiles(room,1/30,2+i/30);
+    assert.equal(victim.health,100-expected,`distance ${distance}, Steel ${armored}`);
+    assert.equal(room.events.find(e=>e.type==='fightFlightBoltImpact'&&e.victimId===victim.id)?.damage,expected);
+  }
+});
+test('Server projectile starts at the v2.6 articulated muzzle and follows its pitched aim',()=>{
+  const {room,m,p}=setup();
+  m.x=4;m.y=5;m.z=-2;m.heading=-.7;m.runPitch=.24;
+  p.input.yaw=-.35;p.input.pitch=.1;
+  const aim=flightRepeaterAim(m,p.input);
+  assert.ok(aim.pitch<=FLIGHT_REPEATER.maxPitch);
+  requestFightFlightFire(room,m,p,true,2);
+  const q=[...room.fightFlightProjectiles.values()][0];
+  const origin=flightMuzzle(m,aim),direction=flightDirection(m,aim);
+  for(const axis of ['x','y','z']){
+    assert.ok(Math.abs(q.position[axis]-origin[axis])<1e-8,`muzzle ${axis}`);
+    assert.ok(Math.abs(q.velocity[axis]/FLIGHT_REPEATER.speed-direction[axis])<1e-8,`vector ${axis}`);
+  }
+  assert.ok(Math.abs(Math.hypot(...Object.values(direction))-1)<1e-8);
+  assert.equal(m.crossbowYaw,aim.yaw);assert.equal(m.crossbowPitch,aim.pitch);
+});
+test('Offensive machine pitch compensates within joint limits, never shoots through an invented turret angle',()=>{
+  const m=createFightFlight({heading:0});m.runPitch=.3;
+  const aim=flightRepeaterAim(m,{yaw:0,pitch:0});
+  assert.ok(Math.abs(flightDirection(m,aim).y)<1e-9,'horizontal reticle stays level when crossbow can compensate');
+  const limit=flightRepeaterAim(m,{yaw:Math.PI,pitch:1});
+  assert.ok(Math.abs(limit.yaw-FLIGHT_REPEATER.maxTraverse)<1e-8);
+  assert.equal(limit.pitch,FLIGHT_REPEATER.maxPitch);
+  m.terminalDive={heading:0};m.runPitch=.65;
+  const committed=flightRepeaterAim(m,{yaw:0,pitch:1});
+  assert.ok(committed.pitch<0,'a terminal dive cannot point its crossbow upward');
+  assert.ok(flightDirection(m,committed).y<0,'actual launch vector also descends');
 });

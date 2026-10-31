@@ -4,7 +4,7 @@ import {Room} from '../../shared/sim/Room.mjs';
 import {applyRoomCommand} from '../../shared/sim/wire.mjs';
 import {beginAttack,endAttack,stepRoom,setGuard} from '../../shared/sim/combat.mjs';
 import {createFightFlight} from '../../shared/sim/fightFlight.mjs';
-import {requestFightFlightFire} from '../../shared/sim/fightFlightWeapons.mjs';
+import {requestFightFlightFire,stepFightFlightWeapons} from '../../shared/sim/fightFlightWeapons.mjs';
 const world={floors:[{id:'floor',center:[0,-.1,0],size:[60,.2,60],y:0}],ramps:[],solids:[],
   spawnPoints:[{x:0,y:0,z:0,yaw:-Math.PI/2},{x:2,y:0,z:0,yaw:Math.PI/2}],abyssY:-10};
 function setup(){
@@ -76,4 +76,20 @@ test('Grounded Guard remains real and suppresses ordinary firing; airborne Guard
  stepRoom(room,.01,10.11,world);
  assert.equal(a.guarding,false);
  assert.equal(a.guardHeld,false);
+});
+
+test('Held repeater waits through the complete sword recovery and does not bank suppressed shots',()=>{
+ const {room,a,m}=setup();
+ assert.equal(requestFightFlightFire(room,m,a,true,10),true);
+ assert.equal(m.shotSeq,1);
+ a.attackActive=true;a.attackHeld=true;
+ for(let i=1;i<=30;i++)stepFightFlightWeapons(room,m,1/30,10+i/30);
+ assert.equal(m.shotSeq,1,'ordinary sword occupies repeater during animation');
+ a.attackActive=false;a.attackHeld=false;a.attackSweep=null;a.attackRestartAt=11.4;
+ for(let i=31;i<=41;i++)stepFightFlightWeapons(room,m,1/30,10+i/30);
+ assert.equal(m.shotSeq,1,'follow-through/recovery blocks release after active flag ends');
+ stepFightFlightWeapons(room,m,1/30,11.41);
+ assert.equal(m.shotSeq,2,'held fire resumes with exactly one shot at recovery end');
+ stepFightFlightWeapons(room,m,1/30,11.42);
+ assert.equal(m.shotSeq,2,'no 7Hz backlog is discharged');
 });
