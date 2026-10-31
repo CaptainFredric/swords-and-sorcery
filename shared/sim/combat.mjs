@@ -2036,7 +2036,7 @@ function respawnPlayer(room, player, nowSec, world) {
     if (room.mode === 'HIGH_GROUNDS') spawnPoints = availableHighGroundsSpawns(room, player, allSpawns);
     const matching = allSpawns.filter((s) => s.team === player.team && (s.phase === undefined || s.phase === currentPhase));
     if (matching.length && room.mode !== 'HIGH_GROUNDS') spawnPoints = matching;
-    else {
+    else if (room.mode !== 'HIGH_GROUNDS') {
       const anyTeamSpawns = allSpawns.filter((s) => s.team === player.team);
       if (anyTeamSpawns.length) spawnPoints = anyTeamSpawns;
     }
