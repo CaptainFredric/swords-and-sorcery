@@ -3,7 +3,9 @@ import assert from 'node:assert/strict';
 import {RoomManager} from '../../shared/sim/RoomManager.mjs';
 import {createFightFlight,stepFightFlight} from '../../shared/sim/fightFlight.mjs';
 import {rotorBladeContact,stepFightFlightRotor} from '../../shared/sim/fightFlightRotor.mjs';
-import {fightFlightFirstHit,damageFightFlight} from '../../shared/sim/fightFlightComponents.mjs';
+import {fightFlightFirstHit,fightFlightHitVolumes,damageFightFlight} from '../../shared/sim/fightFlightComponents.mjs';
+import {orientedBoxHit} from '../../shared/src/orientedBox.mjs';
+import {fightFlightConstructionClear} from '../../shared/sim/practiceFightFlight.mjs';
 import {callSteel} from '../../shared/src/steel.mjs';
 function setup(){
  const room=new RoomManager().createSoloRoom('PRACTICE',0,'castleward');
@@ -112,4 +114,28 @@ test('A spinning blade genuinely strikes masonry before the chassis, draining an
  m.rotorAngleBefore=0;m.lastRotorDelta=.1;m.rotorAngle=.1;
  stepFightFlightRotor(room,m,1/30,10.03);
  assert.equal(room.events.filter(e=>e.type==='fightFlightRotorWorldImpact').length,hits,'same continuous stone contact not charged again');
+});
+
+// This checks the same rigid root tilt as the renderer and swept blade contacts.
+test('Component cover follows the authored offensive pitch instead of remaining upright',()=>{
+ const {m}=setup();m.heading=0;m.runPitch=.4;m.rotorAngle=.3;
+ const volumes=fightFlightHitVolumes(m);
+ const hub=volumes.find(v=>v.componentId==='rotor'&&v.size[0]===.48);
+ assert.ok(hub);
+ assert.ok(Math.abs(hub.center[1]-m.y-2.18*Math.cos(.4))<1e-8);
+ assert.ok(Math.abs(hub.center[2]-m.z+2.18*Math.sin(.4))<1e-8);
+ const [x,y,z]=hub.center;
+ assert.ok(orientedBoxHit([x,y,z-.8],[x,y,z+.8],hub),'hub collider travels with real tilted assembly');
+ const brace=volumes.find(v=>v.componentId==='braceL');
+ assert.ok(brace.axes[1][2]<0,'brace up-axis tilts into the machine heading');
+ const main=volumes.find(v=>v.componentId==='main');
+ assert.ok(Math.abs(main.axes[1][1]-Math.cos(.4))<1e-8);
+});
+test('Construction refuses a clear chassis location if its moving rotor would hit a nearby wall',()=>{
+ const {room,owner}=setup();
+ const location={x:0,y:0,z:0};
+ room.world.solids=[{id:'nearby-high-wall',center:[1.2,2.18,0],size:[.2,.5,.7]}];
+ assert.equal(fightFlightConstructionClear(room,location,owner.id),false);
+ room.world.solids=[{id:'distant-high-wall',center:[3,2.18,0],size:[.2,.5,.7]}];
+ assert.equal(fightFlightConstructionClear(room,location,owner.id),true);
 });
