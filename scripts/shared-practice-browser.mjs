@@ -133,6 +133,8 @@ try{
  await waitFor(()=>guest.evaluate("(() => {const s=window.__ssRuntime?.latestSnapshot,p=s?.players?.find(p=>p.id==='"+hostRoom.id+"');return Boolean(p?.grounded&&p.position.y<.2&&p.operatingFightFlightId==null);})()"),
    'ejected Spellblade physically lands in shared room',180);
  await guest.screenshot('guest-flight-landing');
+ const livePlayers=await host.evaluate("window.__ssRuntime?.latestSnapshot?.players?.filter(p=>p.actorKind==='human').map(p=>({id:p.id,position:p.position,operating:p.operatingFightFlightId,grounded:p.grounded}))");
+ const machineAfterEject=await guest.evaluate("(() => {const m=window.__ssRuntime?.latestSnapshot?.fightFlight;return {id:m.id,operatorId:m.operatorId,shotSeq:m.shotSeq,ammo:m.ammo,ammoDebt:m.ammoDebt};})()");
  // Leaving as guest must not disturb the host's active authoritative room.
  await guest.evaluate("document.querySelector('#practice-leave').click()");
  await waitFor(()=>host.evaluate("window.__ssRuntime?.latestSnapshot?.players?.filter(p=>p.actorKind==='human').length===1"),
@@ -142,10 +144,9 @@ try{
    'host leaves cleanly to the menu',120);
 
  const result={roomCode:hostRoom.code,host:hostRoom.id,guest:guestRoom.id,hostAndGuestInSameRoom:true,rising,run,ejected,
-  machine:await guest.evaluate("(() => {const m=window.__ssRuntime?.latestSnapshot?.fightFlight;return {id:m.id,operatorId:m.operatorId,shotSeq:m.shotSeq,ammo:m.ammo};})()"),
-  players:await host.evaluate("window.__ssRuntime?.latestSnapshot?.players?.filter(p=>p.actorKind==='human').map(p=>({id:p.id,position:p.position,attackCommitted:p.attackCommitted}))"),
+  machine:machineAfterEject,players:livePlayers,
   errors:[...host.errors,...guest.errors]};
- await host.screenshot('host-attacks');await guest.screenshot('guest-sees-bolt');
+ await host.screenshot('host-left-room');await guest.screenshot('guest-left-room');
  await writeFile(out+'/result.json',JSON.stringify(result,null,2));
  assert.equal(result.errors.length,0,result.errors.join('; '));
  console.log('[SHARED PRACTICE CHROME ACCEPTED]',JSON.stringify(result));
