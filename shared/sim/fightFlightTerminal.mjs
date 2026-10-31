@@ -5,6 +5,9 @@ import {PROWESS} from '../src/prowess.mjs';
 import {segmentAabbHit} from '../src/collision.mjs';
 import {areAllies} from '../src/teams.mjs';
 import {applyDamage,killPlayer} from './combat.mjs';
+import {blastBiByeLlista} from './biByeLlista.mjs';
+import {blastSoFistication} from './soFistication.mjs';
+import {structureWorld,damageStructureSolid} from './structures.mjs';
 export const TERMINAL=Object.freeze({holdSec:1,timeout:5,maxSpeed:25,
   gravity:18,burnPerSec:10,explosionRadius:8,explosionDamage:105,
   fireDuration:7,fireRadius:4,fireTickDamage:4,fireInterval:.55});
@@ -68,7 +71,7 @@ export function advanceTerminalFlight(room,m,dt,now){
  }
  m.velocity.y=Math.max(-25,m.velocity.y-TERMINAL.gravity*dt);
  m.runPitch=Math.min(1.03,(m.runPitch??.34)+dt*.65);
- m.health=Math.max(1,m.health-dt*(TERMINAL.burnPerSec+6*t));
+ m.health=m.health>0?Math.max(1,m.health-dt*(TERMINAL.burnPerSec+6*t)):0;
  m.flightCharge=Math.max(0,m.flightCharge-4*dt);
  m.mode='TERMINAL';
 }
@@ -96,6 +99,24 @@ export function resolveTerminalFlight(room,m,now){
    if(dist>TERMINAL.explosionRadius||occluded(room,point,p))continue;
    const raw=Math.max(0,Math.round(TERMINAL.explosionDamage*(1-dist/TERMINAL.explosionRadius)**1.3));
    if(raw>0)applyDamage(room,d.operatorId,p.id,raw,'fight-flight-terminal',now,null,{ultimate:true});
+ }
+ // Use established per-component blast allocations for both siege engines;
+ // destructible masonry is damaged at its actual nearest exposed surface.
+ const blast={point,radius:TERMINAL.explosionRadius,damage:TERMINAL.explosionDamage};
+ if(room.biByeLlista)blastBiByeLlista(room,room.biByeLlista,blast,d.operatorId,'fight-flight-terminal',now,room.world?.solids??[]);
+ if(room.soFistication)blastSoFistication(room,room.soFistication,blast,d.operatorId,'fight-flight-terminal',now);
+ const usedStructures=new Set();
+ for(const solid of structureWorld(room.world,room.structures).solids??[]){
+   const id=String(solid.structureId??solid.id??'');
+   if(!id||usedStructures.has(id)||!Array.isArray(solid.center)||!Array.isArray(solid.size))continue;
+   const delta=solid.center.map((v,i)=>Math.max(0,Math.abs(v-[point.x,point.y,point.z][i])-solid.size[i]/2));
+   const distance=Math.hypot(...delta);
+   if(distance>=TERMINAL.explosionRadius)continue;
+   const cover=(room.world?.solids??[]).some(other=>other.id!==solid.id&&
+     segmentAabbHit([point.x,point.y+.6,point.z],solid.center,other)?.t<.98);
+   if(cover)continue;
+   const amount=TERMINAL.explosionDamage*(1-distance/TERMINAL.explosionRadius)**1.3;
+   if(damageStructureSolid(room,solid,amount,d.operatorId,'fight-flight-terminal',now,{point}))usedStructures.add(id);
  }
  const pilot=room.players.get(d.operatorId);
  if(pilot?.alive){
