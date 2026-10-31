@@ -84,6 +84,21 @@ try{
   await screenshot('03-pause-menu');
   await evalBrowser("document.querySelector('#resume-game').click()");
   await until(()=>evalBrowser("document.querySelector('#pause-menu').classList.contains('hidden')"),'resume closes pause menu',60);
+  // Exercise the real touch input path too: a Chrome-generated touch pointer,
+  // not a synthetic HTMLElement.click(). This was the original dead MENU bug.
+  await send('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:5});
+  await evalBrowser("window.__ssRuntime.enableTouch();window.__ssRuntime.input.requestPointerLock()");
+  await until(()=>evalBrowser("document.querySelector('.touch-controls')?.classList.contains('active')"),'mobile touch controls active',50);
+  const menuRect=await evalBrowser("(()=>{const r=document.querySelector('.touch-pause').getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2,visible:r.width>15};})()");
+  assert.ok(menuRect.visible,'MENU has a real touch hit target');
+  await send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:menuRect.x,y:menuRect.y,id:81}]});
+  await send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+  await until(()=>evalBrowser("!document.querySelector('#pause-menu').classList.contains('hidden')"),'actual touch MENU opens High Grounds pause',65);
+  assert.equal(await evalBrowser("document.querySelector('.touch-controls').classList.contains('active')"),false,'touch focus releases behind the dialog');
+  await screenshot('04-mobile-touch-pause');
+  await evalBrowser("document.querySelector('#resume-game').click()");
+  await until(()=>evalBrowser("document.querySelector('#pause-menu').classList.contains('hidden')"),'mobile resume closes pause',60);
+  assert.equal(await evalBrowser("document.querySelector('.touch-controls')?.classList.contains('active')"),true,'resume restores touch controls');
   if(exceptions.length)throw Error('Browser exceptions: '+exceptions.join(' / '));
   await writeFile(output+'/result.json',JSON.stringify({state,exceptions},null,2));
   console.log('[HIGH GROUNDS BROWSER ACCEPTED]',JSON.stringify({mode:state.mode,renderer:state.renderer,sites:state.sites.length}));
