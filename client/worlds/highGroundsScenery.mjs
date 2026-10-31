@@ -156,20 +156,77 @@ export function buildHighGroundsSurroundings(group, world, materials) {
       scenicMesh(group,new THREE.CylinderGeometry(2.5,3.2,18,6),
         materials.cliff,[dx,4,z],'distant-approach-watchtower');
       scenicMesh(group,new THREE.ConeGeometry(3.8,5,6),
-        side<0?materials.azure:materials.crimson,[dx,15.4,z],
+        side<0?materials.farAzure:materials.farCrimson,[dx,15.4,z],
         'watchtower-roof');
     }
   }
 }
+// Small but readable battlefield architecture: heraldic entrance posts,
+// modest watch shelters, brass lanterns and bridge beamwork. Details avoid
+// the spawn road and never masquerade as solid cover.
+export function buildHighGroundsDetail(group, world, mats) {
+  const beam = (name,pos,size,mat) => {
+    const m=scenicMesh(group,new THREE.BoxGeometry(...size),mat,pos,name);
+    return m;
+  };
+  for(const [side,team] of [[-1,'ATTACKERS'],[1,'DEFENDERS']]){
+    const z=side*91;
+    for(const wing of [-1,1]){
+      const x=wing*19.5;
+      beam('garrison-iron-reinforcement',[x,4.68,z],[2.2,.28,2.2],mats.metalTrim);
+      const flag=scenicMesh(group,new THREE.BoxGeometry(2.8,2.5,.12),
+        team==='ATTACKERS'?mats.farAzure:mats.farCrimson,
+        [x+wing*1.25,5.2,z+side*1.15],'garrison-standard');
+      flag.rotation.z=wing*.12;
+      scenicMesh(group,new THREE.IcosahedronGeometry(.28,0),mats.lamp,
+        [x,4.96,z],'entry-lantern');
+    }
+    // Towers are beyond the interior camp; they give it a defensible
+    // silhouette and tie the playable entrance to the wider landscape.
+    for(const x of [-32,32]){
+      const zOuter=side*123;
+      scenicMesh(group,new THREE.CylinderGeometry(2.8,3.4,12,6),
+        mats.cliff,[x,-1,zOuter],'far-camp-watchbase');
+      scenicMesh(group,new THREE.ConeGeometry(3.9,4.3,6),
+        team==='ATTACKERS'?mats.farAzure:mats.farCrimson,
+        [x,7.2,zOuter],'far-camp-watchroof');
+    }
+  }
+  for(const z of [-57,0,57]){
+    // Rails have authoritative collision definitions in highGrounds.mjs.
+    // Decorative caps do not project into the walkable deck.
+    for(const side of [-1,1])
+      for(let x=-33;x<=33;x+=11)
+        scenicMesh(group,new THREE.CylinderGeometry(.16,.18,.42,6),mats.metalTrim,
+          [x,13.37,z+side*3.62],'bridge-rail-brass-finial');
+    for(const x of [-28,0,28]) {
+      beam('suspended-bridge-crossbrace',[x,10.3,z],[.22,.27,6.4],mats.underwood);
+    }
+  }
+  for(const [i,site] of world.objectives.entries()){
+    // Stone plinths and brass rivets announce capture destinations, staying
+    // outside the actual standing circle and not blocking the melee ring.
+    for(let k=0;k<6;k++){
+      const a=Math.PI*2*k/6;
+      const x=site.x+Math.cos(a)*(site.radius+1.7),
+        z=site.z+Math.sin(a)*(site.radius+1.7);
+      scenicMesh(group,new THREE.CylinderGeometry(.25,.36,.46,6),
+        i%2?mats.metalTrim:mats.cliff,[x,site.y+.23,z],
+        'capture-plinth-'+site.id);
+    }
+  }
+}
+
 export function highGroundsSceneryMaterials() {
   return {
     cliff:sceneryMaterial(0x706f61),underwood:sceneryMaterial(0x4f3b2d),
     valley:sceneryMaterial(0x677b59),
     distantRidge:sceneryMaterial(0x7b8477),
     bark:sceneryMaterial(0x604932),
+    metalTrim:sceneryMaterial(0xb69c67),lamp:sceneryMaterial(0xf5df95),
     bloom:sceneryMaterial(0xe9b99e),
     farGreen:sceneryMaterial(0x748f6e),
     farOlive:sceneryMaterial(0x8c9570),
-    azure:sceneryMaterial(0x4f759e),crimson:sceneryMaterial(0x9c625b),
+    farAzure:sceneryMaterial(0x4f759e),farCrimson:sceneryMaterial(0x9c625b),
   };
 }
