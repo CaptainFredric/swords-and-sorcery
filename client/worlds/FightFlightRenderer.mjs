@@ -52,6 +52,7 @@ export class FightFlightRenderer{
   posture(m){
     if(m.rotorHP<=0)return 'Damage_08_Rotor_Destroy_Grounded';
     if(m.crouched)return 'Posture_03_Grounded_Crouch';
+    if(m.offensiveRun)return 'Posture_06_Airborne_Overdrive_Pitch';
     if(m.mode==='TAKEOFF')return 'Posture_04_Takeoff_To_Flight';
     if(m.mode==='LANDING')return 'Posture_02_Controlled_Landing';
     if(!m.grounded)return m.velocity?.y<-.9?'Posture_02_Controlled_Landing':'Posture_04_Takeoff_To_Flight';
@@ -68,6 +69,9 @@ export class FightFlightRenderer{
     // Exported crossbow faces local +Z; Castleward's yaw-zero forward is world -Z.
     this.group.rotation.set(0,(m.heading??0)+Math.PI,0);
     if(!this.model)return;
+    // Authored pitched flight pose and actual pilot machine silhouette share
+    // the same authoritative run tilt; no unrelated camera dip is applied.
+    this.model.rotation.x=m.runPitch??0;
     const name=this.posture(m),clip=this.clips.get(name);
     if(clip&&name!==this.lastMode){
       if(this.action){this.action.stop();this.action.enabled=false;}
