@@ -52,6 +52,19 @@ test('Only an active, not merely ready, Spells and Chivalry allows mounted sword
  assert.equal(requestFightFlightFire(other.room,other.m,other.a,true,10.01),true);
  assert.equal(other.room.events.some(e=>e.type==='fightFlightBoltReleased'),false,'ready meter is not active Chivalry');
 });
+test('Only the personal Chivalry Ultimate can be committed from a mounted flight machine',()=>{
+ const {room,a,m}=setup();
+ a.prowess=100;
+ assert.deepEqual(applyRoomCommand(room,a,{type:'ultimate'},10),{});
+ assert.equal(a.ultimateState?.id,'chivalry');assert.equal(a.ultimateState?.phase,'startup');
+ stepRoom(room,.01,10.65,world);
+ assert.equal(a.ultimateState?.phase,'active');
+ assert.equal(a.prowess,0);
+ const other=setup();other.a.ultimate='sunder';other.a.prowess=100;
+ assert.deepEqual(applyRoomCommand(other.room,other.a,{type:'ultimate'},10),{});
+ assert.equal(other.a.ultimateState,null);
+ assert.equal(other.a.prowess,100);
+});
 test('Grounded Guard remains real and suppresses ordinary firing; airborne Guard is unavailable',()=>{
  const {room,a,m}=setup();
  assert.deepEqual(applyRoomCommand(room,a,{type:'guard',down:true},10),{});
