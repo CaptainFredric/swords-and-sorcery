@@ -2,7 +2,7 @@
 // Actual moving machine, one expenditure per lifecycle, one outcome at real impact.
 // Both input state and destruction are authoritative; no client damage or teleports.
 import {PROWESS} from '../src/prowess.mjs';
-import {segmentAabbHit} from '../src/collision.mjs';
+import {segmentAabbHit,surfaceHeightAt} from '../src/collision.mjs';
 import {areAllies} from '../src/teams.mjs';
 import {applyDamage,killPlayer} from './combat.mjs';
 import {blastBiByeLlista} from './biByeLlista.mjs';
@@ -132,7 +132,11 @@ export function resolveTerminalFlight(room,m,now){
  m.health=0;m.mode='DESTROYED';m.operatorId=null;m.firingOperatorId=null;
  m.flightDashHeld=false;m.flightUltimateHeld=false;
  room.flightBurnZones??=[];
- room.flightBurnZones.push({id:m.id+'-burn',sourceId:d.operatorId,point,radius:TERMINAL.fireRadius,
+ // The explosion follows the actual 3D impact; its *ground* fire settles onto
+ // supported terrain, rather than hovering at the chassis altitude after a wall hit.
+ const floor=surfaceHeightAt(point.x,point.z,point.y+1,room.world);
+ const firePoint={x:point.x,y:floor??point.y,z:point.z};
+ room.flightBurnZones.push({id:m.id+'-burn',sourceId:d.operatorId,point:firePoint,radius:TERMINAL.fireRadius,
    startedAt:now,expiresAt:now+TERMINAL.fireDuration,nextTickAt:now+TERMINAL.fireInterval});
  return true;
 }
