@@ -38,7 +38,7 @@ export function createFightFlight({x=0,y=0,z=0,heading=0,id=null,lifecycleId=nul
     rotorEnergy:100,flightCharge:100,maxFlightCharge:100,
     ammo:14,ammoDebt:0,nextShotAt:0,ammoProduction:0,firingOperatorId:null,shotSeq:0,lastShotAt:-Infinity,crossbowYaw:heading,crossbowPitch:0,
     skill:{phase:'idle',readyAt:0,activeUntil:0},offensiveRun:false,
-    terminalDiveSpent:false,terminalDive:null,terminalPrep:null,flightUltimateHeld:false,flightUltimateDownAt:null,lastImpactAt:-Infinity,
+    terminalDiveSpent:false,terminalDive:null,terminalPrep:null,flightUltimateHeld:false,flightUltimateDownAt:null,flightUltimateChordAttempted:false,lastImpactAt:-Infinity,
     flightDashHeld:false,flightDashStartedAt:null,runPitch:0,
     builtAt:0,takeoffAt:-Infinity,landingAt:-Infinity,retired:false};
 }
@@ -88,7 +88,7 @@ export function dismountFightFlight(room,m,player,{force=false,at=0,exit=null}={
   // Forced removal is reserved for death/disconnect/destruction: no airborne teleport.
   // The machine retains its cooldown and actual ammunition debt when the rider leaves.
   endFightFlightSkill(room,m,at,'interrupted');
-  m.operatorId=null;m.firingOperatorId=null;m.flightDashHeld=false;m.flightUltimateHeld=false;m.terminalPrep=null;m.offensiveRun=false;player.operatingFightFlightId=null;
+  m.operatorId=null;m.firingOperatorId=null;m.flightDashHeld=false;m.flightUltimateHeld=false;m.terminalPrep=null;m.flightUltimateChordAttempted=false;m.offensiveRun=false;player.operatingFightFlightId=null;
   if(safe)player.position={...safe};
   else player.position={x:m.x,y:m.y,z:m.z};
   player.velocity={x:0,y:0,z:0};
