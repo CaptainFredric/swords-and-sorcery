@@ -3,7 +3,7 @@ import {stepFightFlight,dismountFightFlight,fightFlightSolids} from './fightFlig
 import {stepFightFlightWeapons,stepFightFlightProjectiles} from './fightFlightWeapons.mjs';
 import {stepFightFlightSkill} from './fightFlightSkill.mjs';
 import {stepFlightRun} from './fightFlightRun.mjs';
-import {stepTerminalPreparation,advanceTerminalFlight,resolveTerminalFlight,stepFlightBurnZones} from './fightFlightTerminal.mjs';
+import {stepTerminalPreparation,advanceTerminalFlight,resolveTerminalFlight,stepFlightBurnZones,terminalFlightSteps} from './fightFlightTerminal.mjs';
 import {stepFightFlightRotor} from './fightFlightRotor.mjs';
 import { galeDose } from '../src/galeDamage.mjs';
 import { galeProfile, galeLift, sustainGaleRecoil } from '../src/galeModes.mjs';
@@ -2329,12 +2329,26 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
   if(room.fightFlight && (!isOthersFreeze || room.fightFlight.operatorId === activeActorId)){
     stepTerminalPreparation(room,room.fightFlight,nowSec);
     stepFlightRun(room,room.fightFlight,dt,nowSec);
-    advanceTerminalFlight(room,room.fightFlight,dt,nowSec);
-    stepFightFlight(room,room.fightFlight,dt,nowSec,world);
-    resolveTerminalFlight(room,room.fightFlight,nowSec);
-    stepFightFlightSkill(room,room.fightFlight,nowSec);
-    stepFightFlightWeapons(room,room.fightFlight,dt,nowSec);
-    stepFightFlightRotor(room,room.fightFlight,dt,nowSec);
+    const flight=room.fightFlight,dive=flight.terminalDive;
+    if(dive&&!dive.resolved){
+      // At 30Hz multiplayer advances one frame. A throttled solo browser can
+      // skip wall-clock seconds while still delivering fixed 1/30s host ticks.
+      // Catch up ONLY the committed machine's physical trajectory; never allow
+      // its five-second fuse to outrun its actual displacement.
+      const frames=terminalFlightSteps(dive,nowSec,dt);
+      for(let i=0;i<frames&&!dive.resolved;i++){
+        const physicsNow=dive.startedAt+(dive.simulatedSec??0)+dt;
+        advanceTerminalFlight(room,flight,dt,physicsNow);
+        stepFightFlight(room,flight,dt,physicsNow,world);
+        stepFightFlightRotor(room,flight,dt,physicsNow);
+        resolveTerminalFlight(room,flight,nowSec);
+      }
+    }else{
+      stepFightFlight(room,flight,dt,nowSec,world);
+      stepFightFlightRotor(room,flight,dt,nowSec);
+    }
+    stepFightFlightSkill(room,flight,nowSec);
+    stepFightFlightWeapons(room,flight,dt,nowSec);
     const op=room.players.get(room.fightFlight.operatorId);if(op)recordTransform(op,nowSec);
   }
   if(room.soFistication && (!isOthersFreeze || room.soFistication.operatorId === activeActorId)){stepSoFistication(room,room.soFistication,dt,nowSec,world);const op=room.players.get(room.soFistication.operatorId);if(op)recordTransform(op,nowSec);}
