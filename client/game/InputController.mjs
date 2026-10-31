@@ -109,6 +109,7 @@ export class InputController {
     const action = this.actionOf.get(code);
     if (!action || repeat || HELD.has(action) || MENU_ACTIONS.has(action)) return;
     if(this.mountedFlight&&action==='siegeWeapon'){this.flightFire(true,'key');return;}
+    if(this.mountedFlight&&action==='spell'){this.siegeSkill();return;}
     if (action === 'guard') this.setGuard(this.held('guard'), 'desktop');
     else if (action === 'attack') this.setAttack(this.held('attack'), 'desktop');
     else if (action === 'spell' && this.prepared.visible) this.beginPreparedGesture();
