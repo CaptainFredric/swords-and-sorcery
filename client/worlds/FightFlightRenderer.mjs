@@ -82,10 +82,12 @@ export class FightFlightRenderer{
     if(m.crouched)return 'Posture_03_Grounded_Crouch';
     if(m.terminalDive&&!m.terminalDive.resolved)return 'Posture_07_Terminal_Dive_Pitch';
     if(m.offensiveRun)return 'Posture_06_Airborne_Overdrive_Pitch';
+    // Discrete hop has its own authored trajectory; otherwise takeoff
+    // transitions to powered ascent/hover without replaying the hop.
+    if(m.mode==='TAKEOFF'&&Number.isFinite(m.hopStartedAt))return 'Posture_09_Ordinary_Small_Jump';
     if(m.mode==='TAKEOFF')return 'Posture_04_Takeoff_To_Flight';
     if(m.mode==='LANDING')return 'Posture_02_Controlled_Landing';
     if(!m.grounded)return 'Posture_10_Ascending_Hover_Descending';
-    if(Number.isFinite(m.hopStartedAt)&&m.hopStartedAt>=0&&m.mode==='TAKEOFF')return 'Posture_09_Ordinary_Small_Jump';
     if(Math.hypot(m.velocity?.x??0,m.velocity?.z??0)>.3)return 'Posture_05_Grounded_Walk_Loop';
     return 'Posture_01_Grounded_Idle';
   }
@@ -93,6 +95,7 @@ export class FightFlightRenderer{
     this.drawBolts(projectiles,now,snapshotTime);
     this.drawBurnZones(zones,now);
     this.state=m;this.operator=operator;this.group.visible=Boolean(m&&!m.retired&&m.mode!=='DESTROYED');
+    if(!m?.operatorId)this.lastSwordChain=null;
     if(!this.group.visible)return;
     this.load();
     const at=m.position??m;
@@ -158,14 +161,22 @@ export class FightFlightRenderer{
     // Align that crossing to the actual server strike contacts (0.4/1.1/1.8s),
     // and do not render uncommitted subsequent swings.
     if(this.swordAction){
-      const start=operator?.attackStartedAt,committed=operator?.attackCommitted??0;
+      // A released sword chain clears attackCommitted on the host. Keep
+      // presenting its last genuinely committed swing through recovery, never
+      // invent a next strike from an uncommitted held-button visual.
+      if(operator?.attackActive&&Number.isFinite(operator.attackStartedAt)){
+        this.lastSwordChain={startedAt:operator.attackStartedAt,committed:operator.attackCommitted??0};
+      }
+      const chain=this.lastSwordChain;
       const sampleOffset=this.swordAction.getClip().duration*.46;
       let swordTime=-1;
-      if(operator?.attackActive&&Number.isFinite(start)){
-        for(let i=0;i<Math.min(committed,SWORD_STRIKE_TIMES.length);i++){
-          const elapsed=now-start-(SWORD_STRIKE_TIMES[i]-sampleOffset);
+      if(chain){
+        for(let i=0;i<Math.min(chain.committed,SWORD_STRIKE_TIMES.length);i++){
+          const elapsed=now-chain.startedAt-(SWORD_STRIKE_TIMES[i]-sampleOffset);
           if(elapsed>=0&&elapsed<this.swordAction.getClip().duration)swordTime=elapsed;
         }
+        if(now-chain.startedAt>SWORD_STRIKE_TIMES.at(-1)+this.swordAction.getClip().duration)
+          this.lastSwordChain=null;
       }
       this.swordAction.enabled=swordTime>=0;
       if(swordTime>=0)this.swordAction.time=swordTime;
