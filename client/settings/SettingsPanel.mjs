@@ -26,12 +26,13 @@ function groupRows(items, render) {
 }
 
 export class SettingsPanel {
-  constructor({ root, store, registry, device = () => 'desktop', onClose = () => {} }) {
+  constructor({ root, store, registry, device = () => 'desktop', onClose = () => {}, onOpenTouchEditor = () => {} }) {
     this.root = root;
     this.store = store;
     this.registry = registry;
     this.device = device;
     this.onClose = onClose;
+    this.onOpenTouchEditor = onOpenTouchEditor;
     this.section = null;
     this.capturing = null;
     this.sliding = null;
@@ -92,6 +93,9 @@ export class SettingsPanel {
     const settings = this.registry.settingsIn(this.section, device);
     let html = groupRows(settings, (setting) => this.#row(setting));
     if (this.section === 'controls' && device === 'desktop') html += this.#bindings(flashAction);
+    if (this.section === 'controls' && device === 'touch') {
+      html += `<div class="setting-row"><div class="setting-text"><b>Edit touch controls</b><small>Reposition, resize, choose presets and adjust opacity</small></div><button type="button" class="setting-switch" data-action="open-touch-editor">EDIT</button></div>`;
+    }
     this.body.innerHTML = html || '<p class="setting-empty">Nothing to set here on this device.</p>';
   }
 
@@ -147,6 +151,11 @@ export class SettingsPanel {
     }
     if (event.target.closest('[data-reset-keys]')) {
       this.store.reset('bindings');
+      return;
+    }
+    if (event.target.closest('[data-action="open-touch-editor"]')) {
+      this.close();
+      this.onOpenTouchEditor?.();
       return;
     }
     const chip = event.target.closest('.key-chip[data-action]');

@@ -10,6 +10,7 @@ import { ICONS, iconSvg } from '../ui/icons.mjs';
 import { ultimateView } from '../ui/ultimateView.mjs';
 import { siegeSkillControlLabel } from '../ui/siegeSkillView.mjs';
 import { practiceOverride } from '../../shared/src/practiceRecast.mjs';
+import { loadTouchLayout, applyLayoutItem } from './touchLayout.mjs';
 
 // On-screen controls for phones and tablets. They drive the same InputController actions as the mouse and
 // keyboard, so the server, prediction and animation see no difference between the two.
@@ -43,6 +44,8 @@ const BUTTONS = [
   { action: 'siegeWeapon', label: 'UPPER' },
   { action: 'siegeSkill', label: 'SKILL' },
   { action: 'siegeBoth', label: 'BOTH', icon: 'siegeSkill' },
+  { action: 'flightRise', label: 'RISE', icon: 'rise' },
+  { action: 'flightLower', label: 'LOWER', icon: 'lower' },
 ];
 
 const svg = (icon) => iconSvg(icon);
@@ -71,8 +74,14 @@ export class TouchControls {
     this.stickSprintRequested = false;
     this.sprintLatched = false;this.chargeHeld=false;
     this.valkyrieTouchLatched = new Map();
+    this.flightRiseHeld = false;
+    this.flightLowerHeld = false;
+    this.flightRiseSources = new Set();
+    this.flightLowerSources = new Set();
     this.jumpHeld = false;
     this.jumpUntil = 0;
+    this.layouts = loadTouchLayout();
+    this.previewMode = null;
 
     this.layer = document.createElement('div');
     this.layer.className = 'touch-controls';
@@ -133,6 +142,9 @@ export class TouchControls {
     if (this.buttons.siegeWeapon) this.buttons.siegeWeapon.hidden = true;
     if (this.buttons.siegeSkill) this.buttons.siegeSkill.hidden = true;
     if (this.buttons.siegeBoth) this.buttons.siegeBoth.hidden = true;
+    if (this.buttons.flightRise) this.buttons.flightRise.hidden = true;
+    if (this.buttons.flightLower) this.buttons.flightLower.hidden = true;
+    this.applyLayout(this.layouts);
 
     this.layer.addEventListener('pointerdown', this.#down);
     this.layer.addEventListener('pointermove', this.#move);
@@ -191,6 +203,36 @@ export class TouchControls {
     this.layer.style.setProperty('--ts', String(scale));
   }
 
+  applyLayout(layouts = this.layouts) {
+    this.layouts = layouts;
+    const mode = this.previewMode ?? (this.flightMounted ? 'flight' : 'onFoot');
+    const layout = mode === 'flight' ? layouts.flight : layouts.onFoot;
+    if (layout) {
+      for (const [action, placement] of Object.entries(layout)) {
+        const element = action === 'stick' ? this.stickBase : this.buttons[action];
+        if (element) applyLayoutItem(element, placement);
+      }
+    }
+    if (layouts.opacity !== undefined) {
+      this.setCustomOpacity(layouts.opacity);
+    }
+  }
+
+  setCustomOpacity(opacity) {
+    this.layer.style.setProperty('--touch-opacity', String(opacity));
+  }
+
+  previewEditMode(mode) {
+    this.previewMode = mode;
+    this.layer.classList.toggle('touch-flight', mode === 'flight');
+    this.layer.classList.toggle('touch-mounted', mode === 'flight');
+    if (this.buttons.flightRise) this.buttons.flightRise.hidden = mode !== 'flight';
+    if (this.buttons.flightLower) this.buttons.flightLower.hidden = mode !== 'flight';
+    if (this.buttons.siegeWeapon) this.buttons.siegeWeapon.hidden = mode !== 'flight';
+    if (this.buttons.siegeSkill) this.buttons.siegeSkill.hidden = mode !== 'flight';
+    this.applyLayout(this.layouts);
+  }
+
   // shown and listening only while the player is in the arena (the touch version of pointer lock)
   setActive(active) {
     this.active = Boolean(active);
@@ -221,6 +263,14 @@ export class TouchControls {
     this.#cancelPreparedTouch();
     for (const [pointerId, action] of this.held) this.#release(action, pointerId, true);
     this.held.clear();
+    this.flightRiseSources.clear();
+    this.flightRiseHeld = false;
+    this.flightLowerSources.clear();
+    this.flightLowerHeld = false;
+    this.input.flightDash?.(false, 'touch');
+    this.input.flightUltimate?.(false, 'touch');
+    this.input.flightFire?.(false, 'touch');
+    if (this.input.flightEjectHeld) this.input.flightEject?.(false, true);
     for (const [id, latched] of this.valkyrieTouchLatched) {
       if (latched.dash) this.input.flightDash?.(false, 'touch');
       if (latched.ultimate) this.input.flightUltimate?.(false, 'touch');
@@ -251,9 +301,11 @@ export class TouchControls {
     const result = {
       forward: moveAllowed ? this.stickState.forward : 0,
       right: moveAllowed ? this.stickState.right : 0,
-      jump: this.jumpHeld || !this.inspectionFlight && performance.now() < this.jumpUntil,
+      jump: this.jumpHeld || (!this.inspectionFlight && !this.flightMounted && performance.now() < this.jumpUntil),
+      flightRise: Boolean(this.flightRiseHeld),
+      flightLower: Boolean(this.flightLowerHeld),
       sprint: this.ramMounted?(this.chargeHeld || moveAllowed && this.stickState.sprint):moveAllowed && (this.stickState.sprint || this.#gateHeld('sprint', this.sprintLatched && moving, 'touch-latch', false)),
-      crouch: (this.inspectionFlight || this.flightMounted) ? Boolean(this.flightCrouchHeld) : Boolean(this.crouchLatched),
+      crouch: (this.inspectionFlight || this.flightMounted) ? Boolean(this.flightCrouchHeld || this.flightLowerHeld) : Boolean(this.crouchLatched),
     };
     this.#showTouchDebug(result);
     return result;
@@ -293,6 +345,13 @@ export class TouchControls {
     this.buttons.spell?.classList.toggle('practice', practiceOverride(local, 'spell', serverNow, practice));
     this.buttons.dash?.classList.toggle('practice', practiceOverride(local, 'dash', serverNow, practice));
     for (const { element, timer, key, seconds } of this.cooldowns) {
+      if (this.flightMounted && element === this.buttons.dash) {
+        element.classList.remove('cooling');
+        try { element.style?.removeProperty?.('--cooldown'); } catch {}
+        element.style?.setProperty?.('--cooldown', '0');
+        if (timer) timer.textContent = '';
+        continue;
+      }
       const preparedCurrent = key === 'spellReadyAt' && this.prepared.visible ? this.prepared.spells.find((spell) => spell.current) : null;
       const remaining = preparedCurrent?.remaining ?? Math.max(0, (local[key] ?? 0) - serverNow);
       const ready = remaining <= 0.01;
@@ -319,24 +378,64 @@ export class TouchControls {
       const nearRam=local.alive&&rb&&rb.health>0&&(!rb.team||rb.team===local.team)&&!rb.operatorId&&Math.hypot(station.x-local.position.x,station.z-local.position.z)<=2.2;
       const mounted = Boolean(local.alive && (local.operatingBallistaId||local.operatingRamId||local.operatingFightFlightId));
       if(this.ramMounted!==undefined&&this.ramMounted!==ram)this.reset();
-      if(this.flightMounted!==undefined&&this.flightMounted!==flight)this.reset();
+      if(this.flightMounted!==undefined&&this.flightMounted!==flight){this.reset();this.flightMounted=flight;this.applyLayout(this.layouts);}
       if(!local.alive && (this.valkyrieTouchLatched.size > 0 || this.held.size > 0)) this.reset();
       this.ramMounted=ram;
       this.flightMounted=flight;
       this.layer.classList.toggle('touch-ram',ram);
       this.layer.classList.toggle('touch-flight',flight);
-      this.layer.classList.toggle('airborne',flight && !fb?.grounded);
-      this.buttons.jump.querySelector('span').textContent=flight?'RISE':'JUMP';
-      this.buttons.crouch.querySelector('span').textContent=flight?'LOWER':'CROUCH';
+      const airborne = Boolean(flight && !fb?.grounded);
+      this.layer.classList.toggle('airborne', airborne);
+      if (this.buttons.flightRise) this.buttons.flightRise.hidden = !flight;
+      if (this.buttons.flightLower) this.buttons.flightLower.hidden = !flight;
+      this.buttons.jump.querySelector('span').textContent='JUMP';
+      this.buttons.crouch.querySelector('span').textContent='CROUCH';
       this.buttons.sprint.querySelector('span').textContent=ram?'CHARGE':'SPRINT';
       this.mounted=mounted;
-      const valkyrieReady = flight && !fb?.terminalDive && !fb?.terminalDiveSpent && (fb?.rotorHP ?? 0) > 0 && local.ultimate === 'chivalry' && (local.prowess ?? 0) >= 100;
-      this.valkyrieEligible = valkyrieReady;
-      if (flight && this.buttons.ultimate) {
-        const uLabel = this.buttons.ultimate.querySelector('span');
-        if (uLabel) uLabel.textContent = valkyrieReady ? 'VALKYRIE' : 'CHIVALRY';
-        this.buttons.ultimate.setAttribute('aria-label', valkyrieReady ? 'Hold Valkyrie to initiate terminal dive' : 'Chivalry');
+
+      if (flight) {
+        const atkLabel = this.buttons.attack?.querySelector('span');
+        if (atkLabel && atkLabel.textContent !== 'SWORD') atkLabel.textContent = 'SWORD';
+        this.buttons.guard?.classList.toggle('airborne-forbidden', airborne);
+        this.buttons.guard?.setAttribute('aria-label', airborne ? 'Guard unavailable while airborne' : 'Guard');
+
+        const dashBtn = this.buttons.dash;
+        if (dashBtn) {
+          const dashGrounded = !airborne;
+          const dashNoProwess = (local.prowess ?? 0) <= 0;
+          const dashNoRotor = (fb?.rotorHP ?? 0) <= 0;
+          const offensiveActive = Boolean(fb?.offensiveRun);
+          const valkyriePrep = Boolean(fb?.terminalPrep?.phase === 'holding');
+          dashBtn.classList.toggle('flight-grounded', dashGrounded);
+          dashBtn.classList.toggle('flight-no-prowess', dashNoProwess);
+          dashBtn.classList.toggle('flight-no-rotor', dashNoRotor);
+          dashBtn.classList.toggle('flight-dash-active', offensiveActive);
+          dashBtn.classList.toggle('valkyrie-prep', valkyriePrep);
+          dashBtn.setAttribute('aria-label', valkyriePrep ? 'Hold Dash + Ultimate to commit Valkyrie Dive' : dashGrounded ? 'Dash requires being airborne' : dashNoProwess ? 'Offensive run requires Prowess' : dashNoRotor ? 'Rotor destroyed' : offensiveActive ? 'Offensive Flight Run Active' : 'Hold Dash for Prowess-powered offensive run');
+        }
+
+        const valkyrieReady = flight && !fb?.terminalDive && !fb?.terminalDiveSpent && (fb?.rotorHP ?? 0) > 0 && local.ultimate === 'chivalry' && (local.prowess ?? 0) >= 100;
+        this.valkyrieEligible = valkyrieReady;
+        const uBtn = this.buttons.ultimate;
+        if (uBtn) {
+          const valkyriePrep = Boolean(fb?.terminalPrep?.phase === 'holding');
+          uBtn.classList.toggle('valkyrie-ready', valkyrieReady);
+          uBtn.classList.toggle('valkyrie-prep', valkyriePrep);
+          if (valkyriePrep) {
+            const remaining = Math.max(0, (fb.terminalPrep.until - serverNow)).toFixed(1);
+            uBtn.querySelector('span').textContent = `DIVE ${remaining}s`;
+            uBtn.setAttribute('aria-label', `Committing Valkyrie Dive: ${remaining}s remaining`);
+          }
+        }
+      } else {
+        const atkLabel = this.buttons.attack?.querySelector('span');
+        if (atkLabel && atkLabel.textContent !== 'ATTACK') atkLabel.textContent = 'ATTACK';
+        this.valkyrieEligible = false;
+        this.buttons.guard?.classList.remove('airborne-forbidden');
+        this.buttons.dash?.classList.remove('flight-grounded', 'flight-no-prowess', 'flight-no-rotor', 'flight-dash-active', 'valkyrie-prep');
+        this.buttons.ultimate?.classList.remove('valkyrie-ready', 'valkyrie-prep');
       }
+
       if(this.buttons.siegeSkill){
         const button=this.buttons.siegeSkill,machine=flight?fb:ram?rb:bl,skill=machine?.skill,remaining=Math.max(0,(skill?.readyAt??0)-serverNow);
         const label=flight?(skill?.phase==='active'?'ACTIVE':remaining>0?Math.ceil(remaining)+'s':'FIRE AWAY'):siegeSkillControlLabel(machine,serverNow);
@@ -370,8 +469,10 @@ export class TouchControls {
         if (this.buttons.interact) {
           this.buttons.interact.hidden = false;
           const label = this.buttons.interact.querySelector('span');
-          if (label && label.textContent !== 'LEAVE') label.textContent = 'LEAVE';
+          const text = flight ? 'EJECT' : 'LEAVE';
+          if (label && label.textContent !== text) label.textContent = text;
           this.buttons.interact.setAttribute('aria-label',flight?'Tap to eject into clear space; hold to brake before ejecting':ram?'Leave ram':'Dismount ballista');
+          this.buttons.interact.classList.toggle('terminal-locked', Boolean(fb?.terminalDive));
         }
         if (this.buttons.deploy) {
           this.buttons.deploy.hidden = ram||flight||!biByeCondition(bl).canDeploy;
@@ -621,8 +722,16 @@ export class TouchControls {
     }
     const element = this.buttons[action];
     element?.classList.add('pressed');
-    if (action === 'attack') this.input.setAttack(true);
-    if (action === 'guard') this.input.setGuard(true);
+    if (action === 'attack') this.input.setAttack(true, `touch:${event.pointerId}`);
+    if (action === 'guard') this.input.setGuard(true, `touch:${event.pointerId}`);
+    if (action === 'flightRise') {
+      this.flightRiseSources.add(event.pointerId);
+      this.flightRiseHeld = true;
+    }
+    if (action === 'flightLower') {
+      this.flightLowerSources.add(event.pointerId);
+      this.flightLowerHeld = true;
+    }
     if (action === 'spell') {
       if (this.galeAvailable && !this.prepared?.visible) {
         this.galeGesture = { id: event.pointerId, ...gamePoint(event, this.layer), mode: 'balanced' };
@@ -641,18 +750,20 @@ export class TouchControls {
     if (action === 'gauntlet') this.input.gauntlet();
     if (action === 'ultimate') {
       if (this.input.mountedFlight || this.flightMounted) {
-        const isValkyrie = Boolean(this.valkyrieEligible);
-        this.valkyrieTouchLatched.set(event.pointerId, { dash: isValkyrie, ultimate: true });
-        if (isValkyrie) {
-          this.input.flightDash?.(true, 'touch');
-        }
-        this.input.flightUltimate?.(true, 'touch');
+        this.input.flightUltimate?.(true, `touch:${event.pointerId}`);
       } else this.input.ultimate();
     }
-    if (action === 'dash') {if(this.input.mountedFlight)this.input.flightDash(true,'touch');else this.input.dash();}
+    if (action === 'dash') {
+      if (this.input.mountedFlight || this.flightMounted) this.input.flightDash(true, `touch:${event.pointerId}`);
+      else this.input.dash();
+    }
     if (action === 'jump') {
-      this.jumpHeld = true;
-      this.jumpUntil = performance.now() + JUMP_LATCH_MS;
+      if (this.input.mountedFlight || this.flightMounted) {
+        this.input.flightHop?.();
+      } else {
+        this.jumpHeld = true;
+        this.jumpUntil = performance.now() + JUMP_LATCH_MS;
+      }
     }
     if (action === 'sprint'&&this.ramMounted){this.chargeHeld=true;return;}
     if (action === 'sprint') {
@@ -668,7 +779,7 @@ export class TouchControls {
     if (action === 'scores') this.input.scoreboardHeld = !this.input.scoreboardHeld;
     if (action === 'interact') {if(this.input.mountedFlight)this.input.flightEject?.(true);else this.input.interact?.();}
     if (action === 'deploy') this.input.deploy?.();
-    if (action === 'siegeWeapon') {if(this.input.mountedFlight)this.input.flightFire(true,'touch');else this.input.siegeWeapon?.();}
+    if (action === 'siegeWeapon') {if(this.input.mountedFlight)this.input.flightFire(true,`touch:${event.pointerId}`);else this.input.siegeWeapon?.();}
     if (action === 'siegeSkill') this.input.siegeSkill?.();
     if (action === 'siegeBoth') this.input.siegeBoth?.();
     if(action==='siegeView'&&this.input.enabled)this.viewGesture={id:event.pointerId,...gamePoint(event,this.layer),travel:0,zoomed:false};
@@ -680,19 +791,21 @@ export class TouchControls {
     if (this.deniedButtons.delete(pointerId)) return;
     this.buttons[action]?.classList.remove('pressed');
     if (action === 'interact' && this.input.flightEjectHeld)this.input.flightEject?.(false,cancelled);
-    if (action === 'attack') this.input.setAttack(false);
-    if (action === 'guard') this.input.setGuard(false);
-    if (action === 'siegeWeapon' && this.input.mountedFlight) this.input.flightFire(false,'touch');
-    if (action === 'dash' && this.input.mountedFlight) this.input.flightDash(false,'touch');
+    if (action === 'attack') this.input.setAttack(false, `touch:${pointerId}`);
+    if (action === 'guard') this.input.setGuard(false, `touch:${pointerId}`);
+    if (action === 'flightRise') {
+      this.flightRiseSources.delete(pointerId);
+      this.flightRiseHeld = this.flightRiseSources.size > 0;
+    }
+    if (action === 'flightLower') {
+      this.flightLowerSources.delete(pointerId);
+      this.flightLowerHeld = this.flightLowerSources.size > 0;
+    }
+    if (action === 'siegeWeapon' && this.input.mountedFlight) this.input.flightFire(false, `touch:${pointerId}`);
+    if (action === 'dash' && (this.input.mountedFlight || this.flightMounted)) this.input.flightDash(false, `touch:${pointerId}`);
     if (action === 'ultimate') {
-      const latched = this.valkyrieTouchLatched.get(pointerId);
-      this.valkyrieTouchLatched.delete(pointerId);
-      if (latched) {
-        if (latched.dash) this.input.flightDash?.(false, 'touch');
-        if (latched.ultimate) this.input.flightUltimate?.(false, 'touch');
-      } else if (this.input.mountedFlight || this.flightMounted) {
-        this.input.flightDash?.(false, 'touch');
-        this.input.flightUltimate?.(false, 'touch');
+      if (this.input.mountedFlight || this.flightMounted) {
+        this.input.flightUltimate?.(false, `touch:${pointerId}`);
       }
     }
     if (action === 'jump') this.jumpHeld = false;
