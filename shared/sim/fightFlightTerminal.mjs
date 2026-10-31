@@ -150,9 +150,13 @@ export function resolveTerminalFlight(room,m,now){
  // The explosion follows the actual 3D impact; its *ground* fire settles onto
  // supported terrain, rather than hovering at the chassis altitude after a wall hit.
  const floor=surfaceHeightAt(point.x,point.z,point.y+1,room.world);
- const firePoint={x:point.x,y:floor??point.y,z:point.z};
- room.flightBurnZones.push({id:m.id+'-burn',sourceId:d.operatorId,point:firePoint,radius:TERMINAL.fireRadius,
-   startedAt:now,expiresAt:now+TERMINAL.fireDuration,nextTickAt:now+TERMINAL.fireInterval});
+ // A detonation over an abyss or far above any surface has no burning GROUND.
+ // Never create a hovering damage zone at its airborne explosion coordinates.
+ if(floor!=null&&point.y-floor<=TERMINAL.explosionRadius){
+   const firePoint={x:point.x,y:floor,z:point.z};
+   room.flightBurnZones.push({id:m.id+'-burn',sourceId:d.operatorId,point:firePoint,radius:TERMINAL.fireRadius,
+     startedAt:now,expiresAt:now+TERMINAL.fireDuration,nextTickAt:now+TERMINAL.fireInterval});
+ }
  return true;
 }
 export function stepFlightBurnZones(room,now){
