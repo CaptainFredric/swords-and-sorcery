@@ -115,6 +115,9 @@ test('The actual coupled Bolt II release ends Cold and starts its 24-second chas
 test('Moving airborne Fight-and-Flight is an actual proximity target, not a grounded proxy',()=>{
  const s=setup();const m=s.room.fightFlight=createFightFlight({id:'airborne',
   x:2,y:5,z:-8,heading:0});m.grounded=false;m.mode='FLYING';
+ const rider=s.room.addPlayer({id:'air-rider',token:'r',name:'rider'},0);
+ rider.position={x:2,y:5,z:-8};rider.spawnProtectionUntil=0;
+ rider.operatingFightFlightId=m.id;m.operatorId=rider.id;
  // Bolt I remains an ordinary non-homing horizontal flight at an aimed
  // altitude. Crossing the machine's component volume creates proximity.
  const bolt=projectile(s.room);bolt.position.y=6.4;
