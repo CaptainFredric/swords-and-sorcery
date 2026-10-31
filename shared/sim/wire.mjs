@@ -299,7 +299,13 @@ export function serializeSnapshot(room, nowSec, recipientId = null) {
  */
 export function applyRoomCommand(room, player, message, time) {
   // Mounted input belongs to the siege session; personal combat resumes on exit.
-  if ((player?.operatingBallistaId||player?.operatingRamId||player?.operatingFightFlightId) && ['cast', 'castPreparedSpell', 'castPreparedSlot', 'castCurrentSpell', 'guard', 'dash', 'gauntlet', 'ultimate'].includes(message.type)) return {};
+  const groundSiege=Boolean(player?.operatingBallistaId||player?.operatingRamId);
+  const flightSiege=Boolean(player?.operatingFightFlightId);
+  if(groundSiege&&['cast','castPreparedSpell','castPreparedSlot','castCurrentSpell','guard','dash','gauntlet','ultimate'].includes(message.type))return {};
+  if(flightSiege&&['cast','castPreparedSpell','castPreparedSlot','castCurrentSpell','dash','gauntlet'].includes(message.type))return {};
+  // Gate B3: only the named Chivalry Ultimate may start aboard the flying
+  // apparatus; other Ultimates retain their standard unmounted restrictions.
+  if(flightSiege&&message.type==='ultimate'&&player.ultimate!=='chivalry')return {};
   switch (message.type) {
     case 'startMatch':
     case 'ready': {
@@ -335,7 +341,6 @@ export function applyRoomCommand(room, player, message, time) {
       return {};
     }
     case 'attack': {
-      if(player.operatingFightFlightId&&room.fightFlight?.operatorId===player.id)return {};
       if(player.operatingRamId&&room.soFistication?.operatorId===player.id){if(message.down&&player.alive)fireSoFistication(room,room.soFistication,time);return {};}
       if (player.operatingBallistaId && room.biByeLlista?.operatorId === player.id) {
         if (message.down) {
@@ -350,7 +355,7 @@ export function applyRoomCommand(room, player, message, time) {
       return {};
     }
     case 'guard': {
-      if(player.operatingFightFlightId)return {};
+      if(player.operatingFightFlightId&&room.fightFlight?.operatorId===player.id&&message.down&&!room.fightFlight.grounded)return {};
       const inputTime = compensatedInputTime(message.clientTime, time);
       pressButton(room, player.id, 'guard', message.down, inputTime);
       setGuard(room, player.id, Boolean(message.down), inputTime);

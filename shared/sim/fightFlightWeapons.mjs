@@ -11,6 +11,7 @@ import {damageSoFistication} from './soFistication.mjs';
 import {frostGuardFaces,frostParryContact} from './biByeFrostGuard.mjs';
 import {applyDamage,breakGuard} from './combat.mjs';
 import {GAME} from '../src/combat.mjs';
+import {combatActionPolicy} from '../src/combatActionPolicy.mjs';
 
 export const FLIGHT_REPEATER=Object.freeze({capacity:14,production:2,fireRate:7,speed:64,
   lifespan:2.4,falloff:22,closeDamage:3,farDamage:2,guardStamina:8,guardArc:100,
@@ -46,7 +47,7 @@ function release(room,m,p,now){
   if(!validOperator(room,m,p)||m.ammo<1||now+1e-8<(m.nextShotAt??0))return false;
   // The ordinary sword and repeater cannot hit simultaneously. Chivalry is the
   // explicitly permitted exception when sword combat is integrated.
-  if(p.attackActive)return false;
+  if((p.attackActive||p.guarding)&&!combatActionPolicy(p,now).concurrent)return false;
   const yaw=(m.heading??0)+clamp(angle((p.input?.yaw??m.heading)-m.heading),-FLIGHT_REPEATER.maxTraverse,FLIGHT_REPEATER.maxTraverse);
   const pitch=clamp(p.input?.pitch??0,FLIGHT_REPEATER.minPitch,FLIGHT_REPEATER.maxPitch);
   const cp=Math.cos(pitch),origin=flightMuzzle(m,{yaw,pitch});
