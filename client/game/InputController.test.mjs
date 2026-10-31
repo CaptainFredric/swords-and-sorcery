@@ -643,3 +643,13 @@ test('Flight repeater does not fire while ordinary Spellblade is unmounted and d
  input.mountedFlight=true;input.enabled=false;down('Mouse2');
  assert.equal(calls.length,1);
 });
+
+
+test('Flight T ejection is a single press-release pair and blur only cancels',()=>{
+ const {input,calls,down,up,send,win}=setup();input.socket.send=m=>calls.push(m);
+ input.mountedFlight=true;
+ down('KeyT');down('KeyT');up('KeyT');
+ assert.deepEqual(calls,[{type:'flightEject',down:true},{type:'flightEject',down:false}]);
+ calls.length=0;down('KeyT');send('blur',{},win);up('KeyT');
+ assert.deepEqual(calls,[{type:'flightEject',down:true},{type:'flightEject',down:false,cancel:true}]);
+});

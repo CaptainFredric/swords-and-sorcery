@@ -2823,7 +2823,14 @@ export class GameRuntime {
   }
 
   #mountedIntent(wanted){
-    if(this.localAuth?.operatingFightFlightId)return {...wanted,mounted:true};
+    if(this.localAuth?.operatingFightFlightId){
+      const origin=this.siegeCamera?.position??this.camera.position,forward=aimVector(wanted.yaw,wanted.pitch);
+      const distance=reticleDistance(origin.toArray(),forward,{reach:this.#reach,
+        groundAt:(x,z,y)=>surfaceHeightAt(x,z,y,this.activeWorld),bodies:this.remotePlayers.bodies()},
+        {aimReach:200,bodyRadius:.45});
+      return {...wanted,mounted:true,siegeTarget:{x:origin.x+forward[0]*distance,
+        y:origin.y+forward[1]*distance,z:origin.z+forward[2]*distance}};
+    }
     const b=this.latestSnapshot?.bibyeBallista;
     if(this.localAuth?.operatingRamId)return {...wanted,mounted:true};
     if(!this.localAuth?.operatingBallistaId||!b||b.mode==='DESTROYED'){
@@ -3208,7 +3215,7 @@ export class GameRuntime {
     this.ramMotion.push(this.latestSnapshot?.soFistication??null,[],this.latestSnapshot?.serverTime??this.socket.serverNow(),this.latestSnapshot?.soFistRevision??0);
     const ramView=this.ramMotion.sample(this.socket.serverNow(),this.socket.playingLocally,this.socket.inspectionFrozen,dt);this.ramRenderer.update(ramView.clock,ramView.ballista);
     const localIsFlightDriver = Boolean(this.localAuth?.alive && this.localAuth?.operatingFightFlightId);
-    const localFlightAim = localIsFlightDriver ? { yaw: this.input.yaw, pitch: this.input.pitch } : null;
+    const localFlightAim = localIsFlightDriver ? this.#mountedIntent({yaw:this.input.yaw,pitch:this.input.pitch}) : null;
     this.flightRenderer.update(this.socket.serverNow(),this.latestSnapshot?.fightFlight??null,this.latestSnapshot?.fightFlightProjectiles??[],this.latestSnapshot?.serverTime??this.socket.serverNow(),this.latestSnapshot?.flightBurnZones??[],localFlightAim);
     this.structuresRenderer?.update(this.latestSnapshot?.structures,this.socket.serverNow());
     this.world?.update?.(timeSec, this.camera);
