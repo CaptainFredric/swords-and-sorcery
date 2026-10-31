@@ -66,6 +66,8 @@ test('Ballistefan takes aim and operates actual projectile mechanisms and the si
    'real heavy bow Skill or coupled volley is used');
  assert.ok(room.biByeLlista.mode==='DEPLOYED'||room.biByeLlista.z!==initialZ||
     room.events.some(e=>e.type==='bibyeModeChanged'),'operator genuinely repositions or deploys');
+ assert.ok(room.events.some(e=>e.type==='damage'&&e.victimId==='human'),
+   'Ballistefan must inflict real HP damage using the actual ballista physics');
 });
 test('Sir Uppercuff drives and releases the actual ram piston and skill',()=>{
  const {room,command}=setup();
@@ -98,6 +100,9 @@ test('Mr. Donte Shoot takes off, maneuvers and fires finite physical repeater bo
  assert.ok(room.events.some(e=>e.type==='fightFlightBoltReleased'),'repeater releases real projectiles');
  assert.ok(f.flightCharge<100,'ascent or hover has a real charge cost');
  assert.ok(f.ammo<=14&&f.ammo>=0);
+ assert.ok(room.events.some(e=>e.type==='damage'&&e.victimId==='human'&&
+   e.source==='fight-flight-repeater'),
+   'Mr. Donte Shoot must hit the actual player with a physical repeater quarrel');
 });
 test('Wrecked or dismounted surviving pilots leave machine authority and resume foot combat',async()=>{
  const {room,command}=setup();
