@@ -209,6 +209,17 @@ try {
   // Allow render frame to draw cockpit view
   await sleep(400);
 
+  // Ensure practice overlay and pointer hint are hidden for clean screenshots
+  await evaluate(`(() => {
+    const po = document.getElementById('practice-overlay');
+    if (po) po.style.setProperty('display', 'none', 'important');
+    const ph = document.getElementById('pointer-hint');
+    if (ph) ph.style.setProperty('display', 'none', 'important');
+    const pl = document.getElementById('pointer-lock-overlay');
+    if (pl) pl.style.setProperty('display', 'none', 'important');
+  })()`);
+  await sleep(100);
+
   // CHECK 1: Mounted camera defaults to first-person view
   const siegeView = await evaluate("window.__ssRuntime?.siegeView");
   console.log('Check 1: Default mounted view:', siegeView);
@@ -332,6 +343,13 @@ try {
   assert.equal(mobileControls.hasBolt && mobileControls.hasSword, true, 'Bolt and Sword controls present on right');
   assert.equal(mobileControls.hasDash && mobileControls.hasValkyrie, true, 'Dash and Valkyrie present');
   assert.equal(mobileControls.hasView && mobileControls.hasLeave, true, 'Compact View and Leave present at top right');
+
+  await evaluate(`(() => {
+    const po = document.getElementById('practice-overlay');
+    if (po) po.style.setProperty('display', 'none', 'important');
+    const ph = document.getElementById('pointer-hint');
+    if (ph) ph.style.setProperty('display', 'none', 'important');
+  })()`);
 
   await captureScreenshot('flight-mobile-cockpit-hud.png');
 

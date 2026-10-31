@@ -113,3 +113,55 @@ test('Offensive machine pitch compensates within joint limits, never shoots thro
   assert.ok(committed.pitch<0,'a terminal dive cannot point its crossbow upward');
   assert.ok(flightDirection(m,committed).y<0,'actual launch vector also descends');
 });
+
+test('Visual aim, muzzle calculation, projectile trajectory, and close target hit agree across nonzero heading, pitch, and traverse limits', () => {
+  const { room, m, p } = setup();
+  // Set arbitrary nonzero heading and run pitch
+  m.x = 2.5; m.y = 1.8; m.z = -5.0;
+  m.heading = 1.15; // ~66 deg
+  m.runPitch = 0.18; // ~10 deg
+
+  // 1. Aim within traverse and elevation limits
+  p.input.yaw = 1.30; // ~74 deg (delta +0.15 rad, within maxTraverse 0.436 rad)
+  p.input.pitch = -0.05;
+
+  const aim = flightRepeaterAim(m, p.input);
+  const muzzle = flightMuzzle(m, aim);
+  const dir = flightDirection(m, aim);
+
+  // Place a close target directly along the muzzle line at distance 3.5m
+  const victim = room.addServerActor({ id: 'close-target', name: 'Close Target', actorKind: 'dummy' }, 0);
+  victim.alive = true;
+  victim.position = {
+    x: muzzle.x + dir.x * 3.5,
+    y: muzzle.y + dir.y * 3.5 - 0.9, // standing body center
+    z: muzzle.z + dir.z * 3.5,
+  };
+  victim.spawnProtectionUntil = 0;
+  const healthBefore = victim.health;
+
+  assert.equal(requestFightFlightFire(room, m, p, true, 2), true);
+  const bolt = [...room.fightFlightProjectiles.values()][0];
+  assert.ok(bolt);
+
+  // Muzzle agreement
+  assert.ok(Math.hypot(bolt.position.x - muzzle.x, bolt.position.y - muzzle.y, bolt.position.z - muzzle.z) < 1e-6);
+
+  // Step projectile forward to hit the close target
+  for (let i = 1; i <= 5; i++) stepFightFlightProjectiles(room, 1 / 30, 2 + i / 30);
+  assert.equal(victim.health, healthBefore - 4, 'Close target receives full 4 damage');
+  assert.ok(room.events.some(e => e.type === 'fightFlightBoltImpact' && e.victimId === victim.id));
+
+  // 2. Aim beyond traverse limit (attempting +0.8 rad, limited to maxTraverse = 25 deg = 0.4363 rad)
+  p.input.yaw = m.heading + 0.8;
+  const limitedAim = flightRepeaterAim(m, p.input);
+  const traverseOffset = Math.atan2(Math.sin(limitedAim.yaw - m.heading), Math.cos(limitedAim.yaw - m.heading));
+  assert.ok(Math.abs(traverseOffset - FLIGHT_REPEATER.maxTraverse) < 1e-6, 'Traverse clamped to exact limit');
+
+  // 3. Multiplayer latency and snapshot replication:
+  // Serialize snapshot and verify remote client receives exact crossbowYaw and crossbowPitch
+  const snap = serializeSnapshot(room, 2.5);
+  assert.ok(snap.fightFlight);
+  assert.equal(snap.fightFlight.crossbowYaw, m.crossbowYaw);
+  assert.equal(snap.fightFlight.crossbowPitch, m.crossbowPitch);
+});

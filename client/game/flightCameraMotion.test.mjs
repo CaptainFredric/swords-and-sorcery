@@ -41,3 +41,21 @@ test('FlightCameraMotion dampens back toward rest after disturbance', () => {
   }
   assert.ok(Math.abs(finalResult.offset.y) < 0.005, 'Offset should settle back near 0');
 });
+
+test('FlightCameraMotion reacts to takeoff surge when leaving ground', () => {
+  const motion = new FlightCameraMotion();
+  // On ground
+  motion.update(0.016, { velocity: { x: 0, y: 0, z: 0 }, grounded: true }, 1);
+  // Lifts off with positive vertical velocity
+  const result = motion.update(0.016, { velocity: { x: 0, y: 1.5, z: 0 }, grounded: false }, 1);
+  assert.ok(result.offset.y < 0, 'Takeoff inertia should produce downward harness surge');
+  assert.ok(result.pitch > 0, 'Takeoff should produce upward pitch response');
+});
+
+test('FlightCameraMotion reacts to horizontal acceleration with settling reaction', () => {
+  const motion = new FlightCameraMotion();
+  motion.update(0.016, { velocity: { x: 0, y: 0, z: 0 }, grounded: true }, 1);
+  // Rapid acceleration forward
+  const result = motion.update(0.016, { velocity: { x: 4, y: 0, z: 0 }, grounded: true }, 1);
+  assert.ok(result.pitch > 0, 'Acceleration should produce settling pitch back');
+});

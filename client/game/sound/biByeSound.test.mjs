@@ -32,13 +32,16 @@ test('changing operator and rewinding room clock clear old sound handles',()=>{
  audio.update(null,opt);assert.equal(active.size,0);
 });
 test('mechanical recipes remain bounded and differentiated with separate wood, metal and failure sounds',()=>{
- for(const name of ['shotI','shotII','deploy','retract','settle','catch','wood','metal','wheel','stabilizer','failure','wreck','creak','frost','siegeImpact']){
+ for(const name of ['shotI','shotII','deploy','retract','settle','catch','wood','metal','wheel','stabilizer','failure','wreck','creak','frost','siegeImpact','steamRelease']){
   const r=biByeRecipe(name,()=>.5);assert.ok(r.layers.length>0,name);assert.equal(r.tag,name);
   for(const layer of r.layers){assert.ok((layer.at??0)<1);if(layer.type!=='ring')assert.ok(layer.freq>20&&layer.freq<12000);}
  }
  assert.notDeepEqual(biByeRecipe('shotI',()=>.5),biByeRecipe('shotII',()=>.5));
  const a=biByeLoopSamples('roll',22050,2,()=>.6),b=biByeLoopSamples('winch',22050,2,()=>.6);
+ const c=biByeLoopSamples('ratchet',22050,2,()=>.6),d=biByeLoopSamples('pressure',22050,2,()=>.6);
  assert.equal(a.length,44100);assert.ok(a.every(Number.isFinite));assert.ok(Math.max(...a.map(Math.abs))<1);assert.notDeepEqual(a,b);
+ assert.equal(c.length,44100);assert.ok(c.every(Number.isFinite));assert.notDeepEqual(c,a);
+ assert.equal(d.length,44100);assert.ok(d.every(Number.isFinite));assert.notDeepEqual(d,c);
 });
 test('coupling latch, delay trip and release sound once per authoritative transition',()=>{
  const {audio,heard}=setup();audio.update(machine,opt);
@@ -51,4 +54,12 @@ test('upper recock and main winch have distinct simultaneous loops and separate 
  const upper={type:'bibyeUpperRecocked',ballistaId:'b',at:3};audio.event(upper,b,3);audio.event(upper,b,3);
  assert.equal(heard.filter(x=>x.recipe?.tag==='upperCatch').length,1);
  assert.notDeepEqual(biByeLoopSamples('winch',22050,2,()=>.6),biByeLoopSamples('recock',22050,2,()=>.6));
+});
+
+test('primed siege skill activates the subtle ratcheting loop and stops on unprime', () => {
+ const {audio} = setup();
+ audio.update({ ...machine, skill: { phase: 'primed' } }, opt);
+ assert.ok(audio.loops.has('ratchet'), 'Ratchet loop is active when skill is primed');
+ audio.update({ ...machine, skill: { phase: 'idle' } }, opt);
+ assert.ok(!audio.loops.has('ratchet'), 'Ratchet loop stops when skill is no longer primed');
 });

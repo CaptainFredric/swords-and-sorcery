@@ -614,7 +614,7 @@ export class RemotePlayers {
     const shell = this.self;
     // First person hides the body immediately after dismount. Restore its rig
     // and sword now rather than retaining the seated pose until it is drawn again.
-    if (!player.alive || !player.operatingBallistaId) {
+    if (!player.alive || (!player.operatingBallistaId && !player.operatingFightFlightId)) {
       shell.visualInstance?.animator?.releaseMounted();
       shell.root.rotation.set(0,at?.yaw??player.yaw??0,0);
     }
@@ -718,11 +718,11 @@ export class RemotePlayers {
       extra: state === 'dead' || recovering ? [] : [...crouch.turns, ...guardTurns(plan.concurrent?.attack ? 0 : d.guardAmount), ...jabTurns(serverNow - (d.jabAt ?? -Infinity))],
     };
     if(pb.alive&&pb.operatingRamId)Object.assign(plan,{ramMounted:true,clip:'Idle',time:0,layers:null,concurrent:null});
-    if(pb.alive&&pb.operatingBallistaId)Object.assign(plan,{mounted:true,clip:'Idle',layers:null,concurrent:null});
+    if(pb.alive&&(pb.operatingBallistaId||pb.operatingFightFlightId))Object.assign(plan,{mounted:true,clip:'Idle',layers:null,concurrent:null});
     setRemoteVisualPlan(shell, plan, dt);
     // a foot comes down where the gait clip puts it (its rate follows the knight's speed)
     const gait = shell.visualInstance?.animator?.gaitPhase;
-    if (!pb.operatingRamId && (state === 'run' || state === 'sprint') && Number.isFinite(gait) && Number.isFinite(d.lastGait) && gaitFootfall(d.lastGait, gait)) {
+    if (!pb.operatingRamId && !pb.operatingFightFlightId && (state === 'run' || state === 'sprint') && Number.isFinite(gait) && Number.isFinite(d.lastGait) && gaitFootfall(d.lastGait, gait)) {
       if (id) this.onFootstep?.(id, shell.root.position, state === 'sprint' ? 1 : 0, Boolean(pb.crouched));
     }
     d.lastGait = gait;

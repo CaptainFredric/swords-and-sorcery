@@ -34,7 +34,16 @@ export class SoFisticationRenderer {
       if(['Armored_Fist','Wrist_Resonator_Ring'].includes(owner.name)){id='Fist';break;}
       if(['Winch_Drum_And_Gears','Pinion_And_Release_Lever','Tension_Springs','Retraction_Chains_Aft'].includes(owner.name)){id='Drive';break;}
      }
-     o.material=[o.material].flat().map(original=>{const m=original.clone();m.envMap=this.environment;m.envMapIntensity=.5;const hit=ramHitMaterial(m,id==='Fist');this.materials.push({m,id,o,hit,hitTimes:[-Infinity,-Infinity],color:m.color.clone(),emission:m.emissive.clone(),intensity:m.emissiveIntensity});return m;});if(o.material.length===1)o.material=o.material[0];
+     o.material=[o.material].flat().map(original=>{
+      const m=original.clone();
+      const isWood=Boolean(original.name?.toLowerCase().includes('timber')||original.name?.toLowerCase().includes('walnut'));
+      m.envMap=this.environment;
+      m.envMapIntensity=isWood?0.12:0.55;
+      if(isWood){m.roughness=Math.max(0.78,m.roughness??0.82);m.metalness=Math.min(0.06,m.metalness??0.05);}
+      const hit=ramHitMaterial(m,id==='Fist');
+      this.materials.push({m,id,o,hit,hitTimes:[-Infinity,-Infinity],color:m.color.clone(),emission:m.emissive.clone(),intensity:m.emissiveIntensity});
+      return m;
+     });if(o.material.length===1)o.material=o.material[0];
     }
    });
    this.wheels=SO_FIST_WHEELS.map(w=>{const o=this.nodes.get(w.id);return{o,rest:o.quaternion.clone(),position:o.position.clone()};});
@@ -59,7 +68,7 @@ export class SoFisticationRenderer {
   for(let i=0;i<this.wheels.length;i++){
    const {o,rest,position}=this.wheels[i],failed=b.components?.[SO_FIST_WHEELS[i].id]?.health<=0;
    o.position.copy(position);o.position.y+=(b.wheelOffsets?.[i]??0)/SO_FIST_SCALE;
-   this.turn.setFromAxisAngle(new THREE.Vector3(0,1,0),soFistWheelSteering(b)[i]);this.spin.setFromAxisAngle(new THREE.Vector3(1,0,0),-(b.wheelRolls?.[i]??0));o.quaternion.copy(this.turn).multiply(rest).multiply(this.spin);
+   this.turn.setFromAxisAngle(new THREE.Vector3(0,1,0),soFistWheelSteering(b)[i]);this.spin.setFromAxisAngle(new THREE.Vector3(1,0,0),(b.wheelRolls?.[i]??0));o.quaternion.copy(this.turn).multiply(rest).multiply(this.spin);
    if(failed){o.position.y-=.07;o.rotation.z+=(i%2?1:-1)*.12;}
   }
   const fist=this.nodes.get('Armored_Fist'),broken=b.components?.Fist?.health<=0;

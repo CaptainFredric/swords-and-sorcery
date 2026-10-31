@@ -49,6 +49,7 @@ export class BiByeOperatorPose {
   }
  }
  applyFlight(grips){
+  if(!this.flightActive){this.flightActive=true;}
   // Keep the Spellblade's real sword equipped; left hand holds repeater, right hand in sword corridor
   this.root.updateWorldMatrix(true,true);
   this.#arm('L',grips?.left,false);
@@ -85,11 +86,11 @@ export class BiByeOperatorPose {
   bone.quaternion.copy(bone.parent.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(world));bone.updateMatrixWorld(true);
  }
  release(){
-  if(!this.active)return false;
+  if(!this.active&&!this.flightActive)return false;
   for(const [bone,t] of this.rest){bone.position.copy(t.p);bone.quaternion.copy(t.q);}
   if(this.sword)this.sword.visible=this.swordVisible;
   if(this.stowed)this.stowed.visible=false;
-  this.active=false;return true;
+  this.active=false;this.flightActive=false;return true;
  }
  dispose(){this.releaseStanding();this.release();this.stowed?.removeFromParent();this.stowed?.traverse(o=>o.geometry?.dispose());}
 }

@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {appUrl} from '../appUrl.mjs';
 import {everywhere} from '../game/viewLayers.mjs';
+import {FLIGHT_REPEATER,flightRepeaterAim,flightMuzzle,flightDirection} from '../../shared/src/flightRepeaterAim.mjs';
 
 const ASSET='/client/assets/props/fight-and-flight/fight-and-flight-v2.6.glb?v=122c53cb5513';
 const SLOT_NAMES=['Quarrel_Visual_Chambered','Quarrel_Visual_Feed_Next','Quarrel_Visual_Hopper_Top','Quarrel_Visual_Slot_4','Quarrel_Visual_Slot_5','Quarrel_Visual_Slot_6'];
@@ -78,28 +79,51 @@ export class FightFlightRenderer{
     // Authored pitched flight pose and actual pilot machine silhouette share
     // the same authoritative run tilt; no unrelated camera dip is applied.
     this.model.rotation.x=m.runPitch??0;
+    const dt=this.lastUpdateAt!=null?Math.min(0.1,Math.max(0,now-this.lastUpdateAt)):0;
+    this.lastUpdateAt=now;
     const name=this.posture(m),clip=this.clips.get(name);
     if(clip&&name!==this.lastMode){
-      if(this.action){this.action.stop();this.action.enabled=false;}
-      this.action=this.mixer.clipAction(clip);this.action.reset().play();this.action.paused=false;this.lastMode=name;
+      const prev=this.action;
+      const next=this.mixer.clipAction(clip);
+      next.reset();
+      next.enabled=true;
+      if(name==='Posture_05_Grounded_Walk_Loop'){
+        next.setLoop(THREE.LoopRepeat);
+      }else{
+        next.clampWhenFinished=true;
+        next.setLoop(THREE.LoopOnce,1);
+      }
+      if(prev&&prev!==next){
+        prev.crossFadeTo(next,0.22,false);
+      }
+      next.play();
+      this.action=next;
+      this.lastMode=name;
     }
+    if(this.action&&name==='Posture_05_Grounded_Walk_Loop'){
+      const speed=Math.hypot(m.velocity?.x??0,m.velocity?.z??0);
+      this.action.timeScale=Math.max(0.4,speed*1.3);
+    }
+    this.mixer.update(dt);
     if(this.rotorAction){this.rotorAction.time=((m.rotorAngle??0)%(2*Math.PI)+2*Math.PI)%(2*Math.PI)/(2*Math.PI)*this.rotorAction.getClip().duration;}
     if(this.reloadAction)this.reloadAction.time=Math.min(6,Math.floor(m.ammo??0))/6*this.reloadAction.getClip().duration;
     if(this.fireAction){this.fireAction.enabled=Number.isFinite(m.lastShotAt)&&now-m.lastShotAt>=0&&now-m.lastShotAt<=.143;
       if(this.fireAction.enabled)this.fireAction.time=Math.max(0,now-m.lastShotAt);
     }
-    if(this.action)this.action.time=name==='Posture_05_Grounded_Walk_Loop'?now%this.action.getClip().duration:Math.min(.65,this.action.getClip().duration);
-    this.mixer.update(0);
     const crossbow=this.nodes.get('Crossbow_Body');
     if(crossbow){
-      const rawYaw=aim?.yaw??m.crossbowYaw??m.heading??0;
-      const rawPitch=aim?.pitch??m.crossbowPitch??0;
-      const maxTraverse=Math.PI*25/180,minPitch=-Math.PI*20/180,maxPitch=Math.PI*20/180;
-      const deltaYaw=Math.atan2(Math.sin(rawYaw-(m.heading??0)),Math.cos(rawYaw-(m.heading??0)));
-      const relative=Math.max(-maxTraverse,Math.min(maxTraverse,deltaYaw));
-      const clampedPitch=Math.max(minPitch,Math.min(maxPitch,rawPitch));
+      let pitchAngle=0,relativeYaw=0;
+      if(aim){
+        const computed=flightRepeaterAim(m,aim);
+        pitchAngle=computed.pitch;
+        relativeYaw=Math.atan2(Math.sin(computed.yaw-(m.heading??0)),Math.cos(computed.yaw-(m.heading??0)));
+      }else{
+        pitchAngle=m.crossbowPitch??0;
+        const targetYaw=m.crossbowYaw??m.heading??0;
+        relativeYaw=Math.atan2(Math.sin(targetYaw-(m.heading??0)),Math.cos(targetYaw-(m.heading??0)));
+      }
       const age=now-(m.lastShotAt??-Infinity),recoil=age>=0&&age<.143?(.065*(1-age/.143)):0;
-      crossbow.rotation.set(-clampedPitch-recoil,relative,0,'YXZ');
+      crossbow.rotation.set(-pitchAngle-recoil,relativeYaw,0,'YXZ');
     }
     const rotor=this.nodes.get('Rotor_Hub');if(rotor)rotor.rotation.y=m.rotorAngle??0;
     // The named GLB rotor's authored pose is driven by the authoritative angular phase,
@@ -154,6 +178,21 @@ export class FightFlightRenderer{
     const distance=first?0:5.5;
     out.set(m.x+Math.sin(m.heading)*distance,m.y+(first?1.52:3.05),m.z+Math.cos(m.heading)*distance);
     return out;
+  }
+  getCrossbowAim(aim=null){
+    const m=this.state;if(!m)return null;
+    if(aim)return flightRepeaterAim(m,aim);
+    return {yaw:m.crossbowYaw??m.heading??0,pitch:m.crossbowPitch??0};
+  }
+  getMuzzlePosition(aim=null){
+    const m=this.state;if(!m)return null;
+    const computed=this.getCrossbowAim(aim);
+    return flightMuzzle(m,computed);
+  }
+  getFireDirection(aim=null){
+    const m=this.state;if(!m)return null;
+    const computed=this.getCrossbowAim(aim);
+    return flightDirection(m,computed);
   }
   dispose(){this.disposed=true;for(const mesh of this.bolts.values())mesh.removeFromParent();this.bolts.clear();
     this.boltGeometry.dispose();this.boltMaterial.dispose();
