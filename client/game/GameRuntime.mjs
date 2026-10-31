@@ -83,6 +83,7 @@ import { GreenerPasturesRenderer } from '../worlds/GreenerPasturesRenderer.mjs';
 import { BastionBreachRenderer } from '../worlds/BastionBreachRenderer.mjs';
 import { BlackbellFoundryRenderer } from '../worlds/BlackbellFoundryRenderer.mjs';
 import { OuterworksRenderer } from '../worlds/OuterworksRenderer.mjs';
+import { HighGroundsRenderer } from '../worlds/HighGroundsRenderer.mjs';
 
 import {
   canPresentLocalAction,
@@ -112,6 +113,7 @@ const WORLD_RENDERERS = Object.freeze({
   'bastion-breach': BastionBreachRenderer,
   'blackbell-foundry': BlackbellFoundryRenderer,
   'outerworks': OuterworksRenderer,
+  'high-grounds': HighGroundsRenderer,
 });
 
 
@@ -653,6 +655,10 @@ export class GameRuntime {
           : nextWorld;
       this.activeWorld = structureWorld(phasedWorld, this.latestSnapshot?.structures);
       this.worldId = worldId;
+      // Avoid near-clip scenery on an actual 234 m battlefield, without
+      // spending the extra depth range in smaller arenas.
+      this.camera.far = worldId === 'high-grounds' ? 340 : 180;
+      this.camera.updateProjectionMatrix();
       this.worldError = null;
       this.localState = null;
       // what a fight first shows mid-swing is readied now, so it does not stall the frame it appears in
@@ -3219,6 +3225,7 @@ export class GameRuntime {
     this.remotePlayers.update(nowMs, dt);
     this.#showAfflictions(dt);
     this.world?.setObjectiveState?.(this.latestSnapshot?.objective ?? null, this.localAuth?.team ?? null, this.socket.serverNow());
+    this.world?.setHighGroundsState?.(this.latestSnapshot?.highGrounds ?? null);
     this.siegeSound.update(this.latestSnapshot?.bibyeBallista,{active:this.playing && this.input.enabled && !this.socket.inspectionFrozen,playerId:this.playerId,listener:this.localState?.position??this.localAuth?.position,yaw:this.input.yaw,now:this.socket.serverNow()});
     this.world?.setBiByeState?.(this.latestSnapshot, this.socket.serverNow(), {local:this.socket.playingLocally,frozen:this.socket.inspectionFrozen});
     this.ramSound.update(this.latestSnapshot?.soFistication,{active:this.playing&&this.input.enabled&&!this.socket.inspectionFrozen,listener:this.localState?.position??this.localAuth?.position,yaw:this.input.yaw,now:this.socket.serverNow()});
