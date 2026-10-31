@@ -9,8 +9,11 @@ const base=(process.env.SIEGE_BROWSER_URL??'http://127.0.0.1:3001').replace(/\/$
 const port=9251,out='output/playwright/siege-armory-cold';
 await mkdir(out,{recursive:true});
 const profile=await mkdtemp(join(tmpdir(),'ss-cold-chrome-'));
-const chrome=spawn(process.env.CHROME_BIN??'chromium',[
+const chromeBin=process.env.CHROME_BIN??(process.platform==='darwin'?'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome':'chromium');
+const chrome=spawn(chromeBin,[
  '--headless=new','--no-sandbox','--disable-dev-shm-usage','--enable-unsafe-swiftshader',
+ '--disable-background-timer-throttling','--disable-renderer-backgrounding',
+ '--disable-backgrounding-occluded-windows',
  '--remote-allow-origins=*','--window-size=1280,800','--remote-debugging-port='+port,
  '--user-data-dir='+profile,'about:blank'],{stdio:'ignore'});
 let ws,seq=0,stage='boot';const pending=new Map(),exceptions=[],record={};
@@ -76,22 +79,29 @@ try{
  await evaluate("(() => {const r=window.__ssRuntime,p=r.localAuth.position,b=r.latestSnapshot.bibyeBallista;r.input.yaw=Math.atan2(-(b.x-p.x),-(b.z-p.z));})()");
  const inputElement=await evaluate("(() => {const el=window.__ssRuntime.input.element,r=el.getBoundingClientRect();return {tag:el.tagName,id:el.id,x:Math.round(r.left+r.width*.5),y:Math.round(r.top+r.height*.5),suspended:window.__ssRuntime.input.suspended};})()");
  console.log('[COLD INPUT TARGET]',JSON.stringify(inputElement));
+ await send('Page.bringToFront');
+ await evaluate("window.focus()");
  await send('Input.dispatchMouseEvent',{type:'mousePressed',x:inputElement.x,y:inputElement.y,button:'left',clickCount:1});
  await send('Input.dispatchMouseEvent',{type:'mouseReleased',x:inputElement.x,y:inputElement.y,button:'left',clickCount:1});
- // Practice opens its toolbox after building. Explicitly acquire ordinary
- // gameplay focus, as a user must, before dispatching physical movement.
- await evaluate("window.__ssRuntime?.requestPointerLock()");
+ if(await evaluate("Boolean(document.pointerLockElement)&&!window.__ssRuntime?.input?.enabled")){
+  await evaluate("document.exitPointerLock?.()");
+  await until(()=>evaluate("document.pointerLockElement===null"),'release stale pointer lock',40);
+  await send('Page.bringToFront');
+  await send('Input.dispatchMouseEvent',{type:'mousePressed',x:inputElement.x,y:inputElement.y,button:'left',clickCount:1});
+  await send('Input.dispatchMouseEvent',{type:'mouseReleased',x:inputElement.x,y:inputElement.y,button:'left',clickCount:1});
+ }
  await until(()=>evaluate("Boolean(window.__ssRuntime?.input?.enabled)"),'actual gameplay input focus',60);
  const start=await evaluate(state);
  console.log('[COLD MOVE START]',JSON.stringify({me:start.me,ballista:start.ballista,
   controls:await evaluate("({enabled:window.__ssRuntime?.input?.enabled,locked:!!document.pointerLockElement,inspection:window.__ssRuntime?.inspectionFree})")}));
  await key('W','rawKeyDown');
- await sleep(550);
- const moved=await evaluate(state);
+ const moved=await until(async()=>{
+  const s=await evaluate(state);
+  if(s?.me?.position && Math.hypot(start.me.position.x-s.me.position.x,start.me.position.z-s.me.position.z)>=.08)return s;
+  return false;
+ },'walk moves player position',60);
  console.log('[COLD MOVE CHECK]',JSON.stringify({before:start.me.position,after:moved.me.position,
   controls:await evaluate("({enabled:window.__ssRuntime?.input?.enabled,forward:window.__ssRuntime?.input?.movement?.().forward})")}));
- if(Math.hypot(start.me.position.x-moved.me.position.x,start.me.position.z-moved.me.position.z)<.08)
-  throw Error('Real keyboard movement did not change player position; input focus or collision blocked');
  let samples=0;
  await until(async()=>{
   const s=await evaluate(state);if(!s?.me?.position||!s?.ballista)return false;

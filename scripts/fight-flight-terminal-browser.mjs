@@ -12,7 +12,8 @@ let stage='Chrome launch';
 const folder='output/playwright/fight-flight-terminal';
 await mkdir(folder,{recursive:true});
 const chrome=spawn(chromeBin,['--headless=new','--no-sandbox','--disable-dev-shm-usage',
-  '--enable-unsafe-swiftshader','--remote-allow-origins=*','--window-size=1280,800',
+  '--enable-unsafe-swiftshader','--disable-background-timer-throttling','--disable-renderer-backgrounding',
+  '--disable-backgrounding-occluded-windows','--remote-allow-origins=*','--window-size=1280,800',
   '--remote-debugging-port='+port,'--user-data-dir='+profile,'about:blank'],{stdio:'ignore'});
 let ws,seq=0;const pending=new Map(),errors=[];
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
