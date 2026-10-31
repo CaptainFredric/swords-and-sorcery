@@ -1191,6 +1191,11 @@ function openPause() {
   $('#resume-game').focus();
 }
 $('#resume-game').addEventListener('click', () => { paused = false; pauseMenu.classList.add('hidden'); runtime?.requestPointerLock(); });
+$('#pause-edit-controls')?.addEventListener('click', () => {
+  paused = false;
+  pauseMenu.classList.add('hidden');
+  runtime?.editTouchLayout();
+});
 $('#pause-leave').addEventListener('click', () => returnToMenu());
 $('#lobby-leave').addEventListener('click', () => returnToMenu());
 // the ready check: each Spellblade says they are ready (press again to take it back)
@@ -1223,6 +1228,7 @@ const settingsPanel = new SettingsPanel({
   store: settings,
   registry,
   device: () => (touchUi ? 'touch' : 'desktop'),
+  onOpenTouchEditor: () => runtime?.editTouchLayout(),
 });
 settings.onChange((change) => {
   applySettings();

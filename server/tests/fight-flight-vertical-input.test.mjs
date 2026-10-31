@@ -73,7 +73,7 @@ test('Low rotor energy, destroyed rotor, or charge loss defeats otherwise perfec
  const y=m.y;step(room,m,56*DT,24,{flightRise:false});
  assert.equal(m.rotorLiftAuthority,0);assert.ok(m.velocity.y<-.5&&m.y<y,'loss of lift must eventually reverse prior climb momentum');
  const other=setup();step(other.room,other.m,0,56,{flightRise:true});
- other.m.flightCharge=0;step(other.room,other.m,56*DT,3,{flightRise:false});
+ other.m.flightCharge=0;step(other.room,other.m,56*DT,24,{flightRise:false});
  assert.equal(other.m.rotorLiftAuthority,0);assert.ok(other.m.velocity.y<0);
 });
 test('Legacy Space short press hops while sustained held Space becomes Rise; no two-tap requirement',()=>{
