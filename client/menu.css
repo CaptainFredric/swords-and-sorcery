@@ -238,7 +238,7 @@
 
 /* --- loading: crest, name and a brass thread of progress -------------------------------------------------------- */
 .loading-veil { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; background: radial-gradient(ellipse at 50% 45%, #2a1d15, #120c09 70%); color: var(--heraldry-cream); transition: opacity .7s ease, visibility 0s linear .7s; }
-.loading-veil.done { opacity: 0; visibility: hidden; }
+.loading-veil.done { opacity: 0; visibility: hidden; pointer-events: none; }
 .loading-inner { display: grid; justify-items: center; gap: 12px; }
 .loading-inner .crest { width: 64px; height: 76px; margin: 0; animation: crest-glow 2.4s ease-in-out infinite; }
 .loading-title { margin: 0; font: 400 clamp(26px, 3.2cqw, 38px)/1 var(--font-inscription); letter-spacing: .06em; color: #f1dfae; }

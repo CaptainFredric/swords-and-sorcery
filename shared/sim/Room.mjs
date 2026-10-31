@@ -17,6 +17,7 @@ import { BOT_SKILLS, botSkillId } from './botSkill.mjs';
 import { beginPeace } from './peace.mjs';
 import { TEAMS, areAllies, assignTeam } from '../src/teams.mjs';
 import { createObjectiveState } from './objectives.mjs';
+import { createHighGroundsState, availableHighGroundsSpawns, finishHighGroundsOnTime } from './highGroundsMode.mjs';
 import { createBiByeLlista, dismountBiByeLlista } from './biByeLlista.mjs';
 
 const COUNTDOWN_SEC = 3;
@@ -158,7 +159,8 @@ export class Room {
     this.overtime = false;
     this.overtimeStartedAt = null;
     this.overtimeClearedAt = null;
-    if (this.policy.teamMode) {
+    this.highGrounds = this.mode === GAME_MODES.HIGH_GROUNDS ? createHighGroundsState(this.world) : null;
+    if (this.policy.teamMode && this.mode !== GAME_MODES.HIGH_GROUNDS) {
       this.objectiveState = createObjectiveState(this.world.objectives ?? []);
       const template = getWorld(this.worldId);
       if (typeof template?.forObjective === 'function')
@@ -183,6 +185,10 @@ export class Room {
   initialSpawnFor(player, index = 0, nowSec = 0) {
     if (!this.world?.spawnPoints?.length) return { x: 0, y: 0, z: 0, yaw: 0 };
     if (this.policy.teamMode && player?.team) {
+      if (this.mode === GAME_MODES.HIGH_GROUNDS) {
+        const candidates = availableHighGroundsSpawns(this, player, this.world.spawnPoints);
+        if (candidates.length) return candidates[index % candidates.length];
+      }
       const currentPhase = this.objectiveState?.phase ?? 0;
       const phaseMatching = this.world.spawnPoints.filter((s) => s.team === player.team && s.phase === currentPhase);
       if (phaseMatching.length) {
@@ -441,7 +447,7 @@ export class Room {
     if (!this.isPrivate || this.state !== 'WAITING' || playerId !== this.hostId()) return 'Only the room host may change settings before the countdown.';
     const settings = roomSettings(this, patch);
     if (settings.error) return settings.error;
-    if (this.humanActorCount() > (settings.mode === 'BREAKTHROUGH' ? settings.teamSize * 2 : 8)) return 'Too many Spellblades for that team size.';
+    if (this.humanActorCount() > (['BREAKTHROUGH', 'HIGH_GROUNDS'].includes(settings.mode) ? settings.teamSize * 2 : 8)) return 'Too many Spellblades for that team size.';
     const world = getWorld(settings.worldId);
     const previousMode=this.mode;
     // Everything is validated before actors or geometry change.
@@ -451,7 +457,8 @@ export class Room {
       ...(settings.teamSize ? {teamSize:settings.teamSize,botCount:settings.teamSize*2-1} : {}) };
     this.scoreToWin = settings.scoreToWin;
     this.worldId = settings.worldId; this.world = world;
-    this.objectiveState = this.policy.teamMode ? createObjectiveState(world.objectives ?? []) : null;
+    this.highGrounds = settings.mode === GAME_MODES.HIGH_GROUNDS ? createHighGroundsState(world) : null;
+    this.objectiveState = this.policy.teamMode && settings.mode !== GAME_MODES.HIGH_GROUNDS ? createObjectiveState(world.objectives ?? []) : null;
     if (this.objectiveState && typeof world.forObjective === 'function') this.world = world.forObjective(this.objectiveState);
     this.structures = createStructureState(world, (this.structures?.revision ?? 0) + 1);
     this.projectiles.clear();this.ruptures=[];this.teamMarks=[];
@@ -814,7 +821,9 @@ export class Room {
       && this.policy.timed
       && !this.suddenDeath
       && this.matchStartedAt !== null) {
-      if (this.policy.teamMode) {
+      if (this.mode === GAME_MODES.HIGH_GROUNDS) {
+        if (nowSec >= this.matchStartedAt + this.policy.matchSeconds) finishHighGroundsOnTime(this, nowSec);
+      } else if (this.policy.teamMode) {
         const timeExpired = nowSec >= this.matchStartedAt + this.policy.matchSeconds;
         const obj = this.objectiveState;
         const hasAttackers = (obj?.attackersCount ?? 0) > 0;
@@ -904,7 +913,8 @@ export class Room {
     this.overtimeClearedAt = null;
     if (this.policy.teamMode) {
       if (this.botsProvisioned) this.provisionModeActors(nowSec);
-      this.objectiveState = createObjectiveState(this.world.objectives ?? []);
+      this.highGrounds = this.mode === GAME_MODES.HIGH_GROUNDS ? createHighGroundsState(getWorld(this.worldId)) : null;
+      this.objectiveState = this.mode === GAME_MODES.HIGH_GROUNDS ? null : createObjectiveState(this.world.objectives ?? []);
       const template = getWorld(this.worldId);
       if (typeof template?.forObjective === 'function')
         this.world = template.forObjective(this.objectiveState, nowSec);
@@ -919,6 +929,7 @@ export class Room {
     this.fightFlight=null;this.fightFlightRevision++;this.fightFlightProjectiles=new Map();this.flightBurnZones=[];
     if (this.policy.teamMode) {
       for (const emplacement of baseWorld.siegeEmplacements ?? []) {
+        if (!this.objectiveState) continue;
         if (emplacement.type !== 'so-fist-ication' || !emplacement.phases.includes(this.objectiveState.phase)) continue;
         const ram = createSoFistication({ ...emplacement, emplacementId: emplacement.id, id: `${emplacement.id}-${this.soFistRevision}` });
         const pose = soFistTerrainPose(ram, this.world);

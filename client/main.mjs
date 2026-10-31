@@ -719,6 +719,20 @@ function soundTheEnd(snapshot) {
 
 function updateEnd(snapshot) {
   soundTheEnd(snapshot);
+  if (snapshot.mode === 'HIGH_GROUNDS') {
+    const me = snapshot.players.find(p => p.id === socket.playerId);
+    const scores = snapshot.highGrounds?.scores ?? { ATTACKERS: 0, DEFENDERS: 0 };
+    const won = Boolean(snapshot.winnerTeam && snapshot.winnerTeam === me?.team);
+    winnerTitle.textContent = snapshot.winnerTeam ? (won ? 'VICTORY' : 'DEFEAT') : 'STALEMATE';
+    finalBoard.innerHTML = `<div class="bt-end-summary"><strong>THE HIGH GROUNDS · AZURE ${Math.floor(scores.ATTACKERS)} : CRIMSON ${Math.floor(scores.DEFENDERS)}</strong><small>${escapeHtml(snapshot.finishReason ?? 'territory')}</small></div>`
+      + [...snapshot.players].sort((a,b) => b.kills - a.kills)
+        .map(p => `<div class="final-row"><b>${escapeHtml(p.name)}</b><strong>${p.kills} K</strong><em>${p.deaths} D</em></div>`).join('');
+    seekAnotherButton.classList.add('hidden');
+    rematchButton.classList.remove('hidden');
+    rematchButton.textContent = 'PLAY AGAIN';
+    rematchCopy.textContent = 'Return to the High Grounds for another contest.';
+    return;
+  }
   if (snapshot.mode === 'BREAKTHROUGH') {
     const me = snapshot.players.find((player) => player.id === socket.playerId);
     const won = Boolean(me?.team && snapshot.winnerTeam === me.team);
@@ -779,6 +793,7 @@ function returnToMenu({ then = null } = {}) {
   localStorage.removeItem('ss-room-code');
   leftRoom = socket.roomCode ?? latestSnapshot?.roomCode ?? latestLobby?.roomCode ?? null;
   socket.leaveRoom();
+  socket.disconnect?.();
   putAwayMatch();
   route(SCREEN_IDS.MAIN_MENU);
   then?.();
@@ -918,11 +933,13 @@ function showBreakthroughArena() {
   }
   if (breakthroughSubtitle) {
     breakthroughSubtitle.textContent = chosen === 'outerworks' ? 'THE OUTERWORKS'
-      : chosen === 'blackbell-foundry' ? 'BLACKBELL FOUNDRY' : 'BASTION BREACH';
+      : chosen === 'blackbell-foundry' ? 'BLACKBELL FOUNDRY' : chosen === 'high-grounds' ? 'THE HIGH GROUNDS' : 'BASTION BREACH';
   }
   if (breakthroughCopy) {
     breakthroughCopy.textContent = chosen === 'outerworks'
       ? 'Advance through the Forward Redoubt and Barbican Gate. Attackers can operate the Bi-Bye-llista along the wide siege approach; infantry can flank through the Western Sally Trench.'
+      : chosen === 'high-grounds'
+        ? 'Both armies attack. Capture and recapture five footholds across colossal flowering trees, great bridges and an abyss. Hold territory to earn points; treetop lanes and the main siege road offer different ways through.'
       : chosen === 'blackbell-foundry'
         ? 'A brutal clash across a medieval industrial foundry. Contest the Chain Winch yard, breach the blast portal, and assault the monumental Great Bell.'
         : 'Attackers have one So-Fist-ication ram on the approach. Break the reinforced timber barricade to open a direct assault lane, then capture the Outer Gate to enter the stronghold. Defenders can destroy the ram.';
@@ -1191,11 +1208,7 @@ function openPause() {
   $('#resume-game').focus();
 }
 $('#resume-game').addEventListener('click', () => { paused = false; pauseMenu.classList.add('hidden'); runtime?.requestPointerLock(); });
-$('#pause-edit-controls')?.addEventListener('click', () => {
-  paused = false;
-  pauseMenu.classList.add('hidden');
-  runtime?.editTouchLayout();
-});
+$('#pause-edit-controls')?.addEventListener('click', () => {paused = false;pauseMenu.classList.add('hidden');runtime?.editTouchLayout();});
 $('#pause-leave').addEventListener('click', () => returnToMenu());
 $('#lobby-leave').addEventListener('click', () => returnToMenu());
 // the ready check: each Spellblade says they are ready (press again to take it back)
@@ -1545,6 +1558,10 @@ function updateInspectionControls() {
   if(sharedInvite)sharedInvite.classList.toggle('hidden',!shared);
   const codeLabel=$('#shared-practice-code');
   if(codeLabel&&shared)codeLabel.textContent=latestSnapshot.roomCode??socket.roomCode??'';
+  const humansInRoom = latestSnapshot?.players?.filter(p => p.actorKind === 'human') ?? [];
+  const alone = shared && humansInRoom.length === 1 && latestSnapshot?.sharedPracticeHostId === socket.playerId;
+  const aloneNotice = $('#shared-practice-alone');
+  if (aloneNotice) aloneNotice.classList.toggle('hidden', !alone);
   const roleHint = $('#practice-role-hint');
   if (roleHint) roleHint.classList.toggle('hidden', !available);
   const panelToggle = $('#practice-panel-toggle');
@@ -1552,7 +1569,7 @@ function updateInspectionControls() {
 
   practiceOverlay.classList.toggle('inspection-frozen', socket.inspectionFrozen);
   for (const button of practiceOverlay.querySelectorAll('button')) {
-    if (button.matches('#practice-freeze, #practice-step, #practice-play-frames, #practice-leave, [data-open-settings], #practice-panel-toggle, #shared-practice-copy')) continue;
+    if (button.matches('#practice-freeze, #practice-step, #practice-play-frames, #practice-leave, [data-open-settings], #practice-panel-toggle, #shared-practice-copy, #shared-practice-to-solo')) continue;
     // In Inspection Mode, staging dummies and siege machines is permitted while frozen
     if (available) {
       button.disabled = Boolean(preparingSiege && button.id.endsWith('-bibye'));
@@ -1640,6 +1657,9 @@ $('#shared-practice-copy')?.addEventListener('click',async()=>{
   if(!code)return;
   try{await navigator.clipboard.writeText(code);$('#shared-practice-copy').textContent='COPIED · '+code;}
   catch{$('#shared-practice-copy').textContent='ROOM CODE · '+code;}
+});
+$('#shared-practice-to-solo')?.addEventListener('click', () => {
+  runMenuAction(menuController.practice(nameInput.value), SCREEN_IDS.SOLO_MENU);
 });
 $('#practice-reset').addEventListener('click', () => socket.practiceResetPlayer());
 $('#practice-passive').addEventListener('click', () => socket.practiceSpawnDummy('PASSIVE'));
@@ -1838,10 +1858,50 @@ function noteRoomState(snapshot) {
   lastRoomKey = key;
 }
 
+// Team territory telemetry and machine selection use the *same* authoritative
+// snapshot for both LocalHost and multiplayer, never estimated cooldowns.
+const hgStatus = $('#high-grounds-status');
+const hgScore = $('#high-grounds-score');
+const hgSites = $('#high-grounds-sites');
+const hgFoundry = $('#high-grounds-foundry');
+const hgFoundryState = $('#high-grounds-foundry-state');
+hgFoundry?.addEventListener('click', (event) => {
+  const button = event.target.closest?.('[data-high-grounds-machine]');
+  if (button && !button.disabled) socket.highGroundsBuild(button.dataset.highGroundsMachine);
+});
+function updateHighGroundsHud(snapshot) {
+  const state = snapshot.highGrounds;
+  const active = snapshot.mode === 'HIGH_GROUNDS' && snapshot.roomState === 'PLAYING' && state;
+  hgStatus?.classList.toggle('hidden', !active);
+  hgFoundry?.classList.add('hidden');
+  if (!active) return;
+  hgScore.textContent = `AZURE ${Math.floor(state.scores.ATTACKERS)} · CRIMSON ${Math.floor(state.scores.DEFENDERS)} · FIRST TO ${state.scoreToWin}`;
+  hgSites.textContent = state.sites.map(site =>
+    `${site.name}: ${site.contested ? 'CONTESTED' : site.owner === 'ATTACKERS' ? 'AZURE' : site.owner === 'DEFENDERS' ? 'CRIMSON' : 'NEUTRAL'}`
+  ).join(' · ');
+  const me = snapshot.players.find(p => p.id === socket.playerId);
+  const foundry = state.foundries.find(f => f.team === me?.team);
+  if (!me?.alive || !foundry || Math.hypot(me.position.x - foundry.x, me.position.z - foundry.z) > 5 ||
+    Math.abs(me.position.y - foundry.y) > 2 || me.operatingBallistaId || me.operatingRamId || me.operatingFightFlightId) return;
+  hgFoundry?.classList.remove('hidden');
+  const remaining = Math.max(0, Math.ceil(foundry.readyAt - snapshot.serverTime));
+  const ownership = foundry.machineId && [
+    snapshot.bibyeBallista, snapshot.soFistication, snapshot.fightFlight
+  ].some(m => m?.id === foundry.machineId && !m.retired && m.mode !== 'DESTROYED' && m.health > 0);
+  hgFoundryState.textContent = ownership ? 'YOUR TEAM ALREADY HAS A MACHINE'
+    : remaining ? `FOUNDRY RECOVERY · ${remaining}s` : 'CHOOSE THE NEXT MACHINE';
+  for (const button of hgFoundry.querySelectorAll('[data-high-grounds-machine]')) {
+    const field = button.dataset.highGroundsMachine === 'bi-bye-llista' ? snapshot.bibyeBallista :
+      button.dataset.highGroundsMachine === 'so-fist-ication' ? snapshot.soFistication : snapshot.fightFlight;
+    button.disabled = Boolean(ownership || remaining || (field && !field.retired && field.mode !== 'DESTROYED' && field.health > 0));
+  }
+}
+
 socket.on('snapshot', (snapshot) => {
   if(snapshot.roomCode===latestSnapshot?.roomCode&&((snapshot.bibyeRevision??0)<(latestSnapshot?.bibyeRevision??0)||(snapshot.soFistRevision??0)<(latestSnapshot?.soFistRevision??0)))return;
   if (fromLeftRoom(snapshot) || (leftRoom !== null && !socket.roomCode)) return;
   latestSnapshot = snapshot;
+  updateHighGroundsHud(snapshot);
   if (new URLSearchParams(location.search).has('debug')) globalThis.__ssSnapshot = snapshot;
   ensureRuntime();
   noteRoomState(snapshot);
@@ -1938,12 +1998,13 @@ function renderLinkStatus(status) {
   linkStatus.querySelector('.link-title').textContent = view.title;
   linkStatus.querySelector('.link-note').textContent = view.note;
   linkStatus.title = view.detail;
-  for (const selector of ONLINE_COMMANDS) $(selector)?.classList.toggle('needs-server', !view.online);
+  for (const selector of ONLINE_COMMANDS) $(selector)?.classList.toggle('needs-server', view.tone === 'offline');
   // (and the server's state in a word at the banner's foot: what the link really is, nothing more)
+  const markLabel = view.tone === 'dormant' ? 'Multiplayer on demand' : (LINK_MARK[view.tone] ?? LINK_MARK.connecting);
   linkMark.dataset.tone = view.tone;
-  linkMark.querySelector('[data-link-mark-label]').textContent = LINK_MARK[view.tone] ?? LINK_MARK.connecting;
-  linkMark.title = LINK_MARK[view.tone] ?? LINK_MARK.connecting;
-  if (seekDuelCopy) seekDuelCopy.textContent = view.online ? SEEK_COPY : 'Fight a Reanimated Armor instead (bot)';
+  linkMark.querySelector('[data-link-mark-label]').textContent = markLabel;
+  linkMark.title = markLabel;
+  if (seekDuelCopy) seekDuelCopy.textContent = (view.online || view.tone === 'dormant') ? SEEK_COPY : 'Fight a Reanimated Armor instead (bot)';
 }
 // the herald's banner, when the server answers after keeping everyone waiting
 const heraldToast = $('#herald-toast');
@@ -1970,14 +2031,6 @@ socket.on('status', ({ status, was }) => {
 socket.on('notice', ({ text }) => hud.flashText(text.toUpperCase(), 'danger', 2600));
 renderLinkStatus(socket.status);
 $('#link-retry').addEventListener('click', () => socket.retryNow());
-for (const selector of ONLINE_COMMANDS) {
-  // these need other people, and so the server: held back (before their own handlers) until it answers
-  $(selector)?.addEventListener('click', (event) => {
-    if (socket.status === 'online') return;
-    event.stopImmediatePropagation();
-    showMenuError('That needs the multiplayer server. Solo play works now.');
-  }, { capture: true });
-}
 
 socket.on('connection', ({ connected }) => {
   // every connection carries the Armory's spell (the server keeps it for the rooms this connection joins)
@@ -1987,31 +2040,47 @@ socket.on('connection', ({ connected }) => {
 
 route(invitedRoom ? SCREEN_IDS.PRIVATE_MENU : SCREEN_IDS.MAIN_MENU);
 
-// reach for the server (resuming a session if there was one); solo play is open whether or not it answers, and a
-// solo mode asked for in the address starts as soon as it is clear the server is there, napping or gone
+// On startup, solo play, tutorial, and local menus begin immediately with zero network requests.
+// A remote connection is established on demand when deliberately requesting multiplayer or resuming an active match.
 async function connectInitialSession() {
-  const hadSession = Boolean(socket.token);
-  const reached = await Promise.race([
-    socket.connect(),
-    new Promise((resolve) => {
-      const off = socket.on('status', ({ status }) => {
-        if (status === 'connecting') return;
-        off();
-        resolve(status === 'online');
-      });
-    }),
-  ]);
-  if (!(reached && hadSession) && autoSolo === 'BREAKTHROUGH' && nameInput.value) {
+  if (autoSolo === 'BREAKTHROUGH' && nameInput.value) {
     runMenuAction(menuController.breakthrough(nameInput.value), SCREEN_IDS.SOLO_MENU);
-  } else if (!(reached && hadSession) && autoSolo === 'BOT_DUEL' && nameInput.value) {
-    runMenuAction(menuController.botDuel(nameInput.value), SCREEN_IDS.SOLO_MENU);
-  } else if (!(reached && hadSession) && autoSolo === 'PRACTICE' && nameInput.value) {
-    runMenuAction(menuController.practice(nameInput.value), SCREEN_IDS.SOLO_MENU);
-  } else if (reached && hadSession) {
-    setTimeout(() => {
-      if (!socket.playerId) route(invitedRoom ? SCREEN_IDS.PRIVATE_MENU : SCREEN_IDS.MAIN_MENU);
-    }, 500);
+    return;
   }
+  if (autoSolo === 'BOT_DUEL' && nameInput.value) {
+    runMenuAction(menuController.botDuel(nameInput.value), SCREEN_IDS.SOLO_MENU);
+    return;
+  }
+  if (autoSolo === 'PRACTICE' && nameInput.value) {
+    runMenuAction(menuController.practice(nameInput.value), SCREEN_IDS.SOLO_MENU);
+    return;
+  }
+  if (invitedRoom) {
+    route(SCREEN_IDS.PRIVATE_MENU);
+    return;
+  }
+
+  const hadSession = Boolean(socket.token && localStorage.getItem('ss-room-code'));
+  if (hadSession) {
+    const reached = await Promise.race([
+      socket.connect(),
+      new Promise((resolve) => {
+        const off = socket.on('status', ({ status }) => {
+          if (status === 'connecting') return;
+          off();
+          resolve(status === 'online');
+        });
+      }),
+    ]);
+    if (reached) {
+      setTimeout(() => {
+        if (!socket.playerId) route(SCREEN_IDS.MAIN_MENU);
+      }, 500);
+      return;
+    }
+  }
+
+  route(SCREEN_IDS.MAIN_MENU);
 }
 void connectInitialSession();
 

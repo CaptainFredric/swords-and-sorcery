@@ -9,6 +9,7 @@ const WORLD_RENDERER_KEYS = Object.freeze({
   'bastion-breach': 'bastion-breach',
   'blackbell-foundry': 'blackbell-foundry',
   'outerworks': 'outerworks',
+  'high-grounds': 'high-grounds',
 });
 
 

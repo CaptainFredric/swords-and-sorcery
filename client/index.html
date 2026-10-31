@@ -242,6 +242,7 @@
           <button type="button" class="vote-chip mine" role="radio" data-arena="bastion-breach">BASTION BREACH</button>
           <button type="button" class="vote-chip" role="radio" data-arena="outerworks">THE OUTERWORKS</button>
           <button type="button" class="vote-chip" role="radio" data-arena="blackbell-foundry">BLACKBELL FOUNDRY</button>
+          <button type="button" class="vote-chip" role="radio" data-arena="high-grounds">THE HIGH GROUNDS</button>
         </div>
 
 
@@ -398,8 +399,8 @@
         <p>The match continues while this menu is open.</p>
         <button id="resume-game" class="wide-button primary-command">RESUME</button>
         <button id="pause-leave" class="wide-button">RETURN TO MENU</button>
-        <button class="wide-button" data-open-settings>SETTINGS</button>
         <button id="pause-edit-controls" class="wide-button turn-only" type="button">EDIT TOUCH CONTROLS</button>
+        <button class="wide-button" data-open-settings>SETTINGS</button>
         <button class="wide-button turn-only" data-turn-flip>FLIP SCREEN ⟲</button>
         <div class="sound-toggles" role="group" aria-label="Sound">
           <button class="wide-button" data-toggle-sound aria-pressed="true">SOUND · ON</button>
@@ -416,6 +417,19 @@
       <div id="hurt-edge" class="hurt-edge"></div>
       <div id="low-health" class="low-health"></div>
       <div id="match-info" class="match-info">FIRST TO 10</div>
+      <aside id="high-grounds-status" class="high-grounds-status hidden" aria-live="polite">
+        <strong>THE HIGH GROUNDS</strong>
+        <div id="high-grounds-score">AZURE 0 · CRIMSON 0</div>
+        <small id="high-grounds-sites"></small>
+      </aside>
+      <aside id="high-grounds-foundry" class="high-grounds-foundry hidden">
+        <strong>SIEGE FOUNDRY</strong><small id="high-grounds-foundry-state">CHOOSE AN UNCREATION</small>
+        <div class="high-grounds-machine-buttons">
+          <button type="button" data-high-grounds-machine="bi-bye-llista">BI-BYE-LLISTA</button>
+          <button type="button" data-high-grounds-machine="so-fist-ication">SO-FIST-ICATION</button>
+          <button type="button" data-high-grounds-machine="fight-and-flight">FIGHT-AND-FLIGHT</button>
+        </div>
+      </aside>
       <div id="duel-score" class="duel-score hidden" role="group" aria-label="Duel score"><span>YOU</span><b data-duel-mine>0</b><i>:</i><b data-duel-theirs>0</b><span>RIVAL</span></div>
       <div id="kill-feed" class="kill-feed"></div>
       <div id="crosshair" class="crosshair"><i></i><i></i><i></i><i></i></div>
@@ -460,6 +474,7 @@
             <p>Room code: <strong id="shared-practice-code"></strong></p>
             <button id="shared-practice-copy" type="button">COPY ROOM CODE</button>
             <small>Friends join through Multiplayer → Join Private Room using this code.</small>
+            <p id="shared-practice-alone" class="shared-practice-alone hidden"><small>You are the only Spellblade here. Continue Shared Practice or <button id="shared-practice-to-solo" type="button" class="link-action">switch to Solo Practice</button>?</small></p>
           </section>
           <h3 class="inspection-control hidden">INSPECTION</h3>
           <button id="practice-freeze" class="inspection-control hidden">FREEZE · P</button>

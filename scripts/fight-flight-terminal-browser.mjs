@@ -5,7 +5,7 @@ import {spawn} from 'node:child_process';
 import {mkdtemp,mkdir,writeFile,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-const base=(process.env.FAF_BROWSER_URL??'http://127.0.0.1:3001').replace(/\/$/,'');
+const base=(process.env.FAF_TERMINAL_URL??process.env.FAF_BROWSER_URL??'http://127.0.0.1:3001').replace(/\/$/,'');
 const chromeBin=process.env.CHROME_BIN??(process.platform==='darwin'?'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome':'chromium'),port=9247;
 const profile=await mkdtemp(join(tmpdir(),'ss-faf-chrome-'));
 let stage='Chrome launch';
@@ -76,8 +76,18 @@ try{
  await screenshot('01-built-unmarked');console.log('[FAF] Built machine',JSON.stringify(before));
  // Physically drive the real held movement input toward the operator station.
  await evaluate("(() => {const r=window.__ssRuntime,p=r.localAuth.position,b=r.latestSnapshot.fightFlight; r.input.yaw=Math.atan2(-(b.x-p.x),-(b.z-p.z));})()");
+ await send('Page.bringToFront');
+ await evaluate("window.focus()");
  await send('Input.dispatchMouseEvent',{type:'mousePressed',x:640,y:420,button:'left',clickCount:1});
  await send('Input.dispatchMouseEvent',{type:'mouseReleased',x:640,y:420,button:'left',clickCount:1});
+ if(await evaluate("Boolean(document.pointerLockElement)&&!window.__ssRuntime?.input?.enabled")){
+   await evaluate("document.exitPointerLock?.()");
+   await until(()=>evaluate("document.pointerLockElement===null"),'release stale browser pointer lock',40);
+   await send('Page.bringToFront');
+   await send('Input.dispatchMouseEvent',{type:'mousePressed',x:640,y:420,button:'left',clickCount:1});
+   await send('Input.dispatchMouseEvent',{type:'mouseReleased',x:640,y:420,button:'left',clickCount:1});
+ }
+ await until(()=>evaluate("Boolean(window.__ssRuntime?.input?.enabled)"),'genuine enabled gameplay input',40);
  console.log('[FAF] Focus',await evaluate("({enabled:window.__ssRuntime?.input?.enabled,locked:document.pointerLockElement!=null,playing:window.__ssRuntime?.playing,yaw:window.__ssRuntime?.input?.yaw,keys:window.__ssRuntime?.input?.bindings?.forward,at:window.__ssRuntime?.localAuth?.position})"));
  await down('W');
  await until(async()=>{
@@ -99,9 +109,9 @@ try{
  await tap('Z');await until(()=>evaluate("window.__ssRuntime?.siegeView==='third'"),'return to mounted third-person view',50);
  await down('W');
  await send('Input.dispatchKeyEvent',{type:'rawKeyDown',key:' ',code:'Space',windowsVirtualKeyCode:32});
- await sleep(700);
- console.log('[FAF ASCENT TRACE]',await evaluate("(() => {const r=window.__ssRuntime,m=r?.latestSnapshot?.fightFlight;return {inputEnabled:r?.input?.enabled,spaceHeld:r?.input?.keys?.has('Space'),jumpBinding:r?.input?.bindings?.jump,clientMovement:r?.input?.movement?.(),machine:{y:m?.y,mode:m?.mode,grounded:m?.grounded,rotorRPM:m?.rotorRPM,rotorPowered:m?.rotorPowered,verticalIntent:m?.verticalIntent,hopStartedAt:m?.hopStartedAt,rotorHP:m?.rotorHP,flightCharge:m?.flightCharge},socketLocal:r?.socket?.playingLocally};})()"));
  await until(()=>evaluate("window.__ssRuntime?.latestSnapshot?.fightFlight?.y > 1"),'powered flight from actual Space input',160);
+ await up('W');
+ await send('Input.dispatchKeyEvent',{type:'keyUp',key:' ',code:'Space',windowsVirtualKeyCode:32});
  await sleep(420);
  const flying=await evaluate(flightState);await screenshot('03-airborne');
 
