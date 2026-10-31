@@ -4,6 +4,7 @@ import { HIGH_GROUNDS } from '../../shared/worlds/highGrounds.mjs';
 // Intentionally simple, instanced-friendly forms: a very large map should
 // remain legible and run in the HTML5/mobile renderer without texture atlases.
 export const HIGH_GROUNDS_LIGHTING = Object.freeze({
+  cameraFar: 340,
   background: 0x9ebac2,
   fog: Object.freeze({ color: 0x9ebac2, density: 0.0035 }),
   hemisphere: Object.freeze({ skyColor: 0xedf2e7, groundColor: 0x566755, intensity: 2.1 }),
