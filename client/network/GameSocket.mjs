@@ -10,18 +10,21 @@ export function gameServerUrl(doc = globalThis.document, loc = globalThis.locati
 }
 
 export class GameSocket {
-  constructor() {
+  constructor({ storage = globalThis.localStorage } = {}) {
+    this.storage = storage;
     this.ws = null;
     this.profileReady = false;
     this.handlers = new Map();
     this.playerId = null;
-    this.token = localStorage.getItem('ss-session-token');
+    this.token = null;
+    try { this.token = this.storage?.getItem?.('ss-session-token') ?? null; } catch {}
     this.roomCode = null;
     this.latestSnapshot = null;
     this.snapshotReceivedAt = 0;
     this.pingMs = 0;
     this.intentionalClose = false;
     this.reconnectTimer = null;
+    this.connectPromise = null;
   }
 
   on(type, handler) {
@@ -38,24 +41,41 @@ export class GameSocket {
   /** Open the connection; `timeoutMs` gives up on a server that never answers (the attempt is closed). */
   async connect({ resume = true, timeoutMs = 0 } = {}) {
     if (this.ws?.readyState === WebSocket.OPEN) return;
+    if (this.connectPromise) return this.connectPromise;
     this.intentionalClose = false;
     const ws = new WebSocket(gameServerUrl());
     this.ws = ws;
-    await new Promise((resolve, reject) => {
-      const timer = timeoutMs > 0 ? setTimeout(() => {
-        reject(new Error('The game server did not answer'));
-        try { ws.close(); } catch { /* never opened */ }
-      }, timeoutMs) : null;
-      ws.addEventListener('open', () => { clearTimeout(timer); resolve(); }, { once: true });
-      ws.addEventListener('error', (error) => { clearTimeout(timer); reject(error); }, { once: true });
-    });
-    ws.addEventListener('message', (event) => this.#message(event));
-    ws.addEventListener('close', () => this.#closed());
-    this.profileReady = false;
-    let guestToken = null;
-    try { guestToken = localStorage.getItem('ss-guest-token'); } catch {}
-    this.send({ type: 'profileHello', token: guestToken });
-    if (resume && this.token) this.send({ type: 'resume', token: this.token });
+    this.connectPromise = (async () => {
+      let timer = null;
+      try {
+        await new Promise((resolve, reject) => {
+          if (timeoutMs > 0) {
+            timer = setTimeout(() => {
+              reject(new Error('The game server did not answer'));
+              try { ws.close(); } catch { /* never opened */ }
+            }, timeoutMs);
+          }
+          ws.addEventListener('open', () => { clearTimeout(timer); resolve(); }, { once: true });
+          ws.addEventListener('error', (error) => { clearTimeout(timer); reject(error); }, { once: true });
+          ws.addEventListener('close', () => { clearTimeout(timer); reject(new Error('Connection closed before opening')); }, { once: true });
+        });
+        if (this.intentionalClose) {
+          try { ws.close(); } catch {}
+          return;
+        }
+        ws.addEventListener('message', (event) => this.#message(event));
+        ws.addEventListener('close', () => this.#closed());
+        this.profileReady = false;
+        let guestToken = null;
+        try { guestToken = this.storage?.getItem?.('ss-guest-token'); } catch {}
+        this.send({ type: 'profileHello', token: guestToken });
+        if (resume && this.token) this.send({ type: 'resume', token: this.token });
+      } finally {
+        if (timer) clearTimeout(timer);
+        this.connectPromise = null;
+      }
+    })();
+    return this.connectPromise;
   }
 
   #message(event) {
@@ -64,7 +84,7 @@ export class GameSocket {
     if (message.type === 'profile') {
       this.profileReady = true;
       if (message.token) {
-        try { localStorage.setItem('ss-guest-token', message.token); } catch {
+        try { this.storage?.setItem?.('ss-guest-token', message.token); } catch {
           this.emit('profileError', { message: 'Browser storage is blocked. Your guest identity will be lost after closing this page.' });
         }
       }
@@ -73,16 +93,20 @@ export class GameSocket {
       this.playerId = message.playerId;
       this.token = message.token;
       this.roomCode = message.roomCode;
-      localStorage.setItem('ss-session-token', message.token);
-      localStorage.setItem('ss-room-code', message.roomCode);
+      try {
+        this.storage?.setItem?.('ss-session-token', message.token);
+        this.storage?.setItem?.('ss-room-code', message.roomCode);
+      } catch {}
     }
     if (message.type === 'left') {
       this.playerId = null;
       this.token = null;
       this.roomCode = null;
       this.latestSnapshot = null;
-      localStorage.removeItem('ss-session-token');
-      localStorage.removeItem('ss-room-code');
+      try {
+        this.storage?.removeItem?.('ss-session-token');
+        this.storage?.removeItem?.('ss-room-code');
+      } catch {}
     }
     if (message.type === 'snapshot') {
       this.latestSnapshot = message;
@@ -91,7 +115,7 @@ export class GameSocket {
     if (message.type === 'pong' && Number.isFinite(message.sentAt)) {
       this.pingMs = Math.round(performance.now() - message.sentAt);
     }
-    if (message.type === 'resumeFailed') clearExpiredSession(this, localStorage);
+    if (message.type === 'resumeFailed') clearExpiredSession(this, this.storage ?? {});
     this.emit(message.type, message);
   }
 
@@ -99,8 +123,10 @@ export class GameSocket {
     this.profileReady = false;
     this.emit('connection', { connected: false });
     if (this.intentionalClose) return;
+    if (!this.roomCode) return;
     clearTimeout(this.reconnectTimer);
     this.reconnectTimer = setTimeout(async () => {
+      if (this.intentionalClose || !this.roomCode) return;
       try {
         await this.connect({ resume: true });
         this.emit('connection', { connected: true });
@@ -175,9 +201,29 @@ export class GameSocket {
     return this.latestSnapshot.serverTime + (performance.now() - this.snapshotReceivedAt) / 1000;
   }
 
-  close() {
+  close({ clearSession = false } = {}) {
     this.intentionalClose = true;
     clearTimeout(this.reconnectTimer);
-    this.ws?.close();
+    this.reconnectTimer = null;
+    this.connectPromise = null;
+    this.profileReady = false;
+    if (this.ws) {
+      try { this.ws.close(); } catch {}
+      this.ws = null;
+    }
+    if (clearSession) {
+      this.playerId = null;
+      this.token = null;
+      this.roomCode = null;
+      this.latestSnapshot = null;
+      try {
+        localStorage.removeItem('ss-session-token');
+        localStorage.removeItem('ss-room-code');
+      } catch {}
+    }
+  }
+
+  disconnect() {
+    this.close({ clearSession: true });
   }
 }

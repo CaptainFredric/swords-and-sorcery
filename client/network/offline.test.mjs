@@ -162,7 +162,7 @@ test('online solo stays local, carries the chosen arena and returns to the serve
   assert.deepEqual(local.player.preparedSpells, ['frostfire', 'gale', 'steel']);
   assert.equal(remote.calls.some(c => c[0] === 'startSolo'), false);
   link.leaveRoom();
-  link.seekDuel('Aden');
+  await link.seekDuel('Aden');
   assert.equal(link.playerId, 'remote-player');
   assert.equal(local.room, null);
   assert.equal(link.serverNow(), 7);
@@ -190,14 +190,14 @@ test('with the server gone, solo play runs in the browser, online play waits, an
   assert.equal(link.latestSnapshot, local.latestSnapshot);
   // Seek a Duel without a server: said plainly, and a bot steps in
   link.leaveRoom();
-  link.seekDuel('Aden');
+  await link.seekDuel('Aden');
   assert.equal(notices.length, 1);
   assert.equal(local.room.mode, 'BOT_DUEL');
-  // the server comes back on a later try: online again, the match is left alone, the next choice goes online
+  // the server comes back when tried again: online again, the match is left alone, the next choice goes online
   remote.answers = true;
-  await timers.run(5000);
+  await link.retryNow();
   assert.equal(link.status, 'online');
-  assert.deepEqual(statuses.slice(-2), ['offline', 'online']);
+  assert.deepEqual(statuses.slice(-2), ['connecting', 'online']);
   assert.equal(link.playingLocally, true, 'nobody is pulled out of the match');
   link.leaveRoom();
   link.startSolo('BOT_DUEL', 'Aden');
