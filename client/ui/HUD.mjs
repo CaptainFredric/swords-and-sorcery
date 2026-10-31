@@ -1,4 +1,5 @@
 import {FLIGHT_REPEATER} from '../../shared/src/flightRepeaterAim.mjs';
+import {highGroundsHudView} from './highGroundsHudView.mjs';
 import {soFistHudView} from './soFistHudView.mjs';
 import {fightFlightHudView} from './fightFlightHudView.mjs';
 import { preparedSpellView } from '../game/preparedSpellSelector.mjs';
@@ -359,23 +360,28 @@ export class HUD {
         this.duelScore.setAttribute('aria-label', `You ${duel.mine}, ${duel.rival} ${duel.theirs}`);
       }
     }
-    const btView = breakthroughHudView(local, snapshot, serverNow);
+    const btView = snapshot.mode==='HIGH_GROUNDS' ? highGroundsHudView(local,snapshot,serverNow) : breakthroughHudView(local, snapshot, serverNow);
     this.matchInfo.classList.toggle('hidden', btView.visible);
     this.breakthroughHud.classList.toggle('hidden', !btView.visible);
     if (btView.visible) {
       this.breakthroughHud.dataset.team = btView.team;
       this.breakthroughHud.dataset.state = btView.stateKey;
+      this.breakthroughHud.dataset.mode = btView.mode??'breakthrough';
       this.breakthroughHud.querySelector('[data-bt-team]').textContent = btView.teamLabel;
       this.breakthroughHud.querySelector('[data-bt-phase]').textContent = btView.phaseLabel;
       this.breakthroughHud.querySelector('[data-bt-clock]').textContent = btView.clock;
       this.breakthroughHud.querySelector('[data-bt-name]').textContent = btView.objectiveName;
-      this.breakthroughHud.querySelector('[data-bt-state]').textContent = `${btView.stateLabel} ·${btView.progressPct}%`;
+      this.breakthroughHud.querySelector('[data-bt-state]').textContent = btView.mode==='high-grounds'
+        ? `${btView.stateLabel}${btView.progressPct?' ·'+btView.progressPct+'%':''}`
+        : `${btView.stateLabel} ·${btView.progressPct}%`;
       this.breakthroughHud.querySelector('[data-bt-fill]').style.width = `${btView.progressPct}%`;
-      this.breakthroughHud.querySelector('[data-bt-directive]').textContent = `${btView.directive} · [V] Mark`;
+      this.breakthroughHud.querySelector('[data-bt-directive]').textContent = btView.mode==='high-grounds'
+        ? btView.directive : `${btView.directive} · [V] Mark`;
       const counts = [];
       if (btView.attackersCount > 0) counts.push(`▲ ${btView.attackersCount} ATT`);
       if (btView.defendersCount > 0) counts.push(`⛨ ${btView.defendersCount} DEF`);
-      this.breakthroughHud.querySelector('[data-bt-counts]').textContent = counts.join(' · ') || (btView.distanceMeters !== null ? `${btView.distanceMeters}m away` : '');
+      this.breakthroughHud.querySelector('[data-bt-counts]').textContent = btView.mode==='high-grounds'
+        ? btView.footer : counts.join(' · ') || (btView.distanceMeters !== null ? `${btView.distanceMeters}m away` : '');
     } else {
       this.objectiveWaypoint.classList.add('hidden');
     }

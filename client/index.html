@@ -422,13 +422,16 @@
         <div id="high-grounds-score">AZURE 0 · CRIMSON 0</div>
         <small id="high-grounds-sites"></small>
       </aside>
-      <aside id="high-grounds-foundry" class="high-grounds-foundry hidden">
-        <strong>SIEGE FOUNDRY</strong><small id="high-grounds-foundry-state">CHOOSE AN UNCREATION</small>
-        <div class="high-grounds-machine-buttons">
-          <button type="button" data-high-grounds-machine="bi-bye-llista">BI-BYE-LLISTA</button>
-          <button type="button" data-high-grounds-machine="so-fist-ication">SO-FIST-ICATION</button>
-          <button type="button" data-high-grounds-machine="fight-and-flight">FIGHT-AND-FLIGHT</button>
-        </div>
+      <aside id="high-grounds-foundry" class="high-grounds-foundry hidden" aria-label="Siege foundry">
+        <details id="high-grounds-foundry-picker">
+          <summary><span>⚒ SIEGE FOUNDRY</span><small id="high-grounds-foundry-state">CHOOSE A MACHINE</small></summary>
+          <p id="high-grounds-foundry-hint">SELECT A MACHINE · KEYS 7 / 8 / 9</p>
+          <div class="high-grounds-machine-buttons">
+            <button type="button" data-high-grounds-machine="bi-bye-llista" aria-keyshortcuts="7"><kbd>7</kbd><b>BI-BYE-LLISTA</b><small>Heavy bolts</small></button>
+            <button type="button" data-high-grounds-machine="so-fist-ication" aria-keyshortcuts="8"><kbd>8</kbd><b>SO-FIST-ICATION</b><small>Armored ram</small></button>
+            <button type="button" data-high-grounds-machine="fight-and-flight" aria-keyshortcuts="9"><kbd>9</kbd><b>FIGHT-AND-FLIGHT</b><small>Aerial assault</small></button>
+          </div>
+        </details>
       </aside>
       <div id="duel-score" class="duel-score hidden" role="group" aria-label="Duel score"><span>YOU</span><b data-duel-mine>0</b><i>:</i><b data-duel-theirs>0</b><span>RIVAL</span></div>
       <div id="kill-feed" class="kill-feed"></div>
