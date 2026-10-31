@@ -32,7 +32,14 @@ export function linkStatusView(status) {
       online: false, tone: 'offline',
       title: 'No herald has returned yet.',
       note: 'multiplayer offline · solo still works',
-      detail: 'The multiplayer server cannot be reached; it is tried again in the background. Practice and Bot Duel run in your browser.',
+      detail: 'The multiplayer server cannot be reached; it is tried again when you request an online match. Practice and Bot Duel run in your browser.',
+    };
+    case 'dormant':
+    case 'unconnected': return {
+      online: false, tone: 'dormant',
+      title: '',
+      note: 'multiplayer on demand',
+      detail: 'Multiplayer connects when you start an online match or shared practice. Solo modes run locally in your browser.',
     };
     default: return { online: false, title: 'Sounding the horn…', note: 'reaching multiplayer', detail: '', tone: 'connecting' };
   }
@@ -54,10 +61,13 @@ export class GameLink {
     this.timing = timing;
     this.timers = timers;
     this.handlers = new Map();
-    this.status = 'connecting';
+    this.status = 'dormant';
     this.hosting = 'remote';
     this.retries = 0;
     this.retryTimer = null;
+    this.wakingTimer = null;
+    this.connectPromise = null;
+    this.pendingAction = null;
     // each host's messages reach the game only while that host is the one playing
     remote.on('*', ({ type, payload }) => this.#fromRemote(type, payload));
     local.on('*', ({ type, payload }) => { if (this.hosting === 'local') this.#emit(type, payload); });
@@ -102,21 +112,38 @@ export class GameLink {
     this.#emit('status', { status, was });
   }
 
-  /** The first reach for the server (resuming a session if there is one); never throws, keeps trying if it fails. */
-  async connect() {
-    this.#setStatus('connecting');
-    const waking = this.timers.setTimeout(() => { if (this.status === 'connecting') this.#setStatus('waking'); }, this.timing.wakeAfterMs);
-    try {
-      await this.remote.connect({ resume: true, timeoutMs: this.timing.giveUpMs });
-      this.#connected();
+  /** Reach the server on demand, waiting for readiness; deduplicates multiple in-flight attempts. */
+  async ensureConnected() {
+    if (this.status === 'online' && (this.remote.ws ? this.remote.ws.readyState === WebSocket.OPEN : true)) {
       return true;
-    } catch {
-      this.#setStatus('offline');
-      this.#retryLater();
-      return false;
-    } finally {
-      this.timers.clearTimeout(waking);
     }
+    if (this.connectPromise) return this.connectPromise;
+
+    this.#setStatus('connecting');
+    this.timers.clearTimeout(this.wakingTimer);
+    this.wakingTimer = this.timers.setTimeout(() => {
+      if (this.status === 'connecting') this.#setStatus('waking');
+    }, this.timing.wakeAfterMs);
+
+    this.connectPromise = (async () => {
+      try {
+        await this.remote.connect({ resume: true, timeoutMs: this.timing.giveUpMs });
+        this.#connected();
+        return true;
+      } catch {
+        this.#setStatus('offline');
+        return false;
+      } finally {
+        this.timers.clearTimeout(this.wakingTimer);
+        this.wakingTimer = null;
+        this.connectPromise = null;
+      }
+    })();
+    return this.connectPromise;
+  }
+
+  async connect() {
+    return this.ensureConnected();
   }
 
   #connected() {
@@ -126,55 +153,45 @@ export class GameLink {
     else this.remote.loadout(this.local.spell, this.local.ultimateId, this.local.preparedSpells, this.local.siegeLoadout);
   }
 
-  #retryLater() {
-    this.timers.clearTimeout(this.retryTimer);
-    const delays = this.timing.retryMs;
-    const delay = delays[Math.min(this.retries, delays.length - 1)];
-    this.retries += 1;
-    this.retryTimer = this.timers.setTimeout(async () => {
-      try {
-        await this.remote.connect({ resume: false, timeoutMs: this.timing.giveUpMs });
-        this.#connected();
-      } catch {
-        this.#retryLater();
-      }
-    }, delay);
-  }
-
   /** Try the server again now (the Retry button). */
   retryNow() {
-    if (this.status === 'online') return;
+    if (this.status === 'online') return Promise.resolve(true);
     this.retries = 0;
     this.timers.clearTimeout(this.retryTimer);
-    this.retryTimer = this.timers.setTimeout(() => this.#retryNowAttempt(), 0);
+    return this.ensureConnected();
   }
 
-  async #retryNowAttempt() {
-    this.#setStatus('connecting');
-    try {
-      await this.remote.connect({ resume: false, timeoutMs: this.timing.giveUpMs });
-      this.#connected();
-    } catch {
-      this.#setStatus('offline');
-      this.#retryLater();
-    }
+  disconnect() {
+    this.pendingAction = null;
+    this.connectPromise = null;
+    this.timers.clearTimeout(this.wakingTimer);
+    this.timers.clearTimeout(this.retryTimer);
+    this.wakingTimer = null;
+    this.retryTimer = null;
+    this.remote.close?.({ clearSession: true });
+    this.#setStatus('dormant');
+    this.hosting = 'remote';
   }
 
   /** Solo has its own host regardless of the multiplayer connection's availability. */
   startSolo(mode, name, worldId, botSkill, team = null, teamSize = null) {
     if (this.hosting === 'remote' && this.remote.roomCode) this.remote.leaveRoom();
+    this.disconnect();
     this.hosting = 'local';
     this.local.startSolo(mode, name, worldId, botSkill, false, team, teamSize);
   }
 
   /** An explicitly local yard for pose and effect inspection, even when online. */
   startInspectionPractice(name, worldId) {
+    if (this.hosting === 'remote' && this.remote.roomCode) this.remote.leaveRoom();
+    this.disconnect();
     this.hosting = 'local';
     this.local.startInspectionPractice(name, worldId);
   }
 
   startTutorial(name) {
     if (this.hosting === 'remote' && this.remote.roomCode) this.remote.leaveRoom();
+    this.disconnect();
     this.hosting = 'local';
     this.local.startTutorial(name);
   }
@@ -201,32 +218,67 @@ export class GameLink {
   bibyeWeaponFocus(focus) { return this.playingLocally ? this.local.bibyeWeaponFocus(focus) : this.send({ type: 'bibyeWeaponFocus', focus }); }
   practiceSiege(action, machine) { return this.playingLocally ? this.local.practiceSiege(action, machine) : this.send({ type: 'practiceSiege', action, machine }); }
 
-  // online play needs the server; without it, Seek a Duel offers the honest next best thing: a bot, here
-  #online(method, args) {
+  // Online actions wake and connect to the server on demand, executing the requested command once ready.
+  async #online(method, args) {
+    if (method === 'cancelSeek') {
+      if (this.pendingAction?.method === 'seekDuel') {
+        this.pendingAction = null;
+      }
+      if (this.status === 'online') {
+        this.remote.cancelSeek();
+      }
+      return;
+    }
+
     if (this.status === 'online') {
       if (this.hosting === 'local') this.local.leaveRoom();
       this.hosting = 'remote';
       this.remote[method](...args);
       return;
     }
-    if(method==='createSharedPracticeRoom'){
-      this.#emit('notice',{text:'Shared Practice requires a connection to the multiplayer server. Solo Practice remains available.'});
+
+    // Deduplicate rapid identical calls while connection is in-flight
+    if (this.pendingAction && this.pendingAction.method === method && JSON.stringify(this.pendingAction.args) === JSON.stringify(args)) {
       return;
     }
-    if (method === 'cancelSeek') return;
-    if (method === 'seekDuel') {
-      this.#emit('notice', { text: 'No challengers yet: a Reanimated Armor steps in (multiplayer offline)' });
-      this.hosting = 'local';
-      this.local.startSolo('BOT_DUEL', args[0]);
+    this.pendingAction = { method, args };
+
+    const connected = await this.ensureConnected();
+    const action = this.pendingAction;
+    this.pendingAction = null;
+
+    if (!connected) {
+      if (action?.method === method) {
+        if (method === 'seekDuel') {
+          this.#emit('notice', { text: 'No challengers yet: a Reanimated Armor steps in (multiplayer offline)' });
+          this.hosting = 'local';
+          this.local.startSolo('BOT_DUEL', args[0]);
+          return;
+        }
+        if (method === 'createSharedPracticeRoom') {
+          this.#emit('notice', { text: 'Shared Practice requires a connection to the multiplayer server. Solo Practice remains available.' });
+          return;
+        }
+        this.#emit('notice', { text: 'The multiplayer server cannot be reached. Solo play is ready.' });
+      }
       return;
     }
-    this.local[method](...args);
+
+    if (action && action.method === method) {
+      if (this.hosting === 'local') this.local.leaveRoom();
+      this.hosting = 'remote';
+      this.remote[method](...args);
+    }
   }
 
   leaveRoom() {
+    const wasRemote = this.hosting === 'remote';
     this.active.leaveRoom();
-    // the next thing chosen goes wherever makes sense then
-    if (this.hosting === 'local') this.hosting = 'remote';
+    if (wasRemote) {
+      this.disconnect();
+    } else {
+      this.hosting = 'local';
+    }
   }
 
   loadout(spell, ultimate, preparedSpells, siegeLoadout) {
@@ -239,8 +291,7 @@ export class GameLink {
   }
 
   close() {
-    this.timers.clearTimeout(this.retryTimer);
+    this.disconnect();
     this.local.close();
-    this.remote.close();
   }
 }

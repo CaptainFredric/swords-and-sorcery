@@ -178,8 +178,8 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
     const room = sessionRoom(session);
     if (room && session.playerId) {
       room.removePlayer(session.playerId, time);
-      // a solo room (practice yard or bot duel) has no reason to outlive its only Spellblade
-      if (SOLO_MODES.has(room.mode) && room.humanActorCount() === 0) roomManager.rooms.delete(room.code);
+      // Clean up rooms with no remaining humans immediately once everyone has left
+      if (room.humanActorCount() === 0) roomManager.rooms.delete(room.code);
       else broadcastLobby(room);
     }
     session.roomCode = null;
@@ -464,6 +464,7 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
   function tick(explicitTime = null) {
     const time = Number.isFinite(explicitTime) ? explicitTime : now();
     for (const room of roomManager.rooms.values()) {
+      if (room.humanActorCount() === 0) continue;
       stepBotControllers(room, time, room.world);
       stepPracticeActors(room, time, room.world);
       stepRoom(room, 1 / TICK_RATE, time, room.world);

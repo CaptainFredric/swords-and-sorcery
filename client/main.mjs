@@ -779,6 +779,7 @@ function returnToMenu({ then = null } = {}) {
   localStorage.removeItem('ss-room-code');
   leftRoom = socket.roomCode ?? latestSnapshot?.roomCode ?? latestLobby?.roomCode ?? null;
   socket.leaveRoom();
+  socket.disconnect?.();
   putAwayMatch();
   route(SCREEN_IDS.MAIN_MENU);
   then?.();
@@ -1539,6 +1540,10 @@ function updateInspectionControls() {
   if(sharedInvite)sharedInvite.classList.toggle('hidden',!shared);
   const codeLabel=$('#shared-practice-code');
   if(codeLabel&&shared)codeLabel.textContent=latestSnapshot.roomCode??socket.roomCode??'';
+  const humansInRoom = latestSnapshot?.players?.filter(p => p.actorKind === 'human') ?? [];
+  const alone = shared && humansInRoom.length === 1 && latestSnapshot?.sharedPracticeHostId === socket.playerId;
+  const aloneNotice = $('#shared-practice-alone');
+  if (aloneNotice) aloneNotice.classList.toggle('hidden', !alone);
   const roleHint = $('#practice-role-hint');
   if (roleHint) roleHint.classList.toggle('hidden', !available);
   const panelToggle = $('#practice-panel-toggle');
@@ -1546,7 +1551,7 @@ function updateInspectionControls() {
 
   practiceOverlay.classList.toggle('inspection-frozen', socket.inspectionFrozen);
   for (const button of practiceOverlay.querySelectorAll('button')) {
-    if (button.matches('#practice-freeze, #practice-step, #practice-play-frames, #practice-leave, [data-open-settings], #practice-panel-toggle, #shared-practice-copy')) continue;
+    if (button.matches('#practice-freeze, #practice-step, #practice-play-frames, #practice-leave, [data-open-settings], #practice-panel-toggle, #shared-practice-copy, #shared-practice-to-solo')) continue;
     // In Inspection Mode, staging dummies and siege machines is permitted while frozen
     if (available) {
       button.disabled = Boolean(preparingSiege && button.id.endsWith('-bibye'));
@@ -1634,6 +1639,9 @@ $('#shared-practice-copy')?.addEventListener('click',async()=>{
   if(!code)return;
   try{await navigator.clipboard.writeText(code);$('#shared-practice-copy').textContent='COPIED · '+code;}
   catch{$('#shared-practice-copy').textContent='ROOM CODE · '+code;}
+});
+$('#shared-practice-to-solo')?.addEventListener('click', () => {
+  runMenuAction(menuController.practice(nameInput.value), SCREEN_IDS.SOLO_MENU);
 });
 $('#practice-reset').addEventListener('click', () => socket.practiceResetPlayer());
 $('#practice-passive').addEventListener('click', () => socket.practiceSpawnDummy('PASSIVE'));
@@ -1932,12 +1940,13 @@ function renderLinkStatus(status) {
   linkStatus.querySelector('.link-title').textContent = view.title;
   linkStatus.querySelector('.link-note').textContent = view.note;
   linkStatus.title = view.detail;
-  for (const selector of ONLINE_COMMANDS) $(selector)?.classList.toggle('needs-server', !view.online);
+  for (const selector of ONLINE_COMMANDS) $(selector)?.classList.toggle('needs-server', view.tone === 'offline');
   // (and the server's state in a word at the banner's foot: what the link really is, nothing more)
+  const markLabel = view.tone === 'dormant' ? 'Multiplayer on demand' : (LINK_MARK[view.tone] ?? LINK_MARK.connecting);
   linkMark.dataset.tone = view.tone;
-  linkMark.querySelector('[data-link-mark-label]').textContent = LINK_MARK[view.tone] ?? LINK_MARK.connecting;
-  linkMark.title = LINK_MARK[view.tone] ?? LINK_MARK.connecting;
-  if (seekDuelCopy) seekDuelCopy.textContent = view.online ? SEEK_COPY : 'Fight a Reanimated Armor instead (bot)';
+  linkMark.querySelector('[data-link-mark-label]').textContent = markLabel;
+  linkMark.title = markLabel;
+  if (seekDuelCopy) seekDuelCopy.textContent = (view.online || view.tone === 'dormant') ? SEEK_COPY : 'Fight a Reanimated Armor instead (bot)';
 }
 // the herald's banner, when the server answers after keeping everyone waiting
 const heraldToast = $('#herald-toast');
@@ -1964,14 +1973,6 @@ socket.on('status', ({ status, was }) => {
 socket.on('notice', ({ text }) => hud.flashText(text.toUpperCase(), 'danger', 2600));
 renderLinkStatus(socket.status);
 $('#link-retry').addEventListener('click', () => socket.retryNow());
-for (const selector of ONLINE_COMMANDS) {
-  // these need other people, and so the server: held back (before their own handlers) until it answers
-  $(selector)?.addEventListener('click', (event) => {
-    if (socket.status === 'online') return;
-    event.stopImmediatePropagation();
-    showMenuError('That needs the multiplayer server. Solo play works now.');
-  }, { capture: true });
-}
 
 socket.on('connection', ({ connected }) => {
   // every connection carries the Armory's spell (the server keeps it for the rooms this connection joins)
@@ -1981,31 +1982,47 @@ socket.on('connection', ({ connected }) => {
 
 route(invitedRoom ? SCREEN_IDS.PRIVATE_MENU : SCREEN_IDS.MAIN_MENU);
 
-// reach for the server (resuming a session if there was one); solo play is open whether or not it answers, and a
-// solo mode asked for in the address starts as soon as it is clear the server is there, napping or gone
+// On startup, solo play, tutorial, and local menus begin immediately with zero network requests.
+// A remote connection is established on demand when deliberately requesting multiplayer or resuming an active match.
 async function connectInitialSession() {
-  const hadSession = Boolean(socket.token);
-  const reached = await Promise.race([
-    socket.connect(),
-    new Promise((resolve) => {
-      const off = socket.on('status', ({ status }) => {
-        if (status === 'connecting') return;
-        off();
-        resolve(status === 'online');
-      });
-    }),
-  ]);
-  if (!(reached && hadSession) && autoSolo === 'BREAKTHROUGH' && nameInput.value) {
+  if (autoSolo === 'BREAKTHROUGH' && nameInput.value) {
     runMenuAction(menuController.breakthrough(nameInput.value), SCREEN_IDS.SOLO_MENU);
-  } else if (!(reached && hadSession) && autoSolo === 'BOT_DUEL' && nameInput.value) {
-    runMenuAction(menuController.botDuel(nameInput.value), SCREEN_IDS.SOLO_MENU);
-  } else if (!(reached && hadSession) && autoSolo === 'PRACTICE' && nameInput.value) {
-    runMenuAction(menuController.practice(nameInput.value), SCREEN_IDS.SOLO_MENU);
-  } else if (reached && hadSession) {
-    setTimeout(() => {
-      if (!socket.playerId) route(invitedRoom ? SCREEN_IDS.PRIVATE_MENU : SCREEN_IDS.MAIN_MENU);
-    }, 500);
+    return;
   }
+  if (autoSolo === 'BOT_DUEL' && nameInput.value) {
+    runMenuAction(menuController.botDuel(nameInput.value), SCREEN_IDS.SOLO_MENU);
+    return;
+  }
+  if (autoSolo === 'PRACTICE' && nameInput.value) {
+    runMenuAction(menuController.practice(nameInput.value), SCREEN_IDS.SOLO_MENU);
+    return;
+  }
+  if (invitedRoom) {
+    route(SCREEN_IDS.PRIVATE_MENU);
+    return;
+  }
+
+  const hadSession = Boolean(socket.token && localStorage.getItem('ss-room-code'));
+  if (hadSession) {
+    const reached = await Promise.race([
+      socket.connect(),
+      new Promise((resolve) => {
+        const off = socket.on('status', ({ status }) => {
+          if (status === 'connecting') return;
+          off();
+          resolve(status === 'online');
+        });
+      }),
+    ]);
+    if (reached) {
+      setTimeout(() => {
+        if (!socket.playerId) route(SCREEN_IDS.MAIN_MENU);
+      }, 500);
+      return;
+    }
+  }
+
+  route(SCREEN_IDS.MAIN_MENU);
 }
 void connectInitialSession();
 
