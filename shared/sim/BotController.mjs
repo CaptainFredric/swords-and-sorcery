@@ -973,6 +973,10 @@ export function stepBotControllers(
 
   for (const actor of room.players.values()) {
     if (!allowedKinds.has(actor.actorKind) || !actor.alive || room.inspectionFrozenActors?.has(actor.id)) continue;
+    // Mounted Practice pilots are driven by their actual machine AI. Once
+    // dismounted alive they return to this same ordinary foot combat brain.
+    if(actor.practiceSiegeOperator &&
+      (actor.operatingBallistaId||actor.operatingRamId||actor.operatingFightFlightId))continue;
     const skill = botSkill(actor);
     const aggressionScale = clamp(aggression * skill.aggression, 0.1, 1);
     const ai = ensureAi(actor, nowSec, random, skill);
