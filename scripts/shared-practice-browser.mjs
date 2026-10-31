@@ -49,7 +49,16 @@ try{
  host=await connectBrowser('host',9263);
  guest=await connectBrowser('guest',9264);
  for(const b of [host,guest]){
-  await waitFor(()=>b.evaluate("window.__ssRuntime?.socket?.status==='online'"),b.label+' multiplayer online',180);
+  let probes=0;
+  await waitFor(async()=>{
+    const status=await b.evaluate("window.__ssRuntime?.socket?.status??'not-constructed'");
+    if(++probes%35===0){
+      const state=await b.evaluate("(() => {const s=window.__ssRuntime?.socket;return {status:s?.status,hosting:s?.hosting,readyState:s?.remote?.ws?.readyState,serverUrl:s?.remote?.ws?.url,href:location.href};})()");
+      console.log('[SHARED NETWORK]',b.label,JSON.stringify(state),JSON.stringify(b.errors.slice(-3)));
+    }
+    if(status==='offline'&&probes%80===0)await b.evaluate("window.__ssRuntime?.socket?.retryNow()");
+    return status==='online';
+  },b.label+' multiplayer online',650);
  }
  await host.evaluate("document.querySelector('#player-name').value='Practice Host';document.querySelector('#solo-button').click()");
  await waitFor(()=>host.evaluate("!document.querySelector('#shared-practice-mode').disabled"),'shared Practice mode',80);
