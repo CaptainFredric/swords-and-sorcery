@@ -1,0 +1,55 @@
+name: Siege Armory and Cold gameplay Chrome acceptance
+on:
+  pull_request:
+    paths:
+      - 'client/index.html'
+      - 'client/main.mjs'
+      - 'client/menu/siegeArmoryView.mjs'
+      - 'client/menu/RenownController.mjs'
+      - 'shared/sim/biByeLlista.mjs'
+      - 'shared/sim/biByeWeapons.mjs'
+      - 'shared/sim/biByeProximity.mjs'
+      - 'shared/sim/siegeSkills.mjs'
+      - 'scripts/siege-armory-cold-browser.mjs'
+      - '.github/workflows/siege-armory-cold-browser.yml'
+permissions:
+  contents: read
+jobs:
+  chrome-cold:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Start local authoritative server
+        shell: bash
+        run: |
+          set -euo pipefail
+          PORT=3001 HOST=127.0.0.1 node server/src/server.mjs > /tmp/cold-game.log 2>&1 &
+          for attempt in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:3001/health > /dev/null; then exit 0; fi
+            sleep .25
+          done
+          cat /tmp/cold-game.log
+          exit 1
+      - name: Locate Chrome
+        id: chrome
+        shell: bash
+        run: |
+          CHROME="$(command -v google-chrome || command -v chromium-browser || command -v chromium || true)"
+          test -n "$CHROME"
+          echo "path=$CHROME" >> "$GITHUB_OUTPUT"
+      - name: Verify real UI, player loadout, mount, Skill and bolt release
+        env:
+          SIEGE_BROWSER_URL: http://127.0.0.1:3001
+          CHROME_BIN: ${{ steps.chrome.outputs.path }}
+        run: node scripts/siege-armory-cold-browser.mjs
+      - name: Save acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: siege-armory-cold-acceptance
+          path: output/playwright/siege-armory-cold/
+          retention-days: 7
