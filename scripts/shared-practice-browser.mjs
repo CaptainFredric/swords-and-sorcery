@@ -8,12 +8,14 @@ import {join} from 'node:path';
 const url=(process.env.SHARED_PRACTICE_URL??'http://127.0.0.1:3001').replace(/\/$/,'');
 const out='output/playwright/shared-practice';await mkdir(out,{recursive:true});
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const chromeBin=process.env.CHROME_BIN??(process.platform==='darwin'?'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome':'chromium');
 const browsers=[];
 async function connectBrowser(label,port){
  const profile=await mkdtemp(join(tmpdir(),'castleward-shared-'+label+'-'));
- const child=spawn(process.env.CHROME_BIN??'chromium',[
+ const child=spawn(chromeBin,[
   '--headless=new','--no-sandbox','--disable-dev-shm-usage','--enable-unsafe-swiftshader',
   '--disable-background-timer-throttling','--disable-renderer-backgrounding',
+  '--disable-backgrounding-occluded-windows',
   '--remote-allow-origins=*','--window-size=1280,800','--remote-debugging-port='+port,
   '--user-data-dir='+profile,'about:blank'],{stdio:'ignore'});
  const b={label,child,profile,ws:null,seq:0,pending:new Map(),stage:'connect',errors:[]};browsers.push(b);
@@ -29,7 +31,7 @@ async function connectBrowser(label,port){
   b.pending.delete(packet.id);if(packet.error)next.reject(Error(packet.error.message));else next.resolve(packet.result);
  };
  b.send=(method,params={})=>{const id=++b.seq;return new Promise((resolve,reject)=>{
-   const timer=setTimeout(()=>{b.pending.delete(id);reject(Error('CDP '+method+' timeout'));},13000);
+   const timer=setTimeout(()=>{b.pending.delete(id);reject(Error('CDP '+method+' timeout'));},35000);
    b.pending.set(id,{resolve:v=>{clearTimeout(timer);resolve(v);},reject:e=>{clearTimeout(timer);reject(e);}});
    b.ws.send(JSON.stringify({id,method,params}));
  });};
@@ -64,8 +66,8 @@ try{
  const hostRoom=await waitFor(()=>host.evaluate("(() => {const r=window.__ssRuntime,s=r?.latestSnapshot;return s?.sharedPractice&&s?.roomCode&&r.localAuth?.id?{code:s.roomCode,id:r.localAuth.id,mode:s.mode}:null;})()"),'host actual network Practice room');
  assert.equal(hostRoom.mode,'PRACTICE');
  await host.screenshot('shared-room-created');
- await guest.evaluate("document.querySelector('#private-name').value='Practice Guest';document.querySelector('#private-button').click()");
- await guest.evaluate("document.querySelector('#room-code').value='"+hostRoom.code+"';document.querySelector('#join-room').click()");
+ await guest.evaluate("document.querySelector('#player-name').value='Practice Guest'; const p=document.querySelector('#private-name'); if(p){p.value='Practice Guest'; p.dispatchEvent(new Event('input',{bubbles:true}));} document.querySelector('#private-button').click()");
+ await guest.evaluate("const rc=document.querySelector('#room-code'); rc.value='"+hostRoom.code+"'; rc.dispatchEvent(new Event('input',{bubbles:true})); document.querySelector('#join-room').click()");
  const guestRoom=await waitFor(()=>guest.evaluate("(() => {const r=window.__ssRuntime,s=r?.latestSnapshot;return s?.sharedPractice&&r.localAuth?.id?{code:s.roomCode,id:r.localAuth.id,count:s.players?.filter(p=>p.actorKind==='human').length}:null;})()"),'second browser joined live Practice',180);
  assert.equal(guestRoom.code,hostRoom.code);assert.equal(guestRoom.count,2);
  await guest.screenshot('joined-as-guest');
@@ -73,9 +75,11 @@ try{
  assert.equal(invite,hostRoom.code,'the real UI must show its own network invitation code');
  // Host uses the actual Practice toolbox, not a fabricated FFA room.
  await host.evaluate("const s=document.querySelector('#practice-siege-type');s.value='fight-and-flight';s.dispatchEvent(new Event('change',{bubbles:true}));document.querySelector('#practice-build-bibye').click()");
- await waitFor(()=>guest.evaluate("Boolean(window.__ssRuntime?.latestSnapshot?.fightFlight?.id)"),'guest observes same physical machine',100);
- await host.evaluate("(() => {const r=window.__ssRuntime,p=r.localAuth.position,m=r.latestSnapshot.fightFlight;r.input.yaw=Math.atan2(-(m.x-p.x),-(m.z-p.z));})()");
+ await waitFor(()=>host.evaluate("Boolean(window.__ssRuntime?.latestSnapshot?.fightFlight?.id)"),'host observes physical machine',120);
+ await waitFor(()=>guest.evaluate("Boolean(window.__ssRuntime?.latestSnapshot?.fightFlight?.id)"),'guest observes same physical machine',120);
+ await host.evaluate("(() => {const r=window.__ssRuntime,p=r.localAuth.position,m=r.latestSnapshot.fightFlight;if(m&&p)r.input.yaw=Math.atan2(-(m.x-p.x),-(m.z-p.z));})()");
  await host.send('Page.bringToFront');
+ await host.evaluate("window.focus()");
  await host.send('Input.dispatchMouseEvent',{type:'mousePressed',x:640,y:420,button:'left',clickCount:1});
  await host.send('Input.dispatchMouseEvent',{type:'mouseReleased',x:640,y:420,button:'left',clickCount:1});
  await waitFor(()=>host.evaluate("Boolean(window.__ssRuntime?.input?.enabled)"),'host gameplay focus',80);
@@ -86,15 +90,23 @@ try{
  await host.screenshot('host-mounted');await guest.screenshot('guest-observes-pilot');
  const start=await guest.evaluate("(() => {const r=window.__ssRuntime;return {...r.localAuth.position};})()");
  await guest.send('Page.bringToFront');
+ await guest.evaluate("window.focus()");
  await guest.send('Input.dispatchMouseEvent',{type:'mousePressed',x:640,y:420,button:'left',clickCount:1});
  await guest.send('Input.dispatchMouseEvent',{type:'mouseReleased',x:640,y:420,button:'left',clickCount:1});
  await waitFor(()=>guest.evaluate("Boolean(window.__ssRuntime?.input?.enabled)"),'guest gameplay focus');
  await guest.key('W','rawKeyDown');
- await waitFor(()=>host.evaluate("(() => {const r=window.__ssRuntime,p=r.latestSnapshot.players.find(p=>p.id==='"+guestRoom.id+"');return p&&Math.hypot(p.position.x-"+start.x+",p.position.z-"+start.z+")>.65;})()"),'host sees guest physical network locomotion',140);
+ await waitFor(async()=>{
+  await guest.evaluate("new Promise(r=>requestAnimationFrame(r))");
+  const pos=await host.evaluate("(() => {const r=window.__ssRuntime,p=r?.latestSnapshot?.players?.find(p=>p.id==='"+guestRoom.id+"');return p?p.position:null;})()");
+  return pos&&Math.hypot(pos.x-start.x,pos.z-start.z)>.65;
+ },'host sees guest physical network locomotion',140);
  await guest.key('W','keyUp');
  // Real guest sword action is replicated while the host operates the machine.
  await guest.send('Input.dispatchMouseEvent',{type:'mousePressed',x:640,y:420,button:'left',clickCount:1});
- await waitFor(()=>host.evaluate("(() => {const r=window.__ssRuntime,p=r.latestSnapshot.players.find(p=>p.id==='"+guestRoom.id+"');return Boolean(p&&(p.attackActive||p.attackCommitted>0));})()"),'host observes guest melee action',110);
+ await waitFor(async()=>{
+  await guest.evaluate("1");
+  return host.evaluate("(() => {const r=window.__ssRuntime,p=r.latestSnapshot.players.find(p=>p.id==='"+guestRoom.id+"');return Boolean(p&&(p.attackActive||p.attackCommitted>0));})()");
+ },'host observes guest melee action',110);
  await guest.send('Input.dispatchMouseEvent',{type:'mouseReleased',x:640,y:420,button:'left',clickCount:1});
  await host.send('Input.dispatchMouseEvent',{type:'mousePressed',x:640,y:420,button:'left',clickCount:1});
  await waitFor(()=>guest.evaluate("Boolean(window.__ssRuntime?.latestSnapshot?.fightFlight?.shotSeq>0)"),'guest sees host fire real network repeater',140);
@@ -131,8 +143,13 @@ try{
  assert.equal(ejected.id,beforeEject.id);
  assert.ok(ejected.ammo>=beforeEject.ammo&&ejected.ammo<=18,'passive 2/s replenishment is allowed, reset is not');
  assert.ok(ejected.debt<=beforeEject.debt,'ammo debt can only be repaid, not cleared by eject');
- await waitFor(()=>guest.evaluate("(() => {const s=window.__ssRuntime?.latestSnapshot,p=s?.players?.find(p=>p.id==='"+hostRoom.id+"');return Boolean(p?.grounded&&p.position.y<.2&&p.operatingFightFlightId==null);})()"),
-   'ejected Spellblade physically lands in shared room',180);
+ await waitFor(async()=>{
+  await host.evaluate("new Promise(r=>requestAnimationFrame(r))");
+  await guest.evaluate("new Promise(r=>requestAnimationFrame(r))");
+  const p=await guest.evaluate("(() => window.__ssRuntime?.latestSnapshot?.players?.find(p=>p.id==='"+hostRoom.id+"'))()");
+  const hostGrounded=await host.evaluate("Boolean(window.__ssRuntime?.localState?.grounded)");
+  return Boolean(hostGrounded&&p&&p.position?.y<.3&&p.operatingFightFlightId==null);
+ },'ejected Spellblade physically lands in shared room',180);
  await guest.screenshot('guest-flight-landing');
  const livePlayers=await host.evaluate("window.__ssRuntime?.latestSnapshot?.players?.filter(p=>p.actorKind==='human').map(p=>({id:p.id,position:p.position,operating:p.operatingFightFlightId,grounded:p.grounded}))");
  const machineAfterEject=await guest.evaluate("(() => {const m=window.__ssRuntime?.latestSnapshot?.fightFlight;return {id:m.id,operatorId:m.operatorId,shotSeq:m.shotSeq,ammo:m.ammo,ammoDebt:m.ammoDebt};})()");

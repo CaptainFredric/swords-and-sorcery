@@ -73,12 +73,10 @@ try{
  await screenshot('01-built-unmarked');console.log('[FAF] Built machine',JSON.stringify(before));
  // Physically drive the real held movement input toward the operator station.
  await evaluate("(() => {const r=window.__ssRuntime,p=r.localAuth.position,b=r.latestSnapshot.fightFlight; r.input.yaw=Math.atan2(-(b.x-p.x),-(b.z-p.z));})()");
+ await send('Page.bringToFront');
+ await evaluate("window.focus()");
  await send('Input.dispatchMouseEvent',{type:'mousePressed',x:640,y:420,button:'left',clickCount:1});
  await send('Input.dispatchMouseEvent',{type:'mouseReleased',x:640,y:420,button:'left',clickCount:1});
- // A headless Chrome tab can retain pointer lock across a focus transition
- // while the actual InputController correctly keeps input disabled. Restore
- // the lock through real browser pointer events instead of injecting enabled.
- await send('Page.bringToFront');
  if(await evaluate("Boolean(document.pointerLockElement)&&!window.__ssRuntime?.input?.enabled")){
    await evaluate("document.exitPointerLock?.()");
    await until(()=>evaluate("document.pointerLockElement===null"),'release stale browser pointer lock',40);
@@ -109,6 +107,8 @@ try{
  await down('W');
  await send('Input.dispatchKeyEvent',{type:'rawKeyDown',key:' ',code:'Space',windowsVirtualKeyCode:32});
  await until(()=>evaluate("window.__ssRuntime?.latestSnapshot?.fightFlight?.y > 1"),'powered flight from actual Space input',160);
+ await up('W');
+ await send('Input.dispatchKeyEvent',{type:'keyUp',key:' ',code:'Space',windowsVirtualKeyCode:32});
  await sleep(420);
  const flying=await evaluate(flightState);await screenshot('03-airborne');
  // Real mounted left mouse hold must release finite bolts and replenish only at 2/s.
