@@ -128,6 +128,25 @@ export class HighGroundsRenderer {
       }
       mesh(this.group, new THREE.BoxGeometry(3.3, .7, .4), tone,
         [foundry.x, 3.1, foundry.z - 3]);
+      // Visually mark the *actual* spawn point, which is on the main road
+      // rather than beneath the operator's feet at the selection console.
+      // These are decorative, thin surfaces; collision stays authoritative.
+      const output = new THREE.Group();
+      output.name = 'siege-production-output-' + foundry.id;
+      output.position.set(foundry.spawnX, .055, foundry.spawnZ);
+      this.group.add(output);
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(3.1, .105, 6, 28),
+        this.materials.brass);
+      ring.rotation.x = Math.PI/2;
+      output.add(ring);
+      const endZ = foundry.heading === Math.PI ? 2.8 : -2.8;
+      mesh(output, new THREE.BoxGeometry(.45, .07, 3.1),
+        tone, [0, .015, endZ * .5]);
+      for (const x of [-2.5, 2.5]) {
+        mesh(output, new THREE.BoxGeometry(.23, .075, 5.4),
+          this.materials.iron, [x, .012, 0]);
+      }
+
     }
   }
   // Use the same authoritative snapshot interpolation as the Outerworks.
