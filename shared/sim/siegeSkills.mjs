@@ -1,6 +1,7 @@
 // Authoritative, machine-owned Skill clocks. Priming is not the same as spending.
 export const SIEGE_SKILLS=Object.freeze({
  boltToTheOccasion:Object.freeze({cooldown:24,interShotPrep:.2}),
+ coldHowTouching:Object.freeze({cooldown:24}),
  beatToThePunch:Object.freeze({
   cooldown:24,chassisTrigger:35,reverseSpeed:8,reverseDebt:1.5,
   initialHazard:.0025,growthRate:.0012,shudder:.008,shudderGrowth:.00055,maxShudder:.032,
@@ -20,9 +21,13 @@ export function commitSiegeSkill(b,now){
 // spend an opportunity unless the operator has deliberately committed Bolt II.
 export function endSiegeSkill(b,now=b?.poseTime??b?.skill?.primedAt??0){
  const s=b?.skill;if(!s)return;
+ // Cold is a sustained, machine-owned enhancement. Interruptions spend the
+ // same full opportunity as a completed physical Bolt II release.
+ if(s.id==='coldHowTouching'&&s.phase==='active')
+  s.readyAt=Math.max(s.readyAt,now+SIEGE_SKILLS.coldHowTouching.cooldown);
  if(s.phase==='primed'&&s.id==='beatToThePunch')
   s.readyAt=Math.max(s.readyAt,Math.max(now,s.primedAt??now)+SIEGE_SKILLS[s.id].cooldown+(s.debt??0));
- s.phase='idle';s.expiresAt=null;s.primedAt=null;s.failureThreshold=null;s.integratedHazard=0;s.boltIReleasedAt=null;
+ s.phase='idle';s.ownerId=null;s.expiresAt=null;s.primedAt=null;s.failureThreshold=null;s.integratedHazard=0;s.boltIReleasedAt=null;
 }
 // Closed-form integrated continuous-time hazard. Changing the tick rate does
 // not change the probability of spontaneous discharge.

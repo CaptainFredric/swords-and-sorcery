@@ -86,9 +86,16 @@ test('ballista: invalid heavy release, operator interruptions and machine cooldo
   assert.ok(applyRoomCommand(s.room,intruder,{type:'siegeSkill'},1.05).rejected);
   if(when==='after') {skill(s,1.1);assert.equal(s.b.skill.readyAt,25.1);}
   dismountBiByeLlista(s.b,s.p);
-  assert.equal(s.b.skill.phase,'idle');
+  // Before commitment: ordinary priming is refundable. After commitment,
+  // the actual physical heavy string is still owed through the dismount.
+  assert.equal(s.b.skill.phase,when==='before'?'idle':'releasing');
   assert.equal(s.b.skill.readyAt,when==='before'?0:25.1);
   assert.equal(kinds(s).length,0);
+  if(when==='after'){
+    stepBiByeLlista(s.room,s.b,1/30,1.16);
+    assert.equal(s.b.skill.phase,'idle');
+    assert.deepEqual(kinds(s),['siege']);
+  }
  }
  const s=setup('bow');s.b.mainBoltLoaded=false;assert.ok(skill(s).rejected);
  s.b.mainBoltLoaded=true;s.p.alive=false;assert.ok(skill(s).rejected);
@@ -258,4 +265,48 @@ test('BOTH: normal mobile movement and independent shot paths are preserved',()=
  for(let i=0;i<10;i++)stepBiByeLlista(s.room,s.b,1/30,1.1+i/30);
  assert.ok(Math.hypot(s.b.x,s.b.z)>0.02);
  assert.deepEqual(kinds(s),['siege','conditioning']);
+});
+
+
+test('RMB cannot prime Skill or fire Bolt II without a legitimate U activation',()=>{
+ const s=setup('bow');const fire=at=>applyRoomCommand(s.room,s.p,{type:'bibyeHeavyFire'},at);
+ assert.ok(fire(.9).rejected);assert.equal(s.b.skill.phase,'idle');
+ assert.equal(skill(s,1).rejected,undefined);
+ assert.equal(fire(1.02).rejected,undefined);assert.equal(s.b.skill.phase,'releasing');
+ stepBiByeLlista(s.room,s.b,1/30,1.07);
+ assert.deepEqual(kinds(s),['siege']);assert.equal(s.b.skill.readyAt,25.02);
+ assert.equal(s.b.mainBoltLoaded,false);assert.ok(fire(1.08).rejected);
+});
+
+test('Skill ignores stale Bolt I release but enforces .2s from the current activation physical release',()=>{
+ const a=setup('bow');fireBiByeLlista(a.room,a.b,.5);stepBiByeLlista(a.room,a.b,1/30,.71);
+ assert.equal(skill(a,1).rejected,undefined);
+ assert.equal(applyRoomCommand(a.room,a.p,{type:'bibyeHeavyFire'},1.01).rejected,undefined);
+ const b=setup('bow');skill(b,1);
+ fireBiByeLlista(b.room,b.b,1.05);
+ assert.ok(applyRoomCommand(b.room,b.p,{type:'bibyeHeavyFire'},1.06).rejected);
+ stepBiByeLlista(b.room,b.b,1/30,1.25);
+ assert.ok(applyRoomCommand(b.room,b.p,{type:'bibyeHeavyFire'},1.44).rejected);
+ assert.equal(applyRoomCommand(b.room,b.p,{type:'bibyeHeavyFire'},1.45).rejected,undefined);
+});
+
+test('RMB captures latest camera direction, but waits for mechanical rotation before actual release',()=>{
+ const s=setup('bow');skill(s,1);
+ s.p.input={...s.p.input,yaw:.7,pitch:.2};
+ assert.equal(applyRoomCommand(s.room,s.p,{type:'bibyeHeavyFire'},1.01).rejected,undefined);
+ assert.ok(s.b.heavySkill.aim.yaw>.6);
+ stepBiByeLlista(s.room,s.b,1/30,1.043);
+ assert.deepEqual(kinds(s),[]);
+ for(let i=1;i<=30;i++)stepBiByeLlista(s.room,s.b,1/30,1.043+i/30);
+ assert.deepEqual(kinds(s),['siege']);
+});
+
+
+test('Atomic RMB captures command-time aim rather than stale periodic movement input',()=>{
+ const s=setup('bow');skill(s,1);
+ s.p.input={...s.p.input,yaw:0,pitch:0,siegeTarget:{x:0,y:1,z:-30}};
+ const clicked=applyRoomCommand(s.room,s.p,{type:'bibyeHeavyFire',yaw:.28,pitch:.1},1.01);
+ assert.equal(clicked.rejected,undefined);
+ assert.ok(Math.abs(s.b.heavySkill.aim.yaw-.28)<.02,'heavy bow must not use old yaw');
+ assert.ok(Math.abs(s.b.heavySkill.aim.pitch-.1)<.02,'heavy bow must not use old pitch');
 });
