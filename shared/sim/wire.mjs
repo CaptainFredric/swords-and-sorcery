@@ -42,6 +42,7 @@ export function serializeLobby(room) {
       team: p.team ?? null,
       actorKind: p.actorKind,
       practiceMode: p.practiceMode ?? null,
+      practiceSiegeOperator: p.practiceSiegeOperator ? {...p.practiceSiegeOperator} : null,
       connected: p.connected,
       arenaReady: Boolean(p.arenaReady),
       lobbyReady: Boolean(p.lobbyReady),
