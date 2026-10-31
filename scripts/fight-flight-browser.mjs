@@ -99,12 +99,12 @@ try{
  await until(()=>evaluate("window.__ssRuntime?.latestSnapshot?.fightFlight?.y > 1"),'powered flight from actual Space input',160);
  await sleep(420);
  const flying=await evaluate(flightState);await screenshot('03-airborne');
- // Real mounted right mouse hold must release finite bolts and replenish only at 2/s.
+ // Real mounted left mouse hold must release finite bolts and replenish only at 2/s.
  const startingAmmo=await evaluate("window.__ssRuntime?.latestSnapshot?.fightFlight?.ammo");
- await send('Input.dispatchMouseEvent',{type:'mousePressed',x:640,y:420,button:'right',clickCount:1});
+ await send('Input.dispatchMouseEvent',{type:'mousePressed',x:640,y:420,button:'left',clickCount:1});
  await until(()=>evaluate("window.__ssRuntime?.latestSnapshot?.fightFlight?.shotSeq > 0"),'live repeater releases a physical bolt',80);
  await screenshot('03b-repeater');
- await send('Input.dispatchMouseEvent',{type:'mouseReleased',x:640,y:420,button:'right',clickCount:1});
+ await send('Input.dispatchMouseEvent',{type:'mouseReleased',x:640,y:420,button:'left',clickCount:1});
  const afterAmmo=await evaluate("window.__ssRuntime?.latestSnapshot?.fightFlight?.ammo");
  assert.ok(afterAmmo<startingAmmo,'live right-button repeater must consume ammo');
  // The accessible mounted B shortcut must activate the real machine Skill.
