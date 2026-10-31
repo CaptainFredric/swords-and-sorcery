@@ -165,7 +165,7 @@ export class GameSocket {
   vote(key, value) { this.send({ type: 'vote', key, value }); }
   leaveRoom() { this.send({ type: 'leaveRoom' }); }
   // the spell carried from the Armory (kept by the server for every room this connection joins)
-  loadout(spell, ultimate, preparedSpells) { this.send({ type: 'loadout', spell, ultimate, preparedSpells }); }
+  loadout(spell, ultimate, preparedSpells, siegeLoadout) { this.send({ type: 'loadout', spell, ultimate, preparedSpells, siegeLoadout }); }
   ping() { this.send({ type: 'ping', sentAt: performance.now() }); }
 
   serverNow() {
