@@ -36,7 +36,7 @@ async function evalBrowser(expression){const r=await send('Runtime.evaluate',
 }
 async function screenshot(file){const r=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
   await writeFile(output+'/'+file+'.png',Buffer.from(r.data,'base64'));}
-const snapshot=\`(() => {
+const snapshot=`(() => {
   const r=window.__ssRuntime, s=r?.latestSnapshot;
   return {world:s?.worldId,mode:s?.mode,state:s?.roomState,sites:s?.highGrounds?.sites,
     foundries:s?.highGrounds?.foundries,scores:s?.highGrounds?.scores,
@@ -44,7 +44,7 @@ const snapshot=\`(() => {
     player:s?.players?.find(p=>p.id===r?.playerId), visible:!!r?.world?.group?.visible,
     hud:document.querySelector('#high-grounds-status')?.className,
     title:document.querySelector('#high-grounds-score')?.textContent};
-})()\`;
+})()`;
 try{
   const page=await until(async()=>{const res=await fetch('http://127.0.0.1:'+port+'/json/list');
     return (await res.json()).find(x=>x.type==='page');},'Chrome CDP',180);
