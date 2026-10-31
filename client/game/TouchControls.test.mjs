@@ -25,6 +25,7 @@ class Node extends EventTarget {
   append(node) { this.children.push(node); }
   setAttribute() {}
   replaceWith() {}
+  remove() {}
   querySelector(selector) {
     if (!this.nodes.has(selector)) {
       const node = new Node();
