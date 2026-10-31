@@ -79,11 +79,15 @@ export class BiByeSound {
   this.last={...b};
  }
  event(event,b,now){
-  if((!event.type?.startsWith('bibye')&&event.type!=='siegeImpact')||!b||!this.active||
+  const coldEvent=event.type==='siegeSkill'&&event.skill==='coldHowTouching'&&event.machineId===b?.id;
+  if((!event.type?.startsWith('bibye')&&event.type!=='siegeImpact'&&!coldEvent)||!b||!this.active||
       event.ballistaId&&event.ballistaId!==b.id||event.type==='siegeImpact'&&event.machineId!==b.id||Math.abs(now-event.at)>1)return;
   const key=[event.type,event.ballistaId,event.at,event.componentId,event.shot,event.projectileId].join(':');
   if(this.seen.has(key))return;this.seen.add(key);if(this.seen.size>160)this.seen.delete(this.seen.values().next().value);
   let kind=null;
+  // Restrained mechanical confirmation on activation and resolution; the
+  // ordinary frost bolt impact recipe already handles proximity detonations.
+  if(coldEvent)kind=event.action==='activated'?'latch':event.action==='ended'?'release':null;
   if(event.type==='bibyeFired'){kind=event.shot.startsWith('II')?'shotII':'shotI';this.settleAt=event.at+(event.shot.startsWith('II')?.45:.3);}
   if(event.type==='bibyeReloadCompleted')kind='catch';
   if(event.type==='bibyeUpperRecocked')kind='upperCatch';
