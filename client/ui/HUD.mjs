@@ -1,3 +1,4 @@
+import {FLIGHT_REPEATER} from '../../shared/src/flightRepeaterAim.mjs';
 import {soFistHudView} from './soFistHudView.mjs';
 import {fightFlightHudView} from './fightFlightHudView.mjs';
 import { preparedSpellView } from '../game/preparedSpellSelector.mjs';
@@ -224,8 +225,8 @@ export class HUD {
       <div class="flight-hud-strip">
         <div class="flight-metric alt"><label>ALT</label><b><output data-flight-alt>0.0</output>m</b></div>
         <div class="flight-metric charge"><label>CHARGE</label><div class="flight-bar-wrap"><progress max="100" value="100" data-flight-charge-bar></progress><output data-flight-charge>100</output></div></div>
-        <div class="flight-metric rotor"><label>ROTOR</label><b><output data-flight-rotor>100</output>%</b></div>
-        <div class="flight-metric ammo"><label>AMMO</label><b><output data-flight-ammo>14</output></b><small data-flight-debt></small></div>
+        <div class="flight-metric rotor"><label>ROTOR</label><b><output data-flight-rotor>100</output>%</b><small><output data-flight-rpm>0</output> RPM</small></div>
+        <div class="flight-metric ammo"><label>AMMO</label><b><output data-flight-ammo>${FLIGHT_REPEATER.capacity}</output></b><small data-flight-debt></small></div>
         <div class="flight-metric skill"><label>SKILL</label><b data-flight-skill>READY</b></div>
       </div>
       <div class="flight-warning-banner" hidden data-flight-warning></div>
@@ -334,6 +335,7 @@ export class HUD {
       const chargeBar = this.flightPanel.querySelector('[data-flight-charge-bar]');
       chargeBar.max = siege.maxCharge; chargeBar.value = siege.charge;
       this.flightPanel.querySelector('[data-flight-rotor]').textContent = siege.rotor;
+      this.flightPanel.querySelector('[data-flight-rpm]').textContent = siege.rotorRPM;
       this.flightPanel.querySelector('[data-flight-ammo]').textContent = siege.ammo;
       const debt = this.flightPanel.querySelector('[data-flight-debt]');
       debt.textContent = siege.debt > 0 ? `-${siege.debt}` : '';
