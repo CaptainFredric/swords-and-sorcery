@@ -133,3 +133,20 @@ test('Competence settings change real decision cadence and aiming, not equipment
  }
  assert.ok(times[0]>times[1]&&times[1]>times[2]);
 });
+
+test('Practice hosts three distinct siege operators without duplicating any authoritative machine',()=>{
+ const {room,command}=setup();
+ for(const machine of ['fight-and-flight','so-fist-ication','bi-bye-llista'])
+  assert.deepEqual(command('spawn',machine,'skilled'),{},
+    `spawning ${machine} must respect the other two machines' actual collision volumes`);
+ const pilots=[...room.players.values()].filter(a=>a.practiceSiegeOperator);
+ assert.equal(pilots.length,3);
+ assert.equal(new Set(pilots.map(a=>a.id)).size,3);
+ for(const machine of Object.keys(SIEGE_OPERATORS)){
+  const m=room[SIEGE_OPERATORS[machine].field];
+  assert.ok(m?.operatorId&&pilots.some(a=>a.id===m.operatorId));
+ }
+ assert.deepEqual(command('remove','all'),{});
+ assert.equal(room.players.size,1);
+ assert.ok(!room.biByeLlista&&!room.soFistication&&!room.fightFlight);
+});
