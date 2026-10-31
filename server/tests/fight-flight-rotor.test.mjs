@@ -132,7 +132,8 @@ test('Component cover follows the authored offensive pitch instead of remaining 
  assert.ok(Math.abs(main.axes[1][1]-Math.cos(.4))<1e-8);
 });
 test('Construction refuses a clear chassis location if its moving rotor would hit a nearby wall',()=>{
- const {room,owner}=setup();
+ const {room,owner,defender}=setup();
+ defender.position={x:15,y:0,z:15};
  const location={x:0,y:0,z:0};
  room.world.solids=[{id:'nearby-high-wall',center:[1.2,2.18,0],size:[.2,.5,.7]}];
  assert.equal(fightFlightConstructionClear(room,location,owner.id),false);
