@@ -4,7 +4,7 @@ import {Room} from '../../shared/sim/Room.mjs';
 import {applyRoomCommand} from '../../shared/sim/wire.mjs';
 import {beginAttack,endAttack,stepRoom,setGuard} from '../../shared/sim/combat.mjs';
 import {createFightFlight} from '../../shared/sim/fightFlight.mjs';
-import {requestFightFlightFire} from '../../shared/sim/fightFlightWeapons.mjs';
+import {requestFightFlightFire,stepFightFlightWeapons} from '../../shared/sim/fightFlightWeapons.mjs';
 const world={floors:[{id:'floor',center:[0,-.1,0],size:[60,.2,60],y:0}],ramps:[],solids:[],
   spawnPoints:[{x:0,y:0,z:0,yaw:-Math.PI/2},{x:2,y:0,z:0,yaw:Math.PI/2}],abyssY:-10};
 function setup(){
