@@ -236,8 +236,12 @@ function donte(room,a,m,target,ai,tuning,now){
   // metres above a grounded foe makes the beautiful rotor tactically useless.
   const attackPass=ai.difficulty==='formidable'&&!m.grounded&&m.rotorHP>0&&
     charge>37&&d>3&&d<17;
+  // The repeater is mounted above the feet and has only 20 degrees of
+  // downward elevation. Keep ordinary attack altitude within that *real*
+  // aiming envelope, or even perfect target leading would sail overhead.
+  const shootingAltitude=clamp(d*.28,1.6,5.4);
   const desiredHeight=attackPass?target.position.y+.1:
-    target.position.y+(d<6?2.0:5.4);
+    target.position.y+shootingAltitude;
   // Real helm authority is bounded by the flight physics turn rate.
   const heading=bearing(at,aim.point);
   const climb=m.grounded?charge>22:charge>18&&m.y<desiredHeight-.8;
