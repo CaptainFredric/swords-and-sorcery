@@ -860,7 +860,7 @@ export class HUD {
         `<div class="sb-row ${cls}"><span>${escapeHtml(p.name)}${p.actorKind === 'bot' ? ' <small>[BOT]</small>' : ''}</span><b>${p.kills} K</b><em>${p.deaths} D · ${p.parries ?? 0} P</em></div>`
       ).join('');
       const worldTitle = snapshot.mode === 'HIGH_GROUNDS' ? 'THE HIGH GROUNDS' : snapshot.worldId === 'blackbell-foundry' ? 'BLACKBELL FOUNDRY' : snapshot.worldId === 'outerworks' ? 'THE OUTERWORKS' : 'BASTION BREACH';
-      this.scoreboard.innerHTML = `<h3>${snapshot.mode === 'HIGH_GROUNDS' ? 'TERRITORY' : 'BREAKTHROUGH'} · ${worldTitle}</h3>${renderTeam('ATTACKERS · AZURE HOST', attackers, 'team-att')}${renderTeam('DEFENDERS · CRIMSON GUARD', defenders, 'team-def')}`;
+      this.scoreboard.innerHTML = `<h3>${snapshot.mode === 'HIGH_GROUNDS' ? 'TERRITORY' : 'BREAKTHROUGH'} · ${worldTitle}</h3>${renderTeam(snapshot.mode === 'HIGH_GROUNDS' ? 'AZURE HOST · ADVANCE & HOLD' : 'ATTACKERS · AZURE HOST', attackers, 'team-att')}${renderTeam(snapshot.mode === 'HIGH_GROUNDS' ? 'CRIMSON HOST · ADVANCE & HOLD' : 'DEFENDERS · CRIMSON GUARD', defenders, 'team-def')}`;
       return;
 
     }
