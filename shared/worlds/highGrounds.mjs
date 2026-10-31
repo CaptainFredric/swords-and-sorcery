@@ -49,6 +49,19 @@ const grounds = [
   // Reinforced side approaches with open, physically traversable slopes.
   floor('azure-west-landing', -38, -80, 19, 14, 0),
   floor('crimson-east-landing', 38, 80, 19, 14, 0),
+  // Seamless, physically supported links between camp ground and side-ramp
+  // landings. Before this, the first steps of several ramps hung in midair.
+  floor('azure-west-gate-approach', -26, -81, 16, 12, 0, 'stone'),
+  floor('crimson-east-gate-approach', 26, 81, 16, 12, 0, 'stone'),
+  floor('azure-east-gate-approach', 26, -99, 16, 12, 0, 'stone'),
+  floor('crimson-west-gate-approach', -26, 99, 16, 12, 0, 'stone'),
+  floor('azure-east-ascent-landing', 38, -96, 19, 14, 0, 'stone'),
+  floor('crimson-west-descent-landing', -38, 96, 19, 14, 0, 'stone'),
+  // Entrances to the under-roots must be supported at Y=0, not begin
+  // outside the forward deck in invisible space.
+  floor('azure-root-approach', -14, -54, 13, 10, 0, 'stone'),
+  floor('crimson-root-approach', 14, 54, 13, 10, 0, 'stone'),
+
 ];
 const ramps = [
   // 12 m ascent over 33 m: deliberate high-ground access without teleporting.
@@ -72,6 +85,18 @@ const trees = [
   { id: 'east-lantern', x: 63, z: -51, radius: 4, height: 37, bloom: 'ivory' },
 ];
 const solids = [
+  // Structural railings on the edges of high crossbridges, above the
+  // central vehicle road. These have *real* collision and won't draw
+  // misleading phantom barriers in flight or first-person combat.
+  ...[-57,0,57].flatMap((z,i) => [
+    solid('bridge-rail-north-'+i,0,12.58,z+3.62,74,1.16,.34,'wood'),
+    solid('bridge-rail-south-'+i,0,12.58,z-3.62,74,1.16,.34,'wood'),
+  ]),
+  // Gateposts and camp stockades flank the entry but never block the
+  // 15m-wide siege road or the initial player spawn coordinates.
+  ...[-1,1].flatMap(sign=>[-1,1].map(side=>
+    solid('camp-entry-post-'+(sign>0?'crimson':'azure')+'-'+side,
+      side*19.5,2.35,sign*91,1.55,4.7,1.55,'stone'))),
   // Trunks have matching collision. The crown foliage is stylized but not a
   // solid sphere: flyers can pass through leaves, not through wood.
   ...trees.map((t) => solid('trunk-' + t.id, t.x, t.height / 2 - 1, t.z,
@@ -113,7 +138,7 @@ const nodes = [];
 const nav = (id,x,y,z) => nodes.push({id,x,y,z});
 for(let z=-108;z<=108;z+=12)nav('road-'+z,0,0,z);
 for(const side of [-1,1]){
-  for(let z=-69;z<=69;z+=12)nav('canopy-'+side+'-'+z,side*38,12,z);
+  for(let z=-57;z<=63;z+=12)nav('canopy-'+side+'-'+z,side*38,12,z);
   for(let z=-24;z<=24;z+=12)nav('root-'+side+'-'+z,side*16,-9,z);
 }
 for(const z of [-57,0,57])for(let x=-36;x<=36;x+=12)nav('sky-'+z+'-'+x,x,12,z);
