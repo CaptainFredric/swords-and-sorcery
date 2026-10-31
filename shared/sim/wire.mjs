@@ -480,7 +480,7 @@ export function applyRoomCommand(room, player, message, time) {
       if(player.operatingRamId)return {rejected:'Leave the ram before operating another machine.'};
       if (!room.biByeLlista) return { rejected: 'No ballista available' };
       if (room.biByeLlista.operatorId === player.id) {
-        dismountBiByeLlista(room.biByeLlista, player, true, room.world);
+        dismountBiByeLlista(room.biByeLlista, player, true, room.world, time);
       } else {
         mountBiByeLlista(room.biByeLlista, player, time);
       }
