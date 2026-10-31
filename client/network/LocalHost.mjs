@@ -762,6 +762,7 @@ export class LocalHost {
     const player = this.player;
     if(player&&!player.operatingBallistaId&&!player.operatingRamId&&!player.operatingFightFlightId)
       player.siegeLoadout={...this.siegeLoadout};
+    else if(player)player.queuedSiegeLoadout={...this.siegeLoadout};
     if (!player) return;
     player.startingSpell = this.spell;
     player.startingPreparedSpells = [...this.preparedSpells];
