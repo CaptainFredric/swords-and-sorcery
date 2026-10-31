@@ -80,6 +80,14 @@ export function damageFightFlight(room,m,amount,attackerId,source,now,{component
   }
   if(gone&&componentId.startsWith('brace'))room.events?.push({type:'fightFlightBraceDestroyed',machineId:m.id,component:componentId,at:now,point});
   if(gone&&componentId==='main'){
+    // An irreversibly committed terminal wreck still owes one explosion and
+    // a bounded rider outcome. Route external chassis failure through that
+    // outcome rather than bypassing it with ordinary vehicle destruction.
+    if(m.terminalDive&&!m.terminalDive.resolved){
+      m.terminalDive.impactAt=now;
+      room.events?.push({type:'fightFlightTerminalStructuralFailure',machineId:m.id,at:now,point});
+      return {damage:actual,turned,destroyed:true,component:componentId};
+    }
     m.mode='DESTROYED';m.destroyedAt=now;m.firingOperatorId=null;m.offensiveRun=false;
     const pilot=m.operatorId?room.players.get(m.operatorId):null;
     if(pilot){

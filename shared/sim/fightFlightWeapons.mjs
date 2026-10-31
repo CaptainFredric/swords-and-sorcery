@@ -52,7 +52,10 @@ function release(room,m,p,now){
   const borrowed=m.ammo<1;
   if(borrowed&&!fightFlightSkillActive(m,now))return false;
   const yaw=(m.heading??0)+clamp(angle((p.input?.yaw??m.heading)-m.heading),-FLIGHT_REPEATER.maxTraverse,FLIGHT_REPEATER.maxTraverse);
-  const pitch=clamp(p.input?.pitch??0,FLIGHT_REPEATER.minPitch,FLIGHT_REPEATER.maxPitch);
+  // A terminal commitment pitches the entire machine downward. Its mounted
+  // crossbow can traverse down, not aim upward independently of the dive.
+  const freePitch=clamp(p.input?.pitch??0,FLIGHT_REPEATER.minPitch,FLIGHT_REPEATER.maxPitch);
+  const pitch=m.terminalDive?Math.min(freePitch,-Math.max(.18,(m.runPitch??.34)*.55)):freePitch;
   const cp=Math.cos(pitch),origin=flightMuzzle(m,{yaw,pitch});
   const unit={x:-Math.sin(yaw)*cp,y:Math.sin(pitch),z:-Math.cos(yaw)*cp};
   if(borrowed){
