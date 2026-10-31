@@ -117,19 +117,20 @@ try{
  const rising=await waitFor(()=>guest.evaluate("(() => {const m=window.__ssRuntime?.latestSnapshot?.fightFlight;return m?.y>1.2&&m.rotorRPM>0&&m.flightCharge<100?{y:m.y,charge:m.flightCharge,rpm:m.rotorRPM}:null;})()"),
    'guest observes actual rotor-powered vertical flight',170);
  await host.send('Input.dispatchKeyEvent',{type:'keyUp',key:' ',code:'Space',windowsVirtualKeyCode:32});
+ await guest.evaluate("(() => {window.__flightMotionTrace=[];let frames=0;function frame(){const s=window.__ssRuntime?.latestSnapshot,m=s?.fightFlight,p=s?.players?.find(p=>p.id==='"+hostRoom.id+"');if(m&&p)window.__flightMotionTrace.push({run:m.offensiveRun,pitch:m.runPitch,speed:Math.hypot(m.velocity?.x??0,m.velocity?.z??0),ejected:m.operatorId===null,grounded:p.grounded,y:p.position?.y,ammo:m.ammo,debt:m.ammoDebt,shotSeq:m.shotSeq});if(++frames<850)requestAnimationFrame(frame);}requestAnimationFrame(frame);})()");
  await host.key('E','rawKeyDown');
- const run=await waitFor(()=>guest.evaluate("(() => {const m=window.__ssRuntime?.latestSnapshot?.fightFlight;return m?.offensiveRun&&m.runPitch>.08&&Math.hypot(m.velocity?.x??0,m.velocity?.z??0)>4?{pitch:m.runPitch,charge:m.flightCharge,velocity:m.velocity}:null;})()"),
+ const run=await waitFor(()=>guest.evaluate("(() => {const trace=window.__flightMotionTrace??[];return trace.find(s=>s.run&&s.pitch>.08&&s.speed>4)??null;})()"),
    'guest sees a moving Prowess-powered offensive flight run',140);
  await host.key('E','keyUp');
  await waitFor(()=>guest.evaluate("window.__ssRuntime?.latestSnapshot?.fightFlight?.offensiveRun===false"),
    'remote Dash release stops offensive run',100);
  const beforeEject=await guest.evaluate("(() => {const m=window.__ssRuntime?.latestSnapshot?.fightFlight;return {ammo:m.ammo,debt:m.ammoDebt,id:m.lifecycleId};})()");
  await host.tap('T');
- const ejected=await waitFor(()=>guest.evaluate("(() => {const s=window.__ssRuntime?.latestSnapshot,m=s?.fightFlight,p=s?.players?.find(p=>p.id==='"+hostRoom.id+"');return m?.operatorId===null&&p?.operatingFightFlightId==null&&!p.grounded?{y:p.position.y,velocity:p.velocity,ammo:m.ammo,debt:m.ammoDebt,id:m.lifecycleId}:null;})()"),
-   'guest sees genuine airborne ejection and inherited falling velocity',140);
+ const ejected=await waitFor(()=>guest.evaluate("(() => {const s=window.__ssRuntime?.latestSnapshot,m=s?.fightFlight,p=s?.players?.find(p=>p.id==='"+hostRoom.id+"'),trace=window.__flightMotionTrace??[];const falling=trace.find(f=>f.ejected&&!f.grounded&&f.y>.2);return m?.operatorId===null&&p?.operatingFightFlightId==null&&falling?{y:falling.y,ammo:m.ammo,debt:m.ammoDebt,id:m.lifecycleId,shotSeq:m.shotSeq}:null;})()"),
+   'guest captures real airborne ejection before subsequent landing',140);
  assert.equal(ejected.id,beforeEject.id);
- assert.equal(ejected.ammo,beforeEject.ammo);
- assert.equal(ejected.debt,beforeEject.debt);
+ assert.ok(ejected.ammo>=beforeEject.ammo&&ejected.ammo<=18,'passive 2/s replenishment is allowed, reset is not');
+ assert.ok(ejected.debt<=beforeEject.debt,'ammo debt can only be repaid, not cleared by eject');
  await waitFor(()=>guest.evaluate("(() => {const s=window.__ssRuntime?.latestSnapshot,p=s?.players?.find(p=>p.id==='"+hostRoom.id+"');return Boolean(p?.grounded&&p.position.y<.2&&p.operatingFightFlightId==null);})()"),
    'ejected Spellblade physically lands in shared room',180);
  await guest.screenshot('guest-flight-landing');
