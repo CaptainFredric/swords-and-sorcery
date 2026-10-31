@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {RoomManager} from '../../shared/sim/RoomManager.mjs';
 import {createFightFlight} from '../../shared/sim/fightFlight.mjs';
-import {stepRoom} from '../../shared/sim/combat.mjs';
+import {stepRoom,killPlayer} from '../../shared/sim/combat.mjs';
 import {applyRoomCommand} from '../../shared/sim/wire.mjs';
 import {stepTerminalPreparation,terminalFlightSteps,TERMINAL} from '../../shared/sim/fightFlightTerminal.mjs';
 
@@ -62,4 +62,16 @@ test('A genuine bottomless trajectory still resolves after bounded simulated fli
   assert.equal(m.terminalDive.impactAt,null);
   assert.equal(room.events.filter(e=>e.type==='fightFlightTerminalExplosion').length,1);
   assert.equal(room.flightBurnZones.length,0,'an explosion above a bottomless abyss cannot leave hovering ground fire');
+});
+
+test('A pilot dying during a throttled dive cannot respawn before its eventual physical outcome',()=>{
+  const {room,m,player}=startDive({floor:false,altitude:300});
+  assert.equal(killPlayer(room,player.id,null,'test-bolt',2.1),true);
+  assert.equal(player.alive,false);
+  assert.equal(player.terminalRespawnDeferredFor,m.id);
+  assert.ok(player.respawnAt>=m.terminalDive.expiresAt+30,'fatal dive remains pending through its bounded wall-time failsafe');
+  stepRoom(room,1/30,8.5,room.world);
+  assert.equal(m.terminalDive.resolved,false);
+  assert.equal(player.alive,false,'late wall-clock tick must not revive the diving pilot');
+  assert.equal(player.terminalRespawnDeferredFor,m.id);
 });
