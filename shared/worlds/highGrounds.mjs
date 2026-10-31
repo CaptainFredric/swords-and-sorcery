@@ -89,8 +89,8 @@ const solids = [
   // central vehicle road. These have *real* collision and won't draw
   // misleading phantom barriers in flight or first-person combat.
   ...[-57,0,57].flatMap((z,i) => [
-    solid('bridge-rail-north-'+i,0,12.58,z+3.62,74,1.16,.34,'wood'),
-    solid('bridge-rail-south-'+i,0,12.58,z-3.62,74,1.16,.34,'wood'),
+    solid('bridge-rail-north-'+i,0,12.58,z+3.62,56,1.16,.34,'wood'),
+    solid('bridge-rail-south-'+i,0,12.58,z-3.62,56,1.16,.34,'wood'),
   ]),
   // Gateposts and camp stockades flank the entry but never block the
   // 15m-wide siege road or the initial player spawn coordinates.
@@ -139,7 +139,7 @@ const nav = (id,x,y,z) => nodes.push({id,x,y,z});
 for(let z=-108;z<=108;z+=12)nav('road-'+z,0,0,z);
 // Route mouths must be within the actual bot-nav link reach (18m).
 // Cover the 35m horizontal excursion from main road to side ascent ramps.
-for(const [side,z] of [[-1,-85],[1,-85],[-1,97],[1,97]]){
+for(const [side,z] of [[-1,-85],[1,-102],[-1,97],[1,83]]){
   for(const x of [side*15,side*27,side*37])nav('camp-approach-'+side+'-'+z+'-'+x,x,0,z);
 }
 
