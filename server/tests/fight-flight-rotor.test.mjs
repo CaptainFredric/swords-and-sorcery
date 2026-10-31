@@ -140,3 +140,14 @@ test('Construction refuses a clear chassis location if its moving rotor would hi
  room.world.solids=[{id:'distant-high-wall',center:[3,2.18,0],size:[.2,.5,.7]}];
  assert.equal(fightFlightConstructionClear(room,location,owner.id),true);
 });
+
+
+test('Masonry graze removes rotor energy without gratuitous rotor integrity damage',()=>{
+ const {room,m}=setup();
+ room.world.solids=[{id:'stone-parapet',center:[1.23,2.18,0],size:[.35,.9,.85]}];
+ m.rotorEnergy=100;m.rotorAngularVelocity=47;m.velocity={x:0,y:0,z:0};
+ m.rotorAngleBefore=-.3;m.lastRotorDelta=.3;m.rotorAngle=0;m.rotorPositionBefore={x:0,y:0,z:0};
+ stepFightFlightRotor(room,m,1/30,10);
+ assert.equal(m.rotorHP,100);assert.ok(m.rotorEnergy<100);
+ assert.ok(m.rotorLiftSuppressedUntil>10);assert.ok(m.rotorAngularVelocity<47);
+});
