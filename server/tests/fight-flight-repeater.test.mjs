@@ -3,6 +3,7 @@ import {createFightFlight,mountFightFlight} from '../../shared/sim/fightFlight.m
 import {advanceFlightAmmo,requestFightFlightFire,stepFightFlightWeapons,stepFightFlightProjectiles,FLIGHT_REPEATER} from '../../shared/sim/fightFlightWeapons.mjs';
 import {RoomManager} from '../../shared/sim/RoomManager.mjs';
 import {applyRoomCommand,serializeSnapshot} from '../../shared/sim/wire.mjs';
+import {callSteel} from '../../shared/src/steel.mjs';
 
 function setup(){
  const room=new RoomManager().createSoloRoom('PRACTICE',0,'castleward');
@@ -45,7 +46,7 @@ test('ordinary bolts traverse real space, deal close-range raw damage and stop a
  assert.equal(requestFightFlightFire(room,m,p,true,1),true);
  requestFightFlightFire(room,m,p,false,1.01);
  for(let i=1;i<12;i++)stepFightFlightProjectiles(room,1/30,1+i/30);
- assert.ok(enemy.health<100,'swept bolt must strike the actual enemy cylinder');
+ assert.equal(enemy.health,96,'swept bolt must deal 4 close-range raw damage');
  assert.equal(room.fightFlightProjectiles.size,0);
  const oldHealth=enemy.health;
  room.world.solids=[{id:'stone',center:[-.65,1.3,-2],size:[2,2.6,.35]}];
@@ -78,4 +79,14 @@ test('unmounted foreign operator cannot fire or counterfeit ammo; projectiles re
  assert.equal(snap.fightFlight.ammo,13);
  assert.equal(snap.fightFlightProjectiles.length,1);
  assert.ok(snap.fightFlightProjectiles[0].velocity.z<0);
+});
+test('fully active Sheathe in Steel mitigates close-range bolt from 4 to 2 actual damage',()=>{
+ const {room,p,m}=setup();
+ const knight=room.addPlayer({id:'steeled',token:'steeled',name:'Knight'},0);
+ knight.position={x:-.65,y:0,z:-4};knight.spawnProtectionUntil=0;knight.guarding=false;
+ knight.steel=callSteel(1);
+ assert.equal(requestFightFlightFire(room,m,p,true,1),true);
+ requestFightFlightFire(room,m,p,false,1.01);
+ for(let i=1;i<12;i++)stepFightFlightProjectiles(room,1/30,1+i/30);
+ assert.equal(knight.health,98,'close bolt of 4 raw damage is turned by 2, dealing exactly 2 to health');
 });

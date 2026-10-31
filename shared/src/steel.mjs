@@ -28,6 +28,7 @@ export const STEEL_DAMAGE_RANGES = Object.freeze({
   'bibye-conditioning': Object.freeze({ min: 12, max: 18 }),              // 12 - 18
   'bibye-siege': Object.freeze({ min: 55, max: 85 }),                     // 55 - 85
   'bibye-shockwave': Object.freeze({ min: 10, max: 35 }),                 // 10 - 35
+  'fight-flight-repeater': Object.freeze({ min: 2, max: 4 }),             // 2 - 4
 });
 
 export const STEEL = Object.freeze({

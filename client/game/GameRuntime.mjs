@@ -5,9 +5,11 @@ import { ZipArchive } from './zipWriter.mjs';
 import { structureWorld } from '../../shared/sim/structures.mjs';
 import { StructureRenderer } from '../worlds/StructureRenderer.mjs';
 import {FightFlightRenderer} from '../worlds/FightFlightRenderer.mjs';
+import {FlightCameraMotion} from './FlightCameraMotion.mjs';
 import {SoFisticationRenderer} from '../worlds/SoFisticationRenderer.mjs';
 import {BiByeMotion} from '../worlds/biByeMotion.mjs';
 import {SoFistSound} from './sound/SoFistSound.mjs';
+import {FlightSound} from './sound/FlightSound.mjs';
 import {soFistSolids,soFistFrame,SO_FIST_STATION} from '../../shared/sim/soFistGeometry.mjs';
 import {ramCameraFollow,ramCameraOrbit} from './ramCamera.mjs';
 import {soFistOperator} from '../../shared/sim/soFistication.mjs';
@@ -148,7 +150,7 @@ export class GameRuntime {
     this.socket = socket;
     this.hud = hud;
     this.sound = sound;
-    this.siegeSound = new BiByeSound(sound);this.ramSound=new SoFistSound(sound);
+    this.siegeSound = new BiByeSound(sound);this.ramSound=new SoFistSound(sound);this.flightSound=new FlightSound(sound);
     this.voice = voice;
     // the score (for its stingers: my Spells & Chivalry taken up)
     this.music = music;
@@ -1208,7 +1210,7 @@ export class GameRuntime {
 
   setPlaying(playing, { preservePointerLock = false } = {}) {
     this.playing = Boolean(playing) && !this.worldError;
-    if (!this.playing) {this.localGale=null;this.localGaleWind=null;this.#applyWeaponRelease({ attack: true, guard: true });this.siegeSound.stop();this.ramSound.stop();}
+    if (!this.playing) {this.localGale=null;this.localGaleWind=null;this.#applyWeaponRelease({ attack: true, guard: true });this.siegeSound.stop();this.ramSound.stop();this.flightSound.stop();}
     if (!this.playing && !preservePointerLock) this.input.releaseFocus();
     this.syncInspection();
   }
@@ -1256,7 +1258,7 @@ export class GameRuntime {
     this.input.mountedBallista=Boolean(auth?.alive&&auth.operatingBallistaId);
     this.input.ballistaSkillPhase=this.input.mountedBallista?(snapshot.bibyeBallista?.skill?.phase??'idle'):'idle';
     if(auth?.operatingFightFlightId&&!wasMounted){
-      this.siegeView='third';this.siegeCamera={position:this.camera.position.clone(),quaternion:this.camera.quaternion.clone()};
+      this.siegeView='sight';this.siegeCamera={position:this.camera.position.clone(),quaternion:this.camera.quaternion.clone()};
       this.input.releaseInputs();this.weapon.setAttack(false);this.weapon.setGuard(false);
       this.input.yaw=snapshot.fightFlight.heading;this.input.pitch=0;
     }
@@ -1346,7 +1348,7 @@ export class GameRuntime {
   onEvents(events) {
     for (const event of events) {
       if(event.type?.startsWith('bibye')&&event.ballistaId&&event.ballistaId!==this.latestSnapshot?.bibyeBallista?.id)continue;
-      this.siegeSound.event(event,this.latestSnapshot?.bibyeBallista,this.socket.serverNow());this.ramSound.event(event,this.latestSnapshot?.soFistication,this.socket.serverNow());
+      this.siegeSound.event(event,this.latestSnapshot?.bibyeBallista,this.socket.serverNow());this.ramSound.event(event,this.latestSnapshot?.soFistication,this.socket.serverNow());this.flightSound.event(event,this.latestSnapshot?.fightFlight,this.socket.serverNow());
       if(event.type === "bibyeDamaged" && event.point) {
         if(event.componentId?.startsWith("Stabilizer")) this.effects.wallClang(event.point);
         else this.effects.splinters?.(event.point);
@@ -2835,14 +2837,41 @@ export class GameRuntime {
   #mountedView(dt) {
     if(this.localAuth?.alive&&this.localAuth?.operatingFightFlightId&&this.latestSnapshot?.fightFlight){
       const m=this.latestSnapshot.fightFlight;
+      const isFirstPerson = this.siegeView === 'sight';
       const target=this.flightRenderer.getMountedCameraPosition(this.siegeView)??new THREE.Vector3(m.x,m.y+1.52,m.z);
-      if(this.siegeView==='third')target.fromArray(clip(this.#reach,[m.x,m.y+1.5,m.z],target.toArray(),.3));
-      this.siegeCamera??={position:this.camera.position.clone(),quaternion:this.camera.quaternion.clone()};
-      this.siegeCamera.position.lerp(target,1-Math.exp(-dt*13));
-      this.siegeCamera.quaternion.setFromEuler(new THREE.Euler(this.input.pitch,this.input.yaw,0,'YXZ'));
-      this.camera.position.copy(this.siegeCamera.position);this.camera.quaternion.copy(this.siegeCamera.quaternion);
+      this.flightCameraMotion ??= new FlightCameraMotion();
+      const motion = this.flightCameraMotion.update(dt, m, this.view.cameraMotion);
+
+      if (isFirstPerson) {
+        this.camera.position.copy(target);
+        if (motion.offset) {
+          const sinH = Math.sin(m.heading ?? 0), cosH = Math.cos(m.heading ?? 0);
+          this.camera.position.x += motion.offset.x * cosH - motion.offset.z * sinH;
+          this.camera.position.y += motion.offset.y;
+          this.camera.position.z += motion.offset.x * sinH + motion.offset.z * cosH;
+        }
+        const lookPitch = this.input.pitch + (motion.pitch ?? 0);
+        const lookRoll = motion.roll ?? 0;
+        this.camera.rotation.set(lookPitch, this.input.yaw, lookRoll, 'YXZ');
+        this.siegeCamera = { position: this.camera.position.clone(), quaternion: this.camera.quaternion.clone() };
+        const deltaYaw = Math.atan2(Math.sin(this.input.yaw - (m.heading ?? 0)), Math.cos(this.input.yaw - (m.heading ?? 0)));
+        const maxTraverse = Math.PI * 25 / 180, minPitch = -Math.PI * 20 / 180, maxPitch = Math.PI * 20 / 180;
+        const traverseLimited = Math.abs(deltaYaw) > maxTraverse + 0.02;
+        const elevationLimited = this.input.pitch < minPitch - 0.02 || this.input.pitch > maxPitch + 0.02;
+        const limited = traverseLimited || elevationLimited;
+        const limitReason = traverseLimited ? 'TRAVERSE LIMIT' : elevationLimited ? 'ELEVATION LIMIT' : 'AIM LIMITED';
+        this.hud.setFlightSight?.({ limited, limitReason });
+      } else {
+        this.hud.setFlightSight?.(null);
+        if(this.siegeView==='third')target.fromArray(clip(this.#reach,[m.x,m.y+1.5,m.z],target.toArray(),.3));
+        this.siegeCamera??={position:this.camera.position.clone(),quaternion:this.camera.quaternion.clone()};
+        this.siegeCamera.position.lerp(target,1-Math.exp(-dt*13));
+        this.siegeCamera.quaternion.setFromEuler(new THREE.Euler(this.input.pitch,this.input.yaw,0,'YXZ'));
+        this.camera.position.copy(this.siegeCamera.position);this.camera.quaternion.copy(this.siegeCamera.quaternion);
+      }
       this.input.aimGain=1;return;
     }
+    this.hud.setFlightSight?.(null);
     const ram=Boolean(this.localAuth?.operatingRamId);
     const b = ram?this.world?.soFistication?.presentationData??this.latestSnapshot?.soFistication:this.latestSnapshot?.bibyeBallista;
     const mounted = this.localAuth?.alive && (this.localAuth?.operatingBallistaId||this.localAuth?.operatingRamId||this.localAuth?.operatingFightFlightId) && b && b.mode !== 'DESTROYED';
@@ -2942,7 +2971,7 @@ export class GameRuntime {
     if (this.socket.playingLocally) nowMs = this.presentationNow();
     // Keep drawing the exact same scene. A single authoritative step advances this clock once.
     if (this.socket.inspectionFrozen && nowMs <= this.lastFrameAt) {
-      this.siegeSound.stop();this.ramSound.stop();
+      this.siegeSound.stop();this.ramSound.stop();this.flightSound.stop();
       if(flyAim){this.input.yaw=flyAim.yaw;this.input.pitch=flyAim.pitch;this.input.aimGain=1;}
       this.#renderView();
       requestAnimationFrame(t => this.#frame(t));
@@ -3138,13 +3167,18 @@ export class GameRuntime {
         this.chaseOut = 0;
       }
       // (outside, my own body is drawn and the helm's arms are not; mounted on ballista, draw body at station and hide FP arms)
-      const mounted = Boolean((this.localAuth?.operatingBallistaId||this.localAuth?.operatingRamId||this.localAuth?.operatingFightFlightId));
+      const isOperatingFlight = Boolean(this.localAuth?.operatingFightFlightId);
+      const isFpFlight = isOperatingFlight && this.siegeView === 'sight';
+      const mounted = Boolean((this.localAuth?.operatingBallistaId||this.localAuth?.operatingRamId||isOperatingFlight));
       if (mounted) outside = true;
       this.weapon.group.visible = !outside;
       this.inspectionBodyOutside=outside;
       this.remotePlayers.showSelf(this.localAuth, {
         position: this.localState.position, velocity: this.localState.velocity, yaw: mounted ? this.localAuth.yaw : this.input.yaw, pitch: mounted ? 0 : this.input.pitch,
-      }, serverNow, nowMs, dt, outside && (!mounted || (this.localAuth?.operatingFightFlightId && this.siegeView === 'third') || (this.siegeView === 'third' && this.siegeCamera?.position.distanceTo(this.camera.position) > 1.2)) || this.socket.inspectionAvailable&&(this.inspectionFree||this.inspectionSplit));
+      }, serverNow, nowMs, dt, outside && (!mounted || isOperatingFlight || (this.siegeView === 'third' && this.siegeCamera?.position.distanceTo(this.camera.position) > 1.2)) || this.socket.inspectionAvailable&&(this.inspectionFree||this.inspectionSplit));
+      if (this.remotePlayers.self?.setCockpitHeadHidden) {
+        this.remotePlayers.self.setCockpitHeadHidden(isFpFlight);
+      }
       this.#setFov(this.view.fov + (view.fov - FP_MOTION.baseFov) * motion);
     } else if (this.localAuth && this.localState && this.deathCam && this.localAuth.alive === false) {
       this.#viewInHelm(nowMs, dt);
@@ -3162,10 +3196,13 @@ export class GameRuntime {
     this.siegeSound.update(this.latestSnapshot?.bibyeBallista,{active:this.playing && this.input.enabled && !this.socket.inspectionFrozen,playerId:this.playerId,listener:this.localState?.position??this.localAuth?.position,yaw:this.input.yaw,now:this.socket.serverNow()});
     this.world?.setBiByeState?.(this.latestSnapshot, this.socket.serverNow(), {local:this.socket.playingLocally,frozen:this.socket.inspectionFrozen});
     this.ramSound.update(this.latestSnapshot?.soFistication,{active:this.playing&&this.input.enabled&&!this.socket.inspectionFrozen,listener:this.localState?.position??this.localAuth?.position,yaw:this.input.yaw,now:this.socket.serverNow()});
+    this.flightSound.update(this.latestSnapshot?.fightFlight,{active:this.playing&&this.input.enabled&&!this.socket.inspectionFrozen,listener:this.localState?.position??this.localAuth?.position,yaw:this.input.yaw,now:this.socket.serverNow()});
     if(this.ramRoom!==this.latestSnapshot?.roomCode){this.ramRoom=this.latestSnapshot?.roomCode;this.ramMotion=new BiByeMotion();}
     this.ramMotion.push(this.latestSnapshot?.soFistication??null,[],this.latestSnapshot?.serverTime??this.socket.serverNow(),this.latestSnapshot?.soFistRevision??0);
     const ramView=this.ramMotion.sample(this.socket.serverNow(),this.socket.playingLocally,this.socket.inspectionFrozen,dt);this.ramRenderer.update(ramView.clock,ramView.ballista);
-    this.flightRenderer.update(this.socket.serverNow(),this.latestSnapshot?.fightFlight??null,this.latestSnapshot?.fightFlightProjectiles??[],this.latestSnapshot?.serverTime??this.socket.serverNow(),this.latestSnapshot?.flightBurnZones??[]);
+    const localIsFlightDriver = Boolean(this.localAuth?.alive && this.localAuth?.operatingFightFlightId);
+    const localFlightAim = localIsFlightDriver ? { yaw: this.input.yaw, pitch: this.input.pitch } : null;
+    this.flightRenderer.update(this.socket.serverNow(),this.latestSnapshot?.fightFlight??null,this.latestSnapshot?.fightFlightProjectiles??[],this.latestSnapshot?.serverTime??this.socket.serverNow(),this.latestSnapshot?.flightBurnZones??[],localFlightAim);
     this.structuresRenderer?.update(this.latestSnapshot?.structures,this.socket.serverNow());
     this.world?.update?.(timeSec, this.camera);
     const ramPose=this.world?.soFistication?.presentationData;
@@ -3343,7 +3380,7 @@ export class GameRuntime {
 
   dispose() {
     this.running = false;
-    this.siegeSound.dispose();this.ramSound.dispose();this.ramRenderer.dispose();this.flightRenderer.dispose();
+    this.siegeSound.dispose();this.ramSound.dispose();this.flightSound.dispose();this.ramRenderer.dispose();this.flightRenderer.dispose();
     clearTimeout(this.appealCut);
     if (this.voice?.onSpoken === this.subtitleHook) this.voice.onSpoken = null;
     if (this.voice?.onCut === this.captionCut) this.voice.onCut = null;

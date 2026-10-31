@@ -68,6 +68,6 @@ test('Actual swept bolt hits body along authoritative world line, not a radius-b
  const health=victim.health;
  assert.equal(requestFightFlightFire(room,m,p,true,2),true);
  for(let i=1;i<=7;i++)stepFightFlightProjectiles(room,1/30,2+i/30);
- assert.equal(victim.health,health-3);
+ assert.equal(victim.health,health-4);
  assert.ok(room.events.some(e=>e.type==='fightFlightBoltImpact'&&e.victimId===victim.id));
 });

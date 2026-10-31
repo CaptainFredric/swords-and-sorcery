@@ -217,6 +217,21 @@ export class HUD {
     this.ballistaPanel.hidden = true;
     this.ballistaPanel.innerHTML = '<strong></strong><span></span><label class=drive-pressure hidden>DRIVE PRESSURE <output></output><progress max=100></progress></label><small></small>';
     this.statusStack.append(this.ballistaPanel);
+    this.flightPanel = document.createElement('div');
+    this.flightPanel.className = 'flight-hud';
+    this.flightPanel.hidden = true;
+    this.flightPanel.innerHTML = `
+      <div class="flight-hud-strip">
+        <div class="flight-metric alt"><label>ALT</label><b><output data-flight-alt>0.0</output>m</b></div>
+        <div class="flight-metric charge"><label>CHARGE</label><div class="flight-bar-wrap"><progress max="100" value="100" data-flight-charge-bar></progress><output data-flight-charge>100</output></div></div>
+        <div class="flight-metric rotor"><label>ROTOR</label><b><output data-flight-rotor>100</output>%</b></div>
+        <div class="flight-metric ammo"><label>AMMO</label><b><output data-flight-ammo>14</output></b><small data-flight-debt></small></div>
+        <div class="flight-metric skill"><label>SKILL</label><b data-flight-skill>READY</b></div>
+      </div>
+      <div class="flight-warning-banner" hidden data-flight-warning></div>
+      <small class="flight-controls-hint" data-flight-controls></small>
+    `;
+    this.statusStack.append(this.flightPanel);
     this.root.append(this.statusStack);
     this.preparedSelector = null;
     // with a mouse and keyboard, the prepared spells stand as a rack of tiles over the Q, E and R tiles (on touch they
@@ -301,8 +316,11 @@ export class HUD {
     this.matchInfo.textContent = matchInfoText(snapshot, serverNow);
     const siege = fightFlightHudView(local,snapshot,serverNow,this.ballistaControls)??soFistHudView(local,snapshot,serverNow,this.ballistaControls)??biByeHudView(local, snapshot, serverNow, this.ballistaControls);
     this.root.classList.toggle('ballista-mounted', Boolean(local?.alive && (local.operatingBallistaId||local.operatingRamId||local.operatingFightFlightId)));
-    this.ballistaPanel.hidden = !siege;
-    if (siege) {
+    this.root.classList.toggle('flight-mounted', Boolean(local?.alive && local.operatingFightFlightId));
+    const isFlight = Boolean(siege?.isFlight);
+    this.ballistaPanel.hidden = !siege || isFlight;
+    this.flightPanel.hidden = !siege || !isFlight;
+    if (siege && !isFlight) {
       this.ballistaPanel.querySelector('strong').textContent = siege.title;
       this.ballistaPanel.querySelector('span').textContent = siege.status;
       this.ballistaPanel.querySelector('small').textContent = siege.controls;
@@ -310,6 +328,24 @@ export class HUD {
       pressure.firstChild.nodeValue=(siege.pressureLabel??'DRIVE PRESSURE')+' ';
       pressure.hidden=siege.pressure==null;
       if(siege.pressure!=null){pressure.querySelector('output').textContent=Math.ceil(siege.pressure);pressure.querySelector('progress').value=siege.pressure;}
+    } else if (siege && isFlight) {
+      this.flightPanel.querySelector('[data-flight-alt]').textContent = siege.alt;
+      this.flightPanel.querySelector('[data-flight-charge]').textContent = siege.charge;
+      const chargeBar = this.flightPanel.querySelector('[data-flight-charge-bar]');
+      chargeBar.max = siege.maxCharge; chargeBar.value = siege.charge;
+      this.flightPanel.querySelector('[data-flight-rotor]').textContent = siege.rotor;
+      this.flightPanel.querySelector('[data-flight-ammo]').textContent = siege.ammo;
+      const debt = this.flightPanel.querySelector('[data-flight-debt]');
+      debt.textContent = siege.debt > 0 ? `-${siege.debt}` : '';
+      const skill = this.flightPanel.querySelector('[data-flight-skill]');
+      skill.textContent = siege.skillText;
+      skill.classList.toggle('active', Boolean(siege.skillActive));
+      const warn = this.flightPanel.querySelector('[data-flight-warning]');
+      warn.hidden = !siege.warning;
+      if (siege.warning) warn.textContent = siege.warning;
+      const controls = this.flightPanel.querySelector('[data-flight-controls]');
+      controls.hidden = Boolean(siege.touch);
+      controls.textContent = siege.controls;
     }
     const duel = duelScoreView(local, snapshot);
     if (this.duelScore) {
@@ -682,6 +718,22 @@ export class HUD {
     const s=view.secondary,p=view.primary,d=s&&p?Math.hypot(s.x-p.x,s.y-p.y):0;
     secondary.hidden=!(d>=10&&d<=90);
     if(!secondary.hidden)secondary.style.transform=`translate(${s.x}px,${s.y}px)`;
+  }
+
+  setFlightSight(sight) {
+    if (!this.flightSight) {
+      this.flightSight = document.createElement('div');
+      this.flightSight.className = 'flight-sight';
+      this.flightSight.innerHTML = '<span class="flight-aim-limit">AIM LIMITED</span>';
+      this.root.append(this.flightSight);
+    }
+    this.flightSight.hidden = !sight;
+    if (!sight) return;
+    this.flightSight.classList.toggle('limited', Boolean(sight.limited));
+    const label = this.flightSight.querySelector('.flight-aim-limit');
+    if (label) {
+      label.textContent = sight.limitReason ?? 'AIM LIMITED';
+    }
   }
 
   clearHit() {

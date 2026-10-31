@@ -15,7 +15,7 @@ import {combatActionPolicy} from '../src/combatActionPolicy.mjs';
 import {fightFlightSkillActive} from './fightFlightSkill.mjs';
 
 export const FLIGHT_REPEATER=Object.freeze({capacity:14,production:2,fireRate:7,speed:64,
-  lifespan:2.4,falloff:22,closeDamage:3,farDamage:2,guardStamina:8,guardArc:100,
+  lifespan:2.4,falloff:22,closeDamage:4,farDamage:2,guardStamina:8,guardArc:100,
   maxTraverse:Math.PI*25/180,maxPitch:Math.PI*20/180,minPitch:-Math.PI*20/180,radius:.065});
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
 const angle=x=>Math.atan2(Math.sin(x),Math.cos(x));
