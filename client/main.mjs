@@ -1865,6 +1865,23 @@ const hgScore = $('#high-grounds-score');
 const hgSites = $('#high-grounds-sites');
 const hgFoundry = $('#high-grounds-foundry');
 const hgFoundryState = $('#high-grounds-foundry-state');
+// Keyboard works while pointer lock owns the mouse; touch and unlocked
+// desktop still use the same visible buttons.
+const FOUNDRY_KEYS = Object.freeze({ Digit1: 'bi-bye-llista', Digit2: 'so-fist-ication', Digit3: 'fight-and-flight', Numpad1: 'bi-bye-llista', Numpad2: 'so-fist-ication', Numpad3: 'fight-and-flight' });
+document.addEventListener('keydown', (event) => {
+  const machine = FOUNDRY_KEYS[event.code];
+  if (!machine || event.repeat || event.ctrlKey || event.metaKey || event.altKey ||
+      /^(INPUT|TEXTAREA|SELECT)$/.test(event.target?.tagName ?? '') ||
+      hgFoundry?.classList.contains('hidden') || latestSnapshot?.mode !== 'HIGH_GROUNDS' ||
+      latestSnapshot?.roomState !== 'PLAYING') return;
+  // Numbers remain prepared-spell shortcuts while Q is selecting a spell.
+  const selector = runtime?.input?.preparedGesture;
+  if (selector && (runtime.input.held('spell') || selector.shown)) return;
+  const button = hgFoundry?.querySelector(`[data-high-grounds-machine="${machine}"]`);
+  if (!button || button.disabled) return;
+  event.preventDefault(); event.stopImmediatePropagation();
+  socket.highGroundsBuild(machine);
+}, { capture: true });
 hgFoundry?.addEventListener('click', (event) => {
   const button = event.target.closest?.('[data-high-grounds-machine]');
   if (button && !button.disabled) socket.highGroundsBuild(button.dataset.highGroundsMachine);
@@ -1888,8 +1905,8 @@ function updateHighGroundsHud(snapshot) {
   const ownership = foundry.machineId && [
     snapshot.bibyeBallista, snapshot.soFistication, snapshot.fightFlight
   ].some(m => m?.id === foundry.machineId && !m.retired && m.mode !== 'DESTROYED' && m.health > 0);
-  hgFoundryState.textContent = ownership ? 'YOUR TEAM ALREADY HAS A MACHINE'
-    : remaining ? `FOUNDRY RECOVERY · ${remaining}s` : 'CHOOSE THE NEXT MACHINE';
+  hgFoundryState.textContent = ownership ? 'YOUR TEAM ALREADY HAS A MACHINE · ON THE MAIN ROAD'
+    : remaining ? `FOUNDRY RECOVERY · ${remaining}s` : 'CHOOSE A MACHINE · DEPLOYS ON THE ROAD AHEAD';
   for (const button of hgFoundry.querySelectorAll('[data-high-grounds-machine]')) {
     const field = button.dataset.highGroundsMachine === 'bi-bye-llista' ? snapshot.bibyeBallista :
       button.dataset.highGroundsMachine === 'so-fist-ication' ? snapshot.soFistication : snapshot.fightFlight;
@@ -1940,7 +1957,15 @@ socket.on('events', ({ events }) => {
   if (!events || !Array.isArray(events)) return;
   const myId = window.__ssRuntime?.localAuth?.id || socket?.playerId;
   for (const ev of events) {
-    if (ev.type === 'stPerryDialogue') {
+    if (ev.type === 'highGroundsProduced') {
+      const me = latestSnapshot?.players?.find(p => p.id === myId);
+      if (me?.team === ev.team) {
+        const name = ev.typeId === 'bi-bye-llista' ? 'BI-BYE-LLISTA'
+          : ev.typeId === 'so-fist-ication' ? 'SO-FIST-ICATION' : 'FIGHT-AND-FLIGHT';
+        hud.flashText(`${name} PRODUCED · MAIN ROAD`, 'ready', 2200);
+        hud.addFeed(`${name} DEPLOYED AT YOUR FOUNDRY`, 'shield');
+      }
+    } else if (ev.type === 'stPerryDialogue') {
       if (!ev.playerId || ev.playerId === myId) {
         hud.subtitle({ text: ev.text, name: ev.speaker ?? 'St. Perry the Prodigious', seconds: 3.5 });
       }
