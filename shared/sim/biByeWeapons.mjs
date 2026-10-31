@@ -61,6 +61,7 @@ export function requestColdHowTouching(room,b,p,now){
    return 'Cold, How Touching is cooling down.';
  if(b.heavySkill||b.coupling==='FIRING'||b.combinedUpperPendingAt!=null)
    return 'Finish the current Bolt II release first.';
+ b.poseTime=Math.max(b.poseTime??0,now);
  b.skill.phase='active';b.skill.ownerId=p.id;b.skill.primedAt=now;
  skillEvent(room,b,now,'activated');return null;
 }
