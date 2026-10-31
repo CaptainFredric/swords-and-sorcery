@@ -1384,6 +1384,10 @@ export class GameRuntime {
         else this.effects.wallClang?.(event.point);
         if(event.attackerId===this.playerId)this.hud.flashText(event.destroyed?'COMPONENT BROKEN':'MACHINERY STRUCK',event.destroyed?'gold':'',800);
       }
+      if(event.type==='fightFlightDismounted'&&!event.forced&&this.latestSnapshot?.fightFlight?.id===event.machineId
+        &&!this.latestSnapshot.fightFlight.grounded){
+        this.flightRenderer.noteEjection(event.at);
+      }
       if(event.type==='fightFlightRotorDestroyed'&&this.latestSnapshot?.fightFlight?.operatorId===this.playerId)this.hud.flashText('ROTOR DESTROYED · DESCEND','',1800);
       if(event.type==='fightFlightTerminalPrep'&&event.operatorId===this.playerId){
         if(event.action==='started')this.hud.flashText('HOLD DASH + ULTIMATE · VALKYRIE','',1100);
