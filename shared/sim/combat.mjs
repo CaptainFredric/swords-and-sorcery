@@ -3,6 +3,7 @@ import {stepFightFlight,dismountFightFlight,fightFlightSolids} from './fightFlig
 import {stepFightFlightWeapons,stepFightFlightProjectiles} from './fightFlightWeapons.mjs';
 import {stepFightFlightSkill} from './fightFlightSkill.mjs';
 import {stepFlightRun} from './fightFlightRun.mjs';
+import {stepTerminalPreparation,advanceTerminalFlight,resolveTerminalFlight,stepFlightBurnZones} from './fightFlightTerminal.mjs';
 import {stepFightFlightRotor} from './fightFlightRotor.mjs';
 import { galeDose } from '../src/galeDamage.mjs';
 import { galeProfile, galeLift, sustainGaleRecoil } from '../src/galeModes.mjs';
@@ -1194,6 +1195,11 @@ export function killPlayer(room, victimId, attackerId, source, nowSec) {
   // an ultimate still bracing is interrupted (its charge kept); one active is over
   stepUltimate(room, victim, nowSec);
   victim.respawnAt = nowSec + (room.policy?.respawnSec ?? RESPAWN_SEC);
+  const diver=room.fightFlight;
+  if(diver?.terminalDive&&!diver.terminalDive.resolved&&diver.terminalDive.operatorId===victim.id){
+    victim.terminalRespawnDeferredFor=diver.id;
+    victim.respawnAt=Infinity;
+  }
   const playing = room.state === 'PLAYING';
   if (playing && room.policy?.teamMode && credited && credited !== victimId) {
     const killer = room.players.get(credited);
@@ -2319,8 +2325,11 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
   const activeActorId = room.inspectionActorId ?? room.inspectionControlId ?? [...room.players.values()].find(p => p.actorKind === 'human')?.id ?? null;
   const isOthersFreeze = room.inspectionFreezeMode === 'others';
   if(room.fightFlight && (!isOthersFreeze || room.fightFlight.operatorId === activeActorId)){
+    stepTerminalPreparation(room,room.fightFlight,nowSec);
     stepFlightRun(room,room.fightFlight,dt,nowSec);
+    advanceTerminalFlight(room,room.fightFlight,dt,nowSec);
     stepFightFlight(room,room.fightFlight,dt,nowSec,world);
+    resolveTerminalFlight(room,room.fightFlight,nowSec);
     stepFightFlightSkill(room,room.fightFlight,nowSec);
     stepFightFlightWeapons(room,room.fightFlight,dt,nowSec);
     stepFightFlightRotor(room,room.fightFlight,dt,nowSec);
@@ -2350,6 +2359,7 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
       }
     }
   }
+  stepFlightBurnZones(room,nowSec);
   room.tickNumber += 1;
   return room.events;
 }
