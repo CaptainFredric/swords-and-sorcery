@@ -127,3 +127,22 @@ test('Shared Practice is a real private Practice room, never matchmaking FFA or 
  shared.disconnectPlayer('player-1',2);
  assert.equal(shared.sharedPracticeHostId,'player-2');
 });
+
+
+test('Shared Practice host ownership transfers on permanent leave and survives solo reconnect',()=>{
+ const manager=new RoomManager({random:sequenceRandom(.67)});
+ const room=manager.createSharedPracticeRoom(0);
+ room.addPlayer({id:'a',token:'a',name:'Host'},0);
+ room.addPlayer({id:'b',token:'b',name:'Guest'},0);
+ assert.equal(room.sharedPracticeHostId,'a');
+ room.removePlayer('a',1);
+ assert.equal(room.sharedPracticeHostId,'b');
+ room.disconnectPlayer('b',2);
+ assert.equal(room.sharedPracticeHostId,null);
+ assert.equal(room.reconnectPlayer('b',3)?.id,'b');
+ assert.equal(room.sharedPracticeHostId,'b');
+ room.removePlayer('b',4);
+ assert.equal(room.sharedPracticeHostId,null);
+ room.addPlayer({id:'c',token:'c',name:'Rejoined'},5);
+ assert.equal(room.sharedPracticeHostId,'c');
+});

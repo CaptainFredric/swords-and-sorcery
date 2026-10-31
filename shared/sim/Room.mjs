@@ -244,6 +244,7 @@ export class Room {
     player.startingUltimate = player.ultimate;
     player.siegeLoadout=normalizeSiegeLoadout(siegeLoadout);
     this.players.set(id, player);
+    if(this.sharedPractice&&!this.sharedPracticeHostId)this.sharedPracticeHostId=id;
     this.emptySince = null;
     return player;
   }
@@ -674,7 +675,7 @@ export class Room {
     if (this.fightFlight?.operatorId === id) dismountFightFlight(this,this.fightFlight,player,{force:true,at:nowSec});
     this.players.delete(id);
     if(this.sharedPractice&&this.sharedPracticeHostId===id)
-      this.sharedPracticeHostId=[...this.players.values()].find(p=>p.actorKind==='human'&&p.connected)?.id??null;
+      this.sharedPracticeHostId=[...this.players.values()].find(p=>p.id!==id&&p.actorKind==='human'&&p.connected)?.id??null;
     this.rematchVotes.delete(id);
     if (this.humanActorCount() === 0) {
       if (this.emptySince === null) this.emptySince = nowSec;
@@ -732,6 +733,7 @@ export class Room {
         player.connected = true;
         player.disconnectedAt = null;
         player.disconnectExpiresAt = null;
+        if(this.sharedPractice&&!this.sharedPracticeHostId)this.sharedPracticeHostId=player.id;
         if (this.mode === GAME_MODES.BOT_DUEL && this.state !== 'PLAYING') player.arenaReady = false;
         this.emptySince = null;
         if (this.policy.autoStart && (!this.policy.teamMode || [...this.players.values()].filter(p=>p.actorKind==='human'&&p.connected).every(p=>p.lobbyReady))) this.armAutoStart(nowSec);
