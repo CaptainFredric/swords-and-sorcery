@@ -13,6 +13,10 @@ export class FightFlightRenderer{
     this.lastMode=null;this.clip=null;this.disposed=false;
     this.bolts=new Map();this.boltGeometry=new THREE.CylinderGeometry(.027,.032,.33,6);
     this.boltMaterial=new THREE.MeshStandardMaterial({color:0xb7a17b,metalness:.35,roughness:.55});
+    // Ground fire is authoritative aftermath, not part of the wreck model:
+    // it remains visible after the apparatus disappears.
+    this.burnRoot=everywhere(new THREE.Group());this.scene.add(this.burnRoot);
+    this.burnGeometry=new THREE.RingGeometry(.48,1,32);this.burnZones=new Map();
   }
   load(){
     if(this.pending||this.disposed)return this.pending??Promise.resolve(false);
@@ -60,8 +64,9 @@ export class FightFlightRenderer{
     if(Math.hypot(m.velocity?.x??0,m.velocity?.z??0)>.3)return 'Posture_05_Grounded_Walk_Loop';
     return 'Posture_01_Grounded_Idle';
   }
-  update(now,m,projectiles=[],snapshotTime=now){
+  update(now,m,projectiles=[],snapshotTime=now,zones=[]){
     this.drawBolts(projectiles,now,snapshotTime);
+    this.drawBurnZones(zones,now);
     this.state=m;this.group.visible=Boolean(m&&!m.retired&&m.mode!=='DESTROYED');
     if(!this.group.visible)return;
     this.load();
@@ -109,6 +114,26 @@ export class FightFlightRenderer{
     }
     for(const [id,mesh] of this.bolts)if(!keep.has(id)){mesh.removeFromParent();this.bolts.delete(id);}
   }
+  drawBurnZones(zones,now){
+    const active=new Set();
+    for(const zone of zones??[]){
+      if(!zone?.point||!(now<zone.expiresAt))continue;
+      active.add(zone.id);
+      let mesh=this.burnZones.get(zone.id);
+      if(!mesh){
+        mesh=new THREE.Mesh(this.burnGeometry,new THREE.MeshBasicMaterial({color:0x9e421d,transparent:true,opacity:.53,depthWrite:false,side:THREE.DoubleSide}));
+        mesh.rotation.x=-Math.PI/2;mesh.renderOrder=1;this.burnRoot.add(mesh);this.burnZones.set(zone.id,mesh);
+      }
+      const duration=Math.max(.1,zone.expiresAt-zone.startedAt);
+      const remaining=Math.max(0,(zone.expiresAt-now)/duration);
+      mesh.material.opacity=.16+.36*remaining;
+      mesh.position.set(zone.point.x,zone.point.y+.055,zone.point.z);
+      mesh.scale.setScalar(zone.radius??4);
+    }
+    for(const [id,mesh] of this.burnZones)if(!active.has(id)){
+      mesh.removeFromParent();mesh.material.dispose();this.burnZones.delete(id);
+    }
+  }
   getOperatorGrips(){
     this.group.updateMatrixWorld(true);
     return {left:this.nodes.get('operator_hand_L_crossbow_grip')?.getWorldPosition(new THREE.Vector3())??null};
@@ -123,5 +148,7 @@ export class FightFlightRenderer{
     return out;
   }
   dispose(){this.disposed=true;for(const mesh of this.bolts.values())mesh.removeFromParent();this.bolts.clear();
-    this.boltGeometry.dispose();this.boltMaterial.dispose();this.group.removeFromParent();this.mixer?.stopAllAction();this.model?.traverse(o=>{if(o.isMesh){o.geometry?.dispose();}});}
+    this.boltGeometry.dispose();this.boltMaterial.dispose();
+    this.drawBurnZones([],Infinity);this.burnRoot.removeFromParent();this.burnGeometry.dispose();
+    this.group.removeFromParent();this.mixer?.stopAllAction();this.model?.traverse(o=>{if(o.isMesh){o.geometry?.dispose();}});}
 }
