@@ -106,6 +106,7 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
   m.crossbowYaw=m.heading+cap(Math.atan2(Math.sin(yaw-m.heading),Math.cos(yaw-m.heading)),-Math.PI*25/180,Math.PI*25/180);
   m.crossbowPitch=cap(Number.isFinite(input.pitch)?input.pitch:0,-Math.PI/9,Math.PI/9);
   const intact=m.rotorHP>0&&m.health>0;
+  if(op&&!m.grounded&&op.guarding){op.guarding=false;op.guardHeld=false;op.guardButton=false;op.guardAuto=false;}
   const jump=Boolean(op&&input.jump),descend=Boolean(op&&input.crouch);
   if(m.grounded){
     m.mode='GROUNDED';m.crouched=descend&&!jump;
