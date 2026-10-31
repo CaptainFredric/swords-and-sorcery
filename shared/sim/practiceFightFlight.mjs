@@ -22,6 +22,7 @@ export function practiceFightFlight(room,player,action,now){
   if(old?.operatorId&&old.operatorId!==player.id)return {rejected:'Another operator is flying this apparatus.'};
   let exit=null,body=null;
   if(old?.operatorId){
+    if(!old.grounded)return {rejected:'Land before rebuilding or dismantling the apparatus.'};
     exit=fightFlightExit(room,old,player);
     if(!exit)return {rejected:'Land on supported open ground before rebuilding or dismantling.'};
   }

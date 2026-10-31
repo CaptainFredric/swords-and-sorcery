@@ -371,7 +371,7 @@ export class TouchControls {
           this.buttons.interact.hidden = false;
           const label = this.buttons.interact.querySelector('span');
           if (label && label.textContent !== 'LEAVE') label.textContent = 'LEAVE';
-          this.buttons.interact.setAttribute('aria-label',flight?'Dismount flying machine when landed':ram?'Leave ram':'Dismount ballista');
+          this.buttons.interact.setAttribute('aria-label',flight?'Tap to eject in a clear direction; hold to brake rotor and eject':ram?'Leave ram':'Dismount ballista');
         }
         if (this.buttons.deploy) {
           this.buttons.deploy.hidden = ram||flight||!biByeCondition(bl).canDeploy;
@@ -597,7 +597,7 @@ export class TouchControls {
     if (action) {
       this.held.delete(event.pointerId);
       this.aim?.delete(event.pointerId);
-      this.#release(action, event.pointerId);
+      this.#release(action, event.pointerId, event.type !== 'pointerup');
       // the menu opens on release, so the lifting finger cannot land on the arena and re-enter it
       if (action === 'pause' && event.type === 'pointerup') this.input.releaseFocus();
     }
@@ -666,7 +666,7 @@ export class TouchControls {
       this.crouchTap = { id: event.pointerId, at: performance.now(), x: point.x, y: point.y };
     }
     if (action === 'scores') this.input.scoreboardHeld = !this.input.scoreboardHeld;
-    if (action === 'interact') this.input.interact?.();
+    if (action === 'interact') {if(this.input.mountedFlight)this.input.flightEject?.(true);else this.input.interact?.();}
     if (action === 'deploy') this.input.deploy?.();
     if (action === 'siegeWeapon') {if(this.input.mountedFlight)this.input.flightFire(true,'touch');else this.input.siegeWeapon?.();}
     if (action === 'siegeSkill') this.input.siegeSkill?.();
@@ -674,11 +674,12 @@ export class TouchControls {
     if(action==='siegeView'&&this.input.enabled)this.viewGesture={id:event.pointerId,...gamePoint(event,this.layer),travel:0,zoomed:false};
   }
 
-  #release(action, pointerId) {
+  #release(action, pointerId, cancelled=false) {
     if (action === 'attack' || action === 'guard' || (action === 'siegeWeapon' && this.flightMounted)) this.#gateHeld('look', false, `touch-look:${pointerId}`, false);
     this.#gateHeld(action, false, `touch-button:${pointerId}`);
     if (this.deniedButtons.delete(pointerId)) return;
     this.buttons[action]?.classList.remove('pressed');
+    if (action === 'interact' && this.input.flightEjectHeld)this.input.flightEject?.(false,cancelled);
     if (action === 'attack') this.input.setAttack(false);
     if (action === 'guard') this.input.setGuard(false);
     if (action === 'siegeWeapon' && this.input.mountedFlight) this.input.flightFire(false,'touch');

@@ -6,7 +6,7 @@ import {getBiByeSolids} from './biByeLlista.mjs';
 import {soFistSolids} from './soFistGeometry.mjs';
 import {endFightFlightSkill,fightFlightHoverSupport} from './fightFlightSkill.mjs';
 import {VALKYRIE_RUN} from './fightFlightRun.mjs';
-import {flightRepeaterAim} from '../src/flightRepeaterAim.mjs';
+import {flightRepeaterAim,FLIGHT_REPEATER} from '../src/flightRepeaterAim.mjs';
 
 export const FIGHT_FLIGHT = Object.freeze({
   radius:.88,height:2.65,crouchHeight:2.15,rotorRadius:1.32,
@@ -37,22 +37,29 @@ export function createFightFlight({x=0,y=0,z=0,heading=0,id=null,lifecycleId=nul
     mode:'GROUNDED',crouched:false,grounded:true,health:250,maxHealth:250,
     rotorHP:100,braceLHP:80,braceRHP:80,rotorAngle:0,rotorAngularVelocity:0,rotorEpisodes:{},lastRotorDelta:0,
     rotorEnergy:100,flightCharge:100,maxFlightCharge:100,
-    ammo:14,ammoDebt:0,nextShotAt:0,ammoProduction:0,firingOperatorId:null,shotSeq:0,lastShotAt:-Infinity,crossbowYaw:heading,crossbowPitch:0,
+    rotorPowered:false,rotorBrakeHeld:false,rotorTargetRPM:0,rotorRPM:0,
+    rotorSpinupAcceleration:90,rotorSpindownAcceleration:65,rotorLiftAuthority:0,
+    jumpWasHeld:false,hopStartedAt:null,rotorLiftSuppressedUntil:0,
+    ammo:FLIGHT_REPEATER.capacity,ammoDebt:0,nextShotAt:0,ammoProduction:0,firingOperatorId:null,shotSeq:0,lastShotAt:-Infinity,crossbowYaw:heading,crossbowPitch:0,
     skill:{phase:'idle',readyAt:0,activeUntil:0},offensiveRun:false,
     terminalDiveSpent:false,terminalDive:null,terminalPrep:null,flightUltimateHeld:false,flightUltimateDownAt:null,flightUltimateChordAttempted:false,lastImpactAt:-Infinity,
-    flightDashHeld:false,flightDashStartedAt:null,runPitch:0,
+    flightDashHeld:false,flightDashStartedAt:null,runPitch:0,ejectHoldStartedAt:null,emergencyBrakeActive:false,
     builtAt:0,takeoffAt:-Infinity,landingAt:-Infinity,retired:false};
 }
 export function fightFlightExit(room,m,player){
   if(!m||m.mode==='DESTROYED')return null;
   const world=room.world,solids=extraSolids(room,m);
-  // No airborne dismount: keep occupancy intact until a genuine landing.
+  if(m.terminalDive&&!m.terminalDive.resolved)return null;
   const floor=ground(world,m.x,m.z,m.y);
-  if(!['GROUNDED','LANDING'].includes(m.mode)||!m.grounded||floor==null||Math.abs(m.y-floor)>.25)return null;
+  const airborne=!m.grounded;
+  if(!airborne&&(floor==null||Math.abs(m.y-floor)>.25))return null;
   const forward=[-Math.sin(m.heading),-Math.cos(m.heading)],right=[Math.cos(m.heading),-Math.sin(m.heading)];
   for(const [back,side] of [[2.2,0],[2.1,-1.6],[2.1,1.6],[0,-2.4],[0,2.4],[2.8,-2],[2.8,2]]){
     const x=m.x-forward[0]*back+right[0]*side,z=m.z-forward[1]*back+right[1]*side;
-    const y=ground(world,x,z,m.y);if(y==null||Math.abs(y-m.y)>1)continue;
+    const landing=ground(world,x,z,m.y);
+    const y=airborne?m.y+.25:landing;
+    if(!airborne&&(landing==null||Math.abs(y-m.y)>1))continue;
+    if(airborne&&landing!=null&&y<landing+.25)continue;
     const point={x,y,z};
     if(!collisionFree(point,solids,1.8,.45))continue;
     if(solids.some(s=>segmentAabbHit([m.x,m.y+1,m.z],[x,y+1,z],s)))continue;
@@ -83,16 +90,30 @@ export function mountFightFlight(room,m,player,now=0){
   return true;
 }
 export function dismountFightFlight(room,m,player,{force=false,at=0,exit=null}={}){
-  if(!m||!player||m.operatorId!==player.id)return false;
+  if(!m||!player||m.operatorId!==player.id||(!force&&m.terminalDive))return false;
+  const airborne=!m.grounded;
   const safe=exit??fightFlightExit(room,m,player);
   if(!safe&&!force)return false;
   // Forced removal is reserved for death/disconnect/destruction: no airborne teleport.
   // The machine retains its cooldown and actual ammunition debt when the rider leaves.
   endFightFlightSkill(room,m,at,'interrupted');
-  m.operatorId=null;m.firingOperatorId=null;m.flightDashHeld=false;m.flightUltimateHeld=false;m.terminalPrep=null;m.flightUltimateChordAttempted=false;m.offensiveRun=false;player.operatingFightFlightId=null;
+  m.operatorId=null;m.firingOperatorId=null;m.flightDashHeld=false;m.flightUltimateHeld=false;m.terminalPrep=null;m.flightUltimateChordAttempted=false;m.offensiveRun=false;
+  m.ejectHoldStartedAt=null;m.emergencyBrakeActive=false;player.operatingFightFlightId=null;
   if(safe)player.position={...safe};
   else player.position={x:m.x,y:m.y,z:m.z};
-  player.velocity={x:0,y:0,z:0};
+  if(airborne&&safe&&!force){
+    const right={x:Math.cos(m.heading),z:-Math.sin(m.heading)};
+    const side=(safe.x-m.x)*right.x+(safe.z-m.z)*right.z;
+    const outward=side>=0?1:-1;
+    player.velocity={x:(m.velocity.x??0)+right.x*outward*1.3,
+      y:Math.max(-18,(m.velocity.y??0)+.8),z:(m.velocity.z??0)+right.z*outward*1.3};
+    player.grounded=false;
+    // Landing-only bookkeeping; enemy and environmental damage remain live.
+    player.ejectionFallExempt=true;
+  }else{
+    player.velocity={x:0,y:0,z:0};player.grounded=true;
+    player.ejectionFallExempt=false;
+  }
   player.input={...player.input,forward:0,right:0,jump:false,sprint:false,crouch:false,attack:false,guard:false};
   room.events.push({type:'fightFlightDismounted',machineId:m.id,playerId:player.id,at,forced:force});
   return true;
@@ -109,25 +130,49 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
   const delta=Math.atan2(Math.sin(yaw-m.heading),Math.cos(yaw-m.heading));
   if(!m.terminalDive)m.heading+=cap(delta,-(m.grounded?3.8:m.offensiveRun?VALKYRIE_RUN.turnRate:2.1)*dt,(m.grounded?3.8:m.offensiveRun?VALKYRIE_RUN.turnRate:2.1)*dt);
   // Crossbow's real pivot follows the reticle only inside the authored traverse corridor.
-  const crossbow=flightRepeaterAim(m,{yaw,pitch:input.pitch});
+  const crossbow=flightRepeaterAim(m,{yaw,pitch:input.pitch,siegeTarget:input.siegeTarget});
   m.crossbowYaw=crossbow.yaw;m.crossbowPitch=crossbow.pitch;
+  m.crossbowAimLimited=Boolean(crossbow.limited);
+  m.crossbowReachableAim=crossbow.reachableAimPoint??null;
   const intact=m.rotorHP>0&&m.health>0;
   if(op&&!m.grounded&&op.guarding){op.guarding=false;op.guardHeld=false;op.guardButton=false;op.guardAuto=false;}
   const jump=Boolean(op&&!m.terminalDive&&input.jump),descend=Boolean(op&&!m.terminalDive&&input.crouch);
+  // Short jump presses remain hops; a held press commits to rotor ascent.
+  if(m.ejectHoldStartedAt!=null&&now-m.ejectHoldStartedAt>=.35){
+    m.emergencyBrakeActive=true;m.rotorPowered=false;
+  }
   if(m.grounded){
     m.mode='GROUNDED';m.crouched=descend&&!jump;
-    if(jump&&intact&&m.flightCharge>2){m.grounded=false;m.mode='TAKEOFF';m.takeoffAt=now;m.crouched=false;m.velocity.y=Math.max(m.velocity.y,2.8);}
-  }else{m.crouched=false;m.mode=intact&&now-(m.takeoffAt??-Infinity)<1.1?'TAKEOFF':intact?'AIRBORNE':'FALLING';}
-  const charge=m.flightCharge;
-  const spinning=intact&&(op||!m.grounded)&&charge>0;
-  // A real spool-up means a damaged or drained rotor cannot lift at full strength.
-  const desiredOmega=spinning?Math.PI*15:0;
-  const spool=1-Math.exp(-dt*(spinning?2.5:1.8));
-  m.rotorAngularVelocity+=(desiredOmega-m.rotorAngularVelocity)*spool;
+    if(descend){m.rotorPowered=false;m.hopStartedAt=null;}
+    if(jump&&!m.jumpWasHeld&&!m.emergencyBrakeActive&&intact&&m.flightCharge>2){
+      m.grounded=false;m.mode='TAKEOFF';m.takeoffAt=now;m.hopStartedAt=now;
+      m.rotorPowered=true;m.crouched=false;m.velocity.y=Math.max(m.velocity.y,2.8);
+    }
+  }else{
+    m.crouched=false;
+    m.mode=intact&&now-(m.takeoffAt??-Infinity)<1.1?'TAKEOFF':intact?'AIRBORNE':'FALLING';
+  }
+  if(m.hopStartedAt!=null){
+    if(!jump&&now-m.hopStartedAt<.23){m.rotorPowered=false;m.hopStartedAt=null;}
+    else if(now-m.hopStartedAt>=.23)m.hopStartedAt=null;
+  }
+  if(jump&&!m.grounded&&m.hopStartedAt==null&&!m.emergencyBrakeActive&&intact&&m.flightCharge>0)m.rotorPowered=true;
+  m.jumpWasHeld=jump;
+  const spinning=intact&&m.flightCharge>0&&m.rotorPowered;
+  m.rotorBrakeHeld=Boolean(descend&&m.grounded);
+  const maxOmega=Math.PI*15;
+  const desiredOmega=spinning&&!m.rotorBrakeHeld?maxOmega:0;
+  const acceleration=desiredOmega>m.rotorAngularVelocity?m.rotorSpinupAcceleration:m.rotorSpindownAcceleration;
+  m.rotorAngularVelocity=cap(m.rotorAngularVelocity+cap(desiredOmega-m.rotorAngularVelocity,-acceleration*dt,acceleration*dt),0,maxOmega);
+  if(!intact)m.rotorAngularVelocity=0;
+  m.rotorTargetRPM=desiredOmega*60/(2*Math.PI);
+  m.rotorRPM=m.rotorAngularVelocity*60/(2*Math.PI);
   m.lastRotorDelta=m.rotorAngularVelocity*dt;
   m.rotorAngle=(m.rotorAngle+m.lastRotorDelta)%(Math.PI*2);
   if(spinning)m.rotorEnergy=cap(m.rotorEnergy+dt*7,0,100);
   else m.rotorEnergy=cap(m.rotorEnergy-dt*5,0,100);
+  m.rotorLiftAuthority=intact&&m.flightCharge>0?
+    cap(m.rotorAngularVelocity/maxOmega,0,1)*cap(m.rotorEnergy/35,0,1)*(now<(m.rotorLiftSuppressedUntil??0)?.45:1):0;
   const forward=cap(finite(input.forward),-1,1),right=cap(finite(input.right),-1,1);
   const speed=m.grounded?(input.sprint&&!m.crouched?FIGHT_FLIGHT.sprintSpeed:m.crouched?1.7:FIGHT_FLIGHT.groundSpeed):FIGHT_FLIGHT.airSpeed;
   const run=m.offensiveRun&&!m.grounded;
@@ -140,10 +185,12 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
     m.velocity.y=Math.max(-25,m.velocity.y);
     m.mode='TERMINAL';
   }else if(!m.grounded){
-    const lift=cap(m.rotorAngularVelocity/(Math.PI*15),0,1)*cap(m.rotorEnergy/35,0,1);
+    const lift=m.rotorLiftAuthority;
     if(intact&&m.flightCharge>0&&lift>.15){
-      // Hover offsets gravity; climbing adds bounded upward acceleration.
-      const ay=lift*FIGHT_FLIGHT.gravity-FIGHT_FLIGHT.gravity+(jump?lift*5.6:descend?-7.0:0);
+      // Bounded velocity servo, counteracting ascent and descent momentum.
+      const targetVelocity=jump?3.7:descend?-3.4:0;
+      const correction=cap((targetVelocity-m.velocity.y)*6,-9,9)*lift;
+      const ay=(lift-1)*FIGHT_FLIGHT.gravity+correction;
       m.velocity.y=cap(m.velocity.y+ay*dt,-12,5.4);
       // Power assistance is only steady-altitude compensation. Ascending
       // still spends the normal powered-climb charge; suppression is a choice.

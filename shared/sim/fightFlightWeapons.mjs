@@ -41,7 +41,10 @@ function release(room,m,p,now){
   if((swordBusy||p.guarding)&&!combatActionPolicy(p,now).concurrent)return false;
   const borrowed=m.ammo<1;
   if(borrowed&&!fightFlightSkillActive(m,now))return false;
-  const {yaw,pitch}=flightRepeaterAim(m,{...p.input,yaw:m.terminalDive?.heading??p.input?.yaw});
+  const solved=flightRepeaterAim(m,{...p.input,yaw:m.terminalDive?.heading??p.input?.yaw});
+  const {yaw,pitch}=solved;
+  m.crossbowAimLimited=Boolean(solved.limited);
+  m.crossbowReachableAim=solved.reachableAimPoint??null;
   const origin=flightMuzzle(m,{yaw,pitch}),unit=flightDirection(m,{yaw,pitch});
   if(borrowed){
     // Only an extra projectile ACTUALLY released incurs an integer loan.
