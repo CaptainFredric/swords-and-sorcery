@@ -75,8 +75,36 @@ try{
   assert.equal(state.player?.alive,true);
   await until(()=>evalBrowser("!document.querySelector('#high-grounds-status').classList.contains('hidden')"),'live capture HUD',70);
   await screenshot('02-real-high-grounds');
+  // Move the *actual* LocalHost actor to the console in the acceptance
+  // harness; the button, GameLink, authoritative Room, construction checks,
+  // snapshot and renderer all remain real. Do not fabricate machine state.
+  assert.equal(await evalBrowser(`(() => {
+    const link=window.__ssRuntime?.socket, host=link?.local;
+    const actor=host?.room?.players?.get(host?.player?.id);
+    const console=host?.room?.highGrounds?.foundries?.find(f=>f.team===actor?.team);
+    if(!actor||!console)return false;
+    actor.position={x:console.x,y:console.y,z:console.z};
+    actor.velocity={x:0,y:0,z:0};
+    return typeof link.highGroundsBuild==='function';
+  })()`),true,'real GameLink must expose foundry commands');
+  await until(()=>evalBrowser("!document.querySelector('#high-grounds-foundry').classList.contains('hidden') && !document.querySelector('[data-high-grounds-machine=bi-bye-llista]').disabled"),'foundry offers ballista',110);
+  await screenshot('03-foundry-ready');
+  await evalBrowser("document.querySelector('[data-high-grounds-machine=bi-bye-llista]').click()");
+  const produced=await until(()=>evalBrowser(`(() => {
+    const r=window.__ssRuntime,s=r?.latestSnapshot,b=s?.bibyeBallista;
+    return b&&r?.world?.biByeLlista?.group?.visible ? {
+      id:b.id,team:b.team,position:b.position,
+      visible:r.world.biByeLlista.group.visible,
+      renderPosition:r.world.biByeLlista.group.position.toArray(),
+      foundry:s.highGrounds.foundries.find(f=>f.machineId===b.id),
+    } : null;
+  })()`),'actual button produces visible authoritative ballista',160);
+  assert.ok(produced.foundry?.readyAt>0);
+  assert.equal(produced.foundry.machine,'bi-bye-llista');
+  assert.equal(produced.visible,true);
+  await screenshot('04-real-produced-ballista');
   if(exceptions.length)throw Error('Browser exceptions: '+exceptions.join(' / '));
-  await writeFile(output+'/result.json',JSON.stringify({state,exceptions},null,2));
+  await writeFile(output+'/result.json',JSON.stringify({state,produced,exceptions},null,2));
   console.log('[HIGH GROUNDS BROWSER ACCEPTED]',JSON.stringify({mode:state.mode,renderer:state.renderer,sites:state.sites.length}));
 }catch(e){
   console.error('[HIGH GROUNDS BROWSER FAILED]',stage,e.stack??String(e));
