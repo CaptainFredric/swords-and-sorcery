@@ -1,11 +1,8 @@
 import * as THREE from 'three';
+import { partitionHighGroundsDecks } from '../../shared/worlds/highGroundsVisualGeometry.mjs';
 
 // Presentation-only terrain. Authoritative floors and ramps still come from
 // shared/worlds/highGrounds.mjs; nothing scenic changes combat collision.
-const within = (f, x, z) => x >= f.center[0]-f.size[0]/2-1e-6
-  && x <= f.center[0]+f.size[0]/2+1e-6
-  && z >= f.center[2]-f.size[2]/2-1e-6
-  && z <= f.center[2]+f.size[2]/2+1e-6;
 const pushQuad = (a,b,c,d,vertices) => {
   for(const p of [a,b,c,b,d,c])vertices.push(...p);
 };
@@ -17,62 +14,15 @@ function flatMesh(group, vertices, material, name) {
   const obj=new THREE.Mesh(geometry,material);
   obj.name=name;obj.receiveShadow=true;group.add(obj);return obj;
 }
-const unique = v => [...new Set(v.map(x => Number(x.toFixed(4))))].sort((a,b)=>a-b);
-
-/**
- * Exactly one visible deck per square, per elevation. The first iteration
- * drew every overlapping floor box (camp + road + capture deck) at the same
- * depth, causing the entrance strobing / z-fighting.
- * We partition by all exact rectangle edges rather than introduce 1cm
- * offsets or depend on polygonOffset: the geometry truly has no duplicates.
- */
+/** Exactly one deck surface per footprint/elevation. This intentionally
+ * consumes the same pure triangle planner validated by Node regression tests. */
 export function buildHighGroundsDecks(group, world, materials) {
-  const tops=new Map(),walls=new Map(), floors=world.floors;
-  const elevations=unique(floors.map(f=>f.y));
-  for(const y of elevations) {
-    const level=floors.filter(f=>Math.abs(f.y-y)<1e-5);
-    const xs=unique(level.flatMap(f=>[f.center[0]-f.size[0]/2,f.center[0]+f.size[0]/2]));
-    const zs=unique(level.flatMap(f=>[f.center[2]-f.size[2]/2,f.center[2]+f.size[2]/2]));
-    const lookup=[];
-    for(let i=0;i<xs.length-1;i++) {
-      const row=[];
-      for(let j=0;j<zs.length-1;j++) {
-        const x=(xs[i]+xs[i+1])/2,z=(zs[j]+zs[j+1])/2;
-        const candidates=level.filter(f=>within(f,x,z));
-        // Capture plazas are stone; unadorned roads timber. A deterministic
-        // preference means no flickering between surfaces when camera moves.
-        row.push(candidates.sort((a,b)=>
-          (b.material==='stone'?1:0)-(a.material==='stone'?1:0))[0]??null);
-      }
-      lookup.push(row);
-    }
-    const add=(map,key,quad)=>{
-      const a=map.get(key)??[];
-      pushQuad(...quad,a);map.set(key,a);
-    };
-    const edge=(a,b,key)=> {
-      const depth=y===0?1.6:1.0;
-      add(walls,key,[[...a],[...b],[a[0],y-depth,a[2]],[b[0],y-depth,b[2]]]);
-    };
-    for(let i=0;i<xs.length-1;i++)for(let j=0;j<zs.length-1;j++){
-      const chosen=lookup[i][j];if(!chosen)continue;
-      const x0=xs[i],x1=xs[i+1],z0=zs[j],z1=zs[j+1];
-      const key=(chosen.material==='stone'?'stone':'timber');
-      // Thin actual surface, not overlapping boxes or the 0.44m interiors.
-      add(tops,key,[[x0,y,z0],[x0,y,z1],[x1,y,z0],[x1,y,z1]]);
-      const neighbors=[
-        [i-1,j,[x0,y,z0],[x0,y,z1]],
-        [i+1,j,[x1,y,z1],[x1,y,z0]],
-        [i,j-1,[x1,y,z0],[x0,y,z0]],
-        [i,j+1,[x0,y,z1],[x1,y,z1]],
-      ];
-      for(const [ni,nj,a,b] of neighbors)
-        if(!lookup[ni]?.[nj])edge(a,b,key);
-    }
-  }
-  for(const [key,vertices] of tops) flatMesh(group,vertices,materials[key],`joined-${key}-walkable-decks`);
-  for(const [key,vertices] of walls) flatMesh(group,vertices,materials[key==='stone'?'cliff':'underwood'],
-    `perimeter-${key}-fascia`);
+  const {top,fascia}=partitionHighGroundsDecks(world);
+  for(const [key,vertices]of top)
+    flatMesh(group,vertices,materials[key],`joined-${key}-walkable-decks`);
+  for(const [key,vertices]of fascia)
+    flatMesh(group,vertices,materials[key==='stone'?'cliff':'underwood'],
+      `perimeter-${key}-fascia`);
 }
 const rand = i => {
   const a=Math.sin(i*127.1+78.233)*43758.5453;
