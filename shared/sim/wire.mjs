@@ -120,6 +120,7 @@ export function serializeSnapshot(room, nowSec, recipientId = null) {
       team: p.team ?? null,
       actorKind: p.actorKind,
       practiceMode: p.practiceMode ?? null,
+      practiceSiegeOperator: p.practiceSiegeOperator ? {...p.practiceSiegeOperator} : null,
       connected: p.connected,
       arenaReady: Boolean(p.arenaReady),
       position: p.position,
