@@ -936,7 +936,8 @@ export function stepBiByeProjectiles(room, dt, nowSec, world = room.world, { fil
             projectileId:projectile.id,targetKind:first.targetKind,targetId:first.targetId,
             point:impactPoint,at:nowSec});
           // Explosion remains at the actual bolt; unchanged falloff and guard.
-          detonateFrostBlast(room,projectile,impactPoint,nowSec,null,world,false);
+          const impactAt=nowSec-flightDt+flightDt*first.t;
+          detonateFrostBlast(room,projectile,impactPoint,nowSec,null,world,false,impactAt);
           if(room.soFistication&&room.soFistication.operatorId!==projectile.ownerId&&
              !areAllies(room,projectile.ownerId,room.soFistication.operatorId)&&
              !frostHasCover(world,impactPoint,{x:room.soFistication.x,
@@ -1115,7 +1116,7 @@ function frostBlastFlight(room,m,projectile,point,now,world){
  * Frontal Guard chips health, drains stamina and chills lightly. Direct timed physical parries exclude their defender.
  * Excludes friendly fire and self-damage.
  */
-function detonateFrostBlast(room, projectile, point, nowSec, directVictimId = null, world = null, directParry = false) {
+function detonateFrostBlast(room, projectile, point, nowSec, directVictimId = null, world = null, directParry = false, impactAt = null) {
   const cfg = BI_BYE_LLISTA_CONFIG.shotI;
   const radius = cfg.blastRadius;
 
@@ -1138,7 +1139,12 @@ function detonateFrostBlast(room, projectile, point, nowSec, directVictimId = nu
     if (areAllies(room, projectile.ownerId, victim.id)) continue;
 
     const isDirect = directVictimId && victim.id === directVictimId;
-    const targetCenter = { x: victim.position.x, y: victim.position.y + 0.9, z: victim.position.z };
+    // Resolve the exposure at the swept event, not at the end of the
+    // frame: a fast lateral dodge cannot retroactively evade an explosion
+    // that occurred midway through this projectile tick.
+    const position=impactAt!=null&&victim.history?.length
+      ? sampleTransform(victim,impactAt).position : victim.position;
+    const targetCenter = { x: position.x, y: position.y + 0.9, z: position.z };
     const dist = Math.hypot(targetCenter.x - point.x, targetCenter.y - point.y, targetCenter.z - point.z);
     if (!isDirect && dist > radius) continue;
 
