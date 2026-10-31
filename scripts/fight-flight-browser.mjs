@@ -6,7 +6,7 @@ import {mkdtemp,mkdir,writeFile,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 const base=(process.env.FAF_BROWSER_URL??'http://127.0.0.1:3001').replace(/\/$/,'');
-const chromeBin=process.env.CHROME_BIN??'chromium',port=9247;
+const chromeBin=process.env.CHROME_BIN??(process.platform==='darwin'?'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome':'chromium'),port=9247;
 const profile=await mkdtemp(join(tmpdir(),'ss-faf-chrome-'));
 let stage='Chrome launch';
 const folder='output/playwright/fight-flight-gate-a';
@@ -90,7 +90,8 @@ try{
  const mounted=await evaluate(flightState);await screenshot('02-mounted');
  assert.equal(mounted.riderVisible,true,'the actual Spellblade is drawn inside the wearable apparatus');
  assert.ok(Math.hypot(mounted.riderPos[0]-mounted.machine.x,mounted.riderPos[2]-mounted.machine.z)<.4,'pilot remains fitted to current machine position');
- await tap('Z');await until(()=>evaluate("window.__ssRuntime?.siegeView==='sight'"),'authored first-person flight view',50);
+ if(mounted.view!=='sight'){await tap('Z');}
+ await until(()=>evaluate("window.__ssRuntime?.siegeView==='sight'"),'authored first-person flight view',50);
  await screenshot('02a-cockpit');
  await tap('Z');await until(()=>evaluate("window.__ssRuntime?.siegeView==='third'"),'return to mounted third-person view',50);
  await down('W');

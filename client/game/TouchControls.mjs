@@ -70,6 +70,7 @@ export class TouchControls {
     this.stickState = { forward: 0, right: 0, sprint: false };
     this.stickSprintRequested = false;
     this.sprintLatched = false;this.chargeHeld=false;
+    this.valkyrieTouchLatched = new Map();
     this.jumpHeld = false;
     this.jumpUntil = 0;
 
@@ -220,6 +221,11 @@ export class TouchControls {
     this.#cancelPreparedTouch();
     for (const [pointerId, action] of this.held) this.#release(action, pointerId);
     this.held.clear();
+    for (const [id, latched] of this.valkyrieTouchLatched) {
+      if (latched.dash) this.input.flightDash?.(false, 'touch');
+      if (latched.ultimate) this.input.flightUltimate?.(false, 'touch');
+    }
+    this.valkyrieTouchLatched.clear();
     this.#endStick();
     if (this.look) this.#gateHeld('look', false, `touch-look:${this.look.id}`, false);
     this.look = null;
@@ -313,6 +319,8 @@ export class TouchControls {
       const nearRam=local.alive&&rb&&rb.health>0&&(!rb.team||rb.team===local.team)&&!rb.operatorId&&Math.hypot(station.x-local.position.x,station.z-local.position.z)<=2.2;
       const mounted = Boolean(local.alive && (local.operatingBallistaId||local.operatingRamId||local.operatingFightFlightId));
       if(this.ramMounted!==undefined&&this.ramMounted!==ram)this.reset();
+      if(this.flightMounted!==undefined&&this.flightMounted!==flight)this.reset();
+      if(!local.alive && (this.valkyrieTouchLatched.size > 0 || this.held.size > 0)) this.reset();
       this.ramMounted=ram;
       this.flightMounted=flight;
       this.layer.classList.toggle('touch-ram',ram);
@@ -632,13 +640,13 @@ export class TouchControls {
     }
     if (action === 'gauntlet') this.input.gauntlet();
     if (action === 'ultimate') {
-      if (this.input.mountedFlight) {
-        if (this.valkyrieEligible) {
-          this.input.flightDash(true, 'touch');
-          this.input.flightUltimate(true, 'touch');
-        } else {
-          this.input.flightUltimate(true, 'touch');
+      if (this.input.mountedFlight || this.flightMounted) {
+        const isValkyrie = Boolean(this.valkyrieEligible);
+        this.valkyrieTouchLatched.set(event.pointerId, { dash: isValkyrie, ultimate: true });
+        if (isValkyrie) {
+          this.input.flightDash?.(true, 'touch');
         }
+        this.input.flightUltimate?.(true, 'touch');
       } else this.input.ultimate();
     }
     if (action === 'dash') {if(this.input.mountedFlight)this.input.flightDash(true,'touch');else this.input.dash();}
@@ -675,12 +683,15 @@ export class TouchControls {
     if (action === 'guard') this.input.setGuard(false);
     if (action === 'siegeWeapon' && this.input.mountedFlight) this.input.flightFire(false,'touch');
     if (action === 'dash' && this.input.mountedFlight) this.input.flightDash(false,'touch');
-    if (action === 'ultimate' && this.input.mountedFlight) {
-      if (this.valkyrieEligible) {
-        this.input.flightDash(false, 'touch');
-        this.input.flightUltimate(false, 'touch');
-      } else {
-        this.input.flightUltimate(false, 'touch');
+    if (action === 'ultimate') {
+      const latched = this.valkyrieTouchLatched.get(pointerId);
+      this.valkyrieTouchLatched.delete(pointerId);
+      if (latched) {
+        if (latched.dash) this.input.flightDash?.(false, 'touch');
+        if (latched.ultimate) this.input.flightUltimate?.(false, 'touch');
+      } else if (this.input.mountedFlight || this.flightMounted) {
+        this.input.flightDash?.(false, 'touch');
+        this.input.flightUltimate?.(false, 'touch');
       }
     }
     if (action === 'jump') this.jumpHeld = false;

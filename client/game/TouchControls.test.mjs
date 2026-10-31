@@ -687,3 +687,110 @@ test('touch siege Skill sends one authoritative command and leaves personal Ulti
  assert.equal(controls.buttons.siegeSkill.hidden,false);send('pointerdown',800,100,{action:'siegeSkill'});send('pointerup',800,100,{action:'siegeSkill'});
  assert.deepEqual(calls,[{type:'siegeSkill'}]);controls.reset();assert.equal(controls.held.size,0);
 });
+
+test('mobile Valkyrie touch latches actions and safely releases Dash and Ultimate on release, cancel, death, and blur even if eligibility changes', () => {
+  const flightPlayer = {
+    alive: true,
+    operatingFightFlightId: 'flight-1',
+    ultimate: 'chivalry',
+    prowess: 100,
+    position: { x: 0, y: 0, z: 0 },
+  };
+  const flightMachine = {
+    id: 'flight-1',
+    health: 100,
+    rotorHP: 100,
+    grounded: false,
+    terminalDive: null,
+    terminalDiveSpent: false,
+  };
+  const { input, controls, send } = setup(flightPlayer);
+  input.mountedFlight = true;
+
+  const flightEvents = [];
+  input.flightDash = (down, source) => flightEvents.push(['dash', down, source]);
+  input.flightUltimate = (down, source) => flightEvents.push(['ultimate', down, source]);
+
+  // 1. Initial eligible state
+  controls.update(flightPlayer, 10, { snapshot: { fightFlight: flightMachine } });
+  assert.equal(controls.valkyrieEligible, true);
+
+  // Press Valkyrie touch button
+  send('pointerdown', 750, 400, { action: 'ultimate', pointerId: 42 });
+  assert.deepEqual(flightEvents, [
+    ['dash', true, 'touch'],
+    ['ultimate', true, 'touch'],
+  ]);
+  flightEvents.length = 0;
+
+  // 2. Mid-gesture eligibility change: prowess spent or terminalDive active
+  flightMachine.terminalDive = { heading: 0, committed: true };
+  flightPlayer.prowess = 0;
+  controls.update(flightPlayer, 11, { snapshot: { fightFlight: flightMachine } });
+  assert.equal(controls.valkyrieEligible, false);
+
+  // Release finger: both MUST be released even though valkyrieEligible is now false!
+  send('pointerup', 750, 400, { action: 'ultimate', pointerId: 42 });
+  assert.deepEqual(flightEvents, [
+    ['dash', false, 'touch'],
+    ['ultimate', false, 'touch'],
+  ]);
+  flightEvents.length = 0;
+
+  // 3. Pointer cancellation test
+  flightMachine.terminalDive = null;
+  flightPlayer.prowess = 100;
+  controls.update(flightPlayer, 12, { snapshot: { fightFlight: flightMachine } });
+  assert.equal(controls.valkyrieEligible, true);
+
+  send('pointerdown', 750, 400, { action: 'ultimate', pointerId: 43 });
+  assert.deepEqual(flightEvents, [
+    ['dash', true, 'touch'],
+    ['ultimate', true, 'touch'],
+  ]);
+  flightEvents.length = 0;
+
+  // Pointer cancel (e.g. system gesture / palm rejection)
+  send('pointercancel', 750, 400, { action: 'ultimate', pointerId: 43 });
+  assert.deepEqual(flightEvents, [
+    ['dash', false, 'touch'],
+    ['ultimate', false, 'touch'],
+  ]);
+  flightEvents.length = 0;
+
+  // 4. Pilot death test
+  send('pointerdown', 750, 400, { action: 'ultimate', pointerId: 44 });
+  assert.deepEqual(flightEvents, [
+    ['dash', true, 'touch'],
+    ['ultimate', true, 'touch'],
+  ]);
+  flightEvents.length = 0;
+
+  // Pilot dies while holding
+  flightPlayer.alive = false;
+  controls.update(flightPlayer, 13, { snapshot: { fightFlight: flightMachine } });
+  assert.deepEqual(flightEvents, [
+    ['dash', false, 'touch'],
+    ['ultimate', false, 'touch'],
+  ]);
+  flightEvents.length = 0;
+
+  // 5. Document hidden / focus loss test
+  flightPlayer.alive = true;
+  controls.update(flightPlayer, 14, { snapshot: { fightFlight: flightMachine } });
+  send('pointerdown', 750, 400, { action: 'ultimate', pointerId: 45 });
+  assert.deepEqual(flightEvents, [
+    ['dash', true, 'touch'],
+    ['ultimate', true, 'touch'],
+  ]);
+  flightEvents.length = 0;
+
+  // Document hidden blur
+  globalThis.document.hidden = true;
+  globalThis.window.dispatchEvent(new Event('blur'));
+  assert.deepEqual(flightEvents, [
+    ['dash', false, 'touch'],
+    ['ultimate', false, 'touch'],
+  ]);
+  globalThis.document.hidden = false;
+});

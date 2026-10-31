@@ -10,11 +10,19 @@ export class SoFistSound {
   const age=b.strikeAt==null?4:options.now-b.strikeAt;
   const pose={...b,yaw:b.heading,upperYaw:b.heading,state:age<timing.release||b.charging?'RELOADING':'LOADED'};
   this.sound.update(pose,options);
+  const primed=Boolean(b.operatorId)&&b.skill?.phase==='primed';
+  const jitterGain=primed?0.18+Math.min(0.12,(b.skill?.debt??0)*0.02):0;
+  this.sound.loop('pressure',primed,pose,jitterGain,1.15);
   if(b.strikeAt!==this.lastStrike){this.lastStrike=b.strikeAt;this.released=false;}
-  if(age>=timing.release&&age<timing.peak+.24&&!this.released){this.released=true;this.sound.event({type:'bibyeFired',ballistaId:b.id,shot:'II',at:b.strikeAt+timing.release},pose,options.now);}
+  if(age>=timing.release&&age<timing.peak+.24&&!this.released){
+    this.released=true;
+    this.sound.event({type:'bibyeFired',ballistaId:b.id,shot:'II',at:b.strikeAt+timing.release},pose,options.now);
+    this.sound.play('steamRelease',pose,0.85);
+  }
  }
  event(e,b,now){
   if(!b||e.machineId!==b.id)return;
+  if(e.type==='soFistSteam')this.sound.play('steamRelease',b,0.85);
   if(e.type==='siegeImpact'&&e.kind!=='piston-wall'&&e.strength>.12)this.sound.event({...e,type:'bibyeBoltImpact',ballistaId:b.id,subKind:'siege'},b,now);
    if(e.type==='soFistBlocked')this.sound.event({...e,type:'bibyeBoltImpact',ballistaId:b.id,subKind:'siege'},b,now);
   if(e.type==='soFistImpact')this.sound.event({...e,type:'bibyeBoltImpact',ballistaId:b.id,subKind:'siege'},b,now);

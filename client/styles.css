@@ -80,6 +80,7 @@ h2 { margin: 4px 0 18px; font-size: clamp(31px, 4cqw, 46px); line-height: 1; }
 .debug{position:absolute;left:16px;top:16px;white-space:pre;background:rgba(10,12,9,.82);border:1px solid #4e4d42;padding:9px 11px;font:11px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;color:#9ce7f2}.scoreboard{position:absolute;left:50%;top:42%;transform:translate(-50%,-50%);width:min(460px,80cqw);padding:16px 20px;background:rgba(18,19,15,.93);border:1px solid #615d4e}.scoreboard h3{margin:0 0 10px}.scoreboard div{display:grid;grid-template-columns:1fr 40px 80px;border-top:1px solid #3b392f;padding:8px}.scoreboard em{font-style:normal;color:#9a9588;font-size:10px}
 
 .practice-tools { position: absolute; z-index: 20; top: 18px; left: 18px; width: 185px; padding: 10px; pointer-events: auto; background: rgba(24,24,19,.89); border: 1px solid rgba(211,194,153,.28); box-shadow: 0 8px 30px rgba(0,0,0,.25); }
+.practice-tools.hidden, .practice-tools[hidden] { display: none !important; }
 .practice-tools > div { padding: 2px 2px 8px; border-bottom: 1px solid rgba(215,199,160,.18); margin-bottom: 5px; }
 .practice-tools strong { display: block; font: 700 12px Georgia, serif; letter-spacing: .07em; }
 .practice-tools small { display: block; margin-top: 3px; color: rgba(231,220,196,.48); font-size: 8px; line-height: 1.35; }
@@ -133,6 +134,7 @@ body.took-steel::after{content:"";position:fixed;inset:0;z-index:50;pointer-even
 
 .practice-tools #practice-play-frames { grid-column: 1 / -1; text-align: center; border: 1px solid rgba(236,201,127,.4); background: rgba(236,201,127,.06); margin-top: 4px; }
 .practice-tools #practice-play-frames:not(:disabled):hover { background: rgba(236,201,127,.14); }
+.practice-tools.hidden, .practice-tools[hidden] { display: none !important; }
 
 
 /* --- Breakthrough Objective HUD, World Waypoint & Team End Screen --- */

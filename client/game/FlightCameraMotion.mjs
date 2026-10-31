@@ -8,6 +8,8 @@ export class FlightCameraMotion {
     this.rotSpring = { pitch: 0, roll: 0 };
     this.rotVel = { pitch: 0, roll: 0 };
     this.lastVelY = 0;
+    this.lastSpeed = 0;
+    this.wasGrounded = true;
     this.lastShotAt = -Infinity;
     this.walkPhase = 0;
   }
@@ -18,6 +20,8 @@ export class FlightCameraMotion {
     this.rotSpring = { pitch: 0, roll: 0 };
     this.rotVel = { pitch: 0, roll: 0 };
     this.lastVelY = 0;
+    this.lastSpeed = 0;
+    this.wasGrounded = true;
     this.lastShotAt = -Infinity;
     this.walkPhase = 0;
   }
@@ -35,22 +39,34 @@ export class FlightCameraMotion {
     const vy = m.velocity?.y ?? 0;
     const grounded = Boolean(m.grounded);
 
-    // 1. Landing impulse: proportional to vertical impact velocity
-    if (grounded && this.lastVelY < -1.5) {
-      const impact = Math.min(6, Math.abs(this.lastVelY));
+    // 1. Landing impulse and equipment settling: proportional to vertical impact
+    if (grounded && !this.wasGrounded) {
+      const impact = Math.min(8, Math.max(1.2, Math.abs(this.lastVelY)));
       this.posVel.y -= impact * 0.045; // downward compression
-      this.rotVel.pitch += impact * 0.02;  // slight forward nod
+      this.rotVel.pitch += impact * 0.025;  // forward nod as feet contact turf
+    } else if (grounded && this.lastVelY < -1.5) {
+      const impact = Math.min(6, Math.abs(this.lastVelY));
+      this.posVel.y -= impact * 0.04;
+      this.rotVel.pitch += impact * 0.02;
     }
+
+    // 2. Takeoff surge and harness lift reaction
+    if (!grounded && this.wasGrounded && vy > 0.3) {
+      this.posVel.y -= 0.045; // initial downward inertia as machine lifts off
+      this.rotVel.pitch += 0.02; // slight upward tilt
+    }
+
+    this.wasGrounded = grounded;
     this.lastVelY = vy;
 
-    // 2. Weapon firing recoil: brief kick when a bolt releases
+    // 3. Weapon firing recoil: brief kick when a bolt releases
     if (m.lastShotAt && m.lastShotAt !== this.lastShotAt) {
       this.lastShotAt = m.lastShotAt;
       this.posVel.z += 0.018; // slight backward kick in local space
       this.rotVel.pitch += 0.012; // slight upward pitch kick
     }
 
-    // 3. Ground walking cadence bob
+    // 4. Ground walking cadence bob
     let targetY = 0;
     let targetPitch = 0;
     let targetRoll = 0;
@@ -61,7 +77,16 @@ export class FlightCameraMotion {
       targetRoll += Math.cos(this.walkPhase * 0.5) * 0.008;
     }
 
-    // 4. Climb / descent / takeoff inertia
+    // 5. Horizontal acceleration / braking reaction
+    const accel = (speed - this.lastSpeed) / clampedDt;
+    this.lastSpeed = speed;
+    if (accel > 1.8) {
+      targetPitch += Math.min(0.025, accel * 0.0025);
+    } else if (accel < -2.5) {
+      targetPitch -= Math.min(0.035, Math.abs(accel) * 0.0035);
+    }
+
+    // 6. Climb / descent / takeoff inertia
     if (!grounded) {
       if (vy > 0.5) {
         targetY -= Math.min(0.025, vy * 0.005);
