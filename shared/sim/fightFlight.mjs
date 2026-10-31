@@ -5,6 +5,7 @@ import {resolvePlayerWorld,surfaceHeightAt,segmentAabbHit} from '../src/collisio
 import {getBiByeSolids} from './biByeLlista.mjs';
 import {soFistSolids} from './soFistGeometry.mjs';
 import {endFightFlightSkill,fightFlightHoverSupport} from './fightFlightSkill.mjs';
+import {VALKYRIE_RUN} from './fightFlightRun.mjs';
 
 export const FIGHT_FLIGHT = Object.freeze({
   radius:.88,height:2.65,crouchHeight:2.15,rotorRadius:1.32,
@@ -38,6 +39,7 @@ export function createFightFlight({x=0,y=0,z=0,heading=0,id=null,lifecycleId=nul
     ammo:14,ammoDebt:0,nextShotAt:0,ammoProduction:0,firingOperatorId:null,shotSeq:0,lastShotAt:-Infinity,crossbowYaw:heading,crossbowPitch:0,
     skill:{phase:'idle',readyAt:0,activeUntil:0},offensiveRun:false,
     terminalDiveSpent:false,terminalDive:null,lastImpactAt:-Infinity,
+    flightDashHeld:false,flightDashStartedAt:null,runPitch:0,
     builtAt:0,takeoffAt:-Infinity,landingAt:-Infinity,retired:false};
 }
 export function fightFlightExit(room,m,player){
@@ -86,7 +88,7 @@ export function dismountFightFlight(room,m,player,{force=false,at=0,exit=null}={
   // Forced removal is reserved for death/disconnect/destruction: no airborne teleport.
   // The machine retains its cooldown and actual ammunition debt when the rider leaves.
   endFightFlightSkill(room,m,at,'interrupted');
-  m.operatorId=null;m.firingOperatorId=null;player.operatingFightFlightId=null;
+  m.operatorId=null;m.firingOperatorId=null;m.flightDashHeld=false;m.offensiveRun=false;player.operatingFightFlightId=null;
   if(safe)player.position={...safe};
   else player.position={x:m.x,y:m.y,z:m.z};
   player.velocity={x:0,y:0,z:0};
@@ -104,7 +106,7 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
   const yaw=Number.isFinite(input.yaw)?input.yaw:m.heading;
   // Turn rate is limited while airborne, not an instantaneous lateral inversion.
   const delta=Math.atan2(Math.sin(yaw-m.heading),Math.cos(yaw-m.heading));
-  m.heading+=cap(delta,-(m.grounded?3.8:2.1)*dt,(m.grounded?3.8:2.1)*dt);
+  m.heading+=cap(delta,-(m.grounded?3.8:m.offensiveRun?VALKYRIE_RUN.turnRate:2.1)*dt,(m.grounded?3.8:m.offensiveRun?VALKYRIE_RUN.turnRate:2.1)*dt);
   // Crossbow's real pivot follows the reticle only inside the authored traverse corridor.
   m.crossbowYaw=m.heading+cap(Math.atan2(Math.sin(yaw-m.heading),Math.cos(yaw-m.heading)),-Math.PI*25/180,Math.PI*25/180);
   m.crossbowPitch=cap(Number.isFinite(input.pitch)?input.pitch:0,-Math.PI/9,Math.PI/9);
@@ -127,9 +129,10 @@ export function stepFightFlight(room,m,dt,now,world=room.world){
   else m.rotorEnergy=cap(m.rotorEnergy-dt*5,0,100);
   const forward=cap(finite(input.forward),-1,1),right=cap(finite(input.right),-1,1);
   const speed=m.grounded?(input.sprint&&!m.crouched?FIGHT_FLIGHT.sprintSpeed:m.crouched?1.7:FIGHT_FLIGHT.groundSpeed):FIGHT_FLIGHT.airSpeed;
-  const dx=(-Math.sin(m.heading)*forward+Math.cos(m.heading)*right)*speed;
-  const dz=(-Math.cos(m.heading)*forward-Math.sin(m.heading)*right)*speed;
-  const response=1-Math.exp(-dt*(m.grounded?FIGHT_FLIGHT.groundAcceleration:1.25));
+  const run=m.offensiveRun&&!m.grounded;
+  const dx=run?-Math.sin(m.heading)*VALKYRIE_RUN.speed:(-Math.sin(m.heading)*forward+Math.cos(m.heading)*right)*speed;
+  const dz=run?-Math.cos(m.heading)*VALKYRIE_RUN.speed:(-Math.cos(m.heading)*forward-Math.sin(m.heading)*right)*speed;
+  const response=1-Math.exp(-dt*(m.grounded?FIGHT_FLIGHT.groundAcceleration:run?VALKYRIE_RUN.acceleration:1.25));
   m.velocity.x+=(dx-m.velocity.x)*response;m.velocity.z+=(dz-m.velocity.z)*response;
   if(!m.grounded){
     const lift=cap(m.rotorAngularVelocity/(Math.PI*15),0,1)*cap(m.rotorEnergy/35,0,1);
