@@ -103,6 +103,8 @@ export class Room {
     this.code = code;
     resetChallengeTracking(this);
     this.isPrivate = isPrivate;
+    this.sharedPractice=false;
+    this.sharedPracticeHostId=null;
     this.mode = mode;
     this.policy = { ...getModePolicy(mode) };
     if (this.policy.teamMode && (teamSize === 2 || teamSize === 3)) {
@@ -671,6 +673,8 @@ export class Room {
     if (this.soFistication?.operatorId === id) dismountSoFistication(this,this.soFistication,player,{force:true});
     if (this.fightFlight?.operatorId === id) dismountFightFlight(this,this.fightFlight,player,{force:true,at:nowSec});
     this.players.delete(id);
+    if(this.sharedPractice&&this.sharedPracticeHostId===id)
+      this.sharedPracticeHostId=[...this.players.values()].find(p=>p.actorKind==='human'&&p.connected)?.id??null;
     this.rematchVotes.delete(id);
     if (this.humanActorCount() === 0) {
       if (this.emptySince === null) this.emptySince = nowSec;
@@ -689,6 +693,8 @@ export class Room {
     if (this.soFistication?.operatorId === id) dismountSoFistication(this,this.soFistication,player,{force:true});
     if (this.fightFlight?.operatorId === id) dismountFightFlight(this,this.fightFlight,player,{force:true,at:nowSec});
     player.connected = false;
+    if(this.sharedPractice&&this.sharedPracticeHostId===id)
+      this.sharedPracticeHostId=[...this.players.values()].find(p=>p.id!==id&&p.actorKind==='human'&&p.connected)?.id??null;
     player.arenaReady = false;
     player.disconnectedAt = nowSec;
     player.disconnectExpiresAt = nowSec + RECONNECT_GRACE_SEC;

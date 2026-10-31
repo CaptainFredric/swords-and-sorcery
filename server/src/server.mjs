@@ -356,6 +356,15 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
       joinNew(session, room, message.name);
       return;
     }
+    if(message.type==='createSharedPracticeRoom'&&!session.roomCode){
+      const room=roomManager.createSharedPracticeRoom(time,arenaOrDefault(message.worldId));
+      const player=createNetworkPlayer(session,room,message.name);
+      room.sharedPracticeHostId=player.id;
+      room.armAutoStart(time);
+      spawnPracticeDummy(room,'PASSIVE',time);
+      attachPlayer(session,room,player);
+      return;
+    }
     if (message.type === 'createBreakthroughRoom' && !session.roomCode) {
       const teamSize = message.teamSize !== undefined ? Number(message.teamSize) : 3;
       if (teamSize !== 2 && teamSize !== 3) {
@@ -404,7 +413,9 @@ export function createGameServer({ port = Number(process.env.PORT || 3001), host
     if (message.type === 'joinRoom' && !session.roomCode) {
       const room = roomManager.findByCode(message.code);
       if (!room) { send(session, { type: 'error', message: 'Room not found' }); return; }
-      if (room.mode !== GAME_MODES.FFA && room.mode !== GAME_MODES.BREAKTHROUGH) { send(session, { type: 'error', message: 'Room is not joinable' }); return; }
+      if(room.mode!==GAME_MODES.FFA&&room.mode!==GAME_MODES.BREAKTHROUGH&&!(room.mode===GAME_MODES.PRACTICE&&room.sharedPractice)){
+        send(session,{type:'error',message:'Room is not joinable'});return;
+      }
       try { joinNew(session, room, message.name); } catch (error) { send(session, { type: 'error', message: error.message }); }
       return;
     }

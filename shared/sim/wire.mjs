@@ -30,6 +30,8 @@ export function serializeLobby(room) {
     mode: room.mode,
     worldId: room.worldId,
     isPrivate: room.isPrivate,
+    sharedPractice:Boolean(room.sharedPractice),
+    sharedPracticeHostId:room.sharedPracticeHostId??null,
     countdownEndsAt: room.countdownEndsAt,
     autoStartAt: room.autoStartAt,
     scoreToWin: room.scoreToWin,
@@ -64,6 +66,8 @@ export function serializeSnapshot(room, nowSec, recipientId = null) {
     roomState: room.state,
     mode: room.mode,
     worldId: room.worldId,
+    sharedPractice:Boolean(room.sharedPractice),
+    sharedPracticeHostId:room.sharedPracticeHostId??null,
     countdownEndsAt: room.countdownEndsAt,
     matchStartedAt: room.matchStartedAt,
     scoreToWin: room.scoreToWin,
@@ -422,26 +426,38 @@ export function applyRoomCommand(room, player, message, time) {
     case 'switchTeam': return { lobby: room.switchTeam(player.id, message.team ?? null, time) };
     case 'markTarget': room.markTarget(player.id, { targetId: message.targetId ?? null }, time); return {};
     case 'practiceSiegeOpponent':{
+      if(room.sharedPractice&&room.sharedPracticeHostId!==player.id)return {rejected:'Only the Shared Practice host may manage opponents.'};
       const {action,machine,difficulty}=message;
       if(action==='spawn')return spawnPracticeSiegeOperator(room,player,machine,difficulty,time);
       if(action==='remove')return removePracticeSiegeOperator(room,player,machine,time);
       if(action==='reset')return resetPracticeSiegeOperator(room,player,machine,difficulty,time);
       return {rejected:'Unknown hostile Practice operator action.'};
     }
-    case 'practiceSiege':return practiceSiegeCommand(room,player,message.action,message.machine,time);
-    case 'practiceBuildBiBye':return practiceBiByeCommand(room,player,'build',time);
-    case 'practiceRebuildBiBye':return practiceBiByeCommand(room,player,'rebuild',time);
-    case 'practiceDismantleBiBye':return practiceBiByeCommand(room,player,'dismantle',time);
+    case 'practiceSiege':
+      if(room.sharedPractice&&room.sharedPracticeHostId!==player.id)return {rejected:'Only the Shared Practice host may manage siege machines.'};
+      return practiceSiegeCommand(room,player,message.action,message.machine,time);
+    case 'practiceBuildBiBye':
+      if(room.sharedPractice&&room.sharedPracticeHostId!==player.id)return {rejected:'Only the Shared Practice host may build siege machines.'};
+      return practiceBiByeCommand(room,player,'build',time);
+    case 'practiceRebuildBiBye':
+      if(room.sharedPractice&&room.sharedPracticeHostId!==player.id)return {rejected:'Only the Shared Practice host may rebuild siege machines.'};
+      return practiceBiByeCommand(room,player,'rebuild',time);
+    case 'practiceDismantleBiBye':
+      if(room.sharedPractice&&room.sharedPracticeHostId!==player.id)return {rejected:'Only the Shared Practice host may dismantle siege machines.'};
+      return practiceBiByeCommand(room,player,'dismantle',time);
     case 'practiceResetPlayer':
       return room.mode === GAME_MODES.PRACTICE && resetPracticePlayer(room, player.id, time) ? {} : { rejected: PRACTICE_REJECTED };
     case 'practiceSpawnDummy':
+      if(room.sharedPractice&&room.sharedPracticeHostId!==player.id)return {rejected:'Only the Shared Practice host may configure dummies.'};
       if (room.mode !== GAME_MODES.PRACTICE) return { rejected: PRACTICE_REJECTED };
       return spawnPracticeDummy(room, message.mode, time, player.id) ? { lobby: true } : { rejected: PRACTICE_REJECTED };
     case 'practiceRemoveDummy':
+      if(room.sharedPractice&&room.sharedPracticeHostId!==player.id)return {rejected:'Only the Shared Practice host may remove dummies.'};
       return room.mode === GAME_MODES.PRACTICE && removePracticeDummy(room) ? { lobby: true } : { rejected: PRACTICE_REJECTED };
     case 'practiceReadyUltimate':
       return room.mode === GAME_MODES.PRACTICE && readyPracticeUltimate(room, player.id) ? {} : { rejected: PRACTICE_REJECTED };
     case 'practiceSetDummyMode':
+      if(room.sharedPractice&&room.sharedPracticeHostId!==player.id)return {rejected:'Only the Shared Practice host may configure dummies.'};
       return room.mode === GAME_MODES.PRACTICE && setPracticeDummyMode(room, message.mode, time, player.id) ? { lobby: true } : { rejected: PRACTICE_REJECTED };
     case 'practicePerryAnswer':
       return room.mode === GAME_MODES.PRACTICE && answerPerryDialogue(room, player, message.answer, time) ? {} : { rejected: PRACTICE_REJECTED };
