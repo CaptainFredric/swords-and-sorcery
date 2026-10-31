@@ -7,6 +7,7 @@ import {setFlightUltimateHold,stepTerminalPreparation,advanceTerminalFlight,
   resolveTerminalFlight,stepFlightBurnZones,TERMINAL} from '../../shared/sim/fightFlightTerminal.mjs';
 import {applyRoomCommand} from '../../shared/sim/wire.mjs';
 import {killPlayer} from '../../shared/sim/combat.mjs';
+import {damageFightFlight} from '../../shared/sim/fightFlightComponents.mjs';
 
 function setup(){
  const room=new RoomManager().createSoloRoom('PRACTICE',0,'castleward');
@@ -149,4 +150,31 @@ test('Holding Ultimate alone and releasing without Dash still performs regular C
  s.cmd('flightUltimateHold',false,2.25);
  assert.equal(s.m.terminalDiveSpent,false);
  assert.ok(s.p.ultimateState,'an ordinary deliberate Ultimate should not be lost');
+});
+
+test('An externally shattered main chassis during commitment resolves exactly one terminal explosion',()=>{
+ const s=setup();commit(s);
+ s.m.health=4;
+ const damage=damageFightFlight(s.room,s.m,12,null,'test-siege-impact',2.11,{componentId:'main',point:{x:s.m.x,y:s.m.y,z:s.m.z}});
+ assert.equal(damage.destroyed,true);
+ assert.ok(s.m.terminalDive.impactAt!=null);
+ assert.notEqual(s.m.mode,'DESTROYED','the terminal outcome still owns detonation and rider resolution');
+ advanceTerminalFlight(s.room,s.m,1/30,2.14);
+ assert.equal(s.m.health,0,'fatal chassis damage may not be healed to one point');
+ assert.equal(resolveTerminalFlight(s.room,s.m,2.14),true);
+ assert.equal(s.m.mode,'DESTROYED');
+ assert.equal(s.room.events.filter(e=>e.type==='fightFlightTerminalExplosion').length,1);
+ assert.equal(resolveTerminalFlight(s.room,s.m,2.15),false);
+});
+test('Chivalry chord can begin after a human-scale Dash-then-Ultimate stagger without partial meter theft',()=>{
+ const s=setup();
+ s.cmd('flightDash',true,1);stepFlightRun(s.room,s.m,1/30,1.22);
+ assert.equal(s.p.prowess,100);
+ s.cmd('flightUltimateHold',true,1.24);
+ stepTerminalPreparation(s.room,s.m,1.26);
+ assert.ok(s.m.terminalPrep);
+ stepFlightRun(s.room,s.m,1/30,1.28);
+ assert.equal(s.p.prowess,100);
+ stepTerminalPreparation(s.room,s.m,2.27);
+ assert.equal(s.m.terminalDiveSpent,true);
 });
