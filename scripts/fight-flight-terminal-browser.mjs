@@ -110,6 +110,9 @@ try{
  await send('Input.dispatchKeyEvent',{type:'keyUp',key:' ',code:'Space',windowsVirtualKeyCode:32});
  const beforeChord=await evaluate(flightState);
  assert.ok(beforeChord.machine.y>.5,'must be airborne at terminal input');
+ // Observe rendered Spellblade frames across a subsecond terminal dive.
+ // Sparse Chrome debugger polls otherwise miss an entire genuine animation.
+ await evaluate("(() => {const samples=window.__terminalPitchTrace=[];let frames=0;const sample=()=>{const r=window.__ssRuntime,m=r?.latestSnapshot?.fightFlight,root=r?.remotePlayers?.self?.root;if(m?.terminalDive&&m.runPitch>.2&&root)samples.push({pitch:m.runPitch,rider:root.rotation.x,visible:Boolean(root.visible),resolved:Boolean(m.terminalDive.resolved)});if(++frames<1000)requestAnimationFrame(sample);};requestAnimationFrame(sample);})()");
  await down('E');await down('R');
  await until(()=>evaluate("Boolean(window.__ssRuntime?.latestSnapshot?.fightFlight?.terminalPrep)"),'visible one-second terminal chord preparation',100);
  const prep=await evaluate(flightState);
@@ -117,7 +120,8 @@ try{
  assert.ok(prep.player.prowess>=100,'precommit meter must remain unspent');
  await screenshot('04-terminal-preparing');
  await until(()=>evaluate("Boolean(window.__ssRuntime?.latestSnapshot?.fightFlight?.terminalDive)"),'real one-second Valkyrie commitment',160);
- await until(()=>evaluate("(() => {const r=window.__ssRuntime,m=r?.latestSnapshot?.fightFlight;return Boolean(m?.terminalDive && m.runPitch>.3 && Math.abs(r.remotePlayers.self.root.rotation.x+m.runPitch)<.12);})()"),'authored flying chassis and visible Spellblade share terminal pitch',80);
+ const pitchEvidence=await until(()=>evaluate("(() => {const trace=window.__terminalPitchTrace??[],m=window.__ssRuntime?.latestSnapshot?.fightFlight,found=trace.find(s=>s.visible&&s.pitch>.3&&Math.abs(s.rider+s.pitch)<.12);return found?{observed:true,...found}:m?.terminalDive?.resolved?{observed:false,resolved:true}:null;})()"),'rendered Spellblade pitch during physical terminal dive',150);
+ assert.equal(pitchEvidence.observed,true,'a real visible rider frame must match chassis pitch, not merely the server state');
  const committed=await evaluate(flightState);
  assert.ok(committed.machine.terminalDiveSpent,'the machine spends one terminal opportunity');
  assert.equal(committed.player.prowess,0,'only the committed dive consumes the ready personal Ultimate');
@@ -131,7 +135,7 @@ try{
  assert.ok(aftermath.burnZones?.length>0,'lasting ground fire must survive the lost machine');
  assert.ok(Math.abs(aftermath.burnZones[0].point.y)<.3,'burning ground must rest on the Practice Yard floor');
  await screenshot('06-terminal-aftermath');
- await writeFile(folder+'/result.json',JSON.stringify({before,mounted,flying,beforeChord,prep,committed,aftermath,errors},null,2));
+ await writeFile(folder+'/result.json',JSON.stringify({before,mounted,flying,beforeChord,prep,pitchEvidence,pitchTrace:await evaluate('window.__terminalPitchTrace'),committed,aftermath,errors},null,2));
  assert.equal(errors.length,0,'Unexpected browser exceptions: '+errors.join('; '));
  console.log('Fight-and-Flight Chrome Gate-C3 terminal acceptance:',JSON.stringify({prepHeld:true,committed:true,spent:committed.machine.terminalDiveSpent,mode:aftermath.machine.mode,burnZones:aftermath.burnZones?.length,errors}));
 
