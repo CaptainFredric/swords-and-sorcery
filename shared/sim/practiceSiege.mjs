@@ -40,11 +40,29 @@ export function practiceHostileSiegePlacement(room,player,machine){
  const ram=machine==='so-fist-ication';
  if(!ram&&machine!=='bi-bye-llista')return null;
  const at=player.position,yaw=player.yaw??0;
- for(const range of [11,15,20,25,8])for(const offset of [0,.6,-.6,1.25,-1.25,Math.PI]){
+ const distances=ram?[8,10,11,13,15,20]:[11,15,20,25,8];
+ for(const range of distances)for(const offset of [0,.6,-.6,1.25,-1.25,Math.PI]){
   const angle=yaw+offset,x=at.x-Math.sin(angle)*range,z=at.z-Math.cos(angle)*range;
   const facing=Math.atan2(-(at.x-x),-(at.z-z));
   const plan=candidate(room,player,x,z,facing,null,ram);
-  if(plan)return plan;
+  if(!plan)continue;
+  if(ram){
+   // Static clearance is insufficient for this long, wheel-contact chassis.
+   // Refuse a barely fitting spawn if the next 1.5 m of *real* straight
+   // travel would clip masonry or lose support before combat can begin.
+   const other=[...getBiByeSolids(room.biByeLlista),...actorBoxes(room,player.id)];
+   let viable=true;
+   for(const distance of [.5,1,1.5]){
+    const projected={...plan.b,x:plan.b.x-Math.sin(facing)*distance,
+      z:plan.b.z-Math.cos(facing)*distance};
+    const terrain=soFistTerrainPose(projected,room.world);
+    if(!terrain||!soFistClear({...projected,...terrain,operatorId:player.id},room.world,other)){
+      viable=false;break;
+    }
+   }
+   if(!viable)continue;
+  }
+  return plan;
  }
  return null;
 }
