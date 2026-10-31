@@ -11,6 +11,8 @@ export class FightFlightRenderer{
     this.scene=scene;this.group=everywhere(new THREE.Group());this.group.name='Fight-and-Flight';
     this.group.visible=false;scene.add(this.group);this.nodes=new Map();this.state=null;
     this.lastMode=null;this.clip=null;this.disposed=false;
+    this.bolts=new Map();this.boltGeometry=new THREE.CylinderGeometry(.027,.032,.33,6);
+    this.boltMaterial=new THREE.MeshStandardMaterial({color:0xb7a17b,metalness:.35,roughness:.55});
   }
   load(){
     if(this.pending||this.disposed)return this.pending??Promise.resolve(false);
@@ -22,6 +24,10 @@ export class FightFlightRenderer{
       // Separate rotor/gear channel from torso/limb posture; both share the authored rig.
       const spin=this.clips.get('Rotor_Spin_Cycle_1Rev');
       if(spin){this.rotorAction=this.mixer.clipAction(spin);this.rotorAction.play();}
+      const reload=this.clips.get('Crossbow_Reload_Index');
+      if(reload){this.reloadAction=this.mixer.clipAction(reload);this.reloadAction.play();}
+      const fire=this.clips.get('Crossbow_Fire_Loop');
+      if(fire){this.fireAction=this.mixer.clipAction(fire);this.fireAction.play();}
       this.model.traverse(n=>{if(n.name)this.nodes.set(n.name,n);if(n.isMesh){n.castShadow=true;n.receiveShadow=true;}});
       // Emblem deliberately unapproved: display the authored plain crimson cloth.
       const crest=this.nodes.get('Rear_Banner_Heraldic_Emblem');if(crest)crest.visible=false;
@@ -52,7 +58,8 @@ export class FightFlightRenderer{
     if(Math.hypot(m.velocity?.x??0,m.velocity?.z??0)>.3)return 'Posture_05_Grounded_Walk_Loop';
     return 'Posture_01_Grounded_Idle';
   }
-  update(now,m){
+  update(now,m,projectiles=[],snapshotTime=now){
+    this.drawBolts(projectiles,now,snapshotTime);
     this.state=m;this.group.visible=Boolean(m&&!m.retired&&m.mode!=='DESTROYED');
     if(!this.group.visible)return;
     this.load();
@@ -67,12 +74,35 @@ export class FightFlightRenderer{
       this.action=this.mixer.clipAction(clip);this.action.reset().play();this.action.paused=false;this.lastMode=name;
     }
     if(this.rotorAction){this.rotorAction.time=((m.rotorAngle??0)%(2*Math.PI)+2*Math.PI)%(2*Math.PI)/(2*Math.PI)*this.rotorAction.getClip().duration;}
+    if(this.reloadAction)this.reloadAction.time=Math.min(6,Math.floor(m.ammo??0))/6*this.reloadAction.getClip().duration;
+    if(this.fireAction){this.fireAction.enabled=Number.isFinite(m.lastShotAt)&&now-m.lastShotAt>=0&&now-m.lastShotAt<=.143;
+      if(this.fireAction.enabled)this.fireAction.time=Math.max(0,now-m.lastShotAt);
+    }
     if(this.action)this.action.time=name==='Posture_05_Grounded_Walk_Loop'?now%this.action.getClip().duration:Math.min(.65,this.action.getClip().duration);
     this.mixer.update(0);
+    const crossbow=this.nodes.get('Crossbow_Body');
+    if(crossbow){
+      const relative=Math.atan2(Math.sin((m.crossbowYaw??m.heading)-m.heading),Math.cos((m.crossbowYaw??m.heading)-m.heading));
+      const age=now-(m.lastShotAt??-Infinity),recoil=age>=0&&age<.143?(.065*(1-age/.143)):0;
+      crossbow.rotation.set(-(m.crossbowPitch??0)-recoil,relative,0,'YXZ');
+    }
     const rotor=this.nodes.get('Rotor_Hub');if(rotor)rotor.rotation.y=m.rotorAngle??0;
     // The named GLB rotor's authored pose is driven by the authoritative angular phase,
     // not an unrelated animation clock. This also stops on rotor failure.
     this.setFailureParts();
+  }
+  drawBolts(projectiles,now,stamp){
+    const keep=new Set();
+    for(const p of projectiles){
+      keep.add(p.id);let mesh=this.bolts.get(p.id);
+      if(!mesh){mesh=new THREE.Mesh(this.boltGeometry,this.boltMaterial);mesh.castShadow=true;
+        this.scene.add(mesh);this.bolts.set(p.id,mesh);}
+      const span=Math.max(0,Math.min(.12,now-stamp));
+      mesh.position.set(p.position.x+p.velocity.x*span,p.position.y+p.velocity.y*span,p.position.z+p.velocity.z*span);
+      const dir=new THREE.Vector3(p.velocity.x,p.velocity.y,p.velocity.z).normalize();
+      mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),dir);
+    }
+    for(const [id,mesh] of this.bolts)if(!keep.has(id)){mesh.removeFromParent();this.bolts.delete(id);}
   }
   getOperatorGrips(){
     this.group.updateMatrixWorld(true);
@@ -87,5 +117,6 @@ export class FightFlightRenderer{
     out.set(m.x+Math.sin(m.heading)*distance,m.y+(first?1.52:3.05),m.z+Math.cos(m.heading)*distance);
     return out;
   }
-  dispose(){this.disposed=true;this.group.removeFromParent();this.mixer?.stopAllAction();this.model?.traverse(o=>{if(o.isMesh){o.geometry?.dispose();}});}
+  dispose(){this.disposed=true;for(const mesh of this.bolts.values())mesh.removeFromParent();this.bolts.clear();
+    this.boltGeometry.dispose();this.boltMaterial.dispose();this.group.removeFromParent();this.mixer?.stopAllAction();this.model?.traverse(o=>{if(o.isMesh){o.geometry?.dispose();}});}
 }

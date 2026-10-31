@@ -53,6 +53,8 @@ export class InputController {
     this.pointerLocked = false;
     this.mouseLookBlocked = false;
     this.mountedBallista = false;
+    this.mountedFlight = false;
+    this.flightFireSources = new Set();
     this.ballistaSkillPhase = 'idle';
     this.ballistaChordMs = 45;
     this.ballistaMouse = {leftTimer:null,rightTimer:null,attackSent:false,consumed:false,primeHeld:false};
@@ -106,6 +108,7 @@ export class InputController {
   #press(code, repeat = false) {
     const action = this.actionOf.get(code);
     if (!action || repeat || HELD.has(action) || MENU_ACTIONS.has(action)) return;
+    if(this.mountedFlight&&action==='siegeWeapon'){this.flightFire(true,'key');return;}
     if (action === 'guard') this.setGuard(this.held('guard'), 'desktop');
     else if (action === 'attack') this.setAttack(this.held('attack'), 'desktop');
     else if (action === 'spell' && this.prepared.visible) this.beginPreparedGesture();
@@ -117,6 +120,7 @@ export class InputController {
     const action = this.actionOf.get(code);
     if (HELD.has(action) && !this.held(action)) this.gateHeldAction(action, false, 'desktop');
     if (!action || HELD.has(action) || MENU_ACTIONS.has(action)) return;
+    if(this.mountedFlight&&action==='siegeWeapon'){this.flightFire(false,'key');return;}
     if (action === 'guard') this.setGuard(this.held('guard'), 'desktop');
     else if (action === 'attack') this.setAttack(this.held('attack'), 'desktop');
     else if (action === 'spell') { if (!this.held('spell')) this.finishPreparedGesture(); }
@@ -247,6 +251,7 @@ export class InputController {
 
   handleMouseButtonDown(code) {
     if (!this.enabled && !this.pointerLocked) return;
+    if(this.mountedFlight&&code==='Mouse2'){this.flightFire(true,'mouse');return;}
     if(this.mountedBallista&&(code==='Mouse0'||code==='Mouse2')){
       this.#ballistaMouseDown(code);return;
     }
@@ -261,6 +266,7 @@ export class InputController {
   }
 
   handleMouseButtonUp(code) {
+    if(this.mountedFlight&&code==='Mouse2'){this.flightFire(false,'mouse');return;}
     if(this.mountedBallista&&(code==='Mouse0'||code==='Mouse2')){
       this.#ballistaMouseUp(code);return;
     }
@@ -422,6 +428,10 @@ export class InputController {
   }
 
   releaseInputs() {
+    // Losing pointer lock or backgrounding a touch arena must not leave a remote
+    // machine's repeating trigger latched. A release is legitimate even after
+    // `enabled` has already become false.
+    if(this.flightFireSources.size){this.flightFireSources.clear();this.socket?.send?.({type:'fightFlightFire',down:false});}
     this.#ballistaCancelPending();
     this.ballistaMouse.consumed=false;this.ballistaMouse.primeHeld=false;
     this.ballistaMouse.attackSent=false;
@@ -551,6 +561,13 @@ export class InputController {
     if(this.enabled&&this.allowAction?.('siegeSkill')!==false)this.socket?.send?.({type:'siegeSkill'});
   }
 
+  flightFire(down,source='touch') {
+    if(down&&(!this.enabled||!this.mountedFlight))return;
+    const was=this.flightFireSources.size>0;
+    if(down)this.flightFireSources.add(source);else this.flightFireSources.delete(source);
+    const held=this.flightFireSources.size>0;
+    if(was!==held&&this.mountedFlight)this.socket?.send?.({type:'fightFlightFire',down:held});
+  }
   siegeBoth() {
     if(this.enabled&&this.mountedBallista&&this.allowAction?.('siegeSkill')!==false)
       this.socket?.send?.({type:'bibyeCombinedFire'});

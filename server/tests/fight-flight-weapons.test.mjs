@@ -1,0 +1,73 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {RoomManager} from '../../shared/sim/RoomManager.mjs';
+import {applyRoomCommand,serializeSnapshot} from '../../shared/sim/wire.mjs';
+import {createFightFlight,mountFightFlight} from '../../shared/sim/fightFlight.mjs';
+import {advanceFlightAmmo,flightMuzzle,requestFightFlightFire,stepFightFlightWeapons,stepFightFlightProjectiles,FLIGHT_REPEATER} from '../../shared/sim/fightFlightWeapons.mjs';
+
+function setup(){
+ const room=new RoomManager().createSoloRoom('PRACTICE',0,'castleward');
+ room.world={floors:[{id:'g',center:[0,0,0],size:[100,.1,100],y:0}],solids:[],ramps:[],spawnPoints:[{x:0,y:0,z:0,yaw:0}]};
+ room.state='PLAYING';
+ const p=room.addPlayer({id:'flying',token:'flying',name:'Flier'},0);
+ const m=createFightFlight({id:'test-faf'});room.fightFlight=m;room.fightFlightProjectiles=new Map();
+ p.position={x:0,y:0,z:1};
+ assert.equal(mountFightFlight(room,m,p,1),true);
+ return {room,m,p};
+}
+test('Flight crossbow physically releases from left-side authored muzzle with authority and 7Hz cap',()=>{
+ const {room,m,p}=setup();
+ const muzzle=flightMuzzle(m);assert.ok(muzzle.x<0&&muzzle.z<0&&muzzle.y>1);
+ assert.deepEqual(applyRoomCommand(room,p,{type:'fightFlightFire',down:true},2),{});
+ assert.equal(m.ammo,13);assert.equal(room.fightFlightProjectiles.size,1);
+ assert.equal(applyRoomCommand(room,p,{type:'fightFlightFire',down:true},2.01).rejected,undefined);
+ assert.equal(room.fightFlightProjectiles.size,1,'a repeated key-down cannot duplicate a bolt');
+ for(let tick=1;tick<=15;tick++)stepFightFlightWeapons(room,m,1/30,2+tick/30);
+ assert.equal(m.shotSeq,4,'7Hz cap over half a second: shots at 0,.143,.286,.429');
+ assert.equal(m.ammo>=0,true);
+ assert.equal(serializeSnapshot(room,2.5).fightFlightProjectiles.length,4);
+ requestFightFlightFire(room,m,p,false,2.5);
+ const noMore=m.shotSeq;stepFightFlightWeapons(room,m,1/30,2.7);assert.equal(m.shotSeq,noMore);
+});
+test('Fractional 30Hz ammunition production first repays retained debt before fresh usable bolts',()=>{
+ const m=createFightFlight();
+ m.ammo=0;m.ammoDebt=3;m.ammoProduction=0;
+ for(let i=0;i<45;i++)advanceFlightAmmo(m,1/30);
+ assert.equal(m.ammoDebt,0);assert.equal(m.ammo,0);
+ for(let i=0;i<15;i++)advanceFlightAmmo(m,1/30);
+ assert.equal(m.ammo,1);assert.equal(m.ammoDebt,0);
+ for(let i=0;i<300;i++)advanceFlightAmmo(m,1/30);
+ assert.equal(m.ammo,FLIGHT_REPEATER.capacity);
+ assert.ok(m.ammoProduction>=0&&m.ammoProduction<1);
+});
+test('No negative reserve under prolonged held 7Hz fire and no full magazine prerequisite after depletion',()=>{
+ const {room,m,p}=setup();m.ammo=1;
+ requestFightFlightFire(room,m,p,true,2);
+ assert.equal(m.ammo,0);
+ const seq=m.shotSeq;
+ for(let i=1;i<=15;i++)stepFightFlightWeapons(room,m,1/30,2+i/30);
+ assert.ok(m.shotSeq>seq,'one newly generated bolt is independently fireable');
+ assert.ok(m.ammo>=0);
+ for(let i=16;i<=300;i++)stepFightFlightWeapons(room,m,1/30,2+i/30);
+ assert.ok(m.ammo>=0&&m.ammo<=14);
+ assert.ok(m.shotSeq<=1+Math.floor(300/30*2+.001),'depleted production cannot conjure extra ammo');
+});
+test('Unauthorized fire cannot create a projectile or change another pilot machine reserve',()=>{
+ const {room,m,p}=setup();
+ const guest=room.addPlayer({id:'guest',token:'guest',name:'Intruder'},0);
+ guest.alive=true;guest.position={x:0,y:0,z:1};
+ assert.ok(applyRoomCommand(room,guest,{type:'fightFlightFire',down:true},2).rejected);
+ assert.equal(room.fightFlightProjectiles.size,0);assert.equal(m.ammo,14);
+ assert.deepEqual(applyRoomCommand(room,p,{type:'fightFlightFire',down:true},2),{});
+ assert.ok(room.fightFlightProjectiles.size===1);
+});
+test('Actual swept bolt hits body along authoritative world line, not a radius-based pulse',()=>{
+ const {room,m,p}=setup();
+ const victim=room.addServerActor({id:'target',name:'Target',actorKind:'dummy'},0);
+ victim.position={x:-.65,y:0,z:-7};victim.spawnProtectionUntil=0;victim.alive=true;victim.guarding=false;
+ const health=victim.health;
+ assert.equal(requestFightFlightFire(room,m,p,true,2),true);
+ for(let i=1;i<=7;i++)stepFightFlightProjectiles(room,1/30,2+i/30);
+ assert.equal(victim.health,health-3);
+ assert.ok(room.events.some(e=>e.type==='fightFlightBoltImpact'&&e.victimId===victim.id));
+});

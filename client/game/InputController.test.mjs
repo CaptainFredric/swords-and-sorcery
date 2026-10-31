@@ -621,3 +621,30 @@ test('mounted quick single left click still fires Bolt I, and dismount preserves
  down('Mouse2');assert.deepEqual(calls,[['guard',true]]);
  up('Mouse2');assert.deepEqual(calls,[['guard',true],['guard',false]]);
 });
+
+
+test('Flight repeater merges mouse/key/touch holds and releases on blur without an abandoned trigger',()=>{
+  const {input,calls,down,up,send,win}=setup();
+  input.socket.send=m=>calls.push(m);
+  input.mountedFlight=true;
+  down('Mouse2');down('Mouse2');
+  down('KeyX');
+  assert.deepEqual(calls,[{type:'fightFlightFire',down:true}]);
+  up('Mouse2');assert.equal(calls.length,1,'holding key must sustain trigger');
+  input.flightFire(true,'touch');
+  up('KeyX');assert.equal(calls.length,1,'touch hold sustains trigger after key release');
+  send('blur',{},win);
+  assert.deepEqual(calls,[{type:'fightFlightFire',down:true},{type:'fightFlightFire',down:false}]);
+  input.flightFire(false,'touch');assert.equal(calls.length,2,'late touch release does not duplicate');
+  input.mountedFlight=false;
+  down('Mouse2');up('Mouse2');
+  assert.equal(calls.some(x=>x.type==='fightFlightFire'&&x.down===true&&calls.indexOf(x)>0),false);
+  assert.equal(input.guardHeld,false);
+});
+test('Flight repeater does not fire while ordinary Spellblade is unmounted and disabled',()=>{
+ const {input,calls,down,up}=setup();input.socket.send=m=>calls.push(m);
+ input.mountedFlight=false;down('KeyX');up('KeyX');
+ assert.deepEqual(calls,[{type:'bibyeWeaponFocus'}]);
+ input.mountedFlight=true;input.enabled=false;down('Mouse2');
+ assert.equal(calls.length,1);
+});
