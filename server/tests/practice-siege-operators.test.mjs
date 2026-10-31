@@ -81,6 +81,8 @@ test('Sir Uppercuff drives and releases the actual ram piston and skill',()=>{
 test('Sir Uppercuff primes Beat to the Punch against a visible opponent attack',()=>{
  const {room,player,command}=setup();
  assert.deepEqual(command('spawn','so-fist-ication','formidable'),{});
+ const b=room.soFistication;
+ player.position={x:b.x-Math.sin(b.heading)*8,y:0,z:b.z-Math.cos(b.heading)*8};
  player.attackActive=true;player.attackStartedAt=2;player.attackHeld=true;
  stepPracticeActors(room,2.1,room.world);
  assert.ok(room.events.some(e=>e.type==='siegeSkill'&&e.machineId===room.soFistication.id),
