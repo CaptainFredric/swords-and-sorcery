@@ -49,6 +49,8 @@ test('Ready unspent Chivalry gets chord grace before run drains a meter',()=>{
  stepFlightRun(room,m,1/30,1.04);
  assert.equal(m.offensiveRun,false);assert.equal(p.prowess,100,'meter reserved during chord opportunity');
  stepFlightRun(room,m,1/30,1.2);
+ assert.equal(m.offensiveRun,false,'human-scale chord input timing preserves an unspent ready Ultimate');
+ stepFlightRun(room,m,1/30,1.34);
  assert.equal(m.offensiveRun,true);
  assert.ok(p.prowess<100);
  assert.equal(m.terminalDiveSpent,false,'Dash by itself never sacrifices apparatus');

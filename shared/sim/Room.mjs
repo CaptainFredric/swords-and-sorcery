@@ -116,6 +116,7 @@ export class Room {
     this.fightFlight = null;
     this.fightFlightRevision = 0;
     this.fightFlightProjectiles = new Map();
+    this.flightBurnZones=[];
     if (this.world.ballistaEmplacement) {
       this.biByeLlista = createBiByeLlista(this.world.ballistaEmplacement);
       this.biByeRevision = 0;
@@ -450,7 +451,7 @@ export class Room {
     this.structures = createStructureState(world, (this.structures?.revision ?? 0) + 1);
     this.projectiles.clear();this.ruptures=[];this.teamMarks=[];
     this.soFistication=null;this.soFistRevision++;
-    this.fightFlight=null;this.fightFlightRevision++;this.fightFlightProjectiles=new Map();
+    this.fightFlight=null;this.fightFlightRevision++;this.fightFlightProjectiles=new Map();this.flightBurnZones=[];this.flightBurnZones=[];
     this.biByeLlista=world.ballistaEmplacement?createBiByeLlista(world.ballistaEmplacement):null;
     this.biByeRevision=(this.biByeRevision??0)+1;this.bibyeProjectiles=new Map();
     this.botsProvisioned=false;this.autoStartAt=null;
