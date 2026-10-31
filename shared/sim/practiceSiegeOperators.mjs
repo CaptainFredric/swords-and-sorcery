@@ -170,8 +170,17 @@ function ballistefan(room,a,m,target,ai,tuning,now){
   }
   if(!los||m.mode==='DESTROYED'||m.mode==='DEPLOYING'||m.mode==='RETRACTING')return;
   const isAligned=Math.abs(difference(desired.yaw,m.mainYaw??m.heading))<.2;
-  // Prime Bolt II while mobile or emplaced; upper bolt conditions the target,
-  // then the real inter-shot catch permits the heavy independent release.
+  // Deployed and aligned at close range, conduct a *real* coupled volley.
+  // Tracking may require repeated deliberate input until the latch engages;
+  // never prime the independent Skill in the middle of that preparation.
+  if(m.mode==='DEPLOYED'&&m.mainBoltLoaded&&m.skill?.phase==='idle'&&
+    isAligned&&(m.pendingVolley||(!ai.lastVolleyAt&&d<17))){
+    setBiByeWeaponFocus(m,'MAIN',now);
+    if(fireBiByeFullVolley(room,m,now))ai.lastVolleyAt=now;
+    return;
+  }
+  // Otherwise the upper bolt conditions the target ahead of the separately
+  // primed heavy Skill's authentic release catch.
   if(m.mainBoltLoaded&&m.skill?.phase==='idle'&&d<55&&isAligned)
     requestBiByeHeavySkill(room,m,a,now,biByeTargetAim);
   if(m.skill?.phase==='primed'){
@@ -195,17 +204,27 @@ function ballistefan(room,a,m,target,ai,tuning,now){
 function uppercuff(room,a,m,target,ai,tuning,now){
   const d=dist({x:m.x,z:m.z},target.position);
   const approach=drive(room,m,target,ai,tuning,{ideal:2.8,deadZone:1.2,reverse:true});
-  // Charges require room to gather speed; backs away to line up another strike.
-  if(d<4&&(m.strikeAt==null||now-m.strikeAt>2.5)){
-    approach.forward=-.85;approach.right=clamp(-approach.err*.5,-1,1);
+  // Commit an actual approach *through* the piston release window. Retreat
+  // only after the fist has passed its physical contact point, not as the
+  // machine begins the windup (which previously pulled every clean hit away).
+  if(m.strikeAt!=null&&now-m.strikeAt<1.1){
+    approach.forward=.82;approach.right=clamp(-approach.err*.42,-.5,.5);
+  }else if(d<3.8){
+    approach.forward=-.8;approach.right=clamp(-approach.err*.5,-1,1);
   }
-  const forwardFacing=Math.abs(approach.err)<.45;
+  const forwardFacing=Math.abs(approach.err)<.5;
   a.input={...a.input,forward:approach.forward,right:approach.right,
     sprint:forwardFacing&&d>5&&d<22&&m.pressure>28&&m.components?.Drive?.health>0,
     yaw:m.heading,pitch:0};
-  if(forwardFacing&&d<12&&m.skill?.phase==='idle'&&m.components?.Fist?.health>0)
+  // Beat to the Punch is a deliberate counterattack stance, not a permanent
+  // prime that prevents ordinary piston attacks from ever being released.
+  const visibleThreat=Boolean(target.attackActive||target.pendingSpell||
+    (target.dashUntil??-Infinity)>now);
+  if(forwardFacing&&d<11&&visibleThreat&&m.skill?.phase==='idle'&&
+    m.components?.Fist?.health>0&&m.components?.Drive?.health>0)
     primeSoFistSkill(room,m,a,now);
-  if(forwardFacing&&d<5.6&&(m.skill?.phase!=='primed')&&now>=ai.nextRamAt){
+  if(forwardFacing&&d>=2.1&&d<6.2&&now>=ai.nextRamAt&&
+    (m.strikeAt==null||now-m.strikeAt>=3.95)){
     if(fireSoFistication(room,m,now))ai.nextRamAt=now+3.95;
   }
 }
@@ -213,7 +232,12 @@ function donte(room,a,m,target,ai,tuning,now){
   const at={x:m.x,y:m.y,z:m.z},d=dist(at,target.position);
   const aim=aimInput(at,target,ai,tuning,64);
   const charge=m.flightCharge??0;
-  const desiredHeight=target.position.y+(d<6?2.4:5.4);
+  // An offensive run must descend into actual blade altitude: hovering five
+  // metres above a grounded foe makes the beautiful rotor tactically useless.
+  const attackPass=ai.difficulty==='formidable'&&!m.grounded&&m.rotorHP>0&&
+    charge>37&&d>3&&d<17;
+  const desiredHeight=attackPass?target.position.y+.1:
+    target.position.y+(d<6?2.0:5.4);
   // Real helm authority is bounded by the flight physics turn rate.
   const heading=bearing(at,aim.point);
   const climb=m.grounded?charge>22:charge>18&&m.y<desiredHeight-.8;
@@ -234,8 +258,8 @@ function donte(room,a,m,target,ai,tuning,now){
     // Chivalry retains its normal concurrency permission.
     beginAttack(room,a.id,now);
   }else if(a.attackHeld)endAttack(room,a.id,now);
-  if(ai.difficulty==='formidable'&&!m.grounded&&charge>58&&d>8&&d<20&&
-    Math.abs(difference(heading,m.heading))<.2&&!m.offensiveRun)
+  if(attackPass&&m.y<=target.position.y+1.3&&d>5&&
+    Math.abs(difference(heading,m.heading))<.25&&!m.offensiveRun)
     requestFlightDash(room,m,a,true,now);
   if(m.offensiveRun&& (charge<24||d<3))requestFlightDash(room,m,a,false,now);
   if(ai.difficulty==='formidable'&&!m.grounded&&a.ultimate==='chivalry'&&
