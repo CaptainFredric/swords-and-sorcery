@@ -5,7 +5,7 @@ import { spawn } from 'node:child_process';
 import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-const base=(process.env.SIEGE_BROWSER_URL??'http://127.0.0.1:3001').replace(/\\/$/,'');
+const base=(process.env.SIEGE_BROWSER_URL??'http://127.0.0.1:3001').replace(/\/$/,'');
 const output='output/playwright/high-grounds';
 await mkdir(output,{recursive:true});
 const profile=await mkdtemp(join(tmpdir(),'ss-high-grounds-'));
