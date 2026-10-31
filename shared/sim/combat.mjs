@@ -2253,6 +2253,7 @@ export function stepRoom(room, dt, nowSec, world = room.world) {
       player.position = moved.position;
       player.velocity = moved.velocity;
       player.grounded = moved.grounded;
+      player.ejectionFallExempt = Boolean(moved.ejectionFallExempt);
       player.jumpHeld = moved.jumpHeld;
       player.dashUntil = moved.dashUntil;
       player.dashReadyAt = moved.dashReadyAt;
