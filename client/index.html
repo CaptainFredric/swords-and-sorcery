@@ -475,6 +475,28 @@
               <button id="practice-dismantle-bibye" hidden>DISMANTLE BI-BYE-LLISTA</button>
             </article>
           </details>
+          <details class="practice-siege" id="practice-hostile-siege">
+            <summary>HOSTILE SIEGE OPERATORS</summary>
+            <p>Challenge an actual Spellblade operating a siege machine. Each machine has only one operator and one physical instance.</p>
+            <label class="siege-machine-choice">OPPONENT
+              <select id="practice-hostile-machine" aria-label="Hostile siege opponent">
+                <option value="bi-bye-llista">BALLISTEFAN · BI-BYE-LLISTA</option>
+                <option value="so-fist-ication">SIR UPPERCUFF · SO-FIST-ICATION</option>
+                <option value="fight-and-flight">MR. DONTE SHOOT · FIGHT-AND-FLIGHT</option>
+              </select>
+            </label>
+            <label class="siege-machine-choice">DIFFICULTY
+              <select id="practice-hostile-difficulty" aria-label="Hostile siege difficulty">
+                <option value="learner">LEARNER</option>
+                <option value="skilled" selected>SKILLED</option>
+                <option value="formidable">FORMIDABLE</option>
+              </select>
+            </label>
+            <p id="practice-hostile-status" role="status" aria-live="polite">No hostile operator summoned.</p>
+            <button id="practice-hostile-spawn" type="button">SUMMON OPPONENT</button>
+            <button id="practice-hostile-reset" type="button">RESET OPPONENT</button>
+            <button id="practice-hostile-remove" type="button">REMOVE OPPONENT</button>
+          </details>
           <h3>SESSION</h3>
           <button type="button" data-open-settings>SETTINGS</button>
           <button id="practice-leave" class="practice-leave">LEAVE PRACTICE</button>
