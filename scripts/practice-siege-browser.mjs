@@ -100,7 +100,7 @@ try{
    },'Sir Uppercuff: real wheel-driven movement',120);
   }else{
    evidence=await until(async()=>{const s=await snap(),b=s.flight;
-    return b&&b.y>1&&b.flightCharge<100&&b.ammo<14?s:null;
+    return b&&b.y>1&&b.flightCharge<100&&b.ammo<18&&b.shotSeq>0?s:null;
    },'Mr. Donte Shoot: actual powered flight and physical repeater firing',160);
   }
   record[machine]={first:{

@@ -5,7 +5,7 @@ test('Mounted HUD describes actual charge, rotor, posture and rebinds; hidden fo
  const controls={bindings:{jump:['KeyJ'],crouch:['KeyK'],interact:['KeyL'],siegeView:['KeyM']}};
  let v=fightFlightHudView(player,{fightFlight:m},3,controls);
  assert.equal(v.pressure,31.4);assert.match(v.status,/ALT 6.4 m/);assert.match(v.status,/ROTOR 68/);
- assert.match(v.controls,/J ASCEND/);assert.match(v.controls,/K DESCEND/);assert.match(v.controls,/L LEAVE/);
+ assert.match(v.controls,/J ASCEND/);assert.match(v.controls,/K DESCEND/);assert.match(v.controls,/L EJECT/);
  assert.equal(fightFlightHudView({...player,operatingFightFlightId:null},{fightFlight:m},3,controls),null);
  assert.equal(fightFlightHudView({...player,alive:false},{fightFlight:m},3,controls),null);
 });
