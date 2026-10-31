@@ -5,6 +5,7 @@ on:
       - 'shared/sim/practiceSiegeOperators.mjs'
       - 'shared/sim/practiceSiege.mjs'
       - 'shared/sim/practice.mjs'
+      - 'shared/sim/wire.mjs'
       - 'shared/sim/siegeSkills.mjs'
       - 'shared/sim/BotController.mjs'
       - 'client/main.mjs'
