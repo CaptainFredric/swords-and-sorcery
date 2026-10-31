@@ -90,3 +90,20 @@ test('Rotor destruction leaves machine intact and removes lift; main destruction
  assert.equal(wreck.destroyed,true);assert.equal(m.mode,'DESTROYED');
  assert.equal(m.operatorId,null);assert.equal(owner.operatingFightFlightId,null);
 });
+
+
+test('A spinning blade genuinely strikes masonry before the chassis, draining angular energy',()=>{
+ const {room,m}=setup();
+ room.world.solids=[{id:'stone-wall',center:[1.23,2.18,0],size:[.35,.9,.85]}];
+ m.rotorEnergy=55;m.rotorHP=100;
+ m.rotorAngleBefore=-.4;m.lastRotorDelta=.8;m.rotorAngle=.4;m.rotorAngularVelocity=47;
+ m.rotorPositionBefore={x:0,y:0,z:0};
+ stepFightFlightRotor(room,m,1/30,10);
+ assert.ok(room.events.some(e=>e.type==='fightFlightRotorWorldImpact'&&e.solidId==='stone-wall'));
+ assert.ok(m.rotorEnergy<55);
+ assert.equal(m.rotorHP,100,'a low-energy graze must not automatically consume rotor HP');
+ const hits=room.events.filter(e=>e.type==='fightFlightRotorWorldImpact').length;
+ m.rotorAngleBefore=-.1;m.lastRotorDelta=.2;m.rotorAngle=.1;
+ stepFightFlightRotor(room,m,1/30,10.03);
+ assert.equal(room.events.filter(e=>e.type==='fightFlightRotorWorldImpact').length,hits,'same continuous stone contact not charged again');
+});
