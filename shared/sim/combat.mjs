@@ -1198,7 +1198,9 @@ export function killPlayer(room, victimId, attackerId, source, nowSec) {
   const diver=room.fightFlight;
   if(diver?.terminalDive&&!diver.terminalDive.resolved&&diver.terminalDive.operatorId===victim.id){
     victim.terminalRespawnDeferredFor=diver.id;
-    victim.respawnAt=Infinity;
+    // A finite failsafe protects reconnects and corrupted/unresolved dive state;
+    // normal resolution replaces this deadline with a fresh post-impact respawn.
+    victim.respawnAt=Math.max(nowSec,diver.terminalDive.expiresAt)+(room.policy?.respawnSec??RESPAWN_SEC)+1;
   }
   const playing = room.state === 'PLAYING';
   if (playing && room.policy?.teamMode && credited && credited !== victimId) {
