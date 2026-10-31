@@ -1,0 +1,56 @@
+name: Fight-and-Flight browser Gate C3 terminal
+on:
+  pull_request:
+    paths:
+      - 'shared/sim/fightFlight.mjs'
+      - 'shared/sim/fightFlightTerminal.mjs'
+      - 'shared/sim/fightFlightComponents.mjs'
+      - 'shared/sim/fightFlightRun.mjs'
+      - 'shared/sim/wire.mjs'
+      - 'client/worlds/FightFlightRenderer.mjs'
+      - 'client/game/GameRuntime.mjs'
+      - 'client/main.mjs'
+      - 'client/assets/props/fight-and-flight/**'
+      - 'scripts/fight-flight-terminal-browser.mjs'
+      - '.github/workflows/fight-flight-terminal-browser.yml'
+permissions:
+  contents: read
+jobs:
+  chrome-flight:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Start local authoritative game
+        shell: bash
+        run: |
+          set -euo pipefail
+          PORT=3001 HOST=127.0.0.1 node server/src/server.mjs > /tmp/faf-game.log 2>&1 &
+          for attempt in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:3001/health > /dev/null; then exit 0; fi
+            sleep .25
+          done
+          cat /tmp/faf-game.log
+          exit 1
+      - name: Locate Chrome
+        id: chrome
+        shell: bash
+        run: |
+          CHROME="$(command -v google-chrome || command -v chromium-browser || command -v chromium || true)"
+          test -n "$CHROME"
+          echo "path=$CHROME" >> "$GITHUB_OUTPUT"
+      - name: Verify mounted flight in actual Chrome canvas
+        env:
+          FAF_BROWSER_URL: http://127.0.0.1:3001
+          CHROME_BIN: ${{ steps.chrome.outputs.path }}
+        run: node scripts/fight-flight-terminal-browser.mjs
+      - name: Upload browser screenshots and state record
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fight-flight-gate-c3-terminal-browser
+          path: output/playwright/fight-flight-terminal/
+          retention-days: 7
