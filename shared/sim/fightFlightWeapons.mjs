@@ -12,6 +12,7 @@ import {frostGuardFaces,frostParryContact} from './biByeFrostGuard.mjs';
 import {applyDamage,breakGuard} from './combat.mjs';
 import {GAME} from '../src/combat.mjs';
 import {combatActionPolicy} from '../src/combatActionPolicy.mjs';
+import {flightSkillActive,stepFlightSkill} from './fightFlightSkill.mjs';
 
 export const FLIGHT_REPEATER=Object.freeze({capacity:14,production:2,fireRate:7,speed:64,
   lifespan:2.4,falloff:22,closeDamage:3,farDamage:2,guardStamina:8,guardArc:100,
@@ -44,7 +45,10 @@ export function advanceFlightAmmo(m,dt){
 function validOperator(room,m,p){return Boolean(m&&p?.alive&&room.players.get(p.id)===p&&m.health>0&&
   m.mode!=='DESTROYED'&&m.operatorId===p.id&&p.operatingFightFlightId===m.id);}
 function release(room,m,p,now){
-  if(!validOperator(room,m,p)||m.ammo<1||now+1e-8<(m.nextShotAt??0))return false;
+  if(!validOperator(room,m,p)||now+1e-8<(m.nextShotAt??0))return false;
+  const available=m.ammo>=1;
+  const borrowing=!available&&flightSkillActive(m,now);
+  if(!available&&!borrowing)return false;
   // The ordinary sword and repeater cannot hit simultaneously. Chivalry is the
   // explicitly permitted exception when sword combat is integrated.
   if((p.attackActive||p.guarding)&&!combatActionPolicy(p,now).concurrent)return false;
@@ -52,7 +56,8 @@ function release(room,m,p,now){
   const pitch=clamp(p.input?.pitch??0,FLIGHT_REPEATER.minPitch,FLIGHT_REPEATER.maxPitch);
   const cp=Math.cos(pitch),origin=flightMuzzle(m,{yaw,pitch});
   const unit={x:-Math.sin(yaw)*cp,y:Math.sin(pitch),z:-Math.cos(yaw)*cp};
-  m.ammo--;
+  if(available)m.ammo--;
+  else m.ammoDebt=(m.ammoDebt??0)+1; // Only the bolt actually released borrows future supply.
   const period=1/FLIGHT_REPEATER.fireRate,lastDue=m.nextShotAt??now;
   m.nextShotAt=(now-lastDue>period?now:lastDue)+period;
   m.lastShotAt=now;m.crossbowYaw=yaw;m.crossbowPitch=pitch;m.shotSeq=(m.shotSeq??0)+1;
@@ -73,6 +78,7 @@ export function requestFightFlightFire(room,m,p,down,now){
 }
 export function stepFightFlightWeapons(room,m,dt,now){
   if(!m||m.retired||m.mode==='DESTROYED')return;
+  stepFlightSkill(room,m,now);
   advanceFlightAmmo(m,dt);
   const p=room.players.get(m.operatorId);
   if(p&&m.firingOperatorId===p.id)release(room,m,p,now);
