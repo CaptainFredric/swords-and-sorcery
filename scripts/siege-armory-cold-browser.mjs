@@ -73,8 +73,10 @@ try{
  await evaluate("document.querySelector('#practice-siege-type').value='bi-bye-llista';document.querySelector('#practice-build-bibye').click()");
  await until(async()=>{const s=await evaluate(state);return s?.ballista?s:false;},'real ballista built',80);
  await evaluate("(() => {const r=window.__ssRuntime,p=r.localAuth.position,b=r.latestSnapshot.bibyeBallista;r.input.yaw=Math.atan2(-(b.x-p.x),-(b.z-p.z));})()");
- await send('Input.dispatchMouseEvent',{type:'mousePressed',x:640,y:420,button:'left',clickCount:1});
- await send('Input.dispatchMouseEvent',{type:'mouseReleased',x:640,y:420,button:'left',clickCount:1});
+ const inputElement=await evaluate("(() => {const el=window.__ssRuntime.input.element,r=el.getBoundingClientRect();return {tag:el.tagName,id:el.id,x:Math.round(r.left+r.width*.5),y:Math.round(r.top+r.height*.5),suspended:window.__ssRuntime.input.suspended};})()");
+ console.log('[COLD INPUT TARGET]',JSON.stringify(inputElement));
+ await send('Input.dispatchMouseEvent',{type:'mousePressed',x:inputElement.x,y:inputElement.y,button:'left',clickCount:1});
+ await send('Input.dispatchMouseEvent',{type:'mouseReleased',x:inputElement.x,y:inputElement.y,button:'left',clickCount:1});
  // Practice opens its toolbox after building. Explicitly acquire ordinary
  // gameplay focus, as a user must, before dispatching physical movement.
  await evaluate("window.__ssRuntime?.requestPointerLock()");
