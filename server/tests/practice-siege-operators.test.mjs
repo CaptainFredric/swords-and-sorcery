@@ -150,3 +150,22 @@ test('Practice hosts three distinct siege operators without duplicating any auth
  assert.equal(room.players.size,1);
  assert.ok(!room.biByeLlista&&!room.soFistication&&!room.fightFlight);
 });
+
+test('Surviving grounded rotor-failure pilot exits normally and resumes foot AI',()=>{
+ const {room,command}=setup();assert.deepEqual(command('spawn','fight-and-flight'),{});
+ const m=room.fightFlight,p=room.players.get(m.operatorId);
+ m.rotorHP=0;m.grounded=true;m.mode='GROUNDED';
+ stepPracticeActors(room,2.1,room.world);
+ assert.equal(p.operatingFightFlightId,null);
+ assert.equal(p.siegeAi.phase,'foot');
+ assert.ok(p.alive&&room.players.has(p.id));
+});
+test('Immobilized ram pilot uses a physical safe exit rather than teleporting or dying',()=>{
+ const {room,command}=setup();assert.deepEqual(command('spawn','so-fist-ication'),{});
+ const m=room.soFistication,p=room.players.get(m.operatorId);
+ for(const name of ['Wheel_FL','Wheel_FR'])m.components[name].health=0;
+ stepPracticeActors(room,2.1,room.world);
+ assert.equal(p.operatingRamId,null);
+ assert.equal(p.siegeAi.phase,'foot');
+ assert.ok(p.alive&&room.players.has(p.id));
+});
