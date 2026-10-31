@@ -452,7 +452,7 @@ export class Room {
     this.projectiles.clear();this.ruptures=[];this.teamMarks=[];
     this.soFistication=null;this.soFistRevision++;
     this.fightFlight=null;this.fightFlightRevision++;this.fightFlightProjectiles=new Map();
-    this.flightBurnZones=[];this.flightBurnZones=[];
+    this.flightBurnZones=[];
     this.biByeLlista=world.ballistaEmplacement?createBiByeLlista(world.ballistaEmplacement):null;
     this.biByeRevision=(this.biByeRevision??0)+1;this.bibyeProjectiles=new Map();
     this.botsProvisioned=false;this.autoStartAt=null;
@@ -650,7 +650,7 @@ export class Room {
         else if (this.worldId === WORLD_IDS.BASTION_BREACH && this.objectiveState)
           this.world = bastionBreachForObjective(this.objectiveState);
         this.biByeLlista = this.world.ballistaEmplacement ? createBiByeLlista(this.world.ballistaEmplacement) : null;
-        this.fightFlight=null;this.fightFlightRevision++;this.fightFlightProjectiles=new Map();
+        this.fightFlight=null;this.fightFlightRevision++;this.fightFlightProjectiles=new Map();this.flightBurnZones=[];
         this.biByeRevision = (this.biByeRevision ?? 0) + 1;
         this.bibyeProjectiles = new Map();
       } catch { /* unknown world: keep the current one */ }
