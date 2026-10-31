@@ -1,3 +1,4 @@
+import {normalizeSiegeLoadout} from '../../shared/src/siegeLoadout.mjs';
 // The browser hosts Practice Yard and Bot Duel on the same simulation the server runs (shared/sim), a room with you,
 // its bots and its dummies. It speaks exactly like GameSocket (the same messages, the same methods), so the rest of
 // the client plays it without knowing the difference. Nothing online lives here: no rooms to join, no matchmaking.
@@ -83,6 +84,7 @@ export class LocalHost {
     this.preparedSpells = [...DEFAULT_PREPARED_SPELLS];
     // (the ultimate carried: named apart from ultimate(), the key's command)
     this.ultimateId = DEFAULT_ULTIMATE;
+    this.siegeLoadout=normalizeSiegeLoadout(null);
     this.playerId = null;
     this.token = null;
     this.roomCode = null;
@@ -158,7 +160,7 @@ export class LocalHost {
         if (cached) this.setProfile(cached);
       } catch {}
     }
-    const player = room.addPlayer({ id: randomId(), token: randomId(), name: String(name || 'Spellblade').slice(0, 18), spell: this.spell, ultimate: this.ultimateId, preparedSpells: this.preparedSpells, team }, time);
+    const player = room.addPlayer({ id: randomId(), token: randomId(), name: String(name || 'Spellblade').slice(0, 18), spell: this.spell, ultimate: this.ultimateId, preparedSpells: this.preparedSpells, siegeLoadout:this.siegeLoadout, team }, time);
     player.cloth = this.cloth;
     player.emblem = this.emblem || this.profile?.emblem || DEFAULT_EMBLEM;
     player.emblems = this.emblems?.length ? [...this.emblems] : (this.profile?.emblems ? [...this.profile.emblems] : []);
@@ -752,11 +754,14 @@ export class LocalHost {
     this.#deliver({ type: 'left' });
   }
 
-  loadout(spell, ultimate = this.ultimateId, preparedSpells = this.preparedSpells) {
+  loadout(spell, ultimate = this.ultimateId, preparedSpells = this.preparedSpells, siegeLoadout = this.siegeLoadout) {
     this.spell = isSpell(spell) ? spell : DEFAULT_SPELL;
     this.ultimateId = isUltimate(ultimate) ? ultimate : DEFAULT_ULTIMATE;
     this.preparedSpells = normalizePreparedSpells(this.spell, preparedSpells);
+    this.siegeLoadout=normalizeSiegeLoadout(siegeLoadout);
     const player = this.player;
+    if(player&&!player.operatingBallistaId&&!player.operatingRamId&&!player.operatingFightFlightId)
+      player.siegeLoadout={...this.siegeLoadout};
     if (!player) return;
     player.startingSpell = this.spell;
     player.startingPreparedSpells = [...this.preparedSpells];
