@@ -1026,7 +1026,13 @@ export function stepBotControllers(
     if (!target) {
       if (teamGoal.goalPos) {
         ai.patrol = null;
-        const dist = distance2d(actor, { position: teamGoal.goalPos });
+        // A bot standing directly *under* a canopy site has not arrived.
+        // High Grounds goal arrival is truly 3D; otherwise it idles beneath
+        // capture decks despite never entering their vertical capture slab.
+        const dist = room.mode === 'HIGH_GROUNDS'
+          ? Math.hypot(actor.position.x-teamGoal.goalPos.x,
+              actor.position.y-teamGoal.goalPos.y,actor.position.z-teamGoal.goalPos.z)
+          : distance2d(actor, { position: teamGoal.goalPos });
         const closeEnough = teamGoal.holdRing ? dist <= 2.2 : dist <= 1.2;
         if (!closeEnough) {
           const way = wayToward(world, actor, { position: teamGoal.goalPos }, ai, nowSec);
