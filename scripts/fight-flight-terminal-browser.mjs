@@ -122,9 +122,12 @@ try{
  await screenshot('05-terminal-committed');
  await up('R');await up('E');
  await until(()=>evaluate("window.__ssRuntime?.latestSnapshot?.fightFlight?.mode==='DESTROYED'"),'physical terminal impact and resolution',220);
- const aftermath=await evaluate("(() => {const r=window.__ssRuntime,s=r?.latestSnapshot,m=s?.fightFlight;return {machine:{id:m?.id,mode:m?.mode,terminalDiveSpent:m?.terminalDiveSpent,resolved:m?.terminalDive?.resolved},burnZones:s?.flightBurnZones,events:(r?.latestEvents??[]).filter(e=>e.type?.startsWith('fightFlightTerminal'))};})()");
+ const aftermath=await evaluate("(() => {const r=window.__ssRuntime,s=r?.latestSnapshot,m=s?.fightFlight;return {machine:{id:m?.id,mode:m?.mode,terminalDiveSpent:m?.terminalDiveSpent,resolved:m?.terminalDive?.resolved,impactAt:m?.terminalDive?.impactAt,resolvedAt:m?.terminalDive?.resolvedAt,startedAt:m?.terminalDive?.startedAt},burnZones:s?.flightBurnZones,events:(r?.latestEvents??[]).filter(e=>e.type?.startsWith('fightFlightTerminal'))};})()");
  assert.equal(aftermath.machine.resolved,true,'one authoritative terminal outcome must resolve');
+ assert.ok(aftermath.machine.impactAt!=null,'terminal dive must actually hit geometry, not time out suspended in midair');
+ assert.ok(aftermath.machine.resolvedAt-aftermath.machine.startedAt<4.5,'the collision must finish the dive promptly');
  assert.ok(aftermath.burnZones?.length>0,'lasting ground fire must survive the lost machine');
+ assert.ok(Math.abs(aftermath.burnZones[0].point.y)<.3,'burning ground must rest on the Practice Yard floor');
  await screenshot('06-terminal-aftermath');
  await writeFile(folder+'/result.json',JSON.stringify({before,mounted,flying,beforeChord,prep,committed,aftermath,errors},null,2));
  assert.equal(errors.length,0,'Unexpected browser exceptions: '+errors.join('; '));
