@@ -127,3 +127,26 @@ test('Chord is owned by the actual pilot, and a spent lifecycle cannot be armed 
  stepTerminalPreparation(s.room,s.m,4.05);
  assert.equal(s.m.terminalPrep,null,'the same machine has already spent its one dive');
 });
+
+
+test('Dash released first still cancels the chord; Ultimate release cannot accidentally activate Chivalry',()=>{
+ const s=setup();s.cmd('flightDash',true,1);s.cmd('flightUltimateHold',true,1.04);
+ stepTerminalPreparation(s.room,s.m,1.04);
+ assert.ok(s.m.terminalPrep);
+ s.cmd('flightDash',false,1.2);
+ stepTerminalPreparation(s.room,s.m,1.23);
+ assert.equal(s.m.terminalPrep,null);
+ s.cmd('flightUltimateHold',false,1.26);
+ assert.equal(s.p.prowess,100);
+ assert.equal(s.p.ultimateState,null);
+ assert.equal(s.m.terminalDiveSpent,false);
+});
+test('Holding Ultimate alone and releasing without Dash still performs regular Chivalry, not sacrifice',()=>{
+ const s=setup();
+ s.cmd('flightUltimateHold',true,1);
+ stepTerminalPreparation(s.room,s.m,2.2);
+ assert.equal(s.m.terminalPrep,null);
+ s.cmd('flightUltimateHold',false,2.25);
+ assert.equal(s.m.terminalDiveSpent,false);
+ assert.ok(s.p.ultimateState,'an ordinary deliberate Ultimate should not be lost');
+});
