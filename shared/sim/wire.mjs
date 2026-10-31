@@ -3,6 +3,7 @@ import {mountFightFlight,dismountFightFlight} from './fightFlight.mjs';
 import {requestFightFlightFire} from './fightFlightWeapons.mjs';
 import {requestFightFlightSkill} from './fightFlightSkill.mjs';
 import {requestFlightDash} from './fightFlightRun.mjs';
+import {setFlightUltimateHold} from './fightFlightTerminal.mjs';
 import {mountSoFistication,dismountSoFistication,fireSoFistication,primeSoFistSkill} from './soFistication.mjs';
 import { practiceBiByeCommand,practiceSiegeCommand } from './practiceSiege.mjs';
 import { setBiByeWeaponFocus,requestBiByeHeavySkill,requestBiByeCombinedSkill } from './biByeWeapons.mjs';
@@ -224,6 +225,7 @@ export function serializeSnapshot(room, nowSec, recipientId = null) {
     structures: room.structures,
     fightFlightProjectiles:[...(room.fightFlightProjectiles?.values()??[])].map(p=>({id:p.id,machineId:p.machineId,ownerId:p.ownerId,position:p.position,velocity:p.velocity,bornAt:p.bornAt})),
     fightFlightRevision:room.fightFlightRevision??0,
+    flightBurnZones:room.flightBurnZones??[],
     fightFlight:room.fightFlight?{...room.fightFlight,position:{x:room.fightFlight.x,y:room.fightFlight.y,z:room.fightFlight.z}}:null,
     soFistRevision:room.soFistRevision??0,
     soFistication:room.soFistication?{...room.soFistication,skill:{...room.soFistication.skill,failureThreshold:undefined},position:{x:room.soFistication.x,y:room.soFistication.y,z:room.soFistication.z},contacts:undefined,bodyEpisodes:undefined,recentVictims:undefined,strokeVictims:undefined,strokeMachines:undefined}:null,
@@ -400,7 +402,15 @@ export function applyRoomCommand(room, player, message, time) {
       return ok?{}:{rejected:'Operate Fight-and-Flight to use Flight to the Valkyrie.'};
     }
     // the ultimate's key (a full prowess meter): the brace begins
-    case 'ultimate': tryUltimate(room, player.id, time); return {};
+    case 'ultimate':
+      if(player.operatingFightFlightId)return {rejected:'Use the mounted Ultimate key hold or tap.'};
+      tryUltimate(room, player.id, time); return {};
+    case 'flightUltimateHold': {
+      const result=setFlightUltimateHold(room,room.fightFlight,player,Boolean(message.down),time);
+      if(result.rejected)return {rejected:result.rejected};
+      if(result.tapUltimate&&!message.cancel)tryUltimate(room,player.id,time);
+      return {};
+    }
     case 'rematch': room.requestRematch(player.id, time); return {};
     case 'switchTeam': return { lobby: room.switchTeam(player.id, message.team ?? null, time) };
     case 'markTarget': room.markTarget(player.id, { targetId: message.targetId ?? null }, time); return {};
